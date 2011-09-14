@@ -73,6 +73,8 @@ MODULE mo_echam_phy_main
   USE mo_echam_cloud_params,  ONLY: ctaus, ctaul, ctauk !, ncctop, nccbot
   USE mo_radiation,           ONLY: radiation, radheat
   USE mo_radiation_config,    ONLY: tsi, izenith, irad_o3
+  USE mo_srtm_config,         ONLY: jpsw
+  USE mo_lrtm_par,            ONLY: jpband => nbndlw
   USE mo_vdiff_config,        ONLY: vdiff_config
   USE mo_vdiff_downward_sweep,ONLY: vdiff_down
   USE mo_vdiff_upward_sweep,  ONLY: vdiff_up
@@ -146,6 +148,8 @@ CONTAINS
     REAL(wp) :: zi0    (nbdim)            !< solar incoming radiation at TOA   [W/m2]
     REAL(wp) :: zmair  (nbdim,nlev)       !< mass of air                       [kg/m2]
     REAL(wp) :: zdelp  (nbdim,nlev)       !< layer thickness in pressure coordinate  [Pa]
+
+    REAL(wp) :: zaedummy(nbdim,nlev)      !< dummy for aerosol input
 
     INTEGER  :: ihpbl  (nbdim)            !< location of PBL top given as vertical level index
     REAL(wp) :: zxt_emis(nbdim,ntracer-iqt+1)  !< tracer tendency due to surface emission
@@ -423,6 +427,8 @@ CONTAINS
 
 !!        IF (ltimer) CALL timer_start(timer_radiation)
 
+        zaedummy(:,:) = 0.0_wp
+            
         CALL radiation(               &
           !
           ! argument                   !  INTENT comment
@@ -463,6 +469,11 @@ CONTAINS
 !!$       & field% geom(:,:,jb)     ,&!< in     pgeom1 = geopotential above ground at t-dt [m2/s2]
           & field% acdnc(:,:,jb)     ,&!< in     cld_frac = cloud fraction [m2/m2]
           & field% aclc(:,:,jb)      ,&!< in     cld_frac = cloud fraction [m2/m2]
+          & zaedummy(:,:)            ,&!< in aerosol continental
+          & zaedummy(:,:)            ,&!< in aerosol maritime
+          & zaedummy(:,:)            ,&!< in aerosol urban
+          & zaedummy(:,:)            ,&!< in aerosol volcano ashes
+          & zaedummy(:,:)            ,&!< in aerosol stratospheric background
           !
           ! output
           ! ------

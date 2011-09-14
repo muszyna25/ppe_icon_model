@@ -79,6 +79,7 @@ MODULE mo_nh_interface_nwp
   USE mo_cover_koe,          ONLY: cover_koe
   USE mo_satad,              ONLY: satad_v_3D
   USE mo_radiation,          ONLY: radheat, pre_radiation_nwp
+  USE mo_radiation_config,   ONLY: irad_aero
  ! USE mo_sso_cosmo,          ONLY: sso
   USE mo_nwp_gw_interface,   ONLY: nwp_gwdrag 
   USE mo_nwp_gscp_interface, ONLY: nwp_microphysics
@@ -857,13 +858,23 @@ CONTAINS
       ! May be removed when final state is reached.
       IF (timers_level > 2) CALL timer_start(timer_diagnose_pres_temp)
       IF ( atm_phy_nwp_config(jg)%inwp_radiation == 1 ) THEN
-        CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf, &
-          &                               pt_diag, pt_patch,      &
-          &                               opt_calc_temp =.TRUE.,  &
-          &                               opt_calc_tempv=.FALSE., &
-          &                               opt_calc_pres =.TRUE.,  &
-          &                               opt_rlend=min_rlcell_int)
-
+        IF (irad_aero == 5) THEN
+          CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf,   &
+            &                               pt_diag, pt_patch,        &
+            &                               opt_calc_temp =.TRUE.,    &
+            &                               opt_calc_tempv=.FALSE.,   &
+            &                               opt_calc_pres =.TRUE.,    &
+            &                               lnd_prog = lnd_prog_now,  &
+            &                               opt_calc_temp_ifc =.TRUE.,&
+            &                               opt_rlend=min_rlcell_int  )
+        ELSE
+          CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf, &
+            &                               pt_diag, pt_patch,      &
+            &                               opt_calc_temp =.TRUE.,  &
+            &                               opt_calc_tempv=.FALSE., &
+            &                               opt_calc_pres =.TRUE.,  &
+            &                               opt_rlend=min_rlcell_int)
+        ENDIF
       ELSEIF ( atm_phy_nwp_config(jg)%inwp_radiation == 2 ) THEN
         CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf,   &
           &                               pt_diag, pt_patch,        &

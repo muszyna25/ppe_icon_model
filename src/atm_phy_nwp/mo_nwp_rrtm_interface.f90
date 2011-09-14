@@ -36,6 +36,7 @@
 !!
 MODULE mo_nwp_rrtm_interface
 
+  USE mo_aerosol_util,         ONLY: zaea_rrtm,zaes_rrtm,zaeg_rrtm
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_exception,            ONLY: message,  finish !message_tex
   USE mo_ext_data,             ONLY: t_external_data
@@ -48,6 +49,7 @@ MODULE mo_nwp_rrtm_interface
   USE mo_interpolation,        ONLY: t_int_state
   USE mo_kind,                 ONLY: wp
   USE mo_loopindices,          ONLY: get_indices_c
+  USE mo_lrtm_par,             ONLY: jpband => nbndlw
   USE mo_nwp_lnd_state,        ONLY: t_lnd_prog, t_lnd_diag
   USE mo_model_domain,         ONLY: t_patch
   USE mo_mpi,                  ONLY: my_process_is_mpi_seq
@@ -64,6 +66,7 @@ MODULE mo_nwp_rrtm_interface
   USE mo_radiation_rg,         ONLY: fesft
   USE mo_radiation_rg_par,     ONLY: aerdis
   USE mo_satad,                ONLY: qsat_rho
+  USE mo_srtm_config,          ONLY: jpsw
   USE mo_subdivision,          ONLY: p_patch_local_parent
 !   USE mo_sync,                 ONLY: SYNC_C, sync_patch_array_mult
 
@@ -76,7 +79,7 @@ MODULE mo_nwp_rrtm_interface
 !!$    &        variables,  &
 !!$    &        procedures
 
-  PUBLIC ::  nwp_rrtm_radiation, nwp_rrtm_radiation_reduced, nwp_rrtm_ozon
+  PUBLIC ::  nwp_rrtm_radiation, nwp_rrtm_radiation_reduced, nwp_rrtm_ozon_aerosol
   
 
   CHARACTER(len=*), PARAMETER:: version = '$Id$'
@@ -100,8 +103,8 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
-  SUBROUTINE nwp_rrtm_ozon ( p_sim_time,pt_patch, &
-    & pt_prog_rcf,pt_diag,prm_diag )
+  SUBROUTINE nwp_rrtm_ozon_aerosol ( p_sim_time,pt_patch, &
+    & pt_prog_rcf,pt_diag,prm_diag,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5 )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
 !      &  routine = 'mo_nwp_rad_interface:'
@@ -113,6 +116,13 @@ CONTAINS
     !< reduced calling frequency for tracers!
     TYPE(t_nh_diag), TARGET, INTENT(in)  :: pt_diag     !<the diagnostic variables
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
+
+    REAL(wp), INTENT(out) :: &
+      & zaeq1(nproma,pt_patch%nlev,pt_patch%nblks_c), &
+      & zaeq2(nproma,pt_patch%nlev,pt_patch%nblks_c), &
+      & zaeq3(nproma,pt_patch%nlev,pt_patch%nblks_c), &
+      & zaeq4(nproma,pt_patch%nlev,pt_patch%nblks_c), &
+      & zaeq5(nproma,pt_patch%nlev,pt_patch%nblks_c)
 
     ! for Ritter-Geleyn radiation:
     REAL(wp):: zduo3(nproma,pt_patch%nlev,pt_patch%nblks_c)
@@ -131,6 +141,7 @@ CONTAINS
       & zvdaeu(nproma,pt_patch%nlevp1), &
       & zvdaed(nproma,pt_patch%nlevp1), &
 !      & zaeadk(3  ), &
+      & zaetr_top(nproma,pt_patch%nblks_c), zaetr_bot, zaetr,       &
       & zaeqdo   (nproma,pt_patch%nblks_c), zaeqdn,                 &
       & zaequo   (nproma,pt_patch%nblks_c), zaequn,                 &
       & zaeqlo   (nproma,pt_patch%nblks_c), zaeqln,                 &
@@ -174,7 +185,8 @@ CONTAINS
         & zhmo3      = prm_diag%hmo3  )                !inout 
     END SELECT
 
-    IF (ntracer + ntracer_static < io3)  RETURN ! no ozon
+    IF ( (ntracer + ntracer_static < io3) .AND. &
+      &  (irad_aero /= 5 ) ) RETURN ! no ozon and no aerosols
 
     rl_start = 1
     rl_end   = min_rlcell_int
@@ -184,7 +196,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx, &
-!$OMP       zsign,zvdaes, zvdael, zvdaeu, zvdaed, zaeqsn, zaeqln, zaequn,zaeqdn )
+!$OMP       zsign,zvdaes, zvdael, zvdaeu, zvdaed, zaeqsn, zaeqln, zaequn,zaeqdn,zaetr_bot,zaetr )
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -221,6 +233,7 @@ CONTAINS
           zaeqlo   (jc,jb) = zaeopl*prm_diag%aerlan(jc,jb)*zvdael(jc,1)
           zaequo   (jc,jb) = zaeopu*prm_diag%aerurb(jc,jb)*zvdaeu(jc,1)
           zaeqdo   (jc,jb) = zaeopd*prm_diag%aerdes(jc,jb)*zvdaed(jc,1)
+          zaetr_top(jc,jb) = 1.0_wp
           zo3_top  (jc,jb) = prm_diag%vio3(jc,jb)*zptop32(jc,jb)/(zptop32(jc,jb)+zo3_hm(jc,jb))
         ENDDO
 
@@ -232,8 +245,18 @@ CONTAINS
             zaeqln         = zaeopl*prm_diag%aerlan(jc,jb)*zvdael(jc,jk+1)
             zaequn         = zaeopu*prm_diag%aerurb(jc,jb)*zvdaeu(jc,jk+1)
             zaeqdn         = zaeopd*prm_diag%aerdes(jc,jb)*zvdaed(jc,jk+1)
+            zaetr_bot      = zaetr_top(jc,jb) &
+              & * ( MIN (1.0_wp, pt_diag%temp_ifc(jc,jk,jb)/pt_diag%temp_ifc(jc,jk+1,jb)) )**ztrpt
 
+            zaetr          = SQRT(zaetr_bot*zaetr_top(jc,jb))
+            zaeq1(jc,jk,jb)= (1._wp-zaetr) &
+              & * (ztrbga* pt_diag%dpres_mc(jc,jk,jb)+zaeqln-zaeqlo(jc,jb)+zaeqdn-zaeqdo(jc,jb))
+            zaeq2(jc,jk,jb)   = (1._wp-zaetr) * ( zaeqsn-zaeqso(jc,jb) )
+            zaeq3(jc,jk,jb)   = (1._wp-zaetr) * ( zaequn-zaequo(jc,jb) )
+            zaeq4(jc,jk,jb)   =     zaetr  *   zvobga*pt_diag%dpres_mc(jc,jk,jb)
+            zaeq5(jc,jk,jb)   =     zaetr  *   zstbga*pt_diag%dpres_mc(jc,jk,jb)
 
+            zaetr_top(jc,jb) = zaetr_bot
             zaeqso(jc,jb)    = zaeqsn
             zaeqlo(jc,jb)    = zaeqln
             zaequo(jc,jb)    = zaequn
@@ -255,7 +278,9 @@ CONTAINS
               & (amo3/amd) * (zduo3(jc,jk,jb)/pt_diag%dpres_mc(jc,jk,jb))
           ENDDO
         ENDDO
+        
       ELSEIF ( irad_o3 == 6 ) THEN !ozone, but no aerosols
+        
          ! 3-dimensional O3
         ! top level
         ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
@@ -284,7 +309,67 @@ CONTAINS
               & (amo3/amd) * (zduo3(jc,jk,jb)/pt_diag%dpres_mc(jc,jk,jb))
           ENDDO
         ENDDO
-        ! IF (irad_o3 == iape_o3) everything is set in the beginning
+        zaeq1(1:i_endidx,:,jb) = 0.0_wp
+        zaeq2(1:i_endidx,:,jb) = 0.0_wp
+        zaeq3(1:i_endidx,:,jb) = 0.0_wp
+        zaeq4(1:i_endidx,:,jb) = 0.0_wp
+        zaeq5(1:i_endidx,:,jb) = 0.0_wp
+        
+      ELSEIF ( irad_aero == 5 ) THEN !aerosols, but no ozone:
+
+        DO jk = 2, nlevp1
+          DO jc = 1,i_endidx
+            zsign(jc,jk) = pt_diag%pres_ifc(jc,jk,jb) / 101325._wp
+          ENDDO
+        ENDDO
+
+        ! The routine aerdis is called to recieve some parameters for the vertical
+        ! distribution of background aerosol.
+        CALL aerdis ( &
+          & kbdim  = nproma,      & !in
+          & jcs    = 1,           & !in
+          & jce    = i_endidx,    & !in
+          & klevp1 = nlevp1,      & !in
+          & petah  = zsign(1,1),  & !in
+          & pvdaes = zvdaes(1,1), & !out
+          & pvdael = zvdael(1,1), & !out
+          & pvdaeu = zvdaeu(1,1), & !out
+          & pvdaed = zvdaed(1,1) )  !out
+
+        ! top level
+        DO jc = 1,i_endidx
+          zaeqso   (jc,jb) = zaeops*prm_diag%aersea(jc,jb)*zvdaes(jc,1)
+          zaeqlo   (jc,jb) = zaeopl*prm_diag%aerlan(jc,jb)*zvdael(jc,1)
+          zaequo   (jc,jb) = zaeopu*prm_diag%aerurb(jc,jb)*zvdaeu(jc,1)
+          zaeqdo   (jc,jb) = zaeopd*prm_diag%aerdes(jc,jb)*zvdaed(jc,1)
+          zaetr_top(jc,jb) = 1.0_wp
+        ENDDO
+
+        ! loop over layers
+        DO jk = 1,nlev
+          DO jc = 1,i_endidx
+            zaeqsn         = zaeops*prm_diag%aersea(jc,jb)*zvdaes(jc,jk+1)
+            zaeqln         = zaeopl*prm_diag%aerlan(jc,jb)*zvdael(jc,jk+1)
+            zaequn         = zaeopu*prm_diag%aerurb(jc,jb)*zvdaeu(jc,jk+1)
+            zaeqdn         = zaeopd*prm_diag%aerdes(jc,jb)*zvdaed(jc,jk+1)
+            zaetr_bot      = zaetr_top(jc,jb) &
+              & * ( MIN (1.0_wp, pt_diag%temp_ifc(jc,jk,jb)/pt_diag%temp_ifc(jc,jk+1,jb)) )**ztrpt
+
+            zaetr          = SQRT(zaetr_bot*zaetr_top(jc,jb))
+            zaeq1(jc,jk,jb)= (1._wp-zaetr) &
+              & * (ztrbga* pt_diag%dpres_mc(jc,jk,jb)+zaeqln-zaeqlo(jc,jb)+zaeqdn-zaeqdo(jc,jb))
+            zaeq2(jc,jk,jb)   = (1._wp-zaetr) * ( zaeqsn-zaeqso(jc,jb) )
+            zaeq3(jc,jk,jb)   = (1._wp-zaetr) * ( zaequn-zaequo(jc,jb) )
+            zaeq4(jc,jk,jb)   =     zaetr  *   zvobga*pt_diag%dpres_mc(jc,jk,jb)
+            zaeq5(jc,jk,jb)   =     zaetr  *   zstbga*pt_diag%dpres_mc(jc,jk,jb)
+
+            zaetr_top(jc,jb) = zaetr_bot
+            zaeqso(jc,jb)    = zaeqsn
+            zaeqlo(jc,jb)    = zaeqln
+            zaequo(jc,jb)    = zaequn
+            zaeqdo(jc,jb)    = zaeqdn
+          ENDDO
+        ENDDO
       ENDIF !irad_o3
 
     ENDDO !jb
@@ -292,7 +377,7 @@ CONTAINS
 !$OMP END PARALLEL
 
 
-  END SUBROUTINE nwp_rrtm_ozon
+  END SUBROUTINE nwp_rrtm_ozon_aerosol
   !---------------------------------------------------------------------------------------
 
   !---------------------------------------------------------------------------------------
@@ -301,7 +386,7 @@ CONTAINS
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
   SUBROUTINE nwp_rrtm_radiation ( p_sim_time,pt_patch, &
-    & ext_data,lnd_diag,pt_prog_rcf,pt_diag,prm_diag, &
+    & ext_data,lnd_diag,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,pt_prog_rcf,pt_diag,prm_diag, &
     & lnd_prog_now )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
@@ -315,6 +400,14 @@ CONTAINS
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
     TYPE(t_external_data),INTENT(in):: ext_data
     TYPE(t_lnd_diag),     INTENT(in):: lnd_diag      !< diag vars for sfc
+
+    REAL(wp), INTENT(in) :: &
+      & zaeq1(nproma,pt_patch%nlev,pt_patch%nblks_c), &
+      & zaeq2(nproma,pt_patch%nlev,pt_patch%nblks_c), &
+      & zaeq3(nproma,pt_patch%nlev,pt_patch%nblks_c), &
+      & zaeq4(nproma,pt_patch%nlev,pt_patch%nblks_c), &
+      & zaeq5(nproma,pt_patch%nlev,pt_patch%nblks_c)
+    
     TYPE(t_nh_prog), TARGET, INTENT(inout)  :: pt_prog_rcf !<the prognostic variables (with
     !< reduced calling frequency for tracers!
     TYPE(t_nh_diag), TARGET, INTENT(in)  :: pt_diag     !<the diagnostic variables
@@ -506,6 +599,7 @@ CONTAINS
 
       prm_diag%tsfctrad(1:i_endidx,jb) = lnd_prog_now%t_g(1:i_endidx,jb)
 
+
       CALL radiation(               &
                               !
                               ! input
@@ -538,10 +632,14 @@ CONTAINS
         & qm_vap     =prm_diag%tot_cld  (:,:,jb,iqv) ,&!< in  water vapor mass mix ratio at t-dt
         & qm_liq     =prm_diag%tot_cld  (:,:,jb,iqc) ,&!< in cloud water mass mix ratio at t-dt
         & qm_ice     =prm_diag%tot_cld  (:,:,jb,iqi) ,&!< in cloud ice mass mixing ratio at t-dt
-        & qm_o3      =pt_prog_rcf%tracer(:,:,jb,io3) ,&!< in o3 mass mixing ratio at t-dt
+        & qm_o3      =pt_prog_rcf%tracer(2:,:,jb,io3) ,&!< in o3 mass mixing ratio at t-dt
         & cdnc       =prm_diag%acdnc    (:,:,jb)     ,&!< in  cloud droplet numb conc. [1/m**3]
         & cld_frc    =prm_diag%tot_cld  (:,:,jb,icc) ,&!< in  cloud fraction [m2/m2]
-                              !
+        & zaeq1      = zaeq1(:,:,jb)                 ,&!< in aerosol continental
+        & zaeq2      = zaeq2(:,:,jb)                 ,&!< in aerosol maritime
+        & zaeq3      = zaeq3(:,:,jb)                 ,&!< in aerosol urban
+        & zaeq4      = zaeq4(:,:,jb)                 ,&!< in aerosol volcano ashes
+        & zaeq5      = zaeq5(:,:,jb)                 ,&!< in aerosol stratospheric background
                               ! output
                               ! ------
                               !
@@ -567,9 +665,9 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
-  SUBROUTINE nwp_rrtm_radiation_reduced ( p_sim_time,pt_patch,pt_par_patch, &
-    & pt_par_int_state, pt_par_grf_state,ext_data,lnd_diag,pt_prog_rcf,pt_diag,prm_diag, &
-    & lnd_prog_now )
+  SUBROUTINE nwp_rrtm_radiation_reduced ( p_sim_time,pt_patch,pt_par_patch,               &
+    & pt_par_int_state, pt_par_grf_state,ext_data,lnd_diag,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5, &
+    & pt_prog_rcf,pt_diag,prm_diag,lnd_prog_now )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
 !      &  routine = 'mo_nwp_rad_interface:'
@@ -585,6 +683,12 @@ CONTAINS
     TYPE(t_gridref_state),TARGET,INTENT(in) :: pt_par_grf_state  !< grid refinement state
     TYPE(t_external_data),INTENT(in):: ext_data
     TYPE(t_lnd_diag),     INTENT(in):: lnd_diag      !< diag vars for sfc
+    REAL(wp),             INTENT(in) ::               &
+      & zaeq1(nproma,pt_patch%nlev,pt_patch%nblks_c), &
+      & zaeq2(nproma,pt_patch%nlev,pt_patch%nblks_c), &
+      & zaeq3(nproma,pt_patch%nlev,pt_patch%nblks_c), &
+      & zaeq4(nproma,pt_patch%nlev,pt_patch%nblks_c), &
+      & zaeq5(nproma,pt_patch%nlev,pt_patch%nblks_c)    
     TYPE(t_nh_prog), TARGET, INTENT(inout)  :: pt_prog_rcf !<the prognostic variables (with
     !< reduced calling frequency for tracers!
     TYPE(t_nh_diag), TARGET,    INTENT(inout):: pt_diag     !<the diagnostic variables
@@ -615,6 +719,11 @@ CONTAINS
     REAL(wp), ALLOCATABLE, TARGET:: zrg_o3       (:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_acdnc    (:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_tot_cld  (:,:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_aeq1(:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_aeq2(:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_aeq3(:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_aeq4(:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_aeq5(:,:,:)
     ! Output fields
     REAL(wp), ALLOCATABLE, TARGET:: zrg_aclcov   (:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_lwflxclr (:,:,:)
@@ -625,9 +734,6 @@ CONTAINS
     TYPE(t_patch), POINTER       :: ptr_pp
 
     INTEGER :: itype(nproma)   !< type of convection
-
-    REAL(wp):: alb_ther    (nproma,pt_patch%nblks_c) !!
-
 
     ! Local scalars:
     REAL(wp):: zsct        ! solar constant (at time of year)
@@ -729,6 +835,11 @@ CONTAINS
         zrg_pres     (nproma,nlev  ,nblks_par_c),   &
         zrg_temp     (nproma,nlev  ,nblks_par_c),   &
         zrg_o3       (nproma,nlev  ,nblks_par_c),   &
+        zrg_aeq1     (nproma,nlev  ,nblks_par_c),   &
+        zrg_aeq2     (nproma,nlev  ,nblks_par_c),   &
+        zrg_aeq3     (nproma,nlev  ,nblks_par_c),   &
+        zrg_aeq4     (nproma,nlev  ,nblks_par_c),   &
+        zrg_aeq5     (nproma,nlev  ,nblks_par_c),   &
         zrg_acdnc    (nproma,nlev  ,nblks_par_c),   &
         zrg_tot_cld  (nproma,nlev  ,nblks_par_c,4), &
         zrg_aclcov   (nproma,       nblks_par_c),   &
@@ -884,10 +995,12 @@ CONTAINS
         & prm_diag%tsfctrad, pt_diag%pres_ifc,                          &
         & pt_diag%pres, pt_diag%temp,prm_diag%acdnc, prm_diag%tot_cld,  &
         & pt_prog_rcf%tracer(:,:,:,io3),                                &
+        & zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,                            &
         & zrg_fr_land, zrg_fr_glac, zrg_emis_rad,                       &
         & zrg_cosmu0, zrg_albvisdir, zrg_albnirdir, zrg_albvisdif,      &
         & zrg_albnirdif, zrg_tsfc, zrg_pres_ifc, zrg_pres, zrg_temp,    &
-        & zrg_acdnc, zrg_tot_cld, zrg_o3                              )
+        & zrg_acdnc, zrg_tot_cld, zrg_o3,                               &
+        & zrg_aeq1, zrg_aeq2, zrg_aeq3, zrg_aeq4, zrg_aeq5 )
 
       rl_start = grf_ovlparea_start_c
       rl_end   = min_rlcell_int
@@ -924,6 +1037,11 @@ CONTAINS
             zrg_pres     (1:i_startidx-1,jk,jb) = zrg_pres     (i_startidx,jk,jb)
             zrg_temp     (1:i_startidx-1,jk,jb) = zrg_temp     (i_startidx,jk,jb)
             zrg_o3       (1:i_startidx-1,jk,jb) = zrg_o3       (i_startidx,jk,jb)
+            zrg_aeq1     (1:i_startidx-1,jk,jb) = zrg_aeq1     (i_startidx,jk,jb)
+            zrg_aeq2     (1:i_startidx-1,jk,jb) = zrg_aeq2     (i_startidx,jk,jb)
+            zrg_aeq3     (1:i_startidx-1,jk,jb) = zrg_aeq3     (i_startidx,jk,jb)
+            zrg_aeq4     (1:i_startidx-1,jk,jb) = zrg_aeq4     (i_startidx,jk,jb)
+            zrg_aeq5     (1:i_startidx-1,jk,jb) = zrg_aeq5     (i_startidx,jk,jb)
             zrg_acdnc    (1:i_startidx-1,jk,jb) = zrg_acdnc    (i_startidx,jk,jb)
             zrg_tot_cld  (1:i_startidx-1,jk,jb,iqv) = zrg_tot_cld(i_startidx,jk,jb,iqv)
             zrg_tot_cld  (1:i_startidx-1,jk,jb,iqc) = zrg_tot_cld(i_startidx,jk,jb,iqc)
@@ -967,6 +1085,11 @@ CONTAINS
           & qm_o3      = zrg_o3     (:,:,jb)    ,&!< in    O3
           & cdnc       =zrg_acdnc   (:,:,jb)    ,&!< in    cloud droplet numb. conc. [1/m**3]
           & cld_frc    =zrg_tot_cld (:,:,jb,icc),&!< in    cld_frac = cloud fraction [m2/m2]
+          & zaeq1      = zrg_aeq1(:,:,jb)       ,&!< in aerosol continental
+          & zaeq2      = zrg_aeq2(:,:,jb)       ,&!< in aerosol maritime
+          & zaeq3      = zrg_aeq3(:,:,jb)       ,&!< in aerosol urban
+          & zaeq4      = zrg_aeq4(:,:,jb)       ,&!< in aerosol volcano ashes
+          & zaeq5      = zrg_aeq5(:,:,jb)       ,&!< in aerosol stratospheric background
                                 !
                                 ! output
                                 ! ------
@@ -989,8 +1112,9 @@ CONTAINS
         & prm_diag%trsolclr, prm_diag%trsolall )
 
       DEALLOCATE (zrg_cosmu0, zrg_albvisdir, zrg_albnirdir, zrg_albvisdif, zrg_albnirdif, &
-        zrg_tsfc, zrg_pres_ifc, zrg_pres, zrg_temp, zrg_o3, zrg_acdnc, zrg_tot_cld,       &
-        zrg_aclcov, zrg_lwflxclr, zrg_lwflxall, zrg_trsolclr, zrg_trsolall,     &
+        zrg_tsfc, zrg_pres_ifc, zrg_pres, zrg_temp, zrg_o3,                               &
+        zrg_aeq1,zrg_aeq2,zrg_aeq3,zrg_aeq4,zrg_aeq5, zrg_acdnc, zrg_tot_cld,             &
+        zrg_aclcov, zrg_lwflxclr, zrg_lwflxall, zrg_trsolclr, zrg_trsolall,               &
         zrg_fr_land,zrg_fr_glac,zrg_emis_rad)
       
   END SUBROUTINE nwp_rrtm_radiation_reduced

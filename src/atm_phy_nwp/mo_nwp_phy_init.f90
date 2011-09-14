@@ -245,18 +245,19 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
     !------------------------------------------
     !< radiation
     !------------------------------------------
-  IF (  atm_phy_nwp_config(jg)%inwp_radiation == 1 ) THEN
+  IF ( atm_phy_nwp_config(jg)%inwp_radiation == 1 ) THEN
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init RRTM')
 
+    SELECT CASE ( irad_aero )
     ! Note (GZ): irad_aero=2 does no action but is the default in radiation_nml
     ! and therefore should not cause the model to stop
-    IF ( irad_aero /= 0 .AND. irad_aero /= 2 ) THEN
- !    IF ( irad_aero /= 0 .AND. irad_aero /= 2 .AND. irad_aero /= 5 ) THEN    
+    CASE (0,2,5)
+      !ok
+    CASE DEFAULT
       CALL finish('mo_nwp_phy_init: init_nwp_phy',  &
-        &         'Wrong irad_aero. For RRTM, currently only irad_aero=0 is implemented.')
-!       & 'Wrong irad_aero. For RRTM, currently only irad_aero=0 and irad_aero=5 is implemented.')
-    ENDIF
+        &      'Wrong irad_aero. For RRTM radiation, this irad_aero is not implemented.')
+    END SELECT
     
 !    prm_diag%lfglac (:,:) = ext_data%atm%soiltyp(:,:) == 1  !soiltyp=ice
 
@@ -298,7 +299,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
         ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
         DO jc = 1, i_endidx
           zprat=(MIN(8._wp,80000._wp/p_diag%pres(jc,jk,jb)))**2
-          lland = ext_data%atm%lsm_atm_c(jc,jb) > 0 !
+          lland = ext_data%atm%lsm_atm_c(jc,jb) > 0
           lglac = ext_data%atm%soiltyp(jc,jb) == 1
           IF (lland.AND.(.NOT.lglac)) THEN
             zn1= 50._wp
@@ -346,7 +347,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
 
       CALL init_aerosol_props_tanre_rrtm
       
-      CALL init_aerosol_dstrb_tanre ( &
+      CALL init_aerosol_dstrb_tanre (        &
         & kbdim    = nproma,                 & !in
         & pt_patch = p_patch,                & !in
         & aersea   = prm_diag%aersea,        & !out
@@ -355,14 +356,13 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
         & aerdes   = prm_diag%aerdes )         !out
     ELSE
       
-      zaea_rrtm(:,:)=0.0_wp
-      zaes_rrtm(:,:)=0.0_wp
-      zaeg_rrtm(:,:)=0.0_wp
+      zaea_rrtm(:,:) = 0.0_wp
+      zaes_rrtm(:,:) = 0.0_wp
+      zaeg_rrtm(:,:) = 0.0_wp
       
     ENDIF
-    
-    
-  ELSEIF (  atm_phy_nwp_config(jg)%inwp_radiation == 2 ) THEN
+
+  ELSEIF ( atm_phy_nwp_config(jg)%inwp_radiation == 2 ) THEN
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init Ritter Geleyn')
 
@@ -393,7 +393,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
 
       CALL init_aerosol_props_tanre_rg
       
-      CALL init_aerosol_dstrb_tanre ( &
+      CALL init_aerosol_dstrb_tanre (        &
         & kbdim    = nproma,                 & !in
         & pt_patch = p_patch,                & !in
         & aersea   = prm_diag%aersea,        & !out
@@ -403,9 +403,9 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
 
     ELSE
 
-      zaea_rg(:,:)=0.0_wp
-      zaes_rg(:,:)=0.0_wp
-      zaeg_rg(:,:)=0.0_wp
+      zaea_rg(:,:) = 0.0_wp
+      zaes_rg(:,:) = 0.0_wp
+      zaeg_rg(:,:) = 0.0_wp
 
     ENDIF
 

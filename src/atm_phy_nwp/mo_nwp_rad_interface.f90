@@ -70,7 +70,7 @@ MODULE mo_nwp_rad_interface
 !   USE mo_sync,                 ONLY: SYNC_C, sync_patch_array_mult
 
   USE mo_nwp_rrtm_interface,   ONLY: nwp_rrtm_radiation, &
-   &  nwp_rrtm_radiation_reduced, nwp_rrtm_ozon
+   &  nwp_rrtm_radiation_reduced, nwp_rrtm_ozon_aerosol
   USE mo_nwp_mpiomp_rrtm_interface, ONLY: nwp_omp_rrtm_interface
   
   IMPLICIT NONE
@@ -134,6 +134,14 @@ MODULE mo_nwp_rad_interface
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
     TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog_now
 
+    REAL(wp) :: &
+      & zaeq1(nproma,pt_patch%nlev,pt_patch%nblks_c), &
+      & zaeq2(nproma,pt_patch%nlev,pt_patch%nblks_c), &
+      & zaeq3(nproma,pt_patch%nlev,pt_patch%nblks_c), &
+      & zaeq4(nproma,pt_patch%nlev,pt_patch%nblks_c), &
+      & zaeq5(nproma,pt_patch%nlev,pt_patch%nblks_c)
+
+    
     INTEGER :: jg
 
     jg = pt_patch%id
@@ -141,8 +149,8 @@ MODULE mo_nwp_rad_interface
 
     IF (atm_phy_nwp_config(jg)%inwp_radiation == 1 ) THEN
        
-      CALL nwp_rrtm_ozon ( p_sim_time,pt_patch, &
-        & pt_prog_rcf,pt_diag,prm_diag )
+      CALL nwp_rrtm_ozon_aerosol ( p_sim_time,pt_patch, &
+        & pt_prog_rcf,pt_diag,prm_diag,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5 )
     
       IF ( .NOT. lredgrid ) THEN
 
@@ -151,13 +159,15 @@ MODULE mo_nwp_rad_interface
             & ext_data, lnd_diag, pt_prog_rcf, pt_diag, prm_diag, lnd_prog_now )
         ELSE
           CALL nwp_rrtm_radiation ( p_sim_time,pt_patch, &
-            & ext_data,lnd_diag, pt_prog_rcf, pt_diag, prm_diag, lnd_prog_now )
+            & ext_data,lnd_diag,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5, &
+            & pt_prog_rcf, pt_diag, prm_diag, lnd_prog_now )
         ENDIF
     
       ELSE 
 
-        CALL nwp_rrtm_radiation_reduced (  p_sim_time,pt_patch,pt_par_patch, &
-          & pt_par_int_state, pt_par_grf_state,ext_data,lnd_diag,&
+        CALL nwp_rrtm_radiation_reduced ( p_sim_time,pt_patch,pt_par_patch,  &
+          & pt_par_int_state, pt_par_grf_state,ext_data,lnd_diag,            &
+          & zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,                                   &
           & pt_prog_rcf,pt_diag,prm_diag, lnd_prog_now )
           
       ENDIF
@@ -664,7 +674,6 @@ MODULE mo_nwp_rad_interface
       END WHERE
       losol = ANY(lo_sol(i_startidx:i_endidx))
 
-
 !#ifdef __BOUNDCHECK
       CALL fesft ( &
                                 !  Input:
@@ -713,7 +722,7 @@ MODULE mo_nwp_rad_interface
           ENDIF
         ENDDO
       ENDDO
-
+      
     ENDDO !jb
 !$OMP END DO
 !$OMP END PARALLEL

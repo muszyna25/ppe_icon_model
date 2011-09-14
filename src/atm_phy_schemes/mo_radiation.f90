@@ -56,6 +56,7 @@
 !
 MODULE mo_radiation
 
+  USE mo_aerosol_util,         ONLY: zaea_rrtm,zaes_rrtm,zaeg_rrtm
   USE mo_kind,                 ONLY: wp
   USE mo_exception,            ONLY: finish
   USE mo_run_config,           ONLY: ltimer
@@ -78,7 +79,7 @@ MODULE mo_radiation
     &                                irad_o2,    mmr_o2,      &
     &                                irad_cfc11, vmr_cfc11,   &
     &                                irad_cfc12, vmr_cfc12,   &
-!!$    &                                irad_aero,               &
+    &                                irad_aero,               &
     &                                dt_rad,                  &
     &                                izenith
 
@@ -486,6 +487,7 @@ CONTAINS
     & ,qm_o3                                                               &
 !!$    & ,pgeom1                                                              &
     & ,cdnc              ,cld_frc                                          &
+    & , zaeq1, zaeq2, zaeq3, zaeq4, zaeq5                                  &
     ! output
     & ,cld_cvr                                                             &
 !!$    & ,nir_sfc           ,nir_dff_sfc     ,vis_sfc          ,vis_dff_sfc   &
@@ -524,7 +526,12 @@ CONTAINS
       &  qm_ice(kbdim,klev), & !< Ice water mixing ratio
 !!$      &  pgeom1(:,:),        & !< geopotential above ground
       &  cdnc(kbdim,klev),   & !< Cloud drop number concentration
-      &  cld_frc(kbdim,klev)   !< Cloud fraction
+      &  cld_frc(kbdim,klev),& !< Cloud fraction
+      &  zaeq1(kbdim,klev) , & !< aerosol continental
+      &  zaeq2(kbdim,klev) , & !< aerosol maritime
+      &  zaeq3(kbdim,klev) , & !< aerosol urban
+      &  zaeq4(kbdim,klev) , & !< aerosol volcano ashes
+      &  zaeq5(kbdim,klev)     !< aerosol stratospheric background
     
     LOGICAL, INTENT(in), OPTIONAL :: opt_halo_cosmu0    
 
@@ -711,6 +718,7 @@ CONTAINS
       & cld_frc_sec                                                        ,&
       & qm_o3           ,xm_co2          ,xm_ch4                           ,&
       & xm_n2o          ,xm_cfc11        ,xm_cfc12        ,xm_o2           ,&
+      & zaeq1,zaeq2,zaeq3,zaeq4,zaeq5                                      ,&
       ! output
       & flx_dnlw        ,flx_dnsw        ,flx_dnlw_clr    ,flx_dnsw_clr    ,&
       & flx_uplw_sfc    ,flx_upsw_sfc    ,flx_uplw_clr_sfc,flx_upsw_clr_sfc)
@@ -862,6 +870,7 @@ CONTAINS
     & cld_frc                                                            ,&
     & xm_o3           ,xm_co2          ,xm_ch4                           ,&
     & xm_n2o          ,xm_cfc11        ,xm_cfc12        ,xm_o2           ,&
+    & zaeq1, zaeq2, zaeq3, zaeq4, zaeq5                                  ,&
     ! output
     & flx_lw_net      ,flx_sw_net      ,flx_lw_net_clr  ,flx_sw_net_clr  ,&
     & flx_uplw_sfc    ,flx_upsw_sfc    ,flx_uplw_sfc_clr,flx_upsw_sfc_clr)
@@ -908,7 +917,13 @@ CONTAINS
       &  xm_n2o(kbdim,klev),              & !< n2o mass mixing ratio
       &  xm_cfc11(kbdim,klev),            & !< cfc 11 volume mixing ratio
       &  xm_cfc12(kbdim,klev),            & !< cfc 12 volume mixing ratio
-      &  xm_o2(kbdim,klev)                  !< o2  mass mixing ratio
+      &  xm_o2(kbdim,klev),               & !< o2  mass mixing ratio
+      &  zaeq1(kbdim,klev),               & !< aerosol continental
+      &  zaeq2(kbdim,klev),               & !< aerosol maritime
+      &  zaeq3(kbdim,klev),               & !< aerosol urban
+      &  zaeq4(kbdim,klev),               & !< aerosol volcano ashes
+      &  zaeq5(kbdim,klev)                  !< aerosol stratospheric background
+
 
     REAL(wp), INTENT(out) ::              &
       &  flx_lw_net(kbdim,klev+1),        & !< net downward LW flux profile,
@@ -929,7 +944,7 @@ CONTAINS
 !!$      &  dpar_sfc(kbdim),                 & !< surf. PAR downw.
 !!$      &  par_dff_sfc(kbdim)                 !< fraction of diffuse PAR
 
-    INTEGER  :: jk, jl, jp, jkb,          & !< loop indicies
+    INTEGER  :: jk, jl, jp, jkb, jspec,   & !< loop indicies
       &  icldlyr(kbdim,klev)                !< index for clear or cloudy
 
     REAL(wp) ::                           &
@@ -947,6 +962,9 @@ CONTAINS
       &  amm,                             & !< molecular weight of moist air
       &  delta,                           & !< pressure thickness
       &  zscratch                           !< scratch array
+
+    REAL(wp) :: z_sum_aea, z_sum_aes !help variables for aerosol
+    
     !
     ! --- vertically reversed _vr variables
     !
@@ -1072,8 +1090,8 @@ CONTAINS
     ! --------------------------------
 !!$    ppd_hl(1:jce,:) = pp_hl(1:jce,2:klev+1)-pp_hl(1:jce,1:klev)
 !!$
-!!$    SELECT CASE (irad_aero)
-!!$    CASE (0)
+    SELECT CASE (irad_aero)
+    CASE (0,2)
       aer_tau_lw_vr(:,:,:) = 0.0_wp
       aer_tau_sw_vr(:,:,:) = 0.0_wp
       aer_piz_sw_vr(:,:,:) = 1.0_wp
@@ -1098,8 +1116,53 @@ CONTAINS
 !!$        & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
 !!$        & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
 !!$        & tk_fl )
-!!$    CASE DEFAULT
-!!$    END SELECT
+    CASE (5)
+      DO jspec=1,jpband
+        DO jk=1,klev
+          DO jl = 1,jce
+            ! LW opt thickness of aerosols
+            aer_tau_lw_vr(jl,jk,jspec) =  zaeq1(jl,jk) * zaea_rrtm(jspec,1) &
+              &                         + zaeq2(jl,jk) * zaea_rrtm(jspec,2) &
+              &                         + zaeq3(jl,jk) * zaea_rrtm(jspec,3) &
+              &                         + zaeq4(jl,jk) * zaea_rrtm(jspec,4) &
+              &                         + zaeq5(jl,jk) * zaea_rrtm(jspec,5)
+          ENDDO
+        ENDDO
+      ENDDO
+      DO jspec=1+jpband,jpband+jpsw
+        DO jk=1,klev
+          DO jl = 1,jce
+
+            z_sum_aea = zaeq1(jl,jk) * zaea_rrtm(jspec,1) &
+              &       + zaeq2(jl,jk) * zaea_rrtm(jspec,2) &
+              &       + zaeq3(jl,jk) * zaea_rrtm(jspec,3) &
+              &       + zaeq4(jl,jk) * zaea_rrtm(jspec,4) &
+              &       + zaeq5(jl,jk) * zaea_rrtm(jspec,5)
+
+            z_sum_aes = zaeq1(jl,jk) * zaes_rrtm(jspec,1) &
+              &       + zaeq2(jl,jk) * zaes_rrtm(jspec,2) &
+              &       + zaeq3(jl,jk) * zaes_rrtm(jspec,3) &
+              &       + zaeq4(jl,jk) * zaes_rrtm(jspec,4) &
+              &       + zaeq5(jl,jk) * zaes_rrtm(jspec,5)
+
+            ! sw aerosol optical thickness
+            aer_tau_sw_vr(jl,jk,jspec-jpband) = z_sum_aea + z_sum_aes
+
+            ! sw aerosol single scattering albedo
+            aer_piz_sw_vr(jl,jk,jspec-jpband) = z_sum_aes / ( z_sum_aea + z_sum_aes ) 
+
+            ! sw aerosol asymmetry factor
+            aer_cg_sw_vr(jl,jk,jspec-jpband) =                                  &
+              & (   zaeq1(jl,jk) * zaes_rrtm(jspec,1) * zaeg_rrtm(jspec,1)   &
+              &   + zaeq2(jl,jk) * zaes_rrtm(jspec,2) * zaeg_rrtm(jspec,2)   &
+              &   + zaeq3(jl,jk) * zaes_rrtm(jspec,3) * zaeg_rrtm(jspec,3)   &
+              &   + zaeq4(jl,jk) * zaes_rrtm(jspec,4) * zaeg_rrtm(jspec,4)   &
+              &   + zaeq5(jl,jk) * zaes_rrtm(jspec,5) * zaeg_rrtm(jspec,5) ) / z_sum_aes
+          ENDDO
+        ENDDO
+      ENDDO
+    CASE DEFAULT
+    END SELECT
 
 !!$    ! debug newcldin
 !!$    ! --------------

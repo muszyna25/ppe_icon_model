@@ -381,9 +381,9 @@ CONTAINS
     
     IF (test_parallel_radiation) THEN
       ! compare to the sequential version
-      CALL nwp_rrtm_radiation ( omp_radiation_data%p_sim_time,omp_radiation_data%pt_patch, &
-        & omp_radiation_data%ext_data,omp_radiation_data%lnd_diag,omp_radiation_data%pt_prog_rcf,&
-        & omp_radiation_data%pt_diag,omp_radiation_data%prm_diag, omp_radiation_data%lnd_prog_now )
+!!$      CALL nwp_rrtm_radiation ( omp_radiation_data%p_sim_time,omp_radiation_data%pt_patch, &
+!!$        & omp_radiation_data%ext_data,omp_radiation_data%lnd_diag,omp_radiation_data%pt_prog_rcf,&
+!!$        & omp_radiation_data%pt_diag,omp_radiation_data%prm_diag, omp_radiation_data%lnd_prog_now )
 
       IF (MAXVAL(ABS(omp_radiation_data%prm_diag%lwflxclr(:,:,:) &
                   - omp_radiation_data%lwflxclr(:,:,:))) /= 0.0_wp) THEN
@@ -558,6 +558,12 @@ CONTAINS
     REAL(wp):: albnirdif     (nproma,omp_radiation_data%pt_patch%nblks_c) !<
     REAL(wp):: aclcov        (nproma,omp_radiation_data%pt_patch%nblks_c) !<
 
+    REAL(wp):: zaeq1(nproma,omp_radiation_data%pt_patch%nlev,omp_radiation_data%pt_patch%nblks_c)
+    REAL(wp):: zaeq2(nproma,omp_radiation_data%pt_patch%nlev,omp_radiation_data%pt_patch%nblks_c)
+    REAL(wp):: zaeq3(nproma,omp_radiation_data%pt_patch%nlev,omp_radiation_data%pt_patch%nblks_c)
+    REAL(wp):: zaeq4(nproma,omp_radiation_data%pt_patch%nlev,omp_radiation_data%pt_patch%nblks_c)
+    REAL(wp):: zaeq5(nproma,omp_radiation_data%pt_patch%nlev,omp_radiation_data%pt_patch%nblks_c)
+
     INTEGER :: itype(nproma)   !< type of convection
 
     ! Local scalars:
@@ -627,6 +633,11 @@ CONTAINS
       albnirdir(1:i_endidx,jb) = 0.07_wp ! ~ albedo of water
       albvisdif(1:i_endidx,jb) = 0.07_wp ! ~ albedo of water
       albnirdif(1:i_endidx,jb) = 0.07_wp ! ~ albedo of water
+      zaeq1(1:i_endidx,:,jb)   = 0.0_wp
+      zaeq2(1:i_endidx,:,jb)   = 0.0_wp
+      zaeq3(1:i_endidx,:,jb)   = 0.0_wp
+      zaeq4(1:i_endidx,:,jb)   = 0.0_wp
+      zaeq5(1:i_endidx,:,jb)   = 0.0_wp
 
       CALL radiation(               &
                               !
@@ -663,6 +674,11 @@ CONTAINS
         & qm_o3  =omp_radiation_data%qm_o3   (:,:,jb) ,   &!< in o3 mass mixing ratio at t-dt
         & cdnc   =omp_radiation_data%acdnc   (:,:,jb)    ,&!< in cloud droplet numb conc. [1/m**3]
         & cld_frc=omp_radiation_data%tot_cld (:,:,jb,icc),&!< in cloud fraction [m2/m2]
+        & zaeq1   = zaeq1(:,:,jb)                        ,&!< in aerosol continental
+        & zaeq2   = zaeq2(:,:,jb)                        ,&!< in aerosol maritime
+        & zaeq3   = zaeq3(:,:,jb)                        ,&!< in aerosol urban
+        & zaeq4   = zaeq4(:,:,jb)                        ,&!< in aerosol volcano ashes
+        & zaeq5   = zaeq5(:,:,jb)                        ,&!< in aerosol stratospheric background
                               !
                               ! output
                               ! ------
