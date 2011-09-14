@@ -404,7 +404,11 @@ USE mo_cuparameters,       ONLY: rho_w => rhoh2o ! density of liquid water (kg/m
 !
 USE mo_phyparam_soil   
 !
-USE mo_lnd_nwp_config
+USE mo_lnd_nwp_config,     ONLY: nztlev, lmelt, lmelt_var, lmulti_snow,  &
+  &                              itype_gscp, itype_trvg, itype_evsl,     &
+  &                              itype_tran, itype_root, itype_heatcond, &
+  &                              itype_hydbound, lstomata, l2tls,        &
+  &                              lana_rho_snow, itype_subs
 !                           
 USE mo_exception,       ONLY: message, finish, message_text
 #endif
@@ -488,7 +492,8 @@ SUBROUTINE terra_multlay (                &
                   sai          , & ! surface area index                              --
                   tai          , & ! transpiration area index                        --
                   eai          , & ! earth area (evaporative surface area) index     --
-                  landmask    , & ! landpoint mask                                  --
+!DR                  landmask    , & ! landpoint mask                                  --
+                  llandmask    , & ! landpoint mask                                  --
                   rsmin2d      ,  & ! minimum stomata resistance                    ( s/m )
 !
                   u            , & ! zonal wind speed                              ( m/s )
@@ -582,8 +587,10 @@ IMPLICIT NONE
                   sai          , & ! surface area index                              --
                   tai          , & ! transpiration area index                        --
                   eai              ! earth area (evaporative surface area) index     --
-  REAL    (KIND = ireals), DIMENSION(ie,je,nsubs1), INTENT(INOUT) :: & 
-                  landmask        ! landpoint mask fractions                                 --
+!DR  REAL    (KIND = ireals), DIMENSION(ie,je,nsubs1), INTENT(INOUT) :: & 
+!DR                  landmask        ! landpoint mask fractions                         --
+  LOGICAL                , DIMENSION(ie,je,nsubs1), INTENT(IN) :: & 
+                  llandmask        ! landpoint mask                                  --
   REAL    (KIND = ireals), DIMENSION(ie,je), INTENT(IN) :: & 
                  rsmin2d          ! minimum stomata resistance                    ( s/m )
 
@@ -670,7 +677,7 @@ IMPLICIT NONE
 
 ! New declaration for ICON
 
-  LOGICAL     llandmask(ie,je,nsubs1)        ! landpoint mask                                  --
+!DR  LOGICAL     llandmask(ie,je,nsubs1)        ! landpoint mask                         --
 
 !------------------------------------------------------------------------------
 ! Subroutine arguments: None
@@ -1210,21 +1217,20 @@ CHARACTER (LEN=80)                    ::  &
 !<JH
 
 ! >JH NEW SECTION FOR DEFINITION OF LAND POINTS !
-  llandmask=.FALSE.
-  do ns=nsubs0,nsubs1
-     !amf ---
-     ! Prepare basic surface properties (for land-points only)
+!DR  llandmask=.FALSE.
+!DR  do ns=nsubs0,nsubs1
+!DR     !amf ---
+!DR     ! Prepare basic surface properties (for land-points only)
  
-     DO   j = jstarts, jends
-        DO i = istarts, iends
-           IF(landmask(i,j,ns) > 0.5_ireals) THEN        ! for land-points only
-              llandmask(i,j,ns) = .true.
-           END IF
-        ENDDO
-     ENDDO
-  END DO
+!DR     DO   j = jstarts, jends
+!DR        DO i = istarts, iends
+!DR           IF(landmask(i,j,ns) > 0.5_ireals) THEN        ! for land-points only
+!DR              llandmask(i,j,ns) = .true.
+!DR           END IF
+!DR        ENDDO
+!DR     ENDDO
+!DR  END DO
 ! <JH
-
 
 
   ierror = 0
@@ -1243,6 +1249,7 @@ CHARACTER (LEN=80)                    ::  &
   ELSE
     zdt = dt
   ENDIF
+
 
   ! time step for run-off computation
   zroffdt = zdt

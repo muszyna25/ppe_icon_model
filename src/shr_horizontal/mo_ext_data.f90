@@ -50,7 +50,8 @@ MODULE mo_ext_data
   USE mo_parallel_config,    ONLY: nproma
   USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam, io3_clim, io3_ape, &
     &                              ihs_ocean, ihs_atm_temp, ihs_atm_theta, inh_atmosphere, &
-    &                              max_char_length
+    &                              max_char_length, min_rlcell_int
+  USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_physical_constants, ONLY: ppmv2gg, zemiss_def
   USE mo_run_config,         ONLY: iforcing
   USE mo_ocean_nml,          ONLY: iforc_oce
@@ -152,6 +153,11 @@ MODULE mo_ext_data
 
     !
     ! *** Land-Sea-Mask ***
+
+    LOGICAL, POINTER  ::   &   !< land-sea-mask for cell centers          [ ]
+      &  llsm_atm_c(:,:)       ! .TRUE. if landpoint
+                               ! index1=1,nproma, index2=1,nblks_c
+
     INTEGER, POINTER  ::   &   !< land-sea-mask for cell centers          [ ]
       &  lsm_atm_c(:,:)        ! index1=1,nproma, index2=1,nblks_c
 
@@ -490,6 +496,8 @@ CONTAINS
           ext_data(jg)%atm%emis_rad(:,:)    = zemiss_def ! longwave surface emissivity
           ext_data(jg)%atm%fr_land(:,:)     = 0._wp      ! land fraction
           ext_data(jg)%atm%fr_land_smt(:,:) = 0._wp      ! land fraction (smoothed)
+          ext_data(jg)%atm%fr_glac_smt(:,:) = 0._wp      ! glacier fraction (smoothed)
+          ext_data(jg)%atm%llsm_atm_c(:,:)  = .FALSE.    ! land-sea mask
           ext_data(jg)%atm%plcov_mx(:,:)    = 0.5_wp     ! plant cover
           ext_data(jg)%atm%lai_mx(:,:)      = 3._wp      ! max Leaf area index
           ext_data(jg)%atm%rootdp(:,:)      = 1._wp      ! root depth
@@ -718,6 +726,18 @@ CONTAINS
     grib2_desc = t_grib2_var( 2, 0, 7, ientr, GRID_REFERENCE, GRID_VERTEX)
     CALL add_var( p_ext_atm_list, 'topography_smt_v', p_ext_atm%topography_smt_v, &
       &           GRID_UNSTRUCTURED_VERT, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_v )
+
+
+
+    ! land sea mask for cells (LOGICAL)
+    !
+    ! llsm_atm_c    p_ext_atm%llsm_atm_c(nproma,nblks_c)
+    cf_desc    = t_cf_var('land_sea_mask_(cell)', '-', &
+      &                   'land sea mask (cell)')
+    grib2_desc = t_grib2_var( 2, 0, 0, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_ext_atm_list, 'llsm_atm_c', p_ext_atm%llsm_atm_c, &
+      &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
+      &          grib2_desc, ldims=shape2d_c, lrestart=.FALSE.  )
 
 
     ! land sea mask for cells
@@ -1685,9 +1705,14 @@ CONTAINS
     CHARACTER(filename_max) :: extpar_file !< file name for reading in
     CHARACTER(filename_max) :: ozone_file  !< file name for reading in
 
-    INTEGER :: jg,i, mpi_comm
+    INTEGER :: jg, jc, jb, i, mpi_comm
     INTEGER :: i_lev,jk
     INTEGER :: ncid, dimid, varid
+
+    INTEGER :: rl_start, rl_end
+    INTEGER :: i_startblk, i_endblk   !> blocks
+    INTEGER :: i_startidx, i_endidx   !< slices
+    INTEGER :: i_nchdom               !< domain index
 
     REAL(wp):: zdummy_o3lev(nlev_o3) ! will be used for pressure and height levels
 
@@ -1851,7 +1876,37 @@ CONTAINS
           ENDIF
           
         END SELECT ! iforcing
-        
+
+
+
+        !
+        ! derived external parameter fields
+        !
+
+        ! land sea mask at cell centers (LOGICAL)
+        !
+        i_nchdom  = MAX(1,p_patch(jg)%n_childdom)
+
+        rl_start = grf_bdywidth_c
+        rl_end   = min_rlcell_int
+
+        i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
+        i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
+
+        DO jb = i_startblk, i_endblk
+          CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
+            &                i_startidx, i_endidx, rl_start, rl_end)
+
+          DO jc = i_startidx,i_endidx
+             IF (ext_data(jg)%atm%fr_land(jc,jb) > 0.5_wp) THEN
+               ext_data(jg)%atm%llsm_atm_c(jc,jb) = .TRUE.  ! land point
+             ELSE
+               ext_data(jg)%atm%llsm_atm_c(jc,jb) = .FALSE.  ! water point
+             ENDIF
+          ENDDO
+        ENDDO
+
+
       ELSEIF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
 
         CALL finish(TRIM(ROUTINE),&

@@ -132,22 +132,22 @@ CONTAINS
 
 !DR    REAL(wp) :: pp_t(nproma, p_patch%nlev, p_patch%nblks_c, nztlev)
 
-    REAL(wp) :: tch_t     (nproma, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) :: tcm_t     (nproma, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) :: tfv_t     (nproma, p_patch%nblks_c, nsfc_subs)
-    INTEGER  :: soiltyp_t (nproma, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) :: plcov_t   (nproma, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) :: rootdp_t  (nproma, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) :: sai_t     (nproma, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) :: tai_t     (nproma, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) :: eai_t     (nproma, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) :: landmask_t(nproma, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) :: t_2m_t    (nproma, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) :: u_10m_t   (nproma, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) :: v_10m_t   (nproma, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) :: sobs_t    (nproma, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) :: thbs_t    (nproma, p_patch%nblks_c, nsfc_subs)
-    REAL(wp) :: pabs_t    (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) :: tch_t      (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) :: tcm_t      (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) :: tfv_t      (nproma, p_patch%nblks_c, nsfc_subs)
+    INTEGER  :: soiltyp_t  (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) :: plcov_t    (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) :: rootdp_t   (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) :: sai_t      (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) :: tai_t      (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) :: eai_t      (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) :: t_2m_t     (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) :: u_10m_t    (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) :: v_10m_t    (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) :: sobs_t     (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) :: thbs_t     (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) :: pabs_t     (nproma, p_patch%nblks_c, nsfc_subs)
+    LOGICAL  :: llandmask_t(nproma, p_patch%nblks_c, nsfc_subs)
 
     ! local dummy variable for precipitation rate of graupel, grid-scale
     REAL(wp) :: dummy_prg_gsp(nproma)
@@ -236,22 +236,22 @@ CONTAINS
 
 
         DO isubs = 1,nsfc_subs
-          tch_t(1:i_endidx,jb,isubs)      = prm_diag%tch(1:i_endidx,jb)
-          tcm_t(1:i_endidx,jb,isubs)      = prm_diag%tcm(1:i_endidx,jb)
-          tfv_t(1:i_endidx,jb,isubs)      = prm_diag%tfv(1:i_endidx,jb)
-          soiltyp_t(1:i_endidx,jb,isubs)  = ext_data%atm%soiltyp(1:i_endidx,jb) 
-          plcov_t(1:i_endidx,jb,isubs)    = ext_data%atm%plcov_mx(1:i_endidx,jb)
-          rootdp_t(1:i_endidx,jb,isubs)   = ext_data%atm%rootdp(1:i_endidx,jb) 
-          sai_t(1:i_endidx,jb,isubs)      = prm_diag%sai(1:i_endidx,jb)        
-          tai_t(1:i_endidx,jb,isubs)      = prm_diag%tai(1:i_endidx,jb)        
-          eai_t(1:i_endidx,jb,isubs)      = prm_diag%eai(1:i_endidx,jb)        
-          t_2m_t(1:i_endidx,jb,isubs)     = prm_diag%t_2m(1:i_endidx,jb) 
-          u_10m_t(1:i_endidx,jb,isubs)    = prm_diag%u_10m(1:i_endidx,jb)
-          v_10m_t(1:i_endidx,jb,isubs)    = prm_diag%v_10m(1:i_endidx,jb)  
-          sobs_t(1:i_endidx,jb,isubs)     = prm_diag%swflxsfc(1:i_endidx,jb) 
-          thbs_t(1:i_endidx,jb,isubs)     = prm_diag%lwflxsfc(1:i_endidx,jb) 
-          pabs_t(1:i_endidx,jb,isubs)     = prm_diag%swflxsfc(1:i_endidx,jb) 
-          landmask_t(1:i_endidx,jb,isubs) = ext_data%atm%fr_land(1:i_endidx,jb)
+          tch_t(1:i_endidx,jb,isubs)       = prm_diag%tch(1:i_endidx,jb)
+          tcm_t(1:i_endidx,jb,isubs)       = prm_diag%tcm(1:i_endidx,jb)
+          tfv_t(1:i_endidx,jb,isubs)       = prm_diag%tfv(1:i_endidx,jb)
+          soiltyp_t(1:i_endidx,jb,isubs)   = ext_data%atm%soiltyp(1:i_endidx,jb) 
+          plcov_t(1:i_endidx,jb,isubs)     = ext_data%atm%plcov_mx(1:i_endidx,jb)
+          rootdp_t(1:i_endidx,jb,isubs)    = ext_data%atm%rootdp(1:i_endidx,jb) 
+          sai_t(1:i_endidx,jb,isubs)       = prm_diag%sai(1:i_endidx,jb)        
+          tai_t(1:i_endidx,jb,isubs)       = prm_diag%tai(1:i_endidx,jb)        
+          eai_t(1:i_endidx,jb,isubs)       = prm_diag%eai(1:i_endidx,jb)        
+          t_2m_t(1:i_endidx,jb,isubs)      = prm_diag%t_2m(1:i_endidx,jb) 
+          u_10m_t(1:i_endidx,jb,isubs)     = prm_diag%u_10m(1:i_endidx,jb)
+          v_10m_t(1:i_endidx,jb,isubs)     = prm_diag%v_10m(1:i_endidx,jb)  
+          sobs_t(1:i_endidx,jb,isubs)      = prm_diag%swflxsfc(1:i_endidx,jb) 
+          thbs_t(1:i_endidx,jb,isubs)      = prm_diag%lwflxsfc(1:i_endidx,jb) 
+          pabs_t(1:i_endidx,jb,isubs)      = prm_diag%swflxsfc(1:i_endidx,jb) 
+          llandmask_t(1:i_endidx,jb,isubs) = ext_data%atm%llsm_atm_c(1:i_endidx,jb)
 
 
           ! copy diagnostic variables
@@ -330,7 +330,7 @@ CONTAINS
         &  sai           = sai_t(:,jb,:)    , & !prm_diag%sai(:,jb)        , & ! ,1,surface area index                           --
         &  tai           = tai_t(:,jb,:)    , & !prm_diag%tai(:,jb)        , & ! ,1, transpiration area index                    --
         &  eai           = eai_t(:,jb,:)    , & !prm_diag%eai(:,jb)        , & ! ,1, earth area (evaporative surface area) index --
-        &  landmask      = landmask_t(:,jb,:) ,& !ext_data%atm%fr_land(:,jb) , & ! ,1, landpoint mask                         --
+        &  llandmask     = llandmask_t(:,jb,:) ,& !ext_data%atm%llsm_atm_c(:,jb) , & ! ,TRUE, landpoint mask                     --
         &  rsmin2d       = ext_data%atm%rsmin(:,jb),  & ! minimum stomata resistance    ( s/m )
            !
         &  u  =  p_diag%u(:,:,jb)             , & ! zonal wind speed                       ( m/s )
@@ -417,7 +417,7 @@ CONTAINS
           lnd_diag%h_snow(1:i_endidx,jb,isubs) = h_snow_t(1:i_endidx,jb,2,isubs)
 
           !DR ATTENTION: only valid, if nsfc_subs=1 !!!!!
-          WHERE (ext_data%atm%fr_land(i_startidx:i_endidx,jb)>0.5_wp)
+          WHERE ( ext_data%atm%llsm_atm_c(i_startidx:i_endidx,jb) )
             lnd_prog_new%t_gt(i_startidx:i_endidx,jb,isubs) = &
               MIN(340._wp,MAX(170._wp,lnd_prog_now%t_gt(i_startidx:i_endidx,jb,isubs)))
             lnd_prog_new%t_g(i_startidx:i_endidx,jb) = &
@@ -431,7 +431,7 @@ CONTAINS
 
 
   
-      ELSE IF (  atm_phy_nwp_config(jg)%inwp_surface == 2 ) THEN
+      ELSE IF ( atm_phy_nwp_config(jg)%inwp_surface == 2 ) THEN
 
           !-------------------------------------------------------------------------
           !> ECHAM version 

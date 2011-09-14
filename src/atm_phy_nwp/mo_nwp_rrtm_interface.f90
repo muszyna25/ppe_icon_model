@@ -401,11 +401,11 @@ CONTAINS
 
           ist = 10
 
-          IF (ext_data%atm%lsm_atm_c(jc,jb)==1 .OR. lnd_prog_now%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
+          IF (ext_data%atm%llsm_atm_c(jc,jb) .OR. lnd_prog_now%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
             ist = ext_data%atm%soiltyp(jc,jb) ! water (ist=9) and sea ice (ist=10) included
           ENDIF
           albvisdif(jc,jb) = csalb(ist)
-          IF ( ext_data%atm%lsm_atm_c(jc,jb)==1) THEN
+          IF ( ext_data%atm%llsm_atm_c(jc,jb) ) THEN
             ! ATTENTION: only valid, if nsfc_subs=1
             albvisdif(jc,jb) = csalb(ist) - rad_csalbw(ist)*lnd_prog_now%w_so(jc,1,jb,1)
           ENDIF  ! lsoil, llandmask
@@ -418,7 +418,7 @@ CONTAINS
           
           ist = 10
 
-          IF (ext_data%atm%lsm_atm_c(jc,jb)==1 .OR. lnd_prog_now%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
+          IF (ext_data%atm%llsm_atm_c(jc,jb) .OR. lnd_prog_now%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
             ist = ext_data%atm%soiltyp(jc,jb) ! water (ist=9) and sea ice (ist=10) included
           ENDIF
           albvisdif(jc,jb) = csalb(ist)
@@ -437,7 +437,8 @@ CONTAINS
 !!          IF ((.NOT. llandmask(i,j)) .AND. (h_ice(i,j,nnow) > 0.0_ireals))               &
 !!            zalso(i,j) = (1.0_wp-0.3846_wp*EXP(-0.35_wp*(tmelt-t_ice(i,j,nnow)))) &
 !!            * csalb(10)
-!          IF (( ext_data%atm%lsm_atm_c(jc,jb)==0) .AND. (prm_diag%h_ice(i,j,nnow) > 0.0_wp)) &
+!          IF (( .NOT. ext_data%atm%llsm_atm_c(jc,jb) ) .AND. &
+!            & (prm_diag%h_ice(i,j,nnow) > 0.0_wp))           &
 !            albvisdif(jc,jb) = (1.0_wp-0.3846_wp*EXP(-0.35_wp*(tmelt-t_ice(i,j,nnow)))) &
 !            * csalb(10)
 !        ENDDO
@@ -468,7 +469,7 @@ CONTAINS
         DO jc = 1,i_endidx
           zvege= 0.0_wp
           zsnow= 0.0_wp
-          IF (ext_data%atm%lsm_atm_c(jc,jb)==1) THEN 
+          IF (ext_data%atm%llsm_atm_c(jc,jb)) THEN 
             ! consider effects of aging on solar snow albedo
             ! ATTENTION: only valid, if nsfc_subs=1            
             zsalb_snow = csalb_snow_min + &
@@ -766,11 +767,11 @@ CONTAINS
 
           ist = 10
 
-          IF (ext_data%atm%lsm_atm_c(jc,jb)==1 .OR. lnd_prog_now%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
+          IF (ext_data%atm%llsm_atm_c(jc,jb) .OR. lnd_prog_now%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
             ist = ext_data%atm%soiltyp(jc,jb) ! water (ist=9) and sea ice (ist=10) included
           ENDIF
           albvisdif(jc,jb) = csalb(ist)
-          IF ( ext_data%atm%lsm_atm_c(jc,jb)==1) THEN
+          IF ( ext_data%atm%llsm_atm_c(jc,jb) ) THEN
             ! ATTENTION: only valid, if nsfc_subs=1
             albvisdif(jc,jb) = csalb(ist) - rad_csalbw(ist)*lnd_prog_now%w_so(jc,1,jb,1)
           ENDIF  ! lsoil, llandmask
@@ -783,7 +784,7 @@ CONTAINS
 
           ist = 10
 
-          IF (ext_data%atm%lsm_atm_c(jc,jb)==1 .OR. lnd_prog_now%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
+          IF (ext_data%atm%llsm_atm_c(jc,jb) .OR. lnd_prog_now%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
             ist = ext_data%atm%soiltyp(jc,jb) ! water (ist=9) and sea ice (ist=10) included
           ENDIF
           albvisdif(jc,jb) = csalb(ist)
@@ -802,7 +803,8 @@ CONTAINS
       !!          IF ((.NOT. llandmask(i,j)) .AND. (h_ice(i,j,nnow) > 0.0_ireals))               &
       !!            zalso(i,j) = (1.0_wp-0.3846_wp*EXP(-0.35_wp*(tmelt-t_ice(i,j,nnow)))) &
       !!            * csalb(10)
-      !          IF (( ext_data%atm%lsm_atm_c(jc,jb)==0) .AND. (prm_diag%h_ice(i,j,nnow) > 0.0_wp)) &
+      !          IF (( .NOT. ext_data%atm%llsm_atm_c(jc,jb) ) .AND. &
+      !            & (prm_diag%h_ice(i,j,nnow) > 0.0_wp))           &
       !            albvisdif(jc,jb) = (1.0_wp-0.3846_wp*EXP(-0.35_wp*(tmelt-t_ice(i,j,nnow)))) &
       !            * csalb(10)
       !        ENDDO
@@ -833,7 +835,7 @@ CONTAINS
         DO jc = 1,i_endidx
           zvege= 0.0_wp
           zsnow= 0.0_wp
-          IF (ext_data%atm%lsm_atm_c(jc,jb)==1) THEN 
+          IF (ext_data%atm%llsm_atm_c(jc,jb)) THEN 
             ! consider effects of aging on solar snow albedo
             ! ATTENTION: only valid, if nsfc_subs=1            
             zsalb_snow = csalb_snow_min + &
