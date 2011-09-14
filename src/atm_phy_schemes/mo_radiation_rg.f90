@@ -1448,7 +1448,7 @@ CONTAINS
 !      INCLUDE "gme_dat_aer.h"
 !      INCLUDE "gme_comconst.h"
 
-!      DATA ZEPOPD /1.E-06_wp/
+      DATA ZEPOPD /1.E-06_wp/
       DATA ZEPSSA /1.E-06_wp/
       DATA j1b/1/
  
