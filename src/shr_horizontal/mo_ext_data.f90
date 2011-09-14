@@ -1897,7 +1897,8 @@ CONTAINS
           CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
             &                i_startidx, i_endidx, rl_start, rl_end)
 
-          DO jc = i_startidx,i_endidx
+          ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
+          DO jc = 1,i_endidx
              IF (ext_data(jg)%atm%fr_land(jc,jb) > 0.5_wp) THEN
                ext_data(jg)%atm%llsm_atm_c(jc,jb) = .TRUE.  ! land point
              ELSE
