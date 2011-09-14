@@ -632,7 +632,7 @@ CONTAINS
         & qm_vap     =prm_diag%tot_cld  (:,:,jb,iqv) ,&!< in  water vapor mass mix ratio at t-dt
         & qm_liq     =prm_diag%tot_cld  (:,:,jb,iqc) ,&!< in cloud water mass mix ratio at t-dt
         & qm_ice     =prm_diag%tot_cld  (:,:,jb,iqi) ,&!< in cloud ice mass mixing ratio at t-dt
-        & qm_o3      =pt_prog_rcf%tracer(2:,:,jb,io3) ,&!< in o3 mass mixing ratio at t-dt
+        & qm_o3      =pt_prog_rcf%tracer(:,:,jb,io3) ,&!< in o3 mass mixing ratio at t-dt
         & cdnc       =prm_diag%acdnc    (:,:,jb)     ,&!< in  cloud droplet numb conc. [1/m**3]
         & cld_frc    =prm_diag%tot_cld  (:,:,jb,icc) ,&!< in  cloud fraction [m2/m2]
         & zaeq1      = zaeq1(:,:,jb)                 ,&!< in aerosol continental

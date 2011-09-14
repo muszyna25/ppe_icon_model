@@ -435,8 +435,29 @@ SUBROUTINE upscale_rad_input(p_patch, p_par_patch, p_par_grf,            &
           tot_cld(iidx(jc,jb,3),jk,iblk(jc,jb,3),1:4)*p_fbkwgt(jc,jb,3) + &
           tot_cld(iidx(jc,jb,4),jk,iblk(jc,jb,4),1:4)*p_fbkwgt(jc,jb,4)
 
+!!$IF (p_tot_cld(jc,jk,jb,4) > 1.0001_wp) THEN
+!!$  PRINT *,jc,jk,jb,'U ',p_tot_cld(jc,jk,jb,4),'S=', &
+!!$            & p_fbkwgt(jc,jb,1)+p_fbkwgt(jc,jb,2)+p_fbkwgt(jc,jb,3)+p_fbkwgt(jc,jb,4)
+!!$  PRINT *,'tot_cld(iidx(jc,jb,1),jk,iblk(jc,jb,1),4)=',tot_cld(iidx(jc,jb,1),jk,iblk(jc,jb,1),4)
+!!$  PRINT *,'tot_cld(iidx(jc,jb,2),jk,iblk(jc,jb,2),4)=',tot_cld(iidx(jc,jb,2),jk,iblk(jc,jb,2),4)
+!!$  PRINT *,'tot_cld(iidx(jc,jb,3),jk,iblk(jc,jb,3),4)=',tot_cld(iidx(jc,jb,3),jk,iblk(jc,jb,3),4)
+!!$  PRINT *,'tot_cld(iidx(jc,jb,4),jk,iblk(jc,jb,4),4)=',tot_cld(iidx(jc,jb,4),jk,iblk(jc,jb,4),4)
+!!$  PRINT *,'p_fbkwgt(jc,jb,1)=',p_fbkwgt(jc,jb,1)
+!!$  PRINT *,'p_fbkwgt(jc,jb,2)=',p_fbkwgt(jc,jb,2)
+!!$  PRINT *,'p_fbkwgt(jc,jb,3)=',p_fbkwgt(jc,jb,3)
+!!$  PRINT *,'p_fbkwgt(jc,jb,4)=',p_fbkwgt(jc,jb,4)
+!!$ENDIF
+
       ENDDO
     ENDDO
+
+!!$    DO jk=1,4
+!!$      DO jc = i_startidx, i_endidx
+!!$        IF (p_fbkwgt(jc,jb,jk) < 0.0_wp ) THEN
+!!$          PRINT *,jc,jb,jk,'p_fbkwgt(jc,jb,1)=',p_fbkwgt(jc,jb,1)
+!!$        ENDIF
+!!$      ENDDO
+!!$    ENDDO
 
   ENDDO
 !$OMP END DO
