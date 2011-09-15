@@ -130,7 +130,7 @@ MODULE mo_io_vlist
   USE mo_run_config,            ONLY: num_lev, num_levp1, iforcing, lforcing,     &
     &                                 ntracer, ltransport, nsteps, dtime,         &
     &                                 ldynamics, ltestcase, lvert_nest, msg_level,&
-    &                                 iqv, iqc, iqi, iqcond
+    &                                 iqv, iqc, iqi, iqcond, ntracer_static, io3
   USE mo_grid_config,           ONLY: global_cell_type
   USE mo_echam_phy_config
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
@@ -806,7 +806,7 @@ CONTAINS
           END IF
         END DO
         IF (iforcing == inwp)THEN
-        DO jt = 1, 3
+         DO jt = 1, 3
           IF (lwrite_tracer(jt)) THEN
             ctracer = ctracer_list(jt:jt)
             WRITE(name,'(A2,A1)') "TQ", ctracer
@@ -823,8 +823,17 @@ CONTAINS
             &           k_jg)
             
           END IF !lwrite_tracer(jt)
-        END DO
+         END DO
+         IF (irad_o3 == 4 .OR. irad_o3 ==6 ) THEN                  !output for O3
+                        CALL addVar(TimeVar('O3','O3',&
+            &                   'kg/kg',999,999,&
+            &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
+            &           k_jg)  
+        
+         END IF
         ENDIF !iforcing == inwp
+
+
 
       END IF
 
@@ -2553,6 +2562,12 @@ CONTAINS
 !        ENDIF
       ENDDO
 
+      IF (irad_o3 == 4 .OR. irad_o3 == 6) THEN
+        IF(varname == 'O3') THEN
+          ptr3 => p_prog%tracer(:,:,:,io3)
+          RETURN
+        ENDIF
+      END IF
 
       DO jt = 1, inextra_2d ! 2d debug variables
         WRITE(anextra,'(I1)') jt

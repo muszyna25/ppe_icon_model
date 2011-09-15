@@ -841,7 +841,7 @@ MODULE mo_nonhydro_state
                     & t_grib2_var(0, 1, 25, ientr, GRID_REFERENCE, GRID_CELL), &
                     & ldims=shape3d_c)
 
-        IF(irad_o3 == 3) THEN
+        IF(irad_o3 == 4 .OR. irad_o3 == 6) THEN
            !O3
           CALL add_ref( p_prog_list, 'tracer',                         &
             & TRIM(vname_prefix)//'O3', p_prog%tracer_ptr(io3)%p_3d,   &

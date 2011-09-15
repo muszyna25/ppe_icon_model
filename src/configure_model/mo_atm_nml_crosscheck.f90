@@ -349,7 +349,7 @@ CONTAINS
         IF (  atm_phy_nwp_config(jg)%inwp_radiation > 0 )  THEN
 
           SELECT CASE (irad_o3)
-          CASE (0,3,6) ! ok
+          CASE (0,4,6) ! ok
           CASE default
 !            CALL finish(TRIM(routine),'irad_o3 currently has to be 0 or 6.')
           END SELECT
@@ -484,7 +484,7 @@ CONTAINS
                 &  advection_config(jg)%ctracer_list(1:ntracer)
               CALL message(TRIM(routine),message_text)
             ENDIF
-          CASE (6)
+          CASE (6,4)
             ntracer_static = 1
             IF ( ntracer /= iqcond  ) THEN
               ntracer = iqcond
