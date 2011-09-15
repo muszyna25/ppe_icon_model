@@ -235,7 +235,7 @@ ENDIF ! not MPI-parallel
 
 !$OMP END PARALLEL
 
-IF (my_process_is_mpi_seq()) THEN
+IF (my_process_is_mpi_parallel()) THEN
 
   nsendtot = SUM(ptr_pc%comm_pat_interpol_vec_ubc(1:4)%n_send)
   nrecvtot = SUM(ptr_pc%comm_pat_interpol_vec_ubc(1:4)%n_recv)
