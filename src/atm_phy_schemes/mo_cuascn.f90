@@ -242,78 +242,75 @@ CONTAINS
     USE mo_cufunctions , ONLY: foealfcu
   
 
-INTEGER(KIND=jpim),INTENT(in)    :: klon
-INTEGER(KIND=jpim),INTENT(in)    :: klev
-INTEGER(KIND=jpim),INTENT(in)    :: kidia
-INTEGER(KIND=jpim),INTENT(in)    :: kfdia
+INTEGER(KIND=jpim),INTENT(in)    :: klon 
+INTEGER(KIND=jpim),INTENT(in)    :: klev 
+INTEGER(KIND=jpim),INTENT(in)    :: kidia 
+INTEGER(KIND=jpim),INTENT(in)    :: kfdia 
 INTEGER(KIND=jpim),INTENT(in)    :: ktdia
-REAL(KIND=jprb)   ,INTENT(in)    :: ptsphy
+REAL(KIND=jprb)   ,INTENT(in)    :: ptsphy 
 !KF
 REAL(KIND=jprb)   ,INTENT(in), OPTIONAL:: paer_ss(klon)
 !KF
-REAL(KIND=jprb)   ,INTENT(inout) :: ptenh(klon,klev)
-REAL(KIND=jprb)   ,INTENT(inout) :: pqenh(klon,klev)
-REAL(KIND=jprb)   ,INTENT(in)    :: pten(klon,klev)
-REAL(KIND=jprb)   ,INTENT(in)    :: pqen(klon,klev)
-REAL(KIND=jprb)   ,INTENT(in)    :: pqsen(klon,klev)
+REAL(KIND=jprb)   ,INTENT(inout) :: ptenh(klon,klev) 
+REAL(KIND=jprb)   ,INTENT(inout) :: pqenh(klon,klev) 
+REAL(KIND=jprb)   ,INTENT(in)    :: pten(klon,klev) 
+REAL(KIND=jprb)   ,INTENT(in)    :: pqen(klon,klev) 
+REAL(KIND=jprb)   ,INTENT(in)    :: pqsen(klon,klev) 
 REAL(KIND=jprb)   ,INTENT(in)    :: plitot(klon,klev)
 REAL(KIND=jprb)   ,INTENT(in)    :: pgeo(klon,klev)
-REAL(KIND=jprb)   ,INTENT(in)    :: pgeoh(klon,klev+1)
-REAL(KIND=jprb)   ,INTENT(in)    :: zdgeoh(klon,klev)
-REAL(KIND=jprb)   ,INTENT(in)    :: pap(klon,klev)
-REAL(KIND=jprb)   ,INTENT(in)    :: paph(klon,klev+1)
-REAL(KIND=jprb)   ,INTENT(in)    :: zdph(klon,klev)
-REAL(KIND=jprb)   ,INTENT(in)    :: ptenq(klon,klev)
-REAL(KIND=jprb)   ,INTENT(in)    :: pvervel(klon,klev)
-REAL(KIND=jprb)   ,INTENT(in)    :: pwubase(klon)
-LOGICAL           ,INTENT(in)    :: ldland(klon)
-LOGICAL           ,INTENT(inout) :: ldcum(klon)
-INTEGER(KIND=jpim),INTENT(inout) :: ktype(klon)
-INTEGER(KIND=jpim),INTENT(inout) :: klab(klon,klev)
-REAL(KIND=jprb)   ,INTENT(inout) :: ptu(klon,klev)
-REAL(KIND=jprb)   ,INTENT(inout) :: pqu(klon,klev)
-REAL(KIND=jprb)   ,INTENT(inout) :: plu(klon,klev)
-REAL(KIND=jprb)   ,INTENT(inout) :: pmfu(klon,klev)
-REAL(KIND=jprb)   ,INTENT(inout) :: pmfub(klon)
-REAL(KIND=jprb)   ,INTENT(inout) :: pentr(klon)
-REAL(KIND=jprb)   ,INTENT(out)   :: plglac(klon,klev)
-REAL(KIND=jprb)   ,INTENT(out)   :: pmfus(klon,klev)
-REAL(KIND=jprb)   ,INTENT(out)   :: pmfuq(klon,klev)
-REAL(KIND=jprb)   ,INTENT(out)   :: pmful(klon,klev)
-REAL(KIND=jprb)   ,INTENT(out)   :: plude(klon,klev)
-REAL(KIND=jprb)   ,INTENT(out)   :: pdmfup(klon,klev)
-REAL(KIND=jprb)   ,INTENT(out)   :: pdmfen(klon,klev)
-INTEGER(KIND=jpim),INTENT(inout) :: kcbot(klon)
-INTEGER(KIND=jpim),INTENT(out)   :: kctop(klon)
-INTEGER(KIND=jpim),INTENT(inout) :: kctop0(klon)
-INTEGER(KIND=jpim),INTENT(in)    :: kdpl(klon)
-REAL(KIND=jprb)   ,INTENT(out)   :: pmfude_rate(klon,klev)
-REAL(KIND=jprb)   ,INTENT(out)   :: pkineu(klon,klev)
-REAL(KIND=jprb)   ,INTENT(out)   :: pwmean(klon)
+REAL(KIND=jprb)   ,INTENT(in)    :: pgeoh(klon,klev+1) 
+REAL(KIND=jprb)   ,INTENT(in)    :: zdgeoh(klon,klev) 
+REAL(KIND=jprb)   ,INTENT(in)    :: pap(klon,klev) 
+REAL(KIND=jprb)   ,INTENT(in)    :: paph(klon,klev+1) 
+REAL(KIND=jprb)   ,INTENT(in)    :: zdph(klon,klev) 
+REAL(KIND=jprb)   ,INTENT(in)    :: ptenq(klon,klev) 
+REAL(KIND=jprb)   ,INTENT(in)    :: pvervel(klon,klev) 
+REAL(KIND=jprb)   ,INTENT(in)    :: pwubase(klon) 
+LOGICAL           ,INTENT(in)    :: ldland(klon) 
+LOGICAL           ,INTENT(inout) :: ldcum(klon) 
+INTEGER(KIND=jpim),INTENT(inout) :: ktype(klon) 
+INTEGER(KIND=jpim),INTENT(inout) :: klab(klon,klev) 
+REAL(KIND=jprb)   ,INTENT(inout) :: ptu(klon,klev) 
+REAL(KIND=jprb)   ,INTENT(inout) :: pqu(klon,klev) 
+REAL(KIND=jprb)   ,INTENT(inout) :: plu(klon,klev) 
+REAL(KIND=jprb)   ,INTENT(inout) :: pmfu(klon,klev) 
+REAL(KIND=jprb)   ,INTENT(inout) :: pmfub(klon) 
+REAL(KIND=jprb)   ,INTENT(inout) :: pentr(klon) 
+REAL(KIND=jprb)   ,INTENT(out)   :: plglac(klon,klev) 
+REAL(KIND=jprb)   ,INTENT(out)   :: pmfus(klon,klev) 
+REAL(KIND=jprb)   ,INTENT(out)   :: pmfuq(klon,klev) 
+REAL(KIND=jprb)   ,INTENT(out)   :: pmful(klon,klev) 
+REAL(KIND=jprb)   ,INTENT(out)   :: plude(klon,klev) 
+REAL(KIND=jprb)   ,INTENT(out)   :: pdmfup(klon,klev) 
+REAL(KIND=jprb)   ,INTENT(out)   :: pdmfen(klon,klev) 
+INTEGER(KIND=jpim),INTENT(inout) :: kcbot(klon) 
+INTEGER(KIND=jpim),INTENT(out)   :: kctop(klon) 
+INTEGER(KIND=jpim),INTENT(inout) :: kctop0(klon) 
+INTEGER(KIND=jpim),INTENT(in)    :: kdpl(klon) 
+REAL(KIND=jprb)   ,INTENT(out)   :: pmfude_rate(klon,klev) 
+REAL(KIND=jprb)   ,INTENT(out)   :: pkineu(klon,klev) 
+REAL(KIND=jprb)   ,INTENT(out)   :: pwmean(klon) 
 
 REAL(KIND=jprb) ::     zdmfen(klon),           zdmfde(klon),&
- & zqold(klon),&
- & zlrain(klon,klev),&
- & zbuo(klon,klev),        zluold(klon),&
- & zprecip(klon)
-REAL(KIND=jprb) ::     zdpmean(klon) , zbc(klon)
-REAL(KIND=jprb) ::     zoentr(klon), zph(klon),zpbase(klon)
-
-REAL(KIND=jprb) ::      zcrit(klon), zdrain(klon)
-
+ & zqold(klon),        zlrain(klon,klev),&
+ & zbuo(klon,klev),    zluold(klon),&
+ & zprecip(klon)  
+REAL(KIND=jprb) ::     zdpmean(klon)
+REAL(KIND=jprb) ::     zoentr(klon), zph(klon), zpbase(klon)
+REAL(KIND=jprb) ::     zcrit(klon), zdrain(klon)
 LOGICAL ::  llflag(klon), llflaguv(klon), llo1(klon), llo3, llo4
 
 INTEGER(KIND=jpim) :: icall, ik, is, jk, jl, ikb
 INTEGER(KIND=jpim) :: jll, jlm, jlx(klon)
 
 REAL(KIND=jprb) :: z_cldmax, z_cprc2, z_cwdrag, z_cwifrac, zalfaw,&
- & zbe, zbuoc, zc, zcbf, zcons2, zd, zdfi, &
+ & zbc(klon), zbe, zbuoc, zc, zcbf, zcons2, zd, zdfi, &
  & zdkbuo, zdken, zdnoprc, &
  & zdt, zfac, zfacbuo, zint, zkedke, zlcrit, &
  & zleen, zlnew, zmfmax, zmftest, zmfulk, zmfun, &
  & zmfuqk, zmfusk, zoealfa, zoealfap, zprcdgw, &
  & zprcon, zqeen, zqude, zrnew, zrold, zscde, &
- & zseen, ztglace, zvi, zvv, zvw, zwu, zzco
+ & zseen, ztglace, zvi, zvv, zvw, zwu, zzco  
 
 REAL(KIND=jprb) ::  zchange,zxs,zxe
 REAL(KIND=jprb) :: zhook_handle
@@ -324,7 +321,7 @@ REAL(KIND=jprb) :: zhook_handle
     REAL(KIND=jprb) :: zrhosfc
     !REAL(KIND=jprb) :: zrcorr
 
-LOGICAL llklab(klon)
+LOGICAL :: llklab(klon)
 
 !#include "cuadjtq.intfb.h"
 !#include "cubasmcn.intfb.h"
@@ -380,7 +377,7 @@ ENDDO
 
 DO jk=ktdia,klev
   DO jl=kidia,kfdia
-    IF (jk /= kcbot(jl)) THEN
+    IF (jk /= kcbot(jl)) THEN 
       plu(jl,jk)=0.0_JPRB
     ENDIF
     pkineu(jl,jk)=0.0_JPRB
@@ -411,43 +408,43 @@ DO jl=kidia,kfdia
   IF(ktype(jl) == 3) ldcum(jl)=.FALSE.
 ENDDO
 
+!----------------------------------------------------------------------
 
-IF(PRESENT (paer_ss)) THEN
-   
-      !!KF
-      !> define the seasonal dependend seasalt threshold instead of land/seamask
-      !!  derived from the annual mean
-      !!  aer_ss_c = seasalt_global and annMean*0.4
-      !!  aer_ss_m = seasalt_annMean*1.1
-
-      aer_ss_gm = 0.0066384_JPRB
-      aer_ss_c  = aer_ss_gm*0.4_JPRB
-      aer_ss_m  = aer_ss_gm*1.1_JPRB
-
-      DO jl=kidia,kfdia
-        ! to be used as a weight
-        !!
-        zcrit(jl) =(paer_ss(jl)-aer_ss_c)/(aer_ss_m - aer_ss_c)
-        zcrit(jl) = MAX(zcrit(jl),0._jprb)
-        zcrit(jl) = MIN(zcrit(jl),1._jprb)
-        !ZDRAIN(JL) = 8.e-4_JPRB - 4.e-4_JPRB*zcrit(jl) ! for PLU
-        zdrain(JL) = 2.8e4_JPRB - 1.4e4_JPRB*zcrit(jl)  ! for land
-
-        !KF
-      ENDDO
-    ELSEIF (.NOT. PRESENT (paer_ss)) THEN
-      DO jl=kidia,kfdia
-        IF(ldland(jl)) THEN
-          zdrain(jl)=3.0E4_JPRB
-        ELSE
-          zdrain(jl)=1.5E4_JPRB
-        ENDIF
-      ENDDO
-    ENDIF !present aerosol
-
-    !KF needed for density correction
-    zrhosfc  = 1.225e0_JPRB !reference density
-    !----------------------------------------------------------------------
+!IF(PRESENT (paer_ss)) THEN
+!   
+!      !!KF
+!      !> define the seasonal dependend seasalt threshold instead of land/seamask
+!      !!  derived from the annual mean
+!      !!  aer_ss_c = seasalt_global and annMean*0.4
+!      !!  aer_ss_m = seasalt_annMean*1.1
+!
+!      aer_ss_gm = 0.0066384_JPRB
+!      aer_ss_c  = aer_ss_gm*0.4_JPRB
+!      aer_ss_m  = aer_ss_gm*1.1_JPRB
+!
+!      DO jl=kidia,kfdia
+!        ! to be used as a weight
+!        !!
+!        zcrit(jl) =(paer_ss(jl)-aer_ss_c)/(aer_ss_m - aer_ss_c)
+!        zcrit(jl) = MAX(zcrit(jl),0._jprb)
+!        zcrit(jl) = MIN(zcrit(jl),1._jprb)
+!        !ZDRAIN(JL) = 8.e-4_JPRB - 4.e-4_JPRB*zcrit(jl) ! for PLU
+!        zdrain(JL) = 2.8e4_JPRB - 1.4e4_JPRB*zcrit(jl)  ! for land
+!
+!        !KF
+!      ENDDO
+!ELSEIF (.NOT. PRESENT (paer_ss)) THEN
+!      DO jl=kidia,kfdia
+!        IF(ldland(jl)) THEN
+!          zdrain(jl)=3.0E4_JPRB
+!        ELSE
+!          zdrain(jl)=1.5E4_JPRB
+!        ENDIF
+!      ENDDO
+!ENDIF !present aerosol
+!
+! !KF needed for density correction
+!zrhosfc  = 1.225e0_JPRB !reference density
 
 !----------------------------------------------------------------------
 
@@ -482,13 +479,13 @@ DO jk=klev-1,ktdia+2,-1
 
   ik=jk
   CALL cubasmcn &
-   & ( kidia,    kfdia,    klon,   klev,&
+   & ( kidia,    kfdia,    klon,    klev,&
    & ik,&
    & pten,     pqen,     pqsen,&
    & pvervel,  pgeo,     pgeoh,    ldcum,    ktype,    klab,&
    & kcbot,    pmfu,     pmfub,    pentr,    zlrain,&
    & ptu,      pqu,      plu,&
-   & pmfus,    pmfuq,    pmful,    pdmfup)
+   & pmfus,    pmfuq,    pmful,    pdmfup)  
 
   is=0
   jlm=0
@@ -499,7 +496,7 @@ DO jk=klev-1,ktdia+2,-1
     is=is+klab(jl,jk+1)
     IF(klab(jl,jk+1) == 0) klab(jl,jk)=0
     IF((ldcum(jl).AND.klab(jl,jk+1) == 2).OR.&
-       & (ktype(jl) == 3 .AND. klab(jl,jk+1) == 1)) THEN
+       & (ktype(jl) == 3 .AND. klab(jl,jk+1) == 1)) THEN  
       llflag(jl)=.TRUE.
       jlm=jlm+1
       jlx(jlm)=jl
@@ -511,11 +508,10 @@ DO jk=klev-1,ktdia+2,-1
     ENDIF
     zph(jl)=paph(jl,jk)
     IF(ktype(jl) == 3.AND.jk == kcbot(jl)) THEN
-       zmfmax=(paph(jl,jk)-paph(jl,jk-1))*zcons2*rmflic+rmflia
-      ! zmfmax= zdph(jl,jk-1)*zcons2*rmflic+rmflia
-          !<KF
-       IF(pmfub(jl) > zmfmax) THEN
-        
+      zmfmax=(paph(jl,jk)-paph(jl,jk-1))*zcons2*rmflic+rmflia
+    ! zmfmax= zdph(jl,jk-1)*zcons2*rmflic+rmflia
+    !<KF
+      IF(pmfub(jl) > zmfmax) THEN
         zfac=zmfmax/pmfub(jl)
         pmfu(jl,jk+1)=pmfu(jl,jk+1)*zfac
         pmfus(jl,jk+1)=pmfus(jl,jk+1)*zfac
@@ -523,10 +519,9 @@ DO jk=klev-1,ktdia+2,-1
         pmfub(jl)=zmfmax
       ENDIF
     ENDIF
+  ENDDO
 
- ENDDO
-
- IF(is > 0) llo3=.TRUE.
+  IF(is > 0) llo3=.TRUE.
 
 !>                  SPECIFY ENTRAINMENT RATES IN *CUENTR*
 !!                   -------------------------------------
@@ -540,7 +535,6 @@ DO jk=klev-1,ktdia+2,-1
    & pmfu,     pentr,&
    &  zpbase, zdmfen,   zdmfde )
 
-
 !>                  DO ADIABATIC ASCENT FOR ENTRAINING/DETRAINING PLUME
 !!                  ---------------------------------------------------
 
@@ -551,18 +545,18 @@ DO jk=klev-1,ktdia+2,-1
       zqold(jl)=0.0_JPRB
     ENDDO
 !CDIR NODEP,VOVERTAKE,VOB
-    DO jll=1,jlm
+    DO jll=1,jlm  
         jl=jlx(jll)
         zdmfde(jl)=MIN(zdmfde(jl),0.75_JPRB*pmfu(jl,jk+1))
         IF(jk==kcbot(jl)-1) THEN
           zoentr(jl)=-entrorg*(MIN(1.0_JPRB,pqen(jl,jk)/pqsen(jl,jk))-1.0_JPRB)*&
           &(pgeoh(jl,jk)-pgeoh(jl,jk+1))
-           !& zdgeoh(jl,jk+1)
+         !& zdgeoh(jl,jk+1)
           zoentr(jl)=MIN(0.4_JPRB,zoentr(jl))*pmfu(jl,jk+1)
         ENDIF
         IF(jk < kcbot(jl)) THEN
           zmfmax=(paph(jl,jk)-paph(jl,jk-1))*zcons2*rmflic+rmflia
-         ! zmfmax= zdph(jl,jk-1)*zcons2*rmflic+rmflia
+        ! zmfmax= zdph(jl,jk-1)*zcons2*rmflic+rmflia
           IF(ktype(jl)==2.AND.llo4) zmfmax=zmfmax*3._jprb
           zxs=MAX(pmfu(jl,jk+1)-zmfmax,0.0_JPRB)
           pwmean(jl)=pwmean(jl)+pkineu(jl,jk+1)*(pap(jl,jk+1)-pap(jl,jk))
@@ -629,9 +623,8 @@ DO jk=klev-1,ktdia+2,-1
     icall=1
     IF(jlm > 0) THEN
       CALL cuadjtq &
-       & ( kidia,    kfdia,    klon,    klev,&
-       & ik,&
-       & zph,      ptu,      pqu,      llflag,  icall )
+       & ( kidia,    kfdia,    klon,     klev,    ik,&
+       &   zph,      ptu,      pqu,      llflag,  icall )  
     ENDIF
 
     IF (lphylin) THEN
@@ -639,7 +632,7 @@ DO jk=klev-1,ktdia+2,-1
 !DIR$ IVDEP
 !OCL NOVREC
 !CDIR NODEP,VOVERTAKE,VOB
-      DO jll=1,jlm
+      DO jll=1,jlm  
         jl=jlx(jll)
         IF(pqu(jl,jk) /= zqold(jl)) THEN
           zoealfa   = 0.545_JPRB*(TANH(0.17_JPRB*(ptu(jl,jk  )-rlptrc))+1.0_JPRB)
@@ -654,11 +647,11 @@ DO jk=klev-1,ktdia+2,-1
 !DIR$ IVDEP
 !OCL NOVREC
 !CDIR NODEP,VOVERTAKE,VOB
-      DO jll=1,jlm
+      DO jll=1,jlm  
         jl=jlx(jll)
         IF(pqu(jl,jk) /= zqold(jl)) THEN
           plglac(jl,jk)=plu(jl,jk)*((1.0_JPRB-foealfcu(ptu(jl,jk)))-&
-           & (1.0_JPRB-foealfcu(ptu(jl,jk+1))))
+           & (1.0_JPRB-foealfcu(ptu(jl,jk+1))))  
           ptu(jl,jk)=ptu(jl,jk)+ralfdcp*plglac(jl,jk)
         ENDIF
       ENDDO
@@ -666,7 +659,7 @@ DO jk=klev-1,ktdia+2,-1
     ENDIF
 
 !CDIR NODEP,VOVERTAKE,VOB
-    DO jll=1,jlm
+    DO jll=1,jlm  
       jl=jlx(jll)
       IF(pqu(jl,jk) /= zqold(jl)) THEN
         klab(jl,jk)=2
@@ -688,8 +681,8 @@ DO jk=klev-1,ktdia+2,-1
             plude(jl,jk)=0.0_JPRB
             plu(jl,jk)=0.0_JPRB
           ENDIF
-       ENDIF
-       
+        ENDIF
+
         IF(klab(jl,jk+1) == 2) THEN
 
           IF(zbuo(jl,jk) < 0.0_JPRB )THEN !.AND.klab(jl,jk+1) == 2) THEN
@@ -699,7 +692,7 @@ DO jk=klev-1,ktdia+2,-1
           ENDIF
           zbuoc=(zbuo(jl,jk)/(ptenh(jl,jk)*(1.0_JPRB+retv*pqenh(jl,jk)))&
            & +zbuo(jl,jk+1)/(ptenh(jl,jk+1)*(1.0_JPRB+retv*&
-           & pqenh(jl,jk+1))))*0.5_JPRB
+           & pqenh(jl,jk+1))))*0.5_JPRB  
           zdkbuo=(pgeoh(jl,jk)-pgeoh(jl,jk+1))*zfacbuo*zbuoc
 
 !> either use entrainment rate or if zero
@@ -709,12 +702,12 @@ DO jk=klev-1,ktdia+2,-1
 
           IF(zdmfen(jl) > 0.0_JPRB)THEN
             zdken=MIN(1.0_JPRB,(1.0_JPRB + rg*z_cwdrag)*&
-             & zdmfen(jl)/MAX(rmfcmin,pmfu(jl,jk+1)))
+             & zdmfen(jl)/MAX(rmfcmin,pmfu(jl,jk+1)))  
           ELSE
             zdken=MIN(1.0_JPRB,(1.0_JPRB + rg*z_cwdrag)*&
-             & zdmfde(jl)/MAX(rmfcmin,pmfu(jl,jk+1)))
+             & zdmfde(jl)/MAX(rmfcmin,pmfu(jl,jk+1)))  
           ENDIF
-
+          
           pkineu(jl,jk)=(pkineu(jl,jk+1)*(1.0_JPRB-zdken)+zdkbuo)/(1.0_JPRB+zdken)
           IF(zbuo(jl,jk) < 0.0_JPRB ) THEN ! .AND.klab(jl,jk+1) == 2) THEN
             zkedke=pkineu(jl,jk)/MAX(1.e-10_JPRB,pkineu(jl,jk+1))
@@ -749,24 +742,24 @@ DO jk=klev-1,ktdia+2,-1
             zdmfde(jl)=pmfu(jl,jk+1)
             plude(jl,jk)=plu(jl,jk+1)*zdmfde(jl)
           ENDIF
-
+          
 !> store detrainment rates for updraught
 
           IF ( pmfu(jl,jk+1) > 0.0_JPRB ) THEN
             pmfude_rate(jl,jk)=zdmfde(jl)
           ENDIF
+          
+        ENDIF ! klab=2
+      ENDIF ! zqold
 
-       ENDIF ! klab=2
-       ENDIF ! zqold /=0
-!     ELSEIF(LLFLAG(JL).AND.KTYPE(JL)==2.AND.PQU(JL,JK) == ZQOLD(JL)) THEN
-
-       ENDDO !jll
+    ENDDO !jll
 
 !CDIR NODEP,VOVERTAKE,VOB
-        DO jll=1,jlm
-          jl=jlx(jll)
-          IF(ktype(jl)==2.AND.pqu(jl,jk) == zqold(jl)) THEN
-!      ELSEIF(ktype(jl)==2.AND.pqu(jl,jk) == zqold(jl)) THEN
+    DO jll=1,jlm
+      jl=jlx(jll)
+!     ELSEIF(LLFLAG(JL).AND.KTYPE(JL)==2.AND.PQU(JL,JK) == ZQOLD(JL)) THEN
+!     ELSEIF(ktype(jl)==2.AND.pqu(jl,jk) == zqold(jl)) THEN
+      IF(ktype(jl)==2.AND.pqu(jl,jk) == zqold(jl)) THEN
         klab(jl,jk)=0
         pmfu(jl,jk)=0.0_JPRB
         pkineu(jl,jk)=0.0_JPRB
@@ -774,59 +767,57 @@ DO jk=klev-1,ktdia+2,-1
         plude(jl,jk)=plu(jl,jk+1)*zdmfde(jl)
         pmfude_rate(jl,jk)=zdmfde(jl)
 
-     ENDIF
-  ENDDO
+      ENDIF
+    ENDDO
 
 !!              CALCULATE PRECIPITATION RATE BY
 !!              ANALYTIC INTEGRATION OF EQUATION FOR L
 
     DO jl=kidia,kfdia
       IF(llo1(jl)) THEN
-        !PB
         IF(ldland(jl)) THEN
           zdnoprc=5.e-4_JPRB
         ELSE
           zdnoprc=3.e-4_JPRB
         ENDIF
-        !PB
         IF(plu(jl,jk) > zdnoprc) THEN
 
-        !!
         !> KF combine two conditions
         !!  RECOMMENDED!! apply the aerosol condition to clouddepth
+        !
+        ! zdnoprc = zdrain(jl)
+        !  
+        ! IF((plu(jl,jk)) > 2.e-4_jprb .AND. (zpbase(jl)-paph(jl,jk)) > zdnoprc ) THEN
+        !KF
 
-         ! zdnoprc = zdrain(jl)
-          
-         ! IF((plu(jl,jk)) > 2.e-4_jprb .AND. (zpbase(jl)-paph(jl,jk)) > zdnoprc ) THEN
-            !KF
-            zwu=MIN(15._jprb,SQRT(2.0_JPRB*MAX(0.1_JPRB,pkineu(jl,jk+1))))
-            zprcon=zprcdgw/(0.75_JPRB*zwu)
+          zwu=MIN(15._jprb,SQRT(2.0_JPRB*MAX(0.1_JPRB,pkineu(jl,jk+1))))
+          zprcon=zprcdgw/(0.75_JPRB*zwu)
 
 !>           PARAMETERS FOR BERGERON-FINDEISEN PROCESS (T < -5C)
 
-            zdt=MIN(rtbercu-rticecu,MAX(rtber-ptu(jl,jk),0.0_JPRB))
-            zcbf=1.0_JPRB+z_cprc2*SQRT(zdt)
-            zzco=zprcon*zcbf
-            zlcrit=zdnoprc/zcbf
+          zdt=MIN(rtbercu-rticecu,MAX(rtber-ptu(jl,jk),0.0_JPRB))
+          zcbf=1.0_JPRB+z_cprc2*SQRT(zdt)
+          zzco=zprcon*zcbf
+          zlcrit=zdnoprc/zcbf
 
-            zdfi=pgeoh(jl,jk)-pgeoh(jl,jk+1)
-            !>KF
-            !zdfi=zdgeoh(jl,jk+1)
-            zc=(plu(jl,jk)-zluold(jl))
-            zd=zzco*(1.0_JPRB-EXP(-(plu(jl,jk)/zlcrit)**2))*zdfi
-            zint=EXP(-zd)
-            zlnew=zluold(jl)*zint+zc/zd*(1.0_JPRB-zint)
-            zlnew=MAX(0.0_JPRB,MIN(plu(jl,jk),zlnew))
-            zlnew=MIN(z_cldmax,zlnew)
-            zprecip(jl)=MAX(0.0_JPRB,zluold(jl)+zc-zlnew)
-            pdmfup(jl,jk)=zprecip(jl)*pmfu(jl,jk)
-            zlrain(jl,jk)=zlrain(jl,jk)+zprecip(jl)
-            plu(jl,jk)=zlnew
-          ENDIF
+          zdfi=pgeoh(jl,jk)-pgeoh(jl,jk+1)
+          !>KF
+          !zdfi=zdgeoh(jl,jk+1)
+          zc=(plu(jl,jk)-zluold(jl))
+          zd=zzco*(1.0_JPRB-EXP(-(plu(jl,jk)/zlcrit)**2))*zdfi
+          zint=EXP(-zd)
+          zlnew=zluold(jl)*zint+zc/zd*(1.0_JPRB-zint)
+          zlnew=MAX(0.0_JPRB,MIN(plu(jl,jk),zlnew))
+          zlnew=MIN(z_cldmax,zlnew)
+          zprecip(jl)=MAX(0.0_JPRB,zluold(jl)+zc-zlnew)
+          pdmfup(jl,jk)=zprecip(jl)*pmfu(jl,jk)
+          zlrain(jl,jk)=zlrain(jl,jk)+zprecip(jl)
+          plu(jl,jk)=zlnew
+        ENDIF
       ENDIF
-   ENDDO
+    ENDDO
 
-   IF (lphylin) THEN
+    IF (lphylin) THEN
 
       DO jl=kidia,kfdia
         IF(llo1(jl)) THEN
@@ -852,14 +843,14 @@ DO jk=klev-1,ktdia+2,-1
       DO jl=kidia,kfdia
         IF(llo1(jl)) THEN
           IF(zlrain(jl,jk) > 0.0_JPRB) THEN
-             !KF density correction
-             !            ZRCORR = SQRT(ZRHOsfc/RHO_Atm(jl,jk))
+           !KF density correction
+           !            ZRCORR = SQRT(ZRHOsfc/RHO_Atm(jl,jk))
             zvw=21.18_JPRB*zlrain(jl,jk)**0.2_JPRB
             zvi=z_cwifrac*zvw
             zalfaw=foealfcu(ptu(jl,jk))
-            !KF density correction
-            !ZVV=(ZALFAW*ZVW+(1.0_JPRB-ZALFAW)*ZVI)*ZRCORR
-            !orig
+           !KF density correction
+           !ZVV=(ZALFAW*ZVW+(1.0_JPRB-ZALFAW)*ZVI)*ZRCORR
+           !orig
             zvv=zalfaw*zvw+(1.0_JPRB-zalfaw)*zvi
             zrold=zlrain(jl,jk)-zprecip(jl)
             zc=zprecip(jl)
@@ -875,7 +866,7 @@ DO jk=klev-1,ktdia+2,-1
 
     ENDIF
 !CDIR NODEP,VOVERTAKE,VOB
-    DO jll=1,jlm
+    DO jll=1,jlm  
       jl=jlx(jll)
       pmful(jl,jk)=plu(jl,jk)*pmfu(jl,jk)
       pmfus(jl,jk)=(rcpd*ptu(jl,jk)+pgeoh(jl,jk))*pmfu(jl,jk)
