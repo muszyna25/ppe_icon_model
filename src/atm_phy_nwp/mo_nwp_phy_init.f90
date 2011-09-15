@@ -414,6 +414,24 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
     ENDDO
 
   ENDIF
+
+  !----------------------------------------------------------------
+  !< initializations needed both for convection and inwp_cldcover=1 
+  !----------------------------------------------------------------
+
+  IF ( atm_phy_nwp_config(jg)%inwp_convection == 1 .OR. &
+    &  atm_phy_nwp_config(jg)%inwp_cldcover == 1 ) THEN
+    
+    !This has to be done here because not only convection, but also inwp_cldcover == 1 
+    !uses mo_cufunctions's foealfa. Therefore, the parameters of the function foealfa
+    !have to be initialized by calls of sucst and su_yoethf.
+    
+    CALL sucst(54,20020211,0,0)
+    CALL su_yoethf
+
+  ENDIF
+
+    
   !------------------------------------------
   !< call for convection
   !------------------------------------------
@@ -429,8 +447,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
 
 !        WRITE(message_text,'(i3,i10,f20.10)') jg,nsmax,mean_charlen
 !       CALL message('nwp_phy_init, nsmax=', TRIM(message_text))
-        CALL sucst(54,20020211,0,0)
-        CALL su_yoethf
+
         CALL sucumf(nsmax,nlevp1,pref)
         CALL suphli
         CALL suvdf
