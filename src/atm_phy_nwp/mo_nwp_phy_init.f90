@@ -409,6 +409,43 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
 
     ENDIF
 
+    !------------------------------------------
+    ! APE ozone profile, vertical setting needed only once for NH
+    !------------------------------------------
+    IF (irad_o3 == io3_ape) THEN
+
+      rl_start = 1  ! Initialization should be done for all points
+      rl_end   = min_rlcell
+
+      i_startblk = p_patch%cells%start_blk(rl_start,1)
+      i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_endidx)
+      DO jb = i_startblk, i_endblk
+
+        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+          &  i_startidx, i_endidx, rl_start, rl_end)
+
+        CALL o3_pl2ml ( kproma= i_endidx, kbdim=nproma,  &
+          & nlev_pres = nlev_o3,klev= nlev ,             &
+          & pfoz = ext_data%atm_td%pfoz(:),              &
+          & phoz = ext_data%atm_td%phoz(:),              &! in o3-levs
+          & ppf = p_diag%pres (:,:,jb),                  &! in  pres
+          & pph = p_diag%pres_ifc(:,:,jb),               &! in  pres_halfl
+          & o3_time_int = ext_data%atm_td%o3(:,:,jb,nmonths),     &! in 
+          & o3_clim     = p_prog%tracer(:,:,jb,io3) )     ! OUT
+
+      ENDDO !jb
+!$OMP END DO
+!$OMP END PARALLEL
+
+    ELSE
+      
+      p_prog%tracer(:,:,:,io3) = 0.0_wp
+      
+    ENDIF ! (irad_o3 == io3_ape)
+ 
     DO ist = 1, 10
       rad_csalbw(ist) = csalbw(ist) / (2.0_wp * zml_soil(1))
     ENDDO
@@ -431,7 +468,6 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
 
   ENDIF
 
-    
   !------------------------------------------
   !< call for convection
   !------------------------------------------

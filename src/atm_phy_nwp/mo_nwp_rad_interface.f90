@@ -448,7 +448,6 @@ MODULE mo_nwp_rad_interface
         zaeq4(i_startidx:i_endidx,:,jb) = 0.0_wp
         zaeq5(i_startidx:i_endidx,:,jb) = 0.0_wp
       ELSEIF ( irad_aero == 5 ) THEN !aerosols, but no ozone:
-        zduo3(i_startidx:i_endidx,:,jb) = 0.0_wp
 
         DO jk = 2, nlevp1
           DO jc = i_startidx,i_endidx
@@ -501,15 +500,36 @@ MODULE mo_nwp_rad_interface
             zaeqlo(jc,jb)    = zaeqln
             zaequo(jc,jb)    = zaequn
             zaeqdo(jc,jb)    = zaeqdn
+
+            zduo3(jc,jk,jb) = &
+              & pt_prog_rcf%tracer(jc,jk,jb,io3) * pt_diag%dpres_mc(jc,jk,jb) * amd / amo3
+            
           ENDDO
         ENDDO
+
+      ELSEIF (irad_o3 /= 0) THEN !no aerosols and other ozone
+
+        DO jk = 1,nlev
+          DO jc = i_startidx,i_endidx
+            zduo3(jc,jk,jb) = &
+              & pt_prog_rcf%tracer(jc,jk,jb,io3) * pt_diag%dpres_mc(jc,jk,jb) * amd / amo3
+            zaeq1(jc,jk,jb) = 0.0_wp
+            zaeq2(jc,jk,jb) = 0.0_wp
+            zaeq3(jc,jk,jb) = 0.0_wp
+            zaeq4(jc,jk,jb) = 0.0_wp
+            zaeq5(jc,jk,jb) = 0.0_wp
+          ENDDO
+        ENDDO
+
       ELSE !no aerosols and no ozone
+
         zaeq1(i_startidx:i_endidx,:,jb) = 0.0_wp
         zaeq2(i_startidx:i_endidx,:,jb) = 0.0_wp
         zaeq3(i_startidx:i_endidx,:,jb) = 0.0_wp
         zaeq4(i_startidx:i_endidx,:,jb) = 0.0_wp
         zaeq5(i_startidx:i_endidx,:,jb) = 0.0_wp
         zduo3(i_startidx:i_endidx,:,jb) = 0.0_wp
+        
       ENDIF !irad_o3
 
     ENDDO !jb
