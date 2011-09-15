@@ -192,9 +192,6 @@ CONTAINS
     REAL(wp)  z_qsum       !< summand of virtual increment
     REAL(wp)  z_ddt_qsum   !< summand of tendency of virtual increment
 
-    !KF temporary field
-    LOGICAL:: landseemask(nproma,pt_patch%nblks_c)
-
     REAL(wp) :: rcld(nproma,pt_patch%nlevp1)
 
 !     write(0,*) "Entering nwp_nh_interface"
@@ -809,7 +806,6 @@ CONTAINS
 &                       i_startidx, i_endidx, rl_start, rl_end)
 
           rcld = 0.0_wp ! standard deviation of saturation deficit=0 for now, needs to be specified form turbulence
-          landseemask(:,jb)   = .FALSE. ! has to come from external parameters later on!!!
 
 !#ifdef __BOUNDCHECK
           IF (timers_level > 2) CALL timer_start(timer_cover_koe)
@@ -825,7 +821,7 @@ CONTAINS
 &              pgeo   = p_metrics%geopot_agl (:,:,jb)     ,       & !! in:  geopotential height
 &              rho    = pt_prog%rho          (:,:,jb  )   ,       & !! in:  density
 &              rcld   = rcld                              ,       & !! in:  standard deviation of saturation deficit
-&              ldland = landseemask          (:,jb)       ,       & !! in:  land/sea mask
+&              ldland = ext_data%atm%llsm_atm_c (:,jb)    ,       & !! in:  land/sea mask
 &              ldcum  = prm_diag%locum       (:,jb)       ,       & !! in:  convection on/off
 &              kcbot  = prm_diag%mbas_con    (:,jb)       ,       & !! in:  convective cloud base
 &              kctop  = prm_diag%mtop_con    (:,jb)       ,       & !! in:  convective cloud top
