@@ -53,7 +53,7 @@ MODULE mo_nwp_conv_interface
   USE mo_physical_constants,   ONLY: grav, alv
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_cumaster,             ONLY: cumastrn
-!  USE mo_ext_data,             ONLY: t_external_data
+  USE mo_ext_data,             ONLY: t_external_data
 
   IMPLICIT NONE
 
@@ -67,18 +67,18 @@ CONTAINS
   !!
   !!-------------------------------------------------------------------------
   !!
-  SUBROUTINE nwp_convection  ( tcall_conv_jg,              & !>input
-                            &   p_patch,p_metrics,         & !>input
-!                            &   ext_data,                  & !>input
-                            &   p_prog,                    & !>in
-                            &   p_prog_rcf,                & !>inout
-                            &   p_diag ,                   & !>inout
-                            &   prm_diag,prm_nwp_tend      ) !>inout 
+  SUBROUTINE nwp_convection ( tcall_conv_jg,             & !>input
+    &                         p_patch,p_metrics,         & !>input
+    &                         ext_data,                  & !>input
+    &                         p_prog,                    & !>in
+    &                         p_prog_rcf,                & !>inout
+    &                         p_diag ,                   & !>inout
+    &                         prm_diag,prm_nwp_tend      ) !>inout 
 
 
 
     TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch        !!<grid/patch info.
- !   TYPE(t_external_data),       INTENT(in)   :: ext_data        !< external data
+    TYPE(t_external_data),       INTENT(in)   :: ext_data        !< external data
     TYPE(t_nh_metrics)          ,INTENT(in)   :: p_metrics
     TYPE(t_nh_prog),      TARGET,INTENT(in)   :: p_prog          !<the dyn prog vars
     TYPE(t_nh_prog),      TARGET,INTENT(inout):: p_prog_rcf      !<call freq
@@ -119,12 +119,8 @@ CONTAINS
 
     INTEGER :: jk,jc,jb,jg                !<block indeces
 
-    !KF temporary field
-    LOGICAL:: landseemask(nproma,p_patch%nblks_c)
 
-
- ! local variables related to the blocking
-
+    ! local variables related to the blocking
     nblks_c   = p_patch%nblks_int_c
     npromz_c  = p_patch%npromz_int_c
     nblks_e   = p_patch%nblks_int_e
@@ -147,7 +143,6 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP WORKSHARE
-    landseemask(:,:)   = .FALSE.
     z_plitot (:,:,:)   = 0._wp
     z_mflxs  (:,:,:)   = 0._wp
     z_mflxr  (:,:,:)   = 0._wp
@@ -240,8 +235,7 @@ CONTAINS
           CALL cumastrn &
 &           (kidia  = i_startidx ,                kfdia  = i_endidx           ,& !> IN
 &            klon   = nproma ,     ktdia  = kstart_moist(jg)  , klev = nlev   ,& !! IN
-&            ldland =  landseemask        (:,jb), ptsphy = tcall_conv_jg      ,& !! IN
-!&           ldland = ext_data%atm%lsm_atm_c(:,jb), ptsphy = tcall_phy_jg(itconv)  ,& !! IN
+&            ldland = ext_data%atm%llsm_atm_c(:,jb), ptsphy = tcall_conv_jg   ,& !! IN
 &            pten   = p_diag%temp      (:,:,jb)                              ,& !! IN
 &            pqen   = p_prog_rcf%tracer(:,:,jb,iqv)                          ,& !! IN
 &            puen   = p_diag%u         (:,:,jb), pven   = p_diag%v( :,:,jb) ,& !! IN

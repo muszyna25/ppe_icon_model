@@ -756,7 +756,7 @@ CONTAINS
       IF (timers_level > 2) CALL timer_start(timer_nwp_convection)
       CALL nwp_convection (  tcall_phy_jg(itconv),              & !>input
                             & pt_patch, p_metrics,              & !>input
-!                            & ext_data,                         & !>input
+                            & ext_data,                         & !>input
                             & pt_prog,                          & !>input
                             & pt_prog_rcf,                      & !>input
                             & pt_diag ,                         & !>inout
