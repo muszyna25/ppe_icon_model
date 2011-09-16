@@ -48,7 +48,7 @@ MODULE mo_nwp_sfc_interface
   USE mo_nwp_phy_state,       ONLY: t_nwp_phy_diag
   USE mo_nwp_lnd_state,       ONLY: t_lnd_prog, t_lnd_diag !!$, t_tiles
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: iqv ,msg_level
+  USE mo_run_config,          ONLY: iqv, msg_level
   USe mo_extpar_config,       ONLY: itopo
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_nonhydrostatic_config,ONLY: iadv_rcf
@@ -218,22 +218,11 @@ CONTAINS
 !!$     CALL message('', TRIM(message_text))
 !!$    ENDIF
 
-!!$    nlev_soil       = 7     ! 7 = default value for number of soil layers
-!!$    nztlev          = 2     ! 2 = default value for time integration scheme
-!!$    nlev_snow       = 1     ! 0 = default value for number of snow layers
-!!$    nsfc_subs       = 1     ! 1 = default value for number of TILES
-!!$    lseaice    = .FALSE.
-!!$    llake      = .FALSE.
-!!$    lmulti_snow= .FALSE.
-!!$    zml_soil=(/ 0.005,0.02,0.06,0.18,0.54,1.62,4.86,14.58 /)
-
 
 
         !
         ! Since the data structure of TERRA differs from that in ICON, 
         ! we have to do some matching (i.e. copying)
-
-
 
         DO isubs = 1,nsfc_subs
           tch_t(1:i_endidx,jb,isubs)       = prm_diag%tch(1:i_endidx,jb)
@@ -258,21 +247,16 @@ CONTAINS
           h_snow_t(1:i_endidx,jb,1,isubs) = lnd_diag%h_snow(1:i_endidx,jb,isubs)
           h_snow_t(1:i_endidx,jb,2,isubs) = lnd_diag%h_snow(1:i_endidx,jb,isubs)
 
-
-          ! Set upper and lower limits to temperature variables in order to provisionally
-          ! fix the numerical instabilities of TERRA. THIS IS NOT INTENDED TO BE A FINAL SOLUTION!!!
-          t_snow_t(1:i_endidx,jb,1,isubs) = MAX(170._wp,lnd_prog_now%t_snow(1:i_endidx,jb,isubs))
-          t_snow_t(1:i_endidx,jb,2,isubs) = MAX(170._wp,lnd_prog_now%t_snow(1:i_endidx,jb,isubs))
-          t_snow_t(1:i_endidx,jb,1:2,isubs) = MIN(340._wp,t_snow_t(1:i_endidx,jb,1:2,isubs))
+          t_snow_t(1:i_endidx,jb,1,isubs) = lnd_prog_now%t_snow(1:i_endidx,jb,isubs)
+          t_snow_t(1:i_endidx,jb,2,isubs) = lnd_prog_now%t_snow(1:i_endidx,jb,isubs)
           t_snow_mult_t(1:i_endidx,0:nlev_snow,jb,1,isubs) = &
-            & MAX(170._wp,lnd_prog_now%t_snow_mult(1:i_endidx,1:nlev_snow+1,jb,isubs))
+            & lnd_prog_now%t_snow_mult(1:i_endidx,1:nlev_snow+1,jb,isubs)
           t_snow_mult_t(1:i_endidx,0:nlev_snow,jb,2,isubs) = &
-            & MAX(170._wp,lnd_prog_now%t_snow_mult(1:i_endidx,1:nlev_snow+1,jb,isubs))
-          t_snow_mult_t(1:i_endidx,0:nlev_snow,jb,1:2,isubs) = &
-            MIN(340._wp,t_snow_mult_t(1:i_endidx,0:nlev_snow,jb,1:2,isubs))
-          t_s_t(1:i_endidx,jb,1,isubs)    = MAX(170._wp,lnd_prog_now%t_s(1:i_endidx,jb,isubs))
-          t_s_t(1:i_endidx,jb,2,isubs)    = MAX(170._wp,lnd_prog_now%t_s(1:i_endidx,jb,isubs))
-          t_s_t(1:i_endidx,jb,1:2,isubs) = MIN(340._wp,t_s_t(1:i_endidx,jb,1:2,isubs))
+            & lnd_prog_now%t_snow_mult(1:i_endidx,1:nlev_snow+1,jb,isubs)
+          t_s_t(1:i_endidx,jb,1,isubs)   = lnd_prog_now%t_s(1:i_endidx,jb,isubs)
+          t_s_t(1:i_endidx,jb,2,isubs)   = lnd_prog_now%t_s(1:i_endidx,jb,isubs)
+
+
           ! copy remaining prognostic variables
           w_snow_t(1:i_endidx,jb,1,isubs) = lnd_prog_now%w_snow(1:i_endidx,jb,isubs)
           w_snow_t(1:i_endidx,jb,2,isubs) = lnd_prog_now%w_snow(1:i_endidx,jb,isubs)
@@ -416,15 +400,16 @@ CONTAINS
 
           lnd_diag%h_snow(1:i_endidx,jb,isubs) = h_snow_t(1:i_endidx,jb,2,isubs)
 
+
           !DR ATTENTION: only valid, if nsfc_subs=1 !!!!!
           WHERE ( ext_data%atm%llsm_atm_c(i_startidx:i_endidx,jb) )
             lnd_prog_new%t_gt(i_startidx:i_endidx,jb,isubs) = &
-              MIN(340._wp,MAX(170._wp,lnd_prog_now%t_gt(i_startidx:i_endidx,jb,isubs)))
+              &  lnd_prog_now%t_gt(i_startidx:i_endidx,jb,isubs)
             lnd_prog_new%t_g(i_startidx:i_endidx,jb) = &
-              MIN(340._wp,MAX(170._wp,lnd_prog_new%t_gt(i_startidx:i_endidx,jb,1)))
+              &  lnd_prog_new%t_gt(i_startidx:i_endidx,jb,1)
             lnd_diag%qv_s(i_startidx:i_endidx,jb) = lnd_diag%qv_st(i_startidx:i_endidx,jb,1)
             prm_diag%tch (1:i_endidx,jb) = tch_t (1:i_endidx,jb,1)
-            prm_diag%t_2m(1:i_endidx,jb) = MIN(340._wp,MAX(170._wp,t_2m_t(1:i_endidx,jb,1)))
+            prm_diag%t_2m(1:i_endidx,jb) = t_2m_t(1:i_endidx,jb,1)
           END WHERE
 
         ENDDO

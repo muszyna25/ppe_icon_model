@@ -4683,8 +4683,7 @@ REAL (KIND=ireals), INTENT (IN)          ::    &
   tb (ie,je), & ! temperature of the ground surface
   ws (ie,je)    ! water content of snow
 
-!DR For testing purposes
-REAL (KIND=ireals), INTENT (INOUT)       ::    &
+REAL (KIND=ireals), INTENT (INOUT)          ::    &
   ts (ie,je)    ! temperature of the snow surface
 
 LOGICAL,  INTENT (IN)                    ::    &
