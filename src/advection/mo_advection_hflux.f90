@@ -724,14 +724,16 @@ CONTAINS
         ! first order backward trajectory
         CALL back_traj_o1( p_patch, p_int, p_vn, ptr_real_vt, z_dthalf,  &! in
           &               z_cell_indices, z_distv_bary,                  &! out
-          &               opt_rlstart=i_rlstart, opt_rlend=i_rlend_tr    )! in
+          &               opt_rlstart=i_rlstart, opt_rlend=i_rlend_tr,   &! in
+          &               opt_slev=slev, opt_elev=elev                   )! in
 
       ELSE
 
         ! second order backward trajectory
         CALL back_traj_o2( p_patch, p_int, p_vn, ptr_real_vt, z_dthalf,  &! in
           &               z_cell_indices, z_distv_bary,                  &! out
-          &               opt_rlstart=i_rlstart, opt_rlend=i_rlend_tr    )! in
+          &               opt_rlstart=i_rlstart, opt_rlend=i_rlend_tr,   &! in
+          &               opt_slev=slev, opt_elev=elev                   )! in
 
       ENDIF
 
@@ -1289,7 +1291,8 @@ CONTAINS
       ! order accurate (O(\Delta t)) backward trajectory-method
       CALL back_traj_dreg_o1( p_patch, p_int, p_vn, ptr_real_vt, p_dtime, &! in
         &                     z_cell_indices, z_coords_dreg_v,            &! out
-        &                     opt_rlstart=i_rlstart, opt_rlend=i_rlend    )! in
+        &                     opt_rlstart=i_rlstart, opt_rlend=i_rlend,   &! in
+        &                     opt_slev=slev, opt_elev=elev                )! in
 
 
 !      ! In order to check, whether the vertices are stored in clockwise or
@@ -1361,21 +1364,24 @@ CONTAINS
         ! a quadratic 2D polynomial
         CALL prep_gauss_quadrature_q( p_patch, z_coords_dreg_v,           &! in
           &                      z_quad_vector_sum, z_rdreg_area,         &! out
-          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend )! in
+          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
+          &                      opt_slev=slev, opt_elev=elev             )! in
 
       ELSE IF (lsq_high_ord == 30) THEN
         ! Gauss-Legendre quadrature with 4 quadrature points for integrating
         ! a cubic 2D polynomial without cross derivatives
         CALL prep_gauss_quadrature_cpoor( p_patch, z_coords_dreg_v,       &! in
           &                      z_quad_vector_sum, z_rdreg_area,         &! out
-          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend )! in
+          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
+          &                      opt_slev=slev, opt_elev=elev             )! in
 
       ELSE IF (lsq_high_ord == 3) THEN
         ! Gauss-Legendre quadrature with 4 quadrature points for integrating
         ! a full cubic 2D polynomial
         CALL prep_gauss_quadrature_c( p_patch, z_coords_dreg_v,           &! in
           &                      z_quad_vector_sum, z_rdreg_area,         &! out
-          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend )! in
+          &                      opt_rlstart=i_rlstart, opt_rlend=i_rlend,&! in
+          &                      opt_slev=slev, opt_elev=elev             )! in
       ENDIF
 
 
