@@ -76,6 +76,11 @@ USE mo_math_utilities,      ONLY: t_cartesian_coordinates, gvec2cvec, cvec2gvec
 USE mo_sea_ice,             ONLY: t_sea_ice
 USE mo_oce_forcing,         ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
 USE mo_oce_thermodyn,       ONLY:convert_insitu2pot_temp_func
+
+  !USE mo_master_control.f90, ONLY: is_coupled_run
+  !USE mo_icon_cpl_exchg, ONLY : ICON_cpl_put, ICON_cpl_get
+  !USE mo_icon_cpl_def_field, ONLY : ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
+
 IMPLICIT NONE
 
 ! required for reading netcdf files
@@ -123,6 +128,12 @@ CONTAINS
   INTEGER :: rl_start_c, rl_end_c
   REAL(wp):: z_relax, z_scale, rday1, rday2
   !REAL(wp):: z_omip_data(nproma,12,p_patch%nblks_c,3)  ! 3 arrays to be read
+
+    !rr INTEGER              :: nbr_fields
+    !rr INTEGER, ALLOCATABLE :: field_id(:)
+    !rr REAL(wp)             :: buffer(nproma,1)
+    !rr INTEGER              :: info, ierror !< return values form cpl_put/get calls
+
   !-------------------------------------------------------------------------
   rl_start_c = 1
   rl_end_c   = min_rlcell
@@ -289,6 +300,63 @@ CONTAINS
     !   to OMIP is that atmospheric info is coming from model rather than file
     !2) use atmospheric fluxes directly, i.e. avoid call to "calc_atm_fluxes_from_bulk"
     !    and do a direct assignment of atmospheric state to surface fluxes.
+    !
+    ! IF ( is_coupled_run() ) THEN 
+    !
+    !  see drivers/mo_atmo_model.f90:
+    !
+    !   field_id(1) represents "TAUX"   wind stress component
+    !   field_id(2) represents "TAUY"   wind stress component
+    !   field_id(3) represents "SFWFLX" surface fresh water flux
+    !   field_id(4) represents "SHFLX"  sensible heat flux
+    !   field_id(5) represents "LHFLX"  latent heat flux
+    !
+    !   field_id(6) represents "SST"    sea surface temperature
+    !   field_id(7) represents "OCEANU" u component of ocean surface current
+    !   field_id(8) represents "OCEANV" v component of ocean surface current
+    !
+    !   CALL ICON_cpl_get_nbr_fields ( nbr_fields )
+    !   ALLOCATE(field_id(nbr_fields))
+    !   CALL ICON_cpl_get_field_ids ( nbr_fields, field_id )
+    !
+    !   field_shape(1) = 1
+    !   field_shape(2) = p_patch(patch_no)%n_patch_cells 
+    !   field_shape(3) = 1
+    !
+    !   buffer is allocated over nproma only
+    !
+    ! Send fields away
+    ! ----------------
+    !
+    !   CALL ICON_cpl_put ( field_id(6), field_shape, prm_field(jg)%tsfc_tile(:,:,iwtr), info, ierror )
+    !   buffer(:,1) = prm_field(jg)%tsfc_tile(:,:,iwtr)
+    !
+    !   CALL ICON_cpl_put ( field_id(7), field_shape, prm_field(jg)%ocu(:,:), info, ierror )
+    !   buffer(:,1) = prm_field(jg)%ocu(:,:)
+    !
+    !   CALL ICON_cpl_put ( field_id(8), field_shape, prm_field(jg)%ocv(:,:), info, ierror )
+    !   buffer(:,1) = prm_field(jg)%ocv(:,:)
+    !
+    ! Receive fields
+    ! --------------
+    !
+    !   prm_field(jg)%u_stress_tile(:,:,iwtr) = buffer(:,1)
+    !   CALL ICON_cpl_get ( field_id(1), field_shape, buffer, ierror )
+    !
+    !   prm_field(jg)%v_stress_tile(:,:,iwtr) = buffer(:,1)
+    !   CALL ICON_cpl_get ( field_id(2), field_shape, buffer, ierror )
+    !
+    !   prm_field(jg)%rsfl + prm_field(jg)%rsfc + prm_field(jg)%ssfl + prm_field(jg)%ssfc
+    !   CALL ICON_cpl_get ( field_id(3), field_shape, buffer, ierror )
+    !
+    !   prm_field(jg)%shflx_tile(:,:,iwtr) = buffer(:,1)
+    !   CALL ICON_cpl_get ( field_id(4), field_shape, buffer, ierror )
+    !
+    !   prm_field(jg)%lhflx_tile(:,:,iwtr) = buffer(:,1)
+    !   CALL ICON_cpl_get ( field_id(5), field_shape, buffer, ierror )
+    !
+    ! ENDIF
+    !
 
   CASE DEFAULT
 

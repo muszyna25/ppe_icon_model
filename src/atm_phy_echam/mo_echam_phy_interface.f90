@@ -47,7 +47,7 @@ MODULE mo_echam_phy_interface
   USE mo_icoham_dyn_types,  ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_interpolation,     ONLY: t_int_state, rbf_vec_interpol_cell, & 
                                 & edges2cells_scalar
-  USE mo_parallel_config,  ONLY: nproma
+  USE mo_parallel_config,   ONLY: nproma
   USE mo_run_config,        ONLY: nlev, ltimer
   USE mo_radiation_config,  ONLY: dt_rad
   USE mo_loopindices,       ONLY: get_indices_c, get_indices_e
@@ -58,7 +58,11 @@ MODULE mo_echam_phy_interface
   USE mo_timer,             ONLY: timer_start, timer_stop, &
                                 & timer_dyn2phy, timer_phy2dyn,    &
                                 & timer_echam_phy
- !USE mo_icoham_sfc_indices,ONLY: iwtr, iice
+  !USE mo_master_control.f90, ONLY: is_coupled_run
+  !USE mo_icon_cpl_exchg, ONLY : ICON_cpl_put, ICON_cpl_get
+  !USE mo_icon_cpl_def_field, ONLY : ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
+
+  !USE mo_icoham_sfc_indices,ONLY: iwtr, iice
 
   IMPLICIT NONE
   PRIVATE
@@ -130,6 +134,11 @@ CONTAINS
     INTEGER :: nblks    !< number of blocks for which parameterisations are computed
     INTEGER :: jc, jk   !< column index, vertical level index
     INTEGER :: jcn,jbn  !< column and block indices of a neighbour cell
+
+    !rr INTEGER              :: nbr_fields
+    !rr INTEGER, ALLOCATABLE :: field_id(:)
+    !rr REAL(wp)             :: buffer(nproma,1)
+    !rr INTEGER              :: info, ierror !< return values form cpl_put/get calls
 
     !-------------------------------------------------------------------------
     IF (ltimer) CALL timer_start(timer_dyn2phy)
@@ -316,6 +325,7 @@ CONTAINS
     !-------------------------------------------------------------------------
     ! If running in atm-oce coupled mode, exchange information 
     !-------------------------------------------------------------------------
+
     ! Possible fields that contain information to be sent to the ocean include
     !
     ! 1. prm_field(jg)% u_stress_tile(:,:,iwtr)  and 
@@ -338,8 +348,62 @@ CONTAINS
     ! 1. prm_field(jg)% tsfc_tile(:,:,iwtr)   SST
     ! 2. prm_field(jg)% ocu(:,:) and ocv(:,:) ocean surface current
     ! 
-    ! CALL coupling
-
+    ! IF ( is_coupled_run() ) THEN 
+    !
+    !  see drivers/mo_atmo_model.f90:
+    !
+    !   field_id(1) represents "TAUX"   wind stress component
+    !   field_id(2) represents "TAUY"   wind stress component
+    !   field_id(3) represents "SFWFLX" surface fresh water flux
+    !   field_id(4) represents "SHFLX"  sensible heat flux
+    !   field_id(5) represents "LHFLX"  latent heat flux
+    !
+    !   field_id(6) represents "SST"    sea surface temperature
+    !   field_id(7) represents "OCEANU" u component of ocean surface current
+    !   field_id(8) represents "OCEANV" v component of ocean surface current
+    !
+    !   CALL ICON_cpl_get_nbr_fields ( nbr_fields )
+    !   ALLOCATE(field_id(nbr_fields))
+    !   CALL ICON_cpl_get_field_ids ( nbr_fields, field_id )
+    !
+    !   field_shape(1) = 1
+    !   field_shape(2) = p_patch(patch_no)%n_patch_cells 
+    !   field_shape(3) = 1
+    !
+    !   buffer is allocated over nproma only
+    !
+    ! Send fields away
+    ! ----------------
+    !
+    !   buffer(:,1) = prm_field(jg)%u_stress_tile(:,:,iwtr)
+    !   CALL ICON_cpl_put ( field_id(1), field_shape, buffer, ierror )
+    !
+    !   buffer(:,1) = prm_field(jg)%v_stress_tile(:,:,iwtr)
+    !   CALL ICON_cpl_put ( field_id(2), field_shape, buffer, ierror )
+    !
+    !   buffer(:,1) = prm_field(jg)%rsfl + prm_field(jg)%rsfc + prm_field(jg)%ssfl + prm_field(jg)%ssfc
+    !   CALL ICON_cpl_put ( field_id(3), field_shape, buffer, ierror )
+    !
+    !   buffer(:,1) = prm_field(jg)%shflx_tile(:,:,iwtr)
+    !   CALL ICON_cpl_put ( field_id(4), field_shape, buffer, ierror )
+    !
+    !   buffer(:,1) = prm_field(jg)%lhflx_tile(:,:,iwtr)
+    !   CALL ICON_cpl_put ( field_id(5), field_shape, buffer, ierror )
+    !
+    ! Receive fields
+    ! --------------
+    !
+    !   CALL ICON_cpl_get ( field_id(6), field_shape, prm_field(jg)%tsfc_tile(:,:,iwtr), info, ierror )
+    !   prm_field(jg)%tsfc_tile(:,:,iwtr) = buffer(:,1)
+    !
+    !   CALL ICON_cpl_get ( field_id(7), field_shape, prm_field(jg)%ocu(:,:), info, ierror )
+    !   prm_field(jg)%ocu(:,:) = buffer(:,1)
+    !
+    !   CALL ICON_cpl_get ( field_id(8), field_shape, prm_field(jg)%ocv(:,:), info, ierror )
+    !   prm_field(jg)%ocv(:,:) = buffer(:,1)
+    !
+    ! ENDIF
+    !
     !-------------------------------------------------------------------------
     ! Physics to dynamics: remap tendencies to the dynamics grid
     !-------------------------------------------------------------------------

@@ -507,19 +507,22 @@ CONTAINS
         & comp_id, grid_shape, p_patch(patch_no)%cells%glb_index, & ! input
         & grid_id, error_status )                                   ! output
   
-      field_name(1) = "SST"
-      field_name(2) = "TAUX"
-      field_name(3) = "TAUY"
-      field_name(4) = ""
-      field_name(5) = ""
-      field_name(6) = ""
-      field_name(7) = ""
-      field_name(8) = ""
+      field_name(1) = "TAUX"
+      field_name(2) = "TAUY"
+      field_name(3) = "SFWFLX"
+      field_name(4) = "SHFLX"
+      field_name(5) = "LHFLX"
+      field_name(6) = "SST"
+      field_name(7) = "OCEANU"
+      field_name(8) = "OCEANV"
  
-!       DO i = 1, no_of_fields
-!          CALL ICON_cpl_def_field ( field_name(i), comp_id, grid_id, field_id(i), &
-!                                  & field_shape, error_status )
-!       ENDDO
+      field_shape(1:2) = grid_shape(1:2)
+      field_shape(3)   = 1
+
+      DO i = 1, no_of_fields
+         CALL ICON_cpl_def_field ( field_name(i), comp_id, grid_id, field_id(i), &
+                                 & field_shape, error_status )
+      ENDDO
 
       CALL ICON_cpl_search
 

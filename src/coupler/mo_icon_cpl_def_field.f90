@@ -68,7 +68,7 @@ MODULE mo_icon_cpl_def_field
 
   INTEGER                       :: ierr
 
-  PUBLIC :: ICON_cpl_def_field
+  PUBLIC :: ICON_cpl_def_field, ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
 
 CONTAINS
 
@@ -237,5 +237,19 @@ CONTAINS
                      fptr%coupling%time_step, fptr%coupling%lag )
 
   END SUBROUTINE ICON_cpl_def_field
+
+  SUBROUTINE  ICON_cpl_get_nbr_fields ( nbr_of_fields )
+     INTEGER, INTENT(out) :: nbr_of_fields
+     nbr_of_fields = nbr_active_fields
+  END SUBROUTINE ICON_cpl_get_nbr_fields
+
+  SUBROUTINE  ICON_cpl_get_field_ids ( nbr_of_fields, field_ids )
+     INTEGER, INTENT(IN)  :: nbr_of_fields
+     INTEGER, INTENT(out) :: field_ids(nbr_of_fields)
+     INTEGER i
+     DO i = 1, nbr_active_fields
+        field_ids(i) = i
+     ENDDO
+  END SUBROUTINE ICON_cpl_get_field_ids
 
 END MODULE mo_icon_cpl_def_field
