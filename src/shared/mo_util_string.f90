@@ -49,6 +49,9 @@ MODULE mo_util_string
   PUBLIC :: int2string     ! returns integer n as a string
   PUBLIC :: real2string    ! returns real n as a string
   PUBLIC :: logical2string ! returns logical n as a string
+  PUBLIC :: split_string         ! splits string into words
+  PUBLIC :: string_contains_word ! searches in a string list
+
   !
   INTERFACE real2string
     MODULE PROCEDURE float2string
@@ -205,5 +208,66 @@ CONTAINS
     logical2string = ADJUSTL(logical2string)
     !
   END FUNCTION logical2string
+
+
+  !> parses a character string, splits string into words
+  !  This routine takes a string like
+  !  str = "'iconR2B02-grid_DOM01-grid.nc' 'iconR2B02-grid.nc'"
+  !  as input and splits it into the components, returning the
+  !  number of parts, the start indices and the respective
+  !  lengths.
+  !  Characters outside the apostrophes are ignored.
+  
+  SUBROUTINE split_string(zline, n, pos, ilength)
+
+    CHARACTER(len=*), INTENT(IN)  :: zline              ! string containing list
+    INTEGER,      INTENT(OUT)     :: n                  ! number of parts
+    INTEGER,      INTENT(INOUT)   :: pos(:), ilength(:) ! position, lengths of parts
+    ! local variables
+    INTEGER       :: i           ! index position
+    LOGICAL       :: l_word_open ! flag. if true, index "i" is part of a word
+    INTEGER       :: istart
+
+    l_word_open = .FALSE.
+    n = 0
+    DO i=1,LEN(zline)
+      IF (zline(i:i) == "'") THEN
+        l_word_open = .NOT. l_word_open
+        IF (.NOT. l_word_open) THEN
+          n = n + 1
+          pos(n)  = istart
+          ilength(n) = LEN(TRIM(zline(istart:(i-1))))
+        ELSE
+          istart = i+1
+        END IF
+      END IF
+    END DO
+
+  END SUBROUTINE split_string
+
+
+  !> searches in a string list that has been previously parsed by
+  !> "split_string"
+
+  FUNCTION string_contains_word(zword, zline, n, pos, ilength) RESULT(lflag)
+
+    LOGICAL                       :: lflag              ! result
+    CHARACTER(len=*), INTENT(IN)  :: zword              ! search word
+    CHARACTER(len=*), INTENT(IN)  :: zline              ! string containing list
+    INTEGER,          INTENT(IN)  :: n                  ! number of parts
+    INTEGER,          INTENT(IN)  :: pos(:), ilength(:) ! position, lengths of parts
+    ! local variables
+    INTEGER :: i, iwordlen
+
+    lflag     = .FALSE.
+    iwordlen  = LEN_TRIM(ADJUSTL(zword))
+
+    DO i=1,n
+      IF (ilength(i) /= iwordlen) CYCLE
+      lflag = lflag .OR.   &
+        &     (zline(pos(i):(pos(i)+ilength(i)-1)) == TRIM(ADJUSTL(zword)))
+    END DO
+
+  END FUNCTION string_contains_word
   !
 END MODULE mo_util_string

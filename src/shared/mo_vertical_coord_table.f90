@@ -231,7 +231,7 @@ CONTAINS
 
     iunit = find_next_free_unit(10,20)
     OPEN (unit=iunit,file=TRIM(vct_file),access='SEQUENTIAL', &
-      &  form='FORMATTED', IOSTAT=ist)
+      &  form='FORMATTED', action='READ', status='OLD', IOSTAT=ist)
 
     IF(ist/=success)THEN
       CALL finish (TRIM(routine), 'open vertical coordinate table file failed')

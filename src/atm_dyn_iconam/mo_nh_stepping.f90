@@ -75,7 +75,8 @@ MODULE mo_nh_stepping
   USE mo_nh_df_test,          ONLY: get_nh_df_velocity, get_nh_df_mflx_rho
   USE mo_nh_hex_util,         ONLY: forcing_straka, momentum_adv
   USE mo_nh_supervise,        ONLY: supervise_total_integrals_nh
-  USE mo_interpolation,       ONLY: t_int_state, rbf_vec_interpol_cell, &
+  USE mo_interpolation,       ONLY: t_int_state, t_lon_lat_intp, &
+                                 &  rbf_vec_interpol_cell, &
                                     edges2cells_scalar,&
                                     verts2edges_scalar,&
                                     edges2verts_scalar
@@ -254,7 +255,8 @@ MODULE mo_nh_stepping
   !! @par Revision History
   !! Initial release by Almut Gassmann, (2009-04-15)
   !!
-  SUBROUTINE perform_nh_stepping (p_patch, p_int_state, p_grf_state, p_nh_state, &
+  SUBROUTINE perform_nh_stepping (p_patch, p_int_state,                          &
+    &                             p_grf_state, p_nh_state,                       &
                                   datetime, n_io, n_file, n_checkpoint, n_diag,  &
                                   l_have_output )
 !
@@ -325,9 +327,9 @@ MODULE mo_nh_stepping
 !$    write(0,*) 'This is the nh_timeloop, max threads=',omp_get_max_threads()
 !$    write(0,*) 'omp_get_num_threads=',omp_get_num_threads()
 
-    CALL perform_nh_timeloop (p_patch, p_int_state, p_grf_state, p_nh_state, &
-                              datetime, n_io, n_file, n_checkpoint, n_diag,  &
-                              l_have_output )
+    CALL perform_nh_timeloop (p_patch, p_int_state, p_grf_state,     &
+      &                       p_nh_state, datetime, n_io, n_file, n_checkpoint, n_diag,  &
+      &                       l_have_output )
     CALL model_end_ompthread()
 
 !$OMP SECTION
@@ -359,7 +361,8 @@ MODULE mo_nh_stepping
   !! @par Revision History
   !! Initial release by Almut Gassmann, (2009-04-15)
   !!
-  SUBROUTINE perform_nh_timeloop (p_patch, p_int_state, p_grf_state, p_nh_state, &
+  SUBROUTINE perform_nh_timeloop (p_patch, p_int_state, &
+                               &  p_grf_state, p_nh_state, &
                                   datetime, n_io, n_file, n_checkpoint, n_diag,  &
                                   l_have_output )
 !
@@ -829,6 +832,8 @@ MODULE mo_nh_stepping
     LOGICAL :: l_call_nests = .FALSE.
 
 !$  INTEGER :: num_threads_omp, omp_get_max_threads
+
+    INTEGER :: i, iend, idx, nblks, i_blk
 
     !--------------------------------------------------------------------------
 
@@ -1442,6 +1447,7 @@ MODULE mo_nh_stepping
             ENDIF
 
           ENDDO
+
         CASE (6)
           CALL edges2cells_scalar(p_vn,p_patch(jg),p_int_state(jg)%hex_east ,&
                                   p_nh_state(jg)%diag%u)

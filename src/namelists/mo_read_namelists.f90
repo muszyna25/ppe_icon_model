@@ -78,6 +78,8 @@ MODULE mo_read_namelists
 
   USE mo_ocean_nml           ,ONLY: setup_ocean_nml
 
+  USE mo_lonlat_intp_nml     ,ONLY: read_lonlat_intp_namelist
+
   IMPLICIT NONE
 
   PRIVATE
@@ -121,6 +123,7 @@ CONTAINS
     CALL read_parallel_namelist       (TRIM(atm_namelist_filename))
     CALL read_run_namelist            (TRIM(atm_namelist_filename))
     CALL read_io_namelist             (TRIM(atm_namelist_filename))
+    CALL read_lonlat_intp_namelist    (TRIM(atm_namelist_filename))
     CALL read_nh_pzlev_namelist       (TRIM(atm_namelist_filename))
 
     ! Grid

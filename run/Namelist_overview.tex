@@ -2174,6 +2174,87 @@ Defined and used in: src/namelists/mo\_io\_nml.f90
 
 
 %------------------------------------------------------------------------------
+% lonlat_intp_nml:
+%------------------------------------------------------------------------------
+\subsection{lonlat\_intp\_nml}
+\begin{longtab}
+
+\hline 
+llonlat\_enabled&
+L &
+.FALSE.&&
+Flag. True, if lon-lat interpolation of output variables is desired.&
+\tabularnewline
+
+\hline 
+lonlat\_var\_list&
+C &
+''''&&
+List of variables for lon-lat interpolation or ``all''.&
+\tabularnewline
+
+\hline 
+lon\_delta&
+R(max\_dom) &
+0&deg&
+Interpolation to lon-lat grid: resolution.&
+\tabularnewline
+
+\hline 
+lat\_delta&
+R(max\_dom) &
+0&deg&
+Interpolation to lon-lat grid: resolution.&
+\tabularnewline
+
+\hline 
+lon\_sw\_corner&
+R(max\_dom) &
+0.&deg&
+South western corner of interpolation area (lon/lat).&
+\tabularnewline
+
+\hline 
+lat\_sw\_corner&
+R(max\_dom) &
+0.&deg&
+South western corner of interpolation area (lon/lat).&
+\tabularnewline
+
+\hline 
+lon\_poleN&
+R(max\_dom) &
+0.&deg&
+Position of north pole for interpolation grid.&
+\tabularnewline
+
+\hline 
+lat\_poleN&
+R(max\_dom) &
+0.&deg&
+Position of north pole for interpolation grid.&
+\tabularnewline
+
+\hline 
+lon\_dimen&
+I(max\_dom) &
+0&&
+Dimensions of interpolation grid.&
+\tabularnewline
+
+\hline 
+lat\_dimen&
+I(max\_dom) &
+0&&
+Dimensions of interpolation grid.&
+\tabularnewline
+
+\hline
+\end{longtab}
+
+Defined and used in: src/namelists/mo\_io\_nml.f90
+
+%------------------------------------------------------------------------------
 % nh_pzlev_nml:
 %------------------------------------------------------------------------------
 \subsection{nh\_pzlev\_nml}

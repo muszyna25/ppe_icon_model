@@ -96,7 +96,7 @@ MODULE mo_math_utilities
   USE mo_physical_constants
   USE mo_exception,           ONLY: message, finish
   USE mo_parallel_config,  ONLY: nproma
-
+  
   IMPLICIT NONE
 
   PRIVATE
@@ -105,6 +105,7 @@ MODULE mo_math_utilities
 
   PUBLIC :: t_cartesian_coordinates
   PUBLIC :: t_geographical_coordinates
+  PUBLIC :: t_lon_lat_grid
   PUBLIC :: gvec2cvec
   PUBLIC :: cvec2gvec
   PUBLIC :: arc_length
@@ -128,6 +129,7 @@ MODULE mo_math_utilities
   PUBLIC :: operator(*)
   PUBLIC :: rotate_latlon
   PUBLIC :: rotate_latlon_vec
+  PUBLIC :: rotate_latlon_grid
   PUBLIC :: qrdec
   PUBLIC :: gnomonic_proj
   PUBLIC :: orthogr_proj
@@ -146,6 +148,22 @@ MODULE mo_math_utilities
     REAL(wp) :: lon
     REAL(wp) :: lat
   END TYPE t_geographical_coordinates
+
+! ! specification of (rotated) lon-lat grid
+
+  TYPE t_lon_lat_grid
+    ! grid points: sw_corner(lon,lat) + delta(lon,lat)*[0,1,2, ..., dim(lon,lat)-1]
+    REAL(wp) ::                  &
+      &  delta    (2),           &     ! lon-lat grid resolution,                unit:rad
+      &  sw_corner(2),           &     ! south western corner of area (lon/lat), unit:rad
+      &  poleN    (2)                  ! position of north pole (lon,lat),       unit:rad
+    INTEGER  :: dimen(2)               ! grid dimensions
+
+    ! computed from above values:
+    INTEGER  :: total_dim              ! total number of grid points 
+    INTEGER  :: nblks, npromz          ! blocking info
+
+  END TYPE t_lon_lat_grid
 
   INTERFACE OPERATOR(+)
     MODULE PROCEDURE cartesian_coordinates_plus
@@ -295,7 +313,7 @@ MODULE mo_math_utilities
   !! Previous version by Luis Kornblueh (2004) discarded.
   !! Vectorizable version developed by Guenther Zaengl, DWD (2009-04-20)
   !!
-  FUNCTION arc_length_v (p_x, p_y)  RESULT (p_arc)
+  PURE FUNCTION arc_length_v (p_x, p_y)  RESULT (p_arc)
   REAL(wp), INTENT(IN) :: p_x(3), p_y(3)  ! endpoints
 
   REAL(wp)            :: p_arc          ! length of geodesic arc
@@ -642,6 +660,7 @@ DO jc = istart, iend
 
       IF (ji == jj) THEN
         IF (z_sum <= 1.e-12_wp) THEN
+          WRITE (*,*) p_a
           CALL message ('mo_math_utilities:choldec',                           &
                       & 'error in matrix inversion, nearly singular matrix')
           CALL finish  ('mo_math_utilities:choldec',                           &
@@ -1356,6 +1375,59 @@ lat = rotlat
 lon = rotlon
 
 END SUBROUTINE rotate_latlon
+
+
+!-------------------------------------------------------------------------
+!> Rotates lon-lat grid
+!!
+!! Rotates latitude and longitude for all grid points to standard grid
+!! coordinates.
+!!
+!! @par Revision History
+!!  developed by F. Prill, 2011-08-04
+!!
+SUBROUTINE rotate_latlon_grid( lon_lat_grid, rotated_pts )
+
+  TYPE (t_lon_lat_grid), INTENT(IN)    :: lon_lat_grid
+  REAL(wp),              INTENT(INOUT) :: rotated_pts(:,:,:)
+  
+  ! Local parameters
+  REAL(wp) :: sincos_pole(2,2) ! (lon/lat, sin/cos)
+  REAL(wp) :: sincos_lon(lon_lat_grid%dimen(1),2), &
+    &         sincos_lat(lon_lat_grid%dimen(2),2)
+  INTEGER  :: k
+  REAL(wp) :: rlon_lat
+
+!-----------------------------------------------------------------------
+
+  sincos_pole(:,1) = SIN(lon_lat_grid%poleN(:))
+  sincos_pole(:,2) = COS(lon_lat_grid%poleN(:))
+
+  DO k=1,lon_lat_grid%dimen(1)
+    rlon_lat        = lon_lat_grid%sw_corner(1) + (k-1)*lon_lat_grid%delta(1)
+    sincos_lon(k,:) = (/ SIN(rlon_lat), COS(rlon_lat) /)
+  END DO
+  DO k=1,lon_lat_grid%dimen(2)
+    rlon_lat        = lon_lat_grid%sw_corner(2) + (k-1)*lon_lat_grid%delta(2)
+    sincos_lat(k,:) = (/ SIN(rlon_lat), COS(rlon_lat) /)
+  END DO
+
+  FORALL (k=1:lon_lat_grid%dimen(1))
+
+    ! ASIN( SIN(phi)*SIN(poleY) + COS(phi)*COS(lambda)*COS(poleY) )
+    rotated_pts(k,:,2) = &
+      ASIN( sincos_lat(:,1)*sincos_pole(2,1) + sincos_lat(:,2)*sincos_lon(k,2)*sincos_pole(2,2) )
+
+    ! ATAN2(COS(phi)*SIN(lambda), SIN(poleY)*COS(phi)*COS(lambda) - SIN(phi)*COS(poleY)) + poleX
+    rotated_pts(k,:,1) = &
+      ATAN2( sincos_lat(:,2)*sincos_lon(k,1), &
+      &      sincos_pole(2,1)*sincos_lat(:,2)*sincos_lon(k,2) - sincos_lat(:,1)*sincos_pole(2,2)) &
+      &      + lon_lat_grid%poleN(1)
+
+  END FORALL
+
+END SUBROUTINE rotate_latlon_grid
+
 !-----------------------------------------------------------------------
 !
 !

@@ -43,7 +43,7 @@ MODULE mo_atmo_hydrostatic
   USE mo_io_config,         ONLY: dt_data, dt_file, dt_diag, dt_checkpoint
 
   USE mo_model_domain,        ONLY: p_patch
-  USE mo_intp_data_strc,      ONLY: p_int_state
+  USE mo_intp_data_strc,      ONLY: p_int_state, p_int_state_lonlat
   USE mo_grf_intp_data_strc,  ONLY: p_grf_state
 
   USE mo_vertical_coord_table,ONLY: vct_a, vct_b, ceta
@@ -172,7 +172,8 @@ CONTAINS
     ! Time integraion
     !------------------------------------------------------------------
 
-    CALL perform_ha_stepping( p_patch(1:), p_int_state(1:), p_grf_state(1:), &
+    CALL perform_ha_stepping( p_patch(1:), p_int_state(1:), &
+                            & p_grf_state(1:),                               &
                             & p_hydro_state, time_config%cur_datetime,       &
                             & n_io, n_file, n_chkpt, n_diag, jfile,          &
                             & l_have_output                                  )

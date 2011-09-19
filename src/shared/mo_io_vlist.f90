@@ -24,6 +24,8 @@
 !!  - write namelist parameters /radiation_nml/,/transport_ctl, /nonhydrostatic_ctl/
 !!    /testcase_ctl/ and /nh_testcase_ctl/
 !!    as global attributes to netcdf file, for postprocessing
+!!  Modified by F. Prill, DWD (2011-08)
+!!  - optional output of variables interpolated onto lon-lat grid.
 !!
 !!
 !! @par Copyright
@@ -96,7 +98,7 @@ MODULE mo_io_vlist
   !
   !
   USE mo_kind,                  ONLY: wp
-  USE mo_exception,             ONLY: finish, message
+  USE mo_exception,             ONLY: finish, message, message_text
   USE mo_datetime,              ONLY: t_datetime, print_datetime
   USE mo_impl_constants,        ONLY: max_char_length, max_dom, modelname,        &
     &                                 modelversion, icc, zml_soil,                &
@@ -139,7 +141,8 @@ MODULE mo_io_vlist
   USE mo_lnd_nwp_config,        ONLY: nsfc_subs, nlev_snow
 ! USE mo_gw_hines_nml,          ONLY: lheatcal, emiss_lev, rmscon, kstar, m_min
   USE mo_vertical_coord_table,  ONLY: vct
-  USE mo_model_domain_import,   ONLY: start_lev, nroot, n_dom, lfeedback, lplane
+  USE mo_model_domain_import,   ONLY: start_lev, nroot, n_dom, lfeedback, lplane, &
+    & n_dom_start
   USE mo_model_domain,          ONLY: t_patch, p_patch
   USE mo_physical_constants,    ONLY: grav
   USE mo_communication,         ONLY: exchange_data, t_comm_pattern
@@ -184,6 +187,16 @@ MODULE mo_io_vlist
     &                                 p_int_mwbr_const, temp_i_mwbr_const,        &
     &                                 bruntvais_u_mwbr_const     
     !&                                mount_half_width
+  USE mo_lonlat_intp_config,    ONLY: lonlat_intp_config
+  USE mo_math_constants,        ONLY: pi
+  USE mo_impl_constants,        ONLY: SUCCESS
+  USE mo_math_utilities,        ONLY: t_lon_lat_grid
+  USE mo_interpolation,         ONLY: t_lon_lat_intp,                               &
+    &                                 rbf_interpol_lonlat, rbf_vec_interpol_lonlat, &
+    &                                 verts2cells_scalar
+  USE mo_intp_data_strc,        ONLY: p_int_state, p_int_state_lonlat
+  USE mo_mpi,                   ONLY: p_pe
+  USE mo_util_string,           ONLY: string_contains_word, toupper
 
   IMPLICIT NONE
 
@@ -196,6 +209,10 @@ MODULE mo_io_vlist
 
   INTEGER, PARAMETER :: max_outvars  = 250 ! max. number of output variables
   INTEGER, PARAMETER :: max_gridlevs = 12 ! max. number of grid levels
+  INTEGER, PARAMETER :: max_name_len = 100
+
+  !> level of output verbosity
+  INTEGER, PARAMETER  :: dbg_level = 0
 
   PUBLIC :: setup_vlist, destruct_vlist,                            &
     &       open_output_vlist, close_output_vlist,                  &
@@ -219,6 +236,19 @@ MODULE mo_io_vlist
     &  zaxisID_generic_snow, zaxisID_generic_snow_p1,          &
     &  zaxisID_pres, zaxisID_hgt
 
+  ! NetCDF identifier to lon-lat grid
+  INTEGER  :: lonlat_gridID(max_gridlevs)
+
+  ! Flag value, indicating that no lon-lat interpolation shall be
+  ! performed
+  INTEGER, PARAMETER :: NO_LONLAT_INTERP = -1
+
+  ! list of variables to be interpolated onto lon-lat grid
+  ! lonlat_varids(i,j,1:2) contains var ID of lonlat variable
+  ! corresponding to standard variable with var ID varids(i,j)
+  !
+  ! @note For scalar variables only lonlat_varids(:,:,1) is relevant.
+  INTEGER  :: lonlat_varids(max_outvars,max_gridlevs,2)
 
   INTEGER, DIMENSION(max_outvars,max_gridlevs) ::  &
     &  varids
@@ -227,9 +257,10 @@ MODULE mo_io_vlist
 
   INTEGER, SAVE :: iostep = 0
 
-  INTEGER, PARAMETER, PUBLIC :: GATHER_C = 1
-  INTEGER, PARAMETER, PUBLIC :: GATHER_E = 2
-  INTEGER, PARAMETER, PUBLIC :: GATHER_V = 3
+  INTEGER, PARAMETER, PUBLIC :: GATHER_C      = 1
+  INTEGER, PARAMETER, PUBLIC :: GATHER_E      = 2
+  INTEGER, PARAMETER, PUBLIC :: GATHER_V      = 3
+  INTEGER, PARAMETER, PUBLIC :: GATHER_LONLAT = 4
 
   ! Descriptions of output variables
 
@@ -237,7 +268,7 @@ MODULE mo_io_vlist
 
   TYPE t_outvar_desc
 
-    INTEGER ::           type ! GATHER_C, GATHER_E, GATHER_V
+    INTEGER ::           TYPE ! GATHER_C, GATHER_E, GATHER_V, GATHER_LONLAT
     INTEGER ::           nlev
     CHARACTER(LEN=80) :: name
 
@@ -248,12 +279,21 @@ MODULE mo_io_vlist
 
   TYPE(t_outvar_desc), PUBLIC :: outvar_desc(max_outvars, max_gridlevs)
 
+  ! data fields for (optional) interpolation of output variables to
+  ! lon-lat grid (only allocated on IO PEs, only one field for all
+  ! variables)
+  TYPE t_lonlat_data
+    !> interpolated variables
+    REAL(wp), POINTER :: &
+      &  var_3d(:,:,:), var_3d_2(:,:,:)  ! (nproma,nlev,nblks_lonlat)
+  END TYPE t_lonlat_data
 
+  TYPE(t_lonlat_data), TARGET :: var_lonlat(max_gridlevs) ! (1, ..., no. of patches)
+  
 CONTAINS
 
   !-------------------------------------------------------------------------
   !BOC
-
   SUBROUTINE setup_vlist(grid_filename, k_jg)
 
     CHARACTER(len=*), INTENT(in) :: grid_filename
@@ -282,13 +322,21 @@ CONTAINS
       &  ctracer_list
     CHARACTER(LEN=1)  :: anextra ! number of debug fields
     CHARACTER(len=NF_MAX_NAME) :: long_name, units
-    INTEGER :: i, jt, itracer
+    INTEGER :: i, k, jt, itracer
     INTEGER :: ivar
     INTEGER :: gridid, zaxisid
     INTEGER :: elemid, tableid
 
     !CHARACTER(len=NF_MAX_NAME) :: att_txt
     INTEGER                    :: astatus
+
+    INTEGER                    :: &
+      & errstat
+    REAL(wp), ALLOCATABLE ::     &
+      &  p_lonlat(:)        ! grid longitude pts (interpolation)
+    REAL(wp) :: pi_180
+    INTEGER  :: ist         ! error code
+
     ! ocean tracers
     CHARACTER(len=max_char_length) :: oce_tracer_names(max_ntracer),&
     &                                 oce_tracer_units(max_ntracer),&
@@ -299,10 +347,12 @@ CONTAINS
 
     CHARACTER(len=max_char_length) :: msg
     CHARACTER(len=max_char_length), PARAMETER :: routine = 'mo_io_vlist:setup_vlist'
+    INTEGER                    :: nblks
+    TYPE (t_lon_lat_grid), POINTER :: grid ! lon-lat grid
 
     !-------------------------------------------------------------------------
 
-    CALL message (TRIM(routine), 'start')
+    pi_180 = ATAN(1._wp)/45._wp
 
     !------------------------------------------------------------------
     ! no grid refinement allowed here so far the ocean
@@ -677,6 +727,66 @@ CONTAINS
     END IF
 
     !-------------------------------------------------------------------------
+    ! create lon-lat grid data structure:
+
+    LONLAT : IF (lonlat_intp_config(k_jg)%l_enabled) THEN
+      ! id list for lon-lat interpolation
+      lonlat_varids(:,k_jg,:) = NO_LONLAT_INTERP
+      grid => lonlat_intp_config(k_jg)%lonlat_grid
+
+      IF (dbg_level > 1) &
+        CALL message(routine, "Allocating field for interpolated variables")
+      nblks = grid%nblks
+      ALLOCATE(var_lonlat(k_jg)%var_3d  (nproma,MAX(nlev,nlevp1),nblks), &
+        &      var_lonlat(k_jg)%var_3d_2(nproma,MAX(nlev,nlevp1),nblks), &
+        &      STAT=ist)
+      IF (ist /= SUCCESS) THEN
+        CALL finish (routine, 'field allocation failed')
+      ENDIF
+
+      ! define lon-lat grid
+      IF (dbg_level > 1) THEN
+        WRITE(message_text,*) "PE #", p_pe, "Definition of interpolation lon-lat grid (", k_jg, ")"
+        CALL message(routine, message_text)
+      END IF
+
+      lonlat_gridID(k_jg) = gridCreate(GRID_LONLAT, grid%total_dim)
+
+      CALL gridDefXsize(lonlat_gridID(k_jg), grid%dimen(1))
+      CALL gridDefXname(lonlat_gridID(k_jg), 'interp_lon')
+      CALL gridDefXunits(lonlat_gridID(k_jg), units(1:ulen))
+
+      CALL gridDefYsize(lonlat_gridID(k_jg), grid%dimen(2))
+      CALL gridDefYname(lonlat_gridID(k_jg), 'interp_lat')
+      CALL gridDefYunits(lonlat_gridID(k_jg), units(1:ulen))
+
+      ! define rotation info of lon-lat grid:
+      CALL gridDefXpole(lonlat_gridID(k_jg), grid%poleN(1))
+      CALL gridDefYpole(lonlat_gridID(k_jg), grid%poleN(2))
+      ! Note: CALL gridDefAngle() not yet supported
+
+      DO i=1,2 ! loop lon/lat
+        ALLOCATE(p_lonlat(grid%dimen(i)), stat=errstat)
+        IF (errstat /= SUCCESS)  CALL finish('setup_vlist','ALLOCATE failed.')      
+
+        ! generate list of lon/lat points
+        p_lonlat(1:grid%dimen(i)) =              &
+          &      (/ (grid%sw_corner(i)           &
+          &            +  (k-1)*grid%delta(i),   &
+          &      k=1,grid%dimen(i))  /) 
+
+        IF (i==1) THEN
+          CALL gridDefXvals(lonlat_gridID(k_jg), p_lonlat)
+        ELSE
+          CALL gridDefYvals(lonlat_gridID(k_jg), p_lonlat)
+        END IF
+
+        DEALLOCATE(p_lonlat, stat=errstat)
+        IF (errstat /= SUCCESS)  CALL finish('setup_vlist','DEALLOCATE failed.')      
+      END DO
+    END IF LONLAT
+
+    !-------------------------------------------------------------------------
     ! register variables
     varids(:,k_jg)   = 0
     ! atm
@@ -802,7 +912,7 @@ CONTAINS
             CALL addVar(TimeVar(TRIM(name),TRIM(name),&
             &                   'kg/kg',elemid,tableid,&
             &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
-            &           k_jg)          
+            &           k_jg)       
           END IF
         END DO
         IF (iforcing == inwp)THEN
@@ -2047,8 +2157,10 @@ CONTAINS
         outvar_desc(ivar, k_jg)%type = GATHER_E
       ELSEIF(gridid == gridVertexID(k_jg)) THEN
         outvar_desc(ivar, k_jg)%type = GATHER_V
+      ELSEIF(gridid == lonlat_gridID(k_jg)) THEN
+        outvar_desc(ivar, k_jg)%type = GATHER_LONLAT
       ELSE
-        CALL finish('setup_vlist','got illegal gridid')
+        CALL finish(routine,'got illegal gridid')
       ENDIF
 
       zaxisid = vlistInqVarZaxis(vlistID(k_jg), varids(ivar, k_jg))
@@ -2059,11 +2171,13 @@ CONTAINS
     ENDDO
 
   END SUBROUTINE setup_vlist
-  !-------------------------------------------------------------------------------------------------
 
+
+  !-------------------------------------------------------------------------------------------------
   SUBROUTINE destruct_vlist(k_jg)
 
     INTEGER, INTENT(in) :: k_jg
+    INTEGER             :: ist ! error status
     !=========================================================================
     ! In parallel mode only 1 PE is writing the output
 
@@ -2085,13 +2199,24 @@ CONTAINS
       CALL zaxisDestroy(zaxisIDdepth_m(k_jg))
       CALL zaxisDestroy(zaxisID_halfdepth(k_jg))
     END IF
+
+    LONLAT : IF (lonlat_intp_config(k_jg)%l_enabled) THEN
+      CALL gridDestroy(lonlat_gridID(k_jg))
+      DEALLOCATE(var_lonlat(k_jg)%var_3d, var_lonlat(k_jg)%var_3d_2, &
+        &        STAT=ist)
+      IF (ist /= SUCCESS) THEN
+        CALL finish ('mo_io_vlist:destruct_vlist', 'deallocation failed')
+      ENDIF
+    END IF LONLAT
+
     num_output_vars(k_jg) = 0
     !
     !=========================================================================
 
   END SUBROUTINE destruct_vlist
-  !-------------------------------------------------------------------------------------------------
 
+
+  !-------------------------------------------------------------------------------------------------
   SUBROUTINE open_output_vlist(vlist_filename, k_jg)
 
     CHARACTER(len=*), INTENT(in) :: vlist_filename
@@ -2117,8 +2242,8 @@ CONTAINS
 
   END SUBROUTINE open_output_vlist
 
-  !-------------------------------------------------------------------------------------------------
 
+  !-------------------------------------------------------------------------------------------------
   SUBROUTINE close_output_vlist(k_jg)
 
     INTEGER, INTENT(in) :: k_jg
@@ -2135,15 +2260,68 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !> Write vlist variable.
-  !! This is a wrapper in order to keep streamID and varids private
+  !! This is a wrapper in order to keep streamID and varids private.
+  !! Called by asynchronous IO routines.
+  !!
+  !! Important note: 
+  !! Lon-lat interpolation of variables is not yet functional in ICON!
+  !! In module "mo_atmo_model", the vertical coordinate table "vct"
+  !! is not initialized by pure IO proc when called in this
+  !! order. 
 
-  SUBROUTINE vlist_write_var(ivar, k_jg, var)
-    INTEGER, INTENT(in) :: ivar, k_jg
-    REAL(wp), INTENT(in) :: var(*)
+  SUBROUTINE vlist_write_var(ivar, k_jg, var, nlev, typ)
+    INTEGER,       INTENT(in)  :: ivar, k_jg
+    REAL(wp),      INTENT(in)  :: var(*)
+    INTEGER,       INTENT(in)  :: nlev ! number of levels
+    INTEGER,       INTENT(in)  :: typ  ! variable type
+
+    ! local variables
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_io_vlist:vlist_write_var")
+    LOGICAL            :: l_interpolate_lonlat
+    INTEGER            :: ierrstat, dim1, dim3, n_tot
+    REAL(wp), POINTER  :: var_3d(:,:,:)
 
     CALL streamWriteVar(streamID(k_jg), varids(ivar, k_jg), var, 0)
 
+    ! Flag. True, if this variable is due to interpolation onto
+    ! lon-lat grid
+    l_interpolate_lonlat = (lonlat_intp_config(k_jg)%l_enabled) .AND. &
+      &                    (lonlat_varids(ivar,k_jg,1) /= NO_LONLAT_INTERP)
+    l_interpolate_lonlat = .FALSE. ! see comment above
+
+    ! perform interpolation onto lon-lat grid
+    IF ((l_interpolate_lonlat) .AND. (my_process_is_stdio())) THEN
+      
+      ! reshape 1D input variable to original 2D/3D array
+      dim1 = nproma
+      IF(typ == GATHER_C) THEN
+        dim3 = (p_patch(k_jg)%n_patch_cells_g-1)/nproma+1
+      ELSE IF(typ == GATHER_E) THEN
+        dim3 = (p_patch(k_jg)%n_patch_edges_g-1)/nproma+1
+      ELSE IF(typ == GATHER_V) THEN
+        dim3 = (p_patch(k_jg)%n_patch_verts_g-1)/nproma+1
+      ELSE
+        CALL finish(routine,'Illegal type parameter')
+      END IF
+
+      ALLOCATE(var_3d(dim1, nlev, dim3), STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) THEN
+        CALL finish (routine, 'allocation failed')
+      ENDIF      
+      n_tot = dim1*nlev*dim3
+      var_3d = RESHAPE(var(1:n_tot), (/ dim1, nlev, dim3 /))
+
+      CALL postprocess_lonlat(ivar, typ, var_3d, k_jg, nlev)
+      
+      DEALLOCATE(var_3d, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) THEN
+        CALL finish (routine, 'deallocation failed')
+      ENDIF      
+      
+    END IF ! (l_interpolate_lonlat)
+
   END SUBROUTINE vlist_write_var
+
 
   !-------------------------------------------------------------------------
   !> Set date and time in taxis
@@ -2157,6 +2335,7 @@ CONTAINS
 
   END SUBROUTINE vlist_set_date_time
 
+
   !-------------------------------------------------------------------------
   !> Set timestep
   !! This is a wrapper to keep variables private
@@ -2168,6 +2347,7 @@ CONTAINS
     istatus = streamDefTimestep(streamID(k_jg), istep)
 
   END SUBROUTINE vlist_start_step
+
 
   !-------------------------------------------------------------------------------------------------
   !>
@@ -2346,6 +2526,7 @@ CONTAINS
 
   END SUBROUTINE get_outvar_ptr_ha
 
+
   !-------------------------------------------------------------------------------------------------
   !>
   !! Get pointer to an output variable given its name (for NH state)
@@ -2404,8 +2585,6 @@ CONTAINS
     reset  = .FALSE.
     delete = .FALSE.
     not_found = .FALSE.
-
-
 
     SELECT CASE(varname)
       CASE ('PS');              ptr2 => p_diag%pres_sfc
@@ -2684,6 +2863,8 @@ CONTAINS
 
   END SUBROUTINE get_outvar_ptr_nh
 
+
+  !-------------------------------------------------------------------------------------------------
   SUBROUTINE get_outvar_ptr_oce(varname,jg,ptr2d,ptr3d,reset,delete)
 
     CHARACTER(LEN=*), INTENT(IN) :: varname
@@ -2782,8 +2963,9 @@ CONTAINS
     ! If we are here, the varname was definitly not found
 
   END SUBROUTINE get_outvar_ptr_oce
-  !-------------------------------------------------------------------------------------------------
 
+
+  !-------------------------------------------------------------------------------------------------
   SUBROUTINE write_vlist (datetime, z_sim_time)
 
     !=========================================================================
@@ -2793,7 +2975,7 @@ CONTAINS
     TYPE(t_datetime),            INTENT(in) :: datetime
     REAL(wp), OPTIONAL,          INTENT(in) :: z_sim_time(n_dom)
     INTEGER :: idate, itime
-    INTEGER :: istatus
+    INTEGER :: istatus, ierrstat
     INTEGER :: jg, ivar, n_tot
 
     REAL(wp), POINTER :: ptr2(:,:)
@@ -2801,7 +2983,10 @@ CONTAINS
     LOGICAL :: reset, delete
 
     REAL(wp), ALLOCATABLE :: streamvar1(:), streamvar2(:,:)
+    REAL(wp), POINTER     :: collected_var_3d(:,:,:) ! complete 3d field (nproma,nlev,nblks)
     REAL(wp) :: p_sim_time
+    INTEGER  :: nlev
+    LOGICAL l_interpolate_lonlat
     
     idate   = cdiEncodeDate(datetime%year, datetime%month, datetime%day)
     itime   = cdiEncodeTime(datetime%hour, datetime%minute, NINT(datetime%second))
@@ -2827,6 +3012,15 @@ CONTAINS
 
       DO ivar = 1, num_output_vars(jg)
 
+        ! lon-lat interpolated variables are processed together with
+        ! their source variables:
+        IF (outvar_desc(ivar, jg)%type == GATHER_LONLAT) CYCLE
+
+        ! Flag. True, if this variable is due to interpolation onto
+        ! lon-lat grid
+        l_interpolate_lonlat = (lonlat_intp_config(jg)%l_enabled) .AND. &
+          &                    (lonlat_varids(ivar,jg,1) /= NO_LONLAT_INTERP)
+
         ! Get a pointer to the variable
         SELECT CASE (iequations)
           CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
@@ -2839,7 +3033,6 @@ CONTAINS
           CASE DEFAULT
             CALL finish('write_vlist','Unsupported value of iequations')
         END SELECT
-
 
         SELECT CASE(outvar_desc(ivar, jg)%type)
           CASE (GATHER_C)
@@ -2855,12 +3048,12 @@ CONTAINS
         klev = outvar_desc(ivar, jg)%nlev
 
         ! Pack and output variable
-        IF(ASSOCIATED(ptr2)) THEN
+        IF_2D_3D : IF(ASSOCIATED(ptr2)) THEN
 
           IF(my_process_is_stdio()) ALLOCATE(streamvar1(n_tot))
 
           CALL gather_array1( outvar_desc(ivar, jg)%type, p_patch(jg), ptr2, &
-               &                        streamvar1,outvar_desc(ivar,jg)%name )
+            &                 streamvar1,outvar_desc(ivar,jg)%name, collected_var_3d )
 
           IF(my_process_is_stdio()) THEN
             CALL streamWriteVar(streamID(jg), varids(ivar,jg), streamvar1, 0)
@@ -2869,10 +3062,14 @@ CONTAINS
           IF(reset) ptr2 = 0._wp
           IF(delete) DEALLOCATE(ptr2)
 
+          nlev = 1
+
         ELSE
           IF(my_process_is_stdio()) ALLOCATE(streamvar2(n_tot, klev))
-          CALL gather_array2( outvar_desc(ivar, jg)%type, p_patch(jg), ptr3,&
-               &                       streamvar2,outvar_desc(ivar,jg)%name )
+
+          CALL gather_array2( outvar_desc(ivar, jg)%type, p_patch(jg), ptr3,  &
+            &                 streamvar2,outvar_desc(ivar,jg)%name, collected_var_3d )
+
           IF(my_process_is_stdio()) THEN
             CALL streamWriteVar(streamID(jg), varids(ivar,jg), streamvar2, 0)
             DEALLOCATE(streamvar2)
@@ -2880,9 +3077,23 @@ CONTAINS
           IF(reset) ptr3 = 0._wp
           IF(delete) DEALLOCATE(ptr3)
 
+          nlev = SIZE(ptr3(:,:,:), 2)
+
+        END IF IF_2D_3D
+
+        ! perform interpolation onto lon-lat grid
+        IF ((l_interpolate_lonlat) .AND. (my_process_is_stdio())) THEN
+          CALL postprocess_lonlat(ivar, outvar_desc(ivar, jg)%type, &
+            &                     collected_var_3d, jg, nlev)
+        END IF ! (l_interpolate_lonlat)
+
+        ! clean up: collected 3d field on triangular grid no longer needed
+        DEALLOCATE(collected_var_3d, STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) THEN
+          CALL finish ('mo_io_vlist/write_vlist', 'deallocation failed')
         ENDIF
 
-      ENDDO
+      ENDDO ! var loop
 
       IF(my_process_is_stdio()) THEN
         IF (lkeep_in_sync) THEN
@@ -2890,15 +3101,16 @@ CONTAINS
         END IF
       END IF
 
-    END DO
+    END DO ! loop over patches
 
     IF(.NOT. my_process_is_stdio()) DEALLOCATE(streamvar1, streamvar2)
 
     iostep = iostep+1
 
   END SUBROUTINE write_vlist
-  !-------------------------------------------------------------------------
 
+
+  !-------------------------------------------------------------------------
   SUBROUTINE nf(status)
     INTEGER, INTENT(in) :: status
 
@@ -2907,6 +3119,7 @@ CONTAINS
     ENDIF
 
   END SUBROUTINE nf
+
 
   !-------------------------------------------------------------------------
   !
@@ -2919,19 +3132,29 @@ CONTAINS
   !! Therefore, the reshaping performed for optimization should be reversed.
   !! This is the version for a horizontal field.
   !!
+  !! The optional parameter "out_field_2d" allows the calling procedure
+  !! to work with the collected 2d variable (not only with the RESHAPEd
+  !! variable "out_field"). However, in this case the caller is in
+  !! charge of deallocating this field.
+  !!
   !! @par Revision History
   !! Initial release by Almut Gassmann, MPI-M, (2008-11-19)
   !!
-  SUBROUTINE gather_array1(typ,p_patch,in_field,out_field,name)
+  SUBROUTINE gather_array1(typ,p_patch,in_field,out_field,opt_name,opt_out_field_2d)
     !
-    CHARACTER(LEN=*), OPTIONAL,INTENT(IN) :: name
-    INTEGER, INTENT(in) :: typ
-    TYPE(t_patch), INTENT(in), TARGET :: p_patch
-    REAL(wp), INTENT(in)    :: in_field(:,:)    ! 2dimensional input field (nblks,nproma)
-
-    REAL(wp), INTENT(inout) :: out_field(:)   ! one vector line version of the input
+    INTEGER,                   INTENT(in)    :: typ
+    TYPE(t_patch), TARGET,     INTENT(in)    :: p_patch
+    ! 2dimensional input field (nblks,nproma)
+    REAL(wp),                  INTENT(in)    :: in_field(:,:)
+    ! one vector line version of the input
+    REAL(wp),                  INTENT(inout) :: out_field(:)
+    CHARACTER(LEN=*), OPTIONAL,INTENT(IN)    :: opt_name
+    ! quasi-2d output (nproma,1,nblks)
+    REAL(wp), POINTER, INTENT(out), OPTIONAL :: &
+      &                                         opt_out_field_2d(:,:,:)
 
     REAL(wp), ALLOCATABLE :: out_field2(:,:)
+    INTEGER               :: ierrstat
 
     !-----------------------------------------------------------------------
 
@@ -2940,23 +3163,30 @@ CONTAINS
     ELSE
       ALLOCATE(out_field2(0,0))
     ENDIF
-    IF (PRESENT(name)) THEN
+    IF (PRESENT(opt_name)) THEN
       CALL gather_array2(typ,p_patch,&
                          RESHAPE(in_field,(/UBOUND(in_field,1),1,UBOUND(in_field,2)/)), &
-                         out_field2,name)
+                         out_field2, opt_name, opt_out_field_2d)
     ELSE
       CALL gather_array2(typ,p_patch,&
                          RESHAPE(in_field,(/UBOUND(in_field,1),1,UBOUND(in_field,2)/)), &
-                         out_field2)
+                         out_field2, opt_out_field_3d=opt_out_field_2d)
     ENDIF
 
     IF(my_process_is_stdio()) THEN
       out_field(:) = out_field2(:,1)
     ENDIF
-
+    ! if required, return 2D field as (nproma, nblks) array
+    IF (.NOT. PRESENT(opt_out_field_2d)) THEN
+      DEALLOCATE(opt_out_field_2d, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) THEN
+        CALL finish ('mo_io_vlist/gather_array1', 'deallocation failed')
+      ENDIF
+    END IF
     DEALLOCATE(out_field2)
 
   END SUBROUTINE gather_array1
+
 
   !-------------------------------------------------------------------------
   !
@@ -2967,22 +3197,32 @@ CONTAINS
   !! Therefore, the reshaping performed for optimization should be reversed.
   !! This is the version for a 3-d field
   !!
+  !! The optional parameter "out_field_3d" allows the calling procedure
+  !! to work with the collected 3d variable (not only with the RESHAPEd
+  !! variable "out_field"). However, in this case the caller is in
+  !! charge of deallocating this field.
+  !!
   !! @par Revision History
   !! Initial release by Almut Gassmann, MPI-M, (2008-11-19)
   !!
-  SUBROUTINE gather_array2(typ,p_patch,in_field,out_field,name)
-    !
-    CHARACTER(LEN=*), OPTIONAL,INTENT(IN) :: name
-    INTEGER,     INTENT(in)         :: typ
-    TYPE(t_patch), INTENT(in), TARGET :: p_patch
-    REAL(wp),    INTENT(in)         :: in_field(:,:,:)  ! 3d input (nproma,nlev,nblks)
+  SUBROUTINE gather_array2(typ,p_patch,in_field,out_field, opt_name, opt_out_field_3d)
 
-    REAL(wp),    INTENT(inout)      :: out_field(:,:)   ! 2d output (length,nlev)
+    INTEGER,     INTENT(in)                  :: typ
+    TYPE(t_patch), INTENT(in), TARGET        :: p_patch
+    ! 3d input (nproma,nlev,nblks)
+    REAL(wp),    INTENT(in)                  :: in_field(:,:,:)
+    ! 2d output (length,nlev)
+    REAL(wp),    INTENT(inout)               :: out_field(:,:)
+    CHARACTER(LEN=*), OPTIONAL,INTENT(IN)    :: opt_name
+    ! 3d output (nproma,nlev,nblks)
+    REAL(wp), POINTER, INTENT(out), OPTIONAL :: &
+      &                                         opt_out_field_3d(:,:,:)
 
-    INTEGER :: isize_out, isize_lev                     ! array size of output
-
-    REAL(wp), ALLOCATABLE :: tmp_field(:,:,:)
-    INTEGER :: nblks, npromz, jb, jl, jk, jend
+    ! local variables
+    REAL(wp), POINTER             :: tmp_field(:,:,:)
+    INTEGER                       :: nblks, npromz, jb, jl, jk, jend, &
+      &                              dim1, dim3, ierrstat
+    INTEGER                       :: isize_out, isize_lev               ! array size of output
     TYPE(t_comm_pattern), POINTER :: p_comm_pat
 
     !-----------------------------------------------------------------------
@@ -2998,7 +3238,9 @@ CONTAINS
 
       IF(UBOUND(in_field,3) /= p_patch%nblks_c) &
         CALL finish('mo_io_vlist/gather_array2','Illegal 3rd array dimension')
-      ALLOCATE(tmp_field(nproma,UBOUND(in_field,2),(p_patch%n_patch_cells_g-1)/nproma+1))
+      dim1 = nproma
+      dim3 = (p_patch%n_patch_cells_g-1)/nproma+1
+
       p_comm_pat => p_patch%comm_pat_gather_c
       nblks      =  p_patch%nblks_c
       npromz     =  p_patch%npromz_c
@@ -3007,7 +3249,9 @@ CONTAINS
 
       IF(UBOUND(in_field,3) /= p_patch%nblks_e) &
         CALL finish('mo_io_vlist/gather_array2','Illegal 3rd array dimension')
-      ALLOCATE(tmp_field(nproma,UBOUND(in_field,2),(p_patch%n_patch_edges_g-1)/nproma+1))
+      dim1 = nproma
+      dim3 = (p_patch%n_patch_edges_g-1)/nproma+1
+
       p_comm_pat => p_patch%comm_pat_gather_e
       nblks      =  p_patch%nblks_e
       npromz     =  p_patch%npromz_e
@@ -3016,14 +3260,16 @@ CONTAINS
 
       IF(UBOUND(in_field,3) /= p_patch%nblks_v) &
         CALL finish('mo_io_vlist/gather_array2','Illegal 3rd array dimension')
-      ALLOCATE(tmp_field(nproma,UBOUND(in_field,2),(p_patch%n_patch_verts_g-1)/nproma+1))
+      dim1 = nproma
+      dim3 = (p_patch%n_patch_verts_g-1)/nproma+1
+
       p_comm_pat => p_patch%comm_pat_gather_v
       nblks      =  p_patch%nblks_v
       npromz     =  p_patch%npromz_v
 
     ELSE
 
-      CALL finish('mo_io_vlist/gather_array2','Illegal typ parameter')
+      CALL finish('mo_io_vlist/gather_array2','Illegal type parameter')
 
       ! To get rid of compiler warnings (by gcc) about variables which may be used uninitialized,
       ! define these varaibles also here. They are not used since the "finish" above stops
@@ -3034,6 +3280,15 @@ CONTAINS
 
     ENDIF
 
+    IF (PRESENT(opt_out_field_3d)) THEN
+      ALLOCATE(opt_out_field_3d(dim1, UBOUND(in_field,2), dim3), STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) THEN
+        CALL finish ('mo_io_vlist/gather_array2', 'allocation failed')
+      ENDIF
+      tmp_field => opt_out_field_3d
+    ELSE
+      ALLOCATE(tmp_field(dim1, UBOUND(in_field,2), dim3))
+    END IF
     tmp_field(:,:,:)=0.0_wp
 
     IF(p_test_run) THEN
@@ -3049,8 +3304,8 @@ CONTAINS
           IF(jb==nblks) jend = npromz
           DO jl = 1, jend
             IF(ANY(tmp_field(jl,:,jb) /= in_field(jl,:,jb))) THEN
-                IF (PRESENT(name)) THEN
-                  WRITE(0,*)'Error ',name,jl,jb !,tmp_field(jl,:,jb),in_field(jl,:,jb)
+                IF (PRESENT(opt_name)) THEN
+                  WRITE(0,*)'Error ',opt_name,jl,jb !,tmp_field(jl,:,jb),in_field(jl,:,jb)
                 ELSE
                   WRITE(0,*)'Error ',jl,jb !,tmp_field(jl,:,jb),in_field(jl,:,jb)
                ENDIF
@@ -3061,7 +3316,7 @@ CONTAINS
       ENDIF
     ELSE
       IF(my_process_is_mpi_seq()) THEN
-        ! We are running on 1 PE, just copy in_field
+        ! We are running on 1 PE. Thus, just copy in_field.
         DO jb= 1, nblks
           jend = nproma
           IF(jb==nblks) jend = npromz
@@ -3084,9 +3339,11 @@ CONTAINS
       ENDDO
     ENDIF
 
-    DEALLOCATE(tmp_field)
+    IF (.NOT. PRESENT(opt_out_field_3d)) &
+      DEALLOCATE(tmp_field)
 
   END SUBROUTINE gather_array2
+
 
   !-------------------------------------------------------------------------
   !-------------------------------------------------------------------------
@@ -3137,6 +3394,7 @@ CONTAINS
     ENDIF
 
   END SUBROUTINE de_reshape1
+
 
   !-------------------------------------------------------------------------
   !
@@ -3190,6 +3448,8 @@ CONTAINS
 
   END SUBROUTINE de_reshape2
 
+
+  !-------------------------------------------------------------------------------------------------
   SUBROUTINE addGlobAttInt(att_name, att_int, vlist, astatus)
     CHARACTER(*), INTENT(IN)  :: att_name
     INTEGER     , INTENT(IN)  :: att_int, vlist
@@ -3198,6 +3458,8 @@ CONTAINS
     astatus = vlistDefAttInt(vlist,CDI_GLOBAL,TRIM(att_name),DATATYPE_INT32,1,att_int)
   END SUBROUTINE addGlobAttInt
 
+
+  !-------------------------------------------------------------------------------------------------
   SUBROUTINE addGlobAttTxt(att_name, att_txt, vlist, astatus)
     CHARACTER(*), INTENT(IN)  :: att_name, att_txt
     INTEGER     , INTENT(IN)  :: vlist
@@ -3206,6 +3468,8 @@ CONTAINS
     astatus = vlistDefAttTxt(vlist,CDI_GLOBAL,TRIM(att_name),LEN(TRIM(att_txt)),TRIM(att_txt))
   END SUBROUTINE addGlobAttTxt
 
+
+  !-------------------------------------------------------------------------------------------------
   SUBROUTINE addGlobAttTxtFromLog(att_name, boolian, vlist, astatus)
     CHARACTER(*), INTENT(IN)  :: att_name
     LOGICAL, INTENT(IN)       :: boolian
@@ -3214,6 +3478,8 @@ CONTAINS
     CALL addGlobAttTxt(att_name, TRIM(MERGE('.true. ','.false.',boolian)), vlist, astatus)
   END SUBROUTINE addGlobAttTxtFromLog
 
+
+  !-------------------------------------------------------------------------------------------------
   SUBROUTINE addGlobAttFlt(att_name, att_flt, vlist, astatus)
     CHARACTER(*), INTENT(IN)  :: att_name
     REAL(wp)    , INTENT(IN)  :: att_flt
@@ -3223,13 +3489,84 @@ CONTAINS
     astatus = vlistDefAttFlt(vlist,CDI_GLOBAL,TRIM(att_name),DATATYPE_FLT32,1,att_flt)
   END SUBROUTINE addGlobAttFlt
 
-  SUBROUTINE addVar(var,k_jg)
-    INTEGER, INTENT(IN)    :: var,k_jg
 
-    num_varids(k_jg)              = num_varids(k_jg) + 1
-    varids(num_varids(k_jg),k_jg) = var
+  !-------------------------------------------------------------------------------------------------
+  SUBROUTINE addVar(var,k_jg)
+    INTEGER, INTENT(IN)    :: var, k_jg
+    ! local variables
+    CHARACTER(len=max_name_len) :: zname
+
+    ! get variable name
+    CALL vlistInqVarName(vlistID(k_jg), var, zname);
+
+    ! check if this variable is due to lon-lat interpolation
+    LONLAT : IF (lonlat_intp_config(k_jg)%l_enabled) THEN
+      IF ((toupper(lonlat_intp_config(k_jg)%zlist) == 'ALL') .OR.  &
+        & (string_contains_word(zname,                   &
+        &     lonlat_intp_config(k_jg)%zlist,                      &
+        &     lonlat_intp_config(k_jg)%n_list,                     &
+        &     lonlat_intp_config(k_jg)%pos_list,                   &
+        &     lonlat_intp_config(k_jg)%ilen_list)))  THEN
+        CALL addVar_lonlat(var, k_jg)
+      ELSE
+        num_varids(k_jg)              = num_varids(k_jg) + 1
+        varids(num_varids(k_jg),k_jg) = var
+      END IF
+    END IF LONLAT
+
   END SUBROUTINE addVar
 
+
+  !-------------------------------------------------------------------------------------------------
+  !> defines a new output variable which is then also interpolated to
+  !> a lon-lat grid
+  SUBROUTINE addVar_lonlat(varID, k_jg)
+    INTEGER, INTENT(IN)     :: varID   ! variable ID
+    INTEGER, INTENT(IN)     :: k_jg    ! patch index
+    ! local variables
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_io_vlist:addVar_lonlat")
+    INTEGER                 :: igridID, ivar_idx
+
+    ! add standard variable
+    num_varids(k_jg)       = num_varids(k_jg) + 1
+    ivar_idx               = num_varids(k_jg)
+    varids(ivar_idx,k_jg)  = varID
+    
+    ! determine the grid on which the variable is defined:
+    igridID = vlistInqVarGrid(vlistID(k_jg), varID)
+
+    ! depending on the grid on which the variable is defined, add one
+    ! or two (gradients) variables for lon-lat grid
+    IF (igridID == gridCellID(k_jg)) THEN
+
+      num_varids(k_jg)              = num_varids(k_jg) + 1
+      varids(num_varids(k_jg),k_jg) = var_clone(vlistID(k_jg), varID, &
+        &                             lonlat_gridID(k_jg), "_LONLAT")
+      ! store association between variables
+      lonlat_varids(ivar_idx,k_jg,1) = varids(num_varids(k_jg),k_jg)
+
+    ELSE IF (igridID == gridEdgeID(k_jg)) THEN
+      
+      ! add x-component:
+      num_varids(k_jg)               = num_varids(k_jg) + 1
+      varids(num_varids(k_jg),k_jg)  = var_clone(vlistID(k_jg), varID, &
+        &                             lonlat_gridID(k_jg), "_LONLAT_X")
+      ! store association between variables
+      lonlat_varids(ivar_idx,k_jg,1) = varids(num_varids(k_jg),k_jg)
+
+      ! add y-component:
+      num_varids(k_jg)               = num_varids(k_jg) + 1
+      varids(num_varids(k_jg),k_jg)  = var_clone(vlistID(k_jg), varID, &
+        &                             lonlat_gridID(k_jg), "_LONLAT_Y")
+      ! store association between variables
+      lonlat_varids(ivar_idx,k_jg,2) = varids(num_varids(k_jg),k_jg)
+
+    END IF
+
+  END SUBROUTINE addVar_lonlat
+
+
+  !-------------------------------------------------------------------------------------------------
   FUNCTION TimeVar(vname,vlongname,vunit,vcode,vtable,vlist,grid,zaxis) RESULT(var)
     INTEGER                  :: var
     CHARACTER(*), INTENT(IN) :: vname, vlongname, vunit
@@ -3246,6 +3583,8 @@ CONTAINS
     END IF
   END FUNCTION TimeVar
 
+
+  !-------------------------------------------------------------------------------------------------
   FUNCTION ConstVar(vname,vlongname,vunit,vcode,vtable,vlist,grid,zaxis) RESULT(var)
     INTEGER                  :: var
     CHARACTER(*), INTENT(IN) :: vname, vlongname, vunit
@@ -3262,6 +3601,8 @@ CONTAINS
     END IF
   END FUNCTION ConstVar
 
+
+  !-------------------------------------------------------------------------------------------------
   FUNCTION DebugVar(vname,vlist,grid,zaxis) RESULT(var)
     INTEGER                  :: var
     CHARACTER(*), INTENT(IN) :: vname
@@ -3269,8 +3610,44 @@ CONTAINS
 
     var  = vlistdefvar(vlist, grid, zaxis, TIME_VARIABLE)
     CALL vlistdefvarname(vlist, var, vname)
+
   END FUNCTION DebugVar
 
+
+  !-------------------------------------------------------------------------------------------------
+  !> Duplicates a given "ConstVar", "TimeVar" or "DebugVar"
+  FUNCTION var_clone(vlistID, varID, new_gridID, suffix) RESULT(var)
+
+    INTEGER, INTENT(IN)      :: vlistID, varID, new_gridID
+    CHARACTER(*), INTENT(IN) :: suffix
+    INTEGER                  :: var
+    ! local variables
+    INTEGER                      :: gridID, zaxisID, timeID, vcode
+    CHARACTER(len=max_name_len)  :: vname, vlongname, vunits
+
+    ! inquire about vlist, zaxis, TIME_VARIABLE/TIME_CONSTANT, vname,
+    ! vlongname, vunit, vcode
+    CALL vlistInqVar(vlistID, varID, gridID, zaxisID, timeID)
+    CALL vlistInqVarName(vlistID, varID, vname)
+    CALL vlistInqVarLongname(vlistID, varID, vlongname)
+    CALL vlistInqVarUnits(vlistID, varID, vunits);
+    vcode = vlistInqVarCode(vlistID, varID);
+
+    var = vlistdefvar(vlistID, new_gridID, zaxisID, timeID)
+    CALL vlistdefvarname(vlistID, var, TRIM(TRIM(vname)//suffix))
+
+    CALL vlistdefvarlongname (vlistID, var, vlongname)
+    CALL vlistdefvarunits(vlistID, var, vunits)
+    IF ( vcode .GT. 0 ) THEN
+      CALL vlistdefvarcode(vlistID, var, vcode)
+    ELSE
+      CALL message('WARNING:var_clone','Prevent setting negative var code for'//TRIM(vname))
+    END IF
+
+  END FUNCTION var_clone
+
+
+  !-------------------------------------------------------------------------------------------------
   ! dup3: duplicates an array and returns a pointer to the duplicate
   FUNCTION dup3(arr)
     REAL(wp), INTENT(IN) :: arr(:,:,:)
@@ -3282,6 +3659,8 @@ CONTAINS
 
   END FUNCTION dup3
 
+
+  !-------------------------------------------------------------------------------------------------
   ! dup2: duplicates an array and returns a pointer to the duplicate
   FUNCTION dup2(arr)
     REAL(wp), INTENT(IN) :: arr(:,:)
@@ -3293,6 +3672,8 @@ CONTAINS
 
   END FUNCTION dup2
 
+
+  !-------------------------------------------------------------------------------------------------
   SUBROUTINE addGlobAtts(vlist,k_jg,astatus)
     INTEGER, INTENT(IN) :: vlist, k_jg
     INTEGER             :: astatus
@@ -3347,6 +3728,8 @@ CONTAINS
 
   END SUBROUTINE addGlobAtts
 
+
+  !-------------------------------------------------------------------------------------------------
   SUBROUTINE addAtmAtts(vlist,k_jg,astatus)
     INTEGER, INTENT(IN) :: vlist,k_jg
     INTEGER             :: astatus
@@ -3705,9 +4088,121 @@ CONTAINS
      END IF
   END SUBROUTINE addAtmAtts
 
+
+  !-------------------------------------------------------------------------------------------------
   SUBROUTINE addOceAtts(vlist,istatus)
     INTEGER, INTENT(IN) :: vlist
     INTEGER             :: istatus
   END SUBROUTINE addOceAtts
+
+
+  !-------------------------------------------------------------------------------------------------
+  !> Interpolate variable onto associated lon-lat grid variable
+  SUBROUTINE postprocess_lonlat(ivar, itype, var_3d, k_jg, nlev)
+
+    INTEGER,               INTENT(IN) :: ivar           ! source variable ID
+    INTEGER,               INTENT(IN) :: itype          ! variable type (cell/edge/vertex based)
+    REAL(wp), POINTER,     INTENT(IN) :: var_3d(:,:,:)  ! source variable (nproma,nlev,nblks)
+    INTEGER,               INTENT(IN) :: k_jg           ! patch index
+    INTEGER,               INTENT(IN) :: nlev           ! number of levels
+    ! local variables
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_io_vlist:postprocess_lonlat")
+    INTEGER                 :: ierrstat, jk, n_tot
+    REAL(wp), ALLOCATABLE   :: streamvar(:,:), tmp_var(:,:,:)
+    INTEGER                 :: nblks_lonlat, npromz_lonlat
+    TYPE (t_lon_lat_grid), POINTER :: grid ! lon-lat grid
+
+    ! ------------------------------------------------
+
+    ! perform RBF interpolation of field, depending on the grid on
+    ! which the variable is defined.
+    IF (dbg_level > 1) THEN
+      WRITE(message_text,*) "PE #", p_pe, ": processing patch ", k_jg
+      CALL message(routine, message_text)
+    END IF
+
+    ! "streamvar": temporary variable
+    grid => lonlat_intp_config(k_jg)%lonlat_grid
+    n_tot = grid%total_dim
+    ALLOCATE(streamvar(n_tot,nlev), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) THEN
+      CALL finish (routine, 'allocation failed')
+    ENDIF
+
+    ! for cell-based variables: interpolate gradients (finite differences) and reconstruct
+    IF (itype == GATHER_C) THEN
+      CALL rbf_interpol_lonlat( k_jg, p_patch(k_jg), p_int_state_lonlat(k_jg), &
+        &                       var_3d(:,:,:), var_lonlat(k_jg)%var_3d(:,:,:), nlev )
+
+    ELSEIF (itype == GATHER_V) THEN
+
+      ! vertex-based variables (vorticity "VOR") are treated in a
+      ! special way: They are first interpolated onto the cell centers
+      ! and afterwards treated as scalar variables of type "GATHER_C"
+
+      ! Note: The whole process is overly expensive! For the case that
+      ! there are other vertex-based variables for output, this
+      ! routine must be optimized!
+
+      ! this requires a temporary variable:
+      ALLOCATE(tmp_var(nproma, nlev, p_patch(k_jg)%nblks_c), STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) THEN
+        CALL finish (routine, 'allocation failed')
+      ENDIF
+      CALL verts2cells_scalar( var_3d(:,:,:), p_patch(k_jg), p_int_state(k_jg)%verts_aw_cells, &
+        &                      tmp_var(:,:,:), 1, nlev )
+      CALL rbf_interpol_lonlat( k_jg, p_patch(k_jg), p_int_state_lonlat(k_jg), &
+        &                       tmp_var(:,:,:), var_lonlat(k_jg)%var_3d(:,:,:), nlev )
+      ! clean up:
+      DEALLOCATE(tmp_var, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) THEN
+        CALL finish (routine, 'deallocation failed')
+      ENDIF
+
+    ELSEIF (itype == GATHER_E) THEN
+      
+      ! for edge-based variables: simple interpolation
+      nblks_lonlat  = grid%nblks
+      npromz_lonlat = grid%npromz
+      CALL rbf_vec_interpol_lonlat( var_3d(:,:,:), p_patch(k_jg),     &
+        &                           p_int_state_lonlat(k_jg),         &
+        &                           var_lonlat(k_jg)%var_3d(:,:,:),   &
+        &                           var_lonlat(k_jg)%var_3d_2(:,:,:), &
+        &                           nblks_lonlat, npromz_lonlat,      &
+        &                           1, nlev )
+      
+      ! reshape lon-lat variable (nproma,nlev,nblks) -> (ntot,nlev)       
+      DO jk = 1, nlev
+        streamvar(:,jk) = RESHAPE(var_lonlat(k_jg)%var_3d_2(:,jk,:), (/n_tot/))
+      ENDDO
+      
+      ! write Y-component of the interpolated variable
+      IF (dbg_level > 1) THEN
+        WRITE(message_text,*) "PE #", p_pe, ": write  interpolated 2D variable"
+        CALL message(routine, message_text)
+      END IF
+      CALL streamWriteVar(streamID(k_jg), lonlat_varids(ivar,k_jg,2), streamvar, 0)
+        
+    END IF
+
+    ! reshape lon-lat variable (nproma,nlev,nblks) -> (ntot,nlev)       
+    DO jk = 1, nlev
+      streamvar(:,jk) = RESHAPE(var_lonlat(k_jg)%var_3d(:,jk,:), (/n_tot/))
+    ENDDO
+
+    ! actually write the interpolated variable (scalar/X-component)
+    IF (dbg_level > 1) THEN
+      WRITE(message_text,*) "PE #", p_pe, ": write  interpolated 2D variable"
+      CALL message(routine, message_text)
+    END IF
+    CALL streamWriteVar(streamID(k_jg), lonlat_varids(ivar,k_jg,1), streamvar, 0)
+
+    ! clean up:
+    DEALLOCATE(streamvar, STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) THEN
+      CALL finish (routine, 'deallocation failed')
+    ENDIF
+
+  END SUBROUTINE postprocess_lonlat
 
 END MODULE mo_io_vlist

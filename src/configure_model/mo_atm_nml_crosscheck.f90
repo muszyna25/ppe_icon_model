@@ -56,7 +56,8 @@ MODULE mo_atm_nml_crosscheck
     &                               ifluxl_m  
   USE mo_time_config,         ONLY: time_config
   USE mo_io_config,           ONLY: dt_checkpoint
-  USE mo_parallel_config,     ONLY: check_parallel_configuration
+  USE mo_parallel_config,     ONLY: check_parallel_configuration,              &
+    &                               num_io_procs
   USE mo_run_config,          ONLY: lrestore_states, nsteps, dtime, iforcing,  &
     &                               ltransport, ntracer, nlev, io3, ltestcase, &
     &                               iqcond, ntracer_static,&
@@ -94,6 +95,7 @@ MODULE mo_atm_nml_crosscheck
   USE mo_ha_testcases,       ONLY: ctest_name
 
   USE mo_datetime,           ONLY: add_time, print_datetime_all
+  USE mo_lonlat_intp_config, ONLY: lonlat_intp_config
 
   IMPLICIT NONE
 
@@ -740,6 +742,15 @@ CONTAINS
   
     IF (inextra_2D == 0 .AND. inextra_3D == 0 .AND. lwrite_extra) &
       CALL finish('io_namelist','need to specify number of fields for extra output')
+
+    !---------------------------------------------------------------
+    ! lon-lat interpolation is not yet fully implemented
+    !---------------------------------------------------------------
+
+    IF ((num_io_procs>0) .AND. (ANY(lonlat_intp_config(:)%l_enabled))) THEN
+      CALL finish('lonlat_intp_nml',&
+        &         'Asynchronous IO of lon-lat interpolated vars not yet implemented!')
+    END IF
 
 
   END  SUBROUTINE atm_crosscheck

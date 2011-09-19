@@ -61,7 +61,7 @@ USE mo_lnd_nwp_config,       ONLY: configure_lnd_nwp
 USE mo_model_domain,         ONLY: p_patch
 USE mo_grid_config,          ONLY: n_dom
 ! to break circular dependency KF???
-USE mo_intp_data_strc,       ONLY: p_int_state
+USE mo_intp_data_strc,       ONLY: p_int_state, p_int_state_lonlat
 USE mo_grf_intp_data_strc,   ONLY: p_grf_state
 ! NH-namelist state
 USE mo_atm_phy_nwp_config,   ONLY: configure_atm_phy_nwp, atm_phy_nwp_config
@@ -156,7 +156,7 @@ CONTAINS
       CALL message(TRIM(routine),'normal exit from read_restart_files')
 
     ENDIF
-                                                                                       
+
    !--------------------
 
     ! Initialize model with real atmospheric data if appropriate switches are set
@@ -233,7 +233,6 @@ CONTAINS
       ENDDO
     ENDIF
 
-
     IF (.NOT.is_restart_run()) THEN
       ! Initialize the first output file which will contain also the 
       ! initial conditions.
@@ -292,7 +291,7 @@ CONTAINS
         ENDIF
 
       ENDDO
-    
+
       ! Note: here the derived output variables are not yet available
       ! (divergence, vorticity)
       !
@@ -300,6 +299,7 @@ CONTAINS
       IF (lwrite_pzlev) THEN
         CALL intp_to_p_and_z_levels(p_patch(1:), prm_diag, p_nh_state)
       ENDIF
+
       CALL write_output( time_config%cur_datetime )
       l_have_output = .TRUE.
 

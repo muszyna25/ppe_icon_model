@@ -474,7 +474,7 @@ CONTAINS
 
       IF((irad_o3 == io3_clim) .OR. (irad_o3 == io3_ape) ) THEN
         CALL message( TRIM(routine),'external ozone data required' )
-        CALL read_ext_data_atm (p_patch, ext_data)   ! read ozone
+        CALL read_ext_data_atm (p_patch, ext_data, nlev_o3)   ! read ozone
       ENDIF
 
 
@@ -517,7 +517,7 @@ CONTAINS
 
       CALL message( TRIM(routine),'Start reading external data from file' )
 
-      CALL read_ext_data_atm (p_patch, ext_data)
+      CALL read_ext_data_atm (p_patch, ext_data, nlev_o3)
       IF (n_iter_smooth_topo > 0) THEN
         DO jg = 1, n_dom
           CALL smooth_topography (p_patch(jg), p_int_state(jg),  &
@@ -1557,17 +1557,17 @@ CONTAINS
       ! 2. Check validity of ozone file                !
       !------------------------------------------------!
 
-      IF((irad_o3 == io3_clim) .OR. (irad_o3 == io3_ape )) THEN
+      ! default values for nlev_o3 and nmonths
+      nlev_o3 = 1
+      nmonths   = 1
+
+      O3 : IF((irad_o3 == io3_clim) .OR. (irad_o3 == io3_ape )) THEN
 
         IF(p_test_run) THEN
           mpi_comm = p_comm_work_test
         ELSE
           mpi_comm = p_comm_work
         ENDIF
-
-        ! default values for nlev_o3 and nmonths
-        nlev_o3 = 1
-        nmonths   = 1
 
         IF(irad_o3 == io3_ape ) THEN
           levelname = 'level'
@@ -1583,8 +1583,8 @@ CONTAINS
                            ! and converted from ppmv
         ENDIF
 
-        IF(my_process_is_stdio()) THEN
-
+        IF_IO : IF(my_process_is_stdio()) THEN
+          
           WRITE(ozone_file,'(a,i2.2,a)') 'o3_icon_DOM',jg,'.nc'
 
           ! Note resolution assignment is done per script by symbolic links
@@ -1671,12 +1671,12 @@ CONTAINS
           !
           CALL nf(nf_close(ncid))
 
-        ENDIF ! pe
+        END IF IF_IO ! pe
 
         CALL p_bcast(nlev_o3, p_io, mpi_comm)      
         CALL p_bcast(nmonths,   p_io, mpi_comm)      
 
-      ENDIF !o3
+      END IF O3 !o3
 
     ENDDO ! ndom
 
@@ -1694,10 +1694,11 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2010-07-14)
   !!
-  SUBROUTINE read_ext_data_atm (p_patch, ext_data)
+  SUBROUTINE read_ext_data_atm (p_patch, ext_data, nlev_o3)
 
     TYPE(t_patch), INTENT(IN)            :: p_patch(:)
     TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
+    INTEGER, INTENT(IN)                  :: nlev_o3
 
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = 'mo_ext_data:read_ext_data_atm'
@@ -1719,223 +1720,223 @@ CONTAINS
     !----------------------------------------------------------------------
 
     IF(itopo == 1 ) THEN
-    DO jg = 1,n_dom
+      DO jg = 1,n_dom
 
-      i_lev = p_patch(jg)%level
+        i_lev = p_patch(jg)%level
 
-      IF(my_process_is_stdio()) THEN
+        IF(my_process_is_stdio()) THEN
+
+          !
+          ! generate file name and open file
+          !
+          WRITE(extpar_file,'(a,a)') &
+            & 'extpar_',TRIM(p_patch(jg)%grid_filename)
+          CALL nf(nf_open(TRIM(extpar_file), NF_NOWRITE, ncid))
+
+        ENDIF
+
+
+        !-------------------------------------------------------
+        !
+        ! Read topography for triangle centers and vertices
+        !
+        !-------------------------------------------------------
 
         !
-        ! generate file name and open file
+        ! topography
         !
-        WRITE(extpar_file,'(a,a)') &
-          & 'extpar_',TRIM(p_patch(jg)%grid_filename)
-        CALL nf(nf_open(TRIM(extpar_file), NF_NOWRITE, ncid))
+        IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
 
-      ENDIF
-
-
-      !-------------------------------------------------------
-      !
-      ! Read topography for triangle centers and vertices
-      !
-      !-------------------------------------------------------
-
-      !
-      ! topography
-      !
-      IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
-
-        ! triangle center
-        CALL read_netcdf_data (ncid, 'topography_c', p_patch(jg)%n_patch_cells_g,       &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     ext_data(jg)%atm%topography_c)
-
-        ! triangle vertex
-        CALL read_netcdf_data (ncid, 'topography_v', p_patch(jg)%n_patch_verts_g,       &
-          &                     p_patch(jg)%n_patch_verts, p_patch(jg)%verts%glb_index, &
-          &                     ext_data(jg)%atm%topography_v)
-
-      ELSEIF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
-
-        ! As extpar "knows" only the triangular grid, cells and vertices need to be switched here
-        ! triangle center
-        CALL read_netcdf_data (ncid, 'topography_c', p_patch(jg)%n_patch_verts_g,       &
-          &                     p_patch(jg)%n_patch_verts, p_patch(jg)%verts%glb_index, &
-          &                     ext_data(jg)%atm%topography_v)
-
-        ! triangle vertex
-        CALL read_netcdf_data (ncid, 'topography_v', p_patch(jg)%n_patch_cells_g,       &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     ext_data(jg)%atm%topography_c)
-
-      ENDIF
-
-
-      !
-      ! other external parameters on triangular grid
-      !
-      IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
-
-        CALL read_netcdf_data (ncid, 'FR_LAND', p_patch(jg)%n_patch_cells_g,              &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,   &
-          &                     ext_data(jg)%atm%fr_land)
-
-        CALL read_netcdf_data (ncid, 'ICE', p_patch(jg)%n_patch_cells_g,                &
-          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     ext_data(jg)%atm%fr_ice)
-
-
-        SELECT CASE ( iforcing )
-        CASE ( inwp )
-          
-          CALL read_netcdf_data (ncid, 'PLCOV_MX', p_patch(jg)%n_patch_cells_g,           &
+          ! triangle center
+          CALL read_netcdf_data (ncid, 'topography_c', p_patch(jg)%n_patch_cells_g,       &
             &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                     ext_data(jg)%atm%plcov_mx)
+            &                     ext_data(jg)%atm%topography_c)
 
-          CALL read_netcdf_data (ncid, 'LAI_MX', p_patch(jg)%n_patch_cells_g,             &
+          ! triangle vertex
+          CALL read_netcdf_data (ncid, 'topography_v', p_patch(jg)%n_patch_verts_g,       &
+            &                     p_patch(jg)%n_patch_verts, p_patch(jg)%verts%glb_index, &
+            &                     ext_data(jg)%atm%topography_v)
+
+        ELSEIF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
+
+          ! As extpar "knows" only the triangular grid, cells and vertices need to be switched here
+          ! triangle center
+          CALL read_netcdf_data (ncid, 'topography_c', p_patch(jg)%n_patch_verts_g,       &
+            &                     p_patch(jg)%n_patch_verts, p_patch(jg)%verts%glb_index, &
+            &                     ext_data(jg)%atm%topography_v)
+
+          ! triangle vertex
+          CALL read_netcdf_data (ncid, 'topography_v', p_patch(jg)%n_patch_cells_g,       &
             &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                     ext_data(jg)%atm%lai_mx)
+            &                     ext_data(jg)%atm%topography_c)
 
-          CALL read_netcdf_data (ncid, 'ROOTDP', p_patch(jg)%n_patch_cells_g,             &
+        ENDIF
+
+
+        !
+        ! other external parameters on triangular grid
+        !
+        IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
+
+          CALL read_netcdf_data (ncid, 'FR_LAND', p_patch(jg)%n_patch_cells_g,              &
+            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,   &
+            &                     ext_data(jg)%atm%fr_land)
+
+          CALL read_netcdf_data (ncid, 'ICE', p_patch(jg)%n_patch_cells_g,                &
             &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                     ext_data(jg)%atm%rootdp)
+            &                     ext_data(jg)%atm%fr_ice)
 
-          CALL read_netcdf_data (ncid, 'RSMIN', p_patch(jg)%n_patch_cells_g,             &
-            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                     ext_data(jg)%atm%rsmin)
 
-          CALL read_netcdf_data (ncid, 'FOR_D', p_patch(jg)%n_patch_cells_g,              &
-            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                     ext_data(jg)%atm%for_d)
+          SELECT CASE ( iforcing )
+          CASE ( inwp )
 
-          CALL read_netcdf_data (ncid, 'FOR_E', p_patch(jg)%n_patch_cells_g,              &
-            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                     ext_data(jg)%atm%for_e)
-
-          CALL read_netcdf_data (ncid, 'URBAN', p_patch(jg)%n_patch_cells_g,              &
-            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                     ext_data(jg)%atm%urban)
-
-          CALL read_netcdf_data (ncid, 'Z0', p_patch(jg)%n_patch_cells_g,                 &
-            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                     ext_data(jg)%atm%z0)
-
-          CALL read_netcdf_data (ncid, 'NDVI_MAX', p_patch(jg)%n_patch_cells_g,           &
-            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                     ext_data(jg)%atm%ndvi_max)
-
-          CALL read_netcdf_data (ncid, 'SOILTYP', p_patch(jg)%n_patch_cells_g,        &
-            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                     ext_data(jg)%atm%soiltyp)
-
-          IF ( l_emiss ) THEN
-            CALL read_netcdf_data (ncid, 'EMIS_RAD', p_patch(jg)%n_patch_cells_g,           &
+            CALL read_netcdf_data (ncid, 'PLCOV_MX', p_patch(jg)%n_patch_cells_g,           &
               &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-              &                     ext_data(jg)%atm%emis_rad)
-          ELSE
-            ext_data(jg)%atm%emis_rad(:,:)= zemiss_def
-          ENDIF
+              &                     ext_data(jg)%atm%plcov_mx)
 
-          CALL read_netcdf_data (ncid, 'T_CL', p_patch(jg)%n_patch_cells_g,               &
-            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                     ext_data(jg)%atm%t_cl)
-
-          CALL read_netcdf_data (ncid, 'SSO_STDH', p_patch(jg)%n_patch_cells_g,           &
-            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                     ext_data(jg)%atm%sso_stdh)
-
-          CALL read_netcdf_data (ncid, 'SSO_THETA', p_patch(jg)%n_patch_cells_g,          &
-            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                     ext_data(jg)%atm%sso_theta)
-
-          CALL read_netcdf_data (ncid, 'SSO_GAMMA', p_patch(jg)%n_patch_cells_g,          &
-            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                     ext_data(jg)%atm%sso_gamma)
-
-          CALL read_netcdf_data (ncid, 'SSO_SIGMA', p_patch(jg)%n_patch_cells_g,          &
-            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                     ext_data(jg)%atm%sso_sigma)
-
-          CALL read_netcdf_data (ncid, 'FR_LAKE', p_patch(jg)%n_patch_cells_g,            &
-            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                     ext_data(jg)%atm%fr_lake)
-
-          CALL read_netcdf_data (ncid, 'DEPTH_LK', p_patch(jg)%n_patch_cells_g,           &
-            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                     ext_data(jg)%atm%depth_lk)
-
-        CASE ( iecham, ildf_echam )
-
-          IF ( l_emiss ) THEN
-            CALL read_netcdf_data (ncid, 'EMIS_RAD', p_patch(jg)%n_patch_cells_g,           &
+            CALL read_netcdf_data (ncid, 'LAI_MX', p_patch(jg)%n_patch_cells_g,             &
               &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-              &                     ext_data(jg)%atm%emis_rad)
-          ELSE
-            ext_data(jg)%atm%emis_rad(:,:)= zemiss_def
-          ENDIF
-          
-        END SELECT ! iforcing
+              &                     ext_data(jg)%atm%lai_mx)
+
+            CALL read_netcdf_data (ncid, 'ROOTDP', p_patch(jg)%n_patch_cells_g,             &
+              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+              &                     ext_data(jg)%atm%rootdp)
+
+            CALL read_netcdf_data (ncid, 'RSMIN', p_patch(jg)%n_patch_cells_g,             &
+              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+              &                     ext_data(jg)%atm%rsmin)
+
+            CALL read_netcdf_data (ncid, 'FOR_D', p_patch(jg)%n_patch_cells_g,              &
+              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+              &                     ext_data(jg)%atm%for_d)
+
+            CALL read_netcdf_data (ncid, 'FOR_E', p_patch(jg)%n_patch_cells_g,              &
+              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+              &                     ext_data(jg)%atm%for_e)
+
+            CALL read_netcdf_data (ncid, 'URBAN', p_patch(jg)%n_patch_cells_g,              &
+              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+              &                     ext_data(jg)%atm%urban)
+
+            CALL read_netcdf_data (ncid, 'Z0', p_patch(jg)%n_patch_cells_g,                 &
+              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+              &                     ext_data(jg)%atm%z0)
+
+            CALL read_netcdf_data (ncid, 'NDVI_MAX', p_patch(jg)%n_patch_cells_g,           &
+              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+              &                     ext_data(jg)%atm%ndvi_max)
+
+            CALL read_netcdf_data (ncid, 'SOILTYP', p_patch(jg)%n_patch_cells_g,        &
+              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+              &                     ext_data(jg)%atm%soiltyp)
+
+            IF ( l_emiss ) THEN
+              CALL read_netcdf_data (ncid, 'EMIS_RAD', p_patch(jg)%n_patch_cells_g,           &
+                &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+                &                     ext_data(jg)%atm%emis_rad)
+            ELSE
+              ext_data(jg)%atm%emis_rad(:,:)= zemiss_def
+            ENDIF
+
+            CALL read_netcdf_data (ncid, 'T_CL', p_patch(jg)%n_patch_cells_g,               &
+              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+              &                     ext_data(jg)%atm%t_cl)
+
+            CALL read_netcdf_data (ncid, 'SSO_STDH', p_patch(jg)%n_patch_cells_g,           &
+              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+              &                     ext_data(jg)%atm%sso_stdh)
+
+            CALL read_netcdf_data (ncid, 'SSO_THETA', p_patch(jg)%n_patch_cells_g,          &
+              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+              &                     ext_data(jg)%atm%sso_theta)
+
+            CALL read_netcdf_data (ncid, 'SSO_GAMMA', p_patch(jg)%n_patch_cells_g,          &
+              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+              &                     ext_data(jg)%atm%sso_gamma)
+
+            CALL read_netcdf_data (ncid, 'SSO_SIGMA', p_patch(jg)%n_patch_cells_g,          &
+              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+              &                     ext_data(jg)%atm%sso_sigma)
+
+            CALL read_netcdf_data (ncid, 'FR_LAKE', p_patch(jg)%n_patch_cells_g,            &
+              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+              &                     ext_data(jg)%atm%fr_lake)
+
+            CALL read_netcdf_data (ncid, 'DEPTH_LK', p_patch(jg)%n_patch_cells_g,           &
+              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+              &                     ext_data(jg)%atm%depth_lk)
+
+          CASE ( iecham, ildf_echam )
+
+            IF ( l_emiss ) THEN
+              CALL read_netcdf_data (ncid, 'EMIS_RAD', p_patch(jg)%n_patch_cells_g,           &
+                &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+                &                     ext_data(jg)%atm%emis_rad)
+            ELSE
+              ext_data(jg)%atm%emis_rad(:,:)= zemiss_def
+            ENDIF
+
+          END SELECT ! iforcing
 
 
 
-        !
-        ! derived external parameter fields
-        !
+          !
+          ! derived external parameter fields
+          !
 
-        ! land sea mask at cell centers (LOGICAL)
-        !
-        i_nchdom  = MAX(1,p_patch(jg)%n_childdom)
+          ! land sea mask at cell centers (LOGICAL)
+          !
+          i_nchdom  = MAX(1,p_patch(jg)%n_childdom)
 
-        rl_start = grf_bdywidth_c
-        rl_end   = min_rlcell_int
+          rl_start = grf_bdywidth_c
+          rl_end   = min_rlcell_int
 
-        i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
-        i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
+          i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
+          i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
 
-        DO jb = i_startblk, i_endblk
-          CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
-            &                i_startidx, i_endidx, rl_start, rl_end)
+          DO jb = i_startblk, i_endblk
+            CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
+              &                i_startidx, i_endidx, rl_start, rl_end)
 
-          ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
-          DO jc = 1,i_endidx
-             IF (ext_data(jg)%atm%fr_land(jc,jb) > 0.5_wp) THEN
-               ext_data(jg)%atm%llsm_atm_c(jc,jb) = .TRUE.  ! land point
-             ELSE
-               ext_data(jg)%atm%llsm_atm_c(jc,jb) = .FALSE.  ! water point
-             ENDIF
+            ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
+            DO jc = 1,i_endidx
+              IF (ext_data(jg)%atm%fr_land(jc,jb) > 0.5_wp) THEN
+                ext_data(jg)%atm%llsm_atm_c(jc,jb) = .TRUE.  ! land point
+              ELSE
+                ext_data(jg)%atm%llsm_atm_c(jc,jb) = .FALSE.  ! water point
+              ENDIF
+            ENDDO
           ENDDO
-        ENDDO
 
 
-      ELSEIF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
+        ELSEIF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
 
-        CALL finish(TRIM(ROUTINE),&
-        & 'Hexagonal grid is not supported, yet.')
+          CALL finish(TRIM(ROUTINE),&
+            & 'Hexagonal grid is not supported, yet.')
 
-      ENDIF
+        ENDIF
 
-      !
-      ! close file
-      !
-      IF( my_process_is_stdio()) CALL nf(nf_close(ncid))
+        !
+        ! close file
+        !
+        IF( my_process_is_stdio()) CALL nf(nf_close(ncid))
 
-    ENDDO
+      ENDDO
 
     ENDIF ! itopo
 
 
-      !-------------------------------------------------------
-      ! Read ozone
-      !-------------------------------------------------------
+    !-------------------------------------------------------
+    ! Read ozone
+    !-------------------------------------------------------
 
-       IF((irad_o3 == io3_clim) .OR. (irad_o3 == io3_ape)) THEN
+    IF((irad_o3 == io3_clim) .OR. (irad_o3 == io3_ape)) THEN
 
-        IF(p_test_run) THEN
-          mpi_comm = p_comm_work_test
-        ELSE
-          mpi_comm = p_comm_work
-        ENDIF
+      IF(p_test_run) THEN
+        mpi_comm = p_comm_work_test
+      ELSE
+        mpi_comm = p_comm_work
+      ENDIF
 
       DO jg = 1,n_dom
 
@@ -1946,82 +1947,82 @@ CONTAINS
           CALL nf(nf_open(TRIM(ozone_file), NF_NOWRITE, ncid))
           WRITE(0,*)'read ozone levels'
 
-!          SELECT CASE (iequations)
-!          CASE(ihs_atm_temp,ihs_atm_theta)
+          !          SELECT CASE (iequations)
+          !          CASE(ihs_atm_temp,ihs_atm_theta)
 
-            CALL nf(nf_inq_varid(ncid, TRIM(levelname), varid))
-            CALL nf(nf_get_var_double(ncid, varid,zdummy_o3lev(:) ))
+          CALL nf(nf_inq_varid(ncid, TRIM(levelname), varid))
+          CALL nf(nf_get_var_double(ncid, varid,zdummy_o3lev(:) ))
 
-!          CASE(inh_atmosphere)
-!            CALL nf(nf_inq_varid(ncid, TRIM(zlevelname), varid))
-!            CALL nf(nf_get_var_double(ncid, varid,zdummy_o3lev(:) ))
-!          END SELECT
- 
+          !          CASE(inh_atmosphere)
+          !            CALL nf(nf_inq_varid(ncid, TRIM(zlevelname), varid))
+          !            CALL nf(nf_get_var_double(ncid, varid,zdummy_o3lev(:) ))
+          !          END SELECT
+
           !
         ENDIF ! pe
 
         CALL p_bcast(zdummy_o3lev(:), p_io, mpi_comm)      
 
- !         SELECT CASE (iequations)
- !         CASE(ihs_atm_temp,ihs_atm_theta)
+        !         SELECT CASE (iequations)
+        !         CASE(ihs_atm_temp,ihs_atm_theta)
 
-            DO jk=1,nlev_o3
-              ext_data(jg)%atm_td%pfoz(jk)=zdummy_o3lev(jk)
-            ENDDO
+        DO jk=1,nlev_o3
+          ext_data(jg)%atm_td%pfoz(jk)=zdummy_o3lev(jk)
+        ENDDO
 
-          ! define half levels of ozone pressure grid
-          ! upper boundary: ph =      0.Pa -> extrapolation of uppermost value
-          ! lower boundary: ph = 125000.Pa -> extrapolation of lowermost value
-            ext_data(jg)%atm_td%phoz(1)           = 0._wp
-            ext_data(jg)%atm_td%phoz(2:nlev_o3) = (ext_data(jg)%atm_td%pfoz(1:nlev_o3-1) &
-              &                                   +  ext_data(jg)%atm_td%pfoz(2:nlev_o3))*.5_wp
-            ext_data(jg)%atm_td%phoz(nlev_o3+1) = 125000._dp
-            
-            DO i=1,nlev_o3
-              WRITE(0,*) 'full/half level press ozone ', i, ext_data(jg)%atm_td%pfoz(i),&
-                &                                           ext_data(jg)%atm_td%phoz(i+1)
-            ENDDO
+        ! define half levels of ozone pressure grid
+        ! upper boundary: ph =      0.Pa -> extrapolation of uppermost value
+        ! lower boundary: ph = 125000.Pa -> extrapolation of lowermost value
+        ext_data(jg)%atm_td%phoz(1)           = 0._wp
+        ext_data(jg)%atm_td%phoz(2:nlev_o3) = (ext_data(jg)%atm_td%pfoz(1:nlev_o3-1) &
+          &                                   +  ext_data(jg)%atm_td%pfoz(2:nlev_o3))*.5_wp
+        ext_data(jg)%atm_td%phoz(nlev_o3+1) = 125000._dp
 
- !         CASE(inh_atmosphere)
- !           DO jk=1,nlev_o3
- !             ext_data(jg)%atm_td%zf(jk)=zdummy_o3lev(jk)
- !           ENDDO
- !       END SELECT
+        DO i=1,nlev_o3
+          WRITE(0,*) 'full/half level press ozone ', i, ext_data(jg)%atm_td%pfoz(i),&
+            &                                           ext_data(jg)%atm_td%phoz(i+1)
+        ENDDO
+
+        !         CASE(inh_atmosphere)
+        !           DO jk=1,nlev_o3
+        !             ext_data(jg)%atm_td%zf(jk)=zdummy_o3lev(jk)
+        !           ENDDO
+        !       END SELECT
 
         ! we have 2 different ozone files for hexagons and triangels at the moment
         ! therefore ozone data are both stored at the cell centers
 
-!         IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
+        !         IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
 
-           CALL read_netcdf_data (ncid, TRIM(o3name), & ! &
-             &                    p_patch(jg)%n_patch_cells_g,  &
-             &                    p_patch(jg)%n_patch_cells,    &
-             &                    p_patch(jg)%cells%glb_index,  & 
-             &                    nlev_o3,  nmonths,          &
-             &                    ext_data(jg)%atm_td%O3)
+        CALL read_netcdf_data (ncid, TRIM(o3name), & ! &
+          &                    p_patch(jg)%n_patch_cells_g,  &
+          &                    p_patch(jg)%n_patch_cells,    &
+          &                    p_patch(jg)%cells%glb_index,  & 
+          &                    nlev_o3,  nmonths,          &
+          &                    ext_data(jg)%atm_td%O3)
 
-!        ELSEIF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
-!
-!          CALL read_netcdf_data (ncid, TRIM(o3name), & 
-!            &                    p_patch(jg)%n_patch_verts_g,  &
-!            &                    p_patch(jg)%n_patch_verts,    & 
-!            &                    p_patch(jg)%verts%glb_index,  &
-!            &                    nlev_o3, nmonths,           &
-!            &                    ext_data(jg)%atm_td%O3)
-!
-!         ENDIF ! patches
+        !        ELSEIF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
+        !
+        !          CALL read_netcdf_data (ncid, TRIM(o3name), & 
+        !            &                    p_patch(jg)%n_patch_verts_g,  &
+        !            &                    p_patch(jg)%n_patch_verts,    & 
+        !            &                    p_patch(jg)%verts%glb_index,  &
+        !            &                    nlev_o3, nmonths,           &
+        !            &                    ext_data(jg)%atm_td%O3)
+        !
+        !         ENDIF ! patches
 
 
-         WRITE(0,*)'MAX/min o3 ppmv',MAXVAL(ext_data(jg)%atm_td%O3(:,:,:,:)),&
-           &                        MINVAL(ext_data(jg)%atm_td%O3(:,:,:,:))
-         
-       ! convert from ppmv to g/g only in case of APE ozone
-         IF(irad_o3 == io3_ape) &
-&         ext_data(jg)%atm_td%O3(:,:,:,:)= ext_data(jg)%atm_td%O3(:,:,:,:)*ppmv2gg
+        WRITE(0,*)'MAX/min o3 ppmv',MAXVAL(ext_data(jg)%atm_td%O3(:,:,:,:)),&
+          &                        MINVAL(ext_data(jg)%atm_td%O3(:,:,:,:))
 
-         WRITE(0,*)'MAX/min o3 g/g',MAXVAL(ext_data(jg)%atm_td%O3(:,:,:,:)),&
-           &                        MINVAL(ext_data(jg)%atm_td%O3(:,:,:,:))
-         
+        ! convert from ppmv to g/g only in case of APE ozone
+        IF(irad_o3 == io3_ape) &
+          &         ext_data(jg)%atm_td%O3(:,:,:,:)= ext_data(jg)%atm_td%O3(:,:,:,:)*ppmv2gg
+
+        WRITE(0,*)'MAX/min o3 g/g',MAXVAL(ext_data(jg)%atm_td%O3(:,:,:,:)),&
+          &                        MINVAL(ext_data(jg)%atm_td%O3(:,:,:,:))
+
         ! close file
         IF(my_process_is_stdio()) CALL nf(nf_close(ncid))
 

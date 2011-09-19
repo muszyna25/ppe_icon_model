@@ -471,7 +471,63 @@ TYPE t_int_state
 
 END TYPE t_int_state
 
+!> data structure containing coefficients for (optional) interpolation
+!> onto lon-lat grid.
+! @note coefficients are stored here (instead of "t_int_state", since
+!       they must not be partitioned in parallel runs.
+TYPE t_lon_lat_intp
+
+  REAL(wp), ALLOCATABLE :: rbf_vec_coeff(:,:,:,:)     ! array containing the
+                                                      ! coefficients used for
+                                                      ! vector rbf interpolation
+                                                      ! at lon-lat grid points
+                                                      ! (rbf_vec_dim_c,2,nproma,nblks_lonlat)
+
+  REAL(wp), ALLOCATABLE :: rbf_c2grad_coeff(:,:,:,:)  ! array containing the
+                                                      ! coefficients used for
+                                                      ! 2D gradient reconstruction
+                                                      ! at lon-lat grid points
+                                                      ! (rbf_c2grad_dim,2,nproma,nblks_c)
+
+  INTEGER, ALLOCATABLE  :: rbf_vec_idx(:,:,:)         ! index array defining the
+                                                      ! stencil of surrounding edges for
+                                                      ! vector rbf interpolation at each
+                                                      ! cell center
+                                                      ! (rbf_vec_dim_c,nproma,nblks_lonlat)
+
+  INTEGER, ALLOCATABLE  :: rbf_vec_blk(:,:,:)         ! ... dito for the blocks
+
+  INTEGER, ALLOCATABLE  :: rbf_vec_stencil(:,:)       ! array defining number of
+                                                      ! surrounding edges in the stencil
+                                                      ! for vector rbf interpolation at
+                                                      ! each cell center
+                                                      ! (nproma,nblks_lonlat)
+
+  INTEGER, ALLOCATABLE  :: rbf_c2grad_idx(:,:,:)      ! index array defining the
+                                                      ! stencil of surrounding cells for
+                                                      ! 2D gradient reconstruction at each
+                                                      ! cell center
+                                                      ! (rbf_c2grad_dim,nproma,nblks_lonlat)
+
+  INTEGER, ALLOCATABLE  :: rbf_c2grad_blk(:,:,:)      ! ... dito for the blocks
+
+  ! distances from cell center to lon-lat grid point
+  REAL(wp), ALLOCATABLE :: rdist(:,:,:)   ! 2, nproma, nblks_lonlat
+  ! list of triangles containing lon-lat grid points (first dim: index and block)
+  INTEGER, ALLOCATABLE  :: tri_idx(:,:,:) ! 2, nproma, nblks_lonlat
+
+  ! data fields for distributed computations
+  INTEGER, ALLOCATABLE  :: nlocal_pts(:) ! number of points located on each patch
+  INTEGER, ALLOCATABLE  :: owner(:)      ! for each lon-lat point: owning process
+
+END TYPE t_lon_lat_intp
+
+
 TYPE(t_int_state),TARGET,ALLOCATABLE :: p_int_state_global(:), p_int_state_subdiv(:)
 TYPE(t_int_state),POINTER            :: p_int_state(:)
+
+!> interpolation constants for lon-lat interpolation
+TYPE (t_lon_lat_intp), TARGET, ALLOCATABLE :: p_int_state_lonlat_global(:)
+TYPE (t_lon_lat_intp), POINTER             :: p_int_state_lonlat(:)
 
 END MODULE mo_intp_data_strc

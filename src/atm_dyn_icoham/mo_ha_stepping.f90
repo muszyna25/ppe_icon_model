@@ -42,7 +42,7 @@ MODULE mo_ha_stepping
   USE mo_kind,                ONLY: wp
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm
   USE mo_icoham_dyn_memory,   ONLY: construct_icoham_dyn_state
-  USE mo_interpolation,       ONLY: t_int_state
+  USE mo_interpolation,       ONLY: t_int_state, t_lon_lat_intp
   USE mo_datetime,            ONLY: t_datetime, print_datetime, add_time
   USE mo_exception,           ONLY: message, message_text
   USE mo_model_domain,        ONLY: t_patch
@@ -208,7 +208,8 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Almut Gassmann (2009-03-04)
   !!
-  SUBROUTINE perform_ha_stepping( p_patch, p_int_state, p_grf_state,  &
+  SUBROUTINE perform_ha_stepping( p_patch, p_int_state,  &
+                                & p_grf_state,                        &
                                 & p_hydro_state, datetime,            &
                                 & n_io, n_file, n_checkpoint, n_diag, &
                                 & jfile, l_have_output                )

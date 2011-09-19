@@ -136,16 +136,20 @@ MODULE mo_dump_restore
 !  USE mo_interpol_nml        ! We need all from that module
  USE mo_interpol_config      ! We need all from that module
   USE mo_gridref_config      ! We need all from that module         
-  USE mo_mpi,                ONLY: my_process_is_mpi_all_parallel, p_n_work, p_pe_work
+  USE mo_mpi,                ONLY: my_process_is_mpi_all_parallel, p_n_work, p_pe_work, &
+    &                              process_mpi_io_size, my_process_is_stdio
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e
   USE mo_communication,      ONLY: t_comm_pattern, blk_no, idx_no, idx_1d
   USE mo_model_domimp_patches, ONLY: allocate_patch
   USE mo_subdivision,        ONLY: p_patch_local_parent, p_int_state_local_parent, &
                                    p_grf_state_local_parent
-  USE mo_intp_state,         ONLY: allocate_int_state
+  USE mo_intp_state,         ONLY: allocate_int_state, &
+    &                              allocate_int_state_lonlat
   USE mo_grf_intp_state,     ONLY: allocate_grf_state
   
   USE mo_model_domain_import, ONLY: set_patches_grid_filename
+  USE mo_lonlat_intp_config, ONLY: lonlat_intp_config
+  USE mo_math_utilities,     ONLY: t_lon_lat_grid
 
   IMPLICIT NONE
 
@@ -188,6 +192,8 @@ MODULE mo_dump_restore
   INTERFACE check_att
     MODULE PROCEDURE check_att_int
     MODULE PROCEDURE check_att_double
+    MODULE PROCEDURE check_att_int_array
+    MODULE PROCEDURE check_att_double_array
   END INTERFACE
 
   INTEGER, PARAMETER :: grf_vec_dim_1 = 6
@@ -222,6 +228,7 @@ MODULE mo_dump_restore
   INTEGER :: dim_lsq_dim_c_high, dim_lsq_dim_unk_high, dim_lsq_dim_unk2_high
   INTEGER :: dim_rbf_c2grad_dim
   INTEGER :: dim_rbf_vec_dim_c, dim_rbf_vec_dim_e, dim_rbf_vec_dim_v
+  INTEGER :: dim_nlonlat
 
   ! dimensions for grf state
   INTEGER :: dim_grf_vec_dim_1, dim_grf_vec_dim_2
@@ -399,8 +406,9 @@ CONTAINS
           CALL finish(modname, TRIM(prefix)//var_name//': pos_nproma/pos_nblks illegal')
         ENDIF
         ! Dimension at pos_dim2/pos_dim3 must correspond to allocated dimension in NetCDF
-        IF(var_ubound(pos_dim2) /= dimlen(2)) &
+        IF(var_ubound(pos_dim2) /= dimlen(2)) THEN
           CALL finish(modname, TRIM(prefix)//var_name//': Dimension mismatch for dim2')
+        END IF
         IF(var_ubound(pos_dim3) /= dimlen(3)) &
           CALL finish(modname, TRIM(prefix)//var_name//': Dimension mismatch for dim3')
       ENDIF
@@ -1396,13 +1404,15 @@ CONTAINS
   !
   !> Defines interpolation state for NetCDF
 
-  SUBROUTINE def_int_state(p, output_dims)
+  SUBROUTINE def_int_state(k_jg, p, output_dims)
 
+    INTEGER, INTENT(IN)       :: k_jg  ! domain index
     TYPE(t_patch), INTENT(IN) :: p
-    LOGICAL, INTENT(IN) :: output_dims
-
+    LOGICAL, INTENT(IN)       :: output_dims
+    ! local variables
+    TYPE (t_lon_lat_grid), POINTER :: grid ! lon-lat grid
     INTEGER :: idummy
-
+    LOGICAL :: l_dump_lonlat
 
     ! Output all variables defining interpolation as attributes (unless they are
     ! used as dimensions below)
@@ -1576,16 +1586,65 @@ CONTAINS
     CALL def_var('int.shear_def_v2',    nf_double, dim_nedges, dim_9) ! 9,nproma,nblks_e
     ENDIF
 
+    !-- define dump variables for lon-lat interpolation of output
+    !-- variables
+    l_dump_lonlat = &
+      &  (k_jg>0) .AND. &
+      &  ((process_mpi_io_size == 0) .AND. my_process_is_stdio()) .AND. &
+      &  lonlat_intp_config(k_jg)%l_enabled
+
+
+    LONLAT : IF (l_dump_lonlat) THEN
+      grid => lonlat_intp_config(k_jg)%lonlat_grid
+      ! total number of lon-lat grid points
+      CALL def_dim_pref('nlonlat', grid%total_dim, dim_nlonlat)
+      ! description of lon-lat grid
+      CALL nf(nf_put_att_double(ncid, nf_global, 'int.lonlat.delta',     &
+        &     nf_double, 2, grid%delta(1:2)))
+      CALL nf(nf_put_att_double(ncid, nf_global, 'int.lonlat.sw_corner', &
+        &     nf_double, 2, grid%sw_corner(1:2)))
+      CALL nf(nf_put_att_double(ncid, nf_global, 'int.lonlat.poleN',     &
+        &     nf_double, 2, grid%poleN(1:2)))
+      CALL nf(nf_put_att_int(ncid, nf_global, 'int.lonlat.dimen',        &
+        &     nf_int, 2, grid%dimen(1:2)))
+
+      ! fields for indices and coefficients:
+      ! rbf_vec_dim_c,2,nproma,nblks_lonlat
+      CALL def_var('int.lonlat.rbf_vec_coeff',    &
+        &          nf_double, dim_nlonlat, dim_rbf_vec_dim_c, dim_2)
+      ! rbf_c2grad_dim,2,nproma,nblks_lonlat
+      CALL def_var('int.lonlat.rbf_c2grad_coeff', &
+        &          nf_double, dim_nlonlat, dim_rbf_c2grad_dim, dim_2)
+      ! rbf_vec_dim_c,nproma,nblks_lonlat
+      CALL def_var('int.lonlat.rbf_vec_index',    &
+        &          nf_int,    dim_nlonlat, dim_rbf_vec_dim_c)         
+      ! nproma,nblks_lonlat
+      CALL def_var('int.lonlat.rbf_vec_stencil',  &
+        &          nf_int,    dim_nlonlat)                    
+      ! rbf_c2grad_dim,nproma,nblks_lonlat        
+      CALL def_var('int.lonlat.rbf_c2grad_index', &
+        &          nf_int,    dim_nlonlat, dim_rbf_c2grad_dim)
+      ! 2,nproma,nblks_lonlat
+      CALL def_var('int.lonlat.rdist',            &
+        &          nf_double, dim_nlonlat, dim_2)
+      ! 2,nproma,nblks_lonlat
+      CALL def_var('int.lonlat.tri_idx',          &
+        &          nf_int,    dim_nlonlat, dim_2)
+      
+    END IF LONLAT
+
   END SUBROUTINE def_int_state
 
   !-------------------------------------------------------------------------
   !
   !> Dumps/restores interpolation state data to/from NetCDF file.
 
-  SUBROUTINE int_state_io(p, pi)
+  SUBROUTINE int_state_io(jg, p, pi, opt_pi_lonlat)
 
+    INTEGER, INTENT(IN) :: jg
     TYPE(t_patch), INTENT(IN) :: p
     TYPE(t_int_state), INTENT(INOUT) :: pi
+    TYPE (t_lon_lat_intp), INTENT(INOUT), OPTIONAL :: opt_pi_lonlat
 
     IF(p%n_patch_cells <= 0) RETURN
 
@@ -1699,6 +1758,34 @@ CONTAINS
     CALL bvar_io(2,3,'int.shear_def_v1',      pi%shear_def_v1  ) ! 9,nproma,nblks_e
     CALL bvar_io(2,3,'int.shear_def_v2',      pi%shear_def_v2  ) ! 9,nproma,nblks_e
     ENDIF
+
+    !-- write out variables for lon-lat interpolation
+    LONLAT : IF (PRESENT(opt_pi_lonlat) .AND.  &
+      &          lonlat_intp_config(jg)%l_enabled) THEN
+
+      ! rbf_vec_dim_c,2,nproma,nblks_lonlat
+      CALL bvar_io(3,4,'int.lonlat.rbf_vec_coeff',    &
+        &          opt_pi_lonlat%rbf_vec_coeff  )
+      ! rbf_c2grad_dim,2,nproma,nblks_lonlat
+      CALL bvar_io(3,4,'int.lonlat.rbf_c2grad_coeff', &
+        &          opt_pi_lonlat%rbf_c2grad_coeff )
+      ! rbf_vec_dim_c,nproma,nblks_lonlat
+      CALL bidx_io(2,3,'int.lonlat.rbf_vec_index',    &
+        &          opt_pi_lonlat%rbf_vec_idx, opt_pi_lonlat%rbf_vec_blk)
+      ! nproma,nblks_lonlat
+      CALL bvar_io(1,2,'int.lonlat.rbf_vec_stencil',  &
+        &          opt_pi_lonlat%rbf_vec_stencil)
+      ! rbf_c2grad_dim,nproma,nblks_lonlat
+      CALL bidx_io(2,3,'int.lonlat.rbf_c2grad_index', &
+        &          opt_pi_lonlat%rbf_c2grad_idx, opt_pi_lonlat%rbf_c2grad_blk)
+      ! 2,nproma,nblks_lonlat
+      CALL bvar_io(2,3,'int.lonlat.rdist',            &
+        &          opt_pi_lonlat%rdist)
+      ! 2,nproma,nblks_lonlat
+      CALL bvar_io(2,3,'int.lonlat.tri_idx',          &
+        &          opt_pi_lonlat%tri_idx)
+      
+    END IF LONLAT
 
   END SUBROUTINE int_state_io
 
@@ -1929,6 +2016,62 @@ CONTAINS
     ENDIF
 
   END SUBROUTINE check_att_double
+
+  !-------------------------------------------------------------------------
+  !
+  !> check_att_int_array
+  !! Checks if attribute "att_name" in NetCDF file has given value
+
+  SUBROUTINE check_att_int_array(att_name, att_value)
+
+    CHARACTER(LEN=*), INTENT(IN) :: att_name
+    INTEGER, INTENT(IN) :: att_value(:)
+
+    INTEGER :: att_len, stat
+    INTEGER :: val(SIZE(att_value(:),1))
+
+    stat = nf_inq_attlen (ncid, nf_global, att_name, att_len)
+    IF(stat /= nf_noerr) &
+      & CALL finish(modname,'Attribute '//TRIM(att_name)//' not found in NetCDF file')
+    IF(att_len /= SIZE(att_value(:),1)) &
+      & CALL finish(modname,'Attribute '//TRIM(att_name)//' has invalid length')
+
+    CALL nf(nf_get_att_int(ncid, nf_global, att_name, val(:)))
+    IF (ANY(val(:) /= att_value(:))) THEN
+      WRITE(message_text,'(a,a,i0,a,i0)') att_name,': NetCDF value = ',val,' expected: ',att_value
+      CALL finish(modname,message_text)
+    ENDIF
+
+  END SUBROUTINE check_att_int_array
+
+
+  !-------------------------------------------------------------------------
+  !
+  !> check_att_double_array
+  !! Checks if attribute "att_name" in NetCDF file has given value
+
+  SUBROUTINE check_att_double_array(att_name, att_value)
+
+    CHARACTER(LEN=*), INTENT(IN) :: att_name
+    REAL(wp), INTENT(IN) :: att_value(:)
+
+    INTEGER  :: att_len, stat
+    REAL(wp) :: val(SIZE(att_value(:),1))
+
+    stat = nf_inq_attlen (ncid, nf_global, att_name, att_len)
+    IF(stat /= nf_noerr) &
+      & CALL finish(modname,'Attribute '//TRIM(att_name)//' not found in NetCDF file')
+    IF(att_len /= SIZE(att_value(:),1)) &
+      & CALL finish(modname,'Attribute '//TRIM(att_name)//' has invalid length')
+
+    CALL nf(nf_get_att_double(ncid, nf_global, att_name, val(:)))
+    IF(ANY(val(:) /= att_value(:))) THEN
+      WRITE(message_text,'(a,a,g20.10,a,g20.10)') &
+        &  att_name,': NetCDF value = ',val,' expected: ',att_value
+      CALL finish(modname,message_text)
+    ENDIF
+
+  END SUBROUTINE check_att_double_array
   !-------------------------------------------------------------------------
 
 
@@ -1989,15 +2132,18 @@ CONTAINS
   !> Dumps state of one patch to NetCDF, including interpolation and
   !! grid refinement variables
 
-  SUBROUTINE dump_patch_state_netcdf(p, pi, pg)
+  SUBROUTINE dump_patch_state_netcdf(k_jg, p, pi, pg, opt_pi_lonlat)
 
-    TYPE(t_patch), INTENT(INOUT) :: p
-    TYPE(t_int_state), INTENT(INOUT) :: pi
-    TYPE(t_gridref_state), INTENT(INOUT) :: pg
+    INTEGER, INTENT(IN)                            :: k_jg  ! domain index
+    TYPE(t_patch), INTENT(INOUT)                   :: p
+    TYPE(t_int_state), INTENT(INOUT)               :: pi
+    TYPE(t_gridref_state), INTENT(INOUT)           :: pg
+    TYPE (t_lon_lat_intp), INTENT(INOUT), OPTIONAL :: opt_pi_lonlat
 
     !---local variables
     INTEGER :: old_mode, i
     CHARACTER (LEN=80) :: child_id_name
+    LOGICAL :: l_dump_lonlat
 
     !-------------------------------------------------------------------------
 
@@ -2071,14 +2217,14 @@ CONTAINS
 
     prefix = ' '
     CALL def_patch(p)
-    CALL def_int_state(p, .TRUE.)
+    CALL def_int_state(k_jg, p, .TRUE.)
     IF (n_dom_start==0 .OR. n_dom > 1) &
       & CALL def_grf_state(p, .TRUE.)
 
     IF(my_process_is_mpi_all_parallel() .AND. p%id>n_dom_start) THEN ! Definitions for local parent
       prefix = 'lp.'
       CALL def_patch(p_patch_local_parent(p%id))
-      CALL def_int_state(p_patch_local_parent(p%id), .FALSE.)
+      CALL def_int_state(k_jg, p_patch_local_parent(p%id), .FALSE.)
       IF (n_dom_start==0 .OR. n_dom > 1) &
         & CALL def_grf_state(p_patch_local_parent(p%id), .FALSE.)
     ENDIF
@@ -2095,14 +2241,26 @@ CONTAINS
 
     prefix = ' '
     CALL patch_io(p)
-    CALL int_state_io(p, pi)
+
+    l_dump_lonlat = &
+      &  (k_jg>0) .AND.  &
+      &  ((process_mpi_io_size == 0) .AND. my_process_is_stdio()) .AND. &
+      &  lonlat_intp_config(k_jg)%l_enabled  .AND. &
+      &  PRESENT(opt_pi_lonlat)
+
+    IF (l_dump_lonlat) THEN
+      CALL int_state_io(k_jg, p, pi, opt_pi_lonlat)
+    ELSE
+      CALL int_state_io(k_jg, p, pi)
+    END IF
+
     IF (n_dom_start==0 .OR. n_dom > 1) &
       & CALL grf_state_io(p, pg)
 
     IF(my_process_is_mpi_all_parallel() .AND. p%id>n_dom_start) THEN ! Output for local parent
       prefix = 'lp.'
       CALL patch_io(p_patch_local_parent(p%id))
-      CALL int_state_io(p_patch_local_parent(p%id), p_int_state_local_parent(p%id))
+      CALL int_state_io(k_jg, p_patch_local_parent(p%id), p_int_state_local_parent(p%id))
       IF (n_dom_start==0 .OR. n_dom > 1) &
         & CALL grf_state_io(p_patch_local_parent(p%id), p_grf_state_local_parent(p%id))
     ENDIF
@@ -2112,7 +2270,6 @@ CONTAINS
     ! Close NetCDF file
 
     CALL nf(nf_close(ncid))
-
 
   END SUBROUTINE dump_patch_state_netcdf
 
@@ -2412,19 +2569,28 @@ CONTAINS
   !
   !> Restores interpolation state from NetCDF for all patches
 
-  SUBROUTINE restore_interpol_state_netcdf(p_patch, p_int_state)
+  SUBROUTINE restore_interpol_state_netcdf(p_patch, p_int_state, opt_pi_lonlat)
 
-    TYPE(t_patch), INTENT(INOUT) :: p_patch(n_dom_start:)
-    TYPE(t_int_state), INTENT(INOUT) :: p_int_state(n_dom_start:)
+    TYPE(t_patch),        INTENT(INOUT) :: p_patch(n_dom_start:)
+    TYPE(t_int_state),    INTENT(INOUT) :: p_int_state(n_dom_start:)
+    TYPE (t_lon_lat_intp), INTENT(INOUT), OPTIONAL :: opt_pi_lonlat(n_dom_start:)
 
     !---local variables
     INTEGER :: jg
+    TYPE (t_lon_lat_grid), POINTER :: grid ! lon-lat grid
+    LOGICAL                        :: l_restore_lonlat
 
     !-------------------------------------------------------------------------
 
     netcdf_read = .TRUE. ! Set I/O routines to read mode
 
     DO jg = n_dom_start, n_dom
+
+      l_restore_lonlat = &
+        &  (jg>0) .AND.  &
+        &  ((process_mpi_io_size == 0) .AND. my_process_is_stdio()) .AND. &
+        &  lonlat_intp_config(jg)%l_enabled    .AND. &
+        &  PRESENT(opt_pi_lonlat)
 
       IF(p_pe_work==0) WRITE(nerr,'(a,i0)') 'Restoring interpolation state ',jg
 
@@ -2460,17 +2626,33 @@ CONTAINS
       CALL check_dim('rbf_vec_dim_e',  rbf_vec_dim_e)
       CALL check_dim('rbf_vec_dim_v',  rbf_vec_dim_v)
 
-      ! Allocate interpolation state
-      CALL allocate_int_state(p_patch(jg), p_int_state(jg))
+      IF (l_restore_lonlat) THEN
 
-      ! Restore interpolation state
-      prefix = ' '
-      CALL int_state_io(p_patch(jg), p_int_state(jg))
+        grid => lonlat_intp_config(jg)%lonlat_grid
+        CALL check_att('int.lonlat.delta'     , grid%delta(1:2))
+        CALL check_att('int.lonlat.sw_corner' , grid%sw_corner(1:2))
+        CALL check_att('int.lonlat.poleN'     , grid%poleN(1:2))
+        CALL check_att('int.lonlat.dimen'     , grid%dimen(1:2))
+        
+        ! Allocate interpolation state
+        CALL allocate_int_state(p_patch(jg), p_int_state(jg))
+        CALL allocate_int_state_lonlat(jg, opt_pi_lonlat(jg))
+        ! Restore interpolation state
+        prefix = ' '
+        CALL int_state_io(jg, p_patch(jg), p_int_state(jg), opt_pi_lonlat(jg))
+
+      ELSE
+        ! Allocate interpolation state
+        CALL allocate_int_state(p_patch(jg), p_int_state(jg))
+        ! Restore interpolation state
+        prefix = ' '
+        CALL int_state_io(jg, p_patch(jg), p_int_state(jg))
+      END IF
 
       IF(my_process_is_mpi_all_parallel() .AND. jg>n_dom_start) THEN
         CALL allocate_int_state(p_patch_local_parent(jg), p_int_state_local_parent(jg))
         prefix = 'lp.'
-        CALL int_state_io(p_patch_local_parent(jg), p_int_state_local_parent(jg))
+        CALL int_state_io(jg, p_patch_local_parent(jg), p_int_state_local_parent(jg))
       ENDIF
 
       CALL nf(nf_close(ncid))

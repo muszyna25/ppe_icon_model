@@ -43,14 +43,13 @@ MODULE mo_io_nml
 !
 !
   USE mo_kind,               ONLY: wp
-  USE mo_impl_constants,     ONLY: max_char_length, max_ntracer
+  USE mo_impl_constants,     ONLY: max_char_length, max_ntracer, max_dom
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
-  USE mo_mpi,                ONLY: my_process_is_stdio
+  USE mo_mpi,                ONLY: my_process_is_stdio, p_n_work
   USE mo_master_control,     ONLY: is_restart_run
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,   &
                                  & open_and_restore_namelist, close_tmpfile
-
   USE mo_io_config,          ONLY: config_out_expname       => out_expname      , &
                                  & config_no_output         => no_output        , &
                                  & config_out_filetype      => out_filetype     , &
@@ -75,6 +74,8 @@ MODULE mo_io_nml
                                  & config_lwrite_pzlev      => lwrite_pzlev     , &
                                  & config_inextra_2d        => inextra_2d       , &
                                  & config_inextra_3d        => inextra_3d
+  USE mo_exception,        ONLY: message, message_text, finish
+  USE mo_parallel_config,  ONLY: nproma
 
   IMPLICIT NONE
   PUBLIC :: read_io_namelist
@@ -120,7 +121,7 @@ MODULE mo_io_nml
     &              lwrite_cloud, lwrite_tke, lwrite_surface,          &
     &              lwrite_extra, lwrite_pzlev, inextra_2d, inextra_3d,&
     &              no_output
-
+  
 CONTAINS
   !>
   !! Read Namelist for I/O.
@@ -139,9 +140,8 @@ CONTAINS
   !!
   SUBROUTINE read_io_namelist( filename )
 
-    CHARACTER(LEN=*), INTENT(IN) :: filename
-    INTEGER :: istat, funit
-    !0!CHARACTER(len=*), PARAMETER :: routine = 'mo_io_nml:read_io_namelist'
+    CHARACTER(LEN=*), INTENT(IN)   :: filename
+    INTEGER                        :: istat, funit
 
     !-----------------------
     ! 1. default settings
@@ -256,8 +256,12 @@ CONTAINS
       WRITE(funit,NML=io_nml)
       CALL store_and_close_namelist(funit, 'io_nml')
     ENDIF
+    !-----------------------------------------------------
     ! 6. write the contents of the namelist to an ASCII file
-    IF(my_process_is_stdio()) WRITE(nnml_output,nml=io_nml)
+    !-----------------------------------------------------
+    IF(my_process_is_stdio()) THEN
+      WRITE(nnml_output,nml=io_nml)
+    END IF
 
   END SUBROUTINE read_io_namelist
 

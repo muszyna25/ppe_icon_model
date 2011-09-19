@@ -308,6 +308,7 @@ ELSE
           &  ( psi_c(iidx(je,jb,2),jk,iblk(je,jb,2)) - &
           &    psi_c(iidx(je,jb,1),jk,iblk(je,jb,1)) )  &
           &  * ptr_patch%edges%inv_dual_edge_length(je,jb)
+
       ENDDO
 
     END DO

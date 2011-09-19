@@ -91,6 +91,7 @@ MODULE mo_timer
   PUBLIC :: timer_sso
   PUBLIC :: timer_cover_koe
   PUBLIC :: timer_omp_radiation
+  PUBLIC :: timer_lonlat_setup
   PUBLIC :: timer_write_restart_file
   PUBLIC :: timer_write_output
   PUBLIC :: timer_si_correction
@@ -159,6 +160,9 @@ MODULE mo_timer
   INTEGER :: timer_si_correction
   INTEGER :: timer_cube_root
   
+  ! Timer ID for optional lon-lat interpolation
+  INTEGER :: timer_lonlat_setup
+
 CONTAINS
 
   SUBROUTINE init_timer
@@ -227,6 +231,8 @@ CONTAINS
     timer_cube_root = new_timer("cube_root")
     timer_si_correction = new_timer("si_correction")
          
+    timer_lonlat_setup = new_timer("lonlat_setup")
+
   END SUBROUTINE init_timer
 
 END MODULE mo_timer

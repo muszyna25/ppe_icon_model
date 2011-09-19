@@ -240,6 +240,7 @@ MODULE mo_nonhydro_state
     TYPE(t_ptr_nh),ALLOCATABLE :: ddt_w_adv_ptr (:)  !< pointer array: one pointer for each tracer
     TYPE(t_ptr_nh),ALLOCATABLE :: q_int_ptr     (:)
     TYPE(t_ptr_nh),ALLOCATABLE :: q_ubc_ptr     (:)
+
   END TYPE t_nh_diag
 
 

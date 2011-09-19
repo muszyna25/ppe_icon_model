@@ -170,7 +170,7 @@ USE mo_model_domain_import, ONLY: n_dom, n_dom_start, lplane, l_limited_area
 USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH
 USE mo_parallel_config,     ONLY: nproma
 USE mo_grid_config,         ONLY: global_cell_type
-USE mo_run_config,          ONLY: ltransport
+USE mo_run_config,          ONLY: ltransport, ltimer
 USE mo_dynamics_config,     ONLY: iequations
 
 !USE mo_interpol_nml
@@ -178,7 +178,8 @@ USE mo_interpol_config
 USE mo_intp_data_strc
 USE mo_intp_rbf_coeffs
 USE mo_intp_coeffs
-
+USE mo_lonlat_intp_config,  ONLY: lonlat_intp_config
+USE mo_mpi,                 ONLY: p_n_work, my_process_is_io, process_mpi_io_size
 
 
 IMPLICIT NONE
@@ -188,6 +189,9 @@ PRIVATE
 !!CJPUBLIC :: setup_interpol, 
 PUBLIC :: construct_2d_interpol_state, destruct_2d_interpol_state
 PUBLIC :: allocate_int_state, deallocate_int_state
+PUBLIC :: allocate_int_state_lonlat,    &
+  &       rbf_setup_interpol_lonlat,    &
+  &       deallocate_int_state_lonlat
 
 CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
@@ -204,13 +208,13 @@ CONTAINS
 !!
 SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
 !
-TYPE(t_patch), INTENT(IN) :: ptr_patch
+  TYPE(t_patch), INTENT(IN) :: ptr_patch
 
-TYPE(t_int_state), INTENT(inout) :: ptr_int
+  TYPE(t_int_state), INTENT(inout) :: ptr_int
 
-INTEGER :: nblks_c, nblks_e, nblks_v, nincr
-INTEGER :: ist
-INTEGER :: idummy
+  INTEGER :: nblks_c, nblks_e, nblks_v, nincr
+  INTEGER :: ist
+  INTEGER :: idummy
 
 !-----------------------------------------------------------------------
 
@@ -574,6 +578,7 @@ INTEGER :: idummy
       CALL finish ('mo_interpolation:construct_int_state',&
       &            'allocation for rbf_vec_coeff_e failed')
     ENDIF
+
   ENDIF
 
   IF( ltransport .OR. iequations == 3) THEN
@@ -1201,6 +1206,7 @@ INTEGER :: idummy
     ptr_int%rbf_vec_blk_e     = 0
     ptr_int%rbf_vec_stencil_e = 0
     ptr_int%rbf_vec_coeff_e   = 0._wp
+
   ENDIF
 
   IF( ptr_patch%cell_type == 6 ) THEN
@@ -1287,6 +1293,67 @@ INTEGER :: idummy
 
 END SUBROUTINE allocate_int_state
 
+
+!-------------------------------------------------------------------------
+!
+!
+!> Allocation of components of interpolation state.
+!!
+!! @par Revision History
+!! Split off from construct_2d_interpol_state, Rainer Johanni (2010-10-26)
+!!
+SUBROUTINE allocate_int_state_lonlat( k_jg, ptr_int_lonlat)
+!
+  INTEGER,                       INTENT(IN)    :: k_jg   ! patch index
+  TYPE (t_lon_lat_intp), TARGET, INTENT(INOUT) :: ptr_int_lonlat
+
+  CHARACTER(*), PARAMETER :: routine = TRIM("mo_intp_state:allocate_int_state_lonlat")
+  INTEGER :: nblks_lonlat, ist, total_dim
+
+  ! ----------------------------------------------------------------------
+
+  ! allocate memory only when needed.
+  total_dim    = lonlat_intp_config(k_jg)%lonlat_grid%total_dim
+  nblks_lonlat = (total_dim - 1)/nproma + 1
+  ALLOCATE ( &
+    &  ptr_int_lonlat%rbf_vec_coeff(rbf_vec_dim_c, 2, nproma, nblks_lonlat),     &
+    &  ptr_int_lonlat%rbf_c2grad_coeff(rbf_c2grad_dim, 2, nproma, nblks_lonlat), &
+    &  ptr_int_lonlat%rbf_vec_idx(rbf_vec_dim_c, nproma, nblks_lonlat),                 &
+    &  ptr_int_lonlat%rbf_vec_blk(rbf_vec_dim_c, nproma, nblks_lonlat),                 &
+    &  ptr_int_lonlat%rbf_vec_stencil(nproma, nblks_lonlat),                            &
+    &  ptr_int_lonlat%rbf_c2grad_idx(rbf_c2grad_dim, nproma, nblks_lonlat),             &
+    &  ptr_int_lonlat%rbf_c2grad_blk(rbf_c2grad_dim, nproma, nblks_lonlat),             &
+    &  STAT=ist )
+  IF (ist /= SUCCESS) THEN
+    CALL finish (routine, 'allocation for rbf lon-lat coeffs failed')
+  ENDIF
+  
+  ALLOCATE(ptr_int_lonlat%tri_idx(2, nproma, nblks_lonlat),   &
+    &      ptr_int_lonlat%rdist(2, nproma, nblks_lonlat),     &
+    &      stat=ist)
+  IF (ist /= SUCCESS) THEN
+    CALL finish (routine, 'allocation for working arrays failed')
+  ENDIF
+  
+  ptr_int_lonlat%rdist             = 0._wp
+  ptr_int_lonlat%tri_idx           = 0
+  ptr_int_lonlat%rbf_vec_idx       = 0
+  ptr_int_lonlat%rbf_vec_blk       = 0
+  ptr_int_lonlat%rbf_c2grad_idx    = 0
+  ptr_int_lonlat%rbf_c2grad_blk    = 0
+  ptr_int_lonlat%rbf_vec_stencil   = 0
+  ptr_int_lonlat%rbf_vec_coeff     = 0._wp
+  ptr_int_lonlat%rbf_c2grad_coeff  = 0._wp
+
+  ! allocate array for distributed computation:
+  ALLOCATE( ptr_int_lonlat%nlocal_pts(p_n_work), &
+    &       ptr_int_lonlat%owner(total_dim)    , STAT=ist )
+  IF (ist /= SUCCESS) &
+    CALL finish (routine, 'allocation for lon-lat point distribution failed')
+
+END SUBROUTINE allocate_int_state_lonlat
+
+
 !-------------------------------------------------------------------------
 !
 !
@@ -1306,7 +1373,7 @@ SUBROUTINE construct_2d_interpol_state(ptr_patch, ptr_int_state)
 !
 TYPE(t_patch), INTENT(INOUT) :: ptr_patch(n_dom_start:)
 
-TYPE(t_int_state), INTENT(INOUT) :: ptr_int_state(n_dom_start:)
+TYPE(t_int_state),     INTENT(INOUT) :: ptr_int_state(n_dom_start:)
 
 INTEGER :: jg
 
@@ -1321,7 +1388,8 @@ DO jg = n_dom_start, n_dom
   WRITE(text,'(a,i0)') 'constructing int_state for patch ',jg
   CALL message('mo_intp_state:construct_2d_interpol_state',text)
 
-  CALL allocate_int_state(ptr_patch(jg), ptr_int_state(jg))
+  CALL allocate_int_state( ptr_patch(jg), ptr_int_state(jg))
+
   !
   ! initializion of coefficients for averaging of scalars and kinetic energy
   !
@@ -1368,7 +1436,6 @@ DO jg = n_dom_start, n_dom
     CALL rbf_c2grad_index (ptr_patch(jg), ptr_int_state(jg))
     CALL rbf_compute_coeff_c2grad (ptr_patch(jg), ptr_int_state(jg))
 
-    !
     ! initialization of quadrature points and weights
     !
     CALL tri_quadrature_pts (ptr_patch(jg), ptr_int_state(jg))
@@ -1422,7 +1489,7 @@ END SUBROUTINE construct_2d_interpol_state
 !! @par Revision History
 !! Split off from destruct_2d_interpol_state, Rainer Johanni (2010-10-26)
 !!
-SUBROUTINE deallocate_int_state( ptr_int )
+SUBROUTINE deallocate_int_state( ptr_int)
 !
 TYPE(t_int_state), INTENT(inout) :: ptr_int
 
@@ -1742,6 +1809,7 @@ INTEGER :: ist
       CALL finish ('mo_interpolation:destruct_int_state',                      &
       &             'deallocation for rbf_vec_coeff_e failed')
     ENDIF
+
   ENDIF
 
 
@@ -2134,8 +2202,40 @@ INTEGER :: ist
 
   ENDIF
 
-
 END SUBROUTINE deallocate_int_state
+
+
+!-------------------------------------------------------------------------
+!
+!>
+!! Deallocation of components of a single 2d lon-lat interpolation state.
+!!
+SUBROUTINE deallocate_int_state_lonlat( ptr_int_lonlat )
+
+  TYPE (t_lon_lat_intp), TARGET, INTENT(INOUT) :: ptr_int_lonlat
+  CHARACTER(*), PARAMETER :: routine = TRIM("mo_intp_state:deallocate_int_state_lonlat")
+  INTEGER :: ist
+
+  !-----------------------------------------------------------------------
+
+  DEALLOCATE (ptr_int_lonlat%rbf_vec_coeff,           &
+    &         ptr_int_lonlat%rbf_c2grad_coeff,        &
+    &         ptr_int_lonlat%rbf_vec_idx,             &
+    &         ptr_int_lonlat%rbf_vec_blk,             &
+    &         ptr_int_lonlat%rbf_vec_stencil,         &
+    &         ptr_int_lonlat%rbf_c2grad_idx,          &
+    &         ptr_int_lonlat%rbf_c2grad_blk,          &
+    &         ptr_int_lonlat%rdist,                   &
+    &         ptr_int_lonlat%tri_idx,                 &
+    &         ptr_int_lonlat%nlocal_pts,              &
+    &         ptr_int_lonlat%owner,                   &
+    &         STAT=ist )
+  IF (ist /= SUCCESS) THEN
+    CALL finish (routine, 'deallocation for lon-lat coefficients failed')
+  ENDIF
+  
+END SUBROUTINE deallocate_int_state_lonlat
+
 
 !-------------------------------------------------------------------------
 !
@@ -2148,24 +2248,23 @@ END SUBROUTINE deallocate_int_state
 !! Developed  by  Peter Korn, MPI-M (2005).
 !! Modified by Luca Bonaventura, MPI-M (2005).
 !!
-SUBROUTINE destruct_2d_interpol_state( ptr_int_state )
-!
-TYPE(t_int_state), INTENT(inout) :: ptr_int_state(n_dom_start:)
+SUBROUTINE destruct_2d_interpol_state( ptr_int_state)
+  !
+  TYPE(t_int_state), INTENT(inout) :: ptr_int_state(n_dom_start:)
+  ! local variables:
+  CHARACTER(*), PARAMETER :: routine = TRIM("mo_interpolation:destruct_int_state")
+  INTEGER                 :: jg
 
-INTEGER :: jg
+  !-----------------------------------------------------------------------
+  
+  CALL message(routine, 'start to destruct int state')
 
-!-----------------------------------------------------------------------
+  DO jg = n_dom_start, n_dom
+    CALL deallocate_int_state(ptr_int_state(jg))
+  ENDDO
 
-CALL message('mo_interpolation:destruct_int_state',                          &
-  & 'start to destruct int state')
-
-DO jg = n_dom_start, n_dom
-  CALL deallocate_int_state(ptr_int_state(jg))
-ENDDO
-
-CALL message ('mo_interpolation:destruct_int_state',                         &
-  &              'destruction of interpolation state finished')
-
+  CALL message (routine, 'destruction of interpolation state finished')
+  
 END SUBROUTINE destruct_2d_interpol_state
 
 
