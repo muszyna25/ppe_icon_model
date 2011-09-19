@@ -3150,8 +3150,7 @@ CONTAINS
     REAL(wp),                  INTENT(inout) :: out_field(:)
     CHARACTER(LEN=*), OPTIONAL,INTENT(IN)    :: opt_name
     ! quasi-2d output (nproma,1,nblks)
-    REAL(wp), POINTER, INTENT(out), OPTIONAL :: &
-      &                                         opt_out_field_2d(:,:,:)
+    REAL(wp), POINTER, OPTIONAL :: opt_out_field_2d(:,:,:)
 
     REAL(wp), ALLOCATABLE :: out_field2(:,:)
     INTEGER               :: ierrstat
@@ -3215,8 +3214,7 @@ CONTAINS
     REAL(wp),    INTENT(inout)               :: out_field(:,:)
     CHARACTER(LEN=*), OPTIONAL,INTENT(IN)    :: opt_name
     ! 3d output (nproma,nlev,nblks)
-    REAL(wp), POINTER, INTENT(out), OPTIONAL :: &
-      &                                         opt_out_field_3d(:,:,:)
+    REAL(wp), POINTER, OPTIONAL :: opt_out_field_3d(:,:,:)
 
     ! local variables
     REAL(wp), POINTER             :: tmp_field(:,:,:)
@@ -4102,7 +4100,7 @@ CONTAINS
 
     INTEGER,               INTENT(IN) :: ivar           ! source variable ID
     INTEGER,               INTENT(IN) :: itype          ! variable type (cell/edge/vertex based)
-    REAL(wp), POINTER,     INTENT(IN) :: var_3d(:,:,:)  ! source variable (nproma,nlev,nblks)
+    REAL(wp), POINTER                 :: var_3d(:,:,:)  ! source variable (nproma,nlev,nblks)
     INTEGER,               INTENT(IN) :: k_jg           ! patch index
     INTEGER,               INTENT(IN) :: nlev           ! number of levels
     ! local variables
