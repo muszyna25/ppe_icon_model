@@ -3389,12 +3389,8 @@ END DO
           ! snow fall on soil with T>T0, snow water content increases
           ! interception store water content
           zsprs        = - lh_f*zrs(i,j)
-
-
-!>JH IF(i.eq.i_loc .and. j.eq.j_loc .and. my_cart_id.eq.isub) &
-!!$print *,ns,'zsprs, snow fall on soil with T>T0',zsprs,zrs(i,j)
-!!$          zdwidt (i,j) = zdwidt (i,j) + zrs(i,j)
-!!$          zdwsndt(i,j) = zdwsndt(i,j) - zrs(i,j)
+          zdwidt (i,j) = zdwidt (i,j) + zrs(i,j)
+          zdwsndt(i,j) = zdwsndt(i,j) - zrs(i,j)
 
           ! avoid overflow of interception store, add possible excess to
           ! surface run-off
@@ -3410,10 +3406,8 @@ END DO
         ELSEIF (zwsnow(i,j) == 0.0_ireals .AND.                            &
                (1._ireals-ztsnow_pm(i,j))*zrr(i,j) > 0.0_ireals) THEN
           zsprs   = lh_f*zrr(i,j)
-!>JH IF(i.eq.i_loc .and. j.eq.j_loc .and. my_cart_id.eq.isub) &
-!!$print *,ns,'zsprs, freezing of rain falling on soil with Ts < T0',zsprs,zrr(i,j)
-!!$          zdwidt (i,j) = zdwidt (i,j) - zrr(i,j)
-!!$          zdwsndt(i,j) = zdwsndt(i,j) + zrr(i,j)
+          zdwidt (i,j) = zdwidt (i,j) - zrr(i,j)
+          zdwsndt(i,j) = zdwsndt(i,j) + zrr(i,j)
         END IF
 
 !       Influence of heatflux through snow on total forcing:
@@ -3799,8 +3793,6 @@ END IF ! lmelt
         ! next line has to be changed if a soil surface temperature is
         ! predicted by the heat conduction equation
         zdtsdt (i,j) = (t_so(i,j,1,nnew,ns) - zts(i,j))*z1d2dt
-!>JH IF(i.eq.i_loc .and. j.eq.j_loc .and. my_cart_id.eq.isub) &
-! print *,ns,'before snow',t_so(i,j,1,nnew,ns),zdt*zdtsdt   (i,j)
         ztsn   (i,j) =  t_so(i,j,1,nnew,ns)
         IF(.NOT. lmulti_snow)  &
           ztsnown(i,j) = ztsn(i,j)       ! default setting
