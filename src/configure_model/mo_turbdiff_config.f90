@@ -91,6 +91,13 @@ MODULE mo_turbdiff_config
     LOGICAL :: &   ! use semi-implicit TKE diffusion
       &  limpltkediff
 
+    LOGICAL :: &   ! TRUE: horizontally homogeneous roughness length 
+      &  lconst_z0 ! (for idealized testcases)
+
+    REAL(wp):: &   ! horizontally homogeneous roughness length 
+      &  const_z0  ! (for idealized testcases)
+
+
     !
     ! Switches controlling other physical parameterizations:
     !

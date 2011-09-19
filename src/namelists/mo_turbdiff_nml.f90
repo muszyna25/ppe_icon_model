@@ -80,6 +80,11 @@ MODULE mo_turbdiff_nml
   LOGICAL :: lnonloc     ! nonlocal calculation of vertical gradients used for turbul. diff.
   LOGICAL :: lcpfluc     ! consideration of fluctuations of the heat capacity of air
   LOGICAL :: limpltkediff! use semi-implicit TKE diffusion
+  LOGICAL :: lconst_z0   ! TRUE: horizontally homogeneous roughness length 
+                         ! (for idealized testcases)
+
+  REAL(wp) :: const_z0   ! horizontally homogeneous roughness length 
+                         ! (for idealized testcases)
 
   !
   ! Switches controlling other physical parameterizations:
@@ -87,16 +92,14 @@ MODULE mo_turbdiff_nml
   INTEGER :: itype_wcld  ! type of water cloud diagnosis
   INTEGER :: itype_synd  ! type of diagnostics of synoptical near surface variables
 
-!DR  LOGICAL :: lseaice     ! sea ice parameterization active
-!DR  LOGICAL :: llake       ! lake model active
-
 
 
 
 
   NAMELIST/turbdiff_nml/ itype_tran, imode_tran, icldm_tran, imode_turb,    &
     &                    icldm_turb, itype_sher, ltkesso, ltkecon, lexpcor, &
-    &                    ltmpcor, lprfcor, lnonloc, lcpfluc, limpltkediff
+    &                    ltmpcor, lprfcor, lnonloc, lcpfluc, limpltkediff,  &
+    &                    itype_wcld, itype_synd, lconst_z0, const_z0
 
 
 CONTAINS
@@ -161,6 +164,12 @@ CONTAINS
 
     limpltkediff =.TRUE.  ! use semi-implicit TKE diffusion
 
+    lconst_z0    =.FALSE. ! horizontally homogeneous roughness length 
+                          ! (for idealized testcases)
+
+    const_z0     = 0.001_wp ! horizontally homogeneous roughness length
+                            ! (for idealized testcases)
+
     !
     ! Switches controlling other physical parameterizations:
     !
@@ -220,6 +229,8 @@ CONTAINS
       turbdiff_config(jg)%limpltkediff = limpltkediff
       turbdiff_config(jg)%itype_wcld   = itype_wcld
       turbdiff_config(jg)%itype_synd   = itype_synd
+      turbdiff_config(jg)%lconst_z0    = lconst_z0
+      turbdiff_config(jg)%const_z0     = const_z0
     ENDDO
 
 

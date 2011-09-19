@@ -509,9 +509,15 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init COSMO turbulence')
 
 
-    ! initialize gz0
+    ! initialize gz0 (roughness length * g)
     !
-    prm_diag%gz0(:,:) = grav * ext_data%atm%z0(:,:)  ! roughness length * g
+    IF (turbdiff_config(jg)%lconst_z0) THEN
+      ! for idealized tests
+      prm_diag%gz0(:,:) = grav * turbdiff_config(jg)%const_z0
+    ELSE 
+      ! default
+      prm_diag%gz0(:,:) = grav * ext_data%atm%z0(:,:)
+    ENDIF
 
     rl_start = 1 ! Initialization should be done for all points
     rl_end   = min_rlcell

@@ -89,6 +89,7 @@ MODULE mo_atm_nml_crosscheck
   USE mo_echam_conv_config,  ONLY: echam_conv_config, configure_echam_convection
   USE mo_gw_hines_config,    ONLY: gw_hines_config
   USE mo_vdiff_config,       ONLY: vdiff_config
+  USE mo_turbdiff_config,    ONLY: turbdiff_config
   USE mo_nh_testcases,       ONLY: linit_tracer_fv,nh_test_name
   USE mo_ha_testcases,       ONLY: ctest_name
 
@@ -343,6 +344,13 @@ CONTAINS
         CALL message(TRIM(routine),' WARNING! NWP forcing set but '//&
                     'only turbulence selected!')
 
+
+        IF( (atm_phy_nwp_config(jg)%inwp_turb == 1) .AND.                &
+          & (turbdiff_config(jg)%lconst_z0) )               THEN
+          CALL message(TRIM(routine),' WARNING! NWP forcing set but '//  &
+                      'idealized (horizontally homogeneous) roughness '//&
+                      'length z0 selected!')
+        ENDIF 
 
         ! check radiation scheme in relation to chosen ozone
 
