@@ -185,9 +185,6 @@ CONTAINS
         & zhmo3      = prm_diag%hmo3  )                !inout 
     END SELECT
 
-    IF ( (ntracer + ntracer_static < io3) .AND. &
-      &  (irad_aero /= 5 ) ) RETURN ! no ozon and no aerosols
-
     rl_start = 1
     rl_end   = min_rlcell_int
 
@@ -370,6 +367,15 @@ CONTAINS
             zaeqdo(jc,jb)    = zaeqdn
           ENDDO
         ENDDO
+        
+      ELSE !no aerosols
+
+        zaeq1(1:i_endidx,:,jb) = 0.0_wp
+        zaeq2(1:i_endidx,:,jb) = 0.0_wp
+        zaeq3(1:i_endidx,:,jb) = 0.0_wp
+        zaeq4(1:i_endidx,:,jb) = 0.0_wp
+        zaeq5(1:i_endidx,:,jb) = 0.0_wp
+
       ENDIF !irad_o3
 
     ENDDO !jb
