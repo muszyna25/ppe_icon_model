@@ -127,11 +127,10 @@ USE data_flake, ONLY : &
 ! Switches controlling other physical parameterizations:
 ! -----------------------------------------------------
 
-
+IMPLICIT NONE
+PUBLIC
 
 !==============================================================================
-
-IMPLICIT NONE
 
 #ifdef __COSMO__
 PUBLIC          ! All constants and variables in this module are public

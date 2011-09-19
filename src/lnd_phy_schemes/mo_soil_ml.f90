@@ -4453,7 +4453,8 @@ DO ns = nsubs0, nsubs1
 DO   j = jstarts, jends
   DO i = istarts, iends
     IF (llandmask(i,j,ns)) THEN          ! land-points only
-if (t_snow(i,j,nnew,ns)<180. .OR. t_snow(i,j,nnew,ns)>350. .OR. w_i(i,j,nnew,ns)*1000. > 0.1_ireals ) then
+if (t_snow(i,j,nnew,ns)<180. .OR. t_snow(i,j,nnew,ns)>350. .OR.  &
+  & w_i(i,j,nnew,ns)*1000. > 0.1_ireals ) THEN
 
       write(0,*) "SFC-DIAGNOSIS TERRA ",i,j,ke,dt,nsubs1,ntstep
       write(0,*)" nztlev ",               nztlev   
