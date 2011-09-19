@@ -54,17 +54,18 @@ MODULE mo_nwp_turb_interface
   USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag,t_nwp_phy_tend
   USE mo_nwp_lnd_state,        ONLY: t_lnd_prog, t_lnd_diag
 
-  USE mo_parallel_config,  ONLY: nproma
+  USE mo_parallel_config,      ONLY: nproma
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, &
     &                                iqi, iqr, iqs
-  USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
+  USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
+  USE mo_turbdiff_config,      ONLY: turbdiff_config
 !  USE mo_turbdiff_ras,       ONLY: organize_turbdiff
-  USE mo_satad,              ONLY: sat_pres_water, spec_humi  
-  USE src_turbdiff,          ONLY: organize_turbdiff
-  USE mo_icoham_sfc_indices, ONLY: nsfc_type, iwtr, iice, ilnd
-  USE mo_vdiff_config,       ONLY: vdiff_config
-  USE mo_vdiff_driver,       ONLY: vdiff
-  USE mo_advection_config,   ONLY: advection_config
+  USE mo_satad,                ONLY: sat_pres_water, spec_humi  
+  USE src_turbdiff,            ONLY: organize_turbdiff
+  USE mo_icoham_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd
+  USE mo_vdiff_config,         ONLY: vdiff_config
+  USE mo_vdiff_driver,         ONLY: vdiff
+  USE mo_advection_config,     ONLY: advection_config
 
   IMPLICIT NONE
 
@@ -85,7 +86,7 @@ CONTAINS
                             & p_prog_now_rcf, p_prog_rcf,        & !>in/inout
                             & p_diag ,                           & !>inout
                             & prm_diag, prm_nwp_tend,            & !>inout 
-                            & lnd_prog_now, lnd_diag              )!>inout
+                            & lnd_prog_now, lnd_diag             ) !>inout
 
 
     TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch        !!<grid/patch info.
@@ -274,7 +275,25 @@ CONTAINS
          &  jstart   =1,          jend   =1       , jstartu=1         , jendu=1       , &
          &  jstartpar=1         , jendpar=1       , jstartv=1         , jendv=1       , &
 !
-         &  isso=atm_phy_nwp_config(jg)%inwp_sso, iconv=atm_phy_nwp_config(jg)%inwp_convection,&
+         &  isso         = atm_phy_nwp_config(jg)%inwp_sso,        &! in
+         &  iconv        = atm_phy_nwp_config(jg)%inwp_convection, &! in
+         &  itype_tran   = turbdiff_config(jg)%itype_tran,         &! in
+         &  imode_tran   = turbdiff_config(jg)%imode_tran,         &! in
+         &  icldm_tran   = turbdiff_config(jg)%icldm_tran,         &! in
+         &  imode_turb   = turbdiff_config(jg)%imode_turb,         &! in
+         &  icldm_turb   = turbdiff_config(jg)%icldm_turb,         &! in
+         &  itype_sher   = turbdiff_config(jg)%itype_sher,         &! in
+         &  ltkesso      = turbdiff_config(jg)%ltkesso,            &! in
+         &  ltkecon      = turbdiff_config(jg)%ltkecon,            &! in
+         &  lexpcor      = turbdiff_config(jg)%lexpcor,            &! in
+         &  ltmpcor      = turbdiff_config(jg)%ltmpcor,            &! in
+         &  lprfcor      = turbdiff_config(jg)%lprfcor,            &! in
+         &  lnonloc      = turbdiff_config(jg)%lnonloc,            &! in
+         &  lcpfluc      = turbdiff_config(jg)%lcpfluc,            &! in
+         &  limpltkediff = turbdiff_config(jg)%limpltkediff,       &! in
+         &  itype_wcld   = turbdiff_config(jg)%itype_wcld,         &! in
+         &  itype_synd   = turbdiff_config(jg)%itype_synd,         &! in
+!
          &  l_hori=mean_charlen, hhl=p_metrics%z_ifc(:,:,jb), dp0=p_diag%dpres_mc(:,:,jb), &
 !
          &  fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb), &

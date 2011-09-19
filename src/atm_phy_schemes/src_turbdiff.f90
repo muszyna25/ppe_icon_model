@@ -280,10 +280,6 @@ USE mo_data_turbdiff ,ONLY: &
 !
 #ifdef __COSMO__
 USE data_turbdiff, ONLY : &
-#endif
-#ifdef __ICON__
-USE mo_data_turbdiff, ONLY : &
-#endif
 !
 ! Switches controlling turbulent diffusion:
 ! ------------------------------------------
@@ -315,6 +311,13 @@ USE mo_data_turbdiff, ONLY : &
 !
     lseaice,      & ! forecast with sea ice model
     llake           ! forecast with lake model FLake
+#endif
+#ifdef __ICON__
+USE mo_lnd_nwp_config, ONLY : &
+  &  lseaice,      & ! forecast with sea ice model
+  &  llake           ! forecast with lake model FLake 
+#endif
+
 
 !-------------------------------------------------------------------------------
 #ifdef SCLM
@@ -372,6 +375,9 @@ CONTAINS
 !+ description of surface-to-atmosphere transfer and within canopy diffusion:
 
 SUBROUTINE init_canopy ( ie, je, ke, ke1, kcm, &
+#ifdef __ICON__
+           itype_tran, &
+#endif
 !
            istartpar, iendpar, jstartpar, jendpar, &
 !
@@ -444,6 +450,9 @@ INTEGER (KIND=iintegers), TARGET, INTENT(INOUT) :: &
     kcm             ! index of the lowest model layer higher than the canopy
 
 
+#ifdef __ICON__
+INTEGER (KIND=iintegers), INTENT(IN) :: itype_tran
+#endif
 
 REAL (KIND=ireals), DIMENSION(ie,je,ke1), OPTIONAL, INTENT(IN) :: &
 !
@@ -596,7 +605,9 @@ SUBROUTINE organize_turbdiff (action,iini,lstfnct, dt_var,dt_tke, nprv,ntur,ntim
           istart, iend, istartu, iendu, istartpar, iendpar, istartv, iendv, &
           jstart, jend, jstartu, jendu, jstartpar, jendpar, jstartv, jendv, &
 #ifdef __ICON__
-          isso, iconv, &
+          isso, iconv, itype_tran, imode_tran, icldm_tran, imode_turb,      &
+          icldm_turb, itype_sher, ltkesso, ltkecon, lexpcor, ltmpcor,       &
+          lprfcor, lnonloc, lcpfluc, limpltkediff, itype_wcld, itype_synd,  &
 #endif
           l_hori, &
 #ifdef __COSMO__
@@ -665,6 +676,11 @@ LOGICAL, INTENT(IN) :: &
 
 #ifdef __ICON__
 INTEGER, INTENT(IN) :: isso, iconv
+INTEGER, INTENT(IN) :: itype_tran, imode_tran, icldm_tran, imode_turb
+INTEGER, INTENT(IN) :: icldm_turb, itype_sher
+LOGICAL, INTENT(IN) :: ltkesso, ltkecon, lexpcor, ltmpcor, lprfcor
+LOGICAL, INTENT(IN) :: lnonloc, lcpfluc, limpltkediff
+INTEGER, INTENT(IN) :: itype_wcld, itype_synd
 #endif
 
 REAL (KIND=ireals), INTENT(IN) :: & 
@@ -1669,7 +1685,11 @@ INTEGER (KIND=iintegers) ::  &
 ! 3)  Diagnose des Fluessigwassergehaltes und des Bedeckungsgrades
 !     in der unterstersten Modellschicht:
 
-      CALL turb_cloud (ie, je, ke,ke1, ke,ke, &
+      CALL turb_cloud (                       &
+#ifdef __ICON__
+           itype_wcld,                        & 
+#endif
+           ie, je, ke,ke1, ke,ke,             &
            i_st,i_en, j_st,j_en,       ke,ke, &
            prs, ps, rcld, t, qv, qc,          &
            clc, clcw                            )
@@ -2930,6 +2950,9 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
       IF (.NOT.can_fields) THEN
 !print *,"vor init_canopy kcm=",kcm
          CALL init_canopy(ie=ie, je=je, ke=ke, ke1=ke1, kcm=kcm, &
+#ifdef __ICON__
+              itype_tran=itype_tran,                             &
+#endif
               istartpar=istartpar, iendpar=iendpar, jstartpar=jstartpar, jendpar=jendpar, &
               fr_land=fr_land, &
               d_pat=dpat, c_big=cbig, c_sml=csml, r_air=rair) 
@@ -3101,7 +3124,11 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
 
          zaux_rcld(:,:,:)=0._ireals
 
-         CALL turb_cloud (ie, je, ke,ke1,           1,ke, &
+         CALL turb_cloud (                                &
+#ifdef __ICON__
+              itype_wcld,                                 & 
+#endif
+              ie, je, ke,ke1,           1,ke,             &
               istartpar,iendpar, jstartpar,jendpar, 1,ke, &
               prs, ps, rcld, t, qv, qc,                   &
               zaux_rcld, hlp                                     )
@@ -5573,8 +5600,12 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
 ! print *,"h2o_g=",MINVAL(vari(:,:,k,h2o_g)),MAXVAL(vari(:,:,k,h2o_g))
 !end do
 
-            CALL turb_cloud (ie, je, ke,ke1,           1,ke, &
-                 istartpar,iendpar, jstartpar,jendpar, 1,ke, &
+            CALL turb_cloud (                                         &
+#ifdef __ICON__
+                 itype_wcld,                                          & 
+#endif
+                 ie, je, ke,ke1,           1,ke,                      &
+                 istartpar,iendpar, jstartpar,jendpar, 1,ke,          &
                  prs, ps, rcld, vari(:,:,:,tem_l), vari(:,:,:,h2o_g), &
                  clc=hlp, clwc=vari(:,:,:,liq))
 
@@ -6198,7 +6229,9 @@ END SUBROUTINE organize_turbdiff
 
 
 SUBROUTINE turb_cloud (                      &
-!
+#ifdef __ICON__
+   itype_wcld,                               &
+#endif
    ie, je, ke, ke1,            kcs,    kce,  &
    istart, iend, jstart, jend, kstart, kend, &
 !
@@ -6239,7 +6272,10 @@ SUBROUTINE turb_cloud (                      &
 !----------------------
 
 ! Scalar arguments with intent(in):
-
+#ifdef __ICON__
+INTEGER (KIND=iintegers), INTENT(IN) :: &  ! type of surface-atmosphere transfer
+  &  itype_wcld
+#endif
 INTEGER (KIND=iintegers), INTENT(IN) :: &  ! indices used for allocation of arrays
   ie, je,            & ! number of grib points of horizontal dimensions
   ke, ke1,           & ! number of full and half level dimension

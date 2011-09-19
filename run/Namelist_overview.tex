@@ -3143,6 +3143,115 @@ Defined and used in: src/namelists/mo\_vdiff\_nml.f90
 
 
 %------------------------------------------------------------------------------
+% turbdiff_nml:
+%------------------------------------------------------------------------------
+\subsection{turbdiff\_nml}
+
+\begin{longtab}
+
+\hline
+itype\_tran &
+I            & 2      &&
+type of surface-atmosphere transfer& inwp\_turb = 1
+\tabularnewline
+
+\hline
+imode\_tran &
+I                &      1      & &
+mode of surface-atmosphere transfer & inwp\_turb = 1
+\tabularnewline
+
+\hline
+icldm\_tran &
+I                &      0      & &
+mode of cloud representation in transfer parametr & inwp\_turb = 1
+\tabularnewline
+
+\hline
+imode\_turb &
+I                &      3      & &
+mode of turbulent diffusion parametrization & inwp\_turb = 1
+\tabularnewline
+
+\hline
+icldm\_turb &
+I                &      2      & &
+mode of cloud representation in turbulence parametr & inwp\_turb = 1
+\tabularnewline
+
+\hline
+itype\_sher &
+I                &      1      & &
+type of shear production for TKE & inwp\_turb = 1
+\tabularnewline
+
+\hline
+ltkesso &
+L                &     .FALSE.      & &
+calculation SSO-wake turbulence production for TKE & inwp\_turb = 1
+\tabularnewline
+
+\hline
+ltkecon &
+L                &     .FALSE.      & &
+consider convective buoyancy production for TKE & inwp\_turb = 1
+\tabularnewline
+
+\hline
+lexpcor &
+L                &     .FALSE.      & &
+explicit corrections of the implicit calculated turbul. diff. & inwp\_turb = 1
+\tabularnewline
+
+\hline
+ltmpcor &
+L                &     .FALSE.      & &
+consideration of thermal TKE-sources in the enthalpy budget & inwp\_turb = 1
+\tabularnewline
+
+\hline
+lprfcor &
+L                &     .FALSE.      & &
+using the profile values of the lowest main level instead of the mean value of the lowest layer for surface flux calulations & inwp\_turb = 1
+\tabularnewline
+
+\hline
+lnonloc &
+L                &     .FALSE.      & &
+nonlocal calculation of vertical gradients used for turbul. diff. & inwp\_turb = 1
+\tabularnewline
+
+\hline
+lcpfluc &
+L                &     .FALSE.      & &
+consideration of fluctuations of the heat capacity of air & inwp\_turb = 1
+\tabularnewline
+
+\hline
+limpltkediff &
+L                &     .TRUE.      & &
+consideration of fluctuations of the heat capacity of air & inwp\_turb = 1
+\tabularnewline
+
+\hline
+itype\_wcld &
+I                &     2      & &
+type of water cloud diagnosis & inwp\_turb = 1
+\tabularnewline
+
+\hline
+itype\_synd &
+I                &     2      & &
+type of diagnostics of synoptical near surface variables & inwp\_turb = 1
+\tabularnewline
+
+
+\end{longtab}
+
+Defined and used in: src/namelists/mo\_turbdiff\_nml.f90
+
+
+%------------------------------------------------------------------------------
 % gw_hines_nml:
 %------------------------------------------------------------------------------
 \subsection{gw\_hines\_nml (Scope: lgw\_hines = .TRUE. in echam\_phy\_nml)}

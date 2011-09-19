@@ -1011,6 +1011,7 @@ src/configure_model/mo_radiation_config.f90 -text
 src/configure_model/mo_run_config.f90 -text
 src/configure_model/mo_sleve_config.f90 -text
 src/configure_model/mo_time_config.f90 -text
+src/configure_model/mo_turbdiff_config.f90 -text
 src/configure_model/mo_vdiff_config.f90 -text
 src/coupler/mo_event_manager.f90 -text
 src/coupler/mo_icon_cpl.f90 -text
@@ -1103,6 +1104,7 @@ src/namelists/mo_read_namelists.f90 -text
 src/namelists/mo_run_nml.f90 -text
 src/namelists/mo_sleve_nml.f90 -text
 src/namelists/mo_time_nml.f90 -text
+src/namelists/mo_turbdiff_nml.f90 -text
 src/namelists/mo_vdiff_nml.f90 -text
 src/oce_dyn_icohom/mo_hydro_ocean_run.f90 -text
 src/oce_dyn_icohom/mo_oce_ab_timestepping.f90 -text

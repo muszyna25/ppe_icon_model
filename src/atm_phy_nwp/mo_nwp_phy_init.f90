@@ -74,6 +74,7 @@ MODULE mo_nwp_phy_init
     &                                suvdf , suvdfs
   USE mo_convect_tables,      ONLY: init_convect_tables
   !turbulence
+  USE mo_turbdiff_config,     ONLY: turbdiff_config
 !  USE mo_turbdiff_ras,        ONLY: init_canopy, organize_turbdiff
   USE src_turbdiff,           ONLY: init_canopy, organize_turbdiff
 ! for APE_nh experiments
@@ -528,7 +529,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
 &                       i_startidx, i_endidx, rl_start, rl_end)
 
       CALL init_canopy( ie=nproma, je=1, ke=nlev, ke1=nlevp1, kcm=nlevp1, &
-!
+         &  itype_tran=turbdiff_config(jg)%itype_tran,                     &
          &  istartpar=i_startidx, iendpar=i_endidx, jstartpar=1, jendpar=1, &
 !
 !        &  hhl=p_metrics%z_ifc(:,:,jb), &
@@ -549,7 +550,24 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
          &  jstart   =1,          jend   =1       , jstartu=1         , jendu=1       , &
          &  jstartpar=1         , jendpar=1       , jstartv=1         , jendv=1       , &
 !
-         &  isso=atm_phy_nwp_config(jg)%inwp_sso, iconv=atm_phy_nwp_config(jg)%inwp_convection,&
+         &  isso         = atm_phy_nwp_config(jg)%inwp_sso,        &
+         &  iconv        = atm_phy_nwp_config(jg)%inwp_convection, &
+         &  itype_tran   = turbdiff_config(jg)%itype_tran,         &
+         &  imode_tran   = turbdiff_config(jg)%imode_tran,         &
+         &  icldm_tran   = turbdiff_config(jg)%icldm_tran,         &
+         &  imode_turb   = turbdiff_config(jg)%imode_turb,         &
+         &  icldm_turb   = turbdiff_config(jg)%icldm_turb,         &
+         &  itype_sher   = turbdiff_config(jg)%itype_sher,         &
+         &  ltkesso      = turbdiff_config(jg)%ltkesso,            &
+         &  ltkecon      = turbdiff_config(jg)%ltkecon,            &
+         &  lexpcor      = turbdiff_config(jg)%lexpcor,            &
+         &  ltmpcor      = turbdiff_config(jg)%ltmpcor,            &
+         &  lprfcor      = turbdiff_config(jg)%lprfcor,            &
+         &  lnonloc      = turbdiff_config(jg)%lnonloc,            &
+         &  lcpfluc      = turbdiff_config(jg)%lcpfluc,            &
+         &  limpltkediff = turbdiff_config(jg)%limpltkediff,       &
+         &  itype_wcld   = turbdiff_config(jg)%itype_wcld,         &
+         &  itype_synd   = turbdiff_config(jg)%itype_synd,         &
          &  l_hori=mean_charlen, hhl=p_metrics%z_ifc(:,:,jb), dp0=p_diag%dpres_mc(:,:,jb), &   
 !
          &  fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb), &
