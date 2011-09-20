@@ -2284,7 +2284,7 @@ SUBROUTINE rbf_setup_interpol_lonlat(k_jg, ptr_patch, ptr_int_lonlat, ptr_int)
 
     array_shape_2d(:) = (/ nproma, grid%nblks /)
     CALL p_gather_field(grid%total_dim, ptr_int_lonlat%nlocal_pts, ptr_int_lonlat%owner, &
-      &                 array_shape_2d, iroot_id, ptr_int_lonlat%rbf_vec_stencil)
+      &                 1, array_shape_2d, iroot_id, ptr_int_lonlat%rbf_vec_stencil)
 
     block_size        = rbf_c2grad_dim
     array_shape_3d(:) = (/ rbf_c2grad_dim, nproma, grid%nblks /)

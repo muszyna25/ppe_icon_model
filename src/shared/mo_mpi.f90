@@ -5420,8 +5420,8 @@ CONTAINS
    !  the global array. From each PE we may receive a different number of 
    !  entries. The ordering of the array is defined by the argument "iowner".
    !
-   SUBROUTINE p_gather_field_2d_int(total_dim, nlocal_pts, owner, array_shape, &
-     &                              iroot_id, array, comm)
+   SUBROUTINE p_gather_field_2d_int(total_dim, nlocal_pts, owner, block_size, &
+     &                              array_shape, iroot_id, array, comm)
 
      INTEGER, PARAMETER      :: array_dim = 2
      CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_gather_field_2d_int")
@@ -5429,6 +5429,7 @@ CONTAINS
      INTEGER, INTENT(IN)     :: total_dim              ! dimension of global vector             
      INTEGER, INTENT(IN)     :: nlocal_pts(:)          ! number of points located on each patch 
      INTEGER, INTENT(IN)     :: owner(:)               ! for each point: owning process         
+     INTEGER,  INTENT(IN)    :: block_size             ! block size for each idx/blk pair       
      INTEGER, INTENT(IN)     :: array_shape(array_dim) ! shape of output field                  
      INTEGER, INTENT(IN)     :: iroot_id               ! Rank of receiving PE
      INTEGER, INTENT(INOUT)  :: array(:,:)             ! gathered output data                   
@@ -5453,7 +5454,7 @@ CONTAINS
 
      lreceiving_pe = (get_my_mpi_all_id() == iroot_id)
 
-     recv_buf_size = total_dim
+     recv_buf_size = block_size*total_dim
      IF ((process_mpi_io_size == 0) .AND. my_process_is_stdio()) THEN
        ALLOCATE(recv_buf(recv_buf_size),                       &
          &      reordered_field(recv_buf_size),                &
@@ -5466,24 +5467,25 @@ CONTAINS
      ! Compute coefficients locally on each working PE and send them to
      ! the IO PE.
      nworking_procs = p_n_work
-     send_cnt       = nlocal_pts(get_my_mpi_all_id()+1)
+     send_cnt       = block_size*nlocal_pts(get_my_mpi_all_id()+1)
 
      displacements(1)                = 0
-     displacements(2:nworking_procs) = nlocal_pts(1:(nworking_procs-1))
+     displacements(2:nworking_procs) = block_size*nlocal_pts(1:(nworking_procs-1))
      DO i=2,nworking_procs
        displacements(i) = displacements(i) + displacements(i-1)
      END DO
 
      ! paranoia
-     IF ((displacements(nworking_procs) + nlocal_pts(nworking_procs)) /= &
-       & total_dim) THEN
-       WRITE(message_text,*) "Inconsistent data: total_dim = ", total_dim, &
-         &      ", should be ", displacements(nworking_procs) + nlocal_pts(nworking_procs)
+     IF ((displacements(nworking_procs) + block_size*nlocal_pts(nworking_procs)) /= &
+       & block_size*total_dim) THEN
+       WRITE(message_text,*) "Inconsistent data: total_dim = ", block_size*total_dim, &
+         &      ", should be ", displacements(nworking_procs) + &
+         &      block_size*nlocal_pts(nworking_procs)
        CALL finish(routine, TRIM(message_text))
      END IF
 
      CALL MPI_GATHERV(array, send_cnt, p_int, recv_buf,             &
-       &              nlocal_pts(:), displacements(:),              &
+       &              block_size*nlocal_pts(:), displacements(:),   &
        &              p_int, iroot_id, p_comm, ierr)
      IF (ierr /= 0)  &
        CALL finish (routine, 'Error in MPI_GATHERV operation!')
@@ -5496,9 +5498,11 @@ CONTAINS
        DO i=1,total_dim
          recv_proc = owner(i) + 1
          ipos      = icounter(recv_proc)
-         reordered_field(total_counter) = recv_buf(ipos)
-         icounter(recv_proc) = icounter(recv_proc) + 1
-         total_counter       = total_counter + 1
+
+         reordered_field(total_counter:(total_counter+block_size-1)) = &
+           &   recv_buf(ipos:(ipos+block_size-1))
+         icounter(recv_proc) = icounter(recv_proc) + block_size
+         total_counter       = total_counter + block_size
        END DO
 
        ! paranoia
