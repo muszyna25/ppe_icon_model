@@ -463,9 +463,9 @@ CONTAINS
 
   SUBROUTINE init_aerosol_props_tanre_rrtm
 
-   ! the following aerosoltyps (second array index) are considered:
+   ! the following aerosol types (second array index) are considered:
    ! 1 : continental
-   ! 2 : maritim
+   ! 2 : maritime
    ! 3 : urban
    ! 4 : vulcano ashes
    ! 5 : stratospheric background aerosol (SB)
@@ -543,9 +543,9 @@ CONTAINS
 
   SUBROUTINE init_aerosol_props_tanre_rg
 
-   ! the following aerosoltyps (second array index) are considered:
+   ! the following aerosol types (second array index) are considered:
    ! 1 : continental
-   ! 2 : maritim
+   ! 2 : maritime
    ! 3 : urban
    ! 4 : vulcano ashes
    ! 5 : stratospheric background aerosol (SB)
@@ -588,5 +588,124 @@ CONTAINS
     
   END SUBROUTINE init_aerosol_props_tanre_rg
 
+  SUBROUTINE init_aerosol_props_tegen_rg
+
+  ! the following aerosol types (second array index) are considered:
+  ! 1. continental, 2. maritime, 3. desert, 4. urban, 5. stratospheric background
+
+    zaea_rg=RESHAPE((/0.0345_wp,0.0511_wp,0.0847_wp,0.0336_wp,&
+      0.0499_wp,0.0364_wp,0.0382_wp,0.0260_wp,&
+      0.0457_wp,0.0018_wp,0.0015_wp,0.1361_wp,&
+      0.2346_wp,0.1177_wp,0.0684_wp,0.0808_wp,&
+      0.0707_wp,0.0689_wp,0.1557_wp,0.1258_wp,&
+      0.1588_wp,0.1973_wp,0.2766_wp,0.1134_wp,&
+      0.0597_wp,0.1077_wp,0.2095_wp,0.0299_wp,&
+      0.0456_wp,0.0358_wp,0.0377_wp,0.0304_wp,&
+      0.0103_wp, 0.000016_wp,0.0000_wp, 0.0087_wp, &
+      0.0238_wp, 0.0511_wp,  0.0734_wp, 0.0809_wp/),(/jpspec,5/))
+
+     
+    zaes_rg=RESHAPE((/0.1030_wp,0.3977_wp,1.0680_wp,0.0084_wp,&
+      0.0142_wp,0.0191_wp,0.0234_wp,0.0140_wp,&
+      0.7894_wp,0.9734_wp,1.0110_wp,0.0307_wp,&
+      0.0531_wp,0.0546_wp,0.0839_wp,0.2142_wp,&
+      0.7157_wp,0.8698_wp,0.8604_wp,0.0645_wp,&
+      0.0781_wp,0.1256_wp,0.2317_wp,0.1409_wp,&
+      0.0859_wp,0.3442_wp,0.9496_wp,0.0067_wp,&
+      0.0113_wp,0.0153_wp,0.0187_wp,0.0113_wp,&
+      0.0467_wp, 0.3854_wp,  1.1008_wp, 0.0000_wp, &
+      0.00005_wp,0.0004_wp,  0.0006_wp, 0.0006_wp/),(/jpspec,5/))
+     
+     
+    zaeg_rg=RESHAPE((/0.6562_wp,0.6614_wp,0.7109_wp,0.5043_wp,&
+      0.6486_wp,0.6814_wp,0.6489_wp,0.7799_wp,&
+      0.8105_wp,0.7906_wp,0.7947_wp,0.4374_wp,&
+      0.5203_wp,0.7076_wp,0.7246_wp,0.7535_wp,&
+      0.6932_wp,0.6962_wp,0.7402_wp,0.4029_wp,&
+      0.5587_wp,0.5618_wp,0.4520_wp,0.7120_wp,&
+      0.6462_wp,0.6510_wp,0.6955_wp,0.5041_wp,&
+      0.6482_wp,0.6805_wp,0.6477_wp,0.7753_wp,&
+      0.3751_wp, 0.6353_wp,  0.7259_wp, 0.0037_wp, &
+      0.0083_wp, 0.0177_wp,  0.0201_wp, 0.0332_wp/),(/jpspec,5/))
+    
+  END SUBROUTINE init_aerosol_props_tegen_rg
+  
+  SUBROUTINE init_aerosol_props_tegen_rrtm
+
+  ! the following aerosol types (second array index) are considered:
+  ! 1. continental, 2. maritime, 3. desert, 4. urban, 5. stratospheric background (SB)
+
+   !absorption
+   zaea_rrtm=RESHAPE( (/ &
+     &0.0304_wp,0.0367_wp,0.0462_wp,0.0566_wp,0.0496_wp,0.0336_wp,0.0355_wp,0.0456_wp,&
+     &0.0272_wp,0.0264_wp,0.0290_wp,0.0156_wp,0.0165_wp,0.0157_wp,0.0138_wp,0.0401_wp,&
+     &0.0401_wp,0.0760_wp,0.0214_wp,0.0227_wp,0.0295_wp,0.0394_wp,0.0431_wp,0.0519_wp,&
+     &0.0611_wp,0.0774_wp,0.1012_wp,0.1412_wp,0.2632_wp,0.0324_wp,                    &
+     &0.1096_wp,0.1614_wp,0.2294_wp,0.2506_wp,0.2242_wp,0.1190_wp,0.0680_wp,0.0664_wp,&
+     &0.0656_wp,0.0749_wp,0.1250_wp,0.0425_wp,0.0498_wp,0.0425_wp,0.0259_wp,0.1619_wp,&
+     &0.1619_wp,0.2152_wp,0.0139_wp,0.0119_wp,0.0046_wp,0.0036_wp,0.0020_wp,0.0016_wp,&
+     &0.0012_wp,0.0013_wp,0.0016_wp,0.0035_wp,0.0147_wp,0.0882_wp,                    &
+     &0.0974_wp,0.1529_wp,0.1643_wp,0.1373_wp,0.1753_wp,0.1923_wp,0.2804_wp,0.2426_wp,&
+     &0.1263_wp,0.1321_wp,0.0979_wp,0.0664_wp,0.0360_wp,0.0311_wp,0.0325_wp,0.0833_wp,&
+     &0.0833_wp,0.1170_wp,0.0739_wp,0.0631_wp,0.0604_wp,0.0628_wp,0.0645_wp,0.0677_wp,&
+     &0.0843_wp,0.1328_wp,0.2224_wp,0.3022_wp,0.3579_wp,0.1820_wp,                    &
+     &0.0267_wp,0.0329_wp,0.0420_wp,0.0515_wp,0.0461_wp,0.0332_wp,0.0354_wp,0.0447_wp,&
+     &0.0303_wp,0.0306_wp,0.0342_wp,0.0248_wp,0.0274_wp,0.0276_wp,0.0271_wp,0.0526_wp,&
+     &0.0526_wp,0.0903_wp,0.0450_wp,0.0492_wp,0.0596_wp,0.0754_wp,0.0842_wp,0.1082_wp,&
+     &0.1429_wp,0.1926_wp,0.2595_wp,0.3379_wp,0.4761_wp,0.0340_wp,                    &
+     &0.0060_wp,0.0117_wp,0.0269_wp,0.0222_wp,0.0195_wp,0.0398_wp,0.0733_wp,0.1091_wp,&     ! SB
+     &0.1124_wp,0.0415_wp,0.0424_wp,0.0495_wp,0.0451_wp,0.0484_wp,0.0540_wp,0.0735_wp,&     ! SB
+     &0.0735_wp,0.0188_wp,0.0021_wp,0.0014_wp,0.0007_wp,0.0002_wp,0.0000_wp,0.0000_wp,&     ! SB
+     &0.0000_wp,0.0000_wp,0.0000_wp,0.0000_wp,0.0000_wp,0.0628_wp/),(/jpsw+jpband,5/))      ! SB
+
+   !scattering
+   zaes_rrtm=RESHAPE( (/ &
+     &0.0060_wp,0.0107_wp,0.0134_wp,0.0150_wp,0.0152_wp,0.0200_wp,0.0232_wp,0.0211_wp,&
+     &0.0112_wp,0.0186_wp,0.0128_wp,0.0260_wp,0.0339_wp,0.0368_wp,0.0409_wp,0.0527_wp,&
+     &0.0527_wp,0.0621_wp,0.0715_wp,0.0929_wp,0.1276_wp,0.1895_wp,0.2350_wp,0.3930_wp,&
+     &0.6641_wp,0.9834_wp,1.3737_wp,1.7160_wp,1.9115_wp,0.0198_wp,                    &
+     &0.0188_wp,0.0421_wp,0.0576_wp,0.0547_wp,0.0430_wp,0.0367_wp,0.0806_wp,0.1209_wp,&
+     &0.1681_wp,0.2257_wp,0.2440_wp,0.3622_wp,0.4540_wp,0.5026_wp,0.5765_wp,0.5986_wp,&
+     &0.5986_wp,0.5225_wp,0.7420_wp,0.8311_wp,0.8970_wp,0.9444_wp,0.9637_wp,0.9763_wp,&
+     &0.9855_wp,1.0034_wp,1.0337_wp,1.0640_wp,1.0795_wp,0.1312_wp,                    &
+     &0.0458_wp,0.0823_wp,0.0667_wp,0.0642_wp,0.1080_wp,0.1471_wp,0.2422_wp,0.1216_wp,&
+     &0.0717_wp,0.1616_wp,0.2027_wp,0.3042_wp,0.4045_wp,0.4369_wp,0.4685_wp,0.5043_wp,&
+     &0.5043_wp,0.5782_wp,0.6898_wp,0.7477_wp,0.7926_wp,0.8320_wp,0.8503_wp,0.8736_wp,&
+     &0.8874_wp,0.8737_wp,0.8278_wp,0.7857_wp,0.7571_wp,0.1714_wp,                    &
+     &0.0048_wp,0.0085_wp,0.0107_wp,0.0119_wp,0.0121_wp,0.0160_wp,0.0185_wp,0.0170_wp,&
+     &0.0090_wp,0.0150_wp,0.0103_wp,0.0210_wp,0.0274_wp,0.0298_wp,0.0332_wp,0.0430_wp,&
+     &0.0430_wp,0.0485_wp,0.0593_wp,0.0776_wp,0.1073_wp,0.1610_wp,0.2008_wp,0.3398_wp,&
+     &0.5809_wp,0.8701_wp,1.2309_wp,1.5535_wp,1.7368_wp,0.0159_wp,                    &
+     &0.0000_wp,0.0000_wp,0.0000_wp,0.0000_wp,0.0001_wp,0.0003_wp,0.0006_wp,0.0008_wp,&     ! SB
+     &0.0005_wp,0.0003_wp,0.0008_wp,0.0013_wp,0.0024_wp,0.0030_wp,0.0040_wp,0.0059_wp,&     ! SB
+     &0.0059_wp,0.0123_wp,0.0236_wp,0.0384_wp,0.0651_wp,0.1246_wp,0.1801_wp,0.3807_wp,&     ! SB
+     &0.7105_wp,1.0514_wp,1.3754_wp,1.5334_wp,1.5495_wp,0.0009_wp/),(/jpsw+jpband,5/))      ! SB
+
+   !asymmetry factor
+   zaeg_rrtm=RESHAPE( (/ &
+     &0.4388_wp,0.5396_wp,0.6191_wp,0.6535_wp,0.6876_wp,0.6718_wp,0.6493_wp,0.6782_wp,&
+     &0.7958_wp,0.7537_wp,0.7757_wp,0.7821_wp,0.7583_wp,0.7487_wp,0.7351_wp,0.6917_wp,&
+     &0.6917_wp,0.6989_wp,0.6982_wp,0.6726_wp,0.6426_wp,0.6294_wp,0.6337_wp,0.6582_wp,&
+     &0.6850_wp,0.7061_wp,0.7212_wp,0.7306_wp,0.7417_wp,0.6978_wp,                    &
+     &0.4062_wp,0.4507_wp,0.4878_wp,0.5302_wp,0.5850_wp,0.6962_wp,0.7242_wp,0.7293_wp,&
+     &0.7414_wp,0.7484_wp,0.7607_wp,0.7785_wp,0.7805_wp,0.7785_wp,0.7724_wp,0.7690_wp,&
+     &0.7690_wp,0.8348_wp,0.8316_wp,0.8170_wp,0.8074_wp,0.7990_wp,0.7954_wp,0.7897_wp,&
+     &0.7884_wp,0.7927_wp,0.8001_wp,0.8057_wp,0.8076_wp,0.7462_wp,                    &
+     &0.4219_wp,0.3928_wp,0.5306_wp,0.6229_wp,0.5544_wp,0.5454_wp,0.4353_wp,0.5736_wp,&
+     &0.7502_wp,0.6957_wp,0.7038_wp,0.6881_wp,0.6740_wp,0.6739_wp,0.6784_wp,0.6969_wp,&
+     &0.6969_wp,0.7068_wp,0.6965_wp,0.6918_wp,0.6904_wp,0.6911_wp,0.6915_wp,0.6952_wp,&
+     &0.7080_wp,0.7326_wp,0.7689_wp,0.8000_wp,0.8206_wp,0.5788_wp,                    &
+     &0.4387_wp,0.5394_wp,0.6187_wp,0.6531_wp,0.6871_wp,0.6712_wp,0.6482_wp,0.6756_wp,&
+     &0.7930_wp,0.7498_wp,0.7685_wp,0.7766_wp,0.7520_wp,0.7419_wp,0.7277_wp,0.6828_wp,&
+     &0.6828_wp,0.6875_wp,0.6872_wp,0.6622_wp,0.6333_wp,0.6209_wp,0.6250_wp,0.6479_wp,&
+     &0.6725_wp,0.6912_wp,0.7043_wp,0.7129_wp,0.7254_wp,0.6956_wp,                    &
+     &0.0021_wp,0.0039_wp,0.0061_wp,0.0078_wp,0.0109_wp,0.0161_wp,0.0201_wp,0.0206_wp,&     ! SB
+     &0.0217_wp,0.0320_wp,0.0428_wp,0.0583_wp,0.0773_wp,0.0856_wp,0.0985_wp,0.1310_wp,&     ! SB
+     &0.1310_wp,0.1906_wp,0.2625_wp,0.3154_wp,0.3869_wp,0.4787_wp,0.5279_wp,0.6272_wp,&     ! SB
+     &0.6941_wp,0.7286_wp,0.7358_wp,0.7177_wp,0.6955_wp,0.0616_wp/),(/jpsw+jpband,5/))      ! SB
+
+  END SUBROUTINE init_aerosol_props_tegen_rrtm
+
+  
 END MODULE mo_aerosol_util
 
