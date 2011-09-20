@@ -182,9 +182,7 @@ CONTAINS
     INTEGER :: grid_shape(2) 
     INTEGER :: field_shape(3) 
     INTEGER :: i, error_status
-    INTEGER :: no_of_entities
     INTEGER :: patch_no
-    INTEGER, POINTER :: grid_glob_index(:)
 
     !---------------------------------------------------------------------
     ! 0. If this is a resumed or warm-start run...
