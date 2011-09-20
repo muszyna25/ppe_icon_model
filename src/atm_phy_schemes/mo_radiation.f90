@@ -1119,31 +1119,33 @@ CONTAINS
     CASE (5)
       DO jspec=1,jpband
         DO jk=1,klev
+          jkb = klev+1-jk
           DO jl = 1,jce
             ! LW opt thickness of aerosols
-            aer_tau_lw_vr(jl,jk,jspec) =  zaeq1(jl,jk) * zaea_rrtm(jspec,1) &
-              &                         + zaeq2(jl,jk) * zaea_rrtm(jspec,2) &
-              &                         + zaeq3(jl,jk) * zaea_rrtm(jspec,3) &
-              &                         + zaeq4(jl,jk) * zaea_rrtm(jspec,4) &
-              &                         + zaeq5(jl,jk) * zaea_rrtm(jspec,5)
+            aer_tau_lw_vr(jl,jk,jspec) =  zaeq1(jl,jkb) * zaea_rrtm(jspec,1) &
+              &                         + zaeq2(jl,jkb) * zaea_rrtm(jspec,2) &
+              &                         + zaeq3(jl,jkb) * zaea_rrtm(jspec,3) &
+              &                         + zaeq4(jl,jkb) * zaea_rrtm(jspec,4) &
+              &                         + zaeq5(jl,jkb) * zaea_rrtm(jspec,5)
           ENDDO
         ENDDO
       ENDDO
       DO jspec=1+jpband,jpband+jpsw
         DO jk=1,klev
+          jkb = klev+1-jk
           DO jl = 1,jce
 
-            z_sum_aea = zaeq1(jl,jk) * zaea_rrtm(jspec,1) &
-              &       + zaeq2(jl,jk) * zaea_rrtm(jspec,2) &
-              &       + zaeq3(jl,jk) * zaea_rrtm(jspec,3) &
-              &       + zaeq4(jl,jk) * zaea_rrtm(jspec,4) &
-              &       + zaeq5(jl,jk) * zaea_rrtm(jspec,5)
+            z_sum_aea = zaeq1(jl,jkb) * zaea_rrtm(jspec,1) &
+              &       + zaeq2(jl,jkb) * zaea_rrtm(jspec,2) &
+              &       + zaeq3(jl,jkb) * zaea_rrtm(jspec,3) &
+              &       + zaeq4(jl,jkb) * zaea_rrtm(jspec,4) &
+              &       + zaeq5(jl,jkb) * zaea_rrtm(jspec,5)
 
-            z_sum_aes = zaeq1(jl,jk) * zaes_rrtm(jspec,1) &
-              &       + zaeq2(jl,jk) * zaes_rrtm(jspec,2) &
-              &       + zaeq3(jl,jk) * zaes_rrtm(jspec,3) &
-              &       + zaeq4(jl,jk) * zaes_rrtm(jspec,4) &
-              &       + zaeq5(jl,jk) * zaes_rrtm(jspec,5)
+            z_sum_aes = zaeq1(jl,jkb) * zaes_rrtm(jspec,1) &
+              &       + zaeq2(jl,jkb) * zaes_rrtm(jspec,2) &
+              &       + zaeq3(jl,jkb) * zaes_rrtm(jspec,3) &
+              &       + zaeq4(jl,jkb) * zaes_rrtm(jspec,4) &
+              &       + zaeq5(jl,jkb) * zaes_rrtm(jspec,5)
 
             ! sw aerosol optical thickness
             aer_tau_sw_vr(jl,jk,jspec-jpband) = z_sum_aea + z_sum_aes
@@ -1153,11 +1155,11 @@ CONTAINS
 
             ! sw aerosol asymmetry factor
             aer_cg_sw_vr(jl,jk,jspec-jpband) =                                  &
-              & (   zaeq1(jl,jk) * zaes_rrtm(jspec,1) * zaeg_rrtm(jspec,1)   &
-              &   + zaeq2(jl,jk) * zaes_rrtm(jspec,2) * zaeg_rrtm(jspec,2)   &
-              &   + zaeq3(jl,jk) * zaes_rrtm(jspec,3) * zaeg_rrtm(jspec,3)   &
-              &   + zaeq4(jl,jk) * zaes_rrtm(jspec,4) * zaeg_rrtm(jspec,4)   &
-              &   + zaeq5(jl,jk) * zaes_rrtm(jspec,5) * zaeg_rrtm(jspec,5) ) / z_sum_aes
+              & (   zaeq1(jl,jkb) * zaes_rrtm(jspec,1) * zaeg_rrtm(jspec,1)   &
+              &   + zaeq2(jl,jkb) * zaes_rrtm(jspec,2) * zaeg_rrtm(jspec,2)   &
+              &   + zaeq3(jl,jkb) * zaes_rrtm(jspec,3) * zaeg_rrtm(jspec,3)   &
+              &   + zaeq4(jl,jkb) * zaes_rrtm(jspec,4) * zaeg_rrtm(jspec,4)   &
+              &   + zaeq5(jl,jkb) * zaes_rrtm(jspec,5) * zaeg_rrtm(jspec,5) ) / z_sum_aes
           ENDDO
         ENDDO
       ENDDO
