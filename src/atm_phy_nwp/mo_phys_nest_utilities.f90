@@ -43,6 +43,8 @@ USE mo_model_domain,        ONLY: t_patch, t_grid_cells
 USE mo_model_domain_import, ONLY: n_dom, n_dom_start
 USE mo_interpolation,       ONLY: t_int_state
 USE mo_grf_interpolation,   ONLY: t_gridref_state, t_gridref_single_state
+USE mo_nwp_phy_state,       ONLY: t_nwp_phy_diag
+USE mo_nwp_lnd_state,       ONLY: t_lnd_prog, t_lnd_diag
 USE mo_grf_bdyintp,         ONLY: interpol_scal_grf
 USE mo_grf_nudgintp,        ONLY: interpol_scal_nudging
 USE mo_parallel_config,  ONLY: nproma, p_test_run
@@ -64,7 +66,7 @@ PRIVATE
 CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
 PUBLIC :: upscale_rad_input, downscale_rad_output, interpol_phys_grf, feedback_phys_diag, &
-  &       upscale_rad_input_rg, downscale_rad_output_rg
+  &       upscale_rad_input_rg, downscale_rad_output_rg, interpol_rrg_grf
 
 CONTAINS
 
@@ -359,9 +361,13 @@ SUBROUTINE upscale_rad_input(p_patch, p_par_patch, p_par_grf,            &
       ENDDO
     ENDIF
 
+#ifdef __LOOP_EXCHANGE
+    DO jc = i_startidx, i_endidx
+      DO jk = 1, nlev
+#else
     DO jk = 1, nlev
       DO jc = i_startidx, i_endidx
-
+#endif
         p_pres_ifc(jc,jk,jb) =                                         &
           pres_ifc(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
           pres_ifc(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
@@ -422,12 +428,6 @@ SUBROUTINE upscale_rad_input(p_patch, p_par_patch, p_par_grf,            &
           acdnc(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
           acdnc(iidx(jc,jb,4),jk,iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
 
-      ENDDO
-    ENDDO
-
-    DO jk = 1, nlev
-      DO jc = i_startidx, i_endidx
-
 !CDIR EXPAND=4
         p_tot_cld(jc,jk,jb,1:4) =                                         &
           tot_cld(iidx(jc,jb,1),jk,iblk(jc,jb,1),1:4)*p_fbkwgt(jc,jb,1) + &
@@ -445,7 +445,7 @@ SUBROUTINE upscale_rad_input(p_patch, p_par_patch, p_par_grf,            &
 
   IF (l_parallel .AND. jgp == 0) THEN
 
-    CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, 6, 6*nlev+10, &
+    CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, 6, 5*nlev+10, &
                             RECV1=rg_pres_ifc, SEND1=z_pres_ifc,          &
                             RECV2=rg_pres,     SEND2=z_pres,              &
                             RECV3=rg_temp,     SEND3=z_temp,              &
@@ -923,9 +923,13 @@ SUBROUTINE upscale_rad_input_rg(p_patch, p_par_patch, p_par_grf,        &
       ENDDO
     ENDIF
 
+#ifdef __LOOP_EXCHANGE
+    DO jc = i_startidx, i_endidx
+      DO jk = 1, nlev
+#else
     DO jk = 1, nlev
       DO jc = i_startidx, i_endidx
-
+#endif
         p_temp_ifc(jc,jk,jb) =                                         &
           temp_ifc(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
           temp_ifc(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
@@ -1307,6 +1311,101 @@ SUBROUTINE interpol_phys_grf (ptr_pp,ptr_pc,ptr_int, ptr_grf, jg, jgc, jn )
 !$OMP END PARALLEL
 
 END SUBROUTINE interpol_phys_grf
+
+
+!>
+!! This routine performs lateral boundary interpolation of non-advected physics variables
+!! entering into the computation of radiation. Calling this routine is required when
+!! radiation is computed on a reduced grid
+!! 
+!!
+!! @par Revision History
+!! Developed  by Guenther Zaengl, DWD, 2011-09-19
+!!
+SUBROUTINE interpol_rrg_grf (ptr_pp, ptr_pc, ptr_int, ptr_grf, prm_diagp, prm_diagc,   &
+                             ptr_lprogp, ptr_lprogc, ptr_ldiagp, ptr_ldiagc, jg, jgc, jn)
+
+  ! Input:
+  TYPE(t_patch),                INTENT(in) :: ptr_pp
+  TYPE(t_patch),                INTENT(in) :: ptr_pc
+  TYPE(t_gridref_single_state), INTENT(in) :: ptr_grf
+  TYPE(t_int_state),            INTENT(in) :: ptr_int
+  TYPE(t_nwp_phy_diag),         INTENT(in) :: prm_diagp
+  TYPE(t_nwp_phy_diag),         INTENT(inout) :: prm_diagc
+  TYPE(t_lnd_prog),             INTENT(in) :: ptr_lprogp
+  TYPE(t_lnd_prog),             INTENT(inout) :: ptr_lprogc
+  TYPE(t_lnd_diag),             INTENT(in) :: ptr_ldiagp
+  TYPE(t_lnd_diag),             INTENT(inout) :: ptr_ldiagc
+
+  INTEGER,                      INTENT(in) :: jg,jgc,jn
+
+  ! Local fields
+  INTEGER, PARAMETER  :: nfields=5    ! Number of 2D fields for which boundary interpolation is needed
+  INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, jb, jc
+
+  ! Temporary storage to do boundary interpolation for all 2D fields in one step
+  REAL(wp) :: z_aux3d_p(nproma,nfields,ptr_pp%nblks_c), &
+              z_aux3d_c(nproma,nfields,ptr_pc%nblks_c)
+
+  IF (p_test_run) THEN
+     z_aux3d_p(:,:,:) = 0._wp
+  ENDIF
+
+  i_startblk = ptr_pp%cells%start_blk(1,1)
+  i_endblk   = ptr_pp%nblks_c
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc)
+  DO jb = i_startblk, i_endblk
+
+    CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, 1)
+
+    DO jc = i_startidx, i_endidx
+
+      z_aux3d_p(jc,1,jb) = ptr_lprogp%t_g(jc,jb)
+      z_aux3d_p(jc,2,jb) = ptr_lprogp%w_so(jc,1,jb,1)
+      z_aux3d_p(jc,3,jb) = ptr_lprogp%w_snow(jc,jb,1)
+      z_aux3d_p(jc,4,jb) = ptr_ldiagp%freshsnow(jc,jb,1)
+      z_aux3d_p(jc,5,jb) = prm_diagp%h_ice(jc,jb)
+    ENDDO
+  ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+
+    ! Halo update is needed before interpolation
+    CALL sync_patch_array(SYNC_C,ptr_pp,z_aux3d_p)
+
+    CALL interpol_scal_grf (ptr_pp, ptr_pc, ptr_int, ptr_grf, jn, 1, &
+      &                     z_aux3d_p, z_aux3d_c, llimit_nneg=.TRUE.,&
+      &                     lnoshift=.TRUE.)
+
+
+  i_startblk = ptr_pc%cells%start_blk(1,1)
+  i_endblk   = ptr_pc%cells%end_blk(grf_bdywidth_c,1)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc)
+  DO jb = i_startblk, i_endblk
+
+    CALL get_indices_c(ptr_pc, jb, i_startblk, i_endblk,        &
+                       i_startidx, i_endidx, 1, grf_bdywidth_c)
+
+    DO jc = i_startidx, i_endidx
+
+      ptr_lprogc%t_g(jc,jb)          = z_aux3d_c(jc,1,jb)
+      ptr_lprogc%w_so(jc,1,jb,1)     = z_aux3d_c(jc,2,jb)
+      ptr_lprogc%w_snow(jc,jb,1)     = z_aux3d_c(jc,3,jb)
+      ptr_ldiagc%freshsnow(jc,jb,1)  = z_aux3d_c(jc,4,jb)
+      prm_diagc%h_ice(jc,jb)         = z_aux3d_c(jc,5,jb)
+
+    ENDDO
+  ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+
+END SUBROUTINE interpol_rrg_grf
+
+
 
 !>
 !! This routine performs the feedback of diagnostic physics fields for output

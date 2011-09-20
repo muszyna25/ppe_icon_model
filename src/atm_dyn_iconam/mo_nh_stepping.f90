@@ -114,7 +114,7 @@ MODULE mo_nh_stepping
   USE mo_communication,       ONLY: start_delayed_exchange, do_delayed_exchange
   USE mo_subdivision,         ONLY: proc_split
   USE mo_nh_interface_nwp,    ONLY: nwp_nh_interface
-  USE mo_phys_nest_utilities, ONLY: interpol_phys_grf, feedback_phys_diag
+  USE mo_phys_nest_utilities, ONLY: interpol_phys_grf, feedback_phys_diag, interpol_rrg_grf
   USE mo_vertical_grid,       ONLY: set_nh_metrics
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
   USE mo_nh_held_suarez_interface, ONLY: held_suarez_nh_interface
@@ -1090,6 +1090,21 @@ MODULE mo_nh_stepping
             CALL message(TRIM(routine), TRIM(message_text))
           ENDIF
 
+          ! Boundary interpolation of land state variables entering into radiation computation
+          ! if reduced grid is used
+          IF (jg > 1 .AND. lredgrid_phys(jg)) THEN
+
+            jn = p_patch(jg)%parent_child_index
+
+            CALL interpol_rrg_grf(p_patch(jgp), p_patch(jg), p_int_state(jgp),             &
+                                  p_grf_state(jgp)%p_dom(jn), prm_diag(jgp), prm_diag(jg), &
+                                  p_lnd_state(jgp)%prog_lnd(nnow_rcf(jgp)),                &
+                                  p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)),                  &
+                                  p_lnd_state(jgp)%diag_lnd, p_lnd_state(jg)%diag_lnd,     &
+                                  jgp, jg, jn )
+          ENDIF
+
+
           ! NOTE (DR): To me it is not clear yet, which timestep should be
           ! used for the first call of the slow_physics part dt_rcf, dt_loc,
           ! tcall_phy(jg,:) ...?
@@ -1271,6 +1286,22 @@ MODULE mo_nh_stepping
         IF (  iforcing==inwp .AND. lstep_adv(jg) ) THEN
 
           !> moist tracer update is now synchronized with advection and satad
+
+          ! Boundary interpolation of land state variables entering into radiation computation
+          ! if reduced grid is used
+          IF (jg > 1 .AND. lredgrid_phys(jg) .AND. lcall_phy(jg,itrad) ) THEN
+
+            jn = p_patch(jg)%parent_child_index
+
+            ! Note: interpolation is done from land(now) to land(new) because the time
+            ! level in the parent grid has already been switched
+            CALL interpol_rrg_grf(p_patch(jgp), p_patch(jg), p_int_state(jgp),             &
+                                  p_grf_state(jgp)%p_dom(jn), prm_diag(jgp), prm_diag(jg), &
+                                  p_lnd_state(jgp)%prog_lnd(nnow_rcf(jgp)),                &
+                                  p_lnd_state(jg)%prog_lnd(nnew_rcf(jg)),                  &
+                                  p_lnd_state(jgp)%diag_lnd, p_lnd_state(jg)%diag_lnd,     &
+                                  jgp, jg, jn )
+          ENDIF
 
           CALL nwp_nh_interface(lcall_phy(jg,:),                   & !in
             &                  lredgrid_phys(jg),                  & !in

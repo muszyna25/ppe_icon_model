@@ -817,7 +817,7 @@ CONTAINS
 &              tt     = pt_diag%temp         (:,:,jb)     ,       & !! in:  temperature at full levels
 &              pp     = pt_diag%pres         (:,:,jb)     ,       & !! in:  pressure at full levels
 &              ps     = pt_diag%pres_sfc     (:,jb)       ,       & !! in:  surface pressure at full levels
-&              t_g    = lnd_prog_now%t_g     (:,jb)       ,       & !! in:  surface temperature
+&              t_g    = lnd_prog_new%t_g     (:,jb)       ,       & !! in:  surface temperature
 &              pgeo   = p_metrics%geopot_agl (:,:,jb)     ,       & !! in:  geopotential height
 &              rho    = pt_prog%rho          (:,:,jb  )   ,       & !! in:  density
 &              rcld   = rcld                              ,       & !! in:  standard deviation of saturation deficit
@@ -860,7 +860,7 @@ CONTAINS
             &                               opt_calc_temp =.TRUE.,    &
             &                               opt_calc_tempv=.FALSE.,   &
             &                               opt_calc_pres =.TRUE.,    &
-            &                               lnd_prog = lnd_prog_now,  &
+            &                               lnd_prog = lnd_prog_new,  &
             &                               opt_calc_temp_ifc =.TRUE.,&
             &                               opt_rlend=min_rlcell_int  )
         ELSE
@@ -877,7 +877,7 @@ CONTAINS
           &                               opt_calc_temp =.TRUE.,    &
           &                               opt_calc_tempv=.FALSE.,   &
           &                               opt_calc_pres =.TRUE.,    &
-          &                               lnd_prog = lnd_prog_now,  &
+          &                               lnd_prog = lnd_prog_new,  &
           &                               opt_calc_temp_ifc =.TRUE.,&
           &                               opt_rlend=min_rlcell_int  )
  
@@ -893,7 +893,7 @@ CONTAINS
            &              lnd_diag,              & ! in
            &              pt_prog,pt_prog_rcf,   & ! inout
            &              pt_diag,prm_diag,      & ! inout
-           &              lnd_prog_now           ) ! in
+           &              lnd_prog_new           ) ! in
       IF (ltimer) CALL timer_stop(timer_nwp_radiation)
      
     ENDIF
@@ -965,7 +965,7 @@ CONTAINS
         & pq=pt_prog_rcf%tracer(:,:,jb,iqv)      ,&! in     specific moisture           [kg/kg]
         & pi0=zi0                                ,&! in     solar incoming flux at TOA  [W/m2]
         & pemiss=ext_data%atm%emis_rad(:,jb)     ,&! in     lw sfc emissivity
-        & ptsfc=lnd_prog_now%t_g(:,jb)           ,&! in     surface temperature         [K]
+        & ptsfc=lnd_prog_new%t_g(:,jb)           ,&! in     surface temperature         [K]
         & ptsfctrad=prm_diag%tsfctrad(:,jb)      ,&! in     sfc temp. used for pflxlw   [K]
         & ptrmsw=prm_diag%trsolall (:,:,jb)      ,&! in     shortwave net tranmissivity []
         & pflxlw=prm_diag%lwflxall (:,:,jb)      ,&! in     longwave net flux           [W/m2]

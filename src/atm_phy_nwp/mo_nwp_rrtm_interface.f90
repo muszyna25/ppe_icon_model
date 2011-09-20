@@ -68,7 +68,7 @@ MODULE mo_nwp_rrtm_interface
   USE mo_satad,                ONLY: qsat_rho
   USE mo_srtm_config,          ONLY: jpsw
   USE mo_subdivision,          ONLY: p_patch_local_parent
-!   USE mo_sync,                 ONLY: SYNC_C, sync_patch_array_mult
+!  USE mo_sync,                 ONLY: SYNC_C, sync_patch_array
 
   IMPLICIT NONE
 
@@ -393,7 +393,7 @@ CONTAINS
   !!
   SUBROUTINE nwp_rrtm_radiation ( p_sim_time,pt_patch, &
     & ext_data,lnd_diag,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,pt_prog_rcf,pt_diag,prm_diag, &
-    & lnd_prog_now )
+    & lnd_prog )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
 !      &  routine = 'mo_nwp_rad_interface:'
@@ -418,7 +418,7 @@ CONTAINS
     !< reduced calling frequency for tracers!
     TYPE(t_nh_diag), TARGET, INTENT(in)  :: pt_diag     !<the diagnostic variables
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
-    TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog_now
+    TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog
 
     REAL(wp):: albvisdir     (nproma,pt_patch%nblks_c) !<
     REAL(wp):: albnirdir     (nproma,pt_patch%nblks_c) !<
@@ -500,13 +500,13 @@ CONTAINS
 
           ist = 10
 
-          IF (ext_data%atm%llsm_atm_c(jc,jb) .OR. lnd_prog_now%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
+          IF (ext_data%atm%llsm_atm_c(jc,jb) .OR. lnd_prog%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
             ist = ext_data%atm%soiltyp(jc,jb) ! water (ist=9) and sea ice (ist=10) included
           ENDIF
           albvisdif(jc,jb) = csalb(ist)
           IF ( ext_data%atm%llsm_atm_c(jc,jb) ) THEN
             ! ATTENTION: only valid, if nsfc_subs=1
-            albvisdif(jc,jb) = csalb(ist) - rad_csalbw(ist)*lnd_prog_now%w_so(jc,1,jb,1)
+            albvisdif(jc,jb) = csalb(ist) - rad_csalbw(ist)*lnd_prog%w_so(jc,1,jb,1)
           ENDIF  ! lsoil, llandmask
           
         ENDDO
@@ -517,7 +517,7 @@ CONTAINS
           
           ist = 10
 
-          IF (ext_data%atm%llsm_atm_c(jc,jb) .OR. lnd_prog_now%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
+          IF (ext_data%atm%llsm_atm_c(jc,jb) .OR. lnd_prog%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
             ist = ext_data%atm%soiltyp(jc,jb) ! water (ist=9) and sea ice (ist=10) included
           ENDIF
           albvisdif(jc,jb) = csalb(ist)
@@ -581,9 +581,9 @@ CONTAINS
           ! snow albedo
             zvege = ext_data%atm%plcov_mx(jc,jb)
             ! ATTENTION: only valid, if nsfc_subs=1
-            IF (lnd_prog_now%w_snow(jc,jb,1) > 0.0_wp) THEN
+            IF (lnd_prog%w_snow(jc,jb,1) > 0.0_wp) THEN
               ! ATTENTION: only valid, if nsfc_subs=1
-              zsnow = MIN(1.0_wp, lnd_prog_now%w_snow(jc,jb,1) / cf_snow)
+              zsnow = MIN(1.0_wp, lnd_prog%w_snow(jc,jb,1) / cf_snow)
             ENDIF
             albvisdif(jc,jb) = zsnow * zsnow_alb +                               &
               (1.0_wp - zsnow) * (zvege * csalb_p + (1.0_wp - zvege) * albvisdif(jc,jb))
@@ -603,7 +603,7 @@ CONTAINS
       albnirdir(1:i_endidx,jb) = albvisdir(1:i_endidx,jb)
       albnirdif(1:i_endidx,jb) = albvisdif(1:i_endidx,jb)
 
-      prm_diag%tsfctrad(1:i_endidx,jb) = lnd_prog_now%t_g(1:i_endidx,jb)
+      prm_diag%tsfctrad(1:i_endidx,jb) = lnd_prog%t_g(1:i_endidx,jb)
 
 
       CALL radiation(               &
@@ -673,7 +673,7 @@ CONTAINS
   !!
   SUBROUTINE nwp_rrtm_radiation_reduced ( p_sim_time,pt_patch,pt_par_patch,               &
     & pt_par_int_state, pt_par_grf_state,ext_data,lnd_diag,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5, &
-    & pt_prog_rcf,pt_diag,prm_diag,lnd_prog_now )
+    & pt_prog_rcf,pt_diag,prm_diag,lnd_prog )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
 !      &  routine = 'mo_nwp_rad_interface:'
@@ -699,7 +699,7 @@ CONTAINS
     !< reduced calling frequency for tracers!
     TYPE(t_nh_diag), TARGET,    INTENT(inout):: pt_diag     !<the diagnostic variables
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
-    TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog_now
+    TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog
 
     REAL(wp):: albvisdir     (nproma,pt_patch%nblks_c) !<
     REAL(wp):: albnirdir     (nproma,pt_patch%nblks_c) !<
@@ -784,11 +784,6 @@ CONTAINS
     !> Radiation
     !-------------------------------------------------------------------------
 
-    rl_start = grf_bdywidth_c+1
-    rl_end   = min_rlcell_int
-
-    i_startblk = pt_patch%cells%start_blk(rl_start,1)
-    i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
       ! section for computing radiation on reduced grid
 
@@ -884,13 +879,13 @@ CONTAINS
 
           ist = 10
 
-          IF (ext_data%atm%llsm_atm_c(jc,jb) .OR. lnd_prog_now%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
+          IF (ext_data%atm%llsm_atm_c(jc,jb) .OR. lnd_prog%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
             ist = ext_data%atm%soiltyp(jc,jb) ! water (ist=9) and sea ice (ist=10) included
           ENDIF
           albvisdif(jc,jb) = csalb(ist)
           IF ( ext_data%atm%llsm_atm_c(jc,jb) ) THEN
             ! ATTENTION: only valid, if nsfc_subs=1
-            albvisdif(jc,jb) = csalb(ist) - rad_csalbw(ist)*lnd_prog_now%w_so(jc,1,jb,1)
+            albvisdif(jc,jb) = csalb(ist) - rad_csalbw(ist)*lnd_prog%w_so(jc,1,jb,1)
           ENDIF  ! lsoil, llandmask
 
         ENDDO
@@ -901,7 +896,7 @@ CONTAINS
 
           ist = 10
 
-          IF (ext_data%atm%llsm_atm_c(jc,jb) .OR. lnd_prog_now%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
+          IF (ext_data%atm%llsm_atm_c(jc,jb) .OR. lnd_prog%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
             ist = ext_data%atm%soiltyp(jc,jb) ! water (ist=9) and sea ice (ist=10) included
           ENDIF
           albvisdif(jc,jb) = csalb(ist)
@@ -965,9 +960,9 @@ CONTAINS
             ! snow albedo
             zvege = ext_data%atm%plcov_mx(jc,jb)
             ! ATTENTION: only valid, if nsfc_subs=1
-            IF (lnd_prog_now%w_snow(jc,jb,1) > 0.0_wp) THEN
+            IF (lnd_prog%w_snow(jc,jb,1) > 0.0_wp) THEN
               ! ATTENTION: only valid, if nsfc_subs=1
-              zsnow = MIN(1.0_wp, lnd_prog_now%w_snow(jc,jb,1) / cf_snow)
+              zsnow = MIN(1.0_wp, lnd_prog%w_snow(jc,jb,1) / cf_snow)
             ENDIF
             albvisdif(jc,jb) = zsnow * zsnow_alb +                               &
               (1.0_wp - zsnow) * (zvege * csalb_p + (1.0_wp - zvege) * albvisdif(jc,jb))
@@ -987,7 +982,7 @@ CONTAINS
       albnirdir(1:i_endidx,jb) = albvisdir(1:i_endidx,jb)
       albnirdif(1:i_endidx,jb) = albvisdif(1:i_endidx,jb)
 
-        prm_diag%tsfctrad(1:i_endidx,jb) = lnd_prog_now%t_g(1:i_endidx,jb)
+        prm_diag%tsfctrad(1:i_endidx,jb) = lnd_prog%t_g(1:i_endidx,jb)
 
       ENDDO ! blocks
 
@@ -1056,7 +1051,6 @@ CONTAINS
           ENDDO
         ENDIF
 
-!#ifdef __BOUNDCHECK
         CALL radiation(               &
                                 !
                                 ! input

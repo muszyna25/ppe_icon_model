@@ -1888,7 +1888,7 @@ CONTAINS
           !
           i_nchdom  = MAX(1,p_patch(jg)%n_childdom)
 
-          rl_start = grf_bdywidth_c
+          rl_start = 1
           rl_end   = min_rlcell_int
 
           i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)

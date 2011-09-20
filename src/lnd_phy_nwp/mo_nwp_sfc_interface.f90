@@ -374,31 +374,35 @@ CONTAINS
 
 
        ! copy updated variables back to ICON-prognostic fields
+       ! Note: nest-boundary points MUST NOT BE OVERWRITTEN!!!
         DO isubs = 1,nsfc_subs
-          lnd_prog_new%t_snow(1:i_endidx,jb,isubs) = t_snow_t(1:i_endidx,jb,2,isubs)
-          lnd_prog_new%t_snow_mult(1:i_endidx,1:nlev_snow+1,jb,isubs) = &
-            & t_snow_mult_t(1:i_endidx,0:nlev_snow,jb,2,isubs)
-          lnd_prog_new%t_s(1:i_endidx,jb,isubs) = t_s_t(1:i_endidx,jb,2,isubs)
-          lnd_prog_new%w_snow(1:i_endidx,jb,isubs) = w_snow_t(1:i_endidx,jb,2,isubs)
-          lnd_prog_new%rho_snow(1:i_endidx,jb,isubs) = rho_snow_t(1:i_endidx,jb,2,isubs)
-          lnd_prog_new%rho_snow_mult(1:i_endidx,1:nlev_snow,jb,isubs) = &
-            & rho_snow_mult_t(1:i_endidx,1:nlev_snow,jb,2,isubs)
-          lnd_prog_new%w_i(1:i_endidx,jb,isubs) = w_i_t(1:i_endidx,jb,2,isubs) 
-          lnd_prog_new%t_so(1:i_endidx,1:nlev_soil+2,jb,isubs) = &
-            & t_so_t(1:i_endidx,0:nlev_soil+1,jb,2,isubs)
-          lnd_prog_new%w_so(1:i_endidx,1:nlev_soil+1,jb,isubs) = &
-            & w_so_t(1:i_endidx,1:nlev_soil+1,jb,2,isubs)
-          lnd_prog_new%w_so_ice(1:i_endidx,1:nlev_soil+1,jb,isubs)= &
-            & w_so_ice_t(1:i_endidx,1:nlev_soil+1,jb,2,isubs)
-          lnd_prog_new%wliq_snow(1:i_endidx,1:nlev_snow,jb,isubs) = &
-            & wliq_snow_t(1:i_endidx,1:nlev_snow,jb,2,isubs)
-          lnd_prog_new%wtot_snow(1:i_endidx,1:nlev_snow,jb,isubs) = &
-            & wtot_snow_t(1:i_endidx,1:nlev_snow,jb,2,isubs)
-          lnd_prog_new%dzh_snow(1:i_endidx,1:nlev_snow,jb,isubs)  = &
-            & dzh_snow_t(1:i_endidx,1:nlev_snow,jb,2,isubs)
+          lnd_prog_new%t_snow(i_startidx:i_endidx,jb,isubs) = &
+            & t_snow_t(i_startidx:i_endidx,jb,2,isubs)
+          lnd_prog_new%t_snow_mult(i_startidx:i_endidx,1:nlev_snow+1,jb,isubs) = &
+            & t_snow_mult_t(i_startidx:i_endidx,0:nlev_snow,jb,2,isubs)
+          lnd_prog_new%t_s(i_startidx:i_endidx,jb,isubs) = t_s_t(i_startidx:i_endidx,jb,2,isubs)
+          lnd_prog_new%w_snow(i_startidx:i_endidx,jb,isubs) = &
+            & w_snow_t(i_startidx:i_endidx,jb,2,isubs)
+          lnd_prog_new%rho_snow(i_startidx:i_endidx,jb,isubs) = &
+            & rho_snow_t(i_startidx:i_endidx,jb,2,isubs)
+          lnd_prog_new%rho_snow_mult(i_startidx:i_endidx,1:nlev_snow,jb,isubs) = &
+            & rho_snow_mult_t(i_startidx:i_endidx,1:nlev_snow,jb,2,isubs)
+          lnd_prog_new%w_i(i_startidx:i_endidx,jb,isubs) = w_i_t(i_startidx:i_endidx,jb,2,isubs) 
+          lnd_prog_new%t_so(i_startidx:i_endidx,1:nlev_soil+2,jb,isubs) = &
+            & t_so_t(i_startidx:i_endidx,0:nlev_soil+1,jb,2,isubs)
+          lnd_prog_new%w_so(i_startidx:i_endidx,1:nlev_soil+1,jb,isubs) = &
+            & w_so_t(i_startidx:i_endidx,1:nlev_soil+1,jb,2,isubs)
+          lnd_prog_new%w_so_ice(i_startidx:i_endidx,1:nlev_soil+1,jb,isubs)= &
+            & w_so_ice_t(i_startidx:i_endidx,1:nlev_soil+1,jb,2,isubs)
+          lnd_prog_new%wliq_snow(i_startidx:i_endidx,1:nlev_snow,jb,isubs) = &
+            & wliq_snow_t(i_startidx:i_endidx,1:nlev_snow,jb,2,isubs)
+          lnd_prog_new%wtot_snow(i_startidx:i_endidx,1:nlev_snow,jb,isubs) = &
+            & wtot_snow_t(i_startidx:i_endidx,1:nlev_snow,jb,2,isubs)
+          lnd_prog_new%dzh_snow(i_startidx:i_endidx,1:nlev_snow,jb,isubs)  = &
+            & dzh_snow_t(i_startidx:i_endidx,1:nlev_snow,jb,2,isubs)
 
 
-          lnd_diag%h_snow(1:i_endidx,jb,isubs) = h_snow_t(1:i_endidx,jb,2,isubs)
+          lnd_diag%h_snow(i_startidx:i_endidx,jb,isubs) = h_snow_t(i_startidx:i_endidx,jb,2,isubs)
 
 
           !DR ATTENTION: only valid, if nsfc_subs=1 !!!!!
@@ -408,8 +412,8 @@ CONTAINS
             lnd_prog_new%t_g(i_startidx:i_endidx,jb) = &
               &  lnd_prog_new%t_gt(i_startidx:i_endidx,jb,1)
             lnd_diag%qv_s(i_startidx:i_endidx,jb) = lnd_diag%qv_st(i_startidx:i_endidx,jb,1)
-            prm_diag%tch (1:i_endidx,jb) = tch_t (1:i_endidx,jb,1)
-            prm_diag%t_2m(1:i_endidx,jb) = t_2m_t(1:i_endidx,jb,1)
+            prm_diag%tch (i_startidx:i_endidx,jb) = tch_t (i_startidx:i_endidx,jb,1)
+            prm_diag%t_2m(i_startidx:i_endidx,jb) = t_2m_t(i_startidx:i_endidx,jb,1)
           END WHERE
 
         ENDDO

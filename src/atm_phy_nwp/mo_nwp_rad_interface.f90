@@ -67,7 +67,7 @@ MODULE mo_nwp_rad_interface
   USE mo_radiation_rg_par,     ONLY: aerdis
   USE mo_satad,                ONLY: qsat_rho
   USE mo_subdivision,          ONLY: p_patch_local_parent
-!   USE mo_sync,                 ONLY: SYNC_C, sync_patch_array_mult
+!  USE mo_sync,                 ONLY: SYNC_C, sync_patch_array
 
   USE mo_nwp_rrtm_interface,   ONLY: nwp_rrtm_radiation, &
    &  nwp_rrtm_radiation_reduced, nwp_rrtm_ozon_aerosol
@@ -112,7 +112,7 @@ MODULE mo_nwp_rad_interface
   !!
   SUBROUTINE nwp_radiation ( lredgrid, p_sim_time,pt_patch,pt_par_patch, &
     & pt_par_int_state,pt_par_grf_state,ext_data,lnd_diag,pt_prog,pt_prog_rcf,pt_diag,prm_diag, &
-    & lnd_prog_now )
+    & lnd_prog )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
 !      &  routine = 'mo_nwp_rad_interface:'
@@ -132,7 +132,7 @@ MODULE mo_nwp_rad_interface
     !< reduced calling frequency for tracers!
     TYPE(t_nh_diag), TARGET, INTENT(inout)  :: pt_diag     !<the diagnostic variables
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
-    TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog_now
+    TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog
 
     REAL(wp) :: &
       & zaeq1(nproma,pt_patch%nlev,pt_patch%nblks_c), &
@@ -156,11 +156,11 @@ MODULE mo_nwp_rad_interface
 
         IF (parallel_radiation_omp) THEN
           CALL nwp_omp_rrtm_interface ( p_sim_time,pt_patch, &
-            & ext_data, lnd_diag, pt_prog_rcf, pt_diag, prm_diag, lnd_prog_now )
+            & ext_data, lnd_diag, pt_prog_rcf, pt_diag, prm_diag, lnd_prog )
         ELSE
           CALL nwp_rrtm_radiation ( p_sim_time,pt_patch, &
             & ext_data,lnd_diag,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5, &
-            & pt_prog_rcf, pt_diag, prm_diag, lnd_prog_now )
+            & pt_prog_rcf, pt_diag, prm_diag, lnd_prog )
         ENDIF
     
       ELSE 
@@ -168,7 +168,7 @@ MODULE mo_nwp_rad_interface
         CALL nwp_rrtm_radiation_reduced ( p_sim_time,pt_patch,pt_par_patch,  &
           & pt_par_int_state, pt_par_grf_state,ext_data,lnd_diag,            &
           & zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,                                   &
-          & pt_prog_rcf,pt_diag,prm_diag, lnd_prog_now )
+          & pt_prog_rcf,pt_diag,prm_diag, lnd_prog )
           
       ENDIF
 
@@ -180,14 +180,14 @@ MODULE mo_nwp_rad_interface
     
       CALL nwp_rg_radiation ( p_sim_time,pt_patch, &
         & ext_data,lnd_diag, &
-        & pt_prog,pt_prog_rcf,pt_diag,prm_diag, lnd_prog_now )
+        & pt_prog,pt_prog_rcf,pt_diag,prm_diag, lnd_prog )
 
 
     ELSEIF ( atm_phy_nwp_config(jg)%inwp_radiation == 2 .AND. lredgrid) THEN
 
       CALL nwp_rg_radiation_reduced ( p_sim_time,pt_patch,pt_par_patch, &
         & pt_par_int_state, pt_par_grf_state,ext_data,lnd_diag, &
-        & pt_prog,pt_prog_rcf,pt_diag,prm_diag, lnd_prog_now )
+        & pt_prog,pt_prog_rcf,pt_diag,prm_diag, lnd_prog )
 
 
     ENDIF !inwp_radiation
@@ -204,7 +204,7 @@ MODULE mo_nwp_rad_interface
   !!
   SUBROUTINE nwp_rg_radiation ( p_sim_time,pt_patch, &
     & ext_data,lnd_diag,pt_prog,pt_prog_rcf,pt_diag,prm_diag, &
-    & lnd_prog_now )
+    & lnd_prog )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
 !      &  routine = 'mo_nwp_rad_interface:'
@@ -225,7 +225,7 @@ MODULE mo_nwp_rad_interface
     !< reduced calling frequency for tracers!
     TYPE(t_nh_diag), TARGET, INTENT(inout)  :: pt_diag     !<the diagnostic variables
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
-    TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog_now
+    TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog
 
     REAL(wp):: albvisdif     (nproma,pt_patch%nblks_c) !<
 
@@ -586,13 +586,13 @@ MODULE mo_nwp_rad_interface
 
           ist = 10
 
-          IF (ext_data%atm%llsm_atm_c(jc,jb) .OR. lnd_prog_now%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
+          IF (ext_data%atm%llsm_atm_c(jc,jb) .OR. lnd_prog%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
             ist = ext_data%atm%soiltyp(jc,jb) ! water (ist=9) and sea ice (ist=10) included
           ENDIF
           albvisdif(jc,jb) = csalb(ist)
           IF ( ext_data%atm%llsm_atm_c(jc,jb)) THEN
             ! ATTENTION: only valid, if nsfc_subs=1
-            albvisdif(jc,jb) = csalb(ist) - rad_csalbw(ist)*lnd_prog_now%w_so(jc,1,jb,1)
+            albvisdif(jc,jb) = csalb(ist) - rad_csalbw(ist)*lnd_prog%w_so(jc,1,jb,1)
           ENDIF  ! lsoil, llandmask
           
         ENDDO
@@ -603,7 +603,7 @@ MODULE mo_nwp_rad_interface
           
           ist = 10
 
-          IF (ext_data%atm%llsm_atm_c(jc,jb) .OR. lnd_prog_now%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
+          IF (ext_data%atm%llsm_atm_c(jc,jb) .OR. lnd_prog%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
             ist = ext_data%atm%soiltyp(jc,jb) ! water (ist=9) and sea ice (ist=10) included
           ENDIF
           albvisdif(jc,jb) = csalb(ist)
@@ -667,9 +667,9 @@ MODULE mo_nwp_rad_interface
           ! snow albedo
             zvege = ext_data%atm%plcov_mx(jc,jb)
             ! ATTENTION: only valid, if nsfc_subs=1
-            IF (lnd_prog_now%w_snow(jc,jb,1) > 0.0_wp) THEN
+            IF (lnd_prog%w_snow(jc,jb,1) > 0.0_wp) THEN
               ! ATTENTION: only valid, if nsfc_subs=1
-              zsnow = MIN(1.0_wp, lnd_prog_now%w_snow(jc,jb,1) / cf_snow)
+              zsnow = MIN(1.0_wp, lnd_prog%w_snow(jc,jb,1) / cf_snow)
             ENDIF
             albvisdif(jc,jb) = zsnow * zsnow_alb +                               &
               (1.0_wp - zsnow) * (zvege * csalb_p + (1.0_wp - zvege) * albvisdif(jc,jb))
@@ -677,7 +677,7 @@ MODULE mo_nwp_rad_interface
         ENDDO
       ENDIF !inwp_surface == 1
 
-      prm_diag%tsfctrad(i_startidx:i_endidx,jb) = lnd_prog_now%t_g(i_startidx:i_endidx,jb)
+      prm_diag%tsfctrad(i_startidx:i_endidx,jb) = lnd_prog%t_g(i_startidx:i_endidx,jb)
 
       ! CO2 (mixing ratio 353.9 ppm as vmr_co2)
       DO jk = 1,nlev
@@ -694,7 +694,6 @@ MODULE mo_nwp_rad_interface
       END WHERE
       losol = ANY(lo_sol(i_startidx:i_endidx))
 
-!#ifdef __BOUNDCHECK
       CALL fesft ( &
                                 !  Input:
         & pti = pt_diag%temp_ifc (:,:,jb) , &! Temperature at layer boundaries
@@ -758,7 +757,7 @@ MODULE mo_nwp_rad_interface
   !!
   SUBROUTINE nwp_rg_radiation_reduced ( p_sim_time,pt_patch,pt_par_patch, &
     & pt_par_int_state, pt_par_grf_state,ext_data,lnd_diag,pt_prog,pt_prog_rcf,pt_diag,prm_diag, &
-    & lnd_prog_now )
+    & lnd_prog )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
 !      &  routine = 'mo_nwp_rad_interface:'
@@ -782,7 +781,7 @@ MODULE mo_nwp_rad_interface
     !< reduced calling frequency for tracers!
     TYPE(t_nh_diag), TARGET, INTENT(inout)  :: pt_diag     !<the diagnostic variables
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
-    TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog_now
+    TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog
 
     REAL(wp):: albvisdif     (nproma,pt_patch%nblks_c) !<
     ! For radiation on reduced grid
@@ -1110,13 +1109,6 @@ MODULE mo_nwp_rad_interface
     !> Radiation
     !-------------------------------------------------------------------------
 
-    rl_start = grf_bdywidth_c+1
-    rl_end   = min_rlcell_int
-
-    i_startblk = pt_patch%cells%start_blk(rl_start,1)
-    i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
-
-
       ! section for computing radiation on reduced grid
 
     IF (p_test_run) THEN
@@ -1211,13 +1203,13 @@ MODULE mo_nwp_rad_interface
 
           ist = 10
 
-          IF (ext_data%atm%llsm_atm_c(jc,jb) .OR. lnd_prog_now%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
+          IF (ext_data%atm%llsm_atm_c(jc,jb) .OR. lnd_prog%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
             ist = ext_data%atm%soiltyp(jc,jb) ! water (ist=9) and sea ice (ist=10) included
           ENDIF
           albvisdif(jc,jb) = csalb(ist)
           IF ( ext_data%atm%llsm_atm_c(jc,jb)) THEN
             ! ATTENTION: only valid, if nsfc_subs=1
-            albvisdif(jc,jb) = csalb(ist) - rad_csalbw(ist)*lnd_prog_now%w_so(jc,1,jb,1)
+            albvisdif(jc,jb) = csalb(ist) - rad_csalbw(ist)*lnd_prog%w_so(jc,1,jb,1)
           ENDIF  ! lsoil, llandmask
           
         ENDDO
@@ -1228,7 +1220,7 @@ MODULE mo_nwp_rad_interface
           
           ist = 10
 
-          IF (ext_data%atm%llsm_atm_c(jc,jb) .OR. lnd_prog_now%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
+          IF (ext_data%atm%llsm_atm_c(jc,jb) .OR. lnd_prog%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
             ist = ext_data%atm%soiltyp(jc,jb) ! water (ist=9) and sea ice (ist=10) included
           ENDIF
           albvisdif(jc,jb) = csalb(ist)
@@ -1291,9 +1283,9 @@ MODULE mo_nwp_rad_interface
             ! snow albedo
             zvege = ext_data%atm%plcov_mx(jc,jb)
             ! ATTENTION: only valid, if nsfc_subs=1
-            IF (lnd_prog_now%w_snow(jc,jb,1) > 0.0_wp) THEN
+            IF (lnd_prog%w_snow(jc,jb,1) > 0.0_wp) THEN
               ! ATTENTION: only valid, if nsfc_subs=1
-              zsnow = MIN(1.0_wp, lnd_prog_now%w_snow(jc,jb,1) / cf_snow)
+              zsnow = MIN(1.0_wp, lnd_prog%w_snow(jc,jb,1) / cf_snow)
             ENDIF
             albvisdif(jc,jb) = zsnow * zsnow_alb +                               &
               (1.0_wp - zsnow) * (zvege * csalb_p + (1.0_wp - zvege) * albvisdif(jc,jb))
@@ -1301,7 +1293,7 @@ MODULE mo_nwp_rad_interface
         ENDDO
       ENDIF !inwp_surface == 1
 
-      prm_diag%tsfctrad(i_startidx:i_endidx,jb) = lnd_prog_now%t_g(i_startidx:i_endidx,jb)
+      prm_diag%tsfctrad(i_startidx:i_endidx,jb) = lnd_prog%t_g(i_startidx:i_endidx,jb)
 
       ! CO2 (mixing ratio 353.9 ppm as vmr_co2)
       DO jk = 1,nlev
@@ -1346,7 +1338,6 @@ MODULE mo_nwp_rad_interface
       END WHERE
       losol = ANY(lo_sol(i_startidx:i_endidx))
 
-!#ifdef __BOUNDCHECK
       CALL fesft ( &
                                          !  Input:
         & pti = zrg_temp_ifc (:,:,jb) , &! Temperature at layer boundaries
@@ -1382,50 +1373,6 @@ MODULE mo_nwp_rad_interface
         & pflt  = zrg_lwflxall(:,:,jb) ,& ! Thermal radiative fluxes at each layer boundary
         & pfls  = zrg_fls  (:,:,jb)  &! solar radiative fluxes at each layer boundary
         & )
-!#else
-!        CALL fesft ( &
-!                                !  Input:
-!          & pti = zrg_temp_ifc (1,1,jb) , &! Temperature at layer boundaries
-!          & pdp = zrg_dpres_mc (1,1,jb), &! pressure thickness
-!          & pclc_in= zrg_tot_cld  (1,1,jb,icc) , &
-!          & pqv = zrg_tot_cld(1,1,jb,iqv), &!pt_prog_rcf%tracer(1,1,jb,iqv)
-!          & pqvs = zrg_sqv(1,1,jb), &!saturation water vapor
-!          & pqcwc = zrg_tot_cld    (1,1,jb,iqc) ,&
-!          & pqiwc = zrg_tot_cld    (1,1,jb,iqi) ,&
-!          & pduco2 = zrg_duco2 (1,1,jb), &! layer CO2 content
-!          & pduo3 = zrg_o3  (1,1,jb),&! layer O3 content
-!          & paeq1 = zrg_aeq1(1,1,jb), &
-!          & paeq2 = zrg_aeq2(1,1,jb),&
-!          & paeq3 = zrg_aeq3(1,1,jb),&
-!          & paeq4 = zrg_aeq4(1,1,jb),&
-!          & paeq5 = zrg_aeq5(1,1,jb),&
-!          & papre_in = zrg_pres_sfc (1,jb), & ! Surface pressure
-!          & psmu0 = zrg_cosmu0 (1,jb) , & ! Cosine of zenith angle
-!          & palso = zrg_albvisdif(1,jb), & ! solar surface albedo
-!          & palth = zrg_alb_ther(1,jb), & ! thermal surface albedo
-!          & psct = zsct, &! solar constant (at time of year)
-!          & kig1s = 1 ,&
-!          & kig1e = nproma , &
-!          & ki3s = 1, &
-!          & ki3e = nlev,&
-!          & ki1sc= i_startidx, &
-!          & ki1ec= i_endidx, &
-!          & lsolar = losol, &! control switch for solar calculations
-!          !          & lsolar = .TRUE., &! control switch for solar calculations
-!          & lthermal =.TRUE., &
-!          & lcrf = .FALSE., &! control switch for cloud-free calcul.
-!                                ! Output:
-!          & pflt  = zrg_lwflxall(1,1,jb) ,& ! Thermal radiative fluxes at each layer boundary
-!          & pfls  = zrg_fls  (1,1,jb)  &! solar radiative fluxes at each layer boundary
-!          & )
-!        !          & pfltf = zfltf (1:i_endidx,1:2,jb),& !cloud_free thermal
-!        !          & pflsf = zflsf (1:i_endidx,1:2,jb) ,& !cloud_free solar
-!        !          & pflpar= zflpar(1:i_endidx,jb) ,& ! Photosynthetic active radiation
-!        !          & pflsp = zflsp (1:i_endidx,jb) ,  & ! direct component of solar radiative flux
-!        !          & pflsd = zflsd (1:i_endidx,jb)  ,& ! diffuse downward component of solar flux
-!        !          & pflsu = zflsu (1:i_endidx,jb)  ) ! diffuse upward   component of solar flux
-!#endif
-
 
       zi0 (i_startidx:i_endidx) = zrg_cosmu0(i_startidx:i_endidx,jb) * zsct
       ! compute sw transmissivity trsolall from sw fluxes
