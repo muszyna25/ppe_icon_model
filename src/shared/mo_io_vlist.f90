@@ -3499,22 +3499,28 @@ CONTAINS
     INTEGER, INTENT(IN)    :: var, k_jg
     ! local variables
     CHARACTER(len=max_name_len) :: zname
+    INTEGER                     :: ivar_idx
 
     ! get variable name
     CALL vlistInqVarName(vlistID(k_jg), var, zname);
 
     ! check if this variable is due to lon-lat interpolation
-    LONLAT : IF (lonlat_intp_config(k_jg)%l_enabled) THEN
+    LONLAT : IF (.NOT. lonlat_intp_config(k_jg)%l_enabled) THEN 
+      num_varids(k_jg)      = num_varids(k_jg) + 1
+      ivar_idx              = num_varids(k_jg)
+      varids(ivar_idx,k_jg) = var
+    ELSE
       IF ((toupper(lonlat_intp_config(k_jg)%zlist) == 'ALL') .OR.  &
-        & (string_contains_word(zname,                   &
+        & (string_contains_word(zname,                             &
         &     lonlat_intp_config(k_jg)%zlist,                      &
         &     lonlat_intp_config(k_jg)%n_list,                     &
         &     lonlat_intp_config(k_jg)%pos_list,                   &
-        &     lonlat_intp_config(k_jg)%ilen_list)))  THEN
+        &     lonlat_intp_config(k_jg)%ilen_list))) THEN
         CALL addVar_lonlat(var, k_jg)
       ELSE
-        num_varids(k_jg)              = num_varids(k_jg) + 1
-        varids(num_varids(k_jg),k_jg) = var
+        num_varids(k_jg)      = num_varids(k_jg) + 1
+        ivar_idx              = num_varids(k_jg)
+        varids(ivar_idx,k_jg) = var
       END IF
     END IF LONLAT
 
