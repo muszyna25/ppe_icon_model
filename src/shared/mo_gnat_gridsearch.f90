@@ -49,7 +49,7 @@
 !! -----------------------------------------------------------------------------------
 MODULE mo_gnat_gridsearch
 
-  USE OMP_LIB
+!$  USE OMP_LIB
 
   USE mo_kind,                ONLY: wp, sp
   USE mo_exception,           ONLY: message, message_text, finish
