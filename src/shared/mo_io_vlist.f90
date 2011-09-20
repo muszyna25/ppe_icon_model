@@ -219,7 +219,7 @@ MODULE mo_io_vlist
     &       write_vlist, get_outvar_ptr_ha, get_outvar_ptr_nh,      &
     &       vlist_write_var, vlist_set_date_time, vlist_start_step, &
     &       de_reshape1, de_reshape2,                               &
-    &       gather_array1, gather_array2
+    &       gather_array1, gather_array2, t_collected_var_ptr
 
   PRIVATE :: addGlobAttInt, addGlobAttTxt, addGlobAttFlt
   ! I/O stream handler
@@ -273,6 +273,11 @@ MODULE mo_io_vlist
     CHARACTER(LEN=80) :: name
 
   END TYPE t_outvar_desc
+
+  !> pointer type (avoids clash of INTENT and POINTER attributes)
+  TYPE t_collected_var_ptr
+    REAL(wp), POINTER :: ptr(:,:,:)
+  END TYPE t_collected_var_ptr
 
   PUBLIC :: t_outvar_desc
   INTEGER :: klev
@@ -2279,7 +2284,7 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_io_vlist:vlist_write_var")
     LOGICAL            :: l_interpolate_lonlat
     INTEGER            :: ierrstat, dim1, dim3, n_tot
-    REAL(wp), POINTER  :: var_3d(:,:,:)
+    TYPE(t_collected_var_ptr) :: var_3d
 
     CALL streamWriteVar(streamID(k_jg), varids(ivar, k_jg), var, 0)
 
@@ -2304,16 +2309,16 @@ CONTAINS
         CALL finish(routine,'Illegal type parameter')
       END IF
 
-      ALLOCATE(var_3d(dim1, nlev, dim3), STAT=ierrstat)
+      ALLOCATE(var_3d%ptr(dim1, nlev, dim3), STAT=ierrstat)
       IF (ierrstat /= SUCCESS) THEN
         CALL finish (routine, 'allocation failed')
       ENDIF      
       n_tot = dim1*nlev*dim3
-      var_3d = RESHAPE(var(1:n_tot), (/ dim1, nlev, dim3 /))
+      var_3d%ptr = RESHAPE(var(1:n_tot), (/ dim1, nlev, dim3 /))
 
       CALL postprocess_lonlat(ivar, typ, var_3d, k_jg, nlev)
       
-      DEALLOCATE(var_3d, STAT=ierrstat)
+      DEALLOCATE(var_3d%ptr, STAT=ierrstat)
       IF (ierrstat /= SUCCESS) THEN
         CALL finish (routine, 'deallocation failed')
       ENDIF      
@@ -2983,7 +2988,8 @@ CONTAINS
     LOGICAL :: reset, delete
 
     REAL(wp), ALLOCATABLE :: streamvar1(:), streamvar2(:,:)
-    REAL(wp), POINTER     :: collected_var_3d(:,:,:) ! complete 3d field (nproma,nlev,nblks)
+    ! complete 3d field (nproma,nlev,nblks)
+    TYPE(t_collected_var_ptr) :: collected_var_3d
     REAL(wp) :: p_sim_time
     INTEGER  :: nlev
     LOGICAL l_interpolate_lonlat
@@ -3088,7 +3094,7 @@ CONTAINS
         END IF ! (l_interpolate_lonlat)
 
         ! clean up: collected 3d field on triangular grid no longer needed
-        DEALLOCATE(collected_var_3d, STAT=ierrstat)
+        DEALLOCATE(collected_var_3d%ptr, STAT=ierrstat)
         IF (ierrstat /= SUCCESS) THEN
           CALL finish ('mo_io_vlist/write_vlist', 'deallocation failed')
         ENDIF
@@ -3150,7 +3156,7 @@ CONTAINS
     REAL(wp),                  INTENT(inout) :: out_field(:)
     CHARACTER(LEN=*), OPTIONAL,INTENT(IN)    :: opt_name
     ! quasi-2d output (nproma,1,nblks)
-    REAL(wp), POINTER, OPTIONAL :: opt_out_field_2d(:,:,:)
+    TYPE(t_collected_var_ptr), INTENT(OUT), OPTIONAL :: opt_out_field_2d
 
     REAL(wp), ALLOCATABLE :: out_field2(:,:)
     INTEGER               :: ierrstat
@@ -3177,7 +3183,7 @@ CONTAINS
     ENDIF
     ! if required, return 2D field as (nproma, nblks) array
     IF (.NOT. PRESENT(opt_out_field_2d)) THEN
-      DEALLOCATE(opt_out_field_2d, STAT=ierrstat)
+      DEALLOCATE(opt_out_field_2d%ptr, STAT=ierrstat)
       IF (ierrstat /= SUCCESS) THEN
         CALL finish ('mo_io_vlist/gather_array1', 'deallocation failed')
       ENDIF
@@ -3214,7 +3220,7 @@ CONTAINS
     REAL(wp),    INTENT(inout)               :: out_field(:,:)
     CHARACTER(LEN=*), OPTIONAL,INTENT(IN)    :: opt_name
     ! 3d output (nproma,nlev,nblks)
-    REAL(wp), POINTER, OPTIONAL :: opt_out_field_3d(:,:,:)
+    TYPE(t_collected_var_ptr), INTENT(OUT), OPTIONAL :: opt_out_field_3d
 
     ! local variables
     REAL(wp), POINTER             :: tmp_field(:,:,:)
@@ -3279,11 +3285,11 @@ CONTAINS
     ENDIF
 
     IF (PRESENT(opt_out_field_3d)) THEN
-      ALLOCATE(opt_out_field_3d(dim1, UBOUND(in_field,2), dim3), STAT=ierrstat)
+      ALLOCATE(opt_out_field_3d%ptr(dim1, UBOUND(in_field,2), dim3), STAT=ierrstat)
       IF (ierrstat /= SUCCESS) THEN
         CALL finish ('mo_io_vlist/gather_array2', 'allocation failed')
       ENDIF
-      tmp_field => opt_out_field_3d
+      tmp_field => opt_out_field_3d%ptr
     ELSE
       ALLOCATE(tmp_field(dim1, UBOUND(in_field,2), dim3))
     END IF
@@ -4100,7 +4106,7 @@ CONTAINS
 
     INTEGER,               INTENT(IN) :: ivar           ! source variable ID
     INTEGER,               INTENT(IN) :: itype          ! variable type (cell/edge/vertex based)
-    REAL(wp), POINTER                 :: var_3d(:,:,:)  ! source variable (nproma,nlev,nblks)
+    TYPE(t_collected_var_ptr), INTENT(IN) :: var_3d     ! source variable (nproma,nlev,nblks)
     INTEGER,               INTENT(IN) :: k_jg           ! patch index
     INTEGER,               INTENT(IN) :: nlev           ! number of levels
     ! local variables
@@ -4130,7 +4136,7 @@ CONTAINS
     ! for cell-based variables: interpolate gradients (finite differences) and reconstruct
     IF (itype == GATHER_C) THEN
       CALL rbf_interpol_lonlat( k_jg, p_patch(k_jg), p_int_state_lonlat(k_jg), &
-        &                       var_3d(:,:,:), var_lonlat(k_jg)%var_3d(:,:,:), nlev )
+        &                       var_3d%ptr(:,:,:), var_lonlat(k_jg)%var_3d(:,:,:), nlev )
 
     ELSEIF (itype == GATHER_V) THEN
 
@@ -4147,7 +4153,8 @@ CONTAINS
       IF (ierrstat /= SUCCESS) THEN
         CALL finish (routine, 'allocation failed')
       ENDIF
-      CALL verts2cells_scalar( var_3d(:,:,:), p_patch(k_jg), p_int_state(k_jg)%verts_aw_cells, &
+      CALL verts2cells_scalar( var_3d%ptr(:,:,:), p_patch(k_jg), &
+        &                      p_int_state(k_jg)%verts_aw_cells, &
         &                      tmp_var(:,:,:), 1, nlev )
       CALL rbf_interpol_lonlat( k_jg, p_patch(k_jg), p_int_state_lonlat(k_jg), &
         &                       tmp_var(:,:,:), var_lonlat(k_jg)%var_3d(:,:,:), nlev )
@@ -4162,7 +4169,7 @@ CONTAINS
       ! for edge-based variables: simple interpolation
       nblks_lonlat  = grid%nblks
       npromz_lonlat = grid%npromz
-      CALL rbf_vec_interpol_lonlat( var_3d(:,:,:), p_patch(k_jg),     &
+      CALL rbf_vec_interpol_lonlat( var_3d%ptr(:,:,:), p_patch(k_jg),     &
         &                           p_int_state_lonlat(k_jg),         &
         &                           var_lonlat(k_jg)%var_3d(:,:,:),   &
         &                           var_lonlat(k_jg)%var_3d_2(:,:,:), &
