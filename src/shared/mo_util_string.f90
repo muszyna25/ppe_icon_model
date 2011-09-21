@@ -210,36 +210,44 @@ CONTAINS
   END FUNCTION logical2string
 
 
-  !> parses a character string, splits string into words
-  !  This routine takes a string like
-  !  str = "'iconR2B02-grid_DOM01-grid.nc' 'iconR2B02-grid.nc'"
+  !> parses a character string, splits string into words.
+  !  This routine takes a comma-separated string like
+  !  str = "iconR2B02-grid_DOM01-grid.nc , iconR2B02-grid.nc"
   !  as input and splits it into the components, returning the
   !  number of parts, the start indices and the respective
   !  lengths.
-  !  Characters outside the apostrophes are ignored.
+  !  Whitespace is ignored.
   
   SUBROUTINE split_string(zline, n, pos, ilength)
 
-    CHARACTER(len=*), INTENT(IN)  :: zline              ! string containing list
-    INTEGER,      INTENT(OUT)     :: n                  ! number of parts
-    INTEGER,      INTENT(INOUT)   :: pos(:), ilength(:) ! position, lengths of parts
+    CHARACTER, PARAMETER :: delim = ',' ! delimiter
+
+    CHARACTER(len=*), INTENT(IN)      :: zline              ! string containing list
+    INTEGER,          INTENT(OUT)     :: n                  ! number of parts
+    INTEGER,          INTENT(INOUT)   :: pos(:), ilength(:) ! position, lengths of parts
     ! local variables
     INTEGER       :: i           ! index position
     LOGICAL       :: l_word_open ! flag. if true, index "i" is part of a word
     INTEGER       :: istart
 
     l_word_open = .FALSE.
-    n = 0
+    n           = 0
+    istart      = 1
     DO i=1,LEN(zline)
-      IF (zline(i:i) == "'") THEN
-        l_word_open = .NOT. l_word_open
-        IF (.NOT. l_word_open) THEN
+      IF (.NOT. ((IACHAR(zline(i:i)) ==  9) .OR.  &
+        &        (IACHAR(zline(i:i)) == 32) .OR.  &
+        &        (zline(i:i) == "'")        .OR.  &
+        &        (zline(i:i) == '"')        .OR.  &
+        &        (zline(i:i) == delim) )) THEN
+        l_word_open = .TRUE.
+      ELSE
+        IF (l_word_open) THEN
           n = n + 1
           pos(n)  = istart
           ilength(n) = LEN(TRIM(zline(istart:(i-1))))
-        ELSE
-          istart = i+1
         END IF
+        istart = i+1
+        l_word_open = .FALSE.
       END IF
     END DO
 
@@ -266,6 +274,7 @@ CONTAINS
       IF (ilength(i) /= iwordlen) CYCLE
       lflag = lflag .OR.   &
         &     (zline(pos(i):(pos(i)+ilength(i)-1)) == TRIM(ADJUSTL(zword)))
+      IF (lflag) EXIT
     END DO
 
   END FUNCTION string_contains_word
