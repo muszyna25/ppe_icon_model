@@ -57,7 +57,8 @@ MODULE mo_aerosol_util
 
   PUBLIC :: zaea_rrtm, zaes_rrtm, zaeg_rrtm, zaea_rg, zaes_rg, zaeg_rg, zaef_rg, &
     &       init_aerosol_dstrb_tanre,init_aerosol_props_tanre_rrtm, &
-    &       init_aerosol_props_tanre_rg
+    &       init_aerosol_props_tanre_rg, &
+    &       init_aerosol_props_tegen_rrtm, init_aerosol_props_tegen_rg
   
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 

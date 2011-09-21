@@ -61,6 +61,8 @@ MODULE mo_nwp_phy_init
   USE mo_aerosol_util,        ONLY: init_aerosol_dstrb_tanre,      &
     &                               init_aerosol_props_tanre_rg,   &
     &                               init_aerosol_props_tanre_rrtm, &
+    &                               init_aerosol_props_tegen_rg,   &
+    &                               init_aerosol_props_tegen_rrtm, &
     &                               zaef_rg, zaea_rg, zaes_rg, zaeg_rg, &
     &                               zaea_rrtm, zaes_rrtm, zaeg_rrtm
   USE mo_o3_util,             ONLY: o3_pl2ml!, o3_zl2ml
@@ -253,7 +255,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
     SELECT CASE ( irad_aero )
     ! Note (GZ): irad_aero=2 does no action but is the default in radiation_nml
     ! and therefore should not cause the model to stop
-    CASE (0,2,5)
+    CASE (0,2,5,6)
       !ok
     CASE DEFAULT
       CALL finish('mo_nwp_phy_init: init_nwp_phy',  &
@@ -355,6 +357,11 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
         & aerlan   = prm_diag%aerlan,        & !out
         & aerurb   = prm_diag%aerurb,        & !out
         & aerdes   = prm_diag%aerdes )         !out
+      
+    ELSEIF ( irad_aero == 6 ) THEN
+      
+      CALL init_aerosol_props_tegen_rrtm
+
     ELSE
       
       zaea_rrtm(:,:) = 0.0_wp
@@ -401,7 +408,11 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
         & aerlan   = prm_diag%aerlan,        & !out
         & aerurb   = prm_diag%aerurb,        & !out
         & aerdes   = prm_diag%aerdes )         !out
+      
+    ELSEIF ( irad_aero == 6 ) THEN
 
+      CALL init_aerosol_props_tegen_rg
+        
     ELSE
 
       zaea_rg(:,:) = 0.0_wp
