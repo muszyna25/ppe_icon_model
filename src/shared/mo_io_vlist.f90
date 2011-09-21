@@ -1462,7 +1462,7 @@ CONTAINS
             & TRIM(ADJUSTL(cjt))
             CALL addVar(TimeVar(TRIM(name),TRIM(long_name),&
             &          'm',11,201,&
-            &           vlistID(k_jg), gridCellID(k_jg),zaxisID_generic_snow(k_jg)),&
+            &           vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
             &           k_jg)
 
           ENDDO
