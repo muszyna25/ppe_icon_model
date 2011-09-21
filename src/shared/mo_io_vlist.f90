@@ -3080,10 +3080,10 @@ CONTAINS
             CALL streamWriteVar(streamID(jg), varids(ivar,jg), streamvar2, 0)
             DEALLOCATE(streamvar2)
           ENDIF
-          IF(reset) ptr3 = 0._wp
-          IF(delete) DEALLOCATE(ptr3)
 
           nlev = SIZE(ptr3(:,:,:), 2)
+          IF(reset) ptr3 = 0._wp
+          IF(delete) DEALLOCATE(ptr3)
 
         END IF IF_2D_3D
 
