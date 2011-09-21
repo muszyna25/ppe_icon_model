@@ -588,7 +588,7 @@ CONTAINS
               &               p_hydro_state(jg)%diag,                 &! in
               &               p_hydro_state(jg)%tend_phy    )          ! inout
 
-            CALL update_prog_state( zdtime, p_patch(jg),             &! in
+            CALL update_prog_state( 2._wp*zdtime, p_patch(jg),       &! in
               &                     p_hydro_state(jg)%tend_phy,      &! in
               &                     .FALSE.,ha_dyn_config%ltheta_dyn,&! in
               &                     .FALSE.,                         &! in
