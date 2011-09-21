@@ -102,15 +102,15 @@ CONTAINS
     !-----------------------
 
     llonlat_enabled    = .FALSE.
-    lonlat_var_list    = ""
-    lon_delta(:)       = 0._wp
-    lat_delta(:)       = 0._wp
-    lon_sw_corner(:)   = 0._wp
-    lat_sw_corner(:)   = 0._wp
-    lon_poleN(:)       = 0._wp
-    lat_poleN(:)       = 0._wp
-    lon_dimen(:)       = 0
-    lat_dimen(:)       = 0
+    lonlat_var_list    = "'PS', 'Q7', 'normal_velocity'"
+    lon_delta(:)       =    2._wp
+    lat_delta(:)       =    2._wp
+    lon_sw_corner(:)   = -180._wp
+    lat_sw_corner(:)   =  -90._wp
+    lon_poleN(:)       =    0._wp
+    lat_poleN(:)       =   90._wp
+    lon_dimen(:)       = 181
+    lat_dimen(:)       =  91
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above
