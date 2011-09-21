@@ -61,7 +61,7 @@ MODULE mo_nh_stepping
     &                               msg_level, ltimer
   USE mo_grid_config,         ONLY: global_cell_type
     
-  USE mo_atm_phy_nwp_config,  ONLY: tcall_phy
+  USE mo_atm_phy_nwp_config,  ONLY: tcall_phy, atm_phy_nwp_config
   USE mo_nwp_phy_init,        ONLY: init_nwp_phy
   USE mo_nwp_phy_state,       ONLY: prm_diag, prm_nwp_tend, mean_charlen
   USE mo_nwp_lnd_state,       ONLY: p_lnd_state
@@ -1092,7 +1092,7 @@ MODULE mo_nh_stepping
 
           ! Boundary interpolation of land state variables entering into radiation computation
           ! if reduced grid is used
-          IF (jg > 1 .AND. lredgrid_phys(jg)) THEN
+          IF (jg > 1 .AND. lredgrid_phys(jg) .AND. atm_phy_nwp_config(jg)%inwp_surface >= 1) THEN
 
             jn = p_patch(jg)%parent_child_index
 
@@ -1289,7 +1289,8 @@ MODULE mo_nh_stepping
 
           ! Boundary interpolation of land state variables entering into radiation computation
           ! if reduced grid is used
-          IF (jg > 1 .AND. lredgrid_phys(jg) .AND. lcall_phy(jg,itrad) ) THEN
+          IF (jg > 1 .AND. lredgrid_phys(jg) .AND. lcall_phy(jg,itrad) &
+              .AND. atm_phy_nwp_config(jg)%inwp_surface >= 1) THEN
 
             jn = p_patch(jg)%parent_child_index
 
