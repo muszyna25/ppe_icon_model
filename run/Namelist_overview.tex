@@ -2189,63 +2189,63 @@ Flag. True, if lon-lat interpolation of output variables is desired.&
 \hline 
 lonlat\_var\_list&
 C &
-''''&&
+'' 'PS', 'Q7', 'normal\_velocity' ''&&
 List of variables for lon-lat interpolation or ``all''.&
 \tabularnewline
 
 \hline 
 lon\_delta&
-R(max\_dom) &
-0&deg&
+R(n\_dom) &
+2.0&deg&
 Interpolation to lon-lat grid: resolution.&
 \tabularnewline
 
 \hline 
 lat\_delta&
-R(max\_dom) &
-0&deg&
+R(n\_dom) &
+2.0&deg&
 Interpolation to lon-lat grid: resolution.&
 \tabularnewline
 
 \hline 
 lon\_sw\_corner&
-R(max\_dom) &
-0.&deg&
+R(n\_dom) &
+-180.0&deg&
 South western corner of interpolation area (lon/lat).&
 \tabularnewline
 
 \hline 
 lat\_sw\_corner&
-R(max\_dom) &
-0.&deg&
+R(n\_dom) &
+-90.0&deg&
 South western corner of interpolation area (lon/lat).&
 \tabularnewline
 
 \hline 
 lon\_poleN&
-R(max\_dom) &
+R(n\_dom) &
 0.&deg&
 Position of north pole for interpolation grid.&
 \tabularnewline
 
 \hline 
 lat\_poleN&
-R(max\_dom) &
-0.&deg&
+R(n\_dom) &
+90.&deg&
 Position of north pole for interpolation grid.&
 \tabularnewline
 
 \hline 
 lon\_dimen&
-I(max\_dom) &
-0&&
+I(n\_dom) &
+181&&
 Dimensions of interpolation grid.&
 \tabularnewline
 
 \hline 
 lat\_dimen&
-I(max\_dom) &
-0&&
+I(n\_dom) &
+91&&
 Dimensions of interpolation grid.&
 \tabularnewline
 
