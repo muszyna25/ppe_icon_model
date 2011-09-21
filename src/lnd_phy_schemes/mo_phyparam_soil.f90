@@ -28,6 +28,8 @@
 !! V4_13        2010/05/11 Michael Gertz
 !! <Description of activity> by <name, affiliation> (<YYYY-MM-DD>)
 !!
+!!  Increased solar albedo of snow by T. Reinhardt / J. Helmert (2011-09-21)
+!!
 !! @par Copyright
 !! 2002-2010 by DWD and MPI-M
 !! This software is provided for non-commercial use only.
@@ -187,13 +189,21 @@ PUBLIC           ! All constants and variables in this module are public
 
     csalb_p    = 0.15_ireals  , & !  solar albedo of ground covered by plants
     csalb_snow = 0.70_ireals  , & !  solar albedo of ground covered by snow
-    csalb_snow_min = 0.400_ireals, &
+    !csalb_snow_min = 0.400_ireals, &
+    !                      ! min. solar albedo of snow for forest free surfaces
+    !csalb_snow_max = 0.700_ireals, &
+    !                       ! max. solar albedo of snow for forest free surfaces
+    ! T.R. 2011-09-21 csalb_snow_min/max set to values used in GME
+    csalb_snow_min = 0.500_ireals, &
                            ! min. solar albedo of snow for forest free surfaces
-    csalb_snow_max = 0.700_ireals, &
+    csalb_snow_max = 0.850_ireals, &
                            ! max. solar albedo of snow for forest free surfaces
   ! for possible later use:
-    csalb_snow_fe  = 0.200_ireals , &  ! solar albedo of snow for surfaces with evergreen forest
-    csalb_snow_fd  = 0.200_ireals , &  ! solar albedo of snow for surfaces with deciduous forest
+    !csalb_snow_fe  = 0.200_ireals , &  ! solar albedo of snow for surfaces with evergreen forest
+    !csalb_snow_fd  = 0.200_ireals , &  ! solar albedo of snow for surfaces with deciduous forest
+    ! T.R. 2011-09-21 snow albedos for forests set to values used in GME
+    csalb_snow_fe  = 0.270_ireals , &  ! solar albedo of snow for surfaces with evergreen forest
+    csalb_snow_fd  = 0.320_ireals , &  ! solar albedo of snow for surfaces with deciduous forest
     ctalb      = 0.004_ireals , & !  thermal albedo ( of all soil types )   
     cf_snow    = 0.0150_ireals, & !  parameter for the calculation of the 
                                   !  fractional snow coverage
