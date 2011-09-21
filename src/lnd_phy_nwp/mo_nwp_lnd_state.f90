@@ -170,7 +170,7 @@ MODULE mo_nwp_lnd_state
                               !< as partition of total area of the
                               !< grid element, but set to 0 or 1
                               !< index1=1,nproma, index2=1,nblks_c
-      subsfrac (:,:,:)
+    &  subsfrac (:,:,:)
 
     TYPE(t_ptr_lnd), ALLOCATABLE :: qv_st_ptr(:)
     TYPE(t_ptr_lnd), ALLOCATABLE :: h_snow_ptr(:)
