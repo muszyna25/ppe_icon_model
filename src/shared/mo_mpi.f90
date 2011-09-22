@@ -423,7 +423,11 @@ CONTAINS
 
   !------------------------------------------------------------------------------
   LOGICAL FUNCTION my_process_is_stdio()
+#ifdef NOMPI
+    my_process_is_stdio = .TRUE.
+#else
     my_process_is_stdio = process_is_stdio
+#endif
   END FUNCTION my_process_is_stdio
   !------------------------------------------------------------------------------
 

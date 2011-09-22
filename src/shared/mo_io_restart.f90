@@ -20,8 +20,8 @@ MODULE mo_io_restart
   USE mo_io_distribute,         ONLY: gather_cells, gather_edges, gather_vertices,  &
        &                              scatter_cells, scatter_edges, scatter_vertices  
   USE mo_io_units,              ONLY: find_next_free_unit, filename_max
-#ifndef NOMPI
   USE mo_mpi,                   ONLY: my_process_is_stdio
+#ifndef NOMPI
   USE mo_model_domain,          ONLY: t_patch
 #endif
   !

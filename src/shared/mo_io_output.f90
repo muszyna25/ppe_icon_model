@@ -9,8 +9,8 @@ MODULE mo_io_output
   USE mo_util_string,   ONLY: separator
   USE mo_util_sysinfo,  ONLY: util_user_name, util_os_system, util_node_name 
   USE mo_io_distribute, ONLY: gather_cells, gather_edges, gather_vertices
-#ifndef NOMPI
   USE mo_mpi,           ONLY: my_process_is_stdio
+#ifndef NOMPI
   USE mo_model_domain,  ONLY: t_patch
 #endif
   !
@@ -79,9 +79,6 @@ MODULE mo_io_output
   !
   CHARACTER(len=1024) :: private_base_filename
   !
-#ifdef NOMPI
-  LOGICAL :: my_process_is_stdio() = .TRUE.
-#endif
   !
   !------------------------------------------------------------------------------------------------
 CONTAINS
