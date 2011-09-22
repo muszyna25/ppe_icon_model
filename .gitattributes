@@ -1146,6 +1146,7 @@ src/shared/mo_impl_constants.f90 -text
 src/shared/mo_impl_constants_grf.f90 -text
 src/shared/mo_io_async.f90 -text
 src/shared/mo_io_distribute.f90 svneol=native#text/plain
+src/shared/mo_io_output.f90 svneol=native#text/plain
 src/shared/mo_io_restart.f90 -text
 src/shared/mo_io_restart_attributes.f90 -text
 src/shared/mo_io_restart_namelist.f90 -text

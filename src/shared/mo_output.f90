@@ -56,8 +56,11 @@ MODULE mo_output
      &                              open_output_vlist, close_output_vlist, &
      &                              write_vlist
   USE mo_io_async,            ONLY: setup_io_procs, shutdown_io_procs, &
-    &                               output_async, set_output_file
+     &                              output_async, set_output_file
   USE mo_datetime,            ONLY: t_datetime,iso8601
+#ifdef _NEW_OUTPUT
+  USE mo_io_output
+#endif
   USE mo_io_restart,          ONLY: set_restart_time, set_restart_vct,       &
                                   & init_restart, open_writing_restart_files,  &
                                   & write_restart, close_writing_restart_files,&
@@ -67,7 +70,7 @@ MODULE mo_output
   USE mo_interpolation,       ONLY: t_lon_lat_intp
   USE mo_run_config,          ONLY: ltimer
   USE mo_timer,               ONLY: timer_start, timer_stop,&
-    & timer_write_restart_file, timer_write_output
+    &                               timer_write_restart_file, timer_write_output
 
   IMPLICIT NONE
 
@@ -77,17 +80,16 @@ MODULE mo_output
 
   LOGICAL :: l_omit_dom   ! flag if "'_DOM',jg" should be omitted in the filenames
 
-  !-------------------------------------------------------------------------------------------------
-
+  !------------------------------------------------------------------------------------------------
+  !
   ! Public routines:
 
   PUBLIC :: init_output_files, close_output_files, write_output
   PUBLIC :: create_restart_file
 
-
 CONTAINS
 
-  !-------------------------------------------------------------------------------------------------
+  !------------------------------------------------------------------------------------------------
   !>
   !! Initialize output file(s)
   !! 
@@ -228,7 +230,7 @@ CONTAINS
 
   END SUBROUTINE init_output_files
 
-  !-------------------------------------------------------------------------------------------------
+  !------------------------------------------------------------------------------------------------
   !>
   !! Closes output files and finalizes I/O setup
   !! Note: This routine must only be called for the final close, not when the output files
@@ -249,7 +251,7 @@ CONTAINS
 
   END SUBROUTINE close_output_files
 
-  !-------------------------------------------------------------------------------------------------
+  !------------------------------------------------------------------------------------------------
   !>
   SUBROUTINE write_output(datetime, z_sim_time)
 

@@ -55,18 +55,19 @@ MODULE mo_gw_hines
 !!$  USE mo_profile,    ONLY: trace_start, trace_stop
 !!$#endif
 
+  USE mo_kind,                 ONLY: wp
   USE mo_exception,            ONLY: message_text, message, finish 
 
-  USE mo_kind,       ONLY: wp
 !!$  USE mo_math_constants,       ONLY: pi
   USE mo_physical_constants,   ONLY: grav, rd, cpd !!$, re, rhoh2o
 
   USE mo_gw_hines_config,      ONLY: gw_hines_config
 
-  USE mo_timer,               ONLY: ltimer, timer_start, timer_stop,&
-    & timer_gw_hines
+  USE mo_timer,                ONLY: ltimer, timer_start, timer_stop,&
+       &                             timer_gw_hines
 
-  USE mo_fast_math_functions
+!LK  USE mo_fast_math_functions
+  USE mo_fast_math_lib,        ONLY: vec_cbrt
 
 !!$  USE mo_geoloc,               ONLY: ilat
 !!$  USE mo_vertical_coord_table, ONLY: vct_a, vct_b
@@ -912,7 +913,8 @@ CONTAINS
           vtmp2(j) = bvfreq(i,l)*kstar/visc
        END DO
 
-       CALL cube_root_rt(vtmp2, vtmp2, vector_size=nlorms)
+       CALL vec_cbrt(vtmp2, vtmp2, n=nlorms)
+!LK       CALL cube_root_rt(vtmp2, vtmp2, vector_size=nlorms)
        
        DO j = 1,nlorms
           i = ilorms(j)

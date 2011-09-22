@@ -13,9 +13,9 @@ CONTAINS
 
   SUBROUTINE vec_div(x, y, z, n)
     INTEGER,  INTENT(in), OPTIONAL :: n
-    REAL(dp), INTENT(in)  :: y(:)
-    REAL(dp), INTENT(in)  :: x(:)
-    REAL(dp), INTENT(out) :: z(:)
+    REAL(dp), INTENT(in)    :: y(:)
+    REAL(dp), INTENT(in)    :: x(:)
+    REAL(dp), INTENT(inout) :: z(:)
     INTEGER :: vec_size
     vec_size = SIZE(z)
     IF (PRESENT(n)) vec_size = n
@@ -37,8 +37,8 @@ CONTAINS
 
   SUBROUTINE vec_aint(x, y, n)
     INTEGER,  INTENT(in), OPTIONAL :: n
-    REAL(dp), INTENT(in)  :: x(:)
-    REAL(dp), INTENT(out) :: y(:)
+    REAL(dp), INTENT(in)    :: x(:)
+    REAL(dp), INTENT(inout) :: y(:)
     INTEGER :: vec_size
     vec_size = SIZE(y)
     IF (PRESENT(n)) vec_size = n
@@ -58,8 +58,8 @@ CONTAINS
 
   SUBROUTINE vec_anint(x, y, n)
     INTEGER,  INTENT(in), OPTIONAL :: n
-    REAL(dp), INTENT(in)  :: x(:)
-    REAL(dp), INTENT(out) :: y(:)
+    REAL(dp), INTENT(in)    :: x(:)
+    REAL(dp), INTENT(inout) :: y(:)
     INTEGER :: vec_size
     vec_size = SIZE(y)
     IF (PRESENT(n)) vec_size = n
@@ -81,8 +81,8 @@ CONTAINS
 
   SUBROUTINE vec_exp(x, y, n)
     INTEGER,  INTENT(in), OPTIONAL :: n
-    REAL(dp), INTENT(in)  :: x(:)
-    REAL(dp), INTENT(out) :: y(:)
+    REAL(dp), INTENT(in)    :: x(:)
+    REAL(dp), INTENT(inout) :: y(:)
     INTEGER :: vec_size
     vec_size = SIZE(y)
     IF (PRESENT(n)) vec_size = n
@@ -106,8 +106,8 @@ CONTAINS
 
   SUBROUTINE vec_expm1(x, y, n)
     INTEGER,  INTENT(in), OPTIONAL :: n
-    REAL(dp), INTENT(in)  :: x(:)
-    REAL(dp), INTENT(out) :: y(:)
+    REAL(dp), INTENT(in)    :: x(:)
+    REAL(dp), INTENT(inout) :: y(:)
     INTEGER :: vec_size
     vec_size = SIZE(y)
     IF (PRESENT(n)) vec_size = n
@@ -129,8 +129,8 @@ CONTAINS
 
   SUBROUTINE vec_log(x, y, n)
     INTEGER,  INTENT(in), OPTIONAL :: n
-    REAL(dp), INTENT(in)  :: x(:)
-    REAL(dp), INTENT(out) :: y(:)
+    REAL(dp), INTENT(in)    :: x(:)
+    REAL(dp), INTENT(inout) :: y(:)
     INTEGER :: vec_size
     vec_size = SIZE(y)
     IF (PRESENT(n)) vec_size = n
@@ -154,8 +154,8 @@ CONTAINS
 
   SUBROUTINE vec_logp1(x, y, n)
     INTEGER,  INTENT(in), OPTIONAL :: n
-    REAL(dp), INTENT(in)  :: x(:)
-    REAL(dp), INTENT(out) :: y(:)
+    REAL(dp), INTENT(in)    :: x(:)
+    REAL(dp), INTENT(inout) :: y(:)
     INTEGER :: vec_size
     vec_size = SIZE(y)
     IF (PRESENT(n)) vec_size = n
@@ -177,8 +177,8 @@ CONTAINS
 
   SUBROUTINE vec_log10(x, y, n)
     INTEGER,  INTENT(in), OPTIONAL :: n
-    REAL(dp), INTENT(in)  :: x(:)
-    REAL(dp), INTENT(out) :: y(:)
+    REAL(dp), INTENT(in)    :: x(:)
+    REAL(dp), INTENT(inout) :: y(:)
     INTEGER :: vec_size
     vec_size = SIZE(y)
     IF (PRESENT(n)) vec_size = n
@@ -202,9 +202,9 @@ CONTAINS
 
   SUBROUTINE vec_pow(x, y, z, n)
     INTEGER,  INTENT(in), OPTIONAL :: n
-    REAL(dp), INTENT(in)  :: y(:)
-    REAL(dp), INTENT(in)  :: x(:)
-    REAL(dp), INTENT(out) :: z(:)
+    REAL(dp), INTENT(in)    :: y(:)
+    REAL(dp), INTENT(in)    :: x(:)
+    REAL(dp), INTENT(inout) :: z(:)
     INTEGER :: vec_size
     vec_size = SIZE(z)
     IF (PRESENT(n)) vec_size = n
@@ -226,8 +226,8 @@ CONTAINS
 
   SUBROUTINE vec_sqrt(x, y, n)
     INTEGER,  INTENT(in), OPTIONAL :: n
-    REAL(dp), INTENT(in)  :: x(:)
-    REAL(dp), INTENT(out) :: y(:)
+    REAL(dp), INTENT(in)    :: x(:)
+    REAL(dp), INTENT(inout) :: y(:)
     INTEGER :: vec_size
     vec_size = SIZE(y)
     IF (PRESENT(n)) vec_size = n
@@ -249,8 +249,8 @@ CONTAINS
 
   SUBROUTINE vec_cbrt(x, y, n)
     INTEGER,  INTENT(in), OPTIONAL :: n
-    REAL(dp), INTENT(in)  :: x(:)
-    REAL(dp), INTENT(out) :: y(:)
+    REAL(dp), INTENT(in)    :: x(:)
+    REAL(dp), INTENT(inout) :: y(:)
     INTEGER :: vec_size
     vec_size = SIZE(y)
     IF (PRESENT(n)) vec_size = n
@@ -272,8 +272,8 @@ CONTAINS
 
   SUBROUTINE vec_qdrt(x, y, n)
     INTEGER,  INTENT(in), OPTIONAL :: n
-    REAL(dp), INTENT(in)  :: x(:)
-    REAL(dp), INTENT(out) :: y(:)
+    REAL(dp), INTENT(in)    :: x(:)
+    REAL(dp), INTENT(inout) :: y(:)
     INTEGER :: vec_size
     vec_size = SIZE(y)
     IF (PRESENT(n)) vec_size = n
@@ -293,8 +293,8 @@ CONTAINS
 
   SUBROUTINE vec_rec(x, y, n)
     INTEGER,  INTENT(in), OPTIONAL :: n
-    REAL(dp), INTENT(in)  :: x(:)
-    REAL(dp), INTENT(out) :: y(:)
+    REAL(dp), INTENT(in)    :: x(:)
+    REAL(dp), INTENT(inout) :: y(:)
     INTEGER :: vec_size
     vec_size = SIZE(y)
     IF (PRESENT(n)) vec_size = n
@@ -316,8 +316,8 @@ CONTAINS
 
   SUBROUTINE vec_rsqrt(x, y, n)
     INTEGER,  INTENT(in), OPTIONAL :: n
-    REAL(dp), INTENT(in)  :: x(:)
-    REAL(dp), INTENT(out) :: y(:)
+    REAL(dp), INTENT(in)    :: x(:)
+    REAL(dp), INTENT(inout) :: y(:)
     INTEGER :: vec_size
     vec_size = SIZE(y)
     IF (PRESENT(n)) vec_size = n
@@ -339,8 +339,8 @@ CONTAINS
 
   SUBROUTINE vec_rcbrt(x, y, n)
     INTEGER,  INTENT(in), OPTIONAL :: n
-    REAL(dp), INTENT(in)  :: x(:)
-    REAL(dp), INTENT(out) :: y(:)
+    REAL(dp), INTENT(in)    :: x(:)
+    REAL(dp), INTENT(inout) :: y(:)
     INTEGER :: vec_size
     vec_size = SIZE(y)
     IF (PRESENT(n)) vec_size = n
@@ -362,8 +362,8 @@ CONTAINS
 
   SUBROUTINE vec_rqdrt(x, y, n)
     INTEGER,  INTENT(in), OPTIONAL :: n
-    REAL(dp), INTENT(in)  :: x(:)
-    REAL(dp), INTENT(out) :: y(:)
+    REAL(dp), INTENT(in)    :: x(:)
+    REAL(dp), INTENT(inout) :: y(:)
     INTEGER :: vec_size
     vec_size = SIZE(y)
     IF (PRESENT(n)) vec_size = n
@@ -383,9 +383,9 @@ CONTAINS
 
   SUBROUTINE vec_sincos(x, ys, yc, n)
     INTEGER,  INTENT(in), OPTIONAL :: n
-    REAL(dp), INTENT(in)  :: x(:)
-    REAL(dp), INTENT(out) :: ys(:)
-    REAL(dp), INTENT(out) :: yc(:)
+    REAL(dp), INTENT(in)    :: x(:)
+    REAL(dp), INTENT(inout) :: ys(:)
+    REAL(dp), INTENT(inout) :: yc(:)
     INTEGER :: vec_size
     vec_size = SIZE(ys)
     IF (PRESENT(n)) vec_size = n
@@ -413,8 +413,8 @@ CONTAINS
 
   SUBROUTINE vec_cos(x, y, n)
     INTEGER,  INTENT(in), OPTIONAL :: n
-    REAL(dp), INTENT(in)  :: x(:)
-    REAL(dp), INTENT(out) :: y(:)
+    REAL(dp), INTENT(in)    :: x(:)
+    REAL(dp), INTENT(inout) :: y(:)
     INTEGER :: vec_size
     vec_size = SIZE(y)
     IF (PRESENT(n)) vec_size = n
@@ -438,8 +438,8 @@ CONTAINS
 
   SUBROUTINE vec_acos(x, y, n)
     INTEGER,  INTENT(in), OPTIONAL :: n
-    REAL(dp), INTENT(in)  :: x(:)
-    REAL(dp), INTENT(out) :: y(:)
+    REAL(dp), INTENT(in)    :: x(:)
+    REAL(dp), INTENT(inout) :: y(:)
     INTEGER :: vec_size
     vec_size = SIZE(y)
     IF (PRESENT(n)) vec_size = n
@@ -461,8 +461,8 @@ CONTAINS
 
   SUBROUTINE vec_cosh(x, y, n)
     INTEGER,  INTENT(in), OPTIONAL :: n
-    REAL(dp), INTENT(in)  :: x(:)
-    REAL(dp), INTENT(out) :: y(:)
+    REAL(dp), INTENT(in)    :: x(:)
+    REAL(dp), INTENT(inout) :: y(:)
     INTEGER :: vec_size
     vec_size = SIZE(y)
     IF (PRESENT(n)) vec_size = n
@@ -484,8 +484,8 @@ CONTAINS
 
   SUBROUTINE vec_sin(x, y, n)
     INTEGER,  INTENT(in), OPTIONAL :: n
-    REAL(dp), INTENT(in)  :: x(:)
-    REAL(dp), INTENT(out) :: y(:)
+    REAL(dp), INTENT(in)    :: x(:)
+    REAL(dp), INTENT(inout) :: y(:)
     INTEGER :: vec_size
     vec_size = SIZE(y)
     IF (PRESENT(n)) vec_size = n
@@ -509,8 +509,8 @@ CONTAINS
 
   SUBROUTINE vec_asin(x, y, n)
     INTEGER,  INTENT(in), OPTIONAL :: n
-    REAL(dp), INTENT(in)  :: x(:)
-    REAL(dp), INTENT(out) :: y(:)
+    REAL(dp), INTENT(in)    :: x(:)
+    REAL(dp), INTENT(inout) :: y(:)
     INTEGER :: vec_size
     vec_size = SIZE(y)
     IF (PRESENT(n)) vec_size = n
@@ -532,8 +532,8 @@ CONTAINS
 
   SUBROUTINE vec_sinh(x, y, n)
     INTEGER,  INTENT(in), OPTIONAL :: n
-    REAL(dp), INTENT(in)  :: x(:)
-    REAL(dp), INTENT(out) :: y(:)
+    REAL(dp), INTENT(in)    :: x(:)
+    REAL(dp), INTENT(inout) :: y(:)
     INTEGER :: vec_size
     vec_size = SIZE(y)
     IF (PRESENT(n)) vec_size = n
@@ -555,8 +555,8 @@ CONTAINS
 
   SUBROUTINE vec_tan(x, y, n)
     INTEGER,  INTENT(in), OPTIONAL :: n
-    REAL(dp), INTENT(in)  :: x(:)
-    REAL(dp), INTENT(out) :: y(:)
+    REAL(dp), INTENT(in)    :: x(:)
+    REAL(dp), INTENT(inout) :: y(:)
     INTEGER :: vec_size
     vec_size = SIZE(y)
     IF (PRESENT(n)) vec_size = n
@@ -578,9 +578,9 @@ CONTAINS
 
   SUBROUTINE vec_atan2(x, y, z, n)
     INTEGER,  INTENT(in), OPTIONAL :: n
-    REAL(dp), INTENT(in)  :: y(:)
-    REAL(dp), INTENT(in)  :: x(:)
-    REAL(dp), INTENT(out) :: z(:)
+    REAL(dp), INTENT(in)    :: y(:)
+    REAL(dp), INTENT(in)    :: x(:)
+    REAL(dp), INTENT(inout) :: z(:)
     INTEGER :: vec_size
     vec_size = SIZE(z)
     IF (PRESENT(n)) vec_size = n
@@ -602,8 +602,8 @@ CONTAINS
 
   SUBROUTINE vec_tanh(x, y, n)
     INTEGER,  INTENT(in), OPTIONAL :: n
-    REAL(dp), INTENT(in)  :: x(:)
-    REAL(dp), INTENT(out) :: y(:)
+    REAL(dp), INTENT(in)    :: x(:)
+    REAL(dp), INTENT(inout) :: y(:)
     INTEGER :: vec_size
     vec_size = SIZE(y)
     IF (PRESENT(n)) vec_size = n
