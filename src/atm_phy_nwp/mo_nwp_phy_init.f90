@@ -381,7 +381,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
     ! Note (GZ): irad_aero=2 does no action but is the default in radiation_nml
     ! and therefore should not cause the model to stop
     SELECT CASE ( irad_aero )
-    CASE (0,2,5)
+    CASE (0,2,5,6)
       !ok
     CASE DEFAULT
       CALL finish('mo_nwp_phy_init: init_nwp_phy',  &

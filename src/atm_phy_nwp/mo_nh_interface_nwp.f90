@@ -47,6 +47,7 @@
 !!
 MODULE mo_nh_interface_nwp
 
+  USE mo_datetime,           ONLY: t_datetime
   USE mo_kind,               ONLY: wp
 
  ! USE mo_timer,              ONLY: timer_physics, timer_start, timer_stop, &
@@ -111,6 +112,7 @@ CONTAINS
   !
   SUBROUTINE nwp_nh_interface(lcall_phy_jg,lredgrid,jstep,         & !input
                             & tcall_phy_jg,p_sim_time,             & !input
+                            & datetime,                            & !input
                             & pt_patch, pt_int_state,p_metrics,    & !input
                             & pt_par_patch, pt_par_int_state,      & !input
                             & pt_par_grf_state,                    & !input
@@ -133,7 +135,7 @@ CONTAINS
     REAL(wp),INTENT(in)          :: p_sim_time
     REAL(wp),INTENT(in),OPTIONAL :: mean_charlen !< characteristic griddistance, needed
                                                  !< by turbulence
-
+    TYPE(t_datetime),            INTENT(in):: datetime
     TYPE(t_patch),        TARGET,INTENT(in):: pt_patch     !<grid/patch info.
     TYPE(t_patch),        TARGET,INTENT(in):: pt_par_patch !<grid/patch info (parent grid)
 
@@ -886,6 +888,7 @@ CONTAINS
     
       IF (ltimer) CALL timer_start(timer_nwp_radiation)
       CALL nwp_radiation (lredgrid,p_sim_time,   & ! in
+           &              datetime,              & ! in
            &              pt_patch,pt_par_patch, & ! in
            &              pt_par_int_state,      & ! in
            &              pt_par_grf_state,      & ! in

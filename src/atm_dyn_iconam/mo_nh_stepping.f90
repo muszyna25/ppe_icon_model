@@ -476,7 +476,7 @@ MODULE mo_nh_stepping
     !
     ! dynamics stepping
     !
-    CALL integrate_nh(p_nh_state, p_patch, p_int_state, p_grf_state, &
+    CALL integrate_nh(p_nh_state, p_patch, p_int_state, datetime, p_grf_state, &
                       1, jstep, dtime, sim_time, 1)
 
     ! output of results
@@ -780,10 +780,10 @@ MODULE mo_nh_stepping
   !!  - optional reduced calling frequency for transport and physics
   !!
 #ifdef __NO_NESTING__
-   SUBROUTINE integrate_nh (p_nh_state, p_patch, p_int_state,        &
+   SUBROUTINE integrate_nh (p_nh_state, p_patch, p_int_state, datetime,        &
   &        p_grf_state, jg, nstep_global, dt_loc, sim_time, num_steps)
 #else
-  RECURSIVE SUBROUTINE integrate_nh (p_nh_state, p_patch, p_int_state,  &
+  RECURSIVE SUBROUTINE integrate_nh (p_nh_state, p_patch, p_int_state, datetime,  &
   &        p_grf_state, jg, nstep_global, dt_loc, sim_time, num_steps)
 #endif
 
@@ -792,6 +792,7 @@ MODULE mo_nh_stepping
 
     TYPE(t_patch), TARGET, INTENT(in)    :: p_patch(n_dom_start:n_dom)    !< patch
     TYPE(t_int_state),TARGET,INTENT(in)  :: p_int_state(n_dom_start:n_dom)!< interpolation state
+    TYPE(t_datetime), INTENT(in)         :: datetime
     TYPE(t_nh_state), TARGET, INTENT(inout) :: p_nh_state(n_dom) !< nonhydrostatic state
     TYPE(t_gridref_state), INTENT(INOUT) :: p_grf_state(n_dom_start:n_dom)!< gridref state
 
@@ -1112,7 +1113,8 @@ MODULE mo_nh_stepping
             &                  lredgrid_phys(jg),                  & !in
             &                  nstep_global,                       & !in
             &                  tcall_phy(jg,:),                    & !in
-            &                  sim_time(jg),                       & !in 
+            &                  sim_time(jg),                       & !in
+            &                  datetime,                           & !in
             &                  p_patch(jg)  ,                      & !in
             &                  p_int_state(jg),                    & !in
             &                  p_nh_state(jg)%metrics ,            & !in
@@ -1308,7 +1310,8 @@ MODULE mo_nh_stepping
             &                  lredgrid_phys(jg),                  & !in
             &                  nstep_global,                       & !in
             &                  t_elapsed_phy(jg,:),                & !in
-            &                  sim_time(jg),                       & !in  
+            &                  sim_time(jg),                       & !in
+            &                  datetime,                           & !in
             &                  p_patch(jg)  ,                      & !in
             &                  p_int_state(jg),                    & !in
             &                  p_nh_state(jg)%metrics ,            & !in
@@ -1412,7 +1415,7 @@ MODULE mo_nh_stepping
           IF(p_patch(jgc)%n_patch_cells > 0) THEN
             IF(proc_split) CALL push_glob_comm(p_patch(jgc)%comm, p_patch(jgc)%proc0)
             ! Recursive call to process_grid_level for child grid level
-            CALL integrate_nh( p_nh_state, p_patch, p_int_state,           &
+            CALL integrate_nh( p_nh_state, p_patch, p_int_state, datetime,           &
               p_grf_state, jgc, nstep_global, dt_sub, sim_time, nsteps_nest)
             IF(proc_split) CALL pop_glob_comm()
           ENDIF
