@@ -815,6 +815,7 @@ scripts/postprocessing/tools/plot_diff_contour.ncl -text
 scripts/postprocessing/tools/plot_diff_scalar_and_vector -text
 scripts/postprocessing/tools/plot_field_nc.ncl -text
 scripts/postprocessing/tools/plot_field_nc_driver -text
+scripts/postprocessing/tools/plot_latlon.ncl -text
 scripts/postprocessing/tools/plot_profile.ncl -text
 scripts/postprocessing/tools/plot_profile_driver.bash -text
 scripts/postprocessing/tools/plot_scalar_and_vector -text
