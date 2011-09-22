@@ -370,6 +370,10 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
       
     ENDIF
 
+    DO ist = 1, 10
+      rad_csalbw(ist) = csalbw(ist) / (2.0_wp * zml_soil(1))
+    ENDDO
+    
   ELSEIF ( atm_phy_nwp_config(jg)%inwp_radiation == 2 ) THEN
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init Ritter Geleyn')
@@ -419,7 +423,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
       zaes_rg(:,:) = 0.0_wp
       zaeg_rg(:,:) = 0.0_wp
 
-    ENDIF
+    ENDIF 
 
     !------------------------------------------
     ! APE ozone profile, vertical setting needed only once for NH
@@ -462,7 +466,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
       rad_csalbw(ist) = csalbw(ist) / (2.0_wp * zml_soil(1))
     ENDDO
 
-  ENDIF
+  ENDIF !inwp_radiation
 
   !----------------------------------------------------------------
   !< initializations needed both for convection and inwp_cldcover=1 
