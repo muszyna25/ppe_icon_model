@@ -62,7 +62,7 @@ MODULE mo_nwp_diagnosis
   USE mo_physical_constants, ONLY: lh_v     => alv      !! latent heat of vapourization
 
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
- 
+  USE mo_io_config,          ONLY: lflux_avg
 
 
   IMPLICIT NONE
@@ -296,10 +296,10 @@ CONTAINS
      END IF
 
 
-! latent heat, sensible heat and evaporation rate at surface. Calculation of average values 
-! since model start
+! latent heat and  sensible heat at surface. Calculation of 
+! average/accumulated values since model start
 
-    IF ( p_sim_time > 1.e-1_wp) THEN
+    IF ( p_sim_time > 1.e-1_wp .AND. lflux_avg) THEN
 
 !$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc)
       DO jb = i_startblk, i_endblk
@@ -309,29 +309,81 @@ CONTAINS
           DO jc = i_startidx, i_endidx
 
            IF (atm_phy_nwp_config(jg)%inwp_turb == 1) THEN
-            prm_diag%lhfl_s_avg(jc,jb) = ( prm_diag%lhfl_s_avg(jc,jb)     &
+            prm_diag%lhfl_s_a(jc,jb) = ( prm_diag%lhfl_s_a(jc,jb)         &
                                &  * (p_sim_time - tcall_phy_jg(itupdate)) &
-                               &  + prm_diag%lhfl_s(jc,jb)                &
-                               &  * tcall_phy_jg(itupdate) )              &
+                               &  - prm_diag%lhfl_s(jc,jb)                &!attention to the sign, in the output all fluxes 
+                               &  * tcall_phy_jg(itupdate) )              &!must be positive downwards 
+                               & / p_sim_time 
+            prm_diag%shfl_s_a(jc,jb) = ( prm_diag%shfl_s_a(jc,jb)         &
+                               &  * (p_sim_time - tcall_phy_jg(itupdate)) &
+                               &  - prm_diag%shfl_s(jc,jb)                &!attention to the sign, in the output all fluxes
+                               &  * tcall_phy_jg(itupdate) )              &!must be positive downwards 
                                & / p_sim_time 
            ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 2) THEN
-            prm_diag%lhfl_s_avg(jc,jb) = ( prm_diag%lhfl_s_avg(jc,jb)     &
+            prm_diag%lhfl_s_a(jc,jb) = ( prm_diag%lhfl_s_a(jc,jb)         &
                                &  * (p_sim_time - tcall_phy_jg(itupdate)) &
                                &  + prm_diag%qhfl_s(jc,jb)*lh_v           &
                                &  * tcall_phy_jg(itupdate) )              &
                                & / p_sim_time 
+            prm_diag%shfl_s_a(jc,jb) = ( prm_diag%shfl_s_a(jc,jb)         &
+                               &  * (p_sim_time - tcall_phy_jg(itupdate)) &
+                               &  + prm_diag%shfl_s(jc,jb)                &! it is 0 at the moment, with turb2 the
+                               &  * tcall_phy_jg(itupdate) )              &! sensible heat is not output
+                               & / p_sim_time 
 
            ENDIF
-           prm_diag%shfl_s_avg(jc,jb) = ( prm_diag%shfl_s_avg(jc,jb)      &
-                               &  * (p_sim_time - tcall_phy_jg(itupdate)) &
-                               &  + prm_diag%shfl_s(jc,jb)                &
-                               &  * tcall_phy_jg(itupdate) )              &
-                               & / p_sim_time 
+
+          ENDDO
+      ENDDO ! nblks     
+!$OMP END DO
+
+    ELSEIF (.NOT. lflux_avg) THEN
+!$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc)
+      DO jb = i_startblk, i_endblk
+        !
+        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+          & i_startidx, i_endidx, rl_start, rl_end)
+          DO jc = i_startidx, i_endidx
+
+           IF (atm_phy_nwp_config(jg)%inwp_turb == 1) THEN
+            prm_diag%lhfl_s_a(jc,jb) =  prm_diag%lhfl_s_a(jc,jb)          &
+                               &  - prm_diag%lhfl_s(jc,jb)                &!attention to the sign, in the output all fluxes 
+                               &  * tcall_phy_jg(itupdate)                 !must be positive downwards 
+            prm_diag%shfl_s_a(jc,jb) =  prm_diag%shfl_s_a(jc,jb)          &
+                               &  - prm_diag%shfl_s(jc,jb)                &!attention to the sign, in the output all fluxes 
+                               &  * tcall_phy_jg(itupdate)                 !must be positive downwards 
+           ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 2) THEN
+            prm_diag%lhfl_s_a(jc,jb) =  prm_diag%lhfl_s_a(jc,jb)          &
+                               &  + prm_diag%qhfl_s(jc,jb)*lh_v           &
+                               &  * tcall_phy_jg(itupdate)
+            prm_diag%shfl_s_a(jc,jb) =  prm_diag%shfl_s_a(jc,jb)          &
+                               &  + prm_diag%shfl_s(jc,jb)                &! it is 0 at the moment, with turb2 the
+                               &  * tcall_phy_jg(itupdate)                 ! sensible heat is not output
+
+           ENDIF
+          ENDDO
+      ENDDO ! nblks     
+!$OMP END DO    
+
+    END IF
+
+! Evaporation rate at surface.  Calculation of 
+! average values since model start
+
+
+    IF ( p_sim_time > 1.e-1_wp ) THEN
+!$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc)
+      DO jb = i_startblk, i_endblk
+        !
+        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+          & i_startidx, i_endidx, rl_start, rl_end)
+          DO jc = i_startidx, i_endidx
+
            IF (atm_phy_nwp_config(jg)%inwp_turb == 1) THEN
              prm_diag%qhfl_s_avg(jc,jb) = ( prm_diag%qhfl_s_avg(jc,jb)    &
                                &  * (p_sim_time - tcall_phy_jg(itupdate)) &
-                               &  + prm_diag%lhfl_s(jc,jb)/lh_v           &
-                               &  * tcall_phy_jg(itupdate) )              &
+                               &  - prm_diag%lhfl_s(jc,jb)/lh_v           & !attention to the sign, in the output all fluxes  
+                               &  * tcall_phy_jg(itupdate) )              & !must be positive downwards 
                                & / p_sim_time
 
            ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 2) THEN
@@ -341,12 +393,12 @@ CONTAINS
                                &  * tcall_phy_jg(itupdate) )              &
                                & / p_sim_time
            ENDIF
-
           ENDDO
       ENDDO ! nblks     
 !$OMP END DO
+     END IF
 
-    END IF
+
  
 ! Check if it is 00, 06, 12 or 18 UTC. In this case update the value of 
 !    dt_s6avg average variables 

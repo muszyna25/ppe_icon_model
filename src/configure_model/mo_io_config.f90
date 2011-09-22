@@ -87,6 +87,12 @@ MODULE mo_io_config
     LOGICAL :: lwrite_pzlev               ! if .true. extra output on p- and/or z-levels
     INTEGER :: inextra_2d                 ! number of extra output fields for debugging
     INTEGER :: inextra_3d                 ! number of extra output fields for debugging
+    LOGICAL :: lflux_avg                  ! if .FALSE. the output fluxes are accumulated 
+                                          !  from the beginning of the run
+                                          ! if .TRUE. the output fluxex are average values 
+                                          !  from the beginning of the run, except of 
+                                          !  TOT_PREC that would be accumulated
+
 
     ! derived variables
 

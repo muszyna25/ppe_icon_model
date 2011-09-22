@@ -73,7 +73,8 @@ MODULE mo_io_nml
                                  & config_lwrite_extra      => lwrite_extra     , &
                                  & config_lwrite_pzlev      => lwrite_pzlev     , &
                                  & config_inextra_2d        => inextra_2d       , &
-                                 & config_inextra_3d        => inextra_3d
+                                 & config_inextra_3d        => inextra_3d       , &
+                                 & config_lflux_avg         => lflux_avg
   USE mo_exception,        ONLY: message, message_text, finish
   USE mo_parallel_config,  ONLY: nproma
 
@@ -112,6 +113,11 @@ MODULE mo_io_nml
   LOGICAL :: lwrite_pzlev               ! if .true. extra output on p- and/or z-levels
   INTEGER :: inextra_2d                 ! number of extra output fields for debugging
   INTEGER :: inextra_3d                 ! number of extra output fields for debugging
+  LOGICAL :: lflux_avg                  ! if .FALSE. the output fluxes are accumulated 
+                                        !  from the beginning of the run
+                                        ! if .TRUE. the output fluxex are average values 
+                                        !  from the beginning of the run, except of 
+                                        !  TOT_PREC that would be accumulated
 
   NAMELIST/io_nml/ out_expname, out_filetype, lkeep_in_sync,          &
     &              dt_data, dt_diag, dt_file, dt_checkpoint,          &
@@ -120,7 +126,7 @@ MODULE mo_io_nml
     &              lwrite_tend_phy, lwrite_radiation, lwrite_precip,  &
     &              lwrite_cloud, lwrite_tke, lwrite_surface,          &
     &              lwrite_extra, lwrite_pzlev, inextra_2d, inextra_3d,&
-    &              no_output
+    &              no_output, lflux_avg
   
 CONTAINS
   !>
@@ -173,6 +179,7 @@ CONTAINS
     lwrite_pzlev       = .FALSE.
     inextra_2d         = 0     ! no extra output 2D fields
     inextra_3d         = 0     ! no extra output 3D fields
+    lflux_avg          = .FALSE.
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above
@@ -247,6 +254,7 @@ CONTAINS
     config_lwrite_pzlev      = lwrite_pzlev
     config_inextra_2d        = inextra_2d
     config_inextra_3d        = inextra_3d
+    config_lflux_avg         = lflux_avg
 
     !-----------------------------------------------------
     ! 5. Store the namelist for restart

@@ -81,10 +81,12 @@ USE mo_var_list,            ONLY: default_var_list_settings, &
 USE mo_cf_convention
 USE mo_grib2
 USE mo_cdi_constants 
-
+USE mo_io_config,           ONLY: lflux_avg
 
 IMPLICIT NONE
 PRIVATE
+
+INCLUDE 'netcdf.inc'
 
 ! !VERSION CONTROL:
 CHARACTER(len=*), PARAMETER :: version = '$Id$'
@@ -159,8 +161,8 @@ TYPE t_nwp_phy_diag
        &  lhfl_s(:,:),          & !! latent   heat flux (surface) ( W/m2)
        &  qhfl_s(:,:),          & !!      moisture flux (surface) ( Kg/m2/s)
                                   !!      = evaporation rate at surface
-       &  shfl_s_avg(:,:),      & !! average since model start of shfl_s ( W/m2)
-       &  lhfl_s_avg(:,:),      & !! average since model start of lhfl_s ( W/m2)
+       &  shfl_s_a(:,:),        & !! average or accumulated since model start of shfl_s ( W/m2)
+       &  lhfl_s_a(:,:),        & !! average or accumulated since model start of lhfl_s ( W/m2)
        &  qhfl_s_avg(:,:),      & !! average since model start of qhfl_s ( Kg/m2/s) 
                                   !! = average of evaporation rate at surface
        &  tot_cld(:,:,:,:),     & !! total cloud variables (cc,qv,qc,qi)
@@ -181,10 +183,12 @@ TYPE t_nwp_phy_diag
        &  trsolall(:,:,:),      & !! shortwave net tranmissivity []
        &  swflxsfc(:,:),        & !! shortwave net flux at surface [W/m2]
        &  swflxtoa(:,:),        & !! shortwave net flux at toa [W/m2]
-       &  lwflxsfc_avg(:,:),    & !! longwave net flux at surface [W/m2], mean since last output
-       &  swflxsfc_avg(:,:),    & !! shortwave net flux at surface [W/m2], mean since last output
-       &  lwflxtoa_avg(:,:),    & !! longwave net flux at toa [W/m2], mean since last output
-       &  swflxtoa_avg(:,:),    & !! shortwave net flux at toa [W/m2], mean since last output
+       &  lwflxsfc_a(:,:),      & !! longwave net flux at surface [W/m2], accumulated or mean since last output
+       &  swflxsfc_a(:,:),      & !! shortwave net flux at surface [W/m2], accumulated or mean since last output
+       &  lwflxtoa_a(:,:),      & !! longwave net flux at toa [W/m2], accumulated or mean since last output
+       &  swflxtoa_a(:,:),      & !! shortwave net flux at toa [W/m2], accumulated or mean since last output
+                                  !! _a means average values if lflux_avg=.TRUE.
+                                  !! and accumulated values if lflux_avg=.FALSE., default is .FALSE.
        &  acdnc(:,:,:)            !! cloud droplet number concentration [1/m**3]
 
   
@@ -425,6 +429,10 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     INTEGER :: shape3dkp1(3)
     INTEGER :: ientr,  kcloud
     INTEGER :: jsfc 
+    CHARACTER(len=NF_MAX_NAME) :: long_name
+    CHARACTER(len=21) :: name
+    CHARACTER(len=4)  :: sufix
+    CHARACTER(len=8)  :: meaning
 
     ientr = 16 ! bits "entropy" of horizontal slice
 
@@ -529,14 +537,14 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
     ! &      diag%tot_prec(nproma,nblks_c)
     cf_desc    = t_cf_var('tot_prec', '', 'total precip')
-    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(0, 1, 52, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'tot_prec', diag%tot_prec,                       &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
                 & ldims=shape2d,  lrestart=.TRUE. )
 
     ! &      diag%tot_prec_rate_avg(nproma,nblks_c)
     cf_desc    = t_cf_var('tot_prec_rate_avg', '', 'total precip, time average')
-    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(0, 1, 52, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'tot_prec_rate_avg', diag%tot_prec_rate_avg,     &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
                 & ldims=shape2d, lrestart=.FALSE. )
@@ -684,7 +692,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                     & TRIM(vname_prefix)//'qv', diag%tav_ptr(2)%p_2d,                     &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                              &
                     & t_cf_var(TRIM(vname_prefix)//'qv', '','tci_specific_humidity_avg'), &
-                    & t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & t_grib2_var( 0, 1, 64, ientr, GRID_REFERENCE, GRID_CELL), &
                     & ldims=shape2d, lrestart=.FALSE. )
 
            !qc
@@ -693,7 +701,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                        &
                     & t_cf_var(TRIM(vname_prefix)//'qc', '',                        &
                     & 'tci_specific_cloud_water_content_avg'),                      &
-                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & t_grib2_var(0, 1, 69, ientr, GRID_REFERENCE, GRID_CELL), &
                     & ldims=shape2d, lrestart=.FALSE. )
 
            !qi
@@ -702,7 +710,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                       &
                     & t_cf_var(TRIM(vname_prefix)//'qi', '',                       &
                     & 'tci_specific_cloud_ice_content_avg'),                       &
-                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),&
+                    & t_grib2_var(0, 1, 70, ientr, GRID_REFERENCE, GRID_CELL),&
                     & ldims=shape2d, lrestart=.FALSE. )
 
    ! &      diag%tot_cld(nproma,nlev,nblks_c,4)
@@ -739,7 +747,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                         &
                     & t_cf_var(TRIM(vname_prefix)//'qc', '',                        &
                     & 'total_specific_cloud_water_content'),                        &
-                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & t_grib2_var(0, 1, 83, ientr, GRID_REFERENCE, GRID_CELL), &
                     & ldims=shape3d)
 
            !QI
@@ -748,7 +756,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                         &
                     & t_cf_var(TRIM(vname_prefix)//'qi', '',                        &
                     & 'total_specific_cloud_ice_content'),                          &
-                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & t_grib2_var(0, 1, 84, ientr, GRID_REFERENCE, GRID_CELL), &
                     & ldims=shape3d)
 
 
@@ -795,7 +803,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         
         ! &      diag%swflxtoa(nproma,nblks_c)
         cf_desc    = t_cf_var('swflxtoa', 'W m-2', ' shortwave net flux at TOA')
-        grib2_desc = t_grib2_var(0,4, 9, ientr, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(0, 4, 9, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'swflxtoa', diag%swflxtoa,                             &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) !,&
         !                &  lmiss=.true.,     missval=0._wp                      )
@@ -806,36 +814,56 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         CALL add_var( diag_list, 'lwflxsfc', diag%lwflxsfc,                             &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) !,&
         !                &  lmiss=.true.,     missval=0._wp                      )
-        
+! &      diag%swflxtoa(nproma,nblks_c)                    )        
         ! &      diag%lwflxtoa_avg(nproma,nblks_c)
-        cf_desc    = t_cf_var('lwflxtoa', 'W m-2', &
-          &                          'longwave net flux at TOA mean since model start')
+
+        IF (lflux_avg ) THEN
+            sufix = "_avg"
+            meaning = "mean"
+        ELSE
+            sufix = "_acc"
+            meaning = "acc."     
+        END IF
+        WRITE(name,'(A8,A4)') "lwflxtoa", sufix
+        WRITE(long_name,'(A26,A4,A18)') "longwave  net flux at TOA ", meaning, &
+                                      & " since model start"
+        cf_desc    = t_cf_var(TRIM(name), 'W m-2', &
+          &                          TRIM(long_name))
         grib2_desc = t_grib2_var(0, 5, 5, ientr, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( diag_list, 'lwflxtoa_avg', diag%lwflxtoa_avg,                      &
+        CALL add_var( diag_list, TRIM(name), diag%lwflxtoa_a,                      &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) !,&
         !               &  lmiss=.true.,     missval=0._wp                      )
 
-        ! &      diag%swflxtoa_avg(nproma,nblks_c)
-        cf_desc    = t_cf_var('swflxtoa', 'W m-2', &
-          &                         'shortwave net flux at TOA mean since model start')
-        grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( diag_list, 'swflxtoa_avg', diag%swflxtoa_avg,                      &
+        ! &      diag%swflxtoa_a(nproma,nblks_c)
+        WRITE(name,'(A8,A4)') "swflxtoa", sufix
+        WRITE(long_name,'(A26,A4,A18)') "shortwave net flux at TOA ", meaning, &
+                                      &" since model start"
+        cf_desc    = t_cf_var(TRIM(name), 'W m-2', &
+          &                         TRIM(long_name))
+        grib2_desc = t_grib2_var(0, 4, 9, ientr, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, TRIM(name) , diag%swflxtoa_a,                      &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) !,&
         !               &  lmiss=.true.,     missval=0._wp                      )
         
-        ! &      diag%lwflxsfc_avg(nproma,nblks_c)
-        cf_desc    = t_cf_var('lwflxsfc', 'W m-2', &
-          &                      'longwave net flux at surface mean since model start')
-        grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( diag_list, 'lwflxsfc_avg', diag%lwflxsfc_avg,                      &
+        ! &      diag%lwflxsfc_a(nproma,nblks_c)
+        WRITE(name,'(A8,A4)') "lwflxsfc", sufix
+        WRITE(long_name,'(A30,A4,A18)') "longwave  net flux at surface ", meaning, &
+                                      &" since model start"
+        cf_desc    = t_cf_var(TRIM(name), 'W m-2', &
+          &                      TRIM(long_name))
+        grib2_desc = t_grib2_var(0, 5, 5, ientr, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, TRIM(name), diag%lwflxsfc_a,                      &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) !,&
         !               &  lmiss=.true.,     missval=0._wp                      )
 
-        ! &      diag%swflxsfc_avg(nproma,nblks_c)
-        cf_desc    = t_cf_var('swflxsfc', 'W m-2', &
-          &                     'shortwave net flux at surface mean since model start')
-        grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( diag_list, 'swflxsfc_avg', diag%swflxsfc_avg,                      &
+        ! &      diag%swflxsfc_a(nproma,nblks_c)
+        WRITE(name,'(A8,A4)') "swflxsfc", sufix
+        WRITE(long_name,'(A30,A4,A18)') "shortwave net flux at surface ", meaning, &
+                                      &" since model start"
+        cf_desc    = t_cf_var(TRIM(name), 'W m-2', &
+          &                    TRIM(long_name) )
+        grib2_desc = t_grib2_var(0, 4, 9, ientr, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, TRIM(name), diag%swflxsfc_a,                      &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
  !               &  lmiss=.true.,     missval=0._wp                      )
 
@@ -920,10 +948,12 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         CALL add_var( diag_list, 'shfl_s', diag%shfl_s,                             &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) !,&
         !               &  lmiss=.true.,     missval=0._wp                      )
-
-        cf_desc    = t_cf_var('shfl_s_avg', 'W m-2 ', 'surface sensible heat flux, time avg')
+        WRITE(name,'(A6,A4)') "shfl_s", sufix
+        WRITE(long_name,'(A27,A4,A18)') "surface sensible heat flux ", meaning, &
+                                      & " since model start"
+        cf_desc    = t_cf_var(TRIM(name), 'W m-2 ', TRIM(long_name))
         grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( diag_list, 'shfl_s_avg', diag%shfl_s_avg,                             &
+        CALL add_var( diag_list, TRIM(name), diag%shfl_s_a,                             &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) !,&
         !               &  lmiss=.true.,     missval=0._wp                      )
 
@@ -933,10 +963,13 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         CALL add_var( diag_list, 'lhfl_s', diag%lhfl_s,                             &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) !,&
  !               &  lmiss=.true.,     missval=0._wp                      )
-
-        cf_desc    = t_cf_var('lhfl_s_avg', 'W m-2 ', 'surface latent heat flux, time avg')
+                    
+        WRITE(name,'(A6,A4)') "lhfl_s", sufix
+        WRITE(long_name,'(A27,A4,A18)') "surface latent   heat flux ", meaning, &
+                                      & " since model start"
+        cf_desc    = t_cf_var(TRIM(name), 'W m-2 ', TRIM(long_name))
         grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( diag_list, 'lhfl_s_avg', diag%lhfl_s_avg,                             &
+        CALL add_var( diag_list, TRIM(name), diag%lhfl_s_a,                             &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) !,&
  !               &  lmiss=.true.,     missval=0._wp                      )
 

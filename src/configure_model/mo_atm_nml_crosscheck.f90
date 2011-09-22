@@ -361,7 +361,7 @@ CONTAINS
           SELECT CASE (irad_o3)
           CASE (0,4,6) ! ok
           CASE default
-!            CALL finish(TRIM(routine),'irad_o3 currently has to be 0 or 6.')
+            CALL finish(TRIM(routine),'irad_o3 currently has to be 0 , 4 or 6.')
           END SELECT
         ENDIF
 

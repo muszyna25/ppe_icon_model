@@ -125,7 +125,8 @@ MODULE mo_io_vlist
     &                                 lwrite_tke,  lwrite_surface, lwrite_pzlev,  &
     &                                 lwrite_extra, inextra_2d,inextra_3d,        &
     &                                 out_filetype, out_expname,                  &
-    &                                 dt_data, dt_file, lkeep_in_sync
+    &                                 dt_data, dt_file, lkeep_in_sync,            &
+    &                                 lflux_avg
   USE mo_nh_pzlev_config,       ONLY: nh_pzlev_config
   USE mo_parallel_config,       ONLY: nproma, p_test_run
   USE mo_extpar_config,         ONLY: itopo
@@ -322,6 +323,8 @@ CONTAINS
     CHARACTER(len=12) :: qname
     CHARACTER(len=10) :: dbgname
     CHARACTER(len=3)  :: cjt
+    CHARACTER(len=4)  :: sufix
+    CHARACTER(len=8)  :: meaning
     CHARACTER(LEN=1)  :: ctracer
     CHARACTER(len=MAX_CHAR_LENGTH) :: & !< list of tracers to initialize
       &  ctracer_list
@@ -1019,23 +1022,39 @@ CONTAINS
 
         SELECT CASE (iforcing)
         CASE (inwp)
-          CALL addVar(TimeVar('swflxsfc_avg',&
-          &                   'averaged shortwave surface net flux',&
+          IF (lflux_avg ) THEN
+            sufix = "_avg"
+            meaning = "averaged"
+          ELSE
+            sufix = "_acc"
+            meaning = "accumul."     
+          END IF
+          WRITE(name,'(A8,A4)') "swflxsfc", sufix
+          WRITE(long_name,'(A8,A27)') meaning, " shortwave surface net flux"
+          CALL addVar(TimeVar(TRIM(name),&
+          &                   TRIM(long_name),&
           &                   'W/m**2', 111, 2,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
-          CALL addVar(TimeVar('lwflxsfc_avg',&
-          &                   'averaged longwave surface net flux',&
+
+          WRITE(name,'(A8,A4)') "lwflxsfc", sufix
+          WRITE(long_name,'(A8,A27)') meaning, " longwave  surface net flux"
+          CALL addVar(TimeVar(TRIM(name),&
+          &                   TRIM(long_name),&
           &                   'W/m**2', 112, 2,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
-          CALL addVar(TimeVar('swflxtoa_avg',&
-          &                   'averaged shortwave toa net flux',&
+          WRITE(name,'(A8,A4)') "swflxtoa", sufix
+          WRITE(long_name,'(A8,A23)') meaning, " shortwave toa net flux"
+          CALL addVar(TimeVar(TRIM(name),&
+          &                   TRIM(long_name),&
           &                   'W/m**2', 113, 2,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
-          CALL addVar(TimeVar('lwflxtoa_avg',&
-          &                   'averaged longwave toa net flux',&
+          WRITE(name,'(A8,A4)') "lwflxtoa", sufix
+          WRITE(long_name,'(A8,A23)') meaning, " longwave  toa net flux"
+          CALL addVar(TimeVar(TRIM(name),&
+          &                   TRIM(long_name),&
           &                   'W/m**2', 114, 2,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
@@ -1487,13 +1506,25 @@ CONTAINS
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &                   k_jg)
           !--- Fluxes ....---
-          CALL addVar(TimeVar('SHFL_S_avg',&
-          &                   'averaged sensible heat flux at surface',&
+          IF (lflux_avg ) THEN
+            sufix = "_avg"
+            meaning = "averaged"
+          ELSE
+            sufix = "_acc"
+            meaning = "accumul."     
+          END IF
+
+          WRITE(name,'(A6,A4)') "SHFL_S", sufix
+          WRITE(long_name,'(A8,A30)') meaning, " sensible heat flux at surface"
+          CALL addVar(TimeVar(TRIM(name),&
+          &                   TRIM(long_name),&
           &                   'W/m^2', 122, 201,&  !999 == WMO here
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &                   k_jg)
-          CALL addVar(TimeVar('LHFL_S_avg',&
-          &                   'averaged latent heat flux at surface',&
+          WRITE(name,'(A6,A4)') "LHFL_S", sufix
+          WRITE(long_name,'(A8,A30)') meaning, " latent   heat flux at surface"
+          CALL addVar(TimeVar(TRIM(name),&
+          &                   TRIM(long_name),&
           &                   'W/m^2', 121, 201,& !999 ==  WMO here
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &                   k_jg)
@@ -2650,14 +2681,20 @@ CONTAINS
       CASE ('lwflxsfc');        ptr2 => prm_diag(jg)%lwflxsfc(:,:)
       CASE ('swflxtoa');        ptr2 => prm_diag(jg)%swflxtoa(:,:)
       CASE ('lwflxtoa');        ptr2 => prm_diag(jg)%lwflxall(:,1,:)
-      CASE ('swflxsfc_avg');    ptr2 => prm_diag(jg)%swflxsfc_avg(:,:)
-      CASE ('lwflxsfc_avg');    ptr2 => prm_diag(jg)%lwflxsfc_avg(:,:)       
-      CASE ('swflxtoa_avg');    ptr2 => prm_diag(jg)%swflxtoa_avg(:,:)
-      CASE ('lwflxtoa_avg');    ptr2 => prm_diag(jg)%lwflxtoa_avg(:,:)
+      CASE ('swflxsfc_avg');    ptr2 => prm_diag(jg)%swflxsfc_a(:,:)
+      CASE ('lwflxsfc_avg');    ptr2 => prm_diag(jg)%lwflxsfc_a(:,:)       
+      CASE ('swflxtoa_avg');    ptr2 => prm_diag(jg)%swflxtoa_a(:,:)
+      CASE ('lwflxtoa_avg');    ptr2 => prm_diag(jg)%lwflxtoa_a(:,:)
+      CASE ('swflxsfc_acc');    ptr2 => prm_diag(jg)%swflxsfc_a(:,:)
+      CASE ('lwflxsfc_acc');    ptr2 => prm_diag(jg)%lwflxsfc_a(:,:)       
+      CASE ('swflxtoa_acc');    ptr2 => prm_diag(jg)%swflxtoa_a(:,:)
+      CASE ('lwflxtoa_acc');    ptr2 => prm_diag(jg)%lwflxtoa_a(:,:)
       CASE ('T_G');             ptr2 => p_prog_lnd%t_g
       CASE ('QV_S');            ptr2 => p_diag_lnd%qv_s
-      CASE ('SHFL_S_avg');      ptr2 => prm_diag(jg)%shfl_s_avg 
-      CASE ('LHFL_S_avg');      ptr2 => prm_diag(jg)%lhfl_s_avg
+      CASE ('SHFL_S_avg');      ptr2 => prm_diag(jg)%shfl_s_a 
+      CASE ('LHFL_S_avg');      ptr2 => prm_diag(jg)%lhfl_s_a
+      CASE ('SHFL_S_acc');      ptr2 => prm_diag(jg)%shfl_s_a 
+      CASE ('LHFL_S_acc');      ptr2 => prm_diag(jg)%lhfl_s_a
       CASE ('EVAP_RATE_avg');   ptr2 => prm_diag(jg)%qhfl_s_avg     
       CASE ('VOR');             ptr3 => p_diag%omega_z
       CASE ('DIV');             ptr3 => p_diag%div

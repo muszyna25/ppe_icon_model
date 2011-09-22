@@ -69,9 +69,10 @@ MODULE mo_nh_interface_nwp
   USE mo_nwp_lnd_state,      ONLY: t_lnd_prog, t_lnd_diag!, t_lnd_state
   USE mo_ext_data,           ONLY: t_external_data
   USE mo_nwp_phy_state,      ONLY: t_nwp_phy_diag, t_nwp_phy_tend
-  USE mo_parallel_config,  ONLY: nproma, p_test_run
+  USE mo_parallel_config,    ONLY: nproma, p_test_run
   USE mo_run_config,         ONLY: ntracer, iqv, iqc, iqi, &
        &                           iqr, iqs, msg_level, ltimer, timers_level
+  USE mo_io_config,          ONLY: lflux_avg
   USE mo_physical_constants, ONLY: rd, rd_o_cpd, vtmpc1, p0ref, cvd_o_rd 
 
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
@@ -982,30 +983,44 @@ CONTAINS
         & pflxsfclw =prm_diag%lwflxsfc (:,jb)   ,&        ! out longwave surface net flux  [W/m2]
         & pflxtoasw =prm_diag%swflxtoa (:,jb) )           ! out shortwave toa net flux     [W/m2]
 
-        IF ( p_sim_time > 1.e-1_wp ) THEN
+        IF ( p_sim_time > 1.e-1_wp .AND. lflux_avg) THEN
 
          !sum up for averaged fluxes
           !T.R.: this is not correct for output after 1st timestep,
           !e.g. tcall_phy_jg(itradheat) may then be greater than p_sim_time
           !leading to wrong averaging.
          DO jc =  i_startidx, i_endidx
-          prm_diag%swflxsfc_avg(jc,jb) = ( prm_diag%swflxsfc_avg(jc,jb)                   &
+          prm_diag%swflxsfc_a(jc,jb) = ( prm_diag%swflxsfc_a(jc,jb)                       &
                                  &  * (p_sim_time - tcall_phy_jg(itradheat))              &
                                  &  + tcall_phy_jg(itradheat) * prm_diag%swflxsfc(jc,jb)) &
                                  &  / p_sim_time
-          prm_diag%lwflxsfc_avg(jc,jb) = ( prm_diag%lwflxsfc_avg(jc,jb)                   &
+          prm_diag%lwflxsfc_a(jc,jb) = ( prm_diag%lwflxsfc_a(jc,jb)                       &
                                  &  * (p_sim_time - tcall_phy_jg(itradheat))              &
                                  &  + tcall_phy_jg(itradheat) * prm_diag%lwflxsfc(jc,jb)) &
                                  &  / p_sim_time
-          prm_diag%swflxtoa_avg(jc,jb) = ( prm_diag%swflxtoa_avg(jc,jb)                   &
+          prm_diag%swflxtoa_a(jc,jb) = ( prm_diag%swflxtoa_a(jc,jb)                       &
                                  &  * (p_sim_time - tcall_phy_jg(itradheat))              &
                                  &  + tcall_phy_jg(itradheat) * prm_diag%swflxtoa(jc,jb)) &
                                  &  / p_sim_time
-          prm_diag%lwflxtoa_avg(jc,jb) = ( prm_diag%lwflxtoa_avg(jc,jb)                   &
+          prm_diag%lwflxtoa_a(jc,jb) = ( prm_diag%lwflxtoa_a(jc,jb)                       &
                                  &  * (p_sim_time - tcall_phy_jg(itradheat))              &
                                 &  + tcall_phy_jg(itradheat) * prm_diag%lwflxall(jc,1,jb)) &
                                 &  / p_sim_time
          ENDDO
+
+        ELSEIF ( .NOT. lflux_avg ) THEN
+
+         DO jc =  i_startidx, i_endidx
+          prm_diag%swflxsfc_a(jc,jb) = prm_diag%swflxsfc_a(jc,jb)                     &
+                                & + tcall_phy_jg(itradheat) * prm_diag%swflxsfc(jc,jb)
+          prm_diag%lwflxsfc_a(jc,jb) = prm_diag%lwflxsfc_a(jc,jb)                     &
+                                & + tcall_phy_jg(itradheat) * prm_diag%lwflxsfc(jc,jb)
+          prm_diag%swflxtoa_a(jc,jb) = prm_diag%swflxtoa_a(jc,jb)                     &
+                                & + tcall_phy_jg(itradheat) * prm_diag%swflxtoa(jc,jb)
+          prm_diag%lwflxtoa_a(jc,jb) = prm_diag%lwflxtoa_a(jc,jb)                     &
+                                & + tcall_phy_jg(itradheat) * prm_diag%lwflxall(jc,1,jb)
+         END DO
+
 
         END IF
 
