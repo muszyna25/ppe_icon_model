@@ -450,7 +450,7 @@ MODULE mo_nwp_lnd_state
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'t_gt', p_prog_lnd%t_gt,            &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc,        &
-         & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE. )  
+         & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )  
 
 
     ! fill the seperate variables belonging to the container t_gt
@@ -473,7 +473,7 @@ MODULE mo_nwp_lnd_state
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'t_snow', p_prog_lnd%t_snow,        &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc,        &
-         & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE. ) 
+         & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. ) 
 
     ! fill the seperate variables belonging to the container t_snow
     ALLOCATE(p_prog_lnd%t_snow_ptr(nsfc_subs))
@@ -496,7 +496,7 @@ MODULE mo_nwp_lnd_state
     CALL add_var( prog_list, vname_prefix//'t_snow_mult', p_prog_lnd%t_snow_mult, &
      & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,                 &
      & ldims=(/nproma,nlev_snow+1,kblks,nsfc_subs/),                              &
-     & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE. ) 
+     & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. ) 
 
     ! fill the seperate variables belonging to the container t_snow_mult
     ALLOCATE(p_prog_lnd%t_snow_mult_ptr(nsfc_subs))
@@ -518,7 +518,7 @@ MODULE mo_nwp_lnd_state
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'t_s', p_prog_lnd%t_s,              &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,         &
-         & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE. )  
+         & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )  
 
     ! fill the seperate variables belonging to the container t_s
     ALLOCATE(p_prog_lnd%t_s_ptr(nsfc_subs))
@@ -540,7 +540,7 @@ MODULE mo_nwp_lnd_state
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'w_snow', p_prog_lnd%w_snow,        &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc,        &
-         & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE. )
+         & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
 
     ! fill the seperate variables belonging to the container w_snow
     ALLOCATE(p_prog_lnd%w_snow_ptr(nsfc_subs))
@@ -562,7 +562,7 @@ MODULE mo_nwp_lnd_state
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'rho_snow', p_prog_lnd%rho_snow,       &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc,           &
-         & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE. )
+         & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
     
 
     ! fill the seperate variables belonging to the container rho_snow
@@ -586,7 +586,7 @@ MODULE mo_nwp_lnd_state
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'rho_snow_mult', p_prog_lnd%rho_snow_mult,  &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,                  &
-         & ldims=shape4d_snow_subs, lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
+         & ldims=shape4d_snow_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
 
     ! fill the seperate variables belonging to the container rho_snow_mult
@@ -609,7 +609,7 @@ MODULE mo_nwp_lnd_state
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'w_i', p_prog_lnd%w_i,                 &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,            &
-         & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE. )  
+         & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )  
 
     ! fill the seperate variables belonging to the container w_i
     ALLOCATE(p_prog_lnd%w_i_ptr(nsfc_subs))
@@ -633,7 +633,7 @@ MODULE mo_nwp_lnd_state
     CALL add_var( prog_list, vname_prefix//'t_so', p_prog_lnd%t_so,              &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_LAND, cf_desc, grib2_desc,  &
          & ldims=(/nproma,nlev_soil+2,kblks,nsfc_subs/),                         &
-         & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE. )  
+         & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )  
 
     ! fill the seperate variables belonging to the container t_so
     ALLOCATE(p_prog_lnd%t_so_ptr(nsfc_subs))
@@ -656,7 +656,7 @@ MODULE mo_nwp_lnd_state
     CALL add_var( prog_list, vname_prefix//'w_so', p_prog_lnd%w_so,              &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_LAND, cf_desc, grib2_desc,  &
          & ldims=(/nproma,nlev_soil+1,kblks,nsfc_subs/),                         &
-         & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE. )
+         & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
 
     ! fill the seperate variables belonging to the container w_so
     ALLOCATE(p_prog_lnd%w_so_ptr(nsfc_subs))
@@ -679,7 +679,7 @@ MODULE mo_nwp_lnd_state
     CALL add_var( prog_list, vname_prefix//'w_so_ice', p_prog_lnd%w_so_ice,      &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_LAND, cf_desc, grib2_desc,  &
          & ldims=(/nproma,nlev_soil+1,kblks,nsfc_subs/),                         &
-         & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE. )
+         & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
 
     ! fill the seperate variables belonging to the container w_so_ice
     ALLOCATE(p_prog_lnd%w_so_ice_ptr(nsfc_subs))
@@ -700,7 +700,7 @@ MODULE mo_nwp_lnd_state
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'wliq_snow', p_prog_lnd%wliq_snow,    &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,            &
-         & ldims=shape4d_snow_subs, lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
+         & ldims=shape4d_snow_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
     ! fill the seperate variables belonging to the container wliq_snow
     ALLOCATE(p_prog_lnd%wliq_snow_ptr(nsfc_subs))
@@ -723,7 +723,7 @@ MODULE mo_nwp_lnd_state
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'wtot_snow', p_prog_lnd%wtot_snow,    &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,            &
-         & ldims=shape4d_snow_subs, lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
+         & ldims=shape4d_snow_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
     ! fill the seperate variables belonging to the container wtot_snow
     ALLOCATE(p_prog_lnd%wtot_snow_ptr(nsfc_subs))
@@ -745,7 +745,7 @@ MODULE mo_nwp_lnd_state
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'dzh_snow', p_prog_lnd%dzh_snow,            &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,  cf_desc, grib2_desc,                 &
-         & ldims=shape4d_snow_subs, lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
+         & ldims=shape4d_snow_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
     ! fill the seperate variables belonging to the container dzh_snow
     ALLOCATE(p_prog_lnd%dzh_snow_ptr(nsfc_subs))
@@ -868,7 +868,7 @@ MODULE mo_nwp_lnd_state
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'qv_st', p_diag_lnd%qv_st,          &
            & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,       &
-           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE. )
+           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
 
     ! fill the seperate variables belonging to the container qv_st
     ALLOCATE(p_diag_lnd%qv_st_ptr(nsfc_subs))
@@ -891,7 +891,7 @@ MODULE mo_nwp_lnd_state
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'h_snow', p_diag_lnd%h_snow,        &
            & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,       &
-           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE. )  
+           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )  
 
     ! fill the seperate variables belonging to the container h_snow
     ALLOCATE(p_diag_lnd%h_snow_ptr(nsfc_subs))
@@ -913,7 +913,7 @@ MODULE mo_nwp_lnd_state
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'freshsnow', p_diag_lnd%freshsnow,     &
            & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,          &
-           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE. )
+           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
 
     ! fill the seperate variables belonging to the container freshsnow
     ALLOCATE(p_diag_lnd%freshsnow_ptr(nsfc_subs))
@@ -935,7 +935,7 @@ MODULE mo_nwp_lnd_state
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'runoff_s', p_diag_lnd%runoff_s,         &
            & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,            &
-           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE. )
+           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
 
     ! fill the seperate variables belonging to the container runoff_s
     ALLOCATE(p_diag_lnd%runoff_s_ptr(nsfc_subs))
@@ -957,7 +957,7 @@ MODULE mo_nwp_lnd_state
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'runoff_g', p_diag_lnd%runoff_g,         &
            & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,            &
-           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE. )
+           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
 
     ! fill the seperate variables belonging to the container runoff_g
     ALLOCATE(p_diag_lnd%runoff_g_ptr(nsfc_subs))
@@ -979,7 +979,7 @@ MODULE mo_nwp_lnd_state
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'rstom', p_diag_lnd%rstom,               &
            & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,            &
-           & ldims=shape2d, lcontainer=.TRUE., lpost=.FALSE. )
+           & ldims=shape2d, lcontainer=.TRUE., loutput=.FALSE. )
 
 
   
@@ -989,7 +989,7 @@ MODULE mo_nwp_lnd_state
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'lhfl_bs', p_diag_lnd%lhfl_bs,           &
            & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,            &
-           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE. )
+           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
 
     ! fill the seperate variables belonging to the container lhfl_bs
     ALLOCATE(p_diag_lnd%lhfl_bs_ptr(nsfc_subs))
@@ -1011,7 +1011,7 @@ MODULE mo_nwp_lnd_state
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'lhfl_pl', p_diag_lnd%lhfl_pl,           &
            & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,            &
-           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE. )
+           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
 
     ! fill the seperate variables belonging to the container lhfl_pl
     ALLOCATE(p_diag_lnd%lhfl_pl_ptr(nsfc_subs))
@@ -1033,7 +1033,7 @@ MODULE mo_nwp_lnd_state
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'subsfrac', p_diag_lnd%subsfrac,         &
            & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,            &
-           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE. )
+           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
 
     ! fill the seperate variables belonging to the container subsfrac
     ALLOCATE(p_diag_lnd%subsfrac_ptr(nsfc_subs))

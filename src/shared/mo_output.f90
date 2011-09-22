@@ -397,7 +397,9 @@ CONTAINS
                      & kcell, icelltype,  &! total # of cells, # of vertices per cell
                      & kvert, 9-icelltype,&! total # of vertices, # of vertices per dual cell
                      & kedge, 4,          &! total # of cells, shape of control volume for edge 
-                     & klev              ) ! total # of vertical layers
+                     & klev,              &! total # of vertical layers
+                     & 0,                 &! total # of depths below sea
+                     & 0)                  ! total numbers of geometric height above ground
 
     CALL set_restart_time( iso8601(datetime) )  ! Time tag
 

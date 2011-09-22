@@ -791,7 +791,7 @@ MODULE mo_nonhydro_state
       CALL add_var( p_prog_list, 'tracer', p_prog%tracer,                       &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,  &
         &           ldims=shape4d_c ,                                           &
-                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
+                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
 
       IF (  iforcing == inwp  ) THEN
@@ -1254,7 +1254,7 @@ MODULE mo_nonhydro_state
       CALL add_var( p_diag_list, 'ddt_vn_adv', p_diag%ddt_vn_adv,               &
                   & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID, cf_desc, grib2_desc,       &
                   & ldims=shape4d_entl ,&
-                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
+                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
       ALLOCATE(p_diag%ddt_vn_adv_ptr(n_timlevs))
       DO jt =1,n_timlevs
@@ -1276,7 +1276,7 @@ MODULE mo_nonhydro_state
       CALL add_var( p_diag_list, 'ddt_w_adv', p_diag%ddt_w_adv,                 &
                   & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,  &
                   & ldims=shape4d_chalfntl ,&
-                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
+                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
       ALLOCATE(p_diag%ddt_w_adv_ptr(n_timlevs))
       DO jt =1,n_timlevs
@@ -1418,7 +1418,7 @@ MODULE mo_nonhydro_state
       CALL add_var( p_diag_list, 'q_int', p_diag%q_int,                         &
                   & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
                   & ldims=shape3d_ctra ,                                        &
-                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
+                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
       ALLOCATE(p_diag%q_int_ptr(ntracer))
       DO jt =1,ntracer
@@ -1440,7 +1440,7 @@ MODULE mo_nonhydro_state
       CALL add_var( p_diag_list, 'q_ubc', p_diag%q_ubc,                         &
                   & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
                   & ldims=shape3d_ctra,                                         &
-                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
+                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
       ALLOCATE(p_diag%q_ubc_ptr(ntracer))
       DO jt =1,ntracer
@@ -1623,7 +1623,7 @@ MODULE mo_nonhydro_state
       CALL add_var( p_diag_list, 'grf_tend_tracer', p_diag%grf_tend_tracer,     &
                   & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,  &
                   & ldims=shape4d_c ,&
-                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
+                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
       ALLOCATE(p_diag%ddt_grf_trc_ptr(ntracer))
       DO jt =1,ntracer
@@ -1645,7 +1645,7 @@ MODULE mo_nonhydro_state
       CALL add_var( p_diag_list, 'hfl_tracer', p_diag%hfl_tracer,                 &
                   & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID, cf_desc, grib2_desc,    &
                   & ldims=shape4d_e ,&
-                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
+                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
       ALLOCATE(p_diag%hfl_trc_ptr(ntracer))
       DO jt =1,ntracer
@@ -1667,7 +1667,7 @@ MODULE mo_nonhydro_state
       CALL add_var( p_diag_list, 'vfl_tracer', p_diag%vfl_tracer,               &
                   & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,  &
                   & ldims=shape4d_chalf ,&
-                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
+                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
       ALLOCATE(p_diag%vfl_trc_ptr(ntracer))
       DO jt =1,ntracer
@@ -1689,7 +1689,7 @@ MODULE mo_nonhydro_state
       CALL add_var( p_diag_list, 'ddt_tracer_adv', p_diag%ddt_tracer_adv,       &
                   & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,  &
                   & ldims=shape4d_c ,&
-                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
+                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
       ALLOCATE(p_diag%ddt_trc_adv_ptr(ntracer))
       DO jt =1,ntracer
@@ -1729,7 +1729,7 @@ MODULE mo_nonhydro_state
       CALL add_var( p_diag_list, 'ddt_tracer_phy', p_diag%ddt_tracer_phy,       &
                   & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,  &
                   & ldims=shape4d_c ,&
-                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
+                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
       ALLOCATE(p_diag%ddt_trc_phy_ptr(ntracer))
       DO jt =1,ntracer
@@ -1893,7 +1893,7 @@ MODULE mo_nonhydro_state
       CALL add_var( p_diag_z_list, 'tracer', p_diag_z%tracer,                   &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE, cf_desc, grib2_desc,&
         &           ldims=shape4d_c ,                                           &
-                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
+                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
 
       IF (  iforcing == inwp  ) THEN
@@ -1965,7 +1965,7 @@ MODULE mo_nonhydro_state
         CALL add_var( p_diag_z_list, 'tot_cld', p_diag_z%tot_cld,                  &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE, cf_desc, grib2_desc, &
                     &                         ldims=(/nproma,nlev,nblks_c,kcloud/),&
-                    & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
+                    & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
 
         ALLOCATE( p_diag_z%tot_ptr(kcloud))
@@ -2141,7 +2141,7 @@ MODULE mo_nonhydro_state
       CALL add_var( p_diag_p_list, 'tracer', p_diag_p%tracer,                   &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, grib2_desc,&
         &           ldims=shape4d_c ,                                           &
-                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
+                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
 
       IF (  iforcing == inwp  ) THEN
@@ -2212,7 +2212,7 @@ MODULE mo_nonhydro_state
         CALL add_var( p_diag_p_list, 'tot_cld', p_diag_p%tot_cld,                  &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, grib2_desc, &
                     &                         ldims=(/nproma,nlev,nblks_c,kcloud/),&
-                    & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
+                    & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
 
         ALLOCATE( p_diag_p%tot_ptr(kcloud))

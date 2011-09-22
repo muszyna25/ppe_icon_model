@@ -3,7 +3,7 @@
 @PROCESS noopt
 #endif
 
-MODULE mo_io_restart_distribute
+MODULE mo_io_distribute
   !
   USE mo_kind,          ONLY: wp
 #ifndef NOMPI
@@ -119,7 +119,7 @@ CONTAINS
     INTEGER :: n1, n2
     !
     !
-    IF (.NOT.my_process_is_mpi_seq()) THEN
+    IF (.NOT. my_process_is_mpi_seq()) THEN
       n1 = SIZE(in_array, 1)
       n2 = (p_patch%n_patch_cells_g-1)/n1+1
       ALLOCATE(tmp_array(n1, n2))
@@ -151,7 +151,7 @@ CONTAINS
     REAL(wp), ALLOCATABLE :: tmp_array(:,:,:) 
     INTEGER :: n1, n2, n3
     !
-    IF (.NOT.my_process_is_mpi_seq()) THEN
+    IF (.NOT. my_process_is_mpi_seq()) THEN
       n1 = SIZE(in_array, 1)
       n2 = SIZE(in_array, 2)
       n3 = (p_patch%n_patch_cells_g-1)/n1+1
@@ -184,7 +184,7 @@ CONTAINS
     REAL(wp), ALLOCATABLE :: tmp_array(:,:) 
     INTEGER :: n1, n2
     !
-    IF (.NOT.my_process_is_mpi_seq()) THEN
+    IF (.NOT. my_process_is_mpi_seq()) THEN
       n1 = SIZE(in_array, 1)
       n2 = (p_patch%n_patch_edges_g-1)/n1+1
       ALLOCATE(tmp_array(n1, n2))
@@ -216,7 +216,7 @@ CONTAINS
     REAL(wp), ALLOCATABLE :: tmp_array(:,:,:) 
     INTEGER :: n1, n2, n3
     !
-    IF (.NOT.my_process_is_mpi_seq()) THEN
+    IF (.NOT. my_process_is_mpi_seq()) THEN
       n1 = SIZE(in_array, 1)
       n2 = SIZE(in_array, 2)
       n3 = (p_patch%n_patch_edges_g-1)/n1+1
@@ -249,7 +249,7 @@ CONTAINS
     REAL(wp), ALLOCATABLE :: tmp_array(:,:) 
     INTEGER :: n1, n2
     !
-    IF (.NOT.my_process_is_mpi_seq()) THEN
+    IF (.NOT. my_process_is_mpi_seq()) THEN
       n1 = SIZE(in_array, 1)
       n2 = (p_patch%n_patch_verts_g-1)/n1+1
       ALLOCATE(tmp_array(n1, n2))
@@ -281,7 +281,7 @@ CONTAINS
     REAL(wp), ALLOCATABLE :: tmp_array(:,:,:) 
     INTEGER :: n1, n2, n3
     !
-    IF (.NOT.my_process_is_mpi_seq()) THEN
+    IF (.NOT. my_process_is_mpi_seq()) THEN
       n1 = SIZE(in_array, 1)
       n2 = SIZE(in_array, 2)
       n3 = (p_patch%n_patch_verts_g-1)/n1+1
@@ -317,7 +317,7 @@ CONTAINS
     INTEGER, ALLOCATABLE :: tmp_array(:,:) 
     INTEGER :: n1, n2
     !
-    IF (.NOT.my_process_is_mpi_seq()) THEN
+    IF (.NOT. my_process_is_mpi_seq()) THEN
       n1 = SIZE(in_array, 1)
       n2 = (p_patch%n_patch_cells_g-1)/n1+1
       ALLOCATE(tmp_array(n1, n2))
@@ -349,7 +349,7 @@ CONTAINS
     INTEGER, ALLOCATABLE :: tmp_array(:,:,:) 
     INTEGER :: n1, n2, n3
     !
-    IF (.NOT.my_process_is_mpi_seq()) THEN
+    IF (.NOT. my_process_is_mpi_seq()) THEN
       n1 = SIZE(in_array, 1)
       n2 = SIZE(in_array, 2)
       n3 = (p_patch%n_patch_cells_g-1)/n1+1
@@ -382,7 +382,7 @@ CONTAINS
     INTEGER, ALLOCATABLE :: tmp_array(:,:) 
     INTEGER :: n1, n2
     !
-    IF (.NOT.my_process_is_mpi_seq()) THEN
+    IF (.NOT. my_process_is_mpi_seq()) THEN
       n1 = SIZE(in_array, 1)
       n2 = (p_patch%n_patch_edges_g-1)/n1+1
       ALLOCATE(tmp_array(n1, n2))
@@ -414,7 +414,7 @@ CONTAINS
     INTEGER, ALLOCATABLE :: tmp_array(:,:,:) 
     INTEGER :: n1, n2, n3
     !
-    IF (.NOT.my_process_is_mpi_seq()) THEN
+    IF (.NOT. my_process_is_mpi_seq()) THEN
       n1 = SIZE(in_array, 1)
       n2 = SIZE(in_array, 2)
       n3 = (p_patch%n_patch_edges_g-1)/n1+1
@@ -447,7 +447,7 @@ CONTAINS
     INTEGER, ALLOCATABLE :: tmp_array(:,:) 
     INTEGER :: n1, n2
     !
-    IF (.NOT.my_process_is_mpi_seq()) THEN
+    IF (.NOT. my_process_is_mpi_seq()) THEN
       n1 = SIZE(in_array, 1)
       n2 = (p_patch%n_patch_verts_g-1)/n1+1
       ALLOCATE(tmp_array(n1, n2))
@@ -479,7 +479,7 @@ CONTAINS
     INTEGER, ALLOCATABLE :: tmp_array(:,:,:) 
     INTEGER :: n1, n2, n3
     !
-    IF (.NOT.my_process_is_mpi_seq()) THEN
+    IF (.NOT. my_process_is_mpi_seq()) THEN
       n1 = SIZE(in_array, 1)
       n2 = SIZE(in_array, 2)
       n3 = (p_patch%n_patch_verts_g-1)/n1+1
@@ -515,7 +515,7 @@ CONTAINS
     LOGICAL, ALLOCATABLE :: tmp_array(:,:) 
     INTEGER :: n1, n2
     !
-    IF (.NOT.my_process_is_mpi_seq()) THEN
+    IF (.NOT. my_process_is_mpi_seq()) THEN
       n1 = SIZE(in_array, 1)
       n2 = (p_patch%n_patch_cells_g-1)/n1+1
       ALLOCATE(tmp_array(n1, n2))
@@ -547,7 +547,7 @@ CONTAINS
     LOGICAL, ALLOCATABLE :: tmp_array(:,:,:) 
     INTEGER :: n1, n2, n3
     !
-    IF (.NOT.my_process_is_mpi_seq()) THEN
+    IF (.NOT. my_process_is_mpi_seq()) THEN
       n1 = SIZE(in_array, 1)
       n2 = SIZE(in_array, 2)
       n3 = (p_patch%n_patch_cells_g-1)/n1+1
@@ -580,7 +580,7 @@ CONTAINS
     LOGICAL, ALLOCATABLE :: tmp_array(:,:) 
     INTEGER :: n1, n2
     !
-    IF (.NOT.my_process_is_mpi_seq()) THEN
+    IF (.NOT. my_process_is_mpi_seq()) THEN
       n1 = SIZE(in_array, 1)
       n2 = (p_patch%n_patch_edges_g-1)/n1+1
       ALLOCATE(tmp_array(n1, n2))
@@ -612,7 +612,7 @@ CONTAINS
     LOGICAL, ALLOCATABLE :: tmp_array(:,:,:) 
     INTEGER :: n1, n2, n3
     !
-    IF (.NOT.my_process_is_mpi_seq()) THEN
+    IF (.NOT. my_process_is_mpi_seq()) THEN
       n1 = SIZE(in_array, 1)
       n2 = SIZE(in_array, 2)
       n3 = (p_patch%n_patch_edges_g-1)/n1+1
@@ -645,7 +645,7 @@ CONTAINS
     LOGICAL, ALLOCATABLE :: tmp_array(:,:) 
     INTEGER :: n1, n2
     !
-    IF (.NOT.my_process_is_mpi_seq()) THEN
+    IF (.NOT. my_process_is_mpi_seq()) THEN
       n1 = SIZE(in_array, 1)
       n2 = (p_patch%n_patch_verts_g-1)/n1+1
       ALLOCATE(tmp_array(n1, n2))
@@ -677,7 +677,7 @@ CONTAINS
     LOGICAL, ALLOCATABLE :: tmp_array(:,:,:) 
     INTEGER :: n1, n2, n3
     !
-    IF (.NOT.my_process_is_mpi_seq()) THEN
+    IF (.NOT. my_process_is_mpi_seq()) THEN
       n1 = SIZE(in_array, 1)
       n2 = SIZE(in_array, 2)
       n3 = (p_patch%n_patch_verts_g-1)/n1+1
@@ -1522,4 +1522,4 @@ CONTAINS
   !
   !------------------------------------------------------------------------------------------------
   !
-END MODULE mo_io_restart_distribute
+END MODULE mo_io_distribute

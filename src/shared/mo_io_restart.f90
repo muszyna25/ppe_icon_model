@@ -17,20 +17,20 @@ MODULE mo_io_restart
        &                              restart_attributes_count_real,                &
        &                              restart_attributes_count_int,                 &
        &                              restart_attributes_count_bool
-  USE mo_io_restart_distribute, ONLY: gather_cells, gather_edges, gather_vertices,  &
+  USE mo_io_distribute,         ONLY: gather_cells, gather_edges, gather_vertices,  &
        &                              scatter_cells, scatter_edges, scatter_vertices  
   USE mo_io_units,              ONLY: find_next_free_unit, filename_max
 #ifndef NOMPI
+  USE mo_mpi,                   ONLY: my_process_is_stdio
   USE mo_model_domain,          ONLY: t_patch
 #endif
-  USE mo_mpi,                   ONLY: my_process_is_stdio
   !
   IMPLICIT NONE
   !
   PRIVATE
   !
   PUBLIC :: set_restart_time
-  PUBLIC :: set_restart_vct
+  PUBLIC :: set_restart_vct, set_restart_depth, set_restart_height
   PUBLIC :: init_restart
   PUBLIC :: open_writing_restart_files
   PUBLIC :: write_restart
@@ -64,7 +64,7 @@ MODULE mo_io_restart
   END type t_v_grid
   !
   INTEGER, SAVE :: nv_grids = 0 
-  TYPE(t_v_grid) :: vgrid_def(3)
+  TYPE(t_v_grid) :: vgrid_def(7)
   !
   TYPE t_t_axis
     INTEGER :: type
@@ -75,8 +75,13 @@ MODULE mo_io_restart
   !
   CHARACTER(len=32) :: private_restart_time = '' 
   REAL(wp), ALLOCATABLE :: private_vct(:)
+  REAL(wp), ALLOCATABLE :: private_depth_full(:),  private_depth_half(:)
+  REAL(wp), ALLOCATABLE :: private_height_full(:),  private_height_half(:)
   !
   LOGICAL, SAVE :: lvct_initialised = .FALSE. 
+  LOGICAL, SAVE :: ldepth_initialised = .FALSE. 
+  LOGICAL, SAVE :: lheight_initialised = .FALSE. 
+  !
   LOGICAL, SAVE :: lrestart_initialised = .FALSE. 
   !
   INTEGER :: private_nc  = -1
@@ -87,7 +92,6 @@ MODULE mo_io_restart
   INTEGER :: private_nev = -1
   !
   CHARACTER(len=12), PARAMETER :: restart_info_file = 'restart.info'
-  !
   !
   !------------------------------------------------------------------------------------------------
 CONTAINS
@@ -193,6 +197,30 @@ CONTAINS
   END SUBROUTINE set_restart_vct
   !------------------------------------------------------------------------------------------------
   !
+  !  height based vertical coordinates
+  !
+  SUBROUTINE set_restart_height(zh, zf)
+    REAL(wp), INTENT(in) :: zh(:), zf(:)
+    IF (lheight_initialised) RETURN
+    ALLOCATE(private_height_half(SIZE(zh)), private_height_full(SIZE(zf)))
+    private_height_half(:) = zh(:)
+    private_height_full(:) = zf(:)
+    lheight_initialised = .TRUE.
+  END SUBROUTINE set_restart_height
+  !------------------------------------------------------------------------------------------------
+  !
+  !  depth based vertical coordinates
+  !
+  SUBROUTINE set_restart_depth(zh, zf)
+    REAL(wp), INTENT(in) :: zh(:), zf(:)
+    IF (ldepth_initialised) RETURN
+    ALLOCATE(private_depth_half(SIZE(zh)), private_depth_full(SIZE(zf)))
+    private_depth_half(:) = zh(:)
+    private_depth_full(:) = zf(:)
+    ldepth_initialised = .TRUE.
+  END SUBROUTINE set_restart_depth
+  !------------------------------------------------------------------------------------------------
+  !
   SUBROUTINE set_horizontal_grid(grid_type, nelements, nvertices)
     INTEGER, INTENT(in) :: grid_type
     INTEGER, INTENT(in) :: nelements
@@ -229,7 +257,9 @@ CONTAINS
   END SUBROUTINE set_time_axis
   !------------------------------------------------------------------------------------------------
   !
-  SUBROUTINE init_restart(model_name, model_version, nc, ncv, nv, nvv, ne, nev, nlev)
+  SUBROUTINE init_restart(model_name, model_version, &
+       &                  nc, ncv, nv, nvv, ne, nev, &
+       &                  nlev, ndepth, nheight)
     CHARACTER(len=*), INTENT(in) :: model_name
     CHARACTER(len=*), INTENT(in) :: model_version
     INTEGER,          INTENT(in) :: nc
@@ -239,6 +269,8 @@ CONTAINS
     INTEGER,          INTENT(in) :: ne
     INTEGER,          INTENT(in) :: nev
     INTEGER,          INTENT(in) :: nlev
+    INTEGER,          INTENT(in) :: ndepth
+    INTEGER,          INTENT(in) :: nheight
     !
     CHARACTER(len=256) :: executable
     CHARACTER(len=256) :: user_name
@@ -294,11 +326,14 @@ CONTAINS
     CALL set_horizontal_grid(GRID_UNSTRUCTURED_EDGE, ne, nev)
     !
     ! define vertical grids 
-    !LK test for vct ...
     !
     CALL set_vertical_grid(ZAXIS_SURFACE,     1)
     CALL set_vertical_grid(ZAXIS_HYBRID,      nlev)
     CALL set_vertical_grid(ZAXIS_HYBRID_HALF, nlev+1)
+    CALL set_vertical_grid(ZAXIS_DEPTH_BELOW_SEA, ndepth)
+    CALL set_vertical_grid(ZAXIS_DEPTH_BELOW_SEA, ndepth+1)
+    CALL set_vertical_grid(ZAXIS_HEIGHT, nheight)
+    CALL set_vertical_grid(ZAXIS_HEIGHT, nheight+1)
     !
     ! define time axis
     !
@@ -351,17 +386,15 @@ CONTAINS
     ! Loop over all var_lists and open the associated files. Set
     ! file IDs if necessary.
     !
-   !WRITE(0,*)'nvar_list=',nvar_lists
     DO i = 1, nvar_lists
       var_lists(i)%p%first = .FALSE.
     ENDDO
     !
     DO i = 1, nvar_lists
-   !WRITE(0,*)'nvar_list=',i
       !
       ! skip, if file is already opened
       !
-      IF (var_lists(i)%p%opened) CYCLE
+      IF (var_lists(i)%p%restart_opened) CYCLE
       !
       ! skip, if var_list is not required for restarting
       !
@@ -382,25 +415,23 @@ CONTAINS
       !
       restart_filename = basename//'_'//TRIM(private_restart_time) &
            &                     //'_'//TRIM(var_lists(i)%p%model_type)//'.nc'
-
-     !WRITE(0,*)'we are in restart list ', TRIM(restart_filename)
       !
       IF (my_process_is_stdio()) THEN
         SELECT CASE (var_lists(i)%p%restart_type)
         CASE (FILETYPE_NC2)
-          var_lists(i)%p%cdiFileID = streamOpenWrite(restart_filename, FILETYPE_NC2)
+          var_lists(i)%p%cdiFileID_restart = streamOpenWrite(restart_filename, FILETYPE_NC2)
         CASE (FILETYPE_NC4)
-          var_lists(i)%p%cdiFileID = streamOpenWrite(restart_filename, FILETYPE_NC4)
+          var_lists(i)%p%cdiFileID_restart = streamOpenWrite(restart_filename, FILETYPE_NC4)
         END SELECT
         !
         var_lists(i)%p%filename = TRIM(restart_filename)
         !
-        IF (var_lists(i)%p%cdiFileID < 0) THEN
-          WRITE(message_text,'(a)') cdiStringError(var_lists(i)%p%cdiFileID)
+        IF (var_lists(i)%p%cdiFileID_restart < 0) THEN
+          WRITE(message_text,'(a)') cdiStringError(var_lists(i)%p%cdiFileID_restart)
           CALL message('',message_text)
           CALL finish ('open_restart_files', 'open failed on '//TRIM(restart_filename))
         ELSE
-          var_lists(i)%p%opened = .TRUE.
+          var_lists(i)%p%restart_opened = .TRUE.
         END IF
         !
         ! The following sections add the file global properties collected in init_restart
@@ -526,6 +557,7 @@ CONTAINS
             CALL zaxisDefLevels(var_lists(i)%p%cdiSurfZaxisID, levels)
             DEALLOCATE(levels)
           CASE (ZAXIS_HYBRID)
+            IF (.NOT. lvct_initialised) CYCLE
             var_lists(i)%p%cdiFullZaxisID = zaxisCreate(ZAXIS_HYBRID, vgrid_def(ivg)%nlevels)
             ALLOCATE(levels(vgrid_def(ivg)%nlevels))
             DO k = 1, vgrid_def(ivg)%nlevels
@@ -536,6 +568,7 @@ CONTAINS
             nlevp1 = vgrid_def(ivg)%nlevels+1
             CALL zaxisDefVct(var_lists(i)%p%cdiFullZaxisID, 2*nlevp1, private_vct(1:2*nlevp1))
           CASE (ZAXIS_HYBRID_HALF)
+            IF (.NOT. lvct_initialised) CYCLE
             var_lists(i)%p%cdiHalfZaxisID  = zaxisCreate(ZAXIS_HYBRID_HALF, vgrid_def(ivg)%nlevels)
             ALLOCATE(levels(vgrid_def(ivg)%nlevels))
             DO k = 1, vgrid_def(ivg)%nlevels
@@ -545,6 +578,36 @@ CONTAINS
             DEALLOCATE(levels)
             nlevp1 = vgrid_def(ivg)%nlevels
             CALL zaxisDefVct(var_lists(i)%p%cdiHalfZaxisID, 2*nlevp1, private_vct(1:2*nlevp1))
+          CASE (ZAXIS_DEPTH_BELOW_SEA)
+            IF (.NOT. ldepth_initialised) CYCLE
+            IF (SIZE(private_depth_full) == vgrid_def(ivg)%nlevels) THEN
+              var_lists(i)%p%cdiDepthFullZaxisID = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, &
+                   &                                           vgrid_def(ivg)%nlevels)
+              CALL zaxisDefLevels(var_lists(i)%p%cdiDepthFullZaxisID, &
+                   &              private_depth_full)
+            ELSE IF (SIZE(private_depth_half) == vgrid_def(ivg)%nlevels) THEN
+              var_lists(i)%p%cdiDepthHalfZaxisID = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, &
+                   &                                           vgrid_def(ivg)%nlevels)
+              CALL zaxisDefLevels(var_lists(i)%p%cdiDepthHalfZaxisID, &
+                   &              private_depth_half)
+            ELSE
+              CALL finish('open_writing_restart_files','Number of depth levels not available.')
+            ENDIF
+          CASE (ZAXIS_HEIGHT)
+            IF (.NOT. lheight_initialised) CYCLE
+            IF (SIZE(private_height_full) == vgrid_def(ivg)%nlevels) THEN
+              var_lists(i)%p%cdiHeightFullZaxisID = zaxisCreate(ZAXIS_HEIGHT, &
+                   &                                            vgrid_def(ivg)%nlevels)
+              CALL zaxisDefLevels(var_lists(i)%p%cdiHeightFullZaxisID, &
+                   &              private_height_full)
+            ELSE IF (SIZE(private_height_half) == vgrid_def(ivg)%nlevels) THEN
+              var_lists(i)%p%cdiHeightHalfZaxisID = zaxisCreate(ZAXIS_HEIGHT, &
+                   &                                            vgrid_def(ivg)%nlevels)
+              CALL zaxisDefLevels(var_lists(i)%p%cdiHeightHalfZaxisID, &
+                   &              private_height_half)
+            ELSE
+              CALL finish('open_writing_restart_files','Number of height levels not available.')
+            ENDIF
           END SELECT
         ENDDO
         !
@@ -562,7 +625,7 @@ CONTAINS
         !
         WRITE(message_text,'(t1,a49,t50,a31,t84,i6,t94,l5)')        &
              restart_filename, var_lists(i)%p%name,             &
-             var_lists(i)%p%cdiFileID, var_lists(i)%p%lrestart
+             var_lists(i)%p%cdiFileID_restart, var_lists(i)%p%lrestart
         CALL message('',message_text)
       ENDIF
       !
@@ -570,7 +633,7 @@ CONTAINS
       !
       DO j = 1, nvar_lists
         !
-        IF (var_lists(j)%p%opened) CYCLE
+        IF (var_lists(j)%p%restart_opened) CYCLE
         IF (.NOT. var_lists(j)%p%lrestart) CYCLE
         !
         IF (var_lists(j)%p%restart_type /= var_lists(i)%p%restart_type) THEN
@@ -578,20 +641,24 @@ CONTAINS
         ENDIF
         !
         IF (var_lists(i)%p%model_type == var_lists(j)%p%model_type) THEN 
-          var_lists(j)%p%opened = .TRUE.
+          var_lists(j)%p%restart_opened = .TRUE.
           var_lists(j)%p%filename = var_lists(i)%p%filename          
           !
           ! set file IDs of all associated restart files
           !
-          var_lists(j)%p%cdiFileID      = var_lists(i)%p%cdiFileID
-          var_lists(j)%p%cdiVlistID     = var_lists(i)%p%cdiVlistID
-          var_lists(j)%p%cdiCellGridID  = var_lists(i)%p%cdiCellGridID
-          var_lists(j)%p%cdiVertGridID  = var_lists(i)%p%cdiVertGridID
-          var_lists(j)%p%cdiEdgeGridID  = var_lists(i)%p%cdiEdgeGridID
-          var_lists(j)%p%cdiSurfZaxisID = var_lists(i)%p%cdiSurfZaxisID 
-          var_lists(j)%p%cdiFullZaxisID = var_lists(i)%p%cdiFullZaxisID 
-          var_lists(j)%p%cdiHalfZaxisID = var_lists(i)%p%cdiHalfZaxisID 
-          var_lists(j)%p%cdiTaxisID     = var_lists(i)%p%cdiTaxisID
+          var_lists(j)%p%cdiFileID_restart    = var_lists(i)%p%cdiFileID_restart
+          var_lists(j)%p%cdiVlistID           = var_lists(i)%p%cdiVlistID
+          var_lists(j)%p%cdiCellGridID        = var_lists(i)%p%cdiCellGridID
+          var_lists(j)%p%cdiVertGridID        = var_lists(i)%p%cdiVertGridID
+          var_lists(j)%p%cdiEdgeGridID        = var_lists(i)%p%cdiEdgeGridID
+          var_lists(j)%p%cdiSurfZaxisID       = var_lists(i)%p%cdiSurfZaxisID 
+          var_lists(j)%p%cdiFullZaxisID       = var_lists(i)%p%cdiFullZaxisID 
+          var_lists(j)%p%cdiHalfZaxisID       = var_lists(i)%p%cdiHalfZaxisID 
+          var_lists(j)%p%cdiDepthFullZaxisID  = var_lists(i)%p%cdiDepthFullZaxisID 
+          var_lists(j)%p%cdiDepthHalfZaxisID  = var_lists(i)%p%cdiDepthHalfZaxisID 
+          var_lists(j)%p%cdiHeightFullZaxisID = var_lists(i)%p%cdiHeightFullZaxisID 
+          var_lists(j)%p%cdiHeightHalfZaxisID = var_lists(i)%p%cdiHeightHalfZaxisID 
+          var_lists(j)%p%cdiTaxisID           = var_lists(i)%p%cdiTaxisID
           !
           ! add variables to already existing cdi vlists
           !
@@ -601,14 +668,14 @@ CONTAINS
             !
             WRITE(message_text,'(t1,a49,t50,a31,t84,i6,t94,l5)')        &
                  restart_filename, var_lists(j)%p%name,             &
-                 var_lists(j)%p%cdiFileID, var_lists(j)%p%lrestart
+                 var_lists(j)%p%cdiFileID_restart, var_lists(j)%p%lrestart
             CALL message('',message_text)
           ENDIF
         ENDIF
       ENDDO
       !      
       IF (my_process_is_stdio() .AND. var_lists(i)%p%first) THEN
-        CALL streamDefVlist(var_lists(i)%p%cdiFileID, var_lists(i)%p%cdiVlistID)
+        CALL streamDefVlist(var_lists(i)%p%cdiFileID_restart, var_lists(i)%p%cdiVlistID)
       ENDIF
       !
     END DO
@@ -644,9 +711,6 @@ CONTAINS
       !
       info => element%field%info
       !
-     !WRITE(0,*)'add var =',element%field%info%name
-     !WRITE(0,*)'with zaxis = ',element%field%info%vgrid   
-      !
       ! skip this field ?
       !
       IF (.NOT. info%lrestart) CYCLE
@@ -677,6 +741,22 @@ CONTAINS
       CASE (ZAXIS_HYBRID_HALF)
         info%cdiZaxisID =  this_list%p%cdiHalfZaxisID
         zaxisID = info%cdiZaxisID
+      CASE (ZAXIS_DEPTH_BELOW_SEA)
+        IF (info%used_dimensions(2) == SIZE(private_depth_half)) THEN
+          info%cdiZaxisID =  this_list%p%cdiDepthHalfZaxisID
+          zaxisID = info%cdiZaxisID
+        ELSE IF (info%used_dimensions(2) == SIZE(private_depth_full)) THEN
+          info%cdiZaxisID =  this_list%p%cdiDepthFullZaxisID
+          zaxisID = info%cdiZaxisID
+        ENDIF
+      CASE (ZAXIS_HEIGHT)
+        IF (info%used_dimensions(2) == SIZE(private_height_half)) THEN
+          info%cdiZaxisID =  this_list%p%cdiHeightHalfZaxisID
+          zaxisID = info%cdiZaxisID
+        ELSE IF (info%used_dimensions(2) == SIZE(private_height_full)) THEN
+          info%cdiZaxisID =  this_list%p%cdiHeightFullZaxisID
+          zaxisID = info%cdiZaxisID
+        ENDIF
       END SELECT
       !
       IF ( gridID  == -1 ) THEN
@@ -733,16 +813,16 @@ CONTAINS
     !
     close_all_lists: DO i = 1, nvar_lists
       !
-      IF (var_lists(i)%p%opened) THEN
+      IF (var_lists(i)%p%restart_opened) THEN
         IF (my_process_is_stdio() .AND. var_lists(i)%p%first) THEN
           !
-          fileID = var_lists(i)%p%cdiFileID
+          fileID = var_lists(i)%p%cdiFileID_restart
           !
           IF (fileID /= CDI_UNDEFID) THEN
-            CALL streamClose(var_lists(i)%p%cdiFileID)
+            CALL streamClose(var_lists(i)%p%cdiFileID_restart)
             DO j = 1, nvar_lists
-              IF (fileID == var_lists(j)%p%cdiFileID) THEN
-                var_lists(j)%p%cdiFileID = CDI_UNDEFID
+              IF (fileID == var_lists(j)%p%cdiFileID_restart) THEN
+                var_lists(j)%p%cdiFileID_restart = CDI_UNDEFID
               ENDIF
             ENDDO
           ENDIF
@@ -778,8 +858,8 @@ CONTAINS
     ! reset all var list properties related to cdi files
     !
     reset_all_lists: DO i = 1, nvar_lists
-      var_lists(i)%p%opened = .FALSE.
-      var_lists(i)%p%first  = .FALSE.
+      var_lists(i)%p%restart_opened = .FALSE.
+      var_lists(i)%p%first          = .FALSE.
     ENDDO reset_all_lists
     !
     private_restart_time = ''
@@ -829,7 +909,7 @@ CONTAINS
         !
         DO j = i, nvar_lists
 
-          IF (var_lists(j)%p%cdiFileID == var_lists(i)%p%cdiFileID) THEN 
+          IF (var_lists(j)%p%cdiFileID_restart == var_lists(i)%p%cdiFileID_restart) THEN 
             !
             !
             ! write variables
@@ -851,7 +931,7 @@ CONTAINS
     !
     INTEGER :: fileID, idate, itime, iret
     !
-    fileID = this_list%p%cdiFileID
+    fileID = this_list%p%cdiFileID_restart
     !
     CALL get_date_components(private_restart_time, idate, itime)
     !
@@ -907,16 +987,12 @@ CONTAINS
     ! Loop over all fields in linked list
     !
     element => start_with
-    element%next_list_element => this_list%p%first_list_element  
-  
-   !WRITE(0,*)'restart list name', this_list%p%name
+    element%next_list_element => this_list%p%first_list_element    
     !
     for_all_list_elements: DO
       !
       element => element%next_list_element
       IF (.NOT.ASSOCIATED(element)) EXIT
-     !WRITE(0,*)'element name', element%field%info%name, element%field%info%lrestart, &
-     !  &                       element%field%info%ndims
       !
       rptr2d => NULL()
       rptr3d => NULL()
@@ -1018,7 +1094,7 @@ CONTAINS
     INTEGER :: varID                        ! Variable ID
     INTEGER :: nmiss = 0
     !
-    fileID  = this_list%p%cdiFileID
+    fileID  = this_list%p%cdiFileID_restart
     varID   = info%cdiVarID
     !
     CALL streamWriteVar(fileID, varID, array, nmiss)
@@ -1033,28 +1109,49 @@ CONTAINS
     INTEGER :: i
 
     for_all_var_lists: DO i = 1, nvar_lists    
-      IF (var_lists(i)%p%cdiFileID >= 0) THEN
+      IF (var_lists(i)%p%cdiFileID_restart >= 0) THEN
         CALL gridDestroy(var_lists(i)%p%cdiCellGridID)
         CALL gridDestroy(var_lists(i)%p%cdiVertGridID)
         CALL gridDestroy(var_lists(i)%p%cdiEdgeGridID)
-        CALL zaxisDestroy(var_lists(i)%p%cdiSurfZaxisID)
-        CALL zaxisDestroy(var_lists(i)%p%cdiFullZaxisID)
-        CALL zaxisDestroy(var_lists(i)%p%cdiHalfZaxisID)
-        var_lists(i)%p%cdiFileId      = CDI_UNDEFID
-        var_lists(i)%p%cdiVlistId     = CDI_UNDEFID
-        var_lists(i)%p%cdiCellGridID  = CDI_UNDEFID
-        var_lists(i)%p%cdiVertGridID  = CDI_UNDEFID
-        var_lists(i)%p%cdiEdgeGridID  = CDI_UNDEFID
-        var_lists(i)%p%cdiSurfZaxisID = CDI_UNDEFID
-        var_lists(i)%p%cdiHalfZaxisID = CDI_UNDEFID
-        var_lists(i)%p%cdiFullZaxisID = CDI_UNDEFID
-        var_lists(i)%p%cdiTaxisID     = CDI_UNDEFID
-        var_lists(i)%p%cdiTimeIndex   = CDI_UNDEFID
+        IF (var_lists(i)%p%cdiSurfZaxisID /= CDI_UNDEFID) &
+             CALL zaxisDestroy(var_lists(i)%p%cdiSurfZaxisID)
+        IF (var_lists(i)%p%cdiFullZaxisID /= CDI_UNDEFID) &
+             CALL zaxisDestroy(var_lists(i)%p%cdiFullZaxisID)
+        IF (var_lists(i)%p%cdiHalfZaxisID /= CDI_UNDEFID) &
+             CALL zaxisDestroy(var_lists(i)%p%cdiHalfZaxisID)
+        IF (var_lists(i)%p%cdiDepthFullZaxisID /= CDI_UNDEFID) &
+             CALL zaxisDestroy(var_lists(i)%p%cdiDepthFullZaxisID)
+        IF (var_lists(i)%p%cdiDepthHalfZaxisID /= CDI_UNDEFID) &
+             CALL zaxisDestroy(var_lists(i)%p%cdiDepthHalfZaxisID)
+        IF (var_lists(i)%p%cdiHeightFullZaxisID /= CDI_UNDEFID) &
+             CALL zaxisDestroy(var_lists(i)%p%cdiHeightFullZaxisID)
+        IF (var_lists(i)%p%cdiHeightHalfZaxisID /= CDI_UNDEFID) &
+             CALL zaxisDestroy(var_lists(i)%p%cdiHeightHalfZaxisID)
+        var_lists(i)%p%cdiFileId_restart    = CDI_UNDEFID
+        var_lists(i)%p%cdiVlistId           = CDI_UNDEFID
+        var_lists(i)%p%cdiCellGridID        = CDI_UNDEFID
+        var_lists(i)%p%cdiVertGridID        = CDI_UNDEFID
+        var_lists(i)%p%cdiEdgeGridID        = CDI_UNDEFID
+        var_lists(i)%p%cdiSurfZaxisID       = CDI_UNDEFID
+        var_lists(i)%p%cdiHalfZaxisID       = CDI_UNDEFID
+        var_lists(i)%p%cdiFullZaxisID       = CDI_UNDEFID
+        var_lists(i)%p%cdiDepthHalfZaxisID  = CDI_UNDEFID
+        var_lists(i)%p%cdiDepthFullZaxisID  = CDI_UNDEFID
+        var_lists(i)%p%cdiHeightHalfZaxisID = CDI_UNDEFID
+        var_lists(i)%p%cdiHeightFullZaxisID = CDI_UNDEFID
+        var_lists(i)%p%cdiTaxisID           = CDI_UNDEFID
+        var_lists(i)%p%cdiTimeIndex         = CDI_UNDEFID
       ENDIF
     ENDDO for_all_var_lists
     !
-    DEALLOCATE(private_vct)
+    IF (ALLOCATED(private_vct)) DEALLOCATE(private_vct)
     lvct_initialised = .FALSE.
+    IF (ALLOCATED(private_depth_full)) DEALLOCATE(private_depth_full)
+    IF (ALLOCATED(private_depth_half)) DEALLOCATE(private_depth_half)
+    ldepth_initialised = .FALSE.
+    IF (ALLOCATED(private_height_full)) DEALLOCATE(private_height_full)
+    IF (ALLOCATED(private_height_half)) DEALLOCATE(private_height_half)
+    lheight_initialised = .FALSE.
     !
     CALL delete_attributes
     !
@@ -1161,10 +1258,10 @@ CONTAINS
               ic = gridInqSize(gridID)
               zaxisID = vlistInqVarZaxis(vlistID, varID)
               vgrid = zaxisInqType(zaxisID)
-              IF (vgrid == ZAXIS_HYBRID .OR. vgrid == ZAXIS_HYBRID_HALF) THEN
-                il = zaxisInqSize(zaxisID)
-              ELSE
+              IF (vgrid == ZAXIS_SURFACE) THEN
                 il = 1
+              ELSE
+                il = zaxisInqSize(zaxisID)
               ENDIF
               !
               gdims(:) = (/ ic, il, 1, 1, 1 /)

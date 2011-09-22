@@ -81,23 +81,32 @@ MODULE mo_cf_convention
     CHARACTER(len=128) :: standard_name = ''
   END TYPE t_cf_var
 
+  TYPE t_cf_gridspec
+    CHARACTER(len=36)   :: gridspec_coordinates_id   ! uuid
+    CHARACTER(len=36)   :: gridspec_data_id          ! uuid
+    CHARACTER(len= 9)   :: gridspec_file_type        ! always: grid_file       
+    CHARACTER(len=1024) :: gridspec_tile_name        ! URL of grid file
+  END type t_cf_gridspec
+
   PUBLIC :: t_cf_global
   PUBLIC :: t_cf_var
+  PUBLIC :: t_cf_gridspec
 
   PUBLIC :: set_cf_global
   PUBLIC :: set_cf_var
+  PUBLIC :: set_cf_gridspec
 
 CONTAINS
 
   FUNCTION set_cf_global(title, institution, source, history, references, comment) &
-  RESULT(cf_global_info)
+       RESULT(cf_global_info)
     TYPE(t_cf_global) :: cf_global_info
-    CHARACTER(len=*), OPTIONAL :: title
-    CHARACTER(len=*), OPTIONAL :: institution
-    CHARACTER(len=*), OPTIONAL :: source
-    CHARACTER(len=*), OPTIONAL :: history
-    CHARACTER(len=*), OPTIONAL :: references
-    CHARACTER(len=*), OPTIONAL :: comment
+    CHARACTER(len=*), INTENT(in), OPTIONAL :: title
+    CHARACTER(len=*), INTENT(in), OPTIONAL :: institution
+    CHARACTER(len=*), INTENT(in), OPTIONAL :: source
+    CHARACTER(len=*), INTENT(in), OPTIONAL :: history
+    CHARACTER(len=*), INTENT(in), OPTIONAL :: references
+    CHARACTER(len=*), INTENT(in), OPTIONAL :: comment
    
     IF (PRESENT(title))       cf_global_info%title       = title
     IF (PRESENT(institution)) cf_global_info%institution = institution
@@ -108,16 +117,31 @@ CONTAINS
 
   END FUNCTION set_cf_global
 
-  FUNCTION set_cf_var(long_name, units, standard_name) RESULT(cf_var_info)
+  FUNCTION set_cf_var(long_name, units, standard_name) &
+       RESULT(cf_var_info)
     TYPE(t_cf_var) :: cf_var_info
-    CHARACTER(len=*), OPTIONAL :: long_name
-    CHARACTER(len=*), OPTIONAL :: units
-    CHARACTER(len=*), OPTIONAL :: standard_name
+    CHARACTER(len=*), INTENT(in), OPTIONAL :: long_name
+    CHARACTER(len=*), INTENT(in), OPTIONAL :: units
+    CHARACTER(len=*), INTENT(in), OPTIONAL :: standard_name
 
     IF (PRESENT(long_name))     cf_var_info%long_name = long_name
     IF (PRESENT(units))         cf_var_info%units     = units
     IF (PRESENT(standard_name)) cf_var_info%standard_name = standard_name
     
   END FUNCTION set_cf_var
+
+  FUNCTION set_cf_gridspec(coordinate_uuid, data_uuid, grid_file) &
+       RESULT(cf_gridspec)
+    TYPE(t_cf_gridspec) :: cf_gridspec
+    CHARACTER(len=*), INTENT(in) :: coordinate_uuid
+    CHARACTER(len=*), INTENT(in) :: data_uuid
+    CHARACTER(len=*), INTENT(in) :: grid_file
+
+    cf_gridspec%gridspec_coordinates_id = TRIM(coordinate_uuid)
+    cf_gridspec%gridspec_data_id        = TRIM(data_uuid)
+    cf_gridspec%gridspec_file_type      = 'grid_file'
+    cf_gridspec%gridspec_tile_name      = TRIM(grid_file)
+
+  END FUNCTION set_cf_gridspec
 
 END MODULE mo_cf_convention

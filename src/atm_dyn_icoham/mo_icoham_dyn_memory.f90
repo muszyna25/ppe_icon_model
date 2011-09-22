@@ -362,7 +362,7 @@ CONTAINS
                   & t_cf_var('tracer', 'kg kg-1', 'tracer concentration'),      &
                   & t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL),&
                   & ldims = (/kproma,klev,kblks_c,ktracer/),                    &
-                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.          )
+                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.        )
 
       ! Reference to individual tracer, for I/O
 
@@ -631,14 +631,14 @@ CONTAINS
                   & t_cf_var('hfl_tracer', 'kg m-1 s-1', 'horizontal flux of tracer'), &
                   & t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_EDGE),       &
                   & ldims = (/kproma,klev,kblks_e,ktracer/),                           &
-                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.                 )
+                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.               )
 
       CALL add_var( field_list, vname_prefix//'vfl_tracer', field%vfl_tracer,        &
                   & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF,                       &
                   & t_cf_var('vfl_tracer', 'kg m-1 s-1', 'vertical flux of tracer'), &
                   & t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL),     &
                   & ldims = (/kproma,klevp1,kblks_c,ktracer/),                       &
-                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.               )
+                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.             )
 
       ! Referrence to fluxes individual tracer, for I/O
 

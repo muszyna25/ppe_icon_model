@@ -1,6 +1,9 @@
 MODULE mo_var_list
 
   USE mo_kind,             ONLY: wp, i8
+  USE mo_cdi_constants,    ONLY: DATATYPE_FLT64, &
+       &                         DATATYPE_INT32, &
+       &                         DATATYPE_INT8
   USE mo_cf_convention,    ONLY: t_cf_var
   USE mo_grib2,            ONLY: t_grib2_var
   USE mo_var_metadata,     ONLY: t_var_metadata, t_union_vals
@@ -98,8 +101,8 @@ CONTAINS
   ! Create a new memory buffer / output var_list
   ! Get a pointer to the new var_list
   !
-  SUBROUTINE new_var_list (this_list, name, output_type, restart_type,    &
-       &                   post_suf, rest_suf, init_suf, lpost, lrestart, &
+  SUBROUTINE new_var_list (this_list, name, output_type, restart_type,      &
+       &                   post_suf, rest_suf, init_suf, loutput, lrestart, &
        &                   linitial)
     !
     TYPE(t_var_list), INTENT(inout)        :: this_list    ! anchor
@@ -109,7 +112,7 @@ CONTAINS
     CHARACTER(len=*), INTENT(in), OPTIONAL :: post_suf     ! suffix of output file
     CHARACTER(len=*), INTENT(in), OPTIONAL :: rest_suf     ! suffix of restart file
     CHARACTER(len=*), INTENT(in), OPTIONAL :: init_suf     ! suffix of initial file
-    LOGICAL,          INTENT(in), OPTIONAL :: lpost        ! write to  output file
+    LOGICAL,          INTENT(in), OPTIONAL :: loutput      ! write to  output file
     LOGICAL,          INTENT(in), OPTIONAL :: lrestart     ! write to restart file
     LOGICAL,          INTENT(in), OPTIONAL :: linitial     ! read from initial file
     !
@@ -139,8 +142,8 @@ CONTAINS
     IF(.NOT. ASSOCIATED(this_list%p)) THEN
       nvar_lists = nvar_lists + 1
       IF (nvar_lists > max_var_lists) THEN
-        CALL finish('new_list', 'var_lists container overflow, '//&
-                   &'increase "max_var_lists" in mo_var_list.f90')
+        CALL finish('new_list', &
+             &      'var_lists container overflow, increase "max_var_lists" in mo_var_list.f90')
       ENDIF
     ENDIF
     !
@@ -164,7 +167,7 @@ CONTAINS
     CALL assign_if_present(this_list%p%post_suf,     post_suf) 
     CALL assign_if_present(this_list%p%rest_suf,     rest_suf) 
     CALL assign_if_present(this_list%p%init_suf,     init_suf) 
-    CALL assign_if_present(this_list%p%lpost,        lpost)
+    CALL assign_if_present(this_list%p%loutput,      loutput)
     CALL assign_if_present(this_list%p%lrestart,     lrestart)
     CALL assign_if_present(this_list%p%linitial,     linitial)
     !
@@ -197,17 +200,17 @@ CONTAINS
   !
   ! Change parameters of an already existent output var_list
   !
-  SUBROUTINE set_var_list (this_list, output_type, restart_type, &
-       &                   post_suf, rest_suf, init_suf, lpost,  &
+  SUBROUTINE set_var_list (this_list, output_type, restart_type,  &
+       &                   post_suf, rest_suf, init_suf, loutput, &
        &                   lrestart, linitial)
     !
-    TYPE(t_var_list), INTENT(inout)        :: this_list   ! output var_list to change
+    TYPE(t_var_list), INTENT(inout)        :: this_list      ! output var_list to change
     INTEGER,          INTENT(in), OPTIONAL :: output_type    ! 'GRIB' or 'NetCDF'
     INTEGER,          INTENT(in), OPTIONAL :: restart_type   ! 'GRIB' or 'NetCDF'
     CHARACTER(len=*), INTENT(in), OPTIONAL :: post_suf       ! suffix of output  file
     CHARACTER(len=*), INTENT(in), OPTIONAL :: rest_suf       ! suffix of restart file
     CHARACTER(len=*), INTENT(in), OPTIONAL :: init_suf       ! suffix of initial file
-    LOGICAL,          INTENT(in), OPTIONAL :: lpost          ! in standard output file
+    LOGICAL,          INTENT(in), OPTIONAL :: loutput        ! in standard output file
     LOGICAL,          INTENT(in), OPTIONAL :: lrestart       ! in standard restartfile
     LOGICAL,          INTENT(in), OPTIONAL :: linitial       ! in standard initialfile
     !
@@ -216,7 +219,7 @@ CONTAINS
     CALL assign_if_present(this_list%p%post_suf,     post_suf) 
     CALL assign_if_present(this_list%p%rest_suf,     rest_suf) 
     CALL assign_if_present(this_list%p%init_suf,     init_suf) 
-    CALL assign_if_present(this_list%p%lpost,        lpost)
+    CALL assign_if_present(this_list%p%loutput,      loutput)
     CALL assign_if_present(this_list%p%lrestart,     lrestart)
     CALL assign_if_present(this_list%p%linitial,     linitial)
     !
@@ -275,13 +278,13 @@ CONTAINS
   !
   SUBROUTINE default_var_list_settings (this_list,                                   &
        &                                filename,                                    &
-       &                                lpost, lrestart, linitial,                   &
+       &                                loutput, lrestart, linitial,                 &
        &                                post_suf, rest_suf, init_suf,                &
        &                                output_type, restart_type, compression_type, &
        &                                model_type) 
     !
     TYPE(t_var_list),   INTENT(inout)        :: this_list        ! output var_list
-    LOGICAL,            INTENT(in), OPTIONAL :: lpost            ! to output 
+    LOGICAL,            INTENT(in), OPTIONAL :: loutput          ! to output 
     LOGICAL,            INTENT(in), OPTIONAL :: lrestart         ! from/to restart
     LOGICAL,            INTENT(in), OPTIONAL :: linitial         ! from initial
     CHARACTER(len=*),   INTENT(in), OPTIONAL :: filename         ! name of output file
@@ -293,7 +296,7 @@ CONTAINS
     INTEGER,            INTENT(in), OPTIONAL :: compression_type ! compression type
     CHARACTER(len=*),   INTENT(in), OPTIONAL :: model_type       ! output file associated
     !
-    CALL assign_if_present (this_list%p%lpost,            lpost)
+    CALL assign_if_present (this_list%p%loutput,          loutput)
     CALL assign_if_present (this_list%p%lrestart,         lrestart)
     CALL assign_if_present (this_list%p%linitial,         linitial)
     CALL assign_if_present (this_list%p%filename,         filename)
@@ -323,7 +326,7 @@ CONTAINS
     this_info%ndims               = 0
     this_info%used_dimensions(:)  = 0
     !
-    this_info%lpost               = this_list%p%lpost
+    this_info%loutput             = this_list%p%loutput
     this_info%laccu               = this_list%p%laccu
     this_info%resetval            = t_union_vals( 0.0_wp, 0, .FALSE.)
     this_info%lrestart            = this_list%p%lrestart
@@ -340,8 +343,10 @@ CONTAINS
     this_info%hgrid               = -1
     this_info%vgrid               = -1
     !
+    this_info%cdiVarID            = -1
     this_info%cdiGridID           = -1
     this_info%cdiZaxisID          = -1
+    this_info%cdiDataType         = -1
     !
   END FUNCTION default_var_list_metadata
   !------------------------------------------------------------------------------------------------
@@ -352,10 +357,10 @@ CONTAINS
   ! Set each parameter in data type var_metadata if the respective 
   ! optional parameter is present.
   !
-  SUBROUTINE set_var_metadata (info,                                        &
-         &                     name, hgrid, vgrid, cf, grib2, ldims,        &
-         &                     lpost, lcontainer, lrestart, lrestart_cont,  &
-         &                     initval, laccu, resetval, lmiss, missval,    &
+  SUBROUTINE set_var_metadata (info,                                         &
+         &                     name, hgrid, vgrid, cf, grib2, ldims,         &
+         &                     loutput, lcontainer, lrestart, lrestart_cont, &
+         &                     initval, laccu, resetval, lmiss, missval,     &
          &                     verbose)
     !
     TYPE(t_var_metadata), INTENT(inout)        :: info          ! memory info struct.
@@ -365,7 +370,7 @@ CONTAINS
     TYPE(t_cf_var),       INTENT(in), OPTIONAL :: cf            ! CF convention
     TYPE(t_grib2_var),    INTENT(in), OPTIONAL :: grib2         ! GRIB2
     INTEGER,              INTENT(in), OPTIONAL :: ldims(:)      ! used dimensions 
-    LOGICAL,              INTENT(in), OPTIONAL :: lpost         ! into output var_list
+    LOGICAL,              INTENT(in), OPTIONAL :: loutput       ! into output var_list
     LOGICAL,              INTENT(in), OPTIONAL :: lcontainer    ! true if container
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart      ! restart file flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont ! continue on restart
@@ -402,7 +407,7 @@ CONTAINS
     !
     ! set flags concerning I/O
     !
-    CALL assign_if_present (info%lpost,         lpost)
+    CALL assign_if_present (info%loutput,       loutput)
     CALL assign_if_present (info%lcontainer,    lcontainer)
     IF (info%lcontainer) info%ncontained = 0
     CALL assign_if_present (info%resetval,      resetval)
@@ -432,7 +437,7 @@ CONTAINS
   ! optionally overwrite default meta data 
   !
   SUBROUTINE add_var_list_element_r5d(this_list, name, ptr,    &
-       hgrid, vgrid, cf, grib2, ldims, lpost, lcontainer,      &
+       hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,    &
        lrestart, lrestart_cont, initval_r, laccu, resetval_r,  &
        lmiss, missval_r, info, p5, verbose)
     !
@@ -444,7 +449,7 @@ CONTAINS
     TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
     TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
     INTEGER,              INTENT(in), OPTIONAL :: ldims(5)            ! local dimensions
-    LOGICAL,              INTENT(in), OPTIONAL :: lpost               ! output flag
+    LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
     LOGICAL,              INTENT(in), OPTIONAL :: lcontainer          ! container flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
@@ -480,11 +485,11 @@ CONTAINS
     CALL assign_if_present(missval%rval, missval_r)
     CALL assign_if_present(initval%rval, initval_r)
     CALL assign_if_present(resetval%rval, resetval_r)
-    CALL set_var_metadata (new_list_element%field%info,                       &
-         name=name, hgrid=hgrid, vgrid=vgrid,                                 & 
-         cf=cf, grib2=grib2, ldims=ldims, lpost=lpost, lcontainer=lcontainer, &
-         lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,     &
-         laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,        & 
+    CALL set_var_metadata (new_list_element%field%info,                           &
+         name=name, hgrid=hgrid, vgrid=vgrid,                                     & 
+         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput, lcontainer=lcontainer, &
+         lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,         &
+         laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,            & 
          verbose=verbose)
     !
     IF (.NOT. referenced) THEN
@@ -495,12 +500,13 @@ CONTAINS
       idims(4) = new_list_element%field%info%used_dimensions(4)
       idims(5) = new_list_element%field%info%used_dimensions(5)
       new_list_element%field%info%ndims = 5
+      new_list_element%field%info%cdiDataTYpe = DATATYPE_FLT64
       new_list_element%field%var_base_size = 8
-      ALLOCATE(new_list_element%field%r_ptr( &
-              &idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
+      ALLOCATE(new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
+           &   STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r5d',      &
-                   &'allocation of array '//TRIM(name)//' failed')
+        CALL finish('mo_var_list:add_var_list_element_r5d', &
+             &      'allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
       ENDIF
@@ -531,7 +537,7 @@ CONTAINS
   ! optionally overwrite default meta data 
   !
   SUBROUTINE add_var_list_element_r4d(this_list, name, ptr,    &
-       hgrid, vgrid, cf, grib2, ldims, lpost, lcontainer,      &
+       hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,    &
        lrestart, lrestart_cont, initval_r, laccu, resetval_r,  &
        lmiss, missval_r, info, p5, verbose)
     !
@@ -543,7 +549,7 @@ CONTAINS
     TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
     TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
     INTEGER,              INTENT(in), OPTIONAL :: ldims(4)            ! local dimensions
-    LOGICAL,              INTENT(in), OPTIONAL :: lpost               ! output flag
+    LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
     LOGICAL,              INTENT(in), OPTIONAL :: lcontainer          ! container flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
@@ -579,11 +585,11 @@ CONTAINS
     CALL assign_if_present(missval%rval, missval_r)
     CALL assign_if_present(initval%rval, initval_r)
     CALL assign_if_present(resetval%rval, resetval_r)
-    CALL set_var_metadata (new_list_element%field%info,                       &
-         name=name, hgrid=hgrid, vgrid=vgrid,                                 & 
-         cf=cf, grib2=grib2, ldims=ldims, lpost=lpost, lcontainer=lcontainer, &
-         lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,     &
-         laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,        & 
+    CALL set_var_metadata (new_list_element%field%info,                           &
+         name=name, hgrid=hgrid, vgrid=vgrid,                                     & 
+         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput, lcontainer=lcontainer, &
+         lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,         &
+         laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,            & 
          verbose=verbose)
     !
     IF (.NOT. referenced) THEN
@@ -594,12 +600,13 @@ CONTAINS
       idims(4) = new_list_element%field%info%used_dimensions(4)
       idims(5) = 1
       new_list_element%field%info%ndims = 4
+      new_list_element%field%info%cdiDataTYpe = DATATYPE_FLT64
       new_list_element%field%var_base_size = 8
-      ALLOCATE(new_list_element%field%r_ptr(  &
-              &idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
+      ALLOCATE(new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
+           &   STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r4d',      &
-                   &'allocation of array '//TRIM(name)//' failed')
+        CALL finish('mo_var_list:add_var_list_element_r4d', &
+             &      'allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
       ENDIF
@@ -631,7 +638,7 @@ CONTAINS
   ! optionally overwrite default meta data 
   !
   SUBROUTINE add_var_list_element_r3d(this_list, name, ptr,    &
-       hgrid, vgrid, cf, grib2, ldims, lpost, lcontainer,      &
+       hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,    &
        lrestart, lrestart_cont, initval_r, laccu, resetval_r,  &
        lmiss, missval_r, info, p5, verbose)
     !
@@ -643,7 +650,7 @@ CONTAINS
     TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
     TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
     INTEGER,              INTENT(in), OPTIONAL :: ldims(3)            ! local dimensions
-    LOGICAL,              INTENT(in), OPTIONAL :: lpost               ! output flag
+    LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
     LOGICAL,              INTENT(in), OPTIONAL :: lcontainer          ! container flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
@@ -679,11 +686,11 @@ CONTAINS
     CALL assign_if_present(missval%rval, missval_r)
     CALL assign_if_present(initval%rval, initval_r)
     CALL assign_if_present(resetval%rval, resetval_r)
-    CALL set_var_metadata (new_list_element%field%info,                       &
-         name=name, hgrid=hgrid, vgrid=vgrid,                                 & 
-         cf=cf, grib2=grib2, ldims=ldims, lpost=lpost, lcontainer=lcontainer, &
-         lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,     &
-         laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,        & 
+    CALL set_var_metadata (new_list_element%field%info,                           &
+         name=name, hgrid=hgrid, vgrid=vgrid,                                     & 
+         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput, lcontainer=lcontainer, &
+         lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,         &
+         laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,            & 
          verbose=verbose)
     !
     IF (.NOT. referenced) THEN
@@ -694,12 +701,13 @@ CONTAINS
       idims(4) = 1
       idims(5) = 1
       new_list_element%field%info%ndims = 3
+      new_list_element%field%info%cdiDataTYpe = DATATYPE_FLT64
       new_list_element%field%var_base_size = 8
-      ALLOCATE (new_list_element%field%r_ptr( &
-               &idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
+      ALLOCATE (new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
+           &    STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r3d',      &
-                   &'allocation of array '//TRIM(name)//' failed')
+        CALL finish('mo_var_list:add_var_list_element_r3d', &
+             &      'allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
       ENDIF
@@ -731,7 +739,7 @@ CONTAINS
   ! optionally overwrite default meta data 
   !
   SUBROUTINE add_var_list_element_r2d(this_list, name, ptr,    &
-       hgrid, vgrid, cf, grib2, ldims, lpost, lcontainer,      &
+       hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,    &
        lrestart, lrestart_cont, initval_r, laccu, resetval_r,  &
        lmiss, missval_r, info, p5, verbose)
     !
@@ -743,7 +751,7 @@ CONTAINS
     TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
     TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
     INTEGER,              INTENT(in), OPTIONAL :: ldims(2)            ! local dimensions
-    LOGICAL,              INTENT(in), OPTIONAL :: lpost               ! output flag
+    LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
     LOGICAL,              INTENT(in), OPTIONAL :: lcontainer          ! container flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
@@ -779,11 +787,11 @@ CONTAINS
     CALL assign_if_present(missval%rval, missval_r)
     CALL assign_if_present(initval%rval, initval_r)
     CALL assign_if_present(resetval%rval, resetval_r)
-    CALL set_var_metadata (new_list_element%field%info,                       &
-         name=name, hgrid=hgrid, vgrid=vgrid,                                 & 
-         cf=cf, grib2=grib2, ldims=ldims, lpost=lpost, lcontainer=lcontainer, &
-         lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,     &
-         laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,        & 
+    CALL set_var_metadata (new_list_element%field%info,                           &
+         name=name, hgrid=hgrid, vgrid=vgrid,                                     & 
+         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput, lcontainer=lcontainer, &
+         lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,         &
+         laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,            & 
          verbose=verbose)
     !
     IF (.NOT. referenced) THEN
@@ -794,12 +802,13 @@ CONTAINS
       idims(4) = 1
       idims(5) = 1
       new_list_element%field%info%ndims = 2
+      new_list_element%field%info%cdiDataTYpe = DATATYPE_FLT64
       new_list_element%field%var_base_size = 8
-      ALLOCATE (new_list_element%field%r_ptr(  &
-               &idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
+      ALLOCATE (new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
+           &    STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r2d','allocation of array ' &
-                   &//TRIM(name)//' failed')
+        CALL finish('mo_var_list:add_var_list_element_r2d', &
+             &      'allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
       ENDIF
@@ -831,7 +840,7 @@ CONTAINS
   ! optionally overwrite default meta data 
   !
   SUBROUTINE add_var_list_element_r1d(this_list, name, ptr,    &
-       hgrid, vgrid, cf, grib2, ldims, lpost, lcontainer,      &
+       hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,    &
        lrestart, lrestart_cont, initval_r, laccu, resetval_r,  &
        lmiss, missval_r, info, p5, verbose)
     !
@@ -843,7 +852,7 @@ CONTAINS
     TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
     TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
     INTEGER,              INTENT(in), OPTIONAL :: ldims(1)            ! local dimensions
-    LOGICAL,              INTENT(in), OPTIONAL :: lpost               ! output flag
+    LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
     LOGICAL,              INTENT(in), OPTIONAL :: lcontainer          ! container flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
@@ -879,11 +888,11 @@ CONTAINS
     CALL assign_if_present(missval%rval, missval_r)
     CALL assign_if_present(initval%rval, initval_r)
     CALL assign_if_present(resetval%rval, resetval_r)
-    CALL set_var_metadata (new_list_element%field%info,                       &
-         name=name, hgrid=hgrid, vgrid=vgrid,                                 & 
-         cf=cf, grib2=grib2, ldims=ldims, lpost=lpost, lcontainer=lcontainer, &
-         lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,     &
-         laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,        & 
+    CALL set_var_metadata (new_list_element%field%info,                           &
+         name=name, hgrid=hgrid, vgrid=vgrid,                                     & 
+         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput, lcontainer=lcontainer, &
+         lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,         &
+         laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,            & 
          verbose=verbose)
     !
     IF (.NOT. referenced) THEN
@@ -894,12 +903,13 @@ CONTAINS
       idims(4) = 1
       idims(5) = 1
       new_list_element%field%info%ndims = 1
+      new_list_element%field%info%cdiDataTYpe = DATATYPE_FLT64
       new_list_element%field%var_base_size = 8
-      ALLOCATE (new_list_element%field%r_ptr( &
-               &idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
+      ALLOCATE (new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
+           &    STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r1d','allocation of array ' &
-                   &//TRIM(name)//' failed')
+        CALL finish('mo_var_list:add_var_list_element_r1d', &
+             &      'allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
       ENDIF
@@ -933,7 +943,7 @@ CONTAINS
   ! optionally overwrite default meta data 
   !
   SUBROUTINE add_var_list_element_i5d(this_list, name, ptr,    &
-       hgrid, vgrid, cf, grib2, ldims, lpost,           &
+       hgrid, vgrid, cf, grib2, ldims, loutput,         &
        lrestart, lrestart_cont, initval_i, laccu, resetval_i,  &
        lmiss, missval_i, info, p5, verbose)
     !
@@ -945,7 +955,7 @@ CONTAINS
     TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
     TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
     INTEGER,              INTENT(in), OPTIONAL :: ldims(5)            ! local dimensions
-    LOGICAL,              INTENT(in), OPTIONAL :: lpost               ! output flag
+    LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
     INTEGER,              INTENT(in), OPTIONAL :: initval_i           ! value if var not available
@@ -982,7 +992,7 @@ CONTAINS
     CALL assign_if_present(resetval%ival, resetval_i)
     CALL set_var_metadata (new_list_element%field%info,                   &
          name=name, hgrid=hgrid, vgrid=vgrid,                             & 
-         cf=cf, grib2=grib2, ldims=ldims, lpost=lpost,                    &
+         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
          verbose=verbose)
@@ -995,12 +1005,13 @@ CONTAINS
       idims(4) = new_list_element%field%info%used_dimensions(4)
       idims(5) = new_list_element%field%info%used_dimensions(5)
       new_list_element%field%info%ndims = 5
+      new_list_element%field%info%cdiDataTYpe = DATATYPE_INT32
       new_list_element%field%var_base_size = 4
-      ALLOCATE (new_list_element%field%i_ptr( &
-               &idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
+      ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
+           &    STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_i4d','allocation of array ' &
-                   &//TRIM(name)//' failed')
+        CALL finish('mo_var_list:add_var_list_element_i4d', &
+             &      'allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
       ENDIF
@@ -1032,7 +1043,7 @@ CONTAINS
   ! optionally overwrite default meta data 
   !
   SUBROUTINE add_var_list_element_i4d(this_list, name, ptr,    &
-       hgrid, vgrid, cf, grib2, ldims, lpost,           &
+       hgrid, vgrid, cf, grib2, ldims, loutput,         &
        lrestart, lrestart_cont, initval_i, laccu, resetval_i,  &
        lmiss, missval_i, info, p5, verbose)
     !
@@ -1044,7 +1055,7 @@ CONTAINS
     TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
     TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
     INTEGER,              INTENT(in), OPTIONAL :: ldims(4)            ! local dimensions
-    LOGICAL,              INTENT(in), OPTIONAL :: lpost               ! output flag
+    LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
     INTEGER,              INTENT(in), OPTIONAL :: initval_i           ! value if var not available
@@ -1081,7 +1092,7 @@ CONTAINS
     CALL assign_if_present(resetval%ival, resetval_i)
     CALL set_var_metadata (new_list_element%field%info,                   &
          name=name, hgrid=hgrid, vgrid=vgrid,                             & 
-         cf=cf, grib2=grib2, ldims=ldims, lpost=lpost,                    &
+         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
          verbose=verbose)
@@ -1094,12 +1105,13 @@ CONTAINS
       idims(4) = new_list_element%field%info%used_dimensions(4)
       idims(5) = 1
       new_list_element%field%info%ndims = 4
+      new_list_element%field%info%cdiDataTYpe = DATATYPE_INT32
       new_list_element%field%var_base_size = 4
-      ALLOCATE (new_list_element%field%i_ptr( &
-               &idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
+      ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
+           &    STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_i4d','allocation of array ' &
-                   &//TRIM(name)//' failed')
+        CALL finish('mo_var_list:add_var_list_element_i4d', &
+             &      'allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
       ENDIF
@@ -1131,7 +1143,7 @@ CONTAINS
   ! optionally overwrite default meta data 
   !
   SUBROUTINE add_var_list_element_i3d(this_list, name, ptr,    &
-       hgrid, vgrid, cf, grib2, ldims, lpost,           &
+       hgrid, vgrid, cf, grib2, ldims, loutput,         &
        lrestart, lrestart_cont, initval_i, laccu, resetval_i,  &
        lmiss, missval_i, info, p5, verbose)
     !
@@ -1143,7 +1155,7 @@ CONTAINS
     TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
     TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
     INTEGER,              INTENT(in), OPTIONAL :: ldims(3)            ! local dimensions
-    LOGICAL,              INTENT(in), OPTIONAL :: lpost               ! output flag
+    LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
     INTEGER,              INTENT(in), OPTIONAL :: initval_i           ! value if var not available
@@ -1180,7 +1192,7 @@ CONTAINS
     CALL assign_if_present(resetval%ival, resetval_i)
     CALL set_var_metadata (new_list_element%field%info,                   &
          name=name, hgrid=hgrid, vgrid=vgrid,                             & 
-         cf=cf, grib2=grib2, ldims=ldims, lpost=lpost,                    &
+         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
          verbose=verbose)
@@ -1193,12 +1205,13 @@ CONTAINS
       idims(4) = 1
       idims(5) = 1
       new_list_element%field%info%ndims = 3
+      new_list_element%field%info%cdiDataTYpe = DATATYPE_INT32
       new_list_element%field%var_base_size = 4
-      ALLOCATE (new_list_element%field%i_ptr( &
-               & idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
+      ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
+           &    STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r3d','allocation of array ' &
-                   &//TRIM(name)//' failed')
+        CALL finish('mo_var_list:add_var_list_element_r3d', &
+             &      'allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
       ENDIF
@@ -1230,7 +1243,7 @@ CONTAINS
   ! optionally overwrite default meta data 
   !
   SUBROUTINE add_var_list_element_i2d(this_list, name, ptr,    &
-       hgrid, vgrid, cf, grib2, ldims, lpost,           &
+       hgrid, vgrid, cf, grib2, ldims, loutput,         &
        lrestart, lrestart_cont, initval_i, laccu, resetval_i,  &
        lmiss, missval_i, info, p5, verbose)
     !
@@ -1242,7 +1255,7 @@ CONTAINS
     TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
     TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
     INTEGER,              INTENT(in), OPTIONAL :: ldims(2)            ! local dimensions
-    LOGICAL,              INTENT(in), OPTIONAL :: lpost               ! output flag
+    LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
     INTEGER,              INTENT(in), OPTIONAL :: initval_i           ! value if var not available
@@ -1279,7 +1292,7 @@ CONTAINS
     CALL assign_if_present(resetval%ival, resetval_i)
     CALL set_var_metadata (new_list_element%field%info,                   &
          name=name, hgrid=hgrid, vgrid=vgrid,                             & 
-         cf=cf, grib2=grib2, ldims=ldims, lpost=lpost,                    &
+         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
          verbose=verbose)
@@ -1292,12 +1305,13 @@ CONTAINS
       idims(4) = 1
       idims(5) = 1
       new_list_element%field%info%ndims = 2
+      new_list_element%field%info%cdiDataTYpe = DATATYPE_INT32
       new_list_element%field%var_base_size = 4
-      ALLOCATE (new_list_element%field%i_ptr( &
-               &idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
+      ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
+           &    STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r2d','allocation of array ' &
-                   &//TRIM(name)//' failed')
+        CALL finish('mo_var_list:add_var_list_element_r2d', &
+             &      'allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
       ENDIF
@@ -1329,7 +1343,7 @@ CONTAINS
   ! optionally overwrite default meta data 
   !
   SUBROUTINE add_var_list_element_i1d(this_list, name, ptr,    &
-       hgrid, vgrid, cf, grib2, ldims, lpost,           &
+       hgrid, vgrid, cf, grib2, ldims, loutput,         &
        lrestart, lrestart_cont, initval_i, laccu, resetval_i,  &
        lmiss, missval_i, info, p5, verbose)
     !
@@ -1341,7 +1355,7 @@ CONTAINS
     TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
     TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
     INTEGER,              INTENT(in), OPTIONAL :: ldims(1)            ! local dimensions
-    LOGICAL,              INTENT(in), OPTIONAL :: lpost               ! output flag
+    LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
     INTEGER,              INTENT(in), OPTIONAL :: initval_i           ! value if var not available
@@ -1378,7 +1392,7 @@ CONTAINS
     CALL assign_if_present(resetval%ival, resetval_i)
     CALL set_var_metadata (new_list_element%field%info,                   &
          name=name, hgrid=hgrid, vgrid=vgrid,                             & 
-         cf=cf, grib2=grib2, ldims=ldims, lpost=lpost,                    &
+         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
          verbose=verbose)
@@ -1391,12 +1405,13 @@ CONTAINS
       idims(4) = 1
       idims(5) = 1
       new_list_element%field%info%ndims = 1
+      new_list_element%field%info%cdiDataTYpe = DATATYPE_INT32
       new_list_element%field%var_base_size = 4
-      ALLOCATE (new_list_element%field%i_ptr( &
-               &idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
+      ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
+           &    STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r1d','allocation of array ' &
-                   &//TRIM(name)//' failed')
+        CALL finish('mo_var_list:add_var_list_element_r1d', &
+             &      'allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
       ENDIF
@@ -1430,7 +1445,7 @@ CONTAINS
   ! optionally overwrite default meta data 
   !
   SUBROUTINE add_var_list_element_l5d(this_list, name, ptr,    &
-       hgrid, vgrid, cf, grib2, ldims, lpost,           &
+       hgrid, vgrid, cf, grib2, ldims, loutput,         &
        lrestart, lrestart_cont, initval_l, laccu, resetval_l,  &
        lmiss, missval_l, info, p5, verbose)
     !
@@ -1442,7 +1457,7 @@ CONTAINS
     TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
     TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
     INTEGER,              INTENT(in), OPTIONAL :: ldims(5)            ! local dimensions
-    LOGICAL,              INTENT(in), OPTIONAL :: lpost               ! output flag
+    LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
     LOGICAL,              INTENT(in), OPTIONAL :: initval_l           ! value if var not available
@@ -1479,7 +1494,7 @@ CONTAINS
     CALL assign_if_present(resetval%lval, resetval_l)
     CALL set_var_metadata (new_list_element%field%info,                   &
          name=name, hgrid=hgrid, vgrid=vgrid,                             & 
-         cf=cf, grib2=grib2, ldims=ldims, lpost=lpost,                    &
+         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
          verbose=verbose)
@@ -1492,12 +1507,13 @@ CONTAINS
       idims(4) = new_list_element%field%info%used_dimensions(4)
       idims(5) = new_list_element%field%info%used_dimensions(5)
       new_list_element%field%info%ndims = 5
+      new_list_element%field%info%cdiDataTYpe = DATATYPE_INT8      
       new_list_element%field%var_base_size = 4
-      ALLOCATE (new_list_element%field%l_ptr( &
-               &idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
+      ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
+           &    STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r4d','allocation of array '&
-                   &//TRIM(name)//' failed')
+        CALL finish('mo_var_list:add_var_list_element_r4d', &
+             &      'allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
       ENDIF
@@ -1529,7 +1545,7 @@ CONTAINS
   ! optionally overwrite default meta data 
   !
   SUBROUTINE add_var_list_element_l4d(this_list, name, ptr,    &
-       hgrid, vgrid, cf, grib2, ldims, lpost,           &
+       hgrid, vgrid, cf, grib2, ldims, loutput,         &
        lrestart, lrestart_cont, initval_l, laccu, resetval_l,  &
        lmiss, missval_l, info, p5, verbose)
     !
@@ -1541,7 +1557,7 @@ CONTAINS
     TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
     TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
     INTEGER,              INTENT(in), OPTIONAL :: ldims(4)            ! local dimensions
-    LOGICAL,              INTENT(in), OPTIONAL :: lpost               ! output flag
+    LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
     LOGICAL,              INTENT(in), OPTIONAL :: initval_l           ! value if var not available
@@ -1578,7 +1594,7 @@ CONTAINS
     CALL assign_if_present(resetval%lval, resetval_l)
     CALL set_var_metadata (new_list_element%field%info,                   &
          name=name, hgrid=hgrid, vgrid=vgrid,                             & 
-         cf=cf, grib2=grib2, ldims=ldims, lpost=lpost,                    &
+         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
          verbose=verbose)
@@ -1591,12 +1607,13 @@ CONTAINS
       idims(4) = new_list_element%field%info%used_dimensions(4)
       idims(5) = 1
       new_list_element%field%info%ndims = 4
+      new_list_element%field%info%cdiDataTYpe = DATATYPE_INT8      
       new_list_element%field%var_base_size = 4
-      ALLOCATE (new_list_element%field%l_ptr( &
-               &idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
+      ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
+           &    STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r4d','allocation of array ' &
-                   &//TRIM(name)//' failed')
+        CALL finish('mo_var_list:add_var_list_element_r4d', &
+             &      'allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
       ENDIF
@@ -1628,7 +1645,7 @@ CONTAINS
   ! optionally overwrite default meta data 
   !
   SUBROUTINE add_var_list_element_l3d(this_list, name, ptr,    &
-       hgrid, vgrid, cf, grib2, ldims, lpost,           &
+       hgrid, vgrid, cf, grib2, ldims, loutput,         &
        lrestart, lrestart_cont, initval_l, laccu, resetval_l,  &
        lmiss, missval_l, info, p5, verbose)
     !
@@ -1640,7 +1657,7 @@ CONTAINS
     TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
     TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
     INTEGER,              INTENT(in), OPTIONAL :: ldims(3)            ! local dimensions
-    LOGICAL,              INTENT(in), OPTIONAL :: lpost               ! output flag
+    LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
     LOGICAL,              INTENT(in), OPTIONAL :: initval_l           ! value if var not available
@@ -1677,7 +1694,7 @@ CONTAINS
     CALL assign_if_present(resetval%lval, resetval_l)
     CALL set_var_metadata (new_list_element%field%info,                   &
          name=name, hgrid=hgrid, vgrid=vgrid,                             & 
-         cf=cf, grib2=grib2, ldims=ldims, lpost=lpost,                    &
+         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
          verbose=verbose)
@@ -1690,12 +1707,13 @@ CONTAINS
       idims(4) = 1
       idims(5) = 1
       new_list_element%field%info%ndims = 3
+      new_list_element%field%info%cdiDataTYpe = DATATYPE_INT8      
       new_list_element%field%var_base_size = 4
-      ALLOCATE (new_list_element%field%l_ptr( &
-               &idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
+      ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
+           &    STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r3d','allocation of array ' &
-                   &//TRIM(name)//' failed')
+        CALL finish('mo_var_list:add_var_list_element_r3d', &
+             &      'allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
       ENDIF
@@ -1727,7 +1745,7 @@ CONTAINS
   ! optionally overwrite default meta data 
   !
   SUBROUTINE add_var_list_element_l2d(this_list, name, ptr, &
-       hgrid, vgrid, cf, grib2, ldims, lpost,       &
+       hgrid, vgrid, cf, grib2, ldims, loutput,     &
        lrestart, lrestart_cont, initval_l, laccu, resetval_l,  &
        lmiss, missval_l, info, p5, verbose)
     !
@@ -1739,7 +1757,7 @@ CONTAINS
     TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
     TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
     INTEGER,              INTENT(in), OPTIONAL :: ldims(2)            ! local dimensions
-    LOGICAL,              INTENT(in), OPTIONAL :: lpost               ! output flag
+    LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
     LOGICAL,              INTENT(in), OPTIONAL :: initval_l           ! value if var not available
@@ -1776,7 +1794,7 @@ CONTAINS
     CALL assign_if_present(resetval%lval, resetval_l)
     CALL set_var_metadata (new_list_element%field%info,                   &
          name=name, hgrid=hgrid, vgrid=vgrid,                             & 
-         cf=cf, grib2=grib2, ldims=ldims, lpost=lpost,                    &
+         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
          verbose=verbose)
@@ -1789,12 +1807,13 @@ CONTAINS
       idims(4) = 1
       idims(5) = 1
       new_list_element%field%info%ndims = 2
+      new_list_element%field%info%cdiDataTYpe = DATATYPE_INT8      
       new_list_element%field%var_base_size = 4
-      ALLOCATE (new_list_element%field%l_ptr( &
-               &idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
+      ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
+           &    STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r2d','allocation of array '&
-                   &//TRIM(name)//' failed')
+        CALL finish('mo_var_list:add_var_list_element_r2d', &
+             &      'allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
       ENDIF
@@ -1826,7 +1845,7 @@ CONTAINS
   ! optionally overwrite default meta data 
   !
   SUBROUTINE add_var_list_element_l1d(this_list, name, ptr,    &
-       hgrid, vgrid, cf, grib2, ldims, lpost,           &
+       hgrid, vgrid, cf, grib2, ldims, loutput,         &
        lrestart, lrestart_cont, initval_l, laccu, resetval_l,  &
        lmiss, missval_l, info, p5, verbose)
     !
@@ -1838,7 +1857,7 @@ CONTAINS
     TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
     TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
     INTEGER,              INTENT(in), OPTIONAL :: ldims(1)            ! local dimensions
-    LOGICAL,              INTENT(in), OPTIONAL :: lpost               ! output flag
+    LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
     LOGICAL,              INTENT(in), OPTIONAL :: initval_l           ! value if var not available
@@ -1875,7 +1894,7 @@ CONTAINS
     CALL assign_if_present(resetval%lval, resetval_l)
     CALL set_var_metadata (new_list_element%field%info,                   &
          name=name, hgrid=hgrid, vgrid=vgrid,                             & 
-         cf=cf, grib2=grib2, ldims=ldims, lpost=lpost,                    &
+         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
          verbose=verbose)
@@ -1888,12 +1907,13 @@ CONTAINS
       idims(4) = 1
       idims(5) = 1
       new_list_element%field%info%ndims = 1
+      new_list_element%field%info%cdiDataTYpe = DATATYPE_INT8      
       new_list_element%field%var_base_size = 4
-      ALLOCATE (new_list_element%field%l_ptr( &
-               &idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
+      ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
+           &    STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r1d','allocation of array ' &
-                   &//TRIM(name)//' failed')
+        CALL finish('mo_var_list:add_var_list_element_r1d', &
+             &      'allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
       ENDIF
@@ -2177,7 +2197,7 @@ CONTAINS
   ! optionally overwrite some default meta data 
   !
   SUBROUTINE add_var_list_reference_r3d (this_list, target_name, name, ptr,                      &
-       &                                 hgrid, vgrid, cf, grib2, ldims, lpost,                  &
+       &                                 hgrid, vgrid, cf, grib2, ldims, loutput,                &
        &                                 lrestart, lrestart_cont, initval_r, laccu, resetval_r,  &
        &                                 lmiss, missval_r, info, verbose)
     !
@@ -2190,7 +2210,7 @@ CONTAINS
     TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
     TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
     INTEGER,              INTENT(in), OPTIONAL :: ldims(3)            ! local dimensions, for checking
-    LOGICAL,              INTENT(in), OPTIONAL :: lpost               ! output flag
+    LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
     REAL(wp),             INTENT(in), OPTIONAL :: initval_r           ! value if var not available
@@ -2255,7 +2275,7 @@ CONTAINS
     !
     CALL set_var_metadata (new_list_element%field%info,                   &
          name=name, hgrid=hgrid, vgrid=vgrid,                             & 
-         cf=cf, grib2=grib2, ldims=ldims, lpost=lpost,                    &
+         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
          verbose=verbose)
@@ -2295,7 +2315,7 @@ CONTAINS
   ! optionally overwrite some default meta data 
   !
   SUBROUTINE add_var_list_reference_r2d (this_list, target_name, name, ptr,                      &
-       &                                 hgrid, vgrid, cf, grib2, ldims, lpost,                  &
+       &                                 hgrid, vgrid, cf, grib2, ldims, loutput,                &
        &                                 lrestart, lrestart_cont, initval_r, laccu, resetval_r,  &
        &                                 lmiss, missval_r, info, verbose)
 
@@ -2308,7 +2328,7 @@ CONTAINS
     TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
     TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
     INTEGER,              INTENT(in), OPTIONAL :: ldims(2)            ! local dimensions, for checking
-    LOGICAL,              INTENT(in), OPTIONAL :: lpost               ! output flag
+    LOGICAL,              INTENT(in), OPTIONAL :: loutput             ! output flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
     REAL(wp),             INTENT(in), OPTIONAL :: initval_r           ! value if var not available
@@ -2372,7 +2392,7 @@ CONTAINS
     !
     CALL set_var_metadata (new_list_element%field%info,                   &
          name=name, hgrid=hgrid, vgrid=vgrid,                             & 
-         cf=cf, grib2=grib2, ldims=ldims, lpost=lpost,                    &
+         cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
          verbose=verbose)
@@ -2410,11 +2430,11 @@ CONTAINS
   !
   ! add supplementary fields to a different var list (eg. geopotential, surface pressure, ...)
   !
-  SUBROUTINE add_var_list_reference (to_var_list, name, from_var_list, lpost, bit_precision)
+  SUBROUTINE add_var_list_reference (to_var_list, name, from_var_list, loutput, bit_precision)
     TYPE(t_var_list), INTENT(inout)          :: to_var_list
     CHARACTER(len=*), INTENT(in)             :: name
     CHARACTER(len=*), INTENT(in)             :: from_var_list
-    LOGICAL,          INTENT(in),   OPTIONAL :: lpost
+    LOGICAL,          INTENT(in),   OPTIONAL :: loutput
     INTEGER,          INTENT(in),   OPTIONAL :: bit_precision
     !
     TYPE(t_var_list_element), POINTER :: source
@@ -2426,7 +2446,7 @@ CONTAINS
       new_list_element%field                = source
       new_list_element%field%info%allocated = .FALSE.
       new_list_element%field%info%lrestart  = .FALSE.
-      CALL assign_if_present(new_list_element%field%info%lpost, lpost)
+      CALL assign_if_present(new_list_element%field%info%loutput, loutput)
       CALL assign_if_present(new_list_element%field%info%grib2%bits, bit_precision)
     ENDIF
     !

@@ -78,80 +78,46 @@
 !!
 MODULE mo_io_grid
 
-  !-------------------------------------------------------------------------
-  !
-  !    ProTeX FORTRAN source: Style 2
-  !    modified for ICON project, DWD/MPI-M 2004-5
-  !
-  !-------------------------------------------------------------------------
-  !
-  !
-  !
-
   USE mo_kind,               ONLY: wp
   USE mo_io_units,           ONLY: filename_max
   USE mo_exception,          ONLY: message_text, message, finish
-!  USE mo_math_constants,     ONLY: pi
   USE mo_physical_constants, ONLY: re
   USE mo_grid,               ONLY: t_grid, construct_grid
   USE mo_grid_levels,        ONLY: itype_optimize, l_c_grid
   USE mo_base_geometry,      ONLY: x_rot_angle, y_rot_angle, z_rot_angle
   USE mo_impl_constants,     ONLY: min_rlcell, max_rlcell, &
-    & min_rlvert, max_rlvert, &
-    & min_rledge, max_rledge
-
+       &                           min_rlvert, max_rlvert, &
+       &                           min_rledge, max_rledge
+  
   IMPLICIT NONE
-
-  PUBLIC nf
-
+  
   PRIVATE
-
+  
   INCLUDE 'netcdf.inc'
+  
+  CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-
-  PUBLIC :: input_grid, write_grid,write_edges_grid
-
-
-  !  INTEGER, PARAMETER :: unit1=91, unit2=92
-  !
-  !  INTEGER, PARAMETER, PUBLIC :: binary = 0
-  !  INTEGER, PARAMETER, PUBLIC :: netcdf3 = 1
-
+  PUBLIC :: input_grid, write_grid, write_edges_grid
 
   !--------------------------------------------------------------------
-  !BOC
-
+  
 CONTAINS
 
-
-  !EOC
-  !-------------------------------------------------------------------------
-  !
   !>
-  !!               Reads files with cross reference tables and coordinates of.
-  !!
-  !!               Reads files with cross reference tables and coordinates of
-  !! grid items required by the model. For all grids, the file
-  !! <b>GRIDMAP.*</b> is read, where * denotes the grid level.
-  !! The files are sequential access, unformatted output files in the directory
-  !! <b>input</b>.
+  !! Reads files with cross reference tables and coordinates of
+  !! grid items required by the model.
   !!
   !! @par Revision History
-  !!   Developed and tested  by L.Bonaventura  and T. Heinze (2004-5).
+  !!   Developed and tested by L.Bonaventura  and T. Heinze (2004-05).
+  !!   netCDF version by L. Kornblueh (2008-04)
   !!
   SUBROUTINE input_grid(gg, input)
     !
-    TYPE(t_grid),                  INTENT(inout) :: gg
-    CHARACTER(LEN=filename_max), INTENT(in)    :: input
+    TYPE(t_grid),                INTENT(inout) :: gg
+    CHARACTER(len=filename_max), INTENT(in)    :: input
 
-    INTEGER:: i_nc, i_ne, i_nv
-
+    INTEGER :: i_nc, i_ne, i_nv
     INTEGER :: ncid, dimid, varid
-
-    !-------------------------------------------------------------------------
-    !BOC
-
 
     WRITE(message_text,'(a,a)') 'Read gridmap file ', TRIM(input)
     CALL message ('', TRIM(message_text))
@@ -251,48 +217,25 @@ CONTAINS
 
     CALL nf(nf_close(ncid))
 
-    !     DO i_nc=1,gg%nedges
-    !        WRITE(*,*) gg%edges%parent_index(i_nc)
-    !     ENDDO
-    ! these are not filled in the file
-
   END SUBROUTINE input_grid
 
-
-  SUBROUTINE nf(STATUS)
-    INTEGER, INTENT(in) :: STATUS
-
-    IF (STATUS /= nf_noerr) THEN
-      CALL finish('mo_io_grid netCDF error', nf_strerror(STATUS))
-    ENDIF
-
-  END SUBROUTINE nf
   !-------------------------------------------------------------------------
 
 
-  !-------------------------------------------------------------------------
-  ! !IROUTINE: output_grid
-  !
-  ! !SUBROUTINE INTERFACE:
+  !>
+  !! Creates files  with  cross reference tables and coordinates
+  !! of grid items to be read by the model.
+  !!
+  !! @par Revision History
+  !!   Developed and tested by L.Bonaventura  and T. Heinze (2004-05).
+  !!   netCDF version by L. Kornblueh (2008-04)
+  !!   changes for ocean by L. Linardakis, MPI-M (2010-02).
+  !!
   SUBROUTINE write_grid(gg, outfile)
-    !
-    ! !DESCRIPTION:
-    ! Creates files  with  cross reference tables and coordinates
-    ! of grid items to be read by the model. In most cases for all grid levels,
-    ! the file {\bf GRIDMAP.*} is produced, where * denotes the grid level.
-    ! The exception is Heikes-Randall + C grid optimization in the last step. Here
-    ! only the {\bf GRIDMAP} file of the last level is created. The background
-    ! is in this case the {\bf GRIDMAP} files of all the coarser levels would
-    ! produce just Heikes-Randall optimized grid without the C grid optimization.
-    ! Only in this case gridgen has to be run for all grid levels.\\
-    ! The files are produced as sequential access, unformatted output.
-    !
-    ! !REVISION HISTORY:
-    ! Leonidas Lianrdakis, MPI-M (2004-5).
-    !
-    TYPE(t_grid), INTENT(in) :: gg
-    CHARACTER(LEN=filename_max), INTENT(in) :: outfile
 
+    TYPE(t_grid),                INTENT(in) :: gg
+    CHARACTER(LEN=filename_max), INTENT(in) :: outfile
+    
     INTEGER :: i_nc, i_ne, i_nv   ! number of cells, edges and vertices
 
     INTEGER :: old_mode
@@ -300,10 +243,10 @@ CONTAINS
     INTEGER :: ncid
     INTEGER :: dimids(2)
 
-    INTEGER :: dim_ncell, dim_nvertex, dim_nedge, dim_two, dim_cell_refine, &
-      & dim_edge_refine, dim_vert_refine, dim_nvertex_per_cell,      &
-      & dim_ncells_per_edge, dim_nedges_per_vertex, dim_nchilds_per_cell, &
-      & dim_list, dim_nchdom
+    INTEGER :: dim_ncell, dim_nvertex, dim_nedge, dim_two, dim_cell_refine,      &
+         &     dim_edge_refine, dim_vert_refine, dim_nvertex_per_cell,           &
+         &     dim_ncells_per_edge, dim_nedges_per_vertex, dim_nchilds_per_cell, &
+         &     dim_list, dim_nchdom
 
     INTEGER :: varid_clon, varid_clat, varid_clonv, varid_clatv
     INTEGER :: varid_vlon, varid_vlat, varid_vlonv, varid_vlatv
@@ -312,61 +255,42 @@ CONTAINS
     INTEGER :: varid_carea, varid_varea
 
     INTEGER :: varid1, varid2, varid3, varid4, varid5, varid6, varid7, varid8, &
-      & varid9, varid10, varid11, varid12, varid13, varid14, varid15,   &
-      & varid16, varid17, varid18, varid19, varid20, varid21, varid22,  &
-      & varid23, varid24, varid25, varid26, varid27, varid28, varid29,  &
-      & varid30, varid31, varid32, varid33, varid34, varid35, varid36,  &
-      & varid37, varid38, varid39, varid40, varid41, varid42, varid43,  &
-      & varid44, varid45, varid46, varid47, varid48, varid251,           &
-      & varid282, varid403, varid49, varid50
+         &     varid9, varid10, varid11, varid12, varid13, varid14, varid15,   &
+         &     varid16, varid17, varid18, varid19, varid20, varid21, varid22,  &
+         &     varid23, varid24, varid25, varid26, varid27, varid28, varid29,  &
+         &     varid30, varid31, varid32, varid33, varid34, varid35, varid36,  &
+         &     varid37, varid38, varid39, varid40, varid41, varid42, varid43,  &
+         &     varid44, varid45, varid46, varid47, varid48, varid251,          &
+         &     varid282, varid403, varid49, varid50
 
     INTEGER :: varid_cell_elevation, varid_cell_sea_land_mask
-
+    
     REAL(wp), POINTER :: double_pnt_1d(:)
     INTEGER,  POINTER :: int_pnt_1d(:)
-    !  INTEGER :: i, j
-
-#ifdef __SX__
-    INTEGER :: iargc
-    CHARACTER(LEN= 32) :: arg_str
-#endif
-
-    !  REAL(wp), ALLOCATABLE :: zv2d(:,:), zv2dx(:,:), zv2dy(:,:)
 
     REAL(wp) :: rotation_vector(3)
 
-    !  REAL(wp) :: swap(4)
-
     INTEGER :: ilevel, grid_root
     INTEGER :: str_idx, end_idx, i
-
-    !EOP
-    !-------------------------------------------------------------------------
-
-    ! distinguish between gridgeneration for optimization strategies
-
-    ! Dummy settings for special grids
-
 
     grid_root = 0
     ilevel    = 1
     WRITE(message_text,'(a,a)') 'Write gridmap file: ', TRIM(outfile)
     CALL message ('', TRIM(message_text))
-
-
+    
+    
     i_nc = gg%ncells
     i_ne = gg%nedges
     i_nv = gg%nverts
-
+    
     rotation_vector = (/ x_rot_angle, y_rot_angle, z_rot_angle /)
-
+    
     !----------------------------------------------------------------------
     !
     CALL nf(nf_set_default_format(nf_format_64bit, old_mode))
-
+    
     CALL nf(nf_create(TRIM(outfile), nf_clobber, ncid))
     CALL nf(nf_set_fill(ncid, nf_nofill, old_mode))
-
     !
     !----------------------------------------------------------------------
     !
@@ -374,7 +298,7 @@ CONTAINS
     !
     CALL nf(nf_put_att_text    (ncid, nf_global, 'title', 21, 'ICON grid description'))
     CALL nf(nf_put_att_text    (ncid, nf_global, 'institution', 59, &
-      & 'Max Planck Institute for Meteorology/Deutscher Wetterdienst'))
+         &   'Max Planck Institute for Meteorology/Deutscher Wetterdienst'))
     CALL nf(nf_put_att_text    (ncid, nf_global, 'source', 10, 'icon-dev'))
     CALL nf(nf_put_att_text    (ncid, nf_global, 'grid_mapping_name' , 18, 'lat_long_on_sphere'))
     CALL nf(nf_put_att_text    (ncid, nf_global, 'crs_id' , 28, 'urn:ogc:def:cs:EPSG:6.0:6422'))
@@ -395,22 +319,20 @@ CONTAINS
     CASE (1)
       IF (l_c_grid) THEN
         CALL nf(nf_put_att_text(ncid, nf_global, 'grid_optimization', 50, &
-          & 'Heikes-Randall with additional c-grid optimization'))
+             & 'Heikes-Randall with additional c-grid optimization'))
       ELSE
         CALL nf(nf_put_att_text(ncid, nf_global, 'grid_optimization', 27, &
-          & 'Heikes-Randall optimization'))
+             & 'Heikes-Randall optimization'))
       ENDIF
     CASE (2)
       CALL nf(nf_put_att_text  (ncid, nf_global, 'grid_optimization', 22, &
-        & 'equal area subdivision'))
+           & 'equal area subdivision'))
     CASE (3)
       CALL nf(nf_put_att_text  (ncid, nf_global, 'grid_optimization', 30, &
-        & 'c-grid small circle constraint'))
+           & 'c-grid small circle constraint'))
     END SELECT
     CALL nf(nf_put_att_double  (ncid, nf_global, 'rotation_vector',nf_double,3,rotation_vector))
     !
-    !      write(*,*) "writing Dimensions..."
-    !       call flush(6)
     ! Dimensions
     !
     CALL nf(nf_def_dim(ncid, 'cell',   i_nc, dim_ncell))
@@ -422,10 +344,9 @@ CONTAINS
     CALL nf(nf_def_dim(ncid, 'ne',  gg%verts%max_connectivity, dim_nedges_per_vertex))
     !
     CALL nf(nf_def_dim(ncid, 'no',        4, dim_nchilds_per_cell))
-
+    !
     ! Dimensions for refinement
-    !      write(*,*) "writing Dimensions for refinement..."
-    !       call flush(6)
+    !
     CALL nf(nf_def_dim(ncid, 'two_grf',     2,    dim_two))
     CALL nf(nf_def_dim(ncid, 'max_chdom',   1, dim_nchdom))
     dim_list = max_rlcell-min_rlcell+1
@@ -433,8 +354,7 @@ CONTAINS
     dim_list = max_rledge-min_rledge+1
     CALL nf(nf_def_dim(ncid, 'edge_grf',dim_list, dim_edge_refine))
     dim_list = max_rlvert-min_rlvert+1
-    CALL nf(nf_def_dim(ncid, 'vert_grf',dim_list, dim_vert_refine))
-
+    CALL nf(nf_def_dim(ncid, 'vert_grf',dim_list, dim_vert_refine))    
     !
     !---------------------------------------------------------------------
     !
@@ -446,9 +366,6 @@ CONTAINS
     !
     ! cell part:
     !
-
-    ! write(*,*) "writing public grid information..."
-    !       call flush(6)
     CALL nf(nf_def_var(ncid, 'clon', nf_double, 1, dim_ncell, varid_clon))
     CALL nf(nf_put_att_text(ncid, varid_clon, 'long_name', 16, 'center longitude'))
     CALL nf(nf_put_att_text(ncid, varid_clon, 'units', 6, 'radian'))
@@ -471,8 +388,6 @@ CONTAINS
     !
     ! vertex part:
     !
-    ! write(*,*) "writing public grid information vertex part..."
-    !       call flush(6)
     CALL nf(nf_def_var(ncid, 'vlon', nf_double, 1, dim_nvertex, varid_vlon))
     CALL nf(nf_put_att_text(ncid, varid_vlon, 'long_name', 16, 'vertex longitude'))
     CALL nf(nf_put_att_text(ncid, varid_vlon, 'units', 6, 'radian'))
@@ -495,8 +410,6 @@ CONTAINS
     !
     ! edge part:
     !
-    ! write(*,*) "writing public grid information edge part..."
-    !       call flush(6)
     CALL nf(nf_def_var(ncid, 'elon', nf_double, 1, dim_nedge, varid_elon))
     CALL nf(nf_put_att_text(ncid, varid_elon, 'long_name', 23, 'edge midpoint longitude'))
     CALL nf(nf_put_att_text(ncid, varid_elon, 'units', 6, 'radian'))
@@ -521,8 +434,6 @@ CONTAINS
     !
     ! test variables (areas)
     !
-    ! write(*,*) "writing public grid information areas part..."
-    !       call flush(6)
     CALL nf(nf_def_var(ncid, 'cell_area', nf_double, 1, dim_ncell, varid_carea))
     CALL nf(nf_put_att_text(ncid, varid_carea, 'long_name', 17, 'area of grid cell'))
     CALL nf(nf_put_att_text(ncid, varid_carea, 'units', 2, 'm2'))
@@ -531,7 +442,7 @@ CONTAINS
     !
     CALL nf(nf_def_var(ncid, 'dual_area', nf_double, 1, dim_nvertex, varid_varea))
     CALL nf(nf_put_att_text(ncid, varid_varea, 'long_name', 40, &
-      & 'areas of dual hexagonal/pentagonal cells'))
+         & 'areas of dual hexagonal/pentagonal cells'))
     CALL nf(nf_put_att_text(ncid, varid_varea, 'units', 2, 'm2'))
     CALL nf(nf_put_att_text(ncid, varid_varea, 'standard_name', 4, 'area'))
     CALL nf(nf_put_att_text(ncid, varid_varea, 'coordinates', 9, 'vlon vlat'))
@@ -540,8 +451,6 @@ CONTAINS
     !
     ! private grid information
     !
-    ! write(*,*) "writing private grid information ..."
-    !       call flush(6)
     CALL nf(nf_def_var(ncid, 'lon_cell_centre', nf_double, 1, dim_ncell, varid1))
     CALL nf(nf_put_att_text(ncid, varid1, 'long_name', 24, 'longitude of cell centre'))
     CALL nf(nf_put_att_text(ncid, varid1, 'units', 6, 'radian'))
@@ -590,7 +499,7 @@ CONTAINS
     dimids = (/ dim_nedge, dim_ncells_per_edge /)
     CALL nf(nf_def_var(ncid, 'edge_vertices', nf_int, 2, dimids, varid10))
     CALL nf(nf_put_att_text(ncid, varid10, 'long_name', 35, &
-      & 'vertices at the end of of each edge'))
+         & 'vertices at the end of of each edge'))
     CALL nf(nf_put_att_text(ncid, varid10, 'cdi', 6, 'ignore'))
     !
     dimids = (/ dim_nvertex, dim_nedges_per_vertex /)
@@ -615,76 +524,76 @@ CONTAINS
     !
     CALL nf(nf_def_var(ncid, 'cell_elevation', nf_double, 1, dim_ncell, varid_cell_elevation))
     CALL nf(nf_put_att_text(ncid, varid_cell_elevation, 'long_name', 29, &
-      & 'elevation at the cell centers'))
+         & 'elevation at the cell centers'))
     CALL nf(nf_put_att_text(ncid, varid_cell_elevation, 'units', 1, 'm'))
     CALL nf(nf_put_att_text(ncid, varid_cell_elevation, 'cdi', 6, 'ignore'))
     !
     CALL nf(nf_def_var(ncid, 'cell_sea_land_mask', nf_int,1,dim_ncell,varid_cell_sea_land_mask))
     CALL nf(nf_put_att_text(ncid, varid_cell_sea_land_mask, 'long_name', 36, &
-      & 'sea (-1) land (1) mask for the cells'))
+         & 'sea (-1) land (1) mask for the cells'))
     CALL nf(nf_put_att_text(ncid, varid_cell_sea_land_mask, 'units', 4, '1,-1'))
     CALL nf(nf_put_att_text(ncid, varid_cell_sea_land_mask, 'cdi', 6, 'ignore'))
     !
     CALL nf(nf_def_var(ncid, 'dual_area_p', nf_double, 1, dim_nvertex, varid15))
     CALL nf(nf_put_att_text(ncid, varid15, 'long_name', 40, &
-      & 'areas of dual hexagonal/pentagonal cells'))
+         & 'areas of dual hexagonal/pentagonal cells'))
     CALL nf(nf_put_att_text(ncid, varid15, 'units', 2, 'm2'))
     CALL nf(nf_put_att_text(ncid, varid15, 'cdi', 6, 'ignore'))
     !
     CALL nf(nf_def_var(ncid, 'edge_length', nf_double, 1, dim_nedge, varid16))
     CALL nf(nf_put_att_text(ncid, varid16, 'long_name', 36, &
-      & 'lengths of edges of triangular cells'))
+         & 'lengths of edges of triangular cells'))
     CALL nf(nf_put_att_text(ncid, varid16, 'units', 1, 'm'))
     CALL nf(nf_put_att_text(ncid, varid16, 'cdi', 6, 'ignore'))
     !
     dimids = (/ dim_nedge, dim_ncells_per_edge /)
     CALL nf(nf_def_var(ncid, 'edge_cell_distance', nf_double, 2, dimids, varid40))
     CALL nf(nf_put_att_text(ncid, varid40, 'long_name', 63, &
-      & 'distances between edge midpoint and adjacent triangle midpoints'))
+         & 'distances between edge midpoint and adjacent triangle midpoints'))
     CALL nf(nf_put_att_text(ncid, varid40, 'units', 1, 'm'))
     CALL nf(nf_put_att_text(ncid, varid40, 'cdi', 6, 'ignore'))
     !
     CALL nf(nf_def_var(ncid, 'dual_edge_length', nf_double, 1, dim_nedge, varid17))
     CALL nf(nf_put_att_text(ncid, varid17, 'long_name', 71, &
-      & 'lengths of dual edges (distances between triangular cell circumcenters)'))
+         & 'lengths of dual edges (distances between triangular cell circumcenters)'))
     CALL nf(nf_put_att_text(ncid, varid17, 'units', 1, 'm'))
     CALL nf(nf_put_att_text(ncid, varid17, 'cdi', 6, 'ignore'))
     !
     dimids = (/ dim_nedge, dim_ncells_per_edge /)
     CALL nf(nf_def_var(ncid, 'edge_vert_distance', nf_double, 2, dimids, varid18))
     CALL nf(nf_put_att_text(ncid, varid18, 'long_name', 57, &
-      & 'distances between edge midpoint and vertices of that edge'))
+         & 'distances between edge midpoint and vertices of that edge'))
     CALL nf(nf_put_att_text(ncid, varid18, 'units', 1, 'm'))
     CALL nf(nf_put_att_text(ncid, varid18, 'cdi', 6, 'ignore'))
     !
     CALL nf(nf_def_var(ncid, 'zonal_normal_primal_edge', nf_double, 1, dim_nedge, varid19))
     CALL nf(nf_put_att_text(ncid, varid19, 'long_name', 40, &
-      & 'zonal component of normal to primal edge'))
+         & 'zonal component of normal to primal edge'))
     CALL nf(nf_put_att_text(ncid, varid19, 'units', 6, 'radian'))
     CALL nf(nf_put_att_text(ncid, varid19, 'cdi', 6, 'ignore'))
     !
     CALL nf(nf_def_var(ncid, 'meridional_normal_primal_edge', nf_double, 1, dim_nedge, varid20))
     CALL nf(nf_put_att_text(ncid, varid20, 'long_name', 45, &
-      & 'meridional component of normal to primal edge'))
+         & 'meridional component of normal to primal edge'))
     CALL nf(nf_put_att_text(ncid, varid20, 'units', 6, 'radian'))
     CALL nf(nf_put_att_text(ncid, varid20, 'cdi', 6, 'ignore'))
     !
     CALL nf(nf_def_var(ncid, 'zonal_normal_dual_edge', nf_double, 1, dim_nedge, varid21))
     CALL nf(nf_put_att_text(ncid, varid21, 'long_name', 38, &
-      & 'zonal component of normal to dual edge'))
+         & 'zonal component of normal to dual edge'))
     CALL nf(nf_put_att_text(ncid, varid21, 'units', 6, 'radian'))
     CALL nf(nf_put_att_text(ncid, varid21, 'cdi', 6, 'ignore'))
     !
     CALL nf(nf_def_var(ncid, 'meridional_normal_dual_edge', nf_double, 1, dim_nedge, varid22))
     CALL nf(nf_put_att_text(ncid, varid22, 'long_name', 43, &
-      & 'meridional component of normal to dual edge'))
+         & 'meridional component of normal to dual edge'))
     CALL nf(nf_put_att_text(ncid, varid22, 'units', 6, 'radian'))
     CALL nf(nf_put_att_text(ncid, varid22, 'cdi', 6, 'ignore'))
     !
     dimids = (/ dim_ncell, dim_nvertex_per_cell /)
     CALL nf(nf_def_var(ncid, 'orientation_of_normal', nf_int, 2, dimids, varid23))
     CALL nf(nf_put_att_text(ncid, varid23, 'long_name', 48, &
-      & 'orientations of normals to triangular cell edges'))
+         & 'orientations of normals to triangular cell edges'))
     CALL nf(nf_put_att_text(ncid, varid23, 'cdi', 6, 'ignore'))
     !
     CALL nf(nf_def_var(ncid, 'cell_index', nf_int, 1, dim_ncell, varid24))
@@ -717,10 +626,6 @@ CONTAINS
     CALL nf(nf_put_att_text(ncid, varid28, 'long_name', 10, 'edge index'))
     CALL nf(nf_put_att_text(ncid, varid28, 'cdi', 6, 'ignore'))
     !
-    !       CALL nf(nf_def_var(ncid, 'edge_parent', NF_INT, 1, dim_nedge, varid281))
-    !       CALL nf(nf_put_att_text(ncid, varid281, 'long_name', 10, 'edge parent'))
-    !       CALL nf(nf_put_att_text(ncid, varid281, 'cdi', 6, 'ignore'))
-    !
     CALL nf(nf_def_var(ncid, 'edge_parent_type', nf_int, 1, dim_nedge, varid282))
     CALL nf(nf_put_att_text(ncid, varid282, 'long_name', 10, 'edge parent type'))
     CALL nf(nf_put_att_text(ncid, varid282, 'cdi', 6, 'ignore'))
@@ -740,110 +645,79 @@ CONTAINS
     !
     ! Variables added for mesh refinement
     !
-    ! write(*,*) "writing variables added for mesh refinement ..."
-    !       write(*,*) "dim_list=",dim_list
-    !       call flush(6)
     CALL nf(nf_def_var(ncid, 'refin_c_ctrl', nf_int, 1, dim_ncell, varid32))
     CALL nf(nf_put_att_text(ncid, varid32, 'long_name', 33,'refinement control flag for cells'))
     CALL nf(nf_put_att_text(ncid, varid32, 'cdi', 6, 'ignore'))
     !
-    !       write(*,*) "writing def index_c_list ..."
-    !       call flush(6)
     dimids = (/ dim_cell_refine, dim_two /)
     CALL nf(nf_def_var(ncid, 'index_c_list', nf_int, 2, dimids, varid33))
     CALL nf(nf_put_att_text(ncid, varid33, 'long_name', 73, &
-      & 'list of start and end indices for each refinement control level for cells'))
+         & 'list of start and end indices for each refinement control level for cells'))
     CALL nf(nf_put_att_text(ncid, varid33, 'cdi', 6, 'ignore'))
     !
-    !       write(*,*) "writing def start_idx_c..."
-    !       call flush(6)
     dimids = (/ dim_cell_refine, dim_nchdom /)
     CALL nf(nf_def_var(ncid, 'start_idx_c', nf_int, 2, dimids, varid43))
     CALL nf(nf_put_att_text(ncid, varid43, 'long_name', 65, &
-      & 'list of start indices for each refinement control level for cells'))
+         & 'list of start indices for each refinement control level for cells'))
     CALL nf(nf_put_att_text(ncid, varid43, 'cdi', 6, 'ignore'))
     !
-    !       write(*,*) "writing def end_idx_c..."
-    !       call flush(6)
     CALL nf(nf_def_var(ncid, 'end_idx_c', nf_int, 2, dimids, varid44))
     CALL nf(nf_put_att_text(ncid, varid44, 'long_name', 63, &
       & 'list of end indices for each refinement control level for cells'))
     CALL nf(nf_put_att_text(ncid, varid44, 'cdi', 6, 'ignore'))
     !
-    !       write(*,*) "writing def refin_e_ctrl..."
-    !       call flush(6)
     CALL nf(nf_def_var(ncid, 'refin_e_ctrl', nf_int, 1, dim_nedge, varid34))
     CALL nf(nf_put_att_text(ncid, varid34, 'long_name', 33,'refinement control flag for edges'))
     CALL nf(nf_put_att_text(ncid, varid34, 'cdi', 6, 'ignore'))
     !
-    !       write(*,*) "writing def index_e_list..."
-    !       call flush(6)
     dimids = (/ dim_edge_refine, dim_two /)
     CALL nf(nf_def_var(ncid, 'index_e_list', nf_int, 2, dimids, varid35))
     CALL nf(nf_put_att_text(ncid, varid35, 'long_name', 73, &
-      & 'list of start and end indices for each refinement control level for edges'))
+         & 'list of start and end indices for each refinement control level for edges'))
     CALL nf(nf_put_att_text(ncid, varid35, 'cdi', 6, 'ignore'))
     !
-    !       write(*,*) "writing def start_idx_e..."
-    !       call flush(6)
     dimids = (/ dim_edge_refine, dim_nchdom /)
     CALL nf(nf_def_var(ncid, 'start_idx_e', nf_int, 2, dimids, varid45))
     CALL nf(nf_put_att_text(ncid, varid45, 'long_name', 65, &
-      & 'list of start indices for each refinement control level for edges'))
+         & 'list of start indices for each refinement control level for edges'))
     CALL nf(nf_put_att_text(ncid, varid45, 'cdi', 6, 'ignore'))
     !
-    !       write(*,*) "writing def end_idx_e..."
-    !       call flush(6)
     CALL nf(nf_def_var(ncid, 'end_idx_e', nf_int, 2, dimids, varid46))
     CALL nf(nf_put_att_text(ncid, varid46, 'long_name', 63, &
-      & 'list of end indices for each refinement control level for edges'))
+         & 'list of end indices for each refinement control level for edges'))
     CALL nf(nf_put_att_text(ncid, varid46, 'cdi', 6, 'ignore'))
     !
-    !       write(*,*) "writing def refin_v_ctrl..."
-    !       call flush(6)
     CALL nf(nf_def_var(ncid, 'refin_v_ctrl', nf_int, 1, dim_nvertex, varid36))
     CALL nf(nf_put_att_text(ncid, varid36, 'long_name', 36, &
-      & 'refinement control flag for vertices'))
+         & 'refinement control flag for vertices'))
     CALL nf(nf_put_att_text(ncid, varid36, 'cdi', 6, 'ignore'))
     !
-    !       write(*,*) "writing def index_v_list..."
-    !       call flush(6)
     dimids = (/ dim_vert_refine, dim_two /)
     CALL nf(nf_def_var(ncid, 'index_v_list', nf_int, 2, dimids, varid37))
     CALL nf(nf_put_att_text(ncid, varid37, 'long_name', 76, &
-      & 'list of start and end indices for each refinement control level for vertices'))
+         & 'list of start and end indices for each refinement control level for vertices'))
     CALL nf(nf_put_att_text(ncid, varid37, 'cdi', 6, 'ignore'))
     !
-    !       write(*,*) "writing def start_idx_v..."
-    !       call flush(6)
     dimids = (/ dim_vert_refine, dim_nchdom /)
     CALL nf(nf_def_var(ncid, 'start_idx_v', nf_int, 2, dimids, varid47))
     CALL nf(nf_put_att_text(ncid, varid47, 'long_name', 68, &
-      & 'list of start indices for each refinement control level for vertices'))
+         & 'list of start indices for each refinement control level for vertices'))
     CALL nf(nf_put_att_text(ncid, varid47, 'cdi', 6, 'ignore'))
     !
-    !       write(*,*) "writing def end_idx_v..."
-    !       call flush(6)
     CALL nf(nf_def_var(ncid, 'end_idx_v', nf_int, 2, dimids, varid48))
     CALL nf(nf_put_att_text(ncid, varid48, 'long_name', 66, &
-      & 'list of end indices for each refinement control level for vertices'))
+         & 'list of end indices for each refinement control level for vertices'))
     CALL nf(nf_put_att_text(ncid, varid48, 'cdi', 6, 'ignore'))
     !
-    !       write(*,*) "writing def parent_edge_index..."
-    !       call flush(6)
     CALL nf(nf_def_var(ncid, 'parent_edge_index', nf_int, 1, dim_nedge, varid38))
     CALL nf(nf_put_att_text(ncid, varid38, 'long_name', 17, 'parent edge index'))
     CALL nf(nf_put_att_text(ncid, varid38, 'cdi', 6, 'ignore'))
     !
-    !       write(*,*) "writing def child_edge_index..."
-    !       call flush(6)
     dimids = (/ dim_nedge, dim_nchilds_per_cell /)
     CALL nf(nf_def_var(ncid, 'child_edge_index', nf_int, 2, dimids, varid39))
     CALL nf(nf_put_att_text(ncid, varid39, 'long_name', 16, 'child edge index'))
     CALL nf(nf_put_att_text(ncid, varid39, 'cdi', 6, 'ignore'))
     !
-    !       write(*,*) "writing def child_edge_id..."
-    !       call flush(6)
     CALL nf(nf_def_var(ncid, 'child_edge_id', nf_int, 1, dim_nedge, varid42))
     CALL nf(nf_put_att_text(ncid, varid42, 'long_name', 23, 'domain ID of child edge'))
     CALL nf(nf_put_att_text(ncid, varid42, 'cdi', 6, 'ignore'))
@@ -860,148 +734,25 @@ CONTAINS
     CALL nf(nf_put_att_text(ncid, varid403, 'long_name', 19, 'parent vertex index'))
     CALL nf(nf_put_att_text(ncid, varid403, 'cdi', 6, 'ignore'))
     !
-    !       write(*,*) "writing def ENDS"
-    !       call flush(6)
     CALL nf(nf_enddef(ncid))
-    !       write(*,*) "writing def ENDS II"
-    !       call flush(6)
     !
     !-------------------------------------------------------------------------
     !
     ! cell part:
     !
-    ! Transpose of index array necessary for CF-1.1 Convention
-    !
-    !       ALLOCATE(zv2dx(3, i_nc), zv2dy(3, i_nc))
-    !       DO j = 1, 3
-    !         DO i = 1, i_nc
-    !           zv2dx(j,i) = gg%verts%vertex(gg%cells%vertex_index(i,j))%lon
-    !         ENDDO
-    !       ENDDO
-    !       DO j = 1, 3
-    !         DO i = 1, i_nc
-    !           zv2dy(j,i) = gg%verts%vertex(gg%cells%vertex_index(i,j))%lat
-    !         ENDDO
-    !       ENDDO
-    !       WHERE (ABS(zv2dx(:,:)) < EPSILON(0.0_wp))
-    !         zv2dx(:,:) = 0.0_wp
-    !       ENDWHERE
-    !       WHERE (ABS(zv2dy(:,:)) < EPSILON(0.0_wp))
-    !         zv2dy(:,:) = 0.0_wp
-    !       ENDWHERE
-    !       DO j = 1, i_nc
-    !         DO i = 1, 3
-    !           IF (ABS(zv2dy(i,j)) > 0.5_wp*pi-EPSILON(0.0_wp)) THEN
-    !             zv2dx(i,j) = gg%cells%center(j)%lon
-    !           ENDIF
-    !         ENDDO
-    !       ENDDO
-    !       CALL nf(nf_put_var_double(ncid, varid_clatv, zv2dy))
-    !       CALL nf(nf_put_var_double(ncid, varid_clonv, zv2dx))
-    !       DEALLOCATE(zv2dx, zv2dy)
-
-    !       write(*,*) "writing cells%center..."
-    !       call flush(6)
     CALL nf(nf_put_var_double(ncid, varid_clon, gg%cells%center(:)%lon))
     CALL nf(nf_put_var_double(ncid, varid_clat, gg%cells%center(:)%lat))
-
     !
     ! vertex part:
     !
-    !       write(*,*) "writing verts%vertex..."
-    !       call flush(6)
     CALL nf(nf_put_var_double(ncid, varid_vlon,  gg%verts%vertex(:)%lon))
     CALL nf(nf_put_var_double(ncid, varid_vlat,  gg%verts%vertex(:)%lat))
     !
-    ! Transpose of index array necessary for CF-1.1 Convention
-    !
-    !       ALLOCATE(zv2d(6, i_nv))
-    !       DO j = 1, 6
-    !         DO i = 1, i_nv
-    !           IF (gg%verts%cell_index(i,j) == 0) THEN
-    !             zv2d(7-j,i) = gg%cells%center(gg%verts%cell_index(i,5))%lon
-    !           ELSE
-    !             zv2d(7-j,i) = gg%cells%center(gg%verts%cell_index(i,j))%lon
-    !           ENDIF
-    !         ENDDO
-    !       ENDDO
-    !       CALL nf(nf_put_var_double(ncid, varid_vlonv, zv2d))
-    !       DO j = 1, 6
-    !         DO i = 1, i_nv
-    !           IF (gg%verts%cell_index(i,j) == 0) THEN
-    !             zv2d(7-j,i) = gg%cells%center(gg%verts%cell_index(i,5))%lat
-    !           ELSE
-    !             zv2d(7-j,i) = gg%cells%center(gg%verts%cell_index(i,j))%lat
-    !           ENDIF
-    !         ENDDO
-    !       ENDDO
-    !       CALL nf(nf_put_var_double(ncid, varid_vlatv, zv2d))
-    !       DEALLOCATE (zv2d)
     !
     ! edge part:
     !
-    !       write(*,*) "writing edges%center..."
-    !       call flush(6)
     CALL nf(nf_put_var_double(ncid, varid_elon,  gg%edges%center(:)%lon))
     CALL nf(nf_put_var_double(ncid, varid_elat,  gg%edges%center(:)%lat))
-    !
-    ! Transpose of index array necessary for CF-1.1 Convention
-    !
-    !       ALLOCATE(zv2dx(4, i_ne), zv2dy(4, i_ne))
-    !       DO i = 1, i_ne
-    !         zv2dx(1,i) = gg%verts%vertex(gg%edges%vertex_index(i,1))%lon
-    !       ENDDO
-    !       DO i = 1, i_ne
-    !         zv2dx(3,i) = gg%verts%vertex(gg%edges%vertex_index(i,2))%lon
-    !       ENDDO
-    !       DO i = 1, i_ne
-    !         zv2dx(4,i) = gg%cells%center(gg%edges%cell_index(i,1))%lon
-    !       ENDDO
-    !       DO i = 1, i_ne
-    !         zv2dx(2,i) = gg%cells%center(gg%edges%cell_index(i,2))%lon
-    !       ENDDO
-    !       DO i = 1, i_ne
-    !         zv2dy(1,i) = gg%verts%vertex(gg%edges%vertex_index(i,1))%lat
-    !       ENDDO
-    !       DO i = 1, i_ne
-    !         zv2dy(3,i) = gg%verts%vertex(gg%edges%vertex_index(i,2))%lat
-    !       ENDDO
-    !       DO i = 1, i_ne
-    !         zv2dy(4,i) = gg%cells%center(gg%edges%cell_index(i,1))%lat
-    !       ENDDO
-    !       DO i = 1, i_ne
-    !         zv2dy(2,i) = gg%cells%center(gg%edges%cell_index(i,2))%lat
-    !       ENDDO
-    !       WHERE (ABS(zv2dx(:,:)) < EPSILON(0.0_wp))
-    !         zv2dx(:,:) = 0.0_wp
-    !       ENDWHERE
-    !       WHERE (ABS(zv2dy(:,:)) < EPSILON(0.0_wp))
-    !         zv2dy(:,:) = 0.0_wp
-    !       ENDWHERE
-    !       DO j = 1, i_ne
-    !         DO i = 1, 4
-    !           IF ( ABS(zv2dy(i,j)) > 0.5_wp*pi-EPSILON(0.0_wp)) THEN
-    !             zv2dx(i,j) = gg%edges%center(j)%lon
-    !           ENDIF
-    !         ENDDO
-    !       ENDDO
-    !       DO i = 1, i_ne
-    !         IF (check_orientation(gg%edges%center(i)%lon, &
-    !              zv2dx(:,i),zv2dy(:,i),4) < 0) THEN
-    !           swap(1:4) = zv2dx(4:1:-1,i)
-    !           zv2dx(:,i) = swap(:)
-    !           swap(1:4) = zv2dy(4:1:-1,i)
-    !           zv2dy(:,i) = swap(:)
-    !         ENDIF
-    !         IF (check_orientation(gg%edges%center(i)%lon, &
-    !              zv2dx(:,i),zv2dy(:,i),4) < 0) THEN
-    !         ENDIF
-    !       ENDDO
-    !       !
-    !       CALL nf(nf_put_var_double(ncid, varid_elonv, zv2dx))
-    !       CALL nf(nf_put_var_double(ncid, varid_elatv, zv2dy))
-    !       !
-    !       DEALLOCATE (zv2dx, zv2dy)
     !
     !-----------------------------------------------------------------------
     !
@@ -1045,7 +796,6 @@ CONTAINS
     CALL nf(nf_put_var_int   (ncid, varid27, gg%cells%child_index))
     CALL nf(nf_put_var_int   (ncid, varid41, gg%cells%child_id))
     CALL nf(nf_put_var_int   (ncid, varid28, gg%edges%idx))
-    !      CALL nf(nf_put_var_int   (ncid, varid281, gg%edges%parent_index))
     CALL nf(nf_put_var_int   (ncid, varid282, gg%edges%parent_child_type))
     CALL nf(nf_put_var_int   (ncid, varid29, gg%verts%idx))
     CALL nf(nf_put_var_int   (ncid, varid30, gg%verts%edge_orientation))
@@ -1074,49 +824,37 @@ CONTAINS
 
     CALL nf(nf_close(ncid))
 
-   !------------------------------------------------------------------------
-!     write(*,*) '---',TRIM(outfile), '---'
-    str_idx=LBOUND(gg%verts%start_idx, 1)
-    end_idx=str_idx+SIZE(gg%verts%start_idx, 1)-1
-    DO i=str_idx,end_idx
-      write(*,*) 'verts%start_idx, end:', i, gg%verts%start_idx(i,1), gg%verts%end_idx(i,1)
-    ENDDO
+    !------------------------------------------------------------------------
 
-    str_idx=LBOUND(gg%edges%start_idx, 1)
-    end_idx=str_idx+SIZE(gg%edges%start_idx, 1)-1
-    DO i=str_idx,end_idx
-      write(*,*) 'edges%start_idx, end:', i, gg%edges%start_idx(i,1), gg%edges%end_idx(i,1)
-    ENDDO
-
-    str_idx=LBOUND(gg%cells%start_idx, 1)
-    end_idx=str_idx+SIZE(gg%cells%start_idx, 1)-1
-    DO i=str_idx,end_idx
-      write(*,*) 'cells%start_idx, end:', i, gg%cells%start_idx(i,1), gg%cells%end_idx(i,1)
-    ENDDO
-    write(*,*) '-------------------'
+!!$    write(*,*) '-------------------'
+!!$    str_idx = LBOUND(gg%verts%start_idx, 1)
+!!$    end_idx = str_idx+SIZE(gg%verts%start_idx, 1)-1
+!!$    DO i = str_idx, end_idx
+!!$      write(*,*) 'verts%start_idx, end:', i, gg%verts%start_idx(i,1), gg%verts%end_idx(i,1)
+!!$    ENDDO
+!!$
+!!$    str_idx = LBOUND(gg%edges%start_idx, 1)
+!!$    end_idx = str_idx+SIZE(gg%edges%start_idx, 1)-1
+!!$    DO i = str_idx, end_idx
+!!$      write(*,*) 'edges%start_idx, end:', i, gg%edges%start_idx(i,1), gg%edges%end_idx(i,1)
+!!$    ENDDO
+!!$
+!!$    str_idx = LBOUND(gg%cells%start_idx, 1)
+!!$    end_idx = str_idx+SIZE(gg%cells%start_idx, 1)-1
+!!$    DO i = str_idx, end_idx
+!!$      write(*,*) 'cells%start_idx, end:', i, gg%cells%start_idx(i,1), gg%cells%end_idx(i,1)
+!!$    ENDDO
+!!$    write(*,*) '-------------------'
     
-
-    !   ENDDO
-
   END SUBROUTINE write_grid
   !
-  ! !SUBROUTINE INTERFACE:
+
   SUBROUTINE write_edges_grid(gg, outfile)
-    !
-    ! !DESCRIPTION:
-    ! Creates files  with  cross reference tables and coordinates
-    ! of grid items to be read by the model. In most cases for all grid levels,
-    ! the file {\bf GRIDMAP.*} is produced, where * denotes the grid level.
-    ! The exception is Heikes-Randall + C grid optimization in the last step. Here
-    ! only the {\bf GRIDMAP} file of the last level is created. The background
-    ! is in this case the {\bf GRIDMAP} files of all the coarser levels would
-    ! produce just Heikes-Randall optimized grid without the C grid optimization.
-    ! Only in this case gridgen has to be run for all grid levels.\\
-    ! The files are produced as sequential access, unformatted output.
-    !
-    ! !REVISION HISTORY:
-    ! Leonidas Lianrdakis, MPI-M (2004-5).
-    !
+    !>
+    !!
+    !! @par Revision History
+    !!   Developed and tested by L. Linardakis, MPI-M (2010-02).
+    !!
     TYPE(t_grid), INTENT(in) :: gg
     CHARACTER(LEN=filename_max), INTENT(in) :: outfile
 
@@ -1127,49 +865,32 @@ CONTAINS
     INTEGER :: ncid
     INTEGER :: dimids(2)
 
-    INTEGER :: dim_nvertex, dim_nedge,           &
-      & dim_nvertex_per_cell, dim_ncells_per_edge, dim_nedges_per_vertex
+    INTEGER :: dim_nvertex, dim_nedge, dim_nvertex_per_cell, &
+         &     dim_ncells_per_edge, dim_nedges_per_vertex
 
     INTEGER :: varid_vlon, varid_vlat
     INTEGER :: varid10
-
-#ifdef __SX__
-    INTEGER :: iargc
-    CHARACTER(LEN= 32) :: arg_str
-#endif
-
-    !  REAL(wp), ALLOCATABLE :: zv2d(:,:), zv2dx(:,:), zv2dy(:,:)
-
-
-    !  REAL(wp) :: swap(4)
-
+    
     INTEGER :: ilevel, grid_root
 
-    !EOP
     !-------------------------------------------------------------------------
 
-    ! distinguish between gridgeneration for optimization strategies
-
-    ! Dummy settings for special grids
     grid_root = 0
     ilevel    = 1
 
     WRITE(message_text,'(a,a)') 'Write edges gridmap file: ', TRIM(outfile)
     CALL message ('', TRIM(message_text))
-
-
+    
     i_nc = gg%ncells
     i_ne = gg%nedges
     i_nv = gg%nverts
 
-
     !----------------------------------------------------------------------
     !
     CALL nf(nf_set_default_format(nf_format_64bit, old_mode))
-
+    
     CALL nf(nf_create(TRIM(outfile), nf_clobber, ncid))
     CALL nf(nf_set_fill(ncid, nf_nofill, old_mode))
-
     !
     !----------------------------------------------------------------------
     !
@@ -1187,8 +908,6 @@ CONTAINS
     !
     CALL nf(nf_def_dim(ncid, 'nv',  gg%cells%max_no_of_vertices, dim_nvertex_per_cell))
     CALL nf(nf_def_dim(ncid, 'ne',  gg%verts%max_connectivity, dim_nedges_per_vertex))
-    !
-
     !
     !---------------------------------------------------------------------
     !
@@ -1222,7 +941,7 @@ CONTAINS
     dimids = (/ dim_nedge, dim_ncells_per_edge /)
     CALL nf(nf_def_var(ncid, 'edge_vertices', nf_int, 2, dimids, varid10))
     CALL nf(nf_put_att_text(ncid, varid10, 'long_name', 35, &
-      & 'vertices at the end of of each edge'))
+         & 'vertices at the end of of each edge'))
     CALL nf(nf_put_att_text(ncid, varid10, 'cdi', 6, 'ignore'))
     !
     !
@@ -1242,9 +961,20 @@ CONTAINS
     !------------------------------------------------------------------------
     CALL nf(nf_close(ncid))
 
-    !   ENDDO
-
   END SUBROUTINE write_edges_grid
+  
+  !--------------------------------------------------------------------------
+  
+  SUBROUTINE nf(status)
+    INTEGER, INTENT(in) :: STATUS
+    
+    IF (status /= nf_noerr) THEN
+      CALL finish('mo_io_grid netCDF error', nf_strerror(status))
+    ENDIF
+    
+  END SUBROUTINE nf
+
+  !--------------------------------------------------------------------------
 
 END MODULE mo_io_grid
 

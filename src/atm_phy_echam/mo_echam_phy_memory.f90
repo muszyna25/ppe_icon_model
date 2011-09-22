@@ -576,7 +576,7 @@ CONTAINS
                 & t_cf_var('q', 'kg kg-1', ''),                                &
                 & t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL),&
                 & ldims = (/kproma,klev,kblks,ktracer/),                       &
-                & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.           )
+                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.         )
 
     ALLOCATE(field%q_ptr(ktracer))                                                   
     DO jtrc = 1,ktracer                                                                   
@@ -951,7 +951,7 @@ CONTAINS
                   & t_cf_var('turb_exchng_coeff_momentum', '', ''),              &
                   & t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL),&
                   & ldims=shapesfc,                                              &
-                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.           )
+                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.         )
 
       ALLOCATE(field%cfm_tile_ptr(ksfc_type))
       DO jsfc = 1,ksfc_type
@@ -977,7 +977,7 @@ CONTAINS
                   & t_cf_var('turb_exchng_coeff_heat', '', ''),                  &
                   & t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL),&
                   & ldims=shapesfc,                                              &
-                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.           )
+                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.         )
 
       ALLOCATE(field%cfh_tile_ptr(ksfc_type))
       DO jsfc = 1,ksfc_type
@@ -1034,7 +1034,7 @@ CONTAINS
                   & t_cf_var('z0m_tile', '', 'aerodynamic roughness length'),    &
                   & t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL),&
                   & ldims=shapesfc,                                              &
-                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.           )
+                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.         )
 
       ALLOCATE(field%z0m_tile_ptr(ksfc_type))
       DO jsfc = 1,ksfc_type
@@ -1131,7 +1131,7 @@ CONTAINS
                 & t_cf_var('tsfc_tile', '', 'skin temperature'),               &
                 & t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL),&
                 & ldims=shapesfc,                                              &
-                & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.           )
+                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.         )
 
     ALLOCATE(field%tsfc_tile_ptr(ksfc_type))
     DO jsfc = 1,ksfc_type
@@ -1151,7 +1151,7 @@ CONTAINS
                 & t_cf_var('qs_sfc_tile', '', ''),                             &
                 & t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL),&
                 & ldims=shapesfc,                                              &
-                & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.           )
+                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.         )
 
     ALLOCATE(field%qs_sfc_tile_ptr(ksfc_type))
     DO jsfc = 1,ksfc_type
@@ -1198,21 +1198,21 @@ CONTAINS
                 & t_cf_var('evap_tile', '', ''),                          &
                 & t_grib2_var(2, 0, 6, nbits, GRID_REFERENCE, GRID_CELL), &
                 & ldims=shapesfc,                                         &
-                & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.      )
+                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.    )
 
     CALL add_var( field_list, prefix//'lhflx_tile', field%lhflx_tile,     &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                  &
                 & t_cf_var('lhflx_tile', 'W m-2', 'latent heat flux'),    &
                 & t_grib2_var(2, 0, 6, nbits, GRID_REFERENCE, GRID_CELL), &
                 & ldims=shapesfc,                                         &
-                & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.      )
+                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.    )
 
     CALL add_var( field_list, prefix//'shflx_tile', field%shflx_tile,     &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                  &
                 & t_cf_var('shflx_tile', 'W m-2', 'sensible heat flux'),  &
                 & t_grib2_var(2, 0, 6, nbits, GRID_REFERENCE, GRID_CELL), &
                 & ldims=shapesfc,                                         &
-                & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.      )
+                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.    )
 
     ALLOCATE(field%evap_tile_ptr(ksfc_type))
     ALLOCATE(field%lhflx_tile_ptr(ksfc_type))
@@ -1268,14 +1268,14 @@ CONTAINS
                 & t_cf_var('u_stress_tile', '', ''),                           &
                 & t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL),&
                 & ldims=shapesfc,                                              &
-                & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.           )
+                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.         )
 
     CALL add_var( field_list, prefix//'v_stress_tile', field%v_stress_tile,    &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                       &
                 & t_cf_var('v_stress_tile', '', ''),                           &
                 & t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL),&
                 & ldims=shapesfc,                                              &
-                & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.           )
+                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.         )
 
     ALLOCATE(field%u_stress_tile_ptr(ksfc_type))
     ALLOCATE(field%v_stress_tile_ptr(ksfc_type))
@@ -1451,28 +1451,28 @@ CONTAINS
                 & t_cf_var('tend_q', 's-1', 'tracer tendency'),                &
                 & t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL),&
                 & ldims = shape_trc,                                           &
-                & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.           )
+                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.         )
 
     CALL add_var( tend_list, prefix//'q_cld', tend%q_cld,                         &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                           &
                 & t_cf_var('tend_q_cld', 's-1', 'tracer tendency condensational'),&           
                 & t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL),   &
                 & ldims = shape_trc,                                              &
-                & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.              )
+                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.            )
 
     CALL add_var( tend_list, prefix//'q_cnv', tend%q_cnv,                      &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                        &
                 & t_cf_var('tend_q_cnv', 's-1', 'tracer tendency convective'), &           
                 & t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL),&
                 & ldims = shape_trc,                                           &
-                & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.           )
+                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.         )
 
     CALL add_var( tend_list, prefix//'q_vdf', tend%q_vdf,                      &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                        &
                 & t_cf_var('tend_q_vdf', 's-1', 'tracer tendency turbulent'),  &           
                 & t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL),&
                 & ldims = shape_trc,                                           &
-                & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.           )
+                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.         )
 
     ! Referrence to individual tracer, for I/O                                            
                                                                                             

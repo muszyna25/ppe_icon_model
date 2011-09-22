@@ -1,4 +1,4 @@
-#if  (defined(__SX__) || defined(__SUNPRO_F95) || defined (__GNUC__))
+#if  (defined(__SX__) || defined(__SUNPRO_F95) || defined (__GNUC__)) 
 #define HAVE_F95
 #endif
 MODULE mo_linked_list
@@ -46,7 +46,7 @@ MODULE mo_linked_list
     TYPE(t_list_element), POINTER :: first_list_element ! reference to first
     INTEGER(i8)                   :: memory_used        ! memory allocated
     INTEGER                       :: list_elements      ! allocated elements
-    LOGICAL                       :: lpost              ! postprocessing stream
+    LOGICAL                       :: loutput            ! output stream
     LOGICAL                       :: laccu              ! accumulation
     LOGICAL                       :: lmiss              ! missing values
     LOGICAL                       :: lrestart           ! restart stream
@@ -59,11 +59,13 @@ MODULE mo_linked_list
     INTEGER                       :: output_type        ! CDI format
     INTEGER                       :: restart_type       ! CDI format
     INTEGER                       :: compression_type   ! CDI compression type
-    LOGICAL                       :: opened             ! true, if file opened
+    LOGICAL                       :: restart_opened     ! true, if restart file opened
+    LOGICAL                       :: output_opened      ! true, if output file opened
     CHARACTER(len=8)              :: model_type         ! store model type
     !--------------------------------------------------------------------------------------------
     ! Internal used handler for cdi
-    INTEGER                       :: cdiFileId          ! cdi file handler
+    INTEGER                       :: cdiFileId_restart  ! cdi file handler for restart
+    INTEGER                       :: cdiFileId_output   ! cdi file handler for output
     INTEGER                       :: cdiVlistId         ! cdi vlist handler
     !
     INTEGER                       :: cdiCellGridID
@@ -73,6 +75,10 @@ MODULE mo_linked_list
     INTEGER                       :: cdiSurfZaxisID
     INTEGER                       :: cdiHalfZaxisID
     INTEGER                       :: cdiFullZaxisID
+    INTEGER                       :: cdiDepthHalfZaxisID
+    INTEGER                       :: cdiDepthFullZaxisID
+    INTEGER                       :: cdiHeightHalfZaxisID
+    INTEGER                       :: cdiHeightFullZaxisID
     !
     INTEGER                       :: cdiTaxisID
     !
@@ -102,7 +108,7 @@ CONTAINS
     this_list%p%memory_used        = 0_i8
     this_list%p%list_elements      = 0
     !
-    this_list%p%lpost              = .FALSE.
+    this_list%p%loutput            = .FALSE.
     this_list%p%laccu              = .FALSE.
     this_list%p%lmiss              = .FALSE.
     this_list%p%lrestart           = .FALSE.
@@ -120,10 +126,12 @@ CONTAINS
     this_list%p%restart_type       = -1
     this_list%p%compression_type   = -1
     !
-    this_list%p%opened             = .FALSE.
+    this_list%p%restart_opened     = .FALSE.
+    this_list%p%output_opened      = .FALSE.
     this_list%p%model_type         = 'atm'
     !
-    this_list%p%cdiFileID          = -1
+    this_list%p%cdiFileID_restart  = -1
+    this_list%p%cdiFileID_output   = -1
     this_list%p%cdiVlistID         = -1
     this_list%p%cdiCellGridID      = -1
     this_list%p%cdiVertGridID      = -1
@@ -179,15 +187,15 @@ CONTAINS
       IF (this%field%info%allocated) THEN
         IF (ASSOCIATED(this%field%r_ptr)) THEN
           this_list%p%memory_used = this_list%p%memory_used &
-               &                 -INT(this%field%var_base_size,i8)*INT(SIZE(this%field%r_ptr),i8)
+               &                   -INT(this%field%var_base_size*SIZE(this%field%r_ptr),i8)
           DEALLOCATE (this%field%r_ptr)
         ELSE IF (ASSOCIATED(this%field%i_ptr)) THEN
           this_list%p%memory_used = this_list%p%memory_used &
-               &                 -INT(this%field%var_base_size,i8)*INT(SIZE(this%field%i_ptr),i8)
+               &                   -INT(this%field%var_base_size*SIZE(this%field%i_ptr),i8)
           DEALLOCATE (this%field%i_ptr)
         ELSE IF (ASSOCIATED(this%field%l_ptr)) THEN
           this_list%p%memory_used = this_list%p%memory_used &
-               &                 -INT(this%field%var_base_size,i8)*INT(SIZE(this%field%l_ptr),i8)
+               &                   -INT(this%field%var_base_size*SIZE(this%field%l_ptr),i8)
           DEALLOCATE (this%field%l_ptr)
         ENDIF
         this%field%info%allocated = .FALSE.
@@ -277,19 +285,19 @@ CONTAINS
     !
     IF (delete_this_list_element%field%info%allocated) THEN
       IF (ASSOCIATED(delete_this_list_element%field%r_ptr)) THEN
-        this_list%p%memory_used = this_list%p%memory_used                            &
-             &                 -INT(delete_this_list_element%field%var_base_size,i8) &
-             &                 *INT(SIZE(delete_this_list_element%field%r_ptr),i8)
+        this_list%p%memory_used = this_list%p%memory_used                          &
+             &                   -INT(delete_this_list_element%field%var_base_size &
+             &                   *SIZE(delete_this_list_element%field%r_ptr),i8)
         DEALLOCATE (delete_this_list_element%field%r_ptr)
       ELSE IF (ASSOCIATED(delete_this_list_element%field%i_ptr)) THEN
-        this_list%p%memory_used = this_list%p%memory_used                            &
-             &                 -INT(delete_this_list_element%field%var_base_size,i8) &
-             &                 *INT(SIZE(delete_this_list_element%field%i_ptr),i8)
+        this_list%p%memory_used = this_list%p%memory_used                          &
+             &                   -INT(delete_this_list_element%field%var_base_size &
+             &                   *SIZE(delete_this_list_element%field%i_ptr),i8)
         DEALLOCATE (delete_this_list_element%field%i_ptr)
       ELSE IF (ASSOCIATED(delete_this_list_element%field%l_ptr)) THEN
-        this_list%p%memory_used = this_list%p%memory_used                            &
-             &                 -INT(delete_this_list_element%field%var_base_size,i8) &
-             &                 *INT(SIZE(delete_this_list_element%field%l_ptr),i8)
+        this_list%p%memory_used = this_list%p%memory_used                          &
+             &                   -INT(delete_this_list_element%field%var_base_size &
+             &                   *SIZE(delete_this_list_element%field%l_ptr),i8)
         DEALLOCATE (delete_this_list_element%field%l_ptr)
       ENDIF
       delete_this_list_element%field%info%allocated = .FALSE.

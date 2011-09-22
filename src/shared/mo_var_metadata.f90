@@ -29,7 +29,7 @@ MODULE mo_var_metadata
     INTEGER            :: used_dimensions(5)    ! final dimensions of variable
     ! 
     LOGICAL            :: lrestart              ! write field to restart
-    LOGICAL            :: lpost                 ! write field to output
+    LOGICAL            :: loutput               ! write field to output
     LOGICAL            :: laccu                 ! accumulation flag
     TYPE(t_union_vals) :: resetval              ! reset value for accumulated fields
     LOGICAL            :: lmiss                 ! missing value flag
@@ -48,6 +48,7 @@ MODULE mo_var_metadata
     INTEGER            :: cdiVarID
     INTEGER            :: cdiGridID
     INTEGER            :: cdiZaxisID
+    INTEGER            :: cdiDataType
     !
   END TYPE t_var_metadata
 

@@ -462,7 +462,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     CALL add_var( diag_list, 'tracer_rate', diag%tracer_rate,          &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,cf_desc, grib2_desc, &
           &                                   ldims=(/nproma,kblks,4/),&
-          &         lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE. )
+          &         lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
 
     ALLOCATE( diag%tra_rate_ptr(kcloud))
     vname_prefix='tra_rate_'
@@ -618,7 +618,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     CALL add_var( diag_list, 'tot_cld_vi', diag%tot_cld_vi,                   &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
                 &                                 ldims=(/nproma,kblks,4/),   &
-                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
+                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
     ! fill the seperate variables belonging to the container tot_cld_vi
     ALLOCATE( diag%tci_ptr(kcloud))
@@ -665,7 +665,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     CALL add_var( diag_list, 'tot_cld_vi_avg', diag%tot_cld_vi_avg,           &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
                 &                                 ldims=(/nproma,kblks,4/)  , &
-                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
+                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
   ! fill the seperate variables belonging to the container tot_cld_vi_avg
     ALLOCATE( diag%tav_ptr(kcloud))
@@ -711,7 +711,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     CALL add_var( diag_list, 'tot_cld', diag%tot_cld,                       &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,&
                 &                         ldims=(/nproma,klev,kblks,4/)    ,&
-                 & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
+                 & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
 
     ALLOCATE( diag%tot_ptr(kcloud))
@@ -1106,7 +1106,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'cfm_tile', diag%cfm_tile,                   &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shapesfc ,&
-               & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.           )
+               & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.           )
 
     ALLOCATE(diag%cfm_ptr(nsfc_type))
       DO jsfc = 1,nsfc_type
@@ -1124,7 +1124,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'cfh_tile', diag%cfh_tile,                             &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shapesfc,&
-               & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.           )
+               & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.           )
 
      ALLOCATE(diag%cfh_ptr(nsfc_type))
       DO jsfc = 1,nsfc_type
@@ -1150,7 +1150,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     CALL add_var( diag_list, 'z0m_tile', diag%z0m_tile,                    &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shapesfc ,&
                 &  initval_r=1.e-3_wp ,&
-               & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.           )
+               & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.           )
 !         diag%z0m_tile(:,:,:)=1.e-3_wp
 
      ALLOCATE(diag%z0m_ptr(nsfc_type))
@@ -1461,7 +1461,7 @@ SUBROUTINE new_nwp_phy_tend_list( klev,  kblks,   &
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( phy_tend_list, 'ddt_tracer_turb', phy_tend%ddt_tracer_turb,        &
                 & GRID_UNSTRUCTURED_CELL,ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape4d,&
-                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
+                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
 
     ktracer=iqcond
@@ -1501,7 +1501,7 @@ SUBROUTINE new_nwp_phy_tend_list( klev,  kblks,   &
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( phy_tend_list, 'ddt_tracer_pconv', phy_tend%ddt_tracer_pconv,        &
                 & GRID_UNSTRUCTURED_CELL,ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape4d,&
-                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
+                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
     ktracer=iqcond
     ALLOCATE( phy_tend%tracer_conv_ptr(ktracer) )
@@ -1538,7 +1538,7 @@ SUBROUTINE new_nwp_phy_tend_list( klev,  kblks,   &
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( phy_tend_list, 'ddt_tracer_pscl', phy_tend%ddt_tracer_pscl,        &
                 & GRID_UNSTRUCTURED_CELL,ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape4d ,&
-                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
+                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
     ktracer=ntracer
     ALLOCATE( phy_tend%tracer_pscl_ptr(ktracer) )

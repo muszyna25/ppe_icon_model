@@ -53,10 +53,42 @@ MODULE mo_util_string
   PUBLIC :: string_contains_word ! searches in a string list
 
   !
+  PUBLIC :: normal, bold
+  PUBLIC :: fg_black, fg_red, fg_green, fg_blue, fg_magenta, fg_cyan, fg_white, fg_default
+  PUBLIC :: bg_black, bg_red, bg_green, bg_blue, bg_magenta, bg_cyan, bg_white, bg_default
+  !
   INTERFACE real2string
     MODULE PROCEDURE float2string
     MODULE PROCEDURE double2string
   END INTERFACE real2string
+  !
+  ! ANSI color sequences 
+  !
+  CHARACTER(len=1), PARAMETER :: esc = ACHAR(27)
+  CHARACTER(len=1), PARAMETER :: orb = ACHAR(91)
+  !  
+  CHARACTER(len=5) :: normal = esc//orb//'22m'
+  CHARACTER(len=4) :: bold   = esc//orb//'1m'
+  !
+  CHARACTER(len=5) :: fg_black   = esc//orb//'30m'
+  CHARACTER(len=5) :: fg_red     = esc//orb//'31m'
+  CHARACTER(len=5) :: fg_green   = esc//orb//'32m'
+  CHARACTER(len=5) :: fg_yellow  = esc//orb//'33m'
+  CHARACTER(len=5) :: fg_blue    = esc//orb//'34m'
+  CHARACTER(len=5) :: fg_magenta = esc//orb//'35m'
+  CHARACTER(len=5) :: fg_cyan    = esc//orb//'36m'
+  CHARACTER(len=5) :: fg_white   = esc//orb//'37m'
+  CHARACTER(len=5) :: fg_default = esc//orb//'39m'
+  !
+  CHARACTER(len=5) :: bg_black   = esc//orb//'40m'
+  CHARACTER(len=5) :: bg_red     = esc//orb//'41m'
+  CHARACTER(len=5) :: bg_green   = esc//orb//'42m'
+  CHARACTER(len=5) :: bg_yellow  = esc//orb//'43m'
+  CHARACTER(len=5) :: bg_blue    = esc//orb//'44m'
+  CHARACTER(len=5) :: bg_magenta = esc//orb//'45m'
+  CHARACTER(len=5) :: bg_cyan    = esc//orb//'46m'
+  CHARACTER(len=5) :: bg_white   = esc//orb//'47m'
+  CHARACTER(len=5) :: bg_default = esc//orb//'49m'
   !
   CHARACTER(len=*), PARAMETER :: separator = REPEAT('-',100)
   !
