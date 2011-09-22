@@ -1165,21 +1165,21 @@ CONTAINS
 !$OMP END PARALLEL
 
 
-      IF (msg_level >= 15) THEN
-
-        WRITE(message_text,'(a,2E17.9)') ' max/min z_ddt_temp = ',&
-          & MAXVAL( z_ddt_temp(:,:,:)),  &
-          & MINVAL( z_ddt_temp(:,:,:))
-        CALL message('', TRIM(message_text))
-        WRITE(message_text,'(a,2E17.9)') ' max/min z_ddt_qv  = ',&
-          & MAXVAL( prm_nwp_tend%ddt_tracer_pconv(:,:,:,iqv)),  &
-          & MINVAL( prm_nwp_tend%ddt_tracer_pconv(:,:,:,iqv))
-        CALL message('', TRIM(message_text))
-
-       WRITE(message_text,'(a,2(E17.9,2x))') 'max/min ddt_exner  = ',&
-          & MAXVAL (pt_diag%ddt_exner_phy(:,:,:) ), MINVAL(pt_diag%ddt_exner_phy(:,:,:)  )
-        CALL message('', TRIM(message_text))
-      ENDIF
+!!$      IF (msg_level >= 15) THEN
+!!$
+!!$        WRITE(message_text,'(a,2E17.9)') ' max/min z_ddt_temp = ',&
+!!$          & MAXVAL( z_ddt_temp(:,:,:)),  &
+!!$          & MINVAL( z_ddt_temp(:,:,:))
+!!$        CALL message('', TRIM(message_text))
+!!$        WRITE(message_text,'(a,2E17.9)') ' max/min z_ddt_qv  = ',&
+!!$          & MAXVAL( prm_nwp_tend%ddt_tracer_pconv(:,:,:,iqv)),  &
+!!$          & MINVAL( prm_nwp_tend%ddt_tracer_pconv(:,:,:,iqv))
+!!$        CALL message('', TRIM(message_text))
+!!$
+!!$       WRITE(message_text,'(a,2(E17.9,2x))') 'max/min ddt_exner  = ',&
+!!$          & MAXVAL (pt_diag%ddt_exner_phy(:,:,:) ), MINVAL(pt_diag%ddt_exner_phy(:,:,:)  )
+!!$        CALL message('', TRIM(message_text))
+!!$      ENDIF
 
       IF (timers_level > 2) CALL timer_stop(timer_physic_acc_1)
     ENDIF ! slow physics tendency accumulation
