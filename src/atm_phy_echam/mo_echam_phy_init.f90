@@ -82,7 +82,10 @@ MODULE mo_echam_phy_init
   USE mo_echam_phy_memory,     ONLY: construct_echam_phy_state,    &
                                    & prm_field, t_echam_phy_field, &
                                    & prm_tend,  t_echam_phy_tend
-
+  ! for coupling
+  USE mo_master_control,       ONLY: is_coupled_run
+  USE mo_icon_cpl_exchg,       ONLY: ICON_cpl_put, ICON_cpl_get
+  USE mo_icon_cpl_def_field,   ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
 
   IMPLICIT NONE
   PRIVATE
@@ -211,6 +214,14 @@ CONTAINS
     TYPE(t_echam_phy_tend) ,POINTER :: tend  => NULL()
     !----
 
+    ! in case of coupling
+    INTEGER               :: nbr_fields
+    INTEGER               :: field_shape(3)
+    INTEGER, ALLOCATABLE  :: field_id(:)
+    REAL(wp), ALLOCATABLE :: buffer(:,:)
+
+    INTEGER               :: info, ierror !< return values form cpl_put/get calls
+
     ! total number of domains/ grid levels
 
     ndomain = SIZE(prm_field)
@@ -251,6 +262,49 @@ CONTAINS
             field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
             field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
             field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
+
+            IF ( is_coupled_run() ) THEN
+
+               ALLOCATE(buffer(nproma*nblks_c,1))
+               !
+               !  see drivers/mo_atmo_model.f90:
+               !
+               !   field_id(1) represents "TAUX"   wind stress component
+               !   field_id(2) represents "TAUY"   wind stress component
+               !   field_id(3) represents "SFWFLX" surface fresh water flux
+               !   field_id(4) represents "SHFLX"  sensible heat flux
+               !   field_id(5) represents "LHFLX"  latent heat flux
+               !
+               !   field_id(6) represents "SST"    sea surface temperature
+               !   field_id(7) represents "OCEANU" u component of ocean surface current
+               !   field_id(8) represents "OCEANV" v component of ocean surface current
+               !
+               CALL ICON_cpl_get_nbr_fields ( nbr_fields )
+               ALLOCATE(field_id(nbr_fields))
+               CALL ICON_cpl_get_field_ids ( nbr_fields, field_id )
+               !
+               field_shape(1) = 1
+               field_shape(2) = p_patch(jg)%n_patch_cells
+               field_shape(3) = 1
+               !
+               ! Send fields away 
+               ! ----------------
+               !
+               ! Is there really anything to send or can the ocean live without?
+               !
+               ! Receive fields, only assign values if something was received ( info > 0 )
+               ! -------------------------------------------------------------------------
+               !
+               ! I guess that only the SST is really needed.
+               !
+               CALL ICON_cpl_get ( field_id(6), field_shape, buffer, info, ierror )
+               IF ( info > 0 ) &
+               field%tsfc_tile(:,:,iwtr) = RESHAPE (buffer(:,1), (/ nproma, nblks_c /) )
+
+               DEALLOCATE(field_id)
+               DEALLOCATE(buffer)
+
+            ENDIF
 
           CASE('JWw-Moist','LDF-Moist')
             ! Set the surface temperature to the same value as the lowest model

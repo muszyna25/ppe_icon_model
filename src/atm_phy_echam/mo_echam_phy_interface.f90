@@ -402,17 +402,20 @@ CONTAINS
        CALL ICON_cpl_put ( field_id(5), field_shape, buffer, ierror )
 
        !
-       ! Receive fields
-       ! --------------
+       ! Receive fields, only assign values if something was received ( info > 0 )
+       ! -------------------------------------------------------------------------
        !
 
        CALL ICON_cpl_get ( field_id(6), field_shape, buffer, info, ierror )
+       IF ( info > 0 ) &
        prm_field(jg)%tsfc_tile(:,:,iwtr) = RESHAPE (buffer(:,1), (/ nproma, nblks /) )
 
        CALL ICON_cpl_get ( field_id(7), field_shape, buffer, info, ierror )
+       IF ( info > 0 ) &
        prm_field(jg)%ocu(:,:) = RESHAPE (buffer(:,1), (/ nproma, nblks /) )
 
        CALL ICON_cpl_get ( field_id(8), field_shape, buffer, info, ierror )
+       IF ( info > 0 ) &
        prm_field(jg)%ocv(:,:) = RESHAPE (buffer(:,1), (/ nproma, nblks /) )
 
     ENDIF
