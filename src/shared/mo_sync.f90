@@ -107,6 +107,14 @@ INTERFACE global_max
   MODULE PROCEDURE global_max_1d
 END INTERFACE
 
+INTERFACE global_sum_array
+  MODULE PROCEDURE global_sum_array_0d
+  MODULE PROCEDURE global_sum_array_0di
+  MODULE PROCEDURE global_sum_array_1d
+  MODULE PROCEDURE global_sum_array_2d
+  MODULE PROCEDURE global_sum_array_3d
+END INTERFACE
+
 ! Unit for logging sync errors
 INTEGER, SAVE :: log_unit = -1
 
@@ -751,6 +759,37 @@ END SUBROUTINE check_patch_array_4
 
 !-------------------------------------------------------------------------
 !>
+!! Calculates the global sum of an integer scalar.
+!! This routine shuold be called outside an OMP parallel Region!
+!!
+!! @par Revision History
+!! Initial version by Rainer Johanni, Nov 2009
+!!
+FUNCTION global_sum_array_0di (zfield) RESULT (global_sum)
+
+  INTEGER,           INTENT(in) :: zfield
+  INTEGER                       :: global_sum
+  REAL(wp)                      :: z_aux, z_auxs
+  REAL(wp)                      :: sum_on_testpe(1)
+
+  INTEGER :: p_comm_glob
+!-----------------------------------------------------------------------
+
+  IF(comm_lev==0) THEN
+    p_comm_glob = p_comm_work
+  ELSE
+    p_comm_glob = glob_comm(comm_lev)
+  ENDIF
+
+  z_aux =  REAL(zfield,wp)
+  z_auxs = p_sum(z_aux, comm=p_comm_glob)
+
+  global_sum = NINT(z_auxs)
+
+END FUNCTION global_sum_array_0di
+
+!-------------------------------------------------------------------------
+!>
 !! Calculates the global sum of zfield and checks for consistency
 !! when doing a verification run.
 !! This routine shuold be called outside an OMP parallel Region!
@@ -758,7 +797,91 @@ END SUBROUTINE check_patch_array_4
 !! @par Revision History
 !! Initial version by Rainer Johanni, Nov 2009
 !!
-FUNCTION global_sum_array (zfield) RESULT (global_sum)
+FUNCTION global_sum_array_0d (zfield) RESULT (global_sum)
+
+  REAL(wp),          INTENT(in) :: zfield
+  REAL(wp)                      :: global_sum
+  REAL(wp)                      :: sum_on_testpe(1), z_aux(1)
+
+  INTEGER :: p_comm_glob
+!-----------------------------------------------------------------------
+
+  IF(comm_lev==0) THEN
+    p_comm_glob = p_comm_work
+  ELSE
+    p_comm_glob = glob_comm(comm_lev)
+  ENDIF
+
+  z_aux(1) = zfield
+
+  IF(l_fast_sum) THEN
+    global_sum = simple_sum(z_aux, SIZE(z_aux), p_comm_glob)
+  ELSE
+    global_sum = order_insensit_ieee64_sum(z_aux, SIZE(z_aux), p_comm_glob)
+  ENDIF
+
+  IF(p_test_run) THEN
+    IF(l_fast_sum) THEN
+      CALL check_result( (/ global_sum /), 'global_sum_array', sum_on_testpe)
+      global_sum = sum_on_testpe(1)
+    ELSE
+      CALL check_result( (/ global_sum /), 'global_sum_array')
+    ENDIF
+  ENDIF
+
+END FUNCTION global_sum_array_0d
+
+!-------------------------------------------------------------------------
+!>
+!! Calculates the global sum of zfield and checks for consistency
+!! when doing a verification run.
+!! This routine shuold be called outside an OMP parallel Region!
+!!
+!! @par Revision History
+!! Initial version by Rainer Johanni, Nov 2009
+!!
+FUNCTION global_sum_array_1d (zfield) RESULT (global_sum)
+
+  REAL(wp),          INTENT(in) :: zfield(:)
+  REAL(wp)                      :: global_sum
+  REAL(wp)                      :: sum_on_testpe(1)
+
+  INTEGER :: p_comm_glob
+!-----------------------------------------------------------------------
+
+  IF(comm_lev==0) THEN
+    p_comm_glob = p_comm_work
+  ELSE
+    p_comm_glob = glob_comm(comm_lev)
+  ENDIF
+
+  IF(l_fast_sum) THEN
+    global_sum = simple_sum(zfield, SIZE(zfield), p_comm_glob)
+  ELSE
+    global_sum = order_insensit_ieee64_sum(zfield, SIZE(zfield), p_comm_glob)
+  ENDIF
+
+  IF(p_test_run) THEN
+    IF(l_fast_sum) THEN
+      CALL check_result( (/ global_sum /), 'global_sum_array', sum_on_testpe)
+      global_sum = sum_on_testpe(1)
+    ELSE
+      CALL check_result( (/ global_sum /), 'global_sum_array')
+    ENDIF
+  ENDIF
+
+END FUNCTION global_sum_array_1d
+
+!-------------------------------------------------------------------------
+!>
+!! Calculates the global sum of zfield and checks for consistency
+!! when doing a verification run.
+!! This routine shuold be called outside an OMP parallel Region!
+!!
+!! @par Revision History
+!! Initial version by Rainer Johanni, Nov 2009
+!!
+FUNCTION global_sum_array_2d (zfield) RESULT (global_sum)
 
   REAL(wp),          INTENT(in) :: zfield(:, :)
   REAL(wp)                      :: global_sum
@@ -788,7 +911,48 @@ FUNCTION global_sum_array (zfield) RESULT (global_sum)
     ENDIF
   ENDIF
 
-END FUNCTION global_sum_array
+END FUNCTION global_sum_array_2d
+
+!-------------------------------------------------------------------------
+!>
+!! Calculates the global sum of zfield and checks for consistency
+!! when doing a verification run.
+!! This routine shuold be called outside an OMP parallel Region!
+!!
+!! @par Revision History
+!! Initial version by Rainer Johanni, Nov 2009
+!!
+FUNCTION global_sum_array_3d (zfield) RESULT (global_sum)
+
+  REAL(wp),          INTENT(in) :: zfield(:,:,:)
+  REAL(wp)                      :: global_sum
+  REAL(wp)                      :: sum_on_testpe(1)
+
+  INTEGER :: p_comm_glob
+!-----------------------------------------------------------------------
+
+  IF(comm_lev==0) THEN
+    p_comm_glob = p_comm_work
+  ELSE
+    p_comm_glob = glob_comm(comm_lev)
+  ENDIF
+
+  IF(l_fast_sum) THEN
+    global_sum = simple_sum(zfield, SIZE(zfield), p_comm_glob)
+  ELSE
+    global_sum = order_insensit_ieee64_sum(zfield, SIZE(zfield), p_comm_glob)
+  ENDIF
+
+  IF(p_test_run) THEN
+    IF(l_fast_sum) THEN
+      CALL check_result( (/ global_sum /), 'global_sum_array', sum_on_testpe)
+      global_sum = sum_on_testpe(1)
+    ELSE
+      CALL check_result( (/ global_sum /), 'global_sum_array')
+    ENDIF
+  ENDIF
+
+END FUNCTION global_sum_array_3d
 
 
 !-------------------------------------------------------------------------

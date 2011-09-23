@@ -66,7 +66,7 @@ MODULE mo_vertical_grid
   USE mo_loopindices,           ONLY: get_indices_e, get_indices_c
   USE mo_nonhydro_state,        ONLY: t_nh_state
   USE mo_nh_init_utils,         ONLY: nflat, nflatlev, compute_smooth_topo, init_vert_coord
-  USE mo_sync,                  ONLY: SYNC_E, SYNC_V, sync_patch_array, &
+  USE mo_sync,                  ONLY: SYNC_E, SYNC_V, sync_patch_array, global_sum_array, &
                                       sync_patch_array_mult, global_min, global_max
 
   IMPLICIT NONE
@@ -1498,6 +1498,8 @@ MODULE mo_vertical_grid
 
       ENDDO
     ENDDO
+
+    numpoints = global_sum_array(p_nh%metrics%zd_listdim)
 
     IF (msg_level >= 10) THEN
       WRITE(message_text,'(a,i10)') 'Number of z-diffusion points: ', numpoints

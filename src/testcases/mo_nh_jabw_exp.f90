@@ -68,6 +68,7 @@ MODULE mo_nh_jabw_exp
    USE mo_loopindices,         ONLY: get_indices_e
    USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
    USE mo_extpar_config,        ONLY: itopo
+   USE mo_sync,                 ONLY: global_sum_array
 
    IMPLICIT NONE
 
@@ -506,8 +507,9 @@ MODULE mo_nh_jabw_exp
     INTEGER                             :: nblks_c,  npromz_c, nlen,  &
                                            nlev 
     INTEGER                             :: jb,jc, jk, jjt, ji
-    REAL(wp)                            :: zsqv, z_help, z_help2, z_1_o_rh, zrhf, tot_area,&
-                                           z_moist
+    REAL(wp)                            :: zsqv, z_help, z_1_o_rh, zrhf, z_moist,          &
+                                           z_aux(nproma,ptr_patch%nlev,ptr_patch%nblks_c), &
+                                           z_area(nproma,ptr_patch%nblks_c)
     INTEGER                             :: niter 
     LOGICAL                             :: l_global_moist
 !--------------------------------------------------------------------
@@ -591,37 +593,37 @@ MODULE mo_nh_jabw_exp
     ENDDO ! ji
 
     IF (l_global_moist) THEN    ! set the global moisture content to the prescribed value
-      ! Calculate tot_area
-      tot_area =  0.0_wp
+
+      z_aux(:,:,:) = 0._wp
+      z_area(:,:)  = 0._wp
+
       DO jb = 1, nblks_c
         IF (jb /= nblks_c) THEN
           nlen = nproma
         ELSE
           nlen = npromz_c
         ENDIF
+
         DO jc = 1, nlen
-          tot_area = tot_area + ptr_patch%cells%area(jc,jb)
-        END DO
-      END DO
-      z_moist = 0.0_wp  
-      DO jb = 1, nblks_c
-          IF (jb /= nblks_c) THEN
-            nlen = nproma
-          ELSE
-            nlen = npromz_c
-          ENDIF
-          DO jk = 1, nlev
-            DO jc = 1, nlen
-              z_help2 = p_metrics%ddqz_z_full(jc,jk,jb) * ptr_nh_prog%rho(jc,jk,jb) &
-                                                      & * ptr_patch%cells%area(jc,jb)
-              z_moist= z_moist + ptr_nh_prog%tracer(jc,jk,jb,iqv) * z_help2
-            ENDDO !jc
-          ENDDO !jk
+          IF (ptr_patch%cells%owner_mask(jc,jb)) & 
+            z_area(jc,jb) = ptr_patch%cells%area(jc,jb)
+        ENDDO !jc
+
+        DO jk = 1, nlev
+          DO jc = 1, nlen
+            IF (ptr_patch%cells%owner_mask(jc,jb)) & 
+              z_aux(jc,jk,jb) = p_metrics%ddqz_z_full(jc,jk,jb) * ptr_nh_prog%rho(jc,jk,jb) &
+                              * ptr_nh_prog%tracer(jc,jk,jb,iqv) *ptr_patch%cells%area(jc,jb)
+          ENDDO !jc
+        ENDDO !jk
+
       ENDDO !jb
-      z_moist = z_moist / tot_area
+
+      z_moist = global_sum_array(z_aux) / global_sum_array(z_area)
+
       IF (z_moist .GT. 1.e-25_wp) THEN
-           ptr_nh_prog%tracer(:,:,:,iqv) = ptr_nh_prog%tracer(:,:,:,iqv) &
-             &                           * opt_global_moist / z_moist
+        ptr_nh_prog%tracer(:,:,:,iqv) = ptr_nh_prog%tracer(:,:,:,iqv) &
+          &                           * opt_global_moist / z_moist
       END IF
 
       IF(l_rediag) THEN
