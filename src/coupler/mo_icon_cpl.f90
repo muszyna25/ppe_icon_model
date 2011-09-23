@@ -214,6 +214,7 @@ MODULE mo_icon_cpl
      INTEGER                :: time_operation
      INTEGER                :: frequency
      INTEGER                :: time_step
+     INTEGER                :: diagnostic
   END TYPE t_coupling
 
 !>
@@ -226,7 +227,8 @@ MODULE mo_icon_cpl
 !! - Global field ID
 !! - Status of the field: false || true
 !! - Field (short)name
-!! - time_operation (average / accumate / none )
+!! - time_operation ( average / accumulate / none )
+!! - diagnostic_operation ( min / max / sum / none )
 !! - couping_freq coupling frequency in seconds
 !!
 
@@ -359,7 +361,7 @@ MODULE mo_icon_cpl
   INTEGER, PARAMETER            :: msg_len = 3
 
   PUBLIC :: l_MPI_was_initialized
-  PUBLIC :: ICON_comm, ICON_comm_active
+  PUBLIC :: ICON_comm, ICON_comp_comm, ICON_comm_active
   PUBLIC :: ICON_root, ICON_global_rank, ICON_global_size
   PUBLIC :: ICON_local_rank, ICON_local_size
   PUBLIC :: set_cpl_local_comm, get_cpl_local_comm

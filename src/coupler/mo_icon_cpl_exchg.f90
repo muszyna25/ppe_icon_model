@@ -51,7 +51,8 @@ MODULE mo_icon_cpl_exchg
   USE mo_event_manager, ONLY : event_check, events
 
 #ifndef NOMPI
-  USE mpi, ONLY : MPI_INTEGER, MPI_TAG, MPI_SOURCE, MPI_STATUS_SIZE
+  USE mpi, ONLY : MPI_INTEGER, MPI_TAG, MPI_SOURCE, MPI_STATUS_SIZE, &
+                  MPI_MIN, MPI_MAX, MPI_SUM
 
   USE mo_icon_cpl, ONLY : t_cpl_field, cpl_fields,  &
    &                      nbr_ICON_fields,  &
@@ -60,6 +61,7 @@ MODULE mo_icon_cpl_exchg
    &                      l_debug, debug_level, cplout, &
    &                      ICON_global_rank,             &
    &                      ICON_comm, ICON_comm_active,  &
+   &                      ICON_comp_comm,   &
    &                      initag,           &
    &                      msg_len,          &
    &                      datatype,         &
@@ -128,6 +130,14 @@ CONTAINS
     REAL(wp), INTENT(out)  :: recv_field (field_shape(1):field_shape(2),field_shape(3))
     INTEGER, INTENT(out)   :: info             !<  action performed
     INTEGER, INTENT(out)   :: ierror           !<  returned error code
+
+    ! for coupling diagnostic
+    !
+    REAL(wp)               :: recv_buf(field_shape(3))
+    REAL(wp)               :: recv_min(field_shape(3))
+    REAL(wp)               :: recv_max(field_shape(3))
+    REAL(wp)               :: recv_avg(field_shape(3))
+    INTEGER                :: j, nsum, nbuf
 
     ierror = 0
 
@@ -277,6 +287,45 @@ CONTAINS
 
     ENDDO
 
+    IF ( fptr%coupling%diagnostic == 1 ) THEN
+
+       DO i = 1, field_shape(3)
+          recv_min(i) = MINVAL(recv_field(:,i))
+          recv_max(i) = MAXVAL(recv_field(:,i))
+          DO j = field_shape(1), field_shape(2)
+             recv_avg(i) = recv_avg(i) + recv_field(j,i)
+          ENDDO
+       ENDDO
+
+       CALL MPI_Allreduce ( recv_min, recv_buf, field_shape(3), datatype, &
+            MPI_MIN, ICON_comp_comm, ierror )
+       recv_min(:) = recv_buf(:)
+
+       CALL MPI_Allreduce ( recv_max, recv_buf, field_shape(3), datatype, &
+            MPI_MAX, ICON_comp_comm, ierror )
+       recv_max(:) = recv_buf(:)
+
+       CALL MPI_Allreduce ( recv_avg, recv_buf, field_shape(3), datatype, &
+            MPI_SUM, ICON_comp_comm, ierror )
+       recv_avg(:) = recv_buf(:)
+
+       nsum = field_shape(2) - field_shape(1) + 1
+
+       CALL MPI_Allreduce ( nsum, nbuf, 1, MPI_INTEGER, &
+            MPI_SUM, ICON_comp_comm, ierror )
+       nsum = nbuf
+
+       recv_avg(:) = recv_avg(:) / nsum
+
+       DO i = 1, field_shape(3)
+          WRITE ( cplout, '(a,a3,3(a5,f13.6))' ) fptr%field_name, ' : ', &
+            ' Min ', recv_min(i), &      
+            ' Avg ', recv_avg(i), &
+            ' Max ', recv_max(i)
+       ENDDO
+
+    ENDIF
+
     info = 1
 
     DEALLOCATE ( lrequests )
@@ -304,6 +353,14 @@ CONTAINS
     LOGICAL                :: l_coupling
     LOGICAL                :: l_end_of_run
     REAL (wp)              :: weight
+
+    ! for coupling diagnostic
+    !
+    REAL(wp)               :: send_buf(field_shape(3))
+    REAL(wp)               :: send_min(field_shape(3))
+    REAL(wp)               :: send_max(field_shape(3))
+    REAL(wp)               :: send_avg(field_shape(3))
+    INTEGER                :: j, nsum, nbuf
 
     ierror = 0
 
@@ -451,6 +508,45 @@ CONTAINS
 
              CALL psmile_bsend ( send_buffer, len*nbr_bundles, &
                   datatype, sptr%target_rank, msgtag, ICON_comm_active, ierr ) 
+
+             IF ( fptr%coupling%diagnostic == 1 ) THEN
+
+                DO i = 1, field_shape(3)
+                   send_min(i) = MINVAL(send_buffer(:,i))
+                   send_max(i) = MAXVAL(send_buffer(:,i))
+                   DO j = field_shape(1), field_shape(2)
+                      send_avg(i) = send_avg(i) + send_buffer(j,i)
+                   ENDDO
+                ENDDO
+
+                CALL MPI_Allreduce ( send_min, send_buf, field_shape(3), datatype, &
+                     MPI_MIN, ICON_comp_comm, ierror )
+                send_min(:) = send_buf(:)
+
+                CALL MPI_Allreduce ( send_max, send_buf, field_shape(3), datatype, &
+                     MPI_MAX, ICON_comp_comm, ierror )
+                send_max(:) = send_buf(:)
+
+                CALL MPI_Allreduce ( send_avg, send_buf, field_shape(3), datatype, &
+                     MPI_SUM, ICON_comp_comm, ierror )
+                send_avg(:) = send_buf(:)
+
+                nsum = field_shape(2) - field_shape(1) + 1
+
+                CALL MPI_Allreduce ( nsum, nbuf, 1, MPI_INTEGER, &
+                     MPI_SUM, ICON_comp_comm, ierror )
+                nsum = nbuf
+
+                send_avg(:) = send_avg(:) / nsum
+
+                DO i = 1, field_shape(3)
+                   WRITE ( cplout, '(a,a3,3(a5,f13.6))' ) fptr%field_name, ' : ', &
+                        ' Min ', send_min(i), &      
+                        ' Avg ', send_avg(i), &
+                        ' Max ', send_max(i)
+                ENDDO
+
+             ENDIF
 
              ! -------------------------------------------------------------
              ! Deallocate send buffer as the memory management is done inside

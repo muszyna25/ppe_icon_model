@@ -68,7 +68,7 @@ MODULE mo_icon_cpl_init_comp
    &                      nbr_active_fields,                  &
    &                      nbr_ICON_fields, nbr_ICON_comps,    &
    &                      nbr_ICON_grids, nbr_ICON_inc,       &
-   &                      ICON_comm,                          &
+   &                      ICON_comm, ICON_comp_comm,          &
    &                      ICON_global_rank, ICON_global_size, &
    &                      ICON_local_rank, ICON_local_size
 
@@ -162,6 +162,12 @@ CONTAINS
     IF ( ierr /= MPI_SUCCESS ) THEN
        CALL MPI_Error_string ( ierr, err_string, len, ierror )
        WRITE  ( * , '(A14,I3,A)' ) 'Error on rank ', ICON_global_rank, err_string
+    ENDIF
+
+    CALL MPI_Comm_dup ( comp_comm, ICON_comp_comm, ierr)
+    IF ( ierr /= MPI_SUCCESS ) THEN
+       CALL MPI_Error_string ( ierr, err_string, len, ierror )
+       WRITE  ( * , '(A14,I3,A)' ) 'Error on rank ', ICON_comp_comm, err_string
     ENDIF
 
     IF ( l_debug ) &

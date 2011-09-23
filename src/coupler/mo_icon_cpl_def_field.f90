@@ -229,6 +229,9 @@ CONTAINS
     fptr%coupling%frequency = config_cpl_fields(global_field_id)%frequency
     fptr%coupling%time_step = config_cpl_fields(global_field_id)%time_step
 
+    IF ( config_cpl_fields(global_field_id)%l_diagnostic ) &
+    fptr%coupling%diagnostic = 1
+
     ! -------------------------------------------------------------------
     ! Signal new coupling event and store event_id in  fptr%event_id
     ! -------------------------------------------------------------------
