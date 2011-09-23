@@ -255,9 +255,6 @@ MODULE mo_ext_data
     INTEGER, POINTER  ::   &   !< soil texture, keys 0-9                  [ ]
       &  soiltyp(:,:)          ! index1=1,nproma, index2=1,nblks_c
 
-    INTEGER, POINTER  ::   &   !< soil texture, keys 0-9                  [ ]
-      &  soiltyp_frac(:,:,:)   ! index1=1,nproma, index2=1,nblks_c, index3=1,nsfc_subs
-
     REAL(wp), POINTER ::   &   !< Near surface temperature (climatological mean)  [ K ]
       &  t_cl(:,:)             !  used as climatological layer (deepest layer) of T_SO
                                ! index1=1,nproma, index2=1,nblks_c
@@ -647,7 +644,7 @@ CONTAINS
       &        nblks_v       !< number of vertex blocks to allocate
 
     INTEGER :: shape2d_c(2), shape2d_e(2), shape2d_v(2)
-    INTEGER :: shape2d_sfc(3)
+    INTEGER :: shape3d_sfc(3)
 
     INTEGER :: ientr         !< "entropy" of horizontal slice
     !--------------------------------------------------------------
@@ -665,7 +662,7 @@ CONTAINS
     shape2d_c  = (/ nproma, nblks_c /)
     shape2d_e  = (/ nproma, nblks_e /)
     shape2d_v  = (/ nproma, nblks_v /)
-    shape2d_sfc= (/ nproma, nblks_c,nclass_lu(jg) /) 
+    shape3d_sfc= (/ nproma, nblks_c, nclass_lu(jg) /) 
 
     !
     ! Register a field list and apply default settings
@@ -1021,15 +1018,6 @@ CONTAINS
         &           grib2_desc, ldims=shape2d_c, lrestart=.FALSE.   )
 
 
-!DR      ! soil texture, keys 0-9
-!DR      !
-!DR      ! soiltyp_frac    p_ext_atm%soiltyp_frac(nproma,nblks_c,nsfc_subs)
-!DR      cf_desc    = t_cf_var('soil_texture', '-','soil texture')
-!DR      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-!DR      CALL add_var( p_ext_atm_list, 'soiltyp_frac', p_ext_atm%soiltyp_frac, &
-!DR        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
-
-
       ! Climat. temperature
       !
       ! t_cl         p_ext_atm%t_cl(nproma,nblks_c)
@@ -1057,7 +1045,7 @@ CONTAINS
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'lu_class_fraction', p_ext_atm%lu_class_fraction, &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
-        &           grib2_desc, ldims=shape2d_sfc)
+        &           grib2_desc, ldims=shape3d_sfc)
 
     CASE ( iecham, ildf_echam )
 
@@ -1829,6 +1817,11 @@ CONTAINS
             CALL read_netcdf_data (ncid, 'SOILTYP', p_patch(jg)%n_patch_cells_g,        &
               &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
               &                     ext_data(jg)%atm%soiltyp)
+
+!!$            CALL read_netcdf_data (ncid, 'LU_CLASS_FRACTION', p_patch(jg)%n_patch_cells_g,  &
+!!$              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+!!$              &                     nclass_lu(jg), ext_data(jg)%atm%lu_class_fraction)
+
 
             IF ( l_emiss ) THEN
               CALL read_netcdf_data (ncid, 'EMIS_RAD', p_patch(jg)%n_patch_cells_g,           &
