@@ -359,8 +359,8 @@ CONTAINS
        !   field_id(1) represents "TAUX"   wind stress component
        !   field_id(2) represents "TAUY"   wind stress component
        !   field_id(3) represents "SFWFLX" surface fresh water flux
-       !   field_id(4) represents "SHFLX"  sensible heat flux
-       !   field_id(5) represents "LHFLX"  latent heat flux
+       !   field_id(4) represents "SFTEMP" surface temperature
+       !   field_id(5) represents "THFLX"  total heat flux
        !
        !   field_id(6) represents "SST"    sea surface temperature
        !   field_id(7) represents "OCEANU" u component of ocean surface current
@@ -391,15 +391,18 @@ CONTAINS
        buffer(:,1) = RESHAPE ( prm_field(jg)%rsfl(:,:), (/ nbr_points /) ) + &
             &        RESHAPE ( prm_field(jg)%rsfc(:,:), (/ nbr_points /) ) + &
             &        RESHAPE ( prm_field(jg)%ssfl(:,:), (/ nbr_points /) ) + &
-            &        RESHAPE ( prm_field(jg)%ssfc(:,:), (/ nbr_points /) )
+            &        RESHAPE ( prm_field(jg)%ssfc(:,:), (/ nbr_points /) ) + &
+            &        RESHAPE ( prm_field(jg)%evap_tile(:,:,iwtr), (/ nbr_points /) )
 
        CALL ICON_cpl_put ( field_id(3), field_shape, buffer, ierror )
 
-       buffer(:,1) =  RESHAPE ( prm_field(jg)%shflx_tile(:,:,iwtr), (/ nbr_points /) )
+       buffer(:,1) =  RESHAPE ( prm_field(jg)%temp(:,nlev,:), (/ nbr_points /) )
        CALL ICON_cpl_put ( field_id(4), field_shape, buffer, ierror )
 
-       buffer(:,1) =  RESHAPE ( prm_field(jg)%lhflx_tile(:,:,iwtr), (/ nbr_points /) )
-       CALL ICON_cpl_put ( field_id(5), field_shape, buffer, ierror )
+!rr    get the total heat flux
+!rr
+!rr       buffer(:,1) =  RESHAPE ( prm_field(jg)% ..... (:,:,iwtr), (/ nbr_points /) )
+!rr       CALL ICON_cpl_put ( field_id(5), field_shape, buffer, ierror )
 
        !
        ! Receive fields, only assign values if something was received ( info > 0 )

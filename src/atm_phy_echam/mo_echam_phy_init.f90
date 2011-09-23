@@ -272,8 +272,8 @@ CONTAINS
                !   field_id(1) represents "TAUX"   wind stress component
                !   field_id(2) represents "TAUY"   wind stress component
                !   field_id(3) represents "SFWFLX" surface fresh water flux
-               !   field_id(4) represents "SHFLX"  sensible heat flux
-               !   field_id(5) represents "LHFLX"  latent heat flux
+               !   field_id(4) represents "SFTEMP" surface temperature
+               !   field_id(5) represents "THFLX"  total heat flux
                !
                !   field_id(6) represents "SST"    sea surface temperature
                !   field_id(7) represents "OCEANU" u component of ocean surface current
