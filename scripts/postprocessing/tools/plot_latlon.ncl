@@ -101,11 +101,11 @@ begin
   poleY = cdf_file->rotated_pole@grid_north_pole_latitude   ; [   0,  90]*pi/180
 
   ; read (unrotated) lon-lat grid from NetCDF file:
-  dim_lon = dimsizes(cdf_file->interp_lon)
-  dim_lat = dimsizes(cdf_file->interp_lat)
+  dim_lon = dimsizes(cdf_file->lon)
+  dim_lat = dimsizes(cdf_file->lat)
 
-  lon = cdf_file->interp_lon(:)
-  lat = cdf_file->interp_lat(:)
+  lon = cdf_file->lon(:)
+  lat = cdf_file->lat(:)
 
   res@tiMainString    = res@tiMainString + \
   ", res. " + (lon(2)-lon(1))/pi_180 + "/" + (lat(2)-lat(1))/pi_180 + \

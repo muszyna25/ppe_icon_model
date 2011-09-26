@@ -5526,7 +5526,7 @@ CONTAINS
        ENDIF
      END IF
 #else
-     CALL finish(routine, "Function not yet implemented!")
+     ! do nothing in the sequential case
 #endif
 
    END SUBROUTINE p_gather_field_2d_int
@@ -5639,7 +5639,7 @@ CONTAINS
        ENDIF
      END IF
 #else
-     CALL finish(routine, "Function not yet implemented!")
+     ! do nothing in the sequential case
 #endif
 
    END SUBROUTINE p_gather_field_3d_int
@@ -5752,7 +5752,7 @@ CONTAINS
        ENDIF
      END IF
 #else
-     CALL finish(routine, "Function not yet implemented!")
+     ! do nothing in the sequential case
 #endif
 
    END SUBROUTINE p_gather_field_3d
@@ -5865,7 +5865,7 @@ CONTAINS
        ENDIF
      END IF
 #else
-     CALL finish(routine, "Function not yet implemented!")
+     ! do nothing in the sequential case
 #endif
 
    END SUBROUTINE p_gather_field_4d

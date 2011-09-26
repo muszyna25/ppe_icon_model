@@ -761,11 +761,11 @@ CONTAINS
       lonlat_gridID(k_jg) = gridCreate(GRID_LONLAT, grid%total_dim)
 
       CALL gridDefXsize(lonlat_gridID(k_jg), grid%dimen(1))
-      CALL gridDefXname(lonlat_gridID(k_jg), 'interp_lon')
+      CALL gridDefXname(lonlat_gridID(k_jg), 'lon')
       CALL gridDefXunits(lonlat_gridID(k_jg), units(1:ulen))
 
       CALL gridDefYsize(lonlat_gridID(k_jg), grid%dimen(2))
-      CALL gridDefYname(lonlat_gridID(k_jg), 'interp_lat')
+      CALL gridDefYname(lonlat_gridID(k_jg), 'lat')
       CALL gridDefYunits(lonlat_gridID(k_jg), units(1:ulen))
 
       ! define rotation info of lon-lat grid:
