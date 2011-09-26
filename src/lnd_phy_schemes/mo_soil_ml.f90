@@ -4289,7 +4289,7 @@ DO   j = jstarts, jends
 !    temperature dependence of relaxation/ageing constant
      ztau_snow = crhosmint+(crhosmaxt-crhosmint)*(t_snow(i,j,nnew,ns)-csnow_tmin) &
                                                 /(t0_melt         -csnow_tmin)
-     ztau_snow = MAX(crhosmint,MIN(crhosmaxt,ztau_snow))
+     ztau_snow = MAX(0.005_ireals,MIN(crhosmaxt,ztau_snow)) ! JH change time constant to 200d!
      zrho_snowe= crhosmax_ml+(rho_snow(i,j,nx,ns)-crhosmax_ml)* &
                            EXP(-ztau_snow*zdt/86400._ireals)
 !     b) density of fresh snow
