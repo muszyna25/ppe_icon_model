@@ -41,12 +41,13 @@ MODULE mo_lonlat_intp_nml
   USE mo_master_control,     ONLY: is_restart_run
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,   &
                                  & open_and_restore_namelist, close_tmpfile
-  USE mo_lonlat_intp_config, ONLY: lonlat_intp_config
+  USE mo_lonlat_intp_config, ONLY: lonlat_intp_config, lonlat_corner2, DIM_UNDEFINED
   USE mo_exception,          ONLY: finish
   USE mo_math_utilities,     ONLY: t_lon_lat_grid
 
   IMPLICIT NONE
   PUBLIC :: read_lonlat_intp_namelist
+
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
   !-------------------------------------------------------------------------
@@ -55,19 +56,21 @@ MODULE mo_lonlat_intp_nml
 
   LOGICAL              :: llonlat_enabled(max_dom) ! Flag. True, if interpolation onto lon-lat grid is enabled
   CHARACTER (len=1024) :: lonlat_var_list        ! string with a list of variables for lon-lat interpolation
-  REAL(wp)             :: lon_delta(max_dom)     ! lon-lat grid resolution,                unit:DEGREE
-  REAL(wp)             :: lat_delta(max_dom)     ! lon-lat grid resolution,                unit:DEGREE
-  REAL(wp)             :: lon_sw_corner(max_dom) ! south western corner of area (lon/lat), unit:DEGREE
-  REAL(wp)             :: lat_sw_corner(max_dom) ! south western corner of area (lon/lat), unit:DEGREE
-  REAL(wp)             :: lon_poleN(max_dom)     ! position of north pole (lon,lat),       unit:DEGREE
-  REAL(wp)             :: lat_poleN(max_dom)     ! position of north pole (lon,lat),       unit:DEGREE
+  REAL(wp)             :: lon_delta(max_dom)     ! lon-lat grid resolution,                    unit:DEGREE
+  REAL(wp)             :: lat_delta(max_dom)     ! lon-lat grid resolution,                    unit:DEGREE
+  REAL(wp)             :: lon_corner1(max_dom)   ! first corner of area (lon/lat),             unit:DEGREE
+  REAL(wp)             :: lat_corner1(max_dom)   ! first corner of area (lon/lat),             unit:DEGREE
+  REAL(wp)             :: lon_corner2(max_dom)   ! (optional) second corner of area (lon/lat), unit:DEGREE
+  REAL(wp)             :: lat_corner2(max_dom)   ! (optional) second corner of area (lon/lat), unit:DEGREE
+  REAL(wp)             :: lon_poleN(max_dom)     ! position of north pole (lon,lat),           unit:DEGREE
+  REAL(wp)             :: lat_poleN(max_dom)     ! position of north pole (lon,lat),           unit:DEGREE
   INTEGER              :: lon_dimen(max_dom)     ! grid dimensions
   INTEGER              :: lat_dimen(max_dom)     ! grid dimensions
 
   !> Namelist for interpolation of output variables
   NAMELIST/lonlat_intp_nml/ llonlat_enabled, lonlat_var_list,         &
-    &                       lon_delta, lon_sw_corner, lon_poleN, lon_dimen,    &
-    &                       lat_delta, lat_sw_corner, lat_poleN, lat_dimen
+    &                       lon_delta, lon_corner1, lon_corner2, lon_poleN, lon_dimen,    &
+    &                       lat_delta, lat_corner1, lat_corner2, lat_poleN, lat_dimen
 
 CONTAINS
   !>
@@ -101,16 +104,18 @@ CONTAINS
     ! 1. default settings
     !-----------------------
 
-    llonlat_enabled    = .FALSE.
-    lonlat_var_list    = "'PS', 'Q7', 'normal_velocity'"
-    lon_delta(:)       =    2._wp
-    lat_delta(:)       =    2._wp
-    lon_sw_corner(:)   = -180._wp
-    lat_sw_corner(:)   =  -90._wp
-    lon_poleN(:)       =    0._wp
-    lat_poleN(:)       =   90._wp
-    lon_dimen(:)       = 181
-    lat_dimen(:)       =  91
+    llonlat_enabled = .FALSE.
+    lonlat_var_list = "'PS', 'Q7', 'normal_velocity'"
+    lon_delta  (:)  =    2._wp
+    lat_delta  (:)  =    2._wp
+    lon_corner1(:)  = -180._wp
+    lat_corner1(:)  =  -90._wp
+    lon_corner2(:)  = +180._wp
+    lat_corner2(:)  =  +90._wp
+    lon_poleN  (:)  =    0._wp
+    lat_poleN  (:)  =   90._wp
+    lon_dimen  (:)  = DIM_UNDEFINED ! 181
+    lat_dimen  (:)  = DIM_UNDEFINED !  91
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above
@@ -148,10 +153,13 @@ CONTAINS
 
       grid => lonlat_intp_config(idom)%lonlat_grid
 
-      grid%delta(1:2)     = (/ lon_delta(idom),     lat_delta(idom)     /) * pi_180
-      grid%sw_corner(1:2) = (/ lon_sw_corner(idom), lat_sw_corner(idom) /) * pi_180
-      grid%poleN(1:2)     = (/ lon_poleN(idom),     lat_poleN(idom)     /) * pi_180
-      grid%dimen(1:2)     = (/ lon_dimen(idom),     lat_dimen(idom)     /)
+      grid%delta(1:2)        = (/ lon_delta(idom),     lat_delta(idom)     /) * pi_180
+      grid%start_corner(1:2) = (/ lon_corner1(idom),   lat_corner1(idom)   /) * pi_180
+      grid%poleN(1:2)        = (/ lon_poleN(idom),     lat_poleN(idom)     /) * pi_180
+      grid%dimen(1:2)        = (/ lon_dimen(idom),     lat_dimen(idom)     /)
+      ! the dimension values above may be overruled by a definition of
+      ! a second area corner:
+      lonlat_corner2(1:2,idom) = (/ lon_corner2(idom), lat_corner2(idom)   /) * pi_180
 
     END DO
 

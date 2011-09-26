@@ -779,7 +779,7 @@ CONTAINS
 
         ! generate list of lon/lat points
         p_lonlat(1:grid%dimen(i)) =              &
-          &      (/ (grid%sw_corner(i)           &
+          &      (/ (grid%start_corner(i)        &
           &            +  (k-1)*grid%delta(i),   &
           &      k=1,grid%dimen(i))  /) 
 

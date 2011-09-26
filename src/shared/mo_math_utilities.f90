@@ -152,12 +152,12 @@ MODULE mo_math_utilities
 ! ! specification of (rotated) lon-lat grid
 
   TYPE t_lon_lat_grid
-    ! grid points: sw_corner(lon,lat) + delta(lon,lat)*[0,1,2, ..., dim(lon,lat)-1]
-    REAL(wp) ::                  &
-      &  delta    (2),           &     ! lon-lat grid resolution,                unit:rad
-      &  sw_corner(2),           &     ! south western corner of area (lon/lat), unit:rad
-      &  poleN    (2)                  ! position of north pole (lon,lat),       unit:rad
-    INTEGER  :: dimen(2)               ! grid dimensions
+    ! grid points: start_corner(lon,lat) + delta(lon,lat)*[0,1,2, ..., dim(lon,lat)-1]
+    REAL(wp) ::                     &
+      &  delta       (2),           &     ! lon-lat grid resolution,                unit:rad
+      &  start_corner(2),           &     ! south western corner of area (lon/lat), unit:rad
+      &  poleN       (2)                  ! position of north pole (lon,lat),       unit:rad
+    INTEGER  :: dimen(2)                  ! grid dimensions
 
     ! computed from above values:
     INTEGER  :: total_dim              ! total number of grid points 
@@ -1404,11 +1404,11 @@ SUBROUTINE rotate_latlon_grid( lon_lat_grid, rotated_pts )
   sincos_pole(:,2) = COS(lon_lat_grid%poleN(:))
 
   DO k=1,lon_lat_grid%dimen(1)
-    rlon_lat        = lon_lat_grid%sw_corner(1) + (k-1)*lon_lat_grid%delta(1)
+    rlon_lat        = lon_lat_grid%start_corner(1) + (k-1)*lon_lat_grid%delta(1)
     sincos_lon(k,:) = (/ SIN(rlon_lat), COS(rlon_lat) /)
   END DO
   DO k=1,lon_lat_grid%dimen(2)
-    rlon_lat        = lon_lat_grid%sw_corner(2) + (k-1)*lon_lat_grid%delta(2)
+    rlon_lat        = lon_lat_grid%start_corner(2) + (k-1)*lon_lat_grid%delta(2)
     sincos_lat(k,:) = (/ SIN(rlon_lat), COS(rlon_lat) /)
   END DO
 

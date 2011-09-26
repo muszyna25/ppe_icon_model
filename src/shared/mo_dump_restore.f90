@@ -1602,7 +1602,7 @@ CONTAINS
       CALL nf(nf_put_att_double(ncid, nf_global, 'int.lonlat.delta',     &
         &     nf_double, 2, grid%delta(1:2)))
       CALL nf(nf_put_att_double(ncid, nf_global, 'int.lonlat.sw_corner', &
-        &     nf_double, 2, grid%sw_corner(1:2)))
+        &     nf_double, 2, grid%start_corner(1:2)))
       CALL nf(nf_put_att_double(ncid, nf_global, 'int.lonlat.poleN',     &
         &     nf_double, 2, grid%poleN(1:2)))
       CALL nf(nf_put_att_int(ncid, nf_global, 'int.lonlat.dimen',        &
@@ -2630,7 +2630,7 @@ CONTAINS
 
         grid => lonlat_intp_config(jg)%lonlat_grid
         CALL check_att('int.lonlat.delta'     , grid%delta(1:2))
-        CALL check_att('int.lonlat.sw_corner' , grid%sw_corner(1:2))
+        CALL check_att('int.lonlat.sw_corner' , grid%start_corner(1:2))
         CALL check_att('int.lonlat.poleN'     , grid%poleN(1:2))
         CALL check_att('int.lonlat.dimen'     , grid%dimen(1:2))
         

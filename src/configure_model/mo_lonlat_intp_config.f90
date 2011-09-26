@@ -37,8 +37,11 @@ MODULE mo_lonlat_intp_config
   USE mo_exception,      ONLY: message, message_text, finish
   USE mo_math_utilities, ONLY: t_lon_lat_grid
   USE mo_util_string,    ONLY: split_string
+  USE mo_kind,           ONLY: wp
 
   IMPLICIT NONE
+
+  INTEGER, PARAMETER :: DIM_UNDEFINED = -1
 
   !--------------------------------------------------------------------------
   ! Derived type 
@@ -65,9 +68,14 @@ MODULE mo_lonlat_intp_config
   ! parameters specifying interpolation to (rotated) lon-lat grids
   TYPE(t_lonlat_intp_config), TARGET :: lonlat_intp_config(1:max_dom)
 
+  ! (optional:) second corner of lon-lat area
+  REAL(wp) :: lonlat_corner2(2, 1:max_dom)
+
   PUBLIC :: configure_lonlat_intp
   PUBLIC :: t_lonlat_intp_config
   PUBLIC :: lonlat_intp_config
+  PUBLIC :: lonlat_corner2
+  PUBLIC :: DIM_UNDEFINED
 
 CONTAINS
 
@@ -94,8 +102,14 @@ CONTAINS
           & lonlat_intp_config(idom)%pos_list,   &
           & lonlat_intp_config(idom)%ilen_list)
         
-        ! values for the blocking
+        ! if the user has specified a second corner, override the
+        ! grid point numbers by the necessary values:
         grid => lonlat_intp_config(idom)%lonlat_grid
+        IF (ALL(lonlat_corner2(:,idom) /= DIM_UNDEFINED)) THEN
+          grid%dimen(:) = NINT((lonlat_corner2(:,idom) - grid%start_corner(:))/grid%delta(:)) + 1
+        END IF
+
+        ! values for the blocking
         grid%total_dim      = PRODUCT(grid%dimen(:))
         grid%nblks          =  (grid%total_dim - 1)/nproma + 1
         grid%npromz         =  grid%total_dim - (grid%nblks-1)*nproma

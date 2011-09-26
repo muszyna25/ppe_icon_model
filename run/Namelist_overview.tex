@@ -2215,17 +2215,34 @@ Interpolation to lon-lat grid: resolution.&
 \tabularnewline
 
 \hline 
-lon\_sw\_corner&
+lon\_corner1&
 R(n\_dom) &
 -180.0&deg&
 South western corner of interpolation area (lon/lat).&
 \tabularnewline
 
 \hline 
-lat\_sw\_corner&
+lat\_corner1&
 R(n\_dom) &
 -90.0&deg&
 South western corner of interpolation area (lon/lat).&
+\tabularnewline
+
+\hline 
+lon\_corner2&
+R(n\_dom) &
+ 180.0&deg&
+North eastern corner of interpolation area (lon/lat).
+Overrides corresponding ``dimen'' value.
+\tabularnewline
+
+\hline 
+lat\_corner2&
+R(n\_dom) &
+ 90.0&deg&
+North eastern corner of interpolation area (lon/lat).
+Overrides corresponding ``dimen'' value.
+&
 \tabularnewline
 
 \hline 
@@ -2245,15 +2262,19 @@ Position of north pole for interpolation grid.&
 \hline 
 lon\_dimen&
 I(n\_dom) &
-181&&
-Dimensions of interpolation grid.&
+-1&&
+Dimensions of interpolation grid.
+Computed automatically when a second area corner is provided.
+&
 \tabularnewline
 
 \hline 
 lat\_dimen&
 I(n\_dom) &
-91&&
-Dimensions of interpolation grid.&
+-1&&
+Dimensions of interpolation grid.
+Computed automatically when a second area corner is provided.
+&
 \tabularnewline
 
 \hline
