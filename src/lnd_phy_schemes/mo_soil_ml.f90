@@ -4241,7 +4241,15 @@ DO   j = jstarts, jends
       w_snow(i,j,nnew,ns)  = w_snow(i,j,nx,ns) + zdt*zdwsndt  (i,j)/rho_w
       w_i   (i,j,nnew,ns)  = w_i   (i,j,nx,ns) + zdt*zdwidt   (i,j)/rho_w
 
-      IF (w_snow(i,j,nnew,ns) <= zepsi) THEN
+      ! melting-point adjustment of snow: if snow temp is above freezing and a non-negligible
+      ! amount of snow is available, then melt as much snow as needed to get snow temp
+      ! back to t0_melt while conserving energy
+      IF (t_snow(i,j,nnew,ns) > t0_melt .AND. w_snow(i,j,nnew,ns) > zepsi) THEN
+        w_snow(i,j,nnew,ns) = MAX(w_snow(i,j,nnew,ns)*(1._ireals-(t_snow(i,j,nnew,ns)-t0_melt) &
+          *chc_i/lh_f), 0.0_ireals)
+        t_snow(i,j,nnew,ns) = t0_melt
+      ELSE IF (w_snow(i,j,nnew,ns) <= zepsi) THEN
+        ! if the amount of snow is negligible, then just remove it
         w_snow(i,j,nnew,ns) = 0.0_ireals
         t_snow(i,j,nnew,ns) = t_so(i,j,0,nnew,ns)
       ENDIF
@@ -4453,8 +4461,8 @@ DO ns = nsubs0, nsubs1
 DO   j = jstarts, jends
   DO i = istarts, iends
     IF (llandmask(i,j,ns)) THEN          ! land-points only
-if (t_snow(i,j,nnew,ns)<180. .OR. t_snow(i,j,nnew,ns)>350. .OR.  &
-  & w_i(i,j,nnew,ns)*1000. > 0.1_ireals ) THEN
+if (w_snow(i,j,nnew,ns) > zepsi .AND. (t_snow(i,j,nnew,ns)<180. .OR. t_snow(i,j,nnew,ns)>280.) &
+  & .OR. w_i(i,j,nnew,ns)*1000. > 0.1_ireals ) THEN
 
       write(0,*) "SFC-DIAGNOSIS TERRA ",i,j,ke,dt,nsubs1,ntstep
       write(0,*)" nztlev ",               nztlev   
@@ -4696,14 +4704,6 @@ REAL (KIND=ireals), INTENT (IN)          ::    &
              * (tb(istart:iend,jstart:jend) - ts(istart:iend,jstart:jend))
   ELSEWHERE
       tg(istart:iend,jstart:jend) =   tb(istart:iend,jstart:jend)
-  END WHERE
-
-!DR for testing purposes
-  WHERE ( llp(istart:iend,jstart:jend) .AND. (ws(istart:iend,jstart:jend) < 1.e-4_ireals))
-    ts(istart:iend,jstart:jend) =                                          &
-      MAX(ts(istart:iend,jstart:jend),tg(istart:iend,jstart:jend)-5._ireals)
-    ts(istart:iend,jstart:jend) =                                          &
-      MIN(ts(istart:iend,jstart:jend),tg(istart:iend,jstart:jend)+5._ireals)
   END WHERE
 
 END SUBROUTINE tgcom
