@@ -40,7 +40,7 @@ MODULE mo_atmo_hydrostatic
   USE mo_time_config,       ONLY: time_config
   USE mo_run_config,        ONLY: dtime, nsteps, ltestcase, ltimer,iforcing, nlev
   USE mo_ha_testcases,      ONLY: ctest_name
-  USE mo_io_config,         ONLY: dt_data, dt_file, dt_diag, dt_checkpoint
+  USE mo_io_config,         ONLY: n_diags, n_checkpoints,n_files,n_ios
 
   USE mo_model_domain,        ONLY: p_patch
   USE mo_intp_data_strc,      ONLY: p_int_state, p_int_state_lonlat
@@ -133,10 +133,10 @@ CONTAINS
     ! compute time step interval for taking a certain action
     !------------------------------------------------------------------
 
-    n_io    = NINT(dt_data/dtime)        ! write output
-    n_file  = NINT(dt_file/dtime)        ! trigger new output file
-    n_chkpt = NINT(dt_checkpoint/dtime)  ! write restart files
-    n_diag  = MAX(1,NINT(dt_diag/dtime)) ! diagnose of total integrals
+    n_io    = n_ios()        ! number of: write output
+    n_file  = n_files()        ! number of: trigger new output file
+    n_chkpt = n_checkpoints()       ! number of: write restart files
+    n_diag  = n_diags() ! number of: diagnose of total integrals
 
     !------------------------------------------------------------------
     ! Initialize output file if necessary;

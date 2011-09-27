@@ -54,7 +54,7 @@ MODULE mo_ext_data
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_physical_constants, ONLY: ppmv2gg, zemiss_def
   USE mo_run_config,         ONLY: iforcing
-  USE mo_ocean_nml,          ONLY: iforc_oce
+  USE mo_ocean_nml,          ONLY: iforc_oce, iforc_omip, iforc_len
   USE mo_extpar_config,      ONLY: itopo, fac_smooth_topo, n_iter_smooth_topo, l_emiss, &
                                    heightdiff_threshold
   USE mo_dynamics_config,    ONLY: iequations
@@ -354,7 +354,7 @@ MODULE mo_ext_data
     ! OMIP forcing fluxes on cell centers. no_of_fluxes=3
     !
     REAL(wp), POINTER ::   &       !< omip monthly mean forcing fluxes
-      &  omip_forc_mon_c(:,:,:,:)  !  index1=nproma, index2=12, index3=nblks_c, index4=no_of_fluxes
+      &  omip_forc_mon_c(:,:,:,:)  !  index1=nproma, index2=12 or 365, index3=nblks_c, index4=no_of_fluxes
 
   ! REAL(wp), POINTER ::   &       !< omip monthly mean forcing fluxes
   !   &  omip_forc_day_c(:,:,:,:)  !  index1=nproma, index2=365, index3=nblks_c, index4=no_of_fluxes
@@ -1320,6 +1320,7 @@ CONTAINS
     INTEGER :: shape2d_c(2), shape2d_e(2), shape4d_c(4)
 
     INTEGER :: ientr         !< "entropy" of horizontal slice
+
     !--------------------------------------------------------------
 
     !determine size of arrays
@@ -1332,17 +1333,18 @@ CONTAINS
     ! predefined array shapes
     shape2d_c = (/ nproma, nblks_c /)
     shape2d_e = (/ nproma, nblks_e /)
-    shape4d_c = (/ nproma, 12, nblks_c, 3 /)
+
+    ! omip or other flux forcing data on cell centers: 13 variables, iforc_len data sets
+    shape4d_c = (/ nproma, iforc_len, nblks_c, 13 /)
 
     !
     ! Register a field list and apply default settings
     !
     CALL new_var_list( p_ext_oce_list, TRIM(listname) )
     CALL default_var_list_settings( p_ext_oce_list,            &
-                                  & lrestart=.TRUE.,           &
-                                  & restart_type=FILETYPE_NC2  )
-
-
+                                  & lrestart=.FALSE.,          &
+                                  & restart_type=FILETYPE_NC2, &
+                                  & model_type='oce'  )
 
     ! bathymetric height at cell center
     !
@@ -1357,7 +1359,7 @@ CONTAINS
     ! bathymetric height at cell edge
     !
     ! bathymetry_e  p_ext_oce%bathymetry_e(nproma,nblks_e)
-    cf_desc    = t_cf_var('Model bathymetry at cell edge', 'm', &
+    cf_desc    = t_cf_var('Model bathymetry at edge', 'm', &
       &                   'Model bathymetry')
     grib2_desc = t_grib2_var( 192, 140, 219, ientr, GRID_REFERENCE, GRID_EDGE)
     CALL add_var( p_ext_oce_list, 'bathymetry_e', p_ext_oce%bathymetry_e,      &
@@ -1407,9 +1409,9 @@ CONTAINS
     INTEGER :: jg
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = 'mo_ext_data:destruct_ext_data'
-!-------------------------------------------------------------------------
+    !-------------------------------------------------------------------------
 
-    CALL message (TRIM(routine), 'Destruction of data structure for' // &
+    CALL message (TRIM(routine), 'Destruction of data structure for ' // &
       &                          'external data started')
 
     IF (iequations/=ihs_ocean) THEN  ! atmosphere model ------------------
@@ -1418,7 +1420,7 @@ CONTAINS
         ! Delete list of constant in time atmospheric elements
         CALL delete_var_list( ext_data(jg)%atm_list )
       ENDDO
-  
+
       IF (iforcing==inwp) THEN
       DO jg = 1,n_dom
         ! Delete list of time-dependent atmospheric elements
@@ -1432,13 +1434,13 @@ CONTAINS
         ! Delete list of constant in time oceanic elements
         CALL delete_var_list( ext_data(jg)%oce_list )
       ENDDO
-  
+
         ! Delete list of time-dependent oceanic elements
         ! ### to be added if necessary ###
 
     END IF
 
-    CALL message (TRIM(routine), 'Destruction of data structure for' // &
+    CALL message (TRIM(routine), 'Destruction of data structure for ' // &
       &                          'external data finished')
 
   END SUBROUTINE destruct_ext_data
@@ -2051,8 +2053,8 @@ CONTAINS
     INTEGER :: jg, i_lev, i_cell_type, no_cells, no_verts, no_tst
     INTEGER :: ncid, dimid
 
-    REAL(wp):: z_flux(nproma,12,p_patch(1)%nblks_c)
-
+    !REAL(wp):: z_flux(nproma, 12,p_patch(1)%nblks_c)
+    REAL(wp):: z_flux(nproma,iforc_len,p_patch(1)%nblks_c)
 
 !-------------------------------------------------------------------------
 
@@ -2144,7 +2146,7 @@ CONTAINS
       CALL read_netcdf_data (ncid, 'edge_elevation', p_patch(jg)%n_patch_edges_g,     &
         &                     p_patch(jg)%n_patch_edges, p_patch(jg)%edges%glb_index, &
         &                     ext_data(jg)%oce%bathymetry_e)
-     
+
       ! get land-sea-mask on cells, integer marks are:
       ! inner sea (-2), boundary sea (-1, cells and vertices), boundary (0, edges),
       ! boundary land (1, cells and vertices), inner land (2)
@@ -2184,9 +2186,12 @@ CONTAINS
       IF(my_process_is_stdio()) THEN
         !
         WRITE (omip_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-flux.nc'
+        !omip_file=TRIM('/home/peter/Development/ICON-dev/icon-oce-dev/grids/iconR2B04-flux.nc')
         !omip_file=TRIM('/scratch/local1/m212053/ICON/icon-oce-dev/grids/iconR2B04-flux.nc')
-        omip_file=TRIM('/home/peter/Development/ICON-dev/icon-oce-dev/grids/iconR2B04-flux.nc')
-        !omip_file=TRIM('/scratch/local1/m212053/ICON/icon-oce-dev/grids/iconR2B04-flux.nc')
+
+      ! OMIP flux files now on pool:
+        !omip_file=TRIM('/pool/data/ICON/external/iconR2B04-flux.nc')
+        CALL message( TRIM(routine),'Ocean OMIP forcing flux file is: '//TRIM(omip_file) )
         INQUIRE (FILE=omip_file, EXIST=l_exist)
         IF (.NOT.l_exist) THEN
           CALL finish(TRIM(routine),'OMIP forcing flux file is not found.')
@@ -2217,18 +2222,26 @@ CONTAINS
         !
         ! check
         !
-        IF(no_tst /= 12) THEN
+        IF(no_tst /= 12 .AND. no_tst /= 365) THEN
           CALL finish(TRIM(ROUTINE),&
-          & 'Number of timesteps is not 12 (monthly averages)')
+          & 'Number of timesteps is not 12 (monthly avg.) or 365 (daily avg.)!')
         ENDIF
       ENDIF
 
 
       !-------------------------------------------------------
       !
-      ! Read OMIP data for triangle centers
+      ! Read complete OMIP data for triangle centers
       !
       !-------------------------------------------------------
+
+      ! provide OMIP fluxes for sea ice (interface to ocean)
+      ! 4:  tafo(:,:),   &  ! 2 m air temperature                              [C]
+      ! 5:  ftdew(:,:),  &  ! 2 m dew-point temperature                        [K]
+      ! 6:  fu10(:,:) ,  &  ! 10 m wind speed                                  [m/s]
+      ! 7:  fclou(:,:),  &  ! Fractional cloud cover
+      ! 8:  pao(:,:),    &  ! Surface atmospheric pressure                     [hPa]
+      ! 9:  fswr(:,:),   &  ! Incoming surface solar radiation                 [W/m]
 
       ! zonal wind stress
       CALL read_netcdf_data (ncid, 'stress_x', p_patch(jg)%n_patch_cells_g,          &
@@ -2242,11 +2255,69 @@ CONTAINS
         &                    no_tst, z_flux)
       ext_data(jg)%oce%omip_forc_mon_c(:,:,:,2) = z_flux(:,:,:)
 
-      ! 2m-temperature for relaxation - read here but may not be used later
-      CALL read_netcdf_data (ncid, 'temp_2m', p_patch(jg)%n_patch_cells_g,           &
+      ! SST
+      CALL read_netcdf_data (ncid, 'SST', p_patch(jg)%n_patch_cells_g,           &
         &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
         &                    no_tst, z_flux)
       ext_data(jg)%oce%omip_forc_mon_c(:,:,:,3) = z_flux(:,:,:)
+
+      IF (iforc_omip == 2) THEN
+
+      ! 2m-temperature
+      CALL read_netcdf_data (ncid, 'temp_2m', p_patch(jg)%n_patch_cells_g,           &
+        &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                    no_tst, z_flux)
+      ext_data(jg)%oce%omip_forc_mon_c(:,:,:,4) = z_flux(:,:,:)
+
+      ! 2m dewpoint temperature
+      CALL read_netcdf_data (ncid, 'dpt_temp_2m', p_patch(jg)%n_patch_cells_g,       &
+        &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                    no_tst, z_flux)
+      ext_data(jg)%oce%omip_forc_mon_c(:,:,:,5) = z_flux(:,:,:)
+
+      ! Scalar wind
+      CALL read_netcdf_data (ncid, 'scalar_wind', p_patch(jg)%n_patch_cells_g,       &
+        &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                    no_tst, z_flux)
+      ext_data(jg)%oce%omip_forc_mon_c(:,:,:,6) = z_flux(:,:,:)
+
+      ! cloud cover
+      CALL read_netcdf_data (ncid, 'cloud', p_patch(jg)%n_patch_cells_g,             &
+        &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                    no_tst, z_flux)
+      ext_data(jg)%oce%omip_forc_mon_c(:,:,:,7) = z_flux(:,:,:)
+
+      ! sea level pressure
+      CALL read_netcdf_data (ncid, 'pressure', p_patch(jg)%n_patch_cells_g,          &
+        &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                    no_tst, z_flux)
+      ext_data(jg)%oce%omip_forc_mon_c(:,:,:,8) = z_flux(:,:,:)
+
+      ! total solar radiation
+      CALL read_netcdf_data (ncid, 'tot_solar', p_patch(jg)%n_patch_cells_g,         &
+        &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                    no_tst, z_flux)
+      ext_data(jg)%oce%omip_forc_mon_c(:,:,:,9) = z_flux(:,:,:)
+
+      ! precipitation
+      CALL read_netcdf_data (ncid, 'precip', p_patch(jg)%n_patch_cells_g,            &
+        &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                    no_tst, z_flux)
+      ext_data(jg)%oce%omip_forc_mon_c(:,:,:,10) = z_flux(:,:,:)
+
+      ! evaporation
+      CALL read_netcdf_data (ncid, 'evap', p_patch(jg)%n_patch_cells_g,              &
+        &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                    no_tst, z_flux)
+      ext_data(jg)%oce%omip_forc_mon_c(:,:,:,11) = z_flux(:,:,:)
+
+      ! runoff
+      CALL read_netcdf_data (ncid, 'runoff', p_patch(jg)%n_patch_cells_g,            &
+        &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                    no_tst, z_flux)
+      ext_data(jg)%oce%omip_forc_mon_c(:,:,:,12) = z_flux(:,:,:)
+
+      END IF
 
       !
       ! close file

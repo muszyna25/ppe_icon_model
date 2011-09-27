@@ -84,6 +84,7 @@ MODULE mo_linked_list
     !
     INTEGER                       :: cdiTimeIndex
     !
+    INTEGER                       :: nvars
   END TYPE t_var_list_intrinsic
   !
   TYPE t_var_list
@@ -137,12 +138,16 @@ CONTAINS
     this_list%p%cdiVertGridID      = -1
     this_list%p%cdiEdgeGridID      = -1
     !
-    this_list%p%cdiSurfZaxisID     = -1
-    this_list%p%cdiHalfZaxisID     = -1
-    this_list%p%cdiFullZaxisID     = -1
+    this_list%p%cdiSurfZaxisID      = -1
+    this_list%p%cdiHalfZaxisID      = -1
+    this_list%p%cdiFullZaxisID      = -1
+    this_list%p%cdiDepthFullZaxisID = -1
+    this_list%p%cdiDepthHalfZaxisID = -1
     !
     this_list%p%cdiTaxisID         = -1
     this_list%p%cdiTimeIndex       = -1
+    !
+    this_list%p%nvars              = 0
   END SUBROUTINE new_list
   !-----------------------------------------------------------------------------
   !
@@ -257,6 +262,7 @@ CONTAINS
     new_list_element%next_list_element => current_list_element%next_list_element
     current_list_element%next_list_element => new_list_element
     !
+    this_list%p%nvars = this_list%p%nvars + 1
   END SUBROUTINE append_list_element
   !-----------------------------------------------------------------------------
   SUBROUTINE delete_list_element (this_list, delete_this_list_element)
@@ -306,6 +312,7 @@ CONTAINS
     this_list%p%list_elements = this_list%p%list_elements-1
     DEALLOCATE (delete_this_list_element)
     !
+    this_list%p%nvars = this_list%p%nvars - 1
   END SUBROUTINE delete_list_element
   !-----------------------------------------------------------------------------
   !

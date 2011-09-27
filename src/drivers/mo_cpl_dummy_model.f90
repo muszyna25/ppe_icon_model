@@ -133,7 +133,7 @@ USE mo_io_restart_namelist,  ONLY: read_restart_namelists
 USE mo_io_restart_attributes,ONLY: read_restart_attributes
 
 USE mo_read_namelists,     ONLY: read_cpl_dummy_namelists
-USE mo_atm_nml_crosscheck,       ONLY: atm_crosscheck
+USE mo_nml_crosscheck,       ONLY: atm_crosscheck
 
 USE mo_dynamics_config,    ONLY: configure_dynamics  ! subroutine
 !USE mo_interpol_config,    ONLY: configure_interpolation 

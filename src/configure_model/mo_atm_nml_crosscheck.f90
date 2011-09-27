@@ -41,7 +41,7 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
-MODULE mo_atm_nml_crosscheck
+MODULE mo_nml_crosscheck
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message, message_text, finish, print_value
@@ -101,26 +101,16 @@ MODULE mo_atm_nml_crosscheck
 
 !  PRIVATE
 
-  PUBLIC :: atm_crosscheck !, atmospheric_configuration
+  PUBLIC :: atm_crosscheck, oce_crosscheck
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
 
 CONTAINS
 
-  SUBROUTINE atm_crosscheck
-
-    INTEGER :: jg
-    INTEGER :: jt   ! tracer loop index
-    INTEGER :: i_listlen
+  SUBROUTINE resize_simulation_length()
     REAL(wp):: cur_datetime_calsec, end_datetime_calsec, length_sec
-    CHARACTER(len=*), PARAMETER :: routine =  'atm_crosscheck'
-
-    !--------------------------------------------------------------------
-    ! Parallelization
-    !--------------------------------------------------------------------
-    CALL check_parallel_configuration()
-
+    CHARACTER(len=*), PARAMETER :: routine =  'resize_simulation_length'
     !--------------------------------------------------------------------
     ! Length if this integration
     !--------------------------------------------------------------------
@@ -168,26 +158,6 @@ CONTAINS
     ! Length of this integration is limited by length of the restart cycle.
     nsteps = MIN(nsteps,INT(time_config%dt_restart/dtime))
 
-    ! Special treatment for the hydro atm model
-
-    IF ( (iequations == IHS_ATM_TEMP) .OR. &
-         (iequations == IHS_ATM_THETA)     ) THEN
-
-      ! If running the HYDROSTATIC version,
-      ! let the model integrate one more step after the desired end of
-      ! simulation in order to get the proper output. This additional step is
-      ! necessary because the HYDROSTATIC model writes out values of step N
-      ! after the integration from N to N+1 is finished. Also note that
-      ! this additional step is done only for the regular output, and is
-      ! ignored for restart.
-
-      nsteps = nsteps + 1
-
-      ! The additional step is not needed in the NON-hydrostatic version because
-      ! in this case the model writes out values of step N
-      ! after the integration from N-1 to N is finished.
-    ENDIF
-
     CALL message(' ',' ')
     CALL message(routine,'Initial date and time')
     CALL message(routine,'---------------------')
@@ -216,6 +186,48 @@ CONTAINS
          &'dt_checkpoint :',dt_checkpoint,' seconds =', &
          & dt_checkpoint/86400._wp, ' days'
     CALL message(routine,message_text)
+
+  END SUBROUTINE resize_simulation_length
+
+  SUBROUTINE oce_crosscheck()
+    CALL check_parallel_configuration()
+    CALL resize_simulation_length()
+      !TODO nsteps = nsteps + 1
+  END SUBROUTINE oce_crosscheck
+  SUBROUTINE atm_crosscheck
+
+    INTEGER :: jg
+    INTEGER :: jt   ! tracer loop index
+    INTEGER :: i_listlen
+    REAL(wp):: cur_datetime_calsec, end_datetime_calsec, length_sec
+    CHARACTER(len=*), PARAMETER :: routine =  'atm_crosscheck'
+
+    !--------------------------------------------------------------------
+    ! Parallelization
+    !--------------------------------------------------------------------
+    CALL check_parallel_configuration()
+
+    CALL resize_simulation_length()
+
+    ! Special treatment for the hydro atm model
+
+    IF ( (iequations == IHS_ATM_TEMP) .OR. &
+         (iequations == IHS_ATM_THETA)     ) THEN
+
+      ! If running the HYDROSTATIC version,
+      ! let the model integrate one more step after the desired end of
+      ! simulation in order to get the proper output. This additional step is
+      ! necessary because the HYDROSTATIC model writes out values of step N
+      ! after the integration from N to N+1 is finished. Also note that
+      ! this additional step is done only for the regular output, and is
+      ! ignored for restart.
+
+      nsteps = nsteps + 1
+
+      ! The additional step is not needed in the NON-hydrostatic version because
+      ! in this case the model writes out values of step N
+      ! after the integration from N-1 to N is finished.
+    ENDIF
 
     !--------------------------------------------------------------------
     ! Horizontal interpolation
@@ -760,5 +772,5 @@ CONTAINS
 !  CHARACTER(len=*), PARAMETER :: routine =  'atm_setup'
 !  END SUBROUTINE atmospheric_configuration
 
-END MODULE mo_atm_nml_crosscheck
+END MODULE mo_nml_crosscheck
 

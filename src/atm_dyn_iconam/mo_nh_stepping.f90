@@ -51,16 +51,17 @@ MODULE mo_nh_stepping
   USE mo_nonhydro_state,      ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics, &
                                     construct_nh_state, bufr
   USE mo_nonhydrostatic_config,ONLY: iadv_rcf, l_nest_rcf, itime_scheme
-  USE mo_diffusion_config,    ONLY: diffusion_config
-  USE mo_dynamics_config,     ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1,nsav2
-  USE mo_io_config,           ONLY: l_outputtime, l_diagtime, l_checkpoint_time, &
-    &                               lwrite_pzlev
-  USE mo_parallel_config,     ONLY: nproma, itype_comm
-  USE mo_run_config,          ONLY: ltestcase, dtime, nsteps,  &
-    &                               ltransport, ntracer, lforcing, iforcing, &
-    &                               msg_level, ltimer
-  USE mo_grid_config,         ONLY: global_cell_type
-    
+
+  USE mo_diffusion_config,     ONLY: diffusion_config
+  USE mo_dynamics_config,      ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1,nsav2 !, &
+!                                    itime_scheme
+  USE mo_io_config,            ONLY: l_outputtime, l_diagtime, is_checkpoint_time,&
+    &                                lwrite_pzlev
+  USE mo_parallel_config,      ONLY: nproma, itype_comm
+  USE mo_run_config,           ONLY: ltestcase, dtime, nsteps,  &
+    &                                ltransport, ntracer, lforcing, iforcing, &
+    &                                msg_level, ltimer
+  USE mo_grid_config,          ONLY: global_cell_type
   USE mo_atm_phy_nwp_config,  ONLY: tcall_phy, atm_phy_nwp_config
   USE mo_nwp_phy_init,        ONLY: init_nwp_phy
   USE mo_nwp_phy_state,       ONLY: prm_diag, prm_nwp_tend, mean_charlen
@@ -467,12 +468,6 @@ MODULE mo_nh_stepping
                           ! thus diagnostic quantities need to be computed
     ENDIF
 
-    IF ( MOD(jstep,n_checkpoint)==0 ) THEN
-      l_checkpoint_time = .TRUE.
-    ELSE
-      l_checkpoint_time = .FALSE.
-    ENDIF
-
     !
     ! dynamics stepping
     !
@@ -531,10 +526,10 @@ MODULE mo_nh_stepping
     !--------------------------------------------------------------------------
     ! Write restart file
     !--------------------------------------------------------------------------
-    IF (l_checkpoint_time) THEN
+    IF (is_checkpoint_time(jstep,n_checkpoint)) THEN
       DO jg = 1, n_dom
         CALL create_restart_file( p_patch(jg), datetime,        &
-                                & vct, jfile, l_have_output,    &
+                                & jfile, l_have_output, vct,    &
                                 & t_elapsed_phy,                &
                                 & lcall_phy, sim_time(jg),      &
                                 & jstep_adv(jg)%ntsteps,        &

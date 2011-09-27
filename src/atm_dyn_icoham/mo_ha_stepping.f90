@@ -51,7 +51,7 @@ MODULE mo_ha_stepping
   USE mo_dynamics_config,     ONLY: lshallow_water, ltwotime, nnow, nold
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config, configure_ha_dyn
   USE mo_io_config,           ONLY: l_outputtime, lprepare_output, l_diagtime,  &
-                                  & l_checkpoint_time
+                                  & is_checkpoint_time
   USE mo_run_config,          ONLY: nsteps, dtime, ntracer,  &
                                   & ldynamics, ltransport, msg_level, ltimer,   &
                                   & ltestcase
@@ -289,12 +289,6 @@ CONTAINS
       lprepare_output(:) = .FALSE.
     ENDIF
 
-    IF ( MOD(jstep,n_checkpoint)==0 .AND. jstep/=nsteps ) THEN
-      l_checkpoint_time = .TRUE.
-    ELSE
-      l_checkpoint_time = .FALSE.
-    ENDIF
-
     IF ( MOD(jstep-1,n_diag)==0 .OR. jstep==nsteps ) THEN
       l_diagtime = .TRUE. ! Diagnostic output is done at the end of the
     ELSE                  ! time step
@@ -365,15 +359,14 @@ CONTAINS
     !--------------------------------------------------------------------------
     ! Write restart file
     !--------------------------------------------------------------------------
-    IF (l_checkpoint_time) THEN
+    IF (is_checkpoint_time(jstep,n_checkpoint,nsteps)) THEN
       DO jg = 1, n_dom
-        CALL create_restart_file( p_patch(jg), datetime, vct,        &
-                                & jfile, l_have_output              )
+        CALL create_restart_file( p_patch(jg), datetime,         &
+                                & jfile, l_have_output, vct  )
       END DO
 
       ! Create the master (meta) file in ASCII format which contains
       ! info about which files should be read in for a restart run.
-
       CALL write_restart_info_file
     END IF
 

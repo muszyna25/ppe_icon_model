@@ -52,16 +52,18 @@ MODULE mo_oce_ab_timestepping
 USE mo_ocean_nml,                      ONLY: idisc_scheme
 USE mo_dynamics_config,                ONLY: nold, nnew
 USE mo_oce_state,                      ONLY: t_hydro_ocean_state!, t_hydro_ocean_diag
-USE mo_oce_forcing,                    ONLY: t_sfc_flx
+!USE mo_oce_forcing,                    ONLY: t_sfc_flx
+USE mo_sea_ice,                   ONLY: t_sfc_flx
 USE mo_interpolation,                  ONLY: t_int_state
 USE mo_model_domain,                   ONLY: t_patch
 USE mo_ext_data,                       ONLY: t_external_data
 !USE mo_exception,                      ONLY: message, finish!, message_text
 !USE mo_loopindices,                    ONLY: get_indices_c, get_indices_e !, get_indices_v
 !USE mo_oce_index,                      ONLY: c_i, c_b, c_k, ne_b, ne_i, nc_b, nc_i, form4ar, ldbg
-USE mo_oce_ab_timestepping_mimetic,   ONLY: solve_free_sfc_ab_mimetic,&
+USE mo_oce_ab_timestepping_mimetic,   ONLY: solve_free_sfc_ab_mimetic,        &
                                            & calc_normal_velocity_ab_mimetic, &
-                                           & calc_vert_velocity_mimetic
+                                           & calc_vert_velocity_mimetic,      &
+                                           & calc_vert_velocity_mim_topdown
 USE mo_oce_ab_timestepping_rbf,     ONLY: solve_free_sfc_ab_RBF,    &
                                            & calc_normal_velocity_ab_RBF,     &
                                            & calc_vert_velocity_RBF
@@ -185,18 +187,20 @@ IF(idisc_scheme==MIMETIC_TYPE)THEN
   CALL calc_vert_velocity_mimetic( p_patch,            &
                              & p_os,                   &
                              & p_os%p_diag,            &
+                             & p_os%p_prog(nnew(1))%h, &
                              & p_os%p_diag%h_e,        &
-                             !& p_os%p_prog(nnew(1))%h, &
                              & p_os%p_aux%bc_top_w,    &
                              & p_os%p_aux%bc_bot_w,    &
                              & p_os%p_diag%w )
-!  CALL calc_vert_velocity_RBF( p_patch,&
-!                              & p_os%p_prog(nnew(1))%vn,&
-!                              & p_os%p_prog(nold(1))%vn,&
-!                              & p_os%p_prog(nnew(1))%h, &
-!                              & p_os%p_aux%bc_top_w,    &
-!                              & p_os%p_aux%bc_bot_w,    &
-!                              & p_os%p_diag%w )
+!   CALL calc_vert_velocity_mim_topdown( p_patch,       &
+!                               & p_os,                   &
+!                               & p_os%p_diag,            &
+!                               & p_os%p_diag%h_e,        &
+!                               !& p_os%p_prog(nnew(1))%h, &
+!                               & p_os%p_aux%bc_top_w,    &
+!                               & p_os%p_aux%bc_bot_w,    &
+!                               & p_os%p_diag%w )
+
 ELSEIF(idisc_scheme==RBF_TYPE)THEN
 
   CALL calc_vert_velocity_RBF( p_patch,&

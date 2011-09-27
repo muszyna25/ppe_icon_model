@@ -59,22 +59,27 @@ USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer , &
    &                             basin_height_deg,  basin_width_deg, temperature_relaxation
 USE mo_impl_constants,     ONLY: max_char_length, sea, sea_boundary, &
   &                              min_rlcell, min_rledge,  &
-  &                              oce_testcase_zero, oce_testcase_init, oce_testcase_file                             
+  &                              oce_testcase_zero, oce_testcase_init, oce_testcase_file
 USE mo_dynamics_config,    ONLY: nold,nnew
+USE mo_master_control,     ONLY: is_coupled_run
 USE mo_math_utilities,     ONLY: t_cartesian_coordinates
 USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
 USE mo_exception,          ONLY: finish, message
+USE mo_oce_index,          ONLY: print_mxmn, jkc, jkdim, ipl_src
 USE mo_model_domain,       ONLY: t_patch
 USE mo_ext_data,           ONLY: t_external_data
-USE mo_oce_forcing,        ONLY: t_sfc_flx!, t_ho_core_forc, t_ho_full_forc,  &
-!  &                              t_sfc_flx, f_coreforc, f_fullforc,          &
+!USE mo_oce_forcing,        ONLY: t_sfc_flx
+USE mo_sea_ice,                   ONLY: t_sfc_flx
 USE mo_oce_state,          ONLY: t_hydro_ocean_state, v_base
 USE mo_scalar_product,     ONLY: map_cell2edges, map_edges2cell, map_edges2edges, &
   &                                     calc_scalar_product_for_veloc, dual_flip_flop
-USE mo_oce_math_operators,  ONLY: grad_fd_norm_oce,grad_fd_norm_oce_2D, height_related_quantities,&
+USE mo_oce_math_operators, ONLY: grad_fd_norm_oce,grad_fd_norm_oce_2D, height_related_quantities,&
                                  &rot_vertex_ocean
-USE mo_oce_thermodyn,       ONLY: convert_insitu2pot_temp_func!, adisit
-USE mo_oce_linear_solver,   ONLY: gmres_e2e
+USE mo_oce_thermodyn,      ONLY: convert_insitu2pot_temp_func!, adisit
+USE mo_oce_linear_solver,  ONLY: gmres_e2e
+USE mo_icon_cpl_exchg,     ONLY: ICON_cpl_put, ICON_cpl_get
+USE mo_icon_cpl_def_field, ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
+
 IMPLICIT NONE
 PRIVATE
 
@@ -84,22 +89,111 @@ CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
 ! public interface
 !
 PUBLIC :: init_ho_testcases
+PUBLIC :: init_ho_prog
+PUBLIC :: init_ho_coupled
 
 REAL(wp), PARAMETER :: aleph = 0.0_wp 
 REAL(wp), PARAMETER :: u0 =(2.0_wp*pi*re)/(12.0_wp*24.0_wp*3600.0_wp)
 
 CONTAINS
 
-! 
-! !-------------------------------------------------------------------------
+  !-------------------------------------------------------------------------
+  !>
+  !! Initialization of prognostic variables for the hydrostatic ocean model.
+  !! Temperature and salinity are read from external data
+  !! Finally the prognostic state should be initialized from some restart file.
+  !
+  !! @par Revision History
+  !! Initial release by Stephan Lorenz, MPI-M, 2011-09
+  !
+  !-------------------------------------------------------------------------
+  !
+  SUBROUTINE init_ho_prog(ppatch, p_os, p_ext_data, p_sfc_flx)
+  TYPE(t_patch)                     :: ppatch
+  TYPE(t_hydro_ocean_state), TARGET :: p_os
+  TYPE(t_external_data)             :: p_ext_data 
+  TYPE(t_sfc_flx)                   :: p_sfc_flx
+
+  ! Local Variables
+
+
+  END SUBROUTINE init_ho_prog
+
+  !-------------------------------------------------------------------------
+
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Send data from atmosphere to ocean after initialization of ocean state
+  !
+  !! @par Revision History
+  !! Initial release by Stephan Lorenz, MPI-M, 2011-09
+  !
+  SUBROUTINE init_ho_coupled(ppatch, p_os)
+  TYPE(t_patch)                     :: ppatch
+  TYPE(t_hydro_ocean_state), TARGET :: p_os
+
+  ! Local declarations for coupling:
+  INTEGER               :: ierror         !   return values form cpl_put/get calls
+  INTEGER               :: nbr_hor_points ! = inner and halo points
+  INTEGER               :: nbr_points     ! = nproma * nblks
+  INTEGER               :: nbr_fields
+  INTEGER, ALLOCATABLE  :: field_id(:)
+  INTEGER               :: field_shape(3)
+  REAL(wp)              :: buffer(nproma*ppatch%nblks_c,1)
+
+  !-------------------------------------------------------------------------
+
+    IF ( is_coupled_run() ) THEN 
+
+    !
+    !  see drivers/mo_atmo_model.f90:
+    !
+    !   field_id(1) represents "TAUX"   wind stress component
+    !   field_id(2) represents "TAUY"   wind stress component
+    !   field_id(3) represents "SFWFLX" surface fresh water flux
+    !   field_id(4) represents "SHFLX"  sensible heat flux
+    !   field_id(5) represents "LHFLX"  latent heat flux
+    !
+    !   field_id(6) represents "SST"    sea surface temperature
+    !   field_id(7) represents "OCEANU" u component of ocean surface current
+    !   field_id(8) represents "OCEANV" v component of ocean surface current
+    !
+      CALL ICON_cpl_get_nbr_fields ( nbr_fields )
+      ALLOCATE(field_id(nbr_fields))
+      CALL ICON_cpl_get_field_ids ( nbr_fields, field_id )
+    !
+      field_shape(1) = 1
+      field_shape(2) = ppatch%n_patch_cells 
+      field_shape(3) = 1
+
+      nbr_hor_points = ppatch%n_patch_cells
+      nbr_points     = nproma * ppatch%nblks_c
+    !
+    ! buffer is allocated over nproma only
+
+    !
+    ! Send fields from ocean to atmosphere
+    ! ------------------------------------
+    !
+    ! SST:
+      buffer(:,1) = RESHAPE(p_os%p_prog(nold(1))%tracer(:,1,:,1), (/nbr_points /) )
+      CALL ICON_cpl_put ( field_id(6), field_shape, buffer, ierror )
+
+    END IF
+
+  END SUBROUTINE init_ho_coupled
+
+  !-------------------------------------------------------------------------
   !>
   !! Initialization of test cases for the hydrostatic ocean model.
   !! Currently only some simple test value are set.
-  !! Finally the prognostic state should be initialized
-  !! from some restart file.
+  !! Finally the prognostic state should be initialized from some restart file.
   !
   !! @par Revision History
   !! Developed  by Peter Korn, MPI-M, 2006-08
+  !
+  !-------------------------------------------------------------------------
   !
   SUBROUTINE init_ho_testcases(ppatch, p_os, p_ext_data, p_sfc_flx)
   TYPE(t_patch)                     :: ppatch
@@ -107,33 +201,37 @@ CONTAINS
   TYPE(t_external_data)             :: p_ext_data 
   TYPE(t_sfc_flx)                   :: p_sfc_flx
   ! Local Variables
-    INTEGER :: jb, jc, je, jk
-    INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
-    INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
-    INTEGER :: rl_start, rl_end_e,rl_end_c
-    INTEGER :: z_dolic
-  ! INTEGER :: ic1,ib1,ic2,ib2, ile1,ile2,ile3,ibe1,ibe2,ibe3,i_ctr
-    REAL(wp)::  z_lat, z_lon 
-    REAL(wp):: z_dst, z_lat_deg, z_lon_deg, z_tmp, z_s1
-    REAL(wp):: z_perlon, z_perlat, z_permax, z_perwid !,z_H_0
-    REAL(wp):: z_ttrop, z_tpol, z_tdeep, z_tdiff, z_ltrop, z_lpol, z_ldiff
-    !TYPE(t_cartesian_coordinates)    :: p_x 
-    !TYPE(t_geographical_coordinates) :: p_pos
-    REAL(wp), PARAMETER :: tprof(20)=&
-      &(/ 18.13_wp, 17.80_wp, 17.15_wp, 16.09_wp, 15.04_wp, 13.24_wp, 11.82_wp, 9.902_wp, &
-      &   8.484_wp, 7.341_wp, 5.727_wp, 4.589_wp, 3.807_wp, 3.062_wp, 2.481_wp, 2.194_wp, &
-      &   1.789_wp, 1.266_wp, 1.070_wp, 0.9211_wp /)
+  INTEGER :: jb, jc, je, jk
+  INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
+  INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
+  INTEGER :: rl_start, rl_end_e,rl_end_c
+  INTEGER :: z_dolic
+  REAL(wp):: z_c(nproma,n_zlev,ppatch%nblks_c)
+  REAL(wp):: z_lat, z_lon 
+  REAL(wp):: z_dst, z_lat_deg, z_lon_deg, z_tmp
+  REAL(wp):: z_perlon, z_perlat, z_permax, z_perwid !,z_H_0
+  REAL(wp):: z_ttrop, z_tpol, z_tdeep, z_tdiff, z_ltrop, z_lpol, z_ldiff
+  !TYPE(t_cartesian_coordinates)    :: p_x 
+  !TYPE(t_geographical_coordinates) :: p_pos
+  REAL(wp), PARAMETER :: tprof(20)=&
+    &(/ 18.13_wp, 17.80_wp, 17.15_wp, 16.09_wp, 15.04_wp, 13.24_wp, 11.82_wp,  9.902_wp, &
+    &    8.484_wp, 7.341_wp, 5.727_wp, 4.589_wp, 3.807_wp, 3.062_wp, 2.481_wp, 2.194_wp, &
+    &    1.789_wp, 1.266_wp, 1.070_wp, 0.9211_wp /)
 
-    REAL(wp), PARAMETER :: sprof(20)=&
-      &(/  34.699219_wp, 34.798244_wp, 34.904964_wp, 34.976841_wp, 35.027084_wp, &
-      & 35.026825_wp, 34.960835_wp, 34.862324_wp, 34.752468_wp, 34.656761_wp, 34.596603_wp,&
-      & 34.594128_wp, 34.628601_wp, 34.678772_wp, 34.717495_wp, 34.738304_wp, 34.741512_wp,&
-      & 34.738205_wp, 34.729176_wp, 34.723465_wp /)
+  REAL(wp), PARAMETER :: sprof(20)=&
+    &(/  34.699219_wp, 34.798244_wp, 34.904964_wp, 34.976841_wp, 35.027084_wp, &
+    &    35.026825_wp, 34.960835_wp, 34.862324_wp, 34.752468_wp, 34.656761_wp, 34.596603_wp,&
+    &    34.594128_wp, 34.628601_wp, 34.678772_wp, 34.717495_wp, 34.738304_wp, 34.741512_wp,&
+    &    34.738205_wp, 34.729176_wp, 34.723465_wp /)
 
-    REAL(wp) , PARAMETER :: tprof_4layerStommel(4) = (/20.0_wp,10.0_wp,8.0_wp,6.0_wp/)
-    REAL(wp) , PARAMETER :: sprof_4layerStommel(4) = &
-    &(/34.699219_wp, 34.798244_wp, 34.904964_wp, 34.976841_wp/)
-    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_init:init_ho_testcases'
+  ! temperature profile for 4-10 layers for testcase 40 and similar
+  REAL(wp), PARAMETER :: tprof_var(10)= &
+    & (/ 25.0_wp, 18.0_wp, 12.0_wp, 8.0_wp, 6.0_wp, 4.0_wp, 2.0_wp, 1.0_wp, 0.5_wp, 0.0_wp/)
+
+  REAL(wp) , PARAMETER :: tprof_4layerStommel(4) = (/20.0_wp,10.0_wp,8.0_wp,6.0_wp/)
+  REAL(wp) , PARAMETER :: sprof_4layerStommel(4) = &
+  &(/34.699219_wp, 34.798244_wp, 34.904964_wp, 34.976841_wp/)
+  CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_init:init_ho_testcases'
   !-------------------------------------------------------------------------
   CALL message (TRIM(routine), 'start')
 
@@ -158,68 +256,94 @@ CONTAINS
       CALL finish(TRIM(routine), 'Initialization from file NOT SUPPORTED YET - TERMINATE')
       !CALL init_from_file(ppatch)
 
-    CASE (30)
-        CALL message(TRIM(routine), 'Simple Initialization of testcases (30)')
-        CALL message(TRIM(routine), ' - here: 3D Stommel Testcase for T and S')
+    CASE (30, 31)
+      CALL message(TRIM(routine), 'Simple Initialization of testcases (30, 31)')
+      CALL message(TRIM(routine), ' - here: horizontally homogen, vertical profile for T and S')
+      CALL message(TRIM(routine), ' - Add forcing / restoring / wave for dynamic test')
 
-        !v_base%dolic_c(:,:)      = 4
-        !init temperature and salinity with vertical profiles
-        IF(n_zlev==4)THEN
-          DO jk=1,n_zlev
-            DO jb = i_startblk_c, i_endblk_c    
-              CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c,&
-                        & i_startidx_c, i_endidx_c, rl_start, rl_end_c)
-              DO jc = i_startidx_c, i_endidx_c
-
-              IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-                  IF(no_tracer==1)THEN
-                   !Temperature
-                    p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = tprof_4layerStommel(jk)
-                  ELSEIF(no_tracer==2)THEN
-                    !Temperature and  Salinity
-                    p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = tprof_4layerStommel(jk)
-                    p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof_4layerStommel(jk)
-                  ENDIF
-                  !p_os%p_prog(nold(1))%h(jc,jb) = 1.0E-7*test5_h( z_lon, z_lat, 0.0_wp)
-                ENDIF
-              END DO
-            END DO
-          END DO
-        ELSEIF(n_zlev>4.AND.n_zlev<=20)THEN
-          DO jk=1,n_zlev
-            DO jb = i_startblk_c, i_endblk_c    
-              CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c,&
-                        & i_startidx_c, i_endidx_c, rl_start, rl_end_c)
-              DO jc = i_startidx_c, i_endidx_c
-                IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-                  IF(no_tracer==1)THEN
-                   !Temperature
-                    p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = tprof(jk)
-                  ELSEIF(no_tracer==2)THEN
-                    !Temperature and  Salinity
-                    p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = tprof(jk)
-                    p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof_4layerStommel(jk)
-                  ENDIF
-                  !p_os%p_prog(nold(1))%h(jc,jb) = 1.0E-7*test5_h( z_lon, z_lat, 0.0_wp)
-                ENDIF
-              END DO
-            END DO
-          END DO
-        ELSE
-          CALL finish(TRIM(routine), 'Number of vertical levels to small or to big: >=4 and <=20')
-        ENDIF
-    CASE (31)
-      CALL message(TRIM(routine), 'Simple Initialization of testcases (31)')
-      CALL message(TRIM(routine), ' - here: external gravity wave')
       !Flat surface of the ocean
       p_os%p_prog(nold(1))%h(:,:) = 0.0_wp
 
       !Ocean at rest 
       p_os%p_prog(nold(1))%vn(:,:,:) = 0.0_wp
 
-      ! #slo# 2011-01-07: init elevation for simple 3-d SW-like test mode
-      !all other prognostic variables: vn, s, t are initialized identical zero
-      !CALL message(TRIM(routine), 'Simple Initialization of h')
+      !init temperature and salinity with vertical profiles
+      IF(n_zlev==4)THEN
+        DO jk=1,n_zlev
+          DO jb = i_startblk_c, i_endblk_c    
+            CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c,&
+                      & i_startidx_c, i_endidx_c, rl_start, rl_end_c)
+            DO jc = i_startidx_c, i_endidx_c
+
+            IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+                IF(no_tracer==1)THEN
+                 !Temperature
+                  p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = tprof_4layerStommel(jk)
+                ELSEIF(no_tracer==2)THEN
+                  !Temperature and  Salinity
+                  p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = tprof_4layerStommel(jk)
+                  p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof_4layerStommel(jk)
+                ENDIF
+                !p_os%p_prog(nold(1))%h(jc,jb) = 1.0E-7*test5_h( z_lon, z_lat, 0.0_wp)
+              ENDIF
+            END DO
+          END DO
+        END DO
+
+      ELSEIF(n_zlev>4.AND.n_zlev<=20)THEN
+        DO jk=1,n_zlev
+          DO jb = i_startblk_c, i_endblk_c    
+            CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c,&
+                      & i_startidx_c, i_endidx_c, rl_start, rl_end_c)
+            DO jc = i_startidx_c, i_endidx_c
+              IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+                IF(no_tracer==1)THEN
+                 !Temperature
+                  p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = tprof(jk)
+                ELSEIF(no_tracer==2)THEN
+                  !Temperature and  Salinity
+                  p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = tprof(jk)
+                  p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof_4layerStommel(jk)
+                ENDIF
+                !p_os%p_prog(nold(1))%h(jc,jb) = 1.0E-7*test5_h( z_lon, z_lat, 0.0_wp)
+              ENDIF
+            END DO
+          END DO
+        END DO
+      ELSE
+        CALL finish(TRIM(routine), 'Number of vertical levels to small or to big: >=4 and <=20')
+      ENDIF
+
+      IF (itestcase_oce == 31) THEN
+        CALL message(TRIM(routine), 'Simple Initialization of testcases (31)')
+        CALL message(TRIM(routine), ' - here: external gravity wave')
+       
+        ! #slo# 2011-01-07: init elevation for simple 3-d SW-like test mode
+        !all other prognostic variables: vn, s, t are initialized identical zero
+        !CALL message(TRIM(routine), 'Simple Initialization of h')
+       
+        DO jb = i_startblk_c, i_endblk_c    
+          CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
+           &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
+       
+          DO jc = i_startidx_c, i_endidx_c
+       
+            z_lat = ppatch%cells%center(jc,jb)%lat
+            z_lon = ppatch%cells%center(jc,jb)%lon
+       
+            ! #slo#: simple elevation between 30W and 30E (pi/3.)
+            IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
+              p_os%p_prog(nold(1))%h(jc,jb) = 10.0_wp * &
+                &    sin(z_lon*6.0_wp) * cos(z_lat*3.0_wp)
+            ELSE
+              p_os%p_prog(nold(1))%h(jc,jb) = 0.0_wp
+            ENDIF
+          END DO
+        END DO
+
+      END IF
+
+    CASE (33) !collapsing density front testcase, taken from Stuhne-Peltier (JCP, 2006)
 
       DO jb = i_startblk_c, i_endblk_c    
         CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
@@ -227,39 +351,87 @@ CONTAINS
 
         DO jc = i_startidx_c, i_endidx_c
 
+          !latitude given in radians
           z_lat = ppatch%cells%center(jc,jb)%lat
-          z_lon = ppatch%cells%center(jc,jb)%lon
+          !transer to latitude in degrees
+          z_lat_deg = z_lat*rad2deg
+          !Impose emperature profile. Profile
+          !depends on latitude only and is uniform across
+          !all vertical layers
+          DO jk=1,n_zlev
+           IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+             ! #slo# 2011-09-02: testcase now with warm water in first layer only
+             !IF ( jk == 1 ) THEN
 
-          ! #slo#: simple elevation between 30W and 30E (pi/3.)
-          IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
-            p_os%p_prog(nold(1))%h(jc,jb) = 10.0_wp * &
-              &    sin(z_lon*6.0_wp) * cos(z_lat*3.0_wp)
-          ELSE
-            p_os%p_prog(nold(1))%h(jc,jb) = 0.0_wp
+             !constant salinity
+             IF(no_tracer==2)THEN
+               p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof(jk) !35.0_wp
+             ENDIF
+
+             IF(abs(z_lat_deg)>=40.0_wp)THEN
+
+               p_os%p_diag%temp_insitu(jc,jk,jb) = 5.0_wp
+
+                p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)&
+                &= 5.0_wp!convert_insitu2pot_temp_func(p_os%p_diag%temp_insitu(jc,jk,jb),&
+                         !                      &p_os%p_prog(nold(1))%tracer(jc,jk,jb,2),&
+                         !                      &sfc_press_bar)
+                         !SItodBar*rho_ref*v_base%zlev_m(jk))!1013.0_wp)
+
+             ELSEIF(abs(z_lat_deg)<=20.0_wp)THEN
+
+
+               !p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 30.0_wp
+                p_os%p_diag%temp_insitu(jc,jk,jb) = 30.0_wp
+
+                p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)&
+                &= 30.0_wp!convert_insitu2pot_temp_func(p_os%p_diag%temp_insitu(jc,jk,jb),&
+                          !                     &p_os%p_prog(nold(1))%tracer(jc,jk,jb,2),&
+                          !                     &sfc_press_bar)
+                          !SItodBar*rho_ref*v_base%zlev_m(jk))!1013.0_wp)SItodBar*101300.0_wp)!
+
+
+             ELSEIF(abs(z_lat_deg)<40.0_wp .AND. abs(z_lat_deg)>20.0_wp)THEN
+                 z_tmp = pi*((abs(z_lat_deg) -20.0_wp)/20.0_wp)
+                 p_os%p_diag%temp_insitu(jc,jk,jb) = 5.0_wp&
+                                         & + 0.5_wp*25.0_wp*(1.0_wp+cos(z_tmp))
+                 p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)=p_os%p_diag%temp_insitu(jc,jk,jb)!&
+!                 &= convert_insitu2pot_temp_func(p_os%p_diag%temp_insitu(jc,jk,jb),&
+!                                                &p_os%p_prog(nold(1))%tracer(jc,jk,jb,2),&
+!                                                &sfc_press_bar)
+!SItodBar*rho_ref*v_base%zlev_m(jk))!1013.0_wp)SItodBar*101300.0_wp)!
+             ENDIF
+           ELSE
+           !   p_os%p_diag%temp_insitu(jc,jk,jb) = 5.0_wp
+           !   p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = p_os%p_diag%temp_insitu(jc,jk,jb)
+           !ENDIF ! jk=1
+         ENDIF  ! lsm
+        END DO
+      END DO
+    END DO
+
+   CASE (34)
+      !Adjusting density front in a basin: vertical wall at basin_center_lon
+      DO jb = i_startblk_c, i_endblk_c    
+        CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
+         &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
+
+        DO jc = i_startidx_c, i_endidx_c
+          IF(v_base%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
+            !latitude given in radians
+            !transer to latitude in degrees
+            z_lon_deg = ppatch%cells%center(jc,jb)%lon*rad2deg
+            !Impose temperature profile. Profile
+            !depends on latitude only and is uniform across
+            !all vertical layers
+            IF(z_lon_deg>=basin_center_lon*rad2deg)THEN
+              p_os%p_prog(nold(1))%tracer(jc,1:n_zlev,jb,1) = 30.0_wp
+            ELSE
+              p_os%p_prog(nold(1))%tracer(jc,1:n_zlev,jb,1) = 25.0_wp 
+            ENDIF
           ENDIF
         END DO
       END DO
-
-      WRITE(*,*)'MIN/MAX:h-init:',&
-      &        minval(p_os%p_prog(nold(1))%h(:,:)), &
-      &        maxval(p_os%p_prog(nold(1))%h(:,:))
-
-      !init temperature and salinity with vertical profiles
-      DO jk=1,n_zlev
-        DO jb = i_startblk_c, i_endblk_c    
-          CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c,&
-                          & i_startidx_c, i_endidx_c, rl_start, rl_end_c)
-  
-          DO jc = i_startidx_c, i_endidx_c
-            IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-              !Temperature
-              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = tprof_4layerStommel(jk)
-              !Salinity
-              p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof_4layerStommel(jk)
-            ENDIF
-          END DO
-        END DO
-      END DO 
 
     CASE (32) !from Sergy Danilov
       CALL message(TRIM(routine), 'Simple Initialization of testcases (32)')
@@ -414,8 +586,8 @@ END DO
 
       END IF ! no_tracer > 0
 
-!----------------Old version of 32: please retain code, its also interesting------------------------------------
-!----------------An old version of surface forcing corresponds to this --------------------------------------
+!----------------Old version of 32: please retain code, its also interesting
+!----------------An old version of surface forcing corresponds to this
 ! !     CASE (32) !from Sergy Danilov
 ! !       DO jb = i_startblk_c, i_endblk_c    
 ! !         CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
@@ -465,258 +637,6 @@ END DO
 ! !       END IF ! no_tracer > 0
 !----------------End of old version------------------------------------
 
-    CASE (33) !collpasing density front testcase, taken from Stuhne-Peltier (JCP, 2006)
-
-      DO jb = i_startblk_c, i_endblk_c    
-        CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
-         &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
-
-        DO jc = i_startidx_c, i_endidx_c
-
-          !latitude given in radians
-          z_lat = ppatch%cells%center(jc,jb)%lat
-          !transer to latitude in degrees
-          z_lat_deg = z_lat*rad2deg
-          !Impose emperature profile. Profile
-          !depends on latitude only and is uniform across
-          !all vertical layers
-          DO jk=1,n_zlev
-    !       IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-             ! #slo# 2011-09-02: testcase now with warm water in first layer only
-             !IF ( jk == 1 ) THEN
-
-              !constant salinity
-               IF(no_tracer==2)THEN
-                 p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof(jk) !35.0_wp
-               ENDIF
-
-              IF(abs(z_lat_deg)>=40.0_wp)THEN
-
-                p_os%p_diag%temp_insitu(jc,jk,jb) = 5.0_wp
-
-                 p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)&
-                 &= 5.0_wp!convert_insitu2pot_temp_func(p_os%p_diag%temp_insitu(jc,jk,jb),&
-                          !                      &p_os%p_prog(nold(1))%tracer(jc,jk,jb,2),&
-                          !                      &sfc_press_bar)
-                          !SItodBar*rho_ref*v_base%zlev_m(jk))!1013.0_wp)
-
-              ELSEIF(abs(z_lat_deg)<=20.0_wp)THEN
-
-
-                !p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 30.0_wp
-                 p_os%p_diag%temp_insitu(jc,jk,jb) = 30.0_wp
-
-                 p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)&
-                 &= 30.0_wp!convert_insitu2pot_temp_func(p_os%p_diag%temp_insitu(jc,jk,jb),&
-                           !                     &p_os%p_prog(nold(1))%tracer(jc,jk,jb,2),&
-                           !                     &sfc_press_bar)
-                           !SItodBar*rho_ref*v_base%zlev_m(jk))!1013.0_wp)SItodBar*101300.0_wp)!
-
-
-              ELSEIF(abs(z_lat_deg)<40.0_wp .AND. abs(z_lat_deg)>20.0_wp)THEN
-
-! IF(jk==1)THEN
-! write(123,*)'terms',jc,jb,z_lat_deg, exp(-(40.0_wp-abs(z_lat_deg))/20.0_wp),&
-! &1.0_wp-exp(-(40.0_wp-abs(z_lat_deg))/20.0_wp),&
-! & p_os%p_diag%temp_insitu(jc,jk,jb)
-! ENDIF
-                 z_tmp = pi*((abs(z_lat_deg) -20.0_wp)/20.0_wp)
-                 p_os%p_diag%temp_insitu(jc,jk,jb) = 5.0_wp&
-                                         & + 0.5_wp*25.0_wp*(1.0_wp+cos(z_tmp))
-                 p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)=p_os%p_diag%temp_insitu(jc,jk,jb)!&
-!                 &= convert_insitu2pot_temp_func(p_os%p_diag%temp_insitu(jc,jk,jb),&
-!                                                &p_os%p_prog(nold(1))%tracer(jc,jk,jb,2),&
-!                                                &sfc_press_bar)
-!SItodBar*rho_ref*v_base%zlev_m(jk))!1013.0_wp)SItodBar*101300.0_wp)!
-              ENDIF
-           ! ELSE
-           !   p_os%p_diag%temp_insitu(jc,jk,jb) = 5.0_wp
-           !   p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = p_os%p_diag%temp_insitu(jc,jk,jb)
-           !ENDIF ! jk=1
-    !     ENDIF  ! lsm
-        END DO
-      END DO
-    END DO
-    !Temperature relaxation just for testcase 35: relaxation to initial value
-    IF(temperature_relaxation==1)THEN
-      p_sfc_flx%forc_tracer_relax(:,:,1) = p_os%p_prog(nold(1))%tracer(:,1,:,1)
-    ENDIF
-DO jk=1,n_zlev
-write(*,*)'max-min T-innitial',jk,&
- & maxval(p_os%p_prog(nold(1))%tracer(:,jk,:,1)),&
- & minval(p_os%p_prog(nold(1))%tracer(:,jk,:,1))
-END DO
-
-   CASE (34)
-      !Adjusting density front sprof(20)
-      DO jb = i_startblk_c, i_endblk_c    
-        CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
-         &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
-
-        DO jc = i_startidx_c, i_endidx_c
-          IF(v_base%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
-            !latitude given in radians
-            !transer to latitude in degrees
-            z_lon_deg = ppatch%cells%center(jc,jb)%lon*rad2deg
-            !Impose emperature profile. Profile
-            !depends on latitude only and is uniform across
-            !all vertical layers
-            IF(z_lon_deg>=basin_center_lon*rad2deg)THEN
-           
-            p_os%p_prog(nold(1))%tracer(jc,1:n_zlev,jb,1) = 30.0_wp
-          ELSE
-            p_os%p_prog(nold(1))%tracer(jc,1:n_zlev,jb,1) = 25.0_wp 
-          ENDIF
-          ENDIF
-        END DO
-      END DO
-      !Temperature relaxation just for testcase 35: relaxation to initial value
-      IF(temperature_relaxation==1)THEN
-        p_sfc_flx%forc_tracer_relax(:,:,1) = p_os%p_prog(nold(1))%tracer(:,1,:,1)
-      ENDIF
-
-   CASE (35) !Ocean at rest with temperature startification as in 30 but with temperature restoring
-             !and OMIP wind-forcing
-        CALL message(TRIM(routine), 'Simple Initialization of testcases (30)')
-        CALL message(TRIM(routine), ' - here: 3D Stommel Testcase for T and S')
-
-        !init temperature and salinity with vertical profiles
-        IF(n_zlev==4)THEN
-          DO jk=1,n_zlev
-            DO jb = i_startblk_c, i_endblk_c    
-              CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c,&
-                        & i_startidx_c, i_endidx_c, rl_start, rl_end_c)
-              DO jc = i_startidx_c, i_endidx_c
-
-                IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-                  IF(no_tracer==1)THEN
-                   !Temperature
-                    p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = tprof_4layerStommel(jk)
-                  ELSEIF(no_tracer==2)THEN
-                    !Temperature and  Salinity
-                    p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = tprof_4layerStommel(jk)
-                    p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof_4layerStommel(jk)
-                  ENDIF
-
-                  !p_os%p_prog(nold(1))%h(jc,jb) = 1.0E-7*test5_h( z_lon, z_lat, 0.0_wp)
-                ENDIF
-              END DO
-            END DO
-          END DO
-        ELSEIF(n_zlev>4.AND.n_zlev<=20)THEN
-          DO jk=1,n_zlev
-            DO jb = i_startblk_c, i_endblk_c    
-              CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c,&
-                        & i_startidx_c, i_endidx_c, rl_start, rl_end_c)
-              DO jc = i_startidx_c, i_endidx_c
-
-                IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-                  !IF(no_tracer==1)THEN
-                   !Temperature
-                    p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = tprof(jk)
-                  IF(no_tracer==2)THEN
-                    !Temperature and  Salinity
-                    p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = tprof(jk)
-                    p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof(jk)
-                  ENDIF
-                  !p_os%p_prog(nold(1))%h(jc,jb) = 1.0E-7*test5_h( z_lon, z_lat, 0.0_wp)
-                ENDIF
-              END DO
-            END DO
-          END DO
-        ELSE
-          CALL finish(TRIM(routine), 'Number of vertical levels to small or to big: >=4 and <=20')
-        ENDIF
-
-      !Temperature relaxation just for testcase 35: relaxation to initial value
-      IF(temperature_relaxation==1)THEN
-        p_sfc_flx%forc_tracer_relax(:,:,1) = p_os%p_prog(nold(1))%tracer(:,1,:,1)
-      ENDIF
-
-      
-          !latitude given in radians
-          z_lat = ppatch%cells%center(jc,jb)%lat
-          !transer to latitude in degrees
-          z_lat_deg = z_lat*rad2deg
-   CASE(36)
-    DO jb = i_startblk_c, i_endblk_c    
-        CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
-         &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
-
-        DO jc = i_startidx_c, i_endidx_c
-          !latitude given in radians
-          z_lat = ppatch%cells%center(jc,jb)%lat
-          z_lat_deg = z_lat*rad2deg
-          !Impose temperature profile. Profile
-          !depends on latitude only and on depth
-          DO jk=1,n_zlev
-            IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-              !constant salinity
-              IF(no_tracer==2)THEN
-                p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof(jk) !35.0_wp
-              ENDIF
-              IF(abs(z_lat_deg)>=40.0_wp)THEN
-                !p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) =  5.0_wp
-                !p_os%p_diag%temp_insitu(jc,jk,jb) = 5.0_wp
-                p_os%p_diag%temp_insitu(jc,jk,jb) = 9.0_wp- jk*0.75
-
-                z_s1 = 0.0_wp
-                IF (no_tracer==2) z_s1 = p_os%p_prog(nold(1))%tracer(jc,jk,jb,2)
-                p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)&
-                &= convert_insitu2pot_temp_func(p_os%p_diag%temp_insitu(jc,jk,jb),&
-                                               &z_s1, &
-                                               &sfc_press_bar)
-                p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)&
-               & = max(p_os%p_prog(nold(1))%tracer(jc,jk,jb,1),0.0_wp)
-
-                !Temperature restoring to original value
-                p_sfc_flx%forc_tracer_relax(jc,jb,1) = p_os%p_prog(nold(1))%tracer(jc,1,jb,1)
-              ELSEIF(abs(z_lat_deg)<=20.0_wp)THEN
-
-                !p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 30.0_wp
-                !p_os%p_diag%temp_insitu(jc,jk,jb) = 30.0_wp
-                 p_os%p_diag%temp_insitu(jc,jk,jb) = 26.0_wp-REAL(jk*0.75,wp)
-
-                z_s1 = 0.0_wp
-                IF (no_tracer==2) z_s1 = p_os%p_prog(nold(1))%tracer(jc,jk,jb,2)
-                p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)&
-                &= convert_insitu2pot_temp_func(p_os%p_diag%temp_insitu(jc,jk,jb),&
-                                               &z_s1, &
-                                               &sfc_press_bar)!SItodBar*rho_ref*v_base%zlev_m(jk))!1013.0_wp)SItodBar*101300.0_wp)!
-
-                p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)&
-               & = max(p_os%p_prog(nold(1))%tracer(jc,jk,jb,1),0.0_wp)
-
-                !Temperature restoring to original value
-                p_sfc_flx%forc_tracer_relax(jc,jb,1) = p_os%p_prog(nold(1))%tracer(jc,1,jb,1)
-
-              ELSEIF(abs(z_lat_deg)<40.0_wp .AND. abs(z_lat_deg)>20.0_wp)THEN
-
-                z_tmp = pi*((abs(z_lat_deg) -20.0_wp)/20.0_wp)
-                !p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 5.0_wp&
-                !                        & + 0.5_wp*25.0_wp*(1.0_wp+cos(z_tmp))
-
-                p_os%p_diag%temp_insitu(jc,jk,jb) =  10.0_wp &
-                                         & + 0.25_wp*25.0_wp*(1.0_wp+cos(z_tmp))-REAL(jk,wp)*0.75
-                z_s1 = 0.0_wp
-                IF (no_tracer==2) z_s1 = p_os%p_prog(nold(1))%tracer(jc,jk,jb,2)
-                p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)&
-                &= convert_insitu2pot_temp_func(p_os%p_diag%temp_insitu(jc,jk,jb),&
-                                               &z_s1, &
-                                               &sfc_press_bar)
-                !SItodBar*rho_ref*v_base%zlev_m(jk))!1013.0_wp)SItodBar*101300.0_wp)!
-
-                p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)&
-               & = max(p_os%p_prog(nold(1))%tracer(jc,jk,jb,1),0.0_wp)
-
-                !Temperature restoring to original value
-                p_sfc_flx%forc_tracer_relax(jc,jb,1) = p_os%p_prog(nold(1))%tracer(jc,1,jb,1)
-              ENDIF
-             ENDIF
-        END DO
-      END DO
-    END DO 
-!       DO jb = i_startblk_e, i_endblk_e    
 !-----------------------------------------------------------------------------------------------
 !                Code below is not finished (PK)---------------
 ! !    CASE (36)
@@ -912,6 +832,62 @@ END DO
 ! !         END DO
 ! !       END DO
 
+    CASE (40) ! #slo# global temperature initialization for forcing tests
+      
+      ! Temperature profile depends on latitude and depth
+      ! Construct temperature profile 
+      !   ttrop for lat<ltrop; tpol for lat>lpol; cos for transition zone
+      !   for maximum tropical temperature see values above
+      z_tpol  =  5.0_wp      ! polar temperature
+      z_ltrop = 15.0_wp      ! tropical latitude for temperature gradient
+      z_lpol  = 60.0_wp      ! polar latitude for temperature gradient
+      z_ldiff = z_lpol  - z_ltrop
+
+      DO jb = i_startblk_c, i_endblk_c    
+        CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
+         &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
+
+        DO jc = i_startidx_c, i_endidx_c
+
+          !latitude given in radians
+          z_lat = ppatch%cells%center(jc,jb)%lat
+          !transer to latitude in degrees
+          z_lat_deg = z_lat*rad2deg
+
+          DO jk=1,n_zlev
+          IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+
+            ! set maximum tropical temperature from profile above
+            z_ttrop = tprof_var(jk)
+            z_tpol  = MIN(z_tpol,tprof_var(jk))
+            z_tdiff = z_ttrop - z_tpol
+
+            !constant salinity
+            IF(no_tracer==2)THEN
+              p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof(jk) !35.0_wp
+            ENDIF
+
+            IF(abs(z_lat_deg)>=z_lpol)THEN
+
+              p_os%p_diag%temp_insitu(jc,jk,jb) = z_tpol
+              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = p_os%p_diag%temp_insitu(jc,jk,jb)
+
+            ELSEIF(abs(z_lat_deg)<=z_ltrop)THEN
+
+              p_os%p_diag%temp_insitu(jc,jk,jb) = z_ttrop
+              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = p_os%p_diag%temp_insitu(jc,jk,jb)
+
+
+            ELSEIF(abs(z_lat_deg)<z_lpol .AND. abs(z_lat_deg)>z_ltrop)THEN
+              z_tmp = 0.5_wp*pi*((abs(z_lat_deg) - z_ltrop)/z_ldiff)
+              p_os%p_diag%temp_insitu(jc,jk,jb) = z_ttrop - z_tdiff*sin(z_tmp)
+              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = p_os%p_diag%temp_insitu(jc,jk,jb)
+            ENDIF
+          ENDIF   ! lsm
+          END DO
+        END DO
+      END DO
+
     CASE (43) ! #slo# collapsing density front with much smaller amplitude
               ! without temperature restoring / relaxation
       
@@ -944,8 +920,8 @@ END DO
           z_lat_deg = z_lat*rad2deg
 
           DO jk=1,n_zlev
-   !       IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-            IF ( jk == 1 ) THEN
+          IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+            !IF ( jk == 1 ) THEN
 
               !constant salinity
               IF(no_tracer==2)THEN
@@ -980,24 +956,41 @@ END DO
             ELSE
               p_os%p_diag%temp_insitu(jc,jk,jb) = z_tdeep
               p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = p_os%p_diag%temp_insitu(jc,jk,jb)
-            ENDIF  ! jk=1
-   !       ENDIF   ! lsm
+            !ENDIF  ! jk=1
+          ENDIF   ! lsm
           END DO
         END DO
-      END DO
-
-      DO jk=1,n_zlev
-      write(*,*)'max-min T-innitial',jk,&
-       & maxval(p_os%p_prog(nold(1))%tracer(:,jk,:,1)),&
-       & minval(p_os%p_prog(nold(1))%tracer(:,jk,:,1))
       END DO
 
     CASE DEFAULT
      CALL finish(TRIM(routine), 'CHOSEN INITIALIZATION NOT SUPPORTED - TERMINATE')
     END SELECT
 
+    ! Add temperature and salinity relaxation to initial values for these testcases
+    ! using namelist parameter temperature_relaxation=1
+    IF (temperature_relaxation == 1) THEN
+      p_sfc_flx%forc_tracer_relax(:,:,1) = p_os%p_prog(nold(1))%tracer(:,1,:,1)
+    END IF
 
-!IF shallow-water option is selected then chosse between 2 options)
+    jkc=1      ! current level - may not be zero
+    ipl_src=0  ! output print level (0-5, fix)
+    z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,1)
+    DO jk=1, n_zlev
+      CALL print_mxmn('T-innitial',jk,z_c(:,:,:),n_zlev,ppatch%nblks_c,'per',ipl_src)
+    END DO
+    IF (temperature_relaxation == 1) THEN
+      z_c(:,1,:) = p_sfc_flx%forc_tracer_relax(:,:,1)
+      CALL print_mxmn('Relax-Temperature',1,z_c(:,:,:),n_zlev,ppatch%nblks_c,'per',ipl_src)
+    END IF
+  ! IF (sal_relax == 1 .AND. no_tracer > 1) THEN
+  !   p_sfc_flx%forc_tracer_relax(:,:,2) = p_os%p_prog(nold(1))%tracer(:,1,:,2)
+  ! END IF
+  ! z_c(:,1,:) = p_sfc_flx%forc_tracer_relax(:,:,2)
+  ! CALL print_mxmn('Relax-Salinity',1,z_c(:,:,:),n_zlev,ppatch%nblks_c,'per',ipl_src)
+    z_c(:,1,:) = p_os%p_prog(nold(1))%h(:,:)
+    CALL print_mxmn('Elevation-init',1,z_c(:,:,:),n_zlev,ppatch%nblks_c,'per',ipl_src)
+
+! Shallow water testcases:
 ELSEIF( iswm_oce == 1 )THEN
 
   SELECT CASE (itestcase_oce)
@@ -1213,10 +1206,12 @@ ENDIF
           p_os%p_prog(nold(1))%vn(:,1,:) = 0.0_wp
 
     CASE DEFAULT
-write(*,*)'testcase',itestcase_oce
+     write(*,*)'testcase',itestcase_oce
      CALL finish(TRIM(routine), 'CHOSEN INITIALIZATION NOT SUPPORTED - TERMINATE')
   END SELECT
-ENDIF
+ENDIF  !  iswm_oce
+
+CALL message (TRIM(routine), 'end')
 
 END SUBROUTINE init_ho_testcases
 !-------------------------------------------------------------------------------

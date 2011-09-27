@@ -67,6 +67,7 @@ CHARACTER(len=*), PARAMETER :: version = '$Id$'
 ! indices of cells and neighbours for debug output set by namelist octst_ctl
 INTEGER :: c_b, c_i, c_k, ne_b(3), ne_i(3), nc_b(3), nc_i(3), nv_b(3), nv_i(3)
 INTEGER :: jkc, jkdim, ipl_src
+INTEGER :: loc_nblks_c, loc_nblks_e, loc_nblks_v
 
 ! format variables for degug output
 CHARACTER(len=95) :: form4ar
@@ -125,17 +126,19 @@ CONTAINS
   CALL search_latlonindex (ppatch, rlat_in, rlon_in, c_i, c_b)
 
   ! overwrite local block and index of test point to values of namelist
-  IF (i_oct_blk /= 0) THEN
-    c_b = i_oct_blk
-    c_i = i_oct_idx
-  END IF
+  !IF (i_oct_blk /= 0) THEN
+  !  c_b = i_oct_blk
+  !  c_i = i_oct_idx
+  !END IF
 
   ! set zlevel of test point
   c_k = i_oct_ilv
 
   ! set level of debug output
   ldbg = .FALSE.
-  IF (i_dbg_oce >=1) ldbg = .TRUE.
+  ! #slo# Bugfix - more necessary
+  !IF (i_dbg_oce >=1) ldbg = .TRUE.
+  ldbg = .TRUE.
 
 
   IF (ldbg) THEN
@@ -271,19 +274,22 @@ CONTAINS
     form4ar = '(4(a,g20.9))'
 
     CALL message (TRIM(routine), 'Conditions at test cell (C), and edges/neighbouring cells:')
-    WRITE(*,99) ' Cell C: block=',c_b,'  index=',c_i,                            &
-      &         '  lsm_c=', islmval,'  dolic_c=',idolic,'  bathy_c=', bathy,     &
+    WRITE(message_text,99) ' Cell C: block=',c_b,'  index=',c_i,             &
+      &         '  lsm_c=', islmval,'  dolic_c=',idolic,'  bathy_c=', bathy, &
       &         '  lat=',zlat,'  lon=',zlon
+    CALL message (' ', message_text)
     IF(no_tracer>=1)THEN
-    WRITE(*,form4ar)  &
-              ' Elev. h at Cell C    =', pstate_oce(jg)%p_prog(jt)%h(c_i,c_b),            &
-      &                  '  Tracer 1 =', pstate_oce(jg)%p_prog(jt)%tracer(c_i,c_k,c_b,1), &
-      &      '  Test level at cell C = ',REAL(c_k,wp)
+      WRITE(message_text,form4ar)  &
+                ' Elev. h at Cell C    =', pstate_oce(jg)%p_prog(jt)%h(c_i,c_b),            &
+        &                  '  Tracer 1 =', pstate_oce(jg)%p_prog(jt)%tracer(c_i,c_k,c_b,1), &
+        &      '  Test level at cell C = ',REAL(c_k,wp)
+      CALL message (' ', message_text)
     ELSEIF(no_tracer==0)THEN
-    WRITE(*,form4ar)  &
-              ' Elev. h at Cell C    =', pstate_oce(jg)%p_prog(jt)%h(c_i,c_b),            &
-      !&                  '  Tracer 1 =', pstate_oce(jg)%p_prog(jt)%tracer(c_i,c_k,c_b,1), &
-      &      '  Test level at cell C = ',REAL(c_k,wp)
+      WRITE(message_text,form4ar)  &
+                ' Elev. h at Cell C    =', pstate_oce(jg)%p_prog(jt)%h(c_i,c_b),            &
+        !&                  '  Tracer 1 =', pstate_oce(jg)%p_prog(jt)%tracer(c_i,c_k,c_b,1), &
+        &      '  Test level (jk) at cell C = ',REAL(c_k,wp)
+      CALL message (' ', message_text)
     ENDIF
     !------------------------------------------------------------------
     ! find and print correspondig edges of test cell
@@ -346,6 +352,10 @@ CONTAINS
 
   END IF
 
+  loc_nblks_c =ppatch(jg)%nblks_c
+  loc_nblks_e =ppatch(jg)%nblks_e
+  loc_nblks_v =ppatch(jg)%nblks_v
+
   END SUBROUTINE init_index_test
 
   !-------------------------------------------------------------------------
@@ -375,7 +385,7 @@ CONTAINS
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     &      routine = 'mo_oce_index:search_latlonindex'
 
-  !CALL message(TRIM(routine), 'Start' )
+  CALL message(TRIM(routine), 'Start' )
 
   jg = n_dom
 
@@ -413,8 +423,8 @@ CONTAINS
 
   99 FORMAT(3a,i4,a,i4,3(a,f9.2))
   98 FORMAT(2a,3(a,f9.2))
-  WRITE(*,98) ' ',TRIM(routine), ' Found cell nearest to          lat=', plat_in,'  lon=',plon_in
-  WRITE(*,99) ' ',TRIM(routine), ' Found  block=',iblk,'  index=',iidx,'  lat=',zlat,'  lon=',zlon
+  WRITE(0,98) ' ',TRIM(routine), ' Found cell nearest to          lat=', plat_in,'  lon=',plon_in
+  WRITE(0,99) ' ',TRIM(routine), ' Found  block=',iblk,'  index=',iidx,'  lat=',zlat,'  lon=',zlon
 
   END SUBROUTINE search_latlonindex
 
@@ -423,7 +433,7 @@ CONTAINS
   !! Print out min and max of a 2-dimensional array.
   !!
   !! Print out min and max of a 2-dimensional array. Reduce writing effort for a simple print.
-  !! The amount of prints is controlled by comparison of a fixed level of output (ipl_proc_src)
+  !! The amount of prints is controlled by comparison of a fixed detail level of output (ipl_proc_src)
   !! with variable i_dbg_inx that is set via namelist octst_ctl
   !!
   !! @par Revision History
@@ -431,13 +441,13 @@ CONTAINS
   !
 ! SUBROUTINE print_mxmn ( str_prntdes, klev, p_array, &
 !   &                     ndimz, ndimblk, str_proc_src, str_proc_tst, ipl_mxmn, iplix_opt )
-! iplix_opt is optional output level for additional output of values at a user given index
+! iplix_opt is optional output detail level for additional output of values at a user given index
   SUBROUTINE print_mxmn ( str_prntdes, klev, p_array, &
     &                     ndimz, ndimblk, str_proc_src, ipl_proc_src )
 
   !TYPE(t_patch), TARGET, INTENT(IN) :: ppatch(n_dom)
-  INTEGER,               INTENT(IN) :: klev               ! vertical level to write maxmin
   CHARACTER(len=*),      INTENT(IN) :: str_prntdes        ! description of array
+  INTEGER,               INTENT(IN) :: klev               ! vertical level to write maxmin
   ! array to print out values: vertical dimension could be 1 for 2-dim arrays, first dimension is nproma
   INTEGER,               INTENT(IN) :: ndimz              ! vertical dimension of array (1 = no vert. dim.)
   INTEGER,               INTENT(IN) :: ndimblk            ! nblk dimension of array
@@ -449,7 +459,7 @@ CONTAINS
  !INTEGER, OPTIONAL,     INTENT(IN) :: proutchn           ! channel number for writing
 
   CHARACTER(len=25)  strout
-  INTEGER            iout, icheck_str_proc, jstr
+  INTEGER            iout, icheck_str_proc, jstr, i
 
   !IF (PRESENT(out)) THEN
   !  iout = out
@@ -457,13 +467,12 @@ CONTAINS
   !  iout = nerr
   !END IF
   iout = nerr
-  ! as long as not all write statements are replaced by calls of print_mxmn:
-  iout = 6
 
-  ! compare defined source string with namelist-given output string:
+  ! compare defined source string with namelist-given output string ('per' for permanent output)
   icheck_str_proc = 0
   DO jstr = 1, 10
-    IF (str_proc_src == str_proc_tst(jstr)) THEN
+    IF (str_proc_src == str_proc_tst(jstr) .OR. str_proc_src == 'per' &
+      &                                    .OR. str_proc_tst(jstr) == 'all') THEN
       icheck_str_proc = 1
     END IF
   END DO
@@ -471,16 +480,47 @@ CONTAINS
   ! if str_proc_src not found in str_proc_tst - no output
   IF (icheck_str_proc == 0 ) RETURN
 
-! 99 FORMAT(a,a20,a,i3,1p2e28.16)
-  99 FORMAT(a,a20,a,i3,2g28.16)
+! ! valid e-format with first digit gt zero
+! 981 FORMAT(a,a18,' C:',i3,1pe30.18,3(a,i0,a,1pe20.8))
+! 982 FORMAT(a,a20,':'  ,i3,   30x,  3(a,i0,a,1pe20.8))
+! 991 FORMAT(a,a20,a,i3,1p2e30.18)
+
+! ! g-format with offset for decimal point not valid for NAG compiler
+! 981 FORMAT(a,a18,' C:',i3,1pg30.18,3(a,i0,a,1pg20.8))
+! 982 FORMAT(a,a20,':'  ,i3,   30x,  3(a,i0,a,1pg20.8))
+! 991 FORMAT(a,a20,a,i3,1p2g30.18)
+
+  ! valid g-format without offset of decimal point
+  981 FORMAT(a,a18,' C:',i3,  g30.18,3(a,i0,a,  g20.8))
+  982 FORMAT(a,a20,':'  ,i3,   30x,  3(a,i0,a,  g20.8))  ! valid g-format without offset of decimal point
+  991 FORMAT(a,a20,a,i3,2g30.18)     ! valid g-format without offset of decimal point
+
   strout=TRIM(str_prntdes)
 
-  ! check print output level ipl_proc_src (1-5) with namelist given values for output at index:
-  ! i_dbg_inx (0-5) - no to complete output
+  ! check print output detail level ipl_proc_src (1-5) with namelist given values for output at
+  ! a namelist given index
+  !IF (i_dbg_inx >= iplix_opt ) THEN
+  !  WRITE(iout,991) ' VALUE   ',strout,':',klev, 1.0
+  !END IF
+
+  ! test write at index (for cell-centers only?)
+  !IF (i_dbg_inx >= ipl_proc_src ) &
+  !  & write(0,*) ' c_i = ',c_i,c_k,c_b,' nc_i',(nc_i(i),nc_b(i),i=1,3)
   IF (i_dbg_inx >= ipl_proc_src ) THEN
-!   WRITE(iout,98) ' VALUE at jb=..,ji=..'
-    WRITE(iout,99) ' VALUE   ',strout,':',klev, 1.0
+    IF (loc_nblks_c == ndimblk) THEN
+      WRITE(iout,981) '   VALUE ',strout,klev, p_array(c_i,klev,c_b), &
+    &                 (' C',i,':',p_array(nc_i(i),klev,nc_b(i)),i=1,3)
+  ! no indices yet on edges
+    ELSE IF (loc_nblks_e == ndimblk) THEN
+      WRITE(iout,982) '   VALUE ',strout,klev, &
+    &                 (' E',i,':',p_array(ne_i(i),klev,ne_b(i)),i=1,3)
+    ELSE IF (loc_nblks_v == ndimblk) THEN
+      WRITE(iout,982) '   VALUE ',strout,klev, &
+    &                 (' V',i,':',p_array(nv_i(i),klev,nv_b(i)),i=1,3)
+    END IF
   END IF
+
+!   & WRITE(iout,992) ' VALUE ',strout,' C:', p_array(c_i,klev,c_b)
 
   ! check print output level ipl_proc_src (1-5) with namelist given values for MIN/MAX output:
   ! i_dbg_oce (0-5) - no to complete output
@@ -494,7 +534,7 @@ CONTAINS
  !END IF
 
   IF (my_process_is_stdio()) THEN
-    WRITE(iout,99) ' MAX/MIN ',strout,':',klev, &
+    WRITE(iout,991) ' MAX/MIN ',strout,':',klev, &
       &              maxval(p_array(1:nproma,klev,1:ndimblk)),     &
       &              minval(p_array(1:nproma,klev,1:ndimblk))
   END IF

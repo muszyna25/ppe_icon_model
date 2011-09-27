@@ -71,22 +71,26 @@ B=4   # number of bisections applied
 iforc=10
 #-----------------------------------------------------------------------------
 # global timing
-start_date="2011-03-01T00:00:00Z"
-ndays_restart=3600
-dt_restart=`expr ${ndays_restart} \* 86400`
+start_date="2000-01-01T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
 dtime=1800           # ocean model timestep [s]
-ndays=360            # ocean model run in days
-dt_data=86400.       # ocean model output interval [s]
-dt_file=3.1536e7     # interval for generation of new output file [s] (~1 year)
+ndays=720            # ocean model run in days
+dt_data=864000.      # ocean model output interval [s]
+ndays_file=1000      # new output file generation interval [days]
+ndays_checkp=1000    # write restart file interval [days]
+ndays_restart=1000   # stop model for restart [days]
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $ndays
 nsteps=`expr ${ndays} \* 86400 / ${dtime} + 1 `
+#nsteps=5 
 # diagnostic output (not in ocean model)
 #dt_diag=`expr 4 \* 3600 `    #  output each 4 hours
+dt_file=`expr ${ndays_file} \* 86400`
+dt_checkpoint=`expr ${ndays_checkp} \* 86400`
+dt_restart=`expr ${ndays_restart} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -100,7 +104,7 @@ ocean_model_equations=-1 # equation system
 # USE_AQUAP="Y"      # "Y": ocean horizontal gridfile base is "aqua_planet"
   USE_FLATB="Y"      # "Y": ocean horizontal gridfile base is "etopo40_flat"
 # USE_BATHY="Y"      # "Y": ocean horizontal gridfile base is "etopo40_planet"
-  USE_POOLD="Y"      # "Y": overwrite ocean gridfile from pool
+# USE_POOLD="Y"      # "Y": overwrite ocean gridfile from pool
 #-----------------------------------------------------------------------------
 if [ "x$USE_FLATB" == "xY"  ] ; then
   grid_ext="etopo40_flat"
@@ -164,17 +168,16 @@ cat > ${ocean_namelist} << EOF
  itopo       = 0                 ! read external ocean data from gridfile
 /
 &octst_nml
-  i_dbg_oce=5                    ! initialize MIN/MAX  debug output via mo_index_oce
+  i_dbg_oce=0                    ! initialize MIN/MAX  debug output via mo_index_oce
   i_dbg_inx=0                    ! initialize one cell debug output via mo_index_oce
-  str_proc_tst = 'abt',
-    'vel', 'dif', 'trc', '   ', '   ', '   ', '   ', '   '
+  str_proc_tst = 'all' 'abt', 'vel', 'dif', 'trc', 'bul', '   ', '   ', '   ', '   '
                                  ! define strings for processes to be printed out in debug mode
   rlat_in = 30.0 rlon_in = 0.0   ! lat/lon-location of one cell debug output
   h_val=1.0 t_val=1.0            ! initial values for elevation and temperature at one cell
 /
 &ocean_dynamics_nml
   n_zlev             =    4      ! number of vertical levels and (dzlev_m) thicknesses
-  dzlev_m(1:20)      =  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0, 1000.0, 1000.0, 1000.0,
+  dzlev_m(1:20)      =  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,
                        1000.0  1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
 ! dzlev_m(1:20)       =  20.0,   50.0,   75.0,  125.0,  150.0,  200.0,  300.0,  500.0, 1000.0, 1000.0,
 !                      1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
@@ -203,7 +206,7 @@ cat > ${ocean_namelist} << EOF
                                  !  for Stommel-type basin (2D- and 3D, testcase 27 and/or 30) select
                                  !  f- or beta-plane.
   expl_vertical_velocity_diff = 0  ! 0=explicit, 1 = implicit  
-  expl_vertical_tracer_diff   = 0  ! 0=explicit, 1 = implicit
+  expl_vertical_tracer_diff   = 1  ! 0=explicit, 1 = implicit
 /
 &ocean_physics_nml
   no_tracer          =    1      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
@@ -212,9 +215,9 @@ cat > ${ocean_namelist} << EOF
                                  ! 3= not recommended: (nonlinear) Jacket-McDoudgall density-formulation
   k_veloc_h          = 1.0E+4    ! [m2/s] horizontal viscosity coefficient for velocity
   k_veloc_v          = 1.0E-2    ! [m/s]  vertical viscosity coefficient for velocity
-  k_pot_temp_h       = 1.0E+5    ! [m2/s] horizontal viscosity coefficient for temperature
-  k_pot_temp_v       = 1.0E-2    ! [m/s]  vertical viscosity coefficient for temperature
-  k_sal_h            = 2.0E+3    ! [m2/s] horizontal viscosity coefficient for salinity
+  k_pot_temp_h       = 1.0E+3    ! [m2/s] horizontal viscosity coefficient for temperature
+  k_pot_temp_v       = 1.0E-3    ! [m/s]  vertical viscosity coefficient for temperature
+  k_sal_h            = 1.0E+3    ! [m2/s] horizontal viscosity coefficient for salinity
   k_sal_v            = 1.0E-3    ! [m/s]  vertical viscosity coefficient for salinity
   HORZ_VELOC_DIFF_TYPE =  1      ! 0=no horizontal diffusion
                                  ! 1= constant Laplacian viscosity coefficient given in namelist (k_veloc_h)
@@ -223,7 +226,7 @@ cat > ${ocean_namelist} << EOF
                                  ! 3= spatially variable Laplacian viscosity coefficient determined by requirement to
                                  !    have at least one gridpoint in boundary layer. The namelist value is overwritten.
   MAX_VERT_DIFF_VELOC=    1.0    ! max diffusion coeff, used in impl.vert.velocity diffusion, if stabil. crit.is met
-  MAX_VERT_DIFF_TRAC =   20.0    ! max diffusion coeff, used in impl.vert.tracer diffusion, if stability crit.is met
+  MAX_VERT_DIFF_TRAC =    0.1    ! max diffusion coeff, used in impl.vert.tracer diffusion, if stability crit.is met
   CWA                = 0.5E-3    ! Tuning parameters for vertical mixing of tracer and velocity
   CWT                = 0.5E-3    ! Set to standard values
   bottom_drag_coeff  =    0.0 ! 0.0025 ! Chezy coefficient for bottom friction
@@ -237,16 +240,19 @@ cat > ${ocean_namelist} << EOF
                                  ! FORCING_FROM_FILE_FIELD    = 13
                                  ! FORCING_FROM_COUPLED_FLUX  = 14
                                  ! FORCING_FROM_COUPLED_FIELD = 15
-  itestcase_oce      =   43      ! 25=shallow-water-Laeuter-Test; 26=shallow-water-Williamson test5;
+  iforc_stat_oce     =    0      ! stationary (wind) forcing for iforc_oce=11 only:
+                                 ! 1=locally varying u,v (testcase 27, 29)
+                                 ! 2=varying u with latitude for basin using basin_width_deg
+                                 ! 3=varying u with latitude globally
+  itestcase_oce      =   33      ! 25=shallow-water-Laeuter-Test; 26=shallow-water-Williamson test5;
                                  ! 30=3D-multilayer Stommel; 31=3D-gravity wave
                                  ! 32=Multilayer Munk-Gyre test (following Sergey Danilov)
                                  ! 33=Collapsing density front, requires realistic lsm and topography
                                  ! 34=Adjusting density front in an ocean basin
-                                 ! 35=Temperature initial as in 30, with additional temperature relaxation
-                                 ! 36=Temperature initial as in 33, with additional temperature relaxation
+                                 ! 40=global temperature initialization for wind and temperature forcing tests
                                  ! 43=Collapsing density front at first level only with smaller amplitude (global)
   temperature_relaxation= 0      ! 1=switched on for some testcases only
-                                 ! 2=read 2m-temperature data for relaxation from bulk
+                                 ! 2=read SST data for relaxation from bulk
   relaxation_param   =    0.0    ! relaxation of tracer surface fluxes (same value for all tracers in months)
                                  ! this value is divided by number of seconds per month (=30*24*3600)
 /
@@ -254,6 +260,7 @@ cat > ${ocean_namelist} << EOF
  out_expname = '${EXPNAME}'
  dt_data     = ${dt_data}
  dt_file     = ${dt_file}
+ dt_checkpoint=${dt_checkpoint}
  lkeep_in_sync = .TRUE.          ! sync after each timestep
 /
 EOF

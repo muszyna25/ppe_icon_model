@@ -44,7 +44,6 @@ MODULE mo_output
   USE mo_io_units,            ONLY: filename_max
   USE mo_model_domain_import, ONLY: n_dom, &
     &                               n_dom_start !, nroot, lplane
-!  USE mo_ocean_nml,           ONLY: n_zlev
   USE mo_io_config,           ONLY: out_expname, no_output
   USE mo_impl_constants,      ONLY: ihs_ocean !,            &
 !     &                              ihs_atm_temp,         &
@@ -64,7 +63,7 @@ MODULE mo_output
   USE mo_io_restart,          ONLY: set_restart_time, set_restart_vct,       &
                                   & init_restart, open_writing_restart_files,  &
                                   & write_restart, close_writing_restart_files,&
-                                  & finish_restart
+                                  & finish_restart, set_restart_depth
   USE mo_io_restart_attributes,ONLY: set_restart_attribute
   USE mo_model_domain,        ONLY: t_patch, p_patch
   USE mo_interpolation,       ONLY: t_lon_lat_intp
@@ -72,6 +71,7 @@ MODULE mo_output
   USE mo_timer,               ONLY: timer_start, timer_stop,&
     &                               timer_write_restart_file, timer_write_output
 
+  USE mo_oce_state,           ONLY: set_zlev
   IMPLICIT NONE
 
   PRIVATE
@@ -150,7 +150,7 @@ CONTAINS
 
         ! Set up vlist for this grid level
         ! Please note: setup_vlist only sets up the vlist, it does not open any output file!
-       
+
         CALL setup_vlist( TRIM(p_patch(jg)%grid_filename), jg )
 
       ENDDO
@@ -239,7 +239,7 @@ CONTAINS
   SUBROUTINE close_output_files
 
     INTEGER jg
-    
+
     IF ( no_output ) RETURN
 
     DO jg = n_dom, 1, -1
@@ -293,7 +293,6 @@ CONTAINS
     ENDIF
 
     IF (ltimer) CALL timer_stop(timer_write_output)
-  
   END SUBROUTINE write_output
 
   !-------------
@@ -301,27 +300,31 @@ CONTAINS
   !! 
   !! Hui Wan (MPI-M, 2011-05)
   !!
-  SUBROUTINE create_restart_file( patch, datetime, pvct,      &
+  SUBROUTINE create_restart_file( patch, datetime,            &
                                 & jfile, l_have_output,       &
+                                & opt_pvct,                   &
                                 & opt_t_elapsed_phy,          &
                                 & opt_lcall_phy, opt_sim_time,&
                                 & opt_jstep_adv_ntsteps,      &
-                                & opt_jstep_adv_marchuk_order )
+                                & opt_jstep_adv_marchuk_order,&
+                                & opt_depth)
 
     TYPE(t_patch),   INTENT(IN) :: patch
     TYPE(t_datetime),INTENT(IN) :: datetime
-    REAL(wp),INTENT(IN) :: pvct(:) 
     INTEGER, INTENT(IN) :: jfile  ! current output file index
     LOGICAL, INTENT(IN) :: l_have_output
 
+    REAL(wp), INTENT(IN), OPTIONAL :: opt_pvct(:)
+    INTEGER,  INTENT(IN), OPTIONAL :: opt_depth
     REAL(wp), INTENT(IN), OPTIONAL :: opt_t_elapsed_phy(:,:)
     LOGICAL , INTENT(IN), OPTIONAL :: opt_lcall_phy(:,:)
     REAL(wp), INTENT(IN), OPTIONAL :: opt_sim_time
     INTEGER,  INTENT(IN), OPTIONAL :: opt_jstep_adv_ntsteps
     INTEGER,  INTENT(IN), OPTIONAL :: opt_jstep_adv_marchuk_order
-   
-    INTEGER :: klev, jg, kcell, kvert, kedge, icelltype
-   
+
+    INTEGER :: klev, jg, kcell, kvert, kedge, icelltype, izlev
+    REAL(wp), ALLOCATABLE :: zlevels_full(:), zlevels_half(:)
+
     CHARACTER(LEN=132) :: string
     CHARACTER(len=MAX_CHAR_LENGTH) :: attname   ! attribute name
     INTEGER :: jp, jp_end   ! loop index and array size
@@ -335,11 +338,11 @@ CONTAINS
     kvert     = patch%n_patch_verts_g
     kedge     = patch%n_patch_edges_g
     icelltype = patch%cell_type
-    
-    CALL set_restart_attribute( 'current_year'  , datetime%year   )   
+
+    CALL set_restart_attribute( 'current_year'  , datetime%year   )
     CALL set_restart_attribute( 'current_month' , datetime%month  )
-    CALL set_restart_attribute( 'current_day'   , datetime%day    )   
-    CALL set_restart_attribute( 'current_hour'  , datetime%hour   )   
+    CALL set_restart_attribute( 'current_day'   , datetime%day    )
+    CALL set_restart_attribute( 'current_hour'  , datetime%hour   )
     CALL set_restart_attribute( 'current_minute', datetime%minute )
     CALL set_restart_attribute( 'current_second', datetime%second )
 
@@ -358,8 +361,8 @@ CONTAINS
 
     !-------------------------------------------------------------
     ! DR
-    ! WORKAROUND FOR FIELDS WHICH NEED TO GO INTO THE RESTART FILE, 
-    ! BUT SO FAR CANNOT BE HANDELED CORRECTLY BY ADD_VAR OR 
+    ! WORKAROUND FOR FIELDS WHICH NEED TO GO INTO THE RESTART FILE,
+    ! BUT SO FAR CANNOT BE HANDELED CORRECTLY BY ADD_VAR OR
     ! SET_RESTART_ATTRIBUTE
     !-------------------------------------------------------------
 
@@ -392,7 +395,18 @@ CONTAINS
       CALL set_restart_attribute( 'next_output_file', jfile   )
     END IF
 
-    CALL set_restart_vct( pvct )  ! Vertical coordinate (A's and B's)
+    IF (PRESENT(opt_pvct)) CALL set_restart_vct( opt_pvct )  ! Vertical coordinate (A's and B's)
+    IF (PRESENT(opt_depth)) THEN
+      izlev = opt_depth
+      ALLOCATE(zlevels_full(izlev))
+      ALLOCATE(zlevels_half(izlev+1))
+      CALL set_zlev(zlevels_half, zlevels_full)
+      CALL set_restart_depth(zlevels_half, zlevels_full)
+      DEALLOCATE(zlevels_full)
+      DEALLOCATE(zlevels_half)
+    ELSE
+      izlev = 0
+    END IF
 
     CALL init_restart( TRIM(out_expname), &! exp name
                      & '1.2.2',           &! model version
@@ -400,7 +414,7 @@ CONTAINS
                      & kvert, 9-icelltype,&! total # of vertices, # of vertices per dual cell
                      & kedge, 4,          &! total # of cells, shape of control volume for edge 
                      & klev,              &! total # of vertical layers
-                     & 0,                 &! total # of depths below sea
+                     & izlev,             &! total # of depths below sea
                      & 0)                  ! total numbers of geometric height above ground
 
     CALL set_restart_time( iso8601(datetime) )  ! Time tag

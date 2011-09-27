@@ -46,22 +46,25 @@ MODULE mo_hydro_ocean_run
 !
 !-------------------------------------------------------------------------
 !
+USE mo_kind,                   ONLY: wp
 USE mo_impl_constants,         ONLY: max_char_length
 USE mo_model_domain,           ONLY: t_patch
 USE mo_model_domain_import,    ONLY: n_dom
 USE mo_ocean_nml,              ONLY: iswm_oce, idisc_scheme, no_tracer, &
-  &                                  itestcase_oce, EOS_type
+  &                                  itestcase_oce, EOS_type,n_zlev
 USE mo_dynamics_config,        ONLY: nold, nnew
-USE mo_io_config,              ONLY: out_expname, istime4output, istime4newoutputfile
+USE mo_io_config,              ONLY: out_expname, istime4output, istime4newoutputfile,&
+  &                                  is_checkpoint_time, n_checkpoints
 USE mo_run_config,             ONLY: nsteps, dtime, ltimer
 USE mo_exception,              ONLY: message, message_text, finish
 USE mo_ext_data,               ONLY: t_external_data
 USE mo_io_units,               ONLY: filename_max
-USE mo_datetime,               ONLY: t_datetime, print_datetime, add_time
+USE mo_datetime,               ONLY: t_datetime, print_datetime, add_time, datetime_to_string
 USE mo_timer,                  ONLY: timer_total, timer_start, timer_stop
 USE mo_oce_ab_timestepping,    ONLY: solve_free_surface_eq_ab, &
   &                                  calc_normal_velocity_ab,  &
   &                                  calc_vert_velocity
+
 USE mo_oce_tracer_transport,   ONLY: advect_tracer_ab
 USE mo_oce_state,              ONLY: t_hydro_ocean_state, t_hydro_ocean_base, &
   &                                  init_ho_base, v_base, &
@@ -72,21 +75,28 @@ USE mo_oce_state,              ONLY: t_hydro_ocean_state, t_hydro_ocean_base, &
 USE mo_oce_physics,            ONLY: t_ho_params, &
   &                                  construct_ho_params, init_ho_params, &
   &                                  destruct_ho_params, update_ho_params
-!USE mo_oce_index,              ONLY: c_b, c_i, c_k, ldbg, form4ar,
 USE mo_oce_index,              ONLY: init_index_test
 USE mo_output,                 ONLY: init_output_files, write_output, &
   &                                  create_restart_file
+USE mo_io_restart,             ONLY: write_restart_info_file
 USE mo_interpolation,          ONLY: t_int_state
-USE mo_oce_init,               ONLY: init_ho_testcases
+USE mo_oce_init,               ONLY: init_ho_testcases, init_ho_prog, init_ho_coupled
 USE mo_oce_diagnostics,        ONLY: calculate_oce_diagnostics,&
   &                                  construct_oce_diagnostics,&
   &                                  destruct_oce_diagnostics, t_oce_timeseries
-USE mo_oce_forcing,            ONLY: construct_sfcflx , &
+! USE mo_oce_forcing,            ONLY: construct_sfcflx, init_sfcflx, &
+!   &                                  construct_atmos_for_ocean,&
+!   &                                  destruct_atmos_for_ocean,&
+!   &                                  construct_atmos_fluxes, destruct_atmos_fluxes,&
+!   &                                  t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
+! USE mo_sea_ice,                ONLY: t_sea_ice, construct_sea_ice, destruct_sea_ice
+USE mo_sea_ice,                ONLY: construct_sfcflx,&
   &                                  construct_atmos_for_ocean,&
   &                                  destruct_atmos_for_ocean,&
   &                                  construct_atmos_fluxes, destruct_atmos_fluxes,&
-  &                                  t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
-USE mo_sea_ice,                ONLY: t_sea_ice, construct_sea_ice, destruct_sea_ice
+  &                                  t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
+  &                                  t_sea_ice, construct_sea_ice, destruct_sea_ice
+USE mo_oce_forcing,            ONLY: init_sfcflx
 USE mo_oce_bulk,               ONLY: update_sfcflx
 USE mo_oce_thermodyn,          ONLY: calc_density_MPIOM_func, calc_density_lin_EOS_func,&
   &                                  calc_density_JMDWFG06_EOS_func
@@ -124,25 +134,30 @@ CONTAINS
   !
   SUBROUTINE perform_ho_stepping( ppatch, pstate_oce, p_ext_data, &
                                 & datetime, n_io, n_file, p_int,  &
-                                & p_sfc_flx, p_phys_param, p_as, p_atm_f, p_ice)
+                                & p_sfc_flx, p_phys_param,        &
+                                & p_as, p_atm_f, p_ice,           &
+                                & l_have_output)
 
-  TYPE(t_patch),             TARGET, INTENT(IN)     :: ppatch(n_dom)
-  TYPE(t_hydro_ocean_state), TARGET, INTENT(INOUT)  :: pstate_oce(n_dom)
-  TYPE(t_external_data), TARGET, INTENT(IN)         :: p_ext_data(n_dom)
-  TYPE(t_datetime), INTENT(INOUT)                   :: datetime
-  INTEGER, INTENT(IN)                               :: n_io, n_file
-  TYPE(t_int_state),TARGET,INTENT(IN), OPTIONAL     :: p_int(n_dom)
-  TYPE(t_sfc_flx)                                   :: p_sfc_flx
-  TYPE (t_ho_params)                                :: p_phys_param 
-  TYPE(t_atmos_for_ocean),  INTENT(INOUT)           :: p_as
-  TYPE(t_atmos_fluxes ),       INTENT(INOUT)        :: p_atm_f
-  TYPE (t_sea_ice),             INTENT(INOUT)       :: p_ice
+  TYPE(t_patch),             TARGET, INTENT(IN)    :: ppatch(n_dom)
+  TYPE(t_hydro_ocean_state), TARGET, INTENT(INOUT) :: pstate_oce(n_dom)
+  TYPE(t_external_data), TARGET, INTENT(IN)        :: p_ext_data(n_dom)
+  TYPE(t_datetime), INTENT(INOUT)                  :: datetime
+  INTEGER, INTENT(IN)                              :: n_io, n_file
+  TYPE(t_int_state),TARGET,INTENT(IN), OPTIONAL    :: p_int(n_dom)
+  TYPE(t_sfc_flx)                                  :: p_sfc_flx
+  TYPE (t_ho_params)                               :: p_phys_param
+  TYPE(t_atmos_for_ocean),  INTENT(INOUT)          :: p_as
+  TYPE(t_atmos_fluxes ),    INTENT(INOUT)          :: p_atm_f
+  TYPE (t_sea_ice),         INTENT(INOUT)          :: p_ice
+  LOGICAL,                  INTENT(INOUT)          :: l_have_output
 
 
 
   ! local variables
   INTEGER :: jstep, jt, jg, n_temp
   INTEGER :: jfile
+  LOGICAL :: l_outputtime
+  CHARACTER(len=32) :: datestring
   TYPE(t_oce_timeseries), POINTER :: oce_ts
 
   !CHARACTER(LEN=filename_max)  :: outputfile, gridfile
@@ -165,7 +180,7 @@ CONTAINS
   ! file 1 is opened in control_model setup:
   jfile = 1
 
-  CALL init_index_test( ppatch, pstate_oce, p_ext_data )
+  !CALL init_index_test( ppatch, pstate_oce, p_ext_data )
   !IF ( iswm_oce == 1 ) THEN
     CALL construct_oce_diagnostics( ppatch(jg), pstate_oce(jg), p_ext_data(jg), oce_ts)
   !ENDIF
@@ -177,53 +192,55 @@ CONTAINS
   !------------------------------------------------------------------
   TIME_LOOP: DO jstep = 1, nsteps
 
-    write(*,*)'-----------timestep:',jstep
+    call datetime_to_string(datestring, datetime)
+    WRITE(message_text,'(a,i6,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
+    CALL message (TRIM(routine), message_text)
 
     IF(itestcase_oce==28)THEN
       CALL advect_tracer_ab(ppatch(jg), pstate_oce(jg), p_phys_param,p_sfc_flx, jstep)
     ELSE
 
 
-    !In case of a time-varying forcing: 
-    CALL update_sfcflx(ppatch(jg), pstate_oce(jg), p_as, p_ice, p_atm_f, p_sfc_flx, jstep)
+      !In case of a time-varying forcing: 
+      CALL update_sfcflx(ppatch(jg), pstate_oce(jg), p_as, p_ice, p_atm_f, p_sfc_flx, &
+        &                jstep, datetime)
 
-    IF(iswm_oce /= 1)THEN
-      SELECT CASE (EOS_TYPE)
-        CASE(1)
+      IF(iswm_oce /= 1)THEN
+        SELECT CASE (EOS_TYPE)
+          CASE(1)
 
-          CALL update_ho_params(ppatch(jg), pstate_oce(jg), p_sfc_flx, p_phys_param,&
-                              & calc_density_lin_EOS_func)
+            CALL update_ho_params(ppatch(jg), pstate_oce(jg), p_sfc_flx, p_phys_param,&
+                                & calc_density_lin_EOS_func)
 
-       CASE(2)
-         CALL update_ho_params(ppatch(jg), pstate_oce(jg), p_sfc_flx, p_phys_param,&
-                               & calc_density_MPIOM_func)
-      CASE(3)
-         CALL update_ho_params(ppatch(jg), pstate_oce(jg), p_sfc_flx, p_phys_param,&
-                               & calc_density_JMDWFG06_EOS_func)
+         CASE(2)
+           CALL update_ho_params(ppatch(jg), pstate_oce(jg), p_sfc_flx, p_phys_param,&
+                                 & calc_density_MPIOM_func)
+        CASE(3)
+           CALL update_ho_params(ppatch(jg), pstate_oce(jg), p_sfc_flx, p_phys_param,&
+                                 & calc_density_JMDWFG06_EOS_func)
 
-      CASE DEFAULT
+        CASE DEFAULT
 
-     END SELECT
-   ENDIF
+       END SELECT
+     ENDIF
 
+      ! solve for new free surface
+      CALL solve_free_surface_eq_ab (ppatch(jg), pstate_oce(jg), p_ext_data(jg), &
+        &                            p_sfc_flx, p_phys_param, jstep, p_int(jg))
 
-    ! solve for new free surface
-    CALL solve_free_surface_eq_ab (ppatch(jg), pstate_oce(jg), p_ext_data(jg), &
-      &                            p_sfc_flx, p_phys_param, jstep, p_int(jg))
+      ! Step 4: calculate final normal velocity from predicted horizontal velocity vn_pred
+      !         and updated surface height
+      CALL calc_normal_velocity_ab(ppatch(jg), pstate_oce(jg), p_ext_data(jg), p_phys_param)
 
-    ! Step 4: calculate final normal velocity from predicted horizontal velocity vn_pred
-    !         and updated surface height
-    CALL calc_normal_velocity_ab(ppatch(jg), pstate_oce(jg), p_ext_data(jg), p_phys_param)
+      IF ( iswm_oce /= 1 ) THEN
+        ! Step 5: calculate vertical velocity from continuity equation under incompressiblity condition
+        CALL calc_vert_velocity( ppatch(jg), pstate_oce(jg))
+      ENDIF
 
-    IF ( iswm_oce /= 1 ) THEN
-      ! Step 5: calculate vertical velocity from continuity equation under incompressiblity condition
-      CALL calc_vert_velocity( ppatch(jg), pstate_oce(jg))
-    ENDIF
-
-    ! Step 6 transport tracer and diffuse them
-    IF(no_tracer>=1)THEN
-      CALL advect_tracer_ab(ppatch(jg), pstate_oce(jg), p_phys_param,p_sfc_flx, jstep)
-    ENDIF
+      ! Step 6 transport tracer and diffuse them
+      IF(no_tracer>=1)THEN
+        CALL advect_tracer_ab(ppatch(jg), pstate_oce(jg), p_phys_param,p_sfc_flx, jstep)
+      ENDIF
     ENDIF
 
     ! Step 7: Swap time indices before output
@@ -246,30 +263,39 @@ CONTAINS
 !     IF (ldbg) WRITE(*,'(a,i5,2(a,g20.12))') '*** After jstep = ',jstep, &
 !       &  '  Elevation h =', pstate_oce(jg)%p_prog(nold(jg))%h(c_i,c_b), &
 !       &  '  Velocity  u =', pstate_oce(jg)%p_diag%u_pred(c_i,c_k,c_b)
-     IF ( istime4output(jstep) .OR. jstep==nsteps ) THEN
-      CALL message (TRIM(routine),'Write output at:')
-      CALL print_datetime(datetime)
-
-      CALL write_output( datetime )
-    END IF
-
-    ! close the current output file and trigger a new one
-    ! #slo#: not synchronized with write_vlist - should be closed/renamed/opened
-    !        before new writing timestep!
-    IF (istime4newoutputfile(jstep) .AND. jstep/=nsteps) THEN
-
-      jfile = jfile +1
-      CALL init_output_files(jfile,lclose=.TRUE.)
-
-    END IF
-
     ! One integration cycle finished on the lowest grid level (coarsest
     ! resolution). Set model time.
     CALL add_time(dtime,0,0,0,datetime)
 
-!     CALL message (TRIM(routine),'Step completed at:')
-!     CALL print_datetime(datetime)
+!TODO    l_outputtime = istime4output(jstep)
+    l_outputtime = (MOD(jstep,n_io) == 0)!  .OR. jstep==nsteps)
+    IF ( l_outputtime ) THEN
+      CALL write_output( datetime )
+      CALL message (TRIM(routine),'Write output at:')
+      CALL print_datetime(datetime)
+      l_have_output = .TRUE.
+    END IF
 
+    ! close the current output file and trigger a new one
+    IF (istime4newoutputfile(jstep)) THEN
+      jfile = jfile +1
+      CALL init_output_files(jfile,lclose=l_have_output)
+    END IF
+
+
+
+    ! write a restart file
+    IF (is_checkpoint_time(jstep,n_checkpoints())) THEN
+      CALL create_restart_file( ppatch(jg), datetime,  &
+                              & jfile, l_have_output,opt_depth=n_zlev)
+      ! Create the master (meta) file in ASCII format which contains
+      ! info about which files should be read in for a restart run.
+      CALL write_restart_info_file
+    END IF
+
+    ! update intermediate timestepping variables
+    CALL update_for_next_timestep(pstate_oce(jg))
+    !CALL message (TRIM(routine),'Step completed at:')
 
   ENDDO TIME_LOOP
   !IF ( iswm_oce == 1 ) THEN
@@ -344,6 +370,9 @@ CONTAINS
     ! ppatch and pstate_oce have dimension n_dom
     CALL construct_hydro_ocean_state(ppatch, pstate_oce)
 
+    ! initialize ocean indices for debug output
+    CALL init_index_test( ppatch, pstate_oce, p_ext_data )
+
     CALL construct_ho_params(ppatch(jg), p_phys_param)
     CALL init_ho_params(ppatch(jg), p_phys_param)
 
@@ -354,14 +383,16 @@ CONTAINS
     ! construct ocean forcing and testcases
     !------------------------------------------------------------------
 
-    CALL  construct_sfcflx(ppatch(jg), p_sfc_flx)
+    CALL construct_sfcflx(ppatch(jg), p_sfc_flx)
+    CALL      init_sfcflx(ppatch(jg), p_sfc_flx)
 
     CALL construct_sea_ice(ppatch(jg), p_ice, kice)
     CALL construct_atmos_for_ocean(ppatch(jg), p_as)
     CALL construct_atmos_fluxes(ppatch(jg), p_atm_f, kice)
 
     CALL init_ho_testcases(ppatch(jg), pstate_oce(jg), p_ext_data(jg), p_sfc_flx)
-  ! CALL init_ho_testcases(ppatch(jg), pstate_oce(jg), p_sfc_flx)
+    CALL init_ho_prog(ppatch(jg), pstate_oce(jg), p_ext_data(jg), p_sfc_flx)
+    CALL init_ho_coupled(ppatch(jg), pstate_oce(jg))
 
   END SUBROUTINE prepare_ho_integration
 
@@ -402,7 +433,27 @@ CONTAINS
   END SUBROUTINE finalise_ho_integration
 
 
- 
+  SUBROUTINE update_for_next_timestep(p_os)
+    TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os
+
+    INTEGER :: it
+
+    ! tracer updates
+    DO it = 1,no_tracer
+      !horiz
+      p_os%p_aux%g_nm1_c_h(:,:,:,it)  = p_os%p_aux%g_n_c_h(:,:,:,it)
+      p_os%p_aux%g_n_c_h(:,:,:,it)    = 0.0_wp
+      p_os%p_aux%g_nimd_c_h(:,:,:,it) = 0.0_wp
+
+      !vert
+      p_os%p_aux%g_nm1_c_v(:,:,:,it)  = p_os%p_aux%g_n_c_v(:,:,:,it)
+      p_os%p_aux%g_n_c_v(:,:,:,it)    = 0.0_wp
+      p_os%p_aux%g_nimd_c_v(:,:,:,it) = 0.0_wp
+    END DO
+    ! vertical velocity
+    p_os%p_aux%g_nm1 = p_os%p_aux%g_n
+    p_os%p_aux%g_n   = 0.0_wp
+  END SUBROUTINE update_for_next_timestep
 
 END MODULE mo_hydro_ocean_run
 

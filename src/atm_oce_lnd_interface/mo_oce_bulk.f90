@@ -9,10 +9,10 @@
 !!
 !! @par Revision History
 !!  Original version by Peter Korn, MPI-M (2009)
-!!  Modification by Stephan Lorenz, MPI-M (2010-06):
-!!   - renaming and adjustment to ocean domain and patch_oce
-!!  Modified by Stephan Lorenz,     MPI-M (2011-07)
-!!   - for parallel ocean: 3-dim ocean grid in v_base
+!!  Modification by Stephan Lorenz, MPI-M:
+!!   - renaming and adjustment to ocean domain and patch_oce (2010-06)
+!!   - for parallel ocean: 3-dim ocean grid in v_base        (2011-07)
+!!   - adding OMIP fluxes for sea ice                        (2011-09)
 !!
 !! @par Copyright
 !! 2002-2007 by DWD and MPI-M
@@ -54,50 +54,51 @@ USE mo_parallel_config,     ONLY: nproma
 USE mo_run_config,          ONLY: dtime
 USE mo_io_units,            ONLY: filename_max
 USE mo_mpi,                 ONLY: p_pe, p_io, p_bcast
+USE mo_datetime,            ONLY: t_datetime
 USE mo_ext_data,            ONLY: ext_data
 USE mo_grid_config,         ONLY: nroot
-USE mo_ocean_nml,           ONLY: iforc_oce, itestcase_oce, no_tracer, iswm_oce,      &
-  &                               basin_center_lat, basin_center_lon, basin_width_deg,&
+USE mo_ocean_nml,           ONLY: iforc_oce
+USE mo_ocean_nml,           ONLY: iforc_oce, iforc_omip, iforc_len, itestcase_oce,    &
+  &           no_tracer, n_zlev, basin_center_lat, basin_center_lon, basin_width_deg, &
   &                               basin_height_deg, relaxation_param, wstress_coeff,  &
   &                               i_bc_veloc_top, temperature_relaxation,             &
   &                               NO_FORCING, ANALYT_FORC, FORCING_FROM_FILE_FLUX,    &
   &                               FORCING_FROM_FILE_FIELD, FORCING_FROM_COUPLED_FLUX, &
-  &                               FORCING_FROM_COUPLED_FIELD
+  &                               FORCING_FROM_COUPLED_FIELD, i_dbg_oce
 USE mo_dynamics_config,     ONLY: nold
 USE mo_model_domain,        ONLY: t_patch
 USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base
 USE mo_exception,           ONLY: finish, message, message_text
 USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
 USE mo_physical_constants,  ONLY: rho_ref, sfc_press_bar, lsub, lvap, lfreez, cpa, emiss, &
-  &                               fr_fac, stefbol, rgas, tmelt
-USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell, sea_boundary
+  &                               fr_fac, stefbol, rgas, tmelt, tf
+USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell, sea_boundary,MIN_DOLIC
 USE mo_loopindices,         ONLY: get_indices_c
 USE mo_math_utilities,      ONLY: t_cartesian_coordinates, gvec2cvec, cvec2gvec
 USE mo_sea_ice,             ONLY: t_sea_ice
-USE mo_oce_forcing,         ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
-USE mo_oce_thermodyn,       ONLY:convert_insitu2pot_temp_func
-
-  !USE mo_master_control.f90, ONLY: is_coupled_run
-  !USE mo_icon_cpl_exchg, ONLY : ICON_cpl_put, ICON_cpl_get
-  !USE mo_icon_cpl_def_field, ONLY : ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
+! USE mo_oce_forcing,         ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
+USE mo_sea_ice,             ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
+USE mo_oce_thermodyn,       ONLY: convert_insitu2pot_temp_func
+USE mo_oce_index,           ONLY: print_mxmn, jkc, jkdim, ipl_src
+USE mo_master_control,      ONLY: is_coupled_run
+USE mo_icon_cpl_exchg,      ONLY: ICON_cpl_put, ICON_cpl_get
+USE mo_icon_cpl_def_field,  ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
 
 IMPLICIT NONE
 
 ! required for reading netcdf files
 INCLUDE 'netcdf.inc'
 
-PRIVATE
-
-
 CHARACTER(len=*), PARAMETER :: version = '$Id$'
 ! Public interface
-
-! public subroutines
 PUBLIC  :: update_sfcflx
+!PUBLIC  :: calc_atm_fluxes_from_bulk
 
 ! private implementation
-PRIVATE :: calc_atm_fluxes_from_bulk
 PRIVATE :: update_sfcflx_analytical
+
+PRIVATE
+
 
 CONTAINS
 
@@ -110,45 +111,45 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !
-  SUBROUTINE update_sfcflx(p_patch, p_os, p_as, p_ice, Qatm, p_sfc_flx, jstep)
+  SUBROUTINE update_sfcflx(p_patch, p_os, p_as, p_ice, Qatm, p_sfc_flx, jstep, datetime)
 
   TYPE(t_patch), TARGET, INTENT(IN)   :: p_patch
   TYPE(t_hydro_ocean_state)           :: p_os
-  TYPE(t_atmos_for_ocean), INTENT(IN) :: p_as
-  TYPE (t_atmos_fluxes)               :: Qatm
-  TYPE (t_sea_ice)                    :: p_ice
+  TYPE(t_atmos_for_ocean)             :: p_as
+  TYPE(t_atmos_fluxes)                :: Qatm
+  TYPE(t_sea_ice)                     :: p_ice
   TYPE(t_sfc_flx)                     :: p_sfc_flx
   INTEGER, INTENT(IN)                 :: jstep
+  TYPE(t_datetime), INTENT(INOUT)     :: datetime
   !
   ! local variables
   CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:update_sfcflx'
-  INTEGER :: jmon, jmonst, njday, jdays, jdmon, jmon1, jmon2
-  INTEGER :: jc, jb
-  INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
-  INTEGER :: rl_start_c, rl_end_c
-  REAL(wp):: z_relax, z_scale, rday1, rday2
-  !REAL(wp):: z_omip_data(nproma,12,p_patch%nblks_c,3)  ! 3 arrays to be read
+  INTEGER  :: jmon, njday, jdays, jdmon, jmon1, jmon2
+  INTEGER  :: jc, jb
+  INTEGER  :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
+  INTEGER  :: rl_start_c, rl_end_c
+  REAL(wp) :: z_relax, rday1, rday2
+  REAL(wp) :: z_c(nproma,n_zlev,p_patch%nblks_c)
 
-    !rr INTEGER              :: nbr_fields
-    !rr INTEGER, ALLOCATABLE :: field_id(:)
-    !rr REAL(wp)             :: buffer(nproma,1)
-    !rr INTEGER              :: info, ierror !< return values form cpl_put/get calls
+  ! Local declarations for coupling:
+  INTEGER               :: info, ierror !< return values form cpl_put/get calls
+  INTEGER               :: nbr_hor_points ! = inner and halo points
+  INTEGER               :: nbr_points     ! = nproma * nblks
+  INTEGER               :: nbr_fields
+  INTEGER, ALLOCATABLE  :: field_id(:)
+  INTEGER               :: field_shape(3)
+  REAL(wp)              :: buffer(nproma*p_patch%nblks_c,1)
 
   !-------------------------------------------------------------------------
+
   rl_start_c = 1
   rl_end_c   = min_rlcell
   i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
   i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
 
-  IF(iswm_oce == 1)THEN
-    z_scale = v_base%del_zlev_m(1)*rho_ref
-  ELSEIF(iswm_oce /= 1)THEN
-    z_scale = rho_ref
-  ENDIF
-
   SELECT CASE (iforc_oce)
 
-  CASE (NO_FORCING)
+  CASE (NO_FORCING)                !  10
 
   ! CALL message(TRIM(routine), 'No  forcing applied' )
     CONTINUE
@@ -157,151 +158,216 @@ CONTAINS
 
     CALL update_sfcflx_analytical(p_patch, p_os, p_sfc_flx)
 
-  CASE (FORCING_FROM_FILE_FLUX)
+  CASE (FORCING_FROM_FILE_FLUX)    !  12
 
-    ! To Do:
-    ! 2 possibilities: read forcing file either completely or in chunks
-    !
-    ! a) Check if file should be read (new chunk if timecriterion is met, or completely)
+    ! To Do: read forcing file in chunks
+    ! Check if file should be read (new chunk if timecriterion is met, or completely)
     ! 
-    ! Quick and dirty:
-    !  - model currently starts at first of March
-    !  - later: use datetime for correct evaluation of month
-    !jmonst = ini_datetime%month
-    jmonst = 3
-    !  calculate day and month
-    njday = int(86400._wp/dtime)  ! no of timesteps per day
-    jdays = (jstep-1)/njday + 1   ! no of days from start
-    jmon  = (jdays-1)/30 + jmonst ! month 
-    if (jmon > 12) jmon=1
-    jdmon = mod(jdays+1,30)-1     ! no of days in month
-    !jdstp = mod(jstep-1,njday)    ! 
 
-    write(*,*) ' jstep, njday, jdays, jmon, jdmon : ',jstep, njday, jdays, jmon, jdmon
+    !-------------------------------------------------------------------------
+    ! Applying annual forcing read from file in mo_ext_data:
+    !  - stepping daily in monthly data (preliminary solution)
+
+    !  calculate day and month
+    jmon  = datetime%month         ! current month
+    jdmon = datetime%day           ! day in month
+
+    !jdmon = mod(jdays+1,30)-1     ! no of days in month
+
+    ! To Do: use fraction of month for interpolation
+    !frcmon= datetime%monfrc       ! fraction of month
+    !rday1 = frcmon+0.5_wp
+    !rday2 = 1.0_wp-rday1
+    !IF (rday1 > 1.0_wp)  THEN
+    !  rday2=rday1
+    !  rday1=1.0_wp-rday1
+    !END IF
+
+    njday = int(86400._wp/dtime)  ! no of timesteps per day
+
     !
-    ! interpolate omip-data daily:
+    ! interpolate monthly forcing-data daily:
     !
-    !IF ( MOD(jstep-1,njday)==0) THEN
+    IF (iforc_len == 12)  THEN
 
       jmon1=jmon-1
       jmon2=jmon
       rday1=REAL(15-jdmon,wp)/30.0_wp
       rday2=REAL(15+jdmon,wp)/30.0_wp
-      if (jdmon > 15)  then
+      IF (jdmon > 15)  THEN
         jmon1=jmon
         jmon2=jmon+1
-        rday1=REAL(15+jdmon,wp)/30.0_wp
-        rday2=REAL(15-jdmon,wp)/30.0_wp
-      end if
+        rday1=REAL(45-jdmon,wp)/30.0_wp
+        rday2=REAL(jdmon-15,wp)/30.0_wp
+      END IF
 
-      if (jmon1 ==  0) jmon1=12
-      if (jmon1 == 13) jmon1=1
-      if (jmon2 ==  0) jmon2=12
-      if (jmon2 == 13) jmon2=1
+      IF (jmon1 ==  0) jmon1=12
+      IF (jmon1 == 13) jmon1=1
+      IF (jmon2 ==  0) jmon2=12
+      IF (jmon2 == 13) jmon2=1
 
-      write(*,*) ' jstep, jmon1, jmon2, rday1, rday2: ',jstep, jmon1, jmon2, rday1, rday2
+    !
+    ! apply daily forcing-data directly:
+    !
+    ELSE IF (iforc_len == 365)  THEN 
 
-      !
-      ! OMIP data read in mo_ext_data into variable ext_data
+      ! - now 365 data sets are read in mo_ext_data
+      ! - use rday1, rday2, jmon1 = jmon2 = yeaday for controling correct day in year
+      ! - no interpolation applied, 
+      jmon1 = datetime%yeaday
+      jmon2 = jmon1
+      rday1 = 1.0_wp
+      rday2 = 0.0_wp
+    
+    END IF
+
+    !
+    ! OMIP data read in mo_ext_data into variable ext_data
+    !
+    IF (iforc_omip == 1)  THEN
+
+      ! provide OMIP fluxes for wind stress forcing
+      ! 1:  wind_u(:,:)   !  'stress_x': zonal wind stress       [m/s]
+      ! 2:  wind_v(:,:)   !  'stress_y': meridional wind stress  [m/s]
+
       ! ext_data has rank n_dom due to grid refinement in the atmosphere but not in the ocean
-      !
-
       p_sfc_flx%forc_wind_u(:,:) = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,1) + &
         &                          rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,1)
       p_sfc_flx%forc_wind_v(:,:) = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,2) + &
         &                          rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,2)
+     
+      ! now done in top_bound_cond_horz_veloc
+      !IF(iswm_oce == 1)THEN
+      !  z_scale = v_base%del_zlev_m(1)*rho_ref
+      !ELSEIF(iswm_oce /= 1)THEN
+      !  z_scale = rho_ref
+      !ENDIF
+      !p_sfc_flx%forc_wind_u=p_sfc_flx%forc_wind_u/z_scale
+      !p_sfc_flx%forc_wind_v=p_sfc_flx%forc_wind_v/z_scale
 
-      p_sfc_flx%forc_wind_u=p_sfc_flx%forc_wind_u/z_scale
-      p_sfc_flx%forc_wind_v=p_sfc_flx%forc_wind_v/z_scale
+    ELSE IF (iforc_omip == 2) THEN
 
+      ! provide OMIP fluxes for sea ice (interface to ocean)
+      ! 4:  tafo(:,:),   &  ! 2 m air temperature                              [C]
+      ! 5:  ftdew(:,:),  &  ! 2 m dew-point temperature                        [K]
+      ! 6:  fu10(:,:) ,  &  ! 10 m wind speed                                  [m/s]
+      ! 7:  fclou(:,:),  &  ! Fractional cloud cover
+      ! 8:  pao(:,:),    &  ! Surface atmospheric pressure                     [hPa]
+      ! 9:  fswr(:,:),   &  ! Incoming surface solar radiation                 [W/m]
 
-      IF (temperature_relaxation == 2)  THEN
-         p_sfc_flx%forc_tracer_relax(:,:,1) = &
-           &  rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,3) + &
-           &  rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,3)
+      p_as%tafo(:,:)  = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,4) + &
+        &               rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,4)
+      !  - change units to deg C, subtract tmelt (0 deg C, 273.15)
+      p_as%tafo(:,:)  = p_as%tafo(:,:) - tmelt
+      p_as%ftdew(:,:) = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,5) + &
+        &               rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,5)
+      p_as%fu10(:,:)  = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,6) + &
+        &               rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,6)
+      p_as%fclou(:,:) = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,7) + &
+        &               rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,7)
+      p_as%pao(:,:)   = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,8) + &
+        &               rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,8)
+      !  - change units to mb/hPa
+      p_as%pao(:,:)   = p_as%pao(:,:) * 0.01
+      p_as%fswr(:,:)  = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,9) + &
+        &               rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,9)
 
-        ! subtract tmelt and set to zero
-        DO jb = i_startblk_c, i_endblk_c
-          CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c,  &
-            &                i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
-          DO jc = i_startidx_c, i_endidx_c
-            IF (v_base%lsm_oce_c(jc,1,jb) <= sea_boundary) THEN
-              p_sfc_flx%forc_tracer_relax(jc,jb,1) &
-                & = p_sfc_flx%forc_tracer_relax(jc,jb,1) - tmelt
-            ELSE
-              p_sfc_flx%forc_tracer_relax(jc,jb,1) = 0.0_wp
-            END IF
-          END DO
-        END DO
+    END IF
 
-      END IF
-       
+    IF (temperature_relaxation == 2)  THEN
 
+      !-------------------------------------------------------------------------
+      ! Applying monthly SST relaxation data
+
+       p_sfc_flx%forc_tracer_relax(:,:,1) = &
+         &  rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,3) + &
+         &  rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,3)
+
+      !  - change units to deg C, subtract tmelt (0 deg C, 273.15)
+      !  - set minimum temperature to tf (-1.9 deg C) for simple temp-relax
+      !  - set to zero on land points
       DO jb = i_startblk_c, i_endblk_c
         CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c,  &
           &                i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
         DO jc = i_startidx_c, i_endidx_c
-          IF(v_base%lsm_oce_c(jc,1,jb) <= sea_boundary)THEN
-            CALL gvec2cvec(  p_sfc_flx%forc_wind_u(jc,jb),&
-                           & p_sfc_flx%forc_wind_v(jc,jb),&
-                           & p_patch%cells%center(jc,jb)%lon,&
-                           & p_patch%cells%center(jc,jb)%lat,&
-                           & p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
-                           & p_sfc_flx%forc_wind_cc(jc,jb)%x(2),&
-                           & p_sfc_flx%forc_wind_cc(jc,jb)%x(3))
+          IF (v_base%lsm_oce_c(jc,1,jb) <= sea_boundary) THEN
+            p_sfc_flx%forc_tracer_relax(jc,jb,1) &
+              & = p_sfc_flx%forc_tracer_relax(jc,jb,1) - tmelt
+            p_sfc_flx%forc_tracer_relax(jc,jb,1) &
+              & = max(p_sfc_flx%forc_tracer_relax(jc,jb,1), tf)
           ELSE
-            p_sfc_flx%forc_wind_u(jc,jb)         = 0.0_wp
-            p_sfc_flx%forc_wind_v(jc,jb)         = 0.0_wp
-            p_sfc_flx%forc_wind_cc(jc,jb)%x      = 0.0_wp
-          ENDIF
+            p_sfc_flx%forc_tracer_relax(jc,jb,1) = 0.0_wp
+          END IF
         END DO
       END DO
 
-    !END IF  ! interpolate daily
+    END IF
+     
 
-!     WRITE(*,*)'MAX/MIN omip_data-u mon=',jmon1,&
-!     &        MAXVAL(ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,1)),&
-!     &        MINVAL(ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,1)) 
-!     WRITE(*,*)'MAX/MIN omip_data-v mon=',jmon1,&
-!     &        MAXVAL(ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,2)),&
-!     &        MINVAL(ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,2)) 
-!     WRITE(*,*)'MAX/MIN omip_data-t mon=',jmon1,&
-!     &        MAXVAL(ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,3)),&
-!     &        MINVAL(ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,3)) 
-!     WRITE(*,*)'MAX/MIN omip_data-u mon=',jmon2,&
-!     &        MAXVAL(ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,1)),&
-!     &        MINVAL(ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,1)) 
-!     WRITE(*,*)'MAX/MIN omip_data-v mon=',jmon2,&
-!     &        MAXVAL(ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,2)),&
-!     &        MINVAL(ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,2)) 
-!     WRITE(*,*)'MAX/MIN omip_data-t mon=',jmon2,&
-!     &        MAXVAL(ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,3)),&
-!     &        MINVAL(ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,3)) 
-! 
-!     WRITE(*,*)'MAX/MIN forc_wind_u:',       1, &
-!       &        MAXVAL(p_sfc_flx%forc_wind_u(:,:)),&
-!       &        MINVAL(p_sfc_flx%forc_wind_u(:,:)) 
-!     WRITE(*,*)'MAX/MIN forc_wind_v:',       1, &
-!       &        MAXVAL(p_sfc_flx%forc_wind_v(:,:)),&
-!       &        MINVAL(p_sfc_flx%forc_wind_v(:,:))
-!     IF (temperature_relaxation /= 0)  THEN
-!       WRITE(*,*)'MAX/MIN forc_tracer_relax:', 1, &
-!         &        MAXVAL(p_sfc_flx%forc_tracer_relax(:,:,1)),&
-!         &        MINVAL(p_sfc_flx%forc_tracer_relax(:,:,1))
-!     ENDIF
-  CASE (FORCING_FROM_FILE_FIELD)
+    DO jb = i_startblk_c, i_endblk_c
+      CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c,  &
+        &                i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
+      DO jc = i_startidx_c, i_endidx_c
+        IF(v_base%lsm_oce_c(jc,1,jb) <= sea_boundary)THEN
+          CALL gvec2cvec(  p_sfc_flx%forc_wind_u(jc,jb),&
+                         & p_sfc_flx%forc_wind_v(jc,jb),&
+                         & p_patch%cells%center(jc,jb)%lon,&
+                         & p_patch%cells%center(jc,jb)%lat,&
+                         & p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
+                         & p_sfc_flx%forc_wind_cc(jc,jb)%x(2),&
+                         & p_sfc_flx%forc_wind_cc(jc,jb)%x(3))
+        ELSE
+          p_sfc_flx%forc_wind_u(jc,jb)         = 0.0_wp
+          p_sfc_flx%forc_wind_v(jc,jb)         = 0.0_wp
+          p_sfc_flx%forc_wind_cc(jc,jb)%x      = 0.0_wp
+        ENDIF
+      END DO
+    END DO
+
+    ipl_src=2  ! output print level (1-5, fix)
+    IF (i_dbg_oce >= ipl_src) THEN
+      WRITE(message_text,'(a,i6,2(a,i2),2(a,f12.8))') 'FLUX time interpolation: jt=',jstep, &
+        &  ' mon1=',jmon1,' mon2=',jmon2,' day1=',rday1,' day2=',rday2
+      CALL message (' ', message_text)
+    END IF
+    z_c(:,1,:)=ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,1)
+    CALL print_mxmn('Ext data1 (u) mon1',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+    z_c(:,1,:)=ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,1)
+    CALL print_mxmn('Ext data1 (u) mon2',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+    z_c(:,1,:)=ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,2)
+    CALL print_mxmn('Ext data2 (v) mon1',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+    z_c(:,1,:)=ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,2)
+    CALL print_mxmn('Ext data2 (v) mon2',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+    z_c(:,1,:)=ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,3)
+    CALL print_mxmn('Ext data3 (t) mon1',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+    z_c(:,1,:)=ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,3)
+    CALL print_mxmn('Ext data3 (t) mon2',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+
+    ipl_src=1  ! output print level (1-5, fix)
+    z_c(:,1,:)=p_sfc_flx%forc_wind_u(:,:)
+    CALL print_mxmn('update forcing u',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+    z_c(:,1,:)=p_sfc_flx%forc_wind_v(:,:)
+    CALL print_mxmn('update forcing v',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+
+    IF (temperature_relaxation /= 0)  THEN
+      ipl_src=1  ! output print level (1-5, fix)
+      z_c(:,1,:)=p_sfc_flx%forc_tracer_relax(:,:,1)
+      CALL print_mxmn('update temp-relax',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+    END IF
+
+  CASE (FORCING_FROM_FILE_FIELD)                                    !  13
     ! 1) Read field data from file
     ! 2) CALL calc_atm_fluxes_from_bulk (p_patch, p_as, p_os, p_ice, Qatm)
     ! 3)CALL update_sfcflx_from_atm_flx(p_patch, p_as, p_os, p_ice, Qatm, p_sfc_flx)
 
-  CASE (FORCING_FROM_COUPLED_FLUX,FORCING_FROM_COUPLED_FIELD)
+  CASE (FORCING_FROM_COUPLED_FLUX,FORCING_FROM_COUPLED_FIELD)       !  14, 15
     !Depending on coupling type, apply one of two following ways:
     !1) bulk formula to atmospheric state and proceed as above, the only distinction
     !   to OMIP is that atmospheric info is coming from model rather than file
     !2) use atmospheric fluxes directly, i.e. avoid call to "calc_atm_fluxes_from_bulk"
     !    and do a direct assignment of atmospheric state to surface fluxes.
     !
-    ! IF ( is_coupled_run() ) THEN 
+    IF ( is_coupled_run() ) THEN 
     !
     !  see drivers/mo_atmo_model.f90:
     !
@@ -315,47 +381,62 @@ CONTAINS
     !   field_id(7) represents "OCEANU" u component of ocean surface current
     !   field_id(8) represents "OCEANV" v component of ocean surface current
     !
-    !   CALL ICON_cpl_get_nbr_fields ( nbr_fields )
-    !   ALLOCATE(field_id(nbr_fields))
-    !   CALL ICON_cpl_get_field_ids ( nbr_fields, field_id )
+      CALL ICON_cpl_get_nbr_fields ( nbr_fields )
+      ALLOCATE(field_id(nbr_fields))
+      CALL ICON_cpl_get_field_ids ( nbr_fields, field_id )
     !
-    !   field_shape(1) = 1
-    !   field_shape(2) = p_patch(patch_no)%n_patch_cells 
-    !   field_shape(3) = 1
+      field_shape(1) = 1
+      field_shape(2) = p_patch%n_patch_cells 
+      field_shape(3) = 1
+
+      nbr_hor_points = p_patch%n_patch_cells
+      nbr_points     = nproma * p_patch%nblks_c
     !
-    !   buffer is allocated over nproma only
+    ! buffer is allocated over nproma only
+
     !
-    ! Send fields away
-    ! ----------------
+    ! Send fields from ocean to atmosphere
+    ! ------------------------------------
     !
-    !   CALL ICON_cpl_put ( field_id(6), field_shape, prm_field(jg)%tsfc_tile(:,:,iwtr), info, ierror )
-    !   buffer(:,1) = prm_field(jg)%tsfc_tile(:,:,iwtr)
+    ! SST:
+      buffer(:,1) = RESHAPE(p_os%p_prog(nold(1))%tracer(:,1,:,1), (/nbr_points /) )
+      CALL ICON_cpl_put ( field_id(6), field_shape, buffer, ierror )
     !
-    !   CALL ICON_cpl_put ( field_id(7), field_shape, prm_field(jg)%ocu(:,:), info, ierror )
-    !   buffer(:,1) = prm_field(jg)%ocu(:,:)
+    ! zonal wind
+      buffer(:,1) = RESHAPE(p_os%p_diag%u(:,1,:), (/nbr_points /) )
+      CALL ICON_cpl_put ( field_id(7), field_shape, buffer, ierror )
     !
-    !   CALL ICON_cpl_put ( field_id(8), field_shape, prm_field(jg)%ocv(:,:), info, ierror )
-    !   buffer(:,1) = prm_field(jg)%ocv(:,:)
+    ! meridional wind
+      buffer(:,1) = RESHAPE(p_os%p_diag%v(:,1,:), (/nbr_points /) )
+      CALL ICON_cpl_put ( field_id(8), field_shape, buffer, ierror )
+
     !
-    ! Receive fields
-    ! --------------
+    ! Receive fields from atmosphere
+    ! ------------------------------
     !
-    !   prm_field(jg)%u_stress_tile(:,:,iwtr) = buffer(:,1)
-    !   CALL ICON_cpl_get ( field_id(1), field_shape, buffer, ierror )
+    ! zonal wind stress
+      CALL ICON_cpl_get ( field_id(1), field_shape, buffer, info, ierror )
+      p_sfc_flx%forc_wind_u(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
     !
-    !   prm_field(jg)%v_stress_tile(:,:,iwtr) = buffer(:,1)
-    !   CALL ICON_cpl_get ( field_id(2), field_shape, buffer, ierror )
+    ! meridional wind stress
+      CALL ICON_cpl_get ( field_id(2), field_shape, buffer, info, ierror )
+      p_sfc_flx%forc_wind_v(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
     !
-    !   prm_field(jg)%rsfl + prm_field(jg)%rsfc + prm_field(jg)%ssfl + prm_field(jg)%ssfc
-    !   CALL ICON_cpl_get ( field_id(3), field_shape, buffer, ierror )
+    ! here we need temperature (2m or lowest level) or net surface heat flux
+    !  - incl. short and longwave fluxes
     !
-    !   prm_field(jg)%shflx_tile(:,:,iwtr) = buffer(:,1)
-    !   CALL ICON_cpl_get ( field_id(4), field_shape, buffer, ierror )
+    ! freshwater flux
+      CALL ICON_cpl_get ( field_id(3), field_shape, buffer, info, ierror )
+      p_sfc_flx%forc_fwfx(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
     !
-    !   prm_field(jg)%lhflx_tile(:,:,iwtr) = buffer(:,1)
-    !   CALL ICON_cpl_get ( field_id(5), field_shape, buffer, ierror )
-    !
-    ! ENDIF
+    ! sensible and latent heat flux - there is yet no interface for heat flux forcing
+      CALL ICON_cpl_get ( field_id(4), field_shape, buffer, info, ierror )
+      p_sfc_flx%forc_hflx(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
+      CALL ICON_cpl_get ( field_id(5), field_shape, buffer, info, ierror )
+      p_sfc_flx%forc_hflx(:,:) = p_sfc_flx%forc_hflx(:,:) + &
+        &                        RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
+
+    ENDIF
     !
 
   CASE DEFAULT
@@ -365,212 +446,57 @@ CONTAINS
 
   END SELECT
 
-  ! Temperature relaxation: This is a provisional solution
   IF(temperature_relaxation>=1)THEN
-    z_relax = relaxation_param/(30.0_wp*24.0_wp*3600.0_wp)
+
+    ! Temperature relaxation:
+    !   #slo# corrected formula: Diffusion
+    !     D = d/dz(K_v*dT/dz)  where
+    !   Boundary condition at surface (upper bound of D at center of first layer)
+    !   is relaxation to temperature:
+    !     K_v*dT/dz(surf) = -Qt = -dz/Tau*(T*-T) = dz/Tau*(T-T*)  [K*m/s]
+    !   discretized:
+    !     top_bc_tracer = forc_tracer_relax = del_zlev_m / relax_param[s] * (tracer-tracer-relax)
+    !   Attention: elevation not yet taken into account
+
+    !z_relax = relaxation_param/(30.0_wp*24.0_wp*3600.0_wp)
+    z_relax = v_base%del_zlev_m(1)/(relaxation_param*30.0_wp*24.0_wp*3600.0_wp)
+
     DO jb = i_startblk_c, i_endblk_c    
       CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
        &                i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
       DO jc = i_startidx_c, i_endidx_c
 
         IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
-          p_sfc_flx%forc_tracer(jc,jb, 1)=                       &!Compare form of relaxation with MPI-OM
-          &          -z_relax                                     &
-          &          *(p_os%p_prog(nold(1))%tracer(jc,1,jb,1)     &
-          &            -p_sfc_flx%forc_tracer_relax(jc,jb,1))
+          !Compare form of relaxation with MPI-OM
+          p_sfc_flx%forc_tracer(jc,jb, 1) =                             &
+          &          - z_relax*(p_os%p_prog(nold(1))%tracer(jc,1,jb,1)  &
+          &                     -p_sfc_flx%forc_tracer_relax(jc,jb,1))
         ELSE
           p_sfc_flx%forc_tracer_relax(jc,jb,1) = 0.0_wp
         ENDIF
       END DO
     END DO
 
-    write(*,*)'max/min-tracer-diff',&
-    & maxval(p_sfc_flx%forc_tracer_relax(:,:,1)-p_os%p_prog(nold(1))%tracer(:,1,:,1)),&
-    & minval(p_sfc_flx%forc_tracer_relax(:,:,1)-p_os%p_prog(nold(1))%tracer(:,1,:,1))
-    
-    write(*,*)'max/min-tracer-relaxation',maxval(p_sfc_flx%forc_tracer_relax),&
-    & minval(p_sfc_flx%forc_tracer_relax)
-    write(*,*)'max/min-tracer-flux',maxval(p_sfc_flx%forc_tracer),&
-    & minval(p_sfc_flx%forc_tracer)
-    write(*,*)'max/min-Temp-Flux',maxval(p_sfc_flx%forc_tracer(:,:,1)),&
-                                & minval(p_sfc_flx%forc_tracer(:,:,1))
+    !write(0,*) 'relpar, z_rel:',relaxation_param,z_relax
+    jkc=1      ! current level - may not be zero
+    ipl_src=3  ! output print level (0-5, fix)
+    z_c(:,1,:) = p_sfc_flx%forc_tracer_relax(:,:,1)
+    CALL print_mxmn('T-forc-tracer-relax',jkc,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+    z_c(:,1,:) = p_sfc_flx%forc_tracer_relax(:,:,1)-p_os%p_prog(nold(1))%tracer(:,1,:,1)
+    CALL print_mxmn('Temp-difference',jkc,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+    ipl_src=2  ! output print level (0-5, fix)
+    z_c(:,1,:) = p_sfc_flx%forc_tracer(:,:,1)
+    CALL print_mxmn('T-forc-tracer-flux',jkc,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+
   ENDIF
 
   END SUBROUTINE update_sfcflx
-
-  !-------------------------------------------------------------------------
-  !
-  !> Forcing_from_bulk equals sbr "Budget_omip" in MPIOM.
-  !! Sets the atmospheric fluxes for the update of the ice 
-  !! temperature and ice growth rates for OMIP forcing
-  !! @par Revision History
-  !! Initial release by Peter Korn, MPI-M (2011-07). Originally code written by
-  !! Dirk Notz, following MPIOM. Code transfered to ICON.
-  !
-  SUBROUTINE calc_atm_fluxes_from_bulk(ppatch, p_as, p_os, p_ice, Qatm)
-  TYPE(t_patch),            INTENT(IN)    :: ppatch
-  TYPE(t_atmos_for_ocean),  INTENT(IN)    :: p_as
-  TYPE(t_hydro_ocean_state),INTENT(IN)    :: p_os
-  TYPE(t_sea_ice),          INTENT(IN)    :: p_ice
-  TYPE(t_atmos_fluxes),     INTENT(INOUT) :: Qatm
-
-
-  !Local variables
-  REAL(wp), DIMENSION (nproma,ppatch%nblks_c) ::           &
-    z_Tsurf,      &  ! Surface temperature                             [C]
-    z_tafoK,      &  ! Air temperature at 2 m in Kelvin                [K]
-    z_fu10lim,    &  ! wind speed at 10 m height in range 2.5...32     [m/s]
-    z_esta,       &  ! water vapor pressure at 2 m height              [Pa]
-    z_esti,       &  ! water vapor pressure at ice surface             [Pa]
-    z_estw,       &  ! water vapor pressure at water surface           [Pa]
-    z_sphumida ,  &  ! Specific humididty at 2 m height 
-    z_sphumidi ,  &  ! Specific humididty at ice surface
-    z_sphumidw ,  &  ! Specific humididty at water surface
-    z_ftdewC,     &  ! Dew point temperature in Celsius                [C]
-    z_rhoair ,    &  ! air density                                     [kg/m³]
-    z_dragl1,     &  ! part of z_dragl                                   
-    z_dragl ,     &  ! Drag coefficient for latent   heat flux
-    z_drags ,     &  ! Drag coefficient for sensible heat flux (=0.95 z_dragl)
-    z_xlat ,      &  ! latitude limited to 60S...60N
-    z_fakts ,     &  ! Effect of cloudiness on LW radiation
-    z_humi           ! Effect of air humidity on LW radiation
-  
-  INTEGER :: jc, jb, i
-  INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
-  INTEGER :: rl_start_c, rl_end_c
-
-  CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:calc_atm_fluxes_from_bulk'
-  !-------------------------------------------------------------------------
-  CALL message(TRIM(routine), 'start' )
-
-  rl_start_c = 1
-  rl_end_c   = min_rlcell
-  i_startblk_c = ppatch%cells%start_blk(rl_start_c,1)
-  i_endblk_c   = ppatch%cells%end_blk(rl_end_c,1)
-
-  DO jb = i_startblk_c, i_endblk_c
-    CALL get_indices_c( ppatch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
-    &                   rl_start_c, rl_end_c)
-    DO jc = i_startidx_c, i_endidx_c
- 
-      z_Tsurf (jc,jb) = p_os%p_prog(nold(1))%tracer(jc,1,jb,1)        ! set surface temp = mixed layer temp
-      z_tafoK (jc,jb) = p_as%tafo  (jc,jb) + tmelt                    ! Change units of z_tafoK  to Kelvin
-      z_ftdewC(jc,jb) = p_as%ftdew (jc,jb) - tmelt                    ! Change units of z_ftdewC to C
-
-      z_xlat   (jc,jb) = MIN(ABS(ppatch%cells%center(jc,jb)%lat*rad2deg),60.0_wp) 
-
-      !-----------------------------------------------------------------------
-      ! Compute water vapor pressure and specific humididty in 2m height (z_esta) 
-      ! and at water surface (z_estw) according to "Buck Research Manual (1996)
-      ! (see manuals for instruments at http://www.buck-research.com/); 
-      ! updated from Buck, A. L., New equations for computing vapor pressure and 
-      ! enhancement factor, J. Appl. Meteorol., 20, 1527-1532, 1981" 
-      !-----------------------------------------------------------------------
-
-      ! Buck 1981
-      z_esta(jc,jb)  = 611.21_wp * EXP( (18.729_wp-z_ftdewC(jc,jb)/227.3_wp)*z_ftdewC(jc,jb)&
-                                    &/ (z_ftdewC(jc,jb)+257.87_wp) )
-      ! Buck 1996
-      !z_esta(:,:) = 611.21 * EXP( (18.678-z_ftdewC/234.5)*z_ftdewC/ (z_ftdewC+257.14) )
-      ! Buck 1981
-      z_estw(jc,jb)  = 611.21_wp*EXP( (18.729_wp-z_Tsurf(jc,jb)/227.3_wp)&
-                     & * z_Tsurf(jc,jb) /  (z_Tsurf(jc,jb) +257.87_wp) )
-      ! Buck 1996
-      !z_estw(:,:) = 611.21 * EXP( (18.678-z_Tsurf /234.5)*z_Tsurf/  (z_Tsurf +257.14) )
-      z_estw(jc,jb)  = 0.9815_wp * z_estw(jc,jb)
-      !or more accurate: (1-5.27e-4 * mixed layer salinity) * z_estw (Kraus and
-      ! Businger, 1994)
-
-      z_sphumida(jc,jb)  = 0.62197_wp * z_esta(jc,jb)/(p_as%pao(jc,jb)-0.37803_wp*z_esta(jc,jb))
-      z_sphumidw (jc,jb) = 0.62197_wp * z_estw(jc,jb)/(p_as%pao(jc,jb)-0.37803_wp*z_estw(jc,jb))
-
-      !-----------------------------------------------------------------------
-      !  Compute longwave radiation according to 
-      !         Koch 1988: A coupled Sea Ice - Atmospheric Boundary Layer Model,
-      !                    Beitr.Phys.Atmosph., 61(4), 344-354.
-      !  or (ifdef QLOBERL)
-      !         Berliand, M. E., and T. G. Berliand, 1952: Determining the net
-      !         long-wave radiation of the Earth with consideration of the effect
-      !         of cloudiness. Izv. Akad. Nauk SSSR, Ser. Geofiz., 1, 6478.
-      !         cited by: Budyko, Climate and Life, 1974.
-      !         Note that for z_humi, z_esta is given in [mmHg] in the original
-      !         publication. Therefore, 0.05*sqrt(z_esta/100) is used rather than
-      !         0.058*sqrt(z_esta)
-      !-----------------------------------------------------------------------
-
-      z_humi   (jc,jb) = 0.601_wp+ 5.95_wp*1.0e-7_wp*z_esta(jc,jb)*EXP(1500.0_wp/z_tafoK(jc,jb))
-      z_fakts  (jc,jb) =  1.0_wp + 0.3_wp*p_as%fclou(jc,jb)**2
-      Qatm%LWin(jc,jb) = z_fakts(jc,jb) * z_humi(jc,jb) * emiss*StefBol * z_tafoK(jc,jb)**4
-
-      Qatm%LWoutw(jc,jb) = emiss*StefBol * (z_Tsurf(jc,jb)+273.15_wp)**4
-      Qatm%LWnetw(jc,jb) = Qatm%LWin(jc,jb) - Qatm%LWoutw(jc,jb)
-
-      Qatm%SWin(jc,jb) = p_as%fswr(jc,jb)
-
-      !-----------------------------------------------------------------------
-      !  Calculate bulk equations according to 
-      !      Kara, B. A., P. A. Rochford, and H. E. Hurlburt, 2002: 
-      !      Air-Sea Flux Estimates And The 19971998 Enso Event,  Bound.-Lay.
-      !      Met., 103(3), 439-458, doi: 10.1023/A:1014945408605.
-      !-----------------------------------------------------------------------    
-      z_rhoair  (jc,jb) = p_as%pao(jc,jb)/(rgas*z_tafoK(jc,jb)*(1.0_wp+0.61_wp*z_sphumida(jc,jb)) )
-      z_fu10lim (jc,jb) = MAX (2.5_wp, MIN(32.5_wp,p_as%fu10(jc,jb)) )
-      z_dragl1  (jc,jb) = 1e-3_wp*(-0.0154_wp + 0.5698_wp/z_fu10lim(jc,jb)                 &
-                        & -0.6743_wp/(z_fu10lim(jc,jb) * z_fu10lim(jc,jb)))
-      z_dragl   (jc,jb) = MAX ( 0.5e-3_wp,1.0e-3_wp*(0.8195_wp+0.0506_wp*z_fu10lim(jc,jb)  &
-                        &-0.0009_wp*z_fu10lim(jc,jb)*z_fu10lim(jc,jb)) + z_dragl1(jc,jb)   &
-                        &* (z_Tsurf(jc,jb)-p_as%tafo(jc,jb)) )
-      z_dragl   (jc,jb) = MIN (z_dragl(jc,jb), 3.0E-3_wp)
-      z_drags   (jc,jb) = 0.96_wp * z_dragl(jc,jb)
-      Qatm%sensw(jc,jb) = z_drags(jc,jb)*z_rhoair(jc,jb)*cpa*p_as%fu10(jc,jb)             &
-                        & * (p_as%tafo(jc,jb) -z_Tsurf(jc,jb))  *fr_fac
-      Qatm%latw (jc,jb) = z_dragl(jc,jb)*z_rhoair(jc,jb)*Lfreez*p_as%fu10(jc,jb)          &
-                        & * (z_sphumida(jc,jb)-z_sphumidw(jc,jb))*fr_fac
-
-      DO i = 1, p_ice%kice
-        IF (p_ice% isice(jc,jb,i))THEN
-          z_Tsurf(jc,jb) = p_ice%Tsurf(jc,jb,i)
-          ! z_esti is calculated according to Buck Research Manuals, 1996 (see z_esta)
-          z_esti     (jc,jb) = 611.15_wp*EXP( (23.036_wp-z_Tsurf(jc,jb)/333.7_wp) &
-                             & *z_Tsurf(jc,jb)/(z_Tsurf(jc,jb) + 279.82_wp) )
-          z_sphumidi (jc,jb) = 0.62197_wp*z_esti(jc,jb)/(p_as%pao(jc,jb)-0.37803_wp*z_esti(jc,jb))
-          z_dragl    (jc,jb) = MAX (0.5e-3_wp, 1.0e-3_wp * (0.8195_wp+0.0506_wp*z_fu10lim(jc,jb) &
-                             & -0.0009_wp*z_fu10lim(jc,jb) * z_fu10lim(jc,jb)) + z_dragl1(jc,jb) &
-                             & * (z_Tsurf(jc,jb)-p_as%tafo(jc,jb)) )
-          z_drags    (jc,jb) = 0.96_wp * z_dragl(jc,jb)
-
-          Qatm%LWout (jc,jb,i) = emiss*StefBol * (z_Tsurf(jc,jb)+273.15_wp)**4
-          Qatm%LWnet (jc,jb,i) = Qatm%LWin(jc,jb) - Qatm%LWout(jc,jb,i)
-          Qatm%dLWdT (jc,jb,i) = - 4.0_wp * emiss*StefBol * (z_Tsurf(jc,jb) + 273.15_wp)**3
-          Qatm%sens  (jc,jb,i) = z_drags(jc,jb) * z_rhoair(jc,jb)*cpa*p_as%fu10(jc,jb)&
-                               & * (p_as%tafo(jc,jb) -z_Tsurf(jc,jb))   *fr_fac
-          Qatm%lat   (jc,jb,i) = z_dragl(jc,jb) * z_rhoair(jc,jb)* Lfreez *p_as%fu10(jc,jb)&
-                               & * (z_sphumida(jc,jb)-z_sphumidi(jc,jb))*fr_fac
-    
-          Qatm%dsensdT(jc,jb,i)= 0.96_wp*z_dragl1(jc,jb)*z_drags(jc,jb)*z_rhoair(jc,jb)&
-                               & *cpa * p_as%fu10(jc,jb)       &
-                               & * (p_as%tafo(jc,jb) - z_Tsurf(jc,jb)) *  fr_fac &
-                               & -z_drags(jc,jb)*z_rhoair(jc,jb) *cpa*p_as%fu10(jc,jb)
-          Qatm%dlatdT(jc,jb,i) = z_dragl1(jc,jb) * z_rhoair(jc,jb)*Lfreez * p_as%fu10(jc,jb)&
-                               & *(z_sphumida(jc,jb)-z_sphumidi(jc,jb))*fr_fac
-        ENDIF
-      ENDDO
-
-      !Dirk: why zero ?
-      Qatm%rpreci(jc,jb) = 0.0_wp
-      Qatm%rprecw(jc,jb) = 0.0_wp
-
-    END DO
-  END DO
- 
-  END SUBROUTINE calc_atm_fluxes_from_bulk
- 
   !-------------------------------------------------------------------------
   !
   !> Takes thermal calc_atm_fluxes_from_bulk to calculate atmospheric surface fluxes:
   !  heat, freshwater and momentum.
   !! @par Revision History
-  !! Initial release by Peter Korn, MPI-M (2011).
+  !! Initial release by Peter Korn, MPI-M (2011). Originally written by D. Notz.
   !
   SUBROUTINE update_sfcflx_from_atm_flx(ppatch, p_as, p_os, p_ice,Qatm, p_sfc_flx)
   TYPE(t_patch),                INTENT(in)    :: ppatch
@@ -699,16 +625,14 @@ write(*,*)'final wind stress coeff',z_C_d
   INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
   INTEGER :: rl_start_c, rl_end_c
 
-  REAL(wp) :: zonal_str, z_tmp
-! REAL(wp) :: z_thick_forc
-  REAL(wp) :: z_lat, z_lon, z_lat_deg
+  REAL(wp) :: zonal_str
+  REAL(wp) :: z_lat, z_lon
   REAL(wp) :: z_forc_period = 1.0_wp !=1.0: single gyre
                                      !=2.0: double gyre
                                      !=n.0: n-gyre 
   REAL(wp) :: y_length               !basin extension in y direction in degrees
   REAL(wp) :: z_T_init(nproma,p_patch%nblks_c)
-  REAL(wp) :: z_T_init_insitu(nproma,1,p_patch%nblks_c)
-  REAL(wp) :: z_perlat, z_perlon, z_permax, z_perwid, z_relax, z_dst, z_scale
+  REAL(wp) :: z_perlat, z_perlon, z_permax, z_perwid, z_relax, z_dst
   INTEGER  :: z_dolic
   CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:update_ho_sfcflx'
   !-------------------------------------------------------------------------
@@ -717,90 +641,16 @@ write(*,*)'final wind stress coeff',z_C_d
   i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
   i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
 
+
+ ! #slo#  Stationary forcing is moved to mo_oce_forcing:init_ho_forcing
+
     SELECT CASE (itestcase_oce)
 
-    CASE(27,29)
-      CALL message(TRIM(routine), 'Testcase (27,29): Apply stationary wind forcing' )
-      y_length = basin_height_deg * deg2rad
-      DO jb = i_startblk_c, i_endblk_c    
-        CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
-         &                i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
+    CASE(30,32,27)
 
-        DO jc = i_startidx_c, i_endidx_c
-
-          IF(v_base%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
-
-            z_lat = p_patch%cells%center(jc,jb)%lat
-            z_lon = p_patch%cells%center(jc,jb)%lon
-
-            p_sfc_flx%forc_wind_u(jc,jb) =&
-            & cos(z_forc_period*pi*(z_lat-y_length)/y_length) 
-          ELSE
-            p_sfc_flx%forc_wind_u(jc,jb) = 0.0_wp
-          ENDIF !write(*,*)'forc',jc,jb, z_lat, z_lat*180.0_wp/pi, p_sfc_flx%forc_wind_u(jc,jb) 
-          p_sfc_flx%forc_wind_v(jc,jb) = 0.0_wp
-
-          !Init cartesian wind
-          CALL gvec2cvec(  p_sfc_flx%forc_wind_u(jc,jb),&
-                         & p_sfc_flx%forc_wind_v(jc,jb),&
-                         & p_patch%cells%center(jc,jb)%lon,&
-                         & p_patch%cells%center(jc,jb)%lat,&
-                         & p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
-                         & p_sfc_flx%forc_wind_cc(jc,jb)%x(2),&
-                         & p_sfc_flx%forc_wind_cc(jc,jb)%x(3))
-  !write(*,*)'sfc forcing', jc,jb,p_sfc_flx%forc_wind_u(jc,jb), p_sfc_flx%forc_wind_v(jc,jb)
-
-        END DO
-      END DO
-
-    CASE(30,34,35,36)
-
-      !analytical forcing 
-      IF(iforc_oce==11)THEN
-        CALL message(TRIM(routine), &
-          &  'Testcase (30,34,35; iforc=11): stationary wind forcing - u=cos(n*(lat-lat_0)/lat_0')
-
-        !Latitudes in ICON vary from -pi/2 to pi/2
-        y_length = basin_height_deg * deg2rad
-        DO jb = i_startblk_c, i_endblk_c
-          CALL get_indices_c( p_patch, jb, i_startblk_c, i_endblk_c, &
-          &                                i_startidx_c, i_endidx_c,rl_start_c,rl_end_c)
-          DO jc = i_startidx_c, i_endidx_c
-            z_lat = p_patch%cells%center(jc,jb)%lat
-            z_lon = p_patch%cells%center(jc,jb)%lon
-          IF(v_base%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
-              p_sfc_flx%forc_wind_u(jc,jb) = cos(z_forc_period*pi*(z_lat-y_length)&
-                                           &/y_length) 
-            ELSE
-              p_sfc_flx%forc_wind_u(jc,jb) = 0.0_wp
-            ENDIF !write(*,*)'forc',jc,jb, z_lat, z_lat*180.0_wp/pi, p_sfc_flx%forc_wind_u(jc,jb) 
-            p_sfc_flx%forc_wind_v(jc,jb) = 0.0_wp
-
-            !Init cartesian wind
-          IF(v_base%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
-              CALL gvec2cvec(  p_sfc_flx%forc_wind_u(jc,jb),      &
-                             & p_sfc_flx%forc_wind_v(jc,jb),      &
-                             & p_patch%cells%center(jc,jb)%lon,   &
-                             & p_patch%cells%center(jc,jb)%lat,   &
-                             & p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
-                             & p_sfc_flx%forc_wind_cc(jc,jb)%x(2),&
-                             & p_sfc_flx%forc_wind_cc(jc,jb)%x(3))
-                           ! write(*,*)'sfc forcing', jc,jb,p_sfc_flx%forc_wind_u(jc,jb), p_sfc_flx%forc_wind_v(jc,jb)
-            ELSE
-              p_sfc_flx%forc_wind_cc(jc,jb)%x(:) = 0.0_wp
-            ENDIF
-          END DO
-        END DO
-        write(*,*)'max/min-analytical Forcing',&
-        &maxval(p_sfc_flx%forc_wind_u), minval(p_sfc_flx%forc_wind_u)
-      ENDIF
-    CASE(31)
-      ! 3d-gravity wave needs initialization only
-      CONTINUE
-
-    CASE(32)
       CALL message(TRIM(routine), &
-      &  'Testcase (32) - Munk Gyre: stationary lat/lon wind forcing and relax. to T perturbation')
+      &  'Testcase (30,32,27) - stationary lat/lon wind forcing &
+      &and eventually relax. to T perturbation')
       y_length = basin_height_deg * deg2rad
       DO jb = i_startblk_c, i_endblk_c    
         CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
@@ -808,16 +658,15 @@ write(*,*)'final wind stress coeff',z_C_d
 
         DO jc = i_startidx_c, i_endidx_c
 
-          z_T_init(jc,jb) = 20.0_wp- v_base%zlev_m(1)*15.0_wp/4000.0_wp
-
-          z_lat = p_patch%cells%center(jc,jb)%lat
-          z_lon = p_patch%cells%center(jc,jb)%lon
-
           IF(v_base%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
 
-             zonal_str = cos(z_forc_period*pi*z_lat-y_length/y_length)
-             p_sfc_flx%forc_wind_cc(jc,jb)%x(1) = zonal_str*sin(z_lon)
-             p_sfc_flx%forc_wind_cc(jc,jb)%x(2) = zonal_str*cos(z_lon)
+             ! #slo# Warning: s.th. more missing?
+             z_lat = p_patch%cells%center(jc,jb)%lat
+             z_lon = p_patch%cells%center(jc,jb)%lon
+
+             zonal_str = wstress_coeff*cos(z_forc_period*pi*z_lat-y_length/y_length)
+             p_sfc_flx%forc_wind_cc(jc,jb)%x(1) = wstress_coeff*zonal_str*sin(z_lon)
+             p_sfc_flx%forc_wind_cc(jc,jb)%x(2) = wstress_coeff*zonal_str*cos(z_lon)
              p_sfc_flx%forc_wind_cc(jc,jb)%x(3) = 0.0_wp
  
              CALL cvec2gvec(p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
@@ -826,49 +675,69 @@ write(*,*)'final wind stress coeff',z_C_d
                           & z_lon, z_lat,                      &
                           & p_sfc_flx%forc_wind_u(jc,jb),      &
                           & p_sfc_flx%forc_wind_v(jc,jb))
+           ELSE
+             p_sfc_flx%forc_wind_cc(jc,jb)%x(:) = 0.0_wp
+             p_sfc_flx%forc_wind_u(jc,jb)       = 0.0_wp
+             p_sfc_flx%forc_wind_v(jc,jb)       = 0.0_wp
+           ENDIF 
+        END DO
+      END DO
+      write(*,*)'max/min-Wind-Forcing',maxval(p_sfc_flx%forc_wind_u), minval(p_sfc_flx%forc_wind_u)
+
+     IF(no_tracer>=1.AND.temperature_relaxation/=0)THEN
+
+        y_length = basin_height_deg * deg2rad
+        DO jb = i_startblk_c, i_endblk_c    
+          CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
+           &                i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
+
+          DO jc = i_startidx_c, i_endidx_c
+
+            IF(v_base%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
+
+              z_T_init(jc,jb) = 20.0_wp- v_base%zlev_m(1)*15.0_wp/4000.0_wp
+
+              z_lat = p_patch%cells%center(jc,jb)%lat
+              z_lon = p_patch%cells%center(jc,jb)%lon
  
-             ! Add temperature perturbation at new values
-             z_perlat = basin_center_lat + 0.1_wp*basin_height_deg
-             z_perlon = basin_center_lon + 0.1_wp*basin_width_deg 
-             z_permax  = 0.1_wp
-             z_perwid  =  10.0_wp
+              ! Add temperature perturbation at new values
+              z_perlat = basin_center_lat + 0.1_wp*basin_height_deg
+              z_perlon = basin_center_lon + 0.1_wp*basin_width_deg 
+              z_permax  = 0.1_wp
+              z_perwid  =  10.0_wp
 
-             z_relax = relaxation_param/(30.0_wp*24.0_wp*3600.0_wp)
-
-             z_lat = p_patch%cells%center(jc,jb)%lat
-             z_lon = p_patch%cells%center(jc,jb)%lon
+              z_relax = relaxation_param/(30.0_wp*24.0_wp*3600.0_wp)
 
              z_dolic = v_base%dolic_c(jc,jb)
-             IF (z_dolic > 0) THEN
+             IF (z_dolic > MIN_DOLIC) THEN
 
                z_dst=sqrt((z_lat-z_perlat*deg2rad)**2+(z_lon-z_perlon*deg2rad)**2)
 
-                IF(z_dst<=5.0_wp*deg2rad)THEN
-                   z_T_init = z_T_init &
-                   &        + z_permax*exp(-(z_dst/(z_perwid*deg2rad))**2) &
-                   &        * sin(pi*v_base%zlev_m(1)/4000.0_wp)
-
-                   !   write(*,*)'z init',jc,jb,p_os%p_prog(nold(1))%tracer(jc,1,jb,1),&
-                   !   &z_permax*exp(-(z_dst/(z_perwid*deg2rad))**2) &
-                   !   & * sin(pi*v_base%zlev_m(1)/4000.0_wp)
-                ENDIF
+               IF(z_dst<=5.0_wp*deg2rad)THEN
+                 z_T_init = z_T_init &
+                 &        + z_permax*exp(-(z_dst/(z_perwid*deg2rad))**2) &
+                 &        * sin(pi*v_base%zlev_m(1)/4000.0_wp)
+                 !   write(*,*)'z init',jc,jb,p_os%p_prog(nold(1))%tracer(jc,1,jb,1),&
+                 !   &z_permax*exp(-(z_dst/(z_perwid*deg2rad))**2) &
+                 !   & * sin(pi*v_base%zlev_m(1)/4000.0_wp)
+               ENDIF
                ! up to here z_init is identically initialized than temperature
 
-              !add local cold perturbation 
-                IF(z_dst<=10.5_wp*deg2rad)THEN
-                  z_T_init(jc,jb)= z_T_init(jc,jb) - exp(-(z_dst/(z_perwid*deg2rad))**2)
-                ENDIF
+               !add local cold perturbation 
+               IF(z_dst<=10.5_wp*deg2rad)THEN
+                 z_T_init(jc,jb)= z_T_init(jc,jb) - exp(-(z_dst/(z_perwid*deg2rad))**2)
+               ENDIF
 
-                p_sfc_flx%forc_tracer_relax(jc,jb,1)=z_T_init(jc,jb)
+               p_sfc_flx%forc_tracer_relax(jc,jb,1)=z_T_init(jc,jb)
 
-                p_sfc_flx%forc_tracer(jc,jb, 1)=  z_relax              &!*v_base%del_zlev_m(1)     &
-                & *( p_sfc_flx%forc_tracer_relax(jc,jb,1)-p_os%p_prog(nold(1))%tracer(jc,1,jb,1) )
+               p_sfc_flx%forc_tracer(jc,jb, 1)=  z_relax   &          
+               & *( p_sfc_flx%forc_tracer_relax(jc,jb,1)-p_os%p_prog(nold(1))%tracer(jc,1,jb,1) )
 
-                ! write(123,*)'forcing',jc,jb,&
-                ! &( p_sfc_flx%forc_tracer_relax(jc,jb,1)    &
-                ! & -p_os%p_prog(nold(1))%tracer(jc,1,jb,1)),&
-                ! &p_sfc_flx%forc_tracer_relax(jc,jb,1),&
-                ! &p_sfc_flx%forc_tracer(jc,jb, 1)
+               ! write(123,*)'forcing',jc,jb,&
+               ! &( p_sfc_flx%forc_tracer_relax(jc,jb,1)    &
+               ! & -p_os%p_prog(nold(1))%tracer(jc,1,jb,1)),&
+               ! &p_sfc_flx%forc_tracer_relax(jc,jb,1),&
+               ! &p_sfc_flx%forc_tracer(jc,jb, 1)
              END IF
            ELSE
              p_sfc_flx%forc_wind_cc(jc,jb)%x(:) = 0.0_wp
@@ -877,14 +746,14 @@ write(*,*)'final wind stress coeff',z_C_d
            ENDIF 
         END DO
       END DO
+
     write(*,*)'max/min-tracer-relaxation',maxval(p_sfc_flx%forc_tracer_relax),&
     & minval(p_sfc_flx%forc_tracer_relax)
     write(*,*)'max/min-tracer-flux',maxval(p_sfc_flx%forc_tracer),&
     & minval(p_sfc_flx%forc_tracer)
-    write(*,*)'max/min-Wind-Forcing',maxval(p_sfc_flx%forc_wind_u), minval(p_sfc_flx%forc_wind_u)
     write(*,*)'max/min-Temp-Flux',maxval(p_sfc_flx%forc_tracer(:,:,1)),&
                                   & minval(p_sfc_flx%forc_tracer(:,:,1))
-
+    ENDIF
 ! ! ! !-----------Old version of Forcing--------------------------------------------------
 ! ! !!------------Please retain, its also interesting------------------------------------
 !!----------------An old version of init corresponds to this forcing--------------------
@@ -898,9 +767,9 @@ write(*,*)'final wind stress coeff',z_C_d
 ! !           z_lat = p_patch%cells%center(jc,jb)%lat
 ! !           z_lon = p_patch%cells%center(jc,jb)%lon
 ! !           IF(v_base%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
-! !             zonal_str = cos(z_forc_period*pi*z_lat-y_length/y_length)
-! !             p_sfc_flx%forc_wind_cc(jc,jb)%x(1) = zonal_str*sin(z_lon)
-! !             p_sfc_flx%forc_wind_cc(jc,jb)%x(2) = zonal_str*cos(z_lon)
+! !             zonal_str = wstress_coeff*cos(z_forc_period*pi*z_lat-y_length/y_length)
+! !             p_sfc_flx%forc_wind_cc(jc,jb)%x(1) = wstress_coeff*zonal_str*sin(z_lon)
+! !             p_sfc_flx%forc_wind_cc(jc,jb)%x(2) = wstress_coeff*zonal_str*cos(z_lon)
 ! !             p_sfc_flx%forc_wind_cc(jc,jb)%x(3) = 0.0_wp
 ! !             CALL cvec2gvec(p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
 ! !                          & p_sfc_flx%forc_wind_cc(jc,jb)%x(2),&
@@ -954,12 +823,15 @@ write(*,*)'final wind stress coeff',z_C_d
 ! ! ! !-----------End of Old version of Forcing-------------------------------------------
 
     CASE (33)
-      CALL message(TRIM(routine), &
-        &  'Testcase (33): stationary temperature relaxation - latitude dependent')
-      z_relax = relaxation_param/(30.0_wp*24.0_wp*3600.0_wp)
+      IF(temperature_relaxation>=1)THEN
+      ! CALL message(TRIM(routine), &
+      !   &  'Testcase (33): stationary temperature relaxation - latitude dependent')
+        z_relax = relaxation_param/(30.0_wp*24.0_wp*3600.0_wp)
+        
+        p_sfc_flx%forc_tracer(:,:, 1) = z_relax*( p_sfc_flx%forc_tracer_relax(:,:,1) &
+          &                                      -p_os%p_prog(nold(1))%tracer(:,1,:,1) )
 
-          p_sfc_flx%forc_tracer(:,:, 1)= z_relax              &
-          &*( p_sfc_flx%forc_tracer_relax(:,:,1)-p_os%p_prog(nold(1))%tracer(:,1,:,1) )
+      END IF
 
     write(*,*)'max/min-tracer-diff',&
     &maxval(p_sfc_flx%forc_tracer_relax(:,:,1)-p_os%p_prog(nold(1))%tracer(:,1,:,1)),&
@@ -969,89 +841,13 @@ write(*,*)'final wind stress coeff',z_C_d
     & minval(p_sfc_flx%forc_tracer_relax)
     write(*,*)'max/min-Temp-Flux',maxval(p_sfc_flx%forc_tracer(:,:,1)),&
                                   & minval(p_sfc_flx%forc_tracer(:,:,1))
-    CASE (43)
-      ! no forcing applied
-      CONTINUE
+  ! CASE (43)
+  !   ! no forcing applied
+  !   CONTINUE
 
-    CASE DEFAULT
-      CALL message(TRIM(routine), 'STOP: Analytical Forcing for this testcase not implemented' )
-      CALL finish(TRIM(routine), 'CHOSEN FORCING OPTION NOT SUPPORTED - TERMINATE')
-    END SELECT
-
-
-    !Final modification of surface wind forcing according to surface boundary condition 
-    IF(iswm_oce == 1)THEN
-      z_scale = v_base%del_zlev_m(1)*rho_ref
-    ELSEIF(iswm_oce /= 1)THEN
-      z_scale = rho_ref
-    ENDIF
-     
-
-    SELECT CASE (i_bc_veloc_top) !The value of 'top_boundary_condition' was set in namelist
-
-    CASE (0)
-
-      CALL message (TRIM(routine),'ZERO top velocity boundary conditions chosen')
-
-      DO jb = i_startblk_c, i_endblk_c
-        CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c,  &
-          &                i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
-        DO jc = i_startidx_c, i_endidx_c
-            p_sfc_flx%forc_wind_u(jc,jb)      = 0.0_wp
-            p_sfc_flx%forc_wind_v(jc,jb)      = 0.0_wp
-            p_sfc_flx%forc_wind_cc(jc,jb)%x(:)= 0.0_wp
-        END DO
-      END DO
-
-    CASE (1)!Forced by wind stored 
-
-      DO jb = i_startblk_c, i_endblk_c
-        CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c,  &
-          &                i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
-        DO jc = i_startidx_c, i_endidx_c
-          IF(v_base%lsm_oce_c(jc,1,jb) <= sea_boundary)THEN
-
-            p_sfc_flx%forc_wind_u(jc,jb) = wstress_coeff*p_sfc_flx%forc_wind_u(jc,jb)&
-              &/z_scale
-
-            p_sfc_flx%forc_wind_v(jc,jb) = wstress_coeff*p_sfc_flx%forc_wind_v(jc,jb)&
-              &/z_scale
-           !write(*,*)'top bc gc:', jc,jb, top_bc_u_c(jc,jb), top_bc_v_c(jc,jb)
-
-            p_sfc_flx%forc_wind_cc(jc,jb)%x =&
-              & wstress_coeff*p_sfc_flx%forc_wind_cc(jc,jb)%x&
-              &/z_scale
-          ELSE
-            p_sfc_flx%forc_wind_u(jc,jb)    =0.0_wp
-            p_sfc_flx%forc_wind_v(jc,jb)    =0.0_wp
-            p_sfc_flx%forc_wind_cc(jc,jb)%x =0.0_wp
-          ENDIF
-        END DO
-      END DO
-
-    CASE (2)!forced by difference between wind field in p_os%p_aux%bc_top_veloc and ocean velocity at top layer
-
-    ! z_thick_forc = v_base%del_zlev_m(1)      !z_thick_forc= 1.0_wp
-      DO jb = i_startblk_c, i_endblk_c
-        CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c,  &
-          &                i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
-        DO jc = i_startidx_c, i_endidx_c
-          IF(v_base%lsm_oce_c(jc,1,jb) <= sea_boundary)THEN
-
-            p_sfc_flx%forc_wind_u(jc,jb) = wstress_coeff*( p_sfc_flx%forc_wind_u(jc,jb)    &
-              &               - p_os%p_diag%u(jc,1,jb) )/z_scale
-            p_sfc_flx%forc_wind_v(jc,jb) = wstress_coeff*( p_sfc_flx%forc_wind_v(jc,jb)    &
-              &               - p_os%p_diag%v(jc,1,jb) )/z_scale
-
-            p_sfc_flx%forc_wind_cc(jc,jb)%x = wstress_coeff&
-            &*(p_sfc_flx%forc_wind_cc(jc,jb)%x - p_os%p_diag%p_vn(jc,1,jb)%x)/z_scale
-          ELSE
-            p_sfc_flx%forc_wind_u(jc,jb)    =0.0_wp
-            p_sfc_flx%forc_wind_v(jc,jb)    =0.0_wp
-            p_sfc_flx%forc_wind_cc(jc,jb)%x =0.0_wp
-          ENDIF
-        END DO
-      END DO
+  ! CASE DEFAULT
+  !   CALL message(TRIM(routine), 'STOP: Analytical Forcing for this testcase not implemented' )
+  !   CALL finish(TRIM(routine), 'CHOSEN FORCING OPTION NOT SUPPORTED - TERMINATE')
     END SELECT
 
   END SUBROUTINE update_sfcflx_analytical

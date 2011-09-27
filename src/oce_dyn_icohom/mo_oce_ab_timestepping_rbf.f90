@@ -66,7 +66,8 @@ USE mo_loopindices,               ONLY: get_indices_c, get_indices_e !, get_indi
 USE mo_oce_boundcond,             ONLY: bot_bound_cond_horz_veloc, top_bound_cond_horz_veloc
 USE mo_oce_thermodyn,             ONLY: calc_density, calc_internal_press
 USE mo_oce_physics,               ONLY: t_ho_params
-USE mo_oce_forcing,               ONLY: t_sfc_flx!, update_sfcflx
+!USE mo_oce_forcing,               ONLY: t_sfc_flx!, update_sfcflx
+USE mo_sea_ice,                   ONLY: t_sfc_flx
 USE mo_oce_math_operators,        ONLY: div_oce, grad_fd_norm_oce, grad_fd_norm_oce_2d,&
   &                                     height_related_quantities
 USE mo_oce_diffusion,             ONLY: velocity_diffusion_horz_RBF, velocity_diffusion_vert_RBF, &

@@ -141,7 +141,7 @@ USE mo_io_restart_namelist,  ONLY: read_restart_namelists
 USE mo_io_restart_attributes,ONLY: read_restart_attributes
 
 USE mo_read_namelists,     ONLY: read_atmo_namelists
-USE mo_atm_nml_crosscheck,       ONLY: atm_crosscheck
+USE mo_nml_crosscheck,       ONLY: atm_crosscheck
 
 USE mo_dynamics_config,    ONLY: configure_dynamics  ! subroutine
 !USE mo_interpol_config,    ONLY: configure_interpolation 
@@ -196,16 +196,16 @@ CONTAINS
       ! an input argument of the subroutine read_restart_info_file.
 
       CALL read_restart_info_file(grid_file_name, lsuccess) ! out, out
-                                                                                               
+
       IF (lsuccess) THEN
         CALL message( TRIM(routine),                          &
                     & 'Running model in restart mode. '       &
                     & //'Horizontal grid should be read from '&
                     & //TRIM(grid_file_name) )
-      ELSE                                                                                       
+      ELSE
         CALL finish(TRIM(routine),'Failed to read restart info file')
-      END IF                                                                                     
-                                                                                               
+      END IF
+
       ! Read all namelists used in the previous run
       ! and store them in a buffer. These values will overwrite the
       ! model default, and will later be overwritten if the user has
@@ -268,20 +268,20 @@ CONTAINS
     ! This routine will never return
 
     IF (my_process_is_io()) CALL io_main_proc
-    
+
     ! Check patch allocation status
 
     IF ( ALLOCATED(p_patch_global)) THEN
       CALL finish(TRIM(routine), 'patch already allocated')
     END IF
-     
+
     ! Allocate patch array to start patch construction
 
     ALLOCATE(p_patch_global(n_dom_start:n_dom), stat=error_status)
     IF (error_status/=success) THEN
       CALL finish(TRIM(routine), 'allocation of patch failed')
     ENDIF
-    
+
     IF(lrestore_states) THEN
       ! Before the restore set p_comm_input_bcast to null
       CALL set_comm_input_bcast(null_comm_type)
@@ -297,17 +297,17 @@ CONTAINS
       CALL set_comm_input_bcast()
     ELSE
         CALL import_patches( p_patch_global,                       &
-                            nlev,nlevp1,num_lev,num_levp1,nshift)      
+                            nlev,nlevp1,num_lev,num_levp1,nshift)
     ENDIF
 
     !--------------------------------------------------------------------------------
     ! 5. Construct interpolation state, compute interpolation coefficients.
     !--------------------------------------------------------------------------------
-    
+
     CALL configure_interpolation( global_cell_type, n_dom, p_patch_global(1:)%level )
 
     ! Allocate array for interpolation state
-    
+
     ALLOCATE( p_int_state_global(n_dom_start:n_dom), &
             & p_grf_state_global(n_dom_start:n_dom), &
             & STAT=error_status)
@@ -352,21 +352,21 @@ CONTAINS
     !-------------------------------------------------------------------   
     IF (my_process_is_mpi_seq()  &
       &  .OR. lrestore_states) THEN
-      
+
       ! This is a verification run or a run on a single processor
       ! or the divided states have been read, just set pointers
-      
+
       p_patch => p_patch_global
       p_int_state => p_int_state_global
 
       p_grf_state => p_grf_state_global
-      
+
       CALL set_patch_communicators(p_patch)
-      
+
     ELSE
-      
+
       CALL decompose_atmo_domain()
-      
+
     ENDIF
 
     ! Note: from this point the p_patch is used
@@ -417,30 +417,30 @@ CONTAINS
       
       CALL message(TRIM(routine),'ldump_states is set: '//&
                   'dumping patches+states and finishing')
-      
+
       IF(.NOT. my_process_is_mpi_test()) THEN
         DO jg = n_dom_start, n_dom
           CALL dump_patch_state_netcdf(jg, p_patch(jg),p_int_state(jg),p_grf_state(jg), &
             &                          p_int_state_lonlat_global(jg))
         ENDDO
       ENDIF
-      
+
       CALL p_stop
       STOP
-      
+
     ENDIF
 
    !---------------------------------------------------------------------
    ! 8. Import vertical grid/ define vertical coordinate
    !---------------------------------------------------------------------
     SELECT CASE (iequations)
-    
+
     CASE (ishallow_water)
       CALL init_vertical_coord_table(iequations, p_patch(1)%nlev)
-      
+
     CASE (ihs_atm_temp, ihs_atm_theta)
       CALL init_vertical_coord_table(iequations, p_patch(1)%nlev)
-      
+
     CASE (inh_atmosphere)
       IF (ivctype == 1) THEN
         CALL init_hybrid_coord(p_patch(1)%nlev)
@@ -492,7 +492,7 @@ CONTAINS
     ! too much in future.
     !---------------------------------------------------------------------
     IF ( is_coupled_run() ) THEN
- 
+
       comp_id = get_my_couple_id ()
       patch_no = 1
 
@@ -504,7 +504,7 @@ CONTAINS
       CALL ICON_cpl_def_grid ( &
         & comp_id, grid_shape, p_patch(patch_no)%cells%glb_index, & ! input
         & grid_id, error_status )                                   ! output
-  
+
       field_name(1) = "TAUX"
       field_name(2) = "TAUY"
       field_name(3) = "SFWFLX"
@@ -513,7 +513,7 @@ CONTAINS
       field_name(6) = "SST"
       field_name(7) = "OCEANU"
       field_name(8) = "OCEANV"
- 
+
       field_shape(1:2) = grid_shape(1:2)
       field_shape(3)   = 1
 

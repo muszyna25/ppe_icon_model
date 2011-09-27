@@ -52,10 +52,10 @@ MODULE mo_master_control
   USE mo_icon_cpl_init_comp, ONLY: icon_cpl_init_comp
 
   USE mo_io_units,           ONLY: filename_max
-  
+
   USE mo_master_nml,         ONLY: read_master_namelist, lrestart, &
     & no_of_models, master_nml_array
-    
+
   !USE mo_namelist,           ONLY: open_nml,  close_nml
 
   IMPLICIT NONE
@@ -82,7 +82,7 @@ MODULE mo_master_control
   INTEGER :: my_coupling_comp_id ! the coupling id for this component 
   CHARACTER(len=filename_max) :: my_namelist_filename
   CHARACTER(len=64) :: my_model_name
-  
+
   INTEGER :: my_model_min_rank, my_model_max_rank, my_model_inc_rank 
   LOGICAL :: in_coupled_mode
 
@@ -94,7 +94,7 @@ MODULE mo_master_control
   !!  Initialization of the master control variables
   !!
   INTEGER FUNCTION init_master_control(namelist_filename)
-    
+
     CHARACTER(LEN=*), INTENT(in) :: namelist_filename
     !
     ! !Local variables
@@ -104,12 +104,12 @@ MODULE mo_master_control
 
     CHARACTER(LEN=*), PARAMETER :: method_name = "master_control"
     !-----------------------------------------------------------------------
-    
+
     CALL message(method_name,'start model initialization.')
 
     !------------------------------------------------------------
     master_namelist_status = read_master_namelist(TRIM(namelist_filename))
-    
+
     !------------------------------------------------------------
     ! some checks
     IF (master_namelist_status == -1) THEN
@@ -130,7 +130,7 @@ MODULE mo_master_control
       CALL icon_cpl_init
 
       CALL set_my_component_null()
-     
+
       DO model_no =1, no_of_models
 
 !         write(0,*) 'master_nml_array:', model_no, master_nml_array(model_no)%model_name        
@@ -139,19 +139,19 @@ MODULE mo_master_control
           & master_nml_array(model_no)%model_inc_rank
 
           IF ( get_my_global_mpi_id() == jg ) THEN
-            
+
             CALL set_my_component(model_no,             &
                & master_nml_array(model_no)%model_name, &
                & master_nml_array(model_no)%model_type ,&
                & master_nml_array(model_no)%model_namelist_filename)
-                 
+
           ENDIF
 
         ENDDO
-          
+
       ENDDO !model_no =1, no_of_models
 
-      
+
     ELSE
       ! only one component    
       model_no=1
@@ -159,7 +159,7 @@ MODULE mo_master_control
           & master_nml_array(model_no)%model_name, &
           & master_nml_array(model_no)%model_type ,&
           & master_nml_array(model_no)%model_namelist_filename)
-               
+
     ENDIF
     !------------------------------------------------------------
     ! check if my component is ok
@@ -176,30 +176,30 @@ MODULE mo_master_control
     !------------------------------------------------------------
 
     init_master_control = 0
-    
+
   END FUNCTION init_master_control
   !------------------------------------------------------------------------
 
   !------------------------------------------------------------------------
   SUBROUTINE set_my_component(comp_no, comp_name, comp_id, comp_namelist)
-    
+
     INTEGER, INTENT(in)          :: comp_no
     CHARACTER(len=*), INTENT(in) :: comp_name
     INTEGER, INTENT(in)          :: comp_id
     CHARACTER(len=*), INTENT(in) :: comp_namelist
-       
+
     my_model_no          = comp_no
     my_process_model     = comp_id
     my_namelist_filename = TRIM(comp_namelist)
     my_model_name = TRIM(comp_name)
-    
+
     my_model_min_rank    = master_nml_array(comp_no)%model_min_rank
     my_model_max_rank    = master_nml_array(comp_no)%model_max_rank
     my_model_inc_rank    = master_nml_array(comp_no)%model_inc_rank
 
     CALL check_my_component()
     CALL set_process_mpi_name(TRIM(my_model_name))
-    
+
   END SUBROUTINE set_my_component
   !------------------------------------------------------------------------
 
@@ -226,7 +226,7 @@ MODULE mo_master_control
 
   !------------------------------------------------------------------------
   SUBROUTINE set_my_component_null()
-  
+
     my_model_no          = 0
     my_process_model     = 0
     my_namelist_filename = ''
@@ -240,17 +240,17 @@ MODULE mo_master_control
 
   !------------------------------------------------------------------------
   CHARACTER(len=64) FUNCTION get_my_process_name()
-  
+
     get_my_process_name = my_model_name
-    
+
   END FUNCTION get_my_process_name
   !------------------------------------------------------------------------
 
   !------------------------------------------------------------------------
   CHARACTER(len=filename_max) FUNCTION get_my_namelist_filename()
-  
+
     get_my_namelist_filename = my_namelist_filename
-    
+
   END FUNCTION get_my_namelist_filename
   !------------------------------------------------------------------------
 
@@ -259,7 +259,7 @@ MODULE mo_master_control
   INTEGER FUNCTION get_my_process_type()
 
     get_my_process_type = my_process_model
-    
+
   END FUNCTION get_my_process_type
   !------------------------------------------------------------------------
 
@@ -268,7 +268,7 @@ MODULE mo_master_control
   INTEGER FUNCTION get_my_model_no()
 
     get_my_model_no = my_model_no
-    
+
   END FUNCTION get_my_model_no
   !------------------------------------------------------------------------
 
@@ -276,31 +276,31 @@ MODULE mo_master_control
   INTEGER FUNCTION get_my_couple_id()
 
     get_my_couple_id = my_coupling_comp_id 
-    
+
   END FUNCTION get_my_couple_id
   !------------------------------------------------------------------------
-  
+
   !------------------------------------------------------------------------
   LOGICAL FUNCTION is_coupled_run()
 
     is_coupled_run = in_coupled_mode
-    
+
   END FUNCTION is_coupled_run
   !------------------------------------------------------------------------
-  
+
   !------------------------------------------------------------------------
   LOGICAL FUNCTION is_restart_run()
 
     is_restart_run = lrestart
-    
+
   END FUNCTION is_restart_run
   !------------------------------------------------------------------------
-  
+
   !------------------------------------------------------------------------
   LOGICAL FUNCTION my_process_is_ocean()
 
     my_process_is_ocean = (my_process_model == ocean_process)
-    
+
   END FUNCTION my_process_is_ocean
   !------------------------------------------------------------------------
 

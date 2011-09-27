@@ -90,7 +90,7 @@ USE mo_grf_intp_data_strc,    ONLY: p_grf_state_global, p_grf_state_subdiv, p_gr
 
 
 USE mo_read_namelists,        ONLY: read_atmo_namelists
-USE mo_atm_nml_crosscheck,    ONLY: atm_crosscheck
+USE mo_nml_crosscheck,        ONLY: atm_crosscheck
 
 USE mo_time_config,           ONLY: time_config         ! variable
 USE mo_dynamics_config,       ONLY: configure_dynamics  ! subroutine

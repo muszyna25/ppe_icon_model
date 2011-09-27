@@ -67,7 +67,7 @@ MODULE mo_io_config
     REAL(wp):: dt_diag                    ! diagnostic output timestep [seconds]
     REAL(wp):: dt_file                    ! timestep [seconds] for triggering new output file
     REAL(wp):: dt_checkpoint              ! timestep [seconds] for triggering new restart file
-  
+
     LOGICAL :: lwrite_vorticity           ! if .true., write out vorticity
     LOGICAL :: lwrite_divergence          ! if .true., write out divergence
     LOGICAL :: lwrite_omega               ! if .true., write out the vertical velocity
@@ -98,13 +98,12 @@ MODULE mo_io_config
 
     LOGICAL :: no_output         ! if .true., no output is written 
     LOGICAL :: l_outputtime      ! if .true., output is written at the end of the time step.
-    LOGICAL :: l_checkpoint_time ! if .true., restart file is written at the end of 
-                                 ! the time step.
     LOGICAL :: l_diagtime        ! if .true., diagnostic output is computed and written
-                                 ! at the end of the time step.               
-                                                                                 
+                                 ! at the end of the time step.
+
     LOGICAL :: lprepare_output(max_dom) ! if .true., save the prognostic variables
                                         ! to p_prog_out and update p_diag_out.
+
   !END TYPE t_io_config
   !>
   !!
@@ -124,7 +123,7 @@ CONTAINS
 
      n_io    = NINT(dt_data/dtime)        ! write output
 
-     IF ( MOD(current_timestep-1,n_io)==0 .AND. current_timestep/=1 ) THEN
+     IF ( (MOD(current_timestep-1,n_io)==0 .AND. current_timestep/=1) ) THEN
        retval = .TRUE.
      ELSE
        retval = .FALSE.
@@ -137,13 +136,60 @@ CONTAINS
 
      INTEGER :: n_file
 
-     n_file  = NINT(dt_file/dtime)        ! trigger new output file
+     n_file  = n_files()        ! trigger new output file
 
-     IF (current_timestep/=1.AND.(MOD(current_timestep-1,n_file)==0)) THEN
+     IF (current_timestep/=1&
+       & .AND.(MOD(current_timestep-1,n_file)==0)&
+       & .AND.current_timestep/=nsteps) THEN
        retval = .TRUE.
      ELSE
        retval = .FALSE.
      END IF
    END FUNCTION istime4newoutputfile
+
+   FUNCTION n_checkpoints()
+
+     INTEGER :: n_checkpoints
+
+     n_checkpoints = NINT(dt_checkpoint/dtime)  ! write restart files
+   END FUNCTION
+   FUNCTION n_files()
+
+     INTEGER :: n_files
+     n_files  = NINT(dt_file/dtime)        ! trigger new output file
+   END FUNCTION
+   FUNCTION n_ios()
+
+     INTEGER :: n_ios
+
+     n_ios    = NINT(dt_data/dtime)        ! number of: write output
+   END FUNCTION
+   FUNCTION n_diags()
+
+     INTEGER :: n_diags
+
+     n_diags  = MAX(1,NINT(dt_diag/dtime)) ! number of: diagnose of total integrals
+   END FUNCTION
+
+   FUNCTION is_checkpoint_time(current_step, n_checkpoints, n_steps) RESULT(l_checkpoint)
+     INTEGER, INTENT(IN)            :: current_step, n_checkpoints
+     INTEGER, INTENT(IN), OPTIONAL  :: n_steps
+
+     LOGICAL              :: l_checkpoint
+
+     IF (PRESENT(n_steps)) THEN
+       IF ( MOD(current_step,n_checkpoints)==0 .AND. current_step/=n_steps ) THEN
+         l_checkpoint = .TRUE.
+       ELSE
+         l_checkpoint = .FALSE.
+       END IF
+     ELSE
+       IF ( MOD(current_step,n_checkpoints)==0 ) THEN
+         l_checkpoint = .TRUE.
+       ELSE
+         l_checkpoint = .FALSE.
+       END IF
+     END IF
+   END FUNCTION
 
 END MODULE mo_io_config

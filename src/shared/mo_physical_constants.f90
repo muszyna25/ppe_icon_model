@@ -208,6 +208,7 @@ MODULE mo_physical_constants
     cw           = 4200.0_wp,       & ! Heat capacity of ice       [J / (kg K)]
     Tf           = -1.90_wp,        & ! Temperature ice bottom     [C]
     Lfreez       = 0.334E6_wp,      & ! Latent heat of freezing    [J / kg]
+!   L            = 0.334E6,     & ! Latent heat of freezing    [J / kg]
     Lvap         = 2.501E6_wp,      & ! Latent heat of vaporisation[J / kg]
     Lsub         = Lfreez+Lvap-0.001e6_wp,& ! Latent heat of sublimation [J / kg]
     Sice         = 5.0_wp,          & ! Sea-ice bulk salinity      [ppt]

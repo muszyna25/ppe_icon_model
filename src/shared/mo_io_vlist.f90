@@ -156,7 +156,8 @@ MODULE mo_io_vlist
        &                              t_hydro_ocean_diag, t_hydro_ocean_base,        &
        &                              t_hydro_ocean_aux,                             &
        &                              v_base, set_zlev, v_ocean_state
-  USE mo_oce_forcing,           ONLY: t_sfc_flx, v_sfc_flx
+!  USE mo_oce_forcing,           ONLY: t_sfc_flx, v_sfc_flx
+  USE mo_sea_ice,           ONLY: t_sfc_flx, v_sfc_flx
   USE mo_ext_data,              ONLY: t_external_ocean
   USE mo_icoham_dyn_memory,     ONLY: p_hydro_state
   USE mo_nonhydro_state,        ONLY: p_nh_state
@@ -701,13 +702,54 @@ CONTAINS
 
       ALLOCATE(levels_i(nzlevp1))
       ALLOCATE(levels_m(n_zlev))
-      CALL set_zlev(n_zlev, dzlev_m, levels_i, levels_m)
+      CALL set_zlev(levels_i, levels_m)
       CALL zaxisDefLevels(zaxisIDdepth_m(k_jg)   , levels_m)
       CALL zaxisDefLevels(zaxisID_halfdepth(k_jg), levels_i)
       DEALLOCATE(levels_i)
       DEALLOCATE(levels_m)
     ENDIF
+    !
+    zaxisID_depth_below_land(k_jg) = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil+1)
+    CALL zaxisDefLevels(zaxisID_depth_below_land(k_jg), zml_soil*100._wp)
+    !
+    zaxisID_generic_snow_p1(k_jg) = zaxisCreate(ZAXIS_GENERIC, nlev_snow+1)
+    ALLOCATE(levels(nlev_snow+1))
+    DO i = 1, nlev_snow+1
+      levels(i) = REAL(i,wp)
+    END DO
+    CALL zaxisDefLevels(zaxisID_generic_snow_p1(k_jg), levels)
+    DEALLOCATE(levels)
+    !
+    zaxisID_generic_snow(k_jg) = zaxisCreate(ZAXIS_GENERIC, nlev_snow)
+    ALLOCATE(levels(nlev_snow))
+    DO i = 1, nlev_snow
+      levels(i) = REAL(i,wp)
+    END DO
+    CALL zaxisDefLevels(zaxisID_generic_snow(k_jg), levels)
+    DEALLOCATE(levels)
 
+    IF (lwrite_pzlev) THEN
+      nplev = nh_pzlev_config(k_jg)%nplev
+      zaxisID_pres(k_jg) = zaxisCreate(ZAXIS_PRESSURE, nplev)
+      ALLOCATE(levels(nplev))
+      DO i = 1, nplev
+        levels(i) = REAL(i,wp)
+      END DO
+      CALL zaxisDefLevels(zaxisID_pres(k_jg), levels)
+      DEALLOCATE(levels)
+      CALL zaxisDefVct(zaxisID_pres(k_jg), nplev, nh_pzlev_config(k_jg)%plevels(1:nplev))
+
+
+      nzlev = nh_pzlev_config(k_jg)%nzlev
+      zaxisID_hgt(k_jg)  = zaxisCreate(ZAXIS_HEIGHT, nzlev)
+      ALLOCATE(levels(nzlev))
+      DO i = 1, nzlev
+        levels(i) = REAL(i,wp)
+      END DO
+      CALL zaxisDefLevels(zaxisID_hgt(k_jg), levels)
+      DEALLOCATE(levels)
+      CALL zaxisDefVct(zaxisID_hgt(k_jg), nzlev, nh_pzlev_config(k_jg)%zlevels(1:nzlev))
+    ENDIF
 
     !
     !=========================================================================
@@ -908,15 +950,14 @@ CONTAINS
         ENDIF
       END IF
       ! surface geopotential
-      IF(iequations == 1 .OR. &
-         iequations == 2 ) THEN
+      IF(iequations == 1 .OR. iequations == 2 ) THEN
         CALL addVar(TimeVar('PHIS',&
         &                   'surface geopotential (orography)',&
         &                   'm**2/s**2',&
         &                   129, 128,&
         &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_surface(k_jg)),&
         &           k_jg)
-      ENDIF
+      END IF
       ! tracer fields
       IF (ntracer > 0 .AND. (iforcing == inwp .OR. ltransport)) THEN
         DO jt = 1, ntracer
@@ -2072,65 +2113,65 @@ CONTAINS
       &                    gridCellID(k_jg), &
       &                    zaxisID_surface(k_jg)),&
       &           k_jg)
-    !  CALL addVar(TimeVar('forc-u',&
-    !  &                   'u-forcing component at centers',&
-    !  &                   'N/m2',13,128,&
-    !  &                   vlistID(k_jg),&
-    !  &                   gridCellID(k_jg),&
-    !  &                   zaxisID_surface(k_jg)),&
-    !  &           k_jg)
-    !  CALL addVar(TimeVar('forc-v',&
-    !  &                   'v-forcing component at centers',&
-    !  &                   'N/m2',14,128,&
-    !  &                   vlistID(k_jg),&
-    !  &                   gridCellID(k_jg),&
-    !  &                   zaxisID_surface(k_jg)),&
-    !  &           k_jg)
-    !  CALL addVar(TimeVar('horz-adv',&
-    !  &                   'nonlin Cor ',&
-    !  &                   'm/s',2,128,&
-    !  &                   vlistID(k_jg),&
-    !  &                   gridEdgeID(k_jg), &
-    !  &                   zaxisIDdepth_m(k_jg)),&
-    !  &           k_jg)
-    !  
-    !  CALL addVar(TimeVar('Ekin-grad',&
-    !  &                   'gradient Ekin ',&
-    !  &                   'm/s',2,128,&
-    !  &                   vlistID(k_jg),&
-    !  &                   gridEdgeID(k_jg), &
-    !  &                   zaxisIDdepth_m(k_jg)),&
-    !  &           k_jg)
-    !  CALL addVar(TimeVar('flux-u',&
-    !  &                   'sfc_flux u at centers',&
-    !  &                   'N/m2',13,128,&
-    !  &                   vlistID(k_jg),&
-    !  &                   gridCellID(k_jg),&
-    !  &                   zaxisID_surface(k_jg)),&
-    !  &           k_jg)
-    !  CALL addVar(TimeVar('flux-v',&
-    !  &                   'sfc_flux v at centers',&
-    !  &                   'N/m2',14,128,&
-    !  &                   vlistID(k_jg),&
-    !  &                   gridCellID(k_jg),&
-    !  &                   zaxisID_surface(k_jg)),&
-    !  &           k_jg)
-    !  
-    !  CALL addVar(TimeVar('flux-VN',&
-    !  &                   'sfc-flux at edge',&
-    !  &                   'm/s',2,128,&
-    !  &                   vlistID(k_jg),&
-    !  &                   gridEdgeID(k_jg), &
-    !  &                   zaxisID_surface(k_jg)),&
-    !  &           k_jg)
-    !  
-    !  CALL addVar(TimeVar('VN',&
-    !  &                   'velocity normal to edge',&
-    !  &                   'm/s',2,128,&
-    !  &                   vlistID(k_jg),&
-    !  &                   gridEdgeID(k_jg), &
-    !  &                   zaxisIDdepth_m(k_jg)),&
-    !  &           k_jg)
+      CALL addVar(TimeVar('forc-u',&
+      &                   'u-forcing component at centers',&
+      &                   'N/m2',13,128,&
+      &                   vlistID(k_jg),&
+      &                   gridCellID(k_jg),&
+      &                   zaxisID_surface(k_jg)),&
+      &           k_jg)
+      CALL addVar(TimeVar('forc-v',&
+      &                   'v-forcing component at centers',&
+      &                   'N/m2',14,128,&
+      &                   vlistID(k_jg),&
+      &                   gridCellID(k_jg),&
+      &                   zaxisID_surface(k_jg)),&
+      &           k_jg)
+      CALL addVar(TimeVar('horz-adv',&
+      &                   'nonlin Cor ',&
+      &                   'm/s',2,128,&
+      &                   vlistID(k_jg),&
+      &                   gridEdgeID(k_jg), &
+      &                   zaxisIDdepth_m(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('Ekin-grad',&
+      &                   'gradient Ekin ',&
+      &                   'm/s',2,128,&
+      &                   vlistID(k_jg),&
+      &                   gridEdgeID(k_jg), &
+      &                   zaxisIDdepth_m(k_jg)),&
+      &           k_jg)
+      CALL addVar(TimeVar('flux-u',&
+      &                   'sfc_flux u at centers',&
+      &                   'N/m2',13,128,&
+      &                   vlistID(k_jg),&
+      &                   gridCellID(k_jg),&
+      &                   zaxisID_surface(k_jg)),&
+      &           k_jg)
+      CALL addVar(TimeVar('flux-v',&
+      &                   'sfc_flux v at centers',&
+      &                   'N/m2',14,128,&
+      &                   vlistID(k_jg),&
+      &                   gridCellID(k_jg),&
+      &                   zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('flux-VN',&
+      &                   'sfc-flux at edge',&
+      &                   'm/s',2,128,&
+      &                   vlistID(k_jg),&
+      &                   gridEdgeID(k_jg), &
+      &                   zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('VN',&
+      &                   'velocity normal to edge',&
+      &                   'm/s',2,128,&
+      &                   vlistID(k_jg),&
+      &                   gridEdgeID(k_jg), &
+      &                   zaxisIDdepth_m(k_jg)),&
+      &           k_jg)
       CALL addVar(TimeVar('VORT',&
       &                   'vorticity at vertices',&
       &                   '1/s',3,128,&
@@ -2157,22 +2198,22 @@ CONTAINS
       &                   'm/s', 6, 128,&
       &                   vlistid(k_jg),&
       &                   gridcellid(k_jg),&
-      &                   zaxisid_halfdepth(k_jg)),&
+      &                   zaxisID_halfdepth(k_jg)),&
       &           k_jg)
- !     CALL addVar(TimeVar('press-grad',&
- !     &                   'pressure-gradient at edges',&
- !     &                   'm/s',5,128,&
- !     &                   vlistID(k_jg), &
- !     &                   gridEdgeID(k_jg), &
- !     &                   zaxisIDdepth_m(k_jg)),&
- !     &                   k_jg)
- !     CALL addVar(TimeVar('rho',&
- !     &                   'density cells',&
- !     &                   'kg/m**3', 6, 128,&
- !     &                   vlistid(k_jg),&
- !     &                   gridcellid(k_jg),&
- !     &                   zaxisIDdepth_m(k_jg)),&
- !     &           k_jg)
+      CALL addVar(TimeVar('press_grad',&
+      &                   'pressure-gradient at edges',&
+      &                   'm/s',5,128,&
+      &                   vlistID(k_jg), &
+      &                   gridEdgeID(k_jg), &
+      &                   zaxisIDdepth_m(k_jg)),&
+      &                   k_jg)
+      CALL addVar(TimeVar('rho',&
+      &                   'density cells',&
+      &                   'kg/m**3', 6, 128,&
+      &                   vlistid(k_jg),&
+      &                   gridcellid(k_jg),&
+      &                   zaxisIDdepth_m(k_jg)),&
+      &           k_jg)
 
 
 
@@ -2203,7 +2244,32 @@ CONTAINS
         &                   oce_tracer_units(itracer),oce_tracer_codes(itracer),128,        &
         &                   vlistID(k_jg), gridCellID(k_jg),zaxisIDdepth_m(k_jg)),  &
         &           k_jg)
+
+        CALL addVar(TimeVar('g_n_c_v_'//TRIM(oce_tracer_names(itracer)),&
+          &'g_n_c_v for '//TRIM(oce_tracer_names(itracer)),'',255,128,&
+          &vlistID(k_jg),gridCellID(k_jg),zaxisIDdepth_m(k_jg)),k_jg)
+        CALL addVar(TimeVar('g_n_c_h_'//TRIM(oce_tracer_names(itracer)),&
+          &'g_n_c_h for '//TRIM(oce_tracer_names(itracer)),'',255,128,&
+          &vlistID(k_jg),gridCellID(k_jg),zaxisIDdepth_m(k_jg)),k_jg)
+        CALL addVar(TimeVar('g_nm1_c_v_'//TRIM(oce_tracer_names(itracer)),&
+          &'g_nm1_c_v for '//TRIM(oce_tracer_names(itracer)),'',255,128,&
+          &vlistID(k_jg),gridCellID(k_jg),zaxisIDdepth_m(k_jg)),k_jg)
+        CALL addVar(TimeVar('g_nm1_c_h_'//TRIM(oce_tracer_names(itracer)),&
+          &'g_nm1_c_h for '//TRIM(oce_tracer_names(itracer)),'',255,128,&
+          &vlistID(k_jg),gridCellID(k_jg),zaxisIDdepth_m(k_jg)),k_jg)
+        CALL addVar(TimeVar('g_nimd_c_v_'//TRIM(oce_tracer_names(itracer)),&
+          &'g_nimd_c_v for '//TRIM(oce_tracer_names(itracer)),'',255,128,&
+          &vlistID(k_jg),gridCellID(k_jg),zaxisIDdepth_m(k_jg)),k_jg)
+        CALL addVar(TimeVar('g_nimd_c_h_'//TRIM(oce_tracer_names(itracer)),&
+          &'g_nimd_c_h for '//TRIM(oce_tracer_names(itracer)),'',255,128,&
+          &vlistID(k_jg),gridCellID(k_jg),zaxisIDdepth_m(k_jg)),k_jg)
       END DO
+      CALL addVar(TimeVar('g_n','g_n','',255,128,&
+        &vlistID(k_jg),gridEdgeID(k_jg),zaxisIDdepth_m(k_jg)),k_jg)
+      CALL addVar(TimeVar('g_nm1','g_m1n','',255,128,&
+        &vlistID(k_jg),gridEdgeID(k_jg),zaxisIDdepth_m(k_jg)),k_jg)
+      CALL addVar(TimeVar('g_nimd','g_nimd','',255,128,&
+        &vlistID(k_jg),gridEdgeID(k_jg),zaxisIDdepth_m(k_jg)),k_jg)
 
     END IF  ! ocean
 
@@ -2983,12 +3049,27 @@ CONTAINS
       CASE ('VN');           ptr3d => p_prog%vn
       CASE ('T');            ptr3d => p_prog%tracer(:,:,:,1)
       CASE ('S');            ptr3d => p_prog%tracer(:,:,:,2)
+      CASE ('g_n');          ptr3d => p_aux%g_n(:,:,:)
+      CASE ('g_nm1');        ptr3d => p_aux%g_nm1(:,:,:)
+      CASE ('g_nimd');       ptr3d => p_aux%g_nimd(:,:,:)
+      CASE ('g_n_c_h_T');    ptr3d => p_aux%g_n_c_h(:,:,:,1)
+      CASE ('g_n_c_h_S');    ptr3d => p_aux%g_n_c_h(:,:,:,2)
+      CASE ('g_n_c_v_T');    ptr3d => p_aux%g_n_c_v(:,:,:,1)
+      CASE ('g_n_c_v_S');    ptr3d => p_aux%g_n_c_v(:,:,:,2)
+      CASE ('g_nm1_c_h_T');  ptr3d => p_aux%g_nm1_c_h(:,:,:,1)
+      CASE ('g_nm1_c_h_S');  ptr3d => p_aux%g_nm1_c_h(:,:,:,2)
+      CASE ('g_nm1_c_v_T');  ptr3d => p_aux%g_nm1_c_h(:,:,:,1)
+      CASE ('g_nm1_c_v_S');  ptr3d => p_aux%g_nm1_c_h(:,:,:,2)
+      CASE ('g_nimd_c_h_T'); ptr3d => p_aux%g_nimd_c_v(:,:,:,1)
+      CASE ('g_nimd_c_h_S'); ptr3d => p_aux%g_nimd_c_v(:,:,:,2)
+      CASE ('g_nimd_c_v_T'); ptr3d => p_aux%g_nimd_c_v(:,:,:,1)
+      CASE ('g_nimd_c_v_S'); ptr3d => p_aux%g_nimd_c_v(:,:,:,2)
       CASE ('VORT');         ptr3d => p_diag%vort
       CASE ('u-veloc');      ptr3d => p_diag%u
       CASE ('v-veloc');      ptr3d => p_diag%v
       CASE ('W');            ptr3d => p_diag%w
-      !CASE('press-grad');    ptr3d => p_diag%press_grad
-      !CASE ('rho');          ptr3d => p_diag%rho
+      CASE('press_grad');    ptr3d => p_diag%press_grad
+      CASE ('rho');          ptr3d => p_diag%rho
 
       CASE DEFAULT;    not_found = .TRUE.
     END SELECT

@@ -60,13 +60,14 @@ USE mo_model_domain,        ONLY: t_patch
 USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell, min_rledge,&
   &                               sea_boundary, MIN_DOLIC
 USE mo_exception,           ONLY: message, finish
+USE mo_oce_index,           ONLY: print_mxmn, jkc, jkdim, ipl_src
 USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base
 USE mo_physical_constants,  ONLY: grav, rho_ref, SItodBar
 USE mo_loopindices,         ONLY: get_indices_c,get_indices_e
 USE mo_math_constants,      ONLY: dbl_eps
 USE mo_dynamics_config,     ONLY: nold, nnew
-USE mo_oce_forcing,         ONLY: t_sfc_flx
-
+! USE mo_oce_forcing,         ONLY: t_sfc_flx
+USE mo_sea_ice,             ONLY: t_sfc_flx
 
 IMPLICIT NONE
 
@@ -227,7 +228,7 @@ CONTAINS
       END DO
     END DO
 
-   write(*,*)'largest edge length',z_largest_edge_length
+   !write(*,*)'largest edge length',z_largest_edge_length
 
     DO jb = i_startblk_e, i_endblk_e
       CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, &
@@ -282,7 +283,7 @@ CONTAINS
           ENDIF
         END DO
       END DO
-      write(*,*)'largest edge length',z_largest_edge_length
+      !write(*,*)'largest edge length',z_largest_edge_length
       DO jb = i_startblk_e, i_endblk_e
         CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, &
         &                   rl_start_e, rl_end_e)
@@ -311,7 +312,9 @@ CONTAINS
       END DO
     END SELECT
 
-write(*,*)'max/min diffusivity:',maxval(K_h(:,1,:)), minval(K_h(:,1,:))
+    ipl_src=0  ! output print level (1-5, fix)
+    CALL print_mxmn('PHY diffusivity',1,K_h(:,:,:),n_zlev,p_patch%nblks_c,'per',ipl_src)
+
   END SUBROUTINE calc_munk_based_lapl_diff
   !
   !
@@ -492,6 +495,7 @@ END INTERFACE
    REAL(wp) :: z_w_T
    REAL(wp) :: z_w_v
    REAL(wp) :: z_s1
+   REAL(wp) :: z_c(nproma,n_zlev+1,p_patch%nblks_c)
    REAL(wp),PARAMETER  :: z_lambda = 0.05_wp
    REAL(wp), PARAMETER :: z_0      = 40.0_wp
    REAL(wp), PARAMETER :: z_c1_T     = 5.0_wp
@@ -592,7 +596,7 @@ END INTERFACE
           ! & p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,2),&
           ! & z_press)
             !density of lower cell w.r.t.to pressure at intermediate level
-            IF (no_tracer >= MIN_DOLIC) z_s1 = p_os%p_prog(nold(1))%tracer(jc,jk,jb,2)
+            IF (no_tracer >= 2) z_s1 = p_os%p_prog(nold(1))%tracer(jc,jk,jb,2)
 
             z_rho_down(jc,jk,jb) = calc_density &
               & (p_os%p_prog(nold(1))%tracer(jc,jk,jb,1), z_s1, z_press)
@@ -672,12 +676,7 @@ END INTERFACE
               !  ELSE
               !    CALL FINISH(...)
               !  END IF
-
-  ! write(*,*)'AWT,Ttmp,frac,A_v',jk,jc, z_A_W_T(jc,jk,jb),a_t_tmp,z_frac,&
-  ! &params_oce%A_tracer_v(jc,jk,jb, i_no_trac)
-
-
-  ! write(*,*)'Ri number',jk,jc,jb,z_Ri_c, z_vert_density_grad_c(jk),z_rho_up(jc,jk,jb),&
+    ! write(*,*)'Ri number',jk,jc,jb,z_Ri_c, z_vert_density_grad_c(jk),z_rho_up(jc,jk,jb),&
   ! &z_rho_down(jc,jk,jb),&
   ! &z_press,z_frac,&
   ! & params_oce%A_tracer_v(jc,jk,jb, i_no_trac)
@@ -707,6 +706,17 @@ END INTERFACE
       END DO
     END DO
     !END DO
+
+!    DO jb = i_startblk_c, i_endblk_c
+!       CALL get_indices_c( p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
+!       &                   rl_start_c, rl_end_c)
+!         DO jc = i_startidx_c, i_endidx_c
+! 
+!  write(*,*)'Vert Trac diff:',&!A_T_tmp,&
+!    &params_oce%A_tracer_v(jc,:,jb, i_no_trac)
+!        END DO
+!     END DO 
+
     DO i_no_trac=1, no_tracer
       params_oce%A_tracer_v(:,1,:, i_no_trac) = params_oce%A_tracer_v_back(1) !params_oce%A_tracer_v(:,2,:,i_no_trac)
     END DO
@@ -718,7 +728,7 @@ END INTERFACE
         DO je = i_startidx_e, i_endidx_e
           z_dolic = v_base%dolic_e(je,jb)
          ! write(*,*)'z_dolic e',z_dolic,v_base%lsm_oce_e(je,jk,jb)
-          IF ( z_dolic >=2 ) THEN
+          IF ( z_dolic >=MIN_DOLIC ) THEN
 
             dz_inv = 1.0_wp/v_base%del_zlev_i(jk)
 
@@ -783,18 +793,22 @@ END INTERFACE
     params_oce%A_veloc_v(:,1,:) = params_oce%A_veloc_v(:,2,:)
 
 DO i_no_trac=1, no_tracer
+ z_c(:,:,:)=params_oce%A_tracer_v(:,:,:,i_no_trac)
  DO jk=1,n_zlev
- write(*,*)'max/min trac mixing',jk,maxval(params_oce%A_tracer_v(:,jk,:,i_no_trac)),&
- &minval(params_oce%A_tracer_v(:,jk,:,i_no_trac))
- write(123,*)'max/min trac mixing',jk,maxval(params_oce%A_tracer_v(:,jk,:,i_no_trac)),&
- &minval(params_oce%A_tracer_v(:,jk,:,i_no_trac))
+  ipl_src=3  ! output print level (1-5, fix)
+  CALL print_mxmn('PHY trac mixing',jk,z_c(:,:,:),n_zlev+1,p_patch%nblks_c,'phy',ipl_src)
+  !write(*,*)'max/min trac mixing',jk,maxval(params_oce%A_tracer_v(:,jk,:,i_no_trac)),&
+  !&minval(params_oce%A_tracer_v(:,jk,:,i_no_trac))
+  write(123,*)'max/min trac mixing',jk,maxval(params_oce%A_tracer_v(:,jk,:,i_no_trac)),&
+  &minval(params_oce%A_tracer_v(:,jk,:,i_no_trac))
  END DO
 END DO
  DO jk=1,n_zlev
- write(*,*)'max/min veloc mixing',jk,maxval(params_oce%A_veloc_v(:,jk,:)),&
- &minval(params_oce%A_veloc_v(:,jk,:))
- write(123,*)'max/min veloc mixing',jk,maxval(params_oce%A_veloc_v(:,jk,:)),&
- &minval(params_oce%A_veloc_v(:,jk,:))
+  ipl_src=3  ! output print level (1-5, fix)
+  CALL print_mxmn('PHY veloc mixing',jk,params_oce%A_veloc_v(:,:,:),n_zlev, &
+    & p_patch%nblks_e,'phy',ipl_src)
+  write(123,*)'max/min veloc mixing',jk,maxval(params_oce%A_veloc_v(:,jk,:)),&
+  &minval(params_oce%A_veloc_v(:,jk,:))
  END DO
 
  END SUBROUTINE update_ho_params

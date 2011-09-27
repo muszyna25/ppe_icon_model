@@ -176,7 +176,7 @@ CONTAINS
 
       IF (time_config%calendar /= calendar_old .OR.     &
           ini_datetime_string_old /= ini_datetime_string) THEN
-            
+
         time_config%cur_datetime = time_config%ini_datetime
 
       ELSE

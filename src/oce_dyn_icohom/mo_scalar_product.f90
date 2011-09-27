@@ -808,11 +808,11 @@ EDGE_BLK_LOOP: DO jb = i_startblk_e, i_endblk_e
         ib_c1 = p_patch%edges%cell_blk(je,jb,1)
         il_c2 = p_patch%edges%cell_idx(je,jb,2)
         ib_c2 = p_patch%edges%cell_blk(je,jb,2)
-        ptp_vn(je,jk,jb) =&
-        & DOT_PRODUCT(p_vn_c(il_c1,jk,ib_c1)%x,&
-                     &v_base%edge2cell_coeff_cc_t(je,jb,1)%x)&
-        &+DOT_PRODUCT(p_vn_c(il_c2,jk,ib_c2)%x,&
-                     &v_base%edge2cell_coeff_cc_t(je,jb,2)%x)
+         ptp_vn(je,jk,jb) =&
+         & DOT_PRODUCT(p_vn_c(il_c1,jk,ib_c1)%x,&
+                      &v_base%edge2cell_coeff_cc_t(je,jb,1)%x)&
+         &+DOT_PRODUCT(p_vn_c(il_c2,jk,ib_c2)%x,&
+                      &v_base%edge2cell_coeff_cc_t(je,jb,2)%x)
 
 !        i_ctr_c1 = 0
 !        i_ctr_c2 = 0
@@ -828,16 +828,13 @@ EDGE_BLK_LOOP: DO jb = i_startblk_e, i_endblk_e
 !           IF ( v_base%lsm_oce_e(ile_c2,jk,ibe_c2) < sea_boundary ) THEN
 !             i_ctr_c2 = i_ctr_c2 +1
 !           ENDIF
-!         END DO
-!        IF( i_ctr_c1 == 3 .AND. i_ctr_c2==3)THEN
-!          ELSE
-!            ptp_vn(je,jk,jb) =&
+!        END DO
+!         ptp_vn(je,jk,jb) =&
 !            &(i_ctr_c1*DOT_PRODUCT(p_vn_c(il_c1,jk,ib_c1)%x,&
 !                                &v_base%edge2cell_coeff_cc_t(je,jb,1)%x)&
 !            &+i_ctr_c2*DOT_PRODUCT(p_vn_c(il_c2,jk,ib_c2)%x,&
 !                                &v_base%edge2cell_coeff_cc_t(je,jb,2)%x))&
 !            &/(i_ctr_c1+i_ctr_c2)
-!          ENDIF
       ELSE
         ptp_vn(je,jk,jb) = 0.0_wp
       ENDIF

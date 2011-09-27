@@ -24,6 +24,7 @@ MODULE mo_io_restart
 #ifndef NOMPI
   USE mo_model_domain,          ONLY: t_patch
 #endif
+  USE mo_mpi,                   ONLY: my_process_is_stdio
   !
   IMPLICIT NONE
   !

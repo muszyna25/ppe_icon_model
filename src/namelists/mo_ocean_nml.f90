@@ -85,13 +85,22 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: toplev    = 1   ! surface ocean level
 
   ! parameterized forcing for ocean model:
-  INTEGER            :: iforc_oce                 =   0   ! index of parameterized forcing
+  INTEGER            :: iforc_oce                 =  0   ! index of parameterized forcing
   INTEGER, PARAMETER :: NO_FORCING                = 10
   INTEGER, PARAMETER :: ANALYT_FORC               = 11
   INTEGER,PARAMETER  :: FORCING_FROM_FILE_FLUX    = 12
   INTEGER,PARAMETER  :: FORCING_FROM_FILE_FIELD   = 13
   INTEGER, PARAMETER :: FORCING_FROM_COUPLED_FLUX = 14
   INTEGER, PARAMETER :: FORCING_FROM_COUPLED_FIELD= 15
+
+  ! type of time varying OMIP forcing: 1: u/v-stress/SST; 2: full OMIP for sea-ice
+  INTEGER            :: iforc_omip                =  0
+
+  ! length of time varying flux forcing: 1: read 12 months, 2: read 365 steps
+  INTEGER            :: iforc_len                 =  1
+
+  ! parameterized stationary forcing for ocean model:
+  INTEGER            :: iforc_stat_oce            =  0   ! index of parameterized forcing
 
   ! parameterized test cases for ocean model:
   INTEGER            :: itestcase_oce   =   0   ! index of parameterized test cases
@@ -191,23 +200,23 @@ MODULE mo_ocean_nml
     &                 iswm_oce, i_oce_stepping,                            &
     &                 i_bc_veloc_lateral,i_bc_veloc_top,i_bc_veloc_bot,    &
     &                 ab_const, ab_beta, ab_gam, solver_tolerance,         &
-    &                 l_RIGID_LID, lviscous, l_inverse_flip_flop, coriolis_type,&
-    &                 basin_center_lat, basin_center_lon,                  &
+    &                 l_RIGID_LID, lviscous, l_inverse_flip_flop,          &
+    &                 coriolis_type, basin_center_lat, basin_center_lon,   &
     &                 basin_width_deg,basin_height_deg,                    &
     &                 expl_vertical_velocity_diff,                         &
     &                 expl_vertical_tracer_diff 
  
 
 
-NAMELIST/ocean_physics_nml/EOS_TYPE, no_tracer, HORZ_VELOC_DIFF_TYPE,      &
+  NAMELIST/ocean_physics_nml/EOS_TYPE, no_tracer, HORZ_VELOC_DIFF_TYPE,    &
     &                 k_veloc_h, k_veloc_v,  k_pot_temp_h, k_pot_temp_v,   &
     &                 k_sal_h, k_sal_v,                                    &
     &                 MAX_VERT_DIFF_VELOC, MAX_VERT_DIFF_TRAC,             &
     &                 CWA, CWT,  bottom_drag_coeff, wstress_coeff       
 
 
-  NAMELIST/ocean_forcing_and_init_nml/iforc_oce, itestcase_oce,  &
-    &                 temperature_relaxation, relaxation_param
+  NAMELIST/ocean_forcing_and_init_nml/iforc_oce, iforc_omip, iforc_len,    &
+    &                 iforc_stat_oce, itestcase_oce, temperature_relaxation, relaxation_param
 
 
   ! ------------------------------------------------------------------------

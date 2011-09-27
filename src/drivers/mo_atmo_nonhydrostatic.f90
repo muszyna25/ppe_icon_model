@@ -148,7 +148,7 @@ CONTAINS
       !------------------------------------------------------------------
       ! Set initial conditions for time integration.
       !------------------------------------------------------------------
-     
+
     IF (is_restart_run()) THEN
       ! This is an resumed integration. Read model state from restart file(s).
 
@@ -264,7 +264,7 @@ CONTAINS
       ! diagnose u and v to have meaningful initial output
       ! For real-case runs, also diagnose pressure and temperature
       ! because these variables are needed for initializing the physics parameterizations
-    
+
       DO jg = 1, n_dom
 
         ! time levels

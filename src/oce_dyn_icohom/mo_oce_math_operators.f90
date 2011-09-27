@@ -1681,27 +1681,20 @@ DO jb = i_startblk, i_endblk
   DO jk = slev, elev
 
     DO je = i_startidx, i_endidx
+      IF(v_base%lsm_oce_e(je,jk,jb) < land_boundary)THEN
+        rorient = ptr_patch%edges%system_orientation(je,jb)
 
-      rorient = ptr_patch%edges%system_orientation(je,jb)
-
-      nabla2_vec_e(je,jk,jb) =  &
-        & rorient *  &
-        &   ( z_rot_v(ilc2(je),jk,ibv2(je)) - z_rot_v(ilc1(je),jk,ibv1(je)) )  &
-        &   * ptr_patch%edges%inv_primal_edge_length(je,jb)  &
-        & + ( z_div_c(ilv2(je),jk,ibc2(je)) - z_div_c(ilv1(je),jk,ibc1(je)) )  &
-        &   * ptr_patch%edges%inv_dual_edge_length(je,jb)
-
+        nabla2_vec_e(je,jk,jb) =  &
+          & rorient *  &
+          &   ( z_rot_v(ilc2(je),jk,ibv2(je)) - z_rot_v(ilc1(je),jk,ibv1(je)) )  &
+          &   * ptr_patch%edges%inv_primal_edge_length(je,jb)  &
+          & + ( z_div_c(ilv2(je),jk,ibc2(je)) - z_div_c(ilv1(je),jk,ibc1(je)) )  &
+          &   * ptr_patch%edges%inv_dual_edge_length(je,jb)
+      ELSE
+        nabla2_vec_e(je,jk,jb) = 0.0_wp
+      ENDIF
     END DO
-
   END DO
-
-  !set output on land to zero
-  DO jk = slev, elev
-    WHERE (v_base%lsm_oce_e(1:nproma,jk,jb) >= land_boundary)
-      nabla2_vec_e(1:nproma,jk,jb) = 0.0_wp
-    END WHERE
-  ENDDO
-
 END DO
 
 END SUBROUTINE nabla2_vec_ocean
