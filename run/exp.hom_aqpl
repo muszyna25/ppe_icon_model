@@ -13,7 +13,7 @@
 # Preliminary test phase: run on specific systems and compiler only
 #  - 2011-01-31: mpipc/tornado/squall - all compilers
 #  - 2011-03-03: blizzard serial run included
-#  - 2011-03-04: error test
+#
 if [ -z "$BB_SYSTEM" ]
 then
   echo " ===== (no buildbot) ======="

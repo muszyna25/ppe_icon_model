@@ -66,9 +66,11 @@ R=2   # nroot
 B=4   # number of bisections applied
 #
 #-----------------------------------------------------------------------------
-# ocean forcing - 12, 13 need additional flux file 
-# flux files are named $HGRIDDIR/omip4icon-R${R}B0{B}-monmean.nc
+# ocean forcing = 12 needs an additional flux file 
 iforc=10
+iforc_omip=1   # type of OMIP forcing to read: 1 = u/v-stress;     2 = full 12 OMIP datasets
+iforc_len=365  # length of forcing dataset:   12 = monthly data; 365 = daily data
+# flux files are named $HGRIDDIR/omip4icon-R${R}B0{B}-monmean.nc
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2000-01-01T00:00:00Z"
@@ -236,10 +238,12 @@ cat > ${ocean_namelist} << EOF
   iforc_oce          = ${iforc}  ! ocean forcing:
                                  ! NO_FORCING                 = 10
                                  ! ANALYT_FORC                = 11  - dependent on testcase
-                                 ! FORCING_FROM_FILE_FLUX     = 12  - OMIP wind forcing (08/2011)
-                                 ! FORCING_FROM_FILE_FIELD    = 13
-                                 ! FORCING_FROM_COUPLED_FLUX  = 14
-                                 ! FORCING_FROM_COUPLED_FIELD = 15
+                                 ! FORCING_FROM_FILE_FLUX     = 12  - OMIP type forcing
+                                 ! FORCING_FROM_FILE_FIELD    = 13  - not yet
+                                 ! FORCING_FROM_COUPLED_FLUX  = 14  - not yet
+                                 ! FORCING_FROM_COUPLED_FIELD = 15  - not yet
+  iforc_omip         = ${iforc_omip}  ! type of ocean forcing, see above
+  iforc_len          = ${iforc_len}   ! length of ocean forcing data set, see above
   iforc_stat_oce     =    0      ! stationary (wind) forcing for iforc_oce=11 only:
                                  ! 1=locally varying u,v (testcase 27, 29)
                                  ! 2=varying u with latitude for basin using basin_width_deg
