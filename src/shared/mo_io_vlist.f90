@@ -762,15 +762,29 @@ CONTAINS
 
       CALL gridDefXsize(lonlat_gridID(k_jg), grid%dimen(1))
       CALL gridDefXname(lonlat_gridID(k_jg), 'lon')
+      units = "degrees_east"
+      ulen = LEN(TRIM(units))
       CALL gridDefXunits(lonlat_gridID(k_jg), units(1:ulen))
 
       CALL gridDefYsize(lonlat_gridID(k_jg), grid%dimen(2))
       CALL gridDefYname(lonlat_gridID(k_jg), 'lat')
+      units = "degrees_north"
+      ulen = LEN(TRIM(units))
       CALL gridDefYunits(lonlat_gridID(k_jg), units(1:ulen))
 
-      ! define rotation info of lon-lat grid:
-      CALL gridDefXpole(lonlat_gridID(k_jg), grid%poleN(1))
-      CALL gridDefYpole(lonlat_gridID(k_jg), grid%poleN(2))
+      ! TODO [FP]
+
+      ! When specifying the north pole of the rotated lon-lat grid,
+      ! CDO conversion to GRIB format yields an incorrect longitude
+      ! axis, even if the north pole is identical to the lon-lat grid
+      ! without rotation.
+
+      ! As a TEMPORARY solution, the position of the rotated poly is
+      ! not stored in the NetCDF file, s.t. GRIB conversion works
+      ! correctly.
+
+      ! CALL gridDefXpole(lonlat_gridID(k_jg), grid%poleN(1)/pi_180)
+      ! CALL gridDefYpole(lonlat_gridID(k_jg), grid%poleN(2)/pi_180)
       ! Note: CALL gridDefAngle() not yet supported
 
       DO i=1,2 ! loop lon/lat
@@ -782,6 +796,7 @@ CONTAINS
           &      (/ (grid%start_corner(i)        &
           &            +  (k-1)*grid%delta(i),   &
           &      k=1,grid%dimen(i))  /) 
+        p_lonlat = p_lonlat/pi_180
 
         IF (i==1) THEN
           CALL gridDefXvals(lonlat_gridID(k_jg), p_lonlat)

@@ -14,36 +14,13 @@ load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/gsn_csm.ncl"
 
 begin
 
-  function rotated_phi(lambda, phi, poleX, poleY)
-  begin
-    ; transformation rotated -> standard grid,
-    ; see also SUBROUTINE mo_math_utilities::rotate_latlon()
-    ;    return asin( sin(phi)*sin(poleY) + cos(phi)*cos(lambda-poleX)*cos(poleY) )
-
-    ; transformation standard grid -> rotated:
-    return asin( sin(phi)*sin(poleY) + cos(phi)*cos(lambda)*cos(poleY) )
-  end
-    
-  function rotated_lambda(lambda, phi, poleX, poleY)
-  local vtan, vtan_nom, vtan_denom, l1, result
-  begin
-    ; transformation rotated -> standard grid,
-    ; see also SUBROUTINE mo_math_utilities::rotate_latlon()
-    ;    return atan2(cos(phi)*sin(lambda-poleX), (cos(phi)*sin(poleY)*cos(lambda-poleX) - sin(phi)*cos(poleY)) )
-
-    ; transformation standard grid -> rotated:
-    return atan2(cos(phi)*sin(lambda), sin(poleY)*cos(phi)*cos(lambda) - sin(phi)*cos(poleY)) + poleX
-
-  end
-
-
 ;---------------------------------------------------------------
 ; user defined parameters
 ;---------------------------------------------------------------
 
   DataFileName = "plot_latlon01.nc"  ; input
   outfilename  = "plot_latlon01"
-  Varname      = "PS_LONLAT"
+  Varname      = "T_LONLAT"
 
 ;---------------------------------------------------------------
 ; define map
@@ -96,16 +73,12 @@ begin
   res@tiMainString    = ":F22:ICON " + grid_category + \
   " RBF interpolation on lon-lat grid" ; add title, Font 22
 
-  ; read rotation info from NetCDF file:
-  poleX = cdf_file->rotated_pole@grid_north_pole_longitude  ; [-180, 180]*pi/180
-  poleY = cdf_file->rotated_pole@grid_north_pole_latitude   ; [   0,  90]*pi/180
-
   ; read (unrotated) lon-lat grid from NetCDF file:
   dim_lon = dimsizes(cdf_file->lon)
   dim_lat = dimsizes(cdf_file->lat)
 
-  lon = cdf_file->lon(:)
-  lat = cdf_file->lat(:)
+  lon = cdf_file->lon(:)*pi_180
+  lat = cdf_file->lat(:)*pi_180
 
   res@tiMainString    = res@tiMainString + \
   ", res. " + (lon(2)-lon(1))/pi_180 + "/" + (lat(2)-lat(1))/pi_180 + \
@@ -125,7 +98,7 @@ begin
 ;---------------------------------------------------------------
 
   ; interpolated data on lon-lat grid:
-  var_lonlat = cdf_file->$Varname$(0,:,:)      ; dims: (time,lev,lon,lat)
+  var_lonlat = cdf_file->$Varname$(1,0,:,:)      ; dims: (time,lev,lon,lat)
 
   res@cnFillOn              = True             ; turn on color
   res@cnLinesOn             = False            ; turn off contour lines
