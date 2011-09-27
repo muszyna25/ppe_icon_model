@@ -57,9 +57,9 @@ MODULE mo_gwd_wms
   USE mo_math_constants , ONLY : rpi => pi
   
   USE mo_physical_constants , ONLY :   &
-    & rd   , & ! gas constant for dry air
-    & rcpd,  & !
-    & rg    => grav     ! acceleration due to gravity
+    & rd           , & ! gas constant for dry air
+    & rcpd => cpd  , & ! specific heat capacity at constant pressure
+    & rg   => grav     ! acceleration due to gravity
   
   USE data_gwd,    ONLY : gcstar, gptwo, nslope, gfluxlaun, nlaunch, &
     & ggaussa, ggaussb, ngauss, gcoeff, lozpr
@@ -247,12 +247,9 @@ CONTAINS
     zcons2=rg**2/rcpd
     DO jk=klev,2,-1
       DO jl=kidia,kfdia
-        !    ZDELP=PAPM1(JL,JK)-PAPM1(JL,JK-1)
-        zdelp=pgeo1(jl,jk)-pgeo1(jl,jk-1)
         zrhohm1(jl,jk)=paphm1(jl,jk)*zcons1/zthm1(jl,jk)
-        zbvfhm1(jl,jk)=zcons2/zthm1(jl,jk)*&
-        !     & (1.0_JPRB-RCPD*ZRHOHM1(JL,JK)*(PTM1(JL,JK)-PTM1(JL,JK-1))/ZDELP)
-          & (1.0_JPRB+rcpd*(ptm1(jl,jk)-ptm1(jl,jk-1))/zdelp)
+        zbvfhm1(jl,jk)=zcons2/zthm1(jl,jk)*(1.0_JPRB+rcpd           &
+          *(ptm1(jl,jk)-ptm1(jl,jk-1))/(pgeo1(jl,jk)-pgeo1(jl,jk-1)))
         zbvfhm1(jl,jk)=MAX(zbvfhm1(jl,jk),gssec)
         zbvfhm1(jl,jk)=SQRT(zbvfhm1(jl,jk))
       ENDDO
