@@ -264,7 +264,7 @@ cat > ${ocean_namelist} << EOF
   idiag_oce          =    1      ! 0: no diagnostics; 1: write diagnostics to stderr
   temperature_relaxation= 2      ! 1=switched on for some testcases only
                                  ! 2=read 2m-temperature data for relaxation from bulk
-  relaxation_param   =    1.0    ! relaxation of tracer surface fluxes (same value for all tracers in months)
+  relaxation_param   =    3.0    ! relaxation of tracer surface fluxes (same value for all tracers in months)
                                  ! this value is divided by number of seconds per month (=30*24*3600)
 /
 &io_nml
