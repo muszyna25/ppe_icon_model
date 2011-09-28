@@ -1289,8 +1289,8 @@ CONTAINS
   !>
   !! Allocation of oceanic external data structure
   !!
-  !! Allocation of oceanic external data structure (constant in time 
-  !! elements).
+  !! Allocation of oceanic external data structure used for elements that are
+  !! stationary in time.
   !!
   !! Initialization of elements with zero.
   !!

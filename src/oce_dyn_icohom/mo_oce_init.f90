@@ -50,6 +50,9 @@ MODULE mo_oce_init
 !
 !
 USE mo_kind,               ONLY: wp
+USE mo_io_units,           ONLY: filename_max
+USE mo_mpi,                ONLY: my_process_is_stdio
+USE mo_grid_config,        ONLY: nroot
 USE mo_physical_constants, ONLY: re, rre, omega, rgrav,rho_ref,grav, SItodBar,sfc_press_bar
 USE mo_math_constants
 USE mo_parallel_config,    ONLY: nproma
@@ -81,6 +84,7 @@ USE mo_icon_cpl_exchg,     ONLY: ICON_cpl_put, ICON_cpl_get
 USE mo_icon_cpl_def_field, ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
 
 IMPLICIT NONE
+INCLUDE 'netcdf.inc'
 PRIVATE
 
 !VERSION CONTROL:
@@ -109,12 +113,104 @@ CONTAINS
   !-------------------------------------------------------------------------
   !
   SUBROUTINE init_ho_prog(ppatch, p_os, p_ext_data, p_sfc_flx)
-  TYPE(t_patch)                     :: ppatch
+  TYPE(t_patch), INTENT(IN)         :: ppatch
   TYPE(t_hydro_ocean_state), TARGET :: p_os
   TYPE(t_external_data)             :: p_ext_data 
   TYPE(t_sfc_flx)                   :: p_sfc_flx
 
   ! Local Variables
+
+  CHARACTER(len=max_char_length), PARAMETER :: routine = 'mo_oce_init:init_ho_prog'
+
+  CHARACTER(filename_max) :: prog_init_file   !< file name for reading in
+
+  LOGICAL :: l_exist
+  INTEGER :: i_lev, i_cell_type, no_cells, no_verts, no_tst
+  INTEGER :: ncid, dimid
+
+  REAL(wp):: z_flux(nproma,n_zlev,ppatch%nblks_c)
+
+  !-------------------------------------------------------------------------
+
+  CALL message (TRIM(routine), 'start')
+
+  i_lev       = ppatch%level
+  i_cell_type = ppatch%cell_type
+
+  write(*,*) 'not read yet'
+  return
+
+  IF(my_process_is_stdio()) THEN
+    !
+    ! Prognostic variables are read from prog_init_file
+    WRITE (prog_init_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-prog.nc'
+
+    INQUIRE (FILE=prog_init_file, EXIST=l_exist)
+    IF (.NOT.l_exist) THEN
+      CALL finish(TRIM(routine),'netcdf file for reading ocean prognostic input not found.')
+    ENDIF
+
+    !
+    ! open file
+    !
+    CALL nf(nf_open(TRIM(prog_init_file), NF_NOWRITE, ncid))
+
+    !
+    ! get number of cells and vertices
+    !
+    CALL nf(nf_inq_dimid(ncid, 'cell', dimid))
+    IF (i_cell_type == 3) THEN ! triangular grid
+      CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
+    ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+      CALL nf(nf_inq_dimlen(ncid, dimid, no_verts))
+    ENDIF
+
+    CALL nf(nf_inq_dimid(ncid, 'vertex', dimid))
+    IF (i_cell_type == 3) THEN ! triangular grid
+      CALL nf(nf_inq_dimlen(ncid, dimid, no_verts))
+    ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+      CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
+    ENDIF
+
+    !
+    ! check the number of cells
+    !
+    IF(ppatch%n_patch_cells_g /= no_cells) THEN
+      CALL finish(TRIM(ROUTINE),&
+      & 'Number of patch cells and cells in bathymetry file do not match.')
+    ENDIF
+  ENDIF
+
+
+  !-------------------------------------------------------
+  !
+  ! Read ocean init data at cells
+  !
+  !-------------------------------------------------------
+
+  ! triangle center and edges
+
+  IF (i_cell_type == 3) THEN     ! triangular grid
+
+    ! read
+    CALL read_netcdf_data (ncid, 'TEMP', ppatch%n_patch_cells_g,     &
+      &                     ppatch%n_patch_cells, ppatch%cells%glb_index, &
+      &                     z_flux)
+
+    CALL read_netcdf_data (ncid, 'SAL', ppatch%n_patch_cells_g,     &
+      &                     ppatch%n_patch_cells, ppatch%cells%glb_index, &
+      &                     z_flux)
+
+  ENDIF
+
+  !
+  ! close file
+  !
+  IF(my_process_is_stdio()) CALL nf(nf_close(ncid))
+
+  !ENDDO ! jg
+
+  CALL message( TRIM(routine),'Ocean bathymetry for external data read' )
 
 
   END SUBROUTINE init_ho_prog

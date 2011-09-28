@@ -264,7 +264,7 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
     ELSE
       ! output print level ipl_src used for GMRES output with call message:
       !IF (lverbose) THEN
-      ipl_src=1
+      ipl_src=0
       IF (i_dbg_oce >= ipl_src) THEN
         WRITE(string,'(a,i4,a,e20.10)') &
           'iteration =', n_iter,', residual =', ABS(zresidual(n_iter))
