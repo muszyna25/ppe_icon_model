@@ -2127,43 +2127,50 @@ CONTAINS
       &                   gridCellID(k_jg),&
       &                   zaxisID_surface(k_jg)),&
       &           k_jg)
-      CALL addVar(TimeVar('horz-adv',&
-      &                   'nonlin Cor ',&
-      &                   'm/s',2,128,&
-      &                   vlistID(k_jg),&
-      &                   gridEdgeID(k_jg), &
-      &                   zaxisIDdepth_m(k_jg)),&
-      &           k_jg)
-
-      CALL addVar(TimeVar('Ekin-grad',&
-      &                   'gradient Ekin ',&
-      &                   'm/s',2,128,&
-      &                   vlistID(k_jg),&
-      &                   gridEdgeID(k_jg), &
-      &                   zaxisIDdepth_m(k_jg)),&
-      &           k_jg)
-      CALL addVar(TimeVar('flux-u',&
-      &                   'sfc_flux u at centers',&
-      &                   'N/m2',13,128,&
+      CALL addVar(TimeVar('forc-t',&
+      &                   'temperature relaxation at centers',&
+      &                   'K*m/s',15,128,&
       &                   vlistID(k_jg),&
       &                   gridCellID(k_jg),&
       &                   zaxisID_surface(k_jg)),&
       &           k_jg)
-      CALL addVar(TimeVar('flux-v',&
-      &                   'sfc_flux v at centers',&
-      &                   'N/m2',14,128,&
-      &                   vlistID(k_jg),&
-      &                   gridCellID(k_jg),&
-      &                   zaxisID_surface(k_jg)),&
-      &           k_jg)
+   !  CALL addVar(TimeVar('horz-adv',&
+   !  &                   'nonlin Cor ',&
+   !  &                   'm/s',2,128,&
+   !  &                   vlistID(k_jg),&
+   !  &                   gridEdgeID(k_jg), &
+   !  &                   zaxisIDdepth_m(k_jg)),&
+   !  &           k_jg)
 
-      CALL addVar(TimeVar('flux-VN',&
-      &                   'sfc-flux at edge',&
-      &                   'm/s',2,128,&
-      &                   vlistID(k_jg),&
-      &                   gridEdgeID(k_jg), &
-      &                   zaxisID_surface(k_jg)),&
-      &           k_jg)
+   !  CALL addVar(TimeVar('Ekin-grad',&
+   !  &                   'gradient Ekin ',&
+   !  &                   'm/s',2,128,&
+   !  &                   vlistID(k_jg),&
+   !  &                   gridEdgeID(k_jg), &
+   !  &                   zaxisIDdepth_m(k_jg)),&
+   !  &           k_jg)
+   !  CALL addVar(TimeVar('flux-u',&
+   !  &                   'sfc_flux u at centers',&
+   !  &                   'N/m2',13,128,&
+   !  &                   vlistID(k_jg),&
+   !  &                   gridCellID(k_jg),&
+   !  &                   zaxisID_surface(k_jg)),&
+   !  &           k_jg)
+   !  CALL addVar(TimeVar('flux-v',&
+   !  &                   'sfc_flux v at centers',&
+   !  &                   'N/m2',14,128,&
+   !  &                   vlistID(k_jg),&
+   !  &                   gridCellID(k_jg),&
+   !  &                   zaxisID_surface(k_jg)),&
+   !  &           k_jg)
+
+   !  CALL addVar(TimeVar('flux-VN',&
+   !  &                   'sfc-flux at edge',&
+   !  &                   'm/s',2,128,&
+   !  &                   vlistID(k_jg),&
+   !  &                   gridEdgeID(k_jg), &
+   !  &                   zaxisID_surface(k_jg)),&
+   !  &           k_jg)
 
       CALL addVar(TimeVar('VN',&
       &                   'velocity normal to edge',&
@@ -2200,20 +2207,20 @@ CONTAINS
       &                   gridcellid(k_jg),&
       &                   zaxisID_halfdepth(k_jg)),&
       &           k_jg)
-      CALL addVar(TimeVar('press_grad',&
-      &                   'pressure-gradient at edges',&
-      &                   'm/s',5,128,&
-      &                   vlistID(k_jg), &
-      &                   gridEdgeID(k_jg), &
-      &                   zaxisIDdepth_m(k_jg)),&
-      &                   k_jg)
-      CALL addVar(TimeVar('rho',&
-      &                   'density cells',&
-      &                   'kg/m**3', 6, 128,&
-      &                   vlistid(k_jg),&
-      &                   gridcellid(k_jg),&
-      &                   zaxisIDdepth_m(k_jg)),&
-      &           k_jg)
+   !  CALL addVar(TimeVar('press_grad',&
+   !  &                   'pressure-gradient at edges',&
+   !  &                   'm/s',5,128,&
+   !  &                   vlistID(k_jg), &
+   !  &                   gridEdgeID(k_jg), &
+   !  &                   zaxisIDdepth_m(k_jg)),&
+   !  &                   k_jg)
+   !  CALL addVar(TimeVar('rho',&
+   !  &                   'density cells',&
+   !  &                   'kg/m**3', 6, 128,&
+   !  &                   vlistid(k_jg),&
+   !  &                   gridcellid(k_jg),&
+   !  &                   zaxisIDdepth_m(k_jg)),&
+   !  &           k_jg)
 
 
 
@@ -3041,6 +3048,7 @@ CONTAINS
       CASE ('ELEV');         ptr2d => p_prog%h
       CASE ('forc-u');       ptr2d => forcing%forc_wind_u
       CASE ('forc-v');       ptr2d => forcing%forc_wind_v
+      CASE ('forc-t');       ptr2d => forcing%forc_tracer(:,:,1)
       CASE('horz-adv');      ptr3d => p_diag%veloc_adv_horz
       CASE('Ekin-grad');     ptr3d => p_diag%grad
       CASE ('flux-u');       ptr2d => p_aux%bc_top_u
