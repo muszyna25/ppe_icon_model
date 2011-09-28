@@ -67,7 +67,7 @@ B=4   # number of bisections applied
 #
 #-----------------------------------------------------------------------------
 # ocean initialization (init_oce=1) needs an additional file for prognostic variables
-init_oce=1     # 1: use ocean initialization file; 0: init with constants or analytically
+init_oce=0     # 1: use ocean initialization file; 0: init with constants or analytically
 # prognostic ocean initialization files are named $HGRIDDIR/ts_phc_season-iconR${R}B0{B}-L11.nc
 #
 #-----------------------------------------------------------------------------
