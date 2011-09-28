@@ -2562,7 +2562,6 @@ CONTAINS
 
   END SUBROUTINE read_netcdf_4d
 
-
   !-------------------------------------------------------------------------
 
   SUBROUTINE nf(status)

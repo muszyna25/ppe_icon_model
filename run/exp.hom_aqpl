@@ -66,11 +66,17 @@ R=2   # nroot
 B=4   # number of bisections applied
 #
 #-----------------------------------------------------------------------------
+# ocean initialization (init_oce=1) needs an additional file for prognostic variables
+init_oce=1     # 1: use ocean initialization file; 0: init with constants or analytically
+# prognostic ocean initialization files are named $HGRIDDIR/ts_phc_season-iconR${R}B0{B}-L11.nc
+#
+#-----------------------------------------------------------------------------
 # ocean forcing = 12 needs an additional flux file 
 iforc=12
 iforc_omip=1   # type of OMIP forcing to read: 1 = u/v-stress;     2 = full 12 OMIP datasets
 iforc_len=365  # length of forcing dataset:   12 = monthly data; 365 = daily data
 # flux files are named $HGRIDDIR/omip4icon-R${R}B0{B}-monmean.nc
+#
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2000-01-01T00:00:00Z"
@@ -247,6 +253,7 @@ cat > ${ocean_namelist} << EOF
                                  ! 1=locally varying u,v (testcase 27, 29)
                                  ! 2=varying u with latitude for basin using basin_width_deg
                                  ! 3=varying u with latitude globally
+  init_oce_prog      = ${init_oce}    ! read ocean initialization file, see above
   itestcase_oce      =   40      ! 25=shallow-water-Laeuter-Test; 26=shallow-water-Williamson test5;
                                  ! 30=3D-multilayer Stommel; 31=3D-gravity wave
                                  ! 32=Multilayer Munk-Gyre test (following Sergey Danilov)

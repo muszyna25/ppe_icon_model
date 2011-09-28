@@ -94,16 +94,19 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: FORCING_FROM_COUPLED_FIELD= 15
 
   ! type of time varying OMIP forcing: 1: u/v-stress/SST; 2: full OMIP for sea-ice
-  INTEGER            :: iforc_omip                =  0
+  INTEGER            :: iforc_omip     = 0
 
   ! length of time varying flux forcing: 1: read 12 months, 2: read 365 steps
-  INTEGER            :: iforc_len                 =  1
+  INTEGER            :: iforc_len      = 1
 
-  ! parameterized stationary forcing for ocean model:
-  INTEGER            :: iforc_stat_oce            =  0   ! index of parameterized forcing
+  ! stationary forcing for ocean model:
+  INTEGER            :: iforc_stat_oce = 0
 
-  ! parameterized test cases for ocean model:
-  INTEGER            :: itestcase_oce   =   0   ! index of parameterized test cases
+  ! switch for reading prognostic variables:
+  INTEGER            :: init_oce_prog  = 0
+
+  ! test cases for ocean model; for the index see run scripts
+  INTEGER            :: itestcase_oce  = 0
 
   ! parameterized velocity boundary conditions
                       ! Velocity boundary condition: Currently only no-slip is supported !!
@@ -216,7 +219,8 @@ MODULE mo_ocean_nml
 
 
   NAMELIST/ocean_forcing_and_init_nml/iforc_oce, iforc_omip, iforc_len,    &
-    &                 iforc_stat_oce, itestcase_oce, temperature_relaxation, relaxation_param
+    &                 iforc_stat_oce, init_oce_prog, itestcase_oce,        &
+    &                 temperature_relaxation, relaxation_param
 
 
   ! ------------------------------------------------------------------------

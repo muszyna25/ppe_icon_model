@@ -56,8 +56,8 @@ USE mo_grid_config,        ONLY: nroot
 USE mo_physical_constants, ONLY: re, rre, omega, rgrav,rho_ref,grav, SItodBar,sfc_press_bar
 USE mo_math_constants
 USE mo_parallel_config,    ONLY: nproma
-USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer , &
-   &                             itestcase_oce,  &
+USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer, &
+   &                             init_oce_prog, itestcase_oce,  &
    &                             basin_center_lat, basin_center_lon,idisc_scheme,&
    &                             basin_height_deg,  basin_width_deg, temperature_relaxation
 USE mo_impl_constants,     ONLY: max_char_length, sea, sea_boundary, &
@@ -67,12 +67,11 @@ USE mo_dynamics_config,    ONLY: nold,nnew
 USE mo_master_control,     ONLY: is_coupled_run
 USE mo_math_utilities,     ONLY: t_cartesian_coordinates
 USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
-USE mo_exception,          ONLY: finish, message
+USE mo_exception,          ONLY: finish, message, message_text
 USE mo_oce_index,          ONLY: print_mxmn, jkc, jkdim, ipl_src
 USE mo_model_domain,       ONLY: t_patch
-USE mo_ext_data,           ONLY: t_external_data
-!USE mo_oce_forcing,        ONLY: t_sfc_flx
-USE mo_sea_ice,                   ONLY: t_sfc_flx
+USE mo_ext_data,           ONLY: read_netcdf_data, t_external_data
+USE mo_sea_ice,            ONLY: t_sfc_flx
 USE mo_oce_state,          ONLY: t_hydro_ocean_state, v_base
 USE mo_scalar_product,     ONLY: map_cell2edges, map_edges2cell, map_edges2edges, &
   &                                     calc_scalar_product_for_veloc, dual_flip_flop
@@ -124,108 +123,145 @@ CONTAINS
   CHARACTER(filename_max) :: prog_init_file   !< file name for reading in
 
   LOGICAL :: l_exist
-  INTEGER :: i_lev, i_cell_type, no_cells, no_verts, no_tst
-  INTEGER :: ncid, dimid, jk
+  INTEGER :: i_lev, i_cell_type, no_cells, no_verts, no_tst, jk, jb, jc
+  INTEGER :: ncid, dimid
+  INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start, rl_end_c
 
   REAL(wp):: z_c(nproma,n_zlev,ppatch%nblks_c)
-  REAL(wp):: z_flux(nproma,n_zlev,ppatch%nblks_c)
+  ! files ts_phc_season-iconR2B04-L11.nc have 11 levels
+  REAL(wp):: z_prog(nproma,11,ppatch%nblks_c)
 
   !-------------------------------------------------------------------------
 
   CALL message (TRIM(routine), 'start')
 
-  i_lev       = ppatch%level
-  i_cell_type = ppatch%cell_type
+  IF (init_oce_prog /= 1 ) THEN
+    CALL message (TRIM(routine), 'no initialization file to read - return')
+    RETURN
+  END IF
 
   !write(*,*) 'not read yet'
   !return
 
- !IF(my_process_is_stdio()) THEN
- !  !
- !  ! Prognostic variables are read from prog_init_file
- !  WRITE (prog_init_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-prog.nc'
+  i_lev        = ppatch%level
+  i_cell_type  = ppatch%cell_type
 
- !  INQUIRE (FILE=prog_init_file, EXIST=l_exist)
- !  IF (.NOT.l_exist) THEN
- !    CALL finish(TRIM(routine),'netcdf file for reading ocean prognostic input not found.')
- !  ENDIF
+  IF(my_process_is_stdio()) THEN
+    !
+    ! Prognostic variables are read from prog_init_file
+    WRITE (prog_init_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-prog.nc'
 
- !  !
- !  ! open file
- !  !
- !  CALL nf(nf_open(TRIM(prog_init_file), NF_NOWRITE, ncid))
+    INQUIRE (FILE=prog_init_file, EXIST=l_exist)
+    IF (.NOT.l_exist) THEN
+      CALL finish(TRIM(routine),'netcdf file for reading ocean prognostic input not found.')
+    ENDIF
 
- !  !
- !  ! get number of cells and vertices
- !  !
- !  CALL nf(nf_inq_dimid(ncid, 'cell', dimid))
- !  IF (i_cell_type == 3) THEN ! triangular grid
- !    CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
- !  ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
- !    CALL nf(nf_inq_dimlen(ncid, dimid, no_verts))
- !  ENDIF
+    WRITE(message_text,'(3a)') 'netcdf file named ', TRIM(prog_init_file), ' opened for reading'
+    CALL message(TRIM(routine),TRIM(message_text))
 
- !  CALL nf(nf_inq_dimid(ncid, 'vertex', dimid))
- !  IF (i_cell_type == 3) THEN ! triangular grid
- !    CALL nf(nf_inq_dimlen(ncid, dimid, no_verts))
- !  ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
- !    CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
- !  ENDIF
+    !
+    ! open file
+    !
+    CALL nf(nf_open(TRIM(prog_init_file), NF_NOWRITE, ncid))
 
- !  !
- !  ! check the number of cells
- !  !
- !  IF(ppatch%n_patch_cells_g /= no_cells) THEN
- !    CALL finish(TRIM(ROUTINE),&
- !    & 'Number of patch cells and cells in bathymetry file do not match.')
- !  ENDIF
- !ENDIF
+    !
+    ! get number of cells and vertices
+    !
+    CALL nf(nf_inq_dimid(ncid, 'ncells', dimid))
+    CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
+
+    !
+    ! check the number of cells
+    !
+    WRITE(message_text,'(a,i6)') 'No of cells =', no_cells
+    CALL message(TRIM(routine),TRIM(message_text))
+    IF(ppatch%n_patch_cells_g /= no_cells) THEN
+      CALL finish(TRIM(ROUTINE),&
+      & 'Number of patch cells and cells in bathymetry file do not match.')
+    ENDIF
+  ENDIF
 
 
- !!-------------------------------------------------------
- !!
- !! Read ocean init data at cells
- !!
- !!-------------------------------------------------------
+  !-------------------------------------------------------
+  !
+  ! Read ocean init data at cells
+  !
+  !-------------------------------------------------------
 
- !! triangle center and edges
+  ! triangle center and edges
 
- !IF (i_cell_type == 3) THEN     ! triangular grid
+  IF (i_cell_type == 3) THEN     ! triangular grid
 
- !  ! read
- !  CALL read_netcdf_data (ncid, 'TEMP', ppatch%n_patch_cells_g,     &
- !    &                     ppatch%n_patch_cells, ppatch%cells%glb_index, &
- !    &                     z_flux)
+    ! read temperature - TW: Winter temperature (Jan); TS: July; in deg Celsius
+    CALL read_netcdf_data (ncid, 'TW', ppatch%n_patch_cells_g,     &
+      &                     ppatch%n_patch_cells, ppatch%cells%glb_index, &
+      &                     11, z_prog)
 
- !  p_os%p_prog(nold(1))%tracer(:,:,:,1) = z_flux(:,:,:)
+    p_os%p_prog(nold(1))%tracer(:,1:n_zlev,:,1) = z_prog(:,1:n_zlev,:)
 
- !  IF (no_tracer > 1) THEN
- !    CALL read_netcdf_data (ncid, 'SAL', ppatch%n_patch_cells_g,     &
- !      &                     ppatch%n_patch_cells, ppatch%cells%glb_index, &
- !      &                     z_flux)
- !   
- !    p_os%p_prog(nold(1))%tracer(:,:,:,1) = z_flux(:,:,:)
- !  END IF
+    ! read salinity - SW: Winter (Jan); SS: July; in psu
+    IF (no_tracer > 1) THEN
+      CALL read_netcdf_data (ncid, 'SW', ppatch%n_patch_cells_g,     &
+        &                     ppatch%n_patch_cells, ppatch%cells%glb_index, &
+        &                     11, z_prog)
+     
+      p_os%p_prog(nold(1))%tracer(:,1:n_zlev,:,1) = z_prog(:,1:n_zlev,:)
+    END IF
 
- !END IF
+  END IF
 
- !!
- !! close file
- !!
- !IF(my_process_is_stdio()) CALL nf(nf_close(ncid))
+  !
+  ! close file
+  !
+  IF(my_process_is_stdio()) CALL nf(nf_close(ncid))
 
+  rl_start     = 1
+  rl_end_c     = min_rlcell
+  i_startblk_c = ppatch%cells%start_blk(rl_start,1)
+  i_endblk_c   = ppatch%cells%end_blk(rl_end_c,1)
 
- !jkc=1      ! current level - may not be zero
- !ipl_src=0  ! output print level (0-5, fix)
- !z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,1)
- !DO jk=1, n_zlev
- !  CALL print_mxmn('T-innitial',jk,z_c(:,:,:),n_zlev,ppatch%nblks_c,'per',ipl_src)
- !END DO
+  DO jk=1, n_zlev
+    DO jb = i_startblk_c, i_endblk_c    
+      CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c,&
+                & i_startidx_c, i_endidx_c, rl_start, rl_end_c)
+      DO jc = i_startidx_c, i_endidx_c
+        IF ( v_base%lsm_oce_c(jc,jk,jb) > sea_boundary ) THEN
+          p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 0.0_wp
+          IF (no_tracer>1) p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 0.0_wp
+        ENDIF
+      END DO
+    END DO
+  END DO
 
- !CALL message( TRIM(routine),'Ocean prognostic initialization data read' )
+  jkc=1      ! current level - may not be zero
+  ipl_src=0  ! output print level (0-5, fix)
+  z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,1)
+  DO jk=1, n_zlev
+    CALL print_mxmn('init_prog - T',jk,z_c(:,:,:),n_zlev,ppatch%nblks_c,'per',ipl_src)
+  END DO
+  IF (no_tracer > 1) THEN
+  z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,2)
+  DO jk=1, n_zlev
+    CALL print_mxmn('init_prog - S',jk,z_c(:,:,:),n_zlev,ppatch%nblks_c,'per',ipl_src)
+  END DO
+  END IF
+
+  CALL message( TRIM(routine),'Ocean prognostic initialization data read' )
 
 
   END SUBROUTINE init_ho_prog
+
+  !-------------------------------------------------------------------------
+
+  SUBROUTINE nf(status)
+
+    INTEGER, INTENT(in) :: status
+
+    IF (status /= nf_noerr) THEN
+      CALL finish('mo_ext_data netCDF error', nf_strerror(status))
+    ENDIF
+
+  END SUBROUTINE nf
 
   !-------------------------------------------------------------------------
 
