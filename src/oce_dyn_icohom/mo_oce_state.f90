@@ -1086,21 +1086,21 @@ CONTAINS
     &            ldims=(/nproma,n_zlev,nblks_e/))
 
     ! divergence component
-    CALL add_var(ocean_var_list, 'div', p_os_diag%div, GRID_UNSTRUCTURED_EDGE, &
+    CALL add_var(ocean_var_list, 'div', p_os_diag%div, GRID_UNSTRUCTURED_CELL, &
     &            ZAXIS_DEPTH_BELOW_SEA, &
     &            t_cf_var('div','','divergence'),&
     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE),&
-    &            ldims=(/nproma,n_zlev,nblks_c/),lrestart=.TRUE.)
+    &            ldims=(/nproma,n_zlev,nblks_c/))
 
     ! pressures
     CALL add_var(ocean_var_list, 'press_hyd', p_os_diag%press_hyd, GRID_UNSTRUCTURED_CELL,&
     &            ZAXIS_DEPTH_BELOW_SEA, t_cf_var('press_hyd','','hydrostatic pressure'),&
     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
-    &            ldims=(/nproma,n_zlev,nblks_c/),lrestart=.FALSE.)
+    &            ldims=(/nproma,n_zlev,nblks_c/))
     CALL add_var(ocean_var_list, 'press_grad', p_os_diag%press_grad, GRID_UNSTRUCTURED_EDGE,&
     &            ZAXIS_DEPTH_BELOW_SEA, t_cf_var('press_grad','',' pressure gradient'),&
     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE),&
-    &            ldims=(/nproma,n_zlev,nblks_e/),lrestart=.FALSE.)
+    &            ldims=(/nproma,n_zlev,nblks_e/))
 
     ! mass flux
     !CALL add_var(ocean_var_list, 'flux_mass', p_os_diag%flux_mass, GRID_UNSTRUCTURED_EDGE,&
