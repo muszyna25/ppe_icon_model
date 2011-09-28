@@ -2730,5 +2730,6 @@ CONTAINS
     INTEGER :: i
     INTEGER :: gsizes(this_list%p%nvars)
     INTEGER :: gtypes(this_list%p%nvars)
+    gtypes=0   ! in the  meantime, to be able of compiling, PR
   END FUNCTION
 END MODULE mo_var_list
