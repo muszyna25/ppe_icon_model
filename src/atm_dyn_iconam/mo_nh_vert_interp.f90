@@ -1150,7 +1150,7 @@ CONTAINS
           ENDIF
         ENDDO
         IF (lfound_all) THEN
-          jk_start = MINVAL(idx0(1:nlen,jk,jb))
+          jk_start = MIN(MINVAL(idx0(1:nlen,jk,jb)),nlevs_in-1)
         ELSE
           ierror(jb) = ierror(jb) + 1
         ENDIF
@@ -1357,7 +1357,7 @@ CONTAINS
           ENDIF
         ENDDO
         IF (lfound_all) THEN
-          jk_start = MINVAL(idx0(1:nlen,jk,jb))+1
+          jk_start = MIN(MINVAL(idx0(1:nlen,jk,jb))+1,nlevs_in-2)
         ELSE
           ierror(jb) = ierror(jb) + 1
         ENDIF
@@ -1767,7 +1767,7 @@ CONTAINS
           ENDIF
         ENDDO
         IF (lfound_all) THEN
-          jkm_start = MINVAL(idx0_ml(1:nlen,jkp))
+          jkm_start = MIN(MINVAL(idx0_ml(1:nlen,jkp)),nlevs_ml-1)
         ELSE
           ierror(jb) = ierror(jb) + 1
         ENDIF
@@ -1803,7 +1803,7 @@ CONTAINS
           ENDIF
         ENDDO
         IF (lfound_all) THEN
-          jkz_start = MINVAL(idx0_zl(1:nlen,jkp))
+          jkz_start = MIN(MINVAL(idx0_zl(1:nlen,jkp)),nlevs_zl-1)
         ELSE
           ierror(jb) = ierror(jb) + 1
         ENDIF

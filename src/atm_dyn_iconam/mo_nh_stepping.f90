@@ -433,7 +433,7 @@ MODULE mo_nh_stepping
       vnmax = global_max(vnmax) ! Get max over all PEs
       wmax  = global_max(wmax) ! Get max over all PEs
 
-      WRITE(message_text,'(a,2e14.6)') 'MAXABS VN, W ', vnmax, wmax
+      WRITE(message_text,'(a,2e18.10)') 'MAXABS VN, W ', vnmax, wmax
       CALL message(TRIM(routine),message_text)
 
     ENDIF ! msg_level >= 5
