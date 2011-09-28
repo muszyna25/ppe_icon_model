@@ -117,10 +117,9 @@ TYPE(t_sfc_flx), INTENT(INOUT)    :: p_sfc_flx
 INTEGER                           :: timestep! Actual timestep (to distinghuish initial step from others)
 !
 !Local variables
-INTEGER :: jk, jc,jb, i_no_t
-REAL(wp) :: max_val, min_val
-INTEGER  :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start_c, rl_end_c
-!INTEGER :: ntracers
+INTEGER :: i_no_t
+!REAL(wp) :: max_val, min_val
+!INTEGER  :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
 !CHARACTER(len=max_char_length), PARAMETER :: &
 !       & routine = ('mo_tracer_advection:advect_tracer_ab')
 !-------------------------------------------------------------------------------
@@ -279,7 +278,7 @@ DO jk = 1, n_zlev
     ! #slo# - Temperature: tf=-1.9 deg, freezing of sea water, is possible:
   IF (minval(trac_new(:,jk,:))<tf) THEN
     CALL finish(TRIM('mo_tracer_advection:advect_individual_tracer-h'), &
-      &              'Negative tracer values <-3.0 C') 
+      &              'Negative tracer values') 
   ENDIF
   !IF(minval(trac_new(:,jk,:))<0.0_wp)THEN
   !   CALL finish(TRIM('mo_tracer_advection:advect_individual_tracer-h'), &
@@ -732,7 +731,7 @@ REAL(wp) :: delta_t
 REAL(wp), OPTIONAL :: h_tmp(nproma,n_zlev, p_patch%nblks_c)
 !
 !Local variables
-REAL(wp) :: delta_z, delta_z2
+REAL(wp) :: delta_z
 !INTEGER  :: ctr, ctr_total
 INTEGER  :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start_c, rl_end_c
 INTEGER  :: jc, jk, jb, jkp1        !< index of edge, vert level, block
@@ -1085,7 +1084,7 @@ TYPE(t_hydro_ocean_state), TARGET :: p_os
 !
 !Local variables
 INTEGER, PARAMETER :: no_cell_edges = 3
-REAL(wp) :: delta_z!, delta_z2
+!REAL(wp) :: delta_z, delta_z2
 !INTEGER  :: ctr, ctr_total
 INTEGER  :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start_c, rl_end_c
 INTEGER  :: jc, jk, jb!, jkp1        !< index of edge, vert level, block

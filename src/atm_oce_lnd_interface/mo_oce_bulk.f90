@@ -128,7 +128,7 @@ CONTAINS
   INTEGER  :: jc, jb
   INTEGER  :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
   INTEGER  :: rl_start_c, rl_end_c
-  REAL(wp) :: z_relax, rday1, rday2
+  REAL(wp) :: z_tmin, z_relax, rday1, rday2
   REAL(wp) :: z_c(nproma,n_zlev,p_patch%nblks_c)
 
   ! Local declarations for coupling:
@@ -286,6 +286,10 @@ CONTAINS
       !  - change units to deg C, subtract tmelt (0 deg C, 273.15)
       !  - set minimum temperature to tf (-1.9 deg C) for simple temp-relax
       !  - set to zero on land points
+
+      z_tmin = tf  !  -1.9 deg C
+      z_tmin = -1.0_wp
+
       DO jb = i_startblk_c, i_endblk_c
         CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c,  &
           &                i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
@@ -294,7 +298,7 @@ CONTAINS
             p_sfc_flx%forc_tracer_relax(jc,jb,1) &
               & = p_sfc_flx%forc_tracer_relax(jc,jb,1) - tmelt
             p_sfc_flx%forc_tracer_relax(jc,jb,1) &
-              & = max(p_sfc_flx%forc_tracer_relax(jc,jb,1), tf)
+              & = max(p_sfc_flx%forc_tracer_relax(jc,jb,1), z_tmin)
           ELSE
             p_sfc_flx%forc_tracer_relax(jc,jb,1) = 0.0_wp
           END IF
