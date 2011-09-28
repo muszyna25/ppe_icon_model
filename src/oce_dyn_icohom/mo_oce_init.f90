@@ -56,12 +56,12 @@ USE mo_grid_config,        ONLY: nroot
 USE mo_physical_constants, ONLY: re, rre, omega, rgrav,rho_ref,grav, SItodBar,sfc_press_bar
 USE mo_math_constants
 USE mo_parallel_config,    ONLY: nproma
-USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer, &
-   &                             init_oce_prog, itestcase_oce,  &
-   &                             basin_center_lat, basin_center_lon,idisc_scheme,&
-   &                             basin_height_deg,  basin_width_deg, temperature_relaxation
-USE mo_impl_constants,     ONLY: max_char_length, sea, sea_boundary, &
-  &                              min_rlcell, min_rledge,  &
+USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer,                               &
+  &                              init_oce_prog, itestcase_oce,                              &
+  &                              basin_center_lat, basin_center_lon,idisc_scheme,           &
+  &                              basin_height_deg,  basin_width_deg, temperature_relaxation
+USE mo_impl_constants,     ONLY: max_char_length, sea, sea_boundary,                        &
+  &                              min_rlcell, min_rledge,                                    &
   &                              oce_testcase_zero, oce_testcase_init, oce_testcase_file
 USE mo_dynamics_config,    ONLY: nold,nnew
 USE mo_master_control,     ONLY: is_coupled_run
@@ -76,8 +76,8 @@ USE mo_oce_state,          ONLY: t_hydro_ocean_state, v_base
 USE mo_scalar_product,     ONLY: map_cell2edges, map_edges2cell, map_edges2edges, &
   &                                     calc_scalar_product_for_veloc, dual_flip_flop
 USE mo_oce_math_operators, ONLY: grad_fd_norm_oce,grad_fd_norm_oce_2D, height_related_quantities,&
-                                 &rot_vertex_ocean
-USE mo_oce_thermodyn,      ONLY: convert_insitu2pot_temp_func!, adisit
+  &                              rot_vertex_ocean
+USE mo_oce_thermodyn,      ONLY: convert_insitu2pot_temp_func
 USE mo_oce_linear_solver,  ONLY: gmres_e2e
 USE mo_icon_cpl_exchg,     ONLY: ICON_cpl_put, ICON_cpl_get
 USE mo_icon_cpl_def_field, ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
@@ -123,7 +123,7 @@ CONTAINS
   CHARACTER(filename_max) :: prog_init_file   !< file name for reading in
 
   LOGICAL :: l_exist
-  INTEGER :: i_lev, i_cell_type, no_cells, no_verts, no_tst, jk, jb, jc
+  INTEGER :: i_lev, no_cells, jk, jb, jc
   INTEGER :: ncid, dimid
   INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start, rl_end_c
 
@@ -144,7 +144,6 @@ CONTAINS
   !return
 
   i_lev        = ppatch%level
-  i_cell_type  = ppatch%cell_type
 
   IF(my_process_is_stdio()) THEN
     !
@@ -190,24 +189,20 @@ CONTAINS
 
   ! triangle center and edges
 
-  IF (i_cell_type == 3) THEN     ! triangular grid
+  ! read temperature - TW: Winter temperature (Jan); TS: July; in deg Celsius
+  CALL read_netcdf_data (ncid, 'TW', ppatch%n_patch_cells_g,     &
+    &                     ppatch%n_patch_cells, ppatch%cells%glb_index, &
+    &                     11, z_prog)
 
-    ! read temperature - TW: Winter temperature (Jan); TS: July; in deg Celsius
-    CALL read_netcdf_data (ncid, 'TW', ppatch%n_patch_cells_g,     &
+  p_os%p_prog(nold(1))%tracer(:,1:n_zlev,:,1) = z_prog(:,1:n_zlev,:)
+
+  ! read salinity - SW: Winter (Jan); SS: July; in psu
+  IF (no_tracer > 1) THEN
+    CALL read_netcdf_data (ncid, 'SW', ppatch%n_patch_cells_g,     &
       &                     ppatch%n_patch_cells, ppatch%cells%glb_index, &
       &                     11, z_prog)
-
+   
     p_os%p_prog(nold(1))%tracer(:,1:n_zlev,:,1) = z_prog(:,1:n_zlev,:)
-
-    ! read salinity - SW: Winter (Jan); SS: July; in psu
-    IF (no_tracer > 1) THEN
-      CALL read_netcdf_data (ncid, 'SW', ppatch%n_patch_cells_g,     &
-        &                     ppatch%n_patch_cells, ppatch%cells%glb_index, &
-        &                     11, z_prog)
-     
-      p_os%p_prog(nold(1))%tracer(:,1:n_zlev,:,1) = z_prog(:,1:n_zlev,:)
-    END IF
-
   END IF
 
   !

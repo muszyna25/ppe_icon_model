@@ -276,32 +276,32 @@ ptr_monitor%total_energy = ptr_monitor%pot_energy + ptr_monitor%kin_energy
 ENDIF
 
 DO i=timestep,timestep
-  write(*,*)'ACTUAL VALUES OF VOLUME NORMALIZED BY INITIAL VALUE:         ', i,&
+  write(0,*)'ACTUAL VALUES OF VOLUME NORMALIZED BY INITIAL VALUE:          ', i,&
   &oce_ts%oce_diagnostics(i)%volume/oce_ts%oce_diagnostics(0)%volume
 
 IF(oce_ts%oce_diagnostics(1)%kin_energy/=0.0_wp)THEN
-  write(*,*)'ACTUAL VALUES OF KINETIC ENERGY NORMALIZED BY INITIAL VALUE:  ',  i,&!timestep,&
+  write(0,*)'ACTUAL VALUES OF KINETIC ENERGY NORMALIZED BY INITIAL VALUE:  ',  i,&
   &oce_ts%oce_diagnostics(i)%kin_energy/ oce_ts%oce_diagnostics(1)%kin_energy
 ENDIF
 
 IF(oce_ts%oce_diagnostics(0)%pot_energy/=0.0_wp)THEN
-  write(*,*)'ACTUAL VALUES OF POTENTIAL ENERGY NORMALIZED BY INITIAL VALUE:',i,&
+  write(0,*)'ACTUAL VALUES OF POTENTIAL ENERGY NORMALIZED BY INITIAL VALUE:',i,&
   &oce_ts%oce_diagnostics(i)%pot_energy/ oce_ts%oce_diagnostics(0)%pot_energy
 ENDIF
 
 IF(oce_ts%oce_diagnostics(0)%total_energy/=0.0_wp)THEN
-  write(*,*)'ACTUAL VALUES OF TOTAL ENERGY NORMALIZED BY INITIAL VALUE:     ',i,&
+  write(0,*)'ACTUAL VALUES OF TOTAL ENERGY NORMALIZED BY INITIAL VALUE:    ',i,&
   &oce_ts%oce_diagnostics(i)%total_energy/ oce_ts%oce_diagnostics(0)%total_energy
 ENDIF
 DO i_no_t=1, no_tracer
   IF(oce_ts%oce_diagnostics(0)%tracer_content(i_no_t)/=0.0_wp)THEN
-    write(*,*)'ACTUAL VALUES OF TOTAL TRACER CONTENT:     ',i,&
+    write(0,*)'ACTUAL VALUES OF TOTAL TRACER CONTENT:                        ',i,&
     &oce_ts%oce_diagnostics(i)%tracer_content(i_no_t)&
     &/ oce_ts%oce_diagnostics(0)%tracer_content(i_no_t)
 
-    write(234,*)'ACTUAL VALUES OF TOTAL TRACER CONTENT:     ',i,&
-    &oce_ts%oce_diagnostics(i)%tracer_content(i_no_t)&
-    &/ oce_ts%oce_diagnostics(0)%tracer_content(i_no_t)
+ !  write(234,*)'ACTUAL VALUES OF TOTAL TRACER CONTENT:                        ',i,&
+ !  &oce_ts%oce_diagnostics(i)%tracer_content(i_no_t)&
+ !  &/ oce_ts%oce_diagnostics(0)%tracer_content(i_no_t)
 
   ENDIF
 END DO
@@ -337,8 +337,8 @@ REAL(wp) :: delta_z, prism_vol
 REAL(wp) :: z_w
 !TYPE(t_cartesian_coordinates) :: z_u_cc(nproma,n_zlev,p_patch%nblks_c)
 TYPE(t_oce_monitor), POINTER :: ptr_monitor
-! CHARACTER(len=max_char_length), PARAMETER :: &
-!        & routine = ('mo_oce_diagnostics:construct_oce_diagnostics')
+CHARACTER(len=max_char_length), PARAMETER :: &
+       & routine = ('mo_oce_diagnostics:construct_oce_diagnostics')
 !-----------------------------------------------------------------------
   ALLOCATE(oce_ts)
 
@@ -476,7 +476,7 @@ write(*,*)'INITIAL VALUES OF POTENTIAL ENERGY:',oce_ts%oce_diagnostics(0)%pot_en
 write(*,*)'INITIAL VALUES OF TOTAL ENERGY    :',oce_ts%oce_diagnostics(0)%total_energy
 
 
-!CALL message (TRIM(routine), 'end')
+CALL message (TRIM(routine), 'end')
 END SUBROUTINE construct_oce_diagnostics
 !-------------------------------------------------------------------------  
 !
@@ -495,8 +495,8 @@ TYPE(t_oce_timeseries),POINTER         :: oce_ts
 !local variables
 INTEGER :: i
 
-! CHARACTER(len=max_char_length), PARAMETER :: &
-!        & routine = ('mo_oce_diagnostics:destruct_oce_diagnostics')
+CHARACTER(len=max_char_length), PARAMETER :: &
+       & routine = ('mo_oce_diagnostics:destruct_oce_diagnostics')
 !-----------------------------------------------------------------------
    DO i=0,nsteps 
      DEALLOCATE(oce_ts%oce_diagnostics(i)%tracer_content)
@@ -504,10 +504,8 @@ INTEGER :: i
    DEALLOCATE(oce_ts%oce_diagnostics)
    DEALLOCATE(oce_ts)
 
-!CALL message (TRIM(routine), 'end')
+CALL message (TRIM(routine), 'end')
 END SUBROUTINE destruct_oce_diagnostics
 !-------------------------------------------------------------------------  
-
-
 
 END MODULE mo_oce_diagnostics

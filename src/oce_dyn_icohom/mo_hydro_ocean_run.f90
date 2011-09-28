@@ -51,7 +51,7 @@ USE mo_impl_constants,         ONLY: max_char_length
 USE mo_model_domain,           ONLY: t_patch
 USE mo_model_domain_import,    ONLY: n_dom
 USE mo_ocean_nml,              ONLY: iswm_oce, idisc_scheme, no_tracer, &
-  &                                  itestcase_oce, EOS_type,n_zlev
+  &                                  itestcase_oce, idiag_oce, EOS_type,n_zlev
 USE mo_dynamics_config,        ONLY: nold, nnew
 USE mo_io_config,              ONLY: out_expname, istime4output, istime4newoutputfile,&
   &                                  is_checkpoint_time, n_checkpoints
@@ -180,7 +180,6 @@ CONTAINS
   ! file 1 is opened in control_model setup:
   jfile = 1
 
-  !CALL init_index_test( ppatch, pstate_oce, p_ext_data )
   !IF ( iswm_oce == 1 ) THEN
     CALL construct_oce_diagnostics( ppatch(jg), pstate_oce(jg), p_ext_data(jg), oce_ts)
   !ENDIF
@@ -252,12 +251,14 @@ CONTAINS
 
    !Actually diagnostics for 3D not implemented, PK March 2011 
    !IF ( iswm_oce == 1 ) THEN
-    CALL calculate_oce_diagnostics( ppatch(jg),    &
-                                  & pstate_oce(jg),&
-                                  & p_sfc_flx,     &
-                                  & p_phys_param,  &
-                                  & jstep,         &
-                                  & oce_ts)
+    IF (idiag_oce == 1 ) THEN
+      CALL calculate_oce_diagnostics( ppatch(jg),    &
+                                    & pstate_oce(jg),&
+                                    & p_sfc_flx,     &
+                                    & p_phys_param,  &
+                                    & jstep,         &
+                                    & oce_ts)
+    ENDIF 
    !ENDIF 
     ! Step 8: test output
 !     IF (ldbg) WRITE(*,'(a,i5,2(a,g20.12))') '*** After jstep = ',jstep, &

@@ -118,8 +118,8 @@ CONTAINS
     REAL(wp):: z_scale
     REAL(wp):: z_c(nproma,1,p_patch%nblks_c)
     REAL(wp):: z_e(nproma,1,p_patch%nblks_e)
-    CHARACTER(len=max_char_length), PARAMETER :: &
-    & routine = ('mo_oce_boundcond:top_bound_cond_veloc')
+    !CHARACTER(len=max_char_length), PARAMETER :: &
+    !& routine = ('mo_oce_boundcond:top_bound_cond_veloc')
     !-----------------------------------------------------------------------
 
     ! Modification of surface wind forcing according to surface boundary condition 
@@ -204,6 +204,7 @@ CONTAINS
    CALL print_mxmn('top.bound.cond u',1,z_c(:,:,:),1,p_patch%nblks_c,'bnd',ipl_src)
    z_c(:,1,:)=top_bc_v_c(:,:)
    CALL print_mxmn('top.bound.cond v',1,z_c(:,:,:),1,p_patch%nblks_c,'bnd',ipl_src)
+   ipl_src=3  ! output print level (1-5, fix)
    z_e(:,1,:)=p_os%p_aux%bc_top_vn(:,:)
    CALL print_mxmn('top.bound.cond vn',1,z_e(:,:,:),1,p_patch%nblks_e,'bnd',ipl_src)
 
@@ -232,14 +233,16 @@ CONTAINS
     TYPE(t_ho_params), INTENT(IN)            :: p_phys_param    ! physical parameters
 
     ! Local variables
-    INTEGER :: jk, jb, je,jc
+    INTEGER :: jb, je,jc
     INTEGER :: il_c1, ib_c1, il_c2, ib_c2
     INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
     INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
     INTEGER :: rl_start_c, rl_end_c, rl_start_e, rl_end_e
     INTEGER  :: z_dolic, z_dolic_c1,z_dolic_c2
     REAL(wp) :: z_norm
+    REAL(wp) :: z_c(nproma,1,p_patch%nblks_c)
     REAL(wp) :: z_e(nproma,1,p_patch%nblks_e)
+    REAL(wp) :: z_e1(nproma,1,p_patch%nblks_e)
     REAL(wp) :: z_depth(nproma,1,p_patch%nblks_e)
     REAL(wp) :: z_div_depth(nproma,1,p_patch%nblks_c)
     TYPE(t_cartesian_coordinates) :: z_grad_u(nproma,1,p_patch%nblks_e)
@@ -247,17 +250,17 @@ CONTAINS
     & routine = ('mo_oce_boundcond:bot_bound_cond_veloc')
     !-----------------------------------------------------------------------
 
-rl_start_e = 1
-rl_end_e  = min_rledge
-
-rl_start_c = 1
-rl_end_c  = min_rlcell
-
-i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
-i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
-
-i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
-i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
+    rl_start_e = 1
+    rl_end_e  = min_rledge
+    
+    rl_start_c = 1
+    rl_end_c  = min_rlcell
+    
+    i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
+    i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
+    
+    i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
+    i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
 
 
 
@@ -367,18 +370,15 @@ i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
       CALL message (TRIM(routine),'choosen wrong bottom velocity boundary conditions') 
     END SELECT
 
-
-   write(*,*)'min/max bottom bc uv:',&
-  & minval(p_os%p_aux%bc_bot_u),maxval(p_os%p_aux%bc_bot_u), &
-  & minval(p_os%p_aux%bc_bot_v),maxval(p_os%p_aux%bc_bot_v) 
-
-  write(*,*)'min/max bottom bc vn:',&
-  & minval(p_os%p_aux%bc_bot_vn),maxval(p_os%p_aux%bc_bot_vn), &
-  & minval(z_e),maxval(z_e) 
-
     ipl_src=2  ! output print level (1-5, fix)
-    z_e(:,1,:)=p_os%p_aux%bc_bot_vn(:,:)
-    CALL print_mxmn('bot.bound.cond vn',1,z_e(:,:,:),1,p_patch%nblks_e,'bnd',ipl_src)
+    z_c(:,1,:)=p_os%p_aux%bc_bot_u(:,:)
+    CALL print_mxmn('bot.bound.cond u',  1,z_c(:,:,:),1,p_patch%nblks_c,'bnd',ipl_src)
+    z_c(:,1,:)=p_os%p_aux%bc_bot_v(:,:)
+    CALL print_mxmn('bot.bound.cond v',  1,z_c(:,:,:),1,p_patch%nblks_c,'bnd',ipl_src)
+    ipl_src=3  ! output print level (1-5, fix)
+    z_e1(:,1,:)=p_os%p_aux%bc_bot_vn(:,:)
+    CALL print_mxmn('bot.bound.cond vn', 1,z_e1(:,:,:),1,p_patch%nblks_e,'bnd',ipl_src)
+    CALL print_mxmn('bot.bound.cond z_e',1,z_e(:,:,:),1,p_patch%nblks_e,'bnd',ipl_src)
 
   END subroutine bot_bound_cond_horz_veloc
 

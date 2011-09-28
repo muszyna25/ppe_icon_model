@@ -108,6 +108,9 @@ MODULE mo_ocean_nml
   ! test cases for ocean model; for the index see run scripts
   INTEGER            :: itestcase_oce  = 0
 
+  ! switch for ocean diagnostics - 0: no diagnostics; 1: write to stderr
+  INTEGER            :: idiag_oce      = 0
+
   ! parameterized velocity boundary conditions
                       ! Velocity boundary condition: Currently only no-slip is supported !!
                       ! i_bc_veloc_lateral = 0: boundary condition for velocity is no-slip: normal
@@ -220,7 +223,7 @@ MODULE mo_ocean_nml
 
   NAMELIST/ocean_forcing_and_init_nml/iforc_oce, iforc_omip, iforc_len,    &
     &                 iforc_stat_oce, init_oce_prog, itestcase_oce,        &
-    &                 temperature_relaxation, relaxation_param
+    &                 idiag_oce, temperature_relaxation, relaxation_param
 
 
   ! ------------------------------------------------------------------------
