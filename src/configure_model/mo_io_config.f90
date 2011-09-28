@@ -68,6 +68,8 @@ MODULE mo_io_config
     REAL(wp):: dt_file                    ! timestep [seconds] for triggering new output file
     REAL(wp):: dt_checkpoint              ! timestep [seconds] for triggering new restart file
 
+    LOGICAL :: lwrite_initial             ! if .true., write out initial values
+
     LOGICAL :: lwrite_vorticity           ! if .true., write out vorticity
     LOGICAL :: lwrite_divergence          ! if .true., write out divergence
     LOGICAL :: lwrite_omega               ! if .true., write out the vertical velocity

@@ -133,7 +133,7 @@ CONTAINS
   !
   !
   SUBROUTINE perform_ho_stepping( ppatch, pstate_oce, p_ext_data, &
-                                & datetime, n_io, n_file, p_int,  &
+                                & datetime, n_io, lwrite_restart, p_int,  &
                                 & p_sfc_flx, p_phys_param,        &
                                 & p_as, p_atm_f, p_ice,           &
                                 & l_have_output)
@@ -142,7 +142,8 @@ CONTAINS
   TYPE(t_hydro_ocean_state), TARGET, INTENT(INOUT) :: pstate_oce(n_dom)
   TYPE(t_external_data), TARGET, INTENT(IN)        :: p_ext_data(n_dom)
   TYPE(t_datetime), INTENT(INOUT)                  :: datetime
-  INTEGER, INTENT(IN)                              :: n_io, n_file
+  INTEGER, INTENT(IN)                              :: n_io
+  LOGICAL, INTENT(IN)                              :: lwrite_restart
   TYPE(t_int_state),TARGET,INTENT(IN), OPTIONAL    :: p_int(n_dom)
   TYPE(t_sfc_flx)                                  :: p_sfc_flx
   TYPE (t_ho_params)                               :: p_phys_param
@@ -181,7 +182,7 @@ CONTAINS
   jfile = 1
 
   !IF ( iswm_oce == 1 ) THEN
-    CALL construct_oce_diagnostics( ppatch(jg), pstate_oce(jg), p_ext_data(jg), oce_ts)
+  CALL construct_oce_diagnostics( ppatch(jg), pstate_oce(jg), p_ext_data(jg), oce_ts)
   !ENDIF
 
   IF (ltimer) CALL timer_start(timer_total)
@@ -206,22 +207,19 @@ CONTAINS
 
       IF(iswm_oce /= 1)THEN
         SELECT CASE (EOS_TYPE)
-          CASE(1)
-
-            CALL update_ho_params(ppatch(jg), pstate_oce(jg), p_sfc_flx, p_phys_param,&
+        CASE(1)
+          CALL update_ho_params(ppatch(jg), pstate_oce(jg), p_sfc_flx, p_phys_param,&
                                 & calc_density_lin_EOS_func)
 
-         CASE(2)
-           CALL update_ho_params(ppatch(jg), pstate_oce(jg), p_sfc_flx, p_phys_param,&
+        CASE(2)
+          CALL update_ho_params(ppatch(jg), pstate_oce(jg), p_sfc_flx, p_phys_param,&
                                  & calc_density_MPIOM_func)
         CASE(3)
-           CALL update_ho_params(ppatch(jg), pstate_oce(jg), p_sfc_flx, p_phys_param,&
+          CALL update_ho_params(ppatch(jg), pstate_oce(jg), p_sfc_flx, p_phys_param,&
                                  & calc_density_JMDWFG06_EOS_func)
-
         CASE DEFAULT
-
-       END SELECT
-     ENDIF
+        END SELECT
+      ENDIF
 
       ! solve for new free surface
       CALL solve_free_surface_eq_ab (ppatch(jg), pstate_oce(jg), p_ext_data(jg), &
@@ -231,26 +229,19 @@ CONTAINS
       !         and updated surface height
       CALL calc_normal_velocity_ab(ppatch(jg), pstate_oce(jg), p_ext_data(jg), p_phys_param)
 
+      ! Step 5: calculate vertical velocity from continuity equation under incompressiblity condition
+      ! in the non-shallow-water case
       IF ( iswm_oce /= 1 ) THEN
-        ! Step 5: calculate vertical velocity from continuity equation under incompressiblity condition
         CALL calc_vert_velocity( ppatch(jg), pstate_oce(jg))
       ENDIF
 
-      ! Step 6 transport tracer and diffuse them
+      ! Step 6 transport tracers and diffuse them
       IF(no_tracer>=1)THEN
         CALL advect_tracer_ab(ppatch(jg), pstate_oce(jg), p_phys_param,p_sfc_flx, jstep)
       ENDIF
     ENDIF
 
-    ! Step 7: Swap time indices before output
-    !         half time levels of semi-implicit Adams-Bashforth timestepping are
-    !         stored in auxiliary arrays g_n and g_nimd of p_diag%aux
-    n_temp    = nold(jg)
-    nold(jg)  = nnew(jg)
-    nnew(jg)  = n_temp
-
    !Actually diagnostics for 3D not implemented, PK March 2011 
-   !IF ( iswm_oce == 1 ) THEN
     IF (idiag_oce == 1 ) THEN
       CALL calculate_oce_diagnostics( ppatch(jg),    &
                                     & pstate_oce(jg),&
@@ -259,7 +250,7 @@ CONTAINS
                                     & jstep,         &
                                     & oce_ts)
     ENDIF 
-   !ENDIF 
+
     ! Step 8: test output
 !     IF (ldbg) WRITE(*,'(a,i5,2(a,g20.12))') '*** After jstep = ',jstep, &
 !       &  '  Elevation h =', pstate_oce(jg)%p_prog(nold(jg))%h(c_i,c_b), &
@@ -268,8 +259,7 @@ CONTAINS
     ! resolution). Set model time.
     CALL add_time(dtime,0,0,0,datetime)
 
-!TODO    l_outputtime = istime4output(jstep)
-    l_outputtime = (MOD(jstep,n_io) == 0)!  .OR. jstep==nsteps)
+    l_outputtime = (MOD(jstep,n_io) == 0)
     IF ( l_outputtime ) THEN
       CALL write_output( datetime )
       CALL message (TRIM(routine),'Write output at:')
@@ -283,10 +273,8 @@ CONTAINS
       CALL init_output_files(jfile,lclose=l_have_output)
     END IF
 
-
-
-    ! write a restart file
-    IF (is_checkpoint_time(jstep,n_checkpoints())) THEN
+    ! write a restart or checkpoint file
+    IF (MOD(jstep,n_checkpoints())==0 .OR. (jstep==nsteps .AND. lwrite_restart)) THEN
       CALL create_restart_file( ppatch(jg), datetime,  &
                               & jfile, l_have_output,opt_depth=n_zlev)
       ! Create the master (meta) file in ASCII format which contains
@@ -295,19 +283,11 @@ CONTAINS
     END IF
 
     ! update intermediate timestepping variables
-    CALL update_for_next_timestep(pstate_oce(jg))
-    !CALL message (TRIM(routine),'Step completed at:')
+    CALL update_for_next_timestep(pstate_oce(jg),jg)
 
   ENDDO TIME_LOOP
-  !IF ( iswm_oce == 1 ) THEN
-    CALL destruct_oce_diagnostics(oce_ts)
-   !ENDIF
 
-!   IF (ldbg) THEN
-!     WRITE(*,*)  ' After run:'
-!     WRITE(*,form4ar) ' Elevation h at cell   =', pstate_oce(jg)%p_prog(jt)%h(c_i,c_b),  &
-!       &              '  Tracer 1 =', pstate_oce(jg)%p_prog(jt)%tracer(c_i,c_k,c_b,1)
-!   ENDIF
+  CALL destruct_oce_diagnostics(oce_ts)
 
   IF (ltimer) CALL timer_stop(timer_total)
 
@@ -434,10 +414,19 @@ CONTAINS
   END SUBROUTINE finalise_ho_integration
 
 
-  SUBROUTINE update_for_next_timestep(p_os)
+  SUBROUTINE update_for_next_timestep(p_os,jg)
     TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os
+    INTEGER, INTENT(IN)                      :: jg
 
-    INTEGER :: it
+    INTEGER :: it, n_temp
+
+
+    ! Step 7: Swap time indices before output
+    !         half time levels of semi-implicit Adams-Bashforth timestepping are
+    !         stored in auxiliary arrays g_n and g_nimd of p_diag%aux
+    n_temp    = nold(jg)
+    nold(jg)  = nnew(jg)
+    nnew(jg)  = n_temp
 
     ! tracer updates
     DO it = 1,no_tracer

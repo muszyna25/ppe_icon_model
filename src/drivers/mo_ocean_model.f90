@@ -53,7 +53,7 @@ MODULE mo_ocean_model
 
   ! Control parameters: run control, dynamics, i/o
   !
-  USE mo_io_config,           ONLY:  dt_data,dt_file,dt_diag!,dt_checkpoint
+  USE mo_io_config,           ONLY:  dt_data,dt_file,dt_diag,lwrite_initial
   USE mo_io_config,           ONLY:  n_diags, n_checkpoints,n_files,n_ios
   USE mo_run_config,          ONLY: &
     & dtime,                & !    :
@@ -159,7 +159,7 @@ CONTAINS
 
     TYPE(t_datetime)                                :: datetime
 
-    INTEGER :: n_io, jg, jfile, n_file, ist, n_diag
+    INTEGER :: n_io, jg, jfile, ist
 
     ! For the coupling
 
@@ -474,16 +474,12 @@ CONTAINS
     !  forcing is part of the restart file
     END IF ! is_restart_run()
 
-
-
     !------------------------------------------------------------------
     ! Now start the time stepping:
     ! The special initial time step for the three time level schemes
     ! is executed within process_grid_level
     !------------------------------------------------------------------
     n_io    = n_ios()   ! number of: write output
-    n_file  = n_files() ! number of: trigger new output file
-    n_diag  = n_diags() ! number of: diagnose of total integrals
 
     !------------------------------------------------------------------
     ! Initialize output file if necessary;
@@ -495,7 +491,7 @@ CONTAINS
       ! initial conditions.
       jfile = 1
       CALL init_output_files(jfile, lclose=.FALSE.)
-      CALL write_output( time_config%cur_datetime )
+      IF (lwrite_initial) CALL write_output( time_config%cur_datetime )
       l_have_output = .TRUE.
     ELSE
     ! No need to write out the initial condition, thus no output
@@ -513,10 +509,9 @@ CONTAINS
 
     END IF ! (not) is_restart_run()
 
-    CALL write_output(datetime)
-
     CALL perform_ho_stepping( p_patch(1:), v_ocean_state,          &
-      &                       ext_data, datetime, n_io, n_file,    &
+      &                       ext_data, datetime, n_io,            &
+      &                       (nsteps == INT(time_config%dt_restart/dtime)),&
       &                       p_int_state(1:),                     &
       &                       v_sfc_flx,                           &
       &                       p_phys_param, p_as, p_atm_f, p_ice,  &
@@ -537,8 +532,6 @@ CONTAINS
     ! 13. Integration finished. Carry out the shared clean-up processes
     !---------------------------------------------------------------------
     ! Destruct external data state
-!       CALL destruct_vlist_oce( jg )
-
     CALL destruct_ext_data
 
     ! deallocate ext_data array
@@ -550,8 +543,6 @@ CONTAINS
     ! Deallocate interpolation fields
     ! interpolation state not used for ocean model
     ! #slo# - temporarily switched on for comparison with rbf-reconstruction
-    !IF (iequations /= ihs_ocean) THEN
-
     CALL destruct_2d_interpol_state( p_int_state )
     IF(my_process_is_mpi_seq() .OR. lrestore_states) THEN
       DEALLOCATE (p_int_state_global, stat=ist)
@@ -561,8 +552,6 @@ CONTAINS
     IF (ist /= success) THEN
       CALL finish(TRIM(routine),'deallocation for ptr_int_state failed')
     ENDIF
-
-    !ENDIF
 
     ! Deallocate grid patches
 

@@ -40,7 +40,7 @@ MODULE mo_atmo_hydrostatic
   USE mo_time_config,       ONLY: time_config
   USE mo_run_config,        ONLY: dtime, nsteps, ltestcase, ltimer,iforcing, nlev
   USE mo_ha_testcases,      ONLY: ctest_name
-  USE mo_io_config,         ONLY: n_diags, n_checkpoints,n_files,n_ios
+  USE mo_io_config,         ONLY: n_diags, n_checkpoints,n_files,n_ios,lwrite_initial
 
   USE mo_model_domain,        ONLY: p_patch
   USE mo_intp_data_strc,      ONLY: p_int_state, p_int_state_lonlat
@@ -149,7 +149,7 @@ CONTAINS
 
       jfile = 1
       CALL init_output_files(jfile, lclose=.FALSE.)
-      CALL write_output( time_config%cur_datetime )
+      IF (lwrite_initial) CALL write_output( time_config%cur_datetime )
       l_have_output = .TRUE.
 
     ELSE

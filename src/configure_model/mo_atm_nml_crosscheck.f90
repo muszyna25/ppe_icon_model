@@ -192,7 +192,6 @@ CONTAINS
   SUBROUTINE oce_crosscheck()
     CALL check_parallel_configuration()
     CALL resize_simulation_length()
-      !TODO nsteps = nsteps + 1
   END SUBROUTINE oce_crosscheck
   SUBROUTINE atm_crosscheck
 

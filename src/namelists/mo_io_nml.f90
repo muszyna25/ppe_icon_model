@@ -58,6 +58,7 @@ MODULE mo_io_nml
                                  & config_dt_diag           => dt_diag          , &
                                  & config_dt_file           => dt_file          , &
                                  & config_dt_checkpoint     => dt_checkpoint    , &
+                                 & config_lwrite_initial    => lwrite_initial   , &
                                  & config_lwrite_vorticity  => lwrite_vorticity , &
                                  & config_lwrite_divergence => lwrite_divergence, &
                                  & config_lwrite_omega      => lwrite_omega     , &
@@ -95,6 +96,7 @@ MODULE mo_io_nml
   REAL(wp):: dt_checkpoint              ! timestep [seconds] for triggering new restart file
 
   LOGICAL :: no_output                  ! if .true., write nothing
+  LOGICAL :: lwrite_initial             ! if .true., write out initial state
   LOGICAL :: lwrite_vorticity           ! if .true., write out vorticity
   LOGICAL :: lwrite_divergence          ! if .true., write out divergence
   LOGICAL :: lwrite_pres                ! if .true., write out full level pressure
@@ -121,6 +123,7 @@ MODULE mo_io_nml
 
   NAMELIST/io_nml/ out_expname, out_filetype, lkeep_in_sync,          &
     &              dt_data, dt_diag, dt_file, dt_checkpoint,          &
+    &              lwrite_initial,                                    &
     &              lwrite_vorticity, lwrite_divergence, lwrite_omega, &
     &              lwrite_pres, lwrite_z3, lwrite_tracer,             &
     &              lwrite_tend_phy, lwrite_radiation, lwrite_precip,  &
@@ -152,34 +155,35 @@ CONTAINS
     !-----------------------
     ! 1. default settings
     !-----------------------
-    no_output     = .FALSE.
-    out_expname   = 'IIIEEEETTTT'
-    out_filetype  = 2
-    lkeep_in_sync = .FALSE.
+    no_output         = .FALSE.
+    out_expname       = 'IIIEEEETTTT'
+    out_filetype      = 2
+    lkeep_in_sync     = .FALSE.
 
-    dt_data       = 21600.0_wp   !  6 hours
-    dt_diag       = 86400._wp    !  1 day
-    dt_file       = 2592000._wp  ! 30 days
-    dt_checkpoint = 2592000._wp  ! 30 days
+    dt_data           = 21600.0_wp   !  6 hours
+    dt_diag           = 86400._wp    !  1 day
+    dt_file           = 2592000._wp  ! 30 days
+    dt_checkpoint     = 2592000._wp  ! 30 days
 
-    lwrite_vorticity   = .TRUE.
-    lwrite_divergence  = .TRUE.
-    lwrite_omega       = .TRUE.
-    lwrite_pres        = .TRUE.
-    lwrite_z3          = .TRUE.
-    lwrite_tracer(:)   = .TRUE.
+    lwrite_initial    = .TRUE.
+    lwrite_vorticity  = .TRUE.
+    lwrite_divergence = .TRUE.
+    lwrite_omega      = .TRUE.
+    lwrite_pres       = .TRUE.
+    lwrite_z3         = .TRUE.
+    lwrite_tracer(:)  = .TRUE.
 
-    lwrite_tend_phy    = .FALSE.
-    lwrite_radiation   = .FALSE.
-    lwrite_precip      = .FALSE.
-    lwrite_cloud       = .FALSE.
-    lwrite_tke         = .FALSE.
-    lwrite_surface     = .FALSE.
-    lwrite_extra       = .FALSE.
-    lwrite_pzlev       = .FALSE.
-    inextra_2d         = 0     ! no extra output 2D fields
-    inextra_3d         = 0     ! no extra output 3D fields
-    lflux_avg          = .FALSE.
+    lwrite_tend_phy   = .FALSE.
+    lwrite_radiation  = .FALSE.
+    lwrite_precip     = .FALSE.
+    lwrite_cloud      = .FALSE.
+    lwrite_tke        = .FALSE.
+    lwrite_surface    = .FALSE.
+    lwrite_extra      = .FALSE.
+    lwrite_pzlev      = .FALSE.
+    inextra_2d        = 0     ! no extra output 2D fields
+    inextra_3d        = 0     ! no extra output 3D fields
+    lflux_avg         = .FALSE.
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above
@@ -238,6 +242,7 @@ CONTAINS
     config_dt_diag           = dt_diag
     config_dt_file           = dt_file
     config_dt_checkpoint     = dt_checkpoint
+    config_lwrite_initial    = lwrite_initial
     config_lwrite_vorticity  = lwrite_vorticity
     config_lwrite_divergence = lwrite_divergence
     config_lwrite_omega      = lwrite_omega
