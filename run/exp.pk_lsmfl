@@ -91,7 +91,7 @@ ndays_restart=1000   # stop model for restart [days]
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $ndays
-nsteps=`expr ${ndays} \* 86400 / ${dtime} + 1 `
+nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 #nsteps=5 
 # diagnostic output (not in ocean model)
 #dt_diag=`expr 4 \* 3600 `    #  output each 4 hours
