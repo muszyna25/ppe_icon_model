@@ -40,7 +40,7 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=600
+dtime=300
 ndays=10
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 #nsteps=10
@@ -52,7 +52,7 @@ atmo_model_equations=1   # equation system
 #                     2=non-hydrost. atm., 
 #                    -1=shallow water model
 #                    -2=hydrost. ocean
-nlev=31             # nlev = number of full levels
+nlev=47             # nlev = number of full levels
 #-----------------------------------------------------------------------------
 # the grid files
 #-----------------------------------------------------------------------------
@@ -76,10 +76,65 @@ atmo_dyn_grids="$ocean_grids"
 # For a complete list see Namelist_overview and Namelist_overview.pdf
 #  
 cat > $atmo_namelist << EOF
-!
+&coupling_nml
+  name                = 'TAUX'
+  time_step           =  ${dtime}
+  frequency           =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+/
+&coupling_nml
+  name                = 'TAUY'
+  time_step           =  ${dtime}
+  frequency           =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+/
+&coupling_nml
+  name                = 'SFWFLX'
+  time_step           =  ${dtime}
+  frequency           =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+/
+&coupling_nml
+  name                = 'SFTEMP'
+  time_step           =  ${dtime}
+  frequency           =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+/
+&coupling_nml
+  name                = 'THFLX'
+  time_step           =  ${dtime}
+  frequency           =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+/
+&coupling_nml
+  name                = 'SST'
+  time_step           =  ${dtime}
+  frequency           =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+/
+&coupling_nml
+  name                = 'OCEANU'
+  time_step           =  ${dtime}
+  frequency           =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+/
+&coupling_nml
+  name                = 'OCEANV'
+  time_step           =  ${dtime}
+  frequency           =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+/
 &parallel_nml
  nproma         = ${nproma}
- p_test_run     = .true.
+ p_test_run     = .false.
  l_test_openmp  = .false.
  l_log_checks   = .false.
 /
@@ -87,36 +142,69 @@ cat > $atmo_namelist << EOF
  cell_type = 3            ! triangular cells
  dynamics_grid_filename = "${atmo_dyn_grids}",
 /
-&gridref_nml
-/
 &run_nml
- num_lev     = ${nlev},        ! number of full levels of vertical grid
- ntracer     = 0            ! number of tracers
- nsteps      = ${nsteps}    ! [day] length of run
- dtime       = ${dtime}     ! [s] timestep
- ldynamics   = .TRUE.       ! dynamics
- ltransport  = .FALSE.      ! transport 
- iforcing    = 0            ! no forcing
- ltestcase   = .TRUE.       ! run testcase
- ltimer      = .false.
+ num_lev     = ${nlev},      ! number of full levels of vertical grid
+ nsteps      = ${nsteps}    ! number of steps length of run
+ dtime       = ${dtime}     ! [s] timestep in seconds
+ ltestcase   = .TRUE.       ! run testcase                 --> testcase_ctl
+ ldynamics   = .TRUE.       ! dynamics                     --> dynamics_ctl, diffusion_ctl
+ ltransport  = .TRUE.       ! switch on tracer transport   --> transport_ctl
+ ntracer     = 5            ! number of tracers
+ iforcing    = ${iforcing}  ! ECHAM physics                --> echam_phy_nml
+ msg_level   = 10           ! detailed report during integration 
 /
-&testcase_nml
- ctest_name  = 'JWw'        ! test case identifier
+&ha_testcase_nml
+ ctest_name  = 'APE'  ! test case identifier
+ ape_sst_case = 'sst_qobs'
+ lrh_linear_pres = .TRUE.   ! initial RH is a linear function of pressure
+ rh_at_1000hpa   = 0.30     ! [] initial rel. humidity at 1000 hPa 
 /
 &io_nml
- out_expname = '${EXPNAME}' ! file name base
+ out_expname      = '${EXPNAME}'     ! file name base
+ dt_data          = ${dt_data}       ! [s] write output
+ dt_file          = ${dt_file}       ! [s] trigger new output file
+ dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
+ lwrite_radiation = .TRUE.           ! add radiation fields to output
+ lwrite_cloud     = .TRUE.           ! add cloud fraction to output
+ lwrite_precip    = .TRUE.           ! add precipitation to output
+ lwrite_pres      = .FALSE.          ! remove pressure from output
 /
 &dynamics_nml
- iequations  = ${atmo_model_equations}       ! hydrostatic atmosphere using T as progn. var.
+ iequations  = ${atmo_model_equations}    ! 1: hydrost. atmosphere
+/
+&ha_dyn_nml
+ ldry_dycore = .FALSE.      ! moist dynamical core
 /
 &diffusion_nml
+ hdiff_order = 24      ! 2nd order near model top, 4th order on the other levels
+ k2_klev_max = 3       ! the 3 highest model levels use 2nd order diffusion
 /
 &transport_nml
+ ctracer_list='vwi45'       ! water vapour, cloud water, cloud ice, constant field, dummy for ozone
+/
+&echam_phy_nml
+ lcover = .FALSE.
+ lcond  = .TRUE.
+ lconv  = .TRUE.
+ lvdiff = .TRUE.
+ lrad   = .TRUE.
+/
+&echam_conv_nml
+/
+&radiation_nml
+ dt_rad     = ${dt_rad}     ! [s] compute radiative transfer every other hour
+ irad_h2o   = 1             ! prognostic vapor, liquid and ice
+ irad_co2   = 2             ! constant co2 vmr
+ irad_ch4   = 0             ! switch off ch4
+ irad_n2o   = 0             ! switch off n2o
+ irad_o3    = 4             ! switch off o3
+ irad_o2    = 0             ! switch off o2
+ irad_cfc11 = 0             ! switch off cfc11
+ irad_cfc12 = 0             ! switch off cfc12
+ irad_aero  = 0             ! switch off aerosols
+ izenith    = 3             ! circular orbit, no seasonal cycle but with diurnal cycle 
 /
 EOF
-#-----------------------------------------------------------------------------
-
-
 #-----------------------------------------------------------------------------
 # OCEAN
 #-----------------------------------------------------------------------------
@@ -209,6 +297,63 @@ fi
 # For a complete list see Namelist_overview and Namelist_overview.pdf
 #
 cat > ${ocean_namelist} << EOF
+!
+&coupling_nml
+  name                = 'TAUX'
+  time_step           =  ${dtime}
+  frequency           =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+/
+&coupling_nml
+  name                = 'TAUY'
+  time_step           =  ${dtime}
+  frequency           =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+/
+&coupling_nml
+  name                = 'SFWFLX'
+  time_step           =  ${dtime}
+  frequency           =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+/
+&coupling_nml
+  name                = 'SFTEMP'
+  time_step           =  ${dtime}
+  frequency           =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+/
+&coupling_nml
+  name                = 'THFLX'
+  time_step           =  ${dtime}
+  frequency           =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+/
+&coupling_nml
+  name                = 'SST'
+  time_step           =  ${dtime}
+  frequency           =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+/
+&coupling_nml
+  name                = 'OCEANU'
+  time_step           =  ${dtime}
+  frequency           =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+/
+&coupling_nml
+  name                = 'OCEANV'
+  time_step           =  ${dtime}
+  frequency           =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+/
 !
 &parallel_nml
  nproma         = ${nproma}

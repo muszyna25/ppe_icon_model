@@ -374,8 +374,8 @@ CONTAINS
     !   field_id(1) represents "TAUX"   wind stress component
     !   field_id(2) represents "TAUY"   wind stress component
     !   field_id(3) represents "SFWFLX" surface fresh water flux
-    !   field_id(4) represents "SHFLX"  sensible heat flux
-    !   field_id(5) represents "LHFLX"  latent heat flux
+    !   field_id(4) represents "SFTEMP" surface temperature
+    !   field_id(5) represents "THFLX"  total heat flux
     !
     !   field_id(6) represents "SST"    sea surface temperature
     !   field_id(7) represents "OCEANU" u component of ocean surface current
@@ -401,6 +401,7 @@ CONTAINS
     ! SST:
       buffer(:,1) = RESHAPE(p_os%p_prog(nold(1))%tracer(:,1,:,1), (/nbr_points /) )
       CALL ICON_cpl_put ( field_id(6), field_shape, buffer, ierror )
+#ifdef ACTIVATE_EXCHANGE_OF_FLUXES
     !
     ! zonal wind
       buffer(:,1) = RESHAPE(p_os%p_diag%u(:,1,:), (/nbr_points /) )
@@ -409,6 +410,7 @@ CONTAINS
     ! meridional wind
       buffer(:,1) = RESHAPE(p_os%p_diag%v(:,1,:), (/nbr_points /) )
       CALL ICON_cpl_put ( field_id(8), field_shape, buffer, ierror )
+#endif
 
     !
     ! Receive fields from atmosphere
@@ -421,21 +423,23 @@ CONTAINS
     ! meridional wind stress
       CALL ICON_cpl_get ( field_id(2), field_shape, buffer, info, ierror )
       p_sfc_flx%forc_wind_v(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
-    !
-    ! here we need temperature (2m or lowest level) or net surface heat flux
-    !  - incl. short and longwave fluxes
+#ifdef ACTIVATE_EXCHANGE_OF_FLUXES
     !
     ! freshwater flux
       CALL ICON_cpl_get ( field_id(3), field_shape, buffer, info, ierror )
       p_sfc_flx%forc_fwfx(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
+#endif
     !
-    ! sensible and latent heat flux - there is yet no interface for heat flux forcing
+    ! surface temperature
       CALL ICON_cpl_get ( field_id(4), field_shape, buffer, info, ierror )
       p_sfc_flx%forc_hflx(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
+#ifdef ACTIVATE_EXCHANGE_OF_FLUXES
+    !
+    ! total heat flux
       CALL ICON_cpl_get ( field_id(5), field_shape, buffer, info, ierror )
       p_sfc_flx%forc_hflx(:,:) = p_sfc_flx%forc_hflx(:,:) + &
         &                        RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
-
+#endif
     ENDIF
     !
 

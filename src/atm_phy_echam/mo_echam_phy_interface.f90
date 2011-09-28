@@ -381,13 +381,15 @@ CONTAINS
        ! Send fields away
        ! ----------------
        !
-
+       ! TAUX
        buffer(:,1) = RESHAPE ( prm_field(jg)%u_stress_tile(:,:,iwtr), (/ nbr_points /) )
        CALL ICON_cpl_put ( field_id(1), field_shape, buffer, ierror )
-
+       !
+       ! TAUY
        buffer(:,1) = RESHAPE ( prm_field(jg)%v_stress_tile(:,:,iwtr), (/ nbr_points /) )
        CALL ICON_cpl_put ( field_id(2), field_shape, buffer, ierror )
-
+#ifdef ACTIVATE_EXCHANGE_OF_FLUXES
+       ! SFWFLX
        buffer(:,1) = RESHAPE ( prm_field(jg)%rsfl(:,:), (/ nbr_points /) ) + &
             &        RESHAPE ( prm_field(jg)%rsfc(:,:), (/ nbr_points /) ) + &
             &        RESHAPE ( prm_field(jg)%ssfl(:,:), (/ nbr_points /) ) + &
@@ -395,32 +397,33 @@ CONTAINS
             &        RESHAPE ( prm_field(jg)%evap_tile(:,:,iwtr), (/ nbr_points /) )
 
        CALL ICON_cpl_put ( field_id(3), field_shape, buffer, ierror )
-
+#endif
+       ! SFTEMP
        buffer(:,1) =  RESHAPE ( prm_field(jg)%temp(:,nlev,:), (/ nbr_points /) )
        CALL ICON_cpl_put ( field_id(4), field_shape, buffer, ierror )
-
-!rr    get the total heat flux
-!rr
-!rr       buffer(:,1) =  RESHAPE ( prm_field(jg)% ..... (:,:,iwtr), (/ nbr_points /) )
-!rr       CALL ICON_cpl_put ( field_id(5), field_shape, buffer, ierror )
-
+#ifdef ACTIVATE_EXCHANGE_OF_FLUXES
+       ! THFLX
+       buffer(:,1) =  RESHAPE ( prm_field(jg)% ..... (:,:,iwtr), (/ nbr_points /) )
+       CALL ICON_cpl_put ( field_id(5), field_shape, buffer, ierror )
+#endif
        !
        ! Receive fields, only assign values if something was received ( info > 0 )
        ! -------------------------------------------------------------------------
        !
-
+       ! SST
        CALL ICON_cpl_get ( field_id(6), field_shape, buffer, info, ierror )
        IF ( info > 0 ) &
        prm_field(jg)%tsfc_tile(:,:,iwtr) = RESHAPE (buffer(:,1), (/ nproma, nblks /) )
-
+#ifdef ACTIVATE_EXCHANGE_OF_FLUXES
+       ! OCEANU
        CALL ICON_cpl_get ( field_id(7), field_shape, buffer, info, ierror )
        IF ( info > 0 ) &
        prm_field(jg)%ocu(:,:) = RESHAPE (buffer(:,1), (/ nproma, nblks /) )
-
+       ! OCEANV
        CALL ICON_cpl_get ( field_id(8), field_shape, buffer, info, ierror )
        IF ( info > 0 ) &
        prm_field(jg)%ocv(:,:) = RESHAPE (buffer(:,1), (/ nproma, nblks /) )
-
+#endif
     ENDIF
     !
     !-------------------------------------------------------------------------
