@@ -163,7 +163,7 @@ CONTAINS
 
     ! For the coupling
 
-    INTEGER, PARAMETER :: no_of_fields = 12
+    INTEGER, PARAMETER :: no_of_fields = 8
 
     CHARACTER(LEN=MAX_CHAR_LENGTH) ::  field_name(no_of_fields)
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: grid_file_name
