@@ -104,7 +104,7 @@ MODULE mo_mtgrm_output
   
   PRIVATE
   CHARACTER(LEN=*), PARAMETER :: modname     = 'mo_mtgrm_output'
-  INTEGER,          PARAMETER :: dbg_level   = 1
+  INTEGER,          PARAMETER :: dbg_level   = 0
 
   INCLUDE 'netcdf.inc'
 

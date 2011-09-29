@@ -296,11 +296,11 @@ CONTAINS
       ENDIF
     ENDIF
 
-    DO jg = 1, n_dom
-      IF (mtgrm_output_config(jg)%lenabled) THEN
-        CALL mtgrm_flush_file(jg)
-      END IF
-    END DO
+!    DO jg = 1, n_dom
+!      IF (mtgrm_output_config(jg)%lenabled) THEN
+!        CALL mtgrm_flush_file(jg)
+!      END IF
+!    END DO
 
     IF (ltimer) CALL timer_stop(timer_write_output)
   END SUBROUTINE write_output

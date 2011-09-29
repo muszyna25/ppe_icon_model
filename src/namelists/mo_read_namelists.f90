@@ -127,7 +127,7 @@ CONTAINS
     CALL read_io_namelist             (TRIM(atm_namelist_filename))
     CALL read_lonlat_intp_namelist    (TRIM(atm_namelist_filename))
     CALL read_nh_pzlev_namelist       (TRIM(atm_namelist_filename))
-    CALL read_mtgrm_namelist          (TRIM(atm_namelist_filename))
+!    CALL read_mtgrm_namelist          (TRIM(atm_namelist_filename))
 
     ! Grid
     !
