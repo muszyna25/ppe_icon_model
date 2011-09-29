@@ -71,7 +71,7 @@ USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base
 USE mo_exception,           ONLY: finish, message, message_text
 USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
 USE mo_physical_constants,  ONLY: rho_ref, sfc_press_bar, lsub, lvap, lfreez, cpa, emiss, &
-  &                               fr_fac, stefbol, rgas, tmelt, tf
+  &                               fr_fac, stefbol, rgas, tmelt, tf, cw
 USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell, sea_boundary,MIN_DOLIC
 USE mo_loopindices,         ONLY: get_indices_c
 USE mo_math_utilities,      ONLY: t_cartesian_coordinates, gvec2cvec, cvec2gvec
@@ -79,7 +79,7 @@ USE mo_sea_ice,             ONLY: t_sea_ice
 ! USE mo_oce_forcing,         ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
 USE mo_sea_ice,             ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
 USE mo_oce_thermodyn,       ONLY: convert_insitu2pot_temp_func
-USE mo_oce_index,           ONLY: print_mxmn, jkc, jkdim, ipl_src
+USE mo_oce_index,           ONLY: print_mxmn, ipl_src
 USE mo_master_control,      ONLY: is_coupled_run
 USE mo_icon_cpl_exchg,      ONLY: ICON_cpl_put, ICON_cpl_get
 USE mo_icon_cpl_def_field,  ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
@@ -274,40 +274,18 @@ CONTAINS
 
     END IF
 
-    IF (temperature_relaxation == 2)  THEN
+    !-------------------------------------------------------------------------
+    ! Apply monthly SST relaxation data from stationary forcing
 
-      !-------------------------------------------------------------------------
-      ! Applying monthly SST relaxation data
+    IF (temperature_relaxation == 2)  THEN
+      !  - change units to deg C, subtract tmelt (0 deg C, 273.15)
 
        p_sfc_flx%forc_tracer_relax(:,:,1) = &
-         &  rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,3) + &
-         &  rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,3)
+         &  rday1*(ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,3)-tmelt) + &
+         &  rday2*(ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,3)-tmelt)
 
-      !  - change units to deg C, subtract tmelt (0 deg C, 273.15)
-      !  - set minimum temperature to tf (-1.9 deg C) for simple temp-relax
-      !  - set to zero on land points
-
-      z_tmin = tf  !  -1.9 deg C
-      z_tmin = -1.0_wp
-
-      DO jb = i_startblk_c, i_endblk_c
-        CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c,  &
-          &                i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
-        DO jc = i_startidx_c, i_endidx_c
-          IF (v_base%lsm_oce_c(jc,1,jb) <= sea_boundary) THEN
-            p_sfc_flx%forc_tracer_relax(jc,jb,1) &
-              & = p_sfc_flx%forc_tracer_relax(jc,jb,1) - tmelt
-            p_sfc_flx%forc_tracer_relax(jc,jb,1) &
-              & = max(p_sfc_flx%forc_tracer_relax(jc,jb,1), z_tmin)
-          ELSE
-            p_sfc_flx%forc_tracer_relax(jc,jb,1) = 0.0_wp
-          END IF
-        END DO
-      END DO
-
-    END IF
+    END IF   !  temperature relaxation
      
-
     DO jb = i_startblk_c, i_endblk_c
       CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c,  &
         &                i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
@@ -328,7 +306,7 @@ CONTAINS
       END DO
     END DO
 
-    ipl_src=2  ! output print level (1-5, fix)
+    ipl_src=3  ! output print level (1-5, fix)
     IF (i_dbg_oce >= ipl_src) THEN
       WRITE(message_text,'(a,i6,2(a,i2),2(a,f12.8))') 'FLUX time interpolation: jt=',jstep, &
         &  ' mon1=',jmon1,' mon2=',jmon2,' day1=',rday1,' day2=',rday2
@@ -347,29 +325,14 @@ CONTAINS
     z_c(:,1,:)=ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,3)
     CALL print_mxmn('Ext data3 (t) mon2',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
 
-    ipl_src=1  ! output print level (1-5, fix)
-    z_c(:,1,:)=p_sfc_flx%forc_wind_u(:,:)
-    CALL print_mxmn('update forcing u',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-    z_c(:,1,:)=p_sfc_flx%forc_wind_v(:,:)
-    CALL print_mxmn('update forcing v',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-
-    IF (temperature_relaxation /= 0)  THEN
-      ipl_src=1  ! output print level (1-5, fix)
-      z_c(:,1,:)=p_sfc_flx%forc_tracer_relax(:,:,1)
-      CALL print_mxmn('update temp-relax',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-    END IF
-
   CASE (FORCING_FROM_FILE_FIELD)                                    !  13
     ! 1) Read field data from file
     ! 2) CALL calc_atm_fluxes_from_bulk (p_patch, p_as, p_os, p_ice, Qatm)
     ! 3)CALL update_sfcflx_from_atm_flx(p_patch, p_as, p_os, p_ice, Qatm, p_sfc_flx)
 
-  CASE (FORCING_FROM_COUPLED_FLUX,FORCING_FROM_COUPLED_FIELD)       !  14, 15
-    !Depending on coupling type, apply one of two following ways:
-    !1) bulk formula to atmospheric state and proceed as above, the only distinction
-    !   to OMIP is that atmospheric info is coming from model rather than file
-    !2) use atmospheric fluxes directly, i.e. avoid call to "calc_atm_fluxes_from_bulk"
-    !    and do a direct assignment of atmospheric state to surface fluxes.
+  CASE (FORCING_FROM_COUPLED_FLUX)                                  !  14
+    !  use atmospheric fluxes directly, i.e. avoid call to "calc_atm_fluxes_from_bulk"
+    !  and do a direct assignment of atmospheric state to surface fluxes.
     !
     IF ( is_coupled_run() ) THEN 
     !
@@ -431,36 +394,71 @@ CONTAINS
     !
     ! surface temperature
       CALL ICON_cpl_get ( field_id(4), field_shape, buffer, info, ierror )
-      p_sfc_flx%forc_hflx(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
+      p_sfc_flx%forc_tracer_relax(:,:,1) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
     !
     ! total heat flux
       CALL ICON_cpl_get ( field_id(5), field_shape, buffer, info, ierror )
+      ! #slo# why accumulated?
       p_sfc_flx%forc_hflx(:,:) = p_sfc_flx%forc_hflx(:,:) + &
         &                        RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
     ENDIF
     !
+  CASE (FORCING_FROM_COUPLED_FIELD)                                 !  15
+    !1) bulk formula to atmospheric state and proceed as above, the only distinction
+    !   to OMIP is that atmospheric info is coming from model rather than file
+
+    CALL message(TRIM(routine), 'STOP: Forcing option 15 not implemented yet' )
+    CALL finish(TRIM(routine), 'CHOSEN FORCING OPTION NOT SUPPORTED - TERMINATE')
 
   CASE DEFAULT
 
-    CALL message(TRIM(routine), 'STOP: Forcing option not implemented yet' )
-    CALL finish(TRIM(routine), 'CHOSEN FORCING OPTION NOT SUPPORTED - TERMINATE')
+    CALL message(TRIM(routine), 'STOP: Forcing option not implemented' )
+    CALL finish(TRIM(routine), 'CHOSEN FORCING OPTION DOES NOT EXIST - TERMINATE')
 
   END SELECT
 
-  IF(temperature_relaxation>=1)THEN
+  ipl_src=1  ! output print level (1-5, fix)
+  z_c(:,1,:)=p_sfc_flx%forc_wind_u(:,:)
+  CALL print_mxmn('update forcing u',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+  z_c(:,1,:)=p_sfc_flx%forc_wind_v(:,:)
+  CALL print_mxmn('update forcing v',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+
+  !-------------------------------------------------------------------------
+  ! Apply temperature relaxation to boundary condition
+
+  IF (temperature_relaxation == 2) THEN
+
+    !  - set minimum temperature to tf (-1.9 deg C) for simple temp-relax
+    !  - set to zero on land points
+
+    z_tmin = tf  !  -1.9 deg C
+    z_tmin = -1.0_wp
+
+    DO jb = i_startblk_c, i_endblk_c
+      CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c,  &
+        &                i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
+      DO jc = i_startidx_c, i_endidx_c
+        IF (v_base%lsm_oce_c(jc,1,jb) <= sea_boundary) THEN
+          p_sfc_flx%forc_tracer_relax(jc,jb,1) &
+            & = max(p_sfc_flx%forc_tracer_relax(jc,jb,1), z_tmin)
+        ELSE
+          p_sfc_flx%forc_tracer_relax(jc,jb,1) = 0.0_wp
+        END IF
+      END DO
+    END DO
 
     ! Temperature relaxation:
-    !   #slo# corrected formula: Diffusion
-    !     D = d/dz(K_v*dT/dz)  where
-    !   Boundary condition at surface (upper bound of D at center of first layer)
+    ! #slo# corrected formula: Diffusion
+    !   D = d/dz(K_v*dT/dz)  where
+    ! Boundary condition at surface (upper bound of D at center of first layer)
     !   is relaxation to temperature:
-    !     K_v*dT/dz(surf) = -Qt = -dz/Tau*(T*-T) = dz/Tau*(T-T*)  [K*m/s]
-    !   discretized:
-    !     top_bc_tracer = forc_tracer_relax = del_zlev_m / relax_param[s] * (tracer-tracer-relax)
-    !   Attention: elevation not yet taken into account
+    !   K_v*dT/dz(surf) = -Q_t = -dz/Tau*(T*-T) = dz/Tau*(T-T*)  [K*m/s]
+    ! discretized:
+    !   top_bc_tracer = forc_tracer = del_zlev_m / relax_param[s] * (tracer - forc_tracer_relax)
+    ! Attention: elevation not yet taken into account
 
     !z_relax = relaxation_param/(30.0_wp*24.0_wp*3600.0_wp)
-    z_relax = v_base%del_zlev_m(1)/(relaxation_param*30.0_wp*24.0_wp*3600.0_wp)
+    z_relax = v_base%del_zlev_m(1)/(relaxation_param*2.592e6_wp)
 
     DO jb = i_startblk_c, i_endblk_c    
       CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
@@ -468,28 +466,54 @@ CONTAINS
       DO jc = i_startidx_c, i_endidx_c
 
         IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
-          !Compare form of relaxation with MPI-OM
+          !Compare form of relaxation with MPI-OM - check sign
           p_sfc_flx%forc_tracer(jc,jb, 1) =                             &
           &          - z_relax*(p_os%p_prog(nold(1))%tracer(jc,1,jb,1)  &
-          &                     -p_sfc_flx%forc_tracer_relax(jc,jb,1))
+          &                    -p_sfc_flx%forc_tracer_relax(jc,jb,1))
         ELSE
-          p_sfc_flx%forc_tracer_relax(jc,jb,1) = 0.0_wp
+          !p_sfc_flx%forc_tracer_relax(jc,jb,1) = 0.0_wp
+          p_sfc_flx%forc_tracer(jc,jb,1) = 0.0_wp
         ENDIF
       END DO
     END DO
 
     !write(0,*) 'relpar, z_rel:',relaxation_param,z_relax
-    jkc=1      ! current level - may not be zero
+    ipl_src=1  ! output print level (1-5, fix)
+    z_c(:,1,:)=p_sfc_flx%forc_tracer_relax(:,:,1)
+    CALL print_mxmn('update temp-relax',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
     ipl_src=2  ! output print level (0-5, fix)
-    z_c(:,1,:) = p_sfc_flx%forc_tracer(:,:,1)
-    CALL print_mxmn('T-forc-tracer-flux',jkc,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-    ipl_src=3  ! output print level (0-5, fix)
-    z_c(:,1,:) = p_sfc_flx%forc_tracer_relax(:,:,1)
-    CALL print_mxmn('T-forc-tracer-relax',jkc,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
     z_c(:,1,:) = p_sfc_flx%forc_tracer_relax(:,:,1)-p_os%p_prog(nold(1))%tracer(:,1,:,1)
-    CALL print_mxmn('Temp-difference',jkc,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+    CALL print_mxmn('Temp-difference',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+    z_c(:,1,:) = p_sfc_flx%forc_tracer(:,:,1)
+    CALL print_mxmn('T-forc-tracer-flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
 
   ENDIF
+
+  !-------------------------------------------------------------------------
+  ! Apply net surface heat flux to boundary condition
+
+  IF (temperature_relaxation == -1) THEN
+
+    ! Heat flux boundary condition for diffusion
+    !   D = d/dz(K_v*dT/dz)  where
+    ! Boundary condition at surface (upper bound of D at center of first layer)
+    !   is calculated from net surface heat flux Q_s [W/m2]
+    !   which is calculated by the atmosphere (coupled) or read from flux file (see above)
+    !   Q_s = Rho*Cp*Q_t  mit Cp specific heat capacity
+    !   K_v*dT/dz(surf) = -Q_t = Q_s/Rho/Cp  [K*m/s]
+    ! discretized:
+    !   top_bc_tracer = forc_tracer = forc_hflx / (rho_ref*cw)
+
+    p_sfc_flx%forc_tracer(:,:,1) = p_sfc_flx%forc_hflx(:,:) / (rho_ref*cw)
+
+    ipl_src=1  ! output print level (1-5, fix)
+    z_c(:,1,:) = p_sfc_flx%forc_hflx(:,:)
+    CALL print_mxmn('T-forc-nshflx',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+    ipl_src=2  ! output print level (1-5, fix)
+    z_c(:,1,:) = p_sfc_flx%forc_tracer(:,:,1)
+    CALL print_mxmn('T-forc-tracer-flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+
+  END IF
 
   END SUBROUTINE update_sfcflx
   !-------------------------------------------------------------------------
@@ -588,7 +612,7 @@ CONTAINS
       z_C_d0 = 1.0E-3_wp*(0.692_wp+0.071_wp*z_v-0.00070_wp*z_norm)
       z_C_d1 = 1.0E-3_wp*(0.083_wp-0.0054_wp*z_v-0.000093_wp*z_norm)
       z_C_d  = z_C_d0 + z_C_d1*(p_as%tafo(jc,jb)-p_os%p_prog(nold(1))%tracer(jc,1,jb,1))
-write(*,*)'final wind stress coeff',z_C_d
+      !write(*,*)'final wind stress coeff',z_C_d
       p_sfc_flx%forc_wind_u(jc,jb) = z_rho_w*z_C_d*z_norm&
                                    &*(p_as%u(jc,jb)- p_os%p_diag%u(jc,1,jb))
 
