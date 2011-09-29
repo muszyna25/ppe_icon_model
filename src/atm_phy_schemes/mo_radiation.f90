@@ -214,8 +214,8 @@ CONTAINS
             &      +zstunde/24._wp* 2._wp*pi )
 
           DO jc = 1,ie
-            IF ( z_cosmu0(jc,jb) > -1.e-6_wp ) THEN
-              zsmu0(jc,jb) = zsmu0(jc,jb) + MAX(1.e-6_wp,z_cosmu0(jc,jb))
+            IF ( z_cosmu0(jc,jb) > -1.e-5_wp ) THEN
+              zsmu0(jc,jb) = zsmu0(jc,jb) + MAX(1.e-3_wp,z_cosmu0(jc,jb))
               n_cosmu0pos(jc,jb) = n_cosmu0pos(jc,jb) + 1
             ENDIF
           ENDDO
@@ -302,8 +302,8 @@ CONTAINS
             COS(zeitrad(1:ie,jb))
 
           DO jc = 1,ie
-            IF ( z_cosmu0(jc,jb) > -1.e-6_wp ) THEN
-              zsmu0(jc,jb) = zsmu0(jc,jb) + MAX(1.e-6_wp,z_cosmu0(jc,jb))
+            IF ( z_cosmu0(jc,jb) > -1.e-5_wp ) THEN
+              zsmu0(jc,jb) = zsmu0(jc,jb) + MAX(1.e-3_wp,z_cosmu0(jc,jb))
               n_cosmu0pos(jc,jb) = n_cosmu0pos(jc,jb) + 1
             ENDIF
           ENDDO
