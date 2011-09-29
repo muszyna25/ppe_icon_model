@@ -50,33 +50,34 @@ MODULE mo_io_nml
   USE mo_master_control,     ONLY: is_restart_run
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,   &
                                  & open_and_restore_namelist, close_tmpfile
-  USE mo_io_config,          ONLY: config_out_expname       => out_expname      , &
-                                 & config_no_output         => no_output        , &
-                                 & config_out_filetype      => out_filetype     , &
-                                 & config_lkeep_in_sync     => lkeep_in_sync    , &
-                                 & config_dt_data           => dt_data          , &
-                                 & config_dt_diag           => dt_diag          , &
-                                 & config_dt_file           => dt_file          , &
-                                 & config_dt_checkpoint     => dt_checkpoint    , &
-                                 & config_lwrite_initial    => lwrite_initial   , &
-                                 & config_lwrite_vorticity  => lwrite_vorticity , &
-                                 & config_lwrite_divergence => lwrite_divergence, &
-                                 & config_lwrite_omega      => lwrite_omega     , &
-                                 & config_lwrite_pres       => lwrite_pres      , &
-                                 & config_lwrite_z3         => lwrite_z3        , &
-                                 & config_lwrite_tracer     => lwrite_tracer    , &
-                                 & config_lwrite_tend_phy   => lwrite_tend_phy  , &
-                                 & config_lwrite_radiation  => lwrite_radiation , &
-                                 & config_lwrite_precip     => lwrite_precip    , &
-                                 & config_lwrite_cloud      => lwrite_cloud     , &
-                                 & config_lwrite_tke        => lwrite_tke       , &
-                                 & config_lwrite_surface    => lwrite_surface   , &
-                                 & config_lwrite_extra      => lwrite_extra     , &
-                                 & config_lwrite_pzlev      => lwrite_pzlev     , &
-                                 & config_inextra_2d        => inextra_2d       , &
-                                 & config_inextra_3d        => inextra_3d       , &
-                                 & config_lflux_avg         => lflux_avg        , &
-                                 & config_lwrite_dblprec    => lwrite_dblprec
+  USE mo_io_config,          ONLY: config_out_expname             => out_expname      , &
+                                 & config_no_output               => no_output        , &
+                                 & config_out_filetype            => out_filetype     , &
+                                 & config_lkeep_in_sync           => lkeep_in_sync    , &
+                                 & config_dt_data                 => dt_data          , &
+                                 & config_dt_diag                 => dt_diag          , &
+                                 & config_dt_file                 => dt_file          , &
+                                 & config_dt_checkpoint           => dt_checkpoint    , &
+                                 & config_lwrite_initial          => lwrite_initial   , &
+                                 & config_lwrite_oce_timestepping => lwrite_oce_timestepping, &
+                                 & config_lwrite_vorticity        => lwrite_vorticity , &
+                                 & config_lwrite_divergence       => lwrite_divergence, &
+                                 & config_lwrite_omega            => lwrite_omega     , &
+                                 & config_lwrite_pres             => lwrite_pres      , &
+                                 & config_lwrite_z3               => lwrite_z3        , &
+                                 & config_lwrite_tracer           => lwrite_tracer    , &
+                                 & config_lwrite_tend_phy         => lwrite_tend_phy  , &
+                                 & config_lwrite_radiation        => lwrite_radiation , &
+                                 & config_lwrite_precip           => lwrite_precip    , &
+                                 & config_lwrite_cloud            => lwrite_cloud     , &
+                                 & config_lwrite_tke              => lwrite_tke       , &
+                                 & config_lwrite_surface          => lwrite_surface   , &
+                                 & config_lwrite_extra            => lwrite_extra     , &
+                                 & config_lwrite_pzlev            => lwrite_pzlev     , &
+                                 & config_inextra_2d              => inextra_2d       , &
+                                 & config_inextra_3d              => inextra_3d       , &
+                                 & config_lflux_avg               => lflux_avg        , &
+                                 & config_lwrite_dblprec          => lwrite_dblprec
   USE mo_exception,        ONLY: message, message_text, finish
   USE mo_parallel_config,  ONLY: nproma
 
@@ -98,6 +99,7 @@ MODULE mo_io_nml
 
   LOGICAL :: no_output                  ! if .true., write nothing
   LOGICAL :: lwrite_initial             ! if .true., write out initial state
+  LOGICAL :: lwrite_oce_timestepping    ! if .true., write out intermediate ocean variables
   LOGICAL :: lwrite_dblprec             ! if .true., write out in double precision
   LOGICAL :: lwrite_vorticity           ! if .true., write out vorticity
   LOGICAL :: lwrite_divergence          ! if .true., write out divergence
@@ -131,7 +133,7 @@ MODULE mo_io_nml
     &              lwrite_tend_phy, lwrite_radiation, lwrite_precip,  &
     &              lwrite_cloud, lwrite_tke, lwrite_surface,          &
     &              lwrite_extra, lwrite_pzlev, inextra_2d, inextra_3d,&
-    &              no_output, lflux_avg
+    &              no_output, lflux_avg, lwrite_oce_timestepping
   
 CONTAINS
   !>
@@ -157,36 +159,37 @@ CONTAINS
     !-----------------------
     ! 1. default settings
     !-----------------------
-    no_output         = .FALSE.
-    out_expname       = 'IIIEEEETTTT'
-    out_filetype      = 2
-    lkeep_in_sync     = .FALSE.
+    no_output               = .FALSE.
+    out_expname             = 'IIIEEEETTTT'
+    out_filetype            = 2
+    lkeep_in_sync           = .FALSE.
 
-    dt_data           = 21600.0_wp   !  6 hours
-    dt_diag           = 86400._wp    !  1 day
-    dt_file           = 2592000._wp  ! 30 days
-    dt_checkpoint     = 2592000._wp  ! 30 days
+    dt_data                 = 21600.0_wp   !  6 hours
+    dt_diag                 = 86400._wp    !  1 day
+    dt_file                 = 2592000._wp  ! 30 days
+    dt_checkpoint           = 2592000._wp  ! 30 days
 
-    lwrite_initial    = .TRUE.
-    lwrite_dblprec    = .FALSE.
-    lwrite_vorticity  = .TRUE.
-    lwrite_divergence = .TRUE.
-    lwrite_omega      = .TRUE.
-    lwrite_pres       = .TRUE.
-    lwrite_z3         = .TRUE.
-    lwrite_tracer(:)  = .TRUE.
+    lwrite_initial          = .TRUE.
+    lwrite_dblprec          = .FALSE.
+    lwrite_vorticity        = .TRUE.
+    lwrite_divergence       = .TRUE.
+    lwrite_omega            = .TRUE.
+    lwrite_pres             = .TRUE.
+    lwrite_z3               = .TRUE.
+    lwrite_tracer(:)        = .TRUE.
 
-    lwrite_tend_phy   = .FALSE.
-    lwrite_radiation  = .FALSE.
-    lwrite_precip     = .FALSE.
-    lwrite_cloud      = .FALSE.
-    lwrite_tke        = .FALSE.
-    lwrite_surface    = .FALSE.
-    lwrite_extra      = .FALSE.
-    lwrite_pzlev      = .FALSE.
-    inextra_2d        = 0     ! no extra output 2D fields
-    inextra_3d        = 0     ! no extra output 3D fields
-    lflux_avg         = .FALSE.
+    lwrite_tend_phy         = .FALSE.
+    lwrite_radiation        = .FALSE.
+    lwrite_precip           = .FALSE.
+    lwrite_cloud            = .FALSE.
+    lwrite_tke              = .FALSE.
+    lwrite_surface          = .FALSE.
+    lwrite_extra            = .FALSE.
+    lwrite_pzlev            = .FALSE.
+    inextra_2d              = 0     ! no extra output 2D fields
+    inextra_3d              = 0     ! no extra output 3D fields
+    lflux_avg               = .FALSE.
+    lwrite_oce_timestepping = .FALSE.
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above
@@ -237,33 +240,34 @@ CONTAINS
 !      io_config(jg)%write_pzlev      = lwrite_pzlev
 !    ENDDO
 !
-    config_out_expname       = out_expname
-    config_out_filetype      = out_filetype
-    config_no_output         = no_output
-    config_lkeep_in_sync     = lkeep_in_sync
-    config_dt_data           = dt_data
-    config_dt_diag           = dt_diag
-    config_dt_file           = dt_file
-    config_dt_checkpoint     = dt_checkpoint
-    config_lwrite_initial    = lwrite_initial
-    config_lwrite_vorticity  = lwrite_vorticity
-    config_lwrite_divergence = lwrite_divergence
-    config_lwrite_omega      = lwrite_omega
-    config_lwrite_pres       = lwrite_pres
-    config_lwrite_z3         = lwrite_z3
-    config_lwrite_tracer     = lwrite_tracer
-    config_lwrite_tend_phy   = lwrite_tend_phy
-    config_lwrite_radiation  = lwrite_radiation
-    config_lwrite_precip     = lwrite_precip
-    config_lwrite_cloud      = lwrite_cloud
-    config_lwrite_tke        = lwrite_tke
-    config_lwrite_surface    = lwrite_surface
-    config_lwrite_extra      = lwrite_extra
-    config_lwrite_pzlev      = lwrite_pzlev
-    config_inextra_2d        = inextra_2d
-    config_inextra_3d        = inextra_3d
-    config_lflux_avg         = lflux_avg
-    config_lwrite_dblprec    = lwrite_dblprec
+    config_out_expname             = out_expname
+    config_out_filetype            = out_filetype
+    config_no_output               = no_output
+    config_lkeep_in_sync           = lkeep_in_sync
+    config_dt_data                 = dt_data
+    config_dt_diag                 = dt_diag
+    config_dt_file                 = dt_file
+    config_dt_checkpoint           = dt_checkpoint
+    config_lwrite_initial          = lwrite_initial
+    config_lwrite_vorticity        = lwrite_vorticity
+    config_lwrite_divergence       = lwrite_divergence
+    config_lwrite_omega            = lwrite_omega
+    config_lwrite_pres             = lwrite_pres
+    config_lwrite_z3               = lwrite_z3
+    config_lwrite_tracer           = lwrite_tracer
+    config_lwrite_tend_phy         = lwrite_tend_phy
+    config_lwrite_radiation        = lwrite_radiation
+    config_lwrite_precip           = lwrite_precip
+    config_lwrite_cloud            = lwrite_cloud
+    config_lwrite_tke              = lwrite_tke
+    config_lwrite_surface          = lwrite_surface
+    config_lwrite_extra            = lwrite_extra
+    config_lwrite_pzlev            = lwrite_pzlev
+    config_inextra_2d              = inextra_2d
+    config_inextra_3d              = inextra_3d
+    config_lflux_avg               = lflux_avg
+    config_lwrite_dblprec          = lwrite_dblprec
+    config_lwrite_oce_timestepping = lwrite_oce_timestepping
 
     !-----------------------------------------------------
     ! 5. Store the namelist for restart

@@ -95,6 +95,7 @@ MODULE mo_io_config
                                           ! if .TRUE. the output fluxex are average values 
                                           !  from the beginning of the run, except of 
                                           !  TOT_PREC that would be accumulated
+    LOGICAL :: lwrite_oce_timestepping    ! if .true. write intermediate ocean variables
 
 
     ! derived variables

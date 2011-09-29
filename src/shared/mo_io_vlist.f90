@@ -123,7 +123,7 @@ MODULE mo_io_vlist
     &                                 lwrite_tend_phy, lwrite_radiation,          &
     &                                 lwrite_precip, lwrite_cloud, lwrite_tracer, &
     &                                 lwrite_tke,  lwrite_surface, lwrite_pzlev,  &
-    &                                 lwrite_dblprec,                             &
+    &                                 lwrite_dblprec, lwrite_oce_timestepping,    &
     &                                 lwrite_extra, inextra_2d,inextra_3d,        &
     &                                 out_filetype, out_expname,                  &
     &                                 dt_data, dt_file, lkeep_in_sync,            &
@@ -2263,31 +2263,35 @@ CONTAINS
         &                   vlistID(k_jg), gridCellID(k_jg),zaxisIDdepth_m(k_jg)),  &
         &           k_jg)
 
-     !  CALL addVar(TimeVar('g_n_c_v_'//TRIM(oce_tracer_names(itracer)),&
-     !    &'g_n_c_v for '//TRIM(oce_tracer_names(itracer)),'',255,128,&
-     !    &vlistID(k_jg),gridCellID(k_jg),zaxisIDdepth_m(k_jg)),k_jg)
-     !  CALL addVar(TimeVar('g_n_c_h_'//TRIM(oce_tracer_names(itracer)),&
-     !    &'g_n_c_h for '//TRIM(oce_tracer_names(itracer)),'',255,128,&
-     !    &vlistID(k_jg),gridCellID(k_jg),zaxisIDdepth_m(k_jg)),k_jg)
-     !  CALL addVar(TimeVar('g_nm1_c_v_'//TRIM(oce_tracer_names(itracer)),&
-     !    &'g_nm1_c_v for '//TRIM(oce_tracer_names(itracer)),'',255,128,&
-     !    &vlistID(k_jg),gridCellID(k_jg),zaxisIDdepth_m(k_jg)),k_jg)
-     !  CALL addVar(TimeVar('g_nm1_c_h_'//TRIM(oce_tracer_names(itracer)),&
-     !    &'g_nm1_c_h for '//TRIM(oce_tracer_names(itracer)),'',255,128,&
-     !    &vlistID(k_jg),gridCellID(k_jg),zaxisIDdepth_m(k_jg)),k_jg)
-     !  CALL addVar(TimeVar('g_nimd_c_v_'//TRIM(oce_tracer_names(itracer)),&
-     !    &'g_nimd_c_v for '//TRIM(oce_tracer_names(itracer)),'',255,128,&
-     !    &vlistID(k_jg),gridCellID(k_jg),zaxisIDdepth_m(k_jg)),k_jg)
-     !  CALL addVar(TimeVar('g_nimd_c_h_'//TRIM(oce_tracer_names(itracer)),&
-     !    &'g_nimd_c_h for '//TRIM(oce_tracer_names(itracer)),'',255,128,&
-     !    &vlistID(k_jg),gridCellID(k_jg),zaxisIDdepth_m(k_jg)),k_jg)
+        IF ( lwrite_oce_timestepping ) THEN
+          CALL addVar(TimeVar('g_n_c_v_'//TRIM(oce_tracer_names(itracer)),&
+            &'g_n_c_v for '//TRIM(oce_tracer_names(itracer)),'',255,128,&
+            &vlistID(k_jg),gridCellID(k_jg),zaxisIDdepth_m(k_jg)),k_jg)
+          CALL addVar(TimeVar('g_n_c_h_'//TRIM(oce_tracer_names(itracer)),&
+            &'g_n_c_h for '//TRIM(oce_tracer_names(itracer)),'',255,128,&
+            &vlistID(k_jg),gridCellID(k_jg),zaxisIDdepth_m(k_jg)),k_jg)
+          CALL addVar(TimeVar('g_nm1_c_v_'//TRIM(oce_tracer_names(itracer)),&
+            &'g_nm1_c_v for '//TRIM(oce_tracer_names(itracer)),'',255,128,&
+            &vlistID(k_jg),gridCellID(k_jg),zaxisIDdepth_m(k_jg)),k_jg)
+          CALL addVar(TimeVar('g_nm1_c_h_'//TRIM(oce_tracer_names(itracer)),&
+            &'g_nm1_c_h for '//TRIM(oce_tracer_names(itracer)),'',255,128,&
+            &vlistID(k_jg),gridCellID(k_jg),zaxisIDdepth_m(k_jg)),k_jg)
+          CALL addVar(TimeVar('g_nimd_c_v_'//TRIM(oce_tracer_names(itracer)),&
+            &'g_nimd_c_v for '//TRIM(oce_tracer_names(itracer)),'',255,128,&
+            &vlistID(k_jg),gridCellID(k_jg),zaxisIDdepth_m(k_jg)),k_jg)
+          CALL addVar(TimeVar('g_nimd_c_h_'//TRIM(oce_tracer_names(itracer)),&
+            &'g_nimd_c_h for '//TRIM(oce_tracer_names(itracer)),'',255,128,&
+            &vlistID(k_jg),gridCellID(k_jg),zaxisIDdepth_m(k_jg)),k_jg)
+        END IF
       END DO
-     !CALL addVar(TimeVar('g_n','g_n','',255,128,&
-     !  &vlistID(k_jg),gridEdgeID(k_jg),zaxisIDdepth_m(k_jg)),k_jg)
-     !CALL addVar(TimeVar('g_nm1','g_m1n','',255,128,&
-     !  &vlistID(k_jg),gridEdgeID(k_jg),zaxisIDdepth_m(k_jg)),k_jg)
-     !CALL addVar(TimeVar('g_nimd','g_nimd','',255,128,&
-     !  &vlistID(k_jg),gridEdgeID(k_jg),zaxisIDdepth_m(k_jg)),k_jg)
+      IF ( lwrite_oce_timestepping ) THEN
+        CALL addVar(TimeVar('g_n','g_n','',255,128,&
+          &vlistID(k_jg),gridEdgeID(k_jg),zaxisIDdepth_m(k_jg)),k_jg)
+        CALL addVar(TimeVar('g_nm1','g_m1n','',255,128,&
+          &vlistID(k_jg),gridEdgeID(k_jg),zaxisIDdepth_m(k_jg)),k_jg)
+        CALL addVar(TimeVar('g_nimd','g_nimd','',255,128,&
+          &vlistID(k_jg),gridEdgeID(k_jg),zaxisIDdepth_m(k_jg)),k_jg)
+      END IF
 
     END IF  ! ocean
 
