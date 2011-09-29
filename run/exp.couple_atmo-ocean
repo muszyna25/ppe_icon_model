@@ -139,11 +139,11 @@ cat > $atmo_namelist << EOF
  l_log_checks   = .false.
 /
 &grid_nml
- cell_type = 3            ! triangular cells
+ cell_type = 3             ! triangular cells
  dynamics_grid_filename = "${atmo_dyn_grids}",
 /
 &run_nml
- num_lev     = ${nlev},      ! number of full levels of vertical grid
+ num_lev     = ${nlev}      ! number of full levels of vertical grid
  nsteps      = ${nsteps}    ! number of steps length of run
  dtime       = ${dtime}     ! [s] timestep in seconds
  ltestcase   = .TRUE.       ! run testcase                 --> testcase_ctl
@@ -173,36 +173,37 @@ cat > $atmo_namelist << EOF
  iequations  = ${atmo_model_equations}    ! 1: hydrost. atmosphere
 /
 &ha_dyn_nml
- ldry_dycore = .FALSE.      ! moist dynamical core
+ ldry_dycore = .FALSE.  ! moist dynamical core
 /
 &diffusion_nml
- hdiff_order = 24      ! 2nd order near model top, 4th order on the other levels
- k2_klev_max = 3       ! the 3 highest model levels use 2nd order diffusion
+ hdiff_order = 24       ! 2nd order near model top, 4th order on the other levels
+ k2_klev_max = 3        ! the 3 highest model levels use 2nd order diffusion
 /
 &transport_nml
- ctracer_list='vwi45'       ! water vapour, cloud water, cloud ice, constant field, dummy for ozone
+ ctracer_list = 'vwi45' ! water vapour, cloud water, cloud ice, constant field, dummy for ozone
 /
 &echam_phy_nml
- lcover = .FALSE.
- lcond  = .TRUE.
- lconv  = .TRUE.
- lvdiff = .TRUE.
- lrad   = .TRUE.
+ lcover    = .FALSE.
+ lcond     = .TRUE.
+ lconv     = .TRUE.
+ lvdiff    = .TRUE.
+ lrad      = .TRUE.
+ lgw_hines = .TRUE.
 /
 &echam_conv_nml
 /
 &radiation_nml
- dt_rad     = ${dt_rad}     ! [s] compute radiative transfer every other hour
- irad_h2o   = 1             ! prognostic vapor, liquid and ice
- irad_co2   = 2             ! constant co2 vmr
- irad_ch4   = 0             ! switch off ch4
- irad_n2o   = 0             ! switch off n2o
- irad_o3    = 4             ! switch off o3
- irad_o2    = 0             ! switch off o2
- irad_cfc11 = 0             ! switch off cfc11
- irad_cfc12 = 0             ! switch off cfc12
- irad_aero  = 0             ! switch off aerosols
- izenith    = 3             ! circular orbit, no seasonal cycle but with diurnal cycle 
+ dt_rad     = ${dt_rad} ! [s] compute radiative transfer every other hour
+ irad_h2o   = 1         ! prognostic vapor, liquid and ice
+ irad_co2   = 2         ! constant co2 vmr
+ irad_ch4   = 0         ! switch off ch4
+ irad_n2o   = 0         ! switch off n2o
+ irad_o3    = 4         ! switch off o3
+ irad_o2    = 0         ! switch off o2
+ irad_cfc11 = 0         ! switch off cfc11
+ irad_cfc12 = 0         ! switch off cfc12
+ irad_aero  = 0         ! switch off aerosols
+ izenith    = 3         ! circular orbit, no seasonal cycle but with diurnal cycle 
 /
 EOF
 #-----------------------------------------------------------------------------
