@@ -155,7 +155,7 @@ CONTAINS
 
 
   ! local variables
-  INTEGER :: jstep, jt, jg, n_temp
+  INTEGER :: jstep, jg, n_temp
   INTEGER :: jfile
   LOGICAL :: l_outputtime
   CHARACTER(len=32) :: datestring
@@ -174,9 +174,6 @@ CONTAINS
     CALL finish(TRIM(routine), ' N_DOM > 1 is not allowed')
   END IF
   jg = n_dom
-
-  ! set time level to old level (nold(1)=3)
-  jt = nold(jg)
 
   ! file 1 is opened in control_model setup:
   jfile = 1
