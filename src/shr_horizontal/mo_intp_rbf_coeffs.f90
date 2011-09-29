@@ -2083,6 +2083,7 @@ SUBROUTINE rbf_setup_interpol_lonlat(k_jg, ptr_patch, ptr_int_lonlat, ptr_int)
   TYPE(t_geographical_coordinates) :: cell_center, lonlat_pt
   TYPE(t_cartesian_coordinates)    :: p1, p2
   REAL(wp)                         :: point(2), z_norm, z_nx1(3), z_nx2(3)
+  INTEGER                          :: ithis_local_pts
 
   !-----------------------------------------------------------------------
 
@@ -2138,9 +2139,13 @@ SUBROUTINE rbf_setup_interpol_lonlat(k_jg, ptr_patch, ptr_int_lonlat, ptr_int)
     &                                  nproma, nblks_lonlat, npromz_lonlat,    &
     &                                  ptr_int_lonlat%tri_idx(:,:,:), min_dist(:,:))
   IF (l_distributed) THEN
-    CALL gnat_merge_distributed_queries(ptr_patch, grid, nproma, min_dist, &
-      &                                 ptr_int_lonlat%tri_idx(:,:,:), in_points(:,:,:), &
-      &                                 ptr_int_lonlat%nlocal_pts(:), ptr_int_lonlat%owner(:))
+    CALL gnat_merge_distributed_queries(ptr_patch, grid%total_dim, nproma, grid%nblks, min_dist, &
+      &                                 ptr_int_lonlat%tri_idx(:,:,:), in_points(:,:,:),         &
+      &                                 ptr_int_lonlat%nlocal_pts(:), ptr_int_lonlat%owner(:),   &
+      &                                 ithis_local_pts)
+    ! set "nblks" and "npromz" to new values:
+    grid%nblks    = ithis_local_pts/nproma + 1
+    grid%npromz   = ithis_local_pts - (grid%nblks-1)*nproma
     nblks_lonlat  = grid%nblks
     npromz_lonlat = grid%npromz
   END IF

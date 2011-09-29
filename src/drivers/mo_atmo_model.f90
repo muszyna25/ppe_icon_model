@@ -34,6 +34,7 @@
 !!
 MODULE mo_atmo_model
 
+USE mo_kind,                ONLY: wp
 USE mo_exception,           ONLY: message, finish, message_text
 USE mo_mpi,                 ONLY: p_stop, &
   & my_process_is_io,  my_process_is_mpi_seq, my_process_is_mpi_test, &
@@ -126,6 +127,10 @@ USE mo_ext_data,            ONLY: ext_data, init_ext_data, destruct_ext_data
 !  USE mo_nwp_phy_init,          ONLY: init_nwp_phy
 !!$  USE mo_gscp_cosmo,          ONLY: hydci_pp_init
 
+! meteogram output
+USE mo_mtgrm_output,        ONLY: mtgrm_init, mtgrm_finalize
+USE mo_mtgrm_config,        ONLY: mtgrm_output_config
+
 
 !-------------------------------------------------------------------------
 ! to break circular dependency
@@ -183,6 +188,7 @@ CONTAINS
     INTEGER :: field_shape(3) 
     INTEGER :: i, error_status
     INTEGER :: patch_no
+    INTEGER :: nstations
 
     !---------------------------------------------------------------------
     ! 0. If this is a resumed or warm-start run...
@@ -375,11 +381,6 @@ CONTAINS
 
     !-------------------------------------------------------------------
     ! 7b. Constructing data for lon-lat interpolation
-    !     So far, we compute the interpolation coefficients
-    !     sequentially, though we perform the nearest neighbor query
-    !     for the lon-lat grid points on the distributed
-    !     patches. Later, the whole process of the coefficient
-    !     computation will be distributed.
     !-------------------------------------------------------------------
 
     DO jg = 1, n_dom
@@ -527,6 +528,17 @@ CONTAINS
     ENDIF
 
     !---------------------------------------------------------------------
+    !     Setup of meteogram output
+    !---------------------------------------------------------------------
+
+    DO jg =1,n_dom
+      IF (mtgrm_output_config(jg)%lenabled) THEN
+        CALL mtgrm_init(mtgrm_output_config(jg), p_patch(jg), &
+          &             ext_data(jg), iforcing, jg)
+      END IF
+    END DO
+
+    !---------------------------------------------------------------------
     ! 12. The hydrostatic and nonhydrostatic models branch from this point
     !---------------------------------------------------------------------
     SELECT CASE(iequations)
@@ -605,6 +617,14 @@ CONTAINS
     IF (error_status/=SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocate for patch array failed')
     ENDIF
+
+    ! finalize meteogram output
+    DO jg = 1, n_dom
+      IF (mtgrm_output_config(jg)%lenabled) THEN
+        CALL mtgrm_finalize(jg)
+      END IF
+      DEALLOCATE(mtgrm_output_config(jg)%station_list)
+    END DO
 
     CALL message(TRIM(routine),'clean-up finished')
 

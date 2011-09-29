@@ -2200,7 +2200,7 @@ Defined and used in: src/namelists/mo\_io\_nml.f90
 
 \hline 
 llonlat\_enabled&
-L &
+L(n\_dom) &
 .FALSE.&&
 Flag. True, if lon-lat interpolation of output variables is desired.&
 \tabularnewline
@@ -2292,7 +2292,57 @@ Computed automatically when a second area corner is provided.
 \hline
 \end{longtab}
 
-Defined and used in: src/namelists/mo\_io\_nml.f90
+Defined and used in: src/namelists/mo\_lonlat\_intp\_nml.f90
+
+
+
+%------------------------------------------------------------------------------
+% mtgrm_output_nml:
+%------------------------------------------------------------------------------
+\subsection{mtgrm\_output\_nml}
+\begin{longtab}
+
+\hline 
+lmtgrm\_enabled&
+L(n\_dom) &
+.FALSE.&&
+Flag. True, if meteogram of output variables is desired.&
+\tabularnewline
+
+\hline 
+zprefix&
+C(n\_dom) &
+``MTGRM\_''&&
+string with file name prefix for output file&
+\tabularnewline
+
+\hline 
+n0\_mtgrm&
+I(n\_dom) &
+1&&
+intitial time step for meteogram output&
+\tabularnewline
+
+\hline 
+ninc\_mtgrm&
+I(n\_dom) &
+1&&
+output interval (in time steps)&
+\tabularnewline
+
+\hline 
+stationlist\_tot&
+&
+`` 53.633,  9.983, 'Hamburg' ``&&
+list of meteogram stations&
+\tabularnewline
+
+\hline
+\end{longtab}
+
+Defined and used in: src/namelists/mo\_mtgrm\_nml.f90
+
+
 
 %------------------------------------------------------------------------------
 % nh_pzlev_nml:

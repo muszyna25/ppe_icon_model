@@ -80,6 +80,8 @@ MODULE mo_read_namelists
 
   USE mo_lonlat_intp_nml     ,ONLY: read_lonlat_intp_namelist
 
+  USE mo_mtgrm_nml           ,ONLY: read_mtgrm_namelist
+
   IMPLICIT NONE
 
   PRIVATE
@@ -125,6 +127,7 @@ CONTAINS
     CALL read_io_namelist             (TRIM(atm_namelist_filename))
     CALL read_lonlat_intp_namelist    (TRIM(atm_namelist_filename))
     CALL read_nh_pzlev_namelist       (TRIM(atm_namelist_filename))
+    CALL read_mtgrm_namelist          (TRIM(atm_namelist_filename))
 
     ! Grid
     !

@@ -70,6 +70,8 @@ MODULE mo_output
   USE mo_run_config,          ONLY: ltimer
   USE mo_timer,               ONLY: timer_start, timer_stop,&
     &                               timer_write_restart_file, timer_write_output
+  USE mo_mtgrm_output,        ONLY: mtgrm_flush_file
+  USE mo_mtgrm_config,        ONLY: mtgrm_output_config
 
   USE mo_oce_state,           ONLY: set_zlev
   IMPLICIT NONE
@@ -226,8 +228,7 @@ CONTAINS
     ! Note that this has to be done AFTER the output files are set!
 
     IF(jfile == 1 .AND. process_mpi_io_size>0) CALL setup_io_procs()
-
-
+    
   END SUBROUTINE init_output_files
 
   !------------------------------------------------------------------------------------------------
@@ -257,6 +258,9 @@ CONTAINS
 
     TYPE(t_datetime),      INTENT(in) :: datetime
     REAL(wp), OPTIONAL, INTENT(in) :: z_sim_time(n_dom)
+
+    ! Local variables
+    INTEGER :: jg
 
 !    Proposal by Matthias Raschendorfer for correct output
 !
@@ -291,6 +295,12 @@ CONTAINS
         CALL output_async(datetime)
       ENDIF
     ENDIF
+
+    DO jg = 1, n_dom
+      IF (mtgrm_output_config(jg)%lenabled) THEN
+        CALL mtgrm_flush_file(jg)
+      END IF
+    END DO
 
     IF (ltimer) CALL timer_stop(timer_write_output)
   END SUBROUTINE write_output

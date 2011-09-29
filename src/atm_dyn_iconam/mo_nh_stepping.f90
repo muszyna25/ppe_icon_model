@@ -126,6 +126,8 @@ MODULE mo_nh_stepping
   USE mo_nwp_mpiomp_rrtm_interface, ONLY: nwp_start_radiation_ompthread, model_end_ompthread, &
     & init_ompthread_radiation
   USE mo_parallel_config,     ONLY: parallel_radiation_omp, nh_stepping_ompthreads
+  USE mo_mtgrm_config,        ONLY: mtgrm_output_config
+  USE mo_mtgrm_output,        ONLY: mtgrm_sample_vars, mtgrm_is_sample_step
 
   IMPLICIT NONE
 
@@ -384,6 +386,8 @@ MODULE mo_nh_stepping
   REAL(wp)                             :: vn_aux(p_patch(1)%nblks_int_e)
   REAL(wp)                             :: w_aux(p_patch(1)%nblks_int_c)
   REAL(wp), DIMENSION(:,:,:), POINTER  :: p_vn, p_w
+  INTEGER                              :: ierr
+  LOGICAL                              :: l_compute_diagnostic_quants
 
 !$  INTEGER omp_get_num_threads
 !-----------------------------------------------------------------------
@@ -468,11 +472,17 @@ MODULE mo_nh_stepping
                           ! thus diagnostic quantities need to be computed
     ENDIF
 
+    l_compute_diagnostic_quants = l_outputtime
+    DO jg = 1, n_dom
+      l_compute_diagnostic_quants = l_compute_diagnostic_quants .OR. &
+        &          mtgrm_is_sample_step(mtgrm_output_config(jg), jstep)
+    END DO
+
     !
     ! dynamics stepping
     !
     CALL integrate_nh(p_nh_state, p_patch, p_int_state, datetime, p_grf_state, &
-                      1, jstep, dtime, sim_time, 1)
+                      1, jstep, dtime, sim_time, 1, l_compute_diagnostic_quants)
 
     ! output of results
     ! note: nnew has been replaced by nnow here because the update
@@ -490,7 +500,15 @@ MODULE mo_nh_stepping
 
     ENDIF
 
-
+    ! sample meteogram output
+    DO jg = 1, n_dom
+      IF (mtgrm_is_sample_step(mtgrm_output_config(jg), jstep)) THEN
+        CALL mtgrm_sample_vars(p_nh_state(jg), jg, jstep, datetime, ierr)
+        IF (ierr /= SUCCESS) THEN
+          CALL finish (routine, 'Error in meteogram sampling! Sampling buffer too small?')
+        ENDIF
+      END IF
+    END DO
 
     ! Diagnostics computation is not yet properly MPI-parallelized
 #ifdef NOMPI
@@ -545,7 +563,6 @@ MODULE mo_nh_stepping
   ENDDO TIME_LOOP
 
   IF (ltimer) CALL timer_stop(timer_total)
-
 
   END SUBROUTINE perform_nh_timeloop
   !-------------------------------------------------------------------------
@@ -776,10 +793,12 @@ MODULE mo_nh_stepping
   !!
 #ifdef __NO_NESTING__
    SUBROUTINE integrate_nh (p_nh_state, p_patch, p_int_state, datetime,        &
-  &        p_grf_state, jg, nstep_global, dt_loc, sim_time, num_steps)
+  &        p_grf_state, jg, nstep_global, dt_loc, sim_time, num_steps, &
+  &        l_compute_diagnostic_quants)
 #else
   RECURSIVE SUBROUTINE integrate_nh (p_nh_state, p_patch, p_int_state, datetime,  &
-  &        p_grf_state, jg, nstep_global, dt_loc, sim_time, num_steps)
+  &        p_grf_state, jg, nstep_global, dt_loc, sim_time, num_steps, &
+  &        l_compute_diagnostic_quants)
 #endif
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
@@ -797,6 +816,7 @@ MODULE mo_nh_stepping
     REAL(wp), INTENT(IN)    :: dt_loc       !< time step applicable to local grid level
     REAL(wp), INTENT(INOUT) :: sim_time(n_dom) !< elapsed simulation time on each
                                                !< grid level
+    LOGICAL, INTENT(IN) :: l_compute_diagnostic_quants    !< computation of diagnostic quantities
 
     ! Local variables
 
@@ -1410,8 +1430,9 @@ MODULE mo_nh_stepping
           IF(p_patch(jgc)%n_patch_cells > 0) THEN
             IF(proc_split) CALL push_glob_comm(p_patch(jgc)%comm, p_patch(jgc)%proc0)
             ! Recursive call to process_grid_level for child grid level
-            CALL integrate_nh( p_nh_state, p_patch, p_int_state, datetime,           &
-              p_grf_state, jgc, nstep_global, dt_sub, sim_time, nsteps_nest)
+            CALL integrate_nh( p_nh_state, p_patch, p_int_state, datetime,           & 
+              p_grf_state, jgc, nstep_global, dt_sub, sim_time, nsteps_nest,         &
+              l_compute_diagnostic_quants)
             IF(proc_split) CALL pop_glob_comm()
           ENDIF
 
@@ -1434,7 +1455,7 @@ MODULE mo_nh_stepping
       ENDIF
 #endif
 
-      IF (l_outputtime) THEN ! compute diagnostic quantities
+      IF (l_compute_diagnostic_quants) THEN ! compute diagnostic quantities
         p_vn  => p_nh_state(jg)%prog(n_new)%vn
         SELECT CASE (p_patch(jg)%cell_type)
         CASE (3)
@@ -1495,7 +1516,7 @@ MODULE mo_nh_stepping
 
         END SELECT
       ENDIF
-      IF ((l_outputtime.AND.(p_patch(jg)%cell_type==3)).OR.&
+      IF ((l_compute_diagnostic_quants .AND. (p_patch(jg)%cell_type==3)).OR.&
         & (p_patch(jg)%cell_type==6)) THEN
         CALL diagnose_pres_temp (p_nh_state(jg)%metrics, p_nh_state(jg)%prog(nnew(jg)), &
           &                      p_nh_state(jg)%prog(nnew_rcf(jg)),                     &

@@ -915,29 +915,30 @@ CONTAINS
   ! lists of pairs (distance, index) of the same length to a single
   ! list. All information except the one with minimal distance is
   ! discarded.
-  SUBROUTINE gnat_merge_distributed_queries(p_patch, grid, iv_nproma, min_dist, tri_idx, &
-    &                                       lonlat_points, nlocal_pts, owner_list)
+  SUBROUTINE gnat_merge_distributed_queries(p_patch, total_dim, iv_nproma, iv_nblks, min_dist, &
+    &                                       tri_idx, lonlat_points, nlocal_pts, owner_list,    &
+    &                                       ithis_local_pts)
     TYPE(t_patch),         INTENT(IN)    :: p_patch
-    TYPE (t_lon_lat_grid), INTENT(INOUT) :: grid ! lon-lat grid
-    INTEGER,               INTENT(IN)    :: iv_nproma
+    INTEGER,               INTENT(IN)    :: total_dim
+    INTEGER,               INTENT(IN)    :: iv_nproma, iv_nblks
     REAL(gk),              INTENT(IN)    :: min_dist(:,:)
     INTEGER,               INTENT(INOUT) :: tri_idx(:,:,:)
     REAL(gk),              INTENT(INOUT) :: lonlat_points(:,:,:)
     INTEGER,               INTENT(INOUT) :: nlocal_pts(:), owner_list(:)
+    INTEGER,               INTENT(OUT)   :: ithis_local_pts !< no. of points on this PE
     ! local variables
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_gnat_gridsearch:gnat_merge_distributed_queries")
     INTEGER  :: i, j, jc, jb, ntotal
-    INTEGER  :: new_tri_idx(2,grid%total_dim)
-    REAL(gk) :: new_lonlat_points(grid%total_dim,2)
-    REAL     :: in(2,grid%total_dim)
+    INTEGER  :: new_tri_idx(2,total_dim)
+    REAL(gk) :: new_lonlat_points(total_dim,2)
+    REAL     :: in(2,total_dim)
     LOGICAL  :: l_work_pe, l_io_pe
-    INTEGER  :: iv_nblks, iowner, idummy_applied
+    INTEGER  :: iowner, idummy_applied
     INTEGER  :: array_shape(2), dummy_idx(2)
     INTEGER  :: i_endblk, i_endidx, &
       &         rl_start, rl_end, i_nchdom
 
-    ntotal   = grid%total_dim
-    iv_nblks = grid%nblks
+    ntotal   = total_dim
 
     ! for the (rather pathological) case of local patches covered by a
     ! larger lon-lat grid, we have to set some "dummy" indices outside
@@ -972,7 +973,7 @@ CONTAINS
     ! store list of owners for reconstruction of global coefficient
     ! arrays:
     IF (l_io_pe) THEN
-      owner_list(:) = NINT(in(2,:))
+      owner_list(1:total_dim) = NINT(in(2,1:total_dim))
     END IF
 
     ! 3. If we are a working PE, reduce the list of in_points and the
@@ -996,7 +997,7 @@ CONTAINS
             jc = 1
           END IF
           if (i > ntotal) EXIT TOTAL
-          IF (NINT(in(2,i)) == get_my_mpi_all_id()) EXIT SKIP
+          IF (owner_list(i) == get_my_mpi_all_id()) EXIT SKIP
         END DO SKIP
 
         IF (tri_idx(1,jc,jb) /= INVALID_NODE) THEN
@@ -1017,10 +1018,7 @@ CONTAINS
     END IF
 
     ! now, (j-1) points are left for proc "get_my_mpi_all_id()"
-
-    ! set "nblks" and "npromz" to new values:
-    grid%nblks  = (j-1)/iv_nproma + 1
-    grid%npromz = j - 1 - (grid%nblks-1)*iv_nproma
+    ithis_local_pts = (j-1)
 
     ! store the global list of receivers as well as the number of
     ! points associated with each work PE.
