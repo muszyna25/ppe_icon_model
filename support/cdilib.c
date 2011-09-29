@@ -55,7 +55,7 @@
 #define  MAX_VLISTS    65536  /* maximum number of vlists                     */
 #define  MIN_TAXES      1024  /* minimum number of taxes                      */
 #define  MAX_TAXES     65536  /* maximum number of taxes                      */
-#define  MAX_ZAXES      1024  /* maximum number of zaxes                      */
+#define  MAX_ZAXES      8192  /* maximum number of zaxes                      */
 #define  MAX_GRIDS      8192  /* maximum number of grids                      */
 #define  MAX_INSTS      1024  /* maximum number of instituts                  */
 #define  MAX_MODELS     1024  /* maximum number of models                     */

@@ -266,6 +266,10 @@ CONTAINS
       CALL init_output_files(jfile,lclose=l_have_output)
     END IF
 
+    ! Shift time indices for the next loop
+    ! this HAS to ge into the restart files, because the start with the following loop
+    CALL update_time_indices(jg)
+
     ! write a restart or checkpoint file
     IF (MOD(jstep,n_checkpoints())==0 .OR. (jstep==nsteps .AND. lwrite_restart)) THEN
       CALL create_restart_file( ppatch(jg), datetime,  &
@@ -275,8 +279,8 @@ CONTAINS
       CALL write_restart_info_file
     END IF
 
-    ! update intermediate timestepping variables
-    CALL update_for_next_timestep(pstate_oce(jg),jg)
+    ! update intermediate timestepping variables for the tracers
+    CALL update_intermediate_tracer_vars(pstate_oce(jg))
 
   ENDDO TIME_LOOP
 
@@ -407,19 +411,21 @@ CONTAINS
   END SUBROUTINE finalise_ho_integration
 
 
-  SUBROUTINE update_for_next_timestep(p_os,jg)
-    TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os
-    INTEGER, INTENT(IN)                      :: jg
-
-    INTEGER :: it, n_temp
-
-
+  SUBROUTINE update_time_indices(jg)
+    INTEGER, INTENT(IN) :: jg
+    INTEGER             :: n_temp
     ! Step 7: Swap time indices before output
     !         half time levels of semi-implicit Adams-Bashforth timestepping are
     !         stored in auxiliary arrays g_n and g_nimd of p_diag%aux
     n_temp    = nold(jg)
     nold(jg)  = nnew(jg)
     nnew(jg)  = n_temp
+  END SUBROUTINE update_time_indices
+
+  SUBROUTINE update_intermediate_tracer_vars(p_os)
+    TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os
+
+    INTEGER :: it
 
     ! tracer updates
     DO it = 1,no_tracer
@@ -436,7 +442,7 @@ CONTAINS
     ! vertical velocity
     p_os%p_aux%g_nm1 = p_os%p_aux%g_n
     p_os%p_aux%g_n   = 0.0_wp
-  END SUBROUTINE update_for_next_timestep
+  END SUBROUTINE update_intermediate_tracer_vars
 
 END MODULE mo_hydro_ocean_run
 
