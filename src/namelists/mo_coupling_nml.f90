@@ -66,6 +66,7 @@ MODULE mo_coupling_nml
   LOGICAL            :: l_time_average
   LOGICAL            :: l_time_accumulation
   LOGICAL            :: l_diagnostic
+  LOGICAL            :: l_activated
   INTEGER            :: frequency
   INTEGER            :: time_step
   INTEGER            :: lag
@@ -77,8 +78,8 @@ MODULE mo_coupling_nml
                           lag,                 &
                           l_time_average,      &
                           l_time_accumulation, &
-                          l_diagnostic
-
+                          l_diagnostic,        &
+                          l_activated
 CONTAINS
 
   !>
@@ -124,6 +125,7 @@ CONTAINS
     l_redirect_stdout   = .FALSE.
 
     l_diagnostic        = .FALSE.
+    l_activated         = .FALSE.
 
     !--------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
@@ -161,6 +163,7 @@ CONTAINS
        l_time_accumulation = .FALSE.
 
        l_diagnostic        = .FALSE.
+       l_activated         = .FALSE.
 
        first = .FALSE.
 
@@ -237,6 +240,7 @@ CONTAINS
           config_cpl_fields(i)%l_time_average      = l_time_average
           config_cpl_fields(i)%l_time_accumulation = l_time_accumulation
           config_cpl_fields(i)%l_diagnostic        = l_diagnostic
+          config_cpl_fields(i)%l_activated         = l_activated
 
        END SELECT
 

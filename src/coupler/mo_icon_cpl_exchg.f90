@@ -159,6 +159,14 @@ CONTAINS
 
     fptr => cpl_fields(field_id)
 
+    IF ( .NOT. fptr%coupling%l_activated ) THEN
+       IF ( l_debug .AND. debug_level > 0 ) THEN
+          WRITE ( cplout , * ) ICON_global_rank, ' : no get action for field ', &
+               TRIM(fptr%field_name)
+       ENDIF
+       RETURN
+    ENDIF
+
     l_action = event_check ( fptr%event_id )
 
     IF ( l_debug .AND. debug_level > 0 ) THEN
@@ -374,6 +382,14 @@ CONTAINS
     IF ( field_id < 1 .OR.  field_id > nbr_ICON_fields ) RETURN
 
     IF ( .NOT. cpl_fields(field_id)%l_field_status ) RETURN
+
+    IF ( .NOT. cpl_fields(field_id)%coupling%l_activated ) THEN
+       IF ( l_debug .AND. debug_level > 0 ) THEN
+          WRITE ( cplout , * ) ICON_global_rank, ' : no put action for field ', &
+               TRIM(cpl_fields(field_id)%field_name)
+       ENDIF
+       RETURN
+    ENDIF
 
     ! -------------------------------------------------------------------
     ! First check whether this process has to send data to someone else

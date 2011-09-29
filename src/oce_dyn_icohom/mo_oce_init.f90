@@ -79,7 +79,7 @@ USE mo_oce_math_operators, ONLY: grad_fd_norm_oce,grad_fd_norm_oce_2D, height_re
   &                              rot_vertex_ocean
 USE mo_oce_thermodyn,      ONLY: convert_insitu2pot_temp_func
 USE mo_oce_linear_solver,  ONLY: gmres_e2e
-USE mo_icon_cpl_exchg,     ONLY: ICON_cpl_put, ICON_cpl_get
+USE mo_icon_cpl_exchg,     ONLY: ICON_cpl_put
 USE mo_icon_cpl_def_field, ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
 
 IMPLICIT NONE

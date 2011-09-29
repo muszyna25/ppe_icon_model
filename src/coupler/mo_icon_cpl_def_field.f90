@@ -225,9 +225,10 @@ CONTAINS
        fptr%coupling%time_operation = cpl_field_none
     ENDIF
 
-    fptr%coupling%lag       = config_cpl_fields(global_field_id)%lag
-    fptr%coupling%frequency = config_cpl_fields(global_field_id)%frequency
-    fptr%coupling%time_step = config_cpl_fields(global_field_id)%time_step
+    fptr%coupling%l_activated = config_cpl_fields(global_field_id)%l_activated
+    fptr%coupling%lag         = config_cpl_fields(global_field_id)%lag
+    fptr%coupling%frequency   = config_cpl_fields(global_field_id)%frequency
+    fptr%coupling%time_step   = config_cpl_fields(global_field_id)%time_step
 
     IF ( config_cpl_fields(global_field_id)%l_diagnostic ) &
     fptr%coupling%diagnostic = 1

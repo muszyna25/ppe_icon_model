@@ -84,7 +84,7 @@ MODULE mo_echam_phy_init
                                    & prm_tend,  t_echam_phy_tend
   ! for coupling
   USE mo_master_control,       ONLY: is_coupled_run
-  USE mo_icon_cpl_exchg,       ONLY: ICON_cpl_put, ICON_cpl_get
+  USE mo_icon_cpl_exchg,       ONLY: ICON_cpl_get
   USE mo_icon_cpl_def_field,   ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
 
   IMPLICIT NONE

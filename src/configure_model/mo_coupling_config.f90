@@ -20,6 +20,7 @@ MODULE mo_coupling_config
      INTEGER            :: frequency
      INTEGER            :: time_step
      LOGICAL            :: l_diagnostic
+     LOGICAL            :: l_activated
   END TYPE t_cpl_field_nml
 
   TYPE (t_cpl_field_nml), POINTER :: config_cpl_fields(:) => NULL()

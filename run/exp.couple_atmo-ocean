@@ -75,6 +75,7 @@ cat > $atmo_namelist << EOF
   frequency           =  ${dtime}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
+  l_activated         = .TRUE.
 /
 &coupling_nml
   name                = 'TAUY'
@@ -82,6 +83,7 @@ cat > $atmo_namelist << EOF
   frequency           =  ${dtime}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
+  l_activated         = .TRUE.
 /
 &coupling_nml
   name                = 'SFWFLX'
@@ -96,6 +98,7 @@ cat > $atmo_namelist << EOF
   frequency           =  ${dtime}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
+  l_activated         = .TRUE.
 /
 &coupling_nml
   name                = 'THFLX'
@@ -110,6 +113,7 @@ cat > $atmo_namelist << EOF
   frequency           =  ${dtime}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
+  l_activated         = .TRUE.
 /
 &coupling_nml
   name                = 'OCEANU'
@@ -263,6 +267,7 @@ cat > ${ocean_namelist} << EOF
   frequency           =  ${dtime}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
+  l_activated         = .TRUE.
 /
 &coupling_nml
   name                = 'TAUY'
@@ -270,6 +275,7 @@ cat > ${ocean_namelist} << EOF
   frequency           =  ${dtime}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
+  l_activated         = .TRUE.
 /
 &coupling_nml
   name                = 'SFWFLX'
@@ -284,6 +290,7 @@ cat > ${ocean_namelist} << EOF
   frequency           =  ${dtime}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
+  l_activated         = .TRUE.
 /
 &coupling_nml
   name                = 'THFLX'
@@ -298,6 +305,7 @@ cat > ${ocean_namelist} << EOF
   frequency           =  ${dtime}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
+  l_activated         = .TRUE.
 /
 &coupling_nml
   name                = 'OCEANU'

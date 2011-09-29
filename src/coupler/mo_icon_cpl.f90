@@ -215,6 +215,7 @@ MODULE mo_icon_cpl
      INTEGER                :: frequency
      INTEGER                :: time_step
      INTEGER                :: diagnostic
+     LOGICAL                :: l_activated
   END TYPE t_coupling
 
 !>
