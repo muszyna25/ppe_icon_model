@@ -235,6 +235,10 @@ CONTAINS
 
        grid_global_index = gptr%grid_glob_index
 
+       DO i = 1, len
+          grid_global_position(i) = i
+       ENDDO
+
     ENDIF
 
     ALLOCATE(idx(len))

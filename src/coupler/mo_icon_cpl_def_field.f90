@@ -211,7 +211,7 @@ CONTAINS
     fptr%global_field_id = global_field_id
 
     fptr%field_shape     = field_shape
-    nbr_active_fields    = nbr_active_fields + 1
+    nbr_active_fields    = field_id
 
     ! -------------------------------------------------------------------
     ! Initialize coupling, substitute for the OASIS4 XML reading and storage

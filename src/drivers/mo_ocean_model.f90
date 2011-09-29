@@ -397,22 +397,6 @@ CONTAINS
     ! optionally read those data from netCDF file.
     CALL init_ext_data (p_patch(1:), p_int_state(1:), ext_data)
 
-    ! Prepare time integration
-    CALL prepare_ho_integration(p_patch(1:), v_ocean_state, ext_data, v_sfc_flx, &
-      &                         p_phys_param, p_as, p_atm_f, p_ice)
-
-    !------------------------------------------------------------------
-    ! Daniel: Suggestion for point 5 of Feature #333
-    ! (5. Subroutine to setup model components depending on this
-    ! namelist, to be called after all namelists have been read, and
-    ! a synoptic check has been done)
-    !------------------------------------------------------------------
-    ! set dependent variables/model components, depending on this (transport)
-    ! namelist and potentially others
-!    IF (ltransport) THEN
-!      CALL setup_transport( ihs_ocean )
-!    ENDIF
-!
     !------------------------------------------------------------------
     ! Prepare the coupling
     !
@@ -420,7 +404,9 @@ CONTAINS
     ! common to atmo and ocean. Does this make sense if the setup deviates
     ! too much in future.
     !------------------------------------------------------------------
+
     IF ( is_coupled_run() ) THEN
+
       comp_id = get_my_couple_id ()
       patch_no = 1
 
@@ -436,8 +422,8 @@ CONTAINS
       field_name(1) = "TAUX"
       field_name(2) = "TAUY"
       field_name(3) = "SFWFLX"
-      field_name(4) = "SHFLX"
-      field_name(5) = "LHFLX"
+      field_name(4) = "SFTEMP"
+      field_name(5) = "THFLX"
       field_name(6) = "SST"
       field_name(7) = "OCEANU"
       field_name(8) = "OCEANV"
@@ -454,6 +440,22 @@ CONTAINS
 
     ENDIF
 
+    ! Prepare time integration
+    CALL prepare_ho_integration(p_patch(1:), v_ocean_state, ext_data, v_sfc_flx, &
+      &                         p_phys_param, p_as, p_atm_f, p_ice)
+
+    !------------------------------------------------------------------
+    ! Daniel: Suggestion for point 5 of Feature #333
+    ! (5. Subroutine to setup model components depending on this
+    ! namelist, to be called after all namelists have been read, and
+    ! a synoptic check has been done)
+    !------------------------------------------------------------------
+    ! set dependent variables/model components, depending on this (transport)
+    ! namelist and potentially others
+!    IF (ltransport) THEN
+!      CALL setup_transport( ihs_ocean )
+!    ENDIF
+!
     !------------------------------------------------------------------
     ! Set initial conditions for time integration.
     !------------------------------------------------------------------

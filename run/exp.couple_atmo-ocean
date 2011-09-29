@@ -43,6 +43,12 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 dtime=300
 ndays=10
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
+dt_diag=`expr 6 \* 3600  `   # global integral output each 6 hours
+dt_file=`expr 1 \* 86400 `   # 1 day per file
+dt_data=21600.               # write output every 6 hours
+dt_rad=7200.                 # compute radiative transfer every other hour
+dt_checkpoint=`expr 5 \* 86400 `  # write restart file every 5 days
+#
 #nsteps=10
 #
 #-----------------------------------------------------------------------------
@@ -53,6 +59,7 @@ atmo_model_equations=1   # equation system
 #                    -1=shallow water model
 #                    -2=hydrost. ocean
 nlev=47             # nlev = number of full levels
+iforcing=2          # ECHAM physics
 #-----------------------------------------------------------------------------
 # the grid files
 grid_ext="aqua_planet"
