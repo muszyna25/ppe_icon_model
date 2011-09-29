@@ -405,7 +405,6 @@ CONTAINS
     ! SST:
       buffer(:,1) = RESHAPE(p_os%p_prog(nold(1))%tracer(:,1,:,1), (/nbr_points /) )
       CALL ICON_cpl_put ( field_id(6), field_shape, buffer, ierror )
-#ifdef ACTIVATE_EXCHANGE_OF_FLUXES
     !
     ! zonal wind
       buffer(:,1) = RESHAPE(p_os%p_diag%u(:,1,:), (/nbr_points /) )
@@ -414,8 +413,6 @@ CONTAINS
     ! meridional wind
       buffer(:,1) = RESHAPE(p_os%p_diag%v(:,1,:), (/nbr_points /) )
       CALL ICON_cpl_put ( field_id(8), field_shape, buffer, ierror )
-#endif
-
     !
     ! Receive fields from atmosphere
     ! ------------------------------
@@ -427,23 +424,19 @@ CONTAINS
     ! meridional wind stress
       CALL ICON_cpl_get ( field_id(2), field_shape, buffer, info, ierror )
       p_sfc_flx%forc_wind_v(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
-#ifdef ACTIVATE_EXCHANGE_OF_FLUXES
     !
     ! freshwater flux
       CALL ICON_cpl_get ( field_id(3), field_shape, buffer, info, ierror )
       p_sfc_flx%forc_fwfx(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
-#endif
     !
     ! surface temperature
       CALL ICON_cpl_get ( field_id(4), field_shape, buffer, info, ierror )
       p_sfc_flx%forc_hflx(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
-#ifdef ACTIVATE_EXCHANGE_OF_FLUXES
     !
     ! total heat flux
       CALL ICON_cpl_get ( field_id(5), field_shape, buffer, info, ierror )
       p_sfc_flx%forc_hflx(:,:) = p_sfc_flx%forc_hflx(:,:) + &
         &                        RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
-#endif
     ENDIF
     !
 
