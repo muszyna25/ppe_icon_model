@@ -487,14 +487,14 @@ CONTAINS
 
     !write(0,*) 'relpar, z_rel:',relaxation_param,z_relax
     jkc=1      ! current level - may not be zero
+    ipl_src=2  ! output print level (0-5, fix)
+    z_c(:,1,:) = p_sfc_flx%forc_tracer(:,:,1)
+    CALL print_mxmn('T-forc-tracer-flux',jkc,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
     ipl_src=3  ! output print level (0-5, fix)
     z_c(:,1,:) = p_sfc_flx%forc_tracer_relax(:,:,1)
     CALL print_mxmn('T-forc-tracer-relax',jkc,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
     z_c(:,1,:) = p_sfc_flx%forc_tracer_relax(:,:,1)-p_os%p_prog(nold(1))%tracer(:,1,:,1)
     CALL print_mxmn('Temp-difference',jkc,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-    ipl_src=2  ! output print level (0-5, fix)
-    z_c(:,1,:) = p_sfc_flx%forc_tracer(:,:,1)
-    CALL print_mxmn('T-forc-tracer-flux',jkc,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
 
   ENDIF
 
