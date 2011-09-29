@@ -251,10 +251,6 @@ CONTAINS
                                     & oce_ts)
     ENDIF 
 
-    ! Step 8: test output
-!     IF (ldbg) WRITE(*,'(a,i5,2(a,g20.12))') '*** After jstep = ',jstep, &
-!       &  '  Elevation h =', pstate_oce(jg)%p_prog(nold(jg))%h(c_i,c_b), &
-!       &  '  Velocity  u =', pstate_oce(jg)%p_diag%u_pred(c_i,c_k,c_b)
     ! One integration cycle finished on the lowest grid level (coarsest
     ! resolution). Set model time.
     CALL add_time(dtime,0,0,0,datetime)

@@ -123,6 +123,7 @@ MODULE mo_io_vlist
     &                                 lwrite_tend_phy, lwrite_radiation,          &
     &                                 lwrite_precip, lwrite_cloud, lwrite_tracer, &
     &                                 lwrite_tke,  lwrite_surface, lwrite_pzlev,  &
+    &                                 lwrite_dblprec,                             &
     &                                 lwrite_extra, inextra_2d,inextra_3d,        &
     &                                 out_filetype, out_expname,                  &
     &                                 dt_data, dt_file, lkeep_in_sync,            &
@@ -2304,6 +2305,11 @@ CONTAINS
 
       CALL vlistInqVarName(vlistID(k_jg), varids(ivar, k_jg), outvar_desc(ivar, k_jg)%name)
 
+      ! write double precision
+      IF ( lwrite_dblprec ) CALL vlistDefVarDatatype(vlistID(k_jg),&
+        &                                            varids(ivar,k_jg),&
+        &                                            DATATYPE_FLT64)
+
     ENDDO
 
   END SUBROUTINE setup_vlist
@@ -3158,7 +3164,7 @@ CONTAINS
 
     ! Make streamvar1/streamvar2 defined everywhere
 
-        IF(.NOT. my_process_is_stdio()) ALLOCATE(streamvar1(1), streamvar2(1,1))
+    IF(.NOT. my_process_is_stdio()) ALLOCATE(streamvar1(1), streamvar2(1,1))
 
     DO jg = 1, n_dom
 

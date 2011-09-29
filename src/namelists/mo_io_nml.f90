@@ -75,7 +75,8 @@ MODULE mo_io_nml
                                  & config_lwrite_pzlev      => lwrite_pzlev     , &
                                  & config_inextra_2d        => inextra_2d       , &
                                  & config_inextra_3d        => inextra_3d       , &
-                                 & config_lflux_avg         => lflux_avg
+                                 & config_lflux_avg         => lflux_avg        , &
+                                 & config_lwrite_dblprec    => lwrite_dblprec
   USE mo_exception,        ONLY: message, message_text, finish
   USE mo_parallel_config,  ONLY: nproma
 
@@ -97,6 +98,7 @@ MODULE mo_io_nml
 
   LOGICAL :: no_output                  ! if .true., write nothing
   LOGICAL :: lwrite_initial             ! if .true., write out initial state
+  LOGICAL :: lwrite_dblprec             ! if .true., write out in double precision
   LOGICAL :: lwrite_vorticity           ! if .true., write out vorticity
   LOGICAL :: lwrite_divergence          ! if .true., write out divergence
   LOGICAL :: lwrite_pres                ! if .true., write out full level pressure
@@ -123,7 +125,7 @@ MODULE mo_io_nml
 
   NAMELIST/io_nml/ out_expname, out_filetype, lkeep_in_sync,          &
     &              dt_data, dt_diag, dt_file, dt_checkpoint,          &
-    &              lwrite_initial,                                    &
+    &              lwrite_initial, lwrite_dblprec,                    &
     &              lwrite_vorticity, lwrite_divergence, lwrite_omega, &
     &              lwrite_pres, lwrite_z3, lwrite_tracer,             &
     &              lwrite_tend_phy, lwrite_radiation, lwrite_precip,  &
@@ -166,6 +168,7 @@ CONTAINS
     dt_checkpoint     = 2592000._wp  ! 30 days
 
     lwrite_initial    = .TRUE.
+    lwrite_dblprec    = .FALSE.
     lwrite_vorticity  = .TRUE.
     lwrite_divergence = .TRUE.
     lwrite_omega      = .TRUE.
@@ -260,6 +263,7 @@ CONTAINS
     config_inextra_2d        = inextra_2d
     config_inextra_3d        = inextra_3d
     config_lflux_avg         = lflux_avg
+    config_lwrite_dblprec    = lwrite_dblprec
 
     !-----------------------------------------------------
     ! 5. Store the namelist for restart
