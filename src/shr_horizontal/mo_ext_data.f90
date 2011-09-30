@@ -1385,11 +1385,13 @@ CONTAINS
 
     ! omip forcing data on cell edge
     !
-    cf_desc    = t_cf_var('Ocean model OMIP forcing data at cell edge', 'Pa, K', &
-      &                   'OMIP forcing data')
-    grib2_desc = t_grib2_var( 192, 140, 219, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_ext_oce_list, 'omip_forc_mon_c', p_ext_oce%omip_forc_mon_c,  &
-      &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape4d_c )
+    IF (iforc_oce == 12) THEN
+      cf_desc    = t_cf_var('Ocean model OMIP forcing data at cell edge', 'Pa, K', &
+        &                   'OMIP forcing data')
+      grib2_desc = t_grib2_var( 192, 140, 219, ientr, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_oce_list, 'omip_forc_mon_c', p_ext_oce%omip_forc_mon_c,  &
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape4d_c )
+    END IF
 
   END SUBROUTINE new_ext_data_oce_list
 
