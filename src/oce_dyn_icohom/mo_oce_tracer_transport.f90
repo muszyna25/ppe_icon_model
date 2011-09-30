@@ -208,7 +208,7 @@ CALL advect_horizontal(p_patch, trac_old,           &
                      & p_os, G_n_c_h,G_nm1_c_h,G_nimd_c_h, &
                      & K_h,                    &
                      & trac_tmp, timestep, delta_t, h_tmp)
-  write(123,*)'-------------timestep---------------',timestep
+  !write(123,*)'-------------timestep---------------',timestep
 DO jk = 1, n_zlev
   ipl_src=3  ! output print level (1-5, fix)
   CALL print_mxmn('adv-horz tracer-old',jk,trac_old(:,:,:),n_zlev, &
@@ -219,10 +219,10 @@ DO jk = 1, n_zlev
  !                                      & minval(trac_old(:,jk,:)),&
  !                                      & maxval(trac_tmp(:,jk,:)),&
  !                                      & minval(trac_tmp(:,jk,:))
-  write(123,*)'After horizontal max/min old-new tracer:',jk, maxval(trac_old(:,jk,:)),&
-                                        & minval(trac_old(:,jk,:)),&
-                                        & maxval(trac_tmp(:,jk,:)),&
-                                        & minval(trac_tmp(:,jk,:))
+ !write(123,*)'After horizontal max/min old-new tracer:',jk, maxval(trac_old(:,jk,:)),&
+ !                                      & minval(trac_old(:,jk,:)),&
+ !                                      & maxval(trac_tmp(:,jk,:)),&
+ !                                      & minval(trac_tmp(:,jk,:))
 
 END DO
 
@@ -241,10 +241,10 @@ IF( iswm_oce /= 1) THEN
       &              p_patch%nblks_c,'trc',ipl_src)
     CALL print_mxmn('adv-vert tracer-new',jk,trac_new(:,:,:),n_zlev, &
       &              p_patch%nblks_c,'trc',ipl_src)
-    write(123,*)'Final max/min old-new tracer:',jk, maxval(trac_old(:,jk,:)),&
-                                        & minval(trac_old(:,jk,:)),&
-                                        & maxval(trac_new(:,jk,:)),&
-                                        & minval(trac_new(:,jk,:))
+   !write(123,*)'Final max/min old-new tracer:',jk, maxval(trac_old(:,jk,:)),&
+   !                                    & minval(trac_old(:,jk,:)),&
+   !                                    & maxval(trac_new(:,jk,:)),&
+   !                                    & minval(trac_new(:,jk,:))
 
     ! #slo# - Temperature: tf=-1.9 deg, freezing of sea water, is possible:
     IF (minval(trac_new(:,jk,:))<tf) THEN
@@ -266,10 +266,10 @@ ELSEIF( iswm_oce == 1) THEN
   !                                     & minval(trac_old(:,jk,:)),&
   !                                     & maxval(trac_new(:,jk,:)),&
   !                                     & minval(trac_new(:,jk,:))
-    write(123,*)'Final max/min old-new tracer:',jk, maxval(trac_old(:,jk,:)),&
-                                        & minval(trac_old(:,jk,:)),&
-                                        & maxval(trac_new(:,jk,:)),&
-                                        & minval(trac_new(:,jk,:))
+  ! write(123,*)'Final max/min old-new tracer:',jk, maxval(trac_old(:,jk,:)),&
+  !                                     & minval(trac_old(:,jk,:)),&
+  !                                     & maxval(trac_new(:,jk,:)),&
+  !                                     & minval(trac_new(:,jk,:))
   END DO
 
 ENDIF
@@ -947,9 +947,9 @@ IF(expl_vertical_tracer_diff==1)THEN
   ! &maxval(G_n_c_v(:,jk,:)), minval(G_n_c_v(:,jk,:)),& 
   ! &maxval(G_nimd_c_v(:,jk,:)), minval(G_nimd_c_v(:,jk,:))
 
-    write(123,*)'before impl: max/min vtracer G_n:G_n+1/2:',jk,&
-    &maxval(G_n_c_v(:,jk,:)), minval(G_n_c_v(:,jk,:)),& 
-    &maxval(G_nimd_c_v(:,jk,:)), minval(G_nimd_c_v(:,jk,:))
+  ! write(123,*)'before impl: max/min vtracer G_n:G_n+1/2:',jk,&
+  ! &maxval(G_n_c_v(:,jk,:)), minval(G_n_c_v(:,jk,:)),& 
+  ! &maxval(G_nimd_c_v(:,jk,:)), minval(G_nimd_c_v(:,jk,:))
 
   END DO
   ENDIF

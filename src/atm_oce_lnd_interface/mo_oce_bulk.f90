@@ -418,11 +418,13 @@ CONTAINS
 
   END SELECT
 
-  ipl_src=1  ! output print level (1-5, fix)
-  z_c(:,1,:)=p_sfc_flx%forc_wind_u(:,:)
-  CALL print_mxmn('update forcing u',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-  z_c(:,1,:)=p_sfc_flx%forc_wind_v(:,:)
-  CALL print_mxmn('update forcing v',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+  IF (iforc_oce > NO_FORCING) THEN
+    ipl_src=1  ! output print level (1-5, fix)
+    z_c(:,1,:)=p_sfc_flx%forc_wind_u(:,:)
+    CALL print_mxmn('update forcing u',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+    z_c(:,1,:)=p_sfc_flx%forc_wind_v(:,:)
+    CALL print_mxmn('update forcing v',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+  END IF
 
   !-------------------------------------------------------------------------
   ! Apply temperature relaxation to boundary condition

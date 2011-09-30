@@ -230,10 +230,10 @@ ENDIF
  !write(*,*)'max/min vort flux:              ', jk,MAXVAL(z_vort_flx(:,jk,:)),&
  !                                                &MINVAL(z_vort_flx(:,jk,:))
 
- write(987,*)'max/min vorticity:              ', jk,MAXVAL(p_diag%vort(:,jk,:)),&
-                                                 &MINVAL(p_diag%vort(:,jk,:)) 
- write(987,*)'max/min vort flux:              ', jk,MAXVAL(z_vort_flx(:,jk,:)),&
-                                                  &MINVAL(z_vort_flx(:,jk,:))
+ !write(987,*)'max/min vorticity:              ', jk,MAXVAL(p_diag%vort(:,jk,:)),&
+ !                                                &MINVAL(p_diag%vort(:,jk,:)) 
+ !write(987,*)'max/min vort flux:              ', jk,MAXVAL(z_vort_flx(:,jk,:)),&
+ !                                                 &MINVAL(z_vort_flx(:,jk,:))
 
  END DO
 
@@ -261,10 +261,10 @@ END DO
  !write(*,*)'max/min grad kin energy:       ',jk, MAXVAL(p_diag%grad(:,jk,:)),&
  !                                            &MINVAL(p_diag%grad(:,jk,:)) 
 
-  write(987,*)'max/min kin energy:          ',jk, MAXVAL(p_diag%kin(:,jk,:)),&
-                                              &MINVAL(p_diag%kin(:,jk,:))
-  write(987,*)'max/min grad kin energy:     ',jk, MAXVAL(p_diag%grad(:,jk,:)),&
-                                              &MINVAL(p_diag%grad(:,jk,:)) 
+  !write(987,*)'max/min kin energy:          ',jk, MAXVAL(p_diag%kin(:,jk,:)),&
+  !                                            &MINVAL(p_diag%kin(:,jk,:))
+  !write(987,*)'max/min grad kin energy:     ',jk, MAXVAL(p_diag%grad(:,jk,:)),&
+  !                                            &MINVAL(p_diag%grad(:,jk,:)) 
 END DO
 IF(L_INVERSE_FLIP_FLOP)THEN
   CALL map_edges2edges( p_patch,    &
@@ -964,8 +964,8 @@ CALL map_cell2edges( p_patch, z_adv_u_m, veloc_adv_vert_e, &
     ipl_src=3  ! output print level (1-5, fix)
     CALL print_mxmn('vort adv FINAL',jk,veloc_adv_vert_e(:,:,:),n_zlev, &
       &              p_patch%nblks_e,'vel',ipl_src)
-    WRITE(987,*) 'max/min vert adv FINAL',jk, &
-      &        MAXVAL(veloc_adv_vert_e(:,jk,:)), MINVAL(veloc_adv_vert_e(:,jk,:))
+  ! WRITE(987,*) 'max/min vert adv FINAL',jk, &
+  !   &        MAXVAL(veloc_adv_vert_e(:,jk,:)), MINVAL(veloc_adv_vert_e(:,jk,:))
   END DO
 
 END subroutine veloc_adv_vert_mimetic

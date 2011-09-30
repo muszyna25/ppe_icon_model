@@ -194,8 +194,8 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
   CALL print_mxmn('AB: on entry vn-new',1, p_os%p_prog(nnew(1))%vn(:,:,:),n_zlev, &
     & p_patch%nblks_e,'abt',ipl_src)
 
-  write(987,*)'---------------------', timestep
-  write(123,*)'---------------------', timestep
+! write(987,*)'---------------------', timestep
+! write(123,*)'---------------------', timestep
 ! write(*,*)'on entry: height:',&
 !   & maxval(p_os%p_prog(nnew(1))%h),minval(p_os%p_prog(nnew(1))%h),&
 !   & maxval(p_os%p_prog(nold(1))%h),minval(p_os%p_prog(nold(1))%h),&
@@ -296,9 +296,9 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
     ! & minval(p_os%p_prog(nnew(1))%h(1:nproma,1:p_patch%nblks_c)),&
     ! & maxval(p_os%p_prog(nnew(1))%h(1:nproma,1:p_patch%nblks_c))
 
-    write(987,*)'MIN/MAX:h-new:',&
-      & minval(p_os%p_prog(nnew(1))%h(1:nproma,1:p_patch%nblks_c)),&
-      & maxval(p_os%p_prog(nnew(1))%h(1:nproma,1:p_patch%nblks_c))
+  ! write(987,*)'MIN/MAX:h-new:',&
+  !   & minval(p_os%p_prog(nnew(1))%h(1:nproma,1:p_patch%nblks_c)),&
+  !   & maxval(p_os%p_prog(nnew(1))%h(1:nproma,1:p_patch%nblks_c))
 
   ENDIF
 END SUBROUTINE solve_free_sfc_ab_mimetic
@@ -422,23 +422,23 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param, p_int, l_ini
 
     DO jk=1, n_zlev
       CALL print_mxmn('density',jk,p_os%p_diag%rho(:,:,:),n_zlev,p_patch%nblks_c,'abt',ipl_src)
-      WRITE(987,*)'MAX/MIN density:',       jk, &
-        &        MAXVAL(p_os%p_diag%rho(:,jk,:)),&
-        &        MINVAL(p_os%p_diag%rho(:,jk,:)) 
+   !  WRITE(987,*)'MAX/MIN density:',       jk, &
+   !    &        MAXVAL(p_os%p_diag%rho(:,jk,:)),&
+   !    &        MINVAL(p_os%p_diag%rho(:,jk,:)) 
     END DO
 
     DO jk=1, n_zlev
       CALL print_mxmn('internal pressure',jk,p_os%p_diag%press_hyd(:,:,:),n_zlev, &
         &              p_patch%nblks_c,'abt',ipl_src)
-      WRITE(987,*)'MAX/MIN internal press:',jk, &
-         &        MAXVAL(p_os%p_diag%press_hyd(:,jk,:)),&
-         &        MINVAL(p_os%p_diag%press_hyd(:,jk,:)) 
+   !  WRITE(987,*)'MAX/MIN internal press:',jk, &
+   !     &        MAXVAL(p_os%p_diag%press_hyd(:,jk,:)),&
+   !     &        MINVAL(p_os%p_diag%press_hyd(:,jk,:)) 
 
       CALL print_mxmn('internal press grad',jk,p_os%p_diag%press_grad(:,:,:),n_zlev, &
         &              p_patch%nblks_c,'abt',ipl_src)
-      WRITE(987,*)'MAX/MIN internal press grad:',jk, &
-        &        MAXVAL(p_os%p_diag%press_grad(:,jk,:)),&
-        &        MINVAL(p_os%p_diag%press_grad(:,jk,:)) 
+    ! WRITE(987,*)'MAX/MIN internal press grad:',jk, &
+    !   &        MAXVAL(p_os%p_diag%press_grad(:,jk,:)),&
+    !   &        MINVAL(p_os%p_diag%press_grad(:,jk,:)) 
     END DO
 
     ipl_src=4  ! output print level (1-5, fix)
@@ -672,34 +672,34 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param, p_int, l_ini
   !write(*,*)'min/max -dt*g*grad_h:',minval(dtime*grav*z_gradh_e), maxval(dtime* grav*z_gradh_e)
 
   !-------------------------------------------
-  DO jk = 1, n_zlev
-    write(987,*)'min/max vn_pred:',jk,     minval(p_os%p_diag%vn_pred(:,jk,:)), &
-      &                                  maxval(p_os%p_diag%vn_pred(:,jk,:))
-    write(987,*)'min/max vn_pred Term 1:',jk,     minval(p_os%p_aux%g_nimd(:,jk,:)), &
-      &                                         maxval(p_os%p_aux%g_nimd(:,jk,:))
-    IF(ab_beta/=1.0_wp)THEN
-      write(987,*)'min/max vn_pred Term 2:',jk,&
-      &minval((1.0_wp-ab_beta) * p_os%p_diag%press_grad(:,1,:)), &
-      &maxval((1.0_wp-ab_beta) * p_os%p_diag%press_grad(:,1,:))
-    ENDIF
+! DO jk = 1, n_zlev
+  ! write(987,*)'min/max vn_pred:',jk,     minval(p_os%p_diag%vn_pred(:,jk,:)), &
+  !   &                                  maxval(p_os%p_diag%vn_pred(:,jk,:))
+  ! write(987,*)'min/max vn_pred Term 1:',jk,     minval(p_os%p_aux%g_nimd(:,jk,:)), &
+  !   &                                         maxval(p_os%p_aux%g_nimd(:,jk,:))
+  ! IF(ab_beta/=1.0_wp)THEN
+  !   write(987,*)'min/max vn_pred Term 2:',jk,&
+  !   &minval((1.0_wp-ab_beta) * p_os%p_diag%press_grad(:,1,:)), &
+  !   &maxval((1.0_wp-ab_beta) * p_os%p_diag%press_grad(:,1,:))
+  ! ENDIF
 
-    write(987,*)'min/max vn_old :',jk,  minval(p_os%p_prog(nold(1))%vn(:,jk,:)), &
-      &                               maxval(p_os%p_prog(nold(1))%vn(:,jk,:))
-    write(987,*)'min/max G_n+1/2:',jk,  minval(p_os%p_aux%g_nimd(:,jk,:)),&
-                                    & maxval(p_os%p_aux%g_nimd(:,jk,:))
-    write(987,*)'min/max G_n:',    jk,  minval(p_os%p_aux%g_n(:,jk,:)),&
-                                    & maxval(p_os%p_aux%g_n(:,jk,:))
-    write(987,*)'min/max G_n-1:',  jk,  minval(p_os%p_aux%g_nm1(:,jk,:)),&
-                                    & maxval(p_os%p_aux%g_nm1(:,jk,:))
-    IF(.NOT. L_INVERSE_FLIP_FLOP)THEN
-      write(987,*)'min/max adv:',    jk,minval(p_os%p_diag%veloc_adv_horz(:,jk,:)), &
-      &                               maxval(p_os%p_diag%veloc_adv_horz(:,jk,:))
-    ELSEIF(L_INVERSE_FLIP_FLOP)THEN
-      write(987,*)'min/max adv:',    jk, minval(z_e(:,jk,:)), &
-      &                                maxval(z_e(:,jk,:))
-    ENDIF
-  END DO
-  write(987,*)'min/max -dt*g*grad_h:',minval(dtime*grav*z_gradh_e), maxval(dtime* grav*z_gradh_e)
+  ! write(987,*)'min/max vn_old :',jk,  minval(p_os%p_prog(nold(1))%vn(:,jk,:)), &
+  !   &                               maxval(p_os%p_prog(nold(1))%vn(:,jk,:))
+  ! write(987,*)'min/max G_n+1/2:',jk,  minval(p_os%p_aux%g_nimd(:,jk,:)),&
+  !                                 & maxval(p_os%p_aux%g_nimd(:,jk,:))
+  ! write(987,*)'min/max G_n:',    jk,  minval(p_os%p_aux%g_n(:,jk,:)),&
+  !                                 & maxval(p_os%p_aux%g_n(:,jk,:))
+  ! write(987,*)'min/max G_n-1:',  jk,  minval(p_os%p_aux%g_nm1(:,jk,:)),&
+  !                                 & maxval(p_os%p_aux%g_nm1(:,jk,:))
+  ! IF(.NOT. L_INVERSE_FLIP_FLOP)THEN
+  !   write(987,*)'min/max adv:',    jk,minval(p_os%p_diag%veloc_adv_horz(:,jk,:)), &
+  !   &                               maxval(p_os%p_diag%veloc_adv_horz(:,jk,:))
+  ! ELSEIF(L_INVERSE_FLIP_FLOP)THEN
+  !   write(987,*)'min/max adv:',    jk, minval(z_e(:,jk,:)), &
+  !   &                                maxval(z_e(:,jk,:))
+  ! ENDIF
+! END DO
+! write(987,*)'min/max -dt*g*grad_h:',minval(dtime*grav*z_gradh_e), maxval(dtime* grav*z_gradh_e)
 
   !-------------------------------------------
   !CALL message (TRIM(routine), 'end')        
@@ -927,14 +927,14 @@ ENDIF
    &             jkdim, p_patch%nblks_c,'abt',ipl_src)
 !stop987
 
- write(987,*)'MAX/MIN thick_e:', maxval(p_os%p_diag%thick_e),&
- &minval(p_os%p_diag%thick_e) 
- write(987,*)'MAX/MIN RHS z_e:', maxval(z_e(:,1,:)),&
- &minval(z_e(:,1,:)) 
- write(987,*)'MAX/MIN div_c:', maxval(div_z_c(:,1,:)),&
- &minval(div_z_c(:,1,:)) 
- write(987,*)'MAX/MIN RHS:', maxval(p_os%p_aux%p_rhs_sfc_eq(:,:)),&
- &minval(p_os%p_aux%p_rhs_sfc_eq(:,:)) 
+ ! write(987,*)'MAX/MIN thick_e:', maxval(p_os%p_diag%thick_e),&
+ ! &minval(p_os%p_diag%thick_e) 
+ ! write(987,*)'MAX/MIN RHS z_e:', maxval(z_e(:,1,:)),&
+ ! &minval(z_e(:,1,:)) 
+ ! write(987,*)'MAX/MIN div_c:', maxval(div_z_c(:,1,:)),&
+ ! &minval(div_z_c(:,1,:)) 
+ ! write(987,*)'MAX/MIN RHS:', maxval(p_os%p_aux%p_rhs_sfc_eq(:,:)),&
+ ! &minval(p_os%p_aux%p_rhs_sfc_eq(:,:)) 
 
 !CALL message (TRIM(routine), 'end')        
 
@@ -1223,26 +1223,26 @@ DO jk = 1, n_zlev
 ! &minval(p_os%p_prog(nnew(1))%vn(:,jk,:)-p_os%p_prog(nold(1))%vn(:,jk,:) ),&
 ! &maxval(p_os%p_prog(nnew(1))%vn(:,jk,:)-p_os%p_prog(nold(1))%vn(:,jk,:))
 END DO
-IF(.NOT.l_RIGID_LID)THEN
-write(987,*)'MIN/MAX new height gradient:', minval(z_grad_h),&
-                               & maxval(z_grad_h) 
-write(987,*)'MIN/MAX h-contrib to veloc:',minval(- ab_beta*gdt*z_grad_h),&
-                                maxval(- ab_beta*gdt*z_grad_h) 
-ENDIF
-DO jk = 1, n_zlev
-  write(987,*)'MIN/MAX vn old:',jk,minval(p_os%p_prog(nold(1))%vn(:,jk,:) ),&
-                                 maxval(p_os%p_prog(nold(1))%vn(:,jk,:) ) 
-END DO
-DO jk = 1, n_zlev
-  write(987,*)'MIN/MAX vn new:',jk,minval(p_os%p_prog(nnew(1))%vn(:,jk,:) ),&
-                                 maxval(p_os%p_prog(nnew(1))%vn(:,jk,:) )
-END DO
-
-DO jk = 1, n_zlev
-  write(987,*)'MIN/MAX vn change:',jk,&
-  &minval(p_os%p_prog(nnew(1))%vn(:,jk,:)-p_os%p_prog(nold(1))%vn(:,jk,:) ),&
-  &maxval(p_os%p_prog(nnew(1))%vn(:,jk,:)-p_os%p_prog(nold(1))%vn(:,jk,:))
-END DO
+ ! IF(.NOT.l_RIGID_LID)THEN
+ ! write(987,*)'MIN/MAX new height gradient:', minval(z_grad_h),&
+ !                                & maxval(z_grad_h) 
+ ! write(987,*)'MIN/MAX h-contrib to veloc:',minval(- ab_beta*gdt*z_grad_h),&
+ !                                 maxval(- ab_beta*gdt*z_grad_h) 
+ ! ENDIF
+ ! DO jk = 1, n_zlev
+ !   write(987,*)'MIN/MAX vn old:',jk,minval(p_os%p_prog(nold(1))%vn(:,jk,:) ),&
+ !                                  maxval(p_os%p_prog(nold(1))%vn(:,jk,:) ) 
+ ! END DO
+ ! DO jk = 1, n_zlev
+ !   write(987,*)'MIN/MAX vn new:',jk,minval(p_os%p_prog(nnew(1))%vn(:,jk,:) ),&
+ !                                  maxval(p_os%p_prog(nnew(1))%vn(:,jk,:) )
+ ! END DO
+ ! 
+ ! DO jk = 1, n_zlev
+ !   write(987,*)'MIN/MAX vn change:',jk,&
+ !   &minval(p_os%p_prog(nnew(1))%vn(:,jk,:)-p_os%p_prog(nold(1))%vn(:,jk,:) ),&
+ !   &maxval(p_os%p_prog(nnew(1))%vn(:,jk,:)-p_os%p_prog(nold(1))%vn(:,jk,:))
+ ! END DO
 
 
 ! Step 3) Update explicit term for Adams-Bashforth stepping 

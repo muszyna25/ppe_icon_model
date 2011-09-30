@@ -799,16 +799,16 @@ DO i_no_trac=1, no_tracer
   CALL print_mxmn('PHY trac mixing',jk,z_c(:,:,:),n_zlev+1,p_patch%nblks_c,'phy',ipl_src)
   !write(*,*)'max/min trac mixing',jk,maxval(params_oce%A_tracer_v(:,jk,:,i_no_trac)),&
   !&minval(params_oce%A_tracer_v(:,jk,:,i_no_trac))
-  write(123,*)'max/min trac mixing',jk,maxval(params_oce%A_tracer_v(:,jk,:,i_no_trac)),&
-  &minval(params_oce%A_tracer_v(:,jk,:,i_no_trac))
+  !write(123,*)'max/min trac mixing',jk,maxval(params_oce%A_tracer_v(:,jk,:,i_no_trac)),&
+  !&minval(params_oce%A_tracer_v(:,jk,:,i_no_trac))
  END DO
 END DO
  DO jk=1,n_zlev
   ipl_src=3  ! output print level (1-5, fix)
   CALL print_mxmn('PHY veloc mixing',jk,params_oce%A_veloc_v(:,:,:),n_zlev, &
     & p_patch%nblks_e,'phy',ipl_src)
-  write(123,*)'max/min veloc mixing',jk,maxval(params_oce%A_veloc_v(:,jk,:)),&
-  &minval(params_oce%A_veloc_v(:,jk,:))
+  !write(123,*)'max/min veloc mixing',jk,maxval(params_oce%A_veloc_v(:,jk,:)),&
+  !&minval(params_oce%A_veloc_v(:,jk,:))
  END DO
 
  END SUBROUTINE update_ho_params
