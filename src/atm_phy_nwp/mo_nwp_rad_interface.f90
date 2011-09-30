@@ -167,14 +167,14 @@ MODULE mo_nwp_rad_interface
 
     IF ( atm_phy_nwp_config(jg)%inwp_radiation == 2 .AND. .NOT. lredgrid) THEN
     
-      CALL nwp_rg_radiation ( p_sim_time,pt_patch, &
+      CALL nwp_rg_radiation ( p_sim_time, datetime, pt_patch, &
         & ext_data,lnd_diag, &
         & pt_prog,pt_prog_rcf,pt_diag,prm_diag, lnd_prog )
 
 
     ELSEIF ( atm_phy_nwp_config(jg)%inwp_radiation == 2 .AND. lredgrid) THEN
 
-      CALL nwp_rg_radiation_reduced ( p_sim_time,pt_patch,pt_par_patch, &
+      CALL nwp_rg_radiation_reduced ( p_sim_time, datetime, pt_patch,pt_par_patch, &
         & pt_par_int_state, pt_par_grf_state,ext_data,lnd_diag, &
         & pt_prog,pt_prog_rcf,pt_diag,prm_diag, lnd_prog )
 
@@ -191,7 +191,7 @@ MODULE mo_nwp_rad_interface
   !! @par Revision History
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
-  SUBROUTINE nwp_rg_radiation ( p_sim_time,pt_patch, &
+  SUBROUTINE nwp_rg_radiation ( p_sim_time, datetime, pt_patch, &
     & ext_data,lnd_diag,pt_prog,pt_prog_rcf,pt_diag,prm_diag, &
     & lnd_prog )
 
@@ -205,7 +205,8 @@ MODULE mo_nwp_rad_interface
       & cosmu0_dark =  1.e-9_wp  ! minimum cosmu0, for smaller values no shortwave calculations
     
     REAL(wp),INTENT(in)         :: p_sim_time
-
+    
+    TYPE(t_datetime),            INTENT(in) :: datetime
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
     TYPE(t_external_data),INTENT(in):: ext_data
     TYPE(t_lnd_diag),     INTENT(in):: lnd_diag      !< diag vars for sfc
@@ -261,7 +262,7 @@ MODULE mo_nwp_rad_interface
     ! CO2 help variable for Ritter-Geleyn scheme
     zqco2 = 0.5014E-03_wp*vmr_co2/330.e-6_wp
 
-    CALL nwp_rg_ozon_aerosol ( p_sim_time,pt_patch, &
+    CALL nwp_rg_ozon_aerosol ( p_sim_time, datetime, pt_patch, ext_data, &
       & pt_prog_rcf,pt_diag,prm_diag,zduo3,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5 )
     
     ! Calculation of zenith angle optimal during dt_rad.
@@ -496,7 +497,7 @@ MODULE mo_nwp_rad_interface
   !! @par Revision History
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
-  SUBROUTINE nwp_rg_radiation_reduced ( p_sim_time,pt_patch,pt_par_patch, &
+  SUBROUTINE nwp_rg_radiation_reduced ( p_sim_time, datetime, pt_patch,pt_par_patch, &
     & pt_par_int_state, pt_par_grf_state,ext_data,lnd_diag,pt_prog,pt_prog_rcf,pt_diag,prm_diag, &
     & lnd_prog )
 
@@ -511,6 +512,7 @@ MODULE mo_nwp_rad_interface
     
     REAL(wp),INTENT(in)         :: p_sim_time
 
+    TYPE(t_datetime),            INTENT(in) :: datetime 
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_par_patch !<grid/patch info (parent grid)
     TYPE(t_int_state),    TARGET,INTENT(in):: pt_par_int_state  !< " for parent grid
@@ -600,7 +602,7 @@ MODULE mo_nwp_rad_interface
     ! CO2 help variable for Ritter-Geleyn scheme
     zqco2 = 0.5014E-03_wp*vmr_co2/330.e-6_wp
 
-    CALL nwp_rg_ozon_aerosol ( p_sim_time,pt_patch, &
+    CALL nwp_rg_ozon_aerosol ( p_sim_time, datetime, pt_patch, ext_data, &
       & pt_prog_rcf,pt_diag,prm_diag,zduo3,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5 )
 
     ! Calculation of zenith angle optimal during dt_rad.
@@ -918,7 +920,7 @@ MODULE mo_nwp_rad_interface
   !! @par Revision History
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-09-22)
   !!
-  SUBROUTINE nwp_rg_ozon_aerosol ( p_sim_time,pt_patch, &
+  SUBROUTINE nwp_rg_ozon_aerosol ( p_sim_time, datetime, pt_patch, ext_data, &
     & pt_prog_rcf,pt_diag,prm_diag,zduo3,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5 )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
@@ -926,7 +928,9 @@ MODULE mo_nwp_rad_interface
 
     REAL(wp),INTENT(in)         :: p_sim_time
 
-    TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
+    TYPE(t_datetime),            INTENT(in) :: datetime
+    TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info
+    TYPE(t_external_data),       INTENT(in) :: ext_data
     TYPE(t_nh_prog), TARGET, INTENT(inout)  :: pt_prog_rcf !<the prognostic variables (with
     !< reduced calling frequency for tracers!
     TYPE(t_nh_diag), TARGET, INTENT(in)  :: pt_diag     !<the diagnostic variables
@@ -957,7 +961,13 @@ MODULE mo_nwp_rad_interface
       & zaeqdo   (nproma,pt_patch%nblks_c), zaeqdn,           &
       & zaequo   (nproma,pt_patch%nblks_c), zaequn,           &
       & zaeqlo   (nproma,pt_patch%nblks_c), zaeqln,           &
-      & zaeqso   (nproma,pt_patch%nblks_c), zaeqsn
+      & zaeqso   (nproma,pt_patch%nblks_c), zaeqsn,           &
+      ! for Tegen aerosol
+      & z_aer_ss(nproma,pt_patch%nblks_c), &
+      & z_aer_or(nproma,pt_patch%nblks_c), &
+      & z_aer_bc(nproma,pt_patch%nblks_c), &
+      & z_aer_su(nproma,pt_patch%nblks_c), &
+      & z_aer_du(nproma,pt_patch%nblks_c)
     ! for aerosols:   
     REAL(wp), PARAMETER::                               &
       & zaeops = 0.05_wp,                               &
@@ -1091,7 +1101,85 @@ MODULE mo_nwp_rad_interface
             ENDDO
           ENDDO
         ENDIF
+      ELSEIF ( irad_o3 == 6 .AND. irad_aero == 6 ) THEN
+
+        DO jc = i_startidx,i_endidx
+          z_aer_ss(jc,jb)= ext_data%atm_td%aer_ss(jc,jb,datetime%month)
+          z_aer_or(jc,jb)= ext_data%atm_td%aer_org(jc,jb,datetime%month)
+          z_aer_bc(jc,jb)= ext_data%atm_td%aer_bc(jc,jb,datetime%month)
+          z_aer_su(jc,jb)= ext_data%atm_td%aer_so4(jc,jb,datetime%month)
+          z_aer_du(jc,jb)= ext_data%atm_td%aer_dust(jc,jb,datetime%month)
+        ENDDO
+
+        DO jk = 2, nlevp1
+          DO jc = i_startidx,i_endidx
+            zsign(jc,jk) = pt_diag%pres_ifc(jc,jk,jb) / 101325._wp
+          ENDDO
+        ENDDO
         
+        ! The routine aerdis is called to recieve some parameters for the vertical
+        ! distribution of background aerosol.
+        CALL aerdis ( &
+          & kbdim  = nproma,      & !in
+          & jcs    = i_startidx,  & !in
+          & jce    = i_endidx,    & !in
+          & klevp1 = nlevp1,      & !in
+          & petah  = zsign(1,1),  & !in
+          & pvdaes = zvdaes(1,1), & !out
+          & pvdael = zvdael(1,1), & !out
+          & pvdaeu = zvdaeu(1,1), & !out
+          & pvdaed = zvdaed(1,1) )  !out
+
+        ! 3-dimensional O3
+        ! top level
+        DO jc = i_startidx,i_endidx
+          zptop32  (jc,jb) = (SQRT(pt_diag%pres_ifc(jc,1,jb)))**3
+          zo3_hm   (jc,jb) = (SQRT(prm_diag%hmo3(jc,jb)))**3
+          zaeqso   (jc,jb) = z_aer_ss(jc,jb)*zvdaes(jc,1)
+          zaeqlo   (jc,jb) = ( z_aer_or(jc,jb)+z_aer_su(jc,jb) )*zvdael(jc,1)
+          zaequo   (jc,jb) = z_aer_bc(jc,jb)              *zvdaeu(jc,1)
+          zaeqdo   (jc,jb) =  z_aer_du(jc,jb)              *zvdaed(jc,1)
+          zaetr_top(jc,jb) = 1.0_wp
+          zo3_top  (jc,jb) = prm_diag%vio3(jc,jb)*zptop32(jc,jb)/(zptop32(jc,jb)+zo3_hm(jc,jb))
+        ENDDO
+
+        ! loop over layers
+        DO jk = 1,nlev
+          DO jc = i_startidx,i_endidx
+            zaeqsn         =  z_aer_ss(jc,jb)  
+            zaeqln         = (z_aer_or(jc,jb)+z_aer_su(jc,jb)) * zvdael(jc,jk+1)
+            zaequn         = z_aer_bc(jc,jb)              * zvdaeu(jc,jk+1)
+            zaeqdn         =  z_aer_du(jc,jb)              * zvdaed(jc,jk+1)
+            zaetr_bot      = zaetr_top(jc,jb) &
+              & * ( MIN (1.0_wp, pt_diag%temp_ifc(jc,jk,jb)/pt_diag%temp_ifc(jc,jk+1,jb)) )**ztrpt
+
+            zaetr          = SQRT(zaetr_bot*zaetr_top(jc,jb))
+            zaeq1(jc,jk,jb)= (1.0_wp-zaetr)*( ztrbga*pt_diag%dpres_mc(jc,jk,jb) + zaeqln - zaeqlo(jc,jb) )
+            zaeq2(jc,jk,jb)   = (1.0_wp-zaetr)*(zaeqsn-zaeqso(jc,jb))
+            zaeq3(jc,jk,jb)   = (1.0_wp-zaetr)*(zaeqdn-zaeqdo(jc,jb))
+            zaeq4(jc,jk,jb)   = (1.0_wp-zaetr)*(zaequn-zaequo(jc,jb))
+            zaeq5(jc,jk,jb)   =     zaetr  *   zstbga*pt_diag%dpres_mc(jc,jk,jb)
+
+            zaetr_top(jc,jb) = zaetr_bot
+            zaeqso(jc,jb)    = zaeqsn
+            zaeqlo(jc,jb)    = zaeqln
+            zaequo(jc,jb)    = zaequn
+            zaeqdo(jc,jb)    = zaeqdn
+
+            zpbot32  (jc,jb) = (SQRT(pt_diag%pres_ifc(jc,jk+1,jb)))**3
+            zo3_bot  (jc,jb) = prm_diag%vio3(jc,jb)* zpbot32(jc,jb)    &
+              /( zpbot32(jc,jb) + zo3_hm(jc,jb))
+            !O3 content
+            zduo3(jc,jk,jb)= zo3_bot (jc,jb)-zo3_top (jc,jb)
+            ! store previous bottom values in arrays for top of next layer
+            zo3_top (jc,jb) = zo3_bot (jc,jb)
+
+            pt_prog_rcf%tracer(jc,jk,jb,io3) = &
+              & (amo3/amd) * (zduo3(jc,jk,jb)/pt_diag%dpres_mc(jc,jk,jb))
+            
+          ENDDO
+        ENDDO
+                
       ELSEIF ( irad_o3 == 6 ) THEN !ozone, but no aerosols
         
          ! 3-dimensional O3
@@ -1196,7 +1284,74 @@ MODULE mo_nwp_rad_interface
             zduo3(i_startidx:i_endidx,jk,jb) = 0.0_wp
           ENDDO
         ENDIF
+      ELSEIF (irad_aero == 6 ) THEN !aerosols, but other ozone:
 
+        DO jc = i_startidx,i_endidx
+          z_aer_ss(jc,jb)= ext_data%atm_td%aer_ss(jc,jb,datetime%month)
+          z_aer_or(jc,jb)= ext_data%atm_td%aer_org(jc,jb,datetime%month)
+          z_aer_bc(jc,jb)= ext_data%atm_td%aer_bc(jc,jb,datetime%month)
+          z_aer_su(jc,jb)= ext_data%atm_td%aer_so4(jc,jb,datetime%month)
+          z_aer_du(jc,jb)= ext_data%atm_td%aer_dust(jc,jb,datetime%month)
+        ENDDO
+        
+        DO jk = 2, nlevp1
+          DO jc = i_startidx,i_endidx
+            zsign(jc,jk) = pt_diag%pres_ifc(jc,jk,jb) / 101325._wp
+          ENDDO
+        ENDDO
+
+        ! The routine aerdis is called to recieve some parameters for the vertical
+        ! distribution of background aerosol.
+        CALL aerdis ( &
+          & kbdim  = nproma,      & !in
+          & jcs    = i_startidx,  & !in
+          & jce    = i_endidx,    & !in
+          & klevp1 = nlevp1,      & !in
+          & petah  = zsign(1,1),  & !in
+          & pvdaes = zvdaes(1,1), & !out
+          & pvdael = zvdael(1,1), & !out
+          & pvdaeu = zvdaeu(1,1), & !out
+          & pvdaed = zvdaed(1,1) )  !out
+
+        ! top level
+        DO jc = i_startidx,i_endidx
+          zaeqso   (jc,jb) = z_aer_ss(jc,jb)              *zvdaes(jc,1)
+          zaeqlo   (jc,jb) = ( z_aer_or(jc,jb)+z_aer_su(jc,jb) )*zvdael(jc,1)
+          zaequo   (jc,jb) =  z_aer_bc(jc,jb)              *zvdaeu(jc,1)
+          zaeqdo   (jc,jb) =  z_aer_du(jc,jb)              *zvdaed(jc,1)
+          zaetr_top(jc,jb) = 1.0_wp
+        ENDDO
+
+        ! loop over layers
+        DO jk = 1,nlev
+          DO jc = i_startidx,i_endidx
+            zaeqsn         =  z_aer_ss(jc,jb)              * zvdaes(jc,jk+1)
+            zaeqln         =  (z_aer_or(jc,jb)+z_aer_su(jc,jb)) * zvdael(jc,jk+1)
+            zaequn         =  z_aer_bc(jc,jb)              * zvdaeu(jc,jk+1)
+            zaeqdn         =  z_aer_du(jc,jb)              * zvdaed(jc,jk+1)
+            zaetr_bot      = zaetr_top(jc,jb) &
+              & * ( MIN (1.0_wp, pt_diag%temp_ifc(jc,jk,jb)/pt_diag%temp_ifc(jc,jk+1,jb)) )**ztrpt
+
+            zaetr          = SQRT(zaetr_bot*zaetr_top(jc,jb))
+            zaeq1(jc,jk,jb)= (1._wp-zaetr) &
+              & * (ztrbga* pt_diag%dpres_mc(jc,jk,jb)+zaeqln-zaeqlo(jc,jb)+zaeqdn-zaeqdo(jc,jb))
+            zaeq2(jc,jk,jb)   = (1._wp-zaetr) * ( zaeqsn-zaeqso(jc,jb) )
+            zaeq3(jc,jk,jb)   = (1._wp-zaetr) * ( zaequn-zaequo(jc,jb) )
+            zaeq4(jc,jk,jb)   =     zaetr  *   zvobga*pt_diag%dpres_mc(jc,jk,jb)
+            zaeq5(jc,jk,jb)   =     zaetr  *   zstbga*pt_diag%dpres_mc(jc,jk,jb)
+
+            zaetr_top(jc,jb) = zaetr_bot
+            zaeqso(jc,jb)    = zaeqsn
+            zaeqlo(jc,jb)    = zaeqln
+            zaequo(jc,jb)    = zaequn
+            zaeqdo(jc,jb)    = zaeqdn
+
+            zduo3(jc,jk,jb) = &
+              & pt_prog_rcf%tracer(jc,jk,jb,io3) * pt_diag%dpres_mc(jc,jk,jb) * amd / amo3
+            
+          ENDDO
+        ENDDO
+        
       ELSEIF (irad_o3 /= 0) THEN !no aerosols and other ozone
         
         DO jk = 1,nlev
