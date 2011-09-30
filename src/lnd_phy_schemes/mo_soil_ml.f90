@@ -3420,10 +3420,10 @@ END DO
                          + zf_snow(i,j) * (1._ireals-ztsnow_pm(i,j)) * zgsb(i,j)
 
         IF(zwsnew(i,j) .GT. zepsi) THEN
-          zrnet_snow = sobs(i,j) * (1.0_ireals - EXP(-zextinct(i,j,1)*zdzm_snow(i,j,1))) &
+          zrnet_snow = sobs(i,j,ns) * (1.0_ireals - EXP(-zextinct(i,j,1)*zdzm_snow(i,j,1))) &
                        + zthsnw(i,j)
         ELSE
-          zrnet_snow = sobs(i,j) + zthsnw(i,j)
+          zrnet_snow = sobs(i,j,ns) + zthsnw(i,j)
         END IF
         zshfl_snow = zrhoch(i,j)*cp_d*(zth_low(i,j) - ztsnow_mult(i,j,1))
         zlhfl_snow = lh_s*zversn(i,j)   
@@ -3744,7 +3744,7 @@ IF (lmulti_snow) THEN
             ztsnow(i,j) = (ztsnow_mult(i,j,1)*zdzh_snow(i,j,1) &
             &+ ztsnow_mult(i,j,2)*zdzh_snow(i,j,2)) / &
                           (zdzh_snow(i,j,1) + zdzh_snow(i,j,2))
-            ztsn  (i,j) = t_so(i,j,1,nnew)
+            ztsn  (i,j) = t_so(i,j,1,nnew,ns)
             tmp_num = ztsnow(i,j) + zdt*2._ireals*(zfor_snow_mult(i,j) - zgsb(i,j))  &
                            /zrocs(i,j)/(zswitch(i,j)/rho_snow_mult(i,j,1,nx,ns)*rho_w) &
                            &- ( ztsn(i,j) - zts(i,j) )
@@ -3776,7 +3776,7 @@ IF (lmulti_snow) THEN
             zdwsndt(i,j) = zdwsndt(i,j) - zwsnew(i,j)*rho_w/zdt
             zwsnew(i,j)  = 0._ireals
             DO ksn = 0, ke_snow
-              ztsnown_mult(i,j,ksn) = t_so(i,j,0,nx)
+              ztsnown_mult(i,j,ksn) = t_so(i,j,0,nx,ns)
             END DO
             zfor_s(i,j) = zfor_s(i,j) + zfor_snow_mult(i,j)
           ELSEIF(zfor_snow_mult(i,j) .GT. 0._ireals) THEN
@@ -4435,9 +4435,9 @@ DO ksn = ke_snow,1,-1
     DO i = istarts, iends
       IF (llandmask(i,j,ns)) THEN  ! for landpoints only
         IF(w_snow(i,j,nnew,ns) .GT. zepsi) THEN
-          dz_old(i,j,ksn) = dzh_snow(i,j,ksn,nnew)
-          z_old(i,j,ksn) = -sum_weight(i,j) - dzh_snow(i,j,ksn,nnew)/2._ireals
-          sum_weight(i,j) = sum_weight(i,j) + dzh_snow(i,j,ksn,nnew)
+          dz_old(i,j,ksn) = dzh_snow(i,j,ksn,nnew,ns)
+          z_old(i,j,ksn) = -sum_weight(i,j) - dzh_snow(i,j,ksn,nnew,ns)/2._ireals
+          sum_weight(i,j) = sum_weight(i,j) + dzh_snow(i,j,ksn,nnew,ns)
           zhh_snow(i,j,ksn) = -h_snow(i,j,nnew,ns)/ke_snow*(ke_snow-ksn)
         END IF
       END IF          ! land-points only
@@ -4450,7 +4450,7 @@ DO   j = jstarts, jends
     IF (llandmask(i,j,ns)) THEN  ! for landpoints only
       IF(w_snow(i,j,nnew,ns) .GT. zepsi) THEN
         zhm_snow(i,j,1) = (-h_snow(i,j,nnew,ns) + zhh_snow(i,j,1))/2._ireals
-        dzh_snow (i,j,1,nnew) = zhh_snow(i,j,1) + h_snow(i,j,nnew,ns)            !layer thickness betw. half levels of uppermost snow layer
+        dzh_snow (i,j,1,nnew,ns) = zhh_snow(i,j,1) + h_snow(i,j,nnew,ns)            !layer thickness betw. half levels of uppermost snow layer
         zdzm_snow(i,j,1     ) = zhm_snow(i,j,1) + h_snow(i,j,nnew,ns)            !layer thickness between snow surface and main level of uppermost layer
         IF(dz_old(i,j,1).ne.0..and.rho_snow_mult(i,j,1,nnew,ns).ne.0.) THEN
           wliq_snow(i,j,1,nnew,ns) = wliq_snow(i,j,1,nnew,ns)/dz_old(i,j,1)
@@ -4465,7 +4465,7 @@ DO ksn = 2,ke_snow
       IF (llandmask(i,j,ns)) THEN  ! for landpoints only
         IF(w_snow(i,j,nnew,ns) .GT. zepsi) THEN
           zhm_snow(i,j,ksn) = (zhh_snow(i,j,ksn) + zhh_snow(i,j,ksn-1))/2._ireals
-          dzh_snow (i,j,ksn,nnew) = zhh_snow(i,j,ksn) - zhh_snow(i,j,ksn-1) ! layer thickness betw. half levels
+          dzh_snow (i,j,ksn,nnew,ns) = zhh_snow(i,j,ksn) - zhh_snow(i,j,ksn-1) ! layer thickness betw. half levels
           zdzm_snow(i,j,ksn     ) = zhm_snow(i,j,ksn) - zhm_snow(i,j,ksn-1) ! layer thickness betw. main levels
           IF(dz_old(i,j,ksn).ne.0..and.rho_snow_mult(i,j,ksn,nnew,ns).ne.0.) THEN
             wliq_snow(i,j,ksn,nnew,ns) = wliq_snow(i,j,ksn,nnew,ns)/dz_old(i,j,ksn)
@@ -4492,10 +4492,10 @@ DO ksn = ke_snow,1,-1
           IF(w_snow(i,j,nnew,ns) .GT. zepsi) THEN
 
             weight = MAX(MIN(z_old(i,j,k)+dz_old(i,j,k)/2._ireals,zhm_snow(i,j,ksn) &
-            &+dzh_snow(i,j,ksn,nnew)/2._ireals)-   &
+            &+dzh_snow(i,j,ksn,nnew,ns)/2._ireals)-   &
                      MAX(z_old(i,j,k)-dz_old(i,j,k)/2._ireals, &
-                     zhm_snow(i,j,ksn)-dzh_snow(i,j,ksn,nnew)/2._ireals),0._ireals) &
-                     &/dzh_snow(i,j,ksn,nnew)
+                     zhm_snow(i,j,ksn)-dzh_snow(i,j,ksn,nnew,ns)/2._ireals),0._ireals) &
+                     &/dzh_snow(i,j,ksn,nnew,ns)
 
             t_new  (i,j,ksn) = t_new  (i,j,ksn) + t_snow_mult  (i,j,k,nnew,ns)*weight
             rho_new(i,j,ksn) = rho_new(i,j,ksn) + rho_snow_mult(i,j,k,nnew,ns)*weight
@@ -4513,8 +4513,8 @@ DO ksn = ke_snow,1,-1
         IF(w_snow(i,j,nnew,ns) .GT. zepsi) THEN
           t_snow_mult  (i,j,ksn,nnew,ns) = t_new  (i,j,ksn)
           rho_snow_mult(i,j,ksn,nnew,ns) = rho_new(i,j,ksn)
-          wtot_snow    (i,j,ksn,nnew,ns) = rho_new(i,j,ksn)*dzh_snow(i,j,ksn,nnew)/rho_w
-          wliq_snow    (i,j,ksn,nnew,ns) = wl_new (i,j,ksn)*dzh_snow(i,j,ksn,nnew)
+          wtot_snow    (i,j,ksn,nnew,ns) = rho_new(i,j,ksn)*dzh_snow(i,j,ksn,nnew,ns)/rho_w
+          wliq_snow    (i,j,ksn,nnew,ns) = wl_new (i,j,ksn)*dzh_snow(i,j,ksn,nnew,ns)
         END IF
       END IF          ! land-points only
     END DO
