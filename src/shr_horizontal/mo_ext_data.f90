@@ -1318,6 +1318,7 @@ CONTAINS
       &        nblks_e       !< number of edge blocks to allocate
 
     INTEGER :: shape2d_c(2), shape2d_e(2), shape4d_c(4)
+    INTEGER :: idim_omip
 
     INTEGER :: ientr         !< "entropy" of horizontal slice
 
@@ -1335,7 +1336,9 @@ CONTAINS
     shape2d_e = (/ nproma, nblks_e /)
 
     ! omip or other flux forcing data on cell centers: 13 variables, iforc_len data sets
-    shape4d_c = (/ nproma, iforc_len, nblks_c, 13 /)
+    IF (iforc_omip == 1 ) idim_omip =  3
+    IF (iforc_omip == 2 ) idim_omip = 15
+    shape4d_c = (/ nproma, iforc_len, nblks_c, idim_omip /)
 
     !
     ! Register a field list and apply default settings
