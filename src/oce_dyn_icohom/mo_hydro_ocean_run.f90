@@ -60,7 +60,9 @@ USE mo_exception,              ONLY: message, message_text, finish
 USE mo_ext_data,               ONLY: t_external_data
 USE mo_io_units,               ONLY: filename_max
 USE mo_datetime,               ONLY: t_datetime, print_datetime, add_time, datetime_to_string
-USE mo_timer,                  ONLY: timer_total, timer_start, timer_stop
+USE mo_timer,                  ONLY: timer_start, timer_stop, timer_total, timer_solve_ab, &
+  &                                  timer_tracer_ab, timer_vert_veloc, timer_normal_veloc, &
+  &                                  timer_oce_init
 USE mo_oce_ab_timestepping,    ONLY: solve_free_surface_eq_ab, &
   &                                  calc_normal_velocity_ab,  &
   &                                  calc_vert_velocity
@@ -218,23 +220,32 @@ CONTAINS
         END SELECT
       ENDIF
 
+
       ! solve for new free surface
+      IF (ltimer) CALL timer_start(timer_solve_ab)
       CALL solve_free_surface_eq_ab (ppatch(jg), pstate_oce(jg), p_ext_data(jg), &
         &                            p_sfc_flx, p_phys_param, jstep, p_int(jg))
+      IF (ltimer) CALL timer_stop(timer_solve_ab)
 
       ! Step 4: calculate final normal velocity from predicted horizontal velocity vn_pred
       !         and updated surface height
+      IF (ltimer) CALL timer_start(timer_normal_veloc)
       CALL calc_normal_velocity_ab(ppatch(jg), pstate_oce(jg), p_ext_data(jg), p_phys_param)
+      IF (ltimer) CALL timer_stop(timer_normal_veloc)
 
       ! Step 5: calculate vertical velocity from continuity equation under incompressiblity condition
       ! in the non-shallow-water case
       IF ( iswm_oce /= 1 ) THEN
+        IF (ltimer) CALL timer_start(timer_vert_veloc)
         CALL calc_vert_velocity( ppatch(jg), pstate_oce(jg))
+        IF (ltimer) CALL timer_stop(timer_vert_veloc)
       ENDIF
 
       ! Step 6 transport tracers and diffuse them
       IF(no_tracer>=1)THEN
+        IF (ltimer) CALL timer_start(timer_tracer_ab)
         CALL advect_tracer_ab(ppatch(jg), pstate_oce(jg), p_phys_param,p_sfc_flx, jstep)
+        IF (ltimer) CALL timer_stop(timer_tracer_ab)
       ENDIF
     ENDIF
 
@@ -321,9 +332,12 @@ CONTAINS
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       &      routine = 'mo_test_hydro_ocean:prepare_ho_integration'
 
+    CALL message (TRIM(routine),'start')
     !------------------------------------------------------------------
     ! no grid refinement allowed here so far
     !------------------------------------------------------------------
+
+    IF (ltimer) CALL timer_start(timer_oce_init)
 
     IF (n_dom > 1 ) THEN
       CALL finish(TRIM(routine), ' N_DOM > 1 is not allowed')
@@ -371,6 +385,9 @@ CONTAINS
     CALL init_ho_testcases(ppatch(jg), pstate_oce(jg), p_ext_data(jg), p_sfc_flx)
     CALL init_ho_prog(ppatch(jg), pstate_oce(jg), p_ext_data(jg), p_sfc_flx)
     CALL init_ho_coupled(ppatch(jg), pstate_oce(jg))
+
+    IF (ltimer) CALL timer_stop(timer_oce_init)
+    CALL message (TRIM(routine),'end')
 
   END SUBROUTINE prepare_ho_integration
 

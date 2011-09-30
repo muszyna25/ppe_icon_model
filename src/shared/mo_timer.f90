@@ -94,6 +94,8 @@ MODULE mo_timer
   PUBLIC :: timer_lonlat_setup
   PUBLIC :: timer_write_restart_file
   PUBLIC :: timer_write_output
+  PUBLIC :: timer_solve_ab, timer_tracer_ab, timer_vert_veloc, timer_normal_veloc, timer_oce_init
+  PUBLIC :: timer_print_mxmn
   PUBLIC :: timer_si_correction
   PUBLIC :: timer_cube_root
   
@@ -157,6 +159,8 @@ MODULE mo_timer
   INTEGER :: timer_omp_radiation
   INTEGER :: timer_write_restart_file
   INTEGER :: timer_write_output
+  INTEGER :: timer_solve_ab, timer_tracer_ab, timer_vert_veloc, timer_normal_veloc, timer_oce_init
+  INTEGER :: timer_print_mxmn
   INTEGER :: timer_si_correction
   INTEGER :: timer_cube_root
   
@@ -226,7 +230,14 @@ CONTAINS
 
     timer_omp_radiation = new_timer("omp_radiation")
     timer_write_restart_file = new_timer("wrt_restart")
-    timer_write_output = new_timer("wrt_output")
+
+    timer_write_output  = new_timer("wrt_output")
+    timer_oce_init      = new_timer("oce_init")
+    timer_solve_ab      = new_timer("solve_ab")
+    timer_tracer_ab     = new_timer("tracer_ab")
+    timer_vert_veloc    = new_timer("vert_veloc")
+    timer_normal_veloc  = new_timer("normal_veloc")
+    timer_print_mxmn    = new_timer("print_mxmn")
   
     timer_cube_root = new_timer("cube_root")
     timer_si_correction = new_timer("si_correction")
