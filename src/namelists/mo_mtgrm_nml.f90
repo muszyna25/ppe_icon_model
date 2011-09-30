@@ -43,7 +43,8 @@ MODULE mo_mtgrm_nml
   USE mo_master_control,     ONLY: is_restart_run
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,   &
                                  & open_and_restore_namelist, close_tmpfile
-  USE mo_mtgrm_config,       ONLY: t_station_list, mtgrm_output_config, &
+  USE mo_mtgrm_config,       ONLY: t_station_list, t_mtgrm_output_config, &
+    &                              mtgrm_output_config, &
     &                              MAX_NAME_LENGTH, MAX_NUM_STATIONS, FTYPE_NETCDF
 
   IMPLICIT NONE
@@ -161,6 +162,7 @@ CONTAINS
       npromz  = nstations - nproma*(nblks-1)
       mtgrm_output_config(idom)%nblks   = nblks
       mtgrm_output_config(idom)%npromz  = npromz 
+
       ALLOCATE(mtgrm_output_config(idom)%station_list(nproma,nblks))
 
       jc = 0

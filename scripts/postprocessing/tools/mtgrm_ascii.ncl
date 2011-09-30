@@ -4,6 +4,9 @@
 ; Contains
 ;   - Transformation of a NetCDF meteogram file to
 ;     rudimentary ASCII output.
+; Note: This is an EXAMPLE SCRIPT, much too slow to cope with
+;       LARGE DATA SETS! For real applications specifiy, for example
+;       the time step instead of printing all of them!
 ; Note: We do not distinguish between different types of vertical
 ;       axis/level indices!!
 ;

@@ -473,10 +473,10 @@ MODULE mo_nh_stepping
     ENDIF
 
     l_compute_diagnostic_quants = l_outputtime
-!    DO jg = 1, n_dom
-!      l_compute_diagnostic_quants = l_compute_diagnostic_quants .OR. &
-!        &          mtgrm_is_sample_step(mtgrm_output_config(jg), jstep)
-!    END DO
+    DO jg = 1, n_dom
+      l_compute_diagnostic_quants = l_compute_diagnostic_quants .OR. &
+        &          mtgrm_is_sample_step(mtgrm_output_config(jg), jstep)
+    END DO
 
     !
     ! dynamics stepping
@@ -501,14 +501,14 @@ MODULE mo_nh_stepping
     ENDIF
 
     ! sample meteogram output
-!    DO jg = 1, n_dom
-!      IF (mtgrm_is_sample_step(mtgrm_output_config(jg), jstep)) THEN
-!        CALL mtgrm_sample_vars(p_nh_state(jg), jg, jstep, datetime, ierr)
-!        IF (ierr /= SUCCESS) THEN
-!          CALL finish (routine, 'Error in meteogram sampling! Sampling buffer too small?')
-!        ENDIF
-!      END IF
-!    END DO
+    DO jg = 1, n_dom
+      IF (mtgrm_is_sample_step(mtgrm_output_config(jg), jstep)) THEN
+        CALL mtgrm_sample_vars(p_nh_state(jg), jg, jstep, datetime, ierr)
+        IF (ierr /= SUCCESS) THEN
+          CALL finish (routine, 'Error in meteogram sampling! Sampling buffer too small?')
+        ENDIF
+      END IF
+    END DO
 
     ! Diagnostics computation is not yet properly MPI-parallelized
 #ifdef NOMPI

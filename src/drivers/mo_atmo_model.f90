@@ -531,12 +531,12 @@ CONTAINS
     !     Setup of meteogram output
     !---------------------------------------------------------------------
 
-!    DO jg =1,n_dom
-!      IF (mtgrm_output_config(jg)%lenabled) THEN
-!        CALL mtgrm_init(mtgrm_output_config(jg), p_patch(jg), &
-!          &             ext_data(jg), iforcing, jg)
-!      END IF
-!    END DO
+    DO jg =1,n_dom
+      IF (mtgrm_output_config(jg)%lenabled) THEN
+        CALL mtgrm_init(mtgrm_output_config(jg), p_patch(jg), &
+          &             ext_data(jg), iforcing, jg)
+      END IF
+    END DO
 
     !---------------------------------------------------------------------
     ! 12. The hydrostatic and nonhydrostatic models branch from this point
@@ -618,13 +618,13 @@ CONTAINS
       CALL finish(TRIM(routine),'deallocate for patch array failed')
     ENDIF
 
-!    ! finalize meteogram output
-!    DO jg = 1, n_dom
-!      IF (mtgrm_output_config(jg)%lenabled) THEN
-!        CALL mtgrm_finalize(jg)
-!      END IF
-!      DEALLOCATE(mtgrm_output_config(jg)%station_list)
-!    END DO
+    ! finalize meteogram output
+    DO jg = 1, n_dom
+      IF (mtgrm_output_config(jg)%lenabled) THEN
+        CALL mtgrm_finalize(jg)
+      END IF
+      DEALLOCATE(mtgrm_output_config(jg)%station_list)
+    END DO
 
     CALL message(TRIM(routine),'clean-up finished')
 

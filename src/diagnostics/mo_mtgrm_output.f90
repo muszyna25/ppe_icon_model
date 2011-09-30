@@ -79,7 +79,6 @@ MODULE mo_mtgrm_output
 
   USE mo_kind,                  ONLY: wp
   USE mo_datetime,              ONLY: t_datetime, iso8601
-  USE mo_math_utilities,        ONLY: t_geographical_coordinates
   USE mo_exception,             ONLY: message, message_text, finish
   USE mo_mpi,                   ONLY: p_n_work, my_process_is_stdio, &
     &                                 get_my_mpi_all_id
@@ -132,7 +131,7 @@ MODULE mo_mtgrm_output
     CHARACTER(len=MAX_NAME_LENGTH) :: zname, zunit  !< variable name, unit
     INTEGER                        :: igroup_id     !< variable group (surface vars, soil temperatures, ...)
     INTEGER                        :: nlevs         !< number of levels for this variable
-    INTEGER,  ALLOCATABLE          :: levels(:)     !< level indices (1:nlevs)
+    INTEGER, POINTER               :: levels(:)     !< level indices (1:nlevs)
   END TYPE t_var_info
 
   !>
@@ -147,14 +146,14 @@ MODULE mo_mtgrm_output
   !! Value buffer for a single variable of a station.
   !!
   TYPE t_var_buffer
-    REAL(wp), ALLOCATABLE         :: values(:,:)    !< sampled data for different levels (time,1:nlevs)
+    REAL(wp), POINTER              :: values(:,:)    !< sampled data for different levels (time,1:nlevs)
   END TYPE t_var_buffer
 
   !>
   !! Value buffer for a single surface variable of a station.
   !!
   TYPE t_sfc_var_buffer
-    REAL(wp), ALLOCATABLE         :: values(:)      !< sampled data (1:time)
+    REAL(wp), POINTER              :: values(:)      !< sampled data (1:time)
   END TYPE t_sfc_var_buffer
 
   !>
@@ -189,8 +188,8 @@ MODULE mo_mtgrm_output
     INTEGER                       :: soiltype   !< soil type
 
     ! Buffer for currently stored meteogram values.
-    TYPE(t_var_buffer),     ALLOCATABLE :: var(:)       !< sampled data (1:nvars)     ! DEVELOPMENT : To NetCDF!
-    TYPE(t_sfc_var_buffer), ALLOCATABLE :: sfc_var(:)   !< sampled data (1:nsfcvars)  ! DEVELOPMENT : To NetCDF!
+    TYPE(t_var_buffer),     POINTER :: var(:)       !< sampled data (1:nvars)
+    TYPE(t_sfc_var_buffer), POINTER :: sfc_var(:)   !< sampled data (1:nsfcvars)
   END TYPE t_mtgrm_station
 
   !>
@@ -199,16 +198,16 @@ MODULE mo_mtgrm_output
   !!
   TYPE t_mtgrm_data
     ! variable info:
-    INTEGER                            :: nvars, nsfcvars !< number of sampled variables and surface variables
-    INTEGER                            :: max_nlevs       !< maximum no. of levels for variables
-    TYPE(t_var_info),     ALLOCATABLE  :: var_info(:)     !< info for each variable (1:nvars)
-    TYPE(t_sfc_var_info), ALLOCATABLE  :: sfc_var_info(:) !< info for each surface variable (1:nsfcvars)
+    INTEGER                        :: nvars, nsfcvars !< number of sampled variables and surface variables
+    INTEGER                        :: max_nlevs       !< maximum no. of levels for variables
+    TYPE(t_var_info),     POINTER  :: var_info(:)     !< info for each variable (1:nvars)
+    TYPE(t_sfc_var_info), POINTER  :: sfc_var_info(:) !< info for each surface variable (1:nsfcvars)
     ! time stamp info:
-    INTEGER                            :: icurrent                    !< current time stamp index
-    TYPE(t_time_stamp)                 :: time_stamp(MAX_TIME_STAMPS) !< info on sample times
+    INTEGER                        :: icurrent                    !< current time stamp index
+    TYPE(t_time_stamp)             :: time_stamp(MAX_TIME_STAMPS) !< info on sample times
     ! value buffers:
-    TYPE(t_mtgrm_station), ALLOCATABLE :: station(:,:) !< meteogram data and meta info for each station (idx,blk).
-    INTEGER                            :: nstations, nblks, npromz
+    TYPE(t_mtgrm_station), POINTER :: station(:,:) !< meteogram data and meta info for each station (idx,blk).
+    INTEGER                        :: nstations, nblks, npromz
   END TYPE t_mtgrm_data
   
   !>
@@ -553,6 +552,9 @@ CONTAINS
     TYPE(t_var), POINTER :: VAR
 
     mtgrm_data => mtgrm_local_data(jg)
+    ! skip routine, if this PE has nothing to do...
+    IF (mtgrm_data%nstations == 0) RETURN
+
     VAR => var_list(jg) 
 
     diag => p_nh_state%diag
@@ -664,18 +666,20 @@ CONTAINS
       &                            nvars, nsfcvars, ivar
     TYPE(t_mtgrm_data), POINTER :: mtgrm_data
 
+    mtgrm_data => mtgrm_local_data(jg)
+    ! skip routine, if this PE has nothing to do...
+    IF (mtgrm_data%nstations == 0) RETURN
+
     ! ------------------------------------------------------------
     ! If this is the IO PE: close NetCDF file
     ! ------------------------------------------------------------
 
     CALL mtgrm_close_file(jg)
 
-    mtgrm_data => mtgrm_local_data(jg)
-
     nvars    = mtgrm_data%nvars
     nsfcvars = mtgrm_data%nsfcvars
     DO ivar=1,nvars
-      IF (ALLOCATED(mtgrm_data%var_info(ivar)%levels)) THEN
+      IF (ASSOCIATED(mtgrm_data%var_info(ivar)%levels)) THEN
         DEALLOCATE(mtgrm_data%var_info(ivar)%levels, stat=ierrstat)
         IF (ierrstat /= SUCCESS) THEN
           CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
@@ -784,7 +788,8 @@ CONTAINS
     TYPE(t_mtgrm_data), POINTER :: mtgrm_data
     INTEGER                     :: station_name_dims(2), var_name_dims(2), &
       &                            var_level_dims(2), time_string_dims(2), &
-      &                            var_dims(4),  sfcvar_dims(3)
+      &                            var_dims(4),  sfcvar_dims(3),           &
+      &                            istart2(2), icount2(2)
     CHARACTER(len=MAX_NAME_LENGTH) :: description_str
 
     IF (mtgrm_output_config%ftype /= FTYPE_NETCDF) THEN
@@ -792,6 +797,9 @@ CONTAINS
     END IF
 
     mtgrm_data => mtgrm_local_data(jg)
+    ! skip routine, if this PE has nothing to do...
+    IF (mtgrm_data%nstations == 0) RETURN
+
     ncid       => ncid_list(jg)
 
     IF (dbg_level > 0) THEN
@@ -826,7 +834,6 @@ CONTAINS
     IF (mtgrm_data%nsfcvars > 0) &
       CALL nf(nf_def_dim(ncfile, 'nsfcvars',  mtgrm_data%nsfcvars,  ncid%nsfcvars))
     CALL nf(nf_def_dim(ncfile, 'max_nlevs', mtgrm_data%max_nlevs, ncid%max_nlevs))
-
     ! create time dimension:
     CALL nf(nf_def_dim(ncfile, 'time', NF_UNLIMITED, ncid%timeid))
     
@@ -933,8 +940,9 @@ CONTAINS
         &                     mtgrm_data%var_info(ivar)%igroup_id))
       CALL nf(nf_put_vara_int(ncfile, ncid%var_nlevs, ivar, 1, &
         &                     mtgrm_data%var_info(ivar)%nlevs))
-      CALL nf(nf_put_vara_int(ncfile, ncid%var_levels, (/ 1, ivar /),   &
-        &                     (/ mtgrm_data%var_info(ivar)%nlevs, 1 /), &
+      istart2 = (/ 1, ivar /)
+      icount2 = (/ mtgrm_data%var_info(ivar)%nlevs, 1 /)
+      CALL nf(nf_put_vara_int(ncfile, ncid%var_levels, istart2, icount2, &
         &                     mtgrm_data%var_info(ivar)%levels(:)))
     END DO
 
@@ -1005,8 +1013,12 @@ CONTAINS
       &                            nvars, nsfcvars
     TYPE(t_mtgrm_data), POINTER :: mtgrm_data
     TYPE(t_ncid),       POINTER :: ncid
+    INTEGER                     :: istart4(4), icount4(4)
 
     mtgrm_data => mtgrm_local_data(jg)
+    ! skip routine, if this PE has nothing to do...
+    IF (mtgrm_data%nstations == 0) RETURN
+
     ncid => ncid_list(jg)
     ncfile = mtgrm_file_info(jg)%file_id
 
@@ -1042,9 +1054,10 @@ CONTAINS
           ! volume variables:
           DO ivar=1,nvars
             nlevs = mtgrm_data%var_info(ivar)%nlevs
+            istart4 = (/ istation, ivar, 1, totaltime+itime /)
+            icount4 = (/ 1, 1, nlevs, 1 /)
             CALL nf(nf_put_vara_double(ncfile, ncid%var_values,                   &
-              &                        (/ istation, ivar, 1, totaltime+itime /),  &
-              &                        (/ 1, 1, nlevs, 1 /),                      &
+              &                        istart4, icount4,                          &
               &                        mtgrm_data%station(jc,jb)%var(ivar)%values(itime,1:nlevs)))
           END DO
           ! surface variables:
@@ -1189,7 +1202,6 @@ CONTAINS
     ! Local variables
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mtgrm_output:add_sfc_var")
     TYPE(t_mtgrm_data), POINTER     :: mtgrm_data
-    INTEGER                         :: ierrstat, ilev
  
     mtgrm_data => mtgrm_local_data(jg)
 
