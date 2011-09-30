@@ -74,12 +74,12 @@ init_oce=0     # 1: use ocean initialization file; 0: init with constants or ana
 # ocean forcing = 12 needs an additional flux file 
 iforc=12
 iforc_omip=1   # type of OMIP forcing to read: 1 = u/v-stress;     2 = full 12 OMIP datasets
-iforc_len=365  # length of forcing dataset:   12 = monthly data; 365 = daily data
+iforc_len=366  # length of forcing dataset:   12 = monthly data; 366 = daily data
 # flux files are named $HGRIDDIR/omip4icon-R${R}B0{B}-monmean.nc
 #
 #-----------------------------------------------------------------------------
 # global timing
-start_date="2000-01-01T00:00:00Z"
+start_date="2002-01-01T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing

@@ -353,11 +353,8 @@ MODULE mo_ext_data
 
     ! OMIP forcing fluxes on cell centers. no_of_fluxes=3
     !
-    REAL(wp), POINTER ::   &       !< omip monthly mean forcing fluxes
-      &  omip_forc_mon_c(:,:,:,:)  !  index1=nproma, index2=12 or 365, index3=nblks_c, index4=no_of_fluxes
-
-  ! REAL(wp), POINTER ::   &       !< omip monthly mean forcing fluxes
-  !   &  omip_forc_day_c(:,:,:,:)  !  index1=nproma, index2=365, index3=nblks_c, index4=no_of_fluxes
+    REAL(wp), POINTER ::   &       !< omip monthly/daily mean forcing fluxes
+      &  omip_forc_mon_c(:,:,:,:)  !  index1=nproma, index2=time, index3=nblks_c, index4=no_of_fluxes
 
   END TYPE t_external_ocean
 
@@ -1335,7 +1332,7 @@ CONTAINS
     shape2d_c = (/ nproma, nblks_c /)
     shape2d_e = (/ nproma, nblks_e /)
 
-    ! omip or other flux forcing data on cell centers: 13 variables, iforc_len data sets
+    ! OMIP or other flux forcing data on cell centers: 3 or 15 variables, iforc_len data sets
     IF (iforc_omip == 1 ) idim_omip =  3
     IF (iforc_omip == 2 ) idim_omip = 15
     shape4d_c = (/ nproma, iforc_len, nblks_c, idim_omip /)
@@ -2225,10 +2222,12 @@ CONTAINS
         !
         ! check
         !
-        IF(no_tst /= 12 .AND. no_tst /= 365) THEN
-          CALL finish(TRIM(ROUTINE),&
-          & 'Number of timesteps is not 12 (monthly avg.) or 365 (daily avg.)!')
-        ENDIF
+        WRITE(message_text,'(A,I6,A)')  'Ocean OMIP flux file contains',no_tst,' data sets'
+        CALL message( TRIM(routine), TRIM(message_text) )
+     !  IF(no_tst /= 12 .AND. no_tst /= 366) THEN
+     !    CALL finish(TRIM(ROUTINE),&
+     !    & 'Number of timesteps is not 12 (monthly avg.) or 366 (daily avg.)!')
+     !  ENDIF
       ENDIF
 
 

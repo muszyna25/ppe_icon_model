@@ -209,11 +209,12 @@ CONTAINS
     !
     ! apply daily forcing-data directly:
     !
-    ELSE IF (iforc_len == 365)  THEN 
+    ELSE
 
-      ! - now 365 data sets are read in mo_ext_data
+      ! - now daily data sets are read in mo_ext_data
       ! - use rday1, rday2, jmon1 = jmon2 = yeaday for controling correct day in year
       ! - no interpolation applied, 
+      ! - datetime%yeaday may be 366 for a leap year, e.g. year 2000
       jmon1 = datetime%yeaday
       jmon2 = jmon1
       rday1 = 1.0_wp

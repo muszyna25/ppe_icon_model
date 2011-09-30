@@ -799,7 +799,7 @@ END DO
 
 SELECT CASE(FLUX_CALCULATION)
 
-CASE(UPWIND)!,MIMETIC)
+CASE(UPWIND,MIMETIC)
   !Produce time-weighted vertical transport velocity
   z_transport_w  = ab_gam*p_os%p_diag%w + (1.0_wp-ab_gam)*p_os%p_diag%w_old
   ! z_transport_w  = p_os%p_diag%w 
@@ -808,7 +808,7 @@ CASE(UPWIND)!,MIMETIC)
                        & z_transport_w, & 
                        & bc_top_tracer, &
                        & z_adv_flux_v )
-CASE(CENTRAL, MIMETIC)
+CASE(CENTRAL)
   !Produce time-weighted vertical transport velocity
   z_transport_w  = ab_gam*p_os%p_diag%w + (1.0_wp-ab_gam)*p_os%p_diag%w_old
 
