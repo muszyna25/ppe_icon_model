@@ -1,0 +1,362 @@
+# Metview Macro: ICON errors
+# 
+# run as: metview -b map.error 22 CC ml diff 20110101 00 20110103 00
+#
+# Koehler Martin, August 2011
+#-----------------------------------------------------------------------
+  
+# --- argument list
+
+mode = runmode()
+if mode = 'batch' or mode = 'execute' then  
+  args    = arguments()
+  print()
+  print("parameters: ", args)
+  expnum  = args[1]      # experiment ID (e.g. 22)
+  varfile = args[2]      # variable name (e.g. T)
+  levtype = args[3]      # level type (e.g. sfc, pl, zl, ml, lnd, L90)
+  stat    = args[4]      # statistic (snap, ctr or diff) 
+  inidate = args[5]      # 
+  initime = args[6]      # 
+  verdate = args[7]      # 
+  vertime = args[8]      # 
+  if initime < 10 then
+     initime = "0"&initime
+  end if
+  if vertime < 10 then
+     vertime = "0"&vertime
+  end if
+else
+  expnum  = 22
+  varfile = 'TCC'        # T U V QV QC QI CC Q1 Q2 Q3;  T_SO_tile_1 W_SO_tile_1
+  levtype = 'sfc'              
+  stat    = 'snap'  
+  inidate = '20110101'
+  initime = '00'
+  verdate = '20110102'
+  vertime = '00'
+end if  
+
+#-----------------------------------------------------------------------
+# --- setup
+
+expres  = 'NWP.R2B04L90'
+vartext = varfile 
+
+user = getenv("USER")
+plotdir = '/fe1-daten/'&user&'/plots/icon/nwp.exp'&expnum
+
+case stat of
+  'diff':
+    plotfile= plotdir&'/map.'&expres&'.exp'&expnum&'-ifs.'&varfile&'.'&verdate&vertime    # no ".ps"
+    title   = vartext&'    exp'&expnum&'     EXP-ANA    '&inidate&initime&' to '&verdate&vertime
+  end
+  'snap':
+    plotfile= plotdir&'/map.'&expres&'.exp'&expnum&    '.'&varfile&'.'&verdate&vertime
+    title   = vartext&'    exp'&expnum&'    '&verdate&vertime
+  end
+  'ctr':
+    plotfile= plotdir&'/map.'&expres&'.exp'&expnum&'.ifs.'&varfile&'.'&verdate&vertime
+    title   = vartext&'    ANA    '&verdate&vertime
+  end
+end case
+
+precision( 4 )           # precision of numbers in plots
+
+
+
+#-----------------------------------------------------------------------
+#--- read data
+
+#--- read ICON experiment:
+
+if stat <> 'ctr' then
+  var_exp = read(  
+		SOURCE   : '/uwork1/mkoehler/icon/experiments/exp'&expnum&'/NWP_iconR2B04_DOM01_'&inidate&initime&'_0001_'&varfile&'_'&levtype&'.grb',
+		date     : verdate,
+		time     : vertime
+	    )
+  nlev = count(var_exp)
+ #print(var_exp)
+  scale = 1.0
+  case varfile of
+    'swflxsfc_acc':    scale= 1.0/86400.0 end
+    'lwflxsfc_acc':    scale= 1.0/86400.0 end
+    'swflxtoa_acc':    scale= 1.0/86400.0 end
+    'lwflxtoa_acc':    scale= 1.0/86400.0 end
+    'LHFL_S_acc':      scale= 1.0/86400.0 end
+    'SHFL_S_acc':      scale= 1.0/86400.0 end
+  end case
+  var_exp = var_exp * scale
+end if
+
+#--- read IFS data:
+	
+if stat <> 'snap' then
+  case levtype of
+    'pl':
+      case varfile of
+        'T_P' : param = 'T' end
+        'U_P' : param = 'U' end
+        'V_P' : param = 'V' end
+        'QV_P': param = 'Q' end
+        'Z'   : param = 'Z' end
+      end case
+      var_ana = read(  
+		SOURCE   : '/uwork1/mkoehler/ifs.data/oper/ifs_oper_2x2_20110101-20.pl.grb',
+		param    : param,
+		date     : date(verdate)-1,
+		time     : vertime
+    	)
+      end
+    'sfc':
+      scale  = 1.0
+      ddays = date(verdate)+hour(vertime) - date(inidate)-hour(initime)
+      case varfile of
+        'TCC':             param = 'TCC'  end
+        'TQV':             param = 'TCWV' end
+        'TQC':             param = 'TCLW' end
+        'TQI':             param = 'TCIW' end
+        'U_10m':           param = '10U'  end
+        'V_10m':           param = '10V'  end
+        'T_2m':            param = '2T'   end
+       #'':                param = 'CP'   end
+       #'':                param = 'LSP'  end
+        'TOT_PREC':        param = 'TP'  ; scale=1000.0 end
+       #'':                param = 'SSTK' end
+        'H_SNOW_tile_1':   param = 'SD'   end
+        'RHO_SNOW_tile_1': param = 'RSN'  end
+        'T_G':             param = 'SKT'  end
+        'swflxsfc_acc':    param = 'SSR'  ; scale= 1.0/86400.0/ddays end
+        'lwflxsfc_acc':    param = 'STR'  ; scale= 1.0/86400.0/ddays end
+        'swflxtoa_acc':    param = 'TSR'  ; scale= 1.0/86400.0/ddays end
+        'lwflxtoa_acc':    param = 'TTR'  ; scale= 1.0/86400.0/ddays end
+        'LHFL_S_acc':      param = 'SLHF' ; scale= 1.0/86400.0/ddays end
+        'SHFL_S_acc':      param = 'SSHF' ; scale= 1.0/86400.0/ddays end
+      end case
+      var_ana = read(  
+		SOURCE   : '/uwork1/mkoehler/ifs.data/oper/ifs_oper_2x2_20110101-20.sfc.grb',
+		param    : param,
+		date     : verdate,
+		time     : vertime
+    	)
+      var_ana = var_ana * scale
+      end
+    otherwise:
+      var_ana = read(  
+		SOURCE   : '/uwork1/mkoehler/icon/experiments/exp'&expnum&'/NWP_iconR2B04_DOM01_'&verdate&vertime&'_0001_'&varfile&'_'&levtype&'.grb', 
+		date     : verdate,
+		time     : vertime
+	    )
+	  end
+  end case 
+  
+  nlev = count(var_ana)
+ #print(var_ana)
+end if
+
+
+#-----------------------------------------------------------------------
+#--- processing
+
+case stat of
+  'diff':var_diff = var_exp-var_ana
+  end
+  'snap':var_diff = var_exp
+  end
+  'ctr': var_diff = var_ana
+  end
+end case
+
+
+if mode = 'visualize' or mode = 'prepare' then  
+  nlev=1
+end if
+
+for k=1 to nlev do 
+
+  if mode = 'visualize' or mode = 'prepare' then  
+    var_diff_k = var_diff
+  else
+    var_diff_k = var_diff[k]
+  end if
+  
+  statistic = 'Min:  '&minvalue(var_diff_k)&'   Mean:  '&integrate(mean(var_diff_k))&'   Max:  '&maxvalue(var_diff_k)
+  if levtype = 'pl' then
+    title1    = title&'    L'&k
+  else
+    title1    = title&'    L'&k  
+  end if
+
+
+# --- variable specific plotting
+
+ #level_type = 'count'         #linear
+  level_type  = 'level_list'    #exponential
+  level_count = 12
+ #min_level   = 0
+ #max_level   = 40        # 20               0.03   40
+
+  min_level  = minvalue(var_diff_k)
+  max_level  = max(-minvalue(var_diff_k),maxvalue(var_diff_k))
+  if max_level > 0.0 then
+    max_level  = 4*round( max_level/4, -round(log10(max_level/4),0)+1 )
+  end if
+
+ #level_list = [-20,-10,-5,-2,-1, 1,2,5,10,20]
+  level_list = [-max_level, -max_level/2, -max_level/4, -max_level/8, -max_level/16, max_level/16, max_level/8, max_level/4, max_level/2, max_level]
+
+
+#-----------------------------------------------------------------------
+# --- Plot setup
+
+  text = mtext(  
+        text_line_count :   2,
+        TEXT_LINE_1     :   title1, 
+        text_line_2     :   statistic,
+        text_font_size  :   0.6,
+        TEXT_COLOUR     :   'BLACK' 
+    )
+  
+  neg = mcont(  
+		CONTOUR                        : 'OFF', 
+		CONTOUR_LEVEL_SELECTION_TYPE   : 'COUNT', 
+		CONTOUR_LEVEL_COUNT            : level_count,
+		CONTOUR_MAX_LEVEL              : -min_level, 
+		CONTOUR_MIN_LEVEL              : -max_level, 
+		CONTOUR_SHADE                  : 'ON', 
+		CONTOUR_SHADE_METHOD           : 'AREA_FILL', 
+		CONTOUR_SHADE_MAX_LEVEL_COLOUR : 'YELLOW' 
+	) 
+  pos = mcont(  
+		CONTOUR                        : 'OFF', 
+		CONTOUR_LEVEL_SELECTION_TYPE   : 'COUNT', 
+		CONTOUR_LEVEL_COUNT            : level_count,
+		CONTOUR_MAX_LEVEL              : max_level, 
+		CONTOUR_MIN_LEVEL              : min_level, 
+		CONTOUR_SHADE                  : 'ON', 
+		CONTOUR_SHADE_METHOD           : 'AREA_FILL', 
+		CONTOUR_SHADE_MAX_LEVEL_COLOUR : 'BLUE_PURPLE', 
+		CONTOUR_SHADE_MIN_LEVEL_COLOUR : 'YELLOW' 
+	)
+  all = mcont(  
+		CONTOUR                        : 'OFF', 
+		CONTOUR_LEVEL_SELECTION_TYPE   : 'COUNT', 
+		CONTOUR_LEVEL_COUNT            : level_count,
+#		CONTOUR_MAX_LEVEL              : max_level, 
+# 		CONTOUR_MIN_LEVEL              : min_level, 
+		CONTOUR_SHADE                  : 'ON', 
+		CONTOUR_SHADE_METHOD           : 'AREA_FILL', 
+		CONTOUR_SHADE_MAX_LEVEL_COLOUR : 'RED', 
+		CONTOUR_SHADE_MIN_LEVEL_COLOUR : 'BLUE_PURPLE',
+        contour_shade_colour_direction : "clockwise"
+	)
+  cont = mcont(  
+		CONTOUR                        : 'OFF', 
+		CONTOUR_LEVEL_SELECTION_TYPE   : level_type, 
+		CONTOUR_LEVEL_COUNT            : level_count,
+		CONTOUR_MAX_LEVEL              : max_level, 
+		CONTOUR_MIN_LEVEL              : -max_level, 
+		contour_level_list             : level_list,
+		CONTOUR_SHADE                  : 'ON', 
+		CONTOUR_SHADE_METHOD           : 'AREA_FILL', 
+		contour_shade_colour_method    : "list",
+#		contour_shade_colour_list      : ["red","orange","orange_yellow","yellow","white","white","green","blue_green","blue","blue_purple"]
+		contour_shade_colour_list      : ["blue_purple", "blue", "blue_green", "green", "white", "yellow", "orange_yellow", "orange","red"]
+#		contour_shade_colour_list      : ["red","orange","yellow","white","white","green","blue_green","blue"]
+ 	)  
+
+  legend = mlegend(
+        legend_text_colour    :    "black",
+        legend_text_height    :    0.4
+        )
+
+
+#-----------------------------------------------------------------------
+# --- Plot
+ 	
+# Setup output format
+  file_ps  = ps_output(  OUTPUT_NAME : plotfile&'.L'&k )
+  file_png = png_output( OUTPUT_NAME : plotfile&'.L'&k )
+
+  if mode = 'batch' or mode = 'execute' then  
+    shell('mkdir -p '&plotdir)
+   #setoutput(file_ps, file_png)  
+    setoutput(file_png)  
+  end if  
+  display_window = build_layout()
+
+
+  if stat = 'diff' then
+    plot ( display_window[1], text, var_diff_k, cont, legend ) 
+  else
+    plot ( display_window[1], text, var_diff_k, all,  legend )
+  end if
+
+end for
+
+print('output: ',plotfile,'*.ps')
+#shell('gv '&plotfile&'.ps&')
+
+
+#-----------------------------------------------------------------------
+# --- Function to build the layout.
+
+function build_layout()
+
+    #PageDescription  
+    Coastlines = mcoast(  
+    		MAP_GRID_LATITUDE_INCREMENT  : 20, 
+    		MAP_GRID_LONGITUDE_INCREMENT : 40 
+    	) 
+    Global = mapview(  
+    		MAP_PROJECTION              : "CYLINDRICAL", 
+    		AREA                        : [ -90,-180,90,180 ], 
+    		SUBPAGE_X_POSITION          : 7.5, 
+    		SUBPAGE_Y_POSITION          : 5, 
+    		SUBPAGE_X_LENGTH            : 85, 
+    		SUBPAGE_Y_LENGTH            : 85, 
+    		PAGE_FRAME                  : "ON", 
+    		PAGE_FRAME_COLOUR           : "BLUE", 
+    		PAGE_FRAME_LINE_STYLE       : "SOLID", 
+    		PAGE_FRAME_THICKNESS        : 2, 
+    		PAGE_ID_LINE                : "OFF", 
+    		PAGE_ID_LINE_TYPE           : "BOTH", 
+    		PAGE_ID_LINE_COLOUR         : "BLUE", 
+    		PAGE_ID_LINE_SYSTEM_PLOT    : "OFF", 
+    		PAGE_ID_LINE_DATE_PLOT      : "OFF", 
+    		PAGE_ID_LINE_USER_TEXT_PLOT : "ON", 
+    		PAGE_ID_LINE_ERRORS_PLOT    : "OFF", 
+    		PAGE_ID_LINE_LOGO_PLOT      : "OFF", 
+    		PAGE_ID_LINE_HEIGHT         : 0.25, 
+    		PAGE_ID_LINE_QUALITY        : "MEDIUM", 
+    		SUBPAGE_FRAME               : "ON", 
+    		SUBPAGE_FRAME_COLOUR        : "BLACK", 
+    		SUBPAGE_FRAME_LINE_STYLE    : "SOLID", 
+    		SUBPAGE_FRAME_THICKNESS     : 2, 
+    		SUBPAGE_BACKGROUND_COLOUR   : "WHITE", 
+    		COASTLINES                  : Coastlines 
+    	) 
+    Page = plot_page(  
+    		TOP        : 15, 
+    		BOTTOM     : 100, 
+    		LEFT       : 0, 
+    		RIGHT      : 100, 
+    		ROWS       : 1, 
+    		COLUMNS    : 1, 
+    		PAGE_X_GAP : 0, 
+    		PAGE_Y_GAP : 0, 
+    		VIEW       : Global 
+    	)
+    _Display_Window_ = plot_superpage(  
+    		LAYOUT_SIZE        : "A4", 
+    		LAYOUT_ORIENTATION : "LANDSCAPE", 
+    		CUSTOM_WIDTH       : 29.7, 
+    		CUSTOM_HEIGHT      : 21.0, 
+    		PAGES              : [ Page ] 
+    	) 
+
+    return _Display_Window_ 
+
+end build_layout
+

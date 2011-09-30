@@ -810,6 +810,9 @@ scripts/postprocessing/tools/iconplot_ncl/iconplot.zonal.parallel.echam.list -te
 scripts/postprocessing/tools/iconplot_ncl/iconplot.zonal.parallel.echam.s -text
 scripts/postprocessing/tools/iconplot_ncl/iconplot.zonal.parallel.list -text
 scripts/postprocessing/tools/iconplot_ncl/iconplot.zonal.parallel.s -text
+scripts/postprocessing/tools/metview/many.error.s -text
+scripts/postprocessing/tools/metview/map.error -text
+scripts/postprocessing/tools/metview/zonal.error -text
 scripts/postprocessing/tools/mtgrm_ascii.ncl -text
 scripts/postprocessing/tools/namelist_postpro.ncl -text
 scripts/postprocessing/tools/namelist_postpro_driver.bash -text
