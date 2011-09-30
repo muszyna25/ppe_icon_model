@@ -1125,12 +1125,12 @@ END SUBROUTINE ice_init
 !! Dirk Notz, following MPI-OM. Code transfered to ICON.
 !!
  SUBROUTINE ice_slow(ppatch, p_os,p_as,ice, Qatm, QatmAve)  
-   TYPE(t_patch),         INTENT(IN)     :: ppatch 
-   TYPE(t_hydro_ocean_state),INTENT(IN)  :: p_os
-   TYPE(t_atmos_for_ocean),INTENT(IN)    :: p_as
-   TYPE (t_sea_ice),      INTENT (INOUT) :: ice
-   TYPE (t_atmos_fluxes), INTENT (INOUT) :: Qatm
-   TYPE (t_atmos_fluxes), INTENT (INOUT) :: QatmAve
+   TYPE(t_patch),         INTENT(IN)      :: ppatch 
+   TYPE(t_hydro_ocean_state),INTENT(INOUT):: p_os
+   TYPE(t_atmos_for_ocean),INTENT(IN)     :: p_as
+   TYPE (t_sea_ice),      INTENT (INOUT)  :: ice
+   TYPE (t_atmos_fluxes), INTENT (INOUT)  :: Qatm
+   TYPE (t_atmos_fluxes), INTENT (INOUT)  :: QatmAve
 !-------------------------------------------------------------------------------
 
    CALL ave_fluxes     (ice, QatmAve)
@@ -1658,7 +1658,7 @@ END SUBROUTINE ice_growth
 !!
 SUBROUTINE upper_ocean_TS(ppatch, p_os,p_as,ice, QatmAve)
   TYPE(t_patch),       INTENT(IN)     :: ppatch 
-  TYPE(t_hydro_ocean_state),INTENT(IN):: p_os
+  TYPE(t_hydro_ocean_state),INTENT(INOUT):: p_os
   TYPE(t_atmos_for_ocean),INTENT(IN)  :: p_as
   TYPE(t_sea_ice),     INTENT (INOUT) :: ice
   TYPE(t_atmos_fluxes),INTENT (INOUT) :: QatmAve
@@ -1751,7 +1751,7 @@ END SUBROUTINE upper_ocean_TS
 !!
 SUBROUTINE new_ice_growth(ice, p_os, QatmAve)
   TYPE (t_sea_ice),         INTENT (INOUT) :: ice  
-  TYPE(t_hydro_ocean_state),INTENT(IN)     :: p_os
+  TYPE(t_hydro_ocean_state),INTENT(INOUT)  :: p_os
   TYPE (t_atmos_fluxes),    INTENT (IN   ) :: QatmAve
 
   ice % newice = 0.0_wp
