@@ -2880,7 +2880,7 @@ CONTAINS
     !
     ! If desired, print maximum vertical CFL number
     !
-    IF ( ld_compute .AND. msg_level >= 11 ) THEN
+    IF ( ld_compute .AND. msg_level >= 10 ) THEN
 
       max_cfl_tot = MAXVAL(max_cfl_blk(i_startblk:i_endblk))
 

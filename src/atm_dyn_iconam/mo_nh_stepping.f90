@@ -1101,7 +1101,7 @@ MODULE mo_nh_stepping
             &                      t_elapsed_phy,                     &! inout
             &                      lcall_phy )                         ! out
 
-          IF (msg_level >= 10) THEN
+          IF (msg_level >= 12) THEN
             WRITE(message_text,'(a,i2,11l3)') 'initial call of slow physics',jg , lcall_phy(jg,:11)
             CALL message(TRIM(routine), TRIM(message_text))
           ENDIF
@@ -1160,7 +1160,7 @@ MODULE mo_nh_stepping
             &                      t_elapsed_phy,                     &! inout
             &                      lcall_phy )                         ! out
 
-          IF (msg_level >= 10) THEN
+          IF (msg_level >= 12) THEN
             WRITE(message_text,'(a,i2,11l3)') 'call phys. packages DOM:',jg , lcall_phy(jg,:11)
             CALL message(TRIM(routine), TRIM(message_text))
             IF(ltransport) THEN

@@ -410,7 +410,8 @@ USE mo_lnd_nwp_config,     ONLY: nztlev, lmelt, lmelt_var, lmulti_snow,  &
   &                              itype_hydbound, lstomata, l2tls,        &
   &                              lana_rho_snow, itype_subs
 !                           
-USE mo_exception,       ONLY: message, finish, message_text
+USE mo_exception,          ONLY: message, finish, message_text
+USE mo_run_config,         ONLY: msg_level
 #endif
 
 
@@ -4641,8 +4642,8 @@ ENDIF
 enddo
 
 
-
-
+#ifdef __ICON__
+IF (msg_level >= 11) THEN
 DO ns = nsubs0, nsubs1
 DO   j = jstarts, jends
   DO i = istarts, iends
@@ -4702,6 +4703,8 @@ endif
 enddo 
 enddo
 enddo
+ENDIF
+#endif
 
 #ifdef NECSX
   CALL collapse(.FALSE., ie, je, istartpar, iendpar, jstartpar, jendpar)
