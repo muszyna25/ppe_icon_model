@@ -75,16 +75,15 @@ MODULE mo_nh_pzlev_config
 
     ! derived variables
     !
-    REAL(wp), ALLOCATABLE ::  &
+    REAL(wp), POINTER ::      &
       &  p3d(:,:,:),          & !< 3D pressure level target field for output on p-levels
       &  z3d(:,:,:)             !< 3D height level target field for output on z-levels
-                   
+
   END TYPE t_nh_pzlev_config
 
   !>
   !!
   TYPE(t_nh_pzlev_config), TARGET :: nh_pzlev_config(0:max_dom)
-
 
 
 CONTAINS
@@ -122,6 +121,7 @@ CONTAINS
 
       z_nplev = nh_pzlev_config(jg)%nplev
       z_nzlev = nh_pzlev_config(jg)%nzlev
+
 
       ! allocate 3D pressure and z-level fields
       ALLOCATE(nh_pzlev_config(jg)%p3d(nproma,z_nplev,nblks_c),          &
