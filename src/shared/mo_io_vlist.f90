@@ -1805,7 +1805,12 @@ CONTAINS
           &           k_jg)
           CALL addVar(TimeVar('tend_u_sso',&
           &                   'zonal wind tendency due to SSO',&
-          &                   'm/s2', 121, 999,&
+          &                   'm/s2', 113, 999,&
+          &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
+          &           k_jg)
+          CALL addVar(TimeVar('tend_u_gwd',&
+          &                   'zonal wind tendency due to non-orographic GWD',&
+          &                   'm/s2', 114, 999,&
           &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
           &           k_jg)
 
@@ -1813,16 +1818,21 @@ CONTAINS
           ! v-wind tendency
           CALL addVar(TimeVar('tend_v_conv',&
           &                   'meridional wind tendency due to convection',&
-          &                   'm/s2', 122, 999,&
+          &                   'm/s2', 121, 999,&
           &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
           &           k_jg)
           CALL addVar(TimeVar('tend_v_turb',&
           &                   'meridional wind tendency due to turbulence',&
-          &                   'm/s2', 123, 999,&
+          &                   'm/s2', 122, 999,&
           &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
           &           k_jg)
           CALL addVar(TimeVar('tend_v_sso',&
           &                   'meridional wind tendency due to SSO',&
+          &                   'm/s2', 123, 999,&
+          &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
+          &           k_jg)
+          CALL addVar(TimeVar('tend_v_gwd',&
+          &                   'meridional wind tendency due to non-orographic GWD',&
           &                   'm/s2', 124, 999,&
           &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
           &           k_jg)
@@ -2790,10 +2800,12 @@ CONTAINS
       CASE ('tend_temp_dyn');   ptr3 => p_diag%ddt_temp_dyn(:,:,:)
       CASE ('tend_u_conv');     ptr3 => prm_nwp_tend(jg)%ddt_u_pconv   (:,:,:)
       CASE ('tend_u_turb');     ptr3 => prm_nwp_tend(jg)%ddt_u_turb    (:,:,:)
-      CASE ('tend_u_sso');      ptr3 => prm_nwp_tend(jg)%ddt_u_turb    (:,:,:)
+      CASE ('tend_u_sso');      ptr3 => prm_nwp_tend(jg)%ddt_u_sso     (:,:,:)
+      CASE ('tend_u_gwd');      ptr3 => prm_nwp_tend(jg)%ddt_u_gwd     (:,:,:)
       CASE ('tend_v_conv');     ptr3 => prm_nwp_tend(jg)%ddt_v_pconv   (:,:,:)
       CASE ('tend_v_turb');     ptr3 => prm_nwp_tend(jg)%ddt_v_turb    (:,:,:)
-      CASE ('tend_v_sso');      ptr3 => prm_nwp_tend(jg)%ddt_v_turb    (:,:,:)
+      CASE ('tend_v_sso');      ptr3 => prm_nwp_tend(jg)%ddt_v_sso     (:,:,:)
+      CASE ('tend_v_gwd');      ptr3 => prm_nwp_tend(jg)%ddt_v_gwd     (:,:,:)
       CASE ('U_Z');             ptr3 => p_diag_z%u     (:,:,:)
       CASE ('V_Z');             ptr3 => p_diag_z%v     (:,:,:)
       CASE ('T_Z');             ptr3 => p_diag_z%temp  (:,:,:)
