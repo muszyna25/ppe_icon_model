@@ -39,9 +39,9 @@ MODULE mo_oce_index
 USE mo_kind,                   ONLY: wp
 USE mo_mpi,                    ONLY: my_process_is_stdio
 USE mo_io_units,               ONLY: nerr
-USE mo_parallel_config,  ONLY: nproma
-USE mo_run_config,             ONLY: nsteps, ltimer
-USE mo_timer,                  ONLY: timer_start, timer_stop, timer_print_mxmn
+USE mo_parallel_config,        ONLY: nproma
+USE mo_run_config,             ONLY: nsteps!, ltimer
+!USE mo_timer,                  ONLY: timer_start, timer_stop, timer_print_mxmn
 USE mo_ocean_nml,              ONLY: n_zlev, i_dbg_oce, i_dbg_inx, str_proc_tst,no_tracer, &
   &                                  i_oct_blk, i_oct_idx, i_oct_ilv, rlon_in, rlat_in
 ! &                                  i_ocv_blk, i_ocv_idx, i_ocv_ilv, t_val,  &
@@ -462,7 +462,7 @@ CONTAINS
   CHARACTER(len=25)  strout
   INTEGER            iout, icheck_str_proc, jstr, i
 
-  IF (ltimer) CALL timer_start(timer_print_mxmn)
+  !IF (ltimer) CALL timer_start(timer_print_mxmn)
 
   !IF (PRESENT(out)) THEN
   !  iout = out
@@ -481,6 +481,7 @@ CONTAINS
   END DO
 
   ! if str_proc_src not found in str_proc_tst - no output
+  !IF (icheck_str_proc .and. ltimer) CALL timer_stop(timer_print_mxmn)
   IF (icheck_str_proc == 0 ) RETURN
 
 ! ! valid e-format with first digit gt zero
@@ -527,7 +528,7 @@ CONTAINS
 
   ! check print output level ipl_proc_src (1-5) with namelist given values for MIN/MAX output:
   ! i_dbg_oce (0-5) - no to complete output
-  IF (i_dbg_oce < ipl_proc_src .and. ltimer) CALL timer_stop(timer_print_mxmn)
+  !IF (i_dbg_oce < ipl_proc_src .and. ltimer) CALL timer_stop(timer_print_mxmn)
   IF (i_dbg_oce < ipl_proc_src ) RETURN
 
   ! check for output of values at index
@@ -543,7 +544,7 @@ CONTAINS
       &              minval(p_array(1:nproma,klev,1:ndimblk))
   END IF
 
-  IF (ltimer) CALL timer_stop(timer_print_mxmn)
+  !IF (ltimer) CALL timer_stop(timer_print_mxmn)
 
   END SUBROUTINE print_mxmn
 
