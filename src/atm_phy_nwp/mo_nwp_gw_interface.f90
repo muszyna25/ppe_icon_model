@@ -73,7 +73,9 @@ CONTAINS
   !!-------------------------------------------------------------------------
   !!
   SUBROUTINE nwp_gwdrag  (   tcall_sso_jg,              & !>input
-                         &   tcall_gwd_jg,              & !> input
+                         &   lcall_sso_jg,              & !>input
+                         &   tcall_gwd_jg,              & !>input
+                         &   lcall_gwd_jg,              & !>input
                          &   p_patch,p_metrics,         & !>input
                          &   ext_data,                  & !>input
                          &   p_prog,                    & !>in
@@ -90,10 +92,10 @@ CONTAINS
     TYPE(t_nwp_phy_diag),        INTENT(inout):: prm_diag        !<the atm phys vars
     TYPE(t_nwp_phy_tend), TARGET,INTENT(inout):: prm_nwp_tend    !< atm tend vars
 
-    REAL(wp),                    INTENT(in)   :: tcall_sso_jg    !< time interval for
-                                                                 !< sso
-    REAL(wp),                    INTENT(in)   :: tcall_gwd_jg    !< time interval for
-    !                                                            !< gwd
+    REAL(wp),  INTENT(in)   :: tcall_sso_jg    !< time interval for sso
+    LOGICAL ,  INTENT(in)   :: lcall_sso_jg    !< .TRUE.: sso scheme is actually called
+    REAL(wp),  INTENT(in)   :: tcall_gwd_jg    !< time interval for gwd
+    LOGICAL ,  INTENT(in)   :: lcall_gwd_jg    !< .TRUE.: gwd scheme is actually called
 
     ! Local array bounds:
 
@@ -137,7 +139,10 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
 
-    IF (msg_level >= 12)  CALL message('mo_nwp_gw_interface', 'subgrid scale orography')
+    IF (lcall_sso_jg .AND. msg_level >= 12)  &
+      CALL message('mo_nwp_gw_interface', 'subgrid scale orography')
+    IF (lcall_gwd_jg .AND. msg_level >= 12)  &
+      CALL message('mo_nwp_gw_interface', 'non-orographic GW drag')
 
 
 !$OMP PARALLEL
@@ -151,7 +156,7 @@ CONTAINS
 
 ! Sub-grid Scale Orographic drag
 
-      IF (atm_phy_nwp_config(jg)%inwp_sso == 1) THEN
+      IF (lcall_sso_jg .AND. atm_phy_nwp_config(jg)%inwp_sso == 1) THEN
 
         !tendencies  have to be set to zero
         prm_nwp_tend%ddt_u_sso   (:,:,jb) = 0._wp
@@ -191,7 +196,7 @@ CONTAINS
 
 ! Non-orgographic gravity wave drag
 
-      IF (atm_phy_nwp_config(jg)%inwp_gwd == 1) THEN
+      IF (lcall_gwd_jg .AND. atm_phy_nwp_config(jg)%inwp_gwd == 1) THEN
 
         ! get total precipitation rate [kg/m2/s] ==> input for gwdrag_wms
         DO jc =  i_startidx, i_endidx
@@ -230,7 +235,7 @@ CONTAINS
 
 ! artificial Rayleigh friction
 
-      IF (atm_phy_nwp_config(jg)%inwp_gwd > 0) THEN
+      IF (lcall_gwd_jg .AND. atm_phy_nwp_config(jg)%inwp_gwd > 0) THEN
         DO jk = 1, nrdmax_u(p_patch%id)
           DO jc = i_startidx, i_endidx
             prm_nwp_tend%ddt_u_gwd(jc,jk,jb) = prm_nwp_tend%ddt_u_gwd(jc,jk,jb) - &

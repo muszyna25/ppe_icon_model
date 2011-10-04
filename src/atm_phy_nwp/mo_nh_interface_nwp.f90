@@ -1060,7 +1060,9 @@ CONTAINS
       IF (timers_level > 3) CALL timer_start(timer_sso)
 
       CALL nwp_gwdrag ( tcall_phy_jg(itsso),       & !>input
+        &               lcall_phy_jg(itsso),       & !>input
         &               tcall_phy_jg(itgwd),       & !>input
+        &               lcall_phy_jg(itgwd),       & !>input
         &               pt_patch,p_metrics,        & !>input
         &               ext_data,                  & !>input
         &               pt_prog,                   & !>in
