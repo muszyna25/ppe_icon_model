@@ -165,9 +165,6 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
   z_h_e = 0.0_wp
 
   IF (is_initial_timestep(timestep) ) THEN
-    write(0,*) 'is_initial_timestep == TRUE!'
-    CALL height_related_quantities(p_patch, p_os, p_ext_data)
-
     CALL height_related_quantities(p_patch, p_os, p_ext_data)
 
     !This is required in top boundary condition for
@@ -1335,18 +1332,11 @@ END DO
 !TODO p_os%p_aux%g_n   = 0.0_wp
 
 
-<<<<<<< HEAD
   !Update of scalar product quantities  
   IF(l_STAGGERED_TIMESTEP)THEN
     CALL height_related_quantities(p_patch, p_os, p_ext_data)
     Call set_lateral_boundary_values(p_patch, &
                                     &p_os%p_prog(nnew(1))%vn)
-=======
-  !Update of scalar product quantities
-  CALL height_related_quantities(p_patch, p_os, p_ext_data)
-  Call set_lateral_boundary_values(p_patch, &
-                                  &p_os%p_prog(nnew(1))%vn)
->>>>>>> [icon-dev] imoprovements concerning ocean restart (refs #1451)
 
     CALL calc_scalar_product_for_veloc( p_patch,                &
                                       & p_os%p_prog(nnew(1))%vn,&
