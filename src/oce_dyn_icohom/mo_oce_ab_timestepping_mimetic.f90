@@ -108,7 +108,10 @@ PRIVATE :: inverse_primal_flip_flop
 
 INTEGER, PARAMETER  :: top=1
 
-LOGICAL, PARAMETER :: l_forc_freshw = .FALSE.
+LOGICAL, PARAMETER :: l_forc_freshw        = .FALSE.
+LOGICAL, PUBLIC,PARAMETER :: l_STAGGERED_TIMESTEP = .FALSE.  !Yes=staggering between thermodynamic and dynamic part, offset of hlf timestep
+                                                      !between dynamic and thermodynamic variables 
+                                                      !thermodynamic and dnamic variables are colocated in time
 CONTAINS
 !-------------------------------------------------------------------------  
 !
@@ -161,9 +164,9 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
   z_h_c = 0.0_wp
   z_h_e = 0.0_wp
 
-  CALL height_related_quantities(p_patch, p_os, p_ext_data)
-
   IF (is_initial_timestep(timestep) ) THEN
+
+    CALL height_related_quantities(p_patch, p_os, p_ext_data)
 
     !This is required in top boundary condition for
     !vertical velocity: the time derivative of the surface height
@@ -180,6 +183,26 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
       & p_os%p_diag)
 
   ENDIF
+  IF(.NOT.l_STAGGERED_TIMESTEP)THEN
+
+    CALL height_related_quantities(p_patch, p_os, p_ext_data)
+
+    !This is required in top boundary condition for
+    !vertical velocity: the time derivative of the surface height
+    !is used there and needs special treatment in the first timestep.
+    !see sbr top_bound_cond_vert_veloc in mo_ho_boundcond
+    p_os%p_prog(nnew(1))%h=p_os%p_prog(nold(1))%h
+
+    Call set_lateral_boundary_values(p_patch, p_os%p_prog(nold(1))%vn)
+
+    CALL calc_scalar_product_for_veloc( p_patch,                &
+      & p_os%p_prog(nold(1))%vn,&
+      & p_os%p_prog(nold(1))%vn,&
+      & p_os%p_diag%h_e,        &
+      & p_os%p_diag)
+
+  ENDIF
+
 
   ipl_src=2  ! output print level (1-5, fix)
   z_c1(:,1,:) = p_os%p_prog(nold(1))%h(:,:)
@@ -505,28 +528,45 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param, p_int, l_ini
     ELSE
       z_e = inverse_primal_flip_flop(p_patch, p_os%p_diag%veloc_adv_horz, p_os%p_diag%thick_e)
     ENDIF
+    IF(l_STAGGERED_TIMESTEP)THEN
+      DO jk = 1, n_zlev
+        p_os%p_aux%g_n(:,jk,:) =&             !-p_os%p_diag%press_grad(:,jk,:)       &
+           &                   - z_e(:,jk,:)  &
+           &                   - p_os%p_diag%veloc_adv_vert(:,jk,:)  &
+           &                   + p_os%p_diag%laplacian_horz(:,jk,:)  &
+           &                   + p_os%p_diag%laplacian_vert(:,jk,:)
+      END DO
+    ELSEIF(.NOT.l_STAGGERED_TIMESTEP)THEN
+      DO jk = 1, n_zlev
+        p_os%p_aux%g_n(:,jk,:) =-p_os%p_diag%press_grad(:,jk,:)       &
+           &                   - z_e(:,jk,:)  &
+           &                   - p_os%p_diag%veloc_adv_vert(:,jk,:)  &
+           &                   + p_os%p_diag%laplacian_horz(:,jk,:)  &
+           &                   + p_os%p_diag%laplacian_vert(:,jk,:)
+      END DO
+    ENDIF
 
-    DO jk = 1, n_zlev
-
-    p_os%p_aux%g_n(:,jk,:) =-p_os%p_diag%press_grad(:,jk,:)       &
-       &                   - z_e(:,jk,:)  &
-       &                   - p_os%p_diag%veloc_adv_vert(:,jk,:)  &
-       &                   + p_os%p_diag%laplacian_horz(:,jk,:)  &
-       &                   + p_os%p_diag%laplacian_vert(:,jk,:)
-
-   END DO
 
   ELSEIF(.NOT.(L_INVERSE_FLIP_FLOP))THEN
 
-    DO jk = 1, n_zlev
+    IF(l_STAGGERED_TIMESTEP)THEN
+      DO jk = 1, n_zlev
+        p_os%p_aux%g_n(:,jk,:) =&!-p_os%p_diag%press_grad(:,jk,:)      &
+           &                   - p_os%p_diag%veloc_adv_horz(:,jk,:)  &
+           &                   - p_os%p_diag%veloc_adv_vert(:,jk,:)  &
+           &                   + p_os%p_diag%laplacian_horz(:,jk,:)  &
+           &                   + p_os%p_diag%laplacian_vert(:,jk,:)
+      END DO
+    ELSEIF(.NOT.l_STAGGERED_TIMESTEP)THEN
+      DO jk = 1, n_zlev
+        p_os%p_aux%g_n(:,jk,:) =-p_os%p_diag%press_grad(:,jk,:)      &
+           &                   - p_os%p_diag%veloc_adv_horz(:,jk,:)  &
+           &                   - p_os%p_diag%veloc_adv_vert(:,jk,:)  &
+           &                   + p_os%p_diag%laplacian_horz(:,jk,:)  &
+           &                   + p_os%p_diag%laplacian_vert(:,jk,:)
+      END DO
+    ENDIF
 
-    p_os%p_aux%g_n(:,jk,:) =-p_os%p_diag%press_grad(:,jk,:)      &
-       &                   - p_os%p_diag%veloc_adv_horz(:,jk,:)  &
-       &                   - p_os%p_diag%veloc_adv_vert(:,jk,:)  &
-       &                   + p_os%p_diag%laplacian_horz(:,jk,:)  &
-       &                   + p_os%p_diag%laplacian_vert(:,jk,:)
-
-    END DO
 
     ! #slo 2011-09-08 - include effect of surface boundary condition on G_n
     !                   eliminate in vertical diffusion: laplacian_vert
@@ -546,44 +586,87 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param, p_int, l_ini
   IF ( iswm_oce /= 1) THEN
 
     IF(.NOT.l_RIGID_LID)THEN
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
-          &                rl_start, rl_end)
-        DO jk = 1, n_zlev
-          DO je = i_startidx, i_endidx
 
-            IF(v_base%dolic_e(je,jb)>=MIN_DOLIC)THEN
-            !IF(v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
 
-              p_os%p_diag%vn_pred(je,jk,jb) = p_os%p_prog(nold(1))%vn(je,jk,jb)       &
-              &                           + dtime*(p_os%p_aux%g_nimd(je,jk,jb)     &
-              &                           - (1.0_wp-ab_beta) * grav*z_gradh_e(je,1,jb))
+      IF(l_STAGGERED_TIMESTEP)THEN
+        DO jb = i_startblk, i_endblk
+          CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
+            &                rl_start, rl_end)
+          DO jk = 1, n_zlev
+            DO je = i_startidx, i_endidx
 
-            ELSE
-              p_os%p_diag%vn_pred(je,jk,jb) = 0.0_wp
-            ENDIF
+              IF(v_base%dolic_e(je,jb)>=MIN_DOLIC)THEN
+              !IF(v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+
+                p_os%p_diag%vn_pred(je,jk,jb) = p_os%p_prog(nold(1))%vn(je,jk,jb)    &
+                &                           + dtime*(p_os%p_aux%g_nimd(je,jk,jb)     &
+                &                                   -p_os%p_diag%press_grad(je,jk,jb)  &
+                &                           - (1.0_wp-ab_beta) * grav*z_gradh_e(je,1,jb))
+
+              ELSE
+                p_os%p_diag%vn_pred(je,jk,jb) = 0.0_wp
+              ENDIF
+            END DO
           END DO
         END DO
-      END DO
+      ELSEIF(.NOT.l_STAGGERED_TIMESTEP)THEN
+        DO jb = i_startblk, i_endblk
+          CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
+            &                rl_start, rl_end)
+          DO jk = 1, n_zlev
+            DO je = i_startidx, i_endidx
+
+              IF(v_base%dolic_e(je,jb)>=MIN_DOLIC)THEN
+              !IF(v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+                p_os%p_diag%vn_pred(je,jk,jb) = p_os%p_prog(nold(1))%vn(je,jk,jb)       &
+                &                           + dtime*(p_os%p_aux%g_nimd(je,jk,jb)     &
+                &                           - (1.0_wp-ab_beta) * grav*z_gradh_e(je,1,jb))
+
+              ELSE
+                p_os%p_diag%vn_pred(je,jk,jb) = 0.0_wp
+              ENDIF
+            END DO
+          END DO
+        END DO
+      ENDIF!Staggered
 
     ELSEIF(l_RIGID_LID)THEN
 
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
-          &                rl_start, rl_end)
-        DO jk = 1, n_zlev
-          DO je = i_startidx, i_endidx
-            IF(v_base%dolic_e(je,jb)>=MIN_DOLIC)THEN
-
-              p_os%p_diag%vn_pred(je,jk,jb) = p_os%p_prog(nold(1))%vn(je,jk,jb)       &
-              &                           + dtime*p_os%p_aux%g_nimd(je,jk,jb)
-            ELSE
-              p_os%p_diag%vn_pred(je,jk,jb) = 0.0_wp
-            ENDIF
+      IF(l_STAGGERED_TIMESTEP)THEN
+        DO jb = i_startblk, i_endblk
+          CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
+            &                rl_start, rl_end)
+          DO jk = 1, n_zlev
+            DO je = i_startidx, i_endidx
+              IF(v_base%dolic_e(je,jb)>=MIN_DOLIC)THEN
+                p_os%p_diag%vn_pred(je,jk,jb) = p_os%p_prog(nold(1))%vn(je,jk,jb)        &
+                &                           + dtime*(p_os%p_aux%g_nimd(je,jk,jb)         &
+                &                                   -p_os%p_diag%press_grad(je,jk,jb))
+              ELSE
+                p_os%p_diag%vn_pred(je,jk,jb) = 0.0_wp
+              ENDIF
+            END DO
           END DO
         END DO
-      END DO
-    ENDIF
+
+      ELSEIF(.NOT.l_STAGGERED_TIMESTEP)THEN
+        DO jb = i_startblk, i_endblk
+          CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
+            &                rl_start, rl_end)
+          DO jk = 1, n_zlev
+            DO je = i_startidx, i_endidx
+              IF(v_base%dolic_e(je,jb)>=MIN_DOLIC)THEN
+                p_os%p_diag%vn_pred(je,jk,jb) = p_os%p_prog(nold(1))%vn(je,jk,jb)       &
+                &                           + dtime*p_os%p_aux%g_nimd(je,jk,jb)
+              ELSE
+                p_os%p_diag%vn_pred(je,jk,jb) = 0.0_wp
+              ENDIF
+            END DO
+          END DO
+        END DO
+
+      ENDIF!Staggered
+    ENDIF!Rigid lid
 
   !In the SW-case the external forcing is applied as volume force.
   !This force is stored in data type top-boundary-condition. 
@@ -1250,16 +1333,18 @@ END DO
 !TODO p_os%p_aux%g_n   = 0.0_wp
 
 
-  !Update of scalar product quantities
-  !CALL height_related_quantities(p_patch, p_os, p_ext_data)
-  Call set_lateral_boundary_values(p_patch, &
-                                  &p_os%p_prog(nnew(1))%vn)
+  !Update of scalar product quantities  
+  IF(l_STAGGERED_TIMESTEP)THEN
+    CALL height_related_quantities(p_patch, p_os, p_ext_data)
+    Call set_lateral_boundary_values(p_patch, &
+                                    &p_os%p_prog(nnew(1))%vn)
 
-  CALL calc_scalar_product_for_veloc( p_patch,                &
-                                    & p_os%p_prog(nnew(1))%vn,&
-                                    & p_os%p_prog(nnew(1))%vn,&
-                                    & p_os%p_diag%h_e,        &
-                                    & p_os%p_diag)
+    CALL calc_scalar_product_for_veloc( p_patch,                &
+                                      & p_os%p_prog(nnew(1))%vn,&
+                                      & p_os%p_prog(nnew(1))%vn,&
+                                      & p_os%p_diag%h_e,        &
+                                      & p_os%p_diag)
+  ENDIF
 
 !CALL message (TRIM(routine), 'end')
 END SUBROUTINE calc_normal_velocity_ab_mimetic
@@ -1323,8 +1408,10 @@ i_endblk   = p_patch%cells%end_blk(rl_end,1)
 !------------------------------------------------------------------
 ! Step 1) Calculate divergence of horizontal velocity at all levels
 !------------------------------------------------------------------
- z_vn= ab_gam*p_os%p_prog(nnew(1))%vn + (1.0_wp-ab_gam)*p_os%p_prog(nold(1))%vn
- CALL map_edges2cell( p_patch, z_vn, z_vn_c, ph_e)
+ !z_vn= ab_gam*p_os%p_prog(nnew(1))%vn + (1.0_wp-ab_gam)*p_os%p_prog(nold(1))%vn
+ !CALL map_edges2cell( p_patch, z_vn, z_vn_c, ph_e)
+
+ CALL map_edges2cell( p_patch, p_os%p_prog(nnew(1))%vn, z_vn_c, ph_e)
  CALL map_cell2edges( p_patch, z_vn_c, z_vn)
  CALL div_oce(z_vn, p_patch, z_div_c)
 
@@ -1435,9 +1522,6 @@ END DO
 ! !&v_base%lsm_oce_c(max_idx(jk),jk,max_blk(jk)),&
 ! !&v_base%lsm_oce_c(min_idx(jk),jk,min_blk(jk))
 ! END DO
-
-
-
 END SUBROUTINE calc_vert_velocity_mimetic
 !-------------------------------------------------------------------------
 !

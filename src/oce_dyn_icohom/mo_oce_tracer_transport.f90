@@ -72,6 +72,7 @@ USE mo_oce_math_operators,        ONLY: div_oce, grad_fd_norm_oce, grad_fd_norm_
 USE mo_advection_utils,           ONLY: laxfr_upflux, laxfr_upflux_v
 USE mo_oce_diffusion,             ONLY: tracer_diffusion_horz, tracer_diffusion_vert_expl,&
                                         & tracer_diffusion_vert_impl
+USE mo_oce_ab_timestepping_mimetic, ONLY: l_STAGGERED_TIMESTEP
 IMPLICIT NONE
 
 PRIVATE
@@ -409,8 +410,12 @@ SELECT CASE(FLUX_CALCULATION)
 
 CASE(UPWIND, MIMETIC)
   !produce weighted transport velocity
-  z_transport_vn = ab_gam*p_os%p_prog(nnew(1))%vn + (1.0_wp-ab_gam)*p_os%p_prog(nold(1))%vn
-
+  !  z_transport_vn = ab_gam*p_os%p_prog(nnew(1))%vn + (1.0_wp-ab_gam)*p_os%p_prog(nold(1))%vn
+  IF(l_STAGGERED_TIMESTEP)THEN
+    z_transport_vn = p_os%p_prog(nnew(1))%vn 
+  ELSEIF(.NOT.l_STAGGERED_TIMESTEP)THEN 
+    z_transport_vn = p_os%p_prog(nold(1))%vn
+   ENDIF
   !upwind estimate of mass flux
   CALL upwind_hflux_oce( p_patch,        &
                        & z_h_tmp,        &
@@ -423,7 +428,13 @@ CASE(UPWIND, MIMETIC)
                        & z_adv_flux_h )
 CASE(CENTRAL)
   !produce weighted transport velocity
-  z_transport_vn = ab_gam*p_os%p_prog(nnew(1))%vn + (1.0_wp-ab_gam)*p_os%p_prog(nold(1))%vn
+  !  z_transport_vn = ab_gam*p_os%p_prog(nnew(1))%vn + (1.0_wp-ab_gam)*p_os%p_prog(nold(1))%vn
+  IF(l_STAGGERED_TIMESTEP)THEN
+    z_transport_vn = p_os%p_prog(nnew(1))%vn 
+  ELSEIF(.NOT.l_STAGGERED_TIMESTEP)THEN 
+    z_transport_vn = p_os%p_prog(nold(1))%vn
+   ENDIF
+
   !central estimate of mass flux
   CALL central_hflux_oce( p_patch,       &
                        & z_h_tmp,        &
@@ -435,7 +446,13 @@ CASE(CENTRAL)
                        & z_transport_vn, &
                        & z_adv_flux_h )
 !    CASE(MIMETIC)
-!    z_transport_vn = ab_gam*p_os%p_prog(nnew(1))%vn + (1.0_wp-ab_gam)*p_os%p_prog(nold(1))%vn
+  !produce weighted transport velocity
+  !  z_transport_vn = ab_gam*p_os%p_prog(nnew(1))%vn + (1.0_wp-ab_gam)*p_os%p_prog(nold(1))%vn
+!   IF(l_STAGGERED_TIMESTEP)THEN
+!     z_transport_vn = p_os%p_prog(nnew(1))%vn 
+!   ELSEIF(.NOT.l_STAGGERED_TIMESTEP)THEN 
+!     z_transport_vn = p_os%p_prog(nold(1))%vn
+!    ENDIF
 !    CALL map_edges2cell( p_patch, z_transport_vn, z_vn_c, p_os%p_diag%h_e)
 !    DO jb = i_startblk_c, i_endblk_c
 !      CALL get_indices_c( p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
@@ -451,9 +468,13 @@ CASE(CENTRAL)
 !     CALL map_cell2edges( p_patch, z_vn_c, z_adv_flux_h )
 !     CALL map_cell2edges( p_patch, z_vn_c2, z_mass_flux_h )
   CASE(MIMETIC_MIURA)
-
   !produce weighted transport velocity
-  z_transport_vn = ab_gam*p_os%p_prog(nnew(1))%vn + (1.0_wp-ab_gam)*p_os%p_prog(nold(1))%vn
+  !  z_transport_vn = ab_gam*p_os%p_prog(nnew(1))%vn + (1.0_wp-ab_gam)*p_os%p_prog(nold(1))%vn
+  IF(l_STAGGERED_TIMESTEP)THEN
+    z_transport_vn = p_os%p_prog(nnew(1))%vn
+  ELSEIF(.NOT.l_STAGGERED_TIMESTEP)THEN 
+    z_transport_vn = p_os%p_prog(nold(1))%vn
+  ENDIF
 
   !upwind estimate of mass flux
   CALL mimetic_miura_hflux_oce( p_patch,        &
@@ -644,8 +665,6 @@ END DO
 !                      & p_os,
 !                      & trac_new, timestep, delta_t, h_tmp)
 ! ENDIF
-
-
 ! DO jk = 1, n_zlev
 !   CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c,&
 !                    & i_startidx_c, i_endidx_c,&
@@ -801,8 +820,13 @@ SELECT CASE(FLUX_CALCULATION)
 
 CASE(UPWIND,MIMETIC)
   !Produce time-weighted vertical transport velocity
-  z_transport_w  = ab_gam*p_os%p_diag%w + (1.0_wp-ab_gam)*p_os%p_diag%w_old
-  ! z_transport_w  = p_os%p_diag%w 
+  !z_transport_w  = ab_gam*p_os%p_diag%w + (1.0_wp-ab_gam)*p_os%p_diag%w_old
+  IF(l_STAGGERED_TIMESTEP)THEN
+    z_transport_w = p_os%p_diag%w
+  ELSEIF(.NOT.l_STAGGERED_TIMESTEP)THEN 
+    z_transport_w = p_os%p_diag%w_old
+  ENDIF
+
   CALL upwind_vflux_oce( p_patch,       &
                        & trac_in,       &
                        & z_transport_w, & 
@@ -810,7 +834,12 @@ CASE(UPWIND,MIMETIC)
                        & z_adv_flux_v )
 CASE(CENTRAL)
   !Produce time-weighted vertical transport velocity
-  z_transport_w  = ab_gam*p_os%p_diag%w + (1.0_wp-ab_gam)*p_os%p_diag%w_old
+  !z_transport_w  = ab_gam*p_os%p_diag%w + (1.0_wp-ab_gam)*p_os%p_diag%w_old
+  IF(l_STAGGERED_TIMESTEP)THEN
+    z_transport_w = p_os%p_diag%w
+  ELSEIF(.NOT.l_STAGGERED_TIMESTEP)THEN 
+    z_transport_w = p_os%p_diag%w_old
+  ENDIF
 
   CALL central_vflux_oce( p_patch,     &
                        & trac_in,      &
@@ -819,6 +848,11 @@ CASE(CENTRAL)
 !   CASE(MIMETIC)
 !   z_transport_w  = ab_gam*p_os%p_diag%w + (1.0_wp-ab_gam)*p_os%p_diag%w_old
 !   !z_transport_w  = p_os%p_diag%w 
+!   IF(l_STAGGERED_TIMESTEP)THEN
+!     z_transport_w = p_os%p_diag%w
+!   ELSEIF(.NOT.l_STAGGERED_TIMESTEP)THEN 
+!     z_transport_w = p_os%p_diag%w_old
+!   ENDIF
 !   CALL mimetic_vflux_oce( p_patch,      &
 !                         & trac_in,       &
 !                         & z_transport_w, &
