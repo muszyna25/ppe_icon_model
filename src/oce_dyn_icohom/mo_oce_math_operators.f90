@@ -60,6 +60,7 @@ USE mo_model_domain,       ONLY: t_patch
 USE mo_ext_data,           ONLY: t_external_data
 USE mo_ocean_nml,          ONLY: lviscous, n_zlev, iswm_oce
 USE mo_dynamics_config,    ONLY: nold
+USE mo_oce_index,                 ONLY: print_mxmn, jkc, jkdim, ipl_src
 USE mo_exception,          ONLY: finish
 #ifndef __SX__
 USE mo_timer,              ONLY: timer_start, timer_stop, timer_div, timer_grad
@@ -1881,6 +1882,7 @@ ELSEIF(iswm_oce /= 1 )THEN
 SELECT CASE(AVERAGING)
 
 CASE(DISTANCE_WEIGHT)
+CALL print_mxmn('(hrw,old) p_diag%h_e',1,p_os%p_diag%h_e,1,p_patch%nblks_e,'vel',1)
   DO jb = i_startblk_e, i_endblk_e
     CALL get_indices_e(p_patch, jb, i_startblk_e, i_endblk_e,&
                      & i_startidx_e, i_endidx_e, rl_start_e, rl_end_e)
@@ -1916,6 +1918,7 @@ CASE(DISTANCE_WEIGHT)
       ENDIF
     END DO
   END DO
+CALL print_mxmn('(hrw,new) p_diag%h_e',1,p_os%p_diag%h_e,1,p_patch%nblks_e,'vel',1)
 
 CASE(upwind)
 

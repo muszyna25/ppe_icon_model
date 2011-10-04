@@ -190,6 +190,11 @@ slev = 1
 elev = n_zlev
 
 ! calculate local vorticity for all vertical layers
+ DO jk = slev, elev
+ ipl_src=3  ! output print level (1-5, fix)
+ CALL print_mxmn('vorticity (bef. rot_vertex_ocean)',jk,p_diag%vort(:,:,:),n_zlev, &
+   &              p_patch%nblks_v,'vel',ipl_src)
+ eND do
 CALL rot_vertex_ocean(p_diag%ptp_vn, z_vt, p_patch, p_diag%vort)
 !CALL rot_vertex_ocean(vn_old, z_vt, p_patch, p_diag%vort)
 ! synchronize vort
@@ -904,6 +909,16 @@ DO jb = i_startblk, i_endblk
   END DO
 END DO
 
+CALL print_mxmn('ck (vadv) p_vn',1,p_diag%p_vn%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
+CALL print_mxmn('ck (vadv) p_vn',2,p_diag%p_vn%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
+CALL print_mxmn('ck (vadv) p_vn',3,p_diag%p_vn%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
+CALL print_mxmn('ck (vadv) p_vn',4,p_diag%p_vn%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
+CALL print_mxmn('ck (vadv) p_diag%w',1,p_diag%w,n_zlev+1,p_patch%nblks_c,'vel',ipl_src)
+CALL print_mxmn('ck (vadv) p_diag%w',2,p_diag%w,n_zlev+1,p_patch%nblks_c,'vel',ipl_src)
+CALL print_mxmn('ck (vadv) p_diag%w',3,p_diag%w,n_zlev+1,p_patch%nblks_c,'vel',ipl_src)
+CALL print_mxmn('ck (vadv) p_diag%w',4,p_diag%w,n_zlev+1,p_patch%nblks_c,'vel',ipl_src)
+CALL print_mxmn('ck (vadv) p_diag%w',5,p_diag%w,n_zlev+1,p_patch%nblks_c,'vel',ipl_src)
+
 !Step 1: multiply vertical velocity with vertical derivative of horizontal velocity 
 !This requires appropriate boundary conditions
 DO jb = i_startblk, i_endblk
@@ -932,6 +947,10 @@ DO jb = i_startblk, i_endblk
 
 END DO
 
+CALL print_mxmn('check z_adv_u_i',1,z_adv_u_i%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
+CALL print_mxmn('check z_adv_u_i',2,z_adv_u_i%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
+CALL print_mxmn('check z_adv_u_i',3,z_adv_u_i%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
+CALL print_mxmn('check z_adv_u_i',4,z_adv_u_i%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
 ! ! Step 2: Map product of vertical velocity & vertical derivative from top of prism to mid position.
 ! ! This mapping is the transposed of the vertical differencing.! 
 DO jb = i_startblk, i_endblk
@@ -956,6 +975,10 @@ DO jb = i_startblk, i_endblk
 ! write(*,*)'B max/min vert adv:',jk, maxval(z_adv_u_m(:,jk,:)), minval(z_adv_u_m(:,jk,:)),&
 ! & maxval(z_adv_v_m(:,jk,:)), minval(z_adv_v_m(:,jk,:))
 END DO
+CALL print_mxmn('check z_adv_u_m',1,z_adv_u_m%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
+CALL print_mxmn('check z_adv_u_m',2,z_adv_u_m%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
+CALL print_mxmn('check z_adv_u_m',3,z_adv_u_m%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
+CALL print_mxmn('check z_adv_u_m',4,z_adv_u_m%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
 
 ! ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
 CALL map_cell2edges( p_patch, z_adv_u_m, veloc_adv_vert_e, &

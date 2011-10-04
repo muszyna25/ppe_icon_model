@@ -74,10 +74,11 @@ USE mo_ext_data,           ONLY: read_netcdf_data, t_external_data
 USE mo_sea_ice,            ONLY: t_sfc_flx
 USE mo_oce_state,          ONLY: t_hydro_ocean_state, v_base
 USE mo_scalar_product,     ONLY: map_cell2edges, map_edges2cell, map_edges2edges, &
-  &                                     calc_scalar_product_for_veloc, dual_flip_flop
+  &                              calc_scalar_product_for_veloc, dual_flip_flop
 USE mo_oce_math_operators, ONLY: grad_fd_norm_oce,grad_fd_norm_oce_2D, height_related_quantities,&
   &                              rot_vertex_ocean
 USE mo_oce_thermodyn,      ONLY: convert_insitu2pot_temp_func
+USE mo_oce_ab_timestepping,ONLY: calc_vert_velocity
 USE mo_oce_linear_solver,  ONLY: gmres_e2e
 USE mo_icon_cpl_exchg,     ONLY: ICON_cpl_put
 USE mo_icon_cpl_def_field, ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
@@ -94,6 +95,7 @@ CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
 PUBLIC :: init_ho_testcases
 PUBLIC :: init_ho_prog
 PUBLIC :: init_ho_coupled
+PUBLIC :: init_ho_recon_fields
 
 REAL(wp), PARAMETER :: aleph = 0.0_wp 
 REAL(wp), PARAMETER :: u0 =(2.0_wp*pi*re)/(12.0_wp*24.0_wp*3600.0_wp)
@@ -260,6 +262,41 @@ CONTAINS
 
   !-------------------------------------------------------------------------
 
+
+  !-------------------------------------------------------------------------
+  !>
+  !!
+  SUBROUTINE init_ho_recon_fields( p_patch, p_os)
+    TYPE(t_patch), TARGET, INTENT(in)             :: p_patch
+    TYPE(t_hydro_ocean_state), TARGET             :: p_os
+
+
+
+    !CALL height_related_quantities( p_patch, p_os, p_ext_data)
+
+    IF(idisc_scheme==1)THEN
+      CALL calc_scalar_product_for_veloc( p_patch,                &
+        & p_os%p_prog(nold(1))%vn,&
+        & p_os%p_prog(nold(1))%vn,&
+        & p_os%p_diag%h_e,        &
+        & p_os%p_diag)
+    ELSE
+      ! CALL rbf_vec_interpol_edge( p_os%p_prog(nold(1))%vn,&
+      !                           & p_patch,                &
+      !                           & p_int,                  &
+      !                           & p_os%p_diag%vt)
+      ! CALL rbf_vec_interpol_cell( p_os%p_prog(nold(1))%vn,&
+      !                           & p_patch,&
+      !                           & p_int,&
+      !                           & p_os%p_diag%u,  &
+      !                           & p_os%p_diag%v)
+
+      !add calculation of kinetic energy
+
+    ENDIF
+
+    CALL calc_vert_velocity( p_patch, p_os)
+  END SUBROUTINE init_ho_recon_fields
 
   !-------------------------------------------------------------------------
   !>

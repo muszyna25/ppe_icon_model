@@ -50,6 +50,7 @@ USE mo_kind,                   ONLY: wp
 USE mo_impl_constants,         ONLY: max_char_length
 USE mo_model_domain,           ONLY: t_patch
 USE mo_model_domain_import,    ONLY: n_dom
+USE mo_oce_index,                 ONLY: print_mxmn, jkc, jkdim, ipl_src
 USE mo_ocean_nml,              ONLY: iswm_oce, idisc_scheme, no_tracer, &
   &                                  itestcase_oce, idiag_oce, EOS_type,n_zlev
 USE mo_dynamics_config,        ONLY: nold, nnew
@@ -82,7 +83,8 @@ USE mo_output,                 ONLY: init_output_files, write_output, &
   &                                  create_restart_file
 USE mo_io_restart,             ONLY: write_restart_info_file
 USE mo_interpolation,          ONLY: t_int_state
-USE mo_oce_init,               ONLY: init_ho_testcases, init_ho_prog, init_ho_coupled
+USE mo_oce_init,               ONLY: init_ho_testcases, init_ho_prog, init_ho_coupled,&
+  &                                  init_ho_recon_fields
 USE mo_oce_diagnostics,        ONLY: calculate_oce_diagnostics,&
   &                                  construct_oce_diagnostics,&
   &                                  destruct_oce_diagnostics, t_oce_timeseries
@@ -103,6 +105,8 @@ USE mo_oce_bulk,               ONLY: update_sfcflx
 USE mo_oce_thermodyn,          ONLY: calc_density_MPIOM_func, calc_density_lin_EOS_func,&
   &                                  calc_density_JMDWFG06_EOS_func
 
+!TODO remove the following if possible
+USE mo_master_control, ONLY: is_restart_run
 IMPLICIT NONE
 
 PRIVATE
@@ -179,10 +183,19 @@ CONTAINS
 
   ! file 1 is opened in control_model setup:
   jfile = 1
+CALL print_mxmn('(   OLD) p_diag%h_e',1,pstate_oce(jg)%p_diag%h_e,1,ppatch(jg)%nblks_e,'vel',1)
 
-  !IF ( iswm_oce == 1 ) THEN
+  CALL init_ho_recon_fields( ppatch(jg), pstate_oce(jg))
+
+  IF ( is_restart_run()) THEN
+    !SWAP w and w_old because something strange happen to these vars on a restart run
+    pstate_oce(jg)%p_diag%wtemp =pstate_oce(jg)%p_diag%w
+    pstate_oce(jg)%p_diag%w     = pstate_oce(jg)%p_diag%w_old
+    pstate_oce(jg)%p_diag%w_old = pstate_oce(jg)%p_diag%wtemp 
+  ENDIF
+
   CALL construct_oce_diagnostics( ppatch(jg), pstate_oce(jg), p_ext_data(jg), oce_ts)
-  !ENDIF
+
 
   IF (ltimer) CALL timer_start(timer_total)
 
@@ -219,7 +232,6 @@ CONTAINS
         CASE DEFAULT
         END SELECT
       ENDIF
-
 
       ! solve for new free surface
       IF (ltimer) CALL timer_start(timer_solve_ab)

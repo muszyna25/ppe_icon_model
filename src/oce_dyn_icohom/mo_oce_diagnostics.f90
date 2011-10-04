@@ -363,31 +363,6 @@ i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
 i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
 
 
-CALL height_related_quantities( p_patch, p_os, p_ext_data)
-
-IF(idisc_scheme==1)THEN
-CALL calc_scalar_product_for_veloc( p_patch,                &
-                                    & p_os%p_prog(nold(1))%vn,&
-                                    & p_os%p_prog(nold(1))%vn,&
-                                    & p_os%p_diag%h_e,        &
-                                    & p_os%p_diag)
-ELSE
-! CALL rbf_vec_interpol_edge( p_os%p_prog(nold(1))%vn,&
-!                           & p_patch,                &
-!                           & p_int,                  &
-!                           & p_os%p_diag%vt)
-! CALL rbf_vec_interpol_cell( p_os%p_prog(nold(1))%vn,&
-!                           & p_patch,&
-!                           & p_int,&
-!                           & p_os%p_diag%u,  &
-!                           & p_os%p_diag%v)
-
-!add calculation of kinetic energy
-
-ENDIF
-
-CALL calc_vert_velocity( p_patch, p_os)
-
 !calculate initial values
   ptr_monitor =>oce_ts%oce_diagnostics(0)
   IF(iswm_oce/=1)THEN

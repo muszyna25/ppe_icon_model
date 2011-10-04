@@ -52,6 +52,7 @@ MODULE mo_oce_ab_timestepping
 USE mo_ocean_nml,                      ONLY: idisc_scheme
 USE mo_dynamics_config,                ONLY: nold, nnew
 USE mo_oce_state,                      ONLY: t_hydro_ocean_state!, t_hydro_ocean_diag
+USE mo_oce_index,                 ONLY: print_mxmn, jkc, jkdim, ipl_src
 !USE mo_oce_forcing,                    ONLY: t_sfc_flx
 USE mo_sea_ice,                   ONLY: t_sfc_flx
 USE mo_interpolation,                  ONLY: t_int_state
@@ -180,6 +181,16 @@ TYPE(t_hydro_ocean_state)         :: p_os
 !-----------------------------------------------------------------------  
 
 !Store current vertical velocity before the new one is calculated
+CALL print_mxmn('(cvv) p_diag%w',1,p_os%p_diag%w,4+1,p_patch%nblks_c,'vel',ipl_src)
+CALL print_mxmn('(cvv) p_diag%w',2,p_os%p_diag%w,4+1,p_patch%nblks_c,'vel',ipl_src)
+CALL print_mxmn('(cvv) p_diag%w',3,p_os%p_diag%w,4+1,p_patch%nblks_c,'vel',ipl_src)
+CALL print_mxmn('(cvv) p_diag%w',4,p_os%p_diag%w,4+1,p_patch%nblks_c,'vel',ipl_src)
+CALL print_mxmn('(cvv) p_diag%w',5,p_os%p_diag%w,4+1,p_patch%nblks_c,'vel',ipl_src)
+CALL print_mxmn('(cvv) p_diag%w_old',1,p_os%p_diag%w_old,4+1,p_patch%nblks_c,'vel',ipl_src)
+CALL print_mxmn('(cvv) p_diag%w_old',2,p_os%p_diag%w_old,4+1,p_patch%nblks_c,'vel',ipl_src)
+CALL print_mxmn('(cvv) p_diag%w_old',3,p_os%p_diag%w_old,4+1,p_patch%nblks_c,'vel',ipl_src)
+CALL print_mxmn('(cvv) p_diag%w_old',4,p_os%p_diag%w_old,4+1,p_patch%nblks_c,'vel',ipl_src)
+CALL print_mxmn('(cvv) p_diag%w_old',5,p_os%p_diag%w_old,4+1,p_patch%nblks_c,'vel',ipl_src)
 p_os%p_diag%w_old = p_os%p_diag%w
 
 IF(idisc_scheme==MIMETIC_TYPE)THEN

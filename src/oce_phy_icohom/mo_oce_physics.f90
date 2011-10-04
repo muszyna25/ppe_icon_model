@@ -811,7 +811,9 @@ END DO
   !&minval(params_oce%A_veloc_v(:,jk,:))
  END DO
 
- END SUBROUTINE update_ho_params
+ END SUBROUTINE update_ho_params !TODO die diffusion-paramerter werden aus dem State berechnet,
+ ! d.h. update_ho_params muesste evtyl. nur an geeigneter stelle aufgerufen werden, damit vom
+ ! Restart mit den korrekten diff-params losgerechnet wird
 
 
  
