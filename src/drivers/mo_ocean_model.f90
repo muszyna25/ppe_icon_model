@@ -72,7 +72,7 @@ MODULE mo_ocean_model
 !  USE mo_advection_nml,       ONLY: transport_nml_setup,  & ! process transport
 !    & setup_transport         ! control parameters
 
-  USE mo_subdivision,         ONLY: decompose_atmo_domain,         &
+  USE mo_subdivision,         ONLY: decompose_domain,         &
     & copy_processor_splitting,      &
     & set_patch_communicators
   USE mo_dump_restore,        ONLY: dump_patch_state_netcdf,       &
@@ -343,7 +343,7 @@ CONTAINS
 
     ELSE
 
-      CALL decompose_atmo_domain( )
+      CALL decompose_domain( )
 
     ENDIF
 

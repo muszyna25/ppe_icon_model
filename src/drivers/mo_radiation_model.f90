@@ -77,7 +77,7 @@ USE mo_model_domain_import, ONLY : get_patch_global_indexes
 
 ! Memory
 !
-USE mo_subdivision,         ONLY: decompose_atmo_domain,         &
+USE mo_subdivision,         ONLY: decompose_domain,         &
 & copy_processor_splitting,      &
 & set_patch_communicators
 
@@ -253,7 +253,7 @@ CONTAINS
       
     ELSE
       
-      CALL decompose_atmo_domain()
+      CALL decompose_domain()
       
     ENDIF
 

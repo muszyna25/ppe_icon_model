@@ -82,7 +82,7 @@ USE mo_model_domain_import, ONLY : get_patch_global_indexes
 
 ! Memory
 !
-USE mo_subdivision,         ONLY: decompose_atmo_domain,         &
+USE mo_subdivision,         ONLY: decompose_domain,         &
 & copy_processor_splitting,      &
 & set_patch_communicators
 USE mo_dump_restore,        ONLY: dump_patch_state_netcdf,       &
@@ -303,8 +303,8 @@ CONTAINS
       
     ELSE
       
-      CALL decompose_atmo_domain()
-      write(0,*) TRIM(get_my_process_name()), ': decompose_atmo_domain is done '
+      CALL decompose_domain()
+      write(0,*) TRIM(get_my_process_name()), ': decompose_domain is done '
       CALL global_mpi_barrier()
       
     ENDIF

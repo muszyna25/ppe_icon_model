@@ -112,7 +112,7 @@ MODULE mo_subdivision
 
   !modules interface-------------------------------------------
   !subroutines
-  PUBLIC :: decompose_atmo_domain, copy_processor_splitting
+  PUBLIC :: decompose_domain, copy_processor_splitting
   PUBLIC :: set_patch_communicators
 
   ! pointers to the work patches
@@ -267,11 +267,11 @@ CONTAINS
   !------------------------------------------------------------------
   !>
   !!  Divide patches and interpolation states for mpi parallel runs.
-  SUBROUTINE decompose_atmo_domain( )
+  SUBROUTINE decompose_domain( )
 
 
 #ifdef NOMPI
-    CALL finish('mo_subdivision','decompose_atmo_domain must only be called in parallel runs')
+    CALL finish('mo_subdivision','decompose_domain must only be called in parallel runs')
 #else
     INTEGER :: mpierr
 
@@ -280,14 +280,14 @@ CONTAINS
     INTEGER, ALLOCATABLE :: cell_owner(:)
     REAL(wp) :: weight(p_patch_global(1)%n_childdom)
 
-    CALL message('mo_subdivision:decompose_atmo_domain',   &
+    CALL message('mo_subdivision:decompose_domain',   &
                  'start of domain decomposition')
 
     ALLOCATE (p_patch_subdiv(n_dom_start:n_dom), &
       & p_int_state_subdiv(n_dom_start:n_dom),   &
       & p_grf_state_subdiv(n_dom_start:n_dom),stat=ist)
     IF (ist /= success) THEN
-      CALL finish('decompose_atmo_domain','allocation for subdivided patches/states failed')
+      CALL finish('decompose_domain','allocation for subdivided patches/states failed')
     ENDIF
 
     ! Check if the processor set should be split for patches of the 1st generation.
@@ -304,11 +304,11 @@ CONTAINS
 
     ! Check if weights for other patches are 0 (for clearness only)
     IF(patch_weight(1) /= 0._wp) &
-      CALL finish('decompose_atmo_domain','Weight for root patch must be 0')
+      CALL finish('decompose_domain','Weight for root patch must be 0')
     DO jg = 2, n_dom
       jgp = p_patch_global(jg)%parent_id
       IF(jgp /= 1 .AND. patch_weight(jg) > 0._wp) &
-        CALL finish('decompose_atmo_domain','Weight for higher level patch must be 0')
+        CALL finish('decompose_domain','Weight for higher level patch must be 0')
     ENDDO
 
     IF(proc_split) THEN
@@ -319,7 +319,7 @@ CONTAINS
       ! In this case, the working processor set must be at least as big
       ! as the number of childs of the root patch
       IF(p_patch_global(1)%n_childdom > p_n_work) &
-        CALL finish('decompose_atmo_domain','Too few procs for processor grid splitting')
+        CALL finish('decompose_domain','Too few procs for processor grid splitting')
 
       ! Get the number of procs per patch according to weight(:).
       ! Every patch gets at least 1 proc (of course!):
@@ -365,7 +365,7 @@ CONTAINS
 
       ! Safety only
       IF(my_color == MPI_UNDEFINED) &
-        CALL finish('decompose_atmo_domain','Internal error: my_color == MPI_UNDEFINED')
+        CALL finish('decompose_domain','Internal error: my_color == MPI_UNDEFINED')
 
       ! Split communicator among childs of root patch
 
@@ -527,7 +527,7 @@ CONTAINS
       CALL destruct_2d_gridref_state( p_patch_global, p_grf_state_global )
       DEALLOCATE (p_grf_state_global, STAT = ist)
       IF (ist/=SUCCESS)THEN
-        CALL message('mo_subdivision:decompose_atmo_domain',   &
+        CALL message('mo_subdivision:decompose_domain',   &
                      'deallocation of p_grf_state_global failed')
       ENDIF
     ENDIF
@@ -535,24 +535,24 @@ CONTAINS
     CALL destruct_2d_interpol_state( p_int_state_global )
     DEALLOCATE (p_int_state_global, STAT = ist)
     IF (ist/=SUCCESS)THEN
-      CALL message('mo_subdivision:decompose_atmo_domain',   &
+      CALL message('mo_subdivision:decompose_domain',   &
                    'deallocation of p_int_state_global failed')
     ENDIF
 
     CALL destruct_patches( p_patch_global )
     DEALLOCATE( p_patch_global, STAT = ist)
     IF (ist/=SUCCESS)THEN
-      CALL message('mo_subdivision:decompose_atmo_domain',   &
+      CALL message('mo_subdivision:decompose_domain',   &
                    'deallocation of p_patch_global failed')
     ENDIF
 
 
-    CALL message('mo_subdivision:decompose_atmo_domain',   &
+    CALL message('mo_subdivision:decompose_domain',   &
                  'end of domain decomposition')
                  
 #endif
 
-  END SUBROUTINE decompose_atmo_domain
+  END SUBROUTINE decompose_domain
 
   !-----------------------------------------------------------------------------
   !>
