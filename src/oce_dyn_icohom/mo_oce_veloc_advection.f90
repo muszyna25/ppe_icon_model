@@ -277,6 +277,7 @@ ENDIF
 
 !---------------------------for testing and comparison with RBF--------------------------
 !----------nonlinear coriolis and grad of kinetic energy computed with RBFs--------------
+!----------needs interpolation state
 IF (L_DEBUG) THEN
 
 CALL rbf_vec_interpol_edge( vn_old,       &
@@ -306,7 +307,7 @@ CALL verts2edges_scalar( p_diag%vort, p_patch, p_int%v_1o2_e, &
       &                              i_startidx_e, i_endidx_e, rl_start_e,rl_end_e)
     DO jk = slev, elev
       DO je=i_startidx_e, i_endidx_e
-        IF ( v_base%lsm_oce_e(je,jk,jb) == sea ) THEN
+        IF ( v_base%lsm_oce_e(je,jk,jb) == sea ) THEN  !  #slo# <= sea_boundary?
          z_vort_flx_RBF(je,jk,jb) = &!p_diag%vt(je,jk,jb)*p_patch%edges%f_e(je,jb)!&
          & p_diag%vt(je,jk,jb)*(z_vort_e(je,jk,jb)+ p_patch%edges%f_e(je,jb))         
 
@@ -374,7 +375,7 @@ CALL grad_fd_norm_oce( p_diag%kin, &
                      & p_patch,    &
                      & z_grad_ekin_RBF, opt_slev=slev,opt_elev=elev)
 
-END IF
+END IF ! L_DEBUG
 !--------------END OF TESTING----------------------------------------------------------
 
 !Add relative vorticity and gradient of kinetic energy to obtain complete horizontal advection

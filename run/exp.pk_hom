@@ -66,19 +66,27 @@ R=2   # nroot
 B=4   # number of bisections applied
 #
 #-----------------------------------------------------------------------------
-# ocean forcing - 12, 13 need additional flux file 
-# flux files are named $HGRIDDIR/omip4icon-R${R}B0{B}-monmean.nc
+# ocean initialization (init_oce=1) needs an additional file for prognostic variables
+init_oce=0     # 1: use ocean initialization file; 0: init with constants or analytically
+# prognostic ocean initialization files are named $HGRIDDIR/ts_phc_season-iconR${R}B0{B}-L11.nc
+#
+#-----------------------------------------------------------------------------
+# ocean forcing = 12 needs an additional flux file 
 iforc=12
+iforc_omip=1   # type of OMIP forcing to read: 1 = u/v-stress;     2 = full 12 OMIP datasets
+iforc_len=366  # length of forcing dataset:   12 = monthly data; 365 = daily data
+# flux files are named $HGRIDDIR/omip4icon-R${R}B0{B}-monmean.nc
+#
 #-----------------------------------------------------------------------------
 # global timing
-start_date="2011-03-01T00:00:00Z"
+start_date="2009-01-01T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=1800           # ocean model timestep [s]
+dtime=600            # ocean model timestep [s]
 ndays=360            # ocean model run in days
 dt_data=21600.       # ocean model output interval [s]
-ndays_file=360       # new output file generation interval [days]
+ndays_file=1000      # new output file generation interval [days]
 ndays_checkp=1000    # write restart file interval [days]
 ndays_restart=1000   # stop model for restart [days]
 #
@@ -127,12 +135,12 @@ ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
 if [ "x$USE_POOLD" == "xY" ] ; then
    POOLDIR="/pool/data/ICON/grids"
    if [ "x$USE_FLATB" == "xY" ] ; then
-   # OCEGRID="ocegridR${R}B0${B}.cde3.1.flat.nc"
-     OCEGRID="ocegridR${R}B0${B}.cde2.flat.nc"
+     OCEGRID="ocegridR${R}B0${B}.cde3.1.flat.nc"
+   # OCEGRID="ocegridR${R}B0${B}.cde2.flat.nc"
    fi
    if [ "x$USE_BATHY" == "xY" ] ; then
-   # OCEGRID="ocegridR${R}B0${B}.cde3.1.planet.nc"
-     OCEGRID="ocegridR${R}B0${B}.cde2.planet.nc"
+     OCEGRID="ocegridR${R}B0${B}.cde3.1.planet.nc"
+   # OCEGRID="ocegridR${R}B0${B}.cde2.planet.nc"
    fi
    # other ocean grid files can be added here
 fi
@@ -169,8 +177,7 @@ cat > ${ocean_namelist} << EOF
 &octst_nml
   i_dbg_oce=5                    ! initialize MIN/MAX  debug output via mo_index_oce
   i_dbg_inx=0                    ! initialize one cell debug output via mo_index_oce
-  str_proc_tst = 'abt',
-    'vel', 'dif', 'trc', '   ', '   ', '   ', '   ', '   '
+  str_proc_tst = 'all' 'abt', 'vel', 'dif', 'trc', 'bul', '   ', '   ', '   ', '   '
                                  ! define strings for processes to be printed out in debug mode
   rlat_in = 30.0 rlon_in = 0.0   ! lat/lon-location of one cell debug output
   h_val=1.0 t_val=1.0            ! initial values for elevation and temperature at one cell
@@ -179,6 +186,9 @@ cat > ${ocean_namelist} << EOF
   n_zlev             =    6      ! number of vertical levels and (dzlev_m) thicknesses
   dzlev_m(1:20)      =  250.0,  250.0,  250.0,  250.0,  250.0,  250.0,  250.0, 1000.0, 1000.0, 1000.0,
                        1000.0  1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
+! 10 unevenly spaced levels beginning with 50m depth
+! dzlev_m(1:20)      =   50.0,  100.0,  200.0,  300.0,  450.0,  600.0,  800.0, 1000.0, 1000.0, 1000.0,
+!                      1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
 ! dzlev_m(1:20)       =  20.0,   50.0,   75.0,  125.0,  150.0,  200.0,  300.0,  500.0, 1000.0, 1000.0,
 !                      1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
   iswm_oce           =    0      ! switch for one layer shallow water model (iswm_oce=1) or 3-d
@@ -249,7 +259,7 @@ cat > ${ocean_namelist} << EOF
                                  ! 36=Temperature initial as in 33, with additional temperature relaxation
   temperature_relaxation= 1      ! 1=switched on for some testcases only
                                  ! 2=read 2m-temperature data for relaxation from bulk
-  relaxation_param   =    0.1    ! relaxation of tracer surface fluxes (same value for all tracers in months)
+  relaxation_param   =    1.0    ! relaxation of tracer surface fluxes (same value for all tracers in months)
                                  ! this value is divided by number of seconds per month (=30*24*3600)
 /
 &io_nml
