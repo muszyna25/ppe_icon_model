@@ -460,7 +460,7 @@ CONTAINS
  !INTEGER, OPTIONAL,     INTENT(IN) :: proutchn           ! channel number for writing
 
   CHARACTER(len=25)  strout
-  INTEGER            iout, icheck_str_proc, jstr, i
+  INTEGER            iout, icheck_str_proc, jstr, iper, i
 
   !IF (ltimer) CALL timer_start(timer_print_mxmn)
 
@@ -473,12 +473,18 @@ CONTAINS
 
   ! compare defined source string with namelist-given output string ('per' for permanent output)
   icheck_str_proc = 0
+  iper = 0
   DO jstr = 1, 10
-    IF (str_proc_src == str_proc_tst(jstr) .OR. str_proc_src == 'per' &
-      &                                    .OR. str_proc_tst(jstr) == 'all') THEN
-      icheck_str_proc = 1
-    END IF
+    IF (str_proc_src == str_proc_tst(jstr) .OR. str_proc_src == 'per'        &
+      &                                    .OR. str_proc_tst(jstr) == 'all') &
+      &  icheck_str_proc = 1
+    IF (str_proc_src == 'per') iper = 1
   END DO
+
+  ! If output level <=3 no output on vertical level >1:
+  IF (klev>1 .AND. i_dbg_inx<4) icheck_str_proc = 0
+  IF (klev>1 .AND. i_dbg_oce<4) icheck_str_proc = 0
+  IF (iper == 1 )               icheck_str_proc = 1
 
   ! if str_proc_src not found in str_proc_tst - no output
   !IF (icheck_str_proc .and. ltimer) CALL timer_stop(timer_print_mxmn)
@@ -507,14 +513,12 @@ CONTAINS
   !  WRITE(iout,991) ' VALUE   ',strout,':',klev, 1.0
   !END IF
 
-  ! test write at index (for cell-centers only?)
-  !IF (i_dbg_inx >= ipl_proc_src ) &
-  !  & write(0,*) ' c_i = ',c_i,c_k,c_b,' nc_i',(nc_i(i),nc_b(i),i=1,3)
-  IF (i_dbg_inx >= ipl_proc_src ) THEN
+  ! check print output level ipl_proc_src (1-5) with namelist given value (i_dbg_inx) for output at index
+  IF (i_dbg_inx >= ipl_proc_src) THEN
     IF (loc_nblks_c == ndimblk) THEN
+      ! write value at index
       WRITE(iout,981) '   VALUE ',strout,klev, p_array(c_i,klev,c_b), &
     &                 (' C',i,':',p_array(nc_i(i),klev,nc_b(i)),i=1,3)
-  ! no indices yet on edges
     ELSE IF (loc_nblks_e == ndimblk) THEN
       WRITE(iout,982) '   VALUE ',strout,klev, &
     &                 (' E',i,':',p_array(ne_i(i),klev,ne_b(i)),i=1,3)
@@ -526,8 +530,7 @@ CONTAINS
 
 !   & WRITE(iout,992) ' VALUE ',strout,' C:', p_array(c_i,klev,c_b)
 
-  ! check print output level ipl_proc_src (1-5) with namelist given values for MIN/MAX output:
-  ! i_dbg_oce (0-5) - no to complete output
+  ! check print output level ipl_proc_src (1-5) with namelist given value (i_dbg_oce) for MIN/MAX output:
   !IF (i_dbg_oce < ipl_proc_src .and. ltimer) CALL timer_stop(timer_print_mxmn)
   IF (i_dbg_oce < ipl_proc_src ) RETURN
 

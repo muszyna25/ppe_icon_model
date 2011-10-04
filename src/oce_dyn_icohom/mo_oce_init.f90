@@ -1158,7 +1158,7 @@ END DO
     END IF
 
     jkc=1      ! current level - may not be zero
-    ipl_src=0  ! output print level (0-5, fix)
+    ipl_src=1  ! output print level (0-5, fix)
     z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,1)
     DO jk=1, n_zlev
       CALL print_mxmn('T-innitial',jk,z_c(:,:,:),n_zlev,ppatch%nblks_c,'per',ipl_src)

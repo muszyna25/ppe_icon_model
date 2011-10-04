@@ -312,7 +312,7 @@ CONTAINS
       END DO
     END SELECT
 
-    ipl_src=0  ! output print level (1-5, fix)
+    ipl_src=1  ! output print level (1-5, fix)
     CALL print_mxmn('PHY diffusivity',1,K_h(:,:,:),n_zlev,p_patch%nblks_c,'per',ipl_src)
 
   END SUBROUTINE calc_munk_based_lapl_diff
