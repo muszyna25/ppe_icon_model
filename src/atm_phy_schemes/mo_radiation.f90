@@ -215,7 +215,7 @@ CONTAINS
 
           DO jc = 1,ie
             IF ( z_cosmu0(jc,jb) > -1.e-5_wp ) THEN
-              zsmu0(jc,jb) = zsmu0(jc,jb) + MAX(1.e-3_wp,z_cosmu0(jc,jb))
+              zsmu0(jc,jb) = zsmu0(jc,jb) + MAX(1.e-3_wp,z_cosmu0(jc,jb))**2
               n_cosmu0pos(jc,jb) = n_cosmu0pos(jc,jb) + 1
             ENDIF
           ENDDO
@@ -232,7 +232,7 @@ CONTAINS
 
         DO jc = 1,ie
           IF ( n_cosmu0pos(jc,jb) > 0 ) THEN
-            zsmu0(jc,jb) = zsmu0(jc,jb) / REAL(n_cosmu0pos(jc,jb),wp)
+            zsmu0(jc,jb) = SQRT(zsmu0(jc,jb)/REAL(n_cosmu0pos(jc,jb),wp))
           ELSE
             zsmu0(jc,jb) = cosmu0_dark
           ENDIF
@@ -303,7 +303,7 @@ CONTAINS
 
           DO jc = 1,ie
             IF ( z_cosmu0(jc,jb) > -1.e-5_wp ) THEN
-              zsmu0(jc,jb) = zsmu0(jc,jb) + MAX(1.e-3_wp,z_cosmu0(jc,jb))
+              zsmu0(jc,jb) = zsmu0(jc,jb) + MAX(1.e-3_wp,z_cosmu0(jc,jb))**2
               n_cosmu0pos(jc,jb) = n_cosmu0pos(jc,jb) + 1
             ENDIF
           ENDDO
@@ -319,7 +319,7 @@ CONTAINS
 
         DO jc = 1,ie
           IF ( n_cosmu0pos(jc,jb) > 0 ) THEN
-            zsmu0(jc,jb) = zsmu0(jc,jb) / REAL(n_cosmu0pos(jc,jb),wp)
+            zsmu0(jc,jb) = SQRT(zsmu0(jc,jb)/REAL(n_cosmu0pos(jc,jb),wp))
           ELSE
             zsmu0(jc,jb) = cosmu0_dark
           ENDIF
