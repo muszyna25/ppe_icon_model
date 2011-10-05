@@ -335,7 +335,7 @@ CONTAINS
     INTEGER :: i, k, jt, itracer
     INTEGER :: ivar
     INTEGER :: gridid, zaxisid
-    INTEGER :: elemid, tableid
+    INTEGER :: elemid, elemid2,tableid
 
     !CHARACTER(len=NF_MAX_NAME) :: att_txt
     INTEGER                    :: astatus
@@ -942,16 +942,29 @@ CONTAINS
          DO jt = 1, 3
           IF (lwrite_tracer(jt)) THEN
             ctracer = ctracer_list(jt:jt)
+            IF (jt.EQ.1) THEN !for water vapour
+             elemid=80; tableid=128   
+             elemid2=81
+            ELSEIF (jt.EQ.2) THEN !for cloud water
+             elemid=82; tableid=128
+             elemid2=83 
+            ELSEIF (jt.EQ.3) THEN !for cloud ice
+             elemid=84; tableid=128
+             elemid2=85 
+            ELSE !other tracers
+             elemid=86; tableid=128 !default coding
+             elemid2=87
+            END IF
             WRITE(name,'(A2,A1)') "TQ", ctracer
             WRITE(long_name,'(A34,A1)') "vertically integrated grid-scale Q",ctracer
             CALL addVar(TimeVar(TRIM(name),TRIM(long_name),&
-            &                   'kg/m**2',222,128,&
+            &                   'kg/m**2',elemid,tableid,&
             &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
             &           k_jg)
             WRITE(name,'(A2,A1,A4)') "TQ", ctracer,"_avg"
             WRITE(long_name,'(A42,A1)') "average vertically integrated grid-scale Q",ctracer
             CALL addVar(TimeVar(TRIM(name),TRIM(long_name),&
-            &                   'kg/m**2',222,128,&
+            &                   'kg/m**2',elemid2,tableid,&
             &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
             &           k_jg)
             
@@ -959,7 +972,7 @@ CONTAINS
          END DO
          IF (irad_o3 == 4 .OR. irad_o3 ==6 ) THEN                  !output for O3
                         CALL addVar(TimeVar('O3','O3',&
-            &                   'kg/kg',999,999,&
+            &                   'kg/kg',203,128,&
             &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
             &           k_jg)  
         
@@ -1029,7 +1042,7 @@ CONTAINS
           IF(iforcing == iecham) THEN
             CALL addVar(TimeVar('ozone',&
             &                   'ozone mixing ratio',&
-            &                   'g/g', 255, 255,&
+            &                   'g/g', 203, 128,&
             &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
             &           k_jg)
           ENDIF
@@ -1048,7 +1061,7 @@ CONTAINS
           WRITE(long_name,'(A8,A27)') meaning, " shortwave surface net flux"
           CALL addVar(TimeVar(TRIM(name),&
           &                   TRIM(long_name),&
-          &                   'W/m**2', 111, 2,&
+          &                   'W/m**2', 111, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
 
@@ -1056,41 +1069,41 @@ CONTAINS
           WRITE(long_name,'(A8,A27)') meaning, " longwave  surface net flux"
           CALL addVar(TimeVar(TRIM(name),&
           &                   TRIM(long_name),&
-          &                   'W/m**2', 112, 2,&
+          &                   'W/m**2', 112, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
           WRITE(name,'(A8,A4)') "swflxtoa", sufix
           WRITE(long_name,'(A8,A23)') meaning, " shortwave toa net flux"
           CALL addVar(TimeVar(TRIM(name),&
           &                   TRIM(long_name),&
-          &                   'W/m**2', 113, 2,&
+          &                   'W/m**2', 113, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
           WRITE(name,'(A8,A4)') "lwflxtoa", sufix
           WRITE(long_name,'(A8,A23)') meaning, " longwave  toa net flux"
           CALL addVar(TimeVar(TRIM(name),&
           &                   TRIM(long_name),&
-          &                   'W/m**2', 114, 2,&
+          &                   'W/m**2', 114, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
           CALL addVar(TimeVar('swflxsfc',&
           &                   'shortwave surface net flux',&
-          &                   'W/m**2', 111, 201,&
+          &                   'W/m**2', 176, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
           CALL addVar(TimeVar('lwflxsfc',&
           &                   'longwave surface net flux',&
-          &                   'W/m**2', 112, 201,&
+          &                   'W/m**2', 177, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
           CALL addVar(TimeVar('swflxtoa',&
           &                   'shortwave toa net flux',&
-          &                   'W/m**2', 113, 201,&
+          &                   'W/m**2', 178, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
           CALL addVar(TimeVar('lwflxtoa',&
           &                   'longwave toa net flux',&
-          &                   'W/m**2', 114, 201,&
+          &                   'W/m**2', 179, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
         END SELECT
@@ -1104,52 +1117,52 @@ CONTAINS
         CASE (inwp)
           CALL addVar(TimeVar('PRR_GSP',&
           &                   'grid-scale rain precipitation rate',&
-          &                   'kg/s/m**2', 100, 201,&
+          &                   'kg/s/m**2', 104, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
           CALL addVar(TimeVar('PRS_GSP',&
           &                   'grid-scale snow precipitation rate',&
-          &                   'kg/s/m**2', 101, 201,&
+          &                   'kg/s/m**2', 105, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
           CALL addVar(TimeVar('RAIN_GSP',&
           &                   'grid-scale accumulated surface rain',&
-          &                   'kg/m**2', 102, 201,&
+          &                   'kg/m**2', 106, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
           CALL addVar(TimeVar('SNOW_GSP',&
           &                   'grid-scale accumulated surface snow',&
-          &                   'kg/m**2', 79, 2,&
+          &                   'kg/m**2', 107, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
           CALL addVar(TimeVar('RAIN_CON',&
           &                   'convective accumulated surface rain',&
-          &                   'kg/m**2', 113, 201,&
+          &                   'kg/m**2', 108, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
           CALL addVar(TimeVar('SNOW_CON',&
           &                   'convective accumulated surface snow',&
-          &                   'kg/m**2', 78, 2,&
+          &                   'kg/m**2', 109, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
           CALL addVar(TimeVar('TOT_PREC',&
           &                   'grid-scale + convective accumulated surface total precipitation',&
-          &                   'kg/m**2', 61, 2,&
+          &                   'kg/m**2', 228, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
           CALL addVar(TimeVar('TOT_PREC_RATE_avg',&
           &                   'average grid-scale + convective surface total precipitation rate',&
-          &                   'kg/m**2/s', 61, 2,&
+          &                   'kg/m**2/s', 110, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
           CALL addVar(TimeVar('CON_PREC_RATE_avg',&
           &                   'average convective surface precipitation rate',&
-          &                   'kg/m**2/s', 61, 2,&
+          &                   'kg/m**2/s', 143, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
           CALL addVar(TimeVar('GSP_PREC_RATE_avg',&
           &                   'average grid-scale surface precipitation rate',&
-          &                   'kg/m**2/s', 61, 2,&
+          &                   'kg/m**2/s', 50, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
         CASE (iecham,ildf_echam)
@@ -1239,13 +1252,13 @@ CONTAINS
           !--- vertically integrated total cloud water ---
           CALL addVar(TimeVar('TQC',&
           &                   'vertically integrated total cloud water',&
-          &                   'kk/m**2', 96, 128,&
+          &                   'kk/m**2', 78, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
           !--- vertically integrated total cloud ice ---
           CALL addVar(TimeVar('TQI',&
           &                   'vertically integrated total cloud ice',&
-          &                   'kg/m**2', 97, 128,&
+          &                   'kg/m**2', 79, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
           !--- cloud cover assuming Maximum-Random overlap ---
@@ -1340,7 +1353,7 @@ CONTAINS
           !--- roughness length---
           CALL addVar(TimeVar ('Z0',&
                &              'roughness length',&
-          &                   'm', 83, 2,&
+          &                   'm', 173, 128,&
           &                    vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &                    k_jg)
           !--- Temperature at Surface---
@@ -1517,7 +1530,7 @@ CONTAINS
           !--- Specific Humidity at Surface---
           CALL addVar(TimeVar('QV_S',&
           &                   'aggregated surface specific humidity',&
-          &                   'K', 51, 201,&
+          &                   'K', 233, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &                   k_jg)
           !--- Fluxes ....---
@@ -1540,27 +1553,27 @@ CONTAINS
           WRITE(long_name,'(A8,A30)') meaning, " latent   heat flux at surface"
           CALL addVar(TimeVar(TRIM(name),&
           &                   TRIM(long_name),&
-          &                   'W/m^2', 255, 201,& !999 ==  WMO here
+          &                   'W/m^2', 91, 128,& !999 ==  WMO here
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &                   k_jg)
           CALL addVar(TimeVar('SHFL_S',&
           &                   'sensible heat flux at surface',&
-          &                   'W/m*2', 146, 255,& !999 ==  WMO here
+          &                   'W/m*2', 92, 128,& 
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &                   k_jg)
           CALL addVar(TimeVar('LHFL_S',&
           &                   'latent heat flux at surface',&
-          &                   'W/m*2', 146, 255,& !999 ==  WMO here
+          &                   'W/m*2', 147, 255,& 
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &                   k_jg)
           CALL addVar(TimeVar('EVAP_RATE_avg',&
           &                   'averaged moisture flux rate (evap. rate) at surface',&
-          &                   'kg/m*2/s', 121, 201,& !999 ==  WMO here
+          &                   'kg/m*2/s', 100, 128,& 
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &                   k_jg)
           CALL addVar(TimeVar('PS_s6avg',&
           &                   '6 hourly sample surface pressure average',&
-          &                   'Pa', 134, 128,&
+          &                   'Pa', 117, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
           CALL addVar(TimeVar('T_2m',&
@@ -1570,17 +1583,17 @@ CONTAINS
           &           k_jg)
           CALL addVar(TimeVar('T_2m_s6avg',&
           &                   '6 hourly sample 2 m Temperature average',&
-          &                   'K', 167, 128,&
+          &                   'K', 120, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
           CALL addVar(TimeVar('QV_2m',&
           &                   '2 m specific humidity ',&
-          &                   'Kg/kg', 255, 128,&
+          &                   'Kg/kg', 115, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
           CALL addVar(TimeVar('QV_2m_s6avg',&
           &                   '6 hourly sample 2 m specific humidity average',&
-          &                   'Kg/kg', 255, 128,&
+          &                   'Kg/kg', 116, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
           CALL addVar(TimeVar('U_10m',&
@@ -1595,12 +1608,12 @@ CONTAINS
           &           k_jg)
           CALL addVar(TimeVar('U_10m_s6avg',&
           &                   '6 hourly sample 10 m zonal wind average',&
-          &                   'K', 165, 128,&
+          &                   'K', 118, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
           CALL addVar(TimeVar('V_10m_s6avg',&
           &                   '6 hourly sample 10 m meridional wind average',&
-          &                   'K', 166, 128,&
+          &                   'K', 119, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
 
@@ -1970,7 +1983,7 @@ CONTAINS
             IF( lwrite_cloud ) THEN
               CALL addVar(TimeVar('QV_Z',&
               &                   'total water vapor',&
-              &                   'kg/kg', 91, 128,&
+              &                   'kg/kg', 133, 128,&
               &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hgt(k_jg)),&
               &          k_jg)
               CALL addVar(TimeVar('QC_Z',&
@@ -2042,7 +2055,7 @@ CONTAINS
             IF( lwrite_cloud ) THEN
               CALL addVar(TimeVar('QV_P',&
               &                   'total water vapor',&
-              &                   'kg/kg', 91, 128,&
+              &                   'kg/kg', 133, 128,&
               &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_pres(k_jg)),&
               &          k_jg)
               CALL addVar(TimeVar('QC_P',&

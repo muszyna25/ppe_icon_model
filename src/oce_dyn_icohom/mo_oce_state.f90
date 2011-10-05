@@ -115,6 +115,7 @@ MODULE mo_oce_state
   PUBLIC :: t_hydro_ocean_aux
   PUBLIC :: t_hydro_ocean_diag
   PUBLIC :: t_ptr3d
+  PUBLIC :: t_oce_config
 
   !
   !constructors
