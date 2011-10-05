@@ -63,10 +63,12 @@ iforcing=2          # ECHAM physics
 #-----------------------------------------------------------------------------
 # the grid files
 grid_ext="aqua_planet"
-ocean_grids="iconR2B04-ocean_${grid_ext}.nc"
+grid_name="iconR2B03-ocean_${grid_ext}"
+ocean_grids="${grid_name}.nc"
 #
 #-----------------------------------------------------------------------------
 atmo_dyn_grids="$ocean_grids"
+ozon_file="ape_o3_${grid_name}.nc"
 #-----------------------------------------------------------------------------
 
 
@@ -227,7 +229,7 @@ init_oce=0     # 1: use ocean initialization file; 0: init with constants or ana
 #
 #-----------------------------------------------------------------------------
 # ocean forcing = 12 needs an additional flux file 
-iforc_oce=10
+iforc_oce=14
 iforc_omip=1   # type of OMIP forcing to read: 1 = u/v-stress;     2 = full 12 OMIP datasets
 iforc_len=365  # length of forcing dataset:   12 = monthly data; 365 = daily data
 # flux files are named $HGRIDDIR/omip4icon-R${R}B0{B}-monmean.nc

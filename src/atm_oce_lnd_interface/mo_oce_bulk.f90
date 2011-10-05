@@ -336,6 +336,7 @@ CONTAINS
     !  and do a direct assignment of atmospheric state to surface fluxes.
     !
     IF ( is_coupled_run() ) THEN 
+       CALL message(TRIM(routine), "executing OCEAN coupling") 
     !
     !  see drivers/mo_atmo_model.f90:
     !

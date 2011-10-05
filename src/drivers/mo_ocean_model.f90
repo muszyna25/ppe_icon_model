@@ -37,7 +37,8 @@ MODULE mo_ocean_model
   USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs
   USE mo_mpi,                 ONLY: p_stop, &
     & my_process_is_io,  my_process_is_mpi_seq, my_process_is_mpi_test, &
-    & set_mpi_work_communicators, set_comm_input_bcast, null_comm_type
+    & set_mpi_work_communicators, set_comm_input_bcast, null_comm_type, &
+  & p_pe_work
   USE mo_timer,               ONLY: init_timer, print_timer
   USE mo_datetime,            ONLY: t_datetime
   USE mo_output,              ONLY: init_output_files, write_output, close_output_files
@@ -124,7 +125,7 @@ MODULE mo_ocean_model
   USE mo_impl_constants,      ONLY: CELLS, MAX_CHAR_LENGTH
   USE mo_master_control,      ONLY : ocean_process, is_coupled_run
   USE mo_icon_cpl_init_comp,  ONLY : get_my_local_comp_id
-  USE mo_icon_cpl_def_grid,   ONLY : ICON_cpl_def_grid
+  USE mo_icon_cpl_def_grid,   ONLY : ICON_cpl_def_grid, ICON_cpl_def_location
   USE mo_icon_cpl_def_field,  ONLY : ICON_cpl_def_field
   USE mo_icon_cpl_search,     ONLY : ICON_cpl_search
   USE mo_model_domain_import, ONLY : get_patch_global_indexes
@@ -416,6 +417,15 @@ CONTAINS
       CALL ICON_cpl_def_grid ( &
         & comp_id, grid_shape, p_patch(patch_no)%cells%glb_index, & ! input
         & grid_id, error_status )                                   ! output
+
+
+      ! Marker for internal and halo points, a list which contains the
+      ! rank where the native cells are located.
+      ! p_patch(patch_no)%cells%owner_local(:) = 0 ! the ocean run sequentially
+      CALL ICON_cpl_def_location ( &
+        & grid_id, grid_shape, p_patch(patch_no)%cells%owner_local, & ! input
+        & p_pe_work,  & ! this owner id
+        & error_status )                                            ! output
 
       field_name(1) = "TAUX"
       field_name(2) = "TAUY"

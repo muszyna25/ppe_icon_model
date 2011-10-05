@@ -38,7 +38,8 @@ USE mo_kind,                ONLY: wp
 USE mo_exception,           ONLY: message, finish, message_text
 USE mo_mpi,                 ONLY: p_stop, &
   & my_process_is_io,  my_process_is_mpi_seq, my_process_is_mpi_test, &
-  & set_mpi_work_communicators, set_comm_input_bcast, null_comm_type
+  & set_mpi_work_communicators, set_comm_input_bcast, null_comm_type, &
+  & p_pe_work
 USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, &
   &                               timer_lonlat_setup
 USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, &
@@ -76,7 +77,7 @@ USE mo_impl_constants, ONLY:&
 USE mo_impl_constants, ONLY: CELLS
 USE mo_master_control, ONLY : is_coupled_run
 USE mo_icon_cpl_init_comp, ONLY : get_my_local_comp_id
-USE mo_icon_cpl_def_grid, ONLY : ICON_cpl_def_grid
+USE mo_icon_cpl_def_grid, ONLY : ICON_cpl_def_grid, ICON_cpl_def_location
 USE mo_icon_cpl_def_field, ONLY : ICON_cpl_def_field
 USE mo_icon_cpl_search, ONLY : ICON_cpl_search
 USE mo_model_domain_import, ONLY : get_patch_global_indexes
@@ -505,6 +506,13 @@ CONTAINS
       CALL ICON_cpl_def_grid ( &
         & comp_id, grid_shape, p_patch(patch_no)%cells%glb_index, & ! input
         & grid_id, error_status )                                   ! output
+
+      ! Marker for internal and halo points, a list which contains the
+      ! rank where the native cells are located.
+      CALL ICON_cpl_def_location ( &
+        & grid_id, grid_shape, p_patch(patch_no)%cells%owner_local, & ! input
+        & p_pe_work,  & ! this owner id
+        & error_status )                                            ! output
 
       field_name(1) = "TAUX"
       field_name(2) = "TAUY"
