@@ -487,7 +487,8 @@ DO JK=1,KLEV
       
         !-- evaluate qs-gradient at SMIN --
         CALL VDFTHERMO(ZSMIN(JP,1),0._JPRB,ZQSX0,ZDUMMY,PAPM1(JL,JK), PGEOM1(JL,JK))
-        CALL VDFTHERMO(ZSMIN(JP,1)+ZNX(JP,1),ZQSX0+ZNX(JP,2),ZQSX1,ZDUMMY,PAPM1(JL,JK), PGEOM1(JL,JK))
+        CALL VDFTHERMO(ZSMIN(JP,1)+ZNX(JP,1),ZQSX0+ZNX(JP,2),ZQSX1,  &
+          &            ZDUMMY,PAPM1(JL,JK), PGEOM1(JL,JK))
       
         ZDQSDX(JP) = ( ZQSX1-ZQSX0 ) ! Delta x = 1.
                 

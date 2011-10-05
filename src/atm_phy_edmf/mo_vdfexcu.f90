@@ -340,7 +340,8 @@ DO JK=KLEV-1,1,-1
 
 !   IF ( KPBLTYPE(JL) == 2 ) THEN  !RN for now, only stratocumulus: extension to cumulus planned (for intermediate scenarios like ATEX)
 
-      IF ( PGEOH(JL,JK)*ZRG <= ZRADKBASE(JL)+ZRADKDEPTH(JL) .AND. ZRADKBASE(JL)+ZRADKDEPTH(JL) < PGEOH(JL,JK-1)*ZRG ) THEN
+      IF ( PGEOH(JL,JK)*ZRG <= ZRADKBASE(JL)+ZRADKDEPTH(JL) .AND.  &
+        &  ZRADKBASE(JL)+ZRADKDEPTH(JL) < PGEOH(JL,JK-1)*ZRG ) THEN
 !       ZDRADFLX(JL) = -  PHRLW(JL,JK+1)                 * (PGEOH(JL,JK)-PGEOH(JL,JK+1))*ZRG   !use LW divergence only
         ZDRADFLX(JL) = - (PHRLW(JL,JK+1)+PHRSW(JL,JK+1)) * (PGEOH(JL,JK)-PGEOH(JL,JK+1))*ZRG
 !       ... add solar heating at 2nd cld level

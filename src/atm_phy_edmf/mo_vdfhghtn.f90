@@ -456,7 +456,7 @@ DO JD=1,KDRAFT
     ZFACEXC(JL,JD) = 0._JPRB 
     ZFACEXC(JL,JD) = 0._JPRB 
     ZMFLXB(JL,JD)  = 0._JPRB 
-    IZI(JL,JD)     = 0._JPRB        
+    IZI(JL,JD)     = 0
   ENDDO
 ENDDO
 
@@ -728,9 +728,9 @@ ENDDO
         IF (ZDZCLOUD(JL)>ZCLDDEPTHDP .AND. .NOT.LLMASSCAP ) THEN
         
 	  !deep convection
-	  KPBLTYPE(JL) = 4
+          KPBLTYPE(JL) = 4
           
-	ELSE
+        ELSE
         
           IF (LLSTCU) THEN
             KPBLTYPE(JL) = 2   !set the type to stratocumulus for the moment
@@ -840,7 +840,7 @@ ENDDO
       !-- Cloud layer average test-updraft positive buoyancy --
       ZBUOYCU = 0._JPRB
       IF ( ZZPLZB(JL,1)-PZPLCL(JL,1)>0._JPRB ) THEN  
-	ZBUOYCU = ZCAPE1(JL) / ( ZZPLZB(JL,1) - PZPLCL(JL,1) )
+        ZBUOYCU = ZCAPE1(JL) / ( ZZPLZB(JL,1) - PZPLCL(JL,1) )
       ENDIF  
   
       !-- Inversion theta_v jump --
@@ -881,7 +881,7 @@ ENDDO
         ZDTHVDZ  = MAX( 0.01_JPRB,ZTHVEN(JL,IZI(JL,1)-2)-ZTHVEN(JL,IZI(JL,1)) ) * RG / &
                & ( PGEOM1(JL,IZI(JL,1)-2) - PGEOM1(JL,IZI(JL,1)) )
 
-        ZWSTARCAPE(JL) = MAX( 0._JPRB, ZCAPE1(JL) )**0.5
+        ZWSTARCAPE(JL) = MAX( 0._JPRB, ZCAPE1(JL) )**0.5_JPRB
         
         ZMSEFLUX(JL)   = MAX( 0._JPRB, - RCPD * PKHFL(JL) - RLVTT * PKQFL(JL) )
         ZMSESFC(JL)    = RCPD * PTM1(JL,KLEV) + RLVTT * PQM1(JL,KLEV)
@@ -926,13 +926,13 @@ ENDIF
 	
           !Dry convective PBL
 	  !Set area fraction of moist group to zero
-	  ZFRACB(JL,3) = 0._JPRB
+          ZFRACB(JL,3) = 0._JPRB
 
         CASE(2)
 	
           !Stratocumulus
 	  !Set area fraction of moist group to ZFRACMAX
-	  ZFRACB(JL,3) = ZFRACMAX
+          ZFRACB(JL,3) = ZFRACMAX
 
         CASE(3)
 	  
@@ -964,7 +964,7 @@ ENDIF
           !-- Switch KPBLTYPE to dry convective if moist updraft is not launched --
           IF (ZFRACB(JL,3).EQ.0._JPRB) THEN
             KPBLTYPE(JL)=1
-          ENDIF	  
+          ENDIF
 	  
 IF ( LLDIAG ) THEN
     PEXTRA(JL,32,41) = ZZFUNC         ! cum. fraction: 0.1cloud scale<200 / h * 0.25
@@ -1001,7 +1001,7 @@ ENDIF
 	
           !Deep cumulus
 	  !Set area fraction of moist group to zero (only allow updraft transport in dry mixed layer)
-	  ZFRACB(JL,3) = 0._JPRB
+          ZFRACB(JL,3) = 0._JPRB
 
       END SELECT !KPBLTYPE
       
@@ -1033,24 +1033,24 @@ ENDIF
       IF ( KPBLTYPE(JL)/=0 .AND. ZFRACB(JL,JD)>0._JPRB ) THEN
         
         !-- Get the PDF scaling factor --
-	SELECT CASE (JD)
+        SELECT CASE (JD)
   	  
-	  CASE(2)
+        CASE(2)
 	    !lower part of top ZFRACMAX %
-	    ZDUMFRAC = ZFRACMAX - ZFRACB(JL,2)
+            ZDUMFRAC = ZFRACMAX - ZFRACB(JL,2)
             CALL VDFPDFTABLE(ZDUMFRAC , ZFACEXC(JL,2), ZDUMR, ZDUMR, 0)
-	    ZFACEXC(JL,2) = ( ZFRACMAX * ZFACMAXEXC - ZDUMFRAC * ZFACEXC(JL,2) ) / ZFRACB(JL,2)
+            ZFACEXC(JL,2) = ( ZFRACMAX * ZFACMAXEXC - ZDUMFRAC * ZFACEXC(JL,2) ) / ZFRACB(JL,2)
 		    
-	  CASE(3)
+          CASE(3)
 	    !upper part of top ZFRACMAX %
-	    ZDUMFRAC = ZFRACB(JL,JD)
+            ZDUMFRAC = ZFRACB(JL,JD)
             CALL VDFPDFTABLE(ZDUMFRAC , ZFACEXC(JL,3), ZDUMR, ZDUMR, 0)
 
 !amk ... optional 2x ZFACEXC: stronger parcels (1: test and 3: cloudy)
 !           ZFACEXC(JL,3) = ZFACEXC(JL,3) * 2.0_JPRB
 !xxx
 	    
-	END SELECT
+          END SELECT
 	
       ENDIF !KPBLTYPE & ZFRACB
 
@@ -1290,20 +1290,20 @@ ENDIF
       DO JL=KIDIA,KFDIA
 
         IF ( KPBLTYPE(JL)/=0 .AND. ZFRACB(JL,JD)>0._JPRB) THEN
-	 IF (JK>=IZI(JL,JD) ) THEN
+          IF (JK>=IZI(JL,JD) ) THEN
 	  
-          ZWUH = MAX( ZWU2H(JL,JK,JD),0._JPRB )
-          ZWUH = ZWUH**0.5_JPRB
-          PMFLX(JL,JK,JD)  = ZFRACB(JL,JD) * ZWUH * ZRHOH(JL,JK)
+            ZWUH = MAX( ZWU2H(JL,JK,JD),0._JPRB )
+            ZWUH = ZWUH**0.5_JPRB
+            PMFLX(JL,JK,JD)  = ZFRACB(JL,JD) * ZWUH * ZRHOH(JL,JK)
           
-	  IF (ZWU2H(JL,JK,JD)>0._JPRB) THEN
-	    ZFRAC(JL,JK,JD) = ZFRACB(JL,JD)		   
-	  ELSE
-	    ZFRAC(JL,JK,JD) = 0._JPRB
-	  ENDIF
-          
-	 ENDIF
-	ENDIF
+            IF (ZWU2H(JL,JK,JD)>0._JPRB) THEN
+              ZFRAC(JL,JK,JD) = ZFRACB(JL,JD)
+            ELSE
+              ZFRAC(JL,JK,JD) = 0._JPRB
+            ENDIF
+            
+          ENDIF
+        ENDIF
 	
       ENDDO !JL
     
@@ -1357,7 +1357,7 @@ ENDIF
           PUUH(JL,JK,2)   = 0.3_JPRB*( PUUH(JL,JK+1,2)   - ZUENH(JL,JK+1)   ) + ZUENH(JL,JK)
           PVUH(JL,JK,2)   = 0.3_JPRB*( PVUH(JL,JK+1,2)   - ZVENH(JL,JK+1)   ) + ZVENH(JL,JK)
           
-	ELSEIF ( PMFLX(JL,JK+1,3) > 0._JPRB ) THEN
+        ELSEIF ( PMFLX(JL,JK+1,3) > 0._JPRB ) THEN
           
           IF ( JK>=KPTOP(JL,3) ) THEN
             
@@ -1399,7 +1399,7 @@ ENDIF
           PUUH(JL,JK,2)   = 0._JPRB
           PVUH(JL,JK,2)   = 0._JPRB
           
-	ENDIF 
+        ENDIF
 	
 	
         !--- limit mass flux covering 50% area (M<rho*w,up*0.5) ---
@@ -1407,7 +1407,7 @@ ENDIF
 
           PMFLX(JL,JK,3) =   MIN( PMFLX(JL,JK,3) , 0.5_JPRB * ZWUH * ZRHOH(JL,JK) )   
 
-	ENDIF 
+        ENDIF
         
       ENDIF
      
@@ -1444,7 +1444,7 @@ ENDIF
 	
         ZDZ   =  (   PGEOH(JL,JK-1)   - PGEOH(JL,JK)   ) * ZRG 
         
-	ZDMDZ = -(   PMFLX(JL,JK-1,3) - PMFLX(JL,JK,3) &
+        ZDMDZ = -(   PMFLX(JL,JK-1,3) - PMFLX(JL,JK,3) &
 !	         & + PMFLX(JL,JK-1,2) - PMFLX(JL,JK,2) &  
 		 & ) / ZDZ
         
@@ -1454,11 +1454,12 @@ ENDIF
         
         ZDMDZ = MAX( 0._JPRB , ZDMDZ )
                         
-        PDETR(JL,JK) = ZDMDZ + PMFLX(JL,JK,3) / ( ZTAUEPS * MAX(0.0001_JPRB,ZWU2H(JL,JK,3))**0.5_JPRB )  
+        PDETR(JL,JK) = ZDMDZ + PMFLX(JL,JK,3) /  &
+          &            ( ZTAUEPS * MAX(0.0001_JPRB,ZWU2H(JL,JK,3))**0.5_JPRB )  
 	
       ENDIF
       	
-      ENDIF	
+      ENDIF
     ENDDO !JL
   ENDDO !JK
           
@@ -1596,7 +1597,7 @@ ENDIF
       DO JL=KIDIA,KFDIA
         
         !  Remove all mass flux at and above top layer of updraft
-	ITOP = MAX( KPTOP(JL,JD), KPTOP(JL,3) )
+        ITOP = MAX( KPTOP(JL,JD), KPTOP(JL,3) )
 	
         IF ( JK <= ITOP ) THEN
           

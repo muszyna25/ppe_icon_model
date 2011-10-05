@@ -255,7 +255,8 @@ REAL(KIND=JPRB) ::    ZDQSUDZ, ZDQTUDZ, ZLCLFAC(KLON), ZEPSCFLFAC, ZQLWORK
 !amk
 REAL(KIND=JPRB) ::    ZUPRESS, ZVPRESS, &
                     & ZFRACENV, ZFACEXC, ZDUMR, ZQTPRECON, ZLDECORR
-REAL(KIND=JPRB) ::    ZCBF, ZLCUT(KLON), ZLCRIT(KLON), ZAUTO(KLON), ZAUTO2, ZLCRIT2, ZALFA, ZBETA, ZEXPA, ZRHOH
+REAL(KIND=JPRB) ::    ZCBF, ZLCUT(KLON), ZLCRIT(KLON), ZAUTO(KLON), ZAUTO2, &
+  &                   ZLCRIT2, ZALFA, ZBETA, ZEXPA, ZRHOH
 !xxx
 
 REAL(KIND=JPRB) ::    ZHOOK_HANDLE
@@ -439,8 +440,10 @@ ZVERVELCRIT = 0.3_JPRB
 !     (set entrainment peps/10 to have small entrainment term)
         ZMIX(JL,JK+1) = exp( - ZDZ * 0.1_JPRB*PEPS(JL,JK+1,KD) )
         ZDZ            = (PGEOM1(JL,JK) - PGEOM1(JL,JK+2))*ZRG
-        ZUPRESS        = PUM1(JL,JK+1) + 0.5_JPRB * (PUM1(JL,JK) - PUM1(JL,JK+2)) / ( ZDZ * 0.1_JPRB*PEPS(JL,JK+1,KD) )
-        ZVPRESS        = PVM1(JL,JK+1) + 0.5_JPRB * (PVM1(JL,JK) - PVM1(JL,JK+2)) / ( ZDZ * 0.1_JPRB*PEPS(JL,JK+1,KD) )
+        ZUPRESS        = PUM1(JL,JK+1) + 0.5_JPRB * (PUM1(JL,JK) - PUM1(JL,JK+2)) /  &
+          &                 ( ZDZ * 0.1_JPRB*PEPS(JL,JK+1,KD) )
+        ZVPRESS        = PVM1(JL,JK+1) + 0.5_JPRB * (PVM1(JL,JK) - PVM1(JL,JK+2)) /  &
+          &                 ( ZDZ * 0.1_JPRB*PEPS(JL,JK+1,KD) )
         PUUH(JL,JK,KD) = ( PUUH (JL,JK+1,KD) - ZUPRESS ) * ZMIX(JL,JK+1) + ZUPRESS
         PVUH(JL,JK,KD) = ( PVUH (JL,JK+1,KD) - ZVPRESS ) * ZMIX(JL,JK+1) + ZVPRESS
 !xxx
@@ -508,8 +511,10 @@ ZVERVELCRIT = 0.3_JPRB
 
         IF ( JK < JKMAX ) THEN
           !RN --- new interpolation method incorporating dqt/dz *AND* dqsat/dz ---
-          ZDQSUDZ = ( ZQTEMP(JL,JK)   - ZQTEMP(JL,JK+1)   ) * RG / ( PGEOH(JL,JK) - PGEOH(JL,JK+1) )
-          ZDQTUDZ = ( PQTUH(JL,JK,KD) - PQTUH(JL,JK+1,KD) ) * RG / ( PGEOH(JL,JK) - PGEOH(JL,JK+1) )
+          ZDQSUDZ = ( ZQTEMP(JL,JK)   - ZQTEMP(JL,JK+1)   ) *  &
+            &             RG / ( PGEOH(JL,JK) - PGEOH(JL,JK+1) )
+          ZDQTUDZ = ( PQTUH(JL,JK,KD) - PQTUH(JL,JK+1,KD) ) *  &
+            &             RG / ( PGEOH(JL,JK) - PGEOH(JL,JK+1) )
         
           PZPLCL(JL,KD) = PGEOH(JL,JK)*ZRG 
           IF (ZDQSUDZ-ZDQTUDZ.LT.0._JPRB) THEN
@@ -535,7 +540,8 @@ ZVERVELCRIT = 0.3_JPRB
 !*              (Precip generation tendency (Sundqvist,1978) 
 !*               [kg/kg /s] in full level below current half level)
 
-      IF ( LLPREC .AND. LLCLOUD(JL) .AND. PQCUH(JL,JK,KD) > ZLCUT(JL) .AND. .NOT. LDDONE(JL,KD) ) THEN
+      IF ( LLPREC .AND. LLCLOUD(JL) .AND. PQCUH(JL,JK,KD) > ZLCUT(JL) .AND.  &
+        &  .NOT. LDDONE(JL,KD) ) THEN
 
 !xmk    ...old DUALM separte cond/precip solver
 !       ZQLWORK = PQCUH(JL,JK,KD)
@@ -545,7 +551,7 @@ ZVERVELCRIT = 0.3_JPRB
 
 !       ...Bergeron-Findeisen process (T < -5C=RTBERCU, maxed out at T=-23C=RTICECU)
    !dmk IF (PTUH(JL,JK,KD) .GT. RTBERCU) THEN
-          ZCBF  = 1
+          ZCBF  = 1._JPRB
    !    ELSE
    !      ZCBF  = 1 + 0.5_JPRB * SQRT(MIN(RTBERCU-PTUH(JL,JK,KD), RTBERCU-RTICECU ))
    !xxx ENDIF
@@ -558,7 +564,7 @@ ZVERVELCRIT = 0.3_JPRB
         ZDZ   = ( PGEOH(JL,JK)    - PGEOH(JL,JK+1)    ) * ZRG
         ZTEMP = ( PQCUH(JL,JK,KD) + PQCUH(JL,JK+1,KD) ) / 2.0_JPRB
         ZBETA = ( PQCUH(JL,JK,KD) - PQCUH(JL,JK+1,KD) ) / ZDZ
-        ZALFA = ZAUTO2 / ZWUH(JL,JK+1) * (1 - EXP(-(ZTEMP/ZLCRIT2)**2) )
+        ZALFA = ZAUTO2 / ZWUH(JL,JK+1) * (1._JPRB - EXP(-(ZTEMP/ZLCRIT2)**2) )
         ZEXPA = EXP(-ZALFA*ZDZ)
         PQCUH(JL,JK,KD) = PQCUH(JL,JK+1,KD) * ZEXPA  +  ZBETA/ZALFA * (1-ZEXPA)
         PQCUH(JL,JK,KD) = MIN( PQCUH(JL,JK,KD), ZQLWORK )
@@ -602,7 +608,7 @@ ZVERVELCRIT = 0.3_JPRB
           ZQCUF = ZQCUF * ZLCLFAC(JL)
         ENDIF
         
-	ZQUF          = ZQTUF - ZQCUF
+        ZQUF          = ZQTUF - ZQCUF
         ZTUF          = ( ZSLGUF - PGEOM1(JL,JK+1) & ! preliminary estimate:
                     & + RLVTT * ZQCUF ) / RCPD       ! all liquid 
         ZALFAW        = FOEALFA( ZTUF )

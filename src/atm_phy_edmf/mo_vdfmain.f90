@@ -944,7 +944,7 @@ IF ( LLDIAG ) THEN
         PEXTRA(JL,14,41) = 1.0_JPRB
     END SELECT
         PEXTRA(JL, 6,41) = PEXTRA(JL, 6,41) + PZINV(JL)    * ZTMST
-        PEXTRA(JL,21,41) = KPBLTYPE(JL)
+        PEXTRA(JL,21,41) = REAL( KPBLTYPE(JL), JPRB )
         PEXTRA(JL,16,41) = PZINV(JL)
    ENDDO
 ENDIF
@@ -1413,8 +1413,9 @@ DO JK=KLEV-1,2,-1
 !     ...prognostic within PBL
       IF ( LLPBL(JL,JK) ) THEN
        !exact solution:
-        PVAR(JL,JK) = ( PVAR(JL,JK) - ZTAU(JL,JK) * (ZVARGEN + ZVARTRANS) ) * exp(-ZTMST/ZTAU(JL,JK)) &
-                  &                 + ZTAU(JL,JK) * (ZVARGEN + ZVARTRANS)
+        PVAR(JL,JK) = ( PVAR(JL,JK) - ZTAU(JL,JK) * (ZVARGEN + ZVARTRANS) ) *  &
+          &               EXP(-ZTMST/ZTAU(JL,JK))                              &
+          &             + ZTAU(JL,JK) * (ZVARGEN + ZVARTRANS)
        !implicit solution:
        !PVAR(JL,JK) = ( PVAR(JL,JK) + (ZVARGEN + ZVARTRANS) * ZTMST ) &
        !          & * ZTAU(JL,JK) / (ZTMST + ZTAU(JL,JK))
@@ -1470,9 +1471,9 @@ ENDDO
 !           ZSLGUP(JL,JK)  = ( ZSLGUH(JL,JK,3)+ ZSLGUH(JL,JK-1,3) ) / 2._JPRB + ZSLGE(JL,JK)
 !           ZQTUP(JL,JK)   = ( ZQTUH(JL,JK,3) + ZQTUH(JL,JK-1,3)  ) / 2._JPRB + ZQTE(JL,JK)
 !           ZQTTEST(JL,JK) = ( ZQTUH(JL,JK,1) + ZQTUH(JL,JK-1,1)  ) / 2._JPRB + ZQTE(JL,JK)
-            ZSLGUP(JL,JK)  = ( ZSLGUH(JL,JK,3)+ ZSLGUH(JL,JK-1,3) ) / 2._JPRB + ZSLGE(JL,JK) * ZTMST
-            ZQTUP(JL,JK)   = ( ZQTUH(JL,JK,3) + ZQTUH(JL,JK-1,3)  ) / 2._JPRB + ZQTE(JL,JK)  * ZTMST
-            ZQTTEST(JL,JK) = ( ZQTUH(JL,JK,1) + ZQTUH(JL,JK-1,1)  ) / 2._JPRB + ZQTE(JL,JK)  * ZTMST
+            ZSLGUP(JL,JK)  = ( ZSLGUH(JL,JK,3)+ ZSLGUH(JL,JK-1,3) ) / 2._JPRB + ZSLGE(JL,JK) *ZTMST
+            ZQTUP(JL,JK)   = ( ZQTUH(JL,JK,3) + ZQTUH(JL,JK-1,3)  ) / 2._JPRB + ZQTE(JL,JK)  *ZTMST
+            ZQTTEST(JL,JK) = ( ZQTUH(JL,JK,1) + ZQTUH(JL,JK-1,1)  ) / 2._JPRB + ZQTE(JL,JK)  *ZTMST
 !xxx
           ELSE
             ZSLGUP(JL,JK)  = ZSLGUPD(JL,JK)

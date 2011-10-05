@@ -289,9 +289,11 @@ DO JK=1,KLEV-1
     IF ( LLPBL(JL,JK) ) THEN                            !only within PBL
       
       !-- mean state thv --
-      CALL VDFTHERMO( PSLGM(JL,JK)/RCPD,1000._JPRB*PQTM(JL,JK), ZQSAT, ZQL, PAPM1(JL,JK), PGEOM1(JL,JK) )
+      CALL VDFTHERMO( PSLGM(JL,JK)/RCPD,1000._JPRB*PQTM(JL,JK), ZQSAT,  &
+        &             ZQL, PAPM1(JL,JK), PGEOM1(JL,JK) )
       ZQL = ZQL / 1000._JPRB
-      ZTHVM = ( PSLGM(JL,JK) + RLVTT*ZQL) * (1._JPRB + 0.61_JPRB*PQTM(JL,JK) - 1.61_JPRB * ZQL) / RCPD
+      ZTHVM = ( PSLGM(JL,JK) + RLVTT*ZQL) *  &
+        &        (1._JPRB + 0.61_JPRB*PQTM(JL,JK) - 1.61_JPRB * ZQL) / RCPD
       !write(0,'(6f7.2)') 1000._JPRB*PQTM(JL,JK),ZQSAT,1000._JPRB*ZQL,ZTHVM,PSLGM(JL,JK)/1000._JPRB
 
 
@@ -329,7 +331,8 @@ DO JK=1,KLEV-1
       ZMZBSAT1(:) = ZMZBSAT0(:) + (/0._JPRB, 4._JPRB, 0._JPRB /)
       CALL VDFTHERMO( ZMZBSAT1(1), ZMZBSAT1(2), ZQSAT, ZQL, PAPM1(JL,JK), PGEOM1(JL,JK) )  !this point is cloudy per definition
       ZQL = ZQL / 1000._JPRB
-      ZTHV1       = (ZMZBSAT1(1) + RLVTT*ZQL/RCPD) * (1._JPRB + 0.00061_JPRB*ZMZBSAT1(2) - 1.61_JPRB*ZQL )
+      ZTHV1       = (ZMZBSAT1(1) + RLVTT*ZQL/RCPD) *  &
+        &              (1._JPRB + 0.00061_JPRB*ZMZBSAT1(2) - 1.61_JPRB*ZQL )
       
       ZXTHVFLAT0  = (/ ZMZBSAT0(2), 0._JPRB, 0._JPRB/)
       ZXTHVFLAT1  = (/ ZMZBSAT1(2), 0._JPRB, 0._JPRB/)
@@ -347,7 +350,8 @@ DO JK=1,KLEV-1
       !this part is for checking zero bouyancy only
       CALL VDFTHERMO( ZMZB1(1), ZMZB1(2), ZQSAT, ZQL, PAPM1(JL,JK), PGEOM1(JL,JK) )  !this point is cloudy per definition
       ZQL = ZQL / 1000._JPRB
-      ZTHV1       = (ZMZB1(1) + RLVTT*ZQL/RCPD) * (1._JPRB + 0.00061_JPRB*ZMZB1(2) - 1.61_JPRB*ZQL )
+      ZTHV1       = (ZMZB1(1) + RLVTT*ZQL/RCPD) *  &
+        &            (1._JPRB + 0.00061_JPRB*ZMZB1(2) - 1.61_JPRB*ZQL )
       !write(0,'(a,2f7.2)') "    buoy check:",ZTHVM,ZTHV1
 
 
@@ -391,8 +395,8 @@ ENDDO
 DO JL=KIDIA,KFDIA
   ZBULKDQTXDEFDZTOP(JL) = 0._JPRB  
   ZBULKDQTXDEFDZBOT(JL) = 0._JPRB  
-  IBULKTOP(JL)          = 0
-  IBULKBOT(JL)          = 0
+  IBULKTOP(JL)          = 0._JPRB
+  IBULKBOT(JL)          = 0._JPRB
 ENDDO
 
 
@@ -433,11 +437,13 @@ DO JL=KIDIA,KFDIA
   !--- Bulk cloud-layer gradients ---
   IF (IBULKBOT(JL)>0) THEN
     ZBULKDQTXDEFDZBOT(JL) = ZBULKDQTXDEFDZBOT(JL) / IBULKBOT(JL)
-    ZBULKDQTXDEFDZBOT(JL) = ZBULKDQTXDEFDZBOT(JL) * ( PGEOH(JL,KPLZB(JL,1)) - PGEOH(JL,KPLCL(JL,3)) )
+    ZBULKDQTXDEFDZBOT(JL) = ZBULKDQTXDEFDZBOT(JL) *  &
+      &                     ( PGEOH(JL,KPLZB(JL,1)) - PGEOH(JL,KPLCL(JL,3)) )
   ENDIF
   IF (IBULKTOP(JL)>0) THEN
     ZBULKDQTXDEFDZTOP(JL) = ZBULKDQTXDEFDZTOP(JL) / IBULKTOP(JL)
-    ZBULKDQTXDEFDZTOP(JL) = ZBULKDQTXDEFDZTOP(JL) * ( PGEOH(JL,KPLZB(JL,1)) - PGEOH(JL,KPLCL(JL,3)) )
+    ZBULKDQTXDEFDZTOP(JL) = ZBULKDQTXDEFDZTOP(JL) *  &
+      &                     ( PGEOH(JL,KPLZB(JL,1)) - PGEOH(JL,KPLCL(JL,3)) )
   ENDIF
   
   
@@ -477,7 +483,8 @@ DO JK=KLEV-1,1,-1
         ZASTAR = EXP(ZASTAR)
                  
         ZDZ           = ( PGEOH(JL,JK) - PGEOH(JL,JK+1) ) * ZRG
-        ZDELTAMINEPS  = LOG(ZASTAR) / MAX( 1._JPRB , ( PGEOH(JL,KPTOP(JL,3))-PGEOH(JL,KPLCL(JL,3)) )*ZRG )
+        ZDELTAMINEPS  = LOG(ZASTAR) /  &
+          &               MAX( 1._JPRB , ( PGEOH(JL,KPTOP(JL,3))-PGEOH(JL,KPLCL(JL,3)) )*ZRG )
         PABULK(JL,JK) = PABULK(JL,JK+1) * EXP( ZDZ * ZDELTAMINEPS ) 
             
         ZFRAC = PABULK(JL,JK) / PFRACB(JL,3)
