@@ -53,9 +53,7 @@ MODULE mo_nonhydrostatic_nml
                                     & config_htop_moist_proc  => htop_moist_proc  , &
                                     & config_htop_qvadv       => htop_qvadv       , &
                                     & config_damp_height      => damp_height      , &
-                                    & config_damp_height_u    => damp_height_u    , &
                                     & config_rayleigh_coeff   => rayleigh_coeff   , &
-                                    & config_damp_timescale_u => damp_timescale_u , &
                                     & config_vwind_offctr     => vwind_offctr     , &
                                     & config_iadv_rhotheta    => iadv_rhotheta    , &
                                     & config_igradp_method    => igradp_method    , &
@@ -103,9 +101,7 @@ MODULE mo_nonhydrostatic_nml
 
   ! Parameters active with cell_type=3 only
   REAL(wp):: damp_height(max_dom)    ! height at which w-damping and sponge layer start
-  REAL(wp):: damp_height_u           ! height at which Rayleigh damping of u starts
   REAL(wp):: rayleigh_coeff(max_dom) ! Rayleigh damping coefficient in w-equation
-  REAL(wp):: damp_timescale_u        ! damping time scale for u in uppermost layer (in seconds)
   REAL(wp):: vwind_offctr            ! Off-centering in vertical wind solver
   INTEGER :: iadv_rhotheta           ! Advection scheme used for density and pot. temperature
   INTEGER :: igradp_method           ! Method for computing the horizontal presure gradient
@@ -131,8 +127,8 @@ MODULE mo_nonhydrostatic_nml
 
 
   NAMELIST /nonhydrostatic_nml/ itime_scheme, iadv_rcf, ivctype, htop_moist_proc,          &
-                              & htop_qvadv, damp_height, damp_height_u, rayleigh_coeff,    &
-                              & damp_timescale_u, vwind_offctr, iadv_rhotheta,             &
+                              & htop_qvadv, damp_height, rayleigh_coeff,                   &
+                              & vwind_offctr, iadv_rhotheta,                               &
                               & igradp_method, exner_expol, l_open_ubc, l_nest_rcf,        &
                               & l_masscorr_nest, l_zdiffu_t, thslp_zdiffu, thhgtd_zdiffu,  &
                               & gmres_rtol_nh, ltheta_up_hori, upstr_beta, ltheta_up_vert, &
@@ -186,9 +182,7 @@ CONTAINS
 
     ! Settings for icell_type=3
     damp_height(1)    = 30000.0_wp
-    damp_height_u     = 100000._wp
     rayleigh_coeff(1) = 0.05_wp
-    damp_timescale_u  = 3._wp*86400._wp ! 3 days
     vwind_offctr      = 0.05_wp
     iadv_rhotheta     = 2
     igradp_method     = 1
@@ -275,34 +269,7 @@ CONTAINS
     !----------------------------------------------------
     ! 4. Fill the configuration state
     !----------------------------------------------------
-! KF postponed work
 
-!    DO jg = 1,max_dom
-!      nonhydrostatic_config(jg)%rayleigh_coeff  = rayleigh_coeff(jg)
-!      nonhydrostatic_config(jg)%damp_height     = damp_height(jg)
-!      nonhydrostatic_config(jg)%iadv_rhotheta   = iadv_rhotheta
-!      nonhydrostatic_config(jg)%vwind_offctr    = vwind_offctr
-!      nonhydrostatic_config(jg)%igradp_method   = igradp_method
-!      nonhydrostatic_config(jg)%exner_expol     = exner_expol
-!      nonhydrostatic_config(jg)%ltheta_up_hori  = ltheta_up_hori
-!      nonhydrostatic_config(jg)%ltheta_up_vert  = ltheta_up_vert
-!      nonhydrostatic_config(jg)%gmres_rtol_nh   = gmres_rtol_nh
-!      nonhydrostatic_config(jg)%iadv_rcf        = iadv_rcf
-!      nonhydrostatic_config(jg)%ivctype         = ivctype
-!      nonhydrostatic_config(jg)%upstr_beta      = upstr_beta
-!      nonhydrostatic_config(jg)%l_open_ubc      = l_open_ubc
-!      nonhydrostatic_config(jg)%l_nest_rcf      = l_nest_rcf
-!      nonhydrostatic_config(jg)%l_zdiffu_t      = l_zdiffu_t
-!      nonhydrostatic_config(jg)%thslp_zdiffu    = thslp_zdiffu
-!      nonhydrostatic_config(jg)%thhgtd_zdiffu   = thhgtd_zdiffu
-!      nonhydrostatic_config(jg)%k2_updamp_coeff = k2_updamp_coeff
-!      nonhydrostatic_config(jg)%l_masscorr_nest = l_masscorr_nest
-!      nonhydrostatic_config(jg)%htop_moist_proc = htop_moist_proc
-!      nonhydrostatic_config(jg)%htop_qvadv      = htop_qvadv
-!      nonhydrostatic_config(jg)%damp_timescale_u= damp_timescale_u
-!      nonhydrostatic_config(jg)%damp_height_u   = damp_height_u
-!    ENDDO
-!
        config_rayleigh_coeff(:) = rayleigh_coeff(:)
        config_damp_height   (:) = damp_height   (:)
        config_iadv_rhotheta     = iadv_rhotheta
@@ -325,8 +292,6 @@ CONTAINS
        config_l_masscorr_nest   = l_masscorr_nest
        config_htop_moist_proc   = htop_moist_proc
        config_htop_qvadv        = htop_qvadv
-       config_damp_timescale_u  = damp_timescale_u
-       config_damp_height_u     = damp_height_u
   
     !-----------------------------------------------------
     ! 5. Store the namelist for restart

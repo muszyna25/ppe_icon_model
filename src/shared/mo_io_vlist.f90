@@ -1794,8 +1794,8 @@ CONTAINS
           &                   'K/s', 105, 999,&
           &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
           &           k_jg)
-          CALL addVar(TimeVar('tend_temp_sso', &
-          &                   'temperature tendency due to SSO',&
+          CALL addVar(TimeVar('tend_temp_drag', &
+          &                   'temperature tendency due to SSO, GWD and Rayleigh friction',&
           &                   'K/s', 106, 999,&
           &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
           &           k_jg)
@@ -1826,7 +1826,11 @@ CONTAINS
           &                   'm/s2', 114, 999,&
           &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
           &           k_jg)
-
+          CALL addVar(TimeVar('tend_u_raylfric',&
+          &                   'zonal wind tendency due to Rayleigh friction',&
+          &                   'm/s2', 115, 999,&
+          &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
+          &           k_jg)
 
           ! v-wind tendency
           CALL addVar(TimeVar('tend_v_conv',&
@@ -1847,6 +1851,11 @@ CONTAINS
           CALL addVar(TimeVar('tend_v_gwd',&
           &                   'meridional wind tendency due to non-orographic GWD',&
           &                   'm/s2', 124, 999,&
+          &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
+          &           k_jg)
+          CALL addVar(TimeVar('tend_v_raylfric',&
+          &                   'meridional wind tendency due to Rayleigh friction',&
+          &                   'm/s2', 125, 999,&
           &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
           &           k_jg)
 
@@ -2809,16 +2818,18 @@ CONTAINS
       CASE ('tend_temp_pscl');  ptr3 => prm_nwp_tend(jg)%ddt_temp_pscl (:,:,:)
       CASE ('tend_temp_conv');  ptr3 => prm_nwp_tend(jg)%ddt_temp_pconv(:,:,:)
       CASE ('tend_temp_turb');  ptr3 => prm_nwp_tend(jg)%ddt_temp_turb (:,:,:)
-      CASE ('tend_temp_sso');   ptr3 => prm_nwp_tend(jg)%ddt_temp_sso  (:,:,:)
+      CASE ('tend_temp_drag');  ptr3 => prm_nwp_tend(jg)%ddt_temp_drag (:,:,:)
       CASE ('tend_temp_dyn');   ptr3 => p_diag%ddt_temp_dyn(:,:,:)
       CASE ('tend_u_conv');     ptr3 => prm_nwp_tend(jg)%ddt_u_pconv   (:,:,:)
       CASE ('tend_u_turb');     ptr3 => prm_nwp_tend(jg)%ddt_u_turb    (:,:,:)
       CASE ('tend_u_sso');      ptr3 => prm_nwp_tend(jg)%ddt_u_sso     (:,:,:)
       CASE ('tend_u_gwd');      ptr3 => prm_nwp_tend(jg)%ddt_u_gwd     (:,:,:)
+      CASE ('tend_u_raylfric'); ptr3 => prm_nwp_tend(jg)%ddt_u_raylfric(:,:,:)
       CASE ('tend_v_conv');     ptr3 => prm_nwp_tend(jg)%ddt_v_pconv   (:,:,:)
       CASE ('tend_v_turb');     ptr3 => prm_nwp_tend(jg)%ddt_v_turb    (:,:,:)
       CASE ('tend_v_sso');      ptr3 => prm_nwp_tend(jg)%ddt_v_sso     (:,:,:)
       CASE ('tend_v_gwd');      ptr3 => prm_nwp_tend(jg)%ddt_v_gwd     (:,:,:)
+      CASE ('tend_v_raylfric'); ptr3 => prm_nwp_tend(jg)%ddt_v_raylfric(:,:,:)
       CASE ('U_Z');             ptr3 => p_diag_z%u     (:,:,:)
       CASE ('V_Z');             ptr3 => p_diag_z%v     (:,:,:)
       CASE ('T_Z');             ptr3 => p_diag_z%temp  (:,:,:)

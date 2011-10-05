@@ -312,8 +312,6 @@ MODULE mo_nonhydro_state
 
    ! Rayleigh damping on the vertical velocity
    REAL(wp), POINTER :: rayleigh_w(:)
-   ! Rayleigh damping on the zonal velocity
-   REAL(wp), POINTER :: rayleigh_u(:)
    ! Enhancement factor for nabla4 background diffusion
    REAL(wp), POINTER :: enhfac_diffu(:)
 
@@ -2512,13 +2510,6 @@ MODULE mo_nonhydro_state
       IF (ist/=SUCCESS)THEN
         CALL finish('mo_nonhydro_state:construct_nh_metrics', &
                     'allocation for rayleigh_w failed')
-      ENDIF
-
-      ! Rayleigh damping coefficient for u
-      ALLOCATE(p_metrics%rayleigh_u(nlev),STAT=ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                    'allocation for rayleigh_u failed')
       ENDIF
 
       ! Background nabla2 diffusion coefficient for upper sponge layer

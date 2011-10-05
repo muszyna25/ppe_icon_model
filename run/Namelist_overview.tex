@@ -1704,19 +1704,6 @@ Height at which Rayleigh damping of vertical wind starts&
 \tabularnewline
 
 \hline 
-damp\_height\_u&
-R& 100000& m&
-Height at which Rayleigh damping of zonal wind starts&
-active only for inwp\_gwd $>$ 0
-\tabularnewline
-
-\hline 
-damp\_timescale\_u&
-R& 259200& s&
-Shortest damping time scale (reached at model top)&
-\tabularnewline
-
-\hline 
 htop\_moist\_proc&
 R& 200000.0& m&
 Height above which moist physics and advection of cloud and precipitation variables are turned off&
@@ -2579,6 +2566,7 @@ inwp\_gscp=1
 &
 \tabularnewline
 
+
 \hline 
 inwp\_convection&
 I&
@@ -2788,8 +2776,22 @@ surface scheme
 &
 &
 &
-1: 
+1: TERRA
 &
+\tabularnewline
+
+
+\hline 
+ustart\_raylfric&
+R& 160.0& m/s& wind speed at which extra Rayleigh friction starts &
+inwp\_gwd $>$ 0
+\tabularnewline
+
+
+\hline 
+efdt\_min\_raylfric&
+R& 10800.& s & minimum e-folding time of Rayleigh friction (effective for u $>$ ustart\_raylfric + 90 m/s) &
+inwp\_gwd $>$ 0
 \tabularnewline
 
 \hline 

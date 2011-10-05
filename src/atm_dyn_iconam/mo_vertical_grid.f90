@@ -48,8 +48,7 @@ MODULE mo_vertical_grid
   USE mo_model_domain_import,   ONLY: n_dom
   USE mo_nonhydrostatic_config, ONLY: rayleigh_coeff,damp_height, igradp_method, ivctype,  & 
     &                                 vwind_offctr, exner_expol, l_zdiffu_t, thslp_zdiffu, &
-!!$    &                                 htop_moist_proc, htop_qvadv,                         &
-    &                                 thhgtd_zdiffu, damp_timescale_u, damp_height_u
+    &                                 thhgtd_zdiffu
   USE mo_diffusion_config,      ONLY: diffusion_config
   USE mo_parallel_config,       ONLY: nproma, p_test_run
   USE mo_run_config,            ONLY: msg_level
@@ -85,9 +84,9 @@ MODULE mo_vertical_grid
   !                                                          stratospheric temperature
   REAL(wp), PARAMETER :: grav_o_cpd      = grav/cpd
 
-  INTEGER:: nrdmax(max_dom), nrdmax_u(max_dom), nflat_gradp(max_dom)
+  INTEGER:: nrdmax(max_dom), nflat_gradp(max_dom)
 
-  PUBLIC :: set_nh_metrics, nrdmax, nrdmax_u, nflat_gradp
+  PUBLIC :: set_nh_metrics, nrdmax, nflat_gradp
 
   CONTAINS
 
@@ -431,36 +430,6 @@ MODULE mo_vertical_grid
 !$OMP END PARALLEL
       ENDIF
 
-!!$      ! Determine start level for moist physics processes (specified by htop_moist_proc)
-!!$      DO jk = 1, nlev
-!!$        jk1 = jk + nshift_total(jg)
-!!$        IF (0.5_wp*(vct_a(jk1)+vct_a(jk1+1)) < htop_moist_proc) THEN
-!!$          kstart_moist(jg) = jk
-!!$          EXIT
-!!$        ENDIF
-!!$      ENDDO
-!!$
-!!$      IF (kstart_moist(jg) > 1 .AND. msg_level >= 10) THEN
-!!$        WRITE(message_text,'(2(a,i4))') 'Domain', jg, &
-!!$          '; computation of moist physics processes starts in layer ', kstart_moist(jg)
-!!$        CALL message(TRIM(routine),message_text)
-!!$      ENDIF
-!!$
-!!$      ! Determine start level for QV advection (specified by htop_qvadv)
-!!$      DO jk = 1, nlev
-!!$        jk1 = jk + nshift_total(jg)
-!!$        IF (0.5_wp*(vct_a(jk1)+vct_a(jk1+1)) < htop_qvadv) THEN
-!!$          kstart_qv(jg) = jk
-!!$          EXIT
-!!$        ENDIF
-!!$      ENDDO
-!!$
-!!$      IF (kstart_qv(jg) > 1 .AND. msg_level >= 10) THEN
-!!$        WRITE(message_text,'(2(a,i4))') 'Domain', jg, &
-!!$          '; computation of QV advection starts in layer ', kstart_qv(jg)
-!!$        CALL message(TRIM(routine),message_text)
-!!$      ENDIF
-
       ! offcentering in vertical mass flux 
       p_nh(jg)%metrics%vwind_expl_wgt(:,:) = 0.5_wp - vwind_offctr
       p_nh(jg)%metrics%vwind_impl_wgt(:,:) = 0.5_wp + vwind_offctr
@@ -469,20 +438,16 @@ MODULE mo_vertical_grid
       ! starts at a level where the coordinate surfaces no longer follow the topography)
 
       p_nh(jg)%metrics%rayleigh_w(:)   = 0.0_wp
-      p_nh(jg)%metrics%rayleigh_u(:)   = 0.0_wp
       p_nh(jg)%metrics%enhfac_diffu(:) = 1.0_wp
 
       jkmax = MAX(2,p_patch(jg)%nshift_total+nflatlev(jg))
       damp_height(jg) = MAX(vct_a(jkmax),damp_height(jg))
-      damp_height_u   = MAX(0.5_wp*(vct_a(jkmax-1)+vct_a(jkmax)),damp_height_u)
 
-      ! Determine end indices of damping layers
+      ! Determine end index of damping layer
       nrdmax(jg) = 1
-      nrdmax_u(jg) = 0
       DO jk = 2, nlevp1
         jk1 = jk + p_patch(jg)%nshift_total
-        IF (vct_a(jk1) >= damp_height(jg))                     nrdmax(jg)   = jk
-        IF (0.5_wp*(vct_a(jk1-1)+vct_a(jk1)) >= damp_height_u) nrdmax_u(jg) = jk-1
+        IF (vct_a(jk1) >= damp_height(jg))  nrdmax(jg) = jk
       ENDDO
 
       ! Rayleigh damping coefficient for w
@@ -517,25 +482,17 @@ MODULE mo_vertical_grid
           /MAX(1.e-6_wp,0.5_wp*(vct_a(1)+vct_a(2))-damp_height(jg))))
       ENDDO
 
-      DO jk = 1, nrdmax_u(jg)
-        jk1 = jk + p_patch(jg)%nshift_total
-        z_diff = 0.5_wp*(vct_a(1)+vct_a(2))-0.5_wp*(vct_a(jk1)+vct_a(jk1+1))
-        p_nh(jg)%metrics%rayleigh_u(jk) = 1._wp/damp_timescale_u*  &
-          (1._wp-TANH(3.8_wp*z_diff/MAX(1.e-6_wp,0.5_wp*(vct_a(1)+vct_a(2))-damp_height_u)))
-      ENDDO
-
       IF (p_patch(jg)%cell_type == 3 .AND. msg_level >= 10) THEN
-        WRITE(message_text,'(a,i4,a,2i4)') 'Domain', jg, &
-          '; end indices of Rayleigh damping layer for w and u: ', nrdmax(jg), nrdmax_u(jg)
+        WRITE(message_text,'(a,i4,a,i4)') 'Domain', jg, &
+          '; end index of Rayleigh damping layer for w: ', nrdmax(jg)
         CALL message(TRIM(routine),message_text)
         WRITE(message_text,'(a)') &
-          'Damping coefficients for u and w; diffusion enhancement coefficient:'
+          'Damping coefficient for w; diffusion enhancement coefficient:'
         CALL message('mo_vertical_grid',message_text)
-        DO jk = 1, MAX(nrdmax(jg),nrdmax_u(jg))
+        DO jk = 1, nrdmax(jg)
           jk1 = jk + p_patch(jg)%nshift_total
-          WRITE(message_text,'(a,i5,a,f8.1,3e13.5)') 'level',jk,', half-level height',vct_a(jk1),&
-            p_nh(jg)%metrics%rayleigh_u(jk), p_nh(jg)%metrics%rayleigh_w(jk),                    &
-            p_nh(jg)%metrics%enhfac_diffu(jk)
+          WRITE(message_text,'(a,i5,a,f8.1,2e13.5)') 'level',jk,', half-level height',vct_a(jk1),&
+            p_nh(jg)%metrics%rayleigh_w(jk),p_nh(jg)%metrics%enhfac_diffu(jk)
           CALL message('mo_vertical_grid',message_text)
         ENDDO
       ENDIF

@@ -52,13 +52,6 @@ MODULE mo_nwp_phy_nml
     &                               open_and_restore_namelist, close_tmpfile
 
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
-!  USE mo_data_turbdiff,       ONLY: imode_turb,                              &
-!    &                               limpltkediff, ltkesso, lexpcor,          &
-!    &                               tur_len, pat_len, a_stab,                &
-!    &                               tkhmin, tkmmin, c_diff,                  &
-!    &                               itype_wcld, icldm_turb,                  &
-!    &                               itype_tran, rlam_heat, rlam_mom, rat_sea,&
-!    &                               llake, lseaice
 
   IMPLICIT NONE
   PRIVATE
@@ -82,16 +75,11 @@ MODULE mo_nwp_phy_nml
   INTEGER  :: inwp_satad         !! saturation adjustment
   INTEGER  :: inwp_turb          !! turbulence
   INTEGER  :: inwp_surface       !! surface including soil, ocean, ice,lake
-  REAL(wp)::  qi0, qc0 !! variables for hydci_pp
+  REAL(wp) :: qi0, qc0           !! variables for hydci_pp
+  REAL(wp) :: ustart_raylfric    !! velocity at which extra Rayleigh friction starts
+  REAL(wp) :: efdt_min_raylfric  !! e-folding time corresponding to maximum relaxation coefficient
 
-!  INTEGER  :: imode_turb, itype_wcld, icldm_turb, itype_tran
-!   
-!  LOGICAL  :: limpltkediff, ltkesso, lexpcor
-!
-!  REAL(wp) :: tur_len, pat_len, a_stab,                &
-!    &         tkhmin, tkmmin, c_diff,                  &
-!    &         rlam_heat, rlam_mom, rat_sea
-!
+
 !  LOGICAL  :: lseaice  !> forecast with sea ice model
 !  LOGICAL  :: llake    !! forecst with lake model FLake
 !
@@ -104,14 +92,7 @@ MODULE mo_nwp_phy_nml
     &                    dt_conv, dt_ccov,                         &
     &                    dt_rad,                                   &
     &                    dt_sso, dt_gwd,                           &
-    &                    qi0, qc0
-!    &                    imode_turb,                               &
-!    &                    limpltkediff, ltkesso, lexpcor,           &
-!    &                    tur_len, pat_len, a_stab,                 &
-!    &                    tkhmin, tkmmin, c_diff,                   &
-!    &                    itype_wcld, icldm_turb,                   &
-!    &                    itype_tran, rlam_heat, rlam_mom, rat_sea, &
-  
+    &                    qi0, qc0, ustart_raylfric, efdt_min_raylfric
 
 
 
@@ -192,6 +173,9 @@ CONTAINS
     qi0 = 0.0_wp 
     qc0 = 0.0_wp 
 
+    ustart_raylfric    = 160._wp
+    efdt_min_raylfric  = 10800._wp
+
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
@@ -234,23 +218,8 @@ CONTAINS
       atm_phy_nwp_config(jg)% dt_gwd         = dt_gwd   (jg)
       atm_phy_nwp_config(jg)%qi0             = qi0 
       atm_phy_nwp_config(jg)%qc0             = qc0 
-
-
-!      atm_phy_nwp_config(jg)%lseaice         = lseaice 
-!      atm_phy_nwp_config(jg)%llake           = llake
-!      atm_phy_nwp_config(jg)%imode_turb      = imode_turb  
-!      atm_phy_nwp_config(jg)%limpltkediff    = limpltkediff
-!      atm_phy_nwp_config(jg)%ltkesso         = ltkesso
-!      atm_phy_nwp_config(jg)%lexpcor         = lexpcor
-!      atm_phy_nwp_config(jg)%tur_len         = tur_len
-!      atm_phy_nwp_config(jg)%pat_len         = pat_len
-!      atm_phy_nwp_config(jg)%a_stab          = a_stab
-!      atm_phy_nwp_config(jg)%tkhmin          = tkhmin
-!      atm_phy_nwp_config(jg)%tkmmin          = tkmmin
-!      atm_phy_nwp_config(jg)%c_diff          = c_diff
-!      atm_phy_nwp_config(jg)%itype_wcld      = itype_wcld
-!      atm_phy_nwp_config(jg)%icldm_turb      = icldm_turb
-
+      atm_phy_nwp_config(jg)%ustart_raylfric = ustart_raylfric 
+      atm_phy_nwp_config(jg)%efdt_min_raylfric = efdt_min_raylfric
 
     ENDDO
 

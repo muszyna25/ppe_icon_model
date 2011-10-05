@@ -274,16 +274,17 @@ TYPE t_nwp_phy_tend
              ddt_temp_radsw  (:,:,:)  ,& !! Temp-tendency from shortwave radiation
              ddt_temp_radlw  (:,:,:)  ,& !! Temp-tendency from longwave radiation
              ddt_temp_turb   (:,:,:)  ,& !! Temp-tendency from turbulence
-             ddt_temp_gwd    (:,:,:)  ,& !! Temp-tendency from gravity wave drag
-             ddt_temp_sso    (:,:,:)  ,& !! Temp-tendency from sso drag
+             ddt_temp_drag   (:,:,:)  ,& !! Temp-tendency from sso + gravity-wave drag + Rayleigh friction
              ddt_temp_pconv  (:,:,:)  ,& !! Temp-tendency from convective prec
              ddt_temp_pscl   (:,:,:)  ,& !! Temp-tendency from grid scale prec
              ddt_u_turb      (:,:,:)  ,& !! ZonalW-tendency from turbulence
              ddt_u_gwd       (:,:,:)  ,& !! ZonalW-tendency from gravity wave drag
+             ddt_u_raylfric  (:,:,:)  ,& !! ZonalW-tendency from artificial Rayleigh friction
              ddt_u_sso       (:,:,:)  ,& !! ZonalW-tendency from sso drag
              ddt_u_pconv     (:,:,:)  ,& !! ZonalW-tendency from convective prec
              ddt_v_turb      (:,:,:)  ,& !! MeridW-tendency from turbulence
              ddt_v_gwd       (:,:,:)  ,& !! MeridW-tendency from gravity wave drag
+             ddt_v_raylfric  (:,:,:)  ,& !! MeridW-tendency from artificial Rayleigh friction
              ddt_v_sso       (:,:,:)  ,& !! MeridW-tendency from sso drag
              ddt_v_pconv     (:,:,:)  ,& !! MeridW-tendency from convective prec
              ddt_tracer_turb (:,:,:,:),& !! Hydromet-tendency from turbulence
@@ -1388,20 +1389,12 @@ SUBROUTINE new_nwp_phy_tend_list( klev,  kblks,   &
     CALL add_var( phy_tend_list, 'ddt_temp_turb', phy_tend%ddt_temp_turb,        &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
 
-   ! &      phy_tend%ddt_temp_sso(nproma,nlev,nblks),          &
-    cf_desc    = t_cf_var('temp_tend_sso', 'K s-1', &
-         &                            'sso temperature tendency')
+   ! &      phy_tend%ddt_temp_drag(nproma,nlev,nblks),          &
+    cf_desc    = t_cf_var('temp_tend_drag', 'K s-1', &
+         &                'sso + gwdrag temperature tendency')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( phy_tend_list, 'ddt_temp_sso', phy_tend%ddt_temp_sso,        &
+    CALL add_var( phy_tend_list, 'ddt_temp_drag', phy_tend%ddt_temp_drag,        &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
-
-   ! &      phy_tend%ddt_temp_gwd(nproma,nlev,nblks),          &
-    cf_desc    = t_cf_var('ddt_temp_gwd', 'K s-1', &
-         &                            'GWD temperature tendency')
-    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( phy_tend_list, 'ddt_temp_gwd', phy_tend%ddt_temp_gwd,        &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d ) !,&
-!                &  lmiss=.true.,     missval=0._wp                      )
 
    ! &      phy_tend%ddt_temp_pconv(nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('ddt_temp_pconv', 'K s-1', &
@@ -1443,6 +1436,13 @@ SUBROUTINE new_nwp_phy_tend_list( klev,  kblks,   &
     CALL add_var( phy_tend_list, 'ddt_u_gwd', phy_tend%ddt_u_gwd,        &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
 
+   ! &      phy_tend%ddt_u_raylfric(nproma,nlev,nblks),          &
+    cf_desc    = t_cf_var('ddt_u_raylfric', 'm s-2', &
+         &                'Rayleigh friction tendency of zonal wind')
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( phy_tend_list, 'ddt_u_raylfric', phy_tend%ddt_u_raylfric,        &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+
    ! &      phy_tend%ddt_u_pconv(nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('ddt_u_pconv', 'm s-2', &
          &                            'convection tendency of zonal wind')
@@ -1474,6 +1474,13 @@ SUBROUTINE new_nwp_phy_tend_list( klev,  kblks,   &
          &                            'GWD tendency of meridional wind')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( phy_tend_list, 'ddt_v_gwd', phy_tend%ddt_v_gwd,        &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+
+   ! &      phy_tend%ddt_v_raylfric(nproma,nlev,nblks),          &
+    cf_desc    = t_cf_var('ddt_v_raylfric', 'm s-2', &
+         &                'Rayleigh friction tendency of meridional wind')
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( phy_tend_list, 'ddt_v_raylfric', phy_tend%ddt_v_raylfric,        &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
 
    ! &      phy_tend%ddt_v_pconv(nproma,nlev,nblks),          &

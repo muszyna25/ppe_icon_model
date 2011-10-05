@@ -81,9 +81,7 @@ MODULE mo_nonhydrostatic_config
     ! Parameters active with cell_type=3 only
 
     REAL(wp):: damp_height(max_dom)    ! height at which w-damping and sponge layer start
-    REAL(wp):: damp_height_u           ! height at which Rayleigh damping of u starts
     REAL(wp):: rayleigh_coeff(max_dom) ! Rayleigh damping coefficient in w-equation
-    REAL(wp):: damp_timescale_u ! damping time scale for u in uppermost layer (in seconds)
     REAL(wp):: vwind_offctr     ! Off-centering in vertical wind solver
     INTEGER :: iadv_rhotheta    ! Advection scheme used for density and pot. temperature
     INTEGER :: igradp_method    ! Method for computing the horizontal presure gradient

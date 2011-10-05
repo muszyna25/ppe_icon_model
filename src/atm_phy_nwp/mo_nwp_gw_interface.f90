@@ -51,7 +51,6 @@ MODULE mo_nwp_gw_interface
   USE mo_ext_data,             ONLY: t_external_data
   USE mo_nonhydro_state,       ONLY: t_nh_prog, t_nh_diag,&
     &                                t_nh_metrics
-  USE mo_vertical_grid,        ONLY: nrdmax_u
   USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_parallel_config,      ONLY: nproma
   USE mo_run_config,           ONLY: msg_level
@@ -161,7 +160,7 @@ CONTAINS
         !tendencies  have to be set to zero
         prm_nwp_tend%ddt_u_sso   (:,:,jb) = 0._wp
         prm_nwp_tend%ddt_v_sso   (:,:,jb) = 0._wp
-        prm_nwp_tend%ddt_temp_sso(:,:,jb) = 0._wp
+ !       prm_nwp_tend%ddt_temp_sso(:,:,jb) = 0._wp
 
         ! since we have only currently one scheme for sso, it
         ! is sufficient to ask for the timing
@@ -189,8 +188,10 @@ CONTAINS
           & pdt       = tcall_sso_jg                    ,  & !< in:  time step
           & ldebug    =.FALSE.                          ,  & !< in:  debug control switch
           & pdu_sso   =prm_nwp_tend%ddt_u_sso   (:,:,jb),  & !< out: u-tendency due to SSO
-          & pdv_sso   =prm_nwp_tend%ddt_v_sso   (:,:,jb),  & !< out: v-tendency due to SSO
-          & pdt_sso   =prm_nwp_tend%ddt_temp_sso(:,:,jb)   ) !< out: temperature tendency
+          & pdv_sso   =prm_nwp_tend%ddt_v_sso   (:,:,jb)   ) !< out: v-tendency due to SSO
+ ! GZ: The computation of the frictional heating rate is now done in interface_nwp for
+ ! SSO, GWD and Rayleigh friction together
+ !         & pdt_sso   =prm_nwp_tend%ddt_temp_sso(:,:,jb)   ) !< out: temperature tendency
                                                              ! due to SSO
       ENDIF
 
@@ -226,22 +227,6 @@ CONTAINS
            & pfluxu   = z_fluxu (:,:,jb)                ,  & !< out: zonal  GWD vertical mom flux
            & pfluxv   = z_fluxv (:,:,jb)   )                 !< out: merid. GWD vertical mom flux
 
-      ELSE
-
-        prm_nwp_tend%ddt_u_gwd(:,:,jb) = 0._wp
-        prm_nwp_tend%ddt_v_gwd(:,:,jb) = 0._wp
-
-      ENDIF
-
-! artificial Rayleigh friction
-
-      IF (lcall_gwd_jg .AND. atm_phy_nwp_config(jg)%inwp_gwd > 0) THEN
-        DO jk = 1, nrdmax_u(p_patch%id)
-          DO jc = i_startidx, i_endidx
-            prm_nwp_tend%ddt_u_gwd(jc,jk,jb) = prm_nwp_tend%ddt_u_gwd(jc,jk,jb) - &
-              p_metrics%rayleigh_u(jk) * p_diag%u(jc,jk,jb)
-          ENDDO
-        ENDDO
       ENDIF
 
     ENDDO ! jb

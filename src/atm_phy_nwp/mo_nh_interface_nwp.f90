@@ -73,7 +73,7 @@ MODULE mo_nh_interface_nwp
   USE mo_run_config,         ONLY: ntracer, iqv, iqc, iqi, &
        &                           iqr, iqs, msg_level, ltimer, timers_level
   USE mo_io_config,          ONLY: lflux_avg
-  USE mo_physical_constants, ONLY: rd, rd_o_cpd, vtmpc1, p0ref, cvd_o_rd 
+  USE mo_physical_constants, ONLY: rd, rd_o_cpd, vtmpc1, p0ref, cvd_o_rd, rcvd
 
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
 
@@ -192,8 +192,11 @@ CONTAINS
 
     REAL(wp) :: rd_o_cvd
 
-    REAL(wp)  z_qsum       !< summand of virtual increment
-    REAL(wp)  z_ddt_qsum   !< summand of tendency of virtual increment
+    REAL(wp) :: z_qsum       !< summand of virtual increment
+    REAL(wp) :: z_ddt_qsum   !< summand of tendency of virtual increment
+
+    ! auxiliaries for Rayleigh friction computation
+    REAL(wp) :: vabs, rfric_fac, ustart, uoffset_q, ustart_q, max_relax
 
     REAL(wp) :: rcld(nproma,pt_patch%nlevp1)
 
@@ -1081,6 +1084,11 @@ CONTAINS
 
       IF (timers_level > 2) CALL timer_start(timer_physic_acc_1)
 
+      ! Coefficients for extra Rayleigh friction
+      ustart    = atm_phy_nwp_config(jg)%ustart_raylfric
+      uoffset_q = ustart + 40._wp
+      ustart_q  = ustart + 50._wp
+      max_relax = -1._wp/atm_phy_nwp_config(jg)%efdt_min_raylfric
 
       !in order to account for mesh refinement
       rl_start = grf_bdywidth_c+1
@@ -1090,18 +1098,48 @@ CONTAINS
       i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
       
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx, i_endidx , z_qsum, z_ddt_qsum)
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx, i_endidx , z_qsum, z_ddt_qsum, vabs, rfric_fac)
 !
       DO jb = i_startblk, i_endblk
 !
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
 &                       i_startidx, i_endidx, rl_start, rl_end)
 
+
+        ! artificial Rayleigh friction: active if GWD scheme is switched on,
+        ! but computed at fast-physics time step
+        IF (atm_phy_nwp_config(jg)%inwp_gwd > 0) THEN
+          DO jk = 1, nlev
+            DO jc = i_startidx, i_endidx
+              vabs = SQRT(pt_diag%u(jc,jk,jb)**2 + pt_diag%v(jc,jk,jb)**2)
+              rfric_fac = MAX(0._wp, 8.e-4_wp*(vabs-ustart))
+              IF (vabs > ustart_q) THEN
+                rfric_fac = MIN(1._wp,4.e-4_wp*(vabs-uoffset_q)**2)
+              ENDIF
+              prm_nwp_tend%ddt_u_raylfric(jc,jk,jb) = max_relax*rfric_fac*pt_diag%u(jc,jk,jb)
+              prm_nwp_tend%ddt_v_raylfric(jc,jk,jb) = max_relax*rfric_fac*pt_diag%v(jc,jk,jb)
+            ENDDO
+          ENDDO
+        ENDIF
+
+        ! heating related to momentum deposition by SSO, GWD and Rayleigh friction
+        DO jk = 1, nlev
+          DO jc = i_startidx, i_endidx
+            prm_nwp_tend%ddt_temp_drag(jc,jk,jb) = -rcvd*(pt_diag%u(jc,jk,jb)*             &
+                                                   (prm_nwp_tend%ddt_u_sso(jc,jk,jb)+      &
+                                                    prm_nwp_tend%ddt_u_gwd(jc,jk,jb)+      &
+                                                    prm_nwp_tend%ddt_u_raylfric(jc,jk,jb)) &
+                                                   +      pt_diag%v(jc,jk,jb)*             & 
+                                                   (prm_nwp_tend%ddt_v_sso(jc,jk,jb)+      &
+                                                    prm_nwp_tend%ddt_v_gwd(jc,jk,jb)+      &
+                                                    prm_nwp_tend%ddt_v_raylfric(jc,jk,jb)) )
+          ENDDO
+        ENDDO
+
         z_ddt_temp(i_startidx:i_endidx,:,jb) =                                               &
    &                                       prm_nwp_tend%ddt_temp_radsw(i_startidx:i_endidx,:,jb) &
    &                                    +  prm_nwp_tend%ddt_temp_radlw(i_startidx:i_endidx,:,jb) &
-   &                                    +  prm_nwp_tend%ddt_temp_gwd  (i_startidx:i_endidx,:,jb) &
-   &                                    +  prm_nwp_tend%ddt_temp_sso  (i_startidx:i_endidx,:,jb) &
+   &                                    +  prm_nwp_tend%ddt_temp_drag (i_startidx:i_endidx,:,jb) &
    &                                    +  prm_nwp_tend%ddt_temp_pconv(i_startidx:i_endidx,:,jb)
 
 !   microphysics and turbulent increments are already updated
@@ -1214,17 +1252,20 @@ CONTAINS
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
 &                       i_startidx, i_endidx, rl_start, rl_end)
 
-        z_ddt_u_tot(i_startidx:i_endidx,:,jb) =                                            &
-   &                                         prm_nwp_tend%ddt_u_turb (i_startidx:i_endidx,:,jb)&
-   &                                       + prm_nwp_tend%ddt_u_gwd  (i_startidx:i_endidx,:,jb)&
-   &                                       + prm_nwp_tend%ddt_u_sso  (i_startidx:i_endidx,:,jb)&
-   &                                       + prm_nwp_tend%ddt_u_pconv(i_startidx:i_endidx,:,jb)
+        z_ddt_u_tot(i_startidx:i_endidx,:,jb) =                   &
+   &        prm_nwp_tend%ddt_u_turb    (i_startidx:i_endidx,:,jb) &
+   &      + prm_nwp_tend%ddt_u_gwd     (i_startidx:i_endidx,:,jb) &
+   &      + prm_nwp_tend%ddt_u_raylfric(i_startidx:i_endidx,:,jb) &
+   &      + prm_nwp_tend%ddt_u_sso     (i_startidx:i_endidx,:,jb) &
+   &      + prm_nwp_tend%ddt_u_pconv  ( i_startidx:i_endidx,:,jb)
 
-        z_ddt_v_tot(i_startidx:i_endidx,:,jb) =                                            &
-   &                                         prm_nwp_tend%ddt_v_turb (i_startidx:i_endidx,:,jb)&
-   &                                       + prm_nwp_tend%ddt_v_gwd  (i_startidx:i_endidx,:,jb)&
-   &                                       + prm_nwp_tend%ddt_v_sso  (i_startidx:i_endidx,:,jb)&
-   &                                       + prm_nwp_tend%ddt_v_pconv(i_startidx:i_endidx,:,jb)
+        z_ddt_v_tot(i_startidx:i_endidx,:,jb) =                   &
+   &        prm_nwp_tend%ddt_v_turb    (i_startidx:i_endidx,:,jb) &
+   &      + prm_nwp_tend%ddt_v_gwd     (i_startidx:i_endidx,:,jb) &
+   &      + prm_nwp_tend%ddt_v_raylfric(i_startidx:i_endidx,:,jb) &
+   &      + prm_nwp_tend%ddt_v_sso     (i_startidx:i_endidx,:,jb) &
+   &      + prm_nwp_tend%ddt_v_pconv  ( i_startidx:i_endidx,:,jb)
+
         ENDDO
 !$OMP END DO
 !$OMP END PARALLEL

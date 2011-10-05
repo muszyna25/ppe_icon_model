@@ -455,7 +455,11 @@ SUBROUTINE sso (                                                       &
 
 !     Tendencies of T, u and v
 !
+#ifdef __ICON__
+      REAL(KIND=ireals), OPTIONAL :: pdt_sso(ie,je,ke)
+#else
       REAL(KIND=ireals) :: pdt_sso(ie,je,ke)
+#endif
       REAL(KIND=ireals) :: pdv_sso(ie,je,ke)
       REAL(KIND=ireals) :: pdu_sso(ie,je,ke)
 
@@ -538,7 +542,9 @@ SUBROUTINE sso (                                                       &
           DO j1=istart,iend
             pdu_sso(j1,j2,j3) = 0.0_ireals
             pdv_sso(j1,j2,j3) = 0.0_ireals
+#ifndef __ICON__
             pdt_sso(j1,j2,j3) = 0.0_ireals
+#endif
             zfi    (j1,j2,j3) = pfif(j1,j2,j3)-pfis(j1,j2)
           END DO
         END DO
@@ -657,12 +663,13 @@ SUBROUTINE sso (                                                       &
 !        zvst             = pv(j1,j2,j3)+zdt2*zdvdt(j1,j2)
 !        zdis=0.5_ireals*(pu(j1,j2,j3)**2+pv(j1,j2,j3)**2-zust**2-zvst**2)
 !        zdedt            = zdis/zdt2
+#ifndef __ICON__
         zdedt = -(pu(j1,j2,j3)*zdudt(j1,j2)+pv(j1,j2,j3)*zdvdt(j1,j2))
         zdtdt(j1,j2)     = zdedt       /Cp_d
         pdt_sso(j1,j2,j3)= zdtdt(j1,j2)
 !        zvidis(j1,j2)=zvidis(j1,j2)+zdis*zdelp    ! de-activated
         zvidis(j1,j2)=zvidis(j1,j2)+zdedt*zdelp    ! de-activated
-
+#endif
         ENDIF
 
         END DO
