@@ -391,7 +391,7 @@ CONTAINS
   REAL(wp):: z_lat, z_lon 
   REAL(wp):: z_dst, z_lat_deg, z_lon_deg, z_tmp
   REAL(wp):: z_perlon, z_perlat, z_permax, z_perwid !,z_H_0
-  REAL(wp):: z_ttrop, z_tpol, z_tdeep, z_tdiff, z_ltrop, z_lpol, z_ldiff
+  REAL(wp):: z_ttrop, z_tpol, z_tpols, z_tdeep, z_tdiff, z_ltrop, z_lpol, z_ldiff
   !TYPE(t_cartesian_coordinates)    :: p_x 
   !TYPE(t_geographical_coordinates) :: p_pos
   REAL(wp), PARAMETER :: tprof(20)=&
@@ -1015,6 +1015,67 @@ END DO
 ! !       END DO
 
     CASE (40) ! #slo# global temperature initialization for forcing tests
+      
+      ! Temperature profile depends on latitude and depth
+      ! Construct temperature profile 
+      !   ttrop for lat<ltrop; tpol for lat>lpol; cos for transition zone
+      !   for maximum tropical temperature see values above
+      z_tpol  =  5.0_wp      ! polar temperature
+      z_ltrop = 15.0_wp      ! tropical latitude for temperature gradient
+      z_lpol  = 60.0_wp      ! polar latitude for temperature gradient
+      z_ldiff = z_lpol  - z_ltrop
+
+      DO jb = i_startblk_c, i_endblk_c    
+        CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
+         &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
+
+        DO jc = i_startidx_c, i_endidx_c
+
+          !latitude given in radians
+          z_lat = ppatch%cells%center(jc,jb)%lat
+          !transer to latitude in degrees
+          z_lat_deg = z_lat*rad2deg
+
+          ! bugfix: z_tpol was 0 for 10 levels since jk was inner loop
+          !         does not effect 4 levels
+          z_tpols = z_tpol
+          DO jk=1,n_zlev
+          IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+
+            ! set maximum tropical temperature from profile above
+            z_ttrop = tprof_var(jk)
+            z_tpols = MIN(z_tpols,tprof_var(jk))
+            z_tdiff = z_ttrop - z_tpols
+
+            !constant salinity
+            IF(no_tracer==2)THEN
+              p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof(jk) !35.0_wp
+            ENDIF
+
+            IF(abs(z_lat_deg)>=z_lpol)THEN
+
+              p_os%p_diag%temp_insitu(jc,jk,jb) = z_tpols
+              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = p_os%p_diag%temp_insitu(jc,jk,jb)
+
+            ELSEIF(abs(z_lat_deg)<=z_ltrop)THEN
+
+              p_os%p_diag%temp_insitu(jc,jk,jb) = z_ttrop
+              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = p_os%p_diag%temp_insitu(jc,jk,jb)
+
+
+            ELSEIF(abs(z_lat_deg)<z_lpol .AND. abs(z_lat_deg)>z_ltrop)THEN
+              z_tmp = 0.5_wp*pi*((abs(z_lat_deg) - z_ltrop)/z_ldiff)
+              p_os%p_diag%temp_insitu(jc,jk,jb) = z_ttrop - z_tdiff*sin(z_tmp)
+              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = p_os%p_diag%temp_insitu(jc,jk,jb)
+            ENDIF
+          ENDIF   ! lsm
+          END DO
+        END DO
+      END DO
+
+    ! #slo 2011-10-05#
+    !  incorrect (for n_zlev>9) old testcase 40 with z_tpol=0.0 at poles saved for reference
+    CASE (41)
       
       ! Temperature profile depends on latitude and depth
       ! Construct temperature profile 
