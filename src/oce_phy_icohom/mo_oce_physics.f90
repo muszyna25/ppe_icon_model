@@ -89,6 +89,7 @@ CHARACTER(len=*), PARAMETER :: version = '$Id$'
 CHARACTER(len=*), PARAMETER :: this_mod_name = 'mo_oce_physics'
 
 ! Public interface
+PUBLIC :: t_ptr3d, t_ho_params
 
 !PUBLIC :: init_ho_physics
 PUBLIC :: construct_ho_params
@@ -134,7 +135,6 @@ TYPE t_ho_params
 END TYPE t_ho_params
 
 
-PUBLIC :: t_ho_params
 
 CONTAINS
 
