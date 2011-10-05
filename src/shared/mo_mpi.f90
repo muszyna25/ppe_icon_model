@@ -26,7 +26,7 @@ MODULE mo_mpi
   ! split the global communicator to _process_mpi_communicator
   PUBLIC :: split_global_mpi_communicator
   !The given communicator will be the all communicator for this component
-  PUBLIC :: set_process_mpi_communicator
+!   PUBLIC :: set_process_mpi_communicator
   ! Sets the test, work, i/o communicators
   PUBLIC :: set_mpi_work_communicators
   ! Sets the p_comm_input_bcast
@@ -42,6 +42,9 @@ MODULE mo_mpi
   PUBLIC :: my_process_is_mpi_all_seq, my_process_is_io
 
   ! get parameters
+  PUBLIC :: get_my_mpi_communicator   ! the communicator for the specific component, ie the process_mpi_all_comm
+  PUBLIC :: get_my_mpi_communicator_size   ! this is the the size of the communicator for the specific component
+  
   PUBLIC :: get_mpi_all_workroot_id, get_my_global_mpi_id, get_my_mpi_all_id
   PUBLIC :: default_comm_type, null_comm_type
 
@@ -151,9 +154,9 @@ MODULE mo_mpi
   
   
   ! this is the local work communicator (computation, i/o, etc)
-  INTEGER :: process_mpi_local_comm     ! communicator in the work group
-  INTEGER :: process_mpi_local_size     ! total number of processes in the whole model-component
-  INTEGER :: my_process_mpi_local_id
+!   INTEGER :: process_mpi_local_comm     ! communicator in the work group
+!   INTEGER :: process_mpi_local_size     ! total number of processes in the whole model-component
+!   INTEGER :: my_process_mpi_local_id
   
   INTEGER :: my_mpi_function  ! test, or work, or i/o
   INTEGER, PARAMETER :: test_mpi_process = 1
@@ -409,6 +412,18 @@ CONTAINS
   END FUNCTION get_my_global_mpi_id
   !------------------------------------------------------------------------------
 
+  !------------------------------------------------------------------------------
+  INTEGER FUNCTION get_my_mpi_communicator()
+    get_my_mpi_communicator = process_mpi_all_comm
+  END FUNCTION get_my_mpi_communicator
+  !------------------------------------------------------------------------------
+  
+  !------------------------------------------------------------------------------
+  INTEGER FUNCTION get_my_mpi_communicator_size()
+    get_my_mpi_communicator_size = process_mpi_all_size
+  END FUNCTION get_my_mpi_communicator_size
+  !------------------------------------------------------------------------------
+  
   !------------------------------------------------------------------------------
   INTEGER FUNCTION get_my_mpi_all_id()
     get_my_mpi_all_id = my_process_mpi_all_id
@@ -804,9 +819,9 @@ CONTAINS
     IF (my_process_is_mpi_test()) process_is_mpi_parallel = .false.
 
     ! still to be filled
-    process_mpi_local_comm  = process_mpi_all_comm
-    process_mpi_local_size  = process_mpi_all_size
-    my_process_mpi_local_id = my_process_mpi_all_id
+!     process_mpi_local_comm  = process_mpi_all_comm
+!     process_mpi_local_size  = process_mpi_all_size
+!     my_process_mpi_local_id = my_process_mpi_all_id
 
     ! fill my  parameters
     is_mpi_test_run = p_test_run
@@ -833,9 +848,9 @@ CONTAINS
     is_mpi_test_run = .false.
     is_openmp_test_run = .false.
 
-    process_mpi_local_comm  = process_mpi_all_comm
-    process_mpi_local_size  = process_mpi_all_size
-    my_process_mpi_local_id = my_process_mpi_all_id         
+!     process_mpi_local_comm  = process_mpi_all_comm
+!     process_mpi_local_size  = process_mpi_all_size
+!     my_process_mpi_local_id = my_process_mpi_all_id         
 
     ! set some of the old variables
     ! should be removed once the old variables are cleaned
