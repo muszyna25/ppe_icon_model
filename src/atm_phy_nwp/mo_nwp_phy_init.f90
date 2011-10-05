@@ -71,20 +71,22 @@ MODULE mo_nwp_phy_init
   USE mo_gscp_cosmo,          ONLY: hydci_pp_init
   ! convection
   USE mo_cuparameters,        ONLY: sucst,  sucumf,    &
-    &                                su_yoethf,         &
-    &                                sucldp, suphli,    &
-    &                                suvdf , suvdfs
+    &                               su_yoethf,         &
+    &                               sucldp, suphli,    &
+    &                               suvdf , suvdfs
   USE mo_convect_tables,      ONLY: init_convect_tables
-  !turbulence
+  ! EDMF DUAL turbulence
+  USE mo_edmf_param,          ONLY: suct0, su0phy, susekf
+  ! turbulence
   USE mo_turbdiff_config,     ONLY: turbdiff_config
-!  USE mo_turbdiff_ras,        ONLY: init_canopy, organize_turbdiff
+! USE mo_turbdiff_ras,        ONLY: init_canopy, organize_turbdiff
   USE src_turbdiff,           ONLY: init_canopy, organize_turbdiff
-! for APE_nh experiments
+  ! for APE_nh experiments
 
   ! air-sea-land interface
   USE mo_icoham_sfc_indices,  ONLY: nsfc_type, iwtr, iice, ilnd !, &
- !   &                                init_sfc_indices
- ! vertical diffusion
+  !   &                                init_sfc_indices
+  ! vertical diffusion
   USE mo_echam_vdiff_params,  ONLY: init_vdiff_params, z0m_min, &
     &                                tke_min
   USE mo_vdiff_solver,        ONLY: init_vdiff_solver
@@ -473,7 +475,8 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
   !----------------------------------------------------------------
 
   IF ( atm_phy_nwp_config(jg)%inwp_convection == 1 .OR. &
-    &  atm_phy_nwp_config(jg)%inwp_cldcover == 1 ) THEN
+    &  atm_phy_nwp_config(jg)%inwp_cldcover == 1   .OR. &
+    &  atm_phy_nwp_config(jg)%inwp_turb == 3 )     THEN
     
     !This has to be done here because not only convection, but also inwp_cldcover == 1 
     !uses mo_cufunctions's foealfa. Therefore, the parameters of the function foealfa
@@ -488,7 +491,8 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
   !< call for convection
   !------------------------------------------
 
-  IF (  atm_phy_nwp_config(jg)%inwp_convection == 1 ) THEN
+  IF ( atm_phy_nwp_config(jg)%inwp_convection == 1 .OR. &
+    &  atm_phy_nwp_config(jg)%inwp_turb == 3 )     THEN
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init convection')
 ! Please take care for scale-dependent initializations!
@@ -678,7 +682,10 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
 
     CALL message('mo_nwp_phy_init:', 'echam turbulence initialized')
 
-! ELSE IF (  atm_phy_nwp_config(jg)%inwp_turb == 3) THEN  !DUALM
+  ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == 3 ) THEN  !EDMF DUALM
+    CALL suct0
+    CALL su0phy
+    CALL susekf
   ENDIF
 
 

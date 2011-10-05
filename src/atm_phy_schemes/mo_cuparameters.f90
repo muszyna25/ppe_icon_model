@@ -436,37 +436,41 @@ MODULE mo_cuparameters
   
   !yoecld
   PUBLIC :: rlmin
-  
   !yomcst
-  PUBLIC :: retv     ,rlvtt ,rlstt    ,rtt   ,&
-    & rg       ,rcpd  ,rd       ,&
-    & rkappa   ,ratm  ,rpi, rlmlt
+  PUBLIC :: retv      ,rlvtt ,rlstt  ,rtt    ,&
+    & rg       ,rcpd  ,rd    ,rv     ,&
+    & rkappa   ,ratm  ,rpi   ,rlmlt
   !yoecumf
-  PUBLIC ::  entrorg, entrmid, rprcon,rmfcmax,rmfcmin,&
-    & lmfmid,  detrpen                        ,&
-    & entrpen  ,entrscv  ,lmfdd    ,lmfdudv   ,&
-    & rtau     ,rdepths ,lmfscv  ,lmfpen     ,&
-    & lmfit    ,rmfcfl    ,rmflic            ,&
-    & rmflia   ,rmfsoluv                     ,&
-    & ruvper   ,rmfsoltq,rmfsolct   ,&
-    & lmfsmooth,lmfwstar ,LMFUVDIS , lmftrac ,&
-    & entrdd,   njkt1                        ,&
-    & njkt2    ,njkt3,   njkt4    ,njkt5     ,&
-    & rcucov   ,rcpecons ,rtaumel  ,rhebc    ,&
+  PUBLIC ::  entrorg, entrmid, rprcon, rmfcmax, rmfcmin,&
+    & lmfmid   ,detrpen                       ,&
+    & entrpen  ,entrscv   ,lmfdd    ,lmfdudv  ,&
+    & rtau     ,rdepths   ,lmfscv   ,lmfpen   ,&
+    & lmfit    ,rmfcfl    ,rmflic             ,&
+    & rmflia   ,rmfsoluv                      ,&
+    & ruvper   ,rmfsoltq  ,rmfsolct ,&
+    & lmfsmooth,lmfwstar  ,LMFUVDIS , lmftrac ,&
+    & entrdd   ,njkt1                         ,&
+    & njkt2    ,njkt3     ,njkt4    ,njkt5    ,&
+    & rcucov   ,rcpecons  ,rtaumel  ,rhebc    ,&
     & rmfdeps
-  
-  
+  !yoephli
   PUBLIC ::  lphylin, rlptrc   ,rlpal1   ,rlpal2
+  !yoephy
   PUBLIC ::  lepcld
-  PUBLIC ::  rkap, rvdifts
+  !yoevdf
+  PUBLIC ::  rkap, rvdifts, repdu2
+  !yoethf
   PUBLIC ::  r2es,    r3les,  r3ies,  r4les, r4ies,  &
     & r5les,   r5ies,  rvtmp2 ,rhoh2o,r5alvcp,&
     & r5alscp, ralvdcp,ralsdcp,ralfdcp,       &
     & rtwat,   rtber,  rtbercu,rtice, rticecu,&
     & rtwat_rtice_r, rtwat_rticecu_r
-  PUBLIC ::  rcdhalf, rcdhpi2, rcheta, rchetb, rchbb, &
-    & rchbcd,  rchbd,   rchb23a,rchbbcd,rchba
-  
+  !yoevdfs
+  PUBLIC ::  jpritbl, ritbl, aritbl, rcdhalf, rcdhpi2, rcheta, rchetb, rchbb, &
+    & rchbcd, rchbd, rchb23a, rchbbcd, rchba, rimax, dritbl, dri26
+
+  PUBLIC :: phihu, phimu, phims, phihs
+
   PUBLIC :: sucst
   PUBLIC :: sucumf
   PUBLIC :: su_yoethf
@@ -670,6 +674,43 @@ CONTAINS
   END FUNCTION rtime
   
   
+  ! fcvdfs.h
+  !     ------------------------------------------------------------------
+  !     *FCVDFS** CONTAINS STATEMENT FUNCTIONS DESCRIBING STAB. FUNCT.
+  !
+  !          *THE STABILITY FUNCTIONS ARE THE SO-CALLED *PHI* AND
+  !     *PSI*-FUNCTIONS. THE *PSI*-FUNCTIONS GIVE THE STABILITY
+  !     CORRECTIONS IN THE LOGARITHMIC PROFILES FOR
+  !     WIND, DRY STATIC ENERGY AND SPECIFIC HUMIDITY. THE FUNCTIONS
+  !     DEPEND ON THE RATIO OF HEIGHT AND *OBUKHOV LENGTH (*ETA*).
+  !          FOR THE UNSTABLE BOUNDARY LAYER, THE *DYER AND *HICKS
+  !     FORMULATIONS ARE USED (CF. *DYER, 1974; *HOGSTROM, 1988). IN
+  !     STABLE SITUATIONS, THE EMPIRICAL FORMS, PROPOSED BY *HOLTSLAG
+  !     AND *DEBRUIN ARE USED WITH A MODIFICATION TO SATISFY A CRITICAL
+  !     FLUX-*RICHARDSON NUMBER FOR LARGE *ETA*.
+  !          THE *PHI* AND *PSI* FUNCTIONS ARE INTERRELATED. THE *PSI*
+  !     FUNCTIONS CAN BE DERIVED FROM THE *PHI* FUNCTIONS BY INTEGRATION
+  !     OF (1.-PHI)/ETA OR *PHI* FROM *PSI* BY COMPUTING
+  !     (1.-ETA*DPSI/DETA) (SEE ALSO *HAUGEN, 1973; WORKSHOP ON
+  !     MICROMETEOROLOGY, P. 77).
+  !     ------------------------------------------------------------------
+
+
+  !        *PHI AND *PSI FUNCTIONS FOR UNSTABLE SITUATIONS ACCORDING
+  !        TO *DYER AND *HICKS
+
+  ELEMENTAL FUNCTION phihu(peta)
+    REAL(KIND=jprb)             :: phihu
+    REAL(KIND=jprb), INTENT(in) :: peta
+    phihu = 1.0_JPRB/     SQRT(1.0_JPRB-RCDHALF*PETA)
+  END FUNCTION phihu
+
+  ELEMENTAL FUNCTION phimu(peta)
+    REAL(KIND=jprb)             :: phimu
+    REAL(KIND=jprb), INTENT(in) :: peta
+    phimu = 1.0_JPRB/SQRT(SQRT(1.0_JPRB-RCDHALF*PETA))
+  END FUNCTION phimu
+
   !        *PHI AND *PSI FUNCTIONS FOR UNSTABLE SITUATIONS ACCORDING
   !        TO HOGSTROM FOR MOMENTUM AND DERIVED FROM THE ELLISON AND
   !        TURNER RELATION FOR THE RATIO OF PHIM AMD PHIH.
@@ -685,7 +726,11 @@ CONTAINS
     REAL(KIND=jprb), INTENT(in) :: peta
     phihs = (1.0_JPRB+rchetb*peta)**2
   END FUNCTION phihs
-  
+
+
+
+ 
+ 
   SUBROUTINE sucst(kulout,kdat,ksss,kprintlev)
     !>
     !! Description:

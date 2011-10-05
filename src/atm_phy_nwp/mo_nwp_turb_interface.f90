@@ -5,6 +5,7 @@
 !! turbulence parameterisations:
 !! inwp_turb == 1 == turbulence scheme by M. Raschendorfer run in COSMO
 !! inwp_turb == 2 == turbulence scheme by Brinkop and Roeckner run in ECHAM
+!! inwp_turb == 3 == EDMF DUAL turbulence scheme by Koehler and Neggers from IFS
 !!
 !! @author Kristina Froehlich, DWD, Offenbach (2010-01-25)
 !!
@@ -521,7 +522,7 @@ CONTAINS
      CALL message('', TRIM(message_text))
       WRITE(message_text,'(a,3E15.7)') ' bottom TKE after turbulence = ', &
            &  p_prog_rcf%tke(1,nlev+1,12), p_prog_rcf%tke(1,nlev,12),&
-          &  p_prog_rcf%tke(1,nlev-1,12)
+           &  p_prog_rcf%tke(1,nlev-1,12)
       CALL message('', TRIM(message_text))
     ENDIF
 
