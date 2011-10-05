@@ -39,7 +39,7 @@
 
 MODULE mo_vdfincr
  
-  PUBLIC :: vdfdpbl
+  PUBLIC :: vdfincr
 
 CONTAINS
 

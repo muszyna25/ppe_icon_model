@@ -169,7 +169,6 @@ END FUNCTION foealfa
 
 ELEMENTAL FUNCTION foeewm(ptare)
   USE mo_cuparameters ,ONLY   :  r2es, r3les, rtt, r4les, r3ies, r4ies
-  USE mo_edmf_param   ,ONLY   :  foealfa
   REAL(KIND=jprb)             :: foeewm
   REAL(KIND=jprb), INTENT(in) :: ptare
   FOEEWM = R2ES *&
@@ -179,7 +178,6 @@ END FUNCTION foeewm
 
 ELEMENTAL FUNCTION FOEDEM(ptare)
   USE mo_cuparameters ,ONLY   :  r5alvcp, r4les, r5alscp, r4ies
-  USE mo_edmf_param   ,ONLY   :  foealfa
   REAL(KIND=jprb)             :: FOEDEM
   REAL(KIND=jprb), INTENT(in) :: ptare
   FOEDEM = FOEALFA(PTARE)*R5ALVCP*(1.0_JPRB/(PTARE-R4LES)**2)+&
@@ -188,7 +186,6 @@ END FUNCTION FOEDEM
 
 ELEMENTAL FUNCTION FOELDCPM(ptare)
   USE mo_cuparameters ,ONLY   :  ralvdcp, ralsdcp
-  USE mo_edmf_param   ,ONLY   :  foealfa
   REAL(KIND=jprb)             :: FOELDCPM
   REAL(KIND=jprb), INTENT(in) :: ptare
   FOELDCPM = FOEALFA(PTARE)*RALVDCP+&
@@ -205,7 +202,6 @@ END FUNCTION foealfcu
 
 ELEMENTAL FUNCTION FOEEWMCU(ptare)
   USE mo_cuparameters ,ONLY   :  r2es, r3les, rtt, r4les, r3ies, r4ies
-  USE mo_edmf_param   ,ONLY   :  foealfcu
   REAL(KIND=jprb)             :: FOEEWMCU
   REAL(KIND=jprb), INTENT(in) :: ptare
   FOEEWMCU = R2ES *&
@@ -215,7 +211,6 @@ END FUNCTION FOEEWMCU
 
 ELEMENTAL FUNCTION FOEDEMCU(ptare)
   USE mo_cuparameters ,ONLY   :  r5alvcp, r4les, r5alscp, r4ies 
-  USE mo_edmf_param   ,ONLY   :  foealfcu
   REAL(KIND=jprb)             :: FOEDEMCU
   REAL(KIND=jprb), INTENT(in) :: ptare
   FOEDEMCU = FOEALFCU(PTARE)*R5ALVCP*(1.0_JPRB/(PTARE-R4LES)**2)+&
@@ -224,7 +219,6 @@ END FUNCTION FOEDEMCU
 
 ELEMENTAL FUNCTION FOELDCPMCU(ptare)
   USE mo_cuparameters ,ONLY   :  ralvdcp, ralsdcp
-  USE mo_edmf_param   ,ONLY   :  foealfcu
   REAL(KIND=jprb)             :: FOELDCPMCU
   REAL(KIND=jprb), INTENT(in) :: ptare
   FOELDCPMCU = FOEALFCU(PTARE)*RALVDCP+&
