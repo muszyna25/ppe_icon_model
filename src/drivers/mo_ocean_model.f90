@@ -258,13 +258,11 @@ CONTAINS
     IF (my_process_is_io()) CALL io_main_proc
 
     ! Check patch allocation status
-
     IF ( ALLOCATED(p_patch_global)) THEN
       CALL finish(TRIM(routine), 'patch already allocated')
     END IF
 
     ! Allocate patch array to start patch construction
-
     ALLOCATE(p_patch_global(n_dom_start:n_dom), stat=error_status)
     IF (error_status/=success) THEN
       CALL finish(TRIM(routine), 'allocation of patch failed')
@@ -407,11 +405,11 @@ CONTAINS
 
     IF ( is_coupled_run() ) THEN
 
-      comp_id = get_my_couple_id ()
-      patch_no = 1
+      comp_id       = get_my_couple_id ()
+      patch_no      = 1
 
-      grid_shape(1)=1
-      grid_shape(2)=p_patch(patch_no)%n_patch_cells
+      grid_shape(1) = 1
+      grid_shape(2) = p_patch(patch_no)%n_patch_cells
 
       ! CALL get_patch_global_indexes ( patch_no, CELLS, no_of_entities, grid_glob_index )
       ! should grid_glob_index become a pointer in ICON_cpl_def_grid as well?

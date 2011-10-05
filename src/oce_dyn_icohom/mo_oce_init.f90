@@ -271,9 +271,6 @@ CONTAINS
     TYPE(t_hydro_ocean_state), TARGET             :: p_os
 
 
-
-    !CALL height_related_quantities( p_patch, p_os, p_ext_data)
-
     IF(idisc_scheme==1)THEN
       CALL calc_scalar_product_for_veloc( p_patch,                &
         & p_os%p_prog(nold(1))%vn,&

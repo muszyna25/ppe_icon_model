@@ -74,7 +74,7 @@ USE mo_oce_state,              ONLY: t_hydro_ocean_state, t_hydro_ocean_base, &
   &                                  construct_hydro_ocean_base, destruct_hydro_ocean_base, &
   &                                  construct_hydro_ocean_state, destruct_hydro_ocean_state, &
   &                                  init_scalar_product_base, init_geo_factors_base, &
-  &                                  init_coriolis_oce
+  &                                  init_coriolis_oce, init_oce_config
 USE mo_oce_physics,            ONLY: t_ho_params, &
   &                                  construct_ho_params, init_ho_params, &
   &                                  destruct_ho_params, update_ho_params
@@ -184,6 +184,7 @@ CONTAINS
   ! file 1 is opened in control_model setup:
   jfile = 1
 CALL print_mxmn('(   OLD) p_diag%h_e',1,pstate_oce(jg)%p_diag%h_e,1,ppatch(jg)%nblks_e,'vel',1)
+!TODO
 
   CALL init_ho_recon_fields( ppatch(jg), pstate_oce(jg))
 
@@ -359,6 +360,7 @@ CALL print_mxmn('(   OLD) p_diag%h_e',1,pstate_oce(jg)%p_diag%h_e,1,ppatch(jg)%n
     !------------------------------------------------------------------
     ! construct ocean state and physics
     !------------------------------------------------------------------
+    CALL init_oce_config
 
     ! hydro_ocean_base contains the 3-dimensional structures for the ocean state
     CALL construct_hydro_ocean_base(ppatch(jg), v_base)
@@ -379,9 +381,6 @@ CALL print_mxmn('(   OLD) p_diag%h_e',1,pstate_oce(jg)%p_diag%h_e,1,ppatch(jg)%n
 
     CALL construct_ho_params(ppatch(jg), p_phys_param)
     CALL init_ho_params(ppatch(jg), p_phys_param)
-
-    !CALL construct_ho_physics(ppatch(jg), p_physics_oce)
-    !CALL init_ho_physics(p_physics_oce)
 
     !------------------------------------------------------------------
     ! construct ocean forcing and testcases

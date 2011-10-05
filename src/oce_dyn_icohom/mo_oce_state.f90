@@ -105,6 +105,7 @@ MODULE mo_oce_state
   PUBLIC :: init_coriolis_oce
   PUBLIC :: set_del_zlev, set_zlev
   PUBLIC :: is_initial_timestep
+  PUBLIC :: init_oce_config
 
   !
   ! types
@@ -456,14 +457,15 @@ MODULE mo_oce_state
     CHARACTER(len=max_char_length) :: tracer_names(max_tracers)
     CHARACTER(len=max_char_length) :: tracer_longnames(max_tracers)
     CHARACTER(len=max_char_length) :: tracer_units(max_tracers)
+    CHARACTER(len=max_char_length) :: tracer_tags(max_tracers)
     INTEGER                        :: tracer_codes(max_tracers)
   END TYPE t_oce_config
 
   ! variables
-  TYPE(t_var_list), PUBLIC                               :: ocean_var_list
+  TYPE(t_var_list)         , PUBLIC                      :: ocean_var_list
   TYPE(t_hydro_ocean_state), PUBLIC, TARGET, ALLOCATABLE :: v_ocean_state(:)
-  TYPE(t_hydro_ocean_base), PUBLIC, TARGET               :: v_base
-  TYPE(t_oce_config), PRIVATE                            :: oce_config
+  TYPE(t_hydro_ocean_base) , PUBLIC, TARGET              :: v_base
+  TYPE(t_oce_config)       , PUBLIC                      :: oce_config
 
 !-------------------------------------------------------------------------
 
@@ -487,7 +489,6 @@ CONTAINS
 !!  Modification by Stephan Lorenz, MPI-M, (2010-06-01) - no temporary memory array
 !
 !
-! SUBROUTINE construct_hydro_ocean_state( p_patch, p_os, prog_length, k_no_temp_mem )
   SUBROUTINE construct_hydro_ocean_state( p_patch, p_os )
 
     TYPE(t_patch), TARGET, INTENT(in) :: p_patch(n_dom)
@@ -515,7 +516,6 @@ CONTAINS
     !  prlength =2
     !END IF
 
-    CALL init_oce_config
     !
     ! Using Adams-Bashforth semi-implicit timestepping with 3 prognostic time levels:
     prlength = 3
@@ -3348,26 +3348,21 @@ END DO
     oce_tracer_units(2)     = 'psu'
     oce_tracer_codes(2)     = 201
 
-!   write(0,*)'oce_tracer_names:',oce_tracer_names
   END SUBROUTINE
 !-------------------------------------------------------------------------  
-!
-!!Subroutine 
-!>
-!!
-!!
-!! @par Revision History
-!! Developed  by  Stephan Lorenz, MPI-M (2011).
-!!
+
   SUBROUTINE init_oce_config()
     oce_config%tracer_names(1)     = 'T'
     oce_config%tracer_longnames(1) = 'potential temperature'
     oce_config%tracer_units(1)     = 'deg C'
     oce_config%tracer_codes(1)     = 200
+    oce_config%tracer_tags(1)      = '_'//TRIM(oce_config%tracer_names(1))
+
     oce_config%tracer_names(2)     = 'S'
     oce_config%tracer_longnames(2) = 'salinity'
     oce_config%tracer_units(2)     = 'psu'
     oce_config%tracer_codes(2)     = 201
+    oce_config%tracer_tags(2)      = '_'//TRIM(oce_config%tracer_names(2))
   END SUBROUTINE
   FUNCTION is_initial_timestep(timestep)
     INTEGER :: timestep

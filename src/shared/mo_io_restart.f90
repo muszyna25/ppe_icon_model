@@ -1001,6 +1001,7 @@ CONTAINS
       ! retrieve information from actual linked list element
       !
       info => element%field%info 
+      write (0,*)'Var:',info%name
       !
       ! skip this field ?
       !

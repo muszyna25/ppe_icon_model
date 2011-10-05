@@ -61,13 +61,23 @@ USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell, min_rled
   &                               sea_boundary, MIN_DOLIC
 USE mo_exception,           ONLY: message, finish
 USE mo_oce_index,           ONLY: print_mxmn, jkc, jkdim, ipl_src
-USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base
+USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base, oce_config
 USE mo_physical_constants,  ONLY: grav, rho_ref, SItodBar
 USE mo_loopindices,         ONLY: get_indices_c,get_indices_e
 USE mo_math_constants,      ONLY: dbl_eps
 USE mo_dynamics_config,     ONLY: nold, nnew
 ! USE mo_oce_forcing,         ONLY: t_sfc_flx
 USE mo_sea_ice,             ONLY: t_sfc_flx
+
+USE mo_linked_list,         ONLY: t_var_list
+USE mo_var_list,            ONLY: add_var,                  &
+  &                               new_var_list,             &
+  &                               delete_var_list,          &
+  &                               default_var_list_settings,&
+  &                               add_ref
+USE mo_cf_convention
+USE mo_grib2
+USE mo_cdi_constants
 
 IMPLICIT NONE
 
@@ -87,17 +97,28 @@ PUBLIC :: init_ho_params
 PUBLIC :: update_ho_params
 PRIVATE :: calc_munk_based_lapl_diff
 
+! variables
+Type (t_var_list), PUBLIC :: ocean_params_list
+
+TYPE t_ptr3d
+  REAL(wp),POINTER :: p(:,:,:)  ! pointer to 3D (spatial) array
+END TYPE t_ptr3d
+
 ! Parameters below appear directly in the ocean model/equation. They are eventually
 ! dynamically updated by using the "ocean-physics" structure. #slo# - not yet
 TYPE t_ho_params
 
-  REAL(wp),ALLOCATABLE ::    &
+  REAL(wp),POINTER ::    &
   ! diffusion coefficients for horizontal velocity, temp. and salinity,        dim=(nproma,n_zlev,nblks_e)
-    &  K_veloc_h   (:,:,:),  & ! coefficient of horizontal velocity diffusion
-    &  K_tracer_h(:,:,:,:),  & ! coefficient of horizontal tracer diffusion
+    &  K_veloc_h(:,:,:),  & ! coefficient of horizontal velocity diffusion
+    &  K_tracer_h(:,:,:,:)     ! coefficient of horizontal tracer diffusion
+  TYPE(t_ptr3d),ALLOCATABLE :: tracer_h_ptr(:)
+
+  REAL(wp),POINTER ::    &
   ! diffusion coefficients for vertical velocity, temp. and salinity,          dim=(nproma,n_zlev+1,nblks_e)
-    &  A_veloc_v   (:,:,:),  & ! coefficient of vertical velocity diffusion
+    &  A_veloc_v(:,:,:),  & ! coefficient of vertical velocity diffusion
     &  A_tracer_v(:,:,:,:)     ! coefficient of vertical tracer diffusion
+  TYPE(t_ptr3d),ALLOCATABLE :: tracer_v_ptr(:)
 
   !constant background values of coefficients above
   REAL(wp) :: K_veloc_h_back, &! coefficient of horizontal velocity diffusion, dim=(nproma, n_zlev,nblks_e, no_tracer)
@@ -335,7 +356,7 @@ CONTAINS
     TYPE (t_ho_params), INTENT(INOUT) :: params_oce
 
     ! Local variables
-    INTEGER   :: ist, i
+    INTEGER   :: ist, i,jtrc
     INTEGER   :: nblks_c, nblks_e
 
     CHARACTER(len=max_char_length), PARAMETER :: &
@@ -343,33 +364,84 @@ CONTAINS
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'construct hydro ocean physics')
 
+    CALL new_var_list(ocean_params_list, '')
+    CALL default_var_list_settings( ocean_params_list,         &
+      &                             lrestart=.TRUE.,           &
+      &                             restart_type=FILETYPE_NC2, &
+      &                             model_type='oce' )
+
     ! determine size of arrays
     nblks_c = ppatch%nblks_c
     nblks_e = ppatch%nblks_e
 
-    ALLOCATE(params_oce%K_veloc_h(nproma,n_zlev,nblks_e), STAT=ist)
-     IF (ist/=SUCCESS) THEN
-       CALL finish(TRIM(routine), 'allocation for horizontal velocity diffusion failed')
-     END IF
+    CALL add_var(ocean_params_list, 'K_veloc_h', params_oce%K_veloc_h , GRID_UNSTRUCTURED_EDGE,&
+    &            ZAXIS_DEPTH_BELOW_SEA, &
+    &            t_cf_var('K_veloc_h', 'kg/kg', 'horizontal velocity diffusion'),&
+    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE),&
+    &            ldims=(/nproma,n_zlev,nblks_e/))
+    CALL add_var(ocean_params_list, 'A_veloc_v', params_oce%A_veloc_v , GRID_UNSTRUCTURED_EDGE,&
+    &            ZAXIS_DEPTH_BELOW_SEA, &
+    &            t_cf_var('A_veloc_v', 'kg/kg', 'vertical velocity diffusion'),&
+    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE),&
+    &            ldims=(/nproma,n_zlev+1,nblks_e/))
 
-    ALLOCATE(params_oce%K_tracer_h(nproma,n_zlev,nblks_e, no_tracer), STAT=ist)
-     IF (ist/=SUCCESS) THEN
-       CALL finish(TRIM(routine), 'allocation for horizontal tracer diffusion failed')
-     END IF
+
+    !! Tracers
+    IF ( no_tracer > 0 ) THEN
+      CALL add_var(ocean_params_list, 'K_tracer_h', params_oce%K_tracer_h , &
+      &            GRID_UNSTRUCTURED_EDGE, ZAXIS_DEPTH_BELOW_SEA, &
+      &            t_cf_var('K_tracer_h', '', '1:temperature 2:salinity'),&
+      &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE),&
+      &            ldims=(/nproma,n_zlev,nblks_e,no_tracer/), &
+      &            lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+      CALL add_var(ocean_params_list, 'A_tracer_v', params_oce%A_tracer_v , &
+      &            GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &            t_cf_var('A_tracer_v', '', '1:temperature 2:salinity'),&
+      &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &            ldims=(/nproma,n_zlev+1,nblks_c,no_tracer/), &
+      &            lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+
+      ! Reference to individual tracer, for I/O
+
+      ALLOCATE(params_oce%tracer_h_ptr(no_tracer))
+      ALLOCATE(params_oce%tracer_v_ptr(no_tracer))
+      DO jtrc = 1,no_tracer
+        CALL add_ref( ocean_params_list, 'K_tracer_h',&
+                    & 'K_tracer_h_'//TRIM(oce_config%tracer_names(jtrc)),     &
+                    & params_oce%tracer_h_ptr(jtrc)%p,                             &
+                    & GRID_UNSTRUCTURED_EDGE, ZAXIS_DEPTH_BELOW_SEA,            &
+                    & t_cf_var('K_tracer_h_'//TRIM(oce_config%tracer_names(jtrc)), &
+                    &          'kg/kg', &
+                    &          TRIM(oce_config%tracer_longnames(jtrc))//'(K_tracer_h_)'), &
+                    & t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE),&
+                    & ldims=(/nproma,n_zlev,nblks_e/))
+        CALL add_ref( ocean_params_list, 'A_tracer_v',&
+                    & 'A_tracer_v_'//TRIM(oce_config%tracer_names(jtrc)),     &
+                    & params_oce%tracer_h_ptr(jtrc)%p,                             &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA,            &
+                    & t_cf_var('A_tracer_v_'//TRIM(oce_config%tracer_names(jtrc)), &
+                    &          'kg/kg', &
+                    &          TRIM(oce_config%tracer_longnames(jtrc))//'(A_tracer_v)'), &
+                    & t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+                    & ldims=(/nproma,n_zlev+1,nblks_c/))
+
+      END DO
+!TODO     CALL add_var(ocean_params_list, 'K_tracer_h_back', params_oce%K_tracer_h_back , &
+!TODO     &            GRID_UNSTRUCTURED_EDGE, ZAXIS_SURFACE, &
+!TODO     &            t_cf_var('K_tracer_h_back', '', '1:temperature 2:salinity'),&
+!TODO     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE),&
+!TODO     &            ldims=(/ no_tracer /))
+!TODO     CALL add_var(ocean_params_list, 'A_tracer_v_back', params_oce%A_tracer_v_back , &
+!TODO     &            GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, &
+!TODO     &            t_cf_var('A_tracer_v_back', '', '1:temperature 2:salinity'),&
+!TODO     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+!TODO     &            ldims=(/no_tracer/))
+    ENDIF ! no_tracer > 0
+
 
     ALLOCATE(params_oce%K_tracer_h_back(no_tracer), STAT=ist)
      IF (ist/=SUCCESS) THEN
        CALL finish(TRIM(routine), 'allocation for horizontal background tracer diffusion failed')
-     END IF
-
-    ALLOCATE(params_oce%A_veloc_v(nproma,n_zlev+1,nblks_e), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-       CALL finish(TRIM(routine), 'allocation for vertical velocity diffusion failed')
-    END IF
-
-    ALLOCATE(params_oce%A_tracer_v(nproma,n_zlev+1,nblks_c,no_tracer), STAT=ist)
-     IF (ist/=SUCCESS) THEN
-       CALL finish(TRIM(routine), 'allocation for vertical tracer diffusion failed')
      END IF
 
     ALLOCATE(params_oce%A_tracer_v_back(no_tracer), STAT=ist)
@@ -377,12 +449,8 @@ CONTAINS
        CALL finish(TRIM(routine), 'allocation for vertical tracer background diffusion failed')
      END IF
 
-    params_oce%K_veloc_h  = 0.0_wp
-    params_oce%A_veloc_v  = 0.0_wp
 
     DO i=1,no_tracer
-      params_oce%K_tracer_h(:,:,:,i) = 0.0_wp
-      params_oce%A_tracer_v(:,:,:,i) = 0.0_wp
       params_oce%K_tracer_h_back(i)  = 0.0_wp
       params_oce%A_tracer_v_back(i)  = 0.0_wp
     END DO
@@ -799,21 +867,19 @@ DO i_no_trac=1, no_tracer
   CALL print_mxmn('PHY trac mixing',jk,z_c(:,:,:),n_zlev+1,p_patch%nblks_c,'phy',ipl_src)
   !write(*,*)'max/min trac mixing',jk,maxval(params_oce%A_tracer_v(:,jk,:,i_no_trac)),&
   !&minval(params_oce%A_tracer_v(:,jk,:,i_no_trac))
-  !write(123,*)'max/min trac mixing',jk,maxval(params_oce%A_tracer_v(:,jk,:,i_no_trac)),&
-  !&minval(params_oce%A_tracer_v(:,jk,:,i_no_trac))
+  write(123,*)'max/min trac mixing',jk,maxval(params_oce%A_tracer_v(:,jk,:,i_no_trac)),&
+  &minval(params_oce%A_tracer_v(:,jk,:,i_no_trac))
  END DO
 END DO
  DO jk=1,n_zlev
   ipl_src=3  ! output print level (1-5, fix)
   CALL print_mxmn('PHY veloc mixing',jk,params_oce%A_veloc_v(:,:,:),n_zlev, &
     & p_patch%nblks_e,'phy',ipl_src)
-  !write(123,*)'max/min veloc mixing',jk,maxval(params_oce%A_veloc_v(:,jk,:)),&
-  !&minval(params_oce%A_veloc_v(:,jk,:))
+  write(123,*)'max/min veloc mixing',jk,maxval(params_oce%A_veloc_v(:,jk,:)),&
+  &minval(params_oce%A_veloc_v(:,jk,:))
  END DO
 
- END SUBROUTINE update_ho_params !TODO die diffusion-paramerter werden aus dem State berechnet,
- ! d.h. update_ho_params muesste evtyl. nur an geeigneter stelle aufgerufen werden, damit vom
- ! Restart mit den korrekten diff-params losgerechnet wird
+ END SUBROUTINE update_ho_params
 
 
  
