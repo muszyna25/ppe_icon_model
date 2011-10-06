@@ -1194,7 +1194,7 @@ SUBROUTINE downscale_rad_output_rg(p_patch, p_par_patch, p_par_int, p_par_grf,  
     &                         f3din2=p_lwflxall, f3dout2=lwflxall,                 &
     &                         llimit_nneg=l_limit, rlimval=rlimval                 )
 
-  IF (msg_level >= 14) THEN
+  IF (msg_level >= 16) THEN
     DO jk = 1, nlevp1
       WRITE(message_text,'(a,i3,2E10.3)') 'max/min SW rg transmissivity  = ',&
            & jk, MAXVAL (p_trsolall(:,jk,:)), MINVAL(p_trsolall(:,jk,:))
