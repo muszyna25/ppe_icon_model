@@ -58,7 +58,7 @@ MODULE mo_ext_data
   USE mo_extpar_config,      ONLY: itopo, fac_smooth_topo, n_iter_smooth_topo, l_emiss, &
                                    heightdiff_threshold
   USE mo_dynamics_config,    ONLY: iequations
-  USE mo_radiation_config,   ONLY: irad_o3
+  USE mo_radiation_config,   ONLY: irad_o3,irad_aero
   USE mo_model_domain,       ONLY: t_patch
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_grid_config,        ONLY: n_dom, nroot, dynamics_grid_filename
@@ -119,6 +119,7 @@ MODULE mo_ext_data
     MODULE PROCEDURE read_netcdf_2d
     MODULE PROCEDURE read_netcdf_2d_int
     MODULE PROCEDURE read_netcdf_3d
+    MODULE PROCEDURE read_netcdf_aero
     MODULE PROCEDURE read_netcdf_4d
   END INTERFACE read_netcdf_data
 
@@ -1826,7 +1827,45 @@ CONTAINS
 !!$              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
 !!$              &                     nclass_lu(jg), ext_data(jg)%atm%lu_class_fraction)
 
+            IF ( irad_aero == 6 ) THEN
 
+              CALL read_netcdf_data (ncid, 12, 'AER_SS', & ! &
+                &                    p_patch(jg)%n_patch_cells_g,  &
+                &                    p_patch(jg)%n_patch_cells,    &
+                &                    p_patch(jg)%cells%glb_index,  & 
+!                &                    12,                      &
+                &                    ext_data(jg)%atm_td%aer_ss)
+
+              CALL read_netcdf_data (ncid, 12, 'AER_DUST', & ! &
+                &                    p_patch(jg)%n_patch_cells_g,  &
+                &                    p_patch(jg)%n_patch_cells,    &
+                &                    p_patch(jg)%cells%glb_index,  & 
+!                &                    12,                      &
+                &                    ext_data(jg)%atm_td%aer_dust)
+
+              CALL read_netcdf_data (ncid, 12, 'AER_ORG', & ! &
+                &                    p_patch(jg)%n_patch_cells_g,  &
+                &                    p_patch(jg)%n_patch_cells,    &
+                &                    p_patch(jg)%cells%glb_index,  & 
+!                &                    12,                      &
+                &                    ext_data(jg)%atm_td%aer_org)
+
+              CALL read_netcdf_data (ncid, 12, 'AER_SO4', & ! &
+                &                    p_patch(jg)%n_patch_cells_g,  &
+                &                    p_patch(jg)%n_patch_cells,    &
+                &                    p_patch(jg)%cells%glb_index,  & 
+!                &                    12,                      &
+                &                    ext_data(jg)%atm_td%aer_so4)
+
+              CALL read_netcdf_data (ncid, 12, 'AER_BC', & ! &
+                &                    p_patch(jg)%n_patch_cells_g,  &
+                &                    p_patch(jg)%n_patch_cells,    &
+                &                    p_patch(jg)%cells%glb_index,  & 
+!                &                    12,                      &
+                &                    ext_data(jg)%atm_td%aer_bc)
+
+            ENDIF
+           
             IF ( l_emiss ) THEN
               CALL read_netcdf_data (ncid, 'EMIS_RAD', p_patch(jg)%n_patch_cells_g,           &
                 &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
@@ -2502,6 +2541,58 @@ CONTAINS
 
   END SUBROUTINE read_netcdf_3d
 
+  !-------------------------------------------------------------------------
+
+  SUBROUTINE read_netcdf_aero (ncid, ntime, varname, glb_arr_len, &
+       &                     loc_arr_len, glb_index, var_out)
+
+    CHARACTER(len=*), INTENT(IN)  ::  &  !< Var name of field to be read
+      &  varname
+
+    INTEGER, INTENT(IN) :: ncid          !< id of netcdf file
+    INTEGER, INTENT(IN) :: ntime         !< time levels of netcdf file
+    INTEGER, INTENT(IN) :: glb_arr_len   !< length of 1D field (global)
+    INTEGER, INTENT(IN) :: loc_arr_len   !< length of 1D field (local)
+    INTEGER, INTENT(IN) :: glb_index(:)  !< Index mapping local to global
+
+    REAL(wp), INTENT(INOUT) :: &         !< output field
+      &  var_out(:,:,:)
+
+    INTEGER :: varid, mpi_comm, j, jl, jb, jt
+    REAL(wp):: z_dummy_array(glb_arr_len,ntime)!< local dummy array
+  !-------------------------------------------------------------------------
+
+    ! Get var ID
+    IF(my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid))
+
+    IF(p_test_run) THEN
+      mpi_comm = p_comm_work_test
+    ELSE
+      mpi_comm = p_comm_work
+    ENDIF
+
+
+    ! I/O PE reads and broadcasts data
+
+    IF(my_process_is_stdio()) CALL nf(nf_get_var_double(ncid, varid, z_dummy_array(:,:)))
+    CALL p_bcast(z_dummy_array, p_io , mpi_comm)
+
+    var_out(:,:,:) = 0._wp
+
+    ! Set var_out from global data
+    DO jt = 1, ntime
+           DO j = 1, loc_arr_len
+
+             jb = blk_no(j) ! Block index in distributed patch
+             jl = idx_no(j) ! Line  index in distributed patch
+               
+             var_out(jl,jb,jt) = z_dummy_array(glb_index(j),jt)
+
+          ENDDO
+    ENDDO
+
+  END SUBROUTINE read_netcdf_aero
+  
 
  !-------------------------------------------------------------------------
   !>

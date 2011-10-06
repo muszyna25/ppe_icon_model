@@ -471,7 +471,7 @@ MODULE mo_nwp_rad_interface
         & pflt  = prm_diag%lwflxall(:,:,jb),& !Thermal radiative fluxes at each layer boundary
         & pfls  = zfls  (:,:,jb)  &! solar radiative fluxes at each layer boundary
         & )
-
+      
       zi0 (i_startidx:i_endidx) = prm_diag%cosmu0(i_startidx:i_endidx,jb) * zsct
       ! compute sw transmissivity trsolall from sw fluxes
       DO jk = 1,nlevp1
@@ -483,7 +483,7 @@ MODULE mo_nwp_rad_interface
           ENDIF
         ENDDO
       ENDDO
-      
+
     ENDDO !jb
 !$OMP END DO
 !$OMP END PARALLEL
@@ -1146,10 +1146,10 @@ MODULE mo_nwp_rad_interface
         ! loop over layers
         DO jk = 1,nlev
           DO jc = i_startidx,i_endidx
-            zaeqsn         =  z_aer_ss(jc,jb)  
+            zaeqsn         =  z_aer_ss(jc,jb)                  * zvdaes(jc,jk+1)
             zaeqln         = (z_aer_or(jc,jb)+z_aer_su(jc,jb)) * zvdael(jc,jk+1)
-            zaequn         = z_aer_bc(jc,jb)              * zvdaeu(jc,jk+1)
-            zaeqdn         =  z_aer_du(jc,jb)              * zvdaed(jc,jk+1)
+            zaequn         = z_aer_bc(jc,jb)                   * zvdaeu(jc,jk+1)
+            zaeqdn         =  z_aer_du(jc,jb)                  * zvdaed(jc,jk+1)
             zaetr_bot      = zaetr_top(jc,jb) &
               & * ( MIN (1.0_wp, pt_diag%temp_ifc(jc,jk,jb)/pt_diag%temp_ifc(jc,jk+1,jb)) )**ztrpt
 
@@ -1326,19 +1326,19 @@ MODULE mo_nwp_rad_interface
         ! loop over layers
         DO jk = 1,nlev
           DO jc = i_startidx,i_endidx
-            zaeqsn         =  z_aer_ss(jc,jb)              * zvdaes(jc,jk+1)
+            zaeqsn         =  z_aer_ss(jc,jb)                   * zvdaes(jc,jk+1)
             zaeqln         =  (z_aer_or(jc,jb)+z_aer_su(jc,jb)) * zvdael(jc,jk+1)
-            zaequn         =  z_aer_bc(jc,jb)              * zvdaeu(jc,jk+1)
-            zaeqdn         =  z_aer_du(jc,jb)              * zvdaed(jc,jk+1)
+            zaequn         =  z_aer_bc(jc,jb)                   * zvdaeu(jc,jk+1)
+            zaeqdn         =  z_aer_du(jc,jb)                   * zvdaed(jc,jk+1)
             zaetr_bot      = zaetr_top(jc,jb) &
               & * ( MIN (1.0_wp, pt_diag%temp_ifc(jc,jk,jb)/pt_diag%temp_ifc(jc,jk+1,jb)) )**ztrpt
 
             zaetr          = SQRT(zaetr_bot*zaetr_top(jc,jb))
-            zaeq1(jc,jk,jb)= (1._wp-zaetr) &
-              & * (ztrbga* pt_diag%dpres_mc(jc,jk,jb)+zaeqln-zaeqlo(jc,jb)+zaeqdn-zaeqdo(jc,jb))
+            zaeq1(jc,jk,jb)= (1.0_wp-zaetr)*( ztrbga*pt_diag%dpres_mc(jc,jk,jb) &
+              &            + zaeqln - zaeqlo(jc,jb) )
             zaeq2(jc,jk,jb)   = (1._wp-zaetr) * ( zaeqsn-zaeqso(jc,jb) )
-            zaeq3(jc,jk,jb)   = (1._wp-zaetr) * ( zaequn-zaequo(jc,jb) )
-            zaeq4(jc,jk,jb)   =     zaetr  *   zvobga*pt_diag%dpres_mc(jc,jk,jb)
+            zaeq3(jc,jk,jb)   = (1.0_wp-zaetr)*(zaeqdn-zaeqdo(jc,jb))
+            zaeq4(jc,jk,jb)   = (1.0_wp-zaetr)*(zaequn-zaequo(jc,jb))
             zaeq5(jc,jk,jb)   =     zaetr  *   zstbga*pt_diag%dpres_mc(jc,jk,jb)
 
             zaetr_top(jc,jb) = zaetr_bot
