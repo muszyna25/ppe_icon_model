@@ -354,12 +354,12 @@ CONTAINS
       CALL ICON_cpl_put ( field_id(6), field_shape, buffer, ierror )
     !
     ! zonal wind
-      buffer(:,1) = RESHAPE(p_os%p_diag%u(:,1,:), (/nbr_points /) )
-      CALL ICON_cpl_put ( field_id(7), field_shape, buffer, ierror )
+!       buffer(:,1) = RESHAPE(p_os%p_diag%u(:,1,:), (/nbr_points /) )
+!       CALL ICON_cpl_put ( field_id(7), field_shape, buffer, ierror )
     !
     ! meridional wind
-      buffer(:,1) = RESHAPE(p_os%p_diag%v(:,1,:), (/nbr_points /) )
-      CALL ICON_cpl_put ( field_id(8), field_shape, buffer, ierror )
+!       buffer(:,1) = RESHAPE(p_os%p_diag%v(:,1,:), (/nbr_points /) )
+!       CALL ICON_cpl_put ( field_id(8), field_shape, buffer, ierror )
 
     END IF
 
