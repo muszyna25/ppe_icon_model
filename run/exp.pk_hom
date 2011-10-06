@@ -229,7 +229,7 @@ cat > ${ocean_namelist} << EOF
   k_pot_temp_v       = 1.0E-3    ! [m/s]  vertical viscosity coefficient for temperature
   k_sal_h            = 5.0E+5    ! [m2/s] horizontal viscosity coefficient for salinity
   k_sal_v            = 1.0E-4    ! [m/s]  vertical viscosity coefficient for salinity
-  HORZ_VELOC_DIFF_TYPE =  2      ! 0=no horizontal diffusion
+  HORZ_VELOC_DIFF_TYPE =  1      ! 0=no horizontal diffusion
                                  ! 1= constant Laplacian viscosity coefficient given in namelist (k_veloc_h)
                                  ! 2= constant Laplacian viscosity coefficient determined by requirement to
                                  !    have at least one gridpoint in boundary layer. The namelist value is overwritten.

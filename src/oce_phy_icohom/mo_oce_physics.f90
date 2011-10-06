@@ -564,11 +564,14 @@ END INTERFACE
    REAL(wp) :: z_w_v
    REAL(wp) :: z_s1
    REAL(wp) :: z_c(nproma,n_zlev+1,p_patch%nblks_c)
-   REAL(wp),PARAMETER  :: z_lambda = 0.05_wp
+   REAL(wp), PARAMETER :: z_lambda = 0.05_wp
    REAL(wp), PARAMETER :: z_0      = 40.0_wp
-   REAL(wp), PARAMETER :: z_c1_T     = 5.0_wp
-   REAL(wp), PARAMETER :: z_c1_v     = 5.0_wp
-   REAL(wp), PARAMETER :: z_av0      = 0.5E-2_wp
+   REAL(wp), PARAMETER :: z_c1_T   = 5.0_wp
+   REAL(wp), PARAMETER :: z_c1_v   = 5.0_wp
+   REAL(wp), PARAMETER :: z_av0    = 0.5E-2_wp
+   LOGICAL,  PARAMETER :: l_no_tracer_convect = .FALSE.
+   LOGICAL,  PARAMETER :: l_no_veloc_convect  = .FALSE.
+
 !   !-------------------------------------------------------------------------
 !    IF (no_tracer == 0) RETURN
     rl_start_c   = 1
@@ -734,7 +737,9 @@ END INTERFACE
               &/(1.0E-11_wp+ABS(z_vert_density_grad_c(jk)))
 
  
-              params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = MAX(MAX_VERT_DIFF_TRAC*z_frac, A_T_tmp)!params_oce%A_tracer_v_back(i_no_trac)!
+              params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = MAX(MAX_VERT_DIFF_TRAC*z_frac, A_T_tmp)
+              IF (l_no_tracer_convect) &
+                & params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = params_oce%A_tracer_v_back(i_no_trac)
 
               ! z_frac is used to avoid an if-condition
               !  IF (z_vert_density_grad_c(jk) == 0.0_wp ) THEN
@@ -849,7 +854,8 @@ END INTERFACE
             &/(1.0E-11_wp+ABS(z_vert_density_grad_e(jk)))
 
             params_oce%A_veloc_v(je,jk,jb) = MAX(MAX_VERT_DIFF_VELOC*z_frac, A_v_tmp)
-            !params_oce%A_veloc_v_back
+            IF (l_no_veloc_convect) &
+              & params_oce%A_veloc_v(jc,jk,jb) = params_oce%A_veloc_v_back
 !  write(*,*)'Ri number',jk,jc,jb,z_Ri_e, z_vert_density_grad_e(jk),&
 !  &z_frac,&
 !  & params_oce%A_veloc_v(je,jk,jb)
