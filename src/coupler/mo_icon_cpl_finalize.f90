@@ -49,7 +49,7 @@ MODULE mo_icon_cpl_finalize
   USE mpi,         ONLY : MPI_SUCCESS
   USE mo_icon_cpl, ONLY : ICON_comm_active,       &
    &                      cplout,                 &
-   &                      l_debug,                &
+   &                      debug_coupler,                &
    &                      l_MPI_was_initialized,  &
    &                      target_locs,            &
    &                      source_locs
@@ -58,7 +58,7 @@ MODULE mo_icon_cpl_finalize
 
   USE mo_icon_cpl, ONLY : ICON_comm_active,       &
    &                      cplout,                 &
-   &                      l_debug,                &
+   &                      debug_coupler,                &
    &                      l_MPI_was_initialized,  &
    &                      target_locs,            &
    &                      source_locs
@@ -87,7 +87,7 @@ CONTAINS
 
   SUBROUTINE ICON_cpl_finalize
 
-    IF ( l_debug ) &
+    IF ( debug_coupler ) &
        WRITE ( cplout , '(a)') 'Calling ICON_Finalize '
 
     ! -------------------------------------------------------------------
@@ -125,7 +125,7 @@ CONTAINS
 
        IF ( .NOT. l_MPI_is_finalized ) THEN
 
-          IF ( l_debug ) &
+          IF ( debug_coupler ) &
              WRITE ( cplout , '(a)') 'Calling MPI_Finalize '
 
           CALL MPI_Finalize ( ierr )
@@ -141,7 +141,7 @@ CONTAINS
 
 #endif
 
-    IF ( l_debug ) CLOSE ( unit = cplout )
+    IF ( debug_coupler ) CLOSE ( unit = cplout )
 
   END SUBROUTINE ICON_cpl_finalize
 

@@ -506,7 +506,7 @@ CONTAINS
       CALL ICON_cpl_def_grid ( &
         & comp_id, grid_shape, p_patch(patch_no)%cells%glb_index, & ! input
         & grid_id, error_status )                                   ! output
-
+      
       ! Marker for internal and halo points, a list which contains the
       ! rank where the native cells are located.
       CALL ICON_cpl_def_location ( &

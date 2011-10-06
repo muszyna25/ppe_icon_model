@@ -67,7 +67,7 @@ MODULE mo_icon_cpl_init
    &                      PRISM_DOUBLE_PRECISION,              &
    &                      PRISM_COMPLEX, PRISM_DOUBLE_COMPLEX, &
    &                      l_MPI_was_initialized,               &
-   &                      l_debug, cplout, maxchar,            &
+   &                      debug_coupler, cplout, maxchar,            &
    &                      ICON_comm,                           &
    &                      ICON_global_rank, ICON_global_size,  &
    &                      nbr_ICON_comps,                      &
@@ -181,7 +181,7 @@ CONTAINS
     ! Preparation for couler debug output
     ! -------------------------------------------------------------------
 
-    IF ( l_debug ) THEN
+    IF ( debug_coupler ) THEN
 
        ! Find a free unit
 
@@ -193,14 +193,14 @@ CONTAINS
        IF ( i > 100 ) THEN
           WRITE ( * , '(A)' ) 'WARNING: No free unit for coupler debug output!'
           WRITE ( * , '(A)' ) '         Debug output is turned off.'
-          l_debug = .FALSE.
+          debug_coupler = .FALSE.
        ELSE
           cplout = i
        ENDIF
 
     ENDIF
 
-    IF ( l_debug ) THEN
+    IF ( debug_coupler ) THEN
        WRITE ( filename, '(a5,I4.4,A4)' )  'ICON_', ICON_global_rank, '.log'
        OPEN  ( unit = cplout, file = filename, status = 'unknown', form = 'formatted' )
     ENDIF
