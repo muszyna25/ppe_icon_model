@@ -140,7 +140,7 @@ CONTAINS
     INTEGER               :: nbr_points     ! = nproma * nblks
     INTEGER               :: field_shape(3)
     INTEGER, ALLOCATABLE  :: field_id(:)
-    REAL(wp)              :: buffer(nproma*p_patch%nblks_c,1)
+    REAL(wp), ALLOCATABLE :: buffer(:,:)
 
     INTEGER               :: info, ierror !< return values form cpl_put/get calls
 
@@ -352,8 +352,12 @@ CONTAINS
     ! 1. prm_field(jg)% tsfc_tile(:,:,iwtr)   SST
     ! 2. prm_field(jg)% ocu(:,:) and ocv(:,:) ocean surface current
     ! 
-    IF ( is_coupled_run() ) THEN 
-       !
+    IF ( is_coupled_run() ) THEN
+    
+       nbr_hor_points = p_patch%n_patch_cells
+       nbr_points     = nproma * nblks
+       ALLOCATE(buffer(nproma*p_patch%nblks_c,1))
+      !
        !  see drivers/mo_atmo_model.f90:
        !
        !   field_id(1) represents "TAUX"   wind stress component
@@ -370,8 +374,6 @@ CONTAINS
        ALLOCATE(field_id(nbr_fields))
        CALL ICON_cpl_get_field_ids ( nbr_fields, field_id )
        !
-       nbr_hor_points = p_patch%n_patch_cells
-       nbr_points     = nproma * nblks
        !
        field_shape(1) = 1
        field_shape(2) = nbr_hor_points
@@ -423,6 +425,10 @@ CONTAINS
        CALL ICON_cpl_get ( field_id(8), field_shape, buffer, info, ierror )
        IF ( info > 0 ) &
        prm_field(jg)%ocv(:,:) = RESHAPE (buffer(:,1), (/ nproma, nblks /) )
+
+       DEALLOCATE(buffer)
+       DEALLOCATE(field_id)
+
     ENDIF
     !
     !-------------------------------------------------------------------------

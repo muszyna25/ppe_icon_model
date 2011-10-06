@@ -313,13 +313,16 @@ CONTAINS
   INTEGER               :: nbr_fields
   INTEGER, ALLOCATABLE  :: field_id(:)
   INTEGER               :: field_shape(3)
-  REAL(wp)              :: buffer(nproma*ppatch%nblks_c,1)
+  REAL(wp), ALLOCATABLE :: buffer(:,:)
 
   !-------------------------------------------------------------------------
 
     IF ( is_coupled_run() ) THEN 
 
-    !
+      nbr_hor_points = ppatch%n_patch_cells
+      nbr_points     = nproma * ppatch%nblks_c
+      ALLOCATE(buffer(nbr_points,1))
+     !
     !  see drivers/mo_atmo_model.f90:
     !
     !   field_id(1) represents "TAUX"   wind stress component
@@ -340,8 +343,6 @@ CONTAINS
       field_shape(2) = ppatch%n_patch_cells 
       field_shape(3) = 1
 
-      nbr_hor_points = ppatch%n_patch_cells
-      nbr_points     = nproma * ppatch%nblks_c
     !
     ! buffer is allocated over nproma only
 
@@ -360,6 +361,10 @@ CONTAINS
     ! meridional wind
 !       buffer(:,1) = RESHAPE(p_os%p_diag%v(:,1,:), (/nbr_points /) )
 !       CALL ICON_cpl_put ( field_id(8), field_shape, buffer, ierror )
+
+      DeALLOCATE(field_id)
+      DEALLOCATE(buffer)
+
 
     END IF
 

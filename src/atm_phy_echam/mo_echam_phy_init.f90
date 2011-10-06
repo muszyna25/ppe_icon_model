@@ -241,31 +241,34 @@ CONTAINS
       !----------------------------------------
       nblks_c = p_patch(jg)%nblks_int_c
       jbs     = p_patch(jg)%cells%start_blk(2,1)
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jcs,jce,jk,zlat,zprat,lland,lglac,zn1,zn2,zcdnc)
-      DO jb = jbs,nblks_c
-        CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
 
         ! For idealized test cases
 
-        IF (ltestcase) THEN
-          SELECT CASE (ctest_name)
-          CASE('APE') !Note that there is only one surface type in this case
+      IF (ltestcase) THEN
+        SELECT CASE (ctest_name)
+        CASE('APE') !Note that there is only one surface type in this case
 
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jc,jcs,jce,jk,zlat,zprat,lland,lglac,zn1,zn2,zcdnc)
+          DO jb = jbs,nblks_c
+            CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
             DO jc = jcs,jce
               zlat = p_patch(jg)%cells%center(jc,jb)%lat
              !field% tsfc_tile(jc,iwtr,jb) = ape_sst(ape_sst_case,zlat)   ! SST
              !field% tsfc     (jc,     jb) = field% tsfc_tile(jc,iwtr,jb)
-              field% tsfc_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat)   ! SST
-              field% tsfc     (jc,     jb) = field% tsfc_tile(jc,jb,iwtr)
+                field% tsfc_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat)   ! SST
+                field% tsfc     (jc,     jb) = field% tsfc_tile(jc,jb,iwtr)
             END DO
             field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
             field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
             field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
+          END DO
+!$OMP END DO 
+!$OMP END PARALLEL
 
-            IF ( is_coupled_run() ) THEN
+          IF ( is_coupled_run() ) THEN
 
-               ALLOCATE(buffer(nproma*nblks_c,1))
+              ALLOCATE(buffer(nproma*nblks_c,1))
                !
                !  see drivers/mo_atmo_model.f90:
                !
@@ -298,16 +301,24 @@ CONTAINS
                ! I guess that only the SST is really needed.
                !
                CALL ICON_cpl_get ( field_id(6), field_shape, buffer, info, ierror )
+
+               CALL finish("initcond_echam_phy","is_coupled_run returned")
+               
                IF ( info > 0 ) &
                field%tsfc_tile(:,:,iwtr) = RESHAPE (buffer(:,1), (/ nproma, nblks_c /) )
 
                DEALLOCATE(field_id)
                DEALLOCATE(buffer)
 
-            ENDIF
+          ENDIF
 
-          CASE('JWw-Moist','LDF-Moist')
-            ! Set the surface temperature to the same value as the lowest model
+        CASE('JWw-Moist','LDF-Moist')
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jc,jcs,jce,jk,zlat,zprat,lland,lglac,zn1,zn2,zcdnc)
+          DO jb = jbs,nblks_c
+            CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
+           ! Set the surface temperature to the same value as the lowest model
             ! level above surface. For this test case, currently we assume
             ! there is no land or sea ice.
 
@@ -321,9 +332,17 @@ CONTAINS
             field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
             field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
             field% seaice(jcs:jce,jb) = 0._wp   ! zero sea ice fraction
-          END SELECT
-        ENDIF ! ltestcase
+          END DO
+!$OMP END DO 
+!$OMP END PARALLEL
+          
+        END SELECT
+      ENDIF ! ltestcase
 
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jc,jcs,jce,jk,zlat,zprat,lland,lglac,zn1,zn2,zcdnc)
+      DO jb = jbs,nblks_c
+        CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
         ! Compute pressure at half and full levels
 
         CALL half_level_pressure( p_hydro_state(jg)%prog(nnow(jg))%pres_sfc(:,jb), &! in

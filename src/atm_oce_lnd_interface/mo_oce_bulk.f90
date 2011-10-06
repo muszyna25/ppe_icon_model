@@ -138,7 +138,7 @@ CONTAINS
   INTEGER               :: nbr_fields
   INTEGER, ALLOCATABLE  :: field_id(:)
   INTEGER               :: field_shape(3)
-  REAL(wp)              :: buffer(nproma*p_patch%nblks_c,1)
+  REAL(wp), ALLOCATABLE :: buffer(:,:)
 
   !-------------------------------------------------------------------------
 
@@ -336,7 +336,11 @@ CONTAINS
     !  and do a direct assignment of atmospheric state to surface fluxes.
     !
     IF ( is_coupled_run() ) THEN 
-       CALL message(TRIM(routine), "executing OCEAN coupling") 
+      CALL message(TRIM(routine), "executing OCEAN coupling")
+      nbr_hor_points = p_patch%n_patch_cells
+      nbr_points     = nproma * p_patch%nblks_c
+      ALLOCATE(buffer(nbr_points,1))
+      
     !
     !  see drivers/mo_atmo_model.f90:
     !
@@ -358,8 +362,6 @@ CONTAINS
       field_shape(2) = p_patch%n_patch_cells 
       field_shape(3) = 1
 
-      nbr_hor_points = p_patch%n_patch_cells
-      nbr_points     = nproma * p_patch%nblks_c
     !
     ! buffer is allocated over nproma only
 
@@ -403,6 +405,10 @@ CONTAINS
       ! #slo# why accumulated?
       p_sfc_flx%forc_hflx(:,:) = p_sfc_flx%forc_hflx(:,:) + &
         &                        RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
+
+      DEALLOCATE(buffer)
+      DEALLOCATE(field_id)      
+  
     ENDIF
     !
   CASE (FORCING_FROM_COUPLED_FIELD)                                 !  15
