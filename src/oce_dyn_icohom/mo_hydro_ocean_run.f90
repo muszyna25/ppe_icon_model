@@ -217,6 +217,8 @@ CALL print_mxmn('(   OLD) p_diag%h_e',1,pstate_oce(jg)%p_diag%h_e,1,ppatch(jg)%n
       !In case of a time-varying forcing: 
       CALL update_sfcflx(ppatch(jg), pstate_oce(jg), p_as, p_ice, p_atm_f, p_sfc_flx, &
         &                jstep, datetime)
+   !  CALL update_seaice(ppatch(jg), pstate_oce(jg), p_as, p_ice, p_atm_f, p_sfc_flx, &
+   !    &                jstep, datetime)
 
       IF(iswm_oce /= 1)THEN
         SELECT CASE (EOS_TYPE)
