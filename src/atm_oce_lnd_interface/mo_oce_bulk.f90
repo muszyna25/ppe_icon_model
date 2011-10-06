@@ -370,7 +370,7 @@ CONTAINS
     ! ------------------------------------
     !
     ! SST:
-      buffer(:,1) = RESHAPE(p_os%p_prog(nold(1))%tracer(:,1,:,1), (/nbr_points /) )
+      buffer(:,1) = RESHAPE(p_os%p_prog(nold(1))%tracer(:,1,:,1), (/nbr_points /) )  + 273.15_wp
       CALL ICON_cpl_put ( field_id(6), field_shape, buffer, ierror )
     !
     ! zonal wind
