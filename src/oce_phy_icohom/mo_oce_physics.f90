@@ -868,7 +868,7 @@ DO i_no_trac=1, no_tracer
   !write(*,*)'max/min trac mixing',jk,maxval(params_oce%A_tracer_v(:,jk,:,i_no_trac)),&
   !&minval(params_oce%A_tracer_v(:,jk,:,i_no_trac))
   !write(123,*)'max/min trac mixing',jk,maxval(params_oce%A_tracer_v(:,jk,:,i_no_trac)),&
-  &minval(params_oce%A_tracer_v(:,jk,:,i_no_trac))
+  !&minval(params_oce%A_tracer_v(:,jk,:,i_no_trac))
  END DO
 END DO
  DO jk=1,n_zlev
