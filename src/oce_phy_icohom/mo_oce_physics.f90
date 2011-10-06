@@ -109,26 +109,26 @@ END TYPE t_ptr3d
 ! dynamically updated by using the "ocean-physics" structure. #slo# - not yet
 TYPE t_ho_params
 
+  ! diffusion coefficients for horizontal velocity, temp. and salinity, dim=(nproma,n_zlev,nblks_e)
   REAL(wp),POINTER ::    &
-  ! diffusion coefficients for horizontal velocity, temp. and salinity,        dim=(nproma,n_zlev,nblks_e)
     &  K_veloc_h(:,:,:),  & ! coefficient of horizontal velocity diffusion
     &  K_tracer_h(:,:,:,:)     ! coefficient of horizontal tracer diffusion
   TYPE(t_ptr3d),ALLOCATABLE :: tracer_h_ptr(:)
 
+  ! diffusion coefficients for vertical velocity, temp. and salinity, dim=(nproma,n_zlev+1,nblks_e)
   REAL(wp),POINTER ::    &
-  ! diffusion coefficients for vertical velocity, temp. and salinity,          dim=(nproma,n_zlev+1,nblks_e)
     &  A_veloc_v(:,:,:),  & ! coefficient of vertical velocity diffusion
     &  A_tracer_v(:,:,:,:)     ! coefficient of vertical tracer diffusion
   TYPE(t_ptr3d),ALLOCATABLE :: tracer_v_ptr(:)
 
   !constant background values of coefficients above
-  REAL(wp) :: K_veloc_h_back, &! coefficient of horizontal velocity diffusion, dim=(nproma, n_zlev,nblks_e, no_tracer)
-           &  A_veloc_v_back   ! coefficient of vertical velocity diffusion,   dim=(nproma, n_zlev+1,nblks_c,no_tracer)
+  REAL(wp) :: K_veloc_h_back, & ! coefficient of horizontal velocity diffusion
+           &  A_veloc_v_back    ! coefficient of vertical velocity diffusion
 
 
   REAL(wp),ALLOCATABLE ::     &
-    &  K_tracer_h_back(:),    &! coefficient of horizontal tracer i diffusion
-    &  A_tracer_v_back(:)      ! coefficient of vertical temperature diffusion
+    &  K_tracer_h_back(:),    & ! coefficient of horizontal tracer diffusion dim=no_tracer
+    &  A_tracer_v_back(:)       ! coefficient of vertical tracer diffusion dim=no_tracer
 
   REAL(wp) :: bottom_drag_coeff
 
