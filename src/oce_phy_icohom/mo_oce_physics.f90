@@ -739,7 +739,7 @@ END INTERFACE
  
               params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = MAX(MAX_VERT_DIFF_TRAC*z_frac, A_T_tmp)
               IF (l_no_tracer_convect) &
-                & params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = params_oce%A_tracer_v_back(i_no_trac)
+              & params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = params_oce%A_tracer_v_back(i_no_trac)
 
               ! z_frac is used to avoid an if-condition
               !  IF (z_vert_density_grad_c(jk) == 0.0_wp ) THEN
