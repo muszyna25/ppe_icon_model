@@ -95,8 +95,9 @@ MODULE mo_math_utilities
   USE mo_math_constants
   USE mo_physical_constants
   USE mo_exception,           ONLY: message, finish
-  USE mo_parallel_config,  ONLY: nproma
-  
+  USE mo_parallel_config,     ONLY: nproma
+ 
+
   IMPLICIT NONE
 
   PRIVATE
@@ -135,6 +136,7 @@ MODULE mo_math_utilities
   PUBLIC :: orthogr_proj
   PUBLIC :: az_eqdist_proj
   PUBLIC :: gamma_fct
+  PUBLIC::  mean_domain_values
 
 ! ! cartesian coordinate class
 
@@ -1761,6 +1763,26 @@ INTEGER ::  j
 
 END FUNCTION gamma_fct
 
+!-------------------------------------------------------------------------
+!
+!>
+!! Calculates the domain mean of the characteristical
+!! length scale of the area. Needed for physics.
+!!
+!! @par Revision History
+!! Implemented by Kristina Froehlich, DWD (2010-10-29).
+!! moved to a more general place, Kristina Froehlich, MPI-M (2011-10-06)
+!!
+SUBROUTINE mean_domain_values( p_level,nroot, mean_charlen ) ! output
+!
+INTEGER, INTENT(IN)  :: p_level !  level of patch
+INTEGER, INTENT(IN)  :: nroot   !  root division of initial edges
+REAL(wp), INTENT(OUT) :: mean_charlen
+
+!!mean_charlen (jg) = SQRT (pi*re**2 /REAL(20*nroot**2*4**(p_patch%level),wp))
+ mean_charlen      = SQRT (pi*re**2 /REAL(20*nroot**2*4**(p_level),wp))
+
+END SUBROUTINE mean_domain_values
 
 END MODULE mo_math_utilities
 

@@ -39,6 +39,8 @@ MODULE mo_nwp_phy_init
   USE mo_kind,                ONLY: wp
   USE mo_math_constants,      ONLY: pi
   USE mo_physical_constants,  ONLY: re, grav
+  USE mo_math_utilities,      ONLY: mean_domain_values
+  USE mo_model_domain_import, ONLY: nroot   
   USE mo_nwp_phy_state,       ONLY: t_nwp_phy_diag,t_nwp_phy_tend
   USE mo_nwp_lnd_state,       ONLY: t_lnd_prog, t_lnd_diag  !, t_tiles
   USE mo_ext_data,            ONLY: t_external_data, nlev_o3, nmonths
@@ -46,7 +48,6 @@ MODULE mo_nwp_phy_init
   USE mo_exception,           ONLY: message, finish,message_text
   USE mo_vertical_coord_table,ONLY: vct_a, vct
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_model_domain_import, ONLY: nroot 
   USE mo_impl_constants,      ONLY: min_rlcell, zml_soil,io3_ape
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_parallel_config,     ONLY: nproma
@@ -229,7 +230,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
     !--------------------------------------------------------------
     !< characteristic gridlength needed by convection and turbulence
     !--------------------------------------------------------------
-      CALL mean_domain_values (p_patch,mean_charlen)
+      CALL mean_domain_values (p_patch%level, nroot, mean_charlen)
 
     !--------------------------------------------------------------
     !>reference pressure
@@ -703,32 +704,6 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
   END IF
 
 END SUBROUTINE init_nwp_phy
-
-!-------------------------------------------------------------------------
-!
-!
-!>
-!! Calculates the domain mean of the characteristical
-!! length scale of the area. Needed for physics.
-!!
-!! @par Revision History
-!! Implemented by Kristina Froehlich, DWD (2020-10-29).
-!!
-!!
-SUBROUTINE mean_domain_values( p_patch, mean_charlen ) ! output
-!
-TYPE(t_patch),       INTENT(IN) :: p_patch ! patch on specific level
-REAL(wp),            INTENT(OUT)   :: mean_charlen
-
-
-!mean_charlen (jg) = SQRT (pi*re**2 /REAL(20*nroot**2*4**(p_patch%level),wp))
- mean_charlen      = SQRT (pi*re**2 /REAL(20*nroot**2*4**(p_patch%level),wp))
-
-
-
-
-END SUBROUTINE mean_domain_values
-
 
 
 END MODULE mo_nwp_phy_init
