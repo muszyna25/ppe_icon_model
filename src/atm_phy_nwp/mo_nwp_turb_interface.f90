@@ -51,7 +51,7 @@ MODULE mo_nwp_turb_interface
 
   USE mo_ext_data,             ONLY: t_external_data
   USE mo_nonhydro_state,       ONLY: t_nh_prog, t_nh_diag,&
-   &                                 t_nh_metrics
+    &                                t_nh_metrics
   USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag,t_nwp_phy_tend
   USE mo_nwp_lnd_state,        ONLY: t_lnd_prog, t_lnd_diag
 
@@ -60,13 +60,14 @@ MODULE mo_nwp_turb_interface
     &                                iqi, iqr, iqs
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_turbdiff_config,      ONLY: turbdiff_config
-!  USE mo_turbdiff_ras,       ONLY: organize_turbdiff
+! USE mo_turbdiff_ras,         ONLY: organize_turbdiff
   USE mo_satad,                ONLY: sat_pres_water, spec_humi  
   USE src_turbdiff,            ONLY: organize_turbdiff
   USE mo_icoham_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd
   USE mo_vdiff_config,         ONLY: vdiff_config
   USE mo_vdiff_driver,         ONLY: vdiff
   USE mo_advection_config,     ONLY: advection_config
+  USE mo_vdfouter,             ONLY: vdfouter
 
   IMPLICIT NONE
 
@@ -515,10 +516,149 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 !> EDMF DUALM turbulence scheme (eddy-diffusivity/mass-flux dual mass-flux)
 !-------------------------------------------------------------------------
 
-
-
-
-
+!      !-------------------------------------------------------------------------
+!      !> Calculate vertical velocity in p-system
+!      !-------------------------------------------------------------------------
+!      !
+!      DO jk = 1,nlev
+!        DO jc = i_startidx,i_endidx
+!          z_omega_p(jc,jk,jb)= -p_prog%w(jc,jk,jb)*p_prog%rho(jc,jk,jb)*grav
+!        ENDDO
+!      ENDDO
+!
+!      icnt = 0
+!      CALL vdfouter ( &
+!        & CDCONF ???                                                  ,&! (IN)    
+!        & KIDIA  = i_startidx                                         ,&! (IN)   
+!        & KFDIA  = i_endidx                                           ,&! (IN)   
+!        & KLON   = nproma                                             ,&! (IN)   
+!        & KLEV   = nlev                                               ,&! (IN)   
+!        & KLEVS  = ???                                                ,&! (IN)   
+!        & KSTEP  = 1 ???                                              ,&! (IN)   
+!        & KTILES = ???                                                ,&! (IN)   
+!        & KTRAC  = 0  ???itrac ???                                    ,&! (IN)   
+!        & KLEVSN = ???                                                ,&! (IN)   
+!        & KLEVI  = 0 ???                                              ,&! (IN)   
+!        & KDHVTLS =                                                   ,&! (IN)   
+!        & KDHFTLS =                                                   ,&! (IN)   
+!        & KDHVTSS =                                                   ,&! (IN)   
+!        & KDHFTSS =                                                   ,&! (IN)   
+!        & KDHVTTS =                                                   ,&! (IN)   
+!        & KDHFTTS =                                                   ,&! (IN)   
+!        & KDHVTIS = 0                                                 ,&! (IN)   
+!        & KDHFTIS = 0                                                 ,&! (IN)   
+!        & PTSPHY  = tcall_turb_jg                                     ,&! (IN)   
+!        & KTVL(KLON) = ??                                             ,&! (IN)   
+!        & KTVH(KLON) = ??                                             ,&! (IN)   
+!        & KCNT = icnt                                                 ,&! (INOUT)
+!        & PCVL(KLON) =  ??                                            ,&! (IN)   
+!        & PCVH(KLON) =    ??                                          ,&! (IN)   
+!        & PSIGFLT(KLON) = ext_data%atm%sso_stdh(:,jb)    (needs to be passed down)   ,&! (IN)   
+!        & PUM1(KLON,KLEV) = p_diag%u(:,:,jb)                          ,&! (IN)   
+!        & PVM1(KLON,KLEV) = p_diag%v(:,:,jb)                          ,&! (IN)   
+!        & PTM1(KLON,KLEV) = p_diag%temp(:,:,jb)                       ,&! (IN)   
+!        & PQM1(KLON,KLEV) = p_prog_rcf%tracer(:,:,jb,iqv)             ,&! (IN)   
+!        & PLM1(KLON,KLEV) = p_prog_rcf%tracer(:,:,jb,iqc)             ,&! (IN)   
+!        & PIM1(KLON,KLEV) = p_prog_rcf%tracer(:,:,jb,iqi) pass it down (iqi)         ,&! (IN)   
+!        & PAM1(KLON,KLEV) = prm_diag%tot_cld(:,:,jb,icc) pass it down (icc)          ,&! (IN)   
+!        & PCM1(KLON,KLEV,KTRAC) = dummy                               ,&! (IN)   
+!        & PAPHM1(KLON,0:KLEV) = p_diag%pres_ifc(:,:,jb)               ,&! (IN)   
+!        & PAPM1(KLON,KLEV)    = p_diag%pres(:,:,jb)                   ,&! (IN)   
+!        & PGEOM1(KLON,KLEV)   = p_metrics%geopot_agl(:,:,jb)          ,&! (IN)   
+!        & PGEOH(KLON,0:KLEV)  = p_metrics%geopot_agl_ifc(:,:,jb)      ,&! (IN)   
+!        & PTSKM1M(KLON)       = ???                                   ,&! (IN)   
+!        & PTSAM1M(KLON,KLEVS) = ???                                   ,&! (IN) in???  
+!        & PWSAM1M(KLON,KLEVS) = ???                                   ,&! (IN) in???  
+!        & PSSRFL(KLON)  = prm_diag%swflxsfc (:,jb)                    ,&! (IN)   
+!        & PSLRFL(KLON)  = prm_diag%lwflxsfc (:,jb)                    ,&! (IN)   
+!        & PEMIS(KLON)   = ext_data%atm%emis_rad(:,jb)                 ,&! (IN)   
+!        & PHRLW(KLON,KLEV) = prm_nwp_tend%ddt_temp_radlw(:,:,jb),     ,&! (IN)   
+!        & PHRSW(KLON,KLEV) = prm_nwp_tend%ddt_temp_radsw(:,:,jb)      ,&! (IN)   
+!        & PTSNOW(KLON) = lnd_prog_now%t_snow(:,jb,isubs)              ,&! (IN)?? 
+!        & PTICE(KLON)  = ???                                          ,&! (IN)   
+!        & PHLICE(KLON) = ???                                          ,&! (IN)   
+!        & PTLICE(KLON) = ???                                          ,&! (IN)   
+!        & PTLWML(KLON) = ???                                          ,&! (IN)   
+!        & PSST(KLON)   = lnd_prog_now%t_g(:,jb)                       ,&! (IN)   
+!        & KSOTY(KLON)   ???                                           ,&! (IN)   
+!        & PFRTI(KLON,KTILES) = 1 :)  ???                              ,&! (IN)   
+!        & PALBTI(KLON,KTILES) = ...not active...                      ,&! (IN)   
+!        & PWLMX(KLON) =         ...not active...                      ,&! (IN)   
+!        & PCHAR(KLON) = const = 0.018 (no wave model)                 ,&! (IN)   
+!        & PUCURR(KLON) = 0                                            ,&! (IN)   
+!        & PVCURR(KLON) = 0                                            ,&! (IN)   
+!        & PTSKRAD(KLON) = prm_diag%tsfctrad(:,jb)  ???                ,&! (IN)   
+!        & PCFLX(KLON,KTRAC)  = 0                                      ,&! (IN)   
+!        & PSOTEU(KLON,KLEV)  = 0                                      ,&! (IN)   
+!        & PSOTEV(KLON,KLEV)  = 0                                      ,&! (IN)   
+!        & PSOBETA(KLON,KLEV) = 0                                      ,&! (IN)   
+!        & PVERVEL(KLON,KLEV) = z_omega_p(:,:,jb)                      ,&! (IN)   
+!        & PZ0M(KLON) = prm_diag%z0m(:,jb)         (reduced for TOFD)  ,&! (INOUT)
+!        & PZ0H(KLON) = prm_diag%z0m(:,jb) * factor ????               ,&! (INOUT)
+!        & PVDIS(KLON)         = ...                                   ,&! (OUT)  
+!        & PVDISG(KLON)        = ...                                   ,&! (OUT)  
+!        & PDISGW3D(KLON,KLEV) = ...                                   ,&! (OUT)  
+!        & PAHFLEV(KLON) =  ...                                        ,&! (OUT)  
+!        & PAHFLSB(KLON) =  ...                                        ,&! (OUT)  
+!        & PFWSB(KLON)   = ...                                         ,&! (OUT)  
+!        & PBIR(KLON)      = ...                                       ,&! (OUT)  
+!        & PVAR(KLON,KLEV) = ... qt,variance > extra tracer ??? Daniel ,&! (OUT)  
+!        & PU10M(KLON)   = prm_diag%u_10m(:,jb)                        ,&! (OUT)  
+!        & PV10M(KLON)   = prm_diag%v_10m(:,jb)                        ,&! (OUT)  
+!        & PT2M(KLON)    = prm_diag%t_2m(:,jb)                         ,&! (OUT)  
+!        & PD2M(KLON)    = prm_diag%td_2m(:,jb)                        ,&! (OUT)  
+!        & PQ2M(KLON)    = prm_diag%qv_2m(:,jb)                        ,&! (OUT)  
+!        & PZINV(KLON)   = out                                         ,&! (OUT)  
+!        & PBLH(KLON)    = out                                         ,&! (OUT)  
+!        & KHPBLN(KLON)  = out                                         ,&! (OUT)  
+!        & KVARTOP(KLON) =   ???                                       ,&! (OUT)  
+!        & PSSRFLTI(KLON,KTILES) = out   (in????)                      ,&! (INOUT)
+!        & PEVAPSNW(KLON) = out                                        ,&! (OUT)  
+!        & PGUST(KLON)    = out                                        ,&! (OUT)  
+!        & PWUAVG(KLON)   = out                                        ,&! (OUT)  
+!        & LDNODECP(KLON) = ???                                        ,&! (OUT)  
+!        & KPBLTYPE(KLON) = out                                        ,&! (OUT)  
+!        & PLDIFF(KLON,KLEV)    = out                                  ,&! (OUT)  
+!        & PFPLVL(KLON,0:KLEV)  = out                                  ,&! (OUT)  
+!        & PFPLVN(KLON,0:KLEV)  = out                                  ,&! (OUT)  
+!        & PFHPVL(KLON,0:KLEV)  = out                                  ,&! (OUT)  
+!        & PFHPVN(KLON,0:KLEV)  = out                                  ,&! (OUT)  
+!        & PEXTR2(KLON,KFLDX2)      =                                  ,&! (INOUT)
+!        & KFLDX2                   =                                  ,&! (IN)   
+!        & PEXTRA(KLON,KLEVX,KFLDX) =                                  ,&! (INOUT)
+!        & KLEVX                    =                                  ,&! (IN)   
+!        & KFLDX                    =                                  ,&! (IN)   
+!        & LLDIAG                   =                                  ,&! (IN)   
+!        & PTE(KLON,KLEV)  = prm_nwp_tend%ddt_temp_turb(:,:,jb         ,&! (INOUT)
+!        & PQE(KLON,KLEV)  = prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqv)  ,&! (INOUT)
+!        & PLE(KLON,KLEV)  = prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqc)  ,&! (INOUT)
+!        & PIE(KLON,KLEV)  = prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqi)  ,&! (INOUT)
+!        & PAE(KLON,KLEV)  = ???                                       ,&! (INOUT)
+!        & PVOM(KLON,KLEV) =  prm_nwp_tend%ddt_v_turb(:,:,jb)          ,&! (INOUT)
+!        & PVOL(KLON,KLEV) =  prm_nwp_tend%ddt_u_turb(:,:,jb)          ,&! (INOUT)
+!        & PTENC(KLON,KLEV,KTRAC) = out                                ,&! (INOUT)
+!        & PTSKE1(KLON)    = ???                                       ,&! (INOUT)
+!        & PUSTRTI(KLON,KTILES) =                                      ,&! (INOUT)
+!        & PVSTRTI(KLON,KTILES) =                                      ,&! (INOUT)
+!        & PAHFSTI(KLON,KTILES) = prm_diag%shfl_s(:,jb)  (tile mean)   ,&! (INOUT)
+!        & PEVAPTI(KLON,KTILES) = prm_diag%lhfl_s(:,jb)  (W/m2!!!)     ,&! (INOUT)
+!        & PTSKTI(KLON,KTILES)  = lnd_prog_new%t_g(:,jb) (now or new??),&! (INOUT)
+!        & PDIFTS(KLON,0:KLEV)  = out                                  ,&! (OUT)  
+!        & PDIFTQ(KLON,0:KLEV)  = out                                  ,&! (OUT)  
+!        & PDIFTL(KLON,0:KLEV)  = out                                  ,&! (OUT)  
+!        & PDIFTI(KLON,0:KLEV)  = out                                  ,&! (OUT)  
+!        & PSTRTU(KLON,0:KLEV)  = out                                  ,&! (OUT)  
+!        & PSTRTV(KLON,0:KLEV)  = out                                  ,&! (OUT)  
+!        & PTOFDU(KLON)         = out                                  ,&! (INOUT)
+!        & PTOFDV(KLON)         = out                                  ,&! (INOUT)
+!        & PSTRSOU(KLON,0:KLEV) = out                                  ,&! (OUT)  
+!        & PSTRSOV(KLON,0:KLEV) = out                                  ,&! (OUT)  
+!        & PKH(KLON,KLEV) = prm_diag%tkvh(:,:,jb)                      ,&! (OUT)  
+!        & LDLAND(KLON) = convert to logical ... ext_data%atm%fr_land(:,jb)     ,&!      (IN)  
+!        & PDHTLS(KLON,KTILES,KDHVTLS+KDHFTLS) = out                   ,&! (OUT)  
+!        & PDHTSS(KLON,KLEVSN,KDHVTSS+KDHFTSS) = out                   ,&! (OUT)  
+!        & PDHTTS(KLON,KLEVS,KDHVTTS+KDHFTTS)  = out                   ,&! (OUT)  
+!        & PDHTIS(KLON,KLEVI,KDHVTIS+KDHFTIS)  = out      )              ! (OUT)  
 
     ENDIF !inwp_turb
 
