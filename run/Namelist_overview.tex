@@ -2180,6 +2180,18 @@ iequations=3
 \tabularnewline
 
 \hline 
+lflux\_avg&
+L& .FALSE. & &
+if .FALSE. the output fluxes are accumulated  \\
+ from the beginning of the run                \\
+if .TRUE. the output fluxes are average values\\ 
+ from the beginning of the run, except of     \\
+ TOT\_PREC that would be accumulated &
+iequations=3\\
+iforcing=3
+\tabularnewline
+
+\hline 
 \end{longtab}
 
 Defined and used in: src/namelists/mo\_io\_nml.f90
