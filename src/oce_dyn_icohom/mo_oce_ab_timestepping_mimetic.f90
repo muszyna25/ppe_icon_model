@@ -58,7 +58,9 @@ USE mo_ocean_nml,                 ONLY: n_zlev, solver_tolerance, l_inverse_flip
   &                                     ab_const, ab_beta, ab_gam, iswm_oce, i_dbg_oce,   &
   &                                     expl_vertical_velocity_diff,iforc_oce, EOS_TYPE,  &
   &                                     no_tracer, l_RIGID_LID
-USE mo_run_config,                ONLY: dtime
+USE mo_run_config,                ONLY: dtime, ltimer
+USE mo_timer,                     ONLY: timer_start, timer_stop, timer_ab_expl,           &
+  &                                     timer_ab_rhs4sfc, timer_ab_first
 USE mo_dynamics_config,           ONLY: nold, nnew
 USE mo_physical_constants,        ONLY: grav, rho_ref!, re
 USE mo_oce_state,                 ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, v_base,  &
@@ -164,6 +166,8 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
   z_h_c = 0.0_wp
   z_h_e = 0.0_wp
 
+  IF (ltimer) CALL timer_start(timer_ab_first)
+
   IF (is_initial_timestep(timestep) ) THEN
     CALL height_related_quantities(p_patch, p_os, p_ext_data)
 
@@ -246,13 +250,20 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
 
   ! Calculate explicit terms of Adams-Bashforth timestepping
   !CALL message (TRIM(routine), 'call calculate_explicit_term_ab')        
+
+  IF (ltimer) CALL timer_stop(timer_ab_first)
+
+  IF (ltimer) CALL timer_start(timer_ab_expl)
   CALL calculate_explicit_term_ab(p_patch, p_os, p_phys_param, p_int,&
     &                             is_initial_timestep(timestep))
+  IF (ltimer) CALL timer_stop(timer_ab_expl)
 
   IF(.NOT.l_RIGID_LID)THEN
 
     ! Calculate RHS of surface equation
+    IF (ltimer) CALL timer_start(timer_ab_rhs4sfc)
     CALL fill_rhs4surface_eq_ab( p_patch, p_os, p_sfc_flx)
+    IF (ltimer) CALL timer_stop(timer_ab_rhs4sfc)
 
     ! Solve surface equation with GMRES solver
     z_h_c = 0.0_wp

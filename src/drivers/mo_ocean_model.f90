@@ -38,8 +38,9 @@ MODULE mo_ocean_model
   USE mo_mpi,                 ONLY: p_stop, &
     & my_process_is_io,  my_process_is_mpi_seq, my_process_is_mpi_test, &
     & set_mpi_work_communicators, set_comm_input_bcast, null_comm_type, &
-  & p_pe_work
-  USE mo_timer,               ONLY: init_timer, print_timer
+    & p_pe_work
+  USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, print_timer, &
+    &                               timer_model_init
   USE mo_datetime,            ONLY: t_datetime
   USE mo_output,              ONLY: init_output_files, write_output, close_output_files
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, global_cell_type !, &
@@ -180,6 +181,7 @@ CONTAINS
     LOGICAL :: lsuccess, l_have_output
 
     !-------------------------------------------------------------------
+
     IF (is_restart_run()) THEN
 
       ! First read the restart master file (ASCII format) to find out
@@ -244,6 +246,7 @@ CONTAINS
     !-------------------------------------------------------------------
     IF (ltimer) CALL init_timer
 
+    IF (ltimer) CALL timer_start(timer_model_init)
 
     !-------------------------------------------------------------------
     ! Initialize date and time
@@ -519,6 +522,8 @@ CONTAINS
       END IF
 
     END IF ! (not) is_restart_run()
+
+    IF (ltimer) CALL timer_stop(timer_model_init)
 
     CALL perform_ho_stepping( p_patch(1:), v_ocean_state,          &
       &                       ext_data, datetime, n_io,            &

@@ -197,7 +197,6 @@ CALL print_mxmn('(   OLD) p_diag%h_e',1,pstate_oce(jg)%p_diag%h_e,1,ppatch(jg)%n
 
   CALL construct_oce_diagnostics( ppatch(jg), pstate_oce(jg), p_ext_data(jg), oce_ts)
 
-
   IF (ltimer) CALL timer_start(timer_total)
 
   !------------------------------------------------------------------
