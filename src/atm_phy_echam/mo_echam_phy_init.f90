@@ -39,6 +39,8 @@ MODULE mo_echam_phy_init
   USE mo_kind,                 ONLY: wp
   USE mo_exception,            ONLY: finish
 
+  USE mo_sync,                 ONLY: sync_c, sync_patch_array
+
   ! model configuration
   USE mo_dynamics_config,      ONLY: nnow 
   USE mo_parallel_config,      ONLY: nproma
@@ -303,7 +305,9 @@ CONTAINS
                CALL ICON_cpl_get ( field_id(6), field_shape, buffer, info, ierror )
 
                IF ( info > 0 ) &
-               field%tsfc_tile(:,:,iwtr) = RESHAPE (buffer(:,1), (/ nproma, nblks_c /) )
+                 field%tsfc_tile(:,:,iwtr) = RESHAPE (buffer(:,1), (/ nproma, nblks_c /) )
+
+               CALL sync_patch_array(sync_c, p_patch(jg), field%tsfc_tile(:,:,iwtr))
 
                DEALLOCATE(field_id)
                DEALLOCATE(buffer)
