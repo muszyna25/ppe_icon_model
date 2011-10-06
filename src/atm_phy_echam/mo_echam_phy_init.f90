@@ -302,8 +302,6 @@ CONTAINS
                !
                CALL ICON_cpl_get ( field_id(6), field_shape, buffer, info, ierror )
 
-               CALL finish("initcond_echam_phy","is_coupled_run returned")
-               
                IF ( info > 0 ) &
                field%tsfc_tile(:,:,iwtr) = RESHAPE (buffer(:,1), (/ nproma, nblks_c /) )
 
