@@ -1359,7 +1359,7 @@ CONTAINS
           !--- Temperature at Surface---
           CALL addVar(TimeVar('T_G',&
           &                   'aggregated surface temperature',&
-          &                   'K', 11, 201,&
+          &                   'K', 235, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &                   k_jg)
 
