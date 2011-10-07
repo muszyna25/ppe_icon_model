@@ -580,7 +580,7 @@ MODULE mo_solve_nh_async
                 z_hydro_corr    (nproma,p_patch%nblks_e)
 
 
-    REAL(wp):: fac_ex2pres, z_aux(nproma), z_theta1, z_theta2, z_raylfac
+    REAL(wp):: z_theta1, z_theta2, z_raylfac
     ! For Smagorinsky diffusion
     REAL(wp):: fac_bdydiff_v, diff_multfac_vn(p_patch%nlev)
     REAL(wp):: vn_vert1, vn_vert2, vn_vert3, vn_vert4, dvt_norm, dvt_tang, &
@@ -669,9 +669,6 @@ MODULE mo_solve_nh_async
       ntl1 = 1
       ntl2 = 1
     ENDIF
-
-    ! Factor needed to convert Exner pressure into "ordinary" pressure
-    fac_ex2pres = p0ref/grav/rd_o_cpd
 
     ! refin_ctrl level at which boundary diffusion starts
     start_bdydiff_e = 5
@@ -824,10 +821,11 @@ MODULE mo_solve_nh_async
         IF (l_open_ubc .AND. .NOT. l_vert_nested) THEN
           ! Compute contribution of thermal expansion to vertical wind at model top
           ! Isobaric expansion is assumed
+          z_thermal_exp(:,jb) = 0._wp
 !CDIR UNROLL=4
-          DO jk = 2, nlev
+          DO jk = 1, nlev
             DO jc = i_startidx, i_endidx
-              z_thermal_exp(jc,jb) =  cpd_o_rd                                      &
+              z_thermal_exp(jc,jb) = z_thermal_exp(jc,jb) + cpd_o_rd                &
                 * (p_nh%diag%ddt_exner(jc,jk,jb)+p_nh%diag%ddt_exner_phy(jc,jk,jb)) &
                 /  p_nh%prog(nnow)%exner(jc,jk,jb)*p_nh%metrics%ddqz_z_full(jc,jk,jb)
             ENDDO
@@ -917,21 +915,7 @@ MODULE mo_solve_nh_async
       ENDDO
 
       ! rho and theta at top level (fields are interpolated from parent domain in case of vertical nesting)
-      IF (l_open_ubc .AND. .NOT. l_vert_nested) THEN
-        DO jc = i_startidx, i_endidx
-          p_nh%diag%theta_v_ic(jc,1,jb) = p_nh%metrics%theta_ref_ic(jc,1,jb) + &
-            p_nh%metrics%wgtfacq1_c(jc,1,jb)*z_theta_v_pr_mc(jc,1) +          &
-            p_nh%metrics%wgtfacq1_c(jc,2,jb)*z_theta_v_pr_mc(jc,2) +          &
-            p_nh%metrics%wgtfacq1_c(jc,3,jb)*z_theta_v_pr_mc(jc,3)
-          p_nh%diag%rho_ic(jc,1,jb) = p_nh%metrics%rho_refcorr_ic(jc,1,jb) + 0.5_wp*( &
-            p_nh%metrics%wgtfacq1_c(jc,1,jb)*p_nh%prog(nnow)%rho(jc,1,jb) +           &
-            p_nh%metrics%wgtfacq1_c(jc,2,jb)*p_nh%prog(nnow)%rho(jc,2,jb) +           &
-            p_nh%metrics%wgtfacq1_c(jc,3,jb)*p_nh%prog(nnow)%rho(jc,3,jb) +           &
-            p_nh%metrics%wgtfacq1_c(jc,1,jb)*p_nh%prog(nvar)%rho(jc,1,jb) +           &
-            p_nh%metrics%wgtfacq1_c(jc,2,jb)*p_nh%prog(nvar)%rho(jc,2,jb) +           &
-            p_nh%metrics%wgtfacq1_c(jc,3,jb)*p_nh%prog(nvar)%rho(jc,3,jb) )
-        ENDDO
-      ELSE IF (l_vert_nested) THEN
+      IF (l_vert_nested) THEN
         DO jc = i_startidx, i_endidx
           p_nh%diag%theta_v_ic(jc,1,jb) = p_nh%diag%theta_v_ic(jc,2,jb) + &
             p_nh%diag%dtheta_v_ic_ubc(jc,jb)
@@ -1600,10 +1584,14 @@ MODULE mo_solve_nh_async
           ENDDO
         ENDDO
 
-        ! Subtract part of the fourth-order background diffusion coefficient
-        kh_smag_e(i_startidx:i_endidx,:,jb) = &
-            MAX(0._wp,kh_smag_e(i_startidx:i_endidx,:,jb) &
-                      - 0.2_wp*diffusion_config(id)%k4)
+        DO jk = 1, nlev
+          DO je = i_startidx, i_endidx
+            ! Subtract part of the fourth-order background diffusion coefficient
+            kh_smag_e(jc,jk,jb) = MAX(0._wp,kh_smag_e(jc,jk,jb) - 0.2_wp*diffusion_config(id)%k4)
+            ! Limit diffusion coefficient to the theoretical CFL stability threshold
+            kh_smag_e(jc,jk,jb) = MIN(kh_smag_e(jc,jk,jb),0.125_wp-4._wp*diff_multfac_vn(jk))
+          ENDDO
+        ENDDO
 
       ENDDO
 !$OMP END DO
@@ -1628,7 +1616,7 @@ MODULE mo_solve_nh_async
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jk,jc,z_w_expl,z_contr_w_fl_l,z_rho_expl,z_exner_expl,z_c,z_aux,ic,z_raylfac)
+!$OMP DO PRIVATE(jk,jc,z_w_expl,z_contr_w_fl_l,z_rho_expl,z_exner_expl,z_c,ic,z_raylfac)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -1669,16 +1657,7 @@ MODULE mo_solve_nh_async
       ! Note: the upper b.c. reduces to w(1) = 0 in the absence of diabatic heating
       IF (l_open_ubc .AND. .NOT. l_vert_nested) THEN
         DO jc = i_startidx, i_endidx
-          z_aux(jc) = EXP(cvd_o_rd*LOG(p_nh%prog(nnow)%exner(jc,1,jb)))*fac_ex2pres
-
-          p_nh%prog(nnew)%w(jc,1,jb) = z_thermal_exp(jc,jb)+(z_aux(jc)*dtime   &
-            * (p_nh%diag%ddt_exner(jc,1,jb)+p_nh%diag%ddt_exner_phy(jc,1,jb))  &
-            - (p_nh%prog(nnow)%w(jc,1,jb)*p_nh%metrics%vwind_expl_wgt(jc,jb)   &
-            * p_nh%diag%rho_ic(jc,1,jb)*(0.5_wp*dtime+z_aux(jc)*z_beta(jc,1,jb)&
-            * p_nh%diag%theta_v_ic(jc,1,jb))) ) / ( (0.5_wp*dtime+z_aux(jc)    &
-            * z_beta(jc,1,jb)* p_nh%diag%theta_v_ic(jc,1,jb))                  &
-            * p_nh%diag%rho_ic(jc,1,jb)*p_nh%metrics%vwind_impl_wgt(jc,jb) )
-
+          p_nh%prog(nnew)%w(jc,1,jb) = z_thermal_exp(jc,jb)
           z_contr_w_fl_l(jc,1) = p_nh%diag%rho_ic(jc,1,jb)*p_nh%prog(nnow)%w(jc,1,jb)   &
             * p_nh%metrics%vwind_expl_wgt(jc,jb)
         ENDDO

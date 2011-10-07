@@ -292,9 +292,14 @@ MODULE mo_nh_diffusion
           ENDDO
         ENDDO
 
-        ! Subtract part of the fourth-order background diffusion coefficient
-        kh_smag_e(i_startidx:i_endidx,:,jb) = &
-            MAX(0._wp,kh_smag_e(i_startidx:i_endidx,:,jb) - 0.2_wp*diffusion_config(jg)%k4)
+        DO jk = 1, nlev
+          DO je = i_startidx, i_endidx
+            ! Subtract part of the fourth-order background diffusion coefficient
+            kh_smag_e(jc,jk,jb) = MAX(0._wp,kh_smag_e(jc,jk,jb) - 0.2_wp*diffusion_config(jg)%k4)
+            ! Limit diffusion coefficient to the theoretical CFL stability threshold
+            kh_smag_e(jc,jk,jb) = MIN(kh_smag_e(jc,jk,jb),0.125_wp-4._wp*diff_multfac_vn(jk))
+          ENDDO
+        ENDDO
 
       ENDDO
 !$OMP END DO
