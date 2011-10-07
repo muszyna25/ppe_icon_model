@@ -745,9 +745,9 @@ CONTAINS
     REAL(wp):: zsct        ! solar constant (at time of year)
     REAL(wp):: zvege, zsnow, zsalb_snow, zsnow_alb
     INTEGER:: jc,jk,jb
-    INTEGER:: jg                !domain id
-    INTEGER:: nlev, nlevp1      !< number of full and half levels
-    INTEGER:: nblks_par_c       !nblks for reduced grid
+    INTEGER:: jg                     !domain id
+    INTEGER:: nlev, nlevp1, nlev_rg  !< number of full and half levels
+    INTEGER:: nblks_par_c            !nblks for reduced grid
 
     INTEGER:: rl_start, rl_end
     INTEGER:: i_startblk, i_endblk    !> blocks
@@ -806,48 +806,43 @@ CONTAINS
       IF (jg == 1 .OR. .NOT. l_parallel) THEN
         ptr_pp => pt_par_patch
         nblks_par_c = pt_par_patch%nblks_c
-
-        ! number of vertical levels
-        ! ** for the time being, the radiation grid is assumed to have the same
-        !    levels as the main grid **
-        ! nlev   = ptr_pp%nlev
-        ! nlevp1 = ptr_pp%nlevp1
       ELSE ! Nested domain with MPI parallelization
         ptr_pp      => p_patch_local_parent(jg)
         nblks_par_c =  ptr_pp%nblks_c
-
-        ! number of vertical levels
-        ! ** for the time being, the radiation grid is assumed to have the same
-        !    levels as the main grid **
-        ! nlev   = ptr_pp%nlev
-        ! nlevp1 = ptr_pp%nlevp1
       ENDIF
 
-      ALLOCATE (zrg_cosmu0   (nproma,nblks_par_c),          &
-        zrg_fr_land  (nproma,nblks_par_c),          &
-        zrg_fr_glac  (nproma,nblks_par_c),          &
-        zrg_emis_rad (nproma,nblks_par_c),          &
-        zrg_albvisdir(nproma,nblks_par_c),          &
-        zrg_albnirdir(nproma,nblks_par_c),          &
-        zrg_albvisdif(nproma,nblks_par_c),          &
-        zrg_albnirdif(nproma,nblks_par_c),          &
-        zrg_tsfc     (nproma,nblks_par_c),          &
-        zrg_pres_ifc (nproma,nlevp1,nblks_par_c),   &
-        zrg_pres     (nproma,nlev  ,nblks_par_c),   &
-        zrg_temp     (nproma,nlev  ,nblks_par_c),   &
-        zrg_o3       (nproma,nlev  ,nblks_par_c),   &
-        zrg_aeq1     (nproma,nlev  ,nblks_par_c),   &
-        zrg_aeq2     (nproma,nlev  ,nblks_par_c),   &
-        zrg_aeq3     (nproma,nlev  ,nblks_par_c),   &
-        zrg_aeq4     (nproma,nlev  ,nblks_par_c),   &
-        zrg_aeq5     (nproma,nlev  ,nblks_par_c),   &
-        zrg_acdnc    (nproma,nlev  ,nblks_par_c),   &
-        zrg_tot_cld  (nproma,nlev  ,nblks_par_c,4), &
-        zrg_aclcov   (nproma,       nblks_par_c),   &
-        zrg_lwflxclr (nproma,nlevp1,nblks_par_c),   &
-        zrg_lwflxall (nproma,nlevp1,nblks_par_c),   &
-        zrg_trsolclr (nproma,nlevp1,nblks_par_c),   &
-        zrg_trsolall (nproma,nlevp1,nblks_par_c)    )
+      ! Add extra layer for atmosphere above model top if requested
+      IF (atm_phy_nwp_config(jg)%latm_above_top) THEN
+        nlev_rg = nlev + 1
+      ELSE
+        nlev_rg = nlev
+      ENDIF
+
+      ALLOCATE (zrg_cosmu0   (nproma,nblks_par_c),     &
+        zrg_fr_land  (nproma,nblks_par_c),             &
+        zrg_fr_glac  (nproma,nblks_par_c),             &
+        zrg_emis_rad (nproma,nblks_par_c),             &
+        zrg_albvisdir(nproma,nblks_par_c),             &
+        zrg_albnirdir(nproma,nblks_par_c),             &
+        zrg_albvisdif(nproma,nblks_par_c),             &
+        zrg_albnirdif(nproma,nblks_par_c),             &
+        zrg_tsfc     (nproma,nblks_par_c),             &
+        zrg_pres_ifc (nproma,nlev_rg+1,nblks_par_c),   &
+        zrg_pres     (nproma,nlev_rg  ,nblks_par_c),   &
+        zrg_temp     (nproma,nlev_rg  ,nblks_par_c),   &
+        zrg_o3       (nproma,nlev_rg  ,nblks_par_c),   &
+        zrg_aeq1     (nproma,nlev_rg  ,nblks_par_c),   &
+        zrg_aeq2     (nproma,nlev_rg  ,nblks_par_c),   &
+        zrg_aeq3     (nproma,nlev_rg  ,nblks_par_c),   &
+        zrg_aeq4     (nproma,nlev_rg  ,nblks_par_c),   &
+        zrg_aeq5     (nproma,nlev_rg  ,nblks_par_c),   &
+        zrg_acdnc    (nproma,nlev_rg  ,nblks_par_c),   &
+        zrg_tot_cld  (nproma,nlev_rg  ,nblks_par_c,4), &
+        zrg_aclcov   (nproma,          nblks_par_c),   &
+        zrg_lwflxclr (nproma,nlev_rg+1,nblks_par_c),   &
+        zrg_lwflxall (nproma,nlev_rg+1,nblks_par_c),   &
+        zrg_trsolclr (nproma,nlev_rg+1,nblks_par_c),   &
+        zrg_trsolall (nproma,nlev_rg+1,nblks_par_c)    )
 
       rl_start = 1 ! SR radiation is not set up to handle boundaries of nested domains
       rl_end   = min_rlcell_int
@@ -990,7 +985,7 @@ CONTAINS
 !$OMP END PARALLEL
 
       CALL upscale_rad_input(pt_patch, pt_par_patch, pt_par_grf_state,  &
-        & ext_data%atm%fr_land_smt, ext_data%atm%fr_glac_smt,           &
+        & nlev_rg, ext_data%atm%fr_land_smt, ext_data%atm%fr_glac_smt,  &
         & ext_data%atm%emis_rad,                                        &
         & prm_diag%cosmu0, albvisdir, albnirdir, albvisdif, albnirdif,  &
         & prm_diag%tsfctrad, pt_diag%pres_ifc,                          &
@@ -1032,8 +1027,8 @@ CONTAINS
           zrg_albvisdif (1:i_startidx-1,jb) = zrg_albvisdif (i_startidx,jb)
           zrg_albnirdif (1:i_startidx-1,jb) = zrg_albnirdif (i_startidx,jb)
           zrg_tsfc      (1:i_startidx-1,jb) = zrg_tsfc      (i_startidx,jb)
-          zrg_pres_ifc (1:i_startidx-1,nlevp1,jb) = zrg_pres_ifc (i_startidx,nlevp1,jb)
-          DO jk = 1, nlev
+          zrg_pres_ifc (1:i_startidx-1,nlev_rg+1,jb) = zrg_pres_ifc (i_startidx,nlev_rg+1,jb)
+          DO jk = 1, nlev_rg
             zrg_pres_ifc (1:i_startidx-1,jk,jb) = zrg_pres_ifc (i_startidx,jk,jb)
             zrg_pres     (1:i_startidx-1,jk,jb) = zrg_pres     (i_startidx,jk,jb)
             zrg_temp     (1:i_startidx-1,jk,jb) = zrg_temp     (i_startidx,jk,jb)
@@ -1059,8 +1054,8 @@ CONTAINS
                                 ! indices and dimensions
           & jce         =i_endidx            ,&!< in  end   index for loop over block
           & kbdim       =nproma              ,&!< in  dimension of block over cells
-          & klev        =nlev                ,&!< in  number of full levels = number of layers
-          & klevp1      =nlevp1              ,&!< in  number of half levels = number of layer ifcs
+          & klev        =nlev_rg             ,&!< in  number of full levels = number of layers
+          & klevp1      =nlev_rg+1           ,&!< in  number of half levels = number of layer ifcs
                                 !
           & ktype       =itype               ,&!< in   type of convection
                                 !
@@ -1106,8 +1101,8 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
-      CALL downscale_rad_output(pt_patch, pt_par_patch, pt_par_int_state,         &
-        & pt_par_grf_state, zrg_aclcov, zrg_lwflxclr, zrg_lwflxall, zrg_trsolclr, &
+      CALL downscale_rad_output(pt_patch, pt_par_patch, pt_par_int_state,                  &
+        & pt_par_grf_state, nlev_rg, zrg_aclcov, zrg_lwflxclr, zrg_lwflxall, zrg_trsolclr, &
         & zrg_trsolall, aclcov, prm_diag%lwflxclr, prm_diag%lwflxall, &
         & prm_diag%trsolclr, prm_diag%trsolall )
 

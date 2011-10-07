@@ -157,14 +157,6 @@ CONTAINS
 
       IF (lcall_sso_jg .AND. atm_phy_nwp_config(jg)%inwp_sso == 1) THEN
 
-        !tendencies  have to be set to zero
-        prm_nwp_tend%ddt_u_sso   (:,:,jb) = 0._wp
-        prm_nwp_tend%ddt_v_sso   (:,:,jb) = 0._wp
- !       prm_nwp_tend%ddt_temp_sso(:,:,jb) = 0._wp
-
-        ! since we have only currently one scheme for sso, it
-        ! is sufficient to ask for the timing
-
         CALL sso(                                          &
           & ie        =nproma                           ,  & !> in:  actual array size
           & je        =1                                ,  & !< in:  dummy  array dimension
@@ -193,6 +185,17 @@ CONTAINS
  ! SSO, GWD and Rayleigh friction together
  !         & pdt_sso   =prm_nwp_tend%ddt_temp_sso(:,:,jb)   ) !< out: temperature tendency
                                                              ! due to SSO
+
+        ! Limit SSO wind tendencies. They can become numerically unstable in the upper stratosphere and mesosphere
+        DO jk = 1, nlev
+          DO jc = i_startidx, i_endidx
+            prm_nwp_tend%ddt_u_sso(jc,jk,jb) = MAX(-0.1_wp,prm_nwp_tend%ddt_u_sso(jc,jk,jb))
+            prm_nwp_tend%ddt_u_sso(jc,jk,jb) = MIN( 0.1_wp,prm_nwp_tend%ddt_u_sso(jc,jk,jb))
+            prm_nwp_tend%ddt_v_sso(jc,jk,jb) = MAX(-0.1_wp,prm_nwp_tend%ddt_v_sso(jc,jk,jb))
+            prm_nwp_tend%ddt_v_sso(jc,jk,jb) = MIN( 0.1_wp,prm_nwp_tend%ddt_v_sso(jc,jk,jb))
+          ENDDO
+        ENDDO
+
       ENDIF
 
 ! Non-orgographic gravity wave drag

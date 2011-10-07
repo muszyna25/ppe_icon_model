@@ -99,6 +99,7 @@ MODULE mo_atm_phy_nwp_config
   REAL(wp) :: qi0, qc0
   REAL(wp) :: ustart_raylfric    !! velocity at which extra Rayleigh friction starts
   REAL(wp) :: efdt_min_raylfric  !! e-folding time corresponding to maximum relaxation coefficient
+  LOGICAL  :: latm_above_top     !! use extra layer above model top for radiation (reduced grid only)
 
   END TYPE t_atm_phy_nwp_config
 

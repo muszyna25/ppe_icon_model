@@ -78,6 +78,7 @@ MODULE mo_nwp_phy_nml
   REAL(wp) :: qi0, qc0           !! variables for hydci_pp
   REAL(wp) :: ustart_raylfric    !! velocity at which extra Rayleigh friction starts
   REAL(wp) :: efdt_min_raylfric  !! e-folding time corresponding to maximum relaxation coefficient
+  LOGICAL  :: latm_above_top(max_dom) !! use extra layer above model top for radiation (reduced grid only)
 
 
 !  LOGICAL  :: lseaice  !> forecast with sea ice model
@@ -91,8 +92,8 @@ MODULE mo_nwp_phy_nml
     &                    inwp_turb, inwp_surface,                  &
     &                    dt_conv, dt_ccov,                         &
     &                    dt_rad,                                   &
-    &                    dt_sso, dt_gwd,                           &
-    &                    qi0, qc0, ustart_raylfric, efdt_min_raylfric
+    &                    dt_sso, dt_gwd, qi0, qc0,                 &
+    &                    ustart_raylfric, efdt_min_raylfric, latm_above_top
 
 
 
@@ -176,6 +177,8 @@ CONTAINS
     ustart_raylfric    = 160._wp
     efdt_min_raylfric  = 10800._wp
 
+    latm_above_top(:)  = .FALSE.  ! no extra layer above model top for radiation computation
+
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
@@ -220,6 +223,7 @@ CONTAINS
       atm_phy_nwp_config(jg)%qc0             = qc0 
       atm_phy_nwp_config(jg)%ustart_raylfric = ustart_raylfric 
       atm_phy_nwp_config(jg)%efdt_min_raylfric = efdt_min_raylfric
+      atm_phy_nwp_config(jg)%latm_above_top  = latm_above_top(jg)
 
     ENDDO
 
