@@ -59,7 +59,7 @@ MODULE mo_nh_df_test
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
   USE mo_nonhydro_state,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_interpolation,       ONLY: t_int_state
-  USE mo_parallel_config,  ONLY: nproma
+  USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: ntracer
   USE mo_advection_config,    ONLY: advection_config 
   USE mo_advection_hflux,     ONLY: upwind_hflux_miura, upwind_hflux_miura3 
@@ -81,7 +81,7 @@ MODULE mo_nh_df_test
     u0      = (2._wp*pi*re)/(tottime)  !< circumference / 12 days [m/s]
 
   REAL(wp), PARAMETER ::   &                   !< flow field amplitude [m/s]
-    &   u1 = 73.741_wp, u2 = 61.451_wp, u3 = 30.725_wp, u4 = 61.451_wp
+    &   u1 = 73.741_wp, u2 = 61.451_wp, u3 = 30.725_wp, u4 = 61.4509_wp
 !    &   u1 = 2.4_wp, u2 = 2.0_wp, u3 = 1._wp !< original values
                                               !< for unit sphere
 
@@ -412,7 +412,7 @@ CONTAINS
 !$OMP END PARALLEL
 
       !
-      ! Case 3 of Nair (2010)
+      ! Case 3 of Nair (2010) (divergent flow)
       !
       CASE ('DF3')
 

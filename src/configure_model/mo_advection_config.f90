@@ -1,7 +1,7 @@
 !>
-!! <Short description of module for listings and indices>
+!! @brief configuration setup for tracer transport
 !!
-!! <Describe the concepts of the procedures and algorithms used in the module.>
+!! configuration setup for tracer transport
 !! <Details of procedures are documented below with their definitions.>
 !! <Include any applicable external references inline as module::procedure,>
 !! <external_procedure(), or by using @see.>
@@ -11,7 +11,7 @@
 !!
 !!
 !! @par Revision History
-!! <Description of activity> by <name, affiliation> (<YYYY-MM-DD>)
+!! Initial revision by Daniel Reinert, DWD (2011-07-07)
 !!
 !! @par Copyright
 !! 2002-2011 by DWD and MPI-M
@@ -44,7 +44,8 @@ MODULE mo_advection_config
 
   USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: MAX_NTRACER, MAX_CHAR_LENGTH, max_dom,  &
-    &                              imiura, imiura3, ippm_vcfl, ippm_v,     &
+    &                              imiura, imiura3, imcycl, imiura_mcycl,  &
+    &                              imiura3_mcycl, ippm_vcfl, ippm_v,       &
     &                              ino_flx, izero_grad, iparent_flx, inwp, &
     &                              imuscl_vcfl, imuscl_v
 
@@ -61,14 +62,20 @@ MODULE mo_advection_config
     LOGICAL :: muscl_v (MAX_NTRACER)                                           
     LOGICAL :: ppm_v   (MAX_NTRACER)                                           
     LOGICAL :: miura_h (MAX_NTRACER)                                           
-    LOGICAL :: miura3_h(MAX_NTRACER)                                           
+    LOGICAL :: miura3_h(MAX_NTRACER)
+    LOGICAL :: mcycl_h (MAX_NTRACER)
+    LOGICAL :: miura_mcycl_h (MAX_NTRACER)
+    LOGICAL :: miura3_mcycl_h(MAX_NTRACER)                                          
   END TYPE t_compute                                                           
                                                                                
   TYPE t_cleanup                                                              
     LOGICAL :: muscl_v (MAX_NTRACER)                                           
     LOGICAL :: ppm_v   (MAX_NTRACER)                                           
     LOGICAL :: miura_h (MAX_NTRACER)                                           
-    LOGICAL :: miura3_h(MAX_NTRACER)                                           
+    LOGICAL :: miura3_h(MAX_NTRACER)
+    LOGICAL :: mcycl_h (MAX_NTRACER)
+    LOGICAL :: miura_mcycl_h (MAX_NTRACER)
+    LOGICAL :: miura3_mcycl_h(MAX_NTRACER)                                          
   END TYPE t_cleanup
 
 
@@ -84,19 +91,22 @@ MODULE mo_advection_config
       &  ctracer_list                                                            
 
     INTEGER :: &                    !< selects horizontal transport scheme       
-      &  ihadv_tracer(MAX_NTRACER)  !< 0: no horizontal advection                
-                                    !< 1: 1st order upwind                       
-                                    !< 2: 2nd order muscl                        
-                                    !< 3: 2nd order miura                        
-                                    !< 4: 3rd order miura with quadr. reconstr.  
+      &  ihadv_tracer(MAX_NTRACER)  !< 0:  no horizontal advection                
+                                    !< 1:  1st order upwind                       
+                                    !< 2:  2nd order miura                        
+                                    !< 3:  3rd order miura with quadr./cubic reconstr.            
+                                    !< 4:  3rd or 4th order upstream (on hexagons only)
+                                    !< 20: subcycling version of miura
+                                    !< 22: 2nd order miura and miura_cycl
+                                    !< 32: 3rd order miura with miura_cycl  
 
     INTEGER :: &                    !< selects vertical transport scheme         
       &  ivadv_tracer(MAX_NTRACER)  !< 0 : no vertical advection                 
                                     !< 1 : 1st order upwind                      
-                                    !< 2 : 2nd order muscl                       
-                                    !< 20: 2nd order muscl for CFL>1             
-                                    !< 3 : 3rd order PPM                         
-                                    !< 30: 3rd order PPM for CFL>1               
+                                    !< 2 : 2nd order muscl for CFL>1
+                                    !< 20: 2nd order muscl             
+                                    !< 3 : 3rd order PPM for CFL>                         
+                                    !< 30: 3rd order PPM               
 
     LOGICAL :: lvadv_tracer         !< if .TRUE., calculate vertical tracer advection
     LOGICAL :: lclip_tracer         !< if .TRUE., clip negative tracer values    
@@ -330,7 +340,7 @@ CONTAINS
 
 
     !
-    ! MIURA specific settings
+    ! MIURA specific settings (horizontal transport)
     !
     lcompute%miura_h(:) = .FALSE.
     lcleanup%miura_h(:) = .FALSE.
@@ -357,7 +367,7 @@ CONTAINS
 
 
     !
-    ! MIURA3 specific settings
+    ! MIURA3 specific settings (horizontal transport)
     !
     lcompute%miura3_h(:) = .FALSE.
     lcleanup%miura3_h(:) = .FALSE.
@@ -379,6 +389,82 @@ CONTAINS
         exit
       ENDIF
     ENDDO
+
+
+    !
+    ! MCYCL specific settings (horizontal transport)
+    !
+    lcompute%mcycl_h(:) = .FALSE.
+    lcleanup%mcycl_h(:) = .FALSE.
+
+    ! Search for the first tracer jt for which horizontal advection of
+    ! type MCYCL has been selected.
+    DO jt=1,ntracer
+      IF ( ihadv_tracer(jt) == imcycl ) THEN
+        lcompute%mcycl_h(jt) = .TRUE.
+        exit
+      ENDIF
+    ENDDO
+
+    ! Search for the last tracer jt for which horizontal advection of
+    ! type MCYCL has been selected.
+    DO jt=ntracer,1,-1
+      IF ( ihadv_tracer(jt) == imcycl ) THEN
+        lcleanup%mcycl_h(jt) = .TRUE.
+        exit
+      ENDIF
+    ENDDO
+
+
+    !
+    ! MIURA_MCYCL specific settings (horizontal transport)
+    !
+    lcompute%miura_mcycl_h(:) = .FALSE.
+    lcleanup%miura_mcycl_h(:) = .FALSE.
+
+    ! Search for the first tracer jt for which horizontal advection of
+    ! type MIURA_MCYCL has been selected.
+    DO jt=1,ntracer
+      IF ( ihadv_tracer(jt) == imiura_mcycl ) THEN
+        lcompute%miura_mcycl_h(jt) = .TRUE.
+        exit
+      ENDIF
+    ENDDO
+
+    ! Search for the last tracer jt for which horizontal advection of
+    ! type MIURA_MCYCL has been selected.
+    DO jt=ntracer,1,-1
+      IF ( ihadv_tracer(jt) == imiura_mcycl ) THEN
+        lcleanup%miura_mcycl_h(jt) = .TRUE.
+        exit
+      ENDIF
+    ENDDO
+
+
+    !
+    ! MIURA3_MCYCL specific settings (horizontal transport)
+    !
+    lcompute%miura3_mcycl_h(:) = .FALSE.
+    lcleanup%miura3_mcycl_h(:) = .FALSE.
+
+    ! Search for the first tracer jt for which horizontal advection of
+    ! type MIURA3_MCYCL has been selected.
+    DO jt=1,ntracer
+      IF ( ihadv_tracer(jt) == imiura3_mcycl ) THEN
+        lcompute%miura3_mcycl_h(jt) = .TRUE.
+        exit
+      ENDIF
+    ENDDO
+
+    ! Search for the last tracer jt for which horizontal advection of
+    ! type MIURA3_MCYCL has been selected.
+    DO jt=ntracer,1,-1
+      IF ( ihadv_tracer(jt) == imiura3_mcycl ) THEN
+        lcleanup%miura3_mcycl_h(jt) = .TRUE.
+        exit
+      ENDIF
+    ENDDO
+
 
 
     !

@@ -48,9 +48,10 @@ MODULE mo_advection_nml
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_run_config,          ONLY: ntracer
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_ntracer, max_dom,      &
-    &                               imiura, imiura3, iup3, ippm_vcfl, ippm_v,   &
-    &                               inol, islopel_sm, islopel_m, ifluxl_m,      &
-    &                               ifluxl_sm, inol_v, islopel_vsm, ifluxl_vpd
+    &                               imiura, imiura3, imcycl, imiura_mcycl,      &
+    &                               imiura3_mcycl, ippm_vcfl, ippm_v, inol,     &
+    &                               islopel_sm, islopel_m, ifluxl_m, ifluxl_sm, &
+    &                               inol_v, islopel_vsm, ifluxl_vpd
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,     &
@@ -75,20 +76,23 @@ MODULE mo_advection_nml
 
 
   INTEGER :: &                     !< selects horizontal transport scheme
-    &  ihadv_tracer(max_ntracer)   !< 0: no horizontal advection
-                                   !< 1: 1st order upwind
-                                   !< 2: 2nd order muscl
-                                   !< 3: 2nd order miura
-                                   !< 4: 3rd order miura with quadr. reconstr.
+    &  ihadv_tracer(max_ntracer)   !< 0:  no horizontal advection
+                                   !< 1:  1st order upwind
+                                   !< 2:  2nd order miura
+                                   !< 3:  3rd order miura with quadr./cubic reconstr.
+                                   !< 4:  3rd or 4th order upstream (on hexagons only)
+                                   !< 20: subcycling version of miura
+                                   !< 22: 2nd order miura and miura_cycl
+                                   !< 32: 3rd order miura with miura_cycl
 
 
   INTEGER :: &                     !< selects vertical transport scheme
     &  ivadv_tracer(max_ntracer)   !< 0 : no vertical advection
                                    !< 1 : 1st order upwind
-                                   !< 2 : 2nd order muscl
-                                   !< 20: 2nd order muscl for CFL>1
-                                   !< 3 : 3rd order PPM
-                                   !< 30: 3rd order PPM for CFL>1
+                                   !< 2 : 2nd order muscl for CFL>1
+                                   !< 20: 2nd order muscl
+                                   !< 3 : 3rd order PPM for CFL>
+                                   !< 30: 3rd order PPM
 
 
   LOGICAL :: lvadv_tracer          !< if .TRUE., calculate vertical tracer advection
@@ -215,10 +219,11 @@ CONTAINS
 
     ! flux computation methods - sanity check
     !
-    IF ( ANY(ihadv_tracer(1:ntracer) > iup3) .OR.                     &
+    IF ( ANY(ihadv_tracer(1:ntracer) > imiura3_mcycl) .OR.            &
       &  ANY(ihadv_tracer(1:ntracer) < 0) )    THEN
       CALL finish( TRIM(routine),                                     &
-        &  'incorrect settings for ihadv_tracer. Must be 0,1,2,3, or 4 ')
+        &  'incorrect settings for ihadv_tracer. Must be 0,1,2,3,4,'//&
+        &  '20,22, or 32 ')
     ENDIF
     IF ( ANY(ivadv_tracer(1:ntracer) > ippm_v) .OR.                   &
       &  ANY(ivadv_tracer(1:ntracer) < 0)) THEN
@@ -231,6 +236,18 @@ CONTAINS
       IF ( ihadv_tracer(jt)==imiura3 .AND. ANY(z_nogo==itype_hlimit(jt)) ) THEN
         CALL finish( TRIM(routine),                                   &
           &  'incorrect settings for MIURA3. No slope limiter available ')
+      ENDIF
+      IF ( ihadv_tracer(jt)==imcycl .AND. ANY(z_nogo==itype_hlimit(jt)) ) THEN
+        CALL finish( TRIM(routine),                                   &
+          &  'incorrect settings for IMCYCL. No slope limiter available ')
+      ENDIF
+      IF ( ihadv_tracer(jt)==imiura_mcycl .AND. ANY(z_nogo==itype_hlimit(jt)) ) THEN
+        CALL finish( TRIM(routine),                                   &
+          &  'incorrect settings for IMIURA_MCYCL. No slope limiter available ')
+      ENDIF
+      IF ( ihadv_tracer(jt)==imiura3_mcycl .AND. ANY(z_nogo==itype_hlimit(jt)) ) THEN
+        CALL finish( TRIM(routine),                                   &
+          &  'incorrect settings for IMIURA3_MCYCL. No slope limiter available ')
       ENDIF
     END DO
     IF (upstr_beta_adv > 1.0_wp .OR. upstr_beta_adv < 0.0_wp) THEN

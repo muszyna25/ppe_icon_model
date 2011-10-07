@@ -839,6 +839,8 @@ MODULE mo_nh_testcases
     global_moist = ztmc_ape        ! kg/m**2 total moisture content
     jw_up = 1._wp
 
+
+
   DO jg = 1, n_dom
 
     CALL   init_nh_state_prog_jabw ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
@@ -862,6 +864,7 @@ MODULE mo_nh_testcases
                                 & p_nh_state(jg)%diag, p_nh_state(jg)%metrics, &
                                 & rh_at_1000hpa, qv_max, l_rediag=.TRUE.,  &
                                 & opt_global_moist=global_moist)
+
 
     END IF
 

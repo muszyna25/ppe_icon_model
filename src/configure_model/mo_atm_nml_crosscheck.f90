@@ -43,26 +43,27 @@
 !!
 MODULE mo_nml_crosscheck
 
-  USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: message, message_text, finish, print_value
-  USE mo_impl_constants,      ONLY: max_char_length, max_dom,itconv,itccov,    &
-    &                               itrad,itradheat, itsso, itgscp, itsatad,   &
-    &                               itupdate, itturb, itsfc, itgwd, iphysproc, &
-    &                               iecham, ildf_echam, inwp, iheldsuarez,     &
-    &                               ildf_dry, inoforcing, ihs_atm_temp,        &
-    &                               ihs_atm_theta, tracer_only, inh_atmosphere,&
-    &                               ishallow_water, LEAPFROG_EXPL, LEAPFROG_SI,&
-    &                               iup3, ifluxl_sm, islopel_m, islopel_sm,    &
-    &                               ifluxl_m  
-  USE mo_time_config,         ONLY: time_config
-  USE mo_io_config,           ONLY: dt_checkpoint
-  USE mo_parallel_config,     ONLY: check_parallel_configuration,              &
-    &                               num_io_procs
-  USE mo_run_config,          ONLY: lrestore_states, nsteps, dtime, iforcing,  &
-    &                               ltransport, ntracer, nlev, io3, ltestcase, &
-    &                               iqcond, ntracer_static,&
-    &                               iqv, iqc, iqi, iqs, iqr, iqcond, iqt, io3, &
-    &                               ico2
+  USE mo_kind,               ONLY: wp
+  USE mo_exception,          ONLY: message, message_text, finish, print_value
+  USE mo_impl_constants,     ONLY: max_char_length, max_dom,itconv,itccov,    &
+    &                              itrad,itradheat, itsso, itgscp, itsatad,   &
+    &                              itupdate, itturb, itsfc, itgwd, iphysproc, &
+    &                              iecham, ildf_echam, inwp, iheldsuarez,     &
+    &                              ildf_dry, inoforcing, ihs_atm_temp,        &
+    &                              ihs_atm_theta, tracer_only, inh_atmosphere,&
+    &                              ishallow_water, LEAPFROG_EXPL, LEAPFROG_SI,&
+    &                              ino_hadv, iup, imiura, imiura3, iup3,      &
+    &                              imcycl, imiura_mcycl, imiura3_mcycl,       &
+    &                              ifluxl_sm, islopel_m, islopel_sm, ifluxl_m  
+  USE mo_time_config,        ONLY: time_config
+  USE mo_io_config,          ONLY: dt_checkpoint
+  USE mo_parallel_config,    ONLY: check_parallel_configuration,              &
+    &                              num_io_procs
+  USE mo_run_config,         ONLY: lrestore_states, nsteps, dtime, iforcing,  &
+    &                              ltransport, ntracer, nlev, io3, ltestcase, &
+    &                              iqcond, ntracer_static,&
+    &                              iqv, iqc, iqi, iqs, iqr, iqcond, iqt, io3, &
+    &                              ico2
                                   
   USE mo_io_config
   USE mo_gridref_config
@@ -70,15 +71,15 @@ MODULE mo_nml_crosscheck
   USE mo_grid_config
   USE mo_sleve_config
 
-  USE mo_dynamics_config,     ONLY: configure_dynamics,                 &
-    &                               iequations, idiv_method,            &
-    &                               divavg_cntrwgt, sw_ref_height,      &
-    &                               lcoriolis, lshallow_water, ltwotime
-  USE mo_advection_config,    ONLY: advection_config, configure_advection
+  USE mo_dynamics_config,    ONLY: configure_dynamics,                 &
+    &                              iequations, idiv_method,            &
+    &                              divavg_cntrwgt, sw_ref_height,      &
+    &                              lcoriolis, lshallow_water, ltwotime
+  USE mo_advection_config,   ONLY: advection_config, configure_advection
 
   USE mo_nonhydrostatic_config, ONLY: itime_scheme_nh => itime_scheme
-  USE mo_ha_dyn_config,     ONLY: ha_dyn_config
-  USE mo_diffusion_config,  ONLY: diffusion_config, configure_diffusion
+  USE mo_ha_dyn_config,      ONLY: ha_dyn_config
+  USE mo_diffusion_config,   ONLY: diffusion_config, configure_diffusion
 
 
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config, tcall_phy, &
@@ -189,15 +190,19 @@ CONTAINS
 
   END SUBROUTINE resize_simulation_length
 
+
   SUBROUTINE oce_crosscheck()
     CALL check_parallel_configuration()
     CALL resize_simulation_length()
   END SUBROUTINE oce_crosscheck
+
+
   SUBROUTINE atm_crosscheck
 
     INTEGER :: jg
     INTEGER :: jt   ! tracer loop index
     INTEGER :: i_listlen
+    INTEGER :: z_go_hex(3), z_go_tri(7)   ! for crosscheck
     REAL(wp):: cur_datetime_calsec, end_datetime_calsec, length_sec
     CHARACTER(len=*), PARAMETER :: routine =  'atm_crosscheck'
 
@@ -633,16 +638,24 @@ CONTAINS
 
       SELECT CASE (global_cell_type)
       CASE (3)
-        IF ( ANY(advection_config(jg)%ihadv_tracer(1:ntracer) > 3))   THEN
-          CALL finish( TRIM(routine),                                       &
-               'incorrect settings for TRI-C grid ihadv_tracer. Must be 0,1,2, or 3 ')
-        ENDIF
+        z_go_tri(1:7)=(/ino_hadv,iup,imiura,imiura3,imcycl,imiura_mcycl,imiura3_mcycl/)
+        DO jt=1,ntracer
+          IF ( ALL(z_go_tri /= advection_config(jg)%ihadv_tracer(jt)) ) THEN
+            CALL finish( TRIM(routine),                                       &
+              &  'incorrect settings for TRI-C grid ihadv_tracer. Must be '// &
+              &  '0,1,2,3,20,22, or 32 ')
+          ENDIF
+        ENDDO
+
       CASE (6)
-        IF (ANY(advection_config(jg)%ihadv_tracer(1:ntracer) == 2) .OR.     &
-         &  ANY(advection_config(jg)%ihadv_tracer(1:ntracer) == 3))   THEN 
-          CALL finish( TRIM(routine),                                       &
+        z_go_hex(1:3) = (/ino_hadv,iup,iup3/)
+        DO jt=1,ntracer
+          IF ( ALL(z_go_hex /= advection_config(jg)%ihadv_tracer(jt)) ) THEN
+            CALL finish( TRIM(routine),                                       &
                'incorrect settings for HEX-C grid ihadv_tracer. Must be 0,1, or 4 ')
-        ENDIF
+          ENDIF
+        ENDDO
+
       END SELECT
 
 

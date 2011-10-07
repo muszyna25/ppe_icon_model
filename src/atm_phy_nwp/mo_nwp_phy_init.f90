@@ -270,15 +270,15 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
     ssi(:) = ssi_amip(:)
     tsi    = SUM(ssi(:))
 
+
     !------------------------------------------
     !< set conditions for Aqua planet experiment  
     !------------------------------------------
     IF ( nh_test_name == 'APE_nh' ) THEN
       ssi(:) = ssi(:)*1365._wp/tsi
       tsi = 1365._wp
-
-
     ENDIF  ! APE
+
     
     CALL setup_srtm
 
@@ -395,6 +395,9 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
     ssi(:) = ssi_amip(:)
     tsi    = SUM(ssi(:))
 
+    !------------------------------------------
+    !< set conditions for Aqua planet experiment  
+    !------------------------------------------
     IF ( nh_test_name == 'APE_nh' ) THEN
       ssi(:) = ssi(:)*1365._wp/tsi
       tsi = 1365._wp

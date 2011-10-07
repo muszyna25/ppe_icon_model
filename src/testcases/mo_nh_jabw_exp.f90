@@ -503,7 +503,6 @@ MODULE mo_nh_jabw_exp
 
    ! local variables
 
-
     INTEGER                             :: nblks_c,  npromz_c, nlen,  &
                                            nlev 
     INTEGER                             :: jb,jc, jk, jjt, ji
@@ -634,6 +633,7 @@ MODULE mo_nh_jabw_exp
             &                     opt_calc_pres=.TRUE.        )
       ENDIF
     END IF 
+
 
    END SUBROUTINE init_nh_inwp_tracers
 !--------------------------------------------------------------------

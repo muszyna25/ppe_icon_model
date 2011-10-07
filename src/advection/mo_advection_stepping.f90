@@ -592,6 +592,7 @@ CONTAINS
     ENDIF    
     !
     CALL hor_upwind_flux( ptr_current_tracer, ptr_current_tracer,            &! in
+      &                  ptr_delp_mc_now,                                    &! in
       &                  p_mflx_contra_h, p_vn_contra_traj, p_dtime, p_patch,&! in
       &                  p_int_state, advection_config(jg)%ihadv_tracer,     &! in
       &                  advection_config(jg)%igrad_c_miura, i_itype_hlimit, &! in
@@ -644,6 +645,7 @@ CONTAINS
       CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer, f4din=z_estim_c)
 
       CALL hor_upwind_flux( z_estim_c, ptr_current_tracer, p_mflx_contra_h, &! in
+        &                ptr_delp_mc_now,                                   &! in
         &                p_vn_contra_traj, p_dtime, p_patch,                &! in
         &                p_int_state, advection_config(jg)%ihadv_tracer,    &! in
         &                advection_config(jg)%igrad_c_miura,                &! in

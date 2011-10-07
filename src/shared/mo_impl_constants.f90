@@ -217,7 +217,7 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: itgwd    =  11
 
   INTEGER, PARAMETER :: iphysproc = 11! for NWP:
-                                      ! number of slow physical processes:
+                                      ! number of physical processes:
                                       ! convection, sscloud cover, radiation, radheat, sso,
                                       ! microphysics, saturation adjustment, tracerupdate, 
                                       ! gwd, turbulence, surface
@@ -237,6 +237,9 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: imiura  = 2
   INTEGER, PARAMETER :: imiura3 = 3
   INTEGER, PARAMETER :: iup3    = 4
+  INTEGER, PARAMETER :: imcycl  = 20
+  INTEGER, PARAMETER :: imiura_mcycl  = 22
+  INTEGER, PARAMETER :: imiura3_mcycl = 32
 
   ! identifier for vertical transport scheme
   INTEGER, PARAMETER :: ino_vadv    = 0
