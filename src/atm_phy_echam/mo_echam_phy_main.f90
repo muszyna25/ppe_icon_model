@@ -198,7 +198,7 @@ CONTAINS
     tend   => prm_tend (jg)
     atm_td => ext_data(jg)%atm_td
 
-    WRITE(0,*)' test mean_Charlen', jg,mean_charlen(jg)
+!     WRITE(0,*)' test mean_Charlen', jg,mean_charlen(jg)
 
     ! 2. local switches and parameters
 
