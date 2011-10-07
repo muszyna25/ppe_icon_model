@@ -1587,9 +1587,9 @@ MODULE mo_solve_nh_async
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
             ! Subtract part of the fourth-order background diffusion coefficient
-            kh_smag_e(jc,jk,jb) = MAX(0._wp,kh_smag_e(jc,jk,jb) - 0.2_wp*diffusion_config(id)%k4)
+            kh_smag_e(je,jk,jb) = MAX(0._wp,kh_smag_e(je,jk,jb) - 0.2_wp*diffusion_config(id)%k4)
             ! Limit diffusion coefficient to the theoretical CFL stability threshold
-            kh_smag_e(jc,jk,jb) = MIN(kh_smag_e(jc,jk,jb),0.125_wp-4._wp*diff_multfac_vn(jk))
+            kh_smag_e(je,jk,jb) = MIN(kh_smag_e(je,jk,jb),0.125_wp-4._wp*diff_multfac_vn(jk))
           ENDDO
         ENDDO
 
