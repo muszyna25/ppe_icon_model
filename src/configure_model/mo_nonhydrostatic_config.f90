@@ -165,7 +165,7 @@ CONTAINS
 
     IF ( kstart_qv(jg) > 1 ) THEN
       WRITE(message_text,'(2(a,i4))') 'Domain', jg, &
-        '; computation of QV advection starts in layer ', kstart_qv(jg)
+        '; subcycling of QV advection starts in layer ', kstart_qv(jg)
       CALL message(TRIM(routine),message_text)
     ENDIF
 
