@@ -580,7 +580,7 @@ CALL &
 ENDDO
 write(0,*)'K_veloc_h_back:',params_oce%K_veloc_h_back
 write(0,*)'A_veloc_v_back:',params_oce%A_veloc_v_back
-DO jk=1,2
+DO jk=1,no_tracer
 write(0,*)'K_tracer_h_back(',jk,'):',params_oce%K_tracer_h_back(jk)
 write(0,*)'A_tracer_v_back(',jk,'):',params_oce%A_tracer_v_back(jk)
 ENDDO
