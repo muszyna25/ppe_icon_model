@@ -401,12 +401,12 @@ CONTAINS
        CALL ICON_cpl_put ( field_id(3), field_shape, buffer, ierror )
        !
        ! SFTEMP
-       buffer(:,1) =  RESHAPE ( prm_field(jg)%temp(:,nlev,:), (/ nbr_points /) )
+       buffer(:,1) =  RESHAPE ( prm_field(jg)%temp(:,nlev,:), (/ nbr_points /) ) - 273.15_wp ! ocean uses Celsius units
        CALL ICON_cpl_put ( field_id(4), field_shape, buffer, ierror )
        !
        ! THFLX
   !rr  buffer(:,1) =  RESHAPE ( prm_field(jg)% ..... (:,:,iwtr), (/ nbr_points /) )
-       CALL ICON_cpl_put ( field_id(5), field_shape, buffer, ierror )
+!       CALL ICON_cpl_put ( field_id(5), field_shape, buffer, ierror )
        !
        ! Receive fields, only assign values if something was received ( info > 0 )
        ! -------------------------------------------------------------------------
@@ -425,6 +425,10 @@ CONTAINS
        CALL ICON_cpl_get ( field_id(8), field_shape, buffer, info, ierror )
        IF ( info > 0 ) &
        prm_field(jg)%ocv(:,:) = RESHAPE (buffer(:,1), (/ nproma, nblks /) )
+       
+       CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%tsfc_tile(:,:,iwtr))
+       CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%ocu(:,:))
+       CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%ocv(:,:))
 
        DEALLOCATE(buffer)
        DEALLOCATE(field_id)

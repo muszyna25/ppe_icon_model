@@ -370,7 +370,7 @@ CONTAINS
     ! ------------------------------------
     !
     ! SST:
-      buffer(:,1) = RESHAPE(p_os%p_prog(nold(1))%tracer(:,1,:,1), (/nbr_points /) )  + 273.15_wp
+      buffer(:,1) = RESHAPE(p_os%p_prog(nold(1))%tracer(:,1,:,1), (/nbr_points /) )  + 273.15_wp 
       CALL ICON_cpl_put ( field_id(6), field_shape, buffer, ierror )
     !
     ! zonal wind
@@ -401,10 +401,10 @@ CONTAINS
       p_sfc_flx%forc_tracer_relax(:,:,1) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
     !
     ! total heat flux
-      CALL ICON_cpl_get ( field_id(5), field_shape, buffer, info, ierror )
+!      CALL ICON_cpl_get ( field_id(5), field_shape, buffer, info, ierror )
       ! #slo# why accumulated?
-      p_sfc_flx%forc_hflx(:,:) = p_sfc_flx%forc_hflx(:,:) + &
-        &                        RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
+!      p_sfc_flx%forc_hflx(:,:) = p_sfc_flx%forc_hflx(:,:) + &
+!        &                        RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
 
       DEALLOCATE(buffer)
       DEALLOCATE(field_id)      
