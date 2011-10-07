@@ -83,6 +83,7 @@ MODULE mo_echam_phy_memory
   PUBLIC :: construct_echam_phy_state                   !< subroutine
   PUBLIC :: destruct_echam_phy_state                    !< subroutines
   PUBLIC :: t_echam_phy_field, t_echam_phy_tend         !< derived types
+  PUBLIC :: mean_charlen
 
 #ifdef HAVE_F95
   PUBLIC :: t_ptr2d, t_ptr3d
@@ -90,6 +91,8 @@ MODULE mo_echam_phy_memory
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
   CHARACTER(len=*), PARAMETER :: thismodule = 'mo_echam_phy_memory'
+
+  REAL(wp), POINTER :: mean_charlen(:)
 
   !!--------------------------------------------------------------------------
   !!                               DATA TYPES
@@ -425,6 +428,13 @@ CONTAINS
     ! as well as the corresponding list arrays.
 
     ndomain = SIZE(patch_array)
+
+    !This array is only defined via its patches
+    ALLOCATE(mean_charlen(ndomain), STAT=ist)
+    IF (ist/=success) THEN
+      CALL finish(TRIM(thismodule), 'allocation of mean_charlen failed')
+    ENDIF
+
     ALLOCATE( prm_field(ndomain), prm_tend(ndomain), STAT=ist)
     IF (ist/=SUCCESS) CALL finish(TRIM(thismodule), &
       &'allocation of prm_field/tend array failed')
@@ -476,6 +486,13 @@ CONTAINS
       CALL delete_var_list( prm_field_list(jg) )
       CALL delete_var_list( prm_tend_list (jg) )
     ENDDO
+
+    !This array is only defined via its patches
+    DEALLOCATE(mean_charlen, STAT=ist)
+    IF(ist/=success)THEN
+      CALL finish ('mo_nwp_phy_state:construct_nwp_phy_state', &
+        &       'deallocation of mean_charlen failed')
+    ENDIF
 
     DEALLOCATE( prm_field_list, prm_tend_list, STAT=ist )
     IF (ist/=SUCCESS) CALL finish(TRIM(thismodule), &

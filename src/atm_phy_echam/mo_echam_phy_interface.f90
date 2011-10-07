@@ -43,7 +43,7 @@ MODULE mo_echam_phy_interface
   USE mo_model_domain,      ONLY: t_patch
   USE mo_master_nml,        ONLY: lrestart
   USE mo_echam_phy_config,  ONLY: phy_config => echam_phy_config
-  USE mo_echam_phy_memory,  ONLY: prm_field, prm_tend
+  USE mo_echam_phy_memory,  ONLY: prm_field, prm_tend, mean_charlen
   USE mo_icoham_dyn_types,  ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_interpolation,     ONLY: t_int_state, rbf_vec_interpol_cell, & 
                                 & edges2cells_scalar

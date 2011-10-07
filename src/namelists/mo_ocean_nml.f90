@@ -191,8 +191,10 @@ MODULE mo_ocean_nml
   REAL(wp) :: basin_width_deg      = 0.0_wp    ! basin extension in x-direction, units are degrees
   REAL(wp) :: basin_height_deg     = 0.0_wp    ! basin extension in y-direction, units are degrees
 
-  REAL(wp) :: MAX_VERT_DIFF_VELOC = 0.5_wp     !maximal diffusion coeff, used in implicit vertical velocity diffusion, if stability criterion is met
-  REAL(wp) :: MAX_VERT_DIFF_TRAC = 0.5_wp      !maximal diffusion coeff, used in implicit vertical tracer diffusion, if stability criterion is met
+  REAL(wp) :: MAX_VERT_DIFF_VELOC = 0.5_wp     !maximal diffusion coeff, used in implicit vertical velocity diffusion, 
+                                               !if stability criterion is met
+  REAL(wp) :: MAX_VERT_DIFF_TRAC = 0.5_wp      !maximal diffusion coeff, used in implicit vertical tracer diffusion, 
+                                               ! if stability criterion is met
   REAL(wp) :: CWA = 0.5E-3_wp                  !Tuning parameters for vertical mixing of tracer and velocity
   REAL(wp) :: CWT = 0.5E-3_wp
 

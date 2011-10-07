@@ -60,7 +60,8 @@ MODULE mo_echam_phy_main
   USE mo_echam_conv_config,   ONLY: echam_conv_config
   USE mo_cucall,              ONLY: cucall
   USE mo_echam_phy_memory,    ONLY: t_echam_phy_field, prm_field,     &
-    &                               t_echam_phy_tend,  prm_tend
+    &                               t_echam_phy_tend,  prm_tend,      &
+    &                               mean_charlen
   USE mo_timer,               ONLY: timer_start, timer_stop,          &
     &                               timer_cover, timer_cloud,         &
     &                               timer_radheat,                    &
@@ -196,6 +197,8 @@ CONTAINS
     field  => prm_field(jg)
     tend   => prm_tend (jg)
     atm_td => ext_data(jg)%atm_td
+
+    WRITE(0,*)' test mean_Charlen', jg,mean_charlen(jg)
 
     ! 2. local switches and parameters
 

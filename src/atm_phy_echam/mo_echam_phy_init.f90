@@ -54,6 +54,8 @@ MODULE mo_echam_phy_init
   USE mo_ha_testcases,         ONLY: ape_sst_case
   USE mo_ape_params,           ONLY: ape_sst
 
+  USE mo_math_utilities,      ONLY: mean_domain_values
+
   ! radiation
   USE mo_radiation_config,     ONLY: ssi, tsi
   USE mo_srtm_config,          ONLY: setup_srtm, ssi_amip
@@ -77,13 +79,15 @@ MODULE mo_echam_phy_init
   ! domain and indices
   USE mo_model_domain,         ONLY: t_patch
   USE mo_loopindices,          ONLY: get_indices_c
+  USE mo_model_domain_import,  ONLY: nroot   
 
   ! atmospheric state
   USE mo_icoham_dyn_types,     ONLY: t_hydro_atm
   USE mo_eta_coord_diag,       ONLY: half_level_pressure, full_level_pressure
   USE mo_echam_phy_memory,     ONLY: construct_echam_phy_state,    &
                                    & prm_field, t_echam_phy_field, &
-                                   & prm_tend,  t_echam_phy_tend
+                                   & prm_tend,  t_echam_phy_tend,  &
+                                   & mean_charlen
   ! for coupling
   USE mo_master_control,       ONLY: is_coupled_run
   USE mo_icon_cpl_exchg,       ONLY: ICON_cpl_get
@@ -115,6 +119,9 @@ CONTAINS
     REAL(wp),        INTENT(IN) :: vct_a(:), vct_b(:), ceta(:)
 
     INTEGER :: khydromet, ktrac
+    INTEGER :: jg, ndomain
+
+
 
     !-------------------------------------------------------------------
     ! Initialize parameters and lookup tables
@@ -188,6 +195,18 @@ CONTAINS
     ! Allocate memory for the state vectors "prm_field" and "prm_tend"
     !-------------------------------------------------------------------
     CALL construct_echam_phy_state( ntracer, p_patch )
+
+
+    ! general 
+   !--------------------------------------------------------------
+    !< characteristic gridlength needed by sso and sometimes by
+    !! convection and turbulence
+    !--------------------------------------------------------------
+    ndomain = SIZE(p_patch)
+ 
+    DO jg= 1,ndomain
+      CALL mean_domain_values (p_patch(jg)%level, nroot, mean_charlen(jg))
+    ENDDO
 
   END SUBROUTINE prepare_echam_phy
   !-------------
