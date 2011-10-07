@@ -225,7 +225,7 @@ CONTAINS
     !
     ! OMIP data read in mo_ext_data into variable ext_data
     !
-    IF (iforc_omip == 1)  THEN
+    IF (iforc_omip >= 1)  THEN
 
       ! provide OMIP fluxes for wind stress forcing
       ! 1:  wind_u(:,:)   !  'stress_x': zonal wind stress       [m/s]
@@ -246,7 +246,9 @@ CONTAINS
       !p_sfc_flx%forc_wind_u=p_sfc_flx%forc_wind_u/z_scale
       !p_sfc_flx%forc_wind_v=p_sfc_flx%forc_wind_v/z_scale
 
-    ELSE IF (iforc_omip == 2) THEN
+    END IF
+
+    IF (iforc_omip == 2) THEN
 
       ! provide OMIP fluxes for sea ice (interface to ocean)
       ! 4:  tafo(:,:),   &  ! 2 m air temperature                              [C]
@@ -409,8 +411,8 @@ CONTAINS
       DEALLOCATE(buffer)
       DEALLOCATE(field_id)      
   
-    ENDIF
-    !
+    ENDIF ! iforc_omip
+
   CASE (FORCING_FROM_COUPLED_FIELD)                                 !  15
     !1) bulk formula to atmospheric state and proceed as above, the only distinction
     !   to OMIP is that atmospheric info is coming from model rather than file
