@@ -557,7 +557,7 @@ END INTERFACE
    REAL(wp) :: z_10m_wind_c(nproma,1,p_patch%nblks_c)
    REAL(wp) :: z_10m_wind_e(nproma,1,p_patch%nblks_e)
    REAL(wp) :: z_grav_rho, z_inv_rho_ref, z_stabio
-   REAL(wp) :: z_press, z_frac
+   REAL(wp) :: z_press!, z_frac
    REAL(wp) :: A_v_tmp, A_T_tmp
    REAL(wp) :: z_w_T
    REAL(wp) :: z_w_v
@@ -568,8 +568,7 @@ END INTERFACE
    REAL(wp), PARAMETER :: z_c1_T   = 5.0_wp
    REAL(wp), PARAMETER :: z_c1_v   = 5.0_wp
    REAL(wp), PARAMETER :: z_av0    = 0.5E-2_wp
-   LOGICAL,  PARAMETER :: l_no_tracer_convect = .FALSE.
-   LOGICAL,  PARAMETER :: l_no_veloc_convect  = .FALSE.
+   LOGICAL,  PARAMETER :: l_constant_mixing = .FALSE.
 
 !   !-------------------------------------------------------------------------
 DO, jk=1,n_zlev
@@ -703,10 +702,12 @@ ENDDO
             !! stabio < 0 instable stratification  (lower layer is lighter)
             !! set negative values to zero for switch below
 
-            z_vert_density_grad_c(jk) = MAX(z_stabio, 0.0_wp)
+        !   z_vert_density_grad_c(jk) = MAX(z_stabio, 0.0_wp)
            
             !! vert_density_grad  > 0 stable stratification
             !! vert_density_grad  = 0 instable stratification
+
+            z_vert_density_grad_c(jk) = z_stabio   !  #slo# 2011-10-07 now used directly, see below
 
             ! #slo# 2011-09-02 correction
             ! Richardson number is positive for stable stratification (rho_down>rho_up)
@@ -744,23 +745,33 @@ ENDDO
               ! #slo# In the following code z_frac is used as a switch
               ! vert_density_grad  > 0 stable stratification   -> z_frac=-1.0
               ! vert_density_grad  = 0 unstable stratification -> z_frac=+1.0
-              z_frac=(1.0E-11_wp-z_vert_density_grad_c(jk))&
-              &/(1.0E-11_wp+ABS(z_vert_density_grad_c(jk)))
+        !     z_frac=(1.0E-11_wp-z_vert_density_grad_c(jk))&
+        !     &/(1.0E-11_wp+ABS(z_vert_density_grad_c(jk)))
 
 !TODO            write(0,*)'A_T_tmp:',jc,jk,jb,i_no_trac,A_T_tmp
  
-              params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = MAX(MAX_VERT_DIFF_TRAC*z_frac, A_T_tmp)
-              IF (l_no_tracer_convect) &
+        !     params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = MAX(MAX_VERT_DIFF_TRAC*z_frac, A_T_tmp)
+
+        ! #slo# 2011-10-07 new formulation:
+        !  - use vert_density_grad for decision of stability
+        !  - implement if-condition instead of z_frac to avoid convection condition
+        !    MAX_VERT_DIFF_TRAC in case of density difference is zero
+        !  - same formulation used below for velocity
+
+            !! vert_density_grad  = 0 'semi-stable': use background value
+              IF (z_vert_density_grad_c(jk) == 0.0_wp ) THEN
+                params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = params_oce%A_tracer_v_back(i_no_trac)
+            !! vert_density_grad  < 0 instable stratification: use convective mixing parameter
+              ELSE IF (z_vert_density_grad_c(jk) < 0.0_wp ) THEN
+                params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = MAX_VERT_DIFF_TRAC
+            !! vert_density_grad  > 0 stable stratification: use calculated value
+              ELSE IF (z_vert_density_grad_c(jk) > 0.0_wp ) THEN
+                params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = MIN(MAX_VERT_DIFF_TRAC, A_T_tmp)
+              END IF
+
+              IF (l_constant_mixing) &
               & params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = params_oce%A_tracer_v_back(i_no_trac)
 
-              ! z_frac is used to avoid an if-condition
-              !  IF (z_vert_density_grad_c(jk) == 0.0_wp ) THEN
-              !    params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = MAX(MAX_VERT_DIFF_TRAC, A_T_tmp)
-              !  ELSE IF (z_vert_density_grad_c(jk) > 0.0_wp ) THEN
-              !    params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = A_T_tmp
-              !  ELSE
-              !    CALL FINISH(...)
-              !  END IF
     ! write(*,*)'Ri number',jk,jc,jb,z_Ri_c, z_vert_density_grad_c(jk),z_rho_up(jc,jk,jb),&
   ! &z_rho_down(jc,jk,jb),&
   ! &z_press,z_frac,&
@@ -802,6 +813,7 @@ ENDDO
 !        END DO
 !     END DO 
 
+     ! set to background values for first layer only:
      DO i_no_trac=1, no_tracer
        params_oce%A_tracer_v(:,1,:, i_no_trac) = params_oce%A_tracer_v_back(1) !params_oce%A_tracer_v(:,2,:,i_no_trac)
      END DO
@@ -841,7 +853,12 @@ ENDDO
             ! &*0.5_wp*(z_rho_up_c1 + z_rho_up_c2-z_rho_down_c1-z_rho_down_c2)
             z_stabio  = dz_inv*0.5_wp*(z_rho_down_c1 + z_rho_down_c2-z_rho_up_c1-z_rho_up_c2)
 
-            z_vert_density_grad_e(jk) = MAX(z_stabio, 0.0_wp)
+        !   z_vert_density_grad_e(jk) = MAX(z_stabio, 0.0_wp)
+           
+            !! vert_density_grad  > 0 stable stratification
+            !! vert_density_grad  = 0 instable stratification
+
+            z_vert_density_grad_e(jk) = z_stabio   !  #slo# 2011-10-07 now used directly, see below
 
             z_Ri_e = MAX(z_grav_rho*z_vert_density_grad_e(jk)/z_shear_e,0.0_wp)
             !z_vert_density_grad_e/(z_shear_e+0.0005_wp)! 
@@ -863,12 +880,25 @@ ENDDO
                     &         +params_oce%A_veloc_v_back)
 
 !TODO            write(0,*)'A_v_tmp:',je,jk,jb,A_T_tmp !TODO
-            z_frac=(1.0E-11_wp-z_vert_density_grad_e(jk))&
-            &/(1.0E-11_wp+ABS(z_vert_density_grad_e(jk)))
+           !z_frac=(1.0E-11_wp-z_vert_density_grad_e(jk))&
+           !&/(1.0E-11_wp+ABS(z_vert_density_grad_e(jk)))
 
-            params_oce%A_veloc_v(je,jk,jb) = MAX(MAX_VERT_DIFF_VELOC*z_frac, A_v_tmp)
-            IF (l_no_veloc_convect) &
-              & params_oce%A_veloc_v(je,jk,jb) = params_oce%A_veloc_v_back
+        !   params_oce%A_veloc_v(je,jk,jb) = MAX(MAX_VERT_DIFF_VELOC*z_frac, A_v_tmp)
+
+            !! vert_density_grad  = 0 'semi-stable': use background value
+              IF (z_vert_density_grad_e(jk) == 0.0_wp ) THEN
+                params_oce%A_veloc_v(je,jk,jb) = params_oce%A_veloc_v_back
+            !! vert_density_grad  < 0 instable stratification: use convective mixing parameter
+              ELSE IF (z_vert_density_grad_e(jk) < 0.0_wp ) THEN
+                params_oce%A_veloc_v(je,jk,jb) = MAX_VERT_DIFF_VELOC
+            !! vert_density_grad  > 0 stable stratification: use calculated value
+              ELSE IF (z_vert_density_grad_e(jk) > 0.0_wp ) THEN
+                params_oce%A_veloc_v(je,jk,jb) = MIN(MAX_VERT_DIFF_VELOC, A_v_tmp)
+              END IF
+
+              IF (l_constant_mixing) &
+                & params_oce%A_veloc_v(je,jk,jb) = params_oce%A_veloc_v_back
+
 !  write(*,*)'Ri number',jk,jc,jb,z_Ri_e, z_vert_density_grad_e(jk),&
 !  &z_frac,&
 !  & params_oce%A_veloc_v(je,jk,jb)
@@ -877,6 +907,8 @@ ENDDO
         END DO
       END DO
     END DO
+
+    ! set to second layer
     params_oce%A_veloc_v(:,1,:) = params_oce%A_veloc_v(:,2,:)
 
 DO i_no_trac=1, no_tracer
@@ -899,8 +931,8 @@ END DO
   ipl_src=3  ! output print level (1-5, fix)
   CALL print_mxmn('PHY veloc mixing',jk,params_oce%A_veloc_v(:,:,:),n_zlev, &
     & p_patch%nblks_e,'phy',ipl_src)
-  write(123,*)'max/min veloc mixing',jk,maxval(params_oce%A_veloc_v(:,jk,:)),&
-  &minval(params_oce%A_veloc_v(:,jk,:))
+  !write(123,*)'max/min veloc mixing',jk,maxval(params_oce%A_veloc_v(:,jk,:)),&
+  !&minval(params_oce%A_veloc_v(:,jk,:))
  END DO
 
  END SUBROUTINE update_ho_params

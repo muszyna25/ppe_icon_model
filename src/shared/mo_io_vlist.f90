@@ -112,7 +112,8 @@ MODULE mo_io_vlist
     &                                 gmres_rtol_nh, iadv_rcf, ivctype,           &
     &                                 upstr_beta, l_open_ubc, l_nest_rcf,         &
     &                                 itime_scheme_nh_atm => itime_scheme
-  USE mo_ocean_nml,             ONLY: n_zlev, dzlev_m, iforc_oce,no_tracer
+  USE mo_ocean_nml,             ONLY: n_zlev, dzlev_m, iforc_oce,no_tracer,       &
+    &                                 temperature_relaxation
   USE mo_dynamics_config,       ONLY: iequations,lshallow_water,                  &
     &                                 idiv_method, divavg_cntrwgt,                &
     &                                 nold, nnow, lcoriolis
@@ -2114,6 +2115,7 @@ CONTAINS
       &                    gridCellID(k_jg), &
       &                    zaxisID_surface(k_jg)),&
       &           k_jg)
+    IF (iforc_oce > 10) THEN
       CALL addVar(TimeVar('forc-u',&
       &                   'u-forcing component at centers',&
       &                   'N/m2',13,128,&
@@ -2128,6 +2130,8 @@ CONTAINS
       &                   gridCellID(k_jg),&
       &                   zaxisID_surface(k_jg)),&
       &           k_jg)
+    END IF
+    IF (temperature_relaxation /= 0 ) THEN
       CALL addVar(TimeVar('forc-t',&
       &                   'temperature relaxation at centers',&
       &                   'K*m/s',15,128,&
@@ -2135,6 +2139,7 @@ CONTAINS
       &                   gridCellID(k_jg),&
       &                   zaxisID_surface(k_jg)),&
       &           k_jg)
+    END IF 
    !  CALL addVar(TimeVar('horz-adv',&
    !  &                   'nonlin Cor ',&
    !  &                   'm/s',2,128,&
