@@ -134,7 +134,7 @@ TYPE t_ho_params
 END TYPE t_ho_params
 
 
-
+TYPE(t_ho_params),PUBLIC,TARGET :: v_params
 CONTAINS
 
   !-------------------------------------------------------------------------
@@ -802,9 +802,9 @@ ENDDO
 !        END DO
 !     END DO 
 
-    DO i_no_trac=1, no_tracer
-      params_oce%A_tracer_v(:,1,:, i_no_trac) = params_oce%A_tracer_v_back(1) !params_oce%A_tracer_v(:,2,:,i_no_trac)
-    END DO
+     DO i_no_trac=1, no_tracer
+       params_oce%A_tracer_v(:,1,:, i_no_trac) = params_oce%A_tracer_v_back(1) !params_oce%A_tracer_v(:,2,:,i_no_trac)
+     END DO
     !Viscosity at edges
     DO jb = i_startblk_e, i_endblk_e
       CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, &

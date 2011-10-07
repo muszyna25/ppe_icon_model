@@ -119,7 +119,7 @@ USE mo_oce_index,                 ONLY: print_mxmn, jkc, jkdim, ipl_src !TODO
 
 !   USE mo_oce_forcing,         ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
 !     &                               v_sfc_flx
-  USE mo_oce_physics,         ONLY: t_ho_params!, t_ho_physics
+  USE mo_oce_physics,         ONLY: t_ho_params, v_params!, t_ho_physics
   USE mo_sea_ice,             ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
     &                               v_sfc_flx
 
@@ -454,7 +454,7 @@ CONTAINS
 
     ! Prepare time integration
     CALL prepare_ho_integration(p_patch(1:), v_ocean_state, ext_data, v_sfc_flx, &
-      &                         p_phys_param, p_as, p_atm_f, p_ice)
+      &                         v_params, p_as, p_atm_f, p_ice)
 
     !------------------------------------------------------------------
     ! Daniel: Suggestion for point 5 of Feature #333
@@ -528,28 +528,28 @@ CONTAINS
     IF (ltimer) CALL timer_stop(timer_model_init)
 
     jg=1
-CALL &
-& print_mxmn('(BTL) w',1,   v_ocean_state(jg)%p_diag%w,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
-CALL &
-& print_mxmn('(BTL) w',2,   v_ocean_state(jg)%p_diag%w,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
-CALL &
-& print_mxmn('(BTL) w',3,   v_ocean_state(jg)%p_diag%w,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
-CALL &
-& print_mxmn('(BTL) w',4,   v_ocean_state(jg)%p_diag%w,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
-CALL &
-& print_mxmn('(BTL) w',5,   v_ocean_state(jg)%p_diag%w,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
-CALL &
-&print_mxmn('(BTL) w_old',1,v_ocean_state(jg)%p_diag%w_old,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
-CALL &
-&print_mxmn('(BTL) w_old',2,v_ocean_state(jg)%p_diag%w_old,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
-CALL &
-&print_mxmn('(BTL) w_old',3,v_ocean_state(jg)%p_diag%w_old,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
-CALL &
-&print_mxmn('(BTL) w_old',4,v_ocean_state(jg)%p_diag%w_old,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
-CALL &
-&print_mxmn('(BTL) w_old',5,v_ocean_state(jg)%p_diag%w_old,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
-
-CALL print_mxmn('(BTL) p_diag%K_veloc_h',1,p_phys_param%K_veloc_h,1,p_patch(jg)%nblks_c,'vel',1)
+! CALL &
+! & print_mxmn('(BTL) w',1,   v_ocean_state(jg)%p_diag%w,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
+! CALL &
+! & print_mxmn('(BTL) w',2,   v_ocean_state(jg)%p_diag%w,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
+! CALL &
+! & print_mxmn('(BTL) w',3,   v_ocean_state(jg)%p_diag%w,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
+! CALL &
+! & print_mxmn('(BTL) w',4,   v_ocean_state(jg)%p_diag%w,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
+! CALL &
+! & print_mxmn('(BTL) w',5,   v_ocean_state(jg)%p_diag%w,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
+! CALL &
+! &print_mxmn('(BTL) w_old',1,v_ocean_state(jg)%p_diag%w_old,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
+! CALL &
+! &print_mxmn('(BTL) w_old',2,v_ocean_state(jg)%p_diag%w_old,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
+! CALL &
+! &print_mxmn('(BTL) w_old',3,v_ocean_state(jg)%p_diag%w_old,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
+! CALL &
+! &print_mxmn('(BTL) w_old',4,v_ocean_state(jg)%p_diag%w_old,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
+! CALL &
+! &print_mxmn('(BTL) w_old',5,v_ocean_state(jg)%p_diag%w_old,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
+! 
+! CALL print_mxmn('(BTL) p_diag%K_veloc_h',1,p_phys_param%K_veloc_h,1,p_patch(jg)%nblks_c,'vel',1)
 
 
     CALL perform_ho_stepping( p_patch(1:), v_ocean_state,          &
@@ -557,7 +557,7 @@ CALL print_mxmn('(BTL) p_diag%K_veloc_h',1,p_phys_param%K_veloc_h,1,p_patch(jg)%
       &                       (nsteps == INT(time_config%dt_restart/dtime)),&
       &                       p_int_state(1:),                     &
       &                       v_sfc_flx,                           &
-      &                       p_phys_param, p_as, p_atm_f, p_ice,  &
+      &                       v_params, p_as, p_atm_f, p_ice,      &
       &                       l_have_output)
 
     IF (ltimer) CALL print_timer
@@ -567,7 +567,7 @@ CALL print_mxmn('(BTL) p_diag%K_veloc_h',1,p_phys_param%K_veloc_h,1,p_patch(jg)%
     !------------------------------------------------------------------
     CALL message(TRIM(routine),'start to clean up')
 
-    CALL finalise_ho_integration(v_ocean_state, p_phys_param, p_as, p_atm_f, p_ice)
+    CALL finalise_ho_integration(v_ocean_state, v_params, p_as, p_atm_f, p_ice)
 
 
 

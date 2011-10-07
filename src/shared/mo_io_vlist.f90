@@ -200,7 +200,7 @@ MODULE mo_io_vlist
   USE mo_intp_data_strc,        ONLY: p_int_state, p_int_state_lonlat
   USE mo_mpi,                   ONLY: p_pe
   USE mo_util_string,           ONLY: string_contains_word, toupper
-
+  USE mo_oce_physics,           ONLY: t_ho_params, v_params
   IMPLICIT NONE
 
   PRIVATE
@@ -2207,6 +2207,20 @@ CONTAINS
       &                   vlistid(k_jg),&
       &                   gridcellid(k_jg),&
       &                   zaxisID_halfdepth(k_jg)),&
+      &           k_jg)      
+      CALL addVar(TimeVar('Vert-Mixing-V',&
+      &                   'vertical mixing coeff veloc',&
+      &                   'm^2/s', 6, 128,&
+      &                   vlistid(k_jg),&
+      &                   gridEdgeID(k_jg),&
+      &                   zaxisID_halfdepth(k_jg)),&
+      &           k_jg)
+      CALL addVar(TimeVar('Vert-Mixing-T',&
+      &                   'vertical mixing coeff temp',&
+      &                   'm^2/s', 6, 128,&
+      &                   vlistid(k_jg),&
+      &                   gridcellid(k_jg),&
+      &                   zaxisID_halfdepth(k_jg)),&
       &           k_jg)
    !  CALL addVar(TimeVar('press_grad',&
    !  &                   'pressure-gradient at edges',&
@@ -3046,12 +3060,13 @@ CONTAINS
     TYPE(t_hydro_ocean_diag), POINTER  :: p_diag
     TYPE(t_hydro_ocean_aux),  POINTER  :: p_aux
     TYPE(t_sfc_flx),          POINTER  :: forcing
-
+    TYPE(t_ho_params),        POINTER ::  p_params
     ! pointer to components of state variable
     p_prog  => v_ocean_state(jg)%p_prog(nold(jg))
     p_diag  => v_ocean_state(jg)%p_diag
     p_aux   => v_ocean_state(jg)%p_aux
-    forcing => v_sfc_flx
+    forcing => v_sfc_flx 
+    p_params=> v_params
 
     ptr2d     => NULL()
     ptr3d     => NULL()
@@ -3094,7 +3109,9 @@ CONTAINS
       CASE ('v-veloc');      ptr3d => p_diag%v
       CASE ('W');            ptr3d => p_diag%w
       CASE('press_grad');    ptr3d => p_diag%press_grad
-      CASE ('rho');          ptr3d => p_diag%rho
+      CASE ('rho');          ptr3d => p_diag%rho   
+      CASE('Vert-Mixing-V'); ptr3d => p_params%A_veloc_v
+      CASE('Vert-Mixing-T'); ptr3d => p_params%A_tracer_v(:,:,:,1)
 
       CASE DEFAULT;    not_found = .TRUE.
     END SELECT
