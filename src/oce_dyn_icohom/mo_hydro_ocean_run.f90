@@ -75,7 +75,10 @@ USE mo_oce_state,              ONLY: t_hydro_ocean_state, t_hydro_ocean_base, &
   &                                  construct_hydro_ocean_base, destruct_hydro_ocean_base, &
   &                                  construct_hydro_ocean_state, destruct_hydro_ocean_state, &
   &                                  init_scalar_product_base, init_geo_factors_base, &
-  &                                  init_coriolis_oce, init_oce_config
+  &                                  init_coriolis_oce, init_oce_config, &
+  &                                  set_lateral_boundary_values
+USE mo_oce_math_operators,     ONLY: height_related_quantities
+USE mo_scalar_product,         ONLY: calc_scalar_product_for_veloc
 USE mo_oce_physics,            ONLY: t_ho_params, &
   &                                  construct_ho_params, init_ho_params, &
   &                                  destruct_ho_params, update_ho_params
@@ -168,6 +171,10 @@ CONTAINS
   CHARACTER(len=32) :: datestring
   TYPE(t_oce_timeseries), POINTER :: oce_ts
 
+  ! TRUE=staggering between thermodynamic and dynamic part, offset of half timestep
+  ! between dynamic and thermodynamic variables thermodynamic and dnamic variables are colocated in time
+  LOGICAL, PARAMETER :: l_STAGGERED_TIMESTEP = .FALSE. 
+
   !CHARACTER(LEN=filename_max)  :: outputfile, gridfile
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     &      routine = 'mo_hydro_ocean_run:perform_ho_stepping'
@@ -252,6 +259,28 @@ CALL &
 CALL &
 &print_mxmn('(TL) p_diag%w_old',5,pstate_oce(jg)%p_diag%w_old,4+1,ppatch(jg)%nblks_c,'vel',ipl_src)
       IF(iswm_oce /= 1)THEN
+
+        ! ATTENTION - in namelist - TBD
+        IF(.NOT.l_STAGGERED_TIMESTEP)THEN
+   
+          CALL height_related_quantities(ppatch(jg), pstate_oce(jg), p_ext_data(jg))
+   
+          !This is required in top boundary condition for
+          !vertical velocity: the time derivative of the surface height
+          !is used there and needs special treatment in the first timestep.
+          !see sbr top_bound_cond_vert_veloc in mo_ho_boundcond
+          pstate_oce(jg)%p_prog(nnew(1))%h = pstate_oce(jg)%p_prog(nold(1))%h
+   
+          Call set_lateral_boundary_values(ppatch(jg), pstate_oce(jg)%p_prog(nold(1))%vn)
+   
+          CALL calc_scalar_product_for_veloc( ppatch(jg), &
+            & pstate_oce(jg)%p_prog(nold(1))%vn,&
+            & pstate_oce(jg)%p_prog(nold(1))%vn,&
+            & pstate_oce(jg)%p_diag%h_e,        &
+            & pstate_oce(jg)%p_diag)
+   
+        ENDIF
+
         SELECT CASE (EOS_TYPE)
         CASE(1)
           CALL update_ho_params(ppatch(jg), pstate_oce(jg), p_sfc_flx, p_phys_param,&

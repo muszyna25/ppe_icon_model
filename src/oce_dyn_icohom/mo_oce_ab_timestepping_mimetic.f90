@@ -109,11 +109,12 @@ PRIVATE :: lhs_surface_height_ab_mim
 PRIVATE :: inverse_primal_flip_flop
 
 INTEGER, PARAMETER  :: top=1
-
 LOGICAL, PARAMETER :: l_forc_freshw        = .FALSE.
-LOGICAL, PUBLIC,PARAMETER :: l_STAGGERED_TIMESTEP = .FALSE.  !Yes=staggering between thermodynamic and dynamic part, offset of hlf timestep
-                                                      !between dynamic and thermodynamic variables 
-                                                      !thermodynamic and dnamic variables are colocated in time
+
+! TRUE=staggering between thermodynamic and dynamic part, offset of half timestep
+! between dynamic and thermodynamic variables thermodynamic and dnamic variables are colocated in time
+LOGICAL, PUBLIC,PARAMETER :: l_STAGGERED_TIMESTEP = .FALSE. 
+
 CONTAINS
 !-------------------------------------------------------------------------  
 !
@@ -186,26 +187,27 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
       & p_os%p_diag)
 
   ENDIF
-  IF(.NOT.l_STAGGERED_TIMESTEP)THEN
 
-    CALL height_related_quantities(p_patch, p_os, p_ext_data)
+  ! moved to hydro_ocean_run
+! IF(.NOT.l_STAGGERED_TIMESTEP)THEN
 
-    !This is required in top boundary condition for
-    !vertical velocity: the time derivative of the surface height
-    !is used there and needs special treatment in the first timestep.
-    !see sbr top_bound_cond_vert_veloc in mo_ho_boundcond
-    p_os%p_prog(nnew(1))%h=p_os%p_prog(nold(1))%h
+!   CALL height_related_quantities(p_patch, p_os, p_ext_data)
 
-    Call set_lateral_boundary_values(p_patch, p_os%p_prog(nold(1))%vn)
+!   !This is required in top boundary condition for
+!   !vertical velocity: the time derivative of the surface height
+!   !is used there and needs special treatment in the first timestep.
+!   !see sbr top_bound_cond_vert_veloc in mo_ho_boundcond
+!   p_os%p_prog(nnew(1))%h=p_os%p_prog(nold(1))%h
 
-    CALL calc_scalar_product_for_veloc( p_patch,                &
-      & p_os%p_prog(nold(1))%vn,&
-      & p_os%p_prog(nold(1))%vn,&
-      & p_os%p_diag%h_e,        &
-      & p_os%p_diag)
+!   Call set_lateral_boundary_values(p_patch, p_os%p_prog(nold(1))%vn)
 
-  ENDIF
+!   CALL calc_scalar_product_for_veloc( p_patch,                &
+!     & p_os%p_prog(nold(1))%vn,&
+!     & p_os%p_prog(nold(1))%vn,&
+!     & p_os%p_diag%h_e,        &
+!     & p_os%p_diag)
 
+! ENDIF
 
   ipl_src=2  ! output print level (1-5, fix)
   z_c1(:,1,:) = p_os%p_prog(nold(1))%h(:,:)
