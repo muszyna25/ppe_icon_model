@@ -48,7 +48,7 @@ MODULE mo_nh_df_test
 
   USE mo_kind,                ONLY: wp
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, min_rledge, min_rlcell,  &
-    &                               imiura, imiura3
+    &                               MIURA, MIURA3
   USE mo_physical_constants,  ONLY: re, rd, cpd, p0ref
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data,            ONLY: t_external_data
@@ -1095,7 +1095,7 @@ CONTAINS
       !       The namelist settings of the first tracer are applied to 
       !       the density as well.
       SELECT CASE( advection_config(pid)%ihadv_tracer(1) )
-      CASE( imiura )
+      CASE( MIURA )
 
         CALL upwind_hflux_miura(p_patch, p_prog_now%rho, p_prog_new%vn,        &
           &                     z_vn_traj, p_dtime, p_int, lcompute, lcleanup, &
@@ -1104,7 +1104,7 @@ CONTAINS
           &                     advection_config(pid)%iord_backtraj,           &
           &                     z_rho_e, opt_lout_edge=.TRUE.   )
 
-      CASE( imiura3 )
+      CASE( MIURA3 )
 
         CALL upwind_hflux_miura3(p_patch, p_prog_now%rho, p_prog_new%vn,       &
           &                      z_vn_traj, p_dtime, p_int, lcompute, lcleanup,&

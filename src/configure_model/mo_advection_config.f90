@@ -44,8 +44,8 @@ MODULE mo_advection_config
 
   USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: MAX_NTRACER, MAX_CHAR_LENGTH, max_dom,  &
-    &                              imiura, imiura3, imcycl, imiura_mcycl,  &
-    &                              imiura3_mcycl, ippm_vcfl, ippm_v,       &
+    &                              MIURA, MIURA3, MCYCL, MIURA_MCYCL,      &
+    &                              MIURA3_MCYCL, ippm_vcfl, ippm_v,        &
     &                              ino_flx, izero_grad, iparent_flx, inwp, &
     &                              imuscl_vcfl, imuscl_v
 
@@ -345,11 +345,11 @@ CONTAINS
     lcompute%miura_h(:) = .FALSE.
     lcleanup%miura_h(:) = .FALSE.
 
-    IF ( ANY(ihadv_tracer(1:ntracer) == imiura) ) THEN
+    IF ( ANY(ihadv_tracer(1:ntracer) == MIURA) ) THEN
       ! Search for the first tracer jt for which horizontal advection of
       ! type MIURA has been selected.
       DO jt=1,ntracer
-        IF ( ihadv_tracer(jt) == imiura ) THEN
+        IF ( ihadv_tracer(jt) == MIURA ) THEN
           lcompute%miura_h(jt) = .TRUE.
           exit
         ENDIF
@@ -358,7 +358,7 @@ CONTAINS
       ! Search for the last tracer jt for which horizontal advection of
       ! type MIURA has been selected.
       DO jt=ntracer,1,-1
-        IF ( ihadv_tracer(jt) == imiura ) THEN
+        IF ( ihadv_tracer(jt) == MIURA ) THEN
           lcleanup%miura_h(jt) = .TRUE.
           exit
         ENDIF
@@ -375,7 +375,7 @@ CONTAINS
     ! Search for the first tracer jt for which horizontal advection of
     ! type MIURA3 has been selected.
     DO jt=1,ntracer
-      IF ( ihadv_tracer(jt) == imiura3 ) THEN
+      IF ( ihadv_tracer(jt) == MIURA3 ) THEN
         lcompute%miura3_h(jt) = .TRUE.
         exit
       ENDIF
@@ -384,7 +384,7 @@ CONTAINS
     ! Search for the last tracer jt for which horizontal advection of
     ! type MIURA3 has been selected.
     DO jt=ntracer,1,-1
-      IF ( ihadv_tracer(jt) == imiura3 ) THEN
+      IF ( ihadv_tracer(jt) == MIURA3 ) THEN
         lcleanup%miura3_h(jt) = .TRUE.
         exit
       ENDIF
@@ -400,7 +400,7 @@ CONTAINS
     ! Search for the first tracer jt for which horizontal advection of
     ! type MCYCL has been selected.
     DO jt=1,ntracer
-      IF ( ihadv_tracer(jt) == imcycl ) THEN
+      IF ( ihadv_tracer(jt) == MCYCL ) THEN
         lcompute%mcycl_h(jt) = .TRUE.
         exit
       ENDIF
@@ -409,7 +409,7 @@ CONTAINS
     ! Search for the last tracer jt for which horizontal advection of
     ! type MCYCL has been selected.
     DO jt=ntracer,1,-1
-      IF ( ihadv_tracer(jt) == imcycl ) THEN
+      IF ( ihadv_tracer(jt) == MCYCL ) THEN
         lcleanup%mcycl_h(jt) = .TRUE.
         exit
       ENDIF
@@ -425,7 +425,7 @@ CONTAINS
     ! Search for the first tracer jt for which horizontal advection of
     ! type MIURA_MCYCL has been selected.
     DO jt=1,ntracer
-      IF ( ihadv_tracer(jt) == imiura_mcycl ) THEN
+      IF ( ihadv_tracer(jt) == MIURA_MCYCL ) THEN
         lcompute%miura_mcycl_h(jt) = .TRUE.
         exit
       ENDIF
@@ -434,7 +434,7 @@ CONTAINS
     ! Search for the last tracer jt for which horizontal advection of
     ! type MIURA_MCYCL has been selected.
     DO jt=ntracer,1,-1
-      IF ( ihadv_tracer(jt) == imiura_mcycl ) THEN
+      IF ( ihadv_tracer(jt) == MIURA_MCYCL ) THEN
         lcleanup%miura_mcycl_h(jt) = .TRUE.
         exit
       ENDIF
@@ -450,7 +450,7 @@ CONTAINS
     ! Search for the first tracer jt for which horizontal advection of
     ! type MIURA3_MCYCL has been selected.
     DO jt=1,ntracer
-      IF ( ihadv_tracer(jt) == imiura3_mcycl ) THEN
+      IF ( ihadv_tracer(jt) == MIURA3_MCYCL ) THEN
         lcompute%miura3_mcycl_h(jt) = .TRUE.
         exit
       ENDIF
@@ -459,7 +459,7 @@ CONTAINS
     ! Search for the last tracer jt for which horizontal advection of
     ! type MIURA3_MCYCL has been selected.
     DO jt=ntracer,1,-1
-      IF ( ihadv_tracer(jt) == imiura3_mcycl ) THEN
+      IF ( ihadv_tracer(jt) == MIURA3_MCYCL ) THEN
         lcleanup%miura3_mcycl_h(jt) = .TRUE.
         exit
       ENDIF

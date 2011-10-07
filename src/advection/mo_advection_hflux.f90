@@ -80,9 +80,9 @@ MODULE mo_advection_hflux
   USE mo_exception,           ONLY: finish
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, SUCCESS, TRACER_ONLY,      &
     &                               min_rledge_int, min_rledge, min_rlcell_int, &
-    &                               iup, imiura, imiura3, imcycl, imiura_mcycl, &
-    &                               imiura3_mcycl, islopel_sm, islopel_m,       &
-    &                               ifluxl_m, ifluxl_sm, iup3, INH_ATMOSPHERE,  &
+    &                               UP, MIURA, MIURA3, MCYCL, MIURA_MCYCL,      &
+    &                               MIURA3_MCYCL, UP3, islopel_sm, islopel_m,   &
+    &                               ifluxl_m, ifluxl_sm, INH_ATMOSPHERE,        &
     &                               IHS_ATM_TEMP, ISHALLOW_WATER, IHS_ATM_THETA
   USE mo_model_domain,        ONLY: t_patch
   USE mo_math_operators,      ONLY: grad_green_gauss_cell, recon_lsq_cell_l,    &
@@ -228,7 +228,7 @@ CONTAINS
     ! routines. The resulting tangential velocity field is then passed to  
     ! MIURA and MIURA3 as optional argument. 
 
-    IF (ANY(p_ihadv_tracer(:)/= iup) .AND. ANY(p_ihadv_tracer(:)/= iup3)) THEN 
+    IF (ANY(p_ihadv_tracer(:)/= UP) .AND. ANY(p_ihadv_tracer(:)/= UP3)) THEN 
 
       i_rlend_vt = MIN(i_rlend, min_rledge_int - 1)
 
@@ -254,14 +254,14 @@ CONTAINS
       ! Select desired flux calculation method
       SELECT CASE( p_ihadv_tracer(jt) )
 
-      CASE( iup )
+      CASE( UP )
         ! CALL first order upwind
         CALL upwind_hflux_up( p_patch, p_cc(:,:,:,jt),                &! in
           &                 p_mass_flx_e, p_upflux(:,:,:,jt),         &! in,inout  
           &                 opt_slev=p_iadv_slev(jt),opt_rlend=i_rlend)! in
 
 
-      CASE( imiura )
+      CASE( MIURA )
         ! CALL MIURA with second order accurate reconstruction
         CALL upwind_hflux_miura( p_patch, p_cc(:,:,:,jt), p_mass_flx_e,  &! in
           &                 p_vn, p_dtime, p_int, lcompute%miura_h(jt),  &! in
@@ -271,7 +271,7 @@ CONTAINS
           &                 opt_slev=p_iadv_slev(jt), opt_rlend=i_rlend  )! in
 
 
-      CASE( imiura3 )
+      CASE( MIURA3 )
         ! CALL MIURA with third order accurate reconstruction
         CALL upwind_hflux_miura3( p_patch, p_cc(:,:,:,jt), p_mass_flx_e, &! in
           &                 p_vn, p_dtime, p_int, lcompute%miura3_h(jt), &! in
@@ -280,14 +280,14 @@ CONTAINS
           &                 opt_slev=p_iadv_slev(jt), opt_rlend=i_rlend  )! in
 
 
-      CASE( iup3 )
+      CASE( UP3 )
         ! CALL 3rd order upwind (only for hexagons, currently)
         CALL upwind_hflux_hex( p_patch, p_int, p_cc(:,:,:,jt), p_c0(:,:,:,jt), &! in
           &                 p_mass_flx_e, p_dtime, p_itype_hlimit(jt),         &! in
           &                 p_upflux(:,:,:,jt), opt_slev=p_iadv_slev(jt)       )! inout
 
 
-      CASE ( imcycl )
+      CASE ( MCYCL )
         ! CALL MIURA with second order accurate reconstruction and subcycling
         CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,    &! in
           &             p_mass_flx_e, p_vn, p_dtime, 2, p_int,           &! in
@@ -298,7 +298,7 @@ CONTAINS
           &             opt_rlend=i_rlend                                )! in
 
 
-      CASE( imiura_mcycl )
+      CASE( MIURA_MCYCL )
         ! CALL standard MIURA for lower atmosphere and the subcycling version of 
         ! MIURA for upper atmosphere
         CALL upwind_hflux_miura( p_patch, p_cc(:,:,:,jt), p_mass_flx_e,  &! in
@@ -319,7 +319,7 @@ CONTAINS
           &                opt_elev=p_iadv_slev(jt)-1, opt_rlend=i_rlend )! in
 
 
-      CASE( imiura3_mcycl )
+      CASE( MIURA3_MCYCL )
         ! CALL standard MIURA3 for lower atmosphere and the subcycling version of 
         ! MIURA for upper atmosphere
         CALL upwind_hflux_miura3( p_patch, p_cc(:,:,:,jt), p_mass_flx_e, &! in

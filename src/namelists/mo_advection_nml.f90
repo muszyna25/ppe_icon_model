@@ -48,8 +48,8 @@ MODULE mo_advection_nml
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_run_config,          ONLY: ntracer
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_ntracer, max_dom,      &
-    &                               imiura, imiura3, imcycl, imiura_mcycl,      &
-    &                               imiura3_mcycl, ippm_vcfl, ippm_v, inol,     &
+    &                               MIURA, MIURA3, MCYCL, MIURA_MCYCL,          &
+    &                               MIURA3_MCYCL, ippm_vcfl, ippm_v, inol,      &
     &                               islopel_sm, islopel_m, ifluxl_m, ifluxl_sm, &
     &                               inol_v, islopel_vsm, ifluxl_vpd
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
@@ -172,7 +172,7 @@ CONTAINS
     ! 1. default settings   
     !-----------------------
     ctracer_list    = ''
-    ihadv_tracer(:) = imiura    ! miura horizontal advection scheme
+    ihadv_tracer(:) = MIURA     ! miura horizontal advection scheme
     itype_hlimit(:) = ifluxl_m  ! monotonous flux limiter
     ivadv_tracer(:) = ippm_vcfl ! PPM vertical advection scheme
     itype_vlimit(:) = islopel_vsm ! semi-monotonous slope limiter
@@ -219,7 +219,7 @@ CONTAINS
 
     ! flux computation methods - sanity check
     !
-    IF ( ANY(ihadv_tracer(1:ntracer) > imiura3_mcycl) .OR.            &
+    IF ( ANY(ihadv_tracer(1:ntracer) > MIURA3_MCYCL) .OR.            &
       &  ANY(ihadv_tracer(1:ntracer) < 0) )    THEN
       CALL finish( TRIM(routine),                                     &
         &  'incorrect settings for ihadv_tracer. Must be 0,1,2,3,4,'//&
@@ -233,21 +233,21 @@ CONTAINS
     z_nogo(1) = islopel_sm
     z_nogo(2) = islopel_m
     DO jt=1,max_ntracer
-      IF ( ihadv_tracer(jt)==imiura3 .AND. ANY(z_nogo==itype_hlimit(jt)) ) THEN
+      IF ( ihadv_tracer(jt)==MIURA3 .AND. ANY(z_nogo==itype_hlimit(jt)) ) THEN
         CALL finish( TRIM(routine),                                   &
           &  'incorrect settings for MIURA3. No slope limiter available ')
       ENDIF
-      IF ( ihadv_tracer(jt)==imcycl .AND. ANY(z_nogo==itype_hlimit(jt)) ) THEN
+      IF ( ihadv_tracer(jt)==MCYCL .AND. ANY(z_nogo==itype_hlimit(jt)) ) THEN
         CALL finish( TRIM(routine),                                   &
-          &  'incorrect settings for IMCYCL. No slope limiter available ')
+          &  'incorrect settings for MCYCL. No slope limiter available ')
       ENDIF
-      IF ( ihadv_tracer(jt)==imiura_mcycl .AND. ANY(z_nogo==itype_hlimit(jt)) ) THEN
+      IF ( ihadv_tracer(jt)==MIURA_MCYCL .AND. ANY(z_nogo==itype_hlimit(jt)) ) THEN
         CALL finish( TRIM(routine),                                   &
-          &  'incorrect settings for IMIURA_MCYCL. No slope limiter available ')
+          &  'incorrect settings for MIURA_MCYCL. No slope limiter available ')
       ENDIF
-      IF ( ihadv_tracer(jt)==imiura3_mcycl .AND. ANY(z_nogo==itype_hlimit(jt)) ) THEN
+      IF ( ihadv_tracer(jt)==MIURA3_MCYCL .AND. ANY(z_nogo==itype_hlimit(jt)) ) THEN
         CALL finish( TRIM(routine),                                   &
-          &  'incorrect settings for IMIURA3_MCYCL. No slope limiter available ')
+          &  'incorrect settings for MIURA3_MCYCL. No slope limiter available ')
       ENDIF
     END DO
     IF (upstr_beta_adv > 1.0_wp .OR. upstr_beta_adv < 0.0_wp) THEN

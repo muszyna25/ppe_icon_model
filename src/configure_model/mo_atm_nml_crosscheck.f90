@@ -52,9 +52,9 @@ MODULE mo_nml_crosscheck
     &                              ildf_dry, inoforcing, ihs_atm_temp,        &
     &                              ihs_atm_theta, tracer_only, inh_atmosphere,&
     &                              ishallow_water, LEAPFROG_EXPL, LEAPFROG_SI,&
-    &                              ino_hadv, iup, imiura, imiura3, iup3,      &
-    &                              imcycl, imiura_mcycl, imiura3_mcycl,       &
-    &                              ifluxl_sm, islopel_m, islopel_sm, ifluxl_m  
+    &                              NO_HADV, UP, MIURA, MIURA3, UP3, MCYCL,    &
+    &                              MIURA_MCYCL, MIURA3_MCYCL, ifluxl_sm,      &
+    &                              islopel_m, islopel_sm, ifluxl_m  
   USE mo_time_config,        ONLY: time_config
   USE mo_io_config,          ONLY: dt_checkpoint
   USE mo_parallel_config,    ONLY: check_parallel_configuration,              &
@@ -624,10 +624,10 @@ CONTAINS
       CASE (6)
         WRITE(0,*)'nml_Crosscheck'
         ! 3rd order upwind horizontal advection scheme
-        advection_config(jg)%ihadv_tracer(:) = iup3
+        advection_config(jg)%ihadv_tracer(:) = UP3
         ! semi monotonous flux limiter
         advection_config(jg)%itype_hlimit(:) = ifluxl_sm
-        WRITE(message_text,'(a,i2)') 'NOTE: For hex grid works only ihadv_tracer =',iup3
+        WRITE(message_text,'(a,i2)') 'NOTE: For hex grid works only ihadv_tracer =',UP3
         CALL message(TRIM(routine),message_text)
         WRITE(message_text,'(a,i2)')' and itype_hlimit= ', ifluxl_sm
         CALL message(TRIM(routine),message_text)
@@ -638,7 +638,7 @@ CONTAINS
 
       SELECT CASE (global_cell_type)
       CASE (3)
-        z_go_tri(1:7)=(/ino_hadv,iup,imiura,imiura3,imcycl,imiura_mcycl,imiura3_mcycl/)
+        z_go_tri(1:7)=(/NO_HADV,UP,MIURA,MIURA3,MCYCL,MIURA_MCYCL,MIURA3_MCYCL/)
         DO jt=1,ntracer
           IF ( ALL(z_go_tri /= advection_config(jg)%ihadv_tracer(jt)) ) THEN
             CALL finish( TRIM(routine),                                       &
@@ -648,7 +648,7 @@ CONTAINS
         ENDDO
 
       CASE (6)
-        z_go_hex(1:3) = (/ino_hadv,iup,iup3/)
+        z_go_hex(1:3) = (/NO_HADV,UP,UP3/)
         DO jt=1,ntracer
           IF ( ALL(z_go_hex /= advection_config(jg)%ihadv_tracer(jt)) ) THEN
             CALL finish( TRIM(routine),                                       &

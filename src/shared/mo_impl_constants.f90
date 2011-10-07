@@ -232,14 +232,14 @@ MODULE mo_impl_constants
   ! transport identifiers
   !
   ! identifier for horizontal transport scheme
-  INTEGER, PARAMETER :: ino_hadv= 0
-  INTEGER, PARAMETER :: iup     = 1
-  INTEGER, PARAMETER :: imiura  = 2
-  INTEGER, PARAMETER :: imiura3 = 3
-  INTEGER, PARAMETER :: iup3    = 4
-  INTEGER, PARAMETER :: imcycl  = 20
-  INTEGER, PARAMETER :: imiura_mcycl  = 22
-  INTEGER, PARAMETER :: imiura3_mcycl = 32
+  INTEGER, PARAMETER :: NO_HADV = 0
+  INTEGER, PARAMETER :: UP      = 1
+  INTEGER, PARAMETER :: MIURA   = 2
+  INTEGER, PARAMETER :: MIURA3  = 3
+  INTEGER, PARAMETER :: UP3     = 4
+  INTEGER, PARAMETER :: MCYCL   = 20
+  INTEGER, PARAMETER :: MIURA_MCYCL  = 22
+  INTEGER, PARAMETER :: MIURA3_MCYCL = 32
 
   ! identifier for vertical transport scheme
   INTEGER, PARAMETER :: ino_vadv    = 0
