@@ -1744,7 +1744,9 @@ INTEGER, PARAMETER :: UPWIND          =2
 !-------------------------------------------------------------------------------
 !CALL message (TRIM(routine), 'start')
 
+#ifndef __SX__
 IF (ltimer) CALL timer_start(timer_height)
+#endif
 
 rl_start_c = 1
 rl_end_c = min_rlcell
@@ -1964,7 +1966,9 @@ ENDIF
 ! write(*,*)'max/min h_e:',maxval(p_os%p_diag%h_e),minval(p_os%p_diag%h_e) 
 ! !CALL message (TRIM(routine), 'end')        
 
+#ifndef __SX__
 IF (ltimer) CALL timer_stop(timer_height)
+#endif
 
 END SUBROUTINE height_related_quantities
 
