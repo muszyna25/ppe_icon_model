@@ -568,8 +568,8 @@ END INTERFACE
    REAL(wp), PARAMETER :: z_c1_T   = 5.0_wp
    REAL(wp), PARAMETER :: z_c1_v   = 5.0_wp
    REAL(wp), PARAMETER :: z_av0    = 0.5E-2_wp
-   LOGICAL,  PARAMETER :: l_no_tracer_convect = .TRUE.
-   LOGICAL,  PARAMETER :: l_no_veloc_convect  = .TRUE.
+   LOGICAL,  PARAMETER :: l_no_tracer_convect = .FALSE.
+   LOGICAL,  PARAMETER :: l_no_veloc_convect  = .FALSE.
 
 !   !-------------------------------------------------------------------------
 DO, jk=1,n_zlev
