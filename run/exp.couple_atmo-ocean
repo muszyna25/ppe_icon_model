@@ -40,8 +40,9 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model timing
+dtime=420
 dtime=300
-ndays=10
+ndays=1
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 dt_diag=`expr 6 \* 3600  `   # global integral output each 6 hours
 dt_file=`expr 1 \* 86400 `   # 1 day per file
@@ -63,7 +64,7 @@ iforcing=2          # ECHAM physics
 #-----------------------------------------------------------------------------
 # the grid files
 grid_ext="aqua_planet"
-grid_name="iconR2B03-ocean_${grid_ext}"
+grid_name="iconR2B04-ocean_${grid_ext}"
 ocean_grids="${grid_name}.nc"
 #
 #-----------------------------------------------------------------------------
@@ -240,8 +241,10 @@ start_date="2000-01-01T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
+dtime=420            # ocean model timestep [s]
 dtime=300            # ocean model timestep [s]
 ndays=3600           # ocean model run in days
+ndays=1              # ocean model run in days
 dt_data=21600.       # ocean model output interval [s]
 ndays_file=5000      # new output file generation interval [days]
 ndays_checkp=30      # write restart file interval [days]
