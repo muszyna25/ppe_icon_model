@@ -546,7 +546,7 @@ CONTAINS
   !! @par Revision History
   !!  developed by Peter Korn, MPI-M (2010-11)
   !!
-  SUBROUTINE calc_scalar_product_for_veloc( p_patch, vn_e_old, vn_e_new,&
+ SUBROUTINE calc_scalar_product_for_veloc( p_patch, vn_e_old, vn_e_new,&
                                           & h_e, p_diag)
 
   TYPE(t_patch), INTENT(IN) :: p_patch            ! patch on which computation is performed

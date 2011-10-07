@@ -122,9 +122,8 @@ TYPE t_ho_params
   TYPE(t_ptr3d),ALLOCATABLE :: tracer_v_ptr(:)
 
   !constant background values of coefficients above
-  REAL(wp) :: K_veloc_h_back, & ! coefficient of horizontal velocity diffusion
-           &  A_veloc_v_back    ! coefficient of vertical velocity diffusion
-
+  REAL(wp) :: K_veloc_h_back, &! coefficient of horizontal velocity diffusion
+           &  A_veloc_v_back   ! coefficient of vertical velocity diffusion
 
   REAL(wp),ALLOCATABLE ::     &
     &  K_tracer_h_back(:),    & ! coefficient of horizontal tracer diffusion dim=no_tracer
@@ -573,6 +572,18 @@ END INTERFACE
    LOGICAL,  PARAMETER :: l_no_veloc_convect  = .TRUE.
 
 !   !-------------------------------------------------------------------------
+DO, jk=1,n_zlev
+CALL &
+& print_mxmn('(uhp) params_oce%K_veloc_h',jk,params_oce%K_veloc_h,n_zlev,p_patch%nblks_e,'phy',3)
+CALL &
+& print_mxmn('(uhp) params_oce%A_veloc_v',jk,params_oce%A_veloc_v,n_zlev,p_patch%nblks_e,'phy',3)
+ENDDO
+write(0,*)'K_veloc_h_back:',params_oce%K_veloc_h_back
+write(0,*)'A_veloc_v_back:',params_oce%A_veloc_v_back
+DO jk=1,2
+write(0,*)'K_tracer_h_back(',jk,'):',params_oce%K_tracer_h_back(jk)
+write(0,*)'A_tracer_v_back(',jk,'):',params_oce%A_tracer_v_back(jk)
+ENDDO
 !    IF (no_tracer == 0) RETURN
     rl_start_c   = 1
     rl_end_c     = min_rlcell
@@ -736,6 +747,7 @@ END INTERFACE
               z_frac=(1.0E-11_wp-z_vert_density_grad_c(jk))&
               &/(1.0E-11_wp+ABS(z_vert_density_grad_c(jk)))
 
+!TODO            write(0,*)'A_T_tmp:',jc,jk,jb,i_no_trac,A_T_tmp
  
               params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = MAX(MAX_VERT_DIFF_TRAC*z_frac, A_T_tmp)
               IF (l_no_tracer_convect) &
@@ -850,6 +862,7 @@ END INTERFACE
                     & +z_beta*(z_A_W_v (je,jk,jb)+z_av0/((1.0_wp+z_c1_v*z_Ri_e)**2)         &
                     &         +params_oce%A_veloc_v_back)
 
+!TODO            write(0,*)'A_v_tmp:',je,jk,jb,A_T_tmp !TODO
             z_frac=(1.0E-11_wp-z_vert_density_grad_e(jk))&
             &/(1.0E-11_wp+ABS(z_vert_density_grad_e(jk)))
 
@@ -871,6 +884,11 @@ DO i_no_trac=1, no_tracer
  DO jk=1,n_zlev
   ipl_src=3  ! output print level (1-5, fix)
   CALL print_mxmn('PHY trac mixing',jk,z_c(:,:,:),n_zlev+1,p_patch%nblks_c,'phy',ipl_src)
+  CALL print_mxmn('z_A_W_v',jk,z_A_W_v,n_zlev,p_patch%nblks_e,'phy',ipl_src)
+  CALL print_mxmn('z_A_W_T',jk,z_A_W_T,n_zlev,p_patch%nblks_c,'phy',ipl_src)
+  CALL print_mxmn('p_vn%x(1)',jk,p_os%p_diag%p_vn%x(1),n_zlev,p_patch%nblks_c,'phy',ipl_src)
+  CALL print_mxmn('p_vn%x(2)',jk,p_os%p_diag%p_vn%x(2),n_zlev,p_patch%nblks_c,'phy',ipl_src)
+  CALL print_mxmn('z_shear_c',jk,z_shear_c,n_zlev,p_patch%nblks_c,'phy',ipl_src)
   !write(*,*)'max/min trac mixing',jk,maxval(params_oce%A_tracer_v(:,jk,:,i_no_trac)),&
   !&minval(params_oce%A_tracer_v(:,jk,:,i_no_trac))
   !write(123,*)'max/min trac mixing',jk,maxval(params_oce%A_tracer_v(:,jk,:,i_no_trac)),&

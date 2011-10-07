@@ -66,7 +66,8 @@ USE mo_timer,                  ONLY: timer_start, timer_stop, timer_total, timer
   &                                  timer_oce_init
 USE mo_oce_ab_timestepping,    ONLY: solve_free_surface_eq_ab, &
   &                                  calc_normal_velocity_ab,  &
-  &                                  calc_vert_velocity
+  &                                  calc_vert_velocity,       &
+  &                                  update_time_indices
 
 USE mo_oce_tracer_transport,   ONLY: advect_tracer_ab
 USE mo_oce_state,              ONLY: t_hydro_ocean_state, t_hydro_ocean_base, &
@@ -161,7 +162,7 @@ CONTAINS
 
 
   ! local variables
-  INTEGER :: jstep, jg, n_temp
+  INTEGER :: jstep, jg, n_temp,jk
   INTEGER :: jfile
   LOGICAL :: l_outputtime
   CHARACTER(len=32) :: datestring
@@ -188,14 +189,15 @@ CALL print_mxmn('(   OLD) p_diag%h_e',1,pstate_oce(jg)%p_diag%h_e,1,ppatch(jg)%n
 
   CALL init_ho_recon_fields( ppatch(jg), pstate_oce(jg))
 
-  IF ( is_restart_run()) THEN
-    !SWAP w and w_old because something strange happen to these vars on a restart run
-    pstate_oce(jg)%p_diag%wtemp =pstate_oce(jg)%p_diag%w
-    pstate_oce(jg)%p_diag%w     = pstate_oce(jg)%p_diag%w_old
-    pstate_oce(jg)%p_diag%w_old = pstate_oce(jg)%p_diag%wtemp 
-  ENDIF
+!TODO  IF ( is_restart_run()) THEN
+!TODO    !SWAP w and w_old because something strange happen to these vars on a restart run
+!TODO    pstate_oce(jg)%p_diag%wtemp =pstate_oce(jg)%p_diag%w
+!TODO    pstate_oce(jg)%p_diag%w     = pstate_oce(jg)%p_diag%w_old
+!TODO    pstate_oce(jg)%p_diag%w_old = pstate_oce(jg)%p_diag%wtemp 
+!TODO  ENDIF
 
-  CALL construct_oce_diagnostics( ppatch(jg), pstate_oce(jg), p_ext_data(jg), oce_ts)
+  IF (idiag_oce == 1) &
+    & CALL construct_oce_diagnostics( ppatch(jg), pstate_oce(jg), p_ext_data(jg), oce_ts)
 
   IF (ltimer) CALL timer_start(timer_total)
 
@@ -203,6 +205,16 @@ CALL print_mxmn('(   OLD) p_diag%h_e',1,pstate_oce(jg)%p_diag%h_e,1,ppatch(jg)%n
   ! call the dynamical core: start the time loop
   !------------------------------------------------------------------
   TIME_LOOP: DO jstep = 1, nsteps
+    DO jk=1,n_zlev
+CALL print_mxmn('(init) p_vn%x(1)',jk,pstate_oce(1)%p_diag%p_vn%x(1),n_zlev,&
+  & ppatch(1)%nblks_c,'phy',ipl_src)
+CALL print_mxmn('(init) vn (1)',jk,pstate_oce(1)%p_prog(1)%vn,n_zlev,&
+  & ppatch(1)%nblks_e,'phy',ipl_src)
+CALL print_mxmn('(init) vn (2)',jk,pstate_oce(1)%p_prog(2)%vn,n_zlev,&
+  & ppatch(1)%nblks_e,'phy',ipl_src)
+CALL print_mxmn('(init) vn (3)',jk,pstate_oce(1)%p_prog(3)%vn,n_zlev,&
+  & ppatch(1)%nblks_e,'phy',ipl_src)
+    ENDDO
 
     call datetime_to_string(datestring, datetime)
     WRITE(message_text,'(a,i6,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
@@ -219,6 +231,26 @@ CALL print_mxmn('(   OLD) p_diag%h_e',1,pstate_oce(jg)%p_diag%h_e,1,ppatch(jg)%n
    !  CALL update_seaice(ppatch(jg), pstate_oce(jg), p_as, p_ice, p_atm_f, p_sfc_flx, &
    !    &                jstep, datetime)
 
+CALL &
+& print_mxmn('(TL) p_diag%w',1,    pstate_oce(jg)%p_diag%w,4+1,ppatch(jg)%nblks_c,'vel',ipl_src)
+CALL &
+& print_mxmn('(TL) p_diag%w',2,    pstate_oce(jg)%p_diag%w,4+1,ppatch(jg)%nblks_c,'vel',ipl_src)
+CALL &
+& print_mxmn('(TL) p_diag%w',3,    pstate_oce(jg)%p_diag%w,4+1,ppatch(jg)%nblks_c,'vel',ipl_src)
+CALL &
+& print_mxmn('(TL) p_diag%w',4,    pstate_oce(jg)%p_diag%w,4+1,ppatch(jg)%nblks_c,'vel',ipl_src)
+CALL &
+& print_mxmn('(TL) p_diag%w',5,    pstate_oce(jg)%p_diag%w,4+1,ppatch(jg)%nblks_c,'vel',ipl_src)
+CALL &
+&print_mxmn('(TL) p_diag%w_old',1,pstate_oce(jg)%p_diag%w_old,4+1,ppatch(jg)%nblks_c,'vel',ipl_src)
+CALL &
+&print_mxmn('(TL) p_diag%w_old',2,pstate_oce(jg)%p_diag%w_old,4+1,ppatch(jg)%nblks_c,'vel',ipl_src)
+CALL &
+&print_mxmn('(TL) p_diag%w_old',3,pstate_oce(jg)%p_diag%w_old,4+1,ppatch(jg)%nblks_c,'vel',ipl_src)
+CALL &
+&print_mxmn('(TL) p_diag%w_old',4,pstate_oce(jg)%p_diag%w_old,4+1,ppatch(jg)%nblks_c,'vel',ipl_src)
+CALL &
+&print_mxmn('(TL) p_diag%w_old',5,pstate_oce(jg)%p_diag%w_old,4+1,ppatch(jg)%nblks_c,'vel',ipl_src)
       IF(iswm_oce /= 1)THEN
         SELECT CASE (EOS_TYPE)
         CASE(1)
@@ -309,7 +341,7 @@ CALL print_mxmn('(   OLD) p_diag%h_e',1,pstate_oce(jg)%p_diag%h_e,1,ppatch(jg)%n
 
   ENDDO TIME_LOOP
 
-  CALL destruct_oce_diagnostics(oce_ts)
+  IF (idiag_oce==1) CALL destruct_oce_diagnostics(oce_ts)
 
   IF (ltimer) CALL timer_stop(timer_total)
 
@@ -438,18 +470,6 @@ CALL print_mxmn('(   OLD) p_diag%h_e',1,pstate_oce(jg)%p_diag%h_e,1,ppatch(jg)%n
 
 
   END SUBROUTINE finalise_ho_integration
-
-
-  SUBROUTINE update_time_indices(jg)
-    INTEGER, INTENT(IN) :: jg
-    INTEGER             :: n_temp
-    ! Step 7: Swap time indices before output
-    !         half time levels of semi-implicit Adams-Bashforth timestepping are
-    !         stored in auxiliary arrays g_n and g_nimd of p_diag%aux
-    n_temp    = nold(jg)
-    nold(jg)  = nnew(jg)
-    nnew(jg)  = n_temp
-  END SUBROUTINE update_time_indices
 
   SUBROUTINE update_intermediate_tracer_vars(p_os)
     TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os
