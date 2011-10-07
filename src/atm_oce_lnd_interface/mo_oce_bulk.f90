@@ -395,8 +395,8 @@ CONTAINS
       p_sfc_flx%forc_wind_v(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
     !
     ! freshwater flux
-      CALL ICON_cpl_get ( field_id(3), field_shape, buffer, info, ierror )
-      p_sfc_flx%forc_fwfx(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
+!       CALL ICON_cpl_get ( field_id(3), field_shape, buffer, info, ierror )
+!       p_sfc_flx%forc_fwfx(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
     !
     ! surface temperature
       CALL ICON_cpl_get ( field_id(4), field_shape, buffer, info, ierror )

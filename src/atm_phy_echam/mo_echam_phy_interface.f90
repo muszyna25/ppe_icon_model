@@ -392,13 +392,13 @@ CONTAINS
        CALL ICON_cpl_put ( field_id(2), field_shape, buffer, ierror )
        !
        ! SFWFLX
-       buffer(:,1) = RESHAPE ( prm_field(jg)%rsfl(:,:), (/ nbr_points /) ) + &
-            &        RESHAPE ( prm_field(jg)%rsfc(:,:), (/ nbr_points /) ) + &
-            &        RESHAPE ( prm_field(jg)%ssfl(:,:), (/ nbr_points /) ) + &
-            &        RESHAPE ( prm_field(jg)%ssfc(:,:), (/ nbr_points /) ) + &
-            &        RESHAPE ( prm_field(jg)%evap_tile(:,:,iwtr), (/ nbr_points /) )
-
-       CALL ICON_cpl_put ( field_id(3), field_shape, buffer, ierror )
+!        buffer(:,1) = RESHAPE ( prm_field(jg)%rsfl(:,:), (/ nbr_points /) ) + &
+!             &        RESHAPE ( prm_field(jg)%rsfc(:,:), (/ nbr_points /) ) + &
+!             &        RESHAPE ( prm_field(jg)%ssfl(:,:), (/ nbr_points /) ) + &
+!             &        RESHAPE ( prm_field(jg)%ssfc(:,:), (/ nbr_points /) ) + &
+!             &        RESHAPE ( prm_field(jg)%evap_tile(:,:,iwtr), (/ nbr_points /) )
+! 
+!        CALL ICON_cpl_put ( field_id(3), field_shape, buffer, ierror )
        !
        ! SFTEMP
        buffer(:,1) =  RESHAPE ( prm_field(jg)%temp(:,nlev,:), (/ nbr_points /) ) - 273.15_wp ! ocean uses Celsius units
