@@ -50,7 +50,7 @@ dt_data=21600.               # write output every 6 hours
 dt_rad=7200.                 # compute radiative transfer every other hour
 dt_checkpoint=`expr 5 \* 86400 `  # write restart file every 5 days
 #
-#nsteps=10
+#nsteps=20
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -348,7 +348,7 @@ cat > ${ocean_namelist} << EOF
  nsteps      = ${nsteps}    ! number of steps length of run
  dtime       = ${dtime}     ! [s] timestep in seconds
  msg_level   = 10           ! detailed report during integration
- ltimer      = .false. 
+ ltimer      = .true. 
 /
 &dynamics_nml
  iequations  = ${ocean_model_equations}       ! 1: hydrost. atmosphere

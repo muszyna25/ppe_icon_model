@@ -51,7 +51,8 @@ MODULE mo_oce_bulk
 !
 USE mo_kind,                ONLY: wp
 USE mo_parallel_config,     ONLY: nproma
-USE mo_run_config,          ONLY: dtime
+USE mo_run_config,          ONLY: dtime, ltimer
+USE mo_timer,               ONLY: timer_start, timer_stop, timer_coupling
 USE mo_io_units,            ONLY: filename_max
 USE mo_mpi,                 ONLY: p_pe, p_io, p_bcast
 USE mo_datetime,            ONLY: t_datetime
@@ -337,8 +338,10 @@ CONTAINS
     !  use atmospheric fluxes directly, i.e. avoid call to "calc_atm_fluxes_from_bulk"
     !  and do a direct assignment of atmospheric state to surface fluxes.
     !
-    IF ( is_coupled_run() ) THEN 
-      CALL message(TRIM(routine), "executing OCEAN coupling")
+    IF ( is_coupled_run() ) THEN
+      IF (ltimer) CALL timer_start(timer_coupling)
+
+!       CALL message(TRIM(routine), "executing OCEAN coupling")
       nbr_hor_points = p_patch%n_patch_cells
       nbr_points     = nproma * p_patch%nblks_c
       ALLOCATE(buffer(nbr_points,1))
@@ -410,6 +413,8 @@ CONTAINS
 
       DEALLOCATE(buffer)
       DEALLOCATE(field_id)      
+
+      IF (ltimer) CALL timer_stop(timer_coupling)
   
     ENDIF ! iforc_omip
 

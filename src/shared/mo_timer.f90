@@ -100,6 +100,7 @@ MODULE mo_timer
   PUBLIC :: timer_print_mxmn
   PUBLIC :: timer_si_correction
   PUBLIC :: timer_cube_root
+  PUBLIC :: timer_coupling
   
 !   PUBLIC :: ltimer                              !< if .true., switch on timer
 
@@ -167,6 +168,7 @@ MODULE mo_timer
   INTEGER :: timer_print_mxmn
   INTEGER :: timer_si_correction
   INTEGER :: timer_cube_root
+  INTEGER :: timer_coupling
   
   ! Timer ID for optional lon-lat interpolation
   INTEGER :: timer_lonlat_setup
@@ -250,6 +252,7 @@ CONTAINS
   
     timer_cube_root = new_timer("cube_root")
     timer_si_correction = new_timer("si_correction")
+    timer_coupling      = new_timer("coupling")
          
     timer_lonlat_setup = new_timer("lonlat_setup")
 

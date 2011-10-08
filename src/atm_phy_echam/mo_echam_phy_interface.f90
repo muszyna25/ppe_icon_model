@@ -57,7 +57,7 @@ MODULE mo_echam_phy_interface
   USE mo_sync,              ONLY: SYNC_C, SYNC_E, sync_patch_array
   USE mo_timer,             ONLY: timer_start, timer_stop, &
                                 & timer_dyn2phy, timer_phy2dyn,    &
-                                & timer_echam_phy
+                                & timer_echam_phy, timer_coupling
   USE mo_master_control,    ONLY: is_coupled_run
   USE mo_icon_cpl_exchg,    ONLY: ICON_cpl_put, ICON_cpl_get
   USE mo_icon_cpl_def_field, ONLY:ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
@@ -353,6 +353,7 @@ CONTAINS
     ! 2. prm_field(jg)% ocu(:,:) and ocv(:,:) ocean surface current
     ! 
     IF ( is_coupled_run() ) THEN
+       IF (ltimer) CALL timer_start(timer_coupling)
     
        nbr_hor_points = p_patch%n_patch_cells
        nbr_points     = nproma * nblks
@@ -432,6 +433,7 @@ CONTAINS
 
        DEALLOCATE(buffer)
        DEALLOCATE(field_id)
+       IF (ltimer) CALL timer_stop(timer_coupling)
 
     ENDIF
     !
