@@ -458,9 +458,10 @@ cat > ${ocean_namelist} << EOF
 EOF
 #-----------------------------------------------------------------------------
 
-if [[ $mpi_total_procs < 2 ]] ; then
-  check_error 3 "This setup rquires at least 2 mpoi processes. Exit"
+if [ $mpi_total_procs -lt 2 ] ; then
+  check_error 3 "This setup requires at least 2 mpi processes. Exit"
 fi
+
 
 
 #-----------------------------------------------------------------------------
