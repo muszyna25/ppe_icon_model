@@ -53,7 +53,7 @@ MODULE mo_master_control
 
   USE mo_io_units,           ONLY: filename_max
 
-  USE mo_master_nml,         ONLY: read_master_namelist, lrestart, &
+  USE mo_master_nml,         ONLY: read_master_namelist, lrestart, nml_debug_coupler, &
     & no_of_models, master_nml_array
 
   !USE mo_namelist,           ONLY: open_nml,  close_nml
@@ -127,7 +127,7 @@ MODULE mo_master_control
 
     IF ( in_coupled_mode ) THEN
 
-      CALL icon_cpl_init
+      CALL icon_cpl_init(debug=nml_debug_coupler)
 
       CALL set_my_component_null()
 

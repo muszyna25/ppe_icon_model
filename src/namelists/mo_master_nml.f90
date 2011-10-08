@@ -44,7 +44,7 @@ MODULE mo_master_nml
   
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-  PUBLIC :: read_master_namelist, lrestart, no_of_models
+  PUBLIC :: read_master_namelist, lrestart, nml_debug_coupler, no_of_models
   PUBLIC :: t_master_nml, master_nml_array
 
 
@@ -69,7 +69,7 @@ MODULE mo_master_nml
     !-------------------------------------------------------------------------
     ! Namelist variables
     !-------------------------------------------------------------------------
-    LOGICAL :: lrestart
+    LOGICAL :: lrestart, nml_debug_coupler
 
 CONTAINS
   !>
@@ -96,6 +96,8 @@ CONTAINS
     INTEGER :: model_max_rank
     INTEGER :: model_inc_rank
 
+    LOGICAL :: debug_coupler
+
     NAMELIST /master_model_nml/    &
       model_name,                  &
       model_namelist_filename,     &
@@ -104,7 +106,7 @@ CONTAINS
       model_min_rank,              &
       model_max_rank,              &
       model_inc_rank               
-    NAMELIST /master_nml/ lrestart
+    NAMELIST /master_nml/ lrestart, debug_coupler
 
     INTEGER :: istat
     LOGICAL :: rewnd
@@ -115,6 +117,7 @@ CONTAINS
     ! Read  master_nml (done so far by all MPI processes)
     !------------------------------------------------------------------
     lrestart      = .FALSE.
+    debug_coupler = .FALSE.
     OPEN( nnml, FILE=TRIM(namelist_filename), IOSTAT=istat, &
         & STATUS='old', ACTION='read', DELIM='apostrophe')
     IF (istat/=0) THEN
@@ -126,7 +129,7 @@ CONTAINS
     IF (istat==POSITIONED) THEN
       READ (nnml, master_nml)
     ENDIF        
-
+    nml_debug_coupler = debug_coupler
     !------------------------------------------------------------------
     ! Read  master_model_nml (done so far by all MPI processes)
     !------------------------------------------------------------------

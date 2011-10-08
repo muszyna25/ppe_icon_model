@@ -107,8 +107,9 @@ MODULE mo_icon_cpl_init
 
 CONTAINS
 
-  SUBROUTINE ICON_cpl_init
+  SUBROUTINE ICON_cpl_init(debug)
 
+     LOGICAL, OPTIONAL, INTENT(in) :: debug
     ! -------------------------------------------------------------------
     ! Initialise variables
     ! -------------------------------------------------------------------
@@ -180,7 +181,9 @@ CONTAINS
     ! -------------------------------------------------------------------
     ! Preparation for couler debug output
     ! -------------------------------------------------------------------
-
+    debug_coupler=.false.
+    IF (PRESENT(debug)) debug_coupler = debug
+    
     IF ( debug_coupler ) THEN
 
        ! Find a free unit
