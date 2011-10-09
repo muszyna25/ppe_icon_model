@@ -58,7 +58,7 @@ MODULE mo_icon_cpl_exchg
    &                      nbr_ICON_fields,  &
    &                      t_source_struct, source_locs, &
    &                      t_target_struct, target_locs, &
-   &                      debug_coupler, debug_level, cplout, &
+   &                      debug_coupler, debug_coupler_level, cplout, &
    &                      ICON_global_rank,             &
    &                      ICON_comm, ICON_comm_active,  &
    &                      ICON_comp_comm,   &
@@ -160,7 +160,7 @@ CONTAINS
     fptr => cpl_fields(field_id)
 
     IF ( .NOT. fptr%coupling%l_activated ) THEN
-       IF ( debug_coupler .AND. debug_level > 0 ) THEN
+       IF ( debug_coupler .AND. debug_coupler_level > 0 ) THEN
           WRITE ( cplout , * ) ICON_global_rank, ' : no get action for field ', &
                TRIM(fptr%field_name)
        ENDIF
@@ -169,7 +169,7 @@ CONTAINS
 
     l_action = event_check ( fptr%event_id )
 
-    IF ( debug_coupler .AND. debug_level > 0 ) THEN
+    IF ( debug_coupler .AND. debug_coupler_level > 0 ) THEN
        WRITE ( cplout , * ) ICON_global_rank, ' : get action for event ', &
                               fptr%event_id,                              &
                               events(fptr%event_id)%time_step,            &
@@ -219,7 +219,7 @@ CONTAINS
 
           msgtag = initag + 1000 * fptr%global_field_id
 
-          IF ( debug_coupler .AND. debug_level > 0 ) &
+          IF ( debug_coupler .AND. debug_coupler_level > 0 ) &
                WRITE ( cplout , * ) ICON_global_rank, ' irecv : tag ', msgtag, &
                ' length ', msg_len, ' from ', tptr%source_rank
 
@@ -283,7 +283,7 @@ CONTAINS
           DO m = 1, nbr_bundles
              DO i = 1, len
                 recv_field(tptr%source_list(i),m) = recv_buffer(i,m)
-                IF ( debug_coupler .AND. debug_level > 1 ) &
+                IF ( debug_coupler .AND. debug_coupler_level > 1 ) &
                      WRITE ( cplout, '(i4,a,i4,a,i4,f13.6)' ) ICON_global_rank, ' extract from ', &
                      source_rank, ' : ', tptr%source_list(i), recv_buffer(i,m) 
              ENDDO
@@ -384,7 +384,7 @@ CONTAINS
     IF ( .NOT. cpl_fields(field_id)%l_field_status ) RETURN
 
     IF ( .NOT. cpl_fields(field_id)%coupling%l_activated ) THEN
-       IF ( debug_coupler .AND. debug_level > 0 ) THEN
+       IF ( debug_coupler .AND. debug_coupler_level > 0 ) THEN
           WRITE ( cplout , * ) ICON_global_rank, ' : no put action for field ', &
                TRIM(cpl_fields(field_id)%field_name)
        ENDIF
@@ -434,7 +434,7 @@ CONTAINS
 
     IF ( l_action .AND. l_end_of_run .AND. fptr%coupling%lag > 0 ) l_coupling = .FALSE.
 
-    IF ( debug_coupler .AND. debug_level > 0 ) THEN
+    IF ( debug_coupler .AND. debug_coupler_level > 0 ) THEN
        WRITE ( cplout , * ) ICON_global_rank, ' : put action for event ', &
                                   fptr%event_id,                      &
                                   events(fptr%event_id)%time_step,    &
@@ -478,7 +478,7 @@ CONTAINS
                 DO m = 1, nbr_bundles
                    DO i = 1, len
                       send_buffer(i,m) = send_field(sptr%source_list(i),m)
-                      IF ( debug_coupler .AND. debug_level > 1) &
+                      IF ( debug_coupler .AND. debug_coupler_level > 1) &
                            WRITE ( cplout, '(i4,a,i4,a,f13.6)' ) ICON_global_rank, &
                                ' extract for ', sptr%target_rank, ' : ', send_buffer(i,m) 
                    ENDDO
@@ -495,7 +495,7 @@ CONTAINS
                 DO m = 1, nbr_bundles
                    DO i = 1, len
                       send_buffer(i,m) = fptr%send_field_acc(sptr%source_list(i),m) * weight
-                      IF ( debug_coupler .AND. debug_level > 1 ) &
+                      IF ( debug_coupler .AND. debug_coupler_level > 1 ) &
                            WRITE ( cplout, '(i4,a,i4,a,f13.6)' ) ICON_global_rank, &
                                ' extract for ', sptr%target_rank, ' : ', send_buffer(i,m) 
                    ENDDO

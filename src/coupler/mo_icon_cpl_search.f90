@@ -80,7 +80,7 @@ MODULE mo_icon_cpl_search
   USE mo_icon_cpl, ONLY : target_locs, t_target_struct,           & 
        &                  source_locs,                            &
        &                  msg_len, initag,                        &
-       &                  cplout, debug_coupler, debug_level,           &
+       &                  cplout, debug_coupler, debug_coupler_level,           &
        &                  nbr_active_comps, nbr_active_grids,     &
        &                  ICON_root, ICON_comm, ICON_comm_active, &
        &                  ICON_global_rank, ICON_global_size,     &
@@ -248,7 +248,7 @@ CONTAINS
 
     CALL quicksort_index (grid_global_index, len, idx)
     
-    IF ( debug_coupler .AND. debug_level > 1 ) THEN
+    IF ( debug_coupler .AND. debug_coupler_level > 1 ) THEN
        DO i = 1, len
           WRITE ( cplout , '(a,4i8)' ) ' Global indices without halo after sorting ', &
                &                         i, grid_global_index(i), idx(i), grid_global_position(i)
@@ -298,7 +298,7 @@ CONTAINS
     CALL MPI_Allgather ( grid_extent, msg_len, MPI_Integer, &
          all_extents, msg_len, MPI_Integer, ICON_comm_active, ierr )
 
-    IF ( debug_coupler .AND. debug_level > 0 ) THEN
+    IF ( debug_coupler .AND. debug_coupler_level > 0 ) THEN
        IF ( ICON_global_rank == ICON_Root ) THEN
           DO i = 1, ICON_global_size
              WRITE ( cplout, '(i3,a1,a13,3i8)' ) i, ':', ' all_extents ', &
@@ -499,7 +499,7 @@ CONTAINS
           CALL MPI_Recv ( tptr%target_list, tptr%target_list_len, MPI_INTEGER, &
                tptr%target_rank, msgtag, ICON_comm_active, rstatus, ierr )
 
-          IF ( debug_coupler .AND. debug_level > 1 ) THEN
+          IF ( debug_coupler .AND. debug_coupler_level > 1 ) THEN
              DO i = 1,  tptr%target_list_len
                 WRITE ( cplout , '(a,3i8)' ) 'Received target list', i, tptr%target_list(i)
              ENDDO
@@ -610,7 +610,7 @@ CONTAINS
                 srcbuffer(j) = i
                 tgtbuffer(j) = ii
 
-                IF ( debug_coupler .AND. debug_level > 1 ) &
+                IF ( debug_coupler .AND. debug_coupler_level > 1 ) &
                      WRITE ( cplout , '(2i8,a,3i8)' ) i, grid_global_index(i), &
                      ' <-> ', j, tgtbuffer(j),  tptr%target_list_len
 
@@ -685,7 +685,7 @@ CONTAINS
        CALL psmile_bsend ( msg_to_tgt, msg_len, &
             MPI_INTEGER, tptr%target_rank, msgtag, ICON_comm_active, ierr ) 
 
-       IF ( debug_coupler .AND. debug_level > 1 ) &
+       IF ( debug_coupler .AND. debug_coupler_level > 1 ) &
             WRITE ( cplout , '(a13,i8,a4,i8,a10,i8)' ) 'Sending back ', msg_len, &
             ' to ', tptr%target_rank, ' with tag ', msgtag
 

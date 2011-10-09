@@ -67,7 +67,8 @@ MODULE mo_icon_cpl_init
    &                      PRISM_DOUBLE_PRECISION,              &
    &                      PRISM_COMPLEX, PRISM_DOUBLE_COMPLEX, &
    &                      l_MPI_was_initialized,               &
-   &                      debug_coupler, cplout, maxchar,            &
+   &                      debug_coupler, debug_coupler_level,          &
+   &                      cplout, maxchar,                     &
    &                      ICON_comm,                           &
    &                      ICON_global_rank, ICON_global_size,  &
    &                      nbr_ICON_comps,                      &
@@ -107,9 +108,9 @@ MODULE mo_icon_cpl_init
 
 CONTAINS
 
-  SUBROUTINE ICON_cpl_init(debug)
+  SUBROUTINE ICON_cpl_init(debug_level)
 
-     LOGICAL, OPTIONAL, INTENT(in) :: debug
+     INTEGER, OPTIONAL, INTENT(in) :: debug_level
     ! -------------------------------------------------------------------
     ! Initialise variables
     ! -------------------------------------------------------------------
@@ -182,7 +183,9 @@ CONTAINS
     ! Preparation for couler debug output
     ! -------------------------------------------------------------------
     debug_coupler=.false.
-    IF (PRESENT(debug)) debug_coupler = debug
+    debug_coupler_level=0
+    IF (PRESENT(debug_level)) debug_coupler_level = debug_level
+    IF (debug_coupler_level > 0) debug_coupler=.true.
     
     IF ( debug_coupler ) THEN
 

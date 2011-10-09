@@ -142,7 +142,7 @@ MODULE mo_icon_cpl
   ! Setting for debug output
 
   LOGICAL                   :: debug_coupler
-  INTEGER, PARAMETER        :: debug_level = 2
+  INTEGER                   :: debug_coupler_level
   INTEGER                   :: cplout   ! output unit, determined in init_comp
 
   ! Component specific values
@@ -389,7 +389,7 @@ MODULE mo_icon_cpl
   PUBLIC :: target_locs, t_target_struct
   
 
-  PUBLIC :: debug_coupler, debug_level, cplout
+  PUBLIC :: debug_coupler, debug_coupler_level, cplout
   PUBLIC :: maxchar
 
   CONTAINS

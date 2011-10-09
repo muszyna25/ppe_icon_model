@@ -372,12 +372,13 @@ CONTAINS
     ! determine size of arrays
     nblks_c = ppatch%nblks_c
     nblks_e = ppatch%nblks_e
-
+    
     CALL add_var(ocean_params_list, 'K_veloc_h', params_oce%K_veloc_h , GRID_UNSTRUCTURED_EDGE,&
     &            ZAXIS_DEPTH_BELOW_SEA, &
     &            t_cf_var('K_veloc_h', 'kg/kg', 'horizontal velocity diffusion'),&
     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE),&
     &            ldims=(/nproma,n_zlev,nblks_e/))
+
     CALL add_var(ocean_params_list, 'A_veloc_v', params_oce%A_veloc_v , GRID_UNSTRUCTURED_EDGE,&
     &            ZAXIS_DEPTH_BELOW_SEA, &
     &            t_cf_var('A_veloc_v', 'kg/kg', 'vertical velocity diffusion'),&
