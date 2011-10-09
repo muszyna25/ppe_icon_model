@@ -230,6 +230,7 @@ master_namelist=icon_master.namelist
 cat > $master_namelist << EOF
 &master_nml
  lrestart               = $restart
+ debub_coupler_level    = 1
 /
 &time_nml
  ini_datetime_string = "$start_date"
