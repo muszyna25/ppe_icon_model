@@ -463,14 +463,13 @@ CONTAINS
     INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size
     INTEGER, ALLOCATABLE :: ncheck(:,:)
     REAL(wp), TARGET :: dummy(1)
-    REAL(wp), ALLOCATABLE :: vct(:)
     CHARACTER(LEN=filename_max) :: gridfile(max_dom)
     CHARACTER(LEN=256) text
     CHARACTER(len=max_char_length), PARAMETER :: &
       &  routine = 'mo_io_async:receive_patch_configuration'
 
 
-    ! Please note: The broacasts below use an intercommunicator, i.e. we are getting all
+    ! Please note: The broadcasts below use an intercommunicator, i.e. we are getting all
     ! data from compute PE 0
 
 
