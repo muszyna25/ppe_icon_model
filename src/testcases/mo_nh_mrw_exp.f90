@@ -65,7 +65,7 @@ MODULE mo_nh_mrw_exp
    USE mo_run_config,          ONLY: iqv
    USE mo_interpolation,       ONLY: t_int_state
    USE mo_exception,           ONLY: message, message_text, finish
-   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH
+   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH,inwp
    USE mo_sync,                ONLY: sync_patch_array, SYNC_C
    USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
 
@@ -195,7 +195,7 @@ MODULE mo_nh_mrw_exp
   !!
   SUBROUTINE init_nh_state_prog_mrw( ptr_patch, ptr_nh_prog, ptr_nh_diag,      &
     &                                topo_c, p_metrics, p_int, l_hydro_adjust, &
-    &                                l_moist,  opt_rh_at_1000hpa,              &
+    &                                iforcing, l_moist,  opt_rh_at_1000hpa,    &
     &                                opt_qv_max, opt_global_moist              ) 
 
    TYPE(t_patch), TARGET,INTENT(INOUT) :: &  !< patch on which computation is performed
@@ -212,6 +212,7 @@ MODULE mo_nh_mrw_exp
    TYPE(t_int_state), INTENT(IN)       :: p_int
    LOGICAL, INTENT(IN)                 :: l_hydro_adjust !if .TRUE. hydrostatically balanced 
                                                          ! initial condition
+   INTEGER, INTENT(IN)                 :: iforcing
    LOGICAL, INTENT(IN)                 :: l_moist !if .TRUE. tracers are initialized
    REAL(wp),INTENT(IN), OPTIONAL       :: opt_rh_at_1000hpa, opt_qv_max
    REAL(wp),INTENT(IN), OPTIONAL       :: opt_global_moist
@@ -326,13 +327,22 @@ MODULE mo_nh_mrw_exp
    CALL init_w(ptr_patch, p_int, ptr_nh_prog%vn, p_metrics%z_ifc, ptr_nh_prog%w)
    CALL sync_patch_array(SYNC_C, ptr_patch, ptr_nh_prog%w)
 
+! if physics, some fields like the pressure at the interface levels have to be initialized
+  IF ( iforcing == inwp ) THEN
+
+    CALL diagnose_pres_temp ( p_metrics, ptr_nh_prog, ptr_nh_prog, ptr_nh_diag,     &
+                              ptr_patch, opt_calc_temp=.TRUE., opt_calc_pres=.TRUE. )
+
+  END IF
+
+
 ! IF l_moist is .TRUE. the tracers are initialized similar as in jabw test case with moisture 
 !  In this case the temp and pres fields should be kept and the virtual temperature and 
 !  the NH prognostic variables have to be recalculated
 
   IF (l_moist) THEN
 
-   l_rediag = .TRUE. ! initializing turbdiff does not work otherwise
+   l_rediag = .FALSE. 
 
    IF (PRESENT(opt_global_moist)) THEN
      CALL init_nh_inwp_tracers (ptr_patch, ptr_nh_prog, ptr_nh_diag, &
@@ -356,10 +366,6 @@ MODULE mo_nh_mrw_exp
    ptr_nh_prog%rhotheta_v = ptr_nh_prog%rho * ptr_nh_prog%theta_v 
    DEALLOCATE(z_qv)
 
-  ELSE
-    ! initializing turbdiff does not work otherwise
-    CALL diagnose_pres_temp ( p_metrics, ptr_nh_prog, ptr_nh_prog, ptr_nh_diag,     &
-                              ptr_patch, opt_calc_temp=.TRUE., opt_calc_pres=.TRUE. )
   END IF
 
   IF (l_hydro_adjust) THEN
@@ -384,7 +390,7 @@ MODULE mo_nh_mrw_exp
 
   SUBROUTINE init_nh_prog_mwbr_const( ptr_patch, ptr_nh_prog, ptr_nh_diag,     &
     &                                topo_c, p_metrics, p_int, l_hydro_adjust, &
-    &                                l_moist,  opt_rh_at_1000hpa,              &
+    &                                iforcing, l_moist,  opt_rh_at_1000hpa,    &
     &                                opt_qv_max, opt_global_moist              ) 
 
    TYPE(t_patch), TARGET,INTENT(INOUT) :: &  !< patch on which computation is performed
@@ -401,6 +407,7 @@ MODULE mo_nh_mrw_exp
    TYPE(t_int_state), INTENT(IN)       :: p_int
    LOGICAL, INTENT(IN)                 :: l_hydro_adjust !if .TRUE. hydrostatically balanced 
                                                          ! initial condition
+   INTEGER, INTENT(IN)                 :: iforcing
    LOGICAL, INTENT(IN)                 :: l_moist !if .TRUE. tracers are initialized
    REAL(wp),INTENT(IN), OPTIONAL       :: opt_rh_at_1000hpa, opt_qv_max
    REAL(wp),INTENT(IN), OPTIONAL       :: opt_global_moist
@@ -549,13 +556,21 @@ MODULE mo_nh_mrw_exp
    CALL init_w(ptr_patch, p_int, ptr_nh_prog%vn, p_metrics%z_ifc, ptr_nh_prog%w)
    CALL sync_patch_array(SYNC_C, ptr_patch, ptr_nh_prog%w)
 
+! if physics, some fields like the pressure at the interface levels and others have to be initialized
+  IF ( iforcing == inwp ) THEN
+
+    CALL diagnose_pres_temp ( p_metrics, ptr_nh_prog, ptr_nh_prog, ptr_nh_diag,     &
+                              ptr_patch, opt_calc_temp=.TRUE., opt_calc_pres=.TRUE. )
+
+  END IF
+
 ! IF l_moist is .TRUE. the tracers are initialized similar as in jabw test case with moisture 
 !  In this case the temp and pres fields should be kept and the virtual temperature and 
 !  the NH prognostic variables have to be recalculated
 
   IF (l_moist) THEN
 
-   l_rediag = .TRUE. ! initializing turbdiff does not work otherwise
+   l_rediag = .FALSE. 
 
    IF (PRESENT(opt_global_moist)) THEN
      CALL init_nh_inwp_tracers (ptr_patch, ptr_nh_prog, ptr_nh_diag, &
@@ -579,11 +594,8 @@ MODULE mo_nh_mrw_exp
    ptr_nh_prog%rhotheta_v = ptr_nh_prog%rho * ptr_nh_prog%theta_v 
    DEALLOCATE(z_qv)
 
-  ELSE
-    ! initializing turbdiff does not work otherwise
-    CALL diagnose_pres_temp ( p_metrics, ptr_nh_prog, ptr_nh_prog, ptr_nh_diag,     &
-                              ptr_patch, opt_calc_temp=.TRUE., opt_calc_pres=.TRUE. )
   END IF
+
 
   IF (l_hydro_adjust) THEN
 

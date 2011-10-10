@@ -68,7 +68,7 @@ MODULE mo_nh_testcases
 !  &                               B2_i => c3ies ,&
 !  &                               B4_w => c4les ,&
 !  &                               B4_i => c4ies
-  USE mo_nonhydro_state,       ONLY: t_nh_state
+  USE mo_nonhydro_state,       ONLY: t_nh_state, duplicate_prog_state
   
   
   USE mo_interpolation,        ONLY: t_int_state, cells2edges_scalar, edges2cells_scalar
@@ -513,10 +513,6 @@ MODULE mo_nh_testcases
                                    & p_int(jg),                                   &
                                    & p_sfc_jabw,jw_up )
 
-    CALL   init_nh_state_prog_jabw ( p_patch(jg), p_nh_state(jg)%prog(nnew(jg)), &
-                                   & p_nh_state(jg)%diag, p_nh_state(jg)%metrics, &
-                                   & p_int(jg),                                   &
-                                   & p_sfc_jabw,jw_up )
 
     IF ( ltransport .AND. iforcing /= inwp ) THEN   ! passive tracers
        ! get ctracer_list
@@ -535,17 +531,19 @@ MODULE mo_nh_testcases
       CALL init_nh_inwp_tracers ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
                                 & p_nh_state(jg)%diag, p_nh_state(jg)%metrics, &
                                 & rh_at_1000hpa, qv_max, l_rediag=.TRUE. )
-      CALL init_nh_inwp_tracers ( p_patch(jg), p_nh_state(jg)%prog(nnew(jg)), &
-                                & p_nh_state(jg)%diag, p_nh_state(jg)%metrics, &
-                                & rh_at_1000hpa, qv_max, l_rediag=.TRUE. ) 
+
+
+
+
      ELSE
 
-        p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,:) = 0.0_wp    
-        p_nh_state(jg)%prog(nnew(jg))%tracer(:,:,:,:) = 0.0_wp    
+        p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,:) = 0.0_wp   
 
      END IF
 
     END IF
+
+    CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
 
   ENDDO !jg
 
@@ -575,12 +573,7 @@ MODULE mo_nh_testcases
                                      & p_nh_state(jg)%diag,                        &
                                      & ext_data(jg)%atm%topography_c,              &
                                      & p_nh_state(jg)%metrics,                     &
-                                     & p_int(jg), l_hydro_adjust, l_moist          )
-       CALL   init_nh_state_prog_mrw ( p_patch(jg), p_nh_state(jg)%prog(nnew(jg)), &
-                                     & p_nh_state(jg)%diag,                        &
-                                     & ext_data(jg)%atm%topography_c,              &
-                                     & p_nh_state(jg)%metrics,                     &
-                                     & p_int(jg), l_hydro_adjust, l_moist          )
+                                     & p_int(jg), l_hydro_adjust, iforcing, l_moist)
 
     ELSE
 
@@ -588,21 +581,14 @@ MODULE mo_nh_testcases
                                      & p_nh_state(jg)%diag,                        &
                                      & ext_data(jg)%atm%topography_c,              &
                                      & p_nh_state(jg)%metrics,                     &
-                                     & p_int(jg), l_hydro_adjust, l_moist ,        &
+                                     & p_int(jg), l_hydro_adjust, iforcing, l_moist , &
                                      & opt_rh_at_1000hpa= rh_at_1000hpa,           &
                                      & opt_qv_max=qv_max                           )
-       CALL   init_nh_state_prog_mrw ( p_patch(jg), p_nh_state(jg)%prog(nnew(jg)), &
-                                     & p_nh_state(jg)%diag,                        &
-                                     & ext_data(jg)%atm%topography_c,              &
-                                     & p_nh_state(jg)%metrics,                     &
-                                     & p_int(jg), l_hydro_adjust, l_moist,         &
-                                     & opt_rh_at_1000hpa= rh_at_1000hpa,           &
-                                     & opt_qv_max=qv_max                           )
-
-
     END IF
-
-   ENDDO !jg
+   
+    CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))  
+ 
+  ENDDO !jg
 
    CALL message(TRIM(routine),'End setup MRW test')
 
@@ -633,13 +619,7 @@ MODULE mo_nh_testcases
                                       & p_nh_state(jg)%diag,                        &
                                       & ext_data(jg)%atm%topography_c,              &
                                       & p_nh_state(jg)%metrics,                     &
-                                      & p_int(jg), l_hydro_adjust, l_moist          )
-       CALL   init_nh_prog_mwbr_const ( p_patch(jg), p_nh_state(jg)%prog(nnew(jg)), &
-                                      & p_nh_state(jg)%diag,                        &
-                                      & ext_data(jg)%atm%topography_c,              &
-                                      & p_nh_state(jg)%metrics,                     &
-                                      & p_int(jg), l_hydro_adjust, l_moist          )
-
+                                      & p_int(jg), l_hydro_adjust, iforcing, l_moist)
 
      ELSE
   
@@ -647,19 +627,15 @@ MODULE mo_nh_testcases
                                       & p_nh_state(jg)%diag,                        &
                                       & ext_data(jg)%atm%topography_c,              &
                                       & p_nh_state(jg)%metrics,                     &
-                                      & p_int(jg), l_hydro_adjust, l_moist,         &
+                                      & p_int(jg), l_hydro_adjust, iforcing, l_moist,&
                                       & opt_rh_at_1000hpa= rh_at_1000hpa,           &
-                                      & opt_qv_max=qv_max                             )
-       CALL   init_nh_prog_mwbr_const ( p_patch(jg), p_nh_state(jg)%prog(nnew(jg)), &
-                                      & p_nh_state(jg)%diag,                        &
-                                      & ext_data(jg)%atm%topography_c,              &
-                                      & p_nh_state(jg)%metrics,                     &
-                                      & p_int(jg), l_hydro_adjust, l_moist   ,         &
-                                      & opt_rh_at_1000hpa= rh_at_1000hpa,           &
-                                      & opt_qv_max=qv_max                            )
+                                      & opt_qv_max=qv_max                           )
+
     END IF
-  
-  ENDDO !jg
+
+    CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg))) 
+ 
+ ENDDO !jg
 
   CASE ('zero','bell','schaer')
 
@@ -817,9 +793,7 @@ MODULE mo_nh_testcases
         &                            p_nh_state(jg)%diag,ext_data(jg),           &
         &                            p_nh_state(jg)%metrics)
 
-      CALL init_nh_state_prog_held_suarez(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),  &
-        &                            p_nh_state(jg)%diag,ext_data(jg),           &
-        &                            p_nh_state(jg)%metrics)
+
 
       IF (lhs_nh_vn_ptb) THEN
           CALL nh_prog_add_random( p_patch(jg), & ! input
@@ -830,6 +804,8 @@ MODULE mo_nh_testcases
                & Held-Suarez test: random noised added to the normal wind')
       END IF
       !
+
+      CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
 
     ENDDO !jg
 
@@ -848,10 +824,7 @@ MODULE mo_nh_testcases
                                    & p_int(jg),                                   &
                                    & p_sfc_jabw,jw_up )
 
-    CALL   init_nh_state_prog_jabw ( p_patch(jg), p_nh_state(jg)%prog(nnew(jg)), &
-                                   & p_nh_state(jg)%diag, p_nh_state(jg)%metrics, &
-                                   & p_int(jg),                                   &
-                                   & p_sfc_jabw,jw_up )
+
 
     IF ( ltransport .AND. iforcing == inwp ) THEN   !
 
@@ -860,13 +833,11 @@ MODULE mo_nh_testcases
                                 & p_nh_state(jg)%diag, p_nh_state(jg)%metrics, &
                                 & rh_at_1000hpa, qv_max, l_rediag=.TRUE.,  &
                                 & opt_global_moist=global_moist)
-      CALL init_nh_inwp_tracers ( p_patch(jg), p_nh_state(jg)%prog(nnew(jg)), &
-                                & p_nh_state(jg)%diag, p_nh_state(jg)%metrics, &
-                                & rh_at_1000hpa, qv_max, l_rediag=.TRUE.,  &
-                                & opt_global_moist=global_moist)
-
+ 
 
     END IF
+
+    CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
 
   ENDDO !jg
 

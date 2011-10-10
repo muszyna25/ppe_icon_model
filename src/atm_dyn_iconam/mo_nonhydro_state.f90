@@ -89,6 +89,8 @@ MODULE mo_nonhydro_state
 
   PUBLIC :: t_buffer_memory, bufr
 
+  PUBLIC :: duplicate_prog_state !copy the prognostic state
+
 #ifdef HAVE_F95
   PUBLIC :: t_ptr_nh
 #endif
@@ -665,7 +667,34 @@ MODULE mo_nonhydro_state
     CALL message (TRIM(routine), 'NH state destruction completed')
 
   END SUBROUTINE destruct_nh_state
+  !-------------------------------------------------------------------------
+  !
+  !
+  !>
+  !!
+  !! duplicate prognostic state 
+  !!
+  !! @par Revision History
+  !! Initial release by P. Ripodas 
+  !!
+  SUBROUTINE duplicate_prog_state ( p_prog_i, p_prog_d)
 
+      TYPE(t_nh_prog), INTENT(IN)      :: &  !< prognostic state vector to be copied
+     &  p_prog_i
+      TYPE(t_nh_prog), INTENT(INOUT)      :: &  !< duplicated prognostic state vector
+     &  p_prog_d
+
+    !--------------------------------------------------------------
+     p_prog_d%w              = p_prog_i%w
+     p_prog_d%vn             = p_prog_i%vn
+     p_prog_d%rho            = p_prog_i%rho
+     p_prog_d%exner          = p_prog_i%exner
+     p_prog_d%theta_v        = p_prog_i%theta_v
+     p_prog_d%rhotheta_v     = p_prog_i%rhotheta_v
+     p_prog_d%tracer         = p_prog_i%tracer
+     p_prog_d%tke            = p_prog_i%tke
+
+  END SUBROUTINE duplicate_prog_state
 
   !-------------------------------------------------------------------------
   !
