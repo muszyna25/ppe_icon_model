@@ -58,7 +58,6 @@ USE mo_mpi,                 ONLY: p_pe, p_io, p_bcast
 USE mo_datetime,            ONLY: t_datetime
 USE mo_ext_data,            ONLY: ext_data
 USE mo_grid_config,         ONLY: nroot
-USE mo_ocean_nml,           ONLY: iforc_oce
 USE mo_ocean_nml,           ONLY: iforc_oce, iforc_omip, iforc_len, itestcase_oce,    &
   &           no_tracer, n_zlev, basin_center_lat, basin_center_lon, basin_width_deg, &
   &                               basin_height_deg, relaxation_param, wstress_coeff,  &
@@ -281,7 +280,7 @@ CONTAINS
     !-------------------------------------------------------------------------
     ! Apply monthly SST relaxation data from stationary forcing
 
-    IF (temperature_relaxation == 2)  THEN
+    IF (temperature_relaxation == 2 .OR. temperature_relaxation == 3)  THEN
       !  - change units to deg C, subtract tmelt (0 deg C, 273.15)
 
        p_sfc_flx%forc_tracer_relax(:,:,1) = &
@@ -443,13 +442,13 @@ CONTAINS
   !-------------------------------------------------------------------------
   ! Apply temperature relaxation to boundary condition
 
-  IF (temperature_relaxation == 2) THEN
+  IF (temperature_relaxation >= 2) THEN
 
     !  - set minimum temperature to tf (-1.9 deg C) for simple temp-relax
     !  - set to zero on land points
 
+    !z_tmin = -1.0_wp
     z_tmin = tf  !  -1.9 deg C
-    z_tmin = -1.0_wp
 
     DO jb = i_startblk_c, i_endblk_c
       CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c,  &
@@ -471,19 +470,19 @@ CONTAINS
     !   is relaxation to temperature:
     !   K_v*dT/dz(surf) = -Q_t = -dz/Tau*(T*-T) = dz/Tau*(T-T*)  [K*m/s]
     ! discretized:
-    !   top_bc_tracer = forc_tracer = del_zlev_m / relax_param[s] * (tracer - forc_tracer_relax)
-    ! Attention: elevation not yet taken into account
+    !   top_bc_tracer = forc_tracer = del_zlev_m+h / relax_param[s] * (tracer - forc_tracer_relax)
 
     !z_relax = relaxation_param/(30.0_wp*24.0_wp*3600.0_wp)
-    z_relax = v_base%del_zlev_m(1)/(relaxation_param*2.592e6_wp)
+    !z_relax = v_base%del_zlev_m(1)/(relaxation_param*2.592e6_wp)
 
     DO jb = i_startblk_c, i_endblk_c    
       CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
        &                i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
       DO jc = i_startidx_c, i_endidx_c
+        z_relax = (v_base%del_zlev_m(1)+p_os%p_prog(nold(1))%h(jc,jb)) / &
+          &       (relaxation_param*2.592e6_wp)
 
         IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
-          !Compare form of relaxation with MPI-OM - check sign
           p_sfc_flx%forc_tracer(jc,jb, 1) =                             &
           &          - z_relax*(p_os%p_prog(nold(1))%tracer(jc,1,jb,1)  &
           &                    -p_sfc_flx%forc_tracer_relax(jc,jb,1))

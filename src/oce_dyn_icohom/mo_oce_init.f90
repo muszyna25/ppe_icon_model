@@ -53,10 +53,11 @@ USE mo_kind,               ONLY: wp
 USE mo_io_units,           ONLY: filename_max
 USE mo_mpi,                ONLY: my_process_is_stdio
 USE mo_grid_config,        ONLY: nroot
-USE mo_physical_constants, ONLY: re, rre, omega, rgrav,rho_ref,grav, SItodBar,sfc_press_bar
+USE mo_physical_constants, ONLY: re, rre, omega, rgrav, rho_ref, grav, SItodBar,            &
+  &                              sfc_press_bar, tmelt
 USE mo_math_constants
 USE mo_parallel_config,    ONLY: nproma
-USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer,                               &
+USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer, iforc_len,                    &
   &                              init_oce_prog, itestcase_oce,                              &
   &                              basin_center_lat, basin_center_lon,idisc_scheme,           &
   &                              basin_height_deg,  basin_width_deg, temperature_relaxation
@@ -126,7 +127,7 @@ CONTAINS
   CHARACTER(filename_max) :: prog_init_file   !< file name for reading in
 
   LOGICAL :: l_exist
-  INTEGER :: i_lev, no_cells, jk, jb, jc
+  INTEGER :: i_lev, no_cells, jk, jb, jc, jlen
   INTEGER :: ncid, dimid
   INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start, rl_end_c
 
@@ -230,6 +231,14 @@ CONTAINS
       END DO
     END DO
   END DO
+
+  ! #slo# 2011-10-10: HACK - overwrite OMIP SST by Levitus SST for temperature_relaxation=3:
+  IF (temperature_relaxation == 3) THEN
+    DO jlen = 1, iforc_len
+      p_ext_data%oce%omip_forc_mon_c(:,jlen,:,3) = &
+        &  p_os%p_prog(nold(1))%tracer(:,1,:,1) + tmelt
+    END DO
+  END IF
 
   jkc=1      ! current level - may not be zero
   ipl_src=0  ! output print level (0-5, fix)
