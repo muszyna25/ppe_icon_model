@@ -189,7 +189,6 @@ CONTAINS
     INTEGER :: field_shape(3) 
     INTEGER :: i, error_status
     INTEGER :: patch_no
-    INTEGER :: nstations
 
     !---------------------------------------------------------------------
     ! 0. If this is a resumed or warm-start run...
@@ -629,7 +628,7 @@ CONTAINS
     ! finalize meteogram output
     DO jg = 1, n_dom
       IF (mtgrm_output_config(jg)%lenabled) THEN
-        CALL mtgrm_finalize(jg)
+        CALL mtgrm_finalize(mtgrm_output_config(jg), jg)
       END IF
       DEALLOCATE(mtgrm_output_config(jg)%station_list)
     END DO

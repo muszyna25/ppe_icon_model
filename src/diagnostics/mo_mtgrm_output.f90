@@ -27,7 +27,7 @@
 !!        CALL add_atmo_var(VAR%MYVAR, VAR_GROUP_ATMO, "myvarname", "myvarunit", jg, nlev)
 !!    - In SR "mtgrm_sample_vars": Insert sampling of values, for example
 !!        DO ilev=1,mtgrm_data%var_info(VAR%MYVAR)%nlevs
-!!          mtgrm_data%station(jc,jb)%var(VAR%MYVAR)%values(i_tstep, ilev) =  &
+!!          mtgrm_data%station(jc,jb)%var(VAR%MYVAR)%values(ilev, i_tstep) =  &
 !!          &  prog%<myvar>(iidx, mtgrm_data%var_info(VAR%MYVAR)%levels(ilev), iblk)
 !!        END DO
 !!
@@ -74,6 +74,13 @@
 !! The authors do not make any warranty, express or implied, or assume any
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
+!!
+!!
+!! TODO[FP] : use the same GNAT data structure as for the RBF
+!!            coefficient computation!
+!! TODO[FP] : Extend list of meteogram variables
+!! TODO[FP] : Subroutine "mtgrm_collect_buffers" contains
+!!            MPI calls which should be moved to MODULE mo_mpi.
 
 MODULE mo_mtgrm_output
 
@@ -81,7 +88,16 @@ MODULE mo_mtgrm_output
   USE mo_datetime,              ONLY: t_datetime, iso8601
   USE mo_exception,             ONLY: message, message_text, finish
   USE mo_mpi,                   ONLY: p_n_work, my_process_is_stdio, &
-    &                                 get_my_mpi_all_id
+    &                                 get_my_mpi_all_id,             &
+    ! TODO[FP] : When encapsulating MPI_PACK calls into mo_mpi,
+    !            the following USEs are no longer required
+    &                                 get_my_mpi_all_id, &
+    &                                 get_my_mpi_communicator, p_real_dp, &
+    &                                 p_int, get_mpi_all_workroot_id,     &
+    &                                 p_real_dp_byte
+#ifndef NOMPI
+  USE mo_mpi,                   ONLY: MPI_STATUS_SIZE
+#endif
   USE mo_model_domain,          ONLY: t_patch
   USE mo_parallel_config,       ONLY: nproma
   USE mo_impl_constants,        ONLY: inwp, max_dom, SUCCESS
@@ -98,6 +114,11 @@ MODULE mo_mtgrm_output
   USE mo_util_string,           ONLY: int2string
   USE mo_mtgrm_config,          ONLY: t_mtgrm_output_config, t_station_list, &
     &                                 FTYPE_NETCDF, MAX_NAME_LENGTH, MAX_NUM_STATIONS
+  ! TODO[FP] : When encapsulating MPI_PACK calls into mo_mpi,
+  !            the following USE is no longer required:
+#ifndef NOMPI
+  USE MPI
+#endif
   
   IMPLICIT NONE
   
@@ -119,6 +140,9 @@ MODULE mo_mtgrm_output
   INTEGER, PARAMETER :: MAX_TIME_STAMPS      =  100  !<  max. number of time stamps
   INTEGER, PARAMETER :: MAX_EXTRA2D          =    4  !<  max. number of extra 2D variables (inextra_2d)
   INTEGER, PARAMETER :: MAX_EXTRA3D          =    4  !<  max. number of extra 3D variables (inextra_3d)
+
+  ! arbitrarily chosen value for buffer size (somewhat large for safety reasons)
+  INTEGER, PARAMETER :: MAX_HEADER_SIZE      =  128 ! *p_real_dp_byte
 
   INTEGER, PARAMETER :: VAR_GROUP_ATMO       =    1  
   INTEGER, PARAMETER :: VAR_GROUP_SURFACE    =    2  
@@ -146,7 +170,7 @@ MODULE mo_mtgrm_output
   !! Value buffer for a single variable of a station.
   !!
   TYPE t_var_buffer
-    REAL(wp), POINTER              :: values(:,:)    !< sampled data for different levels (time,1:nlevs)
+    REAL(wp), POINTER              :: values(:,:)    !< sampled data for different levels (1:nlevs,time)
   END TYPE t_var_buffer
 
   !>
@@ -178,7 +202,7 @@ MODULE mo_mtgrm_output
   !!
   TYPE t_mtgrm_station
     ! Meteogram header (information on location, ...)
-    TYPE(t_station_list), POINTER :: station !< pointer to station specification
+    INTEGER                       :: station_idx(2)   !< (idx,block) of station specification
     INTEGER                       :: tri_idx(2)       !< triangle index (global idx,block)
     INTEGER                       :: tri_idx_local(2) !< triangle index (idx,block)
     INTEGER                       :: owner      !< proc ID where station is located.    
@@ -203,8 +227,8 @@ MODULE mo_mtgrm_output
     TYPE(t_var_info),     POINTER  :: var_info(:)     !< info for each variable (1:nvars)
     TYPE(t_sfc_var_info), POINTER  :: sfc_var_info(:) !< info for each surface variable (1:nsfcvars)
     ! time stamp info:
-    INTEGER                        :: icurrent                    !< current time stamp index
-    TYPE(t_time_stamp)             :: time_stamp(MAX_TIME_STAMPS) !< info on sample times
+    INTEGER                        :: icurrent        !< current time stamp index
+    TYPE(t_time_stamp), POINTER    :: time_stamp(:)   !< info on sample times
     ! value buffers:
     TYPE(t_mtgrm_station), POINTER :: station(:,:) !< meteogram data and meta info for each station (idx,blk).
     INTEGER                        :: nstations, nblks, npromz
@@ -249,11 +273,18 @@ MODULE mo_mtgrm_output
 
   !! -- module data: --
   TYPE(t_mtgrm_data), SAVE, TARGET      :: mtgrm_local_data(1:max_dom)   !< meteogram data local to this PE
-  TYPE(t_mtgrm_data), SAVE              :: mtgrm_global_data(1:max_dom)  !< collected buffers (on IO PE)
+  TYPE(t_mtgrm_data), SAVE, TARGET      :: mtgrm_global_data(1:max_dom)  !< collected buffers (on IO PE)
   TYPE(t_mtgrm_file), SAVE              :: mtgrm_file_info(1:max_dom)    !< meteogram file handle etc.
 
   TYPE(t_ncid),       SAVE, TARGET      :: ncid_list(1:max_dom)          !< NetCDF dimension IDs
   TYPE(t_var),        SAVE, TARGET      :: var_list(1:max_dom)           !< internal indices of variables
+  
+  !! -- data for distributed meteogram sampling (MPI) --
+  CHARACTER,          SAVE, ALLOCATABLE :: msg_buffer(:,:)               !< MPI buffer for station data
+  INTEGER,            SAVE              :: max_buf_size                  !< max buffer size for MPI messages
+  LOGICAL,            SAVE              :: l_is_sender, l_is_receiver
+  INTEGER,            SAVE              :: io_rank                       !< rank of PE which gathers data
+  INTEGER,            SAVE              :: owner(MAX_NUM_STATIONS)       !< rank of sender PE for each station
 
 CONTAINS
 
@@ -285,16 +316,19 @@ CONTAINS
       &             jb, jc, glb_index, i_startidx,    &
       &             i_endidx, jc_station, jb_station, &
       &             istation, my_id, nvars, nlevs,    &
-      &             ivar, nsfcvars, iextra
+      &             ivar, nsfcvars, iextra,           &
+      &             nblks_global, npromz_global
     REAL(gk)     :: in_points(nproma,mtgrm_output_config%nblks,2) !< geographical locations
     REAL(gk)     :: min_dist(nproma,mtgrm_output_config%nblks)    !< minimal distance
     ! list of triangles containing lon-lat grid points (first dim: index and block)
     INTEGER      :: tri_idx(2,nproma,mtgrm_output_config%nblks)
     INTEGER      :: nlocal_pts(p_n_work)
-    INTEGER      :: owner(MAX_NUM_STATIONS)
-    TYPE(t_mtgrm_data), POINTER :: mtgrm_data
-    TYPE(t_var), POINTER        :: VAR
+    LOGICAL      :: l_is_io_pe
     REAL(wp)     :: pi_180
+    INTEGER      :: max_var_size, max_sfcvar_size
+    TYPE(t_mtgrm_data)   , POINTER :: mtgrm_data
+    TYPE(t_var)          , POINTER :: VAR
+    TYPE(t_mtgrm_station), POINTER :: p_station
 
     pi_180 = ATAN(1._wp)/45._wp
 
@@ -309,14 +343,11 @@ CONTAINS
     ! this PE:
     ! ------------------------------------------------------------
 
-    ! TODO[FP] : use the same GNAT data structure as for the RBF
-    !            coefficient computation!
-
     ! build an array of geographical coordinates from station list:
     ! in_points(...)
     nstations = mtgrm_output_config%nstations
     nblks     = mtgrm_output_config%nblks
-    npromz    = mtgrm_output_config%npromz
+    npromz    = mtgrm_output_config%npromz   
 
     DO jb=1,nblks
       i_startidx = 1
@@ -351,11 +382,16 @@ CONTAINS
     ! ------------------------------------------------------------
 
     mtgrm_data%icurrent = 0 ! reset current sample index
+    ALLOCATE(mtgrm_data%time_stamp(MAX_TIME_STAMPS), stat=ierrstat)
+    IF (ierrstat /= SUCCESS) THEN
+      CALL finish (routine, 'ALLOCATE of meteogram data structures failed')
+    ENDIF
 
     ! set up list of variables:
-    ! TODO[FP] : Extend list of meteogram variables
+    ! Note: adjust these values when adding new variables:
+    mtgrm_data%nsfcvars  = 1
+    mtgrm_data%nvars     = 9
 
-    mtgrm_data%nsfcvars = 1
     IF (lwrite_extra)  &
       mtgrm_data%nsfcvars = mtgrm_data%nsfcvars + inextra_2d
     nsfcvars = mtgrm_data%nsfcvars
@@ -364,8 +400,6 @@ CONTAINS
       CALL finish (routine, 'ALLOCATE of meteogram data structures failed')
     ENDIF
 
-    ! Note: adjust these values when adding new variables:
-    mtgrm_data%nvars     = 9
     IF (lwrite_extra)  &
       mtgrm_data%nvars = mtgrm_data%nvars + inextra_3d
     mtgrm_data%max_nlevs = 1
@@ -431,8 +465,7 @@ CONTAINS
         END DO
         jb_station = istation/nproma + 1
         jc_station = istation - (jb_station-1)*nproma
-        mtgrm_data%station(jc,jb)%station => &
-          &   mtgrm_output_config%station_list(jc_station, jb_station)
+        mtgrm_data%station(jc,jb)%station_idx = (/ jc_station, jb_station /)
         ! set owner ID:
         mtgrm_data%station(jc,jb)%owner = my_id
         ! set local triangle index, block:
@@ -467,13 +500,13 @@ CONTAINS
         ENDIF
         DO ivar=1,nvars
           nlevs = mtgrm_data%var_info(ivar)%nlevs
-          ALLOCATE(mtgrm_data%station(jc,jb)%var(ivar)%values(MAX_TIME_STAMPS, nlevs), &
+          ALLOCATE(mtgrm_data%station(jc,jb)%var(ivar)%values(nlevs, MAX_TIME_STAMPS), &
             &      stat=ierrstat)
           IF (ierrstat /= SUCCESS) THEN
             CALL finish (routine, 'ALLOCATE of meteogram data structures failed')
           ENDIF
         END DO
-
+        ! initialize value buffer for surface variables:
         ALLOCATE(mtgrm_data%station(jc,jb)%sfc_var(nsfcvars), &
           &      stat=ierrstat)
         IF (ierrstat /= SUCCESS) THEN
@@ -493,9 +526,92 @@ CONTAINS
     ! If this is the IO PE: initialize global data structure
     ! ------------------------------------------------------------
 
-    IF (my_process_is_stdio()) THEN
-      ! initialize global data structure
-      ! TODO[FP] : to be implemented
+    IO_PE : IF (my_process_is_stdio() .AND. .NOT. mtgrm_output_config%ldistributed) THEN
+
+      mtgrm_global_data(jg)%nstations =  mtgrm_output_config%nstations
+      mtgrm_global_data(jg)%nblks     =  mtgrm_output_config%nblks    
+      mtgrm_global_data(jg)%npromz    =  mtgrm_output_config%npromz   
+
+      ! Note: variable info is not duplicated
+      mtgrm_global_data(jg)%nvars     =  mtgrm_local_data(jg)%nvars
+      mtgrm_global_data(jg)%nsfcvars  =  mtgrm_local_data(jg)%nsfcvars
+      mtgrm_global_data(jg)%max_nlevs =  mtgrm_local_data(jg)%max_nlevs
+      mtgrm_global_data(jg)%var_info      =>  mtgrm_local_data(jg)%var_info
+      mtgrm_global_data(jg)%sfc_var_info  =>  mtgrm_local_data(jg)%sfc_var_info
+      mtgrm_global_data(jg)%time_stamp    =>  mtgrm_local_data(jg)%time_stamp
+
+      nblks_global  = mtgrm_global_data(jg)%nblks
+      npromz_global = mtgrm_global_data(jg)%npromz
+      ALLOCATE(mtgrm_global_data(jg)%station(nproma, nblks_global), stat=ierrstat)
+      IF (ierrstat /= SUCCESS) THEN
+        CALL finish (routine, 'ALLOCATE of meteogram data structures failed')
+      ENDIF
+
+      DO jb=1,nblks_global
+        i_startidx = 1
+        i_endidx   = nproma
+        IF (jb == nblks_global) i_endidx = npromz_global
+        
+        DO jc=i_startidx,i_endidx
+          p_station => mtgrm_global_data(jg)%station(jc,jb)
+
+          ALLOCATE(p_station%var(nvars), stat=ierrstat)
+          IF (ierrstat /= SUCCESS) &
+            CALL finish (routine, 'ALLOCATE of meteogram data structures failed')
+          
+          DO ivar=1,nvars
+            nlevs = mtgrm_data%var_info(ivar)%nlevs
+            ALLOCATE(p_station%var(ivar)%values(nlevs, MAX_TIME_STAMPS), stat=ierrstat)
+            IF (ierrstat /= SUCCESS) &
+              CALL finish (routine, 'ALLOCATE of meteogram data structures failed')
+          END DO
+          ALLOCATE(p_station%sfc_var(nsfcvars), stat=ierrstat)
+          IF (ierrstat /= SUCCESS) THEN
+            CALL finish (routine, 'ALLOCATE of meteogram data structures failed')
+          ENDIF
+          DO ivar=1,nsfcvars
+            ALLOCATE(p_station%sfc_var(ivar)%values(MAX_TIME_STAMPS), stat=ierrstat)
+            IF (ierrstat /= SUCCESS) THEN
+              CALL finish (routine, 'ALLOCATE of meteogram data structures failed')
+            ENDIF
+          END DO
+
+        END DO
+      END DO
+
+    END IF IO_PE
+
+    ! ------------------------------------------------------------
+    ! initialize MPI buffer
+    ! ------------------------------------------------------------
+    
+    IF (.NOT. mtgrm_output_config%ldistributed) THEN
+      io_rank       = get_mpi_all_workroot_id()
+      l_is_io_pe    = (get_my_mpi_all_id() == io_rank)
+      l_is_sender   = .NOT. l_is_io_pe
+      l_is_receiver = l_is_io_pe
+
+      ! compute maximum buffer size for MPI messages:
+      max_var_size    = MAX_TIME_STAMPS*p_real_dp_byte*mtgrm_data%max_nlevs
+      max_sfcvar_size = MAX_TIME_STAMPS*p_real_dp_byte
+      max_buf_size    = MAX_HEADER_SIZE*p_real_dp_byte          &
+        &               + mtgrm_data%nvars*max_var_size         &
+        &               + mtgrm_data%nsfcvars*max_sfcvar_size 
+
+      ! allocate buffer:
+      IF (l_is_receiver) THEN
+        ALLOCATE(msg_buffer(max_buf_size, MAX_NUM_STATIONS), stat=ierrstat)  
+        IF (ierrstat /= SUCCESS) THEN
+          CALL finish (routine, 'ALLOCATE of meteogram message buffer failed')
+        ENDIF
+      ELSE
+        ! allocate buffer:
+        ALLOCATE(msg_buffer(max_buf_size, 1), stat=ierrstat)  
+        IF (ierrstat /= SUCCESS) THEN
+          CALL finish (routine, 'ALLOCATE of meteogram message buffer failed')
+        ENDIF
+      END IF
+
     END IF
 
     ! ------------------------------------------------------------
@@ -552,11 +668,9 @@ CONTAINS
     TYPE(t_var), POINTER :: VAR
 
     mtgrm_data => mtgrm_local_data(jg)
-    ! skip routine, if this PE has nothing to do...
-    IF (mtgrm_data%nstations == 0) RETURN
+    ierr = 0
 
     VAR => var_list(jg) 
-
     diag => p_nh_state%diag
     prog => p_nh_state%prog(nnow(jg))
 
@@ -565,7 +679,6 @@ CONTAINS
       CALL message(routine, TRIM(message_text))
     END IF
 
-    ierr = 0
     ! increase time step counter
     mtgrm_data%icurrent = mtgrm_data%icurrent + 1
     i_tstep = mtgrm_data%icurrent
@@ -589,39 +702,39 @@ CONTAINS
         iblk  = mtgrm_data%station(jc,jb)%tri_idx_local(2)
 
         DO ilev=1,mtgrm_data%var_info(VAR%P)%nlevs
-          mtgrm_data%station(jc,jb)%var(VAR%P)%values(i_tstep, ilev) =  &
+          mtgrm_data%station(jc,jb)%var(VAR%P)%values(ilev, i_tstep) =  &
             &  diag%pres(iidx, mtgrm_data%var_info(VAR%P)%levels(ilev), iblk)
         END DO
         DO ilev=1,mtgrm_data%var_info(VAR%T)%nlevs
-          mtgrm_data%station(jc,jb)%var(VAR%T)%values(i_tstep, ilev) =  &
+          mtgrm_data%station(jc,jb)%var(VAR%T)%values(ilev, i_tstep) =  &
             &  diag%temp(iidx, mtgrm_data%var_info(VAR%T)%levels(ilev), iblk)
         END DO
         DO ilev=1,mtgrm_data%var_info(VAR%RHO)%nlevs
-          mtgrm_data%station(jc,jb)%var(VAR%RHO)%values(i_tstep, ilev) =  &
+          mtgrm_data%station(jc,jb)%var(VAR%RHO)%values(ilev, i_tstep) =  &
             &  prog%rho(iidx, mtgrm_data%var_info(VAR%RHO)%levels(ilev), iblk)
         END DO
         DO ilev=1,mtgrm_data%var_info(VAR%EXNER)%nlevs
-          mtgrm_data%station(jc,jb)%var(VAR%EXNER)%values(i_tstep, ilev) =  &
+          mtgrm_data%station(jc,jb)%var(VAR%EXNER)%values(ilev, i_tstep) =  &
           &  prog%exner(iidx, mtgrm_data%var_info(VAR%EXNER)%levels(ilev), iblk)
         END DO
         DO ilev=1,mtgrm_data%var_info(VAR%THETAV)%nlevs
-          mtgrm_data%station(jc,jb)%var(VAR%THETAV)%values(i_tstep, ilev) =  &
+          mtgrm_data%station(jc,jb)%var(VAR%THETAV)%values(ilev, i_tstep) =  &
           &  prog%theta_v(iidx, mtgrm_data%var_info(VAR%THETAV)%levels(ilev), iblk)
         END DO
         DO ilev=1,mtgrm_data%var_info(VAR%RHOTHETAV)%nlevs
-          mtgrm_data%station(jc,jb)%var(VAR%RHOTHETAV)%values(i_tstep, ilev) =  &
+          mtgrm_data%station(jc,jb)%var(VAR%RHOTHETAV)%values(ilev, i_tstep) =  &
           &  prog%rhotheta_v(iidx, mtgrm_data%var_info(VAR%RHOTHETAV)%levels(ilev), iblk)
         END DO
         DO ilev=1,mtgrm_data%var_info(VAR%U)%nlevs
-          mtgrm_data%station(jc,jb)%var(VAR%U)%values(i_tstep, ilev) =  &
+          mtgrm_data%station(jc,jb)%var(VAR%U)%values(ilev, i_tstep) =  &
           &  diag%u(iidx, mtgrm_data%var_info(VAR%U)%levels(ilev), iblk)
         END DO
         DO ilev=1,mtgrm_data%var_info(VAR%V)%nlevs
-          mtgrm_data%station(jc,jb)%var(VAR%V)%values(i_tstep, ilev) =  &
+          mtgrm_data%station(jc,jb)%var(VAR%V)%values(ilev, i_tstep) =  &
           &  diag%v(iidx, mtgrm_data%var_info(VAR%V)%levels(ilev), iblk)
         END DO
         DO ilev=1,mtgrm_data%var_info(VAR%W)%nlevs
-          mtgrm_data%station(jc,jb)%var(VAR%W)%values(i_tstep, ilev) =  &
+          mtgrm_data%station(jc,jb)%var(VAR%W)%values(ilev, i_tstep) =  &
           &  prog%w(iidx, mtgrm_data%var_info(VAR%W)%levels(ilev), iblk)
         END DO
 
@@ -639,7 +752,7 @@ CONTAINS
           DO iextra=1,inextra_3d
             var_extra = VAR%EXTRA3D(iextra)
             DO ilev=1,mtgrm_data%var_info(var_extra)%nlevs
-              mtgrm_data%station(jc,jb)%var(var_extra)%values(i_tstep, ilev) =  &
+              mtgrm_data%station(jc,jb)%var(var_extra)%values(ilev, i_tstep) =  &
                 &  diag%extra_3d(iidx, mtgrm_data%var_info(var_extra)%levels(ilev), iblk, iextra)
             END DO
           END DO
@@ -658,23 +771,28 @@ CONTAINS
   !! @par Revision History
   !! Initial implementation  by  F. Prill, DWD (2011-08-22)
   !!
-  SUBROUTINE mtgrm_finalize(jg)
+  SUBROUTINE mtgrm_finalize(mtgrm_output_config, jg)
+    ! station data from namelist
+    TYPE(t_mtgrm_output_config), TARGET, INTENT(IN) :: mtgrm_output_config
     INTEGER, INTENT(IN)  :: jg    !< patch index
     ! local variables:
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_mtgrm_output:mtgrm_finalize")
+    CHARACTER(*), PARAMETER     :: routine = TRIM("mo_mtgrm_output:mtgrm_finalize")
     INTEGER                     :: ierrstat, jb, jc, i_startidx, i_endidx, &
       &                            nvars, nsfcvars, ivar
     TYPE(t_mtgrm_data), POINTER :: mtgrm_data
 
     mtgrm_data => mtgrm_local_data(jg)
-    ! skip routine, if this PE has nothing to do...
-    IF (mtgrm_data%nstations == 0) RETURN
 
     ! ------------------------------------------------------------
     ! If this is the IO PE: close NetCDF file
     ! ------------------------------------------------------------
 
-    CALL mtgrm_close_file(jg)
+    CALL mtgrm_close_file(mtgrm_output_config, jg)
+
+    DEALLOCATE(mtgrm_data%time_stamp, stat=ierrstat)
+    IF (ierrstat /= SUCCESS) THEN
+      CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
+    ENDIF
 
     nvars    = mtgrm_data%nvars
     nsfcvars = mtgrm_data%nsfcvars
@@ -735,21 +853,51 @@ CONTAINS
     mtgrm_data%nsfcvars  = 0
     mtgrm_data%nstations = 0
 
+    ! deallocate MPI buffer
+    IF (.NOT. mtgrm_output_config%ldistributed) THEN
+      DEALLOCATE(msg_buffer, stat=ierrstat)
+      IF (ierrstat /= SUCCESS) THEN
+        CALL finish (routine, 'DEALLOCATE of MPI message buffer failed')
+      ENDIF
+    END IF
+
+    ! deallocate global meteogram data
+
+    IO_PE : IF (my_process_is_stdio() .AND. .NOT. mtgrm_output_config%ldistributed) THEN
+    
+      DO jb=1,mtgrm_global_data(jg)%nblks
+        i_startidx = 1
+        i_endidx   = nproma
+        IF (jb == mtgrm_global_data(jg)%nblks) i_endidx = mtgrm_global_data(jg)%npromz
+        
+        DO jc=i_startidx,i_endidx
+          DO ivar=1,nvars
+            DEALLOCATE(mtgrm_global_data(jg)%station(jc,jb)%var(ivar)%values, stat=ierrstat)
+            IF (ierrstat /= SUCCESS) &
+              CALL finish (routine, 'ALLOCATE of meteogram data structures failed')
+          END DO
+          DEALLOCATE(mtgrm_global_data(jg)%station(jc,jb)%var, stat=ierrstat)
+          IF (ierrstat /= SUCCESS) &
+            CALL finish (routine, 'ALLOCATE of meteogram data structures failed')
+
+          DO ivar=1,nsfcvars
+            DEALLOCATE(mtgrm_global_data(jg)%station(jc,jb)%sfc_var(ivar)%values, stat=ierrstat)
+            IF (ierrstat /= SUCCESS) &
+              CALL finish (routine, 'ALLOCATE of meteogram data structures failed')
+          END DO
+          DEALLOCATE(mtgrm_global_data(jg)%station(jc,jb)%sfc_var, stat=ierrstat)
+          IF (ierrstat /= SUCCESS) &
+            CALL finish (routine, 'ALLOCATE of meteogram data structures failed')
+
+        END DO
+      END DO
+      DEALLOCATE(mtgrm_global_data(jg)%station, stat=ierrstat)
+      IF (ierrstat /= SUCCESS) &
+        CALL finish (routine, 'ALLOCATE of meteogram data structures failed')
+      
+    END IF IO_PE
+
   END SUBROUTINE mtgrm_finalize
-
-
-  !>
-  !! IO PE gathers header information from working PEs and initializes
-  !! the global meteogram buffer.
-  !!
-  !! For gathered NetCDF output, this is a collective operation.
-  !!
-  !! @par Revision History
-  !! Initial implementation  by  F. Prill, DWD (2011-08-22)
-  !!
-  SUBROUTINE mtgrm_collect_header
-    ! TODO[FP] : to be implemented
-  END SUBROUTINE mtgrm_collect_header
 
 
   !>
@@ -760,10 +908,202 @@ CONTAINS
   !! For gathered NetCDF output, this is a collective operation.
   !!
   !! @par Revision History
-  !! Initial implementation  by  F. Prill, DWD (2011-08-22)
+  !! Initial implementation  by  F. Prill, DWD (2011-09-10)
   !!
-  SUBROUTINE mtgrm_collect_buffers
-    ! TODO[FP] : to be implemented
+  SUBROUTINE mtgrm_collect_buffers(mtgrm_output_config, jg, io_rank)
+    ! station data from namelist
+    TYPE(t_mtgrm_output_config), TARGET, INTENT(IN) :: mtgrm_output_config
+    INTEGER, INTENT(IN)  :: jg       !< patch index
+    INTEGER, INTENT(IN)  :: io_rank  !< MPI rank of root process
+
+#ifndef NOMPI
+    ! local variables
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_mtgrm_output:mtgrm_collect_buffers")
+    INTEGER     :: station_idx(2), position, icurrent,   &
+      &            jb, jc, i_startidx, i_endidx, ierr,   &
+      &            istation, ivar, nlevs
+    INTEGER     :: irecv_req(MAX_NUM_STATIONS)
+    INTEGER     :: irecv_status(MPI_STATUS_SIZE, MAX_NUM_STATIONS)
+    INTEGER     :: myrank, comm
+    TYPE(t_mtgrm_data),    POINTER :: mtgrm_data
+    TYPE(t_mtgrm_station), POINTER :: p_station
+
+    mtgrm_data => mtgrm_local_data(jg)
+    ! skip routine, if there is nothing to do...
+    IF (mtgrm_global_data(jg)%nstations == 0) RETURN
+
+    ! get global rank and MPI communicator
+    myrank = get_my_mpi_all_id()
+    comm   = get_my_mpi_communicator()
+
+    ! global time stamp index
+    ! Note: We assume that this value is identical for all PEs
+    icurrent = mtgrm_data%icurrent
+
+    ! -- RECEIVER CODE --
+    RECEIVER : IF (l_is_receiver) THEN
+      ! launch MPI message requests for station data on foreign PEs
+      irecv_req(:) = MPI_REQUEST_NULL
+      DO istation=1,mtgrm_output_config%nstations
+        IF (owner(istation) /= myrank) THEN
+          CALL MPI_IRECV(msg_buffer(:,istation), max_buf_size, MPI_PACKED, MPI_ANY_SOURCE, &
+            &            istation, comm, irecv_req(istation), ierr)
+          IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+        END IF
+      END DO
+
+      ! wait for messages to arrive:
+      CALL MPI_WAITALL(mtgrm_output_config%nstations, irecv_req(:), irecv_status(:,:), ierr)
+      IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+
+      ! unpack received messages:
+      jc = 0
+      jb = 1
+      DO istation=1,mtgrm_output_config%nstations
+        IF (owner(istation) /= myrank) THEN
+          position = 0
+          CALL MPI_UNPACK(msg_buffer(:,istation), max_buf_size, position, station_idx(:), &
+            &             2, p_int, comm, ierr)
+          IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+          p_station => mtgrm_global_data(jg)%station(station_idx(1), station_idx(2))
+          p_station%station_idx(1:2) = station_idx(1:2)
+
+          ! unpack header information
+          CALL MPI_UNPACK(msg_buffer(:,istation), max_buf_size, position, p_station%tri_idx(:), &
+            &             2, p_int, comm, ierr)
+          IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+          CALL MPI_UNPACK(msg_buffer(:,istation), max_buf_size, position, &
+            &             p_station%tri_idx_local(:), &
+            &             2, p_int, comm, ierr)
+          IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+          CALL MPI_UNPACK(msg_buffer(:,istation), max_buf_size, position, p_station%owner, &
+            &             1, p_int, comm, ierr)
+          IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+          CALL MPI_UNPACK(msg_buffer(:,istation), max_buf_size, position, p_station%hsurf,      &
+            &             1, p_real_dp, comm, ierr)
+          IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+          CALL MPI_UNPACK(msg_buffer(:,istation), max_buf_size, position, p_station%frland,     &
+            &             1, p_real_dp, comm, ierr)
+          IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+          CALL MPI_UNPACK(msg_buffer(:,istation), max_buf_size, position, p_station%fc,         &
+            &             1, p_real_dp, comm, ierr)
+          IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+          CALL MPI_UNPACK(msg_buffer(:,istation), max_buf_size, position, p_station%soiltype,   &
+            &             1, p_int, comm, ierr)
+          IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+
+          ! unpack meteogram data:
+          DO ivar=1,mtgrm_data%nvars
+            nlevs = mtgrm_data%var_info(ivar)%nlevs
+            CALL MPI_UNPACK(msg_buffer(:,istation), max_buf_size, position, &
+              &             p_station%var(ivar)%values(:,:),                &
+              &             nlevs*icurrent, p_real_dp, comm, ierr)
+            IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+          END DO
+
+          DO ivar=1,mtgrm_data%nsfcvars
+            CALL MPI_UNPACK(msg_buffer(:,istation), max_buf_size, position, &
+              &             p_station%sfc_var(ivar)%values(:),              &
+              &             icurrent, p_real_dp, comm, ierr)
+            IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+          END DO
+        ELSE
+          ! this PE is both sender and receiver - direct copy:
+          jc = jc + 1
+          IF (jc > nproma) THEN
+            jc = 1
+            jb = jb + 1
+          END IF
+          station_idx(1:2) = mtgrm_data%station(jc,jb)%station_idx(1:2)
+
+          p_station => mtgrm_global_data(jg)%station(station_idx(1),station_idx(2))
+          p_station%station_idx(1:2)   = mtgrm_data%station(jc,jb)%station_idx(1:2)
+          p_station%tri_idx(1:2)       = mtgrm_data%station(jc,jb)%tri_idx(1:2)
+          p_station%tri_idx_local(1:2) = mtgrm_data%station(jc,jb)%tri_idx_local(1:2)
+          p_station%owner              = mtgrm_data%station(jc,jb)%owner
+          p_station%hsurf              = mtgrm_data%station(jc,jb)%hsurf
+          p_station%frland             = mtgrm_data%station(jc,jb)%frland
+          p_station%fc                 = mtgrm_data%station(jc,jb)%fc
+          p_station%soiltype           = mtgrm_data%station(jc,jb)%soiltype
+          ! copy meteogram data
+          DO ivar=1,mtgrm_data%nvars
+            nlevs = mtgrm_data%var_info(ivar)%nlevs
+            p_station%var(ivar)%values(1:nlevs, 1:icurrent) =  &
+              &  mtgrm_data%station(jc,jb)%var(ivar)%values(1:nlevs, 1:icurrent)
+          END DO
+          DO ivar=1,mtgrm_data%nsfcvars
+            p_station%sfc_var(ivar)%values(1:icurrent) =  &
+              &  mtgrm_data%station(jc,jb)%sfc_var(ivar)%values(1:icurrent)
+          END DO
+        END IF
+      END DO
+    END IF RECEIVER
+
+    ! -- SENDER CODE --
+    SENDER : IF (l_is_sender) THEN
+      ! pack station into buffer; send it
+      DO jb=1,mtgrm_data%nblks
+        i_startidx = 1
+        i_endidx   = nproma
+        IF (jb == mtgrm_data%nblks) i_endidx = mtgrm_data%npromz
+        DO jc=i_startidx,i_endidx
+
+          ! Meteogram header (information on location, ...)
+          p_station => mtgrm_data%station(jc,jb)
+          position = 0
+          CALL MPI_PACK(p_station%station_idx(:), 2, p_int,     msg_buffer(:,1), max_buf_size, &
+            &           position, comm, ierr)
+          IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+          CALL MPI_PACK(p_station%tri_idx(:),     2, p_int,     msg_buffer(:,1), max_buf_size, &
+            &           position, comm, ierr)
+          IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+          CALL MPI_PACK(p_station%tri_idx_local(:),2,p_int,     msg_buffer(:,1), max_buf_size, &
+            &           position, comm, ierr)
+          IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+          CALL MPI_PACK(p_station%owner,          1 ,p_int,     msg_buffer(:,1), max_buf_size, &
+            &           position, comm, ierr)
+          IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+          CALL MPI_PACK(p_station%hsurf,          1, p_real_dp, msg_buffer(:,1), max_buf_size, &
+            &           position, comm, ierr)
+          IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+          CALL MPI_PACK(p_station%frland,         1, p_real_dp, msg_buffer(:,1), max_buf_size, &
+            &           position, comm, ierr)
+          IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+          CALL MPI_PACK(p_station%fc,             1, p_real_dp, msg_buffer(:,1), max_buf_size, &
+            &           position, comm, ierr)
+          IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+          CALL MPI_PACK(p_station%soiltype,       1, p_int,     msg_buffer(:,1), max_buf_size, &
+            &           position, comm, ierr)
+          IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+          ! pack meteogram data:
+          DO ivar=1,mtgrm_data%nvars
+            nlevs = mtgrm_data%var_info(ivar)%nlevs
+            CALL MPI_PACK(p_station%var(ivar)%values(:,:), nlevs*icurrent, &
+              &           p_real_dp, msg_buffer(:,1),                      &
+              &           max_buf_size, position, comm, ierr)
+            IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+          END DO
+          DO ivar=1,mtgrm_data%nsfcvars
+            CALL MPI_PACK(p_station%sfc_var(ivar)%values(:), icurrent,     &
+              &           p_real_dp, msg_buffer(:,1),                      &
+              &           max_buf_size, position, comm, ierr)
+            IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+          END DO
+
+          ! (blocking) send of packed station data to IO PE:
+          istation = nproma*(p_station%station_idx(2) - 1) + p_station%station_idx(1)
+          CALL MPI_SEND(msg_buffer, position, MPI_PACKED, io_rank, istation, comm, ierr);
+          IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+        END DO
+      END DO
+
+      ! reset buffer on sender side
+      IF (.NOT. l_is_receiver) &
+        mtgrm_data%icurrent = 0
+
+    END IF SENDER
+
+#endif
   END SUBROUTINE mtgrm_collect_buffers
 
 
@@ -785,28 +1125,37 @@ CONTAINS
     INTEGER                     :: jb, jc, i_startidx, i_endidx, old_mode, ncfile, &
       &                            istation, ivar, nvars, nsfcvars
     TYPE(t_ncid),       POINTER :: ncid
-    TYPE(t_mtgrm_data), POINTER :: mtgrm_data
     INTEGER                     :: station_name_dims(2), var_name_dims(2), &
       &                            var_level_dims(2), time_string_dims(2), &
       &                            var_dims(4),  sfcvar_dims(3),           &
       &                            istart2(2), icount2(2)
     CHARACTER(len=MAX_NAME_LENGTH) :: description_str
+    TYPE(t_station_list), POINTER  :: this_station
+    TYPE(t_mtgrm_data), POINTER    :: mtgrm_data
 
     IF (mtgrm_output_config%ftype /= FTYPE_NETCDF) THEN
       CALL finish(routine, "Output format not yet implemented.")
     END IF
 
-    mtgrm_data => mtgrm_local_data(jg)
-    ! skip routine, if this PE has nothing to do...
-    IF (mtgrm_data%nstations == 0) RETURN
+    ! In "non-distributed" mode, station data is gathered by PE #0
+    ! which writes a single file.
+    ! Note that info on variables is not copied to the global data set
+    ! (we use the local mtgrm_data there).
 
-    ncid       => ncid_list(jg)
-
-    IF (dbg_level > 0) THEN
-      WRITE(message_text,*) "Enter"
-      CALL message(routine, TRIM(message_text))    
+    IF (.NOT. mtgrm_output_config%ldistributed) THEN
+      CALL mtgrm_collect_buffers(mtgrm_output_config, jg, io_rank)
+      mtgrm_data => mtgrm_global_data(jg)
+    ELSE
+      mtgrm_data => mtgrm_local_data(jg)
+      ! skip routine, if this PE has nothing to do...
+      IF (mtgrm_local_data(jg)%nstations == 0) RETURN
     END IF
 
+    ! skip routine, if this PE has nothing to do...
+    IF  (.NOT. mtgrm_output_config%ldistributed .AND.  &
+      & (.NOT. l_is_receiver)) RETURN
+
+    ncid => ncid_list(jg)
     nvars    = mtgrm_data%nvars
     nsfcvars = mtgrm_data%nsfcvars
 
@@ -828,12 +1177,12 @@ CONTAINS
     ! character-position dimension for strings of max length 40
     CALL nf(nf_def_dim(ncfile, "charid", MAX_NAME_LENGTH, ncid%charid))
     ! station header:
-    CALL nf(nf_def_dim(ncfile, 'nstations', mtgrm_data%nstations, ncid%nstations))
+    CALL nf(nf_def_dim(ncfile, 'nstations',  mtgrm_data%nstations,   ncid%nstations))
     ! write variables:
-    CALL nf(nf_def_dim(ncfile, 'nvars',     mtgrm_data%nvars,     ncid%nvars))
+    CALL nf(nf_def_dim(ncfile, 'nvars',      mtgrm_data%nvars, ncid%nvars))
     IF (mtgrm_data%nsfcvars > 0) &
-      CALL nf(nf_def_dim(ncfile, 'nsfcvars',  mtgrm_data%nsfcvars,  ncid%nsfcvars))
-    CALL nf(nf_def_dim(ncfile, 'max_nlevs', mtgrm_data%max_nlevs, ncid%max_nlevs))
+      CALL nf(nf_def_dim(ncfile, 'nsfcvars', mtgrm_data%nsfcvars,  ncid%nsfcvars))
+    CALL nf(nf_def_dim(ncfile, 'max_nlevs',  mtgrm_data%max_nlevs, ncid%max_nlevs))
     ! create time dimension:
     CALL nf(nf_def_dim(ncfile, 'time', NF_UNLIMITED, ncid%timeid))
     
@@ -964,14 +1313,16 @@ CONTAINS
       IF (jb == mtgrm_data%nblks) i_endidx = mtgrm_data%npromz
 
       DO jc=i_startidx,i_endidx
-
+        this_station => mtgrm_output_config%station_list(           &
+          &               mtgrm_data%station(jc,jb)%station_idx(1), &
+          &               mtgrm_data%station(jc,jb)%station_idx(2))
         CALL nf(nf_put_vara_text(ncfile, ncid%station_name, (/ 1, istation /), &
-          &                      (/ LEN(TRIM(mtgrm_data%station(jc,jb)%station%zname)), 1 /), &
-          &                      TRIM(mtgrm_data%station(jc,jb)%station%zname)))
+          &                      (/ LEN(TRIM(this_station%zname)), 1 /), &
+          &                      TRIM(this_station%zname)))
         CALL nf(nf_put_vara_double(ncfile, ncid%station_lon, istation, 1, &
-          &                        mtgrm_data%station(jc,jb)%station%location%lon))
+          &                        this_station%location%lon))
         CALL nf(nf_put_vara_double(ncfile, ncid%station_lat, istation, 1, &
-          &                        mtgrm_data%station(jc,jb)%station%location%lat))
+          &                        this_station%location%lat))
         CALL nf(nf_put_vara_int(ncfile, ncid%station_idx, istation, 1, &
           &                     mtgrm_data%station(jc,jb)%tri_idx(1)))
         CALL nf(nf_put_vara_int(ncfile, ncid%station_blk, istation, 1, &
@@ -1003,9 +1354,10 @@ CONTAINS
   !! @par Revision History
   !! Initial implementation  by  F. Prill, DWD (2011-08-22)
   !!
-  SUBROUTINE mtgrm_flush_file(jg)
-    INTEGER, INTENT(IN)  :: jg    !< patch index
-
+  SUBROUTINE mtgrm_flush_file(mtgrm_output_config, jg)
+    ! station data from namelist
+    TYPE(t_mtgrm_output_config), TARGET, INTENT(IN) :: mtgrm_output_config
+    INTEGER, INTENT(IN)         :: jg       !< patch index
     ! local variables:
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mtgrm_output:mtgrm_flush_file")
     INTEGER                     :: ncfile,  totaltime, itime, istation, ivar, &
@@ -1014,13 +1366,23 @@ CONTAINS
     TYPE(t_mtgrm_data), POINTER :: mtgrm_data
     TYPE(t_ncid),       POINTER :: ncid
     INTEGER                     :: istart4(4), icount4(4)
-
-    mtgrm_data => mtgrm_local_data(jg)
-    ! skip routine, if this PE has nothing to do...
-    IF (mtgrm_data%nstations == 0) RETURN
-
+  
     ncid => ncid_list(jg)
     ncfile = mtgrm_file_info(jg)%file_id
+
+    ! In "non-distributed" mode, station data is gathered by PE #0
+    ! which writes a single file:
+    IF (mtgrm_output_config%ldistributed) THEN
+      mtgrm_data => mtgrm_local_data(jg)
+    ELSE
+      CALL mtgrm_collect_buffers(mtgrm_output_config, jg, io_rank)
+      mtgrm_data => mtgrm_global_data(jg)
+    END IF
+
+    ! skip routine, if this PE has nothing to do...
+    IF (mtgrm_data%nstations == 0) RETURN
+    IF  (.NOT. mtgrm_output_config%ldistributed .AND.  &
+      & (.NOT. l_is_receiver)) RETURN
 
     nvars    = mtgrm_data%nvars
     nsfcvars = mtgrm_data%nsfcvars
@@ -1034,7 +1396,8 @@ CONTAINS
     CALL nf(nf_inq_dimlen(ncfile, ncid%timeid, totaltime))
 
     ! write time stamp info:
-    DO itime=1,mtgrm_data%icurrent
+    DO itime=1,mtgrm_local_data(jg)%icurrent
+
       CALL nf(nf_put_vara_text(ncfile, ncid%dateid, (/ 1, totaltime+itime /), &
         &                      (/ LEN(TRIM(mtgrm_data%time_stamp(itime)%zdate)), 1 /), &
         &                      TRIM(mtgrm_data%time_stamp(itime)%zdate)))
@@ -1058,7 +1421,7 @@ CONTAINS
             icount4 = (/ 1, 1, nlevs, 1 /)
             CALL nf(nf_put_vara_double(ncfile, ncid%var_values,                   &
               &                        istart4, icount4,                          &
-              &                        mtgrm_data%station(jc,jb)%var(ivar)%values(itime,1:nlevs)))
+              &                        mtgrm_data%station(jc,jb)%var(ivar)%values(1:nlevs, itime)))
           END DO
           ! surface variables:
           DO ivar=1,nsfcvars
@@ -1074,7 +1437,7 @@ CONTAINS
     END DO
 
     ! finally, reset buffer counter for new data
-    mtgrm_data%icurrent = 0
+    mtgrm_local_data(jg)%icurrent = 0
 
   END SUBROUTINE mtgrm_flush_file
 
@@ -1087,13 +1450,20 @@ CONTAINS
   !! @par Revision History
   !! Initial implementation  by  F. Prill, DWD (2011-08-22)
   !!
-  SUBROUTINE mtgrm_close_file(jg)
+  SUBROUTINE mtgrm_close_file(mtgrm_output_config, jg)
+    ! station data from namelist
+    TYPE(t_mtgrm_output_config), TARGET, INTENT(IN) :: mtgrm_output_config
     INTEGER, INTENT(IN)  :: jg    !< patch index
 
     ! write remaining buffers:
-    CALL mtgrm_flush_file(jg)
-    ! Close NetCDF file
-    CALL nf(nf_close(mtgrm_file_info(jg)%file_id))
+    CALL mtgrm_flush_file(mtgrm_output_config, jg)
+
+    ! skip routine, if this PE has nothing to do...
+    IF  (mtgrm_output_config%ldistributed .OR.  &
+      & (io_rank == get_my_mpi_all_id())) THEN
+      ! Close NetCDF file
+      CALL nf(nf_close(mtgrm_file_info(jg)%file_id))
+    END IF
   END SUBROUTINE mtgrm_close_file
 
 
@@ -1117,7 +1487,11 @@ CONTAINS
 
     SELECT CASE (mtgrm_output_config%ftype)
     CASE (FTYPE_NETCDF)
-      WRITE (mtgrm_file_info(jg)%zname,'(a,i3.3,a,i3.3,a)') "PE", my_id, "_patch", jg, ".nc"
+      IF (mtgrm_output_config%ldistributed) THEN
+        WRITE (mtgrm_file_info(jg)%zname,'(a,i3.3,a,i3.3,a)') "PE", my_id, "_patch", jg, ".nc"
+      ELSE
+        WRITE (mtgrm_file_info(jg)%zname,'(a,i3.3,a)') "patch", jg, ".nc"
+      END IF
     END SELECT
     mtgrm_file_info(jg)%zname = TRIM(mtgrm_output_config%zprefix)//TRIM(mtgrm_file_info(jg)%zname)
   END SUBROUTINE mtgrm_create_filename

@@ -59,9 +59,10 @@ MODULE mo_mtgrm_config
   !! TODO[FP] : Make some fixed-size arrays ALLOCATABLE?
   !!
   TYPE t_mtgrm_output_config
-    LOGICAL                        :: lenabled   !< Flag. True for output.
-    CHARACTER(len=MAX_NAME_LENGTH) :: zprefix    !< file prefix string    
-    INTEGER                        :: ftype      !< file type (NetCDF, ...)
+    LOGICAL                        :: lenabled     !< Flag. True for output.
+    CHARACTER(len=MAX_NAME_LENGTH) :: zprefix      !< file prefix string    
+    INTEGER                        :: ftype        !< file type (NetCDF, ...)
+    LOGICAL                        :: ldistributed !< Flag. Separate files for each PE
 
     ! Initial step and step interval for meteogram output
     INTEGER                        :: n0_mtgrm, ninc_mtgrm

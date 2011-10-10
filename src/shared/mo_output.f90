@@ -299,7 +299,7 @@ CONTAINS
     ! write recent samples of meteogram output
     DO jg = 1, n_dom
       IF (mtgrm_output_config(jg)%lenabled) THEN
-        CALL mtgrm_flush_file(jg)
+        CALL mtgrm_flush_file(mtgrm_output_config(jg), jg)
       END IF
     END DO
 

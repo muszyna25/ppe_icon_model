@@ -63,6 +63,7 @@ MODULE mo_mtgrm_nml
   LOGICAL                         :: lmtgrm_enabled(max_dom)  !> Flag. True, if meteogram output is enabled
   CHARACTER (len=MAX_NAME_LENGTH) :: zprefix(max_dom)         !> string with file name prefix for output file
   INTEGER                         :: ftype(max_dom)           !< file type (NetCDF, ...)
+  LOGICAL                         :: ldistributed(max_dom)    !< Flag. Separate files for each PE
   INTEGER                         :: n0_mtgrm(max_dom)        !> intitial time step for meteogram output
   INTEGER                         :: ninc_mtgrm(max_dom)      !> output interval (in time steps)
 
@@ -70,7 +71,7 @@ MODULE mo_mtgrm_nml
   TYPE(t_list_of_stations) :: stationlist_tot(MAX_NUM_STATIONS)   !> list of meteogram stations
 
   !> Namelist for meteogram output
-  NAMELIST/mtgrm_output_nml/ lmtgrm_enabled, zprefix, n0_mtgrm, ninc_mtgrm, &
+  NAMELIST/mtgrm_output_nml/ lmtgrm_enabled, zprefix, ldistributed, n0_mtgrm, ninc_mtgrm, &
     &                        stationlist_tot
 
 CONTAINS
@@ -104,7 +105,8 @@ CONTAINS
 
     lmtgrm_enabled(:)  =      .FALSE.
     zprefix(:)         =     "MTGRM_"
-    ftype           = FTYPE_NETCDF
+    ftype(:)           = FTYPE_NETCDF
+    ldistributed(:)    =       .TRUE.
     n0_mtgrm(:)        =           1
     ninc_mtgrm(:)      =           1
     stationlist_tot(:)%lon   = 0._wp
@@ -154,12 +156,13 @@ CONTAINS
     ! fill in values for each model domain:
     DO idom=1,max_dom
 
-      mtgrm_output_config(idom)%lenabled   = lmtgrm_enabled(idom)
-      mtgrm_output_config(idom)%zprefix    = zprefix(idom)
-      mtgrm_output_config(idom)%ftype      = ftype(idom)
-      mtgrm_output_config(idom)%n0_mtgrm   = n0_mtgrm(idom)
-      mtgrm_output_config(idom)%ninc_mtgrm = ninc_mtgrm(idom)
-      mtgrm_output_config(idom)%nstations  = nstations
+      mtgrm_output_config(idom)%lenabled     = lmtgrm_enabled(idom)
+      mtgrm_output_config(idom)%zprefix      = zprefix(idom)
+      mtgrm_output_config(idom)%ftype        = ftype(idom)
+      mtgrm_output_config(idom)%ldistributed = ldistributed(idom)
+      mtgrm_output_config(idom)%n0_mtgrm     = n0_mtgrm(idom)
+      mtgrm_output_config(idom)%ninc_mtgrm   = ninc_mtgrm(idom)
+      mtgrm_output_config(idom)%nstations    = nstations
 
       nblks   = nstations/nproma + 1
       npromz  = nstations - nproma*(nblks-1)

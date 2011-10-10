@@ -97,7 +97,7 @@ MODULE mo_mpi
   PUBLIC :: p_int
   PUBLIC :: p_bool
   PUBLIC :: p_address_kind
-
+  PUBLIC :: p_real_dp_byte
 
 
   ! old fashioned method (MPI-1)
