@@ -860,7 +860,7 @@ CONTAINS
       ! May be removed when final state is reached.
       IF (timers_level > 2) CALL timer_start(timer_diagnose_pres_temp)
       IF ( atm_phy_nwp_config(jg)%inwp_radiation == 1 ) THEN
-        IF (irad_aero == 5) THEN
+        IF ( irad_aero == 5 .OR. irad_aero == 6 ) THEN
           CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf,   &
             &                               pt_diag, pt_patch,        &
             &                               opt_calc_temp =.TRUE.,    &

@@ -139,7 +139,7 @@ MODULE mo_nwp_rad_interface
 
     IF (atm_phy_nwp_config(jg)%inwp_radiation == 1 ) THEN
        
-      CALL nwp_rrtm_ozon_aerosol ( p_sim_time,pt_patch, &
+      CALL nwp_rrtm_ozon_aerosol ( p_sim_time, datetime, pt_patch, ext_data, &
         & pt_prog_rcf,pt_diag,prm_diag,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5 )
     
       IF ( .NOT. lredgrid ) THEN

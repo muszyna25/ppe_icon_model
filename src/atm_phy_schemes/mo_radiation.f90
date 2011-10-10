@@ -1116,7 +1116,7 @@ CONTAINS
 !!$        & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
 !!$        & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
 !!$        & tk_fl )
-    CASE (5)
+    CASE (5,6)
       DO jspec=1,jpband
         DO jk=1,klev
           jkb = klev+1-jk
