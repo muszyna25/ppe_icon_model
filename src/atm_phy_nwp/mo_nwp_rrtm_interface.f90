@@ -510,7 +510,16 @@ CONTAINS
           & pvdaeu = zvdaeu(1,1), & !out
           & pvdaed = zvdaed(1,1) )  !out
 
-         ! loop over layers
+        ! top level
+        DO jc = 1,i_endidx
+          zaeqso   (jc,jb) = z_aer_ss(jc,jb)              *zvdaes(jc,1)
+          zaeqlo   (jc,jb) = ( z_aer_or(jc,jb)+z_aer_su(jc,jb) )*zvdael(jc,1)
+          zaequo   (jc,jb) =  z_aer_bc(jc,jb)              *zvdaeu(jc,1)
+          zaeqdo   (jc,jb) =  z_aer_du(jc,jb)              *zvdaed(jc,1)
+          zaetr_top(jc,jb) = 1.0_wp
+        ENDDO
+
+        ! loop over layers
         DO jk = 1,nlev
           DO jc = 1,i_endidx
             zaeqsn         =  z_aer_ss(jc,jb)                   * zvdaes(jc,jk+1)
