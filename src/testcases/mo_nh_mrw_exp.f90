@@ -67,6 +67,7 @@ MODULE mo_nh_mrw_exp
    USE mo_exception,           ONLY: message, message_text, finish
    USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH
    USE mo_sync,                ONLY: sync_patch_array, SYNC_C
+   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
 
    IMPLICIT NONE
 
@@ -355,6 +356,10 @@ MODULE mo_nh_mrw_exp
    ptr_nh_prog%rhotheta_v = ptr_nh_prog%rho * ptr_nh_prog%theta_v 
    DEALLOCATE(z_qv)
 
+  ELSE
+    ! initializing turbdiff does not work otherwise
+    CALL diagnose_pres_temp ( p_metrics, ptr_nh_prog, ptr_nh_prog, ptr_nh_diag,     &
+                              ptr_patch, opt_calc_temp=.TRUE., opt_calc_pres=.TRUE. )
   END IF
 
   IF (l_hydro_adjust) THEN
@@ -574,6 +579,10 @@ MODULE mo_nh_mrw_exp
    ptr_nh_prog%rhotheta_v = ptr_nh_prog%rho * ptr_nh_prog%theta_v 
    DEALLOCATE(z_qv)
 
+  ELSE
+    ! initializing turbdiff does not work otherwise
+    CALL diagnose_pres_temp ( p_metrics, ptr_nh_prog, ptr_nh_prog, ptr_nh_diag,     &
+                              ptr_patch, opt_calc_temp=.TRUE., opt_calc_pres=.TRUE. )
   END IF
 
   IF (l_hydro_adjust) THEN
