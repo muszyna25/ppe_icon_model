@@ -237,6 +237,8 @@ CONTAINS
     DO jlen = 1, iforc_len
       p_ext_data%oce%omip_forc_mon_c(:,jlen,:,3) = &
         &  p_os%p_prog(nold(1))%tracer(:,1,:,1) + tmelt
+   !  IF (no_tracer>1) p_ext_data%oce%omip_forc_mon_c(:,jlen,:,x) = &
+   !    &  p_os%p_prog(nold(1))%tracer(:,1,:,2)
     END DO
   END IF
 
