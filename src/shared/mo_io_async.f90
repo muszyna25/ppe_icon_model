@@ -60,8 +60,8 @@ MODULE mo_io_async
 
   USE mo_kind,                ONLY: wp, i8
   USE mo_exception,           ONLY: finish
-  USE mo_impl_constants,      ONLY: max_dom, ihs_atm_temp, ihs_atm_theta,                        &
-                                    inh_atmosphere, ishallow_water
+  USE mo_impl_constants,      ONLY: SUCCESS, max_char_length, max_dom, ihs_atm_temp,             &
+    &                               ihs_atm_theta, inh_atmosphere, ishallow_water
 
   USE mo_datetime,            ONLY: t_datetime
   USE mo_parallel_config,     ONLY: pio_type
@@ -81,6 +81,7 @@ MODULE mo_io_async
   ! Needed only for compute PEs, patches are NOT set on I/O PEs
 
   USE mo_model_domain,        ONLY: p_patch
+  USE mo_vertical_coord_table,ONLY: vct
 
   ! End of needed only for compute PEs
   !------------------------------------------------------------------------------------------------
@@ -456,17 +457,22 @@ CONTAINS
 
   SUBROUTINE receive_patch_configuration
 
-    INTEGER :: jg, np, i, n, n_dims(3), numv, nbytes_real, mpierr
+    INTEGER :: jg, np, i, n, n_dims(3), numv, nbytes_real, mpierr,  ierrstat
     INTEGER :: idx(0:num_work_procs-1)
+    INTEGER :: ivct_len
     INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size
     INTEGER, ALLOCATABLE :: ncheck(:,:)
     REAL(wp), TARGET :: dummy(1)
+    REAL(wp), ALLOCATABLE :: vct(:)
     CHARACTER(LEN=filename_max) :: gridfile(max_dom)
     CHARACTER(LEN=256) text
+    CHARACTER(len=max_char_length), PARAMETER :: &
+      &  routine = 'mo_io_async:receive_patch_configuration'
 
 
     ! Please note: The broacasts below use an intercommunicator, i.e. we are getting all
     ! data from compute PE 0
+
 
     ! Allocate and fill patch descriptions
 
@@ -491,6 +497,19 @@ CONTAINS
       ! Get grid file
 
       CALL p_bcast(gridfile(jg), 0, p_comm_work_2_io)
+
+
+      ! Get vertical coordinate table
+
+      CALL p_bcast(ivct_len, 0, p_comm_work_2_io)
+      IF (jg == 1) THEN
+        ALLOCATE(vct(ivct_len), STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) THEN
+          CALL finish (routine, 'field allocation failed')
+        ENDIF
+      ENDIF
+      CALL p_bcast(vct, 0, p_comm_work_2_io)
+
 
       ! Get number of data points on every worker PE
 
@@ -861,6 +880,7 @@ CONTAINS
 !     CHARACTER(LEN=*), INTENT(INOUT) :: gridfile(:)
 
     INTEGER :: jg, i, n, n_dims(3), nbytes_real, mpierr, nlev, type
+    INTEGER :: ivct_len
     INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size, mem_bytes
     INTEGER, ALLOCATABLE :: ncheck(:,:)
 #ifdef USE_CRAY_POINTER
@@ -877,6 +897,7 @@ CONTAINS
       ENDDO
       RETURN
     ENDIF
+
 
     ! Send dimensions and owner distributions to the I/O PEs
 
@@ -895,7 +916,12 @@ CONTAINS
       ! Send name of grid file for building vlist
       CALL p_bcast(p_patch(jg)%grid_filename, bcast_root(), p_comm_work_2_io)
 
+      ivct_len = SIZE(vct)
+      CALL p_bcast(ivct_len, bcast_root(), p_comm_work_2_io)
+      CALL p_bcast(vct, bcast_root(), p_comm_work_2_io)
     ENDDO
+
+
 
     ! Set up owner info for my patches
 
