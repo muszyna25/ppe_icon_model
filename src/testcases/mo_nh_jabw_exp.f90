@@ -68,7 +68,8 @@ MODULE mo_nh_jabw_exp
    USE mo_loopindices,         ONLY: get_indices_e
    USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
    USE mo_extpar_config,        ONLY: itopo
-   USE mo_sync,                 ONLY: global_sum_array
+   USE mo_sync,                 ONLY: global_sum_array, sync_patch_array, SYNC_C
+   USE mo_nh_init_utils,        ONLY: init_w
 
    IMPLICIT NONE
 
@@ -363,6 +364,9 @@ MODULE mo_nh_jabw_exp
 !$OMP END PARALLEL 
    DEALLOCATE(zeta_v, zeta_v_e)
 
+  ! initialize vertical velocity
+   CALL init_w(ptr_patch, p_int, ptr_nh_prog%vn, p_metrics%z_ifc, ptr_nh_prog%w)
+   CALL sync_patch_array(SYNC_C, ptr_patch, ptr_nh_prog%w)
 
   END SUBROUTINE init_nh_state_prog_jabw
 !-------------------------------------------------------------------------
@@ -549,11 +553,11 @@ MODULE mo_nh_jabw_exp
                       zrhf     = MAX (zrhf,0.0_wp)
                       z_1_o_rh = 1._wp/(zrhf+1.e-6_wp)
                       ! to avoid water vapor pressure > total pressure:
-                      z_help = MIN ( sat_pres_water( ptr_nh_diag%temp(jc,jk,jb) ), &
-                         & ptr_nh_diag%pres(jc,jk,jb) * z_1_o_rh )
                       IF( ptr_nh_diag%temp(jc,jk,jb) <= tmelt) THEN
-                        ! to avoid water vapor pressure > total pressure:
-                        z_help = MIN ( sat_pres_ice( ptr_nh_diag%temp(jc,jk,jb) ), &
+                        z_help = MIN ( sat_pres_ice( MAX(180._wp,ptr_nh_diag%temp(jc,jk,jb)) ), &
+                         & ptr_nh_diag%pres(jc,jk,jb) * z_1_o_rh )
+                      ELSE
+                        z_help = MIN ( sat_pres_water( ptr_nh_diag%temp(jc,jk,jb) ), &
                          & ptr_nh_diag%pres(jc,jk,jb) * z_1_o_rh )
                       ENDIF
                       ! saturation qv calculated as in mo_satad's qsat_rho

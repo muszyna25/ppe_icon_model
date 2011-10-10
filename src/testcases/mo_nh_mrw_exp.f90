@@ -66,7 +66,7 @@ MODULE mo_nh_mrw_exp
    USE mo_interpolation,       ONLY: t_int_state
    USE mo_exception,           ONLY: message, message_text, finish
    USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH
-
+   USE mo_sync,                ONLY: sync_patch_array, SYNC_C
 
    IMPLICIT NONE
 
@@ -323,6 +323,7 @@ MODULE mo_nh_mrw_exp
 ! initialized vertical velocity
 
    CALL init_w(ptr_patch, p_int, ptr_nh_prog%vn, p_metrics%z_ifc, ptr_nh_prog%w)
+   CALL sync_patch_array(SYNC_C, ptr_patch, ptr_nh_prog%w)
 
 ! IF l_moist is .TRUE. the tracers are initialized similar as in jabw test case with moisture 
 !  In this case the temp and pres fields should be kept and the virtual temperature and 
@@ -330,8 +331,7 @@ MODULE mo_nh_mrw_exp
 
   IF (l_moist) THEN
 
-   l_rediag = .FALSE. !pres and temp should not be recalculated
-                      ! only 1 iteration in  init_nh_inwp_tracers
+   l_rediag = .TRUE. ! initializing turbdiff does not work otherwise
 
    IF (PRESENT(opt_global_moist)) THEN
      CALL init_nh_inwp_tracers (ptr_patch, ptr_nh_prog, ptr_nh_diag, &
@@ -431,6 +431,13 @@ MODULE mo_nh_mrw_exp
  ! theta_v_int  = temp_i_mwbr_const * (p0ref/p_int_mwbr_const)**kappa
   rkappa       = 1.0_wp/kappa
 
+  nblks_c   = ptr_patch%nblks_int_c
+  npromz_c  = ptr_patch%npromz_int_c
+  nblks_e   = ptr_patch%nblks_int_e
+  npromz_e  = ptr_patch%npromz_int_e
+
+  ! number of vertical levels
+  nlev   = ptr_patch%nlev
 
   IF (l_moist) THEN
       ALLOCATE ( z_qv(nproma,nlev,ptr_patch%nblks_c) )
@@ -446,16 +453,8 @@ MODULE mo_nh_mrw_exp
       END IF 
   END IF
 
-
   ALLOCATE (z_int_c(nproma,ptr_patch%nblks_c))
 
-  nblks_c   = ptr_patch%nblks_int_c
-  npromz_c  = ptr_patch%npromz_int_c
-  nblks_e   = ptr_patch%nblks_int_e
-  npromz_e  = ptr_patch%npromz_int_e
-
-  ! number of vertical levels
-  nlev   = ptr_patch%nlev
 
   DO jb = 1, nblks_c
       IF (jb /= nblks_c) THEN
@@ -543,6 +542,7 @@ MODULE mo_nh_mrw_exp
 ! initialized vertical velocity
 
    CALL init_w(ptr_patch, p_int, ptr_nh_prog%vn, p_metrics%z_ifc, ptr_nh_prog%w)
+   CALL sync_patch_array(SYNC_C, ptr_patch, ptr_nh_prog%w)
 
 ! IF l_moist is .TRUE. the tracers are initialized similar as in jabw test case with moisture 
 !  In this case the temp and pres fields should be kept and the virtual temperature and 
@@ -550,8 +550,7 @@ MODULE mo_nh_mrw_exp
 
   IF (l_moist) THEN
 
-   l_rediag = .FALSE. !pres and temp should not be recalculated
-                      ! only 1 iteration in  init_nh_inwp_tracers
+   l_rediag = .TRUE. ! initializing turbdiff does not work otherwise
 
    IF (PRESENT(opt_global_moist)) THEN
      CALL init_nh_inwp_tracers (ptr_patch, ptr_nh_prog, ptr_nh_diag, &
