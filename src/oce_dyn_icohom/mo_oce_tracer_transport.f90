@@ -243,16 +243,6 @@ IF( iswm_oce /= 1) THEN
       &              p_patch%nblks_c,'trc',ipl_src)
     CALL print_mxmn('adv-vert tracer-new',jk,trac_new(:,:,:),n_zlev, &
       &              p_patch%nblks_c,'trc',ipl_src)
-   !write(123,*)'Final max/min old-new tracer:',jk, maxval(trac_old(:,jk,:)),&
-   !                                    & minval(trac_old(:,jk,:)),&
-   !                                    & maxval(trac_new(:,jk,:)),&
-   !                                    & minval(trac_new(:,jk,:))
-
-    ! #slo# - Temperature: tf=-1.9 deg, freezing of sea water, is possible:
-    IF (minval(trac_new(:,jk,:))<tf) THEN
-      CALL finish(TRIM('mo_tracer_advection:advect_individual_tracer-v'),&
-      & 'Negative tracer values') 
-    ENDIF
   END DO
 ELSEIF( iswm_oce == 1) THEN
 
@@ -264,28 +254,17 @@ ELSEIF( iswm_oce == 1) THEN
       &              p_patch%nblks_c,'trc',ipl_src)
     CALL print_mxmn('adv-vert tracer-new',jk,trac_new(:,:,:),n_zlev, &
       &              p_patch%nblks_c,'trc',ipl_src)
-  ! write(*,*)'Final max/min old-new tracer:',jk, maxval(trac_old(:,jk,:)),&
-  !                                     & minval(trac_old(:,jk,:)),&
-  !                                     & maxval(trac_new(:,jk,:)),&
-  !                                     & minval(trac_new(:,jk,:))
-  ! write(123,*)'Final max/min old-new tracer:',jk, maxval(trac_old(:,jk,:)),&
-  !                                     & minval(trac_old(:,jk,:)),&
-  !                                     & maxval(trac_new(:,jk,:)),&
-  !                                     & minval(trac_new(:,jk,:))
   END DO
 
 ENDIF
 
 DO jk = 1, n_zlev
     ! #slo# - Temperature: tf=-1.9 deg, freezing of sea water, is possible:
-  IF (minval(trac_new(:,jk,:))<tf) THEN
+! IF (minval(trac_new(:,jk,:))<tf) THEN
+  IF (minval(trac_new(:,jk,:))<-4) THEN
     CALL finish(TRIM('mo_tracer_advection:advect_individual_tracer-h'), &
       &              'Negative tracer values') 
   ENDIF
-  !IF(minval(trac_new(:,jk,:))<0.0_wp)THEN
-  !   CALL finish(TRIM('mo_tracer_advection:advect_individual_tracer-h'), &
-  !   &'Negative tracer values') 
-  !ENDIF
 END DO
 
 END SUBROUTINE advect_individual_tracer_ab
@@ -1826,7 +1805,7 @@ END SUBROUTINE elad
 
     INTEGER  :: slev, elev             !< vertical start and end level
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
-    INTEGER  :: i_rlstart, i_rlend, i_nchdom
+    INTEGER  :: i_rlstart, i_rlend
     INTEGER  :: i_rlstart_e, i_rlend_e, i_rlstart_c, i_rlend_c
     INTEGER  :: je, jk, jb, jc         !< index of edge, vert level, block, cell
 
@@ -2031,7 +2010,7 @@ END SUBROUTINE elad
     !    At the end, compute new, limited fluxes which are then passed to the main
     !    program. Note that p_mflx_tracer_h now denotes the LIMITED flux.
     i_startblk = ptr_patch%edges%start_blk(i_rlstart,1)
-    i_endblk   = ptr_patch%edges%end_blk(i_rlend,i_nchdom)
+    i_endblk   = ptr_patch%edges%end_blk(i_rlend,1)
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,r_frac,z_signum)
     DO jb = i_startblk, i_endblk
@@ -2129,7 +2108,7 @@ END SUBROUTINE elad
     INTEGER  :: slev, elev         !< vertical start and end level
     INTEGER  :: jk, jb, jc         !< index of vert level, block, cell
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
-    INTEGER  :: i_rlstart, i_rlend, i_nchdom
+    INTEGER  :: i_rlstart, i_rlend
 
   !-------------------------------------------------------------------------
 
@@ -2147,9 +2126,6 @@ END SUBROUTINE elad
 
       i_rlstart = 1
       i_rlend = min_rlcell
-
-    ! number of child domains
-    !i_nchdom = MAX(1,p_patch%n_childdom)
 
 
     i_startblk = p_patch%cells%start_blk(i_rlstart,1)
