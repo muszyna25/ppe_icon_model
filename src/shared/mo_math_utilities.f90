@@ -91,6 +91,7 @@ MODULE mo_math_utilities
 
 !
 
+  USE mo_datetime,            ONLY: t_datetime
   USE mo_kind,                ONLY: wp
   USE mo_math_constants
   USE mo_physical_constants
@@ -137,7 +138,8 @@ MODULE mo_math_utilities
   PUBLIC :: az_eqdist_proj
   PUBLIC :: gamma_fct
   PUBLIC::  mean_domain_values
-
+  PUBLIC::  month2hour
+  
 ! ! cartesian coordinate class
 
   TYPE t_cartesian_coordinates
@@ -1783,6 +1785,109 @@ REAL(wp), INTENT(OUT) :: mean_charlen
  mean_charlen      = SQRT (pi*re**2 /REAL(20*nroot**2*4**(p_level),wp))
 
 END SUBROUTINE mean_domain_values
+
+
+  !! Find the 2 nearest months m1, m2 and the weights pw1, pw2 to the actual
+  !! date and time to interpolate data to the current hour from data valid in
+  !! the middle of the months.
+  !! Taken and adapted from DWD's INT2LM (v. 1.18).
+  !!
+  !! @par Revision History
+  !! Initial Release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-10-07)
+  !!
+SUBROUTINE month2hour( datetime, m1, m2, pw2 )
+  
+  TYPE(t_datetime), INTENT(in)  :: datetime
+  INTEGER,          INTENT(OUT) :: m1, m2     ! indices of nearest months
+  REAL   (wp),      INTENT(OUT) :: pw2   ! weights of nearest months
+
+  !=======================================================================
+
+  INTEGER ::                &
+    month_days(12),         & ! number of days for each month
+    mmon, mday, mhour, myy, & ! month, day, hour and year of actual date
+    mdayhour,               & ! actual date (in hours of month)
+    mmidthhours,            & ! midth of month in hours
+    i, ip1,                 & ! month indices (ip1=i+1)
+    mleapy                    ! leap year (1=yes, 0=no)
+  REAL   (wp)    ::        &
+    zdiff(12),  &  ! difference between midth of following months in days
+    zhalf(12),  &  ! number of days for half month
+    zact           ! actual time in hours of month
+
+  ! Statementfunction for leap year determination (1=yes, 0=no)
+  ! Same as in date_time.f90
+  mleapy(myy) =  MAX(1-MODULO(myy,4)  ,0)     &
+    - MAX(1-MODULO(myy,100),0)     &
+    + MAX(1-MODULO(myy,400),0)
+
+  ! Number of days for each month
+  month_days = (/ 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 /)
+
+  !=======================================================================
+
+
+  ! Get values of day, month and hour out of actual date
+
+  myy   = datetime%year
+  mmon  = datetime%month
+  mday  = datetime%day
+  mhour = datetime%hour
+
+  ! Compute half of each month (in days)
+  ! Leap Year ??
+  month_days (2) = 28 + mleapy(myy)
+  zhalf(:) = 0.5_wp * REAL (month_days(:))
+
+  ! Compute difference between the midth of actual month and the
+  ! following one (in days)
+  DO i = 1,12
+    ip1 = MOD(i,12)+1
+    zdiff(i) = zhalf(i) + zhalf(ip1)
+  ENDDO
+
+  ! Compute actual date (day and hours) and midth of actual month in hours
+  mdayhour = (mday-1)*24 + mhour
+  mmidthhours = NINT( zhalf(mmon)*24._wp)
+
+  ! Determine the months needed for interpolation of current values
+  ! Search for the position of date in relation to first of month.
+  ! The original data are valid for the mid-month.
+  !
+  ! EXAMPLE 1
+  !        March    !  April     !   May             X : aerosol data
+  !       ----X-----!-----X----o-!-----X-----        ! : first of month
+  !                       !    ^       !             o : current date
+  !                       !    ^ interpolation for that point in time
+  !                       !  zdiff(4)  !
+  !                       !zact!
+  !
+  ! EXAMPLE 2
+  !        March    !  April     !   May             X : ndvi_ratio
+  !       ----X-----!-----X------!----oX-----        ! : first of month
+  !                       !           ^              o : current date
+  !                       !      interpolation for that point in time
+  !                       !zhalf !
+  !                       !  zdiff(4)  !
+  !                       !   zact    !
+  !
+  !
+
+  IF( mdayhour < mmidthhours) THEN
+    ! point is in first half of month (EXAMPLE 2)
+    m1 = mmon - 1
+    IF(mmon == 1) m1 = 12
+    zact   = zhalf(m1) + REAL(mdayhour)/24._wp
+  ELSE
+    ! point is in second half of month (EXAMPLE 1)
+    m1 = mmon
+    zact   = REAL(mdayhour-mmidthhours)/24._wp
+  ENDIF
+  m2 = mod(m1,12) + 1
+  pw2 =  zact / zdiff(m1)
+
+END SUBROUTINE month2hour
+
 
 END MODULE mo_math_utilities
 

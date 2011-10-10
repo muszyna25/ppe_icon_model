@@ -51,6 +51,7 @@ MODULE mo_nwp_rad_interface
   USE mo_interpolation,        ONLY: t_int_state
   USE mo_kind,                 ONLY: wp
   USE mo_loopindices,          ONLY: get_indices_c
+  USE mo_math_utilities,       ONLY: month2hour
   USE mo_nwp_lnd_state,        ONLY: t_lnd_prog, t_lnd_diag
   USE mo_model_domain,         ONLY: t_patch
   USE mo_mpi,                  ONLY: my_process_is_mpi_seq
@@ -967,7 +968,7 @@ MODULE mo_nwp_rad_interface
       & z_aer_or(nproma,pt_patch%nblks_c), &
       & z_aer_bc(nproma,pt_patch%nblks_c), &
       & z_aer_su(nproma,pt_patch%nblks_c), &
-      & z_aer_du(nproma,pt_patch%nblks_c)
+      & z_aer_du(nproma,pt_patch%nblks_c), zw
     ! for aerosols:   
     REAL(wp), PARAMETER::                               &
       & zaeops = 0.05_wp,                               &
@@ -989,6 +990,8 @@ MODULE mo_nwp_rad_interface
     INTEGER:: i_startblk, i_endblk    !> blocks
     INTEGER:: i_startidx, i_endidx    !< slices
     INTEGER:: i_nchdom                !< domain index
+
+    INTEGER:: imo1,imo2 !for Tegen aerosol time interpolation
 
     i_nchdom  = MAX(1,pt_patch%n_childdom)
     jg        = pt_patch%id
@@ -1017,7 +1020,10 @@ MODULE mo_nwp_rad_interface
         & zvio3      = prm_diag%vio3,                &
         & zhmo3      = prm_diag%hmo3  )
     END SELECT
+
+    IF ( irad_aero == 6 ) CALL month2hour (datetime, imo1, imo2, zw )
     
+      
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx, &
 !$OMP       zsign,zvdaes, zvdael, zvdaeu, zvdaed, zaeqsn, zaeqln, zaequn,zaeqdn,zaetr_bot,zaetr )
@@ -1102,13 +1108,26 @@ MODULE mo_nwp_rad_interface
           ENDDO
         ENDIF
       ELSEIF ( irad_o3 == 6 .AND. irad_aero == 6 ) THEN
-
+        
         DO jc = i_startidx,i_endidx
-          z_aer_ss(jc,jb)= ext_data%atm_td%aer_ss(jc,jb,datetime%month)
-          z_aer_or(jc,jb)= ext_data%atm_td%aer_org(jc,jb,datetime%month)
-          z_aer_bc(jc,jb)= ext_data%atm_td%aer_bc(jc,jb,datetime%month)
-          z_aer_su(jc,jb)= ext_data%atm_td%aer_so4(jc,jb,datetime%month)
-          z_aer_du(jc,jb)= ext_data%atm_td%aer_dust(jc,jb,datetime%month)
+
+          z_aer_ss(jc,jb) = ext_data%atm_td%aer_ss(jc,jb,imo1) + &
+            & ( ext_data%atm_td%aer_ss(jc,jb,imo2)   - ext_data%atm_td%aer_ss(jc,jb,imo1)   ) * zw
+          z_aer_or(jc,jb) = ext_data%atm_td%aer_org(jc,jb,imo1) + &
+            & ( ext_data%atm_td%aer_org(jc,jb,imo2)  - ext_data%atm_td%aer_org(jc,jb,imo1)  ) * zw
+          z_aer_bc(jc,jb) = ext_data%atm_td%aer_bc(jc,jb,imo1) + &
+            & ( ext_data%atm_td%aer_bc(jc,jb,imo2)   - ext_data%atm_td%aer_bc(jc,jb,imo1)   ) * zw
+          z_aer_su(jc,jb) = ext_data%atm_td%aer_so4(jc,jb,imo1) + &
+            & ( ext_data%atm_td%aer_so4(jc,jb,imo2)  - ext_data%atm_td%aer_so4(jc,jb,imo1)  ) * zw
+          z_aer_du(jc,jb) = ext_data%atm_td%aer_dust(jc,jb,imo1) + &
+            & ( ext_data%atm_td%aer_dust(jc,jb,imo2) - ext_data%atm_td%aer_dust(jc,jb,imo1) ) * zw
+                    
+!          z_aer_ss(jc,jb)= ext_data%atm_td%aer_ss(jc,jb,datetime%month)
+!          z_aer_or(jc,jb)= ext_data%atm_td%aer_org(jc,jb,datetime%month)
+!          z_aer_bc(jc,jb)= ext_data%atm_td%aer_bc(jc,jb,datetime%month)
+!          z_aer_su(jc,jb)= ext_data%atm_td%aer_so4(jc,jb,datetime%month)
+!          z_aer_du(jc,jb)= ext_data%atm_td%aer_dust(jc,jb,datetime%month)
+          
         ENDDO
 
         DO jk = 2, nlevp1
@@ -1288,11 +1307,24 @@ MODULE mo_nwp_rad_interface
       ELSEIF (irad_aero == 6 ) THEN !aerosols, but other ozone:
 
         DO jc = i_startidx,i_endidx
-          z_aer_ss(jc,jb)= ext_data%atm_td%aer_ss(jc,jb,datetime%month)
-          z_aer_or(jc,jb)= ext_data%atm_td%aer_org(jc,jb,datetime%month)
-          z_aer_bc(jc,jb)= ext_data%atm_td%aer_bc(jc,jb,datetime%month)
-          z_aer_su(jc,jb)= ext_data%atm_td%aer_so4(jc,jb,datetime%month)
-          z_aer_du(jc,jb)= ext_data%atm_td%aer_dust(jc,jb,datetime%month)
+
+          z_aer_ss(jc,jb) = ext_data%atm_td%aer_ss(jc,jb,imo1) + &
+            & ( ext_data%atm_td%aer_ss(jc,jb,imo2)   - ext_data%atm_td%aer_ss(jc,jb,imo1)   ) * zw
+          z_aer_or(jc,jb) = ext_data%atm_td%aer_org(jc,jb,imo1) + &
+            & ( ext_data%atm_td%aer_org(jc,jb,imo2)  - ext_data%atm_td%aer_org(jc,jb,imo1)  ) * zw
+          z_aer_bc(jc,jb) = ext_data%atm_td%aer_bc(jc,jb,imo1) + &
+            & ( ext_data%atm_td%aer_bc(jc,jb,imo2)   - ext_data%atm_td%aer_bc(jc,jb,imo1)   ) * zw
+          z_aer_su(jc,jb) = ext_data%atm_td%aer_so4(jc,jb,imo1) + &
+            & ( ext_data%atm_td%aer_so4(jc,jb,imo2)  - ext_data%atm_td%aer_so4(jc,jb,imo1)  ) * zw
+          z_aer_du(jc,jb) = ext_data%atm_td%aer_dust(jc,jb,imo1) + &
+            & ( ext_data%atm_td%aer_dust(jc,jb,imo2) - ext_data%atm_td%aer_dust(jc,jb,imo1) ) * zw
+          
+!          z_aer_ss(jc,jb)= ext_data%atm_td%aer_ss(jc,jb,datetime%month)
+!          z_aer_or(jc,jb)= ext_data%atm_td%aer_org(jc,jb,datetime%month)
+!          z_aer_bc(jc,jb)= ext_data%atm_td%aer_bc(jc,jb,datetime%month)
+!          z_aer_su(jc,jb)= ext_data%atm_td%aer_so4(jc,jb,datetime%month)
+!          z_aer_du(jc,jb)= ext_data%atm_td%aer_dust(jc,jb,datetime%month)
+
         ENDDO
         
         DO jk = 2, nlevp1
