@@ -355,6 +355,8 @@ CALL &
     ! Shift time indices for the next loop
     ! this HAS to ge into the restart files, because the start with the following loop
     CALL update_time_indices(jg)
+    ! update intermediate timestepping variables for the tracers
+    CALL update_intermediate_tracer_vars(pstate_oce(jg))
 
     ! write a restart or checkpoint file
     IF (MOD(jstep,n_checkpoints())==0 .OR. (jstep==nsteps .AND. lwrite_restart)) THEN
@@ -365,8 +367,6 @@ CALL &
       CALL write_restart_info_file
     END IF
 
-    ! update intermediate timestepping variables for the tracers
-    CALL update_intermediate_tracer_vars(pstate_oce(jg))
 
   ENDDO TIME_LOOP
 

@@ -528,28 +528,28 @@ CONTAINS
     IF (ltimer) CALL timer_stop(timer_model_init)
 
     jg=1
-! CALL &
-! & print_mxmn('(BTL) w',1,   v_ocean_state(jg)%p_diag%w,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
-! CALL &
-! & print_mxmn('(BTL) w',2,   v_ocean_state(jg)%p_diag%w,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
-! CALL &
-! & print_mxmn('(BTL) w',3,   v_ocean_state(jg)%p_diag%w,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
-! CALL &
-! & print_mxmn('(BTL) w',4,   v_ocean_state(jg)%p_diag%w,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
-! CALL &
-! & print_mxmn('(BTL) w',5,   v_ocean_state(jg)%p_diag%w,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
-! CALL &
-! &print_mxmn('(BTL) w_old',1,v_ocean_state(jg)%p_diag%w_old,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
-! CALL &
-! &print_mxmn('(BTL) w_old',2,v_ocean_state(jg)%p_diag%w_old,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
-! CALL &
-! &print_mxmn('(BTL) w_old',3,v_ocean_state(jg)%p_diag%w_old,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
-! CALL &
-! &print_mxmn('(BTL) w_old',4,v_ocean_state(jg)%p_diag%w_old,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
-! CALL &
-! &print_mxmn('(BTL) w_old',5,v_ocean_state(jg)%p_diag%w_old,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
-! 
-! CALL print_mxmn('(BTL) p_diag%K_veloc_h',1,p_phys_param%K_veloc_h,1,p_patch(jg)%nblks_c,'vel',1)
+CALL &
+& print_mxmn('(BTL) w',1,   v_ocean_state(jg)%p_diag%w,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
+CALL &
+& print_mxmn('(BTL) w',2,   v_ocean_state(jg)%p_diag%w,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
+CALL &
+& print_mxmn('(BTL) w',3,   v_ocean_state(jg)%p_diag%w,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
+CALL &
+& print_mxmn('(BTL) w',4,   v_ocean_state(jg)%p_diag%w,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
+CALL &
+& print_mxmn('(BTL) w',5,   v_ocean_state(jg)%p_diag%w,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
+CALL &
+&print_mxmn('(BTL) w_old',1,v_ocean_state(jg)%p_diag%w_old,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
+CALL &
+&print_mxmn('(BTL) w_old',2,v_ocean_state(jg)%p_diag%w_old,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
+CALL &
+&print_mxmn('(BTL) w_old',3,v_ocean_state(jg)%p_diag%w_old,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
+CALL &
+&print_mxmn('(BTL) w_old',4,v_ocean_state(jg)%p_diag%w_old,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
+CALL &
+&print_mxmn('(BTL) w_old',5,v_ocean_state(jg)%p_diag%w_old,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
+
+CALL print_mxmn('(BTL) p_diag%K_veloc_h',1,v_params%K_veloc_h,1,p_patch(jg)%nblks_c,'vel',1)
 
 
     CALL perform_ho_stepping( p_patch(1:), v_ocean_state,          &

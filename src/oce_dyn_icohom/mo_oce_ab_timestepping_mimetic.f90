@@ -156,6 +156,7 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
   LOGICAL  :: l_maxiter                 ! true if reached m iterations
   !LOGICAL  :: lverbose         = .TRUE.
   !LOGICAL  :: l_first_timestep = .FALSE.
+  INTEGER :: jk !TODO ram
   CHARACTER(len=max_char_length) :: string
   !INTEGER  :: rl_start_c, rl_end_c, i_startblk_c, i_endblk_c, jc,jb, i_startidx_c, i_endidx_c
   !INTEGER  :: rl_start_e, rl_end_e, i_startblk_e, i_endblk_e, je,jb, i_startidx_e, i_endidx_e
@@ -221,6 +222,17 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
   ipl_src=1  ! output print level (1-5, fix)
   CALL print_mxmn('AB: on entry vn-new',1, p_os%p_prog(nnew(1))%vn(:,:,:),n_zlev, &
     & p_patch%nblks_e,'abt',ipl_src)
+  DO jk = 1, n_zlev
+    ipl_src=3  ! output print level (1-5, fix)
+      CALL print_mxmn('vn(old):',jk,p_os%p_prog(nold(1))%vn(:,:,:),&
+        &             n_zlev, p_patch%nblks_e,'abt',ipl_src)
+      CALL print_mxmn('g_nimd:',jk,p_os%p_aux%g_nimd,&
+        &             n_zlev, p_patch%nblks_e,'abt',ipl_src)
+      CALL print_mxmn('g_n   :',jk,p_os%p_aux%g_n,&
+        &             n_zlev, p_patch%nblks_e,'abt',ipl_src)
+      CALL print_mxmn('g_nm1:',jk,p_os%p_aux%g_nm1,&
+        &             n_zlev, p_patch%nblks_e,'abt',ipl_src)
+      enddo !TODO ram
 
 ! write(987,*)'---------------------', timestep
 ! write(123,*)'---------------------', timestep
@@ -586,6 +598,17 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param, p_int, l_ini
   !   &                     +p_os%p_aux%bc_top_vn(:,:)/v_base%del_zlev_m(1)  ! +p_os%p_prog(nold(1))%h_e
 
   ENDIF!(L_INVERSE_FLIP_FLOP)
+  DO jk = 1, n_zlev
+    ipl_src=3  ! output print level (1-5, fix)
+      CALL print_mxmn('vn(old):',jk,p_os%p_prog(nold(1))%vn(:,:,:),&
+        &             n_zlev, p_patch%nblks_e,'abt',ipl_src)
+      CALL print_mxmn('g_nimd:',jk,p_os%p_aux%g_nimd,&
+        &             n_zlev, p_patch%nblks_e,'abt',ipl_src)
+      CALL print_mxmn('g_n || :',jk,p_os%p_aux%g_n,&
+        &             n_zlev, p_patch%nblks_e,'abt',ipl_src)
+      CALL print_mxmn('g_nm1:',jk,p_os%p_aux%g_nm1,&
+        &             n_zlev, p_patch%nblks_e,'abt',ipl_src)
+      enddo !TODO ram
 
   IF(l_initial_timestep)THEN
     p_os%p_aux%g_nimd(:,:,:) = p_os%p_aux%g_n(:,:,:)
@@ -593,6 +616,17 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param, p_int, l_ini
     p_os%p_aux%g_nimd(:,:,:) = (1.5_wp+AB_const)* p_os%p_aux%g_n(:,:,:)   &
     &                        - (0.5_wp+AB_const)* p_os%p_aux%g_nm1(:,:,:)
   ENDIF
+  DO jk = 1, n_zlev
+    ipl_src=3  ! output print level (1-5, fix)
+      CALL print_mxmn('vn(old):',jk,p_os%p_prog(nold(1))%vn(:,:,:),&
+        &             n_zlev, p_patch%nblks_e,'abt',ipl_src)
+      CALL print_mxmn('g_nimd:',jk,p_os%p_aux%g_nimd,&
+        &             n_zlev, p_patch%nblks_e,'abt',ipl_src)
+      CALL print_mxmn('g_n   :',jk,p_os%p_aux%g_n,&
+        &             n_zlev, p_patch%nblks_e,'abt',ipl_src)
+      CALL print_mxmn('g_nm1:',jk,p_os%p_aux%g_nm1,&
+        &             n_zlev, p_patch%nblks_e,'abt',ipl_src)
+      enddo !TODO ram
 
 
   IF ( iswm_oce /= 1) THEN
@@ -622,6 +656,7 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param, p_int, l_ini
           END DO
         END DO
       ELSEIF(.NOT.l_STAGGERED_TIMESTEP)THEN
+
         DO jb = i_startblk, i_endblk
           CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
             &                rl_start, rl_end)
@@ -640,6 +675,17 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param, p_int, l_ini
             END DO
           END DO
         END DO
+  DO jk = 1, n_zlev
+    ipl_src=3  ! output print level (1-5, fix)
+    IF( (expl_vertical_velocity_diff/=1 .AND. iswm_oce /= 1).OR.iswm_oce == 1)THEN
+      CALL print_mxmn('vn_pred:',jk,p_os%p_diag%vn_pred(:,:,:),&
+        &             n_zlev, p_patch%nblks_e,'abt',ipl_src)
+
+    ELSEIF(expl_vertical_velocity_diff==1.AND. iswm_oce /= 1)THEN
+      CALL print_mxmn('vn_pred:',jk,p_os%p_diag%vn_impl_vert_diff(:,:,:),&
+        &             n_zlev, p_patch%nblks_e,'abt',ipl_src)
+    ENDIF
+    ENDDO !TODO ram
       ENDIF!Staggered
 
     ELSEIF(l_RIGID_LID)THEN

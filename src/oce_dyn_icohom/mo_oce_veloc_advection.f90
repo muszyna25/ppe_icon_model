@@ -975,10 +975,9 @@ DO jb = i_startblk, i_endblk
 ! write(*,*)'B max/min vert adv:',jk, maxval(z_adv_u_m(:,jk,:)), minval(z_adv_u_m(:,jk,:)),&
 ! & maxval(z_adv_v_m(:,jk,:)), minval(z_adv_v_m(:,jk,:))
 END DO
-CALL print_mxmn('check z_adv_u_m',1,z_adv_u_m%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('check z_adv_u_m',2,z_adv_u_m%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('check z_adv_u_m',3,z_adv_u_m%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('check z_adv_u_m',4,z_adv_u_m%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
+do jk=1,4
+CALL print_mxmn('check z_adv_u_m',jk,z_adv_u_m%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
+enddo
 
 ! ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
 CALL map_cell2edges( p_patch, z_adv_u_m, veloc_adv_vert_e, &
