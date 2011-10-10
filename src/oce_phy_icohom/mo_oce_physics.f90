@@ -363,7 +363,7 @@ CONTAINS
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'construct hydro ocean physics')
 
-    CALL new_var_list(ocean_params_list, '')
+    CALL new_var_list(ocean_params_list, 'ocean_params_list')
     CALL default_var_list_settings( ocean_params_list,         &
       &                             lrestart=.TRUE.,           &
       &                             restart_type=FILETYPE_NC2, &
@@ -475,27 +475,20 @@ CONTAINS
     CHARACTER(len=max_char_length), PARAMETER :: &
       &      routine = this_mod_name//':destruct_ho_physics'
     !-------------------------------------------------------------------------
-    CALL message(TRIM(routine), 'construct hydro ocean physics')
+    CALL message(TRIM(routine), 'destruct hydro ocean physics')
 
-    ! preliminary Kh
-    DEALLOCATE(params_oce%K_veloc_h, STAT=ist)
+    CALL delete_var_list(ocean_params_list)
+
+    DEALLOCATE(params_oce%K_tracer_h_back, STAT=ist)
      IF (ist/=SUCCESS) THEN
-       CALL finish(TRIM(routine), 'deallocation for horizontal velocity diffusion failed')
+       CALL finish(TRIM(routine), 'deallocation for horizontal tracer &
+         &background iffusion failed')
      END IF
 
-    DEALLOCATE(params_oce%K_tracer_h, STAT=ist)
+    DEALLOCATE(params_oce%A_tracer_v_back, STAT=ist)
      IF (ist/=SUCCESS) THEN
-       CALL finish(TRIM(routine), 'deallocation for horizontal tracer diffusion failed')
-     END IF
-
-    DEALLOCATE(params_oce%A_veloc_v, STAT=ist)
-     IF (ist/=SUCCESS) THEN
-       CALL finish(TRIM(routine), 'deallocation for vertical velocity diffusion failed')
-     END IF
-
-    DEALLOCATE(params_oce%A_tracer_v, STAT=ist)
-     IF (ist/=SUCCESS) THEN
-       CALL finish(TRIM(routine), 'deallocation for vertical temperaure diffusion failed')
+       CALL finish(TRIM(routine), 'deallocation for vertical background &
+         &temperaure diffusion failed')
      END IF
   END SUBROUTINE destruct_ho_params 
   !-------------------------------------------------------------------------
