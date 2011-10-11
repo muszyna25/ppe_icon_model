@@ -875,13 +875,12 @@ CONTAINS
     INTEGER, INTENT(IN)                       :: timelevel
 
     INTEGER  :: nblks_c, nblks_e !, nblks_v
-    INTEGER  :: z_no_tracer,jtrc
+    INTEGER  :: jtrc
     INTEGER, PARAMETER             :: max_oce_tracer = 2
     CHARACTER(len=max_char_length) :: oce_tracer_names(max_oce_tracer),&
     &                                 oce_tracer_units(max_oce_tracer),&
     &                                 oce_tracer_longnames(max_oce_tracer)
     INTEGER                        :: oce_tracer_codes(max_oce_tracer)
-    INTEGER                        :: oce_trace_counter
     CHARACTER(len=max_char_length) :: var_suffix
 
 
@@ -1612,7 +1611,7 @@ END DO
     INTEGER :: noglbnd_e, noglsbd_c, nogllbd_c
     INTEGER :: iic1, ibc1, iic2, ibc2, idxe, ible
     INTEGER :: n_zlvp, n_zlvm
-    INTEGER :: ctr
+    INTEGER :: ctr, jiter, niter
     REAL(wp):: perc_lnd_c(n_zlev), perc_gllnd_c
     REAL(wp):: perc_lnd_e(n_zlev), perc_gllnd_e
 
@@ -1975,269 +1974,382 @@ END DO
       nogllbd_c = nogllbd_c + nolbd_c(jk)
 
     END DO ZLEVEL_LOOP
+
 !---------------------------------------------------------------------------------------------
-    rl_start = 1           
-    rl_end = min_rlcell
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,1)
-
-    DO jk=1,n_zlev
-      !
-      ! loop through all patch cells 
-     ctr=0
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_c  &
-          &  (p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
-        DO jc =  i_startidx, i_endidx
-          nocsb_c = 0
-          IF (v_base%lsm_oce_c(jc,jk,jb) < 0) THEN
-            DO ji = 1, 3
-              ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
-              idxe = p_patch%cells%edge_idx(jc,jb,ji)
-              ible = p_patch%cells%edge_blk(jc,jb,ji)
-              ! if one of lsm_e is boundary then lsm_c is sea_boundary
-              ! counts number of sea-boundaries for jk=1 - only one boundary is allowed
-              IF ( v_base%lsm_oce_e(idxe,jk,ible) == BOUNDARY) &
-                &  nocsb_c=nocsb_c + 1
-            END DO
-            !More than 1 wet edge -> set cell to land
-            IF ( nocsb_c >= 2 ) THEN 
-              v_base%lsm_oce_c(jc,jk,jb)=LAND
-              ctr = ctr+1
-              DO ji = 1, 3
-                ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
-                idxe = p_patch%cells%edge_idx(jc,jb,ji)
-                ible = p_patch%cells%edge_blk(jc,jb,ji)
-                !set all edges to boundary
-                v_base%lsm_oce_e(idxe,jk,ible) = BOUNDARY
-              END DO
-!               !get adjacent triangles
-!              iic1 = p_patch%edges%cell_idx(je,jb,1)
-!              ibc1 = p_patch%edges%cell_blk(je,jb,1)
-!              iic2 = p_patch%edges%cell_idx(je,jb,2)
-!              ibc2 = p_patch%edges%cell_blk(je,jb,2)
-!              !triangle 1 is primary triangle
-!              IF(iic1==jc.AND.ibc1==jb)THEN
-!                v_base%lsm_oce_c(iic1,jk,ibc1)=LAND_c
-!              !triangle 1 is primary triangle
-!              ELSEIF(iic1==jc.AND.ibc1==jb)THEN
-!                v_base%lsm_oce_c(iic2,jk,ibc2)=LAND_c
-!              ENDIF
-            ENDIF
-          END IF
-        END DO
-      END DO
-write(*,*)'triangles with 2 land edges present I',jk,ctr 
-   END DO
-
-
-    DO jk=1,n_zlev
-      !
-      ! loop through all patch cells 
-     ctr=0
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_c  &
-          &  (p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
-        DO jc =  i_startidx, i_endidx
-          nocsb_c = 0
-          IF (v_base%lsm_oce_c(jc,jk,jb) < 0) THEN
-            DO ji = 1, 3
-              ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
-              idxe = p_patch%cells%edge_idx(jc,jb,ji)
-              ible = p_patch%cells%edge_blk(jc,jb,ji)
-              ! if one of lsm_e is boundary then lsm_c is sea_boundary
-              ! counts number of sea-boundaries for jk=1 - only one boundary is allowed
-              IF ( v_base%lsm_oce_e(idxe,jk,ible) == BOUNDARY) &
-                &  nocsb_c=nocsb_c + 1
-            END DO
-            !More than 1 wet edge -> set cell to land
-            IF ( nocsb_c >= 2 ) THEN 
-              v_base%lsm_oce_c(jc,jk,jb)=LAND
-              ctr = ctr+1
-              DO ji = 1, 3
-                ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
-                idxe = p_patch%cells%edge_idx(jc,jb,ji)
-                ible = p_patch%cells%edge_blk(jc,jb,ji)
-                !set all edges to boundary
-                v_base%lsm_oce_e(idxe,jk,ible) = BOUNDARY
-              END DO
-!               !get adjacent triangles
-!              iic1 = p_patch%edges%cell_idx(je,jb,1)
-!              ibc1 = p_patch%edges%cell_blk(je,jb,1)
-!              iic2 = p_patch%edges%cell_idx(je,jb,2)
-!              ibc2 = p_patch%edges%cell_blk(je,jb,2)
-!              !triangle 1 is primary triangle
-!              IF(iic1==jc.AND.ibc1==jb)THEN
-!                v_base%lsm_oce_c(iic1,jk,ibc1)=LAND_c
-!              !triangle 1 is primary triangle
-!              ELSEIF(iic1==jc.AND.ibc1==jb)THEN
-!                v_base%lsm_oce_c(iic2,jk,ibc2)=LAND_c
-!              ENDIF
-            ENDIF
-          END IF
-        END DO
-      END DO
-write(*,*)'triangles with 2 land edges present II',jk,ctr 
-   END DO
-
-    DO jk=1,n_zlev
-      !
-      ! loop through all patch cells 
-     ctr=0
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_c  &
-          &  (p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
-        DO jc =  i_startidx, i_endidx
-          nocsb_c = 0
-          IF (v_base%lsm_oce_c(jc,jk,jb) < 0) THEN
-            DO ji = 1, 3
-              ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
-              idxe = p_patch%cells%edge_idx(jc,jb,ji)
-              ible = p_patch%cells%edge_blk(jc,jb,ji)
-              ! if one of lsm_e is boundary then lsm_c is sea_boundary
-              ! counts number of sea-boundaries for jk=1 - only one boundary is allowed
-              IF ( v_base%lsm_oce_e(idxe,jk,ible) == BOUNDARY) &
-                &  nocsb_c=nocsb_c + 1
-            END DO
-            !More than 1 wet edge -> set cell to land
-            IF ( nocsb_c >= 2 ) THEN 
-              v_base%lsm_oce_c(jc,jk,jb)=LAND
-              ctr = ctr+1
-              DO ji = 1, 3
-                ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
-                idxe = p_patch%cells%edge_idx(jc,jb,ji)
-                ible = p_patch%cells%edge_blk(jc,jb,ji)
-                !set all edges to boundary
-                v_base%lsm_oce_e(idxe,jk,ible) = BOUNDARY
-              END DO
-!               !get adjacent triangles
-!              iic1 = p_patch%edges%cell_idx(je,jb,1)
-!              ibc1 = p_patch%edges%cell_blk(je,jb,1)
-!              iic2 = p_patch%edges%cell_idx(je,jb,2)
-!              ibc2 = p_patch%edges%cell_blk(je,jb,2)
-!              !triangle 1 is primary triangle
-!              IF(iic1==jc.AND.ibc1==jb)THEN
-!                v_base%lsm_oce_c(iic1,jk,ibc1)=LAND_c
-!              !triangle 1 is primary triangle
-!              ELSEIF(iic1==jc.AND.ibc1==jb)THEN
-!                v_base%lsm_oce_c(iic2,jk,ibc2)=LAND_c
-!              ENDIF
-            ENDIF
-          END IF
-        END DO
-      END DO
-write(*,*)'triangles with 2 land edges present III',jk,ctr 
-   END DO
-
-    DO jk=1,n_zlev
-      !
-      ! loop through all patch cells 
-     ctr=0
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_c  &
-          &  (p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
-        DO jc =  i_startidx, i_endidx
-          nocsb_c = 0
-          IF (v_base%lsm_oce_c(jc,jk,jb) < 0) THEN
-            DO ji = 1, 3
-              ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
-              idxe = p_patch%cells%edge_idx(jc,jb,ji)
-              ible = p_patch%cells%edge_blk(jc,jb,ji)
-              ! if one of lsm_e is boundary then lsm_c is sea_boundary
-              ! counts number of sea-boundaries for jk=1 - only one boundary is allowed
-              IF ( v_base%lsm_oce_e(idxe,jk,ible) == BOUNDARY) &
-                &  nocsb_c=nocsb_c + 1
-            END DO
-            !More than 1 wet edge -> set cell to land
-            IF ( nocsb_c >= 2 ) THEN 
-              v_base%lsm_oce_c(jc,jk,jb)=LAND
-              ctr = ctr+1
-              DO ji = 1, 3
-                ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
-                idxe = p_patch%cells%edge_idx(jc,jb,ji)
-                ible = p_patch%cells%edge_blk(jc,jb,ji)
-                !set all edges to boundary
-                v_base%lsm_oce_e(idxe,jk,ible) = BOUNDARY
-              END DO
-!               !get adjacent triangles
-!              iic1 = p_patch%edges%cell_idx(je,jb,1)
-!              ibc1 = p_patch%edges%cell_blk(je,jb,1)
-!              iic2 = p_patch%edges%cell_idx(je,jb,2)
-!              ibc2 = p_patch%edges%cell_blk(je,jb,2)
-!              !triangle 1 is primary triangle
-!              IF(iic1==jc.AND.ibc1==jb)THEN
-!                v_base%lsm_oce_c(iic1,jk,ibc1)=LAND_c
-!              !triangle 1 is primary triangle
-!              ELSEIF(iic1==jc.AND.ibc1==jb)THEN
-!                v_base%lsm_oce_c(iic2,jk,ibc2)=LAND_c
-!              ENDIF
-            ENDIF
-          END IF
-        END DO
-      END DO
-write(*,*)'triangles with 2 land edges present IV',jk,ctr 
-   END DO
-
-!    rl_start = 1           
-!     rl_end = min_rledge
-!     i_startblk = p_patch%edges%start_blk(rl_start,1)
-!     i_endblk   = p_patch%edges%end_blk(rl_end,1)
-! 
-!     DO jk=1,n_zlev
-!       !
-!       ! loop through all patch cells
-!       DO jb = i_startblk, i_endblk
-!         CALL get_indices_e  &
-!           &  (p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
-!           DO je =  i_startidx, i_endidx
-! 
-!               !get adjacent triangles
-!              iic1 = p_patch%edges%cell_idx(je,jb,1)
-!              ibc1 = p_patch%edges%cell_blk(je,jb,1)
-!              iic2 = p_patch%edges%cell_idx(je,jb,2)
-!              ibc2 = p_patch%edges%cell_blk(je,jb,2)
-!              !triangle 1 is primary triangle
-!              IF(v_base%lsm_oce_c(iic1,jk,ibc1)==LAND&
-!           &.AND.v_base%lsm_oce_c(iic2,jk,ibc2)==LAND)THEN
-!                v_base%lsm_oce_e(je,jk,jb)=LAND
-!              ENDIF
-! 
-!         END DO
-!       END DO
-!     END DO
+! preliminary - through all levels each wet point has at most one dry point as
+! neighbour
 
     rl_start = 1           
     rl_end = min_rlcell
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,1)
 
-    DO jk=1,n_zlev
-      !second loop 
-      ctr=0
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_c  &
-          &  (p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
-        DO jc =  i_startidx, i_endidx
-          nocsb_c = 0
-          IF (v_base%lsm_oce_c(jc,jk,jb) < 0) THEN
-            DO ji = 1, 3
-              ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
-              idxe = p_patch%cells%edge_idx(jc,jb,ji)
-              ible = p_patch%cells%edge_blk(jc,jb,ji)
-              ! if one of lsm_e is boundary then lsm_c is sea_boundary
-              ! counts number of sea-boundaries for jk=1 - only one boundary is allowed
-              IF ( v_base%lsm_oce_e(idxe,jk,ible) == BOUNDARY) &
-                &  nocsb_c=nocsb_c + 1
-            END DO
-             IF ( nocsb_c >= 2 ) THEN 
-!               write(*,*)'still triangles with 2 land edges present',jk,ctr              
+    niter=6
+    DO jiter=1,niter
+
+      DO jk=1,n_zlev
+        !
+        ! loop through all patch cells 
+        ctr=0
+        DO jb = i_startblk, i_endblk
+          CALL get_indices_c  &
+            &  (p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
+          DO jc =  i_startidx, i_endidx
+            nocsb_c = 0
+            IF (v_base%lsm_oce_c(jc,jk,jb) < 0) THEN
+              DO ji = 1, 3
+                ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
+                idxe = p_patch%cells%edge_idx(jc,jb,ji)
+                ible = p_patch%cells%edge_blk(jc,jb,ji)
+                ! if one of lsm_e is boundary then lsm_c is sea_boundary
+                ! counts number of sea-boundaries for jk=1 - only one boundary is allowed
+                IF ( v_base%lsm_oce_e(idxe,jk,ible) == BOUNDARY) &
+                  &  nocsb_c=nocsb_c + 1
+              END DO
+              !More than 1 wet edge -> set cell to land
+              IF ( nocsb_c >= 2 ) THEN 
+                v_base%lsm_oce_c(jc,jk,jb)=LAND
                 ctr = ctr+1
-             ENDIF
-          END IF
+                DO ji = 1, 3
+                  ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
+                  idxe = p_patch%cells%edge_idx(jc,jb,ji)
+                  ible = p_patch%cells%edge_blk(jc,jb,ji)
+                  !set all edges to boundary
+                  v_base%lsm_oce_e(idxe,jk,ible) = BOUNDARY
+                END DO
+!                 !get adjacent triangles
+!                iic1 = p_patch%edges%cell_idx(je,jb,1)
+!                ibc1 = p_patch%edges%cell_blk(je,jb,1)
+!                iic2 = p_patch%edges%cell_idx(je,jb,2)
+!                ibc2 = p_patch%edges%cell_blk(je,jb,2)
+!                !triangle 1 is primary triangle
+!                IF(iic1==jc.AND.ibc1==jb)THEN
+!                  v_base%lsm_oce_c(iic1,jk,ibc1)=LAND_c
+!                !triangle 1 is primary triangle
+!                ELSEIF(iic1==jc.AND.ibc1==jb)THEN
+!                  v_base%lsm_oce_c(iic2,jk,ibc2)=LAND_c
+!                ENDIF
+              ENDIF
+            END IF
+          END DO
         END DO
-      END DO 
-write(*,*)'still triangles with 2 land edges present',jk,ctr     
-    END DO
+        write(*,*)'triangles with 2 land edges present at jiter=',jiter,jk,ctr 
+      END DO
+    END DO  ! jiter
+
+!---------------------------------------------------------------------------------------------
+! preliminary - run through whole zlevel_loop once more - after correction in
+! all levels
+
+    nogllnd_c = 0
+    noglsea_c = 0
+    nogllnd_e = 0
+    noglsea_e = 0
+    noglbnd_e = 0
+    noglsbd_c = 0
+    nogllbd_c = 0
+    noct1_c = 0
+    noct1_e = 0
+    noctb_e = 0
+    nocsb_c = 0
+    noclb_c = 0
+
+    ! coordinate surfaces - n_zlev z-levels:
+    ZLEVEL_LOOP_cor: DO jk = 1, n_zlev
+
+      !-----------------------------
+      ! cells
+      !  - values for BOUNDARY set below
+
+      nolnd_c(jk)=0
+      nosea_c(jk)=0
+
+      !i_startblk = p_patch%cells%start_blk(1,1)
+      !DO jb = i_startblk, nblks_c
+
+      DO jb = 1, nblks_c
+
+        !CALL get_indices_c(p_patch, jb, i_startblk, nblks_c, &
+        !  &                i_startidx, i_endidx, 1)
+
+        i_endidx=nproma
+        IF (jb==nblks_c) i_endidx=npromz_c
+
+        !-----------------------------
+        ! set dolic and wet grid points:
+        !  - if bathymetry is deeper than or equal to the coordinate surface (zlev_m)
+        !    then grid point is wet; dolic is in that level
+
+        DO je = 1, i_endidx
+
+          !  surface level of lsm defined by gridgenerator, not the current bathymetry
+          !  read in from ext_data
+          IF (jk == 1) THEN
+
+            ! counts sea cells from lsm
+            IF (p_ext_data%oce%lsm_ctr_c(je,jb) <= -1) THEN
+              nosea_c(jk) = nosea_c(jk)+1
+              v_base%dolic_c(je,jb) = jk
+            ELSE IF (p_ext_data%oce%lsm_ctr_c(je,jb) >=  1) THEN
+              nolnd_c(jk) = nolnd_c(jk)+1
+            ELSE ! 0 not defined
+              STOP ' lsm_ctr_c = 0'
+            END IF
+
+            ! counts sea points from bathymetry
+            IF (p_ext_data%oce%bathymetry_c(je,jb) <= -v_base%zlev_m(jk)) &
+              &   noct1_c = noct1_c+1
+
+          !  second level of lsm and dolic defined by surface level, not the current bathymetry
+          ELSE IF (jk == 2) THEN
+
+            ! dependent on jk-1:
+            v_base%lsm_oce_c(je,jk,jb) = v_base%lsm_oce_c(je,jk-1,jb)
+            IF (v_base%lsm_oce_c(je,jk,jb) <= -1) THEN
+              nosea_c(jk) = nosea_c(jk)+1
+              v_base%dolic_c(je,jb) = jk
+            ELSE IF (v_base%lsm_oce_c(je,jk-1,jb) >=  1) THEN
+              nolnd_c(jk) = nolnd_c(jk)+1
+            ELSE ! 0 not defined
+              STOP ' lsm_oce_c = 0'
+            END IF
+
+          ELSE  ! jk>2
+
+            IF (p_ext_data%oce%bathymetry_c(je,jb) <= -v_base%zlev_m(jk)) THEN
+              nosea_c(jk)=nosea_c(jk)+1
+              v_base%lsm_oce_c(je,jk,jb) = SEA
+              v_base%dolic_c(je,jb) = jk
+            ELSE IF (p_ext_data%oce%bathymetry_c(je,jb)>-v_base%zlev_m(jk)) THEN
+              nolnd_c(jk)=nolnd_c(jk)+1
+              v_base%lsm_oce_c(je,jk,jb) = LAND
+            END IF
+
+          END IF
+
+        END DO
+
+      END DO
+
+      !  percentage of land area per level and global value
+      inolsm = nolnd_c(jk) + nosea_c(jk)
+      IF (inolsm == 0 ) THEN
+        IF (jk == 1 ) CALL message (TRIM(routine), 'WARNING - number of cell points is zero?')
+        perc_lnd_c(jk) = 0.0_wp
+      ELSE
+        perc_lnd_c(jk) = REAL(nolnd_c(jk),wp)/REAL(nosea_c(jk)+nolnd_c(jk),wp)*100.0_wp
+        nogllnd_c = nogllnd_c + nolnd_c(jk)
+        noglsea_c = noglsea_c + nosea_c(jk)
+      END IF
+
+
+      !-----------------------------
+      ! edges
+      !  - values for BOUNDARY set below, LAND, SEA only
+
+      nolnd_e(jk)=0
+      nosea_e(jk)=0
+
+      DO jb = 1, nblks_e
+
+        i_endidx=nproma
+        IF (jb==nblks_e) i_endidx=npromz_e
+
+        DO je = 1, i_endidx
+
+          !  surface level of lsm and dolic defined by gridgenerator, not the current bathymetry
+          IF (jk == 1) THEN
+
+            ! count and define sea edges from lsm - boundary edges are counted as land
+            IF (v_base%lsm_oce_e(je,jk,jb) == -2 ) THEN
+              nosea_e(jk)=nosea_e(jk)+1
+              v_base%dolic_e(je,jb) = jk
+            ELSE
+              nolnd_e(jk)=nolnd_e(jk)+1
+            END IF
+
+            ! counts sea points from bathymetry
+            IF (p_ext_data%oce%bathymetry_e(je,jb) <= -v_base%zlev_m(jk)) THEN
+              noct1_e = noct1_e+1
+            ENDIF
+
+          !  second level of lsm and dolic defined by surface level, not the current bathymetry
+          ELSE IF (jk == 2) THEN
+
+            ! dependent on jk-1:
+            v_base%lsm_oce_e(je,jk,jb) = v_base%lsm_oce_e(je,jk-1,jb)
+            IF (v_base%lsm_oce_e(je,jk,jb) == -2 ) THEN
+              nosea_e(jk)=nosea_e(jk)+1
+              v_base%dolic_e(je,jb) = jk
+            ELSE
+              nolnd_e(jk)=nolnd_e(jk)+1
+            END IF
+
+          ELSE  ! jk>2
+
+            IF (p_ext_data%oce%bathymetry_e(je,jb) <= -v_base%zlev_m(jk)) THEN
+              nosea_e(jk)=nosea_e(jk)+1
+              v_base%lsm_oce_e(je,jk,jb) = SEA
+              v_base%dolic_e(je,jb) =jk
+            ELSE IF (p_ext_data%oce%bathymetry_e(je,jb)>-v_base%zlev_m(jk)) THEN
+              nolnd_e(jk)=nolnd_e(jk)+1
+              v_base%lsm_oce_e(je,jk,jb) = LAND
+            END IF
+
+          END IF
+
+        END DO
+
+      END DO
+
+      !  percentage of land area per level and global value
+      inolsm = nolnd_e(jk) + nosea_e(jk)
+      IF (inolsm == 0 ) THEN
+        IF (jk == 1 ) CALL message (TRIM(routine), 'WARNING - number of edge points is zero?')
+        perc_lnd_e(jk) = 0.0_wp
+      ELSE
+        perc_lnd_e(jk) = REAL(nolnd_e(jk),wp)/REAL(nosea_e(jk)+nolnd_e(jk),wp)*100.0_wp
+        nogllnd_e = nogllnd_e + nolnd_e(jk)
+        noglsea_e = noglsea_e + nosea_e(jk)
+      END IF
+
+      !-----------------------------
+      ! set values for BOUNDARY at edges (get values of neighbouring cells)
+      !  - if the two corresponding cells are differing then edge is BOUNDARY
+      !    (they are not both LAND or SEA)
+      !  - done for jk>2 only, checks for read lsm in jk=1
+
+      nobnd_e(jk)=0
+
+      rl_start = 1           !  #slo# - cannot run with holes on land in grid
+      rl_end = min_rledge
+
+      ! values for the blocking
+      i_startblk = p_patch%edges%start_blk(rl_start,1)
+      i_endblk   = p_patch%edges%end_blk(rl_end,1)
+      !
+      ! loop through all patch edges
+      DO jb = i_startblk, i_endblk
+
+        CALL get_indices_e  &
+          &  (p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
+
+        DO je =  i_startidx, i_endidx
+
+          ! Get indices/blks of cells 1 and 2 adjacent to edge (je,jb)
+          ! #slo# 2011-05-17:
+          !  - set all layers except for the two surface layers which are set by gridgen
+          !  - count numbers for all layers
+          !  - check number for surface layer
+          iic1 = p_patch%edges%cell_idx(je,jb,1)
+          ibc1 = p_patch%edges%cell_blk(je,jb,1)
+          iic2 = p_patch%edges%cell_idx(je,jb,2)
+          ibc2 = p_patch%edges%cell_blk(je,jb,2)
+          !
+          ! cells may have -2, -1, 1, 2 for sea, sea_boundary, land_boundary, land:
+          IF (jk == 1) THEN
+            ! counts number of boundaries for jk=1
+            IF ( (v_base%lsm_oce_c(iic1,jk,ibc1) < 0)  .and.   &
+              &  (v_base%lsm_oce_c(iic2,jk,ibc2) > 0) )        &
+              &   noctb_e=noctb_e + 1
+            IF ( (v_base%lsm_oce_c(iic1,jk,ibc1) > 0)  .and.   &
+              &  (v_base%lsm_oce_c(iic2,jk,ibc2) < 0) )        &
+              &   noctb_e=noctb_e + 1
+          END IF  !  jk = 1
+          IF (jk > 2) THEN
+            IF ( (v_base%lsm_oce_c(iic1,jk,ibc1) < 0)  .and.   &
+              &  (v_base%lsm_oce_c(iic2,jk,ibc2) > 0) )        &
+              &   v_base%lsm_oce_e(je,jk,jb) = BOUNDARY
+            IF ( (v_base%lsm_oce_c(iic1,jk,ibc1) > 0)  .and.   &
+              &  (v_base%lsm_oce_c(iic2,jk,ibc2) < 0) )        &
+              &   v_base%lsm_oce_e(je,jk,jb) = BOUNDARY
+          END IF  !  jk > 2
+          IF ( v_base%lsm_oce_e(je,jk,jb) == BOUNDARY )      &
+            &  nobnd_e(jk)=nobnd_e(jk)+1
+
+
+        END DO
+
+      END DO
+
+      !-----------------------------
+      ! set values for LAND_BOUNDARY and SEA_BOUNDARY at cells
+      !  - get values of neighbouring edges
+      !  - if one of 3 edges of a sea-cell is BOUNDARY then cell is SEA_BOUNDARY
+      !  - if one of 3 edges of a land-cell is BOUNDARY then cell is LAND_BOUNDARY
+      !  - done for jk>2 only, checks for read lsm in jk=1
+
+      nosbd_c(jk)=0
+      nolbd_c(jk)=0
+
+      rl_start = 1           !  #slo# - cannot run with holes on land in grid
+      rl_end = min_rlcell
+
+      ! values for the blocking
+      i_startblk = p_patch%cells%start_blk(rl_start,1)
+      i_endblk   = p_patch%cells%end_blk(rl_end,1)
+      !
+      ! loop through all patch cells
+      DO jb = i_startblk, i_endblk
+
+        CALL get_indices_c  &
+          &  (p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
+
+        DO jc =  i_startidx, i_endidx
+
+          ! #slo# 2011-05-17
+          !  - set all layers except for the two surface layers which are set by gridgen
+          !  - count numbers for all layers
+          !  - check number for surface layer
+
+          ! sea points
+          IF (v_base%lsm_oce_c(jc,jk,jb) < 0) THEN
+            DO ji = 1, 3
+              ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
+              idxe = p_patch%cells%edge_idx(jc,jb,ji)
+              ible = p_patch%cells%edge_blk(jc,jb,ji)
+              ! if one of lsm_e is boundary then lsm_c is sea_boundary
+              IF ( v_base%lsm_oce_e(idxe,jk,ible) == BOUNDARY .AND. jk  > 2) &
+                &  v_base%lsm_oce_c(jc,jk,jb) = SEA_BOUNDARY
+              ! counts number of sea-boundaries for jk=1 - only one boundary is allowed
+              IF ( v_base%lsm_oce_e(idxe,jk,ible) == BOUNDARY .AND. jk == 1) &
+                &  nocsb_c=nocsb_c + 1
+
+            END DO
+            IF ( v_base%lsm_oce_c(jc,jk,jb) == SEA_BOUNDARY )  &
+              &  nosbd_c(jk)=nosbd_c(jk)+1
+          END IF  !  lsm_c < 0
+
+          ! land points
+          IF (v_base%lsm_oce_c(jc,jk,jb) > 0) THEN
+
+            DO ji = 1, 3
+              ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
+              idxe = p_patch%cells%edge_idx(jc,jb,ji)
+              ible = p_patch%cells%edge_blk(jc,jb,ji)
+              ! if one of lsm_e is boundary then lsm_c is land_boundary
+              IF ( v_base%lsm_oce_e(idxe,jk,ible) == BOUNDARY .AND. jk  > 2 ) &
+                &  v_base%lsm_oce_c(jc,jk,jb) = LAND_BOUNDARY
+              ! counts number of land-boundaries for jk=1 - one land cell may have 2 boundaries
+              IF ( v_base%lsm_oce_e(idxe,jk,ible) == BOUNDARY .AND. jk == 1 ) THEN
+                   noclb_c=noclb_c + 1
+                   EXIT
+              END IF
+            END DO
+
+            IF ( v_base%lsm_oce_c(jc,jk,jb) == LAND_BOUNDARY )   &
+              &  nolbd_c(jk)=nolbd_c(jk)+1
+
+          END IF  !  lsm_c > 0
+
+        END DO
+
+      END DO
+      noglbnd_e = noglbnd_e + nobnd_e(jk)
+      noglsbd_c = noglsbd_c + nosbd_c(jk)
+      nogllbd_c = nogllbd_c + nolbd_c(jk)
+
+    END DO ZLEVEL_LOOP_cor
 
 !---------------------------------------------------------------------------------------------
     ! Output the levels
