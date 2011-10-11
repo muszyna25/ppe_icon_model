@@ -111,7 +111,7 @@ CONTAINS
   !
   !-----------------------------------------------------------------------
   !
-  SUBROUTINE nwp_nh_interface(lcall_phy_jg,lredgrid,jstep,         & !input
+  SUBROUTINE nwp_nh_interface(lcall_phy_jg,lredgrid,dt_loc,jstep,  & !input
                             & tcall_phy_jg,p_sim_time,             & !input
                             & datetime,                            & !input
                             & pt_patch, pt_int_state,p_metrics,    & !input
@@ -131,6 +131,7 @@ CONTAINS
          &                          lcall_phy_jg(:) !< for domain jg
     LOGICAL, INTENT(IN)          :: lredgrid        !< use reduced grid for radiation
     INTEGER ,INTENT(in)          :: jstep
+    REAL(wp),INTENT(in)          :: dt_loc          !< time step applicable to local grid level
     REAL(wp),INTENT(in)          :: tcall_phy_jg(:) !< time interval for all physics
                                                     !< packages on domain jg
     REAL(wp),INTENT(in)          :: p_sim_time
@@ -889,9 +890,10 @@ CONTAINS
  
       ENDIF
       IF (timers_level > 2) CALL timer_stop(timer_diagnose_pres_temp)
-    
+
       IF (ltimer) CALL timer_start(timer_nwp_radiation)
-      CALL nwp_radiation (lredgrid,p_sim_time,   & ! in
+      CALL nwp_radiation (lredgrid,              & ! in
+           &              p_sim_time-dt_loc,     & ! in
            &              datetime,              & ! in
            &              pt_patch,pt_par_patch, & ! in
            &              pt_par_int_state,      & ! in
@@ -917,25 +919,24 @@ CONTAINS
 
 
       IF (timers_level > 1) CALL timer_start(timer_pre_radiation_nwp)
-      
+
       CALL pre_radiation_nwp (                       &
         & kbdim      = nproma,                       &
         & p_inc_rad  = tcall_phy_jg(itradheat),      &
-        & p_sim_time = p_sim_time,                   &
+        & p_sim_time = p_sim_time-dt_loc,            &
         & pt_patch   = pt_patch,                     &
         & zsmu0      = zcosmu0,                      &
         & zsct       = zsct )
-      IF (timers_level > 1) CALL timer_stop(timer_pre_radiation_nwp)
-      
+      IF (timers_level > 1) CALL timer_stop(timer_pre_radiation_nwp)      
 
-    !in order to account for mesh refinement
-    rl_start = grf_bdywidth_c+1
-    rl_end   = min_rlcell_int
+      !in order to account for mesh refinement
+      rl_start = grf_bdywidth_c+1
+      rl_end   = min_rlcell_int
 
-    i_startblk = pt_patch%cells%start_blk(rl_start,1)
-    i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
-      
-    IF (timers_level > 2) CALL timer_start(timer_radheat)
+      i_startblk = pt_patch%cells%start_blk(rl_start,1)
+      i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
+
+      IF (timers_level > 2) CALL timer_start(timer_radheat)
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,zi0,z_airmass)
 !

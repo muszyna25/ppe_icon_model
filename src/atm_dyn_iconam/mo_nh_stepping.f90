@@ -1126,6 +1126,7 @@ MODULE mo_nh_stepping
           ! tcall_phy(jg,:) ...?
           CALL nwp_nh_interface(lcall_phy(jg,:),                   & !in
             &                  lredgrid_phys(jg),                  & !in
+            &                  dt_loc,                             & !in
             &                  nstep_global,                       & !in
             &                  tcall_phy(jg,:),                    & !in
             &                  sim_time(jg),                       & !in
@@ -1323,6 +1324,7 @@ MODULE mo_nh_stepping
 
           CALL nwp_nh_interface(lcall_phy(jg,:),                   & !in
             &                  lredgrid_phys(jg),                  & !in
+            &                  dt_loc,                             & !in
             &                  nstep_global,                       & !in
             &                  t_elapsed_phy(jg,:),                & !in
             &                  sim_time(jg),                       & !in
