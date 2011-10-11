@@ -68,14 +68,17 @@ B=4   # number of bisections applied
 #-----------------------------------------------------------------------------
 # ocean initialization (init_oce=1) needs an additional file for prognostic variables
 init_oce=0     # 1: use ocean initialization file; 0: init with constants or analytically
-# prognostic ocean initialization files are named $HGRIDDIR/ts_phc_season-iconR${R}B0{B}-L11.nc
+# prognostic ocean initialization files ust be provided and named as
+# $HGRIDDIR/ts_phc_season-iconR${R}B0{B}-L11.nc
 #
 #-----------------------------------------------------------------------------
 # ocean forcing = 12 needs an additional flux file 
 iforc=10
 iforc_omip=1   # type of OMIP forcing to read: 1 = u/v-stress;     2 = full 12 OMIP datasets
 iforc_len=366  # length of forcing dataset:   12 = monthly data; 366 = daily data
-# flux files are named $HGRIDDIR/omip4icon-R${R}B0{B}-monmean.nc
+# flux files must be provided and named as as
+# $HGRIDDIR/omip4icon-R${R}B0{B}-monmean.nc
+#
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2000-01-01T00:00:00Z"
@@ -175,7 +178,7 @@ cat > ${ocean_namelist} << EOF
  itopo       = 0                 ! read external ocean data from gridfile
 /
 &octst_nml
-  i_dbg_oce=0                    ! initialize MIN/MAX  debug output via mo_index_oce
+  i_dbg_oce=1                    ! initialize MIN/MAX  debug output via mo_index_oce
   i_dbg_inx=0                    ! initialize one cell debug output via mo_index_oce
   str_proc_tst = 'all' 'abt', 'vel', 'dif', 'trc', 'bul', '   ', '   ', '   ', '   '
                                  ! define strings for processes to be printed out in debug mode
@@ -195,8 +198,8 @@ cat > ${ocean_namelist} << EOF
                                  ! FALSE: reduced scalarproduct variant (fast and default)
   l_rigid_lid        = .FALSE.   ! TRUE : use rigid lid as upper boundary condition 
                                  ! FALSE: use the free surface dynamics
-  ab_beta            =    1.0    ! parameter for Adam-Bashforth time-stepping
-  ab_gam             =    1.0    ! parameter for Adam-Bashforth time-stepping
+  ab_beta            =    0.7    ! parameter for Adam-Bashforth time-stepping
+  ab_gam             =    0.7    ! parameter for Adam-Bashforth time-stepping
   solver_tolerance   = 1.0E-6
   i_bc_veloc_lateral =    0      ! Boundary condition for normal velocity for lateral walls
   i_bc_veloc_top     =    1      ! Boundary condition for normal velocity for ocean top
@@ -220,11 +223,11 @@ cat > ${ocean_namelist} << EOF
   EOS_TYPE           =    2      ! 1=linear EOS
                                  ! 2= (nonlinear) EOS from MPI-OM 
                                  ! 3= not recommended: (nonlinear) Jacket-McDoudgall density-formulation
-  k_veloc_h          = 1.0E+4    ! [m2/s] horizontal viscosity coefficient for velocity
+  k_veloc_h          = 5.0E+4    ! [m2/s] horizontal viscosity coefficient for velocity
   k_veloc_v          = 1.0E-2    ! [m/s]  vertical viscosity coefficient for velocity
-  k_pot_temp_h       = 1.0E+3    ! [m2/s] horizontal viscosity coefficient for temperature
+  k_pot_temp_h       = 5.0E+4    ! [m2/s] horizontal viscosity coefficient for temperature
   k_pot_temp_v       = 1.0E-3    ! [m/s]  vertical viscosity coefficient for temperature
-  k_sal_h            = 1.0E+3    ! [m2/s] horizontal viscosity coefficient for salinity
+  k_sal_h            = 5.0E+4    ! [m2/s] horizontal viscosity coefficient for salinity
   k_sal_v            = 1.0E-3    ! [m/s]  vertical viscosity coefficient for salinity
   HORZ_VELOC_DIFF_TYPE =  1      ! 0=no horizontal diffusion
                                  ! 1= constant Laplacian viscosity coefficient given in namelist (k_veloc_h)
@@ -236,7 +239,7 @@ cat > ${ocean_namelist} << EOF
   MAX_VERT_DIFF_TRAC =    0.1    ! max diffusion coeff, used in impl.vert.tracer diffusion, if stability crit.is met
   CWA                = 0.5E-3    ! Tuning parameters for vertical mixing of tracer and velocity
   CWT                = 0.5E-3    ! Set to standard values
-  bottom_drag_coeff  =    0.0 ! 0.0025 ! Chezy coefficient for bottom friction
+  bottom_drag_coeff  =    0.0025 ! Chezy coefficient for bottom friction
   wstress_coeff      =    0.3    ! wind stress coefficient for top boundary forcing
 /
 &ocean_forcing_and_init_nml
@@ -263,7 +266,7 @@ cat > ${ocean_namelist} << EOF
                                  ! 43=Collapsing density front at first level only with smaller amplitude (global)
   idiag_oce          =    1      ! 0: no diagnostics; 1: write diagnostics to stderr
   temperature_relaxation= 0      ! 1=switched on for some testcases only
-                                 ! 2=read SST data for relaxation from bulk
+                                 ! 2=read 2m-temperature data for relaxation from bulk (3: put init on bulk)
   relaxation_param   =    0.0    ! relaxation of tracer surface fluxes (same value for all tracers in months)
                                  ! this value is divided by number of seconds per month (=30*24*3600)
 /

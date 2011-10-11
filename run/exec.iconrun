@@ -191,14 +191,25 @@ fi
 if [[ $run_ocean = 'true' ]]; then
    # =======================================================
    #
-   # Open ocean flux file
-   # --------------------
+   # provide netcdf file for reading ocean forcing fluxes
+   # ----------------------------------------------------
    if [[ "x$iforc" = "x12" ]] ; then
      FLUXNAME=iconR${R}B0${B}-flux.nc
      OMIPNAME=omip4icon-R${R}B0${B}-monmean.nc
      rm ${EXPDIR}/${FLUXNAME}
      ln -s ${HGRIDDIR}/${OMIPNAME} ${EXPDIR}/${FLUXNAME}
      check_error $? "ln -s ${HGRIDDIR}/${OMIPNAME}"
+   fi
+   # =======================================================
+   #
+   # provide netcdf file for initialization of ocean prognostic variables
+   # --------------------------------------------------------------------
+   if [[ "x$init_oce" = "x1" ]] ; then
+     PROGNAME=iconR${R}B0${B}-prog.nc
+     OININAME=ts_phc_season-iconR${R}B0{B}-L11.nc
+     rm ${EXPDIR}/${PROGNAME}
+     ln -s ${HGRIDDIR}/${OININAME} ${EXPDIR}/${PROGNAME}
+     check_error $? "ln -s ${HGRIDDIR}/${OININAME}"
    fi
    # =======================================================
    #
