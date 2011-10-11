@@ -921,8 +921,6 @@ CONTAINS
       &            ldims=(/nproma,n_zlev,nblks_c,no_tracer/), &
       &            lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
-!write(0,*)'dims:',(/nproma,n_zlev,nblks_c,no_tracer/) !TODO
-
       ! Reference to individual tracer, for I/O
 
       ALLOCATE(p_os_prog%tracer_ptr(no_tracer))

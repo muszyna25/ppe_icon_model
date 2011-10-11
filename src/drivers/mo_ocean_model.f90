@@ -42,7 +42,6 @@ MODULE mo_ocean_model
   USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, print_timer, &
     &                               timer_model_init
   USE mo_datetime,            ONLY: t_datetime
-USE mo_oce_index,                 ONLY: print_mxmn, jkc, jkdim, ipl_src !TODO
   USE mo_output,              ONLY: init_output_files, write_output, close_output_files
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, global_cell_type !, &
 !                                  dynamics_parent_grid_id
@@ -526,31 +525,6 @@ CONTAINS
 
 
     IF (ltimer) CALL timer_stop(timer_model_init)
-
-    jg=1
-CALL &
-& print_mxmn('(BTL) w',1,   v_ocean_state(jg)%p_diag%w,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
-CALL &
-& print_mxmn('(BTL) w',2,   v_ocean_state(jg)%p_diag%w,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
-CALL &
-& print_mxmn('(BTL) w',3,   v_ocean_state(jg)%p_diag%w,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
-CALL &
-& print_mxmn('(BTL) w',4,   v_ocean_state(jg)%p_diag%w,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
-CALL &
-& print_mxmn('(BTL) w',5,   v_ocean_state(jg)%p_diag%w,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
-CALL &
-&print_mxmn('(BTL) w_old',1,v_ocean_state(jg)%p_diag%w_old,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
-CALL &
-&print_mxmn('(BTL) w_old',2,v_ocean_state(jg)%p_diag%w_old,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
-CALL &
-&print_mxmn('(BTL) w_old',3,v_ocean_state(jg)%p_diag%w_old,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
-CALL &
-&print_mxmn('(BTL) w_old',4,v_ocean_state(jg)%p_diag%w_old,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
-CALL &
-&print_mxmn('(BTL) w_old',5,v_ocean_state(jg)%p_diag%w_old,4+1,p_patch(jg)%nblks_c,'vel',ipl_src)
-
-CALL print_mxmn('(BTL) p_diag%K_veloc_h',1,v_params%K_veloc_h,1,p_patch(jg)%nblks_c,'vel',1)
-
 
     CALL perform_ho_stepping( p_patch(1:), v_ocean_state,          &
       &                       ext_data, datetime, n_io,            &

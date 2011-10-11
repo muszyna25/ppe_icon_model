@@ -109,8 +109,6 @@ USE mo_oce_bulk,               ONLY: update_sfcflx
 USE mo_oce_thermodyn,          ONLY: calc_density_MPIOM_func, calc_density_lin_EOS_func,&
   &                                  calc_density_JMDWFG06_EOS_func
 
-!TODO remove the following if possible
-USE mo_master_control, ONLY: is_restart_run
 IMPLICIT NONE
 
 PRIVATE
@@ -191,17 +189,8 @@ CONTAINS
 
   ! file 1 is opened in control_model setup:
   jfile = 1
-CALL print_mxmn('(   OLD) p_diag%h_e',1,pstate_oce(jg)%p_diag%h_e,1,ppatch(jg)%nblks_e,'vel',1)
-!TODO
 
   CALL init_ho_recon_fields( ppatch(jg), pstate_oce(jg))
-
-!TODO  IF ( is_restart_run()) THEN
-!TODO    !SWAP w and w_old because something strange happen to these vars on a restart run
-!TODO    pstate_oce(jg)%p_diag%wtemp =pstate_oce(jg)%p_diag%w
-!TODO    pstate_oce(jg)%p_diag%w     = pstate_oce(jg)%p_diag%w_old
-!TODO    pstate_oce(jg)%p_diag%w_old = pstate_oce(jg)%p_diag%wtemp 
-!TODO  ENDIF
 
   IF (idiag_oce == 1) &
     & CALL construct_oce_diagnostics( ppatch(jg), pstate_oce(jg), p_ext_data(jg), oce_ts)
@@ -212,16 +201,6 @@ CALL print_mxmn('(   OLD) p_diag%h_e',1,pstate_oce(jg)%p_diag%h_e,1,ppatch(jg)%n
   ! call the dynamical core: start the time loop
   !------------------------------------------------------------------
   TIME_LOOP: DO jstep = 1, nsteps
-    DO jk=1,n_zlev
-CALL print_mxmn('(init) p_vn%x(1)',jk,pstate_oce(1)%p_diag%p_vn%x(1),n_zlev,&
-  & ppatch(1)%nblks_c,'phy',ipl_src)
-CALL print_mxmn('(init) vn (1)',jk,pstate_oce(1)%p_prog(1)%vn,n_zlev,&
-  & ppatch(1)%nblks_e,'phy',ipl_src)
-CALL print_mxmn('(init) vn (2)',jk,pstate_oce(1)%p_prog(2)%vn,n_zlev,&
-  & ppatch(1)%nblks_e,'phy',ipl_src)
-CALL print_mxmn('(init) vn (3)',jk,pstate_oce(1)%p_prog(3)%vn,n_zlev,&
-  & ppatch(1)%nblks_e,'phy',ipl_src)
-    ENDDO
 
     call datetime_to_string(datestring, datetime)
     WRITE(message_text,'(a,i6,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
@@ -238,26 +217,6 @@ CALL print_mxmn('(init) vn (3)',jk,pstate_oce(1)%p_prog(3)%vn,n_zlev,&
    !  CALL update_seaice(ppatch(jg), pstate_oce(jg), p_as, p_ice, p_atm_f, p_sfc_flx, &
    !    &                jstep, datetime)
 
-CALL &
-& print_mxmn('(TL) p_diag%w',1,    pstate_oce(jg)%p_diag%w,4+1,ppatch(jg)%nblks_c,'vel',ipl_src)
-CALL &
-& print_mxmn('(TL) p_diag%w',2,    pstate_oce(jg)%p_diag%w,4+1,ppatch(jg)%nblks_c,'vel',ipl_src)
-CALL &
-& print_mxmn('(TL) p_diag%w',3,    pstate_oce(jg)%p_diag%w,4+1,ppatch(jg)%nblks_c,'vel',ipl_src)
-CALL &
-& print_mxmn('(TL) p_diag%w',4,    pstate_oce(jg)%p_diag%w,4+1,ppatch(jg)%nblks_c,'vel',ipl_src)
-CALL &
-& print_mxmn('(TL) p_diag%w',5,    pstate_oce(jg)%p_diag%w,4+1,ppatch(jg)%nblks_c,'vel',ipl_src)
-CALL &
-&print_mxmn('(TL) p_diag%w_old',1,pstate_oce(jg)%p_diag%w_old,4+1,ppatch(jg)%nblks_c,'vel',ipl_src)
-CALL &
-&print_mxmn('(TL) p_diag%w_old',2,pstate_oce(jg)%p_diag%w_old,4+1,ppatch(jg)%nblks_c,'vel',ipl_src)
-CALL &
-&print_mxmn('(TL) p_diag%w_old',3,pstate_oce(jg)%p_diag%w_old,4+1,ppatch(jg)%nblks_c,'vel',ipl_src)
-CALL &
-&print_mxmn('(TL) p_diag%w_old',4,pstate_oce(jg)%p_diag%w_old,4+1,ppatch(jg)%nblks_c,'vel',ipl_src)
-CALL &
-&print_mxmn('(TL) p_diag%w_old',5,pstate_oce(jg)%p_diag%w_old,4+1,ppatch(jg)%nblks_c,'vel',ipl_src)
       IF(iswm_oce /= 1)THEN
 
         ! ATTENTION - in namelist - TBD
@@ -396,7 +355,6 @@ CALL &
     TYPE(t_external_data),        INTENT(INOUT)  :: p_ext_data(n_dom)
     TYPE(t_sfc_flx),              INTENT(INOUT)  :: p_sfc_flx
     TYPE (t_ho_params),           INTENT(INOUT)  :: p_phys_param 
-    !TYPE(t_ho_physics),           INTENT(INOUT)  :: p_physics_oce 
     TYPE(t_atmos_for_ocean ),     INTENT(INOUT)  :: p_as
     TYPE(t_atmos_fluxes ),        INTENT(INOUT)  :: p_atm_f
     TYPE (t_sea_ice),             INTENT(INOUT)  :: p_ice
@@ -483,8 +441,6 @@ CALL &
     TYPE(t_atmos_fluxes ),     INTENT(INOUT) :: p_atm_f
     TYPE (t_sea_ice),          INTENT(INOUT) :: p_ice
 
-
-    !TYPE(t_ho_physics),        INTENT(INOUT)  :: p_physics_oce
 
     !------------------------------------------------------------------
     ! destruct ocean physics and forcing

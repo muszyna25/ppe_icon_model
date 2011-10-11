@@ -2577,9 +2577,6 @@ CONTAINS
           WRITE (message_text,'(a,a)') &
                'Local field dimensions                      : ', TRIM(dimension_text)
           CALL message('', message_text)
-          write (0,*)'SHAPE :',SHAPE(this_list_element%field%r_ptr) !TODO
-!TODO          write (0,*)'VALUES:',this_list_element%field%r_ptr !TODO
-!TODO          CALL EXECUTE_COMMAND_LINE("sleep 1")
         ELSE
           CALL message('', 'Pointer status                              : not in use.')
         ENDIF

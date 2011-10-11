@@ -426,6 +426,7 @@ CONTAINS
                     & ldims=(/nproma,n_zlev+1,nblks_c/))
 
       END DO
+!TODO     use the following code, if add_var support 1d arrays:
 !TODO     CALL add_var(ocean_params_list, 'K_tracer_h_back', params_oce%K_tracer_h_back , &
 !TODO     &            GRID_UNSTRUCTURED_EDGE, ZAXIS_SURFACE, &
 !TODO     &            t_cf_var('K_tracer_h_back', '', '1:temperature 2:salinity'),&
@@ -742,7 +743,6 @@ ENDDO
         !     z_frac=(1.0E-11_wp-z_vert_density_grad_c(jk))&
         !     &/(1.0E-11_wp+ABS(z_vert_density_grad_c(jk)))
 
-!TODO            write(0,*)'A_T_tmp:',jc,jk,jb,i_no_trac,A_T_tmp
  
         !     params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = MAX(MAX_VERT_DIFF_TRAC*z_frac, A_T_tmp)
 
@@ -873,7 +873,6 @@ ENDDO
                     & +z_beta*(z_A_W_v (je,jk,jb)+z_av0/((1.0_wp+z_c1_v*z_Ri_e)**2)         &
                     &         +params_oce%A_veloc_v_back)
 
-!TODO            write(0,*)'A_v_tmp:',je,jk,jb,A_T_tmp !TODO
            !z_frac=(1.0E-11_wp-z_vert_density_grad_e(jk))&
            !&/(1.0E-11_wp+ABS(z_vert_density_grad_e(jk)))
 

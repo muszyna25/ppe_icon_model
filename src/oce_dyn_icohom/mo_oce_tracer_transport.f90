@@ -694,10 +694,6 @@ END DO
 !                          & minval(z_trac_c(:,jk,:))
 !   END DO
 !   trac_new = z_trac_c
-!TODO swap the G_n-values: n -> (n-1)
-!TODO G_nm1_c_h(:,:,:)  = G_n_c_h(:,:,:)
-!TODO G_nimd_c_h(:,:,:) = 0.0_wp
-!TODO G_n_c_h(:,:,:)    = 0.0_wp
 
 END SUBROUTINE advect_horizontal
 !-------------------------------------------------------------------------  
@@ -977,9 +973,6 @@ IF(expl_vertical_tracer_diff==1)THEN
                                & p_os%p_prog(nold(1))%h,&
                                & A_v,            &
                                & trac_out(:,:,:))
-!TODO  G_nm1_c_v(:,:,:)  = G_n_c_v(:,:,:)
-!TODO  G_nimd_c_v(:,:,:) = 0.0_wp
-!TODO  G_n_c_v(:,:,:)    = 0.0_wp
 
 !vertival diffusion is calculated explicitely
 ELSEIF(expl_vertical_tracer_diff==0)THEN
@@ -1070,11 +1063,6 @@ ELSEIF(expl_vertical_tracer_diff==0)THEN
         ENDIF
     END DO
   END DO
-!TODO G_nm1_c_v(:,:,:)  = G_n_c_v(:,:,:)
-!TODO  G_nimd_c_v(:,:,:) = 0.0_wp
-!TODO  G_n_c_v(:,:,:)    = 0.0_wp
-
-
 ENDIF!(lvertical_diff_implicit)THEN
 
 END SUBROUTINE advect_vertical
