@@ -578,7 +578,15 @@ ENDDO
 !write(0,*)'K_tracer_h_back(',jk,'):',params_oce%K_tracer_h_back(jk)
 !write(0,*)'A_tracer_v_back(',jk,'):',params_oce%A_tracer_v_back(jk)
 !ENDDO
-!    IF (no_tracer == 0) RETURN
+  IF(l_constant_mixing)THEN
+
+    !nothing to do!In sbr init_ho_params (see above)
+    !tracer mixing coefficient params_oce%A_tracer_v(:,:,:, i_no_trac) is already
+    !initialzed with params_oce%A_tracer_v_back(i_no_trac)
+    !and velocity diffusion coefficient
+    ! params_oce%A_veloc_v(je,jk,jb) is initialzed with params_oce%A_veloc_v_back
+
+  ELSEIF(.NOT.l_constant_mixing)THEN
     rl_start_c   = 1
     rl_end_c     = min_rlcell
     i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
@@ -698,7 +706,6 @@ ENDDO
             !! set negative values to zero for switch below
 
         !   z_vert_density_grad_c(jk) = MAX(z_stabio, 0.0_wp)
-           
             !! vert_density_grad  > 0 stable stratification
             !! vert_density_grad  = 0 instable stratification
 
@@ -763,8 +770,8 @@ ENDDO
                 params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = MIN(MAX_VERT_DIFF_TRAC, A_T_tmp)
               END IF
 
-              IF (l_constant_mixing) &
-              & params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = params_oce%A_tracer_v_back(i_no_trac)
+!               IF (l_constant_mixing) &
+!               & params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = params_oce%A_tracer_v_back(i_no_trac)
 
     ! write(*,*)'Ri number',jk,jc,jb,z_Ri_c, z_vert_density_grad_c(jk),z_rho_up(jc,jk,jb),&
   ! &z_rho_down(jc,jk,jb),&
@@ -796,7 +803,6 @@ ENDDO
       END DO
     END DO
     !END DO
-
 !    DO jb = i_startblk_c, i_endblk_c
 !       CALL get_indices_c( p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
 !       &                   rl_start_c, rl_end_c)
@@ -807,9 +813,9 @@ ENDDO
 !        END DO
 !     END DO 
 
-     ! set to background values for first layer only:
+     ! set to value of second level
      DO i_no_trac=1, no_tracer
-       params_oce%A_tracer_v(:,1,:, i_no_trac) = params_oce%A_tracer_v_back(1) !params_oce%A_tracer_v(:,2,:,i_no_trac)
+       params_oce%A_tracer_v(:,1,:, i_no_trac) = params_oce%A_tracer_v(:,2,:,i_no_trac)!params_oce%A_tracer_v_back(1) !
      END DO
     !Viscosity at edges
     DO jb = i_startblk_e, i_endblk_e
@@ -848,7 +854,6 @@ ENDDO
             z_stabio  = dz_inv*0.5_wp*(z_rho_down_c1 + z_rho_down_c2-z_rho_up_c1-z_rho_up_c2)
 
         !   z_vert_density_grad_e(jk) = MAX(z_stabio, 0.0_wp)
-           
             !! vert_density_grad  > 0 stable stratification
             !! vert_density_grad  = 0 instable stratification
 
@@ -889,8 +894,8 @@ ENDDO
                 params_oce%A_veloc_v(je,jk,jb) = MIN(MAX_VERT_DIFF_VELOC, A_v_tmp)
               END IF
 
-              IF (l_constant_mixing) &
-                & params_oce%A_veloc_v(je,jk,jb) = params_oce%A_veloc_v_back
+!               IF (l_constant_mixing) &
+!                 & params_oce%A_veloc_v(je,jk,jb) = params_oce%A_veloc_v_back
 
 !  write(*,*)'Ri number',jk,jc,jb,z_Ri_e, z_vert_density_grad_e(jk),&
 !  &z_frac,&
@@ -903,6 +908,8 @@ ENDDO
 
     ! set to second layer
     params_oce%A_veloc_v(:,1,:) = params_oce%A_veloc_v(:,2,:)
+  ENDIF!l_constant_mixing
+
 
 DO i_no_trac=1, no_tracer
  z_c(:,:,:)=params_oce%A_tracer_v(:,:,:,i_no_trac)

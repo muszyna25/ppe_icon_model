@@ -1612,7 +1612,7 @@ END DO
     INTEGER :: noglbnd_e, noglsbd_c, nogllbd_c
     INTEGER :: iic1, ibc1, iic2, ibc2, idxe, ible
     INTEGER :: n_zlvp, n_zlvm
-
+    INTEGER :: ctr
     REAL(wp):: perc_lnd_c(n_zlev), perc_gllnd_c
     REAL(wp):: perc_lnd_e(n_zlev), perc_gllnd_e
 
@@ -1975,7 +1975,271 @@ END DO
       nogllbd_c = nogllbd_c + nolbd_c(jk)
 
     END DO ZLEVEL_LOOP
+!---------------------------------------------------------------------------------------------
+    rl_start = 1           
+    rl_end = min_rlcell
+    i_startblk = p_patch%cells%start_blk(rl_start,1)
+    i_endblk   = p_patch%cells%end_blk(rl_end,1)
 
+    DO jk=1,n_zlev
+      !
+      ! loop through all patch cells 
+     ctr=0
+      DO jb = i_startblk, i_endblk
+        CALL get_indices_c  &
+          &  (p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
+        DO jc =  i_startidx, i_endidx
+          nocsb_c = 0
+          IF (v_base%lsm_oce_c(jc,jk,jb) < 0) THEN
+            DO ji = 1, 3
+              ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
+              idxe = p_patch%cells%edge_idx(jc,jb,ji)
+              ible = p_patch%cells%edge_blk(jc,jb,ji)
+              ! if one of lsm_e is boundary then lsm_c is sea_boundary
+              ! counts number of sea-boundaries for jk=1 - only one boundary is allowed
+              IF ( v_base%lsm_oce_e(idxe,jk,ible) == BOUNDARY) &
+                &  nocsb_c=nocsb_c + 1
+            END DO
+            !More than 1 wet edge -> set cell to land
+            IF ( nocsb_c >= 2 ) THEN 
+              v_base%lsm_oce_c(jc,jk,jb)=LAND
+              ctr = ctr+1
+              DO ji = 1, 3
+                ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
+                idxe = p_patch%cells%edge_idx(jc,jb,ji)
+                ible = p_patch%cells%edge_blk(jc,jb,ji)
+                !set all edges to boundary
+                v_base%lsm_oce_e(idxe,jk,ible) = BOUNDARY
+              END DO
+!               !get adjacent triangles
+!              iic1 = p_patch%edges%cell_idx(je,jb,1)
+!              ibc1 = p_patch%edges%cell_blk(je,jb,1)
+!              iic2 = p_patch%edges%cell_idx(je,jb,2)
+!              ibc2 = p_patch%edges%cell_blk(je,jb,2)
+!              !triangle 1 is primary triangle
+!              IF(iic1==jc.AND.ibc1==jb)THEN
+!                v_base%lsm_oce_c(iic1,jk,ibc1)=LAND_c
+!              !triangle 1 is primary triangle
+!              ELSEIF(iic1==jc.AND.ibc1==jb)THEN
+!                v_base%lsm_oce_c(iic2,jk,ibc2)=LAND_c
+!              ENDIF
+            ENDIF
+          END IF
+        END DO
+      END DO
+write(*,*)'triangles with 2 land edges present I',jk,ctr 
+   END DO
+
+
+    DO jk=1,n_zlev
+      !
+      ! loop through all patch cells 
+     ctr=0
+      DO jb = i_startblk, i_endblk
+        CALL get_indices_c  &
+          &  (p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
+        DO jc =  i_startidx, i_endidx
+          nocsb_c = 0
+          IF (v_base%lsm_oce_c(jc,jk,jb) < 0) THEN
+            DO ji = 1, 3
+              ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
+              idxe = p_patch%cells%edge_idx(jc,jb,ji)
+              ible = p_patch%cells%edge_blk(jc,jb,ji)
+              ! if one of lsm_e is boundary then lsm_c is sea_boundary
+              ! counts number of sea-boundaries for jk=1 - only one boundary is allowed
+              IF ( v_base%lsm_oce_e(idxe,jk,ible) == BOUNDARY) &
+                &  nocsb_c=nocsb_c + 1
+            END DO
+            !More than 1 wet edge -> set cell to land
+            IF ( nocsb_c >= 2 ) THEN 
+              v_base%lsm_oce_c(jc,jk,jb)=LAND
+              ctr = ctr+1
+              DO ji = 1, 3
+                ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
+                idxe = p_patch%cells%edge_idx(jc,jb,ji)
+                ible = p_patch%cells%edge_blk(jc,jb,ji)
+                !set all edges to boundary
+                v_base%lsm_oce_e(idxe,jk,ible) = BOUNDARY
+              END DO
+!               !get adjacent triangles
+!              iic1 = p_patch%edges%cell_idx(je,jb,1)
+!              ibc1 = p_patch%edges%cell_blk(je,jb,1)
+!              iic2 = p_patch%edges%cell_idx(je,jb,2)
+!              ibc2 = p_patch%edges%cell_blk(je,jb,2)
+!              !triangle 1 is primary triangle
+!              IF(iic1==jc.AND.ibc1==jb)THEN
+!                v_base%lsm_oce_c(iic1,jk,ibc1)=LAND_c
+!              !triangle 1 is primary triangle
+!              ELSEIF(iic1==jc.AND.ibc1==jb)THEN
+!                v_base%lsm_oce_c(iic2,jk,ibc2)=LAND_c
+!              ENDIF
+            ENDIF
+          END IF
+        END DO
+      END DO
+write(*,*)'triangles with 2 land edges present II',jk,ctr 
+   END DO
+
+    DO jk=1,n_zlev
+      !
+      ! loop through all patch cells 
+     ctr=0
+      DO jb = i_startblk, i_endblk
+        CALL get_indices_c  &
+          &  (p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
+        DO jc =  i_startidx, i_endidx
+          nocsb_c = 0
+          IF (v_base%lsm_oce_c(jc,jk,jb) < 0) THEN
+            DO ji = 1, 3
+              ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
+              idxe = p_patch%cells%edge_idx(jc,jb,ji)
+              ible = p_patch%cells%edge_blk(jc,jb,ji)
+              ! if one of lsm_e is boundary then lsm_c is sea_boundary
+              ! counts number of sea-boundaries for jk=1 - only one boundary is allowed
+              IF ( v_base%lsm_oce_e(idxe,jk,ible) == BOUNDARY) &
+                &  nocsb_c=nocsb_c + 1
+            END DO
+            !More than 1 wet edge -> set cell to land
+            IF ( nocsb_c >= 2 ) THEN 
+              v_base%lsm_oce_c(jc,jk,jb)=LAND
+              ctr = ctr+1
+              DO ji = 1, 3
+                ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
+                idxe = p_patch%cells%edge_idx(jc,jb,ji)
+                ible = p_patch%cells%edge_blk(jc,jb,ji)
+                !set all edges to boundary
+                v_base%lsm_oce_e(idxe,jk,ible) = BOUNDARY
+              END DO
+!               !get adjacent triangles
+!              iic1 = p_patch%edges%cell_idx(je,jb,1)
+!              ibc1 = p_patch%edges%cell_blk(je,jb,1)
+!              iic2 = p_patch%edges%cell_idx(je,jb,2)
+!              ibc2 = p_patch%edges%cell_blk(je,jb,2)
+!              !triangle 1 is primary triangle
+!              IF(iic1==jc.AND.ibc1==jb)THEN
+!                v_base%lsm_oce_c(iic1,jk,ibc1)=LAND_c
+!              !triangle 1 is primary triangle
+!              ELSEIF(iic1==jc.AND.ibc1==jb)THEN
+!                v_base%lsm_oce_c(iic2,jk,ibc2)=LAND_c
+!              ENDIF
+            ENDIF
+          END IF
+        END DO
+      END DO
+write(*,*)'triangles with 2 land edges present III',jk,ctr 
+   END DO
+
+    DO jk=1,n_zlev
+      !
+      ! loop through all patch cells 
+     ctr=0
+      DO jb = i_startblk, i_endblk
+        CALL get_indices_c  &
+          &  (p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
+        DO jc =  i_startidx, i_endidx
+          nocsb_c = 0
+          IF (v_base%lsm_oce_c(jc,jk,jb) < 0) THEN
+            DO ji = 1, 3
+              ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
+              idxe = p_patch%cells%edge_idx(jc,jb,ji)
+              ible = p_patch%cells%edge_blk(jc,jb,ji)
+              ! if one of lsm_e is boundary then lsm_c is sea_boundary
+              ! counts number of sea-boundaries for jk=1 - only one boundary is allowed
+              IF ( v_base%lsm_oce_e(idxe,jk,ible) == BOUNDARY) &
+                &  nocsb_c=nocsb_c + 1
+            END DO
+            !More than 1 wet edge -> set cell to land
+            IF ( nocsb_c >= 2 ) THEN 
+              v_base%lsm_oce_c(jc,jk,jb)=LAND
+              ctr = ctr+1
+              DO ji = 1, 3
+                ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
+                idxe = p_patch%cells%edge_idx(jc,jb,ji)
+                ible = p_patch%cells%edge_blk(jc,jb,ji)
+                !set all edges to boundary
+                v_base%lsm_oce_e(idxe,jk,ible) = BOUNDARY
+              END DO
+!               !get adjacent triangles
+!              iic1 = p_patch%edges%cell_idx(je,jb,1)
+!              ibc1 = p_patch%edges%cell_blk(je,jb,1)
+!              iic2 = p_patch%edges%cell_idx(je,jb,2)
+!              ibc2 = p_patch%edges%cell_blk(je,jb,2)
+!              !triangle 1 is primary triangle
+!              IF(iic1==jc.AND.ibc1==jb)THEN
+!                v_base%lsm_oce_c(iic1,jk,ibc1)=LAND_c
+!              !triangle 1 is primary triangle
+!              ELSEIF(iic1==jc.AND.ibc1==jb)THEN
+!                v_base%lsm_oce_c(iic2,jk,ibc2)=LAND_c
+!              ENDIF
+            ENDIF
+          END IF
+        END DO
+      END DO
+write(*,*)'triangles with 2 land edges present IV',jk,ctr 
+   END DO
+
+!    rl_start = 1           
+!     rl_end = min_rledge
+!     i_startblk = p_patch%edges%start_blk(rl_start,1)
+!     i_endblk   = p_patch%edges%end_blk(rl_end,1)
+! 
+!     DO jk=1,n_zlev
+!       !
+!       ! loop through all patch cells
+!       DO jb = i_startblk, i_endblk
+!         CALL get_indices_e  &
+!           &  (p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
+!           DO je =  i_startidx, i_endidx
+! 
+!               !get adjacent triangles
+!              iic1 = p_patch%edges%cell_idx(je,jb,1)
+!              ibc1 = p_patch%edges%cell_blk(je,jb,1)
+!              iic2 = p_patch%edges%cell_idx(je,jb,2)
+!              ibc2 = p_patch%edges%cell_blk(je,jb,2)
+!              !triangle 1 is primary triangle
+!              IF(v_base%lsm_oce_c(iic1,jk,ibc1)==LAND&
+!           &.AND.v_base%lsm_oce_c(iic2,jk,ibc2)==LAND)THEN
+!                v_base%lsm_oce_e(je,jk,jb)=LAND
+!              ENDIF
+! 
+!         END DO
+!       END DO
+!     END DO
+
+    rl_start = 1           
+    rl_end = min_rlcell
+    i_startblk = p_patch%cells%start_blk(rl_start,1)
+    i_endblk   = p_patch%cells%end_blk(rl_end,1)
+
+    DO jk=1,n_zlev
+      !second loop 
+      ctr=0
+      DO jb = i_startblk, i_endblk
+        CALL get_indices_c  &
+          &  (p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
+        DO jc =  i_startidx, i_endidx
+          nocsb_c = 0
+          IF (v_base%lsm_oce_c(jc,jk,jb) < 0) THEN
+            DO ji = 1, 3
+              ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
+              idxe = p_patch%cells%edge_idx(jc,jb,ji)
+              ible = p_patch%cells%edge_blk(jc,jb,ji)
+              ! if one of lsm_e is boundary then lsm_c is sea_boundary
+              ! counts number of sea-boundaries for jk=1 - only one boundary is allowed
+              IF ( v_base%lsm_oce_e(idxe,jk,ible) == BOUNDARY) &
+                &  nocsb_c=nocsb_c + 1
+            END DO
+             IF ( nocsb_c >= 2 ) THEN 
+!               write(*,*)'still triangles with 2 land edges present',jk,ctr              
+                ctr = ctr+1
+             ENDIF
+          END IF
+        END DO
+      END DO 
+write(*,*)'still triangles with 2 land edges present',jk,ctr     
+    END DO
+
+!---------------------------------------------------------------------------------------------
     ! Output the levels
     WRITE(message_text,'(a,a)') &
     &     'LEVEL   zlev_m  Thickness   zlev_i  Distance ', &
