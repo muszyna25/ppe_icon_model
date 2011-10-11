@@ -95,6 +95,7 @@ MODULE mo_nonhydro_state
   PUBLIC :: t_ptr_nh
 #endif
 
+
   !>
   !! Derived data type for building pointer arrays
   !!
@@ -685,14 +686,20 @@ MODULE mo_nonhydro_state
      &  p_prog_d
 
     !--------------------------------------------------------------
-     p_prog_d%w              = p_prog_i%w
-     p_prog_d%vn             = p_prog_i%vn
-     p_prog_d%rho            = p_prog_i%rho
-     p_prog_d%exner          = p_prog_i%exner
-     p_prog_d%theta_v        = p_prog_i%theta_v
-     p_prog_d%rhotheta_v     = p_prog_i%rhotheta_v
-     p_prog_d%tracer         = p_prog_i%tracer
-     p_prog_d%tke            = p_prog_i%tke
+     p_prog_d%w(:,:,:)              = p_prog_i%w(:,:,:)
+     p_prog_d%vn(:,:,:)             = p_prog_i%vn(:,:,:)
+     p_prog_d%rho(:,:,:)            = p_prog_i%rho(:,:,:)
+     p_prog_d%exner(:,:,:)          = p_prog_i%exner(:,:,:)
+     p_prog_d%theta_v(:,:,:)        = p_prog_i%theta_v(:,:,:)
+     p_prog_d%rhotheta_v(:,:,:)     = p_prog_i%rhotheta_v(:,:,:)
+     !WRITE(*,*) "associated  tracer " ,ASSOCIATED(p_prog_i%tracer)
+     !WRITE(*,*) "associated  tke " ,ASSOCIATED(p_prog_i%tke)
+     IF (ASSOCIATED(p_prog_i%tracer)) THEN
+      p_prog_d%tracer(:,:,:,:)       = p_prog_i%tracer(:,:,:,:)
+     END IF
+     IF (ASSOCIATED(p_prog_i%tke )) THEN
+      p_prog_d%tke(:,:,:)            = p_prog_i%tke(:,:,:)
+     END IF
 
   END SUBROUTINE duplicate_prog_state
 
@@ -811,6 +818,7 @@ MODULE mo_nonhydro_state
     ! Tracer array for (model) internal use
 
     ! tracer         p_prog%tracer(nproma,nlev,nblks_c,ntracer+ntracer_static)
+    p_prog%tracer => NULL()  ! it must be initialized to NULL
     IF ( ntracer > 0 .AND. l_alloc_tracer  ) THEN
 
       cf_desc    = t_cf_var('tracer', 'kg kg-1', 'tracer')
@@ -895,6 +903,7 @@ MODULE mo_nonhydro_state
 
 
     ! tke            p_prog%tke(nproma,nlevp1,nblks_c)
+    p_prog%tke => NULL() ! it must be initialized to NULL, PR
     IF ( iforcing == inwp ) THEN
       cf_desc    = t_cf_var('turbulent_kinetic_energy', 'm2 s-2', 'turbulent kinetic energy')
       grib2_desc = t_grib2_var(0, 19, 11, ientr, GRID_REFERENCE, GRID_CELL)

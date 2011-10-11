@@ -130,7 +130,8 @@ MODULE mo_nh_mrw_exp
     z_lon_ctr = mount_lonctr_mrw_deg*pi/180.0_wp
     z_lat_ctr = mount_latctr_mrw_deg*pi/180.0_wp
 
- 
+ !$OMP PARALLEL
+ !$OMP DO PRIVATE(jb,nlen,jc,z_lat,z_lon,zr,zexp)
       DO jb = 1, nblks_c
         IF (jb /= nblks_c) THEN
           nlen = nproma
@@ -156,7 +157,9 @@ MODULE mo_nh_mrw_exp
 
         ENDDO
       ENDDO
+!$OMP END DO 
 
+!$OMP DO PRIVATE(jb,nlen,jc,z_lat,z_lon,zr,zexp)
       DO jb = 1, nblks_v
         IF (jb /= nblks_v) THEN
           nlen = nproma
@@ -182,6 +185,8 @@ MODULE mo_nh_mrw_exp
 
         ENDDO
       ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
 
   END SUBROUTINE init_nh_topo_mrw
 !-------------------------------------------------------------------------
@@ -467,7 +472,8 @@ MODULE mo_nh_mrw_exp
 
   ALLOCATE (z_int_c(nproma,ptr_patch%nblks_c))
 
-
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,nlen,jk,jc,zlat,z_pres,z_temp,z_sfc,z_klev,zcoslat,zhelp4,icount)
   DO jb = 1, nblks_c
       IF (jb /= nblks_c) THEN
          nlen = nproma
@@ -524,6 +530,8 @@ MODULE mo_nh_mrw_exp
             ENDDO !jc
       ENDDO !jk     
   ENDDO !jb
+!$OMP END DO
+!$OMP END PARALLEL
 
 ! As long as we do not have water vapour, ptr_nh_diag%temp is also the virtual temperature
 
