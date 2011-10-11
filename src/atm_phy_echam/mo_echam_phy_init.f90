@@ -452,6 +452,7 @@ CONTAINS
       field% omega (:,:,:) = 0._wp
 
       field%  evap_ac(:,  :) = 0._wp
+      field%evap_tile(:,  :, :) = 0._wp
       field% lhflx_ac(:,  :) = 0._wp
       field% shflx_ac(:,  :) = 0._wp
 

@@ -259,6 +259,14 @@ MODULE mo_echam_phy_memory
       & ocu   (:,:),        &!< eastward  velocity of ocean surface current
       & ocv   (:,:)          !< northward velocity of ocean surface current
 
+      !
+    REAL(wp),POINTER ::     &
+      ! net fluxes at TOA and surface
+      & swflxsfc    (:,:),  &!< [ W/m2] shortwave net flux at surface
+      & lwflxsfc    (:,:),  &!< [ W/m2] longwave net flux at surface
+      & swflxtoa    (:,:),  &!< [ W/m2] shortwave net flux at TOA 
+      & lwflxtoa    (:,:)    !< [ W/m2] shortwave net flux at TOA
+
     TYPE(t_ptr2d),ALLOCATABLE :: z0m_tile_ptr(:)
 
     ! need only for vdiff ----
@@ -734,6 +742,30 @@ CONTAINS
     grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'pardffsfc', field%pardffsfc,             &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+       ! &      field%swflxsfc(nproma,nblks_c)
+    cf_desc    = t_cf_var('swflxsfc', 'W m-2', ' shortwave net flux at surface')
+    grib2_desc = t_grib2_var(0, 4, 9, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'swflxsfc', field%swflxsfc,                             &
+               & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) 
+        
+    ! &      field%swflxtoa(nproma,nblks_c)
+    cf_desc    = t_cf_var('swflxtoa', 'W m-2', ' shortwave net flux at TOA')
+    grib2_desc = t_grib2_var(0, 4, 9, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'swflxtoa', field%swflxtoa,                             &
+               & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) 
+        
+    ! &      field%lwflxsfc(nproma,nblks_c)
+    cf_desc    = t_cf_var('lwflxsfc', 'W m-2', 'longwave net flux at surface')
+    grib2_desc = t_grib2_var(0, 5, 5, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'lwflxsfc', field%lwflxsfc,                             &
+               & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) 
+
+    ! &      field%lwflxsfc(nproma,nblks_c)
+    cf_desc    = t_cf_var('lwflxtoa', 'W m-2', 'longwave net flux at TOA')
+    grib2_desc = t_grib2_var(0, 5, 5, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'lwflxtoa', field%lwflxtoa,                             &
+              & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) 
 
 
     !---- 3D variables defined at layer interfaces ----

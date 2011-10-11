@@ -557,7 +557,10 @@ CONTAINS
         ! ------
         !
         & tend%temp_radsw (:,:,jb)    ,&! out    rad. heating by SW         [K/s]
-        & tend%temp_radlw (:,:,jb)     )! out    rad. heating by LW         [K/s]
+        & tend%temp_radlw (:,:,jb)    ,&! out    rad. heating by LW         [K/s]
+        & field%swflxsfc    (:,jb)    ,&! out shortwave surface net flux [W/m2]
+        & field%lwflxsfc    (:,jb)    ,&! out longwave surface net flux  [W/m2]
+        & field%swflxtoa    (:,jb)    ) ! out shortwave toa net flux     [W/m2]
 
       IF (ltimer) CALL timer_stop(timer_radheat)
 
@@ -661,7 +664,11 @@ CONTAINS
 
     ! 5.4 Surface processes that provide time-dependent lower boundary
     !     condition for wind, temperature, tracer concentraion, etc.
-
+    !KF To avoid 
+        field% lhflx_tile(:,jb,:) = 0._wp
+        field% shflx_tile(:,jb,:) = 0._wp
+        field% evap_tile (:,jb,:) = 0._wp
+    
     CALL update_surface( vdiff_config%lsfc_heat_flux,  &! in
                        & vdiff_config%lsfc_mom_flux,   &! in
                        & pdtime, psteplen,             &! in, time steps
@@ -842,8 +849,8 @@ CONTAINS
     zxtecnl(jcs:jce,:) = 0._wp
     zxtecni(jcs:jce,:) = 0._wp
 
-    field% rsfc(jcs:jce,jb) = 0._wp
-    field% ssfc(jcs:jce,jb) = 0._wp
+    field% rsfc(:,jb) = 0._wp
+    field% ssfc(:,jb) = 0._wp
 
     ! 7.2   CALL SUBROUTINE CUCALL FOR CUMULUS PARAMETERIZATION
 
@@ -933,6 +940,9 @@ CONTAINS
 
       IF (ncdnc==0 .AND. nicnc==0) THEN
 
+        field% rsfl(:,jb) = 0._wp
+        field% ssfl(:,jb) = 0._wp
+
         CALL cloud(jce, nbdim, jks, nlev, nlevp1, ntrac,  &! in
 !0        &        jb,                                    &! in
           &        pdtime, psteplen, echam_phy_config%lcover, &! in
@@ -968,8 +978,8 @@ CONTAINS
           &        field% xivi  (:,  jb),     &! inout
           &        field% aprl  (:,  jb),     &! inout
           &        field% aprs  (:,  jb),     &! inout
-          &        field% rsfl  (:,  jb),     &! out
-          &        field% ssfl  (:,  jb),     &! out
+          &        field% rsfl  (:,  jb),     &! inout
+          &        field% ssfl  (:,  jb),     &! inout
           &        field% relhum(:,:,jb),     &! out
           &        tend%temp_cld(:,:,jb),     &! out
           &        tend%   q_cld(:,:,jb,iqv), &! out

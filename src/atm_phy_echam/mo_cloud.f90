@@ -272,7 +272,7 @@ SUBROUTINE cloud (         kproma,   kbdim,    ktdia            &
   REAL(dp),INTENT(INOUT) :: pxlte(kbdim,klev)    ,pxite(kbdim,klev)
   REAL(dp),INTENT(OUT)   :: ptte_prc(kbdim,klev) ,pqte_prc(kbdim,klev)
   REAL(dp),INTENT(OUT)   :: pxlte_prc(kbdim,klev),pxite_prc(kbdim,klev)
-  REAL(dp),INTENT(OUT)   :: pssfl(kbdim)         ,prsfl(kbdim)
+  REAL(dp),INTENT(INOUT) :: pssfl(kbdim)         ,prsfl(kbdim)
 
 !---Included for in-cloud scavenging (Philip Stier, 28/03/01):----------
   INTEGER, INTENT(IN)    :: ktrac

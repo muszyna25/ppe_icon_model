@@ -392,11 +392,11 @@ CONTAINS
        buffer(:,1) = RESHAPE ( prm_field(jg)%v_stress_tile(:,:,iwtr), (/ nbr_points /) )
        CALL ICON_cpl_put ( field_id(2), field_shape, buffer, ierror )
        !
-       ! SFWFLX
-!        buffer(:,1) = RESHAPE ( prm_field(jg)%rsfl(:,:), (/ nbr_points /) ) + &
-!             &        RESHAPE ( prm_field(jg)%rsfc(:,:), (/ nbr_points /) ) + &
-!             &        RESHAPE ( prm_field(jg)%ssfl(:,:), (/ nbr_points /) ) + &
-!             &        RESHAPE ( prm_field(jg)%ssfc(:,:), (/ nbr_points /) ) + &
+       ! SFWFLX Note: the evap_tile should be properly updated and added
+        buffer(:,1) = RESHAPE ( prm_field(jg)%rsfl(:,:), (/ nbr_points /) ) + &
+             &        RESHAPE ( prm_field(jg)%rsfc(:,:), (/ nbr_points /) ) + &
+             &        RESHAPE ( prm_field(jg)%ssfl(:,:), (/ nbr_points /) ) + &
+             &        RESHAPE ( prm_field(jg)%ssfc(:,:), (/ nbr_points /) )! + &
 !             &        RESHAPE ( prm_field(jg)%evap_tile(:,:,iwtr), (/ nbr_points /) )
 ! 
 !        CALL ICON_cpl_put ( field_id(3), field_shape, buffer, ierror )
@@ -405,9 +405,15 @@ CONTAINS
        buffer(:,1) =  RESHAPE ( prm_field(jg)%temp(:,nlev,:), (/ nbr_points /) ) - 273.15_wp ! ocean uses Celsius units
        CALL ICON_cpl_put ( field_id(4), field_shape, buffer, ierror )
        !
-       ! THFLX
-  !rr  buffer(:,1) =  RESHAPE ( prm_field(jg)% ..... (:,:,iwtr), (/ nbr_points /) )
-!       CALL ICON_cpl_put ( field_id(5), field_shape, buffer, ierror )
+       ! THFLX, total heat flux
+
+       buffer(:,1) =  RESHAPE ( prm_field(jg)%swflxsfc  (:,:)     , (/ nbr_points /) )+ & !net shortwave flux at sfc
+              &       RESHAPE ( prm_field(jg)%lwflxsfc  (:,:)     , (/ nbr_points /) )+ & !net longwave flux at sfc
+              &       RESHAPE ( prm_field(jg)%lhflx_tile(:,:,iwtr), (/ nbr_points /) )+ & !latent heat flux
+              &       RESHAPE ( prm_field(jg)%shflx_tile(:,:,iwtr), (/ nbr_points /) )    !sensible heat flux
+
+
+       CALL ICON_cpl_put ( field_id(5), field_shape, buffer, ierror )
        !
        ! Receive fields, only assign values if something was received ( info > 0 )
        ! -------------------------------------------------------------------------
