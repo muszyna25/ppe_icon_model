@@ -50,7 +50,7 @@ DATA_DIR="/e/uwork/"${USER}"/icon"         # /e/uwork, /e/uscratch, /e/gtmp
                                            # or transfer data to oflxs04:/uwork1
 
 # Directories:
-EDIR="exp32"                               # working directory
+EDIR="exp33"                               # working directory
 EXPNAME="NWP"                              # experiment identifier
 IDIR="GRIDR2"                              # input directory
 
@@ -65,8 +65,8 @@ atmo_namelist=NAMELIST_${EXPNAME}
 #
 #-----------------------------------------------------------------------------
 # global timing
-#inidates=2011010100
-inidates=`eval_numlist -d -i 24 2011010100-2011010600`
+inidates=2011010100
+#inidates=`eval_numlist -d -i 24 2011010100-2011010600`
 ##for inc in $(eval_numlist -i 1 0-10) ; do cymdg=$(datconv -Cy -d ${inc} 00); echo ${cymdg}; done
 ##set -A inidates 2011010100 2011010200 2011010300 2011010400 2011010500 \
 ##                2011010600 2011010700 2011010800 2011010900 2011011000
@@ -253,7 +253,8 @@ lon_corner2        = 180.0
 nsfc_subs   = 1
 /
 &radiation_nml
- irad_o3         = 6        ! 0: no ozone, 3: aqua-planet ozone, 6: prescribed simple ozone
+ irad_o3         = 6        ! 0: no ozone, 3: aqua-planet ozone??, 6: prescribed simple ozone
+ irad_aero       = 5        ! areosols
  izenith         = 4        ! 4: NWP default, 3: no annual cycle
  dt_rad          = 1800
 /
