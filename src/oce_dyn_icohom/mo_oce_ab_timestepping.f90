@@ -182,16 +182,6 @@ TYPE(t_hydro_ocean_state)         :: p_os
 !-----------------------------------------------------------------------  
 
 !Store current vertical velocity before the new one is calculated
-CALL print_mxmn('(cvv beg) p_diag%w',1,p_os%p_diag%w,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvv beg) p_diag%w',2,p_os%p_diag%w,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvv beg) p_diag%w',3,p_os%p_diag%w,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvv beg) p_diag%w',4,p_os%p_diag%w,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvv beg) p_diag%w',5,p_os%p_diag%w,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvv beg) p_diag%w_old',1,p_os%p_diag%w_old,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvv beg) p_diag%w_old',2,p_os%p_diag%w_old,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvv beg) p_diag%w_old',3,p_os%p_diag%w_old,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvv beg) p_diag%w_old',4,p_os%p_diag%w_old,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvv beg) p_diag%w_old',5,p_os%p_diag%w_old,4+1,p_patch%nblks_c,'vel',ipl_src)
 p_os%p_diag%w_old = p_os%p_diag%w
 
 IF(idisc_scheme==MIMETIC_TYPE)THEN
@@ -225,17 +215,6 @@ ELSEIF(idisc_scheme==RBF_TYPE)THEN
 !                              & p_os%p_aux%bc_bot_w,    &
                              & p_os%p_diag%w )
 ENDIF
-
-CALL print_mxmn('(cvv end) p_diag%w',1,p_os%p_diag%w,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvv end) p_diag%w',2,p_os%p_diag%w,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvv end) p_diag%w',3,p_os%p_diag%w,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvv end) p_diag%w',4,p_os%p_diag%w,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvv end) p_diag%w',5,p_os%p_diag%w,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvv end) p_diag%w_old',1,p_os%p_diag%w_old,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvv end) p_diag%w_old',2,p_os%p_diag%w_old,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvv end) p_diag%w_old',3,p_os%p_diag%w_old,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvv end) p_diag%w_old',4,p_os%p_diag%w_old,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvv end) p_diag%w_old',5,p_os%p_diag%w_old,4+1,p_patch%nblks_c,'vel',ipl_src)
 
 END SUBROUTINE calc_vert_velocity
 !-------------------------------------------------------------------------  
