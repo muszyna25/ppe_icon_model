@@ -413,7 +413,7 @@ CONTAINS
               &       RESHAPE ( prm_field(jg)%shflx_tile(:,:,iwtr), (/ nbr_points /) )    !sensible heat flux
 
 
-       CALL ICON_cpl_put ( field_id(5), field_shape, buffer, ierror )
+      CALL ICON_cpl_put ( field_id(5), field_shape, buffer, ierror )
        !
        ! Receive fields, only assign values if something was received ( info > 0 )
        ! -------------------------------------------------------------------------
