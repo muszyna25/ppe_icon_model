@@ -512,7 +512,6 @@ CONTAINS
     ! output if n_io <= integration_length.
 
       CALL get_restart_attribute('next_output_file',jfile)
-
       IF (n_io.le.(nsteps-1)) THEN
          CALL init_output_files(jfile, lclose=.FALSE.)
          IF (lwrite_initial) CALL write_output( time_config%cur_datetime )
@@ -526,12 +525,13 @@ CONTAINS
 
     IF (ltimer) CALL timer_stop(timer_model_init)
 
-    CALL perform_ho_stepping( p_patch(1:), v_ocean_state,          &
-      &                       ext_data, datetime, n_io,            &
+    CALL perform_ho_stepping( p_patch(1:), v_ocean_state,                   &
+      &                       ext_data, datetime, n_io,                     &
+      &                       jfile,                                        &
       &                       (nsteps == INT(time_config%dt_restart/dtime)),&
-      &                       p_int_state(1:),                     &
-      &                       v_sfc_flx,                           &
-      &                       v_params, p_as, p_atm_f, p_ice,      &
+      &                       p_int_state(1:),                              &
+      &                       v_sfc_flx,                                    &
+      &                       v_params, p_as, p_atm_f, p_ice,               &
       &                       l_have_output)
 
     IF (ltimer) CALL print_timer

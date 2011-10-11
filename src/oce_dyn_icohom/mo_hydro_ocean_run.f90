@@ -140,10 +140,10 @@ CONTAINS
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !
   !
-  SUBROUTINE perform_ho_stepping( ppatch, pstate_oce, p_ext_data, &
-                                & datetime, n_io, lwrite_restart, p_int,  &
-                                & p_sfc_flx, p_phys_param,        &
-                                & p_as, p_atm_f, p_ice,           &
+  SUBROUTINE perform_ho_stepping( ppatch, pstate_oce, p_ext_data,               &
+                                & datetime, n_io, jfile, lwrite_restart, p_int, &
+                                & p_sfc_flx, p_phys_param,                      &
+                                & p_as, p_atm_f, p_ice,                         &
                                 & l_have_output)
 
   TYPE(t_patch),             TARGET, INTENT(IN)    :: ppatch(n_dom)
@@ -151,6 +151,7 @@ CONTAINS
   TYPE(t_external_data), TARGET, INTENT(IN)        :: p_ext_data(n_dom)
   TYPE(t_datetime), INTENT(INOUT)                  :: datetime
   INTEGER, INTENT(IN)                              :: n_io
+  INTEGER, INTENT(INOUT)                           :: jfile
   LOGICAL, INTENT(IN)                              :: lwrite_restart
   TYPE(t_int_state),TARGET,INTENT(IN), OPTIONAL    :: p_int(n_dom)
   TYPE(t_sfc_flx)                                  :: p_sfc_flx
@@ -164,7 +165,6 @@ CONTAINS
 
   ! local variables
   INTEGER :: jstep, jg, n_temp,jk
-  INTEGER :: jfile
   LOGICAL :: l_outputtime
   CHARACTER(len=32) :: datestring
   TYPE(t_oce_timeseries), POINTER :: oce_ts
@@ -186,9 +186,6 @@ CONTAINS
     CALL finish(TRIM(routine), ' N_DOM > 1 is not allowed')
   END IF
   jg = n_dom
-
-  ! file 1 is opened in control_model setup:
-  jfile = 1
 
   CALL init_ho_recon_fields( ppatch(jg), pstate_oce(jg))
 
