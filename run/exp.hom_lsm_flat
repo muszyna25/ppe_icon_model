@@ -274,7 +274,7 @@ cat > ${ocean_namelist} << EOF
                                  ! 43=Collapsing density front at first level only with smaller amplitude (global)
   idiag_oce          =    0      ! 0: no diagnostics; 1: write diagnostics to stderr
   temperature_relaxation= 1      ! 1=tracer_forc=tracer_init for some testcases only
-                                 ! 2=read 2m-temperature data for relaxation from bulk (3: put init on bulk)
+                                 ! 2=read 2m-temperature data for relaxation from bulk (3: copy SST on omip-T)
   relaxation_param   =    1.0    ! relaxation of tracer surface fluxes (same value for all tracers in months)
                                  ! this value is divided by number of seconds per month (=30*24*3600)
 /
