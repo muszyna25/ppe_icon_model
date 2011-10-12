@@ -50,9 +50,9 @@ USE mo_kind,                   ONLY: wp
 USE mo_impl_constants,         ONLY: max_char_length
 USE mo_model_domain,           ONLY: t_patch
 USE mo_model_domain_import,    ONLY: n_dom
-USE mo_oce_index,                 ONLY: print_mxmn, jkc, jkdim, ipl_src
-USE mo_ocean_nml,              ONLY: iswm_oce, idisc_scheme, no_tracer, &
-  &                                  itestcase_oce, idiag_oce, EOS_type,n_zlev
+USE mo_oce_index,              ONLY: print_mxmn, jkc, jkdim, ipl_src
+USE mo_ocean_nml,              ONLY: iswm_oce, idisc_scheme, n_zlev, no_tracer, &
+  &                                  itestcase_oce, idiag_oce, init_oce_prog, EOS_type
 USE mo_dynamics_config,        ONLY: nold, nnew
 USE mo_io_config,              ONLY: out_expname, istime4output, istime4newoutputfile,&
   &                                  is_checkpoint_time, n_checkpoints
@@ -164,7 +164,7 @@ CONTAINS
 
 
   ! local variables
-  INTEGER :: jstep, jg, n_temp,jk
+  INTEGER :: jstep, jg
   LOGICAL :: l_outputtime
   CHARACTER(len=32) :: datestring
   TYPE(t_oce_timeseries), POINTER :: oce_ts
@@ -410,8 +410,11 @@ CONTAINS
     CALL construct_atmos_for_ocean(ppatch(jg), p_as)
     CALL construct_atmos_fluxes(ppatch(jg), p_atm_f, kice)
 
-    CALL init_ho_testcases(ppatch(jg), pstate_oce(jg), p_ext_data(jg), p_sfc_flx)
-    CALL init_ho_prog(ppatch(jg), pstate_oce(jg), p_ext_data(jg), p_sfc_flx)
+    IF (init_oce_prog == 0) THEN
+      CALL init_ho_testcases(ppatch(jg), pstate_oce(jg), p_ext_data(jg), p_sfc_flx)
+    ELSE IF (init_oce_prog == 1) THEN
+      CALL init_ho_prog(ppatch(jg), pstate_oce(jg), p_ext_data(jg), p_sfc_flx)
+    END IF
     CALL init_ho_coupled(ppatch(jg), pstate_oce(jg))
 
     IF (ltimer) CALL timer_stop(timer_oce_init)

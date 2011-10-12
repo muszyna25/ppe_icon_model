@@ -2265,10 +2265,10 @@ CONTAINS
         !
         WRITE(message_text,'(A,I6,A)')  'Ocean OMIP flux file contains',no_tst,' data sets'
         CALL message( TRIM(routine), TRIM(message_text) )
-     !  IF(no_tst /= 12 .AND. no_tst /= 366) THEN
-     !    CALL finish(TRIM(ROUTINE),&
-     !    & 'Number of timesteps is not 12 (monthly avg.) or 366 (daily avg.)!')
-     !  ENDIF
+        IF(no_tst /= iforc_len ) THEN
+          CALL finish(TRIM(ROUTINE),&
+          & 'Number of forcing timesteps is not equal iforc_len specified in namelist!')
+        ENDIF
       ENDIF
 
 
