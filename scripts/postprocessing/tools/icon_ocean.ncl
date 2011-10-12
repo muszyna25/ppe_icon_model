@@ -127,7 +127,6 @@
   if (.not. isvar("maxView"))     maxView     = False           end if
   if (.not. isvar("scaleLimit"))  scaleLimit  = 2               end if
   if (.not. isvar("selMode"))     selMode     = "auto"          end if
-  if (.not. isvar("varName"))     varName     = "ELEV"          end if
   if (.not. isvar("timeStep"))    timeStep    = 0               end if
   if (.not. isvar("levIndex"))    levIndex    = 0               end if
   if (.not. isvar("scaleFactor")) scaleFactor = 1               end if
@@ -178,34 +177,72 @@
       vecVars = vecVars_
     end if
     plotMode = "vector"
+    if (isvar("varName")) plotMode = "overlay" end if
+  else
+    plotMode = "scalar"
   end if
 
-  if (plotMode.eq."vector") then
+  if (plotMode.eq."vector" .or. plotMode.eq."overlay") then
     ; performe some remapping to a regular grid because ncl cannot draw vector
     ; from unstructured grids
-    remapFilename = remapForVecPlot(iFile,resolution,useMask,DEBUG)
+    remapFilename = remapForVecPlot(iFile,resolution,useMask,plotMode,DEBUG)
     checkRemappedFile(iFile,remapFilename)
   end if
-
-  File = addfile( iFile, "r" )
+  if (plotMode.eq."vector" .or. plotMode.eq."overlay") then
+    rFile = addfile( remapFilename, "r" )
+  end if
+  File  = addfile( iFile, "r" )
 
   if (DEBUG) printVarNames(File) end if
 
   ;Read mask variable
   if( useMask ) then
-    maskVar = getMaskVar(maskName,File,isvar("maskFile"),timeStep,levIndex,plotMode)
-    maskDim = getMaskDim(maskName,File,isvar("maskFile"))
+    if (isvar("maskFile")) then
+      maskVar = getMaskVar(maskName,File,True,maskFile,timeStep,levIndex,plotMode)
+    else
+      maskVar = getMaskVar(maskName,File,False,"",timeStep,levIndex,plotMode)
+    end if
   end if
 
   if (plotMode.eq."vector") then
-    varnames = vecVars
+    print("Plot vector variables: " + vecVars)
   else
-    varnames = (/varName/)
+    if (plotMode.eq."overlay") then
+      print("Plot vector variables: " + vecVars)
+      print("Plot variable: " + varName)
+    else
+      print("Plot variable: " + varName)
+      end if
   end if
-  print("Plot variables: " + varnames)
+  ;---------------------------------------------------------------
+  if (True) then
+    print("iFile       = "+iFile)
+    print("oFile       = "+oFile)
+    print("Graphics format is " +oType)
+    print("plotMode    = "+plotMode)
+
+    if (plotMode.eq."scalar") then
+      print("varName     = "+varName)
+    else
+      print("vecVars     = "+vecVars)
+      if (plotMode.eq."overlay") then print("varName     = "+varName) end if
+    end if
+
+    print("timeStep    = "+timeStep)
+    print("mapLLC(lon) = "+mapLLC(0))
+    print("mapLLC(lat) = "+mapLLC(1))
+    print("mapURC(lon) = "+mapURC(0))
+    print("mapURC(lat) = "+mapURC(1))
+    if (useMask) then
+    print("maskName    = "+maskName)
+    end if
+    print("#==== END OF DEBUG OUTPUT =====================================")
+  end if
+  ;---------------------------------------------------------------
+
 
   ; Reading data variables =====================================================
-  if (plotMode.eq."scalar") then ; scalar mode ================================
+  if (plotMode.eq."scalar" .or. plotMode.eq."overlay") then ; scalar mode ================================
 
     printVar(varName, File)
 
@@ -216,8 +253,6 @@
     lonlats = getLonLats(var,File)
     x       = lonlats(0,:)
     y       = lonlats(1,:)
-
-    if (DEBUG) if (useMask) print(maskDim) end if end if
 
     ; set minVar_maxVar for plotting
     if(.not. isvar("minVar")) minVar = min(var) end if
@@ -231,21 +266,20 @@
       ;slm = maskVar - 0.5
       ;var = mask ( var, slm, 0.5)
     end if
+  end if
+  if (plotMode.eq."vector" .or. plotMode.eq."overlay") then
+    uvarname = vecVars(0)
+    vvarname = vecVars(1)
 
-  else ; vector mode ==========================================================
+    checkDimsOfVars(uvarname,vvarname,rFile)
 
-    uvarname = varnames(0)
-    vvarname = varnames(1)
-
-    checkDimsOfVars(uvarname,vvarname,File)
-
-    uvar = selRegularVar(uvarname,File,timeStep,levIndex)
-    vvar = selRegularVar(vvarname,File,timeStep,levIndex)
+    uvar = selRegularVar(uvarname,rFile,timeStep,levIndex)
+    vvar = selRegularVar(vvarname,rFile,timeStep,levIndex)
 
     scaleVar(uvar,scaleFactor)
     scaleVar(vvar,scaleFactor)
 
-    if ( useMask ) then
+    if ( useMask .and. plotMode.eq."vector") then
       uvar = mask(uvar,maskVar,1)
       vvar = mask(vvar,maskVar,1)
     end if
@@ -256,29 +290,6 @@
     if(.not. isvar("maxVar")) maxVar = max(velocity) end if
     checkMinMaxVar(minVar,maxVar)
   end if ; Reading data variables =============================================
-
-  ;---------------------------------------------------------------
-  if (DEBUG) then
-    if ( var_has_time(varName, File) ) then
-      timeVal = File->time(timeStep)
-      print("time "+timeVal)
-    end if
-    print("iFile       = "+iFile)
-    print("oFile       = "+oFile)
-    print("Graphics format is " +oType)
-    print("varName     = "+varName)
-    print("timeStep    = "+timeStep)
-    print("mapLLC(lon) = "+mapLLC(0))
-    print("mapLLC(lat) = "+mapLLC(1))
-    print("mapURC(lon) = "+mapURC(0))
-    print("mapURC(lat) = "+mapURC(1))
-    print("minVar      = "+minVar)
-    print("maxVar      = "+maxVar)
-    if (useMask) then
-    print("maskName    = "+maskName)
-    end if
-  end if
-  ;---------------------------------------------------------------
 
   ;---------------------------------------------------------------
   ; make the plot
@@ -306,9 +317,9 @@
 
   if (useMask) setMaskColor(wks,ResC) end if
 
-  if (plotMode.eq."scalar") setCoordinates(ResC,x,y) end if
+  if (plotMode.eq."scalar" .or. plotMode.eq."overlay") setCoordinates(ResC,x,y) end if
 
-  setAutomaticPlotCaptions(ResC,plotMode,varName,File,iFile,timeStep,levIndex)
+  if (plotMode.eq."scalar" .or. plotMode.eq."overlay") setAutomaticPlotCaptions(ResC,plotMode,varName,File,iFile,timeStep,levIndex) end if
 
   setAutomaticBaseString(wks)
   if (showPreview) setAutomaticBaseString(xwks) end if
@@ -334,26 +345,60 @@
       print(ABORTMSG)
       exit
     else
-      setDefaultVectorPlot(ResC,5.0,8.0,"CurlyVector",0.017)
+        setDefaultVectorPlot(ResC,5.0,8.0,"CurlyVector",0.017)
 
-      if ( showPreview ) then
-        x11 = gsn_csm_vector_scalar_map(xwks,uvar,vvar,uvar*uvar+vvar*vvar,ResC)
-      end if
-      vc = gsn_csm_vector_scalar_map(wks,uvar,vvar,uvar*uvar+vvar*vvar,ResC)
+        if ( showPreview ) then
+          x11 = gsn_csm_vector_scalar_map(xwks,uvar,vvar,velocity,ResC)
+        end if
+        vc = gsn_csm_vector_scalar(wks,uvar,vvar,velocity,ResC)
     end if
   else ; contour plot =========================================================
-    if (DEBUG) print("Gridtype is "+getGridType(var)) end if
-    plot                     = gsn_csm_contour_map(wks,var,ResC)
-    if (showPreview) preview = gsn_csm_contour_map(xwks,var,ResC) end if
+    if (plotMode.eq."overlay") then
+     ;reset the second resource
+      ResC2                    = ResC
+      ResC2@gsnDraw            = False
+      ResC2@gsnFrame           = False
+      setPlotCaptions(ResC2,"","","","")
+      selMapCut(ResC2,mapLLC,mapURC)
+      setDefaultVectorPlot(ResC2,5.0,8.0,"CurlyVector",0.017)
+      ResC2@vcVectorDrawOrder  = "Postdraw"
+      ResC2@lbOrientation      = "Vertical"
+      ResC2@lbTitleString      = "Speed"
+      ResC2@lbTitlePosition    = "Left"
+      ResC2@cnInfoLabelOn      = False
+      ResC2@lbTitleFontHeightF = 0.02
+      ResC2@lbLabelFontHeightF = 0.015
+      ResC2@lbLeftMarginF      = 0.01
+      ResC2@lbLabelBarOn       = False ; switch of the vector label bar, because the speed is show as vector lenghts
 
-    if (showGrid) then
-      if (showPreview) then
-        plotGrid(xwks,preview,var,x,File,ResC,DEBUG)
-        print("#=======================================================")
-        print("For reasons of performance, the preview of a grid plot is not written to the output file be default")
-        print("Please set 'showPreview=False' on the command line!")
-      else
-        plotGrid(wks,plot,var,x,File,ResC,DEBUG)
+      ResC@gsnDraw             = False
+      ResC@gsnFrame            = False
+      vc   = gsn_csm_vector_scalar(wks,uvar,vvar,velocity,ResC2)
+
+      plot = gsn_csm_contour_map(wks,var,ResC)
+      if (showGrid) then
+        print("plotting GRID in overlay mode is not supported")
+        exit
+        ;plot_ = plot
+        ;plotGrid(wks,plot_,var,x,File,ResC,DEBUG)
+      end if
+
+      overlay(plot,vc)
+      draw(plot)
+    else
+      if (DEBUG) print("Gridtype is "+getGridType(var)) end if
+      plot                     = gsn_csm_contour_map(wks,var,ResC)
+      if (showPreview) preview = gsn_csm_contour_map(xwks,var,ResC) end if
+
+      if (showGrid) then
+        if (showPreview) then
+          plotGrid(xwks,preview,var,x,File,ResC,DEBUG)
+          print("#=======================================================")
+          print("For reasons of performance, the preview of a grid plot is not written to the output file be default")
+          print("Please set 'showPreview=False' on the command line!")
+        else
+          plotGrid(wks,plot,var,x,File,ResC,DEBUG)
+        end if
       end if
     end if
   end if

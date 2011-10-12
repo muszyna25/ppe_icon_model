@@ -285,7 +285,7 @@ undef("printVarNames")
 procedure printVarNames(filehandle)
 begin
   filevarnames = getfilevarnames(filehandle)
-  print("variable names in file: "+filevarnames)
+  print("# === variable names in file: "+filevarnames)
 end
 ;---------------------------------------------------------------
 ; Print information about dimensions and attributes of a given varaiable
@@ -339,18 +339,19 @@ end
 ;---------------------------------------------------------------
 ; Read a variable from the given or an optional file
 ;
-; GLOBALS: maskFile
 undef("getMaskVar")
-function getMaskVar(maskvarname,filehandle,hasOtherMaskfile,timestep,levelindex,plotmode)
+function getMaskVar(maskvarname,filehandle,hasOtherMaskfile,maskfilename,timestep,levelindex,plotmode)
 begin
   if (hasOtherMaskfile) then
-    filehandle = addfile( maskFile, "r" )
-  end if
-  checkVarname(maskvarname, filehandle)
-  if (plotmode.eq."scalar") then
-    maskvar = selIconVar(maskvarname,filehandle,timestep,levelindex)
+    mfilehandle = addfile( maskfilename, "r" )
   else
-    maskvar = selRegularVar(maskvarname,filehandle,timestep,levelindex)
+    mfilehandle = filehandle
+  end if
+  checkVarname(maskvarname, mfilehandle)
+  if (plotmode.eq."scalar" .or. plotmode.eq."overlay") then
+    maskvar = selIconVar(maskvarname,mfilehandle,timestep,levelindex)
+  else
+    maskvar = selRegularVar(maskvarname,mfilehandle,timestep,levelindex)
   end if
 
   return maskvar
@@ -374,7 +375,7 @@ end
 ; Perform a remapping (wich CDO) to a regular grid with a given resolution and return the
 ; filename of the remapped file. If the file is already present, the name is returned only
 undef("remapForVecPlot")
-function remapForVecPlot(iFile,resolution,useMask,debug)
+function remapForVecPlot(iFile,resolution,useMask,plotMode,debug)
 begin
   remapFilename="remapnn_"+iFile
   print("#=====================================================================================")
@@ -387,18 +388,17 @@ begin
     print("Use CDO to perform remapping: Create intermediate file: "+remapFilename)
     print("Remove this intermediate file, if it was NOT automatically created from your inpur file "+iFile+"!")
     if ( useMask ) then
-      cmd = "cdo -P 8 -remapnn,"+resolution+" -selname,"+maskName+","+str_join(vecVars,",")+" "+iFile+" "+remapFilename
-      if debug then
-        print(cmd)
-      end if
-      system(cmd)
+    variables=maskName+","+str_join(vecVars,",")
     else
-      cmd = "cdo -P 8 -remapnn,"+resolution+" -selname,"+str_join(vecVars,",")+" "+iFile+" "+remapFilename
-      if debug then
-        print(cmd)
-      end if
-    system(cmd)
+    variables=str_join(vecVars,",")
     end if
+    if (plotMode.eq."overlay") variables = variables+","+varName end if
+
+    cmd = "cdo -P 8 -remapnn,"+resolution+" -selname,"+variables+" "+iFile+" "+remapFilename
+    if debug then
+      print(cmd)
+    end if
+    system(cmd)
   end if
   return remapFilename
 end
@@ -414,10 +414,11 @@ begin
   orgTime   = getfilevardimsizes(orgFile,"time")
   remapTime = getfilevardimsizes(remapFile,"time")
   if ( orgTime .eq. remapTime ) then
-    infilename = remapfilename
+    print("#=====================================================================================")
+    print("Remapped File '"+remapfilename+"' seems to be ok.")
   else
     print("#=====================================================================================")
-    print("Remapped File '"+remapFilename+"' seems to be wrong: Has different number of timesteps")
+    print("Remapped File '"+remapfilename+"' seems to be wrong: Has different number of timesteps")
     print("Original file has "+orgTime(0)+" timesteps")
     print("Remapped File has "+remapTime(0)+" timesteps")
     print(ABORTMSG)
@@ -620,7 +621,7 @@ begin
   resource@gsnLeftString   = leftstring
   resource@gsnRightString  = rightstring
   resource@gsnCenterString = centerstring
-  vesource@tiMainString    = titlestring
+  resource@tiMainString    = titlestring
 end
 ;---------------------------------------------------------------
 ; Set the capitons of a plot automatically
@@ -673,10 +674,29 @@ undef("setMapType")
 procedure setMapType(resource,maptype)
 begin
   if (maptype .eq. "ortho") then
-    resource@mpProjection          = "Orthographic"
-    resource@mpPerimOn             = False    ; turn off box around plot
-    resource@mpGridAndLimbOn       = True     ; draw grid lines and limb line
-    resource@mpGridLineDashPattern = 2        ; choose pattern used to draw the grid
+    resource@mpProjection              = "Orthographic"
+    resource@mpPerimOn                 = False;     turn off box around plot
+    resource@mpGridAndLimbOn           = True;      draw grid lines and limb line
+    resource@mpGridLineDashPattern     = 2;         choose pattern used to draw the grid
+    resource@mpCenterLonF              = -30
+    resource@mpCenterLatF              = 20
+    resource@vcRefLengthF              = 0.01
+    resource@vcRefAnnoArrowLineColor   = "black"; change ref vector color
+    resource@vcRefAnnoArrowUseVecColor = False;  do not use vec color for ref
+    resource@vcRefAnnoOn               = False;        turns off ref vector annotation
+    resource@vcGlyphStyle              = "CurlyVector"; turn on curly vectors
+    resource@vcMonoLineArrowColor      = True;        multiple colors desired
+    resource@vcLineArrowColor          = "blue"; change vector color
+    resource@vcVectorDrawOrder         = "PostDraw"; draw vectors last
+
+
+    resource@mpGridAndLimbOn        = True               ; turn on lat/lon grid lines
+    resource@mpGridMaskMode         = "MaskNotOcean"     ; don't draw over land or
+    ; inland water bodies
+
+;    resource@mpLandFillColor        = "tan"
+;    resource@mpOceanFillColor       = "LightBlue"
+;    resource@mpInlandWaterFillColor = "LightBlue"
 
   else
     resource@mpProjection         = "CylindricalEquidistant"
@@ -698,8 +718,8 @@ begin
   resource@mpMaxLonF    = mapurc(0)
 
   ; center of view (for Orthographic and Sattelite only)
-  resource@mpCenterLonF = (resource@mpMaxLonF+resource@mpMinLonF)/2
-  resource@mpCenterLatF = (resource@mpMaxLatF+resource@mpMinLatF)/2
+;  resource@mpCenterLonF = (resource@mpMaxLonF+resource@mpMinLonF)/2.0
+;  resource@mpCenterLatF = (resource@mpMaxLatF+resource@mpMinLatF)/2.0
 end
 ;---------------------------------------------------------------
 ; Display a satelite projection
