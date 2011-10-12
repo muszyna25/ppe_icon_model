@@ -81,7 +81,8 @@ MODULE mo_nh_df_test
     u0      = (2._wp*pi*re)/(tottime)  !< circumference / 12 days [m/s]
 
   REAL(wp), PARAMETER ::   &                   !< flow field amplitude [m/s]
-    &   u1 = 73.741_wp, u2 = 61.451_wp, u3 = 30.725_wp, u4 = 61.4509_wp
+    &   u1 = 73.741_wp, u2 = 61.451_wp, u3 = 30.725_wp, &
+    &   u4 = (10._wp*re)/(tottime)
 !    &   u1 = 2.4_wp, u2 = 2.0_wp, u3 = 1._wp !< original values
                                               !< for unit sphere
 
@@ -532,47 +533,6 @@ CONTAINS
       ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
-
-
-!!$!$OMP PARALLEL
-!!$!$OMP DO PRIVATE(jb,je,i_startidx,i_endidx,zlon,zlat,zlon_rot,zlat_rot, &
-!!$!$OMP            u_wind,v_wind)
-!!$      DO jb = i_startblk, nblks_e
-!!$
-!!$        CALL get_indices_e(ptr_patch, jb, i_startblk, nblks_e, &
-!!$                           i_startidx, i_endidx, i_rcstartlev)
-!!$
-!!$        DO je = i_startidx, i_endidx
-!!$
-!!$          ! location of edge midpoint
-!!$          zlon = ptr_patch%edges%center(je,jb)%lon
-!!$          zlat = ptr_patch%edges%center(je,jb)%lat
-!!$
-!!$
-!!$          ! get zlat, zlon in rotated system with npole at
-!!$          ! (npole_lon,npole_lat)
-!!$          CALL rotated_sphere( npole_lon,npole_lat-z_alpha,  & !<in
-!!$            &                  zlon,zlat,                    & !<in
-!!$            &                  zlon_rot,zlat_rot             ) !<inout
-!!$
-!!$          zlon_rot = zlon_rot - 2._wp*pi*p_sim_time/tottime
-!!$          ! velocity in local east direction
-!!$          u_wind = u4 * SIN(zlon_rot)**2 * SIN(2._wp*zlat_rot)      &
-!!$            &      * z_timing_func + u0*cos(zlat_rot)
-!!$
-!!$          ! velocity in local north direction
-!!$          v_wind = u4 * SIN(2._wp*zlon_rot) * COS(zlat_rot) * z_timing_func
-!!$
-!!$
-!!$          ! compute normal wind component
-!!$          ptr_prog%vn(je,1,jb) =                                   &
-!!$            &     u_wind * ptr_patch%edges%primal_normal(je,jb)%v1 &
-!!$            &   + v_wind * ptr_patch%edges%primal_normal(je,jb)%v2
-!!$
-!!$        ENDDO
-!!$      ENDDO
-!!$!$OMP END DO
-!!$!$OMP END PARALLEL
 
     END SELECT
 

@@ -277,11 +277,11 @@ CONTAINS
     !--------------------------------------------------------------------
     ! Testcases
     !--------------------------------------------------------------------
-    IF(global_cell_type==3) THEN
-      linit_tracer_fv  = .TRUE. ! like default
-    ELSE
-      linit_tracer_fv  = .FALSE.
-    ENDIF
+!!$    IF(global_cell_type==3) THEN
+!!$      linit_tracer_fv  = .TRUE. ! like default
+!!$    ELSE
+!!$      linit_tracer_fv  = .FALSE.
+!!$    ENDIF
 
     IF ((TRIM(ctest_name)=='GW') .AND. (nlev /= 20)) THEN
       CALL finish(TRIM(routine),'nlev MUST be 20 for the gravity-wave test case')
