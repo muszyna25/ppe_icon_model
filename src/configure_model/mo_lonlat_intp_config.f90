@@ -51,6 +51,8 @@ MODULE mo_lonlat_intp_config
   TYPE t_lonlat_intp_config
     ! Flag. True, if interpolation onto lon-lat grid is enabled
     LOGICAL                  :: l_enabled
+    ! Flag. True, if standard variable is not written for lon-lat vars.
+    LOGICAL              :: l_supersede
     ! lon-lat grid specification for each patch
     ! (we don't know about "n_dom_start" or "ndom" here)
     TYPE (t_lon_lat_grid)    :: lonlat_grid

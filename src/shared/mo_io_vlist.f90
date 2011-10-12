@@ -3260,7 +3260,9 @@ CONTAINS
             &                 streamvar1,outvar_desc(ivar,jg)%name, collected_var_3d )
 
           IF(my_process_is_stdio()) THEN
-            CALL streamWriteVar(streamID(jg), varids(ivar,jg), streamvar1, 0)
+            IF ((.NOT. l_interpolate_lonlat) .OR. (.NOT. lonlat_intp_config(jg)%l_supersede)) THEN
+              CALL streamWriteVar(streamID(jg), varids(ivar,jg), streamvar1, 0)
+            END IF
             DEALLOCATE(streamvar1)
           ENDIF
           IF(reset) ptr2 = 0._wp
@@ -3275,7 +3277,9 @@ CONTAINS
             &                 streamvar2,outvar_desc(ivar,jg)%name, collected_var_3d )
 
           IF(my_process_is_stdio()) THEN
-            CALL streamWriteVar(streamID(jg), varids(ivar,jg), streamvar2, 0)
+            IF ((.NOT. l_interpolate_lonlat) .OR. (.NOT. lonlat_intp_config(jg)%l_supersede)) THEN
+              CALL streamWriteVar(streamID(jg), varids(ivar,jg), streamvar2, 0)
+            END IF
             DEALLOCATE(streamvar2)
           ENDIF
 
@@ -3780,7 +3784,29 @@ CONTAINS
     CHARACTER(*), INTENT(IN) :: vname, vlongname, vunit
     INTEGER, INTENT(IN)      :: vcode, vtable, vlist, grid, zaxis
 
-    var = vlistdefvar(vlist, grid, zaxis, TIME_VARIABLE)
+    LOGICAL :: l_skipvar
+    INTEGER :: vartype
+    
+    ! - Quick Fix [FP] -
+    ! Standard variable output can be disabled when using lon-lat output.
+    ! We achieve this (quick and dirty) by defining the original variable
+    ! as a time constant field.
+    ! Note that here we implicitly assume that the lon-lat variable
+    ! name list and the boolean flag are identical for all patches.
+    l_skipvar = lonlat_intp_config(1)%l_supersede    .AND.    &
+      ((toupper(lonlat_intp_config(1)%zlist) == 'ALL') .OR.   &
+      & (string_contains_word(vname,                          &
+      &     lonlat_intp_config(1)%zlist,                      &
+      &     lonlat_intp_config(1)%n_list,                     &
+      &     lonlat_intp_config(1)%pos_list,                   &
+      &     lonlat_intp_config(1)%ilen_list)))
+    IF (l_skipvar) THEN
+      vartype = TIME_CONSTANT
+    ELSE
+      vartype = TIME_VARIABLE
+    END IF
+
+    var = vlistdefvar(vlist, grid, zaxis, vartype)
     CALL vlistdefvarname(vlist, var, vname)
     CALL vlistdefvarlongname (vlist, var, vlongname)
     CALL vlistdefvarunits(vlist, var, vunit)

@@ -66,11 +66,13 @@ MODULE mo_lonlat_intp_nml
   REAL(wp)             :: lat_poleN(max_dom)     ! position of north pole (lon,lat),           unit:DEGREE
   INTEGER              :: lon_dimen(max_dom)     ! grid dimensions
   INTEGER              :: lat_dimen(max_dom)     ! grid dimensions
+  LOGICAL              :: lsupersede             ! Flag. True, if standard variable is not written for lon-lat vars.
 
   !> Namelist for interpolation of output variables
   NAMELIST/lonlat_intp_nml/ llonlat_enabled, lonlat_var_list,         &
     &                       lon_delta, lon_corner1, lon_corner2, lon_poleN, lon_dimen,    &
-    &                       lat_delta, lat_corner1, lat_corner2, lat_poleN, lat_dimen
+    &                       lat_delta, lat_corner1, lat_corner2, lat_poleN, lat_dimen,    &
+    &                       lsupersede
 
 CONTAINS
   !>
@@ -116,6 +118,7 @@ CONTAINS
     lat_poleN  (:)  =   90._wp
     lon_dimen  (:)  = DIM_UNDEFINED ! 181
     lat_dimen  (:)  = DIM_UNDEFINED !  91
+    lsupersede      = .FALSE.
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above
@@ -144,7 +147,8 @@ CONTAINS
 
     ! fill in values for each model domain:
     DO idom=1,max_dom
-      lonlat_intp_config(idom)%l_enabled = llonlat_enabled(idom)
+      lonlat_intp_config(idom)%l_enabled   = llonlat_enabled(idom)
+      lonlat_intp_config(idom)%l_supersede = lsupersede
 
       ! string with a list of variable names due for lon-lat
       ! interpolation
