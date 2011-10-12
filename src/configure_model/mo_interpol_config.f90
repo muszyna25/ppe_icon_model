@@ -51,7 +51,7 @@ MODULE mo_interpol_config
 
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: llsq_high_consv, lsq_high_ord                                !< variables
+  PUBLIC :: llsq_lin_consv, llsq_high_consv, lsq_high_ord                !< variables
   PUBLIC :: rbf_vec_kern_c, rbf_vec_kern_v, rbf_vec_kern_e               !< variables
   PUBLIC :: rbf_vec_scale_c, rbf_vec_scale_e, rbf_vec_scale_v            !< variables
   PUBLIC :: i_cori_method, l_corner_vort                                 !< variables
@@ -66,8 +66,10 @@ MODULE mo_interpol_config
   !TYPE :: t_interpol_config
 
     ! namelist variables
-    LOGICAL  :: llsq_high_consv     ! flag to determine whether the high order least 
-                                    ! squares reconstruction should be conservative
+    LOGICAL  :: llsq_lin_consv      ! conservative (TRUE) or non-conservative (FALSE)
+                                    ! linear least squares reconstruction
+    LOGICAL  :: llsq_high_consv     ! conservative (TRUE) or non-conservative (FALSE)
+                                    ! high order least squares reconstruction 
                                                                                  
     INTEGER  :: lsq_high_ord        ! specific order for higher order lsq        
                                                                                  
@@ -250,7 +252,7 @@ CONTAINS
     ! set the number of unknowns in the least squares reconstruction, and the
     ! stencil size, depending on the chosen polynomial order (lsq_high_ord).
     ! Default value for lsq_high_ord is 3. The user might have made a different
-    ! choise. The possibilities are:
+    ! choice. The possibilities are:
     !  lsq_high_ord=2 : quadratic polynomial        : 5 unknowns with a 9-point stencil
     !  lsq_high_ord=30: poor man's cubic polynomial : 7 unknowns with a 9-point stencil
     !  lsq_high_ord=3 : full cubic polynomial       : 9 unknowns with a 9-point stencil
@@ -259,10 +261,14 @@ CONTAINS
 
       ! Settings for linear lsq reconstruction
 
-      lsq_lin_set%l_consv = .FALSE.
+      lsq_lin_set%l_consv = llsq_lin_consv
       lsq_lin_set%dim_c   = 3
       lsq_lin_set%dim_unk = 2
-      lsq_lin_set%wgt_exp = 2
+      IF ( lsq_lin_set%l_consv ) THEN
+        lsq_lin_set%wgt_exp = 0
+      ELSE
+        lsq_lin_set%wgt_exp = 2
+      ENDIF
 
       ! Settings for high order lsq reconstruction
 
@@ -302,6 +308,7 @@ CONTAINS
       ! ... linear reconstruction is not used in the hexagonal model.
       ! However, if we do not initialize these variables, they will get 
       ! value zero, and cause problem in the dump/restore functionality.
+      lsq_lin_set%l_consv = .FALSE.
       lsq_lin_set%dim_c   = 3
       lsq_lin_set%dim_unk = 2
       

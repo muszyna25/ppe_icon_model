@@ -91,6 +91,7 @@ MODULE mo_advection_hflux
     &                               recon_lsq_cell_l_svd, recon_lsq_cell_q_svd, &
     &                               recon_lsq_cell_cpoor_svd,                   &
     &                               recon_lsq_cell_c_svd, div
+  USE mo_interpol_config,     ONLY: llsq_lin_consv
   USE mo_interpolation,       ONLY: t_int_state, rbf_vec_interpol_edge,         &
     &                               rbf_interpol_c2grad, lsq_high_ord,          &
     &                               lsq_high_set, cells2edges_scalar
@@ -248,7 +249,6 @@ CONTAINS
 
 
 
-
     DO jt = 1, ntracer ! Tracer loop
 
       ! Select desired flux calculation method
@@ -263,12 +263,13 @@ CONTAINS
 
       CASE( MIURA )
         ! CALL MIURA with second order accurate reconstruction
-        CALL upwind_hflux_miura( p_patch, p_cc(:,:,:,jt), p_mass_flx_e,  &! in
-          &                 p_vn, p_dtime, p_int, lcompute%miura_h(jt),  &! in
-          &                 lcleanup%miura_h(jt), p_igrad_c_miura,       &! in
-          &                 p_itype_hlimit(jt), p_iord_backtraj,         &! in
-          &                 p_upflux(:,:,:,jt), opt_real_vt=z_real_vt,   &! inout,in
-          &                 opt_slev=p_iadv_slev(jt), opt_rlend=i_rlend  )! in
+        CALL upwind_hflux_miura( p_patch, p_cc(:,:,:,jt), p_mass_flx_e,    &! in
+          &                 p_vn, p_dtime, p_int, lcompute%miura_h(jt),    &! in
+          &                 lcleanup%miura_h(jt), p_igrad_c_miura,         &! in
+          &                 p_itype_hlimit(jt), p_iord_backtraj,           &! in
+          &                 p_upflux(:,:,:,jt), opt_lconsv= llsq_lin_consv,&! inout,in
+          &                 opt_real_vt=z_real_vt,                         &! in
+          &                 opt_slev=p_iadv_slev(jt), opt_rlend=i_rlend    )! in
 
 
       CASE( MIURA3 )
@@ -289,13 +290,13 @@ CONTAINS
 
       CASE ( MCYCL )
         ! CALL MIURA with second order accurate reconstruction and subcycling
-        CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,    &! in
-          &             p_mass_flx_e, p_vn, p_dtime, 2, p_int,           &! in
-          &             lcompute%mcycl_h(jt), lcleanup%mcycl_h(jt),      &! in
-          &             p_igrad_c_miura, p_itype_hlimit(jt),             &! in
-          &             p_iord_backtraj, p_upflux(:,:,:,jt),             &! in,inout
-          &             opt_real_vt=z_real_vt, opt_slev=p_iadv_slev(jt), &! in
-          &             opt_rlend=i_rlend                                )! in
+        CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,     &! in
+          &             p_mass_flx_e, p_vn, p_dtime, 2, p_int,            &! in
+          &             lcompute%mcycl_h(jt), lcleanup%mcycl_h(jt),       &! in
+          &             p_igrad_c_miura, p_itype_hlimit(jt),              &! in
+          &             p_iord_backtraj, p_upflux(:,:,:,jt),              &! in,inout
+          &             opt_lconsv= llsq_lin_consv, opt_real_vt=z_real_vt,&! in 
+          &             opt_slev=p_iadv_slev(jt), opt_rlend=i_rlend       )! in
 
 
       CASE( MIURA_MCYCL )
@@ -305,9 +306,9 @@ CONTAINS
           &            p_vn, p_dtime, p_int, lcompute%miura_mcycl_h(jt), &! in
           &            lcleanup%miura_mcycl_h(jt), p_igrad_c_miura,      &! in
           &            p_itype_hlimit(jt), p_iord_backtraj,              &! in
-          &            p_upflux(:,:,:,jt), opt_real_vt=z_real_vt,        &! inout,in
-          &            opt_slev=p_iadv_slev(jt), opt_elev=p_patch%nlev,  &! in
-          &            opt_rlend=i_rlend                                 )! in
+          &            p_upflux(:,:,:,jt), opt_lconsv= llsq_lin_consv,   &! inout,in
+          &            opt_real_vt=z_real_vt, opt_slev=p_iadv_slev(jt),  &! in
+          &            opt_elev=p_patch%nlev, opt_rlend=i_rlend          )! in
 
         CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,    &! in
           &                p_mass_flx_e, p_vn, p_dtime, 2, p_int,        &! in
@@ -315,6 +316,7 @@ CONTAINS
           &                lcleanup%miura_mcycl_h(jt),                   &! in
           &                p_igrad_c_miura, p_itype_hlimit(jt),          &! in
           &                p_iord_backtraj, p_upflux(:,:,:,jt),          &! in,inout
+          &                opt_lconsv= llsq_lin_consv,                   &! in
           &                opt_real_vt=z_real_vt, opt_slev=1,            &! in
           &                opt_elev=p_iadv_slev(jt)-1, opt_rlend=i_rlend )! in
 
@@ -335,6 +337,7 @@ CONTAINS
           &                lcleanup%miura3_mcycl_h(jt),                  &! in
           &                p_igrad_c_miura, p_itype_hlimit(jt),          &! in
           &                p_iord_backtraj, p_upflux(:,:,:,jt),          &! in,inout
+          &                opt_lconsv= llsq_lin_consv,                   &! in
           &                opt_real_vt=z_real_vt, opt_slev=1,            &! in
           &                opt_elev=p_iadv_slev(jt)-1, opt_rlend=i_rlend )! in
       END SELECT
@@ -502,7 +505,7 @@ CONTAINS
   !!
   SUBROUTINE upwind_hflux_miura( p_patch, p_cc, p_mass_flx_e, p_vn, p_dtime,  &
     &                   p_int, ld_compute, ld_cleanup, p_igrad_c_miura,       &
-    &                   p_itype_hlimit, p_iord_backtraj, p_out_e,             &
+    &                   p_itype_hlimit, p_iord_backtraj, p_out_e, opt_lconsv, &
     &                   opt_rlstart, opt_rlend, opt_lout_edge, opt_real_vt,   &
     &                   opt_slev, opt_elev )
 
@@ -544,6 +547,9 @@ CONTAINS
 
     REAL(wp), INTENT(INOUT) ::  &   !< output field, containing the upwind flux or the
       &  p_out_e(:,:,:)             !< reconstructed edge value; dim: (nproma,nlev,nblks_e)
+
+    LOGICAL, INTENT(IN), OPTIONAL :: & !< optional: if true, conservative reconstruction
+     &  opt_lconsv                     !< is used
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
      &  opt_rlstart                    !< only valid for calculation of 'edge value'
@@ -634,6 +640,12 @@ CONTAINS
       elev = nlev
     END IF
 
+    IF ( PRESENT(opt_lconsv) ) THEN
+     l_consv = opt_lconsv
+    ELSE
+     l_consv = .FALSE. ! non-conservative reconstruction
+    ENDIF
+
     IF ( PRESENT(opt_lout_edge) ) THEN
       l_out_edgeval = opt_lout_edge
     ELSE
@@ -676,9 +688,6 @@ CONTAINS
       i_rlend_vt = MAX(i_rlend_tr - 1, min_rledge)
     ENDIF
 
-    ! use nonconservative lsq reconstruction; should be specified via a namelist
-    ! variable that still needs to be introduced in interpol_ctl
-    l_consv = .FALSE.
 
     ! number of child domains
     i_nchdom = MAX(1,p_patch%n_childdom)
@@ -1099,8 +1108,8 @@ CONTAINS
   SUBROUTINE upwind_hflux_miura_cycl( p_patch, p_cc, p_rho, p_mass_flx_e, p_vn,    &
     &                   p_dtime,  p_ncycl, p_int, ld_compute, ld_cleanup,          &
     &                   p_igrad_c_miura, p_itype_hlimit, p_iord_backtraj, p_out_e, &
-    &                   opt_rlstart, opt_rlend, opt_lout_edge, opt_real_vt,        &
-    &                   opt_slev, opt_elev  )
+    &                   opt_lconsv, opt_rlstart, opt_rlend, opt_lout_edge,         &
+    &                   opt_real_vt, opt_slev, opt_elev  )
 
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
@@ -1148,6 +1157,9 @@ CONTAINS
 
     REAL(wp), INTENT(INOUT) ::  &   !< output field, containing the upwind flux or the
       &  p_out_e(:,:,:)             !< reconstructed edge value; dim: (nproma,nlev,nblks_e)
+
+    LOGICAL, INTENT(IN), OPTIONAL :: & !< optional: if true, conservative reconstruction
+     &  opt_lconsv                     !< is used
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
       &  opt_rlstart                   !< only valid for calculation of 'edge value'
@@ -1257,6 +1269,12 @@ CONTAINS
       elev = nlev
     END IF
 
+    IF ( PRESENT(opt_lconsv) ) THEN
+     l_consv = opt_lconsv
+    ELSE
+     l_consv = .FALSE. ! non-conservative reconstruction
+    ENDIF
+
     IF ( PRESENT(opt_lout_edge) ) THEN
       l_out_edgeval = opt_lout_edge
     ELSE
@@ -1302,9 +1320,6 @@ CONTAINS
     ! one half of current time step
     z_dthalf = 0.5_wp * z_dtsub
 
-    ! use nonconservative lsq reconstruction; should be specified via a namelist
-    ! variable that still needs to be introduced in interpol_ctl
-    l_consv = .FALSE.
 
     ! number of child domains
     i_nchdom = MAX(1,p_patch%n_childdom)

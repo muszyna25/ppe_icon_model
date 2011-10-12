@@ -42,7 +42,8 @@ MODULE mo_interpol_nml
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
                                   & open_and_restore_namelist, close_tmpfile
 
-  USE mo_interpol_config,     ONLY: config_llsq_high_consv   => llsq_high_consv   , &
+  USE mo_interpol_config,     ONLY: config_llsq_lin_consv    => llsq_lin_consv    , &
+                                  & config_llsq_high_consv   => llsq_high_consv   , &
                                   & config_lsq_high_ord      => lsq_high_ord      , &
                                   & config_rbf_vec_kern_c    => rbf_vec_kern_c    , &
                                   & config_rbf_vec_scale_c   => rbf_vec_scale_c   , &
@@ -66,8 +67,10 @@ MODULE mo_interpol_nml
   ! namelist variables
   !--------------------
 
-  LOGICAL  :: llsq_high_consv     ! flag to determine whether the high order least 
-                                  ! squares reconstruction should be conservative
+  LOGICAL  :: llsq_lin_consv      ! conservative (TRUE) or non-conservative (FALSE)
+                                  ! linear least squares reconstruction
+  LOGICAL  :: llsq_high_consv     ! conservative (TRUE) or non-conservative (FALSE)
+                                  ! high order least squares reconstruction 
 
   INTEGER  :: lsq_high_ord        ! specific order for higher order lsq
 
@@ -116,13 +119,13 @@ MODULE mo_interpol_nml
                                   ! After the writing of the paper to be published in JCP 
                                   ! it seems that l_corner_vort=.TRUE. should be the right way.
 
-  NAMELIST/interpol_nml/ llsq_high_consv,   lsq_high_ord,        &
-                       & rbf_vec_kern_c,    rbf_vec_scale_c,     &
-                       & rbf_vec_kern_v,    rbf_vec_scale_v,     &
-                       & rbf_vec_kern_e,    rbf_vec_scale_e,     &
-                       & i_cori_method,     nudge_max_coeff,     &
-                       & nudge_efold_width, nudge_zone_width,    &
-                       & l_corner_vort
+  NAMELIST/interpol_nml/ llsq_lin_consv,    llsq_high_consv,     &
+                       & lsq_high_ord,      rbf_vec_kern_c,      &
+                       & rbf_vec_scale_c,   rbf_vec_kern_v,      &
+                       & rbf_vec_scale_v,   rbf_vec_kern_e,      &
+                       & rbf_vec_scale_e,   i_cori_method,       &
+                       & nudge_max_coeff,   nudge_efold_width,   &
+                       & nudge_zone_width,  l_corner_vort
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -154,7 +157,8 @@ CONTAINS
     ! 1. default settings   
     !-----------------------
     ! LSQ reconstruction at cell center
-    llsq_high_consv  = .TRUE.   ! conservative reconstruction
+    llsq_lin_consv   = .FALSE.  ! non-conservative linear reconstruction
+    llsq_high_consv  = .TRUE.   ! conservative high order reconstruction
     lsq_high_ord     = 3        ! cubic polynomial
 
     ! Kernals for RBF vector reconstruction
@@ -222,6 +226,7 @@ CONTAINS
     !----------------------------------------------------
     ! 4. Fill the configuration state
     !----------------------------------------------------
+    config_llsq_lin_consv     = llsq_lin_consv
     config_llsq_high_consv    = llsq_high_consv
     config_lsq_high_ord       = lsq_high_ord 
     config_rbf_vec_kern_c     = rbf_vec_kern_c 
