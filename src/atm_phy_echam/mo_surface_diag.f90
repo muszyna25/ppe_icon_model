@@ -97,13 +97,17 @@ CONTAINS
     ! If surface heat fluxes (incl. latent) are switched off, set
     ! corresponding values to zero and return to the calling subroutine.
     !===================================================================
-    pevap_tile(:,:) = 0._wp
-    IF (.NOT.lsfc_heat_flux) THEN
 
+    ! KF set tile-fields to zero in order to avoid uninitialised values
+    ! at diagnostics and output
+
+       pevap_tile(1:kproma,:) = 0._wp
        pevap_gbm (1:kproma)   = 0._wp
       plhflx_tile(1:kproma,:) = 0._wp
       pshflx_tile(1:kproma,:) = 0._wp
 
+
+    IF (.NOT.lsfc_heat_flux) THEN
       RETURN
     END IF
 

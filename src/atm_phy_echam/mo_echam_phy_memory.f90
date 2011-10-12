@@ -209,6 +209,7 @@ MODULE mo_echam_phy_memory
       & rsfc      (:,  :),  &!< sfc rain flux, convective  [kg m-2 s-1]
       & ssfl      (:,  :),  &!< sfc snow flux, large scale [kg m-2 s-1]
       & ssfc      (:,  :),  &!< sfc snow flux, convective  [kg m-2 s-1]
+      & totprec_avg(:, :),  &!< (time ave)  total precipitation flux,[kg m-2 s-1]
       & qvi       (:,  :),  &!< (time accum) vertically integrated water vapor [kg/m**2s]
       & xlvi      (:,  :),  &!< (time accum) vertically integrated cloud water [kg/m**2s]
       & xivi      (:,  :)    !< (time accum) vertically integrated cloud ice [kg/m**2s]
@@ -265,7 +266,11 @@ MODULE mo_echam_phy_memory
       & swflxsfc    (:,:),  &!< [ W/m2] shortwave net flux at surface
       & lwflxsfc    (:,:),  &!< [ W/m2] longwave net flux at surface
       & swflxtoa    (:,:),  &!< [ W/m2] shortwave net flux at TOA 
-      & lwflxtoa    (:,:)    !< [ W/m2] shortwave net flux at TOA
+      & lwflxtoa    (:,:),  &!< [ W/m2] shortwave net flux at TOA
+      & swflxsfc_avg(:,:),  &!< [ W/m2] averaged shortwave net flux at surface
+      & lwflxsfc_avg(:,:),  &!< [ W/m2] averaged longwave net flux at surface
+      & swflxtoa_avg(:,:),  &!< [ W/m2] averaged shortwave net flux at TOA 
+      & lwflxtoa_avg(:,:)    !< [ W/m2] averaged shortwave net flux at TOA
 
     TYPE(t_ptr2d),ALLOCATABLE :: z0m_tile_ptr(:)
 
@@ -290,9 +295,9 @@ MODULE mo_echam_phy_memory
     TYPE(t_ptr2d),ALLOCATABLE :: qs_sfc_tile_ptr(:)
 
     REAL(wp),POINTER :: &
-      & lhflx_ac  (:,  :), &!< (time accum) grid box mean latent   heat flux at surface 
-      & shflx_ac  (:,  :), &!< (time accum) grid box mean sensible heat flux at surface 
-      &  evap_ac  (:,  :), &!< (time accum) grid box mean evaporation at surface 
+      & lhflx_avg  (:,  :), &!< (time accum) grid box mean latent   heat flux at surface 
+      & shflx_avg  (:,  :), &!< (time accum) grid box mean sensible heat flux at surface 
+      &  evap_avg  (:,  :), &!< (time accum) grid box mean evaporation at surface 
       & lhflx_tile(:,:,:), &!< (instantaneous) latent   heat flux at surface 
       & shflx_tile(:,:,:), &!< (instantaneous) sensible heat flux at surface 
       &  evap_tile(:,:,:)   !< (instantaneous) evaporation at surface 
@@ -302,8 +307,8 @@ MODULE mo_echam_phy_memory
     TYPE(t_ptr2d),ALLOCATABLE ::  evap_tile_ptr(:)
 
     REAL(wp),POINTER :: &
-      & u_stress_ac  (:,  :), &!< (time accum) grid box mean wind stress 
-      & v_stress_ac  (:,  :), &!< (time accum) grid box mean wind stress 
+      & u_stress_avg  (:,  :), &!< (time accum) grid box mean wind stress 
+      & v_stress_avg  (:,  :), &!< (time accum) grid box mean wind stress 
       & u_stress_tile(:,:,:), &!< (instantaneous) wind stress 
       & v_stress_tile(:,:,:)   !< (instantaneous) wind stress 
 
@@ -767,6 +772,34 @@ CONTAINS
     CALL add_var( field_list, prefix//'lwflxtoa', field%lwflxtoa,                             &
               & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) 
 
+    !averaged values
+
+       ! &      field%swflxsfc_avg(nproma,nblks_c)
+    cf_desc    = t_cf_var('swflxsfc_avg', 'W m-2',&
+      &                                 'averaged over output shortwave net flux at surface')
+    grib2_desc = t_grib2_var(0, 4, 9, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'swflxsfc_avg', field%swflxsfc_avg,                      &
+               & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) 
+        
+    ! &      field%swflxtoa_avg(nproma,nblks_c)
+    cf_desc    = t_cf_var('swflxtoa_avg', 'W m-2','averaged over output shortwave net flux at TOA')
+    grib2_desc = t_grib2_var(0, 4, 9, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'swflxtoa_avg', field%swflxtoa_avg,                  &
+               & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) 
+        
+    ! &      field%lwflxsfc_avg(nproma,nblks_c)
+    cf_desc    = t_cf_var('lwflxsfc_avg', 'W m-2', &
+      &                    'averaged over output longwave net flux at surface')
+    grib2_desc = t_grib2_var(0, 5, 5, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'lwflxsfc_avg', field%lwflxsfc_avg,           &
+               & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) 
+
+    ! &      field%lwflxsfc_avg(nproma,nblks_c)
+    cf_desc    = t_cf_var('lwflxtoa_avg', 'W m-2','averaged over output longwave net flux at TOA')
+    grib2_desc = t_grib2_var(0, 5, 5, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'lwflxtoa_avg', field%lwflxtoa_avg,                 &
+              & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) 
+
 
     !---- 3D variables defined at layer interfaces ----
 
@@ -894,6 +927,13 @@ CONTAINS
                & 'instantaneous convective precipitation flux (snow)')
     grib2_desc = t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'ssfc', field%ssfc,                       &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+    ! &       field% totprec_avg   (nproma,       nblks), &
+    cf_desc    = t_cf_var('TOTPREC_AVG', 'kg m-2 s-1',    &
+               & 'averaged over output total precipitation flux')
+    grib2_desc = t_grib2_var(0, 1, 52, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'totprec_avg', field%totprec_avg,                       &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
     ! &       field%  qvi   (nproma,       nblks), &
@@ -1218,24 +1258,24 @@ CONTAINS
     !---------------------------
     ! Accumulated gridbox mean
 
-    CALL add_var( field_list, prefix//'evap_ac', field%evap_ac,           &
+    CALL add_var( field_list, prefix//'evap_avg', field%evap_avg,           &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                  &
-                & t_cf_var('evap_ac', 'kg m-2', 'evaporation'//           &
-                & ' accumulated over output interval'),                   &
+                & t_cf_var('evap_avg', 'kg m-2', 'evaporation'//           &
+                & ' averaged over output interval'),                   &
                 & t_grib2_var(2,0,6,morebits, GRID_REFERENCE, GRID_CELL), &
                 & ldims=shape2d                                           )
 
-    CALL add_var( field_list, prefix//'lhflx_ac', field%lhflx_ac,         &
+    CALL add_var( field_list, prefix//'lhflx_avg', field%lhflx_avg,         &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                  &
-                & t_cf_var('lhflx_ac', 'W m-2 s', 'latent heat flux'//    &
-                & 'accumulated over output interval'),                    &
+                & t_cf_var('lhflx_avg', 'W m-2 s', 'latent heat flux'//    &
+                & 'averaged over output interval'),                    &
                 & t_grib2_var(2, 0, 6, nbits, GRID_REFERENCE, GRID_CELL), &
                 & ldims=shape2d                                           )
 
-    CALL add_var( field_list, prefix//'shflx_ac', field%shflx_ac,         &
+    CALL add_var( field_list, prefix//'shflx_avg', field%shflx_avg,         &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                  &
-                & t_cf_var('shflx_ac', 'W m-2 s', 'sensible heat flux'//  &
-                & 'accumulated over output interval'),                    &
+                & t_cf_var('shflx_avg', 'W m-2 s', 'sensible heat flux'//  &
+                & 'averaged over output interval'),                    &
                 & t_grib2_var(2, 0, 6, nbits, GRID_REFERENCE, GRID_CELL), &
                 & ldims=shape2d                                           )
 
@@ -1296,17 +1336,17 @@ CONTAINS
     ! wind stress, accumulated grid box mean
     !-----------------------------------------
 
-    CALL add_var( field_list, prefix//'u_stress_ac', field%u_stress_ac,        &
+    CALL add_var( field_list, prefix//'u_stress_avg', field%u_stress_avg,        &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                       &
-                & t_cf_var('u_stress_ac', 'N m-2 s', 'surface wind stress'//   &
-                & 'accumulated over output interval'),                         &
+                & t_cf_var('u_stress_avg', 'N m-2 s', 'surface wind stress'//   &
+                & 'averaged over output interval'),                         &
                 & t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL),&
                 & ldims=shape2d                                                )
 
-    CALL add_var( field_list, prefix//'v_stress_ac', field%v_stress_ac,        &
+    CALL add_var( field_list, prefix//'v_stress_avg', field%v_stress_avg,        &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                       &
-                & t_cf_var('v_stress_ac', 'N m-2 s', 'surface wind stress'//   &
-                & 'accumulated over output interval'),                         &
+                & t_cf_var('v_stress_avg', 'N m-2 s', 'surface wind stress'//   &
+                & 'averaged over output interval'),                         &
                 & t_grib2_var(255, 255, 255, nbits, GRID_REFERENCE, GRID_CELL),&
                 & ldims=shape2d                                                )
 

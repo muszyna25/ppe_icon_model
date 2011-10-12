@@ -435,7 +435,14 @@ CONTAINS
 
       field% cosmu0    (:,  :) = 0._wp
       field% flxdwswtoa(:,  :) = 0._wp
-
+      field% swflxsfc    (:,:) = 0._wp
+      field% lwflxsfc    (:,:) = 0._wp
+      field% swflxtoa    (:,:) = 0._wp
+      field% lwflxtoa    (:,:) = 0._wp
+      field% swflxsfc_avg(:,:) = 0._wp
+      field% lwflxsfc_avg(:,:) = 0._wp
+      field% swflxtoa_avg(:,:) = 0._wp
+      field% lwflxtoa_avg(:,:) = 0._wp
       field% aclc  (:,:,:) = 0._wp
       field% aclcac(:,:,:) = 0._wp
       field% aclcov(:,  :) = 0._wp
@@ -451,13 +458,13 @@ CONTAINS
       field% ssfc  (:,  :) = 0._wp
       field% omega (:,:,:) = 0._wp
 
-      field%  evap_ac(:,  :) = 0._wp
-      field%evap_tile(:,  :, :) = 0._wp
-      field% lhflx_ac(:,  :) = 0._wp
-      field% shflx_ac(:,  :) = 0._wp
+      field%totprec_avg(:,:) = 0._wp
+      field%  evap_avg(:,  :) = 0._wp
+      field% lhflx_avg(:,  :) = 0._wp
+      field% shflx_avg(:,  :) = 0._wp
 
-      field% u_stress_ac(:,  :) = 0._wp
-      field% v_stress_ac(:,  :) = 0._wp
+      field% u_stress_avg(:,  :) = 0._wp
+      field% v_stress_avg(:,  :) = 0._wp
 
       field% rtype (:,  :) = 0._wp
       field% rintop(:,  :) = 0._wp
@@ -630,8 +637,9 @@ CONTAINS
       ! Reset accumulated variables
       !----------------------------------------
 
-      field% aclcac(:,:,:) = 0._wp
-      field% aclcov(:,  :) = 0._wp
+      field% aclcac     (:,:,:) = 0._wp
+      field% aclcov     (:,  :) = 0._wp
+      field%totprec_avg(:,:)   = 0._wp
 
       field% qvi   (:,  :) = 0._wp
       field% xlvi  (:,  :) = 0._wp
@@ -641,12 +649,17 @@ CONTAINS
       field% aprc  (:,  :) = 0._wp
       field% aprs  (:,  :) = 0._wp
 
-      field%  evap_ac(:,  :) = 0._wp
-      field% lhflx_ac(:,  :) = 0._wp
-      field% shflx_ac(:,  :) = 0._wp
+      field%  evap_avg(:,:) = 0._wp
+      field% lhflx_avg(:,:) = 0._wp
+      field% shflx_avg(:,:) = 0._wp
 
-      field% u_stress_ac(:,  :) = 0._wp
-      field% v_stress_ac(:,  :) = 0._wp
+      field% u_stress_avg(:,:) = 0._wp
+      field% v_stress_avg(:,:) = 0._wp
+
+     field% swflxsfc_avg(:,:) = 0._wp
+     field% lwflxsfc_avg(:,:) = 0._wp
+     field% swflxtoa_avg(:,:) = 0._wp
+     field% lwflxtoa_avg(:,:) = 0._wp
 
       NULLIFY( field )
     ENDDO !jg

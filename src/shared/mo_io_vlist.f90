@@ -1047,10 +1047,10 @@ CONTAINS
             &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
             &           k_jg)
           ENDIF
-        END SELECT
+  !      END SELECT
 
-        SELECT CASE (iforcing)
-        CASE (inwp)
+  !      SELECT CASE (iforcing)
+  !      CASE (inwp)
           IF (lflux_avg ) THEN
             sufix = "_avg"
             meaning = "averaged"
@@ -1087,6 +1087,11 @@ CONTAINS
           &                   'W/m**2', 114, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
+
+        END SELECT
+
+          SELECT CASE (iforcing)
+          CASE (inwp)
           CALL addVar(TimeVar('swflxsfc',&
           &                   'shortwave surface net flux',&
           &                   'W/m**2', 176, 128,&
@@ -1621,27 +1626,31 @@ CONTAINS
 
         CASE (iecham,ildf_echam)
 
-          CALL addVar(TimeVar('evap_ac',                                         &
+          CALL addVar(TimeVar('TOTPREC_AVG',&
+          &                   'average over output total preipitation flux',&
+          &                   'kg/m**2/s', 110, 128,&
+          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
+          CALL addVar(TimeVar('evap_avg',                                         &
           &           'evaporation accumulated over output interval',            &
           &           'kg m-2', 182, 128,                                        &
           &           vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
 
-          CALL addVar(TimeVar('lhflx_ac',                                        &
+          CALL addVar(TimeVar('lhflx_avg',                                        &
           &           'latent heat flux accumulated over output interval',       &
           &           'W m-2 s', 147, 128,                                       &
           &           vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
 
-          CALL addVar(TimeVar('shflx_ac',                                        &
+          CALL addVar(TimeVar('shflx_avg',                                        &
           &           'sensible heat flux accumulated over output interval',     &
           &           'W m-2 s', 146, 128,                                       &
           &           vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
 
-          CALL addVar(TimeVar('u_stress_ac',                                     &
+          CALL addVar(TimeVar('u_stress_avg',                                     &
           &           'surface wind stress accumulated over output interval',    &
           &           'N m-2 s', 180, 128,                                       &
           &           vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
 
-          CALL addVar(TimeVar('v_stress_ac',                                     &
+          CALL addVar(TimeVar('v_stress_avg',                                     &
           &           'surface wind stress accumulated over output interval',    &
           &           'N m-2 s', 181, 128,                                       &
           &           vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
@@ -2585,11 +2594,18 @@ CONTAINS
       CASE ('xlvi');            ptr2 => prm_field(jg)%xlvi(:,:);   reset = .TRUE.
       CASE ('xivi');            ptr2 => prm_field(jg)%xivi(:,:);   reset = .TRUE.
 
-      CASE ('evap_ac');         ptr2 => prm_field(jg)%    evap_ac(:,:); reset = .TRUE.
-      CASE ('lhflx_ac');        ptr2 => prm_field(jg)%   lhflx_ac(:,:); reset = .TRUE.
-      CASE ('shflx_ac');        ptr2 => prm_field(jg)%   shflx_ac(:,:); reset = .TRUE.
-      CASE ('u_stress_ac');     ptr2 => prm_field(jg)%u_stress_ac(:,:); reset = .TRUE.
-      CASE ('v_stress_ac');     ptr2 => prm_field(jg)%v_stress_ac(:,:); reset = .TRUE.
+      !KF these fields are output averaged!
+      CASE ('swflxsfc_avg'); ptr2 => dup2(prm_field(jg)% swflxsfc_avg(:,:)/dt_data); reset=.TRUE.
+      CASE ('lwflxsfc_avg'); ptr2 => dup2(prm_field(jg)% lwflxsfc_avg(:,:)/dt_data); reset=.TRUE.
+      CASE ('swflxtoa_avg'); ptr2 => dup2(prm_field(jg)% swflxtoa_avg(:,:)/dt_data); reset=.TRUE.
+      CASE ('lwflxtoa_avg'); ptr2 => dup2(prm_field(jg)% lwflxtoa_avg(:,:)/dt_data); reset=.TRUE.
+
+      CASE ('TOTPREC_AVG');  ptr2 => dup2(prm_field(jg)% totprec_avg(:,:)/dt_data); reset = .TRUE.
+      CASE ('evap_avg');     ptr2 => dup2(prm_field(jg)%    evap_avg(:,:)/dt_data); reset = .TRUE.
+      CASE ('lhflx_avg');    ptr2 => dup2(prm_field(jg)%   lhflx_avg(:,:)/dt_data); reset = .TRUE.
+      CASE ('shflx_avg');    ptr2 => dup2(prm_field(jg)%   shflx_avg(:,:)/dt_data); reset = .TRUE.
+      CASE ('u_stress_avg'); ptr2 => dup2(prm_field(jg)%u_stress_avg(:,:)/dt_data); reset = .TRUE.
+      CASE ('v_stress_avg'); ptr2 => dup2(prm_field(jg)%v_stress_avg(:,:)/dt_data); reset = .TRUE.
 
       CASE ('OMEGA_PHY');       ptr3 => prm_field(jg)%omega
       CASE ('tend_temp_radsw'); ptr3 => prm_tend(jg)%temp_radsw

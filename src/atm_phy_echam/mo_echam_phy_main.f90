@@ -73,7 +73,7 @@ MODULE mo_echam_phy_main
   USE mo_cover,               ONLY: cover
   USE mo_echam_cloud_params,  ONLY: ctaus, ctaul, ctauk !, ncctop, nccbot
   USE mo_radiation,           ONLY: radiation, radheat
-  USE mo_radiation_config,    ONLY: tsi, izenith, irad_o3
+  USE mo_radiation_config,    ONLY: tsi, izenith, irad_o3,dt_rad
   USE mo_srtm_config,         ONLY: jpsw
   USE mo_lrtm_par,            ONLY: jpband => nbndlw
   USE mo_vdiff_config,        ONLY: vdiff_config
@@ -684,11 +684,11 @@ CONTAINS
                        & zcpt_sfc_tile(:,:),           &! inout, from "vdiff_down", for "vdiff_up"
                        & field%qs_sfc_tile(:,jb,:),    &! inout, from "vdiff_down", for "vdiff_up"
                        & field%  tsfc_tile(:,jb,:),    &! inout
-                       & field%u_stress_ac(:,  jb),    &! inout
-                       & field%v_stress_ac(:,  jb),    &! inout
-                       & field% lhflx_ac  (:,  jb),    &! inout
-                       & field% shflx_ac  (:,  jb),    &! inout
-                       & field%  evap_ac  (:,  jb),    &! inout
+                       & field%u_stress_avg(:,  jb),    &! inout ! NOTE: these values come out
+                       & field%v_stress_avg(:,  jb),    &! inout ! as accumulated ones, but
+                       & field% lhflx_avg  (:,  jb),    &! inout ! will be averaged when submitted
+                       & field% shflx_avg  (:,  jb),    &! inout ! to the
+                       & field%  evap_avg  (:,  jb),    &! inout ! OUTPUT
                        & field%u_stress_tile(:,jb,:),  &! inout
                        & field%v_stress_tile(:,jb,:),  &! inout
                        & field% lhflx_tile(:,jb,:),    &! out
@@ -1002,6 +1002,26 @@ CONTAINS
       field% aclc (jcs:jce,:,jb) = 0._wp
 
     ENDIF !lcond
+
+    ! KF accumulate fields for diagnostics
+
+    ! accumulated total precipitation flux => average when output
+       field% totprec_avg (jcs:jce,  jb) =  field% totprec_avg (jcs:jce,jb)                   &
+         &                               + (field% rsfl (jcs:jce,jb)+field% ssfl (jcs:jce,jb) &
+         &                               +  field% rsfc (jcs:jce,jb)+field% ssfc (jcs:jce,jb)) &
+         &                               * pdtime
+
+       IF (ltrig_rad) THEN
+    ! KF accumulated net TOA and surface radiation fluxes
+       field% swflxsfc_avg(jcs:jce,jb) = field% swflxsfc_avg(jcs:jce,jb)  &
+         &                             + field% swflxsfc    (jcs:jce,jb) *dt_rad
+       field% lwflxsfc_avg(jcs:jce,jb) = field% lwflxsfc_avg(jcs:jce,jb)  &
+         &                             + field% lwflxsfc    (jcs:jce,jb) *dt_rad
+       field% swflxtoa_avg(jcs:jce,jb) = field% swflxtoa_avg(jcs:jce,jb) &
+         &                             + field% swflxtoa    (jcs:jce,jb) *dt_rad
+       field% lwflxtoa_avg(jcs:jce,jb) = field% lwflxtoa_avg(jcs:jce,jb) &
+         &                             + field% lwflxtoa    (jcs:jce,jb) *dt_rad
+     ENDIF
 
     ! Done. Disassociate pointers.
     NULLIFY(field,tend)
