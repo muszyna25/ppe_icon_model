@@ -124,7 +124,7 @@ CONTAINS
   !
   ! local variables
   CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:update_sfcflx'
-  INTEGER  :: jmon, njday, jdays, jdmon, jmon1, jmon2
+  INTEGER  :: jmon, njday, jdmon, jmon1, jmon2!, jdays
   INTEGER  :: jc, jb
   INTEGER  :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
   INTEGER  :: rl_start_c, rl_end_c
@@ -250,6 +250,7 @@ CONTAINS
 
     IF (iforc_omip == 2) THEN
 
+    !-------------------------------------------------------------------------
       ! provide OMIP fluxes for sea ice (interface to ocean)
       ! 4:  tafo(:,:),   &  ! 2 m air temperature                              [C]
       ! 5:  ftdew(:,:),  &  ! 2 m dew-point temperature                        [K]
@@ -277,10 +278,22 @@ CONTAINS
 
     END IF
 
-    !-------------------------------------------------------------------------
-    ! Apply monthly SST relaxation data from stationary forcing
+    IF (iforc_omip == 3) THEN
+
+      !-------------------------------------------------------------------------
+      ! Apply surface heat and freshwater fluxes
+
+   !  p_as%sfch(:,:)  = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,4) + &
+   !    &               rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,4)
+   !  p_as%sfcf(:,:)  = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,4) + &
+   !    &               rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,4)
+
+    END IF
 
     IF (temperature_relaxation == 2 .OR. temperature_relaxation == 3)  THEN
+
+      !-------------------------------------------------------------------------
+      ! Apply Temperature relaxation data (array 3) from stationary forcing
       !  - change units to deg C, subtract tmelt (0 deg C, 273.15)
 
        p_sfc_flx%forc_tracer_relax(:,:,1) = &

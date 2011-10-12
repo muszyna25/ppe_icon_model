@@ -1333,9 +1333,10 @@ CONTAINS
     shape2d_c = (/ nproma, nblks_c /)
     shape2d_e = (/ nproma, nblks_e /)
 
-    ! OMIP or other flux forcing data on cell centers: 3 or 15 variables, iforc_len data sets
+    ! OMIP or other flux forcing data on cell centers: 3, 5 or 15 variables, iforc_len data sets
     IF (iforc_omip == 1 ) idim_omip =  3
     IF (iforc_omip == 2 ) idim_omip = 15
+    IF (iforc_omip == 3 ) idim_omip =  5
     shape4d_c = (/ nproma, iforc_len, nblks_c, idim_omip /)
 
     !
@@ -2227,10 +2228,7 @@ CONTAINS
       IF(my_process_is_stdio()) THEN
         !
         WRITE (omip_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-flux.nc'
-        !omip_file=TRIM('/home/peter/Development/ICON-dev/icon-oce-dev/grids/iconR2B04-flux.nc')
-        !omip_file=TRIM('/scratch/local1/m212053/ICON/icon-oce-dev/grids/iconR2B04-flux.nc')
 
-      ! OMIP flux files now on pool:
         !omip_file=TRIM('/pool/data/ICON/external/iconR2B04-flux.nc')
         CALL message( TRIM(routine),'Ocean OMIP forcing flux file is: '//TRIM(omip_file) )
         INQUIRE (FILE=omip_file, EXIST=l_exist)
@@ -2306,59 +2304,75 @@ CONTAINS
 
       IF (iforc_omip == 2) THEN
 
-      ! 2m-temperature
-      CALL read_netcdf_data (ncid, 'temp_2m', p_patch(jg)%n_patch_cells_g,           &
-        &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                    no_tst, z_flux)
-      ext_data(jg)%oce%omip_forc_mon_c(:,:,:,4) = z_flux(:,:,:)
+        ! 2m-temperature
+        CALL read_netcdf_data (ncid, 'temp_2m', p_patch(jg)%n_patch_cells_g,           &
+          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                    no_tst, z_flux)
+        ext_data(jg)%oce%omip_forc_mon_c(:,:,:,4) = z_flux(:,:,:)
+     
+        ! 2m dewpoint temperature
+        CALL read_netcdf_data (ncid, 'dpt_temp_2m', p_patch(jg)%n_patch_cells_g,       &
+          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                    no_tst, z_flux)
+        ext_data(jg)%oce%omip_forc_mon_c(:,:,:,5) = z_flux(:,:,:)
+     
+        ! Scalar wind
+        CALL read_netcdf_data (ncid, 'scalar_wind', p_patch(jg)%n_patch_cells_g,       &
+          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                    no_tst, z_flux)
+        ext_data(jg)%oce%omip_forc_mon_c(:,:,:,6) = z_flux(:,:,:)
+     
+        ! cloud cover
+        CALL read_netcdf_data (ncid, 'cloud', p_patch(jg)%n_patch_cells_g,             &
+          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                    no_tst, z_flux)
+        ext_data(jg)%oce%omip_forc_mon_c(:,:,:,7) = z_flux(:,:,:)
+     
+        ! sea level pressure
+        CALL read_netcdf_data (ncid, 'pressure', p_patch(jg)%n_patch_cells_g,          &
+          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                    no_tst, z_flux)
+        ext_data(jg)%oce%omip_forc_mon_c(:,:,:,8) = z_flux(:,:,:)
+     
+        ! total solar radiation
+        CALL read_netcdf_data (ncid, 'tot_solar', p_patch(jg)%n_patch_cells_g,         &
+          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                    no_tst, z_flux)
+        ext_data(jg)%oce%omip_forc_mon_c(:,:,:,9) = z_flux(:,:,:)
+     
+        ! precipitation
+        CALL read_netcdf_data (ncid, 'precip', p_patch(jg)%n_patch_cells_g,            &
+          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                    no_tst, z_flux)
+        ext_data(jg)%oce%omip_forc_mon_c(:,:,:,10) = z_flux(:,:,:)
+     
+        ! evaporation
+        CALL read_netcdf_data (ncid, 'evap', p_patch(jg)%n_patch_cells_g,              &
+          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                    no_tst, z_flux)
+        ext_data(jg)%oce%omip_forc_mon_c(:,:,:,11) = z_flux(:,:,:)
+     
+        ! runoff
+        CALL read_netcdf_data (ncid, 'runoff', p_patch(jg)%n_patch_cells_g,            &
+          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                    no_tst, z_flux)
+        ext_data(jg)%oce%omip_forc_mon_c(:,:,:,12) = z_flux(:,:,:)
 
-      ! 2m dewpoint temperature
-      CALL read_netcdf_data (ncid, 'dpt_temp_2m', p_patch(jg)%n_patch_cells_g,       &
-        &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                    no_tst, z_flux)
-      ext_data(jg)%oce%omip_forc_mon_c(:,:,:,5) = z_flux(:,:,:)
+      END IF
 
-      ! Scalar wind
-      CALL read_netcdf_data (ncid, 'scalar_wind', p_patch(jg)%n_patch_cells_g,       &
-        &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                    no_tst, z_flux)
-      ext_data(jg)%oce%omip_forc_mon_c(:,:,:,6) = z_flux(:,:,:)
+      IF (iforc_omip == 3) THEN
 
-      ! cloud cover
-      CALL read_netcdf_data (ncid, 'cloud', p_patch(jg)%n_patch_cells_g,             &
-        &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                    no_tst, z_flux)
-      ext_data(jg)%oce%omip_forc_mon_c(:,:,:,7) = z_flux(:,:,:)
-
-      ! sea level pressure
-      CALL read_netcdf_data (ncid, 'pressure', p_patch(jg)%n_patch_cells_g,          &
-        &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                    no_tst, z_flux)
-      ext_data(jg)%oce%omip_forc_mon_c(:,:,:,8) = z_flux(:,:,:)
-
-      ! total solar radiation
-      CALL read_netcdf_data (ncid, 'tot_solar', p_patch(jg)%n_patch_cells_g,         &
-        &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                    no_tst, z_flux)
-      ext_data(jg)%oce%omip_forc_mon_c(:,:,:,9) = z_flux(:,:,:)
-
-      ! precipitation
-      CALL read_netcdf_data (ncid, 'precip', p_patch(jg)%n_patch_cells_g,            &
-        &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                    no_tst, z_flux)
-      ext_data(jg)%oce%omip_forc_mon_c(:,:,:,10) = z_flux(:,:,:)
-
-      ! evaporation
-      CALL read_netcdf_data (ncid, 'evap', p_patch(jg)%n_patch_cells_g,              &
-        &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                    no_tst, z_flux)
-      ext_data(jg)%oce%omip_forc_mon_c(:,:,:,11) = z_flux(:,:,:)
-
-      ! runoff
-      CALL read_netcdf_data (ncid, 'runoff', p_patch(jg)%n_patch_cells_g,            &
-        &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-        &                    no_tst, z_flux)
-      ext_data(jg)%oce%omip_forc_mon_c(:,:,:,12) = z_flux(:,:,:)
+        ! net surface heat flux
+        CALL read_netcdf_data (ncid, 'net_hflx', p_patch(jg)%n_patch_cells_g,          &
+          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                    no_tst, z_flux)
+        ext_data(jg)%oce%omip_forc_mon_c(:,:,:,4) = z_flux(:,:,:)
+     
+        ! surface freshwater flux
+        CALL read_netcdf_data (ncid, 'net_fflx', p_patch(jg)%n_patch_cells_g,          &
+          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                    no_tst, z_flux)
+        ext_data(jg)%oce%omip_forc_mon_c(:,:,:,5) = z_flux(:,:,:)
 
       END IF
 
