@@ -929,8 +929,6 @@ CONTAINS
     TYPE(t_mtgrm_station), POINTER :: p_station
 
     mtgrm_data => mtgrm_local_data(jg)
-    ! skip routine, if there is nothing to do...
-    IF (mtgrm_global_data(jg)%nstations == 0) RETURN
 
     ! get global rank and MPI communicator
     myrank = get_my_mpi_all_id()
@@ -1177,9 +1175,9 @@ CONTAINS
     ! character-position dimension for strings of max length 40
     CALL nf(nf_def_dim(ncfile, "charid", MAX_NAME_LENGTH, ncid%charid))
     ! station header:
-    CALL nf(nf_def_dim(ncfile, 'nstations',  mtgrm_data%nstations,   ncid%nstations))
+    CALL nf(nf_def_dim(ncfile, 'nstations',  mtgrm_data%nstations, ncid%nstations))
     ! write variables:
-    CALL nf(nf_def_dim(ncfile, 'nvars',      mtgrm_data%nvars, ncid%nvars))
+    CALL nf(nf_def_dim(ncfile, 'nvars',      mtgrm_data%nvars,     ncid%nvars))
     IF (mtgrm_data%nsfcvars > 0) &
       CALL nf(nf_def_dim(ncfile, 'nsfcvars', mtgrm_data%nsfcvars,  ncid%nsfcvars))
     CALL nf(nf_def_dim(ncfile, 'max_nlevs',  mtgrm_data%max_nlevs, ncid%max_nlevs))
@@ -1459,7 +1457,8 @@ CONTAINS
     CALL mtgrm_flush_file(mtgrm_output_config, jg)
 
     ! skip routine, if this PE has nothing to do...
-    IF  (mtgrm_output_config%ldistributed .OR.  &
+    IF  ((mtgrm_output_config%ldistributed .AND.  &
+      &   (mtgrm_local_data(jg)%nstations > 0)).OR.  &
       & (io_rank == get_my_mpi_all_id())) THEN
       ! Close NetCDF file
       CALL nf(nf_close(mtgrm_file_info(jg)%file_id))
