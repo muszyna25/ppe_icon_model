@@ -138,12 +138,14 @@ ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
 if [ "x$USE_POOLD" == "xY" ] ; then
    POOLDIR="/pool/data/ICON/grids"
    if [ "x$USE_FLATB" == "xY" ] ; then
+   # OCEGRID="ocegridR${R}B0${B}.cde2.flat.nc"
    # OCEGRID="ocegridR${R}B0${B}.cde3.1.flat.nc"
-     OCEGRID="ocegridR${R}B0${B}.cde2.flat.nc"
+     OCEGRID="ocegridR${R}B0${B}.cde3.3.flat.nc"
    fi
    if [ "x$USE_BATHY" == "xY" ] ; then
+   # OCEGRID="ocegridR${R}B0${B}.cde2.planet.nc"
    # OCEGRID="ocegridR${R}B0${B}.cde3.1.planet.nc"
-     OCEGRID="ocegridR${R}B0${B}.cde2.planet.nc"
+     OCEGRID="ocegridR${R}B0${B}.cde3.3.planet.nc"
    fi
    # other ocean grid files can be added here
 fi
@@ -186,9 +188,12 @@ cat > ${ocean_namelist} << EOF
   h_val=1.0 t_val=1.0            ! initial values for elevation and temperature at one cell
 /
 &ocean_dynamics_nml
-  n_zlev             =    4      ! number of vertical levels and (dzlev_m) thicknesses
+  n_zlev             =   10      ! number of vertical levels and (dzlev_m) thicknesses
   dzlev_m(1:20)      =  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,
                        1000.0  1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
+! 10 unevenly spaced levels beginning with 50m depth
+! dzlev_m(1:20)      =   50.0,  100.0,  200.0,  300.0,  450.0,  600.0,  800.0, 1000.0, 1000.0, 1000.0,
+!                      1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
 ! dzlev_m(1:20)       =  20.0,   50.0,   75.0,  125.0,  150.0,  200.0,  300.0,  500.0, 1000.0, 1000.0,
 !                      1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
   iswm_oce           =    0      ! switch for one layer shallow water model (iswm_oce=1) or 3-d
