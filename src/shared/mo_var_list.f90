@@ -12,14 +12,14 @@ MODULE mo_var_list
        &                         new_list, delete_list,      &
        &                         append_list_element,        &
        &                         find_list_element,          &
-       &                         delete_list_element
+       &                         delete_list_element 
   USE mo_exception,        ONLY: message, message_text, finish
   USE mo_util_hash,        ONLY: util_hashword
 
   IMPLICIT NONE
 
   PRIVATE
-
+  
   PUBLIC :: new_var_list              ! get a pointer to a new output var_list
   PUBLIC :: delete_var_list           ! delete an output var_list
   PUBLIC :: delete_var_lists          ! delete all output var_lists
@@ -60,7 +60,7 @@ MODULE mo_var_list
     MODULE PROCEDURE add_var_list_reference_r3d
     MODULE PROCEDURE add_var_list_reference_r2d
   END INTERFACE add_ref
-
+  
   INTERFACE get_var  ! obtain reference to a list entry
     MODULE PROCEDURE get_var_list_element_r5d
     MODULE PROCEDURE get_var_list_element_r4d
@@ -78,7 +78,7 @@ MODULE mo_var_list
     MODULE PROCEDURE get_var_list_element_l2d
     MODULE PROCEDURE get_var_list_element_l1d
   END INTERFACE get_var
-
+  
   INTERFACE assign_if_present  ! purely internal
     MODULE PROCEDURE assign_if_present_character
     MODULE PROCEDURE assign_if_present_logical
@@ -89,7 +89,7 @@ MODULE mo_var_list
     MODULE PROCEDURE assign_if_present_grib2
     MODULE PROCEDURE assign_if_present_union
   END INTERFACE assign_if_present
-
+  
   INTEGER, PARAMETER             :: max_var_lists  = 128      ! max number of output var_lists
   INTEGER,                  SAVE :: nvar_lists =  0           ! var_lists allocated so far
   !
@@ -120,7 +120,7 @@ CONTAINS
     !
     ! look, if name exists already in list
     !
-    DO i = 1, nvar_lists
+    DO i = 1, nvar_lists    
       IF (var_lists(i)%p%name == name) THEN
         CALL finish('new_list', 'output var_list '//TRIM(name)//' already used.')
       ENDIF
@@ -130,7 +130,7 @@ CONTAINS
     !
     ! - check, if there is an entry without name in the existing vector
     !
-    DO i = 1, nvar_lists
+    DO i = 1, nvar_lists    
       IF (var_lists(i)%p%name == '') THEN
         this_list%p => var_lists(i)%p
         EXIT
@@ -314,9 +314,9 @@ CONTAINS
     !
     TYPE(t_var_metadata)         :: this_info        ! memory info structure
     !
-    TYPE(t_var_list), INTENT(in) :: this_list        ! output var_list
+    TYPE(t_var_list), INTENT(in) :: this_list        ! output var_list    
     !
-    this_info%key                 = 0
+    this_info%key                 = 0    
     this_info%name                = ''
     !
     this_info%cf                  = t_cf_var('', '', '')
@@ -468,8 +468,18 @@ CONTAINS
     INTEGER :: istat
     LOGICAL :: referenced
     !
+    ! consistency check for restart and output
+    !
+    IF (PRESENT(lrestart)) THEN
+      IF (.NOT. this_list%p%lrestart .AND. lrestart) THEN
+        CALL finish('mo_var_list:add_var_list_element_r5d',                            &
+             &      'for list '//TRIM(this_list%p%name)//' restarting not enabled, '// &
+             &      'but restart of '//TRIM(name)//' requested.')
+      ENDIF
+    ENDIF
+    !
     ! add list entry
-     !
+    !
     CALL append_list_element (this_list, new_list_element)
     new_list_element%field%info = default_var_list_metadata(this_list)
     !
@@ -567,6 +577,16 @@ CONTAINS
     INTEGER :: idims(5)
     INTEGER :: istat
     LOGICAL :: referenced
+    !
+    ! consistency check for restart and output
+    !
+    IF (PRESENT(lrestart)) THEN
+      IF (.NOT. this_list%p%lrestart .AND. lrestart) THEN
+        CALL finish('mo_var_list:add_var_list_element_r4d',                            &
+             &      'for list '//TRIM(this_list%p%name)//' restarting not enabled, '// &
+             &      'but restart of '//TRIM(name)//' requested.')
+      ENDIF
+    ENDIF
     !
     ! add list entry
     !
@@ -669,6 +689,16 @@ CONTAINS
     INTEGER :: istat
     LOGICAL :: referenced
     !
+    ! consistency check for restart and output
+    !
+    IF (PRESENT(lrestart)) THEN
+      IF (.NOT. this_list%p%lrestart .AND. lrestart) THEN
+        CALL finish('mo_var_list:add_var_list_element_r3d',                            &
+             &      'for list '//TRIM(this_list%p%name)//' restarting not enabled, '// &
+             &      'but restart of '//TRIM(name)//' requested.')
+      ENDIF
+    ENDIF
+    !
     ! add list entry
     !
     CALL append_list_element (this_list, new_list_element)
@@ -770,6 +800,16 @@ CONTAINS
     INTEGER :: istat
     LOGICAL :: referenced
     !
+    ! consistency check for restart and output
+    !
+    IF (PRESENT(lrestart)) THEN
+      IF (.NOT. this_list%p%lrestart .AND. lrestart) THEN
+        CALL finish('mo_var_list:add_var_list_element_r2d',                            &
+             &      'for list '//TRIM(this_list%p%name)//' restarting not enabled, '// &
+             &      'but restart of '//TRIM(name)//' requested.')
+      ENDIF
+    ENDIF
+    !
     ! add list entry
     !
     CALL append_list_element (this_list, new_list_element)
@@ -870,6 +910,16 @@ CONTAINS
     INTEGER :: idims(5)
     INTEGER :: istat
     LOGICAL :: referenced
+    !
+    ! consistency check for restart and output
+    !
+    IF (PRESENT(lrestart)) THEN
+      IF (.NOT. this_list%p%lrestart .AND. lrestart) THEN
+        CALL finish('mo_var_list:add_var_list_element_r1d',                            &
+             &      'for list '//TRIM(this_list%p%name)//' restarting not enabled, '// &
+             &      'but restart of '//TRIM(name)//' requested.')
+      ENDIF
+    ENDIF
     !
     ! add list entry
     !
@@ -973,6 +1023,16 @@ CONTAINS
     INTEGER :: istat
     LOGICAL :: referenced
     !
+    ! consistency check for restart and output
+    !
+    IF (PRESENT(lrestart)) THEN
+      IF (.NOT. this_list%p%lrestart .AND. lrestart) THEN
+        CALL finish('mo_var_list:add_var_list_element_i5d',                            &
+             &      'for list '//TRIM(this_list%p%name)//' restarting not enabled, '// &
+             &      'but restart of '//TRIM(name)//' requested.')
+      ENDIF
+    ENDIF
+    !
     ! add list entry
     !
     CALL append_list_element (this_list, new_list_element)
@@ -1010,7 +1070,7 @@ CONTAINS
       ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
            &    STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_i4d', &
+        CALL finish('mo_var_list:add_var_list_element_i5d', &
              &      'allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
@@ -1072,6 +1132,16 @@ CONTAINS
     INTEGER :: idims(5)
     INTEGER :: istat
     LOGICAL :: referenced
+    !
+    ! consistency check for restart and output
+    !
+    IF (PRESENT(lrestart)) THEN
+      IF (.NOT. this_list%p%lrestart .AND. lrestart) THEN
+        CALL finish('mo_var_list:add_var_list_element_i4d',                            &
+             &      'for list '//TRIM(this_list%p%name)//' restarting not enabled, '// &
+             &      'but restart of '//TRIM(name)//' requested.')
+      ENDIF
+    ENDIF
     !
     ! add list entry
     !
@@ -1173,6 +1243,16 @@ CONTAINS
     INTEGER :: istat
     LOGICAL :: referenced
     !
+    ! consistency check for restart and output
+    !
+    IF (PRESENT(lrestart)) THEN
+      IF (.NOT. this_list%p%lrestart .AND. lrestart) THEN
+        CALL finish('mo_var_list:add_var_list_element_i3d',                            &
+             &      'for list '//TRIM(this_list%p%name)//' restarting not enabled, '// &
+             &      'but restart of '//TRIM(name)//' requested.')
+      ENDIF
+    ENDIF
+    !
     ! add list entry
     !
     CALL append_list_element (this_list, new_list_element)
@@ -1210,7 +1290,7 @@ CONTAINS
       ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
            &    STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r3d', &
+        CALL finish('mo_var_list:add_var_list_element_i3d', &
              &      'allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
@@ -1273,6 +1353,16 @@ CONTAINS
     INTEGER :: istat
     LOGICAL :: referenced
     !
+    ! consistency check for restart and output
+    !
+    IF (PRESENT(lrestart)) THEN
+      IF (.NOT. this_list%p%lrestart .AND. lrestart) THEN
+        CALL finish('mo_var_list:add_var_list_element_i2d',                            &
+             &      'for list '//TRIM(this_list%p%name)//' restarting not enabled, '// &
+             &      'but restart of '//TRIM(name)//' requested.')
+      ENDIF
+    ENDIF
+    !
     ! add list entry
     !
     CALL append_list_element (this_list, new_list_element)
@@ -1310,7 +1400,7 @@ CONTAINS
       ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
            &    STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r2d', &
+        CALL finish('mo_var_list:add_var_list_element_i2d', &
              &      'allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
@@ -1373,6 +1463,16 @@ CONTAINS
     INTEGER :: istat
     LOGICAL :: referenced
     !
+    ! consistency check for restart and output
+    !
+    IF (PRESENT(lrestart)) THEN
+      IF (.NOT. this_list%p%lrestart .AND. lrestart) THEN
+        CALL finish('mo_var_list:add_var_list_element_i1d',                            &
+             &      'for list '//TRIM(this_list%p%name)//' restarting not enabled, '// &
+             &      'but restart of '//TRIM(name)//' requested.')
+      ENDIF
+    ENDIF
+    !
     ! add list entry
     !
     CALL append_list_element (this_list, new_list_element)
@@ -1410,7 +1510,7 @@ CONTAINS
       ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
            &    STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r1d', &
+        CALL finish('mo_var_list:add_var_list_element_i1d', &
              &      'allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
@@ -1475,6 +1575,16 @@ CONTAINS
     INTEGER :: istat
     LOGICAL :: referenced
     !
+    ! consistency check for restart and output
+    !
+    IF (PRESENT(lrestart)) THEN
+      IF (.NOT. this_list%p%lrestart .AND. lrestart) THEN
+        CALL finish('mo_var_list:add_var_list_element_l5d',                            &
+             &      'for list '//TRIM(this_list%p%name)//' restarting not enabled, '// &
+             &      'but restart of '//TRIM(name)//' requested.')
+      ENDIF
+    ENDIF
+    !
     ! add list entry
     !
     CALL append_list_element (this_list, new_list_element)
@@ -1512,7 +1622,7 @@ CONTAINS
       ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
            &    STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r4d', &
+        CALL finish('mo_var_list:add_var_list_element_l5d', &
              &      'allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
@@ -1575,6 +1685,16 @@ CONTAINS
     INTEGER :: istat
     LOGICAL :: referenced
     !
+    ! consistency check for restart and output
+    !
+    IF (PRESENT(lrestart)) THEN
+      IF (.NOT. this_list%p%lrestart .AND. lrestart) THEN
+        CALL finish('mo_var_list:add_var_list_element_l4d',                            &
+             &      'for list '//TRIM(this_list%p%name)//' restarting not enabled, '// &
+             &      'but restart of '//TRIM(name)//' requested.')
+      ENDIF
+    ENDIF
+    !
     ! add list entry
     !
     CALL append_list_element (this_list, new_list_element)
@@ -1612,7 +1732,7 @@ CONTAINS
       ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
            &    STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r4d', &
+        CALL finish('mo_var_list:add_var_list_element_l4d', &
              &      'allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
@@ -1675,6 +1795,16 @@ CONTAINS
     INTEGER :: istat
     LOGICAL :: referenced
     !
+    ! consistency check for restart and output
+    !
+    IF (PRESENT(lrestart)) THEN
+      IF (.NOT. this_list%p%lrestart .AND. lrestart) THEN
+        CALL finish('mo_var_list:add_var_list_element_l3d',                            &
+             &      'for list '//TRIM(this_list%p%name)//' restarting not enabled, '// &
+             &      'but restart of '//TRIM(name)//' requested.')
+      ENDIF
+    ENDIF
+    !
     ! add list entry
     !
     CALL append_list_element (this_list, new_list_element)
@@ -1712,7 +1842,7 @@ CONTAINS
       ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
            &    STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r3d', &
+        CALL finish('mo_var_list:add_var_list_element_l3d', &
              &      'allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
@@ -1775,6 +1905,16 @@ CONTAINS
     INTEGER :: istat
     LOGICAL :: referenced
     !
+    ! consistency check for restart and output
+    !
+    IF (PRESENT(lrestart)) THEN
+      IF (.NOT. this_list%p%lrestart .AND. lrestart) THEN
+        CALL finish('mo_var_list:add_var_list_element_l2d',                            &
+             &      'for list '//TRIM(this_list%p%name)//' restarting not enabled, '// &
+             &      'but restart of '//TRIM(name)//' requested.')
+      ENDIF
+    ENDIF
+    !
     ! add list entry
     !
     CALL append_list_element (this_list, new_list_element)
@@ -1812,7 +1952,7 @@ CONTAINS
       ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
            &    STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r2d', &
+        CALL finish('mo_var_list:add_var_list_element_l2d', &
              &      'allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
@@ -1875,6 +2015,16 @@ CONTAINS
     INTEGER :: istat
     LOGICAL :: referenced
     !
+    ! consistency check for restart and output
+    !
+    IF (PRESENT(lrestart)) THEN
+      IF (.NOT. this_list%p%lrestart .AND. lrestart) THEN
+        CALL finish('mo_var_list:add_var_list_element_l1d',                            &
+             &      'for list '//TRIM(this_list%p%name)//' restarting not enabled, '// &
+             &      'but restart of '//TRIM(name)//' requested.')
+      ENDIF
+    ENDIF
+    !
     ! add list entry
     !
     CALL append_list_element (this_list, new_list_element)
@@ -1912,7 +2062,7 @@ CONTAINS
       ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
            &    STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r1d', &
+        CALL finish('mo_var_list:add_var_list_element_l1d', &
              &      'allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
@@ -2243,9 +2393,6 @@ CONTAINS
       ENDIF
       !
       target_info%ncontained = target_info%ncontained+1
-!     write(0,*)'target_info:',target_info
-!     write(0,*)'SIZE(target_ptr4d,4):',SIZE(target_ptr4d,4) !TODO
-!     write(0,*)'target_info%ncontained:',target_info%ncontained !TODO
       IF (SIZE(target_ptr4d,4) < target_info%ncontained) THEN
         CALL finish('add_var_list_reference_r3d', &
              TRIM(name)//' exceeds the number of predefined entries in container.')      
@@ -2544,10 +2691,8 @@ CONTAINS
     !
     CALL message('','')
     CALL message('','')
-    CALL message('','Status of variable list '//TRIM(this_list%p%name)//':')
+    CALL message('','Status of variable list '//TRIM(this_list%p%name)//':')    
     CALL message('','')
-    WRITE (dtext,'(i3)') this_list%p%nvars
-    CALL message('','Number of variables                         : '//TRIM(dtext))
     !
     this_list_element => this_list%p%first_list_element
     !
@@ -2580,9 +2725,6 @@ CONTAINS
         ELSE
           CALL message('', 'Pointer status                              : not in use.')
         ENDIF
-        WRITE(dtext,'(i0)') this_list_element%field%info%vgrid
-        message_text = 'CDI Vertical grid type                      : '//TRIM(dtext)
-        CALL message('', message_text)
         !        
         WRITE (message_text,'(a,3i3)') &
              'Assigned GRIB discipline/category/parameter : ', &
@@ -2720,13 +2862,4 @@ CONTAINS
     y = x
   END SUBROUTINE assign_if_present_union
   !------------------------------------------------------------------------------------------------
-  FUNCTION vertical_grids_of(this_list) RESULT(gtypes)
-    TYPE(t_var_list),  INTENT(in) :: this_list
-
-    TYPE(t_list_element), POINTER :: this_list_element
-    INTEGER :: i
-    INTEGER :: gsizes(this_list%p%nvars)
-    INTEGER :: gtypes(this_list%p%nvars)
-    gtypes=0   ! in the  meantime, to be able of compiling, PR
-  END FUNCTION
 END MODULE mo_var_list
