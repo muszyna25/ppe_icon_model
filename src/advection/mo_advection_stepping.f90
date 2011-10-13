@@ -693,6 +693,14 @@ CONTAINS
 
           ENDDO
         ENDDO
+
+        ! set tracer(nnew) to tracer(nnow) where advection is turned off
+        DO jk = 1, advection_config(jg)%iadv_slev(jt)-1
+          DO jc = i_startidx, i_endidx
+            p_tracer_new(jc,jk,jb,jt) = p_tracer_now(jc,jk,jb,jt)
+          END DO
+        END DO
+
       ENDDO  ! Tracer loop
 
     ENDDO
@@ -803,6 +811,14 @@ CONTAINS
 
             END DO
           END DO
+
+          ! set tracer(nnew) to tracer(nnow) where advection is turned off
+          DO jk = 1, advection_config(jg)%iadv_slev(jt)-1
+            DO jc = i_startidx, i_endidx
+              p_tracer_new(jc,jk,jb,jt) = p_tracer_now(jc,jk,jb,jt)
+            END DO
+          END DO
+
         END DO  ! Tracer loop
       END DO
 !$OMP END DO
