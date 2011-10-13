@@ -834,11 +834,12 @@ ENDIF
 
       IF (lmaxiter) THEN
          CALL finish('GMRES solver: ','NOT YET CONVERGED !!')
-      ELSE IF (msg_level >= 10) THEN
+      ENDIF
+      IF (msg_level >= 5) THEN
          WRITE(string,'(a,i4,a,e20.10)') 'GMRES solver: iteration ', niter,  &
                                          ', residual = ', ABS(z_residual(niter))
          CALL message('',TRIM(string))
-      ENDIF !check convergence
+      ENDIF 
 
    ENDDO !mode loop
 
@@ -1033,11 +1034,9 @@ ENDIF
    CALL sync_patch_array(SYNC_E,pt_patch,pt_new%vn)
 
  END SUBROUTINE add_si_correction_2d
-!-----------------------------------------------------------------------
+  !-----------------------------------------------------------------------
 
-!
-!
-
+   !-----------------------------------------------------------------------
    !>
    !!  calculate the lhs of the divergence equation.
    !!
@@ -1046,7 +1045,7 @@ ENDIF
    !!  Original version by Hui Wan, MPI-M (2007-12-17)
    !!  Restructuring of code by Almut Gassmann, MPI-M (2008-09-17)
    !!
-   FUNCTION lhs_div_eqn_2d( p_div, pt_patch, pt_int_state, p_coeff ) RESULT(p_lhs)
+  FUNCTION lhs_div_eqn_2d( p_div, pt_patch, pt_int_state, p_coeff ) RESULT(p_lhs)
 !
 
   REAL(wp),INTENT(IN)         :: p_div(:,:,:)
@@ -1383,7 +1382,7 @@ ENDIF
 
    IF (lmaxiter) THEN
       CALL finish('GMRES solver: ','NOT YET CONVERGED !!')
-   ELSE  IF (msg_level >= 10) THEN
+   ELSE  IF (msg_level >= 5) THEN
       WRITE(string,'(a,i4,a,e20.10)') 'GMRES solver: iteration ', niter,  &
                                       ', residual = ', ABS(z_residual(niter))
       CALL message(TRIM(routine),TRIM(string))

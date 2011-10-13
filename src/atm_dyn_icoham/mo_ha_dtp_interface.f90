@@ -37,7 +37,7 @@
 MODULE mo_ha_dtp_interface
 
   USE mo_kind,               ONLY: wp
-  USE mo_parallel_config,    ONLY: nproma
+  USE mo_parallel_config,    ONLY: nproma, p_test_run
   USE mo_run_config,         ONLY: nlev, nlevp1
   USE mo_model_domain,       ONLY: t_patch
   USE mo_ext_data,           ONLY: t_external_data
@@ -254,7 +254,11 @@ CONTAINS
     ! Get the horizontal and vertical mass fluxes that are consistent
     ! with the continuity equation. Here the vertical mass flux is
     ! eta-dot*(partial-p/partial-eta).
-
+      
+    IF (p_test_run) THEN
+      p_mflux_me(:,:,:) = 0.0_wp
+    ENDIF
+    
     CALL continuity( p_vn_traj, z_delp_me_now,      &! in
     &                p_patch, p_int_state, .TRUE.,  &! in
     &                z_mdiv, z_mdiv_int,            &! out, but not used here

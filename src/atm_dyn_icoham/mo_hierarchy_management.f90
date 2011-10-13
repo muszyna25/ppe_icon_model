@@ -71,7 +71,7 @@ MODULE mo_hierarchy_management
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config 
   USE mo_diffusion_config,    ONLY: diffusion_config
   USE mo_io_config,           ONLY: lprepare_output
-  USE mo_parallel_config,  ONLY: nproma
+  USE mo_parallel_config,     ONLY: nproma, p_test_run
   USE mo_run_config,          ONLY: ldynamics, ltransport, &
     &                               nlev, nlevp1, ntracer, iforcing, lforcing
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm
@@ -228,6 +228,17 @@ CONTAINS
         &       z_pres_mc_now( nproma,nlev  ,nblks_c ), &
         &       z_pres_ic_now( nproma,nlevp1,nblks_c ), &
         &       STAT=ist )
+        
+      IF (p_test_run) THEN
+        z_mflx_me    ( : , : , : ) = 0.0_wp
+        z_mflx_ic    ( : , : , : ) =  0.0_wp
+        z_vn_traj    ( : , : , : ) =  0.0_wp
+        z_omega_traj ( : , : , : ) =  0.0_wp
+        z_delp_mc_now( : , : , : ) =  0.0_wp
+        z_pres_mc_now( : , : , : ) =  0.0_wp
+        z_pres_ic_now( : , : , : ) =  0.0_wp
+      ENDIF
+      
       IF (ist /= success) THEN
         CALL finish ( 'mo_hierarchy_management: process_grid',                &
           &           'allocation for z_mflx_me, z_mflx_ic, z_vn_traj, '    //&
@@ -593,7 +604,7 @@ CONTAINS
               &                     .FALSE.,ha_dyn_config%ltheta_dyn,&! in
               &                     .FALSE.,                         &! in
               &                     p_hydro_state(jg)%prog(n_old)   ) ! inout
-
+            
           ENDIF !( iforcing==iheldsuarez )
 
           ! First part of the dynamical core: the explicit leapfrog scheme.

@@ -64,7 +64,7 @@ MODULE mo_hdiff
 !  USE mo_diffusion_nml,       ONLY: k2, k4
   USE mo_diffusion_config,    ONLY: diffusion_config  
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config
-  USE mo_parallel_config,  ONLY: nproma
+  USE mo_parallel_config,     ONLY: nproma, p_test_run
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_math_operators,      ONLY: nabla2_vec, nabla2_scalar, &
                                     nabla4_vec, nabla4_scalar
@@ -187,7 +187,15 @@ MODULE mo_hdiff
     ivi => pt_patch%edges%vertex_idx
     ivb => pt_patch%edges%vertex_blk
 
-
+!---------------------
+    ! initialize variable for sync tests
+!     i_endblk   = pt_patch%edges%end_blk(min_rledge,i_nchdom)
+!     z_edge_val(:,:,i_endblk) = 0.0_wp
+    IF (p_test_run) THEN
+      z_edge_val(:,:,:) = 0.0_wp
+      z_nabla2_e(:,:,:) = 0.0_wp
+    ENDIF
+!--------------------
     IF ((pt_patch%cell_type == 3) .AND.               &
       &  (diffusion_config(k_jg)%hdiff_order == 5)) THEN
        !

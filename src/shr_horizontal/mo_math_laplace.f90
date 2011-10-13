@@ -111,7 +111,7 @@ USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlvert
 USE mo_interpolation,       ONLY: t_int_state, edges2verts_scalar, verts2edges_scalar
 USE mo_model_domain,        ONLY: t_patch
 USE mo_model_domain_import, ONLY: l_limited_area
-USE mo_parallel_config,  ONLY: nproma
+USE mo_parallel_config,     ONLY: nproma, p_test_run
 USE mo_exception,           ONLY: finish
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array
@@ -210,6 +210,11 @@ REAL(wp) ::  &
 INTEGER,  DIMENSION(:,:,:),   POINTER :: icidx, icblk, ividx, ivblk
 
 !-----------------------------------------------------------------------
+IF (p_test_run) THEN
+  z_div_c(:,:,:)=0.0_wp 
+  z_rot_v(:,:,:)=0.0_wp
+  z_rot_e(:,:,:)=0.0_wp
+ENDIF
 
 ! check optional arguments
 IF ( PRESENT(opt_slev) ) THEN
@@ -493,12 +498,19 @@ IF (PRESENT(opt_nabla2) ) THEN
   p_nabla2 => opt_nabla2
 ELSE
   ALLOCATE (z_nabla2_vec_e(nproma,ptr_patch%nlev,ptr_patch%nblks_e))
+  
   p_nabla2 => z_nabla2_vec_e
 ENDIF
 
 !
 ! apply second order Laplacian twice
 !
+IF (p_test_run) THEN
+  p_nabla2(:,:,:) = 0.0_wp
+  rl_start_s1 = 1
+  rl_end_s1 = min_rledge
+ENDIF
+
 CALL nabla2_vec( vec_e, ptr_patch, ptr_int, p_nabla2,  &
   &              slev, elev, opt_rlstart=rl_start_s1, opt_rlend=rl_end_s1 )
 
@@ -1199,6 +1211,7 @@ ELSE
   rl_end_s1 = rl_end - 1
 ENDIF
 
+! rl_start_s1 = rl_start
 rl_end_s1 = MAX(min_rlcell,rl_end_s1)
 
 IF (PRESENT(opt_nabla2) ) THEN
@@ -1278,6 +1291,7 @@ END SUBROUTINE nabla4_scalar
       elev = pt_patch%nlev
     END IF
 
+    IF (p_test_run) coeff(:,:,:,:) = 0.0_wp
     CALL recon_lsq_cell_q(p_scalar, pt_patch, pt_int%lsq_high, coeff, &
       &                   opt_slev=slev, opt_elev=elev)
     CALL sync_patch_array(SYNC_C,pt_patch,coeff(:,:,:,4))

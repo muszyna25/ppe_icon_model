@@ -67,6 +67,7 @@ MODULE mo_timer
   PUBLIC :: timer_cucall
   PUBLIC :: timer_vdiff
   PUBLIC :: timer_gw_hines
+  PUBLIC :: timer_gw_hines_opt
   PUBLIC :: timer_echam_phy
   PUBLIC :: timer_dyn2phy, timer_phy2dyn
   
@@ -101,6 +102,7 @@ MODULE mo_timer
   PUBLIC :: timer_si_correction
   PUBLIC :: timer_cube_root
   PUBLIC :: timer_coupling
+  PUBLIC :: timer_RK_tend, timer_RK_update
   
 !   PUBLIC :: ltimer                              !< if .true., switch on timer
 
@@ -152,6 +154,7 @@ MODULE mo_timer
   INTEGER :: timer_cucall
   INTEGER :: timer_vdiff
   INTEGER :: timer_gw_hines
+  INTEGER :: timer_gw_hines_opt
   INTEGER :: timer_echam_phy
 
   ! Timer ID's for physics-dynamics coupling
@@ -169,6 +172,7 @@ MODULE mo_timer
   INTEGER :: timer_si_correction
   INTEGER :: timer_cube_root
   INTEGER :: timer_coupling
+  INTEGER :: timer_RK_tend, timer_RK_update
   
   ! Timer ID for optional lon-lat interpolation
   INTEGER :: timer_lonlat_setup
@@ -230,6 +234,7 @@ CONTAINS
     timer_cucall    = new_timer("cucall")
     timer_vdiff     = new_timer("vdiff")
     timer_gw_hines  = new_timer("gw_hines")
+    timer_gw_hines_opt  = new_timer("gw_hines_opt")
     timer_echam_phy = new_timer("echam_phy")
     timer_dyn2phy   = new_timer("dyn2phy")
     timer_phy2dyn   = new_timer("phy2dyn")
@@ -253,6 +258,9 @@ CONTAINS
     timer_cube_root = new_timer("cube_root")
     timer_si_correction = new_timer("si_correction")
     timer_coupling      = new_timer("coupling")
+ 
+    timer_RK_tend = new_timer("RK_tend")
+    timer_RK_update = new_timer("RK_update")
          
     timer_lonlat_setup = new_timer("lonlat_setup")
 

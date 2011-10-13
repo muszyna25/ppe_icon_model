@@ -156,10 +156,57 @@ MODULE mo_impl_constants
   !   width of two full cell rows; normally we use one, but stencils for high-order schemes may
   !   sometime require a halo width of two full rows
   !
+  !---------------------------------------------
+  !
+  ! Ordering Scheme:
+  !
+  ! Following is the order of the grid entities (an all the associated variables)
+  ! in ascending order.
+  !
+  ! A. The indexes from 1 to max_rl
+  !    Mark the lateral boundaries of the patch
+  !    start_idx(1) = start of the first boundary level. It is always 1
+  !    end_idx(1)   = end of the first boundary level end_idx(1)
+  !    start_idx(2) = start of the second boundary level, it is always end_idx(1)+1
+  !    ..... etc until end_idx(max_rl) which the the end of the lateral boundary levels
+  !
+  ! B. The index 0
+  !    Marks the internal entities, that do not overlap with child patches
+  !    start_idx(0) = end_idx(max_rl) + 1
+  !    end_idx(0)   = start_idx(-1) -1
+  !
+  ! C. The indexes from -1 to min_rl_int
+  !    Mark the internal entities that overlap with child patches 
+  !    (they are defined for each child patch)
+  !    start_idx(-1) = start of the internal entities overlapping with the first (two) levels
+  !                    of the lateral boundaries of the child patch
+  !    end_idx(-1)   = end of the internal entities overlapping with the first (two) levels
+  !                    of the lateral boundaries of the child patch
+  !    start_idx(-2) = start of the internal entities overlapping with the next (two) levels
+  !                    of the lateral boundaries of the child patch = end_idx(-1) + 1
+  !    ... etc
+  !    end_idx(minrl_int) = end of all the internal entities overlapping with the the child patch
+  !      
+  ! D. The indexes from min_rl_int-1 to min_rl
+  !    Mark the halo entities, when they do not overlap with a child patch
+  !  
+  !---------------------------------------------
+  !
+  ! Examples:
+  !  A. Get all entities in the grid:    start_idx(1) -- end_idx(min_rl)
+  !     This is the default range for most operators
+  !  B. Get all enitities, except halos: start_idx(1) -- end_idx(min_rl_int)
+  !     Note that this may still contain halo entities if they ovelap with child patches
+  !  C. Get all entities that are not on the first lateral boundary and are not halo,
+  !     ie, only use the internal entities: start_idx(2) -- end_idx(min_rl_int)
+  !     Note, tha same as the noe in B.
+  !
+  !---------------------------------------------
+    
   INTEGER, PARAMETER :: max_hw         = 2                         ! maximum halo width (n_ghost_rows)
   !
   INTEGER, PARAMETER :: min_rlcell_int = -4                        ! previously -6
-  INTEGER, PARAMETER :: min_rlcell     = min_rlcell_int - 2*max_hw 
+  INTEGER, PARAMETER :: min_rlcell     = min_rlcell_int - 2*max_hw ! = -8
   INTEGER, PARAMETER :: max_rlcell     = 5                         ! previously 8
   INTEGER, PARAMETER :: min_rlvert_int = min_rlcell_int
   INTEGER, PARAMETER :: min_rlvert     = min_rlvert_int - (max_hw+1)
@@ -167,6 +214,8 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: min_rledge_int = 2*min_rlcell_int
   INTEGER, PARAMETER :: min_rledge     = min_rledge_int - (2*max_hw+1)
   INTEGER, PARAMETER :: max_rledge     = 2*max_rlcell
+
+  
 
   ! maximum allowed number of model domains (10 should be enough for the time being)
   INTEGER, PARAMETER :: max_dom = 10

@@ -123,7 +123,7 @@ MODULE mo_ha_testcases
   CHARACTER(len=MAX_CHAR_LENGTH),PUBLIC :: ape_sst_case ! SST for APE experiments
   
   REAL(wp) :: rotate_axis_deg
-  INTEGER, PUBLIC :: ihs_init_type
+  INTEGER, PUBLIC :: ihs_init_type ! 0=isothermal, 1=JWw
   LOGICAL, PUBLIC :: lhs_vn_ptb
   REAL(wp),PUBLIC :: hs_vn_ptb_scale
 
@@ -567,11 +567,27 @@ DO jg = 1,n_dom
      CASE ('APE')
         ! Initial conditions are the same as for the 'JWw-Moist' case
 
-        CALL init_hydro_state_prog_jwtest(pt_patch(jg), &
-             & pt_hydro_state(jg)%prog(nnow(jg)),       &
-             & pt_hydro_state(jg)%diag,  ext_data(jg),  &
-             & rotate_axis_deg,                         &
-             & lrh_linear_pres, rh_at_1000hpa )
+        SELECT CASE (ihs_init_type)
+        CASE (0) ! isothermal state at rest
+           !
+           CALL init_hydro_state_prog_isoRest( 300._wp, 100000._wp, &
+                & pt_hydro_state(jg)%prog(nnow(jg)) )
+           !
+           CALL message(TRIM(routine),'Initial state used in &
+                & APE test: isothermal state at rest')
+           !
+        CASE DEFAULT 
+           !
+          CALL init_hydro_state_prog_jwtest(pt_patch(jg), &
+              & pt_hydro_state(jg)%prog(nnow(jg)),       &
+              & pt_hydro_state(jg)%diag,  ext_data(jg),  &
+              & rotate_axis_deg,                         &
+              & lrh_linear_pres, rh_at_1000hpa )
+           !
+           CALL message(TRIM(routine),'Initial state used in &
+                & the APE test: JW steady')
+        
+        END SELECT ! initial conditions of the HS test
 
         pt_hydro_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv+1:) = 0._wp
 

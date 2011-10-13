@@ -40,7 +40,7 @@ MODULE mo_ha_2tl_si
   USE mo_ext_data,            ONLY: t_external_data
   USE mo_physical_constants,  ONLY: rd, rcpd
   USE mo_parallel_config, ONLY: nproma
-  USE mo_run_config,          ONLY: nlev, nlevp1
+  USE mo_run_config,          ONLY: nlev, nlevp1, msg_level
   USE mo_dynamics_config,     ONLY: lshallow_water 
   USE mo_interpolation,       ONLY: t_int_state, cells2edges_scalar
   USE mo_math_operators,      ONLY: grad_fd_norm
@@ -230,10 +230,11 @@ MODULE mo_ha_2tl_si
 
    IF (lmaxiter) THEN
       CALL finish('GMRES solver: ','NOT YET CONVERGED !!')
-   ELSE
-      WRITE(string,'(a,i4,a,e20.10)') 'GMRES solver: iteration ', niter,  &
-                                    ', residual = ', ABS(z_residual(niter))
-      CALL message(TRIM(routine),TRIM(string))
+   ENDIF
+   IF (msg_level >= 1) THEN
+     WRITE(string,'(a,i4,a,e20.10)') 'GMRES solver: iteration ', niter,  &
+                                   ', residual = ', ABS(z_residual(niter))
+     CALL message(TRIM(routine),TRIM(string))
    ENDIF
 
 !---------------------------------------------------------

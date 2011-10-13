@@ -8,6 +8,12 @@ MODULE mo_fast_math_lib
 
   REAL(dp), PARAMETER, PRIVATE :: onethird = 1.0_dp/3.0_dp
   REAL(dp), PARAMETER, PRIVATE :: onefourth = 0.25_dp
+  
+  INTERFACE cube_root
+    MODULE PROCEDURE vec_cbrt
+!     MODULE PROCEDURE vector_cube_root_rt
+!    MODULE PROCEDURE scalar_cube_root_rt
+  END INTERFACE
 
 CONTAINS
 

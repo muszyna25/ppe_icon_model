@@ -103,6 +103,8 @@ MODULE mo_ha_rungekutta
   USE mo_ha_dynamics,      ONLY: dyn_temp
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_loopindices,      ONLY: get_indices_c, get_indices_e
+  USE mo_timer,            ONLY: ltimer, timer_start, timer_stop,&
+    & timer_RK_tend, timer_RK_update
 
   IMPLICIT NONE
 
@@ -111,7 +113,7 @@ MODULE mo_ha_rungekutta
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
   PUBLIC :: init_RungeKutta, step_RungeKutta, cleanup_RungeKutta
-  PUBLIC :: RK_update_prog
+!   PUBLIC :: RK_update_prog
 
   !! Module variables
 
@@ -348,6 +350,7 @@ CONTAINS
        kk = ii-1
 
        ! compute tendencies
+       IF (ltimer) CALL timer_start(timer_RK_tend)
        IF (ltheta_dyn) THEN
          CALL dyn_theta( curr_patch, p_int_state, p_ext_data, p_stg,  & ! in
                          p_diag, p_tend_dyn )                           ! inout
@@ -355,6 +358,7 @@ CONTAINS
          CALL dyn_temp(  curr_patch, p_int_state, p_stg, p_ext_data,  & ! in
                          p_diag, p_tend_dyn )                           ! inout
        ENDIF
+       IF (ltimer) CALL timer_stop(timer_RK_tend)
 
       ! p_new = p_new + a_s,i-1*U^(i-1) + b_s,i-1*dt*S(U^(i-1))
 
@@ -391,6 +395,7 @@ CONTAINS
        kk = nstage -1
 
        ! compute tendencies
+       IF (ltimer) CALL timer_start(timer_RK_tend)
        IF (ltheta_dyn) THEN
          CALL dyn_theta( curr_patch, p_int_state, p_ext_data, p_stg, & ! in
                          p_diag, p_tend_dyn )                          ! out
@@ -398,6 +403,7 @@ CONTAINS
          CALL dyn_temp(  curr_patch, p_int_state, p_stg, p_ext_data, & ! in
                          p_diag, p_tend_dyn )                          ! out
        ENDIF
+       IF (ltimer) CALL timer_stop(timer_RK_tend)
 
       ! p_new = p_new + a_s,s-1*U^(s-1) + b_s,s-1*dt*S(U^(s-1))
 
@@ -457,6 +463,7 @@ CONTAINS
    INTEGER :: i_startblk, i_startidx, i_endidx, i_endblk
    INTEGER :: jb, jc, jk, je
 
+   IF (ltimer) CALL timer_start(timer_RK_update)
    !--------------------------------------------------------
    ! update cell-based variables in the interior
    !--------------------------------------------------------
@@ -582,6 +589,8 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
+   IF (ltimer) CALL timer_stop(timer_RK_update)
+   
    END SUBROUTINE RK_update_prog
 
 END MODULE mo_ha_RungeKutta
