@@ -794,7 +794,15 @@ CONTAINS
         &          bot_idx_lin, wfacpbl1, kpbl1, wfacpbl2, kpbl2,     & !in
         &          l_hires_intp=.FALSE., l_restore_fricred=.FALSE.    ) !in
 
-
+      ! interpolation of prognostic specific water vapor content
+      !
+      CALL lin_intp(p_prog%tracer(:,:,:,iqv),                            & !inout
+        &           p_diag_z%tracer(:,:,:,iqv),                          & !out
+        &           p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev,      & !in
+        &           wfac_lin_zlev, idx0_lin_zlev, bot_idx_lin, wfacpbl1, & !in
+        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.TRUE.,             & !in
+        &           l_extrapol=.TRUE., l_pd_limit=.FALSE.,               & !in
+        &           lower_limit=0._wp                                    ) !in
 
       ! interpolation of prognostic specific cloud water content
       !
@@ -872,22 +880,11 @@ CONTAINS
 
     ENDIF ! lwrite_zlev
 
-
-    ! Preliminary interpolation of QV without imposing a lower limit
-    CALL lin_intp(prm_diag%tot_cld(:,:,:,iqv),                         & !inout
-      &           p_diag_z%tot_cld(:,:,:,iqv),                         & !out
-      &           p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev,      & !in
-      &           wfac_lin_zlev, idx0_lin_zlev, bot_idx_lin, wfacpbl1, & !in
-      &           kpbl1, wfacpbl2, kpbl2, l_loglin=.TRUE.,             & !in
-      &           l_extrapol=.TRUE., l_pd_limit=.FALSE.,               & !in
-      &           lower_limit=0.0_wp                                ) !in
-
-
     ! Compute virtual temperature for model-level and z-level data
-    CALL virtual_temp(p_patch, p_diag%temp, prm_diag%tot_cld(:,:,:,iqv),  & !in
-      &               temp_v=z_tempv_in                                   ) !out
-    CALL virtual_temp(p_patch, p_diag_z%temp, p_diag_z%tot_cld(:,:,:,iqv),& !in
-      &               temp_v=z_tempv                                      ) !out
+    CALL virtual_temp(p_patch, p_diag%temp, p_prog%tracer(:,:,:,iqv),    & !in
+      &               temp_v=z_tempv_in                                  ) !out
+    CALL virtual_temp(p_patch, p_diag_z%temp, p_diag_z%tracer(:,:,:,iqv),& !in
+      &               temp_v=z_tempv                                     ) !out
 
 
     ! Interpolate pressure on z-levels
@@ -900,7 +897,19 @@ CONTAINS
 
 
     IF ( nh_pzlev_config(jg)%lwrite_zlev ) THEN
-      ! Final interpolation of total (diagnostic) QV, without supersaturation limiting
+      ! Final interpolation of prognostic and diagnostic QV, without supersaturation limiting
+
+      CALL qv_intp(p_prog%tracer(:,:,:,iqv),                          & !inout
+        &          p_diag_z%tracer(:,:,:,iqv),                        & !out
+        &          p_metrics%z_mc, p_z3d_out, p_diag%temp,            & !in
+        &          p_diag%pres, p_diag_z%temp, p_diag_z%pres,         & !in
+        &          p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev,    & !in
+        &          coef1_zlev, coef2_zlev, coef3_zlev, wfac_lin_zlev, & !in
+        &          idx0_cub_zlev, idx0_lin_zlev, bot_idx_cub,         & !in
+        &          bot_idx_lin, wfacpbl1, kpbl1, wfacpbl2, kpbl2,     & !in
+        &          l_satlimit=.FALSE.,                                & !in
+        &          lower_limit=2.5e-6_wp, l_restore_pbldev=.FALSE.    ) !in
+
       CALL qv_intp(prm_diag%tot_cld(:,:,:,iqv),                       & !inout
         &          p_diag_z%tot_cld(:,:,:,iqv),                       & !out
         &          p_metrics%z_mc, p_z3d_out, p_diag%temp,            & !in
@@ -970,7 +979,19 @@ CONTAINS
         &          l_hires_intp=.FALSE., l_restore_fricred=.FALSE.    ) !in
 
 
-      ! Interpolation of total (diagnostic) QV, without supersaturation limiting
+      ! Interpolation of prognostic and diagnostic QV, without supersaturation limiting
+
+      CALL qv_intp(p_prog%tracer(:,:,:,iqv),                         & !inout
+        &          p_diag_p%tracer(:,:,:,iqv),                       & !out
+        &          p_metrics%z_mc, p_diag_p%geopot, p_diag%temp,     & !in
+        &          p_diag%pres, p_diag_p%temp, p_p3d_out,            & !in
+        &          p_patch%nblks_c, p_patch%npromz_c, nlev, nplev,   & !in
+        &          coef1_plev, coef2_plev, coef3_plev, wfac_lin_plev,& !in
+        &          idx0_cub_plev, idx0_lin_plev, bot_idx_cub,        & !in
+        &          bot_idx_lin, wfacpbl1, kpbl1, wfacpbl2, kpbl2,    & !in
+        &          l_satlimit=.FALSE.,                               & !in
+        &          lower_limit=2.5e-6_wp, l_restore_pbldev=.FALSE.   ) !in
+
       CALL qv_intp(prm_diag%tot_cld(:,:,:,iqv),                      & !inout
         &          p_diag_p%tot_cld(:,:,:,iqv),                      & !out
         &          p_metrics%z_mc, p_diag_p%geopot, p_diag%temp,     & !in
@@ -982,9 +1003,6 @@ CONTAINS
         &          l_satlimit=.FALSE.,                               & !in
         &          lower_limit=2.5e-6_wp, l_restore_pbldev=.FALSE.   ) !in
 
-
-!DR Note: prognostic QV will not be interpolated to avoid any modification 
-!DR of the prognostic field due to the interpolation routine.
 
       ! interpolation of prognostic specific cloud water content
       !
@@ -2715,24 +2733,25 @@ CONTAINS
         qv_out(nlen+1:nproma,:,jb)  = 0.0_wp
       ENDIF
 
-      IF (l_satlimit) THEN
-        DO jk1 = 1, nlevs_in
-          DO jc = 1, nlen
 
-            ! saturation specific humidity of input data
-            qsat_in(jc,jk1) = rdv*sat_pres_water(temp_in(jc,jk1,jb)) /    &
-                              (pres_in(jc,jk1,jb)-o_m_rdv*qv_in(jc,jk1,jb))
+      DO jk1 = 1, nlevs_in
+        DO jc = 1, nlen
 
+          ! saturation specific humidity of input data
+          qsat_in(jc,jk1) = rdv*sat_pres_water(temp_in(jc,jk1,jb)) /    &
+                            (pres_in(jc,jk1,jb)-o_m_rdv*qv_in(jc,jk1,jb))
+
+          IF (l_satlimit) THEN
             ! limit input data to water saturation when processing interpolated IFS data:
             ! This is needed to remove supersaturations generated (primarily) by the interpolation
             ! from the spherical harmonics to the Gaussain grid; without this limitation, the 
             ! QV-QC-adjustment at the end of this routine would generate nonsensically large
             ! cloud water peaks
             qv_in(jc,jk1,jb) = MIN(qv_in(jc,jk1,jb),qsat_in(jc,jk1))
-
-          ENDDO
+          ENDIF
         ENDDO
-      ENDIF
+      ENDDO
+
 
 
       DO jc = 1, nlen
