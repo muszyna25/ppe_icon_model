@@ -574,7 +574,7 @@ CONTAINS
   TYPE(t_sfc_flx),          INTENT (INOUT) :: p_sfc_flx
 
 !!Local Variables
-  REAL(wp), DIMENSION (nproma, ppatch%nblks_c,ice%kice) ::    &
+  REAL(wp), DIMENSION (nproma,ice%kice,ppatch%nblks_c) ::    &
    draft         ! position of ice-ocean interface below sea level        [m] 
   
   REAL(wp), DIMENSION (nproma, ppatch%nblks_c) ::   & 
@@ -604,29 +604,29 @@ CONTAINS
   precw           (:,:)   = QatmAve% rprecw (:,:) * dtime
   preci           (:,:)   = QatmAve% rpreci (:,:) * dtime
   evap            (:,:)   = (QatmAve% latw(:,:)/ Lvap * dtime * &
-                            sum(ice%conc(:,:,:), 3) +           &
-                            sum(ice%evapwi(:,:,:) * ice% conc(:,:,:), 3)) /rhow
+                            sum(ice%conc(:,:,:), 2) +           &
+                            sum(ice%evapwi(:,:,:) * ice% conc(:,:,:), 2)) /rhow
   p_os%p_prog(nold(1))%h(:,:) = p_os%p_prog(nold(1))%h(:,:) +  precw + preci - evap
 
   ! Calculate average draft and thickness of water underneath ice in upper ocean
   ! grid box
   zUnderIceOld    (:,:)   = ice%zUnderIce
   draft           (:,:,:) = (rhos * ice%hs + rhoi * ice%hi) / rhow
-  draftave        (:,:)   = sum(draft(:,:,:) * ice%conc(:,:,:),3)
+  draftave        (:,:)   = sum(draft(:,:,:) * ice%conc(:,:,:),2)
   ice%zUnderIce   (:,:)   = v_base%del_zlev_m(1) + p_os%p_prog(nold(1))%h(:,:) - draftave(:,:) 
  
   ! Calculate average change in ice thickness and the snow-to-ice conversion 
   Delhice         (:,:)   = sum((ice% hi(:,:,:) - ice% hiold(:,:,:))*          &
-                            ice%conc(:,:,:),3)
-  snowiceave      (:,:)   = sum(ice%snow_to_ice(:,:,:) * ice% conc(:,:,:),3)
+                            ice%conc(:,:,:),2)
+  snowiceave      (:,:)   = sum(ice%snow_to_ice(:,:,:) * ice% conc(:,:,:),2)
  
 
   ! Calculate heat input through formerly ice covered and through open water
   ! areas
-  heatOceI        (:,:)   = sum(ice% heatOceI(:,:,:) * ice% conc(:,:,:),3)
+  heatOceI        (:,:)   = sum(ice% heatOceI(:,:,:) * ice% conc(:,:,:),2)
   heatOceW        (:,:)   = (QatmAve%SWin(:,:) * (1.0_wp-albedoW) * (1.0_wp-swsum) +    &
                             QatmAve%LWnetw(:,:) + QatmAve%sensw(:,:)+         &
-                            QatmAve%latw(:,:))  *  (1.0_wp-sum(ice%conc,3))
+                            QatmAve%latw(:,:))  *  (1.0_wp-sum(ice%conc,2))
 
   ! Change temperature of upper ocean grid cell according to heat fluxes
 !  p_os%p_prog(nold(1))%tracer(:,1,:,1) = p_os%p_prog(nold(1))%tracer(:,1,:,1)&
@@ -641,8 +641,8 @@ CONTAINS
 !  p_os%p_prog(nold(1))%tracer(:,1,:,1) = (p_os%p_prog(nold(1))%tracer(:,1,:,1)&
 !                          &*zUnderIceOld &
 !                          &+ precw*p_as%tafo + preci*0.0_wp + &                             !!!!!!!!!Dirk: times 0.0 ????
-!                          &  sum(ice%surfmeltT * ice%surfmelt * ice%conc,3)) / & 
-!                          &  (zUnderIceOld + sum(ice%surfmelt*ice%conc,3) +    &
+!                          &  sum(ice%surfmeltT * ice%surfmelt * ice%conc,2)) / & 
+!                          &  (zUnderIceOld + sum(ice%surfmelt*ice%conc,2) +    &
 !                          &  precw + preci)
 !
 !  ! Change salinity of upper ocean grid box from ice growth/melt, snowice

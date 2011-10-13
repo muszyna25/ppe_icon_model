@@ -255,97 +255,97 @@ CONTAINS
 
   p_ice%kice = i_no_ice_thick_class
 
-  ALLOCATE(p_ice%isice(nproma,nblks_c,i_no_ice_thick_class), STAT=ist)
+  ALLOCATE(p_ice%isice(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
   IF (ist/=SUCCESS) THEN
     CALL finish(TRIM(routine),'allocation for isice failed')
   END IF
 
-  ALLOCATE(p_ice%alb(nproma,nblks_c,i_no_ice_thick_class), STAT=ist)
+  ALLOCATE(p_ice%alb(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
   IF (ist/=SUCCESS) THEN
     CALL finish(TRIM(routine),'allocation for alb failed')
   END IF
 
- ALLOCATE(p_ice%Tsurf(nproma,nblks_c,i_no_ice_thick_class), STAT=ist)
+ ALLOCATE(p_ice%Tsurf(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
   IF (ist/=SUCCESS) THEN
     CALL finish(TRIM(routine),'allocation for Tsurf failed')
   END IF
 
- ALLOCATE(p_ice%T1(nproma,nblks_c,i_no_ice_thick_class), STAT=ist)
+ ALLOCATE(p_ice%T1(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
   IF (ist/=SUCCESS) THEN
     CALL finish(TRIM(routine),'allocation for T1 failed')
   END IF
 
-  ALLOCATE(p_ice%T2(nproma,nblks_c,i_no_ice_thick_class), STAT=ist)
+  ALLOCATE(p_ice%T2(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
   IF (ist/=SUCCESS) THEN
     CALL finish(TRIM(routine),'allocation for T2 failed')
   END IF
 
- ALLOCATE(p_ice%E1(nproma,nblks_c,i_no_ice_thick_class), STAT=ist)
+ ALLOCATE(p_ice%E1(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
   IF (ist/=SUCCESS) THEN
     CALL finish(TRIM(routine),'allocation for E1 failed')
   END IF
 
-  ALLOCATE(p_ice%E2(nproma,nblks_c,i_no_ice_thick_class), STAT=ist)
+  ALLOCATE(p_ice%E2(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
   IF (ist/=SUCCESS) THEN
     CALL finish(TRIM(routine),'allocation for E2 failed')
   END IF
 
-  ALLOCATE(p_ice%hi(nproma,nblks_c,i_no_ice_thick_class), STAT=ist)
+  ALLOCATE(p_ice%hi(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
   IF (ist/=SUCCESS) THEN
     CALL finish(TRIM(routine),'allocation for hi failed')
   END IF
 
-  ALLOCATE(p_ice%hs(nproma,nblks_c,i_no_ice_thick_class), STAT=ist)
+  ALLOCATE(p_ice%hs(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
   IF (ist/=SUCCESS) THEN
     CALL finish(TRIM(routine),'allocation for hs failed')
   END IF
 
-  ALLOCATE(p_ice%hiold(nproma,nblks_c,i_no_ice_thick_class), STAT=ist)
+  ALLOCATE(p_ice%hiold(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
   IF (ist/=SUCCESS) THEN
     CALL finish(TRIM(routine),'allocation for hiold failed')
   END IF
 
-  ALLOCATE(p_ice%hsold(nproma,nblks_c,i_no_ice_thick_class), STAT=ist)
+  ALLOCATE(p_ice%hsold(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
   IF (ist/=SUCCESS) THEN
     CALL finish(TRIM(routine),'allocation for hsold failed')
   END IF
 
-  ALLOCATE(p_ice%Qtop(nproma,nblks_c,i_no_ice_thick_class), STAT=ist)
+  ALLOCATE(p_ice%Qtop(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
   IF (ist/=SUCCESS) THEN
     CALL finish(TRIM(routine),'allocation for Qtop failed')
   END IF
 
-  ALLOCATE(p_ice%Qbot(nproma,nblks_c,i_no_ice_thick_class), STAT=ist)
+  ALLOCATE(p_ice%Qbot(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
   IF (ist/=SUCCESS) THEN
     CALL finish(TRIM(routine),'allocation for Qbot failed')
   END IF
 
-  ALLOCATE(p_ice%heatocei(nproma,nblks_c,i_no_ice_thick_class), STAT=ist)
+  ALLOCATE(p_ice%heatocei(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
   IF (ist/=SUCCESS) THEN
     CALL finish(TRIM(routine),'allocation for heatocei failed')
   END IF
 
-  ALLOCATE(p_ice%snow_to_ice(nproma,nblks_c,i_no_ice_thick_class), STAT=ist)
+  ALLOCATE(p_ice%snow_to_ice(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
   IF (ist/=SUCCESS) THEN
     CALL finish(TRIM(routine),'allocation for snow_to_ice failed')
   END IF
 
-  ALLOCATE(p_ice%surfmelt(nproma,nblks_c,i_no_ice_thick_class), STAT=ist)
+  ALLOCATE(p_ice%surfmelt(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
   IF (ist/=SUCCESS) THEN
     CALL finish(TRIM(routine),'allocation for surfmelt failed')
   END IF
 
-  ALLOCATE(p_ice%surfmeltT(nproma,nblks_c,i_no_ice_thick_class), STAT=ist)
+  ALLOCATE(p_ice%surfmeltT(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
   IF (ist/=SUCCESS) THEN
     CALL finish(TRIM(routine),'allocation for surfmeltT failed')
   END IF
 
-  ALLOCATE(p_ice%evapwi(nproma,nblks_c,i_no_ice_thick_class), STAT=ist)
+  ALLOCATE(p_ice%evapwi(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
   IF (ist/=SUCCESS) THEN
     CALL finish(TRIM(routine),'allocation for evapwi failed')
   END IF
 
-  ALLOCATE(p_ice%conc(nproma,nblks_c,i_no_ice_thick_class), STAT=ist)
+  ALLOCATE(p_ice%conc(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
   IF (ist/=SUCCESS) THEN
     CALL finish(TRIM(routine),'allocation for conc failed')
   END IF
@@ -844,42 +844,42 @@ END SUBROUTINE destruct_sea_ice
 
   nblks_c = ppatch%nblks_c
  
-   ALLOCATE(p_atm_f%sens(nproma,nblks_c,i_no_ice_thick_class), STAT=ist)
+   ALLOCATE(p_atm_f%sens(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
    IF (ist/=SUCCESS) THEN
      CALL finish(TRIM(routine),'allocation for sens failed')
    END IF
 
-   ALLOCATE(p_atm_f%lat(nproma,nblks_c,i_no_ice_thick_class), STAT=ist)
+   ALLOCATE(p_atm_f%lat(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
    IF (ist/=SUCCESS) THEN
      CALL finish(TRIM(routine),'allocation for lat failed')
    END IF
 
-   ALLOCATE(p_atm_f%LWout(nproma,nblks_c,i_no_ice_thick_class), STAT=ist)
+   ALLOCATE(p_atm_f%LWout(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
    IF (ist/=SUCCESS) THEN
      CALL finish(TRIM(routine),'allocation for LWout failed')
    END IF
 
-   ALLOCATE(p_atm_f%LWnet(nproma,nblks_c,i_no_ice_thick_class), STAT=ist)
+   ALLOCATE(p_atm_f%LWnet(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
    IF (ist/=SUCCESS) THEN
      CALL finish(TRIM(routine),'allocation for LWnet failed')
    END IF
 
-   ALLOCATE(p_atm_f%bot(nproma,nblks_c,i_no_ice_thick_class), STAT=ist)
+   ALLOCATE(p_atm_f%bot(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
    IF (ist/=SUCCESS) THEN
      CALL finish(TRIM(routine),'allocation for sens failed')
    END IF
 
-   ALLOCATE(p_atm_f%dsensdT(nproma,nblks_c,i_no_ice_thick_class), STAT=ist)
+   ALLOCATE(p_atm_f%dsensdT(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
    IF (ist/=SUCCESS) THEN
      CALL finish(TRIM(routine),'allocation for dsensdT failed')
    END IF
 
-   ALLOCATE(p_atm_f%dlatdT(nproma,nblks_c,i_no_ice_thick_class), STAT=ist)
+   ALLOCATE(p_atm_f%dlatdT(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
    IF (ist/=SUCCESS) THEN
      CALL finish(TRIM(routine),'allocation for sens failed')
    END IF
 
-   ALLOCATE(p_atm_f%dLWdT(nproma,nblks_c,i_no_ice_thick_class), STAT=ist)
+   ALLOCATE(p_atm_f%dLWdT(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
    IF (ist/=SUCCESS) THEN
      CALL finish(TRIM(routine),'allocation for dLWdT failed')
    END IF
@@ -1047,8 +1047,8 @@ SUBROUTINE ice_init( ppatch, p_os, ice) !, Qatm, QatmAve)
 !  TYPE (t_atmos_fluxes), INTENT (INOUT) :: QatmAve
   
 !local variables
-  REAL(wp):: Tinterface(nproma, ppatch%nblks_c,i_no_ice_thick_class) ! temperature at snow-ice interface
-  REAL(wp):: draft(nproma, ppatch%nblks_c,i_no_ice_thick_class)     ! position of ice-ocean interface below sea level
+  REAL(wp):: Tinterface(nproma,i_no_ice_thick_class, ppatch%nblks_c) ! temperature at snow-ice interface
+  REAL(wp):: draft(nproma,i_no_ice_thick_class, ppatch%nblks_c)     ! position of ice-ocean interface below sea level
   
   INTEGER i,j,k      ! counter for loops
   CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_sea_ice:ice_init'
@@ -1084,9 +1084,9 @@ SUBROUTINE ice_init( ppatch, p_os, ice) !, Qatm, QatmAve)
   END WHERE
   
 !   ice%zUnderIce (:,:)   = dzw(1) + zo (:,:) &
-!                           - sum(draft(:,:,:) * ice%conc(:,:,:),3)
+!                           - sum(draft(:,:,:) * ice%conc(:,:,:),2)
    ice%zUnderIce (:,:)   = v_base%del_zlev_m(1) +  p_os%p_prog(nold(1))%h(:,:) &
-                           - sum(draft(:,:,:) * ice%conc(:,:,:),3)
+                           - sum(draft(:,:,:) * ice%conc(:,:,:),2)
 
   CALL message(TRIM(routine), 'end' )
 
@@ -1313,7 +1313,7 @@ SUBROUTINE set_ice_albedo(ppatch, ice)
   !
   !Local variables
   REAL(wp), PARAMETER :: albtrans   = 0.5_wp
-  REAL(wp)            :: albflag(nproma, ppatch%nblks_c,i_no_ice_thick_class)
+  REAL(wp)            :: albflag(nproma,i_no_ice_thick_class, ppatch%nblks_c)
   !-------------------------------------------------------------------------------
 
   ! This is Uwe's albedo expression from the old budget function
@@ -1355,7 +1355,7 @@ SUBROUTINE set_ice_temp(ppatch,ice, Qatm)
   TYPE (t_atmos_fluxes), INTENT (INOUT) :: Qatm
 
   !!Local variables
-  REAL(wp), DIMENSION (nproma, ppatch%nblks_c,i_no_ice_thick_class) ::           &
+  REAL(wp), DIMENSION (nproma,i_no_ice_thick_class, ppatch%nblks_c) ::           &
     A,      & ! Eq. 7
     A1,     & ! Eq. 16
     A1a,    & ! First two terms of Eq. 16 and 19
@@ -1394,8 +1394,8 @@ SUBROUTINE set_ice_temp(ppatch,ice, Qatm)
 
   ! Create array of shortwave radiation split up into ice categories
   ! (purely for computational reasons)
-  FORALL(i=1:nproma, j=1:ppatch%nblks_c, k=1:i_no_ice_thick_class, ice % isice (i,j,k)) &
-      SWin3d(i,j,k) = Qatm% SWin(i,j)
+  FORALL(i=1:nproma, j=1:ppatch%nblks_c, k=1:i_no_ice_thick_class, ice % isice (i,k,j)) &
+      SWin3d(i,k,j) = Qatm% SWin(i,j)
 
   ! Calculate new ice temperature wherever there is ice 
   ! lat > 0, sens > 0, LWnet >0 , SWin > 0  for downward flux 
@@ -1484,7 +1484,7 @@ SUBROUTINE ice_growth(ppatch, ice, rpreci, lat)
 
   !!Local variables
 !!Local Variables
-  REAL(wp), DIMENSION (nproma, ppatch%nblks_c,i_no_ice_thick_class) ::         &
+  REAL(wp), DIMENSION (nproma,i_no_ice_thick_class, ppatch%nblks_c) ::         &
     below_water, & ! Thickness of snow layer below water line           [m]
     C1,          & ! L  * rhos * hs                                     [J/m�]
     C2,          & ! E1 * rhoi * h1                                     [J/m�]
@@ -1516,8 +1516,8 @@ SUBROUTINE ice_growth(ppatch, ice, rpreci, lat)
   delh2=0
 !  !-------------------------------------------------------------------------------
   ! Calculate snow fall and create array split into ice categories
-  new_snow3d (:,:,1)   = rpreci (:,:) * dtime * rhow / rhos 
-  FORALL(k=2:i_no_ice_thick_class)  new_snow3d(:,:,k)  = new_snow3d(:,:,1)
+  new_snow3d (:,1,:)   = rpreci (:,:) * dtime * rhow / rhos 
+  FORALL(k=2:i_no_ice_thick_class)  new_snow3d(:,k,:)  = new_snow3d(:,1,:)
 
   ! Add oceanic heat flux to energy available at the bottom of the ice.
   ! Currently (as in growth.f90): all energy available in upper ocean grid cell 
@@ -1722,7 +1722,7 @@ SUBROUTINE upper_ocean_TS(ppatch, p_os,p_as,ice, QatmAve)
   TYPE(t_atmos_fluxes),INTENT (INOUT) :: QatmAve
 
 !!Local Variables
-  REAL(wp), DIMENSION (nproma, ppatch%nblks_c,i_no_ice_thick_class) ::    &
+  REAL(wp), DIMENSION (nproma,i_no_ice_thick_class, ppatch%nblks_c) ::    &
    draft         ! position of ice-ocean interface below sea level        [m] 
   
   REAL(wp), DIMENSION (nproma, ppatch%nblks_c) ::   & 
@@ -1749,29 +1749,29 @@ SUBROUTINE upper_ocean_TS(ppatch, p_os,p_as,ice, QatmAve)
   precw           (:,:)   = QatmAve% rprecw (:,:) * dtime
   preci           (:,:)   = QatmAve% rpreci (:,:) * dtime
   evap            (:,:)   = (QatmAve% latw(:,:)/ Lvap * dtime * &
-                            sum(ice%conc(:,:,:), 3) +           &
-                            sum(ice%evapwi(:,:,:) * ice% conc(:,:,:), 3)) /rhow
+                            sum(ice%conc(:,:,:), 2) +           &
+                            sum(ice%evapwi(:,:,:) * ice% conc(:,:,:), 2)) /rhow
   p_os%p_prog(nold(1))%h(:,:) = p_os%p_prog(nold(1))%h(:,:) +  precw + preci - evap
 
   ! Calculate average draft and thickness of water underneath ice in upper ocean
   ! grid box
   zUnderIceOld    (:,:)   = ice%zUnderIce
   draft           (:,:,:) = (rhos * ice%hs + rhoi * ice%hi) / rhow
-  draftave        (:,:)   = sum(draft(:,:,:) * ice%conc(:,:,:),3)
+  draftave        (:,:)   = sum(draft(:,:,:) * ice%conc(:,:,:),2)
   ice%zUnderIce   (:,:)   = v_base%del_zlev_m(1) + p_os%p_prog(nold(1))%h(:,:) - draftave(:,:) 
  
   ! Calculate average change in ice thickness and the snow-to-ice conversion 
   Delhice         (:,:)   = sum((ice% hi(:,:,:) - ice% hiold(:,:,:))*          &
-                            ice%conc(:,:,:),3)
-  snowiceave      (:,:)   = sum(ice%snow_to_ice(:,:,:) * ice% conc(:,:,:),3)
+                            ice%conc(:,:,:),2)
+  snowiceave      (:,:)   = sum(ice%snow_to_ice(:,:,:) * ice% conc(:,:,:),2)
  
 
   ! Calculate heat input through formerly ice covered and through open water
   ! areas
-  heatOceI        (:,:)   = sum(ice% heatOceI(:,:,:) * ice% conc(:,:,:),3)
+  heatOceI        (:,:)   = sum(ice% heatOceI(:,:,:) * ice% conc(:,:,:),2)
   heatOceW        (:,:)   = (QatmAve%SWin(:,:) * (1.0_wp-albedoW) * (1.0_wp-swsum) +    &
                             QatmAve%LWnetw(:,:) + QatmAve%sensw(:,:)+         &
-                            QatmAve%latw(:,:))  *  (1.0_wp-sum(ice%conc,3))
+                            QatmAve%latw(:,:))  *  (1.0_wp-sum(ice%conc,2))
 
   ! Change temperature of upper ocean grid cell according to heat fluxes
   p_os%p_prog(nold(1))%tracer(:,1,:,1) = p_os%p_prog(nold(1))%tracer(:,1,:,1)&
@@ -1783,8 +1783,8 @@ SUBROUTINE upper_ocean_TS(ppatch, p_os,p_as,ice, QatmAve)
   p_os%p_prog(nold(1))%tracer(:,1,:,1) = (p_os%p_prog(nold(1))%tracer(:,1,:,1)&
                           &*zUnderIceOld &
                           &+ precw*p_as%tafo + preci*0.0_wp + &                             !!!!!!!!!Dirk: times 0.0 ????
-                          &  sum(ice%surfmeltT * ice%surfmelt * ice%conc,3)) / & 
-                          &  (zUnderIceOld + sum(ice%surfmelt*ice%conc,3) +    &
+                          &  sum(ice%surfmeltT * ice%surfmelt * ice%conc,2)) / & 
+                          &  (zUnderIceOld + sum(ice%surfmelt*ice%conc,2) +    &
                           &  precw + preci)
 
   ! Change salinity of upper ocean grid box from ice growth/melt, snowice
@@ -1817,24 +1817,24 @@ SUBROUTINE new_ice_growth(ice, p_os, QatmAve)
     ice%newice(:,:) = -((QatmAve%LWnetw + QatmAve%SWin + QatmAve%latw +          &
                       QatmAve%sensw) / (Lfreez*rhoi) * dtime  -                  &
                       (p_os%p_prog(nold(1))%tracer(:,1,:,1) - Tf) * ice%zUnderIce&
-                      * cw*rhow / (Lfreez*rhoi))* (1.0_wp-sum(ice%conc,3))
+                      * cw*rhow / (Lfreez*rhoi))* (1.0_wp-sum(ice%conc,2))
     ! Add energy for new-ice formation due to supercooled ocean to
     ! ocean temperature
     p_os%p_prog(nold(1))%tracer(:,1,:,1) = p_os%p_prog(nold(1))%tracer(:,1,:,1)&
-                                       & * sum(ice%conc,3) + Tf * (1.0_wp-sum(ice%conc,3))
+                                       & * sum(ice%conc,2) + Tf * (1.0_wp-sum(ice%conc,2))
   END WHERE
   WHERE(ice%newice>0.0_wp)
-    ice % isice(:,:,1) = .TRUE.
-    ice % hi   (:,:,1) = ice%newice* (1.0_wp-sum(ice%conc,3))&
-                       &+ice%hi(:,:,1)*sum(ice%conc,3)
+    ice % isice(:,1,:) = .TRUE.
+    ice % hi   (:,1,:) = ice%newice* (1.0_wp-sum(ice%conc,2))&
+                       &+ice%hi(:,1,:)*sum(ice%conc,2)
      !ice % hs   (:,:,1) = 0
-     ice % Tsurf(:,:,1) = p_os%p_prog(nold(1))%tracer(:,1,:,1)
+     ice % Tsurf(:,1,:) = p_os%p_prog(nold(1))%tracer(:,1,:,1)
 !!!!!!!!!!!DIRK: Where is rhs coming from ???????????????
 
 !     ice % T1   (:,:,1) = T1(:,:,1)
 !     ice % T2   (:,:,1) = T2(:,:,1)
-    ice % conc (:,:,1) = 1.0_wp
-    ice% concSum(:,:)  = SUM(ice% conc(:,:,:),3)
+    ice % conc (:,1,:) = 1.0_wp
+    ice% concSum(:,:)  = SUM(ice% conc(:,:,:),2)
   ENDWHERE
 END SUBROUTINE new_ice_growth
 
@@ -1969,8 +1969,8 @@ END SUBROUTINE new_ice_growth
                         & * (z_sphumida(jc,jb)-z_sphumidw(jc,jb))*fr_fac
 
       DO i = 1, p_ice%kice
-        IF (p_ice% isice(jc,jb,i))THEN
-          z_Tsurf(jc,jb) = p_ice%Tsurf(jc,jb,i)
+        IF (p_ice% isice(jc,i,jb))THEN
+          z_Tsurf(jc,jb) = p_ice%Tsurf(jc,i,jb)
           ! z_esti is calculated according to Buck Research Manuals, 1996 (see z_esta)
           z_esti     (jc,jb) = 611.15_wp*EXP( (23.036_wp-z_Tsurf(jc,jb)/333.7_wp) &
                              & *z_Tsurf(jc,jb)/(z_Tsurf(jc,jb) + 279.82_wp) )
@@ -1980,19 +1980,19 @@ END SUBROUTINE new_ice_growth
                              & * (z_Tsurf(jc,jb)-p_as%tafo(jc,jb)) )
           z_drags    (jc,jb) = 0.96_wp * z_dragl(jc,jb)
 
-          Qatm%LWout (jc,jb,i) = emiss*StefBol * (z_Tsurf(jc,jb)+273.15_wp)**4
-          Qatm%LWnet (jc,jb,i) = Qatm%LWin(jc,jb) - Qatm%LWout(jc,jb,i)
-          Qatm%dLWdT (jc,jb,i) = - 4.0_wp * emiss*StefBol * (z_Tsurf(jc,jb) + 273.15_wp)**3
-          Qatm%sens  (jc,jb,i) = z_drags(jc,jb) * z_rhoair(jc,jb)*cpa*p_as%fu10(jc,jb)&
+          Qatm%LWout (jc,i,jb) = emiss*StefBol * (z_Tsurf(jc,jb)+273.15_wp)**4
+          Qatm%LWnet (jc,i,jb) = Qatm%LWin(jc,jb) - Qatm%LWout(jc,i,jb)
+          Qatm%dLWdT (jc,i,jb) = - 4.0_wp * emiss*StefBol * (z_Tsurf(jc,jb) + 273.15_wp)**3
+          Qatm%sens  (jc,i,jb) = z_drags(jc,jb) * z_rhoair(jc,jb)*cpa*p_as%fu10(jc,jb)&
                                & * (p_as%tafo(jc,jb) -z_Tsurf(jc,jb))   *fr_fac
-          Qatm%lat   (jc,jb,i) = z_dragl(jc,jb) * z_rhoair(jc,jb)* Lfreez *p_as%fu10(jc,jb)&
+          Qatm%lat   (jc,i,jb) = z_dragl(jc,jb) * z_rhoair(jc,jb)* Lfreez *p_as%fu10(jc,jb)&
                                & * (z_sphumida(jc,jb)-z_sphumidi(jc,jb))*fr_fac
     
-          Qatm%dsensdT(jc,jb,i)= 0.96_wp*z_dragl1(jc,jb)*z_drags(jc,jb)*z_rhoair(jc,jb)&
+          Qatm%dsensdT(jc,i,jb)= 0.96_wp*z_dragl1(jc,jb)*z_drags(jc,jb)*z_rhoair(jc,jb)&
                                & *cpa * p_as%fu10(jc,jb)       &
                                & * (p_as%tafo(jc,jb) - z_Tsurf(jc,jb)) *  fr_fac &
                                & -z_drags(jc,jb)*z_rhoair(jc,jb) *cpa*p_as%fu10(jc,jb)
-          Qatm%dlatdT(jc,jb,i) = z_dragl1(jc,jb) * z_rhoair(jc,jb)*Lfreez * p_as%fu10(jc,jb)&
+          Qatm%dlatdT(jc,i,jb) = z_dragl1(jc,jb) * z_rhoair(jc,jb)*Lfreez * p_as%fu10(jc,jb)&
                                & *(z_sphumida(jc,jb)-z_sphumidi(jc,jb))*fr_fac
         ENDIF
       ENDDO
