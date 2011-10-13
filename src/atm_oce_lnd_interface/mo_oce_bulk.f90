@@ -571,7 +571,7 @@ CONTAINS
   TYPE(t_hydro_ocean_state),INTENT(INOUT)  :: p_os
   TYPE(t_sea_ice),          INTENT (INOUT) :: ice
   TYPE(t_atmos_fluxes),     INTENT (INOUT) :: QatmAve
-  TYPE(t_sfc_flx),          INTENT (IN)    :: p_sfc_flx
+  TYPE(t_sfc_flx),          INTENT (INOUT) :: p_sfc_flx
 
 !!Local Variables
   REAL(wp), DIMENSION (nproma, ppatch%nblks_c,ice%kice) ::    &
