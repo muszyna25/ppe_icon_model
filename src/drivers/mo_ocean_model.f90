@@ -153,7 +153,7 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = "mo_ocean_model:ocean_model"
 
     TYPE(t_atmos_for_ocean)                         :: p_as
-    TYPE(t_atmos_fluxes)                            :: p_atm_f,p_atm_fm
+    TYPE(t_atmos_fluxes)                            :: p_atm_f
 
     TYPE(t_datetime)                                :: datetime
 
@@ -449,7 +449,7 @@ CONTAINS
 
     ! Prepare time integration
     CALL prepare_ho_integration(p_patch(1:), v_ocean_state, ext_data, v_sfc_flx, &
-      &                         v_params, p_as, p_atm_f,p_atm_fm, v_sea_ice)
+      &                         v_params, p_as, p_atm_f, v_sea_ice)
 
     !------------------------------------------------------------------
     ! Daniel: Suggestion for point 5 of Feature #333
@@ -527,7 +527,7 @@ CONTAINS
       &                       (nsteps == INT(time_config%dt_restart/dtime)),&
       &                       p_int_state(1:),                              &
       &                       v_sfc_flx,                                    &
-      &                       v_params, p_as, p_atm_f,p_atm_fm, v_sea_ice,  &
+      &                       v_params, p_as, p_atm_f,v_sea_ice,  &
       &                       l_have_output)
 
     IF (ltimer) CALL print_timer
@@ -538,7 +538,7 @@ CONTAINS
     CALL message(TRIM(routine),'start to clean up')
 
     CALL finalise_ho_integration(v_ocean_state, v_params, &
-      &                          p_as, p_atm_f, p_atm_fm, v_sea_ice, v_sfc_flx)
+      &                          p_as, p_atm_f, v_sea_ice, v_sfc_flx)
 
 
 

@@ -1109,7 +1109,7 @@ END SUBROUTINE ice_init
    TYPE (t_atmos_fluxes),    INTENT (INOUT) :: Qatm
    TYPE (t_atmos_fluxes),    INTENT (INOUT) :: QatmAve
 !------------------------------------------------------------------------- 
-    CALL get_atmos_fluxes (ppatch, p_os,p_as,ice, Qatm)
+!    CALL get_atmos_fluxes (ppatch, p_os,p_as,ice, Qatm)
     CALL set_ice_albedo   (ppatch,ice)
     CALL set_ice_temp     (ppatch,ice, Qatm)
     CALL sum_fluxes       (Qatm, QatmAve)
@@ -1125,23 +1125,24 @@ END SUBROUTINE ice_init
 !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
 !! Dirk Notz, following MPI-OM. Code transfered to ICON.
 !!
- SUBROUTINE ice_slow(ppatch, p_os,p_as,ice, Qatm, QatmAve)  
+ SUBROUTINE ice_slow(ppatch, p_os,p_as,ice, QatmAve, p_sfc_flx)  
    TYPE(t_patch),         INTENT(IN)      :: ppatch 
    TYPE(t_hydro_ocean_state),INTENT(INOUT):: p_os
    TYPE(t_atmos_for_ocean),INTENT(IN)     :: p_as
    TYPE (t_sea_ice),      INTENT (INOUT)  :: ice
-   TYPE (t_atmos_fluxes), INTENT (INOUT)  :: Qatm
+!   TYPE (t_atmos_fluxes), INTENT (INOUT)  :: Qatm
    TYPE (t_atmos_fluxes), INTENT (INOUT)  :: QatmAve
+   TYPE(t_sfc_flx),        INTENT (INOUT) :: p_sfc_flx
 !-------------------------------------------------------------------------------
 
    CALL ave_fluxes     (ice, QatmAve)
 !   !CALL ice_dynamics   (ice, QatmAve)
    CALL ice_growth     (ppatch,ice, QatmAve%rpreci, QatmAve%lat)
-!   CALL upper_ocean_TS (ppatch,p_os,p_as,ice, QatmAve)
-   CALL new_ice_growth (ice, p_os,QatmAve)
+   CALL upper_ocean_TS (ppatch,p_os,p_as,ice, QatmAve, p_sfc_flx)
+   CALL new_ice_growth (ppatch,ice, p_os,QatmAve,p_sfc_flx)
 !   CALL ice_advection  (ice)
 !   CALL write_ice(ice,QatmAve,1,ie,je)
-   CALL ice_zero       (ice, QatmAve, Qatm)
+   CALL ice_zero       (ice, QatmAve)
 !   sictho = ice%hi   (:,:,1) * ice%conc (:,:,1)
 !   sicomo = ice%conc (:,:,1)
 !   sicsno = ice%hs   (:,:,1) * ice%conc (:,:,1)
@@ -1250,23 +1251,23 @@ END SUBROUTINE ave_fluxes
 !! Initial release by Einar Olason, MPI-M (2011-09). Originally code written by
 !! Dirk Notz, following MPI-OM. Code transfered to ICON.
 !!
-SUBROUTINE ice_zero (ice,QatmAve, Qatm)
+SUBROUTINE ice_zero (ice,QatmAve)
   TYPE (t_sea_ice),      INTENT (INOUT) :: ice
-  TYPE (t_atmos_fluxes), INTENT (INOUT) :: Qatm
+!  TYPE (t_atmos_fluxes), INTENT (INOUT) :: Qatm
   TYPE (t_atmos_fluxes), INTENT (INOUT) :: QatmAve
 
-  Qatm    % sens        (:,:,:) = 0._wp
-  Qatm    % sensw       (:,:)   = 0._wp
-  Qatm    % lat         (:,:,:) = 0._wp
-  Qatm    % latw        (:,:)   = 0._wp
-  Qatm    % LWout       (:,:,:) = 0._wp
-  Qatm    % LWoutw      (:,:)   = 0._wp
-  Qatm    % LWnet       (:,:,:) = 0._wp
-  Qatm    % LWnetw      (:,:)   = 0._wp
-  Qatm    % SWin        (:,:)   = 0._wp
-  Qatm    % LWin        (:,:)   = 0._wp
-  Qatm    % rprecw      (:,:)   = 0._wp
-  Qatm    % rpreci      (:,:)   = 0._wp
+!  Qatm    % sens        (:,:,:) = 0._wp
+!  Qatm    % sensw       (:,:)   = 0._wp
+!  Qatm    % lat         (:,:,:) = 0._wp
+!  Qatm    % latw        (:,:)   = 0._wp
+!  Qatm    % LWout       (:,:,:) = 0._wp
+!  Qatm    % LWoutw      (:,:)   = 0._wp
+!  Qatm    % LWnet       (:,:,:) = 0._wp
+!  Qatm    % LWnetw      (:,:)   = 0._wp
+!  Qatm    % SWin        (:,:)   = 0._wp
+!  Qatm    % LWin        (:,:)   = 0._wp
+!  Qatm    % rprecw      (:,:)   = 0._wp
+!  Qatm    % rpreci      (:,:)   = 0._wp
                         
   QatmAve % sens        (:,:,:) = 0._wp
   QatmAve % sensw       (:,:)   = 0._wp
@@ -1284,12 +1285,12 @@ SUBROUTINE ice_zero (ice,QatmAve, Qatm)
 
   ice     % Qbot        (:,:,:) = 0._wp
   ice     % Qtop        (:,:,:) = 0._wp
-  ice     % surfmelt    (:,:,:) = 0._wp
-  ice     % surfmeltT   (:,:,:) = 0._wp
-  ice     % evapwi      (:,:,:) = 0._wp
-  ice     % hiold       (:,:,:) = 0._wp
-  ice     % snow_to_ice (:,:,:) = 0._wp
-  ice     % heatOceI    (:,:,:) = 0._wp
+!  ice     % surfmelt    (:,:,:) = 0._wp
+!  ice     % surfmeltT   (:,:,:) = 0._wp
+!  ice     % evapwi      (:,:,:) = 0._wp
+!  ice     % hiold       (:,:,:) = 0._wp
+!  ice     % snow_to_ice (:,:,:) = 0._wp
+!  ice     % heatOceI    (:,:,:) = 0._wp
 
   END SUBROUTINE ice_zero
 
@@ -1714,12 +1715,13 @@ END SUBROUTINE ice_growth
 !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
 !! Dirk Notz, following MPI-OM. Code transfered to ICON.
 !!
-SUBROUTINE upper_ocean_TS(ppatch, p_os,p_as,ice, QatmAve)
+SUBROUTINE upper_ocean_TS(ppatch, p_os,p_as,ice, QatmAve, p_sfc_flx)
   TYPE(t_patch),       INTENT(IN)     :: ppatch 
   TYPE(t_hydro_ocean_state),INTENT(INOUT):: p_os
   TYPE(t_atmos_for_ocean),INTENT(IN)  :: p_as
   TYPE(t_sea_ice),     INTENT (INOUT) :: ice
   TYPE(t_atmos_fluxes),INTENT (INOUT) :: QatmAve
+  TYPE(t_sfc_flx),     INTENT (INOUT) :: p_sfc_flx
 
 !!Local Variables
   REAL(wp), DIMENSION (nproma,i_no_ice_thick_class, ppatch%nblks_c) ::    &
@@ -1751,7 +1753,9 @@ SUBROUTINE upper_ocean_TS(ppatch, p_os,p_as,ice, QatmAve)
   evap            (:,:)   = (QatmAve% latw(:,:)/ Lvap * dtime * &
                             sum(ice%conc(:,:,:), 2) +           &
                             sum(ice%evapwi(:,:,:) * ice% conc(:,:,:), 2)) /rhow
-  p_os%p_prog(nold(1))%h(:,:) = p_os%p_prog(nold(1))%h(:,:) +  precw + preci - evap
+
+  ! TODO: This should probably be done via surface fluxes?
+  !p_os%p_prog(nold(1))%h(:,:) = p_os%p_prog(nold(1))%h(:,:) +  precw + preci - evap
 
   ! Calculate average draft and thickness of water underneath ice in upper ocean
   ! grid box
@@ -1774,24 +1778,27 @@ SUBROUTINE upper_ocean_TS(ppatch, p_os,p_as,ice, QatmAve)
                             QatmAve%latw(:,:))  *  (1.0_wp-sum(ice%conc,2))
 
   ! Change temperature of upper ocean grid cell according to heat fluxes
-  p_os%p_prog(nold(1))%tracer(:,1,:,1) = p_os%p_prog(nold(1))%tracer(:,1,:,1)&
-                                       & + dtime*(heatOceI + heatOceW) /               &
-                                       & (cw*rhow * ice%zUnderIce)
+!  p_os%p_prog(nold(1))%tracer(:,1,:,1) = p_os%p_prog(nold(1))%tracer(:,1,:,1)&
+!                                       & + dtime*(heatOceI + heatOceW) /               &
+!                                       & (cw*rhow * ice%zUnderIce)
+! TODO: should we also divide with ice%zUnderIce / ( v_base%del_zlev_m(1) +  p_os%p_prog(nold(1))%h(:,:) ) ?
+  p_sfc_flx%forc_tracer(:,:,1) = (heatOceI + heatOceW) / (cw*rhow)
 
-  ! Temperature change of upper ocean grid cell due  to melt-water inflow and
-  ! precipitation
-  p_os%p_prog(nold(1))%tracer(:,1,:,1) = (p_os%p_prog(nold(1))%tracer(:,1,:,1)&
-                          &*zUnderIceOld &
-                          &+ precw*p_as%tafo + preci*0.0_wp + &                             !!!!!!!!!Dirk: times 0.0 ????
-                          &  sum(ice%surfmeltT * ice%surfmelt * ice%conc,2)) / & 
-                          &  (zUnderIceOld + sum(ice%surfmelt*ice%conc,2) +    &
-                          &  precw + preci)
-
-  ! Change salinity of upper ocean grid box from ice growth/melt, snowice
-  ! formation and precipitation
-  p_os%p_prog(nold(1))%tracer(:,1,:,2) = p_os%p_prog(nold(1))%tracer(:,1,:,2)  &
-                                       & + (Delhice(:,:)*rhoi - snowiceave(:,:)*rhos)/rhow *  &
-                                       & MIN(Sice, sao_top(:,:)) / ice%zUnderIce(:,:)
+! TODO:
+!  ! Temperature change of upper ocean grid cell due  to melt-water inflow and
+!  ! precipitation
+!  p_os%p_prog(nold(1))%tracer(:,1,:,1) = (p_os%p_prog(nold(1))%tracer(:,1,:,1)&
+!                          &*zUnderIceOld &
+!                          &+ precw*p_as%tafo + preci*0.0_wp + &                             !!!!!!!!!Dirk: times 0.0 ????
+!                          &  sum(ice%surfmeltT * ice%surfmelt * ice%conc,2)) / & 
+!                          &  (zUnderIceOld + sum(ice%surfmelt*ice%conc,2) +    &
+!                          &  precw + preci)
+!
+!  ! Change salinity of upper ocean grid box from ice growth/melt, snowice
+!  ! formation and precipitation
+!  p_os%p_prog(nold(1))%tracer(:,1,:,2) = p_os%p_prog(nold(1))%tracer(:,1,:,2)  &
+!                                       & + (Delhice(:,:)*rhoi - snowiceave(:,:)*rhos)/rhow *  &
+!                                       & MIN(Sice, sao_top(:,:)) / ice%zUnderIce(:,:)
 
   !heatabs         (:,:)   = swsum * QatmAve% SWin * (1 - ice%concsum)
 
@@ -1807,21 +1814,24 @@ END SUBROUTINE upper_ocean_TS
 !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
 !! Dirk Notz, following MPI-OM. Code transfered to ICON.
 !!
-SUBROUTINE new_ice_growth(ice, p_os, QatmAve)
+SUBROUTINE new_ice_growth(ppatch,ice, p_os, QatmAve,p_sfc_flx)
+  TYPE(t_patch),                INTENT(IN) :: ppatch 
   TYPE (t_sea_ice),         INTENT (INOUT) :: ice  
   TYPE(t_hydro_ocean_state),INTENT(INOUT)  :: p_os
   TYPE (t_atmos_fluxes),    INTENT (IN   ) :: QatmAve
+  TYPE(t_sfc_flx),     INTENT (INOUT) :: p_sfc_flx
+
+  REAL(wp), DIMENSION (nproma,ppatch%nblks_c) :: sst
+
+! Calculate possible super-cooling of the surface layer
+  sst = p_os%p_prog(nold(1))%tracer(:,1,:,1) + &
+   &      dtime*p_sfc_flx%forc_tracer(:,:,1)/ice%zUnderIce
 
   ice % newice = 0.0_wp
-  WHERE (p_os%p_prog(nold(1))%tracer(:,1,:,1) <= Tf)
-    ice%newice(:,:) = -((QatmAve%LWnetw + QatmAve%SWin + QatmAve%latw +          &
-                      QatmAve%sensw) / (Lfreez*rhoi) * dtime  -                  &
-                      (p_os%p_prog(nold(1))%tracer(:,1,:,1) - Tf) * ice%zUnderIce&
-                      * cw*rhow / (Lfreez*rhoi))* (1.0_wp-sum(ice%conc,2))
-    ! Add energy for new-ice formation due to supercooled ocean to
-    ! ocean temperature
-    p_os%p_prog(nold(1))%tracer(:,1,:,1) = p_os%p_prog(nold(1))%tracer(:,1,:,1)&
-                                       & * sum(ice%conc,2) + Tf * (1.0_wp-sum(ice%conc,2))
+  WHERE (sst <= Tf)
+    ice%newice(:,:) = - (sst - Tf) * ice%zUnderIce * cw*rhow / (Lfreez*rhoi)
+    ! Add energy for new-ice formation due to supercooled ocean to  ocean temperature
+    p_sfc_flx%forc_tracer(:,:,1) = ( Tf - p_os%p_prog(nold(1))%tracer(:,1,:,1) ) / dtime
   END WHERE
   WHERE(ice%newice>0.0_wp)
     ice % isice(:,1,:) = .TRUE.
@@ -1889,6 +1899,7 @@ END SUBROUTINE new_ice_growth
   i_startblk_c = ppatch%cells%start_blk(rl_start_c,1)
   i_endblk_c   = ppatch%cells%end_blk(rl_end_c,1)
 
+  !TODO: Can't we get rid of the do-loops?
   DO jb = i_startblk_c, i_endblk_c
     CALL get_indices_c( ppatch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
     &                   rl_start_c, rl_end_c)

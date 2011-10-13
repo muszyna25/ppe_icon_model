@@ -1042,7 +1042,7 @@ END DO
       ! Construct temperature profile 
       !   ttrop for lat<ltrop; tpol for lat>lpol; cos for transition zone
       !   for maximum tropical temperature see values above
-      z_tpol  =  5.0_wp      ! polar temperature
+      z_tpol  = Tf+tiny(Tf)  ! polar temperature
       z_ltrop = 15.0_wp      ! tropical latitude for temperature gradient
       z_lpol  = 60.0_wp      ! polar latitude for temperature gradient
       z_ldiff = z_lpol  - z_ltrop

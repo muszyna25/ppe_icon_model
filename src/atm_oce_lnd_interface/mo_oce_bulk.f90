@@ -113,12 +113,12 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !
-  SUBROUTINE update_sfcflx(p_patch, p_os, p_as, p_ice, Qatm, QatmAve, p_sfc_flx, jstep, datetime)
+  SUBROUTINE update_sfcflx(p_patch, p_os, p_as, p_ice, Qatm, p_sfc_flx, jstep, datetime)
 
   TYPE(t_patch), TARGET, INTENT(IN)   :: p_patch
   TYPE(t_hydro_ocean_state)           :: p_os
   TYPE(t_atmos_for_ocean)             :: p_as
-  TYPE(t_atmos_fluxes)                :: Qatm, QatmAve
+  TYPE(t_atmos_fluxes)                :: Qatm
   TYPE(t_sea_ice)                     :: p_ice
   TYPE(t_sfc_flx)                     :: p_sfc_flx
   INTEGER, INTENT(IN)                 :: jstep
@@ -347,10 +347,10 @@ CONTAINS
       IF (iforc_omip == 2) &
         CALL calc_atm_fluxes_from_bulk (p_patch, p_as, p_os, p_ice, Qatm)
 
-      CALL update_sfcflx_from_atm_flx(p_patch, p_as, p_os, p_ice, Qatm, p_sfc_flx)
+      ! This is a stripped down version of ice_fast for ice-ocean model only
       CALL set_ice_albedo(p_patch,p_ice)
       CALL set_ice_temp(p_patch,p_ice,Qatm)
-      CALL sum_fluxes(Qatm, QatmAve)
+      Qatm%counter = 1
     ENDIF
 
   CASE (FORCING_FROM_FILE_FIELD)                                    !  13
