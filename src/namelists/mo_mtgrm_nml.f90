@@ -155,11 +155,14 @@ CONTAINS
 
     ! fill in values for each model domain:
     DO idom=1,max_dom
-
       mtgrm_output_config(idom)%lenabled     = lmtgrm_enabled(idom)
       mtgrm_output_config(idom)%zprefix      = zprefix(idom)
       mtgrm_output_config(idom)%ftype        = ftype(idom)
+#ifdef NOMPI
+      mtgrm_output_config(idom)%ldistributed = .TRUE.
+#else
       mtgrm_output_config(idom)%ldistributed = ldistributed(idom)
+#endif
       mtgrm_output_config(idom)%n0_mtgrm     = n0_mtgrm(idom)
       mtgrm_output_config(idom)%ninc_mtgrm   = ninc_mtgrm(idom)
       mtgrm_output_config(idom)%nstations    = nstations
