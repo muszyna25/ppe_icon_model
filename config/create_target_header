@@ -16,7 +16,6 @@
 #
 #==============================================================================
 
-
 set_default()
 {
   if [[ "x$(eval echo \$$1)" == "x" ]]; then
@@ -34,6 +33,8 @@ else
 fi
 
 set_default use_omp_stacksize 50M
+set_default use_nodes 1
+
 let mpi_total_procs=${use_nodes}*${use_mpi_procs}
 
 cat >> $output_script << EOF
