@@ -336,8 +336,8 @@
 
   if (plotMode.eq."section") trans = setSection(secLC,secRC,secPoints,var) end if
 
-  setAutomaticBaseString(wks)
-  if (showPreview) setAutomaticBaseString(xwks) end if
+  setAutomaticBaseString(wks,plotMode)
+  if (showPreview) setAutomaticBaseString(xwks,plotMode) end if
 
   setLevels(selMode,ResC,minVar,maxVar,scaleLimit,numLevs,DEBUG)
 
@@ -426,6 +426,10 @@
     end if
   end if
   if (plotMode.eq."section") then
+
+;     maskvar = rFile->wet_c
+;     var = mask(var,maskvar,1)
+    plot = new(2,graphic)
     points   = ispan(0,secPoints-1,1)*1.0 
     copy_VarAtts(var,trans)          ; copy attributes
     trans!0 = "depth"
@@ -444,25 +448,40 @@
     res@lbOrientation       = "vertical"   ; vertical label bar
     res@pmLabelBarOrthogonalPosF = -0.05        ; move label bar closer to plot
 
-    res@tiMainString        = "Transect"   ; add title
- ;   res@tiXAxisString       = "lat/lon along transect"
-    res@trYReverse          = True         ; reverse y axis
-    ;  res@trXReverse          = True         ; reverse x axis (neg longitudes)
-    res@cnLevelSpacingF     = 1.0          ; set contour spacing
 
-    plot = gsn_csm_contour(wks,trans,res)  ; create plot
-    mres = True
-    mres@gsnFrame    = False               ; don't turn page yet
-    mres@gsnDraw     = False               ; don't draw yet
-    ;plot(1) = gsn_csm_map_ce(wks,mres)
-    map = gsn_csm_map_ce(wks,mres)
-    pres                  = True           ; polyline mods desired
-    pres@gsLineColor      = "Black"          ; color of lines
-    pres@gsLineThicknessF = 2.0            ; line thickness   
-    gsn_polyline(wks,map,(/ secLC(0),secRC(0) /),(/ secLC(1),secRC(1) /),pres)
+    res@vpWidthF          = 0.6;            set width of plot
+    res@vpHeightF         = 0.4;            set height of plot
 
-    gsn_panel(wks,(/ plot , map /),(/2,1/),False)
- ;   draw(map)
+    res@vpXF              = 0.2
+    res@vpYF              = 0.9
+;       res@tiMainString  = "Transect";    add title
+;       res@tiXAxisString = "lat/lon along transect"
+    res@trYReverse        = True;          reverse y axis
+;      res@trXReverse     = True;          reverse x axis (neg longitudes)
+    res@cnLevelSpacingF   = 1.0;           set contour spacing
+    plot(0)               = gsn_csm_contour(wks,trans,res);   create plot
+
+    ; map with section polygon
+    mres                  = True
+    mres@gsnFrame         = False;                don't turn page yet
+    mres@gsnDraw          = False;                don't draw yet
+    mres@vpWidthF         = 0.8;          set width of plot
+    mres@vpHeightF        = 0.3;          set height of plot
+    mres@vpXF             = 0.1
+    mres@vpYF             = 0.4
+    plot(1)               = gsn_csm_map_ce(wks,mres)
+    pres                  = True;            polyline mods desired
+    pres@gsnFrame         = False;                don't turn page yet
+    pres@gsnDraw          = False;                don't draw yet
+    pres@gsLineColor      = "Black";           color of lines
+    pres@gsLineThicknessF = 2.0;             line thickness
+    gsn_polyline(wks,plot(1),(/ secLC(0),secRC(0) /),(/ secLC(1),secRC(1) /),pres)
+    resP                  = True; modify the panel plot
+    resP@txString         = "laa"
+    resP@gsnPanelLabelBar = False; add common colorbar
+
+    draw(plot(0))
+    draw(plot(1))
   end if
   if (showPreview) frame(xwks) end if
   frame(wks)

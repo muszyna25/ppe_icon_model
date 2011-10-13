@@ -397,7 +397,11 @@ begin
   if (plotmode.eq."scalar" .or. plotmode.eq."overlay") then
     maskvar = selIconVar(maskvarname,mfilehandle,timestep,levelindex)
   else
-    maskvar = selRegularField(maskvarname,mfilehandle,timestep,levelindex)
+    if (plotmode.eq."vector") then
+      maskvar = selRegularField(maskvarname,mfilehandle,timestep,levelindex)
+    else ; section
+      maskvar = selRegularVar(maskvarname,mfilehandle,timestep)
+    end if
   end if
 
   return maskvar
@@ -647,7 +651,7 @@ end
 ;
 ; GLOBALS: bStrg
 undef("setAutomaticBaseString")
-procedure setAutomaticBaseString(workstation)
+procedure setAutomaticBaseString(workstation,plotmode)
 begin
   if(.not. isvar("bStrg")) then
     bStrg      = ""
@@ -658,6 +662,7 @@ begin
   BaseString = "Prgr icon_ocean.ncl: " + " " + basestr + " " + systemfunc("date")
   res               = True
   res@txFontHeightF = 0.011
+  if (plotmode.eq."section") res@txPosYF = 0.01 end if
   gsn_text_ndc(workstation,BaseString,getLshiftForNDCString(BaseString),.12,res)
 end
 ;---------------------------------------------------------------
