@@ -595,17 +595,22 @@ CONTAINS
               CALL finish('open_writing_restart_files','Number of depth levels not available.')
             ENDIF
           CASE (ZAXIS_HEIGHT)
+            WRITE(0,*)'we are in zaxis_height', ZAXIS_HEIGHT,  lheight_initialised
             IF (.NOT. lheight_initialised) CYCLE
             IF (SIZE(private_height_full) == vgrid_def(ivg)%nlevels) THEN
               var_lists(i)%p%cdiHeightFullZaxisID = zaxisCreate(ZAXIS_HEIGHT, &
                    &                                            vgrid_def(ivg)%nlevels)
+            WRITE(0,*)'we are in zaxis_full height',var_lists(i)%p%cdiHeightFullZaxisID 
               CALL zaxisDefLevels(var_lists(i)%p%cdiHeightFullZaxisID, &
                    &              private_height_full)
+              WRITE(0,*)'we are in zaxis_full height', private_height_full
             ELSE IF (SIZE(private_height_half) == vgrid_def(ivg)%nlevels) THEN
               var_lists(i)%p%cdiHeightHalfZaxisID = zaxisCreate(ZAXIS_HEIGHT, &
                    &                                            vgrid_def(ivg)%nlevels)
               CALL zaxisDefLevels(var_lists(i)%p%cdiHeightHalfZaxisID, &
                    &              private_height_half)
+              WRITE(0,*)'we are in zaxis_half height', &
+                & var_lists(i)%p%cdiHeightHalfZaxisID,private_height_half
             ELSE
               CALL finish('open_writing_restart_files','Number of height levels not available.')
             ENDIF
@@ -750,6 +755,10 @@ CONTAINS
           info%cdiZaxisID =  this_list%p%cdiDepthFullZaxisID
           zaxisID = info%cdiZaxisID
         ENDIF
+
+        WRITE(0,*)'before checking zaxis_height',info%used_dimensions(2),&
+          & SIZE(private_height_full)
+        WRITE(0,*)'size of zh= ',SIZE(private_height_half)
       CASE (ZAXIS_HEIGHT)
         IF (info%used_dimensions(2) == SIZE(private_height_half)) THEN
           info%cdiZaxisID =  this_list%p%cdiHeightHalfZaxisID

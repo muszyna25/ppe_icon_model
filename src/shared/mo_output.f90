@@ -318,7 +318,8 @@ CONTAINS
                                 & opt_lcall_phy, opt_sim_time,&
                                 & opt_jstep_adv_ntsteps,      &
                                 & opt_jstep_adv_marchuk_order,&
-                                & opt_depth)
+                                & opt_depth, opt_zheight,     &
+                                & opt_zheight_mc ,opt_zheight_ifc )
 
     TYPE(t_patch),   INTENT(IN) :: patch
     TYPE(t_datetime),INTENT(IN) :: datetime
@@ -327,14 +328,19 @@ CONTAINS
 
     REAL(wp), INTENT(IN), OPTIONAL :: opt_pvct(:)
     INTEGER,  INTENT(IN), OPTIONAL :: opt_depth
+
     REAL(wp), INTENT(IN), OPTIONAL :: opt_t_elapsed_phy(:,:)
     LOGICAL , INTENT(IN), OPTIONAL :: opt_lcall_phy(:,:)
     REAL(wp), INTENT(IN), OPTIONAL :: opt_sim_time
     INTEGER,  INTENT(IN), OPTIONAL :: opt_jstep_adv_ntsteps
     INTEGER,  INTENT(IN), OPTIONAL :: opt_jstep_adv_marchuk_order
+    INTEGER,  INTENT(IN), OPTIONAL :: opt_zheight
+    REAL(wp), INTENT(IN), OPTIONAL :: opt_zheight_mc (:,:,:) 
+    REAL(wp), INTENT(IN), OPTIONAL :: opt_zheight_ifc(:,:,:)
 
     INTEGER :: klev, jg, kcell, kvert, kedge, icelltype, izlev
     REAL(wp), ALLOCATABLE :: zlevels_full(:), zlevels_half(:)
+
 
     CHARACTER(LEN=132) :: string
     CHARACTER(len=MAX_CHAR_LENGTH) :: attname   ! attribute name
@@ -407,7 +413,10 @@ CONTAINS
     END IF
 
     IF (PRESENT(opt_pvct)) CALL set_restart_vct( opt_pvct )  ! Vertical coordinate (A's and B's)
-    IF (PRESENT(opt_depth)) THEN
+    IF (PRESENT(opt_zheight)) THEN                           ! geometrical height for NH 
+!      CALL set_restart_height(opt_zheight_ifc ,opt_zheight_mc)
+    ENDIF
+    IF (PRESENT(opt_depth)) THEN                              ! Ocean depth
       izlev = opt_depth
       ALLOCATE(zlevels_full(izlev))
       ALLOCATE(zlevels_half(izlev+1))

@@ -560,12 +560,17 @@ MODULE mo_nh_stepping
     !--------------------------------------------------------------------------
     IF (is_checkpoint_time(jstep,n_checkpoint)) THEN
       DO jg = 1, n_dom
-        CALL create_restart_file( p_patch(jg), datetime,        &
-                                & jfile, l_have_output, vct,    &
-                                & t_elapsed_phy,                &
-                                & lcall_phy, sim_time(jg),      &
-                                & jstep_adv(jg)%ntsteps,        &
-                                & jstep_adv(jg)%marchuk_order   )
+        CALL create_restart_file( patch= p_patch(jg),datetime= datetime,                   & 
+                                & jfile                      = jfile,                      &
+                                & l_have_output              = l_have_output,              &
+                                & opt_t_elapsed_phy          = t_elapsed_phy,              &
+                                & opt_lcall_phy              = lcall_phy,                  &
+                                & opt_sim_time               = sim_time(jg),               &
+                                & opt_jstep_adv_ntsteps      = jstep_adv(jg)%ntsteps,      &
+                                & opt_jstep_adv_marchuk_order= jstep_adv(jg)%marchuk_order )!,&
+!                                & opt_zheight                = p_patch(jg)%nlev,           &
+!                                & opt_zheight_mc             = p_nh_state(jg)%metrics%z_mc,& 
+!                                & opt_zheight_ifc            = p_nh_state(jg)%metrics%z_ifc) 
       END DO
 
       ! Create the master (meta) file in ASCII format which contains
