@@ -53,7 +53,8 @@ USE mo_io_async,            ONLY: io_main_proc            ! main procedure for I
 ! Control parameters: run control, dynamics, i/o
 !
 USE mo_nonhydrostatic_config,ONLY: ivctype, kstart_moist, kstart_qv,    &
-  &                                l_open_ubc, configure_nonhydrostatic
+  &                                kend_qvsubstep, l_open_ubc,          &
+  &                                configure_nonhydrostatic
 USE mo_dynamics_config,   ONLY: iequations
 USE mo_run_config,        ONLY: configure_run, &
   & ltimer,               & !    :
@@ -470,7 +471,8 @@ CONTAINS
     DO jg =1,n_dom
      CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,      &
        &                      iequations, iforcing, iqv, kstart_moist(jg), &
-       &                      kstart_qv(jg), lvert_nest, l_open_ubc, ntracer ) 
+       &                      kstart_qv(jg), kend_qvsubstep(jg),           &
+       &                      lvert_nest, l_open_ubc, ntracer ) 
     ENDDO
 
     !------------------------------------------------------------------

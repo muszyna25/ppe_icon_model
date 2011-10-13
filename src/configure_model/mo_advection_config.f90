@@ -153,7 +153,12 @@ MODULE mo_advection_config
                                  !< 2: interpolated flux from parent grid        
                                                                                  
     INTEGER ::  &                !< selects vertical start level for each patch  
-      &  iadv_slev(MAX_NTRACER)  !< and each tracer.                      
+      &  iadv_slev(MAX_NTRACER)  !< and each tracer.
+
+    INTEGER ::  &                !< vertical end level down to which qv is 
+      &  iadv_qvsubstep_elev     !< advected with internal substepping (to 
+                                 !< circumvent CFL instability in the 
+                                 !< stratopause region).
                                                                                  
     REAL(wp) :: coeff_grid       !< parameter which is used to make the vertical 
                                  !< advection scheme applicable to a height      
@@ -197,7 +202,8 @@ CONTAINS
   !!
   SUBROUTINE configure_advection( jg, num_lev, num_lev_1, iequations,    &
     &                            iforcing, iqv, kstart_moist, kstart_qv, &
-    &                            lvert_nest, l_open_ubc, ntracer )
+    &                            kend_qvsubstep, lvert_nest, l_open_ubc, &
+    &                            ntracer )
   !
     INTEGER, INTENT(IN) :: jg           !< patch 
     INTEGER, INTENT(IN) :: num_lev      !< number of vertical levels
@@ -207,6 +213,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: iqv
     INTEGER, INTENT(IN) :: kstart_moist
     INTEGER, INTENT(IN) :: kstart_qv
+    INTEGER, INTENT(IN) :: kend_qvsubstep
     INTEGER, INTENT(IN) :: ntracer
     LOGICAL, INTENT(IN) :: lvert_nest
     LOGICAL, INTENT(IN) :: l_open_ubc
@@ -248,8 +255,10 @@ CONTAINS
       ! Set iadv_slev to kstart_moist for all tracers but QV
       advection_config(jg)%iadv_slev(:)   = kstart_moist
       advection_config(jg)%iadv_slev(iqv) = kstart_qv
+      advection_config(jg)%iadv_qvsubstep_elev = kend_qvsubstep
     ELSE
       advection_config(jg)%iadv_slev(:) = 1
+      advection_config(jg)%iadv_qvsubstep_elev = 1
     ENDIF
 
 

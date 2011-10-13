@@ -52,6 +52,7 @@ MODULE mo_nonhydrostatic_nml
                                     & config_ivctype          => ivctype          , &
                                     & config_htop_moist_proc  => htop_moist_proc  , &
                                     & config_htop_qvadv       => htop_qvadv       , &
+                                    & config_hbot_qvsubstep   => hbot_qvsubstep   , &
                                     & config_damp_height      => damp_height      , &
                                     & config_rayleigh_coeff   => rayleigh_coeff   , &
                                     & config_vwind_offctr     => vwind_offctr     , &
@@ -98,6 +99,9 @@ MODULE mo_nonhydrostatic_nml
   REAL(wp):: htop_qvadv              ! Top height (in m) up to which water vapor is advected
                                      ! workaround to circumvent CFL instability in the 
                                      ! stratopause region for aquaplanet experiments
+  REAL(wp):: hbot_qvsubstep          ! Bottom height (in m) down to which water vapor is 
+                                     ! advected with internal substepping (to circumvent CFL 
+                                     ! instability in the stratopause region).
 
   ! Parameters active with cell_type=3 only
   REAL(wp):: damp_height(max_dom)    ! height at which w-damping and sponge layer start
@@ -127,7 +131,7 @@ MODULE mo_nonhydrostatic_nml
 
 
   NAMELIST /nonhydrostatic_nml/ itime_scheme, iadv_rcf, ivctype, htop_moist_proc,          &
-                              & htop_qvadv, damp_height, rayleigh_coeff,                   &
+                              & htop_qvadv, hbot_qvsubstep, damp_height, rayleigh_coeff,   &
                               & vwind_offctr, iadv_rhotheta,                               &
                               & igradp_method, exner_expol, l_open_ubc, l_nest_rcf,        &
                               & l_masscorr_nest, l_zdiffu_t, thslp_zdiffu, thhgtd_zdiffu,  &
@@ -178,7 +182,7 @@ CONTAINS
     ! computed everywhere by default)
     htop_moist_proc = 200000._wp
     htop_qvadv      = 250000._wp
-
+    hbot_qvsubstep  = 250000._wp
 
     ! Settings for icell_type=3
     damp_height(1)    = 30000.0_wp
@@ -292,6 +296,7 @@ CONTAINS
        config_l_masscorr_nest   = l_masscorr_nest
        config_htop_moist_proc   = htop_moist_proc
        config_htop_qvadv        = htop_qvadv
+       config_hbot_qvsubstep    = hbot_qvsubstep
   
     !-----------------------------------------------------
     ! 5. Store the namelist for restart

@@ -209,7 +209,9 @@ CONTAINS
      &  opt_rlend                      !< (to avoid calculation of halo points)
 
     INTEGER :: jt                   !< tracer loop index
+    INTEGER :: jg                   !< patch ID
     INTEGER :: i_rlend, i_rlend_vt  
+    INTEGER :: qvsubstep_elev       !< end level for qv-substepping
 
     REAL(wp)::   &                  !< unweighted tangential velocity
       &  z_real_vt(nproma,p_patch%nlev,p_patch%nblks_e)!< component at edges
@@ -300,6 +302,11 @@ CONTAINS
 
 
       CASE( MIURA_MCYCL )
+
+        ! get patch ID
+        jg = p_patch%id
+        qvsubstep_elev = advection_config(jg)%iadv_qvsubstep_elev
+
         ! CALL standard MIURA for lower atmosphere and the subcycling version of 
         ! MIURA for upper atmosphere
         CALL upwind_hflux_miura( p_patch, p_cc(:,:,:,jt), p_mass_flx_e,  &! in
@@ -307,39 +314,45 @@ CONTAINS
           &            lcleanup%miura_mcycl_h(jt), p_igrad_c_miura,      &! in
           &            p_itype_hlimit(jt), p_iord_backtraj,              &! in
           &            p_upflux(:,:,:,jt), opt_lconsv= llsq_lin_consv,   &! inout,in
-          &            opt_real_vt=z_real_vt, opt_slev=p_iadv_slev(jt),  &! in
+          &            opt_real_vt=z_real_vt, opt_slev=qvsubstep_elev+1, &! in
           &            opt_elev=p_patch%nlev, opt_rlend=i_rlend          )! in
 
         CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,    &! in
-          &                p_mass_flx_e, p_vn, p_dtime, 2, p_int,        &! in
-          &                lcompute%miura_mcycl_h(jt),                   &! in
-          &                lcleanup%miura_mcycl_h(jt),                   &! in
-          &                p_igrad_c_miura, p_itype_hlimit(jt),          &! in
-          &                p_iord_backtraj, p_upflux(:,:,:,jt),          &! in,inout
-          &                opt_lconsv= llsq_lin_consv,                   &! in
-          &                opt_real_vt=z_real_vt, opt_slev=1,            &! in
-          &                opt_elev=p_iadv_slev(jt)-1, opt_rlend=i_rlend )! in
+          &              p_mass_flx_e, p_vn, p_dtime, 2, p_int,          &! in
+          &              lcompute%miura_mcycl_h(jt),                     &! in
+          &              lcleanup%miura_mcycl_h(jt),                     &! in
+          &              p_igrad_c_miura, p_itype_hlimit(jt),            &! in
+          &              p_iord_backtraj, p_upflux(:,:,:,jt),            &! in,inout
+          &              opt_lconsv= llsq_lin_consv,                     &! in
+          &              opt_real_vt=z_real_vt, opt_slev=p_iadv_slev(jt),&! in
+          &              opt_elev=qvsubstep_elev, opt_rlend=i_rlend      )! in
 
 
       CASE( MIURA3_MCYCL )
+
+        ! get patch ID
+        jg = p_patch%id
+        qvsubstep_elev = advection_config(jg)%iadv_qvsubstep_elev
+
         ! CALL standard MIURA3 for lower atmosphere and the subcycling version of 
         ! MIURA for upper atmosphere
         CALL upwind_hflux_miura3( p_patch, p_cc(:,:,:,jt), p_mass_flx_e, &! in
           &           p_vn, p_dtime, p_int, lcompute%miura3_mcycl_h(jt), &! in
           &           lcleanup%miura3_mcycl_h(jt), p_itype_hlimit(jt),   &! in
           &           p_upflux(:,:,:,jt), opt_real_vt=z_real_vt,         &! inout,in
-          &           opt_slev=p_iadv_slev(jt), opt_elev=p_patch%nlev,   &! in
+          &           opt_slev=qvsubstep_elev+1, opt_elev=p_patch%nlev,  &! in
           &           opt_rlend=i_rlend                                  )! in
 
+
         CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,    &! in
-          &                p_mass_flx_e, p_vn, p_dtime, 2, p_int,        &! in
-          &                lcompute%miura3_mcycl_h(jt),                  &! in
-          &                lcleanup%miura3_mcycl_h(jt),                  &! in
-          &                p_igrad_c_miura, p_itype_hlimit(jt),          &! in
-          &                p_iord_backtraj, p_upflux(:,:,:,jt),          &! in,inout
-          &                opt_lconsv= llsq_lin_consv,                   &! in
-          &                opt_real_vt=z_real_vt, opt_slev=1,            &! in
-          &                opt_elev=p_iadv_slev(jt)-1, opt_rlend=i_rlend )! in
+          &              p_mass_flx_e, p_vn, p_dtime, 2, p_int,          &! in
+          &              lcompute%miura3_mcycl_h(jt),                    &! in
+          &              lcleanup%miura3_mcycl_h(jt),                    &! in
+          &              p_igrad_c_miura, p_itype_hlimit(jt),            &! in
+          &              p_iord_backtraj, p_upflux(:,:,:,jt),            &! in,inout
+          &              opt_lconsv= llsq_lin_consv,                     &! in
+          &              opt_real_vt=z_real_vt, opt_slev=p_iadv_slev(jt),&! in
+          &              opt_elev=qvsubstep_elev, opt_rlend=i_rlend      )! in
       END SELECT
 
     END DO  ! Tracer loop

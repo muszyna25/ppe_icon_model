@@ -76,7 +76,12 @@ MODULE mo_nonhydrostatic_config
     INTEGER :: kstart_qv(max_dom)       ! related flow control variable (NOT a namelist variable)
     REAL(wp):: htop_qvadv               ! Top height (in m) up to which water vapor is advected
                                         ! workaround to circumvent CFL instability in the 
-                                        ! stratopause region for aquaplanet experiments
+                                        ! stratopause region
+    REAL(wp):: hbot_qvsubstep           ! Bottom height (in m) down to which water vapor is 
+                                        ! advected with internal substepping (to circumvent CFL 
+                                        ! instability in the stratopause region).
+    INTEGER :: kend_qvsubstep(max_dom)  ! related flow control variable (NOT a namelist variable)
+
   
     ! Parameters active with cell_type=3 only
 
@@ -165,7 +170,21 @@ CONTAINS
 
     IF ( kstart_qv(jg) > 1 ) THEN
       WRITE(message_text,'(2(a,i4))') 'Domain', jg, &
-        '; subcycling of QV advection starts in layer ', kstart_qv(jg)
+        '; QV advection starts in layer ', kstart_qv(jg)
+      CALL message(TRIM(routine),message_text)
+    ENDIF
+
+    ! Determine end level for qv-advection substepping (specified by hbot_qvsubstep)
+    DO jk = nlev, 2, -1
+      IF (0.5_wp*(vct_a(jk)+vct_a(jk-1)) > hbot_qvsubstep) THEN
+        kend_qvsubstep(jg) = jk
+        EXIT
+      ENDIF
+    ENDDO
+
+    IF ( kend_qvsubstep(jg) > 1 ) THEN
+      WRITE(message_text,'(2(a,i4))') 'Domain', jg, &
+        '; QV substepping ends in layer ', kend_qvsubstep(jg)
       CALL message(TRIM(routine),message_text)
     ENDIF
 

@@ -377,9 +377,9 @@ CONTAINS
 !                             & nlev, vct_a, vct_b, apzero      )
 
     DO jg =1,n_dom
-      CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,      &
+      CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev, &
         &                      iequations, iforcing, iqv, 0, &
-        &                      0, .false., .true., ntracer )
+        &                      0, 1, .false., .true., ntracer )
     ENDDO
 
 

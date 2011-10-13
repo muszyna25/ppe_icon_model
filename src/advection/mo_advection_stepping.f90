@@ -303,8 +303,6 @@ CONTAINS
     ! precompute modified timestep (timestep multiplied by Strang-splitting
     ! coefficient and a second coefficient to account for either a
     ! vertical z- or p-system)
-!    WRITE(0,*)'advection values',jg, advection_config(jg)%cSTR ,&
-!      &               advection_config(jg)%coeff_grid, p_dtime
     pdtime_mod = advection_config(jg)%cSTR * advection_config(jg)%coeff_grid &
       &        * p_dtime
 
