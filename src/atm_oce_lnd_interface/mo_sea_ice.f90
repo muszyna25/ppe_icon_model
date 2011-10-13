@@ -76,7 +76,6 @@ PUBLIC  :: t_sfc_flx
 PUBLIC  :: t_atmos_fluxes
 PUBLIC  :: t_atmos_for_ocean
 
-
 ! public subroutines
 PUBLIC :: construct_sea_ice 
 PUBLIC :: destruct_sea_ice
@@ -98,10 +97,11 @@ PUBLIC :: ice_slow
 PUBLIC :: upper_ocean_TS
 PUBLIC :: new_ice_growth
 PUBLIC :: calc_atm_fluxes_from_bulk
+
 !to be put into namelist
 INTEGER :: i_no_ice_thick_class = 1
-!------  Definition of surface flux type---------------------
 
+!------  Definition of surface flux type---------------------
 TYPE t_sfc_flx
 
 ! The forcing is specified as fluxes at the air-sea interface defined on cell-centers
@@ -119,8 +119,9 @@ TYPE t_sfc_flx
 
 END TYPE t_sfc_flx
 
-! publice variables
-TYPE(t_sfc_flx),PUBLIC,TARGET :: v_sfc_flx
+! global type variables
+TYPE(t_sfc_flx), PUBLIC, TARGET :: v_sfc_flx
+
 
 !------  Definition of representation of atm state in ocean model---
 !
@@ -182,8 +183,6 @@ TYPE t_atmos_fluxes
 
 END TYPE t_atmos_fluxes
 
-
-
 TYPE t_sea_ice
 
 ! The description of the sea-ice state, defined on cell-centers
@@ -225,8 +224,8 @@ TYPE t_sea_ice
 
 END TYPE t_sea_ice
 
-! global for outside use of the sea ice components
-TYPE(t_sea_ice),PUBLIC,SAVE,TARGET :: v_sea_ice
+! global type variables
+TYPE(t_sea_ice),PUBLIC, SAVE, TARGET :: v_sea_ice
 
 
 CONTAINS
@@ -1653,7 +1652,8 @@ SUBROUTINE ice_growth(ppatch, ice, rpreci, lat)
       ice% snow_to_ice  (:,:,:) = below_water * rhoi / rhos
       hs                (:,:,:) = hs - ice% snow_to_ice
       f1                (:,:,:) = h1 / (h1+below_water)
-      Tbar              (:,:,:) = f1  * ( T1 - Lfreez* muS/(ci*T1) ) - (1.0_wp-f1)*muS      !originally L instead of Lfreez. see also below
+      Tbar              (:,:,:) = f1  * ( T1 - Lfreez* muS/(ci*T1) ) - (1.0_wp-f1)*muS 
+      !originally L instead of Lfreez. see also below
       T1                (:,:,:) = 0.5_wp * ( Tbar - SQRT(Tbar*Tbar + 4.0_wp*muS*Lfreez/ci) )
       h1                (:,:,:) = h1 + below_water
       hi                (:,:,:) = h1 + h2
