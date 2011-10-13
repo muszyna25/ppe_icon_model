@@ -48,6 +48,7 @@ MODULE mo_nwp_turb_interface
   USE mo_impl_constants,       ONLY: min_rlcell_int, icc
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_loopindices,          ONLY: get_indices_c
+  USE mo_physical_constants,   ONLY: alv
 
   USE mo_ext_data,             ONLY: t_external_data
   USE mo_nonhydro_state,       ONLY: t_nh_prog, t_nh_diag,&
@@ -136,6 +137,10 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
     &  zdummy_tsfc(nproma,1:nsfc_type,p_patch%nblks_c)
   REAL(wp) ::  &                     !< dummy variable for input
     &  zdummy_qvsfc(nproma,1:nsfc_type,p_patch%nblks_c)
+  REAL(wp) ::  &                     !< dummy variable for output
+    & z_dummy_shflx(nproma,1:nsfc_type,p_patch%nblks_c)
+  REAL(wp) ::  &                     !< dummy variable for output
+    & z_dummy_lhflx(nproma,1:nsfc_type,p_patch%nblks_c)
   !
   REAL(wp) ::  &                     !< dummy variable for input
     &  zdummy_i(nproma,p_patch%nlev,p_patch%nblks_c)
@@ -211,6 +216,8 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
     zdummy_it (:,:,:,:) = 0.0_wp
     zdummy_ith(:,:,:)   = 0.0_wp
     zdummy_ot3(:,:,:,:) = 0.0_wp
+    z_dummy_shflx(:,:,:)   = 0.0_wp
+    z_dummy_shflx(:,:,:)   = 0.0_wp
 !$OMP END WORKSHARE
   ENDIF
 
@@ -472,6 +479,8 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
             & pxite_vdf= zdummy_o6 (:,:,jb),        pxtte_vdf= zdummy_ot2(:,:,:,jb)  ,&! out
             !
             & pqsat_tile = zdummy_qvsfc  (:,:,jb)                                    ,&! out
+            & pshflx_tile = z_dummy_shflx(:,:,jb)                                    ,&! out
+            & plhflx_tile = z_dummy_lhflx(:,:,jb)                                    ,&! out
             & pxvarprod= zdummy_o7(:,:,jb),         pvmixtau = zdummy_o8 (:,:,jb)    ,&! out
             & pqv_mflux_sfc=prm_diag%qhfl_s (:,jb), pthvsig  = zdummy_oh (:,jb)      ,&! out
             & ptke     = p_prog_rcf%tke (:,2:nlevp1,jb), ihpbl = idummy_oh (:,jb)    ,&! inout
@@ -508,6 +517,9 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
       ! In case nsfc_type >1 , the grid-box mean should be considered instead (PR)
       IF (nsfc_type == 1) THEN
        lnd_diag%qv_s(1:i_endidx,jb)=zdummy_qvsfc(1:i_endidx,nsfc_type,jb)
+       !prm_diag%lhfl_s(1:i_endidx,jb)=prm_diag%qhfl_s (1:i_endidx,jb)*alv
+       prm_diag%lhfl_s(1:i_endidx,jb)=z_dummy_lhflx(1:i_endidx,nsfc_type,jb)
+       prm_diag%shfl_s(1:i_endidx,jb)=z_dummy_shflx(1:i_endidx,nsfc_type,jb)
       END IF
 
     ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == 3 ) THEN

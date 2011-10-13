@@ -84,7 +84,7 @@ CONTAINS
                      pz0m,                                             &! out
                      pute_vdf,   pvte_vdf,    ptte_vdf,                &! out
                      pqte_vdf,   pxlte_vdf,   pxite_vdf,   pxtte_vdf,  &! out
-                     pqsat_tile,                                       &! out
+                     pqsat_tile,   pshflx_tile,  plhflx_tile,          &! out
                      pxvarprod,  pvmixtau,    pqv_mflux_sfc,           &! out
                      pthvsig,    ptke,        ihpbl,       pghpbl,     &! out
                      pri,        pmixlen,                              &! out
@@ -168,6 +168,8 @@ CONTAINS
   REAL(wp),INTENT(OUT) :: pxtte_vdf(kbdim,klev,ktrac)
 
   REAL(wp),INTENT(OUT) :: pqsat_tile(kbdim,ksfc_type)!< surface specific humidity at saturation
+  REAL(wp),INTENT(INOUT) ::    plhflx_tile(kbdim,ksfc_type) !< latent heat flux
+  REAL(wp),INTENT(INOUT) ::    pshflx_tile(kbdim,ksfc_type) !< sensible heat flux
 
   REAL(wp),INTENT(OUT) :: pxvarprod    (kbdim,klev) !< shear production of the variance of total water
   REAL(wp),INTENT(OUT) :: pvmixtau     (kbdim,klev) !< vertical mixing time scale
@@ -198,8 +200,8 @@ CONTAINS
 
   REAL(wp) :: pu_stress_tile(kbdim,ksfc_type) !< wind stress 
   REAL(wp) :: pv_stress_tile(kbdim,ksfc_type) !< wind stress
-  REAL(wp) ::    plhflx_tile(kbdim,ksfc_type) !< latent heat flux
-  REAL(wp) ::    pshflx_tile(kbdim,ksfc_type) !< sensible heat flux
+  !REAL(wp) ::    plhflx_tile(kbdim,ksfc_type) !< latent heat flux
+  !REAL(wp) ::    pshflx_tile(kbdim,ksfc_type) !< sensible heat flux
   REAL(wp) ::     pevap_tile(kbdim,ksfc_type) !< evaporation
 
   ! Local variables
@@ -354,8 +356,8 @@ CONTAINS
   pu_stress_gbm_ac(1:kproma) = 0._wp
   pv_stress_gbm_ac(1:kproma) = 0._wp
       pevap_gbm_ac(1:kproma) = 0._wp
-     plhflx_gbm_ac(1:kproma) = 0._wp
-     pshflx_gbm_ac(1:kproma) = 0._wp
+  !   plhflx_gbm_ac(1:kproma) = 0._wp   ! it can not be reset to 0 if we want to  
+  !   pshflx_gbm_ac(1:kproma) = 0._wp   ! accumulate values (PR)
   !--------------------------------------------------------+++++++++++++++
 
   CALL update_surface( lsfc_heat_flux, lsfc_mom_flux,      &! in

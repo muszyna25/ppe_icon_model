@@ -2829,8 +2829,22 @@ CONTAINS
       CASE ('LHFL_S_avg');      ptr2 => prm_diag(jg)%lhfl_s_a
       CASE ('SHFL_S_acc');      ptr2 => prm_diag(jg)%shfl_s_a 
       CASE ('LHFL_S_acc');      ptr2 => prm_diag(jg)%lhfl_s_a
-      CASE ('SHFL_S');          ptr2 => prm_diag(jg)%shfl_s 
-      CASE ('LHFL_S');          ptr2 => prm_diag(jg)%lhfl_s
+      CASE ('SHFL_S')
+       IF   (atm_phy_nwp_config(jg)%inwp_turb.EQ.1) THEN  
+         ptr2 => dup2(-1.*prm_diag(jg)%shfl_s(:,:)); delete = .TRUE.
+       ELSEIF  (atm_phy_nwp_config(jg)%inwp_turb.EQ.2) THEN 
+         ptr2 => prm_diag(jg)%shfl_s
+       ELSE
+         ptr2 => prm_diag(jg)%shfl_s
+       ENDIF
+      CASE ('LHFL_S')
+       IF   (atm_phy_nwp_config(jg)%inwp_turb.EQ.1) THEN  
+         ptr2 =>  dup2(-1.*prm_diag(jg)%lhfl_s(:,:)); delete = .TRUE.
+       ELSEIF  (atm_phy_nwp_config(jg)%inwp_turb.EQ.2) THEN 
+         ptr2 => prm_diag(jg)%lhfl_s
+       ELSE
+         ptr2 => prm_diag(jg)%lhfl_s
+       ENDIF
       CASE ('EVAP_RATE_avg');   ptr2 => prm_diag(jg)%qhfl_s_avg     
       CASE ('VOR');             ptr3 => p_diag%omega_z
       CASE ('DIV');             ptr3 => p_diag%div
