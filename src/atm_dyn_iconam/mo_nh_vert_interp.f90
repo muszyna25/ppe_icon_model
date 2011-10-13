@@ -390,7 +390,7 @@ CONTAINS
                  p_patch%nblks_c, p_patch%npromz_c, nlev_in, nlev,          &
                  coef1, coef2, coef3, wfac_lin,                             &
                  idx0_cub, idx0_lin, bot_idx_cub, bot_idx_lin,              &
-                 wfacpbl1, kpbl1, wfacpbl2, kpbl2,                          &
+                 wfacpbl1, kpbl1, wfacpbl2, kpbl2, l_satlimit=.TRUE.,       &
                  lower_limit=2.5e-6_wp, l_restore_pbldev=.TRUE.,            &
                  opt_qc=prepicon%atm%qc ) ! ... for consistency checking
 
@@ -585,14 +585,14 @@ CONTAINS
                        p_patch%nblks_c, p_patch%npromz_c, nlev, nzplev,  &
                        wfac_lin, idx0_lin, bot_idx_lin, wfacpbl1, kpbl1  )
 
-    ! Final interpolation of QV, including supersaturation limiting
+    ! Final interpolation of QV, without supersaturation limiting
     CALL qv_intp(prepicon%atm%qv, prepicon%zlev%qv, prepicon%z_mc,        &
                  prepicon%zlev%z3d, prepicon%atm%temp, prepicon%atm%pres, &
                  prepicon%zlev%temp, prepicon%zlev%pres,                  &
                  p_patch%nblks_c, p_patch%npromz_c, nlev, nzplev,         &
                  coef1, coef2, coef3, wfac_lin,                           &
                  idx0_cub, idx0_lin, bot_idx_cub, bot_idx_lin,            &
-                 wfacpbl1, kpbl1, wfacpbl2, kpbl2,                        &
+                 wfacpbl1, kpbl1, wfacpbl2, kpbl2, l_satlimit=.FALSE.,    &
                  lower_limit=2.5e-6_wp, l_restore_pbldev=.FALSE.          )
 
     ! Part 2: Interpolation to pressure-level fields
@@ -643,14 +643,14 @@ CONTAINS
                  wfacpbl1, kpbl1, wfacpbl2, kpbl2,                 &
                  l_hires_intp=.FALSE., l_restore_fricred=.FALSE.   )
 
-    ! Interpolation of QV, including supersaturation limiting
+    ! Interpolation of QV, without supersaturation limiting
     CALL qv_intp(prepicon%atm%qv, prepicon%plev%qv, prepicon%z_mc,        &
                  prepicon%plev%z3d, prepicon%atm%temp, prepicon%atm%pres, &
                  prepicon%plev%temp, prepicon%plev%pres,                  &
                  p_patch%nblks_c, p_patch%npromz_c, nlev, nzplev,         &
                  coef1, coef2, coef3, wfac_lin,                           &
                  idx0_cub, idx0_lin, bot_idx_cub, bot_idx_lin,            &
-                 wfacpbl1, kpbl1, wfacpbl2, kpbl2,                        &
+                 wfacpbl1, kpbl1, wfacpbl2, kpbl2, l_satlimit=.FALSE.,    &
                  lower_limit=2.5e-6_wp, l_restore_pbldev=.FALSE.          )
 
   END SUBROUTINE intp2pzlevs_prepicon
@@ -847,7 +847,7 @@ CONTAINS
         &           p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev,      & !in
         &           wfac_lin_zlev, idx0_lin_zlev, bot_idx_lin, wfacpbl1, & !in
         &           kpbl1, wfacpbl2, kpbl2, l_loglin=.TRUE.,             & !in
-        &           l_extrapol=.TRUE., l_pd_limit=.TRUE.,                & !in
+        &           l_extrapol=.TRUE., l_pd_limit=.FALSE.,               & !in
         &           lower_limit=0._wp                                    ) !in
 
       ! interpolation of total specific cloud ice content
@@ -857,7 +857,7 @@ CONTAINS
         &           p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev,      & !in
         &           wfac_lin_zlev, idx0_lin_zlev, bot_idx_lin, wfacpbl1, & !in
         &           kpbl1, wfacpbl2, kpbl2, l_loglin=.TRUE.,             & !in
-        &           l_extrapol=.TRUE., l_pd_limit=.TRUE.,                & !in
+        &           l_extrapol=.TRUE., l_pd_limit=.FALSE.,               & !in
         &           lower_limit=0._wp                                    ) !in
 
       ! interpolation of total cloud cover
@@ -867,21 +867,20 @@ CONTAINS
         &           p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev,      & !in
         &           wfac_lin_zlev, idx0_lin_zlev, bot_idx_lin, wfacpbl1, & !in
         &           kpbl1, wfacpbl2, kpbl2, l_loglin=.TRUE.,             & !in
-        &           l_extrapol=.TRUE., l_pd_limit=.TRUE.,                & !in
+        &           l_extrapol=.TRUE., l_pd_limit=.FALSE.,               & !in
         &           lower_limit=0._wp                                    ) !in
 
     ENDIF ! lwrite_zlev
 
 
-    ! Preliminary interpolation of QV; a lower limit of 2.5 ppm is imposed
-    !!! ATTENTION: prm_diag%tot_cld(:,:,:,iqv) may be modified !!!!
+    ! Preliminary interpolation of QV without imposing a lower limit
     CALL lin_intp(prm_diag%tot_cld(:,:,:,iqv),                         & !inout
       &           p_diag_z%tot_cld(:,:,:,iqv),                         & !out
       &           p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev,      & !in
       &           wfac_lin_zlev, idx0_lin_zlev, bot_idx_lin, wfacpbl1, & !in
       &           kpbl1, wfacpbl2, kpbl2, l_loglin=.TRUE.,             & !in
-      &           l_extrapol=.TRUE., l_pd_limit=.TRUE.,                & !in
-      &           lower_limit=2.5e-6_wp                                ) !in
+      &           l_extrapol=.TRUE., l_pd_limit=.FALSE.,               & !in
+      &           lower_limit=0.0_wp                                ) !in
 
 
     ! Compute virtual temperature for model-level and z-level data
@@ -901,8 +900,7 @@ CONTAINS
 
 
     IF ( nh_pzlev_config(jg)%lwrite_zlev ) THEN
-      ! Final interpolation of total (diagnostic) QV, including supersaturation limiting
-      !!! ATTENTION: prm_diag%tot_cld(:,:,:,iqv) may be modified !!!!
+      ! Final interpolation of total (diagnostic) QV, without supersaturation limiting
       CALL qv_intp(prm_diag%tot_cld(:,:,:,iqv),                       & !inout
         &          p_diag_z%tot_cld(:,:,:,iqv),                       & !out
         &          p_metrics%z_mc, p_z3d_out, p_diag%temp,            & !in
@@ -911,6 +909,7 @@ CONTAINS
         &          coef1_zlev, coef2_zlev, coef3_zlev, wfac_lin_zlev, & !in
         &          idx0_cub_zlev, idx0_lin_zlev, bot_idx_cub,         & !in
         &          bot_idx_lin, wfacpbl1, kpbl1, wfacpbl2, kpbl2,     & !in
+        &          l_satlimit=.FALSE.,                                & !in
         &          lower_limit=2.5e-6_wp, l_restore_pbldev=.FALSE.    ) !in
 
     ENDIF  ! lwrite_zlev
@@ -971,8 +970,7 @@ CONTAINS
         &          l_hires_intp=.FALSE., l_restore_fricred=.FALSE.    ) !in
 
 
-      ! Interpolation of total (diagnostic) QV, including supersaturation limiting
-      !!! ATTENTION: prm_diag%tot_cld(:,:,:,iqv) may be modified !!!!
+      ! Interpolation of total (diagnostic) QV, without supersaturation limiting
       CALL qv_intp(prm_diag%tot_cld(:,:,:,iqv),                      & !inout
         &          p_diag_p%tot_cld(:,:,:,iqv),                      & !out
         &          p_metrics%z_mc, p_diag_p%geopot, p_diag%temp,     & !in
@@ -981,6 +979,7 @@ CONTAINS
         &          coef1_plev, coef2_plev, coef3_plev, wfac_lin_plev,& !in
         &          idx0_cub_plev, idx0_lin_plev, bot_idx_cub,        & !in
         &          bot_idx_lin, wfacpbl1, kpbl1, wfacpbl2, kpbl2,    & !in
+        &          l_satlimit=.FALSE.,                               & !in
         &          lower_limit=2.5e-6_wp, l_restore_pbldev=.FALSE.   ) !in
 
 
@@ -1037,7 +1036,7 @@ CONTAINS
         &           p_patch%nblks_c, p_patch%npromz_c, nlev, nplev,      & !in
         &           wfac_lin_plev, idx0_lin_plev, bot_idx_lin, wfacpbl1, & !in
         &           kpbl1, wfacpbl2, kpbl2, l_loglin=.TRUE.,             & !in
-        &           l_extrapol=.TRUE., l_pd_limit=.TRUE.,                & !in
+        &           l_extrapol=.TRUE., l_pd_limit=.FALSE.,               & !in
         &           lower_limit=0._wp                                    ) !in
 
       ! interpolation of total specific cloud ice content
@@ -1047,7 +1046,7 @@ CONTAINS
         &           p_patch%nblks_c, p_patch%npromz_c, nlev, nplev,      & !in
         &           wfac_lin_plev, idx0_lin_plev, bot_idx_lin, wfacpbl1, & !in
         &           kpbl1, wfacpbl2, kpbl2, l_loglin=.TRUE.,             & !in
-        &           l_extrapol=.TRUE., l_pd_limit=.TRUE.,                & !in
+        &           l_extrapol=.TRUE., l_pd_limit=.FALSE.,               & !in
         &           lower_limit=0._wp                                    ) !in
 
       ! interpolation of total cloud cover
@@ -1057,7 +1056,7 @@ CONTAINS
         &           p_patch%nblks_c, p_patch%npromz_c, nlev, nplev,      & !in
         &           wfac_lin_plev, idx0_lin_plev, bot_idx_lin, wfacpbl1, & !in
         &           kpbl1, wfacpbl2, kpbl2, l_loglin=.TRUE.,             & !in
-        &           l_extrapol=.TRUE., l_pd_limit=.TRUE.,                & !in
+        &           l_extrapol=.TRUE., l_pd_limit=.FALSE.,               & !in
         &           lower_limit=0._wp                                    ) !in
 
     ENDIF ! lwrite_plev
@@ -2628,13 +2627,13 @@ CONTAINS
   !!
   !!
   !!
-  SUBROUTINE qv_intp(qv_in, qv_out, z3d_in, z3d_out,                &
-                     temp_in, pres_in, temp_out, pres_out,          &    
-                     nblks, npromz, nlevs_in, nlevs_out,            &
-                     coef1, coef2, coef3, wfac_lin,                 &
-                     idx0_cub, idx0_lin, bot_idx_cub, bot_idx_lin,  &
-                     wfacpbl1, kpbl1, wfacpbl2, kpbl2,              &
-                     lower_limit, l_restore_pbldev, opt_qc          )
+  SUBROUTINE qv_intp(qv_in, qv_out, z3d_in, z3d_out,                  &
+                     temp_in, pres_in, temp_out, pres_out,            &    
+                     nblks, npromz, nlevs_in, nlevs_out,              &
+                     coef1, coef2, coef3, wfac_lin,                   &
+                     idx0_cub, idx0_lin, bot_idx_cub, bot_idx_lin,    &
+                     wfacpbl1, kpbl1, wfacpbl2, kpbl2,                &
+                     lower_limit, l_satlimit, l_restore_pbldev, opt_qc)
 
 
     ! Specific humidity fields
@@ -2679,6 +2678,7 @@ CONTAINS
     REAL(wp), INTENT(IN) :: wfacpbl2(:,:)   ! corresponding interpolation coefficient
 
     REAL(wp), INTENT(IN) :: lower_limit     ! lower limit of QV
+    LOGICAL , INTENT(IN) :: l_satlimit       ! limit input field to water saturation
     LOGICAL , INTENT(IN) :: l_restore_pbldev ! restore PBL deviation of QV from extrapolated profile
 
     ! LOCAL VARIABLES
@@ -2715,22 +2715,24 @@ CONTAINS
         qv_out(nlen+1:nproma,:,jb)  = 0.0_wp
       ENDIF
 
-      DO jk1 = 1, nlevs_in
-        DO jc = 1, nlen
+      IF (l_satlimit) THEN
+        DO jk1 = 1, nlevs_in
+          DO jc = 1, nlen
 
-          ! saturation specific humidity of input data
-          qsat_in(jc,jk1) = rdv*sat_pres_water(temp_in(jc,jk1,jb)) /    &
-                            (pres_in(jc,jk1,jb)-o_m_rdv*qv_in(jc,jk1,jb))
+            ! saturation specific humidity of input data
+            qsat_in(jc,jk1) = rdv*sat_pres_water(temp_in(jc,jk1,jb)) /    &
+                              (pres_in(jc,jk1,jb)-o_m_rdv*qv_in(jc,jk1,jb))
 
-          ! limit input data to water saturation:
-          ! This is needed to remove supersaturations generated (primarily) by the interpolation
-          ! from the spherical harmonics to the Gaussain grid; without this limitation, the 
-          ! QV-QC-adjustment at the end of this routine would generate nonsensically large
-          ! cloud water peaks
-          qv_in(jc,jk1,jb) = MIN(qv_in(jc,jk1,jb),qsat_in(jc,jk1))
+            ! limit input data to water saturation when processing interpolated IFS data:
+            ! This is needed to remove supersaturations generated (primarily) by the interpolation
+            ! from the spherical harmonics to the Gaussain grid; without this limitation, the 
+            ! QV-QC-adjustment at the end of this routine would generate nonsensically large
+            ! cloud water peaks
+            qv_in(jc,jk1,jb) = MIN(qv_in(jc,jk1,jb),qsat_in(jc,jk1))
 
+          ENDDO
         ENDDO
-      ENDDO
+      ENDIF
 
 
       DO jc = 1, nlen
