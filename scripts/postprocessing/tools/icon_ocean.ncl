@@ -120,27 +120,29 @@
     end if
   end if
 
-  if (.not. isvar("DEBUG"))       DEBUG       = False           end if
-  if (.not. isvar("showPreview")) showPreview = False           end if
-  if (.not. isvar("showGrid"))    showGrid    = False           end if
-  if (.not. isvar("showNdc"))     showNdc     = False           end if
-  if (.not. isvar("maxView"))     maxView     = False           end if
-  if (.not. isvar("scaleLimit"))  scaleLimit  = 2               end if
-  if (.not. isvar("selMode"))     selMode     = "auto"          end if
-  if (.not. isvar("timeStep"))    timeStep    = 0               end if
-  if (.not. isvar("levIndex"))    levIndex    = 0               end if
-  if (.not. isvar("scaleFactor")) scaleFactor = 1               end if
-  if (.not. isvar("colormap"))    colormap    = "BlueDarkRed18" end if
+  if (.not. isvar("DEBUG"))       DEBUG        = False           end if
+  if (.not. isvar("showPreview")) showPreview  = False           end if
+  if (.not. isvar("showGrid"))    showGrid     = False           end if
+  if (.not. isvar("showNdc"))     showNdc      = False           end if
+  if (.not. isvar("maxView"))     maxView      = False           end if
+  if (.not. isvar("scaleLimit"))  scaleLimit   = 2               end if
+  if (.not. isvar("selMode"))     selMode      = "auto"          end if
+  if (.not. isvar("timeStep"))    timeStep     = 0               end if
+  if (.not. isvar("levIndex"))    levIndex     = 0               end if
+  if (.not. isvar("scaleFactor")) scaleFactor  = 1               end if
+  if (.not. isvar("colormap"))    colormap     = "BlueDarkRed18" end if
 
-  if (.not.isvar("mapLLC"))       mapLLC      = (/-180.,-90./)  end if
-  if (.not.isvar("mapURC"))       mapURC      = (/180.0,90.0/)  end if
-  if (.not.isvar("mapType"))      mapType     = "lonlat"        end if
-  if (.not.isvar("projSat"))      projSat     = False           end if
-  if (.not.isvar("mapLine"))      mapLine     = True            end if
-  if (.not.isvar("resolution"))   resolution  = "r90x45"        end if
+  if (.not.isvar("mapLLC"))       mapLLC       = (/-180.,-90./)  end if
+  if (.not.isvar("mapURC"))       mapURC       = (/180.0,90.0/)  end if
+  if (.not.isvar("mapType"))      mapType      = "lonlat"        end if
+  if (.not.isvar("projSat"))      projSat      = False           end if
+  if (.not.isvar("mapLine"))      mapLine      = True            end if
+  if (.not.isvar("resolution"))   resolution   = "r90x45"        end if
+  if (.not.isvar("vecRefLength")) vecRefLength = 8.0             end if
+  if (.not.isvar("vecMinDist"))   vecMinDist   = 0.017           end if
   ; default + optional coordinates
-  if (isvar("lonCo"))             DEFAULTLON  = lonCo           end if
-  if (isvar("latCo"))             DEFAULTLAT  = latCo           end if
+  if (isvar("lonCo"))             DEFAULTLON   = lonCo           end if
+  if (isvar("latCo"))             DEFAULTLAT   = latCo           end if
 
   ; mask handling
   if (.not.isvar("maskName"))
@@ -345,12 +347,12 @@
       print(ABORTMSG)
       exit
     else
-        setDefaultVectorPlot(ResC,5.0,8.0,"CurlyVector",0.017)
+        setDefaultVectorPlot(ResC,5.0,vecRefLength,"CurlyVector",vecMinDist)
 
         if ( showPreview ) then
           x11 = gsn_csm_vector_scalar_map(xwks,uvar,vvar,velocity,ResC)
         end if
-        vc = gsn_csm_vector_scalar(wks,uvar,vvar,velocity,ResC)
+        vc = gsn_csm_vector_map(wks,uvar,vvar,ResC)
     end if
   else ; contour plot =========================================================
     if (plotMode.eq."overlay") then
@@ -360,7 +362,7 @@
       ResC2@gsnFrame           = False
       setPlotCaptions(ResC2,"","","","")
       selMapCut(ResC2,mapLLC,mapURC)
-      setDefaultVectorPlot(ResC2,5.0,8.0,"CurlyVector",0.017)
+      setDefaultVectorPlot(ResC2,5.0,vecRefLength,"CurlyVector",vecMinDist)
       ResC2@vcVectorDrawOrder  = "Postdraw"
       ResC2@lbOrientation      = "Vertical"
       ResC2@lbTitleString      = "Speed"
