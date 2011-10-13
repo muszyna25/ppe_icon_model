@@ -107,8 +107,8 @@ begin
 end
 ;-------------------------------------------------------------------------------
 ; see selIconVar(), but for fields on a regular lonlat grid
-undef("selRegularVar")
-function selRegularVar(varname,filehandle,timestep,levelindex)
+undef("selRegularField")
+function selRegularField(varname,filehandle,timestep,levelindex)
 begin
     dims      = getfilevardims(filehandle,varname)
     noOfDims  = dimsizes(dims)
@@ -134,6 +134,52 @@ begin
     else
       if (noOfDims .eq. 3) then        ; dims: (lev,x,y)
         var = filehandle->$varname$(levelindex,:,:)
+        usableVar = True
+      end if
+      if (noOfDims .eq. 2) then        ; dims: (x,y)
+        var = filehandle->$varname$(:,:)
+        usableVar = True
+      end if
+      if (noOfDims .eq. 1) then        ; dims: (x)
+        var = filehandle->$varname$(:)
+        usableVar = True
+      end if
+    end if
+    if (.not. usableVar) then
+      print("Warning! Could not read " +  varname + " from input file")
+      exit
+    end if
+    return var
+end
+;-------------------------------------------------------------------------------
+; see selRegularField(), but for 3d regular variable
+undef("selRegularVar")
+function selRegularVar(varname,filehandle,timestep)
+begin
+    dims      = getfilevardims(filehandle,varname)
+    noOfDims  = dimsizes(dims)
+    noOfDims  = noOfDims(0)
+    usableVar = False
+    if ( has_time(dims) ) then
+      if (noOfDims .eq. 4) then        ; dims: (time,lev,x,y)
+        var = filehandle->$varname$(timestep,:,:,:)
+        usableVar = True
+      end if
+      if (noOfDims .eq. 3) then        ; dims: (time,x,y)
+        var = filehandle->$varname$(timestep,:,:)
+        usableVar = True
+      end if
+      if (noOfDims .eq. 2) then        ; dims: (x,y)
+        var = filehandle->$varname$(:,:)
+        usableVar = True
+      end if
+      if (noOfDims .eq. 1) then        ; dims: (time)
+        var = filehandle->$varname$(:)
+        usableVar = False
+      end if
+    else
+      if (noOfDims .eq. 3) then        ; dims: (lev,x,y)
+        var = filehandle->$varname$(:,:,:)
         usableVar = True
       end if
       if (noOfDims .eq. 2) then        ; dims: (x,y)
@@ -351,7 +397,7 @@ begin
   if (plotmode.eq."scalar" .or. plotmode.eq."overlay") then
     maskvar = selIconVar(maskvarname,mfilehandle,timestep,levelindex)
   else
-    maskvar = selRegularVar(maskvarname,mfilehandle,timestep,levelindex)
+    maskvar = selRegularField(maskvarname,mfilehandle,timestep,levelindex)
   end if
 
   return maskvar
@@ -377,6 +423,7 @@ end
 undef("remapForVecPlot")
 function remapForVecPlot(iFile,resolution,useMask,plotMode,debug)
 begin
+  if (plotMode.eq."section") then vecVars=(/varName/) end if
   remapFilename="remapnn_"+iFile
   print("#=====================================================================================")
   print("Looking for remapped file: "+remapFilename)
@@ -784,6 +831,22 @@ begin
   print("CentLon/Lat="+resource@mpCenterLonF+"; "+resource@mpCenterLatF)
   print("Min/MaxLatF="+resource@mpMinLatF+"; "+resource@mpMaxLatF)
   print("Min/MaxLonF="+resource@mpMinLonF+"; "+resource@mpMaxLonF)
+end
+;---------------------------------------------------------------
+; setting for vertical cross sections based on remapped icon data
+undef("setSection")
+function setSection(secLC,secRC,npoints,var)
+begin
+  leftlat  = secLC(1)
+  rightlat = secRC(1)
+
+  leftlon  = secLC(0)
+  rightlon = secRC(0)
+
+  dist     = gc_latlon(leftlat,leftlon,rightlat,rightlon,npoints,2)
+  trans    = linint2_points(var&lon,var&lat,var,True,dist@gclon,dist@gclat,2)
+
+  return trans
 end
 ;---------------------------------------------------------------
 ; Create flags array the the grid plot

@@ -142,8 +142,9 @@
   if (.not.isvar("mapLine"))      mapLine      = True            end if
   if (.not.isvar("resolution"))   resolution   = "r90x45"        end if
   if (.not.isvar("vecRefLength")) vecRefLength = 8.0             end if
-  if (.not.isvar("vecColByLen"))  vecColByLen  = False            end if
+  if (.not.isvar("vecColByLen"))  vecColByLen  = False           end if
   if (.not.isvar("vecMinDist"))   vecMinDist   = 0.017           end if
+  if (.not.isvar("secPoints"))    secPoints    = 20              end if
   ; default + optional coordinates
   if (isvar("lonCo"))             DEFAULTLON   = lonCo           end if
   if (isvar("latCo"))             DEFAULTLAT   = latCo           end if
@@ -187,14 +188,13 @@
   else
     plotMode = "scalar"
   end if
+  if (isvar("makeSec")) plotMode = "section" end if
 
-  if (plotMode.eq."vector" .or. plotMode.eq."overlay") then
+  if (plotMode.eq."vector" .or. plotMode.eq."overlay" .or. plotMode.eq."section") then
     ; performe some remapping to a regular grid because ncl cannot draw vector
     ; from unstructured grids
     remapFilename = remapForVecPlot(iFile,resolution,useMask,plotMode,DEBUG)
     checkRemappedFile(iFile,remapFilename)
-  end if
-  if (plotMode.eq."vector" .or. plotMode.eq."overlay") then
     rFile = addfile( remapFilename, "r" )
   end if
   File  = addfile( iFile, "r" )
@@ -216,9 +216,10 @@
     if (plotMode.eq."overlay") then
       print("Plot vector variables: " + vecVars)
       print("Plot variable: " + varName)
-    else
+    end if
+    if (plotMode.eq."section") then
       print("Plot variable: " + varName)
-      end if
+    end if
   end if
   ;---------------------------------------------------------------
   if (True) then
@@ -227,7 +228,7 @@
     print("Graphics format is " +oType)
     print("plotMode    = "+plotMode)
 
-    if (plotMode.eq."scalar") then
+    if (plotMode.eq."scalar" .or. plotMode.eq."section") then
       print("varName     = "+varName)
     else
       print("vecVars     = "+vecVars)
@@ -279,8 +280,8 @@
 
     checkDimsOfVars(uvarname,vvarname,rFile)
 
-    uvar = selRegularVar(uvarname,rFile,timeStep,levIndex)
-    vvar = selRegularVar(vvarname,rFile,timeStep,levIndex)
+    uvar = selRegularField(uvarname,rFile,timeStep,levIndex)
+    vvar = selRegularField(vvarname,rFile,timeStep,levIndex)
 
     scaleVar(uvar,scaleFactor)
     scaleVar(vvar,scaleFactor)
@@ -294,6 +295,12 @@
     ; set minVar/maxVar for plotting
     if(.not. isvar("minVar")) minVar = min(velocity) end if
     if(.not. isvar("maxVar")) maxVar = max(velocity) end if
+    checkMinMaxVar(minVar,maxVar)
+  end if
+  if (plotMode.eq."section") then
+    var = selRegularVar(varName,rFile,timeStep)
+    if(.not. isvar("minVar")) minVar = min(var) end if
+    if(.not. isvar("maxVar")) maxVar = max(var) end if
     checkMinMaxVar(minVar,maxVar)
   end if ; Reading data variables =============================================
 
@@ -326,6 +333,8 @@
   if (plotMode.eq."scalar" .or. plotMode.eq."overlay") setCoordinates(ResC,x,y) end if
 
   if (plotMode.eq."scalar" .or. plotMode.eq."overlay") setAutomaticPlotCaptions(ResC,plotMode,varName,File,iFile,timeStep,levIndex) end if
+
+  if (plotMode.eq."section") trans = setSection(secLC,secRC,secPoints,var) end if
 
   setAutomaticBaseString(wks)
   if (showPreview) setAutomaticBaseString(xwks) end if
@@ -366,57 +375,91 @@
           vc = gsn_csm_vector_map(wks,uvar,vvar,ResC)
         end if
     end if
-  else ; contour plot =========================================================
-    if (plotMode.eq."overlay") then
-     ;reset the second resource
-      ResC2                    = ResC
-      ResC2@gsnDraw            = False
-      ResC2@gsnFrame           = False
-      setPlotCaptions(ResC2,"","","","")
-      selMapCut(ResC2,mapLLC,mapURC)
-      setDefaultVectorPlot(ResC2,5.0,vecRefLength,"CurlyVector",vecMinDist)
-      ResC2@vcVectorDrawOrder  = "Postdraw"
-      ResC2@lbOrientation      = "Vertical"
-      ResC2@lbTitleString      = "Speed"
-      ResC2@lbTitlePosition    = "Left"
-      ResC2@cnInfoLabelOn      = False
-      ResC2@lbTitleFontHeightF = 0.02
-      ResC2@lbLabelFontHeightF = 0.015
-      ResC2@lbLeftMarginF      = 0.01
-      ResC2@lbLabelBarOn       = False ; switch of the vector label bar, because the speed is show as vector lenghts
+  end if
+  if (plotMode.eq."overlay") then
+   ;reset the second resource
+    ResC2                    = ResC
+    ResC2@gsnDraw            = False
+    ResC2@gsnFrame           = False
+    setPlotCaptions(ResC2,"","","","")
+    selMapCut(ResC2,mapLLC,mapURC)
+    setDefaultVectorPlot(ResC2,5.0,vecRefLength,"CurlyVector",vecMinDist)
+    ResC2@vcVectorDrawOrder  = "Postdraw"
+    ResC2@lbOrientation      = "Vertical"
+    ResC2@lbTitleString      = "Speed"
+    ResC2@lbTitlePosition    = "Left"
+    ResC2@cnInfoLabelOn      = False
+    ResC2@lbTitleFontHeightF = 0.02
+    ResC2@lbLabelFontHeightF = 0.015
+    ResC2@lbLeftMarginF      = 0.01
+    ResC2@lbLabelBarOn       = False ; switch of the vector label bar, because the speed is show as vector lenghts
 
-      ResC@gsnDraw             = False
-      ResC@gsnFrame            = False
-      vc   = gsn_csm_vector_scalar(wks,uvar,vvar,velocity,ResC2)
+    ResC@gsnDraw             = False
+    ResC@gsnFrame            = False
+    vc   = gsn_csm_vector_scalar(wks,uvar,vvar,velocity,ResC2)
 
-      plot = gsn_csm_contour_map(wks,var,ResC)
-      if (showGrid) then
-        print("plotting GRID in overlay mode is not supported")
-        exit
-        ;plot_ = plot
-        ;plotGrid(wks,plot_,var,x,File,ResC,DEBUG)
-      end if
+    plot = gsn_csm_contour_map(wks,var,ResC)
+    if (showGrid) then
+      print("plotting GRID in overlay mode is not supported")
+      exit
+      ;plot_ = plot
+      ;plotGrid(wks,plot_,var,x,File,ResC,DEBUG)
+    end if
 
-      overlay(plot,vc)
-      draw(plot)
-    else
-      if (DEBUG) print("Gridtype is "+getGridType(var)) end if
-      plot                     = gsn_csm_contour_map(wks,var,ResC)
-      if (showPreview) preview = gsn_csm_contour_map(xwks,var,ResC) end if
+    overlay(plot,vc)
+    draw(plot)
+  end if
+  if (plotMode.eq."scalar") then
+    if (DEBUG) print("Gridtype is "+getGridType(var)) end if
+    plot                     = gsn_csm_contour_map(wks,var,ResC)
+    if (showPreview) preview = gsn_csm_contour_map(xwks,var,ResC) end if
 
-      if (showGrid) then
-        if (showPreview) then
-          plotGrid(xwks,preview,var,x,File,ResC,DEBUG)
-          print("#=======================================================")
-          print("For reasons of performance, the preview of a grid plot is not written to the output file be default")
-          print("Please set 'showPreview=False' on the command line!")
-        else
-          plotGrid(wks,plot,var,x,File,ResC,DEBUG)
-        end if
+    if (showGrid) then
+      if (showPreview) then
+        plotGrid(xwks,preview,var,x,File,ResC,DEBUG)
+        print("#=======================================================")
+        print("For reasons of performance, the preview of a grid plot is not written to the output file be default")
+        print("Please set 'showPreview=False' on the command line!")
+      else
+        plotGrid(wks,plot,var,x,File,ResC,DEBUG)
       end if
     end if
   end if
+  if (plotMode.eq."section") then
+    points   = ispan(0,secPoints-1,1)*1.0 
+    copy_VarAtts(var,trans)          ; copy attributes
+    trans!0 = "depth"
+    trans&depth = var&depth
+    res                     = True          ; plot mods desired
+    res@tmXBMode            = "Explicit"    ; explicitly label x-axis
+    res@tmXBValues          = (/points(0),points(secPoints-1)/) ; points to label
+    ; label values
+    res@tmXBLabels          = (/ secLC(1) +", "+ secLC(0) , secRC(1)+", "+secRC(0) /)
 
+    res@cnFillOn            = True         ; turn on color
+    res@lbLabelAutoStride   = True         ; nice label bar label stride
+    res@gsnSpreadColors     = True         ; use full range of colormap
+    res@cnLinesOn           = False        ; turn off countour lines
+    res@lbOrientation       = "vertical"   ; vertical label bar
+    res@pmLabelBarOrthogonalPosF = -0.05        ; move label bar closer to plot
+
+    res@tiMainString        = "Transect"   ; add title
+    res@tiXAxisString       = "lat/lon along transect"
+    res@trYReverse          = True         ; reverse y axis
+    ;  res@trXReverse          = True         ; reverse x axis (neg longitudes)
+    res@cnLevelSpacingF     = 1.0          ; set contour spacing
+
+    plot = gsn_csm_contour(wks,trans,res)  ; create plot
+    mres = True
+    mres@gsnFrame    = False               ; don't turn page yet
+    mres@gsnDraw     = False               ; don't draw yet
+    map = gsn_csm_map_ce(wks,mres)
+    pres                  = True           ; polyline mods desired
+    pres@gsLineColor      = "Black"          ; color of lines
+    pres@gsLineThicknessF = 2.0            ; line thickness   
+    gsn_polyline(wks,map,(/ secLC(0),secRC(0) /),(/ secLC(1),secRC(1) /),pres)
+    draw(map)
+  end if
   if (showPreview) frame(xwks) end if
   frame(wks)
 end
