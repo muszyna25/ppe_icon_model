@@ -202,7 +202,7 @@ CONTAINS
     INTEGER :: jg
     INTEGER :: jt   ! tracer loop index
     INTEGER :: i_listlen
-    INTEGER :: z_go_hex(3), z_go_tri(7)   ! for crosscheck
+    INTEGER :: z_go_hex(3), z_go_tri(7), z_nogo_tri(2)   ! for crosscheck
     REAL(wp):: cur_datetime_calsec, end_datetime_calsec, length_sec
     CHARACTER(len=*), PARAMETER :: routine =  'atm_crosscheck'
 
@@ -277,11 +277,9 @@ CONTAINS
     !--------------------------------------------------------------------
     ! Testcases
     !--------------------------------------------------------------------
-!!$    IF(global_cell_type==3) THEN
-!!$      linit_tracer_fv  = .TRUE. ! like default
-!!$    ELSE
-!!$      linit_tracer_fv  = .FALSE.
-!!$    ENDIF
+    IF(global_cell_type==6) THEN
+      linit_tracer_fv  = .FALSE.
+    ENDIF
 
     IF ((TRIM(ctest_name)=='GW') .AND. (nlev /= 20)) THEN
       CALL finish(TRIM(routine),'nlev MUST be 20 for the gravity-wave test case')
@@ -651,6 +649,17 @@ CONTAINS
               &  '0,1,2,3,20,22, or 32 ')
           ENDIF
         ENDDO
+
+        IF ( ntracer > 1 ) THEN
+          z_nogo_tri(1:2)=(/MIURA_MCYCL,MIURA3_MCYCL/)
+          DO jt=2,ntracer
+            IF ( ANY(z_nogo_tri == advection_config(jg)%ihadv_tracer(jt)) ) THEN
+              CALL finish( TRIM(routine),                                       &
+                &  'TRI-C grid ihadv_tracer: MIURA(3)_MCYCL not allowed for '// &
+                &  'any other tracer than qv.')
+            ENDIF
+          ENDDO
+        ENDIF
 
       CASE (6)
         z_go_hex(1:3) = (/NO_HADV,UP,UP3/)
