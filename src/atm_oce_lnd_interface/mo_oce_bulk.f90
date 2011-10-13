@@ -285,10 +285,10 @@ CONTAINS
       !-------------------------------------------------------------------------
       ! Apply surface heat and freshwater fluxes
 
-   !  p_as%sfch(:,:)  = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,4) + &
-   !    &               rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,4)
-   !  p_as%sfcf(:,:)  = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,4) + &
-   !    &               rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,4)
+      p_sfc_flx%forc_hflx(:,:) = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,4) + &
+        &                        rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,4)
+      p_sfc_flx%forc_fwfx(:,:) = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,5) + &
+        &                        rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,5)
 
     END IF
 
