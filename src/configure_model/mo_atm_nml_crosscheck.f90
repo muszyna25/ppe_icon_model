@@ -379,6 +379,11 @@ CONTAINS
           CASE default
             CALL finish(TRIM(routine),'irad_o3 currently has to be 0 , 4 or 6.')
           END SELECT
+        ELSE
+          SELECT CASE (irad_o3)
+          CASE (4,6) 
+            CALL finish(TRIM(routine),'running without radiation => irad_o3 must be 0')
+          END SELECT
         ENDIF
 
       ENDDO
