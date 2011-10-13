@@ -26,8 +26,11 @@
 ; oType         : output graphics format (ps, eps, png, default: eps)
 ; resolution    : resolution string whish is used for remapping the icon data
 ;                 to regular grid (default: r90x45)
-; timeStep      : no of timestep
-; levIndex      : vertical level index
+; vecRefLength  : reference vector length (default: 8.0)
+; vecColByLen   : should vectors get coloured according to their lengths (default:False)
+; vecMinDist    : minimal distance between vectors (default:0.017)
+; timeStep      : no of timestep (default:0)
+; levIndex      : vertical level index (default:0)
 ; mapLLC        : (lon,lat) value array of the Lower Left Corner of the map
 ; mapURC        : (lon,lat) ------- || ------- Upper Right Corner of the map
 ;                  use -180 to 180 for longitude !
@@ -139,6 +142,7 @@
   if (.not.isvar("mapLine"))      mapLine      = True            end if
   if (.not.isvar("resolution"))   resolution   = "r90x45"        end if
   if (.not.isvar("vecRefLength")) vecRefLength = 8.0             end if
+  if (.not.isvar("vecColByLen"))  vecColByLen  = False            end if
   if (.not.isvar("vecMinDist"))   vecMinDist   = 0.017           end if
   ; default + optional coordinates
   if (isvar("lonCo"))             DEFAULTLON   = lonCo           end if
@@ -350,9 +354,17 @@
         setDefaultVectorPlot(ResC,5.0,vecRefLength,"CurlyVector",vecMinDist)
 
         if ( showPreview ) then
-          x11 = gsn_csm_vector_scalar_map(xwks,uvar,vvar,velocity,ResC)
+          if (vecColByLen) then
+            x11 = gsn_csm_vector_scalar_map(xwks,uvar,vvar,velocity,ResC)
+          else
+            x11 = gsn_csm_vector_map(xwks,uvar,vvar,ResC)
+          end if
         end if
-        vc = gsn_csm_vector_map(wks,uvar,vvar,ResC)
+        if (vecColByLen) then
+          vc = gsn_csm_vector_scalar_map(wks,uvar,vvar,velocity,ResC)
+        else
+          vc = gsn_csm_vector_map(wks,uvar,vvar,ResC)
+        end if
     end if
   else ; contour plot =========================================================
     if (plotMode.eq."overlay") then
