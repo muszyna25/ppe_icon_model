@@ -430,11 +430,12 @@
     copy_VarAtts(var,trans)          ; copy attributes
     trans!0 = "depth"
     trans&depth = var&depth
-    res                     = True          ; plot mods desired
-    res@tmXBMode            = "Explicit"    ; explicitly label x-axis
-    res@tmXBValues          = (/points(0),points(secPoints-1)/) ; points to label
-    ; label values
-    res@tmXBLabels          = (/ secLC(1) +", "+ secLC(0) , secRC(1)+", "+secRC(0) /)
+    res            = True;           plot mods desired
+    res@gsnFrame   = False;                don't turn page yet
+    res@gsnDraw    = False;                don't draw yet
+    res@tmXBMode   = "Explicit";     explicitly label x-axis
+    res@tmXBValues = (/points(0),points(secPoints-1)/);  points to label values
+    res@tmXBLabels = (/ secLC(1) +", "+ secLC(0) , secRC(1)+", "+secRC(0) /)
 
     res@cnFillOn            = True         ; turn on color
     res@lbLabelAutoStride   = True         ; nice label bar label stride
@@ -444,7 +445,7 @@
     res@pmLabelBarOrthogonalPosF = -0.05        ; move label bar closer to plot
 
     res@tiMainString        = "Transect"   ; add title
-    res@tiXAxisString       = "lat/lon along transect"
+ ;   res@tiXAxisString       = "lat/lon along transect"
     res@trYReverse          = True         ; reverse y axis
     ;  res@trXReverse          = True         ; reverse x axis (neg longitudes)
     res@cnLevelSpacingF     = 1.0          ; set contour spacing
@@ -453,12 +454,15 @@
     mres = True
     mres@gsnFrame    = False               ; don't turn page yet
     mres@gsnDraw     = False               ; don't draw yet
+    ;plot(1) = gsn_csm_map_ce(wks,mres)
     map = gsn_csm_map_ce(wks,mres)
     pres                  = True           ; polyline mods desired
     pres@gsLineColor      = "Black"          ; color of lines
     pres@gsLineThicknessF = 2.0            ; line thickness   
     gsn_polyline(wks,map,(/ secLC(0),secRC(0) /),(/ secLC(1),secRC(1) /),pres)
-    draw(map)
+
+    gsn_panel(wks,(/ plot , map /),(/2,1/),False)
+ ;   draw(map)
   end if
   if (showPreview) frame(xwks) end if
   frame(wks)
