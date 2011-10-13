@@ -117,7 +117,7 @@ MODULE mo_ocean_model
 !   USE mo_oce_forcing,         ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
 !     &                               v_sfc_flx
   USE mo_oce_physics,         ONLY: t_ho_params, v_params!, t_ho_physics
-  USE mo_sea_ice,             ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
+  USE mo_sea_ice,             ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
     &                               v_sfc_flx, v_sea_ice
 
   ! For the coupling

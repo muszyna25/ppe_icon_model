@@ -226,7 +226,7 @@ TYPE t_sea_ice
 END TYPE t_sea_ice
 
 ! global for outside use of the sea ice components
-TYPE(t_sea_ice),PUBLIC :: v_sea_ice
+TYPE(t_sea_ice),PUBLIC,SAVE,TARGET :: v_sea_ice
 
 
 CONTAINS
