@@ -200,8 +200,8 @@ CONTAINS
 
   REAL(wp) :: pu_stress_tile(kbdim,ksfc_type) !< wind stress 
   REAL(wp) :: pv_stress_tile(kbdim,ksfc_type) !< wind stress
-  !REAL(wp) ::    plhflx_tile(kbdim,ksfc_type) !< latent heat flux
-  !REAL(wp) ::    pshflx_tile(kbdim,ksfc_type) !< sensible heat flux
+!  REAL(wp) ::    plhflx_tile(kbdim,ksfc_type) !< latent heat flux
+!  REAL(wp) ::    pshflx_tile(kbdim,ksfc_type) !< sensible heat flux
   REAL(wp) ::     pevap_tile(kbdim,ksfc_type) !< evaporation
 
   ! Local variables
@@ -353,11 +353,14 @@ CONTAINS
   ! TEMPORARILY INITIALIZE ACCUMULATED VARIABLES TO ZERO.  +++++++++++++++
   ! LATER THIS SHOULD BE DONE DURING MODEL INITIALIZATION!
   ! 
+
+  !KF if you want to use these values in ICONAM allocate them outside 
+  ! and initialise them there. HERE they play the role of dummies!
   pu_stress_gbm_ac(1:kproma) = 0._wp
   pv_stress_gbm_ac(1:kproma) = 0._wp
       pevap_gbm_ac(1:kproma) = 0._wp
-  !   plhflx_gbm_ac(1:kproma) = 0._wp   ! it can not be reset to 0 if we want to  
-  !   pshflx_gbm_ac(1:kproma) = 0._wp   ! accumulate values (PR)
+     plhflx_gbm_ac(1:kproma) = 0._wp   
+     pshflx_gbm_ac(1:kproma) = 0._wp   
   !--------------------------------------------------------+++++++++++++++
 
   CALL update_surface( lsfc_heat_flux, lsfc_mom_flux,      &! in
