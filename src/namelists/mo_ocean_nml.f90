@@ -204,6 +204,9 @@ MODULE mo_ocean_nml
   LOGICAL  :: l_inverse_flip_flop   = .FALSE.  ! true=complete discrete scalarproduct (slow)
                                                ! false=use a shortcut (faster)
 
+  INTEGER  :: i_sea_ice             = 0        ! 0=no sea ice
+                                               ! 1=sea ice
+
   NAMELIST/ocean_dynamics_nml/ n_zlev, dzlev_m, idisc_scheme,              &
     &                 iswm_oce, i_oce_stepping,                            &
     &                 i_bc_veloc_lateral,i_bc_veloc_top,i_bc_veloc_bot,    &
@@ -220,7 +223,7 @@ MODULE mo_ocean_nml
     &                 k_veloc_h, k_veloc_v,  k_pot_temp_h, k_pot_temp_v,   &
     &                 k_sal_h, k_sal_v,                                    &
     &                 MAX_VERT_DIFF_VELOC, MAX_VERT_DIFF_TRAC,             &
-    &                 CWA, CWT,  bottom_drag_coeff, wstress_coeff       
+    &                 CWA, CWT,  bottom_drag_coeff, wstress_coeff, i_sea_ice 
 
 
   NAMELIST/ocean_forcing_and_init_nml/iforc_oce, iforc_omip, iforc_len,    &

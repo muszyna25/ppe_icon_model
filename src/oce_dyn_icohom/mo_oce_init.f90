@@ -54,7 +54,7 @@ USE mo_io_units,           ONLY: filename_max
 USE mo_mpi,                ONLY: my_process_is_stdio
 USE mo_grid_config,        ONLY: nroot
 USE mo_physical_constants, ONLY: re, rre, omega, rgrav, rho_ref, grav, SItodBar,            &
-  &                              sfc_press_bar, tmelt
+  &                              sfc_press_bar, tmelt, Tf
 USE mo_math_constants
 USE mo_parallel_config,    ONLY: nproma
 USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer, iforc_len,                    &

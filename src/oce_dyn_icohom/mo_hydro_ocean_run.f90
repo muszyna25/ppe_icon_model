@@ -52,7 +52,7 @@ USE mo_model_domain,           ONLY: t_patch
 USE mo_model_domain_import,    ONLY: n_dom
 USE mo_oce_index,              ONLY: print_mxmn, jkc, jkdim, ipl_src
 USE mo_ocean_nml,              ONLY: iswm_oce, idisc_scheme, n_zlev, no_tracer, &
-  &                                  itestcase_oce, idiag_oce, init_oce_prog, EOS_type
+  &                                  itestcase_oce, idiag_oce, init_oce_prog, EOS_type, i_sea_ice
 USE mo_dynamics_config,        ONLY: nold, nnew
 USE mo_io_config,              ONLY: out_expname, istime4output, istime4newoutputfile,&
   &                                  is_checkpoint_time, n_checkpoints
@@ -98,12 +98,14 @@ USE mo_oce_diagnostics,        ONLY: calculate_oce_diagnostics,&
 !   &                                  construct_atmos_fluxes, destruct_atmos_fluxes,&
 !   &                                  t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
 ! USE mo_sea_ice,                ONLY: t_sea_ice, construct_sea_ice, destruct_sea_ice
-USE mo_sea_ice,                ONLY: construct_sfcflx,&
+USE mo_sea_ice,                ONLY: construct_sfcflx,destruct_sfcflx,&
   &                                  construct_atmos_for_ocean,&
   &                                  destruct_atmos_for_ocean,&
   &                                  construct_atmos_fluxes, destruct_atmos_fluxes,&
   &                                  t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
-  &                                  t_sea_ice, construct_sea_ice, destruct_sea_ice
+  &                                  t_sea_ice, construct_sea_ice, destruct_sea_ice, &
+  &                                  ice_init, ice_slow
+
 USE mo_oce_forcing,            ONLY: init_sfcflx
 USE mo_oce_bulk,               ONLY: update_sfcflx
 USE mo_oce_thermodyn,          ONLY: calc_density_MPIOM_func, calc_density_lin_EOS_func,&
@@ -143,7 +145,7 @@ CONTAINS
   SUBROUTINE perform_ho_stepping( ppatch, pstate_oce, p_ext_data,               &
                                 & datetime, n_io, jfile, lwrite_restart, p_int, &
                                 & p_sfc_flx, p_phys_param,                      &
-                                & p_as, p_atm_f, p_ice,                         &
+                                & p_as, p_atm_f, p_atm_fm, p_ice,               &
                                 & l_have_output)
 
   TYPE(t_patch),             TARGET, INTENT(IN)    :: ppatch(n_dom)
@@ -157,7 +159,7 @@ CONTAINS
   TYPE(t_sfc_flx)                                  :: p_sfc_flx
   TYPE (t_ho_params)                               :: p_phys_param
   TYPE(t_atmos_for_ocean),  INTENT(INOUT)          :: p_as
-  TYPE(t_atmos_fluxes ),    INTENT(INOUT)          :: p_atm_f
+  TYPE(t_atmos_fluxes ),    INTENT(INOUT)          :: p_atm_f, p_atm_fm
   TYPE (t_sea_ice),         INTENT(INOUT)          :: p_ice
   LOGICAL,                  INTENT(INOUT)          :: l_have_output
 
@@ -209,10 +211,17 @@ CONTAINS
 
 
       !In case of a time-varying forcing: 
-      CALL update_sfcflx(ppatch(jg), pstate_oce(jg), p_as, p_ice, p_atm_f, p_sfc_flx, &
+      CALL update_sfcflx(ppatch(jg), pstate_oce(jg), p_as, p_ice, p_atm_f, p_atm_fm, p_sfc_flx, &
         &                jstep, datetime)
-   !  CALL update_seaice(ppatch(jg), pstate_oce(jg), p_as, p_ice, p_atm_f, p_sfc_flx, &
-   !    &                jstep, datetime)
+      IF ( i_sea_ice == 1 ) &
+        & CALL ice_slow(ppatch(jg), pstate_oce(jg), p_as, p_ice, p_atm_f, p_atm_fm)
+
+!      print *, minval(p_ice%hi), maxval(p_ice%hi)
+!
+!      print *, minval(pstate_oce(jg)%p_prog(nold(1))%tracer(:,1,:,1), &
+!                  mask=pstate_oce(jg)%p_prog(nold(1))%tracer(:,1,:,1) /= 0.), &
+!               maxval(pstate_oce(jg)%p_prog(nold(1))%tracer(:,1,:,1), &
+!                  mask=pstate_oce(jg)%p_prog(nold(1))%tracer(:,1,:,1) /= 0.)
 
       IF(iswm_oce /= 1)THEN
 
@@ -345,7 +354,7 @@ CONTAINS
   !
   SUBROUTINE prepare_ho_integration(ppatch, pstate_oce, p_ext_data, p_sfc_flx, &
                                   & p_phys_param, p_as,&
-                                  & p_atm_f, p_ice)
+                                  & p_atm_f, p_atm_fm, p_ice)
 
     TYPE(t_patch),                INTENT(INOUT)  :: ppatch(n_dom)
     TYPE(t_hydro_ocean_state),    INTENT(INOUT)  :: pstate_oce(n_dom)
@@ -353,7 +362,7 @@ CONTAINS
     TYPE(t_sfc_flx),              INTENT(INOUT)  :: p_sfc_flx
     TYPE (t_ho_params),           INTENT(INOUT)  :: p_phys_param 
     TYPE(t_atmos_for_ocean ),     INTENT(INOUT)  :: p_as
-    TYPE(t_atmos_fluxes ),        INTENT(INOUT)  :: p_atm_f
+    TYPE(t_atmos_fluxes ),        INTENT(INOUT)  :: p_atm_f, p_atm_fm
     TYPE (t_sea_ice),             INTENT(INOUT)  :: p_ice
 
     ! local variables
@@ -407,8 +416,10 @@ CONTAINS
     CALL      init_sfcflx(ppatch(jg), p_sfc_flx)
 
     CALL construct_sea_ice(ppatch(jg), p_ice, kice)
+    CALL          ice_init(ppatch(jg), pstate_oce(jg), p_ice)
     CALL construct_atmos_for_ocean(ppatch(jg), p_as)
     CALL construct_atmos_fluxes(ppatch(jg), p_atm_f, kice)
+    CALL construct_atmos_fluxes(ppatch(jg), p_atm_fm, kice)
 
     IF (init_oce_prog == 0) THEN
       CALL init_ho_testcases(ppatch(jg), pstate_oce(jg), p_ext_data(jg), p_sfc_flx)
@@ -434,12 +445,13 @@ CONTAINS
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !
   !
-  SUBROUTINE finalise_ho_integration(p_os, p_phys_param, p_as, p_atm_f, p_ice)
+  SUBROUTINE finalise_ho_integration(p_os, p_phys_param, p_as, p_atm_f, p_atm_fm, p_ice, p_sfc_flx)
     TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os(n_dom)
     TYPE (t_ho_params),        INTENT(INOUT) :: p_phys_param 
     TYPE(t_atmos_for_ocean),   INTENT(INOUT) :: p_as
-    TYPE(t_atmos_fluxes ),     INTENT(INOUT) :: p_atm_f
+    TYPE(t_atmos_fluxes ),     INTENT(INOUT) :: p_atm_f, p_atm_fm
     TYPE (t_sea_ice),          INTENT(INOUT) :: p_ice
+    TYPE(t_sfc_flx),           INTENT(INOUT) :: p_sfc_flx
 
 
     !------------------------------------------------------------------
@@ -449,9 +461,11 @@ CONTAINS
      CALL destruct_hydro_ocean_state(p_os)
      CALL destruct_ho_params(p_phys_param)
 
+     CALL destruct_sfcflx(p_sfc_flx)
      CALL destruct_sea_ice(p_ice)
      CALL destruct_atmos_for_ocean(p_as)
      CALL destruct_atmos_fluxes(p_atm_f)
+     CALL destruct_atmos_fluxes(p_atm_fm)
 
 
   END SUBROUTINE finalise_ho_integration

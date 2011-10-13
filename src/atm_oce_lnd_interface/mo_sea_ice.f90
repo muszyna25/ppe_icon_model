@@ -1038,12 +1038,12 @@ END SUBROUTINE destruct_sea_ice
 !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
 !! Dirk Notz, following MPI-OM. Code transfered to ICON.
 !!
-SUBROUTINE ice_init( ppatch, p_os, ice, Qatm, QatmAve)
+SUBROUTINE ice_init( ppatch, p_os, ice) !, Qatm, QatmAve)
   TYPE(t_patch), INTENT(in)             :: ppatch 
   TYPE(t_hydro_ocean_state)             :: p_os
   TYPE (t_sea_ice),      INTENT (INOUT) :: ice
-  TYPE (t_atmos_fluxes), INTENT (INOUT) :: Qatm
-  TYPE (t_atmos_fluxes), INTENT (INOUT) :: QatmAve
+!  TYPE (t_atmos_fluxes), INTENT (INOUT) :: Qatm
+!  TYPE (t_atmos_fluxes), INTENT (INOUT) :: QatmAve
   
 !local variables
   REAL(wp):: Tinterface(nproma, ppatch%nblks_c,i_no_ice_thick_class) ! temperature at snow-ice interface
@@ -1110,8 +1110,8 @@ END SUBROUTINE ice_init
 !------------------------------------------------------------------------- 
     CALL get_atmos_fluxes (ppatch, p_os,p_as,ice, Qatm)
     CALL set_ice_albedo   (ppatch,ice)
-    CALL set_ice_temp     (ppatch,ice, Qatm,QatmAve)
-!    CALL sum_fluxes       (Qatm, QatmAve)
+    CALL set_ice_temp     (ppatch,ice, Qatm)
+    CALL sum_fluxes       (Qatm, QatmAve)
  END SUBROUTINE ice_fast
 !-------------------------------------------------------------------------------
 !
@@ -1136,11 +1136,11 @@ END SUBROUTINE ice_init
    CALL ave_fluxes     (ice, QatmAve)
 !   !CALL ice_dynamics   (ice, QatmAve)
    CALL ice_growth     (ppatch,ice, QatmAve%rpreci, QatmAve%lat)
-   CALL upper_ocean_TS (ppatch,p_os,p_as,ice, QatmAve)
+!   CALL upper_ocean_TS (ppatch,p_os,p_as,ice, QatmAve)
    CALL new_ice_growth (ice, p_os,QatmAve)
 !   CALL ice_advection  (ice)
 !   CALL write_ice(ice,QatmAve,1,ie,je)
-!   CALL ice_zero       (ice, QatmAve, Qatm)
+   CALL ice_zero       (ice, QatmAve, Qatm)
 !   sictho = ice%hi   (:,:,1) * ice%conc (:,:,1)
 !   sicomo = ice%conc (:,:,1)
 !   sicsno = ice%hs   (:,:,1) * ice%conc (:,:,1)
@@ -1244,6 +1244,63 @@ END SUBROUTINE ave_fluxes
 !
 !  
 !>
+!! ! ice_zero: set the avereged fluxes to zero
+!! @par Revision History
+!! Initial release by Einar Olason, MPI-M (2011-09). Originally code written by
+!! Dirk Notz, following MPI-OM. Code transfered to ICON.
+!!
+SUBROUTINE ice_zero (ice,QatmAve, Qatm)
+  TYPE (t_sea_ice),      INTENT (INOUT) :: ice
+  TYPE (t_atmos_fluxes), INTENT (INOUT) :: Qatm
+  TYPE (t_atmos_fluxes), INTENT (INOUT) :: QatmAve
+
+  Qatm    % sens        (:,:,:) = 0._wp
+  Qatm    % sensw       (:,:)   = 0._wp
+  Qatm    % lat         (:,:,:) = 0._wp
+  Qatm    % latw        (:,:)   = 0._wp
+  Qatm    % LWout       (:,:,:) = 0._wp
+  Qatm    % LWoutw      (:,:)   = 0._wp
+  Qatm    % LWnet       (:,:,:) = 0._wp
+  Qatm    % LWnetw      (:,:)   = 0._wp
+  Qatm    % SWin        (:,:)   = 0._wp
+  Qatm    % LWin        (:,:)   = 0._wp
+  Qatm    % rprecw      (:,:)   = 0._wp
+  Qatm    % rpreci      (:,:)   = 0._wp
+                        
+  QatmAve % sens        (:,:,:) = 0._wp
+  QatmAve % sensw       (:,:)   = 0._wp
+  QatmAve % lat         (:,:,:) = 0._wp
+  QatmAve % latw        (:,:)   = 0._wp
+  QatmAve % LWout       (:,:,:) = 0._wp
+  QatmAve % LWoutw      (:,:)   = 0._wp
+  QatmAve % LWnet       (:,:,:) = 0._wp
+  QatmAve % LWnetw      (:,:)   = 0._wp
+  QatmAve % SWin        (:,:)   = 0._wp
+  QatmAve % LWin        (:,:)   = 0._wp
+  QatmAve % rprecw      (:,:)   = 0._wp
+  QatmAve % rpreci      (:,:)   = 0._wp
+  QatmAve % counter             = 0 
+
+  ice     % Qbot        (:,:,:) = 0._wp
+  ice     % Qtop        (:,:,:) = 0._wp
+  ice     % surfmelt    (:,:,:) = 0._wp
+  ice     % surfmeltT   (:,:,:) = 0._wp
+  ice     % evapwi      (:,:,:) = 0._wp
+  ice     % hiold       (:,:,:) = 0._wp
+  ice     % snow_to_ice (:,:,:) = 0._wp
+  ice     % heatOceI    (:,:,:) = 0._wp
+
+  END SUBROUTINE ice_zero
+
+!-------------------------------------------------------------------------------
+!
+!  
+!>
+!! ! ice_albedo: set ice albedo 
+!-------------------------------------------------------------------------------
+!
+!  
+!>
 !! ! ice_albedo: set ice albedo 
 !! @par Revision History
 !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
@@ -1291,11 +1348,10 @@ END SUBROUTINE set_ice_albedo
 !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
 !! Dirk Notz, following MPI-OM. Code transfered to ICON.
 !!
-SUBROUTINE set_ice_temp(ppatch,ice, Qatm,QatmAve) 
+SUBROUTINE set_ice_temp(ppatch,ice, Qatm) 
   TYPE(t_patch),         INTENT(IN)     :: ppatch 
   TYPE (t_sea_ice),      INTENT (INOUT) :: ice
   TYPE (t_atmos_fluxes), INTENT (INOUT) :: Qatm
-  TYPE (t_atmos_fluxes), INTENT (INOUT) :: QatmAve
 
   !!Local variables
   REAL(wp), DIMENSION (nproma, ppatch%nblks_c,i_no_ice_thick_class) ::           &
@@ -1900,14 +1956,14 @@ END SUBROUTINE new_ice_growth
       z_fu10lim (jc,jb) = MAX (2.5_wp, MIN(32.5_wp,p_as%fu10(jc,jb)) )
       z_dragl1  (jc,jb) = 1e-3_wp*(-0.0154_wp + 0.5698_wp/z_fu10lim(jc,jb)                 &
                         & -0.6743_wp/(z_fu10lim(jc,jb) * z_fu10lim(jc,jb)))
-      z_dragl   (jc,jb) = MAX ( 0.5e-3_wp,1.0e-3_wp*(0.8195_wp+0.0506_wp*z_fu10lim(jc,jb)  &
+      z_dragl   (jc,jb) = 1.0e-3_wp*(0.8195_wp+0.0506_wp*z_fu10lim(jc,jb)  &
                         &-0.0009_wp*z_fu10lim(jc,jb)*z_fu10lim(jc,jb)) + z_dragl1(jc,jb)   &
-                        &* (z_Tsurf(jc,jb)-p_as%tafo(jc,jb)) )
+                        &* (z_Tsurf(jc,jb)-p_as%tafo(jc,jb))
       z_dragl   (jc,jb) = MIN (z_dragl(jc,jb), 3.0E-3_wp)
       z_drags   (jc,jb) = 0.96_wp * z_dragl(jc,jb)
       Qatm%sensw(jc,jb) = z_drags(jc,jb)*z_rhoair(jc,jb)*cpa*p_as%fu10(jc,jb)             &
                         & * (p_as%tafo(jc,jb) -z_Tsurf(jc,jb))  *fr_fac
-      Qatm%latw (jc,jb) = z_dragl(jc,jb)*z_rhoair(jc,jb)*Lfreez*p_as%fu10(jc,jb)          &
+      Qatm%latw (jc,jb) = z_dragl(jc,jb)*z_rhoair(jc,jb)*Lvap*p_as%fu10(jc,jb)          &
                         & * (z_sphumida(jc,jb)-z_sphumidw(jc,jb))*fr_fac
 
       DO i = 1, p_ice%kice
