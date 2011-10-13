@@ -80,12 +80,12 @@ PUBLIC  :: t_atmos_for_ocean
 ! public subroutines
 PUBLIC :: construct_sea_ice 
 PUBLIC :: destruct_sea_ice
-PUBLIC  :: construct_sfcflx
-PUBLIC  :: construct_atmos_for_ocean
-PUBLIC  :: construct_atmos_fluxes
-PUBLIC  :: destruct_sfcflx
-PUBLIC  :: destruct_atmos_for_ocean
-PUBLIC  :: destruct_atmos_fluxes
+PUBLIC :: construct_sfcflx
+PUBLIC :: construct_atmos_for_ocean
+PUBLIC :: construct_atmos_fluxes
+PUBLIC :: destruct_sfcflx
+PUBLIC :: destruct_atmos_for_ocean
+PUBLIC :: destruct_atmos_fluxes
 
 PUBLIC :: ice_init
 PUBLIC :: ice_growth
@@ -100,7 +100,6 @@ PUBLIC :: new_ice_growth
 PUBLIC :: calc_atm_fluxes_from_bulk
 !to be put into namelist
 INTEGER :: i_no_ice_thick_class = 1
-
 !------  Definition of surface flux type---------------------
 
 TYPE t_sfc_flx
@@ -225,6 +224,9 @@ TYPE t_sea_ice
   REAL(wp), ALLOCATABLE ::  hi_lim(:)   ! Thickness limits 
 
 END TYPE t_sea_ice
+
+! global for outside use of the sea ice components
+TYPE(t_sea_ice),PUBLIC :: v_sea_ice
 
 
 CONTAINS

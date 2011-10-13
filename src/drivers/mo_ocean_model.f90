@@ -110,8 +110,6 @@ MODULE mo_ocean_model
   ! External data
   USE mo_ext_data,            ONLY: ext_data, init_ext_data, destruct_ext_data
 
-!  USE mo_test_hydro_ocean,    ONLY: prepare_ho_integration, finalise_ho_integration!, &
-!    &                               test_hydro_ocean
   USE mo_hydro_ocean_run,      ONLY: perform_ho_stepping,&
     & prepare_ho_integration,&
     & finalise_ho_integration
@@ -120,7 +118,7 @@ MODULE mo_ocean_model
 !     &                               v_sfc_flx
   USE mo_oce_physics,         ONLY: t_ho_params, v_params!, t_ho_physics
   USE mo_sea_ice,             ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
-    &                               v_sfc_flx
+    &                               v_sfc_flx, v_sea_ice
 
   ! For the coupling
   USE mo_impl_constants,      ONLY: CELLS, MAX_CHAR_LENGTH
@@ -154,7 +152,6 @@ CONTAINS
 
     CHARACTER(*), PARAMETER :: routine = "mo_ocean_model:ocean_model"
 
-    TYPE (t_ho_params)                              :: p_phys_param
     TYPE(t_atmos_for_ocean)                         :: p_as
     TYPE(t_atmos_fluxes)                            :: p_atm_f,p_atm_fm
     TYPE (t_sea_ice)                                :: p_ice
@@ -453,7 +450,7 @@ CONTAINS
 
     ! Prepare time integration
     CALL prepare_ho_integration(p_patch(1:), v_ocean_state, ext_data, v_sfc_flx, &
-      &                         v_params, p_as, p_atm_f,p_atm_fm, p_ice)
+      &                         v_params, p_as, p_atm_f, v_sea_ice)
 
     !------------------------------------------------------------------
     ! Daniel: Suggestion for point 5 of Feature #333
