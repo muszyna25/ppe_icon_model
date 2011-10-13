@@ -16,7 +16,7 @@
 !!
 !! @par Copyright
 !! 2010-2011 by MPI-M
-!! This software is provided for non-commerncial use only.
+!! This software is provided for non-commercial use only.
 !! See the LICENSE and WARRANTY conditions.
 !!
 !! @par License
@@ -49,7 +49,7 @@ MODULE mo_icon_cpl_finalize
   USE mpi,         ONLY : MPI_SUCCESS
   USE mo_icon_cpl, ONLY : ICON_comm_active,       &
    &                      cplout,                 &
-   &                      debug_coupler,                &
+   &                      debug_coupler,          &
    &                      l_MPI_was_initialized,  &
    &                      target_locs,            &
    &                      source_locs
@@ -58,7 +58,7 @@ MODULE mo_icon_cpl_finalize
 
   USE mo_icon_cpl, ONLY : ICON_comm_active,       &
    &                      cplout,                 &
-   &                      debug_coupler,                &
+   &                      debug_coupler,          &
    &                      l_MPI_was_initialized,  &
    &                      target_locs,            &
    &                      source_locs

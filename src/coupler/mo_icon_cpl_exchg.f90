@@ -18,7 +18,7 @@
 !!
 !! @par Copyright
 !! 2010 by MPI-M
-!! This software is provided for non-commerncial use only.
+!! This software is provided for non-commercial use only.
 !! See the LICENSE and WARRANTY conditions.
 !! 
 !! @par License
@@ -137,7 +137,7 @@ CONTAINS
     REAL(wp)               :: recv_min(field_shape(3))
     REAL(wp)               :: recv_max(field_shape(3))
     REAL(wp)               :: recv_avg(field_shape(3))
-    INTEGER                :: j, nsum, nbuf
+    INTEGER                :: j, nsum
 
     ierror = 0
 
@@ -236,6 +236,12 @@ CONTAINS
 
     recv_field = dummy
 
+    IF ( fptr%coupling%diagnostic == 1 ) THEN
+       recv_avg(:) =  0.0
+       recv_min(:) =  99999999.9
+       recv_max(:) = -99999999.9 
+    ENDIF
+
     DO n = 1, n_recv
 
        CALL MPI_Waitany ( n_recv, lrequests, index, wstatus, ierr )
@@ -283,11 +289,27 @@ CONTAINS
           DO m = 1, nbr_bundles
              DO i = 1, len
                 recv_field(tptr%source_list(i),m) = recv_buffer(i,m)
-                IF ( debug_coupler .AND. debug_coupler_level > 1 ) &
-                     WRITE ( cplout, '(i4,a,i4,a,i4,f13.6)' ) ICON_global_rank, ' extract from ', &
-                     source_rank, ' : ', tptr%source_list(i), recv_buffer(i,m) 
              ENDDO
           ENDDO
+
+          IF ( debug_coupler .AND. debug_coupler_level > 1 ) THEN
+             DO m = 1, nbr_bundles
+                DO i = 1, len
+                   WRITE ( cplout, '(i4,a,i4,a,i4,f13.6)' ) ICON_global_rank, ' extract from ', &
+                           source_rank, ' : ', tptr%source_list(i), recv_buffer(i,m) 
+                ENDDO
+             ENDDO
+          ENDIF
+
+          IF ( fptr%coupling%diagnostic == 1 ) THEN
+             DO m = 1, nbr_bundles
+                recv_min(m) = MIN(recv_min(m),MINVAL(recv_buffer(:,m)))
+                recv_max(m) = MAX(recv_max(m),MAXVAL(recv_buffer(:,m)))
+                DO i = 1, len
+                   recv_avg(m) = recv_avg(m) + recv_buffer(i,m)
+                ENDDO
+             ENDDO
+          ENDIF
 
           DEALLOCATE (recv_buffer)
 
@@ -296,14 +318,6 @@ CONTAINS
     ENDDO
 
     IF ( fptr%coupling%diagnostic == 1 ) THEN
-
-       DO i = 1, field_shape(3)
-          recv_min(i) = MINVAL(recv_field(:,i))
-          recv_max(i) = MAXVAL(recv_field(:,i))
-          DO j = field_shape(1), field_shape(2)
-             recv_avg(i) = recv_avg(i) + recv_field(j,i)
-          ENDDO
-       ENDDO
 
        CALL MPI_Allreduce ( recv_min, recv_buf, field_shape(3), datatype, &
             MPI_MIN, ICON_comp_comm, ierror )
@@ -317,19 +331,16 @@ CONTAINS
             MPI_SUM, ICON_comp_comm, ierror )
        recv_avg(:) = recv_buf(:)
 
-       nsum = field_shape(2) - field_shape(1) + 1
-
-       CALL MPI_Allreduce ( nsum, nbuf, 1, MPI_INTEGER, &
+       CALL MPI_Allreduce ( len, nsum, 1, MPI_INTEGER, &
             MPI_SUM, ICON_comp_comm, ierror )
-       nsum = nbuf
 
        recv_avg(:) = recv_avg(:) / nsum
 
-       DO i = 1, field_shape(3)
-          WRITE ( cplout, '(a,a3,3(a5,f13.6))' ) fptr%field_name, ' : ', &
-            ' Min ', recv_min(i), &      
-            ' Avg ', recv_avg(i), &
-            ' Max ', recv_max(i)
+       DO i = 1, nbr_bundles
+          WRITE ( cplout, '(a32,a3,3(a6,f13.6))' ) fptr%field_name, ' : ', &
+            ' Min: ', recv_min(i), &      
+            ' Avg: ', recv_avg(i), &
+            ' Max: ', recv_max(i)
        ENDDO
 
     ENDIF
@@ -368,7 +379,7 @@ CONTAINS
     REAL(wp)               :: send_min(field_shape(3))
     REAL(wp)               :: send_max(field_shape(3))
     REAL(wp)               :: send_avg(field_shape(3))
-    INTEGER                :: j, nsum, nbuf
+    INTEGER                :: j, nsum
 
     ierror = 0
 
@@ -527,39 +538,38 @@ CONTAINS
 
              IF ( fptr%coupling%diagnostic == 1 ) THEN
 
-                DO i = 1, field_shape(3)
+                send_avg(:) = 0.0
+
+                DO i = 1, nbr_bundles
                    send_min(i) = MINVAL(send_buffer(:,i))
                    send_max(i) = MAXVAL(send_buffer(:,i))
-                   DO j = field_shape(1), field_shape(2)
+                   DO j = 1, len
                       send_avg(i) = send_avg(i) + send_buffer(j,i)
                    ENDDO
                 ENDDO
 
-                CALL MPI_Allreduce ( send_min, send_buf, field_shape(3), datatype, &
+                CALL MPI_Allreduce ( send_min, send_buf, nbr_bundles, datatype, &
                      MPI_MIN, ICON_comp_comm, ierror )
                 send_min(:) = send_buf(:)
 
-                CALL MPI_Allreduce ( send_max, send_buf, field_shape(3), datatype, &
+                CALL MPI_Allreduce ( send_max, send_buf, nbr_bundles, datatype, &
                      MPI_MAX, ICON_comp_comm, ierror )
                 send_max(:) = send_buf(:)
 
-                CALL MPI_Allreduce ( send_avg, send_buf, field_shape(3), datatype, &
+                CALL MPI_Allreduce ( send_avg, send_buf, nbr_bundles, datatype, &
                      MPI_SUM, ICON_comp_comm, ierror )
                 send_avg(:) = send_buf(:)
 
-                nsum = field_shape(2) - field_shape(1) + 1
-
-                CALL MPI_Allreduce ( nsum, nbuf, 1, MPI_INTEGER, &
+                CALL MPI_Allreduce ( len, nsum, 1, MPI_INTEGER, &
                      MPI_SUM, ICON_comp_comm, ierror )
-                nsum = nbuf
 
                 send_avg(:) = send_avg(:) / nsum
 
-                DO i = 1, field_shape(3)
-                   WRITE ( cplout, '(a,a3,3(a5,f13.6))' ) fptr%field_name, ' : ', &
-                        ' Min ', send_min(i), &      
-                        ' Avg ', send_avg(i), &
-                        ' Max ', send_max(i)
+                DO i = 1, nbr_bundles
+                   WRITE ( cplout, '(a32,a3,3(a6,f13.6))' ) fptr%field_name, ' : ', &
+                        ' Min: ', send_min(i), &      
+                        ' Avg: ', send_avg(i), &
+                        ' Max: ', send_max(i)
                 ENDDO
 
              ENDIF

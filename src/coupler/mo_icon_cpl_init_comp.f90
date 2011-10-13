@@ -16,7 +16,7 @@
 !!
 !! @par Copyright
 !! 2010-2011 by MPI-M
-!! This software is provided for non-commerncial use only.
+!! This software is provided for non-commercial use only.
 !! See the LICENSE and WARRANTY conditions.
 !!
 !! @par License
@@ -61,7 +61,7 @@ MODULE mo_icon_cpl_init_comp
 
   USE mo_icon_cpl, ONLY : set_cpl_local_comm, maxchar,        &
    &                      l_MPI_was_initialized,              &
-   &                      debug_coupler, cplout,                    &
+   &                      debug_coupler, cplout,              &
    &                      grids, comps, cpl_fields,           &
    &                      nbr_active_comps,                   &
    &                      nbr_active_grids,                   &

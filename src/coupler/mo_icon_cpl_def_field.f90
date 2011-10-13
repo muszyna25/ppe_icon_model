@@ -12,7 +12,7 @@
 !!
 !! @par Copyright
 !! 2010-2011 by MPI-M
-!! This software is provided for non-commerncial use only.
+!! This software is provided for non-commercial use only.
 !! See the LICENSE and WARRANTY conditions.
 !! 
 !! @par License
@@ -41,9 +41,9 @@
 MODULE mo_icon_cpl_def_field
 
   USE mo_icon_cpl, ONLY         : ICON_comm,         & ! MPI communicator
-     &                            t_cpl_field,           & ! Field type
+     &                            t_cpl_field,       & ! Field type
      &                            t_comp,            & ! Field type
-     &                            cpl_fields,            & ! exchange fields
+     &                            cpl_fields,        & ! exchange fields
      &                            nbr_ICON_inc,      & ! increment for memory
      &                            nbr_active_fields, & ! total number of coupling fields
      &                            nbr_ICON_fields,   & ! allocated size for fields
@@ -58,8 +58,8 @@ MODULE mo_icon_cpl_def_field
 
   PRIVATE
 
-  TYPE(t_cpl_field), POINTER        :: fptr
-  TYPE(t_cpl_field), POINTER        :: new_cpl_fields(:)
+  TYPE(t_cpl_field), POINTER    :: fptr
+  TYPE(t_cpl_field), POINTER    :: new_cpl_fields(:)
   INTEGER                       :: global_field_id
   INTEGER                       :: i
   INTEGER                       :: new_dim

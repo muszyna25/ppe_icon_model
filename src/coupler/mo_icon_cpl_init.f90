@@ -16,7 +16,7 @@
 !!
 !! @par Copyright
 !! 2010-2011 by MPI-M
-!! This software is provided for non-commerncial use only.
+!! This software is provided for non-commercial use only.
 !! See the LICENSE and WARRANTY conditions.
 !!
 !! @par License
@@ -67,7 +67,7 @@ MODULE mo_icon_cpl_init
    &                      PRISM_DOUBLE_PRECISION,              &
    &                      PRISM_COMPLEX, PRISM_DOUBLE_COMPLEX, &
    &                      l_MPI_was_initialized,               &
-   &                      debug_coupler, debug_coupler_level,          &
+   &                      debug_coupler, debug_coupler_level,  &
    &                      cplout, maxchar,                     &
    &                      ICON_comm,                           &
    &                      ICON_global_rank, ICON_global_size,  &

@@ -93,7 +93,7 @@
 !!
 !! @par Copyright
 !! 2010 by MPI-M
-!! This software is provided for non-commerncial use only.
+!! This software is provided for non-commercial use only.
 !! See the LICENSE and WARRANTY conditions.
 !!
 !! @par License
