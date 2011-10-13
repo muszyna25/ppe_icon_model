@@ -300,7 +300,7 @@ SUBROUTINE upscale_rad_input(p_patch, p_par_patch, p_par_grf,            &
   i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jk1)
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(p_pp, jb, i_startblk, i_endblk,                                &
