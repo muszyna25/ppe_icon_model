@@ -478,11 +478,11 @@ CALL div_oce( z_mass_flux_h, p_patch, z_div_mass_flux_h)
  ipl_src=6  ! output print level (1-5, fix)
  DO jk = 1, n_zlev
    CALL print_mxmn('adv-flux',jk,z_adv_flux_h(:,:,:),n_zlev, &
-     &              p_patch%nblks_c,'trc',ipl_src)
+     &              p_patch%nblks_e,'trc',ipl_src)
  END DO
  DO jk = 1, n_zlev
    CALL print_mxmn('div adv-flux',jk,z_div_adv_h(:,:,:),n_zlev, &
-     &              p_patch%nblks_e,'trc',ipl_src)
+     &              p_patch%nblks_c,'trc',ipl_src)
  END DO
  DO jk = 1, n_zlev
    CALL print_mxmn('mass-flux',jk,z_mass_flux_h(:,:,:),n_zlev, &
@@ -490,7 +490,7 @@ CALL div_oce( z_mass_flux_h, p_patch, z_div_mass_flux_h)
  END DO
  DO jk = 1, n_zlev
    CALL print_mxmn('div mass-flux',jk,z_div_mass_flux_h(:,:,:),n_zlev, &
-     &              p_patch%nblks_e,'trc',ipl_src)
+     &              p_patch%nblks_c,'trc',ipl_src)
  END DO
 ! IF(ldbg)THEN
 !  DO jk = 1, n_zlev
