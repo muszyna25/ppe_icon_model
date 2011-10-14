@@ -3814,12 +3814,14 @@ CONTAINS
     ! local variables
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_io_vlist:addVar_lonlat")
     INTEGER                 :: igridID, ivar_idx
-
+    LOGICAL                 :: l_skipvar
+    CHARACTER(len=max_name_len) :: zname
+      
     ! add standard variable
     num_varids(k_jg)       = num_varids(k_jg) + 1
     ivar_idx               = num_varids(k_jg)
     varids(ivar_idx,k_jg)  = varID
-    
+  
     ! determine the grid on which the variable is defined:
     igridID = vlistInqVarGrid(vlistID(k_jg), varID)
 
@@ -3851,6 +3853,28 @@ CONTAINS
 
     END IF
 
+    ! - Quick Fix [FP] -
+    ! Standard variable output can be disabled when using lon-lat output.
+    ! We achieve this (quick and dirty) by defining the original variable
+    ! as a time constant field.
+    ! Note that here we implicitly assume that the lon-lat variable
+    ! name list and the boolean flag are identical for all patches.
+
+    ! get variable name
+    CALL vlistInqVarName(vlistID(k_jg), varids(ivar_idx,k_jg), zname);
+
+    l_skipvar = lonlat_intp_config(1)%l_supersede    .AND.    &
+      ((toupper(lonlat_intp_config(1)%zlist) == 'ALL') .OR.   &
+      & (string_contains_word(zname,                          &
+      &     lonlat_intp_config(1)%zlist,                      &
+      &     lonlat_intp_config(1)%n_list,                     &
+      &     lonlat_intp_config(1)%pos_list,                   &
+      &     lonlat_intp_config(1)%ilen_list)))
+    IF (l_skipvar) THEN
+      ! change variable time axis to constant (s.t. it does not grow)
+      CALL vlistDefVarTime(vlistID(k_jg), varids(ivar_idx,k_jg), TIME_CONSTANT)
+    END IF
+
   END SUBROUTINE addVar_lonlat
 
 
@@ -3860,28 +3884,10 @@ CONTAINS
     CHARACTER(*), INTENT(IN) :: vname, vlongname, vunit
     INTEGER, INTENT(IN)      :: vcode, vtable, vlist, grid, zaxis
 
-    LOGICAL :: l_skipvar
     INTEGER :: vartype
     
-    ! - Quick Fix [FP] -
-    ! Standard variable output can be disabled when using lon-lat output.
-    ! We achieve this (quick and dirty) by defining the original variable
-    ! as a time constant field.
-    ! Note that here we implicitly assume that the lon-lat variable
-    ! name list and the boolean flag are identical for all patches.
-    l_skipvar = lonlat_intp_config(1)%l_supersede    .AND.    &
-      ((toupper(lonlat_intp_config(1)%zlist) == 'ALL') .OR.   &
-      & (string_contains_word(vname,                          &
-      &     lonlat_intp_config(1)%zlist,                      &
-      &     lonlat_intp_config(1)%n_list,                     &
-      &     lonlat_intp_config(1)%pos_list,                   &
-      &     lonlat_intp_config(1)%ilen_list)))
-    IF (l_skipvar) THEN
-      vartype = TIME_CONSTANT
-    ELSE
-      vartype = TIME_VARIABLE
-    END IF
-
+    vartype = TIME_VARIABLE
+    
     var = vlistdefvar(vlist, grid, zaxis, vartype)
     CALL vlistdefvarname(vlist, var, vname)
     CALL vlistdefvarlongname (vlist, var, vlongname)

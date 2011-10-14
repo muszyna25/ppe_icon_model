@@ -743,6 +743,12 @@
 !                                     INTEGER         varID)
       EXTERNAL        vlistInqVarTime
 
+!                     vlistDefVarTime
+!                                    (INTEGER         vlistID,
+!                                     INTEGER         varID,
+!                                     INTEGER         timeID)
+      EXTERNAL        vlistDefVarTime
+
 !                     vlistDefVarZtype
 !                                    (INTEGER         vlistID,
 !                                     INTEGER         varID,
