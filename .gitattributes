@@ -796,7 +796,7 @@ scripts/postprocessing/tools/README -text
 scripts/postprocessing/tools/Rakefile -text
 scripts/postprocessing/tools/color_map/testcmapshort.rgb -text
 scripts/postprocessing/tools/exportvars.bash -text
-scripts/postprocessing/tools/icon_ocean.ncl -text
+scripts/postprocessing/tools/icon_plot.ncl -text
 scripts/postprocessing/tools/icon_plot_lib.ncl -text
 scripts/postprocessing/tools/iconplot_ncl/iconplot.maps.echam.ncl -text
 scripts/postprocessing/tools/iconplot_ncl/iconplot.maps.ncl -text
