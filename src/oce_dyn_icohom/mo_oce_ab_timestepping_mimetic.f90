@@ -1419,55 +1419,10 @@ i_endblk   = p_patch%cells%end_blk(rl_end,1)
  !z_vn= ab_gam*p_os%p_prog(nnew(1))%vn + (1.0_wp-ab_gam)*p_os%p_prog(nold(1))%vn
  !CALL map_edges2cell( p_patch, z_vn, z_vn_c, ph_e)
 
-CALL print_mxmn('(cvvm) p_diag%w',1,p_os%p_diag%w,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvvm) p_diag%w',2,p_os%p_diag%w,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvvm) p_diag%w',3,p_os%p_diag%w,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvvm) p_diag%w',4,p_os%p_diag%w,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvvm) p_diag%w',5,p_os%p_diag%w,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvvm) p_diag%w_old',1,p_os%p_diag%w_old,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvvm) p_diag%w_old',2,p_os%p_diag%w_old,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvvm) p_diag%w_old',3,p_os%p_diag%w_old,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvvm) p_diag%w_old',4,p_os%p_diag%w_old,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvvm) p_diag%w_old',5,p_os%p_diag%w_old,4+1,p_patch%nblks_c,'vel',ipl_src)
 
  CALL map_edges2cell( p_patch, p_os%p_prog(nnew(1))%vn, z_vn_c, ph_e)
-
-CALL print_mxmn('(cvvm 0) p_diag%w',1,p_os%p_diag%w,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvvm 0) p_diag%w',2,p_os%p_diag%w,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvvm 0) p_diag%w',3,p_os%p_diag%w,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvvm 0) p_diag%w',4,p_os%p_diag%w,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvvm 0) p_diag%w',5,p_os%p_diag%w,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvvm 0) p_diag%w_old',1,p_os%p_diag%w_old,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvvm 0) p_diag%w_old',2,p_os%p_diag%w_old,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvvm 0) p_diag%w_old',3,p_os%p_diag%w_old,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvvm 0) p_diag%w_old',4,p_os%p_diag%w_old,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvvm 0) p_diag%w_old',5,p_os%p_diag%w_old,4+1,p_patch%nblks_c,'vel',ipl_src)
-
  CALL map_cell2edges( p_patch, z_vn_c, z_vn)
-
-CALL print_mxmn('(cvvm 1) p_diag%w',1,p_os%p_diag%w,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvvm 1) p_diag%w',2,p_os%p_diag%w,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvvm 1) p_diag%w',3,p_os%p_diag%w,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvvm 1) p_diag%w',4,p_os%p_diag%w,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvvm 1) p_diag%w',5,p_os%p_diag%w,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvvm 1) p_diag%w_old',1,p_os%p_diag%w_old,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvvm 1) p_diag%w_old',2,p_os%p_diag%w_old,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvvm 1) p_diag%w_old',3,p_os%p_diag%w_old,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvvm 1) p_diag%w_old',4,p_os%p_diag%w_old,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvvm 1) p_diag%w_old',5,p_os%p_diag%w_old,4+1,p_patch%nblks_c,'vel',ipl_src)
-
  CALL div_oce(z_vn, p_patch, z_div_c)
-
-CALL print_mxmn('(cvvm 2) p_diag%w',1,p_os%p_diag%w,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvvm 2) p_diag%w',2,p_os%p_diag%w,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvvm 2) p_diag%w',3,p_os%p_diag%w,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvvm 2) p_diag%w',4,p_os%p_diag%w,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvvm 2) p_diag%w',5,p_os%p_diag%w,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvvm 2) p_diag%w_old',1,p_os%p_diag%w_old,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvvm 2) p_diag%w_old',2,p_os%p_diag%w_old,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvvm 2) p_diag%w_old',3,p_os%p_diag%w_old,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvvm 2) p_diag%w_old',4,p_os%p_diag%w_old,4+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvvm 2) p_diag%w_old',5,p_os%p_diag%w_old,4+1,p_patch%nblks_c,'vel',ipl_src)
 ! iidx => p_patch%edges%cell_idx
 ! iblk => p_patch%edges%cell_blk
 ! write(*,*)'cells',&
@@ -1554,9 +1509,6 @@ ENDIF
 !write(*,*)
 ipl_src=4  ! output print level (1-5, fix)
 DO jk = 1, n_zlev
-CALL print_mxmn('(cvvm -1) p_diag%w',jk,p_os%p_diag%w,n_zlev+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('(cvvm -1) p_diag%w_old',jk,p_os%p_diag%w_old,n_zlev+1,p_patch%nblks_c,'vel',&
-  &ipl_src)
   CALL print_mxmn('vert veloc',jk,pw_c(:,:,:), n_zlev, p_patch%nblks_c,'abt',ipl_src)
 END DO
 DO jk = 1, n_zlev
