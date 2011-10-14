@@ -1046,18 +1046,58 @@ CONTAINS
             &                   'g/g', 203, 128,&
             &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
             &           k_jg)
-          ENDIF
-  !      END SELECT
 
-  !      SELECT CASE (iforcing)
-  !      CASE (inwp)
+            IF (lflux_avg ) THEN
+              sufix = "_avg"
+              meaning = "averaged"
+            ELSE 
+              sufix = ""
+              meaning = "instantan"     
+            END IF
+
+            WRITE(name,'(A8,A4)') "swflxsfc", sufix
+          WRITE(long_name,'(A8,A27)') meaning, " shortwave surface net flux"
+          CALL addVar(TimeVar(TRIM(name),&
+          &                   TRIM(long_name),&
+          &                   'W/m**2', 111, 128,&
+          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+          &           k_jg)
+
+          WRITE(name,'(A8,A4)') "lwflxsfc", sufix
+          WRITE(long_name,'(A8,A27)') meaning, " longwave  surface net flux"
+          CALL addVar(TimeVar(TRIM(name),&
+          &                   TRIM(long_name),&
+          &                   'W/m**2', 112, 128,&
+          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+          &           k_jg)
+          WRITE(name,'(A8,A4)') "swflxtoa", sufix
+          WRITE(long_name,'(A8,A23)') meaning, " shortwave toa net flux"
+          CALL addVar(TimeVar(TRIM(name),&
+          &                   TRIM(long_name),&
+          &                   'W/m**2', 113, 128,&
+          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+          &           k_jg)
+          WRITE(name,'(A8,A4)') "lwflxtoa", sufix
+          WRITE(long_name,'(A8,A23)') meaning, " longwave  toa net flux"
+          CALL addVar(TimeVar(TRIM(name),&
+          &                   TRIM(long_name),&
+          &                   'W/m**2', 114, 128,&
+          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+          &           k_jg)
+          ENDIF
+        END SELECT
+
+        SELECT CASE (iforcing)
+        CASE (inwp)
           IF (lflux_avg ) THEN
             sufix = "_avg"
             meaning = "averaged"
-          ELSE
+          ELSE 
             sufix = "_acc"
             meaning = "accumul."     
           END IF
+
+
           WRITE(name,'(A8,A4)') "swflxsfc", sufix
           WRITE(long_name,'(A8,A27)') meaning, " shortwave surface net flux"
           CALL addVar(TimeVar(TRIM(name),&
@@ -2564,6 +2604,8 @@ CONTAINS
 
     nlevp1 = num_levp1(jg)
 
+
+
     SELECT CASE(varname)
       CASE ('SLM');             ptr2 => prm_field(jg)%lsmask
       CASE ('SKT');             ptr2 => prm_field(jg)%tsfc(:,:)
@@ -2593,8 +2635,6 @@ CONTAINS
       CASE ('qvi');             ptr2 => prm_field(jg)%qvi (:,:);   reset = .TRUE.
       CASE ('xlvi');            ptr2 => prm_field(jg)%xlvi(:,:);   reset = .TRUE.
       CASE ('xivi');            ptr2 => prm_field(jg)%xivi(:,:);   reset = .TRUE.
-
-      !KF these fields are output averaged!
       CASE ('swflxsfc_avg'); ptr2 => dup2(prm_field(jg)% swflxsfc_avg(:,:)/dt_data); reset=.TRUE.
       CASE ('lwflxsfc_avg'); ptr2 => dup2(prm_field(jg)% lwflxsfc_avg(:,:)/dt_data); reset=.TRUE.
       CASE ('swflxtoa_avg'); ptr2 => dup2(prm_field(jg)% swflxtoa_avg(:,:)/dt_data); reset=.TRUE.
@@ -2606,6 +2646,11 @@ CONTAINS
       CASE ('shflx_avg');    ptr2 => dup2(prm_field(jg)%   shflx_avg(:,:)/dt_data); reset = .TRUE.
       CASE ('u_stress_avg'); ptr2 => dup2(prm_field(jg)%u_stress_avg(:,:)/dt_data); reset = .TRUE.
       CASE ('v_stress_avg'); ptr2 => dup2(prm_field(jg)%v_stress_avg(:,:)/dt_data); reset = .TRUE.
+
+      CASE ('swflxsfc');    ptr2 => prm_field(jg)% swflxsfc(:,:)
+      CASE ('lwflxsfc');    ptr2 => prm_field(jg)% lwflxsfc(:,:)
+      CASE ('swflxtoa');    ptr2 => prm_field(jg)% swflxtoa(:,:)
+      CASE ('lwflxtoa');    ptr2 => prm_field(jg)% lwflxtoa(:,:)
 
       CASE ('OMEGA_PHY');       ptr3 => prm_field(jg)%omega
       CASE ('tend_temp_radsw'); ptr3 => prm_tend(jg)%temp_radsw
@@ -2643,6 +2688,7 @@ CONTAINS
       !
       CASE DEFAULT;             not_found = .TRUE.
     END SELECT
+
 
     ! If not found in the list above, check for tracers, tracer tendencies, or 
     ! tile-specific quantities
