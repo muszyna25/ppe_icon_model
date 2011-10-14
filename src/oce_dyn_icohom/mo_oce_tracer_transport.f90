@@ -486,7 +486,7 @@ CALL div_oce( z_mass_flux_h, p_patch, z_div_mass_flux_h)
  END DO
  DO jk = 1, n_zlev
    CALL print_mxmn('mass-flux',jk,z_mass_flux_h(:,:,:),n_zlev, &
-     &              p_patch%nblks_c,'trc',ipl_src)
+     &              p_patch%nblks_e,'trc',ipl_src)
  END DO
  DO jk = 1, n_zlev
    CALL print_mxmn('div mass-flux',jk,z_div_mass_flux_h(:,:,:),n_zlev, &
