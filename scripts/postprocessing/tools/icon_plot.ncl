@@ -207,10 +207,15 @@
 
   ;Read mask variable
   if( useMask ) then
+    mFile = File
     if (isvar("maskFile")) then
       maskVar = getMaskVar(maskName,File,True,maskFile,timeStep,levIndex,plotMode)
     else
-      maskVar = getMaskVar(maskName,File,False,"",timeStep,levIndex,plotMode)
+      if (plotMode.eq."vector" .or. plotMode.eq."section") then
+        maskVar = getMaskVar(maskName,rFile,False,"",timeStep,levIndex,plotMode)
+      else
+        maskVar = getMaskVar(maskName,File,False,"",timeStep,levIndex,plotMode)
+      end if
     end if
   end if
 
@@ -226,7 +231,7 @@
     end if
   end if
   ;---------------------------------------------------------------
-  if (True) then
+  if (DEBUG) then
     print("iFile       = "+iFile)
     print("oFile       = "+oFile)
     print("Graphics format is " +oType)
@@ -282,7 +287,12 @@
     uvarname = vecVars(0)
     vvarname = vecVars(1)
 
-    checkDimsOfVars(uvarname,vvarname,rFile)
+    if (has_var(rFile,uvarname) .and. has_var(rFile,vvarname)) then
+      checkDimsOfVars(uvarname,vvarname,rFile)
+    else
+      print("Remapped file does not have variables "+uvarname+" or "+vvarname+"!")
+      exit
+    end if
 
     uvar = selRegularField(uvarname,rFile,timeStep,levIndex)
     vvar = selRegularField(vvarname,rFile,timeStep,levIndex)
@@ -302,10 +312,17 @@
     checkMinMaxVar(minVar,maxVar)
   end if
   if (plotMode.eq."section") then
+  print(rFile)
     var = selRegularVar(varName,rFile,timeStep)
     if(.not. isvar("minVar")) minVar = min(var) end if
     if(.not. isvar("maxVar")) maxVar = max(var) end if
     checkMinMaxVar(minVar,maxVar)
+    ; masking before computing the cross section
+    if ( useMask ) then
+      ; set variable var to missing, where var is not equal mvalue (3rd
+      ; parameter)
+      var = mask(var,maskVar,1)
+    end if
   end if ; Reading data variables =============================================
 
   ;---------------------------------------------------------------
@@ -431,8 +448,6 @@
   end if
   if (plotMode.eq."section") then
 
-;     maskvar = rFile->wet_c
-;     var = mask(var,maskvar,1)
     plot = new(2,graphic)
     points   = ispan(0,secPoints-1,1)*1.0 
     copy_VarAtts(var,trans)          ; copy attributes
@@ -481,7 +496,7 @@
     pres@gsLineThicknessF = 2.0;             line thickness
     gsn_polyline(wks,plot(1),(/ secLC(0),secRC(0) /),(/ secLC(1),secRC(1) /),pres)
     resP                  = True; modify the panel plot
-    resP@txString         = "laa"
+    resP@txString         = ""
     resP@gsnPanelLabelBar = False; add common colorbar
 
     draw(plot(0))

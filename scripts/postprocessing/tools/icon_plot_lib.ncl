@@ -59,6 +59,18 @@ begin
   end if
 end
 ;-------------------------------------------------------------------------------
+; has a file a certain variable
+undef("has_var")
+function has_var(filehandle,varname)
+begin
+  vNames = getfilevarnames(filehandle)
+  n      = dimsizes (vNames)
+  do i=0,n-1              ; loop thru each variable
+    if (vNames(i).eq.varname) return True end if
+  end do
+  return False
+end
+;-------------------------------------------------------------------------------
 ; Read a horizontal field of the variable 'varname' from the given filehandle.
 ; If it is time dependend or has a vertival axis, use the given values for
 ; timstep and levelindex for selecting the field.
@@ -376,15 +388,16 @@ end
 undef("checkDimsOfVars")
 procedure checkDimsOfVars(varname0,varname1,filehandle)
 begin
+   print(getfilevardims(filehandle,varname0))
+   print(getfilevardims(filehandle,varname1))
   if (str_join(getfilevardims(filehandle,varname0),"") .ne. str_join(getfilevardims(filehandle,varname1),"")) then
     print("Variables '"+varname0+"' and '"+varname1+"' must have the same dimensions!")
-    print(ABORTMSG)
+    print("ABORT!")
     exit
   end if
 end
 ;---------------------------------------------------------------
 ; Read a variable from the given or an optional file
-;
 undef("getMaskVar")
 function getMaskVar(maskvarname,filehandle,hasOtherMaskfile,maskfilename,timestep,levelindex,plotmode)
 begin
@@ -993,4 +1006,10 @@ begin
   if (debug) printGridPlotInfo(colors,levels,flags) end if
 
   pres = setupGridResource(variable,levels,colors,boundslon,boundslat,workstation,plot,debug)
+end
+;---------------------------------------------------------------
+; read in mask variable
+undef("readMaskVar")
+function readMaskVar()
+begin
 end
