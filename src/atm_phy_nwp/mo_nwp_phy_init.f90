@@ -138,7 +138,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
   REAL(wp), PARAMETER :: h_scal = 8000._wp     ! [m]      scale height
   REAL(wp), PARAMETER :: p0sl   = 101325._wp   ! [Pa]     sea level pressure
   REAL(wp)            :: zlat, zprat, zn1, zn2, zcdnc
-  REAL(wp)            :: zf_aux(nproma,nlev_o3,p_patch%nblks_c)
+!  REAL(wp)            :: zf_aux(nproma,nlev_o3,p_patch%nblks_c)
 
   LOGICAL  :: lland, lglac
   

@@ -1318,7 +1318,6 @@ CONTAINS
     zflxsw(jcs:jce,2:klev) = ptrmsw(jcs:jce,2:klev) * SPREAD(pi0(jcs:jce),2,klev-1)
     ! - Surface
     zflxsw(jcs:jce,klevp1) = ptrmsw(jcs:jce,klevp1) *        pi0(jcs:jce)
-
     ! Longwave fluxes
     ! - TOA
     zflxlw(jcs:jce,1)      = pflxlw(jcs:jce,1)
@@ -1331,6 +1330,7 @@ CONTAINS
     zflxlw(jcs:jce,klevp1) = pflxlw(jcs:jce,klevp1)               &
       &                   + pemiss(jcs:jce)*stbo * ptsfctrad(jcs:jce)**4 &
       &                   - pemiss(jcs:jce)*stbo * ptsfc    (jcs:jce)**4
+
     !
     !
     !     4.2  Fluxes and heating rates except for lowest layer

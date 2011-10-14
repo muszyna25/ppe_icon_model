@@ -574,6 +574,10 @@ CONTAINS
 !          CALL finish(TRIM(routine), 'Not enough tracers for ECHAM physics with RRTM.')
         END IF
       
+        IF ((iforcing==IECHAM).AND.(echam_phy_config%lrad)) THEN
+          IF ( izenith > 3)  &
+            CALL finish(TRIM(routine), 'Coose a valid case for ECHAM izenith.')
+        ENDIF
       END SELECT ! iforcing
 
     END DO ! jg = 1,n_dom

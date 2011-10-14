@@ -171,6 +171,9 @@ CONTAINS
     REAL(wp) :: zbb    (nbdim,nlev,nvar_vdiff)  !< r.h.s., all variables
     REAL(wp) :: zbb_btm(nbdim,nsfc_type,ih_vdiff:iqv_vdiff) !< last row of r.h.s. of heat and moisture
 
+    REAL(wp) :: zcosmu0 (nbdim)
+    INTEGER :: j
+
     ! Temporary arrays used by VDIFF
 
     REAL(wp) :: zfactor_sfc(nbdim)
@@ -182,6 +185,7 @@ CONTAINS
     REAL(wp) :: zthvvar (nbdim,nlev) !< intermediate value of thvvar
     REAL(wp) :: ztkevn  (nbdim,nlev) !< intermediate value of tke
     REAL(wp) :: zo3_timint(nbdim,nlev_o3) !< intermediate value of ozon 
+
 
 
 !!$ REAL(wp) :: rlfland (nbdim), rlfglac (nbdim)
@@ -298,7 +302,8 @@ CONTAINS
        CASE(0)
        ! for testing: provisional setting of cos(zenith angle) and TSI
        ! The global mean insolation is TSI/4 (ca. 340 W/m2)
-         ztsi = tsi/4._wp ! scale ztsi by 1/4 to get the correct global mean insolation
+      !   ztsi = tsi/4._wp ! scale ztsi by 1/4 to get the correct global mean insolation
+         ztsi = tsi/4._wp
        CASE(1)
        ! circular non-seasonal orbit, zenith angle dependent on latitude only,
        ! no diurnal cycle (always at 12:00 local time --> sin(time of day)=1 )
@@ -312,6 +317,9 @@ CONTAINS
        ! circular non-seasonal orbit, with diurnal cycle
          ztsi = tsi
        END SELECT
+
+       !KF temp
+       ztsi = tsi 
 
        ! 4.1 RADIATIVE TRANSFER
        !-----------------------
@@ -533,6 +541,14 @@ CONTAINS
                                 &      +ptime_radheat )
 
       zi0(jcs:jce) = MAX(0._wp,field%cosmu0(jcs:jce,jb)) * ztsi  ! instantaneous for radheat
+
+!      DO j=jcs,jce
+!        zi0(j) = DBLE(zcosmu0(j))!* !  ! instantaneous for radheat
+!      WRITE(0,*)'1 zi0=',j, zi0(j), zcosmu0 (j), izenith
+!        zi0(j) = DBLE(zi0(j))*DBLE(ztsi)  ! instantaneous for radheat
+!      WRITE(0,*)'2zi0=',j, zi0(j),ztsi, izenith
+!    ENDDO
+
       field% flxdwswtoa(jcs:jce,jb) = zi0 (jcs:jce)               ! (to be accumulated for output)
 
       IF (ltimer) CALL timer_start(timer_radheat)
@@ -561,6 +577,10 @@ CONTAINS
         & field%swflxsfc    (:,jb)    ,&! out shortwave surface net flux [W/m2]
         & field%lwflxsfc    (:,jb)    ,&! out longwave surface net flux  [W/m2]
         & field%swflxtoa    (:,jb)    ) ! out shortwave toa net flux     [W/m2]
+
+   !   WRITE(0,*)'radheat on!!',jb
+
+
 
       IF (ltimer) CALL timer_stop(timer_radheat)
 
@@ -1010,18 +1030,26 @@ CONTAINS
          &                               + (field% rsfl (jcs:jce,jb)+field% ssfl (jcs:jce,jb) &
          &                               +  field% rsfc (jcs:jce,jb)+field% ssfc (jcs:jce,jb)) &
          &                               * pdtime
+       
 
-       IF (ltrig_rad) THEN
     ! KF accumulated net TOA and surface radiation fluxes
+
        field% swflxsfc_avg(jcs:jce,jb) = field% swflxsfc_avg(jcs:jce,jb)  &
-         &                             + field% swflxsfc    (jcs:jce,jb) *dt_rad
+         &                            +  field% swflxsfc    (jcs:jce,jb)  *pdtime
        field% lwflxsfc_avg(jcs:jce,jb) = field% lwflxsfc_avg(jcs:jce,jb)  &
-         &                             + field% lwflxsfc    (jcs:jce,jb) *dt_rad
-       field% swflxtoa_avg(jcs:jce,jb) = field% swflxtoa_avg(jcs:jce,jb) &
-         &                             + field% swflxtoa    (jcs:jce,jb) *dt_rad
+         &                            + field% lwflxsfc    (jcs:jce,jb)  *pdtime
+       field% swflxtoa_avg(jcs:jce,jb) =  field% swflxtoa_avg(jcs:jce,jb) &
+         &                             + field% swflxtoa    (jcs:jce,jb) *pdtime
        field% lwflxtoa_avg(jcs:jce,jb) = field% lwflxtoa_avg(jcs:jce,jb) &
-         &                             + field% lwflxtoa    (jcs:jce,jb) *dt_rad
-     ENDIF
+         &                             + field% emterall    (jcs:jce,1,jb) *pdtime
+
+
+
+ !      IF(jb == 300) THEN
+ !      WRITE(0,*)'inside pyh swsfc', field% swflxsfc(5,jb) ,field% swflxsfc_avg(5,jb) 
+ !      WRITE(0,*)'inside pyh lwtoa', field% emterall(5,1,jb) , field% lwflxtoa_avg(5,jb)
+ !    ENDIF
+
 
     ! Done. Disassociate pointers.
     NULLIFY(field,tend)

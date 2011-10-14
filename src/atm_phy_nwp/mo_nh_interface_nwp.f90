@@ -1042,6 +1042,9 @@ CONTAINS
         WRITE(message_text,'(a,2E17.9)') 'max/min LW net flux  = ',&
              & MAXVAL (prm_diag%lwflxall(:,:,:)), MINVAL(prm_diag%lwflxall(:,:,:))
         CALL message('', TRIM(message_text))
+        WRITE(message_text,'(a,2E17.9)') 'max/min SW SFC flux  = ',&
+             & MAXVAL (prm_diag%swflxsfc(:,:)), MINVAL(prm_diag%swflxsfc(:,:))
+        CALL message('', TRIM(message_text))
         WRITE(message_text,'(a,2E17.9)') 'max/min dTdt sw= ',&
           & MAXVAL (prm_nwp_tend%ddt_temp_radsw(:,:,:)),MINVAL(prm_nwp_tend%ddt_temp_radsw(:,:,:))
         CALL message('', TRIM(message_text))
