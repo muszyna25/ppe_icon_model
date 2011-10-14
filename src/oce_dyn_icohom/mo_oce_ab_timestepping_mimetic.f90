@@ -113,7 +113,7 @@ LOGICAL, PARAMETER :: l_forc_freshw        = .FALSE.
 
 ! TRUE=staggering between thermodynamic and dynamic part, offset of half timestep
 ! between dynamic and thermodynamic variables thermodynamic and dnamic variables are colocated in time
-LOGICAL, PUBLIC,PARAMETER :: l_STAGGERED_TIMESTEP = .FALSE. 
+LOGICAL, PUBLIC,PARAMETER :: l_STAGGERED_TIMESTEP = .TRUE. 
 
 CONTAINS
 !-------------------------------------------------------------------------  

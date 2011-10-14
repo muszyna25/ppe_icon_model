@@ -206,7 +206,7 @@ CONTAINS
       &                     ppatch%n_patch_cells, ppatch%cells%glb_index, &
       &                     11, z_prog)
    
-    p_os%p_prog(nold(1))%tracer(:,1:n_zlev,:,1) = z_prog(:,1:n_zlev,:)
+    p_os%p_prog(nold(1))%tracer(:,1:n_zlev,:,2) = z_prog(:,1:n_zlev,:)
   END IF
 
   !

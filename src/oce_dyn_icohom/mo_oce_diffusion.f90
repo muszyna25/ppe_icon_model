@@ -823,7 +823,7 @@ DO jb = i_startblk, i_endblk
         z_rhs(slev+1:z_dolic-1) = field_column(jc,slev+1:z_dolic-1,jb)
  
         zinv             = 1.0_wp/v_base%del_zlev_m(slev)!+h_c(jc,jb)                         
-        z_rhs(slev)      = field_column(jc,slev,jb)  + top_bc(jc,jb)!*!zinv   
+        z_rhs(slev)      = field_column(jc,slev,jb)  + top_bc(jc,jb)*zinv   
 
         zinv             = 1.0_wp*v_base%del_zlev_m(z_dolic)
         z_rhs(z_dolic)   = field_column(jc,z_dolic,jb) - bot_bc(jc,jb)*zinv 
@@ -990,7 +990,7 @@ DO jb = i_startblk, i_endblk
 
         ! The first row
          zinv = 0.0_wp  !1.0_wp/(2.0_wp*v_base%del_zlev_m(slev)*v_base%del_zlev_i(slev))!+h_c(jc,jb)                          
-         c(slev) = -A_v(jc,slev+1,jb)*zinv  
+          c(slev) = -A_v(jc,slev+1,jb)*zinv  
          a(slev) = 0.0_wp           
          b(slev) = 1.0_wp - a(slev) - c(slev)
 
@@ -1005,7 +1005,7 @@ DO jb = i_startblk, i_endblk
         z_rhs(slev+1:z_dolic-1) = field_column(jc,slev+1:z_dolic-1,jb)
  
         zinv             = 1.0_wp/v_base%del_zlev_m(slev)!+h_c(jc,jb)                         
-        z_rhs(slev)      = field_column(jc,slev,jb)  +top_bc_vn(jc,jb)!*zinv   
+        z_rhs(slev)      = field_column(jc,slev,jb)  +top_bc_vn(jc,jb)*zinv   
 
         zinv             = 1.0_wp*v_base%del_zlev_m(z_dolic)
         z_rhs(z_dolic)   = field_column(jc,z_dolic,jb) - bot_bc_vn(jc,jb)*zinv 
