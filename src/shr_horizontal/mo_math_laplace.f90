@@ -507,8 +507,8 @@ ENDIF
 !
 IF (p_test_run) THEN
   p_nabla2(:,:,:) = 0.0_wp
-  rl_start_s1 = 1
-  rl_end_s1 = min_rledge
+!   rl_start_s1 = 1
+!   rl_end_s1 = min_rledge
 ENDIF
 
 CALL nabla2_vec( vec_e, ptr_patch, ptr_int, p_nabla2,  &
