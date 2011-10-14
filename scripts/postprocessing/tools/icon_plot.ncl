@@ -188,7 +188,11 @@
   else
     plotMode = "scalar"
   end if
-  if (isvar("makeSec")) plotMode = "section" end if
+  if ( (isvar("secLC").or.isvar("secRC")).ne.(isvar("secLC").and.isvar("secRC"))) then
+    print("Please provide secLC AND secRC for generatin a section plot!")
+    exit
+  end if
+  if (isvar("secLC").and.isvar("secRC")) plotMode = "section" end if
 
   if (plotMode.eq."vector" .or. plotMode.eq."overlay" .or. plotMode.eq."section") then
     ; performe some remapping to a regular grid because ncl cannot draw vector
