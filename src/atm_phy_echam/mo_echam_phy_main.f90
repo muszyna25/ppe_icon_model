@@ -313,13 +313,11 @@ CONTAINS
        ! circular non-seasonal orbit, no diurnal cycle
        ! at 07:14:15 or 16:45:45 local time (--> sin(time of day)=1/pi )
          ztsi = tsi
-       CASE(3) 
+       CASE(3,4) 
        ! circular non-seasonal orbit, with diurnal cycle
          ztsi = tsi
        END SELECT
 
-       !KF temp
-       ztsi = tsi 
 
        ! 4.1 RADIATIVE TRANSFER
        !-----------------------

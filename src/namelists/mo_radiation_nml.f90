@@ -206,8 +206,7 @@ CONTAINS
 
     dt_rad = 7200._wp
 
-    izenith = 3  ! Default: get it working KF
-!    izenith = 4  ! Default: seasonal orbit and diurnal cycle
+    izenith = 4  ! Default: seasonal orbit and diurnal cycle
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 

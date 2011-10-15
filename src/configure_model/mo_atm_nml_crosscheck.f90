@@ -575,8 +575,8 @@ CONTAINS
         END IF
       
         IF ((iforcing==IECHAM).AND.(echam_phy_config%lrad)) THEN
-          IF ( izenith > 3)  &
-            CALL finish(TRIM(routine), 'Coose a valid case for ECHAM izenith.')
+          IF ( izenith > 4)  &
+            CALL finish(TRIM(routine), 'Coose a valid case for rad_nml: izenith.')
         ENDIF
       END SELECT ! iforcing
 
