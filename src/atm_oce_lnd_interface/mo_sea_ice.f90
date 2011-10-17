@@ -1831,7 +1831,8 @@ SUBROUTINE new_ice_growth(ppatch,ice, p_os, QatmAve,p_sfc_flx)
   WHERE (sst <= Tf)
     ice%newice(:,:) = - (sst - Tf) * ice%zUnderIce * cw*rhow / (Lfreez*rhoi)
     ! Add energy for new-ice formation due to supercooled ocean to  ocean temperature
-    p_sfc_flx%forc_tracer(:,:,1) = ( Tf - p_os%p_prog(nold(1))%tracer(:,1,:,1) ) / dtime
+    p_sfc_flx%forc_tracer(:,:,1) = &
+      &     ice%zUnderIce * ( Tf - p_os%p_prog(nold(1))%tracer(:,1,:,1) ) / dtime
   END WHERE
   WHERE(ice%newice>0.0_wp)
     ice % isice(:,1,:) = .TRUE.

@@ -58,7 +58,7 @@ USE mo_physical_constants, ONLY: re, rre, omega, rgrav, rho_ref, grav, SItodBar,
 USE mo_math_constants
 USE mo_parallel_config,    ONLY: nproma
 USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer, iforc_len,                    &
-  &                              init_oce_prog, itestcase_oce,                              &
+  &                              init_oce_prog, itestcase_oce,i_sea_ice,                    &
   &                              basin_center_lat, basin_center_lon,idisc_scheme,           &
   &                              basin_height_deg,  basin_width_deg, temperature_relaxation
 USE mo_impl_constants,     ONLY: max_char_length, sea, sea_boundary,                        &
@@ -1042,7 +1042,11 @@ END DO
       ! Construct temperature profile 
       !   ttrop for lat<ltrop; tpol for lat>lpol; cos for transition zone
       !   for maximum tropical temperature see values above
-      z_tpol  =  5.0_wp      ! polar temperature
+      IF (i_sea_ice == 0) THEN
+        z_tpol  =  5.0_wp      ! polar temperature
+      ELSE
+        z_tpol = Tf
+      ENDIF
       z_ltrop = 15.0_wp      ! tropical latitude for temperature gradient
       z_lpol  = 60.0_wp      ! polar latitude for temperature gradient
       z_ldiff = z_lpol  - z_ltrop

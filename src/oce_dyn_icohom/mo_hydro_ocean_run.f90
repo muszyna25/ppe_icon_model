@@ -216,9 +216,9 @@ CONTAINS
       IF ( i_sea_ice == 1 ) &
         & CALL ice_slow(ppatch(jg), pstate_oce(jg), p_as, p_ice, p_atm_f, p_sfc_flx)
 
-!      print *, minval(p_ice%hi), maxval(p_ice%hi)
+!      write(*,*) minval(p_ice%hi), maxval(p_ice%hi)
 !
-!      print *, minval(pstate_oce(jg)%p_prog(nold(1))%tracer(:,1,:,1), &
+!      write(*,*) minval(pstate_oce(jg)%p_prog(nold(1))%tracer(:,1,:,1), &
 !                  mask=pstate_oce(jg)%p_prog(nold(1))%tracer(:,1,:,1) /= 0.), &
 !               maxval(pstate_oce(jg)%p_prog(nold(1))%tracer(:,1,:,1), &
 !                  mask=pstate_oce(jg)%p_prog(nold(1))%tracer(:,1,:,1) /= 0.)
