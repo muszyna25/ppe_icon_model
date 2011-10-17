@@ -762,8 +762,35 @@ begin
 ;    resource@mpLandFillColor        = "tan"
 ;    resource@mpOceanFillColor       = "LightBlue"
 ;    resource@mpInlandWaterFillColor = "LightBlue"
+  end if
 
-  else
+  if (maptype .eq. "NH")
+    resource@mpProjection         = "Stereographic"
+    resource@mpRelativeCenterLon = True
+    resource@mpCenterLonF = 0
+    resource@mpRelativeCenterLat = True
+    resource@mpCenterLatF = 90. 
+    resource@mpLimitMode          = "Corners"
+    resource@mpLeftCornerLonF = -45.
+    resource@mpLeftCornerLatF = 45.
+    resource@mpRightCornerLonF = 135.
+    resource@mpRightCornerLatF = 45.
+  end if
+
+  if (maptype .eq. "SH")
+    resource@mpProjection         = "Stereographic"
+    resource@mpRelativeCenterLon = True
+    resource@mpCenterLonF = 0
+    resource@mpRelativeCenterLat = True
+    resource@mpCenterLatF = -90. 
+    resource@mpLimitMode          = "Corners"
+    resource@mpLeftCornerLonF = -45.
+    resource@mpLeftCornerLatF = -45.
+    resource@mpRightCornerLonF = 135.
+    resource@mpRightCornerLatF = -45.
+  end if
+
+  if (maptype .eq. "lonlat")
     resource@mpProjection         = "CylindricalEquidistant"
     resource@mpLimitMode          = "LatLon"
   end if
