@@ -1,0 +1,5 @@
+module swap fortran fortran/xlf/13.1.0.7
+./configure
+export LDR_CNTRL=MAXDAT=0xD0000000@DSA
+make -j 16
+

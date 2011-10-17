@@ -94,5 +94,29 @@ case $ac_sitename in
     sync_submit=llsubmit -s
     use_shell=/bin/bash
     ;;
+
+  ecmwf.int)
+    #  pwr6
+    config_target=blizzard
+    NETCDFROOT  = /usr/local/apps/netcdf/3.6.3/LP64
+    LAPACKROOT  = /usr/local/lib/lapack/3.1.1
+    LAPACK_LIB_PATH  = "$LAPACKROOT"
+    LAPACK_LIB  = -llapack64_ -llapack_essl64_ -lblas64_
+    MPIROOT=/usr/lpp/ppe.poe
+    
+    load_profile="." "/etc/profile"
+#   make_command="/sw/aix61/qnq/0.0.5/bin/qnq" "-n" "32" "-c" "cluster" "-w" "03:50:00" "make" "-j" "32"
+    make_command="make" "-j" "4"
+    mpi_startrun=poe
+    submit="llsubmit"
+    sync_submit=llsubmit -s
+    use_shell=/bin/bash
+
+#   modules will be loaded manually (fortran/xlf/13.1.0.7 )
+    load_modules=""
+
+#   need to define that we are at ecmwf to adjust the util_sysonfo.c
+    CFLAGS   = "$CFLAGS" -D_ECMWF
+    ;;
 esac
 

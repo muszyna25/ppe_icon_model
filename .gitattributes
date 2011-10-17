@@ -44,6 +44,7 @@ blas/idamax.f -text
 blas/lsame.f -text
 blas/xerbla.f -text
 /build_all -text
+/build_command.ecmwf -text
 config/README_compiler_issues -text
 config/config.guess -text
 config/config.h.SX -text

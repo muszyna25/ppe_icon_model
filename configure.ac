@@ -230,10 +230,11 @@ if test x$withval = xyes; then
   fi
 fi
 
-if test -n "$LAPACKROOT" ; then
+if test -n $LAPACK_LIB_PATH; then
+    LAPACK_LIB='-L$(LAPACK_LIB_PATH) '$LAPACK_LIB
+elif test -n "$LAPACKROOT" ; then
     LAPACK_LIB='-L$(LAPACKROOT)/lib '$LAPACK_LIB
-else
-if test -d lapack ; then
+elif test -d lapack ; then
     LAPACKROOT="local"
     LAPACK_LIB="-L../lib -llapack -lblas"
 else
