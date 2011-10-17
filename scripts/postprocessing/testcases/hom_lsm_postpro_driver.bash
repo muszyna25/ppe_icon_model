@@ -15,7 +15,7 @@
 # - CDO (Climate Data Operators, www.mpimet.mpg.de/cdo) 
 #   for interplation and for the spectral transform;
 # - NCL (NCAR Command Language, www.ncl.ucar.edu)
-#   module ncl/5.2.0-bin for visualization using icon_ocean.ncl
+#   module ncl/5.2.0-bin for visualization using icon_plot.ncl
 #
 #==============================================================================
 
@@ -103,7 +103,7 @@ tstrg="ICON Ocean"                              #  title string
 
 # these parameters are stored in here-document due to necessary single and double quotes:
 cat >scr_${EXP}_nclcmd.here <<eo_here
-  ncl ${ncl_script_path}icon_ocean.ncl \
+  ncl ${ncl_script_path}icon_plot.ncl \
       'iFile="$ifile"' 'oFile="$ofile"' 'varName="$varname"' 'oType="$otype"' \
       'selMode="$selmode"' minVar=$minvar maxVar=$maxvar $MAP timeStep=$plotstep \
       'maskName="$mname"' $PROJSAT 'bStrg="$bstrg"' 'tStrg="$tstrg"'
@@ -117,7 +117,7 @@ source ./scr_${EXP}_nclcmd.here
 mkdir -p plots
 echo "new Dir"
 mv ${ofile}.eps plots/.
-#check_error $? "In script icon_ocean.ncl:"
+#check_error $? "In script icon_plot.ncl:"
 #rm scr_${EXP}_nclcmd.here
 echo "=== Done."
 
