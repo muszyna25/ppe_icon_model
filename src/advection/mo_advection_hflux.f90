@@ -101,7 +101,7 @@ MODULE mo_advection_hflux
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: ntracer
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c 
-  USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_C1, sync_patch_array,  &
+  USE mo_sync,                ONLY: SYNC_C, SYNC_C1, sync_patch_array,          &
     &                               sync_patch_array_mult, sync_patch_array_4de3
   USE mo_parallel_config,     ONLY: p_test_run
   USE mo_advection_config,    ONLY: advection_config, lcompute, lcleanup
@@ -1339,9 +1339,8 @@ CONTAINS
 
 
     IF (p_test_run) THEN
-      z_grad(:,:,:,:)      = 0._wp
-      z_lsq_coeff(:,:,:,:) = 0._wp
-      z_tracer_mflx(:,:,:) = 0._wp
+      z_grad(:,:,:,:)   = 0._wp
+      z_tracer(:,:,:,:) = 0._wp
     ENDIF
 
     ! initialize 'now slice' of z_tracer and z_rho
@@ -1349,9 +1348,8 @@ CONTAINS
     nnew = 2
 !$OMP PARALLEL
 !$OMP WORKSHARE
-    z_tracer(:,:,:,nnew) = 0._wp ! necessary due to CALL to reconstruction routines 
-    z_tracer(:,:,:,nnow) = p_cc (:,:,:)
-    z_rho   (:,:,:,nnow) = p_rho(:,:,:)
+    z_tracer(:,slev:elev,:,nnow) = p_cc (:,slev:elev,:)
+    z_rho   (:,slev:elev,:,nnow) = p_rho(:,slev:elev,:)
 !$OMP END WORKSHARE
 !$OMP END PARALLEL
 
@@ -1473,12 +1471,7 @@ CONTAINS
       ! the reconstruction method, the correct polynomial coefficients 
       ! are available up to halo points of level 1 (after this sync).
       !
-      ! This sync is also necessary for nsub > 1, because the gradient 
-      ! computed at level 1 halo is incorrect. For a correct computation, 
-      ! the level 2 halo of z_tracer would be necessary when calling the 
-      ! reconstruction-routine. But the correct level 2 halo is only 
-      ! available for nsub=1.
-      IF ( (p_igrad_c_miura == 3) .OR. (nsub .gt. 1) ) &
+      IF ( p_igrad_c_miura == 3 ) &
         &  CALL sync_patch_array_mult(SYNC_C1,p_patch,2,f4din=ptr_grad)
 
 
@@ -1497,6 +1490,11 @@ CONTAINS
       i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
 
 
+    IF ( p_patch%id > 1 ) THEN
+!$OMP WORKSHARE
+      z_tracer_mflx(:,:,1:i_startblk) = 0._wp
+!$OMP END WORKSHARE
+    ENDIF
 
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,ilc0,ibc0)
       DO jb = i_startblk, i_endblk
@@ -1546,17 +1544,14 @@ CONTAINS
         CALL div( p_mass_flx_e(:,:,:), p_patch, p_int,    &! in
           &       z_rhofluxdiv_c(:,:,:),                  &! inout
           &       opt_slev=slev, opt_elev=elev,           &! in
-          &       opt_rlend=i_rlend_c                     )! in
+          &       opt_rlend=min_rlcell_int                )! in
       ENDIF
-
-
-      CALL sync_patch_array(SYNC_E,p_patch,z_tracer_mflx)
 
 
       CALL div( z_tracer_mflx(:,:,:), p_patch, p_int,   &! in
         &       z_fluxdiv_c(:,:,:),                     &! inout
         &       opt_slev=slev, opt_elev=elev,           &! in
-        &       opt_rlend=i_rlend_c                     )! in
+        &       opt_rlstart=3, opt_rlend=min_rlcell_int )! in
 
 
       !
@@ -1564,14 +1559,22 @@ CONTAINS
       !
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
 
-      i_startblk = p_patch%cells%start_blk(2,1)
-      i_endblk   = p_patch%cells%end_blk(i_rlend_c,i_nchdom)
+      i_startblk = p_patch%cells%start_blk(3,1)
+      i_endblk   = p_patch%cells%end_blk(min_rlcell_int,i_nchdom)
+
+
+    ! initialize also nest boundary points with zero
+    IF ( p_patch%id > 1 ) THEN
+!$OMP WORKSHARE
+      z_tracer(:,:,1:i_startblk,nnew) = 0._wp
+!$OMP END WORKSHARE
+    ENDIF
 
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, i_rlstart, i_rlend_c)
+                           i_startidx, i_endidx, 3, min_rlcell_int)
 
         DO jk = slev, elev
           DO jc = i_startidx, i_endidx
@@ -1600,8 +1603,9 @@ CONTAINS
       nnow = nnew
       nnew = nsav
 
-      IF ( p_igrad_c_miura == 3 ) &
-        &  CALL sync_patch_array_mult(SYNC_C,p_patch,2,f4din=z_tracer)
+
+      CALL sync_patch_array(SYNC_C,p_patch,z_tracer(:,:,:,nnow))
+
 
     ENDDO  ! loop over sub-timesteps
 

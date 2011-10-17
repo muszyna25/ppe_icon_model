@@ -270,6 +270,11 @@ CONTAINS
           &'Value must be even or 1 if l_nest_rcf=.FALSE.')
     ENDIF
 
+    IF ( hbot_qvsubstep < htop_moist_proc ) THEN
+      CALL finish(TRIM(routine), 'hbot_qvsubstep < htop_moist_proc does not make sense.')
+    ENDIF
+
+
     !----------------------------------------------------
     ! 4. Fill the configuration state
     !----------------------------------------------------
