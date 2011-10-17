@@ -563,9 +563,9 @@ CONTAINS
 
     p_sfc_flx%forc_tracer(:,:,1) = p_sfc_flx%forc_hflx(:,:) / (rho_ref*cw)
 
-    ipl_src=1  ! output print level (1-5, fix)
-    z_c(:,1,:) = p_sfc_flx%forc_hflx(:,:)
-    CALL print_mxmn('T-forc-nshflx',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+  ! ipl_src=1  ! output print level (1-5, fix)
+  ! z_c(:,1,:) = p_sfc_flx%forc_hflx(:,:)
+  ! CALL print_mxmn('T-forc-nshflx',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
     ipl_src=2  ! output print level (1-5, fix)
     z_c(:,1,:) = p_sfc_flx%forc_tracer(:,:,1)
     CALL print_mxmn('T-forc-tracer-flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)

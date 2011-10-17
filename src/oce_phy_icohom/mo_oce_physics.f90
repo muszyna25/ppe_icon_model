@@ -569,7 +569,7 @@ END INTERFACE
    REAL(wp), PARAMETER :: z_c1_v   = 5.0_wp
    REAL(wp), PARAMETER :: z_av0    = 0.5E-2_wp 
    REAL(wp), PARAMETER :: z_dv0    = 0.5E-2_wp
-   LOGICAL,  PARAMETER :: l_constant_mixing = .FALSE.
+   LOGICAL,  PARAMETER :: l_constant_mixing = .TRUE.
 
 !   !-------------------------------------------------------------------------
 DO, jk=1,n_zlev

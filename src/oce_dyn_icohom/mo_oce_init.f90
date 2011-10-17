@@ -127,13 +127,15 @@ CONTAINS
   CHARACTER(filename_max) :: prog_init_file   !< file name for reading in
 
   LOGICAL :: l_exist
-  INTEGER :: i_lev, no_cells, jk, jb, jc, jlen
+  INTEGER :: i_lev, no_cells, no_levels, jk, jb, jc, jlen
   INTEGER :: ncid, dimid
   INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start, rl_end_c
 
   REAL(wp):: z_c(nproma,n_zlev,ppatch%nblks_c)
   ! files ts_phc_season-iconR2B04-L11.nc have 11 levels
-  REAL(wp):: z_prog(nproma,11,ppatch%nblks_c)
+  !REAL(wp):: z_prog(nproma,11,ppatch%nblks_c)
+  ! files ts_phc_season-iconR2B04-L10-25_5000.nc have n_zlev=10 levels
+  REAL(wp):: z_prog(nproma,n_zlev,ppatch%nblks_c)
 
   !-------------------------------------------------------------------------
 
@@ -143,9 +145,6 @@ CONTAINS
     CALL message (TRIM(routine), 'no initialization file to read - return')
     RETURN
   END IF
-
-  !write(*,*) 'not read yet'
-  !return
 
   i_lev        = ppatch%level
 
@@ -168,7 +167,7 @@ CONTAINS
     CALL nf(nf_open(TRIM(prog_init_file), NF_NOWRITE, ncid))
 
     !
-    ! get number of cells and vertices
+    ! get number of cells
     !
     CALL nf(nf_inq_dimid(ncid, 'ncells', dimid))
     CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
@@ -180,8 +179,24 @@ CONTAINS
     CALL message(TRIM(routine),TRIM(message_text))
     IF(ppatch%n_patch_cells_g /= no_cells) THEN
       CALL finish(TRIM(ROUTINE),&
-      & 'Number of patch cells and cells in bathymetry file do not match.')
+      & 'Number of patch cells and cells in ocean prognositc input file do not match.')
     ENDIF
+    !
+    ! get number of levels
+    !
+    CALL nf(nf_inq_dimid(ncid, 'level', dimid))
+    CALL nf(nf_inq_dimlen(ncid, dimid, no_levels))
+
+    !
+    ! check the number of cells
+    !
+    WRITE(message_text,'(a,i6)') 'No of vertical levels =', no_levels
+    CALL message(TRIM(routine),TRIM(message_text))
+    IF(n_zlev /= no_levels) THEN
+      CALL finish(TRIM(ROUTINE),&
+      & 'Number of vertical levels and levels in ocean prognositc input file do not match.')
+    ENDIF
+
   ENDIF
 
 
@@ -196,7 +211,7 @@ CONTAINS
   ! read temperature - TW: Winter temperature (Jan); TS: July; in deg Celsius
   CALL read_netcdf_data (ncid, 'TW', ppatch%n_patch_cells_g,     &
     &                     ppatch%n_patch_cells, ppatch%cells%glb_index, &
-    &                     11, z_prog)
+    &                     n_zlev, z_prog)
 
   p_os%p_prog(nold(1))%tracer(:,1:n_zlev,:,1) = z_prog(:,1:n_zlev,:)
 
@@ -204,7 +219,7 @@ CONTAINS
   IF (no_tracer > 1) THEN
     CALL read_netcdf_data (ncid, 'SW', ppatch%n_patch_cells_g,     &
       &                     ppatch%n_patch_cells, ppatch%cells%glb_index, &
-      &                     11, z_prog)
+      &                     n_zlev, z_prog)
    
     p_os%p_prog(nold(1))%tracer(:,1:n_zlev,:,2) = z_prog(:,1:n_zlev,:)
   END IF
