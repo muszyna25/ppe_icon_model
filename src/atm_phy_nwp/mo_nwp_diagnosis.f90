@@ -160,7 +160,7 @@ CONTAINS
     
 ! if cloud cover is call, vertical integration of cloud content(for iqv, iqc, iqi)
 
-!$OMP PARALLEL
+!$OMP PARALLEL PRIVATE(l_s6avg,p_sim_time_s6)
 
     IF ( lcall_phy_jg(itccov) ) THEN
 
