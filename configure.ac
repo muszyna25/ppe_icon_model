@@ -241,7 +241,6 @@ else
     LAPACKROOT=""
     LAPACK_LIB=""
 fi
-fi
 
 dnl ######################################################################
 dnl Checks for zlib.

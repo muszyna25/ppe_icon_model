@@ -3219,7 +3219,6 @@ else
     LAPACKROOT=""
     LAPACK_LIB=""
 fi
-fi
 
 
 ZLIB_LIB=""
