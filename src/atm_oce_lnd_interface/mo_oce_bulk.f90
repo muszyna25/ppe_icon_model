@@ -530,6 +530,22 @@ CONTAINS
 
   ENDIF
 
+  IF (temperature_relaxation >= 1) THEN
+
+    ! Heat flux diagnosed for relaxation cases
+    !   Q_s = Rho*Cp*Q_t  with density Rho and Cp specific heat capacity
+    ! where
+    !   K_v*dT/dz(surf) = -Q_t = Q_s/Rho/Cp  [K*m/s]
+    ! see below
+
+    p_sfc_flx%forc_hflx(:,:) = p_sfc_flx%forc_tracer(:,:,1) * rho_ref * cw
+
+    ipl_src=1  ! output print level (1-5, fix)
+    z_c(:,1,:) = p_sfc_flx%forc_hflx(:,:)
+    CALL print_mxmn('T-forc-nshflx',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+
+  END IF
+
   !-------------------------------------------------------------------------
   ! Apply net surface heat flux to boundary condition
 
@@ -540,7 +556,7 @@ CONTAINS
     ! Boundary condition at surface (upper bound of D at center of first layer)
     !   is calculated from net surface heat flux Q_s [W/m2]
     !   which is calculated by the atmosphere (coupled) or read from flux file (see above)
-    !   Q_s = Rho*Cp*Q_t  mit Cp specific heat capacity
+    !   Q_s = Rho*Cp*Q_t  with density Rho and Cp specific heat capacity
     !   K_v*dT/dz(surf) = -Q_t = Q_s/Rho/Cp  [K*m/s]
     ! discretized:
     !   top_bc_tracer = forc_tracer = forc_hflx / (rho_ref*cw)

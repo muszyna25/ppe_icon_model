@@ -2191,6 +2191,15 @@ CONTAINS
       &                   zaxisID_surface(k_jg)),&
       &           k_jg)
     END IF 
+    IF (temperature_relaxation /= 0 ) THEN
+      CALL addVar(TimeVar('forc-hflx',&
+      &                   'diagnosed net surface heat flux',&
+      &                   'W/m2',16,128,&
+      &                   vlistID(k_jg),&
+      &                   gridCellID(k_jg),&
+      &                   zaxisID_surface(k_jg)),&
+      &           k_jg)
+    END IF 
    !  CALL addVar(TimeVar('horz-adv',&
    !  &                   'nonlin Cor ',&
    !  &                   'm/s',2,128,&
@@ -3270,6 +3279,7 @@ CONTAINS
       CASE ('forc-u');       ptr2d => forcing%forc_wind_u
       CASE ('forc-v');       ptr2d => forcing%forc_wind_v
       CASE ('forc-t');       ptr2d => forcing%forc_tracer(:,:,1)
+      CASE ('forc-hflx');    ptr2d => forcing%forc_hflx(:,:)
       CASE('horz-adv');      ptr3d => p_diag%veloc_adv_horz
       CASE('Ekin-grad');     ptr3d => p_diag%grad
       CASE ('flux-u');       ptr2d => p_aux%bc_top_u
