@@ -2715,17 +2715,40 @@ CONTAINS
       CASE ('qvi');             ptr2 => prm_field(jg)%qvi (:,:);   reset = .TRUE.
       CASE ('xlvi');            ptr2 => prm_field(jg)%xlvi(:,:);   reset = .TRUE.
       CASE ('xivi');            ptr2 => prm_field(jg)%xivi(:,:);   reset = .TRUE.
-      CASE ('swflxsfc_avg'); ptr2 => dup2(prm_field(jg)% swflxsfc_avg(:,:)/dt_data); reset=.TRUE.
-      CASE ('lwflxsfc_avg'); ptr2 => dup2(prm_field(jg)% lwflxsfc_avg(:,:)/dt_data); reset=.TRUE.
-      CASE ('swflxtoa_avg'); ptr2 => dup2(prm_field(jg)% swflxtoa_avg(:,:)/dt_data); reset=.TRUE.
-      CASE ('lwflxtoa_avg'); ptr2 => dup2(prm_field(jg)% lwflxtoa_avg(:,:)/dt_data); reset=.TRUE.
-
-      CASE ('TOTPREC_AVG');  ptr2 => dup2(prm_field(jg)% totprec_avg(:,:)/dt_data); reset = .TRUE.
-      CASE ('evap_avg');     ptr2 => dup2(prm_field(jg)%    evap_avg(:,:)/dt_data); reset = .TRUE.
-      CASE ('lhflx_avg');    ptr2 => dup2(prm_field(jg)%   lhflx_avg(:,:)/dt_data); reset = .TRUE.
-      CASE ('shflx_avg');    ptr2 => dup2(prm_field(jg)%   shflx_avg(:,:)/dt_data); reset = .TRUE.
-      CASE ('u_stress_avg'); ptr2 => dup2(prm_field(jg)%u_stress_avg(:,:)/dt_data); reset = .TRUE.
-      CASE ('v_stress_avg'); ptr2 => dup2(prm_field(jg)%v_stress_avg(:,:)/dt_data); reset = .TRUE.
+        !KF  the reset command can only be used for 'plain' fields
+      CASE ('swflxsfc_avg')
+!        WRITE(0,*)' vor out sw sfc', MAXVAL( prm_field(jg)% swflxsfc_avg(:,:)),&
+!          &                           prm_field(jg)% swflxsfc_avg(:,:)/dt_data
+                                ptr2 => dup2(prm_field(jg)% swflxsfc_avg(:,:)/dt_data)
+                                             prm_field(jg)% swflxsfc_avg(:,:)=0.0_wp
+!        WRITE(0,*)' nach out sw sfc', MAXVAL( prm_field(jg)% swflxsfc_avg(:,:))
+      CASE ('lwflxsfc_avg') 
+                               ptr2 => dup2(prm_field(jg)% lwflxsfc_avg(:,:)/dt_data)
+                                             prm_field(jg)% lwflxsfc_avg(:,:)=0.0_wp
+      CASE ('swflxtoa_avg')
+                               ptr2 => dup2(prm_field(jg)% swflxtoa_avg(:,:)/dt_data)
+                                            prm_field(jg)% swflxtoa_avg(:,:) = 0.0_wp
+      CASE ('lwflxtoa_avg')
+                               ptr2 => dup2(prm_field(jg)% lwflxtoa_avg(:,:)/dt_data)
+                                            prm_field(jg)% lwflxtoa_avg(:,:) = 0.0_wp
+      CASE ('TOTPREC_AVG')
+                               ptr2 => dup2(prm_field(jg)% totprec_avg(:,:)/dt_data)
+                                       prm_field(jg)% totprec_avg(:,:) = 0.0_wp
+      CASE ('evap_avg')
+                               ptr2 => dup2(prm_field(jg)%    evap_avg(:,:)/dt_data)
+                               prm_field(jg)%    evap_avg(:,:) = 0.0_wp
+      CASE ('lhflx_avg')
+                               ptr2 => dup2(prm_field(jg)%   lhflx_avg(:,:)/dt_data)
+                                            prm_field(jg)%   lhflx_avg(:,:) = 0.0_wp
+      CASE ('shflx_avg')
+                              ptr2 => dup2(prm_field(jg)%   shflx_avg(:,:)/dt_data)
+                                           prm_field(jg)%   shflx_avg(:,:) = 0.0_wp
+      CASE ('u_stress_avg') 
+                               ptr2 => dup2(prm_field(jg)%u_stress_avg(:,:)/dt_data)
+                                            prm_field(jg)%u_stress_avg(:,:) = 0.0_wp
+      CASE ('v_stress_avg')  
+                               ptr2 => dup2(prm_field(jg)%v_stress_avg(:,:)/dt_data)
+                               prm_field(jg)%v_stress_avg(:,:) = 0.0_wp
 
       CASE ('swflxsfc');    ptr2 => prm_field(jg)% swflxsfc(:,:)
       CASE ('lwflxsfc');    ptr2 => prm_field(jg)% lwflxsfc(:,:)

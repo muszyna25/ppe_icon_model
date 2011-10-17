@@ -289,8 +289,8 @@ CONTAINS
     ! Read and interpolate SST for AMIP simulations; prescribed ozone and
     ! aerosol concentrations.
 !    WRITE(0,*)'radiation=',ltrig_rad, dt_rad
-!    WRITE(0,*)' vor PYHSC rad fluxes sw sfc',  prm_field(jg)% swflxsfc_avg(5,300)
-!    WRITE(0,*)' vor PYHSC rad fluxes lw toa', prm_field(jg)% lwflxtoa_avg(5,300)
+!    WRITE(0,*)' vor PYHSC rad fluxes sw sfc',  MAXVAL(prm_field(jg)% swflxsfc_avg(:,:))
+!    WRITE(0,*)' vor PYHSC rad fluxes lw sfc', MINVAL(prm_field(jg)% lwflxsfc_avg(:,:))
 
     !-------------------------------------------------------------------------
     ! For each block, call "physc" to compute various parameterised processes
@@ -325,32 +325,8 @@ CONTAINS
 !$OMP END PARALLEL
 
 
- !!   WRITE(0,*)' nach PYHSC rad fluxes sw sfc', MAXVAL( prm_field(jg)% swflxsfc_avg(:,:))
- !   WRITE(0,*)' nach PYHSC rad fluxes sw sfc', MINVAL( prm_field(jg)% swflxsfc_avg(:,:))
-
-!    WRITE(0,*) 'radaition was',ltrig_rad
-
-!    WRITE(0,*)' nach PYHSC rad fluxes sw sfc', MAXVAL( prm_field(jg)% swflxsfc(:,:)),izenith
-!    WRITE(0,*)' nach PYHSC rad fluxes sw sfc', MINVAL( prm_field(jg)% swflxsfc(:,:))
-
-!    WRITE(0,*)' nach PYHSC rad fluxes lw sfc', MAXVAL( prm_field(jg)% lwflxsfc(:,:))
-!    WRITE(0,*)' nach PYHSC rad fluxes lw sfc', MINVAL( prm_field(jg)% lwflxsfc(:,:))
-
-!    WRITE(0,*)' nach PYHSC rad fluxes sw toa', MAXVAL( prm_field(jg)% swflxtoa(:,:))
-!    WRITE(0,*)' nach PYHSC rad fluxes sw toa', MINVAL( prm_field(jg)% swflxtoa(:,:))
-
-!    WRITE(0,*)' nach PYHSC rad fluxes lw toa', MAXVAL( prm_field(jg)% emterall(:,1,:))
-!    WRITE(0,*)' nach PYHSC rad fluxes lw toa', MINVAL( prm_field(jg)% emterall(:,1,:))
-
-!    WRITE(0,*)' nach  PYHSC rad fluxes lw toa', prm_field(jg)% lwflxtoa_avg(5,300)
-
-!    WRITE(0,*)'maxrad fluxes sw sfc',  prm_field(jg)% swflxsfc_avg(1,30)
-!    WRITE(0,*)'rad fluxes lw toa',  prm_field(jg)% lwflxtoa_avg(1,30), dt_rad
-!    WRITE(0,*)'max rad fluxes lw sfc', prm_field(jg)% lwflxsfc_avg(1,30)
-!    WRITE(0,*)'min rad fluxes lw sfc', prm_field(jg)% lwflxsfc_avg(1,30)
-!    WRITE(0,*)'lhflx fluxes ', MAXVAL( prm_field(jg)% lhflx_avg(:,:))
-!    WRITE(0,*)'shflx fluxes ', MAXVAL( prm_field(jg)% shflx_avg(:,:))
-!    WRITE(0,*)'evap fluxes ', MAXVAL( prm_field(jg)% evap_avg(:,:))
+!    WRITE(0,*)' nach PYHSC rad fluxes sw sfc', MAXVAL( prm_field(jg)% swflxsfc_avg(:,:))
+!    WRITE(0,*)' nach PYHSC rad fluxes lw sfc', MINVAL( prm_field(jg)% lwflxsfc_avg(:,:))
 
 
     IF (ltimer)  THEN
