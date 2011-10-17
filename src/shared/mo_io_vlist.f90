@@ -159,7 +159,7 @@ MODULE mo_io_vlist
        &                              t_hydro_ocean_aux,                             &
        &                              v_base, set_zlev, v_ocean_state
 !  USE mo_oce_forcing,           ONLY: t_sfc_flx, v_sfc_flx
-  USE mo_sea_ice,           ONLY: t_sfc_flx, v_sfc_flx
+  USE mo_sea_ice,                ONLY: t_sfc_flx, v_sfc_flx, t_sea_ice, v_sea_ice
   USE mo_ext_data,              ONLY: t_external_ocean
   USE mo_icoham_dyn_memory,     ONLY: p_hydro_state
   USE mo_nonhydro_state,        ONLY: p_nh_state
@@ -238,6 +238,7 @@ MODULE mo_io_vlist
     &  zaxisID_hybrid_half, zaxisIDdepth_m, zaxisID_halfdepth, &
     &  zaxisID_depth_below_land, zaxisID_depth_below_land_p1,  &
     &  zaxisID_generic_snow, zaxisID_generic_snow_p1,          &
+    &  zaxisID_generic_ice,                                    &
     &  zaxisID_pres, zaxisID_hgt
 
   ! NetCDF identifier to lon-lat grid
@@ -709,6 +710,7 @@ CONTAINS
       CALL zaxisDefLevels(zaxisID_halfdepth(k_jg), levels_i)
       DEALLOCATE(levels_i)
       DEALLOCATE(levels_m)
+      zaxisID_generic_ice(k_jg) = zaxisCreate(ZAXIS_GENERIC, 1) !TOOE v_ice%kice
     ENDIF
     !
     !
@@ -2259,7 +2261,7 @@ CONTAINS
       &                   'vertical velocity at cells',&
       &                   'm/s', 6, 128,&
       &                   vlistid(k_jg),&
-      &                   gridcellid(k_jg),&
+      &                   gridCellID(k_jg),&
       &                   zaxisID_halfdepth(k_jg)),&
       &           k_jg)      
       CALL addVar(TimeVar('Vert-Mixing-V',&
@@ -2273,7 +2275,7 @@ CONTAINS
       &                   'vertical mixing coeff temp',&
       &                   'm^2/s', 6, 128,&
       &                   vlistid(k_jg),&
-      &                   gridcellid(k_jg),&
+      &                   gridCellID(k_jg),&
       &                   zaxisID_halfdepth(k_jg)),&
       &           k_jg)
    !  CALL addVar(TimeVar('press_grad',&
@@ -2287,10 +2289,88 @@ CONTAINS
    !  &                   'density cells',&
    !  &                   'kg/m**3', 6, 128,&
    !  &                   vlistid(k_jg),&
-   !  &                   gridcellid(k_jg),&
+   !  &                   gridCellID(k_jg),&
    !  &                   zaxisIDdepth_m(k_jg)),&
    !  &           k_jg)
 
+
+   ! sea ice
+   CALL addVar(TimeVar('p_ice_isice','','',&
+     &         100,128,                    &
+     &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+   CALL addVar(TimeVar('p_ice_alb','','',&
+     &         100,128,                    &
+     &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+   CALL addVar(TimeVar('p_ice_Tsurf','','',&
+     &         100,128,                    &
+     &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+   CALL addVar(TimeVar('p_ice_T1','','',&
+     &         100,128,                    &
+     &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+   CALL addVar(TimeVar('p_ice_T2','','',&
+     &         100,128,                    &
+     &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+   CALL addVar(TimeVar('p_ice_E1','','',&
+     &         100,128,                    &
+     &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+   CALL addVar(TimeVar('p_ice_E2','','',&
+     &         100,128,                    &
+     &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+   CALL addVar(TimeVar('p_ice_hi','','',&
+     &         100,128,                    &
+     &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+   CALL addVar(TimeVar('p_ice_hs','','',&
+     &         100,128,                    &
+     &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+   CALL addVar(TimeVar('p_ice_hiold','','',&
+     &         100,128,                    &
+     &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+   CALL addVar(TimeVar('p_ice_hsold','','',&
+     &         100,128,                    &
+     &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+   CALL addVar(TimeVar('p_ice_Qtop','','',&
+     &         100,128,                    &
+     &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+   CALL addVar(TimeVar('p_ice_Qbot','','',&
+     &         100,128,                    &
+     &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+   CALL addVar(TimeVar('p_ice_heatocei','','',&
+     &         100,128,                    &
+     &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+   CALL addVar(TimeVar('p_ice_snow_to_ice','','',&
+     &         100,128,                    &
+     &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+   CALL addVar(TimeVar('p_ice_surfmelt','','',&
+     &         100,128,                    &
+     &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+   CALL addVar(TimeVar('p_ice_surfmeltT','','',&
+     &         100,128,                    &
+     &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+   CALL addVar(TimeVar('p_ice_evapwi','','',&
+     &         100,128,                    &
+     &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+   CALL addVar(TimeVar('p_ice_conc','','',&
+     &         100,128,                    &
+     &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+   ! 2D
+   CALL addVar(TimeVar('p_ice_u','','',&
+     &         100,128,                    &
+     &         vlistID(k_jg),gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
+   CALL addVar(TimeVar('p_ice_v','','',&
+     &         100,128,                    &
+     &         vlistID(k_jg),gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
+   CALL addVar(TimeVar('p_ice_concSum','','',&
+     &         100,128,                    &
+     &         vlistID(k_jg),gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
+   CALL addVar(TimeVar('p_ice_newice','','',&
+     &         100,128,                    &
+     &         vlistID(k_jg),gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
+   CALL addVar(TimeVar('p_ice_zUnderIce','','',&
+     &         100,128,                    &
+     &         vlistID(k_jg),gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
+!  CALL addVar(TimeVar('p_ice_hi_lim','','',&
+!    &         100,128,                    &
+!    &         vlistID(k_jg),gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
 
 
       CALL nf(nf_close(ncid))
@@ -3137,17 +3217,21 @@ CONTAINS
 
     LOGICAL :: not_found
 
-    TYPE(t_hydro_ocean_prog), POINTER  :: p_prog
-    TYPE(t_hydro_ocean_diag), POINTER  :: p_diag
-    TYPE(t_hydro_ocean_aux),  POINTER  :: p_aux
-    TYPE(t_sfc_flx),          POINTER  :: forcing
+    TYPE(t_hydro_ocean_prog), POINTER :: p_prog
+    TYPE(t_hydro_ocean_diag), POINTER :: p_diag
+    TYPE(t_hydro_ocean_aux),  POINTER :: p_aux
+    TYPE(t_sfc_flx),          POINTER :: forcing
     TYPE(t_ho_params),        POINTER ::  p_params
-    ! pointer to components of state variable
+    TYPE(t_sea_ice),          POINTER ::  p_ice
+    REAL(wp), POINTER                 ::  r_isice(:,:,:)
+    INTEGER                           ::  s_isice(3)
+
     p_prog  => v_ocean_state(jg)%p_prog(nold(jg))
     p_diag  => v_ocean_state(jg)%p_diag
     p_aux   => v_ocean_state(jg)%p_aux
     forcing => v_sfc_flx 
     p_params=> v_params
+    p_ice   => v_sea_ice
 
     ptr2d     => NULL()
     ptr3d     => NULL()
@@ -3155,6 +3239,7 @@ CONTAINS
     delete    = .FALSE.
     not_found = .FALSE.
 
+    write(0,*)'VARNAME:',varname
     SELECT CASE(varname)
       CASE ('wet_c');        ptr3d => v_base%wet_c
       CASE ('wet_e');        ptr3d => v_base%wet_e
@@ -3194,9 +3279,43 @@ CONTAINS
       CASE('Vert-Mixing-V'); ptr3d => p_params%A_veloc_v
       CASE('Vert-Mixing-T'); ptr3d => p_params%A_tracer_v(:,:,:,1)
 
+      ! sea ice variables
+      CASE('p_ice_isice')
+        s_isice = SHAPE(p_ice%isice)
+        ALLOCATE(r_isice(s_isice(1),s_isice(2),s_isice(3)))
+        WHERE(p_ice%isice)
+          r_isice = 1.0
+        ELSEWHERE
+          r_isice = 0.0
+        ENDWHERE
+        ptr3d => r_isice
+      CASE('p_ice_alb');         ptr3d => p_ice%alb
+      CASE('p_ice_Tsurf');       ptr3d => p_ice%Tsurf
+      CASE('p_ice_T1');          ptr3d => p_ice%T1
+      CASE('p_ice_T2');          ptr3d => p_ice%T2
+      CASE('p_ice_E1');          ptr3d => p_ice%E1
+      CASE('p_ice_E2');          ptr3d => p_ice%E2
+      CASE('p_ice_hi');          ptr3d => p_ice%hi
+      CASE('p_ice_hs');          ptr3d => p_ice%hs
+      CASE('p_ice_hiold');       ptr3d => p_ice%hiold
+      CASE('p_ice_hsold');       ptr3d => p_ice%hsold
+      CASE('p_ice_Qtop');        ptr3d => p_ice%Qtop
+      CASE('p_ice_Qbot');        ptr3d => p_ice%Qbot
+      CASE('p_ice_heatocei');    ptr3d => p_ice%heatocei
+      CASE('p_ice_snow_to_ice'); ptr3d => p_ice%snow_to_ice
+      CASE('p_ice_surfmelt');    ptr3d => p_ice%surfmelt
+      CASE('p_ice_surfmeltT');   ptr3d => p_ice%surfmeltT
+      CASE('p_ice_evapwi');      ptr3d => p_ice%evapwi
+      CASE('p_ice_conc');        ptr3d => p_ice%conc
+      CASE('p_ice_u');           ptr2d => p_ice%u
+      CASE('p_ice_v');           ptr2d => p_ice%v
+      CASE('p_ice_concSum');     ptr2d => p_ice%concSum
+      CASE('p_ice_newice');      ptr2d => p_ice%newice
+      CASE('p_ice_zUnderIce');   ptr2d => p_ice%zUnderIce
+
       CASE DEFAULT;    not_found = .TRUE.
     END SELECT
-    
+
     IF(not_found) THEN
       CALL finish('get_outvar_ptr_oce', 'Unknown variable type name: '//varname)
     END IF
