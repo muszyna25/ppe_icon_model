@@ -310,13 +310,16 @@ CONTAINS
         ! CALL standard MIURA for lower atmosphere and the subcycling version of 
         ! MIURA for upper atmosphere
         CALL upwind_hflux_miura( p_patch, p_cc(:,:,:,jt), p_mass_flx_e,  &! in
-          &            p_vn, p_dtime, p_int, lcompute%miura_mcycl_h(jt), &! in
-          &            lcleanup%miura_mcycl_h(jt), p_igrad_c_miura,      &! in
+          &            p_vn, p_dtime, p_int, lcompute%miura_h(jt),       &! in
+          &            lcleanup%miura_h(jt), p_igrad_c_miura,            &! in
           &            p_itype_hlimit(jt), p_iord_backtraj,              &! in
           &            p_upflux(:,:,:,jt), opt_lconsv= llsq_lin_consv,   &! inout,in
           &            opt_real_vt=z_real_vt, opt_slev=qvsubstep_elev+1, &! in
           &            opt_elev=p_patch%nlev, opt_rlend=i_rlend          )! in
 
+        ! Note that lcompute/lcleanup%miura_mcycl_h is only used for miura 
+        ! with substepping. This prevents us from computing the backward 
+        ! trajectories twice for the standard miura3-scheme.
         CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,    &! in
           &              p_mass_flx_e, p_vn, p_dtime, 2, p_int,          &! in
           &              lcompute%miura_mcycl_h(jt),                     &! in
@@ -337,13 +340,15 @@ CONTAINS
         ! CALL standard MIURA3 for lower atmosphere and the subcycling version of 
         ! MIURA for upper atmosphere
         CALL upwind_hflux_miura3( p_patch, p_cc(:,:,:,jt), p_mass_flx_e, &! in
-          &           p_vn, p_dtime, p_int, lcompute%miura3_mcycl_h(jt), &! in
-          &           lcleanup%miura3_mcycl_h(jt), p_itype_hlimit(jt),   &! in
+          &           p_vn, p_dtime, p_int, lcompute%miura3_h(jt),       &! in
+          &           lcleanup%miura3_h(jt), p_itype_hlimit(jt),         &! in
           &           p_upflux(:,:,:,jt), opt_real_vt=z_real_vt,         &! inout,in
           &           opt_slev=qvsubstep_elev+1, opt_elev=p_patch%nlev,  &! in
           &           opt_rlend=i_rlend                                  )! in
 
-
+        ! Note that lcompute/lcleanup%miura3_mcycl_h is only used for miura 
+        ! with substepping. This prevents us from computing the backward 
+        ! trajectories twice for the standard miura3-scheme.
         CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,    &! in
           &              p_mass_flx_e, p_vn, p_dtime, 2, p_int,          &! in
           &              lcompute%miura3_mcycl_h(jt),                    &! in

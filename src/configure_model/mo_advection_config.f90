@@ -358,7 +358,7 @@ CONTAINS
       ! Search for the first tracer jt for which horizontal advection of
       ! type MIURA has been selected.
       DO jt=1,ntracer
-        IF ( ihadv_tracer(jt) == MIURA ) THEN
+        IF ( ANY( (/MIURA, MIURA_MCYCL/) == ihadv_tracer(jt) ) ) THEN
           lcompute%miura_h(jt) = .TRUE.
           exit
         ENDIF
@@ -367,7 +367,7 @@ CONTAINS
       ! Search for the last tracer jt for which horizontal advection of
       ! type MIURA has been selected.
       DO jt=ntracer,1,-1
-        IF ( ihadv_tracer(jt) == MIURA ) THEN
+        IF ( ANY( (/MIURA, MIURA_MCYCL/) == ihadv_tracer(jt) ) ) THEN
           lcleanup%miura_h(jt) = .TRUE.
           exit
         ENDIF
@@ -384,7 +384,7 @@ CONTAINS
     ! Search for the first tracer jt for which horizontal advection of
     ! type MIURA3 has been selected.
     DO jt=1,ntracer
-      IF ( ihadv_tracer(jt) == MIURA3 ) THEN
+      IF ( ANY( (/MIURA3, MIURA3_MCYCL/) == ihadv_tracer(jt) ) ) THEN
         lcompute%miura3_h(jt) = .TRUE.
         exit
       ENDIF
@@ -393,7 +393,7 @@ CONTAINS
     ! Search for the last tracer jt for which horizontal advection of
     ! type MIURA3 has been selected.
     DO jt=ntracer,1,-1
-      IF ( ihadv_tracer(jt) == MIURA3 ) THEN
+      IF ( ANY( (/MIURA3, MIURA3_MCYCL/) == ihadv_tracer(jt) ) ) THEN
         lcleanup%miura3_h(jt) = .TRUE.
         exit
       ENDIF
