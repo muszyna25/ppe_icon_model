@@ -81,16 +81,16 @@ iforc_len=366  # length of forcing dataset:   12 = monthly data; 366 = daily dat
 #
 #-----------------------------------------------------------------------------
 # global timing
-start_date="2002-01-01T00:00:00Z"
+start_date="1001-01-01T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
 dtime=1800           # ocean model timestep [s]
-ndays=360            # ocean model run in days
+ndays=370            # ocean model run in days
 dt_data=86400.       # ocean model output interval [s]
-ndays_file=5000      # new output file generation interval [days]
-ndays_checkp=5000    # write restart file interval [days]
-ndays_restart=5000   # stop model for restart [days]
+ndays_file=1000      # new output file generation interval [days]
+ndays_checkp=90      # write restart file interval [days]
+ndays_restart=370    # stop model for restart [days]
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $ndays
@@ -137,12 +137,10 @@ ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
 if [ "x$USE_POOLD" == "xY" ] ; then
    POOLDIR="/pool/data/ICON/grids"
    if [ "x$USE_FLATB" == "xY" ] ; then
-     OCEGRID="ocegridR${R}B0${B}.cde3.1.flat.nc"
-   # OCEGRID="ocegridR${R}B0${B}.cde2.flat.nc"
+     OCEGRID="ocegridR${R}B0${B}.cde3.3.flat.nc"
    fi
    if [ "x$USE_BATHY" == "xY" ] ; then
-     OCEGRID="ocegridR${R}B0${B}.cde3.1.planet.nc"
-   # OCEGRID="ocegridR${R}B0${B}.cde2.planet.nc"
+     OCEGRID="ocegridR${R}B0${B}.cde3.3.planet.nc"
    fi
    # other ocean grid files can be added here
 fi
@@ -181,16 +179,16 @@ cat > ${ocean_namelist} << EOF
   i_dbg_inx=0                    ! initialize one cell debug output via mo_index_oce
   str_proc_tst = 'all' 'abt', 'vel', 'dif', 'trc', 'bul', '   ', '   ', '   ', '   '
                                  ! define strings for processes to be printed out in debug mode
-  rlat_in = 30.0 rlon_in = 0.0   ! lat/lon-location of one cell debug output
+  rlat_in = 0.0  rlon_in = 0.0   ! lat/lon-location of one cell debug output
   h_val=1.0 t_val=1.0            ! initial values for elevation and temperature at one cell
 /
 &ocean_dynamics_nml
   n_zlev             =    4      ! number of vertical levels and (dzlev_m) thicknesses
-  dzlev_m(1:20)      =  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,
-                       1000.0  1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
 ! 10 unevenly spaced levels beginning with 50m depth
-! dzlev_m(1:20)      =   50.0,  100.0,  200.0,  300.0,  450.0,  600.0,  800.0, 1000.0, 1000.0, 1000.0,
-!                      1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
+  dzlev_m(1:20)      =   50.0,  100.0,  200.0,  300.0,  450.0,  600.0,  800.0, 1000.0, 1000.0, 1000.0,
+                       1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
+! dzlev_m(1:20)      =  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,
+!                      1000.0  1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
 ! dzlev_m(1:20)       =  20.0,   50.0,   75.0,  125.0,  150.0,  200.0,  300.0,  500.0, 1000.0, 1000.0,
 !                      1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
   iswm_oce           =    0      ! switch for one layer shallow water model (iswm_oce=1) or 3-d
@@ -226,18 +224,18 @@ cat > ${ocean_namelist} << EOF
                                  ! 2= (nonlinear) EOS from MPI-OM 
                                  ! 3= not recommended: (nonlinear) Jacket-McDoudgall density-formulation
   k_veloc_h          = 5.0E+4    ! [m2/s] horizontal viscosity coefficient for velocity
-  k_veloc_v          = 1.0E-2    ! [m/s]  vertical viscosity coefficient for velocity
+  k_veloc_v          = 1.0E-3    ! [m/s]  vertical viscosity coefficient for velocity
   k_pot_temp_h       = 5.0E+4    ! [m2/s] horizontal viscosity coefficient for temperature
-  k_pot_temp_v       = 1.0E-3    ! [m/s]  vertical viscosity coefficient for temperature
+  k_pot_temp_v       = 1.0E-4    ! [m/s]  vertical viscosity coefficient for temperature
   k_sal_h            = 5.0E+4    ! [m2/s] horizontal viscosity coefficient for salinity
-  k_sal_v            = 1.0E-3    ! [m/s]  vertical viscosity coefficient for salinity
+  k_sal_v            = 1.0E-4    ! [m/s]  vertical viscosity coefficient for salinity
   HORZ_VELOC_DIFF_TYPE =  1      ! 0=no horizontal diffusion
                                  ! 1= constant Laplacian viscosity coefficient given in namelist (k_veloc_h)
                                  ! 2= constant Laplacian viscosity coefficient determined by requirement to
                                  !    have at least one gridpoint in boundary layer. The namelist value is overwritten.
                                  ! 3= spatially variable Laplacian viscosity coefficient determined by requirement to
                                  !    have at least one gridpoint in boundary layer. The namelist value is overwritten.
-  MAX_VERT_DIFF_VELOC=    1.0    ! max diffusion coeff, used in impl.vert.velocity diffusion, if stabil. crit.is met
+  MAX_VERT_DIFF_VELOC=    0.1    ! max diffusion coeff, used in impl.vert.velocity diffusion, if stabil. crit.is met
   MAX_VERT_DIFF_TRAC =    0.1    ! max diffusion coeff, used in impl.vert.tracer diffusion, if stability crit.is met
   CWA                = 0.5E-3    ! Tuning parameters for vertical mixing of tracer and velocity
   CWT                = 0.5E-3    ! Set to standard values
@@ -267,9 +265,9 @@ cat > ${ocean_namelist} << EOF
                                  ! 40=global temperature initialization for wind and temperature forcing tests
                                  ! 43=Collapsing density front at first level only with smaller amplitude (global)
   idiag_oce          =    1      ! 0: no diagnostics; 1: write diagnostics to stderr
-  temperature_relaxation= 2      ! 1=switched on for some testcases only
+  temperature_relaxation= 3      ! 1=switched on for some testcases only
                                  ! 2=read 2m-temperature data for relaxation from bulk (3: copy SST on omip-T)
-  relaxation_param   =    3.0    ! relaxation of tracer surface fluxes (same value for all tracers in months)
+  relaxation_param   =    1.0    ! relaxation of tracer surface fluxes (same value for all tracers in months)
                                  ! this value is divided by number of seconds per month (=30*24*3600)
 /
 &io_nml
