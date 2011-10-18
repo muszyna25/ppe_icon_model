@@ -113,7 +113,7 @@ MODULE mo_io_vlist
     &                                 upstr_beta, l_open_ubc, l_nest_rcf,         &
     &                                 itime_scheme_nh_atm => itime_scheme
   USE mo_ocean_nml,             ONLY: n_zlev, dzlev_m, iforc_oce,no_tracer,       &
-    &                                 temperature_relaxation,i_sea_ice
+    &                                 temperature_relaxation, i_sea_ice
   USE mo_dynamics_config,       ONLY: iequations,lshallow_water,                  &
     &                                 idiv_method, divavg_cntrwgt,                &
     &                                 nold, nnow, lcoriolis
@@ -2237,7 +2237,6 @@ CONTAINS
    !  &                   gridEdgeID(k_jg), &
    !  &                   zaxisID_surface(k_jg)),&
    !  &           k_jg)
-
       CALL addVar(TimeVar('VN',&
       &                   'velocity normal to edge',&
       &                   'm/s',2,128,&
@@ -2301,6 +2300,7 @@ CONTAINS
    !  &                   gridCellID(k_jg),&
    !  &                   zaxisIDdepth_m(k_jg)),&
    !  &           k_jg)
+
 
 
    ! sea ice
@@ -2376,7 +2376,6 @@ CONTAINS
   !    &         100,128,                    &
   !    &         vlistID(k_jg),gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
       ENDIF
-
 
       CALL nf(nf_close(ncid))
 
@@ -3313,9 +3312,9 @@ CONTAINS
         s_isice = SHAPE(p_ice%isice)
         ALLOCATE(r_isice(s_isice(1),s_isice(2),s_isice(3)))
         WHERE(p_ice%isice)
-          r_isice = 1.0
+          r_isice = 1.0_wp
         ELSEWHERE
-          r_isice = 0.0
+          r_isice = 0.0_wp
         ENDWHERE
         ptr3d => r_isice
       CASE('p_ice_alb');         ptr3d => p_ice%alb
