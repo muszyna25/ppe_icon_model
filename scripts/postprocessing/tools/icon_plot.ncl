@@ -359,7 +359,7 @@
 
   if (plotMode.eq."scalar" .or. plotMode.eq."overlay") setCoordinates(ResC,x,y) end if
 
-  if (plotMode.eq."scalar" .or. plotMode.eq."overlay") setAutomaticPlotCaptions(ResC,plotMode,varName,File,iFile,timeStep,levIndex) end if
+  if (plotMode.eq."scalar" .or. plotMode.eq."overlay" .or. plotMode.eq."section") setAutomaticPlotCaptions(ResC,plotMode,varName,File,iFile,timeStep,levIndex) end if
 
   if (plotMode.eq."section") trans = setSection(secLC,secRC,secPoints,var) end if
 
@@ -460,6 +460,8 @@
     trans!0 = "depth"
     trans&depth = var&depth
     res            = True;           plot mods desired
+    setAutomaticPlotCaptions(res,plotMode,varName,File,iFile,timeStep,levIndex)
+    setLevels(selMode,res,minVar,maxVar,scaleLimit,numLevs,DEBUG)
     res@gsnFrame   = False;                don't turn page yet
     res@gsnDraw    = False;                don't draw yet
     res@tmXBMode   = "Explicit";     explicitly label x-axis
@@ -483,7 +485,7 @@
 ;       res@tiXAxisString = "lat/lon along transect"
     res@trYReverse        = True;          reverse y axis
 ;      res@trXReverse     = True;          reverse x axis (neg longitudes)
-    res@cnLevelSpacingF   = 1.0;           set contour spacing
+;    res@cnLevelSpacingF   = 1.0;           set contour spacing
     plot(0)               = gsn_csm_contour(wks,trans,res);   create plot
 
     ; map with section polygon
