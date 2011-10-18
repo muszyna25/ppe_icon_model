@@ -823,7 +823,7 @@ DO jb = i_startblk, i_endblk
         z_rhs(slev+1:z_dolic-1) = field_column(jc,slev+1:z_dolic-1,jb)
  
         zinv             = 1.0_wp/v_base%del_zlev_m(slev)!+h_c(jc,jb)                         
-        z_rhs(slev)      = field_column(jc,slev,jb)  + top_bc(jc,jb)*zinv   
+        z_rhs(slev)      = field_column(jc,slev,jb)  + top_bc(jc,jb) ! *zinv   
 
         zinv             = 1.0_wp*v_base%del_zlev_m(z_dolic)
         z_rhs(z_dolic)   = field_column(jc,z_dolic,jb) - bot_bc(jc,jb)*zinv 
