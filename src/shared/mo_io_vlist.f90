@@ -973,7 +973,7 @@ CONTAINS
             
           END IF !lwrite_tracer(jt)
          END DO
-         IF (irad_o3 == 4 .OR. irad_o3 ==6 ) THEN                  !output for O3
+         IF ( irad_o3 == 4 .OR. irad_o3 == 6 .OR. irad_o3 == 7 ) THEN     !output for O3
                         CALL addVar(TimeVar('O3','O3',&
             &                   'kg/kg',203,128,&
             &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
@@ -3102,7 +3102,7 @@ CONTAINS
 !        ENDIF
       ENDDO
 
-      IF (irad_o3 == 4 .OR. irad_o3 == 6) THEN
+      IF ( irad_o3 == 4 .OR. irad_o3 == 6 .OR. irad_o3 == 7 ) THEN
         IF(varname == 'O3') THEN
           ptr3 => p_prog%tracer(:,:,:,io3)
           RETURN

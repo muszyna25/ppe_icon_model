@@ -373,9 +373,9 @@ CONTAINS
         IF (  atm_phy_nwp_config(jg)%inwp_radiation > 0 )  THEN
 
           SELECT CASE (irad_o3)
-          CASE (0,4,6) ! ok
+          CASE (0,4,6,7) ! ok
           CASE default
-            CALL finish(TRIM(routine),'irad_o3 currently has to be 0 , 4 or 6.')
+            CALL finish(TRIM(routine),'irad_o3 currently has to be 0 , 4, 6, or 7.')
           END SELECT
         ELSE
           SELECT CASE (irad_o3)
@@ -513,7 +513,7 @@ CONTAINS
                 &  advection_config(jg)%ctracer_list(1:ntracer)
               CALL message(TRIM(routine),message_text)
             ENDIF
-          CASE (6,4)
+          CASE (4,6,7)
             ntracer_static = 1
             IF ( ntracer /= iqcond  ) THEN
               ntracer = iqcond
@@ -539,7 +539,7 @@ CONTAINS
 
 
         IF ( ( atm_phy_nwp_config(jg)%inwp_radiation > 0 )      &
-          &  .AND. (irad_o3==0 .OR. irad_o3==6) )         THEN
+          &  .AND. ( irad_o3 == 0 .OR. irad_o3 == 6 .OR. irad_o3 == 7 ) )         THEN
           IF ( advection_config(jg)%ihadv_tracer(io3) /= 0 ) THEN
             advection_config(jg)%ihadv_tracer(io3) = 0
             WRITE(message_text,'(a,i1,a)') &

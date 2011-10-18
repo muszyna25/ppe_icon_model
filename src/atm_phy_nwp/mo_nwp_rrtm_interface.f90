@@ -50,7 +50,7 @@ MODULE mo_nwp_rrtm_interface
   USE mo_interpolation,        ONLY: t_int_state
   USE mo_kind,                 ONLY: wp
   USE mo_loopindices,          ONLY: get_indices_c
- USE mo_lrtm_par,             ONLY: jpband => nbndlw
+  USE mo_lrtm_par,             ONLY: jpband => nbndlw
   USE mo_math_utilities,       ONLY: month2hour
   USE mo_nwp_lnd_state,        ONLY: t_lnd_prog, t_lnd_diag
   USE mo_model_domain,         ONLY: t_patch
@@ -61,7 +61,7 @@ MODULE mo_nwp_rrtm_interface
     &                                upscale_rad_input_rg, downscale_rad_output_rg
   USE mo_nonhydro_state,       ONLY: t_nh_prog, t_nh_diag
   USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag !,prm_diag
-  USE mo_o3_util,              ONLY: calc_o3_clim
+  USE mo_o3_util,              ONLY: calc_o3_clim, calc_o3_gems
   USE mo_physical_constants,   ONLY: amd, amo3, tmelt
   USE mo_radiation,            ONLY: radiation, pre_radiation_nwp_steps
   USE mo_radiation_config,     ONLY: irad_o3, irad_aero, vmr_co2, rad_csalbw
@@ -194,7 +194,9 @@ CONTAINS
         & z_sim_time = p_sim_time,                   & ! in
         & pt_patch   = pt_patch,                     & ! in
         & zvio3      = prm_diag%vio3,                & !inout
-        & zhmo3      = prm_diag%hmo3  )                !inout 
+        & zhmo3      = prm_diag%hmo3  )                !inout
+    CASE (7)
+      CALL calc_o3_gems(pt_patch,datetime,pt_diag,pt_prog_rcf)
     END SELECT
 
     IF ( irad_aero == 6 ) CALL month2hour (datetime, imo1, imo2, zw )

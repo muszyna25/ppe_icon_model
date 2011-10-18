@@ -994,6 +994,7 @@ src/atm_phy_schemes/mo_lrtm_rtrnmr.f90 -text
 src/atm_phy_schemes/mo_lrtm_setup.f90 -text
 src/atm_phy_schemes/mo_lrtm_taumol.f90 -text
 src/atm_phy_schemes/mo_newcld_optics.f90 -text
+src/atm_phy_schemes/mo_o3_gems_data.f90 -text
 src/atm_phy_schemes/mo_o3_util.f90 -text
 src/atm_phy_schemes/mo_radiation.f90 -text
 src/atm_phy_schemes/mo_radiation_rg.f90 -text
