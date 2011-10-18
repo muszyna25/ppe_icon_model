@@ -764,35 +764,27 @@ begin
 ;    resource@mpInlandWaterFillColor = "LightBlue"
   end if
 
-  if (maptype .eq. "NH")
+  if (maptype .eq. "lonlat")
+    resource@mpProjection         = "CylindricalEquidistant"
+    resource@mpLimitMode          = "LatLon"
+  end if
+
+  if (maptype .eq. "NHps")
     resource@mpProjection         = "Stereographic"
     resource@mpRelativeCenterLon = True
     resource@mpCenterLonF = 0
     resource@mpRelativeCenterLat = True
     resource@mpCenterLatF = 90. 
     resource@mpLimitMode          = "Corners"
-    resource@mpLeftCornerLonF = -45.
-    resource@mpLeftCornerLatF = 45.
-    resource@mpRightCornerLonF = 135.
-    resource@mpRightCornerLatF = 45.
   end if
 
-  if (maptype .eq. "SH")
+  if (maptype .eq. "SHps")
     resource@mpProjection         = "Stereographic"
     resource@mpRelativeCenterLon = True
     resource@mpCenterLonF = 0
     resource@mpRelativeCenterLat = True
     resource@mpCenterLatF = -90. 
     resource@mpLimitMode          = "Corners"
-    resource@mpLeftCornerLonF = -45.
-    resource@mpLeftCornerLatF = -45.
-    resource@mpRightCornerLonF = 135.
-    resource@mpRightCornerLatF = -45.
-  end if
-
-  if (maptype .eq. "lonlat")
-    resource@mpProjection         = "CylindricalEquidistant"
-    resource@mpLimitMode          = "LatLon"
   end if
 end
 ;---------------------------------------------------------------
@@ -812,6 +804,12 @@ begin
   ; center of view (for Orthographic and Sattelite only)
 ;  resource@mpCenterLonF = (resource@mpMaxLonF+resource@mpMinLonF)/2.0
 ;  resource@mpCenterLatF = (resource@mpMaxLatF+resource@mpMinLatF)/2.0
+
+  ; bounds of plotting area for stereographic plots
+  resource@mpLeftCornerLonF = mapllc(0)
+  resource@mpLeftCornerLatF = mapllc(1)
+  resource@mpRightCornerLonF = mapurc(0)
+  resource@mpRightCornerLatF = mapurc(1)
 end
 ;---------------------------------------------------------------
 ; Display a satelite projection

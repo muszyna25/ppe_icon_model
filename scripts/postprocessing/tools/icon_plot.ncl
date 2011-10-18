@@ -44,7 +44,8 @@
 ; numLevs       : set a number of labels for manual selMode only. NumCol=numLevs+2
 ;                 (Not set directly, but used for computing the contour level spacing. default=10)
 ; contLevs      : set individual contour levels (not yet)
-; mapType       : projection type (default: lonlat), other: ortho (not compatible with showGrid)
+; mapType       : projection type (default: lonlat), other: ortho (not compatible with showGrid), NHps
+;                  and SHps (polar stereographic projections centered at the north and south pole respectively) 
 ; projSat       : projection type Satellite (default: CylindricalEquidistant, not comp. with "ortho"?)
 ;                  but compatible with showGrid and mapLLC/URC
 ; mapLine       : (logical) draws continent lines on the plot (foreground/transparent)
@@ -111,7 +112,7 @@
     ext      = get_file_suffix(iFile,0)
     oFile    = ext@fBase
   end if
-  print("Outputfile '"+str_concat((/oFile,".",oType/))+"' will be creates in "+systemfunc("dirname "+iFile))
+  print("Outputfile '"+str_concat((/oFile,".",oType/))+"' will be created in "+systemfunc("dirname "+iFile))
 
   if(.not. isvar("numLevs")) then
     numLevs  = NUMLEVS
@@ -134,6 +135,11 @@
   if (.not. isvar("levIndex"))    levIndex     = 0               end if
   if (.not. isvar("scaleFactor")) scaleFactor  = 1               end if
   if (.not. isvar("colormap"))    colormap     = "BlueDarkRed18" end if
+
+  if ( mapType .eq. "NHps" .and. .not.isvar("mapLLC")) mapLLC = (/-45., 45./)  end if
+  if ( mapType .eq. "NHps" .and. .not.isvar("mapURC")) mapURC = (/135., 45./)  end if
+  if ( mapType .eq. "SHps" .and. .not.isvar("mapLLC")) mapLLC = (/-45.,-45./)  end if
+  if ( mapType .eq. "SHps" .and. .not.isvar("mapURC")) mapURC = (/135.,-45./)  end if
 
   if (.not.isvar("mapLLC"))       mapLLC       = (/-180.,-90./)  end if
   if (.not.isvar("mapURC"))       mapURC       = (/180.0,90.0/)  end if
