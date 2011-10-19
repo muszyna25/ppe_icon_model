@@ -1,4 +1,12 @@
 #!/usr/bin/env ruby
+#
+# Example:
+# ./globSum-over-time.rb iconOutput.nc T_global_sum.png 'T' 
+#
+# REQUIREMENTS: ruby, cdo, gnuplot
+#
+# Input data needs a reasonable time axis!
+#
 require 'thread'
 require 'pp'
 
@@ -144,20 +152,19 @@ module MyTempfile
   end
 end
 
-# Example:
-# ./globSum-over-time.rb iconOutput.nc T_global_sum.png 'T' 
-#
-# REQUIREMENTS: ruby, cdo, gnuplot
-#
-# Input data needs a reasonable time axis!
 
+# ==============================================================================
+# MAIN SCRIPT
+# ==============================================================================
 iFile       = ARGV[0]                                               # input file
 oFile       = ARGV[1]                                               # output image file
 varname     = ARGV[2].nil? ? 'T' : ARGV[2]                          # variable to process
 title       = ARGV[3].nil? ? "global enery/inital energy" : ARGV[3] # graph title
 globalTitle = ARGV[4].nil? ? '' : ARGV[4]                           # plot title
-Cdo.Debug   = ENV['DEBUG'].nil? ? false : true
-masking     = true
+Cdo.Debug   = true unless ENV['DEBUG'].nil?
+masking     = true # set this to false, if you do not want to mask the relevant
+                   # input field with wet_c
+maskVarname = 'wet_c'
 
 gnuplotScriptFile = varname+'_global.gpl'
 tag               = 'globalTend'
@@ -169,10 +176,12 @@ tfile2            = MyTempfile.path
 iVarFile          = MyTempfile.path
 gSumFile          = MyTempfile.path
 
+# select the relevant variable to reduce the amount space
 Cdo.selname(varname,:in => iFile, :out => iVarFile)
-totalThickness = Cdo.boundaryLevels(:in => iVarFile)[-1]
-delta_levels = Cdo.thicknessOfLevels(:in => iVarFile)
+totalThickness = Cdo.boundaryLevels(:in    => iVarFile)[-1]
+delta_levels   = Cdo.thicknessOfLevels(:in => iVarFile)
 
+# multiply each input level with its percentage of the total thickness
 levelFiles = []
 threads    = []
 Cdo.showlevel(:in => iVarFile).each_with_index {|_level,_i|
@@ -185,16 +194,23 @@ Cdo.showlevel(:in => iVarFile).each_with_index {|_level,_i|
   }
 }
 threads.each {|t| t.join}
+# merge back into a single file
 Cdo.merge(:in => levelFiles.join(" "), :out => gSumFile)
 
-sumUp = (not masking) ? iVarFile : "-div  -selname,#{varname} #{iVarFile} -selname,wet_c -seltimestep,1 #{iFile}"
+# perform global sum w/o masking
+sumUp = (not masking) \
+  ? iVarFile \
+  : "-div  -selname,#{varname} #{iVarFile} -selname,#{maskVarname} -seltimestep,1 #{iFile}"
 Cdo.chainCall("-fldsum -vertsum #{sumUp}",:in => '',:out => tfile0)
 
+# prepare the textual output for gnuplot
 prepare4Gnuplot=<<END
 cdo infov -div #{tfile0} -seltimestep,1 #{tfile0} > #{tfile1};
 cat #{tfile1} | sed -e "s/ \\+/ /g" | cut -d ' ' -f 4,11 > #{tfile2};
 END
+system(prepare4Gnuplot)
 
+# use temporal horizontal axis in the plot
 gnuplotScript=<<END
 set xdata time ; set timefmt "%Y-%m-%d"
 set format x "%Y-%m"
@@ -204,8 +220,6 @@ plot '#{tfile2}' using 1:2 w l title '#{title}'
 set terminal png large size 800,400; set output '#{oFile}'
 replot
 END
-
-system(prepare4Gnuplot)
 # write local gnuplot file for (evtl.) manual change
 File.open(gnuplotScriptFile,"w") {|f| f << gnuplotScript}
 puts IO.popen("gnuplot -persist #{gnuplotScriptFile}").read
