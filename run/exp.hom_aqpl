@@ -72,8 +72,7 @@ init_oce=0     # 1: use ocean initialization file; 0: init with constants or ana
 # $HGRIDDIR/ts_phc_season-iconR${R}B0{B}-L11.nc
 #
 #-----------------------------------------------------------------------------
-# ocean forcing = 12 needs an additional flux file 
-iforc=12
+iforc=10       # 10: no forcing; 11: analytical; 12: read from flux file; 14: coupled to atmosphere
 iforc_omip=1   # type of OMIP forcing to read: 1 = u/v-stress;     2 = full 12 OMIP datasets
 iforc_len=366  # length of forcing dataset:   12 = monthly data; 366 = daily data
 # flux files must be provided and named as as
@@ -264,9 +263,11 @@ cat > ${ocean_namelist} << EOF
                                  ! 34=Adjusting density front in an ocean basin
                                  ! 40=global temperature initialization for wind and temperature forcing tests
                                  ! 43=Collapsing density front at first level only with smaller amplitude (global)
-  idiag_oce          =    1      ! 0: no diagnostics; 1: write diagnostics to stderr
-  temperature_relaxation= 3      ! 1=switched on for some testcases only
-                                 ! 2=read 2m-temperature data for relaxation from bulk (3: copy SST on omip-T)
+  idiag_oce          =    1      !  0: no diagnostics; 1: write diagnostics to stderr
+  temperature_relaxation= 2      !  1: switched on for some testcases only
+                                 !  2: read 2m-temperature data for relaxation from bulk 
+                                 !  3: copy initialization temperature of surface layer to OMIP-SST for relaxation
+                                 ! -1: use net surface heat flux from atmosphere as boundary condition
   relaxation_param   =    1.0    ! relaxation of tracer surface fluxes (same value for all tracers in months)
                                  ! this value is divided by number of seconds per month (=30*24*3600)
 /

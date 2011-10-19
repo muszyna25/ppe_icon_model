@@ -53,6 +53,7 @@ MODULE mo_ocean_nml
   USE mo_impl_constants,     ONLY: max_char_length
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
+  USE mo_master_control,     ONLY: is_coupled_run
   USE mo_mpi,                ONLY: my_process_is_stdio
 
   IMPLICIT NONE
@@ -89,20 +90,23 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: NO_FORCING                = 10
   INTEGER, PARAMETER :: ANALYT_FORC               = 11
   INTEGER,PARAMETER  :: FORCING_FROM_FILE_FLUX    = 12
-  INTEGER,PARAMETER  :: FORCING_FROM_FILE_FIELD   = 13
-  INTEGER, PARAMETER :: FORCING_FROM_COUPLED_FLUX = 14
-  INTEGER, PARAMETER :: FORCING_FROM_COUPLED_FIELD= 15
+  INTEGER,PARAMETER  :: FORCING_FROM_FILE_FIELD   = 13   ! not yet
+  INTEGER, PARAMETER :: FORCING_FROM_COUPLED_FLUX = 14   ! parameter for a coupled atmosphere-ocean run
+  INTEGER, PARAMETER :: FORCING_FROM_COUPLED_FIELD= 15   ! not yet
 
-  ! type of time varying OMIP forcing: 1: u/v-stress/SST; 2: full OMIP for sea-ice
+  ! read time varying OMIP forcing from file:
+                      ! 1: read wind stress (records 1, 2) and temperature (record 3)
+                      ! 2: read full OMIP dataset for bulk formula in mo_oce_bulk (12 records)
+                      ! 3: read surface heat (record 4) and freshwater flux (record 5) additionally
   INTEGER            :: iforc_omip     = 0
 
-  ! length of time varying flux forcing: 1: read 12 months, 2: read 365 steps
+  ! length of time varying flux forcing: 12: read 12 months, other: read daily values
   INTEGER            :: iforc_len      = 1
 
-  ! stationary forcing for ocean model:
+  ! switch for stationary forcing for special testcases of ocean model:
   INTEGER            :: iforc_stat_oce = 0
 
-  ! switch for reading prognostic variables:
+  ! switch for reading prognostic variables: 1: read from file
   INTEGER            :: init_oce_prog  = 0
 
   ! test cases for ocean model; for the index see run scripts
@@ -176,9 +180,9 @@ MODULE mo_ocean_nml
   REAL(wp) :: s_ref                 = 0.0_wp   ! reference salinity for initialization
   REAL(wp) :: bottom_drag_coeff     = 0.002_wp ! chezy coefficient for bottom friction
   REAL(wp) :: wstress_coeff         = 1.e-4_wp ! windstress coefficient
-  INTEGER  :: temperature_relaxation= 1
-  REAL(wp) :: relaxation_param      = 0.0_wp   ! parameter for relaxation of tracer surface fluxes (same value for all tracers)
-                                               !this value is divided by number of seconds per month (=30*24*3600)
+  INTEGER  :: temperature_relaxation= 0        ! 0=no relax.; 1=on for some testcases; 2=read from OMIP-file
+  REAL(wp) :: relaxation_param      = 0.0_wp   ! strength of tracer relaxation in months (same value for all tracers)
+                                               ! this value is divided by number of seconds per month (=30*24*3600)
 
   INTEGER  :: coriolis_type         = 1        ! 0=zero Coriolis, the non-rotating case
                                                ! 1=full varying Coriolis
@@ -186,17 +190,17 @@ MODULE mo_ocean_nml
                                                ! 3=f-plane (constant) approximation to Coriolis
                                                ! The variables below are used to set up in basin configuration
                                                ! the Coriolis (f/beta-plane) and to adjust the analytic wind forcing
-  REAL(wp) :: basin_center_lat     = 0.0_wp    ! lat-lon coordinate of basin center, used 
-  REAL(wp) :: basin_center_lon     = 0.0_wp    ! in (non-global) basin configuration such as the Stommel-type tests
-  REAL(wp) :: basin_width_deg      = 0.0_wp    ! basin extension in x-direction, units are degrees
-  REAL(wp) :: basin_height_deg     = 0.0_wp    ! basin extension in y-direction, units are degrees
-
-  REAL(wp) :: MAX_VERT_DIFF_VELOC = 0.5_wp     !maximal diffusion coeff, used in implicit vertical velocity diffusion, 
-                                               !if stability criterion is met
-  REAL(wp) :: MAX_VERT_DIFF_TRAC = 0.5_wp      !maximal diffusion coeff, used in implicit vertical tracer diffusion, 
-                                               ! if stability criterion is met
-  REAL(wp) :: CWA = 0.5E-3_wp                  !Tuning parameters for vertical mixing of tracer and velocity
-  REAL(wp) :: CWT = 0.5E-3_wp
+  REAL(wp) :: basin_center_lat      = 0.0_wp   ! lat-lon coordinate of basin center, used 
+  REAL(wp) :: basin_center_lon      = 0.0_wp   ! in (non-global) basin configuration such as the Stommel-type tests
+  REAL(wp) :: basin_width_deg       = 0.0_wp   ! basin extension in x-direction, units are degrees
+  REAL(wp) :: basin_height_deg      = 0.0_wp   ! basin extension in y-direction, units are degrees
+                                   
+  REAL(wp) :: MAX_VERT_DIFF_VELOC   = 0.5_wp   ! maximal diffusion coeff, used in implicit vertical velocity diffusion, 
+                                               !   if stability criterion is met
+  REAL(wp) :: MAX_VERT_DIFF_TRAC    = 0.5_wp   ! maximal diffusion coeff, used in implicit vertical tracer diffusion, 
+                                               !   if stability criterion is met
+  REAL(wp) :: CWA                   = 0.5E-3_wp! Tuning parameters for vertical mixing of tracer and velocity
+  REAL(wp) :: CWT                   = 0.5E-3_wp
 
                                                
   LOGICAL  :: lviscous              = .TRUE.
@@ -361,6 +365,11 @@ MODULE mo_ocean_nml
        CALL finish(TRIM(routine), &
          &  'bottom boundary condition for velocity currently not supported: choose = 0 or =1')
      ENDIF
+     
+     IF ( is_coupled_run() ) THEN
+       iforc_oce = FORCING_FROM_COUPLED_FLUX
+       CALL message(TRIM(routine),'WARNING, iforc_oce set to 14 for coupled experiment')
+     END IF
  
      ! write the contents of the namelist to an ASCII file
      IF(my_process_is_stdio()) WRITE(nnml_output,nml=ocean_dynamics_nml)

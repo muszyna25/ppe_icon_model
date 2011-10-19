@@ -283,7 +283,9 @@ CONTAINS
     IF (iforc_omip == 3) THEN
 
       !-------------------------------------------------------------------------
-      ! Apply surface heat and freshwater fluxes
+      ! Apply surface heat and freshwater fluxes (records 4 and 5)
+      ! 4:  hflx(:,:)   !  net surface heat flux               [W/m2]
+      ! 5:  fwfx(:,:)   !  net freshwater flux                 [m/s]
 
       p_sfc_flx%forc_hflx(:,:) = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,4) + &
         &                        rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,4)
@@ -295,7 +297,7 @@ CONTAINS
     IF (temperature_relaxation == 2 .OR. temperature_relaxation == 3)  THEN
 
       !-------------------------------------------------------------------------
-      ! Apply Temperature relaxation data (array 3) from stationary forcing
+      ! Apply Temperature relaxation data (record 3) from stationary forcing
       !  - change units to deg C, subtract tmelt (0 deg C, 273.15)
 
        p_sfc_flx%forc_tracer_relax(:,:,1) = &
@@ -428,19 +430,19 @@ CONTAINS
     ! surface temperature
       CALL ICON_cpl_get ( field_id(4), field_shape, buffer, info, ierror )
       p_sfc_flx%forc_tracer_relax(:,:,1) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
+      !  - change units to deg C, subtract tmelt (0 deg C, 273.15)
+      p_sfc_flx%forc_tracer_relax(:,:,1) = p_sfc_flx%forc_tracer_relax(:,:,1) - tmelt
     !
     ! total heat flux
       CALL ICON_cpl_get ( field_id(5), field_shape, buffer, info, ierror )
-      ! #slo# why accumulated? LL Accumulation will be done by the coupler
-      p_sfc_flx%forc_hflx(:,:) = &! p_sfc_flx%forc_hflx(:,:) + &
-        & RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
+      p_sfc_flx%forc_hflx(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
 
       DEALLOCATE(buffer)
       DEALLOCATE(field_id)      
 
       IF (ltimer) CALL timer_stop(timer_coupling)
   
-    ENDIF ! iforc_omip
+    ENDIF ! is_coupled
 
   CASE (FORCING_FROM_COUPLED_FIELD)                                 !  15
     !1) bulk formula to atmospheric state and proceed as above, the only distinction
@@ -518,7 +520,6 @@ CONTAINS
       END DO
     END DO
 
-    !write(0,*) 'relpar, z_rel:',relaxation_param,z_relax
     ipl_src=1  ! output print level (1-5, fix)
     z_c(:,1,:)=p_sfc_flx%forc_tracer_relax(:,:,1)
     CALL print_mxmn('update temp-relax',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
@@ -530,9 +531,11 @@ CONTAINS
 
   ENDIF
 
+  ! Heat flux diagnosed for all relaxation cases,
+  !  including also temperature_relaxation=1 which are some special testcases, see there
   IF (temperature_relaxation >= 1) THEN
 
-    ! Heat flux diagnosed for relaxation cases
+    ! Heat flux diagnosed for relaxation cases 
     !   Q_s = Rho*Cp*Q_t  with density Rho and Cp specific heat capacity
     ! where
     !   K_v*dT/dz(surf) = -Q_t = Q_s/Rho/Cp  [K*m/s]
@@ -548,6 +551,7 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   ! Apply net surface heat flux to boundary condition
+  !  - 2011/10/19 - up to now heat flux is applied alternatively to temperature relaxation!
 
   IF (temperature_relaxation == -1) THEN
 
