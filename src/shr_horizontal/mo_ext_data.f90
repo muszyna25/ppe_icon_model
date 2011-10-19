@@ -1039,11 +1039,14 @@ CONTAINS
       ! landuse class fraction
       !
       ! lu_class_fraction    p_ext_atm%lu_class_fraction(nproma,nblks_c,nclass_lu)
+
+      ! Note: lrestart flag is disabled for the time being, because it throws
+      !       a runtime error in combination with "p_test_run = .TRUE."!
       cf_desc    = t_cf_var('lu_class_fraction', '-', 'landuse class fraction')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'lu_class_fraction', p_ext_atm%lu_class_fraction, &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
-        &           grib2_desc, ldims=shape3d_sfc)
+        &           grib2_desc, ldims=shape3d_sfc, lrestart=.FALSE.)
 
     CASE ( iecham, ildf_echam )
 
