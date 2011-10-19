@@ -60,10 +60,11 @@ MODULE mo_output
 #ifdef _NEW_OUTPUT
   USE mo_io_output
 #endif
-  USE mo_io_restart,          ONLY: set_restart_time, set_restart_vct,       &
+  USE mo_io_restart,          ONLY: set_restart_time, set_restart_vct,         &
                                   & init_restart, open_writing_restart_files,  &
                                   & write_restart, close_writing_restart_files,&
-                                  & finish_restart, set_restart_depth
+                                  & finish_restart, set_restart_depth,         &
+                                  & set_restart_height
   USE mo_io_restart_attributes,ONLY: set_restart_attribute
   USE mo_model_domain,        ONLY: t_patch, p_patch
   USE mo_interpolation,       ONLY: t_lon_lat_intp
@@ -338,7 +339,7 @@ CONTAINS
     REAL(wp), INTENT(IN), OPTIONAL :: opt_zheight_mc (:,:,:) 
     REAL(wp), INTENT(IN), OPTIONAL :: opt_zheight_ifc(:,:,:)
 
-    INTEGER :: klev, jg, kcell, kvert, kedge, icelltype, izlev
+    INTEGER :: klev, jg, kcell, kvert, kedge, icelltype, izlev, i
     REAL(wp), ALLOCATABLE :: zlevels_full(:), zlevels_half(:)
 
 
@@ -415,6 +416,19 @@ CONTAINS
     IF (PRESENT(opt_pvct)) CALL set_restart_vct( opt_pvct )  ! Vertical coordinate (A's and B's)
     IF (PRESENT(opt_zheight)) THEN                           ! geometrical height for NH 
 !      CALL set_restart_height(opt_zheight_ifc ,opt_zheight_mc)
+!DR start preliminary fix
+      ALLOCATE(zlevels_full(opt_zheight))
+      ALLOCATE(zlevels_half(opt_zheight+1))
+      DO i = 1, opt_zheight
+        zlevels_full(i) = REAL(i,wp)
+      END DO
+      DO i = 1, opt_zheight+1
+        zlevels_half(i) = REAL(i,wp)
+      END DO
+      CALL set_restart_height(zlevels_half, zlevels_full)
+      DEALLOCATE(zlevels_full)
+      DEALLOCATE(zlevels_half)
+!DR end preliminary fix
     ENDIF
     IF (PRESENT(opt_depth)) THEN                              ! Ocean depth
       izlev = opt_depth

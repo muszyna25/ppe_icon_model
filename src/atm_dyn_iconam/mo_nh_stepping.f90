@@ -567,8 +567,8 @@ MODULE mo_nh_stepping
                                 & opt_lcall_phy              = lcall_phy,                  &
                                 & opt_sim_time               = sim_time(jg),               &
                                 & opt_jstep_adv_ntsteps      = jstep_adv(jg)%ntsteps,      &
-                                & opt_jstep_adv_marchuk_order= jstep_adv(jg)%marchuk_order )!,&
-!                                & opt_zheight                = p_patch(jg)%nlev,           &
+                                & opt_jstep_adv_marchuk_order= jstep_adv(jg)%marchuk_order,&
+                                & opt_zheight                = p_patch(jg)%nlev            ) !,&
 !                                & opt_zheight_mc             = p_nh_state(jg)%metrics%z_mc,& 
 !                                & opt_zheight_ifc            = p_nh_state(jg)%metrics%z_ifc) 
       END DO

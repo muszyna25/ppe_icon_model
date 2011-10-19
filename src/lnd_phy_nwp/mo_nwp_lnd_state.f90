@@ -494,7 +494,8 @@ MODULE mo_nwp_lnd_state
     cf_desc    = t_cf_var('t_snow_mult', 'K', 'temperature of the snow-surface')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'t_snow_mult', p_prog_lnd%t_snow_mult, &
-     & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,                 &
+!DR     & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,                 &
+     & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,                 &
      & ldims=(/nproma,nlev_snow+1,kblks,nsfc_subs/),                              &
      & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. ) 
 
@@ -505,7 +506,8 @@ MODULE mo_nwp_lnd_state
         CALL add_ref( prog_list, vname_prefix//'t_snow_mult',                  &
                & vname_prefix//'t_snow_mult_'//ADJUSTL(TRIM(csfc)),            &
                & p_prog_lnd%t_snow_mult_ptr(jsfc)%p_3d,                        &
-               & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                         &
+!DR               & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                         &
+               & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                         &
                & t_cf_var('t_snow_mult_'//csfc, '', ''),                       &
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
                & ldims=(/nproma,nlev_snow+1,kblks/) )
@@ -585,7 +587,8 @@ MODULE mo_nwp_lnd_state
     cf_desc    = t_cf_var('rho_snow_mult', 'kg/m**3', 'snow density')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'rho_snow_mult', p_prog_lnd%rho_snow_mult,  &
-         & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,                  &
+!DR         & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,                  &
+         & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,                  &
          & ldims=shape4d_snow_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
 
@@ -596,7 +599,8 @@ MODULE mo_nwp_lnd_state
         CALL add_ref( prog_list, vname_prefix//'rho_snow_mult',                   &
                & vname_prefix//'rho_snow_mult_'//ADJUSTL(TRIM(csfc)),             &
                & p_prog_lnd%rho_snow_mult_ptr(jsfc)%p_3d,                         &
-               & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                            &
+!DR               & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                            &
+               & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                            &
                & t_cf_var('rho_snow_mult_'//csfc, '', ''),                        &
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),    &
                & ldims=(/nproma,nlev_snow,kblks/) )
@@ -699,7 +703,8 @@ MODULE mo_nwp_lnd_state
     cf_desc    = t_cf_var('wliq_snow', 'm H2O', 'liquid water content in snow')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'wliq_snow', p_prog_lnd%wliq_snow,    &
-         & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,            &
+!DR         & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,            &
+         & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,            &
          & ldims=shape4d_snow_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
     ! fill the seperate variables belonging to the container wliq_snow
@@ -709,7 +714,8 @@ MODULE mo_nwp_lnd_state
         CALL add_ref( prog_list, vname_prefix//'wliq_snow',                      &
                & vname_prefix//'wliq_snow_'//ADJUSTL(TRIM(csfc)),                &
                & p_prog_lnd%wliq_snow_ptr(jsfc)%p_3d,                            &
-               & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                           &
+!DR               & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                           &
+               & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                           &
                & t_cf_var('wliq_snow_'//csfc, '', ''),                           &
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
                & ldims=(/nproma,nlev_snow,kblks/) )
@@ -722,7 +728,8 @@ MODULE mo_nwp_lnd_state
     cf_desc    = t_cf_var('wtot_snow', 'm H2O', 'total water content in snow')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'wtot_snow', p_prog_lnd%wtot_snow,    &
-         & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,            &
+!DR         & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,            &
+         & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,            &
          & ldims=shape4d_snow_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
     ! fill the seperate variables belonging to the container wtot_snow
@@ -732,7 +739,8 @@ MODULE mo_nwp_lnd_state
         CALL add_ref( prog_list, vname_prefix//'wtot_snow',                      &
                & vname_prefix//'wtot_snow_'//ADJUSTL(TRIM(csfc)),                &
                & p_prog_lnd%wtot_snow_ptr(jsfc)%p_3d,                            &
-               & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                           &
+!DR               & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                           &
+               & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                           &
                & t_cf_var('wtot_snow_'//csfc, '', ''),                           &
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
                & ldims=(/nproma,nlev_snow,kblks/) )
@@ -744,7 +752,8 @@ MODULE mo_nwp_lnd_state
     cf_desc    = t_cf_var('dzh_snow', 'm', 'layer thickness between half levels in snow')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'dzh_snow', p_prog_lnd%dzh_snow,            &
-         & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,  cf_desc, grib2_desc,                 &
+!DR         & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,  cf_desc, grib2_desc,                 &
+         & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,  cf_desc, grib2_desc,                 &
          & ldims=shape4d_snow_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
     ! fill the seperate variables belonging to the container dzh_snow
@@ -754,7 +763,8 @@ MODULE mo_nwp_lnd_state
         CALL add_ref( prog_list, vname_prefix//'dzh_snow',                        &
                & vname_prefix//'dzh_snow_'//ADJUSTL(TRIM(csfc)),                  &
                & p_prog_lnd%dzh_snow_ptr(jsfc)%p_3d,                              &
-               & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                            &
+!DR               & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                            &
+               & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                            &
                & t_cf_var('dzh_snow_'//csfc, '', ''),                             &
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),    &
                & ldims=(/nproma,nlev_snow,kblks/) )

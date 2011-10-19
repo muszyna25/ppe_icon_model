@@ -333,8 +333,10 @@ CONTAINS
     CALL set_vertical_grid(ZAXIS_HYBRID_HALF, nlev+1)
     CALL set_vertical_grid(ZAXIS_DEPTH_BELOW_SEA, ndepth)
     CALL set_vertical_grid(ZAXIS_DEPTH_BELOW_SEA, ndepth+1)
-    CALL set_vertical_grid(ZAXIS_HEIGHT, nheight)
-    CALL set_vertical_grid(ZAXIS_HEIGHT, nheight+1)
+!DR    CALL set_vertical_grid(ZAXIS_HEIGHT, nheight)
+!DR    CALL set_vertical_grid(ZAXIS_HEIGHT, nheight+1)
+    CALL set_vertical_grid(ZAXIS_HEIGHT, nlev)
+    CALL set_vertical_grid(ZAXIS_HEIGHT, nlev+1)
     !
     ! define time axis
     !
