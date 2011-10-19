@@ -58,7 +58,7 @@ USE mo_physical_constants, ONLY: re, rre, omega, rgrav, rho_ref, grav, SItodBar,
 USE mo_math_constants
 USE mo_parallel_config,    ONLY: nproma
 USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer, iforc_len,                    &
-  &                              init_oce_prog, itestcase_oce,i_sea_ice,                    &
+  &                              init_oce_prog, itestcase_oce, i_sea_ice, iforc_oce,        &
   &                              basin_center_lat, basin_center_lon,idisc_scheme,           &
   &                              basin_height_deg,  basin_width_deg, temperature_relaxation
 USE mo_impl_constants,     ONLY: max_char_length, sea, sea_boundary,                        &
@@ -249,12 +249,17 @@ CONTAINS
 
   ! #slo# 2011-10-10: HACK - overwrite OMIP SST by Levitus SST for temperature_relaxation=3:
   IF (temperature_relaxation == 3) THEN
-    DO jlen = 1, iforc_len
-      p_ext_data%oce%omip_forc_mon_c(:,jlen,:,3) = &
-        &  p_os%p_prog(nold(1))%tracer(:,1,:,1) + tmelt
-   !  IF (no_tracer>1) p_ext_data%oce%omip_forc_mon_c(:,jlen,:,x) = &
-   !    &  p_os%p_prog(nold(1))%tracer(:,1,:,2)
-    END DO
+    IF (iforc_oce == 12) THEN
+      DO jlen = 1, iforc_len
+        p_ext_data%oce%omip_forc_mon_c(:,jlen,:,3) = &
+          &  p_os%p_prog(nold(1))%tracer(:,1,:,1) + tmelt
+     !  IF (no_tracer>1) p_ext_data%oce%omip_forc_mon_c(:,jlen,:,x) = &
+     !    &  p_os%p_prog(nold(1))%tracer(:,1,:,2)
+      END DO
+    ELSE
+      CALL message( TRIM(routine),'No OMIP forcing file read - do not use T_RELAX=3')
+      CALL finish(TRIM(ROUTINE),' T_RELAX=3 and IFORC!=12')
+    END IF
   END IF
 
   jkc=1      ! current level - may not be zero
