@@ -136,6 +136,8 @@
   if (.not. isvar("scaleFactor")) scaleFactor  = 1               end if
   if (.not. isvar("colormap"))    colormap     = "BlueDarkRed18" end if
 
+  if (.not.isvar("mapType"))      mapType      = "lonlat"        end if
+
   if ( mapType .eq. "NHps" .and. .not.isvar("mapLLC")) mapLLC = (/-45., 45./)  end if
   if ( mapType .eq. "NHps" .and. .not.isvar("mapURC")) mapURC = (/135., 45./)  end if
   if ( mapType .eq. "SHps" .and. .not.isvar("mapLLC")) mapLLC = (/-45.,-45./)  end if
@@ -143,7 +145,6 @@
 
   if (.not.isvar("mapLLC"))       mapLLC       = (/-180.,-90./)  end if
   if (.not.isvar("mapURC"))       mapURC       = (/180.0,90.0/)  end if
-  if (.not.isvar("mapType"))      mapType      = "lonlat"        end if
   if (.not.isvar("projSat"))      projSat      = False           end if
   if (.not.isvar("mapLine"))      mapLine      = True            end if
   if (.not.isvar("resolution"))   resolution   = "r90x45"        end if
