@@ -602,7 +602,7 @@ SUBROUTINE downscale_rad_output(p_patch, p_par_patch, p_par_int, p_par_grf, &
 
   REAL(wp), DIMENSION(nproma) :: tqv, dlwem_o_dtg, swfac1, swfac2, lwfac1, lwfac2
 
-  REAL(wp), DIMENSION(nproma,nlev_rg+1) :: intclw, intcli, dtrans_o_dalb_clr, &
+  REAL(wp), DIMENSION(nproma,p_patch%nlevp1) :: intclw, intcli, dtrans_o_dalb_clr, &
     dtrans_o_dalb_all, dlwflxclr_o_dtg, dlwflxall_o_dtg, pfacswc, pfacswa
 
   ! Pointers to types needed to minimize code duplication for MPI/no-MPI cases
@@ -806,10 +806,10 @@ SUBROUTINE downscale_rad_output(p_patch, p_par_patch, p_par_int, p_par_grf, &
 
 
     tqv(:)               = 0._wp
-    intclw(:,nlevp1_rg)  = 0._wp
-    intcli(:,nlevp1_rg)  = 0._wp
-    pfacswc(:,nlevp1_rg) = 1._wp
-    pfacswa(:,nlevp1_rg) = 1._wp
+    intclw(:,nlevp1)  = 0._wp
+    intcli(:,nlevp1)  = 0._wp
+    pfacswc(:,nlevp1) = 1._wp
+    pfacswa(:,nlevp1) = 1._wp
     DO jk = nlev,1,-1
       jk1 = jk + nshift
       DO jc = i_startidx, i_endidx
