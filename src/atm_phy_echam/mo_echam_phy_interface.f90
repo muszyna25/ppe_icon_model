@@ -410,7 +410,7 @@ CONTAINS
 !        CALL ICON_cpl_put ( field_id(3), field_shape, buffer, ierror )
        !
        ! SFTEMP
-       buffer(:,1) =  RESHAPE ( prm_field(jg)%temp(:,nlev,:), (/ nbr_points /) ) - 273.15_wp ! ocean uses Celsius units
+       buffer(:,1) =  RESHAPE ( prm_field(jg)%temp(:,nlev,:), (/ nbr_points /) )
        CALL ICON_cpl_put ( field_id(4), field_shape, buffer, ierror )
        !
        ! THFLX, total heat flux
