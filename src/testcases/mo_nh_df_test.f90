@@ -78,11 +78,12 @@ MODULE mo_nh_df_test
   REAL(wp), PARAMETER :: tottime = 1036800._wp !< total time 12 days
 
   REAL(wp), PARAMETER ::   &
-    u0      = (2._wp*pi*re)/(tottime)  !< circumference / 12 days [m/s]
-
-  REAL(wp), PARAMETER ::   &                   !< flow field amplitude [m/s]
-    &   u1 = 73.741_wp, u2 = 61.451_wp, u3 = 30.725_wp, &
-    &   u4 = (10._wp*re)/(tottime)
+    &  u0  = (2._wp*pi*re)/(tottime), &  !< circumference / 12 days [m/s]
+    &  u3  = (5._wp*re)/(tottime)   , &  !< for case 3 (divergent flow)
+    &  u4  = (10._wp*re)/(tottime)       !< flow field amplitude [m/s]
+                                         !< case 4
+  REAL(wp), PARAMETER ::   &             !< flow field amplitude [m/s]
+    &   u1 = 73.741_wp, u2 = 61.451_wp
 !    &   u1 = 2.4_wp, u2 = 2.0_wp, u3 = 1._wp !< original values
                                               !< for unit sphere
 
@@ -438,9 +439,11 @@ CONTAINS
             &                  zlon,zlat,                    & !<in
             &                  zlon_rot,zlat_rot             ) !<inout
 
+          zlon_rot = zlon_rot - 2._wp*pi*p_sim_time/tottime
+
           ! velocity in local east direction
           u_wind = -u3 * SIN(0.5_wp*zlon_rot)**2 * SIN(2._wp*zlat_rot) &
-            &      * COS(zlat_rot)**2 * z_timing_func
+            &      * COS(zlat_rot)**2 * z_timing_func + u0*cos(zlat_rot)
 
           ! velocity in local north direction
           v_wind = 0.5_wp * u3 * SIN(zlon_rot) * COS(zlat_rot)**3  &
@@ -629,10 +632,17 @@ CONTAINS
 
       ! Case 3 of Nair (2010)
       CASE('DF3')
-        ic_c1%lon = (3._wp/4._wp)*pi
+!!$        ic_c1%lon = (3._wp/4._wp)*pi
+!!$        ic_c1%lat = 0._wp
+!!$
+!!$        ic_c2%lon = (5._wp/4._wp)*pi
+!!$        ic_c2%lat = 0._wp
+
+        ! Following Lauritzen (2011), JCP
+        ic_c1%lon = (5._wp/6._wp)*pi
         ic_c1%lat = 0._wp
 
-        ic_c2%lon = (5._wp/4._wp)*pi
+        ic_c2%lon = (7._wp/6._wp)*pi
         ic_c2%lat = 0._wp
 
       ! Case 4 of Nair (2010)
@@ -1153,7 +1163,6 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
     ENDIF
-
 
   END SUBROUTINE get_nh_df_mflx_rho
 
