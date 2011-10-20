@@ -424,7 +424,10 @@
 
     ResC@gsnDraw             = False
     ResC@gsnFrame            = False
-    vc   = gsn_csm_vector_scalar(wks,uvar,vvar,velocity,ResC2)
+      vc = gsn_csm_vector_scalar(wks,uvar,vvar,velocity,ResC2)
+    else
+      vc = gsn_csm_vector(wks,uvar,vvar,ResC2)
+    end if
 
     plot = gsn_csm_contour_map(wks,var,ResC)
     if (showGrid) then
