@@ -1283,8 +1283,9 @@ CONTAINS
 
       CALL downscale_rad_output(pt_patch, pt_par_patch, pt_par_int_state,                  &
         & pt_par_grf_state, nlev_rg, zrg_aclcov, zrg_lwflxclr, zrg_lwflxall, zrg_trsolclr, &
-        & zrg_trsolall, aclcov, prm_diag%lwflxclr, prm_diag%lwflxall, &
-        & prm_diag%trsolclr, prm_diag%trsolall )
+        & zrg_trsolall, zrg_tsfc, zrg_albvisdif, zrg_emis_rad, zrg_cosmu0, zrg_tot_cld,    &
+        & zrg_pres_ifc, prm_diag%tsfctrad, albvisdif, aclcov, prm_diag%lwflxclr,           &
+        & prm_diag%lwflxall, prm_diag%trsolclr, prm_diag%trsolall )
 
       DEALLOCATE (zrg_cosmu0, zrg_albvisdir, zrg_albnirdir, zrg_albvisdif, zrg_albnirdif, &
         zrg_tsfc, zrg_pres_ifc, zrg_pres, zrg_temp, zrg_o3,                               &

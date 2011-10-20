@@ -48,10 +48,10 @@ USE mo_nwp_lnd_state,       ONLY: t_lnd_prog, t_lnd_diag
 USE mo_grf_bdyintp,         ONLY: interpol_scal_grf
 USE mo_grf_nudgintp,        ONLY: interpol_scal_nudging
 USE mo_parallel_config,     ONLY: nproma, p_test_run
-USE mo_run_config,          ONLY: msg_level
+USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi
 USE mo_nwp_phy_state,       ONLY: prm_diag
 USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int
-USE mo_physical_constants,  ONLY: rd, grav
+USE mo_physical_constants,  ONLY: rd, grav, stbo
 USE mo_loopindices,         ONLY: get_indices_c
 USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_ovlparea_start_c, grf_fbk_start_c
 USE mo_vertical_coord_table,ONLY: vct_a
@@ -553,7 +553,8 @@ END SUBROUTINE upscale_rad_input
 !!
 SUBROUTINE downscale_rad_output(p_patch, p_par_patch, p_par_int, p_par_grf, &
   nlev_rg, rg_aclcov, rg_lwflxclr, rg_lwflxall, rg_trsolclr, rg_trsolall,   &
-  aclcov, lwflxclr, lwflxall, trsolclr, trsolall                            )
+  tsfc_rg, albvisdif_rg, emis_rad_rg, cosmu0_rg, tot_cld_rg, pres_ifc_rg,   &
+  tsfc, albvisdif, aclcov, lwflxclr, lwflxall, trsolclr, trsolall           )
 
 
   ! Input types
@@ -564,27 +565,48 @@ SUBROUTINE downscale_rad_output(p_patch, p_par_patch, p_par_int, p_par_grf, &
 
   INTEGER, INTENT(IN)  :: nlev_rg  ! number of model levels on reduced grid
 
-  ! Other input fields (on reduced grid)
+  ! Input fields (on reduced grid) to be downscaled to full grid
   REAL(wp), TARGET, INTENT(IN) ::                                               &
     rg_aclcov(:,:), rg_lwflxclr(:,:,:), rg_lwflxall(:,:,:), rg_trsolclr(:,:,:), &
     rg_trsolall(:,:,:)
 
-  ! Corresponding output fields (on full grid)
-  REAL(wp), INTENT(OUT) ::                                                &
+  ! Auxiliary input fields on reduced grid needed for downscaling corrections
+  REAL(wp), INTENT(IN), TARGET ::                                      &
+    tsfc_rg(:,:), albvisdif_rg(:,:), emis_rad_rg(:,:), cosmu0_rg(:,:), &
+    tot_cld_rg(:,:,:,:), pres_ifc_rg(:,:,:)
+
+  ! Auxiliary input fields on full grid needed for downscaling corrections
+  REAL(wp), INTENT(IN) :: tsfc(:,:), albvisdif(:,:)
+
+  ! Downscaled output fields (on full grid)
+  REAL(wp), INTENT(OUT) ::                                                        &
     aclcov(:,:), lwflxclr(:,:,:), lwflxall(:,:,:), trsolclr(:,:,:), trsolall(:,:,:)
 
   ! Intermediate storage fields needed in the case of MPI parallelization
-  REAL(wp), ALLOCATABLE, TARGET ::                                          &
-    z_aclcov(:,:), z_lwflxclr(:,:,:), z_lwflxall(:,:,:), z_trsolclr(:,:,:), &
-    z_trsolall(:,:,:)
+  REAL(wp), ALLOCATABLE, TARGET ::                                              &
+    z_lwflxclr(:,:,:), z_lwflxall(:,:,:), z_trsolclr(:,:,:), z_trsolall(:,:,:), &
+    z_pres_ifc(:,:,:), z_tot_cld(:,:,:,:)
 
   ! Pointers to output fields (no MPI) or intermediate fields (MPI)
-  REAL(wp), POINTER ::                                                      &
-    p_aclcov(:,:), p_lwflxclr(:,:,:), p_lwflxall(:,:,:), p_trsolclr(:,:,:), &
-    p_trsolall(:,:,:)
+  REAL(wp), POINTER ::                                                          &
+    p_lwflxclr(:,:,:), p_lwflxall(:,:,:), p_trsolclr(:,:,:), p_trsolall(:,:,:), &
+    p_pres_ifc(:,:,:), p_tot_cld(:,:,:,:)
 
   ! Additional storage fields to map 2D array(s) to 3D array
-  REAL(wp), ALLOCATABLE :: zrg_aux3d(:,:,:), z_aux3d(:,:,:)
+  REAL(wp), ALLOCATABLE :: zpg_aux3d(:,:,:), zrg_aux3d(:,:,:), z_aux3d(:,:,:)
+
+  ! Auxiliary fields on full grid for back-interpolated values
+  REAL(wp), DIMENSION(nproma,p_patch%nblks_c) :: tsfc_backintp, alb_backintp
+
+  ! More local variables
+  REAL(wp) :: pscal, dpresg, pfaclw, intqctot
+
+  REAL(wp), DIMENSION(nproma) :: tqv, dlwem_o_dtg, swfac1, swfac2, lwfac1, lwfac2
+
+  REAL(wp), DIMENSION(nproma,p_patch%nlev) :: pfacswc, pfacswa
+
+  REAL(wp), DIMENSION(nproma,p_patch%nlevp1) :: intclw, intcli, dtrans_o_dalb_clr, &
+    dtrans_o_dalb_all, dlwflxclr_o_dtg, dlwflxall_o_dtg
 
   ! Pointers to types needed to minimize code duplication for MPI/no-MPI cases
   TYPE(t_grid_cells), POINTER     :: p_gcp => NULL()
@@ -593,10 +615,15 @@ SUBROUTINE downscale_rad_output(p_patch, p_par_patch, p_par_int, p_par_grf, &
   TYPE(t_patch),      POINTER     :: p_pp => NULL()
 
   ! Indices
-  INTEGER :: jg, jgp, i_chidx, i_nchdom, nblks_c_lp,jk
+  INTEGER :: jg, jgp, i_chidx, i_nchdom, nblks_c_lp
+  INTEGER :: jb, jk, jk1, jc, i_startblk, i_endblk, i_startidx, i_endidx
+  INTEGER :: jc1, jc2, jc3, jc4, jb1, jb2, jb3, jb4
 
   INTEGER :: nlev, nlevp1      !< number of full and half levels
-  INTEGER :: nshift, nlevp1_rg
+  INTEGER :: nshift, nlevp1_rg, nlev_tot
+  INTEGER, DIMENSION(:,:,:), POINTER :: iidx, iblk
+
+  INTEGER :: n2dvars, iclcov, itsfc, ialb, iemis, icosmu0
 
   LOGICAL :: l_parallel, l_limit(5)
   REAL(wp) :: rlimval(5)
@@ -644,44 +671,81 @@ SUBROUTINE downscale_rad_output(p_patch, p_par_patch, p_par_int, p_par_grf, &
 
   nblks_c_lp = p_pp%nblks_c
 
+  ! pointers to child index/block
+  iidx => p_gcp%child_idx
+  iblk => p_gcp%child_blk
+
+  ! named constants for accessing 2D variables contained in zrg_aux3d
+  n2dvars = nshift+5
+  iclcov  = nshift+1
+  itsfc   = nshift+2
+  ialb    = nshift+3
+  iemis   = nshift+4
+  icosmu0 = nshift+5
+
+
   ! Allocation of local storage fields at local parent level in MPI-case
   IF (l_parallel .AND. jgp == 0) THEN
 
-    ALLOCATE(z_aclcov(nproma,nblks_c_lp),             z_lwflxclr(nproma,nlevp1_rg,nblks_c_lp), &
-             z_lwflxall(nproma,nlevp1_rg,nblks_c_lp), z_trsolclr(nproma,nlevp1_rg,nblks_c_lp), &
-             z_trsolall(nproma,nlevp1_rg,nblks_c_lp)                                           )
+    ALLOCATE( z_lwflxclr(nproma,nlevp1_rg,nblks_c_lp), z_lwflxall(nproma,nlevp1_rg,nblks_c_lp), &
+              z_trsolclr(nproma,nlevp1_rg,nblks_c_lp), z_trsolall(nproma,nlevp1_rg,nblks_c_lp), &
+              z_pres_ifc(nproma,nlevp1_rg,nblks_c_lp), z_tot_cld(nproma,nlev_rg,nblks_c_lp,4),  &
+              zpg_aux3d(nproma,n2dvars,p_par_patch%nblks_c),                                    &
+              zrg_aux3d(nproma,n2dvars,nblks_c_lp),   z_aux3d(nproma,5,p_patch%nblks_c)         )
+
+  ELSE
+
+    ALLOCATE(zrg_aux3d(nproma,n2dvars,nblks_c_lp),z_aux3d(nproma,5,p_patch%nblks_c))
 
   ENDIF
-
-  ALLOCATE(zrg_aux3d(nproma,nshift+1,nblks_c_lp),z_aux3d(nproma,1,p_patch%nblks_c))
 
   ! Perform communication from parent to local parent grid in the MPI case,
   ! and set pointers such that further processing is the same for MPI / non-MPI cases
   IF (l_parallel .AND. jgp == 0) THEN
 
-    CALL exchange_data(p_pp%comm_pat_glb_to_loc_c, RECV=z_aclcov, SEND=rg_aclcov  )
+    IF (nshift > 0) zpg_aux3d(:,1:nshift,:) = 0._wp
+    zpg_aux3d(:,iclcov,:) = rg_aclcov(:,:)
+    zpg_aux3d(:,itsfc,:)  = tsfc_rg(:,:)
+    zpg_aux3d(:,ialb,:)   = albvisdif_rg(:,:)
+    zpg_aux3d(:,iemis,:)  = emis_rad_rg(:,:)
+    zpg_aux3d(:,icosmu0,:)= cosmu0_rg(:,:)
 
-    CALL exchange_data_mult(p_pp%comm_pat_glb_to_loc_c, 4, 4*nlev_rg+4, &
-                            RECV1=z_lwflxclr, SEND1=rg_lwflxclr,        &
-                            RECV2=z_lwflxall, SEND2=rg_lwflxall,        &
-                            RECV3=z_trsolclr, SEND3=rg_trsolclr,        &
-                            RECV4=z_trsolall, SEND4=rg_trsolall         )
+    nlev_tot = 5*nlevp1_rg + n2dvars
 
-     p_aclcov     => z_aclcov
-     p_lwflxclr   => z_lwflxclr
-     p_lwflxall   => z_lwflxall
-     p_trsolclr   => z_trsolclr
-     p_trsolall   => z_trsolall
-   ELSE
-     p_aclcov     => rg_aclcov
-     p_lwflxclr   => rg_lwflxclr
-     p_lwflxall   => rg_lwflxall
-     p_trsolclr   => rg_trsolclr
-     p_trsolall   => rg_trsolall
-   ENDIF
+    CALL exchange_data_mult(p_pp%comm_pat_glb_to_loc_c, 6, nlev_tot, &
+                            RECV1=z_lwflxclr, SEND1=rg_lwflxclr,     &
+                            RECV2=z_lwflxall, SEND2=rg_lwflxall,     &
+                            RECV3=z_trsolclr, SEND3=rg_trsolclr,     &
+                            RECV4=z_trsolall, SEND4=rg_trsolall,     &
+                            RECV5=z_pres_ifc, SEND5=pres_ifc_rg,     &
+                            RECV6=zrg_aux3d , SEND6=zpg_aux3d        )
 
-   zrg_aux3d(:,nshift+1,:) = p_aclcov(:,:)
-   zrg_aux3d(:,1,:)        = p_aclcov(:,:)
+    CALL exchange_data_mult(p_pp%comm_pat_glb_to_loc_c, 4, 4*nlev_rg, &
+                            RECV4D=z_tot_cld, SEND4D=tot_cld_rg       )
+
+    p_lwflxclr   => z_lwflxclr
+    p_lwflxall   => z_lwflxall
+    p_trsolclr   => z_trsolclr
+    p_trsolall   => z_trsolall
+    p_pres_ifc   => z_pres_ifc
+    p_tot_cld    => z_tot_cld
+  ELSE
+    p_lwflxclr   => rg_lwflxclr
+    p_lwflxall   => rg_lwflxall
+    p_trsolclr   => rg_trsolclr
+    p_trsolall   => rg_trsolall
+    p_pres_ifc   => pres_ifc_rg
+    p_tot_cld    => tot_cld_rg
+
+    IF (nshift > 0) zrg_aux3d(:,1:nshift,:) = 0._wp
+    zrg_aux3d(:,iclcov,:) = rg_aclcov(:,:)
+    zrg_aux3d(:,itsfc,:)  = tsfc_rg(:,:)
+    zrg_aux3d(:,ialb,:)   = albvisdif_rg(:,:)
+    zrg_aux3d(:,iemis,:)  = emis_rad_rg(:,:)
+    zrg_aux3d(:,icosmu0,:)= cosmu0_rg(:,:)
+
+  ENDIF
+
 
   ! Interpolate reduced-grid fields to full grid
 
@@ -692,9 +756,11 @@ SUBROUTINE downscale_rad_output(p_patch, p_par_patch, p_par_int, p_par_grf, &
 
   IF  (l_parallel) THEN
 
-    CALL exchange_data_mult(p_pp%comm_pat_c, 5, 4*nlev_rg+5+nshift, recv1=p_lwflxclr, &
-                            recv2=p_lwflxall, recv3=p_trsolclr, recv4=p_trsolall,     &
-                            recv5=zrg_aux3d                                           )
+    nlev_tot = 4*nlevp1_rg + n2dvars
+
+    CALL exchange_data_mult(p_pp%comm_pat_c, 5, nlev_tot, recv1=p_lwflxclr,       &
+                            recv2=p_lwflxall, recv3=p_trsolclr, recv4=p_trsolall, &
+                            recv5=zrg_aux3d                                       )
 
   ENDIF
 
@@ -719,27 +785,149 @@ SUBROUTINE downscale_rad_output(p_patch, p_par_patch, p_par_int, p_par_grf, &
     &                         f3din5=zrg_aux3d,  f3dout5=z_aux3d,                       &
                               llimit_nneg=l_limit, rlimval=rlimval                      )
 
-   aclcov(:,:) = z_aux3d(:,1,:)
+  aclcov(:,:)        = z_aux3d(:,1,:)
+  tsfc_backintp(:,:) = z_aux3d(:,2,:)
+  alb_backintp(:,:)  = z_aux3d(:,3,:)
 
-!!$  IF (msg_level >= 14) THEN
-!!$    DO jk = 1, nlevp1
-!!$      WRITE(message_text,'(a,i3,2E10.3)') 'max/min SW rg transmissivity  = ',&
-!!$           & jk, MAXVAL (p_trsolall(:,jk,:)), MINVAL(p_trsolall(:,jk,:))
-!!$      CALL message('', TRIM(message_text))
-!!$      WRITE(message_text,'(a,i3,2E10.3)') 'max/min SW fg transmissivity  = ',&
-!!$           & jk, MAXVAL (trsolall(:,jk,:)), MINVAL(trsolall(:,jk,:))
-!!$      CALL message('', TRIM(message_text))
-!!$      WRITE(message_text,'(a,i3,2E10.3)') 'max/min LW rg net flux  = ',&
-!!$           & jk, MAXVAL (p_lwflxall(:,jk,:)), MINVAL(p_lwflxall(:,jk,:))
-!!$      CALL message('', TRIM(message_text))
-!!$      WRITE(message_text,'(a,i3,2E10.3)') 'max/min LW fg net flux  = ',&
-!!$           & jk, MAXVAL (lwflxall(:,jk,:)), MINVAL(lwflxall(:,jk,:))
-!!$      CALL message('', TRIM(message_text))
-!!$    ENDDO
-!!$  ENDIF
+  ! Finally apply empirical downscaling corrections depending on variations
+  ! in ground temperature and albedo
+
+  ! Start/End block in the parent domain
+  i_startblk = p_gcp%start_blk(grf_fbk_start_c,i_chidx)
+  i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
+
+  pscal = 1._wp/4000._wp ! pressure scale for longwave correction
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jk1,tqv,intclw,intcli,dpresg,pfacswc,pfacswa,     &
+!$OMP            dlwem_o_dtg,swfac1,swfac2,lwfac1,lwfac2,dtrans_o_dalb_clr,dtrans_o_dalb_all,   &
+!$OMP            pfaclw,intqctot,dlwflxclr_o_dtg,dlwflxall_o_dtg,jc1,jc2,jc3,jc4,jb1,jb2,jb3,jb4)
+  DO jb = i_startblk, i_endblk
+
+    CALL get_indices_c(p_pp, jb, i_startblk, i_endblk,                               &
+                       i_startidx, i_endidx, grf_fbk_start_c, min_rlcell_int, i_chidx)
+
+
+    tqv(:)           = 0._wp
+    intclw(:,nlevp1) = 0._wp
+    intcli(:,nlevp1) = 0._wp
+    DO jk = nlev,1,-1
+      jk1 = jk + nshift
+      DO jc = i_startidx, i_endidx
+        dpresg        = (p_pres_ifc(jc,jk1+1,jb) - p_pres_ifc(jc,jk1,jb))/grav
+        tqv(jc)       = tqv(jc)+p_tot_cld(jc,jk1,jb,iqv)*dpresg
+        intclw(jc,jk) = intclw(jc,jk+1)+p_tot_cld(jc,jk1,jb,iqc)*dpresg
+        intcli(jc,jk) = intcli(jc,jk+1)+p_tot_cld(jc,jk1,jb,iqi)*dpresg
+        pfacswc(jc,jk)= 1._wp-0.08_wp*(p_pres_ifc(jc,nlevp1_rg,jb)-p_pres_ifc(jc,jk1,jb))/&
+                        p_pres_ifc(jc,nlevp1_rg,jb)
+        pfacswa(jc,jk)= 1._wp-0.16_wp*(p_pres_ifc(jc,nlevp1_rg,jb)-p_pres_ifc(jc,jk1,jb))/&
+                        p_pres_ifc(jc,nlevp1_rg,jb)
+      ENDDO
+    ENDDO
+
+    DO jc = i_startidx, i_endidx
+      dlwem_o_dtg(jc) = zrg_aux3d(jc,iemis,jb)*4._wp*stbo*zrg_aux3d(jc,itsfc,jb)**3
+      swfac1(jc) = (MAX(1.e-3_wp,p_trsolall(jc,nlevp1_rg,jb))/           &
+                    MAX(1.e-3_wp,p_trsolclr(jc,nlevp1_rg,jb)) )**0.36_wp
+      swfac2(jc) =  MAX(0.25_wp,3._wp*zrg_aux3d(jc,icosmu0,jb))**0.1_wp
+      IF (tqv(jc) > 15._wp) then
+        lwfac1(jc) = 1.677_wp*MAX(1._wp,tqv(jc))**(-0.72_wp)
+      ELSE
+        lwfac1(jc) = 0.4388_wp*MAX(1._wp,tqv(jc))**(-0.225_wp)
+      ENDIF
+      lwfac2(jc) = 0.92_wp*MAX(1._wp,tqv(jc))**(-0.07_wp)
+    ENDDO
+
+    DO jk = 1,nlevp1
+      jk1 = jk + nshift
+      DO jc = i_startidx, i_endidx
+        dtrans_o_dalb_clr(jc,jk) = - p_trsolclr(jc,nlevp1_rg,jb)*pfacswc(jc,jk) / &
+                                   ( (1._wp-zrg_aux3d(jc,ialb,jb))*swfac2(jc) )
+        dtrans_o_dalb_all(jc,jk) = - p_trsolall(jc,nlevp1_rg,jb)*pfacswa(jc,jk)*swfac1(jc)/ &
+                                   ( (1._wp-zrg_aux3d(jc,ialb,jb))*swfac2(jc) )
+
+        pfaclw = lwfac1(jc)+(lwfac2(jc)-lwfac1(jc))*EXP(-SQRT((p_pres_ifc(jc,nlevp1_rg,jb)- &
+                 p_pres_ifc(jc,jk1,jb))*pscal))
+        intqctot = MIN(0.30119_wp,MAX(1.008e-3_wp,intclw(jc,jk)+0.2_wp*intcli(jc,jk)))
+
+        dlwflxclr_o_dtg(jc,jk) = -dlwem_o_dtg(jc)*pfaclw
+        dlwflxall_o_dtg(jc,jk) = dlwflxclr_o_dtg(jc,jk)*(1._wp-(6.9_wp+LOG(intqctot))/5.7_wp)
+      ENDDO
+    ENDDO
+
+    ! Now apply the corrections
+#ifdef __LOOP_EXCHANGE
+    DO jc = i_startidx, i_endidx
+      jc1 = iidx(jc,jb,1)
+      jc2 = iidx(jc,jb,2)
+      jc3 = iidx(jc,jb,3)
+      jc4 = iidx(jc,jb,4)
+      jb1 = iblk(jc,jb,1)
+      jb2 = iblk(jc,jb,2)
+      jb3 = iblk(jc,jb,3)
+      jb4 = iblk(jc,jb,4)
+      DO jk = 1,nlevp1
+#else
+!CDIR NOLOOPCHG
+    DO jk = 1,nlevp1
+!CDIR NODEP
+      DO jc = i_startidx, i_endidx
+        jc1 = iidx(jc,jb,1)
+        jc2 = iidx(jc,jb,2)
+        jc3 = iidx(jc,jb,3)
+        jc4 = iidx(jc,jb,4)
+        jb1 = iblk(jc,jb,1)
+        jb2 = iblk(jc,jb,2)
+        jb3 = iblk(jc,jb,3)
+        jb4 = iblk(jc,jb,4)
+#endif
+
+        trsolclr(jc1,jk,jb1) = trsolclr(jc1,jk,jb1) + dtrans_o_dalb_clr(jc,jk)* &
+          ( albvisdif(jc1,jb1) - alb_backintp(jc1,jb1) )
+        trsolclr(jc2,jk,jb2) = trsolclr(jc2,jk,jb2) + dtrans_o_dalb_clr(jc,jk)* &
+          ( albvisdif(jc2,jb2) - alb_backintp(jc2,jb2) )
+        trsolclr(jc3,jk,jb3) = trsolclr(jc3,jk,jb3) + dtrans_o_dalb_clr(jc,jk)* &
+          ( albvisdif(jc3,jb3) - alb_backintp(jc3,jb3) )
+        trsolclr(jc4,jk,jb4) = trsolclr(jc4,jk,jb4) + dtrans_o_dalb_clr(jc,jk)* &
+          ( albvisdif(jc4,jb4) - alb_backintp(jc4,jb4) )
+
+        trsolall(jc1,jk,jb1) = trsolall(jc1,jk,jb1) + dtrans_o_dalb_all(jc,jk)* &
+          ( albvisdif(jc1,jb1) - alb_backintp(jc1,jb1) )
+        trsolall(jc2,jk,jb2) = trsolall(jc2,jk,jb2) + dtrans_o_dalb_all(jc,jk)* &
+          ( albvisdif(jc2,jb2) - alb_backintp(jc2,jb2) )
+        trsolall(jc3,jk,jb3) = trsolall(jc3,jk,jb3) + dtrans_o_dalb_all(jc,jk)* &
+          ( albvisdif(jc3,jb3) - alb_backintp(jc3,jb3) )
+        trsolall(jc4,jk,jb4) = trsolall(jc4,jk,jb4) + dtrans_o_dalb_all(jc,jk)* &
+          ( albvisdif(jc4,jb4) - alb_backintp(jc4,jb4) )
+
+
+        lwflxclr(jc1,jk,jb1) = lwflxclr(jc1,jk,jb1) + dlwflxclr_o_dtg(jc,jk)* &
+          ( tsfc(jc1,jb1) - tsfc_backintp(jc1,jb1) )
+        lwflxclr(jc2,jk,jb2) = lwflxclr(jc2,jk,jb2) + dlwflxclr_o_dtg(jc,jk)* &
+          ( tsfc(jc2,jb2) - tsfc_backintp(jc2,jb2) )
+        lwflxclr(jc3,jk,jb3) = lwflxclr(jc3,jk,jb3) + dlwflxclr_o_dtg(jc,jk)* &
+          ( tsfc(jc3,jb3) - tsfc_backintp(jc3,jb3) )
+        lwflxclr(jc4,jk,jb4) = lwflxclr(jc4,jk,jb4) + dlwflxclr_o_dtg(jc,jk)* &
+          ( tsfc(jc4,jb4) - tsfc_backintp(jc4,jb4) )
+
+        lwflxall(jc1,jk,jb1) = lwflxall(jc1,jk,jb1) + dlwflxall_o_dtg(jc,jk)* &
+          ( tsfc(jc1,jb1) - tsfc_backintp(jc1,jb1) )
+        lwflxall(jc2,jk,jb2) = lwflxall(jc2,jk,jb2) + dlwflxall_o_dtg(jc,jk)* &
+          ( tsfc(jc2,jb2) - tsfc_backintp(jc2,jb2) )
+        lwflxall(jc3,jk,jb3) = lwflxall(jc3,jk,jb3) + dlwflxall_o_dtg(jc,jk)* &
+          ( tsfc(jc3,jb3) - tsfc_backintp(jc3,jb3) )
+        lwflxall(jc4,jk,jb4) = lwflxall(jc4,jk,jb4) + dlwflxall_o_dtg(jc,jk)* &
+          ( tsfc(jc4,jb4) - tsfc_backintp(jc4,jb4) )
+
+      ENDDO
+    ENDDO
+
+  ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
 
   IF (l_parallel .AND. jgp == 0) THEN
-    DEALLOCATE(z_aclcov, z_lwflxclr, z_lwflxall, z_trsolclr, z_trsolall)
+    DEALLOCATE(z_lwflxclr, z_lwflxall, z_trsolclr, z_trsolall, z_pres_ifc, z_tot_cld, zpg_aux3d)
   ENDIF
 
   DEALLOCATE(zrg_aux3d,z_aux3d)
