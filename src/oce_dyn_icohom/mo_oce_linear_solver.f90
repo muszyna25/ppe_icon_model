@@ -183,13 +183,11 @@ INTEGER :: jb, jk, nlen, ndim2
 
 INTEGER :: mnblks, mnpromz
 
-#ifndef NOMPI
-REAL(wp) :: z(SIZE(x,1),SIZE(x,2)) ! needed for global sums
-#endif
-
-#ifdef NOMPI
+!TODO #ifndef NOMPI
+!TODO REAL(wp) :: z(SIZE(x,1),SIZE(x,2)) ! needed for global sums
+!TODO #else
 REAL(wp) :: sum_aux(nblks)
-#endif
+!TODO #endif
 
   INTEGER :: myThreadNo
 !$ INTEGER OMP_GET_THREAD_NUM
@@ -202,9 +200,9 @@ REAL(wp) :: sum_aux(nblks)
    !!
    mnblks = nblks
    mnpromz = npromz
-#ifndef NOMPI
-   z(:,:) = 0.0_wp
-#endif
+!TODO #ifndef NOMPI
+!TODO    z(:,:) = 0.0_wp
+!TODO #endif
    maxiterex = .FALSE.
    ndim2 = SIZE(x,2)
 
@@ -235,7 +233,7 @@ REAL(wp) :: sum_aux(nblks)
 
    IF (PRESENT(preconditioner)) CALL preconditioner(r(:,:))
 
-#ifdef NOMPI
+!TODO #ifdef NOMPI
 !$OMP DO PRIVATE(jb)
      DO jb = 1, mnblks
        IF (jb /= mnblks) THEN
@@ -247,25 +245,25 @@ REAL(wp) :: sum_aux(nblks)
 !$OMP END DO
 
    rn2_aux = SQRT(SUM(sum_aux))
-#else
-!$OMP DO PRIVATE(jb, jk, nlen)
-     DO jb = 1, mnblks
-       IF (jb /= mnblks) THEN
-         nlen = nproma
-       ELSE
-         nlen = mnpromz
-       ENDIF
-       z(1:nlen,jb) = r(1:nlen,jb)*r(1:nlen,jb)
-       DO jk = 2,ndim2
-         z(1:nlen,jb) = z(1:nlen,jb) + r(1:nlen,jb)*r(1:nlen,jb)
-       ENDDO
-! #slo# - 2010-06-16 - Error - routine used for cells and edges as well
-!      WHERE(.NOT.curr_patch%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
-     ENDDO
-!$OMP END DO
-
-   rn2_aux = SQRT(omp_global_sum_array(z))
-#endif
+!TODO #else
+!TODO !$OMP DO PRIVATE(jb, jk, nlen)
+!TODO      DO jb = 1, mnblks
+!TODO        IF (jb /= mnblks) THEN
+!TODO          nlen = nproma
+!TODO        ELSE
+!TODO          nlen = mnpromz
+!TODO        ENDIF
+!TODO        z(1:nlen,jb) = r(1:nlen,jb)*r(1:nlen,jb)
+!TODO        DO jk = 2,ndim2
+!TODO          z(1:nlen,jb) = z(1:nlen,jb) + r(1:nlen,jb)*r(1:nlen,jb)
+!TODO        ENDDO
+!TODO ! #slo# - 2010-06-16 - Error - routine used for cells and edges as well
+!TODO !      WHERE(.NOT.curr_patch%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
+!TODO      ENDDO
+!TODO !$OMP END DO
+!TODO 
+!TODO    rn2_aux = SQRT(omp_global_sum_array(z))
+!TODO #endif
 
    IF (myThreadNo == 0) rn2(1) = rn2_aux
 
@@ -317,7 +315,7 @@ REAL(wp) :: sum_aux(nblks)
 
      gs_orth: DO k = 1, i
 
-#ifdef NOMPI
+!TODO #ifdef NOMPI
 !$OMP DO PRIVATE(jb)
      DO jb = 1, mnblks
        IF (jb /= mnblks) THEN
@@ -329,24 +327,24 @@ REAL(wp) :: sum_aux(nblks)
 !$OMP END DO
 
      h_aux = SUM(sum_aux)
-#else
-!$OMP DO PRIVATE(jb, jk, nlen)
-     DO jb = 1, mnblks
-       IF (jb /= mnblks) THEN
-         nlen = nproma
-       ELSE
-         nlen = mnpromz
-       ENDIF
-       z(1:nlen,jb) = w(1:nlen,jb)*v(1:nlen,jb,k)
-       DO jk = 2,ndim2
-         z(1:nlen,jb) = z(1:nlen,jb) + w(1:nlen,jb)*v(1:nlen,jb,k)
-       ENDDO
-       WHERE(.NOT.curr_patch%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
-     ENDDO
-!$OMP END DO
-
-     h_aux = omp_global_sum_array(z)
-#endif
+!TODO #else
+!TODO !$OMP DO PRIVATE(jb, jk, nlen)
+!TODO      DO jb = 1, mnblks
+!TODO        IF (jb /= mnblks) THEN
+!TODO          nlen = nproma
+!TODO        ELSE
+!TODO          nlen = mnpromz
+!TODO        ENDIF
+!TODO        z(1:nlen,jb) = w(1:nlen,jb)*v(1:nlen,jb,k)
+!TODO        DO jk = 2,ndim2
+!TODO          z(1:nlen,jb) = z(1:nlen,jb) + w(1:nlen,jb)*v(1:nlen,jb,k)
+!TODO        ENDDO
+!TODO        WHERE(.NOT.curr_patch%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
+!TODO      ENDDO
+!TODO !$OMP END DO
+!TODO 
+!TODO      h_aux = omp_global_sum_array(z)
+!TODO #endif
 
      IF (myThreadNo == 0) h(k,i) = h_aux
 
@@ -366,7 +364,7 @@ REAL(wp) :: sum_aux(nblks)
 
      ! 4.3) new element for h
 
-#ifdef NOMPI
+!TODO #ifdef NOMPI
 !$OMP DO PRIVATE(jb)
      DO jb = 1, mnblks
        IF (jb /= mnblks) THEN
@@ -378,24 +376,24 @@ REAL(wp) :: sum_aux(nblks)
 !$OMP END DO
 
      h_aux = SQRT(SUM(sum_aux))
-#else
-!$OMP DO PRIVATE(jb, jk, nlen)
-     DO jb = 1, mnblks
-       IF (jb /= mnblks) THEN
-         nlen = nproma
-       ELSE
-         nlen = mnpromz
-       ENDIF
-       z(1:nlen,jb) = w(1:nlen,jb)*w(1:nlen,jb)
-       DO jk = 2,ndim2
-         z(1:nlen,jb) = z(1:nlen,jb) + w(1:nlen,jb)*w(1:nlen,jb)
-       ENDDO
-       WHERE(.NOT.curr_patch%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
-     ENDDO
-!$OMP END DO
-
-     h_aux = SQRT(omp_global_sum_array(z))
-#endif
+!TODO #else
+!TODO !$OMP DO PRIVATE(jb, jk, nlen)
+!TODO      DO jb = 1, mnblks
+!TODO        IF (jb /= mnblks) THEN
+!TODO          nlen = nproma
+!TODO        ELSE
+!TODO          nlen = mnpromz
+!TODO        ENDIF
+!TODO        z(1:nlen,jb) = w(1:nlen,jb)*w(1:nlen,jb)
+!TODO        DO jk = 2,ndim2
+!TODO          z(1:nlen,jb) = z(1:nlen,jb) + w(1:nlen,jb)*w(1:nlen,jb)
+!TODO        ENDDO
+!TODO        WHERE(.NOT.curr_patch%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
+!TODO      ENDDO
+!TODO !$OMP END DO
+!TODO 
+!TODO      h_aux = SQRT(omp_global_sum_array(z))
+!TODO #endif
 
      IF (myThreadNo == 0) h(i+1,i) = h_aux
 
