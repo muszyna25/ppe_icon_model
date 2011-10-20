@@ -793,6 +793,7 @@ scripts/postprocessing/tools/PLOT_examples/icon_vectorplots.ncl -text
 scripts/postprocessing/tools/PLOT_examples/vertical_transection.ncl -text
 scripts/postprocessing/tools/README -text
 scripts/postprocessing/tools/Rakefile -text
+scripts/postprocessing/tools/angle-dist.rb -text
 scripts/postprocessing/tools/color_map/testcmapshort.rgb -text
 scripts/postprocessing/tools/exportvars.bash -text
 scripts/postprocessing/tools/globSum-over-time.rb -text
