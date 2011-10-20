@@ -238,15 +238,28 @@ CONTAINS
         &                          rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,1)
       p_sfc_flx%forc_wind_v(:,:) = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,2) + &
         &                          rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,2)
+
+     ! Wind stress boundary condition for vertical diffusion D:
+     !   D = d/dz(K_v*du/dz)  where
+     ! Boundary condition at surface (upper bound of D at center of first layer)
+     !   derived from wind-stress boundary condition Tau read from OMIP data (or elsewhere)
+     !   K_v*du/dz(surf) = F_D = Tau/Rho [ m2/s2 ]
+     ! discretized:
+     !   top_bc_u_c = forc_wind_u / rho_ref
+     !
+     ! This is equivalent to an additonal forcing term F_u in the velocity equation, i.e. outside
+     ! the vertical diffusion, following MITGCM:
+     !   F_u = F_D/dz = Tau / (Rho*dz)  [ m/s2 ]
+
+     ! The devision by rho_ref is done in top_bound_cond_horz_veloc (z_scale)
      
-      ! now done in top_bound_cond_horz_veloc
-      !IF(iswm_oce == 1)THEN
-      !  z_scale = v_base%del_zlev_m(1)*rho_ref
-      !ELSEIF(iswm_oce /= 1)THEN
-      !  z_scale = rho_ref
-      !ENDIF
-      !p_sfc_flx%forc_wind_u=p_sfc_flx%forc_wind_u/z_scale
-      !p_sfc_flx%forc_wind_v=p_sfc_flx%forc_wind_v/z_scale
+   ! IF(iswm_oce == 1)THEN
+   !   z_scale = v_base%del_zlev_m(1)*rho_ref
+   ! ELSEIF(iswm_oce /= 1)THEN
+   !   z_scale = rho_ref
+   ! ENDIF
+   ! p_sfc_flx%forc_wind_u=p_sfc_flx%forc_wind_u/z_scale
+   ! p_sfc_flx%forc_wind_v=p_sfc_flx%forc_wind_v/z_scale
 
     END IF
 
@@ -494,13 +507,16 @@ CONTAINS
     ! #slo# corrected formula: Diffusion
     !   D = d/dz(K_v*dT/dz)  where
     ! Boundary condition at surface (upper bound of D at center of first layer)
-    !   is relaxation to temperature:
-    !   K_v*dT/dz(surf) = -Q_t = -dz/Tau*(T*-T) = dz/Tau*(T-T*)  [K*m/s]
+    !   is relaxation to temperature (tau = relaxation constant [1/s] ):
+    !   K_v*dT/dz(surf) = -Q_T = -dz/tau*(T*-T) = dz/tau*(T-T*)  [ K*m/s ]
     ! discretized:
-    !   top_bc_tracer = forc_tracer = del_zlev_m+h / relax_param[s] * (tracer - forc_tracer_relax)
-
-    !z_relax = relaxation_param/(30.0_wp*24.0_wp*3600.0_wp)
-    !z_relax = v_base%del_zlev_m(1)/(relaxation_param*2.592e6_wp)
+    !   top_bc_tracer = forc_tracer = (del_zlev_m+h) / relax_param[s] * (tracer - forc_tracer_relax)
+    !
+    ! This is equivalent to an additonal forcing term in the tracer equation, i.e. outside
+    ! the vertical diffusion, following MITGCM:
+    !   F_T = Q_T/dz = 1/tau * (T-T*) [ K/s ]
+    ! 
+    ! Mixed boundary conditions (relaxation term plus fluxes) can be included accordingly
 
     DO jb = i_startblk_c, i_endblk_c    
       CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
@@ -536,9 +552,9 @@ CONTAINS
   IF (temperature_relaxation >= 1) THEN
 
     ! Heat flux diagnosed for relaxation cases 
-    !   Q_s = Rho*Cp*Q_t  with density Rho and Cp specific heat capacity
+    !   Q_s = Rho*Cp*Q_T  with density Rho and Cp specific heat capacity
     ! where
-    !   K_v*dT/dz(surf) = -Q_t = Q_s/Rho/Cp  [K*m/s]
+    !   K_v*dT/dz(surf) = -Q_T = Q_s/Rho/Cp  [K*m/s]
     ! see below
 
     p_sfc_flx%forc_hflx(:,:) = p_sfc_flx%forc_tracer(:,:,1) * rho_ref * cw
@@ -560,8 +576,8 @@ CONTAINS
     ! Boundary condition at surface (upper bound of D at center of first layer)
     !   is calculated from net surface heat flux Q_s [W/m2]
     !   which is calculated by the atmosphere (coupled) or read from flux file (see above)
-    !   Q_s = Rho*Cp*Q_t  with density Rho and Cp specific heat capacity
-    !   K_v*dT/dz(surf) = -Q_t = Q_s/Rho/Cp  [K*m/s]
+    !   Q_s = Rho*Cp*Q_T  with density Rho and Cp specific heat capacity
+    !   K_v*dT/dz(surf) = -Q_T = Q_s/Rho/Cp  [K*m/s]
     ! discretized:
     !   top_bc_tracer = forc_tracer = forc_hflx / (rho_ref*cw)
 
