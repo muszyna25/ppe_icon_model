@@ -467,12 +467,11 @@ SUBROUTINE upscale_rad_input(p_patch, p_par_patch, p_par_grf,            &
       DO jc = i_startidx, i_endidx
         p_pres_ifc(jc,1,jb) = 0._wp ! TOA
         p_pres(jc,1,jb) = 0.5_wp*p_pres_ifc(jc,2,jb)
-        ! Temperature and ozone are linearly extrapolated to the barycenter of the passive layer
+        ! Temperature is linearly extrapolated to the barycenter of the passive layer
         p_temp(jc,1,jb) = p_temp(jc,2,jb) + (scalfac*p_temp(jc,2,jb)+exdist)* &
           MIN(4.e-3_wp,MAX(-6.5e-3_wp,rdelta_z*(p_temp(jc,2,jb)-p_temp(jc,3,jb))))
-        p_q_o3(jc,1,jb) = p_q_o3(jc,2,jb) + (scalfac*p_temp(jc,2,jb)+exdist)* &
-          rdelta_z*(p_q_o3(jc,2,jb)-p_q_o3(jc,3,jb))
-        ! For aerosols and cloud fields, a no-gradient condition is assumed
+        ! For ozone, aerosols and cloud fields, a no-gradient condition is assumed
+        p_q_o3(jc,1,jb) = p_q_o3(jc,2,jb)
         p_aeq1(jc,1,jb) = p_aeq1(jc,2,jb)
         p_aeq2(jc,1,jb) = p_aeq2(jc,2,jb)
         p_aeq3(jc,1,jb) = p_aeq3(jc,2,jb)
