@@ -424,6 +424,7 @@
 
     ResC@gsnDraw             = False
     ResC@gsnFrame            = False
+    if (vecColByLen) then
       vc = gsn_csm_vector_scalar(wks,uvar,vvar,velocity,ResC2)
     else
       vc = gsn_csm_vector(wks,uvar,vvar,ResC2)
