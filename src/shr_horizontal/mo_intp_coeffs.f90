@@ -2977,7 +2977,7 @@ END SUBROUTINE complete_patchinfo
         z_nx(:) = ptr_patch%edges%primal_cart_normal(je,jb)%x(:)
 
         ! transform dual normal to cartesian vector z_ny
-        z_ny(:) = ptr_patch%edges%primal_cart_normal(je,jb)%x(:)
+        z_ny(:) = ptr_patch%edges%dual_cart_normal(je,jb)%x(:)
 
         ! for each of the 4 rhomboidal edges transform normal and tangential
         ! unit vectors into cartesian system. Then compute dot product
