@@ -106,15 +106,15 @@ TYPE t_sfc_flx
 
 ! The forcing is specified as fluxes at the air-sea interface defined on cell-centers
 ! dimension: (nproma, nblks_c)
-  REAL(wp), POINTER ::              &
-    &  forc_wind_u(:,:),            & !forcing of zonal component of velocity equation,
-    &  forc_wind_v(:,:),            & !forcing of meridional component of velocity equation,
-    &  forc_hflx(:,:),              & !forcing of temperature tracer with surface heat flux [W/m2]
-    &  forc_fwfx(:,:),              & !forcing of salinity tracer with surface freshwater flux [m/s]
-    &  forc_tracer(:,:,:),          & !tracer flux. Last index refers to tracer id (1=heat, 2=fresh-water flux)
-    &  forc_tracer_relax(:,:,:)       !tracer relaxation: contains data to which is relaxated. e.g. climatology. 
-                                      !Last index refers to tracer id (1=temperature, 2=salinity)
-  TYPE(t_cartesian_coordinates),    & !wind forcing with cartesian vector, located at cell centers
+  REAL(wp), POINTER ::       &
+    &  forc_wind_u(:,:),     & !forcing of zonal component of velocity equation,
+    &  forc_wind_v(:,:),     & !forcing of meridional component of velocity equation,
+    &  forc_hflx(:,:),       & !forcing of temperature tracer with surface heat flux [W/m2]
+    &  forc_fwfx(:,:),       & !forcing of salinity tracer with surface freshwater flux [m/s]
+    &  forc_tracer(:,:,:),   & !tracer flux. Last index refers to tracer id (1=heat, 2=fresh-water)
+    &  forc_tracer_relax(:,:,:) !tracer relaxation: contains data to which is relaxated. e.g. clim.
+                                !Last index refers to tracer id (1=temperature, 2=salinity)
+  TYPE(t_cartesian_coordinates), & !wind forcing with cartesian vector, located at cell centers
   & ALLOCATABLE :: forc_wind_cc(:,:) 
 
 END TYPE t_sfc_flx
@@ -170,15 +170,15 @@ TYPE t_atmos_fluxes
 
   INTEGER ::     counter
 
-  REAL(wp), ALLOCATABLE ::          &
-    &  forc_wind_u(:,:),            & !forcing of zonal component of velocity equation,
-    &  forc_wind_v(:,:),            & !forcing of meridional component of velocity equation,
-    &  forc_hflx(:,:),              & !forcing of temperature tracer with surface heat flux [W/m2]
-    &  forc_fwfx(:,:),              & !forcing of salinity tracer with surface freshwater flux [m/s]
-    &  forc_tracer(:,:,:),          & !tracer flux. Last index refers to tracer id (1=heat, 2=fresh-water flux)
-    &  forc_tracer_relax(:,:,:)       !tracer relaxation: contains data to which is relaxated. 
-                                      !Last index refers to tracer id (1=temperature, 2=salinity)
-  TYPE(t_cartesian_coordinates),    & !wind forcing with cartesian vector, located at cell centers
+  REAL(wp), ALLOCATABLE ::   &
+    &  forc_wind_u(:,:),     & !forcing of zonal component of velocity equation,
+    &  forc_wind_v(:,:),     & !forcing of meridional component of velocity equation,
+    &  forc_hflx(:,:),       & !forcing of temperature tracer with surface heat flux [W/m2]
+    &  forc_fwfx(:,:),       & !forcing of salinity tracer with surface freshwater flux [m/s]
+    &  forc_tracer(:,:,:),   & !tracer flux. Last index refers to tracer id (1=heat, 2=fresh-water)
+    &  forc_tracer_relax(:,:,:) !tracer relaxation: contains data to which is relaxated. 
+                                !Last index refers to tracer id (1=temperature, 2=salinity)
+  TYPE(t_cartesian_coordinates), & !wind forcing with cartesian vector, located at cell centers
   & ALLOCATABLE :: forc_wind_cc(:,:) 
 
 END TYPE t_atmos_fluxes
@@ -1050,7 +1050,7 @@ SUBROUTINE ice_init( ppatch, p_os, ice) !, Qatm, QatmAve)
   REAL(wp):: Tinterface(nproma,i_no_ice_thick_class, ppatch%nblks_c) ! temperature at snow-ice interface
   REAL(wp):: draft(nproma,i_no_ice_thick_class, ppatch%nblks_c)     ! position of ice-ocean interface below sea level
   
-  INTEGER i,j,k      ! counter for loops
+!  INTEGER i,j,k      ! counter for loops
   CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_sea_ice:ice_init'
   !-------------------------------------------------------------------------
 
@@ -1101,10 +1101,10 @@ END SUBROUTINE ice_init
 !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
 !! Dirk Notz, following MPI-OM. Code transfered to ICON.
 !!
- SUBROUTINE ice_fast(ppatch, p_os,p_as,ice,Qatm,QatmAve)
+ SUBROUTINE ice_fast(ppatch, ice,Qatm,QatmAve)
    TYPE(t_patch),            INTENT(IN)     :: ppatch 
-   TYPE(t_hydro_ocean_state),INTENT(IN)     :: p_os
-   TYPE(t_atmos_for_ocean),  INTENT(IN)     :: p_as
+!   TYPE(t_hydro_ocean_state),INTENT(IN)     :: p_os
+!   TYPE(t_atmos_for_ocean),  INTENT(IN)     :: p_as
    TYPE (t_sea_ice),         INTENT (INOUT) :: ice
    TYPE (t_atmos_fluxes),    INTENT (INOUT) :: Qatm
    TYPE (t_atmos_fluxes),    INTENT (INOUT) :: QatmAve
@@ -1125,10 +1125,10 @@ END SUBROUTINE ice_init
 !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
 !! Dirk Notz, following MPI-OM. Code transfered to ICON.
 !!
- SUBROUTINE ice_slow(ppatch, p_os,p_as,ice, QatmAve, p_sfc_flx)  
+ SUBROUTINE ice_slow(ppatch, p_os,ice, QatmAve, p_sfc_flx)  
    TYPE(t_patch),         INTENT(IN)      :: ppatch 
    TYPE(t_hydro_ocean_state),INTENT(INOUT):: p_os
-   TYPE(t_atmos_for_ocean),INTENT(IN)     :: p_as
+!   TYPE(t_atmos_for_ocean),INTENT(IN)     :: p_as
    TYPE (t_sea_ice),      INTENT (INOUT)  :: ice
 !   TYPE (t_atmos_fluxes), INTENT (INOUT)  :: Qatm
    TYPE (t_atmos_fluxes), INTENT (INOUT)  :: QatmAve
@@ -1137,9 +1137,9 @@ END SUBROUTINE ice_init
 
    CALL ave_fluxes     (ice, QatmAve)
 !   !CALL ice_dynamics   (ice, QatmAve)
-   CALL ice_growth     (ppatch,ice, QatmAve%rpreci, QatmAve%lat)
-   CALL upper_ocean_TS (ppatch,p_os,p_as,ice, QatmAve, p_sfc_flx)
-   CALL new_ice_growth (ppatch,ice, p_os,QatmAve,p_sfc_flx)
+   CALL ice_growth     (ppatch,p_os,ice, QatmAve%rpreci, QatmAve%lat)
+   CALL upper_ocean_TS (ppatch,p_os,ice, QatmAve, p_sfc_flx)
+   CALL new_ice_growth (ppatch,ice, p_os,p_sfc_flx)
 !   CALL ice_advection  (ice)
 !   CALL write_ice(ice,QatmAve,1,ie,je)
    CALL ice_zero       (ice, QatmAve)
@@ -1411,7 +1411,7 @@ isice: &
     K1  (:,:,:)  =  4.0_wp * ki * ks / (ks * hi + 4.0_wp * ki * hs)          ! Eq.  5
     K2  (:,:,:)  =  2.0_wp * ki / hi                                     ! Eq. 10
     D   (:,:,:)  =  1.0_wp / (6.0_wp * dtime * K2 + rhoi*hi*ci)                 
-    iK1B(:,:,:)  =  1.0_wp / (k1 + B)
+    iK1B(:,:,:)  =  1.0_wp / (K1 + B)
 
    ! Set temperature at which surface is fully liquid
     WHERE (hs(:,:,:) > 1e-6_wp) 
@@ -1432,13 +1432,13 @@ isice: &
 
 
     WHERE ( Tsurf(:,:,:) > Tsurfm(:,:,:) ) 
-      A1           (:,:,:)  =  A1a + k1                              ! Eq. 19
-      B1           (:,:,:)  =  B1a - k1*Tsurfm                       ! Eq. 20
+      A1           (:,:,:)  =  A1a + K1                              ! Eq. 19
+      B1           (:,:,:)  =  B1a - K1*Tsurfm                       ! Eq. 20
       T1           (:,:,:)  =  -(B1 + SQRT(B1*B1-4.0_wp*A1*C1)) / (2.0_wp*A1)  ! Eq. 21
       Tsurf        (:,:,:)  =  Tsurfm                               
       ! Sum up heatfluxes available for melting at ice surface for each
       ! atmopheric time step. ice%Qtop will be averaged in ave_fluxes
-      ice%Qtop     (:,:,:)  =  ice% Qtop + k1*(T1-Tsurf) - (A + B*Tsurf)! Eq. 22
+      ice%Qtop     (:,:,:)  =  ice% Qtop + K1*(T1-Tsurf) - (A + B*Tsurf)! Eq. 22
     END WHERE
    
    
@@ -1476,8 +1476,9 @@ END SUBROUTINE set_ice_temp
 !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
 !! Dirk Notz, following MPI-OM. Code transfered to ICON.
 !!
-SUBROUTINE ice_growth(ppatch, ice, rpreci, lat)
+SUBROUTINE ice_growth(ppatch, p_os, ice, rpreci, lat)
  TYPE(t_patch),    INTENT(IN)     :: ppatch 
+  TYPE(t_hydro_ocean_state),INTENT(IN):: p_os
   TYPE (t_sea_ice),INTENT (INOUT) :: ice
   REAL(wp),        INTENT (IN )   :: rpreci(:,:) ! water equiv. solid 
                                                  ! precipitation rate [m/s] DIMENSION (ie,je),
@@ -1513,8 +1514,11 @@ SUBROUTINE ice_growth(ppatch, ice, rpreci, lat)
     T1,          & ! temperature of upper ice+snow layer               [�C]
     T2             ! temperature of lower ice      layer               [�C]
  
-  INTEGER i,j,k
-  delh2=0
+  INTEGER k
+  !REAL(wp),POINTER :: sst(:,:)
+
+  delh2=0._wp
+  !sst =>p_os%p_prog(nold(1))%tracer(:,1,:,1)
 !  !-------------------------------------------------------------------------------
   ! Calculate snow fall and create array split into ice categories
   new_snow3d (:,1,:)   = rpreci (:,:) * dtime * rhow / rhos 
@@ -1529,6 +1533,11 @@ SUBROUTINE ice_growth(ppatch, ice, rpreci, lat)
   !                            (tho(i,j,1)-Tf) * ice%zUnderIce(i,j) * cw*rhow/dt
   !   tho           (i,j,1) = Tf
   !END FORALL
+  ! The fluxes needed to bring the ocean to the freezing point are calculated in new_ice_growth
+!  DO k=1,i_no_ice_thick_class
+!    WHERE (ice%isice(:,k,:)) &
+!      &   ice%Qbot(:,k,:) = ice%Qbot(:,k,:) + ( sst - Tf ) * ice%zUnderIce * cw*rhow/dtime
+!  END DO
  
     hi                (:,:,:) = ice%   hi
     hs                (:,:,:) = ice%   hs
@@ -1559,14 +1568,17 @@ SUBROUTINE ice_growth(ppatch, ice, rpreci, lat)
     
     ! 2. Bottom ice-growth  (maybe add frazil ice?)
 
+    ! #eoo# Eqns. 24, 27--29 and 31--36 appear to be missing rhoi or rhos to get the proper units
+    ! for Delta h. But these are included in this program
     WHERE (Qbot < 0.0_wp) 
-      delh2(:,:,:)  = Qbot * dtime / (rhoi * (ci * (Tf + muS) - Lfreez))  ! Eq. 24
-      T2   (:,:,:)  = (delh2*Tf + h2 * T2) / (delh2 + h2)                  ! Eq. 25
+      delh2(:,:,:)  = Qbot * dtime / (rhoi * (ci * (Tf + muS) - Lfreez))  ! Eq. 24 & 25
+      T2   (:,:,:)  = (delh2*Tf + h2 * T2) / (delh2 + h2)                 ! Eq. 26
       h2   (:,:,:)  = h2 + delh2
     END WHERE
 
     ! Now mass decreasing changes. 
     ! 1. Evaporation
+    ! #eoo# Not in Winton - does this count the latent fluxes twice?
 
     subli(:,:,:) = lat  / Lsub * dtime;    ![kg/m�]
     WHERE     (subli <= hs*rhos )         
@@ -1589,7 +1601,7 @@ SUBROUTINE ice_growth(ppatch, ice, rpreci, lat)
    ! 2. surface ablation (if any) 
 
     E1(:,:,:) = ci * ( T1+muS ) - Lfreez*(1.0_wp+muS/T1)   ! Eq.  1 (energy upper layer) 
-    E2(:,:,:) = ci * (T2+muS)   - Lfreez                   ! Eq. 25 (energy lower layer), originally L instead of Lfreez
+    E2(:,:,:) = ci * ( T2+muS ) - Lfreez                   ! Eq. 25 (energy lower layer), originally L instead of Lfreez
     C1(:,:,:) = Lfreez  * rhos * hs
     C2(:,:,:) = E1 * rhoi * h1
     C3(:,:,:) = E2 * rhoi * h2
@@ -1715,10 +1727,10 @@ END SUBROUTINE ice_growth
 !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
 !! Dirk Notz, following MPI-OM. Code transfered to ICON.
 !!
-SUBROUTINE upper_ocean_TS(ppatch, p_os,p_as,ice, QatmAve, p_sfc_flx)
+SUBROUTINE upper_ocean_TS(ppatch, p_os,ice, QatmAve, p_sfc_flx)
   TYPE(t_patch),       INTENT(IN)     :: ppatch 
   TYPE(t_hydro_ocean_state),INTENT(INOUT):: p_os
-  TYPE(t_atmos_for_ocean),INTENT(IN)  :: p_as
+!  TYPE(t_atmos_for_ocean),INTENT(IN)  :: p_as
   TYPE(t_sea_ice),     INTENT (INOUT) :: ice
   TYPE(t_atmos_fluxes),INTENT (INOUT) :: QatmAve
   TYPE(t_sfc_flx),     INTENT (INOUT) :: p_sfc_flx
@@ -1743,6 +1755,7 @@ SUBROUTINE upper_ocean_TS(ppatch, p_os,p_as,ice, QatmAve, p_sfc_flx)
    REAL(wp),POINTER :: sao_top(:,:)
 !  !-------------------------------------------------------------------------------
 
+! #eoo# What is swsum?
   swsum = 0.0_wp
   sao_top =>p_os%p_prog(nold(1))%tracer(:,1,:,2)
 
@@ -1814,11 +1827,13 @@ END SUBROUTINE upper_ocean_TS
 !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
 !! Dirk Notz, following MPI-OM. Code transfered to ICON.
 !!
-SUBROUTINE new_ice_growth(ppatch,ice, p_os, QatmAve,p_sfc_flx)
+! TODO: This needs to be rewritten to take in to account cases where the ice concentration can vary
+! between 0 and 1
+SUBROUTINE new_ice_growth(ppatch,ice, p_os,p_sfc_flx)
   TYPE(t_patch),                INTENT(IN) :: ppatch 
   TYPE (t_sea_ice),         INTENT (INOUT) :: ice  
   TYPE(t_hydro_ocean_state),INTENT(INOUT)  :: p_os
-  TYPE (t_atmos_fluxes),    INTENT (IN   ) :: QatmAve
+!  TYPE (t_atmos_fluxes),    INTENT (IN   ) :: QatmAve
   TYPE(t_sfc_flx),     INTENT (INOUT) :: p_sfc_flx
 
   REAL(wp), DIMENSION (nproma,ppatch%nblks_c) :: sst
@@ -1834,12 +1849,24 @@ SUBROUTINE new_ice_growth(ppatch,ice, p_os, QatmAve,p_sfc_flx)
     p_sfc_flx%forc_tracer(:,:,1) = &
       &     ice%zUnderIce * ( Tf - p_os%p_prog(nold(1))%tracer(:,1,:,1) ) / dtime
   END WHERE
+
+  ! Add heat flux required to bring the ocean surface to the freezing point (this energy is used to
+  ! melt ice in ice_growth)
+!  WHERE (ANY(ice%isice,2) .AND. sst > Tf) &
+!    &   p_sfc_flx%forc_tracer(:,:,1) = &
+!    &         ice%zUnderIce * ( Tf - p_os%p_prog(nold(1))%tracer(:,1,:,1) ) / dtime
+!
   WHERE(ice%newice>0.0_wp)
+    WHERE(.NOT.ice%isice(:,1,:))
+      ice%Tsurf(:,1,:) = Tf
+      ice%T2   (:,1,:) = Tf
+      ice%T1   (:,1,:) = Tf
+    ENDWHERE
     ice % isice(:,1,:) = .TRUE.
     ice % hi   (:,1,:) = ice%newice* (1.0_wp-sum(ice%conc,2))&
                        &+ice%hi(:,1,:)*sum(ice%conc,2)
      !ice % hs   (:,:,1) = 0
-     ice % Tsurf(:,1,:) = p_os%p_prog(nold(1))%tracer(:,1,:,1)
+!     ice % Tsurf(:,1,:) = p_os%p_prog(nold(1))%tracer(:,1,:,1)
 !!!!!!!!!!!DIRK: Where is rhs coming from ???????????????
 
 !     ice % T1   (:,:,1) = T1(:,:,1)
@@ -1990,7 +2017,7 @@ END SUBROUTINE new_ice_growth
           z_dragl    (jc,jb) = MAX (0.5e-3_wp, 1.0e-3_wp * (0.8195_wp+0.0506_wp*z_fu10lim(jc,jb) &
                              & -0.0009_wp*z_fu10lim(jc,jb) * z_fu10lim(jc,jb)) + z_dragl1(jc,jb) &
                              & * (z_Tsurf(jc,jb)-p_as%tafo(jc,jb)) )
-          z_drags    (jc,jb) = 0.96_wp * z_dragl(jc,jb)
+          z_drags    (jc,jb) = 0.95_wp * z_dragl(jc,jb)
 
           Qatm%LWout (jc,i,jb) = emiss*StefBol * (z_Tsurf(jc,jb)+273.15_wp)**4
           Qatm%LWnet (jc,i,jb) = Qatm%LWin(jc,jb) - Qatm%LWout(jc,i,jb)
@@ -2000,7 +2027,7 @@ END SUBROUTINE new_ice_growth
           Qatm%lat   (jc,i,jb) = z_dragl(jc,jb) * z_rhoair(jc,jb)* Lfreez *p_as%fu10(jc,jb)&
                                & * (z_sphumida(jc,jb)-z_sphumidi(jc,jb))*fr_fac
     
-          Qatm%dsensdT(jc,i,jb)= 0.96_wp*z_dragl1(jc,jb)*z_drags(jc,jb)*z_rhoair(jc,jb)&
+          Qatm%dsensdT(jc,i,jb)= 0.95_wp*z_dragl1(jc,jb)*z_drags(jc,jb)*z_rhoair(jc,jb)&
                                & *cpa * p_as%fu10(jc,jb)       &
                                & * (p_as%tafo(jc,jb) - z_Tsurf(jc,jb)) *  fr_fac &
                                & -z_drags(jc,jb)*z_rhoair(jc,jb) *cpa*p_as%fu10(jc,jb)
