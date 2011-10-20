@@ -58,6 +58,7 @@ MODULE mo_ha_2tl_si
   USE mo_ha_2tl_si_solver,    ONLY: solver
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_sync,                ONLY: SYNC_C, SYNC_E, sync_patch_array
+  USE mo_timer,               ONLY: ltimer, timer_start, timer_stop, timer_step_2tl_si
 
   IMPLICIT NONE
 
@@ -125,6 +126,7 @@ MODULE mo_ha_2tl_si
   CHARACTER(LEN=MAX_CHAR_LENGTH) :: string
 
 !----------------------------------------------------------------------------
+   IF (ltimer) CALL timer_start(timer_step_2tl_si)
 
    nblks_c   = p_patch%nblks_int_c
    nblks_e   = p_patch%nblks_int_e
@@ -274,6 +276,7 @@ MODULE mo_ha_2tl_si
   ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
+  IF (ltimer) CALL timer_stop(timer_step_2tl_si)
 
   END SUBROUTINE step_2tl_si
 

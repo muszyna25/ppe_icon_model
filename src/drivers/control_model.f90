@@ -50,7 +50,7 @@ PROGRAM control_model
   USE mo_io_units,            ONLY: filename_max
 !$ USE mo_exception,          ONLY: message_text, message     ! use only if compiled with OpenMP
 
-  USE mo_mpi,                 ONLY: start_mpi , p_stop
+  USE mo_mpi,                 ONLY: start_mpi , p_stop, my_process_is_stdio
 
   USE mo_atmo_model,          ONLY: atmo_model
   USE mo_ocean_model,         ONLY: ocean_model
@@ -136,6 +136,13 @@ PROGRAM control_model
   END SELECT
       
   IF ( is_coupled_run() ) CALL ICON_cpl_finalize
+
+  ! write the control.status file
+  IF (my_process_is_stdio()) THEN
+    OPEN (500, FILE="finish.status",STATUS="NEW")
+    WRITE(500,*) "OK"
+    CLOSE(500)    
+  END IF
 
   ! Shut down MPI
   !

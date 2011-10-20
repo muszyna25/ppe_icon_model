@@ -112,7 +112,7 @@ USE mo_interpolation,      ONLY: t_int_state, cells2edges_scalar
 USE mo_model_domain,       ONLY: t_patch
 USE mo_nonhydrostatic_config,   ONLY: upstr_beta
 USE mo_parallel_config,  ONLY: nproma
-USE mo_run_config,         ONLY: ltimer
+USE mo_run_config,         ONLY: ltimer, timers_level
 USE mo_exception,          ONLY: finish
 USE mo_timer,              ONLY: timer_start, timer_stop, timer_grad
 USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
@@ -235,7 +235,7 @@ i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 !  loop through all patch edges (and blocks)
 !
 
-IF (ltimer) CALL timer_start(timer_grad)
+IF (timers_level > 5) CALL timer_start(timer_grad)
 
 !$OMP PARALLEL
 ! The special treatment of 2D fields is essential for efficiency on the NEC
@@ -361,7 +361,7 @@ END DO
 END SELECT
 !$OMP END PARALLEL
 
-IF(ltimer) CALL timer_stop(timer_grad)
+IF (timers_level > 5) CALL timer_stop(timer_grad)
 
 
 END SUBROUTINE grad_fd_norm

@@ -53,7 +53,7 @@ MODULE mo_ha_stepping
   USE mo_io_config,           ONLY: l_outputtime, lprepare_output, l_diagtime,  &
                                   & is_checkpoint_time
   USE mo_run_config,          ONLY: nsteps, dtime, ntracer,  &
-                                  & ldynamics, ltransport, msg_level, ltimer,   &
+                                  & ldynamics, ltransport, msg_level,   &
                                   & ltestcase
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_ha_testcases,        ONLY: init_testcase
@@ -70,7 +70,7 @@ MODULE mo_ha_stepping
   USE mo_grf_interpolation,   ONLY: t_gridref_state
   USE mo_impl_constants,      ONLY: LEAPFROG_EXPL, LEAPFROG_SI, &
                                     RK4, SSPRK54, MAX_CHAR_LENGTH
-  USE mo_timer,               ONLY: timer_total, timer_start, timer_stop
+  USE mo_timer,               ONLY: ltimer, timer_start, timer_stop, timer_total, timer_intrp_diagn
   USE mo_sync,                ONLY: global_max
   USE mo_vertical_coord_table,ONLY: vct
   USE mo_io_restart,          ONLY: write_restart_info_file
@@ -317,6 +317,8 @@ CONTAINS
     !--------------------------------------------------------------------------
     IF (l_outputtime) THEN
 
+      IF (ltimer) CALL timer_start(timer_intrp_diagn)
+      
       ! Interpolate diagnostic variables to nest boundaries
       IF (n_dom > 1) THEN
         DO jg = 1, n_dom-1
@@ -334,6 +336,8 @@ CONTAINS
       CALL message(TRIM(routine),'Output at:')
       CALL print_datetime(datetime)
       l_have_output = .TRUE.
+      
+      IF (ltimer) CALL timer_stop(timer_intrp_diagn)
 
     ENDIF !l_outputtime
 

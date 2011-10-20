@@ -104,7 +104,7 @@ MODULE mo_ha_rungekutta
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_loopindices,      ONLY: get_indices_c, get_indices_e
   USE mo_timer,            ONLY: ltimer, timer_start, timer_stop,&
-    & timer_RK_tend, timer_RK_update
+    & timer_RK_tend, timer_RK_update, timer_step_RK
 
   IMPLICIT NONE
 
@@ -320,6 +320,8 @@ CONTAINS
 
    INTEGER :: ii, kk               !< stage indices
 
+
+    IF (ltimer) CALL timer_start(timer_step_RK)
      !--------------------------------------------------------------------------
      ! If tracer transport is on, initialize mass fluxes
 
@@ -424,6 +426,8 @@ CONTAINS
 !$OMP END PARALLEL WORKSHARE
       ENDIF
 
+    IF (ltimer) CALL timer_stop(timer_step_RK)
+    
   END SUBROUTINE step_RungeKutta
 
   !>

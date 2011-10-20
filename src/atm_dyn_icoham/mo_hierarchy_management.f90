@@ -485,7 +485,7 @@ CONTAINS
 
            ENDIF !( iforcing==iheldsuarez )  	
 
-
+          
           ! Dynamical core
           CALL step_2tl_si( ha_dyn_config%si_expl_scheme,    &! in
             &               ha_dyn_config%si_2tls,           &! in

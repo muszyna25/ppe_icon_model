@@ -102,8 +102,17 @@ MODULE mo_timer
   PUBLIC :: timer_si_correction
   PUBLIC :: timer_cube_root
   PUBLIC :: timer_coupling
-  PUBLIC :: timer_RK_tend, timer_RK_update
-  
+  PUBLIC :: timer_RK_tend, timer_RK_update, timer_step_RK
+
+  PUBLIC :: timer_intrp_diagn
+  PUBLIC :: timer_step_2tl_si
+  PUBLIC :: timer_prep_echam_phy
+  PUBLIC :: timer_prep_phy
+  PUBLIC :: timer_prep_tracer_leapfrog
+  PUBLIC :: timer_prep_tracer
+  PUBLIC :: timer_prep_tracer_RK
+  PUBLIC :: timer_hdiff_expl
+     
 !   PUBLIC :: ltimer                              !< if .true., switch on timer
 
   !-------------------
@@ -172,8 +181,17 @@ MODULE mo_timer
   INTEGER :: timer_si_correction
   INTEGER :: timer_cube_root
   INTEGER :: timer_coupling
-  INTEGER :: timer_RK_tend, timer_RK_update
+  INTEGER :: timer_RK_tend, timer_RK_update, timer_step_RK
   
+  INTEGER :: timer_intrp_diagn
+  INTEGER :: timer_step_2tl_si
+  INTEGER :: timer_prep_echam_phy
+  INTEGER :: timer_prep_phy
+  INTEGER :: timer_prep_tracer_leapfrog
+  INTEGER :: timer_prep_tracer
+  INTEGER :: timer_prep_tracer_RK
+  INTEGER :: timer_hdiff_expl
+    
   ! Timer ID for optional lon-lat interpolation
   INTEGER :: timer_lonlat_setup
 
@@ -261,6 +279,16 @@ CONTAINS
  
     timer_RK_tend = new_timer("RK_tend")
     timer_RK_update = new_timer("RK_update")
+
+    timer_intrp_diagn = new_timer   ("intrp_diagn")
+    timer_step_2tl_si = new_timer   ("step_2tl_si")
+    timer_step_RK     = new_timer   ("step_RK")
+    timer_prep_echam_phy = new_timer("prep_echam_phy")
+    timer_prep_phy = new_timer      ("prep_phy")
+    timer_prep_tracer = new_timer   ("prep_tracer")
+    timer_prep_tracer_RK = new_timer("prep_tracer_RK")
+    timer_hdiff_expl = new_timer    ("hdiff_expl")
+    timer_prep_tracer_leapfrog = new_timer("prep_trc_leapfrog")
          
     timer_lonlat_setup = new_timer("lonlat_setup")
 

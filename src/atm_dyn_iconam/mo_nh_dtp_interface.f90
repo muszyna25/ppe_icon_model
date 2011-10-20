@@ -53,6 +53,8 @@ MODULE mo_nh_dtp_interface
   USE mo_impl_constants,     ONLY: min_rledge_int, min_rlcell_int, min_rlcell
   USE mo_sync,               ONLY: SYNC_C, sync_patch_array
   USE mo_advection_config,   ONLY: advection_config
+    
+  USE mo_timer,              ONLY: timers_level, timer_start, timer_stop, timer_prep_tracer
 
   IMPLICIT NONE
   PRIVATE
@@ -120,6 +122,7 @@ CONTAINS
     INTEGER  :: i_rlstart_e, i_rlend_e, i_rlstart_c, i_rlend_c, i_nchdom
     INTEGER  :: nlev, nlevp1       !< number of full and half levels
   !--------------------------------------------------------------------------
+    IF (timers_level > 2) CALL timer_start(timer_prep_tracer)
 
     ! number of vertical levels
     nlev   = p_patch%nlev
@@ -451,6 +454,8 @@ CONTAINS
    ELSE                 ! no vertical nesting
      p_topflx_tra(:,:,:) = 0._wp
    ENDIF
+    
+   IF (timers_level > 2) CALL timer_stop(timer_prep_tracer)
 
   END SUBROUTINE prepare_tracer
 

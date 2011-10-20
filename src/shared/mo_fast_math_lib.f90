@@ -4,7 +4,35 @@ MODULE mo_fast_math_lib
 
   IMPLICIT NONE
 
-  PUBLIC
+  PRIVATE
+  
+  PUBLIC :: cube_root
+  PUBLIC :: vec_div
+  PUBLIC :: vec_aint
+  PUBLIC :: vec_anint
+  PUBLIC :: vec_exp
+  PUBLIC :: vec_expm1
+  PUBLIC :: vec_log
+  PUBLIC :: vec_logp1
+  PUBLIC :: vec_log10
+  PUBLIC :: vec_pow
+  PUBLIC :: vec_sqrt
+  PUBLIC :: vec_cbrt
+  PUBLIC :: vec_qdrt
+  PUBLIC :: vec_rec
+  PUBLIC :: vec_rsqrt
+  PUBLIC :: vec_rcbrt
+  PUBLIC :: vec_rqdrt
+  PUBLIC :: vec_sincos
+  PUBLIC :: vec_cos
+  PUBLIC :: vec_acos
+  PUBLIC :: vec_cosh
+  PUBLIC :: vec_sin
+  PUBLIC :: vec_asin
+  PUBLIC :: vec_sinh
+  PUBLIC :: vec_tan
+  PUBLIC :: vec_atan2
+  PUBLIC :: vec_tanh
 
   REAL(dp), PARAMETER, PRIVATE :: onethird = 1.0_dp/3.0_dp
   REAL(dp), PARAMETER, PRIVATE :: onefourth = 0.25_dp

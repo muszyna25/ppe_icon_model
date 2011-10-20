@@ -79,6 +79,9 @@ MODULE mo_hdiff
   USE mo_grf_interpolation,   ONLY: denom_diffu_v, denom_diffu_t, grf_intmethod_c
   USE mo_sync,                ONLY: SYNC_C, SYNC_E, sync_patch_array
   USE mo_physical_constants,  ONLY: cpd, re
+  USE mo_timer,               ONLY: ltimer, timer_start, timer_stop, timer_hdiff_expl
+
+  
 
   IMPLICIT NONE
 
@@ -164,6 +167,7 @@ MODULE mo_hdiff
 
      LOGICAL :: ltheta_dyn
 
+    IF (ltimer) CALL timer_start(timer_hdiff_expl)
 !--------------------------------------------------------------------
 !
     i_nchdom   = MAX(1,pt_patch%n_childdom)
@@ -232,9 +236,13 @@ MODULE mo_hdiff
 #ifdef __SX__
 !CDIR UNROLL=6
 #endif
+#ifdef __LOOP_EXCHANGE
+           DO je = i_startidx, i_endidx
+             DO jk = 1, nlev           
+#else
            DO jk = 1, nlev
              DO je = i_startidx, i_endidx
-
+#endif
                dvn_cell = pt_diag%u(ici(je,jb,1),jk,icb(je,jb,1)) * &
                           pt_patch%edges%primal_normal_cell(je,jb,1)%v1 + &
                           pt_diag%v(ici(je,jb,1),jk,icb(je,jb,1)) * &
@@ -625,8 +633,14 @@ MODULE mo_hdiff
          DO jb = i_startblk, i_endblk
            CALL get_indices_e(pt_patch, jb, i_startblk, i_endblk, &
            &                  i_startidx, i_endidx, 3, min_rledge)
+
+#ifdef __LOOP_EXCHANGE
+           DO je = i_startidx, i_endidx
+             DO jk = 1, nlev           
+#else
            DO jk = 1, nlev
              DO je = i_startidx, i_endidx
+#endif
                ! d) Shear deformation at vertices
                z_shear_def_1(je,jk,jb) = &
                &(pt_int%shear_def_v1(1,je,jb)*pt_new%vn(it1i(1,je,jb),jk,it1b(1,je,jb)) &
@@ -688,8 +702,14 @@ MODULE mo_hdiff
          DO jb = i_startblk,i_endblk
            CALL get_indices_e(pt_patch, jb, i_startblk, i_endblk, &
            &                  i_startidx, i_endidx, 3, min_rledge)
+           
+#ifdef __LOOP_EXCHANGE
+           DO je = i_startidx, i_endidx
+             DO jk = 1, nlev           
+#else
            DO jk = 1, nlev
              DO je = i_startidx, i_endidx
+#endif
                ! h) turbulent fluxes
                z_turb_flx_c1(je,jk,jb) = &
                &    -pt_diag%delp_c(ici(je,jb,1),jk,icb(je,jb,1)) &
@@ -726,9 +746,13 @@ MODULE mo_hdiff
            &                  i_startidx, i_endidx, 2, min_rlcell)
              z_fric_heat_c(:,:,jb)=0.0_wp
              DO je = 1, 6
+#ifdef __LOOP_EXCHANGE
+              DO jc = i_startidx,i_endidx
+                 DO jk = 1, nlev
+#else
                DO jk = 1, nlev
                  DO jc = i_startidx,i_endidx
-
+#endif
                    IF (je > pt_patch%cells%num_edges(jc,jb)) CYCLE
 
                    zhelp = pt_patch%edges%system_orientation(icei(jc,jb,je),iceb(jc,jb,je)) &
@@ -751,9 +775,14 @@ MODULE mo_hdiff
            DO jb = i_startblk,i_endblk
            CALL get_indices_v(pt_patch, jb, i_startblk, i_endblk, &
            &                  i_startidx, i_endidx, 2, min_rlvert)
+
+#ifdef __LOOP_EXCHANGE
+             DO jv = i_startidx, i_endidx
+               DO jk = 1, nlev
+#else
              DO jk = 1, nlev
                DO jv = i_startidx, i_endidx
-
+#endif
                  ! j) frictional heating at vertices
                  z_fric_heat_v(jv,jk,jb) = 0.5_wp* (&
                  & ((pt_patch%verts%edge_orientation(jv,jb,1)+1.0_wp) &
@@ -787,8 +816,14 @@ MODULE mo_hdiff
          DO jb = i_startblk,i_endblk
            CALL get_indices_e(pt_patch, jb, i_startblk, i_endblk, &
            &                  i_startidx, i_endidx, 3, min_rledge)
+
+#ifdef __LOOP_EXCHANGE
+           DO je = i_startidx,i_endidx
+             DO jk = 1, nlev
+#else
            DO jk = 1, nlev
              DO je = i_startidx,i_endidx
+#endif
                ! k) Tendencies to the velocity components
                pt_new%vn(je,jk,jb) = pt_new%vn(je,jk,jb) - dtime  &
                & *((z_turb_flx_c2(je,jk,jb)- z_turb_flx_c1(je,jk,jb)) &
@@ -1210,6 +1245,8 @@ MODULE mo_hdiff
      ELSE
         CALL sync_patch_array(SYNC_C, pt_patch, pt_new%temp)
      ENDIF
+    
+    IF (ltimer) CALL timer_stop(timer_hdiff_expl)
 
   END SUBROUTINE hdiff_expl
 

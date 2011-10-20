@@ -55,6 +55,11 @@ MODULE mo_ha_dtp_interface
   USE mo_physical_constants, ONLY: rd_o_cpd, p0ref
   USE mo_sync,               ONLY: SYNC_E, SYNC_V, sync_patch_array
   USE mo_impl_constants,     ONLY: TWO_TL_SI
+  USE mo_timer,              ONLY: ltimer, timers_level, timer_start, timer_stop, &
+    & timer_prep_echam_phy, timer_prep_phy, timer_prep_tracer_leapfrog, timer_prep_tracer, &
+    & timer_prep_tracer_RK
+
+  USE mo_fast_math_lib,      ONLY: vec_log, vec_exp
 
   IMPLICIT NONE
   PRIVATE
@@ -68,6 +73,7 @@ MODULE mo_ha_dtp_interface
 
 CONTAINS
 
+  !================================================================
   !>
   !! Diagnose some pressure- and velocity-related quantities
   !! for the tracer transport scheme, under the assumption that
@@ -103,6 +109,7 @@ CONTAINS
     REAL(wp) :: z_delp_me_now (nproma,nlev,  p_patch%nblks_e)
     INTEGER  :: jb, jbs, nblks_e, is, ie
 
+    IF (timers_level > 1) CALL timer_start(timer_prep_tracer_RK)
     ! Diagnose pressure-related quantities of time step n, including
     ! full- and half-level pressure values and layer thickess, all
     ! computed at cell centers (i.e., mass points).
@@ -144,9 +151,12 @@ CONTAINS
                            & p_diag%pres_mc, p_diag%pres_ic, &! out
                            & p_diag%delp_c                   )! out
 
+    IF (timers_level > 1) CALL timer_stop(timer_prep_tracer_RK)
+  
   END SUBROUTINE prepare_tracer_RK
-  !--------
+  !================================================================
 
+  !================================================================
   !>
   !! Diagnose some pressure- and velocity-related quantities
   !! for the tracer transport scheme, under the assumption that
@@ -200,6 +210,7 @@ CONTAINS
     REAL(wp) :: z1ma                       !< 1 - palpha
 
     !---
+    IF (timers_level > 1) CALL timer_start(timer_prep_tracer)
 
     nblks_e  = p_patch%nblks_int_e
     z1ma     = 1._wp - palpha
@@ -302,8 +313,12 @@ CONTAINS
                            & p_diag%pres_mc, p_diag%pres_ic, &! out
                            & p_diag%delp_c                   )! out
 
+    IF (timers_level > 1) CALL timer_start(timer_prep_tracer)
+  
   END SUBROUTINE prepare_tracer
-  !--------
+  !================================================================
+  
+  !================================================================
   !>
   !! Diagnose some pressure- and velocity-related quantities
   !! for the tracer transport scheme, under the assumption that
@@ -334,6 +349,7 @@ CONTAINS
     REAL(wp),INTENT(out) :: p_pres_mc_old (nproma,nlev  ,p_patch%nblks_c)
     REAL(wp),INTENT(out) :: p_pres_ic_old (nproma,nlevp1,p_patch%nblks_c)
 
+    IF (timers_level > 1) CALL timer_start(timer_prep_tracer_leapfrog)
     ! Diagnose pressure-related quantities of time step n-1, including
     ! full- and half-level pressure values and layer thickess, all
     ! computed at cell centers (i.e., mass points).
@@ -357,8 +373,12 @@ CONTAINS
                            & p_diag%pres_mc, p_diag%pres_ic, &! out
                            & p_diag%delp_c                   )! out
 
-  END SUBROUTINE prepare_tracer_leapfrog
-  !--------
+     IF (timers_level > 1) CALL timer_stop(timer_prep_tracer_leapfrog)
+ END SUBROUTINE prepare_tracer_leapfrog
+  !================================================================
+  
+  
+  !================================================================
   !>
   !! Calculate virtual temperature, geopotential and vertical velocity
   !! using the newest values of temperature and horizontal wind.
@@ -390,6 +410,8 @@ CONTAINS
     INTEGER  :: jb          ! loop indices
     INTEGER  :: is,ie,jbs
 
+    IF (timers_level > 1) CALL timer_start(timer_prep_phy)
+    
     nblks_c   = p_patch%nblks_int_c
 
     ! Pressure at half- and full-levels;
@@ -424,8 +446,12 @@ CONTAINS
                      & p_patch, p_int_state,                      &! in
                      & p_diag%wpres_mc                          )  ! inout
 
+    IF (timers_level > 1) CALL timer_stop(timer_prep_phy)
+    
   END SUBROUTINE prepare_physics
-  !--------
+  !================================================================
+  
+  !================================================================
   !>
   !! Calculate virtual temperature, geopotential and vertical velocity
   !! using the newest values of temperature and horizontal wind.
@@ -451,7 +477,13 @@ CONTAINS
     INTEGER :: nblks_c       ! number of blocks for cells / edges
     INTEGER  :: jb           ! loop indices
     INTEGER  :: is,ie,jbs
+    
+#ifdef __xlC__
+    REAL(wp) :: tmp_result(nproma)
+    INTEGER  :: vector_size, vert_layer
+#endif
 
+    IF (timers_level > 1) CALL timer_start(timer_prep_echam_phy)
     !------------
     nblks_c = p_patch%nblks_int_c
 
@@ -470,9 +502,26 @@ CONTAINS
       DO jb = jbs,nblks_c
          CALL get_indices_c( p_patch, jb,jbs,nblks_c, is,ie, 2)
 
+#ifdef __xlC__
+         DO vert_layer = 1, nlev
+         
+           vector_size=ie-is+1
+           CALL vec_log(p_diag%pres_mc(is:ie,vert_layer,jb)/p0ref, tmp_result(is:ie), n=vector_size)
+           tmp_result(is:ie) = rd_o_cpd * tmp_result(is:ie)
+           CALL vec_exp(tmp_result(is:ie),tmp_result(is:ie), n=vector_size)
+           p_prog%temp(is:ie,vert_layer,jb) = &
+             &  p_prog%theta  (is:ie,vert_layer,jb) * &
+             &  p_diag%rdelp_c(is:ie,vert_layer,jb)          * &
+             &  tmp_result(is:ie)
+         ENDDO         
+#else
+ 
          p_prog%temp(is:ie,:,jb) =   p_prog%   theta(is:ie,:,jb) &
 &                                   *p_diag% rdelp_c(is:ie,:,jb) &
 &                  *EXP(rd_o_cpd*LOG(p_diag% pres_mc(is:ie,:,jb)/p0ref))
+
+#endif
+
       ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
@@ -506,8 +555,9 @@ CONTAINS
                              & p_int_state%r_aw_c,         &
                              & p_diag%rel_vort_c   )
     END SELECT
+    IF (timers_level > 1) CALL timer_stop(timer_prep_echam_phy)
 
   END SUBROUTINE prepare_echam_phy
-  !--------
+  !================================================================
 
 END MODULE mo_ha_dtp_interface
