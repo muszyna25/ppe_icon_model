@@ -10,6 +10,7 @@
 # Short description:
 #  - first test version: 1 plot of elevation after 3 days = 12 plot_steps (6-h writing)
 #  - update to exp.hom_lsm_flat for 1 day (2011-06)
+#  - now using "planet" bathymetry, experiment name including bathy-file (2011-10)
 #
 # Software needed:
 # - CDO (Climate Data Operators, www.mpimet.mpg.de/cdo) 
