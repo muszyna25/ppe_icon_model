@@ -34,6 +34,9 @@
 ; mapLLC        : (lon,lat) value array of the Lower Left Corner of the map
 ; mapURC        : (lon,lat) ------- || ------- Upper Right Corner of the map
 ;                  use -180 to 180 for longitude !
+; centerLon     : center longitute for satelite view (default:30.)
+; centerLat     : center latitude for satelite view (default:20.)
+; satDist       : satelite distance (default:20.0)
 ; scaleFactor   : optional scale factor
 ; selMode       : mode for level spacing of the plot:
 ;                  halflog (uses half logarythmic levels,i.e. 1,2,5 per decade), 
@@ -46,8 +49,6 @@
 ; contLevs      : set individual contour levels (not yet)
 ; mapType       : projection type (default: lonlat), other: ortho (not compatible with showGrid), NHps
 ;                  and SHps (polar stereographic projections centered at the north and south pole respectively) 
-; projSat       : projection type Satellite (default: CylindricalEquidistant, not comp. with "ortho"?)
-;                  but compatible with showGrid and mapLLC/URC
 ; mapLine       : (logical) draws continent lines on the plot (foreground/transparent)
 ; maskName      : variable to mask with. maskName is expected NOT to have time dimension
 ;                  'maskName="none"' is same as default (no mask variable)
@@ -377,7 +378,7 @@
 
   setMapVisibility(ResC,mapLine)
 
-  if (DEBUG) showMapInfo(ResC,mapType,projSat,mapLine) end if
+  if (DEBUG) showMapInfo(ResC,mapType,mapLine) end if
 
   ; MAIN PLOT CALLS ===========================================================
   if (plotMode .eq. "vector") then ; vector plot ==============================
