@@ -1159,6 +1159,12 @@ CONTAINS
             ELSE IF (z3d_out(jc,jk,jb) < z3d_in(jc,nlevs_in,jb)) THEN
               l_found(jc) = .TRUE.
               idx0(jc,jk,jb) = nlevs_in
+            ELSE IF (z3d_out(jc,jk,jb) > z3d_in(jc,1,jb)) THEN ! linear extrapolation
+              idx0(jc,jk,jb) = 1
+              wfac(jc,jk,jb) = (z3d_out(jc,jk,jb)-z3d_in(jc,2,jb))/&
+                               (z3d_in(jc,1,jb)-z3d_in(jc,2,jb))
+              bot_idx(jc,jb) = jk
+              l_found(jc) = .TRUE.
             ENDIF
           ENDDO
           IF (ALL(l_found(1:nlen))) THEN
@@ -1366,6 +1372,14 @@ CONTAINS
             ELSE IF (z3d_out(jc,jk,jb) < z3d_in(jc,nlevs_in-1,jb)) THEN
               l_found(jc) = .TRUE.
               idx0(jc,jk,jb) = nlevs_in-1
+            ELSE IF (z3d_out(jc,jk,jb) >  z3d_in(jc,2,jb)) THEN 
+              ! linear interpolation between two upper input levels or extrapolation beyond top level
+              idx0(jc,jk,jb) = 1
+              coef1(jc,jk,jb) = z3d_out(jc,jk,jb)-z3d_in(jc,1,jb)
+              coef2(jc,jk,jb) = 0._wp
+              coef3(jc,jk,jb) = 0._wp
+              bot_idx(jc,jb) = jk
+              l_found(jc) = .TRUE.
             ENDIF
           ENDDO
           IF (ALL(l_found(1:nlen))) THEN
