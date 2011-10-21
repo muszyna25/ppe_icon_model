@@ -43,6 +43,7 @@ blas/dznrm2.f -text
 blas/idamax.f -text
 blas/lsame.f -text
 blas/xerbla.f -text
+/build_ICON_ECMWF -text
 /build_all -text
 /build_command.ecmwf -text
 config/README_compiler_issues -text

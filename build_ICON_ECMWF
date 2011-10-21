@@ -1,0 +1,42 @@
+#!/bin/ksh
+#@ shell         = /usr/bin/ksh
+#@ class         = np
+#@ notification  = never
+#@ job_type      = parallel
+#@ restart       = no
+#@ job_name      = icon_compile
+#@ core_limit    = 4096
+#@ cpu_limit     = 36000,35000
+#@ job_cpu_limit = 35600,34000
+#@ user_priority = 50
+#@ node          = 1
+#@ total_tasks   = 64
+#@ node_usage    = not_shared
+#@ network.MPI   = sn_all,not_shared,US,HIGH
+#@ resources     = ConsumableMemory(780Mb)
+#@ output        = /perm/rd/pao/wq/compile.out.$(jobid)
+#@ error         = /perm/rd/pao/wq/compile.err.$(jobid)
+#@ queue
+
+#-----------------------------------------------------------------------------
+# Compile ICON at ECMWF.
+#
+# * submit: llsubmit build_ICON_ECMWF
+#-----------------------------------------------------------------------------
+
+set -ex
+
+codedir=/perm/rd/pao/icon-dev
+
+#-----------------------------------------------------------------------------
+
+cd $codedir
+module swap fortran fortran/xlf/13.1.0.7
+rm -rf build  #make diskclean or rm -rf build
+./configure --with-openmp
+export LDR_CNTRL=MAXDAT=0xD0000000@DSA
+gmake -j 32
+
+#-----------------------------------------------------------------------------
+
+exit 0
