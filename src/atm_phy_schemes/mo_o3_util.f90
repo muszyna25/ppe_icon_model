@@ -46,7 +46,6 @@ MODULE mo_o3_util
   USE mo_get_utc_date_tr,      ONLY: get_utc_date_tr
   USE mo_parallel_config,      ONLY: nproma
   USE mo_impl_constants,       ONLY: min_rlcell
-  USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_kind,                 ONLY: wp
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_math_constants,       ONLY: pi,deg2rad,rad2deg
@@ -392,8 +391,8 @@ END SUBROUTINE o3_timeint
 
     !     b) inverse Legendre transform
 
-      !in order to account for mesh refinement
-    rl_start = grf_bdywidth_c+1
+    ! nest boudaries have to be included for reduced-grid option
+    rl_start = 1
     rl_end   = min_rlcell
 
     i_startblk = pt_patch%cells%start_blk(rl_start,1)
@@ -1025,8 +1024,8 @@ END SUBROUTINE o3_timeint
       zlat(jl)=(-90._wp+0.5_wp*zlatint+(jl-1)*zlatint)*deg2rad
     ENDDO
     
-    !in order to account for mesh refinement
-    rl_start = grf_bdywidth_c+1
+    ! nest boudaries have to be included for reduced-grid option
+    rl_start = 1
     rl_end   = min_rlcell
 
     i_nchdom  = MAX(1,pt_patch%n_childdom)
