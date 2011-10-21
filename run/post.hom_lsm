@@ -11,7 +11,7 @@
 EXP="test_hom_lsm"
 horizontal_resolution="R2B04"
 vertical_resolution="L4"
-grid_name="iconR2B04-ocean_etopo40_flat"
+grid_name="iconR2B04-ocean_etopo40_planet"
 ExpName="${EXP}_${grid_name}"
 plotBaseName="${EXP}_R2B04L4"
 
