@@ -736,15 +736,15 @@ end
 ;---------------------------------------------------------------
 ; Determine the type of the map
 undef("setMapType")
-procedure setMapType(resource,maptype)
+procedure setMapType(resource,maptype,centerlon,centerlat,satdist)
 begin
   if (maptype .eq. "ortho") then
     resource@mpProjection              = "Orthographic"
     resource@mpPerimOn                 = False;     turn off box around plot
     resource@mpGridAndLimbOn           = True;      draw grid lines and limb line
     resource@mpGridLineDashPattern     = 2;         choose pattern used to draw the grid
-    resource@mpCenterLonF              = -30
-    resource@mpCenterLatF              = 20
+    resource@mpCenterLonF              = centerlon
+    resource@mpCenterLatF              = centerlat
     resource@vcRefLengthF              = 0.01
     resource@vcRefAnnoArrowLineColor   = "black"; change ref vector color
     resource@vcRefAnnoArrowUseVecColor = False;  do not use vec color for ref
@@ -770,21 +770,31 @@ begin
   end if
 
   if (maptype .eq. "NHps")
-    resource@mpProjection         = "Stereographic"
+    resource@mpProjection        = "Stereographic"
     resource@mpRelativeCenterLon = True
-    resource@mpCenterLonF = 0
+    resource@mpCenterLonF        = 0
     resource@mpRelativeCenterLat = True
-    resource@mpCenterLatF = 90. 
-    resource@mpLimitMode          = "Corners"
+    resource@mpCenterLatF        = 90.
+    resource@mpLimitMode         = "Corners"
   end if
 
   if (maptype .eq. "SHps")
-    resource@mpProjection         = "Stereographic"
+    resource@mpProjection        = "Stereographic"
     resource@mpRelativeCenterLon = True
-    resource@mpCenterLonF = 0
+    resource@mpCenterLonF        = 0
     resource@mpRelativeCenterLat = True
-    resource@mpCenterLatF = -90. 
-    resource@mpLimitMode          = "Corners"
+    resource@mpCenterLatF        = -90.
+    resource@mpLimitMode         = "Corners"
+  end if
+  if (maptype .eq. "sat")
+    resource@mpProjection     = "Satellite"
+    resource@mpMinLatF        = resource@mpMinLatF + 10.
+    resource@mpMaxLatF        = resource@mpMaxLatF - 10.
+    resource@mpMinLonF        = resource@mpMinLonF + 10.
+    resource@mpMaxLonF        = resource@mpMaxLonF - 10.
+    resource@mpCenterLonF     = centerlon
+    resource@mpCenterLatF     = centerlat
+    resource@mpSatelliteDistF = satdist
   end if
 end
 ;---------------------------------------------------------------
@@ -810,19 +820,6 @@ begin
   resource@mpLeftCornerLatF = mapllc(1)
   resource@mpRightCornerLonF = mapurc(0)
   resource@mpRightCornerLatF = mapurc(1)
-end
-;---------------------------------------------------------------
-; Display a satelite projection
-undef("setSateliteProj")
-procedure  setSateliteProj(resource,projsat)
-begin
-  if (projsat) then
-    resource@mpProjection = "Satellite"
-    resource@mpMinLatF    = resource@mpMinLatF + 10
-    resource@mpMaxLatF    = resource@mpMaxLatF - 10
-    resource@mpMinLonF    = resource@mpMinLonF + 10
-    resource@mpMaxLonF    = resource@mpMaxLonF - 10
-  end if
 end
 ;---------------------------------------------------------------
 ; Set the visibility of the map
@@ -869,7 +866,6 @@ undef("showMapInfo")
 procedure showMapInfo(resource,maptype,projsat,mapline)
 begin
   print("mapType: "+maptype)
-  print("projSat: "+projsat)
   print("mapLine: "+mapline)
   print("CentLon/Lat="+resource@mpCenterLonF+"; "+resource@mpCenterLatF)
   print("Min/MaxLatF="+resource@mpMinLatF+"; "+resource@mpMaxLatF)

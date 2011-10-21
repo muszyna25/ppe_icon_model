@@ -145,7 +145,9 @@
 
   if (.not.isvar("mapLLC"))       mapLLC       = (/-180.,-90./)  end if
   if (.not.isvar("mapURC"))       mapURC       = (/180.0,90.0/)  end if
-  if (.not.isvar("projSat"))      projSat      = False           end if
+  if (.not.isvar("centerLon"))    centerLon    = -30.            end if
+  if (.not.isvar("centerLat"))    centerLat    =  20.            end if
+  if (.not.isvar("satDist"))      satDist      =  20.            end if
   if (.not.isvar("mapLine"))      mapLine      = True            end if
   if (.not.isvar("resolution"))   resolution   = "r90x45"        end if
   if (.not.isvar("vecRefLength")) vecRefLength = 8.0             end if
@@ -369,11 +371,9 @@
 
   setLevels(selMode,ResC,minVar,maxVar,scaleLimit,numLevs,DEBUG)
 
-  setMapType(ResC,mapType)
+  setMapType(ResC,mapType,centerLon,centerLat,satDist)
 
   selMapCut(ResC,mapLLC,mapURC)
-
-  setSateliteProj(ResC,projSat)
 
   setMapVisibility(ResC,mapLine)
 

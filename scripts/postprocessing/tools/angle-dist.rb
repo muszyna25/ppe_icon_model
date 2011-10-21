@@ -13,9 +13,9 @@ require 'gsl'
 
 d2r       = 45.0/Math.atan(1.0)
 maxDIV    = 1000
-plotSetup = lambda {|title| "-L 'Angle distribution, #{title}' --page-size a4,xsize=20cm,ysize=15cm -f 0.03 -g 3"}
+plotSetup = lambda {|title| "-L 'Angle distribution, #{title}' --bitmap-size 800x600 --page-size a4,xsize=20cm,ysize=15cm -f 0.03 -g 3"}
 plot      = lambda {|hist,title,flag|
-  ['ps','svg'].each {|fmt|
+  ['ps','svg','png'].each {|fmt|
     hist.graph("-C -T #{fmt}  #{title} > #{flag}-angle-dist.#{fmt}")
   }
 }
