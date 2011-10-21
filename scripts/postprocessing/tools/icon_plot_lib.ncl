@@ -524,6 +524,19 @@ begin
     return (/boundslon, boundslat/)
 end
 ;---------------------------------------------------------------
+; Return the bounds of the coordinates of agiven variable
+undef("getBoundsFromFile")
+function getBoundsFromFile(lonname,latname,filename)
+begin
+  f             = addfile(filename,"r")
+  boundslonName = f->$lonname$@bounds
+  boundslatName = f->$latname$@bounds
+  boundslon     = f->$boundslonName$ * RAD2DEG
+  boundslat     = f->$boundslatName$ * RAD2DEG
+
+  return (/boundslon, boundslat/)
+end
+;---------------------------------------------------------------
 ; (Re)Set end of bounds. Required by the implementation of the grid plot
 undef("setBoundsEnds")
 procedure setBoundsEnds(blon,blat,lonmin,lonmax,latmin,latmax)
@@ -1023,9 +1036,8 @@ end
 ;---------------------------------------------------------------
 ; Plot the ICON grid of a variable to the plot.
 undef("plotGrid")
-procedure plotGrid(workstation,plot,variable,x,filehandle,resource,debug)
+procedure plotGrid(workstation,plot,variable,x,bounds,filehandle,resource,debug)
 begin
-  bounds    = getBoundsOfCoordinates(variable,filehandle)
   boundslon = bounds(0,:,:)
   boundslat = bounds(1,:,:)
 

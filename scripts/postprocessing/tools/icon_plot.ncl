@@ -443,8 +443,6 @@
     if (showGrid) then
       print("plotting GRID in overlay mode is not supported")
       exit
-      ;plot_ = plot
-      ;plotGrid(wks,plot_,var,x,File,ResC,DEBUG)
     end if
 
     overlay(plot,vc)
@@ -457,12 +455,22 @@
 
     if (showGrid) then
       if (showPreview) then
-        plotGrid(xwks,preview,var,x,File,ResC,DEBUG)
+        if (isvar("gridFile"))
+  bounds    = getBoundsFromFile(lonCo,latCo,gridFile)
+        else
+  bounds    = getBoundsOfCoordinates(variable,filehandle)
+  end if
+        plotGrid(xwks,preview,var,x,bounds,File,ResC,DEBUG)
         print("#=======================================================")
         print("For reasons of performance, the preview of a grid plot is not written to the output file be default")
         print("Please set 'showPreview=False' on the command line!")
       else
-        plotGrid(wks,plot,var,x,File,ResC,DEBUG)
+        if (isvar("gridFile"))
+  bounds    = getBoundsFromFile(lonCo,latCo,gridFile)
+        else
+  bounds    = getBoundsOfCoordinates(variable,filehandle)
+  end if
+        plotGrid(wks,plot,var,x,bounds,File,ResC,DEBUG)
       end if
     end if
   end if
