@@ -265,6 +265,23 @@ begin
   return (/x,y/)
 end
 ;-------------------------------------------------------------------------------
+; get variable from a certain file
+undef("getVarFromFile")
+function getVarFromFile(varname,filename)
+begin 
+  f = addfile(filename,"r")
+  var = f->$varname$
+  return var
+end
+;-------------------------------------------------------------------------------
+; read a coordinates variable from icon file and return its lonlat representation
+undef("getCoordinateFromFile")
+function getCoordinateFromFile(varname,filename)
+begin
+  var = getVarFromFile(varname,filename)
+  return var*RAD2DEG
+end
+;-------------------------------------------------------------------------------
 ; Create an ascending array of numbers with a 'halflog' interval, i.e. for
 ; every decade the numbers 1, 2 and 5 are present.
 ; Examples:

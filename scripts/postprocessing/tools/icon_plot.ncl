@@ -31,6 +31,7 @@
 ; vecMinDist    : minimal distance between vectors (default:0.017)
 ; timeStep      : no of timestep (default:0)
 ; levIndex      : vertical level index (default:0)
+; minVar/maxVar : set the lower/upper limit of the labelbar
 ; mapLLC        : (lon,lat) value array of the Lower Left Corner of the map
 ; mapURC        : (lon,lat) ------- || ------- Upper Right Corner of the map
 ;                  use -180 to 180 for longitude !
@@ -54,6 +55,8 @@
 ;                  'maskName="none"' is same as default (no mask variable)
 ; maskFile      : optional Filename of the mask variable maskName
 ;                  it's only taken into account, if maskName is given
+; lonCo/latCo   : default coordinate variables (default: clon/clat)
+; gridFile      : use the given file for reading the coordintes (comming from lonCo and latCo)
 ; lStrg         : left string
 ; rStrg         : right string
 ; tStrg         : title string
@@ -156,8 +159,8 @@
   if (.not.isvar("vecMinDist"))   vecMinDist   = 0.017           end if
   if (.not.isvar("secPoints"))    secPoints    = 20              end if
   ; default + optional coordinates
-  if (isvar("lonCo"))             DEFAULTLON   = lonCo           end if
-  if (isvar("latCo"))             DEFAULTLAT   = latCo           end if
+  if (.not.isvar("lonCo"))         lonCo       =  DEFAULTLON     end if
+  if (.not.isvar("latCo"))         latCo       =  DEFAULTLAT     end if
 
   ; mask handling
   if (.not.isvar("maskName"))
@@ -276,9 +279,14 @@
 
     scaleVar(var,scaleFactor)
 
-    lonlats = getLonLats(var,File)
-    x       = lonlats(0,:)
-    y       = lonlats(1,:)
+    if (isvar("gridFile")) then
+      x =  getCoordinateFromFile(lonCo,gridFile)
+      y =  getCoordinateFromFile(latCo,gridFile)
+    else
+      lonlats = getLonLats(var,File)
+      x       = lonlats(0,:)
+      y       = lonlats(1,:)
+    end if
 
     ; set minVar_maxVar for plotting
     if(.not. isvar("minVar")) minVar = min(var) end if
