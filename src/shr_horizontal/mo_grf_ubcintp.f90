@@ -220,6 +220,7 @@ IF (my_process_is_mpi_seq()) THEN
   CALL get_indices_e(ptr_pp, jb, i_startblk, i_endblk, &
     i_startidx, i_endidx, grf_nudgintp_start_e, min_rledge_int, i_chidx)
 
+!CDIR NODEP,VOVERTAKE,VOB
     DO je = i_startidx, i_endidx
       p_vn_out(icheidx(je,jb,1),1,icheblk(je,jb,1)) = vn_aux(je,1,jb,1)
       p_vn_out(icheidx(je,jb,2),1,icheblk(je,jb,2)) = vn_aux(je,1,jb,2)
