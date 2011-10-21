@@ -863,7 +863,7 @@ end
 ;---------------------------------------------------------------
 ; Print out some information about the used map
 undef("showMapInfo")
-procedure showMapInfo(resource,maptype,projsat,mapline)
+procedure showMapInfo(resource,maptype,mapline)
 begin
   print("mapType: "+maptype)
   print("mapLine: "+mapline)
