@@ -43,7 +43,6 @@
 MODULE mo_aerosol_util
 
   USE mo_impl_constants,       ONLY: min_rlcell
-  USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_kind,                 ONLY: wp
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_lrtm_par,             ONLY: jpband => nbndlw
@@ -277,8 +276,8 @@ CONTAINS
  
     i_nchdom  = MAX(1,pt_patch%n_childdom)
 
-    !in order to account for mesh refinement
-    rl_start = grf_bdywidth_c+1
+    ! nest boudaries have to be included for reduced-grid option
+    rl_start = 1
     rl_end   = min_rlcell
 
     i_startblk = pt_patch%cells%start_blk(rl_start,1)
