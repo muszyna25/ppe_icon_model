@@ -139,7 +139,7 @@ PROGRAM control_model
 
   ! write the control.status file
   IF (my_process_is_stdio()) THEN
-    OPEN (500, FILE="finish.status",STATUS="NEW")
+    OPEN (500, FILE="finish.status")
     WRITE(500,*) "OK"
     CLOSE(500)    
   END IF
