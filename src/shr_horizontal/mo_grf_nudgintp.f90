@@ -351,7 +351,7 @@ SUBROUTINE interpol_scal_nudging (ptr_pp, ptr_int, ptr_grf, i_chidx, nshift,    
                                   nfields, istart_blk, f3din1, f3dout1, f3din2,  &
                                   f3dout2, f3din3, f3dout3, f3din4, f3dout4,     &
                                   f3din5, f3dout5, f4din, f4dout,                &
-                                  llimit_nneg, rlimval                           )
+                                  llimit_nneg, rlimval, overshoot_fac            )
 !
 TYPE(t_patch), TARGET, INTENT(in) :: ptr_pp
 
@@ -388,6 +388,9 @@ LOGICAL, INTENT(IN), OPTIONAL :: llimit_nneg(nfields)
 
 ! value to which the variable value is limited
 REAL(wp), INTENT(IN), OPTIONAL :: rlimval(nfields)
+
+! factor up to to which overshooting is allowed
+REAL(wp), INTENT(IN), OPTIONAL :: overshoot_fac
 
 INTEGER :: jb, jk, jc, jn, n         ! loop indices
 INTEGER :: jks                       ! jk + nshift
@@ -467,8 +470,14 @@ ELSE
   r_limval(:) = 0._wp
 ENDIF
 
+! factor of allowed overshooting
+IF (PRESENT(overshoot_fac)) THEN
+  ovsht_fac = overshoot_fac
+ELSE
+  ovsht_fac = 1.05_wp
+ENDIF
+
 epsi = 1.e-75_wp
-ovsht_fac = 1.05_wp ! factor of allowed overshooting
 r_ovsht_fac = 1._wp/ovsht_fac
 
 ! Start and end blocks for which scalar interpolation is needed

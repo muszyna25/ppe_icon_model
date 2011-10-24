@@ -1063,7 +1063,9 @@ CONTAINS
     wrk_p_patch%parent_id = wrk_p_patch_g%parent_id
     wrk_p_patch%parent_child_index = wrk_p_patch_g%parent_child_index
     wrk_p_patch%child_id(:) = wrk_p_patch_g%child_id(:)
+    wrk_p_patch%child_id_list(:) = wrk_p_patch_g%child_id_list(:)
     wrk_p_patch%n_childdom = wrk_p_patch_g%n_childdom
+    wrk_p_patch%n_chd_total = wrk_p_patch_g%n_chd_total
     wrk_p_patch%nlev   = wrk_p_patch_g%nlev
     wrk_p_patch%nlevp1 = wrk_p_patch_g%nlevp1
     wrk_p_patch%nshift = wrk_p_patch_g%nshift

@@ -286,7 +286,7 @@ INTEGER,INTENT(IN) :: nlev, nlevp1
 INTEGER,INTENT(IN) :: num_lev(:), num_levp1(:), nshift(:)
 TYPE(t_patch), TARGET, INTENT(inout) :: p_patch(n_dom_start:)
 
-INTEGER :: jg, jg1, n_chd
+INTEGER :: jg, jg1, n_chd, n_chdc
 INTEGER :: jgp            ! parent patch index
 !INTEGER :: jlev
 
@@ -313,8 +313,11 @@ IF(n_dom_start==0) THEN
   p_patch(0)%parent_id = -1
   p_patch(0)%parent_child_index = 0
   p_patch(0)%n_childdom = 1
+  p_patch(0)%n_chd_total = n_dom
   p_patch(0)%child_id(1) = 1
-
+  DO jg = 1, n_dom
+    p_patch(0)%child_id_list(jg) = jg
+  ENDDO
   p_patch(1)%parent_child_index = 1
 ELSE
   p_patch(1)%parent_child_index = 0
@@ -328,9 +331,7 @@ DO jg = 1, n_dom
     p_patch(jg)%level = start_lev
     p_patch(jg)%parent_id = 0
   ELSE
-    ! Note: the first element of parent_id refers to jg=2
     p_patch(jg)%level = p_patch(dynamics_parent_grid_id(jg))%level + 1
-!     p_patch(jg)%parent_id = parent_id(jg-1)
     p_patch(jg)%parent_id = dynamics_parent_grid_id(jg)
   ENDIF
 
@@ -373,6 +374,27 @@ DO jg = 1, n_dom
   ENDIF
 
 ENDDO
+
+! Set information about total number of child domains (called recursively)
+! and corresponding index lists
+
+! Initialization
+DO jg = 1, n_dom
+  p_patch(jg)%n_chd_total      = 0
+  p_patch(jg)%child_id_list(:) = 0
+ENDDO
+
+DO jg = n_dom, 2, -1
+  jg1 = p_patch(jg)%parent_id
+  n_chd = p_patch(jg1)%n_chd_total 
+  n_chdc = p_patch(jg)%n_chd_total 
+  p_patch(jg1)%child_id_list(n_chd+1) = jg
+  IF (n_chdc > 0) THEN
+    p_patch(jg1)%child_id_list(n_chd+2:n_chd+1+n_chdc) = p_patch(jg)%child_id_list(1:n_chdc)
+  ENDIF
+  p_patch(jg1)%n_chd_total = n_chd+1+n_chdc
+ENDDO
+
 
 DO jg = 1, n_dom
 

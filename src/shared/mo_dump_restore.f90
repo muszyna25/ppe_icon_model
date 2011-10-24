@@ -2142,7 +2142,7 @@ CONTAINS
 
     !---local variables
     INTEGER :: old_mode, i
-    CHARACTER (LEN=80) :: child_id_name
+    CHARACTER (LEN=80) :: child_id_name, child_idl_name
     LOGICAL :: l_dump_lonlat
 
     !-------------------------------------------------------------------------
@@ -2172,6 +2172,7 @@ CONTAINS
     CALL nf(nf_put_att_int(ncid, nf_global, 'patch.parent_child_index', nf_int, 1, &
       &  p%parent_child_index))
     CALL nf(nf_put_att_int(ncid, nf_global, 'patch.n_childdom', nf_int, 1, p%n_childdom))
+    CALL nf(nf_put_att_int(ncid, nf_global, 'patch.n_chd_total', nf_int, 1, p%n_chd_total))
     CALL nf(nf_put_att_int(ncid, nf_global, 'patch.nlev', nf_int, 1, p%nlev))
     CALL nf(nf_put_att_int(ncid, nf_global, 'patch.nlevp1', nf_int, 1, p%nlevp1))
     CALL nf(nf_put_att_int(ncid, nf_global, 'patch.nshift', nf_int, 1, p%nshift))
@@ -2179,6 +2180,10 @@ CONTAINS
     DO i = 1, p%n_childdom
       WRITE(child_id_name,'(a,i0)') 'patch.child_id',i
       CALL nf(nf_put_att_int(ncid, nf_global, child_id_name, nf_int, 1, p%child_id(i)))
+    ENDDO
+    DO i = 1, p%n_chd_total
+      WRITE(child_idl_name,'(a,i0)') 'patch.child_id_list',i
+      CALL nf(nf_put_att_int(ncid, nf_global, child_idl_name, nf_int, 1, p%child_id_list(i)))
     ENDDO
     CALL nf(nf_put_att_int(ncid, nf_global, 'patch.n_proc', nf_int, 1, p%n_proc))
     CALL nf(nf_put_att_int(ncid, nf_global, 'patch.proc0', nf_int, 1, p%proc0))
@@ -2292,7 +2297,9 @@ CONTAINS
     ! - parent_id
     ! - parent_child_index
     ! - n_childdom
+    ! - n_chd_total
     ! - child_id(1:n_childdom)
+    ! - child_id_list(1:n_chd_total)
     ! - max_childdom
     ! All other members are set here, all allocatable arrays must still be unallocated.
 
@@ -2372,8 +2379,8 @@ CONTAINS
 
     TYPE(t_patch), INTENT(inout) :: p_patch(n_dom_start:)
 
-    INTEGER :: jg, jg1, jgp, i, n_chd
-    CHARACTER (LEN=80) :: child_id_name
+    INTEGER :: jg, jg1, jgp, i, n_chd, n_chdc
+    CHARACTER (LEN=80) :: child_id_name, child_idl_name
 
     CALL message ('restore_patches_netcdf','start to restore patches')
 
@@ -2396,7 +2403,11 @@ CONTAINS
       p_patch(0)%parent_id = -1
       p_patch(0)%parent_child_index = 0
       p_patch(0)%n_childdom = 1
+      p_patch(0)%n_chd_total = n_dom
       p_patch(0)%child_id(1) = 1
+      DO jg = 1, n_dom
+        p_patch(0)%child_id_list(jg) = jg
+      ENDDO
 
       p_patch(1)%parent_child_index = 1
     ELSE
@@ -2455,6 +2466,26 @@ CONTAINS
       ENDIF
     ENDDO
 
+    ! Set information about total number of child domains (called recursively)
+    ! and corresponding index lists
+
+    ! Initialization
+    DO jg = 1, n_dom
+      p_patch(jg)%n_chd_total      = 0
+      p_patch(jg)%child_id_list(:) = 0
+    ENDDO
+
+    DO jg = n_dom, 2, -1
+      jg1 = p_patch(jg)%parent_id
+      n_chd = p_patch(jg1)%n_chd_total 
+      n_chdc = p_patch(jg)%n_chd_total 
+      p_patch(jg1)%child_id_list(n_chd+1) = jg
+      IF (n_chdc > 0) THEN
+        p_patch(jg1)%child_id_list(n_chd+2:n_chd+1+n_chdc) = p_patch(jg)%child_id_list(1:n_chdc)
+      ENDIF
+      p_patch(jg1)%n_chd_total = n_chd+1+n_chdc
+    ENDDO
+
     DO jg = 1, n_dom
       ! Set nshift_child in the same way as in domimp_patches
       IF (p_patch(jg)%n_childdom >= 1) THEN
@@ -2492,7 +2523,9 @@ CONTAINS
         p_patch_local_parent(jg)%parent_id    = p_patch(jgp)%parent_id
         p_patch_local_parent(jg)%parent_child_index = p_patch(jgp)%parent_child_index
         p_patch_local_parent(jg)%n_childdom   = p_patch(jgp)%n_childdom
+        p_patch_local_parent(jg)%n_chd_total  = p_patch(jgp)%n_chd_total
         p_patch_local_parent(jg)%child_id(:)  = p_patch(jgp)%child_id(:)
+        p_patch_local_parent(jg)%child_id_list(:) = p_patch(jgp)%child_id_list(:)
         p_patch_local_parent(jg)%max_childdom = p_patch(jgp)%max_childdom
         p_patch_local_parent(jg)%comm   = 0 ! Not needed
         p_patch_local_parent(jg)%rank   = 0 ! Not needed
@@ -2527,10 +2560,15 @@ CONTAINS
       CALL check_att('patch.parent_id', p_patch(jg)%parent_id)
       CALL check_att('patch.parent_child_index', p_patch(jg)%parent_child_index)
       CALL check_att('patch.n_childdom', p_patch(jg)%n_childdom)
+      CALL check_att('patch.n_chd_total', p_patch(jg)%n_chd_total)
 
       DO i = 1, p_patch(jg)%n_childdom
         WRITE(child_id_name,'(a,i0)') 'patch.child_id',i
         CALL check_att(child_id_name, p_patch(jg)%child_id(i))
+      ENDDO
+      DO i = 1, p_patch(jg)%n_chd_total
+        WRITE(child_idl_name,'(a,i0)') 'patch.child_id_list',i
+        CALL check_att(child_idl_name, p_patch(jg)%child_id_list(i))
       ENDDO
 
       CALL check_dim('max_childdom', p_patch(jg)%max_childdom)

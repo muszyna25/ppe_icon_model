@@ -382,7 +382,7 @@ MODULE mo_nh_stepping
   TYPE(t_datetime), INTENT(INOUT)      :: datetime
 
   INTEGER                              :: jfile, jstep, jb, nlen, jg
-  REAL(wp)                             :: vnmax, wmax
+  REAL(wp)                             :: vmax(2)
   REAL(wp)                             :: vn_aux(p_patch(1)%nblks_int_e)
   REAL(wp)                             :: w_aux(p_patch(1)%nblks_int_c)
   REAL(wp), DIMENSION(:,:,:), POINTER  :: p_vn, p_w
@@ -431,13 +431,12 @@ MODULE mo_nh_stepping
 !$OMP END DO
 !$OMP END PARALLEL
 
-      vnmax = MAXVAL(vn_aux)
-      wmax  = MAXVAL(w_aux)
+      vmax(1) = MAXVAL(vn_aux)
+      vmax(2) = MAXVAL(w_aux)
 
-      vnmax = global_max(vnmax) ! Get max over all PEs
-      wmax  = global_max(wmax) ! Get max over all PEs
+      vmax = global_max(vmax) ! Get max over all PEs
 
-      WRITE(message_text,'(a,2e18.10)') 'MAXABS VN, W ', vnmax, wmax
+      WRITE(message_text,'(a,2e18.10)') 'MAXABS VN, W ', vmax(1), vmax(2)
       CALL message(TRIM(routine),message_text)
 
     ENDIF ! msg_level >= 5

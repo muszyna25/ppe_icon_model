@@ -780,7 +780,7 @@ SUBROUTINE downscale_rad_output(p_patch, p_par_patch, p_par_int, p_par_grf, &
     &                         f3din3=p_lwflxall, f3dout3=lwflxall,                      &
     &                         f3din4=p_lwflxclr, f3dout4=lwflxclr,                      &
     &                         f3din5=zrg_aux3d,  f3dout5=z_aux3d,                       &
-                              llimit_nneg=l_limit, rlimval=rlimval                      )
+                              llimit_nneg=l_limit, rlimval=rlimval, overshoot_fac=1.1_wp)
 
   aclcov(:,:)        = z_aux3d(:,1,:)
   tsfc_backintp(:,:) = z_aux3d(:,2,:)
@@ -1431,10 +1431,10 @@ SUBROUTINE downscale_rad_output_rg(p_patch, p_par_patch, p_par_int, p_par_grf,  
   rlimval(:)   = 2.94e-37_wp ! seems to be the lower threshold for SW transmissivity
                              ! in the RRTM scheme
 
-  CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx, 0, 2, 1, &
-    &                         f3din1=p_trsolall, f3dout1=trsolall,                 &
-    &                         f3din2=p_lwflxall, f3dout2=lwflxall,                 &
-    &                         llimit_nneg=l_limit, rlimval=rlimval                 )
+  CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx, 0, 2, 1,      &
+    &                         f3din1=p_trsolall, f3dout1=trsolall,                      &
+    &                         f3din2=p_lwflxall, f3dout2=lwflxall,                      &
+    &                         llimit_nneg=l_limit, rlimval=rlimval, overshoot_fac=1.1_wp)
 
   IF (msg_level >= 16) THEN
     DO jk = 1, nlevp1

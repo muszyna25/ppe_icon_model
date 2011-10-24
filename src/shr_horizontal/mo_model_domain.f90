@@ -565,6 +565,12 @@ TYPE t_patch
   ! actual number of child domains
   INTEGER :: n_childdom
   !
+  ! total number of child domains in the calling tree (over all nest levels)
+  INTEGER :: n_chd_total
+  !
+  ! corresponding list of child domain ID's
+  INTEGER :: child_id_list(max_dom)
+  !
   ! maximum number of child domains
   INTEGER :: max_childdom
   !

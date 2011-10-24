@@ -73,7 +73,7 @@ MODULE mo_nh_interface_nwp
   USE mo_run_config,         ONLY: ntracer, iqv, iqc, iqi, &
        &                           iqr, iqs, msg_level, ltimer, timers_level
   USE mo_io_config,          ONLY: lflux_avg
-  USE mo_physical_constants, ONLY: rd, rd_o_cpd, vtmpc1, p0ref, cvd_o_rd, rcvd
+  USE mo_physical_constants, ONLY: rd, rd_o_cpd, vtmpc1, p0ref, cvd_o_rd, rcvd, cpd
 
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
 
@@ -90,7 +90,7 @@ MODULE mo_nh_interface_nwp
   USE mo_nwp_conv_interface, ONLY: nwp_convection
   USE mo_nwp_rad_interface,  ONLY: nwp_radiation
   USE mo_sync,               ONLY: sync_patch_array, sync_patch_array_mult, &
-                                   SYNC_C, SYNC_C1
+                                   SYNC_C, SYNC_C1, global_max
   USE mo_mpi,                ONLY: my_process_is_mpi_all_parallel
   USE mo_nwp_diagnosis,      ONLY: nwp_diagnosis
 !  USE mo_communication,      ONLY: time_sync
@@ -172,7 +172,7 @@ CONTAINS
     INTEGER :: jc,jk,jb,jce      !block index
     INTEGER :: jg                !domain id
 
-    INTEGER,  POINTER ::  iidx(:,:,:), iblk(:,:,:)
+    INTEGER,  POINTER ::  iidx(:,:,:), iblk(:,:,:), ieidx(:,:,:), ieblk(:,:,:)
 
     REAL(wp):: &                                              !> temporal arrays for 
       & z_ddt_u_tot (nproma,pt_patch%nlev,pt_patch%nblks_c),& 
@@ -198,7 +198,8 @@ CONTAINS
 
     ! auxiliaries for Rayleigh friction computation
     REAL(wp) :: vabs, rfric_fac, ustart, uoffset_q, ustart_q, max_relax
-
+    ! variables for CFL diagnostic
+    REAL(wp) :: maxcfl(pt_patch%nblks_c), cflmax, avg_invedgelen(nproma), csfac
     REAL(wp) :: rcld(nproma,pt_patch%nlevp1)
 
 !     write(0,*) "Entering nwp_nh_interface"
@@ -215,10 +216,15 @@ CONTAINS
     nlevp1 = pt_patch%nlevp1
 
     !define pointers
-    iidx => pt_patch%edges%cell_idx
-    iblk => pt_patch%edges%cell_blk
+    iidx  => pt_patch%edges%cell_idx
+    iblk  => pt_patch%edges%cell_blk
+    ieidx => pt_patch%cells%edge_idx
+    ieblk => pt_patch%cells%edge_blk
 
     rd_o_cvd  = 1._wp / cvd_o_rd
+
+    ! factor for sound speed computation
+    csfac = rd*cpd*rcvd
 
     !-------------------------------------------------------------------------
     !>  Update the tracer for every advective timestep,
@@ -1241,6 +1247,9 @@ CONTAINS
         z_ddt_v_tot = 0._wp
       ENDIF
 
+      ! In case that maximum CFL is diagnosed
+      maxcfl(:) = 0._wp
+
       IF (ltimer) CALL timer_start(timer_physic_acc_2)
 !$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
       rl_start = grf_bdywidth_c+1
@@ -1322,9 +1331,53 @@ CONTAINS
         ENDDO
       ENDDO
 !$OMP END DO
+
+      ! CFL-diagnostic if msg_level >= 11
+      IF (msg_level >= 11) THEN
+
+        rl_start = grf_bdywidth_c+1
+        rl_end   = min_rlcell_int
+
+        i_startblk = pt_patch%cells%start_blk(rl_start,1)
+        i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,avg_invedgelen)
+        DO jb = i_startblk, i_endblk
+
+          CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+                             i_startidx, i_endidx, rl_start, rl_end)
+
+
+          DO jc = i_startidx, i_endidx
+            avg_invedgelen(jc) = 3._wp/                                       &
+              (pt_patch%edges%dual_edge_length(ieidx(jc,jb,1),ieblk(jc,jb,1))+&
+               pt_patch%edges%dual_edge_length(ieidx(jc,jb,2),ieblk(jc,jb,2))+&
+               pt_patch%edges%dual_edge_length(ieidx(jc,jb,3),ieblk(jc,jb,3)) )
+          ENDDO
+
+          DO jk = 1, nlev
+            DO jc = i_startidx, i_endidx
+              maxcfl(jb) = MAX(maxcfl(jb),dt_loc*avg_invedgelen(jc)*( &
+                SQRT(pt_diag%u(jc,jk,jb)**2+pt_diag%v(jc,jk,jb)**2)+  &
+                SQRT(csfac*pt_diag%temp(jc,jk,jb)) ))
+            ENDDO
+          ENDDO
+
+        ENDDO
+!$OMP END DO
+
+      ENDIF
+
 !$OMP END PARALLEL
 
       IF (ltimer) CALL timer_stop(timer_physic_acc_2)
+
+      IF (msg_level >= 11) THEN ! CFL diagnostic
+        cflmax = MAXVAL(maxcfl)
+        cflmax = global_max(cflmax) ! maximum over all PEs
+        WRITE(message_text,'(a,f12.8,a,i1)') 'maximum horizontal CFL = ', cflmax, ' in domain ',jg
+        CALL message('nwp_nh_interface: ', TRIM(message_text))
+      ENDIF
 
       IF (msg_level >= 15) THEN
         WRITE(message_text,'(a,2(E17.9,2x))') 'max/min ddt_vn  = ',&

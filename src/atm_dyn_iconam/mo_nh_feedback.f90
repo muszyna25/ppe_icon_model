@@ -526,8 +526,8 @@ IF (l_masscorr_nest) THEN
   ! The conservation correction also needs to be applied to all nested domains
   IF (p_pc%n_childdom > 0) THEN
 
-    DO ic = 1, p_pc%n_childdom
-      jgc = p_pc%child_id(ic)
+    DO ic = 1, p_pc%n_chd_total
+      jgc = p_pc%child_id_list(ic)
 
       i_startblk = p_patch(jgc)%cells%start_blk(grf_bdywidth_c+1,1)
       i_endblk   = p_patch(jgc)%cells%end_blk(min_rlcell,i_nchdom)
