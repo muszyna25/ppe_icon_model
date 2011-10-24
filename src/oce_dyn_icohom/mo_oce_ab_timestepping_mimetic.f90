@@ -57,7 +57,7 @@ USE mo_impl_constants,            ONLY: sea_boundary,                           
 USE mo_ocean_nml,                 ONLY: n_zlev, solver_tolerance, l_inverse_flip_flop,    &
   &                                     ab_const, ab_beta, ab_gam, iswm_oce, i_dbg_oce,   &
   &                                     expl_vertical_velocity_diff,iforc_oce, EOS_TYPE,  &
-  &                                     no_tracer, l_RIGID_LID
+  &                                     no_tracer, l_RIGID_LID, i_sfc_forcing_form
 USE mo_run_config,                ONLY: dtime, ltimer
 USE mo_timer,                     ONLY: timer_start, timer_stop, timer_ab_expl,           &
   &                                     timer_ab_rhs4sfc, timer_ab_first
@@ -86,7 +86,8 @@ USE mo_oce_veloc_advection,       ONLY: veloc_adv_horz_mimetic, veloc_adv_vert_m
 USE mo_interpolation,             ONLY: t_int_state !, rbf_vec_interpol_cell
 USE mo_oce_diffusion,             ONLY: velocity_diffusion_horz_mimetic,                  &
   &                                     velocity_diffusion_vert_mimetic,                  &
-  &                                     veloc_diffusion_vert_impl
+  &                                     veloc_diffusion_vert_impl,                        &
+  &                                     veloc_diffusion_vert_impl_hom
 
 IMPLICIT NONE
 
@@ -485,7 +486,7 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param, p_int, l_ini
     END DO
 
     IF(expl_vertical_velocity_diff==0)THEN
-      ipl_src=4  ! output print level (1-5, fix)
+      ipl_src=5  ! output print level (1-5, fix)
       DO jk=1, n_zlev
         CALL print_mxmn('vertical diffusion',jk,p_os%p_diag%laplacian_vert(:,:,:),n_zlev, &
           &              p_patch%nblks_e,'abt',ipl_src)
@@ -641,7 +642,10 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param, p_int, l_ini
           END DO
         END DO
       ENDIF!Staggered
-
+DO jk = 1, n_zlev
+   write(*,*)'min/max vn_pred before:',jk,     minval(p_os%p_diag%vn_pred(:,jk,:)), &
+     &                                  maxval(p_os%p_diag%vn_pred(:,jk,:))
+END DO
     ELSEIF(l_RIGID_LID)THEN
 
       IF(l_STAGGERED_TIMESTEP)THEN
@@ -669,7 +673,7 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param, p_int, l_ini
             DO je = i_startidx, i_endidx
               IF(v_base%dolic_e(je,jb)>=MIN_DOLIC)THEN
                 p_os%p_diag%vn_pred(je,jk,jb) = p_os%p_prog(nold(1))%vn(je,jk,jb)       &
-                &                           + dtime*p_os%p_aux%g_nimd(je,jk,jb)
+                &                             + dtime*p_os%p_aux%g_nimd(je,jk,jb)
               ELSE
                 p_os%p_diag%vn_pred(je,jk,jb) = 0.0_wp
               ENDIF
@@ -679,6 +683,30 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param, p_int, l_ini
 
       ENDIF!Staggered
     ENDIF!Rigid lid
+    !IF surface forcing applied as top boundary condition to vertical diffusion
+    !IF (i_sfc_forcing_form==1) then surface forcing is applied as volume forcing at rhs, 
+    !i.e. if it part of explicit term in momentum and tracer eqs.
+    !in this case, top boundary ondition of vertical Laplacians are homogeneous.
+    !Below is the code that adds surface forcing to explicit term of momentum eq. 
+    IF(i_sfc_forcing_form==1.AND.expl_vertical_velocity_diff==1)THEN
+      DO jb = i_startblk, i_endblk
+        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
+          &                rl_start, rl_end)
+        DO je = i_startidx, i_endidx
+          IF(v_base%dolic_e(je,jb)>=MIN_DOLIC)THEN
+            p_os%p_diag%vn_pred(je,1,jb) =  p_os%p_diag%vn_pred(je,1,jb)      &
+            &                            + dtime*p_os%p_aux%bc_top_vn(je,jb)/v_base%del_zlev_m(1)
+
+            p_os%p_diag%vn_pred(je,v_base%dolic_e(je,jb),jb)&
+            & = p_os%p_diag%vn_pred(je,v_base%dolic_e(je,jb),jb)       &
+            & - dtime*p_os%p_aux%bc_bot_vn(je,jb)&
+            &/v_base%del_zlev_m(v_base%dolic_e(je,jb))
+
+
+          ENDIF
+        END DO
+      END DO
+    ENDIF 
 
   !In the SW-case the external forcing is applied as volume force.
   !This force is stored in data type top-boundary-condition. 
@@ -690,10 +718,10 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param, p_int, l_ini
         DO je = i_startidx, i_endidx
           IF(v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
 
-            p_os%p_diag%vn_pred(je,jk,jb) = p_os%p_prog(nold(1))%vn(je,jk,jb)       &
-             &                            + dtime*(p_os%p_aux%g_nimd(je,jk,jb)      &
+            p_os%p_diag%vn_pred(je,jk,jb) = p_os%p_prog(nold(1))%vn(je,jk,jb)        &
+             &                            + dtime*(p_os%p_aux%g_nimd(je,jk,jb)       &
              &                            - (1.0_wp-ab_beta)*grav*z_gradh_e(je,1,jb))&
-             &                            + p_os%p_aux%bc_top_vn(je,jb)             &
+             &                            + p_os%p_aux%bc_top_vn(je,jb)              &
              &                            - p_os%p_aux%bc_bot_vn(je,jb)
           ELSE
             p_os%p_diag%vn_pred(je,jk,jb) = 0.0_wp
@@ -703,15 +731,34 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param, p_int, l_ini
     END DO
   ENDIF
 
-  IF(expl_vertical_velocity_diff==1 .AND. iswm_oce /= 1)THEN
+  !In 3D case and if impliit vertical velocity diffusion is chosen
+  IF(iswm_oce /= 1.AND.expl_vertical_velocity_diff==1)THEN
 
-     CALL veloc_diffusion_vert_impl( p_patch,                  &
-                                   & p_os%p_diag%vn_pred,      &
-                                   & p_os%p_aux%bc_top_vn,     &
-                                   & p_os%p_aux%bc_bot_vn,     &
-                                   & p_os%p_diag%h_e,          &
-                                   & p_phys_param%A_veloc_v,   &
-                                   & p_os%p_diag%vn_impl_vert_diff)
+    !Surface forcing implemente as top boundary condition for vertical diffusion
+    IF(i_sfc_forcing_form==0)THEN
+
+      CALL veloc_diffusion_vert_impl( p_patch,                  &
+                                    & p_os%p_diag%vn_pred,      &
+                                    & p_os%p_aux%bc_top_vn,     &
+                                    & p_os%p_aux%bc_bot_vn,     &
+                                    & p_os%p_diag%h_e,          &
+                                    & p_phys_param%A_veloc_v,   &
+                                    & p_os%p_diag%vn_impl_vert_diff)
+    !Surface forcing implemente as volume forcing in top layer.
+    !In this case homogeneousboundary conditions for vertical Laplacian
+    ELSEIF(i_sfc_forcing_form==1)THEN
+
+      CALL veloc_diffusion_vert_impl_hom( p_patch,                  &
+                                    & p_os%p_diag%vn_pred,      &
+                                    & p_os%p_diag%h_e,          &
+                                    & p_phys_param%A_veloc_v,   &
+                                    & p_os%p_diag%vn_impl_vert_diff)
+
+    ENDIF
+DO jk = 1, n_zlev
+   write(*,*)'min/max vn_pred after:',jk,     minval(p_os%p_diag%vn_impl_vert_diff(:,jk,:)), &
+     &                                  maxval(p_os%p_diag%vn_impl_vert_diff(:,jk,:))
+END DO
     IF(l_RIGID_LID)THEN
       p_os%p_diag%vn_pred = p_os%p_diag%vn_impl_vert_diff
     ENDIF
@@ -767,8 +814,8 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param, p_int, l_ini
   !write(*,*)'min/max -dt*g*grad_h:',minval(dtime*grav*z_gradh_e), maxval(dtime* grav*z_gradh_e)
 
   !-------------------------------------------
-! DO jk = 1, n_zlev
-  ! write(987,*)'min/max vn_pred:',jk,     minval(p_os%p_diag%vn_pred(:,jk,:)), &
+  !DO jk = 1, n_zlev
+  ! write(*,*)'min/max vn_pred:',jk,     minval(p_os%p_diag%vn_pred(:,jk,:)), &
   !   &                                  maxval(p_os%p_diag%vn_pred(:,jk,:))
   ! write(987,*)'min/max vn_pred Term 1:',jk,     minval(p_os%p_aux%g_nimd(:,jk,:)), &
   !   &                                         maxval(p_os%p_aux%g_nimd(:,jk,:))
@@ -793,7 +840,7 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param, p_int, l_ini
   !   write(987,*)'min/max adv:',    jk, minval(z_e(:,jk,:)), &
   !   &                                maxval(z_e(:,jk,:))
   ! ENDIF
-! END DO
+ !END DO
 ! write(987,*)'min/max -dt*g*grad_h:',minval(dtime*grav*z_gradh_e), maxval(dtime* grav*z_gradh_e)
 
   !-------------------------------------------

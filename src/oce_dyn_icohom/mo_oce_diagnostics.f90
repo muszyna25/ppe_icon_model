@@ -46,7 +46,7 @@ USE mo_kind,                      ONLY: wp
 USE mo_math_utilities,            ONLY: t_cartesian_coordinates!, gc2cc
 USE mo_impl_constants,            ONLY: sea_boundary,sea, &
   &                                     min_rlcell, min_rledge, min_rlcell, &
-  &                                     max_char_length
+  &                                     max_char_length, MIN_DOLIC
 USE mo_ocean_nml,                ONLY: n_zlev, no_tracer,&! toplev, &
                                     &   ab_const, ab_beta, ab_gam, iswm_oce, idisc_scheme
 USE mo_dynamics_config,          ONLY: nold,nnew
@@ -132,7 +132,7 @@ TYPE(t_oce_timeseries),POINTER                :: oce_ts
 INTEGER :: rl_start_c, rl_end_c, i_startblk_c, i_endblk_c,i_startidx_c, i_endidx_c
 !INTEGER :: rl_start_e, rl_end_e, i_startblk_e, i_endblk_e!, i_startidx_e, i_endidx_e
 INTEGER :: jk,jc,jb!,je
-INTEGER :: i_no_t, i
+INTEGER :: i_no_t, i, z_dolic
 
 !REAL(wp) :: z_volume, z_volume_initial
 !REAL(wp) :: z_kin_energy,z_kin_energy_initial
@@ -166,48 +166,51 @@ ptr_monitor =>oce_ts%oce_diagnostics(timestep)
 !cell loop to calculate cell based monitored fields volume, kinetic energy and tracer content
 IF(iswm_oce/=1)THEN
 
-  DO jk=1,n_zlev
+  DO jb = i_startblk_c, i_endblk_c
+    CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
+    &                             rl_start_c, rl_end_c)
+    DO jc = i_startidx_c, i_endidx_c
 
-    delta_z = v_base%del_zlev_m(jk)
+      !z_dolic = v_base%dolic_c(jc,jb)
+      !IF ( z_dolic>=MIN_DOLIC)THEN 
+        DO jk=1,n_zlev!z_dolic
+          delta_z = v_base%del_zlev_m(jk)
 
-    DO jb = i_startblk_c, i_endblk_c
-      CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
-         &                             rl_start_c, rl_end_c)
-      DO jc = i_startidx_c, i_endidx_c
-        IF (jk == 1) THEN
-         delta_z = v_base%del_zlev_m(jk)&
-                 & + p_os%p_prog(nold(1))%h(jc,jb)
-        ENDIF
+          IF (jk == 1) THEN
+           delta_z = v_base%del_zlev_m(jk)&
+                   & + p_os%p_prog(nold(1))%h(jc,jb)
+          ENDIF
 
-        prism_vol = p_patch%cells%area(jc,jb)*delta_z
+          prism_vol = p_patch%cells%area(jc,jb)*delta_z
 
-        !Fluid volume 
-        ptr_monitor%volume = ptr_monitor%volume + prism_vol
+          !Fluid volume 
+          ptr_monitor%volume = ptr_monitor%volume + prism_vol
 
-        !kinetic energy
-        ptr_monitor%kin_energy = ptr_monitor%kin_energy+ p_os%p_diag%kin(jc,jk,jb)*prism_vol
+          !kinetic energy
+          ptr_monitor%kin_energy = ptr_monitor%kin_energy+ p_os%p_diag%kin(jc,jk,jb)*prism_vol
 
-        !Potential energy
-        IF(jk==1)THEN
-          z_w = (p_os%p_diag%w(jc,jk,jb)*p_os%p_prog(nold(1))%h(jc,jb)&
-             & +p_os%p_diag%w(jc,jk+1,jb)*0.5_wp*v_base%del_zlev_i(jk))&
-             &/(0.5_wp*v_base%del_zlev_i(jk)+p_os%p_prog(nold(1))%h(jc,jb))
-        ELSEIF(jk>1.AND.jk<n_zlev)THEN
-          z_w = (p_os%p_diag%w(jc,jk,jb)*v_base%del_zlev_i(jk)&
-             & +p_os%p_diag%w(jc,jk+1,jb)*v_base%del_zlev_i(jk+1))&
-             &/(v_base%del_zlev_i(jk)+v_base%del_zlev_i(jk+1))
-        ENDIF 
+          !Potential energy
+          IF(jk==1)THEN
+            z_w = (p_os%p_diag%w(jc,jk,jb)*p_os%p_prog(nold(1))%h(jc,jb)&
+               & +p_os%p_diag%w(jc,jk+1,jb)*0.5_wp*v_base%del_zlev_i(jk))&
+               &/(0.5_wp*v_base%del_zlev_i(jk)+p_os%p_prog(nold(1))%h(jc,jb))
+          ELSEIF(jk>1.AND.jk<n_zlev)THEN
+            z_w = (p_os%p_diag%w(jc,jk,jb)*v_base%del_zlev_i(jk)&
+               & +p_os%p_diag%w(jc,jk+1,jb)*v_base%del_zlev_i(jk+1))&
+               &/(v_base%del_zlev_i(jk)+v_base%del_zlev_i(jk+1))
+          ENDIF 
 
-        ptr_monitor%pot_energy = ptr_monitor%pot_energy&
-        &+ grav*z_w* p_os%p_diag%rho(jc,jk,jb)* prism_vol
+          ptr_monitor%pot_energy = ptr_monitor%pot_energy&
+          &+ grav*z_w* p_os%p_diag%rho(jc,jk,jb)* prism_vol
 
-        !Tracer content
-        DO i_no_t=1, no_tracer
-          ptr_monitor%tracer_content(i_no_t) = ptr_monitor%tracer_content(i_no_t)&
-          & + prism_vol*p_os%p_prog(nold(1))%tracer(jc,jk,jb,i_no_t)
+          !Tracer content
+          DO i_no_t=1, no_tracer
+            ptr_monitor%tracer_content(i_no_t) = ptr_monitor%tracer_content(i_no_t)&
+            & + prism_vol*p_os%p_prog(nold(1))%tracer(jc,jk,jb,i_no_t)
+          END DO
+
         END DO
-
-      END DO
+      !ENDIF
     END DO
   END DO
 

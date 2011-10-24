@@ -62,7 +62,7 @@ USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer, iforc_len,        
   &                              basin_center_lat, basin_center_lon,idisc_scheme,           &
   &                              basin_height_deg,  basin_width_deg, temperature_relaxation
 USE mo_impl_constants,     ONLY: max_char_length, sea, sea_boundary,                        &
-  &                              min_rlcell, min_rledge,                                    &
+  &                              min_rlcell, min_rledge, MIN_DOLIC,                         &
   &                              oce_testcase_zero, oce_testcase_init, oce_testcase_file
 USE mo_dynamics_config,    ONLY: nold,nnew
 USE mo_master_control,     ONLY: is_coupled_run
@@ -434,8 +434,9 @@ INTEGER :: jk
   REAL(wp):: z_dst, z_lat_deg, z_lon_deg, z_tmp
   REAL(wp):: z_perlon, z_perlat, z_permax, z_perwid !,z_H_0
   REAL(wp):: z_ttrop, z_tpol, z_tpols, z_tdeep, z_tdiff, z_ltrop, z_lpol, z_ldiff
-  !TYPE(t_cartesian_coordinates)    :: p_x 
-  !TYPE(t_geographical_coordinates) :: p_pos
+  REAL(wp):: z_temp_max, z_temp_min
+  REAL(wp):: z_temp_incr
+
   REAL(wp), PARAMETER :: tprof(20)=&
     &(/ 18.13_wp, 17.80_wp, 17.15_wp, 16.09_wp, 15.04_wp, 13.24_wp, 11.82_wp,  9.902_wp, &
     &    8.484_wp, 7.341_wp, 5.727_wp, 4.589_wp, 3.807_wp, 3.062_wp, 2.481_wp, 2.194_wp, &
@@ -1089,8 +1090,14 @@ END DO
           IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
 
             ! set maximum tropical temperature from profile above
-            z_ttrop = tprof_var(jk)
-            z_tpols = MIN(z_tpols,tprof_var(jk))
+            !IF(n_zlev<=10)THEN
+            !  z_ttrop = tprof_var(jk)
+            !  z_tpols = MIN(z_tpols,tprof_var(jk))
+            !ELSEIF(n_zlev>10.and.n_zlev<=20)THEN
+              z_ttrop = tprof(jk)
+              z_tpols = MIN(z_tpols,tprof(jk))
+            !ENDIF
+
             z_tdiff = z_ttrop - z_tpols
 
             !constant salinity
@@ -1211,7 +1218,7 @@ END DO
 
           DO jk=1,n_zlev
           IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-            !IF ( jk == 1 ) THEN
+            IF ( jk == 1 ) THEN
 
               !constant salinity
               IF(no_tracer==2)THEN
@@ -1246,8 +1253,33 @@ END DO
             ELSE
               p_os%p_diag%temp_insitu(jc,jk,jb) = z_tdeep
               p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = p_os%p_diag%temp_insitu(jc,jk,jb)
-            !ENDIF  ! jk=1
+            ENDIF  ! jk=1
           ENDIF   ! lsm
+          END DO
+        END DO
+      END DO
+    CASE (44) 
+
+      !Temperature is homogeneous in each layer. Varies from 30.5 in top to 0.5 in bottom layer
+      z_temp_max  = 30.5_wp
+      z_temp_min  = 0.5_wp
+      z_temp_incr = (z_temp_max-z_temp_min)/(n_zlev-1.0_wp)
+      DO jb = i_startblk_c, i_endblk_c    
+        CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
+         &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
+
+        DO jc = i_startidx_c, i_endidx_c
+
+          !IF(v_base%dolic_c(jc,jb)>=MIN_DOLIC)THEN  
+            p_os%p_prog(nold(1))%tracer(:,1,:,1)=30.5_wp
+            p_os%p_prog(nold(1))%tracer(:,n_zlev,:,1)=0.5_wp
+          !ENDIF 
+          DO jk=2,n_zlev-1
+            IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+            p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)&
+            &=p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1)-z_temp_incr
+
+            ENDIF
           END DO
         END DO
       END DO

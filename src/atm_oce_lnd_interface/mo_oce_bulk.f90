@@ -253,14 +253,6 @@ CONTAINS
 
      ! The devision by rho_ref is done in top_bound_cond_horz_veloc (z_scale)
      
-   ! IF(iswm_oce == 1)THEN
-   !   z_scale = v_base%del_zlev_m(1)*rho_ref
-   ! ELSEIF(iswm_oce /= 1)THEN
-   !   z_scale = rho_ref
-   ! ENDIF
-   ! p_sfc_flx%forc_wind_u=p_sfc_flx%forc_wind_u/z_scale
-   ! p_sfc_flx%forc_wind_v=p_sfc_flx%forc_wind_v/z_scale
-
     END IF
 
     IF (iforc_omip == 2) THEN
@@ -331,6 +323,7 @@ CONTAINS
                          & p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
                          & p_sfc_flx%forc_wind_cc(jc,jb)%x(2),&
                          & p_sfc_flx%forc_wind_cc(jc,jb)%x(3))
+
         ELSE
           p_sfc_flx%forc_wind_u(jc,jb)         = 0.0_wp
           p_sfc_flx%forc_wind_v(jc,jb)         = 0.0_wp
@@ -522,8 +515,10 @@ CONTAINS
       CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
        &                i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
       DO jc = i_startidx_c, i_endidx_c
-        z_relax = (v_base%del_zlev_m(1)+p_os%p_prog(nold(1))%h(jc,jb)) / &
-          &       (relaxation_param*2.592e6_wp)
+!         z_relax = (v_base%del_zlev_m(1)+p_os%p_prog(nold(1))%h(jc,jb)) / &
+!           &       (relaxation_param*2.592e6_wp)
+      z_relax = (v_base%del_zlev_m(1)) / &
+           &       (relaxation_param*2.592e6_wp)
 
         IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
           p_sfc_flx%forc_tracer(jc,jb, 1) =                             &

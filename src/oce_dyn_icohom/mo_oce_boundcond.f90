@@ -293,7 +293,6 @@ CONTAINS
 
             p_os%p_aux%bc_bot_u(jc,jb)=&
                  & p_phys_param%bottom_drag_coeff*z_norm*p_os%p_diag%u(jc,z_dolic,jb)
-
             p_os%p_aux%bc_bot_v(jc,jb)=&
                  & p_phys_param%bottom_drag_coeff*z_norm*p_os%p_diag%v(jc,z_dolic,jb)
 
@@ -320,9 +319,9 @@ CONTAINS
             p_os%p_aux%bc_bot_veloc_cc(jc,jb)%x =&
                  & p_phys_param%bottom_drag_coeff*z_norm*p_os%p_diag%p_vn(jc,z_dolic,jb)%x 
 
+            !Only for RBF relevant: there should be an if, PK 
             p_os%p_aux%bc_bot_u(jc,jb)=&
                  & p_phys_param%bottom_drag_coeff*z_norm*p_os%p_diag%u(jc,z_dolic,jb)
-
             p_os%p_aux%bc_bot_v(jc,jb)=&
                  & p_phys_param%bottom_drag_coeff*z_norm*p_os%p_diag%v(jc,z_dolic,jb)
 
@@ -364,21 +363,21 @@ CONTAINS
 
       CALL map_cell2edges_2D( p_patch, p_os%p_aux%bc_bot_veloc_cc, p_os%p_aux%bc_bot_vn)
 
-      p_os%p_aux%bc_bot_vn(:,:) = p_os%p_aux%bc_bot_vn(:,:) - z_e(:,1,:)
+      !p_os%p_aux%bc_bot_vn(:,:) = p_os%p_aux%bc_bot_vn(:,:) - z_e(:,1,:)
 
     CASE DEFAULT
       CALL message (TRIM(routine),'choosen wrong bottom velocity boundary conditions') 
     END SELECT
 
     ipl_src=2  ! output print level (1-5, fix)
-    z_c(:,1,:)=p_os%p_aux%bc_bot_u(:,:)
-    CALL print_mxmn('bot.bound.cond u',  1,z_c(:,:,:),1,p_patch%nblks_c,'bnd',ipl_src)
-    z_c(:,1,:)=p_os%p_aux%bc_bot_v(:,:)
-    CALL print_mxmn('bot.bound.cond v',  1,z_c(:,:,:),1,p_patch%nblks_c,'bnd',ipl_src)
-    ipl_src=3  ! output print level (1-5, fix)
+    !z_c(:,1,:)=p_os%p_aux%bc_bot_u(:,:)
+    !CALL print_mxmn('bot.bound.cond u',  1,z_c(:,:,:),1,p_patch%nblks_c,'bnd',ipl_src)
+    !z_c(:,1,:)=p_os%p_aux%bc_bot_v(:,:)
+    !CALL print_mxmn('bot.bound.cond v',  1,z_c(:,:,:),1,p_patch%nblks_c,'bnd',ipl_src)
+    !ipl_src=3  ! output print level (1-5, fix)
     z_e1(:,1,:)=p_os%p_aux%bc_bot_vn(:,:)
     CALL print_mxmn('bot.bound.cond vn', 1,z_e1(:,:,:),1,p_patch%nblks_e,'bnd',ipl_src)
-    CALL print_mxmn('bot.bound.cond z_e',1,z_e(:,:,:),1,p_patch%nblks_e,'bnd',ipl_src)
+    !CALL print_mxmn('bot.bound.cond z_e',1,z_e(:,:,:),1,p_patch%nblks_e,'bnd',ipl_src)
 
   END subroutine bot_bound_cond_horz_veloc
 
