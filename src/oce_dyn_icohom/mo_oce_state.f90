@@ -1984,7 +1984,7 @@ END DO
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,1)
 
-    niter=6
+    niter=10
     DO jiter=1,niter
 
       DO jk=1,n_zlev
