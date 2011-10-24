@@ -280,12 +280,14 @@
     scaleVar(var,scaleFactor)
 
     if (isvar("gridFile")) then
-      x =  getCoordinateFromFile(lonCo,gridFile)
-      y =  getCoordinateFromFile(latCo,gridFile)
+      x      = getCoordinateFromFile(lonCo,gridFile)
+      y      = getCoordinateFromFile(latCo,gridFile)
+      bounds = getBoundsFromFile(lonCo,latCo,gridFile)
     else
       lonlats = getLonLats(var,File)
       x       = lonlats(0,:)
       y       = lonlats(1,:)
+      bounds  = getBoundsOfCoordinates(variable,filehandle)
     end if
 
     ; set minVar_maxVar for plotting
@@ -455,21 +457,11 @@
 
     if (showGrid) then
       if (showPreview) then
-        if (isvar("gridFile"))
-  bounds    = getBoundsFromFile(lonCo,latCo,gridFile)
-        else
-  bounds    = getBoundsOfCoordinates(variable,filehandle)
-  end if
         plotGrid(xwks,preview,var,x,bounds,File,ResC,DEBUG)
         print("#=======================================================")
         print("For reasons of performance, the preview of a grid plot is not written to the output file be default")
         print("Please set 'showPreview=False' on the command line!")
       else
-        if (isvar("gridFile"))
-  bounds    = getBoundsFromFile(lonCo,latCo,gridFile)
-        else
-  bounds    = getBoundsOfCoordinates(variable,filehandle)
-  end if
         plotGrid(wks,plot,var,x,bounds,File,ResC,DEBUG)
       end if
     end if
