@@ -179,7 +179,7 @@ CONTAINS
     CALL message(TRIM(routine),TRIM(message_text))
     IF(ppatch%n_patch_cells_g /= no_cells) THEN
       CALL finish(TRIM(ROUTINE),&
-      & 'Number of patch cells and cells in ocean prognositc input file do not match.')
+      & 'Number of patch cells and cells in ocean prognostic input file do not match.')
     ENDIF
     !
     ! get number of levels
@@ -194,7 +194,7 @@ CONTAINS
     CALL message(TRIM(routine),TRIM(message_text))
     IF(n_zlev /= no_levels) THEN
       CALL finish(TRIM(ROUTINE),&
-      & 'Number of vertical levels and levels in ocean prognositc input file do not match.')
+      & 'Number of vertical levels and levels in ocean prognostic input file do not match.')
     ENDIF
 
   ENDIF

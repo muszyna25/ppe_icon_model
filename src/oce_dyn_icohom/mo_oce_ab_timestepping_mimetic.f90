@@ -642,10 +642,10 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param, p_int, l_ini
           END DO
         END DO
       ENDIF!Staggered
-DO jk = 1, n_zlev
-   write(*,*)'min/max vn_pred before:',jk,     minval(p_os%p_diag%vn_pred(:,jk,:)), &
-     &                                  maxval(p_os%p_diag%vn_pred(:,jk,:))
-END DO
+!DO jk = 1, n_zlev
+!   write(*,*)'min/max vn_pred before:',jk,     minval(p_os%p_diag%vn_pred(:,jk,:)), &
+!     &                                  maxval(p_os%p_diag%vn_pred(:,jk,:))
+!END DO
     ELSEIF(l_RIGID_LID)THEN
 
       IF(l_STAGGERED_TIMESTEP)THEN

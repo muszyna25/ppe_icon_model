@@ -217,10 +217,10 @@ DO jk = 1, n_zlev
     &              p_patch%nblks_c,'trc',ipl_src)
   CALL print_mxmn('adv-horz tracer-tmp',jk,trac_tmp(:,:,:),n_zlev, &
     &              p_patch%nblks_c,'trc',ipl_src)
- write(*,*)'After horizontal max/min old-new tracer:',jk, maxval(trac_old(:,jk,:)),&
-                                      & minval(trac_old(:,jk,:)),&
-                                      & maxval(trac_tmp(:,jk,:)),&
-                                      & minval(trac_tmp(:,jk,:))
+ !write(*,*)'After horizontal max/min old-new tracer:',jk, maxval(trac_old(:,jk,:)),&
+ !                                     & minval(trac_old(:,jk,:)),&
+ !                                     & maxval(trac_tmp(:,jk,:)),&
+ !                                     & minval(trac_tmp(:,jk,:))
  !write(123,*)'After horizontal max/min old-new tracer:',jk, maxval(trac_old(:,jk,:)),&
  !                                      & minval(trac_old(:,jk,:)),&
  !                                      & maxval(trac_tmp(:,jk,:)),&
@@ -238,10 +238,10 @@ IF( iswm_oce /= 1) THEN
                         & trac_new, timestep, delta_t)!, h_tmp)
  ! trac_new=trac_tmp
   DO jk = 1, n_zlev 
-write(*,*)'After vertical max/min old-new tracer:',jk, maxval(trac_old(:,jk,:)),&
-                                      & minval(trac_old(:,jk,:)),&
-                                      & maxval(trac_new(:,jk,:)),&
-                                      & minval(trac_new(:,jk,:))
+   !write(*,*)'After vertical max/min old-new tracer:',jk, maxval(trac_old(:,jk,:)),&
+   !                                   & minval(trac_old(:,jk,:)),&
+   !                                   & maxval(trac_new(:,jk,:)),&
+   !                                   & minval(trac_new(:,jk,:))
     ipl_src=3  ! output print level (1-5, fix)
     CALL print_mxmn('adv-vert tracer-old',jk,trac_old(:,:,:),n_zlev, &
       &              p_patch%nblks_c,'trc',ipl_src)
