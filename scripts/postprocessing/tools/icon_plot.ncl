@@ -287,7 +287,7 @@
       lonlats = getLonLats(var,File)
       x       = lonlats(0,:)
       y       = lonlats(1,:)
-      bounds  = getBoundsOfCoordinates(variable,filehandle)
+      bounds  = getBoundsOfCoordinates(var,File)
     end if
 
     ; set minVar_maxVar for plotting
