@@ -190,7 +190,7 @@ cat > ${ocean_namelist} << EOF
 &ocean_dynamics_nml
 ! 20 unevenly spaced levels used by MITGCM global ocean model example:
   n_zlev             =   20      ! number of vertical levels and (dzlev_m) thicknesses
-  dzlev_m(1:20)      =   50.0,   50,0,   55.0,   60.0,   65.0,   70.0,   80.0,   95.0,  120.0,  155.0,
+  dzlev_m(1:20)      =   50.0,   50.0,   55.0,   60.0,   65.0,   70.0,   80.0,   95.0,  120.0,  155.0,
                         200.0   260.0,  320.0,  400.0,  480.0,  570.0,  655.0,  725.0,  775.0,  815.0
 ! 20 unevenly spaced levels used by MPIOM/GR60, limited to 700m at bottom
 ! dzlev_m(1:20)      =   20.0,   20.0,   20.0,   30.0,   40.0,   50.0,   70.0,   90.0,  120.0,  150.0,
