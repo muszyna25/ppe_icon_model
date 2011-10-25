@@ -2368,8 +2368,8 @@ END DO
 
 
     ! #slo# for test:
-    v_base%wet_c(:,:,:) = real(v_base%lsm_oce_c(:,:,:),wp)
-    v_base%wet_e(:,:,:) = real(v_base%lsm_oce_e(:,:,:),wp)
+  ! v_base%wet_c(:,:,:) = real(v_base%lsm_oce_c(:,:,:),wp)
+  ! v_base%wet_e(:,:,:) = real(v_base%lsm_oce_e(:,:,:),wp)
 
     ! intermediate levels: same as wet_c
     !WHERE ( v_base%lsm_oce_c(:,:,:) <= SEA_BOUNDARY )
