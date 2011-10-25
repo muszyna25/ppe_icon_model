@@ -188,18 +188,22 @@ cat > ${ocean_namelist} << EOF
   h_val=1.0 t_val=1.0            ! initial values for elevation and temperature at one cell
 /
 &ocean_dynamics_nml
-! 20 unevenly spaced levels by Helmuth for MPIOM/GR60, limited to 700m at bottom
+! 20 unevenly spaced levels used by MITGCM global ocean model example:
   n_zlev             =   20      ! number of vertical levels and (dzlev_m) thicknesses
-  dzlev_m(1:20)      =   20.0,   20.0,   20.0,   30.0,   40.0,   50.0,   70.0,   90.0,  120.0,  150.0,
-                        180.0,  210.0,  250.0,  300.0,  400.0,  500.0,  600.0,  700.0,  700.0,  700.0
-! n_zlev             =   10      ! number of vertical levels and (dzlev_m) thicknesses
-! dzlev_m(1:20)      =  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,
-!                      1000.0  1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
+  dzlev_m(1:20)      =   50.0,   50,0,   55.0,   60.0,   65.0,   70.0,   80.0,   95.0,  120.0,  155.0,
+                        200.0   260.0,  320.0,  400.0,  480.0,  570.0,  655.0,  725.0,  775.0,  815.0
+! 20 unevenly spaced levels used by MPIOM/GR60, limited to 700m at bottom
+! dzlev_m(1:20)      =   20.0,   20.0,   20.0,   30.0,   40.0,   50.0,   70.0,   90.0,  120.0,  150.0,
+!                       180.0,  210.0,  250.0,  300.0,  400.0,  500.0,  600.0,  700.0,  700.0,  700.0
 ! 10 unevenly spaced levels beginning with 50m depth
+! n_zlev             =   10      ! number of vertical levels and (dzlev_m) thicknesses
 ! dzlev_m(1:20)      =   50.0,  100.0,  200.0,  300.0,  450.0,  600.0,  800.0, 1000.0, 1000.0, 1000.0,
 !                      1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
 ! dzlev_m(1:20)       =  20.0,   50.0,   75.0,  125.0,  150.0,  200.0,  300.0,  500.0, 1000.0, 1000.0,
 !                      1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
+! 10 levels of 500m depth
+! dzlev_m(1:20)      =  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,
+!                      1000.0  1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
   iswm_oce           =    0      ! switch for one layer shallow water model (iswm_oce=1) or 3-d
   idisc_scheme       =    1      ! 1=mimetic discretization, 2=rbf discretization
   l_inverse_flip_flop= .FALSE.   ! within mimetic discretization:
@@ -224,7 +228,7 @@ cat > ${ocean_namelist} << EOF
                                  ! IMPORTANT: SOME TESTCASES REQUIRE SPECIFIC SETTINGS: 
                                  !  for Stommel-type basin (2D- and 3D, testcase 27 and/or 30) select
                                  !  f- or beta-plane.
-  expl_vertical_velocity_diff = 0  ! 0=explicit, 1 = implicit  
+  expl_vertical_velocity_diff = 1  ! 0=explicit, 1 = implicit  
   expl_vertical_tracer_diff   = 1  ! 0=explicit, 1 = implicit
 /
 &ocean_physics_nml
@@ -234,18 +238,18 @@ cat > ${ocean_namelist} << EOF
                                  ! 3= not recommended: (nonlinear) Jacket-McDoudgall density-formulation
   k_veloc_h          = 5.0E+5    ! [m2/s] horizontal viscosity coefficient for velocity
   k_veloc_v          = 1.0E-2    ! [m/s]  vertical viscosity coefficient for velocity
+  MAX_VERT_DIFF_VELOC=    1.0    ! max diffusion coeff, used in impl.vert.velocity diffusion, if stabil. crit.is met
   k_pot_temp_h       = 1.0E+3    ! [m2/s] horizontal viscosity coefficient for temperature
   k_pot_temp_v       = 3.0E-5    ! [m/s]  vertical viscosity coefficient for temperature
   k_sal_h            = 1.0E+3    ! [m2/s] horizontal viscosity coefficient for salinity
   k_sal_v            = 3.0E-5    ! [m/s]  vertical viscosity coefficient for salinity
+  MAX_VERT_DIFF_TRAC = 3.0E-3    ! max diffusion coeff, used in impl.vert.tracer diffusion, if stability crit.is met
   HORZ_VELOC_DIFF_TYPE =  1      ! 0=no horizontal diffusion
                                  ! 1= constant Laplacian viscosity coefficient given in namelist (k_veloc_h)
                                  ! 2= constant Laplacian viscosity coefficient determined by requirement to
                                  !    have at least one gridpoint in boundary layer. The namelist value is overwritten.
                                  ! 3= spatially variable Laplacian viscosity coefficient determined by requirement to
                                  !    have at least one gridpoint in boundary layer. The namelist value is overwritten.
-  MAX_VERT_DIFF_VELOC=    1.0    ! max diffusion coeff, used in impl.vert.velocity diffusion, if stabil. crit.is met
-  MAX_VERT_DIFF_TRAC =    0.05   ! max diffusion coeff, used in impl.vert.tracer diffusion, if stability crit.is met
   CWA                = 0.5E-3    ! Tuning parameters for vertical mixing of tracer and velocity
   CWT                = 0.5E-3    ! Set to standard values
   bottom_drag_coeff  =    0.0025 ! Chezy coefficient for bottom friction
