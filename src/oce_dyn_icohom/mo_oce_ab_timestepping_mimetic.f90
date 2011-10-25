@@ -755,10 +755,10 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param, p_int, l_ini
                                     & p_os%p_diag%vn_impl_vert_diff)
 
     ENDIF
-DO jk = 1, n_zlev
-   write(*,*)'min/max vn_pred after:',jk,     minval(p_os%p_diag%vn_impl_vert_diff(:,jk,:)), &
-     &                                  maxval(p_os%p_diag%vn_impl_vert_diff(:,jk,:))
-END DO
+!DO jk = 1, n_zlev
+!   write(*,*)'min/max vn_pred after:',jk,     minval(p_os%p_diag%vn_impl_vert_diff(:,jk,:)), &
+!     &                                  maxval(p_os%p_diag%vn_impl_vert_diff(:,jk,:))
+!END DO
     IF(l_RIGID_LID)THEN
       p_os%p_diag%vn_pred = p_os%p_diag%vn_impl_vert_diff
     ENDIF
