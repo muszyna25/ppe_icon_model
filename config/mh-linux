@@ -69,7 +69,7 @@ case "$fortran_compiler" in
         FDEBUG      = -g -fbacktrace -fbounds-check        
         FCHECK      = -finit-real=nan -finit-integer=-2147483648 -finit-character=127
         FOPTIONS    = "$FCPP" "$FLANG" "$FWARN" "$FDEBUG" "$FCHECK"
-        FOTPTIM     = -march=native -O0 -ffast-math -D__LOOP_EXCHANGE
+        FOTPTIM     = -march=native -O3 -ffast-math -D__LOOP_EXCHANGE
       
         DEBUG_FLAGS = -g -fbacktrace -fbounds-check
         STD_FLAGS   = -march=native -O0 -ffast-math -D__LOOP_EXCHANGE "$DEBUG_FLAGS"
