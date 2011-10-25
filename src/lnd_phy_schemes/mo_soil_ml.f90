@@ -2308,14 +2308,14 @@ DO ns=nsubs0,nsubs1
             zbeta  = 0.0_ireals
             IF (m_styp(i,j).ge.3) THEN ! Computations not for ice and rocks
 
-               if (zw_fr(i,j,1)> zfcap(i,j)) then
+               IF (zw_fr(i,j,1)> zfcap(i,j)) THEN
                   zalpha = 1.0_ireals
-               else
-                  zalpha = 0.5_ireals * (1 - cos ( 0.5_ireals * pi * &
-                       (zw_fr(i,j,1) - zadp(i,j)) / ( zfcap(i,j) - zadp(i,j)) ) )
-               endif
-               zqs         = zsf_qsat( zsf_psat_iw(zts(i,j), z2iw,z4iw), ps(i,j) )
-               zevapor=min(0.0_ireals,zrhoch(i,j)*(qv(i,j,ke)-zalpha*zqs))
+               ELSE
+                  zalpha = 0.5_ireals * (1 - COS ( 0.5_ireals * pi * &
+                           (zw_fr(i,j,1) - zadp(i,j)) / ( zfcap(i,j) - zadp(i,j)) ) )
+               ENDIF
+               zqs    = zsf_qsat( zsf_psat_iw(zts(i,j), z2iw,z4iw), ps(i,j) )
+               zevapor= MIN(0.0_ireals,zrhoch(i,j)*(qv(i,j,ke)-zalpha*zqs))
                
                zbeta  = zevapor/MIN(zep_s(i,j),-zepsi)
             END IF ! Computations not for ice and rocks
@@ -2443,9 +2443,9 @@ DO ns=nsubs0,nsubs1
               ENDIF
 
               ! Temperature function
-              if(ntstep.eq.0.and.itype_tran.ne.2) then
+              IF (ntstep .EQ. 0 .AND. itype_tran .NE. 2) THEN
                 t_2m(i,j,ns)=t(i,j,ke)
-              endif
+              ENDIF
               zf_tem     = MAX(0.0_ireals,MIN(1.0_ireals,4.0_ireals*     &
                            (t_2m(i,j,ns)-t0_melt)*(ctend-t_2m(i,j,ns))/(ctend-t0_melt)**2))
 
@@ -4560,8 +4560,8 @@ END DO
 !---------------------
 
 
-  IF(itype_subs .EQ. 2) THEN    ! tiles
-    DO ns = nsubs0+1, nsubs1, 2      ! 1 - mean, 2 - ocean, 3 - lake, 4 - no snow first
+  IF(itype_subs .EQ. 2) THEN           ! tiles
+    DO ns = nsubs0+1, nsubs1, 2        ! 1 - mean, 2 - ocean, 3 - lake, 4 - no snow first
       DO   j = jstarts, jends
         DO i = istarts, iends
           IF (llandmask(i,j,ns)) THEN  ! for landpoints only  !check is not necessary
@@ -4597,6 +4597,7 @@ END DO
 !print *,'subsfrac:',subsfrac(i,j,ns-1),subsfrac(i,j,ns  )
           END IF  ! land-points only         END DO
         END DO
+      END DO
       DO kso = 1,ke_soil
         DO   j = jstarts, jends
           DO i = istarts, iends
@@ -4624,7 +4625,6 @@ END DO
               t_so    (i,j,kso,nnew,ns) = tmp1*fact2 + t_so(i,j,kso,nnew,ns)*(1._ireals - fact2)
               w_so    (i,j,kso,nnew,ns) = tmp2*fact2 + w_so(i,j,kso,nnew,ns)*(1._ireals - fact2)
               w_so_ice(i,j,kso,nnew,ns) = tmp3*fact2 + w_so_ice(i,j,kso,nnew,ns)*(1._ireals - fact2)
-
 
             END IF  ! land-points only
           END DO
