@@ -5,11 +5,24 @@ DST   = HOSTS.map {|v| v + ':' + DIR}
 CP    = 'scp -p'
 LS    = 'ls -crtlh'
 
+iconPlot = lambda {|ifile,ofile,otype,varname,opts|
+  libdir = FileUtils.pwd
+  cmd = "ncl #{SRC[0]} 'altLibDir=\"#{libdir}\"' 'varName=\"#{varname}\"' 'iFile=\"#{ifile}\"' 'oFile=\"#{ofile}\"' 'oType=\"#{otype}\"'"
+  puts cmd
+  sh cmd
+}
+
 task :default => [:check]
 
 task :install do
   SRC.each {|src| DST.each {|dst| sh [CP,src,dst].join(' ') }}
 end
+
 task :check do
   SRC.each {|src| HOSTS.each {|host| sh ['ssh',host,['"',LS,DIR,'"'].join(' ')].join(' ') }}
+end
+
+task :test_plot do
+  plot_test_file = ENV['HOME']+'/data/icon/test.nc'
+  iconPlot.call(plot_test_file,'test_icon_plot','png','T',[])
 end
