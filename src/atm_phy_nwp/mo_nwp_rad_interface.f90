@@ -62,7 +62,7 @@ MODULE mo_nwp_rad_interface
   USE mo_nonhydro_state,       ONLY: t_nh_prog, t_nh_diag
   USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag !,prm_diag
   USE mo_o3_util,              ONLY: calc_o3_clim,calc_o3_gems
-  USE mo_physical_constants,   ONLY: amd, amo3, tmelt
+  USE mo_physical_constants,   ONLY: tmelt
   USE mo_radiation,            ONLY: pre_radiation_nwp_steps
   USE mo_radiation_config,     ONLY: irad_o3, irad_aero, vmr_co2, rad_csalbw
   USE mo_radiation_rg,         ONLY: fesft
@@ -74,7 +74,7 @@ MODULE mo_nwp_rad_interface
   USE mo_nwp_rrtm_interface,   ONLY: nwp_rrtm_radiation, &
    &  nwp_rrtm_radiation_reduced, nwp_rrtm_ozon_aerosol
   USE mo_nwp_mpiomp_rrtm_interface, ONLY: nwp_omp_rrtm_interface
-  
+
   IMPLICIT NONE
 
   PRIVATE
@@ -1103,8 +1103,7 @@ MODULE mo_nwp_rad_interface
         IF (ntracer + ntracer_static >= io3) THEN
           DO jk = 1,nlev
             DO jc = i_startidx,i_endidx
-              pt_prog_rcf%tracer(jc,jk,jb,io3) = &
-                & (amo3/amd) * (zduo3(jc,jk,jb)/pt_diag%dpres_mc(jc,jk,jb))
+              pt_prog_rcf%tracer(jc,jk,jb,io3) = zduo3(jc,jk,jb)/pt_diag%dpres_mc(jc,jk,jb)
             ENDDO
           ENDDO
         ENDIF
@@ -1195,8 +1194,7 @@ MODULE mo_nwp_rad_interface
             ! store previous bottom values in arrays for top of next layer
             zo3_top (jc,jb) = zo3_bot (jc,jb)
 
-            pt_prog_rcf%tracer(jc,jk,jb,io3) = &
-              & (amo3/amd) * (zduo3(jc,jk,jb)/pt_diag%dpres_mc(jc,jk,jb))
+            pt_prog_rcf%tracer(jc,jk,jb,io3) = zduo3(jc,jk,jb)/pt_diag%dpres_mc(jc,jk,jb)
             
           ENDDO
         ENDDO
@@ -1225,8 +1223,7 @@ MODULE mo_nwp_rad_interface
         IF (ntracer + ntracer_static >= io3) THEN
           DO jk = 1,nlev
             DO jc = i_startidx,i_endidx
-              pt_prog_rcf%tracer(jc,jk,jb,io3) = &
-                & (amo3/amd) * (zduo3(jc,jk,jb)/pt_diag%dpres_mc(jc,jk,jb))
+              pt_prog_rcf%tracer(jc,jk,jb,io3) = zduo3(jc,jk,jb)/pt_diag%dpres_mc(jc,jk,jb)
             ENDDO
           ENDDO
         ENDIF
@@ -1296,8 +1293,7 @@ MODULE mo_nwp_rad_interface
         IF (ntracer + ntracer_static >= io3) THEN
           DO jk = 1,nlev
             DO jc = i_startidx,i_endidx
-              zduo3(jc,jk,jb) = &
-                & pt_prog_rcf%tracer(jc,jk,jb,io3) * pt_diag%dpres_mc(jc,jk,jb) * amd / amo3
+              zduo3(jc,jk,jb) = pt_prog_rcf%tracer(jc,jk,jb,io3) * pt_diag%dpres_mc(jc,jk,jb)
             ENDDO
           ENDDO
         ELSE
@@ -1380,8 +1376,7 @@ MODULE mo_nwp_rad_interface
             zaequo(jc,jb)    = zaequn
             zaeqdo(jc,jb)    = zaeqdn
 
-            zduo3(jc,jk,jb) = &
-              & pt_prog_rcf%tracer(jc,jk,jb,io3) * pt_diag%dpres_mc(jc,jk,jb) * amd / amo3
+            zduo3(jc,jk,jb) = pt_prog_rcf%tracer(jc,jk,jb,io3) * pt_diag%dpres_mc(jc,jk,jb)
             
           ENDDO
         ENDDO
@@ -1390,8 +1385,7 @@ MODULE mo_nwp_rad_interface
         
         DO jk = 1,nlev
           DO jc = i_startidx,i_endidx
-            zduo3(jc,jk,jb) = &
-              & pt_prog_rcf%tracer(jc,jk,jb,io3) * pt_diag%dpres_mc(jc,jk,jb) * amd / amo3
+            zduo3(jc,jk,jb) = pt_prog_rcf%tracer(jc,jk,jb,io3) * pt_diag%dpres_mc(jc,jk,jb)
             zaeq1(jc,jk,jb) = 0.0_wp
             zaeq2(jc,jk,jb) = 0.0_wp
             zaeq3(jc,jk,jb) = 0.0_wp
