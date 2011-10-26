@@ -78,17 +78,22 @@
  load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/contributed.ncl"
  load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/shea_util.ncl"
 
-; ;pad default settings from user file
- load "/home/ram/.icon_plot.rc"
- 
- if ( .not. isvar("altLibDir") )  then
-   print("load default library from /pool/data/ICON/tools")
-   loadscript("/pool/data/ICON/tools/icon_plot_lib.ncl")
- else
-   print("Load library: "+altLibDir+"/icon_plot_lib.ncl")
-   loadscript(altLibDir +"/icon_plot_lib.ncl")
- end if
-
+;------- config ---------------------------------------------------------------
+  ; default settings from user file
+  CONFIGFILE = getenv("HOME")+"/.icon_plot.rc"
+  print(CONFIGFILE)
+  if (isfile(CONFIGFILE)) then
+    loadscript(CONFIGFILE)
+  end if
+  
+  if ( .not. isvar("altLibDir") )  then
+    print("load default library from /pool/data/ICON/tools")
+    loadscript("/pool/data/ICON/tools/icon_plot_lib.ncl")
+  else
+    print("Load library: "+altLibDir+"/icon_plot_lib.ncl")
+    loadscript(altLibDir +"/icon_plot_lib.ncl")
+  end if
+;--- end config ---------------------------------------------------------------
 ;===============================================================
 ;----- MAIN PROGRAM --------------------------------------------
 ;- options handling + checking
