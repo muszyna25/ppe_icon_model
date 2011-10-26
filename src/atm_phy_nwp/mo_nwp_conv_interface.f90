@@ -54,6 +54,7 @@ MODULE mo_nwp_conv_interface
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_cumaster,             ONLY: cumastrn
   USE mo_ext_data,             ONLY: t_external_data
+  USE mo_icoham_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd
 
   IMPLICIT NONE
 
@@ -205,8 +206,18 @@ CONTAINS
 
         ! PR. In turb2, the flux is negative upwards
         z_qhfl( i_startidx:i_endidx,nlevp1,jb) = prm_diag%qhfl_s (i_startidx:i_endidx,jb)
-        z_shfl( i_startidx:i_endidx,nlevp1,jb) = -   17._wp            !! sens. heat fl W/m**2
 
+        IF (nsfc_type == 1  ) THEN
+         IF (ilnd <= nsfc_type ) THEN   ! sensible heat flux not implemented over land
+            z_shfl( i_startidx:i_endidx,nlevp1,jb) = -   17._wp            !! sens. heat fl W/m**2
+
+         ELSE                 ! These is the case for which sensible heat
+                              ! is implementead in vdiff
+            z_shfl( i_startidx:i_endidx,nlevp1,jb) = prm_diag%shfl_s( i_startidx:i_endidx,jb)
+         END IF
+        ELSE
+         z_shfl( i_startidx:i_endidx,nlevp1,jb) = -   17._wp            !! sens. heat fl W/m**2 not jet implemented
+        ENDIF
         ENDIF
 
         z_dtdqv(i_startidx:i_endidx,:,jb) =                               &

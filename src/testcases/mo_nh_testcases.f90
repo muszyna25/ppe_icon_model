@@ -90,6 +90,8 @@ MODULE mo_nh_testcases
                                    &  temp_i_mwbr_const,                          &
                                    &  p_int_mwbr_const ,                          &
                                    &  bruntvais_u_mwbr_const
+  USE mo_nh_wk_exp,            ONLY: init_nh_topo_wk, init_nh_env_wk,             &
+                                   & qv_max_wk, u_infty_wk
 
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
   USE mo_sync,                 ONLY: SYNC_E, sync_patch_array
@@ -134,7 +136,8 @@ MODULE mo_nh_testcases
                             rotate_axis_deg,                                 &
                             lhs_nh_vn_ptb, hs_nh_vn_ptb_scale,               &
                             rh_at_1000hpa, qv_max, ape_sst_case,             &
-                            linit_tracer_fv, lhs_fric_heat
+                            linit_tracer_fv, lhs_fric_heat,                  &
+                            qv_max_wk, u_infty_wk
 
   PUBLIC :: read_nh_testcase_namelist, layer_thickness, init_nh_testtopo,    &
     &       init_nh_testcase, n_flat_level, nh_test_name, ape_sst_case,      &
@@ -210,6 +213,10 @@ MODULE mo_nh_testcases
     ! assuming that default is on triangles the next switch is set
     ! crosscheck follows in the respective module
     linit_tracer_fv        = .TRUE. ! finite volume initialization for tracer
+    ! for Weisman-Klemp test case
+    qv_max_wk              = 0.014_wp
+    u_infty_wk             = 20._wp
+    
 
     CALL open_nml(TRIM(filename))
     CALL position_nml ('nh_testcase_nml', status=i_status)
@@ -411,6 +418,19 @@ MODULE mo_nh_testcases
    ENDDO
 
    CALL message(TRIM(routine),'topography is initialised ')
+
+  CASE ('wk82')  
+
+    DO jg = 1, n_dom 
+     nblks_c   = p_patch(jg)%nblks_int_c
+     npromz_c  = p_patch(jg)%npromz_c
+     nblks_v   = p_patch(jg)%nblks_int_v
+     npromz_v  = p_patch(jg)%npromz_v
+
+     CALL init_nh_topo_wk ( p_patch(jg),ext_data(jg)%atm%topography_c,  &
+                          & ext_data(jg)%atm%topography_v, nblks_c, npromz_c, &
+                          & nblks_v, npromz_v )
+    END DO
 
   CASE ('PA')
    ! The topography ist initialized in "init_nh_state_prog_patest"
@@ -637,6 +657,8 @@ MODULE mo_nh_testcases
  
  ENDDO !jg
 
+   CALL message(TRIM(routine),'End setup mwbr_const test')
+
   CASE ('zero','bell','schaer')
 
   ! For the moment we think of a given Brunt Vaisala frequency and a given      
@@ -840,6 +862,29 @@ MODULE mo_nh_testcases
     CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
 
   ENDDO !jg
+
+   CALL message(TRIM(routine),'End setup APE_nh test')
+  
+  CASE ('wk82')
+
+   CALL message(TRIM(routine),'wk82 test')
+  
+   l_hydro_adjust = .TRUE.
+
+   DO jg = 1, n_dom
+
+
+  
+    CALL   init_nh_env_wk ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
+                                     & p_nh_state(jg)%diag,                        &
+                                     & p_nh_state(jg)%metrics,                     &
+                                     & p_int(jg))
+
+    CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
+
+  ENDDO !jg
+
+   CALL message(TRIM(routine),'End setup wk82 test')
 
   END SELECT
 

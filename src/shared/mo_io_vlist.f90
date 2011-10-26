@@ -328,7 +328,9 @@ CONTAINS
     CHARACTER(len=10) :: dbgname
     CHARACTER(len=3)  :: cjt
     CHARACTER(len=4)  :: sufix
+    CHARACTER(len=3)  :: prefix
     CHARACTER(len=8)  :: meaning
+    CHARACTER(len=10) :: varunits
     CHARACTER(LEN=1)  :: ctracer
     CHARACTER(len=MAX_CHAR_LENGTH) :: & !< list of tracers to initialize
       &  ctracer_list
@@ -1092,41 +1094,43 @@ CONTAINS
         SELECT CASE (iforcing)
         CASE (inwp)
           IF (lflux_avg ) THEN
-            sufix = "_avg"
+            prefix = "A"
             meaning = "averaged"
+            varunits = "W/m**2"
           ELSE 
-            sufix = "_acc"
-            meaning = "accumul."     
+            prefix = "ACC"
+            meaning = "accumul." 
+            varunits = "J/m**2"    
           END IF
 
 
-          WRITE(name,'(A8,A4)') "swflxsfc", sufix
+          WRITE(name,'(A,A5)') TRIM(prefix),"SOB_S"
           WRITE(long_name,'(A8,A27)') meaning, " shortwave surface net flux"
           CALL addVar(TimeVar(TRIM(name),&
           &                   TRIM(long_name),&
-          &                   'W/m**2', 111, 128,&
+          &                   TRIM(varunits), 111, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
 
-          WRITE(name,'(A8,A4)') "lwflxsfc", sufix
+          WRITE(name,'(A,A5)') TRIM(prefix),"THB_S"
           WRITE(long_name,'(A8,A27)') meaning, " longwave  surface net flux"
           CALL addVar(TimeVar(TRIM(name),&
           &                   TRIM(long_name),&
-          &                   'W/m**2', 112, 128,&
+          &                   TRIM(varunits), 112, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
-          WRITE(name,'(A8,A4)') "swflxtoa", sufix
+          WRITE(name,'(A,A5)') TRIM(prefix),"SOB_T"
           WRITE(long_name,'(A8,A23)') meaning, " shortwave toa net flux"
           CALL addVar(TimeVar(TRIM(name),&
           &                   TRIM(long_name),&
-          &                   'W/m**2', 113, 128,&
+          &                   TRIM(varunits), 113, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
-          WRITE(name,'(A8,A4)') "lwflxtoa", sufix
+          WRITE(name,'(A,A5)') TRIM(prefix),"THB_T"
           WRITE(long_name,'(A8,A23)') meaning, " longwave  toa net flux"
           CALL addVar(TimeVar(TRIM(name),&
           &                   TRIM(long_name),&
-          &                   'W/m**2', 114, 128,&
+          &                   TRIM(varunits), 114, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
 
@@ -1134,22 +1138,22 @@ CONTAINS
 
           SELECT CASE (iforcing)
           CASE (inwp)
-          CALL addVar(TimeVar('swflxsfc',&
+          CALL addVar(TimeVar('SOB_S',&
           &                   'shortwave surface net flux',&
           &                   'W/m**2', 176, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
-          CALL addVar(TimeVar('lwflxsfc',&
+          CALL addVar(TimeVar('THB_S',&
           &                   'longwave surface net flux',&
           &                   'W/m**2', 177, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
-          CALL addVar(TimeVar('swflxtoa',&
+          CALL addVar(TimeVar('SOB_T',&
           &                   'shortwave toa net flux',&
           &                   'W/m**2', 178, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
-          CALL addVar(TimeVar('lwflxtoa',&
+          CALL addVar(TimeVar('THB_T',&
           &                   'longwave toa net flux',&
           &                   'W/m**2', 179, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
@@ -1583,40 +1587,42 @@ CONTAINS
           &                   k_jg)
           !--- Fluxes ....---
           IF (lflux_avg ) THEN
-            sufix = "_avg"
+            prefix = "A"
             meaning = "averaged"
+            varunits= "W/m**2"
           ELSE
-            sufix = "_acc"
-            meaning = "accumul."     
+            prefix = "ACC"
+            meaning = "accumul." 
+            varunits= "J/m**2"    
           END IF
 
-          WRITE(name,'(A6,A4)') "SHFL_S", sufix
+          WRITE(name,'(A,A6)') TRIM(prefix),"SHFL_S"
           WRITE(long_name,'(A8,A30)') meaning, " sensible heat flux at surface"
           CALL addVar(TimeVar(TRIM(name),&
           &                   TRIM(long_name),&
-          &                   'W/m^2', 255, 201,&  !999 == WMO here
+          &                   TRIM(varunits), 255, 201,&  !999 == WMO here
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &                   k_jg)
-          WRITE(name,'(A6,A4)') "LHFL_S", sufix
+          WRITE(name,'(A,A6)') TRIM(prefix),"LHFL_S"
           WRITE(long_name,'(A8,A30)') meaning, " latent   heat flux at surface"
           CALL addVar(TimeVar(TRIM(name),&
           &                   TRIM(long_name),&
-          &                   'W/m^2', 91, 128,& !999 ==  WMO here
+          &                   TRIM(varunits), 91, 128,& !999 ==  WMO here
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &                   k_jg)
           CALL addVar(TimeVar('SHFL_S',&
           &                   'sensible heat flux at surface',&
-          &                   'W/m*2', 92, 128,& 
+          &                   'W/m**2', 92, 128,& 
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &                   k_jg)
           CALL addVar(TimeVar('LHFL_S',&
           &                   'latent heat flux at surface',&
-          &                   'W/m*2', 147, 255,& 
+          &                   'W/m**2', 147, 255,& 
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &                   k_jg)
           CALL addVar(TimeVar('EVAP_RATE_avg',&
           &                   'averaged moisture flux rate (evap. rate) at surface',&
-          &                   'kg/m*2/s', 100, 128,& 
+          &                   'kg/m**2/s', 100, 128,& 
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &                   k_jg)
           CALL addVar(TimeVar('PS_s6avg',&
@@ -1624,42 +1630,42 @@ CONTAINS
           &                   'Pa', 117, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
-          CALL addVar(TimeVar('T_2m',&
+          CALL addVar(TimeVar('T_2M',&
           &                   '2 m Temperature',&
           &                   'K', 167, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
-          CALL addVar(TimeVar('T_2m_s6avg',&
+          CALL addVar(TimeVar('T_2M_s6avg',&
           &                   '6 hourly sample 2 m Temperature average',&
           &                   'K', 120, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
-          CALL addVar(TimeVar('QV_2m',&
+          CALL addVar(TimeVar('QV_2M',&
           &                   '2 m specific humidity ',&
           &                   'Kg/kg', 115, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
-          CALL addVar(TimeVar('QV_2m_s6avg',&
+          CALL addVar(TimeVar('QV_2M_s6avg',&
           &                   '6 hourly sample 2 m specific humidity average',&
           &                   'Kg/kg', 116, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
-          CALL addVar(TimeVar('U_10m',&
+          CALL addVar(TimeVar('U_10M',&
           &                   '10 m zonal wind',&
           &                   'K', 165, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
-          CALL addVar(TimeVar('V_10m',&
+          CALL addVar(TimeVar('V_10M',&
           &                   '10 m meridional wind',&
           &                   'K', 166, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
-          CALL addVar(TimeVar('U_10m_s6avg',&
+          CALL addVar(TimeVar('U_10M_s6avg',&
           &                   '6 hourly sample 10 m zonal wind average',&
           &                   'K', 118, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
-          CALL addVar(TimeVar('V_10m_s6avg',&
+          CALL addVar(TimeVar('V_10M_s6avg',&
           &                   '6 hourly sample 10 m meridional wind average',&
           &                   'K', 119, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
@@ -2932,18 +2938,18 @@ CONTAINS
       CASE ('PS');              ptr2 => p_diag%pres_sfc
       CASE ('PS_s6avg');        ptr2 => p_diag%pres_sfc_s6avg
       CASE ('T');               ptr3 => p_diag%temp
-      CASE ('T_2m' );           ptr2 => prm_diag(jg)%t_2m
-      CASE ('T_2m_s6avg' );     ptr2 => prm_diag(jg)%t_2m_s6avg
-      CASE ('QV_2m' );           ptr2 => prm_diag(jg)%qv_2m
-      CASE ('QV_2m_s6avg' );     ptr2 => prm_diag(jg)%qv_2m_s6avg
+      CASE ('T_2M' );           ptr2 => prm_diag(jg)%t_2m
+      CASE ('T_2M_s6avg' );     ptr2 => prm_diag(jg)%t_2m_s6avg
+      CASE ('QV_2M' );           ptr2 => prm_diag(jg)%qv_2m
+      CASE ('QV_2M_s6avg' );     ptr2 => prm_diag(jg)%qv_2m_s6avg
       CASE ('normal_velocity'); ptr3 => p_prog%vn
       CASE ('U');               ptr3 => p_diag%u
       CASE ('V');               ptr3 => p_diag%v
       CASE ('W');               ptr3 => p_prog%w
-      CASE ('U_10m');           ptr2 => prm_diag(jg)%u_10m
-      CASE ('V_10m');           ptr2 => prm_diag(jg)%v_10m
-      CASE ('U_10m_s6avg');     ptr2 => prm_diag(jg)%u_10m_s6avg
-      CASE ('V_10m_s6avg');     ptr2 => prm_diag(jg)%v_10m_s6avg
+      CASE ('U_10M');           ptr2 => prm_diag(jg)%u_10m
+      CASE ('V_10M');           ptr2 => prm_diag(jg)%v_10m
+      CASE ('U_10M_s6avg');     ptr2 => prm_diag(jg)%u_10m_s6avg
+      CASE ('V_10M_s6avg');     ptr2 => prm_diag(jg)%v_10m_s6avg
       CASE ('P');               ptr3 => p_diag%pres
       CASE ('QV');              ptr3 => prm_diag(jg)%tot_cld(:,:,:,iqv)
       CASE ('QC');              ptr3 => prm_diag(jg)%tot_cld(:,:,:,iqc)
@@ -2971,24 +2977,24 @@ CONTAINS
       CASE ('GSP_PREC_RATE_avg'); ptr2 => prm_diag(jg)%gsp_prec_rate_avg(:,:)
       CASE ('cosmu0');          ptr2 => prm_diag(jg)%cosmu0(:,:)
       CASE ('flxdwswtoa');      ptr2 => prm_diag(jg)%flxdwswtoa(:,:)
-      CASE ('swflxsfc');        ptr2 => prm_diag(jg)%swflxsfc(:,:)
-      CASE ('lwflxsfc');        ptr2 => prm_diag(jg)%lwflxsfc(:,:)
-      CASE ('swflxtoa');        ptr2 => prm_diag(jg)%swflxtoa(:,:)
-      CASE ('lwflxtoa');        ptr2 => prm_diag(jg)%lwflxall(:,1,:)
-      CASE ('swflxsfc_avg');    ptr2 => prm_diag(jg)%swflxsfc_a(:,:)
-      CASE ('lwflxsfc_avg');    ptr2 => prm_diag(jg)%lwflxsfc_a(:,:)       
-      CASE ('swflxtoa_avg');    ptr2 => prm_diag(jg)%swflxtoa_a(:,:)
-      CASE ('lwflxtoa_avg');    ptr2 => prm_diag(jg)%lwflxtoa_a(:,:)
-      CASE ('swflxsfc_acc');    ptr2 => prm_diag(jg)%swflxsfc_a(:,:)
-      CASE ('lwflxsfc_acc');    ptr2 => prm_diag(jg)%lwflxsfc_a(:,:)       
-      CASE ('swflxtoa_acc');    ptr2 => prm_diag(jg)%swflxtoa_a(:,:)
-      CASE ('lwflxtoa_acc');    ptr2 => prm_diag(jg)%lwflxtoa_a(:,:)
+      CASE ('SOB_S');           ptr2 => prm_diag(jg)%swflxsfc(:,:)
+      CASE ('THB_S');           ptr2 => prm_diag(jg)%lwflxsfc(:,:)
+      CASE ('SOB_T');           ptr2 => prm_diag(jg)%swflxtoa(:,:)
+      CASE ('THB_T');           ptr2 => prm_diag(jg)%lwflxall(:,1,:)
+      CASE ('ASOB_S');          ptr2 => prm_diag(jg)%swflxsfc_a(:,:)
+      CASE ('ATHB_S');          ptr2 => prm_diag(jg)%lwflxsfc_a(:,:)       
+      CASE ('ASOB_T');          ptr2 => prm_diag(jg)%swflxtoa_a(:,:)
+      CASE ('ATHB_T');          ptr2 => prm_diag(jg)%lwflxtoa_a(:,:)
+      CASE ('ACCSOB_S');        ptr2 => prm_diag(jg)%swflxsfc_a(:,:)
+      CASE ('ACCTHB_S');        ptr2 => prm_diag(jg)%lwflxsfc_a(:,:)       
+      CASE ('ACCSOB_T');        ptr2 => prm_diag(jg)%swflxtoa_a(:,:)
+      CASE ('ACCTHB_T');        ptr2 => prm_diag(jg)%lwflxtoa_a(:,:)
       CASE ('T_G');             ptr2 => p_prog_lnd%t_g
       CASE ('QV_S');            ptr2 => p_diag_lnd%qv_s
-      CASE ('SHFL_S_avg');      ptr2 => prm_diag(jg)%shfl_s_a 
-      CASE ('LHFL_S_avg');      ptr2 => prm_diag(jg)%lhfl_s_a
-      CASE ('SHFL_S_acc');      ptr2 => prm_diag(jg)%shfl_s_a 
-      CASE ('LHFL_S_acc');      ptr2 => prm_diag(jg)%lhfl_s_a
+      CASE ('ASHFL_S');         ptr2 => prm_diag(jg)%shfl_s_a 
+      CASE ('ALHFL_S');         ptr2 => prm_diag(jg)%lhfl_s_a
+      CASE ('ACCSHFL_S');       ptr2 => prm_diag(jg)%shfl_s_a 
+      CASE ('ACCLHFL_S');       ptr2 => prm_diag(jg)%lhfl_s_a
       CASE ('SHFL_S')
        IF   (atm_phy_nwp_config(jg)%inwp_turb.EQ.1) THEN  
          ptr2 => dup2(-1.*prm_diag(jg)%shfl_s(:,:)); delete = .TRUE.
