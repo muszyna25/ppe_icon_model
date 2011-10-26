@@ -771,7 +771,7 @@ i_endblk   = p_patch%cells%end_blk(min_rlcell,1)
 slev = 1
 !A_v=0.0001_wp
 dt_inv = 1.0_wp/dtime
-write(*,*)'impl vert trac diff: max/min top bc trac:',maxval(top_bc), minval(top_bc)
+!write(*,*)'impl vert trac diff: max/min top bc trac:',maxval(top_bc), minval(top_bc)
 !write(*,*)'impl vert trac diff: max/min bot bc trac:',maxval(bot_bc), minval(bot_bc)
 ipl_src=5  ! output print level (1-5, fix)
 z_c1(:,1,:)=top_bc(:,:)

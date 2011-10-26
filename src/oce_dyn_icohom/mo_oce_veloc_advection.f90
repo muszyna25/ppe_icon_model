@@ -392,8 +392,8 @@ DO jb = i_startblk_e, i_endblk_e
 
       !veloc_adv_horz_e(je,jk,jb)  = z_vort_flx_RBF(je,jk,jb) + z_grad_ekin_RBF(je,jk,jb) 
       !veloc_adv_horz_e(je,jk,jb)= z_vort_flx(je,jk,jb) + z_grad_ekin_RBF(je,jk,jb)
-      veloc_adv_horz_e(je,jk,jb)    = z_vort_flx_RBF(je,jk,jb)+ p_diag%grad(je,jk,jb)
-      !veloc_adv_horz_e(je,jk,jb)    = z_vort_flx(je,jk,jb) + p_diag%grad(je,jk,jb)
+      !veloc_adv_horz_e(je,jk,jb)    = z_vort_flx_RBF(je,jk,jb)+ p_diag%grad(je,jk,jb)
+      veloc_adv_horz_e(je,jk,jb)    = z_vort_flx(je,jk,jb) + p_diag%grad(je,jk,jb)
 !        write(*,*)'horz adv:vort-flx:vort-flx-RBF',je,jk,jb,z_vort_flx(je,1,jb), &
 !          &        z_vort_flx_RBF(je,jk,jb)!,&!p_diag%grad(je,jk,jb),z_grad_ekin_RBF(je,jk,jb),&
           !&        veloc_adv_horz_e(je,jk,jb)!, z_veloc_adv_horz_e(je,jk,jb)
