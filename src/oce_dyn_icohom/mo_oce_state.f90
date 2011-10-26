@@ -2586,7 +2586,8 @@ END DO
 !z_vec_c1(ie)%x =z_vec_c1(ie)%x/norm
 !write(*,*)'vec:normal:',z_vec_c1(ie)%x,p_patch%edges%primal_cart_normal(iil_c1(ie),iib_c1(ie))%x 
 !---------
-    CALL check_patch_array(SYNC_C, p_patch,v_base%fixed_vol_norm,'fixed_vol_norm')
+ 
+           CALL check_patch_array(SYNC_C, p_patch,v_base%fixed_vol_norm,'fixed_vol_norm')
                  v_base%fixed_vol_norm(il_c1,ib_c1) = &
              &   v_base%fixed_vol_norm(il_c1,ib_c1) + 0.5_wp*norm*z_edge_length(ie)
            v_base%variable_vol_norm(il_c1,ib_c1,ie) = 0.5_wp*norm*z_edge_length(ie)
@@ -2674,7 +2675,6 @@ END DO
              & = v_base%fixed_vol_norm(il_c2,ib_c2) + 0.5_wp*norm*z_edge_length(ie)
 
            v_base%variable_vol_norm(il_c2,ib_c2,ie) = 0.5_wp*norm*z_edge_length(ie)
-
 
          END DO
        END DO EDGE_IDX_LOOP_PRIMAL
