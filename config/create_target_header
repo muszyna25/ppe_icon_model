@@ -221,7 +221,7 @@ set_run_target_blizzard()
   else
     case $use_memory_model in
       "huge" )
-        set_default total_memory 58000
+        set_default total_memory 49000
         ;;
       "verylarge" )
         set_default total_memory 30000
@@ -262,10 +262,27 @@ set_run_target_blizzard()
     networkMPI="network.MPI  = sn_all,not_shared,us"
     rset="rset         = rset_mcm_affinity"
     mcm_affinity_options="mcm_affinity_options = mcm_accumulate"
+    mcm_affinity_options="mcm_affinity_options = mcm_distribute"
     node="node             = $use_nodes"
     tasks_per_node="tasks_per_node   = $use_mpi_procs"
   fi
-  
+    if  [[ $use_openmp_threads -gt 8 ]] ; then
+      rset=" # rset         = rset_mcm_affinity"
+      mcm_affinity_options=" # mcm_affinity_options = mcm_accumulate"
+    fi
+  # ------------------------------------
+  # check if we can use the mcm affinity
+  if  [[ $use_openmp_threads -gt 16 ]] ; then
+     rset=" # rset         = rset_mcm_affinity"
+     mcm_affinity_options=" # mcm_affinity_options = mcm_accumulate"
+  fi
+  if [[ $smt_mode = "no_smt" ]] ; then
+    if  [[ $use_openmp_threads -gt 8 ]] ; then
+      rset=" # rset         = rset_mcm_affinity"
+      mcm_affinity_options=" # mcm_affinity_options = mcm_accumulate"
+    fi
+  fi 
+  # ------------------------------------
 
   if [[ "$use_nodes" -eq 1 ]] && [[ "$use_mpi_procs" -eq 1 ]] ; then
     use_node_usage="shared"
@@ -304,6 +321,8 @@ set_run_target_blizzard()
 # --------------------------------
 # @ shell        = /client/bin/ksh
 # @ job_type     = $job_type
+## @ class        = bench
+## @ ll_res_id    = pio01.dkrz.de.13.r
 # @ node_usage   = $node_usage
 # @ $networkMPI
 # @ $rset 
