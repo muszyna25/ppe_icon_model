@@ -4717,10 +4717,10 @@ END DO
       END DO
     END DO
   ENDIF
+#endif
 
 #ifdef NECSX
   CALL collapse(.FALSE., ie, je, istartpar, iendpar, jstartpar, jendpar)
-#endif
 #endif
 
 
