@@ -2265,6 +2265,13 @@ CONTAINS
       &                   gridCellID(k_jg), &
       &                   zaxisIDdepth_m(k_jg)),&
       &           k_jg)
+      CALL addVar(TimeVar('Vert-Veloc-Adv',&
+      &                   'vertical-velocity advection at edges',&
+      &                   'm/s',5,128,&
+      &                   vlistID(k_jg), &
+      &                   gridEdgeID(k_jg), &
+      &                   zaxisIDdepth_m(k_jg)),&
+      &           k_jg)
       CALL addVar(TimeVar('W',&
       &                   'vertical velocity at cells',&
       &                   'm/s', 6, 128,&
@@ -2286,20 +2293,20 @@ CONTAINS
       &                   gridCellID(k_jg),&
       &                   zaxisID_halfdepth(k_jg)),&
       &           k_jg)
-   !  CALL addVar(TimeVar('press_grad',&
-   !  &                   'pressure-gradient at edges',&
-   !  &                   'm/s',5,128,&
-   !  &                   vlistID(k_jg), &
-   !  &                   gridEdgeID(k_jg), &
-   !  &                   zaxisIDdepth_m(k_jg)),&
-   !  &                   k_jg)
-   !  CALL addVar(TimeVar('rho',&
-   !  &                   'density cells',&
-   !  &                   'kg/m**3', 6, 128,&
-   !  &                   vlistid(k_jg),&
-   !  &                   gridCellID(k_jg),&
-   !  &                   zaxisIDdepth_m(k_jg)),&
-   !  &           k_jg)
+     CALL addVar(TimeVar('press_grad',&
+     &                   'pressure-gradient at edges',&
+     &                   'm/s',5,128,&
+     &                   vlistID(k_jg), &
+     &                   gridEdgeID(k_jg), &
+     &                   zaxisIDdepth_m(k_jg)),&
+     &                   k_jg)
+    CALL addVar(TimeVar('rho',&
+     &                   'density cells',&
+     &                   'kg/m**3', 6, 128,&
+     &                   vlistid(k_jg),&
+     &                   gridCellID(k_jg),&
+     &                   zaxisIDdepth_m(k_jg)),&
+     &           k_jg)
 
 
 
@@ -3273,7 +3280,7 @@ CONTAINS
       CASE ('ELEV');         ptr2d => p_prog%h
       CASE ('forc-u');       ptr2d => forcing%forc_wind_u
       CASE ('forc-v');       ptr2d => forcing%forc_wind_v
-      CASE ('forc-t');       ptr2d => forcing%forc_tracer(:,:,1)
+      CASE ('forc-t');       ptr2d => forcing%forc_tracer_relax(:,:,1) !           forc_tracer(:,:,1)
       CASE ('forc-hflx');    ptr2d => forcing%forc_hflx(:,:)
       CASE('horz-adv');      ptr3d => p_diag%veloc_adv_horz
       CASE('Ekin-grad');     ptr3d => p_diag%grad
@@ -3302,6 +3309,7 @@ CONTAINS
       CASE ('u-veloc');      ptr3d => p_diag%u
       CASE ('v-veloc');      ptr3d => p_diag%v
       CASE ('W');            ptr3d => p_diag%w
+      CASE('Vert-Veloc-Adv');ptr3d => p_diag%veloc_adv_vert
       CASE('press_grad');    ptr3d => p_diag%press_grad
       CASE ('rho');          ptr3d => p_diag%rho   
       CASE('Vert-Mixing-V'); ptr3d => p_params%A_veloc_v

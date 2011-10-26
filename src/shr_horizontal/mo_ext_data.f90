@@ -2650,7 +2650,6 @@ CONTAINS
       mpi_comm = p_comm_work
     ENDIF
 
-
     ! I/O PE reads and broadcasts data
 
     IF(my_process_is_stdio()) CALL nf(nf_get_var_double(ncid, varid, z_dummy_array(:,:,:)))

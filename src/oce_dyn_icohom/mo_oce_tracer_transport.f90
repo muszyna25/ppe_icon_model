@@ -217,37 +217,35 @@ DO jk = 1, n_zlev
     &              p_patch%nblks_c,'trc',ipl_src)
   CALL print_mxmn('adv-horz tracer-tmp',jk,trac_tmp(:,:,:),n_zlev, &
     &              p_patch%nblks_c,'trc',ipl_src)
- !write(*,*)'After horizontal max/min old-new tracer:',jk, maxval(trac_old(:,jk,:)),&
- !                                     & minval(trac_old(:,jk,:)),&
- !                                     & maxval(trac_tmp(:,jk,:)),&
- !                                     & minval(trac_tmp(:,jk,:))
+!  write(*,*)'After horizontal max/min old-new tracer:',jk, maxval(trac_old(:,jk,:)),&
+!                                       & minval(trac_old(:,jk,:)),&
+!                                       & maxval(trac_tmp(:,jk,:)),&
+!                                       & minval(trac_tmp(:,jk,:))
  !write(123,*)'After horizontal max/min old-new tracer:',jk, maxval(trac_old(:,jk,:)),&
  !                                      & minval(trac_old(:,jk,:)),&
  !                                      & maxval(trac_tmp(:,jk,:)),&
  !                                      & minval(trac_tmp(:,jk,:))
-
-END DO
+ END DO
 
 IF( iswm_oce /= 1) THEN
 
-    CALL advect_vertical(p_patch, trac_tmp,              &
-                        & p_os,                           &
-                        & G_n_c_v, G_nm1_c_v, G_nimd_c_v, &
-                        & bc_top_tracer, bc_bot_tracer,   &
-                        & A_v,                            &
-                        & trac_new, timestep, delta_t)!, h_tmp)
- ! trac_new=trac_tmp
-  DO jk = 1, n_zlev 
-   !write(*,*)'After vertical max/min old-new tracer:',jk, maxval(trac_old(:,jk,:)),&
-   !                                   & minval(trac_old(:,jk,:)),&
-   !                                   & maxval(trac_new(:,jk,:)),&
-   !                                   & minval(trac_new(:,jk,:))
-    ipl_src=3  ! output print level (1-5, fix)
-    CALL print_mxmn('adv-vert tracer-old',jk,trac_old(:,:,:),n_zlev, &
-      &              p_patch%nblks_c,'trc',ipl_src)
-    CALL print_mxmn('adv-vert tracer-new',jk,trac_new(:,:,:),n_zlev, &
-      &              p_patch%nblks_c,'trc',ipl_src)
-  END DO
+     CALL advect_vertical(p_patch, trac_tmp,              &
+                         & p_os,                           &
+                         & G_n_c_v, G_nm1_c_v, G_nimd_c_v, &
+                         & bc_top_tracer, bc_bot_tracer,   &
+                         & A_v,                            &
+                         & trac_new, timestep, delta_t)!, h_tmp)
+!   DO jk = 1, n_zlev 
+!    write(*,*)'After vertical max/min old-new tracer:',jk, maxval(trac_old(:,jk,:)),&
+!                                       & minval(trac_old(:,jk,:)),&
+!                                       & maxval(trac_new(:,jk,:)),&
+!                                       & minval(trac_new(:,jk,:))
+!     ipl_src=3  ! output print level (1-5, fix)
+!     CALL print_mxmn('adv-vert tracer-old',jk,trac_old(:,:,:),n_zlev, &
+!       &              p_patch%nblks_c,'trc',ipl_src)
+!     CALL print_mxmn('adv-vert tracer-new',jk,trac_new(:,:,:),n_zlev, &
+!       &              p_patch%nblks_c,'trc',ipl_src)
+!   END DO
 ELSEIF( iswm_oce == 1) THEN
 
   trac_new=trac_tmp
@@ -266,6 +264,7 @@ DO jk = 1, n_zlev
     ! #slo# - Temperature: tf=-1.9 deg, freezing of sea water, is possible:
 ! IF (minval(trac_new(:,jk,:))<tf) THEN
   IF (minval(trac_new(:,jk,:))<-4.0_wp) THEN
+    write(*,*)'negative tracer', jk, minval(trac_new(:,jk,:)) 
     CALL finish(TRIM('mo_tracer_advection:advect_individual_tracer-h'), &
       &              'Negative tracer values') 
   ENDIF
@@ -361,6 +360,7 @@ IF ( iswm_oce /= 1) THEN
     DO jk = 1, n_zlev
       delta_z = v_base%del_zlev_m(jk)
       DO jc = i_startidx_c, i_endidx_c
+
         IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
           IF (jk == 1) delta_z = v_base%del_zlev_m(jk)&
                              & + p_os%p_prog(nold(1))%h(jc,jb)
@@ -976,14 +976,13 @@ IF(expl_vertical_tracer_diff==1)THEN
     !ENDIF
 
     !calculate vert diffusion impicit: result is stored in trac_out
-    CALL tracer_diffusion_vert_impl( p_patch,             &
-                                 & G_nimd_c_v,            &!& G_n_c_v,               &
-                                 & bc_top_tracer,         & 
-                                 & bc_bot_tracer,         &
-                                 & p_os%p_prog(nold(1))%h,&
-                                 & A_v,                   &
-                                 & trac_out(:,:,:))
-
+      CALL tracer_diffusion_vert_impl( p_patch,             &
+                                   & G_nimd_c_v,            &!& G_n_c_v,&
+                                   & bc_top_tracer,         & 
+                                   & bc_bot_tracer,         &
+                                   & p_os%p_prog(nold(1))%h,&
+                                   & A_v,                   &
+                                   & trac_out(:,:,:))
   CASE(1)!=1: surface forcing applied as volume forcing at rhs, i.e.part of explicit term in momentum and tracer eqs.
          !    in this case, top boundary ondition of vertical Laplacians are homogeneous
 
@@ -1019,6 +1018,7 @@ IF(expl_vertical_tracer_diff==1)THEN
       G_nimd_c_v(:,:,:) = (1.5_wp+AB_const)* G_n_c_v(:,:,:)   &
         &               - (0.5_wp+AB_const)*G_nm1_c_v(:,:,:)
     ENDIF
+
     CALL tracer_diffusion_vert_impl_hom( p_patch,         &
                                  & G_nimd_c_v,            &!& G_n_c_v,               &
                                  & p_os%p_prog(nold(1))%h,&

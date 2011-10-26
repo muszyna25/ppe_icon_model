@@ -769,9 +769,9 @@ INTEGER  :: z_dolic
 i_startblk = p_patch%cells%start_blk(1,1)
 i_endblk   = p_patch%cells%end_blk(min_rlcell,1)
 slev = 1
-!A_v=0.1_wp
+!A_v=0.0001_wp
 dt_inv = 1.0_wp/dtime
-!write(*,*)'impl vert trac diff: max/min top bc trac:',maxval(top_bc), minval(top_bc)
+write(*,*)'impl vert trac diff: max/min top bc trac:',maxval(top_bc), minval(top_bc)
 !write(*,*)'impl vert trac diff: max/min bot bc trac:',maxval(bot_bc), minval(bot_bc)
 ipl_src=5  ! output print level (1-5, fix)
 z_c1(:,1,:)=top_bc(:,:)
@@ -803,18 +803,18 @@ DO jb = i_startblk, i_endblk
         !Fill triangular matrix
         !b is diagonal a and c are upper and lower band
         DO jk = slev+1, z_dolic-1
-          a(jk) = -A_v(jc,jk,jb)*inv_zinv_m(jk) *inv_zinv_i(jk)
+          a(jk) = -A_v(jc,jk,jb)  *inv_zinv_m(jk)   *inv_zinv_i(jk)
           c(jk) = -A_v(jc,jk+1,jb)*inv_zinv_m(jk+1) *inv_zinv_i(jk)
           b(jk) = dt_inv-a(jk)-c(jk)
         END DO
 
         ! The first row
-         c(slev) = -A_v(jc,slev+1,jb)*inv_zinv_m(slev)* inv_zinv_i(slev+1)
+         c(slev) = -A_v(jc,slev+1,jb)*inv_zinv_m(slev+1)*inv_zinv_i(slev)
          a(slev) = 0.0_wp           
          b(slev) = dt_inv- c(slev) !- a(slev) 
 
         ! The last row
-        a(z_dolic) = -A_v(jc,z_dolic,jb)*inv_zinv_m(z_dolic)*  inv_zinv_i(z_dolic)
+        a(z_dolic) = -A_v(jc,z_dolic,jb)*inv_zinv_m(z_dolic-1)*inv_zinv_i(z_dolic)
         c(z_dolic) = 0.0_wp
         b(z_dolic) = dt_inv - a(z_dolic)! - c(z_dolic)
 
@@ -824,10 +824,10 @@ DO jb = i_startblk, i_endblk
         z_rhs(slev+1:z_dolic-1) = dt_inv*field_column(jc,slev+1:z_dolic-1,jb)
  
         zinv             = 1.0_wp/v_base%del_zlev_m(slev) !                        +h_c(jc,jb)                         
-        z_rhs(slev)      = dt_inv*field_column(jc,slev,jb) + top_bc(jc,jb)*zinv   
+        z_rhs(slev)      = dt_inv*field_column(jc,slev,jb) + top_bc(jc,jb)*zinv
 
         zinv             = 1.0_wp*v_base%del_zlev_m(z_dolic)
-        z_rhs(z_dolic)   = dt_inv*field_column(jc,z_dolic,jb) - bot_bc(jc,jb)*zinv 
+        z_rhs(z_dolic)   = dt_inv*field_column(jc,z_dolic,jb) !- bot_bc(jc,jb)*zinv 
 
         !Scale with diagonal
         DO jk=slev, n_zlev
@@ -865,18 +865,20 @@ DO jb = i_startblk, i_endblk
   
 !     IF(field_column(jc,1,jb)/=0.0_wp)THEN
 !     !write(234,*)'top bc',top_bc(jc,jb)/zinv
-!     write(234,*)'coffs',jc,jb,A_v(jc,:,jb)
+!     write(234,*)'coffs i',inv_zinv_i(:)
+!     write(234,*)'coffs m',inv_zinv_m(:)
+!     write(234,*)'coffs A_V',A_v(jc,:,jb)
 !     write(234,*)'mat up  a:', a
-!     write(234,*)'mat dia b:', b
+!     !write(234,*)'mat dia b:', b
 !     write(234,*)'mat dow c:', c
 !      write(234,*)'rhs :',z_rhs
 !      write(234,*)'in :', field_column(jc,:,jb) 
 !      write(234,*)'out:',diff_column(jc,:,jb)
-!      write(234,*)'sum:',sum(field_column(jc,:,jb))/z_dolic,&
-!      & sum(diff_column(jc,:,jb))/z_dolic, &
-!      &(sum(diff_column(jc,:,jb))/z_dolic)/(sum(field_column(jc,:,jb))/z_dolic)
+!      !write(234,*)'sum:',sum(field_column(jc,:,jb))/z_dolic,&
+!      !& sum(diff_column(jc,:,jb))/z_dolic, &
+!      !&(sum(diff_column(jc,:,jb))/z_dolic)/(sum(field_column(jc,:,jb))/z_dolic)
 !     write(234,*)
-!     ENDIF
+!    ENDIF
       ELSEIF ( z_dolic <MIN_DOLIC ) THEN
         diff_column(jc,:,jb) = 0.0_wp!field_column(jc,:,jb)
       ENDIF
@@ -973,23 +975,23 @@ DO jb = i_startblk, i_endblk
         !Fill triangular matrix
         !b is diagonal a and c are upper and lower band
         DO jk = slev+1, z_dolic-1
-          a(jk) = -A_v(jc,jk,jb)*inv_zinv_m(jk) *inv_zinv_i(jk)
+          a(jk) = -A_v(jc,jk,jb)  *inv_zinv_m(jk)   *inv_zinv_i(jk)
           c(jk) = -A_v(jc,jk+1,jb)*inv_zinv_m(jk+1) *inv_zinv_i(jk)
           b(jk) = dt_inv-a(jk)-c(jk)
         END DO
 
         ! The first row
-         c(slev) = -A_v(jc,slev+1,jb)*inv_zinv_m(slev)* inv_zinv_i(slev+1)
+         c(slev) = -A_v(jc,slev+1,jb)*inv_zinv_m(slev+1)*inv_zinv_i(slev)
          a(slev) = 0.0_wp           
          b(slev) = dt_inv- c(slev) !- a(slev) 
 
         ! The last row
-        a(z_dolic) = -A_v(jc,z_dolic,jb)*inv_zinv_m(z_dolic)*  inv_zinv_i(z_dolic)
+        a(z_dolic) = -A_v(jc,z_dolic,jb)*inv_zinv_m(z_dolic-1)*inv_zinv_i(z_dolic)
         c(z_dolic) = 0.0_wp
         b(z_dolic) = dt_inv - a(z_dolic)! - c(z_dolic)
 
+ 
         ! The matrix is now complete, fill the rhs 
-        ! The first row contains surface forcing, the last bottom boundary condition
         z_rhs(slev:z_dolic) = dt_inv*field_column(jc,slev:z_dolic,jb)
  
         !Scale with diagonal
@@ -1142,23 +1144,24 @@ DO jb = i_startblk, i_endblk
         inv_zinv_i(:)=1.0_wp/v_base%del_zlev_i(:)
         inv_zinv_m(:)=1.0_wp/v_base%del_zlev_m(:)
 
+
         !Fill triangular matrix
         !b is diagonal a and c are upper and lower band
         DO jk = slev+1, z_dolic-1
-          a(jk) = -A_v(jc,jk,jb)*inv_zinv_m(jk) *inv_zinv_i(jk)!*inv_zinv_m(jk)
+          a(jk) = -A_v(jc,jk,jb)  *inv_zinv_m(jk)   *inv_zinv_i(jk)
           c(jk) = -A_v(jc,jk+1,jb)*inv_zinv_m(jk+1) *inv_zinv_i(jk)
           b(jk) = dt_inv-a(jk)-c(jk)
         END DO
 
         ! The first row
-         c(slev) = -A_v(jc,slev+1,jb)*inv_zinv_m(slev)* inv_zinv_i(slev+1) 
+         c(slev) = -A_v(jc,slev+1,jb)*inv_zinv_m(slev+1)*inv_zinv_i(slev)
          a(slev) = 0.0_wp           
-         b(slev) = dt_inv - c(slev) !- a(slev)
+         b(slev) = dt_inv- c(slev) !- a(slev) 
 
         ! The last row
-        a(z_dolic) = -A_v(jc,z_dolic,jb)*inv_zinv_m(z_dolic)* inv_zinv_i(z_dolic) 
+        a(z_dolic) = -A_v(jc,z_dolic,jb)*inv_zinv_m(z_dolic-1)*inv_zinv_i(z_dolic)
         c(z_dolic) = 0.0_wp
-        b(z_dolic) = dt_inv - a(z_dolic) !- c(z_dolic)
+        b(z_dolic) = dt_inv - a(z_dolic)! - c(z_dolic)
 
         ! The matrix is now complete, fill the rhs 
         ! The first row contains surface forcing, the last bottom boundary condition
@@ -1166,10 +1169,10 @@ DO jb = i_startblk, i_endblk
         z_rhs(slev+1:z_dolic-1) = dt_inv*field_column(jc,slev+1:z_dolic-1,jb)
 
         zinv             = 1.0_wp/v_base%del_zlev_m(slev)
-        z_rhs(slev)      = dt_inv*(field_column(jc,slev,jb)    + top_bc_vn(jc,jb)*zinv)
+        z_rhs(slev)      = dt_inv*field_column(jc,slev,jb)    + top_bc_vn(jc,jb)*zinv
 
         zinv             = 1.0_wp/v_base%del_zlev_m(z_dolic)
-        z_rhs(z_dolic)   = dt_inv*(field_column(jc,z_dolic,jb) - bot_bc_vn(jc,jb)*zinv)
+        z_rhs(z_dolic)   = dt_inv*field_column(jc,z_dolic,jb) - bot_bc_vn(jc,jb)*zinv
 
         !Scale with diagonal
         DO jk=slev, n_zlev
@@ -1338,20 +1341,20 @@ DO jb = i_startblk, i_endblk
         !Fill triangular matrix
         !b is diagonal a and c are upper and lower band
         DO jk = slev+1, z_dolic-1
-          a(jk) = -A_v(jc,jk,jb)*inv_zinv_m(jk) *inv_zinv_i(jk)
+          a(jk) = -A_v(jc,jk,jb)  *inv_zinv_m(jk)   *inv_zinv_i(jk)
           c(jk) = -A_v(jc,jk+1,jb)*inv_zinv_m(jk+1) *inv_zinv_i(jk)
           b(jk) = dt_inv-a(jk)-c(jk)
         END DO
 
         ! The first row
-         c(slev) = -A_v(jc,slev+1,jb)*inv_zinv_m(slev)* inv_zinv_i(slev+1) 
+         c(slev) = -A_v(jc,slev+1,jb)*inv_zinv_m(slev+1)*inv_zinv_i(slev)
          a(slev) = 0.0_wp           
-         b(slev) = dt_inv - c(slev) !- a(slev)
+         b(slev) = dt_inv- c(slev) !- a(slev) 
 
         ! The last row
-        a(z_dolic) = -A_v(jc,z_dolic,jb)*inv_zinv_m(z_dolic)*inv_zinv_i(z_dolic)
+        a(z_dolic) = -A_v(jc,z_dolic,jb)*inv_zinv_m(z_dolic-1)*inv_zinv_i(z_dolic)
         c(z_dolic) = 0.0_wp
-        b(z_dolic) = dt_inv - a(z_dolic) !- c(z_dolic)
+        b(z_dolic) = dt_inv - a(z_dolic)! - c(z_dolic)
 
         ! The matrix is now complete, fill the rhs 
         ! The first row contains surface forcing, the last bottom boundary condition

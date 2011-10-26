@@ -570,14 +570,13 @@ END INTERFACE
    REAL(wp), PARAMETER :: z_av0    = 0.5E-2_wp 
    REAL(wp), PARAMETER :: z_dv0    = 0.5E-2_wp
    LOGICAL,  PARAMETER :: l_constant_mixing = .FALSE.
-
 !   !-------------------------------------------------------------------------
-DO, jk=1,n_zlev
-CALL &
-& print_mxmn('(uhp) params_oce%K_veloc_h',jk,params_oce%K_veloc_h,n_zlev,p_patch%nblks_e,'phy',3)
-CALL &
-& print_mxmn('(uhp) params_oce%A_veloc_v',jk,params_oce%A_veloc_v,n_zlev,p_patch%nblks_e,'phy',3)
-ENDDO
+! DO, jk=1,n_zlev
+! CALL &
+! & print_mxmn('(uhp) params_oce%K_veloc_h',jk,params_oce%K_veloc_h,n_zlev,p_patch%nblks_e,'phy',3)
+! CALL &
+! & print_mxmn('(uhp) params_oce%A_veloc_v',jk,params_oce%A_veloc_v,n_zlev,p_patch%nblks_e,'phy',3)
+! ENDDO
 !write(0,*)'K_veloc_h_back:',params_oce%K_veloc_h_back
 !write(0,*)'A_veloc_v_back:',params_oce%A_veloc_v_back
 !DO jk=1,no_tracer

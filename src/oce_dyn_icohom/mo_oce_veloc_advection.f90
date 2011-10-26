@@ -392,8 +392,8 @@ DO jb = i_startblk_e, i_endblk_e
 
       !veloc_adv_horz_e(je,jk,jb)  = z_vort_flx_RBF(je,jk,jb) + z_grad_ekin_RBF(je,jk,jb) 
       !veloc_adv_horz_e(je,jk,jb)= z_vort_flx(je,jk,jb) + z_grad_ekin_RBF(je,jk,jb)
-      !veloc_adv_horz_e(je,jk,jb)    = z_vort_flx_RBF(je,jk,jb)+ p_diag%grad(je,jk,jb)
-      veloc_adv_horz_e(je,jk,jb)    = z_vort_flx(je,jk,jb) + p_diag%grad(je,jk,jb)
+      veloc_adv_horz_e(je,jk,jb)    = z_vort_flx_RBF(je,jk,jb)+ p_diag%grad(je,jk,jb)
+      !veloc_adv_horz_e(je,jk,jb)    = z_vort_flx(je,jk,jb) + p_diag%grad(je,jk,jb)
 !        write(*,*)'horz adv:vort-flx:vort-flx-RBF',je,jk,jb,z_vort_flx(je,1,jb), &
 !          &        z_vort_flx_RBF(je,jk,jb)!,&!p_diag%grad(je,jk,jb),z_grad_ekin_RBF(je,jk,jb),&
           !&        veloc_adv_horz_e(je,jk,jb)!, z_veloc_adv_horz_e(je,jk,jb)
@@ -909,15 +909,15 @@ DO jb = i_startblk, i_endblk
   END DO
 END DO
 
-CALL print_mxmn('ck (vadv) p_vn',1,p_diag%p_vn%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('ck (vadv) p_vn',2,p_diag%p_vn%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('ck (vadv) p_vn',3,p_diag%p_vn%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('ck (vadv) p_vn',4,p_diag%p_vn%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('ck (vadv) p_diag%w',1,p_diag%w,n_zlev+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('ck (vadv) p_diag%w',2,p_diag%w,n_zlev+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('ck (vadv) p_diag%w',3,p_diag%w,n_zlev+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('ck (vadv) p_diag%w',4,p_diag%w,n_zlev+1,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('ck (vadv) p_diag%w',5,p_diag%w,n_zlev+1,p_patch%nblks_c,'vel',ipl_src)
+! CALL print_mxmn('ck (vadv) p_vn',1,p_diag%p_vn%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
+! CALL print_mxmn('ck (vadv) p_vn',2,p_diag%p_vn%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
+! CALL print_mxmn('ck (vadv) p_vn',3,p_diag%p_vn%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
+! CALL print_mxmn('ck (vadv) p_vn',4,p_diag%p_vn%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
+! CALL print_mxmn('ck (vadv) p_diag%w',1,p_diag%w,n_zlev+1,p_patch%nblks_c,'vel',ipl_src)
+! CALL print_mxmn('ck (vadv) p_diag%w',2,p_diag%w,n_zlev+1,p_patch%nblks_c,'vel',ipl_src)
+! CALL print_mxmn('ck (vadv) p_diag%w',3,p_diag%w,n_zlev+1,p_patch%nblks_c,'vel',ipl_src)
+! CALL print_mxmn('ck (vadv) p_diag%w',4,p_diag%w,n_zlev+1,p_patch%nblks_c,'vel',ipl_src)
+! CALL print_mxmn('ck (vadv) p_diag%w',5,p_diag%w,n_zlev+1,p_patch%nblks_c,'vel',ipl_src)
 
 !Step 1: multiply vertical velocity with vertical derivative of horizontal velocity 
 !This requires appropriate boundary conditions
@@ -933,7 +933,7 @@ DO jb = i_startblk, i_endblk
 ! !         & = p_diag%w(jc,slev,jb)*(p_diag%p_vn(jc,slev,jb)%x - p_diag%p_vn(jc,slev+1,jb)%x)
 
       ! 1b) ocean interior 
-      DO jk = slev+1, z_dolic
+      DO jk = slev+1, z_dolic-1
         z_adv_u_i(jc,jk,jb)%x&
             & = p_diag%w(jc,jk,jb)*(p_diag%p_vn(jc,jk-1,jb)%x - p_diag%p_vn(jc,jk,jb)%x)&
             & / v_base%del_zlev_i(jk)
@@ -941,16 +941,16 @@ DO jb = i_startblk, i_endblk
 !  write(*,*)'vert adv:v: ',jk, jc,jb,w_c(jc,jk,jb),&
 !&( p_diag%p_vn(jc,jk-1,jb)%x - p_diag%p_vn(jc,jk,jb)%x )
       END DO
-      z_adv_u_i(jc,slev,jb)%x=z_adv_u_i(jc,slev+1,jb)%x
+      z_adv_u_i(jc,slev,jb)%x=0.0_wp!z_adv_u_i(jc,slev+1,jb)%x
     ENDIF 
   END DO
 
 END DO
 
-CALL print_mxmn('check z_adv_u_i',1,z_adv_u_i%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('check z_adv_u_i',2,z_adv_u_i%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('check z_adv_u_i',3,z_adv_u_i%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
-CALL print_mxmn('check z_adv_u_i',4,z_adv_u_i%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
+! CALL print_mxmn('check z_adv_u_i',1,z_adv_u_i%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
+! CALL print_mxmn('check z_adv_u_i',2,z_adv_u_i%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
+! CALL print_mxmn('check z_adv_u_i',3,z_adv_u_i%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
+! CALL print_mxmn('check z_adv_u_i',4,z_adv_u_i%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
 ! ! Step 2: Map product of vertical velocity & vertical derivative from top of prism to mid position.
 ! ! This mapping is the transposed of the vertical differencing.! 
 DO jb = i_startblk, i_endblk
@@ -961,15 +961,17 @@ DO jb = i_startblk, i_endblk
     IF(z_dolic>=MIN_DOLIC)THEN 
       ! 2b) ocean interior
 
-      DO jk = slev,z_dolic-1
+      DO jk = slev+1,z_dolic-1
 
            z_adv_u_m(jc,jk,jb)%x &
-           & = (v_base%del_zlev_i(jk)*z_adv_u_i(jc,jk,jb)%x&
-           & +  v_base%del_zlev_i(jk+1)*z_adv_u_i(jc,jk+1,jb)%x) &
-           & / (v_base%del_zlev_i(jk+1)+v_base%del_zlev_i(jk))
+           & = 0.5_wp*(z_adv_u_i(jc,jk,jb)%x+z_adv_u_i(jc,jk+1,jb)%x)
+!            z_adv_u_m(jc,jk,jb)%x &
+!            & = (v_base%del_zlev_i(jk)*z_adv_u_i(jc,jk,jb)%x&
+!            & +  v_base%del_zlev_i(jk+1)*z_adv_u_i(jc,jk+1,jb)%x) &
+!            & / (v_base%del_zlev_i(jk+1)+v_base%del_zlev_i(jk))
       END DO
        ! 2c) ocean bottom
-         z_adv_u_m(jc,z_dolic,jb)%x =  z_adv_u_i(jc,z_dolic,jb)%x
+         z_adv_u_m(jc,z_dolic,jb)%x =0.0_wp!=  z_adv_u_i(jc,z_dolic,jb)%x
     ENDIF
   END DO
 ! write(*,*)'B max/min vert adv:',jk, maxval(z_adv_u_m(:,jk,:)), minval(z_adv_u_m(:,jk,:)),&
@@ -982,10 +984,10 @@ enddo
 ! ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
 CALL map_cell2edges( p_patch, z_adv_u_m, veloc_adv_vert_e, &
   &                  opt_slev=slev, opt_elev=elev )
-
+!veloc_adv_vert_e=0.0_wp
   DO jk=1,n_zlev
     ipl_src=3  ! output print level (1-5, fix)
-    CALL print_mxmn('vort adv FINAL',jk,veloc_adv_vert_e(:,:,:),n_zlev, &
+    CALL print_mxmn('vert adv FINAL',jk,veloc_adv_vert_e(:,:,:),n_zlev, &
       &              p_patch%nblks_e,'vel',ipl_src)
   ! WRITE(987,*) 'max/min vert adv FINAL',jk, &
   !   &        MAXVAL(veloc_adv_vert_e(:,jk,:)), MINVAL(veloc_adv_vert_e(:,jk,:))

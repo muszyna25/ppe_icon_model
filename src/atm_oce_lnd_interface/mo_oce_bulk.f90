@@ -323,7 +323,6 @@ CONTAINS
                          & p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
                          & p_sfc_flx%forc_wind_cc(jc,jb)%x(2),&
                          & p_sfc_flx%forc_wind_cc(jc,jb)%x(3))
-
         ELSE
           p_sfc_flx%forc_wind_u(jc,jb)         = 0.0_wp
           p_sfc_flx%forc_wind_v(jc,jb)         = 0.0_wp
@@ -481,7 +480,7 @@ CONTAINS
     !  - set to zero on land points
 
     !z_tmin = -1.0_wp
-    z_tmin = tf  !  -1.9 deg C
+    z_tmin =tf  !  -1.9 deg C
 
     DO jb = i_startblk_c, i_endblk_c
       CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c,  &
@@ -521,9 +520,9 @@ CONTAINS
            &       (relaxation_param*2.592e6_wp)
 
         IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
-          p_sfc_flx%forc_tracer(jc,jb, 1) =                             &
-          &          - z_relax*(p_os%p_prog(nold(1))%tracer(jc,1,jb,1)  &
-          &                    -p_sfc_flx%forc_tracer_relax(jc,jb,1))
+            p_sfc_flx%forc_tracer(jc,jb, 1) =                             &
+           &          - z_relax*(p_os%p_prog(nold(1))%tracer(jc,1,jb,1)  &
+           &                    -p_sfc_flx%forc_tracer_relax(jc,jb,1))
         ELSE
           !p_sfc_flx%forc_tracer_relax(jc,jb,1) = 0.0_wp
           p_sfc_flx%forc_tracer(jc,jb,1) = 0.0_wp

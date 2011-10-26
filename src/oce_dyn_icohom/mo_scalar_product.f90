@@ -207,7 +207,7 @@ CONTAINS
              !ENDIF
            ENDIF 
 
-           IF ( v_base%lsm_oce_e(il_e,jk,ib_e) < sea_boundary ) THEN
+           !IF ( v_base%lsm_oce_e(il_e,jk,ib_e) < sea_boundary ) THEN
              z_weight = z_weight + v_base%variable_dual_vol_norm(il_v1,ib_v1,ie)*z_thick
 
              u_v1_cc%x = u_v1_cc%x +                      &
@@ -217,7 +217,7 @@ CONTAINS
 ! write(1234,*)'dual-coeff',il_v1,ib_v1,ie,&
 ! &v_base%edge2vert_coeff_cc(il_v1,ib_v1,ie)%x,&
 ! &z_weight
-           ENDIF
+           !ENDIF
         END DO
         IF(z_weight/=0.0_wp)THEN
             !z_h_approx = z_h_approx/i_v1_ctr
@@ -250,14 +250,14 @@ CONTAINS
              !ENDIF
            ENDIF 
 
-           IF ( v_base%lsm_oce_e(il_e,jk,ib_e)  < sea_boundary ) THEN
+           !IF ( v_base%lsm_oce_e(il_e,jk,ib_e)  < sea_boundary ) THEN
              z_weight = z_weight + v_base%variable_dual_vol_norm(il_v2,ib_v2,ie)*z_thick
 
              u_v2_cc%x = u_v2_cc%x +                      &
              &           v_base%edge2vert_coeff_cc(il_v2,ib_v2,ie)%x * &
              &           z_vn_e(il_e,jk,ib_e)*z_thick
              i_v2_ctr=i_v2_ctr+1
-           ENDIF
+           !ENDIF
         END DO
         IF(z_weight/=0.0_wp)THEN
             !z_h_approx = z_h_approx/i_v2_ctr
@@ -265,28 +265,32 @@ CONTAINS
         ENDIF
 
 ! !--------------------------------------------------
-           !  IF(   i_v1_ctr==p_patch%verts%num_edges(il_v1,ib_v1)&
-           !  &.AND.i_v2_ctr==p_patch%verts%num_edges(il_v2,ib_v2))THEN
+!               IF(   i_v1_ctr==p_patch%verts%num_edges(il_v1,ib_v1)&
+!               &.AND.i_v2_ctr==p_patch%verts%num_edges(il_v2,ib_v2))THEN
+! 
+!                 u_v1_cc%x=u_v1_cc%x*(vort_v(il_v1,jk,ib_v1)+p_patch%verts%f_v(il_v1,ib_v1))
+!                 u_v2_cc%x=u_v2_cc%x*(vort_v(il_v2,jk,ib_v2)+p_patch%verts%f_v(il_v2,ib_v2))
+! 
+!               ELSEIF(   i_v1_ctr/=p_patch%verts%num_edges(il_v1,ib_v1)&
+!               &.AND.i_v2_ctr==p_patch%verts%num_edges(il_v2,ib_v2))THEN
+! 
+!                 u_v1_cc%x=u_v1_cc%x*(p_patch%verts%f_v(il_v1,ib_v1))
+!                 u_v2_cc%x=u_v2_cc%x*(vort_v(il_v2,jk,ib_v2)+p_patch%verts%f_v(il_v2,ib_v2))
+! 
+!               ELSEIF(   i_v1_ctr==p_patch%verts%num_edges(il_v1,ib_v1)&
+!               &.AND.i_v2_ctr/=p_patch%verts%num_edges(il_v2,ib_v2))THEN
+! 
+!                 u_v1_cc%x=u_v1_cc%x*(vort_v(il_v1,jk,ib_v1)+p_patch%verts%f_v(il_v1,ib_v1))
+!                 u_v2_cc%x=u_v2_cc%x*(p_patch%verts%f_v(il_v2,ib_v2))
+!               ELSEIF(   i_v1_ctr/=p_patch%verts%num_edges(il_v1,ib_v1)&
+!               &.AND.i_v2_ctr/=p_patch%verts%num_edges(il_v2,ib_v2))THEN
+!                 u_v1_cc%x=u_v1_cc%x*(p_patch%verts%f_v(il_v1,ib_v1))
+!                 u_v2_cc%x=u_v2_cc%x*(p_patch%verts%f_v(il_v2,ib_v2))
+!               ENDIF
+
 
                 u_v1_cc%x=u_v1_cc%x*(vort_v(il_v1,jk,ib_v1)+p_patch%verts%f_v(il_v1,ib_v1))
                 u_v2_cc%x=u_v2_cc%x*(vort_v(il_v2,jk,ib_v2)+p_patch%verts%f_v(il_v2,ib_v2))
-
-           !  ELSEIF(   i_v1_ctr/=p_patch%verts%num_edges(il_v1,ib_v1)&
-           !  &.AND.i_v2_ctr==p_patch%verts%num_edges(il_v2,ib_v2))THEN
-
-           !    u_v1_cc%x=u_v1_cc%x*(p_patch%verts%f_v(il_v1,ib_v1))
-           !    u_v2_cc%x=u_v2_cc%x*(vort_v(il_v2,jk,ib_v2)+p_patch%verts%f_v(il_v2,ib_v2))
-
-           !  ELSEIF(   i_v1_ctr==p_patch%verts%num_edges(il_v1,ib_v1)&
-           !  &.AND.i_v2_ctr/=p_patch%verts%num_edges(il_v2,ib_v2))THEN
-
-           !    u_v1_cc%x=u_v1_cc%x*(vort_v(il_v1,jk,ib_v1)+p_patch%verts%f_v(il_v1,ib_v1))
-           !    u_v2_cc%x=u_v2_cc%x*(p_patch%verts%f_v(il_v2,ib_v2))
-           !  ELSEIF(   i_v1_ctr/=p_patch%verts%num_edges(il_v1,ib_v1)&
-           !  &.AND.i_v2_ctr/=p_patch%verts%num_edges(il_v2,ib_v2))THEN
-           !    u_v1_cc%x=u_v1_cc%x*(p_patch%verts%f_v(il_v1,ib_v1))
-           !    u_v2_cc%x=u_v2_cc%x*(p_patch%verts%f_v(il_v2,ib_v2))
-           !  ENDIF
 
                  vn_out_e(je,jk,jb) = &
                 &- DOT_PRODUCT(u_v2_cc%x,v_base%edge2vert_coeff_cc_t(je,jb,2)%x)&
