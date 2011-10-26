@@ -31,7 +31,7 @@ case "$fortran_compiler" in
       STD_FLAGS = -O2 -qstrict "$BASIC_OPT_FLAGS" "$INFOFLAGS"
       HIOPT_FLAGS = -O3 -qhot -qstrict "$BASIC_OPT_FLAGS"
                                                                               
-      FFLAGS   = $GENFLAGS -qextname -qsuffix=cpp=f90 -qzerosize -qalias_size=1800000000  -qessl
+      FFLAGS   = $GENFLAGS -qsmp=omp:stackcheck -qlinedebug -qextname -qsuffix=cpp=f90 -qzerosize -qalias_size=1800000000  -qessl
       F77      = mpxlf_r
       F77FLAGS = $GENFLAGS -g -qextname  -qessl 
       OMPFLAG  = -qsmp=omp

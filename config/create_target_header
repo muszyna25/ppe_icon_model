@@ -16,6 +16,7 @@
 #
 #==============================================================================
 
+
 set_default()
 {
   if [[ "x$(eval echo \$$1)" == "x" ]]; then
@@ -33,8 +34,6 @@ else
 fi
 
 set_default use_omp_stacksize 50M
-set_default use_nodes 1
-
 let mpi_total_procs=${use_nodes}*${use_mpi_procs}
 
 cat >> $output_script << EOF
@@ -127,7 +126,9 @@ thisdir=\$(pwd)
 basedir=\${thisdir%/*}                   # determine base directory
 bindir="\${basedir}/$use_builddir/bin"   # binaries
 BUILDDIR=$use_builddir
-export ICON_BASE_PATH=\$basedir
+MODEL_BASE_PATH=\$basedir
+ICON_BASE_PATH=\$basedir
+export ICON_BASE_PATH
 #-----------------------------------------------------------------------------
 # load ../setting if exists  
 if [ -a ../setting ]
@@ -200,7 +201,18 @@ set_run_target_blizzard()
   else
     if [[ $use_openmp == "yes" ]]; then
       set_default use_openmp_threads 64
+#      set_default use_mpi_procs 1
     fi
+  fi
+  
+  # check if we are in smt mode
+  let total_threads=${use_openmp_threads}*${use_mpi_procs}
+  if [[ total_threads -ge 64 ]] ; then
+    smt_mode="smt"
+    task_affinity="cpu($use_openmp_threads)"
+  else
+    smt_mode="no_smt"
+    task_affinity="core($use_openmp_threads)"
   fi
 
   # memory model
@@ -209,25 +221,25 @@ set_run_target_blizzard()
   else
     case $use_memory_model in
       "huge" )
-        set_default total_memory 32000
+        set_default total_memory 58000
         ;;
       "verylarge" )
-        set_default total_memory 16000
+        set_default total_memory 30000
         ;;
       "large" )
-        set_default total_memory 8000
+        set_default total_memory 12000
         ;;
       "medium" )
-        set_default total_memory 4000
+        set_default total_memory 6000
         ;;
       "small" )
-        set_default total_memory 2000
+        set_default total_memory 3000
         ;;
       "verysmall" )
-        set_default total_memory 1000
+        set_default total_memory 1500
         ;;
       * )
-        set_default total_memory 4000
+        set_default total_memory 6000
         ;;
     esac
   fi
@@ -298,7 +310,7 @@ set_run_target_blizzard()
 # @ $mcm_affinity_options
 # @ $node
 # @ $tasks_per_node
-# @ task_affinity    = cpu($use_openmp_threads)
+# @ task_affinity    = $task_affinity
 # @ parallel_threads = $use_openmp_threads
 # @ $resources
 # @ $wall_clock_limit
