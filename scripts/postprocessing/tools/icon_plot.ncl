@@ -78,6 +78,8 @@
  load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/contributed.ncl"
  load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/shea_util.ncl"
 
+; ;pad default settings from user file
+ load "/home/ram/.icon_plot.rc"
  
  if ( .not. isvar("altLibDir") )  then
    print("load default library from /pool/data/ICON/tools")

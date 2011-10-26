@@ -72,7 +72,7 @@ MODULE mo_oce_state
   USE mo_math_constants,      ONLY: pi, deg2rad
   USE mo_physical_constants,  ONLY: re, omega
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c, get_indices_v
-  USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array
+  USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array,check_patch_array
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_var_list,            ONLY: add_var,                  &
     &                               new_var_list,             &
@@ -2426,14 +2426,9 @@ END DO
     INTEGER :: il_e,ib_e,k  
     INTEGER :: il_c1, ib_c1, il_c2, ib_c2
     INTEGER :: il_v1, il_v2, ib_v1, ib_v2
-    !INTEGER :: jc, ile,ibe
-    !INTEGER :: jl_v1, jl_v2!, jb_v1, jb_v2
 
     INTEGER :: iil_c1(no_cell_edges), iil_c2(no_cell_edges)
     INTEGER :: iib_c1(no_cell_edges), iib_c2(no_cell_edges)
-
-    !INTEGER :: il_c1_e1, ib_c1_e1, il_c1_e2, ib_c1_e2!, il_c1_e3, ib_c1_e3
-    !INTEGER :: il_c2_e1, il_c2_e2, il_c2_e3!, ib_c2_e3!ib_c2_e1, ib_c2_e2,
 
     INTEGER :: jil_c1, jib_c1,jil_c2, jib_c2
     INTEGER :: rl_start_e, rl_end_e
@@ -2441,69 +2436,36 @@ END DO
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
 
-    !REAL(wp) :: z_lon, z_lat, z_rlong, z_rlat, z_long_c, z_lat_c
-    REAL(wp) :: z_tmp!z_twopi, z_longmax, z_longmin
-    !REAL(wp) :: cell_edge_dist(no_cell_edges,2)
-    !REAL(wp) :: cell_edge_distance
-    REAL(wp) :: norm_c1_c2, norm_v1_v2, norm!, norm_v1_e0, norm_v2_e0
-    !REAL(wp) :: dual_edge_length_v1(no_vert_edges)
-    !REAL(wp) :: dual_edge_length_v2(no_vert_edges)
+    REAL(wp) :: z_tmp
+    REAL(wp) :: norm_c1_c2, norm_v1_v2, norm
     REAL(wp) :: dual_edge_length(no_vert_edges)
-!    REAL(wp) :: edge_length(no_cell_edges)
-!     REAL(wp) :: vert_edge_dist_v1(no_vert_edges,2)
-!     REAL(wp) :: vert_edge_dist_v2(no_vert_edges,2)
-    REAL(wp) :: vert_edge_dist(no_vert_edges,2)!, new_lon,new_lat
-!     REAL(wp) :: vert_dual_mid_dist_v1(no_vert_edges,2)
-!     REAL(wp) :: vert_dual_mid_dist_v2(no_vert_edges,2)
+    REAL(wp) :: vert_edge_dist(no_vert_edges,2)
     REAL(wp) :: vert_dual_mid_dist(no_vert_edges,2)
-    !REAL(wp) :: vert2vert_dist
     REAL(wp) :: vert_edge_distance, vert_dual_mid_distance
-    TYPE(t_geographical_coordinates) :: gc_mid_dual_edge(no_vert_edges)!gc_edge(no_cell_edges) 
-    !TYPE(t_geographical_coordinates) :: gc_v0,gc_e0,gc_c0, gc_dual_edge(no_vert_edges)!gc_v1, gc_v2,
-    !TYPE(t_geographical_coordinates) :: ll1, ll2!, ll3
+
+    TYPE(t_geographical_coordinates) :: gc_mid_dual_edge(no_vert_edges)
+    TYPE(t_geographical_coordinates) :: gc1,gc2
+
     TYPE(t_cartesian_coordinates)    :: cc_dual_edge(no_vert_edges), cc_edge(no_cell_edges)
-    TYPE(t_cartesian_coordinates)    :: xx1,xx2!,xx3
-    !TYPE(t_cartesian_coordinates)    :: vert2vert_cc(nproma,p_patch%nblks_v,no_vert_edges)
+    TYPE(t_cartesian_coordinates)    :: xx1,xx2
     TYPE(t_cartesian_coordinates)    :: vert1_midedge_cc(nproma,p_patch%nblks_v,no_vert_edges)
     TYPE(t_cartesian_coordinates)    :: vert2_midedge_cc(nproma,p_patch%nblks_v,no_vert_edges)
-    !TYPE(t_cartesian_coordinates)    :: normal_cc(no_cell_edges)!, norm_c0_e
     TYPE(t_cartesian_coordinates)    :: cell2cell_cc
-    TYPE(t_cartesian_coordinates)    :: cc_e0, cc_c1,cc_c2,cc_v0!, cc_c0, cc_v1, cc_v2
+    TYPE(t_cartesian_coordinates)    :: cc_e0, cc_c1,cc_c2,cc_v0
     TYPE(t_cartesian_coordinates)    :: cv_c1_e0, cv_c2_e0, cv_c1_c2
-    !TYPE(t_cartesian_coordinates)    :: cv_v1_e0, cv_v2_e0!, cv_v1_v2
     TYPE(t_cartesian_coordinates)    :: cc_mid_dual_edge(no_vert_edges)
     TYPE(t_cartesian_coordinates)    :: recon_vec_cc
-    TYPE(t_geographical_coordinates) :: gc1,gc2!recon_vec_gc(no_vert_edges), gc_tmp
-    !TYPE(t_geographical_coordinates) :: recon_vec_gc(no_vert_edges), gc_tmp
-    !TYPE(t_geographical_coordinates) :: normal_gc(no_cell_edges)
-    !TYPE(t_cartesian_coordinates)    :: recon_vec_cc1(no_vert_edges), recon_vec_cc2(no_vert_edges)
-
-    !TYPE(t_cartesian_coordinates)    :: cc_c1_e1, cc_c1_e2, cc_c1_e3
-    !TYPE(t_cartesian_coordinates)    :: cc_c2_e1, cc_c2_e2, cc_c2_e3
-    !TYPE(t_cartesian_coordinates)    :: cv_c1_e1, cv_c1_e2, cv_c1_e3
-    !TYPE(t_cartesian_coordinates)    :: cv_c2_e1, cv_c2_e2, cv_c2_e3
     TYPE(t_cartesian_coordinates)    :: z_vec_c1(no_cell_edges),z_vec_c2(no_cell_edges)
     TYPE(t_cartesian_coordinates)    :: recon_vec_cc_v1(no_vert_edges) 
     TYPE(t_cartesian_coordinates)    :: recon_vec_cc_v2(no_vert_edges)
-    !TYPE(t_cartesian_coordinates)    :: vec_mid_dual_edge_2v1(no_vert_edges)
-    !TYPE(t_cartesian_coordinates)    :: vec_mid_dual_edge_2v2(no_vert_edges)
-    !REAL(wp) :: length
-    REAL(wp) :: z_edge_length(no_cell_edges)!, z_e_length!, z_ce_dist
-    REAL(wp) :: z_cell_edge_dist_c1(no_cell_edges,2),z_cell_edge_dist_c2(no_cell_edges,2)
-    !REAL(wp) :: z_cell_edge_dist(no_cell_edges,2)
-    REAL(wp) :: z_y!z_cell_edge_dist(no_cell_edges,2)
 
-    !REAL(wp) :: p_c(3), r1(3,3), r2(3,3), rot_p_c(3), barlon, barlat
-    !REAL(wp) :: edge_length_c1_e1, edge_length_c1_e2,edge_length_c1_e3
-    !REAL(wp) :: edge_length_c2_e1, edge_length_c2_e2,edge_length_c2_e3
+    REAL(wp) :: z_edge_length(no_cell_edges)
+    REAL(wp) :: z_cell_edge_dist_c1(no_cell_edges,2),z_cell_edge_dist_c2(no_cell_edges,2)
+    REAL(wp) :: z_y
 
     REAL(wp) :: z_sync_c(nproma,p_patch%nblks_c)
     REAL(wp) :: z_sync_e(nproma,p_patch%nblks_e)
     REAL(wp) :: z_sync_v(nproma,p_patch%nblks_v)
-    !REAL(wp) :: z_sync_v(nproma,p_patch%verts%end_blk(min_rlvert_int,1))
-    !REAL(wp) :: z_sync_e(nproma,p_patch%edges%end_blk(min_rledge,1))  ! #slo# min_rledge_int ??
-    !REAL(wp) :: z_sync_v(nproma,p_patch%nblks_int_v)
-    !REAL(wp) :: z_sync_e(nproma,p_patch%nblks_int_e)
 
     LOGICAL, PARAMETER :: MID_POINT_DUAL_EDGE = .TRUE. !Please do not change this unless
                                                        !you are sure, you know what you do.
@@ -2624,6 +2586,7 @@ END DO
 !z_vec_c1(ie)%x =z_vec_c1(ie)%x/norm
 !write(*,*)'vec:normal:',z_vec_c1(ie)%x,p_patch%edges%primal_cart_normal(iil_c1(ie),iib_c1(ie))%x 
 !---------
+    CALL check_patch_array(SYNC_C, p_patch,v_base%fixed_vol_norm,'fixed_vol_norm')
                  v_base%fixed_vol_norm(il_c1,ib_c1) = &
              &   v_base%fixed_vol_norm(il_c1,ib_c1) + 0.5_wp*norm*z_edge_length(ie)
            v_base%variable_vol_norm(il_c1,ib_c1,ie) = 0.5_wp*norm*z_edge_length(ie)
@@ -3011,9 +2974,7 @@ END DO
    
     END DO
 
-    z_sync_c(:,:) = v_base%fixed_vol_norm(:,:)
-    CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
-    v_base%fixed_vol_norm(:,:) = z_sync_c(:,:)
+    CALL sync_patch_array(SYNC_C, p_patch,v_base%fixed_vol_norm)
 
     ! synchronize elements on edges
     DO ie = 1, 2
