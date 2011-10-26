@@ -1846,7 +1846,7 @@ CONTAINS
 
       WRITE(ccd,'("ch_dom.",i0)') jcd
 
-      IF(je_e > js_e) THEN
+      IF(je_e >= js_e) THEN
         CALL def_dim_pref(TRIM(ccd)//'.n_grf_edges', je_e-js_e+1, dim_grf_edges)
 
         CALL def_var(TRIM(ccd)//'.grf_vec_index_1a',   nf_int,    dim_grf_edges, dim_grf_vec_dim_1)
@@ -1867,7 +1867,7 @@ CONTAINS
         CALL def_var(TRIM(ccd)//'.grf_dist_pe2ce',     nf_double, dim_grf_edges, dim_2)
       ENDIF
 
-      IF(je_c > js_c) THEN
+      IF(je_c >= js_c) THEN
         CALL def_dim_pref(TRIM(ccd)//'.n_grf_cells', je_c-js_c+1, dim_grf_cells)
         CALL def_var(TRIM(ccd)//'.grf_dist_pc2cc',     nf_double, dim_grf_cells, dim_4, dim_2)
       ENDIF
@@ -1914,7 +1914,7 @@ CONTAINS
 
       write(ccd,'("ch_dom.",i0)') jcd
 
-      IF(je_e > js_e) THEN
+      IF(je_e >= js_e) THEN
         CALL bidx_io(1,3,TRIM(ccd)//'.grf_vec_index_1a',   &
           &          pg%p_dom(jcd)%grf_vec_ind_1a, pg%p_dom(jcd)%grf_vec_blk_1a, is_e)
         CALL bidx_io(1,3,TRIM(ccd)//'.grf_vec_index_1b',   &
@@ -1946,7 +1946,7 @@ CONTAINS
           &          pg%p_dom(jcd)%grf_dist_pe2ce,     is_e) ! nproma_grf, 2, isb_e:ieb_e
       ENDIF
 
-      IF(je_c > js_c) THEN
+      IF(je_c >= js_c) THEN
         CALL bvar_io(1,4,TRIM(ccd)//'.grf_dist_pc2cc',   &
           &          pg%p_dom(jcd)%grf_dist_pc2cc,     is_c) ! nproma_grf, 4, 2, isb_c:ieb_c
       ENDIF
