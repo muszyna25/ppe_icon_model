@@ -111,7 +111,7 @@ CONTAINS
     ninc_mtgrm(:)      =           1
     stationlist_tot(:)%lon   = 0._wp
     stationlist_tot(:)%lat   = 0._wp
-    stationlist_tot(1)%zname = ""
+    stationlist_tot(:)%zname = ""
     ! To determine the length of the provided list, we set the default
     ! value of the longitude to "-1."
     stationlist_tot(:)%lon   = -1._wp
