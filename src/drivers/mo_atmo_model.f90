@@ -38,6 +38,7 @@ USE mo_kind,                ONLY: wp
 USE mo_exception,           ONLY: message, finish, message_text
 USE mo_mpi,                 ONLY: p_stop, &
   & my_process_is_io,  my_process_is_mpi_seq, my_process_is_mpi_test, &
+  & my_process_is_mpi_parallel,                                       &
   & set_mpi_work_communicators, set_comm_input_bcast, null_comm_type, &
   & p_pe_work
 USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, &
@@ -86,8 +87,10 @@ USE mo_model_domain_import, ONLY : get_patch_global_indexes
 ! Memory
 !
 USE mo_subdivision,         ONLY: decompose_domain,         &
+& finalize_decomposition, &
 & copy_processor_splitting,      &
-& set_patch_communicators
+& set_patch_communicators,       &
+& p_patch_local_parent
 USE mo_dump_restore,        ONLY: dump_patch_state_netcdf,       &
 & restore_patches_netcdf,        &
 & restore_interpol_state_netcdf, &
@@ -106,9 +109,11 @@ USE mo_intp_state,          ONLY: construct_2d_interpol_state,  &
   &                               destruct_2d_interpol_state,   &
   &                               allocate_int_state_lonlat,    &
   &                               rbf_setup_interpol_lonlat,    &
-  &                               deallocate_int_state_lonlat
+  &                               deallocate_int_state_lonlat,  &
+  &                               transfer_interpol_state
 USE mo_grf_interpolation,   ONLY: construct_2d_gridref_state,   &
   &                               destruct_2d_gridref_state
+USE mo_grf_intp_state,      ONLY: transfer_grf_state
 USE mo_lonlat_intp_config,  ONLY: lonlat_intp_config
 
 ! Vertical grid
@@ -137,10 +142,10 @@ USE mo_mtgrm_config,        ONLY: mtgrm_output_config
 !-------------------------------------------------------------------------
 ! to break circular dependency
 
-USE mo_intp_data_strc,      ONLY: p_int_state_global, p_int_state_subdiv,    &
+USE mo_intp_data_strc,      ONLY: p_int_state, p_int_state_local_parent,     &
   &                               p_int_state_lonlat_global,                 &
-  &                               p_int_state, p_int_state_lonlat
-USE mo_grf_intp_data_strc,  ONLY: p_grf_state_global, p_grf_state_subdiv, p_grf_state
+  &                               p_int_state_lonlat
+USE mo_grf_intp_data_strc,  ONLY: p_grf_state, p_grf_state_local_parent
 
 !-------------------------------------------------------------------------
 USE mo_io_restart,           ONLY: read_restart_info_file
@@ -176,7 +181,7 @@ CONTAINS
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: grid_file_name 
     CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:atmo_model"
     LOGICAL :: lsuccess, l_construct_lonlat_coeffs
-    INTEGER :: jg
+    INTEGER :: jg, jgp
 
     ! For the coupling
 
@@ -305,6 +310,7 @@ CONTAINS
     ELSE
         CALL import_patches( p_patch_global,                       &
                             nlev,nlevp1,num_lev,num_levp1,nshift)
+        IF(my_process_is_mpi_parallel()) CALL decompose_domain()
     ENDIF
 
     !--------------------------------------------------------------------------------
@@ -315,8 +321,8 @@ CONTAINS
 
     ! Allocate array for interpolation state
 
-    ALLOCATE( p_int_state_global(n_dom_start:n_dom), &
-            & p_grf_state_global(n_dom_start:n_dom), &
+    ALLOCATE( p_int_state(n_dom_start:n_dom), &
+            & p_grf_state(n_dom_start:n_dom), &
             & STAT=error_status)
     IF (error_status /= SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for ptr_int_state failed')
@@ -329,12 +335,22 @@ CONTAINS
     
     IF(lrestore_states .AND. .NOT. my_process_is_mpi_test()) THEN
       ! Read interpolation state from NetCDF
-      CALL restore_interpol_state_netcdf(p_patch_global, p_int_state_global, &
+      CALL restore_interpol_state_netcdf(p_patch_global, p_int_state, &
         &                                p_int_state_lonlat_global )
     ELSE
-      ! Interpolation state is constructed for
-      ! the full domain on every PE and divided later
-      CALL construct_2d_interpol_state(p_patch_global, p_int_state_global)
+      IF(my_process_is_mpi_test()) THEN
+        ! Construct interpolation state for full domain
+        CALL construct_2d_interpol_state(p_patch_global, p_int_state)
+      ELSE
+        ! Construct interpolation state for divided domain
+        CALL construct_2d_interpol_state(p_patch_subdiv, p_int_state)
+        ! Transfer interpolation state to local parent
+        DO jg = n_dom_start+1, n_dom
+          jgp = p_patch_subdiv(jg)%parent_id
+          CALL transfer_interpol_state(p_patch_subdiv(jgp),p_patch_local_parent(jg), &
+                                    &  p_int_state(jgp), p_int_state_local_parent(jg))
+        ENDDO
+      ENDIF
     ENDIF
 
     !-----------------------------------------------------------------------------
@@ -346,16 +362,24 @@ CONTAINS
     IF (n_dom_start==0 .OR. n_dom > 1) THEN
       IF(lrestore_states .AND. .NOT. my_process_is_mpi_test()) THEN
         ! Read gridref state from NetCDF
-        CALL restore_gridref_state_netcdf(p_patch_global, p_grf_state_global)
+        CALL restore_gridref_state_netcdf(p_patch_global, p_grf_state)
       ELSE
-        CALL construct_2d_gridref_state (p_patch_global, p_grf_state_global)
+        IF(my_process_is_mpi_test()) THEN
+          CALL construct_2d_gridref_state (p_patch_global, p_grf_state)
+        ELSE
+          CALL construct_2d_gridref_state (p_patch_subdiv, p_grf_state)
+          DO jg = n_dom_start+1, n_dom
+            jgp = p_patch_subdiv(jg)%parent_id
+            CALL transfer_grf_state(p_patch_subdiv(jgp), p_patch_local_parent(jg), &
+                                 &  p_grf_state(jgp), p_grf_state_local_parent(jg), &
+                                 &  p_patch_subdiv(jg)%parent_child_index)
+          ENDDO
+        ENDIF
       ENDIF
     ENDIF
 
     !-------------------------------------------------------------------
-    ! 7. Domain decomposition: 
-    !    Divide patches and interpolation states for parallel runs.
-    !    This is only done if the model runs really in parallel.
+    ! 7. Finalize domain decomposition
     !-------------------------------------------------------------------   
     IF (my_process_is_mpi_seq()  &
       &  .OR. lrestore_states) THEN
@@ -364,15 +388,12 @@ CONTAINS
       ! or the divided states have been read, just set pointers
 
       p_patch => p_patch_global
-      p_int_state => p_int_state_global
-
-      p_grf_state => p_grf_state_global
 
       CALL set_patch_communicators(p_patch)
 
     ELSE
 
-      CALL decompose_domain()
+      CALL finalize_decomposition()
 
     ENDIF
 
@@ -581,12 +602,7 @@ CONTAINS
       CALL destruct_2d_gridref_state( p_patch, p_grf_state )
     ENDIF
 
-    IF (my_process_is_mpi_seq()  &
-      & .OR. lrestore_states) THEN
-      DEALLOCATE (p_grf_state_global, STAT=error_status)
-    ELSE
-      DEALLOCATE (p_grf_state_subdiv, STAT=error_status)
-    ENDIF
+    DEALLOCATE (p_grf_state, STAT=error_status)
     IF (error_status /= SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocation for ptr_grf_state failed')
     ENDIF
@@ -603,12 +619,9 @@ CONTAINS
 
     IF  (my_process_is_mpi_seq()  &
       & .OR. lrestore_states) THEN
-      DEALLOCATE (p_int_state_global, &
-        &         p_int_state_lonlat_global, STAT=error_status)
-    ELSE
-      DEALLOCATE (p_int_state_subdiv, &
-        &         STAT=error_status)
+      DEALLOCATE (p_int_state_lonlat_global, STAT=error_status)
     ENDIF
+    DEALLOCATE (p_int_state, STAT=error_status)
     IF (error_status /= SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocation for ptr_int_state failed')
     ENDIF

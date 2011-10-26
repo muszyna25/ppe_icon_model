@@ -69,10 +69,10 @@ MODULE mo_subdivision
   USE mo_dynamics_config,    ONLY: iequations
   USE mo_io_units,           ONLY: find_next_free_unit, filename_max
   USE mo_model_domain,       ONLY: t_patch, t_grid_cells, &
-    &                              p_patch_global, p_patch_subdiv, p_patch
+    &                              p_patch_global, p_patch_subdiv, p_patch, &
+    &                              p_patch_local_parent
   USE mo_interpolation,      ONLY: t_int_state, rbf_vec_dim_c, rbf_vec_dim_e, &
     & rbf_vec_dim_v, rbf_c2grad_dim
-  USE mo_grf_interpolation,  ONLY: t_gridref_state, t_gridref_single_state
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
   USE mo_mpi,                ONLY: p_bcast, p_send, p_recv
 #ifndef NOMPI
@@ -94,14 +94,10 @@ MODULE mo_subdivision
     & grf_bdywidth_c, grf_bdywidth_e, grf_nudgintp_start_c, grf_nudgintp_start_e
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, patch_weight
   USE mo_model_domimp_patches,ONLY: destruct_patches, allocate_patch
-  USE mo_intp_data_strc,      ONLY: t_int_state
-  USE mo_intp_state,          ONLY: allocate_int_state, destruct_2d_interpol_state
-  USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
-  USE mo_grf_intp_state,      ONLY: allocate_grf_state, destruct_2d_gridref_state
+  USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state_local_parent
+  USE mo_grf_intp_data_strc,  ONLY: t_gridref_state, p_grf_state_local_parent
 !  USE mo_interpol_nml,        ONLY: i_cori_method, lsq_lin_set, lsq_high_set
   USE mo_interpol_config,     ONLY: i_cori_method, lsq_lin_set, lsq_high_set
-  USE mo_intp_data_strc,      ONLY: p_int_state_global, p_int_state_subdiv, p_int_state
-  USE mo_grf_intp_data_strc,  ONLY: p_grf_state_global, p_grf_state_subdiv, p_grf_state
 
 
   IMPLICIT NONE
@@ -114,15 +110,12 @@ MODULE mo_subdivision
   !subroutines
   PUBLIC :: decompose_domain, copy_processor_splitting
   PUBLIC :: set_patch_communicators
+  PUBLIC :: finalize_decomposition
 
   ! pointers to the work patches
   TYPE(t_patch), POINTER :: wrk_p_patch, wrk_p_parent_patch
   TYPE(t_patch), POINTER :: wrk_p_patch_g, wrk_p_parent_patch_g
   TYPE(t_patch), POINTER :: wrk_divide_patch
-
-  ! pointers to the work states
-  TYPE(t_int_state), POINTER :: wrk_int_state_in, wrk_int_state_out
-  TYPE(t_gridref_state), POINTER :: wrk_gridref_state_in, wrk_gridref_state_out
 
   !-------------------------------------------------------------------------
   ! Definition of local parent patches
@@ -132,9 +125,10 @@ MODULE mo_subdivision
   ! and it is divided in the same manner as p_patch(jg).
   ! Please note that p_patch_local_parent(1) is undefined if n_dom_start = 1
 
-  TYPE(t_patch),         ALLOCATABLE, TARGET :: p_patch_local_parent(:)
-  TYPE(t_int_state),     ALLOCATABLE, TARGET :: p_int_state_local_parent(:)
-  TYPE(t_gridref_state), ALLOCATABLE, TARGET :: p_grf_state_local_parent(:)
+  ! Please note: The definitions of the local parents are now at the same locations
+  ! as the definitions of the respective patch or state
+
+  ! Preliminary, until all references are corrected:
   PUBLIC :: p_patch_local_parent, p_int_state_local_parent, p_grf_state_local_parent
   !-------------------------------------------------------------------------
 
@@ -283,9 +277,7 @@ CONTAINS
     CALL message('mo_subdivision:decompose_domain',   &
                  'start of domain decomposition')
 
-    ALLOCATE (p_patch_subdiv(n_dom_start:n_dom), &
-      & p_int_state_subdiv(n_dom_start:n_dom),   &
-      & p_grf_state_subdiv(n_dom_start:n_dom),stat=ist)
+    ALLOCATE (p_patch_subdiv(n_dom_start:n_dom),stat=ist)
     IF (ist /= success) THEN
       CALL finish('decompose_domain','allocation for subdivided patches/states failed')
     ENDIF
@@ -435,8 +427,12 @@ CONTAINS
       ALLOCATE(cell_owner(p_patch_global(jg)%n_patch_cells))
       CALL divide_patch_cells(p_patch_subdiv(jg)%n_proc, p_patch_subdiv(jg)%proc0, cell_owner)
 
-      ! Please note: For jg==0 no ghost rows are set
-      CALL divide_patch(cell_owner, MERGE(0, n_ghost_rows, jg==0), .TRUE.)
+      !!!! Please note: For jg==0 no ghost rows are set
+      !!!CALL divide_patch(cell_owner, MERGE(0, n_ghost_rows, jg==0), .TRUE.)
+      ! We need ghost rows for jg==0 also for dividing the int state and grf state
+      ! Have still to check if int state/grf state is needed at all for jg==0,
+      ! if this is not the case, the ghost rows can be dropped again.
+      CALL divide_patch(cell_owner, n_ghost_rows, .TRUE.)
       DEALLOCATE(cell_owner)
 
       IF(jg == n_dom_start) CYCLE
@@ -481,78 +477,50 @@ CONTAINS
     ENDDO
     !-----------------------------
 
-    
+#endif
+
+  END SUBROUTINE decompose_domain
+
+  !-----------------------------------------------------------------------------
+
+  SUBROUTINE finalize_decomposition
+
+    implicit none
+    integer ist, jg
+    CALL message('mo_subdivision:finalize_decomposition','start')
+
+    ! Remap indices in patches and local parents
+
     DO jg = n_dom_start, n_dom
 
-      CALL allocate_int_state(p_patch_subdiv(jg), p_int_state_subdiv(jg))
+      wrk_p_patch => p_patch_subdiv(jg)
+      CALL remap_patch_indices
 
-      wrk_p_patch       => p_patch_subdiv(jg)
-      wrk_int_state_in  => p_int_state_global(jg)
-      wrk_int_state_out => p_int_state_subdiv(jg)
-      CALL divide_int_state()
-
-      IF(n_dom_start==0 .OR. n_dom > 1) THEN
-        CALL allocate_grf_state(p_patch_subdiv(jg), p_grf_state_subdiv(jg))
-        wrk_gridref_state_in  => p_grf_state_global(jg)
-        wrk_gridref_state_out => p_grf_state_subdiv(jg)
-        CALL divide_grf_state()
+      IF(jg>n_dom_start) THEN
+        wrk_p_patch => p_patch_local_parent(jg)
+        CALL remap_patch_indices
       ENDIF
 
-      IF(jg == n_dom_start) CYCLE
-
-      jgp = p_patch_global(jg)%parent_id
-
-      CALL allocate_int_state(p_patch_local_parent(jg), p_int_state_local_parent(jg))
-      CALL allocate_grf_state(p_patch_local_parent(jg), p_grf_state_local_parent(jg))
-
-      wrk_p_patch       => p_patch_local_parent(jg)
-      wrk_int_state_in  => p_int_state_global(jgp)
-      wrk_int_state_out => p_int_state_local_parent(jg)
-      CALL divide_int_state()
-
-      wrk_gridref_state_in  => p_grf_state_global(jgp)
-      wrk_gridref_state_out => p_grf_state_local_parent(jg)
-      CALL divide_grf_state()
     ENDDO
 
-    ! Set pointers to subdivided patches/states
+    ! Set pointers to subdivided patches
 
     p_patch => p_patch_subdiv
-    p_int_state => p_int_state_subdiv
-    p_grf_state => p_grf_state_subdiv
 
-    ! The global patches/states may be discarded now
-
-    IF (n_dom_start==0 .OR. n_dom > 1) THEN
-      CALL destruct_2d_gridref_state( p_patch_global, p_grf_state_global )
-      DEALLOCATE (p_grf_state_global, STAT = ist)
-      IF (ist/=SUCCESS)THEN
-        CALL message('mo_subdivision:decompose_domain',   &
-                     'deallocation of p_grf_state_global failed')
-      ENDIF
-    ENDIF
-
-    CALL destruct_2d_interpol_state( p_int_state_global )
-    DEALLOCATE (p_int_state_global, STAT = ist)
-    IF (ist/=SUCCESS)THEN
-      CALL message('mo_subdivision:decompose_domain',   &
-                   'deallocation of p_int_state_global failed')
-    ENDIF
+    ! The global patches may be discarded now
 
     CALL destruct_patches( p_patch_global )
     DEALLOCATE( p_patch_global, STAT = ist)
     IF (ist/=SUCCESS)THEN
-      CALL message('mo_subdivision:decompose_domain',   &
+      CALL message('mo_subdivision:decompose_atmo_domain',   &
                    'deallocation of p_patch_global failed')
     ENDIF
 
 
-    CALL message('mo_subdivision:decompose_domain',   &
+    CALL message('mo_subdivision:finalize_decomposition',   &
                  'end of domain decomposition')
                  
-#endif
-
-  END SUBROUTINE decompose_domain
+  END SUBROUTINE finalize_decomposition
 
   !-----------------------------------------------------------------------------
   !>
@@ -885,7 +853,8 @@ CONTAINS
 
       ! Flag cells belonging to this level.
       ! Cells belonging to the kernel (ilev==0) are already flagged.
-      ! Cells which have no global owner are never included to the ghost cells!
+      ! The patch always needs a complete halo, even for local parents
+      ! where some of the boundary cells have no global owner.
 
       IF(ilev>0) THEN
 
@@ -894,7 +863,7 @@ CONTAINS
           jb = blk_no(j) ! block index
           jl = idx_no(j) ! line index
 
-          IF(cell_owner(j)>=0 .AND. flag_c(j)<0) THEN
+          IF(flag_c(j)<0) THEN
 
             ! Check if any vertex of this cell is already flagged.
             ! If this is the case, this cell goes to level ilev
@@ -1779,7 +1748,16 @@ CONTAINS
           & wrk_p_patch_g%cells%vertex_blk(jl_g,jb_g,i),  &
           & wrk_p_patch%cells%vertex_idx(jl,jb,i),        &
           & wrk_p_patch%cells%vertex_blk(jl,jb,i))
+
       ENDDO
+
+      ! Safety check only: edge_idx and vertex_idx must always be valid!
+      if(any(wrk_p_patch%cells%edge_idx(jl,jb,:) <= 0) .or. &
+       & any(wrk_p_patch%cells%edge_blk(jl,jb,:) <= 0) )    &
+       & CALL finish('divide_patch','Illegal value for patch%cells%edge_idx')
+      if(any(wrk_p_patch%cells%vertex_idx(jl,jb,:) <= 0) .or. &
+       & any(wrk_p_patch%cells%vertex_blk(jl,jb,:) <= 0) )    &
+       & CALL finish('divide_patch','Illegal value for patch%cells%vertex_idx')
 
       wrk_p_patch%cells%edge_orientation(jl,jb,:) = &
         & wrk_p_patch_g%cells%edge_orientation(jl_g,jb_g,:)
@@ -1796,50 +1774,6 @@ CONTAINS
 
     ENDDO
 
-    ! ensure that cells%neighbor_idx lies in the correct grid row along the lateral boundary
-    DO j = 1, wrk_p_patch%n_patch_cells
-
-      jb = blk_no(j) ! Block index in distributed patch
-      jl = idx_no(j) ! Line  index in distributed patch
-
-      IF (wrk_p_patch%cells%refin_ctrl(jl,jb) > 0 .AND.             &
-          wrk_p_patch%cells%refin_ctrl(jl,jb) <= grf_bdywidth_c) THEN
-
-        ilc1 = wrk_p_patch%cells%neighbor_idx(jl,jb,1)
-        ibc1 = wrk_p_patch%cells%neighbor_blk(jl,jb,1)
-        ilc2 = wrk_p_patch%cells%neighbor_idx(jl,jb,2)
-        ibc2 = wrk_p_patch%cells%neighbor_blk(jl,jb,2)
-        ilc3 = wrk_p_patch%cells%neighbor_idx(jl,jb,3)
-        ibc3 = wrk_p_patch%cells%neighbor_blk(jl,jb,3)
-
-        irl0 = wrk_p_patch%cells%refin_ctrl(jl,jb)
-
-        IF (ilc1 > 0 .AND. ibc1 > 0) THEN
-          irl1 = wrk_p_patch%cells%refin_ctrl(ilc1,ibc1)
-          IF ( irl1 > 0 .AND. ABS(irl0 - irl1) >1 ) THEN
-            wrk_p_patch%cells%neighbor_idx(jl,jb,1) = jl
-            wrk_p_patch%cells%neighbor_blk(jl,jb,1) = jb
-          ENDIF
-        ENDIF
-
-        IF (ilc2 > 0 .AND. ibc2 > 0) THEN
-          irl2 = wrk_p_patch%cells%refin_ctrl(ilc2,ibc2)
-          IF ( irl2 > 0 .AND. ABS(irl0 - irl2) >1 ) THEN
-            wrk_p_patch%cells%neighbor_idx(jl,jb,2) = jl
-            wrk_p_patch%cells%neighbor_blk(jl,jb,2) = jb
-          ENDIF
-        ENDIF
-
-        IF (ilc3 > 0 .AND. ibc3 > 0) THEN
-          irl3 = wrk_p_patch%cells%refin_ctrl(ilc3,ibc3)
-          IF ( irl3 > 0 .AND. ABS(irl0 - irl3) >1 ) THEN
-            wrk_p_patch%cells%neighbor_idx(jl,jb,3) = jl
-            wrk_p_patch%cells%neighbor_blk(jl,jb,3) = jb
-          ENDIF
-        ENDIF
-
-      ENDIF
-    ENDDO
 
     !---------------------------------------------------------------------------------------
 
@@ -1870,8 +1804,13 @@ CONTAINS
           & wrk_p_patch%edges%vertex_blk(jl,jb,i))
       ENDDO
 
-      DO i=1,4
+      ! Safety check only: vertex_idx(:,:,1:2) must always be valid,
+      ! vertex_idx(:,:,3:4) will be set later
+      if(any(wrk_p_patch%edges%vertex_idx(jl,jb,1:2) <= 0) .or. &
+       & any(wrk_p_patch%edges%vertex_blk(jl,jb,1:2) <= 0) )    &
+       & CALL finish('divide_patch','Illegal value for patch%edges%vertex_idx')
 
+      DO i=1,4
         CALL get_local_index(wrk_p_patch%edges%loc_index, &
           & wrk_p_patch_g%edges%quad_idx(jl_g,jb_g,i),    &
           & wrk_p_patch_g%edges%quad_blk(jl_g,jb_g,i),    &
@@ -1936,41 +1875,6 @@ CONTAINS
           & wrk_p_patch_g%edges%inv_vert_vert_length(jl_g,jb_g)
       ENDIF
 
-      ! ensure that edges%cell_idx lies in the correct grid row along the lateral boundary
-      IF (wrk_p_patch%edges%refin_ctrl(jl,jb) >= 2 .AND.            &
-          wrk_p_patch%edges%refin_ctrl(jl,jb) <= grf_bdywidth_e) THEN
-
-        ilc1 = wrk_p_patch%edges%cell_idx(jl,jb,1)
-        ibc1 = wrk_p_patch%edges%cell_blk(jl,jb,1)
-        ilc2 = wrk_p_patch%edges%cell_idx(jl,jb,2)
-        ibc2 = wrk_p_patch%edges%cell_blk(jl,jb,2)
-        irl1 = wrk_p_patch%cells%refin_ctrl(ilc1,ibc1)
-        irl2 = wrk_p_patch%cells%refin_ctrl(ilc2,ibc2)
-
-        IF (MOD(wrk_p_patch%edges%refin_ctrl(jl,jb),2)==0) THEN
-          IF (irl1 /= wrk_p_patch%edges%refin_ctrl(jl,jb)/2) THEN
-            wrk_p_patch%edges%cell_idx(jl,jb,1) = wrk_p_patch%edges%cell_idx(jl,jb,2)
-            wrk_p_patch%edges%cell_blk(jl,jb,1) = wrk_p_patch%edges%cell_blk(jl,jb,2)
-          ENDIF
-          IF (irl2 /= wrk_p_patch%edges%refin_ctrl(jl,jb)/2) THEN
-            wrk_p_patch%edges%cell_idx(jl,jb,2) = wrk_p_patch%edges%cell_idx(jl,jb,1)
-            wrk_p_patch%edges%cell_blk(jl,jb,2) = wrk_p_patch%edges%cell_blk(jl,jb,1)
-          ENDIF
-        ELSE
-          IF (irl1 /= wrk_p_patch%edges%refin_ctrl(jl,jb)/2 .AND. &
-              irl1 /= wrk_p_patch%edges%refin_ctrl(jl,jb)/2+1) THEN
-            wrk_p_patch%edges%cell_idx(jl,jb,1) = wrk_p_patch%edges%cell_idx(jl,jb,2)
-            wrk_p_patch%edges%cell_blk(jl,jb,1) = wrk_p_patch%edges%cell_blk(jl,jb,2)
-          ENDIF
-          IF (irl2 /= wrk_p_patch%edges%refin_ctrl(jl,jb)/2 .AND. &
-              irl2 /= wrk_p_patch%edges%refin_ctrl(jl,jb)/2+1) THEN
-            wrk_p_patch%edges%cell_idx(jl,jb,2) = wrk_p_patch%edges%cell_idx(jl,jb,1)
-            wrk_p_patch%edges%cell_blk(jl,jb,2) = wrk_p_patch%edges%cell_blk(jl,jb,1)
-          ENDIF
-        ENDIF
-
-      ENDIF
-
     ENDDO
 
     !---------------------------------------------------------------------------------------
@@ -2025,6 +1929,172 @@ CONTAINS
   END SUBROUTINE divide_patch
 
   !-------------------------------------------------------------------------------------------------
+  !>
+  !! Remaps negative index entries to valid ones
+  !!
+
+  SUBROUTINE remap_patch_indices
+
+    INTEGER :: i, j, jb, jl, ilc1, ibc1, ilc2, ibc2, ilc3, ibc3, irl0, irl1, irl2, irl3
+
+    DO j = 1, wrk_p_patch%n_patch_cells
+
+      jb = blk_no(j) ! Block index in distributed patch
+      jl = idx_no(j) ! Line  index in distributed patch
+
+      DO i=1,wrk_p_patch%cell_type
+
+        CALL remap_index(wrk_p_patch%cells%loc_index, &
+          & wrk_p_patch%cells%neighbor_idx(jl,jb,i),      &
+          & wrk_p_patch%cells%neighbor_blk(jl,jb,i))
+
+        ! edge_idx and vertex_idx should not need a remap !!!
+        ! This is only left here if there should change something in the decomposition
+        CALL remap_index(wrk_p_patch%edges%loc_index, &
+          & wrk_p_patch%cells%edge_idx(jl,jb,i),          &
+          & wrk_p_patch%cells%edge_blk(jl,jb,i))
+
+        CALL remap_index(wrk_p_patch%verts%loc_index, &
+          & wrk_p_patch%cells%vertex_idx(jl,jb,i),        &
+          & wrk_p_patch%cells%vertex_blk(jl,jb,i))
+
+      ENDDO
+    ENDDO
+
+    ! ensure that cells%neighbor_idx lies in the correct grid row along the lateral boundary
+    DO j = 1, wrk_p_patch%n_patch_cells
+
+      jb = blk_no(j) ! Block index in distributed patch
+      jl = idx_no(j) ! Line  index in distributed patch
+
+      IF (wrk_p_patch%cells%refin_ctrl(jl,jb) > 0 .AND.             &
+          wrk_p_patch%cells%refin_ctrl(jl,jb) <= grf_bdywidth_c) THEN
+
+        ilc1 = wrk_p_patch%cells%neighbor_idx(jl,jb,1)
+        ibc1 = wrk_p_patch%cells%neighbor_blk(jl,jb,1)
+        ilc2 = wrk_p_patch%cells%neighbor_idx(jl,jb,2)
+        ibc2 = wrk_p_patch%cells%neighbor_blk(jl,jb,2)
+        ilc3 = wrk_p_patch%cells%neighbor_idx(jl,jb,3)
+        ibc3 = wrk_p_patch%cells%neighbor_blk(jl,jb,3)
+
+        irl0 = wrk_p_patch%cells%refin_ctrl(jl,jb)
+
+        IF (ilc1 > 0 .AND. ibc1 > 0) THEN
+          irl1 = wrk_p_patch%cells%refin_ctrl(ilc1,ibc1)
+          IF ( irl1 > 0 .AND. ABS(irl0 - irl1) >1 ) THEN
+            wrk_p_patch%cells%neighbor_idx(jl,jb,1) = jl
+            wrk_p_patch%cells%neighbor_blk(jl,jb,1) = jb
+          ENDIF
+        ENDIF
+
+        IF (ilc2 > 0 .AND. ibc2 > 0) THEN
+          irl2 = wrk_p_patch%cells%refin_ctrl(ilc2,ibc2)
+          IF ( irl2 > 0 .AND. ABS(irl0 - irl2) >1 ) THEN
+            wrk_p_patch%cells%neighbor_idx(jl,jb,2) = jl
+            wrk_p_patch%cells%neighbor_blk(jl,jb,2) = jb
+          ENDIF
+        ENDIF
+
+        IF (ilc3 > 0 .AND. ibc3 > 0) THEN
+          irl3 = wrk_p_patch%cells%refin_ctrl(ilc3,ibc3)
+          IF ( irl3 > 0 .AND. ABS(irl0 - irl3) >1 ) THEN
+            wrk_p_patch%cells%neighbor_idx(jl,jb,3) = jl
+            wrk_p_patch%cells%neighbor_blk(jl,jb,3) = jb
+          ENDIF
+        ENDIF
+
+      ENDIF
+    ENDDO
+
+    !---------------------------------------------------------------------------------------
+
+    DO j = 1,wrk_p_patch%n_patch_edges
+
+      jb = blk_no(j) ! Block index in distributed patch
+      jl = idx_no(j) ! Line  index in distributed patch
+
+      DO i=1,2
+        CALL remap_index(wrk_p_patch%cells%loc_index, &
+          & wrk_p_patch%edges%cell_idx(jl,jb,i),          &
+          & wrk_p_patch%edges%cell_blk(jl,jb,i))
+      ENDDO
+
+      DO i=1,4
+        CALL remap_index(wrk_p_patch%verts%loc_index, &
+          & wrk_p_patch%edges%vertex_idx(jl,jb,i),        &
+          & wrk_p_patch%edges%vertex_blk(jl,jb,i))
+      ENDDO
+
+      DO i=1,4
+        CALL remap_index(wrk_p_patch%edges%loc_index, &
+          & wrk_p_patch%edges%quad_idx(jl,jb,i),          &
+          & wrk_p_patch%edges%quad_blk(jl,jb,i))
+      ENDDO
+
+      ! ensure that edges%cell_idx lies in the correct grid row along the lateral boundary
+      IF (wrk_p_patch%edges%refin_ctrl(jl,jb) >= 2 .AND.            &
+          wrk_p_patch%edges%refin_ctrl(jl,jb) <= grf_bdywidth_e) THEN
+
+        ilc1 = wrk_p_patch%edges%cell_idx(jl,jb,1)
+        ibc1 = wrk_p_patch%edges%cell_blk(jl,jb,1)
+        ilc2 = wrk_p_patch%edges%cell_idx(jl,jb,2)
+        ibc2 = wrk_p_patch%edges%cell_blk(jl,jb,2)
+        irl1 = wrk_p_patch%cells%refin_ctrl(ilc1,ibc1)
+        irl2 = wrk_p_patch%cells%refin_ctrl(ilc2,ibc2)
+
+        IF (MOD(wrk_p_patch%edges%refin_ctrl(jl,jb),2)==0) THEN
+          IF (irl1 /= wrk_p_patch%edges%refin_ctrl(jl,jb)/2) THEN
+            wrk_p_patch%edges%cell_idx(jl,jb,1) = wrk_p_patch%edges%cell_idx(jl,jb,2)
+            wrk_p_patch%edges%cell_blk(jl,jb,1) = wrk_p_patch%edges%cell_blk(jl,jb,2)
+          ENDIF
+          IF (irl2 /= wrk_p_patch%edges%refin_ctrl(jl,jb)/2) THEN
+            wrk_p_patch%edges%cell_idx(jl,jb,2) = wrk_p_patch%edges%cell_idx(jl,jb,1)
+            wrk_p_patch%edges%cell_blk(jl,jb,2) = wrk_p_patch%edges%cell_blk(jl,jb,1)
+          ENDIF
+        ELSE
+          IF (irl1 /= wrk_p_patch%edges%refin_ctrl(jl,jb)/2 .AND. &
+              irl1 /= wrk_p_patch%edges%refin_ctrl(jl,jb)/2+1) THEN
+            wrk_p_patch%edges%cell_idx(jl,jb,1) = wrk_p_patch%edges%cell_idx(jl,jb,2)
+            wrk_p_patch%edges%cell_blk(jl,jb,1) = wrk_p_patch%edges%cell_blk(jl,jb,2)
+          ENDIF
+          IF (irl2 /= wrk_p_patch%edges%refin_ctrl(jl,jb)/2 .AND. &
+              irl2 /= wrk_p_patch%edges%refin_ctrl(jl,jb)/2+1) THEN
+            wrk_p_patch%edges%cell_idx(jl,jb,2) = wrk_p_patch%edges%cell_idx(jl,jb,1)
+            wrk_p_patch%edges%cell_blk(jl,jb,2) = wrk_p_patch%edges%cell_blk(jl,jb,1)
+          ENDIF
+        ENDIF
+
+      ENDIF
+
+    ENDDO
+
+    !---------------------------------------------------------------------------------------
+
+    DO j = 1,wrk_p_patch%n_patch_verts
+
+      jb = blk_no(j) ! Block index in distributed patch
+      jl = idx_no(j) ! Line  index in distributed patch
+
+      DO i=1,9-wrk_p_patch%cell_type
+
+        CALL remap_index(wrk_p_patch%verts%loc_index, &
+          & wrk_p_patch%verts%neighbor_idx(jl,jb,i),      &
+          & wrk_p_patch%verts%neighbor_blk(jl,jb,i))
+
+        CALL remap_index(wrk_p_patch%edges%loc_index, &
+          & wrk_p_patch%verts%edge_idx(jl,jb,i),          &
+          & wrk_p_patch%verts%edge_blk(jl,jb,i))
+
+        CALL remap_index(wrk_p_patch%cells%loc_index, &
+          & wrk_p_patch%verts%cell_idx(jl,jb,i),          &
+          & wrk_p_patch%verts%cell_blk(jl,jb,i))
+      ENDDO
+
+    ENDDO
+
+  END SUBROUTINE remap_patch_indices
+
+  !-------------------------------------------------------------------------------------------------
   !
   !> Sets parent_idx/blk in child and child_idx/blk in parent patches.
 
@@ -2038,13 +2108,12 @@ CONTAINS
     INTEGER :: i, j, jl, jb, jl_g, jb_g, jc, jc_g, jp, jp_g
 
     ! Attention:
-    ! Only inner cells/edges get a valid parent or child index,
+    ! Only inner cells/edges get a valid child index,
     ! indexes for boundary cells/edges are not set.
     ! Therefore when these indexes are used, the code must assure that they are
     ! used only for inner cells/edges!
     ! The main reason for this is that - depending on the number of ghost rows -
     ! there are cells/edges in the parent boundary with missing childs (n_ghost_rows==1)
-    ! or cells/edges in the child boundary with missing parents (n_ghost_rows>2).
 
     ! Set child indices in parent ...
 
@@ -2128,8 +2197,6 @@ CONTAINS
       jb = blk_no(j) ! Block index in distributed patch
       jl = idx_no(j) ! Line  index in distributed patch
 
-      IF(p_pc%cells%decomp_domain(jl,jb)>0) CYCLE ! only inner cells get a valid parent index
-
       jb_g = blk_no(p_pc%cells%glb_index(j)) ! Block index in global patch
       jl_g = idx_no(p_pc%cells%glb_index(j)) ! Line  index in global patch
 
@@ -2138,8 +2205,7 @@ CONTAINS
         & CALL finish('set_parent_child_relations','Inv. cell parent index in global child')
 
       jp = p_pp%cells%loc_index(jp_g)
-      IF(jp <= 0) &
-        & CALL finish('set_parent_child_relations','cell parent index outside parent domain')
+      IF(jp <= 0) CYCLE
       p_pc%cells%parent_blk(jl,jb) = blk_no(jp)
       p_pc%cells%parent_idx(jl,jb) = idx_no(jp)
 
@@ -2152,8 +2218,6 @@ CONTAINS
       jb = blk_no(j) ! Block index in distributed patch
       jl = idx_no(j) ! Line  index in distributed patch
 
-      IF(p_pc%edges%decomp_domain(jl,jb)>1) CYCLE ! only inner edges get a valid parent index
-
       jb_g = blk_no(p_pc%edges%glb_index(j)) ! Block index in global patch
       jl_g = idx_no(p_pc%edges%glb_index(j)) ! Line  index in global patch
 
@@ -2162,8 +2226,7 @@ CONTAINS
         & CALL finish('set_parent_child_relations','Inv. edge parent index in global child')
 
       jp = p_pp%edges%loc_index(jp_g)
-      IF(jp <= 0) &
-        & CALL finish('set_parent_child_relations','edge parent index outside parent domain')
+      IF(jp <= 0) CYCLE
       p_pc%edges%parent_blk(jl,jb) = blk_no(jp)
       p_pc%edges%parent_idx(jl,jb) = idx_no(jp)
 
@@ -2723,480 +2786,6 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  !! Divides all variable in int_state.
-  !!
-  !!
-  !! @par Revision History
-  !! Initial version by Rainer Johanni, Nov 2009
-  SUBROUTINE divide_int_state()
-
-    ! Local scalars:
-
-    INTEGER :: j, jb, jl, jb_g, jl_g, i, nincr
-
-    !-----------------------------------------------------------------------
-
-    ! This routine must not be called in a single CPU run
-    IF(my_process_is_mpi_seq()) &
-      & CALL finish('divide_int_state','must not be called in a single CPU run')
-
-
-    DO j = 1, wrk_p_patch%n_patch_cells
-
-      jb = blk_no(j) ! Block index in distributed patch
-      jl = idx_no(j) ! Line  index in distributed patch
-
-      jb_g = blk_no(wrk_p_patch%cells%glb_index(j)) ! Block index in global patch
-      jl_g = idx_no(wrk_p_patch%cells%glb_index(j)) ! Line  index in global patch
-
-      wrk_int_state_out%e_inn_c(jl,:,jb)          = wrk_int_state_in%e_inn_c(jl_g,:,jb_g)
-      wrk_int_state_out%verts_aw_cells(jl,:,jb)   = wrk_int_state_in%verts_aw_cells(jl_g,:,jb_g)
-
-      IF (wrk_p_patch%cell_type == 6) THEN
-        wrk_int_state_out%e_aw_c(jl,:,jb)         = wrk_int_state_in%e_aw_c(jl_g,:,jb_g)
-        wrk_int_state_out%r_aw_c(jl,:,jb)         = wrk_int_state_in%r_aw_c(jl_g,:,jb_g)
-        wrk_int_state_out%hex_north(jl,:,jb)      = wrk_int_state_in%hex_north(jl_g,:,jb_g)
-        wrk_int_state_out%hex_east(jl,:,jb)       = wrk_int_state_in%hex_east(jl_g,:,jb_g)
-      ENDIF
-
-      IF (wrk_p_patch%cell_type == 3) THEN
-
-        wrk_int_state_out%e_bln_c_s(jl,:,jb)      = wrk_int_state_in%e_bln_c_s(jl_g,:,jb_g)
-        wrk_int_state_out%e_bln_c_u(jl,:,jb)      = wrk_int_state_in%e_bln_c_u(jl_g,:,jb_g)
-        wrk_int_state_out%e_bln_c_v(jl,:,jb)      = wrk_int_state_in%e_bln_c_v(jl_g,:,jb_g)
-        wrk_int_state_out%c_bln_avg(jl,:,jb)      = wrk_int_state_in%c_bln_avg(jl_g,:,jb_g)
-        wrk_int_state_out%nudgecoeff_c(jl,jb)     = wrk_int_state_in%nudgecoeff_c(jl_g,jb_g)
-
-        DO i=1,rbf_vec_dim_c
-          CALL get_local_index(wrk_p_patch%edges%loc_index, &
-            & wrk_int_state_in%rbf_vec_idx_c(i,jl_g,jb_g), &
-            & wrk_int_state_in%rbf_vec_blk_c(i,jl_g,jb_g), &
-            & wrk_int_state_out%rbf_vec_idx_c(i,jl,jb), &
-            & wrk_int_state_out%rbf_vec_blk_c(i,jl,jb))
-        ENDDO
-        wrk_int_state_out%rbf_vec_stencil_c(jl, jb)  =&
-          & wrk_int_state_in%rbf_vec_stencil_c(jl_g, jb_g)
-        wrk_int_state_out%rbf_vec_coeff_c(:,:,jl,jb) = &
-          & wrk_int_state_in%rbf_vec_coeff_c(:,:,jl_g,jb_g)
-
-        DO i=1,rbf_c2grad_dim
-          CALL get_local_index(wrk_p_patch%cells%loc_index, &
-            & wrk_int_state_in%rbf_c2grad_idx(i,jl_g,jb_g), &
-            & wrk_int_state_in%rbf_c2grad_blk(i,jl_g,jb_g), &
-            & wrk_int_state_out%rbf_c2grad_idx(i,jl,jb), &
-            & wrk_int_state_out%rbf_c2grad_blk(i,jl,jb))
-        ENDDO
-        wrk_int_state_out%rbf_c2grad_coeff(:,:,jl,jb) = &
-          & wrk_int_state_in%rbf_c2grad_coeff(:,:,jl_g,jb_g)
-
-        !
-        ! quadrature points on triangles
-        !
-        wrk_int_state_out%gquad%qpts_tri_l(jl,jb)   =          &
-          & wrk_int_state_in%gquad%qpts_tri_l(jl_g,jb_g)
-        wrk_int_state_out%gquad%qpts_tri_q(jl,jb,:)   =        &
-          & wrk_int_state_in%gquad%qpts_tri_q(jl_g,jb_g,:)
-        wrk_int_state_out%gquad%qpts_tri_c(jl,jb,:)   =        &
-          & wrk_int_state_in%gquad%qpts_tri_c(jl_g,jb_g,:)
-        wrk_int_state_out%gquad%weights_tri_q(:)   =           &
-          & wrk_int_state_in%gquad%weights_tri_q(:)
-        wrk_int_state_out%gquad%weights_tri_c(:)   =           &
-          & wrk_int_state_in%gquad%weights_tri_c(:)
-      ENDIF
-
-      IF( ltransport .OR. iequations == 3) THEN
-
-        wrk_int_state_out%lsq_lin%lsq_dim_stencil(jl, jb)   = &
-          & wrk_int_state_in%lsq_lin%lsq_dim_stencil(jl_g, jb_g)
-
-        DO i=1,lsq_lin_set%dim_c
-          CALL get_local_index(wrk_p_patch%cells%loc_index, &
-            & wrk_int_state_in%lsq_lin%lsq_idx_c(jl_g,jb_g,i), &
-            & wrk_int_state_in%lsq_lin%lsq_blk_c(jl_g,jb_g,i), &
-            & wrk_int_state_out%lsq_lin%lsq_idx_c(jl,jb,i), &
-            & wrk_int_state_out%lsq_lin%lsq_blk_c(jl,jb,i))
-        ENDDO
-
-        wrk_int_state_out%lsq_lin%lsq_weights_c(jl, :, jb)   = &
-          & wrk_int_state_in%lsq_lin%lsq_weights_c(jl_g, :, jb_g)
-        wrk_int_state_out%lsq_lin%lsq_qtmat_c(jl, :, :, jb)  = &
-          & wrk_int_state_in%lsq_lin%lsq_qtmat_c(jl_g, :, :, jb_g)
-        wrk_int_state_out%lsq_lin%lsq_rmat_rdiag_c(jl, :, jb)= &
-          & wrk_int_state_in%lsq_lin%lsq_rmat_rdiag_c(jl_g, :, jb_g)
-        wrk_int_state_out%lsq_lin%lsq_rmat_utri_c(jl, :, jb) = &
-          & wrk_int_state_in%lsq_lin%lsq_rmat_utri_c(jl_g, :, jb_g)
-        wrk_int_state_out%lsq_lin%lsq_pseudoinv(jl, :, :, jb) = &
-          & wrk_int_state_in%lsq_lin%lsq_pseudoinv(jl_g, :, :, jb_g)
-
-        wrk_int_state_out%lsq_lin%lsq_moments(jl, jb, :)     = &
-          & wrk_int_state_in%lsq_lin%lsq_moments(jl_g, jb_g, :)
-        wrk_int_state_out%lsq_lin%lsq_moments_hat(jl,jb,:,:) = &
-          & wrk_int_state_in%lsq_lin%lsq_moments_hat(jl_g,jb_g,:,:)
-
-        !
-        ! high order lsq
-        !
-        wrk_int_state_out%lsq_high%lsq_dim_stencil(jl, jb)   = &
-          & wrk_int_state_in%lsq_high%lsq_dim_stencil(jl_g, jb_g)
-
-        DO i=1,lsq_high_set%dim_c
-          CALL get_local_index(wrk_p_patch%cells%loc_index, &
-            & wrk_int_state_in%lsq_high%lsq_idx_c(jl_g,jb_g,i), &
-            & wrk_int_state_in%lsq_high%lsq_blk_c(jl_g,jb_g,i), &
-            & wrk_int_state_out%lsq_high%lsq_idx_c(jl,jb,i), &
-            & wrk_int_state_out%lsq_high%lsq_blk_c(jl,jb,i))
-        ENDDO
-
-        wrk_int_state_out%lsq_high%lsq_weights_c(jl, :, jb)   = &
-          & wrk_int_state_in%lsq_high%lsq_weights_c(jl_g, :, jb_g)
-        wrk_int_state_out%lsq_high%lsq_qtmat_c(jl, :, :, jb)  = &
-          & wrk_int_state_in%lsq_high%lsq_qtmat_c(jl_g, :, :, jb_g)
-        wrk_int_state_out%lsq_high%lsq_rmat_rdiag_c(jl, :, jb)= &
-          & wrk_int_state_in%lsq_high%lsq_rmat_rdiag_c(jl_g, :, jb_g)
-        wrk_int_state_out%lsq_high%lsq_rmat_utri_c(jl, :, jb) = &
-          & wrk_int_state_in%lsq_high%lsq_rmat_utri_c(jl_g, :, jb_g)
-        wrk_int_state_out%lsq_high%lsq_pseudoinv(jl, :, :, jb) = &
-          & wrk_int_state_in%lsq_high%lsq_pseudoinv(jl_g, :, :, jb_g)
-
-        wrk_int_state_out%lsq_high%lsq_moments(jl, jb, :)     = &
-          & wrk_int_state_in%lsq_high%lsq_moments(jl_g, jb_g, :)
-        wrk_int_state_out%lsq_high%lsq_moments_hat(jl,jb,:,:) = &
-          & wrk_int_state_in%lsq_high%lsq_moments_hat(jl_g,jb_g,:,:)
-      ENDIF
-
-      wrk_int_state_out%geofac_div(jl, :, jb)             = &
-        & wrk_int_state_in%geofac_div(jl_g, :, jb_g)
-      wrk_int_state_out%geofac_n2s(jl, :, jb)             = &
-        & wrk_int_state_in%geofac_n2s(jl_g, :, jb_g)
-      wrk_int_state_out%geofac_grg(jl, :, jb, :)          = &
-        & wrk_int_state_in%geofac_grg(jl_g, :, jb_g, :)
-
-      wrk_int_state_out%cart_cell_coord(jl, jb, :)        = &
-        & wrk_int_state_in%cart_cell_coord(jl_g, jb_g, :)
-      wrk_int_state_out%primal_normal_ec(jl, jb, :, :)    = &
-        & wrk_int_state_in%primal_normal_ec(jl_g, jb_g, :, :)
-      wrk_int_state_out%edge_cell_length(jl, jb, :)       = &
-        & wrk_int_state_in%edge_cell_length(jl_g, jb_g, :)
-
-    ENDDO
-
-    DO j = 1,wrk_p_patch%n_patch_edges
-
-      jb = blk_no(j) ! Block index in distributed patch
-      jl = idx_no(j) ! Line  index in distributed patch
-
-      jb_g = blk_no(wrk_p_patch%edges%glb_index(j)) ! Block index in global patch
-      jl_g = idx_no(wrk_p_patch%edges%glb_index(j)) ! Line  index in global patch
-
-      wrk_int_state_out%c_lin_e(jl,:,jb)         = wrk_int_state_in%c_lin_e(jl_g,:,jb_g)
-      wrk_int_state_out%v_1o2_e(jl,:,jb)         = wrk_int_state_in%v_1o2_e(jl_g,:,jb_g)
-
-      IF( wrk_p_patch%cell_type==6 ) THEN
-
-        wrk_int_state_out%tria_aw_rhom(jl,:,jb)  = wrk_int_state_in%tria_aw_rhom  (jl_g,:,jb_g)
-        wrk_int_state_out%heli_coeff  (:,jl,jb)  = wrk_int_state_in%heli_coeff    (:,jl_g,jb_g)
-        wrk_int_state_out%dir_gradhux_c1(:,jl,jb)= wrk_int_state_in%dir_gradhux_c1(:,jl_g,jb_g)
-        wrk_int_state_out%dir_gradhux_c2(:,jl,jb)= wrk_int_state_in%dir_gradhux_c2(:,jl_g,jb_g)
-        wrk_int_state_out%strain_def_c1(:,jl,jb) = wrk_int_state_in%strain_def_c1(:,jl_g,jb_g)
-        wrk_int_state_out%strain_def_c2(:,jl,jb) = wrk_int_state_in%strain_def_c2(:,jl_g,jb_g)
-        wrk_int_state_out%dir_gradtxy_v1(:,jl,jb)= wrk_int_state_in%dir_gradtxy_v1(:,jl_g,jb_g)
-        wrk_int_state_out%dir_gradtxy_v2(:,jl,jb)= wrk_int_state_in%dir_gradtxy_v2(:,jl_g,jb_g)
-        wrk_int_state_out%dir_gradtyx_v1(:,jl,jb)= wrk_int_state_in%dir_gradtyx_v1(:,jl_g,jb_g)
-        wrk_int_state_out%dir_gradtyx_v2(:,jl,jb)= wrk_int_state_in%dir_gradtyx_v2(:,jl_g,jb_g)
-        wrk_int_state_out%shear_def_v1(:,jl,jb)= wrk_int_state_in%shear_def_v1(:,jl_g,jb_g)
-        wrk_int_state_out%shear_def_v2(:,jl,jb)= wrk_int_state_in%shear_def_v2(:,jl_g,jb_g)
-
-        IF(i_cori_method>=3)THEN
-          wrk_int_state_out%quad_east   (:,jl,jb)= wrk_int_state_in%quad_east     (:,jl_g,jb_g)
-          wrk_int_state_out%quad_north  (:,jl,jb)= wrk_int_state_in%quad_north    (:,jl_g,jb_g)
-        ENDIF
-
-        wrk_int_state_out%cno_en(jl,:,jb)= wrk_int_state_in%cno_en(jl_g,:,jb_g)
-        wrk_int_state_out%cea_en(jl,:,jb)= wrk_int_state_in%cea_en(jl_g,:,jb_g)
-
-        SELECT CASE (i_cori_method)
-        CASE(1,3,4)
-          nincr = 14
-        CASE(2)
-          nincr = 10
-        END SELECT
-        IF (i_cori_method < 3) THEN
-          DO i=1,nincr
-            CALL get_local_index(wrk_p_patch%edges%loc_index, &
-              & wrk_int_state_in%heli_vn_idx(i,jl_g,jb_g), &
-              & wrk_int_state_in%heli_vn_blk(i,jl_g,jb_g), &
-              & wrk_int_state_out%heli_vn_idx(i,jl,jb), &
-              & wrk_int_state_out%heli_vn_blk(i,jl,jb))
-          ENDDO
-        ENDIF
-
-        DO i=1,6
-          CALL get_local_index(wrk_p_patch%edges%loc_index, &
-            & wrk_int_state_in%dir_gradh_i1(i,jl_g,jb_g), &
-            & wrk_int_state_in%dir_gradh_b1(i,jl_g,jb_g), &
-            & wrk_int_state_out%dir_gradh_i1(i,jl,jb), &
-            & wrk_int_state_out%dir_gradh_b1(i,jl,jb))
-          CALL get_local_index(wrk_p_patch%edges%loc_index, &
-            & wrk_int_state_in%dir_gradh_i2(i,jl_g,jb_g), &
-            & wrk_int_state_in%dir_gradh_b2(i,jl_g,jb_g), &
-            & wrk_int_state_out%dir_gradh_i2(i,jl,jb), &
-            & wrk_int_state_out%dir_gradh_b2(i,jl,jb))
-        ENDDO
-
-        DO i=1,9
-          CALL get_local_index(wrk_p_patch%edges%loc_index, &
-            & wrk_int_state_in%dir_gradt_i1(i,jl_g,jb_g), &
-            & wrk_int_state_in%dir_gradt_b1(i,jl_g,jb_g), &
-            & wrk_int_state_out%dir_gradt_i1(i,jl,jb), &
-            & wrk_int_state_out%dir_gradt_b1(i,jl,jb))
-          CALL get_local_index(wrk_p_patch%edges%loc_index, &
-            & wrk_int_state_in%dir_gradt_i2(i,jl_g,jb_g), &
-            & wrk_int_state_in%dir_gradt_b2(i,jl_g,jb_g), &
-            & wrk_int_state_out%dir_gradt_i2(i,jl,jb), &
-            & wrk_int_state_out%dir_gradt_b2(i,jl,jb))
-        ENDDO
-
-      ENDIF
-
-      IF (wrk_p_patch%cell_type == 3) THEN
-
-        wrk_int_state_out%e_flx_avg(jl,:,jb) = wrk_int_state_in%e_flx_avg(jl_g,:,jb_g)
-
-        DO i=1,rbf_vec_dim_e
-          CALL get_local_index(wrk_p_patch%edges%loc_index, &
-            & wrk_int_state_in%rbf_vec_idx_e(i,jl_g,jb_g), &
-            & wrk_int_state_in%rbf_vec_blk_e(i,jl_g,jb_g), &
-            & wrk_int_state_out%rbf_vec_idx_e(i,jl,jb), &
-            & wrk_int_state_out%rbf_vec_blk_e(i,jl,jb))
-        ENDDO
-        wrk_int_state_out%rbf_vec_stencil_e(jl, jb)  = &
-          & wrk_int_state_in%rbf_vec_stencil_e(jl_g, jb_g)
-        wrk_int_state_out%rbf_vec_coeff_e(:, jl, jb) = &
-          & wrk_int_state_in%rbf_vec_coeff_e(:, jl_g, jb_g)
-      ENDIF
-
-      IF( wrk_p_patch%cell_type == 3 .AND. (ltransport .OR. iequations == 3) ) THEN
-        wrk_int_state_out%pos_on_tplane_e(jl, jb, :, :)     = &
-          & wrk_int_state_in%pos_on_tplane_e(jl_g, jb_g, :, :)
-        wrk_int_state_out%tplane_e_dotprod(jl, jb, :, :)    = &
-          & wrk_int_state_in%tplane_e_dotprod(jl_g, jb_g, :, :)
-      ENDIF
-
-      IF (wrk_p_patch%cell_type == 3 ) THEN
-        wrk_int_state_out%geofac_qdiv(jl, :, jb)        = &
-          & wrk_int_state_in%geofac_qdiv(jl_g, :, jb_g)
-        wrk_int_state_out%nudgecoeff_e(jl, jb)        = &
-          & wrk_int_state_in%nudgecoeff_e(jl_g, jb_g)
-      ENDIF
-      wrk_int_state_out%cart_edge_coord(jl, jb, :)    = &
-        & wrk_int_state_in%cart_edge_coord(jl_g, jb_g, :)
-
-    ENDDO
-
-
-    DO j = 1,wrk_p_patch%n_patch_verts
-
-      jb = blk_no(j) ! Block index in distributed patch
-      jl = idx_no(j) ! Line  index in distributed patch
-
-      jb_g = blk_no(wrk_p_patch%verts%glb_index(j)) ! Block index in global patch
-      jl_g = idx_no(wrk_p_patch%verts%glb_index(j)) ! Line  index in global patch
-
-      IF (wrk_p_patch%cell_type == 6) THEN
-        wrk_int_state_out%tria_north(:,jl,jb) = wrk_int_state_in%tria_north(:,jl_g,jb_g)
-        wrk_int_state_out%tria_east(:,jl,jb)  = wrk_int_state_in%tria_east(:,jl_g,jb_g)
-        wrk_int_state_out%e_1o3_v(jl,:,jb)    = wrk_int_state_in%e_1o3_v(jl_g,:,jb_g)
-        wrk_int_state_out%e_aw_v(jl,:,jb)     = wrk_int_state_in%e_aw_v(jl_g,:,jb_g)
-        wrk_int_state_out%e_inn_v(jl,:,jb)    = wrk_int_state_in%e_inn_v(jl_g,:,jb_g)
-      ENDIF
-
-      wrk_int_state_out%cells_aw_verts(jl,:,jb) = wrk_int_state_in%cells_aw_verts(jl_g,:,jb_g)
-
-      IF (wrk_p_patch%cell_type == 3) THEN
-        DO i=1,rbf_vec_dim_v
-          CALL get_local_index(wrk_p_patch%edges%loc_index, &
-            & wrk_int_state_in%rbf_vec_idx_v(i,jl_g,jb_g), &
-            & wrk_int_state_in%rbf_vec_blk_v(i,jl_g,jb_g), &
-            & wrk_int_state_out%rbf_vec_idx_v(i,jl,jb), &
-            & wrk_int_state_out%rbf_vec_blk_v(i,jl,jb))
-        ENDDO
-        wrk_int_state_out%rbf_vec_stencil_v(jl, jb)      = &
-          & wrk_int_state_in%rbf_vec_stencil_v(jl_g, jb_g)
-        wrk_int_state_out%rbf_vec_coeff_v(:, :, jl, jb) = &
-          & wrk_int_state_in%rbf_vec_coeff_v(:, :, jl_g, jb_g)
-      ENDIF
-
-      wrk_int_state_out%geofac_rot(jl, :, jb) = wrk_int_state_in%geofac_rot(jl_g, :, jb_g)
-
-    ENDDO
-
-  END SUBROUTINE divide_int_state
-
-  !-------------------------------------------------------------------------
-  !>
-  !! Divides all variables in gridref_single_state.
-  !!
-  !!
-  !! @par Revision History
-  !! Initial version by Rainer Johanni, Nov 2009
-  SUBROUTINE divide_grf_state()
-
-    ! Local scalars:
-    INTEGER :: jcd, j, js, je, jb, jl, jb_g, jl_g, i
-
-    TYPE(t_gridref_single_state), POINTER :: wrk_int_state_out   => NULL()
-    TYPE(t_gridref_single_state), POINTER :: wrk_int_state_in => NULL()
-
-    INTEGER :: grf_vec_dim_1, grf_vec_dim_2
-
-    !-----------------------------------------------------------------------
-    grf_vec_dim_1 = 6
-    grf_vec_dim_2 = 5
-
-    ! This routine must not be called in a single CPU run
-    IF(my_process_is_mpi_seq()) &
-      & CALL finish('divide_grf_state','must not be called in a single CPU run')
-
-    ! Loop over all child domains of the present domain
-    ! If there are no childs (wrk_p_patch%n_childdom==0) nothing needs to be done
-
-    DO jcd = 1, wrk_p_patch%n_childdom
-
-      wrk_int_state_out   => wrk_gridref_state_out%p_dom(jcd)
-      wrk_int_state_in => wrk_gridref_state_in%p_dom(jcd)
-
-      ! Copy area of feedback domain
-      wrk_gridref_state_out%fbk_dom_area(jcd) = wrk_gridref_state_in%fbk_dom_area(jcd)
-
-      ! Set cell related entries
-
-      js = idx_1d(wrk_p_patch%cells%start_idx(grf_bdyintp_start_c,jcd), &
-        &         wrk_p_patch%cells%start_blk(grf_bdyintp_start_c,jcd))
-
-      je = idx_1d(wrk_p_patch%cells%end_idx(min_rlcell_int,jcd), &
-        &         wrk_p_patch%cells%end_blk(min_rlcell_int,jcd))
-
-      DO j=js,je
-
-        jb = blk_no(j) ! Block index
-        jl = idx_no(j) ! Line  index
-
-        jb_g = blk_no(wrk_p_patch%cells%glb_index(j)) ! Block index in global patch
-        jl_g = idx_no(wrk_p_patch%cells%glb_index(j)) ! Line  index in global patch
-
-        wrk_int_state_out%grf_dist_pc2cc (jl,:,:,jb) = &
-          & wrk_int_state_in%grf_dist_pc2cc (jl_g,:,:,jb_g)
-
-      ENDDO
-
-
-      ! Set edge related entries
-
-      js = idx_1d(wrk_p_patch%edges%start_idx(grf_bdyintp_start_e,jcd), &
-        &         wrk_p_patch%edges%start_blk(grf_bdyintp_start_e,jcd))
-
-      je = idx_1d(wrk_p_patch%edges%end_idx(min_rledge_int,jcd), &
-        &         wrk_p_patch%edges%end_blk(min_rledge_int,jcd))
-
-      DO j=js,je
-
-        jb = blk_no(j) ! Block index
-        jl = idx_no(j) ! Line  index
-
-        jb_g = blk_no(wrk_p_patch%edges%glb_index(j)) ! Block index in global patch
-        jl_g = idx_no(wrk_p_patch%edges%glb_index(j)) ! Line  index in global patch
-
-        wrk_int_state_out%grf_dist_pe2ce (jl,:,jb) = &
-          & wrk_int_state_in%grf_dist_pe2ce (jl_g,:,jb_g)
-
-        DO i = 1, grf_vec_dim_1
-
-          CALL get_local_index(wrk_p_patch%edges%loc_index, &
-            & wrk_int_state_in%grf_vec_ind_1a(jl_g,i,jb_g), &
-            & wrk_int_state_in%grf_vec_blk_1a(jl_g,i,jb_g), &
-            & wrk_int_state_out%grf_vec_ind_1a(jl,i,jb), &
-            & wrk_int_state_out%grf_vec_blk_1a(jl,i,jb))
-
-          CALL get_local_index(wrk_p_patch%edges%loc_index, &
-            & wrk_int_state_in%grf_vec_ind_1b(jl_g,i,jb_g), &
-            & wrk_int_state_in%grf_vec_blk_1b(jl_g,i,jb_g), &
-            & wrk_int_state_out%grf_vec_ind_1b(jl,i,jb), &
-            & wrk_int_state_out%grf_vec_blk_1b(jl,i,jb))
-        ENDDO
-
-        DO i = 1, grf_vec_dim_2
-
-          CALL get_local_index(wrk_p_patch%edges%loc_index, &
-            & wrk_int_state_in%grf_vec_ind_2a(jl_g,i,jb_g), &
-            & wrk_int_state_in%grf_vec_blk_2a(jl_g,i,jb_g), &
-            & wrk_int_state_out%grf_vec_ind_2a(jl,i,jb), &
-            & wrk_int_state_out%grf_vec_blk_2a(jl,i,jb))
-
-          CALL get_local_index(wrk_p_patch%edges%loc_index, &
-            & wrk_int_state_in%grf_vec_ind_2b(jl_g,i,jb_g), &
-            & wrk_int_state_in%grf_vec_blk_2b(jl_g,i,jb_g), &
-            & wrk_int_state_out%grf_vec_ind_2b(jl,i,jb), &
-            & wrk_int_state_out%grf_vec_blk_2b(jl,i,jb))
-        ENDDO
-
-
-        wrk_int_state_out%grf_vec_stencil_1a(jl,jb) = &
-          & wrk_int_state_in%grf_vec_stencil_1a(jl_g,jb_g)
-        wrk_int_state_out%grf_vec_stencil_1b(jl,jb) = &
-          & wrk_int_state_in%grf_vec_stencil_1b(jl_g,jb_g)
-        wrk_int_state_out%grf_vec_stencil_2a(jl,jb) = &
-          & wrk_int_state_in%grf_vec_stencil_2a(jl_g,jb_g)
-        wrk_int_state_out%grf_vec_stencil_2b(jl,jb) = &
-          & wrk_int_state_in%grf_vec_stencil_2b(jl_g,jb_g)
-
-        wrk_int_state_out%grf_vec_coeff_1a(:,jl,jb) = &
-          & wrk_int_state_in%grf_vec_coeff_1a(:,jl_g,jb_g)
-        wrk_int_state_out%grf_vec_coeff_1b(:,jl,jb) = &
-          & wrk_int_state_in%grf_vec_coeff_1b(:,jl_g,jb_g)
-        wrk_int_state_out%grf_vec_coeff_2a(:,jl,jb) = &
-          & wrk_int_state_in%grf_vec_coeff_2a(:,jl_g,jb_g)
-        wrk_int_state_out%grf_vec_coeff_2b(:,jl,jb) = &
-          & wrk_int_state_in%grf_vec_coeff_2b(:,jl_g,jb_g)
-
-      ENDDO
-
-    ENDDO
-
-    DO j = 1, wrk_p_patch%n_patch_cells
-
-      jb = blk_no(j) ! Block index in distributed patch
-      jl = idx_no(j) ! Line  index in distributed patch
-
-      jb_g = blk_no(wrk_p_patch%cells%glb_index(j)) ! Block index in global patch
-      jl_g = idx_no(wrk_p_patch%cells%glb_index(j)) ! Line  index in global patch
-
-      wrk_gridref_state_out%fbk_wgt_c(jl,jb,:) = wrk_gridref_state_in%fbk_wgt_c(jl_g,jb_g,:)
-      wrk_gridref_state_out%fbk_wgt_ct(jl,jb,:) = wrk_gridref_state_in%fbk_wgt_ct(jl_g,jb_g,:)
-      wrk_gridref_state_out%pc_idx_c(jl,jb) = wrk_gridref_state_in%pc_idx_c(jl_g,jb_g)
-    ENDDO
-
-    DO j = 1, wrk_p_patch%n_patch_edges
-
-      jb = blk_no(j) ! Block index in distributed patch
-      jl = idx_no(j) ! Line  index in distributed patch
-
-      jb_g = blk_no(wrk_p_patch%edges%glb_index(j)) ! Block index in global patch
-      jl_g = idx_no(wrk_p_patch%edges%glb_index(j)) ! Line  index in global patch
-
-      wrk_gridref_state_out%fbk_wgt_e(jl,jb,:) = wrk_gridref_state_in%fbk_wgt_e(jl_g,jb_g,:)
-      wrk_gridref_state_out%pc_idx_e(jl,jb) = wrk_gridref_state_in%pc_idx_e(jl_g,jb_g)
-    ENDDO
-
-    ! fbk_dom_volume is not yet set, we copy it nevertheless
-    wrk_gridref_state_out%fbk_dom_area(:) = wrk_gridref_state_in%fbk_dom_area(:)
-    wrk_gridref_state_out%fbk_dom_volume(:,:) = wrk_gridref_state_in%fbk_dom_volume(:,:)
-
-    ! tracer_bdyflx is not yet set and might go away eventually - no need to care
-
-  END SUBROUTINE divide_grf_state
-
-  !-------------------------------------------------------------------------
-  !>
   !!               Calculates local line/block indices l_idx, l_blk
   !!               from global line/block indices g_idx, g_blk
   !!               using the mapping in loc_index
@@ -3220,7 +2809,7 @@ CONTAINS
     ! mode controls the behaviour if the global index is valid, but outside the local domain:
     ! mode > 0 : Map it to the next greater index (even if this is outside the local domain)
     ! mode < 0 : Map it to the next smaller index (even if this is 0)
-    ! mode = 0 : Mapping doesn't matter, but it must point to a valid local index
+    ! mode = 0 : Map it to a negative value (negative of global index)
 
     IF(PRESENT(opt_mode)) THEN
       mode = opt_mode
@@ -3252,8 +2841,7 @@ CONTAINS
       ELSE IF(mode < 0) THEN
         j_l = ABS(j_l)-1
       ELSE
-        ! It doesn't matter which one we choose, but it must be valid
-        j_l = MAX(ABS(j_l)-1,1)
+        j_l = -j_g
       ENDIF
     ENDIF
 
@@ -3261,6 +2849,42 @@ CONTAINS
     l_blk = blk_no(j_l)
 
   END SUBROUTINE get_local_index
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Maps indices which point outside domain (returned as <0 by get_local_index)
+  !! to valid ones which are from the same set of neighbors for the given
+  !! cell/edge/vert
+  !!
+  !! @par Revision History
+  !! Initial version by Rainer Johanni, Oct 2011
+  !!
+  SUBROUTINE remap_index(loc_index, l_idx, l_blk)
+
+    INTEGER, INTENT(in) :: loc_index(:)
+    INTEGER, INTENT(inout) :: l_idx, l_blk
+
+    INTEGER :: j_l, j_g
+
+    IF(l_idx>=0) RETURN ! Nothing to do
+
+    j_g = idx_1d(-l_idx, l_blk) ! Global index
+
+    ! Safety check only, global index should be in correct range
+    IF(j_g < 1 .OR. j_g > UBOUND(loc_index,1)) CALL finish('remap_index','Invalid global index')
+
+    j_l = loc_index(j_g)
+
+    ! Safety check only, local index should be negative
+    IF(j_l >= 0) CALL finish('remap_index','Invalid local index')
+
+    ! Remap in the same way as previously in get_local_index (for compatibility only)
+    j_l = MAX(ABS(j_l)-1,1)
+
+    l_idx = idx_no(j_l)
+    l_blk = blk_no(j_l)
+
+  END SUBROUTINE remap_index
 
   !-------------------------------------------------------------------------
   !>

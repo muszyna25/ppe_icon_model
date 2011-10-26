@@ -117,7 +117,7 @@ USE mo_impl_constants,     ONLY: SUCCESS, &
      &                           min_rledge, max_rledge, &
      &                           min_rlvert, max_rlvert
 USE mo_exception,          ONLY: message_text, message, finish
-USE mo_model_domain,       ONLY: t_patch
+USE mo_model_domain,       ONLY: t_patch, t_grid_cells, t_grid_edges
 USE mo_parallel_config,    ONLY: nproma
 USE mo_model_domimp_setup, ONLY: reshape_int, reshape_real, calculate_cart_normal,&
      &                           init_quad_twoadjcells, init_coriolis
@@ -128,6 +128,9 @@ USE mo_grid_config,        ONLY: start_lev, nroot, n_dom, n_dom_start,    &
      & radiation_grid_filename,  global_cell_type, lplane
 USE mo_dynamics_config,    ONLY: lcoriolis
 USE mo_master_control,     ONLY: my_process_is_ocean
+USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e
+USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
+
 #ifndef NOMPI
 ! The USE statement below lets this module use the routines from
 ! mo_read_netcdf_parallel where only 1 processor is reading
@@ -487,8 +490,158 @@ GRID_LEVEL_LOOP: DO jg = n_dom_start, n_dom
 
 ENDDO GRID_LEVEL_LOOP
 
+CALL complete_patch_info(p_patch)
 
 END SUBROUTINE import_patches
+!-------------------------------------------------------------------------
+!
+!>
+!! This routine completes the patch information for parent edges
+!! and shifts the child_id array if necessary.
+!!
+!! It has been moved from mo_grf_intp_coeffs to this location because
+!! it has nothing to do with the gridrefinement itself
+!!
+!! THIS SHOULD GO DIRECTLY INTO read_patch LATER !!!!
+!!
+!! @par Revision History
+!! Developed  by Guenther. Zaengl, DWD, 2009-03-19
+!! Moved here by Rainer Johanni, Oct 2011
+!!
+SUBROUTINE complete_patch_info(p_patch)
+
+TYPE(t_patch), TARGET, INTENT(inout) :: p_patch(n_dom_start:)
+
+! local variables
+
+TYPE(t_grid_cells), POINTER :: p_gcp => NULL()
+TYPE(t_grid_edges), POINTER :: p_gep => NULL()
+TYPE(t_patch),      POINTER :: p_pp => NULL()
+
+INTEGER :: jb, jc, je, jg, ji, i_startblk, i_endblk,         &
+           i_startidx, i_endidx, iic, ibc, i_nchdom, i_child_id, &
+           ishift_child_id, ierror
+
+!-----------------------------------------------------------------------
+!
+
+ishift_child_id = 0
+
+DO jg = n_dom_start, n_dom-1
+
+  p_gep  => p_patch(jg)%edges
+  p_gcp  => p_patch(jg)%cells
+  p_pp   => p_patch(jg)
+
+  i_nchdom = p_pp%n_childdom
+  IF (i_nchdom == 0) CYCLE
+  ierror = 0
+
+  ! First ensure that child edge indices are all positive;
+  ! if there are negative values, grid files are too old
+  i_startblk = p_gep%start_blk(grf_bdyintp_start_e,1)
+  i_endblk   = p_gep%end_blk(min_rledge,i_nchdom)
+
+  DO jb = i_startblk, i_endblk
+
+    CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
+                       i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge)
+
+    DO ji = 3, 4
+      DO je = i_startidx, i_endidx
+
+       IF (p_gep%child_idx(je,jb,ji) < 0) ierror = ierror + 1
+
+      ENDDO
+    ENDDO
+  ENDDO
+
+  IF (ierror > 0) THEN
+    CALL finish ('mo_grf_interpolation:gridref_info',  &
+      &          'negative child edge indices detected - patch files are too old')
+  ENDIF
+
+  ! Preparation: In limited-area mode, check if child domain ID's read
+  ! from the grid files need to be shifted
+  IF (jg == 1 .AND. l_limited_area) THEN
+
+    i_startblk = p_gep%start_blk(grf_bdyintp_start_e,1)
+    i_endblk   = p_gep%end_blk(min_rledge,1)
+
+    CALL get_indices_e(p_pp, i_startblk, i_startblk, i_endblk, &
+                       i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge, 1)
+
+    ! domain ID of first nested domain should be 2
+    ishift_child_id = p_gep%child_id(i_startidx,i_startblk) - 2
+
+  ENDIF
+
+#ifdef __SX__
+!$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
+#endif
+
+  i_startblk = p_gep%start_blk(grf_bdyintp_start_e,1)
+  i_endblk   = p_gep%end_blk(min_rledge,i_nchdom)
+
+! Complete parent edge information
+#ifdef  __SX__
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,ji,je,iic,ibc,i_child_id)
+#endif
+  DO jb = i_startblk, i_endblk
+
+    CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
+                       i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge)
+
+    IF (ishift_child_id /= 0) THEN
+      DO je = i_startidx, i_endidx
+        p_gep%child_id(je,jb) = p_gep%child_id(je,jb) - ishift_child_id
+      ENDDO
+    ENDIF
+
+    DO ji = 3, 4 ! Index completion only needed for child edges 3+4
+      DO je = i_startidx, i_endidx
+
+        iic = ABS(p_gep%child_idx(je,jb,ji))
+        ibc = p_gep%child_blk(je,jb,ji)
+        i_child_id = p_gep%child_id(je,jb)
+
+        IF ((iic/= 0) .AND. (ibc/= 0)) THEN
+          p_patch(i_child_id)%edges%parent_idx(iic,ibc) = je
+          p_patch(i_child_id)%edges%parent_blk(iic,ibc) = jb
+        ENDIF
+      ENDDO
+    ENDDO
+  ENDDO
+#ifdef  __SX__
+!$OMP END DO
+#endif
+
+  i_startblk = p_gcp%start_blk(grf_bdyintp_start_c,1)
+  i_endblk   = p_gcp%end_blk(min_rlcell,i_nchdom)
+
+#ifdef  __SX__
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,ji,jc,iic,ibc,i_child_id)
+#endif
+  DO jb = i_startblk, i_endblk
+
+    CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
+                       i_startidx, i_endidx, grf_bdyintp_start_c, min_rlcell)
+
+    IF (ishift_child_id /= 0) THEN
+      DO jc = i_startidx, i_endidx
+        p_gcp%child_id(jc,jb) = p_gcp%child_id(jc,jb) - ishift_child_id
+      ENDDO
+    ENDIF
+
+  ENDDO
+#ifdef  __SX__
+!$OMP END DO
+!$OMP END PARALLEL
+#endif
+
+ENDDO
+
+END SUBROUTINE complete_patch_info
 !-------------------------------------------------------------------------
 !
 !> Allocates all arrays in a patch
@@ -629,6 +782,126 @@ SUBROUTINE allocate_patch(p_patch)
   ALLOCATE( p_patch%verts%glb_index(p_patch%n_patch_verts) )
   ALLOCATE( p_patch%verts%loc_index(p_patch%n_patch_verts_g) )
   ALLOCATE( p_patch%verts%owner_g(p_patch%n_patch_verts_g))
+
+  ! Set all newly allocated arrays to 0
+
+  p_patch%cells%idx = 0
+  p_patch%cells%blk = 0
+  p_patch%cells%num_edges = 0
+  p_patch%cells%parent_idx = 0
+  p_patch%cells%parent_blk = 0
+  p_patch%cells%child_idx = 0
+  p_patch%cells%child_blk = 0
+  p_patch%cells%child_id = 0
+  p_patch%cells%phys_id = 0
+  p_patch%cells%neighbor_idx = 0
+  p_patch%cells%neighbor_blk = 0
+  p_patch%cells%edge_idx = 0
+  p_patch%cells%edge_blk = 0
+  p_patch%cells%vertex_idx = 0
+  p_patch%cells%vertex_blk = 0
+  p_patch%cells%edge_orientation = 0._wp
+  p_patch%cells%center(:,:)%lon = 0._wp
+  p_patch%cells%center(:,:)%lat = 0._wp
+  p_patch%cells%area = 0._wp
+  p_patch%cells%f_c = 0._wp
+  p_patch%cells%refin_ctrl = 0
+  p_patch%cells%start_idx = 0
+  p_patch%cells%end_idx = 0
+  p_patch%cells%start_blk = 0
+  p_patch%cells%end_blk = 0
+
+  p_patch%cells%decomp_domain = 0
+  p_patch%cells%owner_mask = .false.
+  p_patch%cells%glb_index = 0
+  p_patch%cells%owner_local = 0
+  p_patch%cells%loc_index = 0
+  p_patch%cells%owner_g = 0
+
+  p_patch%edges%idx = 0
+  p_patch%edges%blk = 0
+  p_patch%edges%parent_idx = 0
+  p_patch%edges%parent_blk = 0
+  p_patch%edges%child_idx = 0
+  p_patch%edges%child_blk = 0
+  p_patch%edges%child_id = 0
+  p_patch%edges%phys_id = 0
+  p_patch%edges%cell_idx = 0
+  p_patch%edges%cell_blk = 0
+  p_patch%edges%vertex_idx = 0
+  p_patch%edges%vertex_blk = 0
+  p_patch%edges%system_orientation = 0._wp
+  p_patch%edges%quad_idx = 0
+  p_patch%edges%quad_blk = 0
+  p_patch%edges%quad_orientation = 0._wp
+  p_patch%edges%center(:,:)%lon = 0._wp
+  p_patch%edges%center(:,:)%lat = 0._wp
+  p_patch%edges%primal_normal(:,:)%v1 = 0._wp
+  p_patch%edges%primal_normal(:,:)%v2 = 0._wp
+  p_patch%edges%primal_cart_normal(:,:)%x(1) = 0._wp
+  p_patch%edges%primal_cart_normal(:,:)%x(2) = 0._wp
+  p_patch%edges%primal_cart_normal(:,:)%x(3) = 0._wp
+  p_patch%edges%dual_normal(:,:)%v1 = 0._wp
+  p_patch%edges%dual_normal(:,:)%v2 = 0._wp
+  p_patch%edges%dual_cart_normal(:,:)%x(1) = 0._wp
+  p_patch%edges%dual_cart_normal(:,:)%x(2) = 0._wp
+  p_patch%edges%dual_cart_normal(:,:)%x(3) = 0._wp
+  p_patch%edges%primal_normal_cell(:,:,:)%v1 = 0._wp
+  p_patch%edges%primal_normal_cell(:,:,:)%v2 = 0._wp
+  p_patch%edges%dual_normal_cell(:,:,:)%v1 = 0._wp
+  p_patch%edges%dual_normal_cell(:,:,:)%v2 = 0._wp
+  p_patch%edges%primal_normal_vert(:,:,:)%v1 = 0._wp
+  p_patch%edges%primal_normal_vert(:,:,:)%v2 = 0._wp
+  p_patch%edges%dual_normal_vert(:,:,:)%v1 = 0._wp
+  p_patch%edges%dual_normal_vert(:,:,:)%v2 = 0._wp
+  p_patch%edges%primal_edge_length = 0._wp
+  p_patch%edges%inv_primal_edge_length = 0._wp
+  p_patch%edges%dual_edge_length = 0._wp
+  p_patch%edges%inv_dual_edge_length = 0._wp
+  p_patch%edges%edge_vert_length = 0._wp
+  p_patch%edges%inv_vert_vert_length = 0._wp
+  p_patch%edges%edge_cell_length = 0._wp
+  p_patch%edges%area_edge = 0._wp
+  p_patch%edges%quad_area = 0._wp
+  p_patch%edges%f_e = 0._wp
+  p_patch%edges%refin_ctrl = 0
+  p_patch%edges%start_idx = 0
+  p_patch%edges%end_idx = 0
+  p_patch%edges%start_blk = 0
+  p_patch%edges%end_blk = 0
+
+  p_patch%edges%decomp_domain = 0
+  p_patch%edges%owner_mask = .false.
+  p_patch%edges%glb_index = 0
+  p_patch%edges%loc_index = 0
+  p_patch%edges%owner_g = 0
+
+  p_patch%verts%idx = 0
+  p_patch%verts%blk = 0
+  p_patch%verts%neighbor_idx = 0
+  p_patch%verts%neighbor_blk = 0
+  p_patch%verts%cell_idx = 0
+  p_patch%verts%cell_blk = 0
+  p_patch%verts%edge_idx = 0
+  p_patch%verts%edge_blk = 0
+  p_patch%verts%edge_orientation = 0._wp
+  p_patch%verts%num_edges = 0
+  p_patch%verts%vertex(:,:)%lon = 0._wp
+  p_patch%verts%vertex(:,:)%lat = 0._wp
+  p_patch%verts%dual_area = 0._wp
+  p_patch%verts%f_v = 0._wp
+  p_patch%verts%refin_ctrl = 0
+  p_patch%verts%start_idx = 0
+  p_patch%verts%end_idx = 0
+  p_patch%verts%start_blk = 0
+  p_patch%verts%end_blk = 0
+
+  p_patch%verts%decomp_domain = 0
+  p_patch%verts%owner_mask = .false.
+  p_patch%verts%glb_index = 0
+  p_patch%verts%loc_index = 0
+  p_patch%verts%owner_g = 0
+
 
 END SUBROUTINE allocate_patch
 !-------------------------------------------------------------------------

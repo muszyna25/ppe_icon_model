@@ -523,8 +523,7 @@ TYPE t_lon_lat_intp
 END TYPE t_lon_lat_intp
 
 
-TYPE(t_int_state),TARGET,ALLOCATABLE :: p_int_state_global(:), p_int_state_subdiv(:)
-TYPE(t_int_state),POINTER            :: p_int_state(:)
+TYPE(t_int_state),TARGET,ALLOCATABLE :: p_int_state(:), p_int_state_local_parent(:)
 
 !> interpolation constants for lon-lat interpolation
 TYPE (t_lon_lat_intp), TARGET, ALLOCATABLE :: p_int_state_lonlat_global(:)

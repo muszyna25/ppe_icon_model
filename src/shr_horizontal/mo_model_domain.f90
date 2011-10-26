@@ -692,7 +692,8 @@ TYPE t_patch
 
 END TYPE t_patch
 
-TYPE(t_patch), PUBLIC, TARGET, ALLOCATABLE :: p_patch_global(:), p_patch_subdiv(:)
+TYPE(t_patch), PUBLIC, TARGET, ALLOCATABLE :: p_patch_global(:), p_patch_subdiv(:), &
+                                            & p_patch_local_parent(:)
 TYPE(t_patch), PUBLIC, POINTER             :: p_patch(:)
 !--------------------------------------------------------------------
 

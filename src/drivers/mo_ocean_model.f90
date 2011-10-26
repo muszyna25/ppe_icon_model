@@ -83,8 +83,8 @@ MODULE mo_ocean_model
 
   USE mo_icoham_dyn_memory,   ONLY: p_hydro_state
   USE mo_model_domain,        ONLY: p_patch_global, p_patch_subdiv, p_patch
-  USE mo_intp_data_strc,      ONLY: p_int_state_global, p_int_state_subdiv, p_int_state
-  USE mo_grf_intp_data_strc,  ONLY: p_grf_state_global, p_grf_state
+  USE mo_intp_data_strc,      ONLY: p_int_state
+  USE mo_grf_intp_data_strc,  ONLY: p_grf_state
 
   ! Horizontal grid
   !
@@ -294,19 +294,19 @@ CONTAINS
 
     ! Allocate array for interpolation state
 
-    ALLOCATE( p_int_state_global(n_dom_start:n_dom), &
-            & p_grf_state_global(n_dom_start:n_dom),STAT=error_status)
+    ALLOCATE( p_int_state(n_dom_start:n_dom), &
+            & p_grf_state(n_dom_start:n_dom),STAT=error_status)
     IF (error_status /= SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for ptr_int_state failed')
     ENDIF
 
     IF(lrestore_states .AND. .NOT. my_process_is_mpi_test()) THEN
       ! Read interpolation state from NetCDF
-      CALL restore_interpol_state_netcdf(p_patch_global, p_int_state_global)
+      CALL restore_interpol_state_netcdf(p_patch_global, p_int_state)
     ELSE
       ! Interpolation state is constructed for
       ! the full domain on every PE and divided later
-      CALL construct_2d_interpol_state(p_patch_global, p_int_state_global)
+      CALL construct_2d_interpol_state(p_patch_global, p_int_state)
     ENDIF
 
 
@@ -330,8 +330,6 @@ CONTAINS
       ! or the divided states have been read, just set pointers
 
       p_patch => p_patch_global
-      p_int_state => p_int_state_global
-      p_grf_state => p_grf_state_global
 
 !       IF (my_process_is_mpi_seq()) THEN
 !         p_patch(:)%comm = p_comm_work
@@ -558,11 +556,7 @@ CONTAINS
     ! interpolation state not used for ocean model
     ! #slo# - temporarily switched on for comparison with rbf-reconstruction
     CALL destruct_2d_interpol_state( p_int_state )
-    IF(my_process_is_mpi_seq() .OR. lrestore_states) THEN
-      DEALLOCATE (p_int_state_global, stat=ist)
-    ELSE
-      DEALLOCATE (p_int_state_subdiv, stat=ist)
-    ENDIF
+    DEALLOCATE (p_int_state, stat=ist)
     IF (ist /= success) THEN
       CALL finish(TRIM(routine),'deallocation for ptr_int_state failed')
     ENDIF

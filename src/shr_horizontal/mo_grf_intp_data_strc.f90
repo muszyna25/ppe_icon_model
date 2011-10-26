@@ -104,8 +104,7 @@ END TYPE t_gridref_state
   !----------------------------------------------------------------------------
   !                                Variables
   !----------------------------------------------------------------------------
-  TYPE(t_gridref_state), TARGET, ALLOCATABLE :: p_grf_state_global(:), p_grf_state_subdiv(:)
-  TYPE(t_gridref_state), POINTER             :: p_grf_state(:)
+  TYPE(t_gridref_state), TARGET, ALLOCATABLE :: p_grf_state(:), p_grf_state_local_parent(:)
 
 
 END MODULE mo_grf_intp_data_strc

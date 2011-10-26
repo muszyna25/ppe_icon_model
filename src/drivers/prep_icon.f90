@@ -85,8 +85,8 @@ USE mo_nh_init_utils,         ONLY: init_hybrid_coord, init_sleve_coord
 USE mo_impl_constants,        ONLY: SUCCESS, inwp
 
 
-USE mo_intp_data_strc,        ONLY: p_int_state_global, p_int_state_subdiv, p_int_state
-USE mo_grf_intp_data_strc,    ONLY: p_grf_state_global, p_grf_state_subdiv, p_grf_state
+USE mo_intp_data_strc,        ONLY: p_int_state
+USE mo_grf_intp_data_strc,    ONLY: p_grf_state
 
 
 USE mo_read_namelists,        ONLY: read_atmo_namelists
@@ -229,8 +229,8 @@ IMPLICIT NONE
 
     ! Allocate array for interpolation state
     
-    ALLOCATE( p_int_state_global(n_dom_start:n_dom), &
-            & p_grf_state_global(n_dom_start:n_dom),STAT=error_status)
+    ALLOCATE( p_int_state(n_dom_start:n_dom), &
+            & p_grf_state(n_dom_start:n_dom),STAT=error_status)
     IF (error_status /= SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for ptr_int_state failed')
     ENDIF
@@ -238,7 +238,7 @@ IMPLICIT NONE
 
     ! Interpolation state is constructed for
     ! the full domain on every PE and divided later
-    CALL construct_2d_interpol_state(p_patch_global, p_int_state_global)
+    CALL construct_2d_interpol_state(p_patch_global, p_int_state)
 
     !-----------------------------------------------------------------------------
     ! 6. Construct grid refinment state, compute coefficients
@@ -247,7 +247,7 @@ IMPLICIT NONE
     ! construct_2d_gridref_state require the metric terms to be present
 
     IF (n_dom_start==0 .OR. n_dom > 1) THEN
-      CALL construct_2d_gridref_state (p_patch_global, p_grf_state_global)
+      CALL construct_2d_gridref_state (p_patch_global, p_grf_state)
     ENDIF
 
     !-------------------------------------------------------------------
@@ -261,8 +261,6 @@ IMPLICIT NONE
       ! or the divided states have been read, just set pointers
       
       p_patch => p_patch_global
-      p_int_state => p_int_state_global
-      p_grf_state => p_grf_state_global
       
 !       IF (my_process_is_mpi_seq()) THEN
 !         p_patch(:)%comm = p_comm_work
@@ -394,11 +392,7 @@ IMPLICIT NONE
       CALL destruct_2d_gridref_state( p_patch, p_grf_state )
     ENDIF
 
-    IF (my_process_is_mpi_seq()) THEN
-      DEALLOCATE (p_grf_state_global, STAT=error_status)
-    ELSE
-      DEALLOCATE (p_grf_state_subdiv, STAT=error_status)
-    ENDIF
+    DEALLOCATE (p_grf_state, STAT=error_status)
     IF (error_status /= SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocation for ptr_grf_state failed')
     ENDIF
@@ -406,11 +400,7 @@ IMPLICIT NONE
     ! Deallocate interpolation fields
 
     CALL destruct_2d_interpol_state( p_int_state )
-    IF  (my_process_is_mpi_seq()) THEN
-      DEALLOCATE (p_int_state_global, STAT=error_status)
-    ELSE
-      DEALLOCATE (p_int_state_subdiv, STAT=error_status)
-    ENDIF
+    DEALLOCATE (p_int_state, STAT=error_status)
     IF (error_status /= SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocation for ptr_int_state failed')
     ENDIF

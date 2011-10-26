@@ -178,6 +178,7 @@ USE mo_math_utilities,      ONLY: gc2cc, cc2gc, gnomonic_proj,               &
 USE mo_dynamics_config,     ONLY: divavg_cntrwgt
 USE mo_parallel_config,  ONLY: nproma
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
+Use mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_idx
 
 USE mo_intp_data_strc
 USE mo_intp_coeffs_lsq_bln
@@ -269,6 +270,7 @@ SUBROUTINE compute_heli_bra_coeff_idx (ptr_patch, ptr_int)
     p_in => ptr_int
 
     ALLOCATE(z_frac_area(6,nproma,p_pa%nblks_c))
+    z_frac_area = 0._wp
 
     ! Fractional areas R_{i,v}
     nblks_c  = p_pa%nblks_int_c
@@ -280,6 +282,9 @@ SUBROUTINE compute_heli_bra_coeff_idx (ptr_patch, ptr_int)
         nlen = npromz_c
       ENDIF
       DO jc = 1, nlen
+
+        IF(.NOT.p_ce%owner_mask(jc,jb)) CYCLE
+
         n_edges = p_ce%num_edges(jc,jb)
         DO je1 = 1, n_edges
           ! edges of cells
@@ -321,6 +326,10 @@ SUBROUTINE compute_heli_bra_coeff_idx (ptr_patch, ptr_int)
       ENDDO
     ENDDO
 
+    DO jv = 1, UBOUND(z_frac_area,1)
+      CALL sync_patch_array(SYNC_C,ptr_patch,z_frac_area(jv,:,:))
+    ENDDO
+
     ! heli coeffs
     nblks_e  = p_pa%nblks_int_e
     npromz_e = p_pa%npromz_int_e
@@ -331,6 +340,9 @@ SUBROUTINE compute_heli_bra_coeff_idx (ptr_patch, ptr_int)
         nlen = npromz_e
       ENDIF
       DO je = 1, nlen
+
+        IF(.NOT.p_ed%owner_mask(je,jb)) CYCLE
+
         incr = 0
         DO jc = 1, 2
 
@@ -429,6 +441,11 @@ SUBROUTINE compute_heli_bra_coeff_idx (ptr_patch, ptr_int)
       ENDDO
     ENDDO
 
+    DO incr = 1, UBOUND(p_in%heli_coeff,1)
+      CALL sync_patch_array(SYNC_E,ptr_patch,p_in%heli_coeff(incr,:,:))
+      CALL sync_idx(SYNC_E,SYNC_E,ptr_patch,p_in%heli_vn_idx(incr,:,:),p_in%heli_vn_blk(incr,:,:))
+    ENDDO
+
   ENDIF
 
   p_pa => ptr_patch
@@ -451,6 +468,9 @@ SUBROUTINE compute_heli_bra_coeff_idx (ptr_patch, ptr_int)
       nlen = npromz_c
     ENDIF
     DO jc = 1, nlen
+
+      IF(.NOT.p_ce%owner_mask(jc,jb)) CYCLE
+
       IF (.NOT. lplane) THEN
         CALL gvec2cvec(0.0_wp,1.0_wp,p_ce%center(jc,jb)%lon,p_ce%center(jc,jb)%lat, &
         &              z_cart_no%x(1),z_cart_no%x(2),z_cart_no%x(3))
@@ -485,6 +505,10 @@ SUBROUTINE compute_heli_bra_coeff_idx (ptr_patch, ptr_int)
       ENDDO
     ENDDO
   ENDDO
+
+  CALL sync_patch_array(SYNC_C,ptr_patch,p_in%hex_north)
+  CALL sync_patch_array(SYNC_C,ptr_patch,p_in%hex_east)
+
   ! Vector reconstruction on triangles
   !===================================
   nblks_v  = p_pa%nblks_int_v
@@ -496,6 +520,9 @@ SUBROUTINE compute_heli_bra_coeff_idx (ptr_patch, ptr_int)
       nlen = npromz_v
     ENDIF
     DO jv = 1, nlen
+
+      IF(.NOT.p_ve%owner_mask(jv,jb)) CYCLE
+
       IF (.NOT. lplane) THEN
         CALL gvec2cvec(0.0_wp,1.0_wp,p_ve%vertex(jv,jb)%lon,p_ve%vertex(jv,jb)%lat, &
         &              z_cart_no%x(1),z_cart_no%x(2),z_cart_no%x(3))
@@ -535,6 +562,11 @@ SUBROUTINE compute_heli_bra_coeff_idx (ptr_patch, ptr_int)
     ENDDO
   ENDDO
 
+  DO je1 = 1, 3
+    CALL sync_patch_array(SYNC_V,ptr_patch,p_in%tria_north(je1,:,:))
+    CALL sync_patch_array(SYNC_V,ptr_patch,p_in%tria_east(je1,:,:))
+  ENDDO
+
   IF (i_cori_method /= 2 ) THEN
 
     ! Vector reconstruction on rhombi
@@ -548,6 +580,9 @@ SUBROUTINE compute_heli_bra_coeff_idx (ptr_patch, ptr_int)
         nlen = npromz_e
       ENDIF
       DO je = 1, nlen
+
+        IF(.NOT.p_ed%owner_mask(je,jb)) CYCLE
+
         IF (.NOT. lplane) THEN
           CALL gvec2cvec(0.0_wp,1.0_wp,p_ed%center(je,jb)%lon,p_ed%center(je,jb)%lat, &
           &              z_cart_no%x(1),z_cart_no%x(2),z_cart_no%x(3))
@@ -602,6 +637,17 @@ SUBROUTINE compute_heli_bra_coeff_idx (ptr_patch, ptr_int)
       ENDDO
     ENDDO
 
+    IF(i_cori_method >= 3) THEN
+      DO je1 = 1, 5
+        CALL sync_patch_array(SYNC_E,ptr_patch,p_in%quad_north(je1,:,:))
+        CALL sync_patch_array(SYNC_E,ptr_patch,p_in%quad_east(je1,:,:))
+      ENDDO
+    ENDIF
+    DO je1 = 1, 6
+      CALL sync_patch_array(SYNC_E,ptr_patch,z_quad_north(je1,:,:))
+      CALL sync_patch_array(SYNC_E,ptr_patch,z_quad_east (je1,:,:))
+    ENDDO
+
     ! Computation of the coefficients for the vorticity flux term
     !============================================================
     nblks_e  = p_pa%nblks_int_e
@@ -614,6 +660,8 @@ SUBROUTINE compute_heli_bra_coeff_idx (ptr_patch, ptr_int)
         nlen = npromz_e
       ENDIF
       DO je = 1, nlen
+
+        IF(.NOT.p_ed%owner_mask(je,jb)) CYCLE
 
         incr    = 0
 
@@ -861,6 +909,13 @@ SUBROUTINE compute_heli_bra_coeff_idx (ptr_patch, ptr_int)
         ENDDO ! jq
       ENDDO ! je
     ENDDO ! jb
+
+    DO incr = 1, UBOUND(p_in%heli_coeff,1)
+      CALL sync_patch_array(SYNC_E,ptr_patch,p_in%heli_coeff(incr,:,:))
+      IF(i_cori_method < 3) &
+     & CALL sync_idx(SYNC_E,SYNC_E,ptr_patch,p_in%heli_vn_idx(incr,:,:),p_in%heli_vn_blk(incr,:,:))
+    ENDDO
+
   ENDIF
 
   DEALLOCATE(z_quad_east)
@@ -910,6 +965,7 @@ REAL(wp) :: xtemp,ytemp,wgt(3),xloc,yloc,x(3),y(3), &
 
 REAL(wp), DIMENSION(nproma,ptr_patch%nblks_c)  :: wgt_loc_sum, resid
 INTEGER, DIMENSION(nproma,ptr_patch%nblks_c,3) :: inv_neighbor_id
+REAL(wp), DIMENSION(nproma,ptr_patch%nblks_c,3) :: z_inv_neighbor_id
 
 #ifdef DEBUG_COEFF
 REAL(wp) :: sum1
@@ -944,6 +1000,8 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 ! The inverse neigbor ID of a neighbor cell (ilc1,ibc1) is the neighbor ID
 ! the local cell (jc,jb) has from the point of view of the neighbor cell
 
+inv_neighbor_id = 0
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,ilc1,ibc1,ilc2,ibc2,ilc3,ibc3)
 DO jb = i_startblk, i_endblk
@@ -952,6 +1010,8 @@ DO jb = i_startblk, i_endblk
                      i_startidx, i_endidx, rl_start, rl_end)
 
   DO jc = i_startidx, i_endidx
+
+    IF(.NOT.ptr_patch%cells%owner_mask(jc,jb)) CYCLE
 
     ! line and block indices of the neighbouring cells
 
@@ -1014,6 +1074,8 @@ END DO !block loop
                        i_startidx, i_endidx, rl_start, rl_end)
 
     DO jc = i_startidx, i_endidx
+
+      IF(.NOT.ptr_patch%cells%owner_mask(jc,jb)) CYCLE
 
       yloc = ptr_patch%cells%center(jc,jb)%lat
       xloc = ptr_patch%cells%center(jc,jb)%lon
@@ -1093,6 +1155,15 @@ END DO !block loop
 !$OMP END DO
 !$OMP END PARALLEL
 
+z_inv_neighbor_id = inv_neighbor_id
+CALL sync_patch_array(SYNC_C,ptr_patch,z_inv_neighbor_id(:,:,1))
+CALL sync_patch_array(SYNC_C,ptr_patch,z_inv_neighbor_id(:,:,2))
+CALL sync_patch_array(SYNC_C,ptr_patch,z_inv_neighbor_id(:,:,3))
+inv_neighbor_id = z_inv_neighbor_id
+
+CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int%c_bln_avg)
+
+
 ! The coefficients for bilinear interpolation are now iteratively modified
 ! in order to obtain mass conservation.
 ! The criterion for conservation is that the three-point divergence
@@ -1105,13 +1176,14 @@ DO iter = 1, niter
   ! Note: the summation needs to be split into 4 loops in order to
   ! allow for vectorization and parallelization
 
-!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
+  wgt_loc_sum = 0
 
   rl_start = 2
   rl_end = min_rlcell
   i_startblk = ptr_patch%cells%start_blk(rl_start,1)
   i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
+!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,ilc1,ibc1,ilc2,ibc2,ilc3,ibc3,inb1,inb2,inb3)
   DO jb = i_startblk, i_endblk
 
@@ -1119,6 +1191,8 @@ DO iter = 1, niter
                        i_startidx, i_endidx, rl_start, rl_end)
 
     DO jc = i_startidx, i_endidx
+
+      IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
 
       ilc1 = ptr_patch%cells%neighbor_idx(jc,jb,1)
       ibc1 = ptr_patch%cells%neighbor_blk(jc,jb,1)
@@ -1140,10 +1214,12 @@ DO iter = 1, niter
 
   END DO !block loop
 !$OMP END DO
+!$OMP END PARALLEL
 
   rl_start = 3
   i_startblk = ptr_patch%cells%start_blk(rl_start,1)
 
+!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx)
   DO jb = i_startblk, i_endblk
 
@@ -1151,6 +1227,8 @@ DO iter = 1, niter
                        i_startidx, i_endidx, rl_start, rl_end)
 
     DO jc = i_startidx, i_endidx
+
+      IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
 
       ! For mass conservation, wgt_loc_sum/area should be 1 for each cell
       ! The deviation therefrom is termed residuum here.
@@ -1161,7 +1239,12 @@ DO iter = 1, niter
 
   END DO !block loop
 !$OMP END DO
+!$OMP END PARALLEL
+
+CALL sync_patch_array(SYNC_C,ptr_patch,resid)
+
 IF (iter < niter) THEN ! Apply iterative correction to weighting coefficients
+!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,ilc1,ibc1,ilc2,ibc2,ilc3,ibc3)
   DO jb = i_startblk, i_endblk
 
@@ -1169,6 +1252,8 @@ IF (iter < niter) THEN ! Apply iterative correction to weighting coefficients
                        i_startidx, i_endidx, rl_start, rl_end)
 
     DO jc = i_startidx, i_endidx
+
+      IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
 
       ! line and block indices of the neighbouring cells
 
@@ -1201,7 +1286,12 @@ IF (iter < niter) THEN ! Apply iterative correction to weighting coefficients
 
   END DO !block loop
 !$OMP END DO
+!$OMP END PARALLEL
+
+  CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int%c_bln_avg)
+
 ELSE ! In the last iteration, enforce the mass conservation condition
+!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx)
   DO jb = i_startblk, i_endblk
 
@@ -1209,6 +1299,8 @@ ELSE ! In the last iteration, enforce the mass conservation condition
                        i_startidx, i_endidx, rl_start, rl_end)
 
     DO jc = i_startidx, i_endidx
+
+      IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
 
       ! Modify weighting coefficients
 
@@ -1218,6 +1310,9 @@ ELSE ! In the last iteration, enforce the mass conservation condition
 
   END DO !block loop
 !$OMP END DO
+!$OMP END PARALLEL
+
+  CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int%c_bln_avg)
 
 ! Compute coefficients needed to reconstruct averaged mass fluxes
 ! for approximately mass-consistent transport with divergence-averaging
@@ -1230,6 +1325,7 @@ ELSE ! In the last iteration, enforce the mass conservation condition
   i_startblk = ptr_patch%edges%start_blk(rl_start,1)
   i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 
+!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,i_startidx,i_endidx,ilc1,ibc1,ilc2,ibc2,inb1,inb2,inb3,ie4,ie5)
   DO jb = i_startblk, i_endblk
 
@@ -1237,6 +1333,8 @@ ELSE ! In the last iteration, enforce the mass conservation condition
                        i_startidx, i_endidx, rl_start, rl_end)
 
     DO je = i_startidx, i_endidx
+
+      IF(.NOT. ptr_patch%edges%owner_mask(je,jb)) CYCLE
 
       ilc1 = ptr_patch%edges%cell_idx(je,jb,1)
       ibc1 = ptr_patch%edges%cell_blk(je,jb,1)
@@ -1308,10 +1406,14 @@ ELSE ! In the last iteration, enforce the mass conservation condition
 
   END DO !block loop
 !$OMP END DO
+!$OMP END PARALLEL
+
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_int%e_flx_avg)
 
   rl_start = 5
   i_startblk = ptr_patch%edges%start_blk(rl_start,1)
 
+!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,i_startidx,i_endidx,ilc1,ibc1,ilc2,ibc2,inb1,inb2,inb3,ie4,ie5, &
 !$OMP            ile1,ibe1,ile2,ibe2,ile3,ibe3,ile4,ibe4,iie1,iie2,iie3,iie4)
   DO jb = i_startblk, i_endblk
@@ -1320,6 +1422,8 @@ ELSE ! In the last iteration, enforce the mass conservation condition
                        i_startidx, i_endidx, rl_start, rl_end)
 
     DO je = i_startidx, i_endidx
+
+      IF(.NOT. ptr_patch%edges%owner_mask(je,jb)) CYCLE
 
       ilc1 = ptr_patch%edges%cell_idx(je,jb,1)
       ibc1 = ptr_patch%edges%cell_blk(je,jb,1)
@@ -1442,6 +1546,8 @@ ELSE ! In the last iteration, enforce the mass conservation condition
 
     DO je = i_startidx, i_endidx
 
+      IF(.NOT. ptr_patch%edges%owner_mask(je,jb)) CYCLE
+
       ile1 = ptr_patch%edges%quad_idx(je,jb,1)
       ibe1 = ptr_patch%edges%quad_blk(je,jb,1)
       ile2 = ptr_patch%edges%quad_idx(je,jb,2)
@@ -1476,9 +1582,12 @@ ELSE ! In the last iteration, enforce the mass conservation condition
 
   END DO !block loop
 !$OMP END DO
+!$OMP END PARALLEL
+
+  CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int%c_bln_avg)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_int%e_flx_avg)
 
 ENDIF ! end of last iteration
-!$OMP END PARALLEL
 ENDDO ! iteration loop
 
 ! Optional debug output for bilinear averaging coefficients
@@ -1655,6 +1764,9 @@ ENDIF
 
 !$OMP END PARALLEL
 
+CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int%nudgecoeff_c)
+CALL sync_patch_array(SYNC_E,ptr_patch,ptr_int%nudgecoeff_e)
+
 END SUBROUTINE init_nudgecoeffs
 
 !-------------------------------------------------------------------------
@@ -1764,6 +1876,8 @@ rl_end = min_rlvert
 
     DO je = 1, 9-ptr_patch%cell_type
       DO jv = i_startidx, i_endidx
+
+        IF(.NOT. ptr_patch%verts%owner_mask(jv,jb)) CYCLE
 
         IF (je > ptr_patch%verts%num_edges(jv,jb)) CYCLE
 
@@ -1891,6 +2005,8 @@ IF (ptr_patch%cell_type == 3) THEN
     DO je1 = 1, 4
       DO je = i_startidx, i_endidx
 
+      IF(.NOT. ptr_patch%edges%owner_mask(je,jb)) CYCLE
+
       ile = ptr_patch%edges%quad_idx(je,jb,je1)
       ibe = ptr_patch%edges%quad_blk(je,jb,je1)
 
@@ -1928,6 +2044,8 @@ ENDIF
         &                  i_startidx, i_endidx, rl_start, rl_end)
 
         DO je = i_startidx, i_endidx
+
+          IF(.NOT. ptr_patch%edges%owner_mask(je,jb)) CYCLE
 
           ! transform primal normal to cartesian vector z_pn_k
           z_pn_k%x=ptr_patch%edges%primal_cart_normal(je,jb)%x
@@ -2211,6 +2329,8 @@ DO jb = i_startblk, i_endblk
   DO je = 1, ptr_patch%cell_type
     DO jc = i_startidx, i_endidx
 
+      IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
+
       ile = ptr_patch%cells%edge_idx(jc,jb,je)
       ibe = ptr_patch%cells%edge_blk(jc,jb,je)
 
@@ -2266,6 +2386,48 @@ END DO !block loop
 !$OMP END DO
 
 !$OMP END PARALLEL
+
+CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int%geofac_div)
+CALL sync_patch_array(SYNC_V,ptr_patch,ptr_int%geofac_rot)
+CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int%geofac_n2s)
+
+IF (ptr_patch%cell_type == 3) THEN
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_int%geofac_qdiv)
+ENDIF
+
+IF (ptr_patch%cell_type == 6) THEN
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_int%cno_en)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_int%cea_en)
+
+  DO jm = 1, 6
+    CALL sync_idx(SYNC_E,SYNC_E,ptr_patch,ptr_int%dir_gradh_i1(jm,:,:), &
+                                        & ptr_int%dir_gradh_b1(jm,:,:))
+    CALL sync_idx(SYNC_E,SYNC_E,ptr_patch,ptr_int%dir_gradh_i2(jm,:,:), &
+                                        & ptr_int%dir_gradh_b2(jm,:,:))
+    CALL sync_patch_array(SYNC_E,ptr_patch,ptr_int%dir_gradhux_c1(jm, :, :))
+    CALL sync_patch_array(SYNC_E,ptr_patch,ptr_int%dir_gradhux_c2(jm, :, :))
+    CALL sync_patch_array(SYNC_E,ptr_patch,ptr_int%strain_def_c1(jm, :, :))
+    CALL sync_patch_array(SYNC_E,ptr_patch,ptr_int%strain_def_c2(jm, :, :))
+  ENDDO
+
+  DO jm = 1, 9
+    CALL sync_idx(SYNC_E,SYNC_E,ptr_patch,ptr_int%dir_gradt_i1(jm,:,:), &
+                                        & ptr_int%dir_gradt_b1(jm,:,:))
+    CALL sync_idx(SYNC_E,SYNC_E,ptr_patch,ptr_int%dir_gradt_i2(jm,:,:), &
+                                        & ptr_int%dir_gradt_b2(jm,:,:))
+    CALL sync_patch_array(SYNC_E,ptr_patch,ptr_int%dir_gradtxy_v1(jm, :, :))
+    CALL sync_patch_array(SYNC_E,ptr_patch,ptr_int%dir_gradtxy_v2(jm, :, :))
+    CALL sync_patch_array(SYNC_E,ptr_patch,ptr_int%dir_gradtyx_v1(jm, :, :))
+    CALL sync_patch_array(SYNC_E,ptr_patch,ptr_int%dir_gradtyx_v2(jm, :, :))
+    CALL sync_patch_array(SYNC_E,ptr_patch,ptr_int%shear_def_v1(jm, :, :))
+    CALL sync_patch_array(SYNC_E,ptr_patch,ptr_int%shear_def_v2(jm, :, :))
+  ENDDO
+ENDIF
+
+CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int%geofac_grg(:,:,:,1))
+CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int%geofac_grg(:,:,:,2))
+
+
 
 END SUBROUTINE init_geo_factors
 
@@ -2332,6 +2494,8 @@ DO jb = i_startblk, i_endblk
 
   DO jc =  i_startidx, i_endidx
 
+    IF(.NOT.ptr_patch%cells%owner_mask(jc,jb)) CYCLE
+
     ! compute Cartesian coordinates (needed for RBF initialization)
 
     cc_cell = gc2cc(ptr_patch%cells%center(jc,jb))
@@ -2364,6 +2528,8 @@ DO jb = i_startblk, i_endblk
                      i_startidx, i_endidx, rl_start, rl_end)
 
   DO je =  i_startidx, i_endidx
+
+    IF(.NOT.ptr_patch%edges%owner_mask(je,jb)) CYCLE
 
     ! compute Cartesian coordinates (needed for RBF initialization)
 
@@ -2419,6 +2585,8 @@ DO jb = i_startblk, i_endblk
                      i_startidx, i_endidx, rl_start, rl_end)
 
   DO je =  i_startidx, i_endidx
+
+    IF(.NOT.ptr_patch%edges%owner_mask(je,jb)) CYCLE
 
     ! compute inverse dual edge length (undefined for refin_ctrl=1)
 
@@ -2660,6 +2828,57 @@ DO jb = i_startblk, i_endblk
 END DO !block loop
 !$OMP END DO
 
+!$OMP END PARALLEL
+
+  ! primal_normal_cell must be sync'd before next loop,
+  ! so do a sync for all above calculated quantities
+
+  CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int%cart_cell_coord(:,:,1))
+  CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int%cart_cell_coord(:,:,2))
+  CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int%cart_cell_coord(:,:,3))
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_int%cart_edge_coord(:,:,1))
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_int%cart_edge_coord(:,:,2))
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_int%cart_edge_coord(:,:,3))
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%inv_primal_edge_length)
+
+  CALL sync_idx(SYNC_E,SYNC_V,ptr_patch,ptr_patch%edges%vertex_idx(:,:,3), &
+                                      & ptr_patch%edges%vertex_blk(:,:,3))
+  CALL sync_idx(SYNC_E,SYNC_V,ptr_patch,ptr_patch%edges%vertex_idx(:,:,4), &
+                                      & ptr_patch%edges%vertex_blk(:,:,4))
+
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%inv_dual_edge_length)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%inv_vert_vert_length)
+
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%primal_normal_cell(:,:,1)%v1)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%primal_normal_cell(:,:,2)%v1)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%primal_normal_vert(:,:,1)%v1)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%primal_normal_vert(:,:,2)%v1)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%primal_normal_vert(:,:,3)%v1)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%primal_normal_vert(:,:,4)%v1)
+
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%dual_normal_cell(:,:,1)%v1)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%dual_normal_cell(:,:,2)%v1)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%dual_normal_vert(:,:,1)%v1)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%dual_normal_vert(:,:,2)%v1)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%dual_normal_vert(:,:,3)%v1)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%dual_normal_vert(:,:,4)%v1)
+
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%primal_normal_cell(:,:,1)%v2)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%primal_normal_cell(:,:,2)%v2)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%primal_normal_vert(:,:,1)%v2)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%primal_normal_vert(:,:,2)%v2)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%primal_normal_vert(:,:,3)%v2)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%primal_normal_vert(:,:,4)%v2)
+
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%dual_normal_cell(:,:,1)%v2)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%dual_normal_cell(:,:,2)%v2)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%dual_normal_vert(:,:,1)%v2)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%dual_normal_vert(:,:,2)%v2)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%dual_normal_vert(:,:,3)%v2)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%dual_normal_vert(:,:,4)%v2)
+
+
+!$OMP PARALLEL  PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
 
 rl_start = 2
 rl_end = min_rlcell
@@ -2678,6 +2897,8 @@ DO jb = i_startblk, i_endblk
                      i_startidx, i_endidx, rl_start, rl_end)
 
   DO jc =  i_startidx, i_endidx
+
+    IF(.NOT.ptr_patch%cells%owner_mask(jc,jb)) CYCLE
 
     DO je = 1, ptr_patch%cells%num_edges(jc,jb)
 
@@ -2715,6 +2936,12 @@ END DO !block loop
 !$OMP END DO
 
 !$OMP END PARALLEL
+
+  DO je = 1, ptr_patch%cell_type
+    CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int%primal_normal_ec(:,:,je,1))
+    CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int%primal_normal_ec(:,:,je,2))
+    CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int%edge_cell_length(:,:,je))
+  ENDDO
 
 END SUBROUTINE complete_patchinfo
 
@@ -2820,6 +3047,8 @@ END SUBROUTINE complete_patchinfo
                         i_startidx, i_endidx, i_rcstartlev)
 
       DO je = i_startidx, i_endidx
+
+        IF(.NOT.ptr_patch%edges%owner_mask(je,jb)) CYCLE
 
         !
         ! 1. neighboring cell centers
@@ -2968,6 +3197,8 @@ END SUBROUTINE complete_patchinfo
 
       DO je = i_startidx, i_endidx
 
+        IF(.NOT.ptr_patch%edges%owner_mask(je,jb)) CYCLE
+
         !
         ! For the current edge transform normal and tangential unit vectors
         ! into cartesian system
@@ -3002,6 +3233,18 @@ END SUBROUTINE complete_patchinfo
     ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
+
+    DO ne=1,8
+      call sync_patch_array(SYNC_E, ptr_patch, ptr_int%pos_on_tplane_e(:,:,ne,1))
+      call sync_patch_array(SYNC_E, ptr_patch, ptr_int%pos_on_tplane_e(:,:,ne,2))
+    ENDDO
+    DO ne=1,4
+      call sync_patch_array(SYNC_E, ptr_patch, ptr_int%tplane_e_dotprod(:,:,ne,1))
+      call sync_patch_array(SYNC_E, ptr_patch, ptr_int%tplane_e_dotprod(:,:,ne,2))
+      call sync_patch_array(SYNC_E, ptr_patch, ptr_int%tplane_e_dotprod(:,:,ne,3))
+      call sync_patch_array(SYNC_E, ptr_patch, ptr_int%tplane_e_dotprod(:,:,ne,4))
+    ENDDO
+
 
   END SUBROUTINE init_tplane_e
 
@@ -3112,6 +3355,8 @@ END SUBROUTINE complete_patchinfo
 
       DO jc = i_startidx, i_endidx
 
+        IF(.NOT.ptr_patch%cells%owner_mask(jc,jb)) CYCLE
+
        ! loop over triangle vertices
 !CDIR EXPAND=3
        DO nv=1,3
@@ -3210,6 +3455,17 @@ END SUBROUTINE complete_patchinfo
     ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
+
+    CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int%gquad%qpts_tri_l(:,:)%lat)
+    CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int%gquad%qpts_tri_l(:,:)%lon)
+    DO nq=1,3
+      CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int%gquad%qpts_tri_q(:,:,nq)%lat)
+      CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int%gquad%qpts_tri_q(:,:,nq)%lon)
+    ENDDO
+    DO nq=1,4
+      CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int%gquad%qpts_tri_c(:,:,nq)%lat)
+      CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int%gquad%qpts_tri_c(:,:,nq)%lon)
+    ENDDO
 
   END SUBROUTINE tri_quadrature_pts
 

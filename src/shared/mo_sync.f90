@@ -60,7 +60,7 @@ USE mo_parallel_config, ONLY:p_test_run,   &
   & n_ghost_rows, l_log_checks, l_fast_sum
 USE mo_communication,      ONLY: exchange_data, exchange_data_4de3,            &
                                  exchange_data_mult, t_comm_pattern,           &
-                                 blk_no, idx_no, exchange_data_gm
+                                 blk_no, idx_no, idx_1d, exchange_data_gm
 
 
 IMPLICIT NONE
@@ -71,7 +71,7 @@ CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
 !modules interface-------------------------------------------
 !subroutines
-PUBLIC :: sync_patch_array, check_patch_array,                        &
+PUBLIC :: sync_patch_array, check_patch_array, sync_idx,              &
           global_sum_array, omp_global_sum_array,                     &
           global_sum_array2, global_sum_array3,                       &
           sync_patch_array_mult, push_glob_comm, pop_glob_comm,       &
@@ -756,6 +756,99 @@ SUBROUTINE check_patch_array_4(typ, p_patch, arr, opt_varname)
 
 END SUBROUTINE check_patch_array_4
 !-------------------------------------------------------------------------
+!-------------------------------------------------------------------------
+!>
+!! Syncs an idx/blk pair of arrays
+!!
+!! @par Revision History
+!! Initial version by Rainer Johanni, Oct 2011
+
+SUBROUTINE sync_idx(type_arr, type_idx, p_patch, idx, blk)
+
+  INTEGER, INTENT(IN) :: type_arr, type_idx
+  TYPE(t_patch), TARGET, INTENT(IN) :: p_patch
+  INTEGER, INTENT(INOUT) :: idx(:,:), blk(:,:)
+
+  INTEGER :: nblks, n_idx, n_idx_g, jb, jl, i_l, i_g
+  REAL(wp), ALLOCATABLE :: z_idx(:,:)
+  INTEGER, POINTER :: glb_index(:), loc_index(:)
+
+  IF(type_arr == SYNC_C) THEN
+    nblks = p_patch%nblks_c
+  ELSEIF(type_arr == SYNC_E) THEN
+    nblks = p_patch%nblks_e
+  ELSEIF(type_arr == SYNC_V) THEN
+    nblks = p_patch%nblks_v
+  ELSE
+    CALL finish('sync_idx','Unsupported type_arr')
+  ENDIF
+
+  IF(type_idx == SYNC_C) THEN
+    glb_index => p_patch%cells%glb_index
+    loc_index => p_patch%cells%loc_index
+    n_idx = p_patch%n_patch_cells
+    n_idx_g = p_patch%n_patch_cells_g
+  ELSEIF(type_idx == SYNC_E) THEN
+    glb_index => p_patch%edges%glb_index
+    loc_index => p_patch%edges%loc_index
+    n_idx = p_patch%n_patch_edges
+    n_idx_g = p_patch%n_patch_edges_g
+  ELSEIF(type_idx == SYNC_V) THEN
+    glb_index => p_patch%verts%glb_index
+    loc_index => p_patch%verts%loc_index
+    n_idx = p_patch%n_patch_verts
+    n_idx_g = p_patch%n_patch_verts_g
+  ELSE
+    CALL finish('sync_idx','Unsupported type_idx')
+  ENDIF
+
+
+  if(ubound(idx,1) /= nproma) CALL finish('sync_idx','ubound(idx,1) /= nproma')
+  if(ubound(idx,2) /= nblks)  CALL finish('sync_idx','ubound(idx,2) /= nblks')
+
+  ALLOCATE(z_idx(nproma,nblks))
+  z_idx = 0._wp
+
+  ! Set z_idx with the global 1D-index of all points
+
+  DO jb = 1, nblks
+    DO jl = 1, nproma
+
+      i_l = idx_1d(idx(jl,jb),blk(jl,jb))
+
+      IF(i_l <= 0 .or. i_l > n_idx) THEN
+        z_idx(jl,jb) = 0._wp
+      ELSE
+        z_idx(jl,jb) = glb_index(i_l)
+      ENDIF
+
+    END DO
+  END DO
+
+  ! Sync z_idx
+  CALL sync_patch_array(type_arr, p_patch, z_idx)
+
+  ! Set all points with local index corresponding to z_idx
+  DO jb = 1, nblks
+    DO jl = 1, nproma
+
+      i_g = INT(z_idx(jl,jb))
+
+      IF(i_g <= 0 .or. i_g > n_idx_g) THEN
+        idx(jl,jb) = 0
+        blk(jl,jb) = 0
+      ELSE
+        i_l = loc_index(i_g)
+        ! Determine what to do with nonlocal values (like in get_local_index):
+        if(i_l<0) i_l = MAX(ABS(i_l)-1,1)
+        idx(jl,jb) = idx_no(i_l)
+        blk(jl,jb) = blk_no(i_l)
+      ENDIF
+
+    END DO
+  END DO
+
+END SUBROUTINE sync_idx
 
 !-------------------------------------------------------------------------
 !>

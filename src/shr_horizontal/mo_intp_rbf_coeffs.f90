@@ -185,6 +185,7 @@ USE mo_lonlat_intp_config,  ONLY: t_lonlat_intp_config, lonlat_intp_config
 USE mo_mpi,                 ONLY: my_process_is_stdio, process_mpi_io_size, &
   &                               process_mpi_stdio_id, p_gather_field
 USE mo_communication,       ONLY: idx_1d, blk_no, idx_no
+USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_idx
 
 IMPLICIT NONE
 
@@ -242,6 +243,7 @@ INTEGER  :: ilc, ibc         ! line and block index of neighbour cell
 INTEGER  :: i_startblk       ! start block
 INTEGER  :: i_startidx       ! start index
 INTEGER  :: i_endidx         ! end index
+REAL(wp) :: z_stencil(UBOUND(ptr_int%rbf_vec_stencil_c,1),UBOUND(ptr_int%rbf_vec_stencil_c,2))
 
 !--------------------------------------------------------------------
 
@@ -262,6 +264,7 @@ INTEGER  :: i_endidx         ! end index
 
     DO jc = i_startidx, i_endidx
 
+      IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
       !
       ! get the global line and block indices of the edges of each neighbor
       ! cell and store them in the rbf_vec_idx_c and rbf_vec_blk_c components
@@ -307,6 +310,15 @@ INTEGER  :: i_endidx         ! end index
     END DO
 
   END DO
+
+  DO jb = 1, rbf_vec_dim_c
+    CALL sync_idx(SYNC_C, SYNC_E, ptr_patch, ptr_int%rbf_vec_idx_c(jb,:,:), &
+                                           & ptr_int%rbf_vec_blk_c(jb,:,:))
+  ENDDO
+
+  z_stencil(:,:) = ptr_int%rbf_vec_stencil_c(:,:)
+  CALL sync_patch_array(SYNC_C,ptr_patch,z_stencil)
+  ptr_int%rbf_vec_stencil_c(:,:) = z_stencil(:,:)
 
 END SUBROUTINE rbf_vec_index_cell
 
@@ -359,6 +371,8 @@ INTEGER, DIMENSION(:,:,:), POINTER :: inidx, inblk
                        i_startidx, i_endidx, 2)
 
     DO jc = i_startidx, i_endidx
+
+      IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
 
       ! Local point
       ptr_int%rbf_c2grad_idx(1,jc,jb) = jc
@@ -428,6 +442,11 @@ INTEGER, DIMENSION(:,:,:), POINTER :: inidx, inblk
     END DO
   END DO
 
+  DO jb = 1, rbf_c2grad_dim
+    CALL sync_idx(SYNC_C, SYNC_C, ptr_patch, ptr_int%rbf_c2grad_idx(jb,:,:), &
+                                           & ptr_int%rbf_c2grad_blk(jb,:,:))
+  ENDDO
+
 END SUBROUTINE rbf_c2grad_index
 
 !>
@@ -463,6 +482,8 @@ LOGICAL :: ll_pent                  ! if .TRUE. vertex is center of a pentagon
 INTEGER :: ist                      ! status variable
 INTEGER :: jg
 
+REAL(wp) :: z_stencil(UBOUND(ptr_int%rbf_vec_stencil_v,1),UBOUND(ptr_int%rbf_vec_stencil_v,2))
+
 !--------------------------------------------------------------------
 
   ! values for the blocking
@@ -491,6 +512,8 @@ INTEGER :: jg
                        i_startidx, i_endidx, 2)
 
     DO jv = i_startidx, i_endidx
+
+      IF(.NOT. ptr_patch%verts%owner_mask(jv,jb)) CYCLE
 
       istencil = 6
       ll_pent = .FALSE.
@@ -553,6 +576,15 @@ INTEGER :: jg
   ENDIF
 !$OMP END PARALLEL
 
+  DO jb = 1, rbf_vec_dim_v
+    CALL sync_idx(SYNC_V, SYNC_E, ptr_patch, ptr_int%rbf_vec_idx_v(jb,:,:), &
+                                           & ptr_int%rbf_vec_blk_v(jb,:,:))
+  ENDDO
+
+  z_stencil(:,:) = ptr_int%rbf_vec_stencil_v(:,:)
+  CALL sync_patch_array(SYNC_V,ptr_patch,z_stencil)
+  ptr_int%rbf_vec_stencil_v(:,:) = z_stencil(:,:)
+
   jg = ptr_patch%id
   IF ((.NOT. l_limited_area) .AND. (jg == 1) .AND. (ipent /= 12)) THEN
 !   PRINT *, "ERROR ==>  ipent = ", ipent,  " /= 12 -- no finish (ocean)"
@@ -562,6 +594,7 @@ INTEGER :: jg
         &  ' iequations =',iequations,' ==> ok.'
       CALL message('', TRIM(message_text))
     ELSE                      !  other cases: may stop the run
+!Please note: This is the normal case for parallel runs!
       CALL message('mo_interpolation:rbf_vec_index_vertex',  &
         &             'wrong number of detected pentagons')
 !     CALL finish ('mo_interpolation:rbf_vec_index_vertex',  &
@@ -605,6 +638,8 @@ INTEGER  :: i_startblk       ! start block
 INTEGER  :: i_startidx       ! start index
 INTEGER  :: i_endidx         ! end index
 
+REAL(wp) :: z_stencil(UBOUND(ptr_int%rbf_vec_stencil_e,1),UBOUND(ptr_int%rbf_vec_stencil_e,2))
+
 !--------------------------------------------------------------------
 
   ! values for the blocking
@@ -643,6 +678,16 @@ INTEGER  :: i_endidx         ! end index
     END DO ! end edge loop
 
   END DO ! end block loop
+
+  DO jb = 1, rbf_vec_dim_e
+    CALL sync_idx(SYNC_E, SYNC_E, ptr_patch, ptr_int%rbf_vec_idx_e(jb,:,:), &
+                                           & ptr_int%rbf_vec_blk_e(jb,:,:))
+  ENDDO
+
+  ! Not really necessary, only for the case that rbf_vec_stencil_e should be changed:
+  z_stencil(:,:) = ptr_int%rbf_vec_stencil_e(:,:)
+  CALL sync_patch_array(SYNC_E,ptr_patch,z_stencil)
+  ptr_int%rbf_vec_stencil_e(:,:) = z_stencil(:,:)
 
 END SUBROUTINE rbf_vec_index_edge
 
@@ -771,6 +816,12 @@ REAL(wp) ::  checksum_u,checksum_v ! to check if sum of interpolation coefficien
 
         DO jc = i_startidx, i_endidx
 
+          IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) THEN
+            ! Avoid the matrix decomposition for boundary cells since the matrix might get singular
+            istencil(jc) = 0
+            CYCLE
+          ENDIF
+
           ! Get actual number of stencil points
           istencil(jc) = ptr_int%rbf_vec_stencil_c(jc,jb)
           !
@@ -822,6 +873,7 @@ REAL(wp) ::  checksum_u,checksum_v ! to check if sum of interpolation coefficien
 
     DO jc = i_startidx, i_endidx
 
+      IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
       !
       ! Solve immediately for coefficients
       !
@@ -853,6 +905,8 @@ REAL(wp) ::  checksum_u,checksum_v ! to check if sum of interpolation coefficien
     DO je2 = 1, rbf_vec_dim_c
 
       DO jc = i_startidx, i_endidx
+
+        IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
 
         IF (je2 > istencil(jc)) CYCLE
         !
@@ -907,6 +961,8 @@ REAL(wp) ::  checksum_u,checksum_v ! to check if sum of interpolation coefficien
 
     DO jc = i_startidx, i_endidx
 
+      IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
+
       ! Ensure that sum of interpolation coefficients is correct
 
       checksum_u = 0._wp
@@ -944,6 +1000,12 @@ REAL(wp) ::  checksum_u,checksum_v ! to check if sum of interpolation coefficien
       &             'deallocation for working arrays failed')
   ENDIF
 !$OMP END PARALLEL
+
+  DO jb = 1, rbf_vec_dim_c
+    call sync_patch_array(SYNC_C, ptr_patch, ptr_int%rbf_vec_coeff_c(jb,1,:,:))
+    call sync_patch_array(SYNC_C, ptr_patch, ptr_int%rbf_vec_coeff_c(jb,2,:,:))
+  ENDDO
+
 
 ! Optional debug output for RBF coefficients
 #ifdef DEBUG_COEFF
@@ -1018,6 +1080,8 @@ REAL(wp), DIMENSION(nproma,rbf_c2grad_dim,2) :: aux_coeff
 !CDIR NODEP
         DO jc = i_startidx, i_endidx
 
+          IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
+
           ile = ptr_int%rbf_vec_idx_c(je,jc,jb)
           ibe = ptr_int%rbf_vec_blk_c(je,jc,jb)
 
@@ -1066,6 +1130,12 @@ REAL(wp), DIMENSION(nproma,rbf_c2grad_dim,2) :: aux_coeff
   END DO !block loop
 !$OMP END DO
 !$OMP END PARALLEL
+
+  DO jcc = 1, rbf_c2grad_dim
+    call sync_patch_array(SYNC_C, ptr_patch, ptr_int%rbf_c2grad_coeff(jcc,1,:,:))
+    call sync_patch_array(SYNC_C, ptr_patch, ptr_int%rbf_c2grad_coeff(jcc,2,:,:))
+  ENDDO
+
 
 END SUBROUTINE rbf_compute_coeff_c2grad
 
@@ -1198,6 +1268,12 @@ REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff  ! pointer to output coeffici
 
         DO jv = i_startidx, i_endidx
 
+          IF(.NOT. ptr_patch%verts%owner_mask(jv,jb)) THEN
+            ! Avoid the matrix decomposition for boundary cells since the matrix might get singular
+            istencil(jv) = 0
+            CYCLE
+          ENDIF
+
           ! Get actual number of stencil points
           istencil(jv) = ptr_int%rbf_vec_stencil_v(jv,jb)
           !
@@ -1252,6 +1328,8 @@ REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff  ! pointer to output coeffici
 
     DO jv = i_startidx, i_endidx
 
+      IF(.NOT. ptr_patch%verts%owner_mask(jv,jb)) CYCLE
+
       !
       ! Solve immediately for coefficients
       !
@@ -1283,6 +1361,8 @@ REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff  ! pointer to output coeffici
     DO je2 = 1, rbf_vec_dim_v
 
       DO jv = i_startidx, i_endidx
+
+        IF(.NOT. ptr_patch%verts%owner_mask(jv,jb)) CYCLE
 
         IF (je2 > istencil(jv)) CYCLE
 
@@ -1338,6 +1418,8 @@ REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff  ! pointer to output coeffici
 
     DO jv = i_startidx, i_endidx
 
+      IF(.NOT. ptr_patch%verts%owner_mask(jv,jb)) CYCLE
+
       ! Ensure that sum of interpolation coefficients is correct
 
       checksum_u = 0._wp
@@ -1372,6 +1454,12 @@ REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff  ! pointer to output coeffici
       &             'deallocation for working arrays failed')
   ENDIF
 !$OMP END PARALLEL
+
+  DO jb = 1, rbf_vec_dim_v
+    call sync_patch_array(SYNC_V, ptr_patch, ptr_int%rbf_vec_coeff_v(jb,1,:,:))
+    call sync_patch_array(SYNC_V, ptr_patch, ptr_int%rbf_vec_coeff_v(jb,2,:,:))
+  ENDDO
+
 
 ! Optional debug output for RBF coefficients
 #ifdef DEBUG_COEFF
@@ -1527,6 +1615,12 @@ TYPE(t_tangent_vectors), DIMENSION(:,:), POINTER :: ptr_orient_out
 
         DO je = i_startidx, i_endidx
 
+          IF(.NOT. ptr_patch%edges%owner_mask(je,jb)) THEN
+            ! Avoid the matrix decomposition for boundary cells since the matrix might get singular
+            istencil(je) = 0
+            CYCLE
+          ENDIF
+
           istencil(je) = ptr_int%rbf_vec_stencil_e(je,jb)
           !
           IF ( (je1 > istencil(je)) .OR. (je2 > istencil(je)) ) CYCLE
@@ -1581,6 +1675,8 @@ TYPE(t_tangent_vectors), DIMENSION(:,:), POINTER :: ptr_orient_out
 
     DO je = i_startidx, i_endidx
 
+      IF(.NOT. ptr_patch%edges%owner_mask(je,jb)) CYCLE
+
       !
       ! Solve immediately for coefficients
       !
@@ -1607,6 +1703,8 @@ TYPE(t_tangent_vectors), DIMENSION(:,:), POINTER :: ptr_orient_out
     DO je2 = 1, rbf_vec_dim_e
 
       DO je = i_startidx, i_endidx
+
+        IF(.NOT. ptr_patch%edges%owner_mask(je,jb)) CYCLE
 
         IF (je2 > istencil(je)) CYCLE
         !
@@ -1650,6 +1748,8 @@ TYPE(t_tangent_vectors), DIMENSION(:,:), POINTER :: ptr_orient_out
 
     DO je = i_startidx, i_endidx
 
+      IF(.NOT. ptr_patch%edges%owner_mask(je,jb)) CYCLE
+
       ! Ensure that sum of interpolation coefficients is correct
 
       checksum_vt = 0._wp
@@ -1679,6 +1779,11 @@ TYPE(t_tangent_vectors), DIMENSION(:,:), POINTER :: ptr_orient_out
       &             'deallocation for working arrays failed')
   ENDIF
 !$OMP END PARALLEL
+
+  DO jb = 1, rbf_vec_dim_e
+    call sync_patch_array(SYNC_E, ptr_patch, ptr_int%rbf_vec_coeff_e(jb,:,:))
+  ENDDO
+
 
 ! Optional debug output for RBF coefficients
 #ifdef DEBUG_COEFF

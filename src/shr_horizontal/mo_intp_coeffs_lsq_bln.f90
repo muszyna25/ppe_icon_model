@@ -172,6 +172,7 @@ USE mo_math_utilities,      ONLY: gnomonic_proj, rotate_latlon, qrdec
 USE mo_parallel_config,  ONLY: nproma
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
 USE mo_advection_config,    ONLY: advection_config
+USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_idx
 
 USE mo_intp_data_strc
 
@@ -229,6 +230,8 @@ INTEGER :: i_startidx               ! start index
 INTEGER :: i_endidx                 ! end index
 INTEGER :: i_rlstart                ! refinement control start level
 
+REAL(wp) :: z_stencil(UBOUND(ptr_int_lsq%lsq_dim_stencil,1),UBOUND(ptr_int_lsq%lsq_dim_stencil,2))
+
 !--------------------------------------------------------------------
 
   CALL message('mo_interpolation:lsq_stencil_create', '')
@@ -267,6 +270,8 @@ INTEGER :: i_rlstart                ! refinement control start level
                          i_startidx, i_endidx, i_rlstart)
 
       DO jc = i_startidx, i_endidx
+
+        IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
 
         cnt = 1
 
@@ -320,6 +325,8 @@ INTEGER :: i_rlstart                ! refinement control start level
                          i_startidx, i_endidx, i_rlstart)
 
       DO jc = i_startidx, i_endidx
+
+        IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
 
         cnt = 1
 
@@ -377,6 +384,16 @@ INTEGER :: i_rlstart                ! refinement control start level
 
   ENDIF
 !$OMP END PARALLEL
+
+  DO cnt = 1, lsq_dim_c
+    CALL sync_idx(SYNC_C, SYNC_C, ptr_patch, ptr_int_lsq%lsq_idx_c(:,:,cnt), &
+                                           & ptr_int_lsq%lsq_blk_c(:,:,cnt))
+  ENDDO
+
+  z_stencil(:,:) = ptr_int_lsq%lsq_dim_stencil(:,:)
+  CALL sync_patch_array(SYNC_C,ptr_patch,z_stencil)
+  ptr_int_lsq%lsq_dim_stencil(:,:) = z_stencil(:,:)
+
 
 END SUBROUTINE lsq_stencil_create
 
@@ -550,6 +567,8 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
     ! and QR decomposition of normal equation matrix
     !
     DO jc = i_startidx, i_endidx
+
+      IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
 
       IF (ptr_patch%cell_type == 3 )THEN
         nverts  = 3
@@ -847,6 +866,14 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
 !! loop parallelized.
 !!$OMP END PARALLEL
 
+  DO jb = 1, lsq_dim_c
+    CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int_lsq%lsq_weights_c(:,jb,:))
+  ENDDO
+  DO jb = 1, lsq_dim_unk
+    CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int_lsq%lsq_moments(:,:,jb))
+  ENDDO
+
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,js,ju,jja,jjb,jjk,i_startidx,i_endidx,ilc_s,ibc_s, &
 !$OMP            z_lsq_mat_c,zs,zu,zv_t,zwork,ziwork,ist,icheck,za_debug, &
@@ -860,6 +887,15 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
     ! 4. for each cell, calculate LSQ design matrix A
     !
     DO jc = i_startidx, i_endidx
+
+      IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) THEN
+        ! Take care that z_lsq_mat_c isn't singular
+        z_lsq_mat_c(jc,:,:) = 0.0_wp
+        DO js = 1, MIN(lsq_dim_unk, lsq_dim_c)
+          z_lsq_mat_c(jc,js,js) = 1.0_wp
+        ENDDO
+        CYCLE
+      ENDIF
 
     ! line and block indices of cells in the stencil
       ilc_s(1:ptr_ncells(jc,jb)) = ptr_int_lsq%lsq_idx_c(jc,jb,1:ptr_ncells(jc,jb))
@@ -978,6 +1014,8 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
 
     DO jc = i_startidx, i_endidx
 
+      IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
+
       ! 7. Save transposed Q-Matrix
       ptr_int_lsq%lsq_qtmat_c(jc,1:lsq_dim_unk,1:lsq_dim_c,jb)  =  &
        &      TRANSPOSE(z_qmat(jc,1:lsq_dim_c,1:lsq_dim_unk))
@@ -1023,6 +1061,8 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
     ist = 0
     DO jc = i_startidx, i_endidx
 
+      IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
+
       ! A = U * SIGMA * transpose(V)
       !
       ! z_lsq_mat_c : M x N least squares design matrix A            (IN)
@@ -1063,6 +1103,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
       DO jjb = 1, lsq_dim_c 
         DO jjk = 1, lsq_dim_unk
           DO jc = i_startidx, i_endidx
+            IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
             ptr_int_lsq%lsq_pseudoinv(jc,jja,jjb,jb) =            &
               &  ptr_int_lsq%lsq_pseudoinv(jc,jja,jjb,jb)         &
               &  + zv_t(jjk,jja,jc) /zs(jjk,jc) * zu(jjb,jjk,jc)  &
@@ -1102,6 +1143,20 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
 !$OMP END DO
 !$OMP END PARALLEL
 
+  DO ju = 1, lsq_dim_unk
+    DO jc = 1, lsq_dim_c
+      CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int_lsq%lsq_moments_hat(:,:,jc,ju))
+      CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int_lsq%lsq_pseudoinv(:,ju,jc,:))
+      CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int_lsq%lsq_qtmat_c(:,ju,jc,:))
+    ENDDO
+  ENDDO
+
+  DO jc = 1, UBOUND(ptr_int_lsq%lsq_rmat_utri_c, 2)
+    CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int_lsq%lsq_rmat_utri_c(:,jc,:))
+  ENDDO
+  DO ju = 1,lsq_dim_unk
+    CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int_lsq%lsq_rmat_rdiag_c(:,ju,:))
+  ENDDO
 
   DEALLOCATE (z_dist_g, STAT=ist )
   IF (ist /= SUCCESS) THEN
@@ -1196,6 +1251,8 @@ REAL(wp) :: z_sum
 
     DO je = i_startidx, i_endidx
 
+      IF(.NOT. ptr_patch%edges%owner_mask(je,jb)) CYCLE
+
       ! inverse distance averaging (former subroutine cell2edge_lin_int_coeff)
       ! For the hexagonal grid, this is also the direct distance averaging
       ! because the edge is exactly half way between the cells
@@ -1235,6 +1292,8 @@ REAL(wp) :: z_sum
 
       DO je = i_startidx, i_endidx
 
+        IF(.NOT. ptr_patch%edges%owner_mask(je,jb)) CYCLE
+
         ! distance averaging
         ptr_int_state%v_1o2_e(je,1,jb) = ptr_patch%edges%edge_vert_length(je,jb,1)/&
                                              ptr_patch%edges%primal_edge_length(je,jb)
@@ -1260,6 +1319,8 @@ REAL(wp) :: z_sum
     ENDIF
 
     DO jc = 1, nlen
+
+       IF(.NOT. ptr_patch%cells%owner_mask(jc,jb)) CYCLE
 
        ptr_int_state%verts_aw_cells(jc,:,jb) = 0.0_wp
 
@@ -1341,6 +1402,8 @@ REAL(wp) :: z_sum
 
     DO jv = i_startidx, i_endidx
 
+       IF(.NOT. ptr_patch%verts%owner_mask(jv,jb)) CYCLE
+
        ptr_int_state%cells_aw_verts(jv,:,jb) = 0.0_wp
 
 
@@ -1399,6 +1462,20 @@ REAL(wp) :: z_sum
   ENDDO   !loop over all blocks
 !$OMP END DO
 !$OMP END PARALLEL
+
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_patch%edges%area_edge)
+  CALL sync_patch_array(SYNC_E,ptr_patch,ptr_int_state%c_lin_e)
+  CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int_state%verts_aw_cells)
+  CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int_state%e_inn_c)
+  CALL sync_patch_array(SYNC_V,ptr_patch,ptr_int_state%cells_aw_verts)
+  IF (ptr_patch%cell_type == 6) THEN
+    CALL sync_patch_array(SYNC_E,ptr_patch,ptr_int_state%tria_aw_rhom)
+    CALL sync_patch_array(SYNC_E,ptr_patch,ptr_int_state%v_1o2_e)
+    CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int_state%e_aw_c)
+    CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int_state%r_aw_c)
+    CALL sync_patch_array(SYNC_V,ptr_patch,ptr_int_state%e_aw_v)
+    CALL sync_patch_array(SYNC_V,ptr_patch,ptr_int_state%e_inn_v)
+  ENDIF
 
 END SUBROUTINE scalar_int_coeff
 
@@ -1645,6 +1722,10 @@ DO jb = i_startblk, i_endblk
 END DO !block loop
 !$OMP END DO
 !$OMP END PARALLEL
+
+CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int_state%e_bln_c_s)
+CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int_state%e_bln_c_u)
+CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int_state%e_bln_c_v)
 
 END SUBROUTINE bln_int_coeff_e2c
 

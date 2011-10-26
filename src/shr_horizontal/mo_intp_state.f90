@@ -180,6 +180,9 @@ USE mo_intp_rbf_coeffs
 USE mo_intp_coeffs
 USE mo_lonlat_intp_config,  ONLY: lonlat_intp_config
 USE mo_mpi,                 ONLY: p_n_work, my_process_is_io, process_mpi_io_size
+USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V
+USE mo_communication,       ONLY: t_comm_pattern, blk_no, idx_no, idx_1d, &
+  &                               setup_comm_pattern, delete_comm_pattern, exchange_data
 
 
 IMPLICIT NONE
@@ -188,10 +191,26 @@ PRIVATE
 
 !!CJPUBLIC :: setup_interpol, 
 PUBLIC :: construct_2d_interpol_state, destruct_2d_interpol_state
+PUBLIC :: transfer_interpol_state
 PUBLIC :: allocate_int_state, deallocate_int_state
 PUBLIC :: allocate_int_state_lonlat,    &
   &       rbf_setup_interpol_lonlat,    &
   &       deallocate_int_state_lonlat
+
+INTERFACE xfer_var
+  MODULE PROCEDURE xfer_var_r2
+  MODULE PROCEDURE xfer_var_r3
+  MODULE PROCEDURE xfer_var_r4
+  MODULE PROCEDURE xfer_var_i2
+END INTERFACE
+
+INTERFACE xfer_idx
+  MODULE PROCEDURE xfer_idx_2
+  MODULE PROCEDURE xfer_idx_3
+END INTERFACE
+
+TYPE(t_comm_pattern) :: comm_pat_glb_to_loc_c, comm_pat_glb_to_loc_e, comm_pat_glb_to_loc_v
+
 
 CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
@@ -1479,6 +1498,452 @@ CALL message('mo_intp_state:construct_2d_interpol_state', &
 
 END SUBROUTINE construct_2d_interpol_state
 
+!-------------------------------------------------------------------------
+!
+!> xfer_var family: transfer variables from parent to local parent
+!!
+!! @par Revision History
+!! Developed  by  Rainer Johanni (2011-10-26)
+!-------------------------------------------------------------------------
+
+SUBROUTINE xfer_var_r2(typ, pos_nproma, pos_nblks, p_p, p_lp, arri, arro)
+
+  INTEGER, INTENT(IN) :: typ, pos_nproma, pos_nblks
+  TYPE(t_patch), INTENT(IN) :: p_p, p_lp
+  REAL(wp) :: arri(:,:), arro(:,:)
+
+  IF(typ == SYNC_C) THEN
+    CALL exchange_data(comm_pat_glb_to_loc_c, RECV=arro, SEND=arri)
+  ELSEIF(typ == SYNC_E) THEN
+    CALL exchange_data(comm_pat_glb_to_loc_e, RECV=arro, SEND=arri)
+  ELSEIF(typ == SYNC_V) THEN
+    CALL exchange_data(comm_pat_glb_to_loc_v, RECV=arro, SEND=arri)
+  ELSE
+    CALL finish ('mo_interpolation:xfer_var','Illegal type for Ssync')
+  ENDIF
+
+END SUBROUTINE xfer_var_r2
+
+!-------------------------------------------------------------------------
+
+SUBROUTINE xfer_var_r3(typ, pos_nproma, pos_nblks, p_p, p_lp, arri, arro)
+
+  INTEGER, INTENT(IN) :: typ, pos_nproma, pos_nblks
+  TYPE(t_patch), INTENT(IN) :: p_p, p_lp
+  REAL(wp) :: arri(:,:,:), arro(:,:,:)
+
+  INTEGER :: j
+
+  IF(pos_nproma==1 .and. pos_nblks==2) THEN
+    DO j = 1, UBOUND(arri,3)
+      CALL xfer_var_r2(typ,1,2,p_p,p_lp,arri(:,:,j),arro(:,:,j))
+    ENDDO
+  ELSEIF(pos_nproma==1 .and. pos_nblks==3) THEN
+    DO j = 1, UBOUND(arri,2)
+      CALL xfer_var_r2(typ,1,2,p_p,p_lp,arri(:,j,:),arro(:,j,:))
+    ENDDO
+  ELSEIF(pos_nproma==2 .and. pos_nblks==3) THEN
+    DO j = 1, UBOUND(arri,1)
+      CALL xfer_var_r2(typ,1,2,p_p,p_lp,arri(j,:,:),arro(j,:,:))
+    ENDDO
+  ELSE
+    CALL finish ('mo_interpolation:xfer_var','Illegal value for pos_nproma/pos_nblks')
+  ENDIF
+
+END SUBROUTINE xfer_var_r3
+
+!-------------------------------------------------------------------------
+
+SUBROUTINE xfer_var_r4(typ, pos_nproma, pos_nblks, p_p, p_lp, arri, arro)
+
+  INTEGER, INTENT(IN) :: typ, pos_nproma, pos_nblks
+  TYPE(t_patch), INTENT(IN) :: p_p, p_lp
+  REAL(wp) :: arri(:,:,:,:), arro(:,:,:,:)
+
+  INTEGER :: i,j
+
+  ! Variable has 4 dimensions
+  IF(pos_nproma == 1 .AND. pos_nblks == 2)  THEN
+    DO j = 1, UBOUND(arri,4)
+    DO i = 1, UBOUND(arri,3)
+      CALL xfer_var_r2(typ,1,2,p_p,p_lp,arri(:,:,i,j),arro(:,:,i,j))
+    ENDDO
+    ENDDO
+  ELSEIF(pos_nproma == 1 .AND. pos_nblks == 3)  THEN
+    DO j = 1, UBOUND(arri,4)
+    DO i = 1, UBOUND(arri,2)
+      CALL xfer_var_r2(typ,1,2,p_p,p_lp,arri(:,i,:,j),arro(:,i,:,j))
+    ENDDO
+    ENDDO
+  ELSEIF(pos_nproma == 1 .AND. pos_nblks == 4)  THEN
+    DO j = 1, UBOUND(arri,3)
+    DO i = 1, UBOUND(arri,2)
+      CALL xfer_var_r2(typ,1,2,p_p,p_lp,arri(:,i,j,:),arro(:,i,j,:))
+    ENDDO
+    ENDDO
+  ELSEIF(pos_nproma == 3 .AND. pos_nblks == 4)  THEN
+    DO j = 1, UBOUND(arri,2)
+    DO i = 1, UBOUND(arri,1)
+      CALL xfer_var_r2(typ,1,2,p_p,p_lp,arri(i,j,:,:),arro(i,j,:,:))
+    ENDDO
+    ENDDO
+  ELSE
+    ! Other pos_nproma/pos_nblks combinations are possible but currently not existing!
+    CALL finish ('mo_interpolation:xfer_var','unsupported value for pos_nproma/pos_nblks')
+  ENDIF
+
+
+END SUBROUTINE xfer_var_r4
+!-------------------------------------------------------------------------
+
+SUBROUTINE xfer_var_i2(typ, pos_nproma, pos_nblks, p_p, p_lp, arri, arro)
+
+  INTEGER, INTENT(IN) :: typ, pos_nproma, pos_nblks
+  TYPE(t_patch), INTENT(IN) :: p_p, p_lp
+  INTEGER :: arri(:,:), arro(:,:)
+
+  REAL(wp) :: r_arri(UBOUND(arri,1),UBOUND(arri,2))
+  REAL(wp) :: r_arro(UBOUND(arri,1),UBOUND(arri,2))
+
+  r_arri(:,:) = REAL(arri,wp)
+  r_arro(:,:) = 0._wp ! Safety only
+  CALL xfer_var_r2(typ,pos_nproma,pos_nblks,p_p,p_lp,r_arri,r_arro)
+  arro(:,:) = INT(r_arro)
+
+END SUBROUTINE xfer_var_i2
+
+!-------------------------------------------------------------------------
+!
+!> xfer_idx family: transfer index variables from parent to local parent
+!!
+!! @par Revision History
+!! Developed  by  Rainer Johanni (2011-10-26)
+!-------------------------------------------------------------------------
+
+SUBROUTINE xfer_idx_2(type_arr, type_idx, pos_nproma, pos_nblks, p_p, p_lp, idxi, blki, idxo, blko)
+
+  INTEGER, INTENT(IN) :: type_arr, type_idx, pos_nproma, pos_nblks
+  TYPE(t_patch), INTENT(IN), TARGET :: p_p, p_lp
+  INTEGER, INTENT(IN)    :: idxi(:,:), blki(:,:)
+  INTEGER, INTENT(INOUT) :: idxo(:,:), blko(:,:)
+
+  INTEGER :: jb, jl, i_l, i_g, n_idx_l, n_idx_g
+  REAL(wp) :: z_idxi(UBOUND(idxi,1),UBOUND(idxi,2))
+  REAL(wp) :: z_idxo(UBOUND(idxo,1),UBOUND(idxo,2))
+  INTEGER, POINTER :: glb_index(:), loc_index(:)
+
+  IF(type_idx == SYNC_C) THEN
+    glb_index => p_p%cells%glb_index
+    loc_index => p_lp%cells%loc_index
+    n_idx_l = p_p%n_patch_cells
+    n_idx_g = p_p%n_patch_cells_g
+  ELSEIF(type_idx == SYNC_E) THEN
+    glb_index => p_p%edges%glb_index
+    loc_index => p_lp%edges%loc_index
+    n_idx_l = p_p%n_patch_edges
+    n_idx_g = p_p%n_patch_edges_g
+  ELSEIF(type_idx == SYNC_V) THEN
+    glb_index => p_p%verts%glb_index
+    loc_index => p_lp%verts%loc_index
+    n_idx_l = p_p%n_patch_verts
+    n_idx_g = p_p%n_patch_verts_g
+  ELSE
+    CALL finish('xfer_idx','Unsupported type_idx')
+  ENDIF
+
+  z_idxi(:,:) = 0._wp
+  z_idxo(:,:) = 0._wp
+
+  DO jb = 1, UBOUND(idxi,2)
+    DO jl = 1, nproma
+
+      i_l = idx_1d(idxi(jl,jb),blki(jl,jb))
+
+      IF(i_l <= 0 .or. i_l > n_idx_l) THEN
+        z_idxi(jl,jb) = 0._wp
+      ELSE
+        z_idxi(jl,jb) = glb_index(i_l)
+      ENDIF
+
+    END DO
+  END DO
+
+  CALL xfer_var_r2(type_arr,pos_nproma,pos_nblks,p_p,p_lp,z_idxi,z_idxo)
+
+  DO jb = 1, UBOUND(idxo,2)
+    DO jl = 1, nproma
+
+      i_g = INT(z_idxo(jl,jb))
+
+      IF(i_g <= 0 .or. i_g > n_idx_g) THEN
+        idxo(jl,jb) = 0
+        blko(jl,jb) = 0
+      ELSE
+        i_l = loc_index(i_g)
+        ! Determine what to do with nonlocal values (like in get_local_index):
+        if(i_l<0) i_l = MAX(ABS(i_l)-1,1)
+        idxo(jl,jb) = idx_no(i_l)
+        blko(jl,jb) = blk_no(i_l)
+      ENDIF
+
+    END DO
+  END DO
+
+END SUBROUTINE xfer_idx_2
+
+!-------------------------------------------------------------------------
+
+SUBROUTINE xfer_idx_3(type_arr, type_idx, pos_nproma, pos_nblks, p_p, p_lp, idxi, blki, idxo, blko)
+
+  INTEGER, INTENT(IN) :: type_arr, type_idx, pos_nproma, pos_nblks
+  TYPE(t_patch), INTENT(IN) :: p_p, p_lp
+  INTEGER, INTENT(IN)    :: idxi(:,:,:), blki(:,:,:)
+  INTEGER, INTENT(INOUT) :: idxo(:,:,:), blko(:,:,:)
+
+  INTEGER :: j
+
+  IF(pos_nproma==1 .and. pos_nblks==2) THEN
+    DO j = 1, UBOUND(idxi,3)
+      CALL xfer_idx_2(type_arr,type_idx,1,2,p_p,p_lp,idxi(:,:,j),blki(:,:,j), &
+                                                   & idxo(:,:,j),blko(:,:,j))
+    ENDDO
+  ELSEIF(pos_nproma==1 .and. pos_nblks==3) THEN
+    DO j = 1, UBOUND(idxi,2)
+      CALL xfer_idx_2(type_arr,type_idx,1,2,p_p,p_lp,idxi(:,j,:),blki(:,j,:), &
+                                                   & idxo(:,j,:),blko(:,j,:))
+    ENDDO
+  ELSEIF(pos_nproma==2 .and. pos_nblks==3) THEN
+    DO j = 1, UBOUND(idxi,1)
+      CALL xfer_idx_2(type_arr,type_idx,1,2,p_p,p_lp,idxi(j,:,:),blki(j,:,:), &
+                                                   & idxo(j,:,:),blko(j,:,:))
+    ENDDO
+  ELSE
+    CALL finish ('mo_interpolation:xfer_idx','Illegal value for pos_nproma/pos_nblks')
+  ENDIF
+
+END SUBROUTINE xfer_idx_3
+
+!-------------------------------------------------------------------------
+!!
+!>
+!!  Transfers interpolation state form parent to local parent
+!!
+!! @par Revision History
+!! Developed  by  Rainer Johanni (2011-10-26)
+!-------------------------------------------------------------------------
+!
+SUBROUTINE transfer_interpol_state(p_p, p_lp, pi, po)
+!
+  TYPE(t_patch), INTENT(IN)    :: p_p   ! parent
+  TYPE(t_patch), INTENT(INOUT) :: p_lp  ! local parent
+
+  TYPE(t_int_state), INTENT(IN)    :: pi ! Interpolation state on parent
+  TYPE(t_int_state), INTENT(INOUT) :: po ! Interpolation state on local parent
+
+  INTEGER, ALLOCATABLE :: owner(:)
+  INTEGER :: j
+
+  ! Allocate interpolation state for local parent
+
+  CALL allocate_int_state(p_lp, po)
+
+  ! Set up communication patterns for transferring the data to local parents.
+  ! Since these communication patterns are not used elsewhere, they are
+  ! stored locally and deleted at the end of the routine
+
+  ALLOCATE(owner(p_lp%n_patch_cells))
+  DO j = 1, p_lp%n_patch_cells
+    owner(j) = p_p%cells%owner_g(p_lp%cells%glb_index(j))
+  ENDDO
+  CALL setup_comm_pattern(p_lp%n_patch_cells, owner, p_lp%cells%glb_index,  &
+    & p_p%cells%loc_index, comm_pat_glb_to_loc_c)
+  DEALLOCATE(owner)
+
+  ALLOCATE(owner(p_lp%n_patch_edges))
+  DO j = 1, p_lp%n_patch_edges
+    owner(j) = p_p%edges%owner_g(p_lp%edges%glb_index(j))
+  ENDDO
+  CALL setup_comm_pattern(p_lp%n_patch_edges, owner, p_lp%edges%glb_index,  &
+    & p_p%edges%loc_index, comm_pat_glb_to_loc_e)
+  DEALLOCATE(owner)
+
+  ALLOCATE(owner(p_lp%n_patch_verts))
+  DO j = 1, p_lp%n_patch_verts
+    owner(j) = p_p%verts%owner_g(p_lp%verts%glb_index(j))
+  ENDDO
+  CALL setup_comm_pattern(p_lp%n_patch_verts, owner, p_lp%verts%glb_index,  &
+    & p_p%verts%loc_index, comm_pat_glb_to_loc_v)
+  DEALLOCATE(owner)
+
+  ! Some edge related values of the patch are only set in
+  ! construct_2d_interpol_state (complete_patchinfo) and have to
+  ! be set here also
+
+  CALL xfer_var(SYNC_E,1,2,p_p,p_lp,p_p%edges%area_edge,p_lp%edges%area_edge)
+  CALL xfer_var(SYNC_E,1,2,p_p,p_lp,p_p %edges%inv_primal_edge_length, &
+                                  & p_lp%edges%inv_primal_edge_length)
+  CALL xfer_var(SYNC_E,1,2,p_p,p_lp,p_p %edges%inv_dual_edge_length, &
+                                  & p_lp%edges%inv_dual_edge_length)
+  IF (p_p%cell_type == 3) THEN
+  CALL xfer_var(SYNC_E,1,2,p_p,p_lp,p_p %edges%inv_vert_vert_length, &
+                                  & p_lp%edges%inv_vert_vert_length)
+  ENDIF
+  CALL xfer_var(SYNC_E,1,2,p_p,p_lp,p_p %edges%primal_normal_cell(:,:,:)%v1, &
+                                  & p_lp%edges%primal_normal_cell(:,:,:)%v1)
+  CALL xfer_var(SYNC_E,1,2,p_p,p_lp,p_p %edges%primal_normal_cell(:,:,:)%v2, &
+                                  & p_lp%edges%primal_normal_cell(:,:,:)%v2)
+  CALL xfer_var(SYNC_E,1,2,p_p,p_lp,p_p %edges%primal_normal_vert(:,:,:)%v1, &
+                                  & p_lp%edges%primal_normal_vert(:,:,:)%v1)
+  CALL xfer_var(SYNC_E,1,2,p_p,p_lp,p_p %edges%primal_normal_vert(:,:,:)%v2, &
+                                  & p_lp%edges%primal_normal_vert(:,:,:)%v2)
+  CALL xfer_var(SYNC_E,1,2,p_p,p_lp,p_p %edges%dual_normal_cell(:,:,:)%v1, &
+                                  & p_lp%edges%dual_normal_cell(:,:,:)%v1)
+  CALL xfer_var(SYNC_E,1,2,p_p,p_lp,p_p %edges%dual_normal_cell(:,:,:)%v2, &
+                                  & p_lp%edges%dual_normal_cell(:,:,:)%v2)
+  CALL xfer_var(SYNC_E,1,2,p_p,p_lp,p_p %edges%dual_normal_vert(:,:,:)%v1, &
+                                  & p_lp%edges%dual_normal_vert(:,:,:)%v1)
+  CALL xfer_var(SYNC_E,1,2,p_p,p_lp,p_p %edges%dual_normal_vert(:,:,:)%v2, &
+                                  & p_lp%edges%dual_normal_vert(:,:,:)%v2)
+
+  CALL xfer_idx(SYNC_E,SYNC_V,1,2,p_p,p_lp,p_p %edges%vertex_idx,p_p %edges%vertex_blk, &
+                                         & p_lp%edges%vertex_idx,p_lp%edges%vertex_blk)
+
+  ! Transfer interpolation state
+
+  CALL xfer_var(SYNC_E,1,3,p_p,p_lp,pi%c_lin_e,po%c_lin_e)
+  IF (p_p%cell_type == 3) THEN
+  CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%e_bln_c_s,po%e_bln_c_s)
+  CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%e_bln_c_u,po%e_bln_c_u)
+  CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%e_bln_c_v,po%e_bln_c_v)
+  CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%c_bln_avg,po%c_bln_avg)
+  CALL xfer_var(SYNC_E,1,3,p_p,p_lp,pi%e_flx_avg,po%e_flx_avg)
+  CALL xfer_var(SYNC_E,1,3,p_p,p_lp,pi%v_1o2_e,po%v_1o2_e)
+  ENDIF
+  CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%e_inn_c,po%e_inn_c)
+!-------------------------------------------------------------------------------
+! Please note: for cell_type == 6 there exists no grid refinement
+!              and thus no local parents!
+!-------------------------------------------------------------------------------
+!  IF (p_p%cell_type == 6) THEN
+!  CALL xfer_var(SYNC_V,1,3,p_p,p_lp,pi%e_inn_v,po%e_inn_v)
+!  CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%e_aw_c,po%e_aw_c)
+!  CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%r_aw_c,po%r_aw_c)
+!  CALL xfer_var(SYNC_V,1,3,p_p,p_lp,pi%e_aw_v,po%e_aw_v)
+!  CALL xfer_var(SYNC_V,1,3,p_p,p_lp,pi%e_1o3_v,po%e_1o3_v)
+!  CALL xfer_var(SYNC_E,1,3,p_p,p_lp,pi%tria_aw_rhom,po%tria_aw_rhom)
+!  ENDIF
+  CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%verts_aw_cells,po%verts_aw_cells)
+  CALL xfer_var(SYNC_V,1,3,p_p,p_lp,pi%cells_aw_verts,po%cells_aw_verts)
+!  IF( p_p%cell_type == 6 ) THEN
+!  CALL xfer_var(SYNC_V,2,3,p_p,p_lp,pi%tria_north,po%tria_north)
+!  CALL xfer_var(SYNC_V,2,3,p_p,p_lp,pi%tria_east,po%tria_east)
+!  CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%hex_north,po%hex_north)
+!  CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%hex_east,po%hex_east)
+!  IF (i_cori_method>=3) THEN
+!  CALL xfer_var(SYNC_E,2,3,p_p,p_lp,pi%quad_north,po%quad_north)
+!  CALL xfer_var(SYNC_E,2,3,p_p,p_lp,pi%quad_east,po%quad_east)
+!  ENDIF
+!  CALL xfer_var(SYNC_E,1,3,p_p,p_lp,pi%cno_en,po%cno_en)
+!  CALL xfer_var(SYNC_E,1,3,p_p,p_lp,pi%cea_en,po%cea_en)
+!  CALL xfer_var(SYNC_E,2,3,p_p,p_lp,pi%heli_coeff,po%heli_coeff)
+!  IF (i_cori_method < 3) THEN
+!  CALL xfer_idx(SYNC_E,SYNC_E,2,3,p_p,p_lp,pi%heli_vn_idx,pi%heli_vn_blk, &
+!                                         & po%heli_vn_idx,po%heli_vn_blk)
+!  ENDIF
+!  ENDIF
+  IF (p_p%cell_type == 3) THEN
+  CALL xfer_idx(SYNC_C,SYNC_E,2,3,p_p,p_lp,pi%rbf_vec_idx_c,pi%rbf_vec_blk_c, &
+                                         & po%rbf_vec_idx_c,po%rbf_vec_blk_c)
+  CALL xfer_var(SYNC_C,1,2,p_p,p_lp,pi%rbf_vec_stencil_c,po%rbf_vec_stencil_c)
+  CALL xfer_var(SYNC_C,3,4,p_p,p_lp,pi%rbf_vec_coeff_c,po%rbf_vec_coeff_c)
+  CALL xfer_idx(SYNC_C,SYNC_C,2,3,p_p,p_lp,pi%rbf_c2grad_idx,pi%rbf_c2grad_blk, &
+                                         & po%rbf_c2grad_idx,po%rbf_c2grad_blk)
+  CALL xfer_var(SYNC_C,3,4,p_p,p_lp,pi%rbf_c2grad_coeff,po%rbf_c2grad_coeff)
+  CALL xfer_idx(SYNC_V,SYNC_E,2,3,p_p,p_lp,pi%rbf_vec_idx_v,pi%rbf_vec_blk_v, &
+                                         & po%rbf_vec_idx_v,po%rbf_vec_blk_v)
+  CALL xfer_var(SYNC_V,1,2,p_p,p_lp,pi%rbf_vec_stencil_v,po%rbf_vec_stencil_v)
+  CALL xfer_var(SYNC_V,3,4,p_p,p_lp,pi%rbf_vec_coeff_v,po%rbf_vec_coeff_v)
+  CALL xfer_idx(SYNC_E,SYNC_E,2,3,p_p,p_lp,pi%rbf_vec_idx_e,pi%rbf_vec_blk_e, &
+                                         & po%rbf_vec_idx_e,po%rbf_vec_blk_e)
+  CALL xfer_var(SYNC_E,1,2,p_p,p_lp,pi%rbf_vec_stencil_e,po%rbf_vec_stencil_e)
+  CALL xfer_var(SYNC_E,2,3,p_p,p_lp,pi%rbf_vec_coeff_e,po%rbf_vec_coeff_e)
+  ENDIF
+  IF( ltransport .OR. iequations == 3) THEN
+  CALL xfer_var(SYNC_E,1,2,p_p,p_lp,pi%pos_on_tplane_e,po%pos_on_tplane_e)
+  CALL xfer_var(SYNC_E,1,2,p_p,p_lp,pi%tplane_e_dotprod,po%tplane_e_dotprod)
+  CALL xfer_var(SYNC_C,1,2,p_p,p_lp,pi%lsq_lin%lsq_dim_stencil,po%lsq_lin%lsq_dim_stencil)
+  CALL xfer_idx(SYNC_C,SYNC_C,1,2,p_p,p_lp,pi%lsq_lin%lsq_idx_c,pi%lsq_lin%lsq_blk_c, &
+                                         & po%lsq_lin%lsq_idx_c,po%lsq_lin%lsq_blk_c)
+  CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%lsq_lin%lsq_weights_c,po%lsq_lin%lsq_weights_c)
+  CALL xfer_var(SYNC_C,1,4,p_p,p_lp,pi%lsq_lin%lsq_qtmat_c,po%lsq_lin%lsq_qtmat_c)
+  CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%lsq_lin%lsq_rmat_rdiag_c,po%lsq_lin%lsq_rmat_rdiag_c)
+  CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%lsq_lin%lsq_rmat_utri_c,po%lsq_lin%lsq_rmat_utri_c)
+  CALL xfer_var(SYNC_C,1,4,p_p,p_lp,pi%lsq_lin%lsq_pseudoinv,po%lsq_lin%lsq_pseudoinv)
+  CALL xfer_var(SYNC_C,1,2,p_p,p_lp,pi%lsq_lin%lsq_moments,po%lsq_lin%lsq_moments)
+  CALL xfer_var(SYNC_C,1,2,p_p,p_lp,pi%lsq_lin%lsq_moments_hat,po%lsq_lin%lsq_moments_hat)
+
+  CALL xfer_var(SYNC_C,1,2,p_p,p_lp,pi%lsq_high%lsq_dim_stencil,po%lsq_high%lsq_dim_stencil)
+  CALL xfer_idx(SYNC_C,SYNC_C,1,2,p_p,p_lp,pi%lsq_high%lsq_idx_c,pi%lsq_high%lsq_blk_c, &
+                                         & po%lsq_high%lsq_idx_c,po%lsq_high%lsq_blk_c)
+  CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%lsq_high%lsq_weights_c,po%lsq_high%lsq_weights_c)
+  CALL xfer_var(SYNC_C,1,4,p_p,p_lp,pi%lsq_high%lsq_qtmat_c,po%lsq_high%lsq_qtmat_c)
+  CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%lsq_high%lsq_rmat_rdiag_c,po%lsq_high%lsq_rmat_rdiag_c)
+  CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%lsq_high%lsq_rmat_utri_c,po%lsq_high%lsq_rmat_utri_c)
+  CALL xfer_var(SYNC_C,1,4,p_p,p_lp,pi%lsq_high%lsq_pseudoinv,po%lsq_high%lsq_pseudoinv)
+  CALL xfer_var(SYNC_C,1,2,p_p,p_lp,pi%lsq_high%lsq_moments,po%lsq_high%lsq_moments)
+  CALL xfer_var(SYNC_C,1,2,p_p,p_lp,pi%lsq_high%lsq_moments_hat,po%lsq_high%lsq_moments_hat)
+  END IF
+  IF (p_p%cell_type == 3) THEN
+  CALL xfer_var(SYNC_E,1,3,p_p,p_lp,pi%geofac_qdiv,po%geofac_qdiv)
+  CALL xfer_var(SYNC_C,1,2,p_p,p_lp,pi%nudgecoeff_c,po%nudgecoeff_c)
+  CALL xfer_var(SYNC_E,1,2,p_p,p_lp,pi%nudgecoeff_e,po%nudgecoeff_e)
+
+  CALL xfer_var(SYNC_C,1,2,p_p,p_lp,pi%gquad%qpts_tri_l(:,:)%lon,po%gquad%qpts_tri_l(:,:)%lon)
+  CALL xfer_var(SYNC_C,1,2,p_p,p_lp,pi%gquad%qpts_tri_l(:,:)%lat,po%gquad%qpts_tri_l(:,:)%lat)
+  CALL xfer_var(SYNC_C,1,2,p_p,p_lp,pi%gquad%qpts_tri_q(:,:,:)%lon,po%gquad%qpts_tri_q(:,:,:)%lon)
+  CALL xfer_var(SYNC_C,1,2,p_p,p_lp,pi%gquad%qpts_tri_q(:,:,:)%lat,po%gquad%qpts_tri_q(:,:,:)%lat)
+  CALL xfer_var(SYNC_C,1,2,p_p,p_lp,pi%gquad%qpts_tri_c(:,:,:)%lon,po%gquad%qpts_tri_c(:,:,:)%lon)
+  CALL xfer_var(SYNC_C,1,2,p_p,p_lp,pi%gquad%qpts_tri_c(:,:,:)%lat,po%gquad%qpts_tri_c(:,:,:)%lat)
+
+  po%gquad%weights_tri_q(:) = pi%gquad%weights_tri_q(:)
+  po%gquad%weights_tri_c(:) = pi%gquad%weights_tri_c(:)
+
+  ENDIF
+  CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%geofac_div,po%geofac_div)
+  CALL xfer_var(SYNC_V,1,3,p_p,p_lp,pi%geofac_rot,po%geofac_rot)
+  CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%geofac_n2s,po%geofac_n2s)
+  CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%geofac_grg,po%geofac_grg)
+  CALL xfer_var(SYNC_E,1,2,p_p,p_lp,pi%cart_edge_coord,po%cart_edge_coord)
+  CALL xfer_var(SYNC_C,1,2,p_p,p_lp,pi%cart_cell_coord,po%cart_cell_coord)
+  CALL xfer_var(SYNC_C,1,2,p_p,p_lp,pi%primal_normal_ec,po%primal_normal_ec)
+  CALL xfer_var(SYNC_C,1,2,p_p,p_lp,pi%edge_cell_length,po%edge_cell_length)
+!  IF (p_p%cell_type == 6) THEN
+!  CALL xfer_idx(SYNC_E,SYNC_E,2,3,p_p,p_lp,pi%dir_gradh_i1,po%dir_gradh_i1, &
+!                                         & po%dir_gradh_i1,po%dir_gradh_i1)
+!  CALL xfer_idx(SYNC_E,SYNC_E,2,3,p_p,p_lp,pi%dir_gradh_i2,po%dir_gradh_i2, &
+!                                         & po%dir_gradh_i2,po%dir_gradh_i2)
+!  CALL xfer_var(SYNC_E,2,3,p_p,p_lp,pi%dir_gradhux_c1,po%dir_gradhux_c1)
+!  CALL xfer_var(SYNC_E,2,3,p_p,p_lp,pi%dir_gradhux_c2,po%dir_gradhux_c2)
+!  CALL xfer_var(SYNC_E,2,3,p_p,p_lp,pi%strain_def_c1,po%strain_def_c1)
+!  CALL xfer_var(SYNC_E,2,3,p_p,p_lp,pi%strain_def_c2,po%strain_def_c2)
+!  CALL xfer_idx(SYNC_E,SYNC_E,2,3,p_p,p_lp,pi%dir_gradt_i1,po%dir_gradt_i1, &
+!                                         & po%dir_gradt_i1,po%dir_gradt_i1)
+!  CALL xfer_idx(SYNC_E,SYNC_E,2,3,p_p,p_lp,pi%dir_gradt_i2,po%dir_gradt_i2, &
+!                                         & po%dir_gradt_i2,po%dir_gradt_i2)
+!  CALL xfer_var(SYNC_E,2,3,p_p,p_lp,pi%dir_gradtxy_v1,po%dir_gradtxy_v1)
+!  CALL xfer_var(SYNC_E,2,3,p_p,p_lp,pi%dir_gradtxy_v2,po%dir_gradtxy_v2)
+!  CALL xfer_var(SYNC_E,2,3,p_p,p_lp,pi%dir_gradtyx_v1,po%dir_gradtyx_v1)
+!  CALL xfer_var(SYNC_E,2,3,p_p,p_lp,pi%dir_gradtyx_v2,po%dir_gradtyx_v2)
+!  CALL xfer_var(SYNC_E,2,3,p_p,p_lp,pi%shear_def_v1,po%shear_def_v1)
+!  CALL xfer_var(SYNC_E,2,3,p_p,p_lp,pi%shear_def_v2,po%shear_def_v2)
+!  ENDIF
+
+  CALL delete_comm_pattern(comm_pat_glb_to_loc_c)
+  CALL delete_comm_pattern(comm_pat_glb_to_loc_e)
+  CALL delete_comm_pattern(comm_pat_glb_to_loc_v)
+
+END SUBROUTINE transfer_interpol_state
+!-------------------------------------------------------------------------
 !-------------------------------------------------------------------------
 !
 !

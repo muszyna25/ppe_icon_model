@@ -59,7 +59,8 @@ USE mo_kind,                ONLY: wp
 USE mo_physical_constants,  ONLY: re
 USE mo_exception,           ONLY: finish
 USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell, min_rledge, min_rlcell_int, min_rledge_int
-USE mo_model_domain,        ONLY: t_patch, t_grid_edges, t_grid_cells, t_grid_vertices
+USE mo_model_domain,        ONLY: t_patch, t_grid_edges, t_grid_cells, t_grid_vertices, &
+ &                                p_patch_subdiv, p_patch_local_parent
 
 USE mo_model_domain_import, ONLY: n_dom, n_dom_start, l_limited_area
 
@@ -69,8 +70,11 @@ USE mo_math_utilities,      ONLY: gc2cc, gvec2cvec, solve_chol_v, choldec_v, arc
 USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e,  &
                                   grf_fbk_start_c
 
-USE mo_parallel_config,  ONLY: nproma
+USE mo_parallel_config,     ONLY: nproma
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
+USE mo_mpi,                 ONLY: my_process_is_mpi_parallel
+USE mo_communication,       ONLY: exchange_data
+USE mo_sync,                ONLY: global_sum_array
 
 USE mo_grf_intp_data_strc
 USE mo_gridref_config
@@ -139,12 +143,16 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
 
  CD_LOOP: DO jcd = 1, p_patch(jg)%n_childdom
 
-  p_pp   => p_patch(jg)
-  jgc    =  p_pp%child_id(jcd)
-
-  p_grfs => p_grf(jg)%p_dom(jcd)
-
-  p_pc   => p_patch(jgc)
+  jgc    =  p_patch(jg)%child_id(jcd)
+  IF(my_process_is_mpi_parallel()) THEN
+    p_pp   => p_patch_local_parent(jgc)
+    p_grfs => p_grf_state_local_parent(jgc)%p_dom(jcd)
+    p_pc   => p_patch_subdiv(jgc)
+  ELSE
+    p_pp   => p_patch(jg)
+    p_grfs => p_grf(jg)%p_dom(jcd)
+    p_pc   => p_patch(jgc)
+  ENDIF
 
   p_cp   => p_pp%cells
   p_cc   => p_pc%cells
@@ -268,12 +276,16 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
 
  CD_LOOP: DO jcd = 1, p_patch(jg)%n_childdom
 
-  p_pp   => p_patch(jg)
-  jgc    =  p_pp%child_id(jcd)
-
-  p_grfs => p_grf(jg)%p_dom(jcd)
-
-  p_pc   => p_patch(jgc)
+  jgc    =  p_patch(jg)%child_id(jcd)
+  IF(my_process_is_mpi_parallel()) THEN
+    p_pp   => p_patch_local_parent(jgc)
+    p_grfs => p_grf_state_local_parent(jgc)%p_dom(jcd)
+    p_pc   => p_patch_subdiv(jgc)
+  ELSE
+    p_pp   => p_patch(jg)
+    p_grfs => p_grf(jg)%p_dom(jcd)
+    p_pc   => p_patch(jgc)
+  ENDIF
 
   p_ep   => p_pp%edges
   p_ec   => p_pc%edges
@@ -353,63 +365,28 @@ TYPE(t_grid_cells), POINTER :: p_gcp => NULL()
 TYPE(t_grid_edges), POINTER :: p_gep => NULL()
 TYPE(t_patch),      POINTER :: p_pp => NULL()
 
-INTEGER :: jb, jc, je, jg, ji, i_startblk, i_endblk,         &
-           i_startidx, i_endidx, iic, ibc, i_nchdom, i_child_id, &
-           ishift_child_id, ierror
+INTEGER :: jb, jc, je, jg, jgp, ji, i_startblk, i_endblk,         &
+           i_startidx, i_endidx, iic, ibc, i_nchdom, i_child_id
+
+REAL(wp), ALLOCATABLE :: z_area(:,:)
 
 !-----------------------------------------------------------------------
 !
 
-ishift_child_id = 0
+DO jg = n_dom_start+1, n_dom
 
-DO jg = n_dom_start, n_dom-1
+  jgp = p_patch(jg)%parent_id
 
-  p_gep  => p_patch(jg)%edges
-  p_gcp  => p_patch(jg)%cells
-  p_pp   => p_patch(jg)
+  IF(my_process_is_mpi_parallel()) THEN
+    p_pp   => p_patch_local_parent(jg)
+  ELSE
+    p_pp   => p_patch(jgp)
+  ENDIF
+
+  p_gep  => p_pp%edges
+  p_gcp  => p_pp%cells
 
   i_nchdom = p_pp%n_childdom
-  IF (i_nchdom == 0) CYCLE
-  ierror = 0
-
-  ! First ensure that child edge indices are all positive;
-  ! if there are negative values, grid files are too old
-  i_startblk = p_gep%start_blk(grf_bdyintp_start_e,1)
-  i_endblk   = p_gep%end_blk(min_rledge,i_nchdom)
-
-  DO jb = i_startblk, i_endblk
-
-    CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge)
-
-    DO ji = 3, 4
-      DO je = i_startidx, i_endidx
-
-       IF (p_gep%child_idx(je,jb,ji) < 0) ierror = ierror + 1
-
-      ENDDO
-    ENDDO
-  ENDDO
-
-  IF (ierror > 0) THEN
-    CALL finish ('mo_grf_interpolation:gridref_info',  &
-      &          'negative child edge indices detected - patch files are too old')
-  ENDIF
-
-  ! Preparation: In limited-area mode, check if child domain ID's read
-  ! from the grid files need to be shifted
-  IF (jg == 1 .AND. l_limited_area) THEN
-
-    i_startblk = p_gep%start_blk(grf_bdyintp_start_e,1)
-    i_endblk   = p_gep%end_blk(min_rledge,1)
-
-    CALL get_indices_e(p_pp, i_startblk, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge, 1)
-
-    ! domain ID of first nested domain should be 2
-    ishift_child_id = p_gep%child_id(i_startidx,i_startblk) - 2
-
-  ENDIF
 
 #ifdef __SX__
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
@@ -418,38 +395,6 @@ DO jg = n_dom_start, n_dom-1
   i_startblk = p_gep%start_blk(grf_bdyintp_start_e,1)
   i_endblk   = p_gep%end_blk(min_rledge,i_nchdom)
 
-! a) Complete parent edge information
-#ifdef  __SX__
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,ji,je,iic,ibc,i_child_id)
-#endif
-  DO jb = i_startblk, i_endblk
-
-    CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge)
-
-    IF (ishift_child_id /= 0) THEN
-      DO je = i_startidx, i_endidx
-        p_gep%child_id(je,jb) = p_gep%child_id(je,jb) - ishift_child_id
-      ENDDO
-    ENDIF
-
-    DO ji = 3, 4 ! Index completion only needed for child edges 3+4
-      DO je = i_startidx, i_endidx
-
-        iic = ABS(p_gep%child_idx(je,jb,ji))
-        ibc = p_gep%child_blk(je,jb,ji)
-        i_child_id = p_gep%child_id(je,jb)
-
-        IF ((iic/= 0) .AND. (ibc/= 0)) THEN
-          p_patch(i_child_id)%edges%parent_idx(iic,ibc) = je
-          p_patch(i_child_id)%edges%parent_blk(iic,ibc) = jb
-        ENDIF
-      ENDDO
-    ENDDO
-  ENDDO
-#ifdef  __SX__
-!$OMP END DO
-#endif
 
 ! b) Compute parent-child-indices, i.e. the child index number a grid point
 !    has at its parent grid point
@@ -467,12 +412,13 @@ DO jg = n_dom_start, n_dom-1
     DO ji = 1, 4
       DO je = i_startidx, i_endidx
 
+        IF(p_gep%child_id(je,jb) /= jg) CYCLE
+
         iic = ABS(p_gep%child_idx(je,jb,ji))
         ibc = p_gep%child_blk(je,jb,ji)
-        i_child_id = p_gep%child_id(je,jb)
 
         IF ((iic/= 0) .AND. (ibc/= 0)) THEN
-          p_grf(i_child_id)%pc_idx_e(iic,ibc) = ji
+          p_grf(jg)%pc_idx_e(iic,ibc) = ji
         ENDIF
       ENDDO
     ENDDO
@@ -492,20 +438,17 @@ DO jg = n_dom_start, n_dom-1
     CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, grf_bdyintp_start_c, min_rlcell)
 
-    IF (ishift_child_id /= 0) THEN
-      DO jc = i_startidx, i_endidx
-        p_gcp%child_id(jc,jb) = p_gcp%child_id(jc,jb) - ishift_child_id
-      ENDDO
-    ENDIF
-
     DO ji = 1, 4
       DO jc = i_startidx, i_endidx
 
+        IF(p_gcp%child_id(jc,jb) /= jg) CYCLE
+
         iic = p_gcp%child_idx(jc,jb,ji)
         ibc = p_gcp%child_blk(jc,jb,ji)
-        i_child_id = p_gcp%child_id(jc,jb)
 
-        p_grf(i_child_id)%pc_idx_c(iic,ibc) = ji
+        IF ((iic/= 0) .AND. (ibc/= 0)) THEN
+          p_grf(jg)%pc_idx_c(iic,ibc) = ji
+        ENDIF
       ENDDO
     ENDDO
   ENDDO
@@ -514,10 +457,29 @@ DO jg = n_dom_start, n_dom-1
 !$OMP END PARALLEL
 #endif
 
+  IF(my_process_is_mpi_parallel()) THEN
+    CALL exchange_data(p_patch(jg)%comm_pat_e, p_grf(jg)%pc_idx_e)
+    CALL exchange_data(p_patch(jg)%comm_pat_c, p_grf(jg)%pc_idx_c)
+  ENDIF
+
+ENDDO
+
+DO jg = n_dom_start, n_dom-1
+
+  p_gep  => p_patch(jg)%edges
+  p_gcp  => p_patch(jg)%cells
+  p_pp   => p_patch(jg)
+
+  i_nchdom = p_pp%n_childdom
+  IF (i_nchdom == 0) CYCLE
+
 ! c) Compute area of feedback domains
   DO ji = 1, i_nchdom
 
     p_grf(jg)%fbk_dom_area(ji) = 0._wp
+
+    ALLOCATE(z_area(nproma,p_pp%nblks_c))
+    z_area = 0
 
     i_startblk = p_gcp%start_blk(grf_fbk_start_c,ji)
     i_endblk   = p_gcp%end_blk(min_rlcell_int,ji)
@@ -529,13 +491,18 @@ DO jg = n_dom_start, n_dom-1
 
       DO jc = i_startidx, i_endidx
 
-        p_grf(jg)%fbk_dom_area(ji) = p_grf(jg)%fbk_dom_area(ji) + p_gcp%area(jc,jb)
+        if(p_gcp%owner_mask(jc,jb)) z_area(jc,jb) = p_gcp%area(jc,jb)
 
       ENDDO
     ENDDO
+
+    p_grf(jg)%fbk_dom_area(ji) = global_sum_array(z_area)
+    DEALLOCATE(z_area)
+
   ENDDO
 
 ENDDO
+
 
 END SUBROUTINE gridref_info
 
@@ -569,6 +536,7 @@ TYPE(t_grid_cells), POINTER :: p_gcc => NULL()
 TYPE(t_grid_edges), POINTER :: p_gep => NULL()
 TYPE(t_grid_edges), POINTER :: p_gec => NULL()
 TYPE(t_patch),      POINTER :: p_pp => NULL()
+TYPE(t_patch),      POINTER :: p_pc => NULL()
 
 TYPE(t_gridref_state), POINTER :: p_grfp
 
@@ -590,15 +558,24 @@ TYPE(t_cartesian_coordinates) :: cc_center, cc_ch1, cc_ch2, cc_ch3, cc_ch4, &
 DO jg = n_dom_start+1, n_dom
 
   jgp = p_patch(jg)%parent_id
+  IF(my_process_is_mpi_parallel()) THEN
+    p_pp   => p_patch_local_parent(jg)
+    p_pc   => p_patch_subdiv(jg)
+    p_grfp => p_grf_state_local_parent(jg)
+  ELSE
+    p_pp   => p_patch(jgp)
+    p_pc   => p_patch(jg)
+    p_grfp => p_grf(jgp)
+  ENDIF
 
-  p_gcp  => p_patch(jgp)%cells
-  p_gcc  => p_patch(jg)%cells
-  p_gep  => p_patch(jgp)%edges
-  p_gec  => p_patch(jg)%edges
-  p_pp   => p_patch(jgp)
-  p_grfp => p_grf(jgp)
+  i_chidx = p_pc%parent_child_index
 
-  i_chidx = p_patch(jg)%parent_child_index
+  p_gcp  => p_pp%cells
+  p_gcc  => p_pc%cells
+  p_gep  => p_pp%edges
+  p_gec  => p_pc%edges
+
+  i_chidx = p_pc%parent_child_index
 
   ! If the nested domain is barely larger than the boundary interpolation zone,
   ! the setting of the start and end indices may fail in the presence of 
@@ -975,6 +952,18 @@ DO jg = n_dom_start+1, n_dom
 !$OMP END PARALLEL
 #endif
 
+  IF(my_process_is_mpi_parallel()) THEN
+    DO j = 1, 4
+      CALL exchange_data(p_pp%comm_pat_c, p_grfp%fbk_wgt_c(:,:,j))
+    ENDDO
+    DO j = 1, 4
+      CALL exchange_data(p_pp%comm_pat_c, p_grfp%fbk_wgt_ct(:,:,j))
+    ENDDO
+    DO j = 1, 6
+      CALL exchange_data(p_pp%comm_pat_e, p_grfp%fbk_wgt_e(:,:,j))
+    ENDDO
+  ENDIF
+
 ENDDO
 
 END SUBROUTINE init_fbk_wgt
@@ -1000,6 +989,9 @@ SUBROUTINE grf_index( ptr_grf_state)
 
 TYPE(t_gridref_state), TARGET, INTENT(inout) ::  &
   &  ptr_grf_state(n_dom_start:) ! State type for grid refinement coefficients
+
+TYPE(t_patch),      POINTER :: p_pp => NULL()
+TYPE(t_patch),      POINTER :: p_pc => NULL()
 
 TYPE(t_grid_edges),POINTER  :: ptr_ep, ptr_ec ! pointer to parent and child edges
 TYPE(t_grid_cells),POINTER  :: ptr_cp, ptr_cc ! pointer to parent and child cells
@@ -1035,21 +1027,29 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
 
     jgc = ptr_patch(jg)%child_id(jcd)
 
-    ptr_ep   => ptr_patch(jg)%edges
-    ptr_ec   => ptr_patch(jgc)%edges
-    ptr_cp   => ptr_patch(jg)%cells
-    ptr_cc   => ptr_patch(jgc)%cells
-    ptr_vp   => ptr_patch(jg)%verts
+    IF(my_process_is_mpi_parallel()) THEN
+      p_pp    => p_patch_local_parent(jgc)
+      ptr_grf => p_grf_state_local_parent(jgc)%p_dom(jcd)
+      p_pc    => p_patch_subdiv(jgc)
+    ELSE
+      p_pp    => p_patch(jg)
+      ptr_grf => ptr_grf_state(jg)%p_dom(jcd)
+      p_pc    => p_patch(jgc)
+    ENDIF
 
-    ptr_grf  => ptr_grf_state(jg)%p_dom(jcd)
+    ptr_ep   => p_pp%edges
+    ptr_ec   => p_pc%edges
+    ptr_cp   => p_pp%cells
+    ptr_cc   => p_pc%cells
+    ptr_vp   => p_pp%verts
 
     ! This is to check the correct orientation of stencil points 4 and 5
     ! for child edges 3 and 4
     thresh_dotpr = 0.85_wp
 
     ! Start and end blocks for which vector interpolation is needed
-    i_startblk = ptr_patch(jg)%edges%start_blk(grf_bdyintp_start_e,jcd)
-    i_endblk   = ptr_patch(jg)%edges%end_blk(min_rledge_int,jcd)
+    i_startblk = p_pp%edges%start_blk(grf_bdyintp_start_e,jcd)
+    i_endblk   = p_pp%edges%end_blk(min_rledge_int,jcd)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,i_startidx,i_endidx,iipv1,ibpv1,iipv2,ibpv2,ierror, &
@@ -1058,7 +1058,7 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
 
     DO jb = i_startblk, i_endblk
 
-      CALL get_indices_e(ptr_patch(jg), jb, i_startblk, i_endblk, &
+      CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge_int, jcd)
 
       ! Part 1: child edges aligned with the parent edge
@@ -1140,8 +1140,14 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
 
         iice = ABS(ptr_ep%child_idx(je,jb,3))
         ibce = ptr_ep%child_blk(je,jb,3)
-        iicc = ptr_ec%cell_idx(iice,ibce,1) ! does not matter if we take cell 1 or 2
+        ! In the inner domain, it does not matter if we take cell 1 or 2
+        ! At the boundary row, we have to take the one which is included in the child boundary
+        iicc = ptr_ec%cell_idx(iice,ibce,1)
         ibcc = ptr_ec%cell_blk(iice,ibce,1)
+        IF(iicc < 0) THEN
+          iicc = ptr_ec%cell_idx(iice,ibce,2)
+          ibcc = ptr_ec%cell_blk(iice,ibce,2)
+        ENDIF
         iipc = ptr_cc%parent_idx(iicc,ibcc)
         ibpc = ptr_cc%parent_blk(iicc,ibcc)
 
@@ -1152,7 +1158,7 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
         ELSE IF (ptr_cp%edge_idx(iipc,ibpc,2) == je .AND. ptr_cp%edge_blk(iipc,ibpc,2) == jb ) THEN
           ii2(je) = 3
           ii3(je) = 1
-        ELSE
+        ELSE IF (ptr_cp%edge_idx(iipc,ibpc,3) == je .AND. ptr_cp%edge_blk(iipc,ibpc,3) == jb ) THEN
           ii2(je) = 1
           ii3(je) = 2
         ENDIF
@@ -1230,8 +1236,14 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
 
         iice = ABS(ptr_ep%child_idx(je,jb,4))
         ibce = ptr_ep%child_blk(je,jb,4)
-        iicc = ptr_ec%cell_idx(iice,ibce,1) ! does not matter if we take cell 1 or 2
+        ! In the inner domain, it does not matter if we take cell 1 or 2
+        ! At the boundary row, we have to take the one which is included in the child boundary
+        iicc = ptr_ec%cell_idx(iice,ibce,1)
         ibcc = ptr_ec%cell_blk(iice,ibce,1)
+        IF(iicc < 0) THEN
+          iicc = ptr_ec%cell_idx(iice,ibce,2)
+          ibcc = ptr_ec%cell_blk(iice,ibce,2)
+        ENDIF
         iipc = ptr_cc%parent_idx(iicc,ibcc)
         ibpc = ptr_cc%parent_blk(iicc,ibcc)
 
@@ -1242,7 +1254,8 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
         ELSE IF (ptr_cp%edge_idx(iipc,ibpc,2) == je .AND. ptr_cp%edge_blk(iipc,ibpc,2) == jb ) THEN
           ii2(je) = 3
           ii3(je) = 1
-        ELSE
+        !ELSE
+        ELSE IF (ptr_cp%edge_idx(iipc,ibpc,3) == je .AND. ptr_cp%edge_blk(iipc,ibpc,3) == jb ) THEN
           ii2(je) = 1
           ii3(je) = 2
         ENDIF
@@ -1343,6 +1356,9 @@ SUBROUTINE rbf_compute_coeff_grf_e (ptr_grf_state)
 
 TYPE(t_gridref_state), TARGET, INTENT(inout) :: ptr_grf_state(n_dom_start:)
 
+TYPE(t_patch),      POINTER :: p_pp => NULL()
+TYPE(t_patch),      POINTER :: p_pc => NULL()
+
 TYPE(t_grid_edges),POINTER  :: ptr_ep, ptr_ec ! pointer to parent and child edges
 
 TYPE(t_gridref_single_state),POINTER :: ptr_grf ! pointer to gridref_state for a
@@ -1399,10 +1415,18 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
 
   jgc = ptr_patch(jg)%child_id(jcd)
 
-  ptr_ep   => ptr_patch(jg)%edges
-  ptr_ec   => ptr_patch(jgc)%edges
+  IF(my_process_is_mpi_parallel()) THEN
+    p_pp  => p_patch_local_parent(jgc)
+    ptr_grf => p_grf_state_local_parent(jgc)%p_dom(jcd)
+    p_pc  => p_patch_subdiv(jgc)
+  ELSE
+    p_pp  => p_patch(jg)
+    ptr_grf => ptr_grf_state(jg)%p_dom(jcd)
+    p_pc  => p_patch(jgc)
+  ENDIF
 
-  ptr_grf  => ptr_grf_state(jg)%p_dom(jcd)
+  ptr_ep   => p_pp%edges
+  ptr_ec   => p_pc%edges
 
   CE_LOOP: DO jce = 1, 4  ! loop over child edges
 
@@ -1447,15 +1471,15 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
     ENDIF
 
     ! Start and end blocks for which vector interpolation is needed
-    i_startblk = ptr_patch(jg)%edges%start_blk(grf_bdyintp_start_e-ishift,jcd)
-    i_endblk   = ptr_patch(jg)%edges%end_blk(min_rledge_int,jcd)
+    i_startblk = p_pp%edges%start_blk(grf_bdyintp_start_e-ishift,jcd)
+    i_endblk   = p_pp%edges%end_blk(min_rledge_int,jcd)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je1,je2,je,istencil,iie1,ibe1,iie2,ibe2,       &
 !$OMP            cc_e1,cc_e2,z_nx1,z_nx2,z_dist,z_nxprod, &
 !$OMP            iiec,ibec,cc_childedge,cc_cer,cc_e2r,checksum_vt)
     DO jb =  i_startblk, i_endblk
 
-      CALL get_indices_e(ptr_patch(jg), jb, i_startblk, i_endblk, i_startidx, i_endidx,&
+      CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx,&
                          grf_bdyintp_start_e-ishift, min_rledge_int, jcd)
 
       !
@@ -1669,6 +1693,9 @@ SUBROUTINE idw_compute_coeff_grf_e ( ptr_grf_state)
 
 TYPE(t_gridref_state), TARGET, INTENT(inout) :: ptr_grf_state(n_dom_start:)
 
+TYPE(t_patch),      POINTER :: p_pp => NULL()
+TYPE(t_patch),      POINTER :: p_pc => NULL()
+
 TYPE(t_grid_edges),POINTER  :: ptr_ep, ptr_ec ! pointer to parent and child edges
 
 TYPE(t_gridref_single_state),POINTER :: ptr_grf ! pointer to gridref_state for a
@@ -1709,15 +1736,22 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
 
   jgc = ptr_patch(jg)%child_id(jcd)
 
-  !
-  ptr_ep   => ptr_patch(jg)%edges
-  ptr_ec   => ptr_patch(jgc)%edges
+  IF(my_process_is_mpi_parallel()) THEN
+    p_pp  => p_patch_local_parent(jgc)
+    ptr_grf => p_grf_state_local_parent(jgc)%p_dom(jcd)
+    p_pc  => p_patch_subdiv(jgc)
+  ELSE
+    p_pp  => p_patch(jg)
+    ptr_grf => ptr_grf_state(jg)%p_dom(jcd)
+    p_pc  => p_patch(jgc)
+  ENDIF
 
-  ptr_grf  => ptr_grf_state(jg)%p_dom(jcd)
+  ptr_ep   => p_pp%edges
+  ptr_ec   => p_pc%edges
 
   ! Start and end blocks for which vector interpolation is needed
-  i_startblk = ptr_patch(jg)%edges%start_blk(grf_bdyintp_start_e,jcd)
-  i_endblk   = ptr_patch(jg)%edges%end_blk(min_rledge_int,jcd)
+  i_startblk = p_pp%edges%start_blk(grf_bdyintp_start_e,jcd)
+  i_endblk   = p_pp%edges%end_blk(min_rledge_int,jcd)
 
 !$OMP PARALLEL PRIVATE (z_idwwgt,istencil,ist,jb)
   ALLOCATE( z_idwwgt(6),  STAT=ist )
@@ -1728,7 +1762,7 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
 
   DO jb =  i_startblk, i_endblk
 
-    CALL get_indices_e(ptr_patch(jg), jb, i_startblk, i_endblk, &
+    CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge_int, jcd)
 
 ! Note: OMP parallelization is done over je because for reasonable (=efficient)

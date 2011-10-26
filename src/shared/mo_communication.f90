@@ -63,7 +63,7 @@ CHARACTER(len=*), PARAMETER :: version = '$Id$'
 !modules interface-------------------------------------------
 !subroutines
 PUBLIC :: blk_no, idx_no, idx_1d
-PUBLIC :: setup_comm_pattern, exchange_data, exchange_data_reverse,   &
+PUBLIC :: setup_comm_pattern, delete_comm_pattern, exchange_data, exchange_data_reverse,   &
           exchange_data_mult, exchange_data_grf, exchange_data_gm,    &
           start_delayed_exchange, do_delayed_exchange,                &
           start_async_comm, complete_async_comm, exchange_data_4de3
@@ -505,6 +505,52 @@ SUBROUTINE setup_comm_pattern(n_points, owner, global_index, local_index, p_pat)
    DEALLOCATE(icnt, flag, global_recv_index, send_src)
 
 END SUBROUTINE setup_comm_pattern
+!-------------------------------------------------------------------------
+!
+!>
+!! Deletes a communication pattern, i.e. deallocates all arrays
+!! and sets all other members to 0
+!!
+!!
+!! @par Revision History
+!! Initial version by Rainer Johanni, Oct 2011
+!!
+! 
+SUBROUTINE delete_comm_pattern(p_pat)
+
+   TYPE(t_comm_pattern), INTENT(INOUT) :: p_pat
+
+   ! deallocate arrays
+
+   IF(ALLOCATED(p_pat%recv_limits))   DEALLOCATE(p_pat%recv_limits)
+
+   IF(ALLOCATED(p_pat%recv_src))      DEALLOCATE(p_pat%recv_src)
+   IF(ALLOCATED(p_pat%recv_dst_blk))  DEALLOCATE(p_pat%recv_dst_blk)
+   IF(ALLOCATED(p_pat%recv_dst_idx))  DEALLOCATE(p_pat%recv_dst_idx)
+
+   IF(ALLOCATED(p_pat%send_limits))   DEALLOCATE(p_pat%send_limits)
+
+   IF(ALLOCATED(p_pat%send_src_blk))  DEALLOCATE(p_pat%send_src_blk)
+   IF(ALLOCATED(p_pat%send_src_idx))  DEALLOCATE(p_pat%send_src_idx)
+
+   IF(ALLOCATED(p_pat%pelist_send))   DEALLOCATE(p_pat%pelist_send)
+   IF(ALLOCATED(p_pat%pelist_recv))   DEALLOCATE(p_pat%pelist_recv)
+
+   IF(ALLOCATED(p_pat%send_startidx)) DEALLOCATE(p_pat%send_startidx)
+   IF(ALLOCATED(p_pat%recv_startidx)) DEALLOCATE(p_pat%recv_startidx)
+
+   IF(ALLOCATED(p_pat%send_count))    DEALLOCATE(p_pat%send_count)
+   IF(ALLOCATED(p_pat%recv_count))    DEALLOCATE(p_pat%recv_count)
+
+   ! Set other members to 0
+
+   p_pat%n_recv = 0
+   p_pat%n_pnts = 0
+   p_pat%n_send = 0
+   p_pat%np_recv = 0
+   p_pat%np_send = 0
+
+END SUBROUTINE delete_comm_pattern
 
 !-------------------------------------------------------------------------
 !

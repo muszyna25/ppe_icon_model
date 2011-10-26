@@ -60,10 +60,15 @@ MODULE mo_grf_intp_state
 USE mo_kind,                ONLY: wp
 USE mo_exception,           ONLY: message, finish
 USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int, min_rledge_int
-USE mo_model_domain,        ONLY: t_patch
+USE mo_model_domain,        ONLY: t_patch, p_patch_local_parent
 USE mo_model_domain_import, ONLY: n_dom, n_dom_start
 USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e
-USE mo_parallel_config,  ONLY: nproma
+USE mo_parallel_config,     ONLY: nproma
+USE mo_mpi,                 ONLY: my_process_is_mpi_parallel, p_pe
+
+USE mo_communication,       ONLY: t_comm_pattern, blk_no, idx_no, idx_1d, &
+  &                               setup_comm_pattern, delete_comm_pattern, exchange_data
+
 
 USE mo_grf_intp_data_strc
 USE mo_grf_intp_coeffs
@@ -77,6 +82,9 @@ PRIVATE
 
 PUBLIC ::construct_2d_gridref_state, destruct_2d_gridref_state
 PUBLIC ::allocate_grf_state, deallocate_grf_state
+PUBLIC ::transfer_grf_state
+
+TYPE(t_comm_pattern) :: comm_pat_loc_to_glb_c, comm_pat_loc_to_glb_e
 
 CONTAINS
 
@@ -361,6 +369,11 @@ CALL message('mo_grf_intp_state:construct_2d_gridref_state', &
 DO jg = n_dom_start, n_dom
   CALL allocate_grf_state(ptr_patch(jg), ptr_grf_state(jg))
 ENDDO
+IF(my_process_is_mpi_parallel()) THEN
+  DO jg = n_dom_start+1, n_dom
+    CALL allocate_grf_state(p_patch_local_parent(jg), p_grf_state_local_parent(jg))
+  ENDDO
+ENDIF
 
 CALL message ('mo_grf_intp_state:construct_2d_gridref_state',   &
   & 'memory allocation finished')
@@ -389,6 +402,366 @@ CALL message ('mo_grf_intp_state:construct_2d_gridref_state',                   
   & 'construction of interpolation state finished')
 
 END SUBROUTINE construct_2d_gridref_state
+
+!-------------------------------------------------------------------------
+!!
+!>
+!! Get local idx_no for edges
+!!
+ELEMENTAL INTEGER FUNCTION loc_idx_no_e(p_p, idx)
+  TYPE(t_patch), INTENT(IN) :: p_p
+  INTEGER, INTENT(IN) :: idx
+
+  IF(idx<1 .OR. idx > p_p%n_patch_edges_g) THEN
+    loc_idx_no_e = 0
+  ELSE
+    loc_idx_no_e = idx_no(p_p%edges%loc_index(idx))
+  ENDIF
+END FUNCTION loc_idx_no_e
+!-------------------------------------------------------------------------
+!!
+!>
+!! Get local blk_no for edges
+!!
+ELEMENTAL INTEGER FUNCTION loc_blk_no_e(p_p, idx)
+  TYPE(t_patch), INTENT(IN) :: p_p
+  INTEGER, INTENT(IN) :: idx
+
+  IF(idx<1 .OR. idx > p_p%n_patch_edges_g) THEN
+    loc_blk_no_e = 0
+  ELSE
+    loc_blk_no_e = blk_no(p_p%edges%loc_index(idx))
+  ENDIF
+END FUNCTION loc_blk_no_e
+!-------------------------------------------------------------------------
+!!
+!>
+!! Get global idx_1d for edges
+!!
+ELEMENTAL INTEGER FUNCTION glb_idx_1d_e(p_p, idx, blk)
+  TYPE(t_patch), INTENT(IN) :: p_p
+  INTEGER, INTENT(IN) :: idx, blk
+
+  IF(idx<=0 .or. blk<=0 .or. idx_1d(idx, blk)>p_p%n_patch_edges) THEN
+    glb_idx_1d_e = 0
+  ELSE
+    glb_idx_1d_e = p_p%edges%glb_index(idx_1d(idx, blk))
+  ENDIF
+END FUNCTION glb_idx_1d_e
+!-------------------------------------------------------------------------
+!!
+!>
+!!  Transfers interpolation state from local parent to global parent
+!!  Some variables have to be transferred the other way round - see below
+!!
+!! @par Revision History
+!! Created by Rainer Johanni (2011-10-26)
+!!
+SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
+!
+  TYPE(t_patch), INTENT(IN) :: p_p
+  TYPE(t_patch), INTENT(IN) :: p_lp
+
+  TYPE(t_gridref_state), INTENT(INOUT) :: p_grf
+  TYPE(t_gridref_state), INTENT(INOUT) :: p_lgrf
+
+  INTEGER, INTENT(IN) :: jcd
+
+  INTEGER, ALLOCATABLE :: owner(:)
+  INTEGER :: j, k, n
+  INTEGER :: isb_e, ieb_e, isb_le, ieb_le, is_e, ie_e
+  INTEGER :: isb_c, ieb_c, isb_lc, ieb_lc, is_c, ie_c
+
+  REAL(wp), ALLOCATABLE :: z_tmp_s(:,:,:), z_tmp_r(:,:,:)
+
+  INTEGER :: grf_vec_dim_1, grf_vec_dim_2
+
+  grf_vec_dim_1 = 6
+  grf_vec_dim_2 = 5
+
+
+  isb_e      = p_p%edges%start_blk(grf_bdyintp_start_e,jcd)
+  ieb_e      = p_p%edges%end_blk(min_rledge_int,jcd)
+  isb_c      = p_p%cells%start_blk(grf_bdyintp_start_c,jcd)
+  ieb_c      = p_p%cells%end_blk(min_rlcell_int,jcd)
+
+  isb_le      = p_lp%edges%start_blk(grf_bdyintp_start_e,jcd)
+  ieb_le      = p_lp%edges%end_blk(min_rledge_int,jcd)
+  isb_lc      = p_lp%cells%start_blk(grf_bdyintp_start_c,jcd)
+  ieb_lc      = p_lp%cells%end_blk(min_rlcell_int,jcd)
+
+  is_e = idx_1d(p_p%edges%start_idx(grf_bdyintp_start_e,jcd), &
+                p_p%edges%start_blk(grf_bdyintp_start_e,jcd))
+  ie_e = idx_1d(p_p%edges%end_idx(min_rledge_int,jcd), &
+                p_p%edges%end_blk(min_rledge_int,jcd))
+
+  is_c = idx_1d(p_p%cells%start_idx(grf_bdyintp_start_c,jcd), &
+                p_p%cells%start_blk(grf_bdyintp_start_c,jcd))
+  ie_c = idx_1d(p_p%cells%end_idx(min_rlcell_int,jcd), &
+                p_p%cells%end_blk(min_rlcell_int,jcd))
+
+  ! Set up communication patterns for transferring the data to local parents.
+  ! Since these communication patterns are not used elsewhere, they are
+  ! stored locally and deleted at the end of the routine
+
+
+  ALLOCATE(owner(p_p%n_patch_edges))
+  owner = -1
+  DO j = is_e, ie_e
+    owner(j) = p_lp%edges%owner_g(p_p%edges%glb_index(j))
+  ENDDO
+  CALL setup_comm_pattern(p_p%n_patch_edges, owner, p_p%edges%glb_index, &
+    & p_lp%edges%loc_index, comm_pat_loc_to_glb_e)
+  DEALLOCATE(owner)
+
+  ALLOCATE(owner(p_p%n_patch_cells))
+  owner = -1
+  DO j = is_c, ie_c
+    owner(j) = p_lp%cells%owner_g(p_p%cells%glb_index(j))
+  ENDDO
+  CALL setup_comm_pattern(p_p%n_patch_cells, owner, p_p%cells%glb_index, &
+    & p_lp%cells%loc_index, comm_pat_loc_to_glb_c)
+  DEALLOCATE(owner)
+
+  ALLOCATE(z_tmp_s(nproma,4,p_lp%nblks_e))
+  ALLOCATE(z_tmp_r(nproma,4,p_p%nblks_e))
+  z_tmp_s = 0._wp
+  z_tmp_r = 0._wp
+  z_tmp_s(:,1,isb_le:ieb_le) = p_lgrf%p_dom(jcd)%grf_vec_stencil_1a(:,:)
+  z_tmp_s(:,2,isb_le:ieb_le) = p_lgrf%p_dom(jcd)%grf_vec_stencil_1b(:,:)
+  z_tmp_s(:,3,isb_le:ieb_le) = p_lgrf%p_dom(jcd)%grf_vec_stencil_2a(:,:)
+  z_tmp_s(:,4,isb_le:ieb_le) = p_lgrf%p_dom(jcd)%grf_vec_stencil_2b(:,:)
+
+  CALL exchange_data(comm_pat_loc_to_glb_e, RECV=z_tmp_r, SEND=z_tmp_s)
+
+  p_grf%p_dom(jcd)%grf_vec_stencil_1a(:,:) = z_tmp_r(:,1,isb_e:ieb_e)
+  p_grf%p_dom(jcd)%grf_vec_stencil_1b(:,:) = z_tmp_r(:,2,isb_e:ieb_e)
+  p_grf%p_dom(jcd)%grf_vec_stencil_2a(:,:) = z_tmp_r(:,3,isb_e:ieb_e)
+  p_grf%p_dom(jcd)%grf_vec_stencil_2b(:,:) = z_tmp_r(:,4,isb_e:ieb_e)
+  DEALLOCATE(z_tmp_s)
+  DEALLOCATE(z_tmp_r)
+
+  ALLOCATE(z_tmp_s(nproma,2*grf_vec_dim_1+2*grf_vec_dim_2,p_lp%nblks_e))
+  ALLOCATE(z_tmp_r(nproma,2*grf_vec_dim_1+2*grf_vec_dim_2,p_p%nblks_e))
+  z_tmp_s = 0._wp
+  z_tmp_r = 0._wp
+
+  n = 0
+  DO k = 1, grf_vec_dim_1
+    n = n+1
+    z_tmp_s(:,n,isb_le:ieb_le) = glb_idx_1d_e(p_lp, p_lgrf%p_dom(jcd)%grf_vec_ind_1a(:,k,:), &
+                                                    p_lgrf%p_dom(jcd)%grf_vec_blk_1a(:,k,:))
+  ENDDO
+  DO k = 1, grf_vec_dim_1
+    n = n+1
+    z_tmp_s(:,n,isb_le:ieb_le) = glb_idx_1d_e(p_lp, p_lgrf%p_dom(jcd)%grf_vec_ind_1b(:,k,:), &
+                                                    p_lgrf%p_dom(jcd)%grf_vec_blk_1b(:,k,:))
+  ENDDO
+  DO k = 1, grf_vec_dim_2
+    n = n+1
+    z_tmp_s(:,n,isb_le:ieb_le) = glb_idx_1d_e(p_lp, p_lgrf%p_dom(jcd)%grf_vec_ind_2a(:,k,:), &
+                                                    p_lgrf%p_dom(jcd)%grf_vec_blk_2a(:,k,:))
+  ENDDO
+  DO k = 1, grf_vec_dim_2
+    n = n+1
+    z_tmp_s(:,n,isb_le:ieb_le) = glb_idx_1d_e(p_lp, p_lgrf%p_dom(jcd)%grf_vec_ind_2b(:,k,:), &
+                                                    p_lgrf%p_dom(jcd)%grf_vec_blk_2b(:,k,:))
+  ENDDO
+
+  CALL exchange_data(comm_pat_loc_to_glb_e, RECV=z_tmp_r, SEND=z_tmp_s)
+
+  n = 0
+  DO k = 1, grf_vec_dim_1
+    n = n+1
+    p_grf%p_dom(jcd)%grf_vec_ind_1a(:,k,:) = loc_idx_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
+    p_grf%p_dom(jcd)%grf_vec_blk_1a(:,k,:) = loc_blk_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
+  ENDDO
+  DO k = 1, grf_vec_dim_1
+    n = n+1
+    p_grf%p_dom(jcd)%grf_vec_ind_1b(:,k,:) = loc_idx_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
+    p_grf%p_dom(jcd)%grf_vec_blk_1b(:,k,:) = loc_blk_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
+  ENDDO
+  DO k = 1, grf_vec_dim_2
+    n = n+1
+    p_grf%p_dom(jcd)%grf_vec_ind_2a(:,k,:) = loc_idx_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
+    p_grf%p_dom(jcd)%grf_vec_blk_2a(:,k,:) = loc_blk_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
+  ENDDO
+  DO k = 1, grf_vec_dim_2
+    n = n+1
+    p_grf%p_dom(jcd)%grf_vec_ind_2b(:,k,:) = loc_idx_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
+    p_grf%p_dom(jcd)%grf_vec_blk_2b(:,k,:) = loc_blk_no_e(p_p, int(z_tmp_r(:,n,isb_e:ieb_e)))
+  ENDDO
+
+  n = 0
+  DO k = 1, grf_vec_dim_1
+    n = n+1
+    z_tmp_s(:,n,isb_le:ieb_le) = p_lgrf%p_dom(jcd)%grf_vec_coeff_1a(k,:,:)
+  ENDDO
+  DO k = 1, grf_vec_dim_1
+    n = n+1
+    z_tmp_s(:,n,isb_le:ieb_le) = p_lgrf%p_dom(jcd)%grf_vec_coeff_1b(k,:,:)
+  ENDDO
+  DO k = 1, grf_vec_dim_2
+    n = n+1
+    z_tmp_s(:,n,isb_le:ieb_le) = p_lgrf%p_dom(jcd)%grf_vec_coeff_2a(k,:,:)
+  ENDDO
+  DO k = 1, grf_vec_dim_2
+    n = n+1
+    z_tmp_s(:,n,isb_le:ieb_le) = p_lgrf%p_dom(jcd)%grf_vec_coeff_2b(k,:,:)
+  ENDDO
+
+  CALL exchange_data(comm_pat_loc_to_glb_e, RECV=z_tmp_r, SEND=z_tmp_s)
+
+  n = 0
+  DO k = 1, grf_vec_dim_1
+    n = n+1
+    p_grf%p_dom(jcd)%grf_vec_coeff_1a(k,:,:) = z_tmp_r(:,n,isb_e:ieb_e)
+  ENDDO
+  DO k = 1, grf_vec_dim_1
+    n = n+1
+    p_grf%p_dom(jcd)%grf_vec_coeff_1b(k,:,:) = z_tmp_r(:,n,isb_e:ieb_e)
+  ENDDO
+  DO k = 1, grf_vec_dim_2
+    n = n+1
+    p_grf%p_dom(jcd)%grf_vec_coeff_2a(k,:,:) = z_tmp_r(:,n,isb_e:ieb_e)
+  ENDDO
+  DO k = 1, grf_vec_dim_2
+    n = n+1
+    p_grf%p_dom(jcd)%grf_vec_coeff_2b(k,:,:) = z_tmp_r(:,n,isb_e:ieb_e)
+  ENDDO
+
+  DEALLOCATE(z_tmp_s)
+  DEALLOCATE(z_tmp_r)
+
+  ALLOCATE(z_tmp_s(nproma,2,p_lp%nblks_e))
+  ALLOCATE(z_tmp_r(nproma,2,p_p%nblks_e))
+  z_tmp_s = 0._wp
+  z_tmp_r = 0._wp
+
+  z_tmp_s(:,:,isb_le:ieb_le) = p_lgrf%p_dom(jcd)%grf_dist_pe2ce(:,:,:)
+
+  CALL exchange_data(comm_pat_loc_to_glb_e, RECV=z_tmp_r, SEND=z_tmp_s)
+
+  p_grf%p_dom(jcd)%grf_dist_pe2ce(:,:,:) = z_tmp_r(:,:,isb_e:ieb_e)
+
+  DEALLOCATE(z_tmp_s)
+  DEALLOCATE(z_tmp_r)
+
+  ALLOCATE(z_tmp_s(nproma,8,p_lp%nblks_c))
+  ALLOCATE(z_tmp_r(nproma,8,p_p%nblks_c))
+  z_tmp_s = 0._wp
+  z_tmp_r = 0._wp
+
+  z_tmp_s(:,1,isb_lc:ieb_lc) = p_lgrf%p_dom(jcd)%grf_dist_pc2cc(:,1,1,:)
+  z_tmp_s(:,2,isb_lc:ieb_lc) = p_lgrf%p_dom(jcd)%grf_dist_pc2cc(:,2,1,:)
+  z_tmp_s(:,3,isb_lc:ieb_lc) = p_lgrf%p_dom(jcd)%grf_dist_pc2cc(:,3,1,:)
+  z_tmp_s(:,4,isb_lc:ieb_lc) = p_lgrf%p_dom(jcd)%grf_dist_pc2cc(:,4,1,:)
+  z_tmp_s(:,5,isb_lc:ieb_lc) = p_lgrf%p_dom(jcd)%grf_dist_pc2cc(:,1,2,:)
+  z_tmp_s(:,6,isb_lc:ieb_lc) = p_lgrf%p_dom(jcd)%grf_dist_pc2cc(:,2,2,:)
+  z_tmp_s(:,7,isb_lc:ieb_lc) = p_lgrf%p_dom(jcd)%grf_dist_pc2cc(:,3,2,:)
+  z_tmp_s(:,8,isb_lc:ieb_lc) = p_lgrf%p_dom(jcd)%grf_dist_pc2cc(:,4,2,:)
+
+  CALL exchange_data(comm_pat_loc_to_glb_c, RECV=z_tmp_r, SEND=z_tmp_s)
+
+  p_grf%p_dom(jcd)%grf_dist_pc2cc(:,1,1,:) = z_tmp_r(:,1,isb_c:ieb_c)
+  p_grf%p_dom(jcd)%grf_dist_pc2cc(:,2,1,:) = z_tmp_r(:,2,isb_c:ieb_c)
+  p_grf%p_dom(jcd)%grf_dist_pc2cc(:,3,1,:) = z_tmp_r(:,3,isb_c:ieb_c)
+  p_grf%p_dom(jcd)%grf_dist_pc2cc(:,4,1,:) = z_tmp_r(:,4,isb_c:ieb_c)
+  p_grf%p_dom(jcd)%grf_dist_pc2cc(:,1,2,:) = z_tmp_r(:,5,isb_c:ieb_c)
+  p_grf%p_dom(jcd)%grf_dist_pc2cc(:,2,2,:) = z_tmp_r(:,6,isb_c:ieb_c)
+  p_grf%p_dom(jcd)%grf_dist_pc2cc(:,3,2,:) = z_tmp_r(:,7,isb_c:ieb_c)
+  p_grf%p_dom(jcd)%grf_dist_pc2cc(:,4,2,:) = z_tmp_r(:,8,isb_c:ieb_c)
+
+  DEALLOCATE(z_tmp_s)
+  DEALLOCATE(z_tmp_r)
+
+  CALL delete_comm_pattern(comm_pat_loc_to_glb_c)
+  CALL delete_comm_pattern(comm_pat_loc_to_glb_e)
+
+  ! Now create communication patterns for the complete patch
+
+  ALLOCATE(owner(p_p%n_patch_edges))
+  DO j = 1, p_p%n_patch_edges
+    owner(j) = p_lp%edges%owner_g(p_p%edges%glb_index(j))
+  ENDDO
+  CALL setup_comm_pattern(p_p%n_patch_edges, owner, p_p%edges%glb_index, &
+    & p_lp%edges%loc_index, comm_pat_loc_to_glb_e)
+  DEALLOCATE(owner)
+
+  ALLOCATE(owner(p_p%n_patch_cells))
+  DO j = 1, p_p%n_patch_cells
+    owner(j) = p_lp%cells%owner_g(p_p%cells%glb_index(j))
+  ENDDO
+  CALL setup_comm_pattern(p_p%n_patch_cells, owner, p_p%cells%glb_index, &
+    & p_lp%cells%loc_index, comm_pat_loc_to_glb_c)
+  DEALLOCATE(owner)
+
+  ALLOCATE(z_tmp_s(nproma,8,p_lp%nblks_c))
+  ALLOCATE(z_tmp_r(nproma,8,p_p%nblks_c))
+  z_tmp_s = 0
+  z_tmp_r = 0
+
+  n = 0
+  DO k = 1, 4
+    n = n+1
+    z_tmp_s(:,n,:) = p_lgrf%fbk_wgt_c(:,:,k)
+  ENDDO
+  DO k = 1, 4
+    n = n+1
+    z_tmp_s(:,n,:) = p_lgrf%fbk_wgt_ct(:,:,k)
+  ENDDO
+
+  CALL exchange_data(comm_pat_loc_to_glb_c, RECV=z_tmp_r, SEND=z_tmp_s)
+
+  n = 0
+  DO k = 1, 4
+    n = n+1
+    p_grf%fbk_wgt_c(:,:,k) = z_tmp_r(:,n,:)
+  ENDDO
+  DO k = 1, 4
+    n = n+1
+    p_grf%fbk_wgt_ct(:,:,k) = z_tmp_r(:,n,:)
+  ENDDO
+
+  DEALLOCATE(z_tmp_s)
+  DEALLOCATE(z_tmp_r)
+
+  ALLOCATE(z_tmp_s(nproma,8,p_lp%nblks_e))
+  ALLOCATE(z_tmp_r(nproma,8,p_p%nblks_e))
+  z_tmp_s = 0
+  z_tmp_r = 0
+
+  n = 0
+  DO k = 1, 6
+    n = n+1
+    z_tmp_s(:,n,:) = p_lgrf%fbk_wgt_e(:,:,k)
+  ENDDO
+
+  CALL exchange_data(comm_pat_loc_to_glb_e, RECV=z_tmp_r, SEND=z_tmp_s)
+
+  n = 0
+  DO k = 1, 6
+    n = n+1
+    p_grf%fbk_wgt_e(:,:,k) = z_tmp_r(:,n,:)
+  ENDDO
+
+  DEALLOCATE(z_tmp_s)
+  DEALLOCATE(z_tmp_r)
+
+  CALL delete_comm_pattern(comm_pat_loc_to_glb_c)
+  CALL delete_comm_pattern(comm_pat_loc_to_glb_e)
+
+  ! Transfers from global parent to local parent
+
+  p_lgrf%fbk_dom_area(:) = p_grf%fbk_dom_area(:)
+
+  ! Please note:
+
+  ! pc_idx_c and pc_idx_e are also calculated on the global parent,
+  ! but they don't make sense on the local parent, so they are not
+  ! transferred currently
+
+END SUBROUTINE transfer_grf_state
 
 !-------------------------------------------------------------------------
 !
