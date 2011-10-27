@@ -37,6 +37,7 @@ MODULE mo_ocean_model
   USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs
   USE mo_mpi,                 ONLY: p_stop, &
     & my_process_is_io,  my_process_is_mpi_seq, my_process_is_mpi_test, &
+    & my_process_is_mpi_parallel,                                       &
     & set_mpi_work_communicators, set_comm_input_bcast, null_comm_type, &
     & p_pe_work
   USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, print_timer, &
@@ -75,6 +76,7 @@ MODULE mo_ocean_model
 !    & setup_transport         ! control parameters
 
   USE mo_subdivision,         ONLY: decompose_domain,         &
+    & finalize_decomposition,        &
     & copy_processor_splitting,      &
     & set_patch_communicators
   USE mo_dump_restore,        ONLY: dump_patch_state_netcdf,       &
@@ -284,6 +286,7 @@ CONTAINS
     ELSE
         CALL import_patches( p_patch_global,                       &
                             nlev,nlevp1,num_lev,num_levp1,nshift )      
+        IF(my_process_is_mpi_parallel()) CALL decompose_domain()
     ENDIF
 
     !--------------------------------------------------------------------------------
@@ -339,7 +342,7 @@ CONTAINS
 
     ELSE
 
-      CALL decompose_domain( )
+      CALL finalize_decomposition()
 
     ENDIF
 
