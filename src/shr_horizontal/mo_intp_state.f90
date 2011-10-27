@@ -1510,7 +1510,8 @@ SUBROUTINE xfer_var_r2(typ, pos_nproma, pos_nblks, p_p, p_lp, arri, arro)
 
   INTEGER, INTENT(IN) :: typ, pos_nproma, pos_nblks
   TYPE(t_patch), INTENT(IN) :: p_p, p_lp
-  REAL(wp) :: arri(:,:), arro(:,:)
+  REAL(wp), INTENT(IN)    :: arri(:,:)
+  REAL(wp), INTENT(INOUT) :: arro(:,:)
 
   IF(typ == SYNC_C) THEN
     CALL exchange_data(comm_pat_glb_to_loc_c, RECV=arro, SEND=arri)
@@ -1530,7 +1531,8 @@ SUBROUTINE xfer_var_r3(typ, pos_nproma, pos_nblks, p_p, p_lp, arri, arro)
 
   INTEGER, INTENT(IN) :: typ, pos_nproma, pos_nblks
   TYPE(t_patch), INTENT(IN) :: p_p, p_lp
-  REAL(wp) :: arri(:,:,:), arro(:,:,:)
+  REAL(wp), INTENT(IN)    :: arri(:,:,:)
+  REAL(wp), INTENT(INOUT) :: arro(:,:,:)
 
   INTEGER :: j
 
@@ -1558,7 +1560,8 @@ SUBROUTINE xfer_var_r4(typ, pos_nproma, pos_nblks, p_p, p_lp, arri, arro)
 
   INTEGER, INTENT(IN) :: typ, pos_nproma, pos_nblks
   TYPE(t_patch), INTENT(IN) :: p_p, p_lp
-  REAL(wp) :: arri(:,:,:,:), arro(:,:,:,:)
+  REAL(wp), INTENT(IN)    :: arri(:,:,:,:)
+  REAL(wp), INTENT(INOUT) :: arro(:,:,:,:)
 
   INTEGER :: i,j
 

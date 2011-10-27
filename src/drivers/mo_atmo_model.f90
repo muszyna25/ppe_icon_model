@@ -349,6 +349,7 @@ CONTAINS
           jgp = p_patch_subdiv(jg)%parent_id
           CALL transfer_interpol_state(p_patch_subdiv(jgp),p_patch_local_parent(jg), &
                                     &  p_int_state(jgp), p_int_state_local_parent(jg))
+          WRITE (*,*) ">>>>>>>>>>>>> max: ", maxval(p_int_state(jgp)%rbf_vec_blk_c)
         ENDDO
       ENDIF
     ENDIF
@@ -645,6 +646,8 @@ CONTAINS
       IF (mtgrm_output_config(jg)%lenabled) THEN
         CALL mtgrm_finalize(mtgrm_output_config(jg), jg)
       END IF
+    END DO
+    DO jg = 1, max_dom
       DEALLOCATE(mtgrm_output_config(jg)%station_list)
     END DO
 

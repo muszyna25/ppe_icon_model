@@ -1413,7 +1413,7 @@ CONTAINS
   !!
   SUBROUTINE destruct_ext_data
 
-    INTEGER :: jg
+    INTEGER :: jg, errstat
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = 'mo_ext_data:destruct_ext_data'
     !-------------------------------------------------------------------------
@@ -1446,6 +1446,10 @@ CONTAINS
         ! ### to be added if necessary ###
 
     END IF
+
+    DEALLOCATE(nclass_lu, STAT=errstat)
+    IF (errstat /= 0)  &
+      CALL finish (TRIM(routine), 'Error in DEALLOCATE operation!')
 
     CALL message (TRIM(routine), 'Destruction of data structure for ' // &
       &                          'external data finished')
