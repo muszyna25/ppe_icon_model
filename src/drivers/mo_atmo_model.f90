@@ -149,7 +149,8 @@ USE mo_grf_intp_data_strc,  ONLY: p_grf_state, p_grf_state_local_parent
 
 !-------------------------------------------------------------------------
 USE mo_io_restart,           ONLY: read_restart_info_file
-USE mo_io_restart_namelist,  ONLY: read_restart_namelists
+USE mo_io_restart_namelist,  ONLY: read_restart_namelists, &
+  &                                delete_restart_namelists
 USE mo_io_restart_attributes,ONLY: read_restart_attributes
 
 USE mo_read_namelists,     ONLY: read_atmo_namelists
@@ -649,6 +650,9 @@ CONTAINS
     DO jg = 1, max_dom
       DEALLOCATE(mtgrm_output_config(jg)%station_list)
     END DO
+
+    ! clear restart namelist buffer
+    CALL delete_restart_namelists()
 
     CALL message(TRIM(routine),'clean-up finished')
 

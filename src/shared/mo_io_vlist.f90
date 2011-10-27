@@ -2390,8 +2390,6 @@ CONTAINS
   !    &         vlistID(k_jg),gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
       ENDIF
 
-      CALL nf(nf_close(ncid))
-
       ! tracer fields
       !------------------------------------------------------------------
       ! set tracer names
@@ -2449,6 +2447,8 @@ CONTAINS
       END IF
 
     END IF  ! ocean
+
+    CALL nf(nf_close(ncid))
 
     !=========================================================================
     ! Create description of all output variables in vlist
