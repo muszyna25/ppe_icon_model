@@ -57,7 +57,7 @@ USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
 USE mo_oce_index,           ONLY: print_mxmn, jkc, jkdim, ipl_src
 USE mo_oce_state,           ONLY: t_hydro_ocean_diag, t_hydro_ocean_aux, v_base
 USE mo_oce_math_operators,  ONLY: rot_vertex_ocean,rot_vertex_ocean_mod,rot_vertex_ocean_total,&
- &                                grad_fd_norm_oce
+ &                                grad_fd_norm_oce, div_oce
 USE mo_math_utilities,      ONLY: gvec2cvec, t_cartesian_coordinates!gc2cc,cc2gc
 
 USE mo_scalar_product,      ONLY: map_cell2edges, dual_flip_flop, &
@@ -72,14 +72,78 @@ PRIVATE
 
 CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-PUBLIC :: veloc_adv_horz_mimetic
-PUBLIC :: veloc_adv_vert_mimetic
-PUBLIC :: veloc_adv_horz_RBF
-PUBLIC :: veloc_adv_vert_RBF
-!PUBLIC :: veloc_adv_diff_vert_RBF
-!PUBLIC :: veloc_adv_diff_vert_RBF2
-!INTEGER, PARAMETER :: MIN_DOLIC = 2
+PUBLIC  :: veloc_adv_horz_mimetic
+PRIVATE :: veloc_adv_horz_mimetic_div
+PRIVATE :: veloc_adv_horz_mimetic_rot
+PUBLIC  :: veloc_adv_vert_mimetic
+PRIVATE :: veloc_adv_vert_mimetic_div
+PRIVATE :: veloc_adv_vert_mimetic_rot
+PUBLIC  :: veloc_adv_horz_RBF
+PUBLIC  :: veloc_adv_vert_RBF
+
+
+INTEGER, PARAMETER, PRIVATE :: ROTATIONAL_FORM = 0
+INTEGER, PARAMETER, PRIVATE :: DIVERGENCE_FORM = 1
+INTEGER, PARAMETER, PRIVATE :: VELOCITY_ADVETION_FORM=0
+
 CONTAINS
+!-------------------------------------------------------------------------
+!
+!
+!>
+!! Computes horizontal advection of a (edge based) vector field.
+!! either by using rotational/vector-invariant form of velocity advection
+!! or the divergence form 
+!! @par Revision History
+!! Developed  by  Peter Korn, MPI-M (2011).
+!!
+SUBROUTINE veloc_adv_horz_mimetic( p_patch, vn_old, vn_new, p_diag, veloc_adv_horz_e, p_int)
+!
+!
+TYPE(t_patch),TARGET, INTENT(in) :: p_patch
+REAL(wp), INTENT(inout)          :: vn_old(:,:,:) ! dim: (nproma,n_zlev,nblks_e)
+REAL(wp), INTENT(inout)          :: vn_new(:,:,:) ! dim: (nproma,n_zlev,nblks_e)
+TYPE(t_hydro_ocean_diag)         :: p_diag
+REAL(wp), INTENT(out)            :: veloc_adv_horz_e(:,:,:)
+!
+!Interpolation necessary just for testing
+TYPE(t_int_state),TARGET,INTENT(IN), OPTIONAL :: p_int
+!-----------------------------------------------------------------------
+
+IF(VELOCITY_ADVETION_FORM==ROTATIONAL_FORM)THEN
+ CALL veloc_adv_horz_mimetic_rot( p_patch, vn_old, vn_new, p_diag, veloc_adv_horz_e, p_int)
+ELSEIF(VELOCITY_ADVETION_FORM==DIVERGENCE_FORM)THEN
+  CALL veloc_adv_horz_mimetic_div( p_patch, vn_old, p_diag, veloc_adv_horz_e)
+ENDIF
+
+END subroutine veloc_adv_horz_mimetic
+!-------------------------------------------------------------------------
+!
+!
+!>
+!! Computes vertical advection of a (edge based) vector field.
+!! either by using rotational/vector-invariant form of velocity advection
+!! or the divergence form 
+!! @par Revision History
+!! Developed  by  Peter Korn, MPI-M (2011).
+!!
+SUBROUTINE veloc_adv_vert_mimetic( p_patch, p_diag, veloc_adv_vert_e)
+!
+!
+TYPE(t_patch), TARGET, INTENT(in) :: p_patch
+TYPE(t_hydro_ocean_diag)          :: p_diag
+REAL(wp), INTENT(inout)           :: veloc_adv_vert_e(:,:,:)
+!-----------------------------------------------------------------------
+
+IF(VELOCITY_ADVETION_FORM==ROTATIONAL_FORM)THEN
+ CALL veloc_adv_vert_mimetic_rot( p_patch, p_diag,&
+ &                          veloc_adv_vert_e)
+ELSEIF(VELOCITY_ADVETION_FORM==DIVERGENCE_FORM)THEN
+  CALL  veloc_adv_vert_mimetic_div( p_patch, p_diag,&
+ &                          veloc_adv_vert_e)
+ENDIF
+
+END subroutine veloc_adv_vert_mimetic
 !-------------------------------------------------------------------------
 !
 !
@@ -100,7 +164,7 @@ CONTAINS
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2010).
 !!
-SUBROUTINE veloc_adv_horz_mimetic( p_patch, vn_old, vn_new, p_diag, veloc_adv_horz_e, p_int)
+SUBROUTINE veloc_adv_horz_mimetic_rot( p_patch, vn_old, vn_new, p_diag, veloc_adv_horz_e, p_int)
 !
 !
 !  patch on which computation is performed
@@ -408,7 +472,99 @@ DO jb = i_startblk_e, i_endblk_e
   END DO
 END DO
 
-END subroutine veloc_adv_horz_mimetic
+END subroutine veloc_adv_horz_mimetic_rot
+!-------------------------------------------------------------------------
+SUBROUTINE veloc_adv_horz_mimetic_div( p_patch, vn_old, p_diag, veloc_adv_horz_e)
+!
+!
+!  patch on which computation is performed
+!
+TYPE(t_patch),TARGET, INTENT(in) :: p_patch
+
+!
+! normal velocity  of which advection is computed
+REAL(wp), INTENT(inout) :: vn_old(:,:,:) ! dim: (nproma,n_zlev,nblks_e)
+!
+!diagnostic ocean state stores horizontally advected velocity
+TYPE(t_hydro_ocean_diag) :: p_diag
+!
+! variable in which horizontally advected velocity is stored
+REAL(wp), INTENT(out) :: veloc_adv_horz_e(:,:,:)
+!
+
+
+INTEGER :: slev, elev     ! vertical start and end level
+INTEGER :: jk, jb, jc, je!, jv, ile, ibe, ie, jev
+INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
+INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
+INTEGER :: rl_start_e, rl_end_e, rl_start_c, rl_end_c !, rl_start_v, rl_end_v
+REAL(wp) :: z_e  (nproma,n_zlev,p_patch%nblks_e)
+INTEGER :: il_c1, ib_c1, il_c2, ib_c2
+
+
+TYPE(t_cartesian_coordinates) :: u_v_cc(nproma,n_zlev,p_patch%nblks_e)
+!-----------------------------------------------------------------------
+! #slo# set local variable to zero due to nag -nan compiler-option
+z_e             (:,:,:) = 0.0_wp
+veloc_adv_horz_e(:,:,:) = 0.0_wp
+
+rl_start_e = 1
+rl_end_e   = min_rledge
+rl_start_c = 1
+rl_end_c   = min_rlcell
+
+i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
+i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
+i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
+i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
+
+slev = 1
+elev = n_zlev
+
+!Add relative vorticity and gradient of kinetic energy to obtain complete horizontal advection
+DO jb = i_startblk_e, i_endblk_e
+  CALL get_indices_e(p_patch, jb, i_startblk_e, i_endblk_e, &
+                     i_startidx_e, i_endidx_e, rl_start_e, rl_end_e)
+  DO jk = slev, elev
+    DO je = i_startidx_e, i_endidx_e
+    IF ( v_base%lsm_oce_e(je,jk,jb) > sea_boundary ) THEN
+      z_e(je,jk,jb)=0.0_wp
+    ELSE
+        !Neighbouring cells
+        il_c1 = p_patch%edges%cell_idx(je,jb,1)
+        ib_c1 = p_patch%edges%cell_blk(je,jb,1)
+        il_c2 = p_patch%edges%cell_idx(je,jb,2)
+        ib_c2 = p_patch%edges%cell_blk(je,jb,2)
+
+        !velocity vector at edges
+        u_v_cc(je,jk,jb)%x=0.5_wp*(p_diag%p_vn(il_c1,jk,ib_c1)%x+p_diag%p_vn(il_c2,jk,ib_c2)%x)
+
+        z_e(je,jk,jb)=vn_old(je,jk,jb)&
+        &*DOT_PRODUCT(u_v_cc(je,jk,jb)%x,p_patch%edges%primal_cart_normal(je,jb)%x)
+
+     ENDIF
+   END DO
+  END DO
+END DO
+
+CALL div_oce( z_e, p_patch, veloc_adv_horz_e)
+
+DO jb = i_startblk_e, i_endblk_e
+  CALL get_indices_e(p_patch, jb, i_startblk_e, i_endblk_e, &
+                     i_startidx_e, i_endidx_e, rl_start_e, rl_end_e)
+  DO jk = slev, elev
+    DO je = i_startidx_e, i_endidx_e
+    IF ( v_base%lsm_oce_e(je,jk,jb) > sea_boundary ) THEN
+      veloc_adv_horz_e(je,jk,jb) = 0.0_wp
+    ELSE
+      veloc_adv_horz_e(je,jk,jb)= veloc_adv_horz_e(je,jk,jb)&
+      &+ DOT_PRODUCT(u_v_cc(je,jk,jb)%x,p_patch%edges%dual_cart_normal(je,jb)%x)&
+      & *p_patch%edges%f_e(je,jb)
+     ENDIF
+   END DO
+  END DO
+END DO
+END subroutine veloc_adv_horz_mimetic_div
 !-------------------------------------------------------------------------
 FUNCTION laplacian4vortex_flux(p_patch, vort_flux_in) RESULT(vort_flux_out)
 TYPE(t_patch),TARGET, INTENT(in) :: p_patch
@@ -526,6 +682,270 @@ vort_flux_out = vort_flux_in + 1000000.0_wp*z_tmp
 
 
 END FUNCTION laplacian4vortex_flux
+!-------------------------------------------------------------------------
+!
+!
+!>
+!! Computes vertical advection of a (edge based) horizontal vector field that
+!! suits to rotational form of velocity equation.
+!! The vertical derivative of the velocity vector at circumcenters that
+!! is reconstructed from edge data is calculated and then multiplied by
+!! the vertical velocity. The product is mapped from top of the computational
+!! prism to the middle (still at centers) via the transposed of vertical differentiation
+!! and then transformed to edges.
+!!
+!! IMPORTANT: It is assumed that the velocity vector reconstruction from
+!! edges to cells has been done before.
+!!
+!! input:  lives on cells (velocity points)
+!! output: lives on edges (velocity points)
+!!
+!! @par Revision History
+!! Developed  by  Peter Korn, MPI-M (2010).
+!!
+SUBROUTINE veloc_adv_vert_mimetic_rot( p_patch, p_diag,&
+&                          veloc_adv_vert_e)
+
+TYPE(t_patch), TARGET, INTENT(in) :: p_patch
+TYPE(t_hydro_ocean_diag)          :: p_diag
+REAL(wp), INTENT(inout)           :: veloc_adv_vert_e(:,:,:)
+
+!local variables
+INTEGER :: slev, elev     ! vertical start and end level
+INTEGER :: jc, jk, jb
+INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+INTEGER :: z_dolic
+TYPE(t_cartesian_coordinates) :: z_adv_u_i(nproma,n_zlev+1,p_patch%nblks_c),  &
+  &                              z_adv_u_m(nproma,n_zlev,p_patch%nblks_c)
+!-----------------------------------------------------------------------
+
+! blocking
+i_startblk = p_patch%cells%start_blk(1,1)
+i_endblk   = p_patch%cells%end_blk(min_rlcell,1)
+slev = 1
+elev = n_zlev
+DO jk = slev, elev
+  DO jb = i_startblk, i_endblk
+    CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                       i_startidx, i_endidx, 1,min_rlcell)
+    DO jc = i_startidx, i_endidx
+      z_adv_u_i(jc,jk,jb)%x = 0.0_wp
+      z_adv_u_m(jc,jk,jb)%x = 0.0_wp
+    END DO
+  END DO
+END DO
+DO jb = i_startblk, i_endblk
+  CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                     i_startidx, i_endidx, 1,min_rlcell)
+  DO jc = i_startidx, i_endidx
+    z_adv_u_i(jc,elev+1,jb)%x = 0.0_wp
+  END DO
+END DO
+
+! CALL print_mxmn('ck (vadv) p_vn',1,p_diag%p_vn%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
+! CALL print_mxmn('ck (vadv) p_vn',2,p_diag%p_vn%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
+! CALL print_mxmn('ck (vadv) p_vn',3,p_diag%p_vn%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
+! CALL print_mxmn('ck (vadv) p_vn',4,p_diag%p_vn%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
+! CALL print_mxmn('ck (vadv) p_diag%w',1,p_diag%w,n_zlev+1,p_patch%nblks_c,'vel',ipl_src)
+! CALL print_mxmn('ck (vadv) p_diag%w',2,p_diag%w,n_zlev+1,p_patch%nblks_c,'vel',ipl_src)
+! CALL print_mxmn('ck (vadv) p_diag%w',3,p_diag%w,n_zlev+1,p_patch%nblks_c,'vel',ipl_src)
+! CALL print_mxmn('ck (vadv) p_diag%w',4,p_diag%w,n_zlev+1,p_patch%nblks_c,'vel',ipl_src)
+! CALL print_mxmn('ck (vadv) p_diag%w',5,p_diag%w,n_zlev+1,p_patch%nblks_c,'vel',ipl_src)
+
+!Step 1: multiply vertical velocity with vertical derivative of horizontal velocity 
+!This requires appropriate boundary conditions
+DO jb = i_startblk, i_endblk
+  CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                       i_startidx, i_endidx, 1,min_rlcell)
+  DO jc = i_startidx, i_endidx
+    z_dolic = v_base%dolic_c(jc,jb)
+
+    IF(z_dolic>=MIN_DOLIC)THEN 
+! !       ! 1a) ocean surface  !Code below explodes: Use upper boundary condition for d_z u ?
+! !         z_adv_u_i(jc,slev,jb)%x&
+! !         & = p_diag%w(jc,slev,jb)*(p_diag%p_vn(jc,slev,jb)%x - p_diag%p_vn(jc,slev+1,jb)%x)
+
+      ! 1b) ocean interior 
+      DO jk = slev+1, z_dolic-1
+        z_adv_u_i(jc,jk,jb)%x&
+            & = p_diag%w(jc,jk,jb)*(p_diag%p_vn(jc,jk-1,jb)%x - p_diag%p_vn(jc,jk,jb)%x)&
+            & / v_base%del_zlev_i(jk)
+
+!  write(*,*)'vert adv:v: ',jk, jc,jb,w_c(jc,jk,jb),&
+!&( p_diag%p_vn(jc,jk-1,jb)%x - p_diag%p_vn(jc,jk,jb)%x )
+      END DO
+      z_adv_u_i(jc,slev,jb)%x=0.0_wp!z_adv_u_i(jc,slev+1,jb)%x
+    ENDIF 
+  END DO
+
+END DO
+
+! CALL print_mxmn('check z_adv_u_i',1,z_adv_u_i%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
+! CALL print_mxmn('check z_adv_u_i',2,z_adv_u_i%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
+! CALL print_mxmn('check z_adv_u_i',3,z_adv_u_i%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
+! CALL print_mxmn('check z_adv_u_i',4,z_adv_u_i%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
+! ! Step 2: Map product of vertical velocity & vertical derivative from top of prism to mid position.
+! ! This mapping is the transposed of the vertical differencing.! 
+DO jb = i_startblk, i_endblk
+  CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
+    &                i_startidx, i_endidx, 1,min_rlcell)
+  DO jc = i_startidx, i_endidx
+    z_dolic = v_base%dolic_c(jc,jb)
+    IF(z_dolic>=MIN_DOLIC)THEN 
+      ! 2b) ocean interior
+
+      DO jk = slev+1,z_dolic-1
+
+           z_adv_u_m(jc,jk,jb)%x &
+           & = 0.5_wp*(z_adv_u_i(jc,jk,jb)%x+z_adv_u_i(jc,jk+1,jb)%x)
+!            z_adv_u_m(jc,jk,jb)%x &
+!            & = (v_base%del_zlev_i(jk)*z_adv_u_i(jc,jk,jb)%x&
+!            & +  v_base%del_zlev_i(jk+1)*z_adv_u_i(jc,jk+1,jb)%x) &
+!            & / (v_base%del_zlev_i(jk+1)+v_base%del_zlev_i(jk))
+      END DO
+       ! 2c) ocean bottom
+         z_adv_u_m(jc,z_dolic,jb)%x =0.0_wp!=  z_adv_u_i(jc,z_dolic,jb)%x
+    ENDIF
+  END DO
+! write(*,*)'B max/min vert adv:',jk, maxval(z_adv_u_m(:,jk,:)), minval(z_adv_u_m(:,jk,:)),&
+! & maxval(z_adv_v_m(:,jk,:)), minval(z_adv_v_m(:,jk,:))
+END DO
+do jk=1,4
+CALL print_mxmn('check z_adv_u_m',jk,z_adv_u_m%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
+enddo
+
+! ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
+CALL map_cell2edges( p_patch, z_adv_u_m, veloc_adv_vert_e, &
+  &                  opt_slev=slev, opt_elev=elev )
+!veloc_adv_vert_e=0.0_wp
+  DO jk=1,n_zlev
+    ipl_src=3  ! output print level (1-5, fix)
+    CALL print_mxmn('vert adv FINAL',jk,veloc_adv_vert_e(:,:,:),n_zlev, &
+      &              p_patch%nblks_e,'vel',ipl_src)
+  ! WRITE(987,*) 'max/min vert adv FINAL',jk, &
+  !   &        MAXVAL(veloc_adv_vert_e(:,jk,:)), MINVAL(veloc_adv_vert_e(:,jk,:))
+  END DO
+
+END subroutine veloc_adv_vert_mimetic_rot
+!-------------------------------------------------------------------------
+!
+!
+!>
+!! Computes vertical advection of a (edge based) horizontal vector field that
+!! suits to divergence form of velocity equation.
+!! The vertical derivative of the velocity vector at circumcenters that
+!! is reconstructed from edge data is calculated and then multiplied by
+!! the vertical velocity. The product is mapped from top of the computational
+!! prism to the middle (still at centers) via the transposed of vertical differentiation
+!! and then transformed to edges.
+!!
+!! IMPORTANT: It is assumed that the velocity vector reconstruction from
+!! edges to cells has been done before.
+!!
+!! input:  lives on cells (velocity points)
+!! output: lives on edges (velocity points)
+!!
+!! @par Revision History
+!! Developed  by  Peter Korn, MPI-M (2010).
+!!
+SUBROUTINE veloc_adv_vert_mimetic_div( p_patch, p_diag,&
+&                          veloc_adv_vert_e)
+
+TYPE(t_patch), TARGET, INTENT(in) :: p_patch
+TYPE(t_hydro_ocean_diag)          :: p_diag
+REAL(wp), INTENT(inout)           :: veloc_adv_vert_e(:,:,:)
+
+!local variables
+INTEGER :: slev, elev     ! vertical start and end level
+INTEGER :: jc, jk, jb
+INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+INTEGER :: z_dolic
+!REAL(wp) :: dzi, dzi_m1, dzi_p1
+!REAL(wp) :: dzm, dzm_m1, dzm_p1
+TYPE(t_cartesian_coordinates) :: z_adv_u_i(nproma,n_zlev+1,p_patch%nblks_c),  &
+  &                              z_adv_u_m(nproma,n_zlev,p_patch%nblks_c)
+!-----------------------------------------------------------------------
+! z_adv_u_i(nproma,n_zlev+1,p_patch%nblks_c)%x = 0.0_wp
+! z_adv_u_m(nproma,n_zlev,p_patch%nblks_c)%x   = 0.0_wp
+
+! blocking
+i_startblk = p_patch%cells%start_blk(1,1)
+i_endblk   = p_patch%cells%end_blk(min_rlcell,1)
+slev = 1
+elev = n_zlev
+DO jk = slev, elev
+  DO jb = i_startblk, i_endblk
+    CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                       i_startidx, i_endidx, 1,min_rlcell)
+    DO jc = i_startidx, i_endidx
+      z_adv_u_i(jc,jk,jb)%x = 0.0_wp
+      z_adv_u_m(jc,jk,jb)%x = 0.0_wp
+    END DO
+  END DO
+END DO
+DO jb = i_startblk, i_endblk
+  CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                     i_startidx, i_endidx, 1,min_rlcell)
+  DO jc = i_startidx, i_endidx
+    z_adv_u_i(jc,elev+1,jb)%x = 0.0_wp
+  END DO
+END DO
+
+DO jb = i_startblk, i_endblk
+  CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                       i_startidx, i_endidx, 1,min_rlcell)
+  DO jc = i_startidx, i_endidx
+    z_dolic = v_base%dolic_c(jc,jb)
+
+    IF(z_dolic>=MIN_DOLIC)THEN 
+! !       ! 1a) ocean surface  !Code below explodes: Use upper boundary condition for d_z u ?
+! !         z_adv_u_i(jc,slev,jb)%x&
+! !         & = p_diag%w(jc,slev,jb)*(p_diag%p_vn(jc,slev,jb)%x - p_diag%p_vn(jc,slev+1,jb)%x)
+
+      ! 1b) ocean interior 
+      DO jk = slev+1, z_dolic-1
+        z_adv_u_i(jc,jk,jb)%x&
+            & = 0.5_wp*p_diag%w(jc,jk,jb)*(p_diag%p_vn(jc,jk-1,jb)%x + p_diag%p_vn(jc,jk,jb)%x)
+      END DO
+    ENDIF 
+  END DO
+END DO
+
+! ! This mapping is the transposed of the vertical differencing.! 
+DO jb = i_startblk, i_endblk
+  CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
+    &                i_startidx, i_endidx, 1,min_rlcell)
+  DO jc = i_startidx, i_endidx
+    z_dolic = v_base%dolic_c(jc,jb)
+    IF(z_dolic>=MIN_DOLIC)THEN 
+      ! 2b) ocean interior
+
+      DO jk = slev,z_dolic-1
+           z_adv_u_m(jc,jk,jb)%x &
+           & = (z_adv_u_i(jc,jk,jb)%x+z_adv_u_i(jc,jk+1,jb)%x)/v_base%del_zlev_m(jk)
+      END DO
+    ENDIF
+  END DO
+! write(*,*)'B max/min vert adv:',jk, maxval(z_adv_u_m(:,jk,:)), minval(z_adv_u_m(:,jk,:)),&
+! & maxval(z_adv_v_m(:,jk,:)), minval(z_adv_v_m(:,jk,:))
+END DO
+do jk=1,4
+CALL print_mxmn('check z_adv_u_m',jk,z_adv_u_m%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
+enddo
+
+! ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
+CALL map_cell2edges( p_patch, z_adv_u_m, veloc_adv_vert_e, &
+  &                  opt_slev=slev, opt_elev=elev )
+veloc_adv_vert_e=0.0_wp
+  DO jk=1,n_zlev
+    ipl_src=3  ! output print level (1-5, fix)
+    CALL print_mxmn('vert adv FINAL',jk,veloc_adv_vert_e(:,:,:),n_zlev, &
+      &              p_patch%nblks_e,'vel',ipl_src)
+  ! WRITE(987,*) 'max/min vert adv FINAL',jk, &
+  !   &        MAXVAL(veloc_adv_vert_e(:,jk,:)), MINVAL(veloc_adv_vert_e(:,jk,:))
+  END DO
+
+END subroutine veloc_adv_vert_mimetic_div
 !-------------------------------------------------------------------------
 !
 !
@@ -840,352 +1260,7 @@ DO jk = slev, elev
 END DO
 
 END subroutine veloc_adv_horz_RBF
-!-------------------------------------------------------------------------
-!
-!
-!>
-!! Computes vertical advection of a (edge based) horizontal vector field.
-!! The vertical derivative of the velocity vector at circumcenters that
-!! is reconstructed from edge data is calculated and then multiplied by
-!! the vertical velocity. The product is mapped from top of the computational
-!! prism to the middle (still at centers) via the transposed of vertical differentiation
-!! and then transformed to edges.
-!!
-!! IMPORTANT: It is assumed that the velocity vector reconstruction from
-!! edges to cells has been done before.
-!!
-!! input:  lives on cells (velocity points)
-!! output: lives on edges (velocity points)
-!!
-!! @par Revision History
-!! Developed  by  Peter Korn, MPI-M (2010).
-!!
-SUBROUTINE veloc_adv_vert_mimetic( p_patch, p_aux, p_diag,&
-&                          top_bc_w_c,  bot_bc_w_c,&
-&                          veloc_adv_vert_e)
-
-TYPE(t_patch), TARGET, INTENT(in) :: p_patch
-TYPE(t_hydro_ocean_aux)           :: p_aux
-TYPE(t_hydro_ocean_diag)          :: p_diag
-!
-REAL(wp), INTENT(in) :: top_bc_w_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
-REAL(wp), INTENT(in) :: bot_bc_w_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
-! variable in which horizontally advected velocity is stored
-REAL(wp), INTENT(inout) :: veloc_adv_vert_e(:,:,:)
-
-!local variables
-INTEGER :: slev, elev     ! vertical start and end level
-INTEGER :: jc, jk, jb
-INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
-INTEGER :: z_dolic
-!REAL(wp) :: dzi, dzi_m1, dzi_p1
-!REAL(wp) :: dzm, dzm_m1, dzm_p1
-TYPE(t_cartesian_coordinates) :: z_adv_u_i(nproma,n_zlev+1,p_patch%nblks_c),  &
-  &                              z_adv_u_m(nproma,n_zlev,p_patch%nblks_c)
-!-----------------------------------------------------------------------
-! z_adv_u_i(nproma,n_zlev+1,p_patch%nblks_c)%x = 0.0_wp
-! z_adv_u_m(nproma,n_zlev,p_patch%nblks_c)%x   = 0.0_wp
-
-! blocking
-i_startblk = p_patch%cells%start_blk(1,1)
-i_endblk   = p_patch%cells%end_blk(min_rlcell,1)
-slev = 1
-elev = n_zlev
-DO jk = slev, elev
-  DO jb = i_startblk, i_endblk
-    CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, 1,min_rlcell)
-    DO jc = i_startidx, i_endidx
-      z_adv_u_i(jc,jk,jb)%x = 0.0_wp
-      z_adv_u_m(jc,jk,jb)%x = 0.0_wp
-    END DO
-  END DO
-END DO
-DO jb = i_startblk, i_endblk
-  CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                     i_startidx, i_endidx, 1,min_rlcell)
-  DO jc = i_startidx, i_endidx
-    z_adv_u_i(jc,elev+1,jb)%x = 0.0_wp
-  END DO
-END DO
-
-! CALL print_mxmn('ck (vadv) p_vn',1,p_diag%p_vn%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
-! CALL print_mxmn('ck (vadv) p_vn',2,p_diag%p_vn%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
-! CALL print_mxmn('ck (vadv) p_vn',3,p_diag%p_vn%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
-! CALL print_mxmn('ck (vadv) p_vn',4,p_diag%p_vn%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
-! CALL print_mxmn('ck (vadv) p_diag%w',1,p_diag%w,n_zlev+1,p_patch%nblks_c,'vel',ipl_src)
-! CALL print_mxmn('ck (vadv) p_diag%w',2,p_diag%w,n_zlev+1,p_patch%nblks_c,'vel',ipl_src)
-! CALL print_mxmn('ck (vadv) p_diag%w',3,p_diag%w,n_zlev+1,p_patch%nblks_c,'vel',ipl_src)
-! CALL print_mxmn('ck (vadv) p_diag%w',4,p_diag%w,n_zlev+1,p_patch%nblks_c,'vel',ipl_src)
-! CALL print_mxmn('ck (vadv) p_diag%w',5,p_diag%w,n_zlev+1,p_patch%nblks_c,'vel',ipl_src)
-
-!Step 1: multiply vertical velocity with vertical derivative of horizontal velocity 
-!This requires appropriate boundary conditions
-DO jb = i_startblk, i_endblk
-  CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, 1,min_rlcell)
-  DO jc = i_startidx, i_endidx
-    z_dolic = v_base%dolic_c(jc,jb)
-
-    IF(z_dolic>=MIN_DOLIC)THEN 
-! !       ! 1a) ocean surface  !Code below explodes: Use upper boundary condition for d_z u ?
-! !         z_adv_u_i(jc,slev,jb)%x&
-! !         & = p_diag%w(jc,slev,jb)*(p_diag%p_vn(jc,slev,jb)%x - p_diag%p_vn(jc,slev+1,jb)%x)
-
-      ! 1b) ocean interior 
-      DO jk = slev+1, z_dolic-1
-        z_adv_u_i(jc,jk,jb)%x&
-            & = p_diag%w(jc,jk,jb)*(p_diag%p_vn(jc,jk-1,jb)%x - p_diag%p_vn(jc,jk,jb)%x)&
-            & / v_base%del_zlev_i(jk)
-
-!  write(*,*)'vert adv:v: ',jk, jc,jb,w_c(jc,jk,jb),&
-!&( p_diag%p_vn(jc,jk-1,jb)%x - p_diag%p_vn(jc,jk,jb)%x )
-      END DO
-      z_adv_u_i(jc,slev,jb)%x=0.0_wp!z_adv_u_i(jc,slev+1,jb)%x
-    ENDIF 
-  END DO
-
-END DO
-
-! CALL print_mxmn('check z_adv_u_i',1,z_adv_u_i%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
-! CALL print_mxmn('check z_adv_u_i',2,z_adv_u_i%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
-! CALL print_mxmn('check z_adv_u_i',3,z_adv_u_i%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
-! CALL print_mxmn('check z_adv_u_i',4,z_adv_u_i%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
-! ! Step 2: Map product of vertical velocity & vertical derivative from top of prism to mid position.
-! ! This mapping is the transposed of the vertical differencing.! 
-DO jb = i_startblk, i_endblk
-  CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
-    &                i_startidx, i_endidx, 1,min_rlcell)
-  DO jc = i_startidx, i_endidx
-    z_dolic = v_base%dolic_c(jc,jb)
-    IF(z_dolic>=MIN_DOLIC)THEN 
-      ! 2b) ocean interior
-
-      DO jk = slev+1,z_dolic-1
-
-           z_adv_u_m(jc,jk,jb)%x &
-           & = 0.5_wp*(z_adv_u_i(jc,jk,jb)%x+z_adv_u_i(jc,jk+1,jb)%x)
-!            z_adv_u_m(jc,jk,jb)%x &
-!            & = (v_base%del_zlev_i(jk)*z_adv_u_i(jc,jk,jb)%x&
-!            & +  v_base%del_zlev_i(jk+1)*z_adv_u_i(jc,jk+1,jb)%x) &
-!            & / (v_base%del_zlev_i(jk+1)+v_base%del_zlev_i(jk))
-      END DO
-       ! 2c) ocean bottom
-         z_adv_u_m(jc,z_dolic,jb)%x =0.0_wp!=  z_adv_u_i(jc,z_dolic,jb)%x
-    ENDIF
-  END DO
-! write(*,*)'B max/min vert adv:',jk, maxval(z_adv_u_m(:,jk,:)), minval(z_adv_u_m(:,jk,:)),&
-! & maxval(z_adv_v_m(:,jk,:)), minval(z_adv_v_m(:,jk,:))
-END DO
-do jk=1,4
-CALL print_mxmn('check z_adv_u_m',jk,z_adv_u_m%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
-enddo
-
-! ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
-CALL map_cell2edges( p_patch, z_adv_u_m, veloc_adv_vert_e, &
-  &                  opt_slev=slev, opt_elev=elev )
-!veloc_adv_vert_e=0.0_wp
-  DO jk=1,n_zlev
-    ipl_src=3  ! output print level (1-5, fix)
-    CALL print_mxmn('vert adv FINAL',jk,veloc_adv_vert_e(:,:,:),n_zlev, &
-      &              p_patch%nblks_e,'vel',ipl_src)
-  ! WRITE(987,*) 'max/min vert adv FINAL',jk, &
-  !   &        MAXVAL(veloc_adv_vert_e(:,jk,:)), MINVAL(veloc_adv_vert_e(:,jk,:))
-  END DO
-
-END subroutine veloc_adv_vert_mimetic
 ! ! ! ! !-------------------------------------------------------------------------
-! ! !
-! ! !
-! ! !>
-! ! !! Computes vertical advection of a (edge based) horizontal vector field.
-! ! !! The vertical derivative of the velocity vector at circumcenters that
-! ! !! is reconstructed from edge data is calculated and then multiplied by
-! ! !! the vertical velocity. The product is mapped from top of the computational
-! ! !! prism to the middle (still at centers) via the transposed of vertical differentiation
-! ! !! and then transformed to edges.
-! ! !!
-! ! !! IMPORTANT: It is assumed that the velocity vector reconstruction from
-! ! !! edges to cells has been done before.
-! ! !!
-! ! !! input:  lives on cells (velocity points)
-! ! !! output: lives on edges (velocity points)
-! ! !!
-! ! !! @par Revision History
-! ! !! Developed  by  Peter Korn, MPI-M (2010).
-! ! !!
-! ! SUBROUTINE veloc_adv_diff_vert_RBF( p_patch, u_c, v_c, w_c, &
-! ! &                          top_bc_u_c, top_bc_v_c,          &
-! ! &                          bot_bc_u_c, bot_bc_v_c,          &
-! ! &                          A_v,                             & 
-! ! &                          veloc_adv_vert_e)
-! ! !
-! ! !  patch on which computation is performed
-! ! !
-! ! TYPE(t_patch), TARGET, INTENT(in) :: p_patch
-! ! 
-! ! !
-! ! ! Components of cell based variable which is vertically advected
-! ! REAL(wp), INTENT(in) :: u_c(:,:,:) ! dim: (nproma,n_zlev,nblks_c)
-! ! REAL(wp), INTENT(in) :: v_c(:,:,:) ! dim: (nproma,n_zlev,nblks_c)
-! ! REAL(wp), INTENT(in) :: w_c(:,:,:) ! dim: (nproma,n_zlev,nblks_c)
-! ! !
-! ! ! Top boundary condition for cell based variables
-! ! REAL(wp), INTENT(in) :: top_bc_u_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
-! ! REAL(wp), INTENT(in) :: top_bc_v_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
-! ! !
-! ! ! Bottom boundary condition for cell based variables
-! ! REAL(wp), INTENT(in) :: bot_bc_u_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
-! ! REAL(wp), INTENT(in) :: bot_bc_v_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
-! ! REAL(wp), INTENT(in) :: A_v(:,:,:)      ! dim: (nproma,n_zlev+1,nblks_c)
-! ! !
-! ! ! variable in which horizontally advected velocity is stored
-! ! REAL(wp), INTENT(out) :: veloc_adv_vert_e(:,:,:)
-! ! 
-! ! !INTEGER, PARAMETER :: top=1
-! ! INTEGER :: slev, elev     ! vertical start and end level
-! ! INTEGER :: jc, jk, jb, z_dolic
-! ! INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
-! ! REAL(wp) :: dzi, dzi_m1!, dzi_p1
-! ! REAL(wp) :: dzm, dzm_m1!, dzm_p1
-! ! 
-! ! REAL(wp) :: z_adv_diff_u(nproma,n_zlev,p_patch%nblks_c),  &
-! !   &         z_adv_diff_v(nproma,n_zlev,p_patch%nblks_c),  &
-! !   &         z_diff_u(nproma,n_zlev+1,p_patch%nblks_c),    &
-! !   &         z_diff_v(nproma,n_zlev+1,p_patch%nblks_c)
-! ! TYPE(t_cartesian_coordinates) :: zu_cc(nproma,n_zlev,p_patch%nblks_c)
-! ! !-----------------------------------------------------------------------
-! ! 
-! ! ! #slo# set local variable to zero due to nag -nan compiler-option
-! ! z_adv_diff_u(:,:,:) = 0.0_wp
-! ! z_adv_diff_v(:,:,:) = 0.0_wp
-! ! 
-! ! ! blocking
-! ! i_startblk = p_patch%cells%start_blk(1,1)
-! ! i_endblk   = p_patch%cells%end_blk(min_rlcell,1)
-! ! slev = 1
-! ! elev = n_zlev
-! ! 
-! ! !Step 1: multiply vertical velocity with vertical derivative of horizontal velocity 
-! ! !This requires appropriate boundary conditions
-! ! 
-! ! DO jb = i_startblk, i_endblk
-! !   CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-! !                      i_startidx, i_endidx, 1,min_rlcell)
-! !   DO jc = i_startidx, i_endidx
-! !     z_dolic = v_base%dolic_c(jc,jb)
-! !     DO jk = slev+1, z_dolic-1
-! !       !check if we have at least two layers of water
-! !       !  #slo# - 2011-04-01 - Is this really intended here
-! !       !  maybe this condition should be fulfilled everywhere
-! !       !  then it must be calculated in fill_vertical_domain
-! !       !  this condition could then be omitted here
-! !       IF (v_base%dolic_c(jc,jb) >= 2) THEN 
-! !       !IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-! !         !ocean interior 
-! !         dzi_m1 = v_base%del_zlev_i(jk-1)
-! ! 
-! !         z_diff_u(jc,jk,jb)&
-! !         & = A_v(jc,jk,jb)*( u_c(jc,jk-1,jb) - u_c(jc,jk,jb) )&
-! !         & / dzi_m1
-! ! 
-! !         z_diff_v(jc,jk,jb)&
-! !         & = A_v(jc,jk,jb)*( v_c(jc,jk-1,jb) - v_c(jc,jk,jb) )&
-! !         & / dzi_m1
-! !      ENDIF    ! at least 2 vertical layers
-! !     END DO
-! !   END DO
-! ! END DO
-! ! 
-! ! !Including top&bottom boundary condition
-! ! DO jb = i_startblk, i_endblk
-! !   CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-! !                      i_startidx, i_endidx, 1,min_rlcell)
-! !   DO jc = i_startidx, i_endidx
-! !     z_dolic = v_base%dolic_c(jc,jb)
-! ! 
-! !     z_diff_u(jc,1,jb)       = top_bc_u_c(jc,jb)
-! !     z_diff_v(jc,1,jb)       = top_bc_v_c(jc,jb)
-! ! 
-! !     z_diff_u(jc,z_dolic,jb) = bot_bc_u_c(jc,jb)
-! !     z_diff_v(jc,z_dolic,jb) = bot_bc_v_c(jc,jb)
-! !   END DO
-! ! END DO
-! ! 
-! ! ! Step 2: Map product of vertical velocity & vertical derivative from top of prism to mid position.
-! ! ! This mapping is the transposed of the vertical differencing.
-! ! 
-! ! DO jb = i_startblk, i_endblk
-! !   CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-! !                      i_startidx, i_endidx, 1,min_rlcell)
-! !   DO jc = i_startidx, i_endidx
-! !     z_dolic = v_base%dolic_c(jc,jb)
-! !     DO jk = slev, z_dolic
-! !       !distance between prism centers at levels jk and (jk-1)
-! !       dzi   = v_base%del_zlev_i(jk)
-! !       !thickness of prism at level jk
-! !       dzm   = v_base%del_zlev_m(jk)
-! ! 
-! !       !check if we are on land: To be replaced by 3D lsm  
-! !       ! #slo# 2011-05-11 - replace by consistent formulation: vertical loop down to dolic
-! !       IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-! !        IF ( jk == slev ) THEN
-! !          z_adv_diff_u(jc,jk,jb) =&
-! !          & (z_diff_u(jc,jk,jb)-z_diff_u(jc,jk+1,jb))/dzm
-! ! 
-! !          z_adv_diff_v(jc,jk,jb) =&
-! !          & (z_diff_v(jc,jk,jb)-z_diff_v(jc,jk+1,jb))/dzm
-! ! 
-! !        ELSEIF(jk>slev .AND. jk < z_dolic ) THEN
-! !          !thickness of prism at level (jk-1)
-! !          dzm_m1= v_base%del_zlev_m(jk-1)
-! !          !distance between prism centers at levels (jk-1) and (jk-2)
-! !          dzi_m1= v_base%del_zlev_i(jk-1) 
-! ! 
-! !          z_adv_diff_u(jc,jk,jb) &
-! !          & = -(( u_c(jc,jk-1,jb)- u_c(jc,jk,jb))*w_c(jc,jk-1,jb)&
-! !          &/dzi_m1                                               &
-! !          & - ( u_c(jc,jk,jb) - u_c(jc,jk+1,jb))*w_c(jc,jk,jb)   &
-! !          & /dzi)                                                &
-! !          & / (2.0_wp*dzm)                                       &
-! !          & + (z_diff_u(jc,jk,jb)-z_diff_u(jc,jk+1,jb))/dzm
-! ! 
-! !          z_adv_diff_v(jc,jk,jb) &
-! !          & = -(( v_c(jc,jk-1,jb)- v_c(jc,jk,jb))*w_c(jc,jk-1,jb)&
-! !          &/dzi_m1                                               &
-! !          & - ( v_c(jc,jk,jb) - v_c(jc,jk+1,jb))*w_c(jc,jk,jb)   &
-! !          &/dzi)                                                 &
-! !          & / (2.0_wp*dzm)                                       &
-! !          & + (z_diff_v(jc,jk,jb)-z_diff_v(jc,jk+1,jb))/dzm
-! ! 
-! !        ELSEIF ( jk == z_dolic ) THEN
-! !          dzm_m1= v_base%del_zlev_m(jk-1)
-! !          dzi_m1= v_base%del_zlev_i(jk-1)
-! ! 
-! !          z_adv_diff_u(jc,jk,jb) =&
-! !          &  (z_diff_u(jc,jk-1,jb)-z_diff_u(jc,jk,jb))/dzm_m1
-! ! 
-! !          z_adv_diff_v(jc,jk,jb) =&
-! !          &  (z_diff_v(jc,jk-1,jb)-z_diff_v(jc,jk,jb))/dzm_m1
-! !        ENDIF
-! !          CALL gvec2cvec( -z_adv_diff_u(jc,jk,jb), -z_adv_diff_v(jc,jk,jb), &
-! !          &               p_patch%cells%center(jc,jb)%lon,                &
-! !          &               p_patch%cells%center(jc,jb)%lat,                &
-! !          &               zu_cc(jc,jk,jb)%x(1),zu_cc(jc,jk,jb)%x(2),zu_cc(jc,jk,jb)%x(3))
-! !       ENDIF
-! !     END DO
-! !   END DO
-! ! !  write(*,*)'B max/min vert adv:',jk, maxval(z_adv_diff_u(:,jk,:)),&
-! ! !  & minval(z_adv_diff_u(:,jk,:)),&
-! ! !  & maxval(z_adv_diff_v(:,jk,:)),&
-! ! !  & minval(z_adv_diff_v(:,jk,:))
-! ! END DO
-! ! 
-! ! ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
-! ! CALL map_cell2edges( p_patch, zu_cc, veloc_adv_vert_e)
-! ! 
-! ! END subroutine veloc_adv_diff_vert_RBF
-! ! !-------------------------------------------------------------------------
 !
 !
 !>
@@ -1361,694 +1436,6 @@ CALL primal_map_c2e( p_patch,&
 ! END DO
 
 END subroutine veloc_adv_vert_RBF
-! !-----------------------------code below no longer used---------------------------------------------
-! ! ! !-------------------------------------------------------------------------
-! !
-! !
-! !>
-! !! Computes vertical advection of a (edge based) horizontal vector field.
-! !! The vertical derivative of the velocity vector at circumcenters that
-! !! is reconstructed from edge data is calculated and then multiplied by
-! !! the vertical velocity. The product is mapped from top of the computational
-! !! prism to the middle (still at centers) via the transposed of vertical differentiation
-! !! and then transformed to edges.
-! !!
-! !! IMPORTANT: It is assumed that the velocity vector reconstruction from
-! !! edges to cells has been done before.
-! !!
-! !! input:  lives on cells (velocity points)
-! !! output: lives on edges (velocity points)
-! !!
-! !! @par Revision History
-! !! Developed  by  Peter Korn, MPI-M (2010).
-! !!
-! SUBROUTINE veloc_adv_vert_RBF2( p_patch, u_c, v_c, w_c, &
-! &                          top_bc_u_c, top_bc_v_c, &
-! &                          bot_bc_u_c,  bot_bc_v_c,&
-! &                          top_bc_w_c,  bot_bc_w_c,&
-! &                          veloc_adv_vert_e)
-! !
-! !  patch on which computation is performed
-! !
-! TYPE(t_patch), TARGET, INTENT(in) :: p_patch
-! 
-! !
-! ! Components of cell based variable which is vertically advected
-! REAL(wp), INTENT(in) :: u_c(:,:,:) ! dim: (nproma,n_zlev,nblks_c)
-! REAL(wp), INTENT(in) :: v_c(:,:,:) ! dim: (nproma,n_zlev,nblks_c)
-! REAL(wp), INTENT(in) :: w_c(:,:,:) ! dim: (nproma,n_zlev,nblks_c)
-! !
-! ! Top boundary condition for cell based variables
-! REAL(wp), INTENT(in) :: top_bc_u_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
-! REAL(wp), INTENT(in) :: top_bc_v_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
-! !
-! ! Bottom boundary condition for cell based variables
-! REAL(wp), INTENT(in) :: bot_bc_u_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
-! REAL(wp), INTENT(in) :: bot_bc_v_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
-! !
-! REAL(wp), INTENT(in) :: top_bc_w_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
-! REAL(wp), INTENT(in) :: bot_bc_w_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
-! 
-! ! variable in which horizontally advected velocity is stored
-! REAL(wp), INTENT(out) :: veloc_adv_vert_e(:,:,:)
-! 
-! !INTEGER, PARAMETER :: top=1
-! INTEGER :: slev, elev     ! vertical start and end level
-! INTEGER :: jc, jk, jb
-! INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
-! 
-! REAL(wp) :: z_adv_u_i(nproma,n_zlev+1,p_patch%nblks_c),  &
-!   &         z_adv_v_i(nproma,n_zlev+1,p_patch%nblks_c),  &
-!   &         z_adv_u_m(nproma,n_zlev,p_patch%nblks_c),  &
-!   &         z_adv_v_m(nproma,n_zlev,p_patch%nblks_c)
-! !-----------------------------------------------------------------------
-! 
-! ! #slo# set local variable to zero due to nag -nan compiler-option
-! z_adv_u_i(:,:,:) = 0.0_wp
-! z_adv_v_i(:,:,:) = 0.0_wp
-! z_adv_u_m(:,:,:) = 0.0_wp
-! z_adv_v_m(:,:,:) = 0.0_wp
-! 
-! ! blocking
-! i_startblk = p_patch%cells%start_blk(1,1)
-! i_endblk   = p_patch%cells%end_blk(min_rlcell,1)
-! slev = 1
-! elev = n_zlev
-! 
-! !Step 1: multiply vertical velocity with vertical derivative of horizontal velocity 
-! !This requires appropriate boundary conditions
-! DO jk = slev, elev
-!   DO jb = i_startblk, i_endblk
-!     CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-!                        i_startidx, i_endidx, 1,min_rlcell)
-!     DO jc = i_startidx, i_endidx
-!       !check if we have at least two layers of water
-!       !  #slo# - 2011-04-01 - Is this really intended here
-!       !  maybe this condition should be fulfilled everywhere
-!       !  then it must be calculated in fill_vertical_domain
-!       !  this condition could then be omitted here
-!       IF (v_base%dolic_c(jc,jb) >= 2) THEN
-! 
-!         !1a) 0cean surface
-!         IF(jk==slev)THEN
-!           ! u,v-component
-!           z_adv_u_i(jc,jk,jb) =  top_bc_w_c(jc,jb)*top_bc_u_c(jc,jb)
-!           z_adv_v_i(jc,jk,jb) =  top_bc_w_c(jc,jb)*top_bc_v_c(jc,jb)
-! !write(*,*)'vert adv: top:',jc,jb,jk,top_bc_w_c(jc,jb),top_bc_u_c(jc,jb),top_bc_v_c(jc,jb) 
-!         !1b) ocean bottom 
-!         ELSEIF ( jk == v_base%dolic_c(jc,jb) ) THEN
-!           ! u,v-component
-!           z_adv_u_i(jc,jk+1,jb) = bot_bc_w_c(jc,jb)*bot_bc_u_c(jc,jb)
-!           z_adv_v_i(jc,jk+1,jb) = bot_bc_w_c(jc,jb)*bot_bc_v_c(jc,jb)
-! 
-!         !1c) ocean interior 
-!         ELSEIF( jk>slev .AND.  jk < v_base%dolic_c(jc,jb))THEN
-!           ! u,v-component
-!           z_adv_u_i(jc,jk,jb)&
-!           & = w_c(jc,jk,jb) *( u_c(jc,jk-1,jb) + u_c(jc,jk,jb) )
-! 
-!           z_adv_v_i(jc,jk,jb)&
-!           & = w_c(jc,jk,jb) *( v_c(jc,jk-1,jb) + v_c(jc,jk,jb) )
-! ! write(*,*)'vert adv:v: ',jk, jc,jb,w_c(jc,jk,jb) *( v_c(jc,jk,jb) - v_c(jc,jk-1,jb) ),&
-! ! &  v_c(jc,jk,jb), v_c(jc,jk-1,jb),v_base%del_zlev_i(jk-1) 
-! ! write(*,*)'vert adv:u: ',jk, jc,jb,w_c(jc,jk,jb) *( u_c(jc,jk,jb) - u_c(jc,jk-1,jb) ),&
-! ! &  u_c(jc,jk,jb), u_c(jc,jk-1,jb)
-! 
-!         ENDIF  ! jk-condition
-!       ENDIF    ! at least 2 vertical layers
-!     END DO
-!   END DO
-! !   write(*,*)'A max/min vert adv:',jk, maxval(z_adv_u_i(:,jk,:)), minval(z_adv_u_i(:,jk,:)),&
-! !   & maxval(z_adv_v_i(:,jk,:)), minval(z_adv_v_i(:,jk,:))
-! END DO
-! 
-! ! Step 2: Map product of vertical velocity & vertical derivative from top of prism to mid position.
-! ! This mapping is the transposed of the vertical differencing.
-! 
-! !1) From surface down to one layer before bottom
-! DO jk = slev, elev-1
-!   DO jb = i_startblk, i_endblk
-!     CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-!                        i_startidx, i_endidx, 1,min_rlcell)
-!     DO jc = i_startidx, i_endidx
-!       !check if we are on land: To be replaced by 3D lsm  
-!       IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-!       !IF (v_base%dolic_c(jc,jb) <= sea_boundary) THEN
-! 
-!         z_adv_u_m(jc,jk,jb) &
-!         & = (z_adv_u_i(jc,jk,jb) -  z_adv_u_i(jc,jk+1,jb)) &
-!         & / v_base%del_zlev_m(jk)
-! 
-!         z_adv_v_m(jc,jk,jb)&
-!         & = (z_adv_v_i(jc,jk,jb) - z_adv_v_i(jc,jk+1,jb))&
-!         & / v_base%del_zlev_m(jk)
-!       ENDIF
-!     END DO
-!   END DO
-! !  write(*,*)'B max/min vert adv:',jk, maxval(z_adv_u_m(:,jk,:)), minval(z_adv_u_m(:,jk,:)),&
-! !  & maxval(z_adv_v_m(:,jk,:)), minval(z_adv_v_m(:,jk,:))
-! END DO
-! !Bottom layer
-! !The value of v_base%del_zlev_i at the botom is 0.5*v_base%del_zlev_m
-! !The dimensioning of the firs arrays requires to seperate the vertical loop.
-! DO jb = i_startblk, i_endblk
-!   CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-!                      i_startidx, i_endidx, 1,min_rlcell)
-!   DO jc = i_startidx, i_endidx
-!     !check if we are on land: To be replaced by 3D lsm      
-!     IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-!     !IF (v_base%dolic_c(jc,jb) >= 2) THEN
-! 
-!       z_adv_u_m(jc,elev,jb) &
-!       & = (0.5_wp*v_base%del_zlev_m(elev)*z_adv_u_i(jc,elev+1,jb)&
-!       & +  v_base%del_zlev_i(elev)*z_adv_u_i(jc,elev,jb)) &
-!       & / (2.0_wp*v_base%del_zlev_m(elev))
-! 
-!       z_adv_v_m(jc,elev,jb)&
-!       & = (0.5_wp*v_base%del_zlev_m(elev)*z_adv_v_i(jc,elev+1,jb)&
-!       &   +  v_base%del_zlev_i(elev)*z_adv_v_i(jc,elev,jb))&
-!       & / (2.0_wp*v_base%del_zlev_m(elev))
-! 
-!       ENDIF
-!     END DO
-!   END DO
-! 
-! ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
-!  CALL primal_map_c2e( p_patch,&
-!                    & z_adv_u_m, z_adv_v_m,&
-!                    & veloc_adv_vert_e )
-! ! DO jk=1,n_zlev
-! !   WRITE(*,*) 'max/min vert adv FINAL',jk, &
-! !     &        MAXVAL(veloc_adv_vert_e(:,jk,:)), MINVAL(veloc_adv_vert_e(:,jk,:))
-! ! END DO
-! 
-! END subroutine veloc_adv_vert_RBF2
-! ! ! !-------------------------------------------------------------------------
-! !
-! !
-! !>
-! !! Computes vertical advection of a (edge based) horizontal vector field.
-! !! The vertical derivative of the velocity vector at circumcenters that
-! !! is reconstructed from edge data is calculated and then multiplied by
-! !! the vertical velocity. The product is mapped from top of the computational
-! !! prism to the middle (still at centers) via the transposed of vertical differentiation
-! !! and then transformed to edges.
-! !!
-! !! IMPORTANT: It is assumed that the velocity vector reconstruction from
-! !! edges to cells has been done before.
-! !!
-! !! input:  lives on cells (velocity points)
-! !! output: lives on edges (velocity points)
-! !!
-! !! @par Revision History
-! !! Developed  by  Peter Korn, MPI-M (2010).
-! !!
-! SUBROUTINE veloc_adv_vert_mimetic_old( p_patch, p_aux, p_diag,&
-! &                          top_bc_w_c,  bot_bc_w_c,&
-! &                          veloc_adv_vert_e)
-! 
-! TYPE(t_patch), TARGET, INTENT(in) :: p_patch
-! TYPE(t_hydro_ocean_aux)           :: p_aux
-! TYPE(t_hydro_ocean_diag)          :: p_diag
-! !
-! REAL(wp), INTENT(in) :: top_bc_w_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
-! REAL(wp), INTENT(in) :: bot_bc_w_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
-! ! variable in which horizontally advected velocity is stored
-! REAL(wp), INTENT(inout) :: veloc_adv_vert_e(:,:,:)
-! 
-! !local variables
-! INTEGER :: slev, elev     ! vertical start and end level
-! INTEGER :: jc, jk, jb
-! INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
-! 
-! TYPE(t_cartesian_coordinates) :: z_adv_u_i(nproma,n_zlev+1,p_patch%nblks_c),  &
-!   &                              z_adv_u_m(nproma,n_zlev,p_patch%nblks_c)
-! !-----------------------------------------------------------------------
-! ! #slo# set local variable to zero due to nag -nan compiler-option
-! ! z_adv_u_i(nproma,n_zlev+1,p_patch%nblks_c)%x = 0.0_wp
-! ! z_adv_u_m(nproma,n_zlev,p_patch%nblks_c)%x   = 0.0_wp
-! 
-! ! blocking
-! i_startblk = p_patch%cells%start_blk(1,1)
-! i_endblk   = p_patch%cells%end_blk(min_rlcell,1)
-! slev = 1
-! elev = n_zlev
-! DO jk = slev, elev
-!   DO jb = i_startblk, i_endblk
-!     CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-!                        i_startidx, i_endidx, 1,min_rlcell)
-!     DO jc = i_startidx, i_endidx
-!       z_adv_u_i(jc,jk,jb)%x = 0.0_wp
-!       z_adv_u_m(jc,jk,jb)%x = 0.0_wp
-!     END DO
-!   END DO
-! END DO
-! DO jb = i_startblk, i_endblk
-!   CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-!                      i_startidx, i_endidx, 1,min_rlcell)
-!   DO jc = i_startidx, i_endidx
-!     z_adv_u_i(jc,elev+1,jb)%x = 0.0_wp
-!   END DO
-! END DO
-! 
-! 
-! !Step 1: multiply vertical velocity with vertical derivative of horizontal velocity 
-! !This requires appropriate boundary conditions
-! DO jk = slev, elev
-!   DO jb = i_startblk, i_endblk
-!     CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-!                        i_startidx, i_endidx, 1,min_rlcell)
-!     DO jc = i_startidx, i_endidx
-!       !check if we are on land: To be replaced by 3D lsm
-!       IF (v_base%dolic_c(jc,jb) /= 0) THEN
-!         !1a) 0cean surface
-!         IF(jk==slev)THEN
-! 
-! !          z_adv_u_i(jc,jk,jb)%x = top_bc_w_c(jc,jb)*p_aux%bc_top_veloc_cc(jc,jb)%x
-!           z_adv_u_i(jc,jk,jb)%x = p_diag%w(jc,1,jb)*p_aux%bc_top_veloc_cc(jc,jb)%x
-!         !1b) ocean bottom 
-!         ELSEIF ( jk == v_base%dolic_c(jc,jb) ) THEN
-! 
-!           z_adv_u_i(jc,jk+1,jb)%x = bot_bc_w_c(jc,jb)*p_aux%bc_bot_veloc_cc(jc,jb)%x
-! 
-!         !1c) ocean interior 
-!         ELSEIF( jk >slev .AND. jk < v_base%dolic_c(jc,jb))THEN
-! 
-!           z_adv_u_i(jc,jk,jb)%x&
-!             & = p_diag%w(jc,jk,jb)*(p_diag%p_vn(jc,jk-1,jb)%x - p_diag%p_vn(jc,jk,jb)%x)&
-!             & / v_base%del_zlev_i(jk-1)
-! ! ! write(*,*)'vert adv:v: ',jk, jc,jb,w_c(jc,jk,jb),&
-! !&( p_diag%p_vn(jc,jk-1,jb)%x - p_diag%p_vn(jc,jk,jb)%x )
-! 
-!         ENDIF
-!       ENDIF
-!     END DO
-!   END DO
-! ! write(*,*)'A max/min vert adv:',jk, maxval(z_adv_u_i(:,jk,:)), minval(z_adv_u_i(:,jk,:)),&
-! ! & maxval(z_adv_v_i(:,jk,:)), minval(z_adv_v_i(:,jk,:))
-! END DO
-! 
-! ! ! Step 2: Map product of vertical velocity & vertical derivative from top of prism to mid position.
-! ! ! This mapping is the transposed of the vertical differencing.
-! ! 
-! ! !1) From surface down to one layer before bottom
-! DO jk = slev, elev-1
-!   DO jb = i_startblk, i_endblk
-!     CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-!                        i_startidx, i_endidx, 1,min_rlcell)
-!     DO jc = i_startidx, i_endidx
-!       ! #slo# 2011-04-01 - dolic_c is now correct
-!       ! compare also formulation in veloc_adv_vert_RBF l. 765-790
-!       IF ( jk <= v_base%dolic_c(jc,jb) ) THEN
-!       !IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-!         z_adv_u_m(jc,jk,jb)%x &
-!         & = (v_base%del_zlev_i(jk+1)*z_adv_u_i(jc,jk+1,jb)%x&
-!         & +  v_base%del_zlev_i(jk)*z_adv_u_i(jc,jk,jb)%x) &
-!         & / (2.0_wp*v_base%del_zlev_m(jk))
-!       ! & / (v_base%del_zlev_m(jk+1)+v_base%del_zlev_m(jk))
-!       ENDIF
-!     END DO
-!   END DO
-! ! write(*,*)'B max/min vert adv:',jk, maxval(z_adv_u_m(:,jk,:)), minval(z_adv_u_m(:,jk,:)),&
-! ! & maxval(z_adv_v_m(:,jk,:)), minval(z_adv_v_m(:,jk,:))
-! END DO
-! 
-! ! !Bottom layer
-! ! !The value of v_base%del_zlev_i at the botom is 0.5*v_base%del_zlev_m
-! ! !The dimensioning of the first arrays requires to seperate the vertical loop.
-! DO jb = i_startblk, i_endblk
-!   CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-!                      i_startidx, i_endidx, 1,min_rlcell)
-!   DO jc = i_startidx, i_endidx
-!     ! #slo# 2011-04-01 - dolic_c is now correct
-!     IF ( elev <= v_base%dolic_c(jc,jb) ) THEN
-!     !IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-! 
-!       z_adv_u_m(jc,elev,jb)%x &
-!       ! #slo# 2011-04-01 - Attention to multiplying by dz(elev) in both terms
-!       & = (0.5_wp*v_base%del_zlev_m(elev)*z_adv_u_i(jc,elev+1,jb)%x&
-!       & +  v_base%del_zlev_i(elev)*z_adv_u_i(jc,elev,jb)%x) &
-!       & / (2.0_wp*v_base%del_zlev_m(elev))
-!       ENDIF
-!     END DO
-!   END DO
-! 
-! ! ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
-!   CALL map_cell2edges( p_patch, z_adv_u_m, veloc_adv_vert_e )
-! 
-! !  DO jk=1,n_zlev
-! !    WRITE(*,*) 'max/min vert adv FINAL',jk, &
-! !      &        MAXVAL(veloc_adv_vert_e(:,jk,:)), MINVAL(veloc_adv_vert_e(:,jk,:))
-! !  END DO
-! 
-! END subroutine veloc_adv_vert_mimetic_old
-! ! !-------------------------------------------------------------------------
-!
-!
-!>
-!! Computes vertical advection of a (edge based) horizontal vector field.
-!! The vertical derivative of the velocity vector at circumcenters that
-!! is reconstructed from edge data is calculated and then multiplied by
-!! the vertical velocity. The product is mapped from top of the computational
-!! prism to the middle (still at centers) via the transposed of vertical differentiation
-!! and then transformed to edges.
-!!
-!! IMPORTANT: It is assumed that the velocity vector reconstruction from
-!! edges to cells has been done before.
-!!
-!! input:  lives on cells (velocity points)
-!! output: lives on edges (velocity points)
-!!
-!! @par Revision History
-!! Developed  by  Peter Korn, MPI-M (2010).
-!!
-! ! SUBROUTINE veloc_adv_vert_RBF_old( p_patch, u_c, v_c, w_c, &
-! ! &                          top_bc_u_c, top_bc_v_c, &
-! ! &                          bot_bc_u_c,  bot_bc_v_c,&
-! ! &                          top_bc_w_c,  bot_bc_w_c,&
-! ! &                          veloc_adv_vert_e)
-! ! !
-! ! !  patch on which computation is performed
-! ! !
-! ! TYPE(t_patch), TARGET, INTENT(in) :: p_patch
-! ! 
-! ! !
-! ! ! Components of cell based variable which is vertically advected
-! ! REAL(wp), INTENT(in) :: u_c(:,:,:) ! dim: (nproma,n_zlev,nblks_c)
-! ! REAL(wp), INTENT(in) :: v_c(:,:,:) ! dim: (nproma,n_zlev,nblks_c)
-! ! REAL(wp), INTENT(in) :: w_c(:,:,:) ! dim: (nproma,n_zlev,nblks_c)
-! ! !
-! ! ! Top boundary condition for cell based variables
-! ! REAL(wp), INTENT(in) :: top_bc_u_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
-! ! REAL(wp), INTENT(in) :: top_bc_v_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
-! ! !
-! ! ! Bottom boundary condition for cell based variables
-! ! REAL(wp), INTENT(in) :: bot_bc_u_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
-! ! REAL(wp), INTENT(in) :: bot_bc_v_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
-! ! !
-! ! REAL(wp), INTENT(in) :: top_bc_w_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
-! ! REAL(wp), INTENT(in) :: bot_bc_w_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
-! ! 
-! ! ! variable in which horizontally advected velocity is stored
-! ! REAL(wp), INTENT(out) :: veloc_adv_vert_e(:,:,:)
-! ! 
-! ! !INTEGER, PARAMETER :: top=1
-! ! INTEGER :: slev, elev     ! vertical start and end level
-! ! INTEGER :: jc, jk, jb
-! ! INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
-! ! 
-! ! REAL(wp) :: z_adv_u_i(nproma,n_zlev+1,p_patch%nblks_c),  &
-! !   &         z_adv_v_i(nproma,n_zlev+1,p_patch%nblks_c),  &
-! !   &         z_adv_u_m(nproma,n_zlev,p_patch%nblks_c),  &
-! !   &         z_adv_v_m(nproma,n_zlev,p_patch%nblks_c)
-! ! !-----------------------------------------------------------------------
-! ! 
-! ! ! #slo# set local variable to zero due to nag -nan compiler-option
-! ! z_adv_u_i(:,:,:) = 0.0_wp
-! ! z_adv_v_i(:,:,:) = 0.0_wp
-! ! z_adv_u_m(:,:,:) = 0.0_wp
-! ! z_adv_v_m(:,:,:) = 0.0_wp
-! ! 
-! ! ! blocking
-! ! i_startblk = p_patch%cells%start_blk(1,1)
-! ! i_endblk   = p_patch%cells%end_blk(min_rlcell,1)
-! ! slev = 1
-! ! elev = n_zlev
-! ! 
-! ! !Step 1: multiply vertical velocity with vertical derivative of horizontal velocity 
-! ! !This requires appropriate boundary conditions
-! ! DO jk = slev, elev
-! !   DO jb = i_startblk, i_endblk
-! !     CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-! !                        i_startidx, i_endidx, 1,min_rlcell)
-! !     DO jc = i_startidx, i_endidx
-! !       !check if we have at least two layers of water
-! !       !  #slo# - 2011-04-01 - Is this really intended here
-! !       !  maybe this condition should be fulfilled everywhere
-! !       !  then it must be calculated in fill_vertical_domain
-! !       !  this condition could then be omitted here
-! !       IF (v_base%dolic_c(jc,jb) >= 2) THEN
-! ! 
-! !         !1a) 0cean surface
-! !         IF(jk==slev)THEN
-! !           ! u,v-component
-! ! !           z_adv_u_i(jc,jk,jb) =  top_bc_w_c(jc,jb)*top_bc_u_c(jc,jb)
-! ! !           z_adv_v_i(jc,jk,jb) =  top_bc_w_c(jc,jb)*top_bc_v_c(jc,jb)
-! !           z_adv_u_i(jc,jk,jb) =  top_bc_w_c(jc,jb)*top_bc_u_c(jc,jb)
-! !           z_adv_v_i(jc,jk,jb) =  top_bc_w_c(jc,jb)*top_bc_v_c(jc,jb)
-! ! !write(*,*)'vert adv: top:',jc,jb,jk,top_bc_w_c(jc,jb),top_bc_u_c(jc,jb),top_bc_v_c(jc,jb) 
-! !         !1b) ocean bottom 
-! !         ELSEIF ( jk == v_base%dolic_c(jc,jb) ) THEN
-! !           ! u,v-component
-! !           z_adv_u_i(jc,jk+1,jb) = bot_bc_w_c(jc,jb)*bot_bc_u_c(jc,jb)
-! !           z_adv_v_i(jc,jk+1,jb) = bot_bc_w_c(jc,jb)*bot_bc_v_c(jc,jb)
-! ! 
-! !         !1c) ocean interior 
-! !         ELSEIF( jk>slev .AND.  jk < v_base%dolic_c(jc,jb))THEN
-! !           ! u,v-component
-! !           z_adv_u_i(jc,jk,jb)&
-! !           & = w_c(jc,jk,jb) *( u_c(jc,jk-1,jb) - u_c(jc,jk,jb) )&
-! !             & / v_base%del_zlev_i(jk-1)
-! ! 
-! !           z_adv_v_i(jc,jk,jb)&
-! !           & = w_c(jc,jk,jb) *( v_c(jc,jk-1,jb) - v_c(jc,jk,jb) )&
-! !           & / v_base%del_zlev_i(jk-1) !&
-! ! ! write(*,*)'vert adv:v: ',jk, jc,jb,w_c(jc,jk,jb) *( v_c(jc,jk,jb) - v_c(jc,jk-1,jb) ),&
-! ! ! &  v_c(jc,jk,jb), v_c(jc,jk-1,jb),v_base%del_zlev_i(jk-1) 
-! ! ! write(*,*)'vert adv:u: ',jk, jc,jb,w_c(jc,jk,jb) *( u_c(jc,jk,jb) - u_c(jc,jk-1,jb) ),&
-! ! ! &  u_c(jc,jk,jb), u_c(jc,jk-1,jb)
-! ! 
-! !         ENDIF  ! jk-condition
-! !       ENDIF    ! at least 2 vertical layers
-! !     END DO
-! !   END DO
-! ! !  write(*,*)'A max/min vert adv:',jk, maxval(z_adv_u_i(:,jk,:)), minval(z_adv_u_i(:,jk,:)),&
-! ! !  & maxval(z_adv_v_i(:,jk,:)), minval(z_adv_v_i(:,jk,:))
-! ! END DO
-! ! 
-! ! ! Step 2: Map product of vertical velocity & vertical derivative from top of prism to mid position.
-! ! ! This mapping is the transposed of the vertical differencing.
-! ! 
-! ! !1) From surface down to one layer before bottom
-! ! DO jk = slev, elev-1
-! !   DO jb = i_startblk, i_endblk
-! !     CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-! !                        i_startidx, i_endidx, 1,min_rlcell)
-! !     DO jc = i_startidx, i_endidx
-! !       !check if we are on land: To be replaced by 3D lsm  
-! !       ! #slo# 2011-05-11 - replace by consistent formulation: vertical loop down to dolic
-! !       IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-! !       !IF (v_base%dolic_c(jc,jb) <= sea_boundary) THEN
-! ! 
-! !         z_adv_u_m(jc,jk,jb) &
-! !         & = (v_base%del_zlev_i(jk+1)*z_adv_u_i(jc,jk+1,jb)&
-! !         & +  v_base%del_zlev_i(jk)*z_adv_u_i(jc,jk,jb)) &
-! !         & / (2.0_wp*v_base%del_zlev_m(jk))
-! ! 
-! !         z_adv_v_m(jc,jk,jb)&
-! !         & = (v_base%del_zlev_i(jk+1)*z_adv_v_i(jc,jk+1,jb)&
-! !         &   +  v_base%del_zlev_i(jk)*z_adv_v_i(jc,jk,jb))&
-! !         & / (2.0_wp*v_base%del_zlev_m(jk))
-! !       ENDIF
-! !     END DO
-! !   END DO
-! ! ! write(*,*)'B max/min vert adv:',jk, maxval(z_adv_u_m(:,jk,:)), minval(z_adv_u_m(:,jk,:)),&
-! ! ! & maxval(z_adv_v_m(:,jk,:)), minval(z_adv_v_m(:,jk,:))
-! ! END DO
-! ! !Bottom layer
-! ! !The value of v_base%del_zlev_i at the botom is 0.5*v_base%del_zlev_m
-! ! !The dimensioning of the firs arrays requires to seperate the vertical loop.
-! ! DO jb = i_startblk, i_endblk
-! !   CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-! !                      i_startidx, i_endidx, 1,min_rlcell)
-! !   DO jc = i_startidx, i_endidx
-! !     !check if we are on land: To be replaced by 3D lsm      
-! !     ! #slo# 2011-05-11 - replace by consistent formulation: vertical loop down to dolic
-! !     IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-! !     !IF (v_base%dolic_c(jc,jb) >= 2) THEN
-! ! 
-! !       z_adv_u_m(jc,elev,jb) &
-! !       & = (0.5_wp*v_base%del_zlev_m(elev)*z_adv_u_i(jc,elev+1,jb)&
-! !       & +  v_base%del_zlev_i(elev)*z_adv_u_i(jc,elev,jb)) &
-! !       & / (2.0_wp*v_base%del_zlev_m(elev))
-! ! 
-! !       z_adv_v_m(jc,elev,jb)&
-! !       & = (0.5_wp*v_base%del_zlev_m(elev)*z_adv_v_i(jc,elev+1,jb)&
-! !       &   +  v_base%del_zlev_i(elev)*z_adv_v_i(jc,elev,jb))&
-! !       & / (2.0_wp*v_base%del_zlev_m(elev))
-! ! 
-! !       ENDIF
-! !     END DO
-! !   END DO
-! ! 
-! ! ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
-! !  CALL primal_map_c2e( p_patch,&
-! !                    & z_adv_u_m, z_adv_v_m,&
-! !                    & veloc_adv_vert_e )
-! ! ! DO jk=1,n_zlev
-! ! !   WRITE(*,*) 'max/min vert adv FINAL',jk, &
-! ! !     &        MAXVAL(veloc_adv_vert_e(:,jk,:)), MINVAL(veloc_adv_vert_e(:,jk,:))
-! ! ! END DO
-! ! 
-! ! END subroutine veloc_adv_vert_RBF_old
-! ! !-------------------------------------------------------------------------
-! !
-! !
-! !>
-! !! Computes vertical advection of a (edge based) horizontal vector field.
-! !! The vertical derivative of the velocity vector at circumcenters that
-! !! is reconstructed from edge data is calculated and then multiplied by
-! !! the vertical velocity. The product is mapped from top of the computational
-! !! prism to the middle (still at centers) via the transposed of vertical differentiation
-! !! and then transformed to edges.
-! !!
-! !! IMPORTANT: It is assumed that the velocity vector reconstruction from
-! !! edges to cells has been done before.
-! !!
-! !! input:  lives on cells (velocity points)
-! !! output: lives on edges (velocity points)
-! !!
-! !! @par Revision History
-! !! Developed  by  Peter Korn, MPI-M (2010).
-! !!
-! SUBROUTINE veloc_adv_diff_vert_RBF2( p_patch, u_c, v_c, w_c, &
-! &                          top_bc_u_c, top_bc_v_c,          &
-! &                          bot_bc_u_c, bot_bc_v_c,          &
-! &                          A_v,                             & 
-! &                          veloc_adv_vert_e)
-! !
-! !  patch on which computation is performed
-! !
-! TYPE(t_patch), TARGET, INTENT(in) :: p_patch
-! 
-! !
-! ! Components of cell based variable which is vertically advected
-! REAL(wp), INTENT(in) :: u_c(:,:,:) ! dim: (nproma,n_zlev,nblks_c)
-! REAL(wp), INTENT(in) :: v_c(:,:,:) ! dim: (nproma,n_zlev,nblks_c)
-! REAL(wp), INTENT(in) :: w_c(:,:,:) ! dim: (nproma,n_zlev,nblks_c)
-! !
-! ! Top boundary condition for cell based variables
-! REAL(wp), INTENT(in) :: top_bc_u_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
-! REAL(wp), INTENT(in) :: top_bc_v_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
-! !
-! ! Bottom boundary condition for cell based variables
-! REAL(wp), INTENT(in) :: bot_bc_u_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
-! REAL(wp), INTENT(in) :: bot_bc_v_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
-! REAL(wp), INTENT(in) :: A_v(:,:,:)      ! dim: (nproma,n_zlev+1,nblks_c)
-! !
-! ! variable in which horizontally advected velocity is stored
-! REAL(wp), INTENT(out) :: veloc_adv_vert_e(:,:,:)
-! 
-! !INTEGER, PARAMETER :: top=1
-! INTEGER :: slev, elev     ! vertical start and end level
-! INTEGER :: jc, jk, jb, z_dolic
-! INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
-! 
-! REAL(wp) :: &
-!   &         z_adv_diff_u_m(nproma,n_zlev,p_patch%nblks_c),  &
-!   &         z_adv_diff_v_m(nproma,n_zlev,p_patch%nblks_c),  &
-!   &         z_diff_u_i(nproma,n_zlev+1,p_patch%nblks_c),    &
-!   &         z_diff_v_i(nproma,n_zlev+1,p_patch%nblks_c) 
-! TYPE(t_cartesian_coordinates) :: zu_cc(nproma,n_zlev,p_patch%nblks_c)
-! !-----------------------------------------------------------------------
-! ! #slo# set local variable to zero due to nag -nan compiler-option
-! z_adv_diff_u_m(:,:,:) = 0.0_wp
-! z_adv_diff_v_m(:,:,:) = 0.0_wp
-! 
-! ! blocking
-! i_startblk = p_patch%cells%start_blk(1,1)
-! i_endblk   = p_patch%cells%end_blk(min_rlcell,1)
-! slev = 1
-! elev = n_zlev
-! 
-! !Step 1: multiply vertical velocity with vertical derivative of horizontal velocity 
-! !This requires appropriate boundary conditions
-! DO jk =slev+1, elev-1
-!   DO jb = i_startblk, i_endblk
-!     CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-!                        i_startidx, i_endidx, 1,min_rlcell)
-!     DO jc = i_startidx, i_endidx
-!       !check if we have at least two layers of water
-!       !  #slo# - 2011-04-01 - Is this really intended here
-!       !  maybe this condition should be fulfilled everywhere
-!       !  then it must be calculated in fill_vertical_domain
-!       !  this condition could then be omitted here
-!       IF (v_base%dolic_c(jc,jb) >= 2) THEN
-!         !ocean interior 
-!         IF( jk <= v_base%dolic_c(jc,jb))THEN
-! 
-!           z_diff_u_i(jc,jk,jb)&
-!           & =- 0.5_wp*( u_c(jc,jk-1,jb) + u_c(jc,jk,jb))*w_c(jc,jk-1,jb)&
-!           & + A_v(jc,jk,jb)*( u_c(jc,jk-1,jb) - u_c(jc,jk,jb) )/v_base%del_zlev_i(jk-1)
-! 
-!           z_diff_v_i(jc,jk,jb)&
-!           & =- 0.5_wp*( v_c(jc,jk-1,jb) + v_c(jc,jk,jb))*w_c(jc,jk-1,jb)&
-!           & + A_v(jc,jk,jb)*( v_c(jc,jk-1,jb) - v_c(jc,jk,jb) )/v_base%del_zlev_i(jk-1)
-! 
-! ! write(*,*)'vert adv:v: ',jk, jc,jb,w_c(jc,jk,jb) *( v_c(jc,jk,jb) - v_c(jc,jk-1,jb) ),&
-! ! &  v_c(jc,jk,jb), v_c(jc,jk-1,jb),v_base%del_zlev_i(jk-1) 
-! ! write(*,*)'vert adv:u: ',jk, jc,jb,w_c(jc,jk,jb) *( u_c(jc,jk,jb) - u_c(jc,jk-1,jb) ),&
-! ! &  u_c(jc,jk,jb), u_c(jc,jk-1,jb)
-!         ENDIF  ! jk-condition
-!       ENDIF    ! at least 2 vertical layers
-!     END DO
-!   END DO
-! !  write(*,*)'A max/min vert adv:',jk, maxval(z_adv_u_i(:,jk,:)), minval(z_adv_u_i(:,jk,:)),&
-! !  & maxval(z_adv_v_i(:,jk,:)), minval(z_adv_v_i(:,jk,:))
-! END DO
-! 
-! !Including top&bottom boundary condition
-! DO jb = i_startblk, i_endblk
-!   CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-!                      i_startidx, i_endidx, 1,min_rlcell)
-!   DO jc = i_startidx, i_endidx
-! 
-!     z_diff_u_i(jc,1,jb) = top_bc_u_c(jc,jb)
-!     z_diff_v_i(jc,1,jb) = top_bc_v_c(jc,jb)
-! 
-!     z_dolic = v_base%dolic_c(jc,jb)
-! 
-!     z_diff_u_i(jc,z_dolic,jb) = bot_bc_u_c(jc,jb)
-!     z_diff_v_i(jc,z_dolic,jb) = bot_bc_v_c(jc,jb)
-!   END DO
-! END DO
-! 
-! ! Step 2: Map product of vertical velocity & vertical derivative from top of prism to mid position.
-! ! This mapping is the transposed of the vertical differencing.
-! 
-! DO jb = i_startblk, i_endblk
-!   CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-!                        i_startidx, i_endidx, 1,min_rlcell)
-!   DO jc = i_startidx, i_endidx
-!     z_dolic = v_base%dolic_c(jc,jb)
-!     IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-!     DO jk = slev, z_dolic-1!elev-1
-!         z_adv_diff_u_m(jc,jk,jb)                              &
-!           & = (z_diff_u_i(jc,jk,jb) - z_diff_u_i(jc,jk+1,jb)) &
-!           & / v_base%del_zlev_m(jk) 
-! 
-!         z_adv_diff_v_m(jc,jk,jb)                              &
-!           & = (z_diff_v_i(jc,jk,jb) - z_diff_v_i(jc,jk+1,jb)) &
-!           & / v_base%del_zlev_m(jk)
-! 
-!         CALL gvec2cvec( -z_adv_diff_u_m(jc,jk,jb), -z_adv_diff_v_m(jc,jk,jb), &
-!           &             p_patch%cells%center(jc,jb)%lon,                    &
-!           &             p_patch%cells%center(jc,jb)%lat,                    &
-!           &             zu_cc(jc,jk,jb)%x(1),zu_cc(jc,jk,jb)%x(2),zu_cc(jc,jk,jb)%x(3))
-! 
-!     END DO
-!       ENDIF
-!   END DO
-! !  write(*,*)'B max/min vert adv:',jk, maxval(z_adv_diff_u_m(:,jk,:)),&
-! !  & minval(z_adv_diff_u_m(:,jk,:)),&
-! !  & maxval(z_adv_diff_v_m(:,jk,:)),&
-! !  & minval(z_adv_diff_v_m(:,jk,:))
-! END DO
-! 
-! ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers) 
-!  CALL map_cell2edges( p_patch, zu_cc, veloc_adv_vert_e)
-! 
-! END subroutine veloc_adv_diff_vert_RBF2
-! ! ! !-------------------------------------------------------------------------
+
 
 END MODULE mo_oce_veloc_advection

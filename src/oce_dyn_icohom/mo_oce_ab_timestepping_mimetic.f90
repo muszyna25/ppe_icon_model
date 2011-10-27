@@ -432,10 +432,7 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param, p_int, l_ini
       CALL sync_patch_array(sync_e, p_patch, p_os%p_diag%press_grad(:,jk,:))
     END DO
     CALL veloc_adv_vert_mimetic( p_patch,          &
-         &             p_os%p_aux,                 &
          &             p_os%p_diag,                &
-         &             p_os%p_aux%bc_top_w,        &
-         &             p_os%p_aux%bc_bot_w,        &
          &             p_os%p_diag%veloc_adv_vert )
 
 
@@ -1352,10 +1349,10 @@ DO jk = 1, n_zlev
 END DO
 ipl_src=2  ! output print level (1-5, fix)
 DO jk = 1, n_zlev
-  CALL print_mxmn('vn new',jk,p_os%p_prog(nnew(1))%vn(:,:,:), &
-    &              n_zlev, p_patch%nblks_e,'abt',ipl_src)
-! write(*,*)'MIN/MAX vn new:',jk,minval(p_os%p_prog(nnew(1))%vn(:,jk,:) ),&
-!                                maxval(p_os%p_prog(nnew(1))%vn(:,jk,:) ) 
+!   CALL print_mxmn('vn new',jk,p_os%p_prog(nnew(1))%vn(:,:,:), &
+!     &              n_zlev, p_patch%nblks_e,'abt',ipl_src)
+ write(*,*)'MIN/MAX vn new:',jk,minval(p_os%p_prog(nnew(1))%vn(:,jk,:) ),&
+                                maxval(p_os%p_prog(nnew(1))%vn(:,jk,:) ) 
 END DO
 ipl_src=3  ! output print level (1-5, fix)
 DO jk = 1, n_zlev
