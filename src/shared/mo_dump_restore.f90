@@ -2628,11 +2628,12 @@ CONTAINS
 
     DO jg = n_dom_start, n_dom
 
-      l_restore_lonlat = &
-        &  (jg>0) .AND.  &
-        &  ((process_mpi_io_size == 0) .AND. my_process_is_stdio()) .AND. &
-        &  lonlat_intp_config(jg)%l_enabled    .AND. &
-        &  PRESENT(opt_pi_lonlat)
+      IF (jg>0) THEN
+        l_restore_lonlat = ((process_mpi_io_size == 0) .AND. my_process_is_stdio()) .AND. &
+          &  lonlat_intp_config(jg)%l_enabled .AND. PRESENT(opt_pi_lonlat)
+      ELSE
+        l_restore_lonlat = .FALSE.
+      ENDIF
 
       IF(p_pe_work==0) WRITE(nerr,'(a,i0)') 'Restoring interpolation state ',jg
 
