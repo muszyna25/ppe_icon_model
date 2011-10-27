@@ -338,7 +338,7 @@ CONTAINS
       CALL restore_interpol_state_netcdf(p_patch_global, p_int_state, &
         &                                p_int_state_lonlat_global )
     ELSE
-      IF(.NOT. my_process_is_mpi_test()) THEN
+      IF(.NOT. my_process_is_mpi_parallel()) THEN
         ! Construct interpolation state for full domain
         CALL construct_2d_interpol_state(p_patch_global, p_int_state)
       ELSE
@@ -364,7 +364,7 @@ CONTAINS
         ! Read gridref state from NetCDF
         CALL restore_gridref_state_netcdf(p_patch_global, p_grf_state)
       ELSE
-        IF(.NOT. my_process_is_mpi_test()) THEN
+        IF(.NOT. my_process_is_mpi_parallel()) THEN
           CALL construct_2d_gridref_state (p_patch_global, p_grf_state)
         ELSE
           CALL construct_2d_gridref_state (p_patch_subdiv, p_grf_state)
