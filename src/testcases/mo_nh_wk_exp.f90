@@ -195,6 +195,7 @@ MODULE mo_nh_wk_exp
 
     REAL(wp), ALLOCATABLE :: theta(:,:,:)
     REAL(wp), ALLOCATABLE :: relhum(:,:,:)
+    REAL(wp), ALLOCATABLE              :: z_qv(:,:,:)
 
     LOGICAL :: lcond 
 
@@ -206,7 +207,7 @@ MODULE mo_nh_wk_exp
     nlev   = ptr_patch%nlev
     ALLOCATE (theta(nproma,nlev,ptr_patch%nblks_c), &
               relhum(nproma,nlev,ptr_patch%nblks_c) )
-
+    ALLOCATE ( z_qv(nproma,nlev,ptr_patch%nblks_c) )
    nblks_c   = ptr_patch%nblks_int_c
    npromz_c  = ptr_patch%npromz_int_c
    nblks_e   = ptr_patch%nblks_int_e
@@ -345,7 +346,9 @@ MODULE mo_nh_wk_exp
     ! after enough iteretaions we have exner and the tracers, we already had theta
 
     ! use subroutine virtual_temp to calculate theta_v
-    CALL virtual_temp ( ptr_patch, theta, ptr_nh_prog%tracer(:,:,:,iqv),             &
+
+    z_qv(:,:,:) = ptr_nh_prog%tracer(:,:,:,iqv)
+    CALL virtual_temp ( ptr_patch, theta, z_qv,             &
                      & temp_v= ptr_nh_prog%theta_v)
      DO jb = 1, nblks_c
       IF (jb /= nblks_c) THEN
@@ -378,7 +381,7 @@ MODULE mo_nh_wk_exp
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
             z_klev = p_metrics%z_mc_e(je,jk,jb) 
-            z_u = u_infty_wk * TANH(z_klev-hmin_wk/href_wk-hmin_wk)  !v component is zero
+            z_u = u_infty_wk * TANH((z_klev-hmin_wk)/(href_wk-hmin_wk))  !v component is zero
             ptr_nh_prog%vn(je,jk,jb) = &
              z_u * ptr_patch%edges%primal_normal(je,jb)%v1
           ENDDO !je
