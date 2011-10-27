@@ -1600,7 +1600,8 @@ SUBROUTINE xfer_var_i2(typ, pos_nproma, pos_nblks, p_p, p_lp, arri, arro)
 
   INTEGER, INTENT(IN) :: typ, pos_nproma, pos_nblks
   TYPE(t_patch), INTENT(IN) :: p_p, p_lp
-  INTEGER :: arri(:,:), arro(:,:)
+  INTEGER,INTENT(IN) :: arri(:,:)
+  INTEGER,INTENT(INOUT) :: arro(:,:)
 
   REAL(wp) :: r_arri(UBOUND(arri,1),UBOUND(arri,2))
   REAL(wp) :: r_arro(UBOUND(arro,1),UBOUND(arro,2))
