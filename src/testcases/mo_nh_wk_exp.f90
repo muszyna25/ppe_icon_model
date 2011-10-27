@@ -168,7 +168,7 @@ MODULE mo_nh_wk_exp
   !!
   !!
   SUBROUTINE init_nh_env_wk( ptr_patch, ptr_nh_prog, ptr_nh_diag, &
-    &                                p_metrics, p_int )
+    &                                p_metrics, p_int, l_hydro_adjust )
 
     TYPE(t_patch), TARGET,INTENT(INOUT) :: &  !< patch on which computation is performed
       &  ptr_patch
@@ -182,14 +182,16 @@ MODULE mo_nh_wk_exp
 
     TYPE(t_nh_metrics), INTENT(IN)      :: p_metrics !< NH metrics state
     TYPE(t_int_state), INTENT(IN)       :: p_int
+    LOGICAL, INTENT(IN)                 :: l_hydro_adjust !if .TRUE. hydrostatically balanced 
+                                                         ! initial condition
 
-    INTEGER        ::  jc, jb, jk,    &
+    INTEGER        ::  jc, jb, jk, je,   &
                     nlen, nblks_e, npromz_e,  nblks_c, npromz_c
     INTEGER        :: iter
     INTEGER        :: i_startidx, i_endidx, i_startblk
     INTEGER        :: nlev        !< number of full levels
     REAL(wp)       :: t_tropo, z_klev, zrdm, zcpm, z_relhum, zesat,     &
-                      zsqv
+                      zsqv, z_u
 
     REAL(wp), ALLOCATABLE :: theta(:,:,:)
     REAL(wp), ALLOCATABLE :: relhum(:,:,:)
@@ -204,6 +206,7 @@ MODULE mo_nh_wk_exp
     nlev   = ptr_patch%nlev
     ALLOCATE (theta(nproma,nlev,ptr_patch%nblks_c), &
               relhum(nproma,nlev,ptr_patch%nblks_c) )
+
    nblks_c   = ptr_patch%nblks_int_c
    npromz_c  = ptr_patch%npromz_int_c
    nblks_e   = ptr_patch%nblks_int_e
@@ -305,23 +308,27 @@ MODULE mo_nh_wk_exp
             ! and relhum > 1.0, so convert qv -> qc to limit relhum to 1.0:
             zsqv = spec_humi(zesat, ptr_nh_diag%pres(jc,jk,jb))
             ptr_nh_prog%tracer(jc,jk,jb,iqv) = MIN ( zsqv       ,                 &
-                                                     MIN(ptr_nh_prog%tracer(jc,jk,jb,iqv), qv_max_wk) )
+                             MIN(ptr_nh_prog%tracer(jc,jk,jb,iqv), qv_max_wk) )
             ptr_nh_prog%tracer(jc,jk,jb,iqc) = MAX ( 0.0_wp ,                     &
-                                                     MIN(ptr_nh_prog%tracer(jc,jk,jb,iqv), qv_max_wk) - zsqv )
+                             MIN(ptr_nh_prog%tracer(jc,jk,jb,iqv), qv_max_wk) - zsqv )
           ELSE
             ! condensation is not allowed or cannot happen physically at 
             ! that pressure and temperature, so just impose the limit qv_max_wk:
-            ptr_nh_prog%tracer(jc,jk,jb,iqv) = MIN(ptr_nh_prog%tracer(jc,jk,jb,iqv), qv_max_wk)
+            ptr_nh_prog%tracer(jc,jk,jb,iqv) =                                    &
+                                MIN(ptr_nh_prog%tracer(jc,jk,jb,iqv), qv_max_wk)
             ptr_nh_prog%tracer(jc,jk,jb,iqc) = 0.0_wp
           END IF
             ! "moist" r_d:
-            zrdm     = rd_moist(ptr_nh_prog%tracer(jc,jk,jb,iqv),ptr_nh_prog%tracer(jc,jk,jb,iqc))
+            zrdm     = rd_moist(ptr_nh_prog%tracer(jc,jk,jb,iqv),                 &
+                                ptr_nh_prog%tracer(jc,jk,jb,iqc))
             ! "moist" cp:
 !!$            zcpm = cp_moist(qv(i,j,1),qc(i,j,1),0.0_ireals)
             ! COSMO-approximation of "moist" cp:
-            zcpm     = cp_moist_cosmo(ptr_nh_prog%tracer(jc,jk,jb,iqv),ptr_nh_prog%tracer(jc,jk,jb,iqc),0.0_wp)
+            zcpm     = cp_moist_cosmo(ptr_nh_prog%tracer(jc,jk,jb,iqv),           &
+                                     ptr_nh_prog%tracer(jc,jk,jb,iqc),0.0_wp)
             !recalculate temperature
-            ptr_nh_diag%temp(jc,jk,jb) = theta(jc,jk,jb)*(ptr_nh_diag%pres(jc,jk,jb)/p0ref)**(zrdm/zcpm)
+            ptr_nh_diag%temp(jc,jk,jb) = theta(jc,jk,jb)*                         &
+                                         (ptr_nh_diag%pres(jc,jk,jb)/p0ref)**(zrdm/zcpm)
             ! recalculate exner
             ptr_nh_prog%exner(jc,jk,jb) = ptr_nh_diag%temp(jc,jk,jb)/theta(jc,jk,jb)
             ENDDO !jc
@@ -340,9 +347,59 @@ MODULE mo_nh_wk_exp
     ! use subroutine virtual_temp to calculate theta_v
     CALL virtual_temp ( ptr_patch, theta, ptr_nh_prog%tracer(:,:,:,iqv),             &
                      & temp_v= ptr_nh_prog%theta_v)
-   
-    ptr_nh_prog%rho(:,:,:)  = ptr_nh_prog%exner(:,:,:)**cvd_o_rd*p0ref/rd/ptr_nh_prog%theta_v(:,:,:)
-    ptr_nh_prog%rhotheta_v(:,:,:)  = ptr_nh_prog%rho(:,:,:) * ptr_nh_prog%theta_v(:,:,:)
+     DO jb = 1, nblks_c
+      IF (jb /= nblks_c) THEN
+         nlen = nproma
+      ELSE
+         nlen = npromz_c
+      ENDIF
+
+      DO jk = nlev, 1, -1
+            DO jc = 1, nlen  
+             ptr_nh_prog%rho(jc,jk,jb)  = ptr_nh_prog%exner(jc,jk,jb)**cvd_o_rd*p0ref &
+                             /rd/ptr_nh_prog%theta_v(jc,jk,jb)
+             ptr_nh_prog%rhotheta_v(jc,jk,jb)  = ptr_nh_prog%rho(jc,jk,jb) *          &
+                                        ptr_nh_prog%theta_v(jc,jk,jb)
+            ENDDO !jc
+      ENDDO !jk     
+     ENDDO !jb
+
+
+! initialized horizontal velocities
+    i_startblk = ptr_patch%edges%start_blk(2,1)
+    ! horizontal normal components of the velocity
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,z_u, z_klev)
+    DO jb = i_startblk, nblks_e
+
+      CALL get_indices_e(ptr_patch, jb, i_startblk, nblks_e, &
+                         i_startidx, i_endidx, 2)
+
+        DO jk = 1, nlev
+          DO je = i_startidx, i_endidx
+            z_klev = p_metrics%z_mc_e(je,jk,jb) 
+            z_u = u_infty_wk * TANH(z_klev-hmin_wk/href_wk-hmin_wk)  !v component is zero
+            ptr_nh_prog%vn(je,jk,jb) = &
+             z_u * ptr_patch%edges%primal_normal(je,jb)%v1
+          ENDDO !je
+        ENDDO !jk
+    ENDDO  !jb
+!$OMP END DO
+!$OMP END PARALLEL
+
+! initialized vertical velocity
+
+   CALL init_w(ptr_patch, p_int, ptr_nh_prog%vn, p_metrics%z_ifc, ptr_nh_prog%w)
+   CALL sync_patch_array(SYNC_C, ptr_patch, ptr_nh_prog%w)
+
+
+  IF (l_hydro_adjust) THEN
+
+   CALL hydro_adjust ( ptr_patch, p_metrics, ptr_nh_prog%rho,     &
+                     & ptr_nh_prog%exner, ptr_nh_prog%theta_v,    &
+                     & ptr_nh_prog%rhotheta_v  )
+
+  END IF
 
        
   END SUBROUTINE init_nh_env_wk

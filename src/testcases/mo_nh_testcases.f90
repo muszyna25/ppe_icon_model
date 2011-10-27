@@ -878,7 +878,7 @@ MODULE mo_nh_testcases
     CALL   init_nh_env_wk ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
                                      & p_nh_state(jg)%diag,                        &
                                      & p_nh_state(jg)%metrics,                     &
-                                     & p_int(jg))
+                                     & p_int(jg),l_hydro_adjust  )
 
     CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
 
