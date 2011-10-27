@@ -3019,7 +3019,10 @@ CONTAINS
       CASE ('RHO');             ptr3 => p_prog%rho
       CASE ('TKE')
         IF (atm_phy_nwp_config(jg)%inwp_turb.EQ.1) THEN
-                                ptr3 => dup3(0.5_wp*SQRT(p_prog%tke(:,:,:))); delete = .TRUE.
+        ! so far TKE in ICON is defined as: SQRT(2 * turbulent kinetik energy)
+        ! Thus, if we want the turbulent kinetic energy (units m2/s2) in the output,
+        ! we need to take half of the square of TKE.
+                                ptr3 => dup3(0.5_wp*(p_prog%tke(:,:,:))**2); delete = .TRUE.
            ELSE
                                 ptr3 => p_prog%tke
            ENDIF
