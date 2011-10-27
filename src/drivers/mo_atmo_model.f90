@@ -349,7 +349,6 @@ CONTAINS
           jgp = p_patch_subdiv(jg)%parent_id
           CALL transfer_interpol_state(p_patch_subdiv(jgp),p_patch_local_parent(jg), &
                                     &  p_int_state(jgp), p_int_state_local_parent(jg))
-          WRITE (*,*) ">>>>>>>>>>>>> max: ", maxval(p_int_state(jgp)%rbf_vec_blk_c)
         ENDDO
       ENDIF
     ENDIF
