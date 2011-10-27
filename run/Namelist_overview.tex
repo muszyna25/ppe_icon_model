@@ -2559,7 +2559,7 @@ Defined and used in: src/namelists/mo\_advection\_nml.f90
 
 inwp\_gscp&
 I&
-0&
+1&
 &
 cloud microphysics and precipitation &
 run\_nml/iforcing = inwp
@@ -2613,7 +2613,7 @@ inwp\_gscp=1
 \hline 
 inwp\_convection&
 I&
-0&
+1&
 &
 convection
 &run\_nml/iforcing = inwp
@@ -2636,7 +2636,7 @@ convection
 \hline 
 inwp\_cldcover&
 I&
-1&
+3&
 &
 cloud cover scheme for radiation
 &run\_nml/iforcing = inwp
@@ -2673,7 +2673,7 @@ cloud cover scheme for radiation
 \hline 
 inwp\_radiation&
 I&
-0&
+1&
 &
 radiation
 &run\_nml/iforcing = inwp
@@ -2726,7 +2726,7 @@ saturation adjustment
 \hline 
 inwp\_turb&
 I&
-0&
+1&
 &
 vertical diffusion and transfer 
 &run\_nml/iforcing = inwp
@@ -2752,11 +2752,18 @@ vertical diffusion and transfer
 2: ECHAM diffusion
 &
 \tabularnewline
+&
+&
+&
+&
+3: EDMF-DUALM (to be implemented)
+&
+\tabularnewline
 
 \hline 
 inwp\_sso&
 I&
-0&
+1&
 &
 subgrid scale orographic drag
 &run\_nml/iforcing = inwp
@@ -2779,7 +2786,7 @@ subgrid scale orographic drag
 \hline 
 inwp\_gwd&
 I&
-0&
+1&
 &
 non-orographic gravity wave drag
 &run\_nml/iforcing = inwp
@@ -2803,7 +2810,7 @@ non-orographic gravity wave drag
 \hline 
 inwp\_surface&
 I&
-0&
+1&
 &
 surface scheme
 &run\_nml/iforcing = inwp

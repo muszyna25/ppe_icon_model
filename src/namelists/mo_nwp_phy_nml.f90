@@ -46,7 +46,7 @@ MODULE mo_nwp_phy_nml
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_io_units,            ONLY: nnml, nnml_output
-  USE mo_master_control,     ONLY: is_restart_run
+  USE mo_master_control,      ONLY: is_restart_run
 
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
     &                               open_and_restore_namelist, close_tmpfile
@@ -81,11 +81,6 @@ MODULE mo_nwp_phy_nml
   LOGICAL  :: latm_above_top(max_dom) !! use extra layer above model top for radiation (reduced grid only)
 
 
-!  LOGICAL  :: lseaice  !> forecast with sea ice model
-!  LOGICAL  :: llake    !! forecst with lake model FLake
-!
-
-
   NAMELIST /nwp_phy_nml/ inwp_convection, inwp_cldcover,           &
     &                    inwp_radiation, inwp_sso, inwp_gwd,       &
     &                    inwp_gscp, inwp_satad,                    &
@@ -93,7 +88,8 @@ MODULE mo_nwp_phy_nml
     &                    dt_conv, dt_ccov,                         &
     &                    dt_rad,                                   &
     &                    dt_sso, dt_gwd, qi0, qc0,                 &
-    &                    ustart_raylfric, efdt_min_raylfric, latm_above_top
+    &                    ustart_raylfric, efdt_min_raylfric,       &
+    &                    latm_above_top
 
 
 
@@ -153,15 +149,16 @@ CONTAINS
     !-----------------------
     ! 1. default settings   
     !-----------------------
-    inwp_gscp       = 0           !> 0 = no microphysics
-    inwp_satad      = 0           !> 1 = saturation adjustment on
-    inwp_convection = 0           !> 0 = no convection
-    inwp_radiation  = 0           !> 0 = no radiation
-    inwp_sso        = 0           !> 0 = no sso
-    inwp_gwd        = 0           !> 0 = no gwd, 1= IFS gwd scheme
-    inwp_cldcover   = 1           !> 1 = use grid-scale clouds for radiation
-    inwp_turb       = 0           !> 0 = no turbulence,1= cosmo/turbdiff,2=echam/vdiff
-    inwp_surface    = 0           !> 0 = no surface, 1 =  cosmo surface
+    inwp_gscp       = 1           !> 1 = hydci (COSMO-EU microphysics)
+    inwp_satad      = 1           !> 1 = saturation adjustment on
+    inwp_convection = 1           !> 1 = Tiedtke/Bechthold convection
+    inwp_radiation  = 1           !> 1 = RRTM radiation
+    inwp_sso        = 1           !> 1 = Lott and Miller scheme (COSMO)
+    inwp_gwd        = 1           !> 1 = Orr-Ern-Bechthold scheme (IFS)
+    inwp_cldcover   = 3           !> 3 = clouds from COSMO SGS cloud scheme
+    inwp_turb       = 1           !> 1 = turbdiff (COSMO diffusion oand transfer)
+    inwp_surface    = 1           !> 1 = TERRA
+
 
     DO jg=1, max_dom
       dt_conv (jg) = 600._wp      !seconds

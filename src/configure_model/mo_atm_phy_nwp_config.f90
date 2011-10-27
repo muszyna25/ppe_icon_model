@@ -88,9 +88,6 @@ MODULE mo_atm_phy_nwp_config
   REAL(wp) :: dt_satad  !! field element for sat. adjustment
   REAL(wp) :: dt_update !! field element for tracer phys update
 
-  LOGICAL ::  lseaice     !> forecast with sea ice model
-  LOGICAL ::  llake       !! forecst with lake model FLake
-
   INTEGER :: imode_turb, itype_wcld, icldm_turb, itype_tran
   LOGICAL :: limpltkediff, ltkesso, lexpcor
   REAL(wp):: tur_len, pat_len, a_stab, tkhmin, tkmmin, c_diff, &
