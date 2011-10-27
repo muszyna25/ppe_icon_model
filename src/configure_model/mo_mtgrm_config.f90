@@ -39,7 +39,7 @@ MODULE mo_mtgrm_config
   IMPLICIT NONE
 
   INTEGER, PARAMETER :: MAX_NAME_LENGTH      =   32  !<  max. name string length   
-  INTEGER, PARAMETER :: MAX_NUM_STATIONS     =  100  !<  max. number of meteogram locations (global)
+  INTEGER, PARAMETER :: MAX_NUM_STATIONS     =   40  !<  max. number of meteogram locations (global)
   INTEGER, PARAMETER :: FTYPE_NETCDF         =    1
 
 
