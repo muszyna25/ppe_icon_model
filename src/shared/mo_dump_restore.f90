@@ -1588,10 +1588,12 @@ CONTAINS
 
     !-- define dump variables for lon-lat interpolation of output
     !-- variables
-    l_dump_lonlat = &
-      &  (k_jg>0) .AND. &
-      &  ((process_mpi_io_size == 0) .AND. my_process_is_stdio()) .AND. &
-      &  lonlat_intp_config(k_jg)%l_enabled
+    IF (k_jg>0) THEN
+      l_dump_lonlat =  ((process_mpi_io_size == 0) .AND. my_process_is_stdio()) .AND. &
+        &  lonlat_intp_config(k_jg)%l_enabled
+    ELSE
+       l_dump_lonlat = .FALSE.
+    ENDIF
 
 
     LONLAT : IF (l_dump_lonlat) THEN
@@ -1759,33 +1761,34 @@ CONTAINS
     CALL bvar_io(2,3,'int.shear_def_v2',      pi%shear_def_v2  ) ! 9,nproma,nblks_e
     ENDIF
 
-    !-- write out variables for lon-lat interpolation
-    LONLAT : IF (PRESENT(opt_pi_lonlat) .AND.  &
-      &          lonlat_intp_config(jg)%l_enabled) THEN
+    IF (jg > 0) THEN
+      !-- write out variables for lon-lat interpolation
+      LONLAT : IF (PRESENT(opt_pi_lonlat) .AND.  &
+        &          lonlat_intp_config(jg)%l_enabled) THEN
 
-      ! rbf_vec_dim_c,2,nproma,nblks_lonlat
-      CALL bvar_io(3,4,'int.lonlat.rbf_vec_coeff',    &
-        &          opt_pi_lonlat%rbf_vec_coeff  )
-      ! rbf_c2grad_dim,2,nproma,nblks_lonlat
-      CALL bvar_io(3,4,'int.lonlat.rbf_c2grad_coeff', &
-        &          opt_pi_lonlat%rbf_c2grad_coeff )
-      ! rbf_vec_dim_c,nproma,nblks_lonlat
-      CALL bidx_io(2,3,'int.lonlat.rbf_vec_index',    &
-        &          opt_pi_lonlat%rbf_vec_idx, opt_pi_lonlat%rbf_vec_blk)
-      ! nproma,nblks_lonlat
-      CALL bvar_io(1,2,'int.lonlat.rbf_vec_stencil',  &
-        &          opt_pi_lonlat%rbf_vec_stencil)
-      ! rbf_c2grad_dim,nproma,nblks_lonlat
-      CALL bidx_io(2,3,'int.lonlat.rbf_c2grad_index', &
-        &          opt_pi_lonlat%rbf_c2grad_idx, opt_pi_lonlat%rbf_c2grad_blk)
-      ! 2,nproma,nblks_lonlat
-      CALL bvar_io(2,3,'int.lonlat.rdist',            &
-        &          opt_pi_lonlat%rdist)
-      ! 2,nproma,nblks_lonlat
-      CALL bvar_io(2,3,'int.lonlat.tri_idx',          &
-        &          opt_pi_lonlat%tri_idx)
-      
-    END IF LONLAT
+        ! rbf_vec_dim_c,2,nproma,nblks_lonlat
+        CALL bvar_io(3,4,'int.lonlat.rbf_vec_coeff',    &
+          &          opt_pi_lonlat%rbf_vec_coeff  )
+        ! rbf_c2grad_dim,2,nproma,nblks_lonlat
+        CALL bvar_io(3,4,'int.lonlat.rbf_c2grad_coeff', &
+          &          opt_pi_lonlat%rbf_c2grad_coeff )
+        ! rbf_vec_dim_c,nproma,nblks_lonlat
+        CALL bidx_io(2,3,'int.lonlat.rbf_vec_index',    &
+          &          opt_pi_lonlat%rbf_vec_idx, opt_pi_lonlat%rbf_vec_blk)
+        ! nproma,nblks_lonlat
+        CALL bvar_io(1,2,'int.lonlat.rbf_vec_stencil',  &
+          &          opt_pi_lonlat%rbf_vec_stencil)
+        ! rbf_c2grad_dim,nproma,nblks_lonlat
+        CALL bidx_io(2,3,'int.lonlat.rbf_c2grad_index', &
+          &          opt_pi_lonlat%rbf_c2grad_idx, opt_pi_lonlat%rbf_c2grad_blk)
+        ! 2,nproma,nblks_lonlat
+        CALL bvar_io(2,3,'int.lonlat.rdist',            &
+          &          opt_pi_lonlat%rdist)
+        ! 2,nproma,nblks_lonlat
+        CALL bvar_io(2,3,'int.lonlat.tri_idx',          &
+          &          opt_pi_lonlat%tri_idx) 
+      END IF LONLAT
+    ENDIF
 
   END SUBROUTINE int_state_io
 
@@ -2247,11 +2250,12 @@ CONTAINS
     prefix = ' '
     CALL patch_io(p)
 
-    l_dump_lonlat = &
-      &  (k_jg>0) .AND.  &
-      &  ((process_mpi_io_size == 0) .AND. my_process_is_stdio()) .AND. &
-      &  lonlat_intp_config(k_jg)%l_enabled  .AND. &
-      &  PRESENT(opt_pi_lonlat)
+    IF (k_jg>0) THEN
+      l_dump_lonlat = ((process_mpi_io_size == 0) .AND. my_process_is_stdio()) .AND. &
+        &  lonlat_intp_config(k_jg)%l_enabled  .AND. PRESENT(opt_pi_lonlat)
+    ELSE
+      l_dump_lonlat = .FALSE.
+    ENDIF
 
     IF (l_dump_lonlat) THEN
       CALL int_state_io(k_jg, p, pi, opt_pi_lonlat)
