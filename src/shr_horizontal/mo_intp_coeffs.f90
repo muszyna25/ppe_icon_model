@@ -178,7 +178,7 @@ USE mo_math_utilities,      ONLY: gc2cc, cc2gc, gnomonic_proj,               &
 USE mo_dynamics_config,     ONLY: divavg_cntrwgt
 USE mo_parallel_config,  ONLY: nproma
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
-Use mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_idx
+Use mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_idx, global_max
 
 USE mo_intp_data_strc
 USE mo_intp_coeffs_lsq_bln
@@ -1682,6 +1682,8 @@ INTEGER :: max_rlval
 
 ! Check if required refin_ctrl information is available
 max_rlval = MAXVAL(ptr_patch%cells%refin_ctrl(:,:))
+max_rlval = NINT(global_max(REAL(max_rlval,wp)))
+
 IF (max_rlval < nudge_zone_width+grf_nudge_start_c-1) THEN
     CALL finish('init_nudgecoeffs',&
                 'bdy_indexing_depth in prepare_gridref must be at least nudge_zone_width+4')
