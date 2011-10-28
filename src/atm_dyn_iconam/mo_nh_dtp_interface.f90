@@ -44,7 +44,7 @@ MODULE mo_nh_dtp_interface
 
   USE mo_kind,               ONLY: wp
   USE mo_dynamics_config,    ONLY: idiv_method
-  USE mo_parallel_config,  ONLY: nproma, p_test_run
+  USE mo_parallel_config,    ONLY: nproma, p_test_run
   USE mo_run_config,         ONLY: lvert_nest, ntracer
   USE mo_model_domain,       ONLY: t_patch
   USE mo_nonhydro_state,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
@@ -145,10 +145,8 @@ CONTAINS
 !$OMP PARALLEL PRIVATE(i_rlstart_e,i_rlend_e,i_startblk,i_endblk)
 
     i_rlstart_e = 1
-!DR Note that this is not correct: itype_hlimit has the dimension 
-!DR MAX_TRACER and not MAX_DOM !!
-    IF ( advection_config(jg)%itype_hlimit(jg) == 1 .OR. &
-      &  advection_config(jg)%itype_hlimit(jg) == 2 .OR. &
+    IF ( ANY( advection_config(jg)%itype_hlimit(1:ntracer) == 1 ) .OR. &
+      &  ANY( advection_config(jg)%itype_hlimit(1:ntracer) == 2 ) .OR. &
       &  advection_config(jg)%iord_backtraj == 2 ) THEN
       i_rlend_e   = min_rledge_int - 3
     ELSE
