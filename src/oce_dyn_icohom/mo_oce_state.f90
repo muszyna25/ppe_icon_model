@@ -2475,16 +2475,15 @@ END DO
 
     rl_start     = 1
     rl_end       = min_rlcell
-
     i_startblk   = p_patch%cells%start_blk(rl_start,1)
     i_endblk     = p_patch%cells%end_blk(rl_end,1)
 
     rl_start_e   = 1
     rl_end_e     = min_rledge
-
     i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
     i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
 
+    !-----------------------------------------------------------------------
     !STEP 1: edge2cell and cell2edge coefficients
     EDGE_BLK_LOOP_PRIMAL: DO jb = i_startblk_e, i_endblk_e
 
@@ -2576,19 +2575,14 @@ END DO
           v_base%dist_cell2edge(iil_c1(ie),iib_c1(ie),1) = z_cell_edge_dist_c1(ie,1)
           v_base%dist_cell2edge(iil_c1(ie),iib_c1(ie),2) = z_cell_edge_dist_c1(ie,2)
 
-          z_vec_c1(ie)%x =  cc_edge(ie)%x - cc_c1%x     !p_patch%edges%primal_cart_normal(iil_c1(ie),iib_c1(ie))
-          norm = SQRT(SUM( z_vec_c1(ie)%x* z_vec_c1(ie)%x))
+          z_vec_c1(ie)%x = cc_edge(ie)%x - cc_c1%x     !p_patch%edges%primal_cart_normal(iil_c1(ie),iib_c1(ie))
+          norm           = SQRT(SUM( z_vec_c1(ie)%x* z_vec_c1(ie)%x))
 
-          v_base%edge2cell_coeff_cc(il_c1,ib_c1,ie)%x&
-          & = z_vec_c1(ie)%x*p_patch%cells%edge_orientation(il_c1,ib_c1,ie)*z_edge_length(ie)
+          v_base%edge2cell_coeff_cc(il_c1,ib_c1,ie)%x = &
+            & z_vec_c1(ie)%x*p_patch%cells%edge_orientation(il_c1,ib_c1,ie)*z_edge_length(ie)
 
-!tes
-!z_vc_c1(ie)%x =z_vec_c1(ie)%x/norm
-!wrie(*,*)'vec:normal:',z_vec_c1(ie)%x,p_patch%edges%primal_cart_normal(iil_c1(ie),iib_c1(ie))%x 
-!--------
- 
-                v_base%fixed_vol_norm(il_c1,ib_c1) = &
-            &   v_base%fixed_vol_norm(il_c1,ib_c1) + 0.5_wp*norm*z_edge_length(ie)
+          v_base%fixed_vol_norm(il_c1,ib_c1)       = v_base%fixed_vol_norm(il_c1,ib_c1) + &
+            &                                        0.5_wp*norm*z_edge_length(ie)
           v_base%variable_vol_norm(il_c1,ib_c1,ie) = 0.5_wp*norm*z_edge_length(ie)
 
           !write(*,*)'edge length   :',z_edge_length(ie),p_patch%edges%primal_edge_length(iil_c1(ie),iib_c1(ie))/re
@@ -2664,15 +2658,14 @@ END DO
           v_base%dist_cell2edge(iil_c2(ie),iib_c2(ie),1) = z_cell_edge_dist_c1(ie,1)
           v_base%dist_cell2edge(iil_c2(ie),iib_c2(ie),2) = z_cell_edge_dist_c1(ie,2)
 
-          z_vec_c2(ie)%x =  cc_edge(ie)%x - cc_c2%x  !p_patch%edges%primal_cart_normal(iil_c2(ie),iib_c2(ie))
-          norm = SQRT(SUM( z_vec_c2(ie)%x* z_vec_c2(ie)%x))
+          z_vec_c2(ie)%x = cc_edge(ie)%x - cc_c2%x  !p_patch%edges%primal_cart_normal(iil_c2(ie),iib_c2(ie))
+          norm           = SQRT(SUM( z_vec_c2(ie)%x* z_vec_c2(ie)%x))
 
           v_base%edge2cell_coeff_cc(il_c2,ib_c2,ie)%x&
             & = z_vec_c2(ie)%x*p_patch%cells%edge_orientation(il_c2,ib_c2,ie)*z_edge_length(ie)
 
-          v_base%fixed_vol_norm(il_c2,ib_c2) &
-            & = v_base%fixed_vol_norm(il_c2,ib_c2) + 0.5_wp*norm*z_edge_length(ie)
-
+          v_base%fixed_vol_norm(il_c2,ib_c2)       = v_base%fixed_vol_norm(il_c2,ib_c2) + &
+            &                                        0.5_wp*norm*z_edge_length(ie)
           v_base%variable_vol_norm(il_c2,ib_c2,ie) = 0.5_wp*norm*z_edge_length(ie)
 
         END DO
@@ -2682,16 +2675,15 @@ END DO
     !accumulated we correct its value here:
     v_base%fixed_vol_norm = v_base%fixed_vol_norm/3.0_wp
 
-    rl_start = 1 
-    rl_end = min_rledge
-
+    rl_start   = 1
+    rl_end     = min_rledge
     i_startblk = p_patch%edges%start_blk(rl_start,1)
     i_endblk   = p_patch%edges%end_blk(rl_end,1)
 
-    EDGE_BLK_LOOP_0: DO jb = i_startblk, i_endblk
+    EDGE_BLK_LOOP_SECONDARY: DO jb = i_startblk, i_endblk
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk,&
                        & i_startidx, i_endidx, rl_start, rl_end)
-      EDGE_IDX_LOOP_0: DO je =  i_startidx, i_endidx
+      EDGE_IDX_LOOP_SECONDARY: DO je =  i_startidx, i_endidx
 
         !Get indices of two adjacent triangles
         il_c1 = p_patch%edges%cell_idx(je,jb,1)
@@ -2744,8 +2736,8 @@ END DO
         v_base%edge2cell_coeff_cc_t(je,jb,2)%x&
         & = cv_c2_e0%x * p_patch%cells%edge_orientation(il_c2,ib_c2,ie_2)/norm_c1_c2
 
-      END DO EDGE_IDX_LOOP_0
-    END DO EDGE_BLK_LOOP_0
+      END DO EDGE_IDX_LOOP_SECONDARY
+    END DO EDGE_BLK_LOOP_SECONDARY
 
     !------------------------------------------------------------------------------
     !STEP 2: edge2vert coefficients for dual grid
