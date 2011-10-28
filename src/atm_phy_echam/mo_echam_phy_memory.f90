@@ -265,12 +265,15 @@ MODULE mo_echam_phy_memory
       ! net fluxes at TOA and surface
       & swflxsfc    (:,:),  &!< [ W/m2] shortwave net flux at surface
       & lwflxsfc    (:,:),  &!< [ W/m2] longwave net flux at surface
+      & dlwflxsfc_dT(:,:),  &!< [ W/m2/K] longwave net flux temp tend at surface
       & swflxtoa    (:,:),  &!< [ W/m2] shortwave net flux at TOA 
       & lwflxtoa    (:,:),  &!< [ W/m2] shortwave net flux at TOA
       & swflxsfc_avg(:,:),  &!< [ W/m2] averaged shortwave net flux at surface
       & lwflxsfc_avg(:,:),  &!< [ W/m2] averaged longwave net flux at surface
+      & dlwflxsfc_dT_avg(:,:),&!< [W/m2/K] averaged longwave net flux temp tend at surface
       & swflxtoa_avg(:,:),  &!< [ W/m2] averaged shortwave net flux at TOA 
       & lwflxtoa_avg(:,:)    !< [ W/m2] averaged shortwave net flux at TOA
+
 
     TYPE(t_ptr2d),ALLOCATABLE :: z0m_tile_ptr(:)
 
@@ -295,16 +298,20 @@ MODULE mo_echam_phy_memory
     TYPE(t_ptr2d),ALLOCATABLE :: qs_sfc_tile_ptr(:)
 
     REAL(wp),POINTER :: &
-      & lhflx_avg  (:,  :), &!< (time accum) grid box mean latent   heat flux at surface 
-      & shflx_avg  (:,  :), &!< (time accum) grid box mean sensible heat flux at surface 
-      &  evap_avg  (:,  :), &!< (time accum) grid box mean evaporation at surface 
-      & lhflx_tile(:,:,:), &!< (instantaneous) latent   heat flux at surface 
-      & shflx_tile(:,:,:), &!< (instantaneous) sensible heat flux at surface 
-      &  evap_tile(:,:,:)   !< (instantaneous) evaporation at surface 
+      & lhflx_avg  (:,  :),   &!< (time ave) grid box mean latent   heat flux at surface 
+      & shflx_avg  (:,  :),   &!< (time ave) grid box mean sensible heat flux at surface 
+      &  evap_avg  (:,  :),   &!< (time ave) grid box mean evaporation at surface 
+      & lhflx_tile(:,:,:),    &!< (instantaneous) latent   heat flux at surface 
+      & shflx_tile(:,:,:),    &!< (instantaneous) sensible heat flux at surface 
+      & evap_tile(:,:,:),    &!< (instantaneous) evaporation at surface 
+      & dshflx_dT_tile(:,:,:),&!< (instantaneous) temp tendency of SHF at surface
+      & dshflx_dT_avg_tile(:,:,:) !< (time ave)  temp tendency of SHF  at surface
 
     TYPE(t_ptr2d),ALLOCATABLE :: lhflx_tile_ptr(:)
     TYPE(t_ptr2d),ALLOCATABLE :: shflx_tile_ptr(:)
-    TYPE(t_ptr2d),ALLOCATABLE ::  evap_tile_ptr(:)
+    TYPE(t_ptr2d),ALLOCATABLE :: evap_tile_ptr(:)
+    TYPE(t_ptr2d),ALLOCATABLE :: dshflx_dT_tile_ptr(:)
+    TYPE(t_ptr2d),ALLOCATABLE :: dshflx_dT_avg_tile_ptr(:)
 
     REAL(wp),POINTER :: &
       & u_stress_avg  (:,  :), &!< (time accum) grid box mean wind stress 
@@ -766,7 +773,13 @@ CONTAINS
     CALL add_var( field_list, prefix//'lwflxsfc', field%lwflxsfc,                             &
                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) 
 
-    ! &      field%lwflxsfc(nproma,nblks_c)
+    ! &      field%dlwflxsfc_dT(nproma,nblks_c)
+    cf_desc    = t_cf_var('dlwflxsfc_dT', 'W m-2 k-1', 'longwave net flux T-tend at surface')
+    grib2_desc = t_grib2_var(0, 5, 5, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'dlwflxsfc_dT', field%dlwflxsfc_dT,                       &
+               & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) 
+
+    ! &      field%lwflxtoa(nproma,nblks_c)
     cf_desc    = t_cf_var('lwflxtoa', 'W m-2', 'longwave net flux at TOA')
     grib2_desc = t_grib2_var(0, 5, 5, nbits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'lwflxtoa', field%lwflxtoa,                             &
@@ -794,7 +807,14 @@ CONTAINS
     CALL add_var( field_list, prefix//'lwflxsfc_avg', field%lwflxsfc_avg,           &
                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) 
 
-    ! &      field%lwflxsfc_avg(nproma,nblks_c)
+    ! &      field%dlwflxsfc_dT_avg(nproma,nblks_c)
+    cf_desc    = t_cf_var('dlwflxsfc_dT_avg', 'W m-2 k-1', 'averaged longwave net flux T-tend at surface')
+    grib2_desc = t_grib2_var(0, 5, 5, nbits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'dlwflxsfc_dT_avg', field%dlwflxsfc_dT_avg,             &
+               & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) 
+
+
+    ! &      field%lwflxtoa_avg(nproma,nblks_c)
     cf_desc    = t_cf_var('lwflxtoa_avg', 'W m-2','averaged over output longwave net flux at TOA')
     grib2_desc = t_grib2_var(0, 5, 5, nbits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'lwflxtoa_avg', field%lwflxtoa_avg,                 &
@@ -1256,28 +1276,51 @@ CONTAINS
     !---------------------------
     ! Surface fluxes
     !---------------------------
-    ! Accumulated gridbox mean
+    ! Averaged gridbox mean
 
-    CALL add_var( field_list, prefix//'evap_avg', field%evap_avg,           &
+    CALL add_var( field_list, prefix//'evap_avg', field%evap_avg,         &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                  &
-                & t_cf_var('evap_avg', 'kg m-2', 'evaporation'//           &
-                & ' averaged over output interval'),                   &
+                & t_cf_var('evap_avg', 'kg m-2', 'evaporation'//          &
+                & ' averaged over output interval'),                      &
                 & t_grib2_var(2,0,6,morebits, GRID_REFERENCE, GRID_CELL), &
                 & ldims=shape2d                                           )
 
-    CALL add_var( field_list, prefix//'lhflx_avg', field%lhflx_avg,         &
+    CALL add_var( field_list, prefix//'lhflx_avg', field%lhflx_avg,       &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                  &
-                & t_cf_var('lhflx_avg', 'W m-2 s', 'latent heat flux'//    &
-                & 'averaged over output interval'),                    &
+                & t_cf_var('lhflx_avg', 'W m-2 ', 'latent heat flux'//    &
+                & 'averaged over output interval'),                       &
                 & t_grib2_var(2, 0, 6, nbits, GRID_REFERENCE, GRID_CELL), &
                 & ldims=shape2d                                           )
 
-    CALL add_var( field_list, prefix//'shflx_avg', field%shflx_avg,         &
+    CALL add_var( field_list, prefix//'shflx_avg', field%shflx_avg,       &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                  &
-                & t_cf_var('shflx_avg', 'W m-2 s', 'sensible heat flux'//  &
-                & 'averaged over output interval'),                    &
+                & t_cf_var('shflx_avg', 'W m-2 ', 'sensible heat flux'//  &
+                & 'averaged over output interval'),                       &
                 & t_grib2_var(2, 0, 6, nbits, GRID_REFERENCE, GRID_CELL), &
                 & ldims=shape2d                                           )
+
+   !---------------------------
+    ! Time Averaged tiles
+
+    CALL add_var( field_list, prefix//'dshflx_dT_avg_tile', field%dshflx_dT_avg_tile,&
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                             &
+                & t_cf_var('dshflx_dT_avg_tile', 'W m-2 K-1', ''//                   &
+                & 'averaged over output interval'),                                  &
+                & t_grib2_var(2, 0, 6, nbits, GRID_REFERENCE, GRID_CELL),            &
+                & ldims=shapesfc ,                                                    &
+                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.    )
+
+   ALLOCATE(field%dshflx_dT_avg_tile_ptr(ksfc_type))
+
+    DO jsfc = 1,ksfc_type
+      WRITE(csfc,'(i1)') jsfc 
+
+      CALL add_ref( field_list, prefix//'dshflx_dT_avg_tile',                                 &
+                  & prefix//'dshflx_dT_avg_tile_'//csfc, field%dshflx_dT_avg_tile_ptr(jsfc)%p,&
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                                    &
+                  & t_cf_var('dshflx_dT_avg_tile_'//csfc, '', ''),                            &
+                  & t_grib2_var(2,0,6, nbits, GRID_REFERENCE, GRID_CELL), ldims=shape2d       )
+    ENDDO
 
     !---------------------------------
     ! Instantaneous values over tiles
@@ -1303,9 +1346,18 @@ CONTAINS
                 & ldims=shapesfc,                                         &
                 & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.    )
 
+    CALL add_var( field_list, prefix//'dshflx_dT_tile', field%dshflx_dT_tile,&
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                  &
+                & t_cf_var('dshflx_dT_tile', 'W m-2', 'temp tend of SHF'),  &
+                & t_grib2_var(2, 0, 6, nbits, GRID_REFERENCE, GRID_CELL), &
+                & ldims=shapesfc,                                         &
+                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.    )
+
+
     ALLOCATE(field%evap_tile_ptr(ksfc_type))
     ALLOCATE(field%lhflx_tile_ptr(ksfc_type))
     ALLOCATE(field%shflx_tile_ptr(ksfc_type))
+    ALLOCATE(field%dshflx_dT_tile_ptr(ksfc_type))
 
     DO jsfc = 1,ksfc_type
       WRITE(csfc,'(i1)') jsfc 
@@ -1329,6 +1381,13 @@ CONTAINS
                   & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                       &
                   & t_cf_var('shflx_tile_'//csfc, '', ''),                       &
                   & t_grib2_var(2,0,6, nbits, GRID_REFERENCE, GRID_CELL),        &
+                  & ldims=shape2d )
+
+      CALL add_ref( field_list, prefix//'dshflx_dT_tile',                             &
+                  & prefix//'dshflx_dT_tile_'//csfc, field%dshflx_dT_tile_ptr(jsfc)%p,&
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                            &
+                  & t_cf_var('dshflx_dT_tile_'//csfc, '', ''),                        &
+                  & t_grib2_var(2,0,6, nbits, GRID_REFERENCE, GRID_CELL),             &
                   & ldims=shape2d )
     END DO
 

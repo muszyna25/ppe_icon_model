@@ -437,12 +437,14 @@ CONTAINS
       field% flxdwswtoa(:,  :) = 0._wp
       field% swflxsfc    (:,:) = 0._wp
       field% lwflxsfc    (:,:) = 0._wp
+      field% dlwflxsfc_dT(:,:) = 0._wp
       field% swflxtoa    (:,:) = 0._wp
       field% lwflxtoa    (:,:) = 0._wp
       field% swflxsfc_avg(:,:) = 0._wp
       field% lwflxsfc_avg(:,:) = 0._wp
       field% swflxtoa_avg(:,:) = 0._wp
       field% lwflxtoa_avg(:,:) = 0._wp
+      field% dlwflxsfc_dT_avg(:,:) = 0._wp
       field% aclc  (:,:,:) = 0._wp
       field% aclcac(:,:,:) = 0._wp
       field% aclcov(:,  :) = 0._wp
@@ -462,6 +464,8 @@ CONTAINS
       field%  evap_avg(:,  :) = 0._wp
       field% lhflx_avg(:,  :) = 0._wp
       field% shflx_avg(:,  :) = 0._wp
+      field%dshflx_dT_tile    (:,:,:)= 0._wp
+      field%dshflx_dT_avg_tile(:,:,:)= 0._wp
 
       field% u_stress_avg(:,  :) = 0._wp
       field% v_stress_avg(:,  :) = 0._wp

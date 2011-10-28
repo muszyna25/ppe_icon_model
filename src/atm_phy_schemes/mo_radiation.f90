@@ -1268,13 +1268,15 @@ CONTAINS
     &                 pemiss        ,  &
     &                 ptsfc         ,  &
     &                 ptsfctrad     ,  &
+    &                 ptemp_klev    ,  & ! optional
     &                 ptrmsw        ,  &
     &                 pflxlw        ,  &
     &                 pdtdtradsw    ,  &
     &                 pdtdtradlw    ,  &
     &                 pflxsfcsw     ,  &
     &                 pflxsfclw     ,  &
-    &                 pflxtoasw )
+    &                 pflxtoasw     ,  &
+    &                 dflxlw_dT     )
 
     INTEGER,  INTENT(in)  ::    &
       &     jcs, jce, kbdim,    &
@@ -1290,6 +1292,10 @@ CONTAINS
       &     ptrmsw     (kbdim,klevp1), & ! shortwave transmissivity at trad         []
       &     pflxlw     (kbdim,klevp1)    ! longwave net flux at trad                [W/m2]
 
+    REAL(wp), INTENT(in), OPTIONAL  ::         &
+      &     ptemp_klev  (kbdim)        ! lowest atm temperature at trad           [K]
+                                       ! mußt be present together with dflxlw_dt
+
     REAL(wp), INTENT(out) ::         &
       &     pdtdtradsw (kbdim,klev), & ! shortwave temperature tendency           [K/s]
       &     pdtdtradlw (kbdim,klev)    ! longwave temperature tendency            [K/s]
@@ -1299,6 +1305,9 @@ CONTAINS
       &     pflxsfclw (kbdim), &       ! longwave surface net flux [W/m2]
       &     pflxtoasw (kbdim)          ! shortwave toa net flux [W/m2]
 
+    REAL(wp), INTENT(out), OPTIONAL :: &
+      &   dflxlw_dT (kbdim)            ! temperature tendency of 
+                                       !longwave surface net flux [W/m2/K]
 
     
     ! Local arrays
@@ -1330,6 +1339,13 @@ CONTAINS
     zflxlw(jcs:jce,klevp1) = pflxlw(jcs:jce,klevp1)               &
       &                   + pemiss(jcs:jce)*stbo * ptsfctrad(jcs:jce)**4 &
       &                   - pemiss(jcs:jce)*stbo * ptsfc    (jcs:jce)**4
+
+
+    !KF for sea ice model: temperatur tendeny of longwave flux at surface
+    IF(PRESENT (dflxlw_dT)) &
+      &    dflxlw_dT(jcs:jce)= 4._wp*pemiss(jcs:jce)*stbo               &
+      &                      * (ptemp_klev(jcs:jce)-ptsfc (jcs:jce))**3 &
+      &                      * (ptemp_klev(jcs:jce)-1._wp)
 
     !
     !

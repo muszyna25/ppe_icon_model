@@ -59,9 +59,10 @@ CONTAINS
                            & pcptv_tile, ptsfc_tile, pqsat_tile,   &! in
                            & pca, pcs, bb,                         &! in
                            & plhflx_gbm_ac, pshflx_gbm_ac,         &! inout
-                           & pevap_gbm_ac,                         &! inout
+                           & pevap_gbm_ac, dshflx_dT_ac_tile,      &! inout
                            & plhflx_tile, pshflx_tile,             &! out
-                           & pevap_tile, pevap_gbm                 )! out
+                           & dshflx_dT_tile,                       &! out
+                           & pevap_tile, pevap_gbm )! out
 
     LOGICAL, INTENT(IN) :: lsfc_heat_flux
     REAL(wp),INTENT(IN) :: pdtime, psteplen
@@ -84,11 +85,14 @@ CONTAINS
     REAL(wp),INTENT(INOUT) :: plhflx_gbm_ac(kbdim)
     REAL(wp),INTENT(INOUT) :: pshflx_gbm_ac(kbdim)
     REAL(wp),INTENT(INOUT) ::  pevap_gbm_ac(kbdim)
+    REAL(wp),INTENT(INOUT) :: dshflx_dT_ac_tile(kbdim,ksfc_type)
 
     REAL(wp),INTENT(OUT)   :: plhflx_tile(kbdim,ksfc_type)
     REAL(wp),INTENT(OUT)   :: pshflx_tile(kbdim,ksfc_type)
     REAL(wp),INTENT(OUT)   ::  pevap_tile(kbdim,ksfc_type)
     REAL(wp),INTENT(OUT)   ::  pevap_gbm (kbdim)
+
+    REAL(wp),INTENT(OUT)   :: dshflx_dT_tile(1:kproma,ksfc_type)
 
     INTEGER  :: jsfc
     REAL(wp) :: zconst, zdqv(kbdim), zdcptv(kbdim)
@@ -105,7 +109,7 @@ CONTAINS
        pevap_gbm (1:kproma)   = 0._wp
       plhflx_tile(1:kproma,:) = 0._wp
       pshflx_tile(1:kproma,:) = 0._wp
-
+      dshflx_dT_tile(1:kproma,:)= 0._wp
 
     IF (.NOT.lsfc_heat_flux) THEN
       RETURN
@@ -204,6 +208,8 @@ CONTAINS
                                  & *pcfh_tile(1:kproma,jsfc)  &
                                  & *zdcptv(1:kproma)
 
+   
+
       ! Subtract contribution from latent heat
       !  CpTv = CpT(1+vtmpc2*qv)
       !  => CpT = CpTv - CpT*vtmpc2*qv
@@ -212,14 +218,27 @@ CONTAINS
       pshflx_tile(1:kproma,jsfc) =  pshflx_tile(1:kproma,jsfc)       &
                                  & - ptsfc_tile(1:kproma,jsfc)*cpd   &
                                  &  *pevap_tile(1:kproma,jsfc)*vtmpc2
+
+      ! KF: For the Sea-ice model!
+      ! attempt to made a first guess of temperature tendency for SHF
+      ! over ICE! by assuming only the cp*delta(T) matters. So: d(SHF)/deltaT
+
+      dshflx_dT_tile(1:kproma,jsfc) =  pshflx_tile(1:kproma,jsfc) &
+        &                           / zdcptv(1:kproma) !*(1._wp+pevap_tile(1:kproma,jsfc)*vtmpc2)
+
     ENDDO
+
 
     ! Accumulated grid box mean
 
     DO jsfc = 1,ksfc_type
-      pshflx_gbm_ac(1:kproma) =   pshflx_gbm_ac(1:kproma)                        &
-                              & + pfrc(1:kproma,jsfc)*pshflx_tile(1:kproma,jsfc) &
-                              &  *pdtime
+               pshflx_gbm_ac(1:kproma) = pshflx_gbm_ac(1:kproma)                        &
+                              &        + pfrc(1:kproma,jsfc)*pshflx_tile(1:kproma,jsfc) &
+                              &        * pdtime
+    ! Accumulated tiles of temperature tendency of SHF for sea ice model
+    ! averaging take place on output
+      dshflx_dT_ac_tile(1:kproma,jsfc) = dshflx_dT_ac_tile(1:kproma,jsfc)               &
+                                 &     + dshflx_dT_tile(1:kproma,jsfc) *pdtime
     ENDDO
 
   END SUBROUTINE surface_fluxes

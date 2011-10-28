@@ -60,9 +60,10 @@ CONTAINS
                            & ptsfc_tile,                        &! inout
                            & pu_stress_gbm_ac, pv_stress_gbm_ac,&! inout
                            & plhflx_gbm_ac, pshflx_gbm_ac,      &! inout
-                           & pevap_gbm_ac,                      &! inout
+                           & pevap_gbm_ac,  dshflx_dT_ac_tile,  &! inout
                            & pu_stress_tile,   pv_stress_tile,  &! out
                            & plhflx_tile, pshflx_tile,          &! out
+                           & dshflx_dT_tile,                    &! out
                            & pevap_tile, pevap_gbm              )! out
 
     LOGICAL, INTENT(IN)    :: lsfc_heat_flux, lsfc_mom_flux
@@ -91,11 +92,13 @@ CONTAINS
     REAL(wp),INTENT(INOUT) ::    plhflx_gbm_ac (kbdim)
     REAL(wp),INTENT(INOUT) ::    pshflx_gbm_ac (kbdim)
     REAL(wp),INTENT(INOUT) ::     pevap_gbm_ac (kbdim)
+    REAL(wp),INTENT(INOUT) :: dshflx_dT_ac_tile(kbdim,ksfc_type)
 
     REAL(wp),INTENT(OUT)   :: pu_stress_tile (kbdim,ksfc_type)
     REAL(wp),INTENT(OUT)   :: pv_stress_tile (kbdim,ksfc_type)
     REAL(wp),INTENT(OUT)   ::    plhflx_tile (kbdim,ksfc_type)
     REAL(wp),INTENT(OUT)   ::    pshflx_tile (kbdim,ksfc_type)
+    REAL(wp),INTENT(OUT)   :: dshflx_dT_tile (kbdim,ksfc_type)
     REAL(wp),INTENT(OUT)   ::     pevap_tile (kbdim,ksfc_type)
     REAL(wp),INTENT(OUT)   ::     pevap_gbm  (kbdim)
 
@@ -254,8 +257,9 @@ CONTAINS
                       & pcpt_tile, ptsfc_tile, pqsat_tile,    &! in
                       & zca, zcs, bb(:,:,ih:iqv),             &! in
                       & plhflx_gbm_ac, pshflx_gbm_ac,         &! inout
-                      & pevap_gbm_ac,                         &! inout
+                      & pevap_gbm_ac,  dshflx_dT_ac_tile,     &! inout
                       & plhflx_tile, pshflx_tile,             &! out
+                      & dshflx_dT_tile,                       &! out
                       & pevap_tile, pevap_gbm                 )! out
 
   END SUBROUTINE update_surface

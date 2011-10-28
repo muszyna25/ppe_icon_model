@@ -564,6 +564,7 @@ CONTAINS
         & ext_data(jg)%atm%emis_rad(:,jb), & !in lw sfc emissivity
         & field% tsfc     (:,jb)      ,&! in     surface temperature           [K]
         & field% tsfc     (:,jb)      ,&! in     sfc temp. used in "radiation" [K]
+        & field% temp     (:,nlev,jb) ,&!< in    temperature at lowest full level [K]
         & field% trsolall (:,:,jb)    ,&! in     shortwave net tranmissivity   []
         & field% emterall (:,:,jb)    ,&! in     longwave net flux             [W/m2]
         !
@@ -574,10 +575,8 @@ CONTAINS
         & tend%temp_radlw (:,:,jb)    ,&! out    rad. heating by LW         [K/s]
         & field%swflxsfc    (:,jb)    ,&! out shortwave surface net flux [W/m2]
         & field%lwflxsfc    (:,jb)    ,&! out longwave surface net flux  [W/m2]
-        & field%swflxtoa    (:,jb)    ) ! out shortwave toa net flux     [W/m2]
-
-   !   WRITE(0,*)'radheat on!!',jb
-
+        & field%swflxtoa    (:,jb)    ,&! out shortwave toa net flux     [W/m2]
+        & field%dlwflxsfc_dT (:,jb)    )! out Temp tend of sfc longwave net flux [W/m2/K]
 
 
       IF (ltimer) CALL timer_stop(timer_radheat)
@@ -707,12 +706,14 @@ CONTAINS
                        & field% lhflx_avg  (:,  jb),    &! inout ! will be averaged when submitted
                        & field% shflx_avg  (:,  jb),    &! inout ! to the
                        & field%  evap_avg  (:,  jb),    &! inout ! OUTPUT
-                       & field%u_stress_tile(:,jb,:),  &! inout
-                       & field%v_stress_tile(:,jb,:),  &! inout
-                       & field% lhflx_tile(:,jb,:),    &! out
-                       & field% shflx_tile(:,jb,:),    &! out
-                       & field%  evap_tile(:,jb,:),    &! out
-                       &  zqhflx                       )! out, for "cucall"
+                       & field%dshflx_dT_avg_tile(:,jb,:),&! inout ! OUTPUT for Sea ice
+                       & field%u_stress_tile  (:,jb,:),   &! inout
+                       & field%v_stress_tile  (:,jb,:),   &! inout
+                       & field% lhflx_tile    (:,jb,:),   &! out
+                       & field% shflx_tile    (:,jb,:),   &! out
+                       & field% dshflx_dT_tile(:,jb,:),   &! out for Sea ice
+                       & field%  evap_tile    (:,jb,:),   &! out
+                       & zqhflx                          )! out, for "cucall"
                          
     ! 5.5 Turbulent mixing, part II:
     !     - Elimination for the lowest model level using boundary conditions
@@ -1035,12 +1036,19 @@ CONTAINS
        field% swflxsfc_avg(jcs:jce,jb) = field% swflxsfc_avg(jcs:jce,jb)  &
          &                            +  field% swflxsfc    (jcs:jce,jb)  *pdtime
        field% lwflxsfc_avg(jcs:jce,jb) = field% lwflxsfc_avg(jcs:jce,jb)  &
-         &                            + field% lwflxsfc    (jcs:jce,jb)  *pdtime
+         &                             + field% lwflxsfc    (jcs:jce,jb)  *pdtime
+       field% dlwflxsfc_dT_avg(jcs:jce,jb) = field% dlwflxsfc_dT_avg(jcs:jce,jb) &
+       &                                   +  field%dlwflxsfc_dT (:,jb)*pdtime
+
        field% swflxtoa_avg(jcs:jce,jb) =  field% swflxtoa_avg(jcs:jce,jb) &
          &                             + field% swflxtoa    (jcs:jce,jb) *pdtime
        field% lwflxtoa_avg(jcs:jce,jb) = field% lwflxtoa_avg(jcs:jce,jb) &
          &                             + field% emterall    (jcs:jce,1,jb) *pdtime
 
+       ! accumulate the HeatFlux tendencies: LW, SensH, LatH
+
+!     field %dlwflxsfc_dt_avg(jcs:jce,jb) = field %dlwflxsfc_dt_avg(jcs:jce,jb)    &
+!                      &                  + tend  %temp_radlw      (jcs:jce,klev,jb)
 
 
  !      IF(jb == 300) THEN

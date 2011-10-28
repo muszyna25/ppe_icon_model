@@ -204,6 +204,10 @@ CONTAINS
 !  REAL(wp) ::    pshflx_tile(kbdim,ksfc_type) !< sensible heat flux
   REAL(wp) ::     pevap_tile(kbdim,ksfc_type) !< evaporation
 
+  !needed for sea ice model in ICOHAM therefor local variables in driver
+  REAL(wp) ::   dshflx_dT_tile   (kbdim,ksfc_type) ! temp tendency of sensible heat flux
+  REAL(wp) ::   dshflx_dT_ac_tile(kbdim,ksfc_type) ! accum. temp tendency of sensible heat flux
+
   ! Local variables
 
   REAL(wp) :: zcpt_tile(kbdim,ksfc_type)
@@ -353,14 +357,15 @@ CONTAINS
   ! TEMPORARILY INITIALIZE ACCUMULATED VARIABLES TO ZERO.  +++++++++++++++
   ! LATER THIS SHOULD BE DONE DURING MODEL INITIALIZATION!
   ! 
-
   !KF if you want to use these values in ICONAM allocate them outside 
   ! and initialise them there. HERE they play the role of dummies!
-  pu_stress_gbm_ac(1:kproma) = 0._wp
-  pv_stress_gbm_ac(1:kproma) = 0._wp
-      pevap_gbm_ac(1:kproma) = 0._wp
-     plhflx_gbm_ac(1:kproma) = 0._wp   
-     pshflx_gbm_ac(1:kproma) = 0._wp   
+  pu_stress_gbm_ac (1:kproma) = 0._wp
+  pv_stress_gbm_ac (1:kproma) = 0._wp
+      pevap_gbm_ac (1:kproma) = 0._wp
+     plhflx_gbm_ac (1:kproma) = 0._wp   
+     pshflx_gbm_ac (1:kproma) = 0._wp   
+    dshflx_dT_tile (1:kproma,:) = 0._wp
+  dshflx_dT_ac_tile(1:kproma,:) = 0._wp
   !--------------------------------------------------------+++++++++++++++
 
   CALL update_surface( lsfc_heat_flux, lsfc_mom_flux,      &! in
@@ -374,9 +379,10 @@ CONTAINS
                      & ptsfc_tile,                         &! inout
                      & pu_stress_gbm_ac, pv_stress_gbm_ac, &! inout
                      & plhflx_gbm_ac, pshflx_gbm_ac,       &! inout
-                     & pevap_gbm_ac,                       &! inout
+                     & pevap_gbm_ac,  dshflx_dT_ac_tile,   &! inout
                      & pu_stress_tile, pv_stress_tile,     &! out
                      & plhflx_tile, pshflx_tile,           &! out
+                     & dshflx_dT_tile,                    &! out
                      & pevap_tile, pqv_mflux_sfc           )! out
 
   !-----------------------------------------------------------------------
