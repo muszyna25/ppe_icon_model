@@ -1283,6 +1283,24 @@ END DO
           END DO
         END DO
       END DO
+  CASE (45) !T and S are horizontally homegeneous. Values are taken from t_prof and s_prof
+      DO jb = i_startblk_c, i_endblk_c    
+        CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
+         &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
+
+        DO jc = i_startidx_c, i_endidx_c
+          DO jk=1,n_zlev
+            IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+                p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)=tprof(jk)
+
+              IF(no_tracer==2)THEN
+                p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof(jk)
+              ENDIF
+            ENDIF
+          END DO
+        END DO
+      END DO
+
 
     CASE DEFAULT
      CALL finish(TRIM(routine), 'CHOSEN INITIALIZATION NOT SUPPORTED - TERMINATE')

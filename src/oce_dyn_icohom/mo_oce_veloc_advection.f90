@@ -796,12 +796,14 @@ DO jb = i_startblk, i_endblk
 
       DO jk = slev+1,z_dolic-1
 
+            !This seems to work well
            z_adv_u_m(jc,jk,jb)%x &
            & = 0.5_wp*(z_adv_u_i(jc,jk,jb)%x+z_adv_u_i(jc,jk+1,jb)%x)
-!            z_adv_u_m(jc,jk,jb)%x &
-!            & = (v_base%del_zlev_i(jk)*z_adv_u_i(jc,jk,jb)%x&
+             !Map back from cell top to cell center and weight according to thickness
+!             z_adv_u_m(jc,jk,jb)%x &
+!             & = (v_base%del_zlev_i(jk)*z_adv_u_i(jc,jk,jb)%x&
 !            & +  v_base%del_zlev_i(jk+1)*z_adv_u_i(jc,jk+1,jb)%x) &
-!            & / (v_base%del_zlev_i(jk+1)+v_base%del_zlev_i(jk))
+!             & / (v_base%del_zlev_i(jk+1)+v_base%del_zlev_i(jk))
       END DO
        ! 2c) ocean bottom
          z_adv_u_m(jc,z_dolic,jb)%x =0.0_wp!=  z_adv_u_i(jc,z_dolic,jb)%x
@@ -817,7 +819,7 @@ enddo
 ! ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
 CALL map_cell2edges( p_patch, z_adv_u_m, veloc_adv_vert_e, &
   &                  opt_slev=slev, opt_elev=elev )
-!veloc_adv_vert_e=0.0_wp
+
   DO jk=1,n_zlev
     ipl_src=3  ! output print level (1-5, fix)
     CALL print_mxmn('vert adv FINAL',jk,veloc_adv_vert_e(:,:,:),n_zlev, &

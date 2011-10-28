@@ -808,10 +808,10 @@ CONTAINS
                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) 
 
     ! &      field%dlwflxsfc_dT_avg(nproma,nblks_c)
-    cf_desc    = t_cf_var('dlwflxsfc_dT_avg', 'W m-2 k-1', 'averaged longwave net flux T-tend at surface')
-    grib2_desc = t_grib2_var(0, 5, 5, nbits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'dlwflxsfc_dT_avg', field%dlwflxsfc_dT_avg,             &
-               & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) 
+     cf_desc    = t_cf_var('dlwflxsfc_dT_avg', 'W m-2 k-1','averaged longwave net flux T-tend at surface')
+     grib2_desc = t_grib2_var(0, 5, 5, nbits, GRID_REFERENCE, GRID_CELL)
+     CALL add_var( field_list, prefix//'dlwflxsfc_dT_avg', field%dlwflxsfc_dT_avg,             &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) 
 
 
     ! &      field%lwflxtoa_avg(nproma,nblks_c)
