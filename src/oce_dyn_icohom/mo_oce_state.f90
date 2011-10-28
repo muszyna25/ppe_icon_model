@@ -2473,215 +2473,214 @@ END DO
     !-----------------------------------------------------------------------
     CALL message (TRIM(routine), 'start')
 
-    rl_start = 1 
-    rl_end = min_rlcell
+    rl_start     = 1
+    rl_end       = min_rlcell
 
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,1)
+    i_startblk   = p_patch%cells%start_blk(rl_start,1)
+    i_endblk     = p_patch%cells%end_blk(rl_end,1)
 
-     rl_start_e = 1
-     rl_end_e = min_rledge
+    rl_start_e   = 1
+    rl_end_e     = min_rledge
 
-     i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
-     i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
+    i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
+    i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
 
-     !STEP 1: edge2cell and cell2edge coefficients
-     EDGE_BLK_LOOP_PRIMAL: DO jb = i_startblk_e, i_endblk_e
+    !STEP 1: edge2cell and cell2edge coefficients
+    EDGE_BLK_LOOP_PRIMAL: DO jb = i_startblk_e, i_endblk_e
 
-       CALL get_indices_e(p_patch, jb,&
-                        & i_startblk_e, i_endblk_e,&
-                        & i_startidx_e, i_endidx_e,&
-                        & rl_start_e, rl_end_e)
+      CALL get_indices_e(p_patch, jb,&
+                       & i_startblk_e, i_endblk_e,&
+                       & i_startidx_e, i_endidx_e,&
+                       & rl_start_e, rl_end_e)
 
-       EDGE_IDX_LOOP_PRIMAL: DO je =  i_startidx_e, i_endidx_e
+      EDGE_IDX_LOOP_PRIMAL: DO je =  i_startidx_e, i_endidx_e
 
-         !Get indices of two adjacent triangles
-         il_c1 = p_patch%edges%cell_idx(je,jb,1)
-         ib_c1 = p_patch%edges%cell_blk(je,jb,1)
-         il_c2 = p_patch%edges%cell_idx(je,jb,2)
-         ib_c2 = p_patch%edges%cell_blk(je,jb,2)
+        !Get indices of two adjacent triangles
+        il_c1 = p_patch%edges%cell_idx(je,jb,1)
+        ib_c1 = p_patch%edges%cell_blk(je,jb,1)
+        il_c2 = p_patch%edges%cell_idx(je,jb,2)
+        ib_c2 = p_patch%edges%cell_blk(je,jb,2)
 
-         cc_c1 = gc2cc(p_patch%cells%center(il_c1, ib_c1))
-         cc_c2 = gc2cc(p_patch%cells%center(il_c2, ib_c2))
+        cc_c1 = gc2cc(p_patch%cells%center(il_c1, ib_c1))
+        cc_c2 = gc2cc(p_patch%cells%center(il_c2, ib_c2))
 
-         z_cell_edge_dist_c1 = 0.0_wp
-         z_cell_edge_dist_c2 = 0.0_wp
+        z_cell_edge_dist_c1 = 0.0_wp
+        z_cell_edge_dist_c2 = 0.0_wp
 
-         !normals in cell 1
-         DO ie = 1, no_cell_edges
+        !normals in cell 1
+        DO ie = 1, no_cell_edges
 
-           !actual edges of cell c1
-           iil_c1(ie) = p_patch%cells%edge_idx(il_c1,ib_c1,ie)
-           iib_c1(ie) = p_patch%cells%edge_blk(il_c1,ib_c1,ie)
+          !actual edges of cell c1
+          iil_c1(ie) = p_patch%cells%edge_idx(il_c1,ib_c1,ie)
+          iib_c1(ie) = p_patch%cells%edge_blk(il_c1,ib_c1,ie)
 
-           cc_edge(ie)   = gc2cc(p_patch%edges%center(iil_c1(ie),iib_c1(ie)))
+          cc_edge(ie)   = gc2cc(p_patch%edges%center(iil_c1(ie),iib_c1(ie)))
 
-           !calculate edge length
-           !get vertex indices adjacent to actual edge
-           il_v1 = p_patch%edges%vertex_idx(iil_c1(ie),iib_c1(ie),1)
-           ib_v1 = p_patch%edges%vertex_blk(iil_c1(ie),iib_c1(ie),1)
-           il_v2 = p_patch%edges%vertex_idx(iil_c1(ie),iib_c1(ie),2)
-           ib_v2 = p_patch%edges%vertex_blk(iil_c1(ie),iib_c1(ie),2)
+          !calculate edge length
+          !get vertex indices adjacent to actual edge
+          il_v1 = p_patch%edges%vertex_idx(iil_c1(ie),iib_c1(ie),1)
+          ib_v1 = p_patch%edges%vertex_blk(iil_c1(ie),iib_c1(ie),1)
+          il_v2 = p_patch%edges%vertex_idx(iil_c1(ie),iib_c1(ie),2)
+          ib_v2 = p_patch%edges%vertex_blk(iil_c1(ie),iib_c1(ie),2)
 
-           !get vertex positions
-           xx1 = gc2cc(p_patch%verts%vertex(il_v1,ib_v1))
-           xx2 = gc2cc(p_patch%verts%vertex(il_v2,ib_v2))
+          !get vertex positions
+          xx1 = gc2cc(p_patch%verts%vertex(il_v1,ib_v1))
+          xx2 = gc2cc(p_patch%verts%vertex(il_v2,ib_v2))
  
-           IF(LARC_LENGTH)THEN
-             norm=SQRT(SUM(xx1%x*xx1%x))
-             xx1%x= xx1%x/norm
-             norm=SQRT(SUM(xx2%x*xx2%x))
-             xx2%x= xx2%x/norm
-             z_edge_length(ie) = arc_length(xx2,xx1)
-             !z_edge_length(ie) = p_patch%edges%primal_edge_length(iil_c1(ie),iib_c1(ie))/re
-           ELSE
-             z_edge_length(ie) = SQRT(SUM((xx2%x-xx1%x)*(xx2%x-xx1%x)))
-            !write(*,*)'length 3:', z_edge_length(ie),arc_length(xx1,xx2) 
-           ENDIF
+          IF(LARC_LENGTH)THEN
+            norm=SQRT(SUM(xx1%x*xx1%x))
+            xx1%x= xx1%x/norm
+            norm=SQRT(SUM(xx2%x*xx2%x))
+            xx2%x= xx2%x/norm
+            z_edge_length(ie) = arc_length(xx2,xx1)
+            !z_edge_length(ie) = p_patch%edges%primal_edge_length(iil_c1(ie),iib_c1(ie))/re
+          ELSE
+            z_edge_length(ie) = SQRT(SUM((xx2%x-xx1%x)*(xx2%x-xx1%x)))
+           !write(*,*)'length 3:', z_edge_length(ie),arc_length(xx1,xx2) 
+          ENDIF
 
-           !calculate cell-edge distance as half of cell-cell distance
-           !get cell indices adjacent to actual edge
-           jil_c1 = p_patch%edges%cell_idx(iil_c1(ie),iib_c1(ie),1)
-           jib_c1 = p_patch%edges%cell_blk(iil_c1(ie),iib_c1(ie),1)
-           jil_c2 = p_patch%edges%cell_idx(iil_c1(ie),iib_c1(ie),2)
-           jib_c2 = p_patch%edges%cell_blk(iil_c1(ie),iib_c1(ie),2)
+          !calculate cell-edge distance as half of cell-cell distance
+          !get cell indices adjacent to actual edge
+          jil_c1 = p_patch%edges%cell_idx(iil_c1(ie),iib_c1(ie),1)
+          jib_c1 = p_patch%edges%cell_blk(iil_c1(ie),iib_c1(ie),1)
+          jil_c2 = p_patch%edges%cell_idx(iil_c1(ie),iib_c1(ie),2)
+          jib_c2 = p_patch%edges%cell_blk(iil_c1(ie),iib_c1(ie),2)
 
-           !get cell positions
-           xx1 = gc2cc(p_patch%cells%center(jil_c1,jib_c1))
-           xx2 = gc2cc(p_patch%cells%center(jil_c2,jib_c2))
+          !get cell positions
+          xx1 = gc2cc(p_patch%cells%center(jil_c1,jib_c1))
+          xx2 = gc2cc(p_patch%cells%center(jil_c2,jib_c2))
 
-           IF(jil_c1==il_c1.AND.jib_c1==ib_c1)THEN
+          IF(jil_c1==il_c1.AND.jib_c1==ib_c1)THEN
+           k=1
+          ELSEIF(jil_c2==il_c1.AND.jib_c2==ib_c1)THEN
+           k=2
+          ENDIF
+
+          IF(LARC_LENGTH)THEN
+            norm=SQRT(SUM(xx1%x*xx1%x))
+            xx1%x= xx1%x/norm
+            norm=SQRT(SUM(xx2%x*xx2%x))
+            xx2%x= xx2%x/norm
+            norm          = SQRT(SUM(cc_edge(ie)%x*cc_edge(ie)%x))
+            cc_edge(ie)%x = cc_edge(ie)%x/norm
+            z_cell_edge_dist_c1(ie,1) = arc_length(cc_edge(ie),xx1)
+            z_cell_edge_dist_c1(ie,2) = arc_length(cc_edge(ie),xx2)
+            !z_cell_edge_dist_c1(ie,1) = p_patch%edges%edge_cell_length(iil_c1(ie),iib_c1(ie),k)/re 
+            !z_cell_edge_dist_c1(ie,2) = p_patch%edges%edge_cell_length(iil_c1(ie),iib_c1(ie),k)/re 
+          ELSE
+            z_cell_edge_dist_c1(ie,1) = SQRT(SUM((cc_edge(ie)%x-xx1%x)*(cc_edge(ie)%x-xx1%x)))
+            z_cell_edge_dist_c1(ie,2) = SQRT(SUM((cc_edge(ie)%x-xx2%x)*(cc_edge(ie)%x-xx2%x)))  
+            !write(*,*)'length 4',z_cell_edge_dist_c1(ie,1), z_cell_edge_dist_c1(ie,1),&
+            !&p_patch%edges%edge_cell_length(iil_c1(ie),iib_c1(ie),1)/re 
+          ENDIF
+          v_base%dist_cell2edge(iil_c1(ie),iib_c1(ie),1) = z_cell_edge_dist_c1(ie,1)
+          v_base%dist_cell2edge(iil_c1(ie),iib_c1(ie),2) = z_cell_edge_dist_c1(ie,2)
+
+          z_vec_c1(ie)%x =  cc_edge(ie)%x - cc_c1%x     !p_patch%edges%primal_cart_normal(iil_c1(ie),iib_c1(ie))
+          norm = SQRT(SUM( z_vec_c1(ie)%x* z_vec_c1(ie)%x))
+
+          v_base%edge2cell_coeff_cc(il_c1,ib_c1,ie)%x&
+          & = z_vec_c1(ie)%x*p_patch%cells%edge_orientation(il_c1,ib_c1,ie)*z_edge_length(ie)
+
+!tes
+!z_vc_c1(ie)%x =z_vec_c1(ie)%x/norm
+!wrie(*,*)'vec:normal:',z_vec_c1(ie)%x,p_patch%edges%primal_cart_normal(iil_c1(ie),iib_c1(ie))%x 
+!--------
+ 
+                v_base%fixed_vol_norm(il_c1,ib_c1) = &
+            &   v_base%fixed_vol_norm(il_c1,ib_c1) + 0.5_wp*norm*z_edge_length(ie)
+          v_base%variable_vol_norm(il_c1,ib_c1,ie) = 0.5_wp*norm*z_edge_length(ie)
+
+          !write(*,*)'edge length   :',z_edge_length(ie),p_patch%edges%primal_edge_length(iil_c1(ie),iib_c1(ie))/re
+          !write(*,*)'cell-edge dist:', z_cell_edge_dist_c1(ie,k),p_patch%edges%edge_cell_length(iil_c1(ie),iib_c1(ie),k)/re
+        END DO
+
+        !normals in cell 2
+        DO ie = 1, no_cell_edges
+
+          !actual edges of cell c2
+          iil_c2(ie) = p_patch%cells%edge_idx(il_c2,ib_c2,ie)
+          iib_c2(ie) = p_patch%cells%edge_blk(il_c2,ib_c2,ie)
+
+          cc_edge(ie) = gc2cc(p_patch%edges%center(iil_c2(ie),iib_c2(ie)))
+
+          !calculate edge length
+          !get vertex indices adjacent to actual edge
+          il_v1 = p_patch%edges%vertex_idx(iil_c2(ie),iib_c2(ie),1)
+          ib_v1 = p_patch%edges%vertex_blk(iil_c2(ie),iib_c2(ie),1)
+          il_v2 = p_patch%edges%vertex_idx(iil_c2(ie),iib_c2(ie),2)
+          ib_v2 = p_patch%edges%vertex_blk(iil_c2(ie),iib_c2(ie),2)
+
+          !get vertex positions
+          xx1 = gc2cc(p_patch%verts%vertex(il_v1,ib_v1))
+          xx2 = gc2cc(p_patch%verts%vertex(il_v2,ib_v2))
+
+          IF(LARC_LENGTH)THEN
+            norm=SQRT(SUM(xx1%x*xx1%x))
+            xx1%x= xx1%x/norm
+
+            norm=SQRT(SUM(xx2%x*xx2%x))
+            xx2%x= xx2%x/norm
+
+            z_edge_length(ie) = arc_length(xx2,xx1)
+            !z_edge_length(ie) = p_patch%edges%primal_edge_length(iil_c2(ie),iib_c2(ie))/re
+             !write(*,*)'arc length',arc_length(xx2,xx1),z_edge_length(ie),SQRT(SUM((xx2%x-xx1%x)*(xx2%x-xx1%x)))
+          ELSE
+            z_edge_length(ie) = SQRT(SUM((xx2%x-xx1%x)*(xx2%x-xx1%x)))
+          ENDIF
+          !calculate cell-edge distance as half of cell-cell distance
+          !get cell indices adjacent to actual edge
+          jil_c1 = p_patch%edges%cell_idx(iil_c2(ie),iib_c2(ie),1)
+          jib_c1 = p_patch%edges%cell_blk(iil_c2(ie),iib_c2(ie),1)
+          jil_c2 = p_patch%edges%cell_idx(iil_c2(ie),iib_c2(ie),2)
+          jib_c2 = p_patch%edges%cell_blk(iil_c2(ie),iib_c2(ie),2)
+
+          !get cell positions
+          xx1 = gc2cc(p_patch%cells%center(jil_c1,jib_c1))  
+          xx2 = gc2cc(p_patch%cells%center(jil_c2,jib_c2))
+
+          IF(jil_c1==il_c2.AND.jib_c1==ib_c2)THEN
             k=1
-           ELSEIF(jil_c2==il_c1.AND.jib_c2==ib_c1)THEN
+          ELSEIF(jil_c2==il_c2.AND.jib_c2==ib_c2)THEN
             k=2
-           ENDIF
+          ENDIF  
 
-           IF(LARC_LENGTH)THEN
-             norm=SQRT(SUM(xx1%x*xx1%x))
-             xx1%x= xx1%x/norm
-             norm=SQRT(SUM(xx2%x*xx2%x))
-             xx2%x= xx2%x/norm
-             norm          = SQRT(SUM(cc_edge(ie)%x*cc_edge(ie)%x))
-             cc_edge(ie)%x = cc_edge(ie)%x/norm
-             z_cell_edge_dist_c1(ie,1) = arc_length(cc_edge(ie),xx1)
-             z_cell_edge_dist_c1(ie,2) = arc_length(cc_edge(ie),xx2)
-             !z_cell_edge_dist_c1(ie,1) = p_patch%edges%edge_cell_length(iil_c1(ie),iib_c1(ie),k)/re 
-             !z_cell_edge_dist_c1(ie,2) = p_patch%edges%edge_cell_length(iil_c1(ie),iib_c1(ie),k)/re 
-           ELSE
-             z_cell_edge_dist_c1(ie,1) = SQRT(SUM((cc_edge(ie)%x-xx1%x)*(cc_edge(ie)%x-xx1%x)))
-             z_cell_edge_dist_c1(ie,2) = SQRT(SUM((cc_edge(ie)%x-xx2%x)*(cc_edge(ie)%x-xx2%x)))  
-             !write(*,*)'length 4',z_cell_edge_dist_c1(ie,1), z_cell_edge_dist_c1(ie,1),&
-             !&p_patch%edges%edge_cell_length(iil_c1(ie),iib_c1(ie),1)/re 
-           ENDIF
-           v_base%dist_cell2edge(iil_c1(ie),iib_c1(ie),1) = z_cell_edge_dist_c1(ie,1)
-           v_base%dist_cell2edge(iil_c1(ie),iib_c1(ie),2) = z_cell_edge_dist_c1(ie,2)
+          IF(LARC_LENGTH)THEN
+            norm=SQRT(SUM(xx1%x*xx1%x))
+            xx1%x= xx1%x/norm
+            norm=SQRT(SUM(xx2%x*xx2%x))
+            xx2%x= xx2%x/norm
+            norm=SQRT(SUM(cc_edge(ie)%x*cc_edge(ie)%x))
+            cc_edge(ie)%x =  cc_edge(ie)%x/norm
+            z_cell_edge_dist_c2(ie,1) = arc_length(cc_edge(ie),xx1)
+            z_cell_edge_dist_c2(ie,2) = arc_length(cc_edge(ie),xx2)
+            !z_cell_edge_dist_c2(ie,1) = p_patch%edges%edge_cell_length(iil_c2(ie),iib_c2(ie),1)/re
+            !z_cell_edge_dist_c2(ie,2) = p_patch%edges%edge_cell_length(iil_c2(ie),iib_c2(ie),2)/re
+            !write(*,*)'arc length',0.5_wp*arc_length(xx2,xx1),z_cell_edge_dist_c2(ie,k),0.5_wp*SQRT(SUM((xx2%x-xx1%x)*(xx2%x-xx1%x)))
+          ELSE 
+            z_cell_edge_dist_c2(ie,1) = SQRT(SUM((cc_edge(ie)%x-xx1%x)*(cc_edge(ie)%x-xx1%x)))
+            z_cell_edge_dist_c2(ie,2) = SQRT(SUM((cc_edge(ie)%x-xx2%x)*(cc_edge(ie)%x-xx2%x)))
+          ENDIF
+          v_base%dist_cell2edge(iil_c2(ie),iib_c2(ie),1) = z_cell_edge_dist_c1(ie,1)
+          v_base%dist_cell2edge(iil_c2(ie),iib_c2(ie),2) = z_cell_edge_dist_c1(ie,2)
 
-           z_vec_c1(ie)%x =  cc_edge(ie)%x - cc_c1%x     !p_patch%edges%primal_cart_normal(iil_c1(ie),iib_c1(ie))
-           norm = SQRT(SUM( z_vec_c1(ie)%x* z_vec_c1(ie)%x))
+          z_vec_c2(ie)%x =  cc_edge(ie)%x - cc_c2%x  !p_patch%edges%primal_cart_normal(iil_c2(ie),iib_c2(ie))
+          norm = SQRT(SUM( z_vec_c2(ie)%x* z_vec_c2(ie)%x))
 
-           v_base%edge2cell_coeff_cc(il_c1,ib_c1,ie)%x&
-           & = z_vec_c1(ie)%x*p_patch%cells%edge_orientation(il_c1,ib_c1,ie)*z_edge_length(ie)
+          v_base%edge2cell_coeff_cc(il_c2,ib_c2,ie)%x&
+            & = z_vec_c2(ie)%x*p_patch%cells%edge_orientation(il_c2,ib_c2,ie)*z_edge_length(ie)
 
-!test
-!z_vec_c1(ie)%x =z_vec_c1(ie)%x/norm
-!write(*,*)'vec:normal:',z_vec_c1(ie)%x,p_patch%edges%primal_cart_normal(iil_c1(ie),iib_c1(ie))%x 
-!---------
- 
-           CALL check_patch_array(SYNC_C, p_patch,v_base%fixed_vol_norm,'fixed_vol_norm')
-                 v_base%fixed_vol_norm(il_c1,ib_c1) = &
-             &   v_base%fixed_vol_norm(il_c1,ib_c1) + 0.5_wp*norm*z_edge_length(ie)
-           v_base%variable_vol_norm(il_c1,ib_c1,ie) = 0.5_wp*norm*z_edge_length(ie)
+          v_base%fixed_vol_norm(il_c2,ib_c2) &
+            & = v_base%fixed_vol_norm(il_c2,ib_c2) + 0.5_wp*norm*z_edge_length(ie)
 
-           !write(*,*)'edge length   :',z_edge_length(ie),p_patch%edges%primal_edge_length(iil_c1(ie),iib_c1(ie))/re
-           !write(*,*)'cell-edge dist:', z_cell_edge_dist_c1(ie,k),p_patch%edges%edge_cell_length(iil_c1(ie),iib_c1(ie),k)/re
-         END DO
+          v_base%variable_vol_norm(il_c2,ib_c2,ie) = 0.5_wp*norm*z_edge_length(ie)
 
-         !normals in cell 2
-         DO ie = 1, no_cell_edges
-
-           !actual edges of cell c2
-           iil_c2(ie) = p_patch%cells%edge_idx(il_c2,ib_c2,ie)
-           iib_c2(ie) = p_patch%cells%edge_blk(il_c2,ib_c2,ie)
-
-           cc_edge(ie) = gc2cc(p_patch%edges%center(iil_c2(ie),iib_c2(ie)))
-
-           !calculate edge length
-           !get vertex indices adjacent to actual edge
-           il_v1 = p_patch%edges%vertex_idx(iil_c2(ie),iib_c2(ie),1)
-           ib_v1 = p_patch%edges%vertex_blk(iil_c2(ie),iib_c2(ie),1)
-           il_v2 = p_patch%edges%vertex_idx(iil_c2(ie),iib_c2(ie),2)
-           ib_v2 = p_patch%edges%vertex_blk(iil_c2(ie),iib_c2(ie),2)
-
-           !get vertex positions
-           xx1 = gc2cc(p_patch%verts%vertex(il_v1,ib_v1))
-           xx2 = gc2cc(p_patch%verts%vertex(il_v2,ib_v2))
-
-           IF(LARC_LENGTH)THEN
-             norm=SQRT(SUM(xx1%x*xx1%x))
-             xx1%x= xx1%x/norm
-
-             norm=SQRT(SUM(xx2%x*xx2%x))
-             xx2%x= xx2%x/norm
-
-             z_edge_length(ie) = arc_length(xx2,xx1)
-             !z_edge_length(ie) = p_patch%edges%primal_edge_length(iil_c2(ie),iib_c2(ie))/re
-              !write(*,*)'arc length',arc_length(xx2,xx1),z_edge_length(ie),SQRT(SUM((xx2%x-xx1%x)*(xx2%x-xx1%x)))
-           ELSE
-             z_edge_length(ie) = SQRT(SUM((xx2%x-xx1%x)*(xx2%x-xx1%x)))
-           ENDIF
-           !calculate cell-edge distance as half of cell-cell distance
-           !get cell indices adjacent to actual edge
-           jil_c1 = p_patch%edges%cell_idx(iil_c2(ie),iib_c2(ie),1)
-           jib_c1 = p_patch%edges%cell_blk(iil_c2(ie),iib_c2(ie),1)
-           jil_c2 = p_patch%edges%cell_idx(iil_c2(ie),iib_c2(ie),2)
-           jib_c2 = p_patch%edges%cell_blk(iil_c2(ie),iib_c2(ie),2)
-
-           !get cell positions
-           xx1 = gc2cc(p_patch%cells%center(jil_c1,jib_c1))  
-           xx2 = gc2cc(p_patch%cells%center(jil_c2,jib_c2))
-
-           IF(jil_c1==il_c2.AND.jib_c1==ib_c2)THEN
-             k=1
-           ELSEIF(jil_c2==il_c2.AND.jib_c2==ib_c2)THEN
-             k=2
-           ENDIF  
-
-           IF(LARC_LENGTH)THEN
-             norm=SQRT(SUM(xx1%x*xx1%x))
-             xx1%x= xx1%x/norm
-             norm=SQRT(SUM(xx2%x*xx2%x))
-             xx2%x= xx2%x/norm
-             norm=SQRT(SUM(cc_edge(ie)%x*cc_edge(ie)%x))
-             cc_edge(ie)%x =  cc_edge(ie)%x/norm
-             z_cell_edge_dist_c2(ie,1) = arc_length(cc_edge(ie),xx1)
-             z_cell_edge_dist_c2(ie,2) = arc_length(cc_edge(ie),xx2)
-             !z_cell_edge_dist_c2(ie,1) = p_patch%edges%edge_cell_length(iil_c2(ie),iib_c2(ie),1)/re
-             !z_cell_edge_dist_c2(ie,2) = p_patch%edges%edge_cell_length(iil_c2(ie),iib_c2(ie),2)/re
-             !write(*,*)'arc length',0.5_wp*arc_length(xx2,xx1),z_cell_edge_dist_c2(ie,k),0.5_wp*SQRT(SUM((xx2%x-xx1%x)*(xx2%x-xx1%x)))
-           ELSE 
-             z_cell_edge_dist_c2(ie,1) = SQRT(SUM((cc_edge(ie)%x-xx1%x)*(cc_edge(ie)%x-xx1%x)))
-             z_cell_edge_dist_c2(ie,2) = SQRT(SUM((cc_edge(ie)%x-xx2%x)*(cc_edge(ie)%x-xx2%x)))
-           ENDIF
-           v_base%dist_cell2edge(iil_c2(ie),iib_c2(ie),1) = z_cell_edge_dist_c1(ie,1)
-           v_base%dist_cell2edge(iil_c2(ie),iib_c2(ie),2) = z_cell_edge_dist_c1(ie,2)
-
-           z_vec_c2(ie)%x =  cc_edge(ie)%x - cc_c2%x  !p_patch%edges%primal_cart_normal(iil_c2(ie),iib_c2(ie))
-           norm = SQRT(SUM( z_vec_c2(ie)%x* z_vec_c2(ie)%x))
-
-           v_base%edge2cell_coeff_cc(il_c2,ib_c2,ie)%x&
-             & = z_vec_c2(ie)%x*p_patch%cells%edge_orientation(il_c2,ib_c2,ie)*z_edge_length(ie)
-
-           v_base%fixed_vol_norm(il_c2,ib_c2) &
-             & = v_base%fixed_vol_norm(il_c2,ib_c2) + 0.5_wp*norm*z_edge_length(ie)
-
-           v_base%variable_vol_norm(il_c2,ib_c2,ie) = 0.5_wp*norm*z_edge_length(ie)
-
-         END DO
-       END DO EDGE_IDX_LOOP_PRIMAL
-     END DO EDGE_BLK_LOOP_PRIMAL
-     !In he edge loop above each triangle is visisted three times. Since the "fixed_vol_norm" is
-     !accumulated we correct its value here:
-     v_base%fixed_vol_norm = v_base%fixed_vol_norm/3.0_wp
+        END DO
+      END DO EDGE_IDX_LOOP_PRIMAL
+    END DO EDGE_BLK_LOOP_PRIMAL
+    !In he edge loop above each triangle is visisted three times. Since the "fixed_vol_norm" is
+    !accumulated we correct its value here:
+    v_base%fixed_vol_norm = v_base%fixed_vol_norm/3.0_wp
 
     rl_start = 1 
     rl_end = min_rledge
@@ -2973,7 +2972,6 @@ END DO
       v_base%variable_vol_norm(:,:,ie) = z_sync_c(:,:)
    
     END DO
-
     CALL sync_patch_array(SYNC_C, p_patch,v_base%fixed_vol_norm)
 
     ! synchronize elements on edges
