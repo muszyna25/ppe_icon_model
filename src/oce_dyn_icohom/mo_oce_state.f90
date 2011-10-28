@@ -2954,31 +2954,24 @@ END DO
       ENDDO VERT_IDX_LOOP
     END DO VERT_BLK_LOOP
 
-    ! synchronize all elements of v_base:
-
+    !--------------------------------------------------------------------------
+    ! SYNCHRONIZE ALL ELEMENTS OF V_BASE:
     ! synchronize elements on cells
     DO ie = 1, no_cell_edges
-
       DO icc = 1, 3
-
         z_sync_c(:,:) =  v_base%edge2cell_coeff_cc(:,:,ie)%x(icc)
         CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
         v_base%edge2cell_coeff_cc(:,:,ie)%x(icc) = z_sync_c(:,:)
-
       END DO
-
       z_sync_c(:,:) = v_base%variable_vol_norm(:,:,ie)
       CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
       v_base%variable_vol_norm(:,:,ie) = z_sync_c(:,:)
-   
     END DO
     CALL sync_patch_array(SYNC_C, p_patch,v_base%fixed_vol_norm)
 
     ! synchronize elements on edges
     DO ie = 1, 2
-
       DO icc = 1, 3
-
         z_sync_e(:,:) =  v_base%edge2vert_coeff_cc_t(:,:,ie)%x(icc)
         CALL sync_patch_array(SYNC_E, p_patch, z_sync_e(:,:))
         v_base%edge2vert_coeff_cc_t(:,:,ie)%x(icc) = z_sync_e(:,:)
@@ -2986,16 +2979,12 @@ END DO
         z_sync_e(:,:) =  v_base%edge2cell_coeff_cc_t(:,:,ie)%x(icc)
         CALL sync_patch_array(SYNC_E, p_patch, z_sync_e(:,:))
         v_base%edge2cell_coeff_cc_t(:,:,ie)%x(icc) = z_sync_e(:,:)
-
       END DO
-
     END DO
 
+    ! synchronize cartesian coordinates on vertices:
     DO ie = 1, no_vert_edges
-
-      ! synchronize cartesian coordinates on vertices:
       DO icc = 1, 3
-
         z_sync_v(:,:) =  v_base%edge2vert_vector_cc(:,:,ie)%x(icc)
         CALL sync_patch_array(SYNC_V, p_patch, z_sync_v(:,:))
         v_base%edge2vert_vector_cc(:,:,ie)%x(icc) = z_sync_v(:,:)
@@ -3003,13 +2992,10 @@ END DO
         z_sync_v(:,:) = v_base%edge2vert_coeff_cc(:,:,ie)%x(icc)
         CALL sync_patch_array(SYNC_V, p_patch, z_sync_v(:,:))
         v_base%edge2vert_coeff_cc(:,:,ie)%x(icc) = z_sync_v(:,:)
-
       END DO
-
       z_sync_v(:,:) = v_base%variable_dual_vol_norm(:,:,ie)
       CALL sync_patch_array(SYNC_V, p_patch, z_sync_v(:,:))
       v_base%variable_dual_vol_norm(:,:,ie) = z_sync_v(:,:)
-
     END DO
 
     CALL message (TRIM(routine), 'end')
