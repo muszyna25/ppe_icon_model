@@ -106,7 +106,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
   REAL(wp),                    INTENT(in)   :: tcall_turb_jg   !< time interval for 
                                                                !< turbulence
   REAL(wp),                    INTENT(in)   :: mean_charlen    !< characteristic griddistance
-                                                               !< needed  by turbulence
+                                                               !< needed by turbulence
   ! Local array bounds:
 
   INTEGER :: nblks_c, nblks_e        !> number of blocks for cells / edges
@@ -124,8 +124,9 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
   INTEGER :: ierrstat=0
   CHARACTER (LEN=25) :: eroutine=''
   CHARACTER (LEN=80) :: errormsg=''
-  REAL(wp) ::                  &     !< aux TKE field
-    &  z_tke (nproma,p_patch%nlevp1 ,p_patch%nblks_c,1) 
+  REAL(wp) ::                  &     !< aux turbulence velocity scale [m/s]
+    &  z_tvs    (nproma,p_patch%nlevp1,p_patch%nblks_c,1) !DR, &
+!DR    &  z_ddt_tke(nproma,p_patch%nlevp1,p_patch%nblks_c) ! tvs tendency [m/s2]
 
   ! local variables for vdiff
   INTEGER, PARAMETER :: itrac = 1
@@ -268,8 +269,12 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
       prm_nwp_tend%ddt_tracer_turb(i_startidx:i_endidx,:,jb,iqv) = 0._wp
       prm_nwp_tend%ddt_tracer_turb(i_startidx:i_endidx,:,jb,iqc) = 0._wp
       
-      !KF INPUT to turbdiff is timestep now
-      z_tke(i_startidx:i_endidx,:,jb,1)=p_prog_now_rcf%tke(i_startidx:i_endidx,:,jb)
+
+      ! note that TKE must be converted to the turbulence velocity scale SQRT(2*TKE)
+      ! for turbdiff
+      ! INPUT to turbdiff is timestep now
+      z_tvs(i_startidx:i_endidx,:,jb,1)=  &
+        &           SQRT(2._wp * p_prog_now_rcf%tke(i_startidx:i_endidx,:,jb))
 
 
 !-------------------------------------------------------------------------
@@ -316,7 +321,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         &  gz0=prm_diag%gz0(:,jb), tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb), &
         &  tfm=prm_diag%tfm(:,jb), tfh=prm_diag%tfh(:,jb), tfv=prm_diag%tfv(:,jb), &
 !
-        &  tke=z_tke (:,:,jb,:) ,&!  edr =prm_diag%edr(:,:,jb),                    &
+        &  tke=z_tvs (:,:,jb,:) ,&!  edr =prm_diag%edr(:,:,jb),                    &
         &  tkvm=prm_diag%tkvm(:,:,jb), tkvh=prm_diag%tkvh(:,:,jb), rcld=prm_diag%rcld(:,:,jb), &
 !
         &  u_tens=prm_nwp_tend%ddt_u_turb(:,:,jb), v_tens=prm_nwp_tend%ddt_v_turb(:,:,jb), &
@@ -325,7 +330,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         &  qc_tens=prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqc), &
         &  tketens=prm_nwp_tend%ddt_tke(:,:,jb), &
         &  ut_sso=prm_nwp_tend%ddt_u_sso(:,:,jb), vt_sso=prm_nwp_tend%ddt_v_sso(:,:,jb) ,&
-!      																			
+! 						
         &  t_2m=prm_diag%t_2m(:,jb), qv_2m=prm_diag%qv_2m(:,jb), td_2m=prm_diag%td_2m(:,jb), &
         &  rh_2m=prm_diag%rh_2m(:,jb), u_10m=prm_diag%u_10m(:,jb), v_10m=prm_diag%v_10m(:,jb), &
         &  shfl_s=prm_diag%shfl_s(:,jb), lhfl_s=prm_diag%lhfl_s(:,jb), &
@@ -336,13 +341,17 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         CALL finish(eroutine, errormsg)
       END IF
 
+      ! transform updated turbulent velocity scale back to TKE
+      p_prog_rcf%tke(i_startidx:i_endidx,:,jb)= 0.5_wp                                &
+        &                                     * (z_tvs(i_startidx:i_endidx,:,jb,1))**2
+
       ! Set limits to turbulent temperature tendency as a provisional
       ! fix of numerical instabilities. THIS IS NOT INTENDED TO BE A FINAL SOLUTION!!!
       DO jk = 1, advection_config(jg)%iadv_slev(iqc)-1
         DO jc = i_startidx, i_endidx
           prm_nwp_tend%ddt_temp_turb(jc,jk,jb) = &
             MIN(1.e-3_wp,MAX(-1.e-3_wp,prm_nwp_tend%ddt_temp_turb(jc,jk,jb)))
-         z_tke(jc,jk,jb,1) = MIN(1._wp,z_tke(jc,jk,jb,1))
+          p_prog_rcf%tke(jc,jk,jb) = MIN(1._wp,p_prog_rcf%tke(jc,jk,jb))
         ENDDO
       ENDDO
       DO jk = advection_config(jg)%iadv_slev(iqc), nlev
@@ -374,7 +383,6 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
         ENDDO
       ENDIF
 
-      p_prog_rcf%tke(i_startidx:i_endidx,:,jb)=z_tke(i_startidx:i_endidx,:,jb,1)
 
 
     ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == 2 ) THEN

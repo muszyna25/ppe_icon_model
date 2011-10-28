@@ -1398,12 +1398,19 @@ CONTAINS
       IF(lwrite_tke ) THEN
         SELECT CASE (iforcing)
         CASE (inwp)
-          !--- turbulent konetic energy---
+          !--- turbulent kinetic energy---
           CALL addVar(TimeVar('TKE',&
           &                   'turbulent kinetic energy',&
           &                   'm^2/s^2', 152, 201,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid_half(k_jg)),&
           &           k_jg)
+!DR to be implemented
+!!$          !--- TKE-tendency ---
+!!$          CALL addVar(TimeVar('tend_tke',&
+!!$          &                   'turbulent kinetic energy tendency',&
+!!$          &                   'm2/s3', 125, 999,&
+!!$          &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
+!!$          &           k_jg)
         END SELECT
       ENDIF !lwrite_tke
 
@@ -1931,7 +1938,6 @@ CONTAINS
           &           k_jg)
 
         ! Tracer tendencies
-
         IF (ntracer > 0) THEN
           DO jt = 1, iqcond
             ctracer = ctracer_list(jt:jt)
@@ -3061,15 +3067,7 @@ CONTAINS
       CASE ('THETA_V');         ptr3 => p_prog%theta_v
       CASE ('EXNER');           ptr3 => p_prog%exner
       CASE ('RHO');             ptr3 => p_prog%rho
-      CASE ('TKE')
-        IF (atm_phy_nwp_config(jg)%inwp_turb.EQ.1) THEN
-        ! so far TKE in ICON is defined as: SQRT(2 * turbulent kinetik energy)
-        ! Thus, if we want the turbulent kinetic energy (units m2/s2) in the output,
-        ! we need to take half of the square of TKE.
-                                ptr3 => dup3(0.5_wp*(p_prog%tke(:,:,:))**2); delete = .TRUE.
-           ELSE
-                                ptr3 => p_prog%tke
-           ENDIF
+      CASE ('TKE');             ptr3 => p_prog%tke
       CASE ('Z0')
         IF (atm_phy_nwp_config(jg)%inwp_turb.EQ.1) THEN
                                 ptr2 => dup2(prm_diag(jg)%gz0(:,:)/grav); delete = .TRUE.
@@ -3093,6 +3091,8 @@ CONTAINS
       CASE ('tend_v_sso');      ptr3 => prm_nwp_tend(jg)%ddt_v_sso     (:,:,:)
       CASE ('tend_v_gwd');      ptr3 => prm_nwp_tend(jg)%ddt_v_gwd     (:,:,:)
       CASE ('tend_v_raylfric'); ptr3 => prm_nwp_tend(jg)%ddt_v_raylfric(:,:,:)
+!DR to be implemented
+!!$      CASE ('tend_tke');        ptr3 => prm_nwp_tend(jg)%ddt_tke       (:,:,:)
       CASE ('U_Z');             ptr3 => p_diag_z%u     (:,:,:)
       CASE ('V_Z');             ptr3 => p_diag_z%v     (:,:,:)
       CASE ('T_Z');             ptr3 => p_diag_z%temp  (:,:,:)

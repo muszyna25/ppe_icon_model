@@ -116,7 +116,7 @@ MODULE mo_nonhydro_state
       theta_v(:,:,:),    & !! virtual potential temperature (nproma,nlev,nblks_c)    [K]
       rhotheta_v(:,:,:), & !! rho*theta_v (nproma,nlev,nblks_c)               [K*kg/m^3]
       tracer(:,:,:,:),   & !! tracer concentration (nproma,nlev,nblks_c,ntracer) [kg/kg]
-      tke   (:,:,:)        !! SQRT(2 * turbulent kinetik energy)                 [ m/s ]
+      tke   (:,:,:)        !! turbulent kinetik energy                         [m^2/s^2]
                            !! (defined on half levels) with 2 time levels
     TYPE(t_ptr_nh),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
 

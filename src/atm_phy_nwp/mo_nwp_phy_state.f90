@@ -200,7 +200,7 @@ TYPE t_nwp_phy_diag
        tch(:,:)        ,    & !! turbulent transfer coefficients for heat        --
        tfm(:,:)        ,    & !! factor of laminar transfer of momentum          --
        tfh(:,:)        ,    & !! factor of laminar transfer of scalars           --
-       tfv(:,:)         ,   & !! laminar reduction factor for evaporation        --
+       tfv(:,:)        ,    & !! laminar reduction factor for evaporation        --
        gz0(:,:),            & !! roughness length * g of the vertically not
                               !! resolved canopy   !! surface area index       ( 1 )
        sai(:,:),            & !! surface area index                            ( 1 )
@@ -212,7 +212,7 @@ TYPE t_nwp_phy_diag
        t_2m(:,:)       ,    & !! temperature in 2m                             (  K  )
        t_2m_s6avg(:,:),     & !! 6 hourly sample 2 m temperature average       (  K  )
        qv_2m (:,:)     ,    & !! specific water vapor content in 2m            (kg/kg)
-       qv_2m_s6avg(:,:),     & !! 6 hourly sample 2 m specific water vapor content average   (kg/kg)
+       qv_2m_s6avg(:,:),    & !! 6 hourly sample 2 m specific water vapor content average   (kg/kg)
        td_2m (:,:)     ,    & !! dew-point in 2m                               (  K  )
        rh_2m (:,:)     ,    & !! relative humidity in 2m                       (  %  )
        u_10m (:,:)     ,    & !! zonal wind in 10m                             ( m/s )
@@ -232,9 +232,9 @@ TYPE t_nwp_phy_diag
 
     REAL(wp),POINTER :: &
       & cfm    (:,:,:),     &!< turbulent exchange coefficient
-      & cfm_tile(:,:,:),     &!< turbulent exchange coefficient
+      & cfm_tile(:,:,:),    &!< turbulent exchange coefficient
       & cfh    (:,:,:),     &!< turbulent exchange coefficient
-      & cfh_tile(:,:,:),     &!< turbulent exchange coefficient
+      & cfh_tile(:,:,:),    &!< turbulent exchange coefficient
       & cfv    (:,:,:),     &!< turbulent exchange coefficient
       & cftke  (:,:,:),     &!< turbulent exchange coefficient
       & cfthv  (:,:,:),     &!< turbulent exchange coefficient
@@ -258,9 +258,9 @@ TYPE t_nwp_phy_diag
       & aerdes  (:,:)
 
 INTEGER, POINTER ::         &
-       &  mbas_con(:,:),        & !!cloud base level index
-       &  mtop_con(:,:),        & !! cloud top  level index
-       &  ktype   (:,:)           !!  Type of convection
+       &  mbas_con(:,:),    & !!cloud base level index
+       &  mtop_con(:,:),    & !! cloud top  level index
+       &  ktype   (:,:)       !!  Type of convection
 
 LOGICAL, POINTER ::         & !!
        & locum     (:,:)          !! convective  activity indicator
@@ -290,7 +290,7 @@ TYPE t_nwp_phy_tend
              ddt_tracer_turb (:,:,:,:),& !! Hydromet-tendency from turbulence
              ddt_tracer_pconv(:,:,:,:),& !! Hydromet-tendency from convective prec
              ddt_tracer_pscl (:,:,:,:),& !! Hydromet-tendency from grid scale prec
-             ddt_tke         (:,:,:)     !! tendency for turbulent knetic energy
+             ddt_tke         (:,:,:)     !! tendency for turbulent kinetic energy [m^2/s^3]
    TYPE(t_ptr_phy),ALLOCATABLE :: tracer_turb_ptr(:)  !< pointer array: one pointer for each component
    TYPE(t_ptr_phy),ALLOCATABLE :: tracer_conv_ptr(:)  !< pointer array: one pointer for each component
    TYPE(t_ptr_phy),ALLOCATABLE :: tracer_pscl_ptr(:)  !< pointer array: one pointer for each component
