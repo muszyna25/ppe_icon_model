@@ -56,6 +56,7 @@ MODULE mo_nml_crosscheck
     &                              MIURA_MCYCL, MIURA3_MCYCL, ifluxl_sm,      &
     &                              islopel_m, islopel_sm, ifluxl_m  
   USE mo_time_config,        ONLY: time_config
+  USE mo_extpar_config,      ONLY: itopo
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d,       &
     &                              inextra_3d, lwrite_cloud, lwrite_extra,    &
     &                              lwrite_omega, lwrite_precip, lwrite_pres,  &
@@ -379,7 +380,7 @@ CONTAINS
                       'length z0 selected!')
         ENDIF 
 
-        ! check radiation scheme in relation to chosen ozone
+        ! check radiation scheme in relation to chosen ozone and irad_aero=6 to itopo
 
         IF (  atm_phy_nwp_config(jg)%inwp_radiation > 0 )  THEN
 
@@ -388,13 +389,21 @@ CONTAINS
           CASE default
             CALL finish(TRIM(routine),'irad_o3 currently has to be 0 , 4, 6, or 7.')
           END SELECT
+
+          ! Tegen aerosol and itopo (Tegen aerosol data have to be read from external data file)
+          IF ( ( irad_aero == 6 ) .AND. ( itopo /=1 ) ) THEN
+            CALL finish(TRIM(routine),'irad_aero=6 requires itopo=1')
+          ENDIF
+          
         ELSE
+          
           SELECT CASE (irad_o3)
-          CASE (4,6) 
+          CASE (4,6,7)
             CALL finish(TRIM(routine),'running without radiation => irad_o3 must be 0')
           END SELECT
-        ENDIF
-
+          
+        ENDIF !inwp_radiation
+        
       ENDDO
     END IF
 
