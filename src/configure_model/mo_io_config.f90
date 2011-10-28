@@ -70,6 +70,7 @@ MODULE mo_io_config
 
     LOGICAL :: lwrite_initial             ! if .true., write out initial values
     LOGICAL :: lwrite_dblprec             ! if .true. create double precision output
+    LOGICAL :: lwrite_decomposition       ! if .true. write field with MPI_RANK
 
     LOGICAL :: lwrite_vorticity           ! if .true., write out vorticity
     LOGICAL :: lwrite_divergence          ! if .true., write out divergence

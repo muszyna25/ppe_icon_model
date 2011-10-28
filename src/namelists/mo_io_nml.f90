@@ -77,7 +77,8 @@ MODULE mo_io_nml
                                  & config_inextra_2d              => inextra_2d       , &
                                  & config_inextra_3d              => inextra_3d       , &
                                  & config_lflux_avg               => lflux_avg        , &
-                                 & config_lwrite_dblprec          => lwrite_dblprec
+                                 & config_lwrite_dblprec          => lwrite_dblprec   , &
+                                 & config_lwrite_decomposition    => lwrite_decomposition
   USE mo_exception,        ONLY: message, message_text, finish
   USE mo_parallel_config,  ONLY: nproma
 
@@ -101,6 +102,7 @@ MODULE mo_io_nml
   LOGICAL :: lwrite_initial             ! if .true., write out initial state
   LOGICAL :: lwrite_oce_timestepping    ! if .true., write out intermediate ocean variables
   LOGICAL :: lwrite_dblprec             ! if .true., write out in double precision
+  LOGICAL :: lwrite_decomposition       ! if .true., write field with MPI_RANK
   LOGICAL :: lwrite_vorticity           ! if .true., write out vorticity
   LOGICAL :: lwrite_divergence          ! if .true., write out divergence
   LOGICAL :: lwrite_pres                ! if .true., write out full level pressure
@@ -125,14 +127,14 @@ MODULE mo_io_nml
                                         !  from the beginning of the run, except of 
                                         !  TOT_PREC that would be accumulated
 
-  NAMELIST/io_nml/ out_expname, out_filetype, lkeep_in_sync,          &
-    &              dt_data, dt_diag, dt_file, dt_checkpoint,          &
-    &              lwrite_initial, lwrite_dblprec,                    &
-    &              lwrite_vorticity, lwrite_divergence, lwrite_omega, &
-    &              lwrite_pres, lwrite_z3, lwrite_tracer,             &
-    &              lwrite_tend_phy, lwrite_radiation, lwrite_precip,  &
-    &              lwrite_cloud, lwrite_tke, lwrite_surface,          &
-    &              lwrite_extra, lwrite_pzlev, inextra_2d, inextra_3d,&
+  NAMELIST/io_nml/ out_expname, out_filetype, lkeep_in_sync,             &
+    &              dt_data, dt_diag, dt_file, dt_checkpoint,             &
+    &              lwrite_initial, lwrite_dblprec, lwrite_decomposition, &
+    &              lwrite_vorticity, lwrite_divergence, lwrite_omega,    &
+    &              lwrite_pres, lwrite_z3, lwrite_tracer,                &
+    &              lwrite_tend_phy, lwrite_radiation, lwrite_precip,     &
+    &              lwrite_cloud, lwrite_tke, lwrite_surface,             &
+    &              lwrite_extra, lwrite_pzlev, inextra_2d, inextra_3d,   &
     &              no_output, lflux_avg, lwrite_oce_timestepping
   
 CONTAINS
@@ -171,6 +173,7 @@ CONTAINS
 
     lwrite_initial          = .TRUE.
     lwrite_dblprec          = .FALSE.
+    lwrite_decomposition    = .FALSE.
     lwrite_vorticity        = .TRUE.
     lwrite_divergence       = .TRUE.
     lwrite_omega            = .TRUE.
@@ -267,6 +270,7 @@ CONTAINS
     config_inextra_3d              = inextra_3d
     config_lflux_avg               = lflux_avg
     config_lwrite_dblprec          = lwrite_dblprec
+    config_lwrite_decomposition    = lwrite_decomposition
     config_lwrite_oce_timestepping = lwrite_oce_timestepping
 
     !-----------------------------------------------------

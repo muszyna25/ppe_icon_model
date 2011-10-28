@@ -125,7 +125,8 @@ MODULE mo_io_vlist
     &                                 lwrite_precip, lwrite_cloud, lwrite_tracer, &
     &                                 lwrite_tke,  lwrite_surface, lwrite_pzlev,  &
     &                                 lwrite_dblprec, lwrite_oce_timestepping,    &
-    &                                 lwrite_extra, inextra_2d,inextra_3d,        &
+    &                                 lwrite_extra, lwrite_decomposition,         &
+    &                                 inextra_2d,inextra_3d,        &
     &                                 out_filetype, out_expname,                  &
     &                                 dt_data, dt_file, lkeep_in_sync,            &
     &                                 lflux_avg
@@ -151,7 +152,7 @@ MODULE mo_io_vlist
   USE mo_communication,         ONLY: exchange_data, t_comm_pattern
   USE mo_mpi,                   ONLY: my_process_is_mpi_workroot, my_process_is_stdio, &
     &  my_process_is_mpi_test, my_process_is_mpi_seq, process_mpi_all_test_id,         &
-    &  process_mpi_all_workroot_id, p_recv, p_send, num_work_procs
+    &  process_mpi_all_workroot_id, p_recv, p_send, num_work_procs, get_my_mpi_all_id
   USE mo_icoham_dyn_types,      ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_nonhydro_state,        ONLY: t_nh_prog, t_nh_diag, t_nh_diag_pz
   USE mo_oce_state,             ONLY: t_hydro_ocean_state, t_hydro_ocean_prog,       &
@@ -221,6 +222,7 @@ MODULE mo_io_vlist
   PUBLIC :: setup_vlist, destruct_vlist,                            &
     &       open_output_vlist, close_output_vlist,                  &
     &       write_vlist, get_outvar_ptr_ha, get_outvar_ptr_nh,      &
+    &       get_outvar_ptr_oce,                                     &
     &       vlist_write_var, vlist_set_date_time, vlist_start_step, &
     &       de_reshape1, de_reshape2,                               &
     &       gather_array1, gather_array2, t_collected_var_ptr
@@ -300,6 +302,7 @@ MODULE mo_io_vlist
 
   TYPE(t_lonlat_data), TARGET :: var_lonlat(max_gridlevs) ! (1, ..., no. of patches)
   
+  REAL(wp),POINTER,DIMENSION(:,:) :: cell_owner => NULL()
 CONTAINS
 
   !-------------------------------------------------------------------------
@@ -972,15 +975,15 @@ CONTAINS
             &                   'kg/m**2',elemid2,tableid,&
             &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
             &           k_jg)
-            
+
           END IF !lwrite_tracer(jt)
          END DO
          IF ( irad_o3 == 4 .OR. irad_o3 == 6 .OR. irad_o3 == 7 ) THEN     !output for O3
                         CALL addVar(TimeVar('O3','O3',&
             &                   'kg/kg',203,128,&
             &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
-            &           k_jg)  
-        
+            &           k_jg)
+
          END IF
         ENDIF !iforcing == inwp
 
@@ -2460,6 +2463,31 @@ CONTAINS
 
     CALL nf(nf_close(ncid))
 
+    IF (lwrite_decomposition) THEN
+      CALL addVar(ConstVar('cell_owner',&
+      &                    'MPI-ownership of cells',&
+      &                    '', 1, 128,&
+      &                     vlistID(k_jg),&
+      &                     gridCellID(k_jg), &
+      &                     zaxisID_surface(k_jg)),k_jg)
+!     CALL addVar(ConstVar('edge_owner',&
+!     &                    'MPI-ownership of edges',&
+!     &                    '', 1, 128,&
+!     &                     vlistID(k_jg),&
+!     &                     gridEdgeID(k_jg), &
+!     &                     zaxisID_surface(k_jg)),k_jg)
+!     CALL addVar(ConstVar('vertex_owner',&
+!     &                    'MPI-ownership of vertices',&
+!     &                    '', 1, 128,&
+!     &                     vlistID(k_jg),&
+!     &                     gridVertexID(k_jg), &
+!     &                     zaxisID_surface(k_jg)),k_jg)
+      ALLOCATE(cell_owner(nproma, p_patch(k_jg)%nblks_c))
+!     ALLOCATE(edge_owner(nproma, p_patch(1)%nblks_e))
+!     ALLOCATE(vertex_owner(nproma, p_patch(1)%nblks_v))
+      cell_owner = get_my_mpi_all_id()
+    ENDIF
+
     !=========================================================================
     ! Create description of all output variables in vlist
     num_output_vars(k_jg) = vlistNvars(vlistID(k_jg))
@@ -2802,6 +2830,7 @@ CONTAINS
       CASE ('tend_v_gwh');      ptr3 => prm_tend(jg)%v_gwh
       CASE ('VOR');             ptr3 => p_diag%rel_vort
       CASE ('DIV');             ptr3 => p_diag%div
+      CASE ('cell_owner');      ptr2 => cell_owner
       !
 !!$      CASE ('debug_2d_1');      ptr2 => prm_field(jg)%debug_2d_1
 !!$      CASE ('debug_2d_2');      ptr2 => prm_field(jg)%debug_2d_2
@@ -3088,6 +3117,7 @@ CONTAINS
       CASE ('QC_P');            ptr3 => p_diag_p%tot_cld(:,:,:,iqc)
       CASE ('QI_P');            ptr3 => p_diag_p%tot_cld(:,:,:,iqi)
       CASE ('CC_P');            ptr3 => p_diag_p%tot_cld(:,:,:,icc)
+      CASE ('cell_owner');      ptr2 => cell_owner
       CASE DEFAULT;             not_found = .TRUE.
     END SELECT
 
@@ -3287,10 +3317,10 @@ CONTAINS
     TYPE(t_hydro_ocean_diag), POINTER :: p_diag
     TYPE(t_hydro_ocean_aux),  POINTER :: p_aux
     TYPE(t_sfc_flx),          POINTER :: forcing
-    TYPE(t_ho_params),        POINTER ::  p_params
-    TYPE(t_sea_ice),          POINTER ::  p_ice
-    REAL(wp), POINTER                 ::  r_isice(:,:,:)
-    INTEGER                           ::  s_isice(3)
+    TYPE(t_ho_params),        POINTER :: p_params
+    TYPE(t_sea_ice),          POINTER :: p_ice
+    REAL(wp), POINTER                 :: r_isice(:,:,:)
+    INTEGER                           :: s_isice(3)
 
     p_prog  => v_ocean_state(jg)%p_prog(nold(jg))
     p_diag  => v_ocean_state(jg)%p_diag
@@ -3305,7 +3335,6 @@ CONTAINS
     delete    = .FALSE.
     not_found = .FALSE.
 
-    write(0,*)'VARNAME:',varname
     SELECT CASE(varname)
       CASE ('wet_c');        ptr3d => v_base%wet_c
       CASE ('wet_e');        ptr3d => v_base%wet_e
@@ -3346,7 +3375,7 @@ CONTAINS
       CASE ('rho');          ptr3d => p_diag%rho   
       CASE('Vert-Mixing-V'); ptr3d => p_params%A_veloc_v
       CASE('Vert-Mixing-T'); ptr3d => p_params%A_tracer_v(:,:,:,1)
-
+      CASE ('cell_owner');   ptr2d => cell_owner
       ! sea ice variables
       CASE('p_ice_isice')
         s_isice = SHAPE(p_ice%isice)
@@ -3427,7 +3456,6 @@ CONTAINS
     ! If we are here, the varname was definitly not found
 
   END SUBROUTINE get_outvar_ptr_oce
-
 
   !-------------------------------------------------------------------------------------------------
   SUBROUTINE write_vlist (datetime, z_sim_time)
