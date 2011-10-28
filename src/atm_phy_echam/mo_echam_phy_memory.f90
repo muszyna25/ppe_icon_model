@@ -150,7 +150,7 @@ MODULE mo_echam_phy_memory
       & vor       (:,:,:),  &!< [1/s]   relative vorticity
       & temp      (:,:,:),  &!< [K]     temperature          (tm1  of memory_g1a in ECHAM)
       & tv        (:,:,:),  &!< [K]     virtual temperature  (tvm1 of memory_g1a in ECHAM)
-      & q         (:,:,:,:),&!< [kg/kg] tracer concentration (qm1,xlm1,xim1 of memory_g1a in ECHAM)
+      & q         (:,:,:,:),&!< [kg/kg] tracer concentration (qm1, xlm1, xim1 of memory_g1a in ECHAM)
       & qx        (:,:,:),  &!< [kg/kg] total concentration of hydrometeors
       & omega     (:,:,:),  &!< [Pa/s]  vertical velocity in pressure coord. ("vervel" in ECHAM)
       & geoi      (:,:,:),  &!< [m2/s2] geopotential at half levels (vertical interfaces)
@@ -256,7 +256,7 @@ MODULE mo_echam_phy_memory
       & z0m_tile(:,:,:),    &!< aerodynamic roughness length (over each surface type)
       & z0m   (:,:),        &!< aerodynamic roughness length (grid box mean)
       & ustar (:,:),        &!<
-      & kedisp(:,:),        &!< time-mean (or integrated?) vert. integ. dissipation of kin. energy
+      & kedisp(:,:),        &!< time-mean (or integrated?) vertically integrated dissipation of kinetic energy
       & ocu   (:,:),        &!< eastward  velocity of ocean surface current
       & ocv   (:,:)          !< northward velocity of ocean surface current
 
@@ -770,19 +770,19 @@ CONTAINS
     ! &      field%lwflxsfc(nproma,nblks_c)
     cf_desc    = t_cf_var('lwflxsfc', 'W m-2', 'longwave net flux at surface')
     grib2_desc = t_grib2_var(0, 5, 5, nbits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'lwflxsfc', field%lwflxsfc,                             &
+    CALL add_var( field_list, prefix//'lwflxsfc', field%lwflxsfc,                          &
                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) 
 
     ! &      field%dlwflxsfc_dT(nproma,nblks_c)
     cf_desc    = t_cf_var('dlwflxsfc_dT', 'W m-2 k-1', 'longwave net flux T-tend at surface')
     grib2_desc = t_grib2_var(0, 5, 5, nbits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'dlwflxsfc_dT', field%dlwflxsfc_dT,                       &
+    CALL add_var( field_list, prefix//'dlwflxsfc_dT', field%dlwflxsfc_dT,                    &
                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) 
 
     ! &      field%lwflxtoa(nproma,nblks_c)
     cf_desc    = t_cf_var('lwflxtoa', 'W m-2', 'longwave net flux at TOA')
     grib2_desc = t_grib2_var(0, 5, 5, nbits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'lwflxtoa', field%lwflxtoa,                             &
+    CALL add_var( field_list, prefix//'lwflxtoa', field%lwflxtoa,                          &
               & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) 
 
     !averaged values
@@ -791,13 +791,14 @@ CONTAINS
     cf_desc    = t_cf_var('swflxsfc_avg', 'W m-2',&
       &                                 'averaged over output shortwave net flux at surface')
     grib2_desc = t_grib2_var(0, 4, 9, nbits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'swflxsfc_avg', field%swflxsfc_avg,                      &
+    CALL add_var( field_list, prefix//'swflxsfc_avg', field%swflxsfc_avg,                    &
                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) 
         
     ! &      field%swflxtoa_avg(nproma,nblks_c)
-    cf_desc    = t_cf_var('swflxtoa_avg', 'W m-2','averaged over output shortwave net flux at TOA')
+    cf_desc    = t_cf_var('swflxtoa_avg', 'W m-2',&
+      &                   'averaged over output shortwave net flux at TOA')
     grib2_desc = t_grib2_var(0, 4, 9, nbits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'swflxtoa_avg', field%swflxtoa_avg,                  &
+    CALL add_var( field_list, prefix//'swflxtoa_avg', field%swflxtoa_avg,                 &
                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) 
         
     ! &      field%lwflxsfc_avg(nproma,nblks_c)
@@ -809,16 +810,17 @@ CONTAINS
 
     ! &      field%dlwflxsfc_dT_avg(nproma,nblks_c)
      cf_desc    = t_cf_var('dlwflxsfc_dT_avg', 'W m-2 k-1',&
-       &                   'averaged longwave net flux T-tend at surface')
+       &                    'averaged longwave net flux T-tend at surface')
      grib2_desc = t_grib2_var(0, 5, 5, nbits, GRID_REFERENCE, GRID_CELL)
-     CALL add_var( field_list, prefix//'dlwflxsfc_dT_avg', field%dlwflxsfc_dT_avg,             &
+     CALL add_var( field_list, prefix//'dlwflxsfc_dT_avg', field%dlwflxsfc_dT_avg,         &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) 
 
 
     ! &      field%lwflxtoa_avg(nproma,nblks_c)
-    cf_desc    = t_cf_var('lwflxtoa_avg', 'W m-2','averaged over output longwave net flux at TOA')
+    cf_desc    = t_cf_var('lwflxtoa_avg', 'W m-2',&
+      &                   'averaged over output longwave net flux at TOA')
     grib2_desc = t_grib2_var(0, 5, 5, nbits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'lwflxtoa_avg', field%lwflxtoa_avg,                 &
+    CALL add_var( field_list, prefix//'lwflxtoa_avg', field%lwflxtoa_avg,                &
               & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) 
 
 
