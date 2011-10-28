@@ -56,7 +56,7 @@ MODULE mo_nml_crosscheck
     &                              MIURA_MCYCL, MIURA3_MCYCL, ifluxl_sm,      &
     &                              islopel_m, islopel_sm, ifluxl_m  
   USE mo_time_config,        ONLY: time_config
-  USE mo_io_config,          ONLY: dt_checkpoint
+  USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg
   USE mo_parallel_config,    ONLY: check_parallel_configuration,              &
     &                              num_io_procs
   USE mo_run_config,         ONLY: lrestore_states, nsteps, dtime, iforcing,  &
@@ -65,7 +65,7 @@ MODULE mo_nml_crosscheck
     &                              iqv, iqc, iqi, iqs, iqr, iqcond, iqt, io3, &
     &                              ico2
                                   
-  USE mo_io_config
+!  USE mo_io_config
   USE mo_gridref_config
   USE mo_interpol_config
   USE mo_grid_config
@@ -93,7 +93,7 @@ MODULE mo_nml_crosscheck
   USE mo_vdiff_config,       ONLY: vdiff_config
   USE mo_turbdiff_config,    ONLY: turbdiff_config
   USE mo_nh_testcases,       ONLY: linit_tracer_fv,nh_test_name
-  USE mo_ha_testcases,       ONLY: ctest_name
+  USE mo_ha_testcases,       ONLY: ctest_name, ape_sst_case
 
   USE mo_datetime,           ONLY: add_time, print_datetime_all
   USE mo_lonlat_intp_config, ONLY: lonlat_intp_config
@@ -309,6 +309,13 @@ CONTAINS
       CALL finish(TRIM(routine), &
         & 'ntracer MUST be >=2 for the deformational flow test case 4')
     ENDIF     
+
+    IF ((TRIM(ctest_name)=='APE') .AND. (TRIM(ape_sst_case)=='sst_ice')  ) THEN
+      IF (.NOT. lflux_avg)&
+      CALL finish(TRIM(routine), &
+        & 'lflux_avg must be set true to run this setup')
+    ENDIF     
+
 
     !--------------------------------------------------------------------
     ! Shallow water

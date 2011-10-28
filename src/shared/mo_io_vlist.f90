@@ -2774,13 +2774,9 @@ CONTAINS
                                 ptr2 => dup2(prm_field(jg)% swflxsfc_avg(:,:)/dt_data)
                                              prm_field(jg)% swflxsfc_avg(:,:)=0.0_wp
       CASE ('lwflxsfc_avg') 
-        WRITE(0,*)'net LWF avg',MAXVAL(prm_field(jg)%lwflxsfc_avg(:,:))/dt_data,&
-          &                       MINVAL(prm_field(jg)%lwflxsfc_avg(:,:))/dt_data
                                ptr2 => dup2(prm_field(jg)% lwflxsfc_avg(:,:)/dt_data)
                                              prm_field(jg)% lwflxsfc_avg(:,:)=0.0_wp
       CASE ('dlwfsfc_dT_avg') 
-        WRITE(0,*)'temp tend LWF',MAXVAL(prm_field(jg)%dlwflxsfc_dT_avg(:,:))/dt_data,&
-          &                       MINVAL(prm_field(jg)%dlwflxsfc_dT_avg(:,:))/dt_data
                                ptr2 => dup2(prm_field(jg)%dlwflxsfc_dT_avg(:,:)/dt_data)
                                              prm_field(jg)%dlwflxsfc_dT_avg(:,:)=0.0_wp
       CASE ('swflxtoa_avg')
@@ -2799,8 +2795,6 @@ CONTAINS
                                ptr2 => dup2(prm_field(jg)%   lhflx_avg(:,:)/dt_data)
                                             prm_field(jg)%   lhflx_avg(:,:) = 0.0_wp
       CASE ('shflx_avg')
-        WRITE(0,*)'SHF avg',MAXVAL(prm_field(jg)% shflx_avg(:,:)/dt_data),&
-          &                     MINVAL(prm_field(jg)% shflx_avg(:,:)/dt_data)
                               ptr2 => dup2(prm_field(jg)%   shflx_avg(:,:)/dt_data)
                                            prm_field(jg)%   shflx_avg(:,:) = 0.0_wp
       CASE ('u_stress_avg') 
@@ -2898,8 +2892,6 @@ CONTAINS
         ENDIF
 
         IF(varname == 'dshflx_dT_avg_tile'//ctile) THEN
-        WRITE(0,*)'temp tend SHF',MAXVAL(prm_field(jg)%dshflx_dT_avg_tile(:,:,jt)/dt_data),&
-          &                       MINVAL(prm_field(jg)%dshflx_dT_avg_tile(:,:,jt)/dt_data)
           ptr2 => dup2(prm_field(jg)%dshflx_dT_avg_tile(:,:,jt)/dt_data)
           prm_field(jg)%dshflx_dT_avg_tile(:,:,jt)= 0.0_wp
           RETURN

@@ -1034,28 +1034,16 @@ CONTAINS
     ! KF accumulated net TOA and surface radiation fluxes
 
        field% swflxsfc_avg(jcs:jce,jb) = field% swflxsfc_avg(jcs:jce,jb)  &
-         &                            +  field% swflxsfc    (jcs:jce,jb)  *pdtime
+         &                             + field% swflxsfc    (jcs:jce,jb)  *pdtime
        field% lwflxsfc_avg(jcs:jce,jb) = field% lwflxsfc_avg(jcs:jce,jb)  &
          &                             + field% lwflxsfc    (jcs:jce,jb)  *pdtime
        field% dlwflxsfc_dT_avg(jcs:jce,jb) = field% dlwflxsfc_dT_avg(jcs:jce,jb) &
-       &                                   +  field%dlwflxsfc_dT (:,jb)*pdtime
+       &                                   + field% dlwflxsfc_dT    (jcs:jce,jb)*pdtime
 
-       field% swflxtoa_avg(jcs:jce,jb) =  field% swflxtoa_avg(jcs:jce,jb) &
+       field% swflxtoa_avg(jcs:jce,jb) = field% swflxtoa_avg(jcs:jce,jb) &
          &                             + field% swflxtoa    (jcs:jce,jb) *pdtime
        field% lwflxtoa_avg(jcs:jce,jb) = field% lwflxtoa_avg(jcs:jce,jb) &
          &                             + field% emterall    (jcs:jce,1,jb) *pdtime
-
-       ! accumulate the HeatFlux tendencies: LW, SensH, LatH
-
-!     field %dlwflxsfc_dt_avg(jcs:jce,jb) = field %dlwflxsfc_dt_avg(jcs:jce,jb)    &
-!                      &                  + tend  %temp_radlw      (jcs:jce,klev,jb)
-
-
- !      IF(jb == 300) THEN
- !      WRITE(0,*)'inside pyh swsfc', field% swflxsfc(5,jb) ,field% swflxsfc_avg(5,jb) 
- !      WRITE(0,*)'inside pyh lwtoa', field% emterall(5,1,jb) , field% lwflxtoa_avg(5,jb)
- !    ENDIF
-
 
     ! Done. Disassociate pointers.
     NULLIFY(field,tend)

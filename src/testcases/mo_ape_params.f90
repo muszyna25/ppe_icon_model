@@ -51,7 +51,7 @@ MODULE mo_ape_params
   IMPLICIT NONE
 
   PUBLIC
-  PRIVATE :: ape_sst1, ape_sst2, ape_sst3, ape_sst4, ape_sst_qobs
+  PRIVATE :: ape_sst1, ape_sst2, ape_sst3, ape_sst4, ape_sst_qobs, ape_sst_ice
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
@@ -196,6 +196,28 @@ CONTAINS
 
   END FUNCTION ape_sst_qobs
 
+  !!KF attempt to generate freezing temperatures for the ocean
+ !! Zonally symmetric analytic distributions of sea surface temperature (SST)
+  !! for the "control" case of the APE.
+  !!
+  ELEMENTAL FUNCTION ape_sst_ice( lat ) RESULT(sst)
+
+    REAL(wp),INTENT(in)  :: lat
+    REAL(wp)             :: sst
+
+    REAL(wp)             :: lat0
+
+    lat0     = pi/2.8_wp
+
+    IF (ABS(lat)<lat0 ) THEN
+      sst = tmelt -1.9_wp + 27._wp*( 1._wp - SIN(1.5_wp*lat)**2 )
+    ELSE
+      sst = tmelt -1.9_wp
+    END IF
+
+  END FUNCTION ape_sst_ice
+
+
   !-----------
 
   FUNCTION ape_sst(sst_case,lat) RESULT(sst)
@@ -216,6 +238,8 @@ CONTAINS
       sst=ape_sst4(lat)
     CASE ('sst_qobs')
       sst=ape_sst_qobs(lat)
+    CASE ('sst_ice')
+      sst=ape_sst_ice(lat)
     CASE DEFAULT
       CALL finish( TRIM(FUNCTION),'wrong sst name, must be sst1, sst2, sst3, sst4 or sst_qobs')
     END SELECT
