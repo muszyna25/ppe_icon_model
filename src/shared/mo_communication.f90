@@ -296,7 +296,7 @@ SUBROUTINE setup_comm_pattern(n_points, owner, global_index, local_index, p_pat)
    INTEGER, INTENT(IN) :: local_index(:)   ! Array mapping global indices to local ones
                                            ! valid on the remote side!
 
-   TYPE(t_comm_pattern), INTENT(OUT) :: p_pat
+   TYPE(t_comm_pattern), INTENT(INOUT) :: p_pat
 
 
 

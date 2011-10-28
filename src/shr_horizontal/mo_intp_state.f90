@@ -1942,8 +1942,11 @@ SUBROUTINE transfer_interpol_state(p_p, p_lp, pi, po)
 !  CALL xfer_var(SYNC_E,2,3,p_p,p_lp,pi%shear_def_v2,po%shear_def_v2)
 !  ENDIF
 
+!CDIR NOIEXPAND
   CALL delete_comm_pattern(comm_pat_glb_to_loc_c)
+!CDIR NOIEXPAND
   CALL delete_comm_pattern(comm_pat_glb_to_loc_e)
+!CDIR NOIEXPAND
   CALL delete_comm_pattern(comm_pat_glb_to_loc_v)
 
 END SUBROUTINE transfer_interpol_state

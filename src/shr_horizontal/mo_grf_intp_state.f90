@@ -675,7 +675,9 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
   DEALLOCATE(z_tmp_s)
   DEALLOCATE(z_tmp_r)
 
+!CDIR NOIEXPAND
   CALL delete_comm_pattern(comm_pat_loc_to_glb_c)
+!CDIR NOIEXPAND
   CALL delete_comm_pattern(comm_pat_loc_to_glb_e)
 
   ! Now create communication patterns for the complete patch
@@ -748,7 +750,9 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
   DEALLOCATE(z_tmp_s)
   DEALLOCATE(z_tmp_r)
 
+!CDIR NOIEXPAND
   CALL delete_comm_pattern(comm_pat_loc_to_glb_c)
+!CDIR NOIEXPAND
   CALL delete_comm_pattern(comm_pat_loc_to_glb_e)
 
   ! Transfers from global parent to local parent
