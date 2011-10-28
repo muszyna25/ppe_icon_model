@@ -1146,8 +1146,8 @@ slev       = 1
 ipl_src=5  ! output print level (1-5, fix)
 z_e1(:,1,:)=top_bc_vn(:,:)
 CALL print_mxmn('IMPL VEL: top bc',1,z_e1(:,:,:),1,p_patch%nblks_e,'dif',ipl_src)
-!z_e1(:,1,:)=bot_bc_vn(:,:)
-!CALL print_mxmn('IMPL VEL: top bc',1,z_e1(:,:,:),1,p_patch%nblks_e,'dif',ipl_src)
+z_e1(:,1,:)=bot_bc_vn(:,:)
+CALL print_mxmn('IMPL VEL: top bc',1,z_e1(:,:,:),1,p_patch%nblks_e,'dif',ipl_src)
 !write(*,*)'impl vert v-diff: max/min top bc vel:',maxval(top_bc_vn), minval(top_bc_vn)
 !write(*,*)'impl vert v-diff: max/min bot bc vel:',maxval(bot_bc_vn), minval(bot_bc_vn)
 
