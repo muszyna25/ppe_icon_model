@@ -853,7 +853,8 @@ DO jb = i_startblk, i_endblk
         END DO
 
         z_rhs(slev)            =z_rhs(slev)*bet(slev)
-        diff_column(jc,slev,jb)=field_column(jc,slev,jb) + dtime*top_bc(jc,jb)*zinv!z_rhs(slev) 
+        diff_column(jc,slev,jb)=field_column(jc,slev,jb) &
+                              &+dtime*top_bc(jc,jb)/v_base%del_zlev_m(slev) 
         DO jk=slev+1, z_dolic
           !gam(jk) = a(jk-1)*bet
           !bet     = 1.0_wp/(b(jk) - c(jk)*gam(jk))
@@ -1250,7 +1251,8 @@ DO jb = i_startblk, i_endblk
         END DO
 
         z_rhs(slev)            =z_rhs(slev)*bet(slev)
-        diff_column(jc,slev,jb)=field_column(jc,slev,jb) + dtime*top_bc_vn(jc,jb)*zinv!z_rhs(slev)
+        diff_column(jc,slev,jb)=field_column(jc,slev,jb)&
+        & + dtime*top_bc_vn(jc,jb)/v_base%del_zlev_m(slev)
         DO jk=slev+1, z_dolic
           !gam(jk) = a(jk-1)*bet
           !bet     = 1.0_wp/(b(jk) - c(jk)*gam(jk))

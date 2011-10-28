@@ -56,7 +56,11 @@ MODULE mo_nml_crosscheck
     &                              MIURA_MCYCL, MIURA3_MCYCL, ifluxl_sm,      &
     &                              islopel_m, islopel_sm, ifluxl_m  
   USE mo_time_config,        ONLY: time_config
-  USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg
+  USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d,       &
+    &                              inextra_3d, lwrite_cloud, lwrite_extra,    &
+    &                              lwrite_omega, lwrite_precip, lwrite_pres,  &
+    &                              lwrite_radiation,lwrite_surface,lwrite_tend_phy,& 
+    &                              lwrite_tke,lwrite_z3
   USE mo_parallel_config,    ONLY: check_parallel_configuration,              &
     &                              num_io_procs
   USE mo_run_config,         ONLY: lrestore_states, nsteps, dtime, iforcing,  &
