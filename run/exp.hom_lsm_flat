@@ -213,7 +213,7 @@ cat > ${ocean_namelist} << EOF
   solver_tolerance   = 1.0E-6
   i_bc_veloc_lateral =    0      ! Boundary condition for normal velocity for lateral walls
   i_bc_veloc_top     =    1      ! Boundary condition for normal velocity for ocean top
-  i_bc_veloc_bot     =    1      ! Boundary condition for normal velocity for ocean bottom
+  i_bc_veloc_bot     =    0      ! Boundary condition for normal velocity for ocean bottom
   basin_center_lat   =   30.0    ! lat-lon coordinate of basin center, used 
   basin_center_lon   =    0.0    ! in (non-global) basin configuration such as the Stommel-type tests
   basin_width_deg    =   60.0    ! basin extension in x-direction, units are degrees
