@@ -396,7 +396,7 @@ CONTAINS
           ENDIF
           
         ELSE
-          
+
           SELECT CASE (irad_o3)
           CASE (4,6,7)
             CALL finish(TRIM(routine),'running without radiation => irad_o3 must be 0')
