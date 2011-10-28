@@ -61,7 +61,7 @@ MODULE mo_io_async
   USE mo_kind,                ONLY: wp, i8
   USE mo_exception,           ONLY: finish
   USE mo_impl_constants,      ONLY: SUCCESS, max_char_length, max_dom, ihs_atm_temp,             &
-    &                               ihs_atm_theta, inh_atmosphere, ishallow_water
+    &                               ihs_atm_theta, inh_atmosphere, ishallow_water, ihs_ocean
 
   USE mo_datetime,            ONLY: t_datetime
   USE mo_parallel_config,     ONLY: pio_type
@@ -74,7 +74,8 @@ MODULE mo_io_async
    &                                open_output_vlist, close_output_vlist,                       &
    &                                vlist_set_date_time, vlist_start_step, vlist_write_var,      &
    &                                num_output_vars, outvar_desc,                                &
-   &                                get_outvar_ptr_ha, get_outvar_ptr_nh
+   &                                get_outvar_ptr_ha, get_outvar_ptr_nh,                        &
+   &                                get_outvar_ptr_oce
   USE mo_grid_config,         ONLY: n_dom
 
   !------------------------------------------------------------------------------------------------
@@ -890,6 +891,7 @@ CONTAINS
     TYPE(c_ptr) :: c_mem_ptr
 #endif
 
+
     IF(my_process_is_mpi_test()) THEN
       DO jg = 1, n_dom
         CALL setup_vlist( p_patch(jg)%grid_filename, jg )
@@ -1190,6 +1192,8 @@ CONTAINS
             CALL get_outvar_ptr_ha(outvar_desc(n,jg)%name, jg, ptr2, ptr3, reset, delete)
           CASE (inh_atmosphere)
             CALL get_outvar_ptr_nh(outvar_desc(n,jg)%name,jg,p_sim_time,ptr2, ptr3, reset, delete)
+          CASE (ihs_ocean)
+            CALL get_outvar_ptr_oce(outvar_desc(n,jg)%name, jg, ptr2, ptr3,reset, delete)
           CASE DEFAULT
             CALL finish(modname,'Unsupported value of iequations')
         END SELECT
