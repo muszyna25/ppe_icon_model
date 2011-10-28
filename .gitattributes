@@ -100,6 +100,16 @@ doc/resources/img/mpglogo.pdf -text svneol=unset#unset
 doc/resources/img/mpglogo.png -text
 doc/resources/img/mpilogo.pdf -text
 doc/resources/img/mpilogo.png -text
+doc/science1/IFS_gw_param.pdf -text
+doc/science1/NWP_physics/IFS_gw_param.pdf -text
+doc/science1/NWP_physics/Microphys.tar -text
+doc/science1/NWP_physics/detrainment_anvil.pdf -text
+doc/science1/NWP_physics/detrainment_anvil.ppt -text
+doc/science1/NWP_physics/icon-docu-cloud.pdf -text
+doc/science1/NWP_physics/icon-docu-cloud.tex -text
+doc/science1/NWP_physics/liquidPDF.pdf -text
+doc/science1/NWP_physics/liquidPDF.pptx -text
+doc/science1/NWP_physics/lmclouds2010.pdf -text
 doc/science1/detrainment_anvil.pdf -text
 doc/science1/detrainment_anvil.ppt -text
 doc/science1/fig_edge_volume.pdf -text
