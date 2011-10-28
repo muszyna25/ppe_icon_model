@@ -426,37 +426,25 @@ TYPE t_int_state
   ! j) fields related to third order advection and Smagorinski diffusion (on hexagons):
   ! directional laplacian ( as du/dx > ux, dv/dy > vy, du/dx=dv/dy > xy )
   !----------------------------------------------------------------------
-  INTEGER, ALLOCATABLE :: dir_gradh_i1(:,:,:) &
-  & ; !< index array for edges of neighbor hexagon cell 1 of considered edge (6,nproma,nblks_e)
-  INTEGER, ALLOCATABLE :: dir_gradh_b1(:,:,:) &
-  & ; !< block array for edges of neighbor hexagon cell 1 of considered edge (6,nproma,nblks_e)
+  INTEGER , ALLOCATABLE :: dir_gradh_i1(  :,:,:)! index array for edges of neighbor hexagon cell 1 of considered edge (6  , nproma, nblks_e)
+  INTEGER , ALLOCATABLE :: dir_gradh_b1(  :,:,:)! block array for edges of neighbor hexagon cell 1 of considered edge (6  , nproma, nblks_e)
   REAL(wp), ALLOCATABLE :: dir_gradhux_c1(:,:,:)
-  REAL(wp), ALLOCATABLE :: strain_def_c1(:,:,:) &
-  & ; !< coeff array for edges of neighbor hexagon cell 1 of considered edge (6,nproma,nblks_e)
-  INTEGER, ALLOCATABLE :: dir_gradh_i2(:,:,:) &
-  & ; !< index array for edges of neighbor hexagon cell 2 of considered edge (6,nproma,nblks_e)
-  INTEGER, ALLOCATABLE :: dir_gradh_b2(:,:,:) &
-  & ; !< block array for edges of neighbor hexagon cell 2 of considered edge (6,nproma,nblks_e)
+  REAL(wp), ALLOCATABLE :: strain_def_c1( :,:,:)! coeff array for edges of neighbor hexagon cell 1 of considered edge (6  , nproma, nblks_e)
+  INTEGER , ALLOCATABLE :: dir_gradh_i2(  :,:,:)! index array for edges of neighbor hexagon cell 2 of considered edge (6  , nproma, nblks_e)
+  INTEGER , ALLOCATABLE :: dir_gradh_b2(  :,:,:)! block array for edges of neighbor hexagon cell 2 of considered edge (6  , nproma, nblks_e)
   REAL(wp), ALLOCATABLE :: dir_gradhux_c2(:,:,:)
-  REAL(wp), ALLOCATABLE :: strain_def_c2(:,:,:) &
-  & ; !< coeff array for edges of neighbor hexagon cell 2 of considered edge (6,nproma,nblks_e)
+  REAL(wp), ALLOCATABLE :: strain_def_c2( :,:,:)! coeff array for edges of neighbor hexagon cell 2 of considered edge (6  , nproma, nblks_e)
 
-  INTEGER, ALLOCATABLE :: dir_gradt_i1(:,:,:) &
-  & ; !< index array for edges of neighbor triangle cell 1 of considered edge (12,nproma,nblks_e)
-  INTEGER, ALLOCATABLE :: dir_gradt_b1(:,:,:) &
-  & ; !< block array for edges of neighbor triangle cell 1 of considered edge (12,nproma,nblks_e)
-  REAL(wp), ALLOCATABLE :: dir_gradtxy_v1(:,:,:) 
-  REAL(wp), ALLOCATABLE :: dir_gradtyx_v1(:,:,:) 
-  REAL(wp), ALLOCATABLE :: shear_def_v1(:,:,:) &
-  & ; !< coeff array for edges of neighbor triangle cell 1 of considered edge (12,nproma,nblks_e)
-  INTEGER, ALLOCATABLE :: dir_gradt_i2(:,:,:) &
-  & ; !< index array for edges of neighbor triangle cell 2 of considered edge (12,nproma,nblks_e)
-  INTEGER, ALLOCATABLE :: dir_gradt_b2(:,:,:) &
-  & ; !< block array for edges of neighbor triangle cell 2 of considered edge (12,nproma,nblks_e)
-  REAL(wp), ALLOCATABLE :: dir_gradtxy_v2(:,:,:) 
+  INTEGER , ALLOCATABLE :: dir_gradt_i1(  :,:,:)! index array for edges of neighbor triangle cell 1 of considered edge (12, nproma, nblks_e)
+  INTEGER , ALLOCATABLE :: dir_gradt_b1(  :,:,:)! block array for edges of neighbor triangle cell 1 of considered edge (12, nproma, nblks_e)
+  REAL(wp), ALLOCATABLE :: dir_gradtxy_v1(:,:,:)
+  REAL(wp), ALLOCATABLE :: dir_gradtyx_v1(:,:,:)
+  REAL(wp), ALLOCATABLE :: shear_def_v1(  :,:,:)! coeff array for edges of neighbor triangle cell 1 of considered edge (12, nproma, nblks_e)
+  INTEGER , ALLOCATABLE :: dir_gradt_i2(  :,:,:)! index array for edges of neighbor triangle cell 2 of considered edge (12, nproma, nblks_e)
+  INTEGER , ALLOCATABLE :: dir_gradt_b2(  :,:,:)! block array for edges of neighbor triangle cell 2 of considered edge (12, nproma, nblks_e)
+  REAL(wp), ALLOCATABLE :: dir_gradtxy_v2(:,:,:)
   REAL(wp), ALLOCATABLE :: dir_gradtyx_v2(:,:,:)
-  REAL(wp), ALLOCATABLE :: shear_def_v2(:,:,:) &
-  & ; !< coeff array for edges of neighbor triangle cell 2 of considered edge (12,nproma,nblks_e)
+  REAL(wp), ALLOCATABLE :: shear_def_v2(  :,:,:)! coeff array for edges of neighbor triangle cell 2 of considered edge (12, nproma, nblks_e)
 
   ! k) Nudging coefficients used for 1-way nesting and limited-area mode (defined here
   !    rather than in grf_state because the limited-area mode may be used without nesting)
