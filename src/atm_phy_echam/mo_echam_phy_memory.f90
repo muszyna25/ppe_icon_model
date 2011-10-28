@@ -150,7 +150,7 @@ MODULE mo_echam_phy_memory
       & vor       (:,:,:),  &!< [1/s]   relative vorticity
       & temp      (:,:,:),  &!< [K]     temperature          (tm1  of memory_g1a in ECHAM)
       & tv        (:,:,:),  &!< [K]     virtual temperature  (tvm1 of memory_g1a in ECHAM)
-      & q         (:,:,:,:),&!< [kg/kg] tracer concentration (qm1, xlm1, xim1 of memory_g1a in ECHAM)
+      & q         (:,:,:,:),&!< [kg/kg] tracer concentration (qm1,xlm1,xim1 of memory_g1a in ECHAM)
       & qx        (:,:,:),  &!< [kg/kg] total concentration of hydrometeors
       & omega     (:,:,:),  &!< [Pa/s]  vertical velocity in pressure coord. ("vervel" in ECHAM)
       & geoi      (:,:,:),  &!< [m2/s2] geopotential at half levels (vertical interfaces)
@@ -256,7 +256,7 @@ MODULE mo_echam_phy_memory
       & z0m_tile(:,:,:),    &!< aerodynamic roughness length (over each surface type)
       & z0m   (:,:),        &!< aerodynamic roughness length (grid box mean)
       & ustar (:,:),        &!<
-      & kedisp(:,:),        &!< time-mean (or integrated?) vertically integrated dissipation of kinetic energy
+      & kedisp(:,:),        &!< time-mean (or integrated?) vert. integ. dissipation of kin. energy
       & ocu   (:,:),        &!< eastward  velocity of ocean surface current
       & ocv   (:,:)          !< northward velocity of ocean surface current
 
@@ -808,7 +808,8 @@ CONTAINS
                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) 
 
     ! &      field%dlwflxsfc_dT_avg(nproma,nblks_c)
-     cf_desc    = t_cf_var('dlwflxsfc_dT_avg', 'W m-2 k-1','averaged longwave net flux T-tend at surface')
+     cf_desc    = t_cf_var('dlwflxsfc_dT_avg', 'W m-2 k-1',&
+       &                   'averaged longwave net flux T-tend at surface')
      grib2_desc = t_grib2_var(0, 5, 5, nbits, GRID_REFERENCE, GRID_CELL)
      CALL add_var( field_list, prefix//'dlwflxsfc_dT_avg', field%dlwflxsfc_dT_avg,             &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) 
