@@ -37,6 +37,7 @@ MODULE mo_radiation_model
 USE mo_exception,           ONLY: message, finish
 USE mo_mpi,                 ONLY: p_stop, &
   & my_process_is_io,  my_process_is_mpi_seq, my_process_is_mpi_test, &
+  & my_process_is_mpi_parallel,                                       &
   & set_mpi_work_communicators, set_comm_input_bcast, null_comm_type
 USE mo_timer,               ONLY: init_timer
 USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs
@@ -78,6 +79,7 @@ USE mo_model_domain_import, ONLY : get_patch_global_indexes
 ! Memory
 !
 USE mo_subdivision,         ONLY: decompose_domain,         &
+& finalize_decomposition, &
 & copy_processor_splitting,      &
 & set_patch_communicators
 
@@ -225,6 +227,14 @@ CONTAINS
     CALL import_patches( p_patch_global,                       &
       & nlev,nlevp1,num_lev,num_levp1,nshift)
 
+    IF(my_process_is_mpi_parallel()) then
+      CALL decompose_domain()
+      p_patch => p_patch_subdiv
+    ELSE
+      p_patch => p_patch_global
+    ENDIF
+    ! Note: from this point the p_patch is used
+
     !--------------------------------------------------------------------------------
     ! 5. Construct interpolation state, compute interpolation coefficients.
     !--------------------------------------------------------------------------------
@@ -238,22 +248,15 @@ CONTAINS
 
 
     !-------------------------------------------------------------------
-    ! 7. Domain decomposition: 
-    !    Divide patches and interpolation states for parallel runs.
-    !    This is only done if the model runs really in parallel.
+    ! 7. Finalize domain decomposition
     !-------------------------------------------------------------------   
     IF (my_process_is_mpi_seq()) THEN
-      
-      ! This is a run on a single processor
-      ! just set pointers
-      
-      p_patch => p_patch_global
       
       CALL set_patch_communicators(p_patch)
       
     ELSE
       
-      CALL decompose_domain()
+      CALL finalize_decomposition()
       
     ENDIF
 

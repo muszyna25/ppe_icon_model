@@ -57,12 +57,13 @@ MODULE mo_hierarchy_management_intp
 !
 USE mo_kind,                ONLY: wp
 USE mo_exception,           ONLY: message_text, message
-USE mo_model_domain,        ONLY: t_patch, t_grid_cells, t_grid_edges
+USE mo_model_domain,        ONLY: t_patch, t_grid_cells, t_grid_edges,    &
+                                  p_patch_local_parent
 USE mo_model_domain_import, ONLY: n_dom
 USE mo_interpolation,       ONLY: t_int_state, rbf_vec_interpol_vertex
 USE mo_grf_interpolation,   ONLY: t_gridref_state, grf_velfbk,            &
                                   grf_intmethod_c, grf_intmethod_e,       &
-                                  grf_intmethod_ct
+                                  grf_intmethod_ct, p_grf_state_local_parent
 USE mo_grf_bdyintp,         ONLY: interpol_scal_grf, interpol_scal2d_grf, &
                                   interpol_vec_grf, interpol2_vec_grf
 USE mo_dynamics_config,     ONLY: nnew, nnow, nsav1, nsav2, lshallow_water
@@ -79,9 +80,6 @@ USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c, &
                                   grf_fbk_start_c, grf_fbk_start_e,        &
                                   grf_bdywidth_c, grf_bdywidth_e
 USE mo_mpi,                 ONLY: my_process_is_mpi_seq
-USE mo_subdivision,         ONLY: p_patch_local_parent,  &
-                                  p_grf_state_local_parent
-
 USE mo_communication,       ONLY: exchange_data
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, sync_patch_array, check_patch_array, &
                                 & global_sum_array2

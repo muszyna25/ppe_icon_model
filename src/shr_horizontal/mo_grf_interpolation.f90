@@ -46,7 +46,8 @@ MODULE mo_grf_interpolation
 !
 !-------------------------------------------------------------------------
 
-  USE mo_grf_intp_data_strc, ONLY: t_gridref_single_state, t_gridref_state
+  USE mo_grf_intp_data_strc, ONLY: t_gridref_single_state, t_gridref_state, &
+                                   p_grf_state_local_parent
 
   USE mo_gridref_config,     ONLY: rbf_vec_kern_grf_e, &
     &                              rbf_scale_grf_e,                       &

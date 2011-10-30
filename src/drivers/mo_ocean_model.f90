@@ -40,6 +40,7 @@ MODULE mo_ocean_model
     & my_process_is_mpi_parallel,                                       &
     & set_mpi_work_communicators, set_comm_input_bcast, null_comm_type, &
     & p_pe_work
+  USE mo_sync,                ONLY: enable_sync_checks, disable_sync_checks
   USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, print_timer, &
     &                               timer_model_init
   USE mo_datetime,            ONLY: t_datetime
@@ -84,9 +85,10 @@ MODULE mo_ocean_model
     & restore_interpol_state_netcdf
 
   USE mo_icoham_dyn_memory,   ONLY: p_hydro_state
-  USE mo_model_domain,        ONLY: p_patch_global, p_patch_subdiv, p_patch
-  USE mo_intp_data_strc,      ONLY: p_int_state
-  USE mo_grf_intp_data_strc,  ONLY: p_grf_state
+  USE mo_model_domain,        ONLY: p_patch_global, p_patch_subdiv, p_patch, &
+    &                               p_patch_local_parent
+  USE mo_intp_data_strc,      ONLY: p_int_state, p_int_state_local_parent
+  USE mo_grf_intp_data_strc,  ONLY: p_grf_state, p_grf_state_local_parent
 
   ! Horizontal grid
   !
@@ -100,7 +102,7 @@ MODULE mo_ocean_model
   !
 !  USE mo_interpol_nml,        ONLY: interpol_nml_setup   ! process interpol. ctl. params.
   USE mo_intp_state,          ONLY: construct_2d_interpol_state, &
-    & destruct_2d_interpol_state
+    & destruct_2d_interpol_state, transfer_interpol_state
 
   USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_ocean_state
 
@@ -159,7 +161,7 @@ CONTAINS
 
     TYPE(t_datetime)                                :: datetime
 
-    INTEGER :: n_io, jg, jfile, ist
+    INTEGER :: n_io, jg, jgp, jfile, ist
 
     ! For the coupling
 
@@ -283,11 +285,19 @@ CONTAINS
       ! same way as it would be set in parallel_nml_setup when
       ! no restore is wanted:
       CALL set_comm_input_bcast()
+
+      p_patch => p_patch_global
     ELSE
-        CALL import_patches( p_patch_global,                       &
-                            nlev,nlevp1,num_lev,num_levp1,nshift )      
-        IF(my_process_is_mpi_parallel()) CALL decompose_domain()
+      CALL import_patches( p_patch_global,                       &
+                           nlev,nlevp1,num_lev,num_levp1,nshift )      
+      IF(my_process_is_mpi_parallel()) then
+        CALL decompose_domain()
+        p_patch => p_patch_subdiv
+      ELSE
+        p_patch => p_patch_global
+      ENDIF
     ENDIF
+    ! Note: from this point the p_patch is used
 
     !--------------------------------------------------------------------------------
     ! 5. Construct interpolation state, compute interpolation coefficients.
@@ -303,13 +313,40 @@ CONTAINS
       CALL finish(TRIM(routine),'allocation for ptr_int_state failed')
     ENDIF
 
-    IF(lrestore_states .AND. .NOT. my_process_is_mpi_test()) THEN
-      ! Read interpolation state from NetCDF
-      CALL restore_interpol_state_netcdf(p_patch_global, p_int_state)
+    IF(my_process_is_mpi_parallel()) THEN
+      ALLOCATE( p_int_state_local_parent(n_dom_start+1:n_dom), &
+              & p_grf_state_local_parent(n_dom_start+1:n_dom), &
+              & STAT=error_status)
+      IF (error_status /= SUCCESS) &
+        CALL finish(TRIM(routine),'allocation for local parents failed')
+    ENDIF
+
+    IF(lrestore_states) THEN
+      ! Interpolation state is read from NetCDF
+      ! On the test PE it is constructed at the same time to be able to check
+      ! the state read in with the constructed state
+      IF( .NOT. my_process_is_mpi_test()) THEN
+        CALL restore_interpol_state_netcdf(p_patch, p_int_state)
+      ELSE
+        ! construct_2d_interpol_state makes sync calls for checking the
+        ! results on the parallel PEs to the results on the test PE.
+        ! These checks must be disabled here!
+        CALL disable_sync_checks
+        CALL construct_2d_interpol_state(p_patch, p_int_state)
+        CALL enable_sync_checks
+      ENDIF
     ELSE
-      ! Interpolation state is constructed for
-      ! the full domain on every PE and divided later
-      CALL construct_2d_interpol_state(p_patch_global, p_int_state)
+      ! Construct interpolation state
+      ! Please note that for pararllel runs the divided state is constructed here
+      CALL construct_2d_interpol_state(p_patch, p_int_state)
+      IF(my_process_is_mpi_parallel()) THEN
+        ! Transfer interpolation state to local parent
+        DO jg = n_dom_start+1, n_dom
+          jgp = p_patch(jg)%parent_id
+          CALL transfer_interpol_state(p_patch(jgp),p_patch_local_parent(jg), &
+                                    &  p_int_state(jgp), p_int_state_local_parent(jg))
+        ENDDO
+      ENDIF
     ENDIF
 
 
@@ -322,23 +359,12 @@ CONTAINS
     ENDIF
 
     !-------------------------------------------------------------------
-    ! 7. Domain decomposition: 
-    !    Divide patches and interpolation states for parallel runs.
-    !    This is only done if the model runs really in parallel.
+    ! 7. Finalize domain decomposition
     !-------------------------------------------------------------------   
     IF (my_process_is_mpi_seq()  &
       &  .OR. lrestore_states) THEN
 
-      ! This is a verification run or a run on a single processor
-      ! or the divided states have been read, just set pointers
-
-      p_patch => p_patch_global
-
-!       IF (my_process_is_mpi_seq()) THEN
-!         p_patch(:)%comm = p_comm_work
-!       ELSE
-        CALL set_patch_communicators(p_patch)
-!       ENDIF
+      CALL set_patch_communicators(p_patch)
 
     ELSE
 
@@ -346,7 +372,6 @@ CONTAINS
 
     ENDIF
 
-    ! Note: fro this point the p_patch is used
     ! In case of a test run: Copy processor splitting to test PE
     IF(p_test_run) CALL copy_processor_splitting(p_patch)
 

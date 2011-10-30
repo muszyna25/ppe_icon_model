@@ -154,7 +154,7 @@ MODULE mo_interpolation
   !
   USE mo_intp_data_strc, ONLY: sick_a, sick_o, t_lsq, t_lsq_set,                             &
     &                          t_int_state, t_lon_lat_intp,                                  &
-    &                          t_gauss_quad
+    &                          t_gauss_quad, p_int_state_local_parent
 
 !  USE mo_interpol_nml
   USE mo_interpol_config,ONLY: i_cori_method, l_corner_vort, rbf_vec_kern_c, rbf_vec_kern_v, &

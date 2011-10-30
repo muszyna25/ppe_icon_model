@@ -39,6 +39,7 @@ USE mo_exception,             ONLY: message, finish
 USE mo_parallel_config,       ONLY: p_test_run, l_test_openmp, num_io_procs
 USE mo_mpi,                   ONLY: start_mpi, p_stop,         &
   &                                 my_process_is_mpi_seq,     &
+  &                                 my_process_is_mpi_parallel,&
   &                                 set_mpi_work_communicators
 USE mo_timer,                 ONLY: init_timer
 
@@ -58,10 +59,12 @@ USE mo_impl_constants, ONLY:  inh_atmosphere
 !
 USE mo_subdivision,           ONLY: decompose_domain,     &
   &                                 copy_processor_splitting,  &
-  &                                 set_patch_communicators
+  &                                 set_patch_communicators,   &
+  &                                 finalize_decomposition
 
 
-USE mo_model_domain,          ONLY: p_patch_global, p_patch_subdiv, p_patch
+USE mo_model_domain,          ONLY: p_patch_global, p_patch_subdiv, p_patch, &
+  &                                 p_patch_local_parent
 
 ! Horizontal grid
 !
@@ -72,10 +75,11 @@ USE mo_model_domain_import,   ONLY: import_patches, destruct_patches
 ! Horizontal interpolation
 !
 USE mo_intp_state,            ONLY: construct_2d_interpol_state, &
-& destruct_2d_interpol_state
+& destruct_2d_interpol_state, transfer_interpol_state
 
 USE mo_grf_interpolation,     ONLY: construct_2d_gridref_state,  &
 & destruct_2d_gridref_state
+USE mo_grf_intp_state,        ONLY: transfer_grf_state
 
 ! Vertical grid
 !
@@ -85,8 +89,8 @@ USE mo_nh_init_utils,         ONLY: init_hybrid_coord, init_sleve_coord
 USE mo_impl_constants,        ONLY: SUCCESS, inwp
 
 
-USE mo_intp_data_strc,        ONLY: p_int_state
-USE mo_grf_intp_data_strc,    ONLY: p_grf_state
+USE mo_intp_data_strc,        ONLY: p_int_state, p_int_state_local_parent
+USE mo_grf_intp_data_strc,    ONLY: p_grf_state, p_grf_state_local_parent
 
 
 USE mo_read_namelists,        ONLY: read_atmo_namelists
@@ -119,7 +123,7 @@ IMPLICIT NONE
   CHARACTER(*), PARAMETER :: routine = "prep_icon"
 
     
-  INTEGER :: ist
+  INTEGER :: ist, jg, jgp
   INTEGER :: error_status
 
   !declaration of OpenMP Runtime Library Routines:
@@ -220,6 +224,13 @@ IMPLICIT NONE
     
     CALL import_patches( p_patch_global,nlev,nlevp1,num_lev,num_levp1,nshift)
 
+    IF(my_process_is_mpi_parallel()) then
+      CALL decompose_domain()
+      p_patch => p_patch_subdiv
+    ELSE
+      p_patch => p_patch_global
+    ENDIF
+    ! Note: from this point the p_patch is used
 
     !--------------------------------------------------------------------------------
     ! 5. Construct interpolation state, compute interpolation coefficients.
@@ -235,10 +246,26 @@ IMPLICIT NONE
       CALL finish(TRIM(routine),'allocation for ptr_int_state failed')
     ENDIF
     
+    IF(my_process_is_mpi_parallel()) THEN
+      ALLOCATE( p_int_state_local_parent(n_dom_start+1:n_dom), &
+              & p_grf_state_local_parent(n_dom_start+1:n_dom), &
+              & STAT=error_status)
+      IF (error_status /= SUCCESS) &
+        CALL finish(TRIM(routine),'allocation for local parents failed')
+    ENDIF
 
-    ! Interpolation state is constructed for
-    ! the full domain on every PE and divided later
-    CALL construct_2d_interpol_state(p_patch_global, p_int_state)
+    ! Construct interpolation state
+    ! Please note that for pararllel runs the divided state is constructed here
+    CALL construct_2d_interpol_state(p_patch, p_int_state)
+    IF(my_process_is_mpi_parallel()) THEN
+      ! Transfer interpolation state to local parent
+      DO jg = n_dom_start+1, n_dom
+        jgp = p_patch(jg)%parent_id
+        CALL transfer_interpol_state(p_patch(jgp),p_patch_local_parent(jg), &
+                                  &  p_int_state(jgp), p_int_state_local_parent(jg))
+      ENDDO
+    ENDIF
+
 
     !-----------------------------------------------------------------------------
     ! 6. Construct grid refinment state, compute coefficients
@@ -247,34 +274,35 @@ IMPLICIT NONE
     ! construct_2d_gridref_state require the metric terms to be present
 
     IF (n_dom_start==0 .OR. n_dom > 1) THEN
-      CALL construct_2d_gridref_state (p_patch_global, p_grf_state)
+      ! Construct gridref state
+      ! For non-parallel runs (either 1 PE only or on the test PE) this is done as usual,
+      ! for parallel runs, the main part of the gridref state is constructed on the
+      ! local parent with the following call
+      CALL construct_2d_gridref_state (p_patch, p_grf_state)
+      IF(my_process_is_mpi_parallel()) THEN
+        ! Transfer gridref state from local parent to p_grf_state
+        DO jg = n_dom_start+1, n_dom
+          jgp = p_patch(jg)%parent_id
+          CALL transfer_grf_state(p_patch(jgp), p_patch_local_parent(jg), &
+                               &  p_grf_state(jgp), p_grf_state_local_parent(jg), &
+                               &  p_patch(jg)%parent_child_index)
+        ENDDO
+      ENDIF
     ENDIF
 
     !-------------------------------------------------------------------
-    ! 7. Domain decomposition: 
-    !    Divide patches and interpolation states for parallel runs.
-    !    This is only done if the model runs really in parallel.
+    ! 7. Finalize domain decomposition
     !-------------------------------------------------------------------   
     IF (my_process_is_mpi_seq()) THEN
       
-      ! This is a verification run or a run on a single processor
-      ! or the divided states have been read, just set pointers
-      
-      p_patch => p_patch_global
-      
-!       IF (my_process_is_mpi_seq()) THEN
-!         p_patch(:)%comm = p_comm_work
-!       ELSE
-        CALL set_patch_communicators(p_patch)
-!       ENDIF
+      CALL set_patch_communicators(p_patch)
       
     ELSE
       
-      CALL decompose_domain()
+      CALL finalize_decomposition()
       
     ENDIF
 
-    ! Note: fro this point the p_patch is used
     ! In case of a test run: Copy processor splitting to test PE
     IF(p_test_run) CALL copy_processor_splitting(p_patch)
     

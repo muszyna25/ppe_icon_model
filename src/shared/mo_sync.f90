@@ -76,7 +76,8 @@ PUBLIC :: sync_patch_array, check_patch_array, sync_idx,              &
           global_sum_array2, global_sum_array3,                       &
           sync_patch_array_mult, push_glob_comm, pop_glob_comm,       &
           global_min, global_max, sync_patch_array_gm,                &
-          sync_patch_array_4de3
+          sync_patch_array_4de3,                                      &
+          enable_sync_checks, disable_sync_checks
 
 !
 !variables
@@ -117,6 +118,9 @@ END INTERFACE
 
 ! Unit for logging sync errors
 INTEGER, SAVE :: log_unit = -1
+
+! Falg if sync checks are enabled when sync_patch_array et al is called
+LOGICAL, SAVE :: do_sync_checks = .TRUE.
 
 INTEGER, PARAMETER :: max_lev = 10 ! 2 is sufficient
 INTEGER :: comm_lev = 0, glob_comm(max_lev), comm_proc0(max_lev)
@@ -159,6 +163,20 @@ END SUBROUTINE pop_glob_comm
 
 !-------------------------------------------------------------------------
 !
+!> enable_sync_checks: Enables sync checks when sync_patch_array et al is called
+
+SUBROUTINE enable_sync_checks()
+  do_sync_checks = .TRUE.
+END SUBROUTINE enable_sync_checks
+!-------------------------------------------------------------------------
+!
+!> disable_sync_checks: Disables sync checks when sync_patch_array et al is called
+
+SUBROUTINE disable_sync_checks()
+  do_sync_checks = .FALSE.
+END SUBROUTINE disable_sync_checks
+!-------------------------------------------------------------------------
+!
 !
 
 !>
@@ -179,7 +197,7 @@ SUBROUTINE sync_patch_array_3(typ, p_patch, arr)
 !-----------------------------------------------------------------------
 
    ! If this is a verification run, check consistency before doing boundary exchange
-   IF (p_test_run) CALL check_patch_array_3(typ, p_patch, arr, 'sync')
+   IF (p_test_run .AND. do_sync_checks) CALL check_patch_array_3(typ, p_patch, arr, 'sync')
 
    ! Boundary exchange for work PEs
    IF(my_process_is_mpi_parallel()) THEN
@@ -276,7 +294,7 @@ SUBROUTINE sync_patch_array_mult(typ, p_patch, nfields, f3din1, f3din2, f3din3, 
     ENDIF
 
    ! If this is a verification run, check consistency before doing boundary exchange
-   IF (p_test_run) THEN
+   IF (p_test_run .AND. do_sync_checks) THEN
      IF (PRESENT(f4din)) THEN
        ALLOCATE(arr3(UBOUND(f4din,1), UBOUND(f4din,2), UBOUND(f4din,3)))
        DO i = 1, nfields
@@ -360,7 +378,7 @@ SUBROUTINE sync_patch_array_4de3(typ, p_patch, nfields, f4din)
     ENDIF
 
    ! If this is a verification run, check consistency before doing boundary exchange
-   IF (p_test_run) THEN
+   IF (p_test_run .AND. do_sync_checks) THEN
      ALLOCATE(arr3(UBOUND(f4din,1), UBOUND(f4din,2), UBOUND(f4din,4)))
      DO i = 1, nfields
        arr3(:,:,:) = f4din(:,:,i,:)
@@ -425,7 +443,7 @@ SUBROUTINE sync_patch_array_gm(typ, p_patch, nfields, send_buf, recv_buf, f3din1
     ENDIF
 
    ! If this is a verification run, check consistency before doing boundary exchange
-   IF (p_test_run) THEN
+   IF (p_test_run .AND. do_sync_checks) THEN
 !$OMP BARRIER
 !$OMP MASTER
      IF (PRESENT(f4din)) THEN
@@ -913,7 +931,7 @@ FUNCTION global_sum_array_0d (zfield) RESULT (global_sum)
     global_sum = order_insensit_ieee64_sum(z_aux, SIZE(z_aux), p_comm_glob)
   ENDIF
 
-  IF(p_test_run) THEN
+  IF(p_test_run .AND. do_sync_checks) THEN
     IF(l_fast_sum) THEN
       CALL check_result( (/ global_sum /), 'global_sum_array', sum_on_testpe)
       global_sum = sum_on_testpe(1)
@@ -954,7 +972,7 @@ FUNCTION global_sum_array_1d (zfield) RESULT (global_sum)
     global_sum = order_insensit_ieee64_sum(zfield, SIZE(zfield), p_comm_glob)
   ENDIF
 
-  IF(p_test_run) THEN
+  IF(p_test_run .AND. do_sync_checks) THEN
     IF(l_fast_sum) THEN
       CALL check_result( (/ global_sum /), 'global_sum_array', sum_on_testpe)
       global_sum = sum_on_testpe(1)
@@ -995,7 +1013,7 @@ FUNCTION global_sum_array_2d (zfield) RESULT (global_sum)
     global_sum = order_insensit_ieee64_sum(zfield, SIZE(zfield), p_comm_glob)
   ENDIF
 
-  IF(p_test_run) THEN
+  IF(p_test_run .AND. do_sync_checks) THEN
     IF(l_fast_sum) THEN
       CALL check_result( (/ global_sum /), 'global_sum_array', sum_on_testpe)
       global_sum = sum_on_testpe(1)
@@ -1036,7 +1054,7 @@ FUNCTION global_sum_array_3d (zfield) RESULT (global_sum)
     global_sum = order_insensit_ieee64_sum(zfield, SIZE(zfield), p_comm_glob)
   ENDIF
 
-  IF(p_test_run) THEN
+  IF(p_test_run .AND. do_sync_checks) THEN
     IF(l_fast_sum) THEN
       CALL check_result( (/ global_sum /), 'global_sum_array', sum_on_testpe)
       global_sum = sum_on_testpe(1)
@@ -1079,7 +1097,7 @@ FUNCTION omp_global_sum_array (zfield) RESULT (global_sum)
     global_sum = omp_order_insensit_ieee64_sum(zfield, SIZE(zfield), p_comm_glob)
   ENDIF
 
-  IF(p_test_run) THEN
+  IF(p_test_run .AND. do_sync_checks) THEN
 !$OMP BARRIER
 !$OMP MASTER
     IF(l_fast_sum) THEN
@@ -1232,7 +1250,7 @@ FUNCTION global_sum_array2 (zfield) RESULT (global_sum)
        global_sum = global_sum - (REAL(ival1,dp)*r_fact) - (REAL(ival2,dp)*r_fact)*r_two_40
     ENDIF
 
-   IF(p_test_run) CALL check_result( (/ global_sum /), 'global_sum_array2')
+   IF(p_test_run .AND. do_sync_checks) CALL check_result( (/ global_sum /), 'global_sum_array2')
 
 END FUNCTION global_sum_array2
 
@@ -1466,7 +1484,7 @@ FUNCTION global_sum_array3 (nfields,ldiff,f3din,f3dd,f3din2,f3dd2,f4din,f4dd,dif
      global_sum(1:n) = aux_sum(1:n)
    ENDIF
 
-   IF(p_test_run) CALL check_result(global_sum, 'global_sum_array3')
+   IF(p_test_run .AND. do_sync_checks) CALL check_result(global_sum, 'global_sum_array3')
 
    DEALLOCATE (ff,itmp,isum,iexp,fact,r_fact,rval,abs_max,aux_sum)
 
@@ -1488,7 +1506,7 @@ FUNCTION global_min_0d(zfield) RESULT(global_min)
     global_min = p_min(zfield, comm=glob_comm(comm_lev))
   ENDIF
 
-  IF(p_test_run) CALL check_result( (/ global_min /), 'global_min' )
+  IF(p_test_run .AND. do_sync_checks) CALL check_result( (/ global_min /), 'global_min' )
 
 END FUNCTION global_min_0d
 !-------------------------------------------------------------------------------
@@ -1505,7 +1523,7 @@ FUNCTION global_min_1d(zfield) RESULT(global_min)
     global_min = p_min(zfield, comm=glob_comm(comm_lev))
   ENDIF
 
-  IF(p_test_run) CALL check_result( global_min, 'global_min' )
+  IF(p_test_run .AND. do_sync_checks) CALL check_result( global_min, 'global_min' )
 
 END FUNCTION global_min_1d
 !-------------------------------------------------------------------------------
@@ -1522,7 +1540,7 @@ FUNCTION global_max_0d(zfield) RESULT(global_max)
     global_max = p_max(zfield, comm=glob_comm(comm_lev))
   ENDIF
 
-  IF(p_test_run) CALL check_result( (/ global_max /), 'global_max' )
+  IF(p_test_run .AND. do_sync_checks) CALL check_result( (/ global_max /), 'global_max' )
 
 END FUNCTION global_max_0d
 !-------------------------------------------------------------------------------
@@ -1539,7 +1557,7 @@ FUNCTION global_max_1d(zfield) RESULT(global_max)
     global_max = p_max(zfield, comm=glob_comm(comm_lev))
   ENDIF
 
-  IF(p_test_run) CALL check_result( global_max, 'global_max' )
+  IF(p_test_run .AND. do_sync_checks) CALL check_result( global_max, 'global_max' )
 
 END FUNCTION global_max_1d
 

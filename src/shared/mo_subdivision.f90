@@ -64,15 +64,13 @@ MODULE mo_subdivision
   USE mo_math_constants,     ONLY: pi
   USE mo_exception,          ONLY: finish, message, get_filename_noext
 
-  USE mo_parallel_config,  ONLY: nproma
-  USE mo_run_config,          ONLY: ltransport
+  USE mo_parallel_config,    ONLY: nproma
+  USE mo_run_config,         ONLY: ltransport
   USE mo_dynamics_config,    ONLY: iequations
   USE mo_io_units,           ONLY: find_next_free_unit, filename_max
   USE mo_model_domain,       ONLY: t_patch, t_grid_cells, &
     &                              p_patch_global, p_patch_subdiv, p_patch, &
     &                              p_patch_local_parent
-  USE mo_interpolation,      ONLY: t_int_state, rbf_vec_dim_c, rbf_vec_dim_e, &
-    & rbf_vec_dim_v, rbf_c2grad_dim
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
   USE mo_mpi,                ONLY: p_bcast, p_send, p_recv
 #ifndef NOMPI
@@ -94,10 +92,6 @@ MODULE mo_subdivision
     & grf_bdywidth_c, grf_bdywidth_e, grf_nudgintp_start_c, grf_nudgintp_start_e
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, patch_weight
   USE mo_model_domimp_patches,ONLY: destruct_patches, allocate_patch
-  USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state_local_parent
-  USE mo_grf_intp_data_strc,  ONLY: t_gridref_state, p_grf_state_local_parent
-!  USE mo_interpol_nml,        ONLY: i_cori_method, lsq_lin_set, lsq_high_set
-  USE mo_interpol_config,     ONLY: i_cori_method, lsq_lin_set, lsq_high_set
 
 
   IMPLICIT NONE
@@ -127,9 +121,6 @@ MODULE mo_subdivision
 
   ! Please note: The definitions of the local parents are now at the same locations
   ! as the definitions of the respective patch or state
-
-  ! Preliminary, until all references are corrected:
-  PUBLIC :: p_patch_local_parent, p_int_state_local_parent, p_grf_state_local_parent
   !-------------------------------------------------------------------------
 
   ! Flag if processor splitting is active
@@ -447,9 +438,7 @@ CONTAINS
 
     ! Create local parents for patches
 
-    ALLOCATE(p_patch_local_parent(n_dom_start+1:n_dom),     &
-             p_int_state_local_parent(n_dom_start+1:n_dom), &
-             p_grf_state_local_parent(n_dom_start+1:n_dom) )
+    ALLOCATE(p_patch_local_parent(n_dom_start+1:n_dom))
 
     DO jg = n_dom_start+1, n_dom
 

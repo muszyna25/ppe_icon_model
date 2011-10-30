@@ -39,6 +39,7 @@ USE mo_exception,           ONLY: message, message_text, finish
 USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs
 USE mo_mpi,                 ONLY: p_stop, &
   & my_process_is_io,  my_process_is_mpi_seq, my_process_is_mpi_test, &
+  & my_process_is_mpi_parallel,                                       &
   & set_mpi_work_communicators, set_comm_input_bcast, null_comm_type, &
   & global_mpi_barrier, p_pe_work
 USE mo_timer,               ONLY: init_timer
@@ -84,6 +85,7 @@ USE mo_model_domain_import, ONLY : get_patch_global_indexes
 ! Memory
 !
 USE mo_subdivision,         ONLY: decompose_domain,         &
+& finalize_decomposition, &
 & copy_processor_splitting,      &
 & set_patch_communicators
 USE mo_dump_restore,        ONLY: dump_patch_state_netcdf,       &
@@ -91,7 +93,8 @@ USE mo_dump_restore,        ONLY: dump_patch_state_netcdf,       &
 & restore_interpol_state_netcdf, &
 & restore_gridref_state_netcdf
 
-USE mo_model_domain,        ONLY: p_patch_global, p_patch_subdiv, p_patch
+USE mo_model_domain,        ONLY: p_patch_global, p_patch_subdiv, p_patch, &
+&                                 p_patch_local_parent
 
 ! Horizontal grid
 USE mo_grid_config,         ONLY: n_dom, n_dom_start, global_cell_type, &
@@ -100,8 +103,10 @@ USE mo_model_domain_import, ONLY: import_patches, destruct_patches
 
 ! Horizontal interpolation
 !
-USE mo_intp_state,          ONLY: construct_2d_interpol_state,  destruct_2d_interpol_state
+USE mo_intp_state,          ONLY: construct_2d_interpol_state,  destruct_2d_interpol_state, &
+  &                               transfer_interpol_state
 USE mo_grf_interpolation,   ONLY: construct_2d_gridref_state,   destruct_2d_gridref_state
+USE mo_grf_intp_state,      ONLY: transfer_grf_state
 
 ! Vertical grid
 !
@@ -125,8 +130,8 @@ USE mo_ext_data,            ONLY: ext_data, init_ext_data, destruct_ext_data
 !-------------------------------------------------------------------------
 ! to break circular dependency
 
-USE mo_intp_data_strc,      ONLY: p_int_state
-USE mo_grf_intp_data_strc,  ONLY: p_grf_state
+USE mo_intp_data_strc,      ONLY: p_int_state, p_int_state_local_parent
+USE mo_grf_intp_data_strc,  ONLY: p_grf_state, p_grf_state_local_parent
 
 !-------------------------------------------------------------------------
 USE mo_io_restart,           ONLY: read_restart_info_file
@@ -160,7 +165,7 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
 
     CHARACTER(*), PARAMETER :: method_name = "mo_cpl_dummy_model:cpl_dummy_model"
-    INTEGER :: jg
+    INTEGER :: jg, jgp
 
     ! For the coupling
 
@@ -249,6 +254,14 @@ CONTAINS
     write(0,*) TRIM(get_my_process_name()), ': import_patches is done '
     CALL global_mpi_barrier()
 
+    IF(my_process_is_mpi_parallel()) then
+      CALL decompose_domain()
+      p_patch => p_patch_subdiv
+    ELSE
+      p_patch => p_patch_global
+    ENDIF
+    ! Note: from this point the p_patch is used
+
     !--------------------------------------------------------------------------------
     ! 5. Construct interpolation state, compute interpolation coefficients.
     !--------------------------------------------------------------------------------
@@ -264,12 +277,29 @@ CONTAINS
     IF (error_status /= SUCCESS) THEN
       CALL finish(TRIM(method_name),'allocation for ptr_int_state failed')
     ENDIF
+
+    IF(my_process_is_mpi_parallel()) THEN
+      ALLOCATE( p_int_state_local_parent(n_dom_start+1:n_dom), &
+              & p_grf_state_local_parent(n_dom_start+1:n_dom), &
+              & STAT=error_status)
+      IF (error_status /= SUCCESS) &
+        CALL finish(TRIM(method_name),'allocation for local parents failed')
+    ENDIF
     
-    ! Interpolation state is constructed for
-    ! the full domain on every PE and divided later
-    CALL construct_2d_interpol_state(p_patch_global, p_int_state)
+    ! Construct interpolation state
+    ! Please note that for pararllel runs the divided state is constructed here
+    CALL construct_2d_interpol_state(p_patch, p_int_state)
     write(0,*) TRIM(get_my_process_name()), ': construct_2d_interpol_state is done '
     CALL global_mpi_barrier()
+
+    IF(my_process_is_mpi_parallel()) THEN
+      ! Transfer interpolation state to local parent
+      DO jg = n_dom_start+1, n_dom
+        jgp = p_patch(jg)%parent_id
+        CALL transfer_interpol_state(p_patch(jgp),p_patch_local_parent(jg), &
+                                  &  p_int_state(jgp), p_int_state_local_parent(jg))
+      ENDDO
+    ENDIF
 
     !-----------------------------------------------------------------------------
     ! 6. Construct grid refinment state, compute coefficients
@@ -278,31 +308,32 @@ CONTAINS
     ! construct_2d_gridref_state require the metric terms to be present
 
     IF (n_dom_start==0 .OR. n_dom > 1) THEN
-      CALL construct_2d_gridref_state (p_patch_global, p_grf_state)
+      ! Construct gridref state
+      ! For non-parallel runs (either 1 PE only or on the test PE) this is done as usual,
+      ! for parallel runs, the main part of the gridref state is constructed on the
+      ! local parent with the following call
+      CALL construct_2d_gridref_state (p_patch, p_grf_state)
+      IF(my_process_is_mpi_parallel()) THEN
+        ! Transfer gridref state from local parent to p_grf_state
+        DO jg = n_dom_start+1, n_dom
+          jgp = p_patch(jg)%parent_id
+          CALL transfer_grf_state(p_patch(jgp), p_patch_local_parent(jg), &
+                               &  p_grf_state(jgp), p_grf_state_local_parent(jg), &
+                               &  p_patch(jg)%parent_child_index)
+        ENDDO
+      ENDIF
     ENDIF
 
     !-------------------------------------------------------------------
-    ! 7. Domain decomposition: 
-    !    Divide patches and interpolation states for parallel runs.
-    !    This is only done if the model runs really in parallel.
+    ! 7. Finalize domain decomposition
     !-------------------------------------------------------------------   
-    IF (my_process_is_mpi_seq()  &
-      &  .OR. lrestore_states) THEN
+    IF (my_process_is_mpi_seq()) THEN
       
-      ! This is a verification run or a run on a single processor
-      ! or the divided states have been read, just set pointers
-      
-      p_patch => p_patch_global
-      
-!       IF (my_process_is_mpi_seq()) THEN
-!         p_patch(:)%comm = p_comm_work
-!       ELSE
-        CALL set_patch_communicators(p_patch)
-!       ENDIF
+      CALL set_patch_communicators(p_patch)
       
     ELSE
       
-      CALL decompose_domain()
+      CALL finalize_decomposition()
       write(0,*) TRIM(get_my_process_name()), ': decompose_domain is done '
       CALL global_mpi_barrier()
       

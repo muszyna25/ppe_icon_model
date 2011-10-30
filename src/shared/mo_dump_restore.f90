@@ -127,7 +127,7 @@ MODULE mo_dump_restore
      &                             num_lev, num_levp1, nshift
   USE mo_dynamics_config,    ONLY: iequations
   USE mo_io_units,           ONLY: filename_max, nerr
-  USE mo_model_domain,       ONLY: t_patch
+  USE mo_model_domain,       ONLY: t_patch, p_patch_local_parent
   USE mo_grid_config,        ONLY: start_lev, n_dom, n_dom_start, lfeedback, &
                                    l_limited_area, max_childdom, dynamics_parent_grid_id, &
                                    global_cell_type
@@ -141,8 +141,6 @@ MODULE mo_dump_restore
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e
   USE mo_communication,      ONLY: t_comm_pattern, blk_no, idx_no, idx_1d
   USE mo_model_domimp_patches, ONLY: allocate_patch
-  USE mo_subdivision,        ONLY: p_patch_local_parent, p_int_state_local_parent, &
-                                   p_grf_state_local_parent
   USE mo_intp_state,         ONLY: allocate_int_state, &
     &                              allocate_int_state_lonlat
   USE mo_grf_intp_state,     ONLY: allocate_grf_state
@@ -2516,9 +2514,7 @@ CONTAINS
 
     IF(my_process_is_mpi_all_parallel()) THEN
 
-      ALLOCATE(p_patch_local_parent(n_dom_start+1:n_dom),     &
-               p_int_state_local_parent(n_dom_start+1:n_dom), &
-               p_grf_state_local_parent(n_dom_start+1:n_dom) )
+      ALLOCATE(p_patch_local_parent(n_dom_start+1:n_dom))
 
       DO jg = n_dom_start+1, n_dom
         jgp = p_patch(jg)%parent_id

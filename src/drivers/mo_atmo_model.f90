@@ -41,6 +41,7 @@ USE mo_mpi,                 ONLY: p_stop, &
   & my_process_is_mpi_parallel,                                       &
   & set_mpi_work_communicators, set_comm_input_bcast, null_comm_type, &
   & p_pe_work
+USE mo_sync,                ONLY: enable_sync_checks, disable_sync_checks
 USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, &
   &                               timer_lonlat_setup
 USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, &
@@ -89,14 +90,14 @@ USE mo_model_domain_import, ONLY : get_patch_global_indexes
 USE mo_subdivision,         ONLY: decompose_domain,         &
 & finalize_decomposition, &
 & copy_processor_splitting,      &
-& set_patch_communicators,       &
-& p_patch_local_parent
+& set_patch_communicators
 USE mo_dump_restore,        ONLY: dump_patch_state_netcdf,       &
 & restore_patches_netcdf,        &
 & restore_interpol_state_netcdf, &
 & restore_gridref_state_netcdf
 
-USE mo_model_domain,        ONLY: p_patch_global, p_patch_subdiv, p_patch
+USE mo_model_domain,        ONLY: p_patch_global, p_patch_subdiv, p_patch, &
+  &                               p_patch_local_parent
 
 ! Horizontal grid
 USE mo_grid_config,         ONLY: n_dom, n_dom_start, global_cell_type, &
@@ -308,11 +309,19 @@ CONTAINS
       ! same way as it would be set in parallel_nml_setup when
       ! no restore is wanted:
       CALL set_comm_input_bcast()
+
+      p_patch => p_patch_global
     ELSE
-        CALL import_patches( p_patch_global,                       &
-                            nlev,nlevp1,num_lev,num_levp1,nshift)
-        IF(my_process_is_mpi_parallel()) CALL decompose_domain()
+      CALL import_patches( p_patch_global,                       &
+                           nlev,nlevp1,num_lev,num_levp1,nshift)
+      IF(my_process_is_mpi_parallel()) then
+        CALL decompose_domain()
+        p_patch => p_patch_subdiv
+      ELSE
+        p_patch => p_patch_global
+      ENDIF
     ENDIF
+    ! Note: from this point the p_patch is used
 
     !--------------------------------------------------------------------------------
     ! 5. Construct interpolation state, compute interpolation coefficients.
@@ -333,22 +342,39 @@ CONTAINS
       & STAT=error_status)
     IF (error_status /= SUCCESS) &
       CALL finish(TRIM(routine),'allocation for lon-lat int_state failed')
-    
-    IF(lrestore_states .AND. .NOT. my_process_is_mpi_test()) THEN
-      ! Read interpolation state from NetCDF
-      CALL restore_interpol_state_netcdf(p_patch_global, p_int_state, &
-        &                                p_int_state_lonlat_global )
-    ELSE
-      IF(.NOT. my_process_is_mpi_parallel()) THEN
-        ! Construct interpolation state for full domain
-        CALL construct_2d_interpol_state(p_patch_global, p_int_state)
+
+    IF(my_process_is_mpi_parallel()) THEN
+      ALLOCATE( p_int_state_local_parent(n_dom_start+1:n_dom), &
+              & p_grf_state_local_parent(n_dom_start+1:n_dom), &
+              & STAT=error_status)
+      IF (error_status /= SUCCESS) &
+        CALL finish(TRIM(routine),'allocation for local parents failed')
+    ENDIF
+
+    IF(lrestore_states) THEN
+      ! Interpolation state is read from NetCDF
+      ! On the test PE it is constructed at the same time to be able to check
+      ! the state read in with the constructed state
+      IF( .NOT. my_process_is_mpi_test()) THEN
+        CALL restore_interpol_state_netcdf(p_patch, p_int_state, &
+          &                                p_int_state_lonlat_global )
       ELSE
-        ! Construct interpolation state for divided domain
-        CALL construct_2d_interpol_state(p_patch_subdiv, p_int_state)
+        ! construct_2d_interpol_state makes sync calls for checking the
+        ! results on the parallel PEs to the results on the test PE.
+        ! These checks must be disabled here!
+        CALL disable_sync_checks
+        CALL construct_2d_interpol_state(p_patch, p_int_state)
+        CALL enable_sync_checks
+      ENDIF
+    ELSE
+      ! Construct interpolation state
+      ! Please note that for pararllel runs the divided state is constructed here
+      CALL construct_2d_interpol_state(p_patch, p_int_state)
+      IF(my_process_is_mpi_parallel()) THEN
         ! Transfer interpolation state to local parent
         DO jg = n_dom_start+1, n_dom
-          jgp = p_patch_subdiv(jg)%parent_id
-          CALL transfer_interpol_state(p_patch_subdiv(jgp),p_patch_local_parent(jg), &
+          jgp = p_patch(jg)%parent_id
+          CALL transfer_interpol_state(p_patch(jgp),p_patch_local_parent(jg), &
                                     &  p_int_state(jgp), p_int_state_local_parent(jg))
         ENDDO
       ENDIF
@@ -361,19 +387,33 @@ CONTAINS
     ! construct_2d_gridref_state require the metric terms to be present
 
     IF (n_dom_start==0 .OR. n_dom > 1) THEN
-      IF(lrestore_states .AND. .NOT. my_process_is_mpi_test()) THEN
-        ! Read gridref state from NetCDF
-        CALL restore_gridref_state_netcdf(p_patch_global, p_grf_state)
-      ELSE
-        IF(.NOT. my_process_is_mpi_parallel()) THEN
-          CALL construct_2d_gridref_state (p_patch_global, p_grf_state)
+      IF(lrestore_states) THEN
+        ! Gridref state is read from NetCDF
+        ! On the test PE it is constructed at the same time to be able to check
+        ! the state read in with the constructed state
+        IF( .NOT. my_process_is_mpi_test()) THEN
+          CALL restore_gridref_state_netcdf(p_patch_global, p_grf_state)
         ELSE
-          CALL construct_2d_gridref_state (p_patch_subdiv, p_grf_state)
+          ! construct_2d_gridref_state makes sync calls for checking the
+          ! results on the parallel PEs to the results on the test PE.
+          ! These checks must be disabled here!
+          CALL disable_sync_checks
+          CALL construct_2d_gridref_state (p_patch, p_grf_state)
+          CALL enable_sync_checks
+        ENDIF
+      ELSE
+        ! Construct gridref state
+        ! For non-parallel runs (either 1 PE only or on the test PE) this is done as usual,
+        ! for parallel runs, the main part of the gridref state is constructed on the
+        ! local parent with the following call
+        CALL construct_2d_gridref_state (p_patch, p_grf_state)
+        IF(my_process_is_mpi_parallel()) THEN
+          ! Transfer gridref state from local parent to p_grf_state
           DO jg = n_dom_start+1, n_dom
-            jgp = p_patch_subdiv(jg)%parent_id
-            CALL transfer_grf_state(p_patch_subdiv(jgp), p_patch_local_parent(jg), &
+            jgp = p_patch(jg)%parent_id
+            CALL transfer_grf_state(p_patch(jgp), p_patch_local_parent(jg), &
                                  &  p_grf_state(jgp), p_grf_state_local_parent(jg), &
-                                 &  p_patch_subdiv(jg)%parent_child_index)
+                                 &  p_patch(jg)%parent_child_index)
           ENDDO
         ENDIF
       ENDIF
@@ -385,11 +425,6 @@ CONTAINS
     IF (my_process_is_mpi_seq()  &
       &  .OR. lrestore_states) THEN
 
-      ! This is a verification run or a run on a single processor
-      ! or the divided states have been read, just set pointers
-
-      p_patch => p_patch_global
-
       CALL set_patch_communicators(p_patch)
 
     ELSE
@@ -398,7 +433,6 @@ CONTAINS
 
     ENDIF
 
-    ! Note: from this point the p_patch is used
     ! In case of a test run: Copy processor splitting to test PE
     IF(p_test_run) CALL copy_processor_splitting(p_patch)
 

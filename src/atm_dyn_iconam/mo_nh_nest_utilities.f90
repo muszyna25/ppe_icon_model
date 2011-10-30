@@ -38,11 +38,12 @@ MODULE mo_nh_nest_utilities
 !
 USE mo_kind,                ONLY: wp
 USE mo_exception,           ONLY: message_text, message
-USE mo_model_domain,        ONLY: t_patch, t_grid_cells, t_grid_edges
+USE mo_model_domain,        ONLY: t_patch, t_grid_cells, t_grid_edges, p_patch_local_parent
 USE mo_model_domain_import, ONLY: n_dom, n_dom_start
-USE mo_interpolation,       ONLY: t_int_state
-USE mo_grf_interpolation,   ONLY: t_gridref_state, grf_intmethod_c, &
-                                  grf_intmethod_e, grf_intmethod_ct
+USE mo_interpolation,       ONLY: t_int_state, p_int_state_local_parent
+USE mo_grf_interpolation,   ONLY: t_gridref_state, grf_intmethod_c,  &
+                                  grf_intmethod_e, grf_intmethod_ct, &
+                                  p_grf_state_local_parent
 USE mo_grf_bdyintp,         ONLY: interpol_scal_grf, interpol_vec_grf, interpol2_vec_grf
 USE mo_grf_nudgintp,        ONLY: interpol_scal_nudging, interpol_vec_nudging
 USE mo_grf_ubcintp,         ONLY: interpol_scal_ubc,interpol_vec_ubc
@@ -64,9 +65,6 @@ USE mo_communication,       ONLY: exchange_data, exchange_data_mult
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, sync_patch_array, &
                                   global_sum_array3, sync_patch_array_mult
 USE mo_physical_constants,  ONLY: rd, cvd_o_rd, p0ref
-
-USE mo_subdivision,         ONLY: p_patch_local_parent, p_int_state_local_parent, &
-                                  p_grf_state_local_parent
 
 IMPLICIT NONE
 

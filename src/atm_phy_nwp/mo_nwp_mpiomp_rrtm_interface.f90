@@ -49,7 +49,7 @@ MODULE mo_nwp_mpiomp_rrtm_interface
   USE mo_kind,                 ONLY: wp
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_nwp_lnd_state,        ONLY: t_lnd_prog, t_lnd_diag
-  USE mo_model_domain,         ONLY: t_patch
+  USE mo_model_domain,         ONLY: t_patch, p_patch_local_parent
   USE mo_mpi,                  ONLY: my_process_is_mpi_seq
   USE mo_phyparam_soil,        ONLY: csalb, csalb_snow_min, csalb_snow_max, &
     &                                csalb_snow_fe, csalb_snow_fd, csalb_p, cf_snow
@@ -60,7 +60,6 @@ MODULE mo_nwp_mpiomp_rrtm_interface
   USE mo_radiation,            ONLY: radiation, pre_radiation_nwp_steps
   USE mo_radiation_config,     ONLY: irad_o3, irad_aero, vmr_co2, rad_csalbw
   USE mo_satad,                ONLY: qsat_rho
-  USE mo_subdivision,          ONLY: p_patch_local_parent
 !   USE mo_sync,                 ONLY: SYNC_C, sync_patch_array_mult
 
   USE mo_nwp_rrtm_interface,   ONLY:  nwp_rrtm_radiation, nwp_rrtm_radiation_reduced

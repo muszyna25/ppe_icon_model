@@ -60,7 +60,7 @@ USE mo_physical_constants,  ONLY: re
 USE mo_exception,           ONLY: finish
 USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell, min_rledge, min_rlcell_int, min_rledge_int
 USE mo_model_domain,        ONLY: t_patch, t_grid_edges, t_grid_cells, t_grid_vertices, &
- &                                p_patch_subdiv, p_patch_local_parent
+ &                                p_patch_local_parent
 
 USE mo_model_domain_import, ONLY: n_dom, n_dom_start, l_limited_area
 
@@ -144,14 +144,13 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
  CD_LOOP: DO jcd = 1, p_patch(jg)%n_childdom
 
   jgc    =  p_patch(jg)%child_id(jcd)
+  p_pc   => p_patch(jgc)
   IF(my_process_is_mpi_parallel()) THEN
     p_pp   => p_patch_local_parent(jgc)
     p_grfs => p_grf_state_local_parent(jgc)%p_dom(jcd)
-    p_pc   => p_patch_subdiv(jgc)
   ELSE
     p_pp   => p_patch(jg)
     p_grfs => p_grf(jg)%p_dom(jcd)
-    p_pc   => p_patch(jgc)
   ENDIF
 
   p_cp   => p_pp%cells
@@ -277,14 +276,13 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
  CD_LOOP: DO jcd = 1, p_patch(jg)%n_childdom
 
   jgc    =  p_patch(jg)%child_id(jcd)
+  p_pc   => p_patch(jgc)
   IF(my_process_is_mpi_parallel()) THEN
     p_pp   => p_patch_local_parent(jgc)
     p_grfs => p_grf_state_local_parent(jgc)%p_dom(jcd)
-    p_pc   => p_patch_subdiv(jgc)
   ELSE
     p_pp   => p_patch(jg)
     p_grfs => p_grf(jg)%p_dom(jcd)
-    p_pc   => p_patch(jgc)
   ENDIF
 
   p_ep   => p_pp%edges
@@ -557,14 +555,13 @@ TYPE(t_cartesian_coordinates) :: cc_center, cc_ch1, cc_ch2, cc_ch3, cc_ch4, &
 
 DO jg = n_dom_start+1, n_dom
 
-  jgp = p_patch(jg)%parent_id
+  jgp  = p_patch(jg)%parent_id
+  p_pc => p_patch(jg)
   IF(my_process_is_mpi_parallel()) THEN
     p_pp   => p_patch_local_parent(jg)
-    p_pc   => p_patch_subdiv(jg)
     p_grfp => p_grf_state_local_parent(jg)
   ELSE
     p_pp   => p_patch(jgp)
-    p_pc   => p_patch(jg)
     p_grfp => p_grf(jgp)
   ENDIF
 
@@ -1025,16 +1022,15 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
 
  CD_LOOP: DO jcd = 1, ptr_patch(jg)%n_childdom
 
-    jgc = ptr_patch(jg)%child_id(jcd)
+    jgc  = ptr_patch(jg)%child_id(jcd)
+    p_pc => p_patch(jgc)
 
     IF(my_process_is_mpi_parallel()) THEN
       p_pp    => p_patch_local_parent(jgc)
       ptr_grf => p_grf_state_local_parent(jgc)%p_dom(jcd)
-      p_pc    => p_patch_subdiv(jgc)
     ELSE
       p_pp    => p_patch(jg)
       ptr_grf => ptr_grf_state(jg)%p_dom(jcd)
-      p_pc    => p_patch(jgc)
     ENDIF
 
     ptr_ep   => p_pp%edges
@@ -1413,16 +1409,15 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
 
  CD_LOOP: DO jcd = 1, ptr_patch(jg)%n_childdom
 
-  jgc = ptr_patch(jg)%child_id(jcd)
+  jgc  = ptr_patch(jg)%child_id(jcd)
+  p_pc => p_patch(jgc)
 
   IF(my_process_is_mpi_parallel()) THEN
-    p_pp  => p_patch_local_parent(jgc)
+    p_pp    => p_patch_local_parent(jgc)
     ptr_grf => p_grf_state_local_parent(jgc)%p_dom(jcd)
-    p_pc  => p_patch_subdiv(jgc)
   ELSE
-    p_pp  => p_patch(jg)
+    p_pp    => p_patch(jg)
     ptr_grf => ptr_grf_state(jg)%p_dom(jcd)
-    p_pc  => p_patch(jgc)
   ENDIF
 
   ptr_ep   => p_pp%edges
@@ -1734,16 +1729,15 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
 
  CD_LOOP: DO jcd = 1, ptr_patch(jg)%n_childdom
 
-  jgc = ptr_patch(jg)%child_id(jcd)
+  jgc  = ptr_patch(jg)%child_id(jcd)
+  p_pc => p_patch(jgc)
 
   IF(my_process_is_mpi_parallel()) THEN
-    p_pp  => p_patch_local_parent(jgc)
+    p_pp    => p_patch_local_parent(jgc)
     ptr_grf => p_grf_state_local_parent(jgc)%p_dom(jcd)
-    p_pc  => p_patch_subdiv(jgc)
   ELSE
-    p_pp  => p_patch(jg)
+    p_pp    => p_patch(jg)
     ptr_grf => ptr_grf_state(jg)%p_dom(jcd)
-    p_pc  => p_patch(jgc)
   ENDIF
 
   ptr_ep   => p_pp%edges
