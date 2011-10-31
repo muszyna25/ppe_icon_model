@@ -99,6 +99,7 @@ USE mo_nml_crosscheck,        ONLY: atm_crosscheck
 USE mo_time_config,           ONLY: time_config         ! variable
 USE mo_dynamics_config,       ONLY: configure_dynamics  ! subroutine
 USE mo_interpol_config
+USE mo_lnd_nwp_config,        ONLY: configure_lnd_nwp
 USE mo_ext_data,              ONLY: ext_data, init_ext_data, destruct_ext_data
 
 ! USE statements referring directly to prep_icon
@@ -330,6 +331,8 @@ IMPLICIT NONE
     !---------------------------------------------------------------------
 
     CALL configure_dynamics ( n_dom )
+
+    CALL configure_lnd_nwp()
 
     !------------------------------------------------------------------
     ! 10. Create and optionally read external data fields
