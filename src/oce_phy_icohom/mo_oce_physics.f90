@@ -742,12 +742,12 @@ END INTERFACE
         END DO
       END DO
     END DO    
-Do jk=1,n_zlev
-write(*,*)'max-min Ri-Nr:densgrad:shear:',&
-&maxval( z_Ri_c(:,jk,:)),&!minval( z_Ri_c(:,jk,:)),&
-&maxval(z_vert_density_grad_c(:,jk,:)),&!minval(z_vert_density_grad_c(:,jk,:)),&
-&maxval( z_shear_c(:,jk,:))!,minval( z_shear_c(:,jk,:))
-END DO
+!Do jk=1,n_zlev
+!write(*,*)'max-min Ri-Nr:densgrad:shear:',&
+!&maxval( z_Ri_c(:,jk,:)),&!minval( z_Ri_c(:,jk,:)),&
+!&maxval(z_vert_density_grad_c(:,jk,:)),&!minval(z_vert_density_grad_c(:,jk,:)),&
+!&maxval( z_shear_c(:,jk,:))!,minval( z_shear_c(:,jk,:))
+!END DO
 
    !Density gradient for 1st level not calulated yet, but required below. Following
    !parxis in MPI-OM we set first layer equal to second layer (cf MPI-OM mo_ocean_vertical_mixing)
@@ -959,8 +959,8 @@ DO i_no_trac=1, no_tracer
   CALL print_mxmn('p_vn%x(1)',jk,p_os%p_diag%p_vn%x(1),n_zlev,p_patch%nblks_c,'phy',ipl_src)
   CALL print_mxmn('p_vn%x(2)',jk,p_os%p_diag%p_vn%x(2),n_zlev,p_patch%nblks_c,'phy',ipl_src)
   CALL print_mxmn('z_shear_c',jk,z_shear_c,n_zlev,p_patch%nblks_c,'phy',ipl_src)
-  write(*,*)'max/min trac mixing',jk,maxval(params_oce%A_tracer_v(:,jk,:,i_no_trac)),&
-  &minval(params_oce%A_tracer_v(:,jk,:,i_no_trac))
+  !write(*,*)'max/min trac mixing',jk,maxval(params_oce%A_tracer_v(:,jk,:,i_no_trac)),&
+  !&minval(params_oce%A_tracer_v(:,jk,:,i_no_trac))
   !write(*,*)'max/min veloc mixing',jk,maxval(params_oce%A_veloc_v(:,jk,:)),&
   !minval(params_oce%A_veloc_v(:,jk,:))
 
@@ -969,11 +969,11 @@ DO i_no_trac=1, no_tracer
  END DO
 END DO
  DO jk=1,n_zlev
-  ipl_src=3  ! output print level (1-5, fix)
-!   CALL print_mxmn('PHY veloc mixing',jk,params_oce%A_veloc_v(:,:,:),n_zlev, &
-!     & p_patch%nblks_e,'phy',ipl_src)
-  write(*,*)'max/min veloc mixing',jk,maxval(params_oce%A_veloc_v(:,jk,:)),&
-  &minval(params_oce%A_veloc_v(:,jk,:))
+   ipl_src=3  ! output print level (1-5, fix)
+   CALL print_mxmn('PHY veloc mixing',jk,params_oce%A_veloc_v(:,:,:),n_zlev+1, &
+     & p_patch%nblks_e,'phy',ipl_src)
+! write(*,*)'max/min veloc mixing',jk,maxval(params_oce%A_veloc_v(:,jk,:)),&
+! &minval(params_oce%A_veloc_v(:,jk,:))
  END DO
 
  END SUBROUTINE update_ho_params
