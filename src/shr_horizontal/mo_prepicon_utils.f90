@@ -572,7 +572,7 @@ MODULE mo_prepicon_utils
 
         extdata(jg)%atm%topography_c(:,:) = prepicon(jg)%topography_c(:,:)
         extdata(jg)%atm%topography_v(:,:) = prepicon(jg)%topography_v(:,:)
-        IF (l_sfc_in) THEN
+        IF (i_oper_mode > 1 .AND. l_sfc_in) THEN
           ! In addition, copy climatological deep-soil temperature to soil level nlev_soil+1
           ! These are limited to -60 deg C because less is definitely nonsense
           prepicon(jg)%sfc%tsoil(:,:,nlev_soil+1) = MAX(213.15_wp,extdata(jg)%atm%t_cl(:,:))
