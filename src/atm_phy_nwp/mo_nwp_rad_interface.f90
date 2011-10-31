@@ -1012,6 +1012,7 @@ MODULE mo_nwp_rad_interface
     CASE (6)
       CALL calc_o3_clim(                             &
         & kbdim      = nproma,                       &
+        & jg         = jg,                           &
         & p_inc_rad  = atm_phy_nwp_config(jg)%dt_rad,&
         & z_sim_time = p_sim_time,                   &
         & pt_patch   = pt_patch,                     &

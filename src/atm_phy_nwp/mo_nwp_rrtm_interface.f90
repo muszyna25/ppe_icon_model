@@ -189,6 +189,7 @@ CONTAINS
     CASE (6)
       CALL calc_o3_clim(                             &
         & kbdim      = nproma,                       & ! in
+        & jg         = jg,                           &
         & p_inc_rad  = atm_phy_nwp_config(jg)%dt_rad,& ! in
         & z_sim_time = p_sim_time,                   & ! in
         & pt_patch   = pt_patch,                     & ! in

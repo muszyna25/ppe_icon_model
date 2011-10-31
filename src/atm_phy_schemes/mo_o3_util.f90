@@ -45,7 +45,7 @@ MODULE mo_o3_util
   USE mo_exception,            ONLY: finish
   USE mo_get_utc_date_tr,      ONLY: get_utc_date_tr
   USE mo_parallel_config,      ONLY: nproma
-  USE mo_impl_constants,       ONLY: min_rlcell
+  USE mo_impl_constants,       ONLY: min_rlcell, max_dom
   USE mo_kind,                 ONLY: wp
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_math_constants,       ONLY: pi,deg2rad,rad2deg
@@ -312,10 +312,10 @@ END SUBROUTINE o3_timeint
 
  !=======================================================================
 
-  SUBROUTINE calc_o3_clim(kbdim,p_inc_rad,z_sim_time,pt_patch,zvio3,zhmo3)
+  SUBROUTINE calc_o3_clim(kbdim,jg,p_inc_rad,z_sim_time,pt_patch,zvio3,zhmo3)
 
     INTEGER, INTENT(in)   :: &
-      & kbdim
+      & kbdim, jg
 
     REAL(wp), INTENT(in)   :: &
       & p_inc_rad, & !radiation time step in seconds
@@ -358,7 +358,7 @@ END SUBROUTINE o3_timeint
     INTEGER :: &
       & jj, itaja, jb !& ! output from routine get_utc_date_tr
 
-    INTEGER , SAVE :: itaja_o3_previous = 0
+    INTEGER , SAVE :: itaja_o3_previous(max_dom) = 0
     
     INTEGER :: jmm,mmm,mnc,mns,jnn,jc
 
@@ -374,9 +374,8 @@ END SUBROUTINE o3_timeint
       &   acthour        = zstunde )
 
     !decide whether new ozone calculation is necessary
-    IF ( itaja == itaja_o3_previous ) RETURN
-    itaja_o3_previous = itaja
-
+    IF ( itaja == itaja_o3_previous(jg) ) RETURN
+    itaja_o3_previous(jg) = itaja
     
     ztwo    = 0.681_wp + 0.2422_wp*REAL(jj-1949,wp)-REAL((jj-1949)/4,wp)
     ztho    = 2._wp*pi*( REAL(itaja, wp) -1.0_wp + ztwo )/365.2422_wp
