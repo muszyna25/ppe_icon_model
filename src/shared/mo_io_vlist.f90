@@ -3664,13 +3664,7 @@ CONTAINS
     IF(my_process_is_stdio()) THEN
       out_field(:) = out_field2(:,1)
     ENDIF
-    ! if required, return 2D field as (nproma, nblks) array
-    IF (.NOT. PRESENT(opt_out_field_2d)) THEN
-      DEALLOCATE(opt_out_field_2d%ptr, STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) THEN
-        CALL finish ('mo_io_vlist/gather_array1', 'deallocation failed')
-      ENDIF
-    END IF
+
     DEALLOCATE(out_field2)
 
   END SUBROUTINE gather_array1
