@@ -64,18 +64,17 @@ MODULE mo_mpi
   ! Main communication methods
   PUBLIC :: global_mpi_barrier
   PUBLIC :: p_send, p_recv, p_sendrecv, p_bcast, p_barrier
-  PUBLIC :: p_isend, p_irecv, p_wait, p_wait_any
+  PUBLIC :: p_isend, p_irecv, p_wait, p_wait_any, &
+    &       p_irecv_packed, p_send_packed,        &
+    &       p_pack_int, p_pack_real,              &
+    &       p_pack_int_1d, p_pack_real_1d,        &
+    &       p_pack_real_2d,                       &
+    &       p_unpack_int, p_unpack_real,          &
+    &       p_unpack_int_1d, p_unpack_real_1d,    &
+    &       p_unpack_real_2d
   PUBLIC :: p_gather, p_max, p_min, p_sum, p_global_sum, p_field_sum
   PUBLIC :: p_probe
   PUBLIC :: p_allreduce_minloc
-
-  !> generic interface for MPI communication calls
-  INTERFACE p_gather_field
-    MODULE PROCEDURE p_gather_field_3d
-    MODULE PROCEDURE p_gather_field_4d
-    MODULE PROCEDURE p_gather_field_2d_int
-    MODULE PROCEDURE p_gather_field_3d_int
-  END INTERFACE
   PUBLIC :: p_gather_field
 
   !----------- to be removed -----------------------------------------
@@ -87,10 +86,12 @@ MODULE mo_mpi
   !--------------------------------------------------------------------
 
 #ifndef NOMPI
-  PUBLIC :: MPI_INTEGER, MPI_STATUS_SIZE, MPI_SUCCESS, MPI_ANY_SOURCE,     &
+  PUBLIC :: MPI_INTEGER, MPI_STATUS_SIZE, MPI_SUCCESS,                     &
             MPI_INFO_NULL, MPI_ADDRESS_KIND, MPI_COMM_NULL, MPI_COMM_SELF, &
             MPI_UNDEFINED
 #endif
+
+  PUBLIC :: MPI_ANY_SOURCE
 
   ! real data type matching real type of MPI implementation
   PUBLIC :: p_real_dp
@@ -121,7 +122,9 @@ MODULE mo_mpi
   INTEGER, PARAMETER :: p_address_kind = MPI_ADDRESS_KIND
 #else
   INTEGER, PARAMETER :: p_address_kind = i8    ! should not get touched at all
-  INTEGER, PARAMETER :: MPI_COMM_NULL = 0    
+  INTEGER, PARAMETER :: MPI_COMM_NULL  = 0    
+  ! dummy arguments for function calls:
+  INTEGER, PARAMETER :: MPI_ANY_SOURCE = 0
 #endif
 
 
@@ -391,6 +394,14 @@ MODULE mo_mpi
 
   INTERFACE p_field_sum
      MODULE PROCEDURE p_field_sum_1d
+  END INTERFACE
+
+  !> generic interface for MPI communication calls
+  INTERFACE p_gather_field
+    MODULE PROCEDURE p_gather_field_3d
+    MODULE PROCEDURE p_gather_field_4d
+    MODULE PROCEDURE p_gather_field_2d_int
+    MODULE PROCEDURE p_gather_field_3d_int
   END INTERFACE
 
 CONTAINS
@@ -3346,12 +3357,7 @@ CONTAINS
     END IF
 
 #ifdef DEBUG
-    IF (p_error /= MPI_SUCCESS) THEN
-       WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_RECV on ', my_process_mpi_all_id, &
-            ' from ', p_source, ' for tag ', p_tag, ' failed.'
-       WRITE (nerr,'(a,i4)') ' Error = ', p_error
-       CALL p_abort
-    END IF
+    IF (p_error /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
 #endif
 #endif
 
@@ -3953,6 +3959,309 @@ CONTAINS
 #endif
 
   END SUBROUTINE p_irecv_bool_4d
+
+  SUBROUTINE p_pack_int (t_var, t_buffer, p_buf_size, p_pos, comm)
+
+    INTEGER,   INTENT(IN)    :: t_var
+    CHARACTER, INTENT(INOUT) :: t_buffer(:)
+    INTEGER,   INTENT(IN)    :: p_buf_size
+    INTEGER,   INTENT(INOUT) :: p_pos
+    INTEGER, OPTIONAL, INTENT(IN) :: comm
+#ifndef NOMPI
+    INTEGER :: p_comm, outsize
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+    outsize = p_buf_size
+    CALL MPI_PACK(t_var, 1, p_int, t_buffer, outsize, p_pos, p_comm, p_error)
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+#endif
+#endif
+  END SUBROUTINE p_pack_int
+
+  SUBROUTINE p_pack_real (t_var, t_buffer, p_buf_size, p_pos, comm)
+
+    REAL(wp),  INTENT(IN)    :: t_var
+    CHARACTER, INTENT(INOUT) :: t_buffer(:)
+    INTEGER,   INTENT(IN)    :: p_buf_size
+    INTEGER,   INTENT(INOUT) :: p_pos
+    INTEGER, OPTIONAL, INTENT(IN) :: comm
+#ifndef NOMPI
+    INTEGER :: p_comm, outsize
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+    outsize = p_buf_size
+    CALL MPI_PACK(t_var, 1, p_real_dp, t_buffer, outsize, p_pos, p_comm, p_error)
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+#endif
+#endif
+  END SUBROUTINE p_pack_real
+
+  SUBROUTINE p_pack_int_1d (t_var, p_count, t_buffer, p_buf_size, p_pos, comm)
+
+    INTEGER,   INTENT(IN)    :: t_var(:)
+    INTEGER,   INTENT(IN)    :: p_count
+    CHARACTER, INTENT(INOUT) :: t_buffer(:)
+    INTEGER,   INTENT(IN)    :: p_buf_size
+    INTEGER,   INTENT(INOUT) :: p_pos
+    INTEGER, OPTIONAL, INTENT(IN) :: comm
+#ifndef NOMPI
+    INTEGER :: p_comm, outsize
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+    outsize = p_buf_size
+    CALL MPI_PACK(t_var, p_count, p_int, t_buffer, outsize, p_pos, p_comm, p_error)
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+#endif
+#endif
+  END SUBROUTINE p_pack_int_1d
+
+  SUBROUTINE p_pack_real_1d (t_var, p_count, t_buffer, p_buf_size, p_pos, comm)
+
+    REAL(wp),  INTENT(IN)    :: t_var(:)
+    INTEGER,   INTENT(IN)    :: p_count
+    CHARACTER, INTENT(INOUT) :: t_buffer(:)
+    INTEGER,   INTENT(IN)    :: p_buf_size
+    INTEGER,   INTENT(INOUT) :: p_pos
+    INTEGER, OPTIONAL, INTENT(IN) :: comm
+#ifndef NOMPI
+    INTEGER :: p_comm, outsize
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+    outsize = p_buf_size
+    CALL MPI_PACK(t_var, p_count, p_real_dp, t_buffer, outsize, p_pos, p_comm, p_error)
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+#endif
+#endif
+  END SUBROUTINE p_pack_real_1d
+
+  SUBROUTINE p_pack_real_2d (t_var, p_count, t_buffer, p_buf_size, p_pos, comm)
+
+    REAL(wp),  INTENT(IN)    :: t_var(:,:)
+    INTEGER,   INTENT(IN)    :: p_count
+    CHARACTER, INTENT(INOUT) :: t_buffer(:)
+    INTEGER,   INTENT(IN)    :: p_buf_size
+    INTEGER,   INTENT(INOUT) :: p_pos
+    INTEGER, OPTIONAL, INTENT(IN) :: comm
+#ifndef NOMPI
+    INTEGER :: p_comm, outsize
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+    outsize = p_buf_size
+    CALL MPI_PACK(t_var, p_count, p_real_dp, t_buffer, outsize, p_pos, p_comm, p_error)
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+#endif
+#endif
+  END SUBROUTINE p_pack_real_2d
+
+  SUBROUTINE p_unpack_int (t_buffer, p_buf_size, p_pos, t_var, comm)
+
+    CHARACTER, INTENT(IN)    :: t_buffer(:)
+    INTEGER,   INTENT(IN)    :: p_buf_size
+    INTEGER,   INTENT(INOUT) :: p_pos
+    INTEGER,   INTENT(OUT)   :: t_var
+    INTEGER, OPTIONAL, INTENT(IN) :: comm
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+    CALL MPI_UNPACK(t_buffer, p_buf_size, p_pos, t_var, 1, p_int, p_comm, p_error)
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+#endif
+#endif
+  END SUBROUTINE p_unpack_int
+
+  SUBROUTINE p_unpack_real (t_buffer, p_buf_size, p_pos, t_var, comm)
+
+    CHARACTER, INTENT(IN)    :: t_buffer(:)
+    INTEGER,   INTENT(IN)    :: p_buf_size
+    INTEGER,   INTENT(INOUT) :: p_pos
+    REAL(wp),  INTENT(OUT)   :: t_var
+    INTEGER, OPTIONAL, INTENT(IN) :: comm
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+    CALL MPI_UNPACK(t_buffer, p_buf_size, p_pos, t_var, 1, p_real_dp, p_comm, p_error)
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+#endif
+#endif
+  END SUBROUTINE p_unpack_real
+
+  SUBROUTINE p_unpack_int_1d (t_buffer, p_buf_size, p_pos, t_var, p_count, comm)
+
+    CHARACTER, INTENT(IN)    :: t_buffer(:)
+    INTEGER,   INTENT(IN)    :: p_buf_size
+    INTEGER,   INTENT(INOUT) :: p_pos
+    INTEGER,   INTENT(INOUT) :: t_var(:)
+    INTEGER,   INTENT(IN)    :: p_count
+    INTEGER, OPTIONAL, INTENT(IN) :: comm
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+    CALL MPI_UNPACK(t_buffer, p_buf_size, p_pos, t_var, p_count, p_int, p_comm, p_error)
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+#endif
+#endif
+  END SUBROUTINE p_unpack_int_1d
+
+  SUBROUTINE p_unpack_real_1d (t_buffer, p_buf_size, p_pos, t_var, p_count, comm)
+
+    CHARACTER, INTENT(IN)    :: t_buffer(:)
+    INTEGER,   INTENT(IN)    :: p_buf_size
+    INTEGER,   INTENT(INOUT) :: p_pos
+    REAL(wp),  INTENT(INOUT) :: t_var(:)
+    INTEGER,   INTENT(IN)    :: p_count
+    INTEGER, OPTIONAL, INTENT(IN) :: comm
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+    CALL MPI_UNPACK(t_buffer, p_buf_size, p_pos, t_var, p_count, p_real_dp, p_comm, p_error)
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+#endif
+#endif
+  END SUBROUTINE p_unpack_real_1d
+
+  SUBROUTINE p_unpack_real_2d (t_buffer, p_buf_size, p_pos, t_var, p_count, comm)
+
+    CHARACTER, INTENT(IN)    :: t_buffer(:)
+    INTEGER,   INTENT(IN)    :: p_buf_size
+    INTEGER,   INTENT(INOUT) :: p_pos
+    REAL(wp),  INTENT(INOUT) :: t_var(:,:)
+    INTEGER,   INTENT(IN)    :: p_count
+    INTEGER, OPTIONAL, INTENT(IN) :: comm
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+    CALL MPI_UNPACK(t_buffer, p_buf_size, p_pos, t_var, p_count, p_real_dp, p_comm, p_error)
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+#endif
+#endif
+  END SUBROUTINE p_unpack_real_2d
+
+  SUBROUTINE p_irecv_packed (t_buffer, p_source, p_tag, p_count, comm)
+
+    CHARACTER, INTENT(INOUT) :: t_buffer(:)
+    INTEGER,   INTENT(IN)    :: p_source, p_tag
+    INTEGER,   INTENT(IN)    :: p_count
+    INTEGER, OPTIONAL, INTENT(IN) :: comm
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+    CALL p_inc_request
+    CALL MPI_IRECV (t_buffer, p_count, MPI_PACKED, p_source, p_tag, &
+      p_comm, p_request(p_irequest), p_error)
+
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_IRECV on ', my_process_mpi_all_id, &
+            ' from ', p_source, ' for tag ', p_tag, ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL p_abort
+    END IF
+#endif
+#endif
+
+  END SUBROUTINE p_irecv_packed
+
+  SUBROUTINE p_send_packed (t_buffer, p_destination, p_tag, p_count, comm)
+
+    CHARACTER, INTENT(in) :: t_buffer(:)
+    INTEGER,   INTENT(in) :: p_destination, p_tag
+    INTEGER,   INTENT(in) :: p_count
+    INTEGER, OPTIONAL, INTENT(in) :: comm
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+    CALL MPI_SEND (t_buffer, p_count, MPI_PACKED, p_destination, p_tag, &
+      p_comm, p_error)
+
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_SEND from ', my_process_mpi_all_id, &
+            ' to ', p_destination, ' for tag ', p_tag, ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL p_abort
+    END IF
+#endif
+#endif
+
+  END SUBROUTINE p_send_packed
+
   !
   !================================================================================================
 

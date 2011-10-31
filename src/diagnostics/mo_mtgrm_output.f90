@@ -79,25 +79,25 @@
 !! TODO[FP] : use the same GNAT data structure as for the RBF
 !!            coefficient computation!
 !! TODO[FP] : Extend list of meteogram variables
-!! TODO[FP] : Subroutine "mtgrm_collect_buffers" contains
-!!            MPI calls which should be moved to MODULE mo_mpi.
 
 MODULE mo_mtgrm_output
 
   USE mo_kind,                  ONLY: wp
   USE mo_datetime,              ONLY: t_datetime, iso8601
   USE mo_exception,             ONLY: message, message_text, finish
-  USE mo_mpi,                   ONLY: p_n_work, my_process_is_stdio, &
-    &                                 get_my_mpi_all_id,             &
-    ! TODO[FP] : When encapsulating MPI_PACK calls into mo_mpi,
-    !            the following USEs are no longer required
-    &                                 get_my_mpi_all_id, &
-    &                                 get_my_mpi_communicator, p_real_dp, &
-    &                                 p_int, get_mpi_all_workroot_id,     &
-    &                                 p_real_dp_byte
-#ifndef NOMPI
-  USE mo_mpi,                   ONLY: MPI_STATUS_SIZE
-#endif
+  USE mo_mpi,                   ONLY: p_n_work, my_process_is_stdio,      &
+    &                                 get_my_mpi_all_id, p_wait,          &
+    &                                 p_send_packed, p_irecv_packed,      &
+    &                                 p_pack_int,    p_pack_real,         &
+    &                                 p_pack_int_1d, p_pack_real_1d,      &
+    &                                 p_pack_real_2d,                     &
+    &                                 p_unpack_int,    p_unpack_real,     &
+    &                                 p_unpack_int_1d, p_unpack_real_1d,  &
+    &                                 p_unpack_real_2d,                   &
+    &                                 get_my_mpi_all_id,                  &
+    &                                 get_mpi_all_workroot_id,            &
+    &                                 p_real_dp_byte,                     &
+    &                                 MPI_ANY_SOURCE
   USE mo_model_domain,          ONLY: t_patch
   USE mo_parallel_config,       ONLY: nproma
   USE mo_impl_constants,        ONLY: inwp, max_dom, SUCCESS
@@ -114,11 +114,6 @@ MODULE mo_mtgrm_output
   USE mo_util_string,           ONLY: int2string
   USE mo_mtgrm_config,          ONLY: t_mtgrm_output_config, t_station_list, &
     &                                 FTYPE_NETCDF, MAX_NAME_LENGTH, MAX_NUM_STATIONS
-  ! TODO[FP] : When encapsulating MPI_PACK calls into mo_mpi,
-  !            the following USE is no longer required:
-#ifndef NOMPI
-  USE MPI
-#endif
   
   IMPLICIT NONE
   
@@ -922,9 +917,7 @@ CONTAINS
     INTEGER     :: station_idx(2), position, icurrent,   &
       &            jb, jc, i_startidx, i_endidx, ierr,   &
       &            istation, ivar, nlevs
-    INTEGER     :: irecv_req(MAX_NUM_STATIONS)
-    INTEGER     :: irecv_status(MPI_STATUS_SIZE, MAX_NUM_STATIONS)
-    INTEGER     :: myrank, comm
+    INTEGER     :: myrank
     TYPE(t_mtgrm_data),    POINTER :: mtgrm_data
     TYPE(t_mtgrm_station), POINTER :: p_station
 
@@ -932,7 +925,6 @@ CONTAINS
 
     ! get global rank and MPI communicator
     myrank = get_my_mpi_all_id()
-    comm   = get_my_mpi_communicator()
 
     ! global time stamp index
     ! Note: We assume that this value is identical for all PEs
@@ -941,18 +933,14 @@ CONTAINS
     ! -- RECEIVER CODE --
     RECEIVER : IF (l_is_receiver) THEN
       ! launch MPI message requests for station data on foreign PEs
-      irecv_req(:) = MPI_REQUEST_NULL
       DO istation=1,mtgrm_output_config%nstations
         IF (owner(istation) /= myrank) THEN
-          CALL MPI_IRECV(msg_buffer(:,istation), max_buf_size, MPI_PACKED, MPI_ANY_SOURCE, &
-            &            istation, comm, irecv_req(istation), ierr)
-          IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+          CALL p_irecv_packed(msg_buffer(:,istation), MPI_ANY_SOURCE, istation, max_buf_size)
         END IF
       END DO
 
       ! wait for messages to arrive:
-      CALL MPI_WAITALL(mtgrm_output_config%nstations, irecv_req(:), irecv_status(:,:), ierr)
-      IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+      CALL p_wait()
 
       ! unpack received messages:
       jc = 0
@@ -960,50 +948,30 @@ CONTAINS
       DO istation=1,mtgrm_output_config%nstations
         IF (owner(istation) /= myrank) THEN
           position = 0
-          CALL MPI_UNPACK(msg_buffer(:,istation), max_buf_size, position, station_idx(:), &
-            &             2, p_int, comm, ierr)
-          IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+          CALL p_unpack_int_1d(msg_buffer(:,istation),max_buf_size, position, station_idx(:),2)
           p_station => mtgrm_global_data(jg)%station(station_idx(1), station_idx(2))
           p_station%station_idx(1:2) = station_idx(1:2)
-
           ! unpack header information
-          CALL MPI_UNPACK(msg_buffer(:,istation), max_buf_size, position, p_station%tri_idx(:), &
-            &             2, p_int, comm, ierr)
-          IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
-          CALL MPI_UNPACK(msg_buffer(:,istation), max_buf_size, position, &
-            &             p_station%tri_idx_local(:), &
-            &             2, p_int, comm, ierr)
-          IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
-          CALL MPI_UNPACK(msg_buffer(:,istation), max_buf_size, position, p_station%owner, &
-            &             1, p_int, comm, ierr)
-          IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
-          CALL MPI_UNPACK(msg_buffer(:,istation), max_buf_size, position, p_station%hsurf,      &
-            &             1, p_real_dp, comm, ierr)
-          IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
-          CALL MPI_UNPACK(msg_buffer(:,istation), max_buf_size, position, p_station%frland,     &
-            &             1, p_real_dp, comm, ierr)
-          IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
-          CALL MPI_UNPACK(msg_buffer(:,istation), max_buf_size, position, p_station%fc,         &
-            &             1, p_real_dp, comm, ierr)
-          IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
-          CALL MPI_UNPACK(msg_buffer(:,istation), max_buf_size, position, p_station%soiltype,   &
-            &             1, p_int, comm, ierr)
-          IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+          CALL p_unpack_int_1d(msg_buffer(:,istation),max_buf_size, position, p_station%tri_idx(:),2)
+          CALL p_unpack_int_1d(msg_buffer(:,istation),max_buf_size, position, &
+            &                  p_station%tri_idx_local(:),2)
+          CALL p_unpack_int(msg_buffer(:,istation),max_buf_size, position, p_station%owner)
+          CALL p_unpack_real(msg_buffer(:,istation),max_buf_size, position, p_station%hsurf)
+          CALL p_unpack_real(msg_buffer(:,istation),max_buf_size, position, p_station%frland)
+          CALL p_unpack_real(msg_buffer(:,istation),max_buf_size, position, p_station%fc)
+          CALL p_unpack_int(msg_buffer(:,istation),max_buf_size, position, p_station%soiltype)
 
           ! unpack meteogram data:
           DO ivar=1,mtgrm_data%nvars
             nlevs = mtgrm_data%var_info(ivar)%nlevs
-            CALL MPI_UNPACK(msg_buffer(:,istation), max_buf_size, position, &
-              &             p_station%var(ivar)%values(:,:),                &
-              &             nlevs*icurrent, p_real_dp, comm, ierr)
-            IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+            CALL p_unpack_real_2d(msg_buffer(:,istation),max_buf_size, position, &
+              &                   p_station%var(ivar)%values(:,:), nlevs*icurrent)
+
           END DO
 
           DO ivar=1,mtgrm_data%nsfcvars
-            CALL MPI_UNPACK(msg_buffer(:,istation), max_buf_size, position, &
-              &             p_station%sfc_var(ivar)%values(:),              &
-              &             icurrent, p_real_dp, comm, ierr)
-            IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+            CALL p_unpack_real_1d(msg_buffer(:,istation),max_buf_size, position, &
+              &                   p_station%sfc_var(ivar)%values(:), icurrent)
           END DO
         ELSE
           ! this PE is both sender and receiver - direct copy:
@@ -1049,49 +1017,29 @@ CONTAINS
           ! Meteogram header (information on location, ...)
           p_station => mtgrm_data%station(jc,jb)
           position = 0
-          CALL MPI_PACK(p_station%station_idx(:), 2, p_int,     msg_buffer(:,1), max_buf_size, &
-            &           position, comm, ierr)
-          IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
-          CALL MPI_PACK(p_station%tri_idx(:),     2, p_int,     msg_buffer(:,1), max_buf_size, &
-            &           position, comm, ierr)
-          IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
-          CALL MPI_PACK(p_station%tri_idx_local(:),2,p_int,     msg_buffer(:,1), max_buf_size, &
-            &           position, comm, ierr)
-          IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
-          CALL MPI_PACK(p_station%owner,          1 ,p_int,     msg_buffer(:,1), max_buf_size, &
-            &           position, comm, ierr)
-          IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
-          CALL MPI_PACK(p_station%hsurf,          1, p_real_dp, msg_buffer(:,1), max_buf_size, &
-            &           position, comm, ierr)
-          IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
-          CALL MPI_PACK(p_station%frland,         1, p_real_dp, msg_buffer(:,1), max_buf_size, &
-            &           position, comm, ierr)
-          IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
-          CALL MPI_PACK(p_station%fc,             1, p_real_dp, msg_buffer(:,1), max_buf_size, &
-            &           position, comm, ierr)
-          IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
-          CALL MPI_PACK(p_station%soiltype,       1, p_int,     msg_buffer(:,1), max_buf_size, &
-            &           position, comm, ierr)
-          IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+          CALL p_pack_int_1d(p_station%station_idx(:), 2, msg_buffer(:,1), max_buf_size, position)
+          CALL p_pack_int_1d(p_station%tri_idx(:), 2, msg_buffer(:,1), max_buf_size, position)
+          CALL p_pack_int_1d(p_station%tri_idx_local(:), 2, msg_buffer(:,1), &
+            &                max_buf_size, position)
+          CALL p_pack_int (p_station%owner, msg_buffer(:,1), max_buf_size, position)
+          CALL p_pack_real(p_station%hsurf, msg_buffer(:,1), max_buf_size, position)
+          CALL p_pack_real(p_station%frland, msg_buffer(:,1), max_buf_size, position)
+          CALL p_pack_real(p_station%fc, msg_buffer(:,1), max_buf_size, position)
+          CALL p_pack_int (p_station%soiltype, msg_buffer(:,1), max_buf_size, position)
           ! pack meteogram data:
           DO ivar=1,mtgrm_data%nvars
             nlevs = mtgrm_data%var_info(ivar)%nlevs
-            CALL MPI_PACK(p_station%var(ivar)%values(:,:), nlevs*icurrent, &
-              &           p_real_dp, msg_buffer(:,1),                      &
-              &           max_buf_size, position, comm, ierr)
-            IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+            CALL p_pack_real_2d(p_station%var(ivar)%values(:,:), nlevs*icurrent, &
+              &                 msg_buffer(:,1), max_buf_size, position)
           END DO
           DO ivar=1,mtgrm_data%nsfcvars
-            CALL MPI_PACK(p_station%sfc_var(ivar)%values(:), icurrent,     &
-              &           p_real_dp, msg_buffer(:,1),                      &
-              &           max_buf_size, position, comm, ierr)
-            IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+            CALL p_pack_real_1d(p_station%sfc_var(ivar)%values(:), icurrent,     &
+              &                 msg_buffer(:,1), max_buf_size, position)
           END DO
 
           ! (blocking) send of packed station data to IO PE:
           istation = nproma*(p_station%station_idx(2) - 1) + p_station%station_idx(1)
-          CALL MPI_SEND(msg_buffer, position, MPI_PACKED, io_rank, istation, comm, ierr);
-          IF (ierr /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+          CALL p_send_packed(msg_buffer(:,1), io_rank, istation, position)
         END DO
       END DO
 
