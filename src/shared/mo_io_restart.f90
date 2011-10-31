@@ -597,7 +597,7 @@ CONTAINS
               CALL finish('open_writing_restart_files','Number of depth levels not available.')
             ENDIF
           CASE (ZAXIS_HEIGHT)
-            WRITE(0,*)'we are in zaxis_height', ZAXIS_HEIGHT,  lheight_initialised
+        !   WRITE(0,*)'we are in zaxis_height', ZAXIS_HEIGHT,  lheight_initialised
             IF (.NOT. lheight_initialised) CYCLE
             IF (SIZE(private_height_full) == vgrid_def(ivg)%nlevels) THEN
               var_lists(i)%p%cdiHeightFullZaxisID = zaxisCreate(ZAXIS_HEIGHT, &
@@ -758,9 +758,9 @@ CONTAINS
           zaxisID = info%cdiZaxisID
         ENDIF
 
-        WRITE(0,*)'before checking zaxis_height',info%used_dimensions(2),&
-          & SIZE(private_height_full)
-        WRITE(0,*)'size of zh= ',SIZE(private_height_half)
+    !   WRITE(0,*)'before checking zaxis_height',info%used_dimensions(2),&
+    !     & SIZE(private_height_full)
+    !   WRITE(0,*)'size of zh= ',SIZE(private_height_half)
       CASE (ZAXIS_HEIGHT)
         IF (info%used_dimensions(2) == SIZE(private_height_half)) THEN
           info%cdiZaxisID =  this_list%p%cdiHeightHalfZaxisID

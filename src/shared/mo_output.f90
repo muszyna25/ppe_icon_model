@@ -70,7 +70,7 @@ MODULE mo_output
   USE mo_interpolation,       ONLY: t_lon_lat_intp
   USE mo_run_config,          ONLY: ltimer
   USE mo_timer,               ONLY: timer_start, timer_stop,&
-    &                               timer_write_restart_file, timer_write_output
+    &                               timer_write_output !, timer_write_restart_file
   USE mo_mtgrm_output,        ONLY: mtgrm_flush_file
   USE mo_mtgrm_config,        ONLY: mtgrm_output_config
 
@@ -347,7 +347,7 @@ CONTAINS
     CHARACTER(len=MAX_CHAR_LENGTH) :: attname   ! attribute name
     INTEGER :: jp, jp_end   ! loop index and array size
 
-    IF (ltimer) CALL timer_start(timer_write_restart_file)
+    !IF (ltimer) CALL timer_start(timer_write_restart_file)
     !----------------
     ! Initialization
     klev      = patch%nlev
@@ -468,7 +468,7 @@ CONTAINS
     CALL close_writing_restart_files
     CALL finish_restart
 
-    IF (ltimer) CALL timer_stop(timer_write_restart_file)
+    !IF (ltimer) CALL timer_stop(timer_write_restart_file)
 
   END SUBROUTINE create_restart_file
 
