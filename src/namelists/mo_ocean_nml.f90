@@ -187,6 +187,12 @@ MODULE mo_ocean_nml
   REAL(wp) :: relaxation_param      = 0.0_wp   ! strength of tracer relaxation in months (same value for all tracers)
                                                ! this value is divided by number of seconds per month (=30*24*3600)
 
+                                               ! 3-dimensional relaxation of temperature and salinity
+  INTEGER  :: irelax_3d_T           = 0        ! 0: no 3-dim relax.,  3: use initial T read with init_oce_prog=1
+  REAL(wp) :: relax_3d_mon_T        = 0.0_wp   ! strength of 3-dim relaxation for temperature
+  INTEGER  :: irelax_3d_S           = 0        ! 0: no 3-dim relax.,  3: use initial S read with init_oce_prog=1
+  REAL(wp) :: relax_3d_mon_S        = 0.0_wp   ! strength of 3-dim relaxation for salinity
+
   INTEGER  :: coriolis_type         = 1        ! 0=zero Coriolis, the non-rotating case
                                                ! 1=full varying Coriolis
                                                ! 2=beta-plane (linear) approximation to Coriolis
@@ -236,6 +242,7 @@ MODULE mo_ocean_nml
   NAMELIST/ocean_forcing_and_init_nml/iforc_oce, iforc_omip, iforc_len,    &
     &                 iforc_stat_oce, init_oce_prog, itestcase_oce,        &
     &                 idiag_oce, temperature_relaxation, relaxation_param, &
+    &                 irelax_3d_T, relax_3d_mon_T, irelax_3d_S, relax_3d_mon_S, &
     &                 i_sfc_forcing_form
 
 

@@ -414,7 +414,6 @@ MODULE mo_oce_state
                                  ! dimension: (nproma, n_zlev, nblks_c,no_tracer )
     TYPE(t_ptr3d),ALLOCATABLE :: g_nimd_c_v_tracer_ptr(:)  !< pointer array: one pointer for each tracer
 
-
     REAL(wp), POINTER ::       &
       &  bc_top_vn(:,:)       ,& ! normal velocity boundary condition at surface
                                  ! dimension: (nproma,nblks_e)
@@ -439,6 +438,18 @@ MODULE mo_oce_state
      TYPE(t_cartesian_coordinates), POINTER :: bc_top_veloc_cc(:,:), &
                                   &                bc_bot_veloc_cc(:,:)
      TYPE(t_ptr3d),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
+
+    ! Variables for 3-dim tracer relaxation:
+    REAL(wp), POINTER ::         &
+      &  relax_3d_data_T(:,:,:), & ! 3-dim temperature relaxation data (T*)
+                                   ! dimension: (nproma,n_zlev,nblks_c)
+      &  relax_3d_forc_T(:,:,:), & ! 3-dim temperature relaxation forcing (1/tau*(T-T*))
+                                   ! dimension: (nproma,n_zlev,nblks_c)
+      &  relax_3d_data_S(:,:,:), & ! 3-dim salinity relaxation data (T*)
+                                   ! dimension: (nproma,n_zlev,nblks_c)
+      &  relax_3d_forc_S(:,:,:)    ! 3-dim salinity relaxation forcing (1/tau*(T-T*))
+                                   ! dimension: (nproma,n_zlev,nblks_c)
+
   END TYPE t_hydro_ocean_aux
 
 !
@@ -1469,6 +1480,32 @@ CONTAINS
         p_os_aux%bc_bot_veloc_cc(jc,jb)%x = 0.0_wp
       END DO
    END DO
+
+    ! allocation of 3-dim tracer relaxation:
+    IF (no_tracer >= 1) THEN
+      CALL add_var(ocean_var_list,'relax_3d_data_T',p_os_aux%relax_3d_data_T,&
+        &          GRID_UNSTRUCTURED_CELL,&
+        &          ZAXIS_DEPTH_BELOW_SEA, t_cf_var('relax_3d_data_T','',''),&
+        &          t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL),&
+        &          ldims=(/nproma,n_zlev,nblks_c/),loutput=.FALSE.)
+      CALL add_var(ocean_var_list,'relax_3d_forc_T',p_os_aux%relax_3d_forc_T,&
+        &          GRID_UNSTRUCTURED_CELL,&
+        &          ZAXIS_DEPTH_BELOW_SEA, t_cf_var('relax_3d_forc_T','',''),&
+        &          t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL),&
+        &          ldims=(/nproma,n_zlev,nblks_c/),loutput=.TRUE.)
+    END IF
+    IF (no_tracer == 2) THEN
+      CALL add_var(ocean_var_list,'relax_3d_data_S',p_os_aux%relax_3d_data_S,&
+        &          GRID_UNSTRUCTURED_CELL,&
+        &          ZAXIS_DEPTH_BELOW_SEA, t_cf_var('relax_3d_data_S','',''),&
+        &          t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL),&
+        &          ldims=(/nproma,n_zlev,nblks_c/),loutput=.FALSE.)
+      CALL add_var(ocean_var_list,'relax_3d_forc_S',p_os_aux%relax_3d_forc_S,&
+        &          GRID_UNSTRUCTURED_CELL,&
+        &          ZAXIS_DEPTH_BELOW_SEA, t_cf_var('relax_3d_forc_S','',''),&
+        &          t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL),&
+        &          ldims=(/nproma,n_zlev,nblks_c/),loutput=.TRUE.)
+    END IF
 
   END SUBROUTINE construct_hydro_ocean_aux
 
