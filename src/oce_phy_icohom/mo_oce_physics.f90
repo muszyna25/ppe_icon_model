@@ -158,7 +158,8 @@ CONTAINS
     p_phys_param%K_veloc_h_back = k_veloc_h
     p_phys_param%A_veloc_v_back = k_veloc_v
     p_phys_param%K_veloc_h = k_veloc_h
-    p_phys_param%A_veloc_v = k_veloc_v
+    p_phys_param%A_veloc_v(:,2:n_zlev,:) = k_veloc_v
+    p_phys_param%A_veloc_v(:,1,:)        = 0.0_wp
     SELECT CASE(HORZ_VELOC_DIFF_TYPE)
 
 
@@ -200,8 +201,9 @@ CONTAINS
         CALL finish ('mo_oce_physics:init_ho_params',  &
         &      'number of tracers exceeds number of background values')
       ENDIF
-      p_phys_param%K_tracer_h(:,:,:,i) = p_phys_param%K_tracer_h_back(i)
-      p_phys_param%A_tracer_v(:,:,:,i) = p_phys_param%A_tracer_v_back(i)
+      p_phys_param%K_tracer_h(:,:,:,i)        = p_phys_param%K_tracer_h_back(i)
+      p_phys_param%A_tracer_v(:,2:n_zlev,:,i) = p_phys_param%A_tracer_v_back(i)
+      p_phys_param%A_tracer_v(:,1,:,i)        = 0.0_wp 
     END DO
 
     p_phys_param%bottom_drag_coeff = bottom_drag_coeff
@@ -528,7 +530,7 @@ END INTERFACE
 !   ! Local variables
    INTEGER :: jc, jb, je,jk, i_no_trac
   !INTEGER :: ile1, ibe1,ile2, ibe2,ile3, ibe3
-   INTEGER :: ilc1,ibc1,ilc2,ibc2
+   INTEGER :: ilc1,ibc1,ilc2,ibc2,jj, ible,idxe
    INTEGER  :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start_c, rl_end_c
    INTEGER  :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, rl_start_e, rl_end_e
    REAL(wp) :: z_vert_density_grad_c(nproma,n_zlev,p_patch%nblks_c)!(1:n_zlev)
@@ -540,8 +542,8 @@ END INTERFACE
    REAL(wp) :: z_rho_up(nproma,n_zlev,p_patch%nblks_c)
    REAL(wp) :: z_rho_down(nproma,n_zlev,p_patch%nblks_c)
    REAL(wp) :: z_Ri_c(nproma,n_zlev,p_patch%nblks_c)
+   REAL(wp) :: z_Ri_e(nproma,n_zlev,p_patch%nblks_e)
    REAL(wp) :: dz_inv
-   REAL(wp) :: z_Ri_e!, z_Ri_c
    REAL(wp) :: z_rho_up_c1, z_rho_down_c1,z_rho_up_c2, z_rho_down_c2
    REAL(wp) :: z_lambda_frac 
    REAL(wp) :: z_A_veloc_v_old, z_A_tracer_v_old
@@ -602,17 +604,18 @@ END INTERFACE
     i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
     i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
 
-    z_A_W_T (:,:,:)         = 0.0_wp
-    z_A_W_v (:,:,:)         = 0.0_wp
-    z_10m_wind_e(:,:,:)     = 0.0_wp
-    z_10m_wind_c(:,:,:)     = 0.0_wp
-    z_vert_density_grad_c   = 0.0_wp
-    z_vert_density_grad_e   = 0.0_wp
-    z_stabio                = 0.0_wp
-    z_shear_c(:,:,:)        = 0.0_wp
-    z_s1                    = 0.0_wp
-    z_s2                    = 0.0_wp
-
+    z_A_W_T (:,:,:)              = 0.0_wp
+    z_A_W_v (:,:,:)              = 0.0_wp
+    z_10m_wind_e(:,:,:)          = 0.0_wp
+    z_10m_wind_c(:,:,:)          = 0.0_wp
+    z_vert_density_grad_c(:,:,:) = 0.0_wp
+    z_vert_density_grad_e(:,:,:) = 0.0_wp
+    z_Ri_c(:,:,:)                = 0.0_wp
+    z_Ri_e(:,:,:)                = 0.0_wp
+    z_stabio (:,:,:)             = 0.0_wp
+    z_shear_c(:,:,:)             = 0.0_wp
+    z_s1  = 0.0_wp
+    z_s2  = 0.0_wp
     z_grav_rho    = grav/rho_ref
     z_inv_rho_ref = 1.0_wp/rho_ref
 
@@ -662,7 +665,7 @@ END INTERFACE
       &                   rl_start_c, rl_end_c)
       DO jk = 2, n_zlev
  
-       dz_inv = 1.0_wp/v_base%del_zlev_i(jk)           !(v_base%zlev_m(jk)-v_base%zlev_m(jk-1)) 
+       dz_inv = 1.0_wp/v_base%del_zlev_i(jk)           
 
         DO jc = i_startidx_c, i_endidx_c
           z_dolic = v_base%dolic_c(jc,jb)
@@ -670,9 +673,11 @@ END INTERFACE
 
             !This calculates the localshear at cells
             ! - add small epsilon to avoid division by zero
-            z_shear_c(jc,jk,jb) = dbl_eps + dz_inv*dz_inv                              &
-            &* DOT_PRODUCT(p_os%p_diag%p_vn(jc,jk-1,jb)%x-p_os%p_diag%p_vn(jc,jk,jb)%x,&
-            &              p_os%p_diag%p_vn(jc,jk-1,jb)%x-p_os%p_diag%p_vn(jc,jk,jb)%x)
+            z_shear_c(jc,jk,jb) = dbl_eps +&!+ dz_inv*dz_inv*                              &
+!             & DOT_PRODUCT(p_os%p_diag%p_vn(jc,jk-1,jb)%x-p_os%p_diag%p_vn(jc,jk,jb)%x,&
+!             &              p_os%p_diag%p_vn(jc,jk-1,jb)%x-p_os%p_diag%p_vn(jc,jk,jb)%x)
+            & sum((p_os%p_diag%p_vn(jc,jk-1,jb)%x-p_os%p_diag%p_vn(jc,jk,jb)%x)**2)
+
 
 !------------------------------
 !Just a test
@@ -711,7 +716,7 @@ END INTERFACE
             ! #slo# 2011-09-02 correction
             ! rho_up: rho(k-1); rho_down: rho(k)
             !  i.e.: dz_inv*(rho_down-rho_up)
-            z_stabio(jc,jk,jb)  = dz_inv*(z_rho_down(jc,jk,jb)-z_rho_up(jc,jk,jb))
+            z_stabio(jc,jk,jb)  =(z_rho_down(jc,jk,jb)-z_rho_up(jc,jk,jb))! *dz_inv
             ! z_stabio  = dz_inv*0.5_wp*(z_rho_up(jc,jk,jb)-z_rho_down(jc,jk,jb))
             ! #slo# - think once more about 0.5, and this line in mo_convection of MPIOM:
             ! rhoo(:, j, k-1) = 0.5_wp * (rhoo(:, j, k-1) + rhuppo(:))
@@ -730,12 +735,20 @@ END INTERFACE
             ! Buoyancy frequency
 !             z_Ri_c(jc,jk,jb)=MAX(z_grav_rho*z_vert_density_grad_c(jc,jk,jb)/z_shear_c(jc,jk,jb)&
 !                                 &,0.0_wp)
-            z_Ri_c(jc,jk,jb)=z_grav_rho*z_vert_density_grad_c(jc,jk,jb)/z_shear_c(jc,jk,jb)
+            z_Ri_c(jc,jk,jb)=v_base%zlev_i(jk)*z_grav_rho*z_vert_density_grad_c(jc,jk,jb)&
+                            &/z_shear_c(jc,jk,jb)
 
           ENDIF
         END DO
       END DO
     END DO    
+Do jk=1,n_zlev
+write(*,*)'max-min Ri-Nr:densgrad:shear:',&
+&maxval( z_Ri_c(:,jk,:)),&!minval( z_Ri_c(:,jk,:)),&
+&maxval(z_vert_density_grad_c(:,jk,:)),&!minval(z_vert_density_grad_c(:,jk,:)),&
+&maxval( z_shear_c(:,jk,:))!,minval( z_shear_c(:,jk,:))
+END DO
+
    !Density gradient for 1st level not calulated yet, but required below. Following
    !parxis in MPI-OM we set first layer equal to second layer (cf MPI-OM mo_ocean_vertical_mixing)
    z_vert_density_grad_c(:,1,:) =  z_vert_density_grad_c(:,2,:)
@@ -766,10 +779,19 @@ END INTERFACE
               !! vert_density_grad  = 0 'semi-stable': use background value
               IF (z_vert_density_grad_c(jc,jk,jb) == 0.0_wp ) THEN
                 params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = params_oce%A_tracer_v_back(i_no_trac)
+                DO jj=1,3
+                  idxe = p_patch%cells%edge_idx(jc,jb,jj)
+                  ible = p_patch%cells%edge_blk(jc,jb,jj)
+                  params_oce%A_veloc_v(idxe,jk,ible) = params_oce%A_veloc_v_back
+                ENDDO 
               !! vert_density_grad  < 0 instable stratification: use convective mixing parameter
               ELSE IF (z_vert_density_grad_c(jc,jk,jb) < 0.0_wp ) THEN
                 params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = MAX_VERT_DIFF_TRAC
-
+                DO jj=1,3
+                  idxe = p_patch%cells%edge_idx(jc,jb,jj)
+                  ible = p_patch%cells%edge_blk(jc,jb,jj)
+                  params_oce%A_veloc_v(idxe,jk,ible) = MAX_VERT_DIFF_VELOC
+                ENDDO 
 !                 idx_c1=p_patch%cells%neighbor_idx(jc,jb,1)
 !                 ibk_c1=p_patch%cells%neighbor_blk(jc,jb,1)
 !                 idx_c2=p_patch%cells%neighbor_idx(jc,jb,2)
@@ -786,30 +808,35 @@ END INTERFACE
 
                 !This is (16) in Marsland et al. and identical to treatment of velocity
                 !but it allows to use different parameters
-                z_lambda_frac     = z_lambda/v_base%del_zlev_i(jk)
-                z_A_W_T(jc,jk,jb) = z_A_W_T (jc,jk-1,jb)*z_lambda_frac      &
-                  &*(exp(-v_base%del_zlev_i(jk)/z_0))&
-                  &/(z_lambda_frac+0.5_wp*(z_vert_density_grad_c(jc,jk,jb)&
-                                       &+z_vert_density_grad_c(jc,jk-1,jb)))
-                ! This is (19) in Marsland et al. valid for stable stratification, with
-                !   with: z_c1_T=CRD=5.0, z_av0=DVO=0.005, A_tracer_v=Db=1.0e-5, Dw=0.0
-                A_T_tmp = &
-                &z_one_minus_beta&
-                &*MIN(z_A_tracer_v_old, z_dv0+params_oce%A_tracer_v_back(i_no_trac))&
-                & +z_beta*(z_A_W_T(jc,jk,jb)+z_dv0/((1.0_wp+z_c1_T*z_Ri_c(jc,jk,jb))**3)&
-                &                  +params_oce%A_tracer_v_back(i_no_trac))
+!                 z_lambda_frac     = z_lambda/v_base%del_zlev_i(jk)
+!                 z_A_W_T(jc,jk,jb) = z_A_W_T (jc,jk-1,jb)*z_lambda_frac      &
+!                   &*(exp(-v_base%del_zlev_i(jk)/z_0))&
+!                   &/(z_lambda_frac+0.5_wp*(z_vert_density_grad_c(jc,jk,jb)&
+!                                        &+z_vert_density_grad_c(jc,jk-1,jb)))
+!                 ! This is (19) in Marsland et al. valid for stable stratification, with
+!                 !   with: z_c1_T=CRD=5.0, z_av0=DVO=0.005, A_tracer_v=Db=1.0e-5, Dw=0.0
+!                 A_T_tmp = &
+!                 &z_one_minus_beta&
+!                 &*MIN(z_A_tracer_v_old, z_dv0+params_oce%A_tracer_v_back(i_no_trac))&
+!                 & +z_beta*(z_A_W_T(jc,jk,jb)+z_dv0/((1.0_wp+z_c1_T*z_Ri_c(jc,jk,jb))**3)&
+!                 &                  +params_oce%A_tracer_v_back(i_no_trac))
+!                 params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = MIN(MAX_VERT_DIFF_TRAC, A_T_tmp)
 
-                params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = MIN(MAX_VERT_DIFF_TRAC, A_T_tmp)
-                ! #slo# In the following code z_frac is used as a switch
-                !     z_frac=(1.0E-11_wp-z_vert_density_grad_c(jk))&
-                !     &/(1.0E-11_wp+ABS(z_vert_density_grad_c(jk)))
-                !     params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = MAX(MAX_VERT_DIFF_TRAC*z_frac, A_T_tmp)
+                z_Ri_c(jc,jk,jb) = max(z_Ri_c(jc,jk,jb),0.0_wp)
 
-               ! #slo# 2011-10-07 new formulation:
-               !  - use vert_density_grad for decision of stability
-               !  - implement if-condition instead of z_frac to avoid convection condition
-               !    MAX_VERT_DIFF_TRAC in case of density difference is zero
-               !  - same formulation used below for velocity
+                A_T_tmp = params_oce%A_tracer_v_back(i_no_trac)&
+                &+ z_dv0/((1.0_wp+z_c1_T*z_Ri_c(jc,jk,jb))**3)
+                
+                params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = A_T_tmp
+
+              
+                DO jj=1,3
+                  idxe = p_patch%cells%edge_idx(jc,jb,jj)
+                  ible = p_patch%cells%edge_blk(jc,jb,jj)
+
+                  params_oce%A_veloc_v(idxe,jk,ible) = params_oce%A_veloc_v_back&
+                                    &+ z_av0/((1.0_wp+z_c1_v*z_Ri_c(jc,jk,jb))**2)
+               END DO
 
               END IF
             ENDDO
@@ -829,121 +856,93 @@ END INTERFACE
 !     END DO 
 
 
-    !Viscosity at edges
-
-    !This calculates vertical density gradient and local Richardson number at edges
-    !as average of neighbouring cell values
-    !This calulation is done separately to allow loop-start from 1st layer: the  loop
-    !for calculation of vertical diffusivity below required edge-density gradient at first layer.  
-    DO jb = i_startblk_e, i_endblk_e
-      CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, &
-      &                   rl_start_e, rl_end_e)
-      DO jk = 1, n_zlev
-        DO je = i_startidx_e, i_endidx_e
-          z_dolic = v_base%dolic_e(je,jb)
-
-          IF ( z_dolic >=MIN_DOLIC ) THEN
-
-            !indices of neighboring edges 
-            ilc1 = p_patch%edges%cell_idx(je,jb,1)
-            ibc1 = p_patch%edges%cell_blk(je,jb,1)
-            ilc2 = p_patch%edges%cell_idx(je,jb,2)
-            ibc2 = p_patch%edges%cell_blk(je,jb,2)
-
-
-            z_vert_density_grad_e(je,jk,jb) = 0.5_wp*&
-            &( z_vert_density_grad_c(ilc1,jk,ibc1)&
-             &+z_vert_density_grad_c(ilc2,jk,ibc2))
-          ENDIF
-        END DO
-      ENDDO
-    END DO
-    !calculate Richardson number and vertical diffusivity
-    DO jb = i_startblk_e, i_endblk_e
-      CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, &
-      &                   rl_start_e, rl_end_e)
-      DO jk = 2, n_zlev
-        DO je = i_startidx_e, i_endidx_e
-          z_dolic = v_base%dolic_e(je,jb)
-
-          IF ( z_dolic >=MIN_DOLIC ) THEN
-            !dz_inv  = 1.0_wp/v_base%del_zlev_i(jk)
-
-            !Store old viscosity
-            z_A_veloc_v_old = params_oce%A_veloc_v(je,jk,jb)
-
-            !! vert_density_grad  = 0 'semi-stable': use background value
-            IF (z_vert_density_grad_e(je,jk,jb) == 0.0_wp ) THEN
-              params_oce%A_veloc_v(je,jk,jb) = params_oce%A_veloc_v_back
-            !! vert_density_grad  < 0 instable stratification: use convective mixing parameter
-            ELSE IF (z_vert_density_grad_e(je,jk,jb) < 0.0_wp ) THEN
-              params_oce%A_veloc_v(je,jk,jb) = MAX_VERT_DIFF_VELOC
-
-!                 idx_e1=p_patch%edges%quad_idx(je,jb,1)
-!                 ibk_e1=p_patch%edges%quad_blk(je,jb,1)
-!                 idx_e2=p_patch%edges%quad_idx(je,jb,2)
-!                 ibk_e2=p_patch%edges%quad_blk(je,jb,2)
-!                 idx_e3=p_patch%edges%quad_idx(je,jb,3)
-!                 ibk_e3=p_patch%edges%quad_blk(je,jb,3)
-!                 idx_e4=p_patch%edges%quad_idx(je,jb,4)
-!                 ibk_e4=p_patch%edges%quad_blk(je,jb,4)
+!     !Viscosity at edges
+!     !This calculates vertical density gradient and local Richardson number at edges
+!     !as average of neighbouring cell values
+!     !This calulation is done separately to allow loop-start from 1st layer: the  loop
+!     !for calculation of vertical diffusivity below required edge-density gradient at first layer.  
+!     DO jb = i_startblk_e, i_endblk_e
+!       CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, &
+!       &                   rl_start_e, rl_end_e)
+!       DO jk = 1, n_zlev
+!         DO je = i_startidx_e, i_endidx_e
+!           z_dolic = v_base%dolic_e(je,jb)
 ! 
-!                 params_oce%A_veloc_v(idx_e1,jk,ibk_e1) = MAX_VERT_DIFF_VELOC
-!                 params_oce%A_veloc_v(idx_e2,jk,ibk_e3) = MAX_VERT_DIFF_VELOC
-!                 params_oce%A_veloc_v(idx_e3,jk,ibk_e3) = MAX_VERT_DIFF_VELOC
-!                 params_oce%A_veloc_v(idx_e4,jk,ibk_e4) = MAX_VERT_DIFF_VELOC
-            !! vert_density_grad  > 0 stable stratification: use calculated value
-            ELSE IF (z_vert_density_grad_e(je,jk,jb) > 0.0_wp ) THEN
-
-              !indices of neighboring edges 
-              ilc1 = p_patch%edges%cell_idx(je,jb,1)
-              ibc1 = p_patch%edges%cell_blk(je,jb,1)
-              ilc2 = p_patch%edges%cell_idx(je,jb,2)
-              ibc2 = p_patch%edges%cell_blk(je,jb,2)
-
-              !This calculates the local Richardson number at edges
-              !Shear at edges as average of shear at centers
-              !z_shear_e = 0.5_wp*(z_shear_c(ilc1,jk,ibc1)+z_shear_c(ilc2,jk,ibc2))
-              !density of two adjacent upper cell centers
-              !z_rho_up_c1 = z_rho_up(ilc1,jk,ibc1)
-              !z_rho_up_c2 = z_rho_up(ilc2,jk,ibc2)
-              !density of two adjacent lower cell centers
-              !z_rho_down_c1 = z_rho_down(ilc1,jk,ibc1)
-              !z_rho_down_c2 = z_rho_down(ilc2,jk,ibc2)
-              !z_stabio  = dz_inv*0.5_wp*(z_rho_down_c1 + z_rho_down_c2-z_rho_up_c1-z_rho_up_c2)
-              !   z_vert_density_grad_e(jk) = MAX(z_stabio, 0.0_wp)
-              !! vert_density_grad  > 0 stable stratification
-              !! vert_density_grad  = 0 instable stratification
-              !This calculates vertical density gradient and local Richardson number at edges
-              !as average of neighbouring cell values
-              !z_vert_density_grad_e(je,jk,jb) = 0.5_wp*&
-              !                              &( z_vert_density_grad_c(ilc1,jk,ibc1)&
-              !                               &+z_vert_density_grad_c(ilc2,jk,ibc2))             
-
-              z_Ri_e = 0.5_wp*(z_Ri_c(ilc1,jk,ibc1)+z_Ri_c(ilc2,jk,ibc2))
-
-              !This is (16) in Marsland et al.
-              z_lambda_frac = z_lambda/v_base%del_zlev_i(jk)
-
-              z_A_W_v (je,jk,jb) = z_A_W_v (je,jk-1,jb)*z_lambda_frac     &
-              &*(z_lambda_frac*exp(-v_base%del_zlev_i(jk)/z_0))&
-              &/(z_lambda_frac+0.5_wp*(z_vert_density_grad_e(je,jk,jb)&
-                                     &+z_vert_density_grad_e(je,jk-1,jb)))
-
-              A_v_tmp = z_one_minus_beta*MIN(z_A_veloc_v_old, z_av0+params_oce%A_veloc_v_back)&
-                      & +z_beta*(z_A_W_v (je,jk,jb)+z_av0/((1.0_wp+z_c1_v*z_Ri_e)**2)         &
-                      &         +params_oce%A_veloc_v_back)
-
-              params_oce%A_veloc_v(je,jk,jb) = MIN(MAX_VERT_DIFF_VELOC, A_v_tmp)
-            END IF
-!  write(*,*)'Ri number',jk,jc,jb,z_Ri_e, z_vert_density_grad_e(jk),&
-!  &z_frac,&
-!  & params_oce%A_veloc_v(je,jk,jb)
-          !ENDIF
-          ENDIF
-        END DO
-      END DO
-    END DO
+!           IF ( z_dolic >=MIN_DOLIC ) THEN
+!             !This calculates the local Richardson number at edges
+!             !and  shear at edges as average of shear at centers
+!             !indices of neighboring edges 
+!             ilc1 = p_patch%edges%cell_idx(je,jb,1)
+!             ibc1 = p_patch%edges%cell_blk(je,jb,1)
+!             ilc2 = p_patch%edges%cell_idx(je,jb,2)
+!             ibc2 = p_patch%edges%cell_blk(je,jb,2)
+! 
+!             z_vert_density_grad_e(je,jk,jb) = 0.5_wp*&
+!             &( z_vert_density_grad_c(ilc1,jk,ibc1)&
+!             & +z_vert_density_grad_c(ilc2,jk,ibc2))
+! 
+!             z_Ri_e(je,jk,jb) = 0.5_wp*(z_Ri_c(ilc1,jk,ibc1)+z_Ri_c(ilc2,jk,ibc2))
+!           ENDIF
+!         END DO
+!       ENDDO
+!     END DO
+!     !calculate vertical diffusivity
+!     DO jb = i_startblk_e, i_endblk_e
+!       CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, &
+!       &                   rl_start_e, rl_end_e)
+!       DO jk = 2, n_zlev
+!         DO je = i_startidx_e, i_endidx_e
+!           z_dolic = v_base%dolic_e(je,jb)
+! 
+!           IF ( z_dolic >=MIN_DOLIC ) THEN
+!             !dz_inv  = 1.0_wp/v_base%del_zlev_i(jk)
+! 
+!             !Store old viscosity
+!             z_A_veloc_v_old = params_oce%A_veloc_v(je,jk,jb)
+! 
+!             !! vert_density_grad  = 0 'semi-stable': use background value
+!             IF (z_vert_density_grad_e(je,jk,jb) == 0.0_wp ) THEN
+!               params_oce%A_veloc_v(je,jk,jb) = params_oce%A_veloc_v_back
+!             !! vert_density_grad  < 0 instable stratification: use convective mixing parameter
+!             ELSE IF (z_vert_density_grad_e(je,jk,jb) < 0.0_wp ) THEN
+!               params_oce%A_veloc_v(je,jk,jb) = MAX_VERT_DIFF_VELOC
+! !                 !Possible averaging of mixing coefficient
+! !                 idx_e1=p_patch%edges%quad_idx(je,jb,1)
+! !                 ibk_e1=p_patch%edges%quad_blk(je,jb,1)
+! !                 idx_e2=p_patch%edges%quad_idx(je,jb,2)
+! !                 ibk_e2=p_patch%edges%quad_blk(je,jb,2)
+! !                 idx_e3=p_patch%edges%quad_idx(je,jb,3)
+! !                 ibk_e3=p_patch%edges%quad_blk(je,jb,3)
+! !                 idx_e4=p_patch%edges%quad_idx(je,jb,4)
+! !                 ibk_e4=p_patch%edges%quad_blk(je,jb,4)
+! !                 params_oce%A_veloc_v(idx_e1,jk,ibk_e1) = MAX_VERT_DIFF_VELOC
+! !                 params_oce%A_veloc_v(idx_e2,jk,ibk_e3) = MAX_VERT_DIFF_VELOC
+! !                 params_oce%A_veloc_v(idx_e3,jk,ibk_e3) = MAX_VERT_DIFF_VELOC
+! !                 params_oce%A_veloc_v(idx_e4,jk,ibk_e4) = MAX_VERT_DIFF_VELOC
+!             !! vert_density_grad  > 0 stable stratification: use calculated value
+!             ELSE IF (z_vert_density_grad_e(je,jk,jb) > 0.0_wp ) THEN
+! 
+!               !This is (16) in Marsland et al.
+! !               z_lambda_frac = z_lambda/v_base%del_zlev_i(jk)
+! !               z_A_W_v (je,jk,jb) = z_A_W_v (je,jk-1,jb)*z_lambda_frac     &
+! !               &*(z_lambda_frac*exp(-v_base%del_zlev_i(jk)/z_0))&
+! !               &/(z_lambda_frac+0.5_wp*(z_vert_density_grad_e(je,jk,jb)&
+! !                                      &+z_vert_density_grad_e(je,jk-1,jb)))
+! !               A_v_tmp = z_one_minus_beta*MIN(z_A_veloc_v_old, z_av0+params_oce%A_veloc_v_back)&
+! !                       & +z_beta*(z_A_W_v (je,jk,jb)+z_av0/((1.0_wp+z_c1_v*z_Ri_e(je,jk,jb))**2)         &
+! !                       &         +params_oce%A_veloc_v_back)
+! 
+!               z_Ri_e(je,jk,jb) = max(z_Ri_e(je,jk,jb),0.0_wp)
+!               params_oce%A_veloc_v(je,jk,jb) = params_oce%A_veloc_v_back&
+!                                             &+ z_av0/((1.0_wp+z_c1_v*z_Ri_e(je,jk,jb))**2)
+! 
+!             END IF
+! 
+!           !ENDIF
+!           ENDIF
+!         END DO
+!       END DO
+!     END DO
 
     ! set to background value
     !params_oce%A_veloc_v(:,1,:) = params_oce%A_veloc_v_back!params_oce%A_veloc_v(:,2,:)
@@ -960,18 +959,21 @@ DO i_no_trac=1, no_tracer
   CALL print_mxmn('p_vn%x(1)',jk,p_os%p_diag%p_vn%x(1),n_zlev,p_patch%nblks_c,'phy',ipl_src)
   CALL print_mxmn('p_vn%x(2)',jk,p_os%p_diag%p_vn%x(2),n_zlev,p_patch%nblks_c,'phy',ipl_src)
   CALL print_mxmn('z_shear_c',jk,z_shear_c,n_zlev,p_patch%nblks_c,'phy',ipl_src)
-  !write(*,*)'max/min trac mixing',jk,maxval(params_oce%A_tracer_v(:,jk,:,i_no_trac)),&
-  !&minval(params_oce%A_tracer_v(:,jk,:,i_no_trac))
+  write(*,*)'max/min trac mixing',jk,maxval(params_oce%A_tracer_v(:,jk,:,i_no_trac)),&
+  &minval(params_oce%A_tracer_v(:,jk,:,i_no_trac))
+  !write(*,*)'max/min veloc mixing',jk,maxval(params_oce%A_veloc_v(:,jk,:)),&
+  !minval(params_oce%A_veloc_v(:,jk,:))
+
   !write(123,*)'max/min trac mixing',jk,maxval(params_oce%A_tracer_v(:,jk,:,i_no_trac)),&
   !&minval(params_oce%A_tracer_v(:,jk,:,i_no_trac))
  END DO
 END DO
  DO jk=1,n_zlev
   ipl_src=3  ! output print level (1-5, fix)
-  CALL print_mxmn('PHY veloc mixing',jk,params_oce%A_veloc_v(:,:,:),n_zlev, &
-    & p_patch%nblks_e,'phy',ipl_src)
-  !write(123,*)'max/min veloc mixing',jk,maxval(params_oce%A_veloc_v(:,jk,:)),&
-  !&minval(params_oce%A_veloc_v(:,jk,:))
+!   CALL print_mxmn('PHY veloc mixing',jk,params_oce%A_veloc_v(:,:,:),n_zlev, &
+!     & p_patch%nblks_e,'phy',ipl_src)
+  write(*,*)'max/min veloc mixing',jk,maxval(params_oce%A_veloc_v(:,jk,:)),&
+  &minval(params_oce%A_veloc_v(:,jk,:))
  END DO
 
  END SUBROUTINE update_ho_params

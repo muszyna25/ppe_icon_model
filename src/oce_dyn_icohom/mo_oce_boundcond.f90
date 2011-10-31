@@ -156,15 +156,15 @@ CONTAINS
         CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c,  &
           &                i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
         DO jc = i_startidx_c, i_endidx_c
-          IF(v_base%lsm_oce_c(jc,1,jb) <= sea_boundary)THEN
+          !IF(v_base%lsm_oce_c(jc,1,jb) <= sea_boundary)THEN
             top_bc_u_c(jc,jb)    = p_sfc_flx%forc_wind_u(jc,jb)/z_scale
             top_bc_v_c(jc,jb)    = p_sfc_flx%forc_wind_v(jc,jb)/z_scale
             top_bc_u_cc(jc,jb)%x = p_sfc_flx%forc_wind_cc(jc,jb)%x/z_scale
-          ELSE
-            top_bc_u_c(jc,jb)    =0.0_wp
-            top_bc_v_c(jc,jb)    =0.0_wp
-            top_bc_u_cc(jc,jb)%x =0.0_wp
-          ENDIF
+          !ELSE
+           ! top_bc_u_c(jc,jb)    =0.0_wp
+           ! top_bc_v_c(jc,jb)    =0.0_wp
+           ! top_bc_u_cc(jc,jb)%x =0.0_wp
+          !ENDIF
         END DO
       END DO
 
@@ -175,7 +175,7 @@ CONTAINS
         CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c,  &
           &                i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
         DO jc = i_startidx_c, i_endidx_c
-          IF(v_base%lsm_oce_c(jc,1,jb) <= sea_boundary)THEN
+          !IF(v_base%lsm_oce_c(jc,1,jb) <= sea_boundary)THEN
 
             top_bc_u_c(jc,jb)    = ( p_sfc_flx%forc_wind_u(jc,jb)   &
               &                      - p_os%p_diag%u(jc,1,jb) ) / z_scale
@@ -183,11 +183,11 @@ CONTAINS
               &                      - p_os%p_diag%u(jc,1,jb) ) / z_scale
             top_bc_u_cc(jc,jb)%x = ( p_sfc_flx%forc_wind_cc(jc,jb)%x &
               &                      - p_os%p_diag%p_vn(jc,1,jb)%x)/z_scale
-          ELSE
-            top_bc_u_c(jc,jb)    =0.0_wp
-            top_bc_v_c(jc,jb)    =0.0_wp
-            top_bc_u_cc(jc,jb)%x =0.0_wp
-          ENDIF
+          !ELSE
+           ! top_bc_u_c(jc,jb)    =0.0_wp
+           ! top_bc_v_c(jc,jb)    =0.0_wp
+           ! top_bc_u_cc(jc,jb)%x =0.0_wp
+          !ENDIF
         END DO
       END DO
     END SELECT

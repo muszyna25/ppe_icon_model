@@ -1363,19 +1363,19 @@ DO jk = 1, n_zlev
 ! &maxval(p_os%p_prog(nnew(1))%vn(:,jk,:)-p_os%p_prog(nold(1))%vn(:,jk,:))
 END DO
  ! IF(.NOT.l_RIGID_LID)THEN
- ! write(987,*)'MIN/MAX new height gradient:', minval(z_grad_h),&
- !                                & maxval(z_grad_h) 
- ! write(987,*)'MIN/MAX h-contrib to veloc:',minval(- ab_beta*gdt*z_grad_h),&
- !                                 maxval(- ab_beta*gdt*z_grad_h) 
+  write(*,*)'MIN/MAX new height gradient:', minval(z_grad_h),&
+                                 & maxval(z_grad_h) 
+ write(*,*)'MIN/MAX h-contrib to veloc:',minval(- ab_beta*gdt*z_grad_h),&
+                                  maxval(- ab_beta*gdt*z_grad_h) 
  ! ENDIF
  ! DO jk = 1, n_zlev
- !   write(987,*)'MIN/MAX vn old:',jk,minval(p_os%p_prog(nold(1))%vn(:,jk,:) ),&
+  !  write(987,*)'MIN/MAX vn old:',jk,minval(p_os%p_prog(nold(1))%vn(:,jk,:) ),&
  !                                  maxval(p_os%p_prog(nold(1))%vn(:,jk,:) ) 
  ! END DO
- ! DO jk = 1, n_zlev
- !   write(987,*)'MIN/MAX vn new:',jk,minval(p_os%p_prog(nnew(1))%vn(:,jk,:) ),&
- !                                  maxval(p_os%p_prog(nnew(1))%vn(:,jk,:) )
- ! END DO
+  DO jk = 1, n_zlev
+    write(*,*)'MIN/MAX vn new:',jk,minval(p_os%p_prog(nnew(1))%vn(:,jk,:) ),&
+                                   maxval(p_os%p_prog(nnew(1))%vn(:,jk,:) )
+  END DO
  ! 
  ! DO jk = 1, n_zlev
  !   write(987,*)'MIN/MAX vn change:',jk,&

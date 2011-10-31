@@ -1300,7 +1300,7 @@ END DO
           END DO
         END DO
       END DO
-
+p_os%p_prog(nold(1))%tracer(:,n_zlev,:,1)=-2.0_wp
 
     CASE DEFAULT
      CALL finish(TRIM(routine), 'CHOSEN INITIALIZATION NOT SUPPORTED - TERMINATE')

@@ -69,7 +69,7 @@ MODULE mo_oce_state
   USE mo_math_utilities,      ONLY: gc2cc, cc2gc, t_cartesian_coordinates,      &
     &                               t_geographical_coordinates, vector_product, &
     &                               arc_length
-  USE mo_math_constants,      ONLY: pi, deg2rad
+  USE mo_math_constants,      ONLY: pi, deg2rad,rad2deg
   USE mo_physical_constants,  ONLY: re, omega
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c, get_indices_v
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array,check_patch_array
@@ -1617,11 +1617,10 @@ END DO
 
     REAL(wp) :: z_sync_c(nproma,p_patch%nblks_c)
     REAL(wp) :: z_sync_e(nproma,p_patch%nblks_e)
+    REAL(wp) :: z_lat, z_lat_deg, z_north, z_south
     !REAL(wp) :: z_sync_v(nproma,p_patch%nblks_v)
-
-
+    LOGICAL :: LIMITED_AREA = .FALSE.
     !-----------------------------------------------------------------------------
-
     CALL message (TRIM(routine), 'start')
 
     z_sync_c(:,:) = 0.0_wp
@@ -1766,7 +1765,6 @@ END DO
         noglsea_c = noglsea_c + nosea_c(jk)
       END IF
 
-
       !-----------------------------
       ! edges
       !  - values for BOUNDARY set below, LAND, SEA only
@@ -1819,11 +1817,8 @@ END DO
               nolnd_e(jk)=nolnd_e(jk)+1
               v_base%lsm_oce_e(je,jk,jb) = LAND
             END IF
-
           END IF
-
         END DO
-
       END DO
 
       !  percentage of land area per level and global value
@@ -1836,6 +1831,46 @@ END DO
         nogllnd_e = nogllnd_e + nolnd_e(jk)
         noglsea_e = noglsea_e + nosea_e(jk)
       END IF
+
+
+!-------------------------------------------------
+IF(LIMITED_AREA)THEN
+    z_south=-80.0_wp
+      DO jb = 1, nblks_c
+        i_endidx=nproma
+        IF (jb==nblks_c) i_endidx=npromz_c
+
+        DO jc = 1, i_endidx
+
+           !get latitude of actual cell
+           z_lat = p_patch%cells%center(jc,jb)%lat
+           z_lat_deg = z_lat*rad2deg
+
+           !If latitude of cell is above 80 N or below 80 S set triangle to land
+           IF(z_lat_deg>z_north.OR.z_lat_deg<z_south)THEN
+             v_base%lsm_oce_c(jc,:,jb)= LAND
+             p_ext_data%oce%bathymetry_c(jc,jb)= 100.0_wp 
+             v_base%dolic_c(jc,jb)=0
+             v_base%wet_c(jc,:,jb) = 0.0_wp
+             !Set also all 3 edges to land
+             DO ji = 1, 3
+               ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
+               idxe = p_patch%cells%edge_idx(jc,jb,ji)
+               ible = p_patch%cells%edge_blk(jc,jb,ji)
+               v_base%lsm_oce_e(idxe,:,ible) = LAND
+               p_ext_data%oce%bathymetry_e(idxe,ible)= 100.0_wp 
+               v_base%dolic_e(idxe,ible)=0
+               v_base%wet_e(idxe,:,ible)=0.0_wp
+              END DO
+           ENDIF
+        END DO
+      END DO
+ENDIF
+!-------------------------------------------------
+
+
+
+
 
       !-----------------------------
       ! set values for BOUNDARY at edges (get values of neighbouring cells)

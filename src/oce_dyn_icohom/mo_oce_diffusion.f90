@@ -757,7 +757,7 @@ INTEGER :: jc, jk, jb
 INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
 REAL(wp) :: a(1:n_zlev), b(1:n_zlev), c(1:n_zlev)
 REAL(wp) :: z_rhs(1:n_zlev)
-REAL(wp) :: dt_inv, zinv, z_tmp
+REAL(wp) :: dt_inv!, zinv, z_tmp
 REAL(wp) :: inv_zinv_i(1:n_zlev)
 REAL(wp) :: inv_zinv_m(1:n_zlev)
 REAL(wp) :: gam(1:n_zlev), bet(1:n_zlev)
@@ -777,8 +777,7 @@ ipl_src=5  ! output print level (1-5, fix)
 z_c1(:,1,:)=top_bc(:,:)
 CALL print_mxmn('IMPL TRC: top bc',1,z_c1(:,:,:),1,p_patch%nblks_c,'dif',ipl_src)
 
-
-diff_column(:,:,:)= field_column(:,:,:)
+!diff_column(:,:,:)= field_column(:,:,:)
 a(slev:n_zlev)    = 0.0_wp 
 b(slev:n_zlev)    = 0.0_wp 
 c(slev:n_zlev)    = 0.0_wp
@@ -792,7 +791,7 @@ DO jb = i_startblk, i_endblk
   CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, 1,min_rlcell)
   DO jc = i_startidx, i_endidx
-    z_dolic             = v_base%dolic_c(jc,jb)
+    z_dolic = v_base%dolic_c(jc,jb)
 
     IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN 
       IF ( z_dolic >=MIN_DOLIC ) THEN
@@ -803,31 +802,28 @@ DO jb = i_startblk, i_endblk
         !Fill triangular matrix
         !b is diagonal a and c are upper and lower band
         DO jk = slev+1, z_dolic-1
-          a(jk) = -A_v(jc,jk,jb)  *inv_zinv_m(jk) *inv_zinv_i(jk)
-          c(jk) = -A_v(jc,jk+1,jb)*inv_zinv_m(jk) *inv_zinv_i(jk+1)
-          b(jk) = dt_inv-a(jk)-c(jk)
+          a(jk) = -A_v(jc,jk,jb)  *inv_zinv_m(jk) *inv_zinv_i(jk)*dtime
+          c(jk) = -A_v(jc,jk+1,jb)*inv_zinv_m(jk) *inv_zinv_i(jk+1) *dtime
+          b(jk) = 1.0_wp-a(jk)-c(jk)
         END DO
 
         ! The first row
-         c(slev) = -A_v(jc,slev+1,jb)*inv_zinv_m(slev)*inv_zinv_i(slev+1)
-         a(slev) = 0.0_wp           
-         b(slev) = dt_inv- c(slev) !- a(slev) 
+         c(slev) = -A_v(jc,slev+1,jb)*inv_zinv_m(slev)*inv_zinv_i(slev+1) *dtime
+         a(slev) = 0.0_wp
+         b(slev) = 1.0_wp- c(slev) !- a(slev) 
 
         ! The last row
-        a(z_dolic) = -A_v(jc,z_dolic,jb)*inv_zinv_m(z_dolic)*inv_zinv_i(z_dolic)
+        a(z_dolic) = -A_v(jc,z_dolic,jb)*inv_zinv_m(z_dolic)*inv_zinv_i(z_dolic) *dtime
         c(z_dolic) = 0.0_wp
-        b(z_dolic) = dt_inv - a(z_dolic)! - c(z_dolic)
+        b(z_dolic) = 1.0_wp - a(z_dolic)! - c(z_dolic)
 
         ! The matrix is now complete, fill the rhs 
         ! The first row contains surface forcing, the last bottom boundary condition
         !These codelines are different to the homogeneous version of this sbr (see below) 
-        z_rhs(slev+1:z_dolic-1) = dt_inv*field_column(jc,slev+1:z_dolic-1,jb)
- 
-        zinv             = 1.0_wp/v_base%del_zlev_m(slev) !                        +h_c(jc,jb)                         
-        z_rhs(slev)      = dt_inv*field_column(jc,slev,jb) + top_bc(jc,jb)*zinv
+        z_rhs(slev+1:z_dolic) = field_column(jc,slev+1:z_dolic,jb)
 
-        zinv             = 1.0_wp*v_base%del_zlev_m(z_dolic)
-        z_rhs(z_dolic)   = dt_inv*field_column(jc,z_dolic,jb) !- bot_bc(jc,jb)*zinv 
+        z_rhs(slev)      = field_column(jc,slev,jb)    + top_bc(jc,jb)*inv_zinv_m(slev)  !+h_c(jc,jb)
+        z_rhs(z_dolic)   = field_column(jc,z_dolic,jb) - bot_bc(jc,jb)*inv_zinv_m(z_dolic) 
 
 !         !Scale with diagonal
 !         DO jk=slev, n_zlev
@@ -854,7 +850,7 @@ DO jb = i_startblk, i_endblk
 
         z_rhs(slev)            =z_rhs(slev)*bet(slev)
         diff_column(jc,slev,jb)=field_column(jc,slev,jb) &
-                              &+dtime*top_bc(jc,jb)/v_base%del_zlev_m(slev) 
+                              &+dtime*top_bc(jc,jb)*inv_zinv_m(slev) 
         DO jk=slev+1, z_dolic
           !gam(jk) = a(jk-1)*bet
           !bet     = 1.0_wp/(b(jk) - c(jk)*gam(jk))
@@ -866,7 +862,7 @@ DO jb = i_startblk, i_endblk
 
         ! Backward sweep
         DO jk=z_dolic-1,slev,-1
-          z_tmp=diff_column(jc,jk,jb)
+          !z_tmp=diff_column(jc,jk,jb)
           diff_column(jc,jk,jb) = diff_column(jc,jk,jb)  &
           &            -gam(jk+1)*diff_column(jc,jk+1,jb)
 
@@ -1131,8 +1127,8 @@ INTEGER :: jc, jk, jb
 INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
 REAL(wp) :: a(1:n_zlev), b(1:n_zlev), c(1:n_zlev)
 REAL(wp) :: gam(1:n_zlev), bet(1:n_zlev)
-REAL(wp) :: z_rhs(1:n_zlev)!, z_rhs2(1:n_zlev)
-REAL(wp) :: dt_inv, zinv
+!REAL(wp) :: z_rhs(1:n_zlev)
+REAL(wp) :: dt_inv!, zinv
 INTEGER  :: z_dolic
 REAL(wp) :: inv_zinv_i(1:n_zlev)
 REAL(wp) :: inv_zinv_m(1:n_zlev)
@@ -1152,97 +1148,54 @@ CALL print_mxmn('IMPL VEL: top bc',1,z_e1(:,:,:),1,p_patch%nblks_e,'dif',ipl_src
 !write(*,*)'impl vert v-diff: max/min top bc vel:',maxval(top_bc_vn), minval(top_bc_vn)
 !write(*,*)'impl vert v-diff: max/min bot bc vel:',maxval(bot_bc_vn), minval(bot_bc_vn)
 
-dt_inv = 1.0_wp/dtime
-
-gam(1:n_zlev)     = 0.0_wp
-a(slev:n_zlev)    = 0.0_wp 
-b(slev:n_zlev)    = 0.0_wp 
-c(slev:n_zlev)    = 0.0_wp
-bet(slev:n_zlev)  = 1.0_wp
+gam(1:n_zlev)            = 0.0_wp
+a(slev:n_zlev)           = 0.0_wp 
+b(slev:n_zlev)           = 0.0_wp 
+c(slev:n_zlev)           = 0.0_wp
+bet(slev:n_zlev)         = 1.0_wp
 inv_zinv_i(slev:n_zlev)  = 0.0_wp
 inv_zinv_m(slev:n_zlev)  = 0.0_wp
-z_rhs(slev:n_zlev)= 0.0_wp
+diff_column(:,:,:)       = 0.0_wp
 
 DO jb = i_startblk, i_endblk
   CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, 1,min_rlcell)
+                       i_startidx, i_endidx, 1,min_rledge)
   DO jc = i_startidx, i_endidx
 
-    z_dolic             = v_base%dolic_e(jc,jb)
+    z_dolic = v_base%dolic_e(jc,jb)
     IF ( v_base%lsm_oce_e(jc,1,jb) < sea_boundary ) THEN
       IF ( z_dolic >=MIN_DOLIC ) THEN
 
         inv_zinv_i(:)=1.0_wp/v_base%del_zlev_i(:)
         inv_zinv_m(:)=1.0_wp/v_base%del_zlev_m(:)
 
-
         !Fill triangular matrix
         !b is diagonal a and c are upper and lower band
         DO jk = slev+1, z_dolic-1
-          a(jk) = -A_v(jc,jk,jb)  *inv_zinv_m(jk) *inv_zinv_i(jk)
-          c(jk) = -A_v(jc,jk+1,jb)*inv_zinv_m(jk) *inv_zinv_i(jk+1)
-          b(jk) = dt_inv-a(jk)-c(jk)
+          a(jk) = -A_v(jc,jk,jb)  *inv_zinv_m(jk) *inv_zinv_i(jk)*dtime
+          c(jk) = -A_v(jc,jk+1,jb)*inv_zinv_m(jk) *inv_zinv_i(jk+1) *dtime
+          b(jk) = 1.0_wp-a(jk)-c(jk)
         END DO
 
         ! The first row
-         c(slev) = -A_v(jc,slev+1,jb)*inv_zinv_m(slev)*inv_zinv_i(slev+1)
+         c(slev) = -A_v(jc,slev+1,jb)*inv_zinv_m(slev)*inv_zinv_i(slev+1)*dtime
          a(slev) = 0.0_wp           
-         b(slev) = dt_inv- c(slev) !- a(slev) 
+         b(slev) = 1.0_wp- c(slev) !- a(slev) 
 
         ! The last row
-        a(z_dolic) = -A_v(jc,z_dolic,jb)*inv_zinv_m(z_dolic)*inv_zinv_i(z_dolic)
+        a(z_dolic) = -A_v(jc,z_dolic,jb)*inv_zinv_m(z_dolic)*inv_zinv_i(z_dolic) *dtime
         c(z_dolic) = 0.0_wp
-        b(z_dolic) = dt_inv - a(z_dolic)! - c(z_dolic)
+        b(z_dolic) = 1.0_wp - a(z_dolic)! - c(z_dolic)
 
         ! The matrix is now complete, fill the rhs 
         ! The first row contains surface forcing, the last bottom boundary condition
         !These codelines are different to the homogeneous version of this sbr (see below) 
-        z_rhs(slev+1:z_dolic-1) = dt_inv*field_column(jc,slev+1:z_dolic-1,jb)
-
-        zinv             = 1.0_wp/v_base%del_zlev_m(slev)
-        z_rhs(slev)      = dt_inv*field_column(jc,slev,jb)    + top_bc_vn(jc,jb)*zinv
-
-        zinv             = 1.0_wp/v_base%del_zlev_m(z_dolic)
-        z_rhs(z_dolic)   = dt_inv*field_column(jc,z_dolic,jb) - bot_bc_vn(jc,jb)*zinv
-
-!         !Scale with diagonal
-!         DO jk=slev, n_zlev
-!           IF(b(jk)/=0.0_wp)THEN
-!             a(jk)    = a(jk)/b(jk)
-!             c(jk)    = c(jk)/b(jk)
-!             z_rhs(jk)= z_rhs(jk)/b(jk)
-!             b(jk)    = 1.0_wp
-!           ELSE
-!             a(jk)    =0.0_wp
-!             c(jk)    =0.0_wp
-!             z_rhs(jk)=0.0_wp
-!             b(jk)    =0.0_wp
-!           ENDIF
-!         END DO
+        field_column(jc,slev,jb)   = field_column(jc,slev,jb)    &
+                                   &+ top_bc_vn(jc,jb)*inv_zinv_m(slev)*dtime
+        field_column(jc,z_dolic,jb)= field_column(jc,z_dolic,jb) &
+                                   &- bot_bc_vn(jc,jb)*inv_zinv_m(z_dolic)*dtime
 !----------------------------------------------------------- 
-!         ! Prepare coefficients and rhs (scale with diagonal element)
-!         DO jk=slev, z_dolic-1
-!           a(jk)         = a(jk)/b(jk)
-!           c(jk)         = c(jk)/b(jk)
-!           z_rhs(jk)= z_rhs(jk)/b(jk)
-!           b(jk)         = 1.0_wp
-!         END DO
-!         DO jk=slev+1, z_dolic-1
-!           b(jk)          = b(jk)-a(jk)*c(jk-1)
-!           z_rhs(jk) = z_rhs(jk)-a(jk)*z_rhs(jk-1)
-!           c(jk)          = c(jk)/b(jk)
-!           z_rhs(jk) = z_rhs(jk)/b(jk)
-!           b(jk)          = 1.0_wp
-!         END DO
-!         t1=b(z_dolic)-a(z_dolic)*c(z_dolic-1)
-!         t1=(z_rhs(z_dolic)-a(z_dolic)*z_rhs(z_dolic-1))/t1
-!         z_rhs(z_dolic)=t1
-!         ! Backward sweep
-!         DO jk=z_dolic-1,1,-1
-!           z_rhs(jk) = z_rhs(jk)-c(jk)*z_rhs(jk+1)
-!         END DO
-!-----------------------------------------------------------
-     bet(slev) = 1.0_wp/b(slev)
+        bet(slev) = 1.0_wp/b(slev)
         DO jk=slev+1, z_dolic
           gam(jk) = a(jk-1)*bet(jk-1)
           IF((b(jk) - c(jk)*gam(jk))/=0.0_wp)THEN 
@@ -1250,21 +1203,15 @@ DO jb = i_startblk, i_endblk
           ENDIF
         END DO
 
-        z_rhs(slev)            =z_rhs(slev)*bet(slev)
-        diff_column(jc,slev,jb)=field_column(jc,slev,jb)&
-        & + dtime*top_bc_vn(jc,jb)/v_base%del_zlev_m(slev)
+        diff_column(jc,slev,jb)=field_column(jc,slev,jb)*bet(slev)
+        
         DO jk=slev+1, z_dolic
-          !gam(jk) = a(jk-1)*bet
-          !bet     = 1.0_wp/(b(jk) - c(jk)*gam(jk))
-          !diff_column(jc,jk,jb) = (z_rhs(jk)-c(jk)*diff_column(jc,jk-1,jb))*bet(jk)
-          !diff_column(jc,jk,jb) = (z_rhs(jk)-c(jk)*z_rhs(jk-1))*bet(jk)
-          !z_rhs(jk) = (z_rhs(jk)-c(jk)*z_rhs(jk-1))*bet(jk)
-          diff_column(jc,jk,jb)=(z_rhs(jk)-c(jk)*diff_column(jc,jk-1,jb))*bet(jk)
+          diff_column(jc,jk,jb)=bet(jk)*&
+          &(field_column(jc,jk,jb)-c(jk)*diff_column(jc,jk-1,jb))
         END DO
 
         ! Backward sweep
         DO jk=z_dolic-1,slev,-1
-
           diff_column(jc,jk,jb) = diff_column(jc,jk,jb)  &
           &            -gam(jk+1)*diff_column(jc,jk+1,jb)
 ! IF(jk==1.AND.field_column(jc,1,jb)/=0.0_wp)THEN
