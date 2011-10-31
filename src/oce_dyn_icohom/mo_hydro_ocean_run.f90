@@ -145,7 +145,7 @@ CONTAINS
   SUBROUTINE perform_ho_stepping( ppatch, pstate_oce, p_ext_data,               &
                                 & datetime, n_io, jfile, lwrite_restart, p_int, &
                                 & p_sfc_flx, p_phys_param,                      &
-                                & p_as, p_atm_f, p_ice,               &
+                                & p_as, p_atm_f, p_ice,                         &
                                 & l_have_output)
 
   TYPE(t_patch),             TARGET, INTENT(IN)    :: ppatch(n_dom)
@@ -201,7 +201,7 @@ CONTAINS
   !------------------------------------------------------------------
   TIME_LOOP: DO jstep = 1, nsteps
 
-    call datetime_to_string(datestring, datetime)
+    CALL datetime_to_string(datestring, datetime)
     WRITE(message_text,'(a,i6,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
     CALL message (TRIM(routine), message_text)
 
@@ -249,14 +249,14 @@ CONTAINS
         SELECT CASE (EOS_TYPE)
         CASE(1)
           CALL update_ho_params(ppatch(jg), pstate_oce(jg), p_sfc_flx, p_phys_param,&
-                                & calc_density_lin_EOS_func)
+            &                   calc_density_lin_EOS_func)
 
         CASE(2)
           CALL update_ho_params(ppatch(jg), pstate_oce(jg), p_sfc_flx, p_phys_param,&
-                                 & calc_density_MPIOM_func)
+            &                   calc_density_MPIOM_func)
         CASE(3)
           CALL update_ho_params(ppatch(jg), pstate_oce(jg), p_sfc_flx, p_phys_param,&
-                                 & calc_density_JMDWFG06_EOS_func)
+            &                   calc_density_JMDWFG06_EOS_func)
         CASE DEFAULT
         END SELECT
       ENDIF
@@ -281,15 +281,16 @@ CONTAINS
         IF (ltimer) CALL timer_stop(timer_vert_veloc)
       ENDIF
 
-      ! Step 6 transport tracers and diffuse them
-      IF(no_tracer>=1)THEN
+      ! Step 6: transport tracers and diffuse them
+      IF (no_tracer>=1) THEN
         IF (ltimer) CALL timer_start(timer_tracer_ab)
         CALL advect_tracer_ab(ppatch(jg), pstate_oce(jg), p_phys_param,p_sfc_flx, jstep)
         IF (ltimer) CALL timer_stop(timer_tracer_ab)
       ENDIF
-    ENDIF
 
-   !Actually diagnostics for 3D not implemented, PK March 2011 
+    ENDIF  ! testcase 28
+
+   ! Actually diagnostics for 3D not implemented, PK March 2011 
     IF (idiag_oce == 1 ) THEN
       CALL calculate_oce_diagnostics( ppatch(jg),    &
                                     & pstate_oce(jg),&

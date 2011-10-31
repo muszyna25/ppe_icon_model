@@ -47,10 +47,11 @@ USE mo_math_utilities,            ONLY: t_cartesian_coordinates, gc2cc
 USE mo_math_constants,            ONLY: dbl_eps
 USE mo_impl_constants,            ONLY: sea_boundary, &
   &                                     min_rlcell, min_rledge, min_rlcell,MIN_DOLIC !, &
-!  &                                     max_char_length
+! &                                     max_char_length
 USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer, idisc_scheme,    &
-                                    &   ab_const, ab_gam, expl_vertical_tracer_diff,&
-                                    &   iswm_oce, i_sfc_forcing_form
+  &                                     irelax_3d_T, relax_3d_mon_T, irelax_3d_S, relax_3d_mon_S, &
+  &                                     ab_const, ab_gam, expl_vertical_tracer_diff,&
+  &                                     iswm_oce, i_sfc_forcing_form
 USE mo_physical_constants,        ONLY: tf
 USE mo_parallel_config,           ONLY: nproma
 USE mo_dynamics_config,           ONLY: nold, nnew 
@@ -119,7 +120,9 @@ TYPE(t_sfc_flx), INTENT(INOUT)    :: p_sfc_flx
 INTEGER                           :: timestep! Actual timestep (to distinghuish initial step from others)
 !
 !Local variables
-INTEGER :: i_no_t
+INTEGER  :: i_no_t, jk
+REAL(wp) :: z_relax
+REAL(wp) :: z_c(nproma,n_zlev,p_patch%nblks_c)
 !REAL(wp) :: max_val, min_val
 !INTEGER  :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
 !CHARACTER(len=max_char_length), PARAMETER :: &
@@ -160,6 +163,35 @@ DO i_no_t = 1,no_tracer
                                & p_os%p_prog(nnew(1))%tracer(:,:,:,i_no_t), &
                                & timestep )
 END DO
+
+! Final step: 3-dim temperature relaxation
+!  - strict time constant, i.e. independent of layer thickness 
+!  - additional forcing Term F_T = 1/tau(T-T*)
+IF (no_tracer>=1 .AND. irelax_3d_T >0) THEN
+
+  z_relax = 1.0_wp/(relax_3d_mon_T*2.592e6_wp)
+  p_os%p_aux%relax_3d_forc_T(:,:,:) = z_relax* &
+    &  ( p_os%p_prog(nnew(1))%tracer(:,:,:,1) - p_os%p_aux%relax_3d_data_T(:,:,:))
+
+  ! Add Forcing term to new temperature
+  p_os%p_prog(nnew(1))%tracer(:,:,:,1) = p_os%p_prog(nnew(1))%tracer(:,:,:,1) + &
+    &                                    p_os%p_aux%relax_3d_forc_T(:,:,:) * timestep
+
+  DO jk = 1, n_zlev 
+    ipl_src=1  ! output print level (1-5, fix)
+    z_c(:,:,:) =  p_os%p_prog(nnew(1))%tracer(:,:,:,1)
+    CALL print_mxmn('3dim-relax T - tracer',jk,z_c(:,:,:),n_zlev, &
+      &              p_patch%nblks_c,'trc',ipl_src)
+    ipl_src=3  ! output print level (1-5, fix)
+    CALL print_mxmn('3dim-relax T - forcing',jk, p_os%p_aux%relax_3d_data_T(:,:,:),n_zlev, &
+      &              p_patch%nblks_c,'trc',ipl_src)
+  END DO
+
+END IF
+
+! Final step: 3-dim salinity relaxation
+IF (no_tracer==2 .AND. irelax_3d_S >0) THEN
+END IF
 
 END SUBROUTINE advect_tracer_ab
 !-------------------------------------------------------------------------  
