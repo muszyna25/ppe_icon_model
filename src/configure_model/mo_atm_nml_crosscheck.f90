@@ -399,7 +399,8 @@ CONTAINS
 
           SELECT CASE (irad_o3)
           CASE (4,6,7)
-            CALL finish(TRIM(routine),'running without radiation => irad_o3 must be 0')
+            irad_o3 = 0
+            CALL message(TRIM(routine),'running without radiation => irad_o3 reset to 0')
           END SELECT
           
         ENDIF !inwp_radiation
@@ -549,8 +550,7 @@ CONTAINS
                 WRITE(advection_config(jg)%ctracer_list(jt:jt),'(i1.1)')jt
               ENDDO
               WRITE(message_text,'(a,a)') &
-                & 'Attention: according to physics with radiation and O3 ', &
-                &  'ctracer_list is set to ', &
+              & 'Attention: according to physics, ctracer_list is set to ',&
                 &  advection_config(jg)%ctracer_list(1:ntracer)
               CALL message(TRIM(routine),message_text)
             ENDIF
