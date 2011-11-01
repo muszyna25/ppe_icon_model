@@ -874,7 +874,7 @@ DO jb = i_startblk, i_endblk
 
   END DO
 END DO
- write(234,*)'-------'
+! write(234,*)'-------'
 DO jk=slev, n_zlev
   ipl_src=5  ! output print level (1-5, fix)
   CALL print_mxmn('IMPL TRC: bef.vtrc.dif',jk,field_column(:,:,:),n_zlev, &
