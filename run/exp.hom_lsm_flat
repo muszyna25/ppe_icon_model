@@ -275,10 +275,18 @@ cat > ${ocean_namelist} << EOF
                                  ! 40=global temperature initialization for wind and temperature forcing tests
                                  ! 43=Collapsing density front at first level only with smaller amplitude (global)
   idiag_oce          =    0      ! 0: no diagnostics; 1: write diagnostics to stderr
-  temperature_relaxation= 1      ! 1=tracer_forc=tracer_init for some testcases only
-                                 ! 2=read 2m-temperature data for relaxation from bulk (3: copy SST on omip-T)
-  relaxation_param   =    1.0    ! relaxation of tracer surface fluxes (same value for all tracers in months)
+  temperature_relaxation= 1      !  1: switched on for some testcases only
+                                 !  2: read 2m-temperature data for relaxation from bulk 
+                                 !  3: use initial prognostic T and S as 2-dim relax (copy SST on omip-T)
+                                 ! -1: use net surface heat flux from atmosphere as boundary condition
+  relaxation_param   =    1.0    ! 2-dim relaxation of tracers, same value for temp. and salinity, months
                                  ! this value is divided by number of seconds per month (=30*24*3600)
+  irelax_3d_T        =    0      ! 3-dim relaxation of temperature (0: no relax) 1-2: not yet used
+                                 ! 3: use initial T read with init_oce=1
+  relax_3d_mon_T     =    1.0    ! strength of 3-dim relaxation for temperature (months)
+  irelax_3d_S        =    0      ! 3-dim relaxation of salinity (0: no relax) 1-2: not yet used
+                                 ! 3: use initial S read with init_oce=1
+  relax_3d_mon_S     =    1.0    ! strength of 3-dim relaxation for salinity (months)
 /
 &io_nml
  out_expname   = '${EXPNAME}'

@@ -166,14 +166,20 @@ END DO
 
 ! Final step: 3-dim temperature relaxation
 !  - strict time constant, i.e. independent of layer thickness 
-!  - additional forcing Term F_T = 1/tau(T-T*)
+!  - additional forcing Term F_T = -1/tau(T-T*) [ K/s ]
+!    when using the sign convention
+!      dT/dt = Operators + F_T
+!    i.e. F_T <0 for  T-T* >0 (i.e. decreasing temperature if it is warmer than relaxation data) 
+!  - discretized: 
+!    tracer = tracer - 1/(relax_3d_mon_T[months]) * (tracer(1)-relax_3d_data_T)
 IF (no_tracer>=1 .AND. irelax_3d_T >0) THEN
 
+  ! calculate relaxation term
   z_relax = 1.0_wp/(relax_3d_mon_T*2.592e6_wp)
-  p_os%p_aux%relax_3d_forc_T(:,:,:) = z_relax* &
+  p_os%p_aux%relax_3d_forc_T(:,:,:) = -z_relax* &
     &  ( p_os%p_prog(nnew(1))%tracer(:,:,:,1) - p_os%p_aux%relax_3d_data_T(:,:,:))
 
-  ! Add Forcing term to new temperature
+  ! add relaxation term to new temperature
   p_os%p_prog(nnew(1))%tracer(:,:,:,1) = p_os%p_prog(nnew(1))%tracer(:,:,:,1) + &
     &                                    p_os%p_aux%relax_3d_forc_T(:,:,:) * dtime
 
@@ -190,7 +196,33 @@ IF (no_tracer>=1 .AND. irelax_3d_T >0) THEN
 END IF
 
 ! Final step: 3-dim salinity relaxation
+!  - additional forcing Term F_S = -1/tau(S-S*) [ psu/s ]
+!    when using the sign convention
+!      dS/dt = Operators + F_S
+!    i.e. F_S <0 for  S-S* >0 (i.e. decreasing salinity if it is larger than relaxation data) 
+!    note that freshwater flux is positive to decrease salinity, i.e. freshening water
+!  - discretized: 
+!    tracer = tracer - 1/(relax_3d_mon_T[months]) * (tracer(1)-relax_3d_data_T)
 IF (no_tracer==2 .AND. irelax_3d_S >0) THEN
+
+  ! calculate relaxation term
+  z_relax = 1.0_wp/(relax_3d_mon_S*2.592e6_wp)
+  p_os%p_aux%relax_3d_forc_S(:,:,:) = -z_relax* &
+    &  ( p_os%p_prog(nnew(1))%tracer(:,:,:,2) - p_os%p_aux%relax_3d_data_S(:,:,:))
+
+  ! add relaxation term to new salinity
+  p_os%p_prog(nnew(1))%tracer(:,:,:,2) = p_os%p_prog(nnew(1))%tracer(:,:,:,2) + &
+    &                                    p_os%p_aux%relax_3d_forc_S(:,:,:) * dtime
+
+  DO jk = 1, n_zlev 
+    ipl_src=1  ! output print level (1-5, fix)
+    z_c(:,:,:) =  p_os%p_prog(nnew(1))%tracer(:,:,:,2)
+    CALL print_mxmn('3dim-relax S - tracer',jk,z_c(:,:,:),n_zlev, &
+      &              p_patch%nblks_c,'trc',ipl_src)
+    ipl_src=3  ! output print level (1-5, fix)
+    CALL print_mxmn('3dim-relax S - forcing',jk, p_os%p_aux%relax_3d_data_S(:,:,:),n_zlev, &
+      &              p_patch%nblks_c,'trc',ipl_src)
+  END DO
 END IF
 
 END SUBROUTINE advect_tracer_ab
@@ -358,10 +390,10 @@ REAL(wp) :: z_h_tmp(nproma,n_zlev, p_patch%nblks_c)
 REAL(wp) :: z_grad_T(nproma,n_zlev,p_patch%nblks_e)
 !REAL(wp) :: max_val, min_val, dtime2
 !REAL(wp) :: z_tol
-LOGICAL  :: ldbg = .TRUE.
+!LOGICAL  :: ldbg = .TRUE.
 !LOGICAL  ::  L_MPDATA_AFTERBURNER
-TYPE(t_cartesian_coordinates):: z_vn_c(nproma,n_zlev,p_patch%nblks_c)
-TYPE(t_cartesian_coordinates):: z_vn_c2(nproma,n_zlev,p_patch%nblks_c)
+!TYPE(t_cartesian_coordinates):: z_vn_c(nproma,n_zlev,p_patch%nblks_c)
+!TYPE(t_cartesian_coordinates):: z_vn_c2(nproma,n_zlev,p_patch%nblks_c)
 ! CHARACTER(len=max_char_length), PARAMETER :: &
 !        & routine = ('mo_tracer_advection:advect_individual_tracer')
 !-------------------------------------------------------------------------------
@@ -772,7 +804,7 @@ REAL(wp), OPTIONAL :: h_tmp(nproma,n_zlev, p_patch%nblks_c)
 REAL(wp) :: delta_z
 !INTEGER  :: ctr, ctr_total
 INTEGER  :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start_c, rl_end_c
-INTEGER  :: jc, jk, jb, jkp1        !< index of edge, vert level, block
+INTEGER  :: jc, jk, jb!, jkp1        !< index of edge, vert level, block
 INTEGER  :: z_dolic
 REAL(wp) :: z_adv_flux_v (nproma, n_zlev+1, p_patch%nblks_c)  ! vertical advective tracer flux
 REAL(wp) :: z_div_adv_v (nproma, n_zlev,p_patch%nblks_c)        ! vertical tracer divergence
@@ -787,7 +819,7 @@ REAL(wp) :: z_G_nm1_c_v (nproma, n_zlev, p_patch%nblks_c)
 REAL(wp) :: z_G_nimd_c_v(nproma, n_zlev, p_patch%nblks_c)
 !REAL(wp) :: max_val, min_val!, dtime2
 !REAL(wp) :: z_tol
-LOGICAL  :: ldbg = .TRUE.
+!LOGICAL  :: ldbg = .TRUE.
 !TYPE(t_cartesian_coordinates):: z_vn_c(nproma,n_zlev,p_patch%nblks_c)
 !TYPE(t_cartesian_coordinates):: z_vn_c2(nproma,n_zlev,p_patch%nblks_c)
 ! CHARACTER(len=max_char_length), PARAMETER :: &
@@ -1188,14 +1220,14 @@ REAL(wp) :: z_out(nproma,n_zlev,p_patch%nblks_c)
 REAL(wp) :: z_pred(nproma,n_zlev,p_patch%nblks_c)
 
 REAL(wp) :: z_up(nproma,n_zlev,p_patch%nblks_c,no_cell_edges)
-REAL(wp) :: z_down(nproma,n_zlev,p_patch%nblks_c,no_cell_edges)
+!REAL(wp) :: z_down(nproma,n_zlev,p_patch%nblks_c,no_cell_edges)
 REAL(wp) :: z_max(nproma,n_zlev,p_patch%nblks_c)
 REAL(wp) :: z_min(nproma,n_zlev,p_patch%nblks_c)
 REAL(wp) :: z_excess(nproma,n_zlev,p_patch%nblks_c)
 REAL(wp) :: z_grad_excess(nproma,n_zlev,p_patch%nblks_e)
 REAL(wp) :: z_diff_excess(nproma,n_zlev,p_patch%nblks_c)
 REAL(wp) :: z_K(nproma,n_zlev,p_patch%nblks_e)
-REAL(wp) :: max_val, min_val!, dtime2, z_tmp
+!REAL(wp) :: max_val, min_val!, dtime2, z_tmp
 INTEGER  :: il_e(no_cell_edges), ib_e(no_cell_edges)
 INTEGER  :: il_c1, ib_c1,il_c2, ib_c2, ie
 INTEGER  :: stop_ctr
@@ -1582,7 +1614,7 @@ END SUBROUTINE elad
     REAL(wp) :: z_thick, z_weight
     REAL(wp) :: z_gradC(nproma,n_zlev,ppatch%nblks_e)
     TYPE(t_cartesian_coordinates) :: z_gradC_cc(nproma,n_zlev,ppatch%nblks_c)
-    REAL(wp) :: z_tmpC(nproma,n_zlev,ppatch%nblks_c)  
+    !REAL(wp) :: z_tmpC(nproma,n_zlev,ppatch%nblks_c)  
     REAL(wp)  :: pupflux_e(nproma,n_zlev,ppatch%nblks_e)
     !-----------------------------------------------------------------------
     IF ( PRESENT(opt_slev) ) THEN

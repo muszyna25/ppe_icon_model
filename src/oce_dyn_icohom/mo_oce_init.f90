@@ -59,6 +59,7 @@ USE mo_math_constants
 USE mo_parallel_config,    ONLY: nproma
 USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer, iforc_len,                    &
   &                              init_oce_prog, itestcase_oce, i_sea_ice, iforc_oce,        &
+  &                              irelax_3d_T, relax_3d_mon_T, irelax_3d_S, relax_3d_mon_S,  &
   &                              basin_center_lat, basin_center_lon,idisc_scheme,           &
   &                              basin_height_deg,  basin_width_deg, temperature_relaxation
 USE mo_impl_constants,     ONLY: max_char_length, sea, sea_boundary,                        &
@@ -214,7 +215,11 @@ CONTAINS
   CALL read_netcdf_data (ncid, 'T', ppatch%n_patch_cells_g, ppatch%n_patch_cells, &
     &                    ppatch%cells%glb_index, n_zlev, z_prog)
 
-  p_os%p_prog(nold(1))%tracer(:,1:n_zlev,:,1) = z_prog(:,1:n_zlev,:)
+  IF (no_tracer>=1) THEN
+    p_os%p_prog(nold(1))%tracer(:,1:n_zlev,:,1) = z_prog(:,1:n_zlev,:)
+  ELSE
+    CALL message( TRIM(routine),'WARNING: no tracer used, but init temperature attempted')
+  END IF
 
   ! read salinity
   !  - "S": annual mean salinity
@@ -259,6 +264,18 @@ CONTAINS
     ELSE
       CALL message( TRIM(routine),'No OMIP forcing file read - do not use T_RELAX=3')
       CALL finish(TRIM(ROUTINE),' T_RELAX=3 and IFORC!=12')
+    END IF
+  END IF
+
+  ! #slo# 2011-11-01: use Levitus temperature/salinity, assigned to tracer, for 3-dim relaxation
+  IF (irelax_3d_T == 3) THEN
+    p_os%p_aux%relax_3d_data_T(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,1)
+  END IF
+  IF (irelax_3d_S == 3) THEN
+    IF (no_tracer > 1) THEN
+      p_os%p_aux%relax_3d_data_S(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,2)
+    ELSE
+      CALL finish(TRIM(ROUTINE),' irelax_3d_S=3 and no_tracer<2')
     END IF
   END IF
 

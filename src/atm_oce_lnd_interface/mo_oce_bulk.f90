@@ -500,13 +500,16 @@ CONTAINS
     !   D = d/dz(K_v*dT/dz)  where
     ! Boundary condition at surface (upper bound of D at center of first layer)
     !   is relaxation to temperature (tau = relaxation constant [1/s] ):
-    !   K_v*dT/dz(surf) = -Q_T = -dz/tau*(T*-T) = dz/tau*(T-T*)  [ K*m/s ]
-    ! discretized:
-    !   top_bc_tracer = forc_tracer = (del_zlev_m+h) / relax_param[s] * (tracer - forc_tracer_relax)
+    !   K_v*dT/dz(surf) = Q_T = -dz/tau*(T-T*) [ K*m/s ]
+    ! discretized (T* = T_data = relaxation temperature, forc_tracer_relax):
+    !   top_bc_tracer = forc_tracer = -(del_zlev_m+h) / relax_param[s] * (tracer - forc_tracer_relax)
     !
     ! This is equivalent to an additonal forcing term in the tracer equation, i.e. outside
     ! the vertical diffusion, following MITGCM:
-    !   F_T = Q_T/dz = 1/tau * (T-T*) [ K/s ]
+    !    F_T  = Q_T/dz = -1/tau * (T-T*) [ K/s ]
+    ! when using the sign convention
+    !   dT/dt = Operators + F_T
+    ! i.e. F_T <0 for  T-T* >0 (i.e. decreasing temperature if it is warmer than relaxation data) 
     ! 
     ! Mixed boundary conditions (relaxation term plus fluxes) can be included accordingly
 
@@ -548,7 +551,7 @@ CONTAINS
     ! Heat flux diagnosed for relaxation cases 
     !   Q_s = Rho*Cp*Q_T  with density Rho and Cp specific heat capacity
     ! where
-    !   K_v*dT/dz(surf) = -Q_T = Q_s/Rho/Cp  [K*m/s]
+    !   K_v*dT/dz(surf) = Q_T = Q_s/Rho/Cp  [K*m/s]
     ! see below
 
     p_sfc_flx%forc_hflx(:,:) = p_sfc_flx%forc_tracer(:,:,1) * rho_ref * cw
@@ -571,7 +574,7 @@ CONTAINS
     !   is calculated from net surface heat flux Q_s [W/m2]
     !   which is calculated by the atmosphere (coupled) or read from flux file (see above)
     !   Q_s = Rho*Cp*Q_T  with density Rho and Cp specific heat capacity
-    !   K_v*dT/dz(surf) = -Q_T = Q_s/Rho/Cp  [K*m/s]
+    !   K_v*dT/dz(surf) = Q_T = Q_s/Rho/Cp  [K*m/s]
     ! discretized:
     !   top_bc_tracer = forc_tracer = forc_hflx / (rho_ref*cw)
 
