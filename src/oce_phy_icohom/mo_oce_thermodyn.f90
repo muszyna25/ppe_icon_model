@@ -461,10 +461,10 @@ END INTERFACE
         DO jc = i_startidx, i_endidx
         IF(v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN   
             rho(jc,jk,jb) =   rho_ref                      &
-               &              *(1.0_wp- a_T * tracer(jc,jk,jb,1)   &
-               &              + b_S * tracer(jc,jk,jb,2))
-!           write(123,*)'density',jk,jc,jb,rho_ref, tracer(jc,jk,jb,1),&
-!            &tracer(jc,jk,jb,2),rho(jc,jk,jb)
+               &              - a_T * tracer(jc,jk,jb,1)   &
+               &              + b_S * tracer(jc,jk,jb,2)
+           !write(123,*)'density',jk,jc,jb,rho_ref, tracer(jc,jk,jb,1),&
+           ! &tracer(jc,jk,jb,2),rho(jc,jk,jb), a_T, b_S
            ELSE
              rho(jc,jk,jb) = 0.0_wp 
           ENDIF
@@ -481,9 +481,8 @@ END INTERFACE
       DO jk=1, n_zlev
         DO jc = i_startidx, i_endidx
           IF(v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-            rho(jc,jk,jb) = rho_ref*(1.0_wp - a_T * tracer(jc,jk,jb,1))
-!           write(123,*)'density',jk,jc,jb,rho_ref, tracer(jc,jk,jb,1),&
-!            &tracer(jc,jk,jb,2),rho(jc,jk,jb)
+            rho(jc,jk,jb) = rho_ref - a_T * tracer(jc,jk,jb,1)
+           !write(123,*)'density',jk,jc,jb,rho(jc,jk,jb), tracer(jc,jk,jb,1),a_T
            ELSE
              rho(jc,jk,jb) = 0.0_wp 
           ENDIF
@@ -514,8 +513,7 @@ END INTERFACE
 
   ! local variables:
   !-------------------------------------------------------------------------
-    rho = rho_ref &
-       &*(- a_T * t  + b_S * s)
+    rho = rho_ref - a_T * t  + b_S * s
   END FUNCTION  calc_density_lin_EOS_func
 !---------------------------------------------------------------------------
 
