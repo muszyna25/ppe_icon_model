@@ -1633,7 +1633,7 @@ END DO
   SUBROUTINE init_ho_base( p_patch, p_ext_data, v_base )
 
     TYPE(t_patch),            INTENT(IN)       :: p_patch
-    TYPE(t_external_data),    INTENT(IN)       :: p_ext_data
+    TYPE(t_external_data),    INTENT(INOUT)       :: p_ext_data
     TYPE(t_hydro_ocean_base), INTENT(INOUT)    :: v_base
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
