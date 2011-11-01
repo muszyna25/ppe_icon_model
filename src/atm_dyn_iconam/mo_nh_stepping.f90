@@ -126,8 +126,8 @@ MODULE mo_nh_stepping
   USE mo_nwp_mpiomp_rrtm_interface, ONLY: nwp_start_radiation_ompthread, model_end_ompthread, &
     & init_ompthread_radiation
   USE mo_parallel_config,     ONLY: parallel_radiation_omp, nh_stepping_ompthreads
-  USE mo_mtgrm_config,        ONLY: mtgrm_output_config
-  USE mo_mtgrm_output,        ONLY: mtgrm_sample_vars, mtgrm_is_sample_step
+  USE mo_meteogram_config,    ONLY: meteogram_output_config
+  USE mo_meteogram_output,    ONLY: meteogram_sample_vars, meteogram_is_sample_step
 
   IMPLICIT NONE
 
@@ -474,7 +474,7 @@ MODULE mo_nh_stepping
     l_compute_diagnostic_quants = l_outputtime
     DO jg = 1, n_dom
       l_compute_diagnostic_quants = l_compute_diagnostic_quants .OR. &
-        &          mtgrm_is_sample_step(mtgrm_output_config(jg), jstep)
+        &          meteogram_is_sample_step(meteogram_output_config(jg), jstep)
     END DO
 
     !
@@ -501,8 +501,8 @@ MODULE mo_nh_stepping
 
     ! sample meteogram output
     DO jg = 1, n_dom
-      IF (mtgrm_is_sample_step(mtgrm_output_config(jg), jstep)) THEN
-        CALL mtgrm_sample_vars(p_nh_state(jg), jg, jstep, datetime, ierr)
+      IF (meteogram_is_sample_step(meteogram_output_config(jg), jstep)) THEN
+        CALL meteogram_sample_vars(p_nh_state(jg), jg, jstep, datetime, ierr)
         IF (ierr /= SUCCESS) THEN
           CALL finish (routine, 'Error in meteogram sampling! Sampling buffer too small?')
         ENDIF

@@ -32,7 +32,7 @@
 !! software.
 !!
 !!
-MODULE mo_mtgrm_nml
+MODULE mo_meteogram_nml
 
   USE mo_kind,               ONLY: wp
   USE mo_parallel_config,    ONLY: nproma
@@ -43,12 +43,12 @@ MODULE mo_mtgrm_nml
   USE mo_master_control,     ONLY: is_restart_run
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,   &
                                  & open_and_restore_namelist, close_tmpfile
-  USE mo_mtgrm_config,       ONLY: t_station_list, t_mtgrm_output_config, &
-    &                              mtgrm_output_config, &
+  USE mo_meteogram_config,   ONLY: t_station_list, t_meteogram_output_config, &
+    &                              meteogram_output_config, &
     &                              MAX_NAME_LENGTH, MAX_NUM_STATIONS, FTYPE_NETCDF
 
   IMPLICIT NONE
-  PUBLIC :: read_mtgrm_namelist
+  PUBLIC :: read_meteogram_namelist
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
   !-------------------------------------------------------------------------
@@ -60,7 +60,7 @@ MODULE mo_mtgrm_nml
     CHARACTER (LEN=20)    :: zname
   END TYPE t_list_of_stations
 
-  LOGICAL                         :: lmtgrm_enabled(max_dom)  !> Flag. True, if meteogram output is enabled
+  LOGICAL                         :: lmeteogram_enabled(max_dom)  !> Flag. True, if meteogram output is enabled
   CHARACTER (len=MAX_NAME_LENGTH) :: zprefix(max_dom)         !> string with file name prefix for output file
   INTEGER                         :: ftype(max_dom)           !< file type (NetCDF, ...)
   LOGICAL                         :: ldistributed(max_dom)    !< Flag. Separate files for each PE
@@ -71,8 +71,8 @@ MODULE mo_mtgrm_nml
   TYPE(t_list_of_stations) :: stationlist_tot(MAX_NUM_STATIONS)   !> list of meteogram stations
 
   !> Namelist for meteogram output
-  NAMELIST/mtgrm_output_nml/ lmtgrm_enabled, zprefix, ldistributed, n0_mtgrm, ninc_mtgrm, &
-    &                        stationlist_tot
+  NAMELIST/meteogram_output_nml/ lmeteogram_enabled, zprefix, ldistributed, &
+    &                            n0_mtgrm, ninc_mtgrm, stationlist_tot
 
 CONTAINS
   !>
@@ -90,12 +90,10 @@ CONTAINS
   !! @par Revision History
   !!  by F. Prill, DWD (2011-09-28)
   !!
-  SUBROUTINE read_mtgrm_namelist( filename )
+  SUBROUTINE read_meteogram_namelist( filename )
 
     CHARACTER(LEN=*), INTENT(IN)   :: filename
     ! local variables
-    CHARACTER(len=*), PARAMETER    :: routine = &
-      &  'mo_mtgrm_nml:read_mtgrm_namelist'
     INTEGER                        :: istat, funit, idom, istation, &
       &                               jb, jc, nblks, npromz, nstations
 
@@ -103,12 +101,12 @@ CONTAINS
     ! 1. default settings
     !-----------------------
 
-    lmtgrm_enabled(:)  =      .FALSE.
-    zprefix(:)         =     "MTGRM_"
-    ftype(:)           = FTYPE_NETCDF
-    ldistributed(:)    =       .TRUE.
-    n0_mtgrm(:)        =           1
-    ninc_mtgrm(:)      =           1
+    lmeteogram_enabled(:)    =          .FALSE.
+    zprefix(:)               =     "METEOGRAM_"
+    ftype(:)                 =     FTYPE_NETCDF
+    ldistributed(:)          =           .TRUE.
+    n0_mtgrm(:)              =               1
+    ninc_mtgrm(:)            =               1
     stationlist_tot(:)%lon   = 0._wp
     stationlist_tot(:)%lat   = 0._wp
     stationlist_tot(:)%zname = ""
@@ -124,8 +122,8 @@ CONTAINS
     !    by values used in the previous integration.
     !------------------------------------------------------------------
     IF (is_restart_run()) THEN
-      funit = open_and_restore_namelist('mtgrm_output_nml')
-      READ(funit,NML=mtgrm_output_nml)
+      funit = open_and_restore_namelist('meteogram_output_nml')
+      READ(funit,NML=meteogram_output_nml)
       CALL close_tmpfile(funit)
     END IF
 
@@ -133,10 +131,10 @@ CONTAINS
     ! 3. Read user's (new) specifications (Done so far by all MPI processes)
     !-------------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
-    CALL position_nml ('mtgrm_output_nml', status=istat)
+    CALL position_nml ('meteogram_output_nml', status=istat)
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, mtgrm_output_nml)
+      READ (nnml, meteogram_output_nml)
     END SELECT
     CALL close_nml
 
@@ -155,24 +153,24 @@ CONTAINS
 
     ! fill in values for each model domain:
     DO idom=1,max_dom
-      mtgrm_output_config(idom)%lenabled     = lmtgrm_enabled(idom)
-      mtgrm_output_config(idom)%zprefix      = zprefix(idom)
-      mtgrm_output_config(idom)%ftype        = ftype(idom)
+      meteogram_output_config(idom)%lenabled     = lmeteogram_enabled(idom)
+      meteogram_output_config(idom)%zprefix      = zprefix(idom)
+      meteogram_output_config(idom)%ftype        = ftype(idom)
 #ifdef NOMPI
-      mtgrm_output_config(idom)%ldistributed = .TRUE.
+      meteogram_output_config(idom)%ldistributed = .TRUE.
 #else
-      mtgrm_output_config(idom)%ldistributed = ldistributed(idom)
+      meteogram_output_config(idom)%ldistributed = ldistributed(idom)
 #endif
-      mtgrm_output_config(idom)%n0_mtgrm     = n0_mtgrm(idom)
-      mtgrm_output_config(idom)%ninc_mtgrm   = ninc_mtgrm(idom)
-      mtgrm_output_config(idom)%nstations    = nstations
+      meteogram_output_config(idom)%n0_mtgrm     = n0_mtgrm(idom)
+      meteogram_output_config(idom)%ninc_mtgrm   = ninc_mtgrm(idom)
+      meteogram_output_config(idom)%nstations    = nstations
 
       nblks   = nstations/nproma + 1
       npromz  = nstations - nproma*(nblks-1)
-      mtgrm_output_config(idom)%nblks   = nblks
-      mtgrm_output_config(idom)%npromz  = npromz 
+      meteogram_output_config(idom)%nblks   = nblks
+      meteogram_output_config(idom)%npromz  = npromz 
 
-      ALLOCATE(mtgrm_output_config(idom)%station_list(nproma,nblks))
+      ALLOCATE(meteogram_output_config(idom)%station_list(nproma,nblks))
 
       jc = 0
       jb = 1
@@ -182,11 +180,11 @@ CONTAINS
           jc = 1
           jb = jb + 1
         END IF
-        mtgrm_output_config(idom)%station_list(jc,jb)%zname        = &
+        meteogram_output_config(idom)%station_list(jc,jb)%zname        = &
           &  stationlist_tot(istation)%zname
-        mtgrm_output_config(idom)%station_list(jc,jb)%location%lat = &
+        meteogram_output_config(idom)%station_list(jc,jb)%location%lat = &
           &  stationlist_tot(istation)%lat
-        mtgrm_output_config(idom)%station_list(jc,jb)%location%lon = &
+        meteogram_output_config(idom)%station_list(jc,jb)%location%lon = &
           &  stationlist_tot(istation)%lon
       END DO
 
@@ -197,17 +195,17 @@ CONTAINS
     !-----------------------------------------------------
     IF(my_process_is_stdio())  THEN
       funit = open_tmpfile()
-      WRITE(funit,NML=mtgrm_output_nml)
-      CALL store_and_close_namelist(funit, 'mtgrm_output_nml')
+      WRITE(funit,NML=meteogram_output_nml)
+      CALL store_and_close_namelist(funit, 'meteogram_output_nml')
     ENDIF
 
     !-----------------------------------------------------
     ! 6. write the contents of the namelist to an ASCII file
     !-----------------------------------------------------
     IF(my_process_is_stdio()) THEN
-      WRITE(nnml_output,nml=mtgrm_output_nml)
+      WRITE(nnml_output,nml=meteogram_output_nml)
     END IF
 
-  END SUBROUTINE read_mtgrm_namelist
+  END SUBROUTINE read_meteogram_namelist
 
-END MODULE mo_mtgrm_nml
+END MODULE mo_meteogram_nml

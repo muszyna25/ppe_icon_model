@@ -31,7 +31,7 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
-MODULE mo_mtgrm_config
+MODULE mo_meteogram_config
 
   USE mo_impl_constants, ONLY: max_dom
   USE mo_math_utilities, ONLY: t_geographical_coordinates
@@ -58,7 +58,7 @@ MODULE mo_mtgrm_config
   !>
   !! TODO[FP] : Make some fixed-size arrays ALLOCATABLE?
   !!
-  TYPE t_mtgrm_output_config
+  TYPE t_meteogram_output_config
     LOGICAL                        :: lenabled     !< Flag. True for output.
     CHARACTER(len=MAX_NAME_LENGTH) :: zprefix      !< file prefix string    
     INTEGER                        :: ftype        !< file type (NetCDF, ...)
@@ -72,14 +72,14 @@ MODULE mo_mtgrm_config
     INTEGER                           :: nstations
     TYPE(t_station_list), POINTER     :: station_list(:,:) !< (idx, block)
     INTEGER                           :: nblks, npromz
-  END TYPE t_mtgrm_output_config
+  END TYPE t_meteogram_output_config
 
 
   ! parameters specifying meteogram output
-  TYPE(t_mtgrm_output_config), TARGET   :: mtgrm_output_config(1:max_dom)
+  TYPE(t_meteogram_output_config), TARGET   :: meteogram_output_config(1:max_dom)
 
-  PUBLIC :: t_mtgrm_output_config, t_station_list
-  PUBLIC :: mtgrm_output_config
+  PUBLIC :: t_meteogram_output_config, t_station_list
+  PUBLIC :: meteogram_output_config
   PUBLIC :: FTYPE_NETCDF, MAX_NAME_LENGTH, MAX_NUM_STATIONS
 
-END MODULE mo_mtgrm_config
+END MODULE mo_meteogram_config

@@ -20,26 +20,26 @@
 !!
 !! a) Volume variables:
 !!    - Add a new index variable "MYVAR" in data structure "TYPE t_var"
-!!    - In SR "mtgrm_init": 
+!!    - In SR "meteogram_init": 
 !!      Increase total number of sampling variables
-!!        "mtgrm_data%nvars"
+!!        "meteogram_data%nvars"
 !!      Insert
 !!        CALL add_atmo_var(VAR%MYVAR, VAR_GROUP_ATMO, "myvarname", "myvarunit", jg, nlev)
-!!    - In SR "mtgrm_sample_vars": Insert sampling of values, for example
-!!        DO ilev=1,mtgrm_data%var_info(VAR%MYVAR)%nlevs
-!!          mtgrm_data%station(jc,jb)%var(VAR%MYVAR)%values(ilev, i_tstep) =  &
-!!          &  prog%<myvar>(iidx, mtgrm_data%var_info(VAR%MYVAR)%levels(ilev), iblk)
+!!    - In SR "meteogram_sample_vars": Insert sampling of values, for example
+!!        DO ilev=1,meteogram_data%var_info(VAR%MYVAR)%nlevs
+!!          meteogram_data%station(jc,jb)%var(VAR%MYVAR)%values(ilev, i_tstep) =  &
+!!          &  prog%<myvar>(iidx, meteogram_data%var_info(VAR%MYVAR)%levels(ilev), iblk)
 !!        END DO
 !!
 !! b) Surface variables:
 !!    - Add a new index variable "MYVAR" in data structure "TYPE t_var"
-!!    - In SR "mtgrm_init": 
+!!    - In SR "meteogram_init": 
 !!      Increase total number of sampling surface variables
-!!        "mtgrm_data%nsfcvars"
+!!        "meteogram_data%nsfcvars"
 !!      Insert
 !!        CALL add_sfc_var(VAR%MYVAR, VAR_GROUP_SFC, "myvarname", "myvarunit", jg)
-!!    - In SR "mtgrm_sample_vars": Insert sampling of values, for example
-!!          mtgrm_data%station(jc,jb)%sfcvar(VAR%MYVAR)%values(i_tstep) =  &
+!!    - In SR "meteogram_sample_vars": Insert sampling of values, for example
+!!          meteogram_data%station(jc,jb)%sfcvar(VAR%MYVAR)%values(i_tstep) =  &
 !!          &  prog%<myvar>(iidx, iblk)
 !!
 !!
@@ -80,7 +80,7 @@
 !!            coefficient computation!
 !! TODO[FP] : Extend list of meteogram variables
 
-MODULE mo_mtgrm_output
+MODULE mo_meteogram_output
 
   USE mo_kind,                  ONLY: wp
   USE mo_datetime,              ONLY: t_datetime, iso8601
@@ -112,13 +112,13 @@ MODULE mo_mtgrm_output
   USE mo_dynamics_config,       ONLY: nnow
   USE mo_io_config,             ONLY: lwrite_extra, inextra_2d, inextra_3d
   USE mo_util_string,           ONLY: int2string
-  USE mo_mtgrm_config,          ONLY: t_mtgrm_output_config, t_station_list, &
+  USE mo_meteogram_config,      ONLY: t_meteogram_output_config, t_station_list, &
     &                                 FTYPE_NETCDF, MAX_NAME_LENGTH, MAX_NUM_STATIONS
   
   IMPLICIT NONE
   
   PRIVATE
-  CHARACTER(LEN=*), PARAMETER :: modname     = 'mo_mtgrm_output'
+  CHARACTER(LEN=*), PARAMETER :: modname     = 'mo_meteogram_output'
   INTEGER,          PARAMETER :: dbg_level   = 0
 
   INCLUDE 'netcdf.inc'
@@ -126,11 +126,11 @@ MODULE mo_mtgrm_output
   ! IO routines.
   ! called collectively, though non-IO PEs are occupied
   ! only for the case of distributed write mode.
-  PUBLIC ::  mtgrm_init  
-  PUBLIC ::  mtgrm_is_sample_step
-  PUBLIC ::  mtgrm_sample_vars
-  PUBLIC ::  mtgrm_finalize  
-  PUBLIC ::  mtgrm_flush_file
+  PUBLIC ::  meteogram_init  
+  PUBLIC ::  meteogram_is_sample_step
+  PUBLIC ::  meteogram_sample_vars
+  PUBLIC ::  meteogram_finalize  
+  PUBLIC ::  meteogram_flush_file
 
   INTEGER, PARAMETER :: MAX_TIME_STAMPS      =  100  !<  max. number of time stamps
   INTEGER, PARAMETER :: MAX_EXTRA2D          =    4  !<  max. number of extra 2D variables (inextra_2d)
@@ -191,11 +191,11 @@ MODULE mo_mtgrm_output
   !! values for a meteogram between file I/O.
   !! The time slices and variables where the values are collected are
   !! defined outside of this data structure in a record of type
-  !! t_mtgrm_data.
+  !! t_meteogram_data.
   !!
   !! Note: This info is different for different patches.
   !!
-  TYPE t_mtgrm_station
+  TYPE t_meteogram_station
     ! Meteogram header (information on location, ...)
     INTEGER                       :: station_idx(2)   !< (idx,block) of station specification
     INTEGER                       :: tri_idx(2)       !< triangle index (global idx,block)
@@ -209,13 +209,13 @@ MODULE mo_mtgrm_output
     ! Buffer for currently stored meteogram values.
     TYPE(t_var_buffer),     POINTER :: var(:)       !< sampled data (1:nvars)
     TYPE(t_sfc_var_buffer), POINTER :: sfc_var(:)   !< sampled data (1:nsfcvars)
-  END TYPE t_mtgrm_station
+  END TYPE t_meteogram_station
 
   !>
   !! Storage for information on the set of collected variables for
   !! several stations.
   !!
-  TYPE t_mtgrm_data
+  TYPE t_meteogram_data
     ! variable info:
     INTEGER                        :: nvars, nsfcvars !< number of sampled variables and surface variables
     INTEGER                        :: max_nlevs       !< maximum no. of levels for variables
@@ -225,18 +225,18 @@ MODULE mo_mtgrm_output
     INTEGER                        :: icurrent        !< current time stamp index
     TYPE(t_time_stamp), POINTER    :: time_stamp(:)   !< info on sample times
     ! value buffers:
-    TYPE(t_mtgrm_station), POINTER :: station(:,:) !< meteogram data and meta info for each station (idx,blk).
+    TYPE(t_meteogram_station), POINTER :: station(:,:) !< meteogram data and meta info for each station (idx,blk).
     INTEGER                        :: nstations, nblks, npromz
-  END TYPE t_mtgrm_data
+  END TYPE t_meteogram_data
   
   !>
   !! Data structure specifying output file for meteogram data.
   !!
-  TYPE t_mtgrm_file
+  TYPE t_meteogram_file
     INTEGER                        :: ftype   !< file type (NetCDF, ...)
     CHARACTER(len=MAX_NAME_LENGTH) :: zname   !< file name string
     INTEGER                        :: file_id !< meteogram file ID
-  END TYPE t_mtgrm_file
+  END TYPE t_meteogram_file
 
   !>
   !! Data structure specifying NetCDF IDs
@@ -267,9 +267,9 @@ MODULE mo_mtgrm_output
   ! -------------------------------------------------------------------------------------------
 
   !! -- module data: --
-  TYPE(t_mtgrm_data), SAVE, TARGET      :: mtgrm_local_data(1:max_dom)   !< meteogram data local to this PE
-  TYPE(t_mtgrm_data), SAVE, TARGET      :: mtgrm_global_data(1:max_dom)  !< collected buffers (on IO PE)
-  TYPE(t_mtgrm_file), SAVE              :: mtgrm_file_info(1:max_dom)    !< meteogram file handle etc.
+  TYPE(t_meteogram_data), SAVE, TARGET  :: meteogram_local_data(1:max_dom)   !< meteogram data local to this PE
+  TYPE(t_meteogram_data), SAVE, TARGET  :: meteogram_global_data(1:max_dom)  !< collected buffers (on IO PE)
+  TYPE(t_meteogram_file), SAVE          :: meteogram_file_info(1:max_dom)    !< meteogram file handle etc.
 
   TYPE(t_ncid),       SAVE, TARGET      :: ncid_list(1:max_dom)          !< NetCDF dimension IDs
   TYPE(t_var),        SAVE, TARGET      :: var_list(1:max_dom)           !< internal indices of variables
@@ -290,9 +290,9 @@ CONTAINS
   !! @par Revision History
   !! Initial implementation  by  F. Prill, DWD (2011-08-22)
   !!
-  SUBROUTINE mtgrm_init(mtgrm_output_config, ptr_patch, ext_data, iforcing, jg)
+  SUBROUTINE meteogram_init(meteogram_output_config, ptr_patch, ext_data, iforcing, jg)
     ! station data from namelist
-    TYPE(t_mtgrm_output_config), TARGET, INTENT(IN) :: mtgrm_output_config
+    TYPE(t_meteogram_output_config), TARGET, INTENT(IN) :: meteogram_output_config
     ! data structure containing grid info:
     TYPE(t_patch),                       INTENT(IN) :: ptr_patch
     ! atmosphere external data
@@ -304,7 +304,7 @@ CONTAINS
     INTEGER,                             INTENT(IN) :: jg
 
     ! local variables:
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_mtgrm_output:mtgrm_init")
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_meteogram_output:meteogram_init")
 
     INTEGER      :: ithis_nlocal_pts, nblks, npromz,  &
       &             nstations, ierrstat,              &
@@ -313,21 +313,21 @@ CONTAINS
       &             istation, my_id, nvars, nlevs,    &
       &             ivar, nsfcvars, iextra,           &
       &             nblks_global, npromz_global
-    REAL(gk)     :: in_points(nproma,mtgrm_output_config%nblks,2) !< geographical locations
-    REAL(gk)     :: min_dist(nproma,mtgrm_output_config%nblks)    !< minimal distance
+    REAL(gk)     :: in_points(nproma,meteogram_output_config%nblks,2) !< geographical locations
+    REAL(gk)     :: min_dist(nproma,meteogram_output_config%nblks)    !< minimal distance
     ! list of triangles containing lon-lat grid points (first dim: index and block)
-    INTEGER      :: tri_idx(2,nproma,mtgrm_output_config%nblks)
+    INTEGER      :: tri_idx(2,nproma,meteogram_output_config%nblks)
     INTEGER      :: nlocal_pts(p_n_work)
     LOGICAL      :: l_is_io_pe
     REAL(wp)     :: pi_180
     INTEGER      :: max_var_size, max_sfcvar_size
-    TYPE(t_mtgrm_data)   , POINTER :: mtgrm_data
-    TYPE(t_var)          , POINTER :: VAR
-    TYPE(t_mtgrm_station), POINTER :: p_station
+    TYPE(t_meteogram_data)   , POINTER :: meteogram_data
+    TYPE(t_var)              , POINTER :: VAR
+    TYPE(t_meteogram_station), POINTER :: p_station
 
     pi_180 = ATAN(1._wp)/45._wp
 
-    mtgrm_data => mtgrm_local_data(jg)
+    meteogram_data => meteogram_local_data(jg)
 
     VAR => var_list(jg)    
     VAR%no_atmo_vars = 0
@@ -340,9 +340,9 @@ CONTAINS
 
     ! build an array of geographical coordinates from station list:
     ! in_points(...)
-    nstations = mtgrm_output_config%nstations
-    nblks     = mtgrm_output_config%nblks
-    npromz    = mtgrm_output_config%npromz   
+    nstations = meteogram_output_config%nstations
+    nblks     = meteogram_output_config%nblks
+    npromz    = meteogram_output_config%npromz   
 
     DO jb=1,nblks
       i_startidx = 1
@@ -350,8 +350,9 @@ CONTAINS
       IF (jb == nblks) i_endidx = npromz
 
       DO jc=i_startidx,i_endidx    
-        in_points(jc,jb,:) = (/ mtgrm_output_config%station_list(jc,jb)%location%lon, &
-          &                     mtgrm_output_config%station_list(jc,jb)%location%lat  /) * pi_180
+        in_points(jc,jb,:) = &
+          &  (/ meteogram_output_config%station_list(jc,jb)%location%lon, &
+          &     meteogram_output_config%station_list(jc,jb)%location%lat  /) * pi_180
       END DO
     END DO
 
@@ -366,9 +367,9 @@ CONTAINS
       &                                 nlocal_pts(:), owner(:), ithis_nlocal_pts)
     nblks    = ithis_nlocal_pts/nproma + 1
     npromz   = ithis_nlocal_pts - (nblks-1)*nproma
-    mtgrm_data%nstations = ithis_nlocal_pts
-    mtgrm_data%nblks     = nblks
-    mtgrm_data%npromz    = npromz
+    meteogram_data%nstations = ithis_nlocal_pts
+    meteogram_data%nblks     = nblks
+    meteogram_data%npromz    = npromz
     ! clean up
     CALL gnat_destroy()
 
@@ -376,30 +377,30 @@ CONTAINS
     ! Initialize local data structure, fill header
     ! ------------------------------------------------------------
 
-    mtgrm_data%icurrent = 0 ! reset current sample index
-    ALLOCATE(mtgrm_data%time_stamp(MAX_TIME_STAMPS), stat=ierrstat)
+    meteogram_data%icurrent = 0 ! reset current sample index
+    ALLOCATE(meteogram_data%time_stamp(MAX_TIME_STAMPS), stat=ierrstat)
     IF (ierrstat /= SUCCESS) THEN
       CALL finish (routine, 'ALLOCATE of meteogram data structures failed')
     ENDIF
 
     ! set up list of variables:
     ! Note: adjust these values when adding new variables:
-    mtgrm_data%nsfcvars  = 1
-    mtgrm_data%nvars     = 9
+    meteogram_data%nsfcvars  = 1
+    meteogram_data%nvars     = 9
 
     IF (lwrite_extra)  &
-      mtgrm_data%nsfcvars = mtgrm_data%nsfcvars + inextra_2d
-    nsfcvars = mtgrm_data%nsfcvars
-    ALLOCATE(mtgrm_data%sfc_var_info(nsfcvars), stat=ierrstat)
+      meteogram_data%nsfcvars = meteogram_data%nsfcvars + inextra_2d
+    nsfcvars = meteogram_data%nsfcvars
+    ALLOCATE(meteogram_data%sfc_var_info(nsfcvars), stat=ierrstat)
     IF (ierrstat /= SUCCESS) THEN
       CALL finish (routine, 'ALLOCATE of meteogram data structures failed')
     ENDIF
 
     IF (lwrite_extra)  &
-      mtgrm_data%nvars = mtgrm_data%nvars + inextra_3d
-    mtgrm_data%max_nlevs = 1
-    nvars = mtgrm_data%nvars
-    ALLOCATE(mtgrm_data%var_info(nvars), stat=ierrstat)
+      meteogram_data%nvars = meteogram_data%nvars + inextra_3d
+    meteogram_data%max_nlevs = 1
+    nvars = meteogram_data%nvars
+    ALLOCATE(meteogram_data%var_info(nvars), stat=ierrstat)
     IF (ierrstat /= SUCCESS) THEN
       CALL finish (routine, 'ALLOCATE of meteogram data structures failed')
     ENDIF
@@ -440,7 +441,7 @@ CONTAINS
     END IF
 
     ! set up list of stations:
-    ALLOCATE(mtgrm_data%station(nproma, nblks), stat=ierrstat)
+    ALLOCATE(meteogram_data%station(nproma, nblks), stat=ierrstat)
     IF (ierrstat /= SUCCESS) THEN
       CALL finish (routine, 'ALLOCATE of meteogram data structures failed')
     ENDIF
@@ -460,55 +461,55 @@ CONTAINS
         END DO
         jb_station = istation/nproma + 1
         jc_station = istation - (jb_station-1)*nproma
-        mtgrm_data%station(jc,jb)%station_idx = (/ jc_station, jb_station /)
+        meteogram_data%station(jc,jb)%station_idx = (/ jc_station, jb_station /)
         ! set owner ID:
-        mtgrm_data%station(jc,jb)%owner = my_id
+        meteogram_data%station(jc,jb)%owner = my_id
         ! set local triangle index, block:
-        mtgrm_data%station(jc,jb)%tri_idx_local(1:2) = tri_idx(1:2,jc,jb)
+        meteogram_data%station(jc,jb)%tri_idx_local(1:2) = tri_idx(1:2,jc,jb)
         ! translate local index to global index:
         glb_index = ptr_patch%cells%glb_index(idx_1d(tri_idx(1,jc,jb), &
           &                                          tri_idx(2,jc,jb)))
-        mtgrm_data%station(jc,jb)%tri_idx(1:2) =  &
+        meteogram_data%station(jc,jb)%tri_idx(1:2) =  &
           &  (/ idx_no(glb_index), blk_no(glb_index) /)
         ! set Coriolis parameter for station
-        mtgrm_data%station(jc,jb)%fc       =  &
+        meteogram_data%station(jc,jb)%fc       =  &
           &  ptr_patch%cells%f_c(tri_idx(1,jc,jb), tri_idx(2,jc,jb))
         ! set station information on height, soil type etc.:
         SELECT CASE ( iforcing )
         CASE ( inwp ) ! NWP physics
-          mtgrm_data%station(jc,jb)%hsurf    =  &
+          meteogram_data%station(jc,jb)%hsurf    =  &
             &  ext_data%atm%topography_c(tri_idx(1,jc,jb), tri_idx(2,jc,jb))
-          mtgrm_data%station(jc,jb)%frland   =  &
+          meteogram_data%station(jc,jb)%frland   =  &
             &  ext_data%atm%fr_land(tri_idx(1,jc,jb), tri_idx(2,jc,jb))
-          mtgrm_data%station(jc,jb)%soiltype =  &
+          meteogram_data%station(jc,jb)%soiltype =  &
             &  ext_data%atm%soiltyp(tri_idx(1,jc,jb), tri_idx(2,jc,jb))
         CASE DEFAULT
-          mtgrm_data%station(jc,jb)%hsurf    =  0._wp
-          mtgrm_data%station(jc,jb)%frland   =  0._wp
-          mtgrm_data%station(jc,jb)%soiltype =  0
+          meteogram_data%station(jc,jb)%hsurf    =  0._wp
+          meteogram_data%station(jc,jb)%frland   =  0._wp
+          meteogram_data%station(jc,jb)%soiltype =  0
         END SELECT
         ! initialize value buffer:
-        ALLOCATE(mtgrm_data%station(jc,jb)%var(nvars), &
+        ALLOCATE(meteogram_data%station(jc,jb)%var(nvars), &
           &      stat=ierrstat)
         IF (ierrstat /= SUCCESS) THEN
           CALL finish (routine, 'ALLOCATE of meteogram data structures failed')
         ENDIF
         DO ivar=1,nvars
-          nlevs = mtgrm_data%var_info(ivar)%nlevs
-          ALLOCATE(mtgrm_data%station(jc,jb)%var(ivar)%values(nlevs, MAX_TIME_STAMPS), &
+          nlevs = meteogram_data%var_info(ivar)%nlevs
+          ALLOCATE(meteogram_data%station(jc,jb)%var(ivar)%values(nlevs, MAX_TIME_STAMPS), &
             &      stat=ierrstat)
           IF (ierrstat /= SUCCESS) THEN
             CALL finish (routine, 'ALLOCATE of meteogram data structures failed')
           ENDIF
         END DO
         ! initialize value buffer for surface variables:
-        ALLOCATE(mtgrm_data%station(jc,jb)%sfc_var(nsfcvars), &
+        ALLOCATE(meteogram_data%station(jc,jb)%sfc_var(nsfcvars), &
           &      stat=ierrstat)
         IF (ierrstat /= SUCCESS) THEN
           CALL finish (routine, 'ALLOCATE of meteogram data structures failed')
         ENDIF
         DO ivar=1,nsfcvars
-          ALLOCATE(mtgrm_data%station(jc,jb)%sfc_var(ivar)%values(MAX_TIME_STAMPS), &
+          ALLOCATE(meteogram_data%station(jc,jb)%sfc_var(ivar)%values(MAX_TIME_STAMPS), &
             &      stat=ierrstat)
           IF (ierrstat /= SUCCESS) THEN
             CALL finish (routine, 'ALLOCATE of meteogram data structures failed')
@@ -521,23 +522,23 @@ CONTAINS
     ! If this is the IO PE: initialize global data structure
     ! ------------------------------------------------------------
 
-    IO_PE : IF (my_process_is_stdio() .AND. .NOT. mtgrm_output_config%ldistributed) THEN
+    IO_PE : IF (my_process_is_stdio() .AND. .NOT. meteogram_output_config%ldistributed) THEN
 
-      mtgrm_global_data(jg)%nstations =  mtgrm_output_config%nstations
-      mtgrm_global_data(jg)%nblks     =  mtgrm_output_config%nblks    
-      mtgrm_global_data(jg)%npromz    =  mtgrm_output_config%npromz   
+      meteogram_global_data(jg)%nstations =  meteogram_output_config%nstations
+      meteogram_global_data(jg)%nblks     =  meteogram_output_config%nblks    
+      meteogram_global_data(jg)%npromz    =  meteogram_output_config%npromz   
 
       ! Note: variable info is not duplicated
-      mtgrm_global_data(jg)%nvars     =  mtgrm_local_data(jg)%nvars
-      mtgrm_global_data(jg)%nsfcvars  =  mtgrm_local_data(jg)%nsfcvars
-      mtgrm_global_data(jg)%max_nlevs =  mtgrm_local_data(jg)%max_nlevs
-      mtgrm_global_data(jg)%var_info      =>  mtgrm_local_data(jg)%var_info
-      mtgrm_global_data(jg)%sfc_var_info  =>  mtgrm_local_data(jg)%sfc_var_info
-      mtgrm_global_data(jg)%time_stamp    =>  mtgrm_local_data(jg)%time_stamp
+      meteogram_global_data(jg)%nvars     =  meteogram_local_data(jg)%nvars
+      meteogram_global_data(jg)%nsfcvars  =  meteogram_local_data(jg)%nsfcvars
+      meteogram_global_data(jg)%max_nlevs =  meteogram_local_data(jg)%max_nlevs
+      meteogram_global_data(jg)%var_info      =>  meteogram_local_data(jg)%var_info
+      meteogram_global_data(jg)%sfc_var_info  =>  meteogram_local_data(jg)%sfc_var_info
+      meteogram_global_data(jg)%time_stamp    =>  meteogram_local_data(jg)%time_stamp
 
-      nblks_global  = mtgrm_global_data(jg)%nblks
-      npromz_global = mtgrm_global_data(jg)%npromz
-      ALLOCATE(mtgrm_global_data(jg)%station(nproma, nblks_global), stat=ierrstat)
+      nblks_global  = meteogram_global_data(jg)%nblks
+      npromz_global = meteogram_global_data(jg)%npromz
+      ALLOCATE(meteogram_global_data(jg)%station(nproma, nblks_global), stat=ierrstat)
       IF (ierrstat /= SUCCESS) THEN
         CALL finish (routine, 'ALLOCATE of meteogram data structures failed')
       ENDIF
@@ -548,14 +549,14 @@ CONTAINS
         IF (jb == nblks_global) i_endidx = npromz_global
         
         DO jc=i_startidx,i_endidx
-          p_station => mtgrm_global_data(jg)%station(jc,jb)
+          p_station => meteogram_global_data(jg)%station(jc,jb)
 
           ALLOCATE(p_station%var(nvars), stat=ierrstat)
           IF (ierrstat /= SUCCESS) &
             CALL finish (routine, 'ALLOCATE of meteogram data structures failed')
           
           DO ivar=1,nvars
-            nlevs = mtgrm_data%var_info(ivar)%nlevs
+            nlevs = meteogram_data%var_info(ivar)%nlevs
             ALLOCATE(p_station%var(ivar)%values(nlevs, MAX_TIME_STAMPS), stat=ierrstat)
             IF (ierrstat /= SUCCESS) &
               CALL finish (routine, 'ALLOCATE of meteogram data structures failed')
@@ -580,18 +581,18 @@ CONTAINS
     ! initialize MPI buffer
     ! ------------------------------------------------------------
     
-    IF (.NOT. mtgrm_output_config%ldistributed) THEN
+    IF (.NOT. meteogram_output_config%ldistributed) THEN
       io_rank       = get_mpi_all_workroot_id()
       l_is_io_pe    = (get_my_mpi_all_id() == io_rank)
       l_is_sender   = .NOT. l_is_io_pe
       l_is_receiver = l_is_io_pe
 
       ! compute maximum buffer size for MPI messages:
-      max_var_size    = MAX_TIME_STAMPS*p_real_dp_byte*mtgrm_data%max_nlevs
+      max_var_size    = MAX_TIME_STAMPS*p_real_dp_byte*meteogram_data%max_nlevs
       max_sfcvar_size = MAX_TIME_STAMPS*p_real_dp_byte
       max_buf_size    = MAX_HEADER_SIZE*p_real_dp_byte          &
-        &               + mtgrm_data%nvars*max_var_size         &
-        &               + mtgrm_data%nsfcvars*max_sfcvar_size 
+        &               + meteogram_data%nvars*max_var_size         &
+        &               + meteogram_data%nsfcvars*max_sfcvar_size 
 
       ! allocate buffer:
       IF (l_is_receiver) THEN
@@ -613,9 +614,9 @@ CONTAINS
     ! If this is the IO PE: open NetCDF file
     ! ------------------------------------------------------------
 
-    CALL mtgrm_open_file(mtgrm_output_config, jg)
+    CALL meteogram_open_file(meteogram_output_config, jg)
 
-  END SUBROUTINE mtgrm_init
+  END SUBROUTINE meteogram_init
 
 
   !>
@@ -624,19 +625,19 @@ CONTAINS
   !! @par Revision History
   !! Initial implementation  by  F. Prill, DWD (2011-08-22)
   !!
-  FUNCTION mtgrm_is_sample_step(mtgrm_output_config, cur_step)
-    LOGICAL :: mtgrm_is_sample_step
+  FUNCTION meteogram_is_sample_step(meteogram_output_config, cur_step)
+    LOGICAL :: meteogram_is_sample_step
     ! station data from namelist
-    TYPE(t_mtgrm_output_config), TARGET, INTENT(IN) :: mtgrm_output_config
+    TYPE(t_meteogram_output_config), TARGET, INTENT(IN) :: meteogram_output_config
     INTEGER,          INTENT(IN)  :: cur_step     !< current model iteration step
 
-    mtgrm_is_sample_step = &
-      &  mtgrm_output_config%lenabled               .AND. &
-      &  (cur_step >= mtgrm_output_config%n0_mtgrm) .AND. &
-      &  (MOD((cur_step - mtgrm_output_config%n0_mtgrm),  &
-      &       mtgrm_output_config%ninc_mtgrm) == 0)
+    meteogram_is_sample_step = &
+      &  meteogram_output_config%lenabled               .AND. &
+      &  (cur_step >= meteogram_output_config%n0_mtgrm) .AND. &
+      &  (MOD((cur_step - meteogram_output_config%n0_mtgrm),  &
+      &       meteogram_output_config%ninc_mtgrm) == 0)
     
-  END FUNCTION mtgrm_is_sample_step
+  END FUNCTION meteogram_is_sample_step
 
   
   !>
@@ -647,22 +648,22 @@ CONTAINS
   !! @par Revision History
   !! Initial implementation  by  F. Prill, DWD (2011-08-22)
   !!
-  SUBROUTINE mtgrm_sample_vars(p_nh_state, jg, cur_step, cur_datetime, ierr)
+  SUBROUTINE meteogram_sample_vars(p_nh_state, jg, cur_step, cur_datetime, ierr)
     TYPE(t_nh_state), TARGET, INTENT(IN)  :: p_nh_state
     INTEGER,          INTENT(IN)  :: jg           !< patch index
     INTEGER,          INTENT(IN)  :: cur_step     !< current model iteration step
     TYPE(t_datetime), INTENT(IN)  :: cur_datetime !< date and time of point sample
     INTEGER,          INTENT(OUT) :: ierr         !< error code (e.g. buffer overflow)
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_mtgrm_output:mtgrm_sample_vars")
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_meteogram_output:meteogram_sample_vars")
     INTEGER :: jb, jc, i_startidx, i_endidx, ilev, &
       &        i_tstep, iidx, iblk, iextra, var_extra
-    TYPE(t_mtgrm_data), POINTER :: mtgrm_data
-    TYPE(t_nh_prog), POINTER :: prog
-    TYPE(t_nh_diag), POINTER :: diag
-    TYPE(t_var), POINTER :: VAR
+    TYPE(t_meteogram_data), POINTER :: meteogram_data
+    TYPE(t_nh_prog)       , POINTER :: prog
+    TYPE(t_nh_diag)       , POINTER :: diag
+    TYPE(t_var)           , POINTER :: VAR
 
-    mtgrm_data => mtgrm_local_data(jg)
+    meteogram_data => meteogram_local_data(jg)
     ierr = 0
 
     VAR => var_list(jg) 
@@ -675,87 +676,88 @@ CONTAINS
     END IF
 
     ! increase time step counter
-    mtgrm_data%icurrent = mtgrm_data%icurrent + 1
-    i_tstep = mtgrm_data%icurrent
+    meteogram_data%icurrent = meteogram_data%icurrent + 1
+    i_tstep = meteogram_data%icurrent
     IF (i_tstep > MAX_TIME_STAMPS) THEN
       ! buffer full
       ierr = -1
       RETURN
     END IF
 
-    mtgrm_data%time_stamp(i_tstep)%istep = cur_step
-    mtgrm_data%time_stamp(i_tstep)%zdate = iso8601(cur_datetime)
+    meteogram_data%time_stamp(i_tstep)%istep = cur_step
+    meteogram_data%time_stamp(i_tstep)%zdate = iso8601(cur_datetime)
 
     ! fill time step with values
-    DO jb=1,mtgrm_data%nblks
+    DO jb=1,meteogram_data%nblks
       i_startidx = 1
       i_endidx   = nproma
-      IF (jb == mtgrm_data%nblks) i_endidx = mtgrm_data%npromz
+      IF (jb == meteogram_data%nblks) i_endidx = meteogram_data%npromz
 
       DO jc=i_startidx,i_endidx
-        iidx  = mtgrm_data%station(jc,jb)%tri_idx_local(1)
-        iblk  = mtgrm_data%station(jc,jb)%tri_idx_local(2)
+        iidx  = meteogram_data%station(jc,jb)%tri_idx_local(1)
+        iblk  = meteogram_data%station(jc,jb)%tri_idx_local(2)
 
-        DO ilev=1,mtgrm_data%var_info(VAR%P)%nlevs
-          mtgrm_data%station(jc,jb)%var(VAR%P)%values(ilev, i_tstep) =  &
-            &  diag%pres(iidx, mtgrm_data%var_info(VAR%P)%levels(ilev), iblk)
+        DO ilev=1,meteogram_data%var_info(VAR%P)%nlevs
+          meteogram_data%station(jc,jb)%var(VAR%P)%values(ilev, i_tstep) =  &
+            &  diag%pres(iidx, meteogram_data%var_info(VAR%P)%levels(ilev), iblk)
         END DO
-        DO ilev=1,mtgrm_data%var_info(VAR%T)%nlevs
-          mtgrm_data%station(jc,jb)%var(VAR%T)%values(ilev, i_tstep) =  &
-            &  diag%temp(iidx, mtgrm_data%var_info(VAR%T)%levels(ilev), iblk)
+        DO ilev=1,meteogram_data%var_info(VAR%T)%nlevs
+          meteogram_data%station(jc,jb)%var(VAR%T)%values(ilev, i_tstep) =  &
+            &  diag%temp(iidx, meteogram_data%var_info(VAR%T)%levels(ilev), iblk)
         END DO
-        DO ilev=1,mtgrm_data%var_info(VAR%RHO)%nlevs
-          mtgrm_data%station(jc,jb)%var(VAR%RHO)%values(ilev, i_tstep) =  &
-            &  prog%rho(iidx, mtgrm_data%var_info(VAR%RHO)%levels(ilev), iblk)
+        DO ilev=1,meteogram_data%var_info(VAR%RHO)%nlevs
+          meteogram_data%station(jc,jb)%var(VAR%RHO)%values(ilev, i_tstep) =  &
+            &  prog%rho(iidx, meteogram_data%var_info(VAR%RHO)%levels(ilev), iblk)
         END DO
-        DO ilev=1,mtgrm_data%var_info(VAR%EXNER)%nlevs
-          mtgrm_data%station(jc,jb)%var(VAR%EXNER)%values(ilev, i_tstep) =  &
-          &  prog%exner(iidx, mtgrm_data%var_info(VAR%EXNER)%levels(ilev), iblk)
+        DO ilev=1,meteogram_data%var_info(VAR%EXNER)%nlevs
+          meteogram_data%station(jc,jb)%var(VAR%EXNER)%values(ilev, i_tstep) =  &
+          &  prog%exner(iidx, meteogram_data%var_info(VAR%EXNER)%levels(ilev), iblk)
         END DO
-        DO ilev=1,mtgrm_data%var_info(VAR%THETAV)%nlevs
-          mtgrm_data%station(jc,jb)%var(VAR%THETAV)%values(ilev, i_tstep) =  &
-          &  prog%theta_v(iidx, mtgrm_data%var_info(VAR%THETAV)%levels(ilev), iblk)
+        DO ilev=1,meteogram_data%var_info(VAR%THETAV)%nlevs
+          meteogram_data%station(jc,jb)%var(VAR%THETAV)%values(ilev, i_tstep) =  &
+          &  prog%theta_v(iidx, meteogram_data%var_info(VAR%THETAV)%levels(ilev), iblk)
         END DO
-        DO ilev=1,mtgrm_data%var_info(VAR%RHOTHETAV)%nlevs
-          mtgrm_data%station(jc,jb)%var(VAR%RHOTHETAV)%values(ilev, i_tstep) =  &
-          &  prog%rhotheta_v(iidx, mtgrm_data%var_info(VAR%RHOTHETAV)%levels(ilev), iblk)
+        DO ilev=1,meteogram_data%var_info(VAR%RHOTHETAV)%nlevs
+          meteogram_data%station(jc,jb)%var(VAR%RHOTHETAV)%values(ilev, i_tstep) =  &
+          &  prog%rhotheta_v(iidx, meteogram_data%var_info(VAR%RHOTHETAV)%levels(ilev), iblk)
         END DO
-        DO ilev=1,mtgrm_data%var_info(VAR%U)%nlevs
-          mtgrm_data%station(jc,jb)%var(VAR%U)%values(ilev, i_tstep) =  &
-          &  diag%u(iidx, mtgrm_data%var_info(VAR%U)%levels(ilev), iblk)
+        DO ilev=1,meteogram_data%var_info(VAR%U)%nlevs
+          meteogram_data%station(jc,jb)%var(VAR%U)%values(ilev, i_tstep) =  &
+          &  diag%u(iidx, meteogram_data%var_info(VAR%U)%levels(ilev), iblk)
         END DO
-        DO ilev=1,mtgrm_data%var_info(VAR%V)%nlevs
-          mtgrm_data%station(jc,jb)%var(VAR%V)%values(ilev, i_tstep) =  &
-          &  diag%v(iidx, mtgrm_data%var_info(VAR%V)%levels(ilev), iblk)
+        DO ilev=1,meteogram_data%var_info(VAR%V)%nlevs
+          meteogram_data%station(jc,jb)%var(VAR%V)%values(ilev, i_tstep) =  &
+          &  diag%v(iidx, meteogram_data%var_info(VAR%V)%levels(ilev), iblk)
         END DO
-        DO ilev=1,mtgrm_data%var_info(VAR%W)%nlevs
-          mtgrm_data%station(jc,jb)%var(VAR%W)%values(ilev, i_tstep) =  &
-          &  prog%w(iidx, mtgrm_data%var_info(VAR%W)%levels(ilev), iblk)
+        DO ilev=1,meteogram_data%var_info(VAR%W)%nlevs
+          meteogram_data%station(jc,jb)%var(VAR%W)%values(ilev, i_tstep) =  &
+          &  prog%w(iidx, meteogram_data%var_info(VAR%W)%levels(ilev), iblk)
         END DO
 
-        mtgrm_data%station(jc,jb)%sfc_var(VAR%P_SFC)%values(i_tstep) =  &
+        meteogram_data%station(jc,jb)%sfc_var(VAR%P_SFC)%values(i_tstep) =  &
           &  diag%pres_sfc(iidx, iblk)
 
         IF (lwrite_extra) THEN
           ! Variable: Extra 2D
           DO iextra=1,inextra_2d
             var_extra = VAR%EXTRA2D(iextra)
-            mtgrm_data%station(jc,jb)%sfc_var(var_extra)%values(i_tstep) =  &
+            meteogram_data%station(jc,jb)%sfc_var(var_extra)%values(i_tstep) =  &
               &  diag%extra_2d(iidx, iblk, iextra)
           END DO
           ! Variable: Extra 3D
           DO iextra=1,inextra_3d
             var_extra = VAR%EXTRA3D(iextra)
-            DO ilev=1,mtgrm_data%var_info(var_extra)%nlevs
-              mtgrm_data%station(jc,jb)%var(var_extra)%values(ilev, i_tstep) =  &
-                &  diag%extra_3d(iidx, mtgrm_data%var_info(var_extra)%levels(ilev), iblk, iextra)
+            DO ilev=1,meteogram_data%var_info(var_extra)%nlevs
+              meteogram_data%station(jc,jb)%var(var_extra)%values(ilev, i_tstep) =  &
+                &  diag%extra_3d(iidx, meteogram_data%var_info(var_extra)%levels(ilev), &
+                &                iblk, iextra)
             END DO
           END DO
         END IF
       END DO
     END DO
 
-  END SUBROUTINE mtgrm_sample_vars
+  END SUBROUTINE meteogram_sample_vars
 
 
   !>
@@ -766,90 +768,90 @@ CONTAINS
   !! @par Revision History
   !! Initial implementation  by  F. Prill, DWD (2011-08-22)
   !!
-  SUBROUTINE mtgrm_finalize(mtgrm_output_config, jg)
+  SUBROUTINE meteogram_finalize(meteogram_output_config, jg)
     ! station data from namelist
-    TYPE(t_mtgrm_output_config), TARGET, INTENT(IN) :: mtgrm_output_config
+    TYPE(t_meteogram_output_config), TARGET, INTENT(IN) :: meteogram_output_config
     INTEGER, INTENT(IN)  :: jg    !< patch index
     ! local variables:
-    CHARACTER(*), PARAMETER     :: routine = TRIM("mo_mtgrm_output:mtgrm_finalize")
+    CHARACTER(*), PARAMETER     :: routine = TRIM("mo_meteogram_output:meteogram_finalize")
     INTEGER                     :: ierrstat, jb, jc, i_startidx, i_endidx, &
       &                            nvars, nsfcvars, ivar
-    TYPE(t_mtgrm_data), POINTER :: mtgrm_data
+    TYPE(t_meteogram_data), POINTER :: meteogram_data
 
-    mtgrm_data => mtgrm_local_data(jg)
+    meteogram_data => meteogram_local_data(jg)
 
     ! ------------------------------------------------------------
     ! If this is the IO PE: close NetCDF file
     ! ------------------------------------------------------------
 
-    CALL mtgrm_close_file(mtgrm_output_config, jg)
+    CALL meteogram_close_file(meteogram_output_config, jg)
 
-    DEALLOCATE(mtgrm_data%time_stamp, stat=ierrstat)
+    DEALLOCATE(meteogram_data%time_stamp, stat=ierrstat)
     IF (ierrstat /= SUCCESS) THEN
       CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
     ENDIF
 
-    nvars    = mtgrm_data%nvars
-    nsfcvars = mtgrm_data%nsfcvars
+    nvars    = meteogram_data%nvars
+    nsfcvars = meteogram_data%nsfcvars
     DO ivar=1,nvars
-      IF (ASSOCIATED(mtgrm_data%var_info(ivar)%levels)) THEN
-        DEALLOCATE(mtgrm_data%var_info(ivar)%levels, stat=ierrstat)
+      IF (ASSOCIATED(meteogram_data%var_info(ivar)%levels)) THEN
+        DEALLOCATE(meteogram_data%var_info(ivar)%levels, stat=ierrstat)
         IF (ierrstat /= SUCCESS) THEN
           CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
         ENDIF
       END IF
     END DO
-    DEALLOCATE(mtgrm_data%var_info, stat=ierrstat)
+    DEALLOCATE(meteogram_data%var_info, stat=ierrstat)
     IF (ierrstat /= SUCCESS) THEN
       CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
     ENDIF
-    DEALLOCATE(mtgrm_data%sfc_var_info, stat=ierrstat)
+    DEALLOCATE(meteogram_data%sfc_var_info, stat=ierrstat)
     IF (ierrstat /= SUCCESS) THEN
       CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
     ENDIF
     
-    DO jb=1,mtgrm_data%nblks
+    DO jb=1,meteogram_data%nblks
       i_startidx = 1
       i_endidx   = nproma
-      IF (jb == mtgrm_data%nblks) &
-        &  i_endidx = mtgrm_data%npromz
+      IF (jb == meteogram_data%nblks) &
+        &  i_endidx = meteogram_data%npromz
 
       DO jc=i_startidx,i_endidx
         DO ivar=1,nvars
-          DEALLOCATE(mtgrm_data%station(jc,jb)%var(ivar)%values, &
+          DEALLOCATE(meteogram_data%station(jc,jb)%var(ivar)%values, &
             &        stat=ierrstat)
           IF (ierrstat /= SUCCESS) THEN
             CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
           ENDIF
         END DO
-        DEALLOCATE(mtgrm_data%station(jc,jb)%var, stat=ierrstat)
+        DEALLOCATE(meteogram_data%station(jc,jb)%var, stat=ierrstat)
         IF (ierrstat /= SUCCESS) THEN
           CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
         ENDIF
         DO ivar=1,nsfcvars
-          DEALLOCATE(mtgrm_data%station(jc,jb)%sfc_var(ivar)%values, &
+          DEALLOCATE(meteogram_data%station(jc,jb)%sfc_var(ivar)%values, &
             &        stat=ierrstat)
           IF (ierrstat /= SUCCESS) THEN
             CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
           ENDIF
         END DO
-        DEALLOCATE(mtgrm_data%station(jc,jb)%sfc_var, stat=ierrstat)
+        DEALLOCATE(meteogram_data%station(jc,jb)%sfc_var, stat=ierrstat)
         IF (ierrstat /= SUCCESS) THEN
           CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
         ENDIF
 
       END DO
     END DO
-    DEALLOCATE(mtgrm_data%station, stat=ierrstat)
+    DEALLOCATE(meteogram_data%station, stat=ierrstat)
     IF (ierrstat /= SUCCESS) THEN
       CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
     ENDIF
-    mtgrm_data%nvars     = 0
-    mtgrm_data%nsfcvars  = 0
-    mtgrm_data%nstations = 0
+    meteogram_data%nvars     = 0
+    meteogram_data%nsfcvars  = 0
+    meteogram_data%nstations = 0
 
     ! deallocate MPI buffer
-    IF (.NOT. mtgrm_output_config%ldistributed) THEN
+    IF (.NOT. meteogram_output_config%ldistributed) THEN
       DEALLOCATE(msg_buffer, stat=ierrstat)
       IF (ierrstat /= SUCCESS) THEN
         CALL finish (routine, 'DEALLOCATE of MPI message buffer failed')
@@ -858,41 +860,42 @@ CONTAINS
 
     ! deallocate global meteogram data
 
-    IO_PE : IF (my_process_is_stdio() .AND. .NOT. mtgrm_output_config%ldistributed) THEN
+    IO_PE : IF (my_process_is_stdio() .AND. .NOT. meteogram_output_config%ldistributed) THEN
     
-      DO jb=1,mtgrm_global_data(jg)%nblks
+      DO jb=1,meteogram_global_data(jg)%nblks
         i_startidx = 1
         i_endidx   = nproma
-        IF (jb == mtgrm_global_data(jg)%nblks) i_endidx = mtgrm_global_data(jg)%npromz
+        IF (jb == meteogram_global_data(jg)%nblks) i_endidx = meteogram_global_data(jg)%npromz
         
         DO jc=i_startidx,i_endidx
           DO ivar=1,nvars
-            DEALLOCATE(mtgrm_global_data(jg)%station(jc,jb)%var(ivar)%values, stat=ierrstat)
+            DEALLOCATE(meteogram_global_data(jg)%station(jc,jb)%var(ivar)%values, stat=ierrstat)
             IF (ierrstat /= SUCCESS) &
               CALL finish (routine, 'ALLOCATE of meteogram data structures failed')
           END DO
-          DEALLOCATE(mtgrm_global_data(jg)%station(jc,jb)%var, stat=ierrstat)
+          DEALLOCATE(meteogram_global_data(jg)%station(jc,jb)%var, stat=ierrstat)
           IF (ierrstat /= SUCCESS) &
             CALL finish (routine, 'ALLOCATE of meteogram data structures failed')
 
           DO ivar=1,nsfcvars
-            DEALLOCATE(mtgrm_global_data(jg)%station(jc,jb)%sfc_var(ivar)%values, stat=ierrstat)
+            DEALLOCATE(meteogram_global_data(jg)%station(jc,jb)%sfc_var(ivar)%values, &
+              &        stat=ierrstat)
             IF (ierrstat /= SUCCESS) &
               CALL finish (routine, 'ALLOCATE of meteogram data structures failed')
           END DO
-          DEALLOCATE(mtgrm_global_data(jg)%station(jc,jb)%sfc_var, stat=ierrstat)
+          DEALLOCATE(meteogram_global_data(jg)%station(jc,jb)%sfc_var, stat=ierrstat)
           IF (ierrstat /= SUCCESS) &
             CALL finish (routine, 'ALLOCATE of meteogram data structures failed')
 
         END DO
       END DO
-      DEALLOCATE(mtgrm_global_data(jg)%station, stat=ierrstat)
+      DEALLOCATE(meteogram_global_data(jg)%station, stat=ierrstat)
       IF (ierrstat /= SUCCESS) &
         CALL finish (routine, 'ALLOCATE of meteogram data structures failed')
       
     END IF IO_PE
 
-  END SUBROUTINE mtgrm_finalize
+  END SUBROUTINE meteogram_finalize
 
 
   !>
@@ -905,35 +908,34 @@ CONTAINS
   !! @par Revision History
   !! Initial implementation  by  F. Prill, DWD (2011-09-10)
   !!
-  SUBROUTINE mtgrm_collect_buffers(mtgrm_output_config, jg, io_rank)
+  SUBROUTINE meteogram_collect_buffers(meteogram_output_config, jg, io_rank)
     ! station data from namelist
-    TYPE(t_mtgrm_output_config), TARGET, INTENT(IN) :: mtgrm_output_config
+    TYPE(t_meteogram_output_config), TARGET, INTENT(IN) :: meteogram_output_config
     INTEGER, INTENT(IN)  :: jg       !< patch index
     INTEGER, INTENT(IN)  :: io_rank  !< MPI rank of root process
 
 #ifndef NOMPI
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_mtgrm_output:mtgrm_collect_buffers")
     INTEGER     :: station_idx(2), position, icurrent,   &
-      &            jb, jc, i_startidx, i_endidx, ierr,   &
+      &            jb, jc, i_startidx, i_endidx,         &
       &            istation, ivar, nlevs
     INTEGER     :: myrank
-    TYPE(t_mtgrm_data),    POINTER :: mtgrm_data
-    TYPE(t_mtgrm_station), POINTER :: p_station
+    TYPE(t_meteogram_data),    POINTER :: meteogram_data
+    TYPE(t_meteogram_station), POINTER :: p_station
 
-    mtgrm_data => mtgrm_local_data(jg)
+    meteogram_data => meteogram_local_data(jg)
 
     ! get global rank and MPI communicator
     myrank = get_my_mpi_all_id()
 
     ! global time stamp index
     ! Note: We assume that this value is identical for all PEs
-    icurrent = mtgrm_data%icurrent
+    icurrent = meteogram_data%icurrent
 
     ! -- RECEIVER CODE --
     RECEIVER : IF (l_is_receiver) THEN
       ! launch MPI message requests for station data on foreign PEs
-      DO istation=1,mtgrm_output_config%nstations
+      DO istation=1,meteogram_output_config%nstations
         IF (owner(istation) /= myrank) THEN
           CALL p_irecv_packed(msg_buffer(:,istation), MPI_ANY_SOURCE, istation, max_buf_size)
         END IF
@@ -945,11 +947,11 @@ CONTAINS
       ! unpack received messages:
       jc = 0
       jb = 1
-      DO istation=1,mtgrm_output_config%nstations
+      DO istation=1,meteogram_output_config%nstations
         IF (owner(istation) /= myrank) THEN
           position = 0
           CALL p_unpack_int_1d(msg_buffer(:,istation),max_buf_size, position, station_idx(:),2)
-          p_station => mtgrm_global_data(jg)%station(station_idx(1), station_idx(2))
+          p_station => meteogram_global_data(jg)%station(station_idx(1), station_idx(2))
           p_station%station_idx(1:2) = station_idx(1:2)
           ! unpack header information
           CALL p_unpack_int_1d(msg_buffer(:,istation),max_buf_size, position, &
@@ -963,14 +965,14 @@ CONTAINS
           CALL p_unpack_int(msg_buffer(:,istation),max_buf_size, position, p_station%soiltype)
 
           ! unpack meteogram data:
-          DO ivar=1,mtgrm_data%nvars
-            nlevs = mtgrm_data%var_info(ivar)%nlevs
+          DO ivar=1,meteogram_data%nvars
+            nlevs = meteogram_data%var_info(ivar)%nlevs
             CALL p_unpack_real_2d(msg_buffer(:,istation),max_buf_size, position, &
               &                   p_station%var(ivar)%values(:,:), nlevs*icurrent)
 
           END DO
 
-          DO ivar=1,mtgrm_data%nsfcvars
+          DO ivar=1,meteogram_data%nsfcvars
             CALL p_unpack_real_1d(msg_buffer(:,istation),max_buf_size, position, &
               &                   p_station%sfc_var(ivar)%values(:), icurrent)
           END DO
@@ -981,26 +983,26 @@ CONTAINS
             jc = 1
             jb = jb + 1
           END IF
-          station_idx(1:2) = mtgrm_data%station(jc,jb)%station_idx(1:2)
+          station_idx(1:2) = meteogram_data%station(jc,jb)%station_idx(1:2)
 
-          p_station => mtgrm_global_data(jg)%station(station_idx(1),station_idx(2))
-          p_station%station_idx(1:2)   = mtgrm_data%station(jc,jb)%station_idx(1:2)
-          p_station%tri_idx(1:2)       = mtgrm_data%station(jc,jb)%tri_idx(1:2)
-          p_station%tri_idx_local(1:2) = mtgrm_data%station(jc,jb)%tri_idx_local(1:2)
-          p_station%owner              = mtgrm_data%station(jc,jb)%owner
-          p_station%hsurf              = mtgrm_data%station(jc,jb)%hsurf
-          p_station%frland             = mtgrm_data%station(jc,jb)%frland
-          p_station%fc                 = mtgrm_data%station(jc,jb)%fc
-          p_station%soiltype           = mtgrm_data%station(jc,jb)%soiltype
+          p_station => meteogram_global_data(jg)%station(station_idx(1),station_idx(2))
+          p_station%station_idx(1:2)   = meteogram_data%station(jc,jb)%station_idx(1:2)
+          p_station%tri_idx(1:2)       = meteogram_data%station(jc,jb)%tri_idx(1:2)
+          p_station%tri_idx_local(1:2) = meteogram_data%station(jc,jb)%tri_idx_local(1:2)
+          p_station%owner              = meteogram_data%station(jc,jb)%owner
+          p_station%hsurf              = meteogram_data%station(jc,jb)%hsurf
+          p_station%frland             = meteogram_data%station(jc,jb)%frland
+          p_station%fc                 = meteogram_data%station(jc,jb)%fc
+          p_station%soiltype           = meteogram_data%station(jc,jb)%soiltype
           ! copy meteogram data
-          DO ivar=1,mtgrm_data%nvars
-            nlevs = mtgrm_data%var_info(ivar)%nlevs
+          DO ivar=1,meteogram_data%nvars
+            nlevs = meteogram_data%var_info(ivar)%nlevs
             p_station%var(ivar)%values(1:nlevs, 1:icurrent) =  &
-              &  mtgrm_data%station(jc,jb)%var(ivar)%values(1:nlevs, 1:icurrent)
+              &  meteogram_data%station(jc,jb)%var(ivar)%values(1:nlevs, 1:icurrent)
           END DO
-          DO ivar=1,mtgrm_data%nsfcvars
+          DO ivar=1,meteogram_data%nsfcvars
             p_station%sfc_var(ivar)%values(1:icurrent) =  &
-              &  mtgrm_data%station(jc,jb)%sfc_var(ivar)%values(1:icurrent)
+              &  meteogram_data%station(jc,jb)%sfc_var(ivar)%values(1:icurrent)
           END DO
         END IF
       END DO
@@ -1009,14 +1011,14 @@ CONTAINS
     ! -- SENDER CODE --
     SENDER : IF (l_is_sender) THEN
       ! pack station into buffer; send it
-      DO jb=1,mtgrm_data%nblks
+      DO jb=1,meteogram_data%nblks
         i_startidx = 1
         i_endidx   = nproma
-        IF (jb == mtgrm_data%nblks) i_endidx = mtgrm_data%npromz
+        IF (jb == meteogram_data%nblks) i_endidx = meteogram_data%npromz
         DO jc=i_startidx,i_endidx
 
           ! Meteogram header (information on location, ...)
-          p_station => mtgrm_data%station(jc,jb)
+          p_station => meteogram_data%station(jc,jb)
           position = 0
           CALL p_pack_int_1d(p_station%station_idx(:), 2, msg_buffer(:,1), max_buf_size, position)
           CALL p_pack_int_1d(p_station%tri_idx(:), 2, msg_buffer(:,1), max_buf_size, position)
@@ -1028,12 +1030,12 @@ CONTAINS
           CALL p_pack_real(p_station%fc, msg_buffer(:,1), max_buf_size, position)
           CALL p_pack_int (p_station%soiltype, msg_buffer(:,1), max_buf_size, position)
           ! pack meteogram data:
-          DO ivar=1,mtgrm_data%nvars
-            nlevs = mtgrm_data%var_info(ivar)%nlevs
+          DO ivar=1,meteogram_data%nvars
+            nlevs = meteogram_data%var_info(ivar)%nlevs
             CALL p_pack_real_2d(p_station%var(ivar)%values(:,:), nlevs*icurrent, &
               &                 msg_buffer(:,1), max_buf_size, position)
           END DO
-          DO ivar=1,mtgrm_data%nsfcvars
+          DO ivar=1,meteogram_data%nsfcvars
             CALL p_pack_real_1d(p_station%sfc_var(ivar)%values(:), icurrent,     &
               &                 msg_buffer(:,1), max_buf_size, position)
           END DO
@@ -1046,12 +1048,12 @@ CONTAINS
 
       ! reset buffer on sender side
       IF (.NOT. l_is_receiver) &
-        mtgrm_data%icurrent = 0
+        meteogram_data%icurrent = 0
 
     END IF SENDER
 
 #endif
-  END SUBROUTINE mtgrm_collect_buffers
+  END SUBROUTINE meteogram_collect_buffers
 
 
   !>
@@ -1062,13 +1064,13 @@ CONTAINS
   !! @par Revision History
   !! Initial implementation  by  F. Prill, DWD (2011-08-22)
   !!
-  SUBROUTINE mtgrm_open_file(mtgrm_output_config, jg)
+  SUBROUTINE meteogram_open_file(meteogram_output_config, jg)
     ! station data from namelist
-    TYPE(t_mtgrm_output_config), TARGET, INTENT(IN) :: mtgrm_output_config
+    TYPE(t_meteogram_output_config), TARGET, INTENT(IN) :: meteogram_output_config
     ! patch index
     INTEGER,                             INTENT(IN) :: jg
     ! local variables:
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_mtgrm_output:mtgrm_open_file")
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_meteogram_output:meteogram_open_file")
     INTEGER                     :: jb, jc, i_startidx, i_endidx, old_mode, ncfile, &
       &                            istation, ivar, nvars, nsfcvars
     TYPE(t_ncid),       POINTER :: ncid
@@ -1076,44 +1078,44 @@ CONTAINS
       &                            var_level_dims(2), time_string_dims(2), &
       &                            var_dims(4),  sfcvar_dims(3),           &
       &                            istart2(2), icount2(2)
-    CHARACTER(len=MAX_NAME_LENGTH) :: description_str
-    TYPE(t_station_list), POINTER  :: this_station
-    TYPE(t_mtgrm_data), POINTER    :: mtgrm_data
+    CHARACTER(len=MAX_NAME_LENGTH)  :: description_str
+    TYPE(t_station_list), POINTER   :: this_station
+    TYPE(t_meteogram_data), POINTER :: meteogram_data
 
-    IF (mtgrm_output_config%ftype /= FTYPE_NETCDF) THEN
+    IF (meteogram_output_config%ftype /= FTYPE_NETCDF) THEN
       CALL finish(routine, "Output format not yet implemented.")
     END IF
 
     ! In "non-distributed" mode, station data is gathered by PE #0
     ! which writes a single file.
     ! Note that info on variables is not copied to the global data set
-    ! (we use the local mtgrm_data there).
+    ! (we use the local meteogram_data there).
 
-    IF (.NOT. mtgrm_output_config%ldistributed) THEN
-      CALL mtgrm_collect_buffers(mtgrm_output_config, jg, io_rank)
-      mtgrm_data => mtgrm_global_data(jg)
+    IF (.NOT. meteogram_output_config%ldistributed) THEN
+      CALL meteogram_collect_buffers(meteogram_output_config, jg, io_rank)
+      meteogram_data => meteogram_global_data(jg)
     ELSE
-      mtgrm_data => mtgrm_local_data(jg)
+      meteogram_data => meteogram_local_data(jg)
       ! skip routine, if this PE has nothing to do...
-      IF (mtgrm_local_data(jg)%nstations == 0) RETURN
+      IF (meteogram_local_data(jg)%nstations == 0) RETURN
     END IF
 
     ! skip routine, if this PE has nothing to do...
-    IF  (.NOT. mtgrm_output_config%ldistributed .AND.  &
+    IF  (.NOT. meteogram_output_config%ldistributed .AND.  &
       & (.NOT. l_is_receiver)) RETURN
 
     ncid => ncid_list(jg)
-    nvars    = mtgrm_data%nvars
-    nsfcvars = mtgrm_data%nsfcvars
+    nvars    = meteogram_data%nvars
+    nsfcvars = meteogram_data%nsfcvars
 
     ! create a file name for this PE:
-    CALL mtgrm_create_filename(mtgrm_output_config, jg)
+    CALL meteogram_create_filename(meteogram_output_config, jg)
 
     ! create NetCDF file:
     CALL nf(nf_set_default_format(nf_format_64bit, old_mode))
-    CALL nf(nf_create(TRIM(mtgrm_file_info(jg)%zname), nf_clobber, &
-      &               mtgrm_file_info(jg)%file_id))
-    ncfile = mtgrm_file_info(jg)%file_id
+    CALL nf(nf_create(TRIM(meteogram_file_info(jg)%zname), nf_clobber, &
+      &               meteogram_file_info(jg)%file_id))
+    ncfile = meteogram_file_info(jg)%file_id
     CALL nf(nf_set_fill(ncfile, nf_nofill, old_mode))
 
     description_str = "ICON Meteogram File"
@@ -1124,12 +1126,12 @@ CONTAINS
     ! character-position dimension for strings of max length 40
     CALL nf(nf_def_dim(ncfile, "charid", MAX_NAME_LENGTH, ncid%charid))
     ! station header:
-    CALL nf(nf_def_dim(ncfile, 'nstations',  mtgrm_data%nstations, ncid%nstations))
+    CALL nf(nf_def_dim(ncfile, 'nstations',  meteogram_data%nstations, ncid%nstations))
     ! write variables:
-    CALL nf(nf_def_dim(ncfile, 'nvars',      mtgrm_data%nvars,     ncid%nvars))
-    IF (mtgrm_data%nsfcvars > 0) &
-      CALL nf(nf_def_dim(ncfile, 'nsfcvars', mtgrm_data%nsfcvars,  ncid%nsfcvars))
-    CALL nf(nf_def_dim(ncfile, 'max_nlevs',  mtgrm_data%max_nlevs, ncid%max_nlevs))
+    CALL nf(nf_def_dim(ncfile, 'nvars',      meteogram_data%nvars,     ncid%nvars))
+    IF (meteogram_data%nsfcvars > 0) &
+      CALL nf(nf_def_dim(ncfile, 'nsfcvars', meteogram_data%nsfcvars,  ncid%nsfcvars))
+    CALL nf(nf_def_dim(ncfile, 'max_nlevs',  meteogram_data%max_nlevs, ncid%max_nlevs))
     ! create time dimension:
     CALL nf(nf_def_dim(ncfile, 'time', NF_UNLIMITED, ncid%timeid))
     
@@ -1186,7 +1188,7 @@ CONTAINS
     CALL nf_add_descr("Volume variable levels (indices)", ncfile, ncid%var_levels)
 
     ! surface variables:
-    IF (mtgrm_data%nsfcvars > 0) THEN
+    IF (meteogram_data%nsfcvars > 0) THEN
       var_name_dims = (/ ncid%charid, ncid%nsfcvars /)
       CALL nf(nf_def_var(ncfile, "sfcvar_name", NF_CHAR, 2, var_name_dims(:), &
         &                ncid%sfcvar_name))
@@ -1214,7 +1216,7 @@ CONTAINS
       &                ncid%var_values))
     CALL nf_add_descr("value buffer for volume variables", ncfile, ncid%var_values)
     ! add value buffer for surface variables:
-    IF (mtgrm_data%nsfcvars > 0) THEN
+    IF (meteogram_data%nsfcvars > 0) THEN
       sfcvar_dims = (/ ncid%nstations, ncid%nvars, ncid%timeid /)
       CALL nf(nf_def_var(ncfile, "sfcvalues", NF_DOUBLE, 3, sfcvar_dims(:), &
         &                ncid%sfcvar_values))
@@ -1227,42 +1229,42 @@ CONTAINS
 
     DO ivar=1,nvars
       CALL nf(nf_put_vara_text(ncfile, ncid%var_name, (/ 1, ivar /), &
-        &                      (/ LEN(TRIM(mtgrm_data%var_info(ivar)%zname)), 1 /), &
-        &                      TRIM(mtgrm_data%var_info(ivar)%zname)))
+        &                      (/ LEN(TRIM(meteogram_data%var_info(ivar)%zname)), 1 /), &
+        &                      TRIM(meteogram_data%var_info(ivar)%zname)))
       CALL nf(nf_put_vara_text(ncfile, ncid%var_unit, (/ 1, ivar /), &
-        &                      (/ LEN(TRIM(mtgrm_data%var_info(ivar)%zunit)), 1 /), &
-        &                      TRIM(mtgrm_data%var_info(ivar)%zunit)))
+        &                      (/ LEN(TRIM(meteogram_data%var_info(ivar)%zunit)), 1 /), &
+        &                      TRIM(meteogram_data%var_info(ivar)%zunit)))
       CALL nf(nf_put_vara_int(ncfile, ncid%var_group_id, ivar, 1, &
-        &                     mtgrm_data%var_info(ivar)%igroup_id))
+        &                     meteogram_data%var_info(ivar)%igroup_id))
       CALL nf(nf_put_vara_int(ncfile, ncid%var_nlevs, ivar, 1, &
-        &                     mtgrm_data%var_info(ivar)%nlevs))
+        &                     meteogram_data%var_info(ivar)%nlevs))
       istart2 = (/ 1, ivar /)
-      icount2 = (/ mtgrm_data%var_info(ivar)%nlevs, 1 /)
+      icount2 = (/ meteogram_data%var_info(ivar)%nlevs, 1 /)
       CALL nf(nf_put_vara_int(ncfile, ncid%var_levels, istart2, icount2, &
-        &                     mtgrm_data%var_info(ivar)%levels(:)))
+        &                     meteogram_data%var_info(ivar)%levels(:)))
     END DO
 
     DO ivar=1,nsfcvars
       CALL nf(nf_put_vara_text(ncfile, ncid%sfcvar_name, (/ 1, ivar /), &
-        &                      (/ LEN(TRIM(mtgrm_data%sfc_var_info(ivar)%zname)), 1 /), &
-        &                      TRIM(mtgrm_data%sfc_var_info(ivar)%zname)))
+        &                      (/ LEN(TRIM(meteogram_data%sfc_var_info(ivar)%zname)), 1 /), &
+        &                      TRIM(meteogram_data%sfc_var_info(ivar)%zname)))
       CALL nf(nf_put_vara_text(ncfile, ncid%sfcvar_unit, (/ 1, ivar /), &
-        &                      (/ LEN(TRIM(mtgrm_data%sfc_var_info(ivar)%zunit)), 1 /), &
-        &                      TRIM(mtgrm_data%sfc_var_info(ivar)%zunit)))
+        &                      (/ LEN(TRIM(meteogram_data%sfc_var_info(ivar)%zunit)), 1 /), &
+        &                      TRIM(meteogram_data%sfc_var_info(ivar)%zunit)))
       CALL nf(nf_put_vara_int(ncfile, ncid%sfcvar_group_id, ivar, 1, &
-        &                     mtgrm_data%sfc_var_info(ivar)%igroup_id))
+        &                     meteogram_data%sfc_var_info(ivar)%igroup_id))
     END DO
 
     istation = 1
-    DO jb=1,mtgrm_data%nblks
+    DO jb=1,meteogram_data%nblks
       i_startidx = 1
       i_endidx   = nproma
-      IF (jb == mtgrm_data%nblks) i_endidx = mtgrm_data%npromz
+      IF (jb == meteogram_data%nblks) i_endidx = meteogram_data%npromz
 
       DO jc=i_startidx,i_endidx
-        this_station => mtgrm_output_config%station_list(           &
-          &               mtgrm_data%station(jc,jb)%station_idx(1), &
-          &               mtgrm_data%station(jc,jb)%station_idx(2))
+        this_station => meteogram_output_config%station_list(           &
+          &               meteogram_data%station(jc,jb)%station_idx(1), &
+          &               meteogram_data%station(jc,jb)%station_idx(2))
         CALL nf(nf_put_vara_text(ncfile, ncid%station_name, (/ 1, istation /), &
           &                      (/ LEN(TRIM(this_station%zname)), 1 /), &
           &                      TRIM(this_station%zname)))
@@ -1271,24 +1273,24 @@ CONTAINS
         CALL nf(nf_put_vara_double(ncfile, ncid%station_lat, istation, 1, &
           &                        this_station%location%lat))
         CALL nf(nf_put_vara_int(ncfile, ncid%station_idx, istation, 1, &
-          &                     mtgrm_data%station(jc,jb)%tri_idx(1)))
+          &                     meteogram_data%station(jc,jb)%tri_idx(1)))
         CALL nf(nf_put_vara_int(ncfile, ncid%station_blk, istation, 1, &
-          &                     mtgrm_data%station(jc,jb)%tri_idx(2)))
+          &                     meteogram_data%station(jc,jb)%tri_idx(2)))
         CALL nf(nf_put_vara_double(ncfile, ncid%station_hsurf, istation, 1, &
-          &                        mtgrm_data%station(jc,jb)%hsurf))
+          &                        meteogram_data%station(jc,jb)%hsurf))
         CALL nf(nf_put_vara_double(ncfile, ncid%station_frland, istation, 1, &
-          &                        mtgrm_data%station(jc,jb)%frland))
+          &                        meteogram_data%station(jc,jb)%frland))
         CALL nf(nf_put_vara_double(ncfile, ncid%station_fc, istation, 1, &
-          &                        mtgrm_data%station(jc,jb)%fc))
+          &                        meteogram_data%station(jc,jb)%fc))
         CALL nf(nf_put_vara_int(ncfile, ncid%station_soiltype, istation, 1, &
-          &                     mtgrm_data%station(jc,jb)%soiltype))
+          &                     meteogram_data%station(jc,jb)%soiltype))
 
         istation = istation + 1 
 
       END DO
     END DO
 
-  END SUBROUTINE mtgrm_open_file
+  END SUBROUTINE meteogram_open_file
 
 
   !>
@@ -1301,38 +1303,38 @@ CONTAINS
   !! @par Revision History
   !! Initial implementation  by  F. Prill, DWD (2011-08-22)
   !!
-  SUBROUTINE mtgrm_flush_file(mtgrm_output_config, jg)
+  SUBROUTINE meteogram_flush_file(meteogram_output_config, jg)
     ! station data from namelist
-    TYPE(t_mtgrm_output_config), TARGET, INTENT(IN) :: mtgrm_output_config
+    TYPE(t_meteogram_output_config), TARGET, INTENT(IN) :: meteogram_output_config
     INTEGER, INTENT(IN)         :: jg       !< patch index
     ! local variables:
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_mtgrm_output:mtgrm_flush_file")
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_meteogram_output:meteogram_flush_file")
     INTEGER                     :: ncfile,  totaltime, itime, istation, ivar, &
       &                            jb, jc, i_startidx, i_endidx, nlevs,       &
       &                            nvars, nsfcvars
-    TYPE(t_mtgrm_data), POINTER :: mtgrm_data
-    TYPE(t_ncid),       POINTER :: ncid
-    INTEGER                     :: istart4(4), icount4(4)
+    TYPE(t_meteogram_data), POINTER :: meteogram_data
+    TYPE(t_ncid)          , POINTER :: ncid
+    INTEGER                         :: istart4(4), icount4(4)
   
     ncid => ncid_list(jg)
-    ncfile = mtgrm_file_info(jg)%file_id
+    ncfile = meteogram_file_info(jg)%file_id
 
     ! In "non-distributed" mode, station data is gathered by PE #0
     ! which writes a single file:
-    IF (mtgrm_output_config%ldistributed) THEN
-      mtgrm_data => mtgrm_local_data(jg)
+    IF (meteogram_output_config%ldistributed) THEN
+      meteogram_data => meteogram_local_data(jg)
     ELSE
-      CALL mtgrm_collect_buffers(mtgrm_output_config, jg, io_rank)
-      mtgrm_data => mtgrm_global_data(jg)
+      CALL meteogram_collect_buffers(meteogram_output_config, jg, io_rank)
+      meteogram_data => meteogram_global_data(jg)
     END IF
 
     ! skip routine, if this PE has nothing to do...
-    IF (mtgrm_data%nstations == 0) RETURN
-    IF  (.NOT. mtgrm_output_config%ldistributed .AND.  &
+    IF (meteogram_data%nstations == 0) RETURN
+    IF  (.NOT. meteogram_output_config%ldistributed .AND.  &
       & (.NOT. l_is_receiver)) RETURN
 
-    nvars    = mtgrm_data%nvars
-    nsfcvars = mtgrm_data%nsfcvars
+    nvars    = meteogram_data%nvars
+    nsfcvars = meteogram_data%nsfcvars
 
     IF (dbg_level > 0) THEN
       WRITE(message_text,*) "Meteogram"
@@ -1343,39 +1345,40 @@ CONTAINS
     CALL nf(nf_inq_dimlen(ncfile, ncid%timeid, totaltime))
 
     ! write time stamp info:
-    DO itime=1,mtgrm_local_data(jg)%icurrent
+    DO itime=1,meteogram_local_data(jg)%icurrent
 
       CALL nf(nf_put_vara_text(ncfile, ncid%dateid, (/ 1, totaltime+itime /), &
-        &                      (/ LEN(TRIM(mtgrm_data%time_stamp(itime)%zdate)), 1 /), &
-        &                      TRIM(mtgrm_data%time_stamp(itime)%zdate)))
+        &                      (/ LEN(TRIM(meteogram_data%time_stamp(itime)%zdate)), 1 /), &
+        &                      TRIM(meteogram_data%time_stamp(itime)%zdate)))
       CALL nf(nf_put_vara_int(ncfile, ncid%time_step, totaltime+itime, 1, &
-        &                     mtgrm_data%time_stamp(itime)%istep))
+        &                     meteogram_data%time_stamp(itime)%istep))
 
       ! write meteogram buffer:
       istation = 1
-      DO jb=1,mtgrm_data%nblks
+      DO jb=1,meteogram_data%nblks
         i_startidx = 1
         i_endidx   = nproma
-        IF (jb == mtgrm_data%nblks)  &
-          &  i_endidx = mtgrm_data%npromz
+        IF (jb == meteogram_data%nblks)  &
+          &  i_endidx = meteogram_data%npromz
 
         DO jc=i_startidx,i_endidx
 
           ! volume variables:
           DO ivar=1,nvars
-            nlevs = mtgrm_data%var_info(ivar)%nlevs
+            nlevs = meteogram_data%var_info(ivar)%nlevs
             istart4 = (/ istation, ivar, 1, totaltime+itime /)
             icount4 = (/ 1, 1, nlevs, 1 /)
             CALL nf(nf_put_vara_double(ncfile, ncid%var_values,                   &
               &                        istart4, icount4,                          &
-              &                        mtgrm_data%station(jc,jb)%var(ivar)%values(1:nlevs, itime)))
+              &                        meteogram_data%station(jc,jb)%var(ivar)%values(1:nlevs, &
+              &                        itime)))
           END DO
           ! surface variables:
           DO ivar=1,nsfcvars
             CALL nf(nf_put_vara_double(ncfile, ncid%sfcvar_values,                &
               &                        (/ istation, ivar, totaltime+itime /),     &
               &                        (/ 1, 1, 1 /),                             &
-              &                        mtgrm_data%station(jc,jb)%sfc_var(ivar)%values(itime)))
+              &                        meteogram_data%station(jc,jb)%sfc_var(ivar)%values(itime)))
           END DO
 
           istation = istation + 1
@@ -1384,9 +1387,9 @@ CONTAINS
     END DO
 
     ! finally, reset buffer counter for new data
-    mtgrm_local_data(jg)%icurrent = 0
+    meteogram_local_data(jg)%icurrent = 0
 
-  END SUBROUTINE mtgrm_flush_file
+  END SUBROUTINE meteogram_flush_file
 
 
   !>
@@ -1397,22 +1400,22 @@ CONTAINS
   !! @par Revision History
   !! Initial implementation  by  F. Prill, DWD (2011-08-22)
   !!
-  SUBROUTINE mtgrm_close_file(mtgrm_output_config, jg)
+  SUBROUTINE meteogram_close_file(meteogram_output_config, jg)
     ! station data from namelist
-    TYPE(t_mtgrm_output_config), TARGET, INTENT(IN) :: mtgrm_output_config
+    TYPE(t_meteogram_output_config), TARGET, INTENT(IN) :: meteogram_output_config
     INTEGER, INTENT(IN)  :: jg    !< patch index
 
     ! write remaining buffers:
-    CALL mtgrm_flush_file(mtgrm_output_config, jg)
+    CALL meteogram_flush_file(meteogram_output_config, jg)
 
     ! skip routine, if this PE has nothing to do...
-    IF  ((mtgrm_output_config%ldistributed .AND.  &
-      &   (mtgrm_local_data(jg)%nstations > 0)).OR.  &
+    IF  ((meteogram_output_config%ldistributed .AND.  &
+      &   (meteogram_local_data(jg)%nstations > 0)).OR.  &
       & (io_rank == get_my_mpi_all_id())) THEN
       ! Close NetCDF file
-      CALL nf(nf_close(mtgrm_file_info(jg)%file_id))
+      CALL nf(nf_close(meteogram_file_info(jg)%file_id))
     END IF
-  END SUBROUTINE mtgrm_close_file
+  END SUBROUTINE meteogram_close_file
 
 
   !>
@@ -1422,10 +1425,10 @@ CONTAINS
   !! @par Revision History
   !! Initial implementation  by  F. Prill, DWD (2011-08-22)
   !!
-  SUBROUTINE mtgrm_create_filename (mtgrm_output_config, jg)
+  SUBROUTINE meteogram_create_filename (meteogram_output_config, jg)
     
     ! station data from namelist
-    TYPE(t_mtgrm_output_config), TARGET, INTENT(IN) :: mtgrm_output_config
+    TYPE(t_meteogram_output_config), TARGET, INTENT(IN) :: meteogram_output_config
     ! patch index
     INTEGER,                             INTENT(IN) :: jg
     ! Local variables
@@ -1433,16 +1436,17 @@ CONTAINS
 
     my_id = get_my_mpi_all_id()
 
-    SELECT CASE (mtgrm_output_config%ftype)
+    SELECT CASE (meteogram_output_config%ftype)
     CASE (FTYPE_NETCDF)
-      IF (mtgrm_output_config%ldistributed) THEN
-        WRITE (mtgrm_file_info(jg)%zname,'(a,i3.3,a,i3.3,a)') "PE", my_id, "_patch", jg, ".nc"
+      IF (meteogram_output_config%ldistributed) THEN
+        WRITE (meteogram_file_info(jg)%zname,'(a,i3.3,a,i3.3,a)') "PE", my_id, "_patch", jg, ".nc"
       ELSE
-        WRITE (mtgrm_file_info(jg)%zname,'(a,i3.3,a)') "patch", jg, ".nc"
+        WRITE (meteogram_file_info(jg)%zname,'(a,i3.3,a)') "patch", jg, ".nc"
       END IF
     END SELECT
-    mtgrm_file_info(jg)%zname = TRIM(mtgrm_output_config%zprefix)//TRIM(mtgrm_file_info(jg)%zname)
-  END SUBROUTINE mtgrm_create_filename
+    meteogram_file_info(jg)%zname = &
+      &  TRIM(meteogram_output_config%zprefix)//TRIM(meteogram_file_info(jg)%zname)
+  END SUBROUTINE meteogram_create_filename
 
 
   !>
@@ -1486,30 +1490,30 @@ CONTAINS
     INTEGER,          INTENT(INOUT) :: ivar
     INTEGER,          INTENT(IN)    :: igroup_id, nlev, jg
     ! Local variables
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_mtgrm_output:add_atmo_var")
-    TYPE(t_mtgrm_data), POINTER     :: mtgrm_data
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_meteogram_output:add_atmo_var")
+    TYPE(t_meteogram_data), POINTER :: meteogram_data
     INTEGER                         :: ierrstat, ilev
 
-    mtgrm_data => mtgrm_local_data(jg)
+    meteogram_data => meteogram_local_data(jg)
 
     ! create new variable index
     var_list(jg)%no_atmo_vars = var_list(jg)%no_atmo_vars + 1
     ivar = var_list(jg)%no_atmo_vars
-    IF (ivar > mtgrm_data%nvars) THEN
+    IF (ivar > meteogram_data%nvars) THEN
       CALL finish(routine, 'Number of sampling variables exceeds preset value "nvars"')
     END IF
 
     ! create meteogram data structure
-    mtgrm_data%var_info(ivar)%zname     = TRIM(zname)
-    mtgrm_data%var_info(ivar)%zunit     = TRIM(zunit)
-    mtgrm_data%var_info(ivar)%igroup_id = igroup_id
-    mtgrm_data%var_info(ivar)%nlevs     = nlev
-    mtgrm_data%max_nlevs = MAX(mtgrm_data%max_nlevs,  mtgrm_data%var_info(ivar)%nlevs)
-    ALLOCATE(mtgrm_data%var_info(ivar)%levels(nlev), stat=ierrstat)
+    meteogram_data%var_info(ivar)%zname     = TRIM(zname)
+    meteogram_data%var_info(ivar)%zunit     = TRIM(zunit)
+    meteogram_data%var_info(ivar)%igroup_id = igroup_id
+    meteogram_data%var_info(ivar)%nlevs     = nlev
+    meteogram_data%max_nlevs = MAX(meteogram_data%max_nlevs,  meteogram_data%var_info(ivar)%nlevs)
+    ALLOCATE(meteogram_data%var_info(ivar)%levels(nlev), stat=ierrstat)
     IF (ierrstat /= SUCCESS) THEN
       CALL finish (routine, 'ALLOCATE of meteogram data structures failed')
     ENDIF
-    mtgrm_data%var_info(ivar)%levels = (/ (ilev, ilev=1,nlev) /)
+    meteogram_data%var_info(ivar)%levels = (/ (ilev, ilev=1,nlev) /)
   END SUBROUTINE add_atmo_var
 
 
@@ -1522,22 +1526,22 @@ CONTAINS
     INTEGER,          INTENT(INOUT) :: ivar
     INTEGER,          INTENT(IN)    :: igroup_id, jg
     ! Local variables
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_mtgrm_output:add_sfc_var")
-    TYPE(t_mtgrm_data), POINTER     :: mtgrm_data
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_meteogram_output:add_sfc_var")
+    TYPE(t_meteogram_data), POINTER :: meteogram_data
  
-    mtgrm_data => mtgrm_local_data(jg)
+    meteogram_data => meteogram_local_data(jg)
 
     ! create new variable index
     var_list(jg)%no_sfc_vars = var_list(jg)%no_sfc_vars + 1
     ivar = var_list(jg)%no_sfc_vars
-    IF (ivar > mtgrm_data%nsfcvars) THEN
+    IF (ivar > meteogram_data%nsfcvars) THEN
       CALL finish(routine, 'Number of sampling variables exceeds preset value "nsfcvars"')
     END IF
     ! create meteogram data structure
-    mtgrm_data%sfc_var_info(ivar)%zname     = TRIM(zname)
-    mtgrm_data%sfc_var_info(ivar)%zunit     = TRIM(zunit)
-    mtgrm_data%sfc_var_info(ivar)%igroup_id = igroup_id
+    meteogram_data%sfc_var_info(ivar)%zname     = TRIM(zname)
+    meteogram_data%sfc_var_info(ivar)%zunit     = TRIM(zunit)
+    meteogram_data%sfc_var_info(ivar)%igroup_id = igroup_id
   END SUBROUTINE add_sfc_var
 
-END MODULE mo_mtgrm_output
+END MODULE mo_meteogram_output
 

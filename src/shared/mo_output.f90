@@ -71,8 +71,8 @@ MODULE mo_output
   USE mo_run_config,          ONLY: ltimer
   USE mo_timer,               ONLY: timer_start, timer_stop,&
     &                               timer_write_output !, timer_write_restart_file
-  USE mo_mtgrm_output,        ONLY: mtgrm_flush_file
-  USE mo_mtgrm_config,        ONLY: mtgrm_output_config
+  USE mo_meteogram_output,    ONLY: meteogram_flush_file
+  USE mo_meteogram_config,    ONLY: meteogram_output_config
 
   USE mo_oce_state,           ONLY: set_zlev
   IMPLICIT NONE
@@ -299,8 +299,8 @@ CONTAINS
 
     ! write recent samples of meteogram output
     DO jg = 1, n_dom
-      IF (mtgrm_output_config(jg)%lenabled) THEN
-        CALL mtgrm_flush_file(mtgrm_output_config(jg), jg)
+      IF (meteogram_output_config(jg)%lenabled) THEN
+        CALL meteogram_flush_file(meteogram_output_config(jg), jg)
       END IF
     END DO
 

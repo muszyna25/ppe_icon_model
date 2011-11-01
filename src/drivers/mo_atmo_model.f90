@@ -136,8 +136,8 @@ USE mo_ext_data,            ONLY: ext_data, init_ext_data, destruct_ext_data
 !!$  USE mo_gscp_cosmo,          ONLY: hydci_pp_init
 
 ! meteogram output
-USE mo_mtgrm_output,        ONLY: mtgrm_init, mtgrm_finalize
-USE mo_mtgrm_config,        ONLY: mtgrm_output_config
+USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize
+USE mo_meteogram_config,    ONLY: meteogram_output_config
 
 
 !-------------------------------------------------------------------------
@@ -597,8 +597,8 @@ CONTAINS
     !---------------------------------------------------------------------
 
     DO jg =1,n_dom
-      IF (mtgrm_output_config(jg)%lenabled) THEN
-        CALL mtgrm_init(mtgrm_output_config(jg), p_patch(jg), &
+      IF (meteogram_output_config(jg)%lenabled) THEN
+        CALL meteogram_init(meteogram_output_config(jg), p_patch(jg), &
           &             ext_data(jg), iforcing, jg)
       END IF
     END DO
@@ -677,12 +677,12 @@ CONTAINS
 
     ! finalize meteogram output
     DO jg = 1, n_dom
-      IF (mtgrm_output_config(jg)%lenabled) THEN
-        CALL mtgrm_finalize(mtgrm_output_config(jg), jg)
+      IF (meteogram_output_config(jg)%lenabled) THEN
+        CALL meteogram_finalize(meteogram_output_config(jg), jg)
       END IF
     END DO
     DO jg = 1, max_dom
-      DEALLOCATE(mtgrm_output_config(jg)%station_list)
+      DEALLOCATE(meteogram_output_config(jg)%station_list)
     END DO
 
     ! clear restart namelist buffer
