@@ -196,6 +196,11 @@ if [[ $run_ocean = 'true' ]]; then
    if [[ "x$iforc" = "x12" ]] ; then
      FLUXNAME=iconR${R}B0${B}-flux.nc
      OMIPNAME=omip4icon-R${R}B0${B}-monmean.nc
+     if [[ "x$iforc_len" = "x1" ]] ; then
+       OMIPNAME=omip4icon-R${R}B0${B}-annual.nc
+     elif [[ "x$iforc_len" = "x12" ]] ; then
+       OMIPNAME=omip4icon-R${R}B0${B}-monmean.nc
+     fi
      rm ${EXPDIR}/${FLUXNAME}
      ln -s ${HGRIDDIR}/${OMIPNAME} ${EXPDIR}/${FLUXNAME}
      check_error $? "ln -s ${HGRIDDIR}/${OMIPNAME}"

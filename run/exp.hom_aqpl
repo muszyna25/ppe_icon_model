@@ -72,11 +72,15 @@ init_oce=0     # 1: use ocean initialization file; 0: init with constants or ana
 # $HGRIDDIR/ts_phc_season-iconR${R}B0{B}-L11.nc
 #
 #-----------------------------------------------------------------------------
-iforc=10       # 10: no forcing; 11: analytical; 12: read from flux file; 14: coupled to atmosphere
-iforc_omip=1   # type of OMIP forcing to read: 1 = u/v-stress;     2 = full 12 OMIP datasets
-iforc_len=366  # length of forcing dataset:   12 = monthly data; 366 = daily data
-# flux files must be provided and named as as
+# ocean forcing = 12 needs an additional flux file 
+iforc=10
+iforc_omip=1   # type of OMIP forcing to read: 1 = u/v-stress;
+               #                               2 = use full OMIP datasets; 
+               #                               3 = u/v-stress, heat and mass flux
+iforc_len=500  # length of OMIP dataset: 1 = annual; 12 = monthly data; else = daily data
+# flux files must be provided at grid directory and named monmean/annual accordingly
 # $HGRIDDIR/omip4icon-R${R}B0{B}-monmean.nc
+# $HGRIDDIR/omip4icon-R${R}B0{B}-annual.nc
 #
 #-----------------------------------------------------------------------------
 # global timing
