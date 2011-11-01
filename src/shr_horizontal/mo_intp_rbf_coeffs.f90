@@ -163,7 +163,7 @@ MODULE mo_intp_rbf_coeffs
 !
 USE mo_kind,                ONLY: wp, dp
 USE mo_exception,           ONLY: message, message_text, finish
-USE mo_impl_constants,      ONLY: SUCCESS
+USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int
 USE mo_model_domain,        ONLY: t_patch, t_tangent_vectors
 USE mo_model_domain_import, ONLY: l_limited_area, n_dom_start
 USE mo_dynamics_config,     ONLY: iequations
@@ -2180,14 +2180,16 @@ SUBROUTINE rbf_setup_interpol_lonlat(k_jg, ptr_patch, ptr_int_lonlat, ptr_int)
   INTEGER                          :: jb, jc, i_startidx, i_endidx,         &
     &                                 nblks_lonlat, npromz_lonlat, errstat, &
     &                                 jb_lonlat, jc_lonlat,                 &
-    &                                 block_size, glb_index, i, iroot_id
-                                   
-  LOGICAL                          :: l_distributed
+    &                                 block_size, glb_index, i, iroot_id,   &
+    &                                 rl_start, rl_end, i_nchdom, i_startblk
+  LOGICAL                          :: l_distributed, l_cutoff_local_domains
+  LOGICAL, ALLOCATABLE             :: l_cutoff(:,:)
   INTEGER                          :: array_shape_2d(2), array_shape_3d(3), &
     &                                 array_shape_4d(4)
   TYPE(t_geographical_coordinates) :: cell_center, lonlat_pt
   TYPE(t_cartesian_coordinates)    :: p1, p2
-  REAL(wp)                         :: point(2), z_norm, z_nx1(3), z_nx2(3)
+  REAL(wp)                         :: point(2), z_norm, z_nx1(3), z_nx2(3), &
+    &                                 max_dist
   INTEGER                          :: ithis_local_pts
 
   !-----------------------------------------------------------------------
@@ -2195,6 +2197,8 @@ SUBROUTINE rbf_setup_interpol_lonlat(k_jg, ptr_patch, ptr_int_lonlat, ptr_int)
   ! TODO[FP] : It shouldn't be harmful to enable distributed
   ! coefficient computation even in sequential mode.
   l_distributed = .TRUE.
+  ! Flag: .TRUE., if we want to erase values outside local domains
+  l_cutoff_local_domains = .TRUE.
 
   IF (dbg_level > 1) THEN
     WRITE(message_text,*) "SETUP : rbf_interpol_lonlat"
@@ -2412,6 +2416,40 @@ SUBROUTINE rbf_setup_interpol_lonlat(k_jg, ptr_patch, ptr_int_lonlat, ptr_int)
     array_shape_3d(:) = (/ 2, nproma, grid%nblks /)
     CALL p_gather_field(grid%total_dim, ptr_int_lonlat%nlocal_pts, ptr_int_lonlat%owner, &
       &                 block_size, array_shape_3d, iroot_id, ptr_int_lonlat%tri_idx)
+  END IF
+
+  IF ( l_cutoff_local_domains     .AND.  &
+    &  (process_mpi_io_size == 0) .AND.  &
+    &   my_process_is_stdio() )  THEN
+    ! make a sensible guess for maximum distance (just taking a
+    ! "randomly chosen" edge length)
+    rl_start = 2
+    rl_end   = min_rlcell_int
+    i_nchdom   = MAX(1,ptr_patch%n_childdom)
+    i_startblk = ptr_patch%cells%start_blk(rl_start,1)
+    CALL get_indices_e(ptr_patch, i_startblk,  &
+      &                i_startblk, i_startblk, &
+      &                i_startidx, i_endidx, &
+      &                rl_start, rl_end)
+    max_dist = 3._gk * REAL(ptr_patch%edges%primal_edge_length(i_startidx,i_startblk)/re, gk)
+
+    ! build a logical array, .true. where lon-lat point is outside of
+    ! the current patch:
+    ALLOCATE(l_cutoff(nproma, grid%nblks), stat=errstat)
+    IF (errstat /= SUCCESS) &
+      CALL finish (routine, 'allocation for working arrays failed')
+    l_cutoff(:,:) = (MAX(ABS(ptr_int_lonlat%rdist(1,:,:)), &
+      &                  ABS(ptr_int_lonlat%rdist(2,:,:))) >= max_dist)
+
+    WHERE (l_cutoff(:,:))
+      ptr_int_lonlat%rdist(1,:,:) = 0.
+      ptr_int_lonlat%rdist(2,:,:) = 0.
+    END WHERE
+
+    ! clean up
+    DEALLOCATE(l_cutoff, stat=errstat)
+    IF (errstat /= SUCCESS) &
+      CALL finish (routine, 'DEALLOCATE of working arrays failed')
   END IF
 
   DEALLOCATE(in_points, rotated_pts, min_dist, stat=errstat)
