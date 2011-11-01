@@ -1688,19 +1688,19 @@ CONTAINS
     !
     ! 5. If desired, apply a (semi-)monotone flux limiter to limit computed fluxes.
     !    The flux limiter is based on work by Zalesak (1979)
-    IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_m) THEN
-      CALL hflx_limiter_mo( p_patch, p_int, p_dtime, p_cc, p_mass_flx_e, & !in
-        &                p_out_e, opt_rlend=i_rlend, opt_slev=slev,      & !inout,in
-        &                opt_elev=elev                                   ) !in
+ !   IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_m) THEN
+ !     CALL hflx_limiter_mo( p_patch, p_int, p_dtime, p_cc, p_mass_flx_e, & !in
+ !       &                p_out_e, opt_rlend=i_rlend, opt_slev=slev,      & !inout,in
+ !       &                opt_elev=elev                                   ) !in
 
-    ELSE IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_sm) THEN
+ !   ELSE IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_sm) THEN
       ! MPI-sync necessary (to be precise: only necessary for
       ! igrad_c_miura /= 3. For simplicity, we perform the sync for
       ! igrad_c_miura = 3 as well.
       CALL hflx_limiter_sm( p_patch, p_int, p_dtime, p_cc, p_out_e, & !in,inout
         &                   opt_rlend=i_rlend, opt_slev=slev,       & !in
         &                   opt_elev=elev                           ) !in
-    ENDIF
+ !   ENDIF
 
 
     IF ( ld_cleanup ) THEN
