@@ -208,19 +208,19 @@ CONTAINS
 
   ! triangle center and edges
 
-  ! read temperature - TW: Winter temperature (Jan); TS: July; in deg Celsius
-  CALL read_netcdf_data (ncid, 'TW', ppatch%n_patch_cells_g,     &
-    &                     ppatch%n_patch_cells, ppatch%cells%glb_index, &
-    &                     n_zlev, z_prog)
+  ! read temperature
+  !  - 2011-11-01, >r7005: read one data set, annual mean only
+  !  - "T": annual mean temperature
+  CALL read_netcdf_data (ncid, 'T', ppatch%n_patch_cells_g, ppatch%n_patch_cells, &
+    &                    ppatch%cells%glb_index, n_zlev, z_prog)
 
   p_os%p_prog(nold(1))%tracer(:,1:n_zlev,:,1) = z_prog(:,1:n_zlev,:)
 
-  ! read salinity - SW: Winter (Jan); SS: July; in psu
+  ! read salinity
+  !  - "S": annual mean salinity
   IF (no_tracer > 1) THEN
-    CALL read_netcdf_data (ncid, 'SW', ppatch%n_patch_cells_g,     &
-      &                     ppatch%n_patch_cells, ppatch%cells%glb_index, &
-      &                     n_zlev, z_prog)
-   
+    CALL read_netcdf_data (ncid, 'T', ppatch%n_patch_cells_g, ppatch%n_patch_cells, &
+      &                    ppatch%cells%glb_index, n_zlev, z_prog)
     p_os%p_prog(nold(1))%tracer(:,1:n_zlev,:,2) = z_prog(:,1:n_zlev,:)
   END IF
 
