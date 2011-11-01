@@ -1054,6 +1054,15 @@ CONTAINS
             &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
             &           k_jg)
 
+            !KF this variable should only go into the output as an averaged one 
+            WRITE(name,'(A14)') "dlwfsfc_dT_avg",
+            WRITE(long_name,'(A8,A27)') "averaged", " longwave surface net flux T-tend"
+            CALL addVar(TimeVar(TRIM(name),&
+                 &                   TRIM(long_name),&
+                 &                   'W/m**2/K', 112, 128,&
+                 &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
+            
+            
             IF (lflux_avg ) THEN
               sufix = "_avg"
               meaning = "averaged"
@@ -1076,13 +1085,7 @@ CONTAINS
           &                   'W/m**2', 112, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)), k_jg)
 
-          WRITE(name,'(A10,A4)') "dlwfsfc_dT", sufix
-          WRITE(long_name,'(A8,A27)') meaning, " longwave surface net flux T-tend"
-          CALL addVar(TimeVar(TRIM(name),&
-          &                   TRIM(long_name),&
-          &                   'W/m**2/K', 112, 128,&
-          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
-
+  
           WRITE(name,'(A8,A4)') "swflxtoa", sufix
           WRITE(long_name,'(A8,A23)') meaning, " shortwave toa net flux"
           CALL addVar(TimeVar(TRIM(name),&
