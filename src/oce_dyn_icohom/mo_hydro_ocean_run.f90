@@ -219,9 +219,9 @@ CONTAINS
 !      write(*,*) minval(p_ice%hi), maxval(p_ice%hi)
 !
 !      write(*,*) minval(pstate_oce(jg)%p_prog(nold(1))%tracer(:,1,:,1), &
-!                  mask=pstate_oce(jg)%p_prog(nold(1))%tracer(:,1,:,1) /= 0.), &
+!                  mask=pstate_oce(jg)%p_prog(nold(1))%tracer(:,1,:,1) /= 0._wp), &
 !               maxval(pstate_oce(jg)%p_prog(nold(1))%tracer(:,1,:,1), &
-!                  mask=pstate_oce(jg)%p_prog(nold(1))%tracer(:,1,:,1) /= 0.)
+!                  mask=pstate_oce(jg)%p_prog(nold(1))%tracer(:,1,:,1) /= 0._wp)
 
       IF(iswm_oce /= 1)THEN
 
@@ -417,7 +417,6 @@ CONTAINS
     CALL      init_sfcflx(ppatch(jg), p_sfc_flx)
 
     CALL construct_sea_ice(ppatch(jg), p_ice, kice)
-    CALL          ice_init(ppatch(jg), pstate_oce(jg), p_ice)
     CALL construct_atmos_for_ocean(ppatch(jg), p_as)
     CALL construct_atmos_fluxes(ppatch(jg), p_atm_f, kice)
 
@@ -427,6 +426,8 @@ CONTAINS
       CALL init_ho_prog(ppatch(jg), pstate_oce(jg), p_ext_data(jg), p_sfc_flx)
     END IF
     CALL init_ho_coupled(ppatch(jg), pstate_oce(jg))
+    IF (i_sea_ice == 1) &
+      &   CALL ice_init(ppatch(jg), pstate_oce(jg), p_ice)
 
     IF (ltimer) CALL timer_stop(timer_oce_init)
     CALL message (TRIM(routine),'end')
