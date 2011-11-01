@@ -175,7 +175,7 @@ IF (no_tracer>=1 .AND. irelax_3d_T >0) THEN
 
   ! Add Forcing term to new temperature
   p_os%p_prog(nnew(1))%tracer(:,:,:,1) = p_os%p_prog(nnew(1))%tracer(:,:,:,1) + &
-    &                                    p_os%p_aux%relax_3d_forc_T(:,:,:) * timestep
+    &                                    p_os%p_aux%relax_3d_forc_T(:,:,:) * dtime
 
   DO jk = 1, n_zlev 
     ipl_src=1  ! output print level (1-5, fix)
