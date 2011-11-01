@@ -1403,7 +1403,6 @@ SUBROUTINE set_ice_temp(ppatch,ice, Qatm)
   ! dlatdT, dsensdT, dLWdT >0 for downward flux increasing with increasing Tsurf
   !
 
-isice: &
   WHERE (ice % isice (:,:,:) )
     B   (:,:,:) = -Qatm% dlatdT - Qatm% dsensdT - Qatm% dLWdT             ! Eq.  8
     A   (:,:,:) = -Qatm% lat - Qatm% sens - Qatm% LWnet -                     &
@@ -1452,7 +1451,7 @@ isice: &
     ice% Tsurf (:,:,:)  =  Tsurf
     ice% T1    (:,:,:)  =  T1
     ice% T2    (:,:,:)  =  T2
-  END WHERE isice
+  END WHERE
 
 END SUBROUTINE set_ice_temp
 !-------------------------------------------------------------------------------
