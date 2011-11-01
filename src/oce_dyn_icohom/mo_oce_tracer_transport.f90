@@ -184,12 +184,14 @@ IF (no_tracer>=1 .AND. irelax_3d_T >0) THEN
     &                                    p_os%p_aux%relax_3d_forc_T(:,:,:) * dtime
 
   DO jk = 1, n_zlev 
-    ipl_src=1  ! output print level (1-5, fix)
-    z_c(:,:,:) =  p_os%p_prog(nnew(1))%tracer(:,:,:,1)
-    CALL print_mxmn('3dim-relax T - tracer',jk,z_c(:,:,:),n_zlev, &
-      &              p_patch%nblks_c,'trc',ipl_src)
     ipl_src=3  ! output print level (1-5, fix)
-    CALL print_mxmn('3dim-relax T - forcing',jk, p_os%p_aux%relax_3d_data_T(:,:,:),n_zlev, &
+    CALL print_mxmn('3d_relax_T: forc',jk, p_os%p_aux%relax_3d_forc_T(:,:,:),n_zlev, &
+      &              p_patch%nblks_c,'trc',ipl_src)
+    CALL print_mxmn('3d_relax_T: data',jk, p_os%p_aux%relax_3d_data_T(:,:,:),n_zlev, &
+      &              p_patch%nblks_c,'trc',ipl_src)
+    ipl_src=2  ! output print level (1-5, fix)
+    z_c(:,:,:) =  p_os%p_prog(nnew(1))%tracer(:,:,:,1)
+    CALL print_mxmn('3d_relax_T: trac',jk,z_c(:,:,:),n_zlev, &
       &              p_patch%nblks_c,'trc',ipl_src)
   END DO
 
@@ -215,12 +217,14 @@ IF (no_tracer==2 .AND. irelax_3d_S >0) THEN
     &                                    p_os%p_aux%relax_3d_forc_S(:,:,:) * dtime
 
   DO jk = 1, n_zlev 
-    ipl_src=1  ! output print level (1-5, fix)
-    z_c(:,:,:) =  p_os%p_prog(nnew(1))%tracer(:,:,:,2)
-    CALL print_mxmn('3dim-relax S - tracer',jk,z_c(:,:,:),n_zlev, &
-      &              p_patch%nblks_c,'trc',ipl_src)
     ipl_src=3  ! output print level (1-5, fix)
-    CALL print_mxmn('3dim-relax S - forcing',jk, p_os%p_aux%relax_3d_data_S(:,:,:),n_zlev, &
+    CALL print_mxmn('3d_relax_S: forc',jk, p_os%p_aux%relax_3d_forc_S(:,:,:),n_zlev, &
+      &              p_patch%nblks_c,'trc',ipl_src)
+    CALL print_mxmn('3d_relax_S: data',jk, p_os%p_aux%relax_3d_data_S(:,:,:),n_zlev, &
+      &              p_patch%nblks_c,'trc',ipl_src)
+    ipl_src=2  ! output print level (1-5, fix)
+    z_c(:,:,:) =  p_os%p_prog(nnew(1))%tracer(:,:,:,2)
+    CALL print_mxmn('3d_relax_S: trac',jk,z_c(:,:,:),n_zlev, &
       &              p_patch%nblks_c,'trc',ipl_src)
   END DO
 END IF
@@ -281,9 +285,9 @@ CALL advect_horizontal(p_patch, trac_old,           &
   !write(123,*)'-------------timestep---------------',timestep
 DO jk = 1, n_zlev
   ipl_src=3  ! output print level (1-5, fix)
-    CALL print_mxmn('adv-horz tracer-old',jk,trac_old(:,:,:),n_zlev, &
+    CALL print_mxmn('adv-horz trac-old',jk,trac_old(:,:,:),n_zlev, &
       &              p_patch%nblks_c,'trc',ipl_src)
-    CALL print_mxmn('adv-horz tracer-tmp',jk,trac_tmp(:,:,:),n_zlev, &
+    CALL print_mxmn('adv-horz trac-tmp',jk,trac_tmp(:,:,:),n_zlev, &
       &              p_patch%nblks_c,'trc',ipl_src)
  !write(*,*)'After horizontal max/min old-new tracer:',jk, maxval(trac_old(:,jk,:)),&
  !                                      & minval(trac_old(:,jk,:)),&
@@ -310,9 +314,9 @@ IF( iswm_oce /= 1) THEN
  !                                     & maxval(trac_new(:,jk,:)),&
  !                                      & minval(trac_new(:,jk,:))
        ipl_src=3  ! output print level (1-5, fix)
-       CALL print_mxmn('adv-vert tracer-old',jk,trac_old(:,:,:),n_zlev, &
+       CALL print_mxmn('adv-vert trac-old',jk,trac_old(:,:,:),n_zlev, &
          &              p_patch%nblks_c,'trc',ipl_src)
-       CALL print_mxmn('adv-vert tracer-new',jk,trac_new(:,:,:),n_zlev, &
+       CALL print_mxmn('adv-vert trac-new',jk,trac_new(:,:,:),n_zlev, &
          &              p_patch%nblks_c,'trc',ipl_src)
     END DO
 ELSEIF( iswm_oce == 1) THEN
@@ -321,9 +325,9 @@ ELSEIF( iswm_oce == 1) THEN
 
   DO jk = 1, n_zlev
     ipl_src=3  ! output print level (1-5, fix)
-    CALL print_mxmn('adv-vert tracer-old',jk,trac_old(:,:,:),n_zlev, &
+    CALL print_mxmn('adv-vert trac-old',jk,trac_old(:,:,:),n_zlev, &
       &              p_patch%nblks_c,'trc',ipl_src)
-    CALL print_mxmn('adv-vert tracer-new',jk,trac_new(:,:,:),n_zlev, &
+    CALL print_mxmn('adv-vert trac-new',jk,trac_new(:,:,:),n_zlev, &
       &              p_patch%nblks_c,'trc',ipl_src)
   END DO
 
