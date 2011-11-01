@@ -188,9 +188,19 @@ CONTAINS
     njday = int(86400._wp/dtime)  ! no of timesteps per day
 
     !
+    ! use annual forcing-data:
+    !
+    IF (iforc_len == 1)  THEN
+
+      jmon1=1
+      jmon2=1
+      rday1=0.5_wp
+      rday2=0.5_wp
+
+    !
     ! interpolate monthly forcing-data daily:
     !
-    IF (iforc_len == 12)  THEN
+    ELSE IF (iforc_len == 12)  THEN
 
       jmon1=jmon-1
       jmon2=jmon
