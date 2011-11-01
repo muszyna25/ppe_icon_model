@@ -952,7 +952,8 @@ CONTAINS
           p_station => mtgrm_global_data(jg)%station(station_idx(1), station_idx(2))
           p_station%station_idx(1:2) = station_idx(1:2)
           ! unpack header information
-          CALL p_unpack_int_1d(msg_buffer(:,istation),max_buf_size, position, p_station%tri_idx(:),2)
+          CALL p_unpack_int_1d(msg_buffer(:,istation),max_buf_size, position, &
+            &                  p_station%tri_idx(:),2)
           CALL p_unpack_int_1d(msg_buffer(:,istation),max_buf_size, position, &
             &                  p_station%tri_idx_local(:),2)
           CALL p_unpack_int(msg_buffer(:,istation),max_buf_size, position, p_station%owner)

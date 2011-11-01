@@ -5790,6 +5790,12 @@ CONTAINS
        IF (ierr /= MPI_SUCCESS) THEN
          CALL finish (routine, 'allocation of working arrays failed')
        ENDIF
+     ELSE
+       ! allocate dummy field on sender PEs
+       ALLOCATE(recv_buf(1), stat=ierr)
+       IF (ierr /= MPI_SUCCESS) THEN
+         CALL finish (routine, 'allocation of working arrays failed')
+       ENDIF
      END IF
 
      ! Compute coefficients locally on each working PE and send them to
@@ -5844,11 +5850,15 @@ CONTAINS
        END DO
 
        array = RESHAPE( reordered_field(:), array_shape, (/ 0 /) )
-       DEALLOCATE(recv_buf, reordered_field, stat=ierr)
+       DEALLOCATE(reordered_field, stat=ierr)
        IF (ierr /= MPI_SUCCESS) THEN
          CALL finish (routine, 'DEALLOCATE of working arrays failed')
        ENDIF
      END IF
+     DEALLOCATE(recv_buf, stat=ierr)
+     IF (ierr /= MPI_SUCCESS) THEN
+       CALL finish (routine, 'DEALLOCATE of working arrays failed')
+     ENDIF
 #else
      ! do nothing in the sequential case
 #endif
@@ -5900,6 +5910,12 @@ CONTAINS
        ALLOCATE(recv_buf(recv_buf_size),                       &
          &      reordered_field(recv_buf_size),                &
          &      stat=ierr)
+       IF (ierr /= MPI_SUCCESS) THEN
+         CALL finish (routine, 'allocation of working arrays failed')
+       ENDIF
+     ELSE
+       ! allocate dummy field on sender PEs
+       ALLOCATE(recv_buf(1), stat=ierr)
        IF (ierr /= MPI_SUCCESS) THEN
          CALL finish (routine, 'allocation of working arrays failed')
        ENDIF
@@ -5957,11 +5973,15 @@ CONTAINS
 
        array = RESHAPE( reordered_field(:), array_shape, (/ 0 /) )
 
-       DEALLOCATE(recv_buf, reordered_field, stat=ierr)
+       DEALLOCATE(reordered_field, stat=ierr)
        IF (ierr /= MPI_SUCCESS) THEN
          CALL finish (routine, 'DEALLOCATE of working arrays failed')
        ENDIF
      END IF
+     DEALLOCATE(recv_buf, stat=ierr)
+     IF (ierr /= MPI_SUCCESS) THEN
+       CALL finish (routine, 'DEALLOCATE of working arrays failed')
+     ENDIF
 #else
      ! do nothing in the sequential case
 #endif
@@ -6013,6 +6033,12 @@ CONTAINS
        ALLOCATE(recv_buf(recv_buf_size),                       &
          &      reordered_field(recv_buf_size),                &
          &      stat=ierr)
+       IF (ierr /= MPI_SUCCESS) THEN
+         CALL finish (routine, 'allocation of working arrays failed')
+       ENDIF
+     ELSE
+       ! allocate dummy field on sender PEs
+       ALLOCATE(recv_buf(1), stat=ierr)
        IF (ierr /= MPI_SUCCESS) THEN
          CALL finish (routine, 'allocation of working arrays failed')
        ENDIF
@@ -6070,11 +6096,15 @@ CONTAINS
 
        array = RESHAPE( reordered_field(:), array_shape, (/ 0._dp /) )
 
-       DEALLOCATE(recv_buf, reordered_field, stat=ierr)
+       DEALLOCATE(reordered_field, stat=ierr)
        IF (ierr /= MPI_SUCCESS) THEN
          CALL finish (routine, 'DEALLOCATE of working arrays failed')
        ENDIF
      END IF
+     DEALLOCATE(recv_buf, stat=ierr)
+     IF (ierr /= MPI_SUCCESS) THEN
+       CALL finish (routine, 'DEALLOCATE of working arrays failed')
+     ENDIF
 #else
      ! do nothing in the sequential case
 #endif
@@ -6126,6 +6156,12 @@ CONTAINS
        ALLOCATE(recv_buf(recv_buf_size),                       &
          &      reordered_field(recv_buf_size),                &
          &      stat=ierr)
+       IF (ierr /= MPI_SUCCESS) THEN
+         CALL finish (routine, 'allocation of working arrays failed')
+       ENDIF
+     ELSE
+       ! allocate dummy field on sender PEs
+       ALLOCATE(recv_buf(1), stat=ierr)
        IF (ierr /= MPI_SUCCESS) THEN
          CALL finish (routine, 'allocation of working arrays failed')
        ENDIF
@@ -6183,11 +6219,15 @@ CONTAINS
 
        array = RESHAPE( reordered_field(:), array_shape, (/ 0._dp /) )
 
-       DEALLOCATE(recv_buf, reordered_field, stat=ierr)
+       DEALLOCATE(reordered_field, stat=ierr)
        IF (ierr /= MPI_SUCCESS) THEN
          CALL finish (routine, 'DEALLOCATE of working arrays failed')
        ENDIF
      END IF
+     DEALLOCATE(recv_buf, stat=ierr)
+     IF (ierr /= MPI_SUCCESS) THEN
+       CALL finish (routine, 'DEALLOCATE of working arrays failed')
+     ENDIF
 #else
      ! do nothing in the sequential case
 #endif
