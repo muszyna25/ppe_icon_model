@@ -62,23 +62,26 @@ MODULE mo_subdivision
     & min_rledge, max_rledge, min_rlvert, max_rlvert,                &
     & min_rlcell_int, min_rledge_int, min_rlvert_int, max_hw
   USE mo_math_constants,     ONLY: pi
-  USE mo_exception,          ONLY: finish, message, get_filename_noext
+  USE mo_exception,          ONLY: finish, message, message_text,    &
+    &                              get_filename_noext
 
   USE mo_parallel_config,    ONLY: nproma
-  USE mo_run_config,         ONLY: ltransport
+  USE mo_run_config,         ONLY: ltransport, msg_level
   USE mo_dynamics_config,    ONLY: iequations
   USE mo_io_units,           ONLY: find_next_free_unit, filename_max
   USE mo_model_domain,       ONLY: t_patch, t_grid_cells, &
     &                              p_patch_global, p_patch_subdiv, p_patch, &
     &                              p_patch_local_parent
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
-  USE mo_mpi,                ONLY: p_bcast, p_send, p_recv
+  USE mo_mpi,                ONLY: p_bcast, p_send, p_recv, p_sum
 #ifndef NOMPI
   USE mo_mpi,                ONLY: MPI_UNDEFINED, MPI_COMM_NULL
+  USE mo_kind,               ONLY: i8
 #endif
   USE mo_mpi,                ONLY: p_comm_work, my_process_is_mpi_test, &
     & my_process_is_mpi_seq, process_mpi_all_test_id, process_mpi_all_workroot_id, &
-    & my_process_is_mpi_workroot, p_pe_work, p_n_work
+    & my_process_is_mpi_workroot, p_pe_work, p_n_work,                  &
+    & get_my_mpi_all_id
 
   USE mo_parallel_config,       ONLY:  p_test_run, &
     & division_method, n_ghost_rows, div_from_file, div_geometric
@@ -254,23 +257,33 @@ CONTAINS
   !!  Divide patches and interpolation states for mpi parallel runs.
   SUBROUTINE decompose_domain( )
 
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_subdivision:decompose_domain")
 
 #ifdef NOMPI
-    CALL finish('mo_subdivision','decompose_domain must only be called in parallel runs')
+    CALL finish(routine,'decompose_domain must only be called in parallel runs')
 #else
-    INTEGER :: mpierr
+    CHARACTER(len=20), PARAMETER, DIMENSION(4) :: summary = &
+      & (/ "lateral grid points " , &
+      &    "interior grid points", &
+      &    "nested grid points  ",   &
+      &    "halo grid points    " /)
 
-    INTEGER :: ist, jg, jgp, jc, jgc, comm, my_color, n
+    ! Local variables:
+    INTEGER :: mpierr
+    INTEGER :: ist, jg, jgp, jc, jgc, comm, my_color, n, &
+      &        l1, i_nchdom
     INTEGER :: nprocs(p_patch_global(1)%n_childdom)
     INTEGER, ALLOCATABLE :: cell_owner(:)
     REAL(wp) :: weight(p_patch_global(1)%n_childdom)
+    INTEGER(i8) :: npts_local(4), npts_global(4)
+    ! (Optional:) Print a detailed summary on model grid points
+    LOGICAL :: l_detailed_summary
 
-    CALL message('mo_subdivision:decompose_domain',   &
-                 'start of domain decomposition')
+    CALL message(routine, 'start of domain decomposition')
 
     ALLOCATE (p_patch_subdiv(n_dom_start:n_dom),stat=ist)
     IF (ist /= success) THEN
-      CALL finish('decompose_domain','allocation for subdivided patches/states failed')
+      CALL finish(routine,'allocation for subdivided patches/states failed')
     ENDIF
 
     ! Check if the processor set should be split for patches of the 1st generation.
@@ -287,11 +300,11 @@ CONTAINS
 
     ! Check if weights for other patches are 0 (for clearness only)
     IF(patch_weight(1) /= 0._wp) &
-      CALL finish('decompose_domain','Weight for root patch must be 0')
+      CALL finish(routine,'Weight for root patch must be 0')
     DO jg = 2, n_dom
       jgp = p_patch_global(jg)%parent_id
       IF(jgp /= 1 .AND. patch_weight(jg) > 0._wp) &
-        CALL finish('decompose_domain','Weight for higher level patch must be 0')
+        CALL finish(routine,'Weight for higher level patch must be 0')
     ENDDO
 
     IF(proc_split) THEN
@@ -302,7 +315,7 @@ CONTAINS
       ! In this case, the working processor set must be at least as big
       ! as the number of childs of the root patch
       IF(p_patch_global(1)%n_childdom > p_n_work) &
-        CALL finish('decompose_domain','Too few procs for processor grid splitting')
+        CALL finish(routine,'Too few procs for processor grid splitting')
 
       ! Get the number of procs per patch according to weight(:).
       ! Every patch gets at least 1 proc (of course!):
@@ -348,7 +361,7 @@ CONTAINS
 
       ! Safety only
       IF(my_color == MPI_UNDEFINED) &
-        CALL finish('decompose_domain','Internal error: my_color == MPI_UNDEFINED')
+        CALL finish(routine,'Internal error: my_color == MPI_UNDEFINED')
 
       ! Split communicator among childs of root patch
 
@@ -465,6 +478,63 @@ CONTAINS
       CALL fill_owner_local(p_patch_subdiv(jg))
     ENDDO
     !-----------------------------
+
+    ! (Optional:)
+    ! Print a detailed summary on model grid points
+    l_detailed_summary = (msg_level >= 16)
+
+    IF (l_detailed_summary) THEN
+      WRITE (message_text,*) "PE ", get_my_mpi_all_id(), &
+        &                    "Detailed grid summary (cells)"
+      CALL message(routine, TRIM(message_text))
+
+      DO jg = n_dom_start, n_dom
+        ! count grid points for this PE:
+        i_nchdom     = MAX(1,p_patch_subdiv(jg)%n_childdom)
+        ! local, lateral grid points
+        npts_local(1)       = count_entries(  &
+          &                   p_patch_subdiv(jg)%cells%start_blk(1,1),         &
+          &                   p_patch_subdiv(jg)%cells%start_idx(1,1),         &
+          &                   p_patch_subdiv(jg)%cells%end_blk(max_rlcell,1),  &
+          &                   p_patch_subdiv(jg)%cells%end_idx(max_rlcell,1) )
+        ! local, interior grid points
+        npts_local(2)       = count_entries(  &
+          &                   p_patch_subdiv(jg)%cells%start_blk(0,1), &
+          &                   p_patch_subdiv(jg)%cells%start_idx(0,1), &
+          &                   p_patch_subdiv(jg)%cells%end_blk(0,1),   &
+          &                   p_patch_subdiv(jg)%cells%end_idx(0,1) )
+        ! local, nested grid points:
+        npts_local(3)       = count_entries(  &
+          &                   p_patch_subdiv(jg)%cells%start_blk(-1,1), &
+          &                   p_patch_subdiv(jg)%cells%start_idx(-1,1), &
+          &                   p_patch_subdiv(jg)%cells%end_blk(min_rlcell_int,i_nchdom),        &
+          &                   p_patch_subdiv(jg)%cells%end_idx(min_rlcell_int,i_nchdom) )
+        ! local, halo grid points:
+        npts_local(4)       = count_entries(  &
+          &                   p_patch_subdiv(jg)%cells%start_blk(min_rlcell_int-1,1), &
+          &                   p_patch_subdiv(jg)%cells%start_idx(min_rlcell_int-1,1), &
+          &                   p_patch_subdiv(jg)%cells%end_blk(min_rlcell,i_nchdom),  &
+          &                   p_patch_subdiv(jg)%cells%end_idx(min_rlcell,i_nchdom) )
+        ! sum up over all PEs (collective operation):
+        npts_global(:) = p_sum(npts_local(:))
+
+        WRITE (message_text,'(A8,i4)') "patch # ", jg
+        CALL message(routine, TRIM(message_text))
+        DO l1=1,4
+          WRITE (message_text, '(A25,i6)') ">   "//summary(l1)//":", npts_local(l1)
+          CALL message(routine, TRIM(message_text))
+        END DO
+        IF (get_my_mpi_all_id() == 0) THEN
+          WRITE (message_text,'(A20,i4)') "global values, patch # ", jg
+          CALL message(routine, TRIM(message_text))
+          DO l1=1,4
+            WRITE (message_text, '(A25,i6)') ">     "//summary(l1)//":", npts_global(l1)
+            CALL message(routine, TRIM(message_text))
+          END DO
+        END IF
+
+      END DO
+    END IF
 
 #endif
 
@@ -3142,6 +3212,25 @@ CONTAINS
     IF(ipiv<n-1) CALL sort_array_by_row(x(:,ipiv+1:),row)
 
   END SUBROUTINE sort_array_by_row
+
+  !-----------------------------------------------------------------------
+
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Utility function: Compute number of points in nproma-based array
+  !!
+  !! @par Revision History
+  !! F. Prill, Nov 2011
+  !!
+  FUNCTION count_entries(start_blk, start_idx, &
+    &                    end_blk, end_idx)
+    INTEGER :: count_entries
+    INTEGER, INTENT(IN) :: start_blk, start_idx, end_blk, end_idx
+
+    count_entries = nproma * (end_blk - start_blk)  &
+      &             + end_idx - start_idx + 1
+  END FUNCTION count_entries
 
   !-----------------------------------------------------------------------
 
