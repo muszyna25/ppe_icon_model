@@ -1055,7 +1055,7 @@ CONTAINS
             &           k_jg)
 
             !KF this variable should only go into the output as an averaged one 
-            WRITE(name,'(A14)') "dlwfsfc_dT_avg",
+            WRITE(name,'(A14)') "dlwfsfc_dT_avg"
             WRITE(long_name,'(A8,A27)') "averaged", " longwave surface net flux T-tend"
             CALL addVar(TimeVar(TRIM(name),&
                  &                   TRIM(long_name),&
