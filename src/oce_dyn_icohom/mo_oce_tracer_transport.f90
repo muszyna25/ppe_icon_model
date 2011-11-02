@@ -75,6 +75,7 @@ USE mo_advection_utils,           ONLY: laxfr_upflux, laxfr_upflux_v
 USE mo_oce_diffusion,             ONLY: tracer_diffusion_horz, tracer_diffusion_vert_expl,&
                                       & tracer_diffusion_vert_impl, tracer_diffusion_vert_impl_hom
 USE mo_oce_ab_timestepping_mimetic, ONLY: l_STAGGERED_TIMESTEP
+USE mo_intp_data_strc,            ONLY: p_int_state
 IMPLICIT NONE
 
 PRIVATE
@@ -1699,10 +1700,10 @@ END SUBROUTINE elad
               ENDIF 
 
               IF ( v_base%lsm_oce_e(il_e,jk,ib_e) < sea_boundary ) THEN
-                z_weight = z_weight + v_base%variable_dual_vol_norm(il_v1,ib_v1,ie)*z_thick
+                z_weight = z_weight + p_int_state(1)%variable_dual_vol_norm(il_v1,ib_v1,ie)*z_thick
 
                 u_v1_cc%x = u_v1_cc%x +                      &
-                &           v_base%edge2vert_coeff_cc(il_v1,ib_v1,ie)%x * &
+                &           p_int_state(1)%edge2vert_coeff_cc(il_v1,ib_v1,ie)%x * &
                 &           pvn_e(il_e,jk,ib_e)*z_thick
                  
               ENDIF
@@ -1727,10 +1728,10 @@ END SUBROUTINE elad
                !ENDIF
               ENDIF 
               IF ( v_base%lsm_oce_e(il_e,jk,ib_e)  < sea_boundary ) THEN
-                z_weight = z_weight + v_base%variable_dual_vol_norm(il_v2,ib_v2,ie)*z_thick
+                z_weight = z_weight + p_int_state(1)%variable_dual_vol_norm(il_v2,ib_v2,ie)*z_thick
 
                 u_v2_cc%x = u_v2_cc%x +                      &
-                &           v_base%edge2vert_coeff_cc(il_v2,ib_v2,ie)%x * &
+                &           p_int_state(1)%edge2vert_coeff_cc(il_v2,ib_v2,ie)%x * &
                 &           pvn_e(il_e,jk,ib_e)*z_thick
               ENDIF
             END DO
@@ -2017,22 +2018,22 @@ END SUBROUTINE elad
           !    this sign convention is related to the definition of the divergence operator.
 
           z_mflx_anti(jc,jk,jb,1) =                                                  &
-            &     dtime * v_base%geofac_div(jc,1,jb) / p_thick_new(jc,jk,jb)  &
+            &     dtime * p_int_state(1)%geofac_div(jc,1,jb) / p_thick_new(jc,jk,jb)  &
             &   * z_anti(iidx(jc,jb,1),jk,iblk(jc,jb,1))
 
           z_mflx_anti(jc,jk,jb,2) =                                                  &
-            &     dtime *  v_base%geofac_div(jc,2,jb) / p_thick_new(jc,jk,jb)  &
+            &     dtime *  p_int_state(1)%geofac_div(jc,2,jb) / p_thick_new(jc,jk,jb)  &
             &   * z_anti(iidx(jc,jb,2),jk,iblk(jc,jb,2))
 
           z_mflx_anti(jc,jk,jb,3) =                                                  &
-            &     dtime * v_base%geofac_div(jc,3,jb) / p_thick_new(jc,jk,jb)  &
+            &     dtime * p_int_state(1)%geofac_div(jc,3,jb) / p_thick_new(jc,jk,jb)  &
             &   * z_anti(iidx(jc,jb,3),jk,iblk(jc,jb,3))
 
           !  compute also divergence of low order fluxes
           z_fluxdiv_c(jc,jk,jb) =  &
-            & z_mflx_low(iidx(jc,jb,1),jk,iblk(jc,jb,1)) * v_base%geofac_div(jc,1,jb) + &
-            & z_mflx_low(iidx(jc,jb,2),jk,iblk(jc,jb,2)) * v_base%geofac_div(jc,2,jb) + &
-            & z_mflx_low(iidx(jc,jb,3),jk,iblk(jc,jb,3)) * v_base%geofac_div(jc,3,jb)
+            & z_mflx_low(iidx(jc,jb,1),jk,iblk(jc,jb,1)) * p_int_state(1)%geofac_div(jc,1,jb) + &
+            & z_mflx_low(iidx(jc,jb,2),jk,iblk(jc,jb,2)) * p_int_state(1)%geofac_div(jc,2,jb) + &
+            & z_mflx_low(iidx(jc,jb,3),jk,iblk(jc,jb,3)) * p_int_state(1)%geofac_div(jc,3,jb)
 
         ENDDO
       ENDDO

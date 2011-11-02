@@ -59,6 +59,7 @@ USE mo_loopindices,               ONLY: get_indices_c, get_indices_e
 USE mo_oce_physics,               ONLY: t_ho_params
 USE mo_scalar_product,            ONLY: map_cell2edges, primal_map_c2e
 USE mo_oce_math_operators,        ONLY: nabla2_vec_ocean !, div_oce
+USE mo_intp_data_strc,            ONLY: p_int_state
 
 IMPLICIT NONE
 
@@ -210,9 +211,9 @@ DO jb = i_startblk_c, i_endblk_c
            z_div_grad_u(jc,jk,jb)%x = 0.0_wp
          ELSE
           z_div_grad_u(jc,jk,jb)%x =  &
-            z_grad_u(iidx(jc,jb,1),jk,iblk(jc,jb,1))%x * v_base%geofac_div(jc,1,jb) + &
-            z_grad_u(iidx(jc,jb,2),jk,iblk(jc,jb,2))%x * v_base%geofac_div(jc,2,jb) + &
-            z_grad_u(iidx(jc,jb,3),jk,iblk(jc,jb,3))%x * v_base%geofac_div(jc,3,jb)
+            z_grad_u(iidx(jc,jb,1),jk,iblk(jc,jb,1))%x * p_int_state(1)%geofac_div(jc,1,jb) + &
+            z_grad_u(iidx(jc,jb,2),jk,iblk(jc,jb,2))%x * p_int_state(1)%geofac_div(jc,2,jb) + &
+            z_grad_u(iidx(jc,jb,3),jk,iblk(jc,jb,3))%x * p_int_state(1)%geofac_div(jc,3,jb)
         ENDIF
 
       END DO

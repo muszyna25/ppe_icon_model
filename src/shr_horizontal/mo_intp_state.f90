@@ -183,6 +183,8 @@ USE mo_mpi,                 ONLY: p_n_work, my_process_is_io, process_mpi_io_siz
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V
 USE mo_communication,       ONLY: t_comm_pattern, blk_no, idx_no, idx_1d, &
   &                               setup_comm_pattern, delete_comm_pattern, exchange_data
+USE mo_ocean_nml,           ONLY: idisc_scheme
+USE mo_impl_constants,      ONLY: ihs_ocean
 
 
 IMPLICIT NONE
@@ -232,7 +234,7 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
   TYPE(t_int_state), INTENT(inout) :: ptr_int
 
   INTEGER :: nblks_c, nblks_e, nblks_v, nincr
-  INTEGER :: ist
+  INTEGER :: ist,ie
   INTEGER :: idummy
 
 !-----------------------------------------------------------------------
@@ -1170,6 +1172,90 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
     ENDIF
   ENDIF
 
+  IF ( iequations == ihs_ocean) THEN
+    ! 
+    ! arrays that are required for #slo OLD# reconstruction
+    !
+    ALLOCATE(ptr_int%dist_cell2edge(nproma,nblks_e,2),STAT=ist)
+    IF (ist /= SUCCESS) THEN
+      CALL finish ('allocating dist_cell2edge failed')
+    ENDIF
+
+    !
+    ! arrays that are required for setting up the scalar product
+    !
+    !coefficients for edge to cell mapping, one half of the scalar product.
+    !Dimension: nproma,nblks_c encode number of cells, 1:3 corresponds to number
+    !of edges per cell, 1:2 is for u and v component of cell vector
+    !     ALLOCATE(ptr_int%edge2cell_coeff(nproma,nblks_c,1:3, 1:2),STAT=ist)
+    !     IF (ist /= SUCCESS) THEN
+    !       CALL finish ('allocating edge2cell_coeff failed')
+    !     ENDIF
+    ALLOCATE(ptr_int%edge2cell_coeff_cc(nproma,nblks_c,1:3),STAT=ist)
+    IF (ist /= SUCCESS) THEN
+      CALL finish ('allocating edge2cell_coeff_cc failed')
+    ENDIF
+
+    !coefficients for transposed of edge to cell mapping, second half of the scalar product.
+    !Dimension: nproma,nblks_e encode number of edges, 1:2 is for cell neighbors of an edge
+    ALLOCATE(ptr_int%edge2cell_coeff_cc_t(nproma,nblks_e,1:2),STAT=ist)
+    IF (ist /= SUCCESS) THEN
+      CALL finish ('allocating transposed edge2cell_coeff failed')
+    ENDIF
+
+    !
+    !coefficients for edge to vertex mapping.
+    !
+    !Dimension: nproma,nblks_v encode number of vertices, 
+    !1:6 is number of edges of a vertex,
+    !1:2 is for u and v component of vertex vector
+    ALLOCATE(ptr_int%edge2vert_coeff_cc(nproma,nblks_v,1:6),STAT=ist)
+    IF (ist /= SUCCESS) THEN
+      CALL finish ('allocating edge2vert_coeff failed')
+    ENDIF
+
+    ALLOCATE(ptr_int%edge2vert_coeff_cc_t(nproma,nblks_e,1:2),STAT=ist)
+    IF (ist /= SUCCESS) THEN
+      CALL finish ('allocating edge2vert_coeff failed')
+    ENDIF
+    ALLOCATE(ptr_int%edge2vert_vector_cc(nproma,nblks_v,1:6),STAT=ist)
+    IF (ist /= SUCCESS) THEN
+      CALL finish ('allocating edge2vert_vector failed')
+    ENDIF
+
+    !
+    !normalizing factors for edge to cell mapping.
+    !
+    !Either by fixed volume or by variable one taking the surface elevation
+    !into account. The later one depends on time and space.
+    ALLOCATE(ptr_int%fixed_vol_norm(nproma,nblks_c),STAT=ist)
+    IF (ist /= SUCCESS) THEN
+      CALL finish ('allocating fixed_vol_norm failed')
+    ENDIF
+    ALLOCATE(ptr_int%variable_vol_norm(nproma,nblks_c,1:3),STAT=ist)
+    IF (ist /= SUCCESS) THEN
+      CALL finish ('allocating variable_vol_norm failed')
+    ENDIF
+
+    ALLOCATE(ptr_int%variable_dual_vol_norm(nproma,nblks_v,1:6),STAT=ist)
+    IF (ist /= SUCCESS) THEN
+      CALL finish ('allocating variable_dual_vol_norm failed')
+    ENDIF
+    DO ie = 1,3
+      ptr_int%edge2cell_coeff_cc%x(ie)   = 0._wp
+      ptr_int%edge2cell_coeff_cc_t%x(ie) = 0._wp
+      ptr_int%edge2vert_coeff_cc%x(ie)   = 0._wp
+      ptr_int%edge2vert_coeff_cc_t%x(ie) = 0._wp
+      ptr_int%edge2vert_vector_cc%x(ie)  = 0._wp
+    END DO
+
+    ptr_int%fixed_vol_norm         = 0._wp
+    ptr_int%variable_vol_norm      = 0._wp
+    ptr_int%variable_dual_vol_norm = 0._wp
+
+    ptr_int%dist_cell2edge = 0._wp
+  ENDIF
+
   !
   ! initialize all components
   !
@@ -1491,6 +1577,12 @@ DO jg = n_dom_start, n_dom
       &                       lsq_high_set%dim_unk, lsq_high_set%wgt_exp )
   ENDIF
 
+  IF ( iequations == ihs_ocean) THEN
+    IF (idisc_scheme==1) THEN
+      CALL init_scalar_product_oce(ptr_patch(jg), ptr_int_state(jg))
+    ENDIF
+    CALL init_geo_factors_oce(ptr_patch(jg), ptr_int_state(jg))
+  ENDIF
 ENDDO
 
 CALL message('mo_intp_state:construct_2d_interpol_state', &

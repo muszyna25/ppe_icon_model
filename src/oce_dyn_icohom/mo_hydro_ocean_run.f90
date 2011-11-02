@@ -74,7 +74,6 @@ USE mo_oce_state,              ONLY: t_hydro_ocean_state, t_hydro_ocean_base, &
   &                                  init_ho_base, v_base, &
   &                                  construct_hydro_ocean_base, destruct_hydro_ocean_base, &
   &                                  construct_hydro_ocean_state, destruct_hydro_ocean_state, &
-  &                                  init_scalar_product_base, init_geo_factors_base, &
   &                                  init_coriolis_oce, init_oce_config, &
   &                                  set_lateral_boundary_values
 USE mo_oce_math_operators,     ONLY: height_related_quantities
@@ -392,8 +391,6 @@ CONTAINS
     ! hydro_ocean_base contains the 3-dimensional structures for the ocean state
     CALL construct_hydro_ocean_base(ppatch(jg), v_base)
     CALL init_ho_base(ppatch(jg), p_ext_data(jg), v_base)
-    IF (idisc_scheme==1) CALL init_scalar_product_base( ppatch(jg), v_base )
-    CALL init_geo_factors_base( ppatch(jg), v_base )
     CALL init_coriolis_oce( ppatch(jg) )
 
     !------------------------------------------------------------------

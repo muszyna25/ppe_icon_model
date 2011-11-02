@@ -321,7 +321,7 @@ CONTAINS
         CALL finish(TRIM(routine),'allocation for local parents failed')
     ENDIF
 
-    IF(lrestore_states) THEN
+    IF(lrestore_states) THEN !TODOram
       ! Interpolation state is read from NetCDF
       ! On the test PE it is constructed at the same time to be able to check
       ! the state read in with the constructed state

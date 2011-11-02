@@ -67,6 +67,7 @@ USE mo_timer,              ONLY: timer_start, timer_stop, timer_div, timer_grad,
 #endif
 USE mo_loopindices,        ONLY: get_indices_c, get_indices_e, get_indices_v
 USE mo_oce_state,          ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, v_base
+USE mo_intp_data_strc,     ONLY: p_int_state
 !USE mo_math_utilities,     ONLY: t_cartesian_coordinates
 IMPLICIT NONE
 
@@ -625,12 +626,12 @@ CASE (3) ! (cell_type == 3)
 !              &  vec_e(iidx(jc,jb,1),jk,iblk(jc,jb,3)) = 0.0_wp
 
           div_vec_c(jc,jk,jb) =  &
-            vec_e(iidx(jc,jb,1),jk,iblk(jc,jb,1)) * v_base%geofac_div(jc,1,jb) + &
-            vec_e(iidx(jc,jb,2),jk,iblk(jc,jb,2)) * v_base%geofac_div(jc,2,jb) + &
-            vec_e(iidx(jc,jb,3),jk,iblk(jc,jb,3)) * v_base%geofac_div(jc,3,jb)
+            vec_e(iidx(jc,jb,1),jk,iblk(jc,jb,1)) * p_int_state(1)%geofac_div(jc,1,jb) + &
+            vec_e(iidx(jc,jb,2),jk,iblk(jc,jb,2)) * p_int_state(1)%geofac_div(jc,2,jb) + &
+            vec_e(iidx(jc,jb,3),jk,iblk(jc,jb,3)) * p_int_state(1)%geofac_div(jc,3,jb)
 !  IF(jk==5.and.jc==51.and.jb==80)THEN
 !  write(432,*)'div', jc,jk,jb,div_vec_c(jc,jk,jb),&
-! !&v_base%geofac_div(jc,:,jb),&
+! !&p_int_state(1)%geofac_div(jc,:,jb),&
 ! &iidx(jc,jb,1),iblk(jc,jb,1),&
 ! &iidx(jc,jb,2),iblk(jc,jb,2),&
 ! &iidx(jc,jb,3),iblk(jc,jb,3),&
@@ -648,7 +649,7 @@ CASE (3) ! (cell_type == 3)
 !    do jb=1,1
 !    do jc=1,10
 !      write(*,*)'vec_e, div_c, geofac:', jc,jb, &
-!        &   vec_e(jc,1,jb), div_vec_c(jc,1,jb), (v_base%geofac_div(jc,jk,jb),jk=1,2)
+!        &   vec_e(jc,1,jb), div_vec_c(jc,1,jb), (p_int_state(1)%geofac_div(jc,jk,jb),jk=1,2)
 !    enddo
 !    enddo
 !    do jb=1,1
@@ -696,7 +697,7 @@ CASE (6) ! (cell_type == 6)
 
           div_vec_c(jc,jk,jb) =  div_vec_c(jc,jk,jb) +   &
             &    vec_e(iidx(jc,jb,je),jk,iblk(jc,jb,je)) &
-            &  * v_base%geofac_div(jc,je,jb)
+            &  * p_int_state(1)%geofac_div(jc,je,jb)
 
         END DO
       END DO
@@ -1824,8 +1825,8 @@ CASE(DISTANCE_WEIGHT)
       il_c2 = p_patch%edges%cell_idx(je,jb,2) 
       ib_c2 = p_patch%edges%cell_blk(je,jb,2) 
 
-      z_dist_e_c1 = 0.5_wp!v_base%dist_cell2edge(je,jb,1) !0.5_wp 
-      z_dist_e_c2 = 0.5_wp!v_base%dist_cell2edge(je,jb,2) !0.5_wp 
+      z_dist_e_c1 = 0.5_wp!p_int_state(1)%dist_cell2edge(je,jb,1) !0.5_wp 
+      z_dist_e_c2 = 0.5_wp!p_int_state(1)%dist_cell2edge(je,jb,2) !0.5_wp 
 
       !z_dist_e_c1=p_patch%edges%edge_cell_length(je,jb,1)
       !z_dist_e_c2=p_patch%edges%edge_cell_length(je,jb,2)
@@ -1900,8 +1901,8 @@ CALL print_mxmn('(hrw,old) p_diag%h_e',1,p_os%p_diag%h_e,1,p_patch%nblks_e,'vel'
       il_c2 = p_patch%edges%cell_idx(je,jb,2) 
       ib_c2 = p_patch%edges%cell_blk(je,jb,2) 
 
-      z_dist_e_c1 = 0.5_wp!v_base%dist_cell2edge(je,jb,1)
-      z_dist_e_c2 = 0.5_wp!v_base%dist_cell2edge(je,jb,2)
+      z_dist_e_c1 = 0.5_wp!p_int_state(1)%dist_cell2edge(je,jb,1)
+      z_dist_e_c2 = 0.5_wp!p_int_state(1)%dist_cell2edge(je,jb,2)
       !z_dist_e_c1 = p_patch%edges%edge_cell_length(je,jb,1)
       !z_dist_e_c2 = p_patch%edges%edge_cell_length(je,jb,2)
 

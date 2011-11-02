@@ -65,6 +65,7 @@ USE mo_scalar_product,      ONLY: map_cell2edges, dual_flip_flop, &
 USE mo_interpolation,       ONLY: t_int_state, rbf_vec_interpol_edge,&
   &                               verts2edges_scalar,&!edges2cells_scalar,&
   &                               rbf_vec_interpol_cell
+USE mo_intp_data_strc,     ONLY: p_int_state
 
 IMPLICIT NONE
 
@@ -668,9 +669,9 @@ DO jb = i_startblk_c, i_endblk_c
            z_div_grad_u(jc,jk,jb)%x = 0.0_wp
          ELSE
           z_div_grad_u(jc,jk,jb)%x =  &
-            z_grad_u(iidx(jc,jb,1),jk,iblk(jc,jb,1))%x * v_base%geofac_div(jc,1,jb) + &
-            z_grad_u(iidx(jc,jb,2),jk,iblk(jc,jb,2))%x * v_base%geofac_div(jc,2,jb) + &
-            z_grad_u(iidx(jc,jb,3),jk,iblk(jc,jb,3))%x * v_base%geofac_div(jc,3,jb)
+            z_grad_u(iidx(jc,jb,1),jk,iblk(jc,jb,1))%x * p_int_state(1)%geofac_div(jc,1,jb) + &
+            z_grad_u(iidx(jc,jb,2),jk,iblk(jc,jb,2))%x * p_int_state(1)%geofac_div(jc,2,jb) + &
+            z_grad_u(iidx(jc,jb,3),jk,iblk(jc,jb,3))%x * p_int_state(1)%geofac_div(jc,3,jb)
         ENDIF
       END DO
     END DO
