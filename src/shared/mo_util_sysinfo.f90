@@ -54,9 +54,21 @@ MODULE mo_util_sysinfo
     END SUBROUTINE private_util_node_name
   END INTERFACE
 
+  INTERFACE
+    SUBROUTINE private_util_get_maxrss(maxrss) BIND(C,NAME='util_get_maxrss') 
+#if defined(__SX__) || defined (__SUNPRO_F95) 
+      USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT
+#else
+      IMPORT :: C_INT
+#endif
+      INTEGER(C_INT), INTENT(out) :: maxrss
+    END SUBROUTINE private_util_get_maxrss
+  END INTERFACE
+
   PUBLIC :: util_user_name
   PUBLIC :: util_os_system
   PUBLIC :: util_node_name
+  PUBLIC :: util_get_maxrss
 
 CONTAINS
 
@@ -77,5 +89,10 @@ CONTAINS
     INTEGER, INTENT(out) :: name_len
     CALL private_util_node_name(name, name_len)
   END SUBROUTINE util_node_name
+
+  SUBROUTINE util_get_maxrss(maxrss)
+    INTEGER, INTENT(out) :: maxrss
+    CALL private_util_get_maxrss(maxrss)
+  END SUBROUTINE util_get_maxrss
 
 END MODULE mo_util_sysinfo

@@ -8,6 +8,7 @@
 #include <unistd.h>
 
 #include <sys/utsname.h>
+#include <sys/resource.h>
 
 #ifdef _AIX
 #include <sys/systemcfg.h>
@@ -120,3 +121,26 @@ void util_node_name(char *name, int *actual_len)
   return;
 }
 
+/* Get the maximum resident set size used, in kilobytes. That is, the maximum
+ * number of kilobytes of physical memory that processes used
+ * simultaneously. Not yet implemented for target architectures other than
+ * SX. 
+ *
+ * 11/2011 : F. Prill, DWD
+ */
+void util_get_maxrss(int* maxrss)
+{
+#if defined (_SX)    
+    struct rusage usage;
+
+    /* get resource usage */
+    usage.ru_maxrss = 0;
+    if ( getrusage(RUSAGE_SELF, &usage) == -1 )
+	*maxrss = 0; /* Error */
+    else
+	*maxrss = (int) (usage.ru_maxrss/1024);
+
+#else
+    /* do nothing */
+#endif
+}

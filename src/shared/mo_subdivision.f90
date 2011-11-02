@@ -60,7 +60,7 @@ MODULE mo_subdivision
   USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: success, min_rlcell, max_rlcell,  &
     & min_rledge, max_rledge, min_rlvert, max_rlvert,                &
-    & min_rlcell_int, min_rledge_int, min_rlvert_int, max_hw
+    & min_rlcell_int, min_rledge_int, min_rlvert_int, max_hw, max_dom
   USE mo_math_constants,     ONLY: pi
   USE mo_exception,          ONLY: finish, message, message_text,    &
     &                              get_filename_noext
@@ -131,6 +131,10 @@ MODULE mo_subdivision
 
   ! Private flag if patch should be divided for radiation calculation
   LOGICAL :: divide_for_radiation = .FALSE.
+
+  ! number of grid points of different categories:
+  ! lateral points, interior points, nested points, halo points
+  INTEGER(i8), PUBLIC :: npts_local(0:max_dom, 4)
 
 CONTAINS
 
@@ -275,7 +279,7 @@ CONTAINS
     INTEGER :: nprocs(p_patch_global(1)%n_childdom)
     INTEGER, ALLOCATABLE :: cell_owner(:)
     REAL(wp) :: weight(p_patch_global(1)%n_childdom)
-    INTEGER(i8) :: npts_local(4), npts_global(4)
+    INTEGER(i8) :: npts_global(4)
     ! (Optional:) Print a detailed summary on model grid points
     LOGICAL :: l_detailed_summary
 
@@ -492,46 +496,44 @@ CONTAINS
         ! count grid points for this PE:
         i_nchdom     = MAX(1,p_patch_subdiv(jg)%n_childdom)
         ! local, lateral grid points
-        npts_local(1)       = count_entries(  &
+        npts_local(jg,1)    = count_entries(  &
           &                   p_patch_subdiv(jg)%cells%start_blk(1,1),         &
           &                   p_patch_subdiv(jg)%cells%start_idx(1,1),         &
           &                   p_patch_subdiv(jg)%cells%end_blk(max_rlcell,1),  &
           &                   p_patch_subdiv(jg)%cells%end_idx(max_rlcell,1) )
         ! local, interior grid points
-        npts_local(2)       = count_entries(  &
+        npts_local(jg,2)    = count_entries(  &
           &                   p_patch_subdiv(jg)%cells%start_blk(0,1), &
           &                   p_patch_subdiv(jg)%cells%start_idx(0,1), &
           &                   p_patch_subdiv(jg)%cells%end_blk(0,1),   &
           &                   p_patch_subdiv(jg)%cells%end_idx(0,1) )
         ! local, nested grid points:
-        npts_local(3)       = count_entries(  &
+        npts_local(jg,3)    = count_entries(  &
           &                   p_patch_subdiv(jg)%cells%start_blk(-1,1), &
           &                   p_patch_subdiv(jg)%cells%start_idx(-1,1), &
           &                   p_patch_subdiv(jg)%cells%end_blk(min_rlcell_int,i_nchdom),        &
           &                   p_patch_subdiv(jg)%cells%end_idx(min_rlcell_int,i_nchdom) )
         ! local, halo grid points:
-        npts_local(4)       = count_entries(  &
+        npts_local(jg,4)    = count_entries(  &
           &                   p_patch_subdiv(jg)%cells%start_blk(min_rlcell_int-1,1), &
           &                   p_patch_subdiv(jg)%cells%start_idx(min_rlcell_int-1,1), &
           &                   p_patch_subdiv(jg)%cells%end_blk(min_rlcell,i_nchdom),  &
           &                   p_patch_subdiv(jg)%cells%end_idx(min_rlcell,i_nchdom) )
         ! sum up over all PEs (collective operation):
-        npts_global(:) = p_sum(npts_local(:))
+        npts_global(:) = p_sum(npts_local(jg,:), p_comm_work)
 
         WRITE (message_text,'(A8,i4)') "patch # ", jg
         CALL message(routine, TRIM(message_text))
         DO l1=1,4
-          WRITE (message_text, '(A25,i6)') ">   "//summary(l1)//":", npts_local(l1)
+          WRITE (message_text, '(A25,i6)') ">   "//summary(l1)//":", npts_local(jg,l1)
           CALL message(routine, TRIM(message_text))
         END DO
-        IF (get_my_mpi_all_id() == 0) THEN
-          WRITE (message_text,'(A20,i4)') "global values, patch # ", jg
+        WRITE (message_text,'(A20,i4)') "global values, patch # ", jg
+        CALL message(routine, TRIM(message_text))
+        DO l1=1,4
+          WRITE (message_text, '(A25,i6)') ">   "//summary(l1)//":", npts_global(l1)
           CALL message(routine, TRIM(message_text))
-          DO l1=1,4
-            WRITE (message_text, '(A25,i6)') ">     "//summary(l1)//":", npts_global(l1)
-            CALL message(routine, TRIM(message_text))
-          END DO
-        END IF
+        END DO
 
       END DO
     END IF

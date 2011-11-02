@@ -34,13 +34,13 @@
 !!
 MODULE mo_atmo_model
 
-USE mo_kind,                ONLY: wp
+USE mo_kind,                ONLY: wp, dp
 USE mo_exception,           ONLY: message, finish, message_text
 USE mo_mpi,                 ONLY: p_stop, &
   & my_process_is_io,  my_process_is_mpi_seq, my_process_is_mpi_test, &
   & my_process_is_mpi_parallel,                                       &
   & set_mpi_work_communicators, set_comm_input_bcast, null_comm_type, &
-  & p_pe_work
+  & p_pe_work, get_my_mpi_all_id, p_min, p_max, p_comm_work
 USE mo_sync,                ONLY: enable_sync_checks, disable_sync_checks
 USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, &
   &                               timer_lonlat_setup
@@ -66,7 +66,8 @@ USE mo_run_config,        ONLY: configure_run, &
   & nlev,nlevp1,          &
   & num_lev,num_levp1,    &
   & iqv, nshift,          &
-  & lvert_nest, ntracer
+  & lvert_nest, ntracer,  &
+  & msg_level
 
 USE mo_impl_constants, ONLY:&
   & ihs_atm_temp,         & !    :
@@ -88,9 +89,10 @@ USE mo_model_domain_import, ONLY : get_patch_global_indexes
 ! Memory
 !
 USE mo_subdivision,         ONLY: decompose_domain,         &
-& finalize_decomposition, &
-& copy_processor_splitting,      &
-& set_patch_communicators
+  & finalize_decomposition,        &
+  & copy_processor_splitting,      &
+  & set_patch_communicators,       &
+  & npts_local
 USE mo_dump_restore,        ONLY: dump_patch_state_netcdf,       &
 & restore_patches_netcdf,        &
 & restore_interpol_state_netcdf, &
@@ -98,6 +100,7 @@ USE mo_dump_restore,        ONLY: dump_patch_state_netcdf,       &
 
 USE mo_model_domain,        ONLY: p_patch_global, p_patch_subdiv, p_patch, &
   &                               p_patch_local_parent
+USE mo_util_sysinfo,        ONLY: util_get_maxrss
 
 ! Horizontal grid
 USE mo_grid_config,         ONLY: n_dom, n_dom_start, global_cell_type, &
@@ -197,6 +200,9 @@ CONTAINS
     INTEGER :: field_shape(3) 
     INTEGER :: i, error_status
     INTEGER :: patch_no
+
+    INTEGER  :: maxrss
+    REAL(dp) :: maxrss_gridpt,maxrss_gridpt_min, maxrss_gridpt_max
 
     !---------------------------------------------------------------------
     ! 0. If this is a resumed or warm-start run...
@@ -689,6 +695,24 @@ CONTAINS
     CALL delete_restart_namelists()
 
     CALL message(TRIM(routine),'clean-up finished')
+
+    ! (optional:) write resident set size from OS
+#if defined(__SX__)
+    IF (msg_level >= 16) THEN
+      CALL util_get_maxrss(maxrss)
+      PRINT  *, "PE #", get_my_mpi_all_id(), &
+        &    ": MAXRSS (MiB) = ", maxrss
+      ! compute memory consumption per grid point (w/out halo points)
+      maxrss_gridpt = REAL(maxrss)/SUM(npts_local(n_dom_start:n_dom, 1:3))
+      maxrss_gridpt_min = p_min(zfield=maxrss_gridpt, comm=p_comm_work)
+      maxrss_gridpt_max = p_max(zfield=maxrss_gridpt, comm=p_comm_work)
+      WRITE (message_text,'(a,a,f5.3,a,a,f5.3)')   &
+        & "memory consumption (MiB/grid point): ", &
+        & "min = ", maxrss_gridpt_min, " / ", &
+        & "max = ", maxrss_gridpt_max
+      CALL message(TRIM(routine),message_text)    
+    END IF
+#endif
 
   END SUBROUTINE atmo_model
 
