@@ -96,7 +96,7 @@ CONTAINS
     ! an 8-Byte INTEGER has to be used. Otherwise the computation fails after
     ! approx. 68 years!!
 
-    REAL(wp)  :: zseconds
+    REAL(wp)  :: zseconds,zim,zis
 
     !------------ End of header ---------------------------------------------------
 
@@ -116,7 +116,7 @@ CONTAINS
     imm = time_config%ini_datetime%month
     idd = time_config%ini_datetime%day 
     ihh = time_config%ini_datetime%hour
-
+    
     IF     (itype_calendar == 0) THEN
       month (2)    = 28 + ileap (iyy)
       monthsum(1) =  0
@@ -198,7 +198,11 @@ CONTAINS
     iday     = immhours/24 + 1
     ihour    = MOD(immhours,24)
 
-    zseconds = p_sim_time / 3600.0_wp
+    ! to add minutes and seconds of start date
+    zim = REAL(time_config%ini_datetime%minute,wp)
+    zis = time_config%ini_datetime%second
+    
+    zseconds = ( p_sim_time + zim*60._wp + zis )/ 3600.0_wp
     acthour  = REAL (ihour, wp) +                          &
       (zseconds - REAL(INT(zseconds, i8), wp))
 
