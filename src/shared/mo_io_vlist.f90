@@ -2196,7 +2196,7 @@ CONTAINS
       &                   zaxisID_surface(k_jg)),&
       &           k_jg)
     END IF
-    IF (temperature_relaxation /= 0 ) THEN
+   !IF (temperature_relaxation /= 0 ) THEN
    !  CALL addVar(TimeVar('forc-tdata',&
    !  &                   'temperature relaxation data',&
    !  &                   'K',15,128,&
@@ -2204,16 +2204,16 @@ CONTAINS
    !  &                   gridCellID(k_jg),&
    !  &                   zaxisID_surface(k_jg)),&
    !  &           k_jg)
-    END IF 
-    IF (temperature_relaxation /= 0 ) THEN
-      CALL addVar(TimeVar('forc-t',&
-      &                   'temperature relaxation flux',&
-      &                   'K*m/s',15,128,&
-      &                   vlistID(k_jg),&
-      &                   gridCellID(k_jg),&
-      &                   zaxisID_surface(k_jg)),&
-      &           k_jg)
-    END IF 
+   !END IF 
+   !IF (temperature_relaxation /= 0 ) THEN
+   !  CALL addVar(TimeVar('forc-t',&
+   !  &                   'temperature relaxation flux',&
+   !  &                   'K*m/s',15,128,&
+   !  &                   vlistID(k_jg),&
+   !  &                   gridCellID(k_jg),&
+   !  &                   zaxisID_surface(k_jg)),&
+   !  &           k_jg)
+   !END IF 
     IF (temperature_relaxation /= 0 ) THEN
       CALL addVar(TimeVar('forc-hflx',&
       &                   'diagnosed net surface heat flux',&
@@ -2223,7 +2223,7 @@ CONTAINS
       &                   zaxisID_surface(k_jg)),&
       &           k_jg)
     END IF 
-    IF (irelax_2d_S /= 0 ) THEN
+   !IF (irelax_2d_S /= 0 ) THEN
    !  CALL addVar(TimeVar('forc-sdata',&
    !  &                   'salinity relaxation data',&
    !  &                   'psu',15,128,&
@@ -2231,20 +2231,21 @@ CONTAINS
    !  &                   gridCellID(k_jg),&
    !  &                   zaxisID_surface(k_jg)),&
    !  &           k_jg)
-    END IF 
-    IF (irelax_2d_S /= 0 ) THEN
-      CALL addVar(TimeVar('forc-s',&
-      &                   'salinity relaxation at centers',&
-      &                   'psu*m/s',15,128,&
-      &                   vlistID(k_jg),&
-      &                   gridCellID(k_jg),&
-      &                   zaxisID_surface(k_jg)),&
-      &           k_jg)
-    END IF 
+   !END IF 
+  ! IF (irelax_2d_S /= 0 ) THEN
+  !   CALL addVar(TimeVar('forc-s',&
+  !   &                   'salinity relaxation flux at centers',&
+  !   &                   'psu*m/s',15,128,&
+  !   &                   vlistID(k_jg),&
+  !   &                   gridCellID(k_jg),&
+  !   &                   zaxisID_surface(k_jg)),&
+  !   &           k_jg)
+  ! END IF 
     IF (irelax_2d_S /= 0 ) THEN
       CALL addVar(TimeVar('forc-fwfx',&
       &                   'diagnosed net freshwater flux',&
-      &                   'kg/m2/s',16,128,&
+!     &                   'm/s',16,128,&
+      &                   'mm/month',16,128,&
       &                   vlistID(k_jg),&
       &                   gridCellID(k_jg),&
       &                   zaxisID_surface(k_jg)),&

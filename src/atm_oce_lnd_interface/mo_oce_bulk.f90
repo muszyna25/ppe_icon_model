@@ -651,7 +651,9 @@ CONTAINS
     ! where
     !   Q_S = K_v*dS/dz(surf) = -W_s*S_ref  [psu*m/s]
 
-      p_sfc_flx%forc_fwfx(:,:) = -p_sfc_flx%forc_tracer(:,:,2) * z_s_ref
+    ! p_sfc_flx%forc_fwfx(:,:) = -p_sfc_flx%forc_tracer(:,:,2) * z_s_ref
+    ! now in mm/month for diagnosis
+      p_sfc_flx%forc_fwfx(:,:) = -p_sfc_flx%forc_tracer(:,:,2) * z_s_ref * 2.592e9_wp
 
     ipl_src=1  ! output print level (1-5, fix)
     z_c(:,1,:) = p_sfc_flx%forc_fwfx(:,:)
