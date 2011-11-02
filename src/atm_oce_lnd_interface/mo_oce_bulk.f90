@@ -61,7 +61,7 @@ USE mo_grid_config,         ONLY: nroot
 USE mo_ocean_nml,           ONLY: iforc_oce, iforc_omip, iforc_len, itestcase_oce,    &
   &           no_tracer, n_zlev, basin_center_lat, basin_center_lon, basin_width_deg, &
   &                               basin_height_deg, relaxation_param, wstress_coeff,  &
-  &                               i_bc_veloc_top, temperature_relaxation, irelax_2d_S,&
+  &               relax_2d_mon_s, i_bc_veloc_top, temperature_relaxation, irelax_2d_S,&
   &                               NO_FORCING, ANALYT_FORC, FORCING_FROM_FILE_FLUX,    &
   &                               FORCING_FROM_FILE_FIELD, FORCING_FROM_COUPLED_FLUX, &
   &                               FORCING_FROM_COUPLED_FIELD, i_dbg_oce, i_sea_ice
@@ -132,6 +132,8 @@ CONTAINS
   INTEGER  :: rl_start_c, rl_end_c
   REAL(wp) :: z_tmin, z_relax, rday1, rday2
   REAL(wp) :: z_c(nproma,n_zlev,p_patch%nblks_c)
+
+  REAL(wp), PARAMETER :: z_s_ref = 35.0_wp  ! reference salinity
 
   ! Local declarations for coupling:
   INTEGER               :: info, ierror !< return values form cpl_put/get calls
@@ -523,8 +525,7 @@ CONTAINS
       END DO
     END DO
 
-    ! Temperature relaxation:
-    ! #slo# corrected formula: Diffusion
+    ! Temperature relaxation activated as boundary condition in vertical Diffusion D:
     !   D = d/dz(K_v*dT/dz)  where
     ! Boundary condition at surface (upper bound of D at center of first layer)
     !   is relaxation to temperature (tau = relaxation constant [1/s] ):
@@ -572,15 +573,66 @@ CONTAINS
 
   ENDIF
 
+  !-------------------------------------------------------------------------
+  ! Apply salinity relaxation to surface boundary condition
+
+  IF (irelax_2d_S >= 2 .AND. no_tracer >1) THEN
+
+    ! Salinity relaxation activated as boundary condition in vertical Diffusion D:
+    !   D = d/dz(K_v*dS/dz)  where
+    ! Boundary condition at surface (upper bound of D at center of first layer)
+    !   is relaxation to salinity (tau = relaxation constant [1/s] ):
+    !   K_v*dS/dz(surf) = Q_S = -dz/tau*(S-S*) [ psu*m/s ]
+    ! discretized (T* = T_data = relaxation temperature, forc_tracer_relax):
+    !   top_bc_tracer = forc_tracer = -(del_zlev_m+h) / relax_param[s] * (tracer - forc_tracer_relax)
+    !
+    ! This is equivalent to an additonal forcing term in the tracer equation, i.e. outside
+    ! the vertical diffusion, following MITGCM:
+    !    F_S  = Q_S/dz = -1/tau * (S-S*) [ psu/s ]
+    ! when using the sign convention
+    !   dS/dt = Operators + F_S
+    ! i.e. F_S <0 for  S-S* >0 (i.e. decreasing salinity if it is saltier than relaxation data) 
+    ! note that the freshwater flux is opposite in sign to F_S, see below,
+    ! i.e. fwf >0 for  S-S* >0 (i.e. increasing freshwater flux to decrease the salinity)
+    ! 
+    ! Mixed boundary conditions (relaxation term plus fluxes) can be included accordingly
+
+    DO jb = i_startblk_c, i_endblk_c    
+      CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
+       &                i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
+      DO jc = i_startidx_c, i_endidx_c
+      z_relax = (v_base%del_zlev_m(1)) / &
+           &       (relax_2d_mon_S*2.592e6_wp)
+
+        IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
+            p_sfc_flx%forc_tracer(jc,jb,2) =                             &
+           &          - z_relax*(p_os%p_prog(nold(1))%tracer(jc,1,jb,2)  &
+           &                    -p_sfc_flx%forc_tracer_relax(jc,jb,2))
+        ELSE
+          p_sfc_flx%forc_tracer(jc,jb,2) = 0.0_wp
+        ENDIF
+      END DO
+    END DO
+
+    ipl_src=1  ! output print level (1-5, fix)
+    z_c(:,1,:)=p_sfc_flx%forc_tracer_relax(:,:,2)
+    CALL print_mxmn('update sal.-relax',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+    ipl_src=2  ! output print level (0-5, fix)
+    z_c(:,1,:) = p_sfc_flx%forc_tracer_relax(:,:,2)-p_os%p_prog(nold(1))%tracer(:,1,:,2)
+    CALL print_mxmn('Sal.-difference',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+    z_c(:,1,:) = p_sfc_flx%forc_tracer(:,:,2)
+    CALL print_mxmn('S-forc-tracer-flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+
+  ENDIF
+
   ! Heat flux diagnosed for all ocean only relaxation cases,
   !  including also temperature_relaxation=1 which are some special testcases, see there
   IF (temperature_relaxation >= 1) THEN
 
-    ! Heat flux diagnosed for relaxation cases 
-    !   Q_s = Rho*Cp*Q_T  with density Rho and Cp specific heat capacity
+    ! Heat flux diagnosed for relaxation cases, see above
+    !   Q_s = Rho*Cp*Q_T  [W/m2]  with density Rho and Cp specific heat capacity
     ! where
-    !   K_v*dT/dz(surf) = Q_T = Q_s/Rho/Cp  [K*m/s]
-    ! see below
+    !   Q_T = K_v*dT/dz(surf) = Q_s/Rho/Cp  [K*m/s]
 
     p_sfc_flx%forc_hflx(:,:) = p_sfc_flx%forc_tracer(:,:,1) * rho_ref * cw
 
@@ -590,9 +642,26 @@ CONTAINS
 
   END IF
 
+  ! Freshwater flux diagnosed
+  IF (irelax_2d_S >= 1 .AND. no_tracer >1) THEN
+
+    ! Freshwater flux at surface W_s diagnosed for relaxation cases (see Griffies)
+    !   W_s = -Q_S / S_0   [m/s]  with S_s surface salinity, 
+    !   which is set to reference value S_ref=35 psu to avoid instability for low sal.
+    ! where
+    !   Q_S = K_v*dS/dz(surf) = -W_s*S_ref  [psu*m/s]
+
+      p_sfc_flx%forc_fwfx(:,:) = -p_sfc_flx%forc_tracer(:,:,2) * z_s_ref
+
+    ipl_src=1  ! output print level (1-5, fix)
+    z_c(:,1,:) = p_sfc_flx%forc_fwfx(:,:)
+    CALL print_mxmn('S-forc-frwflx',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+
+  END IF
+
   !-------------------------------------------------------------------------
   ! Apply net surface heat flux to boundary condition
-  !  - 2011/10/19 - up to now heat flux is applied alternatively to temperature relaxation!
+  !  - 2011/10/19 - heat flux is applied alternatively to temperature relaxation for coupling
 
   IF (temperature_relaxation == -1) THEN
 
@@ -618,20 +687,21 @@ CONTAINS
   END IF
 
   !-------------------------------------------------------------------------
-  ! Apply salinity relaxation to surface boundary condition
+  ! Apply net surface freshwater flux to boundary condition
+  !  - 2011/11/02 - freshwater flux not yet applied for coupling
 
-  IF (irelax_2d_S == 3) THEN
+  IF (irelax_2d_S == -1 .AND. no_tracer >1) THEN
+
+    p_sfc_flx%forc_tracer(:,:,2) = -p_sfc_flx%forc_fwfx(:,:) / z_s_ref
 
     ipl_src=1  ! output print level (1-5, fix)
-    z_c(:,1,:)=p_sfc_flx%forc_tracer_relax(:,:,2)
-    CALL print_mxmn('update sal.-relax',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-    ipl_src=2  ! output print level (0-5, fix)
-    z_c(:,1,:) = p_sfc_flx%forc_tracer_relax(:,:,2)-p_os%p_prog(nold(1))%tracer(:,1,:,2)
-    CALL print_mxmn('Sal.-difference',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-    z_c(:,1,:) = p_sfc_flx%forc_tracer(:,:,2)
+    z_c(:,1,:) = p_sfc_flx%forc_fwfx(:,:)
+    CALL print_mxmn('S-forc-frwflx',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+    ipl_src=2  ! output print level (1-5, fix)
+    z_c(:,1,:) = p_sfc_flx%forc_tracer(:,:,1)
     CALL print_mxmn('S-forc-tracer-flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
 
-  ENDIF
+  END IF
 
   END SUBROUTINE update_sfcflx
   !-------------------------------------------------------------------------

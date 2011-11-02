@@ -113,7 +113,8 @@ MODULE mo_io_vlist
     &                                 upstr_beta, l_open_ubc, l_nest_rcf,         &
     &                                 itime_scheme_nh_atm => itime_scheme
   USE mo_ocean_nml,             ONLY: n_zlev, dzlev_m, iforc_oce,no_tracer,       &
-    &                                 temperature_relaxation, i_sea_ice
+    &                                 temperature_relaxation, i_sea_ice,          &
+    &                                 irelax_2d_S
   USE mo_dynamics_config,       ONLY: iequations,lshallow_water,                  &
     &                                 idiv_method, divavg_cntrwgt,                &
     &                                 nold, nnow, lcoriolis
@@ -2196,8 +2197,17 @@ CONTAINS
       &           k_jg)
     END IF
     IF (temperature_relaxation /= 0 ) THEN
+      CALL addVar(TimeVar('forc-tdata',&
+      &                   'temperature relaxation data',&
+      &                   'K',15,128,&
+      &                   vlistID(k_jg),&
+      &                   gridCellID(k_jg),&
+      &                   zaxisID_surface(k_jg)),&
+      &           k_jg)
+    END IF 
+    IF (temperature_relaxation /= 0 ) THEN
       CALL addVar(TimeVar('forc-t',&
-      &                   'temperature relaxation at centers',&
+      &                   'temperature relaxation flux',&
       &                   'K*m/s',15,128,&
       &                   vlistID(k_jg),&
       &                   gridCellID(k_jg),&
@@ -2208,6 +2218,33 @@ CONTAINS
       CALL addVar(TimeVar('forc-hflx',&
       &                   'diagnosed net surface heat flux',&
       &                   'W/m2',16,128,&
+      &                   vlistID(k_jg),&
+      &                   gridCellID(k_jg),&
+      &                   zaxisID_surface(k_jg)),&
+      &           k_jg)
+    END IF 
+    IF (irelax_2d_S /= 0 ) THEN
+      CALL addVar(TimeVar('forc-sdata',&
+      &                   'salinity relaxation data',&
+      &                   'psu',15,128,&
+      &                   vlistID(k_jg),&
+      &                   gridCellID(k_jg),&
+      &                   zaxisID_surface(k_jg)),&
+      &           k_jg)
+    END IF 
+    IF (irelax_2d_S /= 0 ) THEN
+      CALL addVar(TimeVar('forc-s',&
+      &                   'salinity relaxation at centers',&
+      &                   'psu*m/s',15,128,&
+      &                   vlistID(k_jg),&
+      &                   gridCellID(k_jg),&
+      &                   zaxisID_surface(k_jg)),&
+      &           k_jg)
+    END IF 
+    IF (irelax_2d_S /= 0 ) THEN
+      CALL addVar(TimeVar('forc-fwfx',&
+      &                   'diagnosed net freshwater flux',&
+      &                   'kg/m2/s',16,128,&
       &                   vlistID(k_jg),&
       &                   gridCellID(k_jg),&
       &                   zaxisID_surface(k_jg)),&
@@ -3316,8 +3353,12 @@ CONTAINS
       CASE ('ELEV');         ptr2d => p_prog%h
       CASE ('forc-u');       ptr2d => forcing%forc_wind_u
       CASE ('forc-v');       ptr2d => forcing%forc_wind_v
-      CASE ('forc-t');       ptr2d => forcing%forc_tracer_relax(:,:,1) !           forc_tracer(:,:,1)
+      CASE ('forc-tdata');   ptr2d => forcing%forc_tracer_relax(:,:,1)
+      CASE ('forc-t');       ptr2d => forcing%forc_tracer(:,:,1)
       CASE ('forc-hflx');    ptr2d => forcing%forc_hflx(:,:)
+      CASE ('forc-sdata');   ptr2d => forcing%forc_tracer_relax(:,:,2)
+      CASE ('forc-s');       ptr2d => forcing%forc_tracer(:,:,2)
+      CASE ('forc-fwfx');    ptr2d => forcing%forc_fwfx(:,:)
       CASE('horz-adv');      ptr3d => p_diag%veloc_adv_horz
       CASE('Ekin-grad');     ptr3d => p_diag%grad
       CASE ('flux-u');       ptr2d => p_aux%bc_top_u
