@@ -134,8 +134,10 @@ MODULE mo_subdivision
 
   ! number of grid points of different categories:
   ! lateral points, interior points, nested points, halo points
+#ifndef NOMPI
   INTEGER(i8), PUBLIC :: npts_local(0:max_dom, 4)
-
+#endif
+  
 CONTAINS
 
   !-------------------------------------------------------------------------

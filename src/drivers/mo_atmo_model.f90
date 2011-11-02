@@ -91,8 +91,12 @@ USE mo_model_domain_import, ONLY : get_patch_global_indexes
 USE mo_subdivision,         ONLY: decompose_domain,         &
   & finalize_decomposition,        &
   & copy_processor_splitting,      &
-  & set_patch_communicators,       &
-  & npts_local
+  & set_patch_communicators
+
+#ifndef NOMPI
+USE mo_subdivision,         ONLY:  npts_local
+#endif
+
 USE mo_dump_restore,        ONLY: dump_patch_state_netcdf,       &
 & restore_patches_netcdf,        &
 & restore_interpol_state_netcdf, &
@@ -697,6 +701,7 @@ CONTAINS
     CALL message(TRIM(routine),'clean-up finished')
 
     ! (optional:) write resident set size from OS
+#ifndef NOMPI    
 #if defined(__SX__)
     IF (msg_level >= 16) THEN
       CALL util_get_maxrss(maxrss)
@@ -712,6 +717,7 @@ CONTAINS
         & "max = ", maxrss_gridpt_max
       CALL message(TRIM(routine),message_text)    
     END IF
+#endif
 #endif
 
   END SUBROUTINE atmo_model
