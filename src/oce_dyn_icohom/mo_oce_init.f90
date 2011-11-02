@@ -224,7 +224,7 @@ CONTAINS
   ! read salinity
   !  - "S": annual mean salinity
   IF (no_tracer > 1) THEN
-    CALL read_netcdf_data (ncid, 'T', ppatch%n_patch_cells_g, ppatch%n_patch_cells, &
+    CALL read_netcdf_data (ncid, 'S', ppatch%n_patch_cells_g, ppatch%n_patch_cells, &
       &                    ppatch%cells%glb_index, n_zlev, z_prog)
     p_os%p_prog(nold(1))%tracer(:,1:n_zlev,:,2) = z_prog(:,1:n_zlev,:)
   END IF
