@@ -49,7 +49,7 @@ MODULE mo_nh_stepping
 
   USE mo_kind,                ONLY: wp
   USE mo_nonhydro_state,      ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics, &
-                                    construct_nh_state, bufr
+                                    bufr
   USE mo_nonhydrostatic_config,ONLY: iadv_rcf, l_nest_rcf, itime_scheme
 
   USE mo_diffusion_config,     ONLY: diffusion_config
@@ -231,7 +231,6 @@ MODULE mo_nh_stepping
 
   ! for the split explict scheme, ntl is always 2
   ntl = 2
-  CALL construct_nh_state(p_patch, p_nh_state, ntl)
 
   IF (ltestcase) THEN
     CALL init_nh_testtopo(p_patch)    ! set analytic topography

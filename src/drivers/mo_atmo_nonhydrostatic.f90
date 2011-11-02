@@ -66,11 +66,11 @@ USE mo_grf_intp_data_strc,   ONLY: p_grf_state
 ! NH-namelist state
 USE mo_atm_phy_nwp_config,   ONLY: configure_atm_phy_nwp, atm_phy_nwp_config
 ! NH-Model states
-USE mo_nonhydro_state,       ONLY: p_nh_state,   &
+USE mo_nonhydro_state,       ONLY: p_nh_state, construct_nh_state,             &
   &                                destruct_nh_state
-USE mo_nwp_phy_state,        ONLY: construct_nwp_phy_state, &
+USE mo_nwp_phy_state,        ONLY: construct_nwp_phy_state,                    &
   &                                destruct_nwp_phy_state, prm_diag
-USE mo_nwp_lnd_state,        ONLY: p_lnd_state, construct_nwp_lnd_state,    &
+USE mo_nwp_lnd_state,        ONLY: p_lnd_state, construct_nwp_lnd_state,       &
   &                                destruct_nwp_lnd_state
 USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
 ! Time integration
@@ -126,6 +126,8 @@ CONTAINS
       CALL finish(TRIM(routine),'allocation for p_nh_state failed')
     ENDIF
 
+    CALL construct_nh_state(p_patch(1:), p_nh_state, n_timelevels=2)
+
     IF(iforcing == inwp) THEN
       CALL construct_nwp_phy_state( p_patch(1:) )
        
@@ -137,6 +139,8 @@ CONTAINS
       CALL construct_nwp_lnd_state( p_patch(1:),p_lnd_state,n_timelevels=2 )
 
     ENDIF
+
+    CALL prepare_nh_integration(p_patch(1:), p_nh_state, p_int_state(1:), p_grf_state(1:))
 
     !---------------------------------------------------------------------
     ! 5. Perform time stepping
@@ -186,7 +190,7 @@ CONTAINS
 
     ENDIF
 
-    CALL prepare_nh_integration(p_patch(1:), p_nh_state, p_int_state(1:), p_grf_state(1:))
+!DR    CALL prepare_nh_integration(p_patch(1:), p_nh_state, p_int_state(1:), p_grf_state(1:))
 
     ! Continue operations for real-data initialization
     IF (l_realcase .AND. .NOT. is_restart_run()) THEN

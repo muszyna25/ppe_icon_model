@@ -56,7 +56,7 @@ MODULE mo_vertical_grid
   USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH, max_dom, &
     &                                 min_rlcell_int, min_rlcell
   USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c, grf_bdywidth_e, grf_fbk_start_c
-  USE mo_physical_constants,    ONLY: grav, p0ref, grav, rd, rd_o_cpd, cpd
+  USE mo_physical_constants,    ONLY: grav, p0ref, rd, rd_o_cpd, cpd
   USE mo_math_operators,        ONLY: grad_fd_norm, grad_fd_tang
   USE mo_timer,                 ONLY: init_timer, cleanup_timer
   USE mo_interpolation,         ONLY: t_int_state, cells2edges_scalar, &
