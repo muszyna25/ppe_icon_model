@@ -481,28 +481,28 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
            !qv
         CALL add_ref( diag_list, 'tracer_rate',                                     &
                     & TRIM(vname_prefix)//'qv', diag%tra_rate_ptr(1)%p_2d,          &
-                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                         &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                        &
                     & t_cf_var(TRIM(vname_prefix)//'qv', '','unknown'),             &
                     & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
                     & ldims=shape2d)
            !qc
         CALL add_ref( diag_list, 'tracer_rate',                                     &
                     & TRIM(vname_prefix)//'qc', diag%tra_rate_ptr(2)%p_2d,          &
-                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                         &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                        &
                     & t_cf_var(TRIM(vname_prefix)//'qc', '','unknown'),             &
                     & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
                     & ldims=shape2d)
            !qr
         CALL add_ref( diag_list, 'tracer_rate',                                     &
                     & TRIM(vname_prefix)//'qr', diag%tra_rate_ptr(3)%p_2d,          &
-                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                         &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                        &
                     & t_cf_var(TRIM(vname_prefix)//'qr', '','precipitation rate'),  &
                     & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
                     & ldims=shape2d)
            !qs
         CALL add_ref( diag_list, 'tracer_rate',                                     &
                     & TRIM(vname_prefix)//'qs', diag%tra_rate_ptr(4)%p_2d,          &
-                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                         &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                        &
                     & t_cf_var(TRIM(vname_prefix)//'qs', '','snowfall rate'),       &
                     & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
                     & ldims=shape2d)
