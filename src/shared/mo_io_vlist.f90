@@ -308,10 +308,11 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !BOC
-  SUBROUTINE setup_vlist(grid_filename, k_jg)
+  SUBROUTINE setup_vlist(grid_filename, k_jg, l_do_io)
 
     CHARACTER(len=*), INTENT(in) :: grid_filename
     INTEGER, INTENT(in) :: k_jg
+    LOGICAL, INTENT(in) :: l_do_io
 
     INTEGER :: ncid, dimid, varid
     INTEGER :: i_nc, i_ne, i_nv
@@ -414,83 +415,96 @@ CONTAINS
     i_nvb = (9-global_cell_type)*i_nv
     !
     !-------------------------------------------------------------------------
+    ! For parallel runs, setting up the vlist serves two purposes:
+    ! - on processes which actually do I/O, the vlist must be set up
+    !   for doing the CDI output later on
+    ! - on all other processes, it is just used to gather the settings
+    !   in outvar_desc at the end of this routine, i.e. all the calls
+    !   below just serve for setting up a list of variables to be output
+    !
+    ! Since some calls during vlist setup (gridDefX/Yvals, gridDefX/Ybounds)
+    ! reserve a considerable amount of memory and need a considerable
+    ! amount of I/O, they are left away on tasks which actually don't do I/O.
+    !-------------------------------------------------------------------------
     ! cell grid
     !
     gridCellID(k_jg) = gridCreate(GRID_UNSTRUCTURED, i_nc)
     CALL gridDefNvertex(gridCellID(k_jg), global_cell_type)
     !
-    SELECT CASE (global_cell_type)
-    CASE (3)
-      name = 'clon'
-    CASE (6)
-      name = 'vlon'
-    END SELECT
-    
-    ALLOCATE(clon(i_nc))
-    
-    CALL nf(nf_inq_varid(ncid, name, varid))
-    CALL nf(nf_get_var_double(ncid, varid, clon))
-    CALL nf(nf_get_att_text(ncid, varid, 'long_name', long_name))
-    CALL nf(nf_inq_attlen(ncid, varid, 'long_name', lnlen))
-    CALL nf(nf_get_att_text(ncid, varid, 'units', units))
-    CALL nf(nf_inq_attlen(ncid, varid, 'units', ulen))
-    !
-    CALL gridDefXname(gridCellID(k_jg), name)
-    CALL gridDefXvals(gridCellID(k_jg), clon)
-    CALL gridDefXlongname(gridCellID(k_jg), long_name(1:lnlen))
-    CALL gridDefXunits(gridCellID(k_jg), units(1:ulen))
-    !
-    DEALLOCATE(clon)
+    IF(l_do_io) THEN
+      SELECT CASE (global_cell_type)
+      CASE (3)
+        name = 'clon'
+      CASE (6)
+        name = 'vlon'
+      END SELECT
+      
+      ALLOCATE(clon(i_nc))
+      
+      CALL nf(nf_inq_varid(ncid, name, varid))
+      CALL nf(nf_get_var_double(ncid, varid, clon))
+      CALL nf(nf_get_att_text(ncid, varid, 'long_name', long_name))
+      CALL nf(nf_inq_attlen(ncid, varid, 'long_name', lnlen))
+      CALL nf(nf_get_att_text(ncid, varid, 'units', units))
+      CALL nf(nf_inq_attlen(ncid, varid, 'units', ulen))
+      !
+      CALL gridDefXname(gridCellID(k_jg), name)
+      CALL gridDefXvals(gridCellID(k_jg), clon)
+      CALL gridDefXlongname(gridCellID(k_jg), long_name(1:lnlen))
+      CALL gridDefXunits(gridCellID(k_jg), units(1:ulen))
+      !
+      DEALLOCATE(clon)
 
 
-    SELECT CASE (global_cell_type)
-    CASE (3)
-      name = 'clat'
-    CASE (6)
-      name = 'vlat'
-    END SELECT
-    
-    ALLOCATE(clat(i_nc))
-    CALL nf(nf_inq_varid(ncid, name, varid))
-    CALL nf(nf_get_var_double(ncid, varid, clat))
-    CALL nf(nf_get_att_text(ncid, varid, 'long_name', long_name))
-    CALL nf(nf_inq_attlen(ncid, varid, 'long_name', lnlen))
-    CALL nf(nf_get_att_text(ncid, varid, 'units', units))
-    CALL nf(nf_inq_attlen(ncid, varid, 'units', ulen))
-    !
-    CALL gridDefYname(gridCellID(k_jg), name)
-    CALL gridDefYvals(gridCellID(k_jg), clat)
-    CALL gridDefYlongname(gridCellID(k_jg), long_name(1:lnlen))
-    CALL gridDefYunits(gridCellID(k_jg), units(1:ulen))
-    DEALLOCATE(clat)
-    
-    !
-    SELECT CASE (global_cell_type)
-    CASE (3)
-      CALL nf(nf_inq_varid(ncid, 'clon_vertices', varid))
-    CASE (6)
-      CALL nf(nf_inq_varid(ncid, 'vlon_vertices', varid))
-    END SELECT
-    
-    ALLOCATE(clonv(i_ncb))
-    CALL nf(nf_get_var_double(ncid, varid, clonv))
-    !
-    CALL gridDefXbounds(gridCellID(k_jg), clonv)
-    DEALLOCATE(clonv)
+      SELECT CASE (global_cell_type)
+      CASE (3)
+        name = 'clat'
+      CASE (6)
+        name = 'vlat'
+      END SELECT
+      
+      ALLOCATE(clat(i_nc))
+      CALL nf(nf_inq_varid(ncid, name, varid))
+      CALL nf(nf_get_var_double(ncid, varid, clat))
+      CALL nf(nf_get_att_text(ncid, varid, 'long_name', long_name))
+      CALL nf(nf_inq_attlen(ncid, varid, 'long_name', lnlen))
+      CALL nf(nf_get_att_text(ncid, varid, 'units', units))
+      CALL nf(nf_inq_attlen(ncid, varid, 'units', ulen))
+      !
+      CALL gridDefYname(gridCellID(k_jg), name)
+      CALL gridDefYvals(gridCellID(k_jg), clat)
+      CALL gridDefYlongname(gridCellID(k_jg), long_name(1:lnlen))
+      CALL gridDefYunits(gridCellID(k_jg), units(1:ulen))
+      DEALLOCATE(clat)
+      
+      !
+      SELECT CASE (global_cell_type)
+      CASE (3)
+        CALL nf(nf_inq_varid(ncid, 'clon_vertices', varid))
+      CASE (6)
+        CALL nf(nf_inq_varid(ncid, 'vlon_vertices', varid))
+      END SELECT
+      
+      ALLOCATE(clonv(i_ncb))
+      CALL nf(nf_get_var_double(ncid, varid, clonv))
+      !
+      CALL gridDefXbounds(gridCellID(k_jg), clonv)
+      DEALLOCATE(clonv)
 
-    !
-    SELECT CASE (global_cell_type)
-    CASE (3)
-      CALL nf(nf_inq_varid(ncid, 'clat_vertices', varid))
-    CASE (6)
-      CALL nf(nf_inq_varid(ncid, 'vlat_vertices', varid))
-    END SELECT
+      !
+      SELECT CASE (global_cell_type)
+      CASE (3)
+        CALL nf(nf_inq_varid(ncid, 'clat_vertices', varid))
+      CASE (6)
+        CALL nf(nf_inq_varid(ncid, 'vlat_vertices', varid))
+      END SELECT
 
-    ALLOCATE(clatv(i_ncb))
-    CALL nf(nf_get_var_double(ncid, varid, clatv))
-    !
-    CALL gridDefYbounds(gridCellID(k_jg), clatv)
-    DEALLOCATE(clatv)
+      ALLOCATE(clatv(i_ncb))
+      CALL nf(nf_get_var_double(ncid, varid, clatv))
+      !
+      CALL gridDefYbounds(gridCellID(k_jg), clatv)
+      DEALLOCATE(clatv)
+    ENDIF
     !
     !-------------------------------------------------------------------------
     ! edge grid
@@ -498,49 +512,51 @@ CONTAINS
     gridEdgeID(k_jg) = gridCreate(GRID_UNSTRUCTURED, i_ne)
     CALL gridDefNvertex(gridEdgeID(k_jg), 4)
     !
-    name = 'elon'
-    ALLOCATE(elon(i_ne))
-    CALL nf(nf_inq_varid(ncid, name, varid))
-    CALL nf(nf_get_var_double(ncid, varid, elon))
-    CALL nf(nf_get_att_text(ncid, varid, 'long_name', long_name))
-    CALL nf(nf_inq_attlen(ncid, varid, 'long_name', lnlen))
-    CALL nf(nf_get_att_text(ncid, varid, 'units', units))
-    CALL nf(nf_inq_attlen(ncid, varid, 'units', ulen))
-    !
-    CALL gridDefXname(gridEdgeID(k_jg), name)
-    CALL gridDefXvals(gridEdgeID(k_jg), elon)
-    CALL gridDefXlongname(gridEdgeID(k_jg), long_name(1:lnlen))
-    CALL gridDefXunits(gridEdgeID(k_jg), units(1:ulen))
-    DEALLOCATE(elon)
-    !
-    name = 'elat'
-    ALLOCATE(elat(i_ne))
-    CALL nf(nf_inq_varid(ncid, name, varid))
-    CALL nf(nf_get_var_double(ncid, varid, elat))
-    CALL nf(nf_get_att_text(ncid, varid, 'long_name', long_name))
-    CALL nf(nf_inq_attlen(ncid, varid, 'long_name', lnlen))
-    CALL nf(nf_get_att_text(ncid, varid, 'units', units))
-    CALL nf(nf_inq_attlen(ncid, varid, 'units', ulen))
-    !
-    CALL gridDefYname(gridEdgeID(k_jg), name)
-    CALL gridDefYvals(gridEdgeID(k_jg), elat)
-    CALL gridDefYlongname(gridEdgeID(k_jg), long_name(1:lnlen))
-    CALL gridDefYunits(gridEdgeID(k_jg), units(1:ulen))
-    DEALLOCATE(elat)
-    !
-    ALLOCATE(elonv(i_neb))
-    CALL nf(nf_inq_varid(ncid, 'elon_vertices', varid))
-    CALL nf(nf_get_var_double(ncid, varid, elonv))
-    !
-    CALL gridDefXbounds(gridEdgeID(k_jg), elonv)
-    DEALLOCATE(elonv)
-    !
-    ALLOCATE(elatv(i_neb))
-    CALL nf(nf_inq_varid(ncid, 'elat_vertices', varid))
-    CALL nf(nf_get_var_double(ncid, varid, elatv))
-    !
-    CALL gridDefYbounds(gridEdgeID(k_jg), elatv)
-    DEALLOCATE(elatv)
+    IF(l_do_io) THEN
+      name = 'elon'
+      ALLOCATE(elon(i_ne))
+      CALL nf(nf_inq_varid(ncid, name, varid))
+      CALL nf(nf_get_var_double(ncid, varid, elon))
+      CALL nf(nf_get_att_text(ncid, varid, 'long_name', long_name))
+      CALL nf(nf_inq_attlen(ncid, varid, 'long_name', lnlen))
+      CALL nf(nf_get_att_text(ncid, varid, 'units', units))
+      CALL nf(nf_inq_attlen(ncid, varid, 'units', ulen))
+      !
+      CALL gridDefXname(gridEdgeID(k_jg), name)
+      CALL gridDefXvals(gridEdgeID(k_jg), elon)
+      CALL gridDefXlongname(gridEdgeID(k_jg), long_name(1:lnlen))
+      CALL gridDefXunits(gridEdgeID(k_jg), units(1:ulen))
+      DEALLOCATE(elon)
+      !
+      name = 'elat'
+      ALLOCATE(elat(i_ne))
+      CALL nf(nf_inq_varid(ncid, name, varid))
+      CALL nf(nf_get_var_double(ncid, varid, elat))
+      CALL nf(nf_get_att_text(ncid, varid, 'long_name', long_name))
+      CALL nf(nf_inq_attlen(ncid, varid, 'long_name', lnlen))
+      CALL nf(nf_get_att_text(ncid, varid, 'units', units))
+      CALL nf(nf_inq_attlen(ncid, varid, 'units', ulen))
+      !
+      CALL gridDefYname(gridEdgeID(k_jg), name)
+      CALL gridDefYvals(gridEdgeID(k_jg), elat)
+      CALL gridDefYlongname(gridEdgeID(k_jg), long_name(1:lnlen))
+      CALL gridDefYunits(gridEdgeID(k_jg), units(1:ulen))
+      DEALLOCATE(elat)
+      !
+      ALLOCATE(elonv(i_neb))
+      CALL nf(nf_inq_varid(ncid, 'elon_vertices', varid))
+      CALL nf(nf_get_var_double(ncid, varid, elonv))
+      !
+      CALL gridDefXbounds(gridEdgeID(k_jg), elonv)
+      DEALLOCATE(elonv)
+      !
+      ALLOCATE(elatv(i_neb))
+      CALL nf(nf_inq_varid(ncid, 'elat_vertices', varid))
+      CALL nf(nf_get_var_double(ncid, varid, elatv))
+      !
+      CALL gridDefYbounds(gridEdgeID(k_jg), elatv)
+      DEALLOCATE(elatv)
+    ENDIF
     !
     !-------------------------------------------------------------------------
     ! vertex grid
@@ -548,67 +564,75 @@ CONTAINS
     gridVertexID(k_jg) = gridCreate(GRID_UNSTRUCTURED, i_nv)
     CALL gridDefNvertex(gridVertexID(k_jg), 9-global_cell_type)
     !
-    SELECT CASE (global_cell_type)
-    CASE (3)
-      name = 'vlon'
-    CASE (6)
-      name = 'clon'
-    END SELECT
-    ALLOCATE(vlon(i_nv))
-    CALL nf(nf_inq_varid(ncid, name, varid))
-    CALL nf(nf_get_var_double(ncid, varid, vlon))
-    CALL nf(nf_get_att_text(ncid, varid, 'long_name', long_name))
-    CALL nf(nf_inq_attlen(ncid, varid, 'long_name', lnlen))
-    CALL nf(nf_get_att_text(ncid, varid, 'units', units))
-    CALL nf(nf_inq_attlen(ncid, varid, 'units', ulen))
-    !
-    CALL gridDefXname(gridVertexID(k_jg), name)
-    CALL gridDefXvals(gridVertexID(k_jg), vlon)
-    CALL gridDefXlongname(gridVertexID(k_jg), long_name(1:lnlen))
-    CALL gridDefXunits(gridVertexID(k_jg), units(1:ulen))
-    DEALLOCATE(vlon)
-    !
-    SELECT CASE (global_cell_type)
-    CASE (3)
-      name = 'vlat'
-    CASE (6)
-      name = 'clat'
-    END SELECT
-    ALLOCATE(vlat(i_nv))
-    CALL nf(nf_inq_varid(ncid, name , varid))
-    CALL nf(nf_get_var_double(ncid, varid, vlat))
-    CALL nf(nf_get_att_text(ncid, varid, 'long_name', long_name))
-    CALL nf(nf_inq_attlen(ncid, varid, 'long_name', lnlen))
-    CALL nf(nf_get_att_text(ncid, varid, 'units', units))
-    CALL nf(nf_inq_attlen(ncid, varid, 'units', ulen))
-    !
-    CALL gridDefYname(gridVertexID(k_jg), name)
-    CALL gridDefYvals(gridVertexID(k_jg), vlat)
-    CALL gridDefYlongname(gridVertexID(k_jg), long_name(1:lnlen))
-    CALL gridDefYunits(gridVertexID(k_jg), units(1:ulen))
-    DEALLOCATE(vlat)
-    !
-    IF(global_cell_type==3) THEN
-      CALL nf(nf_inq_varid(ncid, 'vlon_vertices', varid))
-    ELSEIF(global_cell_type==6) THEN
-      CALL nf(nf_inq_varid(ncid, 'clon_vertices', varid))
+    IF(l_do_io) THEN
+      SELECT CASE (global_cell_type)
+      CASE (3)
+        name = 'vlon'
+      CASE (6)
+        name = 'clon'
+      END SELECT
+      ALLOCATE(vlon(i_nv))
+      CALL nf(nf_inq_varid(ncid, name, varid))
+      CALL nf(nf_get_var_double(ncid, varid, vlon))
+      CALL nf(nf_get_att_text(ncid, varid, 'long_name', long_name))
+      CALL nf(nf_inq_attlen(ncid, varid, 'long_name', lnlen))
+      CALL nf(nf_get_att_text(ncid, varid, 'units', units))
+      CALL nf(nf_inq_attlen(ncid, varid, 'units', ulen))
+      !
+      CALL gridDefXname(gridVertexID(k_jg), name)
+      CALL gridDefXvals(gridVertexID(k_jg), vlon)
+      CALL gridDefXlongname(gridVertexID(k_jg), long_name(1:lnlen))
+      CALL gridDefXunits(gridVertexID(k_jg), units(1:ulen))
+      DEALLOCATE(vlon)
+      !
+      SELECT CASE (global_cell_type)
+      CASE (3)
+        name = 'vlat'
+      CASE (6)
+        name = 'clat'
+      END SELECT
+      ALLOCATE(vlat(i_nv))
+      CALL nf(nf_inq_varid(ncid, name , varid))
+      CALL nf(nf_get_var_double(ncid, varid, vlat))
+      CALL nf(nf_get_att_text(ncid, varid, 'long_name', long_name))
+      CALL nf(nf_inq_attlen(ncid, varid, 'long_name', lnlen))
+      CALL nf(nf_get_att_text(ncid, varid, 'units', units))
+      CALL nf(nf_inq_attlen(ncid, varid, 'units', ulen))
+      !
+      CALL gridDefYname(gridVertexID(k_jg), name)
+      CALL gridDefYvals(gridVertexID(k_jg), vlat)
+      CALL gridDefYlongname(gridVertexID(k_jg), long_name(1:lnlen))
+      CALL gridDefYunits(gridVertexID(k_jg), units(1:ulen))
+      DEALLOCATE(vlat)
+      !
+      IF(global_cell_type==3) THEN
+        CALL nf(nf_inq_varid(ncid, 'vlon_vertices', varid))
+      ELSEIF(global_cell_type==6) THEN
+        CALL nf(nf_inq_varid(ncid, 'clon_vertices', varid))
+      ENDIF
+      ALLOCATE(vlonv(i_nvb))
+      CALL nf(nf_get_var_double(ncid, varid, vlonv))
+      !
+      CALL gridDefXbounds(gridVertexID(k_jg), vlonv)
+      DEALLOCATE(vlonv)
+      !
+      IF(global_cell_type==3) THEN
+        CALL nf(nf_inq_varid(ncid, 'vlat_vertices', varid))
+      ELSEIF(global_cell_type==6) THEN
+        CALL nf(nf_inq_varid(ncid, 'clat_vertices', varid))
+      ENDIF
+      ALLOCATE(vlatv(i_nvb))
+      CALL nf(nf_get_var_double(ncid, varid, vlatv))
+      !
+      CALL gridDefYbounds(gridVertexID(k_jg), vlatv)
+      DEALLOCATE(vlatv)
     ENDIF
-    ALLOCATE(vlonv(i_nvb))
-    CALL nf(nf_get_var_double(ncid, varid, vlonv))
-    !
-    CALL gridDefXbounds(gridVertexID(k_jg), vlonv)
-    DEALLOCATE(vlonv)
-    !
-    IF(global_cell_type==3) THEN
-      CALL nf(nf_inq_varid(ncid, 'vlat_vertices', varid))
-    ELSEIF(global_cell_type==6) THEN
-      CALL nf(nf_inq_varid(ncid, 'clat_vertices', varid))
-    ENDIF
-    ALLOCATE(vlatv(i_nvb))
-    CALL nf(nf_get_var_double(ncid, varid, vlatv))
-    !
-    CALL gridDefYbounds(gridVertexID(k_jg), vlatv)
-    DEALLOCATE(vlatv)
+
+    !-------------------------------------------------------------------------
+
+    ! Close NetCDF file, it is not needed any more
+
+    CALL nf(nf_close(ncid))
     !
     !=========================================================================
     ! vertical grids
@@ -2492,8 +2516,6 @@ CONTAINS
       END IF
 
     END IF  ! ocean
-
-    CALL nf(nf_close(ncid))
 
     IF (lwrite_decomposition) THEN
       CALL addVar(ConstVar('cell_owner',&

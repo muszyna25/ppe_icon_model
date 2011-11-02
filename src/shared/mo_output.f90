@@ -153,8 +153,12 @@ CONTAINS
 
         ! Set up vlist for this grid level
         ! Please note: setup_vlist only sets up the vlist, it does not open any output file!
+        ! The third parameter has to be set to .TRUE. if the current
+        ! task actually does I/O for the patch in question.
+        ! Compare to the call of open_output_vlist below!
 
-        CALL setup_vlist( TRIM(p_patch(jg)%grid_filename), jg )
+        CALL setup_vlist( TRIM(p_patch(jg)%grid_filename), jg, &
+                        & process_mpi_io_size==0 .AND. p_pe==p_io)
 
       ENDDO
 

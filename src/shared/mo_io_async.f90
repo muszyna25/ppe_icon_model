@@ -359,6 +359,11 @@ CONTAINS
       ! Every I/O PE gets at least 1 domain, no need to do parallel I/O
       ! We map the domains just cyclically to the I/O procs, maybe there exist better ways ...
 
+      ! PLEASE NOTE: !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      ! The call to setup_vlist in receive_patch_configuration assumes the same work distribution
+      ! as done below - so any changes done below have to be repeated in receive_patch_configuration
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
       use_pio = .FALSE.
 
       my_io_task_no = p_pe_work
@@ -463,6 +468,7 @@ CONTAINS
     INTEGER :: ivct_len
     INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size
     INTEGER, ALLOCATABLE :: ncheck(:,:)
+    LOGICAL :: l_do_io
     REAL(wp), TARGET :: dummy(1)
     CHARACTER(LEN=filename_max) :: gridfile(max_dom)
     CHARACTER(LEN=256) text
@@ -575,9 +581,24 @@ CONTAINS
 
     ! ----------------------------------------------------------------------------------------------
     ! All variables needed for output are initialized now, we can set up the vlists
+    ! Please note that the third parameter of setup_vlist has to be set to .TRUE. if the current
+    ! task actually does I/O for the patch in question.
+    !
+    ! Since distribute_work has not yet been called, we set l_do_io in the same way
+    ! as it is later assigned in distribute_work.
+    ! Pleas note that any change in distribute_work must be reflected here !!!!!
 
     DO jg = 1, n_dom
-      CALL setup_vlist( TRIM(gridfile(jg)), jg )
+      IF(process_mpi_io_size <= n_dom) THEN
+        ! No parallel I/O, domains are mapped cyclically to the I/O procs
+        l_do_io = MOD(jg-1,process_mpi_io_size) == p_pe_work
+      ELSE
+        ! Parallel I/O, this is disabled currently
+        ! For safety we set l_do_io to .TRUE., this doesn't harm, it only
+        ! costs more memory on procs which actually don't do I/O
+        l_do_io = .TRUE.
+      ENDIF
+      CALL setup_vlist( TRIM(gridfile(jg)), jg, l_do_io )
     ENDDO
 
     ! ----------------------------------------------------------------------------------------------
@@ -894,7 +915,7 @@ CONTAINS
 
     IF(my_process_is_mpi_test()) THEN
       DO jg = 1, n_dom
-        CALL setup_vlist( p_patch(jg)%grid_filename, jg )
+        CALL setup_vlist( p_patch(jg)%grid_filename, jg, .TRUE. )
       ENDDO
       RETURN
     ENDIF
@@ -1378,6 +1399,8 @@ CONTAINS
     ENDIF
 
 
+    idate = cdiEncodeDate(datetime%year, datetime%month, datetime%day)
+    itime = cdiEncodeTime(datetime%hour, datetime%minute, NINT(datetime%second))
     DO jg = 1, n_dom
       CALL vlist_set_date_time(jg, idate, itime)
       CALL vlist_start_step(jg, nstep)
