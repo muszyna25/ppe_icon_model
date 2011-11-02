@@ -140,7 +140,6 @@ CONTAINS
 
     ENDIF
 
-    CALL prepare_nh_integration(p_patch(1:), p_nh_state, p_int_state(1:), p_grf_state(1:))
 
     !---------------------------------------------------------------------
     ! 5. Perform time stepping
@@ -190,7 +189,7 @@ CONTAINS
 
     ENDIF
 
-!DR    CALL prepare_nh_integration(p_patch(1:), p_nh_state, p_int_state(1:), p_grf_state(1:))
+    CALL prepare_nh_integration(p_patch(1:), p_nh_state, p_int_state(1:), p_grf_state(1:))
 
     ! Continue operations for real-data initialization
     IF (l_realcase .AND. .NOT. is_restart_run()) THEN
