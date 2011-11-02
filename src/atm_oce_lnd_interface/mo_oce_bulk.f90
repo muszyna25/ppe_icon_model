@@ -61,7 +61,7 @@ USE mo_grid_config,         ONLY: nroot
 USE mo_ocean_nml,           ONLY: iforc_oce, iforc_omip, iforc_len, itestcase_oce,    &
   &           no_tracer, n_zlev, basin_center_lat, basin_center_lon, basin_width_deg, &
   &                               basin_height_deg, relaxation_param, wstress_coeff,  &
-  &                               i_bc_veloc_top, temperature_relaxation,             &
+  &                               i_bc_veloc_top, temperature_relaxation, irelax_2d_S,&
   &                               NO_FORCING, ANALYT_FORC, FORCING_FROM_FILE_FLUX,    &
   &                               FORCING_FROM_FILE_FIELD, FORCING_FROM_COUPLED_FLUX, &
   &                               FORCING_FROM_COUPLED_FIELD, i_dbg_oce, i_sea_ice
@@ -482,7 +482,7 @@ CONTAINS
   END IF
 
   !-------------------------------------------------------------------------
-  ! Apply temperature relaxation to boundary condition
+  ! Apply temperature relaxation to surface boundary condition
 
   IF (temperature_relaxation >= 2) THEN
 
@@ -598,6 +598,22 @@ CONTAINS
     CALL print_mxmn('T-forc-tracer-flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
 
   END IF
+
+  !-------------------------------------------------------------------------
+  ! Apply salinity relaxation to surface boundary condition
+
+  IF (irelax_2d_S == 3) THEN
+
+    ipl_src=1  ! output print level (1-5, fix)
+    z_c(:,1,:)=p_sfc_flx%forc_tracer_relax(:,:,2)
+    CALL print_mxmn('update sal.-relax',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+    ipl_src=2  ! output print level (0-5, fix)
+    z_c(:,1,:) = p_sfc_flx%forc_tracer_relax(:,:,2)-p_os%p_prog(nold(1))%tracer(:,1,:,2)
+    CALL print_mxmn('Sal.-difference',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+    z_c(:,1,:) = p_sfc_flx%forc_tracer(:,:,2)
+    CALL print_mxmn('S-forc-tracer-flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+
+  ENDIF
 
   END SUBROUTINE update_sfcflx
   !-------------------------------------------------------------------------

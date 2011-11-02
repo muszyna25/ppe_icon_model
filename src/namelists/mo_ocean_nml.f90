@@ -183,15 +183,16 @@ MODULE mo_ocean_nml
   REAL(wp) :: s_ref                 = 0.0_wp   ! reference salinity for initialization
   REAL(wp) :: bottom_drag_coeff     = 0.002_wp ! chezy coefficient for bottom friction
   REAL(wp) :: wstress_coeff         = 1.e-4_wp ! windstress coefficient
-  INTEGER  :: temperature_relaxation= 0        ! 0=no relax.; 1=on for some testcases; 2=read from OMIP-file
-  REAL(wp) :: relaxation_param      = 0.0_wp   ! strength of tracer relaxation in months (same value for all tracers)
-                                               ! this value is divided by number of seconds per month (=30*24*3600)
-
+                                               ! 2-dimensional surface relaxation of temperature and salinity
+  INTEGER  :: temperature_relaxation= 0        ! 0=no relax.; 1=on for some testcases; 2=use OMIP-file; 3: use init. values
+  REAL(wp) :: relaxation_param      = 0.0_wp   ! strength of 2-dim temperatuere relaxation in months
+  INTEGER  :: irelax_2d_S           = 0        ! 0=no relax.; 3: use initialized values
+  REAL(wp) :: relax_2d_mon_S        = 0.0_wp   ! strength of 2-dim salinity relaxation in months
                                                ! 3-dimensional relaxation of temperature and salinity
   INTEGER  :: irelax_3d_T           = 0        ! 0: no 3-dim relax.,  3: use initial T read with init_oce_prog=1
-  REAL(wp) :: relax_3d_mon_T        = 0.0_wp   ! strength of 3-dim relaxation for temperature
+  REAL(wp) :: relax_3d_mon_T        = 0.0_wp   ! strength of 3-dim relaxation for temperature in months
   INTEGER  :: irelax_3d_S           = 0        ! 0: no 3-dim relax.,  3: use initial S read with init_oce_prog=1
-  REAL(wp) :: relax_3d_mon_S        = 0.0_wp   ! strength of 3-dim relaxation for salinity
+  REAL(wp) :: relax_3d_mon_S        = 0.0_wp   ! strength of 3-dim relaxation for salinity in months
 
   INTEGER  :: coriolis_type         = 1        ! 0=zero Coriolis, the non-rotating case
                                                ! 1=full varying Coriolis
