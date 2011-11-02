@@ -59,7 +59,8 @@ USE mo_math_constants
 USE mo_parallel_config,    ONLY: nproma
 USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer, iforc_len,                    &
   &                              init_oce_prog, itestcase_oce, i_sea_ice, iforc_oce,        &
-  &                              irelax_3d_T, relax_3d_mon_T, irelax_3d_S, relax_3d_mon_S,  &
+  &                              irelax_3d_S, relax_3d_mon_S, irelax_3d_T, relax_3d_mon_T,  &
+  &                              irelax_2d_S, relax_2d_mon_S,&!relax_2d_T, relax_2d_mon_T,  &
   &                              basin_center_lat, basin_center_lon,idisc_scheme,           &
   &                              basin_height_deg,  basin_width_deg, temperature_relaxation
 USE mo_impl_constants,     ONLY: max_char_length, sea, sea_boundary,                        &
@@ -252,22 +253,24 @@ CONTAINS
     END DO
   END DO
 
-  ! #slo# 2011-10-10: HACK - overwrite OMIP SST by Levitus SST for temperature_relaxation=3:
+  ! use initialized temperature, assigned to tracer, for 2-dim relaxation
   IF (temperature_relaxation == 3) THEN
-    IF (iforc_oce == 12) THEN
-      DO jlen = 1, iforc_len
-        p_ext_data%oce%omip_forc_mon_c(:,jlen,:,3) = &
-          &  p_os%p_prog(nold(1))%tracer(:,1,:,1) + tmelt
-     !  IF (no_tracer>1) p_ext_data%oce%omip_forc_mon_c(:,jlen,:,x) = &
-     !    &  p_os%p_prog(nold(1))%tracer(:,1,:,2)
-      END DO
+    p_sfc_flx%forc_tracer_relax(:,:,1) = p_os%p_prog(nold(1))%tracer(:,1,:,1)
+  END IF
+
+  ! use initialized temperature/salinity, assigned to tracer, for 2-dim relaxation
+! IF (irelax_2d_T == 3) THEN
+!   p_sfc_flx%forc_tracer_relax(:,:,1) = p_os%p_prog(nold(1))%tracer(:,1,:,1)
+! END IF
+  IF (irelax_2d_S == 3) THEN
+    IF (no_tracer > 1) THEN
+      p_sfc_flx%forc_tracer_relax(:,:,2) = p_os%p_prog(nold(1))%tracer(:,1,:,2)
     ELSE
-      CALL message( TRIM(routine),'No OMIP forcing file read - do not use T_RELAX=3')
-      CALL finish(TRIM(ROUTINE),' T_RELAX=3 and IFORC!=12')
+      CALL finish(TRIM(ROUTINE),' irelax_2d_S=3 and no_tracer<2')
     END IF
   END IF
 
-  ! #slo# 2011-11-01: use Levitus temperature/salinity, assigned to tracer, for 3-dim relaxation
+  ! #slo# 2011-11-01: use initialized temperature/salinity, assigned to tracer, for 3-dim relaxation
   IF (irelax_3d_T == 3) THEN
     p_os%p_aux%relax_3d_data_T(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,1)
   END IF

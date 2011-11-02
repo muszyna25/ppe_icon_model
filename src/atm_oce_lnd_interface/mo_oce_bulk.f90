@@ -309,17 +309,29 @@ CONTAINS
 
     END IF
 
-    IF (temperature_relaxation == 2 .OR. temperature_relaxation == 3)  THEN
+    IF (temperature_relaxation == 2)  THEN
 
       !-------------------------------------------------------------------------
-      ! Apply Temperature relaxation data (record 3) from stationary forcing
+      ! Apply temperature relaxation data (record 3) from stationary forcing
       !  - change units to deg C, subtract tmelt (0 deg C, 273.15)
 
        p_sfc_flx%forc_tracer_relax(:,:,1) = &
          &  rday1*(ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,3)-tmelt) + &
          &  rday2*(ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,3)-tmelt)
 
-    END IF   !  temperature relaxation
+    END IF
+
+    IF (irelax_2d_S == 2 .AND. no_tracer >1) THEN
+
+      !-------------------------------------------------------------------------
+      ! Apply salinity relaxation data (record ??) from stationary forcing
+
+    !  p_sfc_flx%forc_tracer_relax(:,:,2) = &
+    !    &  rday1*(ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,x)-tmelt) + &
+    !    &  rday2*(ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,x)-tmelt)
+      CALL finish(TRIM(ROUTINE),' irelax_2d_S=2 (reading from flux file) not yet implemented')
+
+    END IF
      
     DO jb = i_startblk_c, i_endblk_c
       CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c,  &
@@ -481,6 +493,12 @@ CONTAINS
     CALL print_mxmn('update forcing v',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
   END IF
 
+  ! Memory fault?
+  ! IF (iforc_oce /= FORCING_FROM_FILE_FLUX .AND. temperature_relaxation == 2) THEN
+  !   write(0,*) ' ACHTUNG, temp_relax=',temperature_relaxation,' iforc_oce =',iforc_oce
+  !   CALL finish(TRIM(ROUTINE),' irelax_2d_T=2 (reading from flux file) but iforc_oce/=12')
+  ! END IF
+
   !-------------------------------------------------------------------------
   ! Apply temperature relaxation to surface boundary condition
 
@@ -554,7 +572,7 @@ CONTAINS
 
   ENDIF
 
-  ! Heat flux diagnosed for all relaxation cases,
+  ! Heat flux diagnosed for all ocean only relaxation cases,
   !  including also temperature_relaxation=1 which are some special testcases, see there
   IF (temperature_relaxation >= 1) THEN
 
@@ -590,9 +608,9 @@ CONTAINS
 
     p_sfc_flx%forc_tracer(:,:,1) = p_sfc_flx%forc_hflx(:,:) / (rho_ref*cw)
 
-  ! ipl_src=1  ! output print level (1-5, fix)
-  ! z_c(:,1,:) = p_sfc_flx%forc_hflx(:,:)
-  ! CALL print_mxmn('T-forc-nshflx',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+    ipl_src=1  ! output print level (1-5, fix)
+    z_c(:,1,:) = p_sfc_flx%forc_hflx(:,:)
+    CALL print_mxmn('T-forc-nshflx',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
     ipl_src=2  ! output print level (1-5, fix)
     z_c(:,1,:) = p_sfc_flx%forc_tracer(:,:,1)
     CALL print_mxmn('T-forc-tracer-flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
