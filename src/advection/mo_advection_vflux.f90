@@ -2702,6 +2702,10 @@ CONTAINS
             jc = i_indlist_p(ji_p,nlist,jb)
             jk = i_levlist_p(ji_p,nlist,jb)
 
+            ! cycle if the model level is in a region where advection is 
+            ! turned off for the present variable
+            IF (jk < slevp1) CYCLE
+
             ! integer shift (depends on the applied list)
             jk_shift = jk + nlist - 1
 
@@ -2723,6 +2727,10 @@ CONTAINS
             ! get jc and jk index from precomputed list
             jc = i_indlist_p(ji_p,1,jb)
             jk = i_levlist_p(ji_p,1,jb)
+
+            ! cycle if the model level is in a region where advection is 
+            ! turned off for the present variable
+            IF (jk < slevp1) CYCLE
 
             ! fractional upward flux
             ! if w > 0 , weta < 0 (physical upwelling)
@@ -2768,6 +2776,10 @@ CONTAINS
             jc = i_indlist_m(ji_m,nlist,jb)
             jk = i_levlist_m(ji_m,nlist,jb)
 
+            ! cycle if the model level is in a region where advection is 
+            ! turned off for the present variable
+            IF (jk < slevp1) CYCLE
+
             ! integer shift (depends on the applied list)
             jk_shift = jk - nlist
 
@@ -2789,6 +2801,10 @@ CONTAINS
             ! get jc and jk index from precomputed list
             jc = i_indlist_m(ji_m,1,jb)
             jk = i_levlist_m(ji_m,1,jb)
+
+            ! cycle if the model level is in a region where advection is 
+            ! turned off for the present variable
+            IF (jk < slevp1) CYCLE
 
             ! fractional downward flux
             ! if w < 0 , weta > 0 (physical downwelling)
