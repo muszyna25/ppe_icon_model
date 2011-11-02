@@ -2691,13 +2691,13 @@ DO ns=nsubs0,nsubs1
             IF((1._ireals-ztsnow_pm(i,j))*zrs(i,j) > 0.0_ireals) zrs(i,j) = 0.0_ireals
             IF((1._ireals-ztsnow_pm(i,j))*zrr(i,j) > 0.0_ireals) zrr(i,j) = 0.0_ireals
           END IF
-        ELSE
-          IF(subsfrac(i,j,ns).gt.0._ireals) THEN
-            IF((1._ireals-ztsnow_pm(i,j))*zrs(i,j) > 0.0_ireals) zrs(i,j) = &
-              zrs(i,j)*(subsfrac(i,j,ns-1)+subsfrac(i,j,ns))/MAX(subsfrac(i,j,ns),zepsi)
-            IF((1._ireals-ztsnow_pm(i,j))*zrr(i,j) > 0.0_ireals) zrr(i,j) = &
-              zrr(i,j)*(subsfrac(i,j,ns-1)+subsfrac(i,j,ns))/MAX(subsfrac(i,j,ns),zepsi) 
-          END IF
+!        ELSE
+!          IF(subsfrac(i,j,ns).gt.0._ireals) THEN
+!            IF((1._ireals-ztsnow_pm(i,j))*zrs(i,j) > 0.0_ireals) zrs(i,j) = &
+!              zrs(i,j)*(subsfrac(i,j,ns-1)+subsfrac(i,j,ns))/MAX(subsfrac(i,j,ns),zepsi)
+!            IF((1._ireals-ztsnow_pm(i,j))*zrr(i,j) > 0.0_ireals) zrr(i,j) = &
+!              zrr(i,j)*(subsfrac(i,j,ns-1)+subsfrac(i,j,ns))/MAX(subsfrac(i,j,ns),zepsi) 
+!          END IF
         END IF 
 
         ! infiltration and surface run-off
