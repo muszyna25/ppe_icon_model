@@ -2197,13 +2197,13 @@ CONTAINS
       &           k_jg)
     END IF
     IF (temperature_relaxation /= 0 ) THEN
-      CALL addVar(TimeVar('forc-tdata',&
-      &                   'temperature relaxation data',&
-      &                   'K',15,128,&
-      &                   vlistID(k_jg),&
-      &                   gridCellID(k_jg),&
-      &                   zaxisID_surface(k_jg)),&
-      &           k_jg)
+   !  CALL addVar(TimeVar('forc-tdata',&
+   !  &                   'temperature relaxation data',&
+   !  &                   'K',15,128,&
+   !  &                   vlistID(k_jg),&
+   !  &                   gridCellID(k_jg),&
+   !  &                   zaxisID_surface(k_jg)),&
+   !  &           k_jg)
     END IF 
     IF (temperature_relaxation /= 0 ) THEN
       CALL addVar(TimeVar('forc-t',&
@@ -2224,13 +2224,13 @@ CONTAINS
       &           k_jg)
     END IF 
     IF (irelax_2d_S /= 0 ) THEN
-      CALL addVar(TimeVar('forc-sdata',&
-      &                   'salinity relaxation data',&
-      &                   'psu',15,128,&
-      &                   vlistID(k_jg),&
-      &                   gridCellID(k_jg),&
-      &                   zaxisID_surface(k_jg)),&
-      &           k_jg)
+   !  CALL addVar(TimeVar('forc-sdata',&
+   !  &                   'salinity relaxation data',&
+   !  &                   'psu',15,128,&
+   !  &                   vlistID(k_jg),&
+   !  &                   gridCellID(k_jg),&
+   !  &                   zaxisID_surface(k_jg)),&
+   !  &           k_jg)
     END IF 
     IF (irelax_2d_S /= 0 ) THEN
       CALL addVar(TimeVar('forc-s',&
@@ -2315,13 +2315,13 @@ CONTAINS
       &                   gridCellID(k_jg), &
       &                   zaxisIDdepth_m(k_jg)),&
       &           k_jg)
-      CALL addVar(TimeVar('Vert-Veloc-Adv',&
-      &                   'vertical-velocity advection at edges',&
-      &                   'm/s',5,128,&
-      &                   vlistID(k_jg), &
-      &                   gridEdgeID(k_jg), &
-      &                   zaxisIDdepth_m(k_jg)),&
-      &           k_jg)
+    ! CALL addVar(TimeVar('Vert-Veloc-Adv',&
+    ! &                   'vertical-velocity advection at edges',&
+    ! &                   'm/s',5,128,&
+    ! &                   vlistID(k_jg), &
+    ! &                   gridEdgeID(k_jg), &
+    ! &                   zaxisIDdepth_m(k_jg)),&
+    ! &           k_jg)
       CALL addVar(TimeVar('W',&
       &                   'vertical velocity at cells',&
       &                   'm/s', 6, 128,&
@@ -2343,13 +2343,13 @@ CONTAINS
       &                   gridCellID(k_jg),&
       &                   zaxisID_halfdepth(k_jg)),&
       &           k_jg)
-     CALL addVar(TimeVar('press_grad',&
-     &                   'pressure-gradient at edges',&
-     &                   'm/s',5,128,&
-     &                   vlistID(k_jg), &
-     &                   gridEdgeID(k_jg), &
-     &                   zaxisIDdepth_m(k_jg)),&
-     &                   k_jg)
+   ! CALL addVar(TimeVar('press_grad',&
+   ! &                   'pressure-gradient at edges',&
+   ! &                   'm/s',5,128,&
+   ! &                   vlistID(k_jg), &
+   ! &                   gridEdgeID(k_jg), &
+   ! &                   zaxisIDdepth_m(k_jg)),&
+   ! &                   k_jg)
     CALL addVar(TimeVar('rho',&
      &                   'density cells',&
      &                   'kg/m**3', 6, 128,&

@@ -632,7 +632,6 @@ run/exp.nh3_tri_tracer_solid_body -text
 run/exp.oce_parallel_output -text
 run/exp.ozon -text
 run/exp.pk_hom -text
-run/exp.pk_lsmfl -text
 run/exp.pure_adv -text
 run/exp.sl_lsmfl -text
 run/exp.test_couple_dummy_models -text
