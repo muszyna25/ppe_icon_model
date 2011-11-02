@@ -276,7 +276,6 @@ TYPE t_nwp_phy_tend
              ddt_temp_turb   (:,:,:)  ,& !! Temp-tendency from turbulence
              ddt_temp_drag   (:,:,:)  ,& !! Temp-tendency from sso + gravity-wave drag + Rayleigh friction
              ddt_temp_pconv  (:,:,:)  ,& !! Temp-tendency from convective prec
-             ddt_temp_pscl   (:,:,:)  ,& !! Temp-tendency from grid scale prec
              ddt_u_turb      (:,:,:)  ,& !! ZonalW-tendency from turbulence
              ddt_u_gwd       (:,:,:)  ,& !! ZonalW-tendency from gravity wave drag
              ddt_u_raylfric  (:,:,:)  ,& !! ZonalW-tendency from artificial Rayleigh friction
@@ -289,11 +288,9 @@ TYPE t_nwp_phy_tend
              ddt_v_pconv     (:,:,:)  ,& !! MeridW-tendency from convective prec
              ddt_tracer_turb (:,:,:,:),& !! Hydromet-tendency from turbulence
              ddt_tracer_pconv(:,:,:,:),& !! Hydromet-tendency from convective prec
-             ddt_tracer_pscl (:,:,:,:),& !! Hydromet-tendency from grid scale prec
              ddt_tke         (:,:,:)     !! tendency for turbulent kinetic energy [m^2/s^3]
    TYPE(t_ptr_phy),ALLOCATABLE :: tracer_turb_ptr(:)  !< pointer array: one pointer for each component
    TYPE(t_ptr_phy),ALLOCATABLE :: tracer_conv_ptr(:)  !< pointer array: one pointer for each component
-   TYPE(t_ptr_phy),ALLOCATABLE :: tracer_pscl_ptr(:)  !< pointer array: one pointer for each component
 END TYPE t_nwp_phy_tend
 
 !!--------------------------------------------------------------------------
@@ -1407,13 +1404,6 @@ SUBROUTINE new_nwp_phy_tend_list( klev,  kblks,   &
     CALL add_var( phy_tend_list, 'ddt_temp_pconv', phy_tend%ddt_temp_pconv,        &
                 & GRID_UNSTRUCTURED_CELL,ZAXIS_HEIGHT, cf_desc, grib2_desc, ldims=shape3d )
 
-   ! &      phy_tend%ddt_temp_pscl(nproma,nlev,nblks),          &
-    cf_desc    = t_cf_var('ddt_temp_pscl', 'K s-1', &
-         &                            'cloud microphysical temperature tendency')
-    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( phy_tend_list, 'ddt_temp_pscl', phy_tend%ddt_temp_pscl,        &
-                & GRID_UNSTRUCTURED_CELL,ZAXIS_HEIGHT, cf_desc, grib2_desc, ldims=shape3d )
-
 
     !------------------------------
     ! Zonal Wind tendencies
@@ -1574,58 +1564,6 @@ SUBROUTINE new_nwp_phy_tend_list( klev,  kblks,   &
                     & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),  &
                     & ldims=shape3d)
 
-
-   ! &      phy_tend%ddt_tracer_pscl(nproma,nlev,nblks,iqcond)
-    cf_desc    = t_cf_var('ddt_tracer_pscl', 's-1', &
-         &                            'cloud microphysical tendency y of tracers')
-    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( phy_tend_list, 'ddt_tracer_pscl', phy_tend%ddt_tracer_pscl,        &
-                & GRID_UNSTRUCTURED_CELL,ZAXIS_HEIGHT, cf_desc, grib2_desc, ldims=shape4d ,&
-                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
-
-    ktracer=ntracer
-    ALLOCATE( phy_tend%tracer_pscl_ptr(ktracer) )
-
-          !qv
-        CALL add_ref( phy_tend_list, 'ddt_tracer_pscl',                                 &
-                    & 'ddt_qv_pscl', phy_tend%tracer_pscl_ptr(1)%p_3d,                  &
-                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                             &
-                    & t_cf_var('ddt_qv_pscl', 'kg kg**-1 s**-1',                        &
-                    & 'tendency_of_specific_humidity_due_to_grid_scale_precipitation'), &
-                    & t_grib2_var(1, 200, 105, ientr, GRID_REFERENCE, GRID_CELL),       &
-                    & ldims=shape3d)
-         !qc
-        CALL add_ref( phy_tend_list, 'ddt_tracer_pscl',                                   &
-                    & 'ddt_qc_pscl', phy_tend%tracer_pscl_ptr(2)%p_3d,                    &
-                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                               &
-                    & t_cf_var('ddt_qc_pscl', 'kg kg**-1 s**-1',                          &
-                    & 'tendency_of_specific_cloud_water_due_to_grid_scale_precipitation'),&
-                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),       &
-                    & ldims=shape3d)
-         !qi
-        CALL add_ref( phy_tend_list, 'ddt_tracer_pscl',                                 &
-                    & 'ddt_qi_pscl', phy_tend%tracer_pscl_ptr(3)%p_3d,                  &
-                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                             &
-                    & t_cf_var('ddt_qi_pscl', 'kg kg**-1 s**-1',                        &
-                    & 'tendency_of_specific_cloud_ice_due_to_grid_scale_precipitation'),&
-                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),     &
-                    & ldims=shape3d)
-         !qi
-        CALL add_ref( phy_tend_list, 'ddt_tracer_pscl',                                  &
-                    & 'ddt_qr_pscl', phy_tend%tracer_pscl_ptr(4)%p_3d,                   &
-                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                              &
-                    & t_cf_var('ddt_qr_pscl', 'kg kg**-1 s**-1',                         &
-                    & 'tendency_of_rain_due_to_grid_scale_precipitation'),               &
-                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),      &
-                    & ldims=shape3d)
-         !qs
-        CALL add_ref( phy_tend_list, 'ddt_tracer_pscl',                                  &
-                    & 'ddt_qs_pscl', phy_tend%tracer_pscl_ptr(5)%p_3d,                   &
-                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                              &
-                    & t_cf_var('ddt_qs_pscl', 'kg kg**-1 s**-1',                         &
-                    & 'tendency_of_snow_due_to_grid_scale_precipitation'),               &
-                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),      &
-                    & ldims=shape3d)
 
     !------------------------------
     ! TKE tendency

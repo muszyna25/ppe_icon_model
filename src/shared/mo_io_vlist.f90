@@ -1860,11 +1860,6 @@ CONTAINS
           &                   'K/s', 102, 999,&
           &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
           &           k_jg)
-          CALL addVar(TimeVar('tend_temp_pscl', &
-          &                   'temperature tendency due to grid scale microphysics',&
-          &                   'K/s', 103, 999,&
-          &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
-          &           k_jg)
           CALL addVar(TimeVar('tend_temp_conv', &
           &                   'temperature tendency due to convection',&
           &                   'K/s', 104, 999,&
@@ -1962,16 +1957,6 @@ CONTAINS
             &       k_jg)
           END DO
 
-  ! KF to be implemented later
-  !        DO jt = 1,  iqcond
-  !          ctracer = ctracer_list(jt:jt)
-  !          WRITE(qname,'(A6,A1,A5)') "tend_q", ctracer, "_pscl"
-  !          CALL addVar(TimeVar(TRIM(qname),&
-  !          &                   TRIM(qname),&
-  !          &               '1/s',24,128,&
-  !          &               vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
-  !          &       k_jg)
-  !        END DO
         END IF
 
       END SELECT
@@ -3079,7 +3064,6 @@ CONTAINS
         END IF
       CASE ('tend_temp_radsw'); ptr3 => prm_nwp_tend(jg)%ddt_temp_radsw(:,:,:)
       CASE ('tend_temp_radlw'); ptr3 => prm_nwp_tend(jg)%ddt_temp_radlw(:,:,:)
-      CASE ('tend_temp_pscl');  ptr3 => prm_nwp_tend(jg)%ddt_temp_pscl (:,:,:)
       CASE ('tend_temp_conv');  ptr3 => prm_nwp_tend(jg)%ddt_temp_pconv(:,:,:)
       CASE ('tend_temp_turb');  ptr3 => prm_nwp_tend(jg)%ddt_temp_turb (:,:,:)
       CASE ('tend_temp_drag');  ptr3 => prm_nwp_tend(jg)%ddt_temp_drag (:,:,:)
@@ -3160,10 +3144,6 @@ CONTAINS
           ptr3 => prm_nwp_tend(jg)%ddt_tracer_turb(:,:,:,jt)
           RETURN
         ENDIF
-!        IF(varname == 'tend_q'//ctracer//'_pscl') THEN
-!          ptr3 => prm_nwp_tend(jg)%ddt_tracer_gscp(:,:,:,jt)
-!          RETURN
-!        ENDIF
       ENDDO
 
       IF ( irad_o3 == 4 .OR. irad_o3 == 6 .OR. irad_o3 == 7 ) THEN
@@ -3426,10 +3406,6 @@ CONTAINS
     !       ptr3 => prm_nwp_tend(jg)%ddt_tracer_turb(:,:,:,jt)
     !       RETURN
     !     ENDIF
-!   !      IF(varname == 'tend_q'//ctracer//'_pscl') THEN
-!   !        ptr3 => prm_nwp_tend(jg)%ddt_tracer_gscp(:,:,:,jt)
-!   !        RETURN
-!   !      ENDIF
     !   ENDDO
 
     !   DO jt = 1, inextra_2d ! 2d debug variables
