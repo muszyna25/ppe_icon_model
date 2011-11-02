@@ -156,7 +156,9 @@ MODULE mo_intp_data_strc
 USE mo_kind,                ONLY: wp
 USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlvert, max_dom
 !DR for testing purposes
-USE mo_math_utilities,      ONLY: t_geographical_coordinates
+USE mo_math_utilities,      ONLY: gc2cc, cc2gc, t_cartesian_coordinates,      &
+  &                               t_geographical_coordinates, vector_product, &
+  &                               arc_length
 
 IMPLICIT NONE
 
@@ -483,6 +485,51 @@ TYPE t_int_state
   !--------------------------------------------------------------------------
   TYPE(t_gauss_quad) ::gquad
 
+  ! m) Ocean variables
+  ! This will be transfered into an separate variable AFTER we got it running in parallel
+  ! The following two arrays are required for the reconstruction process that
+  ! is used within the ocean model. Once the new version is implemented this
+  ! could eventually be shifted to the edge/vertex datatypes. It is currently
+  ! placed here to reduce interference with the atmospheric code (P.K.).
+  !
+  ! Vector pointing from cell circumcenter to edge midpoint. In the associated
+  ! cell2edge_weight-array the cell2edge_vec is multiplied by some other geometric
+  ! quantities (edge-length, cell area). The weight is used in the reconstruction
+  ! the vector is used in the transposed reconstruction.
+  ! index=1,nproma, index2=1,nblks_c, index3=1,3
+  ! other choice would be index2=1,nblks_e, index3=1,2
+  ! Eventually switch to other second indexing if this is more appropriate
+
+  ! Vector pointing from vertex (dual center) to midpoint of dual edge
+  ! (/= midpoint of primal edge).
+  ! In the associated vertex2dualedge_mid_weight-array the vertex2dualedge_mid_vec
+  ! is multiplied by some other geometric quantities (dual edge-length, dual cell
+  ! area). The weight is used in the reconstruction the vector is used in the
+  ! transposed reconstruction.
+  ! index=1,nproma, index2=1,nblks_v, index3=1,6
+  ! other choice index2=1,nblks_e, index3=1,2
+  ! Eventually switch to other second indexing if this is more appropriate
+  ! new constructs for mimetic core:
+  TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2cell_coeff_cc(:,:,:)
+  TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2cell_coeff_cc_t(:,:,:)
+
+
+  !REAL(wp),                      ALLOCATABLE :: edge2vert_coeff(:,:,:,:)
+  !TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2vert_coeff_t(:,:,:)
+
+  TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2vert_coeff_cc(:,:,:)
+  TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2vert_coeff_cc_t(:,:,:)
+  TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2vert_vector_cc(:,:,:)
+
+  REAL(wp), ALLOCATABLE :: fixed_vol_norm(:,:)
+  REAL(wp), ALLOCATABLE :: variable_vol_norm(:,:,:)
+  REAL(wp), ALLOCATABLE :: variable_dual_vol_norm(:,:,:)
+
+
+  ! Location of midpoint of dual edge
+  !!$    TYPE(t_geographical_coordinates), ALLOCATABLE :: mid_dual_edge(:,:)
+  ! Cartesian distance from vertex1 to vertex2 via dual edge midpoint
+  REAL(wp), ALLOCATABLE :: dist_cell2edge(:,:,:)
 END TYPE t_int_state
 
 !> data structure containing coefficients for (optional) interpolation

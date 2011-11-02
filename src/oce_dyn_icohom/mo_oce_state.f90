@@ -1633,7 +1633,7 @@ END DO
   SUBROUTINE init_ho_base( p_patch, p_ext_data, v_base )
 
     TYPE(t_patch),            INTENT(IN)       :: p_patch
-    TYPE(t_external_data),    INTENT(INOUT)       :: p_ext_data
+    TYPE(t_external_data),    INTENT(INOUT)    :: p_ext_data
     TYPE(t_hydro_ocean_base), INTENT(INOUT)    :: v_base
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
@@ -1748,10 +1748,10 @@ END DO
 
             ! counts sea cells from lsm
             IF (p_ext_data%oce%lsm_ctr_c(je,jb) <= -1) THEN
-              nosea_c(jk) = nosea_c(jk)+1
+              nosea_c(jk)           = nosea_c(jk)+1
               v_base%dolic_c(je,jb) = jk
             ELSE IF (p_ext_data%oce%lsm_ctr_c(je,jb) >=  1) THEN
-              nolnd_c(jk) = nolnd_c(jk)+1
+              nolnd_c(jk)           = nolnd_c(jk)+1
             ELSE ! 0 not defined
               STOP ' lsm_ctr_c = 0'
             END IF
@@ -1766,10 +1766,10 @@ END DO
             ! dependent on jk-1:
             v_base%lsm_oce_c(je,jk,jb) = v_base%lsm_oce_c(je,jk-1,jb)
             IF (v_base%lsm_oce_c(je,jk,jb) <= -1) THEN
-              nosea_c(jk) = nosea_c(jk)+1
+              nosea_c(jk)           = nosea_c(jk)+1
               v_base%dolic_c(je,jb) = jk
             ELSE IF (v_base%lsm_oce_c(je,jk-1,jb) >=  1) THEN
-              nolnd_c(jk) = nolnd_c(jk)+1
+              nolnd_c(jk)           = nolnd_c(jk)+1
             ELSE ! 0 not defined
               STOP ' lsm_oce_c = 0'
             END IF
@@ -1777,11 +1777,11 @@ END DO
           ELSE  ! jk>2
 
             IF (p_ext_data%oce%bathymetry_c(je,jb) <= -v_base%zlev_m(jk)) THEN
-              nosea_c(jk)=nosea_c(jk)+1
+              nosea_c(jk)                = nosea_c(jk)+1
               v_base%lsm_oce_c(je,jk,jb) = SEA
-              v_base%dolic_c(je,jb) = jk
+              v_base%dolic_c(je,jb)      = jk
             ELSE IF (p_ext_data%oce%bathymetry_c(je,jb)>-v_base%zlev_m(jk)) THEN
-              nolnd_c(jk)=nolnd_c(jk)+1
+              nolnd_c(jk)                = nolnd_c(jk)+1
               v_base%lsm_oce_c(je,jk,jb) = LAND
             END IF
 
@@ -1821,10 +1821,10 @@ END DO
 
             ! count and define sea edges from lsm - boundary edges are counted as land
             IF (v_base%lsm_oce_e(je,jk,jb) == -2 ) THEN
-              nosea_e(jk)=nosea_e(jk)+1
+              nosea_e(jk)           = nosea_e(jk)+1
               v_base%dolic_e(je,jb) = jk
             ELSE
-              nolnd_e(jk)=nolnd_e(jk)+1
+              nolnd_e(jk)           = nolnd_e(jk)+1
             END IF
 
             ! counts sea points from bathymetry
@@ -1838,20 +1838,20 @@ END DO
             ! dependent on jk-1:
             v_base%lsm_oce_e(je,jk,jb) = v_base%lsm_oce_e(je,jk-1,jb)
             IF (v_base%lsm_oce_e(je,jk,jb) == -2 ) THEN
-              nosea_e(jk)=nosea_e(jk)+1
+              nosea_e(jk)           = nosea_e(jk)+1
               v_base%dolic_e(je,jb) = jk
             ELSE
-              nolnd_e(jk)=nolnd_e(jk)+1
+              nolnd_e(jk)           = nolnd_e(jk)+1
             END IF
 
           ELSE  ! jk>2
 
             IF (p_ext_data%oce%bathymetry_e(je,jb) <= -v_base%zlev_m(jk)) THEN
-              nosea_e(jk)=nosea_e(jk)+1
+              nosea_e(jk)                = nosea_e(jk)+1
               v_base%lsm_oce_e(je,jk,jb) = SEA
-              v_base%dolic_e(je,jb) =jk
+              v_base%dolic_e(je,jb)      = jk
             ELSE IF (p_ext_data%oce%bathymetry_e(je,jb)>-v_base%zlev_m(jk)) THEN
-              nolnd_e(jk)=nolnd_e(jk)+1
+              nolnd_e(jk)                = nolnd_e(jk)+1
               v_base%lsm_oce_e(je,jk,jb) = LAND
             END IF
           END IF
@@ -1865,8 +1865,8 @@ END DO
         perc_lnd_e(jk) = 0.0_wp
       ELSE
         perc_lnd_e(jk) = REAL(nolnd_e(jk),wp)/REAL(nosea_e(jk)+nolnd_e(jk),wp)*100.0_wp
-        nogllnd_e = nogllnd_e + nolnd_e(jk)
-        noglsea_e = noglsea_e + nosea_e(jk)
+        nogllnd_e      = nogllnd_e + nolnd_e(jk)
+        noglsea_e      = noglsea_e + nosea_e(jk)
       END IF
 
 
@@ -1885,19 +1885,19 @@ IF(LIMITED_AREA)THEN
 
            !If latitude of cell is above 80 N or below 80 S set triangle to land
            IF(z_lat_deg>z_north.OR.z_lat_deg<z_south)THEN
-             v_base%lsm_oce_c(jc,:,jb)= LAND
-             p_ext_data%oce%bathymetry_c(jc,jb)= 100.0_wp 
-             v_base%dolic_c(jc,jb)=0
-             v_base%wet_c(jc,:,jb) = 0.0_wp
+             v_base%lsm_oce_c(jc,:,jb)          = LAND
+             p_ext_data%oce%bathymetry_c(jc,jb) = 100.0_wp
+             v_base%dolic_c(jc,jb)              = 0
+             v_base%wet_c(jc,:,jb)              = 0.0_wp
              !Set also all 3 edges to land
              DO ji = 1, 3
                ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
-               idxe = p_patch%cells%edge_idx(jc,jb,ji)
-               ible = p_patch%cells%edge_blk(jc,jb,ji)
-               v_base%lsm_oce_e(idxe,:,ible) = LAND
-               p_ext_data%oce%bathymetry_e(idxe,ible)= 100.0_wp 
-               v_base%dolic_e(idxe,ible)=0
-               v_base%wet_e(idxe,:,ible)=0.0_wp
+               idxe                                   = p_patch%cells%edge_idx(jc,jb,ji)
+               ible                                   = p_patch%cells%edge_blk(jc,jb,ji)
+               v_base%lsm_oce_e(idxe,:,ible)          = LAND
+               p_ext_data%oce%bathymetry_e(idxe,ible) = 100.0_wp
+               v_base%dolic_e(idxe,ible)              = 0
+               v_base%wet_e(idxe,:,ible)              = 0.0_wp
               END DO
            ENDIF
         END DO
