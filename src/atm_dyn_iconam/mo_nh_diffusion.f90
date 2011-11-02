@@ -203,7 +203,7 @@ MODULE mo_nh_diffusion
       rl_start = start_bdydiff_e
       rl_end   = min_rledge_int - 2
 
-      IF (itype_comm == 1) THEN
+      IF (itype_comm == 1 .OR. itype_comm == 3) THEN
         CALL sync_patch_array_mult(SYNC_V,p_patch,2,u_vert,v_vert)
       ENDIF
 
@@ -320,7 +320,7 @@ MODULE mo_nh_diffusion
       rl_start = grf_bdywidth_e+1
       rl_end   = min_rledge_int
 
-      IF (itype_comm == 1) THEN
+      IF (itype_comm == 1 .OR. itype_comm == 3) THEN
         CALL sync_patch_array_mult(SYNC_V,p_patch,2,u_vert,v_vert)
       ENDIF
 
@@ -501,7 +501,7 @@ MODULE mo_nh_diffusion
 
 !$OMP END PARALLEL
 
-    IF (itype_comm == 1) THEN
+    IF (itype_comm == 1 .OR. itype_comm == 3) THEN
       CALL sync_patch_array(SYNC_E, p_patch, p_nh_prog%vn)
     ENDIF
 
