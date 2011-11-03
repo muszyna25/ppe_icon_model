@@ -509,7 +509,6 @@ MODULE mo_nh_stepping
     END DO
 
     ! Diagnostics computation is not yet properly MPI-parallelized
-! DEVELOPMENT
 #ifdef NOMPI
     IF(global_cell_type == 3) THEN
       IF (l_diagtime .AND. my_process_is_mpi_all_seq() .AND. &
@@ -525,18 +524,18 @@ MODULE mo_nh_stepping
       ENDIF
     ENDIF
 #else
-!    IF  ((global_cell_type == 3)  .AND.  &
-!      &  l_diagtime               .AND.  &
-!      &  (lstep_adv(1) .OR. jstep==nsteps)) THEN
-!      IF (jstep == iadv_rcf) THEN
-!        CALL supervise_total_integrals_nh( 1, p_patch(1:), p_nh_state,       &
-!          &                                nnow(1:n_dom), nnow_rcf(1:n_dom))
-!      ELSE
-!        CALL supervise_total_integrals_nh( jstep, p_patch(1:), p_nh_state,   &
-!          &                                nnow(1:n_dom), nnow_rcf(1:n_dom))
-!      ENDIF
-!      l_diagtime = .FALSE.
-!    ENDIF
+    IF  ((global_cell_type == 3)  .AND.  &
+      &  l_diagtime               .AND.  &
+      &  (lstep_adv(1) .OR. jstep==nsteps)) THEN
+      IF (jstep == iadv_rcf) THEN
+        CALL supervise_total_integrals_nh( 1, p_patch(1:), p_nh_state,       &
+          &                                nnow(1:n_dom), nnow_rcf(1:n_dom))
+      ELSE
+        CALL supervise_total_integrals_nh( jstep, p_patch(1:), p_nh_state,   &
+          &                                nnow(1:n_dom), nnow_rcf(1:n_dom))
+      ENDIF
+      l_diagtime = .FALSE.
+    ENDIF
 #endif
     IF(global_cell_type == 6 .AND. l_diagtime) THEN
       CALL supervise_total_integrals_nh(jstep, p_patch(1:), p_nh_state,   &
