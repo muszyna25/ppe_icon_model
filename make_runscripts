@@ -84,20 +84,20 @@ do
     elif [[ ${name} == *_nwp_* ]] ; then
       $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${filename#*.}  cpu_time="04:00:00" memory_model="verylarge"  omp_stacksize=$omp_stacksize
     elif [[ ${name} == *_nah_jww* ]] ; then
-      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${filename#*.}  cpu_time="08:00:00" memory_model="verysmall"
+      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${filename#*.}  cpu_time="08:00:00" memory_model="large" omp_stacksize=$omp_stacksize
     elif [[ ${name} == *_nh35_tri_jws* ]] ; then
       $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${filename#*.}  cpu_time="04:00:00" memory_model="verysmall"
     else
-      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${filename#*.}  cpu_time="04:00:00" omp_stacksize=$omp_stacksize
+      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${filename#*.}  cpu_time="04:00:00" memory_model="large" omp_stacksize=$omp_stacksize
     fi
   fi
 done
 #==============================================================================
 # special treatment for exp.test_nah_jww on blizzard
-if [[  $use_target == "blizzard" && $use_mpi == "yes" && $use_openmp == "yes" ]] ; then
-  $make_runscript in_folder=$input_folder in_script=exp.test_nah_jww in_script=exec.iconrun EXPNAME="test_nah_jww" mpi_procs=3 openmp_threads=16  p_test_run=".true." cpu_time="04:00:00"
+#if [[  $use_target == "blizzard" && $use_mpi == "yes" && $use_openmp == "yes" ]] ; then
+#  $make_runscript in_folder=$input_folder in_script=exp.test_nah_jww in_script=exec.iconrun EXPNAME="test_nah_jww" mpi_procs=3 openmp_threads=16  p_test_run=".true." cpu_time="04:00:00"
 # $make_runscript in_folder=$input_folder in_script=exp.test_nah_jww in_script=exec.iconrun EXPNAME="test_nah_jww" no_of_nodes=3 mpi_procs=1 openmp_threads=64  p_test_run=".true." cpu_time="04:00:00"
-fi
+#fi
 
 #==============================================================================
 # special treatment for exp.couple_atmo-radiation
