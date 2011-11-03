@@ -316,6 +316,7 @@ CONTAINS
       !-------------------------------------------------------------------------
       ! Apply temperature relaxation data (record 3) from stationary forcing
       !  - change units to deg C, subtract tmelt (0 deg C, 273.15)
+      !  - this is not done for temperature_relaxation=3, since init-data is in Celsius
 
        p_sfc_flx%forc_tracer_relax(:,:,1) = &
          &  rday1*(ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,3)-tmelt) + &
@@ -690,7 +691,6 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   ! Apply net surface freshwater flux to boundary condition
-  !  - 2011/11/02 - freshwater flux not yet applied for coupling
 
   IF (irelax_2d_S == -1 .AND. no_tracer >1) THEN
 

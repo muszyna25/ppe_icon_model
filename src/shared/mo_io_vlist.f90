@@ -2231,24 +2231,24 @@ CONTAINS
       &                   zaxisID_surface(k_jg)),&
       &           k_jg)
     END IF
-   !IF (temperature_relaxation /= 0 ) THEN
-   !  CALL addVar(TimeVar('forc-tdata',&
-   !  &                   'temperature relaxation data',&
-   !  &                   'K',15,128,&
-   !  &                   vlistID(k_jg),&
-   !  &                   gridCellID(k_jg),&
-   !  &                   zaxisID_surface(k_jg)),&
-   !  &           k_jg)
-   !END IF 
-   !IF (temperature_relaxation /= 0 ) THEN
-   !  CALL addVar(TimeVar('forc-t',&
-   !  &                   'temperature relaxation flux',&
-   !  &                   'K*m/s',15,128,&
-   !  &                   vlistID(k_jg),&
-   !  &                   gridCellID(k_jg),&
-   !  &                   zaxisID_surface(k_jg)),&
-   !  &           k_jg)
-   !END IF 
+    IF (temperature_relaxation /= 0 ) THEN
+      CALL addVar(TimeVar('forc-tdata',&
+      &                   'temperature relaxation data',&
+      &                   'K',15,128,&
+      &                   vlistID(k_jg),&
+      &                   gridCellID(k_jg),&
+      &                   zaxisID_surface(k_jg)),&
+      &           k_jg)
+    END IF 
+    IF (temperature_relaxation /= 0 ) THEN
+      CALL addVar(TimeVar('forc-t',&
+      &                   'temperature relaxation flux',&
+      &                   'K*m/s',15,128,&
+      &                   vlistID(k_jg),&
+      &                   gridCellID(k_jg),&
+      &                   zaxisID_surface(k_jg)),&
+      &           k_jg)
+    END IF 
     IF (temperature_relaxation /= 0 ) THEN
       CALL addVar(TimeVar('forc-hflx',&
       &                   'diagnosed net surface heat flux',&
