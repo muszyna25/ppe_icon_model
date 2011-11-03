@@ -167,7 +167,7 @@ USE mo_math_constants,      ONLY: pi2, pi_2,deg2rad
 USE mo_physical_constants,  ONLY: re,omega
 USE mo_exception,           ONLY: message, finish
 USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlvert, MAX_CHAR_LENGTH,&
-  &                               beta_plane_coriolis,full_coriolis
+  &  beta_plane_coriolis,full_coriolis,min_rledge_int,min_rlcell_int,min_rlvert_int
 USE mo_impl_constants_grf,  ONLY: grf_nudge_start_c, grf_nudge_start_e
 USE mo_model_domain,        ONLY: t_patch, t_grid_edges, t_grid_vertices, t_grid_cells
 USE mo_model_domain_import, ONLY: lplane, lfeedback
@@ -3556,12 +3556,12 @@ END SUBROUTINE complete_patchinfo
     CALL message (TRIM(routine), 'start')
 
     rl_start     = 1
-    rl_end       = min_rlcell
+    rl_end       = min_rlcell_int
     i_startblk   = ptr_patch%cells%start_blk(rl_start,1)
     i_endblk     = ptr_patch%cells%end_blk(rl_end,1)
 
     rl_start_e   = 1
-    rl_end_e     = min_rledge
+    rl_end_e     = min_rledge_int
     i_startblk_e = ptr_patch%edges%start_blk(rl_start_e,1)
     i_endblk_e   = ptr_patch%edges%end_blk(rl_end_e,1)
 
@@ -3677,6 +3677,8 @@ END SUBROUTINE complete_patchinfo
           !actual edges of cell c2
           iil_c2(ie) = ptr_patch%cells%edge_idx(il_c2,ib_c2,ie)
           iib_c2(ie) = ptr_patch%cells%edge_blk(il_c2,ib_c2,ie)
+          !write(0,*)'iil_c2(ie):',iil_c2(ie),' iib_c2(ie):',iib_c2(ie)
+
 
           cc_edge(ie) = gc2cc(ptr_patch%edges%center(iil_c2(ie),iib_c2(ie)))
 
@@ -3692,11 +3694,11 @@ END SUBROUTINE complete_patchinfo
           xx2 = gc2cc(ptr_patch%verts%vertex(il_v2,ib_v2))
 
           IF(LARC_LENGTH)THEN
-            norm=SQRT(SUM(xx1%x*xx1%x))
-            xx1%x= xx1%x/norm
+            norm              = SQRT(SUM(xx1%x*xx1%x))
+            xx1%x             = xx1%x/norm
 
-            norm=SQRT(SUM(xx2%x*xx2%x))
-            xx2%x= xx2%x/norm
+            norm              = SQRT(SUM(xx2%x*xx2%x))
+            xx2%x             = xx2%x/norm
 
             z_edge_length(ie) = arc_length(xx2,xx1)
             !z_edge_length(ie) = ptr_patch%edges%primal_edge_length(iil_c2(ie),iib_c2(ie))/re
@@ -3711,8 +3713,12 @@ END SUBROUTINE complete_patchinfo
           jil_c2 = ptr_patch%edges%cell_idx(iil_c2(ie),iib_c2(ie),2)
           jib_c2 = ptr_patch%edges%cell_blk(iil_c2(ie),iib_c2(ie),2)
 
+          !write(0,*)'jil_c1:',jil_c1,' jib_c1:',jib_c1,' jil_c2:',jil_c2,' jib_c2:',jib_c2
+          if (jil_c2 < 0) THEN
+            write(0,*)'ptr_patch%edges%cell_idx:',ptr_patch%edges%cell_idx
+          ENDIF
           !get cell positions
-          xx1 = gc2cc(ptr_patch%cells%center(jil_c1,jib_c1))  
+          xx1 = gc2cc(ptr_patch%cells%center(jil_c1,jib_c1))
           xx2 = gc2cc(ptr_patch%cells%center(jil_c2,jib_c2))
 
           IF(jil_c1==il_c2.AND.jib_c1==ib_c2)THEN
@@ -3758,7 +3764,7 @@ END SUBROUTINE complete_patchinfo
     ptr_intp%fixed_vol_norm = ptr_intp%fixed_vol_norm/3.0_wp
 
     rl_start   = 1
-    rl_end     = min_rledge
+    rl_end     = min_rledge_int
     i_startblk = ptr_patch%edges%start_blk(rl_start,1)
     i_endblk   = ptr_patch%edges%end_blk(rl_end,1)
 
@@ -3827,7 +3833,7 @@ END SUBROUTINE complete_patchinfo
 
     rl_start = 1
     rl_end   = min_rlvert
-!   rl_end   = min_rlvert_int  ! inner part of decomposition only - no halo (!!)
+   rl_end   = min_rlvert_int  ! inner part of decomposition only - no halo (!!)
 
     i_startblk = ptr_patch%verts%start_blk(rl_start,1)
     i_endblk   = ptr_patch%verts%end_blk(rl_end,1)
@@ -4190,7 +4196,7 @@ END SUBROUTINE complete_patchinfo
 
     ! b) Geometrical factor for rotation
     rl_start = 1  ! #slo# changed to 1 - 2010-12-07
-    rl_end = min_rlvert
+    rl_end = min_rlvert_int
 
     ! Vorticity should have the right sign
       ifac = 0
@@ -4233,7 +4239,7 @@ END SUBROUTINE complete_patchinfo
 
       ! c) Geometrical factor for nabla2_scalar
       rl_start = 1  ! #slo# changed to 1 - 2010-12-07
-      rl_end = min_rlcell
+      rl_end = min_rlcell_int
 
       ! values for the blocking
       i_startblk = ptr_patch%cells%start_blk(rl_start,1)
@@ -4333,7 +4339,7 @@ END SUBROUTINE complete_patchinfo
     IF (i_cell_type == 3) THEN
 
       rl_start = 1  ! #slo# changed to 1 - 2010-12-07
-      rl_end = min_rledge
+      rl_end = min_rledge_int
 
       ! values for the blocking
       i_startblk = ptr_patch%edges%start_blk(rl_start,1)
@@ -4367,7 +4373,7 @@ END SUBROUTINE complete_patchinfo
     ! f) compute inverse dual edge length (used in math_operators for the ocean)
 
     rl_start = 1  ! #slo# changed to 1 - 2010-12-07
-    rl_end = min_rledge
+    rl_end = min_rledge_int
 
     ! Second step: computed projected orientation vectors and related information
     i_startblk = ptr_patch%edges%start_blk(rl_start,1)
