@@ -513,7 +513,8 @@ MODULE mo_nh_stepping
     IF(global_cell_type == 3) THEN
       IF (l_diagtime .AND. my_process_is_mpi_all_seq() .AND. &
         & (lstep_adv(1) .OR. jstep==nsteps))  THEN
-        IF (jstep == iadv_rcf) THEN
+        IF (jstep <= iadv_rcf) THEN  !DR <= neccesary to work properly in combination
+                                     !   with restart
           CALL supervise_total_integrals_nh( 1, p_patch(1:), p_nh_state,      &
                                            & nnow(1:n_dom), nnow_rcf(1:n_dom))
         ELSE
