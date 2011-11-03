@@ -45,6 +45,9 @@
 ; mapLLC        : (lon,lat) value array of the Lower Left Corner of the map
 ; mapURC        : (lon,lat) ------- || ------- Upper Right Corner of the map
 ;                  use -180 to 180 for longitude !
+; secLC, secRC  : start and and point of a vertical section (no default value)
+;                 section is plotted it secLC and secRC are present
+; showSecMap    : display the location of the vertical section in an additional map (default:true)
 ; centerLon     : center longitute for satelite view (default:30.)
 ; centerLat     : center latitude for satelite view (default:20.)
 ; satDist       : satelite distance (default:20.0)
@@ -73,7 +76,7 @@
 ; bStrg         : base string - default is prgr name and time stamp only
 ; showPreview   : (logical) draw a preview window
 ; maxView       : (logical) maximize plot area on paper (not for buildbot -> convert to png)
-; colormap      : string for predefined colormaps of the plot
+; colormap      : string for predefined colormaps of the plot (e.g. 'colormap="BlAqGrYeOrReVi200"')
 ; showGrid      : display polygon lines with filled colors instead of contour plot
 ; showNcd       : display NDC Grid to find Normalized Device Coordinates on the plot
 ;---------------------------------------------------------------
@@ -179,6 +182,8 @@
   ; default + optional coordinates
   if (.not.isvar("lonCo"))         lonCo       =  DEFAULTLON     end if
   if (.not.isvar("latCo"))         latCo       =  DEFAULTLAT     end if
+
+  if (.not.isvar("showSecMap")) showSecMap     =  True           end if
 
   ; mask handling
   if (.not.isvar("maskName"))
@@ -383,7 +388,7 @@
 
   ResC = True
 
-  setDefaultResource(ResC)
+  setDefaultResource(ResC,True)
 
   if (maxView) ResC@gsnMaximize = True end if
 
@@ -486,7 +491,11 @@
   end if
   if (plotMode.eq."section") then
 
-    plot = new(2,graphic)
+    if (showSecMap) then
+      plot = new(2,graphic)
+    else
+      plot = new(1,graphic)
+    end if
     points   = ispan(0,secPoints-1,1)*1.0 
     copy_VarAtts(var,trans)          ; copy attributes
     trans!0 = "depth"
@@ -506,41 +515,46 @@
     res@cnLinesOn           = False        ; turn off countour lines
     res@lbOrientation       = "vertical"   ; vertical label bar
     res@pmLabelBarOrthogonalPosF = -0.05        ; move label bar closer to plot
+; res@lbTitlePosition   = "Bottom"
+; res@lbTitleString     = "[C]"
+; res@tiYAxisString = "depth below sea (m)"
 
-
-    res@vpWidthF          = 0.6;            set width of plot
-    res@vpHeightF         = 0.4;            set height of plot
-
-    res@vpXF              = 0.2
-    res@vpYF              = 0.9
-;       res@tiMainString  = "Transect";    add title
-;       res@tiXAxisString = "lat/lon along transect"
-    res@trYReverse        = True;          reverse y axis
-;      res@trXReverse     = True;          reverse x axis (neg longitudes)
-;    res@cnLevelSpacingF   = 1.0;           set contour spacing
+   if (showSecMap) then
+     res@vpWidthF          = 0.6;            set width of plot
+     res@vpHeightF         = 0.4;            set height of plot
+  
+     res@vpXF              = 0.2
+     res@vpYF              = 0.9
+     ;   res@tiMainString  = "Transect";    add title
+     ;   res@tiXAxisString = "lat/lon along transect"
+     res@trYReverse        = True;          reverse y axis
+     ;res@cnLevelSpacingF   = 1.0;           set contour spacing
+    end if
     plot(0)               = gsn_csm_contour(wks,trans,res);   create plot
 
-    ; map with section polygon
-    mres                  = True
-    mres@gsnFrame         = False;                don't turn page yet
-    mres@gsnDraw          = False;                don't draw yet
-    mres@vpWidthF         = 0.8;          set width of plot
-    mres@vpHeightF        = 0.3;          set height of plot
-    mres@vpXF             = 0.1
-    mres@vpYF             = 0.4
-    plot(1)               = gsn_csm_map_ce(wks,mres)
-    pres                  = True;            polyline mods desired
-    pres@gsnFrame         = False;                don't turn page yet
-    pres@gsnDraw          = False;                don't draw yet
-    pres@gsLineColor      = "Black";           color of lines
-    pres@gsLineThicknessF = 2.0;             line thickness
-    gsn_polyline(wks,plot(1),(/ secLC(0),secRC(0) /),(/ secLC(1),secRC(1) /),pres)
-    resP                  = True; modify the panel plot
-    resP@txString         = ""
-    resP@gsnPanelLabelBar = False; add common colorbar
-
-    draw(plot(0))
-    draw(plot(1))
+   draw(plot(0))
+   if (showSecMap) then
+     ; map with section polygon
+     mres                  = True
+     mres@gsnFrame         = False;                don't turn page yet
+     mres@gsnDraw          = False;                don't draw yet
+     mres@vpWidthF         = 0.8;          set width of plot
+     mres@vpHeightF        = 0.3;          set height of plot
+     mres@vpXF             = 0.1
+     mres@vpYF             = 0.4
+     plot(1)               = gsn_csm_map_ce(wks,mres)
+     pres                  = True;            polyline mods desired
+     pres@gsnFrame         = False;                don't turn page yet
+     pres@gsnDraw          = False;                don't draw yet
+     pres@gsLineColor      = "Black";           color of lines
+     pres@gsLineThicknessF = 2.0;             line thickness
+     gsn_polyline(wks,plot(1),(/ secLC(0),secRC(0) /),(/ secLC(1),secRC(1) /),pres)
+     resP                  = True; modify the panel plot
+     resP@txString         = ""
+     resP@gsnPanelLabelBar = False; add common colorbar
+     
+     draw(plot(1))
+   end if
   end if
   if (showPreview) frame(xwks) end if
   frame(wks)
