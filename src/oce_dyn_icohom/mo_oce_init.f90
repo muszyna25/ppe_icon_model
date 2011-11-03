@@ -468,10 +468,15 @@ INTEGER :: jk
     &    34.594128_wp, 34.628601_wp, 34.678772_wp, 34.717495_wp, 34.738304_wp, 34.741512_wp,&
     &    34.738205_wp, 34.729176_wp, 34.723465_wp /)
 
-  ! temperature profile for 4-10 layers for testcase 40 and similar
+  ! temperature profile for 4-20 layers for testcase 40/45 and similar
   REAL(wp), PARAMETER :: tprof_var(20)= &
-    & (/ 25.0_wp, 18.0_wp, 12.0_wp, 8.0_wp, 6.0_wp, 4.0_wp, 2.0_wp, 1.0_wp, 0.5_wp, 0.0_wp,&
-    &     0.0_wp,  0.0_wp,  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp/)
+    & (/ 25.0_wp, 23.0_wp, 20.0_wp, 15.0_wp, 10.0_wp, 8.0_wp, 6.0_wp, 5.0_wp, 4.0_wp, 3.0_wp,&
+    &     2.0_wp,  1.0_wp,  0.0_wp,  0.0_wp,  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp/)
+!   & (/ 25.0_wp, 18.0_wp, 12.0_wp, 8.0_wp, 6.0_wp, 4.0_wp, 2.0_wp, 1.0_wp, 0.5_wp, 0.0_wp,&
+!   &     0.0_wp,  0.0_wp,  0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp, 0.0_wp/)
+  REAL(wp), PARAMETER :: sprof_var(20)= &
+    & (/ 34.5_wp, 34.6_wp, 34.7_wp, 34.8_wp, 34.9_wp, 35.0_wp, 35.0_wp, 35.0_wp, 35.5_wp, 35.0_wp,&
+    &    35.0_wp, 35.0_wp, 35.0_wp, 35.0_wp, 35.0_wp, 35.0_wp, 35.0_wp, 35.0_wp, 35.0_wp, 35.0_wp/)
 
   REAL(wp) , PARAMETER :: tprof_4layerStommel(4) = (/20.0_wp,10.0_wp,8.0_wp,6.0_wp/)
   REAL(wp) , PARAMETER :: sprof_4layerStommel(4) = &
@@ -1311,10 +1316,10 @@ END DO
         DO jc = i_startidx_c, i_endidx_c
           DO jk=1,n_zlev
             IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-                p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)=tprof(jk)
+                p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)=tprof_var(jk)
 
               IF(no_tracer==2)THEN
-                p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof(jk)
+                p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof_var(jk)
               ENDIF
             ENDIF
           END DO

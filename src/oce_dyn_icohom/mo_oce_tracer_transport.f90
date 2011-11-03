@@ -811,11 +811,11 @@ END DO
   END DO
 
 !IF(ldbg)THEN
-  DO jk = 1, n_zlev
-    write(*,*)'max/min adv flux & div:',jk,&
-    &maxval(z_h_tmp_c(:,jk,:)), minval(z_h_tmp_c(:,jk,:))!,&
-!    &maxval(z_div_adv_v(:,jk,:)),minval(z_div_adv_v(:,jk,:))
-  END DO
+ !DO jk = 1, n_zlev
+ !  write(*,*)'max/min adv flux & div:',jk,&
+ !  &maxval(z_h_tmp_c(:,jk,:)), minval(z_h_tmp_c(:,jk,:))!,&
+!!   &maxval(z_div_adv_v(:,jk,:)),minval(z_div_adv_v(:,jk,:))
+ !END DO
 !    DO jk = 1, n_zlev
 !      write(*,*)'max/min dummy new:',jk,&
 !      &maxval(dummy_h_c_new(:,jk,:)),minval(dummy_h_c_new(:,jk,:))
@@ -864,10 +864,10 @@ IF(expl_vertical_tracer_diff==1)THEN
           ENDIF
       END DO
     END DO
-      DO jk = 1, n_zlev
-     write(*,*)'before impl-diff: max/min:',jk,&
-      &maxval(z_temp(:,jk,:)), minval(z_temp(:,jk,:)) 
-     END DO
+  !   DO jk = 1, n_zlev
+  !  write(*,*)'before impl-diff: max/min:',jk,&
+  !   &maxval(z_temp(:,jk,:)), minval(z_temp(:,jk,:)) 
+  !  END DO
     ipl_src=5  ! output print level (1-5, fix)
     DO jk = 1, n_zlev
       CALL print_mxmn('bef impl v-trc:G_n',jk,G_n_c_v(:,:,:),n_zlev, &
