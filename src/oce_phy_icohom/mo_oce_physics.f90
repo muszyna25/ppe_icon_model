@@ -158,8 +158,7 @@ CONTAINS
     p_phys_param%K_veloc_h_back = k_veloc_h
     p_phys_param%A_veloc_v_back = k_veloc_v
     p_phys_param%K_veloc_h = k_veloc_h
-    p_phys_param%A_veloc_v(:,2:n_zlev,:) = k_veloc_v
-    p_phys_param%A_veloc_v(:,1,:)        = 0.0_wp
+    p_phys_param%A_veloc_v = k_veloc_v
     SELECT CASE(HORZ_VELOC_DIFF_TYPE)
 
 
@@ -201,9 +200,8 @@ CONTAINS
         CALL finish ('mo_oce_physics:init_ho_params',  &
         &      'number of tracers exceeds number of background values')
       ENDIF
-      p_phys_param%K_tracer_h(:,:,:,i)        = p_phys_param%K_tracer_h_back(i)
-      p_phys_param%A_tracer_v(:,2:n_zlev,:,i) = p_phys_param%A_tracer_v_back(i)
-      p_phys_param%A_tracer_v(:,1,:,i)        = 0.0_wp 
+      p_phys_param%K_tracer_h(:,:,:,i) = p_phys_param%K_tracer_h_back(i)
+      p_phys_param%A_tracer_v(:,:,:,i) = p_phys_param%A_tracer_v_back(i)
     END DO
 
     p_phys_param%bottom_drag_coeff = bottom_drag_coeff
@@ -571,6 +569,7 @@ END INTERFACE
    REAL(wp), PARAMETER :: z_c1_v   = 5.0_wp
    REAL(wp), PARAMETER :: z_av0    = 0.5E-2_wp 
    REAL(wp), PARAMETER :: z_dv0    = 0.5E-2_wp
+   REAL(wp), PARAMETER :: z_treshold= 5.0E-8_wp
    LOGICAL,  PARAMETER :: l_constant_mixing = .FALSE.
 !   !-------------------------------------------------------------------------
 ! DO, jk=1,n_zlev
@@ -663,13 +662,13 @@ END INTERFACE
     DO jb = i_startblk_c, i_endblk_c
       CALL get_indices_c( p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
       &                   rl_start_c, rl_end_c)
-      DO jk = 2, n_zlev
- 
-       dz_inv = 1.0_wp/v_base%del_zlev_i(jk)           
 
-        DO jc = i_startidx_c, i_endidx_c
-          z_dolic = v_base%dolic_c(jc,jb)
-          IF ( z_dolic>=MIN_DOLIC ) THEN        
+      DO jc = i_startidx_c, i_endidx_c
+
+        z_dolic = v_base%dolic_c(jc,jb)
+        IF ( z_dolic>=MIN_DOLIC ) THEN        
+          DO jk = 2, z_dolic 
+           dz_inv = 1.0_wp/v_base%del_zlev_i(jk)
 
             !This calculates the localshear at cells
             ! - add small epsilon to avoid division by zero
@@ -727,7 +726,7 @@ END INTERFACE
             !! set negative values to zero for switch below
             !z_vert_density_grad_c(jc,jk,jb) = MAX(z_stabio(jc,jk,jb), 0.0_wp)
 
-            z_vert_density_grad_c(jc,jk,jb) = z_stabio(jc,jk,jb)
+            z_vert_density_grad_c(jc,jk,jb) = dbl_eps+z_stabio(jc,jk,jb)
 
             ! Richardson number is positive for stable stratification (rho_down>rho_up)
             ! Richardson number is zero for unstable strat., see switch z_frac below
@@ -737,9 +736,8 @@ END INTERFACE
 !                                 &,0.0_wp)
             z_Ri_c(jc,jk,jb)=v_base%zlev_i(jk)*z_grav_rho*z_vert_density_grad_c(jc,jk,jb)&
                             &/z_shear_c(jc,jk,jb)
-
-          ENDIF
-        END DO
+          END DO
+        ENDIF
       END DO
     END DO    
 !Do jk=1,n_zlev
@@ -751,25 +749,21 @@ END INTERFACE
 
    !Density gradient for 1st level not calulated yet, but required below. Following
    !parxis in MPI-OM we set first layer equal to second layer (cf MPI-OM mo_ocean_vertical_mixing)
-   z_vert_density_grad_c(:,1,:) =  z_vert_density_grad_c(:,2,:)
-! DO jk = 2, n_zlev
-! write(*,*)'max-min Richardson nr:',jk, maxval( z_Ri_c(:,jk,:)),&
-! &maxval(z_grav_rho* z_vert_density_grad_c(:,jk,:)),&
-! & minval(z_grav_rho* z_vert_density_grad_c(:,jk,:)),&
-! &maxval( z_shear_c(:,jk,:)),&
-! & minval(z_shear_c(:,jk,:))
-! END DO
+   !z_vert_density_grad_c(:,1,:) =  z_vert_density_grad_c(:,2,:)
+
    !The tracer mixing coefficient at cell centers
     DO jb = i_startblk_c, i_endblk_c
       CALL get_indices_c( p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
       &                   rl_start_c, rl_end_c)
-      DO jk = 2, n_zlev
- 
-       dz_inv = 1.0_wp/v_base%del_zlev_i(jk)           
 
-        DO jc = i_startidx_c, i_endidx_c
-          z_dolic = v_base%dolic_c(jc,jb)
-          IF ( z_dolic>=MIN_DOLIC ) THEN        
+      DO jc = i_startidx_c, i_endidx_c
+
+        z_dolic = v_base%dolic_c(jc,jb)
+        IF ( z_dolic>=MIN_DOLIC ) THEN        
+          DO jk = 2, z_dolic
+ 
+           dz_inv = 1.0_wp/v_base%del_zlev_i(jk)           
+  
             !calculate vertical tracer mixing based on local Richardson number
             DO i_no_trac=1, no_tracer
 
@@ -777,7 +771,8 @@ END INTERFACE
               z_A_tracer_v_old = params_oce%A_tracer_v(jc,jk,jb,i_no_trac)
 
               !! vert_density_grad  = 0 'semi-stable': use background value
-              IF (z_vert_density_grad_c(jc,jk,jb) == 0.0_wp ) THEN
+              IF (     z_vert_density_grad_c(jc,jk,jb) > -z_treshold&
+                &.AND. z_vert_density_grad_c(jc,jk,jb) < z_treshold) THEN
                 params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = params_oce%A_tracer_v_back(i_no_trac)
                 DO jj=1,3
                   idxe = p_patch%cells%edge_idx(jc,jb,jj)
@@ -785,8 +780,15 @@ END INTERFACE
                   params_oce%A_veloc_v(idxe,jk,ible) = params_oce%A_veloc_v_back
                 ENDDO 
               !! vert_density_grad  < 0 instable stratification: use convective mixing parameter
-              ELSE IF (z_vert_density_grad_c(jc,jk,jb) < 0.0_wp ) THEN
+              ELSE IF (z_vert_density_grad_c(jc,jk,jb) < -z_treshold ) THEN
                 params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = MAX_VERT_DIFF_TRAC
+ write(246,*)'instab',&
+ & jc,jk,jb,z_vert_density_grad_c(jc,jk,jb),&
+ & z_rho_down(jc,jk,jb),z_rho_up(jc,jk,jb),&
+ & z_rho_down(jc,jk,jb)-z_rho_up(jc,jk,jb),&
+ &p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1),&
+ &p_os%p_prog(nold(1))%tracer(jc,jk,jb,1),&
+&z_Ri_c(jc,jk,jb)
                 DO jj=1,3
                   idxe = p_patch%cells%edge_idx(jc,jb,jj)
                   ible = p_patch%cells%edge_blk(jc,jb,jj)
@@ -804,7 +806,7 @@ END INTERFACE
 !                 params_oce%A_tracer_v(idx_c3,jk,ibk_c3,i_no_trac)=MAX_VERT_DIFF_TRAC
 
               !! vert_density_grad  > 0 stable stratification: use calculated value
-              ELSE IF (z_vert_density_grad_c(jc,jk,jb) > 0.0_wp ) THEN
+              ELSE IF (z_vert_density_grad_c(jc,jk,jb) > z_treshold ) THEN
 
                 !This is (16) in Marsland et al. and identical to treatment of velocity
                 !but it allows to use different parameters
@@ -840,9 +842,8 @@ END INTERFACE
 
               END IF
             ENDDO
-          !ENDIF
-          ENDIF
-        END DO
+          END DO
+        ENDIF
       END DO
     END DO
     !END DO
