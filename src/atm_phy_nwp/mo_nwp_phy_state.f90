@@ -172,6 +172,7 @@ TYPE t_nwp_phy_diag
        &  tot_cld_vi_avg(:,:,:),& !! average since model start of the 
                                   !! vertically integrated tot_cld (cc,qv,qc,qi)  
        &  cosmu0(:,:),          & !! cosine of solar zenith angle
+       &  albvisdif(:,:),       & !! surface albedo for visible range, diffuse
        &  vio3(:,:),            & !! vertically integrated ozone amount (Pa O3)
        &  hmo3(:,:),            & !! height of O3 maximum (Pa)
        &  flxdwswtoa(:,:),      & !! downward shortwave flux at TOA [W/m2]
@@ -772,6 +773,13 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     ! Radiation
     !------------------
     ! 2D variables
+
+        !        diag%albvisfif    (nproma,       nblks),          &
+        cf_desc    = t_cf_var('albvisdif', '', '')
+        grib2_desc = t_grib2_var(192, 128, 243, ientr, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( diag_list, 'albvisdif', diag%albvisdif,                   &
+          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) !,&
+        !                &  lmiss=.true.,     missval=0._wp          
 
         !        diag%cosmu0    (nproma,       nblks),          &
         cf_desc    = t_cf_var('cosmu0', '', '')

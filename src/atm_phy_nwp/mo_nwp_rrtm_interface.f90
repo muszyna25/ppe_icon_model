@@ -599,7 +599,6 @@ CONTAINS
 
     REAL(wp):: albvisdir     (nproma,pt_patch%nblks_c) !<
     REAL(wp):: albnirdir     (nproma,pt_patch%nblks_c) !<
-    REAL(wp):: albvisdif     (nproma,pt_patch%nblks_c) !<
     REAL(wp):: albnirdif     (nproma,pt_patch%nblks_c) !<
     REAL(wp):: aclcov        (nproma,pt_patch%nblks_c) !<
 
@@ -680,10 +679,10 @@ CONTAINS
           IF (ext_data%atm%llsm_atm_c(jc,jb) .OR. lnd_prog%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
             ist = ext_data%atm%soiltyp(jc,jb) ! water (ist=9) and sea ice (ist=10) included
           ENDIF
-          albvisdif(jc,jb) = csalb(ist)
+          prm_diag%albvisdif(jc,jb) = csalb(ist)
           IF ( ext_data%atm%llsm_atm_c(jc,jb) ) THEN
             ! ATTENTION: only valid, if nsfc_subs=1
-            albvisdif(jc,jb) = csalb(ist) - rad_csalbw(ist)*lnd_prog%w_so(jc,1,jb,1)
+            prm_diag%albvisdif(jc,jb) = csalb(ist) - rad_csalbw(ist)*lnd_prog%w_so(jc,1,jb,1)
           ENDIF  ! lsoil, llandmask
           
         ENDDO
@@ -697,7 +696,7 @@ CONTAINS
           IF (ext_data%atm%llsm_atm_c(jc,jb) .OR. lnd_prog%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
             ist = ext_data%atm%soiltyp(jc,jb) ! water (ist=9) and sea ice (ist=10) included
           ENDIF
-          albvisdif(jc,jb) = csalb(ist)
+          prm_diag%albvisdif(jc,jb) = csalb(ist)
           
         ENDDO
       
@@ -715,7 +714,7 @@ CONTAINS
 !!            * csalb(10)
 !          IF (( .NOT. ext_data%atm%llsm_atm_c(jc,jb) ) .AND. &
 !            & (prm_diag%h_ice(i,j,nnow) > 0.0_wp))           &
-!            albvisdif(jc,jb) = (1.0_wp-0.3846_wp*EXP(-0.35_wp*(tmelt-t_ice(i,j,nnow)))) &
+!            prm_diag%albvisdif(jc,jb) = (1._wp-0.3846_wp*EXP(-0.35_wp*(tmelt-t_ice(i,j,nnow)))) &
 !            * csalb(10)
 !        ENDDO
 !      ENDIF
@@ -731,9 +730,9 @@ CONTAINS
 !            !  [ice_albedo=function(ice_surface_temperature)].
 !            !  Use surface temperature at time level "nnow".
 !
-!            albvisdif(jc,jb) = EXP(-c_albice_MR*(tpl_T_f-t_s(i,j,nnow))/tpl_T_f)
-!            albvisdif(jc,jb) = albedo_whiteice_ref * (1._ireals-zalso(i,j)) +      &
-!              albedo_blueice_ref  * albvisdif(jc,jb)
+!            prm_diag%albvisdif(jc,jb) = EXP(-c_albice_MR*(tpl_T_f-t_s(i,j,nnow))/tpl_T_f)
+!            prm_diag%albvisdif(jc,jb) = albedo_whiteice_ref * (1._ireals-zalso(i,j)) +      &
+!              albedo_blueice_ref  * prm_diag%albvisdif(jc,jb)
 !          ENDIF
 !        ENDDO
 !      ENDIF
@@ -762,8 +761,8 @@ CONTAINS
               ! ATTENTION: only valid, if nsfc_subs=1
               zsnow = MIN(1.0_wp, lnd_prog%w_snow(jc,jb,1) / cf_snow)
             ENDIF
-            albvisdif(jc,jb) = zsnow * zsnow_alb +                               &
-              (1.0_wp - zsnow) * (zvege * csalb_p + (1.0_wp - zvege) * albvisdif(jc,jb))
+            prm_diag%albvisdif(jc,jb) = zsnow * zsnow_alb +                               &
+              (1.0_wp - zsnow) * (zvege * csalb_p + (1.0_wp - zvege) * prm_diag%albvisdif(jc,jb))
           ENDIF !   llandmask
         ENDDO
       ENDIF !inwp_surface == 1
@@ -771,14 +770,14 @@ CONTAINS
       !Calculate direct albedo from diffuse albedo and solar zenith angle
       !formula as in Ritter-Geleyn's fesft
       DO jc = 1,i_endidx
-        albvisdir(jc,jb) =                                                                    &
-          & (1.0_wp + 0.5_wp * (prm_diag%cosmu0(jc,jb) * (1.0_wp/albvisdif(jc,jb) - 1.0_wp))) &
-          & / (1.0_wp + (prm_diag%cosmu0(jc,jb) * (1.0_wp/albvisdif(jc,jb) - 1.0_wp)))**2
+        albvisdir(jc,jb) =  ( 1.0_wp                                                           &
+          &  + 0.5_wp * (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp))) &
+          & / (1.0_wp + (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp)))**2
       ENDDO
 
       ! no distiction between vis and nir albedo
       albnirdir(1:i_endidx,jb) = albvisdir(1:i_endidx,jb)
-      albnirdif(1:i_endidx,jb) = albvisdif(1:i_endidx,jb)
+      albnirdif(1:i_endidx,jb) = prm_diag%albvisdif(1:i_endidx,jb)
 
       prm_diag%tsfctrad(1:i_endidx,jb) = lnd_prog%t_g(1:i_endidx,jb)
 
@@ -803,7 +802,7 @@ CONTAINS
         & cos_mu0    =prm_diag%cosmu0  (:,jb) ,&!< in  cos of zenith angle mu0
         & alb_vis_dir=albvisdir        (:,jb) ,&!< in surface albedo for visible range, direct
         & alb_nir_dir=albnirdir        (:,jb) ,&!< in surface albedo for near IR range, direct
-        & alb_vis_dif=albvisdif        (:,jb) ,&!< in surface albedo for visible range, diffuse
+        & alb_vis_dif=prm_diag%albvisdif(:,jb),&!< in surface albedo for visible range, diffuse
         & alb_nir_dif=albnirdif        (:,jb) ,&!< in surface albedo for near IR range, diffuse
         & emis_rad=ext_data%atm%emis_rad(:,jb),&!< in longwave surface emissivity
         & tk_sfc     =prm_diag%tsfctrad(:,jb) ,&!< in surface temperature
@@ -880,7 +879,6 @@ CONTAINS
 
     REAL(wp):: albvisdir     (nproma,pt_patch%nblks_c) !<
     REAL(wp):: albnirdir     (nproma,pt_patch%nblks_c) !<
-    REAL(wp):: albvisdif     (nproma,pt_patch%nblks_c) !<
     REAL(wp):: albnirdif     (nproma,pt_patch%nblks_c) !<
     REAL(wp):: aclcov        (nproma,pt_patch%nblks_c) !<
     ! For radiation on reduced grid
@@ -1054,10 +1052,10 @@ CONTAINS
           IF (ext_data%atm%llsm_atm_c(jc,jb) .OR. lnd_prog%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
             ist = ext_data%atm%soiltyp(jc,jb) ! water (ist=9) and sea ice (ist=10) included
           ENDIF
-          albvisdif(jc,jb) = csalb(ist)
+          prm_diag%albvisdif(jc,jb) = csalb(ist)
           IF ( ext_data%atm%llsm_atm_c(jc,jb) ) THEN
             ! ATTENTION: only valid, if nsfc_subs=1
-            albvisdif(jc,jb) = csalb(ist) - rad_csalbw(ist)*lnd_prog%w_so(jc,1,jb,1)
+            prm_diag%albvisdif(jc,jb) = csalb(ist) - rad_csalbw(ist)*lnd_prog%w_so(jc,1,jb,1)
           ENDIF  ! lsoil, llandmask
 
         ENDDO
@@ -1071,7 +1069,7 @@ CONTAINS
           IF (ext_data%atm%llsm_atm_c(jc,jb) .OR. lnd_prog%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
             ist = ext_data%atm%soiltyp(jc,jb) ! water (ist=9) and sea ice (ist=10) included
           ENDIF
-          albvisdif(jc,jb) = csalb(ist)
+          prm_diag%albvisdif(jc,jb) = csalb(ist)
 
         ENDDO
 
@@ -1089,7 +1087,7 @@ CONTAINS
       !!            * csalb(10)
       !          IF (( .NOT. ext_data%atm%llsm_atm_c(jc,jb) ) .AND. &
       !            & (prm_diag%h_ice(i,j,nnow) > 0.0_wp))           &
-      !            albvisdif(jc,jb) = (1.0_wp-0.3846_wp*EXP(-0.35_wp*(tmelt-t_ice(i,j,nnow)))) &
+      !            prm_diag%albvisdif(jc,jb) = (1.0_wp-0.3846_wp*EXP(-0.35_wp*(tmelt-t_ice(i,j,nnow)))) &
       !            * csalb(10)
       !        ENDDO
       !      ENDIF
@@ -1105,9 +1103,9 @@ CONTAINS
       !            !  [ice_albedo=function(ice_surface_temperature)].
       !            !  Use surface temperature at time level "nnow".
       !
-      !            albvisdif(jc,jb) = EXP(-c_albice_MR*(tpl_T_f-t_s(i,j,nnow))/tpl_T_f)
-      !            albvisdif(jc,jb) = albedo_whiteice_ref * (1._ireals-zalso(i,j)) +      &
-      !              albedo_blueice_ref  * albvisdif(jc,jb)
+      !            prm_diag%albvisdif(jc,jb) = EXP(-c_albice_MR*(tpl_T_f-t_s(i,j,nnow))/tpl_T_f)
+      !            prm_diag%albvisdif(jc,jb) = albedo_whiteice_ref * (1._ireals-zalso(i,j)) +      &
+      !              albedo_blueice_ref  * prm_diag%albvisdif(jc,jb)
       !          ENDIF
       !        ENDDO
       !      ENDIF
@@ -1136,8 +1134,8 @@ CONTAINS
               ! ATTENTION: only valid, if nsfc_subs=1
               zsnow = MIN(1.0_wp, lnd_prog%w_snow(jc,jb,1) / cf_snow)
             ENDIF
-            albvisdif(jc,jb) = zsnow * zsnow_alb +                               &
-              (1.0_wp - zsnow) * (zvege * csalb_p + (1.0_wp - zvege) * albvisdif(jc,jb))
+            prm_diag%albvisdif(jc,jb) = zsnow * zsnow_alb +                               &
+              (1.0_wp - zsnow) * (zvege * csalb_p + (1.0_wp - zvege) * prm_diag%albvisdif(jc,jb))
           ENDIF !   llandmask
         ENDDO
       ENDIF !inwp_surface == 1
@@ -1145,14 +1143,14 @@ CONTAINS
       !Calculate direct albedo from diffuse albedo and solar zenith angle
       !formula as in Ritter-Geleyn's fesft
       DO jc = 1,i_endidx
-        albvisdir(jc,jb) =                                                                    &
-          & (1.0_wp + 0.5_wp * (prm_diag%cosmu0(jc,jb) * (1.0_wp/albvisdif(jc,jb) - 1.0_wp))) &
-          & / (1.0_wp + (prm_diag%cosmu0(jc,jb) * (1.0_wp/albvisdif(jc,jb) - 1.0_wp)))**2
+        albvisdir(jc,jb) = ( 1.0_wp                                                             &
+          &  + 0.5_wp * (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp))) &
+          & / (1.0_wp + (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp)))**2
       ENDDO
 
       ! no distiction between vis and nir albedo
       albnirdir(1:i_endidx,jb) = albvisdir(1:i_endidx,jb)
-      albnirdif(1:i_endidx,jb) = albvisdif(1:i_endidx,jb)
+      albnirdif(1:i_endidx,jb) = prm_diag%albvisdif(1:i_endidx,jb)
 
         prm_diag%tsfctrad(1:i_endidx,jb) = lnd_prog%t_g(1:i_endidx,jb)
 
@@ -1164,8 +1162,8 @@ CONTAINS
       CALL upscale_rad_input(pt_patch, pt_par_patch, pt_par_grf_state,  &
         & nlev_rg, ext_data%atm%fr_land_smt, ext_data%atm%fr_glac_smt,  &
         & ext_data%atm%emis_rad,                                        &
-        & prm_diag%cosmu0, albvisdir, albnirdir, albvisdif, albnirdif,  &
-        & prm_diag%tsfctrad, pt_diag%pres_ifc,                          &
+        & prm_diag%cosmu0, albvisdir, albnirdir, prm_diag%albvisdif,    &
+        & albnirdif, prm_diag%tsfctrad, pt_diag%pres_ifc,               &
         & pt_diag%pres, pt_diag%temp,prm_diag%acdnc, prm_diag%tot_cld,  &
         & pt_prog_rcf%tracer(:,:,:,io3),                                &
         & zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,                            &
@@ -1281,7 +1279,7 @@ CONTAINS
       CALL downscale_rad_output(pt_patch, pt_par_patch, pt_par_int_state,                  &
         & pt_par_grf_state, nlev_rg, zrg_aclcov, zrg_lwflxclr, zrg_lwflxall, zrg_trsolclr, &
         & zrg_trsolall, zrg_tsfc, zrg_albvisdif, zrg_emis_rad, zrg_cosmu0, zrg_tot_cld,    &
-        & zrg_pres_ifc, prm_diag%tsfctrad, albvisdif, aclcov, prm_diag%lwflxclr,           &
+        & zrg_pres_ifc, prm_diag%tsfctrad, prm_diag%albvisdif, aclcov, prm_diag%lwflxclr, &
         & prm_diag%lwflxall, prm_diag%trsolclr, prm_diag%trsolall )
 
       DEALLOCATE (zrg_cosmu0, zrg_albvisdir, zrg_albnirdir, zrg_albvisdif, zrg_albnirdif, &

@@ -1063,31 +1063,31 @@ CONTAINS
         SELECT CASE (iforcing)
         CASE (iecham,ildf_echam,inwp)
           CALL addVar(TimeVar('cosmu0',&
-          &                   'cosine of zenith angle',&
-          &                   ' ', 1, 201,&
-          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-          &           k_jg)
+            &                   'cosine of zenith angle',&
+            &                   ' ', 1, 201,&
+            &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+            &           k_jg)
           CALL addVar(TimeVar('flxdwswtoa',&
-          &                   'downward shortwave flux at TOA',&
-          &                   'W/m**2', 184, 201,&
-          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-          &           k_jg)
+            &                   'downward shortwave flux at TOA',&
+            &                   'W/m**2', 184, 201,&
+            &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+            &           k_jg)
           IF(iforcing == iecham) THEN
             CALL addVar(TimeVar('ozone',&
-            &                   'ozone mixing ratio',&
-            &                   'g/g', 203, 128,&
-            &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
-            &           k_jg)
+              &                   'ozone mixing ratio',&
+              &                   'g/g', 203, 128,&
+              &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
+              &           k_jg)
 
             !KF this variable should only go into the output as an averaged one 
             WRITE(name,'(A14)') "dlwfsfc_dT_avg"
             WRITE(long_name,'(A8,A27)') "averaged", " longwave surface net flux T-tend"
             CALL addVar(TimeVar(TRIM(name),&
-                 &                   TRIM(long_name),&
-                 &                   'W/m**2/K', 112, 128,&
-                 &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
-            
-            
+              &                   TRIM(long_name),&
+              &                   'W/m**2/K', 112, 128,&
+              &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
+
+
             IF (lflux_avg ) THEN
               sufix = "_avg"
               meaning = "averaged"
@@ -1097,33 +1097,33 @@ CONTAINS
             END IF
 
             WRITE(name,'(A8,A4)') "swflxsfc", sufix
-          WRITE(long_name,'(A8,A27)') meaning, " shortwave surface net flux"
-          CALL addVar(TimeVar(TRIM(name),&
-          &                   TRIM(long_name),&
-          &                   'W/m**2', 111, 128,&
-          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
+            WRITE(long_name,'(A8,A27)') meaning, " shortwave surface net flux"
+            CALL addVar(TimeVar(TRIM(name),&
+              &                   TRIM(long_name),&
+              &                   'W/m**2', 111, 128,&
+              &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
 
-          WRITE(name,'(A8,A4)') "lwflxsfc", sufix
-          WRITE(long_name,'(A8,A27)') meaning, " longwave  surface net flux"
-          CALL addVar(TimeVar(TRIM(name),&
-          &                   TRIM(long_name),&
-          &                   'W/m**2', 112, 128,&
-          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)), k_jg)
+            WRITE(name,'(A8,A4)') "lwflxsfc", sufix
+            WRITE(long_name,'(A8,A27)') meaning, " longwave  surface net flux"
+            CALL addVar(TimeVar(TRIM(name),&
+              &                   TRIM(long_name),&
+              &                   'W/m**2', 112, 128,&
+              &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)), k_jg)
 
-  
-          WRITE(name,'(A8,A4)') "swflxtoa", sufix
-          WRITE(long_name,'(A8,A23)') meaning, " shortwave toa net flux"
-          CALL addVar(TimeVar(TRIM(name),&
-          &                   TRIM(long_name),&
-          &                   'W/m**2', 113, 128,&
-          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)), k_jg)
 
-          WRITE(name,'(A8,A4)') "lwflxtoa", sufix
-          WRITE(long_name,'(A8,A23)') meaning, " longwave  toa net flux"
-          CALL addVar(TimeVar(TRIM(name),&
-          &                   TRIM(long_name),&
-          &                   'W/m**2', 114, 128,&
-          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)), k_jg)
+            WRITE(name,'(A8,A4)') "swflxtoa", sufix
+            WRITE(long_name,'(A8,A23)') meaning, " shortwave toa net flux"
+            CALL addVar(TimeVar(TRIM(name),&
+              &                   TRIM(long_name),&
+              &                   'W/m**2', 113, 128,&
+              &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)), k_jg)
+
+            WRITE(name,'(A8,A4)') "lwflxtoa", sufix
+            WRITE(long_name,'(A8,A23)') meaning, " longwave  toa net flux"
+            CALL addVar(TimeVar(TRIM(name),&
+              &                   TRIM(long_name),&
+              &                   'W/m**2', 114, 128,&
+              &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)), k_jg)
           ENDIF
         END SELECT
 
@@ -1143,60 +1143,65 @@ CONTAINS
           WRITE(name,'(A,A5)') TRIM(prefix),"SOB_S"
           WRITE(long_name,'(A8,A27)') meaning, " shortwave surface net flux"
           CALL addVar(TimeVar(TRIM(name),&
-          &                   TRIM(long_name),&
-          &                   TRIM(varunits), 111, 128,&
-          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-          &           k_jg)
+            &                   TRIM(long_name),&
+            &                   TRIM(varunits), 111, 128,&
+            &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+            &           k_jg)
 
           WRITE(name,'(A,A5)') TRIM(prefix),"THB_S"
           WRITE(long_name,'(A8,A27)') meaning, " longwave  surface net flux"
           CALL addVar(TimeVar(TRIM(name),&
-          &                   TRIM(long_name),&
-          &                   TRIM(varunits), 112, 128,&
-          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-          &           k_jg)
+            &                   TRIM(long_name),&
+            &                   TRIM(varunits), 112, 128,&
+            &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+            &           k_jg)
           WRITE(name,'(A,A5)') TRIM(prefix),"SOB_T"
           WRITE(long_name,'(A8,A23)') meaning, " shortwave toa net flux"
           CALL addVar(TimeVar(TRIM(name),&
-          &                   TRIM(long_name),&
-          &                   TRIM(varunits), 113, 128,&
-          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-          &           k_jg)
+            &                   TRIM(long_name),&
+            &                   TRIM(varunits), 113, 128,&
+            &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+            &           k_jg)
           WRITE(name,'(A,A5)') TRIM(prefix),"THB_T"
           WRITE(long_name,'(A8,A23)') meaning, " longwave  toa net flux"
           CALL addVar(TimeVar(TRIM(name),&
-          &                   TRIM(long_name),&
-          &                   TRIM(varunits), 114, 128,&
-          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-          &           k_jg)
+            &                   TRIM(long_name),&
+            &                   TRIM(varunits), 114, 128,&
+            &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+            &           k_jg)
 
         END SELECT
 
-          SELECT CASE (iforcing)
-          CASE (inwp)
+        SELECT CASE (iforcing)
+        CASE (inwp)
           CALL addVar(TimeVar('SOB_S',&
-          &                   'shortwave surface net flux',&
-          &                   'W/m**2', 176, 128,&
-          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-          &           k_jg)
+            &                   'shortwave surface net flux',&
+            &                   'W/m**2', 176, 128,&
+            &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+            &           k_jg)
           CALL addVar(TimeVar('THB_S',&
-          &                   'longwave surface net flux',&
-          &                   'W/m**2', 177, 128,&
-          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-          &           k_jg)
+            &                   'longwave surface net flux',&
+            &                   'W/m**2', 177, 128,&
+            &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+            &           k_jg)
           CALL addVar(TimeVar('SOB_T',&
-          &                   'shortwave toa net flux',&
-          &                   'W/m**2', 178, 128,&
-          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-          &           k_jg)
+            &                   'shortwave toa net flux',&
+            &                   'W/m**2', 178, 128,&
+            &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+            &           k_jg)
           CALL addVar(TimeVar('THB_T',&
-          &                   'longwave toa net flux',&
-          &                   'W/m**2', 179, 128,&
-          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-          &           k_jg)
+            &                   'longwave toa net flux',&
+            &                   'W/m**2', 179, 128,&
+            &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+            &           k_jg)
+          CALL addVar(TimeVar('ALB_RAD',&
+            &                   'diffuse solar surface albedo',&
+            &                   ' ', 243, 128,&
+            &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+            &           k_jg)
         END SELECT
 
-      END IF
+      END IF !lwrite_radiation
 
       ! surface precitation rates
       IF(lwrite_precip) THEN
@@ -3073,6 +3078,7 @@ CONTAINS
       CASE ('TOT_PREC_RATE_avg'); ptr2 => prm_diag(jg)%tot_prec_rate_avg(:,:)
       CASE ('CON_PREC_RATE_avg'); ptr2 => prm_diag(jg)%con_prec_rate_avg(:,:)
       CASE ('GSP_PREC_RATE_avg'); ptr2 => prm_diag(jg)%gsp_prec_rate_avg(:,:)
+      CASE ('ALB_RAD');         ptr2 => prm_diag(jg)%albvisdif(:,:)
       CASE ('cosmu0');          ptr2 => prm_diag(jg)%cosmu0(:,:)
       CASE ('flxdwswtoa');      ptr2 => prm_diag(jg)%flxdwswtoa(:,:)
       CASE ('SOB_S');           ptr2 => prm_diag(jg)%swflxsfc(:,:)

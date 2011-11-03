@@ -216,8 +216,6 @@ MODULE mo_nwp_rad_interface
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
     TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog
 
-    REAL(wp):: albvisdif     (nproma,pt_patch%nblks_c) !<
-
     REAL(wp):: zi0        (nproma)  !< solar incoming radiation at TOA   [W/m2]
     ! for Ritter-Geleyn radiation:
     REAL(wp):: zqco2
@@ -330,10 +328,10 @@ MODULE mo_nwp_rad_interface
           IF (ext_data%atm%llsm_atm_c(jc,jb) .OR. lnd_prog%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
             ist = ext_data%atm%soiltyp(jc,jb) ! water (ist=9) and sea ice (ist=10) included
           ENDIF
-          albvisdif(jc,jb) = csalb(ist)
+          prm_diag%albvisdif(jc,jb) = csalb(ist)
           IF ( ext_data%atm%llsm_atm_c(jc,jb)) THEN
             ! ATTENTION: only valid, if nsfc_subs=1
-            albvisdif(jc,jb) = csalb(ist) - rad_csalbw(ist)*lnd_prog%w_so(jc,1,jb,1)
+            prm_diag%albvisdif(jc,jb) = csalb(ist) - rad_csalbw(ist)*lnd_prog%w_so(jc,1,jb,1)
           ENDIF  ! lsoil, llandmask
           
         ENDDO
@@ -347,7 +345,7 @@ MODULE mo_nwp_rad_interface
           IF (ext_data%atm%llsm_atm_c(jc,jb) .OR. lnd_prog%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
             ist = ext_data%atm%soiltyp(jc,jb) ! water (ist=9) and sea ice (ist=10) included
           ENDIF
-          albvisdif(jc,jb) = csalb(ist)
+          prm_diag%albvisdif(jc,jb) = csalb(ist)
           
         ENDDO
 
@@ -365,7 +363,7 @@ MODULE mo_nwp_rad_interface
 !!            * csalb(10)
 !          IF (( .NOT. ext_data%atm%llsm_atm_c(jc,jb)) .AND. &
 !            & (prm_diag%h_ice(i,j,nnow) > 0.0_wp))          &
-!            albvisdif(jc,jb) = (1.0_wp-0.3846_wp*EXP(-0.35_wp*(tmelt-t_ice(i,j,nnow)))) &
+!            prm_diag%albvisdif(jc,jb) = (1.0_wp-0.3846_wp*EXP(-0.35_wp*(tmelt-t_ice(i,j,nnow)))) &
 !            * csalb(10)
 !        ENDDO
 !      ENDIF
@@ -381,9 +379,9 @@ MODULE mo_nwp_rad_interface
 !            !  [ice_albedo=function(ice_surface_temperature)].
 !            !  Use surface temperature at time level "nnow".
 !
-!            albvisdif(jc,jb) = EXP(-c_albice_MR*(tpl_T_f-t_s(i,j,nnow))/tpl_T_f)
-!            albvisdif(jc,jb) = albedo_whiteice_ref * (1._ireals-zalso(i,j)) +      &
-!              albedo_blueice_ref  * albvisdif(jc,jb)
+!            prm_diag%albvisdif(jc,jb) = EXP(-c_albice_MR*(tpl_T_f-t_s(i,j,nnow))/tpl_T_f)
+!            prm_diag%albvisdif(jc,jb) = albedo_whiteice_ref * (1._ireals-zalso(i,j)) +      &
+!              albedo_blueice_ref  * prm_diag%albvisdif(jc,jb)
 !          ENDIF
 !        ENDDO
 !      ENDIF
@@ -412,8 +410,8 @@ MODULE mo_nwp_rad_interface
               ! ATTENTION: only valid, if nsfc_subs=1
               zsnow = MIN(1.0_wp, lnd_prog%w_snow(jc,jb,1) / cf_snow)
             ENDIF
-            albvisdif(jc,jb) = zsnow * zsnow_alb +                               &
-              (1.0_wp - zsnow) * (zvege * csalb_p + (1.0_wp - zvege) * albvisdif(jc,jb))
+            prm_diag%albvisdif(jc,jb) = zsnow * zsnow_alb +                               &
+              (1.0_wp - zsnow) * (zvege * csalb_p + (1.0_wp - zvege) * prm_diag%albvisdif(jc,jb))
           ENDIF !   llandmask
         ENDDO
       ENDIF !inwp_surface == 1
@@ -453,7 +451,7 @@ MODULE mo_nwp_rad_interface
         & paeq5 = zaeq5(:,:,jb),&
         & papre_in =  pt_diag%pres_sfc (:,jb), & ! Surface pressure
         & psmu0 = prm_diag%cosmu0 (:,jb) , & ! Cosine of zenith angle
-        & palso = albvisdif(:,jb), & ! solar surface albedo
+        & palso = prm_diag%albvisdif(:,jb), & ! solar surface albedo
         & palth = alb_ther(:,jb), & ! thermal surface albedo
         & psct = zsct, &! solar constant (at time of year)
         & kig1s = 1 ,&
@@ -525,7 +523,6 @@ MODULE mo_nwp_rad_interface
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
     TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog
 
-    REAL(wp):: albvisdif     (nproma,pt_patch%nblks_c) !<
     ! For radiation on reduced grid
     ! These fields need to be allocatable because they have different dimensions for
     ! the global grid and nested grids, and for runs with/without MPI parallelization
@@ -717,10 +714,10 @@ MODULE mo_nwp_rad_interface
           IF (ext_data%atm%llsm_atm_c(jc,jb) .OR. lnd_prog%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
             ist = ext_data%atm%soiltyp(jc,jb) ! water (ist=9) and sea ice (ist=10) included
           ENDIF
-          albvisdif(jc,jb) = csalb(ist)
+          prm_diag%albvisdif(jc,jb) = csalb(ist)
           IF ( ext_data%atm%llsm_atm_c(jc,jb)) THEN
             ! ATTENTION: only valid, if nsfc_subs=1
-            albvisdif(jc,jb) = csalb(ist) - rad_csalbw(ist)*lnd_prog%w_so(jc,1,jb,1)
+            prm_diag%albvisdif(jc,jb) = csalb(ist) - rad_csalbw(ist)*lnd_prog%w_so(jc,1,jb,1)
           ENDIF  ! lsoil, llandmask
           
         ENDDO
@@ -734,7 +731,7 @@ MODULE mo_nwp_rad_interface
           IF (ext_data%atm%llsm_atm_c(jc,jb) .OR. lnd_prog%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
             ist = ext_data%atm%soiltyp(jc,jb) ! water (ist=9) and sea ice (ist=10) included
           ENDIF
-          albvisdif(jc,jb) = csalb(ist)
+          prm_diag%albvisdif(jc,jb) = csalb(ist)
           
         ENDDO
       
@@ -752,7 +749,7 @@ MODULE mo_nwp_rad_interface
 !!            * csalb(10)
 !          IF (( .NOT. ext_data%atm%llsm_atm_c(jc,jb)) .AND. &
 !            & (prm_diag%h_ice(i,j,nnow) > 0.0_wp))          &
-!            albvisdif(jc,jb) = (1.0_wp-0.3846_wp*EXP(-0.35_wp*(tmelt-t_ice(i,j,nnow)))) &
+!            prm_diag%albvisdif(jc,jb) = (1.0_wp-0.3846_wp*EXP(-0.35_wp*(tmelt-t_ice(i,j,nnow)))) &
 !            * csalb(10)
 !        ENDDO
 !      ENDIF
@@ -768,9 +765,9 @@ MODULE mo_nwp_rad_interface
 !            !  [ice_albedo=function(ice_surface_temperature)].
 !            !  Use surface temperature at time level "nnow".
 !
-!            albvisdif(jc,jb) = EXP(-c_albice_MR*(tpl_T_f-t_s(i,j,nnow))/tpl_T_f)
-!            albvisdif(jc,jb) = albedo_whiteice_ref * (1._ireals-zalso(i,j)) +      &
-!              albedo_blueice_ref  * albvisdif(jc,jb)
+!            prm_diag%albvisdif(jc,jb) = EXP(-c_albice_MR*(tpl_T_f-t_s(i,j,nnow))/tpl_T_f)
+!            prm_diag%albvisdif(jc,jb) = albedo_whiteice_ref * (1._ireals-zalso(i,j)) +      &
+!              albedo_blueice_ref  * prm_diag%albvisdif(jc,jb)
 !          ENDIF
 !        ENDDO
 !      ENDIF
@@ -798,8 +795,8 @@ MODULE mo_nwp_rad_interface
               ! ATTENTION: only valid, if nsfc_subs=1
               zsnow = MIN(1.0_wp, lnd_prog%w_snow(jc,jb,1) / cf_snow)
             ENDIF
-            albvisdif(jc,jb) = zsnow * zsnow_alb +                               &
-              (1.0_wp - zsnow) * (zvege * csalb_p + (1.0_wp - zvege) * albvisdif(jc,jb))
+            prm_diag%albvisdif(jc,jb) = zsnow * zsnow_alb +                               &
+              (1.0_wp - zsnow) * (zvege * csalb_p + (1.0_wp - zvege) * prm_diag%albvisdif(jc,jb))
           ENDIF !   llandmask
         ENDDO
       ENDIF !inwp_surface == 1
@@ -818,9 +815,9 @@ MODULE mo_nwp_rad_interface
 !$OMP END DO
 !$OMP END PARALLEL
 
-    CALL upscale_rad_input_rg(pt_patch, pt_par_patch, pt_par_grf_state,                    &
-      & prm_diag%cosmu0, albvisdif, alb_ther, pt_diag%temp_ifc, pt_diag%dpres_mc,          &
-      & prm_diag%tot_cld, zsqv ,zduco2, zduo3,                     &
+    CALL upscale_rad_input_rg( pt_patch, pt_par_patch, pt_par_grf_state,                   &
+      & prm_diag%cosmu0, prm_diag%albvisdif, alb_ther, pt_diag%temp_ifc,                   &
+      & pt_diag%dpres_mc, prm_diag%tot_cld, zsqv ,zduco2, zduo3,                           &
       & zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,pt_diag%pres_sfc,                                    &
       & zrg_cosmu0, zrg_albvisdif, zrg_alb_ther, zrg_temp_ifc, zrg_dpres_mc,               &
       & zrg_tot_cld, zrg_sqv ,zrg_duco2, zrg_o3,                                           &
