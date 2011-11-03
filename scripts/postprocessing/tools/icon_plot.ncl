@@ -4,16 +4,26 @@
 ; contour lines. Both modes are capable of masking the input files before
 ; plotting, see the command line options below for details.
 ;---------------------------------------------------------------
-; Usage:
-;   ncl icon_ocean.ncl 'iFile="path/file.nc"' 'varName="W"'    'mapLLC=(/35.0, -8/)' 'mapURC=(/55, 8/)'
-;   ncl icon_ocean.ncl 'iFile="path/file.nc"' 'varName="ELEV"' 'oFile="test"' timeStep=1 levIndex=1
-
+; Basic Usage:
+;   ncl icon_plot.ncl 'iFile="path/file.nc"' 'varName="ELEV"' 'oFile="test"' timeStep=1 levIndex=1
+;
+; Select an special area of the globe with mapLLC (LowerLeftCorner) and mapURC (UpperRightCorner)   
+;   ncl icon_plot.ncl 'iFile="path/file.nc"' 'varName="W"'    'mapLLC=(/35.0, -8/)' 'mapURC=(/55, 8/)'
+;
 ; Masking:
-;   ncl icon_ocean.ncl 'iFile="oce_aqua_planet_O.R2B04L4_0001.nc"' 'varName="ELEV"' 'maskName="wet_c"' 
-;   ncl icon_ocean.ncl 'iFile="oce.nc"' 'varName="W"' 'maskName="topo"' 'maskFile="icon_mask.nc"' 
+;   ncl icon_plot.ncl 'iFile="oce_aqua_planet_O.R2B04L4_0001.nc"' 'varName="ELEV"' 'maskName="wet_c"' 
+;   ncl icon_plot.ncl 'iFile="oce.nc"' 'varName="W"' 'maskName="topo"' 'maskFile="icon_mask.nc"' 
 ;
 ; Vectorplot:
-;   ncl icon_ocean.ncl 'iFile="oce.nc"' 'vecVars="u-veloc v-veloc"' 'oFile="test"'
+;   ncl icon_plot.ncl 'iFile="oce.nc"' 'vecVars="u-veloc v-veloc"' 'oFile="test"'
+;
+; Vertical cross section:
+;   ncl icon_plot.ncl 'iFile="iconOutput.nc"' 'secLC=(/ 0.0,-90.0 /)' 'secRC=(/ 0.0,90.0/)' 'oType="png"' 'rStrg=""' 'tStrg="ICON coupled aqual planet"'
+;
+; Overlay plot (vectors over contour plot)
+;   ncl icon_plot.ncl  'iFile="iconOutput.nc"' 'varName="T"' 'vecVars="u-veloc v-veloc"'
+;
+; Options can be combined execept showGrid=True with vector and overlay plots
 ;---------------------------------------------------------------
 ;
 ; Required Parameter:
