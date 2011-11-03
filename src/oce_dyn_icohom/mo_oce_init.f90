@@ -85,7 +85,8 @@ USE mo_oce_ab_timestepping,ONLY: calc_vert_velocity,update_time_indices
 USE mo_oce_linear_solver,  ONLY: gmres_e2e
 USE mo_icon_cpl_exchg,     ONLY: ICON_cpl_put
 USE mo_icon_cpl_def_field, ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
-USE mo_master_control, ONLY: is_restart_run
+USE mo_master_control,     ONLY: is_restart_run
+USE mo_ape_params,         ONLY: ape_sst
 
 IMPLICIT NONE
 INCLUDE 'netcdf.inc'
@@ -454,8 +455,8 @@ INTEGER :: jk
   REAL(wp):: z_dst, z_lat_deg, z_lon_deg, z_tmp
   REAL(wp):: z_perlon, z_perlat, z_permax, z_perwid !,z_H_0
   REAL(wp):: z_ttrop, z_tpol, z_tpols, z_tdeep, z_tdiff, z_ltrop, z_lpol, z_ldiff
-  REAL(wp):: z_temp_max, z_temp_min
-  REAL(wp):: z_temp_incr
+  REAL(wp):: z_temp_max, z_temp_min, z_temp_incr, z_max
+  CHARACTER(len=max_char_length) :: sst_case
 
   REAL(wp), PARAMETER :: tprof(20)=&
     &(/ 18.13_wp, 17.80_wp, 17.15_wp, 16.09_wp, 15.04_wp, 13.24_wp, 11.82_wp,  9.902_wp, &
@@ -1283,8 +1284,8 @@ END DO
           END DO
         END DO
       END DO
-    CASE (44) 
 
+    CASE (44) 
       !Temperature is homogeneous in each layer. Varies from 30.5 in top to 0.5 in bottom layer
       z_temp_max  = 30.5_wp
       z_temp_min  = 0.5_wp
@@ -1308,7 +1309,8 @@ END DO
           END DO
         END DO
       END DO
-  CASE (45) !T and S are horizontally homegeneous. Values are taken from t_prof and s_prof
+
+    CASE (45) !T and S are horizontally homegeneous. Values are taken from t_prof[_var] and s_prof[_var]
       DO jb = i_startblk_c, i_endblk_c    
         CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
          &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
@@ -1325,7 +1327,54 @@ END DO
           END DO
         END DO
       END DO
-p_os%p_prog(nold(1))%tracer(:,n_zlev,:,1)=-2.0_wp
+      p_os%p_prog(nold(1))%tracer(:,n_zlev,:,1)=-2.0_wp
+
+    ! Testcase for coupled Aquaplanet:
+    !  - following APE_ATLAS Equations (2.1) - (2.5)
+    !  - use function ape_sst - maximum temperature = 27 deg C
+    !  - decrease maximum temperature vertically by z_temp_incr
+    !    minimum temperature is 0 deg C
+    CASE (50)
+
+      sst_case='sst_qobs'
+      jk = 1
+      DO jb = i_startblk_c, i_endblk_c    
+        CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
+          &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
+
+        DO jc = i_startidx_c, i_endidx_c
+          z_lat = ppatch%cells%center(jc,jb)%lat
+          IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+            p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = ape_sst(sst_case,z_lat)-tmelt   ! SST
+          ELSE
+            p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 0.0_wp
+          END IF
+        END DO
+      END DO
+
+      z_temp_max  = 27.0_wp
+      z_temp_min  = 0.0_wp
+      z_temp_incr = (z_temp_max-z_temp_min)/REAL(n_zlev-1,wp)
+      WRITE(0,*) TRIM(routine),': Vertical temperature increment = ',z_temp_incr
+
+      p_os%p_prog(nold(1))%tracer(:,n_zlev,:,1) = z_temp_min
+      DO jk=2,n_zlev-1
+
+        z_max = z_temp_max - REAL(jk-1,wp)*z_temp_incr
+        WRITE(0,*) TRIM(routine),': jk=',jk,' Maximum Temperature =',z_max
+        DO jb = i_startblk_c, i_endblk_c    
+          CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
+           &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
+      
+          DO jc = i_startidx_c, i_endidx_c
+      
+            IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) &
+                &  = MAX(p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1)-z_temp_incr,0.0_wp)
+            ENDIF
+          END DO
+        END DO
+      END DO
 
     CASE DEFAULT
      CALL finish(TRIM(routine), 'CHOSEN INITIALIZATION NOT SUPPORTED - TERMINATE')
