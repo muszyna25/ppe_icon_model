@@ -85,7 +85,7 @@ dt_checkpoint=`expr ${ndays_checkpoint} \* 86400`
 dtime=100                     # time step in seconds (150, 180, 225, 300)
 ndays=10                      # number of days to run
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
-#nstep=36
+#nsteps=36
 
 #
 #-----------------------------------------------------------------------------
@@ -266,8 +266,6 @@ nsfc_subs   = 1
  vwind_offctr    = 0.15     ! off-centering for time differencing (like alpha in turb)
 !damp_height     = 35000.   ! damping height vertical wind (set about 10km below top, 10 levels)
  damp_height     = 50000.   ! damping height vertical wind (set about 10km below top, 10 levels)
- damp_height_u   = 40000.   ! damping height horizontal wind
- damp_timescale_u= 172800.  ! Shortest damping time-scale at model top [s]
  rayleigh_coeff  = 0.05     ! Rayleigh coefficient for damping in upper levels
  iadv_rcf        = 4        ! microphysics and turb and sat adj every 2 dynamic steps (2 or 4)
  l_open_ubc      = .false.  ! top open upper boundary condition. might help to go higher
