@@ -782,13 +782,13 @@ END INTERFACE
               !! vert_density_grad  < 0 instable stratification: use convective mixing parameter
               ELSE IF (z_vert_density_grad_c(jc,jk,jb) < -z_treshold ) THEN
                 params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = MAX_VERT_DIFF_TRAC
- write(246,*)'instab',&
- & jc,jk,jb,z_vert_density_grad_c(jc,jk,jb),&
- & z_rho_down(jc,jk,jb),z_rho_up(jc,jk,jb),&
- & z_rho_down(jc,jk,jb)-z_rho_up(jc,jk,jb),&
- &p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1),&
- &p_os%p_prog(nold(1))%tracer(jc,jk,jb,1),&
-&z_Ri_c(jc,jk,jb)
+!  write(246,*)'instab',&
+!  & jc,jk,jb,z_vert_density_grad_c(jc,jk,jb),&
+!  & z_rho_down(jc,jk,jb),z_rho_up(jc,jk,jb),&
+!  & z_rho_down(jc,jk,jb)-z_rho_up(jc,jk,jb),&
+!  &p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1),&
+!  &p_os%p_prog(nold(1))%tracer(jc,jk,jb,1),&
+! &z_Ri_c(jc,jk,jb)
                 DO jj=1,3
                   idxe = p_patch%cells%edge_idx(jc,jb,jj)
                   ible = p_patch%cells%edge_blk(jc,jb,jj)
