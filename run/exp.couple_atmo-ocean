@@ -436,16 +436,18 @@ cat > ${ocean_namelist} << EOF
                                  ! 1=locally varying u,v (testcase 27, 29)
                                  ! 2=varying u with latitude for basin using basin_width_deg
                                  ! 3=varying u with latitude globally
-  itestcase_oce      =   40      ! 25=shallow-water-Laeuter-Test; 26=shallow-water-Williamson test5;
+  itestcase_oce      =   50      ! 25=shallow-water-Laeuter-Test; 26=shallow-water-Williamson test5;
                                  ! 30=3D-multilayer Stommel; 31=3D-gravity wave
                                  ! 32=Multilayer Munk-Gyre test (following Sergey Danilov)
                                  ! 33=Collapsing density front, requires realistic lsm and topography
                                  ! 34=Adjusting density front in an ocean basin
                                  ! 40=global temperature initialization for wind and temperature forcing tests
                                  ! 43=Collapsing density front at first level only with smaller amplitude (global)
+                                 ! 45=horizontally homogen temperature
+                                 ! 50=zonally homogen temperature for APE SST (Williamson)
   init_oce_prog      = ${init_oce}    ! read ocean initialization file, see above
   idiag_oce          =    1      ! 0: no diagnostics; 1: write diagnostics to stderr
-  temperature_relaxation= 2      ! 1=switched on for some testcases only
+  temperature_relaxation= 3      ! 1=switched on for some testcases only
                                  ! 2=read 2m-temperature data for relaxation from bulk
   relaxation_param   =    1.0    ! relaxation of tracer surface fluxes (same value for all tracers in months)
                                  ! this value is divided by number of seconds per month (=30*24*3600)

@@ -236,20 +236,20 @@ cat > ${ocean_namelist} << EOF
   EOS_TYPE           =    2      ! 1=linear EOS
                                  ! 2= (nonlinear) EOS from MPI-OM 
                                  ! 3= not recommended: (nonlinear) Jacket-McDoudgall density-formulation
-  k_veloc_h          = 5.0E+4    ! [m2/s] horizontal viscosity coefficient for velocity
-  k_veloc_v          = 1.0E-3    ! [m/s]  vertical viscosity coefficient for velocity
-  k_pot_temp_h       = 5.0E+4    ! [m2/s] horizontal viscosity coefficient for temperature
-  k_pot_temp_v       = 1.0E-4    ! [m/s]  vertical viscosity coefficient for temperature
-  k_sal_h            = 5.0E+4    ! [m2/s] horizontal viscosity coefficient for salinity
-  k_sal_v            = 1.0E-4    ! [m/s]  vertical viscosity coefficient for salinity
+  k_veloc_h          = 5.0E+5    ! [m2/s] horizontal viscosity coefficient for velocity
+  k_veloc_v          = 1.0E-2    ! [m/s]  vertical viscosity coefficient for velocity
+  MAX_VERT_DIFF_VELOC=    1.0    ! max diffusion coeff, used in impl.vert.velocity diffusion, if stabil. crit.is met
+  k_pot_temp_h       = 1.0E+3    ! [m2/s] horizontal viscosity coefficient for temperature
+  k_pot_temp_v       = 3.0E-5    ! [m/s]  vertical viscosity coefficient for temperature
+  k_sal_h            = 1.0E+3    ! [m2/s] horizontal viscosity coefficient for salinity
+  k_sal_v            = 3.0E-5    ! [m/s]  vertical viscosity coefficient for salinity
+  MAX_VERT_DIFF_TRAC = 3.0E-3    ! max diffusion coeff, used in impl.vert.tracer diffusion, if stability crit.is met
   HORZ_VELOC_DIFF_TYPE =  1      ! 0=no horizontal diffusion
                                  ! 1= constant Laplacian viscosity coefficient given in namelist (k_veloc_h)
                                  ! 2= constant Laplacian viscosity coefficient determined by requirement to
                                  !    have at least one gridpoint in boundary layer. The namelist value is overwritten.
                                  ! 3= spatially variable Laplacian viscosity coefficient determined by requirement to
                                  !    have at least one gridpoint in boundary layer. The namelist value is overwritten.
-  MAX_VERT_DIFF_VELOC=    0.1    ! max diffusion coeff, used in impl.vert.velocity diffusion, if stabil. crit.is met
-  MAX_VERT_DIFF_TRAC =    0.1    ! max diffusion coeff, used in impl.vert.tracer diffusion, if stability crit.is met
   CWA                = 0.5E-3    ! Tuning parameters for vertical mixing of tracer and velocity
   CWT                = 0.5E-3    ! Set to standard values
   bottom_drag_coeff  =    0.0025 ! Chezy coefficient for bottom friction
@@ -278,6 +278,7 @@ cat > ${ocean_namelist} << EOF
                                  ! 40=global temperature initialization for wind and temperature forcing tests
                                  ! 43=Collapsing density front at first level only with smaller amplitude (global)
                                  ! 45=horizontally homogen temperature
+                                 ! 50=zonally homogen temperature for APE SST (Williamson)
   idiag_oce          =    0      ! 0: no diagnostics; 1: write diagnostics to stderr
   temperature_relaxation= 1      !  1: switched on for some testcases only
                                  !  2: read 2m-temperature data for relaxation from bulk 
