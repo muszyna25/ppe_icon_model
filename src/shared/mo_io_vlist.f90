@@ -389,26 +389,33 @@ CONTAINS
     !=========================================================================
     ! horizontal grids
     !
-    CALL nf(nf_open(TRIM(grid_filename), NF_NOWRITE, ncid))
-    !
-    SELECT CASE (global_cell_type)
-    CASE (3)
-      CALL nf(nf_inq_dimid(ncid, 'cell', dimid))
-    CASE (6)
-      CALL nf(nf_inq_dimid(ncid, 'vertex', dimid))
-    END SELECT
-    CALL nf(nf_inq_dimlen(ncid, dimid, i_nc))
-    !
-    CALL nf(nf_inq_dimid(ncid, 'edge', dimid))
-    CALL nf(nf_inq_dimlen(ncid, dimid, i_ne))
-    !
-    SELECT CASE (global_cell_type)
-    CASE (3)
-      CALL nf(nf_inq_dimid(ncid, 'vertex', dimid))
-    CASE (6)
-      CALL nf(nf_inq_dimid(ncid, 'cell', dimid))
-    END SELECT
-    CALL nf(nf_inq_dimlen(ncid, dimid, i_nv))
+    IF(l_do_io) THEN
+      CALL nf(nf_open(TRIM(grid_filename), NF_NOWRITE, ncid))
+      !
+      SELECT CASE (global_cell_type)
+      CASE (3)
+        CALL nf(nf_inq_dimid(ncid, 'cell', dimid))
+      CASE (6)
+        CALL nf(nf_inq_dimid(ncid, 'vertex', dimid))
+      END SELECT
+      CALL nf(nf_inq_dimlen(ncid, dimid, i_nc))
+      !
+      CALL nf(nf_inq_dimid(ncid, 'edge', dimid))
+      CALL nf(nf_inq_dimlen(ncid, dimid, i_ne))
+      !
+      SELECT CASE (global_cell_type)
+      CASE (3)
+        CALL nf(nf_inq_dimid(ncid, 'vertex', dimid))
+      CASE (6)
+        CALL nf(nf_inq_dimid(ncid, 'cell', dimid))
+      END SELECT
+      CALL nf(nf_inq_dimlen(ncid, dimid, i_nv))
+    ELSE
+      i_nc = p_patch(k_jg)%n_patch_cells_g
+      i_ne = p_patch(k_jg)%n_patch_edges_g
+      i_nv = p_patch(k_jg)%n_patch_verts_g
+    ENDIF
+
     !
     i_ncb = global_cell_type*i_nc
     i_neb = 4*i_ne
@@ -626,13 +633,12 @@ CONTAINS
       !
       CALL gridDefYbounds(gridVertexID(k_jg), vlatv)
       DEALLOCATE(vlatv)
-    ENDIF
 
     !-------------------------------------------------------------------------
 
     ! Close NetCDF file, it is not needed any more
-
-    CALL nf(nf_close(ncid))
+      CALL nf(nf_close(ncid))
+    ENDIF
     !
     !=========================================================================
     ! vertical grids
