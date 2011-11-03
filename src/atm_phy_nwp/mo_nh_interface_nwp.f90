@@ -557,8 +557,6 @@ CONTAINS
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
           & i_startidx, i_endidx, rl_start, rl_end )
 
-        pt_diag%thermal_exp_fastphy(:,jb) = 0._wp
-
         !-------------------------------------------------------------------------
         !>
         !! Re-calculate scalar prognostic variables out of physics variables!
@@ -603,20 +601,6 @@ CONTAINS
 
           ENDDO
         ENDDO
-
-  ! GZ: open upper b.c. seems to work better without the fast-physics contribution
-  ! will likely be removed completely later on
-  !      IF (l_open_ubc) THEN
-  !        ! vertically integrated isobaric expansion needed for open upper boundary condition
-  !        DO jk = 1, nlev
-  !          DO jc =  i_startidx, i_endidx
-  !            pt_diag%thermal_exp_fastphy(jc,jb) = pt_diag%thermal_exp_fastphy(jc,jb) &
-  !              & + cpd_o_rd*(pt_prog%exner(jc,jk,jb) - z_exner_sv(jc,jk,jb))         &
-  !              & / (tcall_phy_jg(itsatad)*pt_prog%exner(jc,jk,jb))                   &
-  !              & * p_metrics%ddqz_z_full(jc,jk,jb)
-  !          ENDDO
-  !        ENDDO
-  !      ENDIF
 
       ENDDO
 !$OMP END DO

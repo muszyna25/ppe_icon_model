@@ -117,6 +117,7 @@ MODULE mo_solve_nh_async
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
     REAL(wp):: z_concorr_e(nproma,p_patch%nlevp1,p_patch%nblks_e)
+    REAL(wp):: z_w_con_c(nproma,p_patch%nlevp1,p_patch%nblks_c)
     REAL(wp):: z_w_con_c_full(nproma,p_patch%nlev,p_patch%nblks_c)
     REAL(wp):: z_vt_ie(nproma,p_patch%nlevp1)
     REAL(wp):: z_kin_hor_e(nproma,p_patch%nlev,p_patch%nblks_e)
@@ -396,22 +397,24 @@ MODULE mo_solve_nh_async
             z_vnw(ieidx(jc,jb,2),jk,ieblk(jc,jb,2))         *p_int%geofac_div(jc,2,jb) + &
             z_vnw(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))         *p_int%geofac_div(jc,3,jb))
 
-          p_diag%w_con(jc,jk,jb) = p_prog%w(jc,jk,jb)
+          z_w_con_c(jc,jk,jb) = p_prog%w(jc,jk,jb)
         ENDDO
       ENDDO
+
+      z_w_con_c(:,nlevp1,jb) = 0._wp
 
 !CDIR UNROLL=5
       ! Contravariant vertical velocity on w points and interpolation to full levels
       DO jk = nlev, nflatlev(p_patch%id)+1, -1
         DO jc = i_startidx, i_endidx
-          p_diag%w_con(jc,jk,jb) = p_diag%w_con(jc,jk,jb) - p_diag%w_concorr_c(jc,jk,jb)
-          z_w_con_c_full(jc,jk,jb) = 0.5_wp*(p_diag%w_con(jc,jk,jb)+p_diag%w_con(jc,jk+1,jb))
+          z_w_con_c(jc,jk,jb) = z_w_con_c(jc,jk,jb) - p_diag%w_concorr_c(jc,jk,jb)
+          z_w_con_c_full(jc,jk,jb) = 0.5_wp*(z_w_con_c(jc,jk,jb)+z_w_con_c(jc,jk+1,jb))
         ENDDO
       ENDDO
 
       DO jk = 1, nflatlev(p_patch%id)
         DO jc = i_startidx, i_endidx
-          z_w_con_c_full(jc,jk,jb) = 0.5_wp*(p_diag%w_con(jc,jk,jb)+p_diag%w_con(jc,jk+1,jb))
+          z_w_con_c_full(jc,jk,jb) = 0.5_wp*(z_w_con_c(jc,jk,jb)+z_w_con_c(jc,jk+1,jb))
         ENDDO
       ENDDO
 
@@ -450,8 +453,8 @@ MODULE mo_solve_nh_async
       ! Sum up remaining terms of vertical wind advection
       DO jk = 2, nlev
         DO jc = i_startidx, i_endidx
-          p_diag%ddt_w_adv(jc,jk,jb,ntnd) = p_diag%ddt_w_adv(jc,jk,jb,ntnd)      &
-            - p_diag%w_con(jc,jk,jb)*(p_prog%w(jc,jk-1,jb)-p_prog%w(jc,jk+1,jb)) &
+          p_diag%ddt_w_adv(jc,jk,jb,ntnd) = p_diag%ddt_w_adv(jc,jk,jb,ntnd)   &
+            - z_w_con_c(jc,jk,jb)*(p_prog%w(jc,jk-1,jb)-p_prog%w(jc,jk+1,jb)) &
             * p_metrics%inv_ddqz_z_half2(jc,jk,jb)
         ENDDO
       ENDDO

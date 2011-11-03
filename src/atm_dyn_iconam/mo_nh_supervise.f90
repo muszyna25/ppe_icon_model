@@ -108,6 +108,8 @@ MODULE mo_nh_supervise
   TYPE(t_nh_prog), POINTER :: p_prog_rcf   ! prog_rcf state
   TYPE(t_nh_diag), POINTER :: p_diag       ! diag state
   REAL (wp):: z_total_moist, z_elapsed_time
+  REAL (wp), TARGET :: z_ekin(nproma,p_patch(1)%nlev,p_patch(1)%nblks_c)
+  REAL(wp), DIMENSION(:,:,:),   POINTER :: ptr_ekin
   !-----------------------------------------------------------------------------
 
   ! Hack [ha]:
@@ -182,6 +184,12 @@ MODULE mo_nh_supervise
   p_prog_rcf => p_nh_state(jg)%prog(ntimlev_rcf(jg))
   p_diag     => p_nh_state(jg)%diag
 
+  IF (p_patch(jg)%cell_type == 3) THEN
+    ptr_ekin => z_ekin
+  ELSE
+    ptr_ekin => p_diag%e_kin
+  ENDIF
+
   nblks_c   = p_patch(jg)%nblks_int_c
   npromz_c  = p_patch(jg)%npromz_int_c
 
@@ -197,13 +205,13 @@ MODULE mo_nh_supervise
     IF (p_patch(jg)%cell_type == 3) THEN
       DO jk = 1, nlev
         DO jc = 1, nlen
-          p_diag%e_kin(jc,jk,jb) = p_diag%e_kinh(jc,jk,jb) + 0.25_wp* &
+          ptr_ekin(jc,jk,jb) = p_diag%e_kinh(jc,jk,jb) + 0.25_wp* &
             (p_prog%w(jc,jk,jb)**2 + p_prog%w(jc,jk+1,jb)**2)
         ENDDO
       ENDDO
     ELSE
       DO jk = 1, nlev
-        p_diag%e_kin(1:nlen,jk,jb) = p_diag%e_kinh(1:nlen,jk,jb) +0.25_wp &
+        ptr_ekin(1:nlen,jk,jb) = p_diag%e_kinh(1:nlen,jk,jb) +0.25_wp &
           &*(p_prog%w(1:nlen,jk  ,jb)**2*p_nh_state(jg)%metrics%ddqz_z_half(1:nlen,jk  ,jb) &
           & +p_prog%w(1:nlen,jk+1,jb)**2*p_nh_state(jg)%metrics%ddqz_z_half(1:nlen,jk+1,jb))&
           & /p_nh_state(jg)%metrics%ddqz_z_full(1:nlen,jk,jb)
@@ -231,7 +239,7 @@ MODULE mo_nh_supervise
         z_total_mass = z_total_mass + &
         &              p_prog%rho(jc,jk,jb)*z_help
         z_kin_energy = z_kin_energy + &
-        &              p_prog%rho(jc,jk,jb)*p_diag%e_kin(jc,jk,jb)*z_help
+        &              p_prog%rho(jc,jk,jb)*ptr_ekin(jc,jk,jb)*z_help
         z_int_energy = z_int_energy + &
         &              cvd*p_prog%exner(jc,jk,jb)*p_prog%rhotheta_v(jc,jk,jb)*z_help
         z_pot_energy = z_pot_energy + &
@@ -264,7 +272,7 @@ MODULE mo_nh_supervise
       z1(1:nlen,jb) = z1(1:nlen,jb)&
       & +p_prog%rho(1:nlen,jk,jb)*z0(1:nlen)
       z2(1:nlen,jb) = z2(1:nlen,jb)&
-      & +p_prog%rho(1:nlen,jk,jb)*p_diag%e_kin(1:nlen,jk,jb)*z0(1:nlen)
+      & +p_prog%rho(1:nlen,jk,jb)*ptr_ekin(1:nlen,jk,jb)*z0(1:nlen)
       z3(1:nlen,jb) = z3(1:nlen,jb)&
       & +cvd*p_prog%exner(1:nlen,jk,jb)*p_prog%rhotheta_v(1:nlen,jk,jb)*z0(1:nlen)
       z4(1:nlen,jb) = z4(1:nlen,jb)&
