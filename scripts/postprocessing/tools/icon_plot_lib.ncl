@@ -627,7 +627,7 @@ end
 ;---------------------------------------------------------------
 ; Create a default NCL resource
 undef("setDefaultResource")
-procedure setDefaultResource(resource)
+procedure setDefaultResource(resource,vertiallabelbar)
 begin
   resource@gsnMaximize          = False
 ; resource@gsnPaperOrientation  = "landscape"  ; turns plot on paper
@@ -655,9 +655,13 @@ begin
   resource@cnFillOn               = True
 
   resource@lbLabelBarOn             = True
-  resource@pmLabelBarHeightF        = 0.12
-  resource@pmLabelBarWidthF         = 0.80
-  resource@pmLabelBarOrthogonalPosF = 0.15
+  if (vertiallabelbar .eq. True) then
+    resource@lbOrientation            = "vertical"
+  else
+    resource@pmLabelBarHeightF        = 0.12
+    resource@pmLabelBarWidthF         = 0.80
+    resource@pmLabelBarOrthogonalPosF = 0.15
+  end if
   resource@lbLabelAutoStride        = True
   resource@lbLabelFontHeightF       = FontHeight1     ;   color bar labels
 
@@ -696,13 +700,11 @@ end
 undef("setAutomaticBaseString")
 procedure setAutomaticBaseString(workstation,plotmode)
 begin
-  if(.not. isvar("bStrg")) then
-    bStrg      = ""
+  if(isvar("bStrg")) then
+    BaseString = bStrg
+  else
+    BaseString = "Prgr icon_plot.ncl: " + systemfunc("date") + ","+getenv("USER")
   end if
-  basestr     = str_join(bStrg," ")
-  ; base string: plot file name + basestring + time stamp
-  ; attention: virtual page changes when lon/lat ratio changes
-  BaseString = "Prgr icon_ocean.ncl: " + " " + basestr + " " + systemfunc("date")
   res               = True
   res@txFontHeightF = 0.011
   if (plotmode.eq."section") res@txPosYF = 0.01 end if
