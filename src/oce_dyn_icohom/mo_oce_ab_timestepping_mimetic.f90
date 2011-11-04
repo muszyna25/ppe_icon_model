@@ -1288,43 +1288,22 @@ ELSEIF(iswm_oce/= 1)THEN
 
   IF(.NOT.l_RIGID_LID)THEN
 
-    IF(expl_vertical_velocity_diff==0)THEN
-      DO jb = i_startblk_e, i_endblk_e
-        CALL get_indices_e(p_patch, jb, i_startblk_e, i_endblk_e, &
-                          &i_startidx_e, i_endidx_e, rl_start_e, rl_end_e)
+    DO jb = i_startblk_e, i_endblk_e
+      CALL get_indices_e(p_patch, jb, i_startblk_e, i_endblk_e, &
+                        &i_startidx_e, i_endidx_e, rl_start_e, rl_end_e)
 #ifdef __SX__
 !CDIR UNROLL=6
 #endif
-        DO jk = 1, n_zlev
-          DO je = i_startidx_e, i_endidx_e
-            p_os%p_prog(nnew(1))%vn(je,jk,jb) = p_os%p_diag%vn_pred(je,jk,jb)  &
-                    &                        - gdt*ab_beta*z_grad_h(je,1,jb)
-          END DO 
-        END DO
+      DO jk = 1, n_zlev
+        DO je = i_startidx_e, i_endidx_e
+          p_os%p_prog(nnew(1))%vn(je,jk,jb) = p_os%p_diag%vn_pred(je,jk,jb)  &
+                  &                        - gdt*ab_beta*z_grad_h(je,1,jb)
+        END DO 
       END DO
+    END DO
 
-    ELSEIF(expl_vertical_velocity_diff==1 )THEN
-
-      DO jb = i_startblk_e, i_endblk_e
-        CALL get_indices_e(p_patch, jb, i_startblk_e, i_endblk_e, &
-                          &i_startidx_e, i_endidx_e, rl_start_e, rl_end_e)
-#ifdef __SX__
-!CDIR UNROLL=6
-#endif
-        DO jk = 1, n_zlev
-          DO je = i_startidx_e, i_endidx_e
-            p_os%p_prog(nnew(1))%vn(je,jk,jb) = p_os%p_diag%vn_impl_vert_diff(je,jk,jb)  &
-                    &                        - gdt*ab_beta*z_grad_h(je,1,jb)
-          END DO 
-        END DO
-      END DO
-    ENDIF
   ELSEIF(l_RIGID_LID)THEN
-    IF(expl_vertical_velocity_diff==0)THEN
-      p_os%p_prog(nnew(1))%vn = p_os%p_diag%vn_pred
-    ELSEIF(expl_vertical_velocity_diff==1)THEN
-      p_os%p_prog(nnew(1))%vn =  p_os%p_diag%vn_impl_vert_diff
-    ENDIF
+    p_os%p_prog(nnew(1))%vn = p_os%p_diag%vn_pred
   ENDIF
 ENDIF
 IF(.NOT.l_RIGID_LID)THEN
