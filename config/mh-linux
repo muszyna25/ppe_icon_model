@@ -339,7 +339,7 @@ case "$ac_sitename" in
 			config_target=squall
 			make_command="make" "-j" "8"
 			submit="qsub"
-            sync_submit=qsub -sync y
+                        sync_submit=qsub -sync y
 			;;
 		    *)
 			config_target=mpipc
@@ -368,7 +368,7 @@ case "$ac_sitename" in
 			MPIROOT            = /sw/lenny-x64/mpi/mpich2-1.3.1-static-pgi11
 			MPI_LIB            = -lmpichf90 -lmpich -lopa -lmpl -lpthread -lrt
 			load_mpi_modules   = "mpich2/1.3.1-static-pgi11"
-			load_modules       = "pgi/11.1" "gcc/4.5.2" "${load_modules}"
+			load_modules       = "pgi/11.8" "gcc/4.5.2" "${load_modules}"
 			;;
 		    intel)
 			NETCDFROOT         = /sw/lenny-x64/netcdf-4.1.1-static-intel12
