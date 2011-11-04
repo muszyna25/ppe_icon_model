@@ -2576,7 +2576,7 @@ MODULE mo_nonhydro_state
       &                   'weighting factor for quadratic interpolation to surface')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_metrics_list, 'wgtfacq_c', p_metrics%wgtfacq_c,           &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,      &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,      &
                   & ldims=shape2d_ccubed )
 
 
@@ -2587,7 +2587,7 @@ MODULE mo_nonhydro_state
       &                   'weighting factor for quadratic interpolation to surface')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE)
       CALL add_var( p_metrics_list, 'wgtfacq_e', p_metrics%wgtfacq_e,           &
-                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_SURFACE, cf_desc, grib2_desc,      &
+                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,      &
                   & ldims=shape2d_ecubed )
 
 
@@ -2598,7 +2598,7 @@ MODULE mo_nonhydro_state
       &                   'weighting factor for quadratic interpolation to model top')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_metrics_list, 'wgtfacq1_c', p_metrics%wgtfacq1_c,         &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,      &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,      &
                   & ldims=shape2d_ccubed )
 
 
@@ -2609,7 +2609,7 @@ MODULE mo_nonhydro_state
       &                   'weighting factor for quadratic interpolation to model top')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE)
       CALL add_var( p_metrics_list, 'wgtfacq1_e', p_metrics%wgtfacq1_e,         &
-                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_SURFACE, cf_desc, grib2_desc,      &
+                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,      &
                   & ldims=shape2d_ecubed )
 
 
