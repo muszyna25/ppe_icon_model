@@ -207,7 +207,7 @@ MODULE mo_physical_constants
     ci           = 2100.0_wp,       & ! Heat capacity of ice       [J / (kg K)]
 !   cw           = 4200.0_wp,       & ! Heat capacity of water     [J / (kg K)]
     cw           = 4186.8_wp,       & ! Heat capacity of water     [J / (kg K)]
-    Tf           = -1.90_wp,        & ! Temperature ice bottom     [C]
+    Tf           = -1.80_wp,        & ! Temperature ice bottom     [C]
     Lfreez       = 0.334E6_wp,      & ! Latent heat of freezing    [J / kg]
 !   L            = 0.334E6,     & ! Latent heat of freezing    [J / kg]
     Lvap         = 2.501E6_wp,      & ! Latent heat of vaporisation[J / kg]

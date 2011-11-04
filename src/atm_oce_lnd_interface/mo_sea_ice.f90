@@ -58,7 +58,7 @@ USE mo_physical_constants,  ONLY: rhoi, rhos, rhow,ki,ks,tf,albi,albim,albsm,alb
  &                                mus,ci, Lfreez, I_0, Lsub, Lvap, albedoW, clw,Sice,&
  &                                cpa, emiss,fr_fac,rgas, stefbol,tmelt   
 USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
-USE mo_ocean_nml,           ONLY: no_tracer
+USE mo_ocean_nml,           ONLY: no_tracer, init_oce_prog
 USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base
 IMPLICIT NONE
 
@@ -1065,19 +1065,23 @@ SUBROUTINE ice_init( ppatch, p_os, ice) !, Qatm, QatmAve)
 !    ice% hs    (i,j,k) = sicsno (i,j)
 ! END FORALL
   
-  ice% Tsurf  = -ice%hi*8._wp
-  ice% T1     = -999.0_wp 
-  ice% T2     = -999.0_wp 
+  ice% Tsurf  = Tf
+  ice% T1     = Tf
+  ice% T2     = Tf
   ice% conc   = 0.0_wp
   ice% isice  = .FALSE.
-  Tinterface  = -999.0_wp 
+  Tinterface  = Tf
   draft       = 0.0_wp
 
-! Stupid initialisation trick
-!  WHERE (p_os%p_prog(nold(1))%tracer(:,1,:,1) <= -1.0_wp )
-!    ice%hi(:,1,:) = 2._wp
-!    ice%conc(:,1,:) = 1._wp
-!  ENDWHERE
+! Stupid initialisation trick for Levitus initialisation
+  IF (init_oce_prog == 1) THEN
+    WHERE (p_os%p_prog(nold(1))%tracer(:,1,:,1) <= 0.0_wp )
+      ice%hi(:,1,:) = 2._wp
+      ice%conc(:,1,:) = 1._wp
+    ENDWHERE
+    WHERE (p_os%p_prog(nold(1))%tracer(:,:,:,1) <= 0.0_wp ) &
+      &   p_os%p_prog(nold(1))%tracer(:,:,:,1) = Tf
+  ENDIF
 
   WHERE(ice% hi(:,:,:) > 0.0_wp)
     Tinterface (:,:,:) = (Tf * (ki/ks * ice%hs(:,:,:)/ice%hi(:,:,:))+&
@@ -1509,7 +1513,7 @@ SUBROUTINE ice_growth(ppatch, p_os, ice, rpreci)!, lat)
     surfmeltsn,  & ! Surface melt water from snow melt with T=0�C       [m]
     surfmelti1,  & ! Surface melt water from upper ice with T=-muS      [m]
     surfmelti2,  & ! Surface melt water from lower ice with T=-muS      [m]
-!    heatocei,    & ! Oceanic heat flux                                  [W/m^2]
+    heatocei,    & ! Oceanic heat flux                                  [W/m^2]
 
     ! The following fields are copied from 'ice' for easier readability
     Qbot,        & ! Energy flux available for bottom melting/freezing [W/m�]
@@ -1521,10 +1525,10 @@ SUBROUTINE ice_growth(ppatch, p_os, ice, rpreci)!, lat)
     T2             ! temperature of lower ice      layer               [�C]
  
   INTEGER k
-  !REAL(wp),POINTER :: sst(:,:)
+  REAL(wp),POINTER :: sst(:,:)
 
   delh2=0._wp
-  !sst =>p_os%p_prog(nold(1))%tracer(:,1,:,1)
+  sst =>p_os%p_prog(nold(1))%tracer(:,1,:,1)
 !  !-------------------------------------------------------------------------------
   ! Calculate snow fall and create array split into ice categories
   new_snow3d (:,1,:)   = rpreci (:,:) * dtime * rhow / rhos 
@@ -1534,12 +1538,12 @@ SUBROUTINE ice_growth(ppatch, p_os, ice, rpreci)!, lat)
   ! Currently (as in growth.f90): all energy available in upper ocean grid cell 
   ! is supplied to the ice and the upper ocean temperature is held at the 
   ! freezing point. This is not very physical.
-!  DO k=1,i_no_ice_thick_class
-!    WHERE (ice%isice(:,k,:)) 
-!      heatOceI(:,k,:) = ( sst - Tf ) * ice%zUnderIce * clw*rhow/dtime
-!      ice%Qbot(:,k,:) = ice%Qbot(:,k,:) + heatOceI(:,k,:)
-!    ENDWHERE
-!  END DO
+  DO k=1,i_no_ice_thick_class
+    WHERE (ice%isice(:,k,:)) 
+      heatOceI(:,k,:) = ( sst - Tf ) * ice%zUnderIce * clw*rhow/dtime
+      ice%Qbot(:,k,:) = ice%Qbot(:,k,:) + heatOceI(:,k,:)
+    ENDWHERE
+  END DO
  
   ! Do the following wherever there is ice
   !isice: &  
@@ -1707,8 +1711,8 @@ SUBROUTINE ice_growth(ppatch, p_os, ice, rpreci)!, lat)
       ice%isice    =  .FALSE.
       ice%conc     = 0.0_wp
       hi           = 0.0_wp
-!    ELSEWHERE
-!      ice%heatOceI =  heatOceI - ice%heatOceI
+    ELSEWHERE
+      ice%heatOceI =  ice%heatOceI - heatOceI
     END WHERE
   
     ! Save new values in 'ice' structure
