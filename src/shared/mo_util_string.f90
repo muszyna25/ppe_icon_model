@@ -51,6 +51,7 @@ MODULE mo_util_string
   PUBLIC :: logical2string ! returns logical n as a string
   PUBLIC :: split_string         ! splits string into words
   PUBLIC :: string_contains_word ! searches in a string list
+  PUBLIC :: tocompact      ! remove gaps in string
 
   !
   PUBLIC :: normal, bold
@@ -134,42 +135,47 @@ CONTAINS
     ENDDO
     !
   END FUNCTION toupper
+
   !------------------------------------------------------------------------------------------------
   !
-  ! Converts multiple spaces and tabs to single spaces and removes leading spaces.
+  ! Converts multiple spaces and tabs to single spaces and removes
+  ! leading spaces.
   !
   SUBROUTINE tocompact(string)
     CHARACTER(len=*), INTENT(inout) :: string
-    !
-    CHARACTER(len=LEN_TRIM(string)) :: tmp_string
-    CHARACTER(len=1):: char
-    !
-    INTEGER :: i, k, spaces
-    !
-    string = ADJUSTL(string)
-    tmp_string = ' '
-    spaces = 0
-    k = 0
-    !
-    DO i = 1, LEN_TRIM(string)
-      char = string(i:i)
-      SELECT CASE(IACHAR(char))
-      CASE (9,32)     ! SPACE and TAB
-        IF (spaces == 0) THEN
-          k = k+1
-          tmp_string(k:k) = ' '
-        ENDIF
-        spaces = 1
-      CASE (33:)      ! everything else
-        k = k+1
-        tmp_string(k:k) = char
-        spaces = 0
-      END SELECT
-    END DO
-    !
-    string = ADJUSTL(tmp_string)
-    !
+    ! local variables
+    INTEGER   :: offset, i, i_max
+    CHARACTER :: char
+    LOGICAL   :: lspaces
+
+    offset = 0
+    i      = 0
+    i_max  = LEN_TRIM(string)
+    LOOP : DO 
+      i = i + 1       ! current write pos
+      IF ((i+offset) > i_max) EXIT LOOP
+      lspaces = .FALSE.
+      LOOKAHEAD : DO
+        char = string((i+offset):(i+offset))
+        SELECT CASE(IACHAR(char))
+        CASE (9,32)     ! SPACE and TAB
+          offset  = offset + 1
+          IF ((i+offset) > i_max) EXIT LOOP
+          lspaces = (i>1)
+        CASE default
+          IF (lspaces) THEN
+            string(i:i) = ' '
+            i      = i      + 1
+            offset = offset - 1
+          END IF
+          string(i:i) = char
+          EXIT LOOKAHEAD
+        END SELECT
+      END DO LOOKAHEAD
+    END DO LOOP
+    string = string(1:(i-1))
   END SUBROUTINE tocompact
+
   !
   !------------------------------------------------------------------------------------------------
   !

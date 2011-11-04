@@ -6,9 +6,10 @@
 #endif
 MODULE mo_io_restart_namelist
   !
-  USE mo_util_file, ONLY: util_tmpnam, util_filesize, util_unlink
-  USE mo_io_units,  ONLY: find_next_free_unit, filename_max
-  USE mo_exception, ONLY: message, finish
+  USE mo_util_file,   ONLY: util_tmpnam, util_filesize, util_unlink
+  USE mo_util_string, ONLY: tocompact
+  USE mo_io_units,    ONLY: find_next_free_unit, filename_max
+  USE mo_exception,   ONLY: message, finish
   USE mo_cdi_constants
   !
   IMPLICIT NONE
@@ -217,7 +218,8 @@ CONTAINS
     CLOSE(funit)
 #endif
     !
-    CALL set_restart_namelist(TRIM(name), nmlbuf)
+    CALL tocompact(nmlbuf)
+    CALL set_restart_namelist(TRIM(name), TRIM(nmlbuf))
     !
 #ifdef HAVE_F2003
     DEALLOCATE(nmlbuf)
