@@ -783,7 +783,6 @@ begin
     resource@vcRefAnnoOn               = False;        turns off ref vector annotation
     resource@vcGlyphStyle              = "CurlyVector"; turn on curly vectors
     resource@vcMonoLineArrowColor      = True;        multiple colors desired
-    resource@vcLineArrowColor          = "blue"; change vector color
     resource@vcVectorDrawOrder         = "PostDraw"; draw vectors last
 
 
