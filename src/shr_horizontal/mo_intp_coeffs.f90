@@ -3677,7 +3677,6 @@ END SUBROUTINE complete_patchinfo
           !actual edges of cell c2
           iil_c2(ie) = ptr_patch%cells%edge_idx(il_c2,ib_c2,ie)
           iib_c2(ie) = ptr_patch%cells%edge_blk(il_c2,ib_c2,ie)
-          !write(0,*)'iil_c2(ie):',iil_c2(ie),' iib_c2(ie):',iib_c2(ie)
 
 
           cc_edge(ie) = gc2cc(ptr_patch%edges%center(iil_c2(ie),iib_c2(ie)))
@@ -3713,7 +3712,6 @@ END SUBROUTINE complete_patchinfo
           jil_c2 = ptr_patch%edges%cell_idx(iil_c2(ie),iib_c2(ie),2)
           jib_c2 = ptr_patch%edges%cell_blk(iil_c2(ie),iib_c2(ie),2)
 
-          !write(0,*)'jil_c1:',jil_c1,' jib_c1:',jib_c1,' jil_c2:',jil_c2,' jib_c2:',jib_c2
           if (jil_c2 < 0) THEN
             write(0,*)'ptr_patch%edges%cell_idx:',ptr_patch%edges%cell_idx
           ENDIF

@@ -77,7 +77,7 @@ CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
 
 PUBLIC :: grad_fd_norm_oce
-PUBLIC :: grad_fd_norm_oce_2D
+PUBLIC :: grad_fd_norm_oce_2d
 PUBLIC :: div_oce
 PUBLIC :: rot_vertex_ocean
 PUBLIC :: rot_vertex_ocean_mod
@@ -365,7 +365,7 @@ END SUBROUTINE grad_fd_norm_oce
 !! - abandon grid for the sake of patch
 !! Boundary handling for triangles by P. Korn (2009)
 !!
-SUBROUTINE grad_fd_norm_oce_2D( psi_c, ptr_patch, grad_norm_psi_e)
+SUBROUTINE grad_fd_norm_oce_2d( psi_c, ptr_patch, grad_norm_psi_e)
 !
 !
 !  patch on which computation is performed
@@ -477,7 +477,7 @@ END SELECT
 #ifndef __SX__
 IF (ltimer) CALL timer_stop(timer_grad)
 #endif
-END SUBROUTINE grad_fd_norm_oce_2D
+END SUBROUTINE grad_fd_norm_oce_2d
 !-------------------------------------------------------------------------
 !
 !
