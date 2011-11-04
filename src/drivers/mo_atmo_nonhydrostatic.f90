@@ -155,7 +155,14 @@ CONTAINS
     IF (is_restart_run()) THEN
       ! This is an resumed integration. Read model state from restart file(s).
 
+#ifdef NOMPI
       CALL read_restart_files
+#else
+      jg = 1
+      !DO jg = n_dom_start,n_dom
+      CALL read_restart_files( p_patch(jg) )
+      !END DO
+#endif      
       CALL message(TRIM(routine),'normal exit from read_restart_files')
 
     ENDIF
