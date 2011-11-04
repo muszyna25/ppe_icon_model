@@ -62,7 +62,8 @@
 ;                 (Not set directly, but used for computing the contour level spacing. default=10)
 ; contLevs      : set individual contour levels (not yet)
 ; mapType       : projection type (default: lonlat), other: ortho (not compatible with showGrid), NHps
-;                  and SHps (polar stereographic projections centered at the north and south pole respectively) 
+;                 and SHps (polar stereographic projections centered at the north and south pole respectively),
+;                 sat (satelite view, use option centerLat, centerLon and satDist)
 ; mapLine       : (logical) draws continent lines on the plot (foreground/transparent)
 ; maskName      : variable to mask with. maskName is expected NOT to have time dimension
 ;                  'maskName="none"' is same as default (no mask variable)
