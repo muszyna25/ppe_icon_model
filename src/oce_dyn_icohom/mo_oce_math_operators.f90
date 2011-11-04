@@ -55,7 +55,7 @@ USE mo_run_config,         ONLY: ltimer
 USE mo_math_constants
 USE mo_physical_constants
 USE mo_impl_constants,     ONLY: land_boundary, boundary, sea, sea_boundary, &!land, sea,
-  &                              min_rlcell, min_rledge, min_rlvert !,max_char_length
+  &                              min_rlcell, min_rledge, min_rlvert ,max_char_length
 USE mo_model_domain,       ONLY: t_patch
 USE mo_ext_data,           ONLY: t_external_data
 USE mo_ocean_nml,          ONLY: lviscous, n_zlev, iswm_oce
@@ -366,91 +366,91 @@ END SUBROUTINE grad_fd_norm_oce
 !! Boundary handling for triangles by P. Korn (2009)
 !!
 SUBROUTINE grad_fd_norm_oce_2d( psi_c, ptr_patch, grad_norm_psi_e)
-!
-!
-!  patch on which computation is performed
-!
-TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
-!
-!  cell based variable of which normal derivative is computed
-!
-REAL(wp), INTENT(in)    :: psi_c(:,:)             ! dim: (nproma,nblks_c)
+  !
+  !
+  !  patch on which computation is performed
+  !
+  TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
+  !
+  !  cell based variable of which normal derivative is computed
+  !
+  REAL(wp), INTENT(in)    :: psi_c(:,:)             ! dim: (nproma,nblks_c)
 
-!
-!  edge based variable in which normal derivative is stored
-!
-!REAL(wp), INTENT(out) ::  &
-REAL(wp), INTENT(inout) ::  grad_norm_psi_e(:,:)  ! dim: (nproma,nblks_e)
+  !
+  !  edge based variable in which normal derivative is stored
+  !
+  !REAL(wp), INTENT(out) ::  &
+  REAL(wp), INTENT(inout) ::  grad_norm_psi_e(:,:)  ! dim: (nproma,nblks_e)
 
-INTEGER :: slev, elev     ! vertical start and end level
-INTEGER :: je, jb
-INTEGER :: rl_start, rl_end
-INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
-INTEGER :: nlen, nblks_e, npromz_e
-INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
-!
-!-----------------------------------------------------------------------
-slev = 1
-elev = 1
-rl_start = 2
-rl_end = min_rledge
+  INTEGER :: slev, elev     ! vertical start and end level
+  INTEGER :: je, jb
+  INTEGER :: rl_start, rl_end
+  INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+  INTEGER :: nlen, nblks_e, npromz_e
+  INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+  !
+  !-----------------------------------------------------------------------
+  slev = 1
+  elev = 1
+  rl_start = 2
+  rl_end = min_rledge
 
-iidx => ptr_patch%edges%cell_idx
-iblk => ptr_patch%edges%cell_blk
+  iidx => ptr_patch%edges%cell_idx
+  iblk => ptr_patch%edges%cell_blk
 
 
-i_startblk = ptr_patch%edges%start_blk(rl_start,1)
-i_endblk   = ptr_patch%edges%end_blk(rl_end,1)
-!
-!  loop through all patch edges (and blocks)
-!
+  i_startblk = ptr_patch%edges%start_blk(rl_start,1)
+  i_endblk   = ptr_patch%edges%end_blk(rl_end,1)
+  !
+  !  loop through all patch edges (and blocks)
+  !
 #ifndef __SX__
-IF (ltimer) CALL timer_start(timer_grad)
+  IF (ltimer) CALL timer_start(timer_grad)
 #endif
-!$OMP PARALLEL
-! The special treatment of 2D fields is essential for efficiency on the NEC
+  !$OMP PARALLEL
+  ! The special treatment of 2D fields is essential for efficiency on the NEC
 
-SELECT CASE (ptr_patch%cell_type)
+  SELECT CASE (ptr_patch%cell_type)
 
-CASE (3) ! (cell_type == 3)
+  CASE (3) ! (cell_type == 3)
 
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je)
-  DO jb = i_startblk, i_endblk
+    !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je)
+    DO jb = i_startblk, i_endblk
 
-  CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
-                     i_startidx, i_endidx, rl_start, rl_end)
+    CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
+      i_startidx, i_endidx, rl_start, rl_end)
 
 #ifdef _URD
-!CDIR UNROLL=_URD
+    !CDIR UNROLL=_URD
 #endif
-      DO je = i_startidx, i_endidx
-      !
-      ! compute the normal derivative
-      ! by the finite difference approximation
-      ! (see Bonaventura and Ringler MWR 2005)
-      !
-         IF ( v_base%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN
-          grad_norm_psi_e(je,jb) =  &
-            &  ( psi_c(iidx(je,jb,2),iblk(je,jb,2)) - &
-            &    psi_c(iidx(je,jb,1),iblk(je,jb,1)) )  &
-            &  * ptr_patch%edges%inv_dual_edge_length(je,jb)
-         ELSE
-           grad_norm_psi_e(je,jb) =  0.0_wp
-         ENDIF
-      ENDDO
+    DO je = i_startidx, i_endidx
+    !
+    ! compute the normal derivative
+    ! by the finite difference approximation
+    ! (see Bonaventura and Ringler MWR 2005)
+    !
+    IF ( v_base%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN
+      grad_norm_psi_e(je,jb) =  &
+        &  ( psi_c(iidx(je,jb,2),iblk(je,jb,2)) - &
+        &    psi_c(iidx(je,jb,1),iblk(je,jb,1)) )  &
+        &  * ptr_patch%edges%inv_dual_edge_length(je,jb)
+    ELSE
+      grad_norm_psi_e(je,jb) =  0.0_wp
+    ENDIF
+    ENDDO
 
-  END DO
-!$OMP END DO
+    END DO
+    !$OMP END DO
 
-CASE (6) ! (cell_type == 6)
+  CASE (6) ! (cell_type == 6)
 
-  ! no grid refinement in hexagonal model
-  nblks_e   = ptr_patch%nblks_int_e
-  npromz_e  = ptr_patch%npromz_int_e
+    ! no grid refinement in hexagonal model
+    nblks_e   = ptr_patch%nblks_int_e
+    npromz_e  = ptr_patch%npromz_int_e
 
-!$OMP DO PRIVATE(jb,nlen,je)
-  DO jb = 1, nblks_e
+    !$OMP DO PRIVATE(jb,nlen,je)
+    DO jb = 1, nblks_e
 
     IF (jb /= nblks_e) THEN
       nlen = nproma
@@ -458,24 +458,24 @@ CASE (6) ! (cell_type == 6)
       nlen = npromz_e
     ENDIF
 
-      DO je = 1, nlen
-      !
-      ! compute the normal derivative
-      ! by the finite difference approximation
-      ! (see Bonaventura and Ringler MWR 2005)
-      !
-        grad_norm_psi_e(je,jb) =  &
-          &  ( psi_c(iidx(je,jb,2),iblk(je,jb,2)) - &
-          &    psi_c(iidx(je,jb,1),iblk(je,jb,1)) )  &
-          &  * ptr_patch%edges%inv_dual_edge_length(je,jb) &
-          &  * ptr_patch%edges%system_orientation(je,jb)
+    DO je = 1, nlen
+    !
+    ! compute the normal derivative
+    ! by the finite difference approximation
+    ! (see Bonaventura and Ringler MWR 2005)
+    !
+    grad_norm_psi_e(je,jb) =  &
+      &  ( psi_c(iidx(je,jb,2),iblk(je,jb,2)) - &
+      &    psi_c(iidx(je,jb,1),iblk(je,jb,1)) )  &
+      &  * ptr_patch%edges%inv_dual_edge_length(je,jb) &
+      &  * ptr_patch%edges%system_orientation(je,jb)
     ENDDO
-  END DO
-!$OMP END DO
-END SELECT
-!$OMP END PARALLEL
+    END DO
+    !$OMP END DO
+  END SELECT
+  !$OMP END PARALLEL
 #ifndef __SX__
-IF (ltimer) CALL timer_stop(timer_grad)
+  IF (ltimer) CALL timer_stop(timer_grad)
 #endif
 END SUBROUTINE grad_fd_norm_oce_2d
 !-------------------------------------------------------------------------
