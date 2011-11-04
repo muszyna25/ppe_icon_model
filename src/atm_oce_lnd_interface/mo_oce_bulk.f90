@@ -309,6 +309,22 @@ CONTAINS
       p_sfc_flx%forc_fwfx(:,:) = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,5) + &
         &                        rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,5)
 
+      ! #eoo# This is what we need to do for sea-ice
+      !IF (i_sea_ice == 1) THEN
+        !Qatm%SWin    = "short-wave flux from file"
+        !Qatm%LWin    = "longwave + sensible + latent heat fluxes from file"
+        !Qatm%sens    = 0.0_wp
+        !Qatm%lat     = 0.0_wp
+        !Qatm%dsensdT = "dsensdT from file - if present, otherwise 0.0_wp"
+        !Qatm%dlatdT  = 0.0_wp
+        !Qatm%dLWdT   = - 4.0_wp * emiss*StefBol * (ice%Tsurf + 273.15_wp)**3
+
+      ! This is a stripped down version of ice_fast for ice-ocean model only
+        !CALL set_ice_albedo(p_patch,p_ice)
+        !CALL set_ice_temp(p_patch,p_ice,Qatm)
+        !Qatm%counter = 1
+      !ENDIF
+
     END IF
 
     IF (temperature_relaxation == 2)  THEN
