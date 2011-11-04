@@ -1075,11 +1075,11 @@ SUBROUTINE ice_init( ppatch, p_os, ice) !, Qatm, QatmAve)
 
 ! Stupid initialisation trick for Levitus initialisation
   IF (init_oce_prog == 1) THEN
-    WHERE (p_os%p_prog(nold(1))%tracer(:,1,:,1) <= 0.0_wp )
+    WHERE (p_os%p_prog(nold(1))%tracer(:,1,:,1) <= -1.0_wp )
       ice%hi(:,1,:) = 2._wp
       ice%conc(:,1,:) = 1._wp
     ENDWHERE
-    WHERE (p_os%p_prog(nold(1))%tracer(:,:,:,1) <= 0.0_wp ) &
+    WHERE (p_os%p_prog(nold(1))%tracer(:,:,:,1) <= -1.0_wp ) &
       &   p_os%p_prog(nold(1))%tracer(:,:,:,1) = Tf
   ENDIF
 
