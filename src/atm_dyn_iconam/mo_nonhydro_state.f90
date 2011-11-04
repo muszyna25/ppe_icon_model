@@ -1754,7 +1754,7 @@ MODULE mo_nonhydro_state
         grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( p_diag_list, 'extra_2d', p_diag%extra_2d,                   &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
-                    & ldims=shape2d_extra )
+                    & ldims=shape2d_extra, lrestart=.FALSE. )
       ENDIF
 
       IF(inextra_3d > 0) THEN
@@ -1765,7 +1765,8 @@ MODULE mo_nonhydro_state
         grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( p_diag_list, 'extra_3d', p_diag%extra_3d,                   &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
-                    & ldims=shape3d_extra )
+                    & ldims=shape3d_extra,                                        &
+                    & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
 
       ENDIF
     ENDIF
