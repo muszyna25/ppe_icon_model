@@ -20,26 +20,24 @@ begin
   rad2deg = 45./atan(1.)   ; radians to degrees
   p00 = 1.e3  ; reference pressure in hPa
 
-  Resolution1 = "R2B04L31" 
-  Resolution2 = "R2B06L31" 
-  Model       = "ICOHAM" 
+  Resolution1 = "R2B04L47"
+  Resolution2 = "R2B06L31"
+  Model       = "ICOHAM"
 
-  Diri      =  "~dreinert/NCL_scripts/icon_workshop/ICON_data/"
-  FileName1 = "MRWB4N6_DOM01_"+Resolution1+"_0002.nc"  ; input
-  FileName2 = "MRWB4N6_DOM03_"+Resolution2+"_0002.nc"  ; input
+  FileName1 = "atm-Cels.nc"
 
-  File  = addfile(Diri+FileName1, "r" )
+  File  = addfile(FileName1, "r" )
 
-  ntimestep = 10 ; time step selected for plotting (starts with 0!)
-  nlevel = 20    ; model level selected for plotting (starts with 0!)
-  num_levels = 31 ; total number of model levels
+  ntimestep = 0 ; time step selected for plotting (starts with 0!)
+  nlevel = 40    ; model level selected for plotting (starts with 0!)
+  num_levels = 47 ; total number of model levels
 
   x = File->clon *rad2deg   ; cell center, lon
   y = File->clat *rad2deg   ; cell center, lat
-  
-  topo = File->PHIS(1,:)   ; dims: (time,cell)
+
+  topo = File->PHIS(0,:)   ; dims: (time,cell)
   topo = topo/9.81 ; convert from geopotential to geometric height
-  phis = File->PHIS(1,:)   ; dims: (time,cell)
+  phis = File->PHIS(0,:)   ; dims: (time,cell)
   topo@units=""
   topo@long_name=""
 
@@ -50,12 +48,12 @@ begin
   hyai = dble2flt(File->hyai*1.e-2)  ; convert to hPa
   hybi = dble2flt(File->hybi)
   klevi = dimsizes(hyai)                ;
-  klevm = dimsizes(hyam)                ; 
+  klevm = dimsizes(hyam)                ;
 
   temp3d = File->T(ntimestep,:,:)   ; dims: (time,lev,cell)
   u3d    = File->U(ntimestep,:,:)   ; dims: (time,lev,cell)
   v3d    = File->V(ntimestep,:,:)   ; dims: (time,lev,cell)
-  
+
   pres3d  = new ((/num_levels,  dimsizes(psfc)/),float)
   pres3di = new ((/num_levels+1,dimsizes(psfc)/),float)
   theta3d = new ((/num_levels,  dimsizes(psfc)/),float)
@@ -68,9 +66,9 @@ begin
   end do
 
   ; potential temp. at lowest level
-  theta3d = temp3d*(p00/pres3d)^(2./7.)
+  theta3d = temp3d;*(p00/pres3d)^(2./7.)
   theta3d@units="K"
-  theta3d@long_name="Potential temperature"
+  theta3d@long_name="Temperature"
 
 ;  print(max(theta))
   ;var = var*scale
@@ -87,7 +85,7 @@ begin
   xlon@units = "degrees_east"
   ylat!0 = "ylat"
   xlon!0 = "xlon"
-   
+
   u3dll     = triple2grid(x,y,u3d,xlon,ylat,False)
   v3dll     = triple2grid(x,y,v3d,xlon,ylat,False)
   pres3dll  = triple2grid(x,y,pres3d,xlon,ylat,False)
@@ -99,7 +97,7 @@ begin
   u3dll!2 = "xlon"
   u3dll&ylat  = ylat
   u3dll&xlon  = xlon
-  
+
   phisll!0 = "ylat"
   phisll!1 = "xlon"
   phisll&ylat = ylat
@@ -108,19 +106,19 @@ begin
   copy_VarMeta( u3dll,  pres3dill)
   copy_VarMeta( u3dll,  pres3dll)
   copy_VarMeta( u3dll,  theta3dll)
-  
+
  ; now we try to interpolate from model levels to pressure levels
 
   plevs = (ispan(100,1000,25))*1.0
-  
+
   temp_at_p = new ((/dimsizes(plevs),dimsizes(ylat),dimsizes(xlon)/),double)
-  copy_VarMeta( u3dll,  temp_at_p)  
+  copy_VarMeta( u3dll,  temp_at_p)
   temp_at_p@units = theta3d@units
   temp_at_p@long_name =theta3d@long_name
 
 ; define options for the foloowinf function
-  
-  extrapolate = False ; switch for doing extrapolation below the ground:
+
+  extrapolate = True ; switch for doing extrapolation below the ground:
   intmethod   = 1 ; 1: method for temperature, -1: method for geopotential, 0: other vars
   tlow =  theta3dll(num_levels-1,:,:)  ; temperature at lowest model level
                                        ; (use ground temperature if available)
@@ -128,25 +126,25 @@ begin
   temp_at_p = vinth2p_ecmwf(theta3dll,hyam,hybm,plevs,pres3dill(num_levels,:,:)*100.,\
                             intmethod,1.,1,extrapolate,1,tlow,phisll)
   printVarSummary(temp_at_p)
-  
+
 ; Start cross section
 ;************************************
 ; calculate great circle along transect
 ;************************************
-  leftlat  =  20.0
-  leftlatorient = "N"
-  rightlat =  40.0
+  leftlat        = 80.0
+  leftlatorient  = "N"
+  rightlat       = -80.0
   rightlatorient = "N"
 
-  leftlon  =  50.0
-  leftlonorient = "E"
-  rightlon =  130.0
+  leftlon        = 0.0
+  leftlonorient  = "E"
+  rightlon       = 0.0
   rightlonorient = "E"
-  
+
   npts     =   100                    ; number of points in resulting transect
 
   dist     = gc_latlon(leftlat,leftlon,rightlat,rightlon,npts,2)
-  points   = ispan(0,npts-1,1)*1.0 
+  points   = ispan(0,npts-1,1)*1.0
   dist@gclon = where(dist@gclon.ge.180, dist@gclon-360, dist@gclon)
 ;********************************
 ; interpolate data to great circle
@@ -157,19 +155,20 @@ begin
 ;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 ; Graphic Labeling
-  TitleString  = "Transection"
+  TitleString  = "ICON coupled aqua planet, ATMO"
   LeftString   = Model+" "+Resolution1
   RightString  = theta3d@long_name
   CenterString = ""
   YAxisString  = "Pressure (hPa)"
   LabelString  = "["+theta3d@units+"]"
-  
+  LabelString  = "[C]"
+
   GraphicFile  = "transection"
-;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ 
-                                
+;+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 ; Start the graphics.
 ;
-  wks = gsn_open_wks("ps",GraphicFile)       ; open a ps file
+  wks = gsn_open_wks("png",GraphicFile)       ; open a ps file
   gsn_define_colormap(wks,"BlAqGrYeOrReVi200") ; choose colormap
 
   res                     = True          ; plot mods desired
@@ -182,11 +181,12 @@ begin
   res@lbLabelAutoStride   = True         ; nice label bar label stride
   res@gsnSpreadColors     = True         ; use full range of colormap
   res@cnLinesOn           = False        ; turn off countour lines
-  res@lbOrientation       = "horizontal" ; vertical label bar
-  res@pmLabelBarHeightF        = 0.08
-  res@pmLabelBarWidthF         = 0.5
-  res@pmLabelBarOrthogonalPosF = 0.01    ; move label bar closer to plot
- 
+;  res@lbOrientation       = "horizontal" ; vertical label bar
+  res@lbOrientation       = "vertical"   ; vertical label bar
+; res@pmLabelBarHeightF        = 0.08
+; res@pmLabelBarWidthF         = 0.5
+ res@pmLabelBarOrthogonalPosF = -0.04    ; move label bar closer to plot
+
   res@tiMainString        = TitleString  ; add title
   res@trYReverse          = True         ; reverse y axis
   res@tiYAxisString       = YAxisString
@@ -195,7 +195,7 @@ begin
   res@gsnRightString    = RightString
   res@lbTitlePosition   = "Bottom"
   res@lbTitleString     = LabelString
-  
+
   plot = gsn_csm_contour(wks,trans,res)  ; create plot
 
 ;********************************
@@ -209,19 +209,17 @@ begin
   mres@mpFillColor = "Background"
   mres@sfXArray                 = x  ; These are 1D arrays, so a triangular
   mres@sfYArray                 = y  ; mesh will be created internally.
-  
+
   mres@tiMainString = "Transect Location" ; title
-  
+
   mapplot = gsn_csm_contour_map(wks,temp3d(30,:),mres)         ; create map
-  
-; add polyline  
+
+; add polyline
   pres                  = True           ; polyline mods desired
   pres@gsLineColor      = "red"          ; color of lines
-  pres@gsLineThicknessF = 3.0            ; line thickness   
+  pres@gsLineThicknessF = 3.0            ; line thickness
   gsn_polyline(wks,mapplot,(/leftlon,rightlon/),(/leftlat,rightlat/),pres)
 
   frame(wks)
-
-  system("gv "+GraphicFile+ " &")
 end
 
