@@ -498,8 +498,8 @@
     end if
     points   = ispan(0,secPoints-1,1)*1.0 
     copy_VarAtts(var,trans)          ; copy attributes
-    trans!0 = "depth"
-    trans&depth = var&depth
+    trans!0        = "depth"
+    trans&depth    = var&depth
     res            = True;           plot mods desired
     setAutomaticPlotCaptions(res,plotMode,varName,File,iFile,timeStep,levIndex)
     setLevels(selMode,res,minVar,maxVar,scaleLimit,numLevs,DEBUG)
@@ -507,7 +507,8 @@
     res@gsnDraw    = False;                don't draw yet
     res@tmXBMode   = "Explicit";     explicitly label x-axis
     res@tmXBValues = (/points(0),points(secPoints-1)/);  points to label values
-    res@tmXBLabels = (/ secLC(1) +", "+ secLC(0) , secRC(1)+", "+secRC(0) /)
+    res@tmXBLabels = (/ (-1)*secLC(1) +"N, "+ secLC(0)+"E" , (-1)*secRC(1)+"N, "+secRC(0)+"E" /)
+    res@trYReverse = True;          reverse y axis
 
     res@cnFillOn            = True         ; turn on color
     res@lbLabelAutoStride   = True         ; nice label bar label stride
@@ -515,9 +516,9 @@
     res@cnLinesOn           = False        ; turn off countour lines
     res@lbOrientation       = "vertical"   ; vertical label bar
     res@pmLabelBarOrthogonalPosF = -0.05        ; move label bar closer to plot
-; res@lbTitlePosition   = "Bottom"
-; res@lbTitleString     = "[C]"
-; res@tiYAxisString = "depth below sea (m)"
+    res@lbTitlePosition   = "Bottom"
+    res@lbTitleString     = "[C]"
+    res@tiYAxisString = "depth below sea (m)"
 
    if (showSecMap) then
      res@vpWidthF          = 0.6;            set width of plot
@@ -527,12 +528,12 @@
      res@vpYF              = 0.9
      ;   res@tiMainString  = "Transect";    add title
      ;   res@tiXAxisString = "lat/lon along transect"
-     res@trYReverse        = True;          reverse y axis
      ;res@cnLevelSpacingF   = 1.0;           set contour spacing
-    end if
-    plot(0)               = gsn_csm_contour(wks,trans,res);   create plot
+   end if
 
+   plot(0)               = gsn_csm_contour(wks,trans,res);   create plot
    draw(plot(0))
+
    if (showSecMap) then
      ; map with section polygon
      mres                  = True
