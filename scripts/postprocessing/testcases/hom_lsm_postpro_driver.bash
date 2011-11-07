@@ -65,7 +65,7 @@ resolution=${horizontal_resolution}${vertical_resolution}
 #
 # Where should the plot files be located? Don't forget the trailing "/".
 model_data_path="${icon_path}experiments/$EXP/"
-ncl_script_path="${icon_path}scripts/postprocessing/tools/"
+ncl_script_path="${icon_path}scripts/postprocessing/tools"
 #plot_file_path="${model_data_path}plots/"
 
 #==========================================================================
@@ -104,8 +104,8 @@ tstrg="ICON Ocean"                              #  title string
 
 # these parameters are stored in here-document due to necessary single and double quotes:
 cat >scr_${EXP}_nclcmd.here <<eo_here
-  ncl ${ncl_script_path}icon_plot.ncl \
-      'iFile="$ifile"' 'oFile="$ofile"' 'varName="$varname"' 'oType="$otype"' \
+  ncl ${ncl_script_path}/icon_plot.ncl \
+      'iFile="$ifile"' 'oFile="$ofile"' 'varName="$varname"' 'oType="$otype"' 'altLibDir="${ncl_script_path}"' \
       'selMode="$selmode"' minVar=$minvar maxVar=$maxvar $MAP timeStep=$plotstep \
       'maskName="$mname"' $PROJSAT 'bStrg="$bstrg"' 'tStrg="$tstrg"'
 eo_here
