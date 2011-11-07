@@ -447,7 +447,8 @@
     selMapCut(ResC2,mapLLC,mapURC)
     setDefaultVectorPlot(ResC2,5.0,vecRefLength,"CurlyVector",vecMinDist)
     ResC2@vcVectorDrawOrder  = "Postdraw"
-    ResC2@lbOrientation      = "Vertical"
+    ResC2@vcFillArrowWidthF = 12.0
+    ResC2@lbOrientation      = "Vertica"
     ResC2@lbTitleString      = "Speed"
     ResC2@lbTitlePosition    = "Left"
     ResC2@cnInfoLabelOn      = False
@@ -520,10 +521,22 @@
     res@lbTitleString     = "[C]"
     res@tiYAxisString = "depth below sea (m)"
 
+    delete(res@cnMissingValFillPattern)    ; no longer filling missing value areas
+    delete(res@cnMissingValFillColor)      ; no longer filling missing value areas
+    res@cnMissingValFillColor = "gray30"
+    res@cnMissingValPerimOn = True
+
+    res@cnMissingValFillPattern      = -1;                set the missing value fill pattern to 5
+    res@cnMissingValFillScaleF       = 0.9;              increase the density of the fill pattern (default   = 1.0)
+;     res@cnMissingValPerimOn        = True;             already turned on above
+    res@cnMissingValPerimColor       = "black";          change the missing value perimeter to black
+    res@cnMissingValPerimDashPattern = 1;           set the dash pattern of the missing value perimeter to 1
+    res@cnMissingValPerimThicknessF  = 3.0;         increase the thickness of the missing value perimeter 3X
+
    if (showSecMap) then
      res@vpWidthF          = 0.6;            set width of plot
      res@vpHeightF         = 0.4;            set height of plot
-  
+
      res@vpXF              = 0.2
      res@vpYF              = 0.9
      ;   res@tiMainString  = "Transect";    add title
@@ -553,7 +566,7 @@
      resP                  = True; modify the panel plot
      resP@txString         = ""
      resP@gsnPanelLabelBar = False; add common colorbar
-     
+
      draw(plot(1))
    end if
   end if
