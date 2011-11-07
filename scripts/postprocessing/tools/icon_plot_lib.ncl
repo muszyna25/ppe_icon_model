@@ -618,10 +618,12 @@ begin
   end if
   if (debug) then
     print("Manual Plotlevel setting......")
+    print("  selMode : " + selmode)
     print("  minVal  : " + minvar)
     print("  maxVal  : " + maxvar)
     print("  numLevs: " + numlevs)
     print("  scalelimit: " + scalelimit)
+    print("  plotLevels: " + resource@cnLevels)
   end if
 end
 ;---------------------------------------------------------------
