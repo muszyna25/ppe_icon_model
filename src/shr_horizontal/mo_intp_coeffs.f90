@@ -3592,32 +3592,30 @@ END SUBROUTINE complete_patchinfo
         DO ie = 1, no_cell_edges
 
           !actual edges of cell c1
-          iil_c1(ie) = ptr_patch%cells%edge_idx(il_c1,ib_c1,ie)
-          iib_c1(ie) = ptr_patch%cells%edge_blk(il_c1,ib_c1,ie)
+          iil_c1(ie)  = ptr_patch%cells%edge_idx(il_c1,ib_c1,ie)
+          iib_c1(ie)  = ptr_patch%cells%edge_blk(il_c1,ib_c1,ie)
 
-          cc_edge(ie)   = gc2cc(ptr_patch%edges%center(iil_c1(ie),iib_c1(ie)))
+          cc_edge(ie) = gc2cc(ptr_patch%edges%center(iil_c1(ie),iib_c1(ie)))
 
           !calculate edge length
           !get vertex indices adjacent to actual edge
-          il_v1 = ptr_patch%edges%vertex_idx(iil_c1(ie),iib_c1(ie),1)
-          ib_v1 = ptr_patch%edges%vertex_blk(iil_c1(ie),iib_c1(ie),1)
-          il_v2 = ptr_patch%edges%vertex_idx(iil_c1(ie),iib_c1(ie),2)
-          ib_v2 = ptr_patch%edges%vertex_blk(iil_c1(ie),iib_c1(ie),2)
+          il_v1       = ptr_patch%edges%vertex_idx(iil_c1(ie),iib_c1(ie),1)
+          ib_v1       = ptr_patch%edges%vertex_blk(iil_c1(ie),iib_c1(ie),1)
+          il_v2       = ptr_patch%edges%vertex_idx(iil_c1(ie),iib_c1(ie),2)
+          ib_v2       = ptr_patch%edges%vertex_blk(iil_c1(ie),iib_c1(ie),2)
 
           !get vertex positions
-          xx1 = gc2cc(ptr_patch%verts%vertex(il_v1,ib_v1))
-          xx2 = gc2cc(ptr_patch%verts%vertex(il_v2,ib_v2))
+          xx1         = gc2cc(ptr_patch%verts%vertex(il_v1,ib_v1))
+          xx2         = gc2cc(ptr_patch%verts%vertex(il_v2,ib_v2))
  
           IF(LARC_LENGTH)THEN
-            norm=SQRT(SUM(xx1%x*xx1%x))
-            xx1%x= xx1%x/norm
-            norm=SQRT(SUM(xx2%x*xx2%x))
-            xx2%x= xx2%x/norm
+            norm              = SQRT(SUM(xx1%x*xx1%x))
+            xx1%x             = xx1%x/norm
+            norm              = SQRT(SUM(xx2%x*xx2%x))
+            xx2%x             = xx2%x/norm
             z_edge_length(ie) = arc_length(xx2,xx1)
-            !z_edge_length(ie) = ptr_patch%edges%primal_edge_length(iil_c1(ie),iib_c1(ie))/re
           ELSE
             z_edge_length(ie) = SQRT(SUM((xx2%x-xx1%x)*(xx2%x-xx1%x)))
-           !write(*,*)'length 3:', z_edge_length(ie),arc_length(xx1,xx2) 
           ENDIF
 
           !calculate cell-edge distance as half of cell-cell distance
@@ -3628,8 +3626,8 @@ END SUBROUTINE complete_patchinfo
           jib_c2 = ptr_patch%edges%cell_blk(iil_c1(ie),iib_c1(ie),2)
 
           !get cell positions
-          xx1 = gc2cc(ptr_patch%cells%center(jil_c1,jib_c1))
-          xx2 = gc2cc(ptr_patch%cells%center(jil_c2,jib_c2))
+          xx1    = gc2cc(ptr_patch%cells%center(jil_c1,jib_c1))
+          xx2    = gc2cc(ptr_patch%cells%center(jil_c2,jib_c2))
 
           IF(jil_c1==il_c1.AND.jib_c1==ib_c1)THEN
            k=1
@@ -3638,21 +3636,17 @@ END SUBROUTINE complete_patchinfo
           ENDIF
 
           IF(LARC_LENGTH)THEN
-            norm=SQRT(SUM(xx1%x*xx1%x))
-            xx1%x= xx1%x/norm
-            norm=SQRT(SUM(xx2%x*xx2%x))
-            xx2%x= xx2%x/norm
-            norm          = SQRT(SUM(cc_edge(ie)%x*cc_edge(ie)%x))
-            cc_edge(ie)%x = cc_edge(ie)%x/norm
+            norm                      = SQRT(SUM(xx1%x*xx1%x))
+            xx1%x                     = xx1%x/norm
+            norm                      = SQRT(SUM(xx2%x*xx2%x))
+            xx2%x                     = xx2%x/norm
+            norm                      = SQRT(SUM(cc_edge(ie)%x*cc_edge(ie)%x))
+            cc_edge(ie)%x             = cc_edge(ie)%x/norm
             z_cell_edge_dist_c1(ie,1) = arc_length(cc_edge(ie),xx1)
             z_cell_edge_dist_c1(ie,2) = arc_length(cc_edge(ie),xx2)
-            !z_cell_edge_dist_c1(ie,1) = ptr_patch%edges%edge_cell_length(iil_c1(ie),iib_c1(ie),k)/re 
-            !z_cell_edge_dist_c1(ie,2) = ptr_patch%edges%edge_cell_length(iil_c1(ie),iib_c1(ie),k)/re 
           ELSE
             z_cell_edge_dist_c1(ie,1) = SQRT(SUM((cc_edge(ie)%x-xx1%x)*(cc_edge(ie)%x-xx1%x)))
-            z_cell_edge_dist_c1(ie,2) = SQRT(SUM((cc_edge(ie)%x-xx2%x)*(cc_edge(ie)%x-xx2%x)))  
-            !write(*,*)'length 4',z_cell_edge_dist_c1(ie,1), z_cell_edge_dist_c1(ie,1),&
-            !&ptr_patch%edges%edge_cell_length(iil_c1(ie),iib_c1(ie),1)/re 
+            z_cell_edge_dist_c1(ie,2) = SQRT(SUM((cc_edge(ie)%x-xx2%x)*(cc_edge(ie)%x-xx2%x)))
           ENDIF
           ptr_intp%dist_cell2edge(iil_c1(ie),iib_c1(ie),1) = z_cell_edge_dist_c1(ie,1)
           ptr_intp%dist_cell2edge(iil_c1(ie),iib_c1(ie),2) = z_cell_edge_dist_c1(ie,2)
@@ -3675,22 +3669,22 @@ END SUBROUTINE complete_patchinfo
         DO ie = 1, no_cell_edges
 
           !actual edges of cell c2
-          iil_c2(ie) = ptr_patch%cells%edge_idx(il_c2,ib_c2,ie)
-          iib_c2(ie) = ptr_patch%cells%edge_blk(il_c2,ib_c2,ie)
+          iil_c2(ie)  = ptr_patch%cells%edge_idx(il_c2,ib_c2,ie)
+          iib_c2(ie)  = ptr_patch%cells%edge_blk(il_c2,ib_c2,ie)
 
 
           cc_edge(ie) = gc2cc(ptr_patch%edges%center(iil_c2(ie),iib_c2(ie)))
 
           !calculate edge length
           !get vertex indices adjacent to actual edge
-          il_v1 = ptr_patch%edges%vertex_idx(iil_c2(ie),iib_c2(ie),1)
-          ib_v1 = ptr_patch%edges%vertex_blk(iil_c2(ie),iib_c2(ie),1)
-          il_v2 = ptr_patch%edges%vertex_idx(iil_c2(ie),iib_c2(ie),2)
-          ib_v2 = ptr_patch%edges%vertex_blk(iil_c2(ie),iib_c2(ie),2)
+          il_v1       = ptr_patch%edges%vertex_idx(iil_c2(ie),iib_c2(ie),1)
+          ib_v1       = ptr_patch%edges%vertex_blk(iil_c2(ie),iib_c2(ie),1)
+          il_v2       = ptr_patch%edges%vertex_idx(iil_c2(ie),iib_c2(ie),2)
+          ib_v2       = ptr_patch%edges%vertex_blk(iil_c2(ie),iib_c2(ie),2)
 
           !get vertex positions
-          xx1 = gc2cc(ptr_patch%verts%vertex(il_v1,ib_v1))
-          xx2 = gc2cc(ptr_patch%verts%vertex(il_v2,ib_v2))
+          xx1         = gc2cc(ptr_patch%verts%vertex(il_v1,ib_v1))
+          xx2         = gc2cc(ptr_patch%verts%vertex(il_v2,ib_v2))
 
           IF(LARC_LENGTH)THEN
             norm              = SQRT(SUM(xx1%x*xx1%x))
@@ -3723,21 +3717,18 @@ END SUBROUTINE complete_patchinfo
             k=1
           ELSEIF(jil_c2==il_c2.AND.jib_c2==ib_c2)THEN
             k=2
-          ENDIF  
+          ENDIF
 
           IF(LARC_LENGTH)THEN
-            norm=SQRT(SUM(xx1%x*xx1%x))
-            xx1%x= xx1%x/norm
-            norm=SQRT(SUM(xx2%x*xx2%x))
-            xx2%x= xx2%x/norm
-            norm=SQRT(SUM(cc_edge(ie)%x*cc_edge(ie)%x))
-            cc_edge(ie)%x =  cc_edge(ie)%x/norm
+            norm                      = SQRT(SUM(xx1%x*xx1%x))
+            xx1%x                     = xx1%x/norm
+            norm                      = SQRT(SUM(xx2%x*xx2%x))
+            xx2%x                     = xx2%x/norm
+            norm                      = SQRT(SUM(cc_edge(ie)%x*cc_edge(ie)%x))
+            cc_edge(ie)%x             = cc_edge(ie)%x/norm
             z_cell_edge_dist_c2(ie,1) = arc_length(cc_edge(ie),xx1)
             z_cell_edge_dist_c2(ie,2) = arc_length(cc_edge(ie),xx2)
-            !z_cell_edge_dist_c2(ie,1) = ptr_patch%edges%edge_cell_length(iil_c2(ie),iib_c2(ie),1)/re
-            !z_cell_edge_dist_c2(ie,2) = ptr_patch%edges%edge_cell_length(iil_c2(ie),iib_c2(ie),2)/re
-            !write(*,*)'arc length',0.5_wp*arc_length(xx2,xx1),z_cell_edge_dist_c2(ie,k),0.5_wp*SQRT(SUM((xx2%x-xx1%x)*(xx2%x-xx1%x)))
-          ELSE 
+          ELSE
             z_cell_edge_dist_c2(ie,1) = SQRT(SUM((cc_edge(ie)%x-xx1%x)*(cc_edge(ie)%x-xx1%x)))
             z_cell_edge_dist_c2(ie,2) = SQRT(SUM((cc_edge(ie)%x-xx2%x)*(cc_edge(ie)%x-xx2%x)))
           ENDIF
@@ -3772,15 +3763,15 @@ END SUBROUTINE complete_patchinfo
       EDGE_IDX_LOOP_SECONDARY: DO je =  i_startidx, i_endidx
 
         !Get indices of two adjacent triangles
-        il_c1 = ptr_patch%edges%cell_idx(je,jb,1)
-        ib_c1 = ptr_patch%edges%cell_blk(je,jb,1)
-        il_c2 = ptr_patch%edges%cell_idx(je,jb,2)
-        ib_c2 = ptr_patch%edges%cell_blk(je,jb,2)
+        il_c1      = ptr_patch%edges%cell_idx(je,jb,1)
+        ib_c1      = ptr_patch%edges%cell_blk(je,jb,1)
+        il_c2      = ptr_patch%edges%cell_idx(je,jb,2)
+        ib_c2      = ptr_patch%edges%cell_blk(je,jb,2)
 
         !cartesian coordinates of edge and neighbor cells on 1-sphere
-        cc_e0 = gc2cc(ptr_patch%edges%center(je,jb))
-        cc_c1 = gc2cc(ptr_patch%cells%center(il_c1,ib_c1))
-        cc_c2 = gc2cc(ptr_patch%cells%center(il_c2,ib_c2))
+        cc_e0      = gc2cc(ptr_patch%edges%center(je,jb))
+        cc_c1      = gc2cc(ptr_patch%cells%center(il_c1,ib_c1))
+        cc_c2      = gc2cc(ptr_patch%cells%center(il_c2,ib_c2))
 
         !cartesian vectors from:
         !cell 2 to cell 1, cell 1 to edge je and cell 2 to edge je
@@ -3789,18 +3780,15 @@ END SUBROUTINE complete_patchinfo
         cv_c2_e0%x = cc_e0%x - cc_c2%x
 
         IF(LARC_LENGTH)THEN
-          norm=SQRT(SUM(cc_e0%x*cc_e0%x))
-          cc_e0%x= cc_e0%x/norm
-          norm=SQRT(SUM(cc_c1%x*cc_c1%x))
-          cc_c1%x= cc_c1%x/norm
-          norm=SQRT(SUM(cc_c2%x*cc_c2%x))
-          cc_c2%x= cc_c2%x/norm
-          norm_c1_c2 = arc_length(cc_c1, cc_c2)
-          !norm_c1_c2 = ptr_patch%edges%dual_edge_length(je,jb)/re 
-                       !ptr_patch%edges%edge_cell_length(je,jb,1)/re&
-                      !&+ptr_patch%edges%edge_cell_length(je,jb,2)/re
+          norm        = SQRT(SUM(cc_e0%x*cc_e0%x))
+          cc_e0%x     = cc_e0%x/norm
+          norm        = SQRT(SUM(cc_c1%x*cc_c1%x))
+          cc_c1%x     = cc_c1%x/norm
+          norm        = SQRT(SUM(cc_c2%x*cc_c2%x))
+          cc_c2%x     = cc_c2%x/norm
+          norm_c1_c2  = arc_length(cc_c1, cc_c2)
         ELSE
-          norm_c1_c2 = SQRT(SUM(cv_c1_e0%x*cv_c1_e0%x))+SQRT(SUM(cv_c2_e0%x*cv_c2_e0%x)) !SQRT(SUM(cv_c1_c2%x*cv_c1_c2%x))!
+          norm_c1_c2  = SQRT(SUM(cv_c1_e0%x*cv_c1_e0%x))+SQRT(SUM(cv_c2_e0%x*cv_c2_e0%x)) !SQRT(SUM(cv_c1_c2%x*cv_c1_c2%x))!
         ENDIF
 
         !Determine which edge of both of the two adjacent cells corresponds to the
@@ -3845,8 +3833,8 @@ END SUBROUTINE complete_patchinfo
 
         DO ie = 1, no_vert_edges  ! #slo# it_vertedges ??
 
-          il_e = ptr_patch%verts%edge_idx(jv,jb,ie)
-          ib_e = ptr_patch%verts%edge_blk(jv,jb,ie)
+          il_e             = ptr_patch%verts%edge_idx(jv,jb,ie)
+          ib_e             = ptr_patch%verts%edge_blk(jv,jb,ie)
 
           ! #slo# - I assume all geographical coordinates are already synchronized
 
@@ -3857,20 +3845,20 @@ END SUBROUTINE complete_patchinfo
           !1) determine normal vector from adjacent cell to adjacent cell
           !   in cartesian coordinate for moved dual cell
           !Get indices of two adjacent triangles
-          il_c1 = ptr_patch%edges%cell_idx(il_e,ib_e,1)
-          ib_c1 = ptr_patch%edges%cell_blk(il_e,ib_e,1)
-          il_c2 = ptr_patch%edges%cell_idx(il_e,ib_e,2)
-          ib_c2 = ptr_patch%edges%cell_blk(il_e,ib_e,2)
+          il_c1            = ptr_patch%edges%cell_idx(il_e,ib_e,1)
+          ib_c1            = ptr_patch%edges%cell_blk(il_e,ib_e,1)
+          il_c2            = ptr_patch%edges%cell_idx(il_e,ib_e,2)
+          ib_c2            = ptr_patch%edges%cell_blk(il_e,ib_e,2)
 
-          xx1 = gc2cc(ptr_patch%cells%center(il_c1,ib_c1))
-          norm=SQRT(SUM(xx1%x*xx1%x))
-          xx1%x= xx1%x/norm
+          xx1              = gc2cc(ptr_patch%cells%center(il_c1,ib_c1))
+          norm             = SQRT(SUM(xx1%x*xx1%x))
+          xx1%x            = xx1%x/norm
 
-          xx2 = gc2cc(ptr_patch%cells%center(il_c2,ib_c2))
-          norm=SQRT(SUM(xx2%x*xx2%x))
-          xx2%x= xx2%x/norm
+          xx2              = gc2cc(ptr_patch%cells%center(il_c2,ib_c2))
+          norm             = SQRT(SUM(xx2%x*xx2%x))
+          xx2%x            = xx2%x/norm
 
-          cell2cell_cc%x       = xx2%x - xx1%x
+          cell2cell_cc%x   = xx2%x - xx1%x
           IF(LARC_LENGTH)THEN
             norm_c1_c2 = arc_length(xx1,xx2)
           ELSE
@@ -3912,19 +3900,16 @@ END SUBROUTINE complete_patchinfo
           il_v2 = ptr_patch%edges%vertex_idx(il_e,ib_e,2)
           ib_v2 = ptr_patch%edges%vertex_blk(il_e,ib_e,2)
 
-          xx1 = gc2cc(ptr_patch%verts%vertex(il_v1,ib_v1))
-          norm=SQRT(SUM(xx1%x*xx1%x))
-          xx1%x= xx1%x/norm
+          xx1   = gc2cc(ptr_patch%verts%vertex(il_v1,ib_v1))
+          norm  = SQRT(SUM(xx1%x*xx1%x))
+          xx1%x = xx1%x/norm
 
-          xx2 = gc2cc(ptr_patch%verts%vertex(il_v2,ib_v2))
-          norm=SQRT(SUM(xx2%x*xx2%x))
-          xx2%x= xx2%x/norm
+          xx2   = gc2cc(ptr_patch%verts%vertex(il_v2,ib_v2))
+          norm  = SQRT(SUM(xx2%x*xx2%x))
+          xx2%x = xx2%x/norm
 
           vert1_midedge_cc(jv, jb, ie)%x = cc_mid_dual_edge(ie)%x - xx1%x
           vert2_midedge_cc(jv, jb, ie)%x = cc_mid_dual_edge(ie)%x - xx2%x
-          !vert2vert_cc(jv, jb, ie)%x = cc_mid_dual_edge(ie)%x - xx1%x !xx2%x - xx1%x
-!           norm                       = SQRT(SUM(vert2vert_cc(jv,jb,ie)%x*vert2vert_cc(jv,jb,ie)%x))
-!           vert2vert_cc(jv,jb,ie)%x   = vert2vert_cc(jv, jb, ie)%x/norm
           norm = SQRT(SUM(vert1_midedge_cc(jv,jb,ie)%x*vert1_midedge_cc(jv,jb,ie)%x))
           vert1_midedge_cc(jv, jb, ie)%x = vert1_midedge_cc(jv, jb, ie)%x/norm
 
@@ -3934,19 +3919,19 @@ END SUBROUTINE complete_patchinfo
 
           !calculate vertex edge distance 
           IF(LARC_LENGTH)THEN
-            vert_edge_dist(ie,1) = arc_length (cc_dual_edge(ie), xx1) 
-            vert_edge_dist(ie,2) = arc_length (cc_dual_edge(ie), xx2) 
-            vert_dual_mid_dist(ie,1)= arc_length (cc_mid_dual_edge(ie), xx1) 
-            vert_dual_mid_dist(ie,2)= arc_length (cc_mid_dual_edge(ie), xx2)
+            vert_edge_dist(ie,1)     = arc_length (cc_dual_edge(ie), xx1)
+            vert_edge_dist(ie,2)     = arc_length (cc_dual_edge(ie), xx2)
+            vert_dual_mid_dist(ie,1) = arc_length (cc_mid_dual_edge(ie), xx1)
+            vert_dual_mid_dist(ie,2) = arc_length (cc_mid_dual_edge(ie), xx2)
           ELSE
             vert_edge_dist(ie,1)&
-            & = SQRT(SUM((cc_dual_edge(ie)%x - xx1%x)*(cc_dual_edge(ie)%x - xx1%x)))
+              & = SQRT(SUM((cc_dual_edge(ie)%x - xx1%x)*(cc_dual_edge(ie)%x - xx1%x)))
             vert_edge_dist(ie,2)&
-            & = SQRT(SUM((cc_dual_edge(ie)%x - xx2%x)*(cc_dual_edge(ie)%x - xx2%x)))
+              & = SQRT(SUM((cc_dual_edge(ie)%x - xx2%x)*(cc_dual_edge(ie)%x - xx2%x)))
             vert_dual_mid_dist(ie,1)&
-            & = SQRT(SUM((cc_mid_dual_edge(ie)%x - xx1%x)*(cc_mid_dual_edge(ie)%x - xx1%x)))
+              & = SQRT(SUM((cc_mid_dual_edge(ie)%x - xx1%x)*(cc_mid_dual_edge(ie)%x - xx1%x)))
             vert_dual_mid_dist(ie,2)&
-            & = SQRT(SUM((cc_mid_dual_edge(ie)%x - xx2%x)*(cc_mid_dual_edge(ie)%x - xx2%x)))
+              & = SQRT(SUM((cc_mid_dual_edge(ie)%x - xx2%x)*(cc_mid_dual_edge(ie)%x - xx2%x)))
           ENDIF
 
           !calculate normal vector that is perpendicular to vertex-vertex- and edge position vector
@@ -4020,10 +4005,10 @@ END SUBROUTINE complete_patchinfo
 
           norm_v1_v2 = SQRT(SUM(vert1_midedge_cc(jv, jb, ie)%x*vert1_midedge_cc(jv, jb, ie)%x))&
                     &+ SQRT(SUM(vert2_midedge_cc(jv, jb, ie)%x*vert2_midedge_cc(jv, jb, ie)%x))
-          
+
           ptr_intp%edge2vert_coeff_cc_t(il_e,ib_e,1)%x = vert1_midedge_cc(jv, jb, ie)%x * &
             &    ( ptr_patch%edges%system_orientation(il_e,ib_e)/norm_v1_v2 )
-          
+
           ptr_intp%edge2vert_coeff_cc_t(il_e,ib_e,2)%x = vert2_midedge_cc(jv, jb, ie)%x * &
             &    ( ptr_patch%edges%system_orientation(il_e,ib_e)/norm_v1_v2 )
 
