@@ -230,7 +230,7 @@ init_oce=0     # 1: use ocean initialization file; 0: init with constants or ana
 # prognostic ocean initialization files are named $HGRIDDIR/ts_phc_season-iconR${R}B0{B}-L11.nc
 #
 #-----------------------------------------------------------------------------
-# ocean forcing = 12 needs an additional flux file 
+# ocean forcing = 14 is for coupling with the atmosphere
 iforc_oce=14
 iforc_omip=1   # type of OMIP forcing to read: 1 = u/v-stress;     2 = full 12 OMIP datasets
 iforc_len=365  # length of forcing dataset:   12 = monthly data; 365 = daily data
@@ -242,13 +242,11 @@ start_date="2000-01-01T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=420            # ocean model timestep [s]
-dtime=300            # ocean model timestep [s]
-ndays=3600           # ocean model run in days
-ndays=1              # ocean model run in days
-dt_data=21600.       # ocean model output interval [s]
+dtime=1800           # ocean model timestep [s]
+ndays=370            # ocean model run in days
+dt_data=86400.       # ocean model output interval [s]
 ndays_file=5000      # new output file generation interval [days]
-ndays_checkp=30      # write restart file interval [days]
+ndays_checkp=5000    # write restart file interval [days]
 ndays_restart=5000   # stop model for restart [days]
 #
 #-----------------------------------------------------------------------------
@@ -358,8 +356,8 @@ cat > ${ocean_namelist} << EOF
  itopo       = 0                 ! read external ocean data from gridfile
 /
 &octst_nml
-  i_dbg_oce=1                    ! initialize MIN/MAX  debug output via mo_index_oce
-  i_dbg_inx=0                    ! initialize one cell debug output via mo_index_oce
+  i_dbg_oce=5                    ! initialize MIN/MAX  debug output via mo_index_oce
+  i_dbg_inx=5                    ! initialize one cell debug output via mo_index_oce
   str_proc_tst = 'all' 'abt', 'vel', 'dif', 'trc', 'bul', '   ', '   ', '   ', '   '
                                  ! define strings for processes to be printed out in debug mode
   rlat_in = 30.0 rlon_in = -70.0 ! lat/lon-location of one cell debug output
@@ -367,8 +365,11 @@ cat > ${ocean_namelist} << EOF
 /
 &ocean_dynamics_nml
   n_zlev             =   10      ! number of vertical levels and (dzlev_m) thicknesses
-  dzlev_m(1:20)      =  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,
-                       1000.0  1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
+! 10 unevenly spaced levels beginning with 50m depth
+  dzlev_m(1:20)      =   50.0,  100.0,  200.0,  300.0,  450.0,  600.0,  800.0, 1000.0, 1000.0, 1000.0,
+                       1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
+! dzlev_m(1:20)      =  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,
+!                      1000.0  1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
 ! dzlev_m(1:20)       =  20.0,   50.0,   75.0,  125.0,  150.0,  200.0,  300.0,  500.0, 1000.0, 1000.0,
 !                      1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
   iswm_oce           =    0      ! switch for one layer shallow water model (iswm_oce=1) or 3-d
@@ -428,7 +429,7 @@ cat > ${ocean_namelist} << EOF
                                  ! ANALYT_FORC                = 11  - dependent on testcase
                                  ! FORCING_FROM_FILE_FLUX     = 12  - OMIP type forcing
                                  ! FORCING_FROM_FILE_FIELD    = 13  - not yet
-                                 ! FORCING_FROM_COUPLED_FLUX  = 14  - not yet
+                                 ! FORCING_FROM_COUPLED_FLUX  = 14
                                  ! FORCING_FROM_COUPLED_FIELD = 15  - not yet
   iforc_omip         = ${iforc_omip}  ! type of ocean forcing, see above
   iforc_len          = ${iforc_len}   ! length of ocean forcing data set, see above
@@ -446,11 +447,22 @@ cat > ${ocean_namelist} << EOF
                                  ! 45=horizontally homogen temperature
                                  ! 50=zonally homogen temperature for APE SST (Williamson)
   init_oce_prog      = ${init_oce}    ! read ocean initialization file, see above
-  idiag_oce          =    1      ! 0: no diagnostics; 1: write diagnostics to stderr
-  temperature_relaxation= 3      ! 1=switched on for some testcases only
-                                 ! 2=read 2m-temperature data for relaxation from bulk
-  relaxation_param   =    1.0    ! relaxation of tracer surface fluxes (same value for all tracers in months)
+  idiag_oce          =    0      ! 0: no diagnostics; 1: write diagnostics to stderr
+  temperature_relaxation= 3      !  1: switched on for some testcases only
+                                 !  2: read 2m-temperature data for relaxation from bulk 
+                                 !  3: use initial prognostic T and S as 2-dim relax (copy SST on omip-T)
+                                 ! -1: use net surface heat flux from atmosphere as boundary condition
+  relaxation_param   =    1.0    ! strength of 2-dim relaxation for temperature (months)
                                  ! this value is divided by number of seconds per month (=30*24*3600)
+  irelax_2d_S        =    0      ! 2-dim relaxation of salinity (0: no relax) 1-2: not yet used
+                                 ! 3: use initial S read with init_oce=1
+  relax_2d_mon_S     =    1.0    ! strength of 2-dim relaxation for salinity (months)
+  irelax_3d_T        =    0      ! 3-dim relaxation of temperature (0: no relax) 1-2: not yet used
+                                 ! 3: use initial T read with init_oce=1
+  relax_3d_mon_T     =    1.0    ! strength of 3-dim relaxation for temperature (months)
+  irelax_3d_S        =    0      ! 3-dim relaxation of salinity (0: no relax) 1-2: not yet used
+                                 ! 3: use initial S read with init_oce=1
+  relax_3d_mon_S     =    1.0    ! strength of 3-dim relaxation for salinity (months)
 /
 &io_nml
  out_expname = '${EXPNAME}'       ! file name base
