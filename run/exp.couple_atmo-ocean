@@ -396,8 +396,8 @@ cat > ${ocean_namelist} << EOF
                                  ! IMPORTANT: SOME TESTCASES REQUIRE SPECIFIC SETTINGS: 
                                  !  for Stommel-type basin (2D- and 3D, testcase 27 and/or 30) select
                                  !  f- or beta-plane.
-  expl_vertical_velocity_diff = 0  ! 0=explicit, 1 = implicit  
-  expl_vertical_tracer_diff   = 0  ! 0=explicit, 1 = implicit
+  expl_vertical_velocity_diff = 1  ! 0=explicit, 1 = implicit  
+  expl_vertical_tracer_diff   = 1  ! 0=explicit, 1 = implicit
 /
 &ocean_physics_nml
   no_tracer          =    1      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
