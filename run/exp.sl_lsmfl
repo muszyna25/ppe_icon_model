@@ -191,17 +191,17 @@ cat > ${ocean_namelist} << EOF
   h_val=1.0 t_val=1.0            ! initial values for elevation and temperature at one cell
 /
 &ocean_dynamics_nml
-  n_zlev             =   20      ! number of vertical levels and (dzlev_m) thicknesses
+! n_zlev             =   20      ! number of vertical levels and (dzlev_m) thicknesses
 ! 20 unevenly spaced levels used by MITGCM global ocean model example - reduced at bottom to 5400m
-  dzlev_m(1:20)      =   50.0,   50.0,   55.0,   60.0,   65.0,   70.0,   80.0,   95.0,  120.0,  155.0,
-                        200.0,  260.0,  320.0,  400.0,  480.0,  540.0,  600.0,  600.0,  600.0,  600.0
+! dzlev_m(1:20)      =   50.0,   50.0,   55.0,   60.0,   65.0,   70.0,   80.0,   95.0,  120.0,  155.0,
+!                       200.0,  260.0,  320.0,  400.0,  480.0,  540.0,  600.0,  600.0,  600.0,  600.0
 ! 20 unevenly spaced levels used by MPIOM/GR60, limited to 700m at bottom
 ! dzlev_m(1:20)      =   20.0,   20.0,   20.0,   30.0,   40.0,   50.0,   70.0,   90.0,  120.0,  150.0,
 !                       180.0,  210.0,  250.0,  300.0,  400.0,  500.0,  600.0,  700.0,  700.0,  700.0
 ! 10 unevenly spaced levels beginning with 50m depth
-! n_zlev             =   10      ! number of vertical levels and (dzlev_m) thicknesses
-! dzlev_m(1:20)      =   50.0,  100.0,  200.0,  300.0,  450.0,  600.0,  800.0, 1000.0, 1000.0, 1000.0,
-!                      1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
+  n_zlev             =   10      ! number of vertical levels and (dzlev_m) thicknesses
+  dzlev_m(1:20)      =   50.0,  100.0,  200.0,  300.0,  450.0,  600.0,  800.0, 1000.0, 1000.0, 1000.0,
+                       1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
 ! dzlev_m(1:20)       =  20.0,   50.0,   75.0,  125.0,  150.0,  200.0,  300.0,  500.0, 1000.0, 1000.0,
 !                      1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
 ! 10 levels of 500m depth
@@ -219,7 +219,7 @@ cat > ${ocean_namelist} << EOF
   solver_tolerance   = 1.0E-6
   i_bc_veloc_lateral =    0      ! Boundary condition for normal velocity for lateral walls
   i_bc_veloc_top     =    1      ! Boundary condition for normal velocity for ocean top
-  i_bc_veloc_bot     =    1      ! Boundary condition for normal velocity for ocean bottom
+  i_bc_veloc_bot     =    0      ! Boundary condition for normal velocity for ocean bottom
   basin_center_lat   =   30.0    ! lat-lon coordinate of basin center, used 
   basin_center_lon   =    0.0    ! in (non-global) basin configuration such as the Stommel-type tests
   basin_width_deg    =   60.0    ! basin extension in x-direction, units are degrees
@@ -235,7 +235,7 @@ cat > ${ocean_namelist} << EOF
   expl_vertical_tracer_diff   = 1  ! 0=explicit, 1 = implicit
 /
 &ocean_physics_nml
-  no_tracer          =    1      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
+  no_tracer          =    2      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
   EOS_TYPE           =    2      ! 1=linear EOS
                                  ! 2= (nonlinear) EOS from MPI-OM 
                                  ! 3= not recommended: (nonlinear) Jacket-McDoudgall density-formulation
