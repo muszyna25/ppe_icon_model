@@ -186,7 +186,7 @@ cat > ${ocean_namelist} << EOF
   h_val=1.0 t_val=1.0            ! initial values for elevation and temperature at one cell
 /
 &ocean_dynamics_nml
-  n_zlev             =    4      ! number of vertical levels and (dzlev_m) thicknesses
+  n_zlev             =   10      ! number of vertical levels and (dzlev_m) thicknesses
 ! 10 unevenly spaced levels beginning with 50m depth
   dzlev_m(1:20)      =   50.0,  100.0,  200.0,  300.0,  450.0,  600.0,  800.0, 1000.0, 1000.0, 1000.0,
                        1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
@@ -278,7 +278,7 @@ cat > ${ocean_namelist} << EOF
                                  ! -1: use net surface heat flux from atmosphere as boundary condition
   relaxation_param   =    1.0    ! 2-dim relaxation of tracers, same value for temp. and salinity, months
                                  ! this value is divided by number of seconds per month (=30*24*3600)
-  irelax_3d_T        =    3      ! 3-dim relaxation of temperature (0: no relax) 1-2: not yet used
+  irelax_3d_T        =    0      ! 3-dim relaxation of temperature (0: no relax) 1-2: not yet used
                                  ! 3: use initial T read with init_oce=1
   relax_3d_mon_T     =    1.0    ! strength of 3-dim relaxation for temperature (months)
   irelax_3d_S        =    0      ! 3-dim relaxation of salinity (0: no relax) 1-2: not yet used
