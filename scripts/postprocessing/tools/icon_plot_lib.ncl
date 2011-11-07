@@ -829,6 +829,16 @@ begin
     resource@mpCenterLatF     = centerlat
     resource@mpSatelliteDistF = satdist
   end if
+  if (maptype .eq. "lambert")
+    resource@mpProjection            = "LambertConformal"
+    resource@mpProjection            = "Hammer"
+    resource@mpProjection            = "Mollweide"
+    resource@mpProjection            = "Robinson"
+    resource@mpProjection            = "WinkelTripel"
+    resource@mpProjection            = "Gnomonic"
+    resource@mpProjection            = "Aitoff"
+ ;   resource@gsnMaskLambertConformal = True
+  end if
 end
 ;---------------------------------------------------------------
 ; Determine the corners of the map to plot
