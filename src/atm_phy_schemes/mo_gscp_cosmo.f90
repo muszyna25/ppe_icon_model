@@ -911,7 +911,7 @@ SUBROUTINE hydci_pp(                 &
         bet = mmb(1) + mmb(2)*ztc + mmb(3)*nnr + mmb(4)*ztc*nnr &
           & + mmb(5)*ztc**2 + mmb(6)*nnr**2 + mmb(7)*ztc**2*nnr &
           & + mmb(8)*ztc*nnr**2 + mmb(9)*ztc**3 + mmb(10)*nnr**3
-        m2s = qsg / zams
+        m2s = qsg * rho(i,j,k) / zams
         m3s = alf*EXP(bet*LOG(m2s))
 
         hlp  = zn0s1*EXP(zn0s2*ztc)
