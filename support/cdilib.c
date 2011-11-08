@@ -33202,7 +33202,7 @@ void defineAttributes(int vlistID, int varID, int fileID, int ncvarID)
   int atttype, attlen;
   size_t len;
   char attname[1024];
-  char atttxt[8192];
+  char atttxt[65536];
 
   vlistInqNatts(vlistID, varID, &natts);
 
@@ -36960,7 +36960,7 @@ void scanVarAttributes(int fileID, int nvars, ncvar_t *ncvars, ncdim_t *ncdims,
   size_t attlen;
   char name[256];
   char attname[256];
-  const int attstringlen = 8192; char attstring[8192];
+  const int attstringlen = 65536; char attstring[65536];
   int iatt;
   int i;
   int tablenum;
