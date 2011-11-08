@@ -52,10 +52,10 @@ undef("var_has_time")
 function var_has_time(varname,filehandle)
 begin
   dims  = getfilevardims(filehandle,varname)
-  if ( ismissing(any(dims.eq."time")) ) then
-    return(False)
-  else
+  if ( any(dims.eq."time") ) then
     return(True)
+  else
+    return(False)
   end if
 end
 ;-------------------------------------------------------------------------------
