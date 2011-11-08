@@ -453,11 +453,12 @@ CONTAINS
 !!$                                   frac_thres,     &
 !!$                                   pt_tiles )
   SUBROUTINE nwp_surface_init( p_patch, ext_data, p_prog_lnd_now, &
-    &                          p_prog_lnd_new )
+    &                          p_prog_lnd_new, p_diag_lnd )
                                    
     TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch       !<grid/patch info.
     TYPE(t_external_data), INTENT(IN)    :: ext_data
     TYPE(t_lnd_prog)     , INTENT(INOUT) :: p_prog_lnd_now, p_prog_lnd_new
+    TYPE(t_lnd_diag),      INTENT(inout) :: p_diag_lnd
 !!$    REAL(wp)             , INTENT(IN)   :: subsfrac(nproma,1,nsfc_subs)
 !!$    REAL(wp)             , INTENT(IN)   :: frac_thres     
 !!$    TYPE(t_tiles), TARGET, INTENT(INOUT):: pt_tiles      !correspondence between grid & tiles
@@ -506,6 +507,12 @@ CONTAINS
           END DO
         ENDIF
 
+        ! Initialize freshsnow with 0.0 for seapoints, with 1.0 elsewhere
+        DO ns = 1, nsfc_subs
+          DO jc = i_startidx, i_endidx
+            p_diag_lnd%freshsnow(jc,jb,ns) = REAL(NINT(ext_data%atm%fr_land(jc,jb)),wp)
+          ENDDO
+        ENDDO
 
 !!$        DO ns = 1, nsfc_subs
 !!$
