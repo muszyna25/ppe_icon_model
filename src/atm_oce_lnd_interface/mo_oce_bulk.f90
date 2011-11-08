@@ -309,6 +309,27 @@ CONTAINS
       p_sfc_flx%forc_fwfx(:,:) = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,5) + &
         &                        rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,5)
 
+      ! #slo# This is a first try for "simple flux coupling"
+      IF (i_sea_ice == 1) THEN
+        Qatm%SWin   (:,:)   = 0.0_wp  ! not available - very hot shot
+        Qatm%LWin   (:,:)   = p_sfc_flx%forc_hflx(:,:)
+        Qatm%sens   (:,:,:) = 0.0_wp
+        Qatm%lat    (:,:,:) = 0.0_wp
+        Qatm%dsensdT(:,:,:) = 0.0_wp
+        Qatm%dlatdT (:,:,:) = 0.0_wp
+        Qatm%dLWdT  (:,1,:) = -4.0_wp * emiss*StefBol * (p_ice%Tsurf(:,1,:) + tmelt)**3
+
+      ! This is a stripped down version of ice_fast for ice-ocean model only
+        CALL set_ice_albedo(p_patch,p_ice)
+        CALL set_ice_temp(p_patch,p_ice,Qatm)
+        Qatm%counter = 1
+      ENDIF
+
+    END IF
+
+    ! #slo# this will be used for "intermediate complexity flux forcing
+    IF (iforc_omip == 4) THEN
+
       ! #eoo# This is what we need to do for sea-ice
       !IF (i_sea_ice == 1) THEN
         !Qatm%SWin    = "short-wave flux from file"
@@ -317,7 +338,7 @@ CONTAINS
         !Qatm%lat     = 0.0_wp
         !Qatm%dsensdT = "dsensdT from file - if present, otherwise 0.0_wp"
         !Qatm%dlatdT  = 0.0_wp
-        !Qatm%dLWdT   = - 4.0_wp * emiss*StefBol * (ice%Tsurf + 273.15_wp)**3
+        !Qatm%dLWdT   = - 4.0_wp * emiss*StefBol * (ice%Tsurf + tmelt)**3
 
       ! This is a stripped down version of ice_fast for ice-ocean model only
         !CALL set_ice_albedo(p_patch,p_ice)

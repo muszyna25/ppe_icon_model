@@ -60,6 +60,7 @@ USE mo_physical_constants,  ONLY: rhoi, rhos, rhow,ki,ks,tf,albi,albim,albsm,alb
 USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
 USE mo_ocean_nml,           ONLY: no_tracer, init_oce_prog
 USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base
+USE mo_oce_index,           ONLY: print_mxmn, ipl_src
 IMPLICIT NONE
 
 PRIVATE
@@ -1462,6 +1463,9 @@ SUBROUTINE set_ice_temp(ppatch,ice, Qatm)
     ice% T1    (:,:,:)  =  T1
     ice% T2    (:,:,:)  =  T2
   END WHERE
+
+  ipl_src=1  ! output print level (1-5, fix)
+  CALL print_mxmn('ice%Tsurf',1,ice%Tsurf(:,1,:),1,ppatch%nblks_c,'ice',ipl_src)
 
 END SUBROUTINE set_ice_temp
 !-------------------------------------------------------------------------------
