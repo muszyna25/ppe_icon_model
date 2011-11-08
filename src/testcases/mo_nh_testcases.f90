@@ -91,7 +91,10 @@ MODULE mo_nh_testcases
                                    &  p_int_mwbr_const ,                          &
                                    &  bruntvais_u_mwbr_const
   USE mo_nh_wk_exp,            ONLY: init_nh_topo_wk, init_nh_env_wk,             &
-                                   & qv_max_wk, u_infty_wk
+                                   & init_nh_buble_wk,                            &
+                                   & qv_max_wk, u_infty_wk,                       &
+                                   & bubctr_lat, bubctr_lon, bubctr_z,            &
+                                   & bub_hor_width, bub_ver_width, bub_amp 
 
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
   USE mo_sync,                 ONLY: SYNC_E, sync_patch_array
@@ -137,7 +140,9 @@ MODULE mo_nh_testcases
                             lhs_nh_vn_ptb, hs_nh_vn_ptb_scale,               &
                             rh_at_1000hpa, qv_max, ape_sst_case,             &
                             linit_tracer_fv, lhs_fric_heat,                  &
-                            qv_max_wk, u_infty_wk
+                            qv_max_wk, u_infty_wk,                           &
+                            bubctr_lat, bubctr_lon, bubctr_z,                &
+                            bub_hor_width, bub_ver_width, bub_amp 
 
   PUBLIC :: read_nh_testcase_namelist, layer_thickness, init_nh_testtopo,    &
     &       init_nh_testcase, n_flat_level, nh_test_name, ape_sst_case,      &
@@ -216,6 +221,12 @@ MODULE mo_nh_testcases
     ! for Weisman-Klemp test case
     qv_max_wk              = 0.014_wp
     u_infty_wk             = 20._wp
+    bub_amp                = 2.0_wp
+    bubctr_lon             = 90.0_wp
+    bubctr_lat             = 0.0_wp
+    bubctr_z               = 1400._wp
+    bub_hor_width          = 10000._wp
+    bub_ver_width          = 1400._wp
     
 
     CALL open_nml(TRIM(filename))
@@ -873,12 +884,22 @@ MODULE mo_nh_testcases
 
    DO jg = 1, n_dom
 
-
+         ! initialize environment atmosphere
   
     CALL   init_nh_env_wk ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
-                                     & p_nh_state(jg)%diag,                        &
-                                     & p_nh_state(jg)%metrics,                     &
+                                     & p_nh_state(jg)%diag,                 &
+                                     & p_nh_state(jg)%metrics,              &
                                      & p_int(jg),l_hydro_adjust  )
+         ! add perturbation to theta_v
+    CALL init_nh_buble_wk ( p_patch(jg),p_nh_state(jg)%metrics,            &
+                                     & p_nh_state(jg)%prog(nnow(jg))%theta_v )
+         ! rediagnose temperature
+    CALL diagnose_pres_temp ( p_nh_state(jg)%metrics, p_nh_state(jg)%prog(nnow(jg)),  &
+            &                     p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%diag, &
+            &                     p_patch(jg),                 &
+            &                     opt_calc_temp=.TRUE.,       &
+            &                     opt_calc_pres=.FALSE.       )
+         
 
     CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
 

@@ -48,7 +48,7 @@ MODULE mo_nwp_turb_interface
   USE mo_impl_constants,       ONLY: min_rlcell_int, icc
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_loopindices,          ONLY: get_indices_c
-  USE mo_physical_constants,   ONLY: alv
+  USE mo_physical_constants,   ONLY: alv, rd_o_cpd
 
   USE mo_ext_data,             ONLY: t_external_data
   USE mo_nonhydro_state,       ONLY: t_nh_prog, t_nh_diag,&
@@ -69,6 +69,9 @@ MODULE mo_nwp_turb_interface
   USE mo_vdiff_driver,         ONLY: vdiff
   USE mo_advection_config,     ONLY: advection_config
   USE mo_vdfouter,             ONLY: vdfouter
+  USE mo_run_config,           ONLY: ltestcase
+  USE mo_nh_testcases,         ONLY: nh_test_name
+  USE mo_nh_wk_exp,            ONLY: qv_max_wk
 
   IMPLICIT NONE
 
@@ -245,14 +248,25 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
       IF( atm_phy_nwp_config(jg)%inwp_satad == 0) THEN
         lnd_diag%qv_s (:,:) = 0._wp
       ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == 1) THEN
-        !
-        !> adjust  humidity at water surface because of changed surface pressure
-        !
-        DO jc = i_startidx, i_endidx
+        IF ( ltestcase .AND. nh_test_name == 'wk82') THEN   
+         DO jc = i_startidx, i_endidx
+          lnd_prog_now%t_g(jc,jb) = p_diag%temp(jc,nlev,jb)*  &
+                      ((p_diag%pres_sfc(jc,jb))/p_diag%pres(jc,nlev,jb))**rd_o_cpd
+          lnd_diag%qv_s (jc,jb) = &
+             &         spec_humi(sat_pres_water(lnd_prog_now%t_g(jc,jb)),&
+             &                                   p_diag%pres_sfc(jc,jb) )          
+          lnd_diag%qv_s(jc,jb) = MIN (lnd_diag%qv_s(jc,jb) ,p_prog_rcf%tracer(jc,nlev,jb,iqv))
+         END DO
+        ELSE
+         !
+         !> adjust  humidity at water surface because of changed surface pressure
+         !
+         DO jc = i_startidx, i_endidx
           lnd_diag%qv_s (jc,jb) = &
              &         spec_humi(sat_pres_water(lnd_prog_now%t_g(jc,jb)),&
              &                                   p_diag%pres_sfc(jc,jb) )
-        ENDDO
+         ENDDO
+        END IF
       ENDIF
     ENDIF
 

@@ -58,6 +58,7 @@ MODULE mo_nh_wk_exp
                                      rdv,                        &
                                      rd,                         &
                                      cp_d => cpd
+   USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
    USE mo_model_domain,        ONLY: t_patch
    USE mo_nonhydro_state,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
    USE mo_run_config,          ONLY: iqv,iqc,iqcond, ntracer
@@ -77,12 +78,12 @@ MODULE mo_nh_wk_exp
 
    IMPLICIT NONE
 
-   PUBLIC  :: init_nh_topo_wk, init_nh_env_wk
+   PUBLIC  :: init_nh_topo_wk, init_nh_env_wk, init_nh_buble_wk
   
    PRIVATE
 ! !DEFINED PARAMETERS for Weisman Klemp:
    REAL(wp), PARAMETER ::hmin_wk          = 0.0_wp         ! [m], base height of the profile
-   REAL(wp), PARAMETER ::p_base_wk        = 1e5                ! [Pa], pressure at height hmin_wk
+   REAL(wp), PARAMETER ::p_base_wk        = 1.e5                ! [Pa], pressure at height hmin_wk
 
    REAL(wp), PARAMETER ::h_tropo_wk       = 12000._wp      ! [m], height of the tropopause
    REAL(wp), PARAMETER :: theta_0_wk      = 300._wp        ! [K], pot. temp. at z=0
@@ -97,11 +98,17 @@ MODULE mo_nh_wk_exp
    REAL(wp), PARAMETER :: rh_max_wk   = 1.0_wp         ! [%]  
 
    INTEGER,  PARAMETER :: niter=20
-   REAL(wp), PUBLIC :: qv_max_wk   != 0.012_wp  - 0.016_wp
+   REAL(wp), PUBLIC :: qv_max_wk   != 0.012_wp  - 0.016_wp  !NAMELIST PARAMETER
   ! Data for the wind profile
-   REAL(wp), PUBLIC :: u_infty_wk  != 0 - 45  ms-1
+   REAL(wp), PUBLIC :: u_infty_wk  != 0 - 45  ms-1          !NAMELIST PARAMETER
    REAL(wp), PARAMETER :: href_wk  = 3000._wp ! Scaling height (height of 70 % windspeed) 
                                     ! for the Weisman-Klemp wind profile [m]
+  ! Data for the thermal perturbation
+
+   REAL(wp), PUBLIC :: bubctr_lat, bubctr_lon ! buble position in degrees   !NAMELIST PARAMETER
+   REAL(wp), PUBLIC :: bubctr_z               ! buble position in meters    !NAMELIST PARAMETER
+   REAL(wp), PUBLIC :: bub_hor_width, bub_ver_width !buble width in meters  !NAMELIST PARAMETER
+   REAL(wp), PUBLIC :: bub_amp                !buble amplitude in Kelvin    !NAMELIST PARAMETER
   
 !--------------------------------------------------------------------
 
@@ -170,7 +177,7 @@ MODULE mo_nh_wk_exp
   SUBROUTINE init_nh_env_wk( ptr_patch, ptr_nh_prog, ptr_nh_diag, &
     &                                p_metrics, p_int, l_hydro_adjust )
 
-    TYPE(t_patch), TARGET,INTENT(INOUT) :: &  !< patch on which computation is performed
+    TYPE(t_patch), TARGET, INTENT(INOUT) :: &  !< patch on which computation is performed
       &  ptr_patch
 
     TYPE(t_nh_prog), INTENT(INOUT)      :: &  !< prognostic state vector
@@ -193,9 +200,10 @@ MODULE mo_nh_wk_exp
     REAL(wp)       :: t_tropo, z_klev, zrdm, zcpm, z_relhum, zesat,     &
                       zsqv, z_u
 
-    REAL(wp), ALLOCATABLE :: theta(:,:,:)
+    REAL(wp), ALLOCATABLE :: theta(:,:,:), theta_v(:,:,:)
     REAL(wp), ALLOCATABLE :: relhum(:,:,:)
-    REAL(wp), ALLOCATABLE              :: z_qv(:,:,:)
+    REAL(wp), ALLOCATABLE :: z_qv(:,:,:)
+    REAL(wp), ALLOCATABLE :: temp(:,:,:), pres(:,:,:)
 
     LOGICAL :: lcond 
 
@@ -206,6 +214,9 @@ MODULE mo_nh_wk_exp
     ! number of vertical levels
     nlev   = ptr_patch%nlev
     ALLOCATE (theta(nproma,nlev,ptr_patch%nblks_c), &
+              theta_v(nproma,nlev,ptr_patch%nblks_c), &
+              temp(nproma,nlev,ptr_patch%nblks_c), &
+              pres(nproma,nlev,ptr_patch%nblks_c), &
               relhum(nproma,nlev,ptr_patch%nblks_c) )
     ALLOCATE ( z_qv(nproma,nlev,ptr_patch%nblks_c) )
    nblks_c   = ptr_patch%nblks_int_c
@@ -218,6 +229,9 @@ MODULE mo_nh_wk_exp
 
    t_tropo=t_tropo_wk
 
+!$OMP PARALLEL
+
+!$OMP DO PRIVATE(jb,nlen,jk,jc, z_klev)
 ! first analytic expresions for theta and relative humidity
     DO jb = 1, nblks_c
       IF (jb /= nblks_c) THEN
@@ -255,7 +269,9 @@ MODULE mo_nh_wk_exp
        !   pressure estimate for the dry base will be that of the ICAO standard
        !   atmosphere. The below iteration will compute the correct temperature-
        !   and pressure profile afterwards.             
-            ptr_nh_diag%temp(jc,jk,jb)  = 293.16_wp - 0.0065_wp * MIN(z_klev, 11000.0_wp)
+           ! ptr_nh_diag%temp(jc,jk,jb)  = 293.16_wp - 0.0065_wp * MIN(z_klev, 11000.0_wp) 
+            ! it must be a bit wrmer to have higher surface pressure         
+            ptr_nh_diag%temp(jc,jk,jb)  = 300.0_wp - 0.0065_wp * MIN(z_klev, 12000.0_wp)
             ptr_nh_prog%theta_v(jc,jk,jb)= theta(jc,jk,jb)
             ptr_nh_prog%exner(jc,jk,jb) = ptr_nh_diag%temp(jc,jk,jb)/theta(jc,jk,jb) 
             ptr_nh_prog%rho(jc,jk,jb)   = ptr_nh_prog%exner(jc,jk,jb)**cvd_o_rd    &
@@ -264,12 +280,18 @@ MODULE mo_nh_wk_exp
             ENDDO !jc
       ENDDO !jk     
      ENDDO !jb
+
+!$OMP END DO
+!$OMP END PARALLEL
         ! the first guess for the pressure is calculated now
         CALL diagnose_pres_temp ( p_metrics, ptr_nh_prog,     &
             &                     ptr_nh_prog, ptr_nh_diag,   &
             &                     ptr_patch,                  &
             &                     opt_calc_pres=.TRUE.        )
 
+
+!!$     WRITE(*,*)"max pres before iteration" ,MAXVAL(ptr_nh_diag%pres(:,:,:))
+!!$     WRITE(*,*)"max temp before iteration" ,MAXVAL(ptr_nh_diag%temp(:,:,:))
 
     !==========================================================================
     ! Now humidity and clouds come into play:
@@ -286,6 +308,8 @@ MODULE mo_nh_wk_exp
 
     DO iter = 1, niter
 
+!$OMP PARALLEL
+!$OMP DO PRIVATE(iter,jb,nlen,jk,jc, zesat,z_relhum,zsqv, zrdm,zcpm )
     DO jb = 1, nblks_c
       IF (jb /= nblks_c) THEN
          nlen = nproma
@@ -295,8 +319,10 @@ MODULE mo_nh_wk_exp
 
       DO jk = nlev, 1, -1
             DO jc = 1, nlen
+          ! Kepp the previous values to compare with
+             temp(jc,jk,jb)= ptr_nh_diag%temp(jc,jk,jb)
+             pres(jc,jk,jb)= ptr_nh_diag%pres(jc,jk,jb)
           ! Limit relhum to its maximum possible value p / E(T):
-
              zesat    = sat_pres_water(ptr_nh_diag%temp(jc,jk,jb))
              z_relhum = MIN(ptr_nh_diag%pres(jc,jk,jb) /zesat , relhum(jc,jk,jb)    )
 
@@ -304,45 +330,45 @@ MODULE mo_nh_wk_exp
                qv_Tprelhum(ptr_nh_diag%pres(jc,jk,jb),ptr_nh_diag%temp(jc,jk,jb), &
                    z_relhum, ptr_nh_prog%tracer(jc,jk,jb,iqc))
 
-          IF (lcond .AND. z_relhum > 1.0_wp) THEN
-            ! condensation is allowed and physically can happen
-            ! and relhum > 1.0, so convert qv -> qc to limit relhum to 1.0:
-            zsqv = spec_humi(zesat, ptr_nh_diag%pres(jc,jk,jb))
-            ptr_nh_prog%tracer(jc,jk,jb,iqv) = MIN ( zsqv       ,                 &
-                             MIN(ptr_nh_prog%tracer(jc,jk,jb,iqv), qv_max_wk) )
-            ptr_nh_prog%tracer(jc,jk,jb,iqc) = MAX ( 0.0_wp ,                     &
-                             MIN(ptr_nh_prog%tracer(jc,jk,jb,iqv), qv_max_wk) - zsqv )
-          ELSE
             ! condensation is not allowed or cannot happen physically at 
             ! that pressure and temperature, so just impose the limit qv_max_wk:
+
             ptr_nh_prog%tracer(jc,jk,jb,iqv) =                                    &
                                 MIN(ptr_nh_prog%tracer(jc,jk,jb,iqv), qv_max_wk)
-            ptr_nh_prog%tracer(jc,jk,jb,iqc) = 0.0_wp
-          END IF
+
             ! "moist" r_d:
             zrdm     = rd_moist(ptr_nh_prog%tracer(jc,jk,jb,iqv),                 &
-                                ptr_nh_prog%tracer(jc,jk,jb,iqc))
+                                0.0_wp)
             ! "moist" cp:
 !!$            zcpm = cp_moist(qv(i,j,1),qc(i,j,1),0.0_ireals)
             ! COSMO-approximation of "moist" cp:
             zcpm     = cp_moist_cosmo(ptr_nh_prog%tracer(jc,jk,jb,iqv),           &
-                                     ptr_nh_prog%tracer(jc,jk,jb,iqc),0.0_wp)
+                                     0.0_wp,0.0_wp)
             !recalculate temperature
             ptr_nh_diag%temp(jc,jk,jb) = theta(jc,jk,jb)*                         &
                                          (ptr_nh_diag%pres(jc,jk,jb)/p0ref)**(zrdm/zcpm)
+!!$            IF (ABS(ptr_nh_diag%temp(jc,jk,jb)-temp(jc,jk,jb)) .GT. .5_wp ) THEN
+!!$              WRITE(*,*) "big change  in temperatue in the iterative process"
+!!$            END IF 
             ! recalculate exner
             ptr_nh_prog%exner(jc,jk,jb) = ptr_nh_diag%temp(jc,jk,jb)/theta(jc,jk,jb)
             ENDDO !jc
       ENDDO !jk     
      ENDDO !jb
 
+!$OMP END DO
+!$OMP END PARALLEL
         ! recalculate pressure 
         CALL diagnose_pres_temp ( p_metrics, ptr_nh_prog,     &
             &                     ptr_nh_prog, ptr_nh_diag,   &
             &                     ptr_patch,                  &
             &                     opt_calc_pres=.TRUE.        )
+!!$  WRITE(*,*)"max temp difference iteration" ,iter," ",MAXVAL(ABS(ptr_nh_diag%temp-temp))
+!!$  WRITE(*,*)"max pres difference  iteration" ,iter," ",MAXVAL(ABS(ptr_nh_diag%pres-pres))
+
 
     END DO ! niter
+
     ! after enough iteretaions we have exner and the tracers, we already had theta
 
     ! use subroutine virtual_temp to calculate theta_v
@@ -350,6 +376,9 @@ MODULE mo_nh_wk_exp
     z_qv(:,:,:) = ptr_nh_prog%tracer(:,:,:,iqv)
     CALL virtual_temp ( ptr_patch, theta, z_qv,             &
                      & temp_v= ptr_nh_prog%theta_v)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,nlen)
      DO jb = 1, nblks_c
       IF (jb /= nblks_c) THEN
          nlen = nproma
@@ -366,12 +395,13 @@ MODULE mo_nh_wk_exp
             ENDDO !jc
       ENDDO !jk     
      ENDDO !jb
+!$OMP END DO
+
 
 
 ! initialized horizontal velocities
     i_startblk = ptr_patch%edges%start_blk(2,1)
     ! horizontal normal components of the velocity
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,z_u, z_klev)
     DO jb = i_startblk, nblks_e
 
@@ -403,9 +433,83 @@ MODULE mo_nh_wk_exp
                      & ptr_nh_prog%rhotheta_v  )
 
   END IF
-
-       
+!!$       ! recalculate pressure and temperature after hydrostatic adjustment
+!!$        CALL diagnose_pres_temp ( p_metrics, ptr_nh_prog,     &
+!!$            &                     ptr_nh_prog, ptr_nh_diag,   &
+!!$            &                     ptr_patch,                  &
+!!$            &                     opt_calc_temp=.TRUE.,       &
+!!$            &                     opt_calc_pres=.TRUE.,       &
+!!$            &                     opt_calc_tempv=.TRUE.)
+!!$       
   END SUBROUTINE init_nh_env_wk
+!--------------------------------------------------------------------
+!-------------------------------------------------------------------------
+!
+  !>
+  !! Initialization of thermal buble  for the Weisman Klemp  test case 
+  !! 
+  !!
+  !! @par Revision History
+  !!
+  !!
+  SUBROUTINE init_nh_buble_wk( ptr_patch, p_metrics, temp )
+
+    TYPE(t_patch), INTENT(INOUT):: &  !< patch on which computation is performed
+      &  ptr_patch
+
+
+    REAL(wp), INTENT(INOUT)            :: temp(:,:,:) ! temperature (K) field to be perturbed
+
+    TYPE(t_nh_metrics), INTENT(IN)     :: p_metrics !< NH metrics state
+ ! local variables
+
+   INTEGER        :: jc, jk, jb, nlen, nlev
+   INTEGER        :: nblks_c, npromz_c
+   REAL(wp)       :: z_lon_ctr, z_lat_ctr
+   REAL(wp)       :: z_lon, z_lat, z_klev, z_cosr, z_r, z_h
+   REAL(wp)       :: z_rR_2, z_hH_2, z_rad
+!--------------------------------------------------------------------
+
+    z_lon_ctr = bubctr_lon*deg2rad
+    z_lat_ctr = bubctr_lat*deg2rad
+
+    ! number of vertical levels
+    nlev   = ptr_patch%nlev
+   nblks_c   = ptr_patch%nblks_int_c
+   npromz_c  = ptr_patch%npromz_int_c
+!$OMP PARALLEL
+
+!$OMP DO PRIVATE(jb,nlen,jk,jc, z_klev,z_lon, z_lat,z_cosr, z_r, z_h,z_rR_2, z_hH_2, z_rad )
+    DO jb = 1, nblks_c
+      IF (jb /= nblks_c) THEN
+         nlen = nproma
+      ELSE
+         nlen = npromz_c
+      ENDIF
+
+      DO jk = nlev, 1, -1
+            DO jc = 1, nlen
+            z_klev = 0.5_wp * ( p_metrics%z_ifc(jc,jk,jb) + &
+                       p_metrics%z_ifc(jc,jk+1,jb) )
+            z_lon = ptr_patch%cells%center(jc,jb)%lon
+            z_lat = ptr_patch%cells%center(jc,jb)%lat
+            z_cosr = SIN(z_lat_ctr)*SIN(z_lat)+COS(z_lat_ctr)*COS(z_lat)*COS(z_lon-z_lon_ctr)
+            z_r = (re+z_klev)*ACOS(z_cosr)
+            z_h = z_klev-bubctr_z
+            z_rR_2= (z_r/bub_hor_width)**2
+            z_hH_2= (z_h/bub_ver_width)**2
+            z_rad=SQRT(z_rR_2+z_hH_2) 
+             IF (z_rad .LT. 1._wp ) THEN
+              temp(jc,jk,jb) = temp(jc,jk,jb) +                &
+                           & bub_amp*COS(z_rad*pi/2._wp )**2
+            END IF
+            ENDDO !jc
+      ENDDO !jk     
+     ENDDO !jb
+!$OMP END DO
+!$OMP END PARALLEL
+       
+  END SUBROUTINE init_nh_buble_wk
 !--------------------------------------------------------------------
 ! Function taken from COSMO
 
@@ -419,7 +523,7 @@ MODULE mo_nh_wk_exp
     !zesat_w  =b1 * EXP( b2w * (temp-b3)/(temp-b4w) )
     zesat_w  = sat_pres_water(temp)
     coeff = relhum * zesat_w * rdv / p
-    qv_Tprelhum = coeff * (1.0 + qcrs) / (1.0 - rvd_m_o*coeff)
+    qv_Tprelhum = coeff * (1.0_wp + qcrs) / (1.0_wp - rvd_m_o*coeff)
   END FUNCTION qv_Tprelhum
 !--------------------------------------------------------------------
   ! Gas constant of moist air containing hydrometeors (qcrs is the sum of
@@ -428,7 +532,7 @@ MODULE mo_nh_wk_exp
     IMPLICIT NONE
     REAL(wp), INTENT(in) :: qv, qcrs
 
-    rd_moist = rd * (1.0 + rvd_m_o*qv - qcrs)
+    rd_moist = rd * (1.0_wp + rvd_m_o*qv - qcrs)
 
   END FUNCTION rd_moist
 !--------------------------------------------------------------------
@@ -439,7 +543,7 @@ MODULE mo_nh_wk_exp
     REAL(wp)             :: qd
 
     ! Dry air content:
-    qd = 1.0 - qv - ql -qi
+    qd = 1.0_wp - qv - ql -qi
 
     ! cp:
     cp_moist_cosmo = qd*cp_d + qv*cp_d + ql*cp_d + qi*cp_d

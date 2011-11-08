@@ -38,7 +38,7 @@ MODULE mo_nwp_phy_init
 
   USE mo_kind,                ONLY: wp
   USE mo_math_constants,      ONLY: pi
-  USE mo_physical_constants,  ONLY: re, grav
+  USE mo_physical_constants,  ONLY: re, grav, rd_o_cpd
   USE mo_math_utilities,      ONLY: mean_domain_values
   USE mo_model_domain_import, ONLY: nroot   
   USE mo_nwp_phy_state,       ONLY: t_nwp_phy_diag,t_nwp_phy_tend
@@ -99,6 +99,7 @@ MODULE mo_nwp_phy_init
   USE data_gwd,               ONLY: sugwwms
 
   USE mo_nh_testcases,        ONLY: nh_test_name, ape_sst_case
+  USE mo_nh_wk_exp,           ONLY: qv_max_wk
   USE mo_ape_params,          ONLY: ape_sst
   USE mo_master_control,      ONLY: is_restart_run
 
@@ -199,6 +200,18 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
 !            ENDDO
 !          END IF
 
+        ELSE IF (ltestcase .AND. nh_test_name == 'wk82' ) THEN !
+ 
+          DO jc = i_startidx, i_endidx
+            p_prog_lnd_now%t_g (jc,jb) = p_diag%temp  (jc,nlev,jb)*  &
+                      ((p_diag%pres_sfc(jc,jb))/p_diag%pres(jc,nlev,jb))**rd_o_cpd
+            p_prog_lnd_new%t_g (jc,jb) = p_prog_lnd_now%t_g (jc,jb) 
+           p_diag_lnd%qv_s     (jc,jb) = &
+          & spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))  
+            p_diag_lnd%qv_s    (jc,jb) = MIN (p_diag_lnd%qv_s(jc,jb) ,   &
+                                       &     p_prog%tracer(jc,nlev,jb,iqv)) 
+          END DO
+ 
         ELSE IF (ltestcase) THEN ! any other testcase
 
           ! t_g  =  t(nlev)
