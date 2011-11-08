@@ -3919,8 +3919,10 @@ u=v=0, topography=0.0).&
 &&&&'HS\_jw': Initializes the Held-Suarez test case
 with Jablonowski Williamson initial conditions and zero topography.&
 \tabularnewline
-&&&&'APE\_nh': Initializes the APE experiments. At the moment 
- with T=300K, ps=1013.25hPa, u=v=w=0).&
+&&&&'APE\_nh': Initializes the APE experiments. With the 
+jabw test case, including moisture.&\tabularnewline
+&&&&'wk82': Initializes the Weisman Klemp test case&
+l\_limited\_area =.TRUE.
 \tabularnewline
 
 \hline
@@ -4096,6 +4098,66 @@ linit\_tracer\_fv&
 L& .TRUE.& &
 Finite volume initialization for tracer fields &
 ctest\_name='PA'
+\tabularnewline
+
+\hline 
+qv\_max\_wk&
+R& 0.014 & Kg/kg &
+maximum specific humidity near \\
+the surface, range  0.012 - 0.016\\
+used to vary the buoyancy&
+nh\_test\_name='wk82'
+\tabularnewline
+
+\hline 
+u\_infty\_wk&
+R& 20. & m/s &
+zonal wind at infinity height\\
+range 0. - 45.               \\
+used to vary the wind shear&
+nh\_test\_name='wk82'
+\tabularnewline
+
+\hline 
+bub\_amp&
+R& 2.& K&
+maximum amplitud of the thermal perturbation&
+nh\_test\_name='wk82'
+\tabularnewline
+
+\hline 
+bubctr\_lat&
+R& 0.& deg&
+latitude of the center of the thermal perturbation&
+nh\_test\_name='wk82'
+\tabularnewline
+
+\hline 
+bubctr\_lon&
+R& 90.& deg&
+longitude of the center of the thermal perturbation&
+nh\_test\_name='wk82'
+\tabularnewline
+
+\hline 
+bubctr\_z&
+R& 1400.& m&
+height of the center of the thermal perturbation&
+nh\_test\_name='wk82'
+\tabularnewline
+
+\hline 
+bub\_hor\_width&
+R& 10000.& m&
+horizontal radius of the thermal perturbation&
+nh\_test\_name='wk82'
+\tabularnewline
+
+\hline 
+bub\_ver\_width&
+R& 1400.& m&
+vertical radius of the thermal perturbation&
+nh\_test\_name='wk82'
 \tabularnewline
 
 \end{longtab}
