@@ -1640,7 +1640,7 @@ FUNCTION geo_balance_mim(p_patch, h_e, rhs_e) result(vn_e)
    INTEGER,PARAMETER :: nmax_iter= 200 ! maximum number of iterations
    REAL(wp) :: zimpl_coeff = 1.0_wp    !COEFF has to be set appropriately !!!!
    REAL(wp) :: zimpl_prime_coeff
-   INTEGER  :: n_iter                  ! number of iterations
+   INTEGER  :: n_iter =.0                  ! number of iterations
    REAL(wp) :: tolerance               ! (relative or absolute) tolerance
    REAL(wp) :: z_residual(nmax_iter)
    LOGICAL  :: lmax_iter               ! true if reached m iterations

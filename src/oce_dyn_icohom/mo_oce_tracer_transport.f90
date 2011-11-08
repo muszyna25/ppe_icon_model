@@ -629,12 +629,12 @@ REAL(wp) :: delta_t
 REAL(wp) :: dummy_h_c(nproma,n_zlev, p_patch%nblks_c)
 !
 !Local variables
-REAL(wp) :: delta_z, delta_zp1,delta_z2
+REAL(wp) :: delta_z!, delta_zp1,delta_z2
 !INTEGER  :: ctr, ctr_total
 INTEGER  :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start_c, rl_end_c
-INTEGER  :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, rl_start_e, rl_end_e
+!INTEGER  :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, rl_start_e, rl_end_e
 INTEGER  :: jc, jk, jb, je!jkp1        !< index of edge, vert level, block
-INTEGER  :: ilc1, ibc1,ilc2, ibc2
+!INTEGER  :: ilc1, ibc1,ilc2, ibc2
 INTEGER  :: z_dolic
 REAL(wp) :: z_adv_flux_v (nproma, n_zlev+1, p_patch%nblks_c)  ! vertical advective tracer flux
 REAL(wp) :: z_div_adv_v (nproma, n_zlev,p_patch%nblks_c)        ! vertical tracer divergence
@@ -667,10 +667,10 @@ rl_end_c     = min_rlcell
 i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
 i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
 
-rl_start_e   = 1
-rl_end_e     = min_rledge
-i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
-i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
+! rl_start_e   = 1
+! rl_end_e     = min_rledge
+! i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
+! i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
 
 z_adv_flux_v  = 0.0_wp
 z_div_adv_v   = 0.0_wp

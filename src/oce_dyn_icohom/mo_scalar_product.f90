@@ -74,8 +74,8 @@ PUBLIC :: map_edges2cell
 PUBLIC :: primal_map_c2e
 PUBLIC :: dual_flip_flop
 PUBLIC :: map_edges2edges
-PRIVATE :: map_cell2edges_upwind
-PRIVATE :: map_cell2edges_upwind2
+!PRIVATE :: map_cell2edges_upwind
+!PRIVATE :: map_cell2edges_upwind2
 
 interface map_edges2cell
 
@@ -126,12 +126,12 @@ CONTAINS
   INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
   INTEGER :: il_v1, il_v2, ib_v1, ib_v2, il_e, ib_e
   INTEGER :: je, jb, ie, jk, iie_v1, iie_v2!, jv
-  INTEGER :: ic1, ib1, ic2,ib2
+  !INTEGER :: ic1, ib1, ic2,ib2
   !INTEGER :: il_star1,ib_star1,il_star2,ib_star2, ie_star1, ie_star2
 
   REAL(wp) :: z_thick, z_weight!, z_tmp1, z_tmp2, z_sum1, z_sum2
-  REAL(wp) :: vn_tmp!z_vn
-  REAL(wp) :: z_mean
+  !REAL(wp) :: vn_tmp!z_vn
+  !REAL(wp) :: z_mean
   !REAL(wp) :: z_h_approx!, z_f_approx_v1,z_f_approx_v2 
   REAL(wp) :: z_vn_e(nproma,n_zlev,p_patch%nblks_e)
   TYPE(t_cartesian_coordinates) :: u_v1_cc!(SIZE(vort_v,1),SIZE(vort_v,3))
@@ -770,7 +770,7 @@ END SUBROUTINE map_edges2edges_without_height
   INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
   !INTEGER :: il_c1, ib_c1, il_c2, ib_c2
   INTEGER :: je, jb, jk,i! ie,je
-  INTEGER :: i_ctr_c1, i_ctr_c2, il_c1,ib_c1, il_c2,ib_c2, ile_c1 , ibe_c1, ile_c2 , ibe_c2
+  INTEGER :: il_c1,ib_c1, il_c2,ib_c2!, ile_c1 , ibe_c1, ile_c2 , ibe_c2
   !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
   !  & routine = ('mo_scalar_product:primal_map_e2c')
   !-----------------------------------------------------------------------
@@ -1055,7 +1055,7 @@ ELSEIF( iswm_oce /= 1 ) THEN
                              & + p_int_state(1)%edge2cell_coeff_cc(jc,jb,ie)%x&
                              & * vn_e(il_e,jk,ib_e)
         END DO
-        IF(z_weight/=0.0)THEN
+        IF(z_weight/=0.0_wp)THEN
           p_vn_c(jc,jk,jb)%x = p_vn_c(jc,jk,jb)%x/z_weight!p_int_state(1)%fixed_vol_norm(jc,jb)
           !write(321,*)'p_vn',jc,jk,jb,p_int_state(1)%variable_vol_norm(jc,jb,:),z_weight
         ELSE
@@ -1320,205 +1320,205 @@ i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
 
   END SUBROUTINE primal_map_c2e
 !-----------------------------------------------------------------------------
-  !>
-  !! Discrete mapping of cell-based vectors to edges on the primal grid.
-  !!
-  !!
-  !! @par Revision History
-  !!  developed by Peter Korn, MPI-M (2010-11)
-  !!
-  SUBROUTINE map_cell2edges_upwind( p_patch, p_vec_c, p_vn_e, p_os, opt_slev, opt_elev )
-
-  TYPE(t_patch), INTENT(IN)                 :: p_patch          ! patch on which computation is performed
-  TYPE(t_cartesian_coordinates), INTENT(IN) :: p_vec_c(:,:,:)    ! input vector (nproma,n_zlev,nblks_c)
-  REAL(wp), INTENT(OUT)                     :: p_vn_e(:,:,:)    ! output vector (nproma,n_zlev,nblks_e)
-  TYPE(t_hydro_ocean_state)                 :: p_os
-  INTEGER, INTENT(IN), OPTIONAL             :: opt_slev        ! optional vertical start level
-  INTEGER, INTENT(IN), OPTIONAL             :: opt_elev        ! optional vertical end level
-
-
-  !Local variables
-  INTEGER :: slev, elev
-  INTEGER :: rl_start_e, rl_end_e 
-  INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
-  INTEGER :: il_c1, ib_c1, il_c2, ib_c2
-  INTEGER :: je, jb, jk!, ie,je
-  REAL(wp) :: z_dot_c1, z_dot_c2, norm_c1_c2, norm
-  TYPE(t_cartesian_coordinates)    :: cc_e0, cc_c1,cc_c2
-  TYPE(t_cartesian_coordinates)    :: cv_c1_e0, cv_c2_e0, cv_c1_c2
-  !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-  !  & routine = ('mo_scalar_product:primal_map_e2c')
-  !-----------------------------------------------------------------------
-  !CALL message (TRIM(routine), 'start')
-
-  ! check optional arguments
-  IF ( PRESENT(opt_slev) ) THEN
-    slev = opt_slev
-  ELSE
-    slev = 1
-  END IF
-  IF ( PRESENT(opt_elev) ) THEN
-    elev = opt_elev
-  ELSE
-    elev = n_zlev
-  END IF
-
-rl_start_e = 1
-rl_end_e  = min_rledge
-
-i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
-i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
-
-
-! calculation of transposed P^TPv from Pv (incart coord)
-EDGE_BLK_LOOP: DO jb = i_startblk_e, i_endblk_e
-
-  CALL get_indices_e(p_patch, jb,&
-                   & i_startblk_e, i_endblk_e,&
-                   & i_startidx_e, i_endidx_e,&
-                   & rl_start_e, rl_end_e)
-
-  LEVEL_LOOP_E: DO jk = slev, elev
-    EDGE_IDX_LOOP: DO je =  i_startidx_e, i_endidx_e
-
-      IF(v_base%lsm_oce_e(je,jk,jb) <= sea_boundary)THEN
-
-        !Get indices of two adjacent triangles
-        il_c1 = p_patch%edges%cell_idx(je,jb,1)
-        ib_c1 = p_patch%edges%cell_blk(je,jb,1)
-        il_c2 = p_patch%edges%cell_idx(je,jb,2)
-        ib_c2 = p_patch%edges%cell_blk(je,jb,2)
-
-        cc_e0 = gc2cc(p_patch%edges%center(je,jb))
-        cc_c1 = gc2cc(p_patch%cells%center(il_c1,ib_c1))
-        cc_c2 = gc2cc(p_patch%cells%center(il_c2,ib_c2))
-
-        cv_c1_c2%x = cc_c1%x - cc_c2%x
-        cv_c1_e0%x = cc_e0%x - cc_c1%x
-        cv_c2_e0%x = cc_e0%x - cc_c2%x
-
-        norm_c1_c2 = SQRT(SUM(cv_c1_e0%x*cv_c1_e0%x))+SQRT(SUM(cv_c2_e0%x*cv_c2_e0%x)) 
- 
-        IF(p_os%p_diag%ptp_vn(je,jk,jb)>=0.0_wp)THEN !velocity is pointing
-          norm=SQRT(SUM(cv_c1_e0%x*cv_c1_e0%x))
-          p_vn_e(je,jk,jb) =&
-          & DOT_PRODUCT(p_vec_c(il_c1,jk,ib_c1)%x,&
-          &(p_int_state(1)%edge2cell_coeff_cc_t(je,jb,1)%x)*(norm_c1_c2/norm))!&
-          !&+&
-          !& DOT_PRODUCT(p_vec_c(il_c2,jk,ib_c2)%x,&
-          !&(p_int_state(1)%edge2cell_coeff_cc_t(je,jb,2)%x)*2.0_wp)!(norm_c1_c2/norm))
-        !&+DOT_PRODUCT(p_vn_c(il_c1,jk,ib_c1)%x,p_int_state(1)%edge2cell_coeff_cc_t(je,jb,1)%x)
-
-        ELSEIF(p_os%p_diag%ptp_vn(je,jk,jb)<0.0_wp)THEN
-          norm=SQRT(SUM(cv_c2_e0%x*cv_c2_e0%x))
-          p_vn_e(je,jk,jb) =&
-          & DOT_PRODUCT(p_vec_c(il_c2,jk,ib_c2)%x,&
-          & (p_int_state(1)%edge2cell_coeff_cc_t(je,jb,2)%x)*(norm_c1_c2/norm))!&
-          !&+&
-          !& DOT_PRODUCT(p_vec_c(il_c1,jk,ib_c1)%x,&
-          !&(p_int_state(1)%edge2cell_coeff_cc_t(je,jb,1)%x)*2.0_wp)!(norm_c1_c2/norm))
-          !write(*,*)'frac',(norm_c1_c2/norm)
-        ENDIF
-
-       ELSE
-         p_vn_e(je,jk,jb) = 0.0_wp
-       ENDIF
-    END DO EDGE_IDX_LOOP
-  END DO LEVEL_LOOP_E
-END DO EDGE_BLK_LOOP
-
-  END SUBROUTINE map_cell2edges_upwind
-!-----------------------------------------------------------------------------
-  !>
-  !! Discrete mapping of cell-based vectors to edges on the primal grid.
-  !!
-  !!
-  !! @par Revision History
-  !!  developed by Peter Korn, MPI-M (2010-11)
-  !!
-  SUBROUTINE map_cell2edges_upwind2( p_patch, p_vec_c, p_vn_e, p_os, opt_slev, opt_elev )
-
-  TYPE(t_patch), INTENT(IN)                 :: p_patch          ! patch on which computation is performed
-  TYPE(t_cartesian_coordinates), INTENT(IN) :: p_vec_c(:,:,:)    ! input vector (nproma,n_zlev,nblks_c)
-  REAL(wp), INTENT(OUT)                     :: p_vn_e(:,:,:)    ! output vector (nproma,n_zlev,nblks_e)
-  TYPE(t_hydro_ocean_state)                 :: p_os
-  INTEGER, INTENT(IN), OPTIONAL             :: opt_slev        ! optional vertical start level
-  INTEGER, INTENT(IN), OPTIONAL             :: opt_elev        ! optional vertical end level
-
-
-  !Local variables
-  INTEGER :: slev, elev
-  INTEGER :: rl_start_e, rl_end_e 
-  INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
-  INTEGER :: il_c1, ib_c1, il_c2, ib_c2
-  INTEGER :: je, jb, jk!, ie,je
-  REAL(wp) :: z_dot_c1, z_dot_c2, norm_c1_c2, norm
-  TYPE(t_cartesian_coordinates)    :: cc_e0, cc_c1,cc_c2
-  TYPE(t_cartesian_coordinates)    :: cv_c1_e0, cv_c2_e0, cv_c1_c2
-  !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-  !  & routine = ('mo_scalar_product:primal_map_e2c')
-  !-----------------------------------------------------------------------
-  !CALL message (TRIM(routine), 'start')
-
-  ! check optional arguments
-  IF ( PRESENT(opt_slev) ) THEN
-    slev = opt_slev
-  ELSE
-    slev = 1
-  END IF
-  IF ( PRESENT(opt_elev) ) THEN
-    elev = opt_elev
-  ELSE
-    elev = n_zlev
-  END IF
-
-rl_start_e = 1
-rl_end_e  = min_rledge
-
-i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
-i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
-
-
-! calculation of transposed P^TPv from Pv (incart coord)
-EDGE_BLK_LOOP: DO jb = i_startblk_e, i_endblk_e
-
-  CALL get_indices_e(p_patch, jb,&
-                   & i_startblk_e, i_endblk_e,&
-                   & i_startidx_e, i_endidx_e,&
-                   & rl_start_e, rl_end_e)
-
-  LEVEL_LOOP_E: DO jk = slev, elev
-    EDGE_IDX_LOOP: DO je =  i_startidx_e, i_endidx_e
-
-      IF(v_base%lsm_oce_e(je,jk,jb) <= sea_boundary)THEN
-
-        !Get indices of two adjacent triangles
-        il_c1 = p_patch%edges%cell_idx(je,jb,1)
-        ib_c1 = p_patch%edges%cell_blk(je,jb,1)
-        il_c2 = p_patch%edges%cell_idx(je,jb,2)
-        ib_c2 = p_patch%edges%cell_blk(je,jb,2)
- 
-          p_vn_e(je,jk,jb) =&
-          & DOT_PRODUCT(p_vec_c(il_c1,jk,ib_c1)%x,&
-          &(p_int_state(1)%edge2cell_coeff_cc_t(je,jb,1)%x))&
-          &+&
-          & DOT_PRODUCT(p_vec_c(il_c2,jk,ib_c2)%x,&
-          &(p_int_state(1)%edge2cell_coeff_cc_t(je,jb,2)%x))&
-          &-&
-          p_os%p_diag%ptp_vn(je,jk,jb)*dtime*&
-          &SQRT(SUM( (p_vec_c(il_c2,jk,ib_c2)%x-p_vec_c(il_c1,jk,ib_c1)%x)&
-          &*p_patch%edges%inv_dual_edge_length(je,jb)&
-          &*(p_vec_c(il_c2,jk,ib_c2)%x- p_vec_c(il_c1,jk,ib_c1)%x)&
-          &*p_patch%edges%inv_dual_edge_length(je,jb)))
-
-       ELSE
-         p_vn_e(je,jk,jb) = 0.0_wp
-       ENDIF
-    END DO EDGE_IDX_LOOP
-  END DO LEVEL_LOOP_E
-END DO EDGE_BLK_LOOP
-
-  END SUBROUTINE map_cell2edges_upwind2
+! !   !>
+! !   !! Discrete mapping of cell-based vectors to edges on the primal grid.
+! !   !!
+! !   !!
+! !   !! @par Revision History
+! !   !!  developed by Peter Korn, MPI-M (2010-11)
+! !   !!
+! !   SUBROUTINE map_cell2edges_upwind( p_patch, p_vec_c, p_vn_e, p_os, opt_slev, opt_elev )
+! ! 
+! !   TYPE(t_patch), INTENT(IN)                 :: p_patch          ! patch on which computation is performed
+! !   TYPE(t_cartesian_coordinates), INTENT(IN) :: p_vec_c(:,:,:)    ! input vector (nproma,n_zlev,nblks_c)
+! !   REAL(wp), INTENT(OUT)                     :: p_vn_e(:,:,:)    ! output vector (nproma,n_zlev,nblks_e)
+! !   TYPE(t_hydro_ocean_state)                 :: p_os
+! !   INTEGER, INTENT(IN), OPTIONAL             :: opt_slev        ! optional vertical start level
+! !   INTEGER, INTENT(IN), OPTIONAL             :: opt_elev        ! optional vertical end level
+! ! 
+! ! 
+! !   !Local variables
+! !   INTEGER :: slev, elev
+! !   INTEGER :: rl_start_e, rl_end_e 
+! !   INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
+! !   INTEGER :: il_c1, ib_c1, il_c2, ib_c2
+! !   INTEGER :: je, jb, jk!, ie,je
+! !   REAL(wp) :: z_dot_c1, z_dot_c2, norm_c1_c2, norm
+! !   TYPE(t_cartesian_coordinates)    :: cc_e0, cc_c1,cc_c2
+! !   TYPE(t_cartesian_coordinates)    :: cv_c1_e0, cv_c2_e0, cv_c1_c2
+! !   !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+! !   !  & routine = ('mo_scalar_product:primal_map_e2c')
+! !   !-----------------------------------------------------------------------
+! !   !CALL message (TRIM(routine), 'start')
+! ! 
+! !   ! check optional arguments
+! !   IF ( PRESENT(opt_slev) ) THEN
+! !     slev = opt_slev
+! !   ELSE
+! !     slev = 1
+! !   END IF
+! !   IF ( PRESENT(opt_elev) ) THEN
+! !     elev = opt_elev
+! !   ELSE
+! !     elev = n_zlev
+! !   END IF
+! ! 
+! ! rl_start_e = 1
+! ! rl_end_e  = min_rledge
+! ! 
+! ! i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
+! ! i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
+! ! 
+! ! 
+! ! ! calculation of transposed P^TPv from Pv (incart coord)
+! ! EDGE_BLK_LOOP: DO jb = i_startblk_e, i_endblk_e
+! ! 
+! !   CALL get_indices_e(p_patch, jb,&
+! !                    & i_startblk_e, i_endblk_e,&
+! !                    & i_startidx_e, i_endidx_e,&
+! !                    & rl_start_e, rl_end_e)
+! ! 
+! !   LEVEL_LOOP_E: DO jk = slev, elev
+! !     EDGE_IDX_LOOP: DO je =  i_startidx_e, i_endidx_e
+! ! 
+! !       IF(v_base%lsm_oce_e(je,jk,jb) <= sea_boundary)THEN
+! ! 
+! !         !Get indices of two adjacent triangles
+! !         il_c1 = p_patch%edges%cell_idx(je,jb,1)
+! !         ib_c1 = p_patch%edges%cell_blk(je,jb,1)
+! !         il_c2 = p_patch%edges%cell_idx(je,jb,2)
+! !         ib_c2 = p_patch%edges%cell_blk(je,jb,2)
+! ! 
+! !         cc_e0 = gc2cc(p_patch%edges%center(je,jb))
+! !         cc_c1 = gc2cc(p_patch%cells%center(il_c1,ib_c1))
+! !         cc_c2 = gc2cc(p_patch%cells%center(il_c2,ib_c2))
+! ! 
+! !         cv_c1_c2%x = cc_c1%x - cc_c2%x
+! !         cv_c1_e0%x = cc_e0%x - cc_c1%x
+! !         cv_c2_e0%x = cc_e0%x - cc_c2%x
+! ! 
+! !         norm_c1_c2 = SQRT(SUM(cv_c1_e0%x*cv_c1_e0%x))+SQRT(SUM(cv_c2_e0%x*cv_c2_e0%x)) 
+! !  
+! !         IF(p_os%p_diag%ptp_vn(je,jk,jb)>=0.0_wp)THEN !velocity is pointing
+! !           norm=SQRT(SUM(cv_c1_e0%x*cv_c1_e0%x))
+! !           p_vn_e(je,jk,jb) =&
+! !           & DOT_PRODUCT(p_vec_c(il_c1,jk,ib_c1)%x,&
+! !           &(p_int_state(1)%edge2cell_coeff_cc_t(je,jb,1)%x)*(norm_c1_c2/norm))!&
+! !           !&+&
+! !           !& DOT_PRODUCT(p_vec_c(il_c2,jk,ib_c2)%x,&
+! !           !&(p_int_state(1)%edge2cell_coeff_cc_t(je,jb,2)%x)*2.0_wp)!(norm_c1_c2/norm))
+! !         !&+DOT_PRODUCT(p_vn_c(il_c1,jk,ib_c1)%x,p_int_state(1)%edge2cell_coeff_cc_t(je,jb,1)%x)
+! ! 
+! !         ELSEIF(p_os%p_diag%ptp_vn(je,jk,jb)<0.0_wp)THEN
+! !           norm=SQRT(SUM(cv_c2_e0%x*cv_c2_e0%x))
+! !           p_vn_e(je,jk,jb) =&
+! !           & DOT_PRODUCT(p_vec_c(il_c2,jk,ib_c2)%x,&
+! !           & (p_int_state(1)%edge2cell_coeff_cc_t(je,jb,2)%x)*(norm_c1_c2/norm))!&
+! !           !&+&
+! !           !& DOT_PRODUCT(p_vec_c(il_c1,jk,ib_c1)%x,&
+! !           !&(p_int_state(1)%edge2cell_coeff_cc_t(je,jb,1)%x)*2.0_wp)!(norm_c1_c2/norm))
+! !           !write(*,*)'frac',(norm_c1_c2/norm)
+! !         ENDIF
+! ! 
+! !        ELSE
+! !          p_vn_e(je,jk,jb) = 0.0_wp
+! !        ENDIF
+! !     END DO EDGE_IDX_LOOP
+! !   END DO LEVEL_LOOP_E
+! ! END DO EDGE_BLK_LOOP
+! ! 
+! !   END SUBROUTINE map_cell2edges_upwind
+! ! !-----------------------------------------------------------------------------
+! !   !>
+! !   !! Discrete mapping of cell-based vectors to edges on the primal grid.
+! !   !!
+! !   !!
+! !   !! @par Revision History
+! !   !!  developed by Peter Korn, MPI-M (2010-11)
+! !   !!
+! !   SUBROUTINE map_cell2edges_upwind2( p_patch, p_vec_c, p_vn_e, p_os, opt_slev, opt_elev )
+! ! 
+! !   TYPE(t_patch), INTENT(IN)                 :: p_patch          ! patch on which computation is performed
+! !   TYPE(t_cartesian_coordinates), INTENT(IN) :: p_vec_c(:,:,:)    ! input vector (nproma,n_zlev,nblks_c)
+! !   REAL(wp), INTENT(OUT)                     :: p_vn_e(:,:,:)    ! output vector (nproma,n_zlev,nblks_e)
+! !   TYPE(t_hydro_ocean_state)                 :: p_os
+! !   INTEGER, INTENT(IN), OPTIONAL             :: opt_slev        ! optional vertical start level
+! !   INTEGER, INTENT(IN), OPTIONAL             :: opt_elev        ! optional vertical end level
+! ! 
+! ! 
+! !   !Local variables
+! !   INTEGER :: slev, elev
+! !   INTEGER :: rl_start_e, rl_end_e 
+! !   INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
+! !   INTEGER :: il_c1, ib_c1, il_c2, ib_c2
+! !   INTEGER :: je, jb, jk!, ie,je
+! !   REAL(wp) :: z_dot_c1, z_dot_c2, norm_c1_c2, norm
+! !   !TYPE(t_cartesian_coordinates)    :: cc_e0, cc_c1,cc_c2
+! !   TYPE(t_cartesian_coordinates)    :: cv_c1_e0, cv_c2_e0, cv_c1_c2
+! !   !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+! !   !  & routine = ('mo_scalar_product:primal_map_e2c')
+! !   !-----------------------------------------------------------------------
+! !   !CALL message (TRIM(routine), 'start')
+! ! 
+! !   ! check optional arguments
+! !   IF ( PRESENT(opt_slev) ) THEN
+! !     slev = opt_slev
+! !   ELSE
+! !     slev = 1
+! !   END IF
+! !   IF ( PRESENT(opt_elev) ) THEN
+! !     elev = opt_elev
+! !   ELSE
+! !     elev = n_zlev
+! !   END IF
+! ! 
+! ! rl_start_e = 1
+! ! rl_end_e  = min_rledge
+! ! 
+! ! i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
+! ! i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
+! ! 
+! ! 
+! ! ! calculation of transposed P^TPv from Pv (incart coord)
+! ! EDGE_BLK_LOOP: DO jb = i_startblk_e, i_endblk_e
+! ! 
+! !   CALL get_indices_e(p_patch, jb,&
+! !                    & i_startblk_e, i_endblk_e,&
+! !                    & i_startidx_e, i_endidx_e,&
+! !                    & rl_start_e, rl_end_e)
+! ! 
+! !   LEVEL_LOOP_E: DO jk = slev, elev
+! !     EDGE_IDX_LOOP: DO je =  i_startidx_e, i_endidx_e
+! ! 
+! !       IF(v_base%lsm_oce_e(je,jk,jb) <= sea_boundary)THEN
+! ! 
+! !         !Get indices of two adjacent triangles
+! !         il_c1 = p_patch%edges%cell_idx(je,jb,1)
+! !         ib_c1 = p_patch%edges%cell_blk(je,jb,1)
+! !         il_c2 = p_patch%edges%cell_idx(je,jb,2)
+! !         ib_c2 = p_patch%edges%cell_blk(je,jb,2)
+! !  
+! !           p_vn_e(je,jk,jb) =&
+! !           & DOT_PRODUCT(p_vec_c(il_c1,jk,ib_c1)%x,&
+! !           &(p_int_state(1)%edge2cell_coeff_cc_t(je,jb,1)%x))&
+! !           &+&
+! !           & DOT_PRODUCT(p_vec_c(il_c2,jk,ib_c2)%x,&
+! !           &(p_int_state(1)%edge2cell_coeff_cc_t(je,jb,2)%x))&
+! !           &-&
+! !           p_os%p_diag%ptp_vn(je,jk,jb)*dtime*&
+! !           &SQRT(SUM( (p_vec_c(il_c2,jk,ib_c2)%x-p_vec_c(il_c1,jk,ib_c1)%x)&
+! !           &*p_patch%edges%inv_dual_edge_length(je,jb)&
+! !           &*(p_vec_c(il_c2,jk,ib_c2)%x- p_vec_c(il_c1,jk,ib_c1)%x)&
+! !           &*p_patch%edges%inv_dual_edge_length(je,jb)))
+! ! 
+! !        ELSE
+! !          p_vn_e(je,jk,jb) = 0.0_wp
+! !        ENDIF
+! !     END DO EDGE_IDX_LOOP
+! !   END DO LEVEL_LOOP_E
+! ! END DO EDGE_BLK_LOOP
+! ! 
+! !   END SUBROUTINE map_cell2edges_upwind2
 !-----------------------------------------------------------------------------
 !   !
 !   !>

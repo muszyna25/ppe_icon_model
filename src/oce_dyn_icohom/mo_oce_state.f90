@@ -57,22 +57,22 @@ MODULE mo_oce_state
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_impl_constants,      ONLY: land, land_boundary, boundary, sea_boundary, sea,  &
     &                               success, max_char_length, min_rledge, min_rlcell,  &
-    &                               min_rlvert, min_rlvert_int,                        &
+    &                               min_rlvert,                                        &
     &                               full_coriolis, beta_plane_coriolis,                &
     &                               f_plane_coriolis, zero_coriolis
-  USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer, t_ref, s_ref,          &
+  USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer,                        &
     &                               CORIOLIS_TYPE, basin_center_lat, basin_height_deg
   USE mo_exception,           ONLY: message_text, message, finish
   USE mo_model_domain,        ONLY: t_patch
   USE mo_model_domain_import, ONLY: n_dom
   USE mo_ext_data,            ONLY: t_external_data
-  USE mo_math_utilities,      ONLY: gc2cc, cc2gc, t_cartesian_coordinates,      &
-    &                               t_geographical_coordinates, vector_product, &
+  USE mo_math_utilities,      ONLY: gc2cc,t_cartesian_coordinates,      &
+    &                               t_geographical_coordinates, &!vector_product, &
     &                               arc_length
-  USE mo_math_constants,      ONLY: pi, deg2rad,rad2deg
+  USE mo_math_constants,      ONLY: deg2rad,rad2deg
   USE mo_physical_constants,  ONLY: re, omega
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c, get_indices_v
-  USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array,check_patch_array
+  USE mo_sync,                ONLY: SYNC_E, SYNC_C,sync_patch_array,check_patch_array!, SYNC_V
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_var_list,            ONLY: add_var,                  &
     &                               new_var_list,             &
@@ -123,7 +123,7 @@ MODULE mo_oce_state
   !destructors
   PRIVATE :: destruct_hydro_ocean_diag
   PRIVATE :: destruct_hydro_ocean_aux
-  INTEGER, PRIVATE :: i_cell_type=3
+  !INTEGER, PRIVATE :: i_cell_type=3
 
 !
 !! basis types for constructing 3-dim ocean state
@@ -568,7 +568,7 @@ CONTAINS
     ! local variables
 
     INTEGER :: ist
-    INTEGER :: nblks_c, nblks_e, nblks_v, n_zlvp, n_zlvm, ie
+    INTEGER :: nblks_c, nblks_e, nblks_v, n_zlvp, n_zlvm!, ie
   ! INTEGER ::  jc,jb,jk, rl_start, rl_end
   ! INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     CHARACTER(len=max_char_length), PARAMETER :: &
@@ -1472,6 +1472,10 @@ END DO
     z_sync_c(:,:) = 0.0_wp
     z_sync_e(:,:) = 0.0_wp
 
+    z_lat     = 0.0_wp 
+    z_lat_deg = 0.0_wp 
+    z_north   = 0.0_wp 
+    z_south   = 0.0_wp
     !-----------------------------
     !
     ! Basic z-level configuration:

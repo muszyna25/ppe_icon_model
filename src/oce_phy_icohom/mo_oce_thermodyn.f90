@@ -553,7 +553,7 @@ END INTERFACE
 ! !LOCAL VARIABLES:
 
   REAL(wp):: z_s1, z_p
-  INTEGER :: lev, jn, k_sfc, nc
+  !INTEGER :: lev, jn, nc
   INTEGER :: jc, jk, jb
   INTEGER :: rl_start, rl_end
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
@@ -640,16 +640,13 @@ END INTERFACE
     REAL(wp), INTENT(IN)       :: p
     REAL(wp)                   :: rho       !< density
 ! !LOCAL VARIABLES:
-    INTEGER :: lev, jn, k_sfc, nc
-    INTEGER :: jc, jk, jb
-    INTEGER :: rl_start, rl_end
-    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+    !INTEGER :: lev, nc
+    !INTEGER :: jc, jk, jb
+    !INTEGER :: rl_start, rl_end
+    !INTEGER :: i_startblk, i_endblk!, i_startidx, i_endidx
 
 ! EOS variables, following the naming of the MITgcm implementation
-    REAL (wp)  :: locPres, t1, t2, s1, p1, rhoNum, sp5, p1t1, den, rhoLoc, rhoDen, &
-                  dnum_dtheta, dden_dtheta, alphaLoc, dnum_dsalt, dden_dsalt,      &
-                  betaLoc, z_in_situ_temp
-
+    REAL (wp)  :: locPres, t1, t2, s1, p1, rhoNum, sp5, p1t1, den, rhoDen
 !-------------------------------------------------------------------------------------------------------
 !write(*,*)'inside EOS 06' 
 
@@ -812,7 +809,6 @@ end subroutine calc_density_JM_EOS
 ! !LOCAL VARIABLES:
 ! loop indices
   REAL(wp):: z_s1, z_p
-  INTEGER :: lev, jn, k_sfc, nc
   INTEGER :: jc, jk, jb
   INTEGER :: rl_start, rl_end
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
@@ -882,7 +878,7 @@ FUNCTION calc_density_MPIOM_func(tpot, sal, p) RESULT(rho)
 
     REAL(wp) :: dc, dv, dvs, fne, fst, qc, qn3, qnq, qv, qvs, &
          s, s3h, t, tpo
-    INTEGER :: i
+    !INTEGER :: i
     REAL(wp), PARAMETER :: z_sref = 35.0_wp
 
 
@@ -948,8 +944,7 @@ FUNCTION calc_density_MPIOM_func(tpot, sal, p) RESULT(rho)
 
 ! !LOCAL VARIABLES:
 ! loop indices
-  REAL(wp):: z_s1, z_press
-  INTEGER :: lev, jn, k_sfc, nc
+  REAL(wp):: z_press
   INTEGER :: jc, jk, jb
   INTEGER :: rl_start, rl_end
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
