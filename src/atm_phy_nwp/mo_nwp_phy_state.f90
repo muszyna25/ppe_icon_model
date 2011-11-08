@@ -360,7 +360,7 @@ CALL message('mo_nwp_phy_state:construct_nwp_state', &
                                & TRIM(listname), prm_nwp_diag_list(jg), prm_diag(jg))
      !
      WRITE(listname,'(a,i2.2)') 'prm_tend_of_domain_',jg
-     CALL new_nwp_phy_tend_list ( nlev, nblks_c,&
+     CALL new_nwp_phy_tend_list ( jg, nlev, nblks_c,&
                                 & TRIM(listname), prm_nwp_tend_list(jg), prm_nwp_tend(jg))
   ENDDO
   
@@ -448,7 +448,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
     ! Register a field list and apply default settings
 
-    CALL new_var_list( diag_list, TRIM(listname) )
+    CALL new_var_list( diag_list, TRIM(listname), patch_id=k_jg )
     CALL default_var_list_settings( diag_list,                 &
                                   & lrestart=.TRUE.,           &
                                   & restart_type=FILETYPE_NC2  )
@@ -1342,10 +1342,10 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 END SUBROUTINE new_nwp_phy_diag_list
 
 
-SUBROUTINE new_nwp_phy_tend_list( klev,  kblks,   &
+SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
                      & listname, phy_tend_list, phy_tend)
 
-    INTEGER,INTENT(IN) :: klev, kblks !< dimension sizes
+    INTEGER,INTENT(IN) :: k_jg, klev, kblks !< dimension sizes
 
     CHARACTER(len=*),INTENT(IN) :: listname
 
@@ -1367,7 +1367,7 @@ SUBROUTINE new_nwp_phy_tend_list( klev,  kblks,   &
     shape4d    = (/nproma, klev,  kblks, iqcond/)
 
 
-    CALL new_var_list( phy_tend_list, TRIM(listname) )
+    CALL new_var_list( phy_tend_list, TRIM(listname), patch_id=k_jg )
     CALL default_var_list_settings( phy_tend_list,             &
                                   & lrestart=.TRUE.,           &
                                   & restart_type=FILETYPE_NC2  )

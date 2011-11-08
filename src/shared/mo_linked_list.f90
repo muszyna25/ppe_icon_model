@@ -39,6 +39,22 @@ MODULE mo_linked_list
     TYPE(t_var_list_element)      :: field
     TYPE(t_list_element), POINTER :: next_list_element
   END TYPE t_list_element
+
+  ! Parameters for naming all used Zaxis ID's
+  INTEGER, PARAMETER, PUBLIC      :: ZA_surface             =  1
+  ! Atmosphere
+  INTEGER, PARAMETER, PUBLIC      :: ZA_hybrid              =  2
+  INTEGER, PARAMETER, PUBLIC      :: ZA_hybrid_half         =  3
+  INTEGER, PARAMETER, PUBLIC      :: ZA_depth_below_land    =  4
+  INTEGER, PARAMETER, PUBLIC      :: ZA_depth_below_land_p1 =  5
+  INTEGER, PARAMETER, PUBLIC      :: ZA_generic_snow        =  6
+  INTEGER, PARAMETER, PUBLIC      :: ZA_generic_snow_p1     =  7
+  INTEGER, PARAMETER, PUBLIC      :: ZA_pressure            =  8
+  INTEGER, PARAMETER, PUBLIC      :: ZA_height              =  9
+  ! Ocean
+  INTEGER, PARAMETER, PUBLIC      :: ZA_depth               = 10
+  INTEGER, PARAMETER, PUBLIC      :: ZA_depth_half          = 11
+  INTEGER, PARAMETER, PUBLIC      :: ZA_generic_ice         = 12
   !
   TYPE t_var_list_intrinsic
     INTEGER                       :: key                ! hash value of name   
@@ -62,6 +78,7 @@ MODULE mo_linked_list
     LOGICAL                       :: restart_opened     ! true, if restart file opened
     LOGICAL                       :: output_opened      ! true, if output file opened
     CHARACTER(len=8)              :: model_type         ! store model type
+    INTEGER                       :: patch_id           ! ID of patch to which list variables belong
     !--------------------------------------------------------------------------------------------
     ! Internal used handler for cdi
     INTEGER                       :: cdiFileId_restart  ! cdi file handler for restart
@@ -72,6 +89,9 @@ MODULE mo_linked_list
     INTEGER                       :: cdiVertGridID
     INTEGER                       :: cdiEdgeGridID
     !
+! RJ - Please note:
+! The following ZaxisID's are used in restart and should be replaced
+! by the array cdiZaxisID in the future:
     INTEGER                       :: cdiSurfZaxisID
     INTEGER                       :: cdiHalfZaxisID
     INTEGER                       :: cdiFullZaxisID
@@ -79,6 +99,8 @@ MODULE mo_linked_list
     INTEGER                       :: cdiDepthFullZaxisID
     INTEGER                       :: cdiHeightHalfZaxisID
     INTEGER                       :: cdiHeightFullZaxisID
+    !
+    INTEGER                       :: cdiZaxisID(12) ! All types of possible Zaxis ID's
     !
     INTEGER                       :: cdiTaxisID
     !
@@ -130,6 +152,7 @@ CONTAINS
     this_list%p%restart_opened     = .FALSE.
     this_list%p%output_opened      = .FALSE.
     this_list%p%model_type         = 'atm'
+    this_list%p%patch_id           = -1
     !
     this_list%p%cdiFileID_restart  = -1
     this_list%p%cdiFileID_output   = -1
@@ -143,6 +166,10 @@ CONTAINS
     this_list%p%cdiFullZaxisID      = -1
     this_list%p%cdiDepthFullZaxisID = -1
     this_list%p%cdiDepthHalfZaxisID = -1
+    this_list%p%cdiHeightFullZaxisID= -1
+    this_list%p%cdiHeightHalfZaxisID= -1
+    !
+    this_list%p%cdiZaxisID(:)      = -1
     !
     this_list%p%cdiTaxisID         = -1
     this_list%p%cdiTimeIndex       = -1

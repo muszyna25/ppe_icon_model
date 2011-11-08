@@ -158,7 +158,7 @@ CONTAINS
         WRITE(listname,'(a,i2.2,a,i2.2)')  'hydro_prog_D',jg,'_timlev',jt
         WRITE(varname_prefix,'(a,i2.2,a)') 'ha_prog_TL',jt,'_'
 
-        CALL new_hydro_prog_list( nproma, nlev, ntracer, ctracer_list,     &
+        CALL new_hydro_prog_list( jg, nproma, nlev, ntracer, ctracer_list, &
                                 & ha_dyn_config%ltheta_dyn,                &
                                 & nblks_c, nblks_e, TRIM(listname),        &
                                 & TRIM(varname_prefix),                    &
@@ -171,7 +171,7 @@ CONTAINS
 
       WRITE(listname,'(a,i2.2)')  'hydro_diag_D',jg
       WRITE(varname_prefix,'(a)') 'ha_diag_'
-      CALL new_hydro_diag_list( nproma, nlev, ntracer, ctracer_list,  &
+      CALL new_hydro_diag_list( jg, nproma, nlev, ntracer, ctracer_list, &
                               & ha_dyn_config%ltheta_dyn,             &
                               & nblks_c, nblks_e, nblks_v,            &
                               & TRIM(listname), TRIM(varname_prefix), &
@@ -183,7 +183,7 @@ CONTAINS
 
       WRITE(listname,'(a,i2.2)')  'hydro_tend_dyn_D',jg
       WRITE(varname_prefix,'(a)') 'ha_tend_dyn_'
-      CALL new_hydro_prog_list( nproma, nlev, ntracer, ctracer_list,     &
+      CALL new_hydro_prog_list( jg, nproma, nlev, ntracer, ctracer_list, &
                               & ha_dyn_config%ltheta_dyn,                &
                               & nblks_c, nblks_e, TRIM(listname),        &
                               & TRIM(varname_prefix),                    &
@@ -193,7 +193,7 @@ CONTAINS
 
       WRITE(listname,'(a,i2.2)')  'hydro_tend_phy_D',jg
       WRITE(varname_prefix,'(a)') 'ha_tend_phy_'
-      CALL new_hydro_prog_list( nproma, nlev, ntracer, ctracer_list,     &
+      CALL new_hydro_prog_list( jg, nproma, nlev, ntracer, ctracer_list, &
                               & ha_dyn_config%ltheta_dyn,                &
                               & nblks_c, nblks_e, TRIM(listname),        &
                               & TRIM(varname_prefix),                    &
@@ -206,7 +206,7 @@ CONTAINS
       !----------------------------
       WRITE(listname,'(a,i2.2)')  'hydro_prog_out_D',jg
       WRITE(varname_prefix,'(a)') 'ha_prog_out_'
-      CALL new_hydro_prog_list( nproma, nlev, ntracer, ctracer_list,     &
+      CALL new_hydro_prog_list( jg, nproma, nlev, ntracer, ctracer_list, &
                               & ha_dyn_config%ltheta_dyn,                &
                               & nblks_c, nblks_e, TRIM(listname),        &
                               & TRIM(varname_prefix),                    &
@@ -216,7 +216,7 @@ CONTAINS
 
       WRITE(listname,'(a,i2.2)')  'hydro_diag_out_D',jg
       WRITE(varname_prefix,'(a)') 'ha_diag_out_'
-      CALL new_hydro_diag_list( nproma, nlev, ntracer, ctracer_list,  &
+      CALL new_hydro_diag_list( jg, nproma, nlev, ntracer, ctracer_list, &
                               & ha_dyn_config%ltheta_dyn,             &
                               & nblks_c, nblks_e, nblks_v,            &
                               & TRIM(listname), TRIM(varname_prefix), &
@@ -286,12 +286,13 @@ CONTAINS
   !>
   !!
   !!
-  SUBROUTINE new_hydro_prog_list( kproma, klev, ktracer,          &
+  SUBROUTINE new_hydro_prog_list( k_jg, kproma, klev, ktracer,    &
                                 & ctracer_list, ltheta_dyn,       &
                                 & kblks_c, kblks_e,               &
                                 & listname, vname_prefix,         &
                                 & field_list, field, store_in_restart )
 
+    INTEGER,INTENT(IN) :: k_jg                       !< patch ID
     INTEGER,INTENT(IN) :: kproma, klev, ktracer  !< dimension sizes
     LOGICAL,INTENT(IN) :: ltheta_dyn
     INTEGER,INTENT(IN) :: kblks_c, kblks_e       !< dimension sizes
@@ -316,7 +317,7 @@ CONTAINS
 
     ! Register a variable list and apply default settings
 
-    CALL new_var_list( field_list, TRIM(listname) )
+    CALL new_var_list( field_list, TRIM(listname), patch_id=k_jg )
     CALL default_var_list_settings( field_list,                &
                                   & lrestart=store_in_restart,         &
                                   & restart_type=FILETYPE_NC2  )
@@ -385,12 +386,13 @@ CONTAINS
   !>
   !!
   !!
-  SUBROUTINE new_hydro_diag_list( kproma, klev, ktracer, ctracer_list, &
+  SUBROUTINE new_hydro_diag_list( k_jg, kproma, klev, ktracer, ctracer_list, &
                                 & ltheta_dyn,                          &
                                 & kblks_c, kblks_e, kblks_v,           & 
                                 & listname, vname_prefix,              &
                                 & field_list, field, store_in_restart )
 
+    INTEGER,INTENT(IN) :: k_jg                       !< patch ID
     INTEGER,INTENT(IN) :: kproma, klev, ktracer      !< dimension sizes
     LOGICAL,INTENT(IN) :: ltheta_dyn
     INTEGER,INTENT(IN) :: kblks_c, kblks_e, kblks_v  !< dimension sizes
@@ -415,7 +417,7 @@ CONTAINS
 
     ! Register a variable list and apply default settings
 
-    CALL new_var_list( field_list, TRIM(listname) )
+    CALL new_var_list( field_list, TRIM(listname), patch_id=k_jg )
     CALL default_var_list_settings( field_list, lrestart=store_in_restart ) 
 
     !----------------------------

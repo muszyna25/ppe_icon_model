@@ -363,7 +363,7 @@ CONTAINS
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'construct hydro ocean physics')
 
-    CALL new_var_list(ocean_params_list, 'ocean_params_list')
+    CALL new_var_list(ocean_params_list, 'ocean_params_list', patch_id=ppatch%id)
     CALL default_var_list_settings( ocean_params_list,         &
       &                             lrestart=.TRUE.,           &
       &                             restart_type=FILETYPE_NC2, &

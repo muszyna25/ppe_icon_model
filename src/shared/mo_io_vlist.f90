@@ -226,7 +226,8 @@ MODULE mo_io_vlist
     &       get_outvar_ptr_oce,                                     &
     &       vlist_write_var, vlist_set_date_time, vlist_start_step, &
     &       de_reshape1, de_reshape2,                               &
-    &       gather_array1, gather_array2, t_collected_var_ptr
+    &       gather_array1, gather_array2, t_collected_var_ptr,      &
+    &       addGlobAtts, addAtmAtts, addOceAtts
 
   PRIVATE :: addGlobAttInt, addGlobAttTxt, addGlobAttFlt
   ! I/O stream handler

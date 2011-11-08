@@ -665,7 +665,7 @@ CONTAINS
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( p_ext_atm_list, TRIM(listname) )
+    CALL new_var_list( p_ext_atm_list, TRIM(listname), patch_id=p_patch%id )
     CALL default_var_list_settings( p_ext_atm_list,            &
                                   & lrestart=.TRUE.,           &
                                   & restart_type=FILETYPE_NC2  )
@@ -1137,7 +1137,7 @@ CONTAINS
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( p_ext_atm_td_list, TRIM(listname) )
+    CALL new_var_list( p_ext_atm_td_list, TRIM(listname), patch_id=p_patch%id )
     CALL default_var_list_settings( p_ext_atm_td_list,         &
                                   & lrestart=.FALSE.,           &
                                   & restart_type=FILETYPE_NC2  )
@@ -1345,7 +1345,7 @@ CONTAINS
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( p_ext_oce_list, TRIM(listname) )
+    CALL new_var_list( p_ext_oce_list, TRIM(listname), patch_id=p_patch%id )
     CALL default_var_list_settings( p_ext_oce_list,            &
                                   & lrestart=.FALSE.,          &
                                   & restart_type=FILETYPE_NC2, &

@@ -1,320 +1,105 @@
 MODULE mo_io_output
   !
   USE mo_kind,          ONLY: wp
-  USE mo_exception,     ONLY: finish, message, message_text
+  USE mo_exception,     ONLY: finish, message, message_text, get_filename_noext
   USE mo_var_metadata,  ONLY: t_var_metadata
-  USE mo_linked_list,   ONLY: t_list_element
+  USE mo_linked_list    ! we need all
   USE mo_var_list,      ONLY: t_var_list, nvar_lists, var_lists
   USE mo_cdi_constants
   USE mo_util_string,   ONLY: separator
   USE mo_util_sysinfo,  ONLY: util_user_name, util_os_system, util_node_name 
   USE mo_io_distribute, ONLY: gather_cells, gather_edges, gather_vertices
-  USE mo_mpi,           ONLY: my_process_is_stdio
-#ifndef NOMPI
-  USE mo_model_domain,  ONLY: t_patch
-#endif
+  USE mo_mpi,           ONLY: my_process_is_stdio, p_pe, p_barrier
+  USE mo_model_domain,  ONLY: t_patch, p_patch
+
+  USE mo_impl_constants,        ONLY: ihs_ocean, zml_soil
+  USE mo_vertical_coord_table,  ONLY: vct
+  USE mo_dynamics_config,       ONLY: iequations
+  USE mo_io_config,             ONLY: out_expname, lwrite_pzlev
+  USE mo_grid_config,           ONLY: global_cell_type
+  USE mo_run_config,            ONLY: num_lev, num_levp1
+  USE mo_io_units,              ONLY: filename_max
+  USE mo_nh_pzlev_config,       ONLY: nh_pzlev_config
+  USE mo_lnd_nwp_config,        ONLY: nlev_snow
+
+  USE mo_ocean_nml,             ONLY: n_zlev
+  USE mo_oce_state,             ONLY: set_zlev
+
+  USE mo_io_vlist,              ONLY: addGlobAtts, addAtmAtts, addOceAtts
+
   !
   IMPLICIT NONE
   !
   PRIVATE
   !
   PUBLIC :: set_output_time
-  PUBLIC :: set_output_vct, set_output_depth, set_output_height
   PUBLIC :: init_output
   PUBLIC :: open_output_files
   PUBLIC :: write_output
   PUBLIC :: close_output_files
   PUBLIC :: finish_output
   !
-  TYPE t_output_files
-    CHARACTER(len=64) :: functionality
-    CHARACTER(len=64) :: filename
-  END type t_output_files
-  INTEGER, PARAMETER :: max_output_files = 257
-  INTEGER, SAVE :: noutput_files = 0 
-  TYPE(t_output_files), ALLOCATABLE :: output_files(:)
-  !
-  TYPE t_h_grid
-    INTEGER :: type
-    INTEGER :: nelements
-    INTEGER :: nvertices
-  END type t_h_grid
-  !
-  INTEGER, SAVE :: nh_grids = 0 
-  TYPE(t_h_grid) :: hgrid_def(3)
-  !
-  TYPE t_v_grid
-    INTEGER :: type
-    INTEGER :: nlevels
-  END type t_v_grid
-  !
-  INTEGER, SAVE :: nv_grids = 0 
-  TYPE(t_v_grid) :: vgrid_def(7)
-  !
-  TYPE t_t_axis
-    INTEGER :: type
-  END type t_t_axis
-  !
-  INTEGER, SAVE :: nt_axis = 0 
-  TYPE(t_t_axis) :: taxis_def(2)
-  !
   CHARACTER(len=32) :: private_initial_time = '' 
   CHARACTER(len=32) :: private_output_time = '' 
-  REAL(wp), ALLOCATABLE :: private_vct(:)
-  REAL(wp), ALLOCATABLE :: private_depth_full(:),  private_depth_half(:)
-  REAL(wp), ALLOCATABLE :: private_height_full(:),  private_height_half(:) 
-  !
-  LOGICAL, SAVE :: lvct_initialised = .FALSE. 
-  LOGICAL, SAVE :: ldepth_initialised = .FALSE. 
-  LOGICAL, SAVE :: lheight_initialised = .FALSE. 
-  !
-  LOGICAL, SAVE :: loutput_initialised = .FALSE. 
-  !
-  INTEGER :: private_nc  = -1
-  INTEGER :: private_ncv = -1
-  INTEGER :: private_nv  = -1
-  INTEGER :: private_nvv = -1
-  INTEGER :: private_ne  = -1
-  INTEGER :: private_nev = -1
-  !
-  CHARACTER(len=1024) :: private_base_filename
   !
   !
   !------------------------------------------------------------------------------------------------
 CONTAINS
   !------------------------------------------------------------------------------------------------
   !
-  SUBROUTINE set_output_filenames(functionality, filename)
-    CHARACTER(len=*), INTENT(in) :: functionality
-    CHARACTER(len=*), INTENT(in) :: filename
-    IF (.NOT. ALLOCATED(output_files)) THEN
-      ALLOCATE(output_files(max_output_files))
-    ENDIF
-    noutput_files = noutput_files+1
-    IF (noutput_files > max_output_files) THEN
-      CALL finish('set_output_filenames','too many output filenames')
-    ELSE
-      output_files(noutput_files)%functionality = functionality
-      output_files(noutput_files)%filename      = filename
-    ENDIF    
-  END SUBROUTINE set_output_filenames
-  !
-  SUBROUTINE get_output_filenames()
-  END SUBROUTINE get_output_filenames
-  !
-  !------------------------------------------------------------------------------------------------
-  !
   ! YYYYMMDDThhmmssZ (T is a separator and Z means UTC as timezone)
   !
   SUBROUTINE set_output_time(iso8601)
     CHARACTER(len=*), INTENT(in) :: iso8601
-    IF (private_initial_time == '') THEN
-      private_initial_time = iso8601
-    ELSE
+    !IF (private_initial_time == '') THEN
+    !  private_initial_time = iso8601
+    !ELSE
       private_output_time = iso8601
-    ENDIF
+    !ENDIF
   END SUBROUTINE set_output_time
   !------------------------------------------------------------------------------------------------
-  !
-  !  VCT as in echam (first half of vector contains a and second half b
-  !
-  SUBROUTINE set_output_vct(vct)
-    REAL(wp), INTENT(in) :: vct(:)
-    IF (lvct_initialised) RETURN
-    ALLOCATE(private_vct(SIZE(vct)))
-    private_vct(:) = vct(:)
-    lvct_initialised = .TRUE.
-  END SUBROUTINE set_output_vct
-  !------------------------------------------------------------------------------------------------
-  !
-  !  height based vertical coordinates
-  !
-  SUBROUTINE set_output_height(zh, zf)
-    REAL(wp), INTENT(in) :: zh(:), zf(:)
-    IF (lheight_initialised) RETURN
-    ALLOCATE(private_height_half(SIZE(zh)), private_height_full(SIZE(zf)))
-    private_height_half(:) = zh(:)
-    private_height_full(:) = zf(:)
-    lheight_initialised = .TRUE.
-  END SUBROUTINE set_output_height
-  !------------------------------------------------------------------------------------------------
-  !
-  !  depth based vertical coordinates
-  !
-  SUBROUTINE set_output_depth(zh, zf)
-    REAL(wp), INTENT(in) :: zh(:), zf(:)
-    IF (ldepth_initialised) RETURN
-    ALLOCATE(private_depth_half(SIZE(zh)), private_depth_full(SIZE(zf)))
-    private_depth_half(:) = zh(:)
-    private_depth_full(:) = zf(:)
-    ldepth_initialised = .TRUE.
-  END SUBROUTINE set_output_depth
-  !------------------------------------------------------------------------------------------------
-  !
-  SUBROUTINE set_horizontal_grid(grid_type, nelements, nvertices)
-    INTEGER, INTENT(in) :: grid_type
-    INTEGER, INTENT(in) :: nelements
-    INTEGER, INTENT(in) :: nvertices
-    !    
-    nh_grids = nh_grids+1
-    !
-    hgrid_def(nh_grids)%type      = grid_type
-    hgrid_def(nh_grids)%nelements = nelements
-    hgrid_def(nh_grids)%nvertices = nvertices
-    !
-  END SUBROUTINE set_horizontal_grid
-  !------------------------------------------------------------------------------------------------
-  !
-  SUBROUTINE set_vertical_grid(type, nlevels)
-    INTEGER, INTENT(in) :: type
-    INTEGER, INTENT(in) :: nlevels
-    !    
-    nv_grids = nv_grids+1
-    !
-    vgrid_def(nv_grids)%type    = type
-    vgrid_def(nv_grids)%nlevels = nlevels
-    !
-  END SUBROUTINE set_vertical_grid
-  !------------------------------------------------------------------------------------------------
-  !
-  SUBROUTINE set_time_axis(type)
-    INTEGER, INTENT(in) :: type
-    !    
-    nt_axis = nt_axis+1
-    !
-    taxis_def(nt_axis)%type = type
-    !
-  END SUBROUTINE set_time_axis
-  !------------------------------------------------------------------------------------------------
-  !
-  SUBROUTINE init_output(model_name, model_version, &
-       &                 experiment_id,             &
-       &                 domain, root, refinement,  & 
-       &                 nc, ncv, nv, nvv, ne, nev, &
-       &                 nlev, ndepth, nheight)
-    CHARACTER(len=*), INTENT(in) :: model_name
-    CHARACTER(len=*), INTENT(in) :: model_version
-    CHARACTER(len=*), INTENT(in) :: experiment_id
-    INTEGER,          INTENT(in) :: domain
-    INTEGER,          INTENT(in) :: root
-    INTEGER,          INTENT(in) :: refinement
-    INTEGER,          INTENT(in) :: nc
-    INTEGER,          INTENT(in) :: ncv
-    INTEGER,          INTENT(in) :: nv
-    INTEGER,          INTENT(in) :: nvv
-    INTEGER,          INTENT(in) :: ne
-    INTEGER,          INTENT(in) :: nev
-    INTEGER,          INTENT(in) :: nlev
-    INTEGER,          INTENT(in) :: ndepth
-    INTEGER,          INTENT(in) :: nheight
-    !
-    CHARACTER(len= 256) :: executable
-    CHARACTER(len= 256) :: user_name
-    CHARACTER(len= 256) :: os_name
-    CHARACTER(len= 256) :: host_name
-    CHARACTER(len= 256) :: tmp_string
-    CHARACTER(len=   8) :: date_string
-    CHARACTER(len=  10) :: time_string
-    !
-    INTEGER :: nlena, nlenb, nlenc, nlend
-    !
-    IF (loutput_initialised) RETURN
-    !
-    IF (private_initial_time == '') THEN
-      CALL finish('open_output_files','initial time not set')
-    ENDIF
+  SUBROUTINE init_output
 
-    ! set base output filename  
-    !
-    WRITE(private_base_filename,'(a,a,i2.2,a,i2.2,a,i2.2,a,i2.2,a,a)') &
-         experiment_id,                                                &
-         '_D', domain, 'R', root, 'B', refinement, 'L', nlev,          &
-         '_', private_initial_time
-write (0,'(/,a,a,a,a,a,a/)') &
-     'LK: ', model_name, '-', model_version, ': ', TRIM(private_base_filename)
-    !
-    executable = ''
-    user_name  = ''
-    os_name    = ''
-    host_name  = ''
-    !
-    CALL get_command_argument(0, executable, nlend)
-    CALL date_and_time(date_string, time_string)
-    !
-    tmp_string = ''
-    CALL util_os_system (tmp_string, nlena)
-    os_name = tmp_string(1:nlena)
+    INTEGER :: i
 
-    tmp_string = ''
-    CALL util_user_name (tmp_string, nlenb)
-    user_name = tmp_string(1:nlenb)
-    
-    tmp_string = ''
-    CALL util_node_name (tmp_string, nlenc)
-    host_name = tmp_string(1:nlenc)    
-    !
-    ! set CD-Convention required output attributes
-    !
-!!$    CALL set_output_attribute('title',       &
-!!$         'ICON simulation')
-!!$    CALL set_output_attribute('institution', &
-!!$         'Max Planck Institute for Meteorology/Deutscher Wetterdienst')
-!!$    CALL set_output_attribute('source',      &
-!!$         model_name//'-'//model_version)
-!!$    CALL set_output_attribute('history',     &
-!!$         executable(1:nlend)//' at '//date_string(1:8)//' '//time_string(1:6))
-!!$    CALL set_output_attribute('references',  &
-!!$         'see MPIM/DWD publications')
-!!$    CALL set_output_attribute('comment',     &
-!!$         TRIM(user_name)//' on '//TRIM(host_name)//' ('//TRIM(os_name)//')')
-    !
-    ! define horizontal grids
-    !
-    CALL set_horizontal_grid(GRID_UNSTRUCTURED_CELL, nc, ncv)
-    CALL set_horizontal_grid(GRID_UNSTRUCTURED_VERT, nv, nvv)
-    CALL set_horizontal_grid(GRID_UNSTRUCTURED_EDGE, ne, nev)
-    !
-    ! define vertical grids 
-    !
-    CALL set_vertical_grid(ZAXIS_SURFACE,     1)
-    CALL set_vertical_grid(ZAXIS_HYBRID,      nlev)
-    CALL set_vertical_grid(ZAXIS_HYBRID_HALF, nlev+1)
-    CALL set_vertical_grid(ZAXIS_DEPTH_BELOW_SEA, ndepth)
-    CALL set_vertical_grid(ZAXIS_DEPTH_BELOW_SEA, ndepth+1)
-    CALL set_vertical_grid(ZAXIS_HEIGHT, nheight)
-    CALL set_vertical_grid(ZAXIS_HEIGHT, nheight+1)    !
-    !
-    ! define time axis
-    !
-    CALL set_time_axis(TAXIS_ABSOLUTE)
-    CALL set_time_axis(TAXIS_RELATIVE)
-    !
-    private_nc  = nc
-    private_ncv = ncv
-    private_nv  = nv
-    private_nvv = nvv
-    private_ne  = ne
-    private_nev = nev
-    !
-    loutput_initialised = .TRUE.
-    !
+    ! This routine currently sets the output flag to TRUE for every var_list.
+    ! This is for testing only and has to be made dependend on the different output flags
+    ! like in mo_io_vlist - this is experimental code at the moment!
+
+    DO i = 1, nvar_lists
+
+      var_lists(i)%p%loutput = .TRUE.
+
+      ! Some elements of the ext_data_atm_td_.. var_lists have the wrong shape
+      ! (/ nproma, nblks_c, ntimes /), so we must omit these lists since otherwise
+      ! the program crashes during communication:
+      IF(var_lists(i)%p%name(1:15) == 'ext_data_atm_td') var_lists(i)%p%loutput = .FALSE.
+
+      ! Set filetype to NetCDF
+      var_lists(i)%p%output_type = FILETYPE_NC2
+    ENDDO
+
   END SUBROUTINE init_output
   !------------------------------------------------------------------------------------------------
   !
   ! Loop over all the output streams and open the associated files. Set
   ! unit numbers (file IDs) for all streams associated with a file.
   !
-  SUBROUTINE open_output_files
-    !
-    CHARACTER(len=1024) :: output_filename
-    INTEGER :: i ,j, k, ihg, ivg, nlevp1
-    REAL(wp), ALLOCATABLE :: levels(:)
+  SUBROUTINE open_output_files(jfile)
+
+    INTEGER, INTENT(IN) :: jfile ! Number of file set to open
+
+    CHARACTER(len=filename_max) :: output_filename
+    CHARACTER(LEN=filename_max) :: grid_filename
+    INTEGER :: i ,j, k, k_jg, nlev, nlevp1, nplev, nzlev, nzlevp1, znlev_soil, astatus
+    REAL(wp), ALLOCATABLE :: levels(:), levels_i(:), levels_m(:)
     !
     ! first check for output time
     !
-    IF (private_initial_time == '') THEN
-      CALL finish('open_output_files','initial time not set')
-    ENDIF
+!   RJ: Currently private_initial_time not set (and not needed)
+!    IF (private_initial_time == '') THEN
+!      CALL finish('open_output_files','initial time not set')
+!    ENDIF
     !
     ! print header for output var_lists
     !
@@ -331,6 +116,7 @@ write (0,'(/,a,a,a,a,a,a/)') &
     !
     DO i = 1, nvar_lists
       var_lists(i)%p%first = .FALSE.
+      var_lists(i)%p%output_opened = .FALSE.
     ENDDO
     !
     DO i = 1, nvar_lists
@@ -360,9 +146,17 @@ write (0,'(/,a,a,a,a,a,a/)') &
       !
       var_lists(i)%p%first = .TRUE.
       !
-      output_filename = TRIM(private_base_filename)      &
-           &           //'_'//TRIM(var_lists(i)%p%model_type)//'.nc'
+      k_jg = var_lists(i)%p%patch_id
+      IF(k_jg<=0) call finish('open_output_files','patch_id <= 0')
+
+      grid_filename = get_filename_noext(p_patch(k_jg)%grid_filename)
+      ! Raw data file name(s) for output
       !
+      WRITE (output_filename,'(a,a,a,a,i4.4,a)')  &
+        &  TRIM(out_expname),"_",TRIM(grid_filename),'_', jfile, '.nc'
+      !output_filename = TRIM(private_base_filename)      &
+      !     &           //'_'//TRIM(var_lists(i)%p%model_type)//'.nc'
+
       IF (my_process_is_stdio()) THEN
         SELECT CASE (var_lists(i)%p%output_type)
         CASE (FILETYPE_NC2)
@@ -380,8 +174,7 @@ write (0,'(/,a,a,a,a,a,a/)') &
           CALL message('',message_text)
           CALL finish ('open_output_files', 'open failed on '//TRIM(output_filename))
         ELSE
-          CALL message ('LK: ', 'open succedded on '//TRIM(output_filename))
-write (0,*) 'LK: fileid - ', var_lists(i)%p%cdiFileID_output           
+          CALL message ('open_output_files', 'opened '//TRIM(output_filename))
           var_lists(i)%p%output_opened = .TRUE.
         END IF
         !
@@ -398,117 +191,175 @@ write (0,*) 'LK: fileid - ', var_lists(i)%p%cdiFileID_output
         ! 2. add global attributes for netCDF
         !
         ! 3. add horizontal grid descriptions
+
+        ! Cells
+
+        var_lists(i)%p%cdiCellGridID = gridCreate(GRID_UNSTRUCTURED, p_patch(k_jg)%n_patch_cells_g)
+        CALL gridDefNvertex(var_lists(i)%p%cdiCellGridID, global_cell_type)
         !
-        DO ihg = 1, nh_grids
-          SELECT CASE (hgrid_def(ihg)%type)
-          CASE (GRID_UNSTRUCTURED_CELL)
-            var_lists(i)%p%cdiCellGridID = gridCreate(GRID_UNSTRUCTURED, hgrid_def(ihg)%nelements)
-            CALL gridDefNvertex(var_lists(i)%p%cdiCellGridID, hgrid_def(ihg)%nvertices)
-            !
-            CALL gridDefXname(var_lists(i)%p%cdiCellGridID, 'clon')
-            CALL gridDefXlongname(var_lists(i)%p%cdiCellGridID, 'center longitude')
-            CALL gridDefXunits(var_lists(i)%p%cdiCellGridID, 'radians')
-            !
-            CALL gridDefYname(var_lists(i)%p%cdiCellGridID, 'clat')
-            CALL gridDefYlongname(var_lists(i)%p%cdiCellGridID, 'center latitude')
-            CALL gridDefYunits(var_lists(i)%p%cdiCellGridID, 'radians')
-            !
-          CASE (GRID_UNSTRUCTURED_VERT)
-            var_lists(i)%p%cdiVertGridID = gridCreate(GRID_UNSTRUCTURED, hgrid_def(ihg)%nelements)
-            CALL gridDefNvertex(var_lists(i)%p%cdiVertGridID, hgrid_def(ihg)%nvertices)
-            !
-            CALL gridDefXname(var_lists(i)%p%cdiVertGridID, 'vlon')
-            CALL gridDefXlongname(var_lists(i)%p%cdiVertGridID, 'vertex longitude')
-            CALL gridDefXunits(var_lists(i)%p%cdiVertGridID, 'radians')
-            !
-            CALL gridDefYname(var_lists(i)%p%cdiVertGridID, 'vlat')
-            CALL gridDefYlongname(var_lists(i)%p%cdiVertGridID, 'vertex latitude')
-            CALL gridDefYunits(var_lists(i)%p%cdiVertGridID, 'radians')
-            !
-          CASE (GRID_UNSTRUCTURED_EDGE)
-            var_lists(i)%p%cdiEdgeGridID = gridCreate(GRID_UNSTRUCTURED, hgrid_def(ihg)%nelements)
-            CALL gridDefNvertex(var_lists(i)%p%cdiEdgeGridID, hgrid_def(ihg)%nvertices)
-            !
-            CALL gridDefXname(var_lists(i)%p%cdiEdgeGridID, 'elon')
-            CALL gridDefXlongname(var_lists(i)%p%cdiEdgeGridID, 'edge longitude')
-            CALL gridDefXunits(var_lists(i)%p%cdiEdgeGridID, 'radians')
-            !
-            CALL gridDefYname(var_lists(i)%p%cdiEdgeGridID, 'elat')
-            CALL gridDefYlongname(var_lists(i)%p%cdiEdgeGridID, 'edge latitude')
-            CALL gridDefYunits(var_lists(i)%p%cdiEdgeGridID, 'radians')
-            !
-          END SELECT
-        ENDDO
+        CALL gridDefXname(var_lists(i)%p%cdiCellGridID, 'clon')
+        CALL gridDefXlongname(var_lists(i)%p%cdiCellGridID, 'center longitude')
+        CALL gridDefXunits(var_lists(i)%p%cdiCellGridID, 'radians')
+        !
+        CALL gridDefYname(var_lists(i)%p%cdiCellGridID, 'clat')
+        CALL gridDefYlongname(var_lists(i)%p%cdiCellGridID, 'center latitude')
+        CALL gridDefYunits(var_lists(i)%p%cdiCellGridID, 'radians')
+
+        ! Verts
+
+        var_lists(i)%p%cdiVertGridID = gridCreate(GRID_UNSTRUCTURED, p_patch(k_jg)%n_patch_verts_g)
+        CALL gridDefNvertex(var_lists(i)%p%cdiVertGridID, 9-global_cell_type)
+        !
+        CALL gridDefXname(var_lists(i)%p%cdiVertGridID, 'vlon')
+        CALL gridDefXlongname(var_lists(i)%p%cdiVertGridID, 'vertex longitude')
+        CALL gridDefXunits(var_lists(i)%p%cdiVertGridID, 'radians')
+        !
+        CALL gridDefYname(var_lists(i)%p%cdiVertGridID, 'vlat')
+        CALL gridDefYlongname(var_lists(i)%p%cdiVertGridID, 'vertex latitude')
+        CALL gridDefYunits(var_lists(i)%p%cdiVertGridID, 'radians')
+
+        ! Edges
+
+        var_lists(i)%p%cdiEdgeGridID = gridCreate(GRID_UNSTRUCTURED, p_patch(k_jg)%n_patch_edges_g)
+        CALL gridDefNvertex(var_lists(i)%p%cdiEdgeGridID, 4)
+        !
+        CALL gridDefXname(var_lists(i)%p%cdiEdgeGridID, 'elon')
+        CALL gridDefXlongname(var_lists(i)%p%cdiEdgeGridID, 'edge longitude')
+        CALL gridDefXunits(var_lists(i)%p%cdiEdgeGridID, 'radians')
+        !
+        CALL gridDefYname(var_lists(i)%p%cdiEdgeGridID, 'elat')
+        CALL gridDefYlongname(var_lists(i)%p%cdiEdgeGridID, 'edge latitude')
+        CALL gridDefYunits(var_lists(i)%p%cdiEdgeGridID, 'radians')
+
         !
         ! 4. add vertical grid descriptions
-        !
-        DO ivg = 1, nv_grids
-          SELECT CASE (vgrid_def(ivg)%type)
-          CASE (ZAXIS_SURFACE)
-            var_lists(i)%p%cdiSurfZaxisID = zaxisCreate(ZAXIS_SURFACE, vgrid_def(ivg)%nlevels)
-            ALLOCATE(levels(1))
-            levels(1) = 0.0_wp
-            CALL zaxisDefLevels(var_lists(i)%p%cdiSurfZaxisID, levels)
-            DEALLOCATE(levels)
-          CASE (ZAXIS_HYBRID)
-            IF (.NOT. lvct_initialised) CYCLE
-            var_lists(i)%p%cdiFullZaxisID = zaxisCreate(ZAXIS_HYBRID, vgrid_def(ivg)%nlevels)
-            ALLOCATE(levels(vgrid_def(ivg)%nlevels))
-            DO k = 1, vgrid_def(ivg)%nlevels
-              levels(k) = REAL(k,wp)
+        !    RJ: This is copied from mo_io_vlist
+
+        ! surface level
+        var_lists(i)%p%cdiZaxisID(ZA_surface) = zaxisCreate(ZAXIS_SURFACE, 1)
+        ALLOCATE(levels(1))
+        levels(1) = 0.0_wp
+        CALL zaxisDefLevels(var_lists(i)%p%cdiZaxisID(ZA_surface), levels)
+        DEALLOCATE(levels)
+
+        ! atm (pressure) height, ocean depth
+        IF (iequations/=ihs_ocean) THEN ! atm 
+
+          nlev   = num_lev(k_jg)
+          nlevp1 = num_levp1(k_jg)
+          ! introduce temporary variable znlev_soil, since global variable nlev_soil 
+          ! is unknown to the I/O-Processor. Otherwise receive_patch_configuration in 
+          ! mo_io_async complains about mismatch of levels. 
+          znlev_soil = SIZE(zml_soil)-1
+
+          ! Hybrid
+
+          var_lists(i)%p%cdiZaxisID(ZA_hybrid)      = zaxisCreate(ZAXIS_HYBRID, nlev)
+          var_lists(i)%p%cdiZaxisID(ZA_hybrid_half) = zaxisCreate(ZAXIS_HYBRID_HALF, nlevp1)
+
+          ALLOCATE(levels(nlev))
+          DO k = 1, nlev
+            levels(k) = REAL(k,wp)
+          END DO
+          CALL zaxisDefLevels(var_lists(i)%p%cdiZaxisID(ZA_hybrid), levels)
+          DEALLOCATE(levels)
+          CALL zaxisDefVct(var_lists(i)%p%cdiZaxisID(ZA_hybrid), 2*nlevp1, vct(1:2*nlevp1))
+          !
+          ALLOCATE(levels(nlevp1))
+          DO k = 1, nlevp1
+            levels(k) = REAL(k,wp)
+          END DO
+          CALL zaxisDefLevels(var_lists(i)%p%cdiZaxisID(ZA_hybrid_half), levels)
+          DEALLOCATE(levels)
+          CALL zaxisDefVct(var_lists(i)%p%cdiZaxisID(ZA_hybrid_half), 2*nlevp1, vct(1:2*nlevp1))
+
+          ! Define axes for soil model
+
+          var_lists(i)%p%cdiZaxisID(ZA_depth_below_land_p1) = &
+            & zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil+2)
+          ALLOCATE(levels(znlev_soil+2))
+          levels(1) = 0._wp
+          DO k = 1, znlev_soil+1
+            levels(k+1) = zml_soil(k)*100._wp
+          END DO
+          CALL zaxisDefLevels(var_lists(i)%p%cdiZaxisID(ZA_depth_below_land_p1), levels)
+          DEALLOCATE(levels)
+
+          var_lists(i)%p%cdiZaxisID(ZA_depth_below_land) = &
+            & zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil+1)
+          CALL zaxisDefLevels(var_lists(i)%p%cdiZaxisID(ZA_depth_below_land), zml_soil*100._wp)
+          !
+          var_lists(i)%p%cdiZaxisID(ZA_generic_snow_p1) = zaxisCreate(ZAXIS_GENERIC, nlev_snow+1)
+          ALLOCATE(levels(nlev_snow+1))
+          DO k = 1, nlev_snow+1
+            levels(k) = REAL(k,wp)
+          END DO
+          CALL zaxisDefLevels(var_lists(i)%p%cdiZaxisID(ZA_generic_snow_p1), levels)
+          DEALLOCATE(levels)
+          !
+          var_lists(i)%p%cdiZaxisID(ZA_generic_snow) = zaxisCreate(ZAXIS_GENERIC, nlev_snow)
+          ALLOCATE(levels(nlev_snow))
+          DO k = 1, nlev_snow
+            levels(k) = REAL(k,wp)
+          END DO
+          CALL zaxisDefLevels(var_lists(i)%p%cdiZaxisID(ZA_generic_snow), levels)
+          DEALLOCATE(levels)
+
+          ! Define axes for output on p- and z-levels
+          !
+          IF (lwrite_pzlev) THEN
+            nplev = nh_pzlev_config(k_jg)%nplev
+            var_lists(i)%p%cdiZaxisID(ZA_pressure) = zaxisCreate(ZAXIS_PRESSURE, nplev)
+            ALLOCATE(levels(nplev))
+            DO k = 1, nplev
+              levels(k) = nh_pzlev_config(k_jg)%plevels(k)
             END DO
-            CALL zaxisDefLevels(var_lists(i)%p%cdiFullZaxisID, levels)
+            CALL zaxisDefLevels(var_lists(i)%p%cdiZaxisID(ZA_pressure), levels)
+            CALL zaxisDefVct(var_lists(i)%p%cdiZaxisID(ZA_pressure), nplev, levels)
             DEALLOCATE(levels)
-            nlevp1 = vgrid_def(ivg)%nlevels+1
-            CALL zaxisDefVct(var_lists(i)%p%cdiFullZaxisID, 2*nlevp1, private_vct(1:2*nlevp1))
-          CASE (ZAXIS_HYBRID_HALF)
-            IF (.NOT. lvct_initialised) CYCLE
-            var_lists(i)%p%cdiHalfZaxisID  = zaxisCreate(ZAXIS_HYBRID_HALF, vgrid_def(ivg)%nlevels)
-            ALLOCATE(levels(vgrid_def(ivg)%nlevels))
-            DO k = 1, vgrid_def(ivg)%nlevels
-              levels(k) = REAL(k,wp)
+
+            nzlev = nh_pzlev_config(k_jg)%nzlev
+            var_lists(i)%p%cdiZaxisID(ZA_height)  = zaxisCreate(ZAXIS_HEIGHT, nzlev)
+            ALLOCATE(levels(nzlev))
+            DO k = 1, nzlev
+              levels(k) = nh_pzlev_config(k_jg)%zlevels(k)
             END DO
-            CALL zaxisDefLevels(var_lists(i)%p%cdiHalfZaxisID, levels)
+            CALL zaxisDefLevels(var_lists(i)%p%cdiZaxisID(ZA_height), levels)
+            CALL zaxisDefVct(var_lists(i)%p%cdiZaxisID(ZA_height), nzlev, levels)
             DEALLOCATE(levels)
-            nlevp1 = vgrid_def(ivg)%nlevels
-            CALL zaxisDefVct(var_lists(i)%p%cdiHalfZaxisID, 2*nlevp1, private_vct(1:2*nlevp1))
-          CASE (ZAXIS_DEPTH_BELOW_SEA)
-            IF (.NOT. ldepth_initialised) CYCLE
-            IF (SIZE(private_depth_full) == vgrid_def(ivg)%nlevels) THEN
-              var_lists(i)%p%cdiDepthFullZaxisID = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, &
-                   &                                           vgrid_def(ivg)%nlevels)
-              CALL zaxisDefLevels(var_lists(i)%p%cdiDepthFullZaxisID, &
-                   &              private_depth_full)
-            ELSE IF (SIZE(private_depth_half) == vgrid_def(ivg)%nlevels) THEN
-              var_lists(i)%p%cdiDepthHalfZaxisID = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, &
-                   &                                           vgrid_def(ivg)%nlevels)
-              CALL zaxisDefLevels(var_lists(i)%p%cdiDepthHalfZaxisID, &
-                   &              private_depth_half)
-            ELSE
-              CALL finish('open_output_files','Number of depth levels not available.')
-            ENDIF
-          CASE (ZAXIS_HEIGHT)
-            IF (.NOT. lheight_initialised) CYCLE
-            IF (SIZE(private_height_full) == vgrid_def(ivg)%nlevels) THEN
-              var_lists(i)%p%cdiHeightFullZaxisID = zaxisCreate(ZAXIS_HEIGHT, &
-                   &                                            vgrid_def(ivg)%nlevels)
-              CALL zaxisDefLevels(var_lists(i)%p%cdiHeightFullZaxisID, &
-                   &              private_height_full)
-            ELSE IF (SIZE(private_height_half) == vgrid_def(ivg)%nlevels) THEN
-              var_lists(i)%p%cdiHeightHalfZaxisID = zaxisCreate(ZAXIS_HEIGHT, &
-                   &                                            vgrid_def(ivg)%nlevels)
-              CALL zaxisDefLevels(var_lists(i)%p%cdiHeightHalfZaxisID, &
-                   &              private_height_half)
-            ELSE
-              CALL finish('open_output_files','Number of height levels not available.')
-            ENDIF
-          END SELECT
-        ENDDO
+          ENDIF
+
+        ELSE ! oce
+          var_lists(i)%p%cdiZaxisID(ZA_depth)      = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, n_zlev)
+          nzlevp1 = n_zlev + 1
+          var_lists(i)%p%cdiZaxisID(ZA_depth_half) = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, nzlevp1)
+
+          ALLOCATE(levels_i(nzlevp1))
+          ALLOCATE(levels_m(n_zlev))
+          CALL set_zlev(levels_i, levels_m)
+          CALL zaxisDefLevels(var_lists(i)%p%cdiZaxisID(ZA_depth)     , levels_m)
+          CALL zaxisDefLevels(var_lists(i)%p%cdiZaxisID(ZA_depth_half), levels_i)
+          DEALLOCATE(levels_i)
+          DEALLOCATE(levels_m)
+          var_lists(i)%p%cdiZaxisID(ZA_generic_ice) = zaxisCreate(ZAXIS_GENERIC, 1)
+        ENDIF
+
         !
         ! 5. output does contain absolute time 
         !
         var_lists(i)%p%cdiTaxisID = taxisCreate(TAXIS_ABSOLUTE)
         CALL vlistDefTaxis(var_lists(i)%p%cdiVlistID, var_lists(i)%p%cdiTaxisID)
+
+        !
+        ! 6. global attributes
+        !
+        CALL addGlobAtts(var_lists(i)%p%cdiVlistID,k_jg,astatus)
+        IF (iequations/=ihs_ocean) THEN
+          CALL addAtmAtts(var_lists(i)%p%cdiVlistID,k_jg,astatus)
+        ELSE
+          CALL addOceAtts(var_lists(i)%p%cdiVlistID,astatus)
+        END IF
+
       ENDIF
       !
       ! add variables
@@ -535,7 +386,8 @@ write (0,*) 'LK: fileid - ', var_lists(i)%p%cdiFileID_output
           CALL finish('open_output_streams', 'different file types for the same output file')
         ENDIF
         !
-        IF (var_lists(i)%p%model_type == var_lists(j)%p%model_type) THEN 
+        IF (var_lists(i)%p%model_type == var_lists(j)%p%model_type .AND. &
+          & var_lists(i)%p%patch_id   == var_lists(j)%p%patch_id   ) THEN 
           var_lists(j)%p%output_opened = .TRUE.
           var_lists(j)%p%filename = var_lists(i)%p%filename          
           !
@@ -546,13 +398,7 @@ write (0,*) 'LK: fileid - ', var_lists(i)%p%cdiFileID_output
           var_lists(j)%p%cdiCellGridID        = var_lists(i)%p%cdiCellGridID
           var_lists(j)%p%cdiVertGridID        = var_lists(i)%p%cdiVertGridID
           var_lists(j)%p%cdiEdgeGridID        = var_lists(i)%p%cdiEdgeGridID
-          var_lists(j)%p%cdiSurfZaxisID       = var_lists(i)%p%cdiSurfZaxisID 
-          var_lists(j)%p%cdiFullZaxisID       = var_lists(i)%p%cdiFullZaxisID 
-          var_lists(j)%p%cdiHalfZaxisID       = var_lists(i)%p%cdiHalfZaxisID 
-          var_lists(j)%p%cdiDepthFullZaxisID  = var_lists(i)%p%cdiDepthFullZaxisID 
-          var_lists(j)%p%cdiDepthHalfZaxisID  = var_lists(i)%p%cdiDepthHalfZaxisID 
-          var_lists(j)%p%cdiHeightFullZaxisID = var_lists(i)%p%cdiHeightFullZaxisID 
-          var_lists(j)%p%cdiHeightHalfZaxisID = var_lists(i)%p%cdiHeightHalfZaxisID
+          var_lists(j)%p%cdiZaxisID(:)        = var_lists(i)%p%cdiZaxisID(:)
           var_lists(j)%p%cdiTaxisID           = var_lists(i)%p%cdiTaxisID
           !
           ! add variables to already existing cdi vlists
@@ -590,12 +436,20 @@ write (0,*) 'LK: fileid - ', var_lists(i)%p%cdiFileID_output
     TYPE (t_list_element), POINTER :: element
     TYPE (t_list_element), TARGET  :: start_with
     !
-    INTEGER :: varID, gridID, zaxisID
+    INTEGER :: varID, gridID, zaxisID, k_jg, nlev, nlevp1, znlev_soil
     !
     REAL(wp) :: casted_missval
     !
     element => start_with
     element%next_list_element => this_list%p%first_list_element
+print *,'addVarListToVlist: ',TRIM(this_list%p%name)
+
+    k_jg   = this_list%p%patch_id
+    nlev   = num_lev(k_jg)
+    nlevp1 = num_levp1(k_jg)
+
+    ! See above ...
+    znlev_soil = SIZE(zml_soil)-1
     !
     for_all_list_elements: DO
       !
@@ -622,49 +476,88 @@ write (0,*) 'LK: fileid - ', var_lists(i)%p%cdiFileID_output
       CASE(GRID_UNSTRUCTURED_EDGE)
         info%cdiGridID = this_list%p%cdiEdgeGridID
         gridID = info%cdiGridID
+      CASE DEFAULT
+        CALL finish('addVarListToVlist', 'GRID definition missing for '//TRIM(info%name))
       END SELECT
+
       !
       ! set z axis ID
       !
       SELECT CASE (info%vgrid)
+
       CASE (ZAXIS_SURFACE)
-        info%cdiZaxisID =  this_list%p%cdiSurfZaxisID
-        zaxisID = info%cdiZaxisID
+        info%cdiZaxisID =  this_list%p%cdiZaxisID(ZA_surface)
+
       CASE (ZAXIS_HYBRID)
-        info%cdiZaxisID =  this_list%p%cdiFullZaxisID
-        zaxisID = info%cdiZaxisID
+        info%cdiZaxisID =  this_list%p%cdiZaxisID(ZA_hybrid)
+
       CASE (ZAXIS_HYBRID_HALF)
-        info%cdiZaxisID =  this_list%p%cdiHalfZaxisID
-        zaxisID = info%cdiZaxisID
+        info%cdiZaxisID =  this_list%p%cdiZaxisID(ZA_hybrid_half)
+
       CASE (ZAXIS_DEPTH_BELOW_SEA)
-        IF (info%used_dimensions(2) == SIZE(private_depth_half)) THEN
-          info%cdiZaxisID =  this_list%p%cdiDepthHalfZaxisID
-          zaxisID = info%cdiZaxisID
-        ELSE IF (info%used_dimensions(2) == SIZE(private_depth_full)) THEN
-          info%cdiZaxisID =  this_list%p%cdiDepthFullZaxisID
-          zaxisID = info%cdiZaxisID
+        ! RJ: Not sure about this ...
+        IF (info%used_dimensions(2) == n_zlev) THEN
+          info%cdiZaxisID =  this_list%p%cdiZaxisID(ZA_depth)
+        ELSE IF (info%used_dimensions(2) == n_zlev+1) THEN
+          info%cdiZaxisID =  this_list%p%cdiZaxisID(ZA_depth_half)
+        ELSE
+          PRINT *,'Variable: ',TRIM(info%name),' Dimension 2: ',info%used_dimensions(2)
+          CALL finish('addVarListToVlist','Dimension mismatch for ZAXIS_DEPTH_BELOW_SEA')
         ENDIF
+
+      CASE (ZAXIS_DEPTH_BELOW_LAND)
+        IF (info%used_dimensions(2) == znlev_soil+1) THEN
+          info%cdiZaxisID =  this_list%p%cdiZaxisID(ZA_depth_below_land)
+        ELSE IF (info%used_dimensions(2) == znlev_soil+2) THEN
+          info%cdiZaxisID =  this_list%p%cdiZaxisID(ZA_depth_below_land_p1)
+        ELSE
+          PRINT *,'Variable: ',TRIM(info%name),' Dimension 2: ',info%used_dimensions(2)
+          CALL finish('addVarListToVlist','Dimension mismatch for ZAXIS_DEPTH_BELOW_LAND')
+        ENDIF
+
       CASE (ZAXIS_HEIGHT)
-        IF (info%used_dimensions(2) == SIZE(private_height_half)) THEN
-          info%cdiZaxisID =  this_list%p%cdiHeightHalfZaxisID
-          zaxisID = info%cdiZaxisID
-        ELSE IF (info%used_dimensions(2) == SIZE(private_height_full)) THEN
-          info%cdiZaxisID =  this_list%p%cdiHeightFullZaxisID
-          zaxisID = info%cdiZaxisID
+        IF(info%name(1:8)=='lnd_prog' .AND. INDEX(info%name,'snow') /= 0) THEN
+          ! This is a special case - use ZA_generic_snow[_p1]
+          IF(info%used_dimensions(2) == nlev_snow) THEN
+            info%cdiZaxisID =  this_list%p%cdiZaxisID(ZA_generic_snow)
+          ELSE IF(info%used_dimensions(2) == nlev_snow+1) THEN
+            info%cdiZaxisID =  this_list%p%cdiZaxisID(ZA_generic_snow_p1)
+          ELSE
+            PRINT *,'SNOW variable: ',TRIM(info%name),' Dimension 2: ',info%used_dimensions(2)
+            CALL finish('addVarListToVlist','Dimension mismatch for ZAXIS_HEIGHT')
+          ENDIF
+        ELSE
+          ! In all other cases, ZAXIS_HEIGHT seems to be equivalent to ZAXIS_HYBRID/ZAXIS_HYBRID_HALF
+          ! TODO: Is there a difference to ZAXIS_HYBRID/ZAXIS_HYBRID_HALF ???
+          IF (info%used_dimensions(2) == nlevp1) THEN
+            info%cdiZaxisID =  this_list%p%cdiZaxisID(ZA_hybrid_half)
+          ELSE IF (info%used_dimensions(2) == nlev) THEN
+            info%cdiZaxisID =  this_list%p%cdiZaxisID(ZA_hybrid)
+          ELSE
+            PRINT *,'Variable: ',TRIM(info%name),' Dimension 2: ',info%used_dimensions(2)
+            CALL finish('addVarListToVlist','Dimension mismatch for ZAXIS_HEIGHT')
+          ENDIF
         ENDIF
+
+      CASE (ZAXIS_PRESSURE)
+        info%cdiZaxisID =  this_list%p%cdiZaxisID(ZA_pressure)
+
+      CASE (ZAXIS_ALTITUDE)
+        info%cdiZaxisID =  this_list%p%cdiZaxisID(ZA_height)
+
+      CASE DEFAULT
+        PRINT *,'Variable: ',TRIM(info%name),' ZAXIS: ',info%vgrid
+        CALL finish('addVarListToVlist', 'ZAXIS definition missing for '//TRIM(info%name))
+
       END SELECT
-      !
-      IF ( gridID  == -1 ) THEN
-        CALL finish('addStreamToVlist', 'GRID definition missing for '//TRIM(info%name))
-      END IF
-      IF ( zaxisID == -1 ) THEN
-        CALL finish('addStreamToVlist', 'ZAXIS definition missing for '//TRIM(info%name))
-      END IF
+
+      zaxisID = info%cdiZaxisID
       !
       info%cdiVarID = vlistDefVar(vlistID, gridID, zaxisID, TIME_VARIABLE)
       varID = info%cdiVarID 
       !
       CALL vlistDefVarDatatype(vlistID, varID, DATATYPE_FLT64)
+print *,'vlistDefVarName: ',info%name,this_list%p%patch_id
       CALL vlistDefVarName(vlistID, varID, info%name)
       !
       IF (info%cf%long_name /= '') CALL vlistDefVarLongname(vlistID, varID, info%cf%long_name)
@@ -730,6 +623,7 @@ write (0,*) 'LK: fileid - ', var_lists(i)%p%cdiFileID_output
       ENDIF
     ENDDO close_all_lists
     !
+    IF(my_process_is_stdio()) THEN ! not really necessary but prevents a compiler bug (???)
     for_all_vlists: DO i = 1, nvar_lists
       vlistID = var_lists(i)%p%cdiVlistID
       IF (vlistID /= CDI_UNDEFID) THEN
@@ -741,6 +635,7 @@ write (0,*) 'LK: fileid - ', var_lists(i)%p%cdiFileID_output
         ENDDO
       ENDIF
     ENDDO for_all_vlists
+    ENDIF
     CALL message('','')
     !
     ! reset all var list properties related to cdi files
@@ -757,12 +652,8 @@ write (0,*) 'LK: fileid - ', var_lists(i)%p%cdiFileID_output
   !
   ! loop over all var_lists for output
   !
-  SUBROUTINE write_output(p_patch)
-#ifndef NOMPI
-    TYPE(t_patch), OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,       OPTIONAL, INTENT(in) :: p_patch
-#endif
+  SUBROUTINE write_output
+
     INTEGER :: i,j
     LOGICAL :: write_info
     !
@@ -771,6 +662,9 @@ write (0,*) 'LK: fileid - ', var_lists(i)%p%cdiFileID_output
     ! pick up first stream associated with each file
     !
     DO i = 1, nvar_lists
+
+      IF (.NOT. var_lists(i)%p%loutput) CYCLE
+
       IF (var_lists(i)%p%first) THEN
         IF (write_info) THEN
           SELECT CASE (var_lists(i)%p%output_type)
@@ -803,12 +697,15 @@ write (0,*) 'LK: fileid - ', var_lists(i)%p%cdiFileID_output
         !
         DO j = i, nvar_lists
 
-          IF (var_lists(j)%p%cdiFileID_output == var_lists(i)%p%cdiFileID_output) THEN 
+          IF (.NOT. var_lists(j)%p%loutput) CYCLE
+
+          IF (var_lists(i)%p%model_type == var_lists(j)%p%model_type .AND. &
+            & var_lists(i)%p%patch_id   == var_lists(j)%p%patch_id   ) THEN 
             !
             !
             ! write variables
             !
-            CALL write_output_var_list(var_lists(j), p_patch=p_patch)
+            CALL write_output_var_list(var_lists(j))
             !
           ENDIF
         ENDDO
@@ -855,13 +752,8 @@ write (0,*) 'LK: fileid - ', var_lists(i)%p%cdiFileID_output
   !
   ! write variables of a list for output
   !
-  SUBROUTINE write_output_var_list(this_list, p_patch)
+  SUBROUTINE write_output_var_list(this_list)
     TYPE (t_var_list) ,INTENT(in) :: this_list
-#ifndef NOMPI
-    TYPE(t_patch), OPTIONAL, INTENT(in) :: p_patch
-#else
-    INTEGER,       OPTIONAL, INTENT(in) :: p_patch
-#endif
     !
     INTEGER           :: gridtype
     !
@@ -876,12 +768,15 @@ write (0,*) 'LK: fileid - ', var_lists(i)%p%cdiFileID_output
     !
     REAL(wp), POINTER :: r5d(:,:,:,:,:) ! field gathered on I/O processor
     !
-    INTEGER :: gdims(5), nindex
+    INTEGER :: gdims(5), nindex, k_jg
     !
     ! Loop over all fields in linked list
     !
     element => start_with
     element%next_list_element => this_list%p%first_list_element    
+
+    k_jg = this_list%p%patch_id
+    IF(k_jg<=0) call finish('write_output_var_list','patch_id <= 0') ! Safety only
     !
     for_all_list_elements: DO
       !
@@ -930,33 +825,33 @@ write (0,*) 'LK: fileid - ', var_lists(i)%p%cdiFileID_output
       SELECT CASE (gridtype)
       CASE (GRID_UNSTRUCTURED_CELL)
         IF (info%ndims == 2) THEN
-          gdims(:) = (/ private_nc, 1, 1, 1, 1 /)
+          gdims(:) = (/ p_patch(k_jg)%n_patch_cells_g, 1, 1, 1, 1 /)
           ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
-          CALL gather_cells(rptr2d, r5d, p_patch=p_patch)
+          CALL gather_cells(rptr2d, r5d, p_patch=p_patch(k_jg))
         ELSE
-          gdims(:) = (/ private_nc, info%used_dimensions(2), 1, 1, 1 /)
+          gdims(:) = (/ p_patch(k_jg)%n_patch_cells_g, info%used_dimensions(2), 1, 1, 1 /)
           ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
-          CALL gather_cells(rptr3d, r5d, p_patch=p_patch)
+          CALL gather_cells(rptr3d, r5d, p_patch=p_patch(k_jg))
         ENDIF
       CASE (GRID_UNSTRUCTURED_VERT)
         IF (info%ndims == 2) THEN
-          gdims(:) = (/ private_nv, 1, 1, 1, 1 /)
+          gdims(:) = (/ p_patch(k_jg)%n_patch_verts_g, 1, 1, 1, 1 /)
           ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
-          CALL gather_vertices(rptr2d, r5d, p_patch=p_patch)
+          CALL gather_vertices(rptr2d, r5d, p_patch=p_patch(k_jg))
         ELSE
-          gdims(:) = (/ private_nv, info%used_dimensions(2), 1, 1, 1 /)
+          gdims(:) = (/ p_patch(k_jg)%n_patch_verts_g, info%used_dimensions(2), 1, 1, 1 /)
           ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
-          CALL gather_vertices(rptr3d, r5d, p_patch=p_patch)
+          CALL gather_vertices(rptr3d, r5d, p_patch=p_patch(k_jg))
         ENDIF
       CASE (GRID_UNSTRUCTURED_EDGE)
         IF (info%ndims == 2) THEN
-          gdims(:) = (/ private_ne, 1, 1, 1, 1 /)
+          gdims(:) = (/ p_patch(k_jg)%n_patch_edges_g, 1, 1, 1, 1 /)
           ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
-          CALL gather_edges(rptr2d, r5d, p_patch=p_patch)
+          CALL gather_edges(rptr2d, r5d, p_patch=p_patch(k_jg))
         ELSE
-          gdims(:) = (/ private_ne, info%used_dimensions(2), 1, 1, 1 /)
+          gdims(:) = (/ p_patch(k_jg)%n_patch_edges_g, info%used_dimensions(2), 1, 1, 1 /)
           ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
-          CALL gather_edges(rptr3d, r5d, p_patch=p_patch)
+          CALL gather_edges(rptr3d, r5d, p_patch=p_patch(k_jg))
         ENDIF
       CASE default
         CALL finish('out_stream','unknown grid type')
@@ -1000,58 +895,28 @@ write (0,*) 'LK: fileid - ', var_lists(i)%p%cdiFileID_output
   !
   SUBROUTINE finish_output
 
-    INTEGER :: i
+    INTEGER :: i, j
 
     for_all_var_lists: DO i = 1, nvar_lists    
       IF (var_lists(i)%p%cdiFileID_output >= 0) THEN
         CALL gridDestroy(var_lists(i)%p%cdiCellGridID)
         CALL gridDestroy(var_lists(i)%p%cdiVertGridID)
         CALL gridDestroy(var_lists(i)%p%cdiEdgeGridID)
-        IF (var_lists(i)%p%cdiSurfZaxisID /= CDI_UNDEFID) &
-             CALL zaxisDestroy(var_lists(i)%p%cdiSurfZaxisID)
-        IF (var_lists(i)%p%cdiFullZaxisID /= CDI_UNDEFID) &
-             CALL zaxisDestroy(var_lists(i)%p%cdiFullZaxisID)
-        IF (var_lists(i)%p%cdiHalfZaxisID /= CDI_UNDEFID) &
-             CALL zaxisDestroy(var_lists(i)%p%cdiHalfZaxisID)
-        IF (var_lists(i)%p%cdiDepthFullZaxisID /= CDI_UNDEFID) &
-             CALL zaxisDestroy(var_lists(i)%p%cdiDepthFullZaxisID)
-        IF (var_lists(i)%p%cdiDepthHalfZaxisID /= CDI_UNDEFID) &
-             CALL zaxisDestroy(var_lists(i)%p%cdiDepthHalfZaxisID)
-        IF (var_lists(i)%p%cdiHeightFullZaxisID /= CDI_UNDEFID) &
-             CALL zaxisDestroy(var_lists(i)%p%cdiHeightFullZaxisID)
-        IF (var_lists(i)%p%cdiHeightHalfZaxisID /= CDI_UNDEFID) &
-             CALL zaxisDestroy(var_lists(i)%p%cdiHeightHalfZaxisID)
+        DO j = 1, SIZE(var_lists(i)%p%cdiZaxisID)
+          IF (var_lists(i)%p%cdiZaxisID(j) /= CDI_UNDEFID) &
+            CALL zaxisDestroy(var_lists(i)%p%cdiZaxisID(j))
+        ENDDO
         var_lists(i)%p%cdiFileId_output     = CDI_UNDEFID
         var_lists(i)%p%cdiVlistId           = CDI_UNDEFID
         var_lists(i)%p%cdiCellGridID        = CDI_UNDEFID
         var_lists(i)%p%cdiVertGridID        = CDI_UNDEFID
         var_lists(i)%p%cdiEdgeGridID        = CDI_UNDEFID
-        var_lists(i)%p%cdiSurfZaxisID       = CDI_UNDEFID
-        var_lists(i)%p%cdiHalfZaxisID       = CDI_UNDEFID
-        var_lists(i)%p%cdiFullZaxisID       = CDI_UNDEFID
-        var_lists(i)%p%cdiDepthHalfZaxisID  = CDI_UNDEFID
-        var_lists(i)%p%cdiDepthFullZaxisID  = CDI_UNDEFID
-        var_lists(i)%p%cdiHeightHalfZaxisID = CDI_UNDEFID
-        var_lists(i)%p%cdiHeightFullZaxisID = CDI_UNDEFID
+        var_lists(i)%p%cdiZaxisID(:)        = CDI_UNDEFID
         var_lists(i)%p%cdiTaxisID           = CDI_UNDEFID
         var_lists(i)%p%cdiTimeIndex         = CDI_UNDEFID
       ENDIF
     ENDDO for_all_var_lists
     !
-    IF (ALLOCATED(private_vct)) DEALLOCATE(private_vct)
-    lvct_initialised = .FALSE.
-    IF (ALLOCATED(private_depth_full)) DEALLOCATE(private_depth_full)
-    IF (ALLOCATED(private_depth_half)) DEALLOCATE(private_depth_half)
-    ldepth_initialised = .FALSE.
-    IF (ALLOCATED(private_height_full)) DEALLOCATE(private_height_full)
-    IF (ALLOCATED(private_height_half)) DEALLOCATE(private_height_half)
-    lheight_initialised = .FALSE.
-    !
-    nh_grids   = 0
-    nv_grids   = 0
-    nt_axis    = 0
-    loutput_initialised = .FALSE.
-    !
   END SUBROUTINE finish_output
-  !
+  !------------------------------------------------------------------------------------------------
 END MODULE mo_io_output

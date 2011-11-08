@@ -428,7 +428,7 @@ MODULE mo_nwp_lnd_state
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( prog_list, TRIM(listname) )
+    CALL new_var_list( prog_list, TRIM(listname), patch_id=p_jg )
     CALL default_var_list_settings( prog_list,                 &
                                   & lrestart=.TRUE.,           &
                                   & restart_type=FILETYPE_NC2  )
@@ -849,7 +849,7 @@ MODULE mo_nwp_lnd_state
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( diag_list, TRIM(listname) )
+    CALL new_var_list( diag_list, TRIM(listname), patch_id=p_jg )
     CALL default_var_list_settings( diag_list,                 &
                                   & lrestart=.TRUE.,           &
                                   & restart_type=FILETYPE_NC2  )

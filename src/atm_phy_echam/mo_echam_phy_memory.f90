@@ -475,13 +475,13 @@ CONTAINS
       ctracer_list = advection_config(jg)%ctracer_list
 
       WRITE(listname,'(a,i2.2)') 'prm_field_D',jg
-      CALL new_echam_phy_field_list(nproma, nlev, nblks, ntracer, ctracer_list, &
-                                   & nsfc_type, TRIM(listname), 'prm_',         &
+      CALL new_echam_phy_field_list( jg, nproma, nlev, nblks, ntracer, ctracer_list, &
+                                   & nsfc_type, TRIM(listname), 'prm_',              &
                                    & prm_field_list(jg), prm_field(jg)          )
 
       WRITE(listname,'(a,i2.2)') 'prm_tend_D',jg
-      CALL new_echam_phy_tend_list( nproma, nlev, nblks, ntracer, ctracer_list, &
-                                  & TRIM(listname), 'prm_tend_',                &
+      CALL new_echam_phy_tend_list( jg, nproma, nlev, nblks, ntracer, ctracer_list, &
+                                  & TRIM(listname), 'prm_tend_',                    &
                                   & prm_tend_list(jg), prm_tend(jg)             )
     ENDDO
     CALL message(TRIM(thismodule),'Construction of ECHAM physics state finished.')
@@ -529,10 +529,11 @@ CONTAINS
   !>
   !!
   !!
-  SUBROUTINE new_echam_phy_field_list( kproma, klev, kblks, ktracer,      &
+  SUBROUTINE new_echam_phy_field_list( k_jg, kproma, klev, kblks, ktracer,      &
                                      & ctracer_list, ksfc_type, listname, &
                                      & prefix, field_list, field          )
 
+    INTEGER,INTENT(IN) :: k_jg !> patch ID
     INTEGER,INTENT(IN) :: kproma, klev, kblks, ktracer, ksfc_type  !< dimension sizes
 
     CHARACTER(len=*),INTENT(IN)    :: listname, prefix
@@ -561,7 +562,7 @@ CONTAINS
 
     ! Register a field list and apply default settings
 
-    CALL new_var_list( field_list, TRIM(listname) )
+    CALL new_var_list( field_list, TRIM(listname), patch_id=k_jg )
     CALL default_var_list_settings( field_list,                &
                                   & lrestart=.TRUE.,           &
                                   & restart_type=FILETYPE_NC2  )
@@ -1454,10 +1455,11 @@ CONTAINS
   !>
   !!
   !!
-  SUBROUTINE new_echam_phy_tend_list( kproma, klev, kblks, ktracer,   &
-                                    & ctracer_list, listname, prefix, &
+  SUBROUTINE new_echam_phy_tend_list( k_jg, kproma, klev, kblks, ktracer,   &
+                                    & ctracer_list, listname, prefix,       &
                                     & tend_list, tend )
 
+    INTEGER,INTENT(IN) :: k_jg !> patch ID
     INTEGER,INTENT(IN) :: kproma, klev, kblks, ktracer  !< dimension sizes
 
     CHARACTER(len=*),INTENT(IN)    :: listname, prefix
@@ -1481,7 +1483,7 @@ CONTAINS
     shape3d   = (/kproma, klev, kblks/)
     shape_trc = (/kproma, klev, kblks, ktracer/)
 
-    CALL new_var_list( tend_list, TRIM(listname) )
+    CALL new_var_list( tend_list, TRIM(listname), patch_id=k_jg )
     CALL default_var_list_settings( tend_list, lrestart=.FALSE. )
 
     !------------------------------

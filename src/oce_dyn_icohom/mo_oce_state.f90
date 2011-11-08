@@ -481,7 +481,7 @@ CONTAINS
       ! construction loop: create components of state array
       ! !TODO organize var_lists for the multiple timesteps of prog. state
       WRITE(listname,'(a)')  'ocean_restart_var_list'
-      CALL new_var_list(ocean_var_list, listname)
+      CALL new_var_list(ocean_var_list, listname, patch_id=p_patch(jg)%id)
       CALL default_var_list_settings( ocean_var_list,            &
                                     & lrestart=.TRUE.,           &
                                     & restart_type=FILETYPE_NC2, &
