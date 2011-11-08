@@ -666,6 +666,7 @@ run/post.test_nat_jww_nwp_mpiomp -text
 run/post.test_nh35_tri_jws -text
 run/post.test_nh3_tri_tracer_solid_body -text
 run/run_ICOHAM_R2B4_APE -text
+run/run_ICONAM_ECMWF -text
 run/run_ICONAM_R2B4_APE -text
 run/run_ICONAM_R2B4_NWP -text
 run/test_local_patch_refinement -text
