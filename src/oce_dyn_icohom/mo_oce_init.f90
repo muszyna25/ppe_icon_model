@@ -1314,16 +1314,16 @@ END DO
       DO jb = i_startblk_c, i_endblk_c    
         CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
          &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
-
         DO jc = i_startidx_c, i_endidx_c
           DO jk=1,n_zlev
-            IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-                p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)=tprof_var(jk)
 
+            IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)=tprof_var(jk)
               IF(no_tracer==2)THEN
                 p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof_var(jk)
               ENDIF
             ENDIF
+
           END DO
         END DO
       END DO
@@ -1331,11 +1331,11 @@ END DO
 
     ! Testcase for coupled Aquaplanet:
     !  - following APE_ATLAS Equations (2.1) - (2.5)
-    !  - use function ape_sst - maximum temperature = 27 deg C
+    !  - use function ape_sst for initializing SST
     !  - decrease maximum temperature vertically by z_temp_incr
-    !    minimum temperature is 0 deg C
     CASE (50)
 
+    !  - use parameter 'sst_qobs' - maximum temperature = 27, minimum polar temperature = 0 deg C
       sst_case='sst_qobs'
       jk = 1
       DO jb = i_startblk_c, i_endblk_c    
@@ -1345,7 +1345,7 @@ END DO
         DO jc = i_startidx_c, i_endidx_c
           z_lat = ppatch%cells%center(jc,jb)%lat
           IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-            p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = ape_sst(sst_case,z_lat)-tmelt   ! SST
+            p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = ape_sst(sst_case,z_lat)-tmelt   ! SST in Celsius
           ELSE
             p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 0.0_wp
           END IF
@@ -1371,10 +1371,29 @@ END DO
             IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
               p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) &
                 &  = MAX(p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1)-z_temp_incr,0.0_wp)
+            ELSE
+              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 0.0_wp
             ENDIF
           END DO
         END DO
       END DO
+
+      !  - add horizontally homogen vertically increasing salinity
+      IF (no_tracer==2) THEN
+        DO jk=1,n_zlev
+          DO jb = i_startblk_c, i_endblk_c    
+            CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
+             &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
+            DO jc = i_startidx_c, i_endidx_c
+              IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+                p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof_var(jk)
+              ELSE
+                p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 0.0_wp
+              ENDIF
+            END DO
+          END DO
+        END DO
+      END IF
 
     CASE DEFAULT
      CALL finish(TRIM(routine), 'CHOSEN INITIALIZATION NOT SUPPORTED - TERMINATE')
