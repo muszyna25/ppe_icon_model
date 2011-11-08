@@ -553,7 +553,6 @@ END INTERFACE
 ! !LOCAL VARIABLES:
 
   REAL(wp):: z_s1, z_p
-  !INTEGER :: lev, jn, nc
   INTEGER :: jc, jk, jb
   INTEGER :: rl_start, rl_end
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
@@ -586,7 +585,7 @@ END INTERFACE
      END DO
    END DO
  ELSE
-   z_s1=0.0_wp
+   z_s1=35.0_wp
    DO jb = i_startblk, i_endblk
      CALL get_indices_c(  p_patch, jb, i_startblk, i_endblk,&
                         & i_startidx, i_endidx, rl_start, rl_end)
@@ -639,11 +638,6 @@ END INTERFACE
     REAL(wp), INTENT(IN)       :: tracer_s
     REAL(wp), INTENT(IN)       :: p
     REAL(wp)                   :: rho       !< density
-! !LOCAL VARIABLES:
-    !INTEGER :: lev, nc
-    !INTEGER :: jc, jk, jb
-    !INTEGER :: rl_start, rl_end
-    !INTEGER :: i_startblk, i_endblk!, i_startidx, i_endidx
 
 ! EOS variables, following the naming of the MITgcm implementation
     REAL (wp)  :: locPres, t1, t2, s1, p1, rhoNum, sp5, p1t1, den, rhoDen
@@ -720,7 +714,7 @@ END INTERFACE
   ! local variables:              
   REAL(wp) :: z_t
   REAL(wp) :: z_s
-  REAL(wp) :: z_rhopot, z_bulk, pz,z_in_situ_temp  
+  REAL(wp) :: z_rhopot, z_bulk, pz !,z_in_situ_temp  
   !INTEGER  :: slev, end_lev
   INTEGER  :: jc, jk, jb
   INTEGER  :: rl_start, rl_end
@@ -839,7 +833,7 @@ end subroutine calc_density_JM_EOS
 
  ELSEIF(no_tracer==1)THEN
 
-   z_s1=0.0_wp
+   z_s1=35.0_wp
    DO jb = i_startblk, i_endblk
      CALL get_indices_c(  p_patch, jb, i_startblk, i_endblk,&
                         & i_startidx, i_endidx, rl_start, rl_end)
@@ -1020,8 +1014,7 @@ FUNCTION convert_insitu2pot_temp_func(t, s, p) RESULT(temp_pot)
 
 ! !LOCAL VARIABLES:
 ! loop indices
-  REAL(wp):: z_s1, z_press
-  INTEGER :: lev, jn, k_sfc, nc
+  REAL(wp):: z_press
   INTEGER :: jc, jk, jb
   INTEGER :: rl_start, rl_end
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
@@ -1089,7 +1082,6 @@ FUNCTION convert_insitu2pot_temp_func(t, s, p) RESULT(temp_pot)
     REAL(wp), INTENT(inout) :: th
     REAL(wp) temp_insitu
     REAL(wp) :: pr, dc, dv, dvs, fne, fst, qc, qn3, qnq, qv, qvs, t, tpo
-    INTEGER :: i
     REAL(wp), PARAMETER :: z_sref=35.0_wp 
 
     !
