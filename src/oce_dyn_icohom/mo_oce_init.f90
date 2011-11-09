@@ -1712,17 +1712,17 @@ FUNCTION geo_balance_mim(p_patch, h_e, rhs_e) result(vn_e)
       &jk, maxval(rhstemp),minval(rhstemp) 
 
         If (maxval (ABS (rhstemp (:,:))) >= tolerance) lmax_iter = .true.
-          IF (lverbose) THEN
-            IF (lmax_iter) THEN
-              WRITE (6, '(1x,a, I4.2, 1x, a,E8.2,1x, a,E8.2,1x, E8.2, 1x, a)') &
-              &'Inv_flipflop GMRES #Iter', n_iter, 'Tol ',tolerance, 'Res ',&
-              &  ABS(z_residual(n_iter)),MAXVAL (ABS(rhstemp(:,:))), 'GMRES PROBLEM!!!!!!!!!!!!'
-            ELSE
-              WRITE (6, '(1x,a, I4.2, 1x, a,E8.2,1x, a,E8.2,1x, E8.2)') &
-              &'Inv_flipflop GMRES #Iter', n_iter, 'Tol ',tolerance, 'Res ',&
-              &  ABS(z_residual(n_iter)),MAXVAL (ABS(rhstemp(:,:)))
-            ENDIF
-        ENDIF
+!          IF (lverbose) THEN
+!            IF (lmax_iter) THEN
+!              WRITE (6, '(1x,a, I4.2, 1x, a,E8.2,1x, a,E8.2,1x, E8.2, 1x, a)') &
+!              &'Inv_flipflop GMRES #Iter', n_iter, 'Tol ',tolerance, 'Res ',&
+!              &  ABS(z_residual(n_iter)),MAXVAL (ABS(rhstemp(:,:))), 'GMRES PROBLEM!!!!!!!!!!!!'
+!            ELSE
+!              WRITE (6, '(1x,a, I4.2, 1x, a,E8.2,1x, a,E8.2,1x, E8.2)') &
+!              &'Inv_flipflop GMRES #Iter', n_iter, 'Tol ',tolerance, 'Res ',&
+!              &  ABS(z_residual(n_iter)),MAXVAL (ABS(rhstemp(:,:)))
+!            ENDIF
+!        ENDIF
        vn_e(:,:) = vn_e2(:,:)
       END IF
 
