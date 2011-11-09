@@ -120,20 +120,35 @@ CONTAINS
 !  subroutine configure_io(n_dom)
 !  end subroutine configure_io
 
-   FUNCTION istime4output(current_timestep) RESULT(retval)
-     LOGICAL :: retval
-     INTEGER, INTENT(IN)  :: current_timestep
+   FUNCTION istime4output(sim_time) RESULT(retval)
+     REAL(wp), INTENT(IN)  :: sim_time            ! simulation time [s]
+     LOGICAL               :: retval
+     REAL(wp)              :: nearest_output_time ! nearest output time [s]
 
-     INTEGER :: n_io
 
-     n_io    = NINT(dt_data/dtime)        ! write output
+     ! get nearest output time
+     nearest_output_time = NINT(sim_time/dt_data) * dt_data
 
-     IF ( (MOD(current_timestep-1,n_io)==0 .AND. current_timestep/=1) ) THEN
-       retval = .TRUE.
-     ELSE
-       retval = .FALSE.
-     END IF
+     ! write output (true/false)
+     retval =( ( (-dtime/2._wp) < (sim_time - nearest_output_time)) .AND.  &
+       &       ( (sim_time - nearest_output_time) <= (dtime/2._wp)) )
+
    END FUNCTION istime4output
+
+!!$   FUNCTION istime4output(current_timestep) RESULT(retval)
+!!$     LOGICAL :: retval
+!!$     INTEGER, INTENT(IN)  :: current_timestep
+!!$
+!!$     INTEGER :: n_io
+!!$
+!!$     n_io    = NINT(dt_data/dtime)        ! write output
+!!$
+!!$     IF ( (MOD(current_timestep-1,n_io)==0 .AND. current_timestep/=1) ) THEN
+!!$       retval = .TRUE.
+!!$     ELSE
+!!$       retval = .FALSE.
+!!$     END IF
+!!$   END FUNCTION istime4output
 
    FUNCTION istime4newoutputfile(current_timestep) RESULT(retval)
      LOGICAL :: retval

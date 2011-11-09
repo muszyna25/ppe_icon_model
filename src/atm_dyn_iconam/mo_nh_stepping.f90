@@ -56,7 +56,7 @@ MODULE mo_nh_stepping
   USE mo_dynamics_config,      ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1,nsav2 !, &
 !                                    itime_scheme
   USE mo_io_config,            ONLY: l_outputtime, l_diagtime, is_checkpoint_time,&
-    &                                lwrite_pzlev
+    &                                lwrite_pzlev, istime4output
   USE mo_parallel_config,      ONLY: nproma, itype_comm
   USE mo_run_config,           ONLY: ltestcase, dtime, nsteps,  &
     &                                ltransport, ntracer, lforcing, iforcing, &
@@ -257,15 +257,15 @@ MODULE mo_nh_stepping
   !! @par Revision History
   !! Initial release by Almut Gassmann, (2009-04-15)
   !!
-  SUBROUTINE perform_nh_stepping (p_patch, p_int_state,                          &
-    &                             p_grf_state, p_nh_state,                       &
-                                  datetime, n_io, n_file, n_checkpoint, n_diag,  &
+  SUBROUTINE perform_nh_stepping (p_patch, p_int_state,                   &
+    &                             p_grf_state, p_nh_state,                &
+                                  datetime,n_file, n_checkpoint, n_diag,  &
                                   l_have_output )
 !
   TYPE(t_patch), TARGET, INTENT(IN)            :: p_patch(n_dom_start:n_dom)
   TYPE(t_int_state), TARGET, INTENT(IN)        :: p_int_state(n_dom_start:n_dom)
   TYPE(t_gridref_state), TARGET, INTENT(INOUT) :: p_grf_state(n_dom_start:n_dom)
-  INTEGER, INTENT(IN)                          :: n_io, n_file, n_checkpoint, n_diag
+  INTEGER, INTENT(IN)                          :: n_file, n_checkpoint, n_diag
   LOGICAL, INTENT(INOUT) :: l_have_output
 
   TYPE(t_nh_state), TARGET, INTENT(INOUT):: p_nh_state(n_dom)
@@ -329,8 +329,8 @@ MODULE mo_nh_stepping
 !$    write(0,*) 'This is the nh_timeloop, max threads=',omp_get_max_threads()
 !$    write(0,*) 'omp_get_num_threads=',omp_get_num_threads()
 
-    CALL perform_nh_timeloop (p_patch, p_int_state, p_grf_state,     &
-      &                       p_nh_state, datetime, n_io, n_file, n_checkpoint, n_diag,  &
+    CALL perform_nh_timeloop (p_patch, p_int_state, p_grf_state, p_nh_state, &
+      &                       datetime, n_file, n_checkpoint, n_diag,        &
       &                       l_have_output )
     CALL model_end_ompthread()
 
@@ -344,7 +344,7 @@ MODULE mo_nh_stepping
     !---------------------------------------
 
     CALL perform_nh_timeloop (p_patch, p_int_state, p_grf_state, p_nh_state, &
-                              datetime, n_io, n_file, n_checkpoint, n_diag,  &
+                              datetime, n_file, n_checkpoint, n_diag,        &
                               l_have_output )
   ENDIF
 
@@ -363,9 +363,9 @@ MODULE mo_nh_stepping
   !! @par Revision History
   !! Initial release by Almut Gassmann, (2009-04-15)
   !!
-  SUBROUTINE perform_nh_timeloop (p_patch, p_int_state, &
-                               &  p_grf_state, p_nh_state, &
-                                  datetime, n_io, n_file, n_checkpoint, n_diag,  &
+  SUBROUTINE perform_nh_timeloop (p_patch, p_int_state,                    &
+                               &  p_grf_state, p_nh_state,                 &
+                                  datetime, n_file, n_checkpoint, n_diag,  &
                                   l_have_output )
 !
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
@@ -374,7 +374,7 @@ MODULE mo_nh_stepping
   TYPE(t_patch), TARGET, INTENT(IN)            :: p_patch(n_dom_start:n_dom)
   TYPE(t_int_state), TARGET, INTENT(IN)        :: p_int_state(n_dom_start:n_dom)
   TYPE(t_gridref_state), TARGET, INTENT(INOUT) :: p_grf_state(n_dom_start:n_dom)
-  INTEGER, INTENT(IN)                          :: n_io, n_file, n_checkpoint, n_diag
+  INTEGER, INTENT(IN)                          :: n_file, n_checkpoint, n_diag
   LOGICAL, INTENT(INOUT) :: l_have_output
 
   TYPE(t_nh_state), TARGET, INTENT(INOUT):: p_nh_state(n_dom)
@@ -459,7 +459,8 @@ MODULE mo_nh_stepping
     !--------------------------------------------------------------------------
     ! Set output flags
     !--------------------------------------------------------------------------
-    IF (MOD(jstep,n_io) == 0 .OR. jstep==nsteps) THEN
+
+    IF ( istime4output(sim_time(1)+dtime) .OR. jstep==nsteps ) THEN
       l_outputtime = .TRUE. ! Output is written at the end of the time step,
     ELSE                    ! thus diagnostic quantities need to be computed
       l_outputtime = .FALSE.

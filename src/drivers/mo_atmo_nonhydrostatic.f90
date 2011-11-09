@@ -97,7 +97,7 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = "mo_atmo_nonhydrostatic"
 
 
-    INTEGER :: n_io, jg, jfile, n_file, ist, n_diag, n_chkpt, ntl, ntlr
+    INTEGER :: jg, jfile, n_file, ist, n_diag, n_chkpt, ntl, ntlr
     LOGICAL :: l_have_output, l_realcase
     INTEGER :: pat_level(n_dom)
 
@@ -225,7 +225,8 @@ CONTAINS
     ! compute time step interval for taking a certain action
     !--------------------------------------------------------- 
  
-    n_io    = NINT(dt_data/dtime)        ! write output
+    ! writing output is now controlled via 'istime4output'
+!DR    n_io    = NINT(dt_data/dtime)        ! write output
     n_file  = NINT(dt_file/dtime)        ! trigger new output file
     n_chkpt = NINT(dt_checkpoint/dtime)  ! write restart files
     n_diag  = MAX(1,NINT(dt_diag/dtime)) ! diagnose of total integrals
@@ -257,12 +258,13 @@ CONTAINS
 
       CALL get_restart_attribute('next_output_file',jfile)
 
-      IF (n_io.le.(nsteps-1)) THEN
+!DR may need to be fine-tuned later on
+!DR      IF (n_io.le.(nsteps-1)) THEN
          CALL init_output_files(jfile, lclose=.FALSE.)
          l_have_output = .TRUE.  
-      ELSE
-         l_have_output = .FALSE.
-      END IF
+!DR      ELSE
+!DR         l_have_output = .FALSE.
+!DR      END IF
 
     END IF
 
@@ -323,7 +325,7 @@ CONTAINS
 
     CALL perform_nh_stepping( p_patch, p_int_state, p_grf_state, p_nh_state, &
       &                       time_config%cur_datetime,                      &
-      &                       n_io, n_file, n_chkpt, n_diag, l_have_output   )
+      &                       n_file, n_chkpt, n_diag, l_have_output         )
  
     IF (ltimer) CALL print_timer
 
