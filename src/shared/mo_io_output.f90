@@ -827,31 +827,55 @@ print *,'vlistDefVarName: ',info%name,this_list%p%patch_id
         IF (info%ndims == 2) THEN
           gdims(:) = (/ p_patch(k_jg)%n_patch_cells_g, 1, 1, 1, 1 /)
           ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
+#ifdef NOMPI
+          CALL gather_cells(rptr2d, r5d)
+#else
           CALL gather_cells(rptr2d, r5d, p_patch=p_patch(k_jg))
+#endif
         ELSE
           gdims(:) = (/ p_patch(k_jg)%n_patch_cells_g, info%used_dimensions(2), 1, 1, 1 /)
           ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
+#ifdef NOMPI
+          CALL gather_cells(rptr3d, r5d)
+#else
           CALL gather_cells(rptr3d, r5d, p_patch=p_patch(k_jg))
+#endif
         ENDIF
       CASE (GRID_UNSTRUCTURED_VERT)
         IF (info%ndims == 2) THEN
           gdims(:) = (/ p_patch(k_jg)%n_patch_verts_g, 1, 1, 1, 1 /)
           ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
+#ifdef NOMPI
+          CALL gather_vertices(rptr2d, r5d)
+#else
           CALL gather_vertices(rptr2d, r5d, p_patch=p_patch(k_jg))
+#endif
         ELSE
           gdims(:) = (/ p_patch(k_jg)%n_patch_verts_g, info%used_dimensions(2), 1, 1, 1 /)
           ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
+#ifdef NOMPI
+          CALL gather_vertices(rptr3d, r5d)
+#else
           CALL gather_vertices(rptr3d, r5d, p_patch=p_patch(k_jg))
+#endif
         ENDIF
       CASE (GRID_UNSTRUCTURED_EDGE)
         IF (info%ndims == 2) THEN
           gdims(:) = (/ p_patch(k_jg)%n_patch_edges_g, 1, 1, 1, 1 /)
           ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
+#ifdef NOMPI
+          CALL gather_edges(rptr2d, r5d)
+#else
           CALL gather_edges(rptr2d, r5d, p_patch=p_patch(k_jg))
+#endif
         ELSE
           gdims(:) = (/ p_patch(k_jg)%n_patch_edges_g, info%used_dimensions(2), 1, 1, 1 /)
           ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
+#ifdef NOMPI
+          CALL gather_edges(rptr3d, r5d)
+#else
           CALL gather_edges(rptr3d, r5d, p_patch=p_patch(k_jg))
+#endif
         ENDIF
       CASE default
         CALL finish('out_stream','unknown grid type')
