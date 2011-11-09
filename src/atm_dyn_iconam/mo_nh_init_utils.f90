@@ -1294,14 +1294,18 @@ CONTAINS
     REAL(wp),  INTENT(OUT) :: z3d_i(nproma,nlev+1,nblks), &
                               z3d_m(nproma,nlev,nblks)
 
-    INTEGER :: jc, jk, jk1, jb, nlen, nlevp1
-    REAL(wp) :: z_fac1, z_fac2, z_topo_dev(nproma)
+    INTEGER :: jc, jk, jk1, jb, nlen, nlevp1, ierr(nblks), nerr
+    REAL(wp) :: z_fac1, z_fac2, z_topo_dev(nproma), min_lay_spacing, &
+                dvct, dvct1, dvct2, wfac
     !-------------------------------------------------------------------------
 
     nlevp1 = nlev+1
+    dvct1 = 100._wp
+    dvct2 = 300._wp
+    ierr(:) = 0
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, jk, jk1, z_fac1, z_fac2, z_topo_dev)
+!$OMP DO PRIVATE(jb, nlen, jk, jk1, z_fac1, z_fac2, z_topo_dev, min_lay_spacing, dvct, wfac)
     DO jb = 1,nblks
 
       IF (jb /= nblks) THEN
@@ -1341,13 +1345,26 @@ CONTAINS
          z3d_i(1:nlen,jk,jb) = vct_a(jk1) + topo_smt(1:nlen,jb)*z_fac1 + &
             z_topo_dev(1:nlen)*z_fac2
        ENDDO
-       ! Ensure that layers do not intersect; except for the surface layer, the interface level
-       ! distance is limited to min_lay_thckn
+       ! Ensure that layer thicknesses are not too small; this would potentially cause
+       ! instabilities in vertical advection
        DO jk = nlev-1, 1, -1
+         jk1 = jk + nshift
+         dvct = vct_a(jk1) - vct_a(jk1+1)
+         IF (dvct < dvct1) THEN ! limit layer thickness to 2/3 of its nominal value
+           min_lay_spacing = 2._wp/3._wp*dvct
+         ELSE IF (dvct < dvct2) THEN ! limitation factor decreases from 2/3 to 1/2
+           wfac = (dvct2-dvct)/(dvct2-dvct1)
+           min_lay_spacing = (2._wp/3._wp*wfac + 0.5_wp*(1._wp-wfac))*dvct
+         ELSE
+           min_lay_spacing = 0.5_wp*dvct2*(dvct/dvct2)**(1._wp/3._wp)
+         ENDIF
+         min_lay_spacing = MAX(min_lay_spacing,min_lay_thckn)
          DO jc = 1, nlen
-           z3d_i(jc,jk,jb) = MAX(z3d_i(jc,jk,jb),z3d_i(jc,jk+1,jb)+min_lay_thckn)
+           z3d_i(jc,jk,jb) = MAX(z3d_i(jc,jk,jb),z3d_i(jc,jk+1,jb)+min_lay_spacing)
          ENDDO
        ENDDO
+       ! Check if level nflat is still flat
+       IF (ANY(z3d_i(1:nlen,nflat,jb) /= vct_a(nflat+nshift))) ierr(jb) = 1
      ENDIF
 
      DO jk = 1, nlev
@@ -1365,6 +1382,10 @@ CONTAINS
    ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
+
+   nerr = SUM(ierr(1:nblks))
+   IF (nerr > 0) CALL finish ('init_vert_coord: ', &
+      'flat_height in sleve_nml is too low')
 
   END SUBROUTINE init_vert_coord
 
