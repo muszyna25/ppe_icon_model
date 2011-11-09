@@ -233,7 +233,8 @@
   if (plotMode.eq."vector" .or. plotMode.eq."overlay" .or. plotMode.eq."section") then
     ; performe some remapping to a regular grid because ncl cannot draw vector
     ; from unstructured grids
-    remapFilename = remapForVecPlot(iFile,resolution,useMask,plotMode,DEBUG)
+    addVars=(/ "PS","PHIS"/)
+    remapFilename = remapForVecPlot(iFile,resolution,useMask,plotMode,DEBUG,addVars)
     checkRemappedFile(iFile,remapFilename)
     rFile = addfile( remapFilename, "r" )
   end if
@@ -499,8 +500,14 @@
     end if
     points   = ispan(0,secPoints-1,1)*1.0 
     copy_VarAtts(var,trans)          ; copy attributes
-    trans!0        = "depth"
-    trans&depth    = var&depth
+    if ( True ) then ;oce
+      trans!0        = "depth"
+      trans&depth    = var&depth
+    else
+    ; use CDO ml2pl/ml2hl for preprocessing atmosphere input
+      undef(trans)
+      trans = setSectionFromHybridPress(secLC,secRC,secPoints,var,rFile,timeStep)
+    end if
     res            = True;           plot mods desired
     setAutomaticPlotCaptions(res,plotMode,varName,File,iFile,timeStep,levIndex)
     setLevels(selMode,res,minVar,maxVar,scaleLimit,numLevs,DEBUG)
