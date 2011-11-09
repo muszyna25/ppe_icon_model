@@ -25,6 +25,7 @@ begin
   Model       = "ICOHAM"
 
   FileName1 = "atm-Cels.nc"
+;  FileName1 = "atm.nc"
 
   File  = addfile(FileName1, "r" )
 
@@ -131,7 +132,7 @@ begin
 ;************************************
 ; calculate great circle along transect
 ;************************************
-  leftlat        = 80.0
+  leftlat        = 80.
   leftlatorient  = "N"
   rightlat       = -80.0
   rightlatorient = "N"

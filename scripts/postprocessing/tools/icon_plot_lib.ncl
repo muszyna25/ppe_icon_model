@@ -76,8 +76,8 @@ end
 ; timstep and levelindex for selecting the field.
 ;
 ; Currently this limited to 3 dimensions, so that 4D tracer variables are ignored
-undef("selIconVar")
-function selIconVar(varname,filehandle,timestep,levelindex)
+undef("selIconField")
+function selIconField(varname,filehandle,timestep,levelindex)
 begin
     dims      = getfilevardims(filehandle,varname)
     noOfDims  = dimsizes(dims)
@@ -118,7 +118,45 @@ begin
     return var
 end
 ;-------------------------------------------------------------------------------
-; see selIconVar(), but for fields on a regular lonlat grid
+; get full 3d ICON variable
+undef("selIconVar")
+function selIconVar(varname,filehandle,timestep)
+begin
+    dims      = getfilevardims(filehandle,varname)
+    noOfDims  = dimsizes(dims)
+    noOfDims  = noOfDims(0)
+    usableVar = False
+    if ( has_time(dims) ) then
+      if (noOfDims .eq. 3) then        ; dims: (time,lev,cells)
+        var = filehandle->$varname$(timestep,:,:)
+        usableVar = True
+      end if
+      if (noOfDims .eq. 2) then        ; dims: (time,cells)
+        var = filehandle->$varname$(timestep,:)
+        usableVar = True
+      end if
+      if (noOfDims .eq. 1) then        ; dims: (cells)
+        var = filehandle->$varname$(:)
+        usableVar = True
+      end if
+    else
+      if (noOfDims .eq. 2) then        ; dims: (lev,cells)
+        var = filehandle->$varname$(:,:)
+        usableVar = True
+      end if
+      if (noOfDims .eq. 1) then        ; dims: (cells)
+        var = filehandle->$varname$(:)
+        usableVar = True
+      end if
+    end if
+    if (.not. usableVar) then
+      print("Warning! Could not read " +  varname + " from input file")
+      exit
+    end if
+    return var
+end
+;-------------------------------------------------------------------------------
+; see selIconField(), but for fields on a regular lonlat grid
 undef("selRegularField")
 function selRegularField(varname,filehandle,timestep,levelindex)
 begin
@@ -425,7 +463,7 @@ begin
   end if
   checkVarname(maskvarname, mfilehandle)
   if (plotmode.eq."scalar" .or. plotmode.eq."overlay") then
-    maskvar = selIconVar(maskvarname,mfilehandle,timestep,levelindex)
+    maskvar = selIconField(maskvarname,mfilehandle,timestep,levelindex)
   else
     if (plotmode.eq."vector") then
       maskvar = selRegularField(maskvarname,mfilehandle,timestep,levelindex)
@@ -991,6 +1029,7 @@ begin
   plevs = (ispan(100,1000,25))*1.0
 
   var_at_p           = new ((/dimsizes(plevs),dimsizes(var&lat),dimsizes(var&lon)/),double)
+  copy_VarMeta( theta3d,  var_at_p)
   var_at_p@lon       = var&lon
   var_at_p@lat       = var&lat
   var_at_p@units     = var@units
@@ -1005,8 +1044,119 @@ begin
                             intmethod,1.,1,extrapolate,1,tlow,phis)
 
   dist  = gc_latlon(leftlat,leftlon,rightlat,rightlon,npoints,2)
-  trans = linint2_points(var_at_p&lon,var_at_p&lat,var_at_p,True,dist@gclon,dist@gclat,2)
-print(trans)
+  trans = linint2_points_Wrap(var_at_p&lon,var_at_p&lat,var_at_p,True,dist@gclon,dist@gclat,2)
+
+  return trans
+end
+;---------------------------------------------------------------
+; setting for vertical cross sections based on pure icon input
+undef("setSectionFromHybridPressICON")
+function setSectionFromHybridPressICON(secLC,secRC,npoints,var,filehandle,timestep)
+begin
+  leftlat  = secLC(1)
+  rightlat = secRC(1)
+
+  leftlon  = secLC(0)
+  rightlon = secRC(0)
+
+  ;config
+  pressName  = "PS"
+  geopotName = "PHIS"
+  hybCords   = (/"hyam","hybm","hyai","hybi"/)
+  hyamName   = hybCords(0)
+  hybmName   = hybCords(1)
+  hyaiName   = hybCords(2)
+  hybiName   = hybCords(3)
+
+  nlevels = 47
+  plevels = 20
+  p00     = 1.e3;   reference pressure in hPa
+  rad2deg = 45./atan(1.)   ; radians to degrees
+
+  u3d = var
+  phis  = filehandle->$pressName$(0,:);    dims: (time,cell)
+  psfc  = filehandle->$pressName$(timestep,:);   surface pressure, dims: (time,lon.lat)
+  psfc  = psfc*1.e-2;   convert to hPa
+  hyam  = filehandle->$hyamName$*1.e-2;   convert to hPa
+  hybm  = filehandle->$hybmName$
+  hyai  = filehandle->$hyaiName$*1.e-2;   convert to hPa
+  hybi  = filehandle->$hybiName$
+  klevi = dimsizes(hyai);
+  klevm = dimsizes(hyam);
+
+  ; compute 3d pressure
+  dims = dimsizes(psfc)
+  print("dims:"+str_join((/nlevels,  dims/),"|"))
+  pres3d  = new ((/nlevels,  dims/),double)
+  pres3di = new ((/nlevels+1,dims/),double)
+  theta3d = new ((/nlevels,  dims/),double)
+  do k = 0, nlevels-1
+    pres3d(k,:) = psfc(:)*hybm(k) + hyam(k)
+  end do
+  do k = 0, nlevels
+    pres3di(k,:) = psfc(:)*hybi(k) + hyai(k)
+  end do
+
+  theta3d = var
+  theta3d@units="K"
+  theta3d@long_name="Temperature"
+
+;  if (False) then  ; potential temperature
+;   var = var*(p00/pres3d)^(2./7.)
+; end if
+
+  x           = filehandle->clon *rad2deg;    cell center, lon
+  y           = filehandle->clat *rad2deg;    cell center, lat
+
+  ylat        = fspan(-90,90,91)
+  ylat@units  = "degrees_north"
+  xlon        = fspan(-180,180,181)
+  xlon@units  = "degrees_east"
+  ylat!0      = "ylat"
+  xlon!0      = "xlon"
+
+  u3dll       = triple2grid(x,y,u3d,xlon,ylat,False)
+  pres3dll    = triple2grid(x,y,pres3d,xlon,ylat,False)
+  pres3dill   = triple2grid(x,y,pres3di,xlon,ylat,False)
+  theta3dll   = triple2grid(x,y,theta3d,xlon,ylat,False)
+  phisll      = triple2grid(x,y,phis,xlon,ylat,False)
+
+  u3dll!1 = "ylat"
+  u3dll!2 = "xlon"
+  u3dll&ylat  = ylat
+  u3dll&xlon  = xlon
+
+  phisll!0    = "ylat"
+  phisll!1    = "xlon"
+  phisll&ylat = ylat
+  phisll&xlon = xlon
+
+  copy_VarMeta( u3dll,  pres3dill)
+  copy_VarMeta( u3dll,  pres3dll)
+  copy_VarMeta( u3dll,  theta3dll)
+
+ ; now we try to interpolate from model levels to pressure levels
+  plevs = (ispan(100,1000,25))*1.0
+
+  var_at_p           = new ((/dimsizes(plevs),dimsizes(ylat),dimsizes(xlon)/),double)
+  copy_VarMeta(u3dll,  var_at_p)
+;  var_at_p@ylat       =ylat
+;  var_at_p@xlon       =xlon
+  var_at_p@units     = theta3d@units
+  var_at_p@long_name = theta3d@long_name
+
+  extrapolate = True ; switch for doing extrapolation below the ground:
+  intmethod   = 1 ; 1: method for temperature, -1: method for geopotential, 0: other vars
+  tlow =  theta3dll(nlevels-1,:,:)  ; temperature at lowest model level
+                                       ; (use ground temperature if available)
+
+  var_at_p = vinth2p_ecmwf(theta3dll, hyam, hybm, plevs, pres3dill(nlevels,:,:)*100.,\
+                            intmethod,1.,1,extrapolate,1,tlow,phisll)
+                            print(min(var_at_p))
+
+  dist  = gc_latlon(leftlat,leftlon,rightlat,rightlon,npoints,2)
+  trans = linint2_points_Wrap(xlon,ylat,var_at_p,True,dist@gclon,dist@gclat,2)
+
   return trans
 end
 ;---------------------------------------------------------------

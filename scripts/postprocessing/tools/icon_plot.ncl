@@ -161,6 +161,9 @@
   if (.not. isvar("scaleFactor")) scaleFactor  = 1               end if
   if (.not. isvar("colormap"))    colormap     = "BlueDarkRed18" end if
 
+  ; atmosphere intput?
+  if (.not. isvar("atmIn"))      atmIn         = False           end if
+
   if (.not.isvar("mapType"))      mapType      = "lonlat"        end if
 
   if ( mapType .eq. "NHps" .and. .not.isvar("mapLLC")) mapLLC = (/-45., 45./)  end if
@@ -230,7 +233,7 @@
   end if
   if (isvar("secLC").and.isvar("secRC")) plotMode = "section" end if
 
-  if (plotMode.eq."vector" .or. plotMode.eq."overlay" .or. plotMode.eq."section") then
+  if (plotMode.eq."vector" .or. plotMode.eq."overlay" .or. (plotMode.eq."section" .and. .not. atmIn)) then
     ; performe some remapping to a regular grid because ncl cannot draw vector
     ; from unstructured grids
     addVars=(/ "PS","PHIS"/)
@@ -299,7 +302,7 @@
 
     printVar(varName, File)
 
-    var = selIconVar(varName,File,timeStep,levIndex)
+    var = selIconField(varName,File,timeStep,levIndex)
 
     scaleVar(var,scaleFactor)
 
@@ -356,16 +359,22 @@
     checkMinMaxVar(minVar,maxVar)
   end if
   if (plotMode.eq."section") then
-  print(rFile)
-    var = selRegularVar(varName,rFile,timeStep)
-    if(.not. isvar("minVar")) minVar = min(var) end if
-    if(.not. isvar("maxVar")) maxVar = max(var) end if
-    checkMinMaxVar(minVar,maxVar)
-    ; masking before computing the cross section
-    if ( useMask ) then
-      ; set variable var to missing, where var is not equal mvalue (3rd
-      ; parameter)
-      var = mask(var,maskVar,1)
+    if (atmIn)
+      var = selIconVar(varName,File,timeStep)
+      if(.not. isvar("minVar")) minVar = min(var) end if
+      if(.not. isvar("maxVar")) maxVar = max(var) end if
+    else
+      print(rFile)
+      var = selRegularVar(varName,rFile,timeStep)
+      if(.not. isvar("minVar")) minVar = min(var) end if
+      if(.not. isvar("maxVar")) maxVar = max(var) end if
+      checkMinMaxVar(minVar,maxVar)
+      ; masking before computing the cross section
+      if ( useMask ) then
+        ; set variable var to missing, where var is not equal mvalue (3rd
+        ; parameter)
+        var = mask(var,maskVar,1)
+      end if
     end if
   end if ; Reading data variables =============================================
 
@@ -399,7 +408,17 @@
 
   if (plotMode.eq."scalar" .or. plotMode.eq."overlay" .or. plotMode.eq."section") setAutomaticPlotCaptions(ResC,plotMode,varName,File,iFile,timeStep,levIndex) end if
 
-  if (plotMode.eq."section") trans = setSection(secLC,secRC,secPoints,var) end if
+  if (plotMode.eq."section") then
+    if (atmIn) then
+ ;     trans = setSectionFromHybridPress(secLC,secRC,secPoints,var,rFile,timeStep)
+      trans = setSectionFromHybridPressICON(secLC,secRC,secPoints,var,File,timeStep)
+      trans = trans - 273.15
+    else
+      trans = setSection(secLC,secRC,secPoints,var)
+      trans!0        = "depth"
+      trans&depth    = var&depth
+    end if
+  end if
 
   setAutomaticBaseString(wks,plotMode)
   if (showPreview) setAutomaticBaseString(xwks,plotMode) end if
@@ -499,15 +518,8 @@
       plot = new(1,graphic)
     end if
     points   = ispan(0,secPoints-1,1)*1.0 
-    copy_VarAtts(var,trans)          ; copy attributes
-    if ( True ) then ;oce
-      trans!0        = "depth"
-      trans&depth    = var&depth
-    else
-    ; use CDO ml2pl/ml2hl for preprocessing atmosphere input
-      undef(trans)
-      trans = setSectionFromHybridPress(secLC,secRC,secPoints,var,rFile,timeStep)
-    end if
+ ;   copy_VarAtts(var,trans)          ; copy attributes
+
     res            = True;           plot mods desired
     setAutomaticPlotCaptions(res,plotMode,varName,File,iFile,timeStep,levIndex)
     setLevels(selMode,res,minVar,maxVar,scaleLimit,numLevs,DEBUG)
@@ -515,7 +527,7 @@
     res@gsnDraw    = False;                don't draw yet
     res@tmXBMode   = "Explicit";     explicitly label x-axis
     res@tmXBValues = (/points(0),points(secPoints-1)/);  points to label values
-    res@tmXBLabels = (/ (-1)*secLC(1) +"N, "+ secLC(0)+"E" , (-1)*secRC(1)+"N, "+secRC(0)+"E" /)
+    res@tmXBLabels = (/ secLC(1) +"N, "+ secLC(0)+"E" , secRC(1)+"N, "+secRC(0)+"E" /)
     res@trYReverse = True;          reverse y axis
 
     res@cnFillOn            = True         ; turn on color
