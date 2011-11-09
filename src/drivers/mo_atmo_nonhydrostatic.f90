@@ -226,7 +226,6 @@ CONTAINS
     !--------------------------------------------------------- 
  
     ! writing output is now controlled via 'istime4output'
-!DR    n_io    = NINT(dt_data/dtime)        ! write output
     n_file  = NINT(dt_file/dtime)        ! trigger new output file
     n_chkpt = NINT(dt_checkpoint/dtime)  ! write restart files
     n_diag  = MAX(1,NINT(dt_diag/dtime)) ! diagnose of total integrals

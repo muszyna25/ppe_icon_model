@@ -82,7 +82,7 @@ MODULE mo_nml_crosscheck
     &                              lcoriolis, lshallow_water, ltwotime
   USE mo_advection_config,   ONLY: advection_config, configure_advection
 
-  USE mo_nonhydrostatic_config, ONLY: itime_scheme_nh => itime_scheme
+  USE mo_nonhydrostatic_config, ONLY: itime_scheme_nh => itime_scheme, iadv_rcf
   USE mo_ha_dyn_config,      ONLY: ha_dyn_config
   USE mo_diffusion_config,   ONLY: diffusion_config, configure_diffusion
 
@@ -114,6 +114,17 @@ MODULE mo_nml_crosscheck
 
 CONTAINS
 
+  !>
+  !! Check and, if necessary, adapt simulation lengths
+  !!
+  !! Check and, if necessary, adapt dt_restart and dt_checkpoint. 
+  !! - i.e. makes sure that dt_restart and dt_checkpoint are synchronized 
+  !! with a transport event.
+  !!
+  !!
+  !! @par Revision History
+  !! Initial revision by Hui Wan, MPI (2011-07)
+  !!
   SUBROUTINE resize_simulation_length()
     REAL(wp):: cur_datetime_calsec, end_datetime_calsec, length_sec
     CHARACTER(len=*), PARAMETER :: routine =  'resize_simulation_length'
@@ -145,7 +156,7 @@ CONTAINS
 
     ELSE
       ! Compute nsteps from cur_datetime, end_datetime and dtime
-
+      !
       cur_datetime_calsec = (REAL(time_config%cur_datetime%calday,wp)  &
                                  +time_config%cur_datetime%caltime   ) &
                            * REAL(time_config%cur_datetime%daylen,wp)
@@ -161,8 +172,23 @@ CONTAINS
 
     END IF
 
+
+    ! Check whether the end of the restart cycle is synchronized with a transport 
+    ! event. If not, adapt dt_restart accordingly.
+    !
+    IF (MOD(time_config%dt_restart,REAL(iadv_rcf,wp)*dtime) /= 0) THEN
+      time_config%dt_restart = REAL(NINT(time_config%dt_restart/(REAL(iadv_rcf,wp)*dtime))) &
+        &                    * REAL(iadv_rcf,wp)*dtime
+      WRITE(message_text,'(a)') &
+        &  'length of restart cycle dt_restart synchronized with transport event' 
+      CALL message(routine, message_text)
+    ENDIF
+
+ 
     ! Length of this integration is limited by length of the restart cycle.
+    !
     nsteps = MIN(nsteps,INT(time_config%dt_restart/dtime))
+
 
     CALL message(' ',' ')
     CALL message(routine,'Initial date and time')
@@ -185,8 +211,20 @@ CONTAINS
 
     ! Reset the value of dt_checkpoint if it is longer than dt_restart
     ! so that at least one restart file is generated at the end of the cycle.
-
+    !
     dt_checkpoint = MIN(dt_checkpoint,time_config%dt_restart)
+
+
+    ! Check whether checkpointing is synchronized with a transport event.
+    ! If not, adapt dt_checkpoint accordingly.
+    !
+    IF (MOD(dt_checkpoint,REAL(iadv_rcf,wp)*dtime) /= 0) THEN
+      dt_checkpoint = REAL(NINT(dt_checkpoint/(REAL(iadv_rcf,wp)*dtime))) &
+        &           * REAL(iadv_rcf,wp)*dtime
+      WRITE(message_text,'(a)') &
+        &  'length of checkpoint cycle dt_checkpoint synchronized with transport event' 
+      CALL message(routine, message_text)
+    ENDIF
 
     WRITE(message_text,'(a,f10.2,a,f16.10,a)')          &
          &'dt_checkpoint :',dt_checkpoint,' seconds =', &

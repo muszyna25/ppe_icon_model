@@ -107,7 +107,7 @@ MODULE mo_nonhydrostatic_config
     LOGICAL  :: ltheta_up_hori  ! horizontal 3rd order advection of theta_v
     REAL(wp) :: upstr_beta      ! =1 for 3rd order upstream, =0 for 4th order centered
                                 ! theta advection
-    LOGICAL :: ltheta_up_vert   ! upwind vertical advection of theta
+    LOGICAL  :: ltheta_up_vert  ! upwind vertical advection of theta
     REAL(wp) :: k2_updamp_coeff ! 2nd order additional horizontal diffusion
                                 ! coefficient in the upp‚per damping zone
 
