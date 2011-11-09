@@ -528,7 +528,7 @@ IF (l_masscorr_nest) THEN
 
       i_startblk = p_patch(jgc)%cells%start_blk(grf_bdywidth_c+1,1)
       i_endblk   = p_patch(jgc)%cells%end_blk(min_rlcell,i_nchdom)
-      nshift_c   = p_patch(jgc)%nshift
+      nshift_c   = p_patch(jgc)%nshift_total - p_pc%nshift_total
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
       DO jb = i_startblk, i_endblk

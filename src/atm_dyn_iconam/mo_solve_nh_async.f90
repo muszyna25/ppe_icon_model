@@ -614,12 +614,13 @@ MODULE mo_solve_nh_async
     !-------------------------------------------------------------------
     IF (ltimer) CALL timer_start(timer_solve_nh)
 
-    IF (lvert_nest .AND. (p_patch%nshift > 0)) THEN  
+    IF (lvert_nest .AND. (p_patch%nshift_total > 0)) THEN  
       l_vert_nested = .TRUE.
     ELSE
       l_vert_nested = .FALSE.
     ENDIF
-    IF (lvert_nest .AND. (p_patch%nshift_child > 0)) THEN  
+    IF (lvert_nest .AND. p_patch%n_childdom > 0 .AND.              &
+      (p_patch%nshift_child > 0 .OR. p_patch%nshift_total > 0)) THEN
       l_child_vertnest = .TRUE.
       nshift = p_patch%nshift_child + 1
     ELSE
@@ -999,7 +1000,7 @@ MODULE mo_solve_nh_async
         DO je = i_startidx, i_endidx
           DO jk = 1, nflatlev(p_patch%id)-1
 #else
-!CDIR UNROLL=_URD-_URD2
+!CDIR UNROLL=6
         DO jk = 1, nflatlev(p_patch%id)-1
           DO je = i_startidx, i_endidx
 #endif
