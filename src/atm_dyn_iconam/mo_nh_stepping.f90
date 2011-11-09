@@ -53,8 +53,7 @@ MODULE mo_nh_stepping
   USE mo_nonhydrostatic_config,ONLY: iadv_rcf, l_nest_rcf, itime_scheme
 
   USE mo_diffusion_config,     ONLY: diffusion_config
-  USE mo_dynamics_config,      ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1,nsav2 !, &
-!                                    itime_scheme
+  USE mo_dynamics_config,      ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1, nsav2
   USE mo_io_config,            ONLY: l_outputtime, l_diagtime, is_checkpoint_time,&
     &                                lwrite_pzlev, istime4output
   USE mo_parallel_config,      ONLY: nproma, itype_comm
