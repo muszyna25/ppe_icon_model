@@ -120,21 +120,22 @@ USE data_turbulence, ONLY : rlam_mom, & ! scaling factor of the laminar boudary 
 ! Flake parameters:
 ! -----------------------------------------------------
 
-USE data_flake, ONLY : &
-!
-  h_Ice_min_flk
+USE data_flake,              ONLY: h_Ice_min_flk
 
 ! Switches controlling other physical parameterizations:
 ! -----------------------------------------------------
 
+USE mo_lnd_nwp_config,       ONLY: lseaice, llake
+
+! Special parameter structures:
+! -----------------------------------------------------
+
+USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
+
+USE mo_turbdiff_config,      ONLY: turbdiff_config
+
 IMPLICIT NONE
 PUBLIC
-
-!==============================================================================
-
-#ifdef __COSMO__
-PUBLIC          ! All constants and variables in this module are public
-!==============================================================================
 
 INTEGER (KIND=iintegers) :: &
 !
@@ -163,27 +164,50 @@ LOGICAL :: &
 
 INTEGER (KIND=iintegers) :: &
 !
-! Switches controlling other physical parameterizations:
-!
     itype_wcld   =2,       & ! type of water cloud diagnosis
     itype_synd   =2          ! type of diagnostics of synoptical near surface variables
 
-
-LOGICAL :: &
-!
-    lseaice      =.FALSE., & ! sea ice parameterization active
-    llake        =.FALSE. !, & ! lake model active
-!
-! Attention:
 ! The given initializations are default settings of the boundary layer
 ! parameters. Some of these initial parameter values may be changed afterwards
 ! by model input NAMELISTs!
+ 
+LOGICAL :: &
 !
+! Switches controlling other physical parameterizations:
+!
+     lsso  ,                & ! SSO-Scheme is active
+     lconv                    ! convection scheme active
 
 !-----------------------------------------------------------------------------
-!CONTAINS
+ CONTAINS
 !-----------------------------------------------------------------------------
-#endif
+
+ SUBROUTINE get_turbdiff_param (jg)
+
+     INTEGER (KIND=iintegers), INTENT(IN) :: jg !patch index
+
+     lsso         =(atm_phy_nwp_config(jg)%inwp_sso.GT.0)
+     lconv        =(atm_phy_nwp_config(jg)%inwp_convection.GT.0)
+
+     itype_tran   = turbdiff_config(jg)%itype_tran
+     imode_tran   = turbdiff_config(jg)%imode_tran
+     icldm_tran   = turbdiff_config(jg)%icldm_tran
+     imode_turb   = turbdiff_config(jg)%imode_turb
+     icldm_turb   = turbdiff_config(jg)%icldm_turb
+     itype_sher   = turbdiff_config(jg)%itype_sher
+     ltkesso      = turbdiff_config(jg)%ltkesso
+     ltkecon      = turbdiff_config(jg)%ltkecon
+     lexpcor      = turbdiff_config(jg)%lexpcor
+     ltmpcor      = turbdiff_config(jg)%ltmpcor
+     lprfcor      = turbdiff_config(jg)%lprfcor
+     lnonloc      = turbdiff_config(jg)%lnonloc
+     lcpfluc      = turbdiff_config(jg)%lcpfluc
+     limpltkediff = turbdiff_config(jg)%limpltkediff
+     itype_wcld   = turbdiff_config(jg)%itype_wcld
+     itype_synd   = turbdiff_config(jg)%itype_synd
+
+ END SUBROUTINE get_turbdiff_param
+
 !==============================================================================
 !==============================================================================
 

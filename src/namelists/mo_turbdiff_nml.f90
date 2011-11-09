@@ -50,6 +50,12 @@ MODULE mo_turbdiff_nml
     &                               open_and_restore_namelist, close_tmpfile
   USE mo_turbdiff_config,     ONLY: turbdiff_config 
 
+  USE mo_data_turbdiff,       ONLY: &
+    & itype_tran, itype_sher, itype_wcld, itype_synd, &
+    & imode_tran, imode_turb, icldm_tran, icldm_turb, & 
+    & ltkesso, ltkecon, lexpcor, ltmpcor, lprfcor, lnonloc, lcpfluc, limpltkediff, &
+    & tur_len, pat_len, a_stab, tkhmin, tkmmin, c_diff, &
+    & rlam_heat, rlam_mom, rat_sea
   
   IMPLICIT NONE
   PRIVATE
@@ -60,50 +66,25 @@ MODULE mo_turbdiff_nml
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
   !----------------------------------!
-  ! turbdiff_nml namelist variables  !
+  ! additional turbdiff_nml namelist variables  !
   !----------------------------------!
 
-  INTEGER :: itype_tran  ! type of surface-atmosphere transfer
-  INTEGER :: imode_tran  ! mode of surface-atmosphere transfer
-  INTEGER :: icldm_tran  ! mode of cloud representation in transfer parametr.
-  INTEGER :: imode_turb  ! mode of turbulent diffusion parametrization
-  INTEGER :: icldm_turb  ! mode of cloud representation in turbulence parametr.
-  INTEGER :: itype_sher  ! type of shear production for TKE
-
-  LOGICAL :: ltkesso     ! calculation SSO-wake turbulence production for TKE
-  LOGICAL :: ltkecon     ! consider convective buoyancy production for TKE
-  LOGICAL :: lexpcor     ! explicit corrections of the implicit calculated turbul. diff.
-  LOGICAL :: ltmpcor     ! consideration of thermal TKE-sources in the enthalpy budget
-  LOGICAL :: lprfcor     ! using the profile values of the lowest main level instead of
-                         ! the mean value of the lowest layer for surface flux calulations
-
-  LOGICAL :: lnonloc     ! nonlocal calculation of vertical gradients used for turbul. diff.
-  LOGICAL :: lcpfluc     ! consideration of fluctuations of the heat capacity of air
-  LOGICAL :: limpltkediff! use semi-implicit TKE diffusion
   LOGICAL :: lconst_z0   ! TRUE: horizontally homogeneous roughness length 
                          ! (for idealized testcases)
 
   REAL(wp) :: const_z0   ! horizontally homogeneous roughness length 
                          ! (for idealized testcases)
 
-  !
-  ! Switches controlling other physical parameterizations:
-  !
-  INTEGER :: itype_wcld  ! type of water cloud diagnosis
-  INTEGER :: itype_synd  ! type of diagnostics of synoptical near surface variables
-
-
-
-
-
-  NAMELIST/turbdiff_nml/ itype_tran, imode_tran, icldm_tran, imode_turb,    &
-    &                    icldm_turb, itype_sher, ltkesso, ltkecon, lexpcor, &
-    &                    ltmpcor, lprfcor, lnonloc, lcpfluc, limpltkediff,  &
-    &                    itype_wcld, itype_synd, lconst_z0, const_z0
-
+  NAMELIST/turbdiff_nml/ &
+    & itype_tran, itype_sher, itype_wcld, itype_synd, &
+    & imode_tran, imode_turb, icldm_tran, icldm_turb, & 
+    & ltkesso, ltkecon, lexpcor, ltmpcor, lprfcor, lnonloc, lcpfluc, limpltkediff, &
+    & tur_len, pat_len, a_stab, tkhmin, tkmmin, c_diff, &
+    & rlam_heat, rlam_mom, rat_sea, &
+!   additional namelist parameters:
+    & lconst_z0, const_z0
 
 CONTAINS
-
 
   !-------------------------------------------------------------------------
   !
@@ -134,48 +115,18 @@ CONTAINS
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_turbdiff_nml: read_turbdiff_nml'
 
+    ! 0. default settings of internal turbdiff namelist variables
+    !    is done by initialization in MODULE 'mo_data_turbdiff'
+
     !-----------------------
-    ! 1. default settings   
+    ! 1. default settings of additional namelist variables:
     !-----------------------
-
-    itype_tran = 2  ! type of surface-atmosphere transfer
-    imode_tran = 1  ! mode of surface-atmosphere transfer
-    icldm_tran = 0  ! mode of cloud representation in transfer parametr.
-    imode_turb = 3  ! mode of turbulent diffusion parametrization
-    icldm_turb = 2  ! mode of cloud representation in turbulence parametr.
-    itype_sher = 1  ! type of shear production for TKE
-
-    ltkesso      =.FALSE. ! calculation SSO-wake turbulence production for TKE
-    ltkecon      =.FALSE. ! consider convective buoyancy production for TKE
-    lexpcor      =.FALSE. ! explicit corrections of the implicit calculated 
-                          ! turbul. diff.
-
-    ltmpcor      =.FALSE. ! consideration of thermal TKE-sources in the enthalpy 
-                          ! budget
-
-    lprfcor      =.FALSE. ! using the profile values of the lowest main level 
-                          ! instead of the mean value of the lowest layer for 
-                          ! surface flux calulations
-
-    lnonloc      =.FALSE. ! nonlocal calculation of vertical gradients used 
-                          ! for turbul. diff.
-
-    lcpfluc      =.FALSE. ! consideration of fluctuations of the heat capacity of air
-
-    limpltkediff =.TRUE.  ! use semi-implicit TKE diffusion
 
     lconst_z0    =.FALSE. ! horizontally homogeneous roughness length 
                           ! (for idealized testcases)
 
     const_z0     = 0.001_wp ! horizontally homogeneous roughness length
                             ! (for idealized testcases)
-
-    !
-    ! Switches controlling other physical parameterizations:
-    !
-    itype_wcld   = 2      ! type of water cloud diagnosis
-    itype_synd   = 2      ! type of diagnostics of synoptical near surface variables
-
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
@@ -232,8 +183,6 @@ CONTAINS
       turbdiff_config(jg)%lconst_z0    = lconst_z0
       turbdiff_config(jg)%const_z0     = const_z0
     ENDDO
-
-
 
     !-----------------------------------------------------
     ! 6. Store the namelist for restart

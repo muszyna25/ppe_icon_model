@@ -60,10 +60,9 @@ MODULE mo_nwp_turb_interface
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, &
     &                                iqi, iqr, iqs
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
-  USE mo_turbdiff_config,      ONLY: turbdiff_config
-! USE mo_turbdiff_ras,         ONLY: organize_turbdiff
-  USE mo_satad,                ONLY: sat_pres_water, spec_humi  
+  USE mo_data_turbdiff,        ONLY: get_turbdiff_param
   USE src_turbdiff,            ONLY: organize_turbdiff
+  USE mo_satad,                ONLY: sat_pres_water, spec_humi  
   USE mo_icoham_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd
   USE mo_vdiff_config,         ONLY: vdiff_config
   USE mo_vdiff_driver,         ONLY: vdiff
@@ -223,8 +222,10 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
     z_dummy_shflx(:,:,:)   = 0.0_wp
     z_dummy_shflx(:,:,:)   = 0.0_wp
 !$OMP END WORKSHARE
-  ENDIF
 
+  ELSEIF ( atm_phy_nwp_config(jg)%inwp_turb == 1 ) THEN
+     CALL get_turbdiff_param(jg)
+  ENDIF
 
 !$OMP DO PRIVATE(jb,jt,jc,jk,i_startidx,i_endidx,ierrstat,errormsg,eroutine), SCHEDULE(guided)
   DO jb = i_startblk, i_endblk
@@ -270,7 +271,6 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
       ENDIF
     ENDIF
 
-
     IF ( atm_phy_nwp_config(jg)%inwp_turb == 1 ) THEN
 
       ierrstat = 0
@@ -294,63 +294,50 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 !-------------------------------------------------------------------------
 !< COSMO version by M. Raschendorfer  
 !-------------------------------------------------------------------------
-          
-      CALL organize_turbdiff(action='tran_diff', iini=0, lstfnct=.TRUE., &
-        &  dt_var=tcall_turb_jg, dt_tke=tcall_turb_jg, nprv=1, ntur=1, ntim=1, &
-        &  ie=nproma, je=1, ke=nlev, ke1=nlevp1,  kcm=nlevp1,  vst=0, &
-        &  istart   =i_startidx, iend   =i_endidx, istartu=i_startidx, iendu=i_endidx, &
-        &  istartpar=i_startidx, iendpar=i_endidx, istartv=i_startidx, iendv=i_endidx, &
-        &  jstart   =1,          jend   =1       , jstartu=1         , jendu=1       , &
-        &  jstartpar=1         , jendpar=1       , jstartv=1         , jendv=1       , &
-!
-        &  isso         = atm_phy_nwp_config(jg)%inwp_sso,        &! in
-        &  iconv        = atm_phy_nwp_config(jg)%inwp_convection, &! in
-        &  itype_tran   = turbdiff_config(jg)%itype_tran,         &! in
-        &  imode_tran   = turbdiff_config(jg)%imode_tran,         &! in
-        &  icldm_tran   = turbdiff_config(jg)%icldm_tran,         &! in
-        &  imode_turb   = turbdiff_config(jg)%imode_turb,         &! in
-        &  icldm_turb   = turbdiff_config(jg)%icldm_turb,         &! in
-        &  itype_sher   = turbdiff_config(jg)%itype_sher,         &! in
-        &  ltkesso      = turbdiff_config(jg)%ltkesso,            &! in
-        &  ltkecon      = turbdiff_config(jg)%ltkecon,            &! in
-        &  lexpcor      = turbdiff_config(jg)%lexpcor,            &! in
-        &  ltmpcor      = turbdiff_config(jg)%ltmpcor,            &! in
-        &  lprfcor      = turbdiff_config(jg)%lprfcor,            &! in
-        &  lnonloc      = turbdiff_config(jg)%lnonloc,            &! in
-        &  lcpfluc      = turbdiff_config(jg)%lcpfluc,            &! in
-        &  limpltkediff = turbdiff_config(jg)%limpltkediff,       &! in
-        &  itype_wcld   = turbdiff_config(jg)%itype_wcld,         &! in
-        &  itype_synd   = turbdiff_config(jg)%itype_synd,         &! in
-!
-        &  l_hori=mean_charlen, hhl=p_metrics%z_ifc(:,:,jb), dp0=p_diag%dpres_mc(:,:,jb), &
-!
-        &  fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb), &
-        &  sai=prm_diag%sai(:,jb), h_ice=prm_diag%h_ice (:,jb), &
-!
-        &  ps=p_diag%pres_sfc(:,jb), t_g=lnd_prog_now%t_g(:,jb), qv_s=lnd_diag%qv_s(:,jb), &
-        &  u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb), w=p_prog%w(:,:,jb), T=p_diag%temp(:,:,jb), &
-        &  qv=p_prog_rcf%tracer(:,:,jb,iqv), qc=p_prog_rcf%tracer(:,:,jb,iqc), &
-        &  prs=p_diag%pres(:,:,jb), rho=p_prog%rho(:,:,jb), epr=p_prog%exner(:,:,jb), &
-!
-        &  gz0=prm_diag%gz0(:,jb), tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb), &
-        &  tfm=prm_diag%tfm(:,jb), tfh=prm_diag%tfh(:,jb), tfv=prm_diag%tfv(:,jb), &
-!
-        &  tke=z_tvs (:,:,jb,:) ,&!  edr =prm_diag%edr(:,:,jb),                    &
-        &  tkvm=prm_diag%tkvm(:,:,jb), tkvh=prm_diag%tkvh(:,:,jb), rcld=prm_diag%rcld(:,:,jb), &
-!
-        &  u_tens=prm_nwp_tend%ddt_u_turb(:,:,jb), v_tens=prm_nwp_tend%ddt_v_turb(:,:,jb), &
-        &  t_tens=prm_nwp_tend%ddt_temp_turb(:,:,jb), &
-        &  qv_tens=prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqv),&
-        &  qc_tens=prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqc), &
-        &  tketens=prm_nwp_tend%ddt_tke(:,:,jb), &
-        &  ut_sso=prm_nwp_tend%ddt_u_sso(:,:,jb), vt_sso=prm_nwp_tend%ddt_v_sso(:,:,jb) ,&
-! 						
-        &  t_2m=prm_diag%t_2m(:,jb), qv_2m=prm_diag%qv_2m(:,jb), td_2m=prm_diag%td_2m(:,jb), &
-        &  rh_2m=prm_diag%rh_2m(:,jb), u_10m=prm_diag%u_10m(:,jb), v_10m=prm_diag%v_10m(:,jb), &
-        &  shfl_s=prm_diag%shfl_s(:,jb), lhfl_s=prm_diag%lhfl_s(:,jb), &
-!
-        &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
 
+      CALL organize_turbdiff(action='tran_diff', iini=0, lstfnct=.TRUE., &
+!
+         &  dt_var=tcall_turb_jg, dt_tke=tcall_turb_jg, nprv=1, ntur=1, ntim=1, &
+!
+         &  ie=nproma, je=1, ke=nlev, ke1=nlevp1,  kcm=nlevp1,  vst=0, &
+!       
+         &  istart   =i_startidx, iend   =i_endidx, istartu=i_startidx, iendu=i_endidx, &
+         &  istartpar=i_startidx, iendpar=i_endidx, istartv=i_startidx, iendv=i_endidx, &
+!       
+         &  jstart   =1,          jend   =1       , jstartu=1         , jendu=1       , &
+         &  jstartpar=1         , jendpar=1       , jstartv=1         , jendv=1       , &
+!       
+         &  l_hori=mean_charlen, hhl=p_metrics%z_ifc(:,:,jb), dp0=p_diag%dpres_mc(:,:,jb), &
+!
+         &  fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb), &
+         &  sai=prm_diag%sai(:,jb), h_ice=prm_diag%h_ice (:,jb), &
+!         
+         &  ps=p_diag%pres_sfc(:,jb), t_g=lnd_prog_now%t_g(:,jb), qv_s=lnd_diag%qv_s(:,jb), &
+!           
+         &  u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb), w=p_prog%w(:,:,jb), T=p_diag%temp(:,:,jb), &
+         &  qv=p_prog_rcf%tracer(:,:,jb,iqv), qc=p_prog_rcf%tracer(:,:,jb,iqc), &
+!         
+         &  prs=p_diag%pres(:,:,jb), rho=p_prog%rho(:,:,jb), epr=p_prog%exner(:,:,jb), &
+!         
+         &  gz0=prm_diag%gz0(:,jb), tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb), &
+         &  tfm=prm_diag%tfm(:,jb), tfh=prm_diag%tfh(:,jb), tfv=prm_diag%tfv(:,jb), &
+!                
+         &  tke=z_tvs (:,:,jb,:) ,&!  edr =prm_diag%edr(:,:,jb),                    &
+         &  tkvm=prm_diag%tkvm(:,:,jb), tkvh=prm_diag%tkvh(:,:,jb), rcld=prm_diag%rcld(:,:,jb), &
+!       
+         &  u_tens=prm_nwp_tend%ddt_u_turb(:,:,jb), v_tens=prm_nwp_tend%ddt_v_turb(:,:,jb), &
+         &  t_tens=prm_nwp_tend%ddt_temp_turb(:,:,jb), &
+         &  qv_tens=prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqv),&
+         &  qc_tens=prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqc), &
+         &  tketens=prm_nwp_tend%ddt_tke(:,:,jb), &
+         &  ut_sso=prm_nwp_tend%ddt_u_sso(:,:,jb), vt_sso=prm_nwp_tend%ddt_v_sso(:,:,jb) ,&
+!         
+         &  t_2m=prm_diag%t_2m(:,jb), qv_2m=prm_diag%qv_2m(:,jb), td_2m=prm_diag%td_2m(:,jb), &
+         &  rh_2m=prm_diag%rh_2m(:,jb), u_10m=prm_diag%u_10m(:,jb), v_10m=prm_diag%v_10m(:,jb), &
+         &  shfl_s=prm_diag%shfl_s(:,jb), lhfl_s=prm_diag%lhfl_s(:,jb), &
+!         
+         &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
+          
       IF (ierrstat.NE.0) THEN
         CALL finish(eroutine, errormsg)
       END IF
@@ -358,22 +345,6 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
       ! transform updated turbulent velocity scale back to TKE
       p_prog_rcf%tke(i_startidx:i_endidx,:,jb)= 0.5_wp                                &
         &                                     * (z_tvs(i_startidx:i_endidx,:,jb,1))**2
-
-      ! Set limits to turbulent temperature tendency as a provisional
-      ! fix of numerical instabilities. THIS IS NOT INTENDED TO BE A FINAL SOLUTION!!!
-      DO jk = 1, advection_config(jg)%iadv_slev(iqc)-1
-        DO jc = i_startidx, i_endidx
-          prm_nwp_tend%ddt_temp_turb(jc,jk,jb) = &
-            MIN(1.e-3_wp,MAX(-1.e-3_wp,prm_nwp_tend%ddt_temp_turb(jc,jk,jb)))
-          p_prog_rcf%tke(jc,jk,jb) = MIN(1._wp,p_prog_rcf%tke(jc,jk,jb))
-        ENDDO
-      ENDDO
-      DO jk = advection_config(jg)%iadv_slev(iqc), nlev
-        DO jc = i_startidx, i_endidx
-          prm_nwp_tend%ddt_temp_turb(jc,jk,jb) = &
-            MIN(0.01_wp,MAX(-0.01_wp,prm_nwp_tend%ddt_temp_turb(jc,jk,jb)))
-        ENDDO
-      ENDDO
 
        ! Update QV, QC and temperature with turbulence tendencies
       DO jk = 1, nlev
@@ -386,18 +357,6 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
             &  + tcall_turb_jg*prm_nwp_tend%ddt_temp_turb(jc,jk,jb)
         ENDDO
       ENDDO
-
-      ! If QV advection is turned off near the model top, fix QV to a constant value of 
-      ! 2.5e-6 in those passive layers
-      IF (advection_config(jg)%iadv_slev(iqv) > 1) THEN
-        DO jk = 1, advection_config(jg)%iadv_slev(iqv)-1
-          DO jc = i_startidx, i_endidx
-            p_prog_rcf%tracer(jc,jk,jb,iqv) = 2.5e-6_wp
-          ENDDO
-        ENDDO
-      ENDIF
-
-
 
     ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == 2 ) THEN
 
