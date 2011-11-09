@@ -124,7 +124,13 @@ MODULE mo_radiation_nml
   !
   ! --- Default gas volume mixing ratios - 1990 values (CMIP5)
   !
+!DR preliminary restart fix
+#ifdef __SX__
+  INTEGER, PARAMETER :: qp = SELECTED_REAL_KIND(24, 307)
+  REAL(qp) :: vmr_co2
+#else
   REAL(wp) :: vmr_co2
+#endif
   REAL(wp) :: vmr_ch4
   REAL(wp) :: vmr_n2o
   REAL(wp) :: vmr_o2
@@ -212,11 +218,13 @@ CONTAINS
     ! 2. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
     !------------------------------------------------------------------
+
     IF (is_restart_run()) THEN
       funit = open_and_restore_namelist('radiation_nml')
       READ(funit,NML=radiation_nml)
       CALL close_tmpfile(funit)
     END IF
+
 
     !--------------------------------------------------------------------
     ! 3. Read user's (new) specifications (Done so far by all MPI processes)

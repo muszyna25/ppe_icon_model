@@ -134,7 +134,7 @@ MODULE mo_nwp_rad_interface
     INTEGER :: jg
 
     jg = pt_patch%id
-    
+
     IF (atm_phy_nwp_config(jg)%inwp_radiation == 1 ) THEN
        
       CALL nwp_rrtm_ozon_aerosol ( p_sim_time, datetime, pt_patch, ext_data, &
