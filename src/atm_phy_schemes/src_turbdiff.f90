@@ -354,6 +354,9 @@ USE data_1d_global, ONLY : &
 
 IMPLICIT NONE
 
+PRIVATE
+PUBLIC  :: init_canopy, organize_turbdiff
+
 REAL (KIND=ireals), PARAMETER :: &
     z0=0.0_ireals,&
     z1=1.0_ireals,&
@@ -5904,7 +5907,7 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
                DO i=istartpar,iendpar
                   len=hhl(i,j,k-1)-hhl(i,j,k+1)
                   hlp(i,j,k)=tketens(i,j,k-1)-tketens(i,j,k) &
-                            +MIN( securi*len**2/(4*tke(i,j,k,ntur)*dt_tke), c_diff*len_scale(i,j,k)) &
+                        +MIN( securi*len**2/(4*tke(i,j,k,ntur)*dt_tke), c_diff*len_scale(i,j,k)) &
                              *( (tke(i,j,k-1,ntur)-tke(i,j,k+1,ntur))/len )**2 * dicke(i,j,k)
                END DO
                END DO
