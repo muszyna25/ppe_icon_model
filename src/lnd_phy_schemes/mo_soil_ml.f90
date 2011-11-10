@@ -3773,6 +3773,24 @@ DO ns=nsubs0,nsubs1
       END DO
     END DO
   
+    DO ksn = 1, ke_snow
+      DO   j = jstarts, jends
+        DO i = istarts, iends
+          IF (llandmask(i,j,ns)) THEN          ! land-points only
+            IF(zwsnew(i,j) .GT. zepsi .and. zwsnew(i,j) .LT. zswitch(i,j)) THEN
+  
+              IF(zfor_snow_mult(i,j)*zdt > zwsnew(i,j)*rho_w*lh_f) THEN
+                ztsnown_mult(i,j,ksn) = t_so(i,j,0,nx,ns)
+              ELSE IF(zfor_snow_mult(i,j) .GT. 0._ireals) THEN
+                ztsnown_mult(i,j,ksn) = ztsnow_mult(i,j,ksn) + &
+                  zfor_snow_mult(i,j)*zdt/(chc_i*wtot_snow(i,j,ksn,nx,ns))/rho_w/ke_snow
+              END IF
+            END IF
+          END IF  ! land-points only
+        END DO
+      END DO
+    END DO
+
     DO   j = jstarts, jends
       DO i = istarts, iends
         IF (llandmask(i,j,ns)) THEN          ! land-points only
@@ -3794,23 +3812,6 @@ DO ns=nsubs0,nsubs1
       END DO
     END DO
 
-    DO ksn = 1, ke_snow
-      DO   j = jstarts, jends
-        DO i = istarts, iends
-          IF (llandmask(i,j,ns)) THEN          ! land-points only
-            IF(zwsnew(i,j) .GT. zepsi .and. zwsnew(i,j) .LT. zswitch(i,j)) THEN
-  
-              IF(zfor_snow_mult(i,j)*zdt > zwsnew(i,j)*rho_w*lh_f) THEN
-                ztsnown_mult(i,j,ksn) = t_so(i,j,0,nx,ns)
-              ELSE  IF(zfor_snow_mult(i,j) .GT. 0._ireals) THEN
-                ztsnown_mult(i,j,ksn) = ztsnow_mult(i,j,ksn) + &
-                  zfor_snow_mult(i,j)*zdt/(chc_i*wtot_snow(i,j,ksn,nx,ns))/rho_w/ke_snow
-              END IF
-            END IF
-          END IF  ! land-points only
-        END DO
-      END DO
-    END DO
   END IF
 
 
