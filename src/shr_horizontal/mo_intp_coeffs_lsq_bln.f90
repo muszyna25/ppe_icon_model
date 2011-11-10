@@ -874,10 +874,10 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
   ENDDO
 
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,js,ju,jja,jjb,jjk,i_startidx,i_endidx,ilc_s,ibc_s, &
+!$OMP PARALLEL PRIVATE(jb,jc,js,ju,jja,jjb,jjk,i_startidx,i_endidx,ilc_s,ibc_s, &
 !$OMP            z_lsq_mat_c,zs,zu,zv_t,zwork,ziwork,ist,icheck,za_debug, &
 !$OMP            z_qmat,z_rmat,cnt,jrow,nel)
+!$OMP DO
   DO jb = i_startblk, nblks_c
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, nblks_c, &

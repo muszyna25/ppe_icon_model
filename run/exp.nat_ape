@@ -1,0 +1,257 @@
+#!/bin/ksh
+#-----------------------------------------------------------------------------
+#
+# Basic specifications of the simulation
+# --------------------------------------
+#
+# These variables are set in the header section of the completed run script:
+#
+# EXPNAME = experiment name
+# NPROMA  = array blocking length / inner loop length
+#-----------------------------------------------------------------------------
+#-----------------------------------------------------------------------------
+# the namelist filename
+atmo_namelist=NAMELIST_${EXPNAME}
+#
+#-----------------------------------------------------------------------------
+# global timing
+start_date=${start_date:="2000-07-01T00:00:00Z"}
+ndays_restart=${ndays_restart:=365}              # restart every 1 year
+dt_restart=`expr ${ndays_restart} \* 86400`
+ndays_checkpoint=${ndays_checkpoint:=365}         # write restart file every year
+dt_checkpoint=`expr ${ndays_checkpoint} \* 86400 ` 
+#
+#-----------------------------------------------------------------------------
+# model timing
+dtime=${dtime:=60}
+ndays=${ndays:=120}
+nsteps=${nsteps:=`expr ${ndays} \* 86400 / ${dtime}`}
+dt_rad=${dt_rad:=3600}             # compute radiative transfer every other hour
+dt_conv=${dt_conv:=$dtime}
+dt_sso=${dt_sso:=$dt_conv}
+#
+#-----------------------------------------------------------------------------
+# the grid files if not defined
+atmo_dyn_grids=${atmo_dyn_grids:='iconR2B06-spr_cnt_sym.nc'}
+cell_type=${cell_type:=3}
+nlevels=${nlevels:=78}              # number of full levels
+#-----------------------------------------------------------------------------
+no_output=${no_output:=".false."}
+out_diag_hours=${out_diag_hours:=6}         # global integral output each 6 hours
+out_data_hours=${out_data_hours:=6}         # write output every 6 hours
+dt_diag=`expr ${out_diag_hours} \* 3600  `   
+dt_data=`expr ${out_data_hours} \* 3600  `
+out_newfile_days=${out_newfile_days:=1}     # 1 day per file
+dt_file=`expr ${out_newfile_days} \* 86400 `
+msg_level=${msg_level:=1}
+
+iorder_sendrecv=${iorder_sendrecv:=3}
+test_gw_hines_opt=${test_gw_hines_opt:=0}
+ltimer=${ltimer:=".true."}
+timers_level=${timers_level:=100}
+activate_sync_timers=${activate_sync_timers:=".true."}
+
+p_test_run=${p_test_run:=".false."}
+if [ $p_test_run = ".true." ] ; then
+  l_test_openmp=".true."
+  l_log_checks=".true."
+else
+  l_test_openmp=".false."
+  l_log_checks=".false."
+fi
+
+initial_conditions=${initial_conditions:=1}
+
+#-----------------------------------------------------------------------------
+atmo_model_equations=3
+             # equation system
+#                     1=hydrost. atm. T
+#                     1=hydrost. atm. theta dp
+#                     3=non-hydrost. atm.,
+#                     0=shallow water model
+#                    -1=hydrost. ocean
+
+iforcing=3
+        # forcing to the equation system
+#                     0 = no external forcing
+#                     1 = Held-Suarez forcing
+#                     2 = ECHAM6 physics
+#                     3 = NWP forcing
+
+itime_scheme=3
+    # default 4; 5: modified Matsuno for better numerical stability of sound waves
+
+
+#-----------------------------------------------------------------------------
+ldump_states=".false."
+lrestore_states=".false."
+if [[ x$dump_mode == "xdump" ]] ; then
+  ldump_states=".true."
+  lrestore_states=".false."
+fi
+if [[ x$dump_mode == "xrestore" ]] ; then
+  ldump_states=".false."
+  lrestore_states=".true."
+fi
+
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+
+
+#-----------------------------------------------------------------------------
+# write ICON namelist parameters
+# ------------------------
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+if [ x$atmo_rad_grids = x ]; then
+cat > ${atmo_namelist} << EOF
+&grid_nml
+ cell_type = ${cell_type}        ! triangular cells
+ dynamics_grid_filename = "${atmo_dyn_grids}",
+/
+EOF
+else
+cat > ${atmo_namelist} << EOF
+&grid_nml
+ cell_type = ${cell_type}        ! triangular cells
+ dynamics_grid_filename = "${atmo_dyn_grids}",
+ radiation_grid_filename = "${atmo_rad_grids}",
+ dynamics_radiation_grid_link = 1,
+/
+EOF
+fi
+#
+cat >> ${atmo_namelist} << EOF
+&parallel_nml
+ iorder_sendrecv = ${iorder_sendrecv}
+ nproma         = ${nproma}
+ p_test_run     = ${p_test_run}
+ l_test_openmp  = ${l_test_openmp}
+ l_log_checks   = ${l_log_checks}
+ l_fast_sum     = .true.
+/
+&run_nml
+ num_lev     = ${nlevels},  ! number of full levels of vertical grid
+ nsteps      = ${nsteps}    ! number of steps length of run
+ dtime       = ${dtime}     ! [s] timestep in seconds
+ ltestcase   = .TRUE.       ! run testcase                 --> testcase_ctl
+ ldynamics   = .TRUE.       ! dynamics                     --> dynamics_ctl, diffusion_ctl
+ ltransport  = .TRUE.       ! switch on tracer transport   --> transport_ctl
+ ntracer     = ${ntracer}            ! number of tracers
+ iforcing    = ${iforcing}  ! ECHAM physics                --> echam_phy_nml
+ ldump_states   = ${ldump_states}
+ lrestore_states= ${lrestore_states}
+ msg_level   =  $msg_level           ! detailed report during integration
+ ltimer = ${ltimer}
+ timers_level = ${timers_level}
+! activate_sync_timers = ${activate_sync_timers}
+/
+&dynamics_nml
+ iequations  = ${atmo_model_equations}  
+ idiv_method     = 1
+ divavg_cntrwgt  = 0.50
+/
+&nh_testcase_nml
+ nh_test_name      = 'APE_nh'     ! test case identifier
+ ape_sst_case      = 'sst1'
+ ! init_conditions_type = ${initial_conditions}
+/
+&nonhydrostatic_nml
+ itime_scheme    = ${itime_scheme}        ! default 4; 5: modified Matsuno for better numerical stability of sound waves
+ iadv_rhotheta   = 2
+ ivctype         = 2        ! set vertical grid automatically using sleve_ctl
+ igradp_method   = 1        ! new default
+ iadv_rcf        = 4        ! microphysics and turb and sat adj every 2 dynamic steps (2 or 4)
+ exner_expol     = 0.666    ! exner function extrapolation?
+ rayleigh_coeff  = 0.05     ! Rayleigh coefficient for damping in upper levels
+ damp_height     = 35000.   ! damping height (set about 10km below top)
+ vwind_offctr    = 0.12     ! off-centering for time differencing (like alpha in turb)
+ l_open_ubc      = .false.   ! top open upper boundary condition. might help to go higher
+ htop_moist_proc = 22500
+ htop_qvadv      = 30000
+/
+&transport_nml
+ ctracer_list='vwi456'       ! water vapour, cloud water, cloud ice, constant field, dummy for ozone
+ ihadv_tracer  = 2,2,2,2,2,0
+ ivadv_tracer  = 3,3,3,3,3,0
+ igrad_c_miura = 1
+ lvadv_tracer  = .TRUE.
+ lstrang       = .FALSE.
+ itype_hlimit = 3,4,4,4,4,0
+ itype_vlimit  = 1
+ iord_backtraj = 1          ! default: 1
+/
+&diffusion_nml
+ hdiff_order      = 5
+ hdiff_efdt_ratio = 8.0
+ lhdiff_vn        = .TRUE.
+ lhdiff_temp      = .TRUE.
+ hdiff_multfac    = 1.0
+ hdiff_tv_ratio   = 1.0
+/
+&sleve_nml                  ! vertical grid standard output for message level >= 15
+ min_lay_thckn   = 20.      ! lowest level thickness (between half-levels)
+ top_height      = 45000.
+ flat_height     = 20000.
+ stretch_fac     = 1.0     ! stretching towards model top (1.0 default; smaller - bigger top level thickness)
+ decay_scale_1   = 4000.    ! decay scales for topography
+ decay_scale_2   = 2500.
+ decay_exp       = 1.2
+/
+&nwp_phy_nml
+! inwp_gscp       = 1
+ inwp_satad      = 1
+ inwp_gscp       = 1
+ inwp_convection = 1
+ inwp_cldcover   = 3        ! 0: no cld, 1: grid scale, 3: COSMO
+ inwp_radiation  = 1        ! 1: RRTM, 2: Ritter-Geleyn
+ inwp_turb       = 1        ! 1: Raschendorfer, 2: ECHAM, 3: EDMF-DUALM
+ inwp_sso        = 0
+ inwp_gwd        = 1
+ inwp_surface    = 0
+ dt_conv         = ${dt_conv},
+ dt_rad          = ${dt_rad},
+ dt_sso          = ${dt_sso},
+/
+&radiation_nml
+ dt_rad     = ${dt_rad}     ! [s] compute radiative transfer every other hour
+ irad_o3    = 6             ! 4= use APE ozone 0=no ozone 6: non-hydrostatic ozone
+ izenith    = 3             ! circular orbit, no seasonal cycle but with diurnal cycle
+ irad_h2o   = 1             ! prognostic vapor, liquid and ice
+ irad_co2   = 2             ! constant co2 vmr
+ irad_ch4   = 0             ! switch off ch4
+ irad_n2o   = 0             ! switch off n2o
+ irad_o2    = 0             ! switch off o2
+ irad_cfc11 = 0             ! switch off cfc11
+ irad_cfc12 = 0             ! switch off cfc12
+ irad_aero  = 0             ! switch off aerosols
+/
+&io_nml
+ no_output        = ${no_output}
+ out_expname      = '${EXPNAME}'     ! file name base
+ dt_data          = ${dt_data}       ! [s] write output
+ dt_file          = ${dt_file}       ! [s] trigger new output file
+ dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
+ lwrite_vorticity   = .false.
+ lwrite_divergence  = .false.
+ lwrite_omega       = .false.
+ lwrite_pres        = .false.
+ lwrite_z3          = .true.
+ lwrite_tracer      = .true.,.false.,.false.,.false.,.false.,.false.,
+ lwrite_tend_phy  = .false.           ! add tendencies due to physics
+ lwrite_radiation = .false.           ! add radiation fields to output
+ lwrite_cloud     = .true.           ! add cloud fraction to output
+ lwrite_precip    = .true.           ! add precipitation to output
+ lwrite_pres      = .false.          ! remove pressure from output
+ lwrite_extra     = .false.
+ lwrite_surface    = .false.
+/
+&interpol_nml
+ lsq_high_ord     = 2
+/
+EOF
+#
+#-----------------------------------------------------------------------------
+
+
+

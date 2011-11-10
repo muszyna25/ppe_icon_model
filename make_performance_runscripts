@@ -1,47 +1,16 @@
-#!/bin/ksh
+#!/bin/bash
 #==============================================================================
-# Creates the ICON run scripts
+# Creates the ICON performance run scripts and (re) submits them
 # Leonidas Linardakis, MPI-M, 2011-25-1
-#==============================================================================
-#==============================================================================
-# The basic command for creating an ICON experiment run script is
-#   
-#  $make_runscript in_script=exp.<name> in_script_2=exec.iconrun EXPNAME=<name>
-#
-# By default the folder in use is ./run, and the run script is named exp.<name>.run.
-# 
-# Basic optional parameters for the $make_runscript command are:
-#
-#    out_script=<output run script name>. By default is <in_script>.run
-#
-#    in_folder=<input folder>. By default is run
-#
-#    out_folder=<output folder>. By default is =<in_folder>
-#
-#    mpi_procs=<number of mpi processes>. In the case of MPI configuration,
-#       defines how many processes per node will be used.
-# 
-#    no_of_nodes=<Number of nodes>. In the case of MPI configuration,
-#       defines how many nodes will be used.
-# 
-#    openmp_threads=<Number of openmp threads>. In the case of OPENMP
-#       configuration, defines how many OPENMP threads will be used.
-#
-#    cpu_time=<wall time>. Defines the expected run wall time.
-#  
-#    <free_variable>=<value> Free variables can be passed to the run script
-#       using this syntax. For example: EXPNAME=test, will result the
-#       definition of the variable EXPNAME=test in the run script. 
-   
-
-#
 # For more details see the parameters in the ./config/make_target_runscript
 #==============================================================================
-# set -x
+
+#==============================================================================
+# get basic facts
+#set -x
 # echo "-----------------------------------------------------------"
 base_folder=$(pwd)
 input_folder=run
-#==============================================================================
 . $base_folder/config/set-up.info
 if [[ x$use_shell == x ]] ; then
   use_shell="/bin/ksh"
@@ -50,62 +19,541 @@ fi
 make_runscript="$use_shell ./config/make_target_runscript"
 #==============================================================================
 
+#==============================================================================
+set_run_parameters ()
+{  
+   run_model_method_list="nat"
+  run_folder="run"
+ 
+  model_list=(      "nat"  )
+  nodes_list=(          1  )
+  mpi_procs_list=(      1  )
+  openmp_threads_list=( 4  )
+  nproma_list=(        10  )
+  grid_level_list=(     4  )  
+  vertical_level_list=(78  )
+  ndays_list=(          1  )
+  memory_model_list=("huge")
+  omp_stacksize_list=("200M")
+  
+  memory_model="huge"
+  omp_stacksize=420M
+  
+  nsteps=${nsteps:=""}
 
-make_script ()
+  nodes_list_size=${#nodes_list[*]}
+
+  nodes=${nodes_list[0]}
+  mpi_procs=${mpi_procs_list[0]}
+  openmp_threads=${openmp_threads_list[0]}
+
+  memory_model="huge"
+  omp_stacksize=220M
+
+  p_test_run=${p_test_run:=".false."}
+
+  #-----------------------------
+#  end_of_nodes_action="wrap"
+#  end_of_nodes_action="stop"
+  end_of_nodes_action="stay"
+  
+
+  cpu_time="02:00:00"
+
+}
+#==============================================================================
+
+
+warning()
 {
-  for nodes in $node_list
-  do
-    for nproma in $nproma_list
-    do
-      expname=${filename}.${nodes}nodes.${openmp_threads}threads.${nproma}nproma
-      runname=${expname}.run
-      $make_runscript in_folder=$run_folder in_script=${filename} in_script=exec.iconrun out_script=${runname} EXPNAME=${expname} \
-        no_of_nodes=$nodes mpi_procs=$mpi_procs openmp_threads=$openmp_threads rad_threads=$rad_threads nh_threads=$nh_threads \
-        nproma=$nproma cpu_time="$cpu_time" memory_model="$memory_model" ndays=$NDAYS omp_stacksize=$omp_stacksize
+   echo "   WARNING : $1"
+}
 
-      if [[ $run_script == "yes" ]] ; then
-         cd $run_folder
-         $use_submit $runname
-         cd ..
-      fi
-      
-      echo "-----------------------------------------------------------"
-    done
-  done
+error()
+{
+   echo "   ERROR : $1"
+   exit $2
 }
 
 #==============================================================================
-# Create ICON prerformance test run scripts
-# Note: The ICON experiments require the definition of the EXPNAME=<name> variable
+IFS=" ="
+eval_argument ()
+{
+  case $1 in
+  "run_model_method" ) in_run_model_method=$2
+  ;;
+  "grid_level" ) in_grid_level=$2
+  ;;
+  "nlevels" ) in_nlevels=$2
+  ;;
+  "dtime" ) dtime=$2
+  ;;
+  "initial_conditions" ) initial_conditions=$2
+  ;;
+  "end_sday" ) in_end_sday=$2
+  ;;
+  "EXPNAME" ) in_EXPNAME=$2
+  ;;
+  "no_of_nodes" ) in_no_of_nodes=$2
+  ;;
+  "solver" ) run_model_method_list="$2"
+  ;;
+  "runall_restart" ) run="all_restart"
+  ;;
+  "runall" ) run="all"
+  ;;
+  "runfull" ) run="full"
+  ;;
+  "makeall" ) make="all"
+  ;;
+  "makefull" ) make="full"
+  ;;
+  "no_restart" ) no_restart="true"
+  ;;
+  *)
+     echo "Error: Unrecognized parameter $1"
+     exit -1
+  esac
+}
+
 #==============================================================================
-run_script="no"
-if [[ $1 == "run" ]] ; then
-   run_script="yes"
+
+model_default_parameters()
+{
+  #-----------------------------
+
+  #-----------------------------
+  start_date=${start_date:="2000-07-01T00:00:00Z"}
+
+  #-----------------------------
+  # the grid files
+  atmo_dyn_grids="iconR2B0${grid_level}-grid.nc"
+  ozone_file="ape_o3_iconR2B0${grid_level}-grid.nc"
+  
+  #-----------------------------
+  # physics etc
+  dt_rad=${dt_rad:=1800}      # radiation every half an hour
+  ntracer=${ntracer:=5}   
+
+  initial_conditions=${initial_conditions:=0}  # 0=isothermal, 1=JWw
+  
+  iorder_sendrecv=${iorder_sendrecv:=3}  # irecv/isend
+  ltimer=${ltimer:=".true."}
+  timers_level=${timers_level:=100}
+  activate_sync_timers=${activate_sync_timers:=".true."}
+  test_gw_hines_opt=2
+  #-----------------------------
+  no_output=".false."
+  out_diag_hours=${out_diag_hours:=6}     # global integral output each 6 hours
+  out_data_hours=${out_data_hours:=6}     # write output every 6 hours
+  out_newfile_days=${out_newfile_days:=1}   # 1 day per file
+
+  msg_level=${msg_level:=0}
+
+  #add_header_var rad_threads 1
+  #add_header_var nh_threads 1
+}
+
+#==============================================================================
+
+
+
+#==============================================================================
+add_header_var ()
+{
+var_name=$1
+param=$2
+if [ x$param != x ] ; then
+cat >> ${header_file} << EOF
+$var_name=$param
+EOF
 fi
+}
 
-run_folder="run"
-node_list="1 2 4 8 16 32"
-mpi_procs=32
-openmp_threads=1
-#mpi_procs=8
-#openmp_threads=8
-mpi_procs=8
-openmp_threads=8
-#rad_threads=1
-#nh_threads=3
-memory_model="verylarge"
-omp_stacksize=200M
-cpu_time="02:00:00"
+create_header ()
+{
+  # clean_header 
+cat > ${header_file} << EOF
+#-------- header --------------
+EOF
+
+  #-----------------------------
+  # create header
+  add_header_var run_model_method   "$run_model_method"
+  add_header_var submit_restart     "$submit_restart"
+  # run time control
+  add_header_var start_date   "$start_date"
+  add_header_var restart      "$restart"
+  add_header_var restart_from "$restart_from" 
+  add_header_var ndays         $ndays
+  add_header_var nsteps         $nsteps
+  add_header_var ndays_restart  $ndays_restart
+  add_header_var ndays_checkpoint $ndays_checkpoint
+  add_header_var start_sday       $start_sday
+  add_header_var end_sday         $end_sday
+    
+  # output control
+  add_header_var no_output "$no_output"
+  add_header_var out_diag_hours $out_diag_hours  
+  add_header_var out_data_hours $out_data_hours      
+  add_header_var out_newfile_days $out_newfile_days 
+  
+  # the grid files
+  add_header_var atmo_dyn_grids "$atmo_dyn_grids"
+  add_header_var ozone_file "$ozone_file"
+  add_header_var cell_type  $cell_type
+  add_header_var grid_level $grid_level
+  add_header_var nlevels    $nlevels
+  
+  # dycore control
+  add_header_var itime_scheme $itime_scheme
+  add_header_var dtime        $dtime
+
+  # physics etc control
+  add_header_var dt_rad       $dt_rad
+  add_header_var irad_o3      $irad_o3
+  add_header_var ntracer      $ntracer
+  add_header_var steps_to_concvection  $steps_to_concvection
+
+  add_header_var initial_conditions    $initial_conditions
+
+  add_header_var iorder_sendrecv       ${iorder_sendrecv}
+  add_header_var ltimer                ${ltimer}
+  add_header_var timers_level          ${timers_level}
+  add_header_var activate_sync_timers  ${activate_sync_timers}
+  add_header_var test_gw_hines_opt     $test_gw_hines_opt
+  add_header_var p_test_run "$p_test_run"
+  add_header_var msg_level    $msg_level
+
+# vtrace export varibales
+  echo "export VT_MODE=STAT" >>  ${header_file}
+  echo "export VT_VERBOSE=2" >>  ${header_file}
+  vtrace_path='$ICON_BASE_PATH/profile/$job_name'
+  echo "mkdir -p $vtrace_path" >>  ${header_file}
+  echo "export VT_FILE_PREFIX=$vtrace_path/vtrace" >>  ${header_file}
+
+  #add_header_var rad_threads 1
+  #add_header_var nh_threads 1
+}
+#==============================================================================
+
+make_script ()
+{
+  
+    expname=${filename}_${ext}_${initial_conditions}initc_${nlevels}levels_${nodes}nodes_${mpi_procs}mpi_procs_${openmp_threads}threads_${nproma}nproma.sdays_${start_sday}-${end_sday}
+    runname=${expname}.run
+    
+    header_filename=$expname.header
+    header_file=$base_folder/$input_folder/$header_filename
+    create_header
+    
+    $make_runscript in_folder="$run_folder" in_script="${header_filename}" in_script="${filename}" in_script="exec.iconrun"\
+      out_script="${runname}" EXPNAME="${expname}" no_of_nodes="$nodes" mpi_procs="$mpi_procs" openmp_threads="$openmp_threads"\
+      nproma="$nproma" cpu_time="$cpu_time" memory_model="$memory_model" omp_stacksize="$omp_stacksize"
+
+    rm $header_file
+    
+    if [[ $run_script == "true" ]] ; then
+        cd $run_folder
+        $use_submit ./$runname
+        cd ..
+    fi
+
+    echo "-----------------------------------------------------------"
+}
+#==============================================================================
+
+
+#==============================================================================
+# describe the setup
+#  itime_scheme=             # = 1, preparational computations for advection test
+                             # = 12, semi implicit 2 time level scheme
+                             # = 13, explicit leapfrog
+                             # = 14, leapfrog with semi implicit correction
+                             # = 15, 4-stage Runge-Kutta method
+#==============================================================================
+# hydrostatic
+#-----------------------------
+# leapfrog with semi-implicit correction
+leapfrog_si()
+{
+  grid_level=$1
+  nlevels=$2
+  model_default_parameters
+  run_model_method=leapfrog_si
+
+  filename=exp.hat_ape
+  cell_type=3
+  itime_scheme=14
+  ext="leapfrog_si.r2b${grid_level}"
+  
+  case $grid_level in
+  "4" ) dtime=300
+  ;;
+  "6" ) dtime=90
+  ;;
+  *)    dtime=90
+  esac
+  
+  make_script
+}
+
 
 #-----------------------------
-nproma_list="20 40 60"
+# semi implicit 2 time level scheme 
+si_2t()
+{
+  grid_level=$1
+  nlevels=$2
+  model_default_parameters
+  run_model_method=si_2t
+  
+  nodes_restart_95=14
+  mpi_procs_restart_95=16
+  openmp_threads_restart_95=4
+  nproma_restart_95=23
+  restart_days_95=40
+  cpu_time_restart_95="08:00:00"
+
+  nodes_restart_31=10
+  mpi_procs_restart_31=16
+  openmp_threads_restart_31=4
+  nproma_restart_31=32
+  restart_days_31=75
+  cpu_time_restart_31="08:00:00"
+
+  filename=exp.hat_ape
+  cell_type=3
+  itime_scheme=12
+  ext="si_2t.r2b${grid_level}"
+  
+  case $grid_level in
+  "4" ) dtime=300
+  ;;
+  "6" ) dtime=90
+  ;;
+  *)    dtime=90
+  esac
+
+  if [ x$submit_restart != "x" ] ; then
+    set_restart    
+#  else
+#
+  fi
+
+  
+  make_script
+}
+
 
 #-----------------------------
-NDAYS=1
+# leapfrog explicit
+leapfrog_expl()
+{
+  grid_level=$1
+  nlevels=$2
+  model_default_parameters
+  run_model_method=leapfrog_expl
+  
+  filename=exp.hat_ape
+  cell_type=3
+  itime_scheme=13
+  ext="leapfrog_expl.r2b${grid_level}"
+  
+  case $grid_level in
+  "4" ) dtime=240
+  ;;
+  "6" ) dtime=60
+  ;;
+  *)    dtime=60
+  esac
+
+  make_script
+}
 
 #-----------------------------
+# ruga-kutta 4 
+ruku4()
+{
+  grid_level=$1
+  nlevels=$2
+  model_default_parameters
+  run_model_method=ruku4
+  
+  filename=exp.hat_ape
+  cell_type=3
+  itime_scheme=15
+  ext="ruku4.r2b${grid_level}"
+  
+  case $grid_level in
+  "4" ) dtime=240
+  ;;
+  "6" ) dtime=60
+  ;;
+  *)    dtime=60
+  esac
+
+  make_script
+}
 
 #-----------------------------
-filename=exp.hat_icoham_ape_r2b6
-make_script
+#SSPRK(5,4) 
+ssprk_5_4()
+{
+  grid_level=$1
+  nlevels=$2
+
+  nodes_restart_95=60
+  mpi_procs_restart_95=8
+  openmp_threads_restart_95=8
+  nproma_restart_95=29
+  restart_days_95=85
+  cpu_time_restart_95="08:00:00"
+ 
+  nodes_restart_31=10
+  mpi_procs_restart_31=16
+  openmp_threads_restart_31=4
+  nproma_restart_31=32
+  restart_days_31=50
+  cpu_time_restart_31="08:00:00"
+
+
+  model_default_parameters
+  run_model_method=ssprk_5_4  
+  filename=exp.hat_ape
+  cell_type=3
+  itime_scheme=16
+  ext="ssprk_5_4.r2b${grid_level}"  
+
+  case $grid_level in
+  "4" ) dtime=240
+  ;;
+  "6" ) dtime=60
+  ;;
+  *)    dtime=60
+  esac
+
+  if [ x$submit_restart != "x" ] ; then
+    set_restart
+#  else
+#
+  fi
+
+  make_script
+}
+
 #-----------------------------
+#hydrostatic hexagonal leapfrog with semi implicit correction 
+hex_leapfrog_si()
+{
+  grid_level=$1
+  nlevels=$2
+  model_default_parameters
+  run_model_method=hex_leapfrog_si
+
+  filename=exp.hat_ape
+  cell_type=6
+  itime_scheme=14
+  ext="hex_leapfrog_si.r2b${grid_level}"
+  
+  case $grid_level in
+  "4" ) dtime=240
+  ;;
+  "6" ) dtime=60
+  ;;
+  *)    dtime=60
+  esac
+
+  make_script
+}
+
+
+#==============================================================================
+# non hydrostatic 
+#-----------------------------
+nat()
+{
+  grid_level=$1
+#  nlevels=$2
+  nlevels=78
+ 
+  model_default_parameters
+  run_model_method=nat
+  
+  filename=exp.nat_ape
+  cell_type=3
+  itime_scheme=14
+  ext="r2b${grid_level}"
+  
+  case $grid_level in
+  "4" ) dtime=240
+  ;;
+  "5" ) dtime=120
+  ;;
+  "6" ) dtime=60
+  ;;
+  *)    dtime=60
+  esac
+
+  make_script
+}
+#==============================================================================
+
+
+#==============================================================================
+# the main thing
+#==============================================================================
+make_model_run()
+{
+  list_index=$1
+    
+  nodes=${nodes_list[$list_index]}
+  mpi_procs=${mpi_procs_list[$list_index]}
+  openmp_threads=${openmp_threads_list[$list_index]}
+  nproma=${nproma_list[$list_index]}
+  ndays=${ndays_list[$list_index]}
+  end_sday=`expr $start_sday + $ndays - 1`
+  model_method=${model_list[$list_index]}
+  run_grid_level=${grid_level_list[$list_index]}
+  run_vertical_levels=${vertical_level_list[$list_index]}
+  memory_mode=${memory_model_list[$list_index]}
+  omp_stacksize=${omp_stacksize_list[$list_index]}
+            
+  $model_method $run_grid_level $run_vertical_levels
+        
+}
+#==============================================================================
+
+#==============================================================================
+# create all setups
+make_all_setups()
+{
+  restart=".false."
+  start_sday=1
+  
+  j=0
+  while [ $j -lt ${nodes_list_size} ]
+  do
+    make_model_run $j
+    let j=j+1
+  done
+  
+}
+#==============================================================================
+
+#==============================================================================
+set_run_parameters
+
+#==============================================================================
+# evaluate the input arguments
+for arg
+do
+  eval_argument $arg
+done
+#==============================================================================
+
+make_all_setups
+exit
+#==============================================================================
+
+
