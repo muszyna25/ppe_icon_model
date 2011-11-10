@@ -765,34 +765,34 @@ end
 undef("setDefaultSectionResource")
 function setDefaultSectionResource(points,secpoints,seclc,secrc)
 begin
-  resource                          = True;           plot mods desired
-  resource@gsnFrame                 = False;                don't turn page yet
-  resource@gsnDraw                  = False;                don't draw yet
-  resource@tmXBMode                 = "Explicit";     explicitly label x-axis
-  resource@tmXBValues               = (/points(0),points(secpoints-1)/);  points to label values
-  resource@tmXBLabels               = (/ seclc(1) +"N, "+ seclc(0)+"E" , secrc(1)+"N, "+secrc(0)+"E" /)
+  resource                              = True;           plot mods desired
+  resource@gsnFrame                     = False;                don't turn page yet
+  resource@gsnDraw                      = False;                don't draw yet
+  resource@tmXBMode                     = "Explicit";     explicitly label x-axis
+  resource@tmXBValues                   = (/points(0),points(secpoints-1)/);  points to label values
+  resource@tmXBLabels                   = (/ seclc(1) +"N, "+ seclc(0)+"E" , secrc(1)+"N, "+secrc(0)+"E" /)
 
-  resource@cnFillOn                 = True;          turn on color
-  resource@lbLabelAutoStride        = True;          nice label bar label stride
-  resource@gsnSpreadColors          = True;          use full range of colormap
-  resource@cnLinesOn                = False;         turn off countour lines
-  resource@lbOrientation            = "vertical";    vertical label bar
-  resource@pmLabelBarOrthogonalPosF = -0.05;         move label bar closer to plot
-  resource@lbTitlePosition          = "Bottom"
- ; resource@gsnYAxisIrregular2Log = True
+  resource@cnFillOn                     = True;          turn on color
+  resource@lbLabelAutoStride            = True;          nice label bar label stride
+  resource@gsnSpreadColors              = True;          use full range of colormap
+  resource@cnLinesOn                    = False;         turn off countour lines
+  resource@lbOrientation                = "vertical";    vertical label bar
+  resource@pmLabelBarOrthogonalPosF     = -0.05;         move label bar closer to plot
+  resource@lbTitlePosition              = "Bottom"
+;   resource@gsnYAxisIrregular2Log      = True
 
-  delete(resource@cnMissingValFillPattern)    ; no longer filling missing value areas
-  delete(resource@cnMissingValFillColor)      ; no longer filling missing value areas
+  delete(resource@cnMissingValFillPattern);     no longer filling missing value areas
+  delete(resource@cnMissingValFillColor);       no longer filling missing value areas
   resource@cnMissingValFillColor        = "gray30"
   resource@cnMissingValPerimOn          = True
 
   resource@cnMissingValFillPattern      = -1;                set the missing value fill pattern to 5
   resource@cnMissingValFillScaleF       = 0.9;              increase the density of the fill pattern (default   = 1.0)
-;       resource@cnMissingValPerimOn    = True;             already turned on above
+;         resource@cnMissingValPerimOn  = True;             already turned on above
   resource@cnMissingValPerimColor       = "black";          change the missing value perimeter to black
   resource@cnMissingValPerimDashPattern = 1;           set the dash pattern of the missing value perimeter to 1
   resource@cnMissingValPerimThicknessF  = 3.0;         increase the thickness of the missing value perimeter 3X
-
+  ;resource@gsnYAxisIrregular2Log        = True
   return resource
 end
 undef("setDesfaultOverlayResource")
