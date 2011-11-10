@@ -34,12 +34,12 @@
 !!
 MODULE mo_time_nml
 
-  USE mo_kind,                  ONLY: wp
-  USE mo_datetime,              ONLY: proleptic_gregorian, &
+  USE mo_kind,                  ONLY: wp, i8
+  USE mo_datetime,              ONLY: proleptic_gregorian, time_to_date, &
                                     & date_to_time, string_to_datetime
   USE mo_time_config,           ONLY: time_config
   USE mo_io_units,              ONLY: nnml, nnml_output
-  USE mo_master_control,     ONLY: is_restart_run
+  USE mo_master_control,        ONLY: is_restart_run
   USE mo_namelist,              ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                   ONLY: my_process_is_stdio 
 
@@ -88,15 +88,20 @@ CONTAINS
   !!  - lidealized replaced by ltestcase
   !!  Modification by Constantin Junk, MPI-M (2010-02-22)
   !!  - changes to consistency checks
+  !!  Modification by Daniel Reinert, DWD (2011-11-10)
+  !!  - in order for the restart to produce bitwise identical results, 
+  !!    it is necessary to read caltime/calday directly from restart. So 
+  !!    far, caltime/calday had been re-computed from the date. However, 
+  !!    this led to significant roundoff errors.
   !!
   SUBROUTINE read_time_namelist( filename )
 
    CHARACTER(LEN=*), INTENT(IN) :: filename
    INTEGER  :: istat, funit,calendar_old
    CHARACTER(len=32) :: ini_datetime_string_old
-   INTEGER  :: restart_year, restart_month,  restart_day
-   INTEGER  :: restart_hour, restart_minute
-   REAL(wp) :: restart_second
+   INTEGER(i8) :: restart_calday
+   REAL(wp)    :: restart_caltime
+
 
    !0!CHARACTER(len=*), PARAMETER ::  routine = 'mo_time_nml:read_time_namelist'
 
@@ -135,12 +140,8 @@ CONTAINS
 
       ! 2.2 Inquire the date/time at which the previous run stopped
 
-      CALL get_restart_attribute( 'current_year'  , restart_year   )
-      CALL get_restart_attribute( 'current_month' , restart_month  )
-      CALL get_restart_attribute( 'current_day'   , restart_day    )
-      CALL get_restart_attribute( 'current_hour'  , restart_hour   )
-      CALL get_restart_attribute( 'current_minute', restart_minute )
-      CALL get_restart_attribute( 'current_second', restart_second )
+      CALL get_restart_attribute( 'current_caltime', restart_caltime )
+      CALL get_restart_attribute( 'current_calday' , restart_calday  )
 
   END IF
 
@@ -180,15 +181,12 @@ CONTAINS
         time_config%cur_datetime = time_config%ini_datetime
 
       ELSE
-         time_config%cur_datetime%calendar = time_config%calendar
-         time_config%cur_datetime%year     = restart_year
-         time_config%cur_datetime%month    = restart_month
-         time_config%cur_datetime%day      = restart_day
-         time_config%cur_datetime%hour     = restart_hour
-         time_config%cur_datetime%minute   = restart_minute
-         time_config%cur_datetime%second   = restart_second
+        time_config%cur_datetime%calendar = time_config%calendar
+        time_config%cur_datetime%caltime  = restart_caltime
+        time_config%cur_datetime%calday   = restart_calday
 
-        CALL date_to_time(time_config%cur_datetime) ! fill date time structure
+        CALL time_to_date(time_config%cur_datetime) ! fill date time structure
+
       END IF
 
     ELSE

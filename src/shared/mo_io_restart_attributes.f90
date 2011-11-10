@@ -1,6 +1,6 @@
 MODULE mo_io_restart_attributes
   !
-  USE mo_kind,                  ONLY: wp
+  USE mo_kind,                  ONLY: wp, i8
   USE mo_exception,             ONLY: finish
   USE mo_cdi_constants
   !
@@ -56,6 +56,7 @@ MODULE mo_io_restart_attributes
     MODULE PROCEDURE set_restart_attribute_text
     MODULE PROCEDURE set_restart_attribute_real
     MODULE PROCEDURE set_restart_attribute_int
+    MODULE PROCEDURE set_restart_attribute_int8
     MODULE PROCEDURE set_restart_attribute_bool
   END INTERFACE set_restart_attribute
   !
@@ -65,6 +66,7 @@ MODULE mo_io_restart_attributes
     MODULE PROCEDURE get_restart_att_real_by_name
     MODULE PROCEDURE get_restart_att_real_by_index
     MODULE PROCEDURE get_restart_att_int_by_name
+    MODULE PROCEDURE get_restart_att_int8_by_name
     MODULE PROCEDURE get_restart_att_int_by_index
     MODULE PROCEDURE get_restart_att_bool_by_name
     MODULE PROCEDURE get_restart_att_bool_by_index
@@ -155,6 +157,19 @@ CONTAINS
     CALL finish('','Attribute '//TRIM(attribute_name)//' not found.')
   END SUBROUTINE get_restart_att_int_by_name
   !
+  SUBROUTINE get_restart_att_int8_by_name(attribute_name, attribute_value)
+    CHARACTER(len=*), INTENT(in)  :: attribute_name
+    INTEGER(i8),      INTENT(out) :: attribute_value
+    INTEGER :: i
+    DO i = 1, natts_int
+      IF (TRIM(attribute_name) == TRIM(restart_attributes_int(i)%name)) THEN
+        attribute_value = restart_attributes_int(i)%val
+        RETURN
+      ENDIF
+    ENDDO
+    CALL finish('','Attribute '//TRIM(attribute_name)//' not found.')
+  END SUBROUTINE get_restart_att_int8_by_name
+  !
   SUBROUTINE get_restart_att_int_by_index(idx, attribute_name, attribute_value)
     INTEGER,          INTENT(in)  :: idx
     CHARACTER(len=*), INTENT(out) :: attribute_name
@@ -232,6 +247,21 @@ CONTAINS
       restart_attributes_int(natts_int)%val = attribute_value
     ENDIF    
   END SUBROUTINE set_restart_attribute_int
+  !
+  SUBROUTINE set_restart_attribute_int8(attribute_name, attribute_value)
+    CHARACTER(len=*), INTENT(in) :: attribute_name
+    INTEGER(i8),      INTENT(in) :: attribute_value
+    IF (.NOT. ALLOCATED(restart_attributes_int)) THEN
+      ALLOCATE(restart_attributes_int(nmax_atts))
+    ENDIF
+    natts_int = natts_int+1
+    IF (natts_int > nmax_atts) THEN
+      CALL finish('set_restart_attribute_int','too many restart attributes for restart file')
+    ELSE
+      restart_attributes_int(natts_int)%name = attribute_name
+      restart_attributes_int(natts_int)%val = attribute_value
+    ENDIF    
+  END SUBROUTINE set_restart_attribute_int8
   !
   SUBROUTINE set_restart_attribute_bool(attribute_name, attribute_value)
     CHARACTER(len=*), INTENT(in) :: attribute_name

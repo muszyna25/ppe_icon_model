@@ -388,12 +388,8 @@ ENDIF
     kedge     = patch%n_patch_edges_g
     icelltype = patch%cell_type
 
-    CALL set_restart_attribute( 'current_year'  , datetime%year   )
-    CALL set_restart_attribute( 'current_month' , datetime%month  )
-    CALL set_restart_attribute( 'current_day'   , datetime%day    )
-    CALL set_restart_attribute( 'current_hour'  , datetime%hour   )
-    CALL set_restart_attribute( 'current_minute', datetime%minute )
-    CALL set_restart_attribute( 'current_second', datetime%second )
+    CALL set_restart_attribute( 'current_caltime', datetime%caltime )
+    CALL set_restart_attribute( 'current_calday' , datetime%calday )
 
     CALL set_restart_attribute( 'nold'    , nold    (jg))
     CALL set_restart_attribute( 'nnow'    , nnow    (jg))
