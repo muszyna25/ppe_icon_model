@@ -3979,7 +3979,7 @@ CONTAINS
     outsize = p_buf_size
     CALL MPI_PACK(t_var, 1, p_int, t_buffer, outsize, p_pos, p_comm, p_error)
 #ifdef DEBUG
-    IF (p_error /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+    IF (p_error /= MPI_SUCCESS) CALL finish ("p_pack_int", 'MPI call failed')
 #endif
 #endif
   END SUBROUTINE p_pack_int
@@ -4003,7 +4003,7 @@ CONTAINS
     outsize = p_buf_size
     CALL MPI_PACK(t_var, 1, p_real_dp, t_buffer, outsize, p_pos, p_comm, p_error)
 #ifdef DEBUG
-    IF (p_error /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+    IF (p_error /= MPI_SUCCESS) CALL finish ("p_pack_real", 'MPI call failed')
 #endif
 #endif
   END SUBROUTINE p_pack_real
@@ -4028,7 +4028,7 @@ CONTAINS
     outsize = p_buf_size
     CALL MPI_PACK(t_var, p_count, p_int, t_buffer, outsize, p_pos, p_comm, p_error)
 #ifdef DEBUG
-    IF (p_error /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+    IF (p_error /= MPI_SUCCESS) CALL finish ("p_pack_int_1d", 'MPI call failed')
 #endif
 #endif
   END SUBROUTINE p_pack_int_1d
@@ -4053,7 +4053,7 @@ CONTAINS
     outsize = p_buf_size
     CALL MPI_PACK(t_var, p_count, p_real_dp, t_buffer, outsize, p_pos, p_comm, p_error)
 #ifdef DEBUG
-    IF (p_error /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+    IF (p_error /= MPI_SUCCESS) CALL finish ("p_pack_real_1d", 'MPI call failed')
 #endif
 #endif
   END SUBROUTINE p_pack_real_1d
@@ -4078,7 +4078,7 @@ CONTAINS
     outsize = p_buf_size
     CALL MPI_PACK(t_var, p_count, p_real_dp, t_buffer, outsize, p_pos, p_comm, p_error)
 #ifdef DEBUG
-    IF (p_error /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+    IF (p_error /= MPI_SUCCESS) CALL finish ("p_pack_real_2d", 'MPI call failed')
 #endif
 #endif
   END SUBROUTINE p_pack_real_2d
@@ -4101,7 +4101,7 @@ CONTAINS
 
     CALL MPI_UNPACK(t_buffer, p_buf_size, p_pos, t_var, 1, p_int, p_comm, p_error)
 #ifdef DEBUG
-    IF (p_error /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+    IF (p_error /= MPI_SUCCESS) CALL finish ("p_unpack_int", 'MPI call failed')
 #endif
 #endif
   END SUBROUTINE p_unpack_int
@@ -4124,7 +4124,7 @@ CONTAINS
 
     CALL MPI_UNPACK(t_buffer, p_buf_size, p_pos, t_var, 1, p_real_dp, p_comm, p_error)
 #ifdef DEBUG
-    IF (p_error /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+    IF (p_error /= MPI_SUCCESS) CALL finish ("p_unpack_real", 'MPI call failed')
 #endif
 #endif
   END SUBROUTINE p_unpack_real
@@ -4148,7 +4148,7 @@ CONTAINS
 
     CALL MPI_UNPACK(t_buffer, p_buf_size, p_pos, t_var, p_count, p_int, p_comm, p_error)
 #ifdef DEBUG
-    IF (p_error /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+    IF (p_error /= MPI_SUCCESS) CALL finish ("p_unpack_int_1d", 'MPI call failed')
 #endif
 #endif
   END SUBROUTINE p_unpack_int_1d
@@ -4172,7 +4172,7 @@ CONTAINS
 
     CALL MPI_UNPACK(t_buffer, p_buf_size, p_pos, t_var, p_count, p_real_dp, p_comm, p_error)
 #ifdef DEBUG
-    IF (p_error /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+    IF (p_error /= MPI_SUCCESS) CALL finish ("p_unpack_real_1d", 'MPI call failed')
 #endif
 #endif
   END SUBROUTINE p_unpack_real_1d
@@ -4196,7 +4196,7 @@ CONTAINS
 
     CALL MPI_UNPACK(t_buffer, p_buf_size, p_pos, t_var, p_count, p_real_dp, p_comm, p_error)
 #ifdef DEBUG
-    IF (p_error /= MPI_SUCCESS) CALL finish (routine, 'MPI function call failed')
+    IF (p_error /= MPI_SUCCESS) CALL finish ("p_unpack_real_2d", 'MPI call failed')
 #endif
 #endif
   END SUBROUTINE p_unpack_real_2d
