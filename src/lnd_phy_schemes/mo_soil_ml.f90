@@ -765,14 +765,14 @@ IMPLICIT NONE
     zrefr(ie,je)   , & ! rate of liquid water refreezing
     zmelt(ie,je)   , & ! rate of snow melting
     ze_in          , &
-    ze_out         , &
+    ze_out(ie,je)  , &
     zadd_dz        , &
     zrho_dry_old(ie,je)   , &
     zeta           , &
     zdens_old      , &
-    zp             , &
-    zcounter       , &
-    ze_rad         , &
+    zp(ie,je,ke_snow), &
+    zcounter(ie,je), &
+    ze_rad(ie,je)  , &
     zswitch(ie,je) , &
     fact1          , &
     fact2          , &
@@ -1999,6 +1999,7 @@ DO ns=nsubs0,nsubs1
             ! --> no water in interception store and t_snow < t0_melt
             w_snow(i,j,nx,ns) = w_snow(i,j,nx,ns) + w_i(i,j,nx,ns)
             wtot_snow(i,j,1,nx,ns) = wtot_snow(i,j,1,nx,ns) + w_i(i,j,nx,ns)
+IF(rho_snow_mult(i,j,1,nx,ns).lt.zepsi) print *,i,j,'rho_snow_mult(i,j,1,nx,ns).lt.zepsi'
             dzh_snow(i,j,1,nx,ns)  = dzh_snow(i,j,1,nx,ns)  + w_i(i,j,nx,ns) &
               &                      /rho_snow_mult(i,j,1,nx,ns)*rho_w
             w_i   (i,j,nx,ns) = 0.0_ireals
@@ -4040,39 +4041,36 @@ DO ns=nsubs0,nsubs1
 
   ELSE       ! new snow scheme
 
-
     DO   j = jstarts, jends
       DO i = istarts, iends
         IF (llandmask(i,j,ns)) THEN          ! land-points only
-    
-          zwsnn  (i,j)  = zwsnow(i,j) + zdtdrhw*zdwsndt(i,j)
-          zwsnew (i,j)  = zwsnn(i,j)
-          ze_avail      = 0.0_ireals
-          ze_total      = 0.0_ireals
-          zfr_melt      = 0.0_ireals
-          zdwsnm(i,j)   = 0.0_ireals
-    
-          IF (zwsnew(i,j) > zepsi) THEN        ! points with snow cover only
-    
-            ze_out      = 0.0_ireals
-            zqbase(i,j) = 0.0_ireals
-            zcounter    = 0.0_ireals
-    
-            IF(zextinct(i,j,1).eq.0.0_ireals) then
-              ze_rad = 0.0_ireals
-            ELSE
-              ze_rad = zf_snow(i,j) * sobs(i,j,ns) !* exp(-zextinct(1)*zdzm_snow(1))
-            END IF
-    
-            ztsnownew_mult(i,j,0) = ztsnown_mult(i,j,0)
-            DO ksn = 1,ke_snow
+          
+          zwsnew(i,j) = zwsnow(i,j) + zdtdrhw*zdwsndt(i,j)
+          zdwsnm(i,j) = 0.0_ireals
+
+          ze_out  (i,j) = 0.0_ireals
+          zqbase  (i,j) = 0.0_ireals
+          zcounter(i,j) = 0.0_ireals
+
+          ze_rad(i,j) = 0.0_ireals
+          IF(zextinct(i,j,1).gt.0.0_ireals) ze_rad(i,j) = zf_snow(i,j) * sobs(i,j,ns)
+
+          ztsnownew_mult(i,j,0) = ztsnown_mult(i,j,0)
+        END IF         ! land-points only
+      END DO
+    END DO
+
+    DO ksn = 1,ke_snow
+
+      DO   j = jstarts, jends
+        DO i = istarts, iends
+          IF (llandmask(i,j,ns)) THEN          ! land-points only
+            IF (zwsnew(i,j) > zepsi) THEN        ! points with snow cover only
     
               zrefr(i,j) = 0.0_ireals
               zmelt(i,j) = 0.0_ireals
               ztsnownew_mult(i,j,ksn) = ztsnown_mult(i,j,ksn)
     
-!em           zrho_dry_old(i,j) = MAX(wtot_snow(i,j,ksn,nx) - wliq_snow(i,j,ksn,nx), 0._ireals)*   &
-!em                               rho_w/(zdzh_snow(i,j,ksn) - wliq_snow(i,j,ksn,nx))
               IF(zdzh_snow(i,j,ksn) - wliq_snow(i,j,ksn,nx,ns).GT.zepsi .OR. &
                 wtot_snow(i,j,ksn,nx,ns) - wliq_snow(i,j,ksn,nx,ns).GT.zepsi) THEN
                 zrho_dry_old(i,j) = MAX(wtot_snow(i,j,ksn,nx,ns)-wliq_snow(i,j,ksn,nx,ns),zepsi)*&
@@ -4086,18 +4084,18 @@ DO ns=nsubs0,nsubs1
                 &                       + wtot_snow(i,j,ksn,nx,ns))
     
               IF(zextinct(i,j,ksn).eq.0.0_ireals) THEN
-                ze_in = ze_out
+                ze_in = ze_out(i,j)
               ELSE
                 IF(ksn.eq.ke_snow) THEN
-                  ze_in = ze_out + (ze_rad - zcounter)
+                  ze_in = ze_out(i,j) + (ze_rad(i,j) - zcounter(i,j))
                 ELSEIF(ksn.eq.1) then
-                  ze_in = ze_rad * (EXP (-zextinct(i,j,1)*zdzm_snow(i,j,1)) &
+                  ze_in = ze_rad(i,j) * (EXP (-zextinct(i,j,1)*zdzm_snow(i,j,1)) &
                     &     - EXP (-zextinct(i,j,1)*zdzh_snow(i,j,1)))
-                  zcounter = ze_rad * (1._ireals - EXP (-zextinct(i,j,1)*zdzh_snow(i,j,1)))
+                  zcounter(i,j) = ze_rad(i,j) * (1._ireals - EXP (-zextinct(i,j,1)*zdzh_snow(i,j,1)))
                 ELSE
-                  ze_in = ze_out + (ze_rad - zcounter) -  &
-                    (ze_rad - zcounter) * EXP (-zextinct(i,j,ksn)*zdzh_snow(i,j,ksn))
-                  zcounter = ze_rad-(ze_rad-zcounter) * EXP(-zextinct(i,j,ksn)*zdzh_snow(i,j,ksn))
+                  ze_in = ze_out(i,j) + (ze_rad(i,j) - zcounter(i,j)) -  &
+                    (ze_rad(i,j) - zcounter(i,j)) * EXP (-zextinct(i,j,ksn)*zdzh_snow(i,j,ksn))
+                  zcounter(i,j) = ze_rad(i,j)-(ze_rad(i,j)-zcounter(i,j)) * EXP(-zextinct(i,j,ksn)*zdzh_snow(i,j,ksn))
                 END IF
               END IF
     
@@ -4116,18 +4114,18 @@ DO ns=nsubs0,nsubs1
               IF(ztsnownew_mult(i,j,ksn) .GT. t0_melt) THEN
     
                 IF(wtot_snow(i,j,ksn,nx,ns) .LE. wliq_snow(i,j,ksn,nx,ns)) THEN
-                  ze_out = chc_i*wtot_snow(i,j,ksn,nx,ns)*(ztsnownew_mult(i,j,ksn) - t0_melt) &
+                  ze_out(i,j) = chc_i*wtot_snow(i,j,ksn,nx,ns)*(ztsnownew_mult(i,j,ksn) - t0_melt) &
                     &      *z1d2dt*rho_w
                   zmelt(i,j) = 0.0_ireals
                 ELSEIF(chc_i*wtot_snow(i,j,ksn,nx,ns)*(ztsnownew_mult(i,j,ksn)-t0_melt)/lh_f .LE. &
                   wtot_snow(i,j,ksn,nx,ns)-wliq_snow(i,j,ksn,nx,ns)) THEN
                   zmelt(i,j) = chc_i*wtot_snow(i,j,ksn,nx,ns)*(ztsnownew_mult(i,j,ksn) - t0_melt) &
                     &          *z1d2dt/lh_f
-                  ze_out = 0.0_ireals
+                  ze_out(i,j) = 0.0_ireals
                   wliq_snow(i,j,ksn,nx,ns) = wliq_snow(i,j,ksn,nx,ns) + zmelt(i,j)*zdt
                 ELSE
                   zmelt(i,j) = (wtot_snow(i,j,ksn,nx,ns)-wliq_snow(i,j,ksn,nx,ns))*z1d2dt
-                  ze_out = chc_i*wtot_snow(i,j,ksn,nx,ns)*(ztsnownew_mult(i,j,ksn) - t0_melt) &
+                  ze_out(i,j) = chc_i*wtot_snow(i,j,ksn,nx,ns)*(ztsnownew_mult(i,j,ksn) - t0_melt) &
                     &      *z1d2dt*rho_w - zmelt(i,j)*lh_f*rho_w
                   wliq_snow(i,j,ksn,nx,ns) = wliq_snow(i,j,ksn,nx,ns) + zmelt(i,j)*zdt
                 END IF
@@ -4147,7 +4145,7 @@ DO ns=nsubs0,nsubs1
                   ztsnownew_mult(i,j,ksn)   = ztsnownew_mult(i,j,ksn) + zrefr(i,j)*zdt*lh_f &
                     &                         /(chc_i*wtot_snow(i,j,ksn,nx,ns))
                 END IF
-                ze_out = 0.0_ireals
+                ze_out(i,j) = 0.0_ireals
     
               END IF
     
@@ -4211,7 +4209,16 @@ DO ns=nsubs0,nsubs1
                 END IF
               END IF
     
-            END DO        ! snow layers
+            END IF       ! points with snow cover only
+          END IF         ! land-points only
+        END DO
+      END DO
+    END DO        ! snow layers
+
+    DO   j = jstarts, jends
+      DO i = istarts, iends
+        IF (llandmask(i,j,ns)) THEN          ! land-points only
+          IF (zwsnew(i,j) > zepsi) THEN        ! points with snow cover only
             zdwsnm(i,j) = zqbase(i,j)*rho_w       ! ksn == ke_snow
           END IF       ! points with snow cover only
         END IF         ! land-points only
@@ -4250,32 +4257,48 @@ DO ns=nsubs0,nsubs1
       END DO
     END DO
   
-    DO   j = jstarts, jends
-      DO i = istarts, iends
-        IF (llandmask(i,j,ns)) THEN          ! land-points only
-          IF (zwsnew(i,j) > zepsi) THEN        ! points with snow cover only
-  ! snow densification due to gravity and metamorphism 
-            zrho_snowf = crhosminf+(crhosmaxf-crhosminf)* (zth_low(i,j)-csnow_tmin) &
-                         /(t0_melt           -csnow_tmin)
-            zrho_snowf = MAX(crhosminf,MIN(crhosmaxf,zrho_snowf))
-            DO ksn = 2, ke_snow
-              IF (rho_snow_mult(i,j,ksn,nx,ns) .LT. 6._ireals*zrho_snowf &
-                & .AND. rho_snow_mult(i,j,ksn,nx,ns) .NE. 0.0_ireals) THEN
+! snow densification due to gravity and metamorphism
+
+    DO ksn = 2, ke_snow
+      zp(i,j,ksn) = 0.0_ireals                         ! gravity, Pa
+      DO k = ksn,1,-1
+        DO   j = jstarts, jends
+          DO i = istarts, iends
+            IF (llandmask(i,j,ns)) THEN          ! land-points only
+              zp(i,j,ksn) = zp(i,j,ksn) + rho_snow_mult(i,j,k,nx,ns)*g*zdzh_snow(i,j,ksn)
+            END IF         ! land-points only
+          END DO
+        END DO
+      END DO
+    END DO
+  
+    DO ksn = 2, ke_snow 
+      DO   j = jstarts, jends
+        DO i = istarts, iends 
+          IF (llandmask(i,j,ns)) THEN          ! land-points only 
+            IF (zwsnew(i,j) > zepsi) THEN        ! points with snow cover only
+              IF(rho_snow_mult(i,j,ksn,nx,ns) .LT. 600._ireals .AND. &
+                rho_snow_mult(i,j,ksn,nx,ns) .NE. 0.0_ireals) THEN
                 zdens_old = rho_snow_mult(i,j,ksn,nx,ns)
                 zeta =         &! compactive viscosity of snow
                   ca2*EXP(19.3_ireals*rho_snow_mult(i,j,ksn,nx,ns)/rho_i)* &
                   EXP(67300._ireals/8.31_ireals/ztsnownew_mult(i,j,ksn))
-                zp = 0.0_ireals                         ! gravity, Pa
-                DO k = ksn,1,-1
-                  zp = zp + rho_snow_mult(i,j,k,nx,ns)*g*zdzh_snow(i,j,ksn)
-                END DO
-                rho_snow_mult(i,j,ksn,nx,ns) = rho_snow_mult(i,j,ksn,nx,ns) &
-                  &                          + zdt*rho_snow_mult(i,j,ksn,nx,ns)*(csigma+zp)/zeta
+                rho_snow_mult(i,j,ksn,nx,ns) = rho_snow_mult(i,j,ksn,nx,ns) + &
+                  zdt*rho_snow_mult(i,j,ksn,nx,ns)*(csigma+zp(i,j,ksn))/zeta
                 rho_snow_mult(i,j,ksn,nx,ns) = MIN(rho_snow_mult(i,j,ksn,nx,ns),rho_i)
                 zdzh_snow(i,j,ksn)   = zdzh_snow(i,j,ksn) * zdens_old/rho_snow_mult(i,j,ksn,nx,ns)
-              END IF
-            END DO
-  
+              END IF     
+            END IF       ! points with snow cover only
+          END IF         ! land-points only
+        END DO
+      END DO
+    END DO
+
+    DO   j = jstarts, jends
+      DO i = istarts, iends
+        IF (llandmask(i,j,ns)) THEN          ! land-points only
+          IF (zwsnew(i,j) > zepsi) THEN        ! points with snow cover only
+
             IF(ztsnownew_mult(i,j,0) .GT. t0_melt) THEN
               ztsnownew_mult(i,j,0) = t0_melt
               zdtsnowdt_mult(i,j,0) = zdtsnowdt_mult(i,j,0) +     &
@@ -4287,7 +4310,6 @@ DO ns=nsubs0,nsubs1
     END DO
 
   END IF
-
 
 !------------------------------------------------------------------------------
 ! Section II.9: Final updating of prognostic values
@@ -4657,14 +4679,14 @@ END DO
 
 
 #ifdef __ICON__
-  IF (msg_level >= 11) THEN
+!  IF (msg_level >= 11) THEN
     DO ns = nsubs0, nsubs1
       DO   j = jstarts, jends
         DO i = istarts, iends
           IF (llandmask(i,j,ns)) THEN          ! land-points only
             IF (w_snow(i,j,nnew,ns) > zepsi .AND. (t_snow(i,j,nnew,ns)<180. &
-                & .OR. t_snow(i,j,nnew,ns)>280.) &
-                & .OR. w_i(i,j,nnew,ns)*1000. > 0.1_ireals ) THEN
+                & .OR. t_snow(i,j,nnew,ns)>280.)) THEN 
+!                & .OR. w_i(i,j,nnew,ns)*1000. > 0.1_ireals ) THEN
 
               write(0,*) "SFC-DIAGNOSIS TERRA ",i,j,ke,dt,nsubs1,ntstep
               write(0,*)" nztlev ",               nztlev   
@@ -4718,7 +4740,7 @@ END DO
         END DO
       END DO
     END DO
-  ENDIF
+!  ENDIF
 #endif
 
 #ifdef NECSX
