@@ -3764,6 +3764,8 @@ DO ns=nsubs0,nsubs1
             END IF
   
             ztsnown_mult(i,j,0) = ztsnown_mult(i,j,1)
+          ELSE
+            zswitch(i,j) = 0.0_ireals
           END IF
         END IF          ! land-points only
       END DO
