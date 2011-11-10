@@ -1340,6 +1340,7 @@ CONTAINS
     IF (iforc_omip == 1 ) idim_omip =  3
     IF (iforc_omip == 2 ) idim_omip = 15
     IF (iforc_omip == 3 ) idim_omip =  5
+    IF (iforc_omip == 4 ) idim_omip =  9
     shape4d_c = (/ nproma, iforc_len, nblks_c, idim_omip /)
 
     !
@@ -2276,7 +2277,6 @@ CONTAINS
         ENDIF
       ENDIF
 
-
       !-------------------------------------------------------
       !
       ! Read complete OMIP data for triangle centers
@@ -2310,6 +2310,14 @@ CONTAINS
       ext_data(jg)%oce%omip_forc_mon_c(:,:,:,3) = z_flux(:,:,:)
 
       IF (iforc_omip == 2) THEN
+
+      ! Read complete OMIP data sets for focing ocean model
+      ! 4:  tafo(:,:),   &  ! 2 m air temperature                              [C]
+      ! 5:  ftdew(:,:),  &  ! 2 m dew-point temperature                        [K]
+      ! 6:  fu10(:,:) ,  &  ! 10 m wind speed                                  [m/s]
+      ! 7:  fclou(:,:),  &  ! Fractional cloud cover
+      ! 8:  pao(:,:),    &  ! Surface atmospheric pressure                     [hPa]
+      ! 9:  fswr(:,:),   &  ! Incoming surface solar radiation                 [W/m]
 
         ! 2m-temperature
         CALL read_netcdf_data (ncid, 'temp_2m', p_patch(jg)%n_patch_cells_g,           &
@@ -2367,6 +2375,7 @@ CONTAINS
 
       END IF
 
+      ! provide heat and freshwater flux for focing ocean model
       IF (iforc_omip == 3) THEN
 
         ! net surface heat flux
@@ -2380,6 +2389,47 @@ CONTAINS
           &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                    no_tst, z_flux)
         ext_data(jg)%oce%omip_forc_mon_c(:,:,:,5) = z_flux(:,:,:)
+
+      END IF
+
+      ! provide 4 parts of heat and 2 parts of freshwater flux for focing ocean model
+      IF (iforc_omip == 4) THEN
+
+        ! surface short wave heat flux
+        CALL read_netcdf_data (ncid, 'swflxsfc_avg', p_patch(jg)%n_patch_cells_g,      &
+          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                    no_tst, z_flux)
+        ext_data(jg)%oce%omip_forc_mon_c(:,:,:,4) = z_flux(:,:,:)
+     
+        ! surface long wave heat flux
+        CALL read_netcdf_data (ncid, 'lwflxsfc_avg', p_patch(jg)%n_patch_cells_g,      &
+          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                    no_tst, z_flux)
+        ext_data(jg)%oce%omip_forc_mon_c(:,:,:,5) = z_flux(:,:,:)
+     
+        ! surface sensible heat flux
+        CALL read_netcdf_data (ncid, 'shflx_avg',    p_patch(jg)%n_patch_cells_g,      &
+          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                    no_tst, z_flux)
+        ext_data(jg)%oce%omip_forc_mon_c(:,:,:,6) = z_flux(:,:,:)
+     
+        ! surface latent heat flux
+        CALL read_netcdf_data (ncid, 'lhflx_avg',    p_patch(jg)%n_patch_cells_g,      &
+          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                    no_tst, z_flux)
+        ext_data(jg)%oce%omip_forc_mon_c(:,:,:,7) = z_flux(:,:,:)
+     
+        ! total precipiation
+        CALL read_netcdf_data (ncid, 'precip', p_patch(jg)%n_patch_cells_g,            &
+          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                    no_tst, z_flux)
+        ext_data(jg)%oce%omip_forc_mon_c(:,:,:,8) = z_flux(:,:,:)
+     
+        ! evaporation
+        CALL read_netcdf_data (ncid, 'evap'  , p_patch(jg)%n_patch_cells_g,            &
+          &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                    no_tst, z_flux)
+        ext_data(jg)%oce%omip_forc_mon_c(:,:,:,9) = z_flux(:,:,:)
 
       END IF
 

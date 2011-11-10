@@ -107,15 +107,21 @@ TYPE t_sfc_flx
 
 ! The forcing is specified as fluxes at the air-sea interface defined on cell-centers
 ! dimension: (nproma, nblks_c)
-  REAL(wp), POINTER ::       &
-    &  forc_wind_u(:,:),     & !forcing of zonal component of velocity equation,
-    &  forc_wind_v(:,:),     & !forcing of meridional component of velocity equation,
-    &  forc_hflx(:,:),       & !forcing of temperature tracer with surface heat flux [W/m2]
-    &  forc_fwfx(:,:),       & !forcing of salinity tracer with surface freshwater flux [m/s]
-    &  forc_tracer(:,:,:),   & !tracer flux. Last index refers to tracer id (1=heat, 2=fresh-water)
-    &  forc_tracer_relax(:,:,:) !tracer relaxation: contains data to which is relaxated. e.g. clim.
-                                !Last index refers to tracer id (1=temperature, 2=salinity)
-  TYPE(t_cartesian_coordinates), & !wind forcing with cartesian vector, located at cell centers
+  REAL(wp), POINTER ::           &
+    &  forc_wind_u(:,:),         & ! forcing of zonal component of velocity equation,
+    &  forc_wind_v(:,:),         & ! forcing of meridional component of velocity equation,
+    &  forc_hflx(:,:),           & ! forcing of temperature tracer with surface heat flux [W/m2]
+    &  forc_fwfx(:,:),           & ! forcing of salinity tracer with surface freshwater flux [m/s]
+    &  forc_swflx(:,:),          & ! surface short wave heat flux [W/m2]
+    &  forc_lwflx(:,:),          & ! surface long wave heat flux [W/m2]
+    &  forc_ssflx(:,:),          & ! surface sensible heat flux [W/m2]
+    &  forc_slflx(:,:),          & ! surface latent heat flux [W/m2]
+    &  forc_prflx(:,:),          & ! total precipitation flux [m/s]
+    &  forc_evflx(:,:),          & ! evaporation flux [m/s]
+    &  forc_tracer(:,:,:),       & ! tracer flux. Last index refers to tracer id
+    &  forc_tracer_relax(:,:,:)    ! tracer relaxation: contains data to which is relaxated.
+                                   ! Last index refers to tracer id (1=temperature, 2=salinity)
+  TYPE(t_cartesian_coordinates), & ! wind forcing with cartesian vector, located at cell centers
   & ALLOCATABLE :: forc_wind_cc(:,:) 
 
 END TYPE t_sfc_flx
@@ -172,14 +178,20 @@ TYPE t_atmos_fluxes
   INTEGER ::     counter
 
   REAL(wp), ALLOCATABLE ::   &
-    &  forc_wind_u(:,:),     & !forcing of zonal component of velocity equation,
-    &  forc_wind_v(:,:),     & !forcing of meridional component of velocity equation,
-    &  forc_hflx(:,:),       & !forcing of temperature tracer with surface heat flux [W/m2]
-    &  forc_fwfx(:,:),       & !forcing of salinity tracer with surface freshwater flux [m/s]
-    &  forc_tracer(:,:,:),   & !tracer flux. Last index refers to tracer id (1=heat, 2=fresh-water)
-    &  forc_tracer_relax(:,:,:) !tracer relaxation: contains data to which is relaxated. 
-                                !Last index refers to tracer id (1=temperature, 2=salinity)
-  TYPE(t_cartesian_coordinates), & !wind forcing with cartesian vector, located at cell centers
+    &  forc_wind_u(:,:),     & ! forcing of zonal component of velocity equation,
+    &  forc_wind_v(:,:),     & ! forcing of meridional component of velocity equation,
+    &  forc_swflx(:,:),      & ! surface short wave heat flux [W/m2]
+    &  forc_lwflx(:,:),      & ! surface long wave heat flux [W/m2]
+    &  forc_ssflx(:,:),      & ! surface sensible heat flux [W/m2]
+    &  forc_slflx(:,:),      & ! surface latent heat flux [W/m2]
+    &  forc_prflx(:,:),      & ! total precipitation flux [m/s]
+    &  forc_evflx(:,:),      & ! evaporation flux [m/s]
+    &  forc_hflx(:,:),       & ! forcing of temperature tracer with surface heat flux [W/m2]
+    &  forc_fwfx(:,:),       & ! forcing of salinity tracer with surface freshwater flux [m/s]
+    &  forc_tracer(:,:,:),   & ! tracer flux. Last index refers to tracer id
+    &  forc_tracer_relax(:,:,:) ! tracer relaxation: contains data to which is relaxated. 
+                                ! Last index refers to tracer id (1=temperature, 2=salinity)
+  TYPE(t_cartesian_coordinates), & ! wind forcing with cartesian vector, located at cell centers
   & ALLOCATABLE :: forc_wind_cc(:,:) 
 
 END TYPE t_atmos_fluxes
@@ -604,6 +616,30 @@ END SUBROUTINE destruct_sea_ice
   IF (ist/=SUCCESS) THEN
     CALL finish(TRIM(routine),'allocation for forcing freshwater flux failed')
   END IF
+  ALLOCATE(p_sfc_flx%forc_swflx(nproma,nblks_c), STAT=ist)
+  IF (ist/=SUCCESS) THEN
+    CALL finish(TRIM(routine),'allocation for short wave flux failed')
+  END IF
+  ALLOCATE(p_sfc_flx%forc_lwflx(nproma,nblks_c), STAT=ist)
+  IF (ist/=SUCCESS) THEN
+    CALL finish(TRIM(routine),'allocation for long wave flux failed')
+  END IF
+  ALLOCATE(p_sfc_flx%forc_ssflx(nproma,nblks_c), STAT=ist)
+  IF (ist/=SUCCESS) THEN
+    CALL finish(TRIM(routine),'allocation for surface sensible heat flux failed')
+  END IF
+  ALLOCATE(p_sfc_flx%forc_slflx(nproma,nblks_c), STAT=ist)
+  IF (ist/=SUCCESS) THEN
+    CALL finish(TRIM(routine),'allocation for surface latent heat flux failed')
+  END IF
+  ALLOCATE(p_sfc_flx%forc_prflx(nproma,nblks_c), STAT=ist)
+  IF (ist/=SUCCESS) THEN
+    CALL finish(TRIM(routine),'allocation for precipitation flux failed')
+  END IF
+  ALLOCATE(p_sfc_flx%forc_evflx(nproma,nblks_c), STAT=ist)
+  IF (ist/=SUCCESS) THEN
+    CALL finish(TRIM(routine),'allocation for evaporation flux failed')
+  END IF
   IF(no_tracer>=1)THEN
     ALLOCATE(p_sfc_flx%forc_tracer(nproma,nblks_c, no_tracer), STAT=ist)
     IF (ist/=SUCCESS) THEN
@@ -634,6 +670,12 @@ END SUBROUTINE destruct_sea_ice
   IF(no_tracer>=1)THEN
     p_sfc_flx%forc_hflx         = 0.0_wp
     p_sfc_flx%forc_fwfx         = 0.0_wp
+    p_sfc_flx%forc_swflx        = 0.0_wp
+    p_sfc_flx%forc_lwflx        = 0.0_wp
+    p_sfc_flx%forc_ssflx        = 0.0_wp
+    p_sfc_flx%forc_slflx        = 0.0_wp
+    p_sfc_flx%forc_prflx        = 0.0_wp
+    p_sfc_flx%forc_evflx        = 0.0_wp
     p_sfc_flx%forc_tracer       = 0.0_wp
     p_sfc_flx%forc_tracer_relax = 0.0_wp
   ENDIF
@@ -674,6 +716,30 @@ END SUBROUTINE destruct_sea_ice
   DEALLOCATE(p_sfc_flx%forc_fwfx, STAT=ist)
   IF (ist/=SUCCESS) THEN
     CALL finish(TRIM(routine),'deallocation for forcing freshwater flux failed')
+  END IF
+  DEALLOCATE(p_sfc_flx%forc_swflx, STAT=ist)
+  IF (ist/=SUCCESS) THEN
+    CALL finish(TRIM(routine),'deallocation for heat flux failed')
+  END IF
+  DEALLOCATE(p_sfc_flx%forc_lwflx, STAT=ist)
+  IF (ist/=SUCCESS) THEN
+    CALL finish(TRIM(routine),'deallocation for heat flux failed')
+  END IF
+  DEALLOCATE(p_sfc_flx%forc_ssflx, STAT=ist)
+  IF (ist/=SUCCESS) THEN
+    CALL finish(TRIM(routine),'deallocation for heat flux failed')
+  END IF
+  DEALLOCATE(p_sfc_flx%forc_slflx, STAT=ist)
+  IF (ist/=SUCCESS) THEN
+    CALL finish(TRIM(routine),'deallocation for heat flux failed')
+  END IF
+  DEALLOCATE(p_sfc_flx%forc_prflx, STAT=ist)
+  IF (ist/=SUCCESS) THEN
+    CALL finish(TRIM(routine),'deallocation for precip flux failed')
+  END IF
+  DEALLOCATE(p_sfc_flx%forc_evflx, STAT=ist)
+  IF (ist/=SUCCESS) THEN
+    CALL finish(TRIM(routine),'deallocation for evap flux failed')
   END IF
   DEALLOCATE(p_sfc_flx%forc_tracer, STAT=ist)
   IF (ist/=SUCCESS) THEN

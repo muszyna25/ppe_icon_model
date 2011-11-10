@@ -235,6 +235,7 @@ cat > ${ocean_namelist} << EOF
   expl_vertical_tracer_diff   = 1  ! 0=explicit, 1 = implicit
 /
 &ocean_physics_nml
+  i_sea_ice          =    0      ! 0 = no sea ice; 1 = sea ice switched on
   no_tracer          =    2      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
   EOS_TYPE           =    2      ! 1=linear EOS
                                  ! 2= (nonlinear) EOS from MPI-OM 

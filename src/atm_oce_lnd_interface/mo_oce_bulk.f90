@@ -313,13 +313,12 @@ CONTAINS
       IF (i_sea_ice == 1) THEN
         Qatm%SWin   (:,:)   = 0.0_wp  ! not available - very hot shot
         Qatm%LWin   (:,:)   = p_sfc_flx%forc_hflx(:,:)
-        Qatm%sens   (:,:,:) = 0.0_wp
-        Qatm%lat    (:,:,:) = 0.0_wp
+        Qatm%sens   (:,1,:) = 0.0_wp
+        Qatm%lat    (:,1,:) = 0.0_wp
         Qatm%dsensdT(:,:,:) = 0.0_wp
         Qatm%dlatdT (:,:,:) = 0.0_wp
         Qatm%dLWdT  (:,1,:) = -4.0_wp * emiss*StefBol * (p_ice%Tsurf(:,1,:) + tmelt)**3
 
-      ! This is a stripped down version of ice_fast for ice-ocean model only
         CALL set_ice_albedo(p_patch,p_ice)
         CALL set_ice_temp(p_patch,p_ice,Qatm)
         Qatm%counter = 1
@@ -327,24 +326,52 @@ CONTAINS
 
     END IF
 
-    ! #slo# this will be used for "intermediate complexity flux forcing
+    ! this is used for "intermediate complexity flux forcing
     IF (iforc_omip == 4) THEN
 
-      ! #eoo# This is what we need to do for sea-ice
-      !IF (i_sea_ice == 1) THEN
-        !Qatm%SWin    = "short-wave flux from file"
-        !Qatm%LWin    = "longwave + sensible + latent heat fluxes from file"
-        !Qatm%sens    = 0.0_wp
-        !Qatm%lat     = 0.0_wp
-        !Qatm%dsensdT = "dsensdT from file - if present, otherwise 0.0_wp"
-        !Qatm%dlatdT  = 0.0_wp
-        !Qatm%dLWdT   = - 4.0_wp * emiss*StefBol * (ice%Tsurf + tmelt)**3
+      !-------------------------------------------------------------------------
+      ! Apply 4 parts of surface heat and 2 parts of freshwater fluxes (records 4 to 9)
+      ! 4:  swflx(:,:)   !  surface short wave heat flux        [W/m2]
+      ! 5:  lwflx(:,:)   !  surface long  wave heat flux        [W/m2]
+      ! 6:  ssflx(:,:)   !  surface sensible   heat flux        [W/m2]
+      ! 7:  slflx(:,:)   !  surface latent     heat flux        [W/m2]
+      ! 8:  prflx(:,:)   !  total precipitation flux            [m/s]
+      ! 9:  evflx(:,:)   !  evaporation flux                    [m/s]
 
-      ! This is a stripped down version of ice_fast for ice-ocean model only
-        !CALL set_ice_albedo(p_patch,p_ice)
-        !CALL set_ice_temp(p_patch,p_ice,Qatm)
-        !Qatm%counter = 1
-      !ENDIF
+      p_sfc_flx%forc_swflx(:,:) = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,4) + &
+        &                         rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,4)
+      p_sfc_flx%forc_lwflx(:,:) = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,5) + &
+        &                         rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,5)
+      p_sfc_flx%forc_ssflx(:,:) = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,6) + &
+        &                         rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,6)
+      p_sfc_flx%forc_ssflx(:,:) = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,7) + &
+        &                         rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,7)
+      p_sfc_flx%forc_prflx(:,:) = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,8) + &
+        &                         rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,8)
+      p_sfc_flx%forc_evflx(:,:) = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,9) + &
+        &                         rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,9)
+
+      ! sum of fluxes for ocean boundary condition
+      p_sfc_flx%forc_hflx(:,:) = p_sfc_flx%forc_swflx(:,:) + p_sfc_flx%forc_lwflx(:,:) &
+        &                      + p_sfc_flx%forc_ssflx(:,:) + p_sfc_flx%forc_slflx(:,:)
+      p_sfc_flx%forc_fwfx(:,:) = p_sfc_flx%forc_prflx(:,:) + p_sfc_flx%forc_evflx(:,:)
+
+      ! preliminary test of sea ice model
+      IF (i_sea_ice == 1) THEN
+
+        Qatm%SWin   (:,:)   = p_sfc_flx%forc_swflx(:,:)
+        Qatm%LWin   (:,:)   = p_sfc_flx%forc_lwflx(:,:)
+        Qatm%sens   (:,1,:) = p_sfc_flx%forc_ssflx(:,:)
+        Qatm%lat    (:,1,:) = p_sfc_flx%forc_slflx(:,:)
+        Qatm%dsensdT(:,:,:) = 0.0_wp
+        Qatm%dlatdT (:,:,:) = 0.0_wp
+        Qatm%dLWdT  (:,1,:) = -4.0_wp * emiss*StefBol * (p_ice%Tsurf(:,1,:) + tmelt)**3
+
+        CALL set_ice_albedo(p_patch,p_ice)
+        CALL set_ice_temp(p_patch,p_ice,Qatm)
+        Qatm%counter = 1
+
+      ENDIF
 
     END IF
 
