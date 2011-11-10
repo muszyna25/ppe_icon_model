@@ -795,6 +795,22 @@ begin
 
   return resource
 end
+undef("setDesfaultOverlayResource")
+procedure setDefaultOverlayResource(resource)
+begin
+  resource@gsnDraw            = False
+  resource@gsnFrame           = False
+  resource@vcVectorDrawOrder  = "Postdraw"
+  resource@vcFillArrowWidthF  = 12.0
+  resource@lbOrientation      = "Vertical"
+  resource@lbTitleString      = "Speed"
+  resource@lbTitlePosition    = "Left"
+  resource@cnInfoLabelOn      = False
+  resource@lbTitleFontHeightF = 0.02
+  resource@lbLabelFontHeightF = 0.015
+  resource@lbLeftMarginF      = 0.01
+  resource@lbLabelBarOn       = False;  switch of the vector label bar, because the speed is show as vector lenghts
+end
 ;---------------------------------------------------------------
 undef("shift4SecMap")
 procedure shift4SecMap(resource)

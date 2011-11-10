@@ -267,7 +267,7 @@
     print("remapFilename:"+remapFilename)
     if (.not. checkRemappedFile(iFile,remapFilename,varName,iType,atmLev,atmPLevs,atmHLevs) ) then
       addVars=(/""/)
-      print("PERFORM remapnn again!!!!!")
+      print("PERFORM remapnn again!")
       remapForVecPlot(iFile,remapFilename,resolution,useMask,plotMode,DEBUG,addVars)
     end if
     rFile = addfile( remapFilename, "r" )
@@ -329,7 +329,7 @@
 
 
   ; Reading data variables =====================================================
-  if (plotMode.eq."scalar" .or. plotMode.eq."overlay") then ; scalar mode ================================
+  if (plotMode.eq."scalar" .or. plotMode.eq."overlay") then ; scalar mode ======
 
     printVar(varName, File)
 
@@ -361,7 +361,7 @@
       ;var = mask ( var, slm, 0.5)
     end if
   end if
-  if (plotMode.eq."vector" .or. plotMode.eq."overlay") then
+  if (plotMode.eq."vector" .or. plotMode.eq."overlay") then; vector mode =======
     uvarname = vecVars(0)
     vvarname = vecVars(1)
 
@@ -389,7 +389,7 @@
     if(.not. isvar("maxVar")) maxVar = max(velocity) end if
     checkMinMaxVar(minVar,maxVar)
   end if
-  if (plotMode.eq."section") then
+  if (plotMode.eq."section") then; section mode ================================
     print(rFile)
     var = selRegularVar(varName,rFile,timeStep)
     if(.not. isvar("minVar")) minVar = min(var) end if
@@ -484,21 +484,10 @@
   if (plotMode.eq."overlay") then
    ;reset the second resource
     ResC2                    = ResC
-    ResC2@gsnDraw            = False
-    ResC2@gsnFrame           = False
+    setDefaultOverlayResource(ResC2)
     setPlotCaptions(ResC2,"","","","")
     selMapCut(ResC2,mapLLC,mapURC)
     setDefaultVectorPlot(ResC2,5.0,vecRefLength,"CurlyVector",vecMinDist)
-    ResC2@vcVectorDrawOrder  = "Postdraw"
-    ResC2@vcFillArrowWidthF = 12.0
-    ResC2@lbOrientation      = "Vertica"
-    ResC2@lbTitleString      = "Speed"
-    ResC2@lbTitlePosition    = "Left"
-    ResC2@cnInfoLabelOn      = False
-    ResC2@lbTitleFontHeightF = 0.02
-    ResC2@lbLabelFontHeightF = 0.015
-    ResC2@lbLeftMarginF      = 0.01
-    ResC2@lbLabelBarOn       = False ; switch of the vector label bar, because the speed is show as vector lenghts
 
     ResC@gsnDraw             = False
     ResC@gsnFrame            = False
