@@ -4702,10 +4702,12 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
 
          DO j=jstartpar,jendpar
          DO i=istartpar,iendpar
-            IF (dpat(i,j).GT.z0) THEN
-               l_pat(i,j)=pat_len*dpat(i,j) 
-               l_pat(i,j)=l_hori*l_pat(i,j)/(l_hori+l_pat(i,j))
-            END IF
+           IF (dpat(i,j).GT.z0) THEN
+             l_pat(i,j)=pat_len*dpat(i,j) 
+             l_pat(i,j)=l_hori*l_pat(i,j)/(l_hori+l_pat(i,j))
+           ELSE
+              l_pat(i,j)=z0
+           END IF
          END DO
          END DO
 
@@ -5374,9 +5376,9 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
             END DO
             DO j=jstartpar,jendpar
             DO i=istartpar,iendpar
-               fakt=z1/dicke(i,j,k)
-               a(i,j,ke ,1)=a(i,j,ke ,1)/dicke(i,j,ke) 
-               a(i,j,ke1,1)=a(i,j,ke1,1)/dicke(i,j,ke) 
+               fakt=z1/dicke(i,j,ke)
+               a(i,j,ke ,1)=fakt*a(i,j,ke ,1)
+               a(i,j,ke1,1)=fakt*a(i,j,ke1,1)
 
                a(i,j,ke,2)=-(a(i,j,ke,1)+a(i,j,ke1,1)+z1)
                a(i,j,ke,4)=-hlp(i,j,ke)
@@ -5546,9 +5548,9 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
 
             DO j=jstartpar,jendpar
             DO i=istartpar,iendpar
-               fakt=z1/dicke(i,j,k)
-               a(i,j,ke ,1)=a(i,j,ke ,1)/dicke(i,j,ke) 
-               a(i,j,ke1,1)=a(i,j,ke1,1)/dicke(i,j,ke) 
+               fakt=z1/dicke(i,j,ke)
+               a(i,j,ke ,1)=fakt*a(i,j,ke ,1)
+               a(i,j,ke1,1)=fakt*a(i,j,ke1,1)
                a(i,j,ke,2)=-(a(i,j,ke,1)+z1)
                a(i,j,ke,4)=-hlp(i,j,ke)+a(i,j,ke1,1)*(hlp(i,j,ke)-hlp(i,j,ke1))
             END DO
