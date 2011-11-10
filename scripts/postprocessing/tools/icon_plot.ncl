@@ -80,6 +80,10 @@
 ; colormap      : string for predefined colormaps of the plot (e.g. 'colormap="BlAqGrYeOrReVi200"')
 ; showGrid      : display polygon lines with filled colors instead of contour plot
 ; showNcd       : display NDC Grid to find Normalized Device Coordinates on the plot
+; k2c           : if True, perform Kelvin2Celsius shift (default:True)
+;
+; ATMOSPEHRE STUFF:
+; atmLev        : chooses vertical plot levels for atmosphere input (h: height,p:pressure,m:modellevel,default:p)
 ;---------------------------------------------------------------
 ; altLibDir     : Alternative directory for loading icon_plot_lib.ncl
 ;---------------------------------------------------------------
@@ -132,6 +136,8 @@
       exit
     end if
   end if
+  if(.not. isvar("iType")) iType = "oce" end if
+
   if(.not. isvar("oType")) oType = "eps" end if
   if(.not. isvar("oFile")) then
     ext      = get_file_suffix(iFile,0)
@@ -149,23 +155,20 @@
     end if
   end if
 
-  if (.not. isvar("DEBUG"))       DEBUG        = False           end if
-  if (.not. isvar("showPreview")) showPreview  = False           end if
-  if (.not. isvar("showGrid"))    showGrid     = False           end if
-  if (.not. isvar("showNdc"))     showNdc      = False           end if
-  if (.not. isvar("maxView"))     maxView      = False           end if
-  if (.not. isvar("scaleLimit"))  scaleLimit   = 2               end if
-  if (.not. isvar("selMode"))     selMode      = "auto"          end if
-  if (.not. isvar("timeStep"))    timeStep     = 0               end if
-  if (.not. isvar("levIndex"))    levIndex     = 0               end if
-  if (.not. isvar("scaleFactor")) scaleFactor  = 1               end if
-  if (.not. isvar("colormap"))    colormap     = "BlueDarkRed18" end if
-
-  ; atmosphere intput?
-  if (.not. isvar("atmIn"))      atmIn         = False           end if
+  if (.not. isvar("DEBUG"))       DEBUG       = False           end if
+  if (.not. isvar("showPreview")) showPreview = False           end if
+  if (.not. isvar("showGrid"))    showGrid    = False           end if
+  if (.not. isvar("showNdc"))     showNdc     = False           end if
+  if (.not. isvar("maxView"))     maxView     = False           end if
+  if (.not. isvar("scaleLimit"))  scaleLimit  = 2               end if
+  if (.not. isvar("selMode"))     selMode     = "auto"          end if
+  if (.not. isvar("timeStep"))    timeStep    = 0               end if
+  if (.not. isvar("levIndex"))    levIndex    = 0               end if
+  if (.not. isvar("scaleFactor")) scaleFactor = 1               end if
+  if (.not. isvar("colormap"))    colormap    = "BlueDarkRed18" end if
+  if (.not. isvar("k2c"))         k2c         = True            end if
 
   if (.not.isvar("mapType"))      mapType      = "lonlat"        end if
-
   if ( mapType .eq. "NHps" .and. .not.isvar("mapLLC")) mapLLC = (/-45., 45./)  end if
   if ( mapType .eq. "NHps" .and. .not.isvar("mapURC")) mapURC = (/135., 45./)  end if
   if ( mapType .eq. "SHps" .and. .not.isvar("mapLLC")) mapLLC = (/-45.,-45./)  end if
@@ -188,7 +191,19 @@
 
   if (.not.isvar("showSecMap")) showSecMap     =  True           end if
 
-  ; mask handling
+  ; ATMOSPEHRE SETUP ----------------------------------------------------------
+  if (.not.isvar("atmLev"))     atmLev         =  "p"           end if
+  if (.not.isvar("atmPLevs")) then
+    atmPLevSetup = (/10000,100000,2500/); unit: Pa
+    atmPLevs     = ispan(atmPLevSetup(0),atmPLevSetup(1),atmPLevSetup(2))*1.0
+  end if
+  if (.not.isvar("atmHLevs")) then
+    atmHLevSetup = (/0,100000,2000/);     unit: m
+    atmHLevs     = ispan(atmHLevSetup(0),atmHLevSetup(1),atmHLevSetup(2))*1.0
+  end if
+  ;----------------------------------------------------------------------------
+
+  ; MASK HANDLING -------------------------------------------------------------
   if (.not.isvar("maskName"))
     useMask     = False
   else
@@ -212,9 +227,20 @@
       end if
     end if
   end if
+  ;----------------------------------------------------------------------------
 
 
-  ; expect a regular grid for vector plot as you get it from
+  ; DETERMINE INPUT TYPE ------------------------------------------------------
+  if (getVarLevelType(iFile,varName) .eq. "hybrid") then ;atm input
+    iType              = "atm"; oce otherwise
+    if (atmLev .ne. "m" ) then
+      atmPreProcFilename = preProc4Atm(iFile,atmLev,atmPLevs,atmHLevs,DEBUG)
+      iFile              = atmPreProcFilename
+    end if
+  end if
+  ;----------------------------------------------------------------------------
+
+  ; EXPECT A REGULAR GRID FOR VECTOR PLOT AS YOU GET IT FROM ------------------
   if (isvar("vecVars")) then
     ; expectes is a string or an array of size 2: "u-veloc v-veloc" or (/"u-veloc","v-veloc"/)
     if (isstring(vecVars)) then
@@ -233,12 +259,17 @@
   end if
   if (isvar("secLC").and.isvar("secRC")) plotMode = "section" end if
 
-  if (plotMode.eq."vector" .or. plotMode.eq."overlay" .or. (plotMode.eq."section" .and. .not. atmIn)) then
+  if (plotMode.eq."vector" .or. plotMode.eq."overlay" .or. (plotMode.eq."section")) then
     ; performe some remapping to a regular grid because ncl cannot draw vector
     ; from unstructured grids
-    addVars=(/ "PS","PHIS"/)
-    remapFilename = remapForVecPlot(iFile,resolution,useMask,plotMode,DEBUG,addVars)
-    checkRemappedFile(iFile,remapFilename)
+    ; TODO addVars=(/ "PS","PHIS"/) 
+    remapFilename = setRemapFilename(iFile,iType,atmLev)
+    print("remapFilename:"+remapFilename)
+    if (.not. checkRemappedFile(iFile,remapFilename,varName,iType,atmLev,atmPLevs,atmHLevs) ) then
+      addVars=(/""/)
+      print("PERFORM remapnn again!!!!!")
+      remapForVecPlot(iFile,remapFilename,resolution,useMask,plotMode,DEBUG,addVars)
+    end if
     rFile = addfile( remapFilename, "r" )
   end if
   File  = addfile( iFile, "r" )
@@ -359,24 +390,19 @@
     checkMinMaxVar(minVar,maxVar)
   end if
   if (plotMode.eq."section") then
-    if (atmIn)
-      var = selIconVar(varName,File,timeStep)
-      if(.not. isvar("minVar")) minVar = min(var) end if
-      if(.not. isvar("maxVar")) maxVar = max(var) end if
-    else
-      print(rFile)
-      var = selRegularVar(varName,rFile,timeStep)
-      if(.not. isvar("minVar")) minVar = min(var) end if
-      if(.not. isvar("maxVar")) maxVar = max(var) end if
-      checkMinMaxVar(minVar,maxVar)
-      ; masking before computing the cross section
-      if ( useMask ) then
-        ; set variable var to missing, where var is not equal mvalue (3rd
-        ; parameter)
-        var = mask(var,maskVar,1)
-      end if
+    print(rFile)
+    var = selRegularVar(varName,rFile,timeStep)
+    if(.not. isvar("minVar")) minVar = min(var) end if
+    if(.not. isvar("maxVar")) maxVar = max(var) end if
+    checkMinMaxVar(minVar,maxVar)
+    ; masking before computing the cross section
+    if ( useMask ) then
+      ; set variable var to missing, where var is not equal mvalue (3rd
+      ; parameter)
+      var = mask(var,maskVar,1)
     end if
   end if ; Reading data variables =============================================
+  if (iType .eq. "atm" .and. varName .eq. "T" .and. k2c) var = var - 273.15 end if ;atmosphere used to write out Kelvin
 
   ;---------------------------------------------------------------
   ; make the plot
@@ -406,20 +432,15 @@
 
   if (plotMode.eq."scalar" .or. plotMode.eq."overlay") setCoordinates(ResC,x,y) end if
 
-  if (plotMode.eq."scalar" .or. plotMode.eq."overlay" .or. plotMode.eq."section") setAutomaticPlotCaptions(ResC,plotMode,varName,File,iFile,timeStep,levIndex) end if
+  if (plotMode.eq."scalar" .or. plotMode.eq."overlay" .or. plotMode.eq."section") 
+    setAutomaticPlotCaptions(ResC,plotMode,varName,File,iFile,timeStep,levIndex,iType,atmLev)
+  end if
 
   if (plotMode.eq."section") then
-    if (atmIn) then
- ;     trans = setSectionFromHybridPress(secLC,secRC,secPoints,var,rFile,timeStep)
-      trans = setSectionFromHybridPressICON(secLC,secRC,secPoints,var,File,timeStep)
-      trans = trans - 273.15
-    else
-      trans           = setSection(secLC,secRC,secPoints,var)
-      vertdim         = getVertDim(File,var)
-      trans!0         = vertdim
-      trans&$vertdim$ = var&$vertdim$/100
-      trans           = trans - 273.15
-    end if
+    trans           = setSection(secLC,secRC,secPoints,var)
+    vertdim         = getVertDim(File,var)
+    trans!0         = vertdim
+    trans&$vertdim$ = var&$vertdim$
   end if
 
   setAutomaticBaseString(wks,plotMode)
@@ -521,48 +542,13 @@
     end if
     points   = ispan(0,secPoints-1,1)*1.0 
 
-    res            = True;           plot mods desired
-    setAutomaticPlotCaptions(res,plotMode,varName,File,iFile,timeStep,levIndex)
+    res  = setDefaultSectionResource(points,secPoints,secLC,secRC)
+    setAutomaticPlotCaptions(res,plotMode,varName,File,iFile,timeStep,levIndex,iType,atmLev)
     setLevels(selMode,res,minVar,maxVar,scaleLimit,numLevs,DEBUG)
-    res@gsnFrame   = False;                don't turn page yet
-    res@gsnDraw    = False;                don't draw yet
-    res@tmXBMode   = "Explicit";     explicitly label x-axis
-    res@tmXBValues = (/points(0),points(secPoints-1)/);  points to label values
-    res@tmXBLabels = (/ secLC(1) +"N, "+ secLC(0)+"E" , secRC(1)+"N, "+secRC(0)+"E" /)
-    res@trYReverse = True;          reverse y axis
-
-    res@cnFillOn            = True         ; turn on color
-    res@lbLabelAutoStride   = True         ; nice label bar label stride
-    res@gsnSpreadColors     = True         ; use full range of colormap
-    res@cnLinesOn           = False        ; turn off countour lines
-    res@lbOrientation       = "vertical"   ; vertical label bar
-    res@pmLabelBarOrthogonalPosF = -0.05        ; move label bar closer to plot
-    res@lbTitlePosition   = "Bottom"
-    res@lbTitleString     = "[C]"
-    res@tiYAxisString = "Pressure (hPa)"
- ;   res@gsnYAxisIrregular2Log = True
-
-    delete(res@cnMissingValFillPattern)    ; no longer filling missing value areas
-    delete(res@cnMissingValFillColor)      ; no longer filling missing value areas
-    res@cnMissingValFillColor = "gray30"
-    res@cnMissingValPerimOn = True
-
-    res@cnMissingValFillPattern      = -1;                set the missing value fill pattern to 5
-    res@cnMissingValFillScaleF       = 0.9;              increase the density of the fill pattern (default   = 1.0)
-;     res@cnMissingValPerimOn        = True;             already turned on above
-    res@cnMissingValPerimColor       = "black";          change the missing value perimeter to black
-    res@cnMissingValPerimDashPattern = 1;           set the dash pattern of the missing value perimeter to 1
-    res@cnMissingValPerimThicknessF  = 3.0;         increase the thickness of the missing value perimeter 3X
+    setSectionVertLabel(res,iType,atmLev)
 
    if (showSecMap) then
-     res@vpWidthF          = 0.6;            set width of plot
-     res@vpHeightF         = 0.4;            set height of plot
-
-     res@vpXF              = 0.2
-     res@vpYF              = 0.9
-     ;   res@tiMainString  = "Transect";    add title
-     ;   res@tiXAxisString = "lat/lon along transect"
-     ;res@cnLevelSpacingF   = 1.0;           set contour spacing
+     shift4SecMap(res)
    end if
 
    plot(0)               = gsn_csm_contour(wks,trans,res);   create plot
