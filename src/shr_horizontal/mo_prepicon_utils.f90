@@ -1885,10 +1885,10 @@ MODULE mo_prepicon_utils
       &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
       &           k_jg)
 
-!      CALL addVar(TimeVar('SOILTYP', 'soil type',&
-!      &                   '(0-1)', 255, 255,&
-!      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-!      &           k_jg)
+      CALL addVar(TimeVar('SOILTYP', 'soil type',&
+      &                   '(0-1)', 255, 255,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
 
       CALL addVar(TimeVar('EMIS_RAD', 'lw emissivity',&
       &                   '(0-1)', 255, 255,&
@@ -2175,7 +2175,7 @@ MODULE mo_prepicon_utils
       CASE ('URBAN');           ptr2 => ext_data(jg)%atm%urban
       CASE ('Z0');              ptr2 => ext_data(jg)%atm%z0
       CASE ('NDVI_MAX');        ptr2 => ext_data(jg)%atm%ndvi_max
-!      CASE ('SOILTYP');         ptr2 => ext_data(jg)%atm%soiltyp
+      CASE ('SOILTYP');         ptr2 => dup2(REAL(ext_data(jg)%atm%soiltyp, wp))
       CASE ('EMIS_RAD');        ptr2 => ext_data(jg)%atm%emis_rad
       CASE ('T_CL');            ptr2 => ext_data(jg)%atm%t_cl
       CASE ('SSO_STDH');        ptr2 => ext_data(jg)%atm%sso_stdh
@@ -2298,6 +2298,17 @@ MODULE mo_prepicon_utils
 
   END SUBROUTINE nf
 
+  !-------------------------------------------------------------------------------------------------
+  ! dup2: duplicates an array and returns a pointer to the duplicate
+  FUNCTION dup2(arr)
+    REAL(wp), INTENT(IN) :: arr(:,:)
+    REAL(wp), POINTER :: dup2(:,:)
+
+    ALLOCATE(dup2(size(arr,1),size(arr,2)))
+
+    dup2 = arr
+
+  END FUNCTION dup2
 
 
 END MODULE mo_prepicon_utils
