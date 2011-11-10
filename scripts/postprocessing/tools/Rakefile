@@ -1,3 +1,5 @@
+require 'pp'
+
 SRC                = ["icon_plot.ncl","icon_plot_lib.ncl"]
 HOSTS              = ["m300064@blizzard"]
 DIR                = '/pool/data/ICON/tools'
@@ -122,4 +124,9 @@ task :test_sections do
   show(*images)
 end
 
-# ft=ruby
+desc "all together now"
+task :all_tests do
+  Rake::Task.tasks.find_all {|t| t.name =~ /^test/}.each {|t| t.execute}
+end
+
+# vim:ft=ruby
