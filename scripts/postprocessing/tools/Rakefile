@@ -7,7 +7,7 @@ LS    = 'ls -crtlh'
 
 iconPlot = lambda {|ifile,ofile,otype,varname,opts|
   libdir = FileUtils.pwd
-  cmd = "ncl #{SRC[0]} 'altLibDir=\"#{libdir}\"' 'varName=\"#{varname}\"' 'iFile=\"#{ifile}\"' 'oFile=\"#{ofile}\"' 'oType=\"#{otype}\"'"
+  cmd    = "ncl #{SRC[0]} 'altLibDir = \"#{libdir}\"' 'varName = \"#{varname}\"' 'iFile = \"#{ifile}\"' 'oFile = \"#{ofile}\"' 'oType = \"#{otype}\"'"
   puts cmd
   sh cmd
 }
@@ -24,5 +24,9 @@ end
 
 task :test_plot do
   plot_test_file = ENV['HOME']+'/data/icon/test.nc'
-  iconPlot.call(plot_test_file,'test_icon_plot','png','T',[])
+  ofmt           = 'png'
+  ofile          = 'test_icon_plot.' + ofmt
+  varname        = 'T'
+  iconPlot.call(plot_test_file,ofile,ofmt,varname,[])
+  system("qiv #{ofile}")
 end
