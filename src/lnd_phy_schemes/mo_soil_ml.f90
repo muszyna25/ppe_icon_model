@@ -1989,7 +1989,6 @@ DO ns=nsubs0,nsubs1
 
   IF(lmulti_snow) THEN
 
-    ! US: this loop does not vectorize until the ksn-loops are put outside
     DO   j = jstarts, jends
       DO i = istarts, iends
         IF (llandmask(i,j,ns)) THEN     ! for land-points only
@@ -1999,32 +1998,34 @@ DO ns=nsubs0,nsubs1
             ! --> no water in interception store and t_snow < t0_melt
             w_snow(i,j,nx,ns) = w_snow(i,j,nx,ns) + w_i(i,j,nx,ns)
             wtot_snow(i,j,1,nx,ns) = wtot_snow(i,j,1,nx,ns) + w_i(i,j,nx,ns)
-IF(rho_snow_mult(i,j,1,nx,ns).lt.zepsi) print *,i,j,'rho_snow_mult(i,j,1,nx,ns).lt.zepsi'
             dzh_snow(i,j,1,nx,ns)  = dzh_snow(i,j,1,nx,ns)  + w_i(i,j,nx,ns) &
               &                      /rho_snow_mult(i,j,1,nx,ns)*rho_w
             w_i   (i,j,nx,ns) = 0.0_ireals
-            DO ksn = 0,ke_snow
-              t_snow_mult(i,j,ksn,nx,ns) = MIN (t0_melt - zepsi, t_snow_mult(i,j,ksn,nx,ns) )
-            END DO
           ELSE IF (t_snow_mult(i,j,ke_snow,nx,ns) >= t0_melt) THEN
             ! no snow and t_snow >= t0_melt --> t_s > t0_melt and t_snow = t_s
             t_s   (i,j,nx,ns) = MAX (t0_melt + zepsi, t_s(i,j,nx,ns) )
-            DO ksn = 0,ke_snow
-              t_snow_mult(i,j,ksn,nx,ns) = t_s(i,j,nx,ns)
-            END DO
           ELSE
             ! no snow and  t_snow < t0_melt
             ! --> t_snow = t_s and no water w_i in interception store
             t_s   (i,j,nx,ns) = MIN (t0_melt - zepsi, t_s(i,j,nx,ns) )
-            DO ksn = 0,ke_snow
-              t_snow_mult(i,j,ksn,nx,ns) = t_s(i,j,nx,ns)
-            END DO
             w_i   (i,j,nx,ns) = 0.0_ireals
           END IF
         END IF
       ENDDO
     ENDDO
-
+    DO ksn = 0,ke_snow
+      DO   j = jstarts, jends
+        DO i = istarts, iends
+          IF (llandmask(i,j,ns)) THEN     ! for land-points only
+            IF (w_snow(i,j,nx,ns) > 0.0_ireals) THEN
+              t_snow_mult(i,j,ksn,nx,ns) = MIN (t0_melt - zepsi, t_snow_mult(i,j,ksn,nx,ns) )
+            ELSE
+              t_snow_mult(i,j,ksn,nx,ns) = t_s(i,j,nx,ns)
+            ENDIF
+          END IF
+        ENDDO
+      ENDDO
+    ENDDO
   ELSE ! no multi-layer snow
 
     DO   j = jstarts, jends
@@ -3781,15 +3782,9 @@ IF(rho_snow_mult(i,j,1,nx,ns).lt.zepsi) print *,i,j,'rho_snow_mult(i,j,1,nx,ns).
               zfor_snow_mult(i,j) = zfor_snow_mult(i,j) - zwsnew(i,j)*rho_w*lh_f/zdt
               zdwsndt(i,j) = zdwsndt(i,j) - zwsnew(i,j)*rho_w/zdt
               zwsnew(i,j)  = 0._ireals
-              DO ksn = 0, ke_snow
-                ztsnown_mult(i,j,ksn) = t_so(i,j,0,nx,ns)
-              END DO
+              ztsnown_mult(i,j,0) = t_so(i,j,0,nx,ns)
               zfor_s(i,j) = zfor_s(i,j) + zfor_snow_mult(i,j)
-            ELSEIF(zfor_snow_mult(i,j) .GT. 0._ireals) THEN
-              DO ksn = 1, ke_snow
-                ztsnown_mult(i,j,ksn) = ztsnow_mult(i,j,ksn) + &
-                  zfor_snow_mult(i,j)*zdt/(chc_i*wtot_snow(i,j,ksn,nx,ns))/rho_w/ke_snow
-              END DO
+            ELSE IF(zfor_snow_mult(i,j) .GT. 0._ireals) THEN
               zfor_snow_mult(i,j) = 0._ireals
               ztsnown_mult(i,j,0) = ztsnown_mult(i,j,1)
             END IF
@@ -3798,7 +3793,24 @@ IF(rho_snow_mult(i,j,1,nx,ns).lt.zepsi) print *,i,j,'rho_snow_mult(i,j,1,nx,ns).
         END IF  ! land-points only
       END DO
     END DO
+
+    DO ksn = 1, ke_snow
+      DO   j = jstarts, jends
+        DO i = istarts, iends
+          IF (llandmask(i,j,ns)) THEN          ! land-points only
+            IF(zwsnew(i,j) .GT. zepsi .and. zwsnew(i,j) .LT. zswitch(i,j)) THEN
   
+              IF(zfor_snow_mult(i,j)*zdt > zwsnew(i,j)*rho_w*lh_f) THEN
+                ztsnown_mult(i,j,ksn) = t_so(i,j,0,nx,ns)
+              ELSE  IF(zfor_snow_mult(i,j) .GT. 0._ireals) THEN
+                ztsnown_mult(i,j,ksn) = ztsnow_mult(i,j,ksn) + &
+                  zfor_snow_mult(i,j)*zdt/(chc_i*wtot_snow(i,j,ksn,nx,ns))/rho_w/ke_snow
+              END IF
+            END IF
+          END IF  ! land-points only
+        END DO
+      END DO
+    END DO
   END IF
 
 
