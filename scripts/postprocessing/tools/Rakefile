@@ -1,16 +1,22 @@
-SRC   = ["icon_plot.ncl","icon_plot_lib.ncl"]
-HOSTS = ["m300064@blizzard"]
-DIR   = '/pool/data/ICON/tools'
-DST   = HOSTS.map {|v| v + ':' + DIR}
-CP    = 'scp -p'
-LS    = 'ls -crtlh'
+SRC            = ["icon_plot.ncl","icon_plot_lib.ncl"]
+HOSTS          = ["m300064@blizzard"]
+DIR            = '/pool/data/ICON/tools'
+DST            = HOSTS.map {|v| v + ':' + DIR}
+CP             = 'scp -p'
+LS             = 'ls -crtlh'
+PLOT_TEST_FILE = ENV['HOME']+'/data/icon/test.nc'
+OFMT           = 'png'
 
 iconPlot = lambda {|ifile,ofile,otype,varname,opts|
   libdir = FileUtils.pwd
-  cmd    = "ncl #{SRC[0]} 'altLibDir = \"#{libdir}\"' 'varName = \"#{varname}\"' 'iFile = \"#{ifile}\"' 'oFile = \"#{ofile}\"' 'oType = \"#{otype}\"'"
+  cmd    = "ncl #{SRC[0]} 'altLibDir = \"#{libdir}\"' 'varName = \"#{varname}\"' 'iFile = \"#{ifile}\"' 'oFile = \"#{ofile}\"' 'oType = \"#{otype}\"' #{opts.join}"
   puts cmd
   sh cmd
 }
+
+def del(file)
+  FileUtils.rm(file) if File.exists?(file)
+end
 
 task :default => [:check]
 
@@ -23,10 +29,25 @@ task :check do
 end
 
 task :test_plot do
-  plot_test_file = ENV['HOME']+'/data/icon/test.nc'
-  ofmt           = 'png'
-  ofile          = 'test_icon_plot.' + ofmt
+  ofile          = 'test_icon_plot.' + OFMT
+  del(ofile)
   varname        = 'T'
-  iconPlot.call(plot_test_file,ofile,ofmt,varname,[])
+  iconPlot.call(PLOT_TEST_FILE,ofile,OFMT,varname,[])
   system("qiv #{ofile}")
+end
+
+task :test_plotlevels do
+  varname         = 'T'
+  maxlev          = 10
+  images, threads = [],[]
+  (0...maxlev).each {|lev|
+    ofile          = "test_icon_plotlevel_#{lev}." + OFMT
+    del(ofile)
+    threads << Thread.new(ofile,varname,lev) {|ofile,varname,lev|
+    iconPlot.call(PLOT_TEST_FILE,ofile,OFMT,varname,["levIndex=#{lev}"])
+    }
+    images << ofile
+  }
+  threads.map(&:join)
+  system("qiv #{images.join(' ')} &")
 end
