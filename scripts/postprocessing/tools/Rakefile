@@ -1,14 +1,21 @@
-SRC            = ["icon_plot.ncl","icon_plot_lib.ncl"]
-HOSTS          = ["m300064@blizzard"]
-DIR            = '/pool/data/ICON/tools'
-DST            = HOSTS.map {|v| v + ':' + DIR}
-CP             = 'scp -p'
-LS             = 'ls -crtlh'
-PLOT_TEST_FILE = ENV['HOME']+'/data/icon/test.nc'
-OFMT           = 'png'
+SRC                = ["icon_plot.ncl","icon_plot_lib.ncl"]
+HOSTS              = ["m300064@blizzard"]
+DIR                = '/pool/data/ICON/tools'
+DST                = HOSTS.map {|v| v + ':' + DIR}
+CP                 = 'scp -p'
+LS                 = 'ls -crtlh'
+OCE_PLOT_TEST_FILE = ENV['HOME']+'/data/icon/test.nc'
+ATM_PLOT_TEST_FILE = ENV['HOME']+'/data/icon/atm.nc'
+OFMT               = 'png'
+DEFAULT_VARNAME    = 'T'
+PLOT_CMD           = 'qiv'
 
-iconPlot = lambda {|ifile,ofile,otype,varname,opts|
+iconPlot = lambda {|ifile,ofile,otype,varname,opts=[]|
   libdir = FileUtils.pwd
+  unless File.exists?(ifile)
+    warn "Input file #{ifile} dows NOT exist!"
+    exit
+  end
   cmd    = "ncl #{SRC[0]} 'altLibDir = \"#{libdir}\"' 'varName = \"#{varname}\"' 'iFile = \"#{ifile}\"' 'oFile = \"#{ofile}\"' 'oType = \"#{otype}\"' #{opts.join}"
   puts cmd
   sh cmd
@@ -16,6 +23,9 @@ iconPlot = lambda {|ifile,ofile,otype,varname,opts|
 
 def del(file)
   FileUtils.rm(file) if File.exists?(file)
+end
+def show(*files)
+  system("#{PLOT_CMD} #{files.join(' ')} &")
 end
 
 task :default => [:check]
@@ -28,12 +38,19 @@ task :check do
   SRC.each {|src| HOSTS.each {|host| sh ['ssh',host,['"',LS,DIR,'"'].join(' ')].join(' ') }}
 end
 
-task :test_plot do
+task :test_oce do
   ofile          = 'test_icon_plot.' + OFMT
   del(ofile)
   varname        = 'T'
-  iconPlot.call(PLOT_TEST_FILE,ofile,OFMT,varname,[])
-  system("qiv #{ofile}")
+  iconPlot.call(OCE_PLOT_TEST_FILE,ofile,OFMT,varname)
+  show(ofile)
+end
+task :test_atm do
+  ofile          = 'test_icon_plot.' + OFMT
+  del(ofile)
+  varname        = 'T'
+  iconPlot.call(ATM_PLOT_TEST_FILE,ofile,OFMT,varname)
+  show(ofile)
 end
 
 task :test_plotlevels do
@@ -44,10 +61,10 @@ task :test_plotlevels do
     ofile          = "test_icon_plotlevel_#{lev}." + OFMT
     del(ofile)
     threads << Thread.new(ofile,varname,lev) {|ofile,varname,lev|
-    iconPlot.call(PLOT_TEST_FILE,ofile,OFMT,varname,["levIndex=#{lev}"])
+    iconPlot.call(OCE_PLOT_TEST_FILE,ofile,OFMT,varname,["levIndex=#{lev}"])
     }
     images << ofile
   }
   threads.map(&:join)
-  system("qiv #{images.join(' ')} &")
+  show(*images)
 end
