@@ -344,7 +344,7 @@ CONTAINS
         &                         rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,5)
       p_sfc_flx%forc_ssflx(:,:) = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,6) + &
         &                         rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,6)
-      p_sfc_flx%forc_ssflx(:,:) = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,7) + &
+      p_sfc_flx%forc_slflx(:,:) = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,7) + &
         &                         rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,7)
       p_sfc_flx%forc_prflx(:,:) = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,8) + &
         &                         rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,8)
@@ -355,6 +355,20 @@ CONTAINS
       p_sfc_flx%forc_hflx(:,:) = p_sfc_flx%forc_swflx(:,:) + p_sfc_flx%forc_lwflx(:,:) &
         &                      + p_sfc_flx%forc_ssflx(:,:) + p_sfc_flx%forc_slflx(:,:)
       p_sfc_flx%forc_fwfx(:,:) = p_sfc_flx%forc_prflx(:,:) + p_sfc_flx%forc_evflx(:,:)
+
+      ipl_src=1  ! output print level (1-5, fix)
+      z_c(:,1,:)=p_sfc_flx%forc_swflx(:,:)
+      CALL print_mxmn('OMIP: SW-flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+      z_c(:,1,:)=p_sfc_flx%forc_lwflx(:,:)
+      CALL print_mxmn('OMIP: LW-flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+      z_c(:,1,:)=p_sfc_flx%forc_ssflx(:,:)
+      CALL print_mxmn('OMIP: sens.flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+      z_c(:,1,:)=p_sfc_flx%forc_slflx(:,:)
+      CALL print_mxmn('OMIP: latent.flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+      z_c(:,1,:)=p_sfc_flx%forc_prflx(:,:)
+      CALL print_mxmn('OMIP: precip.',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+      z_c(:,1,:)=p_sfc_flx%forc_evflx(:,:)
+      CALL print_mxmn('OMIP: evap.',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
 
       ! preliminary test of sea ice model
       IF (i_sea_ice == 1) THEN
@@ -535,6 +549,20 @@ CONTAINS
       DEALLOCATE(field_id)      
 
       IF (ltimer) CALL timer_stop(timer_coupling)
+
+    ! ipl_src=2  ! output print level (1-5, fix)
+    ! z_c(:,1,:)=p_sfc_flx%forc_swflx(:,:)
+    ! CALL print_mxmn('CPL: SW-flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+    ! z_c(:,1,:)=p_sfc_flx%forc_lwflx(:,:)
+    ! CALL print_mxmn('CPL: LW-flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+    ! z_c(:,1,:)=p_sfc_flx%forc_ssflx(:,:)
+    ! CALL print_mxmn('CPL: sens.flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+    ! z_c(:,1,:)=p_sfc_flx%forc_slflx(:,:)
+    ! CALL print_mxmn('CPL: latent.flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+    ! z_c(:,1,:)=p_sfc_flx%forc_prflx(:,:)
+    ! CALL print_mxmn('CPL: precip.',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+    ! z_c(:,1,:)=p_sfc_flx%forc_evflx(:,:)
+    ! CALL print_mxmn('CPL: evap.',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
   
     ENDIF ! is_coupled
 
