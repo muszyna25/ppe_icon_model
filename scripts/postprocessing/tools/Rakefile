@@ -4,7 +4,7 @@ DIR                = '/pool/data/ICON/tools'
 DST                = HOSTS.map {|v| v + ':' + DIR}
 CP                 = 'scp -p'
 LS                 = 'ls -crtlh'
-OCE_PLOT_TEST_FILE = ENV['HOME']+'/data/icon/test.nc'
+OCE_PLOT_TEST_FILE = ENV['HOME']+'/data/icon/oce.nc'
 ATM_PLOT_TEST_FILE = ENV['HOME']+'/data/icon/atm.nc'
 COMPARISON         = {:oce => OCE_PLOT_TEST_FILE, :atm => ATM_PLOT_TEST_FILE}
 OFMT               = 'png'
@@ -29,16 +29,20 @@ def show(*files)
   system("#{PLOT_CMD} #{files.join(' ')} &")
 end
 
+desc "check files on pool"
 task :default => [:check]
 
+desc "install plotting tools in /pool on blizzard"
 task :install do
   SRC.each {|src| DST.each {|dst| sh [CP,src,dst].join(' ') }}
 end
 
+desc "check files on pool"
 task :check do
   SRC.each {|src| HOSTS.each {|host| sh ['ssh',host,['"',LS,DIR,'"'].join(' ')].join(' ') }}
 end
 
+desc "performe simple oce plot"
 task :test_oce do
   ofile          = 'test_icon_plot.' + OFMT
   del(ofile)
@@ -46,6 +50,8 @@ task :test_oce do
   iconPlot.call(OCE_PLOT_TEST_FILE,ofile,OFMT,varname)
   show(ofile)
 end
+
+desc "performe simple oce plot"
 task :test_atm do
   ofile          = 'test_icon_plot.' + OFMT
   del(ofile)
@@ -54,6 +60,7 @@ task :test_atm do
   show(ofile)
 end
 
+desc "plot different levels of an ocean file"
 task :test_plotlevels do
   varname         = 'T'
   maxlev          = 10
@@ -70,11 +77,30 @@ task :test_plotlevels do
   show(*images)
 end
 
-task :test_section do
+desc "Try to plot vertical section of ocean model output"
+task :test_section_oce do
+  images = []
+  secopts = ["'secLC=(/0,80/)'","'secRC=(/0,-80/)'","showSecMap=False","secPoints=100"]
+  ofile = "test_section_ice"
+  iconPlot.call(OCE_PLOT_TEST_FILE,ofile,OFMT,DEFAULT_VARNAME,secopts)
+  ofile += ".#{OFMT}"
+  show(ofile)
+end
+
+desc "plot section of ocean and atmosphere (height, pressure and model level)"
+task :test_sections do
+  images = []
+  secopts = ["'secLC=(/0,80/)'","'secRC=(/0,-80/)'","showSecMap=False","secPoints=100"]
   COMPARISON.each {|itype,ifile|
     ofile = "test_section_#{itype.to_s}"
-    iconPlot.call(ifile,ofile,OFMT,DEFAULT_VARNAME,["'secLC=(/0,80/)'","'secRC=(/0,-80/)'"])
-    ofile += ".#{OFMT}"
-    show(ofile)
+    if itype == :atm
+      iconPlot.call(ifile,ofile+'h',OFMT,DEFAULT_VARNAME,secopts +["'atmLev=\"h\"'"]);images << ofile+'h'
+      iconPlot.call(ifile,ofile+'p',OFMT,DEFAULT_VARNAME,secopts +["'atmLev=\"p\"'"]);images << ofile+'p'
+      iconPlot.call(ifile,ofile+'m',OFMT,DEFAULT_VARNAME,secopts +["'atmLev=\"m\"'"]);images << ofile+'m'
+    else
+      iconPlot.call(ifile,ofile,OFMT,DEFAULT_VARNAME,secopts); images << ofile
+    end
   }
+  images.map! {|i| i+= ".#{OFMT}"}
+  show(*images)
 end
