@@ -42,7 +42,7 @@ task :check do
   SRC.each {|src| HOSTS.each {|host| sh ['ssh',host,['"',LS,DIR,'"'].join(' ')].join(' ') }}
 end
 
-desc "performe simple oce plot"
+desc "perform simple oce plot"
 task :test_oce do
   ofile          = 'test_icon_plot.' + OFMT
   del(ofile)
@@ -51,7 +51,7 @@ task :test_oce do
   show(ofile)
 end
 
-desc "performe simple oce plot"
+desc "perform simple oce plot"
 task :test_atm do
   ofile          = 'test_icon_plot.' + OFMT
   del(ofile)
@@ -61,15 +61,32 @@ task :test_atm do
 end
 
 desc "plot different levels of an ocean file"
-task :test_plotlevels do
+task :test_plotlevels_oce do
   varname         = 'T'
   maxlev          = 10
   images, threads = [],[]
   (0...maxlev).each {|lev|
-    ofile          = "test_icon_plotlevel_#{lev}." + OFMT
-    del(ofile)
+    ofile          = "test_icon_oce_plotlevel_#{lev}." + OFMT
     threads << Thread.new(ofile,varname,lev) {|ofile,varname,lev|
-    iconPlot.call(OCE_PLOT_TEST_FILE,ofile,OFMT,varname,["levIndex=#{lev}"])
+      del(ofile)
+      iconPlot.call(OCE_PLOT_TEST_FILE,ofile,OFMT,varname,["levIndex=#{lev}"])
+    }
+    images << ofile
+  }
+  threads.map(&:join)
+  show(*images)
+end
+
+desc "plot different levels of an atmosphere file"
+task :test_plotlevels_atm do
+  varname         = 'T'
+  maxlev          = 10
+  images, threads = [],[]
+  (0...maxlev).each {|lev|
+    ofile          = "test_icon_atm_plotlevel_#{lev}." + OFMT
+    threads << Thread.new(ofile,varname,lev) {|ofile,varname,lev|
+      del(ofile)
+      iconPlot.call(ATM_PLOT_TEST_FILE,ofile,OFMT,varname,["levIndex=#{lev}","'atmLev=\"m\"'"])
     }
     images << ofile
   }
@@ -104,3 +121,5 @@ task :test_sections do
   images.map! {|i| i+= ".#{OFMT}"}
   show(*images)
 end
+
+# ft=ruby
