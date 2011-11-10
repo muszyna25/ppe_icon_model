@@ -54,7 +54,7 @@ MODULE mo_nml_crosscheck
     &                              ishallow_water, LEAPFROG_EXPL, LEAPFROG_SI,&
     &                              NO_HADV, UP, MIURA, MIURA3, UP3, MCYCL,    &
     &                              MIURA_MCYCL, MIURA3_MCYCL, ifluxl_sm,      &
-    &                              islopel_m, islopel_sm, ifluxl_m  
+    &                              islopel_m, islopel_sm, ifluxl_m, ihs_ocean  
   USE mo_time_config,        ONLY: time_config
   USE mo_extpar_config,      ONLY: itopo
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d,       &
@@ -173,15 +173,17 @@ CONTAINS
     END IF
 
 
-    ! Check whether the end of the restart cycle is synchronized with a transport 
-    ! event. If not, adapt dt_restart accordingly.
-    !
-    IF (MOD(time_config%dt_restart,REAL(iadv_rcf,wp)*dtime) /= 0) THEN
-      time_config%dt_restart = REAL(NINT(time_config%dt_restart/(REAL(iadv_rcf,wp)*dtime))) &
-        &                    * REAL(iadv_rcf,wp)*dtime
-      WRITE(message_text,'(a)') &
-        &  'length of restart cycle dt_restart synchronized with transport event' 
-      CALL message(routine, message_text)
+    IF (iequations/=ihs_ocean) THEN ! atm (ocean does not know iadv_rcf) 
+      ! Check whether the end of the restart cycle is synchronized with a transport 
+      ! event. If not, adapt dt_restart accordingly.
+      !
+      IF (MOD(time_config%dt_restart,REAL(iadv_rcf,wp)*dtime) /= 0) THEN
+        time_config%dt_restart = REAL(NINT(time_config%dt_restart/(REAL(iadv_rcf,wp)*dtime))) &
+          &                    * REAL(iadv_rcf,wp)*dtime
+        WRITE(message_text,'(a)') &
+          &  'length of restart cycle dt_restart synchronized with transport event' 
+        CALL message(routine, message_text)
+      ENDIF
     ENDIF
 
  
@@ -215,15 +217,17 @@ CONTAINS
     dt_checkpoint = MIN(dt_checkpoint,time_config%dt_restart)
 
 
-    ! Check whether checkpointing is synchronized with a transport event.
-    ! If not, adapt dt_checkpoint accordingly.
-    !
-    IF (MOD(dt_checkpoint,REAL(iadv_rcf,wp)*dtime) /= 0) THEN
-      dt_checkpoint = REAL(NINT(dt_checkpoint/(REAL(iadv_rcf,wp)*dtime))) &
-        &           * REAL(iadv_rcf,wp)*dtime
-      WRITE(message_text,'(a)') &
-        &  'length of checkpoint cycle dt_checkpoint synchronized with transport event' 
-      CALL message(routine, message_text)
+    IF (iequations/=ihs_ocean) THEN ! atm (ocean does not know iadv_rcf) 
+      ! Check whether checkpointing is synchronized with a transport event.
+      ! If not, adapt dt_checkpoint accordingly.
+      !
+      IF (MOD(dt_checkpoint,REAL(iadv_rcf,wp)*dtime) /= 0) THEN
+        dt_checkpoint = REAL(NINT(dt_checkpoint/(REAL(iadv_rcf,wp)*dtime))) &
+          &           * REAL(iadv_rcf,wp)*dtime
+        WRITE(message_text,'(a)') &
+          &  'length of checkpoint cycle dt_checkpoint synchronized with transport event' 
+        CALL message(routine, message_text)
+      ENDIF
     ENDIF
 
     WRITE(message_text,'(a,f10.2,a,f16.10,a)')          &
