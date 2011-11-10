@@ -34,10 +34,7 @@ set_run_parameters ()
   ndays_list=(          1  )
   memory_model_list=("huge")
   omp_stacksize_list=("200M")
-  
-  memory_model="huge"
-  omp_stacksize=420M
-  
+    
   nsteps=${nsteps:=""}
 
   nodes_list_size=${#nodes_list[*]}
