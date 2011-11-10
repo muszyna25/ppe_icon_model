@@ -115,7 +115,7 @@ CONTAINS
 
     ! number of soil layers
     ! Note that this number must be consistent with the number of entries 
-    ! in zml_soil. zml_soil provides soil layer half level heights.
+    ! in zml_soil. zml_soil provides soil layer full level heights.
     nlev_soil = SIZE(zml_soil)-1  !< currently 7
 
 
