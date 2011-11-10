@@ -6,6 +6,7 @@ CP                 = 'scp -p'
 LS                 = 'ls -crtlh'
 OCE_PLOT_TEST_FILE = ENV['HOME']+'/data/icon/test.nc'
 ATM_PLOT_TEST_FILE = ENV['HOME']+'/data/icon/atm.nc'
+COMPARISON         = {:oce => OCE_PLOT_TEST_FILE, :atm => ATM_PLOT_TEST_FILE}
 OFMT               = 'png'
 DEFAULT_VARNAME    = 'T'
 PLOT_CMD           = 'qiv'
@@ -16,7 +17,7 @@ iconPlot = lambda {|ifile,ofile,otype,varname,opts=[]|
     warn "Input file #{ifile} dows NOT exist!"
     exit
   end
-  cmd    = "ncl #{SRC[0]} 'altLibDir = \"#{libdir}\"' 'varName = \"#{varname}\"' 'iFile = \"#{ifile}\"' 'oFile = \"#{ofile}\"' 'oType = \"#{otype}\"' #{opts.join}"
+  cmd   ="ncl #{SRC[0]} 'altLibDir=\"#{libdir}\"' 'varName=\"#{varname}\"' 'iFile=\"#{ifile}\"' 'oFile=\"#{ofile}\"' 'oType=\"#{otype}\"' #{opts.join(' ')}"
   puts cmd
   sh cmd
 }
@@ -67,4 +68,13 @@ task :test_plotlevels do
   }
   threads.map(&:join)
   show(*images)
+end
+
+task :test_section do
+  COMPARISON.each {|itype,ifile|
+    ofile = "test_section_#{itype.to_s}"
+    iconPlot.call(ifile,ofile,OFMT,DEFAULT_VARNAME,["'secLC=(/0,80/)'","'secRC=(/0,-80/)'"])
+    ofile += ".#{OFMT}"
+    show(ofile)
+  }
 end
