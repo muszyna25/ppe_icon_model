@@ -4260,7 +4260,7 @@ IF(rho_snow_mult(i,j,1,nx,ns).lt.zepsi) print *,i,j,'rho_snow_mult(i,j,1,nx,ns).
 ! snow densification due to gravity and metamorphism
 
     DO ksn = 2, ke_snow
-      zp(i,j,ksn) = 0.0_ireals                         ! gravity, Pa
+      zp(:,:,ksn) = 0.0_ireals                         ! gravity, Pa
       DO k = ksn,1,-1
         DO   j = jstarts, jends
           DO i = istarts, iends
@@ -4679,7 +4679,7 @@ END DO
 
 
 #ifdef __ICON__
-!  IF (msg_level >= 11) THEN
+  IF (msg_level >= 11) THEN
     DO ns = nsubs0, nsubs1
       DO   j = jstarts, jends
         DO i = istarts, iends
@@ -4740,7 +4740,7 @@ END DO
         END DO
       END DO
     END DO
-!  ENDIF
+  ENDIF
 #endif
 
 #ifdef NECSX
