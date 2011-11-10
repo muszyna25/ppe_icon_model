@@ -22,7 +22,13 @@
 ;
 ; Overlay plot (vectors over contour plot)
 ;   ncl icon_plot.ncl  'iFile="iconOutput.nc"' 'varName="T"' 'vecVars="u-veloc v-veloc"'
+; same for current atmo input
+;   ncl icon_plot.ncl  'iFile="atm.nc"' 'varName="T"' 'vecVars="U V"'
 ;
+; Atmosphere input plotted on the 3rd height level
+;   ncl icon_plot.ncl  'iFile="atm.nc"' 'varName="T"' 'atmLev="h"' levIndex=2
+; Same but on pressure level
+;   ncl icon_plot.ncl  'iFile="atm.nc"' 'varName="T"' 'atmLev="p"' levIndex=2
 ; Options can be combined execept showGrid=True with vector and overlay plots
 ;---------------------------------------------------------------
 ;
