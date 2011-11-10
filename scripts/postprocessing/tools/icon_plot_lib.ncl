@@ -957,6 +957,20 @@ begin
   print("Min/MaxLonF="+resource@mpMinLonF+"; "+resource@mpMaxLonF)
 end
 ;---------------------------------------------------------------
+; get vertical dimension
+undef("getVertDim")
+function getVertDim(filehandle,var)
+begin
+  dimNames = getvardims(var)
+  matches = (/"lev","depth","height","z"/)
+  do i=0,dimsizes(matches)-1
+    retval = str_match_ic(dimNames,matches(i))
+    if (.not.ismissing(retval)) return retval end if
+  end do
+  return(str_match_ic(dimNames,matches(0)))
+end
+
+;---------------------------------------------------------------
 ; setting for vertical cross sections based on remapped icon data
 undef("setSection")
 function setSection(secLC,secRC,npoints,var)

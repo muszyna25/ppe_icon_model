@@ -414,9 +414,11 @@
       trans = setSectionFromHybridPressICON(secLC,secRC,secPoints,var,File,timeStep)
       trans = trans - 273.15
     else
-      trans = setSection(secLC,secRC,secPoints,var)
-      trans!0        = "depth"
-      trans&depth    = var&depth
+      trans           = setSection(secLC,secRC,secPoints,var)
+      vertdim         = getVertDim(File,var)
+      trans!0         = vertdim
+      trans&$vertdim$ = var&$vertdim$/100
+      trans           = trans - 273.15
     end if
   end if
 
@@ -518,7 +520,6 @@
       plot = new(1,graphic)
     end if
     points   = ispan(0,secPoints-1,1)*1.0 
- ;   copy_VarAtts(var,trans)          ; copy attributes
 
     res            = True;           plot mods desired
     setAutomaticPlotCaptions(res,plotMode,varName,File,iFile,timeStep,levIndex)
@@ -538,7 +539,8 @@
     res@pmLabelBarOrthogonalPosF = -0.05        ; move label bar closer to plot
     res@lbTitlePosition   = "Bottom"
     res@lbTitleString     = "[C]"
-    res@tiYAxisString = "depth below sea (m)"
+    res@tiYAxisString = "Pressure (hPa)"
+ ;   res@gsnYAxisIrregular2Log = True
 
     delete(res@cnMissingValFillPattern)    ; no longer filling missing value areas
     delete(res@cnMissingValFillColor)      ; no longer filling missing value areas
