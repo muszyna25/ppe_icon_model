@@ -218,7 +218,7 @@ cat > ${ocean_namelist} << EOF
                                  ! IMPORTANT: SOME TESTCASES REQUIRE SPECIFIC SETTINGS: 
                                  !  for Stommel-type basin (2D- and 3D, testcase 27 and/or 30) select
                                  !  f- or beta-plane.
-  expl_vertical_velocity_diff = 0  ! 0=explicit, 1 = implicit  
+  expl_vertical_velocity_diff = 1  ! 0=explicit, 1 = implicit  
   expl_vertical_tracer_diff   = 1  ! 0=explicit, 1 = implicit
 /
 &ocean_physics_nml
@@ -240,8 +240,6 @@ cat > ${ocean_namelist} << EOF
                                  !    have at least one gridpoint in boundary layer. The namelist value is overwritten.
                                  ! 3= spatially variable Laplacian viscosity coefficient determined by requirement to
                                  !    have at least one gridpoint in boundary layer. The namelist value is overwritten.
-  MAX_VERT_DIFF_VELOC=    0.1    ! max diffusion coeff, used in impl.vert.velocity diffusion, if stabil. crit.is met
-  MAX_VERT_DIFF_TRAC =    0.1    ! max diffusion coeff, used in impl.vert.tracer diffusion, if stability crit.is met
   CWA                = 0.5E-3    ! Tuning parameters for vertical mixing of tracer and velocity
   CWT                = 0.5E-3    ! Set to standard values
   bottom_drag_coeff  =    0.0025 ! Chezy coefficient for bottom friction
