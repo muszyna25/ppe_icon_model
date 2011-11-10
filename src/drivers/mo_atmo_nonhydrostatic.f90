@@ -33,7 +33,7 @@
 MODULE mo_atmo_nonhydrostatic
 
 USE mo_exception,            ONLY: message, finish
-USE mo_impl_constants,       ONLY: SUCCESS
+USE mo_impl_constants,       ONLY: SUCCESS, max_dom
 USE mo_timer,                ONLY: print_timer
 USE mo_master_control,       ONLY: is_restart_run
 USE mo_output,               ONLY: init_output_files, close_output_files,&
@@ -81,6 +81,9 @@ USE mo_prepicon_utils,      ONLY: init_prepicon, prepicon, copy_prepicon2prog, &
 USE mo_prepicon_nml,        ONLY: i_oper_mode, l_sfc_in
 USE mo_nh_vert_interp,      ONLY: vertical_interpolation, intp_to_p_and_z_levels
 USE mo_ext_data,            ONLY: ext_data
+! meteogram output
+USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize
+USE mo_meteogram_config,    ONLY: meteogram_output_config
 
 !-------------------------------------------------------------------------
 
@@ -140,7 +143,6 @@ CONTAINS
 
     ENDIF
 
-
     !---------------------------------------------------------------------
     ! 5. Perform time stepping
     !---------------------------------------------------------------------
@@ -197,6 +199,18 @@ CONTAINS
     ENDIF
 
     CALL prepare_nh_integration(p_patch(1:), p_nh_state, p_int_state(1:), p_grf_state(1:))
+
+    !---------------------------------------------------------------------
+    !     Setup of meteogram output
+    !---------------------------------------------------------------------
+
+    DO jg =1,n_dom
+      IF (meteogram_output_config(jg)%lenabled) THEN
+        CALL meteogram_init(meteogram_output_config(jg), p_patch(jg),  &
+          &                ext_data(jg), p_nh_state(jg), prm_diag(jg), &
+          &                p_lnd_state(jg), iforcing, jg)
+      END IF
+    END DO
 
     ! Continue operations for real-data initialization
     IF (l_realcase .AND. .NOT. is_restart_run()) THEN
@@ -349,6 +363,16 @@ CONTAINS
 
     ! Delete output variable lists
     IF (l_have_output) CALL close_output_files
+
+    ! finalize meteogram output
+    DO jg = 1, n_dom
+      IF (meteogram_output_config(jg)%lenabled) THEN
+        CALL meteogram_finalize(meteogram_output_config(jg), jg)
+      END IF
+    END DO
+    DO jg = 1, max_dom
+      DEALLOCATE(meteogram_output_config(jg)%station_list)
+    END DO
 
     CALL message(TRIM(routine),'clean-up finished')
     

@@ -142,10 +142,6 @@ USE mo_ext_data,            ONLY: ext_data, init_ext_data, destruct_ext_data
 !  USE mo_nwp_phy_init,          ONLY: init_nwp_phy
 !!$  USE mo_gscp_cosmo,          ONLY: hydci_pp_init
 
-! meteogram output
-USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize
-USE mo_meteogram_config,    ONLY: meteogram_output_config
-
 
 !-------------------------------------------------------------------------
 ! to break circular dependency
@@ -603,17 +599,6 @@ CONTAINS
     ENDIF
 
     !---------------------------------------------------------------------
-    !     Setup of meteogram output
-    !---------------------------------------------------------------------
-
-    DO jg =1,n_dom
-      IF (meteogram_output_config(jg)%lenabled) THEN
-        CALL meteogram_init(meteogram_output_config(jg), p_patch(jg), &
-          &             ext_data(jg), iforcing, jg)
-      END IF
-    END DO
-
-    !---------------------------------------------------------------------
     ! 12. The hydrostatic and nonhydrostatic models branch from this point
     !---------------------------------------------------------------------
     SELECT CASE(iequations)
@@ -684,16 +669,6 @@ CONTAINS
     IF (error_status/=SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocate for patch array failed')
     ENDIF
-
-    ! finalize meteogram output
-    DO jg = 1, n_dom
-      IF (meteogram_output_config(jg)%lenabled) THEN
-        CALL meteogram_finalize(meteogram_output_config(jg), jg)
-      END IF
-    END DO
-    DO jg = 1, max_dom
-      DEALLOCATE(meteogram_output_config(jg)%station_list)
-    END DO
 
     ! clear restart namelist buffer
     CALL delete_restart_namelists()
