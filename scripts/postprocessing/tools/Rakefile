@@ -13,7 +13,7 @@ OFMT               = 'png'
 DEFAULT_VARNAME    = 'T'
 PLOT_CMD           = 'qiv'
 
-iconPlot = lambda {|ifile,ofile,otype,varname,opts=[]|
+def iconPlot(ifile,ofile,otype,varname,opts=[])
   libdir = FileUtils.pwd
   unless File.exists?(ifile)
     warn "Input file #{ifile} dows NOT exist!"
@@ -22,13 +22,18 @@ iconPlot = lambda {|ifile,ofile,otype,varname,opts=[]|
   cmd   ="ncl #{SRC[0]} 'altLibDir=\"#{libdir}\"' 'varName=\"#{varname}\"' 'iFile=\"#{ifile}\"' 'oFile=\"#{ofile}\"' 'oType=\"#{otype}\"' #{opts.join(' ')}"
   puts cmd
   sh cmd
-}
+end
 
 def del(file)
   FileUtils.rm(file) if File.exists?(file)
 end
 def show(*files)
   system("#{PLOT_CMD} #{files.join(' ')} &")
+end
+def defaultPlot(ifile,ofile,opts=[])
+  iconPlot(ifile,ofile,OFMT,DEFAULT_VARNAME,opts)
+  ofile += ".#{OFMT}"
+  show(ofile)
 end
 
 desc "check files on pool"
@@ -49,7 +54,7 @@ task :test_oce do
   ofile          = 'test_icon_plot.' + OFMT
   del(ofile)
   varname        = 'T'
-  iconPlot.call(OCE_PLOT_TEST_FILE,ofile,OFMT,varname)
+  iconPlot(OCE_PLOT_TEST_FILE,ofile,OFMT,varname)
   show(ofile)
 end
 
@@ -58,7 +63,7 @@ task :test_atm do
   ofile          = 'test_icon_plot.' + OFMT
   del(ofile)
   varname        = 'T'
-  iconPlot.call(ATM_PLOT_TEST_FILE,ofile,OFMT,varname)
+  iconPlot(ATM_PLOT_TEST_FILE,ofile,OFMT,varname)
   show(ofile)
 end
 
@@ -71,7 +76,7 @@ task :test_plotlevels_oce do
     ofile          = "test_icon_oce_plotlevel_#{lev}." + OFMT
     threads << Thread.new(ofile,varname,lev) {|ofile,varname,lev|
       del(ofile)
-      iconPlot.call(OCE_PLOT_TEST_FILE,ofile,OFMT,varname,["levIndex=#{lev}"])
+      iconPlot(OCE_PLOT_TEST_FILE,ofile,OFMT,varname,["levIndex=#{lev}"])
     }
     images << ofile
   }
@@ -88,7 +93,7 @@ task :test_plotlevels_atm do
     ofile          = "test_icon_atm_plotlevel_#{lev}." + OFMT
     threads << Thread.new(ofile,varname,lev) {|ofile,varname,lev|
       del(ofile)
-      iconPlot.call(ATM_PLOT_TEST_FILE,ofile,OFMT,varname,["levIndex=#{lev}","'atmLev=\"m\"'"])
+      iconPlot(ATM_PLOT_TEST_FILE,ofile,OFMT,varname,["levIndex=#{lev}","'atmLev=\"m\"'"])
     }
     images << ofile
   }
@@ -101,7 +106,7 @@ task :test_section_oce do
   images = []
   secopts = ["'secLC=(/0,80/)'","'secRC=(/0,-80/)'","showSecMap=False","secPoints=100"]
   ofile = "test_section_ice"
-  iconPlot.call(OCE_PLOT_TEST_FILE,ofile,OFMT,DEFAULT_VARNAME,secopts)
+  iconPlot(OCE_PLOT_TEST_FILE,ofile,OFMT,DEFAULT_VARNAME,secopts)
   ofile += ".#{OFMT}"
   show(ofile)
 end
@@ -113,20 +118,30 @@ task :test_sections do
   COMPARISON.each {|itype,ifile|
     ofile = "test_section_#{itype.to_s}"
     if itype == :atm
-      iconPlot.call(ifile,ofile+'h',OFMT,DEFAULT_VARNAME,secopts +["'atmLev=\"h\"'"]);images << ofile+'h'
-      iconPlot.call(ifile,ofile+'p',OFMT,DEFAULT_VARNAME,secopts +["'atmLev=\"p\"'"]);images << ofile+'p'
-      iconPlot.call(ifile,ofile+'m',OFMT,DEFAULT_VARNAME,secopts +["'atmLev=\"m\"'"]);images << ofile+'m'
+      iconPlot(ifile,ofile+'h',OFMT,DEFAULT_VARNAME,secopts +["'atmLev=\"h\"'"]);images << ofile+'h'
+      iconPlot(ifile,ofile+'p',OFMT,DEFAULT_VARNAME,secopts +["'atmLev=\"p\"'"]);images << ofile+'p'
+      iconPlot(ifile,ofile+'m',OFMT,DEFAULT_VARNAME,secopts +["'atmLev=\"m\"'"]);images << ofile+'m'
     else
-      iconPlot.call(ifile,ofile,OFMT,DEFAULT_VARNAME,secopts); images << ofile
+      iconPlot(ifile,ofile,OFMT,DEFAULT_VARNAME,secopts); images << ofile
     end
   }
   images.map! {|i| i+= ".#{OFMT}"}
   show(*images)
 end
 
+COMPARISON.each {|itype,ifile|
+  itypeS = itype.to_s
+  desc "orthographic plot (#{itypeS})"
+  task "test_ortho_#{itypeS}".to_sym do
+    defaultPlot(ifile,"ortho_#{itypeS}",["'mapType=\"ortho\"'"])
+  end
+}
+#==============================================================================
 desc "all together now"
 task :all_tests do
-  Rake::Task.tasks.find_all {|t| t.name =~ /^test/}.each {|t| t.execute}
+  tests = Rake::Task.tasks.find_all {|t| t.name =~ /^test/}
+  pp tests
+  tests.each {|t| t.execute}
 end
 
 # vim:ft=ruby
