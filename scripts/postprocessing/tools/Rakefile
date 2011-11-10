@@ -136,6 +136,22 @@ COMPARISON.each {|itype,ifile|
     defaultPlot(ifile,"ortho_#{itypeS}",["'mapType=\"ortho\"'"])
   end
 }
+COMPARISON.each {|itype,ifile|
+  vecvars = {:oce => 'u-veloc v-veloc',:atm => "U V"}[itype]
+  itypeS = itype.to_s
+  desc "overlay plot (#{itypeS})"
+  task "test_overlay_#{itypeS}".to_sym do
+    defaultPlot(ifile,"overlay_#{itypeS}",["'vecVars=\"#{vecvars}\"'",
+                "'mapType=\"ortho\"'","'atmLev=\"m\"'","centerLon=120"])
+  end
+}
+
+desc "test misc mpaTypes"
+task :test_misc_maptypes do
+  %w[SHps NHps sat lambert].each {|maptype|
+    defaultPlot(ATM_PLOT_TEST_FILE,maptype,["'mapType=\"#{maptype}\"'","'atmLev=\"m\"'"])
+  }
+end
 #==============================================================================
 desc "all together now"
 task :all_tests do
