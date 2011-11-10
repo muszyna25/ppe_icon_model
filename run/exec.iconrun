@@ -323,7 +323,11 @@ date
 ${START} ${MODEL}
 date
 #
-check_error $? "${START} ${MODEL}"
+if [ -r finish.status ] ; then
+  check_error 0 "${START} ${MODEL}"
+else
+  check_error -1 "${START} ${MODEL}"
+fi
 #
 #-----------------------------------------------------------------------------
 #
