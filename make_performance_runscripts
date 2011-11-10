@@ -22,7 +22,6 @@ make_runscript="$use_shell ./config/make_target_runscript"
 #==============================================================================
 set_run_parameters ()
 {  
-   run_model_method_list="nat"
   run_folder="run"
  
   model_list=(      "nat"  )
