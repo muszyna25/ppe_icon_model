@@ -1879,7 +1879,7 @@ SUBROUTINE upper_ocean_TS(ppatch, p_os,ice, QatmAve, p_sfc_flx)
 !                                       & (clw*rhow * ice%zUnderIce)
 ! TODO: should we also divide with ice%zUnderIce / ( v_base%del_zlev_m(1) +  p_os%p_prog(nold(1))%h(:,:) ) ?
 !  p_sfc_flx%forc_tracer(:,:,1) = (heatOceI + heatOceW) / (clw*rhow)
-  p_sfc_flx%forc_hflx(:,:,1) = heatOceI + heatOceW
+  p_sfc_flx%forc_hflx(:,:) = heatOceI(:,:) + heatOceW(:,:)
 
 ! TODO:
 !  ! Temperature change of upper ocean grid cell due  to melt-water inflow and
