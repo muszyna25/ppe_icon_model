@@ -127,7 +127,7 @@ CONTAINS
   ! local variables
   CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:update_sfcflx'
   INTEGER  :: jmon, njday, jdmon, jmon1, jmon2!, jdays
-  INTEGER  :: jc, jb
+  INTEGER  :: jc, jb, i
   INTEGER  :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
   INTEGER  :: rl_start_c, rl_end_c
   REAL(wp) :: z_tmin, z_relax, rday1, rday2
@@ -313,7 +313,7 @@ CONTAINS
       IF (i_sea_ice == 1) THEN
         Qatm%SWin   (:,:)   = 0.0_wp  ! not available - very hot shot
         DO i = 1, p_ice%kice
-          Qatm%LWnet  (:,:,:)   = p_sfc_flx%forc_hflx(:,:)
+          Qatm%LWnet  (:,i,:)   = p_sfc_flx%forc_hflx(:,:)
         ENDDO
         Qatm%sens   (:,:,:) = 0.0_wp
         Qatm%lat    (:,:,:) = 0.0_wp
