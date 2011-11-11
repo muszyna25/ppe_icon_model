@@ -312,12 +312,22 @@ CONTAINS
       ! #slo# This is a first try for "simple flux coupling"
       IF (i_sea_ice == 1) THEN
         Qatm%SWin   (:,:)   = 0.0_wp  ! not available - very hot shot
-        Qatm%LWin   (:,:)   = p_sfc_flx%forc_hflx(:,:)
-        Qatm%sens   (:,1,:) = 0.0_wp
-        Qatm%lat    (:,1,:) = 0.0_wp
+        DO i = 1, p_ice%kice
+          Qatm%LWnet  (:,:,:)   = p_sfc_flx%forc_hflx(:,:)
+        ENDDO
+        Qatm%sens   (:,:,:) = 0.0_wp
+        Qatm%lat    (:,:,:) = 0.0_wp
         Qatm%dsensdT(:,:,:) = 0.0_wp
         Qatm%dlatdT (:,:,:) = 0.0_wp
-        Qatm%dLWdT  (:,1,:) = -4.0_wp * emiss*StefBol * (p_ice%Tsurf(:,1,:) + tmelt)**3
+        Qatm%dLWdT  (:,:,:) = -4.0_wp * emiss*StefBol * (p_ice%Tsurf(:,:,:) + tmelt)**3
+
+        ! Fluxes into the water are the same as into the ice
+        Qatm%LWnetw (:,:)   = p_sfc_flx%forc_hflx(:,:)
+        Qatm%sensw  (:,:)   = 0.0_wp
+        Qatm%latw   (:,:)   = 0.0_wp
+
+        ! p_sfc_flx%forc_hflx is recalculated in upper_ocean_TS in mo_sea_ice.f90, called by
+        ! ice_fast
 
         CALL set_ice_albedo(p_patch,p_ice)
         CALL set_ice_temp(p_patch,p_ice,Qatm)
