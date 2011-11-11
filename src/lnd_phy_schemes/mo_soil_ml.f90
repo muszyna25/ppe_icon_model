@@ -1723,7 +1723,8 @@ DO ns=nsubs0,nsubs1
   
         zlams   = zlamq**rsandf* zlam0**(1._ireals-rsandf)
   
-  !      zlamsat = (clamso(m_styp(i,j))**(1.0_ireals-zthetas)) * (zlamli**zthliq) * (zlamic**(zthetas-zthliq))
+  !      zlamsat = (clamso(m_styp(i,j))**(1.0_ireals-zthetas)) * (zlamli**zthliq) &
+  !                * (zlamic**(zthetas-zthliq))
         zlamsat = (zlams**(1.0_ireals-zthetas)) * (zlamli**zthliq) * (zlamic**(zthetas-zthliq))
   
         zrhod   = 2700.0_ireals*(1.0_ireals-zthetas)
@@ -1916,7 +1917,7 @@ DO ns=nsubs0,nsubs1
 ! In debugging mode and if transfer coefficient occured for at least one grid point
   IF (m_limit > 0 .AND. ldebug) THEN
     WRITE(*,'(1X,A,/,2(1X,A,F10.2,A,/),1X,A,F10.2,/,1X,A,F10.3,/)')                  &
-           'terra1: transfer coefficient had to be constrained',                  &
+           'terra1: transfer coefficient had to be constrained',                     &
            'model time step                                 :', zdt     ,' seconds', &
            'max. temperature increment allowed per time step:',zlim_dtdt,' K',       &
            'upper soil model layer thickness                :', zdzhs(1)
@@ -2334,7 +2335,7 @@ DO ns=nsubs0,nsubs1
             zesoil(i,j) = zevap*zbeta*zep_s(i,j)       & ! evaporation
                           *(1.0_ireals - zf_wi  (i,j)) & ! not water covered
                           *(1.0_ireals - zf_snow(i,j)) & ! not snow covered
-                          * eai(i,j,ns)/sai(i,j,ns) ! relative source surface                                              ! of the bare soil
+                          * eai(i,j,ns)/sai(i,j,ns) ! relative source surface of the bare soil
             
           END IF  ! upwards directed potential evaporation
         END IF    ! land points
@@ -3654,8 +3655,8 @@ DO ns=nsubs0,nsubs1
             zagd(i,j,1) = ztsnow_mult(i,j,1) + zdt/zdzh_snow(i,j,1)*zfor_snow_mult(i,j)/zrocs(i,j)
         
             zrocs(i,j) = wliq_snow(i,j,ke_snow,nx,ns)/wtot_snow(i,j,ke_snow,nx,ns)*chc_w*rho_w + &
-              (wtot_snow(i,j,ke_snow,nx,ns)-wliq_snow(i,j,ke_snow,nx,ns))/ &
-              &wtot_snow(i,j,ke_snow,nx,ns)*chc_i*rho_i
+              & (wtot_snow(i,j,ke_snow,nx,ns)-wliq_snow(i,j,ke_snow,nx,ns))/                     &
+              & wtot_snow(i,j,ke_snow,nx,ns)*chc_i*rho_i
             zakb = zalas_mult(i,j,ke_snow)/zrocs(i,j)  !(chc_i*rho_snow(1,nx))
             zaga(i,j,ke_snow) = -zdt*zakb/(zdzh_snow(i,j,ke_snow)*zdzm_snow(i,j,ke_snow))
             zagb(i,j,ke_snow) = 1.0_ireals - zaga(i,j,ke_snow)
@@ -3864,8 +3865,8 @@ DO ns=nsubs0,nsubs1
                 zw_m(i,j)     = zporv(i,j)*zdzhs(kso)
                 IF(t_so(i,j,kso,nnew,ns).LT.(t0_melt-zepsi)) THEN
                   zaa    = g*zpsis(i,j)/lh_f
-                  zw_m(i,j) = zw_m(i,j)*((t_so(i,j,kso,nnew,ns) - t0_melt)/(t_so(i,j,kso,nnew,ns)*&
-                           zaa))**(-zedb(i,j))
+                  zw_m(i,j) = zw_m(i,j)*((t_so(i,j,kso,nnew,ns) - t0_melt)/(t_so(i,j,kso,nnew,ns)&
+                    &         *zaa))**(-zedb(i,j))
                   zliquid= MAX(zepsi,w_so(i,j,kso,nx,ns) -  w_so_ice(i,j,kso,nx,ns))
                   znen   = 1._ireals-zaa*(zporv(i,j)*zdzhs(kso)/zliquid)**zb_por(i,j)
                   ztx    = t0_melt/znen
@@ -4110,11 +4111,12 @@ DO ns=nsubs0,nsubs1
                 ELSEIF(ksn.eq.1) then
                   ze_in = ze_rad(i,j) * (EXP (-zextinct(i,j,1)*zdzm_snow(i,j,1)) &
                     &     - EXP (-zextinct(i,j,1)*zdzh_snow(i,j,1)))
-                  zcounter(i,j) = ze_rad(i,j) * (1._ireals - EXP (-zextinct(i,j,1)*zdzh_snow(i,j,1)))
+                  zcounter(i,j) = ze_rad(i,j) * (1._ireals-EXP(-zextinct(i,j,1)*zdzh_snow(i,j,1)))
                 ELSE
-                  ze_in = ze_out(i,j) + (ze_rad(i,j) - zcounter(i,j)) -  &
-                    (ze_rad(i,j) - zcounter(i,j)) * EXP (-zextinct(i,j,ksn)*zdzh_snow(i,j,ksn))
-                  zcounter(i,j) = ze_rad(i,j)-(ze_rad(i,j)-zcounter(i,j)) * EXP(-zextinct(i,j,ksn)*zdzh_snow(i,j,ksn))
+                  ze_in = ze_out(i,j) + (ze_rad(i,j) - zcounter(i,j))  &
+                    &     -(ze_rad(i,j) - zcounter(i,j))*EXP(-zextinct(i,j,ksn)*zdzh_snow(i,j,ksn))
+                  zcounter(i,j) = ze_rad(i,j)-(ze_rad(i,j)-zcounter(i,j)) &
+                    &             * EXP(-zextinct(i,j,ksn)*zdzh_snow(i,j,ksn))
                 END IF
               END IF
     
@@ -4133,7 +4135,7 @@ DO ns=nsubs0,nsubs1
               IF(ztsnownew_mult(i,j,ksn) .GT. t0_melt) THEN
     
                 IF(wtot_snow(i,j,ksn,nx,ns) .LE. wliq_snow(i,j,ksn,nx,ns)) THEN
-                  ze_out(i,j) = chc_i*wtot_snow(i,j,ksn,nx,ns)*(ztsnownew_mult(i,j,ksn) - t0_melt) &
+                  ze_out(i,j) = chc_i*wtot_snow(i,j,ksn,nx,ns)*(ztsnownew_mult(i,j,ksn)-t0_melt) &
                     &      *z1d2dt*rho_w
                   zmelt(i,j) = 0.0_ireals
                 ELSEIF(chc_i*wtot_snow(i,j,ksn,nx,ns)*(ztsnownew_mult(i,j,ksn)-t0_melt)/lh_f .LE. &
@@ -4144,7 +4146,7 @@ DO ns=nsubs0,nsubs1
                   wliq_snow(i,j,ksn,nx,ns) = wliq_snow(i,j,ksn,nx,ns) + zmelt(i,j)*zdt
                 ELSE
                   zmelt(i,j) = (wtot_snow(i,j,ksn,nx,ns)-wliq_snow(i,j,ksn,nx,ns))*z1d2dt
-                  ze_out(i,j) = chc_i*wtot_snow(i,j,ksn,nx,ns)*(ztsnownew_mult(i,j,ksn) - t0_melt) &
+                  ze_out(i,j) = chc_i*wtot_snow(i,j,ksn,nx,ns)*(ztsnownew_mult(i,j,ksn)-t0_melt) &
                     &      *z1d2dt*rho_w - zmelt(i,j)*lh_f*rho_w
                   wliq_snow(i,j,ksn,nx,ns) = wliq_snow(i,j,ksn,nx,ns) + zmelt(i,j)*zdt
                 END IF
