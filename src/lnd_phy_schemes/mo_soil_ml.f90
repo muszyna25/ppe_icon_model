@@ -1989,10 +1989,29 @@ DO ns=nsubs0,nsubs1
 
   IF(lmulti_snow) THEN
 
+    DO ksn = 0,ke_snow
+      DO   j = jstarts, jends
+        DO i = istarts, iends
+          IF (llandmask(i,j,ns)) THEN     ! for land-points only
+            IF (w_snow(i,j,nx,ns) > 0.0_ireals) THEN
+              ! existence of snow
+              t_snow_mult(i,j,ksn,nx,ns) = MIN (t0_melt - zepsi, t_snow_mult(i,j,ksn,nx,ns) )
+            ELSE IF (t_snow_mult(i,j,ke_snow,nx,ns) >= t0_melt) THEN
+              ! no snow and t_snow >= t0_melt --> t_s > t0_melt and t_snow = t_s
+              t_snow_mult(i,j,ksn,nx,ns) = MAX (t0_melt + zepsi, t_s(i,j,nx,ns) )
+            ELSE
+              ! no snow and  t_snow < t0_melt
+              ! --> t_snow = t_s
+              t_snow_mult(i,j,ksn,nx,ns) = MIN (t0_melt - zepsi, t_s(i,j,nx,ns) )
+            END IF
+          END IF
+        ENDDO
+      ENDDO
+    ENDDO
+
     DO   j = jstarts, jends
       DO i = istarts, iends
         IF (llandmask(i,j,ns)) THEN     ! for land-points only
-
           IF (w_snow(i,j,nx,ns) > 0.0_ireals) THEN
             ! existence of snow
             ! --> no water in interception store and t_snow < t0_melt
@@ -2003,27 +2022,14 @@ DO ns=nsubs0,nsubs1
             w_i   (i,j,nx,ns) = 0.0_ireals
           ELSE IF (t_snow_mult(i,j,ke_snow,nx,ns) >= t0_melt) THEN
             ! no snow and t_snow >= t0_melt --> t_s > t0_melt and t_snow = t_s
-            t_s   (i,j,nx,ns) = MAX (t0_melt + zepsi, t_s(i,j,nx,ns) )
+            t_s   (i,j,nx,ns) = t_snow_mult(i,j,ke_snow,nx,ns) 
           ELSE
             ! no snow and  t_snow < t0_melt
             ! --> t_snow = t_s and no water w_i in interception store
-            t_s   (i,j,nx,ns) = MIN (t0_melt - zepsi, t_s(i,j,nx,ns) )
+            t_s   (i,j,nx,ns) = t_snow_mult(i,j,ke_snow,nx,ns)
             w_i   (i,j,nx,ns) = 0.0_ireals
           END IF
         END IF
-      ENDDO
-    ENDDO
-    DO ksn = 0,ke_snow
-      DO   j = jstarts, jends
-        DO i = istarts, iends
-          IF (llandmask(i,j,ns)) THEN     ! for land-points only
-            IF (w_snow(i,j,nx,ns) > 0.0_ireals) THEN
-              t_snow_mult(i,j,ksn,nx,ns) = MIN (t0_melt - zepsi, t_snow_mult(i,j,ksn,nx,ns) )
-            ELSE
-              t_snow_mult(i,j,ksn,nx,ns) = t_s(i,j,nx,ns)
-            ENDIF
-          END IF
-        ENDDO
       ENDDO
     ENDDO
   ELSE ! no multi-layer snow
