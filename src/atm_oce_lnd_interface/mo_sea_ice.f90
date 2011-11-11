@@ -1869,7 +1869,8 @@ SUBROUTINE upper_ocean_TS(ppatch, p_os,ice, QatmAve, p_sfc_flx)
   ! Calculate heat input through formerly ice covered and through open water
   ! areas
   heatOceI        (:,:)   = sum(ice% heatOceI(:,:,:) * ice% conc(:,:,:),2)
-  heatOceW        (:,:)   = (QatmAve%SWin(:,:) * (1.0_wp-albedoW) * (1.0_wp-swsum) +    &
+!  heatOceW        (:,:)   = (QatmAve%SWin(:,:) * (1.0_wp-albedoW) * (1.0_wp-swsum) +    &
+  heatOceW        (:,:)   = (QatmAve%SWin(:,:) +    &
                             QatmAve%LWnetw(:,:) + QatmAve%sensw(:,:)+         &
                             QatmAve%latw(:,:))  *  (1.0_wp-sum(ice%conc,2))
 
