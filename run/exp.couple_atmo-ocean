@@ -434,12 +434,12 @@ cat > ${ocean_namelist} << EOF
   EOS_TYPE           =    2      ! 1=linear EOS
                                  ! 2= (nonlinear) EOS from MPI-OM 
                                  ! 3= not recommended: (nonlinear) Jacket-McDoudgall density-formulation
-  k_veloc_h          = 5.0E+5    ! [m2/s] horizontal viscosity coefficient for velocity
+  k_veloc_h          = 1.0E+5    ! [m2/s] horizontal viscosity coefficient for velocity
   k_veloc_v          = 1.0E-2    ! [m/s]  vertical viscosity coefficient for velocity
   MAX_VERT_DIFF_VELOC=    1.0    ! max diffusion coeff, used in impl.vert.velocity diffusion, if stabil. crit.is met
-  k_pot_temp_h       = 1.0E+3    ! [m2/s] horizontal viscosity coefficient for temperature
+  k_pot_temp_h       = 5.0E+3    ! [m2/s] horizontal viscosity coefficient for temperature
   k_pot_temp_v       = 3.0E-5    ! [m/s]  vertical viscosity coefficient for temperature
-  k_sal_h            = 1.0E+3    ! [m2/s] horizontal viscosity coefficient for salinity
+  k_sal_h            = 5.0E+3    ! [m2/s] horizontal viscosity coefficient for salinity
   k_sal_v            = 3.0E-5    ! [m/s]  vertical viscosity coefficient for salinity
   MAX_VERT_DIFF_TRAC = 3.0E-3    ! max diffusion coeff, used in impl.vert.tracer diffusion, if stability crit.is met
   HORZ_VELOC_DIFF_TYPE =  1      ! 0=no horizontal diffusion
