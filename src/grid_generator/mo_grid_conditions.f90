@@ -59,7 +59,8 @@ MODULE mo_grid_conditions
   ! !VERSION CONTROL:
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
 
-  PUBLIC :: cut_local_grid, cut_conditional_grid, read_grid_conditions
+  PUBLIC :: cut_local_grid, cut_local_grid_ascii
+  PUBLIC :: cut_conditional_grid, read_grid_conditions
   PUBLIC :: get_conditional_cells
   PUBLIC :: get_boundary_vertices, get_inner_vertices
   !----------------------------------------
@@ -185,6 +186,47 @@ CONTAINS
     CALL delete_grid(out_grid_id)
 
   END SUBROUTINE cut_local_grid
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !   SUBROUTINE cut_local_grid(param_file_name)
+  !>
+  !! Main routine for cutting-off a sub-grid. Public
+  SUBROUTINE cut_local_grid_ascii(param_file_name)
+
+   CHARACTER(LEN=*), INTENT(in) :: param_file_name
+
+    TYPE(t_grid_cells), POINTER :: cells
+
+    TYPE(t_integer_list)  :: cut_cell_list, smooth_cell_list
+    INTEGER :: in_grid_id, i, k
+
+    i = read_grid_conditions(param_file_name)
+
+    in_grid_id = read_new_netcdf_grid(input_file)
+
+    IF (no_of_conditions  < 1) RETURN
+
+    CALL get_conditional_cells(in_grid_id, cut_cell_list)
+    
+    CALL smooth_boundaryfrom_cell_list(in_grid_id, cut_cell_list, smooth_cell_list)
+
+    cells => get_cells(in_grid_id)
+    
+    DO i = 1, smooth_cell_list%list_size
+    
+      k = smooth_cell_list%value(i)
+      WRITE(0,*) "cell=", k, cells%center(k)%lon, cells%center(k)%lat
+      
+    ENDDO
+
+
+    DEALLOCATE(cut_cell_list%value)
+    DEALLOCATE(smooth_cell_list%value)
+
+    CALL delete_grid(in_grid_id)
+
+  END SUBROUTINE cut_local_grid_ascii
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------

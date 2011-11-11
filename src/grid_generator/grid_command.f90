@@ -15,6 +15,8 @@ PROGRAM grid_command
     & check_read_write_grid
   USE mo_local_grid_optimization, ONLY: optimize_grid_file
   USE mo_icosahedron_grid,      ONLY: create_icon_grid
+  USE mo_grid_conditions,       ONLY: cut_local_grid, cut_local_grid_ascii
+  
 #ifndef __ICON_GRID_GENERATOR__
   USE mo_global_grid_generator, ONLY: global_graph_generator, global_grid_generator, &
     & prepare_gridref
@@ -30,6 +32,8 @@ PROGRAM grid_command
   CHARACTER(len=32), PARAMETER :: create_torus_c ='create_torus'
   CHARACTER(len=32), PARAMETER :: create_ocean_c ='create_ocean'
   CHARACTER(len=32), PARAMETER :: refine_grid_c ='refine_grid'
+  CHARACTER(len=32), PARAMETER :: cut_local_grid_c ='cut_local_grid'
+  CHARACTER(len=32), PARAMETER :: cut_local_grid_ascii_c ='cut_local_grid_ascii'
   CHARACTER(len=32), PARAMETER :: create_patch_hierarchy_c ='create_patch_hierarchy'
   CHARACTER(len=32), PARAMETER :: concatenate_grids_c ='concatenate_grids'
   CHARACTER(len=32), PARAMETER :: check_grid_c ='check_grid'
@@ -74,6 +78,12 @@ PROGRAM grid_command
 
     CASE (create_icon_grid_c)
       CALL create_icon_grid(param_1)
+    
+    CASE (cut_local_grid_c)
+      CALL cut_local_grid(param_1)
+    
+    CASE (cut_local_grid_ascii_c)
+      CALL cut_local_grid_ascii(param_1)
 
     CASE (concatenate_grids_c)
       OPEN (500, FILE = command_file,STATUS = 'OLD')

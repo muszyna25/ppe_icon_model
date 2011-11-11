@@ -649,6 +649,7 @@ run/grid.create_atmo_grids -text
 run/grid.create_dual -text
 run/grid.create_nested_grids -text
 run/grid.create_ocean_grids -text
+run/grid.create_patches_R2B7N13 -text
 run/grid.create_torus_grid -text
 run/ico_grd_spr_sw_ref -text
 run/post.hat_jww -text
