@@ -2250,9 +2250,9 @@ CONTAINS
       &                   zaxisID_surface(k_jg)),&
       &           k_jg)
     END IF 
-    IF (temperature_relaxation /= 0 ) THEN
+    IF (temperature_relaxation /= 0 .OR. i_sea_ice == 1 ) THEN
       CALL addVar(TimeVar('forc-hflx',&
-      &                   'diagnosed net surface heat flux',&
+      &                   'net surface heat flux',&
       &                   'W/m2',16,128,&
       &                   vlistID(k_jg),&
       &                   gridCellID(k_jg),&

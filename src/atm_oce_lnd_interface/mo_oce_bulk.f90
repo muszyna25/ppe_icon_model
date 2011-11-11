@@ -385,6 +385,9 @@ CONTAINS
         CALL set_ice_temp(p_patch,p_ice,Qatm)
         Qatm%counter = 1
 
+        ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%forc_hflx
+        !  done in mo_sea_ice:upper_ocean_TS
+
       ENDIF
 
     END IF
@@ -756,9 +759,10 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   ! Apply net surface heat flux to boundary condition
-  !  - 2011/10/19 - heat flux is applied alternatively to temperature relaxation for coupling
+  !  - heat flux is applied alternatively to temperature relaxation for coupling
+  !  - also done if sea ice model is used
 
-  IF (temperature_relaxation == -1) THEN
+  IF (temperature_relaxation == -1 .OR. i_sea_ice == 1) THEN
 
     ! Heat flux boundary condition for diffusion
     !   D = d/dz(K_v*dT/dz)  where
