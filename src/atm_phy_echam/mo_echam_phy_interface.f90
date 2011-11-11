@@ -428,8 +428,10 @@ CONTAINS
        !
        ! SST
        CALL ICON_cpl_get ( field_id(6), field_shape, buffer, info, ierror )
-       IF ( info > 0 ) &
-       prm_field(jg)%tsfc_tile(:,:,iwtr) = RESHAPE (buffer(:,1), (/ nproma, nblks /) )
+       IF ( info > 0 ) THEN
+         prm_field(jg)%tsfc_tile(:,:,iwtr) = RESHAPE (buffer(:,1), (/ nproma, nblks /) )
+         prm_field(jg)%tsfc     (:,:)      = prm_field(jg)%tsfc_tile(:,:,iwtr)
+       ENDIF
        !
        ! OCEANU
        CALL ICON_cpl_get ( field_id(7), field_shape, buffer, info, ierror )
@@ -442,6 +444,8 @@ CONTAINS
        prm_field(jg)%ocv(:,:) = RESHAPE (buffer(:,1), (/ nproma, nblks /) )
        
        CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%tsfc_tile(:,:,iwtr))
+       CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%tsfc     (:,:))
+
        CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%ocu(:,:))
        CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%ocv(:,:))
 

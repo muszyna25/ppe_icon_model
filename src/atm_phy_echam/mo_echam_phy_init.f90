@@ -323,10 +323,13 @@ CONTAINS
                !
                CALL ICON_cpl_get ( field_id(6), field_shape, buffer, info, ierror )
 
-               IF ( info > 0 ) &
+               IF ( info > 0 ) THEN
                  field%tsfc_tile(:,:,iwtr) = RESHAPE (buffer(:,1), (/ nproma, nblks_c /) )
+                 field%tsfc     (:,:)      = field%tsfc_tile(:,:,iwtr)
+               ENDIF
 
                CALL sync_patch_array(sync_c, p_patch(jg), field%tsfc_tile(:,:,iwtr))
+               CALL sync_patch_array(sync_c, p_patch(jg), field%tsfc     (:,:))
 
                DEALLOCATE(field_id)
                DEALLOCATE(buffer)
