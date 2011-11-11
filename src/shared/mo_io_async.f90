@@ -77,6 +77,9 @@ MODULE mo_io_async
    &                                get_outvar_ptr_ha, get_outvar_ptr_nh,                        &
    &                                get_outvar_ptr_oce
   USE mo_grid_config,         ONLY: n_dom
+  ! meteogram output
+  USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize, meteogram_flush_file
+  USE mo_meteogram_config,    ONLY: meteogram_output_config
 
   !------------------------------------------------------------------------------------------------
   ! Needed only for compute PEs, patches are NOT set on I/O PEs
@@ -257,7 +260,14 @@ CONTAINS
       STOP
     ENDIF
 
+    ! setup of meteogram output
+    DO jg =1,n_dom
+      IF (meteogram_output_config(jg)%lenabled) THEN
+        CALL meteogram_init(meteogram_output_config(jg), jg)
+      END IF
+    END DO
 
+    ! receive information on patch
     CALL receive_patch_configuration
 
     ! Distribute work among the (possibly) several I/O PEs
@@ -313,6 +323,13 @@ CONTAINS
 
       iostep = iostep + 1
 
+      ! write recent samples of meteogram output
+      DO jg = 1, n_dom
+        IF (meteogram_output_config(jg)%lenabled) THEN
+          CALL meteogram_flush_file(jg)
+        END IF
+      END DO
+
       ! Inform compute PEs that we are done
       CALL io_send_ready_message
 
@@ -327,6 +344,16 @@ CONTAINS
       ENDIF
       CALL destruct_vlist(jg)
     ENDDO
+
+    ! finalize meteogram output
+    DO jg = 1, n_dom
+      IF (meteogram_output_config(jg)%lenabled) THEN
+        CALL meteogram_finalize(jg)
+      END IF
+    END DO
+    DO jg = 1, max_dom
+      DEALLOCATE(meteogram_output_config(jg)%station_list)
+    END DO
 
     IF(use_pio) CALL pioFinalize
 
@@ -1286,8 +1313,14 @@ CONTAINS
 
     CALL MPI_Win_unlock(p_pe_work, mpi_win, mpierr)
 
-    ! Send message that output is ready
+    ! write recent samples of meteogram output
+    DO jg = 1, n_dom
+      IF (meteogram_output_config(jg)%lenabled) THEN
+        CALL meteogram_flush_file(jg)
+      END IF
+    END DO
 
+    ! Send message that output is ready
     CALL compute_start_io(datetime)
     CALL date_and_time(TIME=ctime)
     IF(p_pe_work==0) PRINT '(a)','.................... Compute PEs done with I/O at '//ctime

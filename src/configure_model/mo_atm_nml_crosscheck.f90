@@ -102,6 +102,7 @@ MODULE mo_nml_crosscheck
 
   USE mo_datetime,           ONLY: add_time, print_datetime_all
   USE mo_lonlat_intp_config, ONLY: lonlat_intp_config
+  USE mo_meteogram_config,   ONLY: check_meteogram_configuration
 
   IMPLICIT NONE
 
@@ -856,6 +857,8 @@ CONTAINS
         &         'Asynchronous IO of lon-lat interpolated vars not yet implemented!')
     END IF
 
+    ! check meteogram configuration
+    CALL check_meteogram_configuration(num_io_procs)
 
   END  SUBROUTINE atm_crosscheck
 

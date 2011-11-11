@@ -35,6 +35,7 @@ MODULE mo_meteogram_config
 
   USE mo_impl_constants, ONLY: max_dom
   USE mo_math_utilities, ONLY: t_geographical_coordinates
+  USE mo_exception,      ONLY: message
 
   IMPLICIT NONE
 
@@ -81,5 +82,30 @@ MODULE mo_meteogram_config
   PUBLIC :: t_meteogram_output_config, t_station_list
   PUBLIC :: meteogram_output_config
   PUBLIC :: FTYPE_NETCDF, MAX_NAME_LENGTH, MAX_NUM_STATIONS
+  PUBLIC :: check_meteogram_configuration
+
+  !-------------------------------------------------------------------------
+
+CONTAINS
+
+  SUBROUTINE check_meteogram_configuration(num_io_procs)
+    INTEGER, INTENT(IN) :: num_io_procs
+    ! local variables
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_mtgrm_config:check_meteogram_configuration")
+    INTEGER :: idom
+
+    ! Asynchronous output does not work with distributed meteogram
+    ! file output!
+    IF (num_io_procs > 0) THEN
+      DO idom=1,max_dom
+        IF ( meteogram_output_config(idom)%lenabled     .AND. &
+          &  meteogram_output_config(idom)%ldistributed ) THEN
+          CALL message(routine, 'Flag "ldistributed" collides with async IO. Resetting.')
+          meteogram_output_config(idom)%ldistributed = .FALSE.
+        END IF
+      END DO
+    END IF
+
+  END SUBROUTINE check_meteogram_configuration
 
 END MODULE mo_meteogram_config

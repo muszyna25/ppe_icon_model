@@ -39,6 +39,7 @@ MODULE mo_mpi
   PUBLIC :: run_is_global_mpi_parallel
   PUBLIC :: my_process_is_stdio, my_process_is_mpi_parallel, my_process_is_mpi_all_parallel
   PUBLIC :: my_process_is_mpi_seq, my_process_is_mpi_test, my_process_is_mpi_workroot
+  PUBLIC :: my_process_is_mpi_ioroot
   PUBLIC :: my_process_is_mpi_all_seq, my_process_is_io
 
   ! get parameters
@@ -46,12 +47,14 @@ MODULE mo_mpi
   PUBLIC :: get_my_mpi_communicator_size   ! this is the the size of the communicator for the specific component
   
   PUBLIC :: get_mpi_all_workroot_id, get_my_global_mpi_id, get_my_mpi_all_id
+  PUBLIC :: get_mpi_all_ioroot_id
   PUBLIC :: default_comm_type, null_comm_type
 
 
   ! some public communicators
   PUBLIC :: process_mpi_all_comm
-  PUBLIC :: process_mpi_all_test_id, process_mpi_all_workroot_id
+  PUBLIC :: process_mpi_all_test_id, process_mpi_all_workroot_id, &
+    &       process_mpi_all_ioroot_id
   
   
   PUBLIC :: p_comm_work, p_comm_work_test
@@ -68,10 +71,10 @@ MODULE mo_mpi
     &       p_irecv_packed, p_send_packed,        &
     &       p_pack_int, p_pack_real,              &
     &       p_pack_int_1d, p_pack_real_1d,        &
-    &       p_pack_real_2d,                       &
+    &       p_pack_string, p_pack_real_2d,        &
     &       p_unpack_int, p_unpack_real,          &
     &       p_unpack_int_1d, p_unpack_real_1d,    &
-    &       p_unpack_real_2d
+    &       p_unpack_string, p_unpack_real_2d
   PUBLIC :: p_gather, p_max, p_min, p_sum, p_global_sum, p_field_sum
   PUBLIC :: p_probe
   PUBLIC :: p_allreduce_minloc
@@ -149,6 +152,7 @@ MODULE mo_mpi
   INTEGER :: process_mpi_all_size     ! total number of processes in the whole model-component
   INTEGER :: my_process_mpi_all_id
   INTEGER :: process_mpi_all_workroot_id  ! the root process in component
+  INTEGER :: process_mpi_all_ioroot_id    ! the first I/O process
   INTEGER :: process_mpi_all_test_id  ! the test process in component
   LOGICAL :: process_is_mpi_parallel
   LOGICAL :: process_is_stdio
@@ -448,6 +452,12 @@ CONTAINS
   !------------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------
+  INTEGER FUNCTION get_mpi_all_ioroot_id()
+    get_mpi_all_ioroot_id = process_mpi_all_ioroot_id
+  END FUNCTION get_mpi_all_ioroot_id
+  !------------------------------------------------------------------------------
+
+  !------------------------------------------------------------------------------
   LOGICAL FUNCTION my_process_is_stdio()
 #ifdef NOMPI
     my_process_is_stdio = .TRUE.
@@ -513,9 +523,15 @@ CONTAINS
     my_process_is_mpi_workroot = (my_process_mpi_all_id == process_mpi_all_workroot_id)
   END FUNCTION my_process_is_mpi_workroot
   !------------------------------------------------------------------------------
-  
- 
+
   !------------------------------------------------------------------------------
+  !>
+  LOGICAL FUNCTION my_process_is_mpi_ioroot()
+    my_process_is_mpi_ioroot = (my_process_mpi_all_id == process_mpi_all_ioroot_id)
+  END FUNCTION my_process_is_mpi_ioroot
+  !------------------------------------------------------------------------------
+  
+   !------------------------------------------------------------------------------
   !>
   ! If is not mpi paralellel or is a test process
   LOGICAL FUNCTION run_is_global_mpi_parallel()
@@ -821,6 +837,7 @@ CONTAINS
 
     ! fill some derived variables
     process_mpi_all_workroot_id = p_work_pe0
+    process_mpi_all_ioroot_id   = p_io_pe0
     process_mpi_all_test_id     = p_work_pe0-1
     process_mpi_io_size         = num_io_procs
 
@@ -4058,6 +4075,38 @@ CONTAINS
 #endif
   END SUBROUTINE p_pack_real_1d
 
+  SUBROUTINE p_pack_string (t_var, t_buffer, p_buf_size, p_pos, comm)
+
+    CHARACTER(LEN=*), INTENT(IN) :: t_var
+    CHARACTER, INTENT(INOUT) :: t_buffer(:)
+    INTEGER,   INTENT(IN)    :: p_buf_size
+    INTEGER,   INTENT(INOUT) :: p_pos
+    INTEGER, OPTIONAL, INTENT(IN) :: comm
+#ifndef NOMPI
+    INTEGER :: p_comm, outsize, ilength
+    CHARACTER(LEN=128) :: tmp_var
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+    outsize = p_buf_size
+    tmp_var =     TRIM(t_var)
+    ilength = LEN_TRIM(t_var)
+    ! first pack string length, then the character sequence
+    CALL MPI_PACK(ilength,       1,  p_int, t_buffer, outsize, p_pos, p_comm, p_error)
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) CALL finish ("p_pack_char_1d", 'MPI call failed')
+#endif
+    CALL MPI_PACK(tmp_var, ilength, p_char, t_buffer, outsize, p_pos, p_comm, p_error)
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) CALL finish ("p_pack_char_1d", 'MPI call failed')
+#endif
+#endif
+  END SUBROUTINE p_pack_string
+
   SUBROUTINE p_pack_real_2d (t_var, p_count, t_buffer, p_buf_size, p_pos, comm)
 
     REAL(wp),  INTENT(IN)    :: t_var(:,:)
@@ -4177,6 +4226,33 @@ CONTAINS
 #endif
   END SUBROUTINE p_unpack_real_1d
 
+  SUBROUTINE p_unpack_string (t_buffer, p_buf_size, p_pos, t_var, comm)
+
+    CHARACTER, INTENT(IN) :: t_buffer(:)
+    INTEGER,   INTENT(IN)    :: p_buf_size
+    INTEGER,   INTENT(INOUT) :: p_pos
+    CHARACTER(LEN=*), INTENT(INOUT) :: t_var
+    INTEGER, OPTIONAL, INTENT(IN) :: comm
+#ifndef NOMPI
+    INTEGER :: p_comm, ilength
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+    ! first unpack string length, then the character sequence
+    CALL MPI_UNPACK(t_buffer, p_buf_size, p_pos, ilength,       1,  p_int, p_comm, p_error)
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) CALL finish ("p_unpack_char_1d", 'MPI call failed')
+#endif
+    CALL MPI_UNPACK(t_buffer, p_buf_size, p_pos,   t_var, ilength, p_char, p_comm, p_error)
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) CALL finish ("p_unpack_char_1d", 'MPI call failed')
+#endif
+#endif
+  END SUBROUTINE p_unpack_string
+
   SUBROUTINE p_unpack_real_2d (t_buffer, p_buf_size, p_pos, t_var, p_count, comm)
 
     CHARACTER, INTENT(IN)    :: t_buffer(:)
@@ -4193,7 +4269,6 @@ CONTAINS
     ELSE
        p_comm = process_mpi_all_comm
     ENDIF
-
     CALL MPI_UNPACK(t_buffer, p_buf_size, p_pos, t_var, p_count, p_real_dp, p_comm, p_error)
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) CALL finish ("p_unpack_real_2d", 'MPI call failed')

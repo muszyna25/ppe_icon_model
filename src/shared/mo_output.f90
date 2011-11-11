@@ -316,23 +316,29 @@ ELSE
     IF ( PRESENT(z_sim_time) ) THEN  
       IF(process_mpi_io_size == 0) THEN
         CALL write_vlist(datetime, z_sim_time(1))
+        ! write recent samples of meteogram output
+        DO jg = 1, n_dom
+          IF (meteogram_output_config(jg)%lenabled) THEN
+            CALL meteogram_flush_file(jg)
+          END IF
+        END DO
       ELSE
         CALL output_async(datetime,z_sim_time(1))
       ENDIF
     ELSE
       IF(process_mpi_io_size == 0) THEN
         CALL write_vlist(datetime)
+        ! write recent samples of meteogram output
+        DO jg = 1, n_dom
+          IF (meteogram_output_config(jg)%lenabled) THEN
+            CALL meteogram_flush_file(jg)
+          END IF
+        END DO
       ELSE
         CALL output_async(datetime)
       ENDIF
     ENDIF
 
-    ! write recent samples of meteogram output
-    DO jg = 1, n_dom
-      IF (meteogram_output_config(jg)%lenabled) THEN
-        CALL meteogram_flush_file(meteogram_output_config(jg), jg)
-      END IF
-    END DO
 ENDIF
 
     IF (ltimer) CALL timer_stop(timer_write_output)

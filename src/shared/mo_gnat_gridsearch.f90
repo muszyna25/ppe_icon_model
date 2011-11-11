@@ -59,7 +59,7 @@ MODULE mo_gnat_gridsearch
   USE mo_impl_constants,      ONLY: min_rlcell_int
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_mpi,                 ONLY: p_n_work, get_my_mpi_all_id, &
-    &                               p_allreduce_minloc
+    &                               p_allreduce_minloc, p_comm_work
   USE mo_kind
   USE mo_physical_constants,  ONLY: re
 
@@ -968,7 +968,7 @@ CONTAINS
     in(1,:) = RESHAPE(REAL(min_dist(:,:)), (/ ntotal /) )
     in(2,:) = REAL( get_my_mpi_all_id() )
     
-    CALL p_allreduce_minloc(in, ntotal)
+    CALL p_allreduce_minloc(in, ntotal, p_comm_work)
 
     ! store list of owners for reconstruction of global coefficient
     ! arrays:
