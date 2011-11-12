@@ -80,7 +80,7 @@ do
     # Note: hydrostatic ocean model (hom) not yet parallelized
     name=${filename#*.}
     if [[ ${name} == *_hom_* ]]; then
-      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name} mpi_procs=1  cpu_time="08:00:00"
+      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name} mpi_procs=1 memory_model="large" cpu_time="08:00:00"
     elif [[ ${name} == *_nwp_* ]] ; then
       $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${filename#*.}  cpu_time="04:00:00" memory_model="huge"  omp_stacksize="400M"
     elif [[ ${name} == *_nah_jww* ]] ; then
