@@ -2,7 +2,7 @@
 #
 # Test experiment, running the coupled aquaplanet experiments
 #
-# Current setting: couple_atmo-ocean_ape_1_2
+# Current setting: couple_atmo-ocean_ape_2_0, r7210
 #
 #=============================================================================
 # This section of the run script defines the experiment.
@@ -40,14 +40,14 @@ atmo_namelist=NAMELIST_${EXPNAME}_atmo
 #
 start_date="2000-01-01T00:00:00Z"
 #
-ndays=30
-ndays_restart=30
+ndays=90
+ndays_restart=90
 #
 dtime_atmo=300
 dtime_ocean=1800
 dt_coupling=1800
 dt_restart=`expr ${ndays_restart} \* 86400`
-dt_checkpoint=`expr 30 \* 86400 `  # write restart file every 30 days
+dt_checkpoint=`expr 90 \* 86400 `  # write restart file every 90 days
 #
 #-----------------------------------------------------------------------------
 #
@@ -123,14 +123,16 @@ cat > $atmo_namelist << EOF
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .TRUE.
-  l_activated         = .TRUE.
+  l_activated         = .FALSE.
 /
 &coupling_nml
   name                = 'THFLX'
   time_step           =  ${dtime}
   frequency           =  ${dt_coupling}
-  l_time_average      = .FALSE.
+  l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
+  l_diagnostic        = .TRUE.
+  l_activated         = .TRUE.
 /
 &coupling_nml
   name                = 'SST'
@@ -195,6 +197,7 @@ cat > $atmo_namelist << EOF
  lwrite_cloud     = .TRUE.           ! add cloud fraction to output
  lwrite_precip    = .TRUE.           ! add precipitation to output
  lwrite_pres      = .FALSE.          ! remove pressure from output
+ lwrite_tend_phy  = .FALSE.          ! write out tendencies 
 /
 &dynamics_nml
  iequations  = ${atmo_model_equations}    ! 1: hydrost. atmosphere
@@ -274,7 +277,7 @@ dtime=$dtime_ocean   # ocean model timestep [s]
 #
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 dt_data=86400.       # ocean model output interval [s]
-ndays_file=30        # new output file generation interval [days]
+ndays_file=90        # new output file generation interval [days]
 #
 #-----------------------------------------------------------------------------
 # diagnostic output (not in ocean model)
@@ -327,14 +330,16 @@ cat > ${ocean_namelist} << EOF
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .TRUE.
-  l_activated         = .TRUE.
+  l_activated         = .FALSE.
 /
 &coupling_nml
   name                = 'THFLX'
   time_step           =  ${dtime}
   frequency           =  ${dt_coupling}
-  l_time_average      = .FALSE.
+  l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
+  l_diagnostic        = .TRUE.
+  l_activated         = .TRUE.
 /
 &coupling_nml
   name                = 'SST'
@@ -387,8 +392,8 @@ cat > ${ocean_namelist} << EOF
  itopo       = 0                 ! read external ocean data from gridfile
 /
 &octst_nml
-  i_dbg_oce=5                    ! initialize MIN/MAX  debug output via mo_index_oce
-  i_dbg_inx=5                    ! initialize one cell debug output via mo_index_oce
+  i_dbg_oce=1                    ! initialize MIN/MAX  debug output via mo_index_oce
+  i_dbg_inx=1                    ! initialize one cell debug output via mo_index_oce
   str_proc_tst = 'all' 'abt', 'vel', 'dif', 'trc', 'bul', '   ', '   ', '   ', '   '
                                  ! define strings for processes to be printed out in debug mode
   rlat_in = 30.0 rlon_in =   0.0 ! lat/lon-location of one cell debug output
@@ -434,6 +439,7 @@ cat > ${ocean_namelist} << EOF
   expl_vertical_tracer_diff   = 1  ! 0=explicit, 1 = implicit
 /
 &ocean_physics_nml
+  i_sea_ice          =    1      ! 0 = no sea ice; 1 = sea ice switched on
   no_tracer          =    1      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
   EOS_TYPE           =    2      ! 1=linear EOS
                                  ! 2= (nonlinear) EOS from MPI-OM 
@@ -482,7 +488,7 @@ cat > ${ocean_namelist} << EOF
                                  ! 50=zonally homogen temperature for APE SST (Williamson)
   init_oce_prog      = ${init_oce}    ! read ocean initialization file, see above
   idiag_oce          =    0      ! 0: no diagnostics; 1: write diagnostics to stderr
-  temperature_relaxation= 3      !  1: switched on for some testcases only
+  temperature_relaxation= -1     !  1: switched on for some testcases only
                                  !  2: read 2m-temperature data for relaxation from bulk 
                                  !  3: use initial prognostic T and S as 2-dim relax (copy SST on omip-T)
                                  ! -1: use net surface heat flux from atmosphere as boundary condition
