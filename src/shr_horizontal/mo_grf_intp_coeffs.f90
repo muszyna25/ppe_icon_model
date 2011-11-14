@@ -544,6 +544,8 @@ REAL(wp) :: sum1,wgt(4),x(4),y(4)
 
 INTEGER  ::  ici1, icb1, ici2, icb2, ici3, icb3, ici4, icb4, ierror
 
+INTEGER, ALLOCATABLE :: ierrcount(:)
+
 REAL(wp), DIMENSION (3) :: z_nx1, z_nx2
 REAL(wp) :: z_lon, z_lat, z_norm
 TYPE(t_cartesian_coordinates) :: cc_center, cc_ch1, cc_ch2, cc_ch3, cc_ch4, &
@@ -573,6 +575,9 @@ DO jg = n_dom_start+1, n_dom
   p_gec  => p_pc%edges
 
   i_chidx = p_pc%parent_child_index
+
+  ALLOCATE (ierrcount(p_pp%nblks_c))
+  ierrcount(:) = 0._wp
 
   ! If the nested domain is barely larger than the boundary interpolation zone,
   ! the setting of the start and end indices may fail in the presence of 
@@ -721,6 +726,8 @@ DO jg = n_dom_start+1, n_dom
           wgt(1) = 1.0_wp - SUM(wgt(2:4))
         ENDIF
 
+        IF (MINVAL(wgt(1:4)) < 0.0_wp) ierrcount(jb) = ierrcount(jb) + 1
+
         ! Save the weighting factors in fbk_wgt
         p_grfp%fbk_wgt_c(jc,jb,1:4) = wgt(1:4)
       ENDDO
@@ -849,6 +856,8 @@ DO jg = n_dom_start+1, n_dom
           wgt(1) = 1.0_wp - SUM(wgt(2:4))
         ENDIF
 
+        IF (MINVAL(wgt(1:4)) < 0.0_wp) ierrcount(jb) = ierrcount(jb) + 1
+
         ! Save the weighting factors in fbk_wgt
         p_grfp%fbk_wgt_ct(jc,jb,1:4) = wgt(1:4)
       ENDDO
@@ -949,6 +958,11 @@ DO jg = n_dom_start+1, n_dom
 !$OMP END PARALLEL
 #endif
 
+  IF (ANY(ierrcount(:) > 0)) THEN
+    CALL finish ('init_fbk_wgt',  &
+      &          'negative feedback coefficients occurred - change grid optimization')
+  ENDIF
+
   IF(my_process_is_mpi_parallel()) THEN
     DO j = 1, 4
       CALL exchange_data(p_pp%comm_pat_c, p_grfp%fbk_wgt_c(:,:,j))
@@ -961,6 +975,7 @@ DO jg = n_dom_start+1, n_dom
     ENDDO
   ENDIF
 
+  DEALLOCATE (ierrcount)
 ENDDO
 
 END SUBROUTINE init_fbk_wgt
