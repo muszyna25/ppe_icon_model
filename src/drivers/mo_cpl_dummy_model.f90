@@ -625,13 +625,13 @@ CONTAINS
                    DO i = field_shape(1), field_shape(2)
 
                       IF ( p_patch(patch_no)%cells%owner_local(i) == p_pe_work ) THEN
-                         IF (recv_field(i,nb) /= REAL(p_patch(patch_no)%cells%glb_index(i),wp)) THEN
+                        IF (recv_field(i,nb) /= REAL(p_patch(patch_no)%cells%glb_index(i),wp)) THEN
                             WRITE(message_text,'(i6,a11,i6,a9,f13.4)') i, ': Expected ',    &
                                  &                    p_patch(patch_no)%cells%glb_index(i), &
                                  &                    ' but got ',                          &
                                  &                      recv_field(i,nb)
                             CALL message('mo_cpl_dummy_model', TRIM(message_text))
-                         ENDIF
+                        ENDIF
                       ENDIF
 
                    ENDDO
