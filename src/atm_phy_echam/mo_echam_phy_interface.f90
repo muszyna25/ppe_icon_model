@@ -365,7 +365,7 @@ CONTAINS
     
        nbr_hor_points = p_patch%n_patch_cells
        nbr_points     = nproma * nblks
-       ALLOCATE(buffer(nproma*p_patch%nblks_c,1))
+       ALLOCATE(buffer(nproma*p_patch%nblks_c,4))
       !
        !  see drivers/mo_atmo_model.f90:
        !
@@ -404,24 +404,28 @@ CONTAINS
         buffer(:,1) = RESHAPE ( prm_field(jg)%rsfl(:,:), (/ nbr_points /) ) + &
              &        RESHAPE ( prm_field(jg)%rsfc(:,:), (/ nbr_points /) ) + &
              &        RESHAPE ( prm_field(jg)%ssfl(:,:), (/ nbr_points /) ) + &
-             &        RESHAPE ( prm_field(jg)%ssfc(:,:), (/ nbr_points /) ) + &
-             &        RESHAPE ( prm_field(jg)%evap_tile(:,:,iwtr), (/ nbr_points /) )
-! 
-!        CALL ICON_cpl_put ( field_id(3), field_shape, buffer, ierror )
+             &        RESHAPE ( prm_field(jg)%ssfc(:,:), (/ nbr_points /) )
+        buffer(:,2) = RESHAPE ( prm_field(jg)%evap_tile(:,:,iwtr), (/ nbr_points /) )
+ 
+       field_shape(3) = 2
+       CALL ICON_cpl_put ( field_id(3), field_shape, buffer, ierror )
        !
        ! SFTEMP
        buffer(:,1) =  RESHAPE ( prm_field(jg)%temp(:,nlev,:), (/ nbr_points /) )
+       field_shape(3) = 1
        CALL ICON_cpl_put ( field_id(4), field_shape, buffer, ierror )
        !
        ! THFLX, total heat flux
+       buffer(:,1) =  RESHAPE ( prm_field(jg)%swflxsfc  (:,:)     , (/ nbr_points /) ) !net shortwave flux at sfc
+       buffer(:,2) =  RESHAPE ( prm_field(jg)%lwflxsfc  (:,:)     , (/ nbr_points /) ) !net longwave flux at sfc
+       buffer(:,3) =  RESHAPE ( prm_field(jg)%shflx_tile(:,:,iwtr), (/ nbr_points /) ) !sensible heat flux
+       buffer(:,4) =  RESHAPE ( prm_field(jg)%lhflx_tile(:,:,iwtr), (/ nbr_points /) ) !latent heat flux
 
-       buffer(:,1) =  RESHAPE ( prm_field(jg)%swflxsfc  (:,:)     , (/ nbr_points /) )+ & !net shortwave flux at sfc
-              &       RESHAPE ( prm_field(jg)%lwflxsfc  (:,:)     , (/ nbr_points /) )+ & !net longwave flux at sfc
-              &       RESHAPE ( prm_field(jg)%lhflx_tile(:,:,iwtr), (/ nbr_points /) )+ & !latent heat flux
-              &       RESHAPE ( prm_field(jg)%shflx_tile(:,:,iwtr), (/ nbr_points /) )    !sensible heat flux
 
-
+      field_shape(3) = 4
       CALL ICON_cpl_put ( field_id(5), field_shape, buffer, ierror )
+      field_shape(3) = 1
+
        !
        ! Receive fields, only assign values if something was received ( info > 0 )
        ! -------------------------------------------------------------------------

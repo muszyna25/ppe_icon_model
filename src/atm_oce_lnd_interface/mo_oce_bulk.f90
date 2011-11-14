@@ -491,7 +491,7 @@ CONTAINS
 !       CALL message(TRIM(routine), "executing OCEAN coupling")
       nbr_hor_points = p_patch%n_patch_cells
       nbr_points     = nproma * p_patch%nblks_c
-      ALLOCATE(buffer(nbr_points,1))
+      ALLOCATE(buffer(nbr_points,4))
       
     !
     !  see drivers/mo_atmo_model.f90:
@@ -538,25 +538,73 @@ CONTAINS
     !
     ! zonal wind stress
       CALL ICON_cpl_get ( field_id(1), field_shape, buffer, info, ierror )
-      p_sfc_flx%forc_wind_u(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
+      IF (info > 1 ) &
+        & p_sfc_flx%forc_wind_u(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
     !
     ! meridional wind stress
       CALL ICON_cpl_get ( field_id(2), field_shape, buffer, info, ierror )
-      p_sfc_flx%forc_wind_v(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
+      IF (info > 1 ) &
+        &  p_sfc_flx%forc_wind_v(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
     !
     ! freshwater flux
+      field_shape(3) = 2
       CALL ICON_cpl_get ( field_id(3), field_shape, buffer, info, ierror )
-      p_sfc_flx%forc_fwfx(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
+      IF (info > 1 ) THEN
+        p_sfc_flx%forc_prflx(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
+        p_sfc_flx%forc_evflx(:,:) = RESHAPE(buffer(:,2),(/ nproma, p_patch%nblks_c /) )
+      END IF
     !
     ! surface temperature
+      field_shape(3) = 1
       CALL ICON_cpl_get ( field_id(4), field_shape, buffer, info, ierror )
-      p_sfc_flx%forc_tracer_relax(:,:,1) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
+      IF (info > 1 ) THEN
+        p_sfc_flx%forc_tracer_relax(:,:,1) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
       !  - change units to deg C, subtract tmelt (0 deg C, 273.15)
-      p_sfc_flx%forc_tracer_relax(:,:,1) = p_sfc_flx%forc_tracer_relax(:,:,1) - tmelt
+        p_sfc_flx%forc_tracer_relax(:,:,1) = p_sfc_flx%forc_tracer_relax(:,:,1) - tmelt
+      END IF
     !
     ! total heat flux
+      field_shape(3) = 4
       CALL ICON_cpl_get ( field_id(5), field_shape, buffer, info, ierror )
-      p_sfc_flx%forc_hflx(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
+      IF (info > 1 ) THEN
+        p_sfc_flx%forc_swflx(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
+        p_sfc_flx%forc_lwflx(:,:) = RESHAPE(buffer(:,2),(/ nproma, p_patch%nblks_c /) )
+        p_sfc_flx%forc_ssflx(:,:) = RESHAPE(buffer(:,3),(/ nproma, p_patch%nblks_c /) )
+        p_sfc_flx%forc_slflx(:,:) = RESHAPE(buffer(:,4),(/ nproma, p_patch%nblks_c /) )
+      END IF
+
+      !p_sfc_flx%forc_hflx(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
+
+
+    ! this is used for "intermediate complexity flux forcing
+
+      !-------------------------------------------------------------------------
+      ! Apply 4 parts of surface heat and 2 parts of freshwater fluxes (records 4 to 9)
+      ! 4:  swflx(:,:)   !  surface short wave heat flux        [W/m2]
+      ! 5:  lwflx(:,:)   !  surface long  wave heat flux        [W/m2]
+      ! 6:  ssflx(:,:)   !  surface sensible   heat flux        [W/m2]
+      ! 7:  slflx(:,:)   !  surface latent     heat flux        [W/m2]
+      ! 8:  prflx(:,:)   !  total precipitation flux            [m/s]
+      ! 9:  evflx(:,:)   !  evaporation flux                    [m/s]
+
+      ! sum of fluxes for ocean boundary condition
+      p_sfc_flx%forc_hflx(:,:) = p_sfc_flx%forc_swflx(:,:) + p_sfc_flx%forc_lwflx(:,:) &
+        &                      + p_sfc_flx%forc_ssflx(:,:) + p_sfc_flx%forc_slflx(:,:)
+      p_sfc_flx%forc_fwfx(:,:) = p_sfc_flx%forc_prflx(:,:) + p_sfc_flx%forc_evflx(:,:)
+
+      ipl_src=1  ! output print level (1-5, fix)
+      z_c(:,1,:)=p_sfc_flx%forc_swflx(:,:)
+      CALL print_mxmn('CPL: SW-flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+      z_c(:,1,:)=p_sfc_flx%forc_lwflx(:,:)
+      CALL print_mxmn('CPL: LW-flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+      z_c(:,1,:)=p_sfc_flx%forc_ssflx(:,:)
+      CALL print_mxmn('CPL: sens.flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+      z_c(:,1,:)=p_sfc_flx%forc_slflx(:,:)
+      CALL print_mxmn('CPL: latent.flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+      z_c(:,1,:)=p_sfc_flx%forc_prflx(:,:)
+      CALL print_mxmn('CPL: precip.',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+      z_c(:,1,:)=p_sfc_flx%forc_evflx(:,:)
+      CALL print_mxmn('CPL: evap.',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
 
       DEALLOCATE(buffer)
       DEALLOCATE(field_id)      
