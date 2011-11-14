@@ -72,7 +72,8 @@ CONTAINS
   !!
   !!-------------------------------------------------------------------------
   !!
-  SUBROUTINE nwp_surface( tcall_sfc_jg, jstep,            & !>in
+  SUBROUTINE nwp_surface( tcall_sfc_jg,                   & !>in
+                        & p_sim_time, dt_loc,             & !>in
                         & p_patch,                        & !>in
                         & ext_data,                       & !>in
                         & p_prog_rcf,                     & !>in/inout
@@ -81,10 +82,11 @@ CONTAINS
                         & lnd_prog_now, lnd_prog_new,     & !>inout
                         & lnd_diag                        ) !>inout
 
-    INTEGER ,INTENT(in)          :: jstep
-    TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch       !<grid/patch info
+    REAL(wp),                    INTENT(in)   :: p_sim_time    !< simulation time [s]
+    REAL(wp),                    INTENT(in)   :: dt_loc        !< time step [s]
+    TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch       !< grid/patch info
     TYPE(t_external_data),       INTENT(in)   :: ext_data      !< external data
-    TYPE(t_nh_prog),      TARGET,INTENT(inout):: p_prog_rcf    !<call freq
+    TYPE(t_nh_prog),      TARGET,INTENT(inout):: p_prog_rcf    !< call freq
     TYPE(t_nh_diag),      TARGET,INTENT(inout):: p_diag        !< diag vars
     TYPE(t_nwp_phy_diag),        INTENT(inout):: prm_diag      !< atm phys vars
     TYPE(t_lnd_prog),            INTENT(inout):: lnd_prog_now  !< prog vars for sfc
@@ -177,8 +179,12 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
     ! soil model time step - has to be zero for initial call
-    ! (actually, the initialization operations should be encapsulated in a separate routine!)
-    nstep_soil = NINT(REAL(jstep,wp)/REAL(iadv_rcf,wp)) - 1
+    ! (actually, the initialization operations should be encapsulated in a separate routine!
+    ! As long as this is not the case, we need to use an absolute time step counter, 
+    ! instead of a relative one. Otherwise, the initialization part will be called after 
+    ! restart.)
+!DR    nstep_soil = NINT(REAL(jstep,wp)/REAL(iadv_rcf,wp)) - 1
+    nstep_soil = NINT(p_sim_time/(dt_loc*REAL(iadv_rcf,wp))) - 1
 
     IF (msg_level >= 12) THEN
       CALL message('mo_nwp_sfc_interface: ', 'call land-surface scheme')
