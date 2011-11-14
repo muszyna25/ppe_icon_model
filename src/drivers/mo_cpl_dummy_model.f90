@@ -615,42 +615,46 @@ CONTAINS
           id = field_id(nfld)
           CALL ICON_cpl_get ( id, field_shape, recv_field, info, ierror )
 
-          ! Control received results
-          ! Exchange routine only work on the inner points, not on the halo!
-          
-          IF ( nfld == nfld_fix ) THEN
-             DO nb = 1, field_shape(3)
-                DO i = field_shape(1), field_shape(2)
+          IF ( info > 0 ) THEN
 
-                   IF ( p_patch(patch_no)%cells%owner_local(i) == p_pe_work ) THEN
-                      IF ( recv_field(i,nb) /= REAL(p_patch(patch_no)%cells%glb_index(i),wp) ) THEN
-                         WRITE(message_text,'(i6,a11,i6,a9,f13.4)') i, ': Expected ',            &
-                              &                            p_patch(patch_no)%cells%glb_index(i), &
-                              &                           ' but got ',                           &
-                              &                            recv_field(i,nb)
-                         CALL message('mo_cpl_dummy_model', TRIM(message_text))
+             ! Control received results
+             ! Exchange routine only work on the inner points, not on the halo!
+
+             IF ( nfld == nfld_fix ) THEN
+                DO nb = 1, field_shape(3)
+                   DO i = field_shape(1), field_shape(2)
+
+                      IF ( p_patch(patch_no)%cells%owner_local(i) == p_pe_work ) THEN
+                         IF (recv_field(i,nb) /= REAL(p_patch(patch_no)%cells%glb_index(i),wp)) THEN
+                            WRITE(message_text,'(i6,a11,i6,a9,f13.4)') i, ': Expected ',    &
+                                 &                    p_patch(patch_no)%cells%glb_index(i), &
+                                 &                    ' but got ',                          &
+                                 &                      recv_field(i,nb)
+                            CALL message('mo_cpl_dummy_model', TRIM(message_text))
+                         ENDIF
                       ENDIF
-                   ENDIF
 
+                   ENDDO
                 ENDDO
-             ENDDO
-          ELSE
-             DO nb = 1, field_shape(3)
-                DO i = field_shape(1), field_shape(2)
+             ELSE
+                DO nb = 1, field_shape(3)
+                   DO i = field_shape(1), field_shape(2)
 
-                   IF ( p_patch(patch_no)%cells%owner_local(i) == p_pe_work ) THEN
-                      IF ( recv_field(i,nb) /= real(nfld,wp) ) THEN
-                         WRITE(message_text,'(i6,a11,i6,a9,f13.4)') i, ': Expected ',            &
-                              &                            nfld,                                 &
-                              &                           ' but got ',                           &
-                              &                            recv_field(i,nb)
-                         CALL message('mo_cpl_dummy_model', TRIM(message_text))
+                      IF ( p_patch(patch_no)%cells%owner_local(i) == p_pe_work ) THEN
+                         IF ( recv_field(i,nb) /= real(nfld,wp) ) THEN
+                            WRITE(message_text,'(i6,a11,i6,a9,f13.4)') i, ': Expected ',   &
+                                 &                            nfld,                        &
+                                 &                           ' but got ',                  &
+                                 &                            recv_field(i,nb)
+                            CALL message('mo_cpl_dummy_model', TRIM(message_text))
+                         ENDIF
                       ENDIF
-                   ENDIF
 
+                   ENDDO
                 ENDDO
-             ENDDO
-          ENDIF
+             ENDIF
+
+          ENDIF ! info > 0
 
        ENDDO
 
