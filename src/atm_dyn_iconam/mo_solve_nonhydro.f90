@@ -828,9 +828,9 @@ MODULE mo_solve_nonhydro
       DO jk = 2, nlev
         DO jc = i_startidx, i_endidx
           ! density at interface levels for vertical flux divergence computation
-          p_nh%diag%rho_ic(jc,jk,jb) = p_nh%metrics%rho_refcorr_ic(jc,jk,jb)+0.5_wp*( &
-            p_nh%metrics%wgtfac_c(jc,jk,jb)*(p_nh%prog(nnow)%rho(jc,jk,jb) +          &
-            p_nh%prog(nvar)%rho(jc,jk,jb))+(1._wp-p_nh%metrics%wgtfac_c(jc,jk,jb))*   &
+          p_nh%diag%rho_ic(jc,jk,jb) = 0.5_wp*(                                     &
+            p_nh%metrics%wgtfac_c(jc,jk,jb)*(p_nh%prog(nnow)%rho(jc,jk,jb) +        &
+            p_nh%prog(nvar)%rho(jc,jk,jb))+(1._wp-p_nh%metrics%wgtfac_c(jc,jk,jb))* &
             (p_nh%prog(nnow)%rho(jc,jk-1,jb)+p_nh%prog(nvar)%rho(jc,jk-1,jb)) )
 
           ! perturbation virtual potential temperature at main levels
@@ -882,10 +882,10 @@ MODULE mo_solve_nonhydro
         DO jk = nflat_gradp(p_patch%id), nlev
           DO jc = i_startidx, i_endidx
             ! Second vertical derivative of perturbation Exner pressure (hydrostatic approximation)
-            z_dexner_dz_c(2,jc,jk,jb) = -0.5_wp / p_nh%prog(nnow)%theta_v(jc,jk,jb) * &
-             ((z_theta_v_pr_ic(jc,jk) - z_theta_v_pr_ic(jc,jk+1)) *                   &
-              p_nh%metrics%d_exner_dz_ref_mc(jc,jk,jb) + z_theta_v_pr_mc(jc,jk)*      &
-              p_nh%metrics%d2_exner_dz2_ref_mc(jc,jk,jb))
+            z_dexner_dz_c(2,jc,jk,jb) = -0.5_wp *                                &
+             ((z_theta_v_pr_ic(jc,jk) - z_theta_v_pr_ic(jc,jk+1)) *              &
+              p_nh%metrics%d2dexdz2_fac1_mc(jc,jk,jb) + z_theta_v_pr_mc(jc,jk)*  &
+              p_nh%metrics%d2dexdz2_fac2_mc(jc,jk,jb))
           ENDDO
         ENDDO
 

@@ -193,11 +193,6 @@ MODULE mo_vertical_grid
            p_nh(jg)%metrics%geopot(nlen+1:nproma,:,jb) = 0._wp
         ENDIF
 
-        DO jk = 1, nlevp1
-          ! geopotential (at interfaces)
-          p_nh(jg)%metrics%geopot_ifc(1:nlen,jk,jb) = grav*p_nh(jg)%metrics%z_ifc(1:nlen,jk,jb)
-        ENDDO
-
         DO jk = 1, nlev
           ! geopotential on full levels
           p_nh(jg)%metrics%geopot(1:nlen,jk,jb) = grav*p_nh(jg)%metrics%z_mc(1:nlen,jk,jb)
@@ -221,20 +216,24 @@ MODULE mo_vertical_grid
           p_nh(jg)%metrics%ddqz_z_half(1:nlen,jk,jb) = &
           & (p_nh(jg)%metrics%z_mc(1:nlen,jk-1,jb)     &
           & -p_nh(jg)%metrics%z_mc(1:nlen,jk  ,jb))
-          p_nh(jg)%metrics%diff_1_o_dz(1:nlen,jk,jb) = &
-          &  1.0_wp/p_nh(jg)%metrics%ddqz_z_full(1:nlen,jk-1,jb) & 
-          & -1.0_wp/p_nh(jg)%metrics%ddqz_z_full(1:nlen,jk  ,jb)
-          p_nh(jg)%metrics%mult_1_o_dz(1:nlen,jk,jb) = &
-          &  1.0_wp/(p_nh(jg)%metrics%ddqz_z_full(1:nlen,jk-1,jb) & 
-          &         *p_nh(jg)%metrics%ddqz_z_full(1:nlen,jk  ,jb))
+          IF (p_patch(jg)%cell_type == 6) THEN
+            p_nh(jg)%metrics%diff_1_o_dz(1:nlen,jk,jb) = &
+            &  1.0_wp/p_nh(jg)%metrics%ddqz_z_full(1:nlen,jk-1,jb) & 
+            & -1.0_wp/p_nh(jg)%metrics%ddqz_z_full(1:nlen,jk  ,jb)
+            p_nh(jg)%metrics%mult_1_o_dz(1:nlen,jk,jb) = &
+            &  1.0_wp/(p_nh(jg)%metrics%ddqz_z_full(1:nlen,jk-1,jb) & 
+            &         *p_nh(jg)%metrics%ddqz_z_full(1:nlen,jk  ,jb))
+          ENDIF
         ENDDO
-        p_nh(jg)%metrics%diff_1_o_dz(1:nlen,1,jb) = 0.0_wp
-        p_nh(jg)%metrics%mult_1_o_dz(1:nlen,1,jb) = 0.0_wp
+        IF (p_patch(jg)%cell_type == 6) THEN
+          p_nh(jg)%metrics%diff_1_o_dz(1:nlen,1,jb) = 0.0_wp
+          p_nh(jg)%metrics%mult_1_o_dz(1:nlen,1,jb) = 0.0_wp
+          p_nh(jg)%metrics%diff_1_o_dz(1:nlen,nlevp1,jb) = 0.0_wp
+          p_nh(jg)%metrics%mult_1_o_dz(1:nlen,nlevp1,jb) = 0.0_wp
+        ENDIF
         p_nh(jg)%metrics%ddqz_z_half(1:nlen,1,jb) =   &
         & 2.0_wp*(p_nh(jg)%metrics%z_ifc(1:nlen,1,jb) &
         &       - p_nh(jg)%metrics%z_mc (1:nlen,1,jb))
-        p_nh(jg)%metrics%diff_1_o_dz(1:nlen,nlevp1,jb) = 0.0_wp
-        p_nh(jg)%metrics%mult_1_o_dz(1:nlen,nlevp1,jb) = 0.0_wp
         p_nh(jg)%metrics%ddqz_z_half(1:nlen,nlevp1,jb) =    &
         & 2.0_wp*(p_nh(jg)%metrics%z_mc (1:nlen,nlev  ,jb)  &
         &       - p_nh(jg)%metrics%z_ifc(1:nlen,nlevp1,jb))
@@ -891,22 +890,20 @@ MODULE mo_vertical_grid
             p_nh(jg)%metrics%theta_ref_mc(1:nlen,jk,jb) = z_temp(1:nlen) &
               & /p_nh(jg)%metrics%exner_ref_mc(1:nlen,jk,jb)
 
-            ! First vertical derivative of reference Exner pressure, full level mass points
+            ! First vertical derivative of reference Exner pressure, full level mass points,
+            ! divided by theta_ref
             ! Note: for computational efficiency, this field is in addition divided by
             ! the vertical layer thickness
-            p_nh(jg)%metrics%d_exner_dz_ref_mc(1:nlen,jk,jb)   =       &
-              & -grav/cpd/p_nh(jg)%metrics%theta_ref_mc(1:nlen,jk,jb)* &
+            p_nh(jg)%metrics%d2dexdz2_fac1_mc(1:nlen,jk,jb)   =             &
+              & -grav/(cpd*p_nh(jg)%metrics%theta_ref_mc(1:nlen,jk,jb)**2)* &
               & p_nh(jg)%metrics%inv_ddqz_z_full(1:nlen,jk,jb)
 
-            ! Second vertical derivative of reference Exner pressure, full level mass points
-            p_nh(jg)%metrics%d2_exner_dz2_ref_mc(1:nlen,jk,jb)   =                                &
-              &  grav/cpd/p_nh(jg)%metrics%theta_ref_mc(1:nlen,jk,jb)**2                          &
+            ! Vertical derivative of d_exner_dz/theta_ref, full level mass points
+            p_nh(jg)%metrics%d2dexdz2_fac2_mc(1:nlen,jk,jb)   =                                   &
+              &  2._wp*grav/(cpd*p_nh(jg)%metrics%theta_ref_mc(1:nlen,jk,jb)**3)                  &
               & *(grav/cpd-del_t_bg/h_scal_bg*EXP(-p_nh(jg)%metrics%z_mc(1:nlen,jk,jb)/h_scal_bg))&
               & /p_nh(jg)%metrics%exner_ref_mc(1:nlen,jk,jb)
           ENDDO
-
-          ! rho_refcorr_ic is not needed at surface level => set to zero
-          p_nh(jg)%metrics%rho_refcorr_ic(:,nlevp1,jb)    = 0._wp
 
           DO jk = 1, nlevp1
             ! Reference pressure, half level mass points
@@ -930,22 +927,6 @@ MODULE mo_vertical_grid
             ! First vertical derivative of reference Exner pressure, half level mass points
             p_nh(jg)%metrics%d_exner_dz_ref_ic(1:nlen,jk,jb)   =       &
               & -grav/cpd/p_nh(jg)%metrics%theta_ref_ic(1:nlen,jk,jb)
-
-            ! Correction term for vertical interpolation of density, half level mass points
-            ! This (additive) term summarizes the following steps:
-            ! - subtract reference density from full field at full levels
-            ! - perform bilinear vertical interpolation to half levels
-            ! - add reference density at half levels
-            IF (jk == 1) THEN
-              p_nh(jg)%metrics%rho_refcorr_ic(1:nlen,jk,jb) = z_aux2(1:nlen) - &
-                & (p_nh(jg)%metrics%wgtfacq1_c(1:nlen,1,jb)*z_rho(1:nlen,1)    &
-                & +p_nh(jg)%metrics%wgtfacq1_c(1:nlen,2,jb)*z_rho(1:nlen,2)    &
-                & +p_nh(jg)%metrics%wgtfacq1_c(1:nlen,3,jb)*z_rho(1:nlen,3) )
-            ELSE IF (jk <= nlev) THEN
-              p_nh(jg)%metrics%rho_refcorr_ic(1:nlen,jk,jb)   =                               &
-                & z_aux2(1:nlen) - (p_nh(jg)%metrics%wgtfac_c(1:nlen,jk,jb)*z_rho(1:nlen,jk)  &
-                & +(1._wp-p_nh(jg)%metrics%wgtfac_c(1:nlen,jk,jb))*z_rho(1:nlen,jk-1))
-            ENDIF
 
           ENDDO
         ENDDO

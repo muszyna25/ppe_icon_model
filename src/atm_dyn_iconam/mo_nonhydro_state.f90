@@ -294,18 +294,11 @@ MODULE mo_nonhydro_state
    ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlevp1,nblks_c)
    REAL(wp), POINTER :: ddqz_z_half(:,:,:)
 
-   ! 1/dz(k-1)-1/dz(k) (nproma,nlevp1,nblks_c)
-   REAL(wp), POINTER :: diff_1_o_dz(:,:,:)
-   ! 1/(dz(k-1)*dz(k)) (nproma,nlevp1,nblks_c)
-   REAL(wp), POINTER :: mult_1_o_dz(:,:,:)
-
    ! geopotential at cell center (nproma,nlev,nblks_c)
    REAL(wp), POINTER :: geopot(:,:,:)
-   ! geopotential at interfaces at cell center (nproma,nlevp1,nblks_c)
-   REAL(wp), POINTER :: geopot_ifc(:,:,:)
-   ! geopotential above groundlevel at cell center (nproma,nlev,nblks_c)
+   ! geopotential above ground level at cell center (nproma,nlev,nblks_c)
    REAL(wp), POINTER :: geopot_agl(:,:,:)
-   ! geopotential above groundlevel at interfaces and cell center (nproma,nlevp1,nblks_c)
+   ! geopotential above ground level at interfaces and cell center (nproma,nlevp1,nblks_c)
    REAL(wp), POINTER :: geopot_agl_ifc(:,:,:)
    ! geopotential at cell center (nproma,nlev,nblks_c)
    REAL(wp), POINTER :: dgeopot_mc(:,:,:)
@@ -351,9 +344,8 @@ MODULE mo_nonhydro_state
    REAL(wp), POINTER :: theta_ref_ic(:,:,:)
    REAL(wp), POINTER :: exner_ref_mc(:,:,:)
    REAL(wp), POINTER :: d_exner_dz_ref_ic(:,:,:)
-   REAL(wp), POINTER :: d_exner_dz_ref_mc(:,:,:)
-   REAL(wp), POINTER :: d2_exner_dz2_ref_mc(:,:,:)
-   REAL(wp), POINTER :: rho_refcorr_ic(:,:,:)
+   REAL(wp), POINTER :: d2dexdz2_fac1_mc(:,:,:)
+   REAL(wp), POINTER :: d2dexdz2_fac2_mc(:,:,:)
    ! Fields for truly horizontal temperature diffusion
    INTEGER           :: zd_listdim
    INTEGER,  POINTER :: zd_indlist(:,:)
@@ -402,6 +394,11 @@ MODULE mo_nonhydro_state
    REAL(wp), POINTER :: ddqz_z_full_v(:,:,:)
    ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlevp1,nblks_e)
    REAL(wp), POINTER :: ddqz_z_half_e(:,:,:)
+
+   ! 1/dz(k-1)-1/dz(k) (nproma,nlevp1,nblks_c)
+   REAL(wp), POINTER :: diff_1_o_dz(:,:,:)
+   ! 1/(dz(k-1)*dz(k)) (nproma,nlevp1,nblks_c)
+   REAL(wp), POINTER :: mult_1_o_dz(:,:,:)
 
   END TYPE t_nh_metrics
 
@@ -2428,26 +2425,6 @@ MODULE mo_nonhydro_state
                 & ldims=shape3d_chalf )
 
 
-    ! 1/dz(k-1)-1/dz(k)
-    ! diff_1_o_dz  p_metrics%diff_1_o_dz(nproma,nlevp1,nblks_c)
-    !
-    cf_desc    = t_cf_var('difference_1_over_dz', 'm-1', 'difference 1 over dz')
-    grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_metrics_list, 'diff_1_o_dz', p_metrics%diff_1_o_dz,         &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
-                & ldims=shape3d_chalf )
-
-
-    ! 1/(dz(k-1)*dz(k))
-    ! mult_1_o_dz  p_metrics%mult_1_o_dz(nproma,nlevp1,nblks_c)
-    !
-    cf_desc    = t_cf_var('mult_1_over_dz', 'm-2', 'mult 1 over dz')
-    grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_metrics_list, 'mult_1_o_dz', p_metrics%mult_1_o_dz,         &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
-                & ldims=shape3d_chalf )
-
-
     ! geopotential at full level cell center
     ! geopot       p_metrics%geopot(nproma,nlev,nblks_c)
     !
@@ -2457,17 +2434,6 @@ MODULE mo_nonhydro_state
     CALL add_var( p_metrics_list, 'geopot', p_metrics%geopot,                   &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
                 & ldims=shape3d_c )
-
-
-    ! geopotential at half level cell center
-    ! geopot_ifc   p_metrics%geopot_ifc(nproma,nlevp1,nblks_c)
-    !
-    cf_desc    = t_cf_var('geopotential', 'm2 s-2',                             &
-      &                   'geopotential at half level cell centre')
-    grib2_desc = t_grib2_var( 0, 3, 4, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_metrics_list, 'geopot_ifc', p_metrics%geopot_ifc,           &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
-                & ldims=shape3d_chalf )
 
 
     ! geopotential above groundlevel at cell center
@@ -2717,36 +2683,25 @@ MODULE mo_nonhydro_state
 
 
       ! Reference atmosphere field exner
-      ! d_exner_dz_ref_mc  p_metrics%d_exner_dz_ref_mc(nproma,nlev,nblks_c)
+      ! d2dexdz2_fac1_mc  p_metrics%d2dexdz2_fac1_mc(nproma,nlev,nblks_c)
       !
       cf_desc    = t_cf_var('Reference_atmosphere_field_exner', '-',            &
       &                     'Reference atmosphere field exner')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_metrics_list, 'd_exner_dz_ref_mc', p_metrics%d_exner_dz_ref_mc, &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
+      CALL add_var( p_metrics_list, 'd2dexdz2_fac1_mc', p_metrics%d2dexdz2_fac1_mc, &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,      &
                   & ldims=shape3d_c )
 
 
       ! Reference atmosphere field exner
-      ! d2_exner_dz2_ref_mc  p_metrics%d2_exner_dz2_ref_mc(nproma,nlev,nblks_c)
+      ! d2dexdz2_fac2_mc  p_metrics%d2dexdz2_fac2_mc(nproma,nlev,nblks_c)
       !
       cf_desc    = t_cf_var('Reference_atmosphere_field_exner', '-',            &
       &                     'Reference atmosphere field exner')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_metrics_list, 'd2_exner_dz2_ref_mc', p_metrics%d2_exner_dz2_ref_mc, &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
+      CALL add_var( p_metrics_list, 'd2dexdz2_fac2_mc', p_metrics%d2dexdz2_fac2_mc, &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,      &
                   & ldims=shape3d_c )
-
-
-      ! Reference atmosphere field rho
-      ! rho_refcorr_ic  p_metrics%rho_refcorr_ic(nproma,nlevp1,nblks_c)
-      !
-      cf_desc    = t_cf_var('Reference_atmosphere_field_rho', '-',              &
-      &                     'Reference atmosphere field rho')
-      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_metrics_list, 'rho_refcorr_ic', p_metrics%rho_refcorr_ic, &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
-                  & ldims=shape3d_chalf )
 
 
       ! mask field that excludes boundary halo points
@@ -2814,6 +2769,24 @@ MODULE mo_nonhydro_state
       CALL add_var( p_metrics_list, 'ddqz_z_half_e', p_metrics%ddqz_z_half_e,   &
                   & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
                   & ldims=shape3d_ehalf )
+
+      ! 1/dz(k-1)-1/dz(k)
+      ! diff_1_o_dz  p_metrics%diff_1_o_dz(nproma,nlevp1,nblks_c)
+      !
+      cf_desc    = t_cf_var('difference_1_over_dz', 'm-1', 'difference 1 over dz')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_metrics_list, 'diff_1_o_dz', p_metrics%diff_1_o_dz,         &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
+                  & ldims=shape3d_chalf )
+
+      ! 1/(dz(k-1)*dz(k))
+      ! mult_1_o_dz  p_metrics%mult_1_o_dz(nproma,nlevp1,nblks_c)
+      !
+      cf_desc    = t_cf_var('mult_1_over_dz', 'm-2', 'mult 1 over dz')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_metrics_list, 'mult_1_o_dz', p_metrics%mult_1_o_dz,         &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
+                  & ldims=shape3d_chalf )
 
     ENDIF
 

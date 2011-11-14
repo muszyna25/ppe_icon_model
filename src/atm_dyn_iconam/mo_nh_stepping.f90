@@ -1314,7 +1314,7 @@ MODULE mo_nh_stepping
         ENDIF
 
         ! Apply boundary nudging in case of one-way nesting
-        IF (lstep_adv(jg) .AND. .NOT. lfeedback(jg)) THEN
+        IF (jg > 1 .AND. lstep_adv(jg) .AND. .NOT. lfeedback(jg)) THEN
           CALL nest_boundary_nudging(p_patch(jg), p_nh_state(jg), p_int_state(jg), &
             &                        nnew(jg),nnew_rcf(jg),REAL(iadv_rcf,wp))
         ENDIF
