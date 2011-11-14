@@ -381,7 +381,7 @@ CONTAINS
       CALL print_mxmn('OMIP: precip.',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
       z_c(:,1,:)=p_sfc_flx%forc_evflx(:,:)
       CALL print_mxmn('OMIP: evap.',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-      z_c(:,1,:)=p_sfc_flx%forc_fflx(:,:)
+      z_c(:,1,:)=p_sfc_flx%forc_fwfx(:,:)
       CALL print_mxmn('OMIP: frshw.flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
 
       ! call of sea ice model
@@ -606,13 +606,33 @@ CONTAINS
       CALL print_mxmn('CPL: precip.',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
       z_c(:,1,:)=p_sfc_flx%forc_evflx(:,:)
       CALL print_mxmn('CPL: evap.',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-      z_c(:,1,:)=p_sfc_flx%forc_fflx(:,:)
+      z_c(:,1,:)=p_sfc_flx%forc_fwfx(:,:)
       CALL print_mxmn('CPL: frshw.flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
 
       DEALLOCATE(buffer)
       DEALLOCATE(field_id)      
 
       IF (ltimer) CALL timer_stop(timer_coupling)
+
+      ! call of sea ice model
+      IF (i_sea_ice == 1) THEN
+
+        Qatm%SWin   (:,:)   = p_sfc_flx%forc_swflx(:,:)
+        Qatm%LWin   (:,:)   = p_sfc_flx%forc_lwflx(:,:)
+        Qatm%sens   (:,1,:) = p_sfc_flx%forc_ssflx(:,:)
+        Qatm%lat    (:,1,:) = p_sfc_flx%forc_slflx(:,:)
+        Qatm%dsensdT(:,:,:) = 0.0_wp
+        Qatm%dlatdT (:,:,:) = 0.0_wp
+        Qatm%dLWdT  (:,1,:) = -4.0_wp * emiss*StefBol * (p_ice%Tsurf(:,1,:) + tmelt)**3
+
+        CALL set_ice_albedo(p_patch,p_ice)
+        CALL set_ice_temp(p_patch,p_ice,Qatm)
+        Qatm%counter = 1
+
+        ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%forc_hflx
+        !  done in mo_sea_ice:upper_ocean_TS
+
+      ENDIF
   
     ENDIF ! is_coupled
 
