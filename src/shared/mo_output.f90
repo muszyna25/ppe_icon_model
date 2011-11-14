@@ -68,7 +68,7 @@ MODULE mo_output
                                   & init_restart, open_writing_restart_files,  &
                                   & write_restart, close_writing_restart_files,&
                                   & finish_restart, set_restart_depth,         &
-                                  & set_restart_height
+                                  & set_restart_depth_lnd, set_restart_height
   USE mo_io_restart_attributes,ONLY: set_restart_attribute
   USE mo_model_domain,        ONLY: t_patch, p_patch
   USE mo_interpolation,       ONLY: t_lon_lat_intp
@@ -349,15 +349,17 @@ ENDIF
   !! 
   !! Hui Wan (MPI-M, 2011-05)
   !!
-  SUBROUTINE create_restart_file( patch, datetime,            &
-                                & jfile, l_have_output,       &
-                                & opt_pvct,                   &
-                                & opt_t_elapsed_phy,          &
-                                & opt_lcall_phy, opt_sim_time,&
-                                & opt_jstep_adv_ntsteps,      &
-                                & opt_jstep_adv_marchuk_order,&
-                                & opt_depth, opt_zheight,     &
-                                & opt_zheight_mc ,opt_zheight_ifc )
+  SUBROUTINE create_restart_file( patch, datetime,             &
+                                & jfile, l_have_output,        &
+                                & opt_pvct,                    &
+                                & opt_t_elapsed_phy,           &
+                                & opt_lcall_phy, opt_sim_time, &
+                                & opt_jstep_adv_ntsteps,       &
+                                & opt_jstep_adv_marchuk_order, &
+                                & opt_depth, opt_depth_lnd,    &
+                                & opt_zheight,                 &
+                                & opt_zheight_mc,              &
+                                & opt_zheight_ifc )
 
     TYPE(t_patch),   INTENT(IN) :: patch
     TYPE(t_datetime),INTENT(IN) :: datetime
@@ -366,7 +368,7 @@ ENDIF
 
     REAL(wp), INTENT(IN), OPTIONAL :: opt_pvct(:)
     INTEGER,  INTENT(IN), OPTIONAL :: opt_depth
-
+    INTEGER,  INTENT(IN), OPTIONAL :: opt_depth_lnd   ! vertical levels soil model
     REAL(wp), INTENT(IN), OPTIONAL :: opt_t_elapsed_phy(:,:)
     LOGICAL , INTENT(IN), OPTIONAL :: opt_lcall_phy(:,:)
     REAL(wp), INTENT(IN), OPTIONAL :: opt_sim_time
@@ -461,8 +463,21 @@ ENDIF
       CALL set_restart_height(zlevels_half, zlevels_full)
       DEALLOCATE(zlevels_full)
       DEALLOCATE(zlevels_half)
-!DR end preliminary fix
     ENDIF
+    IF (PRESENT(opt_depth_lnd)) THEN            ! geometrical depth for land module
+      ALLOCATE(zlevels_full(opt_depth_lnd+1))
+      ALLOCATE(zlevels_half(opt_depth_lnd+2))
+      DO i = 1, opt_depth_lnd+1
+        zlevels_full(i) = REAL(i,wp)
+      END DO
+      DO i = 1, opt_depth_lnd+2
+        zlevels_half(i) = REAL(i,wp)
+      END DO
+      CALL set_restart_depth_lnd(zlevels_half, zlevels_full)
+      DEALLOCATE(zlevels_full)
+      DEALLOCATE(zlevels_half)
+    ENDIF
+!DR end preliminary fix
     IF (PRESENT(opt_depth)) THEN                              ! Ocean depth
       izlev = opt_depth
       ALLOCATE(zlevels_full(izlev))

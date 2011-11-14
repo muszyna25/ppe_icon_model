@@ -183,12 +183,13 @@ CONTAINS
     ! As long as this is not the case, we need to use an absolute time step counter, 
     ! instead of a relative one. Otherwise, the initialization part will be called after 
     ! restart.)
-!DR    nstep_soil = NINT(REAL(jstep,wp)/REAL(iadv_rcf,wp)) - 1
+!    nstep_soil = NINT(REAL(jstep,wp)/REAL(iadv_rcf,wp)) - 1
     nstep_soil = NINT(p_sim_time/(dt_loc*REAL(iadv_rcf,wp))) - 1
 
     IF (msg_level >= 12) THEN
       CALL message('mo_nwp_sfc_interface: ', 'call land-surface scheme')
     ENDIF
+
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,isubs), SCHEDULE(guided)

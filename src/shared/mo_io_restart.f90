@@ -17,6 +17,7 @@ MODULE mo_io_restart
        &                              restart_attributes_count_real,                &
        &                              restart_attributes_count_int,                 &
        &                              restart_attributes_count_bool
+  USE mo_lnd_nwp_config,        ONLY: nlev_soil
   USE mo_io_distribute,         ONLY: gather_cells, gather_edges, gather_vertices,  &
        &                              scatter_cells, scatter_edges, scatter_vertices  
   USE mo_io_units,              ONLY: find_next_free_unit, filename_max
@@ -31,7 +32,9 @@ MODULE mo_io_restart
   PRIVATE
   !
   PUBLIC :: set_restart_time
-  PUBLIC :: set_restart_vct, set_restart_depth, set_restart_height
+  PUBLIC :: set_restart_vct, set_restart_depth
+  PUBLIC :: set_restart_height  
+  PUBLIC :: set_restart_depth_lnd
   PUBLIC :: init_restart
   PUBLIC :: open_writing_restart_files
   PUBLIC :: write_restart
@@ -65,7 +68,7 @@ MODULE mo_io_restart
   END type t_v_grid
   !
   INTEGER, SAVE :: nv_grids = 0 
-  TYPE(t_v_grid) :: vgrid_def(7)
+  TYPE(t_v_grid) :: vgrid_def(9)
   !
   TYPE t_t_axis
     INTEGER :: type
@@ -77,11 +80,13 @@ MODULE mo_io_restart
   CHARACTER(len=32) :: private_restart_time = '' 
   REAL(wp), ALLOCATABLE :: private_vct(:)
   REAL(wp), ALLOCATABLE :: private_depth_full(:),  private_depth_half(:)
+  REAL(wp), ALLOCATABLE :: private_depth_lnd_full(:),  private_depth_lnd_half(:)
   REAL(wp), ALLOCATABLE :: private_height_full(:),  private_height_half(:)
   !
   LOGICAL, SAVE :: lvct_initialised = .FALSE. 
   LOGICAL, SAVE :: ldepth_initialised = .FALSE. 
-  LOGICAL, SAVE :: lheight_initialised = .FALSE. 
+  LOGICAL, SAVE :: ldepth_lnd_initialised = .FALSE. 
+  LOGICAL, SAVE :: lheight_initialised = .FALSE.
   !
   LOGICAL, SAVE :: lrestart_initialised = .FALSE. 
   !
@@ -222,6 +227,18 @@ CONTAINS
   END SUBROUTINE set_restart_depth
   !------------------------------------------------------------------------------------------------
   !
+  !  depth based vertical coordinates
+  !
+  SUBROUTINE set_restart_depth_lnd(zh, zf)
+    REAL(wp), INTENT(in) :: zh(:), zf(:)
+    IF (ldepth_initialised) RETURN
+    ALLOCATE(private_depth_lnd_half(SIZE(zh)), private_depth_lnd_full(SIZE(zf)))
+    private_depth_lnd_half(:) = zh(:)
+    private_depth_lnd_full(:) = zf(:)
+    ldepth_lnd_initialised = .TRUE.
+  END SUBROUTINE set_restart_depth_lnd
+  !------------------------------------------------------------------------------------------------
+  !
   SUBROUTINE set_horizontal_grid(grid_type, nelements, nvertices)
     INTEGER, INTENT(in) :: grid_type
     INTEGER, INTENT(in) :: nelements
@@ -333,10 +350,10 @@ CONTAINS
     CALL set_vertical_grid(ZAXIS_HYBRID_HALF, nlev+1)
     CALL set_vertical_grid(ZAXIS_DEPTH_BELOW_SEA, ndepth)
     CALL set_vertical_grid(ZAXIS_DEPTH_BELOW_SEA, ndepth+1)
-!DR    CALL set_vertical_grid(ZAXIS_HEIGHT, nheight)
-!DR    CALL set_vertical_grid(ZAXIS_HEIGHT, nheight+1)
     CALL set_vertical_grid(ZAXIS_HEIGHT, nlev)
     CALL set_vertical_grid(ZAXIS_HEIGHT, nlev+1)
+    CALL set_vertical_grid(ZAXIS_DEPTH_BELOW_LAND, nlev_soil+1)
+    CALL set_vertical_grid(ZAXIS_DEPTH_BELOW_LAND, nlev_soil+2)
     !
     ! define time axis
     !
@@ -582,6 +599,7 @@ CONTAINS
             nlevp1 = vgrid_def(ivg)%nlevels
             CALL zaxisDefVct(var_lists(i)%p%cdiHalfZaxisID, 2*nlevp1, private_vct(1:2*nlevp1))
           CASE (ZAXIS_DEPTH_BELOW_SEA)
+          ! WRITE(0,*)'we are in zaxis_depth_elow_sea', ZAXIS_DEPTH_BELOW_SEA,  ldepth_initialised
             IF (.NOT. ldepth_initialised) CYCLE
             IF (SIZE(private_depth_full) == vgrid_def(ivg)%nlevels) THEN
               var_lists(i)%p%cdiDepthFullZaxisID = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, &
@@ -596,23 +614,40 @@ CONTAINS
             ELSE
               CALL finish('open_writing_restart_files','Number of depth levels not available.')
             ENDIF
+          CASE (ZAXIS_DEPTH_BELOW_LAND)
+          ! WRITE(0,*)'we are in zaxis_depth_below_land', &
+          !    &  ZAXIS_DEPTH_BELOW_LAND,  ldepth_lnd_initialised
+            IF (.NOT. ldepth_lnd_initialised) CYCLE
+            IF (SIZE(private_depth_lnd_full) == vgrid_def(ivg)%nlevels) THEN
+              var_lists(i)%p%cdiDepthFullZaxisID = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, &
+                   &                                            vgrid_def(ivg)%nlevels)
+              CALL zaxisDefLevels(var_lists(i)%p%cdiDepthFullZaxisID, &
+                   &              private_depth_lnd_full)
+            ELSE IF (SIZE(private_depth_lnd_half) == vgrid_def(ivg)%nlevels) THEN
+              var_lists(i)%p%cdiDepthHalfZaxisID = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, &
+                   &                                            vgrid_def(ivg)%nlevels)
+              CALL zaxisDefLevels(var_lists(i)%p%cdiDepthHalfZaxisID, &
+                   &              private_depth_lnd_half)
+            ELSE
+              CALL finish('open_writing_restart_files','Number of lnd depth levels not available.')
+            ENDIF
           CASE (ZAXIS_HEIGHT)
-        !   WRITE(0,*)'we are in zaxis_height', ZAXIS_HEIGHT,  lheight_initialised
+          ! WRITE(0,*)'we are in zaxis_height', ZAXIS_HEIGHT,  lheight_initialised
             IF (.NOT. lheight_initialised) CYCLE
             IF (SIZE(private_height_full) == vgrid_def(ivg)%nlevels) THEN
               var_lists(i)%p%cdiHeightFullZaxisID = zaxisCreate(ZAXIS_HEIGHT, &
                    &                                            vgrid_def(ivg)%nlevels)
-            WRITE(0,*)'we are in zaxis_full height',var_lists(i)%p%cdiHeightFullZaxisID 
+          !   WRITE(0,*)'we are in zaxis_full height',var_lists(i)%p%cdiHeightFullZaxisID 
               CALL zaxisDefLevels(var_lists(i)%p%cdiHeightFullZaxisID, &
                    &              private_height_full)
-              WRITE(0,*)'we are in zaxis_full height', private_height_full
+          !   WRITE(0,*)'we are in zaxis_full height', private_height_full
             ELSE IF (SIZE(private_height_half) == vgrid_def(ivg)%nlevels) THEN
               var_lists(i)%p%cdiHeightHalfZaxisID = zaxisCreate(ZAXIS_HEIGHT, &
                    &                                            vgrid_def(ivg)%nlevels)
               CALL zaxisDefLevels(var_lists(i)%p%cdiHeightHalfZaxisID, &
                    &              private_height_half)
-              WRITE(0,*)'we are in zaxis_half height', &
-                & var_lists(i)%p%cdiHeightHalfZaxisID,private_height_half
+          !   WRITE(0,*)'we are in zaxis_half height', &
+          !      & var_lists(i)%p%cdiHeightHalfZaxisID,private_height_half
             ELSE
               CALL finish('open_writing_restart_files','Number of height levels not available.')
             ENDIF
@@ -754,6 +789,14 @@ CONTAINS
           info%cdiZaxisID =  this_list%p%cdiDepthHalfZaxisID
           zaxisID = info%cdiZaxisID
         ELSE IF (info%used_dimensions(2) == SIZE(private_depth_full)) THEN
+          info%cdiZaxisID =  this_list%p%cdiDepthFullZaxisID
+          zaxisID = info%cdiZaxisID
+        ENDIF
+      CASE (ZAXIS_DEPTH_BELOW_LAND)
+        IF (info%used_dimensions(2) == SIZE(private_depth_lnd_half)) THEN
+          info%cdiZaxisID =  this_list%p%cdiDepthHalfZaxisID
+          zaxisID = info%cdiZaxisID
+        ELSE IF (info%used_dimensions(2) == SIZE(private_depth_lnd_full)) THEN
           info%cdiZaxisID =  this_list%p%cdiDepthFullZaxisID
           zaxisID = info%cdiZaxisID
         ENDIF
@@ -1162,6 +1205,9 @@ CONTAINS
     IF (ALLOCATED(private_depth_full)) DEALLOCATE(private_depth_full)
     IF (ALLOCATED(private_depth_half)) DEALLOCATE(private_depth_half)
     ldepth_initialised = .FALSE.
+    IF (ALLOCATED(private_depth_lnd_full)) DEALLOCATE(private_depth_lnd_full)
+    IF (ALLOCATED(private_depth_lnd_half)) DEALLOCATE(private_depth_lnd_half)
+    ldepth_lnd_initialised = .FALSE.
     IF (ALLOCATED(private_height_full)) DEALLOCATE(private_height_full)
     IF (ALLOCATED(private_height_half)) DEALLOCATE(private_height_half)
     lheight_initialised = .FALSE.
