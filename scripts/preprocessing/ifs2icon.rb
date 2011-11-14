@@ -843,7 +843,7 @@ class Ifs2Icon
           copyfile, outfile = tfile, tfile
 
           # create netcdf version of the input
-          Cdo.chainCall("-setname,#{ovar} -copy",:in => @invars[ivar],:out => copyfile,:options => "-f nc4")
+          Cdo.chainCall("-setname,#{ovar} -copy",:in => @invars[ivar],:out => copyfile,:options => "-f nc2")
 
           # Perform conservative remapping with pregenerated weights
           Cdo.remap([gridfile,weightfile],:in => copyfile,:out => outfile)
@@ -866,7 +866,7 @@ class Ifs2Icon
         copyfile, outfile = tfile, tfile
 
         # create netcdf version of the input
-        Cdo.chainCall("-setname,#{ovar} -copy",:in => @invars[ivar],:out => copyfile,:options => "-f nc4")
+        Cdo.chainCall("-setname,#{ovar} -copy",:in => @invars[ivar],:out => copyfile,:options => "-f nc2")
 
         # Perform conservative remapping with pregenerated weights
         Cdo.remap([gridfile,weightfile],:in => copyfile,:out => outfile)
