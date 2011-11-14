@@ -70,19 +70,6 @@ begin
   end do
   return False
 end
-;---------------------------------------------------------------
-; get vertical dimension
-undef("getVertDim")
-function getVertDim(filehandle,var)
-begin
-  dimNames = getvardims(var)
-  matches = (/"lev","depth","height","z"/)
-  do i=0,dimsizes(matches)-1
-    retval = str_match_ic(dimNames,matches(i))
-    if (.not.ismissing(retval)) return retval end if
-  end do
-  return(str_match_ic(dimNames,matches(0)))
-end
 ;-------------------------------------------------------------------------------
 ; Read a horizontal field of the variable 'varname' from the given filehandle.
 ; If it is time dependend or has a vertival axis, use the given values for
@@ -503,97 +490,63 @@ begin
   return maskdims
 end
 ;---------------------------------------------------------------
-; set filename for the automatically remapped file
-undef("setRemapFilename")
-function setRemapFilename(filename,itype,atmlev)
+; Perform a remapping (wich CDO) to a regular grid with a given resolution and return the
+; filename of the remapped file. If the file is already present, the name is returned only
+undef("remapForVecPlot")
+function remapForVecPlot(iFile,resolution,useMask,plotMode,debug,addvars)
 begin
-  tag = ""
-  if (itype .eq. "atm") tag = "atmlev"+str_capital(atmlev)+"_" end if
-  remapFilename="remapnn_"+tag+systemfunc("basename "+filename)
+  if (plotMode.eq."section") then vecVars=(/varName/) end if
+  remapFilename="remapnn_"+iFile
+  print("#=====================================================================================")
+  print("Looking for remapped file: "+remapFilename)
+  remapedFiles = systemfunc("ls "+remapFilename)
+  if (isstring(remapedFiles(0)) .and. remapedFiles(0).eq.remapFilename) then
+    print("Take "+remapFilename+" for accessing vector variables "+str_join(vecVars,","))
+    print("Print remove this intermediate file, if it was NOT automatically created from your inpur file "+iFile+"!")
+  else
+    print("Use CDO to perform remapping: Create intermediate file: "+remapFilename)
+    print("Remove this intermediate file, if it was NOT automatically created from your inpur file "+iFile+"!")
+    variables = str_join(vecVars,",")
+    if ( addvars(0) .ne. "")
+      variables = str_concat((/variables,",",str_join(addvars,",")/))
+      print(str_join(addvars,","))
+      print("variables:"+variables)
+    end if
+    if ( useMask ) then
+    variables=variables +","+maskName
+    end if
+    if (plotMode.eq."overlay") variables = variables+","+varName end if
+
+    cmd = "cdo -P 8 -remapnn,"+resolution+" -selname,"+variables+" "+iFile+" "+remapFilename
+    if debug then
+      print(cmd)
+    end if
+    system(cmd)
+  end if
   return remapFilename
 end
 ;---------------------------------------------------------------
 ; Check, if two files have the same number of timestemps. Exit otherwise
 undef("checkRemappedFile")
-function checkRemappedFile(infilename,remapfilename,varname,itype,atmlev,atmplevs,atmhlevs)
+procedure checkRemappedFile(infilename,remapfilename)
 begin
-  if (.not. isfilepresent(remapfilename)) return False end if
-
-  orgFile             = addfile (infilename , "r")
-  orgTime             = getfilevardimsizes(orgFile,"time")
-  orgvertdimname      = getVertDim(orgFile,orgFile->$varname$)
-  orgvertdim          = orgFile->$orgvertdimname$
-
-  remapFile           = addfile(remapfilename,"r")
-  remapTime           = getfilevardimsizes(remapFile,"time")
-  remappedvertdimname = getVertDim(remapFile,remapFile->$varname$)
-  remappedvertdim     = remapFile->$remappedvertdimname$
-
-  retval = True
-
+  orgFile   = addfile (infilename , "r")
+  remapFile = addfile(remapfilename,"r")
+  orgDims   = getvardims(orgFile)
+  remapDims = getvardims(remapFile)
+  orgTime   = getfilevardimsizes(orgFile,"time")
+  remapTime = getfilevardimsizes(remapFile,"time")
   if ( orgTime .eq. remapTime ) then
     print("#=====================================================================================")
-    print("Remapped File '"+remapfilename+"' seems to have right time axes.")
+    print("Remapped File '"+remapfilename+"' seems to be ok.")
   else
     print("#=====================================================================================")
     print("Remapped File '"+remapfilename+"' seems to be wrong: Has different number of timesteps")
     print("Original file has "+orgTime(0)+" timesteps")
     print("Remapped File has "+remapTime(0)+" timesteps")
-    retval = False
+    print(ABORTMSG)
+    exit
   end if
-
-  if (itype .eq. "atm") then
-    if (atmlev .eq. "p" .and. (str_join(atmplevs,",") .ne. str_join(remappedvertdim,",")))
-      print("Vertical pressure levels differ")
-      retval = False
-    else
-      print("Vertical pressure levels ok.")
-    end if
-    if (atmlev .eq. "h" .and. (str_join(atmhlevs,",") .ne. str_join(remappedvertdim,",")))
-      print("Vertical height levels differ")
-      retval = False
-    else
-      print("Vertical height levels ok.")
-    end if
-  end if
-  if (itype .eq. "oce") then
-    if (str_join(orgvertdim,",") .ne. str_join(remappedvertdim,","))
-      print("Vertical depth levels differ")
-      retval = False
-    else
-      print("Vertical depth levels ok")
-    end if
-  end if
-
-    return retval
-end
-;---------------------------------------------------------------
-; Perform a remapping (wich CDO) to a regular grid with a given resolution and return the
-; filename of the remapped file. If the file is already present, the name is returned only
-undef("remapForVecPlot")
-procedure remapForVecPlot(iFile,remapFilename,resolution,useMask,plotMode,debug,addvars)
-begin
-  if (plotMode.eq."section") then vecVars=(/varName/) end if
-  print("#=====================================================================================")
-  print("Looking for remapped file: "+remapFilename)
-  print("Use CDO to perform remapping: Create intermediate file: "+remapFilename)
-  print("Remove this intermediate file, if it was NOT automatically created from your inpur file "+iFile+"!")
-  variables = str_join(vecVars,",")
-  if ( addvars(0) .ne. "")
-    variables = str_concat((/variables,",",str_join(addvars,",")/))
-    print(str_join(addvars,","))
-    print("variables:"+variables)
-  end if
-  if ( useMask ) then
-  variables=variables +","+maskName
-  end if
-  if (plotMode.eq."overlay") variables = variables+","+varName end if
-
-  cmd = "cdo -P 8 -remapnn,"+resolution+" -selname,"+variables+" "+iFile+" "+remapFilename
-  if debug then
-    print(cmd)
-  end if
-  system(cmd)
 end
 ;---------------------------------------------------------------
 ; Return the bounds of the coordinates of agiven variable
@@ -762,66 +715,6 @@ begin
 
 end
 ;---------------------------------------------------------------
-undef("setDefaultSectionResource")
-function setDefaultSectionResource(points,secpoints,seclc,secrc)
-begin
-  resource                              = True;           plot mods desired
-  resource@gsnFrame                     = False;                don't turn page yet
-  resource@gsnDraw                      = False;                don't draw yet
-  resource@tmXBMode                     = "Explicit";     explicitly label x-axis
-  resource@tmXBValues                   = (/points(0),points(secpoints-1)/);  points to label values
-  resource@tmXBLabels                   = (/ seclc(1) +"N, "+ seclc(0)+"E" , secrc(1)+"N, "+secrc(0)+"E" /)
-
-  resource@cnFillOn                     = True;          turn on color
-  resource@lbLabelAutoStride            = True;          nice label bar label stride
-  resource@gsnSpreadColors              = True;          use full range of colormap
-  resource@cnLinesOn                    = False;         turn off countour lines
-  resource@lbOrientation                = "vertical";    vertical label bar
-  resource@pmLabelBarOrthogonalPosF     = -0.05;         move label bar closer to plot
-  resource@lbTitlePosition              = "Bottom"
-;   resource@gsnYAxisIrregular2Log      = True
-
-  delete(resource@cnMissingValFillPattern);     no longer filling missing value areas
-  delete(resource@cnMissingValFillColor);       no longer filling missing value areas
-  resource@cnMissingValFillColor        = "gray30"
-  resource@cnMissingValPerimOn          = True
-
-  resource@cnMissingValFillPattern      = -1;                set the missing value fill pattern to 5
-  resource@cnMissingValFillScaleF       = 0.9;              increase the density of the fill pattern (default   = 1.0)
-;         resource@cnMissingValPerimOn  = True;             already turned on above
-  resource@cnMissingValPerimColor       = "black";          change the missing value perimeter to black
-  resource@cnMissingValPerimDashPattern = 1;           set the dash pattern of the missing value perimeter to 1
-  resource@cnMissingValPerimThicknessF  = 3.0;         increase the thickness of the missing value perimeter 3X
-  ;resource@gsnYAxisIrregular2Log        = True
-  return resource
-end
-undef("setDesfaultOverlayResource")
-procedure setDefaultOverlayResource(resource)
-begin
-  resource@gsnDraw            = False
-  resource@gsnFrame           = False
-  resource@vcVectorDrawOrder  = "Postdraw"
-  resource@vcFillArrowWidthF  = 12.0
-  resource@lbOrientation      = "Vertical"
-  resource@lbTitleString      = "Speed"
-  resource@lbTitlePosition    = "Left"
-  resource@cnInfoLabelOn      = False
-  resource@lbTitleFontHeightF = 0.02
-  resource@lbLabelFontHeightF = 0.015
-  resource@lbLeftMarginF      = 0.01
-  resource@lbLabelBarOn       = False;  switch of the vector label bar, because the speed is show as vector lenghts
-end
-;---------------------------------------------------------------
-undef("shift4SecMap")
-procedure shift4SecMap(resource)
-begin
-  resource@vpWidthF  = 0.6;            set width of plot
-  resource@vpHeightF = 0.4;            set height of plot
-
-  resource@vpXF      = 0.2
-  resource@vpYF      = 0.9
-end
-;---------------------------------------------------------------
 ; Compute the left shift for string with font hight 0.01, which should be
 ; displayed in the lower left corner of the plot with gsn_test_ndc()
 undef("getLshiftForNDCString")
@@ -876,11 +769,10 @@ end
 ;
 ; GLOBALS: lStrg, rStrg, tStrg
 undef("setAutomaticPlotCaptions")
-procedure setAutomaticPlotCaptions(resource,plotmode,varname,filehandle,filename,timestep,levelindex,itype,atmlev)
+procedure setAutomaticPlotCaptions(resource,plotmode,varname,filehandle,filename,timestep,levelindex)
 local varname
 begin
   ; titles
-  left_str = varname
   if(.not. isvar("lStrg")) then
     hastime = var_has_time(varname, filehandle)
     if (hastime) then
@@ -894,24 +786,12 @@ begin
       if (plotmode.eq."vector") then
         varname = "Velocity"
       end if
-      left_str   = left_str + " (ts:"+timestep+"["+timeStr+"] "
-    else
-      left_str = "("
-    end if
-    if (plotmode .ne. "section")
-      vertdimname = getVertDim(filehandle,filehandle->$varname$)
-      vertdim     = filehandle->$vertdimname$
-      vertval     = vertdim(levelindex)
-      left_str    = left_str + "lev:"+vertval
-      if (atmlev .ne. "m")
-        left_str = left_str+vertdim@units+")"
-      else
-        left_str = left_str +")"
-      end if
-    end if
-  else
-   left_str = lStrg
+      lStrg   = (/varname,"(plstep "+timestep+"["+timeStr+"],","pllev "+levelindex+")"/)
+   else
+     lStrg   = (/varname,"(","pllev "+levelindex+")"/)
+   end if
   end if
+  leftstring   = str_join(lStrg," ")
 
   if(.not. isvar("rStrg")) then
     rStrg      = (/filename/)
@@ -924,31 +804,10 @@ begin
   titlestring  = str_join(tStrg," ")
   centerstring = ""
 
-  resource@gsnLeftString   = left_str
+  resource@gsnLeftString   = leftstring
   resource@gsnRightString  = rightstring
   resource@gsnCenterString = centerstring
   resource@tiMainString    = titlestring
-end
-;---------------------------------------------------------------
-; vertical axes label for section plot
-undef("setSectionVertLabel")
-procedure setSectionVertLabel(resource,itype,atmlev)
-begin
-  resource@lbTitleString     = "[C]"
-  label = ""
-  reversYAxis = True
-  if (itype .eq. "atm") then
-    label = "Index"
-    if (atmlev .eq. "p") label = "Pressure (Pa)" end if
-    if (atmlev .eq. "h")
-      label = "Height (m)"
-      reversYAxis = False
-    end if
-  else
-    label = "depth below sea (m)"
-  end if
-  resource@tiYAxisString = label
-  resource@trYReverse    = reversYAxis
 end
 ;---------------------------------------------------------------
 ; Determine the type of the map
@@ -1096,57 +955,6 @@ begin
   print("CentLon/Lat="+resource@mpCenterLonF+"; "+resource@mpCenterLatF)
   print("Min/MaxLatF="+resource@mpMinLatF+"; "+resource@mpMaxLatF)
   print("Min/MaxLonF="+resource@mpMinLonF+"; "+resource@mpMaxLonF)
-end
-;---------------------------------------------------------------
-; preprocessing for atmosphere data, i.e. put variables on height
-; or pressure levels:
-; use ml2pl/ml2hl for vertical interpolation
-undef("preProc4Atm")
-function preProc4Atm(filename,atmlev,atmplevs,atmhlevs,debug)
-begin
-  atmfilename = "atmPreProc_"+systemfunc("basename "+filename)
-  if (atmlev .eq. "p") then
-    operator = "ml2plx"
-    levels = str_join(atmplevs,",")
-  else
-    operator = "ml2hlx"
-    levels = str_join(atmhlevs,",")
-  end if
-
-  cmd = "cdo "+ operator +","+levels+" -selgrid,1 "+ filename +" "+ atmfilename
-  if debug then
-    print(cmd)
-  end if
-  system(cmd)
-
-  return atmfilename
-end
-;---------------------------------------------------------------
-; determine the leveltype: hybrid or non-hybrid
-undef("getVertDimType")
-function getVertDimType(dim)
-begin
-  dtype = str_match_ic(dim@long_name,"hybrid")
-  if (ismissing(dtype)) then
-    return "non-hybrid"
-  else
-    return "hybrid"
-  end if
-end
-;---------------------------------------------------------------
-; determine the input type: oce OR atm
-; variables on hybrid layers are belong to atm input, everything
-; else is oce
-undef("getVarLevelType")
-function getVarLevelType(filename,varname)
-begin
-  f       = addfile(filename,"r")
-  vertdim = getVertDim(f,f->$varname$)
-  retval  = getVertDimType(f->$vertdim$)
-  delete(f)
-  delete(vertdim)
-
-  return retval
 end
 ;---------------------------------------------------------------
 ; setting for vertical cross sections based on remapped icon data
