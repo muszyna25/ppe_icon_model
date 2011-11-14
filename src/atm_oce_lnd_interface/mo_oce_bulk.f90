@@ -375,12 +375,16 @@ CONTAINS
       CALL print_mxmn('OMIP: sens.flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
       z_c(:,1,:)=p_sfc_flx%forc_slflx(:,:)
       CALL print_mxmn('OMIP: latent.flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+      z_c(:,1,:)=p_sfc_flx%forc_hflx(:,:)
+      CALL print_mxmn('OMIP: total heat',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
       z_c(:,1,:)=p_sfc_flx%forc_prflx(:,:)
       CALL print_mxmn('OMIP: precip.',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
       z_c(:,1,:)=p_sfc_flx%forc_evflx(:,:)
       CALL print_mxmn('OMIP: evap.',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+      z_c(:,1,:)=p_sfc_flx%forc_fflx(:,:)
+      CALL print_mxmn('OMIP: frshw.flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
 
-      ! preliminary test of sea ice model
+      ! call of sea ice model
       IF (i_sea_ice == 1) THEN
 
         Qatm%SWin   (:,:)   = p_sfc_flx%forc_swflx(:,:)
@@ -535,6 +539,9 @@ CONTAINS
     !
     ! Receive fields from atmosphere
     ! ------------------------------
+
+      !-------------------------------------------------------------------------
+      ! Apply 4 parts of surface heat and 2 parts of freshwater fluxes (records 4 to 9)
     !
     ! zonal wind stress
       CALL ICON_cpl_get ( field_id(1), field_shape, buffer, info, ierror )
@@ -546,7 +553,9 @@ CONTAINS
       IF (info > 1 ) &
         &  p_sfc_flx%forc_wind_v(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
     !
-    ! freshwater flux
+    ! freshwater flux - 2 parts, precipitation and evaporation
+    ! prflx(:,:)  total precipitation flux            [m/s]
+    ! evflx(:,:)  evaporation flux                    [m/s]
       field_shape(3) = 2
       CALL ICON_cpl_get ( field_id(3), field_shape, buffer, info, ierror )
       IF (info > 1 ) THEN
@@ -563,7 +572,11 @@ CONTAINS
         p_sfc_flx%forc_tracer_relax(:,:,1) = p_sfc_flx%forc_tracer_relax(:,:,1) - tmelt
       END IF
     !
-    ! total heat flux
+    ! total heat flux - 4 parts
+    ! swflx(:,:)  surface short wave heat flux        [W/m2]
+    ! lwflx(:,:)  surface long  wave heat flux        [W/m2]
+    ! ssflx(:,:)  surface sensible   heat flux        [W/m2]
+    ! slflx(:,:)  surface latent     heat flux        [W/m2]
       field_shape(3) = 4
       CALL ICON_cpl_get ( field_id(5), field_shape, buffer, info, ierror )
       IF (info > 1 ) THEN
@@ -572,20 +585,6 @@ CONTAINS
         p_sfc_flx%forc_ssflx(:,:) = RESHAPE(buffer(:,3),(/ nproma, p_patch%nblks_c /) )
         p_sfc_flx%forc_slflx(:,:) = RESHAPE(buffer(:,4),(/ nproma, p_patch%nblks_c /) )
       END IF
-
-      !p_sfc_flx%forc_hflx(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
-
-
-    ! this is used for "intermediate complexity flux forcing
-
-      !-------------------------------------------------------------------------
-      ! Apply 4 parts of surface heat and 2 parts of freshwater fluxes (records 4 to 9)
-      ! 4:  swflx(:,:)   !  surface short wave heat flux        [W/m2]
-      ! 5:  lwflx(:,:)   !  surface long  wave heat flux        [W/m2]
-      ! 6:  ssflx(:,:)   !  surface sensible   heat flux        [W/m2]
-      ! 7:  slflx(:,:)   !  surface latent     heat flux        [W/m2]
-      ! 8:  prflx(:,:)   !  total precipitation flux            [m/s]
-      ! 9:  evflx(:,:)   !  evaporation flux                    [m/s]
 
       ! sum of fluxes for ocean boundary condition
       p_sfc_flx%forc_hflx(:,:) = p_sfc_flx%forc_swflx(:,:) + p_sfc_flx%forc_lwflx(:,:) &
@@ -601,29 +600,19 @@ CONTAINS
       CALL print_mxmn('CPL: sens.flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
       z_c(:,1,:)=p_sfc_flx%forc_slflx(:,:)
       CALL print_mxmn('CPL: latent.flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+      z_c(:,1,:)=p_sfc_flx%forc_hflx(:,:)
+      CALL print_mxmn('CPL: total heat',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
       z_c(:,1,:)=p_sfc_flx%forc_prflx(:,:)
       CALL print_mxmn('CPL: precip.',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
       z_c(:,1,:)=p_sfc_flx%forc_evflx(:,:)
       CALL print_mxmn('CPL: evap.',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+      z_c(:,1,:)=p_sfc_flx%forc_fflx(:,:)
+      CALL print_mxmn('CPL: frshw.flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
 
       DEALLOCATE(buffer)
       DEALLOCATE(field_id)      
 
       IF (ltimer) CALL timer_stop(timer_coupling)
-
-    ! ipl_src=2  ! output print level (1-5, fix)
-    ! z_c(:,1,:)=p_sfc_flx%forc_swflx(:,:)
-    ! CALL print_mxmn('CPL: SW-flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-    ! z_c(:,1,:)=p_sfc_flx%forc_lwflx(:,:)
-    ! CALL print_mxmn('CPL: LW-flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-    ! z_c(:,1,:)=p_sfc_flx%forc_ssflx(:,:)
-    ! CALL print_mxmn('CPL: sens.flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-    ! z_c(:,1,:)=p_sfc_flx%forc_slflx(:,:)
-    ! CALL print_mxmn('CPL: latent.flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-    ! z_c(:,1,:)=p_sfc_flx%forc_prflx(:,:)
-    ! CALL print_mxmn('CPL: precip.',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-    ! z_c(:,1,:)=p_sfc_flx%forc_evflx(:,:)
-    ! CALL print_mxmn('CPL: evap.',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
   
     ENDIF ! is_coupled
 
