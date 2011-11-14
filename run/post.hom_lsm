@@ -106,6 +106,6 @@ echo "-- ---------------------------------------------------------"
 
 #rm -f ${set_env}
 
-check_error $? "Creating of Plots"
+check_error $STATUS "Creating of Plots"
 
 exit $STATUS
