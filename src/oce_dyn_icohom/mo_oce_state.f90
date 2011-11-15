@@ -70,7 +70,7 @@ MODULE mo_oce_state
     &                               t_geographical_coordinates, &!vector_product, &
     &                               arc_length
   USE mo_math_constants,      ONLY: deg2rad,rad2deg
-  USE mo_physical_constants,  ONLY: re, omega
+  USE mo_physical_constants,  ONLY: re, omega, rho_ref
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c, get_indices_v
   USE mo_sync,                ONLY: SYNC_E, SYNC_C,sync_patch_array,check_patch_array!, SYNC_V
   USE mo_linked_list,         ONLY: t_var_list
@@ -967,7 +967,9 @@ CONTAINS
     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE),&
     &            ldims=(/nproma,n_zlev,nblks_e/))
 
-
+    ! initialize density with reference value rather than with zero
+    !  - mainly for plotting purpose
+    p_os_diag%rho(:,:,:) = rho_ref
 
     !reconstrcuted velocity in cartesian coordinates
     ALLOCATE(p_os_diag%p_vn(nproma,n_zlev,nblks_c), STAT=ist)
