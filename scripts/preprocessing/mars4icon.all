@@ -1,0 +1,18 @@
+#!/bin/ksh
+# -------------------------------------------------------
+# rain & snow from 20101109
+# GRIB2 after from 20110511
+#
+# attention: specify resolution in ifs2icon.conf and here
+# -------------------------------------------------------
+
+set -A dates 2011010100 2011010200 2011010300 2011010400 2011010500 \
+             2011010600 2011010700 2011010800 2011010900 2011011000
+for date in ${dates[*]}
+do
+  mars4icon_smi_32r3+ ${date} 255 1/to/91
+  awk -v date="$date" '{sub(/YYYYMMDDHH/, date)}; 1' ifs2icon.conf > ifs2icon.conf.temp
+  ifs2icon.rb -c ifs2icon.conf.temp
+done
+
+exit

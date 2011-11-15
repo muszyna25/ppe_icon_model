@@ -85,7 +85,7 @@ retrieve,
         param    = lnsp/z,
         levelist = 1
 retrieve,
-        param    = tsn/skt/stl1/stl2/stl3/stl4/sd/rsn/src/ci/slt,
+        param    = tsn/skt/stl1/stl2/stl3/stl4/sd/rsn/asn/src/ci/slt,
         repres   = gg, 
         resol    = off, 
         levtype  = surface
