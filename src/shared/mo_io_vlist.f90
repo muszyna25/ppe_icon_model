@@ -1451,6 +1451,18 @@ CONTAINS
 !!$          &                   'm2/s3', 125, 999,&
 !!$          &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
 !!$          &           k_jg)
+          !--- turbulent transfer coefficients for momentum ---
+          CALL addVar(TimeVar('TCM',&
+          &                   'turbulent transfer coefficients for momentum',&
+          &                   '', 170, 201,&
+          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+          &           k_jg)
+          !--- turbulent transfer coefficients for heat ---
+          CALL addVar(TimeVar('TCH',&
+          &                   'turbulent transfer coefficients for heat ',&
+          &                   '', 171, 201,&
+          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+          &           k_jg)
         END SELECT
       ENDIF !lwrite_tke
 
@@ -3129,6 +3141,8 @@ CONTAINS
       CASE ('EXNER');           ptr3 => p_prog%exner
       CASE ('RHO');             ptr3 => p_prog%rho
       CASE ('TKE');             ptr3 => p_prog%tke
+      CASE ('TCM');             ptr2 => prm_diag(jg)%tcm
+      CASE ('TCH');             ptr2 => prm_diag(jg)%tch
       CASE ('Z0')
         IF (atm_phy_nwp_config(jg)%inwp_turb.EQ.1) THEN
                                 ptr2 => dup2(prm_diag(jg)%gz0(:,:)/grav); delete = .TRUE.

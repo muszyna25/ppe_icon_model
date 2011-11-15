@@ -782,47 +782,9 @@ CONTAINS
       i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
       IF (msg_level >= 12) &
-&           CALL message('mo_nh_interface', 'cloud cover')
+        &  CALL message('mo_nh_interface', 'cloud cover')
 
-!!$WRITE(0,*) "kstart_moist(jg): ", kstart_moist(jg)
-!!$WRITE(0,*) "atm_phy_nwp_config(jg)%inwp_cldcover: ", atm_phy_nwp_config(jg)%inwp_cldcover
-!!$WRITE(0,*) "nlev: ", nlev
-!!$WRITE(0,*) "MAXVAL1(pt_diag%temp(:,:,i_startblk:i_endblk))",MAXVAL(pt_diag%temp(:,:,i_startblk:i_endblk))
-!!$WRITE(0,*) "MINVAL1(pt_diag%temp(:,:,i_startblk:i_endblk))",MINVAL(pt_diag%temp(:,:,i_startblk:i_endblk))
-!!$WRITE(0,*) "MAXVAL1(pt_diag%pres(:,:,i_startblk:i_endblk))",MAXVAL(pt_diag%pres(:,:,i_startblk:i_endblk))
-!!$WRITE(0,*) "MINVAL1(pt_diag%pres(:,:,i_startblk:i_endblk))",MINVAL(pt_diag%pres(:,:,i_startblk:i_endblk))
-!!$WRITE(0,*) "MAXVAL1(pt_diag%pres_sfc(:,i_startblk:i_endblk))",MAXVAL(pt_diag%pres_sfc(:,i_startblk:i_endblk))
-!!$WRITE(0,*) "MINVAL1(pt_diag%pres_sfc(:,i_startblk:i_endblk))",MINVAL(pt_diag%pres_sfc(:,i_startblk:i_endblk))
-!!$WRITE(0,*) "MAXVAL1(p_metrics%geopot_agl(:,:,i_startblk:i_endblk))",MAXVAL(p_metrics%geopot_agl(:,:,i_startblk:i_endblk))
-!!$WRITE(0,*) "MINVAL1(p_metrics%geopot_agl(:,:,i_startblk:i_endblk))",MINVAL(p_metrics%geopot_agl(:,:,i_startblk:i_endblk))
-!!$WRITE(0,*) "MAXVAL1(pt_prog%rho(:,:,i_startblk:i_endblk))",MAXVAL(pt_prog%rho(:,:,i_startblk:i_endblk))
-!!$WRITE(0,*) "MINVAL1(pt_prog%rho(:,:,i_startblk:i_endblk))",MINVAL(pt_prog%rho(:,:,i_startblk:i_endblk))
-!!$WRITE(0,*) "MAXVAL1(pt_prog_rcf%tracer(:,:,i_startblk:i_endblk,iqv))",MAXVAL(pt_prog_rcf%tracer(:,:,i_startblk:i_endblk,iqv))
-!!$WRITE(0,*) "MINVAL1(pt_prog_rcf%tracer(:,:,i_startblk:i_endblk,iqv))",MINVAL(pt_prog_rcf%tracer(:,:,i_startblk:i_endblk,iqv))
-!!$WRITE(0,*) "MAXVAL1(pt_prog_rcf%tracer(:,:,i_startblk:i_endblk,iqc))",MAXVAL(pt_prog_rcf%tracer(:,:,i_startblk:i_endblk,iqc))
-!!$WRITE(0,*) "MINVAL1(pt_prog_rcf%tracer(:,:,i_startblk:i_endblk,iqc))",MINVAL(pt_prog_rcf%tracer(:,:,i_startblk:i_endblk,iqc))
-!!$WRITE(0,*) "MAXVAL1(pt_prog_rcf%tracer(:,:,i_startblk:i_endblk,iqi))",MAXVAL(pt_prog_rcf%tracer(:,:,i_startblk:i_endblk,iqi))
-!!$WRITE(0,*) "MINVAL1(pt_prog_rcf%tracer(:,:,i_startblk:i_endblk,iqi))",MINVAL(pt_prog_rcf%tracer(:,:,i_startblk:i_endblk,iqi))
-!!$
-!!$WRITE(0,*) "MAXVAL1(lnd_prog_new%t_g(:,i_startblk:i_endblk))",MAXVAL(lnd_prog_new%t_g(:,i_startblk:i_endblk))
-!!$WRITE(0,*) "MINVAL1(lnd_prog_new%t_g(:,i_startblk:i_endblk))",MINVAL(lnd_prog_new%t_g(:,i_startblk:i_endblk))
-!!$WRITE(0,*) "MAXVAL1(mbas_con(:,i_startblk:i_endblk))",MAXVAL(prm_diag%mbas_con(:,i_startblk:i_endblk))
-!!$WRITE(0,*) "MINVAL1(mbas_con(:,i_startblk:i_endblk))",MINVAL(prm_diag%mbas_con(:,i_startblk:i_endblk))
-!!$WRITE(0,*) "MAXVAL1(mtop_con(:,i_startblk:i_endblk))",MAXVAL(prm_diag%mtop_con(:,i_startblk:i_endblk))
-!!$WRITE(0,*) "MINVAL1(mtop_con(:,i_startblk:i_endblk))",MINVAL(prm_diag%mtop_con(:,i_startblk:i_endblk))
-!!$WRITE(0,*) "MAXVAL1(con_udd(:,:,i_startblk:i_endblk,3))",MAXVAL(prm_diag%con_udd(:,:,i_startblk:i_endblk,3))
-!!$WRITE(0,*) "MINVAL1(con_udd(:,:,i_startblk:i_endblk,3))",MINVAL(prm_diag%con_udd(:,:,i_startblk:i_endblk,3))
-!!$WRITE(0,*) "MAXVAL1(con_udd(:,:,i_startblk:i_endblk,7))",MAXVAL(prm_diag%con_udd(:,:,i_startblk:i_endblk,7))
-!!$WRITE(0,*) "MINVAL1(con_udd(:,:,i_startblk:i_endblk,7))",MINVAL(prm_diag%con_udd(:,:,i_startblk:i_endblk,7))
-!!$WRITE(0,*)
-!!$WRITE(0,*) "MAXVAL1(tot_cld(:,:,i_startblk:i_endblk,icc))",MAXVAL(prm_diag%tot_cld(:,:,i_startblk:i_endblk,icc)) 
-!!$WRITE(0,*) "MINVAL1(tot_cld(:,:,i_startblk:i_endblk,icc))",MINVAL(prm_diag%tot_cld(:,:,i_startblk:i_endblk,icc))
-!!$WRITE(0,*) "MAXVAL1(tot_cld(:,:,i_startblk:i_endblk,iqv))",MAXVAL(prm_diag%tot_cld(:,:,i_startblk:i_endblk,iqv)) 
-!!$WRITE(0,*) "MINVAL1(tot_cld(:,:,i_startblk:i_endblk,iqv))",MINVAL(prm_diag%tot_cld(:,:,i_startblk:i_endblk,iqv))
-!!$WRITE(0,*) "MAXVAL1(tot_cld(:,:,i_startblk:i_endblk,iqc))",MAXVAL(prm_diag%tot_cld(:,:,i_startblk:i_endblk,iqc)) 
-!!$WRITE(0,*) "MINVAL1(tot_cld(:,:,i_startblk:i_endblk,iqc))",MINVAL(prm_diag%tot_cld(:,:,i_startblk:i_endblk,iqc))
-!!$WRITE(0,*) "MAXVAL1(tot_cld(:,:,i_startblk:i_endblk,iqi))",MAXVAL(prm_diag%tot_cld(:,:,i_startblk:i_endblk,iqi)) 
-!!$WRITE(0,*) "MINVAL1(tot_cld(:,:,i_startblk:i_endblk,iqi))",MINVAL(prm_diag%tot_cld(:,:,i_startblk:i_endblk,iqi))
+
       !-------------------------------------------------------------------------
       !> Cloud water distribution: cloud cover, cloud water, cloud ice
       !  inwp_cldcover =    
@@ -878,43 +840,6 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
-!!$WRITE(0,*)
-!!$WRITE(0,*) "MAXVAL2(pt_diag%temp(:,:,i_startblk:i_endblk))",MAXVAL(pt_diag%temp(:,:,i_startblk:i_endblk))
-!!$WRITE(0,*) "MINVAL2(pt_diag%temp(:,:,i_startblk:i_endblk))",MINVAL(pt_diag%temp(:,:,i_startblk:i_endblk))
-!!$WRITE(0,*) "MAXVAL2(pt_diag%pres(:,:,i_startblk:i_endblk))",MAXVAL(pt_diag%pres(:,:,i_startblk:i_endblk))
-!!$WRITE(0,*) "MINVAL2(pt_diag%pres(:,:,i_startblk:i_endblk))",MINVAL(pt_diag%pres(:,:,i_startblk:i_endblk))
-!!$WRITE(0,*) "MAXVAL2(pt_diag%pres_sfc(:,i_startblk:i_endblk))",MAXVAL(pt_diag%pres_sfc(:,i_startblk:i_endblk))
-!!$WRITE(0,*) "MINVAL2(pt_diag%pres_sfc(:,i_startblk:i_endblk))",MINVAL(pt_diag%pres_sfc(:,i_startblk:i_endblk))
-!!$WRITE(0,*) "MAXVAL2(p_metrics%geopot_agl(:,:,i_startblk:i_endblk))",MAXVAL(p_metrics%geopot_agl(:,:,i_startblk:i_endblk))
-!!$WRITE(0,*) "MINVAL2(p_metrics%geopot_agl(:,:,i_startblk:i_endblk))",MINVAL(p_metrics%geopot_agl(:,:,i_startblk:i_endblk))
-!!$WRITE(0,*) "MAXVAL2(pt_prog%rho(:,:,i_startblk:i_endblk))",MAXVAL(pt_prog%rho(:,:,i_startblk:i_endblk))
-!!$WRITE(0,*) "MINVAL2(pt_prog%rho(:,:,i_startblk:i_endblk))",MINVAL(pt_prog%rho(:,:,i_startblk:i_endblk))
-!!$WRITE(0,*) "MAXVAL2(pt_prog_rcf%tracer(:,:,i_startblk:i_endblk,iqv))",MAXVAL(pt_prog_rcf%tracer(:,:,i_startblk:i_endblk,iqv))
-!!$WRITE(0,*) "MINVAL2(pt_prog_rcf%tracer(:,:,i_startblk:i_endblk,iqv))",MINVAL(pt_prog_rcf%tracer(:,:,i_startblk:i_endblk,iqv))
-!!$WRITE(0,*) "MAXVAL2(pt_prog_rcf%tracer(:,:,i_startblk:i_endblk,iqc))",MAXVAL(pt_prog_rcf%tracer(:,:,i_startblk:i_endblk,iqc))
-!!$WRITE(0,*) "MINVAL2(pt_prog_rcf%tracer(:,:,i_startblk:i_endblk,iqc))",MINVAL(pt_prog_rcf%tracer(:,:,i_startblk:i_endblk,iqc))
-!!$WRITE(0,*) "MAXVAL2(pt_prog_rcf%tracer(:,:,i_startblk:i_endblk,iqi))",MAXVAL(pt_prog_rcf%tracer(:,:,i_startblk:i_endblk,iqi))
-!!$WRITE(0,*) "MINVAL2(pt_prog_rcf%tracer(:,:,i_startblk:i_endblk,iqi))",MINVAL(pt_prog_rcf%tracer(:,:,i_startblk:i_endblk,iqi))
-!!$
-!!$WRITE(0,*) "MAXVAL2(lnd_prog_new%t_g(:,i_startblk:i_endblk))",MAXVAL(lnd_prog_new%t_g(:,i_startblk:i_endblk))
-!!$WRITE(0,*) "MINVAL2(lnd_prog_new%t_g(:,i_startblk:i_endblk))",MINVAL(lnd_prog_new%t_g(:,i_startblk:i_endblk))
-!!$WRITE(0,*) "MAXVAL2(mbas_con(:,i_startblk:i_endblk))",MAXVAL(prm_diag%mbas_con(:,i_startblk:i_endblk))
-!!$WRITE(0,*) "MINVAL2(mbas_con(:,i_startblk:i_endblk))",MINVAL(prm_diag%mbas_con(:,i_startblk:i_endblk))
-!!$WRITE(0,*) "MAXVAL2(mtop_con(:,i_startblk:i_endblk))",MAXVAL(prm_diag%mtop_con(:,i_startblk:i_endblk))
-!!$WRITE(0,*) "MINVAL2(mtop_con(:,i_startblk:i_endblk))",MINVAL(prm_diag%mtop_con(:,i_startblk:i_endblk))
-!!$WRITE(0,*) "MAXVAL2(con_udd(:,:,i_startblk:i_endblk,3))",MAXVAL(prm_diag%con_udd(:,:,i_startblk:i_endblk,3))
-!!$WRITE(0,*) "MINVAL2(con_udd(:,:,i_startblk:i_endblk,3))",MINVAL(prm_diag%con_udd(:,:,i_startblk:i_endblk,3))
-!!$WRITE(0,*) "MAXVAL2(con_udd(:,:,i_startblk:i_endblk,7))",MAXVAL(prm_diag%con_udd(:,:,i_startblk:i_endblk,7))
-!!$WRITE(0,*) "MINVAL2(con_udd(:,:,i_startblk:i_endblk,7))",MINVAL(prm_diag%con_udd(:,:,i_startblk:i_endblk,7))
-!!$WRITE(0,*)
-!!$WRITE(0,*) "MAXVAL2(tot_cld(:,:,i_startblk:i_endblk,icc))",MAXVAL(prm_diag%tot_cld(:,:,i_startblk:i_endblk,icc)) 
-!!$WRITE(0,*) "MINVAL2(tot_cld(:,:,i_startblk:i_endblk,icc))",MINVAL(prm_diag%tot_cld(:,:,i_startblk:i_endblk,icc))
-!!$WRITE(0,*) "MAXVAL2(tot_cld(:,:,i_startblk:i_endblk,iqv))",MAXVAL(prm_diag%tot_cld(:,:,i_startblk:i_endblk,iqv)) 
-!!$WRITE(0,*) "MINVAL2(tot_cld(:,:,i_startblk:i_endblk,iqv))",MINVAL(prm_diag%tot_cld(:,:,i_startblk:i_endblk,iqv))
-!!$WRITE(0,*) "MAXVAL2(tot_cld(:,:,i_startblk:i_endblk,iqc))",MAXVAL(prm_diag%tot_cld(:,:,i_startblk:i_endblk,iqc)) 
-!!$WRITE(0,*) "MINVAL2(tot_cld(:,:,i_startblk:i_endblk,iqc))",MINVAL(prm_diag%tot_cld(:,:,i_startblk:i_endblk,iqc))
-!!$WRITE(0,*) "MAXVAL2(tot_cld(:,:,i_startblk:i_endblk,iqi))",MAXVAL(prm_diag%tot_cld(:,:,i_startblk:i_endblk,iqi)) 
-!!$WRITE(0,*) "MINVAL2(tot_cld(:,:,i_startblk:i_endblk,iqi))",MINVAL(prm_diag%tot_cld(:,:,i_startblk:i_endblk,iqi))
     ENDIF! cloud cover
 
     !-------------------------------------------------------------------------
