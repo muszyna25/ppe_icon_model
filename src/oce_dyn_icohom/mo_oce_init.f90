@@ -144,11 +144,6 @@ CONTAINS
 
   CALL message (TRIM(routine), 'start')
 
-  IF (init_oce_prog /= 1 ) THEN
-    CALL message (TRIM(routine), 'no initialization file to read - return')
-    RETURN
-  END IF
-
   i_lev        = ppatch%level
 
   IF(my_process_is_stdio()) THEN
@@ -1403,6 +1398,13 @@ END DO
     ! using namelist parameter temperature_relaxation=1
     IF (temperature_relaxation == 1) THEN
       p_sfc_flx%forc_tracer_relax(:,:,1) = p_os%p_prog(nold(1))%tracer(:,1,:,1)
+    END IF
+
+   ! bugfix: do not use temperature_relaxation = 3 if T is not initialized /= 0.0!
+   ! init of forc_tracer_relax should use its own routine: init_ho_relaxation, TBD
+    IF (temperature_relaxation == 3) THEN
+      CALL message (TRIM(routine), 'no initialization read from file - do not use t_rel=3!')
+      CALL finish  (TRIM(routine), 't_rel=3 and init_oce_prog=0 NOT SUPPORTED - TERMINATE')
     END IF
 
     jkc=1      ! current level - may not be zero
