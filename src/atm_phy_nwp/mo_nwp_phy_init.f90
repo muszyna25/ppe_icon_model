@@ -318,7 +318,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
         ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
         DO jc = 1, i_endidx
           zprat=(MIN(8._wp,80000._wp/p_diag%pres(jc,jk,jb)))**2
-          lland = ext_data%atm%lsm_atm_c(jc,jb) > 0
+          lland = ext_data%atm%llsm_atm_c(jc,jb)
           lglac = ext_data%atm%soiltyp(jc,jb) == 1
           IF (lland.AND.(.NOT.lglac)) THEN
             zn1= 50._wp
@@ -702,6 +702,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
      CALL message('mo_nwp_phy_init:', 'non-orog GWs initialized')
 
   END IF
+
 
 END SUBROUTINE init_nwp_phy
 
