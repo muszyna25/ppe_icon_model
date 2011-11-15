@@ -195,6 +195,7 @@ check_error $? "create icon grid"
 # create symmetry grids
 if [ "x$make_comb_opt_grids" == "xtrue" ] ; then
   set_comb_optimization_grids
+#  set_default_optimization_grids
   base_file_name=iconR2B
   optimization_extension="-grid"
   #-----------------------------------------------------------------------------
@@ -288,8 +289,8 @@ if [ "x$make_patches" == "xtrue" ] ; then
   patch_center_x=-90.0
   patch_center_y=40.0
 
-  set_comb_optimization_grids
-#   set_default_optimization_grids
+#   set_comb_optimization_grids
+  set_default_optimization_grids
 
   # create patches
   i=$startRefine; j=$((startRefine+1));

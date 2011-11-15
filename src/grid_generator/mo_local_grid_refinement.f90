@@ -239,7 +239,7 @@ CONTAINS
          & CALL finish('coarsen_child_parent_grid',&
          & 'parent_vertex > no_of_parent_verts')
       IF (parent_vertex > 0) THEN
-         parent_verts%vertex(parent_vertex) = child_verts%vertex(child_vertex)
+         parent_verts%cartesian(parent_vertex) = child_verts%cartesian(child_vertex)
       ENDIF
     ENDDO
 !$OMP END DO
