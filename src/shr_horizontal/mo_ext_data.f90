@@ -159,16 +159,6 @@ MODULE mo_ext_data
       &  llsm_atm_c(:,:)       ! .TRUE. if landpoint
                                ! index1=1,nproma, index2=1,nblks_c
 
-    INTEGER, POINTER  ::   &   !< land-sea-mask for cell centers          [ ]
-      &  lsm_atm_c(:,:)        ! index1=1,nproma, index2=1,nblks_c
-
-    INTEGER, POINTER  ::   &   !< land-sea-mask for cell edges            [ ]
-      &  lsm_atm_e(:,:)        ! index1=1,nproma, index2=1,nblks_e
-
-    INTEGER, POINTER  ::   &   !< land-sea-mask for cell vertices         [ ]
-      &  lsm_atm_v(:,:)        ! index1=1,nproma, index2=1,nblks_v
-
-
     REAL(wp), POINTER ::   &   !< fraction land in a grid element         [ ]
       &  fr_land(:,:)          ! 0. for water, 1.0 indicates 100% land
                                ! index1=1,nproma, index2=1,nblks_c
@@ -733,28 +723,6 @@ CONTAINS
     CALL add_var( p_ext_atm_list, 'llsm_atm_c', p_ext_atm%llsm_atm_c, &
       &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
       &          grib2_desc, ldims=shape2d_c, lrestart=.FALSE.  )
-
-
-    ! land sea mask for cells
-    !
-    ! lsm_atm_c    p_ext_atm%lsm_atm_c(nproma,nblks_c)
-    cf_desc    = t_cf_var('land_sea_mask_(cell)', '-', &
-      &                   'land sea mask (cell)')
-    grib2_desc = t_grib2_var( 2, 0, 0, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_ext_atm_list, 'lsm_atm_c', p_ext_atm%lsm_atm_c, &
-      &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
-      &          grib2_desc, ldims=shape2d_c, lrestart=.FALSE.  )
-
-
-    ! land sea mask for edges
-    !
-    ! lsm_atm_e    p_ext_atm%lsm_atm_e(nproma,nblks_e)
-    cf_desc    = t_cf_var('land_sea_mask_(edge)', '-', &
-      &                   'land sea mask (edge)')
-    grib2_desc = t_grib2_var( 2, 0, 0, ientr, GRID_REFERENCE, GRID_EDGE)
-    CALL add_var( p_ext_atm_list, 'lsm_atm_e', p_ext_atm%lsm_atm_e, &
-      &           GRID_UNSTRUCTURED_EDGE, ZAXIS_SURFACE, cf_desc, &
-      &           grib2_desc, ldims=shape2d_e, lrestart=.FALSE.  )
 
 
     ! land fraction
