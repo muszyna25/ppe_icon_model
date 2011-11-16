@@ -306,7 +306,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
     
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_endidx,jk,zprat,lland,lglac,zn1,zn2,zcdnc)
+!$OMP DO PRIVATE(jb,jc,i_endidx,jk,zprat,zpres,lland,lglac,zn1,zn2,zcdnc)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -317,7 +317,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
       DO jk = 1,nlev
         ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
         DO jc = 1, i_endidx
-          zpres = p0ref * (p_metrics%exner_ref_mc(jc,jk,jb)/cpd)**(cpd/rd)
+          zpres = p0ref * (p_metrics%exner_ref_mc(jc,jk,jb))**(cpd/rd)
           zprat=(MIN(8._wp,80000._wp/zpres))**2
 
           lland = ext_data%atm%llsm_atm_c(jc,jb)
