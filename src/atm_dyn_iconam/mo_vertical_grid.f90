@@ -56,7 +56,7 @@ MODULE mo_vertical_grid
   USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH, max_dom, &
     &                                 min_rlcell_int, min_rlcell
   USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c, grf_bdywidth_e, grf_fbk_start_c
-  USE mo_physical_constants,    ONLY: grav, p0ref, rd, rd_o_cpd, cpd
+  USE mo_physical_constants,    ONLY: grav, p0ref, rd, rd_o_cpd, cpd, p0sl_bg
   USE mo_math_operators,        ONLY: grad_fd_norm, grad_fd_tang
   USE mo_timer,                 ONLY: init_timer, cleanup_timer
   USE mo_interpolation,         ONLY: t_int_state, cells2edges_scalar, &
@@ -77,7 +77,6 @@ MODULE mo_vertical_grid
   ! Constants used for the computation of the background reference atmosphere of the nh-model
   !
   REAL(wp), PARAMETER :: h_scal_bg = 10000._wp    ! [m]      scale height
-  REAL(wp), PARAMETER :: p0sl_bg   = 101325._wp   ! [Pa]     sea level pressure
   REAL(wp), PARAMETER :: t0sl_bg   = 288.15_wp    ! [K]      sea level temperature
   REAL(wp), PARAMETER :: del_t_bg  = 75._wp       ! [K]      difference between sea level
   !                                                          temperature and asymptotic

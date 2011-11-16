@@ -38,7 +38,7 @@ MODULE mo_nwp_phy_init
 
   USE mo_kind,                ONLY: wp
   USE mo_math_constants,      ONLY: pi
-  USE mo_physical_constants,  ONLY: re, grav, rd_o_cpd
+  USE mo_physical_constants,  ONLY: re, grav, rd_o_cpd, cpd, p0ref, rd, p0sl_bg
   USE mo_math_utilities,      ONLY: mean_domain_values
   USE mo_model_domain_import, ONLY: nroot   
   USE mo_nwp_phy_state,       ONLY: t_nwp_phy_diag,t_nwp_phy_tend
@@ -137,9 +137,9 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
   REAL(wp)            :: pdtime
   REAL(wp)            :: pref(p_patch%nlevp1)
   REAL(wp), PARAMETER :: h_scal = 8000._wp     ! [m]      scale height
-  REAL(wp), PARAMETER :: p0sl   = 101325._wp   ! [Pa]     sea level pressure
   REAL(wp)            :: zlat, zprat, zn1, zn2, zcdnc
 !  REAL(wp)            :: zf_aux(nproma,nlev_o3,p_patch%nblks_c)
+  REAL(wp)            :: zpres
 
   LOGICAL  :: lland, lglac
   
@@ -249,7 +249,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
     !>reference pressure
     !--------------------------------------------------------------
       DO jk = nlevp1, 1, -1
-         pref(jk)= p0sl * EXP( -vct_a (jk)/h_scal)
+         pref(jk)= p0sl_bg * EXP( -vct_a (jk)/h_scal)
       ENDDO
 
     !------------------------------------------
@@ -317,7 +317,9 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
       DO jk = 1,nlev
         ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
         DO jc = 1, i_endidx
-          zprat=(MIN(8._wp,80000._wp/p_diag%pres(jc,jk,jb)))**2
+          zpres = p0ref * (p_metrics%exner_ref_mc(jc,jk,jb)/cpd)**(cpd/rd)
+          zprat=(MIN(8._wp,80000._wp/zpres))**2
+
           lland = ext_data%atm%llsm_atm_c(jc,jb)
           lglac = ext_data%atm%soiltyp(jc,jb) == 1
           IF (lland.AND.(.NOT.lglac)) THEN
@@ -327,7 +329,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
             zn1= 50._wp
             zn2= 80._wp
           ENDIF
-          IF (p_diag%pres(jc,jk,jb) < 80000._wp) THEN
+          IF (zpres < 80000._wp) THEN
             zcdnc=1.e6_wp*(zn1+(zn2-zn1)*(EXP(1._wp-zprat)))
           ELSE
             zcdnc=zn2*1.e6_wp

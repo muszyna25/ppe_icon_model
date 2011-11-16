@@ -197,6 +197,8 @@ MODULE mo_physical_constants
   REAL(wp),PARAMETER :: sfc_press_pascal = 101300.0_wp
   REAL(wp),PARAMETER :: sfc_press_bar    = 101300.0_wp*SItodBar
 
+  REAL(wp), PARAMETER :: p0sl_bg         = 101325._wp  ! [Pa]     sea level pressure
+
 !----------below are parameters for sea-ice model---------------
   REAL(wp), PARAMETER ::           &
     ks           = 0.31_wp,         & ! heat conductivity snow     [J  / (m s K)]
