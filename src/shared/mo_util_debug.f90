@@ -90,7 +90,8 @@ CONTAINS
 #ifndef DISABLE_DUMP
     WRITE (*,*) "Dumping ", zfilename   
     ! create NetCDF file:
-    CALL nf(nf_create("00_"//TRIM(zfilename)//"_"//TRIM(int2string(debug_step))//".nc", nf_clobber, ncfile))
+    CALL nf(nf_create("00_"//TRIM(zfilename)//"_"//TRIM(int2string(debug_step))//".nc", &
+      &               nf_clobber, ncfile))
     ! create dimensions:
     DO idim=1,ndims
       CALL nf(nf_def_dim(ncfile, 'dim'//int2string(idim), SIZE(p_array,idim), ncid_dim(idim)))
@@ -125,7 +126,8 @@ CONTAINS
 #ifndef DISABLE_DUMP
     WRITE (*,*) "Dumping ", zfilename
     ! create NetCDF file:
-    CALL nf(nf_create("00_"//TRIM(zfilename)//"_"//TRIM(int2string(debug_step))//".nc", nf_clobber, ncfile))
+    CALL nf(nf_create("00_"//TRIM(zfilename)//"_"//TRIM(int2string(debug_step))//".nc", &
+      &               nf_clobber, ncfile))
     ! create dimensions:
     DO idim=1,ndims
       CALL nf(nf_def_dim(ncfile, 'dim'//int2string(idim), SIZE(p_array,idim), ncid_dim(idim)))
@@ -160,7 +162,8 @@ CONTAINS
 #ifndef DISABLE_DUMP
     WRITE (*,*) "Dumping ", zfilename   
     ! create NetCDF file:
-    CALL nf(nf_create("00_"//TRIM(zfilename)//"_"//TRIM(int2string(debug_step))//".nc", nf_clobber, ncfile))
+    CALL nf(nf_create("00_"//TRIM(zfilename)//"_"//TRIM(int2string(debug_step))//".nc", &
+      &               nf_clobber, ncfile))
     ! create dimensions:
     DO idim=1,ndims
       CALL nf(nf_def_dim(ncfile, 'dim'//int2string(idim), SIZE(p_array,idim), ncid_dim(idim)))
