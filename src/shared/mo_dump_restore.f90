@@ -1207,6 +1207,7 @@ CONTAINS
 
 
     IF(p%n_patch_verts>0) THEN
+      CALL def_var('patch.verts.phys_id',          nf_int   , dim_nverts)
       CALL def_var('patch.verts.neighbor_index',   nf_int   , dim_nverts, dim_nedges_per_vert)
       CALL def_var('patch.verts.cell_index',       nf_int   , dim_nverts, dim_nedges_per_vert)
       CALL def_var('patch.verts.edge_index',       nf_int   , dim_nverts, dim_nedges_per_vert)
@@ -1345,6 +1346,7 @@ CONTAINS
     CALL uvar_io  (    'patch.edges.owner_g',                p%edges%owner_g)
 
     IF(p%n_patch_verts>0) THEN
+      CALL bvar_io(1,2,'patch.verts.phys_id',          p%verts%phys_id)
       CALL bidx_io(1,2,'patch.verts.neighbor_index',   p%verts%neighbor_idx, p%verts%neighbor_blk)
       CALL bidx_io(1,2,'patch.verts.cell_index',       p%verts%cell_idx, p%verts%cell_blk)
       CALL bidx_io(1,2,'patch.verts.edge_index',       p%verts%edge_idx, p%verts%edge_blk)

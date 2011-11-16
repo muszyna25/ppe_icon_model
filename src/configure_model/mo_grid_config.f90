@@ -67,6 +67,8 @@ USE mo_read_netcdf_parallel, ONLY:                &
 
   PUBLIC :: n_dom_start, max_childdom     
 
+  PUBLIC :: n_phys_dom
+
   PUBLIC :: no_of_dynamics_grids, no_of_radiation_grids
   ! ------------------------------------------------------------------------
 
@@ -85,6 +87,8 @@ INCLUDE 'netcdf.inc'
   INTEGER  :: n_dom                    ! number of model domains, 1=global domain only 
   INTEGER  :: n_dom_start=1 
   INTEGER  :: max_childdom
+
+  INTEGER  :: n_phys_dom               ! Number of physical domains, computed when reading the patches
 
   LOGICAL  :: lfeedback(max_dom)       ! specifies if feedback to parent grid is performed
   LOGICAL  :: lredgrid_phys(max_dom)   ! If set to .true. is calculated on a reduced grid

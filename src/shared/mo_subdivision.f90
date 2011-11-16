@@ -60,7 +60,7 @@ MODULE mo_subdivision
   USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: success, min_rlcell, max_rlcell,  &
     & min_rledge, max_rledge, min_rlvert, max_rlvert,                &
-    & min_rlcell_int, min_rledge_int, min_rlvert_int, max_hw, max_dom
+    & min_rlcell_int, min_rledge_int, min_rlvert_int, max_hw, max_dom, max_phys_dom
   USE mo_math_constants,     ONLY: pi
   USE mo_exception,          ONLY: finish, message, message_text,    &
     &                              get_filename_noext
@@ -71,9 +71,10 @@ MODULE mo_subdivision
   USE mo_io_units,           ONLY: find_next_free_unit, filename_max
   USE mo_model_domain,       ONLY: t_patch, t_grid_cells, &
     &                              p_patch_global, p_patch_subdiv, p_patch, &
-    &                              p_patch_local_parent
+    &                              p_patch_local_parent,                    &
+    &                              t_phys_patch, p_phys_patch
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
-  USE mo_mpi,                ONLY: p_bcast, p_send, p_recv, p_sum
+  USE mo_mpi,                ONLY: p_bcast, p_send, p_recv, p_sum, p_max
 #ifndef NOMPI
   USE mo_mpi,                ONLY: MPI_UNDEFINED, MPI_COMM_NULL
   USE mo_kind,               ONLY: i8
@@ -93,7 +94,7 @@ MODULE mo_subdivision
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e,  &
     & grf_bdyintp_end_c, grf_bdyintp_end_e, grf_fbk_start_c, grf_fbk_start_e, &
     & grf_bdywidth_c, grf_bdywidth_e, grf_nudgintp_start_c, grf_nudgintp_start_e
-  USE mo_grid_config,         ONLY: n_dom, n_dom_start, patch_weight
+  USE mo_grid_config,         ONLY: n_dom, n_dom_start, patch_weight, n_phys_dom
   USE mo_model_domimp_patches,ONLY: destruct_patches, allocate_patch
 
 
@@ -108,6 +109,7 @@ MODULE mo_subdivision
   PUBLIC :: decompose_domain, copy_processor_splitting
   PUBLIC :: set_patch_communicators
   PUBLIC :: finalize_decomposition
+  PUBLIC :: setup_phys_patches
 
   ! pointers to the work patches
   TYPE(t_patch), POINTER :: wrk_p_patch, wrk_p_parent_patch
@@ -1711,7 +1713,8 @@ CONTAINS
     DEALLOCATE(owner_c)
 
     ! For gathering the global fields on p_pe_work==0
-    ALLOCATE(tmp(MAX(wrk_p_patch_g%n_patch_cells, wrk_p_patch_g%n_patch_edges)))
+    ALLOCATE(tmp(MAX(wrk_p_patch_g%n_patch_cells, wrk_p_patch_g%n_patch_edges, &
+                   & wrk_p_patch_g%n_patch_verts)))
 
     DO j = 1, SIZE(tmp)
       tmp(j) = j ! Global/local index in global array, i.e. identity!
@@ -1974,6 +1977,7 @@ CONTAINS
           & wrk_p_patch%verts%cell_blk(jl,jb,i))
       ENDDO
 
+      wrk_p_patch%verts%phys_id(jl,jb)            = wrk_p_patch_g%verts%phys_id(jl_g,jb_g)
       wrk_p_patch%verts%edge_orientation(jl,jb,:) = &
         & wrk_p_patch_g%verts%edge_orientation(jl_g,jb_g,:)
       wrk_p_patch%verts%num_edges(jl,jb)          = wrk_p_patch_g%verts%num_edges(jl_g,jb_g)
@@ -2846,6 +2850,240 @@ CONTAINS
     DEALLOCATE(parent_index, owner, glb_index)
 
   END SUBROUTINE setup_comm_ubc_interpolation
+
+  !-------------------------------------------------------------------------
+  !>
+  !! This routine sets up a the physical patches
+  !! It works on the divided patch state, so it can be used after a restore also
+  !!
+  !! @par Revision History
+  !! Initial version by Rainer Johanni, Nov 2011
+
+  SUBROUTINE setup_phys_patches
+
+    INTEGER :: jp, jg, n, i, j, jb, jl
+    INTEGER, ALLOCATABLE :: glb_phys_id_c(:), glb_phys_id_e(:), glb_phys_id_v(:)
+    INTEGER, ALLOCATABLE :: owner(:), glbidx(:)
+    CHARACTER(LEN=*), PARAMETER :: routine = 'setup_phys_patches'
+
+    p_phys_patch(:)%logical_id = -1
+
+    DO jg = 1, n_dom
+
+      ! Get global arrays for phys_id
+
+      ! Allocate and set to 0
+      ALLOCATE(glb_phys_id_c(p_patch(jg)%n_patch_cells_g))
+      ALLOCATE(glb_phys_id_e(p_patch(jg)%n_patch_edges_g))
+      ALLOCATE(glb_phys_id_v(p_patch(jg)%n_patch_verts_g))
+      glb_phys_id_c(:) = 0
+      glb_phys_id_e(:) = 0
+      glb_phys_id_v(:) = 0
+
+      ! Fill with own values of phys_id
+
+      DO j = 1, p_patch(jg)%n_patch_cells
+        jb = blk_no(j) ! block index
+        jl = idx_no(j) ! line index
+        IF(.NOT.p_patch(jg)%cells%owner_mask(jl,jb)) CYCLE
+        glb_phys_id_c(p_patch(jg)%cells%glb_index(j)) = p_patch(jg)%cells%phys_id(jl,jb)
+      ENDDO
+
+      DO j = 1, p_patch(jg)%n_patch_edges
+        jb = blk_no(j) ! block index
+        jl = idx_no(j) ! line index
+        IF(.NOT.p_patch(jg)%edges%owner_mask(jl,jb)) CYCLE
+        glb_phys_id_e(p_patch(jg)%edges%glb_index(j)) = p_patch(jg)%edges%phys_id(jl,jb)
+      ENDDO
+
+      DO j = 1, p_patch(jg)%n_patch_verts
+        jb = blk_no(j) ! block index
+        jl = idx_no(j) ! line index
+        IF(.NOT.p_patch(jg)%verts%owner_mask(jl,jb)) CYCLE
+        glb_phys_id_v(p_patch(jg)%verts%glb_index(j)) = p_patch(jg)%verts%phys_id(jl,jb)
+      ENDDO
+
+      ! Get global arrays by obtaining the global maximum
+      ! Since p_max works on real valued arrays only, we have to convert to real and back
+
+      glb_phys_id_c = INT( p_max(REAL(glb_phys_id_c,wp), p_comm_work) )
+      glb_phys_id_e = INT( p_max(REAL(glb_phys_id_e,wp), p_comm_work) )
+      glb_phys_id_v = INT( p_max(REAL(glb_phys_id_v,wp), p_comm_work) )
+
+      ! Get the physical patches contained within current patch
+
+      ! Set logical id of p_phys_patch from cells
+
+      DO j = 1, p_patch(jg)%n_patch_cells_g
+        jp = glb_phys_id_c(j)
+        IF(jp<1 .OR. jp>max_phys_dom) THEN
+          WRITE(message_text,'(a,i4,a,i12)') &
+            & 'Patch ',jg,' contains illegal value for cells phys_id: ',jp
+          CALL finish  (routine, TRIM(message_text))
+        ENDIF
+        IF(p_phys_patch(jp)%logical_id < 0) THEN
+          p_phys_patch(jp)%logical_id = jg
+        ELSE
+          ! Check if no other patch uses the same phys_id
+          IF(p_phys_patch(jp)%logical_id /= jg) THEN
+            WRITE(message_text,'(a,i4,a,i12,a,i12)') &
+             & 'Patch ',jg,' contains cells phys_id: ',jp, &
+             & ', already used by patch: ',p_phys_patch(jp)%logical_id
+            CALL finish  (routine, TRIM(message_text))
+          ENDIF
+        ENDIF
+      ENDDO
+
+      ! Make a check for egdes and verts
+
+      DO j = 1, p_patch(jg)%n_patch_edges_g
+        jp = glb_phys_id_e(j)
+        IF(jp<1 .OR. jp>max_phys_dom) THEN
+          WRITE(message_text,'(a,i4,a,i12)') &
+            & 'Patch ',jg,' contains illegal value for edges phys_id: ',jp
+          CALL finish  (routine, TRIM(message_text))
+        ENDIF
+        ! Check if no other patch uses the same phys_id
+        IF(p_phys_patch(jp)%logical_id /= jg) THEN
+          WRITE(message_text,'(a,i4,a,i12,a,i12)') &
+           & 'Patch ',jg,' contains edges phys_id: ',jp, &
+           & ', already used by patch: ',p_phys_patch(jp)%logical_id
+          CALL finish  (routine, TRIM(message_text))
+        ENDIF
+      ENDDO
+
+      DO j = 1, p_patch(jg)%n_patch_verts_g
+        jp = glb_phys_id_v(j)
+        IF(jp<1 .OR. jp>max_phys_dom) THEN
+          WRITE(message_text,'(a,i4,a,i12)') &
+            & 'Patch ',jg,' contains illegal value for verts phys_id: ',jp
+          CALL finish  (routine, TRIM(message_text))
+        ENDIF
+        ! Check if no other patch uses the same phys_id
+        IF(p_phys_patch(jp)%logical_id /= jg) THEN
+          WRITE(message_text,'(a,i4,a,i12,a,i12)') &
+           & 'Patch ',jg,' contains verts phys_id: ',jp, &
+           & ', already used by patch: ',p_phys_patch(jp)%logical_id
+          CALL finish  (routine, TRIM(message_text))
+        ENDIF
+      ENDDO
+
+      ! Set up communication patterns in physical patches
+
+      n = MAX(p_patch(jg)%n_patch_cells_g,p_patch(jg)%n_patch_edges_g,p_patch(jg)%n_patch_verts_g)
+      ALLOCATE(owner (n))
+      ALLOCATE(glbidx(n))
+
+      DO jp = 1, max_phys_dom ! Loop over physical patches
+
+        IF(p_phys_patch(jp)%logical_id /= jg) CYCLE ! do only for physical patches belonging to jg
+
+        ! cells
+
+        n = 0
+        DO i = 1, p_patch(jg)%n_patch_cells_g
+          IF(glb_phys_id_c(i) == jp) THEN
+            n = n+1
+            owner (n) = p_patch(jg)%cells%owner_g(i)
+            glbidx(n) = i
+          ENDIF
+        ENDDO
+
+        p_phys_patch(jp)%n_patch_cells = n
+
+        IF(.NOT.my_process_is_mpi_seq()) THEN
+          IF(p_pe_work == 0) THEN
+            CALL setup_comm_pattern(n, owner, glbidx, &
+              & p_patch(jg)%cells%loc_index, p_phys_patch(jp)%comm_pat_gather_c)
+          ELSE
+            ! We don't want to receive any data, i.e. the number of cells is 0
+            ! and owner/global index are dummies!
+            CALL setup_comm_pattern(0, owner, glbidx, &
+              & p_patch_subdiv(jg)%cells%loc_index, p_phys_patch(jp)%comm_pat_gather_c)
+          ENDIF
+        ENDIF
+
+        ! edges
+
+        n = 0
+        DO i = 1, p_patch(jg)%n_patch_edges_g
+          IF(glb_phys_id_e(i) == jp) THEN
+            n = n+1
+            owner (n) = p_patch(jg)%edges%owner_g(i)
+            glbidx(n) = i
+          ENDIF
+        ENDDO
+
+        p_phys_patch(jp)%n_patch_edges = n
+
+        IF(.NOT.my_process_is_mpi_seq()) THEN
+          IF(p_pe_work == 0) THEN
+            CALL setup_comm_pattern(n, owner, glbidx, &
+              & p_patch(jg)%edges%loc_index, p_phys_patch(jp)%comm_pat_gather_e)
+          ELSE
+            ! We don't want to receive any data, i.e. the number of edges is 0
+            ! and owner/global index are dummies!
+            CALL setup_comm_pattern(0, owner, glbidx, &
+              & p_patch_subdiv(jg)%edges%loc_index, p_phys_patch(jp)%comm_pat_gather_e)
+          ENDIF
+        ENDIF
+
+        ! verts
+
+        n = 0
+        DO i = 1, p_patch(jg)%n_patch_verts_g
+          IF(glb_phys_id_v(i) == jp) THEN
+            n = n+1
+            owner (n) = p_patch(jg)%verts%owner_g(i)
+            glbidx(n) = i
+          ENDIF
+        ENDDO
+
+        p_phys_patch(jp)%n_patch_verts = n
+
+        IF(.NOT.my_process_is_mpi_seq()) THEN
+          IF(p_pe_work == 0) THEN
+            CALL setup_comm_pattern(n, owner, glbidx, &
+              & p_patch(jg)%verts%loc_index, p_phys_patch(jp)%comm_pat_gather_v)
+          ELSE
+            ! We don't want to receive any data, i.e. the number of verts is 0
+            ! and owner/global index are dummies!
+            CALL setup_comm_pattern(0, owner, glbidx, &
+              & p_patch_subdiv(jg)%verts%loc_index, p_phys_patch(jp)%comm_pat_gather_v)
+          ENDIF
+        ENDIF
+
+      ENDDO
+
+      DEALLOCATE(owner)
+      DEALLOCATE(glbidx)
+      DEALLOCATE(glb_phys_id_c)
+      DEALLOCATE(glb_phys_id_e)
+      DEALLOCATE(glb_phys_id_v)
+
+    ENDDO
+
+    ! Get total number of physical patches
+
+    DO jp = max_phys_dom, 1, -1
+      IF(p_phys_patch(jp)%logical_id > 0) EXIT
+    ENDDO
+
+    n_phys_dom = jp
+
+    ! Print info and check if there are no unused physical patches
+
+    DO jp = 1, n_phys_dom
+      WRITE(message_text,'(a,i4,a,i4)') &
+        & 'Physical domain ',jp,' belongs to logical domain ',p_phys_patch(jp)%logical_id
+      CALL message (routine, message_text)
+      IF(p_phys_patch(jp)%logical_id < 0) THEN
+        WRITE(message_text,'(a,i4)') 'Missing physical domain # ',jp
+        CALL finish (routine, message_text)
+      ENDIF
+    ENDDO
+
+  END SUBROUTINE setup_phys_patches
 
   !-------------------------------------------------------------------------
   !>

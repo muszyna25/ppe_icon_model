@@ -100,7 +100,7 @@ MODULE mo_model_domain
 !
 USE mo_kind
 USE mo_math_utilities, ONLY: t_geographical_coordinates, t_cartesian_coordinates
-USE mo_impl_constants, ONLY: max_dom
+USE mo_impl_constants, ONLY: max_dom, max_phys_dom
 USE mo_communication,  ONLY: t_comm_pattern
 USE mo_io_units,       ONLY: filename_max
 
@@ -118,6 +118,7 @@ PUBLIC :: t_patch
 PUBLIC :: t_grid_cells
 PUBLIC :: t_grid_edges
 PUBLIC :: t_grid_vertices
+PUBLIC :: t_phys_patch
 !PUBLIC :: t_patch_ocean
 
 PUBLIC :: t_tangent_vectors
@@ -453,6 +454,11 @@ TYPE t_grid_vertices
   ! index1=1,nproma, index2=1,nblks_v
   INTEGER, ALLOCATABLE :: blk(:,:)
 
+  ! physical domain ID of verts
+  ! (may differ from the "normal" domain ID in case of domain merging):
+  ! index1=1,nproma, index2=1,nblks_v
+  INTEGER, ALLOCATABLE :: phys_id(:,:)
+
   ! line indices of neighbor vertices:
   ! index1=1,nproma, index2=1,nblks_v, index3=1,6
   INTEGER, ALLOCATABLE :: neighbor_idx(:,:,:)
@@ -692,9 +698,36 @@ TYPE t_patch
 
 END TYPE t_patch
 
+! Description of physical patches
+TYPE t_phys_patch
+  !
+  ! domain ID of associated logical domain
+  INTEGER :: logical_id
+  !
+  ! total number of cells, edges and vertices (always global)
+  INTEGER :: n_patch_cells
+  INTEGER :: n_patch_edges
+  INTEGER :: n_patch_verts
+
+  ! Gather the physical patch to proc 0
+  TYPE(t_comm_pattern) :: comm_pat_gather_c
+  TYPE(t_comm_pattern) :: comm_pat_gather_e
+  TYPE(t_comm_pattern) :: comm_pat_gather_v
+
+END TYPE t_phys_patch
+
 TYPE(t_patch), PUBLIC, TARGET, ALLOCATABLE :: p_patch_global(:), p_patch_subdiv(:), &
                                             & p_patch_local_parent(:)
 TYPE(t_patch), PUBLIC, POINTER             :: p_patch(:)
+
+! Please note: There is currently no means of determining the number
+! of physical patches until they are actually assembled
+! since this number is missing in the input file.
+! Therefore p_phys_patch is declared with its maximum size.
+! This shouldn't hurt since since TYPE t_phys_patch is small.
+
+TYPE(t_phys_patch), PUBLIC, TARGET :: p_phys_patch(max_phys_dom)
+
 !--------------------------------------------------------------------
 
 END MODULE mo_model_domain

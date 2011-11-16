@@ -92,7 +92,8 @@ USE mo_model_domain_import, ONLY : get_patch_global_indexes
 USE mo_subdivision,         ONLY: decompose_domain,         &
   & finalize_decomposition,        &
   & copy_processor_splitting,      &
-  & set_patch_communicators
+  & set_patch_communicators,       &
+  & setup_phys_patches
 
 #ifndef NOMPI
 USE mo_subdivision,         ONLY:  npts_local
@@ -438,15 +439,20 @@ CONTAINS
 
       CALL finalize_decomposition()
 
-      ! Print diagnostic information about domain decomposition
-      DO jg = 1, n_dom
-        CALL decomposition_statistics(p_patch(jg))
-      ENDDO
+      IF(.NOT.p_test_run) THEN ! the call below hangs in test mode
+        ! Print diagnostic information about domain decomposition
+        DO jg = 1, n_dom
+          CALL decomposition_statistics(p_patch(jg))
+        ENDDO
+      ENDIF
 
     ENDIF
 
     ! In case of a test run: Copy processor splitting to test PE
     IF(p_test_run) CALL copy_processor_splitting(p_patch)
+
+    ! Setup the information for the physical patches
+    CALL setup_phys_patches
 
     !-------------------------------------------------------------------
     ! 7b. Constructing data for lon-lat interpolation

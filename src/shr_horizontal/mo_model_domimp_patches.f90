@@ -760,6 +760,7 @@ SUBROUTINE allocate_patch(p_patch)
   !
   ALLOCATE( p_patch%verts%idx(nproma,p_patch%nblks_v) )
   ALLOCATE( p_patch%verts%blk(nproma,p_patch%nblks_v) )
+  ALLOCATE( p_patch%verts%phys_id(nproma,p_patch%nblks_v) )
   ALLOCATE( p_patch%verts%neighbor_idx(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
   ALLOCATE( p_patch%verts%neighbor_blk(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
   ALLOCATE( p_patch%verts%cell_idx(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
@@ -878,6 +879,7 @@ SUBROUTINE allocate_patch(p_patch)
 
   p_patch%verts%idx = 0
   p_patch%verts%blk = 0
+  p_patch%verts%phys_id = 0
   p_patch%verts%neighbor_idx = 0
   p_patch%verts%neighbor_blk = 0
   p_patch%verts%cell_idx = 0
@@ -1203,17 +1205,6 @@ ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
                 'child_cell_id incompatible with hexagonal grid')
 ENDIF
 
-! p_patch%cells%phys_id(:,:)
-CALL nf(nf_inq_varid(ncid, 'phys_cell_id', varid))
-IF (global_cell_type == 3) THEN ! triangular grid
-  CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1)))
-  CALL reshape_int( array_c_int(:,1), p_patch%nblks_c, p_patch%npromz_c,  &
-     &               p_patch%cells%phys_id(:,:) )
-ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
-  CALL message ('read_patch',&
-                'phys_cell_id not udes for hexagonal grid')
-ENDIF
-
 ! p_patch%cells%neighbor_idx(:,:,:)
 ! p_patch%cells%neighbor_blk(:,:,:)
 CALL nf(nf_inq_varid(ncid, 'neighbor_cell_index', varid))
@@ -1269,6 +1260,43 @@ ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
        &               p_patch%verts%cell_idx(:,:,ji),  &
        &               p_patch%verts%cell_blk(:,:,ji) )
    END DO
+ENDIF
+
+! p_patch%cells%phys_id(:,:)
+! Please note that this is done AFTER reading 'vertex_of_cell'
+! because p_patch%verts%phys_id(:,:) has to be set here also
+
+CALL nf(nf_inq_varid(ncid, 'phys_cell_id', varid))
+IF (global_cell_type == 3) THEN ! triangular grid
+
+  CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,4)))
+  ! 'phys_cell_id' seems not to be set for patch 0 and 1, it is always ig in this case
+  IF(ig<=1) array_c_int(:,4) = ig
+  CALL reshape_int( array_c_int(:,4), p_patch%nblks_c, p_patch%npromz_c,  &
+     &               p_patch%cells%phys_id(:,:) )
+
+  ! Now get the physical ID of verts. Please note that array_c_int(:,1:3)
+  ! still contains the vertex index of the cells (from above).
+
+  array_v_int(:,1) = -1
+  DO jc = 1, p_patch%n_patch_cells
+    array_v_int(array_c_int(jc,1),1) = array_c_int(jc,4)
+    array_v_int(array_c_int(jc,2),1) = array_c_int(jc,4)
+    array_v_int(array_c_int(jc,3),1) = array_c_int(jc,4)
+  ENDDO
+  IF(ANY(array_v_int(:,1) < 0)) THEN
+    WRITE(message_text,'(a,i4,a)') &
+      & 'Patch ',ig,' contains unused vertices'
+    CALL finish  ('mo_model_domain_import/read_patch', TRIM(message_text))
+  ENDIF
+  CALL reshape_int( array_v_int(:,1), p_patch%nblks_v, p_patch%npromz_v,  &
+     &               p_patch%verts%phys_id(:,:) )
+
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
+  CALL message ('read_patch',&
+                'phys_cell_id not used for hexagonal grid')
+  p_patch%cells%phys_id(:,:) = ig
+  p_patch%verts%phys_id(:,:) = ig
 ENDIF
 
 ! p_patch%cells%edge_orientation(:,:,:)
@@ -1398,6 +1426,8 @@ CALL reshape_int( array_e_int(:,1), p_patch%nblks_e, p_patch%npromz_e,  &
 ! p_patch%edges%phys_id(:,:)
 CALL nf(nf_inq_varid(ncid, 'phys_edge_id', varid))
 CALL nf(nf_get_var_int(ncid, varid, array_e_int(:,1)))
+! 'phys_edge_id' seems not to be set for patch 0 and 1, it is always ig in this case
+IF(ig<=1) array_e_int(:,1) = ig
 CALL reshape_int( array_e_int(:,1), p_patch%nblks_e, p_patch%npromz_e,  &
      &            p_patch%edges%phys_id(:,:) )
 
