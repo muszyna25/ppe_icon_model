@@ -62,7 +62,6 @@ MODULE mo_nwp_lnd_state
 
   USE mo_kind,                 ONLY: wp
   USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH
-!!$ USE mo_dynamics_config,       ONLY: dynamics_config 
   USE mo_parallel_config,      ONLY: nproma
   USE mo_exception,            ONLY: message, finish
   USE mo_model_domain,         ONLY: t_patch
@@ -163,9 +162,6 @@ MODULE mo_nwp_lnd_state
     &  freshsnow(:,:,:)   , & ! indicator for age of snow in top of snow layer(  -  )
     &  runoff_s (:,:,:)   , & ! surface water runoff; sum over forecast      (kg/m2)
     &  runoff_g (:,:,:)   , & ! soil water runoff; sum over forecast         (kg/m2)
-    &  rstom    (:,:)     , & ! stomata resistance                           ( s/m )
-    &  lhfl_bs  (:,:,:)   , & ! average latent heat flux from bare soil evap.( W/m2)
-    &  lhfl_pl  (:,:,:)   , & ! average latent heat flux from plants         ( W/m2)
     &  fr_seaice(:,:)     , & !< fraction of sea ice                         ( )   
                               !< as partition of total area of the
                               !< grid element, but set to 0 or 1
@@ -177,9 +173,6 @@ MODULE mo_nwp_lnd_state
     TYPE(t_ptr_lnd), ALLOCATABLE :: freshsnow_ptr(:)
     TYPE(t_ptr_lnd), ALLOCATABLE :: runoff_s_ptr(:)
     TYPE(t_ptr_lnd), ALLOCATABLE :: runoff_g_ptr(:)
-    TYPE(t_ptr_lnd), ALLOCATABLE :: rstom_ptr(:)
-    TYPE(t_ptr_lnd), ALLOCATABLE :: lhfl_bs_ptr(:)
-    TYPE(t_ptr_lnd), ALLOCATABLE :: lhfl_pl_ptr(:)
     TYPE(t_ptr_lnd), ALLOCATABLE :: subsfrac_ptr(:)
 
   END TYPE t_lnd_diag
@@ -849,15 +842,19 @@ MODULE mo_nwp_lnd_state
     ! & p_diag_lnd%qv_s(nproma,nblks_c)
     cf_desc    = t_cf_var('qv_s', 'kg/kg', 'specific humidity at the surface')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( diag_list, vname_prefix//'qv_s', p_diag_lnd%qv_s,                    &
-           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )    
+    CALL add_var( diag_list, vname_prefix//'qv_s', p_diag_lnd%qv_s,        &
+           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,   &
+           & ldims=shape2d,                                                &
+           & initval_r=0.001_wp )    
 
 
     ! & p_diag_lnd%fr_seaice(nproma,nblks_c)
     cf_desc    = t_cf_var('fr_seaice', '-', 'fraction of sea ice')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( diag_list, vname_prefix//'fr_seaice', p_diag_lnd%fr_seaice,          &
-           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d ) 
+    CALL add_var( diag_list, vname_prefix//'fr_seaice', p_diag_lnd%fr_seaice,  &
+           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,       &
+           & ldims=shape2d,                                                    &
+           & initval_r=0._wp ) 
 
 
 
@@ -868,7 +865,9 @@ MODULE mo_nwp_lnd_state
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'qv_st', p_diag_lnd%qv_st,          &
            & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,       &
-           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
+           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE.,          &
+           & loutput=.FALSE.,                                                  &
+           & initval_r=0.001_wp )
 
     ! fill the seperate variables belonging to the container qv_st
     ALLOCATE(p_diag_lnd%qv_st_ptr(nsfc_subs))
@@ -941,12 +940,12 @@ MODULE mo_nwp_lnd_state
     ALLOCATE(p_diag_lnd%runoff_s_ptr(nsfc_subs))
       DO jsfc = 1,nsfc_subs
         WRITE(csfc,'(i2)') jsfc 
-        CALL add_ref( diag_list, vname_prefix//'runoff_s',                              &
-                 & vname_prefix//'runoff_s_'//ADJUSTL(TRIM(csfc)),                      &
-                 & p_diag_lnd%runoff_s_ptr(jsfc)%p_2d,                                  &
-                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                               &
-                 & t_cf_var('runoff_s_'//csfc, '', ''),                                 &
-                 & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),        &
+        CALL add_ref( diag_list, vname_prefix//'runoff_s',                          &
+                 & vname_prefix//'runoff_s_'//ADJUSTL(TRIM(csfc)),                  &
+                 & p_diag_lnd%runoff_s_ptr(jsfc)%p_2d,                              &
+                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                           &
+                 & t_cf_var('runoff_s_'//csfc, '', ''),                             &
+                 & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),    &
                  & ldims=shape2d )
       END DO
 
@@ -963,75 +962,26 @@ MODULE mo_nwp_lnd_state
     ALLOCATE(p_diag_lnd%runoff_g_ptr(nsfc_subs))
       DO jsfc = 1,nsfc_subs
         WRITE(csfc,'(i2)') jsfc 
-        CALL add_ref( diag_list, vname_prefix//'runoff_g',                              &
-                 & vname_prefix//'runoff_g_'//ADJUSTL(TRIM(csfc)),                      &
-                 & p_diag_lnd%runoff_g_ptr(jsfc)%p_2d,                                  &
-                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                               &
-                 & t_cf_var('runoff_g_'//csfc, '', ''),                                 &
-                 & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),        &
+        CALL add_ref( diag_list, vname_prefix//'runoff_g',                          &
+                 & vname_prefix//'runoff_g_'//ADJUSTL(TRIM(csfc)),                  &
+                 & p_diag_lnd%runoff_g_ptr(jsfc)%p_2d,                              &
+                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                           &
+                 & t_cf_var('runoff_g_'//csfc, '', ''),                             &
+                 & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),    &
                  & ldims=shape2d )
       END DO
-
-
-
-    ! & p_diag_lnd%rstom(nproma,nblks_c)
-    cf_desc    = t_cf_var('rstom', 's/m', 'stomata resistance')
-    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( diag_list, vname_prefix//'rstom', p_diag_lnd%rstom,               &
-           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,            &
-           & ldims=shape2d, loutput=.FALSE. )
-
-
-    ! & p_diag_lnd%lhfl_bs(nproma,nblks_c,nsfc_subs)
-    cf_desc    = t_cf_var('lhfl_bs', 'W/m2', 'average latent heat flux from bare soil evap.')
-    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( diag_list, vname_prefix//'lhfl_bs', p_diag_lnd%lhfl_bs,           &
-           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,            &
-           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
-
-    ! fill the seperate variables belonging to the container lhfl_bs
-    ALLOCATE(p_diag_lnd%lhfl_bs_ptr(nsfc_subs))
-      DO jsfc = 1,nsfc_subs
-        WRITE(csfc,'(i2)') jsfc 
-        CALL add_ref( diag_list, vname_prefix//'lhfl_bs',                          &
-                 & vname_prefix//'lhfl_bs_'//ADJUSTL(TRIM(csfc)),                  &
-                 & p_diag_lnd%lhfl_bs_ptr(jsfc)%p_2d,                              &
-                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                          &
-                 & t_cf_var('lhfl_bs_'//csfc, '', ''),                             &
-                 & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
-                 & ldims=shape2d )
-      END DO
-
-
-
-    ! & p_diag_lnd%lhfl_pl(nproma,nblks_c,nsfc_subs)
-    cf_desc    = t_cf_var('lhfl_pl', 'W/m2', 'average latent heat flux from plants')
-    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( diag_list, vname_prefix//'lhfl_pl', p_diag_lnd%lhfl_pl,           &
-           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,            &
-           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
-
-    ! fill the seperate variables belonging to the container lhfl_pl
-    ALLOCATE(p_diag_lnd%lhfl_pl_ptr(nsfc_subs))
-      DO jsfc = 1,nsfc_subs
-        WRITE(csfc,'(i2)') jsfc 
-        CALL add_ref( diag_list, vname_prefix//'lhfl_pl',                          &
-                 & vname_prefix//'lhfl_pl_'//ADJUSTL(TRIM(csfc)),                  &
-                 & p_diag_lnd%lhfl_pl_ptr(jsfc)%p_2d,                              &
-                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                          &
-                 & t_cf_var('lhfl_pl_'//csfc, '', ''),                             &
-                 & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
-                 & ldims=shape2d )
-      END DO
-
 
 
     ! & p_prog_lnd%subsfrac(nproma,nblks_c,nsfc_subs)
     cf_desc    = t_cf_var('subsfrac', '-', 'subscale fraction')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( diag_list, vname_prefix//'subsfrac', p_diag_lnd%subsfrac,         &
-           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,            &
-           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
+    CALL add_var( diag_list, vname_prefix//'subsfrac', p_diag_lnd%subsfrac,        &
+           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,           &
+           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE.,              &
+           & loutput=.FALSE.,                                                      &
+           & initval_r=1._wp )
+
+
 
     ! fill the seperate variables belonging to the container subsfrac
     ALLOCATE(p_diag_lnd%subsfrac_ptr(nsfc_subs))
@@ -1055,6 +1005,7 @@ MODULE mo_nwp_lnd_state
 
     p_diag_lnd%qv_s(:,:)        = 0.001_wp
     p_diag_lnd%fr_seaice(:,:)   = 0._wp
+
 
   END SUBROUTINE  new_nwp_lnd_diag_list
 
