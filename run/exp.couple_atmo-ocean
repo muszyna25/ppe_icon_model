@@ -2,7 +2,7 @@
 #
 # Test experiment, running the coupled aquaplanet experiments
 #
-# Current setting: couple_atmo-ocean_ape_2_0, r7210
+# Current setting: couple_atmo-ocean_ape_2_0, r7220
 #
 #=============================================================================
 # This section of the run script defines the experiment.
@@ -147,7 +147,7 @@ cat > $atmo_namelist << EOF
   name                = 'OCEANU'
   time_step           =  ${dtime}
   frequency           =  ${dt_coupling}
-  l_time_average      = .TRUE.
+  l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .TRUE.
   l_activated         = .TRUE.
@@ -156,7 +156,7 @@ cat > $atmo_namelist << EOF
   name                = 'OCEANV'
   time_step           =  ${dtime}
   frequency           =  ${dt_coupling}
-  l_time_average      = .TRUE.
+  l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .TRUE.
   l_activated         = .TRUE.
@@ -336,7 +336,7 @@ cat > ${ocean_namelist} << EOF
   name                = 'THFLX'
   time_step           =  ${dtime}
   frequency           =  ${dt_coupling}
-  l_time_average      = .TRUE.
+  l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .TRUE.
   l_activated         = .TRUE.
