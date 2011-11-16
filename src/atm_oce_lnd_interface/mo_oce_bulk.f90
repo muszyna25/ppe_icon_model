@@ -430,26 +430,6 @@ CONTAINS
       CALL finish(TRIM(ROUTINE),' irelax_2d_S=2 (reading from flux file) not yet implemented')
 
     END IF
-     
-    DO jb = i_startblk_c, i_endblk_c
-      CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c,  &
-        &                i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
-      DO jc = i_startidx_c, i_endidx_c
-        IF(v_base%lsm_oce_c(jc,1,jb) <= sea_boundary)THEN
-          CALL gvec2cvec(  p_sfc_flx%forc_wind_u(jc,jb),&
-                         & p_sfc_flx%forc_wind_v(jc,jb),&
-                         & p_patch%cells%center(jc,jb)%lon,&
-                         & p_patch%cells%center(jc,jb)%lat,&
-                         & p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
-                         & p_sfc_flx%forc_wind_cc(jc,jb)%x(2),&
-                         & p_sfc_flx%forc_wind_cc(jc,jb)%x(3))
-        ELSE
-          p_sfc_flx%forc_wind_u(jc,jb)         = 0.0_wp
-          p_sfc_flx%forc_wind_v(jc,jb)         = 0.0_wp
-          p_sfc_flx%forc_wind_cc(jc,jb)%x      = 0.0_wp
-        ENDIF
-      END DO
-    END DO
 
     ipl_src=3  ! output print level (1-5, fix)
     IF (i_dbg_oce >= ipl_src) THEN
@@ -656,12 +636,43 @@ CONTAINS
 
   END SELECT
 
+  !
+  ! After final updating of zonal and merdional components (from file, bulk formula, or coupling)
+  ! cartesian coordinates are calculated here
+  !
   IF (iforc_oce > NO_FORCING) THEN
+     
+    DO jb = i_startblk_c, i_endblk_c
+      CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c,  &
+        &                i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
+      DO jc = i_startidx_c, i_endidx_c
+        IF(v_base%lsm_oce_c(jc,1,jb) <= sea_boundary)THEN
+          CALL gvec2cvec(  p_sfc_flx%forc_wind_u(jc,jb),&
+                         & p_sfc_flx%forc_wind_v(jc,jb),&
+                         & p_patch%cells%center(jc,jb)%lon,&
+                         & p_patch%cells%center(jc,jb)%lat,&
+                         & p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
+                         & p_sfc_flx%forc_wind_cc(jc,jb)%x(2),&
+                         & p_sfc_flx%forc_wind_cc(jc,jb)%x(3))
+        ELSE
+          p_sfc_flx%forc_wind_u(jc,jb)         = 0.0_wp
+          p_sfc_flx%forc_wind_v(jc,jb)         = 0.0_wp
+          p_sfc_flx%forc_wind_cc(jc,jb)%x      = 0.0_wp
+        ENDIF
+      END DO
+    END DO
+
     ipl_src=1  ! output print level (1-5, fix)
     z_c(:,1,:)=p_sfc_flx%forc_wind_u(:,:)
     CALL print_mxmn('update forcing u',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
     z_c(:,1,:)=p_sfc_flx%forc_wind_v(:,:)
     CALL print_mxmn('update forcing v',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+    ipl_src=1  ! output print level (1-5, fix)
+    z_c(:,1,:)=p_sfc_flx%forc_wind_cc(:,:)%x(1)
+    CALL print_mxmn('update forc-cc1',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+    z_c(:,1,:)=p_sfc_flx%forc_wind_cc(:,:)%x(2)
+    CALL print_mxmn('update forc-cc2',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+
   END IF
 
   ! Memory fault?
