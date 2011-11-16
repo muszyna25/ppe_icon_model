@@ -403,8 +403,8 @@ END SUBROUTINE hydci_pp_init
 !------------------------------------------------------------------------------
 
 SUBROUTINE hydci_pp(                 &
-  ie,je,ke,                          & !> array dimensions
-  istart,iend,jstart,jend,kstart,    & !! optional start/end indicies
+  ie,ke,                             & !> array dimensions
+  istart,iend,kstart,                & !! optional start/end indicies
   idbg,                              & !! optional debug level
   l_cv,                              &
   dz,zdt,                            & !! numerics parameters
@@ -452,14 +452,11 @@ SUBROUTINE hydci_pp(                 &
 
   INTEGER, INTENT(IN) ::  &
     ie              ,    & !> number of grid points in first (zonal) direction
-    je              ,    & !! number of grid points in second (meridional) direction
     ke                     !! number of grid points in vertical direction
 
   INTEGER, INTENT(IN), OPTIONAL ::  &
     istart    ,    & !> optional start index for computations in the parallel program
     iend      ,    & !! optional end index for computations in the parallel program
-    jstart    ,    & !! optional start index for computations in the parallel program
-    jend      ,    & !! optional end index for computations in the parallel program
     kstart    ,    & !! optional start index for the vertical index
     idbg             !! optional debug level
 
@@ -470,7 +467,7 @@ SUBROUTINE hydci_pp(                 &
     qi0,qc0          !> cloud ice/water threshold for autoconversion
 #endif
 
-  REAL(KIND=ireals), DIMENSION(ie,je,ke), INTENT(IN) ::      &
+  REAL(KIND=ireals), DIMENSION(ie,ke), INTENT(IN) ::      &
     dz              ,    & !> layer thickness of full levels                (  m  )
     rho             ,    & !! density of moist air                          (kg/m3)
     p                      !! pressure                                      ( Pa  )
@@ -478,7 +475,7 @@ SUBROUTINE hydci_pp(                 &
   LOGICAL, INTENT(IN), OPTIONAL :: &
     l_cv                   !! if true, cv is used instead of cp
 
-  REAL(KIND=ireals), DIMENSION(ie,je,ke), INTENT(INOUT) ::   &
+  REAL(KIND=ireals), DIMENSION(ie,ke), INTENT(INOUT) ::   &
     t               ,    & !> temperature                                   (  K  )
     qv              ,    & !! specific water vapor content                  (kg/kg)
     qc              ,    & !! specific cloud water content                  (kg/kg)
@@ -486,11 +483,11 @@ SUBROUTINE hydci_pp(                 &
     qr              ,    & !! specific rain content                         (kg/kg)
     qs                     !! specific snow content                         (kg/kg)
 
-  REAL(KIND=ireals), DIMENSION(ie,je), INTENT(INOUT) ::   &
+  REAL(KIND=ireals), DIMENSION(ie), INTENT(INOUT) ::   &
     prr_gsp,             & !> precipitation rate of rain, grid-scale        (kg/(m2*s))
     prs_gsp                !! precipitation rate of snow, grid-scale        (kg/(m2*s))
 
-  REAL(KIND=ireals), DIMENSION(ie,je,ke), INTENT(OUT), OPTIONAL ::   &
+  REAL(KIND=ireals), DIMENSION(ie,ke), INTENT(OUT), OPTIONAL ::   &
     ddt_tend_t      , & !> tendency T                                       ( 1/s )
     ddt_tend_qv     , & !! tendency qv                                      ( 1/s )
     ddt_tend_qc     , & !! tendency qc                                      ( 1/s )
@@ -498,7 +495,7 @@ SUBROUTINE hydci_pp(                 &
     ddt_tend_qr     , & !! tendency qr                                      ( 1/s )
     ddt_tend_qs         !! tendency qs                                      ( 1/s )
 
-  REAL(KIND=ireals), DIMENSION(ie,je,ke), INTENT(OUT), OPTIONAL ::   &
+  REAL(KIND=ireals), DIMENSION(ie,ke), INTENT(OUT), OPTIONAL ::   &
     ddt_diag_au     , & !> optional output autoconversion rate cloud to rain           ( 1/s )
     ddt_diag_ac     , & !! optional output accretion rate cloud to rain                ( 1/s )
     ddt_diag_ev     , & !! optional output evaporation of rain                         ( 1/s )
@@ -525,7 +522,7 @@ SUBROUTINE hydci_pp(                 &
 !! -------------
 
   INTEGER (KIND=iintegers) ::  &
-    k, i, j             !> loop indees
+    k, i             !> loop indees
 
   REAL    (KIND=ireals   ) :: nnr
 
@@ -555,12 +552,10 @@ SUBROUTINE hydci_pp(                 &
   INTEGER ::  &
     istartpar    ,    & !> start index for computations in the parallel program
     iendpar      ,    & !! end index for computations in the parallel program
-    jstartpar    ,    & !! start index for computations in the parallel program
-    jendpar      ,    & !! end index for computations in the parallel program
     k_start      ,    & !! model level where computations start
     izdebug             !! debug level
 
-  REAL(KIND=ireals), DIMENSION(ie,je,ke) ::   &
+  REAL(KIND=ireals), DIMENSION(ie,ke) ::   &
     t_in               ,    & !> temperature                                   (  K  )
     qv_in              ,    & !! specific water vapor content                  (kg/kg)
     qc_in              ,    & !! specific cloud water content                  (kg/kg)
@@ -590,71 +585,71 @@ SUBROUTINE hydci_pp(                 &
 !! -------------------------
 #ifdef __COSMO__
   REAL    (KIND=ireals   ) ::  &
-    zpres       (ie,je)        !! pressure
+    zpres       (ie)        !! pressure
 #endif
 
   REAL    (KIND=ireals   ) ::  &
-    zqvsi       (ie,je),     & !> sat. specitic humidity at ice and water saturation
-    zvzr        (ie,je),     & !!
-    zvzs        (ie,je),     & !!
-    zpkr        (ie,je),     & !!
-    zpks        (ie,je),     & !!
-    zprvr       (ie,je),     & !!
-    zprvs       (ie,je),     & !!
-    zdummy      (ie,je,8),   & !!
-    zcsdep      (ie,je),     & !!
-    zcidep      (ie,je),     & !!
-    zvz0s       (ie,je),     & !!
-    zcrim       (ie,je),     & !!
-    zcagg       (ie,je),     & !!
-    zbsdep      (ie,je),     & !!
-    zcslam      (ie,je),     & !!
-    zn0s        (ie,je),     & !!
-    zimr        (ie,je),     & !!
-    zims        (ie,je),     & !!
-    zzar        (ie,je),     & !!
-    zzas        (ie,je),     & !!
-    zqrk        (ie,je),     & !!
-    zqsk        (ie,je),     & !!
-    zdtdh       (ie,je),     & !!
-    z1orhog     (ie,je),     & !! 1/rhog
-    zrho1o2     (ie,je),     & !! (rho0/rhog)**1/2
-    zeln7o8qrk  (ie,je),     & !!
-    zeln27o16qrk(ie,je),     & !!
-    zeln13o8qrk (ie,je),     & !!
-    zeln3o16qrk (ie,je),     & !!
-    zeln13o12qsk(ie,je),     & !!
-    zeln5o24qsk (ie,je),     & !!
-    zeln2o3qsk  (ie,je)        !!
+    zqvsi       (ie),     & !> sat. specitic humidity at ice and water saturation
+    zvzr        (ie),     & !!
+    zvzs        (ie),     & !!
+    zpkr        (ie),     & !!
+    zpks        (ie),     & !!
+    zprvr       (ie),     & !!
+    zprvs       (ie),     & !!
+    zdummy      (ie,8),   & !!
+    zcsdep      (ie),     & !!
+    zcidep      (ie),     & !!
+    zvz0s       (ie),     & !!
+    zcrim       (ie),     & !!
+    zcagg       (ie),     & !!
+    zbsdep      (ie),     & !!
+    zcslam      (ie),     & !!
+    zn0s        (ie),     & !!
+    zimr        (ie),     & !!
+    zims        (ie),     & !!
+    zzar        (ie),     & !!
+    zzas        (ie),     & !!
+    zqrk        (ie),     & !!
+    zqsk        (ie),     & !!
+    zdtdh       (ie),     & !!
+    z1orhog     (ie),     & !! 1/rhog
+    zrho1o2     (ie),     & !! (rho0/rhog)**1/2
+    zeln7o8qrk  (ie),     & !!
+    zeln27o16qrk(ie),     & !!
+    zeln13o8qrk (ie),     & !!
+    zeln3o16qrk (ie),     & !!
+    zeln13o12qsk(ie),     & !!
+    zeln5o24qsk (ie),     & !!
+    zeln2o3qsk  (ie)        !!
 
   REAL    (KIND=ireals   ) ::  &
-    scau   (ie,je), & !> transfer rate due to autoconversion of cloud water
-    scac   (ie,je), & !! transfer rate due to accretion of cloud water
-    snuc   (ie,je), & !! transfer rate due nucleation of cloud ice
-    scfrz  (ie,je), & !! transfer rate due homogeneous freezing of cloud water
-    simelt (ie,je), & !! transfer rate due melting of cloud ice
-    sidep  (ie,je), & !! transfer rate due depositional growth of cloud ice
-    ssdep  (ie,je), & !! transfer rate due depositional growth of snow
-    sdau   (ie,je), & !! transfer rate due depositional cloud ice autoconversion
-    srim   (ie,je), & !! transfer rate due riming of snow
-    sshed  (ie,je), & !! transfer rate due shedding
-    sicri  (ie,je), & !! transfer rate due cloud ice collection by rain (sink qi)
-    srcri  (ie,je), & !! transfer rate due cloud ice collection by rain (sink qr)
-    sagg   (ie,je), & !! transfer rate due aggregation of snow and cloud ice
-    siau   (ie,je), & !! transfer rate due autoconversion of cloud ice
-    ssmelt (ie,je), & !! transfer rate due melting of snow
-    sev    (ie,je), & !! transfer rate due evaporation of rain
-    srfrz  (ie,je)    !! transfer rate due to rainwater freezing
+    scau   (ie), & !> transfer rate due to autoconversion of cloud water
+    scac   (ie), & !! transfer rate due to accretion of cloud water
+    snuc   (ie), & !! transfer rate due nucleation of cloud ice
+    scfrz  (ie), & !! transfer rate due homogeneous freezing of cloud water
+    simelt (ie), & !! transfer rate due melting of cloud ice
+    sidep  (ie), & !! transfer rate due depositional growth of cloud ice
+    ssdep  (ie), & !! transfer rate due depositional growth of snow
+    sdau   (ie), & !! transfer rate due depositional cloud ice autoconversion
+    srim   (ie), & !! transfer rate due riming of snow
+    sshed  (ie), & !! transfer rate due shedding
+    sicri  (ie), & !! transfer rate due cloud ice collection by rain (sink qi)
+    srcri  (ie), & !! transfer rate due cloud ice collection by rain (sink qr)
+    sagg   (ie), & !! transfer rate due aggregation of snow and cloud ice
+    siau   (ie), & !! transfer rate due autoconversion of cloud ice
+    ssmelt (ie), & !! transfer rate due melting of snow
+    sev    (ie), & !! transfer rate due evaporation of rain
+    srfrz  (ie)    !! transfer rate due to rainwater freezing
 
 
   !> Integer arrays for a better vectorization
   INTEGER (KIND=iintegers) ::  &
-    idx1(ie*je),       jdx1(ie*je),   & !!
-    idx2(ie*je),       jdx2(ie*je),   & !!
-    idx3(ie*je),       jdx3(ie*je),   & !!
-    idx4(ie*je),       jdx4(ie*je),   & !!
-    idx5(ie*je),       jdx5(ie*je),   & !!
-    idx6(ie*je),       jdx6(ie*je)      !!
+    idx1(ie),   & !!
+    idx2(ie),   & !!
+    idx3(ie),   & !!
+    idx4(ie),   & !!
+    idx5(ie),   & !!
+    idx6(ie)
 
   !> Dimensions and loop counter for storing the indices
   INTEGER (KIND=iintegers) ::  &
@@ -703,17 +698,16 @@ SUBROUTINE hydci_pp(                 &
 #endif
 
 !! Delete precipitation fluxes from previous timestep
-!CDIR BEGIN COLLAPSE
-  prr_gsp (:,:) = 0.0_ireals
-  prs_gsp (:,:) = 0.0_ireals
-  zpkr    (:,:) = 0.0_ireals
-  zpks    (:,:) = 0.0_ireals
-  zprvr   (:,:) = 0.0_ireals
-  zprvs   (:,:) = 0.0_ireals
-  zvzr    (:,:) = 0.0_ireals
-  zvzs    (:,:) = 0.0_ireals
-  zdummy(:,:,:) = 0.0_ireals
-!CDIR END
+  prr_gsp (:) = 0.0_ireals
+  prs_gsp (:) = 0.0_ireals
+  zpkr    (:) = 0.0_ireals
+  zpks    (:) = 0.0_ireals
+  zprvr   (:) = 0.0_ireals
+  zprvs   (:) = 0.0_ireals
+  zvzr    (:) = 0.0_ireals
+  zvzs    (:) = 0.0_ireals
+!CDIR COLLAPSE
+  zdummy(:,:) = 0.0_ireals
 
 ! Optional arguments
 
@@ -735,16 +729,6 @@ SUBROUTINE hydci_pp(                 &
     iendpar = iend
   ELSE
     iendpar = ie
-  END IF
-  IF (PRESENT(jstart)) THEN
-    jstartpar = jstart
-  ELSE
-    jstartpar = 1
-  END IF
-  IF (PRESENT(jend)) THEN
-    jendpar = jend
-  ELSE
-    jendpar = je
   END IF
   IF (PRESENT(kstart)) THEN
     k_start = kstart
@@ -774,12 +758,9 @@ SUBROUTINE hydci_pp(                 &
   ENDIF
   IF (izdebug > 20) THEN
     WRITE (message_text,*) '   ie = ',ie ; CALL message('',message_text)
-    WRITE (message_text,*) '   je = ',je ; CALL message('',message_text)
     WRITE (message_text,*) '   ke = ',ke ; CALL message('',message_text)
     WRITE (message_text,*) '   istartpar = ',istartpar ; CALL message('',message_text)
     WRITE (message_text,*) '   iendpar   = ',iendpar   ; CALL message('',message_text)
-    WRITE (message_text,*) '   jstartpar = ',jstartpar ; CALL message('',message_text)
-    WRITE (message_text,*) '   jendpar   = ',jendpar   ; CALL message('',message_text)
   END IF
   IF (izdebug > 50) THEN
     WRITE (message_text,'(A,2E10.3)') '      MAX/MIN dz  = ',MAXVAL(dz),MINVAL(dz)
@@ -815,7 +796,7 @@ SUBROUTINE hydci_pp(                 &
 #ifdef __COSMO__
     IF ( ldiabf_lh ) THEN
       ! initialize temperature increment due to latent heat
-      tinc_lh(:,:,k) = tinc_lh(:,:,k) - t(:,:,k)
+      tinc_lh(:,k) = tinc_lh(:,k) - t(:,k)
     ENDIF
 #endif
 
@@ -824,79 +805,66 @@ SUBROUTINE hydci_pp(                 &
   !            Initialize microphysics and sedimentation scheme
   !----------------------------------------------------------------------------
 
-!CDIR BEGIN COLLAPSE
-    zcrim (:,:) = 0.0_ireals
-    zcagg (:,:) = 0.0_ireals
-    zbsdep(:,:) = 0.0_ireals
-    zvz0s (:,:) = 0.0_ireals
-    zn0s  (:,:) = zn0s0
-!CDIR END
+    zcrim (:) = 0.0_ireals
+    zcagg (:) = 0.0_ireals
+    zbsdep(:) = 0.0_ireals
+    zvz0s (:) = 0.0_ireals
+    zn0s  (:) = zn0s0
 
     ic1 = 0
     ic2 = 0
 
-    DO j = jstartpar, jendpar
-      DO i = istartpar, iendpar
+    DO i = istartpar, iendpar
 
-        qrg = qr(i,j,k)
-        qsg = qs(i,j,k)
-        qvg = qv(i,j,k)
-        qcg = qc(i,j,k)
-        qig = qi(i,j,k)
-        tg  = t(i,j,k)
-        ppg = p(i,j,k)
-        rhog = rho(i,j,k)
+      qrg = qr(i,k)
+      qsg = qs(i,k)
+      qvg = qv(i,k)
+      qcg = qc(i,k)
+      qig = qi(i,k)
+      tg  = t(i,k)
+      rhog = rho(i,k)
 
-        !..for density correction of fall speeds
-        z1orhog(i,j) = 1.0_ireals/rhog
-        zrho1o2(i,j) = EXP(LOG(zrho0*z1orhog(i,j))*x1o2)
+      !..for density correction of fall speeds
+      z1orhog(i) = 1.0_ireals/rhog
+      zrho1o2(i) = EXP(LOG(zrho0*z1orhog(i))*x1o2)
 
-        zqrk(i,j) = qrg * rhog
-        zqsk(i,j) = qsg * rhog
+      zqrk(i) = qrg * rhog
+      zqsk(i) = qsg * rhog
 
-        llqr = zqrk(i,j) > zqmin
-        llqs = zqsk(i,j) > zqmin
+      llqr = zqrk(i) > zqmin
+      llqs = zqsk(i) > zqmin
 
-        zdtdh(i,j) = 0.5_ireals * zdt / dz(i,j,k)
+      zdtdh(i) = 0.5_ireals * zdt / dz(i,k)
 
-        zzar(i,j)   = zqrk(i,j)/zdtdh(i,j) + zprvr(i,j) + zpkr(i,j)
-        zzas(i,j)   = zqsk(i,j)/zdtdh(i,j) + zprvs(i,j) + zpks(i,j)
+      zzar(i)   = zqrk(i)/zdtdh(i) + zprvr(i) + zpkr(i)
+      zzas(i)   = zqsk(i)/zdtdh(i) + zprvs(i) + zpks(i)
 
-        IF (llqs) THEN
-          ic1 = ic1 + 1
-          idx1(ic1) = i
-          jdx1(ic1) = j
-        ENDIF
-        IF (llqr) THEN
-          ic2 = ic2 + 1
-          idx2(ic2) = i
-          jdx2(ic2) = j
-        ENDIF
-      ENDDO
+      IF (llqs) THEN
+        ic1 = ic1 + 1
+        idx1(ic1) = i
+      ENDIF
+      IF (llqr) THEN
+        ic2 = ic2 + 1
+        idx2(ic2) = i
+      ENDIF
     ENDDO
 
-#ifdef __ICON__
-    ! j is always 1 in ICON
-    j = 1
-#endif
 
 !CDIR NODEP,VOVERTAKE,VOB
     loop_over_qs_prepare: DO i1d = 1, ic1
       i = idx1(i1d)
-#ifndef __ICON__
-      j = jdx1(i1d)
-#endif
-      qsg = qs(i,j,k)
-      tg  = t(i,j,k)
+
+      qsg = qs(i,k)
+      tg  = t(i,k)
 
       IF (isnow_n0temp == 1) THEN
         ! Calculate n0s using the temperature-dependent
         ! formula of Field et al. (2005)
         ztc = tg - t0
         ztc = MAX(MIN(ztc,0.0_ireals),-40.0_ireals)
-        zn0s(i,j) = zn0s1*EXP(zn0s2*ztc)
-        zn0s(i,j) = MIN(zn0s(i,j),1e9_ireals)
-        zn0s(i,j) = MAX(zn0s(i,j),1e6_ireals)
+        zn0s(i) = zn0s1*EXP(zn0s2*ztc)
+        zn0s(i) = MIN(zn0s(i),1e9_ireals)
+        zn0s(i) = MAX(zn0s(i),1e6_ireals)
       ELSEIF (isnow_n0temp == 2) THEN
         ! Calculate n0s using the temperature-dependent moment
         ! relations of Field et al. (2005)
@@ -911,37 +879,35 @@ SUBROUTINE hydci_pp(                 &
         bet = mmb(1) + mmb(2)*ztc + mmb(3)*nnr + mmb(4)*ztc*nnr &
           & + mmb(5)*ztc**2 + mmb(6)*nnr**2 + mmb(7)*ztc**2*nnr &
           & + mmb(8)*ztc*nnr**2 + mmb(9)*ztc**3 + mmb(10)*nnr**3
-        m2s = qsg * rho(i,j,k) / zams
+        m2s = qsg * rho(i,k) / zams
         m3s = alf*EXP(bet*LOG(m2s))
 
         hlp  = zn0s1*EXP(zn0s2*ztc)
-        zn0s(i,j) = 13.50_ireals * m2s**4 / m3s**3
-        zn0s(i,j) = MAX(zn0s(i,j),0.5_ireals*hlp)
-        zn0s(i,j) = MIN(zn0s(i,j),1e2_ireals*hlp)
-        zn0s(i,j) = MIN(zn0s(i,j),1e9_ireals)
-        zn0s(i,j) = MAX(zn0s(i,j),1e6_ireals)
+        zn0s(i) = 13.50_ireals * m2s**4 / m3s**3
+        zn0s(i) = MAX(zn0s(i),0.5_ireals*hlp)
+        zn0s(i) = MIN(zn0s(i),1e2_ireals*hlp)
+        zn0s(i) = MIN(zn0s(i),1e9_ireals)
+        zn0s(i) = MAX(zn0s(i),1e6_ireals)
       ELSE
         ! Old constant n0s
-        zn0s(i,j) = 8.0e5_ireals
+        zn0s(i) = 8.0e5_ireals
       ENDIF
-      zcrim (i,j) = ccsrim*zn0s(i,j)
-      zcagg (i,j) = ccsagg*zn0s(i,j)
-      zbsdep(i,j) = ccsdep*SQRT(v0snow)
-      zvz0s (i,j) = ccsvel*EXP(ccsvxp * LOG(zn0s(i,j)))
+      zcrim (i) = ccsrim*zn0s(i)
+      zcagg (i) = ccsagg*zn0s(i)
+      zbsdep(i) = ccsdep*SQRT(v0snow)
+      zvz0s (i) = ccsvel*EXP(ccsvxp * LOG(zn0s(i)))
 
-      IF (zvzs(i,j) == 0.0_ireals) THEN
-        zvzs(i,j) = zvz0s(i,j) * EXP (ccswxp * LOG (0.5_ireals*zqsk(i,j))) * zrho1o2(i,j)
+      IF (zvzs(i) == 0.0_ireals) THEN
+        zvzs(i) = zvz0s(i) * EXP (ccswxp * LOG (0.5_ireals*zqsk(i))) * zrho1o2(i)
       ENDIF
     ENDDO loop_over_qs_prepare
 
 !CDIR NODEP,VOVERTAKE,VOB
     loop_over_qr_sedi: DO i1d = 1, ic2
       i = idx2(i1d)
-#ifndef __ICON__
-      j = jdx2(i1d)
-#endif
-      IF (zvzr(i,j) == 0.0_ireals) THEN
-        zvzr(i,j) = zvz0r * EXP (x1o8  * LOG (0.5_ireals*zqrk(i,j))) * zrho1o2(i,j)
+
+      IF (zvzr(i) == 0.0_ireals) THEN
+        zvzr(i) = zvz0r * EXP (x1o8  * LOG (0.5_ireals*zqrk(i))) * zrho1o2(i)
       ENDIF
     ENDDO loop_over_qr_sedi
 
@@ -949,36 +915,34 @@ SUBROUTINE hydci_pp(                 &
   ! Section 3:
   !----------------------------------------------------------------------------
 
-!CDIR BEGIN COLLAPSE
-    zeln7o8qrk   (:,:) = 0.0_ireals
-    zeln27o16qrk (:,:) = 0.0_ireals
-    zeln13o8qrk  (:,:) = 0.0_ireals
-    zeln3o16qrk  (:,:) = 0.0_ireals
-    zeln13o12qsk (:,:) = 0.0_ireals
-    zeln5o24qsk  (:,:) = 0.0_ireals
-    zeln2o3qsk   (:,:) = 0.0_ireals
-    zcsdep       (:,:) = 3.2E-2_ireals
-    zcidep       (:,:) = 1.3E-5_ireals
-    zcslam       (:,:) = 1e10_ireals
+    zeln7o8qrk   (:) = 0.0_ireals
+    zeln27o16qrk (:) = 0.0_ireals
+    zeln13o8qrk  (:) = 0.0_ireals
+    zeln3o16qrk  (:) = 0.0_ireals
+    zeln13o12qsk (:) = 0.0_ireals
+    zeln5o24qsk  (:) = 0.0_ireals
+    zeln2o3qsk   (:) = 0.0_ireals
+    zcsdep       (:) = 3.2E-2_ireals
+    zcidep       (:) = 1.3E-5_ireals
+    zcslam       (:) = 1e10_ireals
 
-    scau         (:,:) = 0.0_ireals
-    scac         (:,:) = 0.0_ireals
-    snuc         (:,:) = 0.0_ireals
-    scfrz        (:,:) = 0.0_ireals
-    simelt       (:,:) = 0.0_ireals
-    sidep        (:,:) = 0.0_ireals
-    ssdep        (:,:) = 0.0_ireals
-    sdau         (:,:) = 0.0_ireals
-    srim         (:,:) = 0.0_ireals
-    sshed        (:,:) = 0.0_ireals
-    sicri        (:,:) = 0.0_ireals
-    srcri        (:,:) = 0.0_ireals
-    sagg         (:,:) = 0.0_ireals
-    siau         (:,:) = 0.0_ireals
-    ssmelt       (:,:) = 0.0_ireals
-    sev          (:,:) = 0.0_ireals
-    srfrz        (:,:) = 0.0_ireals
-!CDIR END
+    scau         (:) = 0.0_ireals
+    scac         (:) = 0.0_ireals
+    snuc         (:) = 0.0_ireals
+    scfrz        (:) = 0.0_ireals
+    simelt       (:) = 0.0_ireals
+    sidep        (:) = 0.0_ireals
+    ssdep        (:) = 0.0_ireals
+    sdau         (:) = 0.0_ireals
+    srim         (:) = 0.0_ireals
+    sshed        (:) = 0.0_ireals
+    sicri        (:) = 0.0_ireals
+    srcri        (:) = 0.0_ireals
+    sagg         (:) = 0.0_ireals
+    siau         (:) = 0.0_ireals
+    ssmelt       (:) = 0.0_ireals
+    sev          (:) = 0.0_ireals
+    srfrz        (:) = 0.0_ireals
 
     ic1 = 0
     ic2 = 0
@@ -986,116 +950,100 @@ SUBROUTINE hydci_pp(                 &
     ic4 = 0
     ic5 = 0
     ic6 = 0
-    DO j = jstartpar, jendpar
-      DO i = istartpar, iendpar
+    DO i = istartpar, iendpar
 
-        qrg  = qr(i,j,k)
-        qsg  = qs(i,j,k)
-        qvg  = qv(i,j,k)
-        qcg  = qc(i,j,k)
-        qig  = qi(i,j,k)
-        tg   =  t(i,j,k)
-        ppg  =  p(i,j,k)
-        rhog = rho(i,j,k)
+      qrg  = qr(i,k)
+      qsg  = qs(i,k)
+      qvg  = qv(i,k)
+      qcg  = qc(i,k)
+      qig  = qi(i,k)
+      tg   =  t(i,k)
+      rhog = rho(i,k)
 
-!        zqvsi(i,j) = spec_humi( sat_pres_ice(tg), ppg )
-        zqvsi(i,j) = sat_pres_ice(tg)/(rhog * r_v * tg)
+      zqvsi(i) = sat_pres_ice(tg)/(rhog * r_v * tg)
 
-        llqr = zqrk(i,j) > zqmin
-        llqs = zqsk(i,j) > zqmin
+      llqr = zqrk(i) > zqmin
+      llqs = zqsk(i) > zqmin
 
-        IF (llqr) THEN
-          zpkr(i,j) = zqrk(i,j) * zvz0r * EXP (x1o8  * LOG (zqrk(i,j))) * zrho1o2(i,j)
-        ELSE
-          zpkr(i,j) = 0.0_ireals
-        ENDIF
+      IF (llqr) THEN
+        zpkr(i) = zqrk(i) * zvz0r * EXP (x1o8  * LOG (zqrk(i))) * zrho1o2(i)
+      ELSE
+        zpkr(i) = 0.0_ireals
+      ENDIF
 
-        IF (llqs) THEN
-          zpks(i,j) = zqsk (i,j) * zvz0s(i,j) * EXP (ccswxp * LOG (zqsk(i,j))) * zrho1o2(i,j)
-        ELSE
-          zpks(i,j) = 0.0_ireals
-        ENDIF
+      IF (llqs) THEN
+        zpks(i) = zqsk (i) * zvz0s(i) * EXP (ccswxp * LOG (zqsk(i))) * zrho1o2(i)
+      ELSE
+        zpks(i) = 0.0_ireals
+      ENDIF
 
-        zpkr(i,j)   = MIN( zpkr(i,j) , zzar(i,j) )
-        zpks(i,j)   = MIN( zpks(i,j) , zzas(i,j) )
+      zpkr(i)   = MIN( zpkr(i) , zzar(i) )
+      zpks(i)   = MIN( zpks(i) , zzas(i) )
 
-        zzar(i,j)   = zdtdh(i,j) * (zzar(i,j)-zpkr(i,j))
-        zzas(i,j)   = zdtdh(i,j) * (zzas(i,j)-zpks(i,j))
+      zzar(i)   = zdtdh(i) * (zzar(i)-zpkr(i))
+      zzas(i)   = zdtdh(i) * (zzas(i)-zpks(i))
 
-        zimr(i,j)   = 1.0_ireals / (1.0_ireals + zvzr(i,j) * zdtdh(i,j))
-        zims(i,j)   = 1.0_ireals / (1.0_ireals + zvzs(i,j) * zdtdh(i,j))
+      zimr(i)   = 1.0_ireals / (1.0_ireals + zvzr(i) * zdtdh(i))
+      zims(i)   = 1.0_ireals / (1.0_ireals + zvzs(i) * zdtdh(i))
 
-        zqrk(i,j)   = zzar(i,j)*zimr(i,j)
-        zqsk(i,j)   = zzas(i,j)*zims(i,j)
+      zqrk(i)   = zzar(i)*zimr(i)
+      zqsk(i)   = zzas(i)*zims(i)
 
-        llqr = zqrk(i,j) > zqmin
-        llqs = zqsk(i,j) > zqmin
-        llqc =       qcg > zqmin
-        llqi =       qig > zqmin
+      llqr = zqrk(i) > zqmin
+      llqs = zqsk(i) > zqmin
+      llqc =       qcg > zqmin
+      llqi =       qig > zqmin
 
-        IF (llqr) THEN
-          ic1 = ic1 + 1
-          idx1(ic1) = i
-          jdx1(ic1) = j
-        ENDIF
-        IF (llqs) THEN
-          ic2 = ic2 + 1
-          idx2(ic2) = i
-          jdx2(ic2) = j
-        ENDIF
-        IF (llqi .OR. llqs) THEN
-          ic3 = ic3 + 1
-          idx3(ic3) = i
-          jdx3(ic3) = j
-        ENDIF
-        IF ( tg < zthet .AND. qvg >  8.E-6_ireals &
-                        .AND. qig <= 0.0_ireals ) THEN
-          ic4 = ic4 + 1
-          idx4(ic4) = i
-          jdx4(ic4) = j
-        ENDIF
-        IF (llqc) THEN
-          ic5 = ic5 + 1
-          idx5(ic5) = i
-          jdx5(ic5) = j
-        ENDIF
-        IF (llqr .AND. qcg <= 0.0_ireals) THEN
-          ic6 = ic6 + 1
-          idx6(ic6) = i
-          jdx6(ic6) = j
-        ENDIF
-      ENDDO
+      IF (llqr) THEN
+        ic1 = ic1 + 1
+        idx1(ic1) = i
+      ENDIF
+      IF (llqs) THEN
+        ic2 = ic2 + 1
+        idx2(ic2) = i
+      ENDIF
+      IF (llqi .OR. llqs) THEN
+        ic3 = ic3 + 1
+        idx3(ic3) = i
+      ENDIF
+      IF ( tg < zthet .AND. qvg >  8.E-6_ireals &
+                      .AND. qig <= 0.0_ireals ) THEN
+        ic4 = ic4 + 1
+        idx4(ic4) = i
+      ENDIF
+      IF (llqc) THEN
+        ic5 = ic5 + 1
+        idx5(ic5) = i
+      ENDIF
+      IF (llqr .AND. qcg <= 0.0_ireals) THEN
+        ic6 = ic6 + 1
+        idx6(ic6) = i
+      ENDIF
     ENDDO
 
-#ifdef __ICON__
-    ! j is always 1 in ICON
-    j = 1
-#endif
 
 ! ic1
 !CDIR NODEP,VOVERTAKE,VOB
     loop_over_qr: DO i1d =1, ic1
       i = idx1(i1d)
-#ifndef __ICON__
-      j = jdx1(i1d)
-#endif
-      qcg  = qc(i,j,k)
-      qig  = qi(i,j,k)
-      tg   =  t(i,j,k)
+
+      qcg  = qc(i,k)
+      qig  = qi(i,k)
+      tg   =  t(i,k)
       llqi =  qig > zqmin
 
-      zlnqrk       = LOG (zqrk(i,j))
+      zlnqrk       = LOG (zqrk(i))
       IF ( qig+qcg > zqmin ) THEN
-        zeln7o8qrk(i,j)   = EXP (x7o8   * zlnqrk)
+        zeln7o8qrk(i)   = EXP (x7o8   * zlnqrk)
       ENDIF
       IF ( tg < ztrfrz ) THEN
-        zeln27o16qrk(i,j) = EXP (x27o16 * zlnqrk)
+        zeln27o16qrk(i) = EXP (x27o16 * zlnqrk)
       ENDIF
       IF (llqi) THEN
-        zeln13o8qrk(i,j)  = EXP (x13o8  * zlnqrk)
+        zeln13o8qrk(i)  = EXP (x13o8  * zlnqrk)
       ENDIF
       IF (qcg <= 0.0_ireals ) THEN
-        zeln3o16qrk(i,j)  = EXP (x3o16  * zlnqrk)
+        zeln3o16qrk(i)  = EXP (x3o16  * zlnqrk)
       ENDIF
     ENDDO loop_over_qr
 
@@ -1103,40 +1051,36 @@ SUBROUTINE hydci_pp(                 &
 !CDIR NODEP,VOVERTAKE,VOB
     loop_over_qs_coeffs: DO i1d =1, ic2
       i = idx2(i1d)
-#ifndef __ICON__
-      j = jdx2(i1d)
-#endif
-      qcg = qc(i,j,k)
-      qig = qi(i,j,k)
 
-      zlnqsk       = LOG (zqsk(i,j))
+      qcg = qc(i,k)
+      qig = qi(i,k)
+
+      zlnqsk       = LOG (zqsk(i))
       IF (qig+qcg > zqmin) THEN
-        zeln13o12qsk(i,j) = EXP (x13o12 * zlnqsk)
+        zeln13o12qsk(i) = EXP (x13o12 * zlnqsk)
       ENDIF
-      zeln5o24qsk(i,j)  = EXP (x5o24  * zlnqsk)
-      zeln2o3qsk(i,j)   = EXP (x2o3   * zlnqsk)
+      zeln5o24qsk(i)  = EXP (x5o24  * zlnqsk)
+      zeln2o3qsk(i)   = EXP (x2o3   * zlnqsk)
     ENDDO loop_over_qs_coeffs
 
 ! ic3
 !CDIR NODEP,VOVERTAKE,VOB
     loop_over_qi_qs: DO i1d =1, ic3
       i = idx3(i1d)
-#ifndef __ICON__
-      j = jdx3(i1d)
-#endif
-      tg   =   t(i,j,k)
-      ppg  =   p(i,j,k)
-      rhog = rho(i,j,k)
-      llqs = zqsk(i,j) > zqmin
+
+      tg   =   t(i,k)
+      ppg  =   p(i,k)
+      rhog = rho(i,k)
+      llqs = zqsk(i) > zqmin
 
       zdvtp  = ccdvtp * EXP(1.94_ireals * LOG(tg)) / ppg
-      zhi    = ccshi1*zdvtp*rhog*zqvsi(i,j)/(tg*tg)
+      zhi    = ccshi1*zdvtp*rhog*zqvsi(i)/(tg*tg)
       hlp    = zdvtp / (1.0_ireals + zhi)
-      zcidep(i,j) = ccidep * hlp
+      zcidep(i) = ccidep * hlp
       IF (llqs) THEN
-        zcslam(i,j) = EXP(ccslxp * LOG(ccslam * zn0s(i,j) / zqsk(i,j) ))
-        zcslam(i,j) = MIN(zcslam(i,j),1e15_ireals)
-        zcsdep(i,j) = 4.0_ireals * zn0s(i,j) * hlp
+        zcslam(i) = EXP(ccslxp * LOG(ccslam * zn0s(i) / zqsk(i) ))
+        zcslam(i) = MIN(zcslam(i),1e15_ireals)
+        zcsdep(i) = 4.0_ireals * zn0s(i) * hlp
       ENDIF
     ENDDO loop_over_qi_qs
 
@@ -1151,18 +1095,15 @@ SUBROUTINE hydci_pp(                 &
 !CDIR NODEP,VOVERTAKE,VOB
     loop_over_icenucleation: DO i1d = 1, ic4
       i = idx4(i1d)
-#ifndef __ICON__
-      j = jdx4(i1d)
-#endif
-      qvg  =  qv(i,j,k)
-      tg   =   t(i,j,k)
-      ppg  =   p(i,j,k)
-      rhog = rho(i,j,k)
 
-      IF( qvg > zqvsi(i,j) ) THEN
+      qvg  =  qv(i,k)
+      tg   =   t(i,k)
+      rhog = rho(i,k)
+
+      IF( qvg > zqvsi(i) ) THEN
         znin  = MIN( ice_nuclei_number(tg), znimax )
         zsnuc = zmi0 / rhog * znin * zdtr
-        snuc(i,j) = zsnuc
+        snuc(i) = zsnuc
       ENDIF
     ENDDO loop_over_icenucleation
 
@@ -1175,22 +1116,18 @@ SUBROUTINE hydci_pp(                 &
 !CDIR NODEP,VOVERTAKE,VOB
     loop_over_qc: DO i1d =1, ic5
       i = idx5(i1d)
-#ifndef __ICON__
-      j = jdx5(i1d)
-#endif
-      qrg  =   qr(i,j,k)
-      qvg  =   qv(i,j,k)
-      qcg  =   qc(i,j,k)
-      qig  =   qi(i,j,k)
-      tg   =    t(i,j,k)
-      ppg  =    p(i,j,k)
-      rhog =  rho(i,j,k)
-      llqs = zqsk(i,j) > zqmin
+
+      qrg  =   qr(i,k)
+      qvg  =   qv(i,k)
+      qcg  =   qc(i,k)
+      qig  =   qi(i,k)
+      tg   =    t(i,k)
+      llqs = zqsk(i) > zqmin
 
       if (iautocon == 0) THEN
         ! Kessler (1969) autoconversion rate
         zscau  = zccau * MAX( qcg - qc0, 0.0_ireals )
-        zscac  = zcac  * qcg * zeln7o8qrk(i,j)
+        zscac  = zcac  * qcg * zeln7o8qrk(i)
       ELSEIF (iautocon == 1) THEN
         ! Seifert and Beheng (2001) autoconversion rate
         ! with constant cloud droplet number concentration cloud_num
@@ -1200,14 +1137,14 @@ SUBROUTINE hydci_pp(                 &
           zscau  = zconst * qcg*qcg*qcg*qcg &
             &    * (1.0_ireals + zphi/(1.0_ireals - ztau)**2)
           zphi   = (ztau/(ztau+zkphi3))**4
-          zscac  = zkcac * qcg * qrg * zphi !* zrho1o2(i,j)
+          zscac  = zkcac * qcg * qrg * zphi !* zrho1o2(i)
         ELSE
           zscau  = 0.0_ireals
           zscac  = 0.0_ireals
         ENDIF
       ENDIF
       IF (llqs) THEN
-        zscrim = zcrim(i,j) * EXP(ccsaxp * LOG(zcslam(i,j))) * qcg !* zrho1o2(i,j)
+        zscrim = zcrim(i) * EXP(ccsaxp * LOG(zcslam(i))) * qcg !* zrho1o2(i)
       ELSE
         zscrim = 0.0_ireals
       ENDIF
@@ -1223,12 +1160,12 @@ SUBROUTINE hydci_pp(                 &
       zscsum = zscau + zscac + zscrim + zscshe
       zcorr  = zscmax / MAX( zscmax, zscsum )
       IF( tg <= zthn ) THEN
-        scfrz(i,j) = zscmax
+        scfrz(i) = zscmax
       ELSE
-        scau (i,j) = zcorr*zscau
-        scac (i,j) = zcorr*zscac
-        srim (i,j) = zcorr*zscrim
-        sshed(i,j) = zcorr*zscshe
+        scau (i) = zcorr*zscau
+        scac (i) = zcorr*zscac
+        srim (i) = zcorr*zscrim
+        sshed(i) = zcorr*zscshe
       ENDIF
 
       ! Calculation of heterogeneous nucleation of cloud ice.
@@ -1239,13 +1176,13 @@ SUBROUTINE hydci_pp(                 &
       ! threshold.
       IF( tg <= 267.15_ireals .AND. qig <= 0.0_ireals ) THEN
         znin  = MIN( ice_nuclei_number(tg), znimax )
-        zsnuc = zmi0 * z1orhog(i,j) * znin * zdtr
-        snuc(i,j) = zsnuc
+        zsnuc = zmi0 * z1orhog(i) * znin * zdtr
+        snuc(i) = zsnuc
       ENDIF
       ! Calculation of in-cloud rainwater freezing
       IF ( tg < ztrfrz ) THEN
-        zsrfrz = zcrfrz*SQRT( (ztrfrz-tg)**3 )* zeln27o16qrk(i,j)
-        srfrz(i,j) = zsrfrz
+        zsrfrz = zcrfrz*SQRT( (ztrfrz-tg)**3 )* zeln27o16qrk(i)
+        srfrz(i) = zsrfrz
       ENDIF
     ENDDO loop_over_qc
 
@@ -1258,30 +1195,27 @@ SUBROUTINE hydci_pp(                 &
 !CDIR NODEP,VOVERTAKE,VOB
     loop_over_qs: DO i1d =1, ic3
       i = idx3(i1d)
-#ifndef __ICON__
-      j = jdx3(i1d)
-#endif
-      qvg  =  qv(i,j,k)
-      qig  =  qi(i,j,k)
-      qsg  =  qs(i,j,k)
-      tg   =   t(i,j,k)
-      ppg  =   p(i,j,k)
-      rhog = rho(i,j,k)
+
+      qvg  =  qv(i,k)
+      qig  =  qi(i,k)
+      qsg  =  qs(i,k)
+      tg   =   t(i,k)
+      rhog = rho(i,k)
       llqi =  qig > zqmin
 
       IF (tg<=t0) THEN
         znin    = MIN( ice_nuclei_number(tg), znimax )
         zmi     = MIN( rhog*qig/znin, zmimax )
         zmi     = MAX( zmi0, zmi )
-        zsvmax  = (qvg - zqvsi(i,j)) * zdtr
-        zsagg   = zcagg(i,j) * EXP(ccsaxp*LOG(zcslam(i,j))) * qig
-        zsagg   = MAX( zsagg, 0.0_ireals ) & !* zrho1o2(i,j) &
+        zsvmax  = (qvg - zqvsi(i)) * zdtr
+        zsagg   = zcagg(i) * EXP(ccsaxp*LOG(zcslam(i))) * qig
+        zsagg   = MAX( zsagg, 0.0_ireals ) & !* zrho1o2(i) &
           * MAX(0.2_ireals,MIN(EXP(0.09_ireals*(tg-t0)),1.0_ireals))
         znid      = rhog * qig/zmi
         IF (llqi) THEN
           zlnlogmi= LOG (zmi)
-          zsidep    = zcidep(i,j) * znid * EXP(0.33_ireals * zlnlogmi)   &
-                        * ( qvg - zqvsi(i,j) )
+          zsidep    = zcidep(i) * znid * EXP(0.33_ireals * zlnlogmi)   &
+                        * ( qvg - zqvsi(i) )
         ELSE
           zsidep = 0.0_ireals
         ENDIF
@@ -1302,10 +1236,10 @@ SUBROUTINE hydci_pp(                 &
         ELSE
           zsdau    =  0.0_ireals
         ENDIF
-        zsicri    = zcicri * qig * zeln7o8qrk(i,j)
-        zsrcri    = zcrcri * (qig/zmi) * zeln13o8qrk(i,j)
-        zxfac     = 1.0_ireals + zbsdep(i,j) * EXP(ccsdxp*LOG(zcslam(i,j)))
-        zssdep    = zcsdep(i,j) * zxfac * ( qvg - zqvsi(i,j) ) / (zcslam(i,j)+zeps)**2
+        zsicri    = zcicri * qig * zeln7o8qrk(i)
+        zsrcri    = zcrcri * (qig/zmi) * zeln13o8qrk(i)
+        zxfac     = 1.0_ireals + zbsdep(i) * EXP(ccsdxp*LOG(zcslam(i)))
+        zssdep    = zcsdep(i) * zxfac * ( qvg - zqvsi(i) ) / (zcslam(i)+zeps)**2
 
         ! Check for maximal depletion of vapor by sdep
         IF (zssdep > 0.0_ireals) zssdep = MIN(zssdep, zsvmax-zsvidep)
@@ -1315,13 +1249,13 @@ SUBROUTINE hydci_pp(                 &
         zsisum = zsiau + zsdau + zsagg + zsicri + zsvisub
         zcorr  = 0.0_ireals
         IF( zsimax > 0.0_ireals ) zcorr  = zsimax / MAX( zsimax, zsisum )
-        sidep(i,j)  = zsvidep - zcorr*zsvisub
-        sdau (i,j)  = zcorr*zsdau
-        siau (i,j)  = zcorr*zsiau
-        sagg (i,j)  = zcorr*zsagg
-        ssdep(i,j)  = zssdep
-        srcri(i,j)  = zsrcri
-        sicri(i,j)  = zcorr*zsicri
+        sidep(i)  = zsvidep - zcorr*zsvisub
+        sdau (i)  = zcorr*zsdau
+        siau (i)  = zcorr*zsiau
+        sagg (i)  = zcorr*zsagg
+        ssdep(i)  = zssdep
+        srcri(i)  = zsrcri
+        sicri(i)  = zcorr*zsicri
 
       !------------------------------------------------------------------------
       ! Section 7: Search for warm grid points with cloud ice and/or snow and
@@ -1329,13 +1263,12 @@ SUBROUTINE hydci_pp(                 &
       !------------------------------------------------------------------------
 
       ELSE ! tg > 0
-        simelt(i,j) = qig*zdtr
-!        zqvsw0      = spec_humi( zpvsw0, ppg)
+        simelt(i) = qig*zdtr
         zqvsw0      = zpvsw0 / (rhog * r_v * tg)
         zx1         = (tg - t0) + zasmel*(qvg - zqvsw0)
-        zx2         = 1.0_ireals + zbsmel * zeln5o24qsk(i,j)
-        zssmelt     = zcsmel * zx1 * zx2 * zeln2o3qsk(i,j)
-        ssmelt(i,j) = MAX( zssmelt, 0.0_ireals )
+        zx2         = 1.0_ireals + zbsmel * zeln5o24qsk(i)
+        zssmelt     = zcsmel * zx1 * zx2 * zeln2o3qsk(i)
+        ssmelt(i) = MAX( zssmelt, 0.0_ireals )
       ENDIF ! tg
     ENDDO loop_over_qs
 
@@ -1348,23 +1281,19 @@ SUBROUTINE hydci_pp(                 &
 !CDIR NODEP,VOVERTAKE,VOB
     loop_over_qr_nocloud: DO i1d =1, ic6
       i = idx6(i1d)
-#ifndef __ICON__
-      j = jdx6(i1d)
-#endif
-      qvg = qv(i,j,k)
-      tg  =  t(i,j,k)
-      ppg =  p(i,j,k)
-      rhog = rho(i,j,k)
 
-!      zqvsw    = spec_humi( sat_pres_water(tg), ppg )
+      qvg = qv(i,k)
+      tg  =  t(i,k)
+      rhog = rho(i,k)
+
       zqvsw    = sat_pres_water(tg)/(rhog * r_v *tg)
-      zx1      = 1.0_ireals + zbev* zeln3o16qrk(i,j)
-      zsev     = zcev*zx1*(zqvsw - qvg)*SQRT(zqrk(i,j))
-      sev(i,j) = MAX( zsev, 0.0_ireals )
+      zx1      = 1.0_ireals + zbev* zeln3o16qrk(i)
+      zsev     = zcev*zx1*(zqvsw - qvg)*SQRT(zqrk(i))
+      sev(i) = MAX( zsev, 0.0_ireals )
       ! Calculation of below-cloud rainwater freezing
       IF ( tg < ztrfrz ) THEN
-        zsrfrz = zcrfrz*SQRT( (ztrfrz-tg)**3 ) * zeln27o16qrk(i,j)
-        srfrz(i,j)  = zsrfrz
+        zsrfrz = zcrfrz*SQRT( (ztrfrz-tg)**3 ) * zeln27o16qrk(i)
+        srfrz(i)  = zsrfrz
       ENDIF
     ENDDO loop_over_qr_nocloud
 
@@ -1373,160 +1302,157 @@ SUBROUTINE hydci_pp(                 &
     !            Update the prognostic variables in the interior domain.
     !--------------------------------------------------------------------------
 
-    DO j = jstartpar, jendpar
-      DO i = istartpar, iendpar
+    DO i = istartpar, iendpar
 
-        qvg = qv(i,j,k)
-        qcg = qc(i,j,k)
-        qrg = qr(i,j,k)
-        qsg = qs(i,j,k)
-        qig = qi(i,j,k)
-        tg  = t (i,j,k)
-        rhog = rho(i,j,k)
+      qvg = qv(i,k)
+      qcg = qc(i,k)
+      qrg = qr(i,k)
+      qsg = qs(i,k)
+      qig = qi(i,k)
+      tg  = t (i,k)
+      rhog = rho(i,k)
 
-        zsrmax = zzar(i,j)*z1orhog(i,j)*zdtr
-        zssmax = zzas(i,j)*z1orhog(i,j)*zdtr
-        zsrsum = sev(i,j) + srfrz(i,j) + srcri(i,j)
-        zcorr  = 1.0_ireals
-        IF(zsrsum > 0.0_ireals) THEN
-          zcorr  = zsrmax / MAX( zsrmax, zsrsum )
-        ENDIF
-        sev  (i,j) = zcorr*sev(i,j)
-        srfrz(i,j) = zcorr*srfrz(i,j)
-        srcri(i,j) = zcorr*srcri(i,j)
+      zsrmax = zzar(i)*z1orhog(i)*zdtr
+      zssmax = zzas(i)*z1orhog(i)*zdtr
+      zsrsum = sev(i) + srfrz(i) + srcri(i)
+      zcorr  = 1.0_ireals
+      IF(zsrsum > 0.0_ireals) THEN
+        zcorr  = zsrmax / MAX( zsrmax, zsrsum )
+      ENDIF
+      sev  (i) = zcorr*sev(i)
+      srfrz(i) = zcorr*srfrz(i)
+      srcri(i) = zcorr*srcri(i)
 
-        ssmelt(i,j) = MIN(ssmelt(i,j), zssmax)
-        IF (ssdep(i,j) < 0.0_ireals ) THEN
-          ssdep(i,j) = MAX(ssdep(i,j), - zssmax)
-        ENDIF
-        zqvt = sev(i,j)   - sidep(i,j) - ssdep(i,j)  - snuc(i,j)
-        zqct = simelt(i,j)- scau(i,j)  - scfrz(i,j)  - scac(i,j)   - sshed(i,j) - srim(i,j)
-        zqit = snuc(i,j)  + scfrz(i,j) - simelt(i,j) - sicri(i,j)  + sidep(i,j) - sdau(i,j)  &
-             & - sagg(i,j) - siau(i,j)
-        zqrt = scau(i,j)  + sshed(i,j) + scac(i,j)   + ssmelt(i,j) - sev(i,j)   - srcri(i,j) &
-             & - srfrz(i,j)
-        zqst = siau(i,j)  + sdau(i,j)  + sagg(i,j)   - ssmelt(i,j) + sicri(i,j) + srcri(i,j) &
-             & + srim(i,j) + ssdep(i,j) + srfrz(i,j)
-!        ztt = cpdr*( lh_v*(zqct+zqrt) + lh_s*(zqit+zqst) )
-        ztt = z_heat_cap_r*( lh_v*(zqct+zqrt) + lh_s*(zqit+zqst) )
+      ssmelt(i) = MIN(ssmelt(i), zssmax)
+      IF (ssdep(i) < 0.0_ireals ) THEN
+        ssdep(i) = MAX(ssdep(i), - zssmax)
+      ENDIF
+      zqvt = sev(i)   - sidep(i) - ssdep(i)  - snuc(i)
+      zqct = simelt(i)- scau(i)  - scfrz(i)  - scac(i)   - sshed(i) - srim(i)
+      zqit = snuc(i)  + scfrz(i) - simelt(i) - sicri(i)  + sidep(i) - sdau(i)  &
+           & - sagg(i) - siau(i)
+      zqrt = scau(i)  + sshed(i) + scac(i)   + ssmelt(i) - sev(i)   - srcri(i) &
+           & - srfrz(i)
+      zqst = siau(i)  + sdau(i)  + sagg(i)   - ssmelt(i) + sicri(i) + srcri(i) &
+           & + srim(i) + ssdep(i) + srfrz(i)
+      ztt = z_heat_cap_r*( lh_v*(zqct+zqrt) + lh_s*(zqit+zqst) )
 
-        ! Update local variables
-        qig = MAX ( 0.0_ireals, qig + zqit*zdt)
-        qrg = MAX ( 0.0_ireals, (zzar(i,j)/rhog + zqrt*zdt)*zimr(i,j))
-        qsg = MAX ( 0.0_ireals, (zzas(i,j)/rhog + zqst*zdt)*zims(i,j))
-        qvg = MAX ( 0.0_ireals, qvg + zqvt*zdt )
-        qcg = MAX ( 0.0_ireals, qcg + zqct*zdt )
-        tg  = tg + ztt*zdt
+      ! Update local variables
+      qig = MAX ( 0.0_ireals, qig + zqit*zdt)
+      qrg = MAX ( 0.0_ireals, (zzar(i)/rhog + zqrt*zdt)*zimr(i))
+      qsg = MAX ( 0.0_ireals, (zzas(i)/rhog + zqst*zdt)*zims(i))
+      qvg = MAX ( 0.0_ireals, qvg + zqvt*zdt )
+      qcg = MAX ( 0.0_ireals, qcg + zqct*zdt )
+      tg  = tg + ztt*zdt
 
-        !----------------------------------------------------------------------
-        ! Section 10: Complete time step
-        !----------------------------------------------------------------------
+      !----------------------------------------------------------------------
+      ! Section 10: Complete time step
+      !----------------------------------------------------------------------
 
-        IF ( k /= ke) THEN
-          ! Store precipitation fluxes and sedimentation velocities
-          ! for the next level
-          zprvr(i,j) = qrg*rhog*zvzr(i,j)
-          zprvs(i,j) = qsg*rhog*zvzs(i,j)
-          IF (zprvr(i,j) <= zqmin) zprvr(i,j)=0.0_ireals
-          IF (zprvs(i,j) <= zqmin) zprvs(i,j)=0.0_ireals
+      IF ( k /= ke) THEN
+        ! Store precipitation fluxes and sedimentation velocities
+        ! for the next level
+        zprvr(i) = qrg*rhog*zvzr(i)
+        zprvs(i) = qsg*rhog*zvzs(i)
+        IF (zprvr(i) <= zqmin) zprvr(i)=0.0_ireals
+        IF (zprvs(i) <= zqmin) zprvs(i)=0.0_ireals
 
-          IF (qrg+qr(i,j,k+1) <= zqmin) THEN
-            zvzr(i,j)= 0.0_ireals
-          ELSE
-            zvzr(i,j) = zvz0r                                               &
-                 &      * EXP(x1o8 *LOG((qrg+qr(i,j,k+1))*0.5_ireals*rhog)) &
-                 &      * zrho1o2(i,j)
-          ENDIF
-          IF (qsg+qs(i,j,k+1) <= zqmin) THEN
-            zvzs(i,j)= 0.0_ireals
-          ELSE
-            zvzs(i,j) = zvz0s(i,j)                                                           &
-                 &      * EXP(zv1s/(zbms+1.0_ireals)*LOG((qsg+qs(i,j,k+1))*0.5_ireals*rhog)) &
-                 &      * zrho1o2(i,j)
-          ENDIF
+        IF (qrg+qr(i,k+1) <= zqmin) THEN
+          zvzr(i)= 0.0_ireals
         ELSE
-          ! Precipitation fluxes at the ground
-          prr_gsp(i,j) = 0.5_ireals * (qrg*rhog*zvzr(i,j) + zpkr(i,j))
-          prs_gsp(i,j) = 0.5_ireals * (qsg*rhog*zvzs(i,j) + zpks(i,j))
-
+          zvzr(i) = zvz0r                                               &
+               &      * EXP(x1o8 *LOG((qrg+qr(i,k+1))*0.5_ireals*rhog)) &
+               &      * zrho1o2(i)
         ENDIF
+        IF (qsg+qs(i,k+1) <= zqmin) THEN
+          zvzs(i)= 0.0_ireals
+        ELSE
+          zvzs(i) = zvz0s(i)                                                           &
+               &      * EXP(zv1s/(zbms+1.0_ireals)*LOG((qsg+qs(i,k+1))*0.5_ireals*rhog)) &
+               &      * zrho1o2(i)
+        ENDIF
+      ELSE
+        ! Precipitation fluxes at the ground
+        prr_gsp(i) = 0.5_ireals * (qrg*rhog*zvzr(i) + zpkr(i))
+        prs_gsp(i) = 0.5_ireals * (qsg*rhog*zvzs(i) + zpks(i))
 
-        ! Update of prognostic variables or tendencies
-        qr (i,j,k) = qrg
-        qs (i,j,k) = qsg
-        qi (i,j,k) = qig
-        t  (i,j,k) = tg
-        qv (i,j,k) = qvg
-        qc (i,j,k) = qcg
+      ENDIF
 
-        ! Store optional microphysical rates for diagnostics
-        IF (PRESENT(ddt_diag_au   )) ddt_diag_au   (i,j,k) = scau  (i,j)
-        IF (PRESENT(ddt_diag_ac   )) ddt_diag_ac   (i,j,k) = scac  (i,j)
-        IF (PRESENT(ddt_diag_ev   )) ddt_diag_ev   (i,j,k) = sev   (i,j)
-        IF (PRESENT(ddt_diag_nuc  )) ddt_diag_nuc  (i,j,k) = snuc  (i,j)
-        IF (PRESENT(ddt_diag_idep )) ddt_diag_idep (i,j,k) = sidep (i,j)
-        IF (PRESENT(ddt_diag_sdep )) ddt_diag_sdep (i,j,k) = ssdep (i,j)
-        IF (PRESENT(ddt_diag_agg  )) ddt_diag_agg  (i,j,k) = sagg  (i,j)
-        IF (PRESENT(ddt_diag_rim  )) ddt_diag_rim  (i,j,k) = srim  (i,j)
-        IF (PRESENT(ddt_diag_rcri )) ddt_diag_rcri (i,j,k) = srcri (i,j)
-        IF (PRESENT(ddt_diag_icri )) ddt_diag_icri (i,j,k) = sicri (i,j)
-        IF (PRESENT(ddt_diag_dau  )) ddt_diag_dau  (i,j,k) = sdau  (i,j)
-        IF (PRESENT(ddt_diag_iau  )) ddt_diag_iau  (i,j,k) = siau  (i,j)
-        IF (PRESENT(ddt_diag_imelt)) ddt_diag_imelt(i,j,k) = simelt(i,j)
-        IF (PRESENT(ddt_diag_smelt)) ddt_diag_smelt(i,j,k) = ssmelt(i,j)
-        IF (PRESENT(ddt_diag_cfrz )) ddt_diag_cfrz (i,j,k) = scfrz (i,j)
-        IF (PRESENT(ddt_diag_rfrz )) ddt_diag_rfrz (i,j,k) = srfrz (i,j)
-        IF (PRESENT(ddt_diag_shed )) ddt_diag_shed (i,j,k) = sshed (i,j)
+      ! Update of prognostic variables or tendencies
+      qr (i,k) = qrg
+      qs (i,k) = qsg
+      qi (i,k) = qig
+      t  (i,k) = tg
+      qv (i,k) = qvg
+      qc (i,k) = qcg
 
-      ENDDO
     ENDDO
+
+#ifndef __ICON__
+    ! Store optional microphysical rates for diagnostics
+    IF (PRESENT(ddt_diag_au   )) ddt_diag_au   (:,k) = scau  (:)
+    IF (PRESENT(ddt_diag_ac   )) ddt_diag_ac   (:,k) = scac  (:)
+    IF (PRESENT(ddt_diag_ev   )) ddt_diag_ev   (:,k) = sev   (:)
+    IF (PRESENT(ddt_diag_nuc  )) ddt_diag_nuc  (:,k) = snuc  (:)
+    IF (PRESENT(ddt_diag_idep )) ddt_diag_idep (:,k) = sidep (:)
+    IF (PRESENT(ddt_diag_sdep )) ddt_diag_sdep (:,k) = ssdep (:)
+    IF (PRESENT(ddt_diag_agg  )) ddt_diag_agg  (:,k) = sagg  (:)
+    IF (PRESENT(ddt_diag_rim  )) ddt_diag_rim  (:,k) = srim  (:)
+    IF (PRESENT(ddt_diag_rcri )) ddt_diag_rcri (:,k) = srcri (:)
+    IF (PRESENT(ddt_diag_icri )) ddt_diag_icri (:,k) = sicri (:)
+    IF (PRESENT(ddt_diag_dau  )) ddt_diag_dau  (:,k) = sdau  (:)
+    IF (PRESENT(ddt_diag_iau  )) ddt_diag_iau  (:,k) = siau  (:)
+    IF (PRESENT(ddt_diag_imelt)) ddt_diag_imelt(:,k) = simelt(:)
+    IF (PRESENT(ddt_diag_smelt)) ddt_diag_smelt(:,k) = ssmelt(:)
+    IF (PRESENT(ddt_diag_cfrz )) ddt_diag_cfrz (:,k) = scfrz (:)
+    IF (PRESENT(ddt_diag_rfrz )) ddt_diag_rfrz (:,k) = srfrz (:)
+    IF (PRESENT(ddt_diag_shed )) ddt_diag_shed (:,k) = sshed (:)
+#endif
 
   IF (izdebug > 15) THEN
     ! Check for negative values
-    DO j = jstartpar, jendpar
-      DO i = istartpar, iendpar
-        IF (qr(i,j,k) < 0.0_ireals) THEN
-          WRITE(message_text,'(a)') ' WARNING: hydci_pp, negative value in qr'
-          CALL message('',message_text)
-        ENDIF
-        IF (qc(i,j,k) < 0.0_ireals) THEN
-          WRITE(message_text,'(a)') ' WARNING: hydci_pp, negative value in qc'
-          CALL message('',message_text)
-        ENDIF
-        IF (qi(i,j,k) < 0.0_ireals) THEN
-          WRITE(message_text,'(a)') ' WARNING: hydci_pp, negative value in qi'
-          CALL message('',message_text)
-        ENDIF
-        IF (qs(i,j,k) < 0.0_ireals) THEN
-          WRITE(message_text,'(a)') ' WARNING: hydci_pp, negative value in qs'
-          CALL message('',message_text)
-        ENDIF
-        IF (qv(i,j,k) < 0.0_ireals) THEN
-          WRITE(message_text,'(a)') ' WARNING: hydci_pp, negative value in qv'
-          CALL message('',message_text)
-        ENDIF
-      ENDDO
+    DO i = istartpar, iendpar
+      IF (qr(i,k) < 0.0_ireals) THEN
+        WRITE(message_text,'(a)') ' WARNING: hydci_pp, negative value in qr'
+        CALL message('',message_text)
+      ENDIF
+      IF (qc(i,k) < 0.0_ireals) THEN
+        WRITE(message_text,'(a)') ' WARNING: hydci_pp, negative value in qc'
+        CALL message('',message_text)
+      ENDIF
+      IF (qi(i,k) < 0.0_ireals) THEN
+        WRITE(message_text,'(a)') ' WARNING: hydci_pp, negative value in qi'
+        CALL message('',message_text)
+      ENDIF
+      IF (qs(i,k) < 0.0_ireals) THEN
+        WRITE(message_text,'(a)') ' WARNING: hydci_pp, negative value in qs'
+        CALL message('',message_text)
+      ENDIF
+      IF (qv(i,k) < 0.0_ireals) THEN
+        WRITE(message_text,'(a)') ' WARNING: hydci_pp, negative value in qv'
+        CALL message('',message_text)
+      ENDIF
     ENDDO
   ENDIF
 
 #if defined (__COSMO__)
   ! Do a final saturation adjustment for new values of t, qv and qc
 !CDIR COLLAPSE
-    zpres(:,:) = p(:,:,k)
+    zpres(:) = p(:,k)
 
-    CALL satad ( 1, t(:,:,k), qv(:,:,k),              &
-               qc(:,:,k), t(:,:,k), zpres,          &
-               zdummy(:,:,1),zdummy(:,:,2),zdummy(:,:,3), &
-               zdummy(:,:,4),zdummy(:,:,5),zdummy(:,:,6), &
-               zdummy(:,:,7),zdummy(:,:,8),               &
-               b1, b2w, b3, b4w, b234w, rdv, o_m_rdv,     &
-               rvd_m_o, lh_v, cpdr, cp_d,                 &
-               ie, je, istartpar, iendpar, jstartpar, jendpar )
+    CALL satad ( 1, t(:,k), qv(:,k),                   &
+               qc(:,k), t(:,k), zpres,                 &
+               zdummy(:,1),zdummy(:,2),zdummy(:,3),    &
+               zdummy(:,4),zdummy(:,5),zdummy(:,6),    &
+               zdummy(:,7),zdummy(:,8),                &
+               b1, b2w, b3, b4w, b234w, rdv, o_m_rdv,  &
+               rvd_m_o, lh_v, cpdr, cp_d,              &
+               ie, istartpar, iendpar )
 
   IF ( ldiabf_lh ) THEN
     ! compute temperature increment due to latent heat
 !CDIR COLLAPSE
-    tinc_lh(:,:,k) = tinc_lh(:,:,k) + t(:,:,k)
+    tinc_lh(:,k) = tinc_lh(:,k) + t(:,k)
   ENDIF
 #endif
 
@@ -1537,17 +1463,14 @@ ENDDO loop_over_levels
  CALL satad_v_3d (                             &
                & maxiter  = 10_iintegers ,& !> IN
                & tol      = 1.e-3_ireals ,& !> IN
-               & te       = t  (1,1,1)   ,&
-               & qve      = qv (1,1,1)   ,&
-               & qce      = qc (1,1,1)   ,&
-               & rhotot   = rho(1,1,1)   ,&
+               & te       = t            ,&
+               & qve      = qv           ,&
+               & qce      = qc           ,&
+               & rhotot   = rho          ,&
                & idim     = ie           ,&
-               & jdim     = je           ,&
                & kdim     = ke           ,&
                & ilo      = istartpar    ,&
                & iup      = iendpar      ,&
-               & jlo      = jstartpar    ,&
-               & jup      = jendpar      ,&
                & klo      = k_start      ,&
                & kup      = ke            &
 !              !& count, errstat,
@@ -1565,26 +1488,24 @@ ENDDO loop_over_levels
   IF (PRESENT(ddt_tend_t)) THEN
 
     DO k=k_start,ke
-      DO j=jstartpar,jendpar
-        DO i=istartpar,iendpar
+      DO i=istartpar,iendpar
 
-          ! calculated pseudo-tendencies
-          ddt_tend_t (i,j,k) = (t (i,j,k) - t_in (i,j,k))*zdtr
-          ddt_tend_qv(i,j,k) = MAX(-qv_in(i,j,k)*zdtr,(qv(i,j,k) - qv_in(i,j,k))*zdtr)
-          ddt_tend_qc(i,j,k) = MAX(-qc_in(i,j,k)*zdtr,(qc(i,j,k) - qc_in(i,j,k))*zdtr)
-          ddt_tend_qr(i,j,k) = MAX(-qr_in(i,j,k)*zdtr,(qr(i,j,k) - qr_in(i,j,k))*zdtr)
-          ddt_tend_qs(i,j,k) = MAX(-qs_in(i,j,k)*zdtr,(qs(i,j,k) - qs_in(i,j,k))*zdtr)
-          ddt_tend_qi(i,j,k) = MAX(-qi_in(i,j,k)*zdtr,(qi(i,j,k) - qi_in(i,j,k))*zdtr)
+        ! calculated pseudo-tendencies
+        ddt_tend_t (i,k) = (t (i,k) - t_in (i,k))*zdtr
+        ddt_tend_qv(i,k) = MAX(-qv_in(i,k)*zdtr,(qv(i,k) - qv_in(i,k))*zdtr)
+        ddt_tend_qc(i,k) = MAX(-qc_in(i,k)*zdtr,(qc(i,k) - qc_in(i,k))*zdtr)
+        ddt_tend_qr(i,k) = MAX(-qr_in(i,k)*zdtr,(qr(i,k) - qr_in(i,k))*zdtr)
+        ddt_tend_qs(i,k) = MAX(-qs_in(i,k)*zdtr,(qs(i,k) - qs_in(i,k))*zdtr)
+        ddt_tend_qi(i,k) = MAX(-qi_in(i,k)*zdtr,(qi(i,k) - qi_in(i,k))*zdtr)
 
-          ! restore input values
-          t (i,j,k) = t_in (i,j,k)
-          qv(i,j,k) = qv_in(i,j,k)
-          qc(i,j,k) = qc_in(i,j,k)
-          qi(i,j,k) = qi_in(i,j,k)
-          qr(i,j,k) = qr_in(i,j,k)
-          qs(i,j,k) = qs_in(i,j,k)
+        ! restore input values
+        t (i,k) = t_in (i,k)
+        qv(i,k) = qv_in(i,k)
+        qc(i,k) = qc_in(i,k)
+        qi(i,k) = qi_in(i,k)
+        qr(i,k) = qr_in(i,k)
+        qs(i,k) = qs_in(i,k)
 
-        END DO
       END DO
     END DO
 
@@ -1593,22 +1514,22 @@ ENDDO loop_over_levels
   IF (izdebug > 15) THEN
     CALL message('mo_gscp', 'UPDATED VARIABLES')
    WRITE(message_text,'(a,2E20.9)') 'hydci_pp T= ',&
-    MAXVAL( t(:,:,:)), MINVAL(t(:,:,:) )
+    MAXVAL( t(:,:)), MINVAL(t(:,:) )
     CALL message('', TRIM(message_text))
    WRITE(message_text,'(a,2E20.9)') 'hydci_pp qv= ',&
-    MAXVAL( qv(:,:,:)), MINVAL(qv(:,:,:) )
+    MAXVAL( qv(:,:)), MINVAL(qv(:,:) )
     CALL message('', TRIM(message_text))
    WRITE(message_text,'(a,2E20.9)') 'hydci_pp qc= ',&
-    MAXVAL( qc(:,:,:)), MINVAL(qc(:,:,:) )
+    MAXVAL( qc(:,:)), MINVAL(qc(:,:) )
     CALL message('', TRIM(message_text))
    WRITE(message_text,'(a,2E20.9)') 'hydci_pp qi= ',&
-    MAXVAL( qi(:,:,:)), MINVAL(qi(:,:,:) )
+    MAXVAL( qi(:,:)), MINVAL(qi(:,:) )
     CALL message('', TRIM(message_text))
    WRITE(message_text,'(a,2E20.9)') 'hydci_pp qr= ',&
-    MAXVAL( qr(:,:,:)), MINVAL(qr(:,:,:) )
+    MAXVAL( qr(:,:)), MINVAL(qr(:,:) )
     CALL message('', TRIM(message_text))
    WRITE(message_text,'(a,2E20.9)') 'hydci_pp qs= ',&
-    MAXVAL( qs(:,:,:)), MINVAL(qs(:,:,:) )
+    MAXVAL( qs(:,:)), MINVAL(qs(:,:) )
     CALL message('', TRIM(message_text))
   ENDIF
 
@@ -1623,7 +1544,7 @@ END SUBROUTINE hydci_pp
 SUBROUTINE SATAD ( kitera, te, qve, qce, tstart, phfe,                        &
   zdqd  , zqdwe, zh   , ztg0  , ztgn, zdqdt0, zgqd0, zphe ,  &
   b1, b2w, b3, b4w, b234w, rdrd, emrdrd, rddrm1, lh_v, cpdr, &
-  cp_d, idim, jdim, ilo, iup, jlo, jup )
+  cp_d, idim, ilo, iup )
 
 !-------------------------------------------------------------------------------
 !
@@ -1641,25 +1562,25 @@ SUBROUTINE SATAD ( kitera, te, qve, qce, tstart, phfe,                        &
 ! --------------------
   INTEGER (KIND=iintegers), INTENT (IN)    ::  &
     kitera,              & !  Numver of iterations in the numerical scheme
-    idim, jdim,          & !  Dimension of I/O-fields
-    ilo, iup, jlo, jup     !  start- and end-indices for the computation
+    idim,                & !  Dimension of I/O-fields
+    ilo, iup               !  start- and end-indices for the computation
 
   REAL    (KIND=ireals),    INTENT (IN)    ::  &
-    tstart  (idim,jdim), & ! Start temperature for iteration
-    phfe    (idim,jdim)  ! Pressure (input)
+    tstart  (idim), & ! Start temperature for iteration
+    phfe    (idim)  ! Pressure (input)
 
   REAL    (KIND=ireals),    INTENT (INOUT) ::  &
-    te      (idim,jdim), & ! Temperature on input/ouput
-    qve     (idim,jdim), & ! Specific humidity on input/output
-    qce     (idim,jdim), & ! Specific cloud water content on input/output
-    zdqd    (idim,jdim), & !
-    zqdwe   (idim,jdim), & !
-    zh      (idim,jdim), & !
-    ztg0    (idim,jdim), & !
-    ztgn    (idim,jdim), & !
-    zdqdt0  (idim,jdim), & !
-    zgqd0   (idim,jdim), & !
-    zphe    (idim,jdim)    !
+    te      (idim), & ! Temperature on input/ouput
+    qve     (idim), & ! Specific humidity on input/output
+    qce     (idim), & ! Specific cloud water content on input/output
+    zdqd    (idim), & !
+    zqdwe   (idim), & !
+    zh      (idim), & !
+    ztg0    (idim), & !
+    ztgn    (idim), & !
+    zdqdt0  (idim), & !
+    zgqd0   (idim), & !
+    zphe    (idim)    !
 
   REAL    (KIND=ireals),    INTENT (IN)    ::  &
     b1, b2w, b3, b4w, b234w, rdrd, emrdrd, rddrm1, lh_v, cpdr, cp_d
@@ -1669,11 +1590,10 @@ SUBROUTINE SATAD ( kitera, te, qve, qce, tstart, phfe,                        &
 ! Local scalars:
 ! -------------
   INTEGER (KIND=iintegers) ::  &
-    i, j,                & !  Loop indices
+    i,                   & !  Loop indices
     nzit,                & !  Loop for iterations
     nsat,                & !  Number of saturated gridpoints
-    iwrk(idim*jdim),     & !  i-index of saturated gridpoints
-    jwrk(idim*jdim),     & !  j-index of saturated gridpoints
+    iwrk(idim),          & !  i-index of saturated gridpoints
     indx                   !  loop index
 
   REAL    (KIND=ireals   ) ::  &
@@ -1710,42 +1630,37 @@ fdqdt(zt,zgqd) = b234w*( 1.0_ireals + rddrm1*zgqd )*zgqd/( zt-b4w )**2
 
   minzdqd= 1.0_ireals
 
-  DO j = jlo , jup
-    DO i = ilo , iup
+  DO i = ilo , iup
 
-      ! "save" the start values for the temperature
-      ztg0 (i,j) = tstart(i,j)
+    ! "save" the start values for the temperature
+    ztg0 (i) = tstart(i)
 
-      ! correction for negative values of qv and qc
-      qve (i,j) = MAX( qve(i,j), 0.0_ireals )
-      qce (i,j) = MAX( qce(i,j), 0.0_ireals )
+    ! correction for negative values of qv and qc
+    qve (i) = MAX( qve(i), 0.0_ireals )
+    qce (i) = MAX( qce(i), 0.0_ireals )
 
-      ! assume first subsaturation
-      zqdwe(i,j)= qve(i,j) + qce(i,j)
-      te (i,j)  = te(i,j) - lh_v*qce(i,j)*cpdr
-      qve(i,j)  = zqdwe(i,j)
-      qce(i,j)  = 0.0_ireals
-      zgeu      = fgew(te(i,j))
-      zgqdu     = fgqd(zgeu,phfe(i,j))
-      zdqd(i,j) = zgqdu - zqdwe(i,j)
-      minzdqd   = MIN(minzdqd,zdqd(i,j))
+    ! assume first subsaturation
+    zqdwe(i)= qve(i) + qce(i)
+    te (i)  = te(i) - lh_v*qce(i)*cpdr
+    qve(i)  = zqdwe(i)
+    qce(i)  = 0.0_ireals
+    zgeu      = fgew(te(i))
+    zgqdu     = fgqd(zgeu,phfe(i))
+    zdqd(i) = zgqdu - zqdwe(i)
+    minzdqd   = MIN(minzdqd,zdqd(i))
 
-    ENDDO
   ENDDO
 
 !NEC_CB if zdqd>=0, then for sure no points are found
   IF ( minzdqd >= 0.0_ireals ) RETURN
 
-  DO j = jlo , jup
-    DO i = ilo , iup
+  DO i = ilo , iup
 
-      IF (zdqd(i,j) < 0.0_ireals ) THEN
-        nsat       = nsat+1
-        iwrk(nsat) = i
-        jwrk(nsat) = j
-      ENDIF
+    IF (zdqd(i) < 0.0_ireals ) THEN
+      nsat       = nsat+1
+      iwrk(nsat) = i
+    ENDIF
 
-    ENDDO
   ENDDO
 
   IF (nsat == 0) RETURN
@@ -1756,11 +1671,10 @@ fdqdt(zt,zgqd) = b234w*( 1.0_ireals + rddrm1*zgqd )*zgqd/( zt-b4w )**2
 !cdir nodep
   DO indx = 1, nsat
      i = iwrk(indx)
-     j = jwrk(indx)
-     zh   (i,j) = cp_d*te(i,j) + lh_v*qve(i,j)
-     zphe (i,j) = phfe(i,j)
-     zgew       = fgew(ztg0(i,j))
-     zgqd0(i,j) = fgqd(zgew,zphe(i,j))
+     zh   (i) = cp_d*te(i) + lh_v*qve(i)
+     zphe (i) = phfe(i)
+     zgew       = fgew(ztg0(i))
+     zgqd0(i) = fgqd(zgew,zphe(i))
   ENDDO
 
   IF ( kitera > 1 ) THEN
@@ -1769,12 +1683,11 @@ fdqdt(zt,zgqd) = b234w*( 1.0_ireals + rddrm1*zgqd )*zgqd/( zt-b4w )**2
 !cdir nodep
       DO indx = 1, nsat
         i = iwrk(indx)
-        j = jwrk(indx)
-        zdqdt0(i,j) = fdqdt(ztg0(i,j),zgqd0(i,j))
-        ztg0(i,j)   = (zh(i,j) - lh_v*(zgqd0(i,j)-zdqdt0(i,j)*ztg0(i,j)))/ &
-                      ( cp_d + lh_v*zdqdt0(i,j) )
-        zgew        = fgew(ztg0(i,j))
-        zgqd0(i,j)  = fgqd(zgew,zphe(i,j))
+        zdqdt0(i) = fdqdt(ztg0(i),zgqd0(i))
+        ztg0(i)   = (zh(i) - lh_v*(zgqd0(i)-zdqdt0(i)*ztg0(i)))/ &
+                      ( cp_d + lh_v*zdqdt0(i) )
+        zgew        = fgew(ztg0(i))
+        zgqd0(i)  = fgqd(zgew,zphe(i))
       ENDDO
     ENDDO
   ENDIF
@@ -1784,11 +1697,10 @@ fdqdt(zt,zgqd) = b234w*( 1.0_ireals + rddrm1*zgqd )*zgqd/( zt-b4w )**2
 !cdir nodep
   DO indx = 1, nsat
       i = iwrk(indx)
-      j = jwrk(indx)
-      zdqdt0(i,j) = fdqdt(ztg0(i,j),zgqd0(i,j))
-      ztgn(i,j)   = ( zh(i,j) - lh_v*(zgqd0(i,j)-zdqdt0(i,j)*ztg0(i,j)) ) / &
-                    ( cp_d + lh_v*zdqdt0(i,j) )
-      zgqd0(i,j)  = zgqd0(i,j) + zdqdt0(i,j)*( ztgn(i,j)-ztg0(i,j) )
+      zdqdt0(i) = fdqdt(ztg0(i),zgqd0(i))
+      ztgn(i)   = ( zh(i) - lh_v*(zgqd0(i)-zdqdt0(i)*ztg0(i)) ) / &
+                    ( cp_d + lh_v*zdqdt0(i) )
+      zgqd0(i)  = zgqd0(i) + zdqdt0(i)*( ztgn(i)-ztg0(i) )
   ENDDO
 
 ! Distribute the result on gridpoints
@@ -1797,10 +1709,9 @@ fdqdt(zt,zgqd) = b234w*( 1.0_ireals + rddrm1*zgqd )*zgqd/( zt-b4w )**2
 !cdir nodep
   DO indx = 1, nsat
       i = iwrk(indx)
-      j = jwrk(indx)
-      te (i,j) =  ztgn(i,j)
-      qve(i,j) = zgqd0(i,j)
-      qce(i,j) = MAX( zqdwe(i,j) - zgqd0(i,j), zqwmin )
+      te (i) =  ztgn(i)
+      qve(i) = zgqd0(i)
+      qce(i) = MAX( zqdwe(i) - zgqd0(i), zqwmin )
   ENDDO
 
 ! End of the subroutine

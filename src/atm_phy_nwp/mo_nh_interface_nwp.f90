@@ -323,12 +323,9 @@ CONTAINS
                & qce      = pt_prog_rcf%tracer (:,:,jb,iqc),& !> INOUT
                & rhotot   = pt_prog%rho        (:,:,jb)    ,& !> IN
                & idim     = nproma                         ,& !> IN
-               & jdim     = 1                              ,& !> IN
                & kdim     = nlev                           ,& !> IN
                & ilo      = i_startidx                     ,& !> IN
                & iup      = i_endidx                       ,& !> IN
-               & jlo      = 1                              ,& !> IN
-               & jup      = 1                              ,& !> IN
                & klo      = kstart_moist(jg)               ,& !> IN
                & kup      = nlev                            & !> IN
               !& count, errstat,                              !> OUT

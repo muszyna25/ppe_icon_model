@@ -107,8 +107,7 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
 #ifdef __COSMO__
                        qle, qie, p0e, ppe,            & ! IN
 #endif
-     idim, jdim, kdim, ilo, iup, jlo, jup, klo, kup,  & ! IN
-!      count,
+     idim, kdim, ilo, iup, klo, kup,                  & ! IN
                                            errstat)     ! optional
 
   !-------------------------------------------------------------------------------
@@ -151,29 +150,29 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
   ! --------------------
   INTEGER (KIND=iintegers), INTENT (IN)    ::  &
        maxiter,                 & !  Max. number of iterations in the numerical scheme
-       idim, jdim, kdim,        & !  Dimension of I/O-fields
-       ilo, iup, jlo, jup, klo, kup !  start- and end-indices for the computations
+       idim, kdim,              & !  Dimension of I/O-fields
+       ilo, iup, klo, kup         !  start- and end-indices for the computations
 
   REAL    (KIND=ireals),    INTENT (IN) ::  &
        tol                 ! Desired abs. accuracy in K of the adjusted temperature
 
 #ifdef __COSMO__
-  REAL    (KIND=ireals),    INTENT (IN),  DIMENSION(idim,jdim,kdim) ::  &
+  REAL    (KIND=ireals),    INTENT (IN),  DIMENSION(idim,kdim) ::  &
        p0e      , & ! Reference pressure
        qle      , & ! Liquid hydrometeors which are not affected by saturation adj.
                     ! (i.e., rain drops)
        qie          ! Solid hydrometeors (sum of qi, qs, qg and, if present, qh)
-  REAL    (KIND=ireals),    INTENT (INOUT), DIMENSION(idim,jdim,kdim) ::  &
+  REAL    (KIND=ireals),    INTENT (INOUT), DIMENSION(idim,kdim) ::  &
        ppe          ! Pressure deviation from reference pressure needed in COSMO
 #endif
 
-  REAL    (KIND=ireals),    INTENT (INOUT), DIMENSION(idim,jdim,kdim) ::  &
+  REAL    (KIND=ireals),    INTENT (INOUT), DIMENSION(idim,kdim) ::  &
        te      , & ! Temperature on input/ouput
        qve     , & ! Specific humidity on input/output
        qce         ! Specific cloud water content on input/output
 
 #ifdef __ICON__
-  REAL    (KIND=ireals),    INTENT (IN),  DIMENSION(idim,jdim,kdim) ::  &
+  REAL    (KIND=ireals),    INTENT (IN),  DIMENSION(idim,kdim) ::  &
        rhotot    ! density containing dry air and water constituents
 #endif
 
@@ -187,11 +186,10 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
   ! Local variables:
   ! -------------
   INTEGER (KIND=iintegers) ::  &
-       i, j, k,                  & !  Loop indices
-       nsat,                     & !  Number of saturated gridpoints
-       iwrk(idim*jdim*kdim),     & !  i-index of saturated gridpoints
-       jwrk(idim*jdim*kdim),     & !  j-index of saturated gridpoints
-       kwrk(idim*jdim*kdim),     & !  k-index of saturated gridpoints
+       i, k,                   & !  Loop indices
+       nsat,                   & !  Number of saturated gridpoints
+       iwrk(idim*kdim),        & !  i-index of saturated gridpoints
+       kwrk(idim*kdim),        & !  k-index of saturated gridpoints
        indx                        !, & !  loop index
 
   REAL    (KIND=ireals   ) ::  &
@@ -199,14 +197,14 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
        zqwmin              ! Minimum cloud water content for adjustment
 
 #ifdef __COSMO__
-  REAL    (KIND=ireals),  DIMENSION(idim,jdim,kdim) ::  &
+  REAL    (KIND=ireals),  DIMENSION(idim,kdim) ::  &
        rhotot              ! Total density
 #endif
 
-  REAL    (KIND=ireals),  DIMENSION(idim,jdim,kdim) ::  &
+  REAL    (KIND=ireals),  DIMENSION(idim,kdim) ::  &
        lwdocvd  ! (Temperature-dependent) latent heat of vaporization over cv
 
-  REAL (KIND=ireals), DIMENSION(idim*jdim*kdim) ::  &
+  REAL (KIND=ireals), DIMENSION(idim*kdim) ::  &
        twork, tworkold
 
   REAL (KIND=ireals), PARAMETER :: cp_v = 1850._ireals ! specific heat of water vapor J
@@ -233,68 +231,56 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
   ! Some constants:
   ! lwdocvd = lwd / cvd
 
-#ifdef __ICON__
-  ! j is always 1 for ICON
-  j = 1
-#endif
 
 !!!=============================================================================================
 
 #ifdef __COSMO__
    ! diagnostically (re)compute density of moist air for time-level nnow
    ! ... using specific moisture quantities
-   CALL calrho( te, ppe,qve,qce,qle+qie, p0e, rhotot, idim, jdim, kdim, r_d, rvd_m_o )
+   CALL calrho( te, ppe,qve,qce,qle+qie, p0e, rhotot, idim, kdim, r_d, rvd_m_o )
 #endif
 
-      DO k = klo, kup
-#ifndef __ICON__
-      DO j = jlo , jup
-#endif
-        DO i = ilo , iup
+    DO k = klo, kup
+      DO i = ilo , iup
 
-          ! total content of the species which are changed by the adjustment:
-          qw = qve(i,j,k) + qce(i,j,k)
+        ! total content of the species which are changed by the adjustment:
+        qw = qve(i,k) + qce(i,k)
 
-          ! check, which points will still be subsaturated even
-          ! if all the cloud water would have been evaporated.
-          ! At such points, the Newton iteration is not necessary and the
-          ! adjusted values of T, p, qv and qc can be obtained directly.
+        ! check, which points will still be subsaturated even
+        ! if all the cloud water would have been evaporated.
+        ! At such points, the Newton iteration is not necessary and the
+        ! adjusted values of T, p, qv and qc can be obtained directly.
 
-          lwdocvd(i,j,k) = ( lwd + (cp_v - cl)*(te(i,j,k)-tmelt) - r_v*te(i,j,k) )/ cvd
+        lwdocvd(i,k) = ( lwd + (cp_v - cl)*(te(i,k)-tmelt) - r_v*te(i,k) )/ cvd
 
-          Ttest = te(i,j,k) - lwdocvd(i,j,k)*qce(i,j,k)
+        Ttest = te(i,k) - lwdocvd(i,k)*qce(i,k)
 
-          qtest = qsat_rho(Ttest, rhotot(i,j,k))
+        qtest = qsat_rho(Ttest, rhotot(i,k))
 
-          IF (qw <= qtest ) THEN
-            ! In this case, all the cloud water evaporates and there is still (sub)saturation.
-            ! The resulting state depends only on the available cloud water and is
-            ! not saturated, which enables direct computation of the adjusted variables:
-!            qve(i,j,k)  = qve(i,j,k) + qce(i,j,k)
-            qve(i,j,k)  = qw
-            qce(i,j,k)  = 0.0_ireals
-            te(i,j,k)   = Ttest
-          ELSE
-            ! In this case, the Newton interation is needed
-            nsat       = nsat+1
-            iwrk(nsat) = i
-            jwrk(nsat) = j
-            kwrk(nsat) = k
-            ! Field for the iterated temperature, here set the starting value for the below iteration
-            ! to the "old" temperature (as an alternative, the arithmetic mean
-            ! between "old" temperature and dew point has been tested, but did
-            ! not significantly increase the convergence speed of the iteration):
-            twork(nsat)  = te(i,j,k)
-            ! And this is the storage variable for the "old" values in the below iteration:
-            ! Add some nonesense increment to the starting, which is sufficient to trigger the
-            ! iteration below:
-            tworkold(nsat) = twork(nsat) + 10.0_ireals
-          END IF
+        IF (qw <= qtest ) THEN
+          ! In this case, all the cloud water evaporates and there is still (sub)saturation.
+          ! The resulting state depends only on the available cloud water and is
+          ! not saturated, which enables direct computation of the adjusted variables:
+          qve(i,k)  = qw
+          qce(i,k)  = 0.0_ireals
+          te(i,k)   = Ttest
+        ELSE
+          ! In this case, the Newton interation is needed
+          nsat       = nsat+1
+          iwrk(nsat) = i
+          kwrk(nsat) = k
+          ! Field for the iterated temperature, here set the starting value for the below iteration
+          ! to the "old" temperature (as an alternative, the arithmetic mean
+          ! between "old" temperature and dew point has been tested, but did
+          ! not significantly increase the convergence speed of the iteration):
+          twork(nsat)  = te(i,k)
+          ! And this is the storage variable for the "old" values in the below iteration:
+          ! Add some nonesense increment to the starting, which is sufficient to trigger the
+          ! iteration below:
+          tworkold(nsat) = twork(nsat) + 10.0_ireals
+        END IF
 
-        END DO
-#ifndef __ICON__
       END DO
-#endif
     END DO
 
     ! Do the Newton iteration at gridpoints which need it:
@@ -317,16 +303,13 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
           IF (ABS(twork(indx)-tworkold(indx)) > tol) THEN
             ! Here we still have to iterate ...
             i = iwrk(indx)
-#ifndef __ICON__
-            j = jwrk(indx)
-#endif
             k = kwrk(indx)
             tworkold(indx) = twork(indx)
-            qwd  = qsat_rho(twork(indx), rhotot(i,j,k))
+            qwd  = qsat_rho(twork(indx), rhotot(i,k))
             dqwd = dqsatdT_rho(qwd, twork(indx))
             ! Newton:
-            fT = twork(indx) - te(i,j,k) + lwdocvd(i,j,k)*(qwd - qve(i,j,k))
-            dfT = 1.0_ireals + lwdocvd(i,j,k)*dqwd
+            fT = twork(indx) - te(i,k) + lwdocvd(i,k)*(qwd - qve(i,k))
+            dfT = 1.0_ireals + lwdocvd(i,k)*dqwd
             twork(indx) = twork(indx) - fT / dfT;
           END IF
         END DO
@@ -345,17 +328,14 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
 !CDIR NODEP,VOVERTAKE,VOB
       DO indx = 1, nsat
         i = iwrk(indx)
-#ifndef __ICON__
-        j = jwrk(indx)
-#endif
         k = kwrk(indx)
-        te (i,j,k) = twork(indx)
+        te (i,k) = twork(indx)
         ! We disregard here the extrapolation of qsat from the second-last iteration
         ! step, which is done in the original routine to exactly preserve the internal energy.
         ! This introduces a small error (see the COSMO-Documentation, Part III).
-        qw = qsat_rho(te(i,j,k), rhotot(i,j,k))
-        qce(i,j,k) = MAX( qce(i,j,k) + qve(i,j,k) - qw,zqwmin)
-        qve(i,j,k) = qw
+        qw = qsat_rho(te(i,k), rhotot(i,k))
+        qce(i,k) = MAX( qce(i,k) + qve(i,k) - qw,zqwmin)
+        qve(i,k) = qw
       ENDDO
 
     END IF
@@ -371,11 +351,11 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
 ! the following:
 #ifdef __COSMO__
   ! Re-diagnose pressure at all gridpoints:
-  ppe(ilo:iup,jlo:jup,:) = rhotot(ilo:iup,jlo:jup,:) * r_d * te(ilo:iup,jlo:jup,:) * &
-       ( 1.0_ireals + rvd_m_o*qve(ilo:iup,jlo:jup,:)   &
-       - qce(ilo:iup,jlo:jup,:) &
-       - qle(ilo:iup,jlo:jup,:) &
-       - qie(ilo:iup,jlo:jup,:) )     -    p0e(ilo:iup,jlo:jup,:)
+  ppe(ilo:iup,:) = rhotot(ilo:iup,:) * r_d * te(ilo:iup,:) * &
+       ( 1.0_ireals + rvd_m_o*qve(ilo:iup,:)   &
+       - qce(ilo:iup,:) &
+       - qle(ilo:iup,:) &
+       - qie(ilo:iup,:) )     -    p0e(ilo:iup,:)
 #endif
 
 END SUBROUTINE satad_v_3D
