@@ -47,9 +47,10 @@ MODULE mo_sync
 !
 
 USE mo_kind,               ONLY: wp, dp, i8
-USE mo_exception,          ONLY: finish
+USE mo_exception,          ONLY: finish, message, message_text
 USE mo_model_domain,       ONLY: t_patch
 USE mo_parallel_config, ONLY: nproma
+USE mo_impl_constants,  ONLY: min_rlcell_int, min_rledge_int, min_rlvert_int
 USE mo_io_units,           ONLY: find_next_free_unit, filename_max
 USE mo_mpi,                ONLY: p_pe, p_bcast, p_sum, p_max, p_min, &
   & p_send, p_recv, p_comm_work_test,  p_comm_work, &
@@ -76,7 +77,7 @@ PUBLIC :: sync_patch_array, check_patch_array, sync_idx,              &
           global_sum_array2, global_sum_array3,                       &
           sync_patch_array_mult, push_glob_comm, pop_glob_comm,       &
           global_min, global_max, sync_patch_array_gm,                &
-          sync_patch_array_4de3,                                      &
+          sync_patch_array_4de3, decomposition_statistics,            &
           enable_sync_checks, disable_sync_checks
 
 !
@@ -2184,6 +2185,120 @@ SUBROUTINE exact_ieee64_sum(vals, num_vals, res)
    res = TRANSFER(ix,res)
 
 END SUBROUTINE exact_ieee64_sum
+
+!>
+!! Computes and prints summary information on the domain decomposition
+!!
+!!
+!! @par Revision History
+!! Initial version by Guenther Zaengl, Nov 2011
+!!
+SUBROUTINE decomposition_statistics(p_patch)
+
+   TYPE(t_patch), INTENT(IN) :: p_patch
+
+   REAL(wp) :: cellstat(6),edgestat(6),vertstat(5), csmax(5),csmin(5),csavg(6), &
+               esmax(6),esmin(6),esavg(6),vsmax(5),vsmin(5),vsavg(5)
+   INTEGER  :: i_nchdom, i
+!-----------------------------------------------------------------------
+
+   i_nchdom = MAX(1,p_patch%n_childdom)
+
+   cellstat(1) = REAL(nproma*(p_patch%cells%end_blk(min_rlcell_int,i_nchdom)-1) + &
+                      p_patch%cells%end_idx(min_rlcell_int,i_nchdom),wp)
+   cellstat(2) = REAL(nproma*(p_patch%cells%end_blk(min_rlcell_int-1,i_nchdom)-1) + &
+                      p_patch%cells%end_idx(min_rlcell_int-1,i_nchdom),wp)
+   cellstat(3) = REAL(nproma*(p_patch%cells%end_blk(min_rlcell_int-2,i_nchdom)-1) + &
+                      p_patch%cells%end_idx(min_rlcell_int-2,i_nchdom),wp)
+   cellstat(4) = REAL(p_patch%comm_pat_c%np_send,wp)
+   cellstat(5) = REAL(p_patch%comm_pat_c%np_recv,wp)
+
+   ! The purpose of this is to compute average quantities only over those PEs
+   ! that actually contain grid points of a given model domain (relevant in the case
+   ! of processor splitting)
+   IF (cellstat(1) > 0._wp) THEN
+     cellstat(6) = 1._wp
+   ELSE
+     cellstat(6) = 0._wp
+   ENDIF
+
+   edgestat(1) = REAL(nproma*(p_patch%edges%end_blk(min_rledge_int,i_nchdom)-1) + &
+                      p_patch%edges%end_idx(min_rledge_int,i_nchdom),wp)
+   edgestat(2) = REAL(nproma*(p_patch%edges%end_blk(min_rledge_int-1,i_nchdom)-1) + &
+                      p_patch%edges%end_idx(min_rledge_int-1,i_nchdom),wp)
+   edgestat(3) = REAL(nproma*(p_patch%edges%end_blk(min_rledge_int-2,i_nchdom)-1) + &
+                      p_patch%edges%end_idx(min_rledge_int-2,i_nchdom),wp)
+   edgestat(4) = REAL(nproma*(p_patch%edges%end_blk(min_rledge_int-3,i_nchdom)-1) + &
+                      p_patch%edges%end_idx(min_rledge_int-3,i_nchdom),wp)
+   edgestat(5) = REAL(p_patch%comm_pat_e%np_send,wp)
+   edgestat(6) = REAL(p_patch%comm_pat_e%np_recv,wp)
+
+   vertstat(1) = REAL(nproma*(p_patch%verts%end_blk(min_rlvert_int,i_nchdom)-1) + &
+                      p_patch%verts%end_idx(min_rlvert_int,i_nchdom),wp)
+   vertstat(2) = REAL(nproma*(p_patch%verts%end_blk(min_rlvert_int-1,i_nchdom)-1) + &
+                      p_patch%verts%end_idx(min_rlvert_int-1,i_nchdom),wp)
+   vertstat(3) = REAL(nproma*(p_patch%verts%end_blk(min_rlvert_int-2,i_nchdom)-1) + &
+                      p_patch%verts%end_idx(min_rlvert_int-2,i_nchdom),wp)
+   vertstat(4) = REAL(p_patch%comm_pat_v%np_send,wp)
+   vertstat(5) = REAL(p_patch%comm_pat_v%np_recv,wp)
+
+   ! Question: how can I exclude PEs containing zero grid points of a model domain
+   ! from global minimum computation?
+   csmax = global_max(cellstat(1:5))
+   csmin = global_min(cellstat(1:5))
+   DO i = 1, 6
+     csavg(i) = global_sum_array(cellstat(i))
+   ENDDO
+   csavg(1:5) = csavg(1:5)/MAX(1._wp,csavg(6))
+   esmax = global_max(edgestat)
+   esmin = global_min(edgestat)
+   DO i = 1, 6
+     esavg(i) = global_sum_array(edgestat(i))/MAX(1._wp,csavg(6))
+   ENDDO
+   vsmax = global_max(vertstat)
+   vsmin = global_min(vertstat)
+   DO i = 1, 5
+     vsavg(i) = global_sum_array(vertstat(i))/MAX(1._wp,csavg(6))
+   ENDDO
+
+   WRITE(message_text,'(a,i4)') 'grid ',p_patch%id
+     CALL message('Information on domain decomposition',TRIM(message_text))
+   WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(csmax(1)),NINT(csmin(1)),csavg(1)
+     CALL message('#         prognostic cells', TRIM(message_text))
+   WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(csmax(2)),NINT(csmin(2)),csavg(2)
+     CALL message('# cells up to halo level 1', TRIM(message_text))
+   WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(csmax(3)),NINT(csmin(3)),csavg(3)
+     CALL message('# cells up to halo level 2', TRIM(message_text))
+   WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(esmax(1)),NINT(esmin(1)),esavg(1)
+     CALL message('#         prognostic edges', TRIM(message_text))
+   WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(esmax(2)),NINT(esmin(2)),esavg(2)
+     CALL message('# edges up to halo level 1', TRIM(message_text))
+   WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(esmax(3)),NINT(esmin(3)),esavg(3)
+     CALL message('# edges up to halo level 2', TRIM(message_text))
+   WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(esmax(4)),NINT(esmin(4)),esavg(4)
+     CALL message('# edges up to halo level 3', TRIM(message_text))
+   WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(vsmax(1)),NINT(vsmin(1)),vsavg(1)
+     CALL message('#         prognostic verts', TRIM(message_text))
+   WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(vsmax(2)),NINT(vsmin(2)),vsavg(2)
+     CALL message('# verts up to halo level 1', TRIM(message_text))
+   WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(vsmax(3)),NINT(vsmin(3)),vsavg(3)
+     CALL message('# verts up to halo level 2', TRIM(message_text))
+     CALL message('','')
+   WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(csmax(4)),NINT(csmin(4)),csavg(4)
+     CALL message('# send PEs (cells)', TRIM(message_text))
+   WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(csmax(5)),NINT(csmin(5)),csavg(5)
+     CALL message('# recv PEs (cells)', TRIM(message_text))
+   WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(esmax(5)),NINT(esmin(5)),esavg(5)
+     CALL message('# send PEs (edges)', TRIM(message_text))
+   WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(esmax(6)),NINT(esmin(6)),esavg(6)
+     CALL message('# recv PEs (edges)', TRIM(message_text))
+   WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(vsmax(4)),NINT(vsmin(4)),vsavg(4)
+     CALL message('# send PEs (verts)', TRIM(message_text))
+   WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(vsmax(5)),NINT(vsmin(5)),vsavg(5)
+     CALL message('# recv PEs (verts)', TRIM(message_text))
+     CALL message('','')
+
+END SUBROUTINE decomposition_statistics
 
 !-------------------------------------------------------------------------
 

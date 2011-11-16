@@ -41,7 +41,8 @@ USE mo_mpi,                 ONLY: p_stop, &
   & my_process_is_mpi_parallel,                                       &
   & set_mpi_work_communicators, set_comm_input_bcast, null_comm_type, &
   & p_pe_work, get_my_mpi_all_id, p_min, p_max, p_comm_work
-USE mo_sync,                ONLY: enable_sync_checks, disable_sync_checks
+USE mo_sync,                ONLY: enable_sync_checks, disable_sync_checks, &
+                                  decomposition_statistics
 USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, &
   &                               timer_lonlat_setup
 USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, &
@@ -436,6 +437,11 @@ CONTAINS
     ELSE
 
       CALL finalize_decomposition()
+
+      ! Print diagnostic information about domain decomposition
+      DO jg = 1, n_dom
+        CALL decomposition_statistics(p_patch(jg))
+      ENDDO
 
     ENDIF
 

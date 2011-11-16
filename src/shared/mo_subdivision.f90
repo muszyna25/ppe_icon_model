@@ -770,13 +770,13 @@ CONTAINS
 
     ! Output how many cells go to every PE
 
-    IF(p_pe_work==0) THEN
-      PRINT '(a,i0,a,i0)','Patch: ',wrk_p_patch_g%id,&
-        & ' Total number of cells: ',wrk_p_patch_g%n_patch_cells
-      DO n = 0, p_n_work-1
-        PRINT '(a,i5,a,i8)','PE',n,' # cells: ',COUNT(cell_owner(:) == n)
-      ENDDO
-    ENDIF
+  !  IF(p_pe_work==0) THEN
+  !    PRINT '(a,i0,a,i0)','Patch: ',wrk_p_patch_g%id,&
+  !      & ' Total number of cells: ',wrk_p_patch_g%n_patch_cells
+  !    DO n = 0, p_n_work-1
+  !      PRINT '(a,i5,a,i8)','PE',n,' # cells: ',COUNT(cell_owner(:) == n)
+  !    ENDDO
+  !  ENDIF
 
   END SUBROUTINE divide_patch_cells
 
@@ -817,13 +817,13 @@ CONTAINS
     IF(ANY(cnt(:)/=0 .AND. cnt(:)/=4)) &
       & CALL finish('divide_parent_cells','Incomplete parent cell encountered')
 
-    IF(p_pe_work==0) THEN
-      PRINT '(a,i0,a,i0)','Patch: ',p_patch%id,&
-        & ' Total number of parent cells: ',COUNT(cell_owner(:) >= 0)
-      DO j = 0, p_n_work-1
-        PRINT '(a,i5,a,i8)','PE',j,' # parent cells: ',COUNT(cell_owner(:) == j)
-      ENDDO
-    ENDIF
+  !  IF(p_pe_work==0) THEN
+  !    PRINT '(a,i0,a,i0)','Patch: ',p_patch%id,&
+  !      & ' Total number of parent cells: ',COUNT(cell_owner(:) >= 0)
+  !    DO j = 0, p_n_work-1
+  !      PRINT '(a,i5,a,i8)','PE',j,' # parent cells: ',COUNT(cell_owner(:) == j)
+  !    ENDDO
+  !  ENDIF
 
   END SUBROUTINE divide_parent_cells
 
