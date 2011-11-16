@@ -1705,7 +1705,7 @@ CONTAINS
 
     INTEGER :: jg, jc, jb, i, mpi_comm
     INTEGER :: i_lev,jk
-    INTEGER :: ncid, dimid, varid
+    INTEGER :: ncid, varid
 
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk   !> blocks

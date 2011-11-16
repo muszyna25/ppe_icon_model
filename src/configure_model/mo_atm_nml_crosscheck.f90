@@ -179,8 +179,9 @@ CONTAINS
       ! event. If not, adapt dt_restart accordingly.
       !
       IF (MOD(time_config%dt_restart,REAL(iadv_rcf,wp)*dtime) /= 0) THEN
-        time_config%dt_restart = REAL(NINT(time_config%dt_restart/(REAL(iadv_rcf,wp)*dtime))) &
-          &                    * REAL(iadv_rcf,wp)*dtime
+        time_config%dt_restart =                                              &
+          &   REAL(NINT(time_config%dt_restart/(REAL(iadv_rcf,wp)*dtime)),wp) &
+          &   * REAL(iadv_rcf,wp)*dtime
         WRITE(message_text,'(a)') &
           &  'length of restart cycle dt_restart synchronized with transport event' 
         CALL message(routine, message_text)
@@ -223,7 +224,7 @@ CONTAINS
       ! If not, adapt dt_checkpoint accordingly.
       !
       IF (MOD(dt_checkpoint,REAL(iadv_rcf,wp)*dtime) /= 0) THEN
-        dt_checkpoint = REAL(NINT(dt_checkpoint/(REAL(iadv_rcf,wp)*dtime))) &
+        dt_checkpoint = REAL(NINT(dt_checkpoint/(REAL(iadv_rcf,wp)*dtime)),wp) &
           &           * REAL(iadv_rcf,wp)*dtime
         WRITE(message_text,'(a)') &
           &  'length of checkpoint cycle dt_checkpoint synchronized with transport event' 

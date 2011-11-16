@@ -801,7 +801,6 @@ MODULE mo_nh_testcases
            &                         p_nh_state(jg)%prog(nnow(jg)),  &
            &                         p_nh_state(jg)%diag,            &
            &                         p_int(jg), ext_data(jg),        &
-           &                         p_nh_state(jg)%metrics,         &
            &                         rotate_axis_deg, nh_test_name,  &
            &                         linit_tracer_fv )
 
@@ -809,7 +808,6 @@ MODULE mo_nh_testcases
            &                         p_nh_state(jg)%prog(nnew(jg)),  &
            &                         p_nh_state(jg)%diag,            &
            &                         p_int(jg), ext_data(jg),        &
-           &                         p_nh_state(jg)%metrics,         &
            &                         rotate_axis_deg, nh_test_name,  &
            &                         linit_tracer_fv )
 

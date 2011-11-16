@@ -461,7 +461,7 @@ MODULE mo_nh_mrw_exp
       IF (PRESENT(opt_rh_at_1000hpa)) THEN
         rh_at_1000hpa = opt_rh_at_1000hpa
       ELSE
-        rh_at_1000hpa = 0.7
+        rh_at_1000hpa = 0.7_wp
       END IF
       IF (PRESENT(opt_qv_max)) THEN
        qv_max  = opt_qv_max

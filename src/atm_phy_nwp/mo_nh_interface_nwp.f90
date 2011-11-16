@@ -1064,7 +1064,6 @@ CONTAINS
         &               lcall_phy_jg(itgwd),       & !>input
         &               pt_patch,p_metrics,        & !>input
         &               ext_data,                  & !>input
-        &               pt_prog,                   & !>in
         &               pt_diag ,                  & !>inout
         &               prm_diag,prm_nwp_tend      ) !>inout
 
@@ -1377,13 +1376,12 @@ CONTAINS
     IF (ltimer) CALL timer_stop(timer_physic_acc)
 
     IF (jstep > 1 .OR. (jstep == 1 .AND. lcall_phy_jg(itupdate))) THEN
-     CALL nwp_diagnosis(lcall_phy_jg,lredgrid,jstep,     & !input
-
-                            & tcall_phy_jg,p_sim_time,             & !input
-                            & kstart_moist(jg),                    & !input
-                            & pt_patch, pt_int_state, p_metrics,   & !input
-                            & pt_prog, pt_prog_rcf,                & !in
-                            & pt_diag,                            & !inout
+     CALL nwp_diagnosis(lcall_phy_jg,lredgrid,jstep,         & !input
+                            & tcall_phy_jg,p_sim_time,       & !input
+                            & kstart_moist(jg),              & !input
+                            & pt_patch, p_metrics,           & !input
+                            & pt_prog, pt_prog_rcf,          & !in
+                            & pt_diag,                       & !inout
                             & prm_diag,prm_nwp_tend)   
     END IF
 

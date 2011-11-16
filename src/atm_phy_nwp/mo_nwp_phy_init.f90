@@ -341,7 +341,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
     !------------------------------------------
     ! APE ozone profile, vertical setting needed only once for NH
     !------------------------------------------
-      IF (irad_o3 == io3_ape) THEN
+      IF (irad_o3 == io3_ape .AND. .NOT. is_restart_run()) THEN
 
 !        CALL o3_zl2ml(p_patch%nblks_c,p_patch%npromz_c,        & ! 
 !          &           nlev_o3,      nlev,                      & ! vertical levels in/out
@@ -449,7 +449,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
     !------------------------------------------
     ! APE ozone profile, vertical setting needed only once for NH
     !------------------------------------------
-    IF (irad_o3 == io3_ape) THEN
+    IF (irad_o3 == io3_ape .AND. .NOT. is_restart_run() ) THEN
 
       rl_start = 1  ! Initialization should be done for all points
       rl_end   = min_rlcell

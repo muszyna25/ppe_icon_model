@@ -131,7 +131,7 @@ CONTAINS
   !! Initial version by Daniel Reinert (2010-03-26)
   !!
   SUBROUTINE init_nh_state_prog_dftest( ptr_patch, ptr_nh_prog, ptr_nh_diag,  &
-    &                                   ptr_int, ptr_ext_data, p_metrics,     &
+    &                                   ptr_int, ptr_ext_data,                &
     &                                   p_rotate_axis_deg, p_ctest_name,      &
     &                                   linit_tracer_fv )
 
@@ -146,8 +146,6 @@ CONTAINS
       &  ptr_nh_diag
     TYPE(t_external_data), INTENT(INOUT) :: & !< external data
       &  ptr_ext_data
-    TYPE(t_nh_metrics), INTENT(IN)     :: & !< NH metrics state
-      &  p_metrics
 
     CHARACTER(len=MAX_CHAR_LENGTH), INTENT(IN) :: p_ctest_name
     REAL(wp), INTENT(IN)  :: p_rotate_axis_deg !< Earths rotation axis pitch

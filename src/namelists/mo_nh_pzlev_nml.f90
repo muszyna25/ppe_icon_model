@@ -139,7 +139,7 @@ CONTAINS
     !
     p_bot = 100000._wp
     p_top = 0._wp
-    delp  = (p_bot - p_top)/REAL(nplev)
+    delp  = (p_bot - p_top)/REAL(nplev,wp)
     
     plevels(nplev) =  p_bot
     DO jk = 2, nplev

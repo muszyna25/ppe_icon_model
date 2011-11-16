@@ -87,12 +87,12 @@ CONTAINS
   !! @par Revision History
   !! <Description of activity> by <name, affiliation> (<YYYY-MM-DD>)
   !!
-  SUBROUTINE nwp_diagnosis(lcall_phy_jg,lredgrid,jstep,     & !input
-                            & tcall_phy_jg,p_sim_time,             & !input
-                            & kstart_moist,                        & !input
-                            & pt_patch, pt_int_state, p_metrics,   & !input
-                            & pt_prog, pt_prog_rcf,                & !in
-                            & pt_diag,                            & !inout
+  SUBROUTINE nwp_diagnosis(lcall_phy_jg,lredgrid,jstep,   & !input
+                            & tcall_phy_jg,p_sim_time,    & !input
+                            & kstart_moist,               & !input
+                            & pt_patch, p_metrics,        & !input
+                            & pt_prog, pt_prog_rcf,       & !in
+                            & pt_diag,                    & !inout
                             & prm_diag,prm_nwp_tend)    
                             
 
@@ -113,8 +113,6 @@ CONTAINS
     TYPE(t_nh_prog), TARGET, INTENT(inout) :: pt_prog_rcf !<the prognostic variables (with
                                                           !< red. calling frequency for tracers!
 
-
-    TYPE(t_int_state),    TARGET,INTENT(in):: pt_int_state      !< interpolation state
     TYPE(t_nh_metrics)   ,       INTENT(in):: p_metrics
 
     TYPE(t_nwp_phy_diag),       INTENT(inout) :: prm_diag

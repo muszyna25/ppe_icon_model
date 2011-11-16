@@ -127,7 +127,7 @@ CONTAINS
 
 
      ! get nearest output time
-     nearest_output_time = NINT(sim_time/dt_data) * dt_data
+     nearest_output_time = REAL(NINT(sim_time/dt_data),wp) * dt_data
 
      ! write output (true/false)
      retval =( ( (-dtime/2._wp) < (sim_time - nearest_output_time)) .AND.  &

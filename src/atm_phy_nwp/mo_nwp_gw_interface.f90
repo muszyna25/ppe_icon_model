@@ -49,8 +49,7 @@ MODULE mo_nwp_gw_interface
   USE mo_loopindices,          ONLY: get_indices_c
 
   USE mo_ext_data,             ONLY: t_external_data
-  USE mo_nonhydro_state,       ONLY: t_nh_prog, t_nh_diag,&
-    &                                t_nh_metrics
+  USE mo_nonhydro_state,       ONLY: t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_parallel_config,      ONLY: nproma
   USE mo_run_config,           ONLY: msg_level
@@ -77,7 +76,6 @@ CONTAINS
                          &   lcall_gwd_jg,              & !>input
                          &   p_patch,p_metrics,         & !>input
                          &   ext_data,                  & !>input
-                         &   p_prog,                    & !>in
                          &   p_diag ,                   & !>inout
                          &   prm_diag,prm_nwp_tend      ) !>inout
 
@@ -86,7 +84,6 @@ CONTAINS
     TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch         !<grid/patch info.
     TYPE(t_external_data),       INTENT(in)   :: ext_data        !< external data
     TYPE(t_nh_metrics)          ,INTENT(in)   :: p_metrics
-    TYPE(t_nh_prog),      TARGET,INTENT(in)   :: p_prog          !<the dyn prog vars
     TYPE(t_nh_diag),      TARGET,INTENT(inout):: p_diag          !<the dyn diag vars
     TYPE(t_nwp_phy_diag),        INTENT(inout):: prm_diag        !<the atm phys vars
     TYPE(t_nwp_phy_tend), TARGET,INTENT(inout):: prm_nwp_tend    !< atm tend vars

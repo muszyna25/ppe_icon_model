@@ -4818,12 +4818,9 @@ REAL (KIND=ireals), INTENT (INOUT)       ::    &
   tg (ie,je)    ! temperature at the boundary between ground and atmosphere
 
 REAL (KIND=ireals), INTENT (IN)          ::    &
-!DR  ts (ie,je), & ! temperature of the snow surface
+  ts (ie,je), & ! temperature of the snow surface
   tb (ie,je), & ! temperature of the ground surface
   ws (ie,je)    ! water content of snow
-
-REAL (KIND=ireals), INTENT (INOUT)          ::    &
-  ts (ie,je)    ! temperature of the snow surface
 
 LOGICAL,  INTENT (IN)                    ::    &
   llp (ie,je)   ! pattern of land- and sea-points

@@ -174,8 +174,10 @@ MODULE mo_nonhydro_state
     &  vn_ie(:,:,:),        & ! normal wind at half levels (nproma,nlevp1,nblks_e)   [m/s]
     &  ddt_vn_adv(:,:,:,:), & ! normal wind tendency from advection
                               ! (nproma,nlev,nblks_e,1:3)                    [m/s^2]
+                            ! *** needs to be saved for restart ***
     &  ddt_w_adv(:,:,:,:),  & ! vert. wind tendency from advection
                               ! (nproma,nlevp1,nblks_c,1:3)                  [m/s^2]
+                            ! *** needs to be saved for restart ***
     &  grf_tend_vn(:,:,:),  & ! vn tendency field for use in grid refinement
                               ! (nproma,nlev,nblks_e)                        [m/s^2]
     &  grf_tend_w(:,:,:),   & ! w tendency field for use in grid refinement
@@ -829,7 +831,7 @@ MODULE mo_nonhydro_state
         CALL add_var( p_prog_list, 'tracer', p_prog%tracer,                       &
           &           GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
           &           ldims=shape4d_c ,                                           &
-                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+          &           lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
       ENDIF
 
       IF (  iforcing == inwp  ) THEN
@@ -1004,7 +1006,7 @@ MODULE mo_nonhydro_state
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'u', p_diag%u,                                   &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
-                & ldims=shape3d_c )
+                & ldims=shape3d_c, lrestart=.FALSE. )
 
 
     ! v           p_diag%v(nproma,nlev,nblks_c)
@@ -1013,7 +1015,7 @@ MODULE mo_nonhydro_state
     grib2_desc = t_grib2_var(0, 2, 3, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'v', p_diag%v,                                   &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
-                & ldims=shape3d_c )
+                & ldims=shape3d_c, lrestart=.FALSE. )
 
     ! vt           p_diag%vt(nproma,nlev,nblks_e)
     !
@@ -1108,7 +1110,7 @@ MODULE mo_nonhydro_state
     grib2_desc = t_grib2_var(0, 3, 0, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'pres_sfc_s6avg', p_diag%pres_sfc_s6avg,         &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,   &
-                & ldims=shape2d_c )
+                & ldims=shape2d_c, lrestart=.FALSE. )
 
     ! temp         p_diag%temp(nproma,nlev,nblks_c)
     !
@@ -1252,7 +1254,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT,                        &
                     & t_cf_var('ddt_adv_vn'//ctrc, 'm s-2',''),                    &
                     & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),&
-                    & ldims=shape3d_e)
+                    & ldims=shape3d_e )
       ENDDO
 
 
@@ -1264,7 +1266,7 @@ MODULE mo_nonhydro_state
       CALL add_var( p_diag_list, 'ddt_w_adv', p_diag%ddt_w_adv,                 &
                   & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
                   & ldims=shape4d_chalfntl ,&
-                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
 
       ALLOCATE(p_diag%ddt_w_adv_ptr(n_timlevs))
       DO jt =1,n_timlevs
@@ -1274,7 +1276,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                         &
                     & t_cf_var('ddt_adv_w'//ctrc, 'm s-2',''),                      &
                     & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
-                    & ldims=shape3d_chalf)
+                    & ldims=shape3d_chalf )
       ENDDO
 
       ! grf_tend_vn  p_diag%grf_tend_vn(nproma,nlev,nblks_e)
@@ -1284,7 +1286,7 @@ MODULE mo_nonhydro_state
       grib2_desc = t_grib2_var( 0, 2, 203, ientr, GRID_REFERENCE, GRID_EDGE)
       CALL add_var( p_diag_list, 'grf_tend_vn', p_diag%grf_tend_vn,             &
                   & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
-                  & ldims=shape3d_e )
+                  & ldims=shape3d_e, lrestart=.FALSE. )
 
 
       ! grf_tend_w  p_diag%grf_tend_w(nproma,nlevp1,nblks_c)
@@ -1294,7 +1296,7 @@ MODULE mo_nonhydro_state
       grib2_desc = t_grib2_var( 0, 2, 204, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'grf_tend_w', p_diag%grf_tend_w,               &
                   & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
-                  & ldims=shape3d_chalf )
+                  & ldims=shape3d_chalf, lrestart=.FALSE. )
 
       ! grf_tend_rho   p_diag%grf_tend_rho(nproma,nlev,nblks_c)
       !
@@ -1303,7 +1305,7 @@ MODULE mo_nonhydro_state
       grib2_desc = t_grib2_var( 0, 3, 198, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'grf_tend_rho', p_diag%grf_tend_rho,           &
                   & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
-                  & ldims=shape3d_c )
+                  & ldims=shape3d_c, lrestart=.FALSE. )
 
       ! grf_tend_thv   p_diag%grf_tend_thv(nproma,nlev,nblks_c)
       !
@@ -1312,7 +1314,7 @@ MODULE mo_nonhydro_state
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'grf_tend_thv', p_diag%grf_tend_thv,           &
                   & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
-                  & ldims=shape3d_c )
+                  & ldims=shape3d_c, lrestart=.FALSE. )
 
 
       ! Storage fields for vertical nesting; the middle index (2) addresses 
@@ -1325,7 +1327,7 @@ MODULE mo_nonhydro_state
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE)
       CALL add_var( p_diag_list, 'dvn_ie_int', p_diag%dvn_ie_int,               &
                   & GRID_UNSTRUCTURED_EDGE, ZAXIS_SURFACE, cf_desc, grib2_desc,      &
-                  & ldims=shape2d_e )
+                  & ldims=shape2d_e, lrestart=.FALSE. )
 
 
       ! dvn_ie_ubc   p_diag%dvn_ie_ubc(nproma,nblks_e)
@@ -1335,7 +1337,7 @@ MODULE mo_nonhydro_state
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE)
       CALL add_var( p_diag_list, 'dvn_ie_ubc', p_diag%dvn_ie_ubc,               &
                   & GRID_UNSTRUCTURED_EDGE, ZAXIS_SURFACE, cf_desc, grib2_desc,      &
-                  & ldims=shape2d_e )
+                  & ldims=shape2d_e, lrestart=.FALSE. )
 
 
       ! drho_ic_int  p_diag%drho_ic_int(nproma,nblks_c)
@@ -1345,7 +1347,7 @@ MODULE mo_nonhydro_state
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'drho_ic_int', p_diag%drho_ic_int,             &
                   & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,      &
-                  & ldims=shape2d_c )
+                  & ldims=shape2d_c, lrestart=.FALSE. )
 
 
       ! drho_ic_ubc  p_diag%drho_ic_ubc(nproma,nblks_c)
@@ -1355,7 +1357,7 @@ MODULE mo_nonhydro_state
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'drho_ic_ubc', p_diag%drho_ic_ubc,             &
                   & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,      &
-                  & ldims=shape2d_c )
+                  & ldims=shape2d_c, lrestart=.FALSE. )
 
 
       ! dtheta_v_ic_int    p_diag%dtheta_v_ic_int(nproma,nblks_c)
@@ -1365,7 +1367,7 @@ MODULE mo_nonhydro_state
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'dtheta_v_ic_int', p_diag%dtheta_v_ic_int,     &
                   & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,      &
-                  & ldims=shape2d_c )
+                  & ldims=shape2d_c, lrestart=.FALSE. )
 
 
       ! dtheta_v_ic_ubc    p_diag%dtheta_v_ic_ubc(nproma,nblks_c)
@@ -1375,7 +1377,7 @@ MODULE mo_nonhydro_state
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'dtheta_v_ic_ubc', p_diag%dtheta_v_ic_ubc,     &
                   & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,      &
-                  & ldims=shape2d_c )
+                  & ldims=shape2d_c, lrestart=.FALSE. )
 
 
       ! dw_int       p_diag%dw_int(nproma,nblks_c)
@@ -1385,7 +1387,7 @@ MODULE mo_nonhydro_state
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'dw_int', p_diag%dw_int,                       &
                   & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
-                  & ldims=shape2d_c )
+                  & ldims=shape2d_c, lrestart=.FALSE. )
 
 
       ! dw_ubc       p_diag%dw_ubc(nproma,nblks_c)
@@ -1395,7 +1397,7 @@ MODULE mo_nonhydro_state
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'dw_ubc', p_diag%dw_ubc,                       &
                   & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
-                  & ldims=shape2d_c )
+                  & ldims=shape2d_c, lrestart=.FALSE. )
 
 
       ! q_int        p_diag%q_int(nproma,nblks_c,ntracer)
@@ -1416,7 +1418,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                        &
                     & t_cf_var('q_int'//ctrc, 'kg kg-1',''),                        &
                     & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
-                    & ldims=shape2d_c)
+                    & ldims=shape2d_c, lrestart=.FALSE. )
       ENDDO
 
 
@@ -1438,7 +1440,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL,ZAXIS_SURFACE,                         &
                     & t_cf_var('q_ubc'//ctrc, 'kg kg-1',''),                        &
                     & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
-                    & ldims=shape2d_c)
+                    & ldims=shape2d_c, lrestart=.FALSE. )
       ENDDO
 
     ELSE IF (p_patch%cell_type == 6) THEN
@@ -1628,7 +1630,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                        &
                     & t_cf_var('ddt_grf_q'//ctrc, 'kg kg-1 s**-1',''),             &
                     & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),&
-                    & ldims=shape3d_c)
+                    & ldims=shape3d_c, lrestart=.FALSE. )
       ENDDO
 
 
@@ -1650,7 +1652,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT,                         &
                     & t_cf_var('hfl_q'//ctrc, 'kg m-1 s-1',''),                     &
                     & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
-                    & ldims=shape3d_e)
+                    & ldims=shape3d_e, lrestart=.FALSE. )
       ENDDO
 
 
@@ -1672,7 +1674,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                        &
                     & t_cf_var('vfl_q'//ctrc, 'kg m-1 s-1',''),                    &
                     & t_grib2_var(255,255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
-                    & ldims=shape3d_chalf)
+                    & ldims=shape3d_chalf, lrestart=.FALSE. )
       ENDDO
 
 
@@ -1694,7 +1696,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                        &
                     & t_cf_var('ddt_adv_q'//ctrc, 'kg kg-1 s-1',''),               &
                     & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),&
-                    & ldims=shape3d_c)
+                    & ldims=shape3d_c, lrestart=.FALSE. )
       ENDDO
 
 
@@ -1710,7 +1712,7 @@ MODULE mo_nonhydro_state
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'tracer_vi_avg', p_diag%tracer_vi_avg,          &
                   & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,   &
-                  & ldims=(/nproma, nblks_c,3/) , lrestart=.FALSE.)
+                  & ldims=(/nproma, nblks_c,3/), lrestart=.FALSE.)
     ENDIF
 
 
@@ -1734,7 +1736,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                        &
                     & t_cf_var('ddt_phy_q'//ctrc, 'kg kg-1 s-1',''),               &
                     & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),&
-                    & ldims=shape3d_c)
+                    & ldims=shape3d_c )
       ENDDO
 
     ENDIF
