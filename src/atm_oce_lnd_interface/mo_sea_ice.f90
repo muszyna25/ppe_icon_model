@@ -1974,153 +1974,136 @@ END SUBROUTINE new_ice_growth
 
   !Local variables
   REAL(wp), DIMENSION (nproma,ppatch%nblks_c) ::           &
-    z_Tsurf,      &  ! Surface temperature                             [C]
-    z_tafoK,      &  ! Air temperature at 2 m in Kelvin                [K]
-    z_fu10lim,    &  ! wind speed at 10 m height in range 2.5...32     [m/s]
-    z_esta,       &  ! water vapor pressure at 2 m height              [Pa]
-    z_esti,       &  ! water vapor pressure at ice surface             [Pa]
-    z_estw,       &  ! water vapor pressure at water surface           [Pa]
-    z_sphumida ,  &  ! Specific humididty at 2 m height 
-    z_sphumidi ,  &  ! Specific humididty at ice surface
-    z_sphumidw ,  &  ! Specific humididty at water surface
-    z_ftdewC,     &  ! Dew point temperature in Celsius                [C]
-    z_rhoair ,    &  ! air density                                     [kg/m³]
-    z_dragl1,     &  ! part of z_dragl                                   
-    z_dragl ,     &  ! Drag coefficient for latent   heat flux
-    z_drags ,     &  ! Drag coefficient for sensible heat flux (=0.95 z_dragl)
-    z_xlat ,      &  ! latitude limited to 60S...60N
-    z_fakts ,     &  ! Effect of cloudiness on LW radiation
-    z_humi           ! Effect of air humidity on LW radiation
+    Tsurf,      &  ! Surface temperature                             [C]
+    tafoK,      &  ! Air temperature at 2 m in Kelvin                [K]
+    fu10lim,    &  ! wind speed at 10 m height in range 2.5...32     [m/s]
+    esta,       &  ! water vapor pressure at 2 m height              [Pa]
+    esti,       &  ! water vapor pressure at ice surface             [Pa]
+    estw,       &  ! water vapor pressure at water surface           [Pa]
+    sphumida ,  &  ! Specific humididty at 2 m height 
+    sphumidi ,  &  ! Specific humididty at ice surface
+    sphumidw ,  &  ! Specific humididty at water surface
+    ftdewC,     &  ! Dew point temperature in Celsius                [C]
+    rhoair ,    &  ! air density                                     [kg/m³]
+    dragl0,     &  ! part of dragl                                   
+    dragl1,     &  ! part of dragl                                   
+    dragl ,     &  ! Drag coefficient for latent   heat flux
+    drags ,     &  ! Drag coefficient for sensible heat flux (=0.95 dragl)
+    fakts ,     &  ! Effect of cloudiness on LW radiation
+    humi ,      &  ! Effect of air humidity on LW radiation
+    fa, fw, fi, &  ! Enhancment factor for vapor pressure
+    dsphumididesti, & ! Derivative of sphumidi w.r.t. esti
+    destidT ,   &  ! Derivative of esti w.r.t. T
+    dfdT           ! Derivative of f w.r.t. T
   
-  INTEGER :: jc, jb, i
-  INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
-  INTEGER :: rl_start_c, rl_end_c
+  INTEGER :: i
+  REAL(wp) :: aw,bw,cw,dw,ai,bi,ci,di,AAw,BBw,CCw,AAi,BBi,CCi,alpha,beta
 
   CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:calc_atm_fluxes_from_bulk'
   !-------------------------------------------------------------------------
   CALL message(TRIM(routine), 'start' )
 
-  rl_start_c = 1
-  rl_end_c   = min_rlcell
-  i_startblk_c = ppatch%cells%start_blk(rl_start_c,1)
-  i_endblk_c   = ppatch%cells%end_blk(rl_end_c,1)
+  Tsurf  = p_os%p_prog(nold(1))%tracer(:,1,:,1)        ! set surface temp = mixed layer temp
+  tafoK  = p_as%tafo  + tmelt                    ! Change units of tafoK  to Kelvin
+  ftdewC = p_as%ftdew - tmelt                    ! Change units of ftdewC to C
 
-  !TODO: Can't we get rid of the do-loops?
-  DO jb = i_startblk_c, i_endblk_c
-    CALL get_indices_c( ppatch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
-    &                   rl_start_c, rl_end_c)
-    DO jc = i_startidx_c, i_endidx_c
+
+  !-----------------------------------------------------------------------
+  ! Compute water vapor pressure and specific humididty in 2m height (esta) 
+  ! and at water surface (estw) according to "Buck Research Manual (1996)
+  ! (see manuals for instruments at http://www.buck-research.com/); 
+  ! updated from Buck, A. L., New equations for computing vapor pressure and 
+  ! enhancement factor, J. Appl. Meteorol., 20, 1527-1532, 1981" 
+  !-----------------------------------------------------------------------
+
+  aw=611.21_wp; bw=18.729_wp; cw=257.87_wp; dw=227.3_wp
+  ai=611.15_wp; bi=23.036_wp; ci=279.82_wp; di=333.7_wp
+
+  AAw=7.2e-4_wp; BBw=3.20e-6_wp; CCw=5.9e-10_wp
+  AAi=2.2e-4_wp; BBi=3.83e-6_wp; CCi=6.4e-10_wp
+
+  alpha=0.62197_wp; beta=0.37803_wp
+
+  fa   = 1.0_wp+AAw+p_as%pao*(BBw+CCw*ftdewC**2)
+  esta = fa * aw*EXP((bw-ftdewC/dw)*ftdewC/(ftdewC+cw))
+  fw   = 1.0_wp+AAw+p_as%pao*(BBw+CCw*Tsurf **2)
+  estw = fw *aw*EXP((bw-Tsurf /dw)*Tsurf /(Tsurf +cw))
+  ! For a given surface salinity we should multiply estw with  1 - 0.000537*S
  
-      z_Tsurf (jc,jb) = p_os%p_prog(nold(1))%tracer(jc,1,jb,1)        ! set surface temp = mixed layer temp
-      z_tafoK (jc,jb) = p_as%tafo  (jc,jb) + tmelt                    ! Change units of z_tafoK  to Kelvin
-      z_ftdewC(jc,jb) = p_as%ftdew (jc,jb) - tmelt                    ! Change units of z_ftdewC to C
+  sphumida  = alpha * esta/(p_as%pao-beta*esta)
+  sphumidw  = alpha * estw/(p_as%pao-beta*estw)
 
-      z_xlat   (jc,jb) = MIN(ABS(ppatch%cells%center(jc,jb)%lat*rad2deg),60.0_wp) 
+  !-----------------------------------------------------------------------
+  !  Compute longwave radiation according to 
+  !         Koch 1988: A coupled Sea Ice - Atmospheric Boundary Layer Model,
+  !                    Beitr.Phys.Atmosph., 61(4), 344-354.
+  !  or (ifdef QLOBERL)
+  !         Berliand, M. E., and T. G. Berliand, 1952: Determining the net
+  !         long-wave radiation of the Earth with consideration of the effect
+  !         of cloudiness. Izv. Akad. Nauk SSSR, Ser. Geofiz., 1, 6478.
+  !         cited by: Budyko, Climate and Life, 1974.
+  !         Note that for humi, esta is given in [mmHg] in the original
+  !         publication. Therefore, 0.05*sqrt(esta/100) is used rather than
+  !         0.058*sqrt(esta)
+  !-----------------------------------------------------------------------
 
-      !-----------------------------------------------------------------------
-      ! Compute water vapor pressure and specific humididty in 2m height (z_esta) 
-      ! and at water surface (z_estw) according to "Buck Research Manual (1996)
-      ! (see manuals for instruments at http://www.buck-research.com/); 
-      ! updated from Buck, A. L., New equations for computing vapor pressure and 
-      ! enhancement factor, J. Appl. Meteorol., 20, 1527-1532, 1981" 
-      !-----------------------------------------------------------------------
+  humi    = 0.601_wp+ 5.95_wp*1.0e-7_wp*esta*EXP(1500.0_wp/tafoK)
+  fakts   =  1.0_wp + 0.3_wp*p_as%fclou**2
+  Qatm%LWin = fakts * humi * emiss*StefBol * tafoK**4
 
-      ! Buck 1981
-      z_esta(jc,jb)  = 611.21_wp * EXP( (18.729_wp-z_ftdewC(jc,jb)/227.3_wp)*z_ftdewC(jc,jb)&
-                                    &/ (z_ftdewC(jc,jb)+257.87_wp) )
-      ! Buck 1996
-      !z_esta(:,:) = 611.21 * EXP( (18.678-z_ftdewC/234.5)*z_ftdewC/ (z_ftdewC+257.14) )
-      ! Buck 1981
-      z_estw(jc,jb)  = 611.21_wp*EXP( (18.729_wp-z_Tsurf(jc,jb)/227.3_wp)&
-                     & * z_Tsurf(jc,jb) /  (z_Tsurf(jc,jb) +257.87_wp) )
-      ! Buck 1996
-      !z_estw(:,:) = 611.21 * EXP( (18.678-z_Tsurf /234.5)*z_Tsurf/  (z_Tsurf +257.14) )
-      z_estw(jc,jb)  = 0.9815_wp * z_estw(jc,jb)
-      !or more accurate: (1-5.27e-4 * mixed layer salinity) * z_estw (Kraus and
-      ! Businger, 1994)
+  Qatm%LWoutw = emiss*StefBol * (Tsurf+273.15_wp)**4
+  Qatm%LWnetw = Qatm%LWin - Qatm%LWoutw
 
-      z_sphumida(jc,jb)  = 0.62197_wp * z_esta(jc,jb)/(p_as%pao(jc,jb)-0.37803_wp*z_esta(jc,jb))
-      z_sphumidw (jc,jb) = 0.62197_wp * z_estw(jc,jb)/(p_as%pao(jc,jb)-0.37803_wp*z_estw(jc,jb))
+  Qatm%SWin = p_as%fswr
 
-      !-----------------------------------------------------------------------
-      !  Compute longwave radiation according to 
-      !         Koch 1988: A coupled Sea Ice - Atmospheric Boundary Layer Model,
-      !                    Beitr.Phys.Atmosph., 61(4), 344-354.
-      !  or (ifdef QLOBERL)
-      !         Berliand, M. E., and T. G. Berliand, 1952: Determining the net
-      !         long-wave radiation of the Earth with consideration of the effect
-      !         of cloudiness. Izv. Akad. Nauk SSSR, Ser. Geofiz., 1, 6478.
-      !         cited by: Budyko, Climate and Life, 1974.
-      !         Note that for z_humi, z_esta is given in [mmHg] in the original
-      !         publication. Therefore, 0.05*sqrt(z_esta/100) is used rather than
-      !         0.058*sqrt(z_esta)
-      !-----------------------------------------------------------------------
+  !-----------------------------------------------------------------------
+  !  Calculate bulk equations according to 
+  !      Kara, B. A., P. A. Rochford, and H. E. Hurlburt, 2002: 
+  !      Air-Sea Flux Estimates And The 19971998 Enso Event,  Bound.-Lay.
+  !      Met., 103(3), 439-458, doi: 10.1023/A:1014945408605.
+  !-----------------------------------------------------------------------    
+  rhoair     = p_as%pao/(rgas*tafoK*(1.0_wp+0.61_wp*sphumida) )
+  fu10lim    = MAX (2.5_wp, MIN(32.5_wp,p_as%fu10) )
+  dragl1     = 1e-3_wp*(-0.0154_wp + 0.5698_wp/fu10lim - 0.6743_wp/(fu10lim * fu10lim))
+  dragl0     = 1e-3_wp*(0.8195_wp+0.0506_wp*fu10lim - 0.0009_wp*fu10lim*fu10lim)
+  dragl      = dragl0 + dragl1 * (Tsurf-p_as%tafo)
+  ! Need to keep the drag honest
+  dragl      = MAX(0.5e-3_wp, MIN(3.0e-3_wp,dragl))
+  drags      = 0.95_wp * dragl
+  Qatm%sensw = drags*rhoair*cpa*p_as%fu10 * (p_as%tafo -Tsurf)
+  Qatm%latw  = dragl*rhoair*Lvap*p_as%fu10 * (sphumida-sphumidw)
 
-      z_humi   (jc,jb) = 0.601_wp+ 5.95_wp*1.0e-7_wp*z_esta(jc,jb)*EXP(1500.0_wp/z_tafoK(jc,jb))
-      z_fakts  (jc,jb) =  1.0_wp + 0.3_wp*p_as%fclou(jc,jb)**2
-      Qatm%LWin(jc,jb) = z_fakts(jc,jb) * z_humi(jc,jb) * emiss*StefBol * z_tafoK(jc,jb)**4
+  DO i = 1, p_ice%kice
+    WHERE (p_ice% isice(:,i,:))
+      Tsurf    = p_ice%Tsurf(:,i,:)
+      fi       = 1.0_wp+AAi+p_as%pao*(BBi+CCi*Tsurf **2)
+      esti     = fi*ai*EXP((bi-Tsurf /di)*Tsurf /(Tsurf +ci))
+      sphumidi = alpha*esti/(p_as%pao-beta*esti)
+      ! This may not be the best drag parametrisation to use over ice
+      dragl    = dragl0 + dragl1 * (Tsurf-p_as%tafo)
+      ! Need to keep the drag honest 
+      dragl    = MAX(0.5e-3_wp, MIN(3.0e-3_wp,dragl))
+      drags    = 0.95_wp * dragl
 
-      Qatm%LWoutw(jc,jb) = emiss*StefBol * (z_Tsurf(jc,jb)+273.15_wp)**4
-      Qatm%LWnetw(jc,jb) = Qatm%LWin(jc,jb) - Qatm%LWoutw(jc,jb)
+      Qatm%LWout (:,i,:) = emiss*StefBol * (Tsurf+273.15_wp)**4
+      Qatm%LWnet (:,i,:) = Qatm%LWin - Qatm%LWout(:,i,:)
+      Qatm%dLWdT (:,i,:) = - 4.0_wp * emiss*StefBol * (Tsurf + 273.15_wp)**3
+      Qatm%sens  (:,i,:) = drags * rhoair*cpa*p_as%fu10 * (p_as%tafo -Tsurf)
+      Qatm%lat   (:,i,:) = dragl * rhoair* Lfreez *p_as%fu10 * (sphumida-sphumidi)
 
-      Qatm%SWin(jc,jb) = p_as%fswr(jc,jb)
+      Qatm%dsensdT(:,i,:)= 0.95_wp*cpa*rhoair*p_as%fu10*(dragl0 - 2.0_wp*dragl)
+      dsphumididesti     = alpha/(p_as%pao-beta*esti) * (1.0_wp + beta*esti/(p_as%pao-beta*esti))
+      destidT            = (bi*ci*di-Tsurf*(2.0_wp*ci+Tsurf))/(di*(ci+Tsurf)**2) * esti
+      dfdT               = 2.0_wp*CCi*BBi*Tsurf
+      Qatm%dlatdT(:,i,:) = Lfreez*rhoair*p_as%fu10*( (sphumida-sphumidi)*dragl1 &
+        & - dragl*dsphumididesti*(fi*destidT + esti*dfdT) )
+    ENDWHERE
+  ENDDO
 
-      !-----------------------------------------------------------------------
-      !  Calculate bulk equations according to 
-      !      Kara, B. A., P. A. Rochford, and H. E. Hurlburt, 2002: 
-      !      Air-Sea Flux Estimates And The 19971998 Enso Event,  Bound.-Lay.
-      !      Met., 103(3), 439-458, doi: 10.1023/A:1014945408605.
-      !-----------------------------------------------------------------------    
-      z_rhoair  (jc,jb) = p_as%pao(jc,jb)/(rgas*z_tafoK(jc,jb)*(1.0_wp+0.61_wp*z_sphumida(jc,jb)) )
-      z_fu10lim (jc,jb) = MAX (2.5_wp, MIN(32.5_wp,p_as%fu10(jc,jb)) )
-      z_dragl1  (jc,jb) = 1e-3_wp*(-0.0154_wp + 0.5698_wp/z_fu10lim(jc,jb)                 &
-                        & -0.6743_wp/(z_fu10lim(jc,jb) * z_fu10lim(jc,jb)))
-      z_dragl   (jc,jb) = 1.0e-3_wp*(0.8195_wp+0.0506_wp*z_fu10lim(jc,jb)  &
-                        &-0.0009_wp*z_fu10lim(jc,jb)*z_fu10lim(jc,jb)) + z_dragl1(jc,jb)   &
-                        &* (z_Tsurf(jc,jb)-p_as%tafo(jc,jb))
-      z_dragl   (jc,jb) = MIN (z_dragl(jc,jb), 3.0E-3_wp)
-      z_drags   (jc,jb) = 0.96_wp * z_dragl(jc,jb)
-      Qatm%sensw(jc,jb) = z_drags(jc,jb)*z_rhoair(jc,jb)*cpa*p_as%fu10(jc,jb)             &
-                        & * (p_as%tafo(jc,jb) -z_Tsurf(jc,jb))  *fr_fac
-      Qatm%latw (jc,jb) = z_dragl(jc,jb)*z_rhoair(jc,jb)*Lvap*p_as%fu10(jc,jb)          &
-                        & * (z_sphumida(jc,jb)-z_sphumidw(jc,jb))*fr_fac
+  !Dirk: why zero ?
+  Qatm%rpreci = 0.0_wp
+  Qatm%rprecw = 0.0_wp
 
-      DO i = 1, p_ice%kice
-        IF (p_ice% isice(jc,i,jb))THEN
-          z_Tsurf(jc,jb) = p_ice%Tsurf(jc,i,jb)
-          ! z_esti is calculated according to Buck Research Manuals, 1996 (see z_esta)
-          z_esti     (jc,jb) = 611.15_wp*EXP( (23.036_wp-z_Tsurf(jc,jb)/333.7_wp) &
-                             & *z_Tsurf(jc,jb)/(z_Tsurf(jc,jb) + 279.82_wp) )
-          z_sphumidi (jc,jb) = 0.62197_wp*z_esti(jc,jb)/(p_as%pao(jc,jb)-0.37803_wp*z_esti(jc,jb))
-          z_dragl    (jc,jb) = MAX (0.5e-3_wp, 1.0e-3_wp * (0.8195_wp+0.0506_wp*z_fu10lim(jc,jb) &
-                             & -0.0009_wp*z_fu10lim(jc,jb) * z_fu10lim(jc,jb)) + z_dragl1(jc,jb) &
-                             & * (z_Tsurf(jc,jb)-p_as%tafo(jc,jb)) )
-          z_drags    (jc,jb) = 0.95_wp * z_dragl(jc,jb)
-
-          Qatm%LWout (jc,i,jb) = emiss*StefBol * (z_Tsurf(jc,jb)+273.15_wp)**4
-          Qatm%LWnet (jc,i,jb) = Qatm%LWin(jc,jb) - Qatm%LWout(jc,i,jb)
-          Qatm%dLWdT (jc,i,jb) = - 4.0_wp * emiss*StefBol * (z_Tsurf(jc,jb) + 273.15_wp)**3
-          Qatm%sens  (jc,i,jb) = z_drags(jc,jb) * z_rhoair(jc,jb)*cpa*p_as%fu10(jc,jb)&
-                               & * (p_as%tafo(jc,jb) -z_Tsurf(jc,jb))   *fr_fac
-          Qatm%lat   (jc,i,jb) = z_dragl(jc,jb) * z_rhoair(jc,jb)* Lfreez *p_as%fu10(jc,jb)&
-                               & * (z_sphumida(jc,jb)-z_sphumidi(jc,jb))*fr_fac
-    
-          Qatm%dsensdT(jc,i,jb)= 0.95_wp*z_dragl1(jc,jb)*z_drags(jc,jb)*z_rhoair(jc,jb)&
-                               & *cpa * p_as%fu10(jc,jb)       &
-                               & * (p_as%tafo(jc,jb) - z_Tsurf(jc,jb)) *  fr_fac &
-                               & -z_drags(jc,jb)*z_rhoair(jc,jb) *cpa*p_as%fu10(jc,jb)
-          Qatm%dlatdT(jc,i,jb) = z_dragl1(jc,jb) * z_rhoair(jc,jb)*Lfreez * p_as%fu10(jc,jb)&
-                               & *(z_sphumida(jc,jb)-z_sphumidi(jc,jb))*fr_fac
-        ENDIF
-      ENDDO
-
-      !Dirk: why zero ?
-      Qatm%rpreci(jc,jb) = 0.0_wp
-      Qatm%rprecw(jc,jb) = 0.0_wp
-
-    END DO
-  END DO
- 
   END SUBROUTINE calc_atm_fluxes_from_bulk
  
   !-------------------------------------------------------------------------
