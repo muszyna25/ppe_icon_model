@@ -1624,7 +1624,10 @@ DO ns=nsubs0,nsubs1
 ! End of timestep 0 preparations
 ! ==============================
 
-
+  ! Workaround for apparent NEC compiler problem
+  IF(lmulti_snow) THEN
+    zwsnew(:,:) = 0._ireals
+  ENDIF
 
 ! To ensure t_s = t_so(1) also at gme2lm-modified lateral boundaries by
 ! modifying the soil temperature profile:
