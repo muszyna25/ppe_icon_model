@@ -83,7 +83,8 @@ CONTAINS
     REAL(wp)         , INTENT(IN) :: p_array(:)
     ! local variables
     INTEGER, PARAMETER :: ndims = 1
-    INTEGER :: idim, ncfile, ncid_var, ncid_dim(ndims)
+    INTEGER :: idim, ncfile, ncid_var, &
+         &     ncid_dim(ndims), icount(ndims)
 
     IF (.NOT. ldebug_enable) RETURN
 
@@ -95,6 +96,7 @@ CONTAINS
     ! create dimensions:
     DO idim=1,ndims
       CALL nf(nf_def_dim(ncfile, 'dim'//int2string(idim), SIZE(p_array,idim), ncid_dim(idim)))
+      icount(idim) = SIZE(p_array,idim)
     END DO
     ! create variable:
     CALL nf(nf_def_var(ncfile, "var", NF_DOUBLE, ndims, ncid_dim(:), ncid_var))
@@ -102,7 +104,7 @@ CONTAINS
     CALL nf(nf_enddef(ncfile))
     ! put data:
     CALL nf(nf_put_vara_double(ncfile, ncid_var, (/ (1, idim=1,ndims) /), &
-      &                        (/ (SIZE(p_array,idim), idim=1,ndims) /), p_array))
+      &                        icount, p_array))
     ! close file
     CALL nf(nf_close(ncfile))
 #endif
@@ -119,7 +121,8 @@ CONTAINS
     REAL(wp)         , INTENT(IN) :: p_array(:,:)
     ! local variables
     INTEGER, PARAMETER :: ndims = 2
-    INTEGER :: idim, ncfile, ncid_var, ncid_dim(ndims)
+    INTEGER :: idim, ncfile, ncid_var, &
+         &     ncid_dim(ndims), icount(ndims)
 
     IF (.NOT. ldebug_enable) RETURN
 
@@ -131,6 +134,7 @@ CONTAINS
     ! create dimensions:
     DO idim=1,ndims
       CALL nf(nf_def_dim(ncfile, 'dim'//int2string(idim), SIZE(p_array,idim), ncid_dim(idim)))
+      icount(idim) = SIZE(p_array,idim)
     END DO
     ! create variable:
     CALL nf(nf_def_var(ncfile, "var", NF_DOUBLE, ndims, ncid_dim(:), ncid_var))
@@ -138,7 +142,7 @@ CONTAINS
     CALL nf(nf_enddef(ncfile))
     ! put data:
     CALL nf(nf_put_vara_double(ncfile, ncid_var, (/ (1, idim=1,ndims) /), &
-      &                        (/ (SIZE(p_array,idim), idim=1,ndims) /), p_array))
+      &                        icount, p_array))
     ! close file
     CALL nf(nf_close(ncfile))
 #endif
@@ -155,7 +159,8 @@ CONTAINS
     REAL(wp)         , INTENT(IN) :: p_array(:,:,:)
     ! local variables
     INTEGER, PARAMETER :: ndims = 3
-    INTEGER :: idim, ncfile, ncid_var, ncid_dim(ndims)
+    INTEGER :: idim, ncfile, ncid_var, &
+         &     ncid_dim(ndims), icount(ndims)
 
     IF (.NOT. ldebug_enable) RETURN
 
@@ -167,6 +172,7 @@ CONTAINS
     ! create dimensions:
     DO idim=1,ndims
       CALL nf(nf_def_dim(ncfile, 'dim'//int2string(idim), SIZE(p_array,idim), ncid_dim(idim)))
+      icount(idim) = SIZE(p_array,idim)
     END DO
     ! create variable:
     CALL nf(nf_def_var(ncfile, "var", NF_DOUBLE, ndims, ncid_dim(:), ncid_var))
@@ -174,7 +180,7 @@ CONTAINS
     CALL nf(nf_enddef(ncfile))
     ! put data:
     CALL nf(nf_put_vara_double(ncfile, ncid_var, (/ (1, idim=1,ndims) /), &
-      &                        (/ (SIZE(p_array,idim), idim=1,ndims) /), p_array))
+      &                        icount, p_array))
     ! close file
     CALL nf(nf_close(ncfile))
 #endif
