@@ -57,7 +57,7 @@ USE mo_physical_constants, ONLY: re, rre, omega, rgrav, rho_ref, grav, SItodBar,
   &                              sfc_press_bar, tmelt, Tf
 USE mo_math_constants
 USE mo_parallel_config,    ONLY: nproma
-USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer, iforc_len,                    &
+USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer,                               &
   &                              init_oce_prog, itestcase_oce, i_sea_ice, iforc_oce,        &
   &                              irelax_3d_S, relax_3d_mon_S, irelax_3d_T, relax_3d_mon_T,  &
   &                              irelax_2d_S, relax_2d_mon_S,&!relax_2d_T, relax_2d_mon_T,  &

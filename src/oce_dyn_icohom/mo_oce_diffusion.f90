@@ -1312,7 +1312,8 @@ DO jb = i_startblk, i_endblk
         DO jk=z_dolic-1,1,-1
           field_column(jc,jk,jb)=field_column(jc,jk,jb)-c(jk)*field_column(jc,jk+1,jb)
         END DO
-        DO jk=1,z_dolic-1
+        DO jk=1,z_dolic
+!       DO jk=1,z_dolic-1
           diff_column(jc,jk,jb)=field_column(jc,jk,jb)
         END DO
 
@@ -1469,7 +1470,8 @@ DO jb = i_startblk, i_endblk
         DO jk=z_dolic-2,1,-1
           field_column(jc,jk,jb)=field_column(jc,jk,jb)-c(jk)*field_column(jc,jk+1,jb)
         END DO
-        DO jk=1,z_dolic-1
+        DO jk=1,z_dolic
+    !   DO jk=1,z_dolic-1
           diff_column(jc,jk,jb)=field_column(jc,jk,jb)
         END DO
 !----------------------------------------------------------- 
