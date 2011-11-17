@@ -1009,6 +1009,7 @@ END SUBROUTINE destruct_sea_ice
    p_atm_f%LWnetw = 0.0_wp
    p_atm_f%SWin = 0.0_wp
    p_atm_f%LWin = 0.0_wp
+   p_atm_f%counter = 0
 
   CALL message(TRIM(routine), 'end' )
 
