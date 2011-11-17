@@ -193,6 +193,10 @@ cat > ${ocean_namelist} << EOF
 ! 10 unevenly spaced levels beginning with 50m depth
   dzlev_m(1:20)      =   50.0,  100.0,  200.0,  300.0,  450.0,  600.0,  800.0, 1000.0, 1000.0, 1000.0,
                        1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
+! 10 unevenly spaced levels according to MPIOM test setup
+! n_zlev             =   10      ! number of vertical levels and (dzlev_m) thicknesses
+! dzlev_m(1:20)       =  40.0,   50.0,   90.0,  160.0,  270.0,  390.0,  550.0,  900.0, 1300.0, 2300.0,
+!                      1000.0  1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
 ! 15 unevenly spaced levels beginning with 50m depth
 ! n_zlev             =   15      ! number of vertical levels and (dzlev_m) thicknesses
 ! dzlev_m(1:20)      =   50.0,  100.0,  200.0,  300.0,  350.0,  400.0,  400.0,  400.0,  400.0,  400.0,

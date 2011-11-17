@@ -1314,15 +1314,18 @@ END DO
 
             IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
               p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)=tprof_var(jk)
-              IF(no_tracer==2)THEN
+              ! #slo# 2011-11-17 - for MPIOM comparison - set T to 5C/35psu  horiz. and vert. homogen
+              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 5.0_wp
+              IF (no_tracer == 2) THEN
                 p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof_var(jk)
-              ENDIF
-            ENDIF
+                p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 35.0_wp
+              END IF
+            END IF
 
           END DO
         END DO
       END DO
-      p_os%p_prog(nold(1))%tracer(:,n_zlev,:,1)=-2.0_wp
+      ! p_os%p_prog(nold(1))%tracer(:,n_zlev,:,1)=-2.0_wp
 
     ! Testcase for coupled Aquaplanet:
     !  - following APE_ATLAS Equations (2.1) - (2.5)
@@ -1413,6 +1416,13 @@ END DO
     DO jk=1, n_zlev
       CALL print_mxmn('T-innitial',jk,z_c(:,:,:),n_zlev,ppatch%nblks_c,'per',ipl_src)
     END DO
+    IF (no_tracer == 2) THEN
+      z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,2)
+      DO jk=1, n_zlev
+        CALL print_mxmn('S-innitial',jk,z_c(:,:,:),n_zlev,ppatch%nblks_c,'per',ipl_src)
+      END DO
+    END IF
+
     IF (temperature_relaxation == 1) THEN
       z_c(:,1,:) = p_sfc_flx%forc_tracer_relax(:,:,1)
       CALL print_mxmn('Relax-Temperature',1,z_c(:,:,:),n_zlev,ppatch%nblks_c,'per',ipl_src)
