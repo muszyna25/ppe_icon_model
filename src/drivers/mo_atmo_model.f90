@@ -591,17 +591,23 @@ CONTAINS
 
       field_name(1) = "TAUX"
       field_name(2) = "TAUY"
-      field_name(3) = "SFWFLX"
+      field_name(3) = "SFWFLX"   ! bundled field containing two flux components
       field_name(4) = "SFTEMP"
-      field_name(5) = "THFLX"
+      field_name(5) = "THFLX"    ! bundled field containing four flux components
       field_name(6) = "SST"
       field_name(7) = "OCEANU"
       field_name(8) = "OCEANV"
 
       field_shape(1:2) = grid_shape(1:2)
-      field_shape(3)   = 1
 
       DO i = 1, no_of_fields
+         IF ( i == 3 ) THEN
+           field_shape(3) = 2
+         ELSE  IF ( i == 5 ) THEN
+           field_shape(3) = 4
+         ELSE
+           field_shape(3) = 1
+         ENDIF
          CALL ICON_cpl_def_field ( field_name(i), comp_id, grid_id, field_id(i), &
                                  & field_shape, error_status )
       ENDDO

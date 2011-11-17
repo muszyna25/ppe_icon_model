@@ -236,12 +236,6 @@ CONTAINS
 
     recv_field = dummy
 
-    IF ( fptr%coupling%diagnostic == 1 ) THEN
-       recv_avg(:) =  0.0
-       recv_min(:) =  99999999.9
-       recv_max(:) = -99999999.9 
-    ENDIF
-
     DO n = 1, n_recv
 
        CALL MPI_Waitany ( n_recv, lrequests, index, wstatus, ierr )
@@ -302,9 +296,11 @@ CONTAINS
           ENDIF
 
           IF ( fptr%coupling%diagnostic == 1 ) THEN
+
              DO m = 1, nbr_bundles
-                recv_min(m) = MIN(recv_min(m),MINVAL(recv_buffer(:,m)))
-                recv_max(m) = MAX(recv_max(m),MAXVAL(recv_buffer(:,m)))
+                recv_min(m) = MINVAL(recv_buffer(:,m))
+                recv_max(m) = MAXVAL(recv_buffer(:,m))
+                recv_avg(m) = 0.0
                 DO i = 1, len
                    recv_avg(m) = recv_avg(m) + recv_buffer(i,m)
                 ENDDO
@@ -319,15 +315,15 @@ CONTAINS
 
     IF ( fptr%coupling%diagnostic == 1 ) THEN
 
-       CALL MPI_Allreduce ( recv_min, recv_buf, field_shape(3), datatype, &
+       CALL MPI_Allreduce ( recv_min, recv_buf, nbr_bundles, datatype, &
             MPI_MIN, ICON_comp_comm, ierror )
        recv_min(:) = recv_buf(:)
 
-       CALL MPI_Allreduce ( recv_max, recv_buf, field_shape(3), datatype, &
+       CALL MPI_Allreduce ( recv_max, recv_buf, nbr_bundles, datatype, &
             MPI_MAX, ICON_comp_comm, ierror )
        recv_max(:) = recv_buf(:)
 
-       CALL MPI_Allreduce ( recv_avg, recv_buf, field_shape(3), datatype, &
+       CALL MPI_Allreduce ( recv_avg, recv_buf, nbr_bundles, datatype, &
             MPI_SUM, ICON_comp_comm, ierror )
        recv_avg(:) = recv_buf(:)
 
