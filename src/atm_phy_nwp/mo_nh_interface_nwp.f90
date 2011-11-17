@@ -286,7 +286,6 @@ CONTAINS
         CALL message('', TRIM(message_text))
 
       ENDIF
-
       !in order to account for mesh refinement
       rl_start = grf_bdywidth_c+1
       rl_end   = min_rlcell_int
@@ -540,6 +539,7 @@ CONTAINS
 
       IF (p_test_run) z_aux_tempv(:,:,:) = 0._wp
 
+
       !in order to account for mesh refinement
       rl_start = grf_bdywidth_c+1
       rl_end   = min_rlcell_int
@@ -608,6 +608,7 @@ CONTAINS
       CALL sync_patch_array(SYNC_C, pt_patch, z_aux_tempv)
 
       IF (my_process_is_mpi_all_parallel() ) THEN
+
         rl_start = min_rlcell_int-1
         rl_end   = min_rlcell 
 

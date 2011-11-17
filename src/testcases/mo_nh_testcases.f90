@@ -888,15 +888,10 @@ MODULE mo_nh_testcases
                                      & p_nh_state(jg)%diag,                 &
                                      & p_nh_state(jg)%metrics,              &
                                      & p_int(jg),l_hydro_adjust  )
-         ! add perturbation to theta_v
+         ! add perturbation to theta and recalculate theta_v and rho 
     CALL init_nh_buble_wk ( p_patch(jg),p_nh_state(jg)%metrics,            &
-                                     & p_nh_state(jg)%prog(nnow(jg))%theta_v )
-         ! rediagnose temperature
-    CALL diagnose_pres_temp ( p_nh_state(jg)%metrics, p_nh_state(jg)%prog(nnow(jg)),  &
-            &                     p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%diag, &
-            &                     p_patch(jg),                 &
-            &                     opt_calc_temp=.TRUE.,       &
-            &                     opt_calc_pres=.FALSE.       )
+                                     & p_nh_state(jg)%prog(nnow(jg)),      &
+                                     & p_nh_state(jg)%diag )
          
 
     CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))

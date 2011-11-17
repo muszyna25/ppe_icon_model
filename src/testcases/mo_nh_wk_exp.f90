@@ -62,18 +62,21 @@ MODULE mo_nh_wk_exp
    USE mo_model_domain,        ONLY: t_patch
    USE mo_nonhydro_state,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
    USE mo_run_config,          ONLY: iqv,iqc,iqcond, ntracer
-   USE mo_impl_constants,      ONLY: inwp, MAX_CHAR_LENGTH
+   USE mo_impl_constants,      ONLY: inwp, MAX_CHAR_LENGTH, min_rlcell_int
+  USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
    USE mo_parallel_config,     ONLY: nproma, p_test_run
    USE mo_satad,               ONLY:  sat_pres_water, &  !! saturation vapor pressure w.r.t. water
             &                         sat_pres_ice,   &  !! saturation vapor pressure w.r.t. ice
             &                         spec_humi          !! Specific humidity
    USE mo_exception,           ONLY: message, finish, message_text
    USE mo_advection_config,    ONLY: advection_config
-   USE mo_interpolation,       ONLY: t_int_state, cells2edges_scalar, edges2cells_scalar
+   USE mo_interpolation,       ONLY: t_int_state, cells2edges_scalar, edges2cells_scalar, &
+                                   & rbf_vec_interpol_cell
    USE mo_loopindices,         ONLY: get_indices_e
    USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
    USE mo_extpar_config,        ONLY: itopo
-   USE mo_sync,                 ONLY: global_sum_array, sync_patch_array, SYNC_C, SYNC_E
+   USE mo_sync,                 ONLY: global_sum_array, sync_patch_array,  sync_patch_array_mult, &
+                                   &  SYNC_C, SYNC_E
    USE mo_nh_init_utils,        ONLY: init_w, hydro_adjust, convert_thdvars, virtual_temp
 
    IMPLICIT NONE
@@ -195,10 +198,10 @@ MODULE mo_nh_wk_exp
     INTEGER        ::  jc, jb, jk, je,   &
                     nlen, nblks_e, npromz_e,  nblks_c, npromz_c
     INTEGER        :: iter
-    INTEGER        :: i_startidx, i_endidx, i_startblk
+    INTEGER        :: i_startidx, i_endidx, i_startblk, rl_start, rl_end
     INTEGER        :: nlev        !< number of full levels
     REAL(wp)       :: t_tropo, z_klev, zrdm, zcpm, z_relhum, zesat,     &
-                      zsqv, z_u
+                      z_u
 
     REAL(wp), ALLOCATABLE :: theta(:,:,:), theta_v(:,:,:)
     REAL(wp), ALLOCATABLE :: relhum(:,:,:)
@@ -270,7 +273,7 @@ MODULE mo_nh_wk_exp
        !   atmosphere. The below iteration will compute the correct temperature-
        !   and pressure profile afterwards.             
            ! ptr_nh_diag%temp(jc,jk,jb)  = 293.16_wp - 0.0065_wp * MIN(z_klev, 11000.0_wp) 
-            ! it must be a bit wrmer to have higher surface pressure         
+            ! it must be a bit warmer to have higher surface pressure         
             ptr_nh_diag%temp(jc,jk,jb)  = 300.0_wp - 0.0065_wp * MIN(z_klev, 12000.0_wp)
             ptr_nh_prog%theta_v(jc,jk,jb)= theta(jc,jk,jb)
             ptr_nh_prog%exner(jc,jk,jb) = ptr_nh_diag%temp(jc,jk,jb)/theta(jc,jk,jb) 
@@ -283,6 +286,7 @@ MODULE mo_nh_wk_exp
 
 !$OMP END DO
 !$OMP END PARALLEL
+
         ! the first guess for the pressure is calculated now
         CALL diagnose_pres_temp ( p_metrics, ptr_nh_prog,     &
             &                     ptr_nh_prog, ptr_nh_diag,   &
@@ -309,7 +313,7 @@ MODULE mo_nh_wk_exp
     DO iter = 1, niter
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(iter,jb,nlen,jk,jc, zesat,z_relhum,zsqv, zrdm,zcpm )
+!$OMP DO PRIVATE(jb,nlen,jk,jc, zesat,z_relhum, zrdm,zcpm )
     DO jb = 1, nblks_c
       IF (jb /= nblks_c) THEN
          nlen = nproma
@@ -319,16 +323,15 @@ MODULE mo_nh_wk_exp
 
       DO jk = nlev, 1, -1
             DO jc = 1, nlen
-          ! Kepp the previous values to compare with
+          ! Kept the previous values to compare with
              temp(jc,jk,jb)= ptr_nh_diag%temp(jc,jk,jb)
              pres(jc,jk,jb)= ptr_nh_diag%pres(jc,jk,jb)
           ! Limit relhum to its maximum possible value p / E(T):
              zesat    = sat_pres_water(ptr_nh_diag%temp(jc,jk,jb))
              z_relhum = MIN(ptr_nh_diag%pres(jc,jk,jb) /zesat , relhum(jc,jk,jb)    )
-
+             ! calculate specific humidity from relative hum
              ptr_nh_prog%tracer(jc,jk,jb,iqv)=     &
-               qv_Tprelhum(ptr_nh_diag%pres(jc,jk,jb),ptr_nh_diag%temp(jc,jk,jb), &
-                   z_relhum, ptr_nh_prog%tracer(jc,jk,jb,iqc))
+               spec_humi(zesat*z_relhum,ptr_nh_diag%pres(jc,jk,jb))
 
             ! condensation is not allowed or cannot happen physically at 
             ! that pressure and temperature, so just impose the limit qv_max_wk:
@@ -373,11 +376,16 @@ MODULE mo_nh_wk_exp
 
     ! use subroutine virtual_temp to calculate theta_v
 
+!$OMP PARALLEL
+!$OMP WORKSHARE
     z_qv(:,:,:) = ptr_nh_prog%tracer(:,:,:,iqv)
+!$OMP END WORKSHARE
+!$OMP END PARALLEL
+
     CALL virtual_temp ( ptr_patch, theta, z_qv,             &
                      & temp_v= ptr_nh_prog%theta_v)
 
-!$OMP PARALLEL
+!$OMP PARALLEL         !!!! PRIVATE(i_startblk)
 !$OMP DO PRIVATE(jb,jk,jc,nlen)
      DO jb = 1, nblks_c
       IF (jb /= nblks_c) THEN
@@ -396,12 +404,13 @@ MODULE mo_nh_wk_exp
       ENDDO !jk     
      ENDDO !jb
 !$OMP END DO
-
+!$OMP END PARALLEL
 
 
 ! initialized horizontal velocities
     i_startblk = ptr_patch%edges%start_blk(2,1)
     ! horizontal normal components of the velocity
+!$OMP PARALLEL          !!!! PRIVATE(i_startblk)
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,z_u, z_klev)
     DO jb = i_startblk, nblks_e
 
@@ -419,7 +428,6 @@ MODULE mo_nh_wk_exp
     ENDDO  !jb
 !$OMP END DO
 !$OMP END PARALLEL
-
 ! initialized vertical velocity
 
    CALL init_w(ptr_patch, p_int, ptr_nh_prog%vn, p_metrics%z_ifc, ptr_nh_prog%w)
@@ -452,16 +460,18 @@ MODULE mo_nh_wk_exp
   !! @par Revision History
   !!
   !!
-  SUBROUTINE init_nh_buble_wk( ptr_patch, p_metrics, temp )
+  SUBROUTINE init_nh_buble_wk( ptr_patch, p_metrics, ptr_nh_prog, ptr_nh_diag )
 
-    TYPE(t_patch), INTENT(INOUT):: &  !< patch on which computation is performed
+    TYPE(t_patch), TARGET, INTENT(INOUT):: &  !< patch on which computation is performed
       &  ptr_patch
 
-
-    REAL(wp), INTENT(INOUT)            :: temp(:,:,:) ! temperature (K) field to be perturbed
-
     TYPE(t_nh_metrics), INTENT(IN)     :: p_metrics !< NH metrics state
- ! local variables
+    TYPE(t_nh_prog), INTENT(INOUT)      :: &  !< prognostic state vector
+      &  ptr_nh_prog
+
+    TYPE(t_nh_diag), INTENT(INOUT)      :: &  !< diagnostic state vector
+      &  ptr_nh_diag
+ ! local variables  
 
    INTEGER        :: jc, jk, jb, nlen, nlev
    INTEGER        :: nblks_c, npromz_c
@@ -474,7 +484,7 @@ MODULE mo_nh_wk_exp
     z_lat_ctr = bubctr_lat*deg2rad
 
     ! number of vertical levels
-    nlev   = ptr_patch%nlev
+   nlev   = ptr_patch%nlev
    nblks_c   = ptr_patch%nblks_int_c
    npromz_c  = ptr_patch%npromz_int_c
 !$OMP PARALLEL
@@ -500,31 +510,43 @@ MODULE mo_nh_wk_exp
             z_hH_2= (z_h/bub_ver_width)**2
             z_rad=SQRT(z_rR_2+z_hH_2) 
              IF (z_rad .LT. 1._wp ) THEN
-              temp(jc,jk,jb) = temp(jc,jk,jb) +                &
-                           & bub_amp*COS(z_rad*pi/2._wp )**2
+              ptr_nh_prog%theta_v(jc,jk,jb) = ptr_nh_prog%theta_v(jc,jk,jb) + &
+                           & bub_amp*COS(z_rad*pi/2._wp )**2  *               &
+                           &(1._wp + rvd_m_o*ptr_nh_prog%tracer(jc,jk,jb,iqv))
+              ptr_nh_prog%rho(jc,jk,jb)   = ptr_nh_prog%exner(jc,jk,jb)**cvd_o_rd    &
+                                          *p0ref/rd/ptr_nh_prog%theta_v(jc,jk,jb)
+              ptr_nh_prog%rhotheta_v(jc,jk,jb)  = ptr_nh_prog%rho(jc,jk,jb) *          &
+                                        ptr_nh_prog%theta_v(jc,jk,jb)
+
             END IF
             ENDDO !jc
       ENDDO !jk     
      ENDDO !jb
 !$OMP END DO
 !$OMP END PARALLEL
-       
+        CALL diagnose_pres_temp ( p_metrics, ptr_nh_prog,     &
+            &                     ptr_nh_prog, ptr_nh_diag,   &
+            &                     ptr_patch,                  &
+            &                     opt_calc_temp=.TRUE.,       &
+            &                     opt_calc_pres=.FALSE.,       &
+            &                     opt_rlend=min_rlcell_int )
+     
   END SUBROUTINE init_nh_buble_wk
 !--------------------------------------------------------------------
-! Function taken from COSMO
-
-  ! Specific humidity as function of T, p, and relhum 
-  !   (and qcrs = sum of all hydrometeor contents):
-  ! NOTE: on input, relhum has to be smaller than p / E(T)!
-  REAL(wp) FUNCTION qv_Tprelhum(p, temp, relhum, qcrs)
-    IMPLICIT NONE
-    REAL(wp), INTENT(IN) :: p, temp, relhum, qcrs
-    REAL(wp) :: zesat_w, coeff
-    !zesat_w  =b1 * EXP( b2w * (temp-b3)/(temp-b4w) )
-    zesat_w  = sat_pres_water(temp)
-    coeff = relhum * zesat_w * rdv / p
-    qv_Tprelhum = coeff * (1.0_wp + qcrs) / (1.0_wp - rvd_m_o*coeff)
-  END FUNCTION qv_Tprelhum
+!!$! Function taken from COSMO
+!!$
+!!$  ! Specific humidity as function of T, p, and relhum 
+!!$  !   (and qcrs = sum of all hydrometeor contents):
+!!$  ! NOTE: on input, relhum has to be smaller than p / E(T)!
+!!$  REAL(wp) FUNCTION qv_Tprelhum(p, temp, relhum, qcrs)
+!!$    IMPLICIT NONE
+!!$    REAL(wp), INTENT(IN) :: p, temp, relhum, qcrs
+!!$    REAL(wp) :: zesat_w, coeff
+!!$    !zesat_w  =b1 * EXP( b2w * (temp-b3)/(temp-b4w) )
+!!$    zesat_w  = sat_pres_water(temp)
+!!$    coeff = relhum * zesat_w * rdv / p
+!!$    qv_Tprelhum = coeff * (1.0_wp + qcrs) / (1.0_wp - rvd_m_o*coeff)
+!!$  END FUNCTION qv_Tprelhum
 !--------------------------------------------------------------------
   ! Gas constant of moist air containing hydrometeors (qcrs is the sum of
   ! the specific hydrometeor contents):
