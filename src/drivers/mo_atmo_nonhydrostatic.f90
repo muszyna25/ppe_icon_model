@@ -32,6 +32,7 @@
 !!
 MODULE mo_atmo_nonhydrostatic
 
+USE mo_kind,                 ONLY: wp
 USE mo_exception,            ONLY: message, finish
 USE mo_impl_constants,       ONLY: SUCCESS, max_dom
 USE mo_timer,                ONLY: print_timer
@@ -84,6 +85,9 @@ USE mo_ext_data,            ONLY: ext_data
 ! meteogram output
 USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize
 USE mo_meteogram_config,    ONLY: meteogram_output_config
+USE mo_name_list_output,    ONLY: init_name_list_output,  &
+  &                               write_name_list_output, &
+  &                               close_name_list_output
 
 !-------------------------------------------------------------------------
 
@@ -281,6 +285,8 @@ CONTAINS
 
     END IF
 
+    CALL init_name_list_output
+
     !------------------------------------------------------------------
     !  get and write out some of the inital values
     !------------------------------------------------------------------
@@ -327,6 +333,7 @@ CONTAINS
 
       CALL write_output( time_config%cur_datetime )
       l_have_output = .TRUE.
+      CALL write_name_list_output( time_config%cur_datetime, 0._wp )
 
     END IF ! not is_restart_run()
 
@@ -363,6 +370,7 @@ CONTAINS
 
     ! Delete output variable lists
     IF (l_have_output) CALL close_output_files
+    CALL close_name_list_output
 
     ! finalize meteogram output
     DO jg = 1, n_dom

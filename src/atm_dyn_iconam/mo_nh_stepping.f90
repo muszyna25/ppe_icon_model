@@ -128,6 +128,7 @@ MODULE mo_nh_stepping
   USE mo_parallel_config,     ONLY: parallel_radiation_omp, nh_stepping_ompthreads
   USE mo_meteogram_config,    ONLY: meteogram_output_config
   USE mo_meteogram_output,    ONLY: meteogram_sample_vars, meteogram_is_sample_step
+  USE mo_name_list_output,    ONLY: write_name_list_output, istime4name_list_output
 
   IMPLICIT NONE
 
@@ -460,7 +461,8 @@ MODULE mo_nh_stepping
     ! Set output flags
     !--------------------------------------------------------------------------
 
-    IF ( istime4output(sim_time(1)+dtime) .OR. jstep==nsteps ) THEN
+    IF ( istime4output(sim_time(1)+dtime) .OR. &
+         istime4name_list_output(sim_time(1)+dtime) .OR. jstep==nsteps ) THEN
       l_outputtime = .TRUE. ! Output is written at the end of the time step,
     ELSE                    ! thus diagnostic quantities need to be computed
       l_outputtime = .FALSE.
@@ -492,10 +494,17 @@ MODULE mo_nh_stepping
         CALL intp_to_p_and_z_levels(p_patch(1:), prm_diag, p_nh_state)
       ENDIF
 
-      CALL write_output( datetime, sim_time(1) )
-      CALL message('','Output at:')
-      CALL print_datetime(datetime)
-      l_have_output = .TRUE.
+      IF(istime4output(sim_time(1)) .OR. jstep==nsteps ) THEN
+        CALL write_output( datetime, sim_time(1) )
+        CALL message('','Output at:')
+        CALL print_datetime(datetime)
+        l_have_output = .TRUE.
+      ENDIF
+      IF(istime4name_list_output(sim_time(1)) .OR. jstep==nsteps ) THEN
+        CALL write_name_list_output( datetime, sim_time(1) )
+        ! l_have_output must not be set here, this triggers the close
+        ! of vlist output files (not touched by name list output)
+      ENDIF
 
     ENDIF
 

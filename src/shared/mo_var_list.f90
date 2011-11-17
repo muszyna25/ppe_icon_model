@@ -330,7 +330,8 @@ CONTAINS
     this_info%ndims               = 0
     this_info%used_dimensions(:)  = 0
     !
-    this_info%loutput             = this_list%p%loutput
+    ! RJ: Set default loutput to .TRUE., regardless of this_list%p%loutput
+    this_info%loutput             = .TRUE.
     this_info%laccu               = this_list%p%laccu
     this_info%resetval            = t_union_vals( 0.0_wp, 0, .FALSE.)
     this_info%lrestart            = this_list%p%lrestart
@@ -421,22 +422,6 @@ CONTAINS
     CALL assign_if_present (info%lrestart,      lrestart)
     CALL assign_if_present (info%lrestart_cont, lrestart_cont)
     CALL assign_if_present (info%initval,       initval)
-
-    ! RJ: The following is preliminary code:
-    ! loutput is set to .TRUE. by default, unless
-    ! - the parameter loutput is present, which is used in this case
-    ! - the parameter lrestart is present which is then used for loutput also
-    ! Rationale: There are some variables which must not be output but for
-    ! which only lrestart is set to false.
-    ! This should be corrected in the future
-
-    IF(PRESENT(loutput)) THEN
-      info%loutput = loutput
-    ELSE
-      info%loutput = .TRUE.
-      IF(PRESENT(lrestart)) info%loutput = lrestart
-    ENDIF
-
     !
     ! printout (optional)
     !

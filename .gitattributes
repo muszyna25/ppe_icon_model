@@ -1210,6 +1210,7 @@ src/shared/mo_loopindices.f90 -text
 src/shared/mo_math_constants.f90 -text
 src/shared/mo_math_utilities.f90 -text
 src/shared/mo_mpi.f90 -text
+src/shared/mo_name_list_output.f90 -text
 src/shared/mo_namelist.f90 -text
 src/shared/mo_ompthreads.f90 -text
 src/shared/mo_orbit.f90 -text

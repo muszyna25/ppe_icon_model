@@ -57,13 +57,6 @@ MODULE mo_output
   USE mo_io_async,            ONLY: setup_io_procs, shutdown_io_procs, &
      &                              output_async, set_output_file
   USE mo_datetime,            ONLY: t_datetime,iso8601
-!--------------------------------------------------------------------------------------------------
-  USE mo_io_output,           ONLY: set_output_time_vl    => set_output_time,     &
-                                    init_output_vl        => init_output,         &
-     &                              open_output_files_vl  => open_output_files,   &
-     &                              close_output_files_vl => close_output_files,  &
-     &                              write_output_vl       => write_output
-!--------------------------------------------------------------------------------------------------
   USE mo_io_restart,          ONLY: set_restart_time, set_restart_vct,         &
                                   & init_restart, open_writing_restart_files,  &
                                   & write_restart, close_writing_restart_files,&
@@ -86,10 +79,6 @@ MODULE mo_output
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_output'
 
   LOGICAL :: l_omit_dom   ! flag if "'_DOM',jg" should be omitted in the filenames
-
-  ! RJ: The following parameter is for experimentally enabling output through var_lists
-  ! This is not fully functional yet and thus not implemented in a namelist variable
-  LOGICAL, PARAMETER :: use_var_lists = .FALSE.
 
   !------------------------------------------------------------------------------------------------
   !
@@ -122,11 +111,6 @@ CONTAINS
 
     IF ( no_output ) RETURN
     
-IF(use_var_lists) THEN
-    IF(.NOT.lclose) CALL init_output_vl
-    IF(lclose) CALL close_output_files_vl
-    CALL open_output_files_vl(jfile)
-ELSE
     IF(.NOT.lclose) THEN
 
       ! This is the first call - initialize
@@ -246,7 +230,6 @@ ELSE
     ! Note that this has to be done AFTER the output files are set!
 
     IF(jfile == 1 .AND. process_mpi_io_size>0) CALL setup_io_procs()
-ENDIF
     
   END SUBROUTINE init_output_files
 
@@ -262,16 +245,12 @@ ENDIF
 
     IF ( no_output ) RETURN
 
-IF(use_var_lists) THEN
-    CALL close_output_files_vl
-ELSE
     DO jg = n_dom, 1, -1
       IF(process_mpi_io_size == 0 .AND. p_pe == p_io) CALL close_output_vlist(jg)
       CALL destruct_vlist( jg )
     ENDDO
 
     IF(process_mpi_io_size>0) CALL shutdown_io_procs
-ENDIF
 
   END SUBROUTINE close_output_files
 
@@ -284,7 +263,6 @@ ENDIF
 
     ! Local variables
     INTEGER :: jg
-    CHARACTER*32 date_iso8601
 
 !    Proposal by Matthias Raschendorfer for correct output
 !
@@ -306,13 +284,6 @@ ENDIF
 
     IF (ltimer) CALL timer_start(timer_write_output)
 
-IF(use_var_lists) THEN
-    WRITE(date_iso8601,'(i4.4,i2.2,i2.2,"T",i2.2,i2.2,i2.2,"Z")') &
-     & datetime%year, datetime%month, datetime%day,               &
-     & datetime%hour, datetime%minute, NINT(datetime%second)
-    CALL set_output_time_vl(date_iso8601)
-    CALL write_output_vl
-ELSE
     IF ( PRESENT(z_sim_time) ) THEN  
       IF(process_mpi_io_size == 0) THEN
         CALL write_vlist(datetime, z_sim_time(1))
@@ -338,8 +309,6 @@ ELSE
         CALL output_async(datetime)
       ENDIF
     ENDIF
-
-ENDIF
 
     IF (ltimer) CALL timer_stop(timer_write_output)
   END SUBROUTINE write_output

@@ -81,6 +81,7 @@ MODULE mo_read_namelists
   USE mo_lonlat_intp_nml     ,ONLY: read_lonlat_intp_namelist
 
   USE mo_meteogram_nml       ,ONLY: read_meteogram_namelist
+  USE mo_name_list_output    ,ONLY: read_name_list_output_namelists
 
   IMPLICIT NONE
 
@@ -128,6 +129,7 @@ CONTAINS
     CALL read_lonlat_intp_namelist    (TRIM(atm_namelist_filename))
     CALL read_nh_pzlev_namelist       (TRIM(atm_namelist_filename))
     CALL read_meteogram_namelist      (TRIM(atm_namelist_filename))
+    CALL read_name_list_output_namelists (TRIM(atm_namelist_filename))
 
     ! Grid
     !

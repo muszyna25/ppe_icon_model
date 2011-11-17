@@ -39,22 +39,6 @@ MODULE mo_linked_list
     TYPE(t_var_list_element)      :: field
     TYPE(t_list_element), POINTER :: next_list_element
   END TYPE t_list_element
-
-  ! Parameters for naming all used Zaxis ID's
-  INTEGER, PARAMETER, PUBLIC      :: ZA_surface             =  1
-  ! Atmosphere
-  INTEGER, PARAMETER, PUBLIC      :: ZA_hybrid              =  2
-  INTEGER, PARAMETER, PUBLIC      :: ZA_hybrid_half         =  3
-  INTEGER, PARAMETER, PUBLIC      :: ZA_depth_below_land    =  4
-  INTEGER, PARAMETER, PUBLIC      :: ZA_depth_below_land_p1 =  5
-  INTEGER, PARAMETER, PUBLIC      :: ZA_generic_snow        =  6
-  INTEGER, PARAMETER, PUBLIC      :: ZA_generic_snow_p1     =  7
-  INTEGER, PARAMETER, PUBLIC      :: ZA_pressure            =  8
-  INTEGER, PARAMETER, PUBLIC      :: ZA_height              =  9
-  ! Ocean
-  INTEGER, PARAMETER, PUBLIC      :: ZA_depth               = 10
-  INTEGER, PARAMETER, PUBLIC      :: ZA_depth_half          = 11
-  INTEGER, PARAMETER, PUBLIC      :: ZA_generic_ice         = 12
   !
   TYPE t_var_list_intrinsic
     INTEGER                       :: key                ! hash value of name   
@@ -89,9 +73,6 @@ MODULE mo_linked_list
     INTEGER                       :: cdiVertGridID
     INTEGER                       :: cdiEdgeGridID
     !
-! RJ - Please note:
-! The following ZaxisID's are used in restart and should be replaced
-! by the array cdiZaxisID in the future:
     INTEGER                       :: cdiSurfZaxisID
     INTEGER                       :: cdiHalfZaxisID
     INTEGER                       :: cdiFullZaxisID
@@ -99,8 +80,6 @@ MODULE mo_linked_list
     INTEGER                       :: cdiDepthFullZaxisID
     INTEGER                       :: cdiHeightHalfZaxisID
     INTEGER                       :: cdiHeightFullZaxisID
-    !
-    INTEGER                       :: cdiZaxisID(12) ! All types of possible Zaxis ID's
     !
     INTEGER                       :: cdiTaxisID
     !
@@ -168,8 +147,6 @@ CONTAINS
     this_list%p%cdiDepthHalfZaxisID = -1
     this_list%p%cdiHeightFullZaxisID= -1
     this_list%p%cdiHeightHalfZaxisID= -1
-    !
-    this_list%p%cdiZaxisID(:)      = -1
     !
     this_list%p%cdiTaxisID         = -1
     this_list%p%cdiTimeIndex       = -1
