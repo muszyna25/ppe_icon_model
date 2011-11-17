@@ -992,6 +992,24 @@ END SUBROUTINE destruct_sea_ice
      CALL finish(TRIM(routine),'allocation for LWin failed')
    END IF
 
+! Initialise everything with zero
+   p_atm_f%sens = 0.0_wp
+   p_atm_f%lat = 0.0_wp
+   p_atm_f%LWout = 0.0_wp
+   p_atm_f%LWnet = 0.0_wp
+   p_atm_f%bot = 0.0_wp
+   p_atm_f%dsensdT = 0.0_wp
+   p_atm_f%dlatdT = 0.0_wp
+   p_atm_f%dLWdT = 0.0_wp
+   p_atm_f%rprecw = 0.0_wp
+   p_atm_f%rpreci = 0.0_wp
+   p_atm_f%sensw = 0.0_wp
+   p_atm_f%latw = 0.0_wp
+   p_atm_f%LWoutw = 0.0_wp
+   p_atm_f%LWnetw = 0.0_wp
+   p_atm_f%SWin = 0.0_wp
+   p_atm_f%LWin = 0.0_wp
+
   CALL message(TRIM(routine), 'end' )
 
   END SUBROUTINE construct_atmos_fluxes
@@ -1430,7 +1448,7 @@ END SUBROUTINE set_ice_albedo
 SUBROUTINE set_ice_temp(ppatch,ice, Qatm) 
   TYPE(t_patch),         INTENT(IN)     :: ppatch 
   TYPE (t_sea_ice),      INTENT (INOUT) :: ice
-  TYPE (t_atmos_fluxes), INTENT (INOUT) :: Qatm
+  TYPE (t_atmos_fluxes), INTENT (IN)    :: Qatm
 
   !!Local variables
   REAL(wp), DIMENSION (nproma,i_no_ice_thick_class, ppatch%nblks_c) ::           &
