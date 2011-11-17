@@ -1,7 +1,7 @@
 require 'pp'
 
 SRC                = ["icon_plot.ncl","icon_plot_lib.ncl"]
-HOSTS              = ["m300064@blizzard"]
+HOSTS              = ["m300064@blizzard.dkrz.de"]
 DIR                = '/pool/data/ICON/tools'
 DST                = HOSTS.map {|v| v + ':' + DIR}
 CP                 = 'scp -p'
