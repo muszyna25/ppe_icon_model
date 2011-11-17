@@ -196,11 +196,6 @@ CONTAINS
 
         z_qhfl( i_startidx:i_endidx,nlevp1,jb) = - prm_diag%qhfl_s( i_startidx:i_endidx,jb)
         z_shfl( i_startidx:i_endidx,nlevp1,jb) = - prm_diag%shfl_s( i_startidx:i_endidx,jb)
-!
-!KF      Fluxes are not yet ready for use
-
-!        z_qhfl( i_startidx:i_endidx,nlevp1,jb) =  4.79846_wp*1.e-5_wp !> moisture flux W/m**2
-!        z_shfl( i_startidx:i_endidx,nlevp1,jb) =    17._wp            !! sens. heat fl W/m**2
 
         ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 2 ) THEN
 

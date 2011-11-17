@@ -68,7 +68,7 @@ MODULE mo_nonhydro_state
   USE mo_cf_convention
   USE mo_grib2
   USE mo_cdi_constants
-!  USE mo_advection_nml,       ONLY: ctracer_list
+
 
   IMPLICIT NONE
 
@@ -131,7 +131,6 @@ MODULE mo_nonhydro_state
     &  u(:,:,:),            & ! zonal wind (nproma,nlev,nblks_c)               [m/s]
     &  v(:,:,:),            & ! meridional wind (nproma,nlev,nblks_c)          [m/s]
     &  vt(:,:,:),           & ! tangential wind (nproma,nlev,nblks_e)          [m/s]
-                            ! *** needs to be saved for restart ***
     &  omega_z(:,:,:),      & ! vertical vorticity at dual grid
                               ! (nproma,nlev,nblks_v or nblks_e)               [1/s]
     &  ddt_vn_phy(:,:,:),   & ! normal wind tendency from forcing
@@ -146,9 +145,7 @@ MODULE mo_nonhydro_state
     &  tracer_vi(:,:,:),    & ! vertically integrated tracers(for q1,q2,q3) [kg/m**2]
     &  tracer_vi_avg(:,:,:),& ! average since last output of tracer_vi [kg/m**2]
     &  exner_old(:,:,:),    & ! exner pres from previous step (nproma,nlev,nblks_c)
-                            ! *** needs to be saved for restart ***
     &  exner_fphy_incr(:,:,:), & ! exner pres fast-physics increment (nproma,nlev,nblks_c)
-                            ! *** needs to be saved for restart ***
     &  exner_dyn_incr(:,:,:), & ! exner pres dynamics increment (nproma,nlev,nblks_c)
     &  temp(:,:,:),         & ! temperature (nproma,nlev,nblks_c)                 [K]
     &  tempv(:,:,:),        & ! virtual temperature (nproma,nlev,nblks_c)         [K]
@@ -167,7 +164,6 @@ MODULE mo_nonhydro_state
     &  rho_ic(:,:,:),       & ! density at half levels (nproma,nlevp1,nblks_c)     [kg/m^3]
     &  theta_v_ic(:,:,:),   & ! theta_v at half levels (nproma,nlevp1,nblks_c)         [K]
     &  w_concorr_c(:,:,:),  & ! contravariant vert correction (nproma,nlevp1,nblks_c)[m/s]
-                            ! *** needs to be saved for restart for triangular grid ***
     &  e_kinh(:,:,:),       & ! horizontal spec. kinetic energy
                               ! (nproma,nlev,nblks_c)                            [m^2/s^2]
                               !  
@@ -175,10 +171,8 @@ MODULE mo_nonhydro_state
     &  vn_ie(:,:,:),        & ! normal wind at half levels (nproma,nlevp1,nblks_e)   [m/s]
     &  ddt_vn_adv(:,:,:,:), & ! normal wind tendency from advection
                               ! (nproma,nlev,nblks_e,1:3)                    [m/s^2]
-                            ! *** needs to be saved for restart ***
     &  ddt_w_adv(:,:,:,:),  & ! vert. wind tendency from advection
                               ! (nproma,nlevp1,nblks_c,1:3)                  [m/s^2]
-                            ! *** needs to be saved for restart ***
     &  grf_tend_vn(:,:,:),  & ! vn tendency field for use in grid refinement
                               ! (nproma,nlev,nblks_e)                        [m/s^2]
     &  grf_tend_w(:,:,:),   & ! w tendency field for use in grid refinement
@@ -1019,7 +1013,7 @@ MODULE mo_nonhydro_state
                 & ldims=shape3d_c, lrestart=.FALSE. )
 
     ! vt           p_diag%vt(nproma,nlev,nblks_e)
-    !
+    ! *** needs to be saved for restart ***
     cf_desc    = t_cf_var('tangential_wind', 'm s-1', 'tangential-component of wind')
     grib2_desc = t_grib2_var(0, 2, 198, ientr, GRID_REFERENCE, GRID_EDGE)
     CALL add_var( p_diag_list, 'vt', p_diag%vt,                                 &
@@ -1046,7 +1040,7 @@ MODULE mo_nonhydro_state
                 & ldims=shape3d_e )
 
 
-   ! ddt_exner    p_diag%ddt_exner(nproma,nlev,nblks_c)
+    ! ddt_exner    p_diag%ddt_exner(nproma,nlev,nblks_c)
     !
     cf_desc    = t_cf_var('exner_pressure_tendency', 's-1', 'exner pressure tendency')
     grib2_desc = t_grib2_var(0, 3, 196, ientr, GRID_REFERENCE, GRID_CELL)
@@ -1071,10 +1065,10 @@ MODULE mo_nonhydro_state
     grib2_desc = t_grib2_var(0, 3, 197, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'ddt_temp_dyn', p_diag%ddt_temp_dyn,           &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
-                & ldims=shape3d_c )
+                & ldims=shape3d_c, lrestart=.FALSE. )
 
     ! exner_old    p_diag%exner_old(nproma,nlev,nblks_c)
-    !
+    ! *** needs to be saved for restart ***
     cf_desc    = t_cf_var('old_exner_pressure', '-', 'old exner pressure')
     grib2_desc = t_grib2_var(0, 3, 196, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'exner_old', p_diag%exner_old,                   &
@@ -1082,7 +1076,7 @@ MODULE mo_nonhydro_state
                 & ldims=shape3d_c )
 
     ! exner_fphy_incr    p_diag%exner_fphy_incr(nproma,nlev,nblks_c)
-    !
+    ! *** needs to be saved for restart ***
     cf_desc    = t_cf_var('exner_fast_physics_increment', '-', 'exner fast physics increment')
     grib2_desc = t_grib2_var(0, 3, 196, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'exner_fphy_incr', p_diag%exner_fphy_incr,       &
@@ -1095,7 +1089,7 @@ MODULE mo_nonhydro_state
     grib2_desc = t_grib2_var(0, 3, 196, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'exner_dyn_incr', p_diag%exner_dyn_incr,       &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
-                & ldims=shape3d_c )
+                & ldims=shape3d_c, lrestart=.FALSE. )
 
     ! pres_sfc     p_diag%pres_sfc(nproma,nblks_c)
     !
@@ -1146,7 +1140,7 @@ MODULE mo_nonhydro_state
     grib2_desc = t_grib2_var(0, 3, 0, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'pres', p_diag%pres,                             &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
-                & ldims=shape3d_c )
+                & ldims=shape3d_c, lrestart=.FALSE. )
 
 
     ! pres_ifc     p_diag%pres_ifc(nproma,nlevp1,nblks_c)
@@ -1155,7 +1149,7 @@ MODULE mo_nonhydro_state
     grib2_desc = t_grib2_var(0, 3, 0, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'pres_ifc', p_diag%pres_ifc,                     &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
-                & ldims=shape3d_chalf )
+                & ldims=shape3d_chalf, lrestart=.FALSE. )
 
 
     ! dpres_mc     p_diag%dpres_mc(nproma,nlev,nblks_c)
@@ -1164,7 +1158,7 @@ MODULE mo_nonhydro_state
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'dpres_mc', p_diag%dpres_mc,                     &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,         &
-                & ldims=shape3d_c )
+                & ldims=shape3d_c, lrestart=.FALSE. )
 
 
     ! div          p_diag%div(nproma,nlev,nblks_c)
@@ -1196,7 +1190,7 @@ MODULE mo_nonhydro_state
 
 
     ! w_concorr_c  p_diag%w_concorr_c(nproma,nlevp1,nblks_c)
-    !
+    ! *** needs to be saved for restart ***
     cf_desc    = t_cf_var('contravariant_vertical_correction', 'm s-1',         &
       &                   'contravariant vertical correction')
     grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
@@ -1234,11 +1228,11 @@ MODULE mo_nonhydro_state
       grib2_desc = t_grib2_var( 0, 2, 197, ientr, GRID_REFERENCE, GRID_EDGE)
       CALL add_var( p_diag_list, 'vn_ie', p_diag%vn_ie,                         &
                   & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
-                  & ldims=shape3d_ehalf )
+                  & ldims=shape3d_ehalf, lrestart=.FALSE. )
 
 
       ! ddt_vn_adv   p_diag%ddt_vn_adv(nproma,nlev,nblks_e,n_timlevs)
-      !
+      ! *** needs to be saved for restart ***
       cf_desc    = t_cf_var('advective_normal_wind_tendency', 'm s-2',          &
         &                   'advective normal wind tendency')
       grib2_desc = t_grib2_var( 0, 2, 201, ientr, GRID_REFERENCE, GRID_EDGE)
@@ -1260,7 +1254,7 @@ MODULE mo_nonhydro_state
 
 
       ! ddt_w_adv    p_diag%ddt_w_adv(nproma,nlevp1,nblks_c,n_timlevs)
-      !
+      ! *** needs to be saved for restart ***
       cf_desc    = t_cf_var('advective_vertical_wind_tendency', 'm s-2',        &
         &                   'advective vertical wind tendency')
       grib2_desc = t_grib2_var( 0, 2, 202, ientr, GRID_REFERENCE, GRID_CELL)
@@ -1720,7 +1714,7 @@ MODULE mo_nonhydro_state
 
     IF( iforcing== inwp) THEN  !T.R
       ! ddt_tracer_phy   p_diag%ddt_tracer_phy(nproma,nlev,nblks_c,ntracer)
-      !
+      ! *** needs to be saved for restart ***
       cf_desc    = t_cf_var('physical tracer tendency', 'kg kg-1 s-1',          &
         &                   'physical tracer tendency')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
