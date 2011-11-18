@@ -57,6 +57,7 @@ MODULE mo_name_list_output
     max_var_pl = 400, & ! maximum number of pressure-level variables
     max_var_hl = 400, & ! maximum number of height-level variables
     max_bounds = 100, & ! maximum number of output_bounds
+    max_levels = 100, & ! maximum number of pressure/height levels
     vname_len  =  32    ! variable name length in I/O namelists
 
   TYPE t_output_name_list
@@ -74,9 +75,9 @@ MODULE mo_name_list_output
     CHARACTER(LEN=filename_max) :: ready_directory        ! output directory for ready files
     CHARACTER(LEN=vname_len)  :: ml_varlist(max_var_ml)   ! name of model level fields (translation to model by namespace)
     CHARACTER(LEN=vname_len)  :: pl_varlist(max_var_pl)   ! name of pressure level fields (translation to model by namespace)
-    INTEGER  :: p_levels                                  ! pressure levels [hPa]
+    REAL(wp) :: p_levels(max_levels)                      ! pressure levels [hPa]
     CHARACTER(LEN=vname_len)  :: hl_varlist(max_var_hl)   ! name of height level fields
-    INTEGER  :: h_levels                                  ! height levels
+    REAL(wp) :: h_levels(max_levels)                      ! height levels
     INTEGER  :: remap               ! interpolate horizontally, 0: none, 1: to regular lat-lon grid, 2: to Gaussian grids, (3:...)
     LOGICAL  :: remap_internal      ! do interpolations online in the model or external (including triggering)
     REAL(wp) :: reg_lon_def(3)      ! if remap=1: start, increment, end longitude in degrees
@@ -179,9 +180,9 @@ CONTAINS
     CHARACTER(LEN=filename_max) :: ready_directory
     CHARACTER(LEN=vname_len)  :: ml_varlist(max_var_ml)
     CHARACTER(LEN=vname_len)  :: pl_varlist(max_var_pl)
-    INTEGER  :: p_levels
+    REAL(wp) :: p_levels(max_levels)
     CHARACTER(LEN=vname_len)  :: hl_varlist(max_var_hl)
-    INTEGER  :: h_levels
+    REAL(wp) :: h_levels(max_levels)
     INTEGER  :: remap
     LOGICAL  :: remap_internal
     REAL(wp) :: reg_lon_def(3)
@@ -249,9 +250,9 @@ CONTAINS
       ready_directory    = ' '
       ml_varlist(:)      = ' '
       pl_varlist(:)      = ' '
-      p_levels           = 0
+      p_levels(:)        = 0._wp
       hl_varlist(:)      = ' '
-      h_levels           = 0
+      h_levels(:)        = 0._wp
       remap              = 0
       remap_internal     = .FALSE.
       reg_lon_def(:)     = 0._wp
