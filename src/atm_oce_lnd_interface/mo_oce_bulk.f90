@@ -476,7 +476,8 @@ CONTAINS
       nbr_hor_points = p_patch%n_patch_cells
       nbr_points     = nproma * p_patch%nblks_c
       ALLOCATE(buffer(nbr_points,4))
-      
+      buffer(:,:) = 0.0_wp
+  
     !
     !  see drivers/mo_atmo_model.f90:
     !
@@ -513,15 +514,15 @@ CONTAINS
       END WHERE
       buffer(:,1) = RESHAPE(z_c(:,1,:), (/nbr_points /) ) + tmelt
     ! buffer(:,1) = RESHAPE(p_os%p_prog(nold(1))%tracer(:,1,:,1), (/nbr_points /) )  + 273.15_wp 
-      CALL ICON_cpl_put ( field_id(6), field_shape, buffer, ierror )
+      CALL ICON_cpl_put ( field_id(6), field_shape, buffer(1:nbr_hor_points,1:1), ierror )
     !
     ! zonal wind
       buffer(:,1) = RESHAPE(p_os%p_diag%u(:,1,:), (/nbr_points /) )
-      CALL ICON_cpl_put ( field_id(7), field_shape, buffer, ierror )
+      CALL ICON_cpl_put ( field_id(7), field_shape, buffer(1:nbr_hor_points,1:1), ierror )
     !
     ! meridional wind
       buffer(:,1) = RESHAPE(p_os%p_diag%v(:,1,:), (/nbr_points /) )
-      CALL ICON_cpl_put ( field_id(8), field_shape, buffer, ierror )
+      CALL ICON_cpl_put ( field_id(8), field_shape, buffer(1:nbr_hor_points,1:1), ierror )
     !
     ! Receive fields from atmosphere
     ! ------------------------------
@@ -530,29 +531,35 @@ CONTAINS
       ! Apply 4 parts of surface heat and 2 parts of freshwater fluxes (records 4 to 9)
     !
     ! zonal wind stress
-      CALL ICON_cpl_get ( field_id(1), field_shape, buffer, info, ierror )
-      IF (info > 0 ) &
-        & p_sfc_flx%forc_wind_u(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
+      CALL ICON_cpl_get ( field_id(1), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+      IF (info > 0 ) THEN
+          buffer(nbr_hor_points+1:nbr_points,1) = 0.0_wp
+          p_sfc_flx%forc_wind_u(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
+      ENDIF
     !
     ! meridional wind stress
-      CALL ICON_cpl_get ( field_id(2), field_shape, buffer, info, ierror )
-      IF (info > 0 ) &
-        &  p_sfc_flx%forc_wind_v(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
+      CALL ICON_cpl_get ( field_id(2), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+      IF (info > 0 ) THEN
+          buffer(nbr_hor_points+1:nbr_points,1) = 0.0_wp
+          p_sfc_flx%forc_wind_v(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
+      ENDIF
     !
     ! freshwater flux - 2 parts, precipitation and evaporation
     ! prflx(:,:)  total precipitation flux            [m/s]
     ! evflx(:,:)  evaporation flux                    [m/s]
       field_shape(3) = 2
-      CALL ICON_cpl_get ( field_id(3), field_shape, buffer, info, ierror )
+      CALL ICON_cpl_get ( field_id(3), field_shape, buffer(1:nbr_hor_points,1:2), info, ierror )
       IF (info > 0 ) THEN
-        p_sfc_flx%forc_prflx(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
-        p_sfc_flx%forc_evflx(:,:) = RESHAPE(buffer(:,2),(/ nproma, p_patch%nblks_c /) )
+          buffer(nbr_hor_points+1:nbr_points,1:2) = 0.0_wp
+          p_sfc_flx%forc_prflx(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
+          p_sfc_flx%forc_evflx(:,:) = RESHAPE(buffer(:,2),(/ nproma, p_patch%nblks_c /) )
       END IF
     !
     ! surface temperature
       field_shape(3) = 1
-      CALL ICON_cpl_get ( field_id(4), field_shape, buffer, info, ierror )
+      CALL ICON_cpl_get ( field_id(4), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
       IF (info > 0 ) THEN
+        buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
         p_sfc_flx%forc_tracer_relax(:,:,1) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
       !  - change units to deg C, subtract tmelt (0 deg C, 273.15)
         p_sfc_flx%forc_tracer_relax(:,:,1) = p_sfc_flx%forc_tracer_relax(:,:,1) - tmelt
@@ -564,8 +571,9 @@ CONTAINS
     ! ssflx(:,:)  surface sensible   heat flux        [W/m2]
     ! slflx(:,:)  surface latent     heat flux        [W/m2]
       field_shape(3) = 4
-      CALL ICON_cpl_get ( field_id(5), field_shape, buffer, info, ierror )
+      CALL ICON_cpl_get ( field_id(5), field_shape, buffer(1:nbr_hor_points,1:4), info, ierror )
       IF (info > 0 ) THEN
+        buffer(nbr_hor_points+1:nbr_points,1:4) = 0.0_wp
         p_sfc_flx%forc_swflx(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
         p_sfc_flx%forc_lwflx(:,:) = RESHAPE(buffer(:,2),(/ nproma, p_patch%nblks_c /) )
         p_sfc_flx%forc_ssflx(:,:) = RESHAPE(buffer(:,3),(/ nproma, p_patch%nblks_c /) )

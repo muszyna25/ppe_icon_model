@@ -365,7 +365,10 @@ CONTAINS
     
        nbr_hor_points = p_patch%n_patch_cells
        nbr_points     = nproma * nblks
+       
        ALLOCATE(buffer(nproma*p_patch%nblks_c,4))
+       buffer(:,:) = 0.0_wp
+
        !
        !  see drivers/mo_atmo_model.f90:
        !
@@ -394,11 +397,11 @@ CONTAINS
        !
        ! TAUX
        buffer(:,1) = RESHAPE ( prm_field(jg)%u_stress_tile(:,:,iwtr), (/ nbr_points /) )
-       CALL ICON_cpl_put ( field_id(1), field_shape, buffer, ierror )
+       CALL ICON_cpl_put ( field_id(1), field_shape, buffer(1:nbr_hor_points,1:1), ierror )
        !
        ! TAUY
        buffer(:,1) = RESHAPE ( prm_field(jg)%v_stress_tile(:,:,iwtr), (/ nbr_points /) )
-       CALL ICON_cpl_put ( field_id(2), field_shape, buffer, ierror )
+       CALL ICON_cpl_put ( field_id(2), field_shape, buffer(1:nbr_hor_points,1:1), ierror )
        !
        ! SFWFLX Note: the evap_tile should be properly updated and added
         buffer(:,1) = RESHAPE ( prm_field(jg)%rsfl(:,:), (/ nbr_points /) ) + &
@@ -408,21 +411,22 @@ CONTAINS
         buffer(:,2) = RESHAPE ( prm_field(jg)%evap_tile(:,:,iwtr), (/ nbr_points /) )
  
        field_shape(3) = 2
-       CALL ICON_cpl_put ( field_id(3), field_shape, buffer, ierror )
+       CALL ICON_cpl_put ( field_id(3), field_shape, buffer(1:nbr_hor_points,1:2), ierror )
        !
        ! SFTEMP
        buffer(:,1) =  RESHAPE ( prm_field(jg)%temp(:,nlev,:), (/ nbr_points /) )
        field_shape(3) = 1
-       CALL ICON_cpl_put ( field_id(4), field_shape, buffer, ierror )
+       CALL ICON_cpl_put ( field_id(4), field_shape, buffer(1:nbr_hor_points,1:1), ierror )
        !
        ! THFLX, total heat flux
-       buffer(:,1) =  RESHAPE ( prm_field(jg)%swflxsfc  (:,:)     , (/ nbr_points /) ) !net shortwave flux at sfc
-       buffer(:,2) =  RESHAPE ( prm_field(jg)%lwflxsfc  (:,:)     , (/ nbr_points /) ) !net longwave flux at sfc
-       buffer(:,3) =  RESHAPE ( prm_field(jg)%shflx_tile(:,:,iwtr), (/ nbr_points /) ) !sensible heat flux
-       buffer(:,4) =  RESHAPE ( prm_field(jg)%lhflx_tile(:,:,iwtr), (/ nbr_points /) ) !latent heat flux
+
+       buffer(:,1) =  0.0_wp ! RESHAPE ( prm_field(jg)%swflxsfc  (:,:)     , (/ nbr_points /) ) !net shortwave flux at sfc
+       buffer(:,2) =  0.0_wp ! RESHAPE ( prm_field(jg)%lwflxsfc  (:,:)     , (/ nbr_points /) ) !net longwave flux at sfc
+       buffer(:,3) =  0.0_wp ! RESHAPE ( prm_field(jg)%shflx_tile(:,:,iwtr), (/ nbr_points /) ) !sensible heat flux
+       buffer(:,4) =  0.0_wp ! RESHAPE ( prm_field(jg)%lhflx_tile(:,:,iwtr), (/ nbr_points /) ) !latent heat flux
 
        field_shape(3) = 4
-       CALL ICON_cpl_put ( field_id(5), field_shape, buffer, ierror )
+       CALL ICON_cpl_put ( field_id(5), field_shape, buffer(1:nbr_hor_points,1:4), ierror )
        field_shape(3) = 1
 
        !
@@ -430,22 +434,27 @@ CONTAINS
        ! -------------------------------------------------------------------------
        !
        ! SST
-       CALL ICON_cpl_get ( field_id(6), field_shape, buffer, info, ierror )
+       CALL ICON_cpl_get ( field_id(6), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
        IF ( info > 0 ) THEN
+         buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
          prm_field(jg)%tsfc_tile(:,:,iwtr) = RESHAPE (buffer(:,1), (/ nproma, nblks /) )
          prm_field(jg)%tsfc     (:,:)      = prm_field(jg)%tsfc_tile(:,:,iwtr)
        ENDIF
        !
        ! OCEANU
-       CALL ICON_cpl_get ( field_id(7), field_shape, buffer, info, ierror )
-       IF ( info > 0 ) &
-       prm_field(jg)%ocu(:,:) = RESHAPE (buffer(:,1), (/ nproma, nblks /) )
+       CALL ICON_cpl_get ( field_id(7), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+       IF ( info > 0 ) THEN
+         buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
+         prm_field(jg)%ocu(:,:) = RESHAPE (buffer(:,1), (/ nproma, nblks /) )
+       ENDIF
        !
        ! OCEANV
-       CALL ICON_cpl_get ( field_id(8), field_shape, buffer, info, ierror )
-       IF ( info > 0 ) &
-       prm_field(jg)%ocv(:,:) = RESHAPE (buffer(:,1), (/ nproma, nblks /) )
-       
+       CALL ICON_cpl_get ( field_id(8), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
+       IF ( info > 0 ) THEN
+         buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
+         prm_field(jg)%ocv(:,:) = RESHAPE (buffer(:,1), (/ nproma, nblks /) )
+       ENDIF
+
        CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%tsfc_tile(:,:,iwtr))
        CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%tsfc     (:,:))
 
