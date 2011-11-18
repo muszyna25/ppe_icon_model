@@ -1854,12 +1854,12 @@ SUBROUTINE upper_ocean_TS(ppatch, p_os,ice, QatmAve, p_sfc_flx)
 
   ! Needs work with FB_BGC_OCE etc.
    REAL(wp)         :: swsum 
-   REAL(wp),POINTER :: sao_top(:,:)
+   !REAL(wp),POINTER :: sao_top(:,:)
 !  !-------------------------------------------------------------------------------
 
 ! #eoo# What is swsum?
   swsum = 0.0_wp
-  sao_top =>p_os%p_prog(nold(1))%tracer(:,1,:,2)
+  !sao_top =>p_os%p_prog(nold(1))%tracer(:,1,:,2)
 
   ! Calculate change in water level 'zo' from liquid and solid precipitation and
   ! evaporation
