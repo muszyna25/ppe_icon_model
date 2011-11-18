@@ -420,10 +420,10 @@ CONTAINS
        !
        ! THFLX, total heat flux
 
-       buffer(:,1) =  0.0_wp ! RESHAPE ( prm_field(jg)%swflxsfc  (:,:)     , (/ nbr_points /) ) !net shortwave flux at sfc
-       buffer(:,2) =  0.0_wp ! RESHAPE ( prm_field(jg)%lwflxsfc  (:,:)     , (/ nbr_points /) ) !net longwave flux at sfc
-       buffer(:,3) =  0.0_wp ! RESHAPE ( prm_field(jg)%shflx_tile(:,:,iwtr), (/ nbr_points /) ) !sensible heat flux
-       buffer(:,4) =  0.0_wp ! RESHAPE ( prm_field(jg)%lhflx_tile(:,:,iwtr), (/ nbr_points /) ) !latent heat flux
+       buffer(:,1) =  RESHAPE ( prm_field(jg)%swflxsfc  (:,:)     , (/ nbr_points /) ) !net shortwave flux at sfc
+       buffer(:,2) =  RESHAPE ( prm_field(jg)%lwflxsfc  (:,:)     , (/ nbr_points /) ) !net longwave flux at sfc
+       buffer(:,3) =  RESHAPE ( prm_field(jg)%shflx_tile(:,:,iwtr), (/ nbr_points /) ) !sensible heat flux
+       buffer(:,4) =  RESHAPE ( prm_field(jg)%lhflx_tile(:,:,iwtr), (/ nbr_points /) ) !latent heat flux
 
        field_shape(3) = 4
        CALL ICON_cpl_put ( field_id(5), field_shape, buffer(1:nbr_hor_points,1:4), ierror )
