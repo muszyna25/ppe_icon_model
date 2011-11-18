@@ -103,7 +103,7 @@ CONTAINS
   !
   SUBROUTINE new_var_list (this_list, name, output_type, restart_type,      &
        &                   post_suf, rest_suf, init_suf, loutput, lrestart, &
-       &                   linitial, patch_id)
+       &                   linitial, patch_id, level_type)
     !
     TYPE(t_var_list), INTENT(inout)        :: this_list    ! anchor
     CHARACTER(len=*), INTENT(in)           :: name         ! name of output var_list
@@ -116,6 +116,7 @@ CONTAINS
     LOGICAL,          INTENT(in), OPTIONAL :: lrestart     ! write to restart file
     LOGICAL,          INTENT(in), OPTIONAL :: linitial     ! read from initial file
     INTEGER,          INTENT(in), OPTIONAL :: patch_id     ! patch ID
+    INTEGER,          INTENT(in), OPTIONAL :: level_type   ! 1/2/3 for model/pres./height levels
     !
     INTEGER :: i
     !
@@ -172,6 +173,7 @@ CONTAINS
     CALL assign_if_present(this_list%p%lrestart,     lrestart)
     CALL assign_if_present(this_list%p%linitial,     linitial)
     CALL assign_if_present(this_list%p%patch_id,     patch_id)
+    CALL assign_if_present(this_list%p%level_type,   level_type)
     !
     CALL message('','')
     CALL message('','adding new var_list '//TRIM(name))
@@ -204,7 +206,7 @@ CONTAINS
   !
   SUBROUTINE set_var_list (this_list, output_type, restart_type,  &
        &                   post_suf, rest_suf, init_suf, loutput, &
-       &                   lrestart, linitial, patch_id)
+       &                   lrestart, linitial, patch_id, level_type)
     !
     TYPE(t_var_list), INTENT(inout)        :: this_list      ! output var_list to change
     INTEGER,          INTENT(in), OPTIONAL :: output_type    ! 'GRIB' or 'NetCDF'
@@ -215,7 +217,8 @@ CONTAINS
     LOGICAL,          INTENT(in), OPTIONAL :: loutput        ! in standard output file
     LOGICAL,          INTENT(in), OPTIONAL :: lrestart       ! in standard restartfile
     LOGICAL,          INTENT(in), OPTIONAL :: linitial       ! in standard initialfile
-    INTEGER,          INTENT(in), OPTIONAL :: patch_id     ! patch ID
+    INTEGER,          INTENT(in), OPTIONAL :: patch_id       ! patch ID
+    INTEGER,          INTENT(in), OPTIONAL :: level_type     ! 1/2/3 for model/pres./height levels
     !
     CALL assign_if_present(this_list%p%output_type,  output_type)
     CALL assign_if_present(this_list%p%restart_type, restart_type)
@@ -226,6 +229,7 @@ CONTAINS
     CALL assign_if_present(this_list%p%lrestart,     lrestart)
     CALL assign_if_present(this_list%p%linitial,     linitial)
     CALL assign_if_present(this_list%p%patch_id,     patch_id)
+    CALL assign_if_present(this_list%p%level_type,   level_type)
     !
   END SUBROUTINE set_var_list
   !------------------------------------------------------------------------------------------------

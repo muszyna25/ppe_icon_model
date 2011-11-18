@@ -1841,7 +1841,7 @@ MODULE mo_nonhydro_state
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( p_diag_z_list, TRIM(listname), patch_id=p_patch%id )
+    CALL new_var_list( p_diag_z_list, TRIM(listname), patch_id=p_patch%id, level_type=3 )
     CALL default_var_list_settings( p_diag_z_list,             &
                                   & lrestart=.FALSE.,          &
                                   & restart_type=FILETYPE_NC2  )
@@ -2080,7 +2080,7 @@ MODULE mo_nonhydro_state
     !
     ! Register a field list and apply default settings
     !
-    CALL new_var_list( p_diag_p_list, TRIM(listname), patch_id=p_patch%id )
+    CALL new_var_list( p_diag_p_list, TRIM(listname), patch_id=p_patch%id, level_type=2 )
     CALL default_var_list_settings( p_diag_p_list,             &
                                   & lrestart=.FALSE.,          &
                                   & restart_type=FILETYPE_NC2  )

@@ -63,6 +63,7 @@ MODULE mo_linked_list
     LOGICAL                       :: output_opened      ! true, if output file opened
     CHARACTER(len=8)              :: model_type         ! store model type
     INTEGER                       :: patch_id           ! ID of patch to which list variables belong
+    INTEGER                       :: level_type         ! 1: model levels, 2: pressure levels, 3: height levels
     !--------------------------------------------------------------------------------------------
     ! Internal used handler for cdi
     INTEGER                       :: cdiFileId_restart  ! cdi file handler for restart
@@ -132,6 +133,7 @@ CONTAINS
     this_list%p%output_opened      = .FALSE.
     this_list%p%model_type         = 'atm'
     this_list%p%patch_id           = -1
+    this_list%p%level_type         =  1 ! Default is model levels
     !
     this_list%p%cdiFileID_restart  = -1
     this_list%p%cdiFileID_output   = -1

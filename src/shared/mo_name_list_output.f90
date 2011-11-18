@@ -356,7 +356,7 @@ CONTAINS
 
   SUBROUTINE init_name_list_output
 
-    INTEGER :: i, j, nfiles, i_typ, i_dom, i_log_dom, nvl, var_list_typ, vl_list(nvar_lists)
+    INTEGER :: i, j, nfiles, i_typ, i_dom, i_log_dom, nvl, vl_list(nvar_lists)
     CHARACTER(LEN=2) :: lev_type
     TYPE (t_output_name_list), POINTER :: p_onl
     TYPE (t_output_file), POINTER :: p_of
@@ -371,13 +371,13 @@ CONTAINS
 
       var_lists(i)%p%loutput = .TRUE.
 
-      ! Set disable output for var_lists which must not be output,
+      ! Disable output for var_lists which must not be output,
       ! e.g. because of name clashes with other var_lists, e.g.:
       !IF(var_lists(i)%p%name(1:15) == 'ext_data_atm_td' ) var_lists(i)%p%loutput = .FALSE.
       !IF(var_lists(i)%p%name(1:16) == 'nh_state_metrics') var_lists(i)%p%loutput = .FALSE.
 
 ! For a list of all variables, enable the following!
-IF(.TRUE.) THEN
+IF(.FALSE.) THEN
       IF (my_process_is_stdio()) THEN
         PRINT '(3a, i2)','Var_list name: ',TRIM(var_lists(i)%p%name),' Patch: ',var_lists(i)%p%patch_id
         element => var_lists(i)%p%first_list_element
@@ -494,13 +494,7 @@ ENDIF
             IF(.NOT. var_lists(j)%p%loutput) CYCLE
             IF(var_lists(j)%p%patch_id /= i_log_dom) CYCLE
 
-            ! The following has to be improved, we need a better way to
-            ! recognize pressure/height var_lists
-            var_list_typ = 1
-            IF(var_lists(j)%p%name(1:15) == 'nh_state_diag_p') var_list_typ = 2
-            IF(var_lists(j)%p%name(1:15) == 'nh_state_diag_z') var_list_typ = 3
-
-            IF(i_typ /= var_list_typ) CYCLE
+            IF(i_typ /= var_lists(j)%p%level_type) CYCLE
 
             nvl = nvl + 1
             vl_list(nvl) = j
@@ -556,7 +550,7 @@ ENDIF
       ! Please note that there may be several variables with different time levels,
       ! we just add unconditionally all with the name varlist(ivar).
       ! Remark: The different time levels may appear in different lists
-      ! or in the same list, the code sill accept both
+      ! or in the same list, the code will accept both
 
       p_info_1st => NULL()
 
