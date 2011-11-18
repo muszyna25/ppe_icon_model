@@ -531,12 +531,12 @@ CONTAINS
     !
     ! zonal wind stress
       CALL ICON_cpl_get ( field_id(1), field_shape, buffer, info, ierror )
-      IF (info > 1 ) &
+      IF (info > 0 ) &
         & p_sfc_flx%forc_wind_u(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
     !
     ! meridional wind stress
       CALL ICON_cpl_get ( field_id(2), field_shape, buffer, info, ierror )
-      IF (info > 1 ) &
+      IF (info > 0 ) &
         &  p_sfc_flx%forc_wind_v(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
     !
     ! freshwater flux - 2 parts, precipitation and evaporation
@@ -544,7 +544,7 @@ CONTAINS
     ! evflx(:,:)  evaporation flux                    [m/s]
       field_shape(3) = 2
       CALL ICON_cpl_get ( field_id(3), field_shape, buffer, info, ierror )
-      IF (info > 1 ) THEN
+      IF (info > 0 ) THEN
         p_sfc_flx%forc_prflx(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
         p_sfc_flx%forc_evflx(:,:) = RESHAPE(buffer(:,2),(/ nproma, p_patch%nblks_c /) )
       END IF
@@ -552,7 +552,7 @@ CONTAINS
     ! surface temperature
       field_shape(3) = 1
       CALL ICON_cpl_get ( field_id(4), field_shape, buffer, info, ierror )
-      IF (info > 1 ) THEN
+      IF (info > 0 ) THEN
         p_sfc_flx%forc_tracer_relax(:,:,1) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
       !  - change units to deg C, subtract tmelt (0 deg C, 273.15)
         p_sfc_flx%forc_tracer_relax(:,:,1) = p_sfc_flx%forc_tracer_relax(:,:,1) - tmelt
@@ -565,7 +565,7 @@ CONTAINS
     ! slflx(:,:)  surface latent     heat flux        [W/m2]
       field_shape(3) = 4
       CALL ICON_cpl_get ( field_id(5), field_shape, buffer, info, ierror )
-      IF (info > 1 ) THEN
+      IF (info > 0 ) THEN
         p_sfc_flx%forc_swflx(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
         p_sfc_flx%forc_lwflx(:,:) = RESHAPE(buffer(:,2),(/ nproma, p_patch%nblks_c /) )
         p_sfc_flx%forc_ssflx(:,:) = RESHAPE(buffer(:,3),(/ nproma, p_patch%nblks_c /) )
