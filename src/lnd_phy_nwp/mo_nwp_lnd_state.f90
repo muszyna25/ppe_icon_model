@@ -501,7 +501,9 @@ MODULE mo_nwp_lnd_state
                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                         &
                & t_cf_var('t_snow_mult_'//csfc, '', ''),                       &
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
-               & ldims=(/nproma,nlev_snow+1,kblks/) )
+               & ldims=(/nproma,nlev_snow+1,kblks/), lrestart=.FALSE. )
+!DR needs to be saved for restart as soon as we make use of the multi layer snow model
+!DR for snow no proper vertical axis available so far
       ENDDO
 
 
@@ -592,7 +594,9 @@ MODULE mo_nwp_lnd_state
                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                            &
                & t_cf_var('rho_snow_mult_'//csfc, '', ''),                        &
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),    &
-               & ldims=(/nproma,nlev_snow,kblks/) )
+               & ldims=(/nproma,nlev_snow,kblks/), lrestart=.FALSE. )
+!DR needs to be saved for restart as soon as we make use of the multi layer snow model
+!DR for snow no proper vertical axis available so far
       ENDDO
 
 
@@ -705,7 +709,9 @@ MODULE mo_nwp_lnd_state
                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                           &
                & t_cf_var('wliq_snow_'//csfc, '', ''),                           &
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
-               & ldims=(/nproma,nlev_snow,kblks/) )
+               & ldims=(/nproma,nlev_snow,kblks/), lrestart=.FALSE. )
+!DR needs to be saved for restart as soon as we make use of the multi layer snow model
+!DR for snow no proper vertical axis available so far
       ENDDO
 
 
@@ -728,7 +734,9 @@ MODULE mo_nwp_lnd_state
                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                           &
                & t_cf_var('wtot_snow_'//csfc, '', ''),                           &
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
-               & ldims=(/nproma,nlev_snow,kblks/) )
+               & ldims=(/nproma,nlev_snow,kblks/), lrestart=.FALSE. )
+!DR needs to be saved for restart as soon as we make use of the multi layer snow model
+!DR for snow no proper vertical axis available so far
       ENDDO
 
 
@@ -750,7 +758,9 @@ MODULE mo_nwp_lnd_state
                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                            &
                & t_cf_var('dzh_snow_'//csfc, '', ''),                             &
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),    &
-               & ldims=(/nproma,nlev_snow,kblks/) )
+               & ldims=(/nproma,nlev_snow,kblks/), lrestart=.FALSE. )
+!DR needs to be saved for restart as soon as we make use of the multi layer snow model
+!DR for snow no proper vertical axis available so far
       ENDDO
  
 
