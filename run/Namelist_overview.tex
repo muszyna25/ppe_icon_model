@@ -2212,6 +2212,204 @@ Defined and used in: src/namelists/mo\_io\_nml.f90
 
 
 %------------------------------------------------------------------------------
+% output_nml:
+%------------------------------------------------------------------------------
+\subsection{output\_nml}
+
+Please note: Opposed to all other namelists, there may be several instances of
+output\_nml in the input file, every one defining a list of variables with
+separate attributes for output.
+
+\begin{longtab}
+
+\hline 
+filetype &
+I&4& &
+One of CDI's FILETYPE\_XXX constants.
+Possible values: 2 (=FILETYPE\_GRB2), 4 (=FILETYPE\_NC2), 5 (=FILETYPE\_NC4)
+&
+\tabularnewline
+
+\hline
+ namespace &
+C&' '& &
+ 'DWD' - DWD short names (or 'MPIM', 'CMIP', 'ECMWF') \\
+ {\color{red} Not yet implemented.} \\
+ RJ: For what exactly should that be used?
+&
+\tabularnewline
+
+\hline
+ mode &
+I&1& &
+ 1 = forecast mode, 2 = climate mode \\
+ {\color{red} Not yet implemented.} \\
+ RJ: For what exactly should that be used?
+&
+\tabularnewline
+
+\hline
+ dom(:) &
+I&-1& &
+ Array of domains for which this name-list is used.
+ If not specified (or specified as -1 as the first array member),
+ this name-list will be used for all domains. \\
+ Attention: Depending on the setting of the parameter l\_output\_phys\_patch
+ these are either logical or physical domain numbers!
+&
+\tabularnewline
+
+\hline
+ output\_time\_unit &
+I&1& &
+ 1 = second, 2=minute, 3=hour, 4=day, 5=month, 6=year
+&
+\tabularnewline
+
+\hline
+ output\_bounds(3,:) &
+R&None& &
+ post-processing times in units defined by output\_time\_unit: start, end, increment.
+ There may be specified several triples (up to 100) which must be in increasing order.
+&
+\tabularnewline
+
+\hline
+ steps\_per\_file &
+I&100& &
+ Max number of output steps in one output file. If this number is reached, a new output
+ file will be opened.
+&
+\tabularnewline
+
+\hline
+ include\_start &
+L&.FALSE.& &
+ include initial time step
+&
+\tabularnewline
+
+\hline
+ output\_filename &
+C&None& &
+ Output filename prefix (which may include path).
+ Domain number, level type, file number and extension will be added,
+ so specifying 'XXX' for output\_filename you will end up in a name
+ like XXX\_DOM01\_ML\_0001.nc
+&
+\tabularnewline
+
+\hline
+ lwrite\_ready &
+L&.FALSE.& &
+ Flag if a "ready file" (sentinel file) should be written at the end of each output stage. \\
+ {\color{red} Not yet implemented.}
+&
+\tabularnewline
+
+\hline
+ ready\_directory &
+C&None& &
+ Output directory for ready files. \\
+ {\color{red} Not yet implemented.}
+&
+\tabularnewline
+
+\hline
+ ml\_varlist(:) &
+C&None& &
+ Name of model level fields to be output.
+&
+\tabularnewline
+
+\hline
+ pl\_varlist(:) &
+C&None& &
+ Name of pressure level fields to be output.
+&
+\tabularnewline
+
+\hline
+ p\_levels(:) &
+R&None& &
+ pressure levels [hPa] \\
+ {\color{red} Not yet implemented.} \\
+ {\color{red} The pressure levels are currently always taken from array plevels in namelist nh\_pzlev\_nml. }
+ 
+&
+\tabularnewline
+
+\hline
+ hl\_varlist(:) &
+C&None& &
+ Name of height level fields to be output.
+&
+\tabularnewline
+
+\hline
+ h\_levels(:) &
+R&None& &
+ height levels \\
+ {\color{red} Not yet implemented.} \\
+ {\color{red} The height levels are currently always taken from array zlevels in namelist nh\_pzlev\_nml. }
+&
+\tabularnewline
+
+\hline
+ remap &
+I&0& &
+ interpolate horizontally, 0: none, 1: to regular lat-lon grid, 2: to Gaussian grids, (3:...) \\
+ {\color{red} Not yet implemented.}
+&
+\tabularnewline
+
+\hline
+ remap\_internal &
+L&.FALSE.& &
+ do interpolations online in the model or external (including triggering) \\
+ {\color{red} Not yet implemented.}
+&
+\tabularnewline
+
+\hline
+ reg\_lon\_def(3) &
+R&None& &
+ if remap=1: start, increment, end longitude in degrees \\
+ {\color{red} Not yet implemented.}
+&
+\tabularnewline
+
+\hline
+ reg\_lat\_def(3) &
+R&None& &
+ if remap=1: start, increment, end latitude in degrees \\
+ {\color{red} Not yet implemented.}
+&
+\tabularnewline
+
+\hline
+ gauss\_tgrid\_def &
+I&None& &
+ if remap=2: triangular truncation (e.g.63 for T63) for which the Gauss grid should be used \\
+ {\color{red} Not yet implemented.}
+&
+\tabularnewline
+
+\hline
+ north\_pole(2) &
+R&None& &
+ definition of north pole for rotated lon-lat grids. \\
+ {\color{red} Not yet implemented.}
+&
+\tabularnewline
+
+
+\hline 
+\end{longtab}
+
+Defined and used in: src/namelists/mo\_name\_list\_output.f90
+
+%------------------------------------------------------------------------------
 % lonlat_intp_nml:
 %------------------------------------------------------------------------------
 \subsection{lonlat\_intp\_nml}
