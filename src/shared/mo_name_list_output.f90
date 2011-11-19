@@ -379,7 +379,8 @@ CONTAINS
 ! For a list of all variables, enable the following!
 IF(.FALSE.) THEN
       IF (my_process_is_stdio()) THEN
-        PRINT '(3a, i2)','Var_list name: ',TRIM(var_lists(i)%p%name),' Patch: ',var_lists(i)%p%patch_id
+        PRINT '(3a, i2)','Var_list name: ',TRIM(var_lists(i)%p%name),&
+          & ' Patch: ',var_lists(i)%p%patch_id
         element => var_lists(i)%p%first_list_element
         DO
           IF(.NOT. ASSOCIATED(element)) EXIT
