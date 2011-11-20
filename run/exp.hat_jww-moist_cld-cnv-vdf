@@ -71,6 +71,8 @@ cat > ${atmo_namelist} << EOF
 !
 &parallel_nml
  nproma      = ${nproma}
+ use_icon_comm   = .true.
+ icon_comm_debug = .false.
 /
 &grid_nml
  dynamics_grid_filename = "${atmo_dyn_grids}",
