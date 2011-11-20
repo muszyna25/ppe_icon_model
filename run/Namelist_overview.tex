@@ -936,6 +936,24 @@ The number of OpenMP threads to be used by the radiation. Only used if the \_\_O
 flag is set during compilation. Experimental! &
 \tabularnewline
 
+\hline 
+use\_icon\_comm &
+L & false & &
+Enable the use of MPI bulk communication through the icon\_comm\_lib &
+\tabularnewline
+
+\hline 
+icon\_comm\_debug &
+L & false & &
+Enable debug mode for the icon\_comm\_lib &
+\tabularnewline
+
+\hline 
+max\_send\_recv \_buffer\_size &
+I & 131072 & &
+Size of the send/receive buffers for the icon\_comm\_lib. &
+\tabularnewline
+
 \end{longtab}
 
 Defined and used in: src/namelists/mo\_parallel\_nml.f90
