@@ -43,11 +43,14 @@ MODULE mo_mpi
   PUBLIC :: my_process_is_mpi_all_seq, my_process_is_io
 
   ! get parameters
-  PUBLIC :: get_my_mpi_communicator   ! the communicator for the specific component, ie the process_mpi_all_comm
-  PUBLIC :: get_my_mpi_communicator_size   ! this is the the size of the communicator for the specific component
+  PUBLIC :: get_my_mpi_all_communicator   ! the communicator for the specific component, ie the process_mpi_all_comm
+  PUBLIC :: get_my_mpi_all_comm_size   ! this is the the size of the communicator for the specific component
+  PUBLIC :: get_my_mpi_work_communicator   ! the communicator for the workers of this component
+  PUBLIC :: get_my_mpi_work_comm_size   ! this is the the size of the workers
   
   PUBLIC :: get_mpi_all_workroot_id, get_my_global_mpi_id, get_my_mpi_all_id
   PUBLIC :: get_mpi_all_ioroot_id
+  PUBLIC :: get_my_mpi_work_id
   PUBLIC :: default_comm_type, null_comm_type
 
 
@@ -55,6 +58,7 @@ MODULE mo_mpi
   PUBLIC :: process_mpi_all_comm
   PUBLIC :: process_mpi_all_test_id, process_mpi_all_workroot_id, &
     &       process_mpi_all_ioroot_id
+
   
   
   PUBLIC :: p_comm_work, p_comm_work_test
@@ -154,6 +158,8 @@ MODULE mo_mpi
   INTEGER :: process_mpi_all_workroot_id  ! the root process in component
   INTEGER :: process_mpi_all_ioroot_id    ! the first I/O process
   INTEGER :: process_mpi_all_test_id  ! the test process in component
+
+  
   LOGICAL :: process_is_mpi_parallel
   LOGICAL :: process_is_stdio
   LOGICAL :: is_mpi_test_run = .false.
@@ -428,15 +434,15 @@ CONTAINS
   !------------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------
-  INTEGER FUNCTION get_my_mpi_communicator()
-    get_my_mpi_communicator = process_mpi_all_comm
-  END FUNCTION get_my_mpi_communicator
+  INTEGER FUNCTION get_my_mpi_all_communicator()
+    get_my_mpi_all_communicator = process_mpi_all_comm
+  END FUNCTION get_my_mpi_all_communicator
   !------------------------------------------------------------------------------
-  
+
   !------------------------------------------------------------------------------
-  INTEGER FUNCTION get_my_mpi_communicator_size()
-    get_my_mpi_communicator_size = process_mpi_all_size
-  END FUNCTION get_my_mpi_communicator_size
+  INTEGER FUNCTION get_my_mpi_all_comm_size()
+    get_my_mpi_all_comm_size = process_mpi_all_size
+  END FUNCTION get_my_mpi_all_comm_size
   !------------------------------------------------------------------------------
   
   !------------------------------------------------------------------------------
@@ -450,12 +456,31 @@ CONTAINS
     get_mpi_all_workroot_id = process_mpi_all_workroot_id
   END FUNCTION get_mpi_all_workroot_id
   !------------------------------------------------------------------------------
-
+  
   !------------------------------------------------------------------------------
   INTEGER FUNCTION get_mpi_all_ioroot_id()
     get_mpi_all_ioroot_id = process_mpi_all_ioroot_id
   END FUNCTION get_mpi_all_ioroot_id
   !------------------------------------------------------------------------------
+
+  !------------------------------------------------------------------------------
+  INTEGER FUNCTION get_my_mpi_work_communicator()
+    get_my_mpi_work_communicator = p_comm_work
+  END FUNCTION get_my_mpi_work_communicator
+  !------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+  INTEGER FUNCTION get_my_mpi_work_comm_size()
+    get_my_mpi_work_comm_size = p_n_work
+  END FUNCTION get_my_mpi_work_comm_size
+  !------------------------------------------------------------------------------
+  !------------------------------------------------------------------------------
+  INTEGER FUNCTION get_my_mpi_work_id()
+    get_my_mpi_work_id = p_pe_work
+  END FUNCTION get_my_mpi_work_id
+  !------------------------------------------------------------------------------
+
+ 
 
   !------------------------------------------------------------------------------
   LOGICAL FUNCTION my_process_is_stdio()
@@ -471,6 +496,13 @@ CONTAINS
   LOGICAL FUNCTION my_process_is_io()
      my_process_is_io = (my_mpi_function == io_mpi_process)
   END FUNCTION my_process_is_io
+  !------------------------------------------------------------------------------
+  
+  !------------------------------------------------------------------------------
+  !>
+  LOGICAL FUNCTION my_process_is_mpi_ioroot()
+    my_process_is_mpi_ioroot = (my_process_mpi_all_id == process_mpi_all_ioroot_id)
+  END FUNCTION my_process_is_mpi_ioroot
   !------------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------
@@ -523,15 +555,9 @@ CONTAINS
     my_process_is_mpi_workroot = (my_process_mpi_all_id == process_mpi_all_workroot_id)
   END FUNCTION my_process_is_mpi_workroot
   !------------------------------------------------------------------------------
-
-  !------------------------------------------------------------------------------
-  !>
-  LOGICAL FUNCTION my_process_is_mpi_ioroot()
-    my_process_is_mpi_ioroot = (my_process_mpi_all_id == process_mpi_all_ioroot_id)
-  END FUNCTION my_process_is_mpi_ioroot
-  !------------------------------------------------------------------------------
   
-   !------------------------------------------------------------------------------
+ 
+  !------------------------------------------------------------------------------
   !>
   ! If is not mpi paralellel or is a test process
   LOGICAL FUNCTION run_is_global_mpi_parallel()
@@ -4020,7 +4046,7 @@ CONTAINS
     outsize = p_buf_size
     CALL MPI_PACK(t_var, 1, p_real_dp, t_buffer, outsize, p_pos, p_comm, p_error)
 #ifdef DEBUG
-    IF (p_error /= MPI_SUCCESS) CALL finish ("p_pack_real", 'MPI call failed')
+   IF (p_error /= MPI_SUCCESS) CALL finish ("p_pack_real", 'MPI call failed')
 #endif
 #endif
   END SUBROUTINE p_pack_real
@@ -4074,6 +4100,7 @@ CONTAINS
 #endif
 #endif
   END SUBROUTINE p_pack_real_1d
+  
 
   SUBROUTINE p_pack_string (t_var, t_buffer, p_buf_size, p_pos, comm)
 
@@ -4225,6 +4252,7 @@ CONTAINS
 #endif
 #endif
   END SUBROUTINE p_unpack_real_1d
+  
 
   SUBROUTINE p_unpack_string (t_buffer, p_buf_size, p_pos, t_var, comm)
 
@@ -4253,6 +4281,7 @@ CONTAINS
 #endif
   END SUBROUTINE p_unpack_string
 
+
   SUBROUTINE p_unpack_real_2d (t_buffer, p_buf_size, p_pos, t_var, p_count, comm)
 
     CHARACTER, INTENT(IN)    :: t_buffer(:)
@@ -4269,6 +4298,7 @@ CONTAINS
     ELSE
        p_comm = process_mpi_all_comm
     ENDIF
+
     CALL MPI_UNPACK(t_buffer, p_buf_size, p_pos, t_var, p_count, p_real_dp, p_comm, p_error)
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) CALL finish ("p_unpack_real_2d", 'MPI call failed')
