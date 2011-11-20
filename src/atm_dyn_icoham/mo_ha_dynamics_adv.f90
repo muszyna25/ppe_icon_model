@@ -109,7 +109,9 @@ CONTAINS
 
 ! Interpolate vertical velocity (rho*eta-dot) from cell centers to edges
 
-   CALL sync_patch_array( SYNC_C, pt_patch, p_weta_c )
+  ! LL: The vertical velocity is computed on the halos from the
+  !     continuity
+  !  CALL sync_patch_array( SYNC_C, pt_patch, p_weta_c )
 
    CALL cells2edges_scalar( p_weta_c, pt_patch, pt_int_state%c_lin_e, &! in
                             z_weta_e, opt_rlstart=4 )    ! out, optional in

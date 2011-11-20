@@ -1194,6 +1194,8 @@ src/shared/mo_get_utc_date_tr.f90 -text
 src/shared/mo_gnat_gridsearch.f90 -text
 src/shared/mo_grib1.f90 -text
 src/shared/mo_grib2.f90 -text
+src/shared/mo_icon_comm_interface.f90 -text
+src/shared/mo_icon_comm_lib.f90 -text
 src/shared/mo_impl_constants.f90 -text
 src/shared/mo_impl_constants_grf.f90 -text
 src/shared/mo_io_async.f90 -text

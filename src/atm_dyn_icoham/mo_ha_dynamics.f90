@@ -44,7 +44,8 @@ MODULE mo_ha_dynamics
   USE mo_math_operators,     ONLY: grad_fd_norm, div, div_avg
   USE mo_dynamics_config,    ONLY: lshallow_water, idiv_method
   USE mo_ha_dyn_config,      ONLY: ha_dyn_config 
-  USE mo_parallel_config,  ONLY: nproma
+  USE mo_parallel_config,    ONLY: nproma, use_icon_comm
+
   USE mo_run_config,         ONLY: nlev, nlevp1
   USE mo_icoham_dyn_types,   ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_interpolation,      ONLY: t_int_state, cell_avg, cells2edges_scalar, &
@@ -59,6 +60,12 @@ MODULE mo_ha_dynamics
     &                                rdt0ral, t0icao
 
   USE mo_sync,                 ONLY: SYNC_C, SYNC_E, sync_patch_array
+  USE mo_timer,              ONLY: ltimer, timer_start, timer_stop,&
+    & timer_dyn_temp
+   
+   USE mo_icon_comm_lib,     ONLY: new_icon_comm_variable, &
+     & icon_comm_sync, icon_comm_sync_all, on_cells, on_edges, is_ready, &
+     & until_sync
 
   IMPLICIT NONE
 
@@ -96,7 +103,11 @@ CONTAINS
 
   INTEGER :: nblks_c, nblks_e
   INTEGER :: jb, jbs, is, ie
+  INTEGER :: temp_comm, vn_comm
 
+  
+
+  IF (ltimer) CALL timer_start(timer_dyn_temp)
 ! Dimension parameters related to refinement and MPI parallelisation
 
    nblks_c = pt_patch%nblks_int_c
@@ -106,12 +117,16 @@ CONTAINS
 ! pressure and related quantities, vorticity and divergence, u- and v-wind,
 ! virtual temperature and geopotential.
 
+   ! includes sync_patch_array(SYNC_V, pt_patch, pt_diag%rel_vort)
+   ! essentially async
    CALL update_diag_state( pt_prog, pt_patch, pt_int_state, pt_ext_data, &
      &                     pt_diag )
 
 ! Diagnose the mass flux, eta-coordinate vertical velocity,
 ! and calculate surface pressure tendency
-
+   
+   ! includes sync_patch_array(SYNC_E, pt_patch, pt_diag%mass_flux_e)
+   ! sync required
    CALL continuity( pt_prog%vn, pt_diag%delp_e,         &! in
                     pt_patch, pt_int_state, .TRUE.,     &! in
                     z_mdiv, z_mdiv_int,                 &! inout
@@ -166,7 +181,8 @@ CONTAINS
 
 ! Horizontal advection and Coriolis force
 
-   CALL sync_patch_array( SYNC_E, pt_patch, pt_diag%mass_flux_e )
+   ! LL: this is already synced by the continuity
+!    CALL sync_patch_array( SYNC_E, pt_patch, pt_diag%mass_flux_e )
    CALL vn_adv_horizontal( pt_prog%vn,                          &! in
                            pt_diag%rel_vort, pt_diag%rel_vort_e,&! in
                            pt_diag%mass_flux_e, pt_diag%delp_c, &! in
@@ -185,10 +201,24 @@ CONTAINS
 
 ! Synchronize tendencies
 
-
-   CALL sync_patch_array( SYNC_C, pt_patch, pt_tend_dyn%pres_sfc )
-   CALL sync_patch_array( SYNC_C, pt_patch, pt_tend_dyn%temp     )
-   CALL sync_patch_array( SYNC_E, pt_patch, pt_tend_dyn%vn       )
+   ! The following should be aggregated
+    IF (use_icon_comm) THEN
+      ! halo surface proessure has also been calculated in the continuity
+!       pres_sfc_comm = new_icon_comm_variable(pt_tend_dyn%pres_sfc, on_cells, pt_patch, &
+!         & status=is_ready, scope=until_sync, name="dyn_temp pres_sfc")
+      temp_comm = new_icon_comm_variable(pt_tend_dyn%temp, on_cells, pt_patch, &
+        & status=is_ready, scope=until_sync, name="dyn_temp temp")
+      vn_comm = new_icon_comm_variable(pt_tend_dyn%vn, on_edges, pt_patch, &
+        & status=is_ready, scope=until_sync, name="dyn_temp vn")
+      CALL icon_comm_sync_all()
+    ELSE
+      ! halo surface proessure has also been calculated in the continuity
+!       CALL sync_patch_array( SYNC_C, pt_patch, pt_tend_dyn%pres_sfc )
+      CALL sync_patch_array( SYNC_C, pt_patch, pt_tend_dyn%temp     )
+      CALL sync_patch_array( SYNC_E, pt_patch, pt_tend_dyn%vn       )
+    ENDIF
+  
+   IF (ltimer) CALL timer_stop(timer_dyn_temp)
 
   END SUBROUTINE dyn_temp
   !----------------------
@@ -221,7 +251,7 @@ CONTAINS
   REAL(wp),INTENT(inout) :: p_mdiv_int(:,:,:)   !< mass divergence
                                                 !< vertically integrated
 
-  REAL(wp),INTENT(inout) :: p_mflux(:,:,:)  !< mass flux at edges
+  REAL(wp), POINTER, INTENT(inout) :: p_mflux(:,:,:)  !< mass flux at edges
 
   REAL(wp),INTENT(inout) :: p_ddt_psfc(:,:) !< tendency of surface pressure
 
@@ -230,6 +260,7 @@ CONTAINS
                                              SIZE(p_mdiv_int,3) ) !< rho*eta-dot
 
   !! Local variables
+  REAL(wp), POINTER :: p_3d(:,:,:)  
 
   INTEGER  :: nblks_e, nblks_c
   INTEGER  :: jb, jbs, is,ie, jk,jkp
@@ -251,7 +282,12 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
-   CALL sync_patch_array(SYNC_E, pt_patch, p_mflux)
+   IF (use_icon_comm) THEN
+     p_3d => p_mflux
+     CALL icon_comm_sync(p_3d, on_edges, pt_patch)
+   ELSE
+     CALL sync_patch_array(SYNC_E, pt_patch, p_mflux)
+   ENDIF
 
    SELECT CASE(idiv_method)
    CASE(1)

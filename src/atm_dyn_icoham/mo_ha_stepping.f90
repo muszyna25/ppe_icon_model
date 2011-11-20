@@ -74,6 +74,9 @@ MODULE mo_ha_stepping
   USE mo_sync,                ONLY: global_max
   USE mo_vertical_coord_table,ONLY: vct
   USE mo_io_restart,          ONLY: write_restart_info_file
+  
+  USE mo_icon_comm_lib,     ONLY: icon_comm_sync_all
+  USE mo_parallel_config,   ONLY: use_icon_comm
 
   IMPLICIT NONE
 
@@ -189,6 +192,9 @@ CONTAINS
                              p_hydro_state(jg)%prog_out,    &! in
                              p_hydro_state(jg)%diag_out )    ! inout
 
+     ! LL: maybe we will need here an icon_comm_sync_all
+      IF (use_icon_comm) CALL icon_comm_sync_all()
+     
      ! Fill boundary cells of nested domains
      DO jn = 1, p_patch(jg)%n_childdom
        jgc = p_patch(jg)%child_id(jn)

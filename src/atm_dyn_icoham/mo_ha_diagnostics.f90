@@ -43,8 +43,9 @@ MODULE mo_ha_diagnostics
   USE mo_model_domain_import,ONLY: n_dom
   USE mo_model_domain,       ONLY: t_patch
   USE mo_ext_data,           ONLY: ext_data
-  USE mo_parallel_config,  ONLY: nproma
+  USE mo_parallel_config,    ONLY: nproma
   USE mo_run_config,         ONLY: dtime, nsteps, nlev, ntracer,iforcing
+  USE mo_io_config,          ONLY: no_output
   USE mo_dynamics_config,    ONLY: lshallow_water
   USE mo_physical_constants, ONLY: rgrav, cpd, grav
   USE mo_vertical_coord_table, ONLY: dela, delb
@@ -94,6 +95,8 @@ MODULE mo_ha_diagnostics
 
     INTEGER :: ist
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: thisroutine = "init_total_integrals"
+    
+    IF ( no_output ) RETURN
 
     IF (.NOT.lshallow_water) THEN
       !---------------------------------------------------------
@@ -234,6 +237,7 @@ MODULE mo_ha_diagnostics
   REAL (wp) :: z_rel_err_tracer_s1(ntracer)  ! relative error of total tracer
   REAL (wp) :: z_total_moist
 
+  IF ( no_output ) RETURN
   !================================================
   ! Hydrostatic model
   !================================================

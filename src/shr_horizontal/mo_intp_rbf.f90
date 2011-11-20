@@ -338,7 +338,10 @@ ENDDO
 !$OMP END PARALLEL
 
 END SUBROUTINE rbf_vec_interpol_cell
+!====================================================================================
 
+
+!====================================================================================
 SUBROUTINE rbf_interpol_c2grad( p_cell_in, ptr_patch, ptr_int, grad_x,  &
   &                             grad_y, opt_slev, opt_elev, opt_rlstart, opt_rlend )
 

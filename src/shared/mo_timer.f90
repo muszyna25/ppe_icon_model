@@ -39,19 +39,23 @@ MODULE mo_timer
        &                   print_timer   => timer_report,    &
        &                   cleanup_timer => timer_reset_all, &
        &                   delete_timer => del_timer
-   USE mo_run_config, ONLY: ltimer, timers_level  
+
+   USE mo_run_config, ONLY: ltimer, timers_level,  activate_sync_timers
 
 !   USE mo_run_config, ONLY: ltimer
 
   IMPLICIT NONE
   PRIVATE
 
-  PUBLIC :: ltimer, timers_level
+  PUBLIC :: ltimer, timers_level, activate_sync_timers
   PUBLIC :: new_timer, timer_start, timer_stop  !< procedures imported from mo_real_timer
   PUBLIC :: print_timer, cleanup_timer, delete_timer          !< procedures imported and renamed
   PUBLIC :: init_timer                          !< procedure of this module
 
   PUBLIC :: timer_total                         !< IDs of timers
+  PUBLIC :: timer_exch_data, timer_exch_data_rv, timer_exch_data_async
+  PUBLIC :: timer_global_sum, timer_omp_global_sum, timer_ordglb_sum, timer_omp_ordglb_sum
+  PUBLIC :: timer_icon_comm_sync  
 
   PUBLIC :: timer_solve_nh
   PUBLIC :: timer_physics
@@ -70,6 +74,7 @@ MODULE mo_timer
   PUBLIC :: timer_gw_hines_opt
   PUBLIC :: timer_echam_phy
   PUBLIC :: timer_dyn2phy, timer_phy2dyn
+  PUBLIC :: timer_echam_sync_temp,timer_echam_sync_tracers 
   
   PUBLIC :: timer_update_prog_phy
   PUBLIC :: timer_diagnose_pres_temp
@@ -86,9 +91,11 @@ MODULE mo_timer
   PUBLIC :: timer_radheat
   PUBLIC :: timer_physic_acc, timer_physic_acc_1,timer_physic_acc_2
   PUBLIC :: timer_physic_sync, timer_physic_acc_2_2
-  PUBLIC :: timer_sync_data, timer_sync_wait
-  PUBLIC :: timer_sync_delay,timer_sync_outbuffer
-  PUBLIC :: timer_sync_psend_1, timer_sync_isend_2, timer_sync_recv_2,timer_sync_isend_3
+  
+!   PUBLIC :: timer_sync_wait
+!   PUBLIC :: timer_sync_delay,timer_sync_outbuffer
+!   PUBLIC :: timer_sync_psend_1, timer_sync_isend_2, timer_sync_recv_2,timer_sync_isend_3
+  
   PUBLIC :: timer_sso
   PUBLIC :: timer_cover_koe
   PUBLIC :: timer_omp_radiation
@@ -112,7 +119,7 @@ MODULE mo_timer
   PUBLIC :: timer_prep_tracer
   PUBLIC :: timer_prep_tracer_RK
   PUBLIC :: timer_hdiff_expl
-     
+  PUBLIC :: timer_dyn_theta, timer_dyn_temp
 !   PUBLIC :: ltimer                              !< if .true., switch on timer
 
   !-------------------
@@ -121,6 +128,9 @@ MODULE mo_timer
 
   ! ID of timer for total model integration time
   INTEGER :: timer_total
+  INTEGER :: timer_exch_data, timer_exch_data_rv, timer_exch_data_async
+  INTEGER :: timer_global_sum, timer_omp_global_sum, timer_ordglb_sum, timer_omp_ordglb_sum
+  INTEGER :: timer_icon_comm_sync
 
   INTEGER :: timer_solve_nh
   INTEGER :: timer_physics
@@ -138,9 +148,10 @@ MODULE mo_timer
   INTEGER :: timer_pre_radiation_nwp
   INTEGER :: timer_physic_acc, timer_physic_acc_1,timer_physic_acc_2
   INTEGER :: timer_physic_sync, timer_physic_acc_2_2
-  INTEGER :: timer_sync_data, timer_sync_wait
-  INTEGER :: timer_sync_delay,timer_sync_outbuffer
-  INTEGER :: timer_sync_psend_1, timer_sync_isend_2, timer_sync_recv_2,timer_sync_isend_3
+  INTEGER :: timer_dyn_theta, timer_dyn_temp
+!   INTEGER :: timer_sync_wait
+!   INTEGER :: timer_sync_delay,timer_sync_outbuffer
+!   INTEGER :: timer_sync_psend_1, timer_sync_isend_2, timer_sync_recv_2,timer_sync_isend_3
 
   INTEGER :: timer_sso
   INTEGER :: timer_cover_koe
@@ -170,6 +181,7 @@ MODULE mo_timer
 
   INTEGER :: timer_dyn2phy
   INTEGER :: timer_phy2dyn
+  INTEGER :: timer_echam_sync_temp, timer_echam_sync_tracers
 
   INTEGER :: timer_omp_radiation
   INTEGER :: timer_write_restart_file
@@ -199,29 +211,87 @@ CONTAINS
 
   SUBROUTINE init_timer
 
+    ! major timers
     timer_total     = new_timer("total")
-
-    timer_solve_nh  = new_timer("solve_nh")
-    
+    timer_exch_data = new_timer("exch_data")
+    timer_exch_data_rv = new_timer("exch_data_rv")
+    timer_exch_data_async = new_timer("exch_data_async")
+    timer_global_sum = new_timer("global_sum")
+    timer_omp_global_sum = new_timer("omp_global_sum")
+    timer_ordglb_sum = new_timer("ordglb_sum")
+    timer_omp_ordglb_sum = new_timer("omp_ordglb_sum")
+    timer_icon_comm_sync = new_timer("icon_comm_sync")
+      
+    timer_coupling      = new_timer("coupling")
+    timer_write_output  = new_timer("wrt_output")
+    timer_write_restart_file = new_timer("wrt_restart")
+ 
+    timer_solve_nh  = new_timer  ("nh_solve")
+    timer_step_2tl_si = new_timer("2tl_si_solve")
+    timer_step_RK     = new_timer("RK_solve")
+   
     timer_physics   = new_timer("physics")
+    timer_echam_phy = new_timer("echam_phy")
+
+    timer_transport = new_timer("transport")
+    timer_dyn_theta = new_timer("dyn_theta")
+    timer_dyn_temp  = new_timer("dyn_temp")
+    
+    timer_gw_hines  = new_timer("gw_hines")
+    timer_gw_hines_opt  = new_timer("gw_hines_opt")
+
+    ! dynamics timers
+    timer_gmres     = new_timer("gmres")
+    timer_RK_tend = new_timer("RK_tend")
+    timer_RK_update = new_timer("RK_update")
+    timer_si_correction = new_timer("si_correction")
+
+    timer_intrp_diagn = new_timer   ("intrp_diagn")
+    timer_prep_tracer = new_timer   ("prep_tracer")
+    timer_prep_tracer_RK = new_timer("prep_tracer_RK")
+    timer_hdiff_expl = new_timer    ("hdiff_expl")
+    timer_prep_tracer_leapfrog = new_timer("prep_trc_leapfrog")
+    timer_div       = new_timer("div")
+    timer_grad      = new_timer("grad")
+    timer_corio     = new_timer("corio")
+    timer_intp      = new_timer("intp")
+
+    ! physics timers
+    timer_radiation = new_timer("radiation")    
+    timer_lrtm_1    = new_timer("rad_lrtm_1")
+    timer_lrtm_2    = new_timer("rad_lrtm_2")
+    timer_omp_radiation = new_timer("omp_radiation")
     timer_nwp_radiation = new_timer("nwp_radiation")
+    timer_radheat = new_timer("radheat")
+    timer_cover     = new_timer("cover")
+    timer_cloud     = new_timer("cloud")
+    timer_cucall    = new_timer("cucall")
+    timer_vdiff     = new_timer("vdiff")
+    timer_dyn2phy   = new_timer("dyn2phy")
+    timer_phy2dyn   = new_timer("phy2dyn")
+    timer_echam_sync_temp= new_timer("echam_sync_temp")
+    timer_echam_sync_tracers= new_timer("echam_sync_tracers")
     timer_physic_acc = new_timer("physic_acc")
     timer_phys_exner = new_timer("phys_exner")
     timer_physic_acc_1 = new_timer("physic_acc_1")
     timer_physic_acc_2 = new_timer("physic_acc_2")
     timer_physic_sync = new_timer("physic_sync")
-    timer_sync_data = new_timer("sync_data")
-    timer_sync_delay = new_timer("sync_delay")
-    timer_sync_outbuffer = new_timer("sync_outbuffer")
-    timer_sync_psend_1 = new_timer("sync_psend_1")
-    timer_sync_isend_2 = new_timer("sync_isend_2")
-    timer_sync_recv_2 = new_timer("sync_recv_2")
-    timer_sync_isend_3 = new_timer("sync_isend_3")
-    timer_sync_wait = new_timer("sync_wait")
+    timer_prep_echam_phy = new_timer("prep_echam_phy")
+    timer_prep_phy = new_timer      ("prep_phy")
     
     timer_physic_acc_2_2 = new_timer("physic_acc_2_2")
-
     timer_update_prog_phy = new_timer("update_prog_phy")
+ 
+    
+
+!     timer_sync_delay = new_timer("sync_delay")
+!     timer_sync_outbuffer = new_timer("sync_outbuffer")
+!     timer_sync_psend_1 = new_timer("sync_psend_1")
+!     timer_sync_isend_2 = new_timer("sync_isend_2")
+!     timer_sync_recv_2 = new_timer("sync_recv_2")
+!     timer_sync_isend_3 = new_timer("sync_isend_3")
+!     timer_sync_wait = new_timer("sync_wait")
+    
     timer_diagnose_pres_temp = new_timer("diagnose_pres_temp")
     timer_satad_v_3D = new_timer("satad_v_3D")
     timer_phys_u_v = new_timer("phys_u_v")
@@ -231,36 +301,10 @@ CONTAINS
     timer_fast_phys = new_timer("fast_phys")
     timer_nwp_convection = new_timer("nwp_convection")
     timer_pre_radiation_nwp = new_timer("pre_radiation_nwp")
-    timer_radheat = new_timer("radheat")
     timer_sso = new_timer("sso")
     timer_cover_koe = new_timer("cover_koe")
         
-    timer_radiation = new_timer("radiation")
-    
-    timer_lrtm_1    = new_timer("rad_lrtm_1")
-    timer_lrtm_2    = new_timer("rad_lrtm_2")
 
-    timer_div       = new_timer("div")
-    timer_grad      = new_timer("grad")
-    timer_gmres     = new_timer("gmres")
-    timer_corio     = new_timer("corio")
-    timer_intp      = new_timer("intp")
-    timer_transport = new_timer("transport")
-
-    timer_cover     = new_timer("cover")
-    timer_cloud     = new_timer("cloud")
-    timer_cucall    = new_timer("cucall")
-    timer_vdiff     = new_timer("vdiff")
-    timer_gw_hines  = new_timer("gw_hines")
-    timer_gw_hines_opt  = new_timer("gw_hines_opt")
-    timer_echam_phy = new_timer("echam_phy")
-    timer_dyn2phy   = new_timer("dyn2phy")
-    timer_phy2dyn   = new_timer("phy2dyn")
-
-    timer_omp_radiation = new_timer("omp_radiation")
-    timer_write_restart_file = new_timer("wrt_restart")
-
-    timer_write_output  = new_timer("wrt_output")
     timer_model_init    = new_timer("model_init")
     timer_oce_init      = new_timer("oce_init")
     timer_solve_ab      = new_timer("solve_ab")
@@ -273,23 +317,7 @@ CONTAINS
     timer_normal_veloc  = new_timer("normal_veloc")
     timer_print_mxmn    = new_timer("print_mxmn")
   
-    timer_cube_root = new_timer("cube_root")
-    timer_si_correction = new_timer("si_correction")
-    timer_coupling      = new_timer("coupling")
- 
-    timer_RK_tend = new_timer("RK_tend")
-    timer_RK_update = new_timer("RK_update")
-
-    timer_intrp_diagn = new_timer   ("intrp_diagn")
-    timer_step_2tl_si = new_timer   ("step_2tl_si")
-    timer_step_RK     = new_timer   ("step_RK")
-    timer_prep_echam_phy = new_timer("prep_echam_phy")
-    timer_prep_phy = new_timer      ("prep_phy")
-    timer_prep_tracer = new_timer   ("prep_tracer")
-    timer_prep_tracer_RK = new_timer("prep_tracer_RK")
-    timer_hdiff_expl = new_timer    ("hdiff_expl")
-    timer_prep_tracer_leapfrog = new_timer("prep_trc_leapfrog")
-         
+    timer_cube_root = new_timer("cube_root")          
     timer_lonlat_setup = new_timer("lonlat_setup")
 
   END SUBROUTINE init_timer

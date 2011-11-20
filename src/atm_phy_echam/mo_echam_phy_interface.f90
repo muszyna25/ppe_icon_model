@@ -38,6 +38,7 @@ MODULE mo_echam_phy_interface
 
   USE mo_kind,              ONLY: wp
   USE mo_exception,         ONLY: message
+  USE mo_impl_constants,    ONLY: min_rlcell_int, min_rledge_int, min_rlcell
   USE mo_datetime,          ONLY: t_datetime, print_datetime, add_time
   USE mo_math_constants,    ONLY: pi
   USE mo_model_domain,      ONLY: t_patch
@@ -47,17 +48,27 @@ MODULE mo_echam_phy_interface
   USE mo_icoham_dyn_types,  ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_interpolation,     ONLY: t_int_state, rbf_vec_interpol_cell, & 
                                 & edges2cells_scalar
-  USE mo_parallel_config,   ONLY: nproma
-  USE mo_run_config,        ONLY: nlev, ltimer
+  USE mo_exception,        ONLY: finish
+                                
+  USE mo_parallel_config,   ONLY: nproma, use_icon_comm
+  
+!   USE mo_icon_comm_lib,     ONLY: icon_comm_sync, icon_comm_sync_all, icon_comm_var_is_ready, &
+!     & on_cells, comm_dyn_tend_temp, comm_dyn_tend_tracers
+   USE mo_icon_comm_lib,     ONLY: new_icon_comm_variable, delete_icon_comm_variable, &
+     & icon_comm_var_is_ready, icon_comm_sync, icon_comm_sync_all, on_cells, is_ready, &
+     & until_sync
+  
+  USE mo_run_config,        ONLY: nlev, ltimer, ntracer
   USE mo_radiation_config,  ONLY: dt_rad,izenith
   USE mo_loopindices,       ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_e, grf_bdywidth_c
   USE mo_eta_coord_diag,    ONLY: half_level_pressure, full_level_pressure
   USE mo_echam_phy_main,    ONLY: physc
-  USE mo_sync,              ONLY: SYNC_C, SYNC_E, sync_patch_array
-  USE mo_timer,             ONLY: timer_start, timer_stop, &
-                                & timer_dyn2phy, timer_phy2dyn,    &
-                                & timer_echam_phy, timer_coupling
+  USE mo_sync,              ONLY: SYNC_C, SYNC_E, sync_patch_array, sync_patch_array_mult
+  USE mo_timer,             ONLY: timer_start, timer_stop, timers_level,  &
+    & timer_dyn2phy, timer_phy2dyn, timer_echam_phy, timer_coupling, &
+    & timer_echam_sync_temp , timer_echam_sync_tracers
+                                
   USE mo_master_control,    ONLY: is_coupled_run
   USE mo_icon_cpl_exchg,    ONLY: ICON_cpl_put, ICON_cpl_get
   USE mo_icon_cpl_def_field, ONLY:ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
@@ -121,13 +132,12 @@ CONTAINS
     ! Local variables
 
     LOGICAL  :: l1st_phy_call = .TRUE.
-    LOGICAL  :: lany_uv_tend, ltrig_rad
+    LOGICAL  :: any_uv_tend, ltrig_rad
     REAL(wp) :: dsec
     REAL(wp) :: ztime_radtran, ztime_radheat  !< time instance (in radians) at which
                                               !< radiative transfer/heating is computed
     REAL(wp) :: zvn1, zvn2
-    REAL(wp) :: zdudt (nproma,nlev,p_patch%nblks_c)
-    REAL(wp) :: zdvdt (nproma,nlev,p_patch%nblks_c)
+    REAL(wp), POINTER :: zdudt(:,:,:), zdvdt(:,:,:)
 
     INTEGER :: jb,jbs   !< block index and its staring value
     INTEGER :: jcs,jce  !< start/end column index within each block
@@ -144,11 +154,26 @@ CONTAINS
 
     INTEGER               :: info, ierror !< return values form cpl_put/get calls
 
+    !--------------
+    INTEGER:: i_nchdom       !< number of child patches
+    INTEGER:: rl_start, rl_end, i_startblk, i_endblk
+    !--------------
+    INTEGER:: temp_comm, tracers_comm  ! communicators
+    INTEGER:: return_status
+    CHARACTER(*), PARAMETER :: method_name = "echam_phy_interface"
+    
     !-------------------------------------------------------------------------
     IF (ltimer) CALL timer_start(timer_dyn2phy)
 
     ! Inquire current grid level and the total number of grid cells
-    nblks = p_patch%nblks_int_c
+    i_nchdom  = MAX(1,p_patch%n_childdom)
+    rl_start = grf_bdywidth_c+1
+    rl_end   = min_rlcell_int
+
+    i_startblk = p_patch%cells%start_blk(rl_start,1)
+    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    
+!     nblks = p_patch%nblks_int_c
 
     !-------------------------------------------------------------------------
     ! Dynamics to physics: remap dynamics variables to physics grid
@@ -161,23 +186,30 @@ CONTAINS
     ! Once a physics grid of different resolution is intruduced, conservative
     ! re-mapping will be called here.
 
-    CALL sync_patch_array( SYNC_E, p_patch, dyn_prog_old%vn )
+
 
     SELECT CASE (p_patch%cell_type)
     CASE (3)
+!     LL The physics runs only on the owned cells
+!        but the following rbf_vec_interpol_cell may use the halos(?)
+!      CALL sync_patch_array( SYNC_E, p_patch, dyn_prog_old%vn )
       CALL rbf_vec_interpol_cell( dyn_prog_old%vn,      &! in
         &                         p_patch, p_int_state, &! in
         &                         prm_field(jg)%u,      &! out
-        &                         prm_field(jg)%v     )  ! out
+        &                         prm_field(jg)%v,      &! out
+        &   opt_rlstart=rl_start, opt_rlend=rl_end     ) ! in
     CASE (6)
+      CALL sync_patch_array( SYNC_E, p_patch, dyn_prog_old%vn )
       CALL edges2cells_scalar(dyn_prog_old%vn,p_patch, &
         &                     p_int_state%hex_east ,prm_field(jg)%u)
       CALL edges2cells_scalar(dyn_prog_old%vn,p_patch, &
         &                     p_int_state%hex_north,prm_field(jg)%v)
     END SELECT
 
-    CALL sync_patch_array( SYNC_C, p_patch, prm_field(jg)%u )
-    CALL sync_patch_array( SYNC_C, p_patch, prm_field(jg)%v )
+!     LL The physics runs only on the owned cells
+!        thus no knowledge of the halo u, v is needed.
+!     CALL sync_patch_array( SYNC_C, p_patch, prm_field(jg)%u )
+!     CALL sync_patch_array( SYNC_C, p_patch, prm_field(jg)%v )
     
 
 !$OMP PARALLEL WORKSHARE
@@ -198,12 +230,12 @@ CONTAINS
     !---------------------------------
     ! Additional diagnostic variables
 
-    jbs   = p_patch%cells%start_blk(grf_bdywidth_c+1,1)
-    nblks = p_patch%nblks_int_c
+!     jbs   = p_patch%cells%start_blk(grf_bdywidth_c+1,1)
+!     nblks = p_patch%nblks_int_c
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jcs,jce)
-    DO jb = jbs,nblks
-      CALL get_indices_c( p_patch, jb,jbs,nblks, jcs,jce, grf_bdywidth_c+1)
+    DO jb = i_startblk,i_endblk
+      CALL get_indices_c( p_patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
 
       ! Pressure at time step "new" (i.e., n+1)
 
@@ -219,28 +251,34 @@ CONTAINS
     !--------------------------------
     ! transfer tendencies
 
-    CALL sync_patch_array( SYNC_E, p_patch, dyn_tend%vn )
 
     SELECT CASE (p_patch%cell_type)
     CASE (3)
+!     LL The physics runs only on the owned cells
+!        but the following rbf_vec_interpol_cell may use the halos(?)
+!     CALL sync_patch_array( SYNC_E, p_patch, dyn_tend%vn )
       CALL rbf_vec_interpol_cell( dyn_tend%vn,          &! in
         &                         p_patch, p_int_state, &! in
         &                         prm_tend(jg)%u,       &! out
-        &                         prm_tend(jg)%v      )  ! out
+        &                         prm_tend(jg)%v,       &! out
+        &   opt_rlstart=rl_start, opt_rlend=rl_end     ) ! in
     CASE (6)
+      CALL sync_patch_array( SYNC_E, p_patch, dyn_tend%vn )
       CALL edges2cells_scalar(dyn_tend%vn,p_patch, &
         &                     p_int_state%hex_east ,prm_tend(jg)%u)
       CALL edges2cells_scalar(dyn_tend%vn,p_patch, &
         &                     p_int_state%hex_north,prm_tend(jg)%v)
     END SELECT
 
-    CALL sync_patch_array( SYNC_C, p_patch, prm_tend(jg)%u )
-    CALL sync_patch_array( SYNC_C, p_patch, prm_tend(jg)%v )
+!   LL The physics runs only on the owned cells
+!       thus no knowledge of the halo u, v is needed.
+!    CALL sync_patch_array( SYNC_C, p_patch, prm_tend(jg)%u )
+!    CALL sync_patch_array( SYNC_C, p_patch, prm_tend(jg)%v )
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jcs,jce)
-    DO jb = jbs,nblks
-      CALL get_indices_c( p_patch, jb,jbs,nblks, jcs,jce, grf_bdywidth_c+1)
+    DO jb = i_startblk,i_endblk
+      CALL get_indices_c( p_patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
       prm_tend(jg)% temp(jcs:jce,:,jb)   = dyn_tend%   temp(jcs:jce,:,jb)
       prm_tend(jg)%    q(jcs:jce,:,jb,:) = dyn_tend% tracer(jcs:jce,:,jb,:)
     ENDDO
@@ -274,12 +312,12 @@ CONTAINS
       ztime_radheat = 2._wp*pi * datetime%daytim 
       ztime_radtran = 2._wp*pi * datetime_radtran%daytim
 
-      IF (ltrig_rad) THEN
-        CALL message('mo_echam_phy_interface:physc','Radiative transfer called at:')
-        CALL print_datetime(datetime)
-        CALL message('mo_echam_phy_interface:physc','Radiative transfer computed for:')
-        CALL print_datetime(datetime_radtran)
-      ENDIF
+!      IF (ltrig_rad) THEN
+!        CALL message('mo_echam_phy_interface:physc','Radiative transfer called at:')
+!        CALL print_datetime(datetime)
+!        CALL message('mo_echam_phy_interface:physc','Radiative transfer computed for:')
+!        CALL print_datetime(datetime_radtran)
+!      ENDIF
     ELSE
       ltrig_rad = .FALSE.
       ztime_radheat = 0._wp
@@ -295,13 +333,17 @@ CONTAINS
     !-------------------------------------------------------------------------
     ! For each block, call "physc" to compute various parameterised processes
     !-------------------------------------------------------------------------
-    jbs   = p_patch%cells%start_blk(grf_bdywidth_c+1,1)
-    nblks = p_patch%nblks_int_c
+!     jbs   = p_patch%cells%start_blk(grf_bdywidth_c+1,1)
+!     nblks = p_patch%nblks_int_c
 !$OMP PARALLEL
+#ifdef __SX__
 !$OMP DO PRIVATE(jb,jcs,jce), SCHEDULE(guided)
-    DO jb = jbs,nblks
+#else 
+!$OMP DO PRIVATE(jb,jcs,jce), SCHEDULE(runtime)
+#endif
+    DO jb = i_startblk,i_endblk
 
-      CALL get_indices_c(p_patch, jb,jbs,nblks, jcs,jce, grf_bdywidth_c+1)
+      CALL get_indices_c(p_patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
 
       ! Prepare some block (slice) specific parameters
 
@@ -364,7 +406,7 @@ CONTAINS
        IF (ltimer) CALL timer_start(timer_coupling)
     
        nbr_hor_points = p_patch%n_patch_cells
-       nbr_points     = nproma * nblks
+       nbr_points     = nproma * p_patch%nblks_int_c
        
        ALLOCATE(buffer(nproma*p_patch%nblks_c,4))
        buffer(:,:) = 0.0_wp
@@ -466,7 +508,7 @@ CONTAINS
        IF (ltimer) CALL timer_stop(timer_coupling)
 
     ENDIF
-    !
+    
     !-------------------------------------------------------------------------
     ! Physics to dynamics: remap tendencies to the dynamics grid
     !-------------------------------------------------------------------------
@@ -478,26 +520,46 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jcs,jce)
-    DO jb = jbs,nblks
-      CALL get_indices_c( p_patch, jb,jbs,nblks, jcs,jce, grf_bdywidth_c+1)
+    DO jb = i_startblk,i_endblk
+      CALL get_indices_c( p_patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
       dyn_tend%   temp(jcs:jce,:,jb)   = prm_tend(jg)% temp(jcs:jce,:,jb)
       dyn_tend% tracer(jcs:jce,:,jb,:) = prm_tend(jg)%    q(jcs:jce,:,jb,:)
     ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
 
-    lany_uv_tend = phy_config%lconv.OR.phy_config%lvdiff.OR. &
+     IF (use_icon_comm) THEN
+       temp_comm = new_icon_comm_variable(dyn_tend%temp, on_cells, p_patch, &
+         & status=is_ready, scope=until_sync, name="echam dyn_tend temp")
+       tracers_comm = new_icon_comm_variable(dyn_tend%tracer, on_cells, p_patch, &
+         & status=is_ready, scope=until_sync, name="echam dyn_tend tracer")
+     ELSE
+!     IF (timers_level > 5) CALL timer_start(timer_echam_sync_temp)
+       CALL sync_patch_array( SYNC_C, p_patch, dyn_tend%temp )
+!      IF (timers_level > 5) CALL timer_stop(timer_echam_sync_temp)
+!      IF (timers_level > 5) CALL timer_start(timer_echam_sync_tracers)
+       CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer, f4din=dyn_tend% tracer, &
+         &                        lpart4d=.TRUE.)
+!      IF (timers_level > 5) CALL timer_stop(timer_echam_sync_tracers)
+     ENDIF
+         
+    any_uv_tend = phy_config%lconv.OR.phy_config%lvdiff.OR. &
                  & phy_config%lgw_hines !.OR.phy_config%lssodrag
 
-    IF (lany_uv_tend) THEN
+    IF (any_uv_tend) THEN
+
+       ALLOCATE(zdudt(nproma,nlev,p_patch%nblks_c), &
+         & zdvdt (nproma,nlev,p_patch%nblks_c) ,stat=return_status)
+       IF (return_status > 0) &
+         CALL finish (method_name, 'ALLOCATE(zdudt,zdvdt)')
 
       ! Accumulate wind tendencies contributed by various parameterized processes.
 
-      jbs   = p_patch%cells%start_blk(grf_bdywidth_c+1,1)
-      nblks = p_patch%nblks_int_c
+!       jbs   = p_patch%cells%start_blk(grf_bdywidth_c+1,1)
+!       nblks = p_patch%nblks_int_c
 !$OMP PARALLEL DO PRIVATE(jb,jcs,jce)
-      DO jb = jbs,nblks
-        CALL get_indices_c(p_patch, jb,jbs,nblks, jcs,jce, grf_bdywidth_c+1)
+      DO jb = i_startblk,i_endblk
+        CALL get_indices_c(p_patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
 
         zdudt(jcs:jce,:,jb) =   prm_tend(jg)% u_cnv(jcs:jce,:,jb) &
                             & + prm_tend(jg)% u_vdf(jcs:jce,:,jb) &
@@ -510,9 +572,12 @@ CONTAINS
 
       ! Now derive the physics-induced normal wind tendency, and add it to the
       ! total tendency.
-      CALL sync_patch_array( SYNC_C, p_patch, zdudt )
-      CALL sync_patch_array( SYNC_C, p_patch, zdvdt )
-
+      IF (use_icon_comm) THEN
+        CALL icon_comm_sync(zdudt, zdvdt, on_cells, p_patch)
+      ELSE
+        CALL sync_patch_array_mult(SYNC_C, p_patch, 2, zdudt, zdvdt)
+      ENDIF
+      
       jbs   = p_patch%edges%start_blk(grf_bdywidth_e+1,1)
       nblks = p_patch%nblks_int_e
 !$OMP PARALLEL
@@ -540,7 +605,13 @@ CONTAINS
       ENDDO !block loop
 !$OMP END DO
 !$OMP END PARALLEL
-  END IF !lany_uv_tend
+      DEALLOCATE(zdudt, zdvdt)
+ 
+  END IF !any_uv_tend
+
+   IF (use_icon_comm) THEN
+     CALL icon_comm_sync_all()
+   ENDIF
 
   IF (ltimer) CALL timer_stop(timer_phy2dyn)
   !--------------------------

@@ -45,7 +45,6 @@
 !!
 PROGRAM control_model
 
-
   USE mo_exception,           ONLY: finish
   USE mo_io_units,            ONLY: filename_max
 !$ USE mo_exception,          ONLY: message_text, message     ! use only if compiled with OpenMP
@@ -74,9 +73,9 @@ PROGRAM control_model
  
   !declaration of OpenMP Runtime Library Routines:
 !$  INTEGER omp_get_max_threads
-!$  INTEGER omp_get_num_threads
+!!$  INTEGER omp_get_num_threads
 !$  INTEGER omp_get_num_procs
-!$  INTEGER omp_get_thread_num
+!!$  INTEGER omp_get_thread_num
 !$  LOGICAL omp_get_dynamic
 
 !$  INTEGER :: max_threads_omp, num_procs_omp

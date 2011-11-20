@@ -717,8 +717,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'tot_cld', diag%tot_cld,                       &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,&
-                &                         ldims=(/nproma,klev,kblks,4/)    ,&
-                 & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+                & ldims=(/nproma,klev,kblks,4/)    ,&
+                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,  &
+                & initval_r=0.0_wp)
 
 
     ALLOCATE( diag%tot_ptr(kcloud))

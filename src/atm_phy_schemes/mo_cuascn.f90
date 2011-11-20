@@ -348,6 +348,17 @@ z_cwdrag=(3._jprb/8._jprb)*0.506_JPRB/0.2_JPRB/rg
 
 !>     2.           SET DEFAULT VALUES
 !!                  ------------------
+ plglac = 0.0_JPRB
+ pmfus  = 0.0_JPRB
+ pmfuq  = 0.0_JPRB
+ pmful  = 0.0_JPRB
+ plude  = 0.0_JPRB 
+ pdmfup  = 0.0_JPRB 
+ pdmfen  = 0.0_JPRB 
+ kctop = 0 
+ pmfude_rate  = 0.0_JPRB 
+ pkineu  = 0.0_JPRB   
+ pwmean  = 0.0_JPRB
 
 llo3=.FALSE.
 DO jl=kidia,kfdia

@@ -177,7 +177,7 @@ INTEGER(KIND=iintegers), DIMENSION(ie,je), INTENT(IN) ::  &
   & kcbot            , & ! convective cloud base level (klev: bottom level, -1: no conv)
   & kctop                ! convective cloud top level
 
-REAL(KIND=ireals), DIMENSION(ie,je,ke), INTENT(OUT) ::   &
+REAL(KIND=ireals), DIMENSION(ie,je,ke), INTENT(INOUT) ::   &
   & clc_sgs          , & ! subgrid-scale stratiform cloud cover          ( --- )
   & clc_con          , & ! cloud cover due to convection                 ( --- )
   & zwv              , & ! OUT: Water vapour mixing ratio

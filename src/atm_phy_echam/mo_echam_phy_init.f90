@@ -92,6 +92,8 @@ MODULE mo_echam_phy_init
   USE mo_master_control,       ONLY: is_coupled_run
   USE mo_icon_cpl_exchg,       ONLY: ICON_cpl_get
   USE mo_icon_cpl_def_field,   ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
+  USE mo_timer,              ONLY: ltimer, timers_level, timer_start, timer_stop, &
+    & timer_prep_echam_phy
 
   IMPLICIT NONE
   PRIVATE
@@ -122,6 +124,7 @@ CONTAINS
     INTEGER :: jg, ndomain
 
 
+    IF (timers_level > 1) CALL timer_start(timer_prep_echam_phy)
 
     !-------------------------------------------------------------------
     ! Initialize parameters and lookup tables
@@ -207,6 +210,8 @@ CONTAINS
     DO jg= 1,ndomain
       CALL mean_domain_values (p_patch(jg)%level, nroot, mean_charlen(jg))
     ENDDO
+    
+    IF (timers_level > 1) CALL timer_stop(timer_prep_echam_phy)
 
   END SUBROUTINE prepare_echam_phy
   !-------------

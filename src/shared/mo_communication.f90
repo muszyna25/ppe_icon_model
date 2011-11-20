@@ -52,7 +52,9 @@ USE mo_mpi,                ONLY: p_send, p_recv, p_irecv, p_wait, p_isend, &
      & my_process_is_mpi_seq, &
      & p_pe_work, p_n_work
 USE mo_parallel_config, ONLY: iorder_sendrecv, nproma
-USE mo_timer,           ONLY: timer_start, timer_stop, timer_sync_data
+USE mo_timer,           ONLY: timer_start, timer_stop, activate_sync_timers, &
+  & timer_exch_data, timer_exch_data_rv, timer_exch_data_async
+
 
 IMPLICIT NONE
 
@@ -67,8 +69,7 @@ PUBLIC :: setup_comm_pattern, delete_comm_pattern, exchange_data, exchange_data_
           exchange_data_mult, exchange_data_grf, exchange_data_gm,    &
           start_delayed_exchange, do_delayed_exchange,                &
           start_async_comm, complete_async_comm, exchange_data_4de3
-
-PUBLIC :: time_sync
+PUBLIC :: t_comm_pattern
 !
 !variables
 
@@ -109,8 +110,6 @@ TYPE t_comm_pattern
    INTEGER, ALLOCATABLE :: recv_count(:)
 
 END TYPE t_comm_pattern
-
-PUBLIC :: t_comm_pattern
 
 !--------------------------------------------------------------------------------------------------
 !
@@ -176,8 +175,6 @@ INTEGER :: n_delayed_requests_i = 0
 INTEGER :: n_delayed_requests_l = 0
 
 LOGICAL :: use_exchange_delayed = .FALSE.
-
-LOGICAL :: time_sync = .false.
 
 !--------------------------------------------------------------------------------------------------
 !
@@ -582,6 +579,7 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add, send_lbound3)
    INTEGER :: i, k, np, irs, iss, pid, icount, ndim2, lbound3
 
    !-----------------------------------------------------------------------
+   IF (activate_sync_timers) CALL timer_start(timer_exch_data)
 
    IF(my_process_is_mpi_seq()) &
      CALL finish('exchange_data','must not be called on single PE/test PE')
@@ -751,6 +749,8 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add, send_lbound3)
    ENDDO
 #endif
 
+   IF (activate_sync_timers) CALL timer_stop(timer_exch_data)
+   
 END SUBROUTINE exchange_data_r3d
 !================================================================================================
 ! INTEGER SECTION -------------------------------------------------------------------------------
@@ -771,6 +771,7 @@ SUBROUTINE exchange_data_i3d(p_pat, recv, send, add, send_lbound3)
    INTEGER :: i, k, np, irs, iss, pid, icount, ndim2, lbound3
 
    !-----------------------------------------------------------------------
+   IF (activate_sync_timers) CALL timer_start(timer_exch_data)
 
    IF(my_process_is_mpi_seq()) &
      CALL finish('exchange_data','must not be called on single PE/test PE')
@@ -939,6 +940,7 @@ SUBROUTINE exchange_data_i3d(p_pat, recv, send, add, send_lbound3)
        WRITE(0,*)'exch_i3d',i,p_pat%recv_dst_idx(i),p_pat%recv_dst_blk(i),SIZE(recv,3)
    ENDDO
 #endif
+   IF (activate_sync_timers) CALL timer_stop(timer_exch_data)
 
 END SUBROUTINE exchange_data_i3d
 !================================================================================================
@@ -959,6 +961,7 @@ SUBROUTINE exchange_data_l3d(p_pat, recv, send, send_lbound3)
    INTEGER :: i, k, np, irs, ire, iss, ise, ndim2, lbound3
 
    !-----------------------------------------------------------------------
+   IF (activate_sync_timers) CALL timer_start(timer_exch_data)
 
    IF(my_process_is_mpi_seq()) &
      CALL finish('exchange_data','must not be called on single PE/test PE')
@@ -1101,6 +1104,7 @@ SUBROUTINE exchange_data_l3d(p_pat, recv, send, send_lbound3)
        WRITE(0,*)'exch_l3d',i,p_pat%recv_dst_idx(i),p_pat%recv_dst_blk(i),SIZE(recv,3)
    ENDDO
 #endif
+   IF (activate_sync_timers) CALL timer_stop(timer_exch_data)
 
 END SUBROUTINE exchange_data_l3d
 !
@@ -1139,6 +1143,7 @@ SUBROUTINE exchange_data_reverse_3(p_pat, recv, send)
 !EOP
 !-----------------------------------------------------------------------
 !BOC
+   IF (activate_sync_timers) CALL timer_start(timer_exch_data_rv)
 
    IF(my_process_is_mpi_seq()) &
       CALL finish('exchange_data_reverse','must not be called on single PE/test PE')
@@ -1271,6 +1276,7 @@ SUBROUTINE exchange_data_reverse_3(p_pat, recv, send)
        WRITE(0,*)'exch_3r',i,p_pat%send_src_idx(i),p_pat%send_src_blk(i),SIZE(recv,3)
    ENDDO
 #endif
+   IF (activate_sync_timers) CALL timer_stop(timer_exch_data_rv)
 
 END SUBROUTINE exchange_data_reverse_3
 
@@ -1321,7 +1327,6 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
    LOGICAL :: lsend, ladd, l_par
 
 !-----------------------------------------------------------------------
-   IF (time_sync) CALL timer_start(timer_sync_data)
 
 
    lsend     = .FALSE.
@@ -1422,7 +1427,6 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
          ENDIF
        ENDIF
      ENDDO
-     IF (time_sync) CALL timer_stop(timer_sync_data)
      RETURN
    ENDIF
 
@@ -1611,8 +1615,6 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
    ENDDO
 #endif
      
-   IF (time_sync) CALL timer_stop(timer_sync_data)
-
 END SUBROUTINE exchange_data_mult
 
 !>
@@ -1641,6 +1643,7 @@ SUBROUTINE exchange_data_4de3(p_pat, nfields, ndim2tot, recv, send)
    LOGICAL :: lsend
 
 !-----------------------------------------------------------------------
+   IF (activate_sync_timers) CALL timer_start(timer_exch_data)
 
    IF (PRESENT(send)) THEN
      lsend  = .TRUE.
@@ -1781,6 +1784,7 @@ SUBROUTINE exchange_data_4de3(p_pat, nfields, ndim2tot, recv, send)
      ENDDO
    ENDDO
 #endif
+   IF (activate_sync_timers) CALL timer_stop(timer_exch_data)
 
 END SUBROUTINE exchange_data_4de3
 
@@ -1827,6 +1831,7 @@ SUBROUTINE exchange_data_gm(p_pat, nfields, ndim2tot, send_buf, recv_buf, recv1,
    LOGICAL :: lsend, ladd
 
 !-----------------------------------------------------------------------
+   IF (activate_sync_timers) CALL timer_start(timer_exch_data)
 
    lsend     = .FALSE.
    ladd      = .FALSE.
@@ -2077,6 +2082,7 @@ SUBROUTINE exchange_data_gm(p_pat, nfields, ndim2tot, send_buf, recv_buf, recv1,
      ENDDO
    ENDDO
 #endif
+   IF (activate_sync_timers) CALL timer_stop(timer_exch_data)
 
 END SUBROUTINE exchange_data_gm
 
@@ -2110,6 +2116,7 @@ SUBROUTINE start_async_comm(p_pat, nfields, ndim2tot, send_buf, recv_buf, recv1,
    INTEGER :: i, k, jb, jl, n, np, irs, iss, pid, icount
 
 !-----------------------------------------------------------------------
+   IF (activate_sync_timers) CALL timer_start(timer_exch_data_async)
 
    IF(my_process_is_mpi_seq()) RETURN
 
@@ -2185,6 +2192,8 @@ SUBROUTINE start_async_comm(p_pat, nfields, ndim2tot, send_buf, recv_buf, recv1,
      CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
 
    ENDDO
+   
+   IF (activate_sync_timers) CALL timer_stop(timer_exch_data_async)
 
 END SUBROUTINE start_async_comm
 
@@ -2219,6 +2228,7 @@ SUBROUTINE complete_async_comm(p_pat, nfields, ndim2tot, recv_buf, recv1, recv2,
    INTEGER :: i, k, ik, jb, jl, n
 
 !-----------------------------------------------------------------------
+   IF (activate_sync_timers) CALL timer_start(timer_exch_data_async)
 
    IF(my_process_is_mpi_seq()) RETURN
 
@@ -2282,6 +2292,7 @@ SUBROUTINE complete_async_comm(p_pat, nfields, ndim2tot, recv_buf, recv1, recv2,
    ENDDO
 #endif
 
+   IF (activate_sync_timers) CALL timer_stop(timer_exch_data_async)
 
 END SUBROUTINE complete_async_comm
 

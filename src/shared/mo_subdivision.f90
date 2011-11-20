@@ -57,7 +57,7 @@ MODULE mo_subdivision
   !    modified for ICON project, DWD/MPI-M 2006
   !-------------------------------------------------------------------------
   !
-  USE mo_kind,               ONLY: wp
+  USE mo_kind,               ONLY: wp, i8
   USE mo_impl_constants,     ONLY: success, min_rlcell, max_rlcell,  &
     & min_rledge, max_rledge, min_rlvert, max_rlvert,                &
     & min_rlcell_int, min_rledge_int, min_rlvert_int, max_hw, max_dom, max_phys_dom
@@ -77,7 +77,6 @@ MODULE mo_subdivision
   USE mo_mpi,                ONLY: p_bcast, p_send, p_recv, p_sum, p_max
 #ifndef NOMPI
   USE mo_mpi,                ONLY: MPI_UNDEFINED, MPI_COMM_NULL
-  USE mo_kind,               ONLY: i8
 #endif
   USE mo_mpi,                ONLY: p_comm_work, my_process_is_mpi_test, &
     & my_process_is_mpi_seq, process_mpi_all_test_id, process_mpi_all_workroot_id, &
@@ -597,10 +596,41 @@ CONTAINS
     TYPE(t_patch), INTENT(inout) :: in_patch
   
     INTEGER :: local_cell_idx, global_cell_idx
-
+    INTEGER :: i, jb, jl, jb_e, jl_e, jb_v, jl_v, jv, je
+    INTEGER :: owner_id
+    
+    in_patch%edges%owner_local(:) = -1
+    in_patch%verts%owner_local(:) = -1
+    
     DO local_cell_idx = 1, in_patch%n_patch_cells
       global_cell_idx = in_patch%cells%glb_index(local_cell_idx)
-      in_patch%cells%owner_local(local_cell_idx) =  in_patch%cells%owner_g(global_cell_idx)
+      owner_id = in_patch%cells%owner_g(global_cell_idx)
+      in_patch%cells%owner_local(local_cell_idx) = in_patch%cells%owner_g(global_cell_idx)
+      IF (owner_id < 0) CYCLE      
+
+      ! go around the cell edges mark the owner
+      jb = blk_no(local_cell_idx) ! block index
+      jl = idx_no(local_cell_idx) ! line index
+      DO i = 1,in_patch%cells%num_edges(jl,jb)
+        jl_e = in_patch%cells%edge_idx(jl,jb,i)
+        jb_e = in_patch%cells%edge_blk(jl,jb,i)
+        je = idx_1d(jl_e, jb_e)
+        jl_v = in_patch%cells%vertex_idx(jl,jb,i)
+        jb_v = in_patch%cells%vertex_blk(jl,jb,i)
+        jv = idx_1d(jl_v, jb_v)
+        IF (owner_id == p_pe_work) THEN
+          ! Assume we own the edges and vertices of the owned cells
+          ! No process can claim actual ownershipe, as these can be calculated
+          ! only using the halos. No reason to communicate them
+          in_patch%edges%owner_local(je) = p_pe_work
+          in_patch%verts%owner_local(jv) = p_pe_work
+        ELSEIF (in_patch%edges%owner_local(je) < 0) THEN
+          in_patch%edges%owner_local(je) = owner_id
+          in_patch%verts%owner_local(jv) = owner_id
+        ENDIF        
+        
+      ENDDO      
+      
     ENDDO
     
     

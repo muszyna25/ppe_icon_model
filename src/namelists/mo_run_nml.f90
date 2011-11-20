@@ -46,7 +46,10 @@ MODULE mo_run_nml
                          & config_dtime           => dtime,           &
                          & config_ltimer          => ltimer,          &
                          & config_timers_level    => timers_level,    &
-                         & config_msg_level       => msg_level
+                         & config_activate_sync_timers => activate_sync_timers, &
+                         & config_msg_level       => msg_level,       &
+                         & config_test_gw_hines_opt=> test_gw_hines_opt,&
+                         & config_check_epsilon   => check_epsilon
 
   USE mo_kind,           ONLY: wp
   USE mo_exception,      ONLY: finish
@@ -98,9 +101,12 @@ MODULE mo_run_nml
 
   LOGICAL :: ltimer        ! if .TRUE., wallclock timers are switched on
   INTEGER :: timers_level  ! what level of timers to run
+  LOGICAL :: activate_sync_timers
 
   INTEGER :: msg_level     ! how much printout is generated during runtime
 
+  INTEGER :: test_gw_hines_opt ! 0=no opt, 1= test 2 =use
+  REAL(wp) :: check_epsilon ! small value for checks
 
   NAMELIST /run_nml/ ldump_states, lrestore_states, &
                      ltestcase,    ldynamics,       &
@@ -110,7 +116,8 @@ MODULE mo_run_nml
                      num_lev,      nshift,          &
                      nsteps,       dtime,           &
                      ltimer,       timers_level,    &
-                     msg_level
+                     activate_sync_timers,          &
+                     msg_level, check_epsilon, test_gw_hines_opt
 
 CONTAINS
   !>
@@ -146,7 +153,10 @@ CONTAINS
 
     ltimer       = .TRUE.
     timers_level = 1
+    activate_sync_timers = .FALSE.
     msg_level    = 10
+    check_epsilon=1.e-6_wp
+    test_gw_hines_opt = 0
 
     !------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above 
@@ -219,8 +229,11 @@ CONTAINS
 
     config_ltimer          = ltimer
     config_timers_level    = timers_level
+    config_activate_sync_timers = activate_sync_timers
     config_msg_level       = msg_level
-
+    config_check_epsilon   = check_epsilon
+    config_test_gw_hines_opt = test_gw_hines_opt
+    
     !-----------------------------------------------------
     ! Store the namelist for restart
     !-----------------------------------------------------

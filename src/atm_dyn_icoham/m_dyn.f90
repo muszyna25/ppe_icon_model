@@ -73,7 +73,7 @@ MODULE m_dyn
   USE mo_math_operators,     ONLY: grad_fd_norm, div, div_avg
   USE mo_dynamics_config,    ONLY: idiv_method
   USE mo_ha_dyn_config,      ONLY: ha_dyn_config
-  USE mo_io_config,          ONLY: l_outputtime, lwrite_omega
+  USE mo_io_config,          ONLY: l_outputtime, lwrite_omega, no_output
   USE mo_parallel_config,  ONLY: nproma
   USE mo_run_config,         ONLY: nlev, nlevp1,iqv, iforcing, &
                                    iqc, iqi, iqr, iqs
@@ -91,7 +91,10 @@ MODULE m_dyn
   USE mo_vertical_coord_table, ONLY: delpr, nlevm1, nplev, nplvp1,             &
     &                                vct_b, alrrdic, rdlnp0i, rdt0ral, t0icao
 
-  USE mo_sync,                 ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array
+  USE mo_sync,               ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array
+  
+  USE mo_timer,              ONLY: ltimer, timer_start, timer_stop,&
+    & timer_dyn_theta
 
   IMPLICIT NONE
 
@@ -210,6 +213,7 @@ MODULE m_dyn
   REAL(wp):: z_aux_tracer(nproma,nlev,pt_patch%nblks_c)! needed for virt. increment
 
 !  Executable statements
+  IF (ltimer) CALL timer_start(timer_dyn_theta)
 
 !-------------------------------------------------------------------------------
 ! 0. Preliminary calculations
@@ -349,7 +353,7 @@ MODULE m_dyn
 
   END SELECT
 
-!$OMP PARALLEL
+!$OMP PARALLEL PRIVATE(i_startblk)
    i_startblk = pt_patch%cells%start_blk(2,1)
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jkp)
    DO jb = i_startblk,nblks_c
@@ -485,7 +489,6 @@ MODULE m_dyn
 
    ENDDO
 !$OMP END DO
-!$OMP END PARALLEL
 
 !-------------------------------------------------------------------------------
 ! 3. Compute vertical advection
@@ -497,7 +500,6 @@ MODULE m_dyn
    ! on a boundary zone with a width of grf_bdywidth_c for cells and
    ! grf_bdywidth_e for edges, respectively. These tendencies must not be
    ! overwritten.
-!$OMP PARALLEL
    i_startblk = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jkp)
    DO jb = i_startblk,nblks_c
@@ -546,7 +548,7 @@ MODULE m_dyn
    ! on a boundary zone with a width of grf_bdywidth_c for cells and
    ! grf_bdywidth_e for edges, respectively. These tendencies must not be
    ! overwritten.
-!$OMP PARALLEL
+!$OMP PARALLEL PRIVATE(i_startblk)
    i_startblk = pt_patch%edges%start_blk(grf_bdywidth_e+1,1)
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jkp)
    DO jb = i_startblk,nblks_e
@@ -659,9 +661,9 @@ MODULE m_dyn
 ! 6. Compute the geopotential + kinetic energy and its horizontal gradient
 !-------------------------------------------------------------------------------
 
+!$OMP PARALLEL PRIVATE(i_startblk)
   i_startblk = pt_patch%cells%start_blk(2,1)
 
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx)
    DO jb = i_startblk,nblks_c
 
@@ -698,14 +700,12 @@ MODULE m_dyn
 
    ENDDO
 !$OMP END DO
-!$OMP END PARALLEL
 
 ! 6.3 the gradient of geopotential and its perturbation at edges on full levels
 !     add the kinetic energy (call only once the gradient)
 
-  i_startblk = pt_patch%cells%start_blk(2,1)
+   i_startblk = pt_patch%cells%start_blk(2,1)
 
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx)
    DO jb = i_startblk,nblks_c
 
@@ -823,7 +823,7 @@ MODULE m_dyn
    ! on a boundary zone with a width of grf_bdywidth_c for cells and
    ! grf_bdywidth_e for edges, respectively. These tendencies must not be
    ! overwritten.
-!$OMP PARALLEL
+!$OMP PARALLEL PRIVATE(i_startblk)
    i_startblk = pt_patch%edges%start_blk(grf_bdywidth_e+1,1)
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je)
    DO jb = i_startblk,nblks_e
@@ -850,9 +850,9 @@ MODULE m_dyn
 ! For theta advection, the following computations are needed only
 ! if omega is requested as an output field
 
-IF (lwrite_omega .AND. l_outputtime) THEN
+IF (lwrite_omega .AND. l_outputtime .AND. .NOT. no_output) THEN
 
-!$OMP PARALLEL
+!$OMP PARALLEL PRIVATE(i_startblk)
    i_startblk = pt_patch%edges%start_blk(4,1)
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk)
    DO jb = i_startblk,nblks_e
@@ -881,7 +881,7 @@ IF (lwrite_omega .AND. l_outputtime) THEN
 
   ! 8.2 Rd*T/p *[ p-tendency + vertical-adv ]
 
-!$OMP PARALLEL
+!$OMP PARALLEL PRIVATE(i_startblk)
    i_startblk = pt_patch%cells%start_blk(3,1)
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc)
    DO jb = i_startblk,nblks_c
@@ -922,9 +922,11 @@ IF (lwrite_omega .AND. l_outputtime) THEN
 
 ENDIF
 
-CALL sync_patch_array( SYNC_C, pt_patch, pt_tend_dyn%pres_sfc )
-CALL sync_patch_array( SYNC_C, pt_patch, pt_tend_dyn%temp     )
-CALL sync_patch_array( SYNC_E, pt_patch, pt_tend_dyn%vn       )
+ CALL sync_patch_array( SYNC_C, pt_patch, pt_tend_dyn%pres_sfc )
+ CALL sync_patch_array( SYNC_C, pt_patch, pt_tend_dyn%temp     )
+ CALL sync_patch_array( SYNC_E, pt_patch, pt_tend_dyn%vn       )
+  
+  IF (ltimer) CALL timer_stop(timer_dyn_theta)
 
 END SUBROUTINE dyn_theta
 

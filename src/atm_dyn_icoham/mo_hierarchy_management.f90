@@ -116,7 +116,7 @@ MODULE mo_hierarchy_management
   PRIVATE
 
   ! Local variables
-  REAL(wp),ALLOCATABLE :: z_mflx_me(:,:,:)      !< mass flux at full level edges
+  REAL(wp),POINTER :: z_mflx_me(:,:,:)      !< mass flux at full level edges
   !                                             !< at time step n+\alpha
   REAL(wp),ALLOCATABLE :: z_mflx_ic(:,:,:)      !< mass flux at half level centers
   !                                             !< at time step n+\alpha

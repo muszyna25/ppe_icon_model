@@ -48,8 +48,9 @@ MODULE mo_run_config
   PUBLIC :: ldump_states, lrestore_states, ltestcase, ldynamics, iforcing, lforcing
   PUBLIC :: ltransport, ntracer, ntracer_static, nlev, nlevp1, nvclev
   PUBLIC :: lvert_nest, num_lev, num_levp1, nshift, nsteps, dtime
-  PUBLIC :: ltimer, timers_level, msg_level
+  PUBLIC :: ltimer, timers_level, activate_sync_timers, msg_level
   PUBLIC :: iqv, iqc, iqi, iqs, iqr, iqcond, iqt, io3, ico2
+  PUBLIC :: check_epsilon, test_gw_hines_opt
   PUBLIC :: configure_run
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
@@ -81,6 +82,10 @@ MODULE mo_run_config
 
     LOGICAL :: ltimer          ! if .TRUE.,  the timer is switched on
     INTEGER :: timers_level    ! what level of timers to run
+    LOGICAL :: activate_sync_timers
+  
+    REAL(wp) :: check_epsilon  ! small value for checks
+    INTEGER :: test_gw_hines_opt
 
     INTEGER :: msg_level       ! how much printout is generated during runtime
 

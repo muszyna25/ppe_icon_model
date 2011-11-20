@@ -754,6 +754,7 @@ SUBROUTINE allocate_patch(p_patch)
   ALLOCATE( p_patch%edges%glb_index(p_patch%n_patch_edges) )
   ALLOCATE( p_patch%edges%loc_index(p_patch%n_patch_edges_g) )
   ALLOCATE( p_patch%edges%owner_g(p_patch%n_patch_edges_g))
+  ALLOCATE( p_patch%edges%owner_local(p_patch%n_patch_edges))
 
   !
   ! !grid verts
@@ -783,6 +784,7 @@ SUBROUTINE allocate_patch(p_patch)
   ALLOCATE( p_patch%verts%glb_index(p_patch%n_patch_verts) )
   ALLOCATE( p_patch%verts%loc_index(p_patch%n_patch_verts_g) )
   ALLOCATE( p_patch%verts%owner_g(p_patch%n_patch_verts_g))
+  ALLOCATE( p_patch%verts%owner_local(p_patch%n_patch_verts))
 
   ! Set all newly allocated arrays to 0
 
@@ -2511,6 +2513,7 @@ GRID_LEVEL_LOOP: DO jg = n_dom_start, n_dom
   ENDIF
   DEALLOCATE( p_patch(jg)%edges%glb_index,  &
     &         p_patch(jg)%edges%loc_index,  &
+    &         p_patch(jg)%edges%owner_local,  &
     &         p_patch(jg)%edges%owner_g,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
@@ -2622,6 +2625,7 @@ GRID_LEVEL_LOOP: DO jg = n_dom_start, n_dom
   ENDIF
   DEALLOCATE( p_patch(jg)%verts%glb_index,  &
     &         p_patch(jg)%verts%loc_index,  &
+    &         p_patch(jg)%verts%owner_local,  &
     &         p_patch(jg)%verts%owner_g,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN

@@ -569,17 +569,21 @@ MODULE mo_ha_2tl_si
 
   REAL(wp) :: z_mdiv     (nproma,nlev  ,p_patch%nblks_c)
   REAL(wp) :: z_mdiv_int (nproma,nlevp1,p_patch%nblks_c)
-  REAL(wp) :: z_mflux    (nproma,nlev  ,p_patch%nblks_e)
+  REAL(wp), POINTER :: z_mflux(:, :, :)
 
   INTEGER  :: nblks_c, npromz_c
-  INTEGER  :: jb, nlen, jk
+  INTEGER  :: jb, nlen, jk, return_status
 
 !---------------------------------------
 ! Dimension parameters
 
   nblks_c  = p_patch%nblks_int_c
   npromz_c = p_patch%npromz_int_c
-
+  
+  ALLOCATE( z_mflux(nproma, nlev, p_patch%nblks_e),stat=return_status)
+  IF (return_status > 0) &
+    CALL finish ("conteq_vn", 'ALLOCATE z_mflux failed')
+  
 ! Mass divergence and its vertical integral
 ! (.FALSE. in the argument means do not diagnose vertical velocity)
 
@@ -607,6 +611,8 @@ MODULE mo_ha_2tl_si
 !$OMP END DO
 !$OMP END PARALLEL
 !---------------------------------------
+  DEALLOCATE( z_mflux )
+  
   END SUBROUTINE conteq_vn
   !>
   !!

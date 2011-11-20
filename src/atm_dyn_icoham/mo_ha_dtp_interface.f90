@@ -188,7 +188,7 @@ CONTAINS
     INTEGER, INTENT(in)  :: itime_scheme
     REAL(wp),INTENT(in)  :: palpha
 
-    REAL(wp),INTENT(out) :: p_mflux_me   (nproma,nlev,  p_patch%nblks_e)
+    REAL(wp), POINTER, INTENT(inout) :: p_mflux_me(:,:,:)
     REAL(wp),INTENT(out) :: p_vn_traj    (nproma,nlev,  p_patch%nblks_e)
     REAL(wp),INTENT(out) :: p_mflux_ic   (nproma,nlevp1,p_patch%nblks_c)
     REAL(wp),INTENT(out) :: p_weta_traj  (nproma,nlevp1,p_patch%nblks_c)
@@ -201,17 +201,17 @@ CONTAINS
 
     REAL(wp) :: z_mdiv_int (nproma,nlevp1,p_patch%nblks_c)
     REAL(wp) :: z_mdiv     (nproma,nlev  ,p_patch%nblks_c)
-    REAL(wp) :: z_aux_me   (nproma,nlev  ,p_patch%nblks_e)
+    REAL(wp), POINTER :: z_aux_me(:,:,:)
     REAL(wp) :: z_ddt_psfc (nproma,       p_patch%nblks_c)
 
     REAL(wp) :: z_delp_me_now (nproma,nlev,p_patch%nblks_e)
 
-    INTEGER  :: jb, jbs, is, ie, nblks_e, ircs
+    INTEGER  :: jb, jbs, is, ie, nblks_e, ircs, return_status
     REAL(wp) :: z1ma                       !< 1 - palpha
 
     !---
     IF (timers_level > 1) CALL timer_start(timer_prep_tracer)
-
+    
     nblks_e  = p_patch%nblks_int_e
     z1ma     = 1._wp - palpha
 
@@ -313,7 +313,7 @@ CONTAINS
                            & p_diag%pres_mc, p_diag%pres_ic, &! out
                            & p_diag%delp_c                   )! out
 
-    IF (timers_level > 1) CALL timer_start(timer_prep_tracer)
+    IF (timers_level > 1) CALL timer_stop(timer_prep_tracer)
   
   END SUBROUTINE prepare_tracer
   !================================================================

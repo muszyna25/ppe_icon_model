@@ -47,7 +47,8 @@ MODULE mo_parallel_config
        &    div_from_file, div_geometric, div_metis, division_method, &
        &    l_log_checks, l_fast_sum,                                 &
        &    p_test_run, l_test_openmp,                                &
-       &    pio_type, itype_comm, iorder_sendrecv, num_io_procs
+       &    pio_type, itype_comm, iorder_sendrecv, num_io_procs,      &
+       &    use_icon_comm, icon_comm_debug, max_send_recv_buffer_size
        
   PUBLIC :: set_nproma, get_nproma, check_parallel_configuration
   
@@ -88,7 +89,9 @@ MODULE mo_parallel_config
   LOGICAL :: parallel_radiation_mpi = .false.
   LOGICAL :: test_parallel_radiation = .false.
 
-
+  LOGICAL :: use_icon_comm = .false.
+  LOGICAL :: icon_comm_debug= .false.
+  INTEGER :: max_send_recv_buffer_size = 131072
   ! Type of parallel I/O
   INTEGER :: pio_type = 1
   
@@ -182,8 +185,6 @@ CONTAINS
     IF(num_io_procs < 0) num_io_procs = 0
   
 #endif
-
-
 
   END SUBROUTINE check_parallel_configuration
   !-------------------------------------------------------------------------

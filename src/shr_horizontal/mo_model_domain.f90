@@ -234,6 +234,7 @@ TYPE t_grid_cells
   LOGICAL, ALLOCATABLE :: owner_mask(:,:)
 
   ! The following is only used internally for the coupler
+  ! and the icon_comm_lib
   INTEGER, ALLOCATABLE :: owner_local(:)
   
   ! The following is only used internally for domain decomposition
@@ -434,12 +435,16 @@ TYPE t_grid_edges
   LOGICAL, ALLOCATABLE :: owner_mask(:,:)
 
   ! The following is only used internally for domain decomposition
-
+  ! and communication
   INTEGER, ALLOCATABLE :: glb_index(:)
   INTEGER, ALLOCATABLE :: loc_index(:)
 
   ! Global array of owners
   INTEGER, ALLOCATABLE :: owner_g(:)
+  
+  ! The following is only used internally for the coupler
+  ! and the icon_comm_lib
+  INTEGER, ALLOCATABLE :: owner_local(:)
 
 END TYPE t_grid_edges
 
@@ -538,6 +543,10 @@ TYPE t_grid_vertices
 
   ! Global array of owners
   INTEGER, ALLOCATABLE :: owner_g(:)
+  
+  ! The following is only used internally for the coupler
+  ! and the icon_comm_lib
+  INTEGER, ALLOCATABLE :: owner_local(:)
 
 END TYPE t_grid_vertices
 
@@ -637,6 +646,9 @@ TYPE t_patch
   INTEGER :: nshift_child
 
   ! internal...
+  ! LL: these numbers are the same as nblks_c, etc.
+  !     See mo_subdivision, line 1100
+  !     They are confusing and should be removed.
   ! number of blocks and chunk length in last block
   ! ... for the cells
   INTEGER :: nblks_int_c

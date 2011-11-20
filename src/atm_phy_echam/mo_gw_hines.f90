@@ -55,19 +55,18 @@ MODULE mo_gw_hines
 !!$  USE mo_profile,    ONLY: trace_start, trace_stop
 !!$#endif
 
-  USE mo_kind,                 ONLY: wp
   USE mo_exception,            ONLY: message_text, message, finish 
 
-!!$  USE mo_math_constants,       ONLY: pi
+  USE mo_kind,       ONLY: wp
   USE mo_physical_constants,   ONLY: grav, rd, cpd !!$, re, rhoh2o
 
   USE mo_gw_hines_config,      ONLY: gw_hines_config
 
-  USE mo_timer,                ONLY: ltimer, timer_start, timer_stop,&
-       &                             timer_gw_hines
+  USE mo_timer,               ONLY: ltimer, timer_start, timer_stop,&
+    & timer_gw_hines
 
-!LK  USE mo_fast_math_functions
-  USE mo_fast_math_lib,        ONLY: vec_cbrt
+  USE mo_math_constants,      ONLY: cos45, one_third
+  USE mo_fast_math_lib
 
 !!$  USE mo_geoloc,               ONLY: ilat
 !!$  USE mo_vertical_coord_table, ONLY: vct_a, vct_b
@@ -88,6 +87,8 @@ MODULE mo_gw_hines
   INTEGER  :: naz        = 8
 
   REAL(wp) :: slope      = 1.0_wp
+! In case of slope = 1 some optimizations are possible
+#define slope_1
 
   REAL(wp) :: f1         = 1.5_wp 
   REAL(wp) :: f2         = 0.3_wp 
@@ -257,6 +258,10 @@ CONTAINS
   CALL trace_start ('gw_hines', 20)
 #endif
 
+    tend_t_gwh(:,:) = 0.0_wp
+    tend_u_gwh(:,:) = 0.0_wp
+    tend_v_gwh(:,:) = 0.0_wp
+    
     IF (ltimer) call timer_start(timer_gw_hines)
     !
     !--  Check consistency of nc, jcs and jce
@@ -325,6 +330,8 @@ CONTAINS
       END DO
       shxkj(1:nc,jk) = sgj(1:nc,jk)**rgocp
     END DO
+
+!     sgj(1:nc,1:nlev)=shj(1:nc,1:nlev)
 
     ! Surface pressure: 
     pressg(1:nc)=paphm1(jcs:jce,nlev+1)
@@ -470,9 +477,10 @@ CONTAINS
   CALL trace_stop ('gw_hines', 20)
 #endif
 
-    !-----------------------------------------------------------------------
   END SUBROUTINE gw_hines
+  !-----------------------------------------------------------------------
 
+  !-----------------------------------------------------------------------
   SUBROUTINE hines_extro ( nlons, nlevs, nazmth,                          &
     &                      drag_u, drag_v, heat, diffco, flux_u, flux_v,  &
     &                      vel_u, vel_v, bvfreq, density, visc_mol, alt,  &
@@ -581,10 +589,8 @@ CONTAINS
     !
     !  buoyancy and density at bottom level.
     !
-    DO i = il1,il2
-       bvfb(i)  = bvfreq(i,lev2)
-       densb(i) = density(i,lev2)
-    END DO
+    bvfb(il1:il2)  = bvfreq(il1:il2,lev2)
+    densb(il1:il2) = density(il1:il2,lev2)
     !
     !  initialize some variables
     !
@@ -639,7 +645,7 @@ CONTAINS
     CALL hines_flux ( flux_u, flux_v, flux, drag_u, drag_v,       &
       &               alt, density, densb,                        &
       &               m_alpha,  ak_alpha, k_alpha,                &
-      &               m_min, slope, naz,                          &
+      &               m_min, naz,                                 &
       &               il1, il2, lev1, lev2, nlons, nlevs, nazmth, &
       &               lorms )
     !
@@ -760,7 +766,7 @@ CONTAINS
     REAL(wp) :: ak_alpha(nlons,nazmth)
     REAL(wp) :: v_alpha(nlons,nlevs,nazmth)
     REAL(wp) :: visc_mol(nlons,nlevs)
-    REAL(wp) :: f2mod(nlons,nlevs)
+!     REAL(wp) :: f2mod(nlons,nlevs)
     REAL(wp) :: density(nlons,nlevs),  densb(nlons)
     REAL(wp) :: bvfreq(nlons,nlevs),   bvfb(nlons),  rms_wind(nlons)
     REAL(wp) :: anis(nlons,nazmth) 
@@ -770,13 +776,20 @@ CONTAINS
     !
     ! internal variables.
     !
+    REAL(wp) :: sqr_rms_wind(nlons)
     INTEGER  :: ilorms(nlons),ialpha(nlons)
     INTEGER  :: i, j, l, n, istart, lend, lincr, lbelow, nlorms, nalpha
 
     REAL(wp) :: m_sub_m_turb, m_sub_m_mol, m_trial, mmsq
-    REAL(wp) :: visc, visc_min, sp1, f2mfac
+    REAL(wp) :: visc, visc_min, f2mfac
 
     REAL(wp) :: n_over_m(nlons), sigfac(nlons), vtmp1(nlons), vtmp2(nlons)! , vtmp3(nlons), maxdiff
+#ifndef slope_1
+    INTEGER, PARAMETER  :: sp1=2
+    REAL(wp), PARAMETER :: sp2=2.0
+#else
+    REAL(wp) :: sp1, sp2
+#endif
 
     CHARACTER(len=*), PARAMETER :: routine = 'mo_gw_hines:hines_wavnum'
 
@@ -788,7 +801,10 @@ CONTAINS
 
     visc_min = 1.e-10_wp
 
+#ifndef slope_1
     sp1 = slope + 1.0_wp
+    sp2 = slope + 1.0_wp
+#endif
     mmsq = m_min**2
 
     !
@@ -801,7 +817,6 @@ CONTAINS
     ELSE
        CALL finish(TRIM(routine),'level index not increasing downward')
     END IF
-
 
     !   initialize logical flags and arrays
     DO l=1,nlevs
@@ -825,9 +840,10 @@ CONTAINS
     !
     ! calculate azimuthal variances at bottom level using anisotropy factor
     !
+    sqr_rms_wind(il1:il2) = rms_wind(il1:il2)**2
     DO n = 1,naz
        DO i = il1,il2
-          sigsqh_alpha(i,levbot,n) = anis(i,n)* rms_wind(i)**2
+          sigsqh_alpha(i,levbot,n) = anis(i,n)* sqr_rms_wind(i)
        END DO
     END DO
     !
@@ -845,7 +861,8 @@ CONTAINS
     !  at bottom level where it is assumed that background winds vanish
     !  and also initialize minimum value of cutoff wavnumber.
     !
-    IF ( ABS(slope-1.0_wp) < EPSILON(1.0_wp) ) THEN
+    
+     IF ( ABS(slope-1.0_wp) < EPSILON(1.0_wp) ) THEN
        DO n = 1,naz
 !IBM* NOVECTOR
 !IBM* ASSERT(NODEPS)
@@ -856,7 +873,7 @@ CONTAINS
                 mmin_alpha(i,n) = m_alpha(i,levbot,n)
           END DO
        END DO
-    ELSE
+     ELSE
        DO n = 1,naz
 !IBM* ASSERT(NODEPS)
           DO j = 1,nlorms
@@ -870,7 +887,7 @@ CONTAINS
           DO j = 1,nlorms
              i = ilorms(j)
                 m_alpha(i,levbot,n) = bvfb(i)/(f1*sigma_alpha(i,levbot,n) + f2*sigma_t(i,levbot))
-                ak_alpha(i,n)       = sigsqh_alpha(i,levbot,n) * vtmp1(j) * sp1
+                ak_alpha(i,n)       = sigsqh_alpha(i,levbot,n) * vtmp1(j) * sp2
                 mmin_alpha(i,n)     = m_alpha(i,levbot,n)
           END DO
        END DO
@@ -905,16 +922,17 @@ CONTAINS
           i = ilorms(j)
 
           f2mfac=sigmatm(i,lbelow)**2
-          f2mod(i,lbelow) =1.0_wp+ 2.0_wp*f2mfac / (f2mfac+sigma_t(i,lbelow)**2 )
+!           f2mod(i,lbelow) =1.0_wp+ 2.0_wp*f2mfac / (f2mfac+sigma_t(i,lbelow)**2 )
 
           visc = MAX ( visc_mol(i,l), visc_min )
-          n_over_m(i) = f2 *f2mod(i,lbelow)*sigma_t(i,lbelow)
+          n_over_m(i) = f2 * &
+            & (1.0_wp+ 2.0_wp*f2mfac / (f2mfac+sigma_t(i,lbelow)**2 )) & !f2mod(i,lbelow)
+            * sigma_t(i,lbelow)
           vtmp1(j) = bvfreq(i,l) / n_over_m(i)
           vtmp2(j) = bvfreq(i,l)*kstar/visc
        END DO
 
-       CALL vec_cbrt(vtmp2, vtmp2, n=nlorms)
-!LK       CALL cube_root_rt(vtmp2, vtmp2, vector_size=nlorms)
+       CALL cube_root(vtmp2, vtmp2, n=nlorms)
        
        DO j = 1,nlorms
           i = ilorms(j)
@@ -970,7 +988,7 @@ CONTAINS
        !  calculate the hines integral at this level.
        !
        CALL hines_intgrl ( i_alpha,                                     &
-         &                 v_alpha, m_alpha, bvfb, m_min, slope, naz,   &
+         &                 v_alpha, m_alpha, bvfb, m_min, naz,   &
          &                 l, il1, il2, nlons, nlevs, nazmth,           &
          &                 lorms, do_alpha )
 
@@ -1041,8 +1059,7 @@ CONTAINS
     !
     !  constants in data statements.
     !
-    !     * cos45 = cosine of 45 degrees.               
-    !     * umin  = minimum allowable value for zonal or meridional 
+    !     * umin  = minimum allowable value for zonal or meridional
     !     *         wind component (m/s).
     !
     !  subroutine arguements.
@@ -1055,11 +1072,10 @@ CONTAINS
     !  internal variables.
     !
     INTEGER  :: i, l
-    REAL(wp) :: u, v, umv, cos45, umin
+    REAL(wp) :: u, v, umv,  umin
     !----------------------------------------------------------------------- 
 
-    cos45 = 0.7071068_wp 
-    umin  = 0.001_wp 
+    umin  = 0.001_wp
 
     SELECT CASE (naz) 
        !
@@ -1109,7 +1125,7 @@ CONTAINS
   SUBROUTINE hines_flux ( flux_u, flux_v, flux, drag_u, drag_v,        & 
     &                     alt, density, densb,                         &
     &                     m_alpha, ak_alpha, k_alpha,                  &
-    &                     m_min, slope, naz,                           &
+    &                     m_min, naz,                           &
     &                     il1, il2, lev1, lev2, nlons, nlevs, nazmth,  &
     &                     lorms )
     !
@@ -1150,16 +1166,13 @@ CONTAINS
     !     * nazmth    = azimuthal array dimension (nazmth >= naz).
     !     * lorms     = .true. for drag computation (column selector)
     !
-    !  constant in data statement.
-    !
-    !     * cos45 = cosine of 45 degrees.               
     !
     !  subroutine arguements.
     !
 
     INTEGER  :: naz, il1, il2, lev1, lev2, lev2p
     INTEGER  :: nlons, nlevs, nazmth
-    REAL(wp) ::  slope, m_min
+    REAL(wp) ::  m_min
     REAL(wp) ::  flux_u(nlons,nlevs), flux_v(nlons,nlevs)
     REAL(wp) ::  flux(nlons,nlevs,nazmth)
     REAL(wp) ::  drag_u(nlons,nlevs), drag_v(nlons,nlevs)
@@ -1171,10 +1184,15 @@ CONTAINS
     !
     !  internal variables.
     !
+    REAL(wp) ::  ak_k_alpha(nlons,nazmth)
     INTEGER  :: i, l, lev1p, lev2m, k
-    REAL(wp) ::  cos45, dendz, dendz2
+    REAL(wp) ::  dendz, dendz2
+    
+#ifndef slope_1
+    REAL(wp) ::  inv_slope
+    REAL(wp) ::  densb_slope(nlons)
+#endif
     !-----------------------------------------------------------------------
-    cos45 = 0.7071068_wp   
     !
     lev1p = lev1 + 1
     lev2m = lev2 - 1
@@ -1182,6 +1200,11 @@ CONTAINS
     !
     !  sum over azimuths for case where slope = 1.
     !
+    DO k = 1, nazmth
+      DO i = il1,il2
+        ak_k_alpha(i,k) = ak_alpha(i,k)*k_alpha(i,k)
+      END DO
+    END DO
     IF ( ABS(slope-1.0_wp) < EPSILON(1.0_wp) )  THEN
        !
        !  case with 4 azimuths.
@@ -1189,7 +1212,7 @@ CONTAINS
        IF (naz==4)  THEN
           DO l = lev1,lev2
              DO i = il1,il2
-                flux(i,l,:) = ak_alpha(i,:)*k_alpha(i,:)*(m_alpha(i,l,:)-m_min)
+                flux(i,l,:) = ak_k_alpha(i,:)*(m_alpha(i,l,:)-m_min)
                 flux_u(i,l) = flux(i,l,1) - flux(i,l,3)
                 flux_v(i,l) = flux(i,l,2) - flux(i,l,4)
              END DO
@@ -1202,7 +1225,7 @@ CONTAINS
           DO l = lev1,lev2
              DO k = 1, nazmth
                 DO i = il1,il2
-                  flux(i,l,k) = ak_alpha(i,k)*k_alpha(i,k)*(m_alpha(i,l,k)-m_min)
+                  flux(i,l,k) = ak_k_alpha(i,k) * (m_alpha(i,l,k)-m_min)
                 END DO
              END DO
              DO i = il1,il2
@@ -1225,7 +1248,11 @@ CONTAINS
        IF (naz==4)  THEN
           DO l = lev1,lev2
              DO i = il1,il2
-                flux(i,l,:) = ak_alpha(i,:)*k_alpha(i,:)*m_alpha(i,l,:)**slope
+#ifdef slope_1
+                flux(i,l,:) = ak_k_alpha(i,:)*m_alpha(i,l,:)
+#else
+                flux(i,l,:) = ak_k_alpha(i,:)*m_alpha(i,l,:)**slope
+#endif
                 flux_u(i,l) = flux(i,l,1) - flux(i,l,3)
                 flux_v(i,l) = flux(i,l,2) - flux(i,l,4)
              END DO
@@ -1238,7 +1265,11 @@ CONTAINS
           DO l = lev1,lev2
              DO k = 1, nazmth
                 DO i = il1,il2
-                  flux(i,l,k) = ak_alpha(i,k)*k_alpha(i,k)*m_alpha(i,l,k)**slope
+#ifdef slope_1
+                  flux(i,l,k) = ak_k_alpha(i,k)*m_alpha(i,l,k)
+#else
+                  flux(i,l,k) = ak_k_alpha(i,k)*m_alpha(i,l,k)**slope
+#endif
                 END DO
              END DO
              DO i = il1,il2
@@ -1254,17 +1285,34 @@ CONTAINS
     !
     !  calculate flux from sum.
     !
+
+#ifdef slope_1
     DO l = lev1,lev2
        DO i = il1,il2
-          flux_u(i,l) = flux_u(i,l) * densb(i) / slope
-          flux_v(i,l) = flux_v(i,l) * densb(i) / slope
+          flux_u(i,l) = flux_u(i,l) * densb(i)
+          flux_v(i,l) = flux_v(i,l) * densb(i)
        END DO
        DO k = 1, nazmth
           DO i = il1,il2
-            flux(i,l,k) = flux(i,l,k) * densb(i) / slope
+            flux(i,l,k) = flux(i,l,k) * densb(i)
           END DO
        END DO
     END DO
+#else
+    inv_slope = 1._wp / slope
+    densb_slope(il1:il2) = densb(il1:il2) * inv_slope
+    DO l = lev1,lev2
+       DO i = il1,il2
+          flux_u(i,l) = flux_u(i,l) * densb_slope(i)
+          flux_v(i,l) = flux_v(i,l) * densb_slope(i)
+       END DO
+       DO k = 1, nazmth
+          DO i = il1,il2
+            flux(i,l,k) = flux(i,l,k) * densb_slope(i)
+          END DO
+       END DO
+    END DO
+#endif
     !
     !  calculate drag at intermediate levels
     !      
@@ -1560,7 +1608,7 @@ CONTAINS
   END SUBROUTINE hines_sigma
 
   SUBROUTINE hines_intgrl (i_alpha,                                     &
-    &                      v_alpha, m_alpha, bvfb, m_min, slope, naz,   &
+    &                      v_alpha, m_alpha, bvfb, m_min, naz,   &
     &                      lev, il1, il2, nlons, nlevs, nazmth,         &
     &                      lorms, do_alpha)
     !
@@ -1613,7 +1661,7 @@ CONTAINS
     REAL(wp) :: i_alpha(nlons,nazmth)
     REAL(wp) :: v_alpha(nlons,nlevs,nazmth)
     REAL(wp) :: m_alpha(nlons,nlevs,nazmth)
-    REAL(wp) :: bvfb(nlons), rbvfb(nlons), slope, m_min
+    REAL(wp) :: bvfb(nlons), rbvfb(nlons), m_min
 
     LOGICAL  :: lorms(nlons), do_alpha(nlons,nazmth)
     !
@@ -1729,10 +1777,16 @@ CONTAINS
              IF ( ABS(q_alpha) < EPSILON(1.0_wp) )  THEN
                 i_alpha(i,n) = ( m_alpha(i,lev,n)**2  - m_min**2 ) * 0.5_wp
              ELSE
-                i_alpha(i,n) = ( qm**2 * 0.50_wp + qm**3 / 3.0_wp   &
-                  &            + qm**4 * 0.25_wp + qm**5 * 0.2_wp   &
-                  &            -qmm**2 * 0.50_wp -qmm**3 / 3.0_wp   &
-                  &            -qmm**4 * 0.25_wp -qmm**5 * 0.2_wp ) &
+!                 i_alpha(i,n) = ( qm**2 * 0.50_wp + qm**3 * one_third   &
+!                   &            + qm**4 * 0.25_wp + qm**5 * 0.2_wp   &
+!                   &            -qmm**2 * 0.50_wp -qmm**3  * one_third    &
+!                   &            -qmm**4 * 0.25_wp -qmm**5 * 0.2_wp ) &
+!                   &           / q_alpha**2
+! LL Aply Horner scheme
+                i_alpha(i,n) = ( qm**2 * ( 0.50_wp + qm * ( one_third +  &
+                  &     qm * ( 0.25_wp + qm * 0.2_wp)))   &
+                  &  - (qmm**2 * (0.50_wp  + qmm * ( one_third +  &
+                  &     qmm * ( 0.25_wp  + qmm * 0.2_wp ))))) &
                   &           / q_alpha**2
              END IF
              i_alpha(i,n) = MAX( i_alpha(i,n) , 0.0_wp )
@@ -1785,7 +1839,7 @@ CONTAINS
              q_alpha = v_alpha(i,lev,n) * rbvfb(i)
              qm = q_alpha * m_alpha(i,lev,n)
              IF ( ABS(q_alpha) < EPSILON(1.0_wp) )  THEN
-                i_alpha(i,n) = m_alpha(i,lev,n)**3 / 3.0_wp
+                i_alpha(i,n) = m_alpha(i,lev,n)**3 * one_third
              ELSE
                 i_alpha(i,n) = ( qm**3/3._wp + qm**4/4._wp + qm**5/5._wp + qm**6/6._wp ) &
                   &           / q_alpha**3

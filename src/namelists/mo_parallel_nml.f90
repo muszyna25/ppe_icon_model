@@ -60,7 +60,10 @@ MODULE mo_parallel_nml
     & config_parallel_radiation_omp => parallel_radiation_omp,  &
     & config_parallel_radiation_mpi => parallel_radiation_mpi,  &
     & config_test_parallel_radiation=> test_parallel_radiation, &
-    & div_geometric, check_parallel_configuration
+    & config_use_icon_comm       => use_icon_comm,        &
+    & config_icon_comm_debug     => icon_comm_debug,        &
+    & div_geometric, check_parallel_configuration,          &
+    & config_max_sr_buffer_size => max_send_recv_buffer_size
 
   IMPLICIT NONE
   PRIVATE
@@ -102,6 +105,10 @@ MODULE mo_parallel_nml
     ! only 1 thread. This allows for verifying the OpenMP implementation
     LOGICAL :: l_test_openmp
 
+    LOGICAL :: use_icon_comm
+    LOGICAL :: icon_comm_debug
+    INTEGER :: max_send_recv_buffer_size
+    
     ! Type of parallel I/O
     INTEGER :: pio_type
     INTEGER :: num_io_procs
@@ -138,8 +145,9 @@ MODULE mo_parallel_nml
       & itype_comm,        iorder_sendrecv,     &
       & radiation_threads, nh_stepping_threads, &
       & nproma, parallel_radiation_omp,         &
-      & parallel_radiation_mpi,                 &
-      & test_parallel_radiation, openmp_threads
+      & parallel_radiation_mpi,  use_icon_comm, &
+      & test_parallel_radiation, openmp_threads, &
+      & icon_comm_debug, max_send_recv_buffer_size
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat
@@ -169,6 +177,10 @@ MODULE mo_parallel_nml
     ! only 1 thread. This allows for verifying the OpenMP implementation
     l_test_openmp = .FALSE.
 
+    use_icon_comm = .FALSE.
+    icon_comm_debug = .FALSE.
+    max_send_recv_buffer_size = 131072
+    
     ! Type of parallel I/O
     pio_type = 1
     num_io_procs = 0
@@ -244,11 +256,14 @@ MODULE mo_parallel_nml
     config_radiation_threads   = radiation_threads
     config_nh_stepping_threads = nh_stepping_threads
     config_nproma              = nproma
-    config_openmp_threads             = openmp_threads
+    config_openmp_threads         = openmp_threads
+    
+    config_use_icon_comm       = use_icon_comm
+    config_icon_comm_debug     = icon_comm_debug
     config_parallel_radiation_omp = parallel_radiation_omp
     config_parallel_radiation_mpi = parallel_radiation_mpi
     config_test_parallel_radiation= test_parallel_radiation
-
+    config_max_sr_buffer_size  = max_send_recv_buffer_size
     !-----------------------------------------------------
     CALL check_parallel_configuration()
     

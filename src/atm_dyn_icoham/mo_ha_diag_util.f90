@@ -44,8 +44,8 @@ MODULE mo_ha_diag_util
   USE mo_math_operators,     ONLY: grad_fd_norm, div, div_avg, rot_vertex
   USE mo_dynamics_config,    ONLY: idiv_method, lshallow_water
   USE mo_ha_dyn_config,      ONLY: ha_dyn_config
-  USE mo_io_config,          ONLY: lwrite_omega, l_outputtime
-  USE mo_parallel_config,  ONLY: nproma, p_test_run
+  USE mo_io_config,          ONLY: lwrite_omega, l_outputtime, no_output
+  USE mo_parallel_config,    ONLY: nproma, p_test_run, use_icon_comm
   USE mo_run_config,         ONLY: nlev, nlevp1, iqv, iqc, iqi, iqr, iqs, iforcing
   USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam
   USE mo_icoham_dyn_types,   ONLY: t_hydro_atm_prog, t_hydro_atm_diag
@@ -59,6 +59,10 @@ MODULE mo_ha_diag_util
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
   USE mo_sync,               ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array
   USE mo_vertical_coord_table, ONLY: delpr, nplev, nplvp1
+   
+  USE mo_icon_comm_lib,     ONLY: new_icon_comm_variable, &
+     & icon_comm_sync, icon_comm_sync_all, on_verts, is_ready, &
+     & until_sync
 
   IMPLICIT NONE
 
@@ -91,6 +95,8 @@ CONTAINS
   TYPE(t_external_data),   INTENT(IN)    :: pt_ext_data   !< external data
   TYPE(t_hydro_atm_diag),INTENT(INOUT) :: pt_diag       !< diagnostic variables
 
+    INTEGER :: rel_vort_comm
+    
     ! Pressure-related quantities
     CALL update_pres( pt_prog, pt_patch, pt_int_state, pt_diag )
 
@@ -102,7 +108,14 @@ CONTAINS
     SELECT CASE (pt_patch%cell_type)
     CASE (3)
       CALL rot_vertex (pt_prog%vn, pt_patch, pt_int_state, pt_diag%rel_vort)
-      CALL sync_patch_array(SYNC_V, pt_patch, pt_diag%rel_vort)
+      
+      IF (use_icon_comm) THEN
+        rel_vort_comm = new_icon_comm_variable(pt_diag%rel_vort, on_verts, pt_patch, &
+          & status=is_ready, scope=until_sync, name="update_diag rel_vort")
+      ELSE
+        CALL sync_patch_array(SYNC_V, pt_patch, pt_diag%rel_vort)
+      ENDIF
+      
     CASE (6)
       CALL rot_vertex (pt_prog%vn, pt_patch, pt_int_state, pt_diag%rel_vort)
       CALL verts2edges_scalar(pt_diag%rel_vort, pt_patch, pt_int_state%tria_aw_rhom, &
@@ -376,9 +389,12 @@ CONTAINS
       IF (p_test_run) z_tmp_v=0.0_wp
       CALL cells2verts_scalar(p_delp_c, p_patch, p_int_state%cells_aw_verts, &
                               z_tmp_v, nplvp1, nlev)
+                              
       CALL sync_patch_array(SYNC_V,p_patch,z_tmp_v)
+      
       CALL verts2edges_scalar(z_tmp_v, p_patch, p_int_state%v_1o2_e, &
                               z_tmp_e, nplvp1, nlev)
+                              
       jbs = p_patch%edges%start_blk(2,1)
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,is,ie,jk)
@@ -422,7 +438,7 @@ CONTAINS
     ! Diagnose cell based quantities: pressure on full and half levels,
     ! layer thickness, and some auxiliary variables
 
-!$OMP PARALLEL
+!$OMP PARALLEL PRIVATE(jbs)
     IF (.NOT. lshallow_water) THEN
 !$OMP DO PRIVATE(jb, nlen)
       DO jb = 1,nblks_c
@@ -465,11 +481,9 @@ CONTAINS
       ENDDO
 !$OMP END DO
   ENDIF
-!$OMP END PARALLEL
 
     ! Edge-based layer thickness: pressure levels
     jbs = p_patch%edges%start_blk(2,1)
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,is,ie,jk)
     DO jb = jbs,nblks_e
       CALL get_indices_e(p_patch, jb,jbs,nblks_e, is,ie, 2)
@@ -653,6 +667,7 @@ CONTAINS
     TYPE(t_hydro_atm_prog),INTENT(in)    :: p_prog
     TYPE(t_hydro_atm_diag),INTENT(inout) :: p_diag
 
+    IF ( no_output ) RETURN
     ! Diagnose divergence
 
     SELECT CASE(idiv_method)
