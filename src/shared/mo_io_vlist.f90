@@ -2350,14 +2350,14 @@ CONTAINS
       &                   gridVertexID(k_jg),&
       &                   zaxisIDdepth_m(k_jg)),&
       &          k_jg)
-      CALL addVar(TimeVar('u-veloc',&
+      CALL addVar(TimeVar('u',&
       &                   'u-velocity component at centers',&
       &                   'm/s',4,128,&
       &                   vlistID(k_jg),&
       &                   gridCellID(k_jg),&
       &                   zaxisIDdepth_m(k_jg)),&
       &           k_jg)
-      CALL addVar(TimeVar('v-veloc',&
+      CALL addVar(TimeVar('v',&
       &                   'v-velocity component at centers',&
       &                   'm/s',5,128,&
       &                   vlistID(k_jg), &
@@ -3433,8 +3433,8 @@ CONTAINS
       CASE ('g_nimd_c_v_T'); ptr3d => p_aux%g_nimd_c_v(:,:,:,1)
       CASE ('g_nimd_c_v_S'); ptr3d => p_aux%g_nimd_c_v(:,:,:,2)
       CASE ('VORT');         ptr3d => p_diag%vort
-      CASE ('u-veloc');      ptr3d => p_diag%u
-      CASE ('v-veloc');      ptr3d => p_diag%v
+      CASE ('u');            ptr3d => p_diag%u
+      CASE ('v');            ptr3d => p_diag%v
       CASE ('W');            ptr3d => p_diag%w
       CASE('Vert-Veloc-Adv');ptr3d => p_diag%veloc_adv_vert
       CASE('press_grad');    ptr3d => p_diag%press_grad
