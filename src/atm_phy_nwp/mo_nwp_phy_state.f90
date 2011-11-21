@@ -102,6 +102,7 @@ PUBLIC :: t_nwp_phy_diag, t_nwp_phy_tend
 PUBLIC :: prm_diag, prm_nwp_tend
 PUBLIC :: mean_charlen
 PUBLIC :: prm_nwp_diag_list, prm_nwp_tend_list  !< variable lists
+PUBLIC :: varunits
 #ifdef HAVE_F95
 PUBLIC :: t_ptr_phy
 #endif
@@ -306,7 +307,9 @@ END TYPE t_nwp_phy_tend
 !!--------------------------------------------------------------------------
   TYPE(t_var_list),ALLOCATABLE :: prm_nwp_diag_list(:)  !< shape: (n_dom)
   TYPE(t_var_list),ALLOCATABLE :: prm_nwp_tend_list(:)  !< shape: (n_dom)
- 
+  
+  ! variable units, depending on "lflux_avg"
+  CHARACTER(len=10) :: varunits 
 
 CONTAINS
 
@@ -433,7 +436,6 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     CHARACTER(len=4)  :: sufix
     CHARACTER(len=3)  :: prefix
     CHARACTER(len=8)  :: meaning
-    CHARACTER(len=10) :: varunits
 
     ientr = 16 ! bits "entropy" of horizontal slice
 
