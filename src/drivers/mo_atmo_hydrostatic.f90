@@ -59,6 +59,9 @@ MODULE mo_atmo_hydrostatic
   USE mo_io_restart_attributes,ONLY: get_restart_attribute
   USE mo_output,               ONLY: init_output_files, close_output_files,&
                                      write_output
+  USE mo_parallel_config,      ONLY: use_icon_comm
+  USE mo_icon_comm_interface,  ONLY: construct_icoham_communication, &
+    & destruct_icoham_communication
 
   IMPLICIT NONE
   PRIVATE
@@ -91,6 +94,13 @@ CONTAINS
                             & nlev, vct_a, vct_b, ceta )
     END IF
 
+    !-------------------------------------------------------------------
+    ! Initialize icon_comm_lib
+    !-------------------------------------------------------------------
+    IF (use_icon_comm) THEN
+      CALL construct_icoham_communication()
+    ENDIF
+    
     !------------------------------------------------------------------
     ! Set initial conditions for time integration.
     !------------------------------------------------------------------
@@ -186,6 +196,10 @@ CONTAINS
     CALL message(TRIM(routine),'start to clean up')
 
     CALL destruct_icoham_dyn_state
+    
+    IF (use_icon_comm) THEN
+      CALL destruct_icoham_communication()
+    ENDIF
 
     IF (iforcing==IECHAM .OR. iforcing==ILDF_ECHAM) THEN
       CALL cleanup_echam_phy

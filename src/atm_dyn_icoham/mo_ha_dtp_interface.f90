@@ -54,10 +54,11 @@ MODULE mo_ha_dtp_interface
   USE mo_math_operators,     ONLY: rot_vertex
   USE mo_physical_constants, ONLY: rd_o_cpd, p0ref
   USE mo_sync,               ONLY: SYNC_E, SYNC_V, sync_patch_array
-  USE mo_impl_constants,     ONLY: TWO_TL_SI
+  USE mo_impl_constants,     ONLY: SUCCESS, TWO_TL_SI
   USE mo_timer,              ONLY: ltimer, timers_level, timer_start, timer_stop, &
     & timer_prep_echam_phy, timer_prep_phy, timer_prep_tracer_leapfrog, timer_prep_tracer, &
     & timer_prep_tracer_RK
+  USE mo_exception,          ONLY: finish
 
   USE mo_fast_math_lib,      ONLY: vec_log, vec_exp
 
@@ -212,6 +213,11 @@ CONTAINS
     !---
     IF (timers_level > 1) CALL timer_start(timer_prep_tracer)
     
+    ALLOCATE(z_aux_me(nproma,nlev  ,p_patch%nblks_e),stat=return_status)
+    IF (return_status /= success) THEN
+      CALL finish('prepare_tracer','ALLOCATE z_aux_me failed')
+    ENDIF
+    
     nblks_e  = p_patch%nblks_int_e
     z1ma     = 1._wp - palpha
 
@@ -312,6 +318,8 @@ CONTAINS
     CALL update_pres_delp_c( p_patch, p_new%pres_sfc,        &! in
                            & p_diag%pres_mc, p_diag%pres_ic, &! out
                            & p_diag%delp_c                   )! out
+
+    DEALLOCATE(z_aux_me)
 
     IF (timers_level > 1) CALL timer_stop(timer_prep_tracer)
   
