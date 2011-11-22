@@ -443,6 +443,10 @@
   end if
 
   if (plotMode.eq."section") then
+    if ( ismissing(getVertDim(File,var)) ) then
+      print("Cannot plot vertical section of a 2D variable: "+varName)
+      exit
+    end if
     trans           = setSection(secLC,secRC,secPoints,var)
     vertdim         = getVertDim(File,var)
     trans!0         = vertdim

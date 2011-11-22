@@ -33,7 +33,7 @@ begin
     return(1)
   else
     return(val/abs(val))
-  end if 
+  end if
 end
 ;-------------------------------------------------------------------------------
 ; Is the 'time' variable a dimesions in the input dimensions array?
@@ -899,14 +899,16 @@ begin
       left_str = "("
     end if
     if (plotmode .ne. "section")
-      vertdimname = getVertDim(filehandle,filehandle->$varname$)
-      vertdim     = filehandle->$vertdimname$
-      vertval     = vertdim(levelindex)
-      left_str    = left_str + "lev:"+vertval
-      if (atmlev .ne. "m")
-        left_str = left_str+vertdim@units+")"
-      else
-        left_str = left_str +")"
+      if ( .not.ismissing(getVertDim(filehandle,filehandle->$varname$)) ) then
+        vertdimname = getVertDim(filehandle,filehandle->$varname$)
+        vertdim     = filehandle->$vertdimname$
+        vertval     = vertdim(levelindex)
+        left_str    = left_str + "lev:"+vertval
+        if (atmlev .ne. "m")
+          left_str = left_str+vertdim@units+")"
+        else
+          left_str = left_str +")"
+        end if
       end if
     end if
   else
@@ -1150,11 +1152,17 @@ function getVarLevelType(filename,varname)
 begin
   f       = addfile(filename,"r")
   vertdim = getVertDim(f,f->$varname$)
-  retval  = getVertDimType(f->$vertdim$)
-  delete(f)
-  delete(vertdim)
+  if (ismissing(vertdim)) then
+    delete(f)
+    delete(vertdim)
+    return "none"
+  else
+    retval  = getVertDimType(f->$vertdim$)
+    delete(f)
+    delete(vertdim)
 
-  return retval
+    return retval
+  end if
 end
 ;---------------------------------------------------------------
 ; setting for vertical cross sections based on remapped icon data
