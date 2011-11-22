@@ -879,23 +879,23 @@ SUBROUTINE downscale_rad_output(p_patch, p_par_patch, p_par_int, p_par_grf, &
         jb4 = iblk(jc,jb,4)
 #endif
 
-        trsolclr(jc1,jk,jb1) = trsolclr(jc1,jk,jb1) + dtrans_o_dalb_clr(jc,jk)* &
-          ( albvisdif(jc1,jb1) - alb_backintp(jc1,jb1) )
-        trsolclr(jc2,jk,jb2) = trsolclr(jc2,jk,jb2) + dtrans_o_dalb_clr(jc,jk)* &
-          ( albvisdif(jc2,jb2) - alb_backintp(jc2,jb2) )
-        trsolclr(jc3,jk,jb3) = trsolclr(jc3,jk,jb3) + dtrans_o_dalb_clr(jc,jk)* &
-          ( albvisdif(jc3,jb3) - alb_backintp(jc3,jb3) )
-        trsolclr(jc4,jk,jb4) = trsolclr(jc4,jk,jb4) + dtrans_o_dalb_clr(jc,jk)* &
-          ( albvisdif(jc4,jb4) - alb_backintp(jc4,jb4) )
+        trsolclr(jc1,jk,jb1) = MAX(trsolclr(jc1,jk,jb1) + dtrans_o_dalb_clr(jc,jk)* &
+          ( albvisdif(jc1,jb1) - alb_backintp(jc1,jb1) ), rlimval(2))
+        trsolclr(jc2,jk,jb2) = MAX(trsolclr(jc2,jk,jb2) + dtrans_o_dalb_clr(jc,jk)* &
+          ( albvisdif(jc2,jb2) - alb_backintp(jc2,jb2) ), rlimval(2))
+        trsolclr(jc3,jk,jb3) = MAX(trsolclr(jc3,jk,jb3) + dtrans_o_dalb_clr(jc,jk)* &
+          ( albvisdif(jc3,jb3) - alb_backintp(jc3,jb3) ), rlimval(2))
+        trsolclr(jc4,jk,jb4) = MAX(trsolclr(jc4,jk,jb4) + dtrans_o_dalb_clr(jc,jk)* &
+          ( albvisdif(jc4,jb4) - alb_backintp(jc4,jb4) ), rlimval(2))
 
-        trsolall(jc1,jk,jb1) = trsolall(jc1,jk,jb1) + dtrans_o_dalb_all(jc,jk)* &
-          ( albvisdif(jc1,jb1) - alb_backintp(jc1,jb1) )
-        trsolall(jc2,jk,jb2) = trsolall(jc2,jk,jb2) + dtrans_o_dalb_all(jc,jk)* &
-          ( albvisdif(jc2,jb2) - alb_backintp(jc2,jb2) )
-        trsolall(jc3,jk,jb3) = trsolall(jc3,jk,jb3) + dtrans_o_dalb_all(jc,jk)* &
-          ( albvisdif(jc3,jb3) - alb_backintp(jc3,jb3) )
-        trsolall(jc4,jk,jb4) = trsolall(jc4,jk,jb4) + dtrans_o_dalb_all(jc,jk)* &
-          ( albvisdif(jc4,jb4) - alb_backintp(jc4,jb4) )
+        trsolall(jc1,jk,jb1) = MAX(trsolall(jc1,jk,jb1) + dtrans_o_dalb_all(jc,jk)* &
+          ( albvisdif(jc1,jb1) - alb_backintp(jc1,jb1) ), rlimval(1))
+        trsolall(jc2,jk,jb2) = MAX(trsolall(jc2,jk,jb2) + dtrans_o_dalb_all(jc,jk)* &
+          ( albvisdif(jc2,jb2) - alb_backintp(jc2,jb2) ), rlimval(1))
+        trsolall(jc3,jk,jb3) = MAX(trsolall(jc3,jk,jb3) + dtrans_o_dalb_all(jc,jk)* &
+          ( albvisdif(jc3,jb3) - alb_backintp(jc3,jb3) ), rlimval(1))
+        trsolall(jc4,jk,jb4) = MAX(trsolall(jc4,jk,jb4) + dtrans_o_dalb_all(jc,jk)* &
+          ( albvisdif(jc4,jb4) - alb_backintp(jc4,jb4) ), rlimval(1))
 
 
         lwflxclr(jc1,jk,jb1) = lwflxclr(jc1,jk,jb1) + dlwflxclr_o_dtg(jc,jk)* &
