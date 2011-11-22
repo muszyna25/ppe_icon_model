@@ -50,7 +50,7 @@ MODULE mo_icon_comm_lib
      & get_my_mpi_work_id
   USE mo_run_config,      ONLY: ltimer
   USE mo_timer,           ONLY: timer_start, timer_stop, timer_icon_comm_sync
-
+  USE mo_master_control,  ONLY: get_my_process_name
 #ifndef NOMPI
   USE mpi
 #endif
@@ -337,7 +337,8 @@ CONTAINS
     
 !    IF (icon_comm_debug) THEN
       log_file_id = 500
-      WRITE(message_text,'(a,i2.2)') 'log.icon_comm.',my_mpi_work_id
+      WRITE(message_text,'(a,i4.4)') 'log.', TRIM(get_my_process_name()), &
+        & ".icon_comm.", my_mpi_work_id
       OPEN (log_file_id, FILE=TRIM(message_text))
 !    ENDIF
     
