@@ -40,14 +40,14 @@ atmo_namelist=NAMELIST_${EXPNAME}_atmo
 #
 start_date="2000-01-01T00:00:00Z"
 #
-ndays=1
-ndays_restart=1
+ndays=90
+ndays_restart=90
 #
 dtime_atmo=300
 dtime_ocean=1800
 dt_coupling=1800
 dt_restart=`expr ${ndays_restart} \* 86400`
-dt_checkpoint=`expr 1 \* 86400 `  # write restart file every 1 day
+dt_checkpoint=`expr 90 \* 86400 `  # write restart file every 90 days
 #
 #-----------------------------------------------------------------------------
 #
@@ -277,7 +277,7 @@ dtime=$dtime_ocean   # ocean model timestep [s]
 #
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 dt_data=86400.       # ocean model output interval [s]
-ndays_file=1         # new output file generation interval [days]
+ndays_file=90        # new output file generation interval [days]
 #
 #-----------------------------------------------------------------------------
 # diagnostic output (not in ocean model)
