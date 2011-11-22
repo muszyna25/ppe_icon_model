@@ -261,7 +261,7 @@ CONTAINS
     IF (i_status == positioned) THEN
       READ (nnml,grid_optimization)
     ELSE
-      WRITE(message_text,'(a,a,a)') " File ", TRIM(param_file_name), " not POSITIONED"
+      WRITE(message_text,'(a)') " File", param_file_name, " not POSITIONED"
       CALL finish ('read_grid_optimization_param', message_text)
     ENDIF
     CLOSE(nnml)
@@ -1052,7 +1052,6 @@ CONTAINS
       ENDDO      
       total_force = SQRT(total_force) ! an approximation for checking conidtions
       max_force = SQRT(max_force)
-!       write(*,*) "total,max force:",total_force,max_force
 
       !--------------------------------------------------------------------
       ! compute adaptive dt if requested
@@ -1134,6 +1133,7 @@ CONTAINS
         maxtotal_force = MAX(total_force,maxtotal_force)
         max_max_force = MAX(max_max_force, max_force)
       ENDIF
+ !     write(0,*) "1-current total,max force:",total_force_1,total_force,max_force_1,max_force
 
       ! print*, max_force, max_max_force
 

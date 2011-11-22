@@ -1146,9 +1146,11 @@ END FUNCTION concatenate_grids
     ! skip it
     DO i=1,no_of_edges    
       edges%child_id(i) = edges%child_id(i) + shift_grid_id_value
+      edges%subgrid_id(i) = edges%subgrid_id(i) + shift_grid_id_value
     ENDDO
     DO i=1,no_of_cells
       cells%child_id(i) = cells%child_id(i) + shift_grid_id_value
+      cells%subgrid_id(i) = cells%subgrid_id(i) + shift_grid_id_value
     ENDDO
     
     CALL write_netcdf_grid(grid_id, file_name)

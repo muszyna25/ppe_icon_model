@@ -853,7 +853,7 @@ CONTAINS
     TYPE(t_grid_vertices), POINTER :: parent_verts, child_verts
     INTEGER :: no_of_parent_cells, no_of_parent_edges, no_of_parent_verts
     INTEGER :: no_of_child_cells, no_of_child_edges, no_of_child_verts
-    INTEGER ::parent_type
+    INTEGER :: parent_type, index_in_parent
 
     INTEGER, ALLOCATABLE :: no_of_children(:)
     INTEGER :: j, parent_index, child_index, i_status
@@ -891,11 +891,25 @@ CONTAINS
         WRITE(0,*) 'parent_index:', parent_index, ' > ', no_of_parent_cells
         CALL finish ('get_child_pointers', 'cell parentIndex out of limits')
       ENDIF
+
+      ! this is only for checking
       no_of_children(parent_index) = no_of_children(parent_index) + 1
       IF (no_of_children(parent_index) > 4) &
         & CALL finish ('get_child_pointers', 'cells: more than 4 children')
 
-      parent_cells%child_index(parent_index, no_of_children(parent_index)) = child_index
+      ! the inner child triangle has parent_child_type = parenttype_triangle
+      ! the other three have parent_child_type = parenttype_triangle + 1,2,3
+      ! By convention of calculating the refine interpolation coeffs
+      ! the inner triangle has to be in the 3rd place of the child_index
+      index_in_parent = child_cells%parent_child_type(child_index) - parenttype_triangle
+      SELECT CASE (index_in_parent)
+        CASE (3)
+           index_in_parent = 4
+        CASE (0)
+           index_in_parent = 3
+      END SELECT
+            
+      parent_cells%child_index(parent_index, index_in_parent) = child_index
       IF (parent_cells%child_id(parent_index) /= 0 &
         & .and. parent_cells%child_id(parent_index) /= child_grid_id) &
         & CALL finish ('get_child_pointers', 'more than 1 child for the same cell')
