@@ -232,21 +232,31 @@ SUBROUTINE configure_atm_phy_nwp(n_dom,pat_level,&
         tcall_phy(jg,itsfc) =   atm_phy_nwp_config(jg)%dt_turb  !seconds
       ENDIF
 
-    ENDDO
+    ENDDO  ! jg loop
+
 
     IF( atm_phy_nwp_config(1)%inwp_turb == 2) THEN
        CALL init_sfc_indices( ltestcase, 'APE' ) !call of a hydrostatic testcase
                                              ! to obtain the demanded parameters
     ENDIF
 
+
+    ! issue a warning, if advective and convective timesteps are not synchronized
+    !
+    ! DR: a clean implementation would require to put the following lines into 
+    ! a jg-loop.
     IF( MOD( REAL(iadv_rcf,wp)*dtime, &
-      &         atm_phy_nwp_config(jg)%dt_conv) /= 0._wp )  THEN
+      &         atm_phy_nwp_config(1)%dt_conv) /= 0._wp )  THEN
       WRITE(message_text,'(a,2F9.1)') &
-        &'advective and convective timesteps are not, but will be synchronized ', &
-        &    REAL(iadv_rcf,wp)*dtime,tcall_phy(1,itconv)
+        &'WARNING: convective and advective timesteps not synchronized: ', &
+        & tcall_phy(1,itconv), REAL(iadv_rcf,wp)*dtime
+      CALL message(TRIM(routine), TRIM(message_text))
+      WRITE(message_text,'(a,2F9.1)') &
+        &'implicit synchronization in time_ctrl_physics: dt_conv !=!', &
+        & REAL((FLOOR(atm_phy_nwp_config(1)%dt_conv/(REAL(iadv_rcf,wp)*dtime)) + 1),wp) &
+        & * (REAL(iadv_rcf,wp)*dtime)
       CALL message(TRIM(routine), TRIM(message_text))
     ENDIF
-
  
 END SUBROUTINE configure_atm_phy_nwp
 

@@ -776,7 +776,6 @@ MODULE mo_nwp_lnd_state
     p_prog_lnd%t_so(:,8,:,:) = 283.1_wp !!HW: be careful about the indices!!
     p_prog_lnd%t_so(:,9,:,:) = 282.1_wp !!HW: be careful about the indices!!
 
-!    p_prog_lnd%w_so(:,:,:,:) = 0.5E-3_wp !! JH
     p_prog_lnd%w_so(:,1,:,:) = 1.8E-3_wp*2._wp !! JH
     p_prog_lnd%w_so(:,2,:,:) = 3.7E-3_wp*2._wp !! JH
     p_prog_lnd%w_so(:,3,:,:) = 11.3E-3_wp*2._wp !! JH
@@ -859,11 +858,12 @@ MODULE mo_nwp_lnd_state
 
 
     ! & p_diag_lnd%fr_seaice(nproma,nblks_c)
+    ! check restart settings again, once we have a sea ice model
     cf_desc    = t_cf_var('fr_seaice', '-', 'fraction of sea ice')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'fr_seaice', p_diag_lnd%fr_seaice,  &
            & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,       &
-           & ldims=shape2d,                                                    &
+           & ldims=shape2d, lrestart=.FALSE.,                                  &
            & initval_r=0._wp ) 
 
 
@@ -990,7 +990,6 @@ MODULE mo_nwp_lnd_state
            & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE.,              &
            & loutput=.FALSE.,                                                      &
            & initval_r=1._wp )
-
 
 
     ! fill the seperate variables belonging to the container subsfrac

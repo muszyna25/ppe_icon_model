@@ -1039,7 +1039,7 @@ MODULE mo_nonhydro_state
 
 
     ! ddt_vn_phy   p_diag%ddt_vn_phy(nproma,nlev,nblks_e)
-    !
+    ! *** needs to be saved for restart ***
     cf_desc    = t_cf_var('normal_wind_physical_tendency', 'm s-2',             &
       &                   'normal wind physical tendency')
     grib2_desc = t_grib2_var(0, 2, 199, ientr, GRID_REFERENCE, GRID_EDGE)
@@ -1049,7 +1049,7 @@ MODULE mo_nonhydro_state
 
 
     ! ddt_exner    p_diag%ddt_exner(nproma,nlev,nblks_c)
-    !
+    ! *** needs to be saved for restart ***
     cf_desc    = t_cf_var('exner_pressure_tendency', 's-1', 'exner pressure tendency')
     grib2_desc = t_grib2_var(0, 3, 196, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'ddt_exner', p_diag%ddt_exner,                   &
@@ -1058,13 +1058,14 @@ MODULE mo_nonhydro_state
 
 
     ! ddt_exner_phy  p_diag%ddt_exner_phy(nproma,nlev,nblks_c)
-    !
+    ! *** needs to be saved for restart ***
     cf_desc    = t_cf_var('exner_pressure_physical_tendency', 's-1',            &
       &                   'exner pressure physical tendency')
     grib2_desc = t_grib2_var(0, 3, 197, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'ddt_exner_phy', p_diag%ddt_exner_phy,           &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
                 & ldims=shape3d_c )
+
 
     ! ddt_temp_dyn  p_diag%ddt_temp_dyn(nproma,nlev,nblks_c)
     !
