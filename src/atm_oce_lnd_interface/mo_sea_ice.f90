@@ -1699,7 +1699,8 @@ SUBROUTINE ice_growth(ppatch, p_os, ice, rpreci)!, lat)
       WHERE (h2(:,:,:) <= 0.0_wp) 
         h1 (:,:,:) = h1 - MIN((ice%Qbot * dtime  + C3) / (-E1*rhoi), h1)       ! Eq. 32
         WHERE (h1(:,:,:) <= 0.0_wp) 
-          ice%hs (:,:,:) = ice%hs(:,:,:) - MIN((ice%Qbot * dtime+C3+C2)/(Lfreez*rhos), ice%hs(:,:,:))!33
+          ice%hs (:,:,:) = ice%hs(:,:,:) - MIN((ice%Qbot * dtime+C3+C2)&
+            & /(Lfreez*rhos), ice%hs(:,:,:))!33
           WHERE (ice%hs (:,:,:) <= 0.0_wp) 
            ice% heatOceI(:,:,:) = ice% heatOceI + ice%Qbot + (-C1 + C2 + C3)/dtime    !34
 ! Flux - not heat
