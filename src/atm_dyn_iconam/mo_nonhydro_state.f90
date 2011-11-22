@@ -541,8 +541,9 @@ MODULE mo_nonhydro_state
 
         WRITE(listname,'(a,i2.2,a,i2.2)') 'nh_state_prog_of_domain_',jg, &
           &                               '_and_timelev_',jt
-        !WRITE(varname_prefix,'(a,i2.2,a)') 'nh_prog_TL',jt,'_'
-        varname_prefix = 'nh_prog_'
+
+        ! varname_prefix = 'nh_prog_'
+        varname_prefix = ''
         CALL new_nh_state_prog_list(p_patch(jg), p_nh_state(jg)%prog(jt),  &
           &  p_nh_state(jg)%prog_list(jt), listname, TRIM(varname_prefix), &
           &  l_extra_timelev, jt)
