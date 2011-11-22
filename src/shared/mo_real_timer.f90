@@ -721,28 +721,30 @@ CONTAINS
   SUBROUTINE print_report(it1)
     INTEGER, INTENT(in) :: it1
     INTEGER :: tid
-#ifdef _OPENMP
+#if defined(_OPENMP) && !defined(__CRAYXT_COMPUTE_LINUX_TARGET)
     INTEGER :: itid
 #endif
     ! order omp:
+#if defined(_OPENMP) && !defined(__CRAYXT_COMPUTE_LINUX_TARGET)
 !$OMP PARALLEL PRIVATE(itid,tid)
 !$OMP DO ORDERED
-#ifdef _OPENMP
     DO itid = 1, omp_get_num_threads()
       tid = omp_get_thread_num()
 #else
       tid = 1
 #endif
 
+#if !defined(__CRAYXT_COMPUTE_LINUX_TARGET)
 !$OMP ORDERED
+#endif
       CALL report(it1)
+#if defined(_OPENMP) && !defined(__CRAYXT_COMPUTE_LINUX_TARGET)
 !$OMP FLUSH
 !$OMP END ORDERED
-#ifdef _OPENMP
     ENDDO
-#endif
 !$OMP END DO
 !$OMP END PARALLEL
+#endif
   END SUBROUTINE print_report
 
   SUBROUTINE report(it)
@@ -752,7 +754,7 @@ CONTAINS
     CHARACTER(len=12) :: min_str, avg_str, max_str, tot_str
     INTEGER :: tid
 
-#ifdef _OPENMP
+#if defined(_OPENMP) && !defined(__CRAYXT_COMPUTE_LINUX_TARGET)
     tid = omp_get_thread_num()
 #else
     tid = -1

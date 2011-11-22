@@ -1,4 +1,4 @@
-#ifdef __linux
+#if defined(__linux) && !defined(__CRAYXT_COMPUTE_LINUX_TARGET)
 #include <fpu_control.h>
 
 /*
@@ -28,3 +28,4 @@ void disable_ufl_exception_(void)
 }
 
 #endif
+

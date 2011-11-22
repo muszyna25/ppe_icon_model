@@ -121,9 +121,14 @@ export OMP_STACKSIZE=${use_omp_stacksize}
 #-----------------------------------------------------------------------------
 # absolute paths of directories
 calldir=\$(pwd)
-# cd \$(dirname \$0)
 thisdir=\$(pwd)
 basedir=\${thisdir%/*}                   # determine base directory
+if [[  ${use_target} == "dole"  ]] ; then
+    basedir=/scratch/${USER}/trunk/icon-dev
+    calldir=\$basedir
+    thisdir=\$basedir
+fi
+# cd \$(dirname \$0)
 bindir="\${basedir}/$use_builddir/bin"   # binaries
 BUILDDIR=$use_builddir
 MODEL_BASE_PATH=\$basedir
@@ -494,6 +499,54 @@ set_run_target_tornado()
 #$ -j y
 #$ -cwd
 #$ $queue
+# ==========================
+EOF
+}
+
+
+#=============================================================================
+set_run_target_dole()
+{  
+  set_default use_nproma 8
+  set_default use_nodes 1
+   
+  if [[ $use_openmp == "yes" ]]; then
+    use_mpi="no"
+    set_default use_openmp_threads 16
+    queue="-q smp"
+    resources=" -pe smp 16"
+  elif [[ $use_mpi == "yes" ]]; then
+    set_default use_mpi_procs 8
+    if [[ "$use_mpi_procs" == "1" ]] ; then
+      queue="-q serial"
+      resources=""    
+    else
+      queue="-q cluster"
+      resources="-pe orte8 ${use_mpi_procs}"
+    fi
+  else
+    queue="-q serial"
+    resources=""      
+  fi
+
+  # create header
+  start_header
+  s_cpu_time=""
+  if [[ "x$use_cpu_time" != "x" ]] ; then
+     s_cpu_time="-l s_cpu=$use_cpu_time"
+  fi
+  cat >> $output_script << EOF
+# ===========================
+# dole.cscs.ch batch job parameters
+# ---------------------------
+#PBS -V
+#PBS -N $job_name
+#PBS -S /bin/tcsh
+#PBS -j oe
+#PBS -l cpunum_job=$cpunum_job
+#PBS -o LOG.$job_name.o
+#PBS -q normal
+#PBS -l walltime=02:00:00
 # ==========================
 EOF
 }

@@ -118,6 +118,23 @@ case "$fortran_compiler" in
         MODOPT      = -I
         MODDIR      = -module 
         ;;
+    cray)
+        config_compiler=pgi
+        CFLAGS      = -v -Df2cFortran -DHAVE_CF_INTERFACE
+	CC          = cc
+	F77         = ftn
+        FC          = ftn
+        GEN_FLAGS   =
+        FDEBUG      = -g 
+        FFLAGS      = -v -O2 -D__LOOP_EXCHANGE -Df2cFortran -e Z -e m -e a
+        F77         = "$FC"
+        F77FLAGS    = "$FFLAGS"
+        OMPFLAG     = -mp
+        DEFOPT      = -D
+        DEFCOPT     = -D
+        MODOPT      = -I
+        MODDIR      = -J 
+        ;;
     intel)
         config_compiler=intel
         #  CC     = icc
@@ -180,8 +197,8 @@ case "$ac_sitename" in
 
 #===============================================
     cscs.ch)
-        case "$host" in
-            x86_64-*-linux-*)         #                 
+        case "$HOST" in
+            *palu*)         #                 
                 config_target=palu
                 make_command="make" "-j" "8"
 #                use_shell="/bin/sh"
@@ -198,6 +215,26 @@ case "$ac_sitename" in
                       NETCDFROOT = /opt/cray/netcdf/4.1.1.0/netcdf-gnu
                     ;;
                 esac
+		;;
+            *dole*)
+		echo "Chose target DOLE"
+                config_target=dole
+                make_command="make" "-j" "8"
+                load_profile="." "/opt/modules/default/etc/modules.sh"
+                submit="qsub"
+                sync_submit=qsub -sync y
+
+		case "$fortran_compiler" in
+                    cray)
+                      load_modules="PrgEnv-cray" "netcdf" "xt-mpt/5.2.1" "${load_modules}"
+                      NETCDFROOT = /opt/cray/netcdf/4.1.1.0/netcdf-cce
+		      MPI_LIB  = -lfmpich -lmpich -lmpichf90 -lmpich -lmpl -lpthread -lrt -lpmi -lalpslli -lalpsutil
+                      MPIROOT=/opt/cray/mpt/5.2.1/xt/seastar/mpich2-cray
+                      MPI_INCLUDE=${MPIROOT}/include
+                    ;;
+                esac
+
+		mpi_startrun="aprun" "-n" "\\\$no_of_nodes" -N "\\\$mpi_procs"
         esac
         ;;
 #===============================================
