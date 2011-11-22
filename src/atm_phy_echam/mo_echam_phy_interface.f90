@@ -141,7 +141,7 @@ CONTAINS
 
     INTEGER :: jb,jbs   !< block index and its staring value
     INTEGER :: jcs,jce  !< start/end column index within each block
-    INTEGER :: nblks    !< number of blocks for which parameterisations are computed
+!     INTEGER :: nblks    !< number of blocks for which parameterisations are computed
     INTEGER :: jc, jk   !< column index, vertical level index
     INTEGER :: jcn,jbn  !< column and block indices of a neighbour cell
 
@@ -406,7 +406,7 @@ CONTAINS
        IF (ltimer) CALL timer_start(timer_coupling)
     
        nbr_hor_points = p_patch%n_patch_cells
-       nbr_points     = nproma * p_patch%nblks_int_c
+       nbr_points     = nproma * p_patch%nblks_c
        
        ALLOCATE(buffer(nproma*p_patch%nblks_c,4))
        buffer(:,:) = 0.0_wp
@@ -479,7 +479,7 @@ CONTAINS
        CALL ICON_cpl_get ( field_id(6), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
        IF ( info > 0 ) THEN
          buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
-         prm_field(jg)%tsfc_tile(:,:,iwtr) = RESHAPE (buffer(:,1), (/ nproma, nblks /) )
+         prm_field(jg)%tsfc_tile(:,:,iwtr) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
          prm_field(jg)%tsfc     (:,:)      = prm_field(jg)%tsfc_tile(:,:,iwtr)
        ENDIF
        !
@@ -487,14 +487,14 @@ CONTAINS
        CALL ICON_cpl_get ( field_id(7), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
        IF ( info > 0 ) THEN
          buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
-         prm_field(jg)%ocu(:,:) = RESHAPE (buffer(:,1), (/ nproma, nblks /) )
+         prm_field(jg)%ocu(:,:) = RESHAPE (buffer(:,1), (/ nproma,  p_patch%nblks_c /) )
        ENDIF
        !
        ! OCEANV
        CALL ICON_cpl_get ( field_id(8), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
        IF ( info > 0 ) THEN
          buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
-         prm_field(jg)%ocv(:,:) = RESHAPE (buffer(:,1), (/ nproma, nblks /) )
+         prm_field(jg)%ocv(:,:) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
        ENDIF
 
        CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%tsfc_tile(:,:,iwtr))
@@ -579,11 +579,12 @@ CONTAINS
       ENDIF
       
       jbs   = p_patch%edges%start_blk(grf_bdywidth_e+1,1)
-      nblks = p_patch%nblks_int_e
+!       nblks = p_patch%nblks_int_e
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,jcs,jce,jcn,jbn,zvn1,zvn2)
-      DO jb = jbs,nblks
-        CALL get_indices_e( p_patch, jb,jbs,nblks, jcs,jce, grf_bdywidth_e+1)
+      DO jb = jbs,p_patch%nblks_int_e
+        CALL get_indices_e( p_patch, jb,jbs,p_patch%nblks_int_e, &
+          & jcs,jce, grf_bdywidth_e+1)
         DO jk = 1,nlev
           DO jc = jcs,jce
 
