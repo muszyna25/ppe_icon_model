@@ -1465,27 +1465,14 @@ SUBROUTINE set_ice_temp(ppatch,ice, Qatm)
     K1,     & ! Winton's K 1/2 (eq. 5)
     K2,     & ! Winton's K 3/2 (eq. 10)
     SWin3D, & ! Short-wave radiation field splitted into ice categories
-    Tsurfm, & ! Surface melting temperature
+    Tsurfm    ! Surface melting temperature
   
-  ! The following fields are copied from 'ice' for easier readability
-    hi,     & ! Ice thickness                             [m] 
-    hs,     & ! Snow thickness                            [m]
-    Tsurf,  & ! Surface temperature                       [�C]
-    T1,     & ! Temperature of the upper ice+snow layer   [�C]
-    T2        ! Temperature of the lower layer            [�C]
-
   REAL(wp) ::   &
     idt2      ! 1 / (2*dt)
   
   INTEGER   &
     i,j,k         ! counter for loops
  !-------------------------------------------------------------------------------
-  ! Copy fields from 'ice' structure into local variables for easy readability
-  hi   (:,:,:) = ice% hi   (:,:,:)
-  hs   (:,:,:) = ice% hs   (:,:,:)
-  Tsurf(:,:,:) = ice% Tsurf(:,:,:)
-  T1   (:,:,:) = ice% T1   (:,:,:)
-  T2   (:,:,:) = ice% T2   (:,:,:)
 
   idt2   =  1.0_wp / (2.0_wp*dtime)
 
@@ -1502,51 +1489,46 @@ SUBROUTINE set_ice_temp(ppatch,ice, Qatm)
   WHERE (ice % isice (:,:,:) )
     B   (:,:,:) = -Qatm% dlatdT - Qatm% dsensdT - Qatm% dLWdT             ! Eq.  8
     A   (:,:,:) = -Qatm% lat - Qatm% sens - Qatm% LWnet -                     &
-                  (1.0_wp - ice% alb) * I_0 *  SWin3d  - Tsurf* B        ! Eq.  7
-    K1  (:,:,:)  =  4.0_wp * ki * ks / (ks * hi + 4.0_wp * ki * hs)          ! Eq.  5
-    K2  (:,:,:)  =  2.0_wp * ki / hi                                     ! Eq. 10
-    D   (:,:,:)  =  1.0_wp / (6.0_wp * dtime * K2 + rhoi*hi*ci)                 
+                  (1.0_wp - ice% alb) * I_0 *  SWin3d  - ice%Tsurf* B        ! Eq.  7
+    K1  (:,:,:)  =  4.0_wp * ki * ks / (ks * ice%hi + 4.0_wp * ki * ice%hs)          ! Eq.  5
+    K2  (:,:,:)  =  2.0_wp * ki / ice%hi                                     ! Eq. 10
+    D   (:,:,:)  =  1.0_wp / (6.0_wp * dtime * K2 + rhoi*ice%hi*ci)                 
     iK1B(:,:,:)  =  1.0_wp / (K1 + B)
 
    ! Set temperature at which surface is fully liquid
-    WHERE (hs(:,:,:) > 1e-6_wp) 
+    WHERE (ice%hs(:,:,:) > 1e-6_wp) 
       Tsurfm(:,:,:)  =  0.0_wp
     ELSEWHERE
       Tsurfm(:,:,:)  =  - muS
     END WHERE
 
     
-    A1a   (:,:,:)  =  rhoi*hi * idt2 * ci + K2* (4.0_wp * dtime * K2 + rhoi*hi*ci)*D 
+    A1a   (:,:,:)  =  rhoi*ice%hi * idt2 * ci + K2* (4.0_wp * dtime * K2 + rhoi*ice%hi*ci)*D 
     A1    (:,:,:)  =  A1a + K1*B * iK1B                              ! Eq. 16
-    B1a   (:,:,:)  =  -rhoi*hi* (ci*T1 - Lfreez*muS/T1) * idt2 - I_0              & !originally L instead of Lfreez
-                       - K2*(4.0_wp*dtime*K2*Tf+rhoi*hi*ci*T2)*D
+    B1a   (:,:,:)  =  -rhoi*ice%hi* (ci*ice%T1 - Lfreez*muS/ice%T1) * idt2 - I_0              & !originally L instead of Lfreez
+                       - K2*(4.0_wp*dtime*K2*Tf+rhoi*ice%hi*ci*ice%T2)*D
     B1    (:,:,:)  =  B1a + A*K1*iK1B                                ! Eq. 17
-    C1    (:,:,:)  =  - rhoi*hi * Lfreez * muS * idt2                     ! Eq. 18  !originally L instead of Lfreez
-    T1    (:,:,:)  =  -(B1 + SQRT(B1*B1-4.0_wp*A1*C1)) / (2.0_wp*A1)           ! Eq. 21
-    Tsurf (:,:,:)  =  (K1*T1-A) * iK1B                               ! Eq.  6
+    C1    (:,:,:)  =  - rhoi*ice%hi * Lfreez * muS * idt2                     ! Eq. 18  !originally L instead of Lfreez
+    ice%T1    (:,:,:)  =  -(B1 + SQRT(B1*B1-4.0_wp*A1*C1)) / (2.0_wp*A1)           ! Eq. 21
+    ice%Tsurf (:,:,:)  =  (K1*ice%T1-A) * iK1B                               ! Eq.  6
 
 
-    WHERE ( Tsurf(:,:,:) > Tsurfm(:,:,:) ) 
+    WHERE ( ice%Tsurf(:,:,:) > Tsurfm(:,:,:) ) 
       A1           (:,:,:)  =  A1a + K1                              ! Eq. 19
       B1           (:,:,:)  =  B1a - K1*Tsurfm                       ! Eq. 20
-      T1           (:,:,:)  =  -(B1 + SQRT(B1*B1-4.0_wp*A1*C1)) / (2.0_wp*A1)  ! Eq. 21
-      Tsurf        (:,:,:)  =  Tsurfm                               
+      ice%T1       (:,:,:)  =  -(B1 + SQRT(B1*B1-4.0_wp*A1*C1)) / (2.0_wp*A1)  ! Eq. 21
+      ice%Tsurf    (:,:,:)  =  Tsurfm                               
       ! Sum up heatfluxes available for melting at ice surface for each
       ! atmopheric time step. ice%Qtop will be averaged in ave_fluxes
-      ice%Qtop     (:,:,:)  =  ice% Qtop + K1*(T1-Tsurf) - (A + B*Tsurf)! Eq. 22
+      ice%Qtop     (:,:,:)  =  ice% Qtop + K1*(ice%T1-ice%Tsurf) - (A + B*ice%Tsurf)! Eq. 22
     END WHERE
    
    
-    T2         (:,:,:)  =  ( 2.0_wp*dtime*K2*(T1+2.0_wp*Tf) + rhoi*hi*ci*T2) * D  ! Eq. 15
+    ice%T2     (:,:,:)  =  ( 2.0_wp*dtime*K2*(ice%T1+2.0_wp*Tf) + rhoi*ice%hi*ci*ice%T2) * D  ! Eq. 15
     ! Sum up conductive heatflux at ice-ocean interface for each atmospheric
     ! time step. ice%Qtop will be averaged in ave_fluxes
     ! The ocean heat flux is calculated at the beginning of ice_growth
-    ice% Qbot  (:,:,:)  =  ice% Qbot - 4.0_wp*Ki*(Tf-T2)/hi               ! Eq. 23
-
-    ! Save new temperatures in 'ice' structure
-    ice% Tsurf (:,:,:)  =  Tsurf
-    ice% T1    (:,:,:)  =  T1
-    ice% T2    (:,:,:)  =  T2
+    ice% Qbot  (:,:,:)  =  ice% Qbot - 4.0_wp*Ki*(Tf-ice%T2)/ice%hi               ! Eq. 23
   END WHERE
 
   ipl_src=1  ! output print level (1-5, fix)
@@ -1602,22 +1584,11 @@ SUBROUTINE ice_growth(ppatch, p_os, ice, rpreci)!, lat)
     surfmeltsn,  & ! Surface melt water from snow melt with T=0�C       [m]
     surfmelti1,  & ! Surface melt water from upper ice with T=-muS      [m]
     surfmelti2,  & ! Surface melt water from lower ice with T=-muS      [m]
-    heatocei,    & ! Oceanic heat flux                                  [W/m^2]
+    heatocei       ! Oceanic heat flux                                  [W/m^2]
 
-    ! The following fields are copied from 'ice' for easier readability
-    Qbot,        & ! Energy flux available for bottom melting/freezing [W/m�]
-    Qtop,        & ! Energy flux available for surface melting         [W/m�]
-    hi,          & ! ice thickness                                     [m]
-    hs,          & ! snow thickness                                    [m]
-    Tsurf,       & ! surface temperature                               [m]
-    T1,          & ! temperature of upper ice+snow layer               [�C]
-    T2             ! temperature of lower ice      layer               [�C]
- 
   INTEGER k
-  REAL(wp),POINTER :: sst(:,:)
 
   delh2=0._wp
-  sst =>p_os%p_prog(nold(1))%tracer(:,1,:,1)
 !  !-------------------------------------------------------------------------------
   ! Calculate snow fall and create array split into ice categories
   new_snow3d (:,1,:)   = rpreci (:,:) * dtime * rhow / rhos 
@@ -1629,7 +1600,8 @@ SUBROUTINE ice_growth(ppatch, p_os, ice, rpreci)!, lat)
   ! freezing point. This is not very physical.
   DO k=1,i_no_ice_thick_class
     WHERE (ice%isice(:,k,:)) 
-      heatOceI(:,k,:) = ( sst - Tf ) * ice%zUnderIce * clw*rhow/dtime
+      heatOceI(:,k,:) = ( p_os%p_prog(nold(1))%tracer(:,1,:,1) - Tf ) &
+        &                 * ice%zUnderIce * clw*rhow/dtime
       ice%Qbot(:,k,:) = ice%Qbot(:,k,:) + heatOceI(:,k,:)
     ENDWHERE
   END DO
@@ -1637,37 +1609,28 @@ SUBROUTINE ice_growth(ppatch, p_os, ice, rpreci)!, lat)
   ! Do the following wherever there is ice
   !isice: &  
   WHERE (ice% isice)
-    ! Copy fields from 'ice' structure for better readability of the code
-    hi                (:,:,:) = ice%   hi
-    hs                (:,:,:) = ice%   hs
-    Qbot              (:,:,:) = ice%   Qbot
-    Qtop              (:,:,:) = ice%   Qtop
-    Tsurf             (:,:,:) = ice%   Tsurf
-    T1                (:,:,:) = ice%   T1
-    T2                (:,:,:) = ice%   T2
-  
    
     ! Save ice thickness at previous time step for calculation of heat and salt
     ! flux into ocean in subroutine upper_ocean_TS
-    ice % hiold (:,:,:) = hi
-    ice % hsold (:,:,:) = hs
+    ice % hiold (:,:,:) = ice%hi
+    ice % hsold (:,:,:) = ice%hs
 
-    h1(:,:,:) = hi(:,:,:) / 2.0_wp
+    h1(:,:,:) = ice%hi(:,:,:) / 2.0_wp
     h2(:,:,:) = h1(:,:,:)
 
 
     ! Apply mass increasing changes first. 
     ! 1. Snow fall
 
-    hs(:,:,:) = hs(:,:,:) + new_snow3d(:,:,:)
+    ice%hs(:,:,:) = ice%hs(:,:,:) + new_snow3d(:,:,:)
     
     ! 2. Bottom ice-growth  (maybe add frazil ice?)
 
     ! #eoo# Eqns. 24, 27--29 and 31--36 appear to be missing rhoi or rhos to get the proper units
     ! for Delta h. But these are included in this program
-    WHERE (Qbot < 0.0_wp) 
-      delh2(:,:,:)  = Qbot * dtime / (rhoi * (ci * (Tf + muS) - Lfreez))  ! Eq. 24 & 25
-      T2   (:,:,:)  = (delh2*Tf + h2 * T2) / (delh2 + h2)                 ! Eq. 26
+    WHERE (ice%Qbot < 0.0_wp) 
+      delh2(:,:,:)  = ice%Qbot * dtime / (rhoi * (ci * (Tf + muS) - Lfreez))  ! Eq. 24 & 25
+      ice%T2   (:,:,:)  = (delh2*Tf + h2 * ice%T2) / (delh2 + h2)                 ! Eq. 26
       h2   (:,:,:)  = h2 + delh2
     END WHERE
 
@@ -1676,47 +1639,47 @@ SUBROUTINE ice_growth(ppatch, p_os, ice, rpreci)!, lat)
     ! #eoo# Not in Winton - does this count the latent fluxes twice?
 
 !    subli(:,:,:) = lat  / Lsub * dtime;    ![kg/m�]
-!    WHERE     (subli <= hs*rhos )         
-!      hs(:,:,:) = hs - subli / rhos
-!    ELSEWHERE (subli <= hs*rhos + h1*rhoi )          ! if all snow is gone
-!      hs(:,:,:) = 0.0_wp
-!      h1(:,:,:) = h1 - (subli - hs*rhos) / rhoi
-!    ELSEWHERE (subli <= hs*rhos + (h1+h2)*rhoi )     ! if upper ice is gone
-!      hs(:,:,:) = 0.0_wp
+!    WHERE     (subli <= ice%hs*rhos )         
+!      ice%hs(:,:,:) = ice%hs - subli / rhos
+!    ELSEWHERE (subli <= ice%hs*rhos + h1*rhoi )          ! if all snow is gone
+!      ice%hs(:,:,:) = 0.0_wp
+!      h1(:,:,:) = h1 - (subli - ice%hs*rhos) / rhoi
+!    ELSEWHERE (subli <= ice%hs*rhos + (h1+h2)*rhoi )     ! if upper ice is gone
+!      ice%hs(:,:,:) = 0.0_wp
 !      h1(:,:,:) = 0.0_wp
-!      h2(:,:,:) = h2 - (subli - hs*rhos - h1*rhoi) / rhoi
+!      h2(:,:,:) = h2 - (subli - ice%hs*rhos - h1*rhoi) / rhoi
 !    ELSEWHERE                                         ! if all ice is gone
-!      hs(:,:,:) = 0.0_wp
+!      ice%hs(:,:,:) = 0.0_wp
 !      h1(:,:,:) = 0.0_wp
 !      h2(:,:,:) = 0.0_wp
-!      ice% evapwi(:,:,:) = (subli - hs*rhos - (h1+h2)*rhoi) * Lsub / Lvap
+!      ice% evapwi(:,:,:) = (subli - ice%hs*rhos - (h1+h2)*rhoi) * Lsub / Lvap
 !    END WHERE
    
  
    ! 2. surface ablation (if any) 
 
-   E1(:,:,:) = ci * ( T1+muS ) - Lfreez*(1.0_wp+muS/T1)   ! Eq.  1 (energy upper layer) 
-   E2(:,:,:) = ci * ( T2+muS ) - Lfreez                   ! Eq. 25 (energy lower layer), originally L instead of Lfreez
-   C1(:,:,:) = Lfreez  * rhos * hs
+   E1(:,:,:) = ci * ( ice%T1+muS ) - Lfreez*(1.0_wp+muS/ice%T1)   ! Eq.  1 (energy upper layer) 
+   E2(:,:,:) = ci * ( ice%T2+muS ) - Lfreez                   ! Eq. 25 (energy lower layer), originally L instead of Lfreez
+   C1(:,:,:) = Lfreez  * rhos * ice%hs
    C2(:,:,:) = E1 * rhoi * h1
    C3(:,:,:) = E2 * rhoi * h2
   
-   WHERE ( Qtop(:,:,:) > 0.0_wp ) 
-      surfmeltsn   (:,:,:) = MIN(Qtop*dtime / (Lfreez * rhos), hs)
-      hs           (:,:,:) = hs - surfmeltsn                            ! Eq. 27
+   WHERE ( ice%Qtop(:,:,:) > 0.0_wp ) 
+      surfmeltsn   (:,:,:) = MIN(ice%Qtop*dtime / (Lfreez * rhos), ice%hs)
+      ice%hs           (:,:,:) = ice%hs - surfmeltsn                            ! Eq. 27
       ice%surfmelt (:,:,:) = surfmeltsn * rhos/rhow
-      WHERE (hs(:,:,:) <= 0.0_wp) 
-        surfmelti1   (:,:,:) = MIN((Qtop*dtime-C1) / (-E1*rhoi), h1)
+      WHERE (ice%hs(:,:,:) <= 0.0_wp) 
+        surfmelti1   (:,:,:) = MIN((ice%Qtop*dtime-C1) / (-E1*rhoi), h1)
         h1           (:,:,:) = h1 - surfmelti1                          ! Eq. 28
         ice%surfmelt (:,:,:) = ice%surfmelt + surfmelti1 * rhoi/rhow
         WHERE (h1(:,:,:) <= 0.0_wp) 
-          surfmelti2   (:,:,:) = MIN((Qtop*dtime-C1+C2) / (-E2*rhoi), h2)
+          surfmelti2   (:,:,:) = MIN((ice%Qtop*dtime-C1+C2) / (-E2*rhoi), h2)
           h2           (:,:,:) = h2 - surfmelti2                        ! Eq. 29
           ice%surfmelt (:,:,:) = ice%surfmelt + surfmelti2 * rhoi/rhow
           WHERE (h2(:,:,:) <= 0.0_wp) 
-           ice% heatOceI(:,:,:) = Qtop + (-C1 + C2 + C3)/dtime               ! Eq. 30
+           ice% heatOceI(:,:,:) = ice%Qtop + (-C1 + C2 + C3)/dtime               ! Eq. 30
 ! Flux - not heat
-!           ice% heatOceI(:,:,:) = Qtop*dtime - C1 + C2 + C3                ! Eq. 30
+!           ice% heatOceI(:,:,:) = ice%Qtop*dtime - C1 + C2 + C3                ! Eq. 30
           END WHERE
         END WHERE
       END WHERE
@@ -1725,31 +1688,31 @@ SUBROUTINE ice_growth(ppatch, p_os, ice, rpreci)!, lat)
       ice%surfmeltT = (surfmelti1+surfmelti2) * (-muS) /  ice%surfmelt
     END WHERE
    
-    C1(:,:,:) = Lfreez    * rhos * hs
+    C1(:,:,:) = Lfreez    * rhos * ice%hs
     C2(:,:,:) = E1 * rhoi * h1
     C3(:,:,:) = E2 * rhoi * h2
  
    ! 3. bottom ablation (if any)
 
-    WHERE ( Qbot(:,:,:) > 0.0_wp ) 
-      h2 (:,:,:) = h2 - MIN(Qbot * dtime/ (-E2*rhoi), h2)                  ! Eq. 31
+    WHERE ( ice%Qbot(:,:,:) > 0.0_wp ) 
+      h2 (:,:,:) = h2 - MIN(ice%Qbot * dtime/ (-E2*rhoi), h2)                  ! Eq. 31
       WHERE (h2(:,:,:) <= 0.0_wp) 
-        h1 (:,:,:) = h1 - MIN((Qbot * dtime  + C3) / (-E1*rhoi), h1)       ! Eq. 32
+        h1 (:,:,:) = h1 - MIN((ice%Qbot * dtime  + C3) / (-E1*rhoi), h1)       ! Eq. 32
         WHERE (h1(:,:,:) <= 0.0_wp) 
-          hs (:,:,:) = hs(:,:,:) - MIN((Qbot * dtime+C3+C2)/(Lfreez*rhos), hs(:,:,:))!33
-          WHERE (hs (:,:,:) <= 0.0_wp) 
-           ice% heatOceI(:,:,:) = ice% heatOceI + Qbot + (-C1 + C2 + C3)/dtime    !34
+          ice%hs (:,:,:) = ice%hs(:,:,:) - MIN((ice%Qbot * dtime+C3+C2)/(Lfreez*rhos), ice%hs(:,:,:))!33
+          WHERE (ice%hs (:,:,:) <= 0.0_wp) 
+           ice% heatOceI(:,:,:) = ice% heatOceI + ice%Qbot + (-C1 + C2 + C3)/dtime    !34
 ! Flux - not heat
-!           ice% heatOceI(:,:,:) = ice% heatOceI + Qbot * dtime - C1 + C2 + C3   !34
+!           ice% heatOceI(:,:,:) = ice% heatOceI + ice%Qbot * dtime - C1 + C2 + C3   !34
           END WHERE
         END WHERE
       END WHERE
     END WHERE
 
     ! Calculate ice thickness and draft (ice+snow depth below water line)
-    hi          (:,:,:) = h1 + h2
-    draft       (:,:,:) = (rhoi*hi+rhos*hs) / rhow
-    below_water (:,:,:) = draft - hi
+    ice%hi          (:,:,:) = h1 + h2
+    draft       (:,:,:) = (rhoi*ice%hi+rhos*ice%hs) / rhow
+    below_water (:,:,:) = draft - ice%hi
 
     
     ! snow -> ice conversion for snow below waterlevel
@@ -1762,54 +1725,48 @@ SUBROUTINE ice_growth(ppatch, p_os, ice, rpreci)!, lat)
     ! below Eq. 36
     WHERE (below_water (:,:,:) > 0.0_wp) 
       ice% snow_to_ice  (:,:,:) = below_water * rhoi / rhos
-      hs                (:,:,:) = hs - ice% snow_to_ice
+      ice%hs                (:,:,:) = ice%hs - ice% snow_to_ice
       f1                (:,:,:) = h1 / (h1+below_water)
-      Tbar              (:,:,:) = f1  * ( T1 - Lfreez* muS/(ci*T1) ) - (1.0_wp-f1)*muS 
+      Tbar              (:,:,:) = f1  * ( ice%T1 - Lfreez* muS/(ci*ice%T1) ) - (1.0_wp-f1)*muS 
       !originally L instead of Lfreez. see also below
-      T1                (:,:,:) = 0.5_wp * ( Tbar - SQRT(Tbar*Tbar + 4.0_wp*muS*Lfreez/ci) )
+      ice%T1                (:,:,:) = 0.5_wp * ( Tbar - SQRT(Tbar*Tbar + 4.0_wp*muS*Lfreez/ci) )
       h1                (:,:,:) = h1 + below_water
-      hi                (:,:,:) = h1 + h2
+      ice%hi                (:,:,:) = h1 + h2
     END WHERE
- 
+
     ! Even up upper and lower layer
     WHERE ( h1(:,:,:) < h2(:,:,:)  ) 
-      f1   (:,:,:)  =  h1 / (0.5_wp*hi)                                
-      Tbar (:,:,:)  =  f1 * ( T1 - Lfreez*muS/(ci*T1) ) + (1.0_wp-f1)*T2        ! Eq. 39
-      T1   (:,:,:)  =  0.5_wp * ( Tbar - SQRT(Tbar*Tbar + 4.0_wp*muS*Lfreez/ci) )  ! Eq. 38
+      f1   (:,:,:)  =  h1 / (0.5_wp*ice%hi)                                
+      Tbar (:,:,:)  =  f1 * ( ice%T1 - Lfreez*muS/(ci*ice%T1) ) + (1.0_wp-f1)*ice%T2        ! Eq. 39
+      ice%T1   (:,:,:)  =  0.5_wp * ( Tbar - SQRT(Tbar*Tbar + 4.0_wp*muS*Lfreez/ci) )  ! Eq. 38
     ELSEWHERE ( h1(:,:,:) > h2(:,:,:) ) 
-      f1   (:,:,:)  =  h1 / (0.5_wp*hi) - 1.0_wp
-      T2   (:,:,:)  =  f1 * ( T1 - Lfreez*muS/(ci*T1) ) + (1.0_wp-f1)*T2        ! Eq. 40
+      f1   (:,:,:)  =  h1 / (0.5_wp*ice%hi) - 1.0_wp
+      ice%T2   (:,:,:)  =  f1 * ( ice%T1 - Lfreez*muS/(ci*ice%T1) ) + (1.0_wp-f1)*ice%T2        ! Eq. 40
     END WHERE
   
-    ! T2 can get above bulk melting temperature. If this happens, use additional
+    ! ice%T2 can get above bulk melting temperature. If this happens, use additional
     ! energy to melt equal thickness of upper and lower layer (last para.
     ! section 2)
-    ! Energy available for melting: -h2 * ci * (T2+muS)
+    ! Energy available for melting: -h2 * ci * (ice%T2+muS)
     ! Energy needed for melting lower layer: L
-    ! Energy needed for melting upper layer: -(ci*(T1+muS)-L*(1+muS/T1)) (Eq. 1)
-    WHERE (t2 (:,:,:) > -muS)                  
-      hi (:,:,:)  =  hi - h2*ci*(T2+muS) /                          &
-                     ( 0.5_wp*Lfreez - 0.5_wp*(ci*(T1+muS) - Lfreez*(1.0_wp+muS/T1)) )
-      T2 (:,:,:)  =  -muS
+    ! Energy needed for melting upper layer: -(ci*(ice%T1+muS)-L*(1+muS/ice%T1)) (Eq. 1)
+    WHERE (ice%t2 (:,:,:) > -muS)                  
+      ice%hi (:,:,:)  =  ice%hi - h2*ci*(ice%T2+muS) /                          &
+                     ( 0.5_wp*Lfreez - 0.5_wp*(ci*(ice%T1+muS) - Lfreez*(1.0_wp+muS/ice%T1)) )
+      ice%T2 (:,:,:)  =  -muS
     END WHERE
 
     ! Is this necessary?
-    WHERE (hi(:,:,:) <= 0.0_wp) 
-      T1 (:,:,:)   =  Tf
-      T2 (:,:,:)   =  Tf
+    WHERE (ice%hi(:,:,:) <= 0.0_wp) 
+      ice%T1 (:,:,:)   =  Tf
+      ice%T2 (:,:,:)   =  Tf
       ice%isice    =  .FALSE.
       ice%conc     = 0.0_wp
-      hi           = 0.0_wp
+      ice%hi           = 0.0_wp
     ELSEWHERE
       ice%heatOceI =  ice%heatOceI - heatOceI
     END WHERE
   
-    ! Save new values in 'ice' structure
-    ice%hi (:,:,:) = hi
-    ice%hs (:,:,:) = hs
-    ice%T1 (:,:,:) = T1
-    ice%T2 (:,:,:) = T2
-    
   END WHERE !isice
    
   RETURN
