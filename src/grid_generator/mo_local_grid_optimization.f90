@@ -261,7 +261,7 @@ CONTAINS
     IF (i_status == positioned) THEN
       READ (nnml,grid_optimization)
     ELSE
-      WRITE(message_text,'(a)') " File", param_file_name, " not POSITIONED"
+       WRITE(message_text,'(a,a,a)') " File ", TRIM(param_file_name), " not POSITIONED"
       CALL finish ('read_grid_optimization_param', message_text)
     ENDIF
     CLOSE(nnml)
