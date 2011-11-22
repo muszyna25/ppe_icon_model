@@ -337,7 +337,7 @@ CONTAINS
     
 !    IF (icon_comm_debug) THEN
       log_file_id = 500
-      WRITE(message_text,'(a,i4.4)') 'log.', TRIM(get_my_process_name()), &
+      WRITE(message_text,'(a,a,a,i4.4)') 'log.', TRIM(get_my_process_name()), &
         & ".icon_comm.", my_mpi_work_id
       OPEN (log_file_id, FILE=TRIM(message_text))
 !    ENDIF
