@@ -2229,14 +2229,14 @@ CONTAINS
       &                    zaxisID_surface(k_jg)),&
       &           k_jg)
     IF (iforc_oce > 10) THEN
-      CALL addVar(TimeVar('forc-u',&
+      CALL addVar(TimeVar('forc_u',&
       &                   'u-forcing component at centers',&
       &                   'N/m2',13,128,&
       &                   vlistID(k_jg),&
       &                   gridCellID(k_jg),&
       &                   zaxisID_surface(k_jg)),&
       &           k_jg)
-      CALL addVar(TimeVar('forc-v',&
+      CALL addVar(TimeVar('forc_v',&
       &                   'v-forcing component at centers',&
       &                   'N/m2',14,128,&
       &                   vlistID(k_jg),&
@@ -2245,7 +2245,7 @@ CONTAINS
       &           k_jg)
     END IF
     IF (temperature_relaxation >= 1 ) THEN
-      CALL addVar(TimeVar('forc-tdata',&
+      CALL addVar(TimeVar('forc_tdata',&
       &                   'temperature relaxation data',&
       &                   'K',15,128,&
       &                   vlistID(k_jg),&
@@ -2254,7 +2254,7 @@ CONTAINS
       &           k_jg)
     END IF 
     IF (temperature_relaxation /= 0 ) THEN
-      CALL addVar(TimeVar('forc-t',&
+      CALL addVar(TimeVar('forc_t',&
       &                   'temperature relaxation flux',&
       &                   'K*m/s',15,128,&
       &                   vlistID(k_jg),&
@@ -2263,7 +2263,7 @@ CONTAINS
       &           k_jg)
     END IF 
     IF (temperature_relaxation /= 0 .OR. i_sea_ice == 1 ) THEN
-      CALL addVar(TimeVar('forc-hflx',&
+      CALL addVar(TimeVar('forc_hflx',&
       &                   'net surface heat flux',&
       &                   'W/m2',16,128,&
       &                   vlistID(k_jg),&
@@ -2272,7 +2272,7 @@ CONTAINS
       &           k_jg)
     END IF 
     IF (irelax_2d_S >= 1 ) THEN
-      CALL addVar(TimeVar('forc-sdata',&
+      CALL addVar(TimeVar('forc_sdata',&
       &                   'salinity relaxation data',&
       &                   'psu',15,128,&
       &                   vlistID(k_jg),&
@@ -2281,7 +2281,7 @@ CONTAINS
       &           k_jg)
     END IF 
     IF (irelax_2d_S /= 0 ) THEN
-      CALL addVar(TimeVar('forc-s',&
+      CALL addVar(TimeVar('forc_s',&
       &                   'salinity relaxation flux at centers',&
       &                   'psu*m/s',15,128,&
       &                   vlistID(k_jg),&
@@ -2290,7 +2290,7 @@ CONTAINS
       &           k_jg)
     END IF 
     IF (irelax_2d_S /= 0 ) THEN
-      CALL addVar(TimeVar('forc-fwfx',&
+      CALL addVar(TimeVar('forc_fwfx',&
       &                   'diagnosed net freshwater flux',&
 !     &                   'm/s',16,128,&
       &                   'mm/month',16,128,&
@@ -2299,7 +2299,7 @@ CONTAINS
       &                   zaxisID_surface(k_jg)),&
       &           k_jg)
     END IF 
-   !  CALL addVar(TimeVar('horz-adv',&
+   !  CALL addVar(TimeVar('horz_adv',&
    !  &                   'nonlin Cor ',&
    !  &                   'm/s',2,128,&
    !  &                   vlistID(k_jg),&
@@ -2307,21 +2307,21 @@ CONTAINS
    !  &                   zaxisIDdepth_m(k_jg)),&
    !  &           k_jg)
 
-   !  CALL addVar(TimeVar('Ekin-grad',&
+   !  CALL addVar(TimeVar('Ekin_grad',&
    !  &                   'gradient Ekin ',&
    !  &                   'm/s',2,128,&
    !  &                   vlistID(k_jg),&
    !  &                   gridEdgeID(k_jg), &
    !  &                   zaxisIDdepth_m(k_jg)),&
    !  &           k_jg)
-   !  CALL addVar(TimeVar('flux-u',&
+   !  CALL addVar(TimeVar('flux_u',&
    !  &                   'sfc_flux u at centers',&
    !  &                   'N/m2',13,128,&
    !  &                   vlistID(k_jg),&
    !  &                   gridCellID(k_jg),&
    !  &                   zaxisID_surface(k_jg)),&
    !  &           k_jg)
-   !  CALL addVar(TimeVar('flux-v',&
+   !  CALL addVar(TimeVar('flux_v',&
    !  &                   'sfc_flux v at centers',&
    !  &                   'N/m2',14,128,&
    !  &                   vlistID(k_jg),&
@@ -2329,7 +2329,7 @@ CONTAINS
    !  &                   zaxisID_surface(k_jg)),&
    !  &           k_jg)
 
-   !  CALL addVar(TimeVar('flux-VN',&
+   !  CALL addVar(TimeVar('flux_VN',&
    !  &                   'sfc-flux at edge',&
    !  &                   'm/s',2,128,&
    !  &                   vlistID(k_jg),&
@@ -2364,7 +2364,7 @@ CONTAINS
       &                   gridCellID(k_jg), &
       &                   zaxisIDdepth_m(k_jg)),&
       &           k_jg)
-    ! CALL addVar(TimeVar('Vert-Veloc-Adv',&
+    ! CALL addVar(TimeVar('Vert_Veloc_Adv',&
     ! &                   'vertical-velocity advection at edges',&
     ! &                   'm/s',5,128,&
     ! &                   vlistID(k_jg), &
@@ -2378,14 +2378,14 @@ CONTAINS
       &                   gridCellID(k_jg),&
       &                   zaxisID_halfdepth(k_jg)),&
       &           k_jg)      
-      CALL addVar(TimeVar('Vert-Mixing-V',&
+      CALL addVar(TimeVar('Vert_Mixing_V',&
       &                   'vertical mixing coeff veloc',&
       &                   'm^2/s', 6, 128,&
       &                   vlistid(k_jg),&
       &                   gridEdgeID(k_jg),&
       &                   zaxisID_halfdepth(k_jg)),&
       &           k_jg)
-      CALL addVar(TimeVar('Vert-Mixing-T',&
+      CALL addVar(TimeVar('Vert_Mixing_T',&
       &                   'vertical mixing coeff temp',&
       &                   'm^2/s', 6, 128,&
       &                   vlistid(k_jg),&
@@ -3401,18 +3401,18 @@ CONTAINS
       CASE ('wet_c');        ptr3d => v_base%wet_c
       CASE ('wet_e');        ptr3d => v_base%wet_e
       CASE ('ELEV');         ptr2d => p_prog%h
-      CASE ('forc-u');       ptr2d => forcing%forc_wind_u
-      CASE ('forc-v');       ptr2d => forcing%forc_wind_v
-      CASE ('forc-tdata');   ptr2d => forcing%forc_tracer_relax(:,:,1)
-      CASE ('forc-t');       ptr2d => forcing%forc_tracer(:,:,1)
-      CASE ('forc-hflx');    ptr2d => forcing%forc_hflx(:,:)
-      CASE ('forc-sdata');   ptr2d => forcing%forc_tracer_relax(:,:,2)
-      CASE ('forc-s');       ptr2d => forcing%forc_tracer(:,:,2)
-      CASE ('forc-fwfx');    ptr2d => forcing%forc_fwfx(:,:)
-      CASE('horz-adv');      ptr3d => p_diag%veloc_adv_horz
-      CASE('Ekin-grad');     ptr3d => p_diag%grad
-      CASE ('flux-u');       ptr2d => p_aux%bc_top_u
-      CASE ('flux-v');       ptr2d => p_aux%bc_top_v
+      CASE ('forc_u');       ptr2d => forcing%forc_wind_u
+      CASE ('forc_v');       ptr2d => forcing%forc_wind_v
+      CASE ('forc_tdata');   ptr2d => forcing%forc_tracer_relax(:,:,1)
+      CASE ('forc_t');       ptr2d => forcing%forc_tracer(:,:,1)
+      CASE ('forc_hflx');    ptr2d => forcing%forc_hflx(:,:)
+      CASE ('forc_sdata');   ptr2d => forcing%forc_tracer_relax(:,:,2)
+      CASE ('forc_s');       ptr2d => forcing%forc_tracer(:,:,2)
+      CASE ('forc_fwfx');    ptr2d => forcing%forc_fwfx(:,:)
+      CASE('horz_adv');      ptr3d => p_diag%veloc_adv_horz
+      CASE('Ekin_grad');     ptr3d => p_diag%grad
+      CASE ('flux_u');       ptr2d => p_aux%bc_top_u
+      CASE ('flux_v');       ptr2d => p_aux%bc_top_v
       CASE ('flux-VN');      ptr2d => p_aux%bc_top_vn
       CASE ('VN');           ptr3d => p_prog%vn
       CASE ('T');            ptr3d => p_prog%tracer(:,:,:,1)
@@ -3436,11 +3436,11 @@ CONTAINS
       CASE ('u');            ptr3d => p_diag%u
       CASE ('v');            ptr3d => p_diag%v
       CASE ('W');            ptr3d => p_diag%w
-      CASE('Vert-Veloc-Adv');ptr3d => p_diag%veloc_adv_vert
+      CASE('Vert_Veloc_Adv');ptr3d => p_diag%veloc_adv_vert
       CASE('press_grad');    ptr3d => p_diag%press_grad
       CASE ('rho');          ptr3d => p_diag%rho   
-      CASE('Vert-Mixing-V'); ptr3d => p_params%A_veloc_v
-      CASE('Vert-Mixing-T'); ptr3d => p_params%A_tracer_v(:,:,:,1)
+      CASE('Vert_Mixing_V'); ptr3d => p_params%A_veloc_v
+      CASE('Vert_Mixing_T'); ptr3d => p_params%A_tracer_v(:,:,:,1)
       CASE ('cell_owner');   ptr2d => cell_owner
       ! sea ice variables
       CASE('p_ice_isice')
