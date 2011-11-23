@@ -588,9 +588,9 @@ CONTAINS
 &                                        * pt_prog%rho(jc,jk,jb)
 
             ! finally compute dynamical temperature tendency
-            pt_diag%ddt_temp_dyn(jc,jk,jb) = cvd_o_rd*pt_prog%theta_v(jc,jk,jb) &
+            pt_diag%ddt_temp_dyn(jc,jk,jb) = cpd_o_rd*pt_diag%temp(jc,jk,jb)    &
               * pt_diag%exner_dyn_incr(jc,jk,jb)/tcall_phy_jg(itupdate)         &
-              / (1._wp+vtmpc1*pt_prog_rcf%tracer(jc,jk,jb,iqv)-z_qsum)
+              / pt_prog%exner(jc,jk,jb) 
 
             ! reset dynamical exner increment to zero
             ! (it is accumulated over one advective time step in solve_nh)
@@ -761,10 +761,6 @@ CONTAINS
 
     ENDIF! convection
 
-    ! Note: computation of cloud cover is now forced to be synchronized with radiation
-    ! because the output of this routine is not used anywhere else
-    ! It is also important to call cover_koe even in the case of inwp_cldcover=0 because
-    ! qv_tot is zero otherwise
     IF ( lcall_phy_jg(itccov) ) THEN
 
       ! When using a reduced grid for radiation, part of the boundary points need
@@ -804,7 +800,6 @@ CONTAINS
 
           rcld = 0.0_wp ! standard deviation of saturation deficit=0 for now, needs to be specified form turbulence
 
-!#ifdef __BOUNDCHECK
           IF (timers_level > 2) CALL timer_start(timer_cover_koe)
           CALL cover_koe &
 &             (kidia  = i_startidx ,   kfdia  = i_endidx  ,       & !! in:  horizonal begin, end indices
@@ -948,7 +943,6 @@ CONTAINS
         prm_diag%lwflxsfc (:,jb)=0._wp
         prm_diag%swflxtoa (:,jb)=0._wp
 
-!#ifdef __BOUNDCHECK
         CALL radheat (                   &
         !
         ! input
@@ -1167,6 +1161,8 @@ CONTAINS
 !! @f$ \frac{d \pi}{d t}= \frac{R}{c_{v} \theta_v} \left( \frac{d T}{dt} \\
 !!                        + T \frac{d \alpha}{ d t} \right) @f$
 !!
+!! GZ: this derivation is incorrect. The factor is R/c_p if a temperature tendency
+!! is to be converted into an Exner tendency, and R/c_v for a theta tendency.
 !--------------------------------------------------------------------------------
 
         DO jk = 1, nlev
@@ -1184,7 +1180,7 @@ CONTAINS
               &          + pt_diag%ddt_tracer_phy(jc,jk,jb,iqr) &
               &          + pt_diag%ddt_tracer_phy(jc,jk,jb,iqs)
 
-            pt_diag%ddt_exner_phy(jc,jk,jb) = rd_o_cvd / pt_prog%theta_v(jc,jk,jb)           &
+            pt_diag%ddt_exner_phy(jc,jk,jb) = rd_o_cpd / pt_prog%theta_v(jc,jk,jb)           &
               &                             * (z_ddt_temp(jc,jk,jb)                          &
               &                             *(1._wp + vtmpc1*pt_prog_rcf%tracer(jc,jk,jb,iqv)&
               &                                - z_qsum) + pt_diag%temp(jc,jk,jb)             &
@@ -1197,22 +1193,6 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
-
-!!$      IF (msg_level >= 15) THEN
-!!$
-!!$        WRITE(message_text,'(a,2E17.9)') ' max/min z_ddt_temp = ',&
-!!$          & MAXVAL( z_ddt_temp(:,:,:)),  &
-!!$          & MINVAL( z_ddt_temp(:,:,:))
-!!$        CALL message('', TRIM(message_text))
-!!$        WRITE(message_text,'(a,2E17.9)') ' max/min z_ddt_qv  = ',&
-!!$          & MAXVAL( prm_nwp_tend%ddt_tracer_pconv(:,:,:,iqv)),  &
-!!$          & MINVAL( prm_nwp_tend%ddt_tracer_pconv(:,:,:,iqv))
-!!$        CALL message('', TRIM(message_text))
-!!$
-!!$       WRITE(message_text,'(a,2(E17.9,2x))') 'max/min ddt_exner  = ',&
-!!$          & MAXVAL (pt_diag%ddt_exner_phy(:,:,:) ), MINVAL(pt_diag%ddt_exner_phy(:,:,:)  )
-!!$        CALL message('', TRIM(message_text))
-!!$      ENDIF
 
       IF (timers_level > 2) CALL timer_stop(timer_physic_acc_1)
     ENDIF ! slow physics tendency accumulation

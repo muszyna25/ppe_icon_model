@@ -99,22 +99,16 @@ CONTAINS
     INTEGER :: i_startidx, i_endidx    !< slices
     INTEGER :: i_nchdom                !< domain index
 
-    REAL(wp) ::            &           !< vertical velocity in p-system
-      &  z_omega_p(nproma,p_patch%nlev  ,p_patch%nblks_c) 
-    REAL(wp) ::            &           !< cloud water + cloud ice (set to 0)
-      &  z_plitot (nproma,p_patch%nlev  ,p_patch%nblks_c) 
-    REAL(wp) ::            &           !< 3D moisture flux( convection)
-      &  z_qhfl   (nproma,p_patch%nlevp1,p_patch%nblks_c) 
-    REAL(wp) ::            &           !< 3D sensible heat flux "-"
-      &  z_shfl   (nproma,p_patch%nlevp1,p_patch%nblks_c) 
-    REAL(wp) ::            &           !< 3D conv. rain flux
-      &  z_mflxr  (nproma,p_patch%nlevp1,p_patch%nblks_c) 
-    REAL(wp) ::            &           !< 3D conv. snow flux
-      &  z_mflxs  (nproma,p_patch%nlevp1,p_patch%nblks_c) 
-    REAL(wp) ::            &           !< 3D moisture convergence
-      &  z_dtdqv  (nproma,p_patch%nlev  ,p_patch%nblks_c) 
-    REAL(wp) ::            &           !< temporal temperature tendency
-      &  z_dtdt  (nproma,p_patch%nlev  ,p_patch%nblks_c) 
+    REAL(wp) :: z_omega_p(nproma,p_patch%nlev) !< vertical velocity in p-system
+    REAL(wp) :: z_plitot (nproma,p_patch%nlev) !< cloud water + cloud ice
+    REAL(wp) :: z_qhfl (nproma,p_patch%nlevp1) !< 3D moisture flux( convection)
+    REAL(wp) :: z_shfl (nproma,p_patch%nlevp1) !< 3D sensible heat flux "-"
+    REAL(wp) :: z_mflxr(nproma,p_patch%nlevp1) !< 3D conv. rain flux
+    REAL(wp) :: z_mflxs(nproma,p_patch%nlevp1) !< 3D conv. snow flux
+    REAL(wp) :: z_dtdqv  (nproma,p_patch%nlev) !< 3D moisture convergence
+    REAL(wp) :: z_dtdt   (nproma,p_patch%nlev) !< temporal temperature tendency
+    REAL(wp) :: z_dtdqv_sv(nproma,p_patch%nlev)!< save array for moisture convergence
+    REAL(wp) :: z_dtdt_sv(nproma,p_patch%nlev) !< save array for temperature tendency
 
     ! Local scalars:
 
@@ -143,95 +137,105 @@ CONTAINS
  
 
 !$OMP PARALLEL
-!$OMP WORKSHARE
-    z_plitot (:,:,:)   = 0._wp
-    z_mflxs  (:,:,:)   = 0._wp
-    z_mflxr  (:,:,:)   = 0._wp
-!$OMP END WORKSHARE
 
-!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx),SCHEDULE(guided)
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_omega_p,z_plitot,z_qhfl,z_shfl,z_mflxr,&
+!$OMP            z_mflxs,z_dtdqv,z_dtdt,z_dtdqv_sv,z_dtdt_sv),SCHEDULE(guided)
 
-      DO jb = i_startblk, i_endblk
-        !
-        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-&                       i_startidx, i_endidx, rl_start, rl_end)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, rl_start, rl_end)
 
 
-        !-------------------------------------------------------------------------
-        !> Calculate vertical velocity in p-system
-        !-------------------------------------------------------------------------
-        !
-        DO jk = 1,nlev
-          DO jc = i_startidx,i_endidx
-            z_omega_p(jc,jk,jb)= -p_prog%w(jc,jk,jb)*p_prog%rho(jc,jk,jb)*grav
-          ENDDO
+      !-------------------------------------------------------------------------
+      !> Calculate vertical velocity in p-system
+      !-------------------------------------------------------------------------
+      !
+      DO jk = kstart_moist(jg),nlev
+        DO jc = i_startidx,i_endidx
+          z_omega_p(jc,jk)= -0.5_wp*(p_prog%w(jc,jk,jb)+p_prog%w(jc,jk+1,jb)) &
+                            *p_prog%rho(jc,jk,jb)*grav
         ENDDO
+      ENDDO
 
-        IF( atm_phy_nwp_config(jg)%inwp_convection == 1 ) THEN
+      IF( atm_phy_nwp_config(jg)%inwp_convection == 1 ) THEN
 
         !>
         !! define convective-related fields
-        !!KF testvalues taken from Peter Bechtold
         !! NOTA: heat fluxes are  defined positive when directed upwards
         !!       so POSITIVE during day over land
         !!      - in Call of convection code sign is reversed
-
-          !KF preliminary setup for fluxes
-
-
-
-!PR pass fluxes to cumastrn that are negative when upwards!!!!
-
+        !! thus pass fluxes to cumastrn that are negative when upwards
 
         IF(atm_phy_nwp_config(jg)%inwp_turb == 0 ) THEN
 
-        z_qhfl( i_startidx:i_endidx,nlevp1,jb) = - 4.79846_wp*1.e-5_wp !> moisture flux W/m**2
-        z_shfl( i_startidx:i_endidx,nlevp1,jb) = -   17._wp              !! sens. heat fl W/m**2
+          z_qhfl(i_startidx:i_endidx,nlevp1) = - 4.79846_wp*1.e-5_wp !> moisture flux W/m**2
+          z_shfl(i_startidx:i_endidx,nlevp1) = - 17._wp              !! sens. heat fl W/m**2
 
         ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 1 ) THEN
 
-        prm_diag%qhfl_s( i_startidx:i_endidx,jb) = prm_diag%lhfl_s( i_startidx:i_endidx,jb) & 
+          prm_diag%qhfl_s(i_startidx:i_endidx,jb) = prm_diag%lhfl_s(i_startidx:i_endidx,jb) & 
              &                                   / alv
-        ! PR. In turb1, the flux is positive upwards
+          ! PR. In turb1, the flux is positive upwards
 
-        z_qhfl( i_startidx:i_endidx,nlevp1,jb) = - prm_diag%qhfl_s( i_startidx:i_endidx,jb)
-        z_shfl( i_startidx:i_endidx,nlevp1,jb) = - prm_diag%shfl_s( i_startidx:i_endidx,jb)
+          z_qhfl(i_startidx:i_endidx,nlevp1) = - prm_diag%qhfl_s(i_startidx:i_endidx,jb)
+          z_shfl(i_startidx:i_endidx,nlevp1) = - prm_diag%shfl_s(i_startidx:i_endidx,jb)
 
         ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 2 ) THEN
 
-        ! PR. In turb2, the flux is negative upwards
-        z_qhfl( i_startidx:i_endidx,nlevp1,jb) = prm_diag%qhfl_s (i_startidx:i_endidx,jb)
+         ! PR. In turb2, the flux is negative upwards
+          z_qhfl(i_startidx:i_endidx,nlevp1) = prm_diag%qhfl_s(i_startidx:i_endidx,jb)
 
-        IF (nsfc_type == 1  ) THEN
-         IF (ilnd <= nsfc_type ) THEN   ! sensible heat flux not implemented over land
-            z_shfl( i_startidx:i_endidx,nlevp1,jb) = -   17._wp            !! sens. heat fl W/m**2
+          IF (nsfc_type == 1  ) THEN
+            IF (ilnd <= nsfc_type ) THEN   ! sensible heat flux not implemented over land
+              z_shfl(i_startidx:i_endidx,nlevp1) = - 17._wp  !! sens. heat fl W/m**2
 
-         ELSE                 ! These is the case for which sensible heat
+            ELSE              ! These is the case for which sensible heat
                               ! is implementead in vdiff
-            z_shfl( i_startidx:i_endidx,nlevp1,jb) = prm_diag%shfl_s( i_startidx:i_endidx,jb)
-         END IF
-        ELSE
-         z_shfl( i_startidx:i_endidx,nlevp1,jb) = -   17._wp            !! sens. heat fl W/m**2 not jet implemented
+              z_shfl(i_startidx:i_endidx,nlevp1) = prm_diag%shfl_s(i_startidx:i_endidx,jb)
+            END IF
+          ELSE
+            z_shfl( i_startidx:i_endidx,nlevp1) = - 17._wp !! sens. heat fl W/m**2 not yet implemented
+          ENDIF
         ENDIF
-        ENDIF
 
-        z_dtdqv(i_startidx:i_endidx,:,jb) =                               &
-           &     p_diag%ddt_tracer_adv(i_startidx:i_endidx,:,jb,iqv)      &
-           &   + prm_nwp_tend%ddt_tracer_turb(i_startidx:i_endidx,:,jb,iqv)
+        z_omega_p (:,1:kstart_moist(jg)-1) = 0._wp
+        z_dtdqv   (:,1:kstart_moist(jg)-1) = 0._wp
+        z_dtdt    (:,1:kstart_moist(jg)-1) = 0._wp
+        z_plitot  (:,1:kstart_moist(jg)-1) = 0._wp
 
-        ! input from other physical processes on the convection
-        z_dtdt(i_startidx:i_endidx,:,jb)=                            &
-          &    prm_nwp_tend%ddt_temp_radsw(i_startidx:i_endidx,:,jb) &
-          &  + prm_nwp_tend%ddt_temp_radlw(i_startidx:i_endidx,:,jb) &
-          &  + prm_nwp_tend%ddt_temp_turb (i_startidx:i_endidx,:,jb) &
-          &  + p_diag%ddt_temp_dyn(i_startidx:i_endidx,:,jb)
 
-        !KF its a must to set them to zero!
-        prm_nwp_tend%ddt_temp_pconv  (i_startidx:i_endidx,:,jb)   = 0._wp
-        prm_nwp_tend%ddt_tracer_pconv(i_startidx:i_endidx,:,jb,:) = 0._wp
-        prm_nwp_tend%ddt_u_pconv     (i_startidx:i_endidx,:,jb)   = 0._wp
-        prm_nwp_tend%ddt_v_pconv     (i_startidx:i_endidx,:,jb)   = 0._wp
+        DO jk = kstart_moist(jg),nlev
+          DO jc = i_startidx,i_endidx
+            ! moisture convergence
+            z_dtdqv(jc,jk) =                                                                 &
+              p_diag%ddt_tracer_adv(jc,jk,jb,iqv) + prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqv)
+            z_dtdqv_sv(jc,jk) = z_dtdqv(jc,jk)
 
+            ! temperature tendencies from other physical processes (used for mass flux closure)
+            z_dtdt(jc,jk) =                              &
+              &    prm_nwp_tend%ddt_temp_radsw(jc,jk,jb) &
+              &  + prm_nwp_tend%ddt_temp_radlw(jc,jk,jb) &
+              &  + prm_nwp_tend%ddt_temp_turb (jc,jk,jb) &
+              &  + p_diag%ddt_temp_dyn(jc,jk,jb)
+            z_dtdt_sv(jc,jk) = z_dtdt(jc,jk)
+
+            ! cloud water + cloud ice for entrainment computation
+            z_plitot(jc,jk) = p_prog_rcf%tracer(jc,jk,jb,iqc) &
+                            + p_prog_rcf%tracer(jc,jk,jb,iqi)
+          ENDDO
+        ENDDO
+
+        ! The following input fields must be reset to zero because the convective
+        ! tendencies are added to them
+        prm_nwp_tend%ddt_temp_pconv  (:,:,jb)     = 0._wp
+        prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqc) = 0._wp
+        prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqi) = 0._wp
+        prm_nwp_tend%ddt_u_pconv     (:,:,jb)     = 0._wp
+        prm_nwp_tend%ddt_v_pconv     (:,:,jb)     = 0._wp
+
+        z_mflxs(:,:)   = 0._wp
+        z_mflxr(:,:)   = 0._wp
 
         !-------------------------------------------------------------------------
         !> Convection
@@ -245,17 +249,17 @@ CONTAINS
 &            pten   = p_diag%temp      (:,:,jb)                              ,& !! IN
 &            pqen   = p_prog_rcf%tracer(:,:,jb,iqv)                          ,& !! IN
 &            puen   = p_diag%u         (:,:,jb), pven   = p_diag%v( :,:,jb) ,& !! IN
-&            plitot = z_plitot          (:,:,jb), pvervel= z_omega_p (:,:,jb) ,& !! IN
-&            pqhfl  = z_qhfl            (:,:,jb), pahfs  = z_shfl    (:,:,jb) ,& !! IN
+&            plitot = z_plitot                 , pvervel= z_omega_p         ,& !! IN
+&            pqhfl  = z_qhfl                   , pahfs  = z_shfl            ,& !! IN
 &            pap    = p_diag%pres      (:,:,jb), paph   = p_diag%pres_ifc(:,:,jb),& !! IN
 &            pgeo   = p_metrics%geopot_agl (:,:,jb)                        ,& !! IN
 &            pgeoh  = p_metrics%geopot_agl_ifc(:,:,jb)                        ,& !! IN
 &            zdph   = p_diag%dpres_mc    (:,:,jb)                            ,& !! IN
 &            zdgeoh = p_metrics%dgeopot_mc(:,:,jb)                            ,& !! IN
-&            ptent  = z_dtdt                       (:,:,jb)                   ,& !! INOUT
+&            ptent  = z_dtdt                                                  ,& !! INOUT
 &            ptenu  = prm_nwp_tend%ddt_u_pconv     (:,:,jb)                   ,& !! OUT
 &            ptenv  = prm_nwp_tend%ddt_v_pconv     (:,:,jb)                   ,& !! OUT
-&            ptenq  = z_dtdqv                      (:,:,jb)                   ,& !! INOUT
+&            ptenq  = z_dtdqv                                                 ,& !! INOUT
 &            ptenl  = prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqc)               ,& !! OUT
 &            pteni  = prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqi)               ,& !! OUT
 !&            ptens  = prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqs)               ,& !! OUT
@@ -270,8 +274,8 @@ CONTAINS
 &            ptu    =      prm_diag%con_udd(:,:,jb,5)                         ,& !! OUT
 &            pqu    =      prm_diag%con_udd(:,:,jb,6)                         ,& !! OUT
 &            plu    =      prm_diag%con_udd(:,:,jb,7)                         ,& !! OUT
-&            pmflxr =      z_mflxr             (:,:,jb)                       ,& !! OUT
-&            pmflxs =      z_mflxs             (:,:,jb)                       ,& !! OUT
+&            pmflxr =      z_mflxr                                            ,& !! OUT
+&            pmflxs =      z_mflxs                                            ,& !! OUT
 &            prain  =      prm_diag%rain_upd (:,jb)                           ,& !! OUT
 &            pcape =       prm_diag%cape     (:,jb)                           ) !! OUT
 
@@ -306,25 +310,20 @@ CONTAINS
 
 
 !          p_diag%extra(:,:,jb,1)= bkaba
-          prm_nwp_tend%ddt_temp_pconv  (i_startidx:i_endidx,1:kstart_moist(jg)-1,jb) = 0._wp
 
-          prm_nwp_tend%ddt_temp_pconv  (i_startidx:i_endidx,kstart_moist(jg):,jb) =     &
-            &  z_dtdt(i_startidx:i_endidx,kstart_moist(jg):,jb)                         &
-            &  - prm_nwp_tend%ddt_temp_radsw (i_startidx:i_endidx,kstart_moist(jg):,jb) &
-            &  - prm_nwp_tend%ddt_temp_radlw (i_startidx:i_endidx,kstart_moist(jg):,jb) &
-            &  - prm_nwp_tend%ddt_temp_turb(i_startidx:i_endidx,kstart_moist(jg):,jb)   &
-            &  - p_diag%ddt_temp_dyn(i_startidx:i_endidx,kstart_moist(jg):,jb)
+          prm_nwp_tend%ddt_temp_pconv  (i_startidx:i_endidx,kstart_moist(jg):,jb) =  &
+            &    z_dtdt   (i_startidx:i_endidx,kstart_moist(jg):)                    &
+            &  - z_dtdt_sv(i_startidx:i_endidx,kstart_moist(jg):)
 
           prm_nwp_tend%ddt_tracer_pconv(i_startidx:i_endidx,kstart_moist(jg):,jb,iqv) =  &
-            &  z_dtdqv(i_startidx:i_endidx,kstart_moist(jg):,jb)                         &
-            &  - p_diag%ddt_tracer_adv(i_startidx:i_endidx,kstart_moist(jg):,jb,iqv)     &
-            &  - prm_nwp_tend%ddt_tracer_turb(i_startidx:i_endidx,kstart_moist(jg):,jb,iqv)
+            &    z_dtdqv   (i_startidx:i_endidx,kstart_moist(jg):)                       &
+            &  - z_dtdqv_sv(i_startidx:i_endidx,kstart_moist(jg):)
 
-          prm_diag%tracer_rate(i_startidx:i_endidx,jb,3) = z_mflxr(i_startidx:i_endidx,nlevp1,jb)
-          prm_diag%tracer_rate(i_startidx:i_endidx,jb,4) = z_mflxs(i_startidx:i_endidx,nlevp1,jb)
+          prm_diag%tracer_rate(i_startidx:i_endidx,jb,3) = z_mflxr(i_startidx:i_endidx,nlevp1)
+          prm_diag%tracer_rate(i_startidx:i_endidx,jb,4) = z_mflxs(i_startidx:i_endidx,nlevp1)
 
 
-          ENDIF !inwp_conv
+        ENDIF !inwp_conv
 
       ENDDO
 !$OMP END DO
