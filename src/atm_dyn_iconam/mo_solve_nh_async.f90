@@ -824,12 +824,12 @@ MODULE mo_solve_nh_async
 
         IF (l_open_ubc .AND. .NOT. l_vert_nested) THEN
           ! Compute contribution of thermal expansion to vertical wind at model top
-          ! Isobaric expansion is assumed
+          ! Isothermal expansion is assumed
           z_thermal_exp(:,jb) = 0._wp
 !CDIR UNROLL=4
-          DO jk = 1, nlev
+          DO jk = 2, nlev
             DO jc = i_startidx, i_endidx
-              z_thermal_exp(jc,jb) = z_thermal_exp(jc,jb) + cpd_o_rd                &
+              z_thermal_exp(jc,jb) = z_thermal_exp(jc,jb) + cvd_o_rd                &
                 * (p_nh%diag%ddt_exner(jc,jk,jb)+p_nh%diag%ddt_exner_phy(jc,jk,jb)) &
                 /  p_nh%prog(nnow)%exner(jc,jk,jb)*p_nh%metrics%ddqz_z_full(jc,jk,jb)
             ENDDO
@@ -919,7 +919,22 @@ MODULE mo_solve_nh_async
       ENDDO
 
       ! rho and theta at top level (fields are interpolated from parent domain in case of vertical nesting)
-      IF (l_vert_nested) THEN
+      ! rho and theta at top level (fields are interpolated from parent domain in case of vertical nesting)
+      IF (l_open_ubc .AND. .NOT. l_vert_nested) THEN
+        DO jc = i_startidx, i_endidx
+          p_nh%diag%theta_v_ic(jc,1,jb) = p_nh%metrics%theta_ref_ic(jc,1,jb) + &
+            p_nh%metrics%wgtfacq1_c(jc,1,jb)*z_theta_v_pr_mc(jc,1) +           &
+            p_nh%metrics%wgtfacq1_c(jc,2,jb)*z_theta_v_pr_mc(jc,2) +           &
+            p_nh%metrics%wgtfacq1_c(jc,3,jb)*z_theta_v_pr_mc(jc,3)
+          p_nh%diag%rho_ic(jc,1,jb) =  0.5_wp*(                              &
+            p_nh%metrics%wgtfacq1_c(jc,1,jb)*p_nh%prog(nnow)%rho(jc,1,jb) +  &
+            p_nh%metrics%wgtfacq1_c(jc,2,jb)*p_nh%prog(nnow)%rho(jc,2,jb) +  &
+            p_nh%metrics%wgtfacq1_c(jc,3,jb)*p_nh%prog(nnow)%rho(jc,3,jb) +  &
+            p_nh%metrics%wgtfacq1_c(jc,1,jb)*p_nh%prog(nvar)%rho(jc,1,jb) +  &
+            p_nh%metrics%wgtfacq1_c(jc,2,jb)*p_nh%prog(nvar)%rho(jc,2,jb) +  &
+            p_nh%metrics%wgtfacq1_c(jc,3,jb)*p_nh%prog(nvar)%rho(jc,3,jb) )
+        ENDDO
+      ELSE IF (l_vert_nested) THEN
         DO jc = i_startidx, i_endidx
           p_nh%diag%theta_v_ic(jc,1,jb) = p_nh%diag%theta_v_ic(jc,2,jb) + &
             p_nh%diag%dtheta_v_ic_ubc(jc,jb)
