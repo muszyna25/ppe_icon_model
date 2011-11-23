@@ -1376,7 +1376,7 @@ END DO
         END DO
       END DO
 
-      !  - add horizontally homogen vertically increasing salinity
+      !  - add horizontally homogen, vertically increasing / homogen salinity
       IF (no_tracer==2) THEN
         DO jk=1,n_zlev
           DO jb = i_startblk_c, i_endblk_c    
@@ -1384,7 +1384,8 @@ END DO
              &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
             DO jc = i_startidx_c, i_endidx_c
               IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-                p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof_var(jk)
+              ! p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof_var(jk)
+                p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 35.0_wp
               ELSE
                 p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 0.0_wp
               ENDIF
