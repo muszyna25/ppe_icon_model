@@ -2028,7 +2028,7 @@ END SUBROUTINE new_ice_growth
   fakts   =  1.0_wp + 0.3_wp*p_as%fclou**2
   Qatm%LWin = fakts * humi * emiss*StefBol * tafoK**4
 
-  Qatm%LWoutw = emiss*StefBol * (Tsurf+273.15_wp)**4
+  Qatm%LWoutw = emiss*StefBol * (Tsurf+tmelt)**4
   Qatm%LWnetw = Qatm%LWin - Qatm%LWoutw
 
   Qatm%SWin = p_as%fswr
@@ -2062,9 +2062,9 @@ END SUBROUTINE new_ice_growth
       dragl    = MAX(0.5e-3_wp, MIN(3.0e-3_wp,dragl))
       drags    = 0.95_wp * dragl
 
-      Qatm%LWout (:,i,:) = emiss*StefBol * (Tsurf+273.15_wp)**4
+      Qatm%LWout (:,i,:) = emiss*StefBol * (Tsurf+tmelt)**4
       Qatm%LWnet (:,i,:) = Qatm%LWin - Qatm%LWout(:,i,:)
-      Qatm%dLWdT (:,i,:) = - 4.0_wp * emiss*StefBol * (Tsurf + 273.15_wp)**3
+      Qatm%dLWdT (:,i,:) = - 4.0_wp * emiss*StefBol * (Tsurf + tmelt)**3
       Qatm%sens  (:,i,:) = drags * rhoair*cpa*p_as%fu10 * (p_as%tafo -Tsurf)
       Qatm%lat   (:,i,:) = dragl * rhoair* Lfreez *p_as%fu10 * (sphumida-sphumidi)
 
