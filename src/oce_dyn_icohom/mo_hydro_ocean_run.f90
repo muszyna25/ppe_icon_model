@@ -420,7 +420,7 @@ CONTAINS
     IF (init_oce_prog == 0) THEN
       CALL init_ho_testcases(ppatch(jg), pstate_oce(jg), p_ext_data(jg), p_sfc_flx)
     ELSE IF (init_oce_prog == 1) THEN
-      CALL init_ho_prog(ppatch(jg), pstate_oce(jg), p_ext_data(jg), p_sfc_flx)
+      CALL init_ho_prog(ppatch(jg), pstate_oce(jg), p_sfc_flx)
     END IF
     CALL init_ho_coupled(ppatch(jg), pstate_oce(jg))
     IF (i_sea_ice == 1) &

@@ -118,10 +118,10 @@ CONTAINS
   !
   !-------------------------------------------------------------------------
   !
-  SUBROUTINE init_ho_prog(ppatch, p_os, p_ext_data, p_sfc_flx)
+  SUBROUTINE init_ho_prog(ppatch, p_os, p_sfc_flx)
   TYPE(t_patch), INTENT(IN)         :: ppatch
   TYPE(t_hydro_ocean_state), TARGET :: p_os
-  TYPE(t_external_data)             :: p_ext_data 
+  !TYPE(t_external_data)             :: p_ext_data 
   TYPE(t_sfc_flx)                   :: p_sfc_flx
 
   ! Local Variables
@@ -130,7 +130,7 @@ CONTAINS
   CHARACTER(filename_max) :: prog_init_file   !< file name for reading in
 
   LOGICAL :: l_exist
-  INTEGER :: i_lev, no_cells, no_levels, jk, jb, jc, jlen
+  INTEGER :: i_lev, no_cells, no_levels, jk, jb, jc
   INTEGER :: ncid, dimid
   INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start, rl_end_c
 
@@ -1669,19 +1669,19 @@ FUNCTION geo_balance_mim(p_patch, h_e, rhs_e) result(vn_e)
    REAL(wp)      :: vn_e(SIZE(rhs_e,1),SIZE(rhs_e,2))
    !
    !LOCAL VARIABLES
-   INTEGER,PARAMETER :: nmax_iter= 200 ! maximum number of iterations
+ ! INTEGER,PARAMETER :: nmax_iter= 200 ! maximum number of iterations
    REAL(wp) :: zimpl_coeff = 1.0_wp    !COEFF has to be set appropriately !!!!
    REAL(wp) :: zimpl_prime_coeff
-   INTEGER  :: n_iter =.0                  ! number of iterations
+ ! INTEGER  :: n_iter =0               ! number of iterations
    REAL(wp) :: tolerance               ! (relative or absolute) tolerance
-   REAL(wp) :: z_residual(nmax_iter)
+ ! REAL(wp) :: z_residual(nmax_iter)
    LOGICAL  :: lmax_iter               ! true if reached m iterations
-   LOGICAL  :: lverbose = .TRUE.
+ ! LOGICAL  :: lverbose = .TRUE.
    INTEGER  :: jk
    REAL(wp) :: rhstemp(nproma,p_patch%nblks_e)
    REAL(wp), ALLOCATABLE :: vn_e2(:,:)!(nproma,p_patch%nblks_e)
-   !INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
-   !INTEGER :: rl_start_e, rl_end_e, je,jb
+ ! INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
+ ! INTEGER :: rl_start_e, rl_end_e, je,jb
 
    !-----------------------------------------------------------------------
    tolerance         = 1.0e-13_wp  ! solver_tolerance
