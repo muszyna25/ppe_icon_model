@@ -120,14 +120,14 @@ fi
 #
 if [[  $use_target == "tornado" ]] ; then
   name=couple_atmo-ocean
-  $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="00:20:00" mpi_procs=16
+  $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="01:00:00" mpi_procs=16
   name=test_couple_atmo-ocean
-  $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="00:20:00" mpi_procs=16
+  $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="01:00:00" mpi_procs=16
 else
   name=couple_atmo-ocean
-  $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="00:20:00" 
+  $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="01:00:00" 
   name=test_couple_atmo-ocean
-  $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="00:20:00" 
+  $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="01:00:00" 
 fi
 
 #==============================================================================
