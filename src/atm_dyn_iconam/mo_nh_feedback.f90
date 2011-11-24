@@ -123,7 +123,7 @@ TYPE(t_patch),      POINTER     :: p_pc => NULL()
 
 ! Indices
 INTEGER :: jb, jc, jk, jks, jt, je, jgc, i_nchdom, i_chidx, &
-           i_startblk, i_endblk, i_startidx, i_endidx, ic
+           i_startblk, i_endblk, i_startidx, i_endidx, ic, i_ncd
 
 INTEGER :: nlev_c, nlevp1_c  ! number of full and half levels (child dom)
 INTEGER :: nlev_p, nlevp1_p  ! number of full and half levels (parent dom)
@@ -487,7 +487,7 @@ ELSE ! iforcing >= 2; tracers represent moisture variables
   ENDDO
 ENDIF
 
-!$OMP PARALLEL PRIVATE(i_startblk,i_endblk,nshift_c)
+!$OMP PARALLEL PRIVATE(i_startblk,i_endblk,nshift_c,i_ncd)
 
 IF (l_masscorr_nest) THEN
   ! Add mass conservation correction to child domain in order to prevent
@@ -526,8 +526,9 @@ IF (l_masscorr_nest) THEN
     DO ic = 1, p_pc%n_chd_total
       jgc = p_pc%child_id_list(ic)
 
+      i_ncd      = MAX(1,p_patch(jgc)%n_childdom)
       i_startblk = p_patch(jgc)%cells%start_blk(grf_bdywidth_c+1,1)
-      i_endblk   = p_patch(jgc)%cells%end_blk(min_rlcell,i_nchdom)
+      i_endblk   = p_patch(jgc)%cells%end_blk(min_rlcell,i_ncd)
       nshift_c   = p_patch(jgc)%nshift_total - p_pc%nshift_total
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
