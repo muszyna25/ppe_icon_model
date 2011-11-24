@@ -111,6 +111,7 @@ MODULE mo_nonhydrostatic_config
     REAL(wp) :: k2_updamp_coeff ! 2nd order additional horizontal diffusion
                                 ! coefficient in the upp‚per damping zone
 
+
 !  END TYPE t_nonhydrostatic_config 
   !>
   !!
@@ -132,9 +133,9 @@ CONTAINS
   !!
   SUBROUTINE configure_nonhydrostatic(jg, nlev, nshift_total)
   !
-    INTEGER, INTENT(IN) :: jg           !< patch 
-    INTEGER, INTENT(IN) :: nlev         !< number of full vertical levels 
-    INTEGER, INTENT(IN) :: nshift_total 
+    INTEGER,  INTENT(IN) :: jg           !< patch 
+    INTEGER,  INTENT(IN) :: nlev         !< number of full vertical levels 
+    INTEGER,  INTENT(IN) :: nshift_total 
 
     INTEGER :: jk, jk1
 
@@ -142,7 +143,6 @@ CONTAINS
       &  routine = 'mo_nonhydrostatic_config:configure_nonhydrostatic'
 
     !-----------------------------------------------------------------------
-
 
     ! Determine start level for moist physics processes (specified by htop_moist_proc)
     DO jk = 1, nlev

@@ -47,7 +47,7 @@ MODULE mo_run_config
   PRIVATE
   PUBLIC :: ldump_states, lrestore_states, ltestcase, ldynamics, iforcing, lforcing
   PUBLIC :: ltransport, ntracer, ntracer_static, nlev, nlevp1, nvclev
-  PUBLIC :: lvert_nest, num_lev, num_levp1, nshift, nsteps, dtime
+  PUBLIC :: lvert_nest, num_lev, num_levp1, nshift, nsteps, dtime, dtime_adv
   PUBLIC :: ltimer, timers_level, activate_sync_timers, msg_level
   PUBLIC :: iqv, iqc, iqi, iqs, iqr, iqcond, iqt, io3, ico2
   PUBLIC :: check_epsilon, test_gw_hines_opt
@@ -105,15 +105,31 @@ MODULE mo_run_config
   
     INTEGER :: iqt        ! start index of other tracers than hydrometeors
 
+    ! derived variables
+
+    REAL(wp) :: dtime_adv ! advective timestep on global patch (iadv_rcf*dtime) [s]
+
 CONTAINS
   !>
   !!
   !! Assign value to components of the run configuration state that have no
   !! corresponding namelist variable. 
   !!
-  SUBROUTINE configure_run
+  SUBROUTINE configure_run( opt_iadv_rcf )
+
+    INTEGER, OPTIONAL, INTENT(IN) :: opt_iadv_rcf  !< reduced calling freq. for advection
+  
 
     !0!CHARACTER(LEN=*),PARAMETER :: routine = 'mo_run_config:configure_run'
+
+    !----------------------------
+    ! advective timestep on global patch
+    IF ( PRESENT(opt_iadv_rcf) ) THEN
+      dtime_adv = REAL(opt_iadv_rcf,wp) * dtime  ! NH-atm
+    ELSE
+      dtime_adv = dtime  ! oce, H-atm
+    ENDIF
+
 
     !----------------------------
     ! Number of vertical levels

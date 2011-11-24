@@ -73,7 +73,7 @@ CONTAINS
   !!-------------------------------------------------------------------------
   !!
   SUBROUTINE nwp_surface( tcall_sfc_jg,                   & !>in
-                        & p_sim_time, dt_loc,             & !>in
+                        & p_sim_time, dtadv_loc,          & !>in
                         & p_patch,                        & !>in
                         & ext_data,                       & !>in
                         & p_prog_rcf,                     & !>in/inout
@@ -83,7 +83,7 @@ CONTAINS
                         & lnd_diag                        ) !>inout
 
     REAL(wp),                    INTENT(in)   :: p_sim_time    !< simulation time [s]
-    REAL(wp),                    INTENT(in)   :: dt_loc        !< time step [s]
+    REAL(wp),                    INTENT(in)   :: dtadv_loc     !< advective time step [s]
     TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch       !< grid/patch info
     TYPE(t_external_data),       INTENT(in)   :: ext_data      !< external data
     TYPE(t_nh_prog),      TARGET,INTENT(inout):: p_prog_rcf    !< call freq
@@ -184,7 +184,7 @@ CONTAINS
     ! instead of a relative one. Otherwise, the initialization part will be called after 
     ! restart.)
 !    nstep_soil = NINT(REAL(jstep,wp)/REAL(iadv_rcf,wp)) - 1
-    nstep_soil = NINT(p_sim_time/(dt_loc*REAL(iadv_rcf,wp))) - 1
+    nstep_soil = NINT(p_sim_time/dtadv_loc) - 1
 
     IF (msg_level >= 12) THEN
       CALL message('mo_nwp_sfc_interface: ', 'call land-surface scheme')

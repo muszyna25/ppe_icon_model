@@ -177,6 +177,7 @@ CONTAINS
     IF (iequations/=ihs_ocean) THEN ! atm (ocean does not know iadv_rcf) 
       ! Check whether the end of the restart cycle is synchronized with a transport 
       ! event. If not, adapt dt_restart accordingly.
+      ! dtime_adv not available at this point. Thus we need to use iadv_rcf*dtime
       !
       IF (MOD(time_config%dt_restart,REAL(iadv_rcf,wp)*dtime) /= 0) THEN
         time_config%dt_restart =                                              &
@@ -222,6 +223,7 @@ CONTAINS
     IF (iequations/=ihs_ocean) THEN ! atm (ocean does not know iadv_rcf) 
       ! Check whether checkpointing is synchronized with a transport event.
       ! If not, adapt dt_checkpoint accordingly.
+      ! dtime_adv not available at this point. Thus we need to use iadv_rcf*dtime
       !
       IF (MOD(dt_checkpoint,REAL(iadv_rcf,wp)*dtime) /= 0) THEN
         dt_checkpoint = REAL(NINT(dt_checkpoint/(REAL(iadv_rcf,wp)*dtime)),wp) &

@@ -49,13 +49,12 @@ USE mo_io_config,            ONLY: dt_data,dt_file,dt_diag,dt_checkpoint, &
 USE mo_parallel_config,      ONLY: nproma
 USE mo_nh_pzlev_config,      ONLY: configure_nh_pzlev
 USE mo_run_config,           ONLY: &
-  &                               dtime,                & !    namelist parameter
+  &                               dtime, dtime_adv,     & !    namelist parameter
   &                               ltestcase,            &
   &                               nsteps,               & !    :
   &                               ltimer,               & !    :
   &                               iforcing                !    namelist parameter
 USE mo_dynamics_config,      ONLY: nnow, nnow_rcf
-USE mo_nonhydrostatic_config, ONLY: iadv_rcf
 USE mo_impl_constants,       ONLY: inwp
 USE mo_lnd_nwp_config,       ONLY: configure_lnd_nwp
 ! Horizontal grid
@@ -114,8 +113,7 @@ CONTAINS
 
     IF(iforcing == inwp) THEN
 
-     CALL configure_atm_phy_nwp(n_dom, pat_level(:),&
-          &                     ltestcase, iadv_rcf, dtime )
+     CALL configure_atm_phy_nwp(n_dom, pat_level(:), ltestcase, dtime_adv )
     ENDIF
 
     IF (.NOT. ltestcase .AND. iforcing == inwp) THEN

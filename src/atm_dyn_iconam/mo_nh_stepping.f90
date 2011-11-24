@@ -57,7 +57,7 @@ MODULE mo_nh_stepping
   USE mo_io_config,            ONLY: l_outputtime, l_diagtime, is_checkpoint_time,&
     &                                lwrite_pzlev, istime4output
   USE mo_parallel_config,      ONLY: nproma, itype_comm
-  USE mo_run_config,           ONLY: ltestcase, dtime, nsteps,  &
+  USE mo_run_config,           ONLY: ltestcase, dtime, dtime_adv, nsteps,     &
     &                                ltransport, ntracer, lforcing, iforcing, &
     &                                msg_level, ltimer
   USE mo_grid_config,          ONLY: global_cell_type
@@ -483,7 +483,8 @@ MODULE mo_nh_stepping
     ! dynamics stepping
     !
     CALL integrate_nh(p_nh_state, p_patch, p_int_state, datetime, p_grf_state, &
-                      1, jstep, dtime, sim_time, 1, l_compute_diagnostic_quants)
+      &               1, jstep, dtime, dtime_adv, sim_time, 1,                 &
+      &               l_compute_diagnostic_quants                              )
 
     ! output of results
     ! note: nnew has been replaced by nnow here because the update
@@ -820,13 +821,13 @@ MODULE mo_nh_stepping
   !!  - optional reduced calling frequency for transport and physics
   !!
 #ifdef __NO_NESTING__
-   SUBROUTINE integrate_nh (p_nh_state, p_patch, p_int_state, datetime,        &
-  &        p_grf_state, jg, nstep_global, dt_loc, sim_time, num_steps, &
-  &        l_compute_diagnostic_quants)
+   SUBROUTINE integrate_nh (p_nh_state, p_patch, p_int_state, datetime,  &
+  &        p_grf_state, jg, nstep_global, dt_loc, dtadv_loc, sim_time,   &
+  &        num_steps, l_compute_diagnostic_quants)
 #else
   RECURSIVE SUBROUTINE integrate_nh (p_nh_state, p_patch, p_int_state, datetime,  &
-  &        p_grf_state, jg, nstep_global, dt_loc, sim_time, num_steps, &
-  &        l_compute_diagnostic_quants)
+  &        p_grf_state, jg, nstep_global, dt_loc, dtadv_loc, sim_time, &
+  &        num_steps, l_compute_diagnostic_quants)
 #endif
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
@@ -838,10 +839,12 @@ MODULE mo_nh_stepping
     TYPE(t_nh_state), TARGET, INTENT(inout) :: p_nh_state(n_dom) !< nonhydrostatic state
     TYPE(t_gridref_state), INTENT(INOUT) :: p_grf_state(n_dom_start:n_dom)!< gridref state
 
-    INTEGER, INTENT(IN)     :: jg           !< current grid level
-    INTEGER, INTENT(IN)     :: nstep_global !< counter of global time step
-    INTEGER, INTENT(IN)     :: num_steps    !< number of time steps to be executed
+    INTEGER , INTENT(IN)    :: jg           !< current grid level
+    INTEGER , INTENT(IN)    :: nstep_global !< counter of global time step
+    INTEGER , INTENT(IN)    :: num_steps    !< number of time steps to be executed
     REAL(wp), INTENT(IN)    :: dt_loc       !< time step applicable to local grid level
+    REAL(wp), INTENT(IN)    :: dtadv_loc    !< advective time step applicable to 
+                                            !< local grid level
     REAL(wp), INTENT(INOUT) :: sim_time(n_dom) !< elapsed simulation time on each
                                                !< grid level
     LOGICAL, INTENT(IN) :: l_compute_diagnostic_quants    !< computation of diagnostic quantities
@@ -855,8 +858,8 @@ MODULE mo_nh_stepping
     INTEGER :: jstep, jgp, jgc, jn
     INTEGER :: nsteps_nest ! number of time steps executed in nested domain
 
-    REAL(wp):: dt_sub, rdt_loc
-    REAL(wp):: dt_rcf, rdt_rcf   ! time step for advection and fast physics
+    REAL(wp):: dt_sub, dtadv_sub ! (advective) timestep for next finer grid level
+    REAL(wp):: rdt_loc,  rdtadv_loc ! inverse time step for local grid level
 
     REAL(wp), DIMENSION(:,:,:), POINTER  :: p_vn   => NULL()
     REAL(wp), DIMENSION(:,:,:), ALLOCATABLE  :: z_tmp_e
@@ -947,8 +950,6 @@ MODULE mo_nh_stepping
 !$OMP END PARALLEL
       ENDIF
 
-      ! Set 'reduced calling frequency'-time step (for transport and some physics parts)
-      dt_rcf = REAL(iadv_rcf,wp)*dt_loc
 
       ! update several switches which decide upon
       ! - calling transport running with rcf (lstep_adv)
@@ -1059,16 +1060,16 @@ MODULE mo_nh_stepping
           ! get velocity field
           CALL get_nh_df_velocity( p_patch(jg), p_nh_state(jg)%prog(n_new), &
             &                     nh_test_name, rotate_axis_deg,            &
-            &                     sim_time(jg)-dt_loc+dt_rcf )
+            &                     sim_time(jg)-dt_loc+dtadv_loc )
+
 
           ! get mass flux and new \rho. The latter one is only computed,
           ! if the density equation is re-integrated.
-          CALL get_nh_df_mflx_rho(p_patch(jg), p_int_state(jg), & !in
-            &                     p_nh_state(jg)%prog(n_now),   & !in
-            &                     p_nh_state(jg)%prog(n_new),   & !in
-            &                     p_nh_state(jg)%metrics,       & !in
-            &                     p_nh_state(jg)%diag, dt_rcf   ) !inout,in
-
+          CALL get_nh_df_mflx_rho(p_patch(jg), p_int_state(jg),  & !in
+            &                     p_nh_state(jg)%prog(n_now),    & !in
+            &                     p_nh_state(jg)%prog(n_new),    & !in
+            &                     p_nh_state(jg)%metrics,        & !in
+            &                     p_nh_state(jg)%diag, dtadv_loc ) !inout,in
         END SELECT
 
 
@@ -1086,7 +1087,7 @@ MODULE mo_nh_stepping
 
 
         IF (lstep_adv(jg)) THEN
-          CALL step_advection( p_patch(jg), p_int_state(jg), dt_rcf,       & !in
+          CALL step_advection( p_patch(jg), p_int_state(jg), dtadv_loc,    & !in
             &        jstep_adv(jg)%marchuk_order,                          & !in
             &        p_nh_state(jg)%prog(n_now_rcf)%tracer,                & !in
             &        prep_adv(jg)%mass_flx_me, prep_adv(jg)%vn_traj,       & !in
@@ -1150,11 +1151,12 @@ MODULE mo_nh_stepping
 
 
           ! NOTE (DR): To me it is not clear yet, which timestep should be
-          ! used for the first call of the slow_physics part dt_rcf, dt_loc,
+          ! used for the first call of the slow_physics part dtadv_loc, dt_loc,
           ! tcall_phy(jg,:) ...?
           CALL nwp_nh_interface(lcall_phy(jg,:),                   & !in
             &                  lredgrid_phys(jg),                  & !in
             &                  dt_loc,                             & !in
+            &                  dtadv_loc,                          & !in
             &                  nstep_global,                       & !in
             &                  tcall_phy(jg,:),                    & !in
             &                  sim_time(jg),                       & !in
@@ -1303,7 +1305,7 @@ MODULE mo_nh_stepping
 
           IF (lstep_adv(jg)) THEN
 
-            CALL step_advection( p_patch(jg), p_int_state(jg), dt_rcf,         & !in
+            CALL step_advection( p_patch(jg), p_int_state(jg), dtadv_loc,      & !in
               &          jstep_adv(jg)%marchuk_order,                          & !in
               &          p_nh_state(jg)%prog(n_now_rcf)%tracer,                & !in
               &          prep_adv(jg)%mass_flx_me, prep_adv(jg)%vn_traj,       & !in
@@ -1361,6 +1363,7 @@ MODULE mo_nh_stepping
           CALL nwp_nh_interface(lcall_phy(jg,:),                   & !in
             &                  lredgrid_phys(jg),                  & !in
             &                  dt_loc,                             & !in
+            &                  dtadv_loc,                          & !in
             &                  nstep_global,                       & !in
             &                  t_elapsed_phy(jg,:),                & !in
             &                  sim_time(jg),                       & !in
@@ -1398,7 +1401,7 @@ MODULE mo_nh_stepping
       ! If there are nested domains...
       IF (l_nest_rcf .AND. lstep_adv(jg))  THEN
         l_call_nests = .TRUE.
-        rdt_loc = 1._wp/(dt_loc*REAL(iadv_rcf,wp))
+        rdt_loc = 1._wp/(dt_loc*REAL(iadv_rcf,wp))  ! = 1._wp/dtadv_loc ??
         n_now_grf    = nsav1(jg)
         nsteps_nest  = 2*iadv_rcf
       ELSE IF (.NOT. l_nest_rcf) THEN
@@ -1413,12 +1416,13 @@ MODULE mo_nh_stepping
 #ifndef __NO_NESTING__
       IF (l_call_nests .AND. p_patch(jg)%n_childdom > 0) THEN
 
-        dt_sub = dt_loc/2._wp
-        rdt_rcf = 1._wp/dt_rcf
+        dt_sub     = dt_loc/2._wp    ! dyn. time step on next refinement level
+        dtadv_sub  = dtadv_loc/2._wp ! adv. time step on next refinement level
+        rdtadv_loc = 1._wp/dtadv_loc
 
         ! Compute time tendencies for interpolation to refined mesh boundaries
         CALL compute_tendencies (p_patch(jg),p_nh_state(jg),n_new,n_now_grf,n_new_rcf, &
-          &                      n_now_rcf,rdt_loc,rdt_rcf,lstep_adv(jg))
+          &                      n_now_rcf,rdt_loc,rdtadv_loc,lstep_adv(jg))
 
         ! Please note:
         ! The use of start_delayed_exchange/do_delayed_exchange is not restricted
@@ -1468,9 +1472,9 @@ MODULE mo_nh_stepping
           IF(p_patch(jgc)%n_patch_cells > 0) THEN
             IF(proc_split) CALL push_glob_comm(p_patch(jgc)%comm, p_patch(jgc)%proc0)
             ! Recursive call to process_grid_level for child grid level
-            CALL integrate_nh( p_nh_state, p_patch, p_int_state, datetime,           & 
-              p_grf_state, jgc, nstep_global, dt_sub, sim_time, nsteps_nest,         &
-              l_compute_diagnostic_quants)
+            CALL integrate_nh( p_nh_state, p_patch, p_int_state, datetime,        & 
+              p_grf_state, jgc, nstep_global, dt_sub, dtadv_sub, sim_time,        &
+              nsteps_nest, l_compute_diagnostic_quants )
             IF(proc_split) CALL pop_glob_comm()
           ENDIF
 

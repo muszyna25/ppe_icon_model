@@ -136,8 +136,9 @@ MODULE mo_io_vlist
   USE mo_extpar_config,         ONLY: itopo
   USE mo_run_config,            ONLY: num_lev, num_levp1, iforcing, lforcing,     &
     &                                 ntracer, ltransport, nsteps, dtime,         &
-    &                                 ldynamics, ltestcase, lvert_nest, msg_level,&
-    &                                 iqv, iqc, iqi, iqcond, ntracer_static, io3
+    &                                 dtime_adv, ldynamics, ltestcase,            &
+    &                                 lvert_nest, msg_level, iqv, iqc, iqi,       &
+    &                                 iqcond, ntracer_static, io3
   USE mo_grid_config,           ONLY: global_cell_type
   USE mo_echam_phy_config
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
@@ -4278,6 +4279,7 @@ CONTAINS
     CALL addGlobAttInt('run_nml:global_cell_type',global_cell_type,vlist,astatus)
     CALL addGlobAttInt('run_nml:num_lev',num_lev(k_jg),vlist,astatus)
     CALL addGlobAttFlt('run_nml:dtime',dtime,vlist,astatus)
+    CALL addGlobAttFlt('run_nml:dtime_adv',dtime_adv,vlist,astatus)
     CALL addGlobAttInt('run_nml:iequations',iequations,vlist,astatus)
     CALL addGlobAttInt('run_nml:ntracer',ntracer,vlist,astatus)
     CALL addGlobAttTxtFromLog('run_nml:ldynamics',ldynamics,vlist,astatus)

@@ -55,10 +55,10 @@ USE mo_io_async,            ONLY: io_main_proc            ! main procedure for I
 
 ! Control parameters: run control, dynamics, i/o
 !
-USE mo_nonhydrostatic_config,ONLY: ivctype, kstart_moist, kstart_qv,    &
-  &                                kend_qvsubstep, l_open_ubc,          &
+USE mo_nonhydrostatic_config,ONLY: ivctype, kstart_moist, kstart_qv,     &
+  &                                iadv_rcf, kend_qvsubstep, l_open_ubc, &
   &                                configure_nonhydrostatic
-USE mo_dynamics_config,   ONLY: iequations
+USE mo_dynamics_config,   ONLY: configure_dynamics, iequations
 USE mo_run_config,        ONLY: configure_run, &
   & ltimer,               & !    :
   & iforcing,             & !    namelist parameter
@@ -68,7 +68,7 @@ USE mo_run_config,        ONLY: configure_run, &
   & num_lev,num_levp1,    &
   & iqv, nshift,          &
   & lvert_nest, ntracer,  &
-  & msg_level
+  & msg_level, dtime
 
 USE mo_impl_constants, ONLY:&
   & ihs_atm_temp,         & !    :
@@ -162,7 +162,6 @@ USE mo_io_restart_attributes,ONLY: read_restart_attributes
 USE mo_read_namelists,     ONLY: read_atmo_namelists
 USE mo_nml_crosscheck,       ONLY: atm_crosscheck
 
-USE mo_dynamics_config,    ONLY: configure_dynamics  ! subroutine
 !USE mo_interpol_config,    ONLY: configure_interpolation 
 USE mo_interpol_config
 USE mo_advection_config,   ONLY: configure_advection
@@ -262,7 +261,12 @@ CONTAINS
     !    because some component of the state, e.g., num_lev, may be 
     !    modified in this subroutine which affect the following CALLs.
     !---------------------------------------------------------------------
-    CALL configure_run
+    SELECT CASE(iequations)
+    CASE (inh_atmosphere)
+      CALL configure_run( iadv_rcf )
+    CASE DEFAULT
+      CALL configure_run    
+    END SELECT
 
     ! configure (optional) lon-lat interpolation of output variables
     CALL configure_lonlat_intp(max_dom, nproma, num_io_procs)
@@ -538,7 +542,8 @@ CONTAINS
 
     IF (iequations == inh_atmosphere) THEN
       DO jg =1,n_dom
-        CALL configure_nonhydrostatic(jg, p_patch(jg)%nlev, p_patch(jg)%nshift_total)
+        CALL configure_nonhydrostatic( jg, p_patch(jg)%nlev,     &
+          &                            p_patch(jg)%nshift_total  )
       ENDDO
     ENDIF
 

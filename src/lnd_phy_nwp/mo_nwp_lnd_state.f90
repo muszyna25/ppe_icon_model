@@ -282,8 +282,6 @@ MODULE mo_nwp_lnd_state
         WRITE(listname,'(a,i2.2,a,i2.2)') 'lnd_prog_of_domain_',jg, &
           &                               '_and_timelev_',jt
 
-        WRITE(0,*)'lnd_state timelevel=',jt,'and domain= ',jg
-
         !varname_prefix = 'lnd_prog_'
         varname_prefix = ''
         CALL  new_nwp_lnd_prog_list(jg, nblks_c, TRIM(listname),             &

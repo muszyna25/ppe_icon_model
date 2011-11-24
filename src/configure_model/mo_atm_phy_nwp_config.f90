@@ -111,8 +111,7 @@ MODULE mo_atm_phy_nwp_config
 
 CONTAINS
 
-SUBROUTINE configure_atm_phy_nwp(n_dom,pat_level,&
-     &                           ltestcase, iadv_rcf, dtime)
+SUBROUTINE configure_atm_phy_nwp( n_dom, pat_level, ltestcase, dtime_adv )
  !-------------------------------------------------------------------------
   !
   !>
@@ -123,17 +122,12 @@ SUBROUTINE configure_atm_phy_nwp(n_dom,pat_level,&
   !!
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2010-10-06)
-  !! revision for restructurring by Kristina Froehlich MPI-M (2011-07-12)
-
-
+  !! revision for restructuring by Kristina Froehlich MPI-M (2011-07-12)
 
   INTEGER, INTENT(IN) :: n_dom
-  INTEGER, INTENT(IN) :: iadv_rcf
   INTEGER, INTENT(IN) :: pat_level(n_dom)
-  REAL(wp),INTENT(IN) :: dtime
+  REAL(wp),INTENT(IN) :: dtime_adv
   LOGICAL, INTENT(IN) :: ltestcase
-
-
 
   INTEGER :: jg
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
@@ -142,11 +136,10 @@ SUBROUTINE configure_atm_phy_nwp(n_dom,pat_level,&
 !      IF (msg_level >= 12) &
          CALL message(TRIM(routine), '')
 
-   DO jg = 1,n_dom
+    DO jg = 1,n_dom
  
-     atm_phy_nwp_config(jg)%dt_gscp   =  ( REAL(iadv_rcf,wp)         &
-          &                           * (dtime/2._wp**(pat_level(jg) &
-          &                             -              pat_level(1))) )  !seconds
+     atm_phy_nwp_config(jg)%dt_gscp   = (dtime_adv/2._wp**(pat_level(jg) &
+          &                           -  pat_level(1)))                  !seconds
      atm_phy_nwp_config(jg)%dt_turb   = atm_phy_nwp_config(jg)%dt_gscp
      atm_phy_nwp_config(jg)%dt_sfc    = atm_phy_nwp_config(jg)%dt_gscp
      atm_phy_nwp_config(jg)%dt_satad  = atm_phy_nwp_config(jg)%dt_gscp
@@ -245,16 +238,15 @@ SUBROUTINE configure_atm_phy_nwp(n_dom,pat_level,&
     !
     ! DR: a clean implementation would require to put the following lines into 
     ! a jg-loop.
-    IF( MOD( REAL(iadv_rcf,wp)*dtime, &
-      &         atm_phy_nwp_config(1)%dt_conv) /= 0._wp )  THEN
+    IF( MOD( dtime_adv,atm_phy_nwp_config(1)%dt_conv) /= 0._wp )  THEN
       WRITE(message_text,'(a,2F9.1)') &
         &'WARNING: convective and advective timesteps not synchronized: ', &
-        & tcall_phy(1,itconv), REAL(iadv_rcf,wp)*dtime
+        & tcall_phy(1,itconv), dtime_adv
       CALL message(TRIM(routine), TRIM(message_text))
       WRITE(message_text,'(a,2F9.1)') &
         &'implicit synchronization in time_ctrl_physics: dt_conv !=!', &
-        & REAL((FLOOR(atm_phy_nwp_config(1)%dt_conv/(REAL(iadv_rcf,wp)*dtime)) + 1),wp) &
-        & * (REAL(iadv_rcf,wp)*dtime)
+        & REAL((FLOOR(atm_phy_nwp_config(1)%dt_conv/dtime_adv) + 1),wp) &
+        & * dtime_adv
       CALL message(TRIM(routine), TRIM(message_text))
     ENDIF
  

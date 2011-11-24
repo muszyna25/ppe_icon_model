@@ -111,17 +111,17 @@ CONTAINS
   !
   !-----------------------------------------------------------------------
   !
-  SUBROUTINE nwp_nh_interface(lcall_phy_jg,lredgrid,dt_loc,jstep,  & !input
-                            & tcall_phy_jg,p_sim_time,             & !input
-                            & datetime,                            & !input
-                            & pt_patch, pt_int_state,p_metrics,    & !input
+  SUBROUTINE nwp_nh_interface(lcall_phy_jg, lredgrid, dt_loc,      & !input
+                            & dtadv_loc, jstep,tcall_phy_jg,       & !input
+                            & p_sim_time, datetime,                & !input
+                            & pt_patch, pt_int_state, p_metrics,   & !input
                             & pt_par_patch, pt_par_int_state,      & !input
                             & pt_par_grf_state,                    & !input
                             & ext_data, mean_charlen,              & !input
                             & pt_prog,                             & !inout
                             & pt_prog_now_rcf, pt_prog_rcf,        & !in/inout
                             & pt_diag ,                            & !inout
-                            & prm_diag,prm_nwp_tend,lnd_diag,      &
+                            & prm_diag, prm_nwp_tend,lnd_diag,     &
                             & lnd_prog_now, lnd_prog_new           ) !inout
 
     !>
@@ -132,6 +132,7 @@ CONTAINS
     LOGICAL, INTENT(IN)          :: lredgrid        !< use reduced grid for radiation
     INTEGER ,INTENT(in)          :: jstep
     REAL(wp),INTENT(in)          :: dt_loc          !< time step applicable to local grid level
+    REAL(wp),INTENT(in)          :: dtadv_loc       !< same for advective time step
     REAL(wp),INTENT(in)          :: tcall_phy_jg(:) !< time interval for all physics
                                                     !< packages on domain jg
     REAL(wp),INTENT(in)          :: p_sim_time
@@ -679,7 +680,7 @@ CONTAINS
     IF (  lcall_phy_jg(itsfc)) THEN
 
       CALL nwp_surface    (  tcall_phy_jg(itsfc),               & !>input
-                            & p_sim_time-dt_loc, dt_loc,        & !>input
+                            & p_sim_time-dt_loc, dtadv_loc,     & !>input
                             & pt_patch,                         & !>input
                             & ext_data,                         & !>input
                             & pt_prog_rcf,     & !>in/inout rcf=reduced calling freq.
