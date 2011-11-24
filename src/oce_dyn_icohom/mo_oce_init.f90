@@ -71,7 +71,7 @@ USE mo_master_control,     ONLY: is_coupled_run
 USE mo_math_utilities,     ONLY: t_cartesian_coordinates
 USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
 USE mo_exception,          ONLY: finish, message, message_text
-USE mo_oce_index,          ONLY: print_mxmn, jkc, jkdim, ipl_src
+USE mo_oce_index,          ONLY: print_mxmn, jkdim, ipl_src
 USE mo_model_domain,       ONLY: t_patch
 USE mo_ext_data,           ONLY: read_netcdf_data, t_external_data
 USE mo_sea_ice,            ONLY: t_sfc_flx
@@ -99,6 +99,7 @@ CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
 !
 PUBLIC :: init_ho_testcases
 PUBLIC :: init_ho_prog
+PUBLIC :: init_ho_relaxation
 PUBLIC :: init_ho_coupled
 PUBLIC :: init_ho_recon_fields
 
@@ -278,7 +279,6 @@ CONTAINS
     END IF
   END IF
 
-  jkc=1      ! current level - may not be zero
   ipl_src=0  ! output print level (0-5, fix)
   z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,1)
   DO jk=1, n_zlev
@@ -293,8 +293,176 @@ CONTAINS
 
   CALL message( TRIM(routine),'Ocean prognostic initialization data read' )
 
-
   END SUBROUTINE init_ho_prog
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Initialization of temperature and salinity relaxation for the hydrostatic ocean model.
+  !! Temperature and salinity relaxation data are read from external data
+  !
+  !! @par Revision History
+  !! Initial release by Stephan Lorenz, MPI-M, 2011-11
+  !
+  !-------------------------------------------------------------------------
+  !
+  SUBROUTINE init_ho_relaxation(ppatch, p_os, p_sfc_flx)
+
+  TYPE(t_patch), INTENT(IN)         :: ppatch
+  TYPE(t_hydro_ocean_state), TARGET :: p_os
+  !TYPE(t_external_data)             :: p_ext_data 
+  TYPE(t_sfc_flx)                   :: p_sfc_flx
+
+  ! Local Variables
+
+  CHARACTER(len=max_char_length), PARAMETER :: routine = 'mo_oce_init:init_ho_relaxation'
+  CHARACTER(filename_max) :: relax_init_file   !< file name for reading in
+
+  LOGICAL :: l_exist
+  INTEGER :: i_lev, no_cells, no_levels, jk, jb, jc
+  INTEGER :: ncid, dimid
+  INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start, rl_end_c
+
+  REAL(wp):: z_c(nproma,1,ppatch%nblks_c)
+  REAL(wp):: z_relax(nproma,ppatch%nblks_c)
+  INTEGER :: init_relax=1
+
+  !-------------------------------------------------------------------------
+
+    CALL message (TRIM(routine), 'start')
+   
+    i_lev        = ppatch%level
+   
+    IF (init_relax == 0 ) THEN
+   
+      IF (my_process_is_stdio()) THEN
+        !
+        ! Relaxation variables are read from relax_init_file
+        WRITE (relax_init_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-relax.nc'
+   
+        INQUIRE (FILE=relax_init_file, EXIST=l_exist)
+        IF (.NOT.l_exist) THEN
+          CALL finish(TRIM(routine),'netcdf file for reading T/S relaxation input not found.')
+        ENDIF
+   
+        WRITE(message_text,'(3a)') 'netcdf file named ', TRIM(relax_init_file), &
+          &   ' opened for reading'
+        CALL message(TRIM(routine),TRIM(message_text))
+   
+        !
+        ! open file
+        !
+        CALL nf(nf_open(TRIM(relax_init_file), NF_NOWRITE, ncid))
+   
+        !
+        ! get number of cells
+        !
+        CALL nf(nf_inq_dimid(ncid, 'ncells', dimid))
+        CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
+   
+        !
+        ! check the number of cells
+        !
+        WRITE(message_text,'(a,i6)') 'No of cells =', no_cells
+        CALL message(TRIM(routine),TRIM(message_text))
+        IF (ppatch%n_patch_cells_g /= no_cells) THEN
+          CALL finish(TRIM(ROUTINE),&
+          & 'Number of patch cells and cells in T/S relaxation input file do not match.')
+        ENDIF
+        !
+        ! get number of levels
+        !
+        CALL nf(nf_inq_dimid(ncid, 'level', dimid))
+        CALL nf(nf_inq_dimlen(ncid, dimid, no_levels))
+   
+        !
+        ! check the number of cells
+        !
+        WRITE(message_text,'(a,i6)') 'No of vertical levels =', no_levels
+        CALL message(TRIM(routine),TRIM(message_text))
+        IF (no_levels /= 0) THEN
+          CALL finish(TRIM(ROUTINE),'Number of vertical levels is not equal 0 ')
+        ENDIF
+   
+      ENDIF  !  stdio
+   
+   
+      !-------------------------------------------------------
+      !
+      ! Read ocean relaxation data at cells
+      !
+      !-------------------------------------------------------
+   
+      ! triangle center and edges
+   
+      ! read temperature
+      !  - read one data set, annual mean only
+      !  - "T": annual mean temperature
+      CALL read_netcdf_data (ncid, 'T', ppatch%n_patch_cells_g, ppatch%n_patch_cells, &
+        &                    ppatch%cells%glb_index, z_relax)
+   
+      IF (no_tracer>=1) THEN
+        p_sfc_flx%forc_tracer_relax(:,:,1) = z_relax(:,:)
+      ELSE
+        CALL message( TRIM(routine),'WARNING: no tracer used, but init relaxation attempted')
+      END IF
+   
+      ! read salinity
+      !  - "S": annual mean salinity
+      IF (no_tracer > 1) THEN
+        CALL read_netcdf_data (ncid, 'S', ppatch%n_patch_cells_g, ppatch%n_patch_cells, &
+          &                    ppatch%cells%glb_index, z_relax)
+        p_sfc_flx%forc_tracer_relax(:,:,2) = z_relax(:,:)
+      END IF
+   
+      !
+      ! close file
+      !
+      IF(my_process_is_stdio()) CALL nf(nf_close(ncid))
+   
+      rl_start     = 1
+      rl_end_c     = min_rlcell
+      i_startblk_c = ppatch%cells%start_blk(rl_start,1)
+      i_endblk_c   = ppatch%cells%end_blk(rl_end_c,1)
+   
+      DO jk=1, n_zlev
+        DO jb = i_startblk_c, i_endblk_c    
+          CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c,&
+                    & i_startidx_c, i_endidx_c, rl_start, rl_end_c)
+          DO jc = i_startidx_c, i_endidx_c
+            IF ( v_base%lsm_oce_c(jc,jk,jb) > sea_boundary ) THEN
+              p_sfc_flx%forc_tracer_relax(:,:,1) = 0.0_wp
+              IF (no_tracer>1) p_sfc_flx%forc_tracer_relax(:,:,2) = 0.0_wp
+            ENDIF
+          END DO
+        END DO
+      END DO
+   
+      ! use initialized temperature/salinity, assigned to tracer, for 2-dim relaxation
+!     IF (irelax_2d_T == 3) THEN
+!       p_sfc_flx%forc_tracer_relax(:,:,1) = p_os%p_prog(nold(1))%tracer(:,1,:,1)
+!     END IF
+!     IF (irelax_2d_S == 3) THEN
+!       IF (no_tracer > 1) THEN
+!         p_sfc_flx%forc_tracer_relax(:,:,2) = p_os%p_prog(nold(1))%tracer(:,1,:,2)
+!       ELSE
+!         CALL finish(TRIM(ROUTINE),' irelax_2d_S=3 and no_tracer<2')
+!       END IF
+!     END IF
+
+    END IF  !  read T/S relaxation
+   
+    ipl_src=0  ! output print level (0-5, fix)
+    z_c(:,1,:) = p_sfc_flx%forc_tracer_relax(:,:,1)
+    CALL print_mxmn('init_relax - T',jk,z_c(:,:,:),n_zlev,ppatch%nblks_c,'per',ipl_src)
+    IF (no_tracer > 1) THEN
+      z_c(:,1,:) = p_sfc_flx%forc_tracer_relax(:,:,2)
+      CALL print_mxmn('init_relax - S',jk,z_c(:,:,:),n_zlev,ppatch%nblks_c,'per',ipl_src)
+    END IF
+   
+    CALL message( TRIM(routine),'Ocean T/S relaxation initialization data read' )
+
+
+  END SUBROUTINE init_ho_relaxation
 
   !-------------------------------------------------------------------------
 
@@ -318,7 +486,8 @@ CONTAINS
     TYPE(t_patch), TARGET, INTENT(in)             :: p_patch
     TYPE(t_hydro_ocean_state), TARGET             :: p_os
 
-INTEGER :: jk
+    INTEGER :: jk
+
     IF(idisc_scheme==1)THEN
       IF (is_restart_run()) CALL update_time_indices(1)
       CALL calc_scalar_product_for_veloc( p_patch,                &
@@ -342,10 +511,12 @@ INTEGER :: jk
 
     ENDIF
     DO jk=1,n_zlev
-  CALL print_mxmn('(init) p_vn%x(1)',jk,p_os%p_diag%p_vn%x(1),n_zlev,p_patch%nblks_c,'phy',ipl_src)
-  ENDDO
+      CALL print_mxmn('(init) p_vn%x(1)', &
+        &  jk,p_os%p_diag%p_vn%x(1),n_zlev,p_patch%nblks_c,'phy',ipl_src)
+    ENDDO
 
     IF (.NOT. is_restart_run()) CALL calc_vert_velocity( p_patch, p_os)
+
   END SUBROUTINE init_ho_recon_fields
 
   !-------------------------------------------------------------------------
@@ -1411,7 +1582,6 @@ END DO
       CALL finish  (TRIM(routine), 't_rel=3 and init_oce_prog=0 NOT SUPPORTED - TERMINATE')
     END IF
 
-    jkc=1      ! current level - may not be zero
     ipl_src=1  ! output print level (0-5, fix)
     z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,1)
     DO jk=1, n_zlev

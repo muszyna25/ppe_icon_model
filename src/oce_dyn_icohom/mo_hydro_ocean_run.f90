@@ -87,7 +87,7 @@ USE mo_output,                 ONLY: init_output_files, write_output, &
 USE mo_io_restart,             ONLY: write_restart_info_file
 USE mo_interpolation,          ONLY: t_int_state
 USE mo_oce_init,               ONLY: init_ho_testcases, init_ho_prog, init_ho_coupled,&
-  &                                  init_ho_recon_fields
+  &                                  init_ho_recon_fields, init_ho_relaxation
 USE mo_oce_diagnostics,        ONLY: calculate_oce_diagnostics,&
   &                                  construct_oce_diagnostics,&
   &                                  destruct_oce_diagnostics, t_oce_timeseries
@@ -422,6 +422,9 @@ CONTAINS
     ELSE IF (init_oce_prog == 1) THEN
       CALL init_ho_prog(ppatch(jg), pstate_oce(jg), p_sfc_flx)
     END IF
+
+    CALL init_ho_relaxation(ppatch(jg), pstate_oce(jg), p_sfc_flx)
+
     CALL init_ho_coupled(ppatch(jg), pstate_oce(jg))
     IF (i_sea_ice == 1) &
       &   CALL ice_init(ppatch(jg), pstate_oce(jg), p_ice)
