@@ -692,7 +692,7 @@ CONTAINS
   !-------------------------------------------------------------------------
   ! Apply temperature relaxation to surface boundary condition
 
-  IF (temperature_relaxation >= 2) THEN
+  IF (temperature_relaxation >= 1) THEN
 
     !  - set minimum temperature to tf (-1.9 deg C) for simple temp-relax
     !  - set to zero on land points
@@ -764,7 +764,7 @@ CONTAINS
   !-------------------------------------------------------------------------
   ! Apply salinity relaxation to surface boundary condition
 
-  IF (irelax_2d_S >= 2 .AND. no_tracer >1) THEN
+  IF (irelax_2d_S >= 1 .AND. no_tracer >1) THEN
 
     ! Salinity relaxation activated as boundary condition in vertical Diffusion D:
     !   D = d/dz(K_v*dS/dz)  where
@@ -813,8 +813,7 @@ CONTAINS
 
   ENDIF
 
-  ! Heat flux diagnosed for all ocean only relaxation cases,
-  !  including also temperature_relaxation=1 which are some special testcases, see there
+  ! Heat flux diagnosed for all ocean only relaxation cases
   IF (temperature_relaxation >= 1) THEN
 
     ! Heat flux diagnosed for relaxation cases, see above
@@ -894,6 +893,7 @@ CONTAINS
   END IF
 
   END SUBROUTINE update_sfcflx
+
   !-------------------------------------------------------------------------
   !
   !> Takes thermal calc_atm_fluxes_from_bulk to calculate atmospheric surface fluxes:

@@ -58,7 +58,8 @@ USE mo_physical_constants, ONLY: re, rre, omega, rgrav, rho_ref, grav, SItodBar,
 USE mo_math_constants
 USE mo_parallel_config,    ONLY: nproma
 USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer,                               &
-  &                              init_oce_prog, itestcase_oce, i_sea_ice, iforc_oce,        &
+  &                              init_oce_prog, init_oce_relax, itestcase_oce,              &
+  &                              i_sea_ice, iforc_oce,                                      &
   &                              irelax_3d_S, relax_3d_mon_S, irelax_3d_T, relax_3d_mon_T,  &
   &                              irelax_2d_S, relax_2d_mon_S,&!relax_2d_T, relax_2d_mon_T,  &
   &                              basin_center_lat, basin_center_lon,idisc_scheme,           &
@@ -250,35 +251,6 @@ CONTAINS
     END DO
   END DO
 
-  ! use initialized temperature, assigned to tracer, for 2-dim relaxation
-  IF (temperature_relaxation == 3) THEN
-    p_sfc_flx%forc_tracer_relax(:,:,1) = p_os%p_prog(nold(1))%tracer(:,1,:,1)
-  END IF
-
-  ! use initialized temperature/salinity, assigned to tracer, for 2-dim relaxation
-! IF (irelax_2d_T == 3) THEN
-!   p_sfc_flx%forc_tracer_relax(:,:,1) = p_os%p_prog(nold(1))%tracer(:,1,:,1)
-! END IF
-  IF (irelax_2d_S == 3) THEN
-    IF (no_tracer > 1) THEN
-      p_sfc_flx%forc_tracer_relax(:,:,2) = p_os%p_prog(nold(1))%tracer(:,1,:,2)
-    ELSE
-      CALL finish(TRIM(ROUTINE),' irelax_2d_S=3 and no_tracer<2')
-    END IF
-  END IF
-
-  ! #slo# 2011-11-01: use initialized temperature/salinity, assigned to tracer, for 3-dim relaxation
-  IF (irelax_3d_T == 3) THEN
-    p_os%p_aux%relax_3d_data_T(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,1)
-  END IF
-  IF (irelax_3d_S == 3) THEN
-    IF (no_tracer > 1) THEN
-      p_os%p_aux%relax_3d_data_S(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,2)
-    ELSE
-      CALL finish(TRIM(ROUTINE),' irelax_3d_S=3 and no_tracer<2')
-    END IF
-  END IF
-
   ipl_src=0  ! output print level (0-5, fix)
   z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,1)
   DO jk=1, n_zlev
@@ -324,7 +296,6 @@ CONTAINS
 
   REAL(wp):: z_c(nproma,1,ppatch%nblks_c)
   REAL(wp):: z_relax(nproma,ppatch%nblks_c)
-  INTEGER :: init_relax=1
 
   !-------------------------------------------------------------------------
 
@@ -332,7 +303,7 @@ CONTAINS
    
     i_lev        = ppatch%level
    
-    IF (init_relax == 0 ) THEN
+    IF (init_oce_relax == 1 ) THEN
    
       IF (my_process_is_stdio()) THEN
         !
@@ -414,9 +385,7 @@ CONTAINS
         p_sfc_flx%forc_tracer_relax(:,:,2) = z_relax(:,:)
       END IF
    
-      !
       ! close file
-      !
       IF(my_process_is_stdio()) CALL nf(nf_close(ncid))
    
       rl_start     = 1
@@ -437,29 +406,51 @@ CONTAINS
         END DO
       END DO
    
-      ! use initialized temperature/salinity, assigned to tracer, for 2-dim relaxation
-!     IF (irelax_2d_T == 3) THEN
-!       p_sfc_flx%forc_tracer_relax(:,:,1) = p_os%p_prog(nold(1))%tracer(:,1,:,1)
-!     END IF
-!     IF (irelax_2d_S == 3) THEN
-!       IF (no_tracer > 1) THEN
-!         p_sfc_flx%forc_tracer_relax(:,:,2) = p_os%p_prog(nold(1))%tracer(:,1,:,2)
-!       ELSE
-!         CALL finish(TRIM(ROUTINE),' irelax_2d_S=3 and no_tracer<2')
-!       END IF
-!     END IF
+    END IF  !  init_oce_relax=1, read T/S relaxation
 
-    END IF  !  read T/S relaxation
    
-    ipl_src=0  ! output print level (0-5, fix)
-    z_c(:,1,:) = p_sfc_flx%forc_tracer_relax(:,:,1)
-    CALL print_mxmn('init_relax - T',jk,z_c(:,:,:),n_zlev,ppatch%nblks_c,'per',ipl_src)
-    IF (no_tracer > 1) THEN
-      z_c(:,1,:) = p_sfc_flx%forc_tracer_relax(:,:,2)
-      CALL print_mxmn('init_relax - S',jk,z_c(:,:,:),n_zlev,ppatch%nblks_c,'per',ipl_src)
+    !-------------------------------------------------------
+    !
+    ! use initialized temperature/salinity, assigned to tracer, for 2-dim/3-dim relaxation
+    !  - relaxation switch equals 3
+    !
+    !-------------------------------------------------------
+
+!   IF (irelax_2d_T == 3) THEN
+    IF (temperature_relaxation == 3) THEN
+      p_sfc_flx%forc_tracer_relax(:,:,1) = p_os%p_prog(nold(1))%tracer(:,1,:,1)
+    END IF
+    
+    IF (irelax_2d_S == 3) THEN
+      IF (no_tracer > 1) THEN
+        p_sfc_flx%forc_tracer_relax(:,:,2) = p_os%p_prog(nold(1))%tracer(:,1,:,2)
+      ELSE
+        CALL finish(TRIM(ROUTINE),' irelax_2d_S=3 and no_tracer<2')
+      END IF
+    END IF
+    
+    IF (irelax_3d_T == 3) THEN
+      p_os%p_aux%relax_3d_data_T(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,1)
+    END IF
+    IF (irelax_3d_S == 3) THEN
+      IF (no_tracer > 1) THEN
+        p_os%p_aux%relax_3d_data_S(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,2)
+      ELSE
+        CALL finish(TRIM(ROUTINE),' irelax_3d_S=3 and no_tracer<2')
+      END IF
     END IF
    
-    CALL message( TRIM(routine),'Ocean T/S relaxation initialization data read' )
+    IF (temperature_relaxation > 0) THEN
+      ipl_src=0  ! output print level (0-5, fix)
+      z_c(:,1,:) = p_sfc_flx%forc_tracer_relax(:,:,1)
+      CALL print_mxmn('init_relax - T',1,z_c(:,1,:),1,ppatch%nblks_c,'per',ipl_src)
+      IF (no_tracer > 1) THEN
+        z_c(:,1,:) = p_sfc_flx%forc_tracer_relax(:,:,2)
+        CALL print_mxmn('init_relax - S',1,z_c(:,1,:),1,ppatch%nblks_c,'per',ipl_src)
+      END IF
+    END IF
+   
+    CALL message( TRIM(routine),'Ocean T/S relaxation initialization finished' )
 
 
   END SUBROUTINE init_ho_relaxation
@@ -1569,19 +1560,6 @@ END DO
      CALL finish(TRIM(routine), 'CHOSEN INITIALIZATION NOT SUPPORTED - TERMINATE')
     END SELECT
 
-    ! Add temperature and salinity relaxation to initial values for these testcases
-    ! using namelist parameter temperature_relaxation=1
-    IF (temperature_relaxation == 1) THEN
-      p_sfc_flx%forc_tracer_relax(:,:,1) = p_os%p_prog(nold(1))%tracer(:,1,:,1)
-    END IF
-
-   ! bugfix: do not use temperature_relaxation = 3 if T is not initialized /= 0.0!
-   ! init of forc_tracer_relax should use its own routine: init_ho_relaxation, TBD
-    IF (temperature_relaxation == 3) THEN
-      CALL message (TRIM(routine), 'no initialization read from file - do not use t_rel=3!')
-      CALL finish  (TRIM(routine), 't_rel=3 and init_oce_prog=0 NOT SUPPORTED - TERMINATE')
-    END IF
-
     ipl_src=1  ! output print level (0-5, fix)
     z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,1)
     DO jk=1, n_zlev
@@ -1594,15 +1572,6 @@ END DO
       END DO
     END IF
 
-    IF (temperature_relaxation == 1) THEN
-      z_c(:,1,:) = p_sfc_flx%forc_tracer_relax(:,:,1)
-      CALL print_mxmn('Relax-Temperature',1,z_c(:,:,:),n_zlev,ppatch%nblks_c,'per',ipl_src)
-    END IF
-  ! IF (sal_relax == 1 .AND. no_tracer > 1) THEN
-  !   p_sfc_flx%forc_tracer_relax(:,:,2) = p_os%p_prog(nold(1))%tracer(:,1,:,2)
-  ! END IF
-  ! z_c(:,1,:) = p_sfc_flx%forc_tracer_relax(:,:,2)
-  ! CALL print_mxmn('Relax-Salinity',1,z_c(:,:,:),n_zlev,ppatch%nblks_c,'per',ipl_src)
     z_c(:,1,:) = p_os%p_prog(nold(1))%h(:,:)
     CALL print_mxmn('Elevation-init',1,z_c(:,:,:),n_zlev,ppatch%nblks_c,'per',ipl_src)
 

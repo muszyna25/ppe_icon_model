@@ -109,6 +109,9 @@ MODULE mo_ocean_nml
   ! switch for reading prognostic variables: 1: read from file
   INTEGER            :: init_oce_prog  = 0
 
+  ! switch for reading relaxation data: 1: read from file
+  INTEGER            :: init_oce_relax = 0
+
   ! test cases for ocean model; for the index see run scripts
   INTEGER            :: itestcase_oce  = 0
 
@@ -241,8 +244,9 @@ MODULE mo_ocean_nml
 
 
   NAMELIST/ocean_forcing_and_init_nml/iforc_oce, iforc_omip, iforc_len,    &
-    &                 iforc_stat_oce, init_oce_prog, itestcase_oce,        &
-    &                 idiag_oce, temperature_relaxation, relaxation_param, &
+    &                 iforc_stat_oce, init_oce_prog, init_oce_relax,       &
+    &                 itestcase_oce, idiag_oce,                            &
+    &                 temperature_relaxation, relaxation_param,            &
     &                 irelax_2d_S, relax_2d_mon_S,&!relax_2d_T, relax_2d_mon_T, &
     &                 irelax_3d_S, relax_3d_mon_S, irelax_3d_T, relax_3d_mon_T, &
     &                 i_sfc_forcing_form
