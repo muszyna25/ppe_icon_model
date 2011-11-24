@@ -117,7 +117,7 @@ MODULE mo_io_vlist
     &                                 irelax_2d_S
   USE mo_dynamics_config,       ONLY: iequations,lshallow_water,                  &
     &                                 idiv_method, divavg_cntrwgt,                &
-    &                                 nold, nnow, lcoriolis
+    &                                 nold, nnow, nnow_rcf, lcoriolis
   USE mo_ha_dyn_config,         ONLY: ha_dyn_config
   USE mo_diffusion_config,      ONLY: diffusion_config
   USE mo_io_config,             ONLY: lwrite_omega, lwrite_pres, lwrite_z3,       &
@@ -3024,19 +3024,17 @@ CONTAINS
     REAL(wp), POINTER :: ptr2(:,:)
     REAL(wp), POINTER :: ptr3(:,:,:)
 
-    TYPE(t_nh_prog),    POINTER :: p_prog
+    TYPE(t_nh_prog),    POINTER :: p_prog, p_prog_rcf
     TYPE(t_nh_diag),    POINTER :: p_diag
     TYPE(t_nh_diag_pz), POINTER :: p_diag_p
     TYPE(t_nh_diag_pz), POINTER :: p_diag_z
 
- !   TYPE(t_nwp_phy_diag) :: prm_diag
- !   TYPE(t_nwp_phy_tend) :: prm_nwp_tend
+    TYPE(t_lnd_prog),   POINTER :: p_prog_lnd
+    TYPE(t_lnd_diag),   POINTER :: p_diag_lnd
 
-    TYPE(t_lnd_prog), POINTER :: p_prog_lnd
-    TYPE(t_lnd_diag), POINTER :: p_diag_lnd
-
-    p_prog => p_nh_state(jg)%prog(nnow(jg))
-    p_diag => p_nh_state(jg)%diag
+    p_prog     => p_nh_state(jg)%prog(nnow(jg))
+    p_prog_rcf => p_nh_state(jg)%prog(nnow_rcf(jg))
+    p_diag     => p_nh_state(jg)%diag
 
     IF (lwrite_pzlev) THEN
       p_diag_p => p_nh_state(jg)%diag_p
@@ -3044,9 +3042,7 @@ CONTAINS
     ENDIF
 
     IF (iforcing==inwp) THEN
-     !p_prm_diag     => prm_diag(jg)
-     !p_prm_nwp_tend => prm_nwp_tend(jg)
-      p_prog_lnd     => p_lnd_state(jg)%prog_lnd(nnow(jg))
+      p_prog_lnd     => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
       p_diag_lnd     => p_lnd_state(jg)%diag_lnd
     ENDIF
 
@@ -3140,7 +3136,7 @@ CONTAINS
       CASE ('THETA_V');         ptr3 => p_prog%theta_v
       CASE ('EXNER');           ptr3 => p_prog%exner
       CASE ('RHO');             ptr3 => p_prog%rho
-      CASE ('TKE');             ptr3 => p_prog%tke
+      CASE ('TKE');             ptr3 => p_prog_rcf%tke
       CASE ('TCM');             ptr2 => prm_diag(jg)%tcm
       CASE ('TCH');             ptr2 => prm_diag(jg)%tch
       CASE ('Z0')
@@ -3197,7 +3193,7 @@ CONTAINS
       DO jt = 1, ntracer ! all tracer
         ctracer = ctracer_list(jt:jt)
         IF(varname == 'Q'//ctracer) THEN
-          ptr3 => p_prog%tracer(:,:,:,jt)
+          ptr3 => p_prog_rcf%tracer(:,:,:,jt)
           RETURN
         ENDIF
         IF(varname == 'Q'//ctracer//'_P') THEN
@@ -3235,7 +3231,7 @@ CONTAINS
 
       IF ( irad_o3 == 4 .OR. irad_o3 == 6 .OR. irad_o3 == 7 ) THEN
         IF(varname == 'O3') THEN
-          ptr3 => p_prog%tracer(:,:,:,io3)
+          ptr3 => p_prog_rcf%tracer(:,:,:,io3)
           RETURN
         ENDIF
       END IF
