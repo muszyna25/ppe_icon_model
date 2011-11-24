@@ -209,6 +209,9 @@ CONTAINS
     !
 #ifdef __SX__
     ! requires in runscript (ksh/bash): export F_NORCW=65535
+    ! (this SX environment variable specifies that a control record is
+    !  not added/expected, s.t. the file content can be treated like a
+    !  stream of characters)
     OPEN(UNIT=65535, FILE=TRIM(filename), ACTION='read', FORM='unformatted')
     READ(65535) nmlbuf(1:nmllen)
     CLOSE(65535)
@@ -248,6 +251,9 @@ CONTAINS
     flen = util_tmpnam(filename, filename_max)
 #ifdef __SX__
     ! requires in runscript (ksh/bash): export F_NORCW=65535
+    ! (this SX environment variable specifies that a control record is
+    !  not added/expected, s.t. the file content can be treated like a
+    !  stream of characters)
     OPEN(UNIT=65535, FILE=filename(1:flen), ACTION='write', FORM='unformatted')
     WRITE(65535) TRIM(nmlbuf)
     CLOSE(65535)
