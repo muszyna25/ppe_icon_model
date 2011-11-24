@@ -290,7 +290,7 @@ CONTAINS
   CHARACTER(filename_max) :: relax_init_file   !< file name for reading in
 
   LOGICAL :: l_exist
-  INTEGER :: i_lev, no_cells, no_levels, jk, jb, jc
+  INTEGER :: i_lev, no_cells, no_levels, jb, jc
   INTEGER :: ncid, dimid
   INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start, rl_end_c
 
@@ -350,8 +350,8 @@ CONTAINS
         !
         WRITE(message_text,'(a,i6)') 'No of vertical levels =', no_levels
         CALL message(TRIM(routine),TRIM(message_text))
-        IF (no_levels /= 0) THEN
-          CALL finish(TRIM(ROUTINE),'Number of vertical levels is not equal 0 ')
+        IF (no_levels /= 1) THEN
+          CALL finish(TRIM(ROUTINE),'Number of vertical levels is not equal 1 ')
         ENDIF
    
       ENDIF  !  stdio
@@ -393,18 +393,18 @@ CONTAINS
       i_startblk_c = ppatch%cells%start_blk(rl_start,1)
       i_endblk_c   = ppatch%cells%end_blk(rl_end_c,1)
    
-      DO jk=1, n_zlev
-        DO jb = i_startblk_c, i_endblk_c    
-          CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c,&
-                    & i_startidx_c, i_endidx_c, rl_start, rl_end_c)
-          DO jc = i_startidx_c, i_endidx_c
-            IF ( v_base%lsm_oce_c(jc,jk,jb) > sea_boundary ) THEN
-              p_sfc_flx%forc_tracer_relax(:,:,1) = 0.0_wp
-              IF (no_tracer>1) p_sfc_flx%forc_tracer_relax(:,:,2) = 0.0_wp
-            ENDIF
-          END DO
+      DO jb = i_startblk_c, i_endblk_c    
+        CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c,&
+                  & i_startidx_c, i_endidx_c, rl_start, rl_end_c)
+        DO jc = i_startidx_c, i_endidx_c
+          IF ( v_base%lsm_oce_c(jc,1,jb) > sea_boundary ) THEN
+            p_sfc_flx%forc_tracer_relax(jc,jb,1) = 0.0_wp
+            IF (no_tracer>1) p_sfc_flx%forc_tracer_relax(jc,jb,2) = 0.0_wp
+          ENDIF
         END DO
       END DO
+
+      CALL message( TRIM(routine),'Ocean T/S relaxation reading finished' )
    
     END IF  !  init_oce_relax=1, read T/S relaxation
 
@@ -440,17 +440,19 @@ CONTAINS
       END IF
     END IF
    
+    !
+    !  Diagnose relaxation
     IF (temperature_relaxation > 0) THEN
       ipl_src=0  ! output print level (0-5, fix)
       z_c(:,1,:) = p_sfc_flx%forc_tracer_relax(:,:,1)
-      CALL print_mxmn('init_relax - T',1,z_c(:,1,:),1,ppatch%nblks_c,'per',ipl_src)
+      CALL print_mxmn('init-relax - T',1,z_c(:,1,:),1,ppatch%nblks_c,'per',ipl_src)
       IF (no_tracer > 1) THEN
         z_c(:,1,:) = p_sfc_flx%forc_tracer_relax(:,:,2)
-        CALL print_mxmn('init_relax - S',1,z_c(:,1,:),1,ppatch%nblks_c,'per',ipl_src)
+        CALL print_mxmn('init-relax - S',1,z_c(:,1,:),1,ppatch%nblks_c,'per',ipl_src)
       END IF
     END IF
    
-    CALL message( TRIM(routine),'Ocean T/S relaxation initialization finished' )
+    CALL message( TRIM(routine),'end' )
 
 
   END SUBROUTINE init_ho_relaxation
