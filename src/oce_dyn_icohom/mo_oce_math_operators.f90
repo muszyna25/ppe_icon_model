@@ -1887,7 +1887,7 @@ ELSEIF(iswm_oce /= 1 )THEN
 SELECT CASE(AVERAGING)
 
 CASE(DISTANCE_WEIGHT)
-CALL print_mxmn('(hrw,old) p_diag%h_e',1,p_os%p_diag%h_e,1,p_patch%nblks_e,'vel',1)
+CALL print_mxmn('(hrw,old) p_diag%h_e',1,p_os%p_diag%h_e,1,p_patch%nblks_e,'vel',3)
   DO jb = i_startblk_e, i_endblk_e
     CALL get_indices_e(p_patch, jb, i_startblk_e, i_endblk_e,&
                      & i_startidx_e, i_endidx_e, rl_start_e, rl_end_e)
@@ -1923,7 +1923,7 @@ CALL print_mxmn('(hrw,old) p_diag%h_e',1,p_os%p_diag%h_e,1,p_patch%nblks_e,'vel'
       ENDIF
     END DO
   END DO
-CALL print_mxmn('(hrw,new) p_diag%h_e',1,p_os%p_diag%h_e,1,p_patch%nblks_e,'vel',1)
+CALL print_mxmn('(hrw,new) p_diag%h_e',1,p_os%p_diag%h_e,1,p_patch%nblks_e,'vel',3)
 
 CASE(upwind)
 
