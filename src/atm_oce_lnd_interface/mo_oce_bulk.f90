@@ -837,10 +837,11 @@ CONTAINS
     !   which is set to reference value S_ref=35 psu to avoid instability for low sal.
     ! where
     !   Q_S = K_v*dS/dz(surf) = -W_s*S_ref  [psu*m/s]
+    ! from above
 
-    ! p_sfc_flx%forc_fwfx(:,:) = -p_sfc_flx%forc_tracer(:,:,2) * z_s_ref
-    ! now in mm/month for diagnosis
-      p_sfc_flx%forc_fwfx(:,:) = -p_sfc_flx%forc_tracer(:,:,2) * z_s_ref * 2.592e9_wp
+    ! p_sfc_flx%forc_fwfx(:,:) = -p_sfc_flx%forc_tracer(:,:,2) / z_s_ref
+    ! now in m/month for diagnosis
+      p_sfc_flx%forc_fwfx(:,:) = -p_sfc_flx%forc_tracer(:,:,2) / z_s_ref * 2.592e6_wp
 
     ipl_src=1  ! output print level (1-5, fix)
     z_c(:,1,:) = p_sfc_flx%forc_fwfx(:,:)
@@ -881,7 +882,9 @@ CONTAINS
 
   IF (irelax_2d_S == -1 .AND. no_tracer >1) THEN
 
-    p_sfc_flx%forc_tracer(:,:,2) = -p_sfc_flx%forc_fwfx(:,:) / z_s_ref
+    ! Salinity boundary condition in vertical Diffusion D, see above
+
+    p_sfc_flx%forc_tracer(:,:,2) = -p_sfc_flx%forc_fwfx(:,:) * z_s_ref
 
     ipl_src=1  ! output print level (1-5, fix)
     z_c(:,1,:) = p_sfc_flx%forc_fwfx(:,:)
