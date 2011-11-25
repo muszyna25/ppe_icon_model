@@ -1460,10 +1460,17 @@ DO ns=nsubs0,nsubs1
           ELSE
 !           adjust soil temperatures in presence of snow
             zdel_t_so = MAX (0._ireals,t_so(i,j,0,nx,ns)-t0_melt)
-            t_so(i,j,0,:,ns)=MIN( t0_melt,t_so(i,j,0,nx,ns) )
+            t_so(i,j,0,nx,ns)  =MIN( t0_melt,t_so(i,j,0,nx,ns) )
+            t_so(i,j,0,nnew,ns)=MIN( t0_melt,t_so(i,j,0,nx,ns) )
+
             DO kso=1,ke_soil
               IF ( t_so(i,j,kso,nx,ns) > t0_melt) THEN
-                 t_so(i,j,kso,:,ns) = MAX( t0_melt,                  &
+
+                 t_so(i,j,kso,nx,ns) = MAX( t0_melt,                  &
+                                   t_so(i,j,kso,nx,ns) -zdel_t_so    &
+                                   *(zmls(ke_soil+1)-zmls(kso))   &
+                                   /(zmls(ke_soil+1)-zmls( 1 )) )
+                 t_so(i,j,kso,nnew,ns) = MAX( t0_melt,                  &
                                    t_so(i,j,kso,nx,ns) -zdel_t_so    &
                                    *(zmls(ke_soil+1)-zmls(kso))   &
                                    /(zmls(ke_soil+1)-zmls( 1 )) )
@@ -1472,10 +1479,12 @@ DO ns=nsubs0,nsubs1
             ENDDO
           ENDIF
 
-          t_s(i,j,:,ns) = t_so(i,j,0,:,ns)
+          t_s(i,j,nx,ns)   = t_so(i,j,0,nx,ns)
+          t_s(i,j,nnew,ns) = t_so(i,j,0,nnew,ns)
 
 !         Set level 1 to level 0 for t_so for every landpoint
-          t_so(i,j,1,:,ns) = t_so(i,j,0,nx,ns)
+          t_so(i,j,1,nx,ns)   = t_so(i,j,0,nx,ns)
+          t_so(i,j,1,nnew,ns) = t_so(i,j,0,nx,ns)
         ENDIF    ! llandmask
       END DO
     END DO
