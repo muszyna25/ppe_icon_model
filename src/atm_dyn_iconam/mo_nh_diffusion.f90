@@ -197,8 +197,7 @@ MODULE mo_nh_diffusion
       ! larger than suggested in the literature); increase with resolution might be
       ! removed when a turbulence scheme becomes available
       jlev = p_patch%level
-      diff_multfac_smag =  diffusion_config(jg)%hdiff_smag_fac &
-        &               * (REAL(nroot*(2**jlev),wp)/64._wp)**0.3333_wp*dtime
+      diff_multfac_smag =  diffusion_config(jg)%hdiff_smag_fac*dtime
 
       rl_start = start_bdydiff_e
       rl_end   = min_rledge_int - 2

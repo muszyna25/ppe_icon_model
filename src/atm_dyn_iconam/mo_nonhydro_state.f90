@@ -272,8 +272,6 @@ MODULE mo_nonhydro_state
    REAL(wp), POINTER :: z_ifc(:,:,:)
    ! geometric height at full levels (nproma,nlev,nblks_c)
    REAL(wp), POINTER :: z_mc(:,:,:)
-   ! geometric height at full level edges (nproma,nlev,nblks_e)
-   REAL(wp), POINTER :: z_mc_e(:,:,:)
 
    ! slope of the terrain in normal direction (nproma,nlevp1,nblks_e)
    REAL(wp), POINTER :: ddxn_z_half(:,:,:)
@@ -382,6 +380,9 @@ MODULE mo_nonhydro_state
 
    ! c) Variables needed for the hexagonal grid only
    !
+   ! geometric height at full level edges (nproma,nlev,nblks_e)
+   REAL(wp), POINTER :: z_mc_e(:,:,:)
+
    ! slope of the coordinate lines towards the North (nproma,nlev,nblks_e)
    REAL(wp), POINTER :: ddnorth_z(:,:,:)
    ! slope of the coordinate lines towards the East (nproma,nlev,nblks_e)
@@ -2355,17 +2356,6 @@ MODULE mo_nonhydro_state
                 & ldims=shape3d_c )
 
 
-    ! geometric height at full level edges
-    ! z_mc_e       p_metrics%z_mc_e(nproma,nlev,nblks_e)
-    !
-    cf_desc    = t_cf_var('geometric_height_at_full_level_edge', 'm',           &
-      &                   'geometric height at full level edge')
-    grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE)
-    CALL add_var( p_metrics_list, 'z_mc_e', p_metrics%z_mc_e,                   &
-                & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,         &
-                & ldims=shape3d_e )
-
-
     ! slope of the terrain in normal direction (half level)
     ! ddxn_z_half  p_metrics%ddxn_z_half(nproma,nlevp1,nblks_e)
     !
@@ -2723,6 +2713,17 @@ MODULE mo_nonhydro_state
 
 
     ELSE IF (p_patch%cell_type== 6) THEN
+
+
+      ! geometric height at full level edges
+      ! z_mc_e       p_metrics%z_mc_e(nproma,nlev,nblks_e)
+      !
+      cf_desc    = t_cf_var('geometric_height_at_full_level_edge', 'm',           &
+        &                   'geometric height at full level edge')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE)
+      CALL add_var( p_metrics_list, 'z_mc_e', p_metrics%z_mc_e,                   &
+                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
+                  & ldims=shape3d_e )
 
 
       ! slope of the coordinate lines in Northern direction

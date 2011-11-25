@@ -325,15 +325,18 @@ MODULE mo_vertical_grid
              &              1, nlev )
       ENDIF
 
-      IF (p_test_run) p_nh(jg)%metrics%z_mc_e = 0._wp
+      IF (p_patch(jg)%cell_type == 6) THEN
+        IF (p_test_run) p_nh(jg)%metrics%z_mc_e = 0._wp
 
-      CALL cells2edges_scalar(p_nh(jg)%metrics%z_mc, &
-                              p_patch(jg),p_int(jg)%c_lin_e, &
-                              p_nh(jg)%metrics%z_mc_e )
+        CALL cells2edges_scalar(p_nh(jg)%metrics%z_mc, &
+                                p_patch(jg),p_int(jg)%c_lin_e, &
+                                p_nh(jg)%metrics%z_mc_e )
 
-      CALL sync_patch_array_mult(SYNC_E,p_patch(jg),4,p_nh(jg)%metrics%ddxt_z_half,        &
-                                 p_nh(jg)%metrics%ddxn_z_half,p_nh(jg)%metrics%ddxn_z_full,&
-                                 p_nh(jg)%metrics%z_mc_e)
+        CALL sync_patch_array(SYNC_E,p_patch(jg),p_nh(jg)%metrics%z_mc_e)
+      ENDIF
+
+      CALL sync_patch_array_mult(SYNC_E,p_patch(jg),3,p_nh(jg)%metrics%ddxt_z_half,       &
+                                 p_nh(jg)%metrics%ddxn_z_half,p_nh(jg)%metrics%ddxn_z_full)
 
       ! vertically averaged metrics
       nblks_e   = p_patch(jg)%nblks_int_e

@@ -53,17 +53,14 @@ MODULE mo_nh_wk_exp
 
    USE mo_kind,                ONLY: wp
    USE mo_physical_constants,  ONLY: rd_o_cpd, p0ref, grav, tmelt,  &
-                                   & cvd_o_rd, re, omega,     cpd ,     &
-                                     rvd_m_o => vtmpc1 ,                &
-                                     rdv,                        &
-                                     rd,                         &
+                                   & cvd_o_rd, re, omega, cpd ,     &
+                                     vtmpc1 , rdv,  rd,             &
                                      cp_d => cpd
    USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
    USE mo_model_domain,        ONLY: t_patch
    USE mo_nonhydro_state,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
    USE mo_run_config,          ONLY: iqv,iqc,iqcond, ntracer
    USE mo_impl_constants,      ONLY: inwp, MAX_CHAR_LENGTH, min_rlcell_int
-  USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
    USE mo_parallel_config,     ONLY: nproma, p_test_run
    USE mo_satad,               ONLY:  sat_pres_water, &  !! saturation vapor pressure w.r.t. water
             &                         sat_pres_ice,   &  !! saturation vapor pressure w.r.t. ice
@@ -78,12 +75,18 @@ MODULE mo_nh_wk_exp
    USE mo_sync,                 ONLY: global_sum_array, sync_patch_array,  sync_patch_array_mult, &
                                    &  SYNC_C, SYNC_E
    USE mo_nh_init_utils,        ONLY: init_w, hydro_adjust, convert_thdvars, virtual_temp
+   USE mo_vertical_coord_table, ONLY: vct_a
 
    IMPLICIT NONE
 
    PUBLIC  :: init_nh_topo_wk, init_nh_env_wk, init_nh_buble_wk
   
    PRIVATE
+
+   REAL(wp), PARAMETER :: cpd_o_rd = 1._wp / rd_o_cpd
+   REAL(wp), PARAMETER :: grav_o_cpd = grav / cpd
+
+
 ! !DEFINED PARAMETERS for Weisman Klemp:
    REAL(wp), PARAMETER ::hmin_wk          = 0.0_wp         ! [m], base height of the profile
    REAL(wp), PARAMETER ::p_base_wk        = 1.e5                ! [Pa], pressure at height hmin_wk
@@ -196,198 +199,132 @@ MODULE mo_nh_wk_exp
                                                          ! initial condition
 
     INTEGER        ::  jc, jb, jk, je,   &
-                    nlen, nblks_e, npromz_e,  nblks_c, npromz_c
-    INTEGER        :: iter
-    INTEGER        :: i_startidx, i_endidx, i_startblk, rl_start, rl_end
+                       nlen, nblks_e,  nblks_c, npromz_c
+    INTEGER        :: i_startidx, i_endidx, i_startblk
     INTEGER        :: nlev        !< number of full levels
-    REAL(wp)       :: t_tropo, z_klev, zrdm, zcpm, z_relhum, zesat,     &
-                      z_u
+    INTEGER        :: k_tropo
 
-    REAL(wp), ALLOCATABLE :: theta(:,:,:), theta_v(:,:,:)
-    REAL(wp), ALLOCATABLE :: relhum(:,:,:)
-    REAL(wp), ALLOCATABLE :: z_qv(:,:,:)
-    REAL(wp), ALLOCATABLE :: temp(:,:,:), pres(:,:,:)
+    REAL(wp)       :: z_u, exner_tropo, e_tropo, pres_tropo, qv_tropo, theta_v_tropo,    &
+                      exner_aux, temp_aux, e_aux, pres_aux, qv_aux, theta_v_aux, qv_extrap
 
-    LOGICAL :: lcond 
+    REAL(wp), DIMENSION(ptr_patch%nlev) :: z_full, theta, exner, pres, qv, theta_v, rh, &
+                                           temp
 
 !--------------------------------------------------------------------
 !
 
-    lcond=.FALSE.
+    nblks_c   = ptr_patch%nblks_int_c
+    npromz_c  = ptr_patch%npromz_int_c
+    nblks_e   = ptr_patch%nblks_int_e
+
     ! number of vertical levels
     nlev   = ptr_patch%nlev
-    ALLOCATE (theta(nproma,nlev,ptr_patch%nblks_c), &
-              theta_v(nproma,nlev,ptr_patch%nblks_c), &
-              temp(nproma,nlev,ptr_patch%nblks_c), &
-              pres(nproma,nlev,ptr_patch%nblks_c), &
-              relhum(nproma,nlev,ptr_patch%nblks_c) )
-    ALLOCATE ( z_qv(nproma,nlev,ptr_patch%nblks_c) )
-   nblks_c   = ptr_patch%nblks_int_c
-   npromz_c  = ptr_patch%npromz_int_c
-   nblks_e   = ptr_patch%nblks_int_e
-   npromz_e  = ptr_patch%npromz_int_e
 
+    ! height of main levels    
+    DO jk = 1, nlev
+      z_full(jk) = 0.5_wp*(vct_a(jk)+vct_a(jk+1))
+    ENDDO
 
-! As first aproximation
-
-   t_tropo=t_tropo_wk
-
-!$OMP PARALLEL
-
-!$OMP DO PRIVATE(jb,nlen,jk,jc, z_klev)
-! first analytic expresions for theta and relative humidity
-    DO jb = 1, nblks_c
-      IF (jb /= nblks_c) THEN
-         nlen = nproma
-      ELSE
-         nlen = npromz_c
+    ! Determine level index right above the tropopause
+    DO jk = 1, nlev-1
+      IF (z_full(jk) >= h_tropo_wk .AND. z_full(jk+1) < h_tropo_wk) THEN
+        k_tropo = jk
+        EXIT
       ENDIF
+      IF (jk == nlev-1) CALL finish ('WK initialization', &
+         'model top must be higher than 12 km')
+    ENDDO
 
-      DO jk = nlev, 1, -1
-            DO jc = 1, nlen
-              z_klev = 0.5_wp * ( p_metrics%z_ifc(jc,jk,jb) + &
-                       p_metrics%z_ifc(jc,jk+1,jb) )
-            IF ( z_klev <= h_tropo_wk) THEN
-              theta(jc,jk,jb) = theta_0_wk + &
-                  (theta_tropo_wk - theta_0_wk)*((z_klev-hmin_wk)/   &
-                   (h_tropo_wk-hmin_wk))**(expo_theta_wk)
-              relhum(jc,jk,jb)  = rh_max_wk - (rh_max_wk - rh_min_wk)*      &
-                  ((z_klev-hmin_wk)/(h_tropo_wk-hmin_wk))**(expo_relhum_wk)
-            ELSE
-             theta(jc,jk,jb) = theta_tropo_wk*EXP(grav/(cpd*t_tropo)*(z_klev-h_tropo_wk))
-             relhum(jc,jk,jb)  = rh_min_wk
-            ENDIF  
-       !==========================================================================
-       !.. First: Integrate atmospheric pressure assuming dry air. 
-       !   This will be the starting point for
-       !   a fixpoint iteration to include also moisture and condensation 
-       !   in supersaturated voxels.
-       !==========================================================================
-   
-       !   The temperature profile is not known a priori,
-       !   because we would need the pressure to compute it from the theta-profile.
-       !   As a starting point, the temperature will simply be that of the ICAO 
-       !   polytrope atmosphere with a constant temperature lapse rate of 0.0065 K/m 
-       !   up to 11 km height and a base temperature of 293.16 K. Then, the
-       !   pressure estimate for the dry base will be that of the ICAO standard
-       !   atmosphere. The below iteration will compute the correct temperature-
-       !   and pressure profile afterwards.             
-           ! ptr_nh_diag%temp(jc,jk,jb)  = 293.16_wp - 0.0065_wp * MIN(z_klev, 11000.0_wp) 
-            ! it must be a bit warmer to have higher surface pressure         
-            ptr_nh_diag%temp(jc,jk,jb)  = 300.0_wp - 0.0065_wp * MIN(z_klev, 12000.0_wp)
-            ptr_nh_prog%theta_v(jc,jk,jb)= theta(jc,jk,jb)
-            ptr_nh_prog%exner(jc,jk,jb) = ptr_nh_diag%temp(jc,jk,jb)/theta(jc,jk,jb) 
-            ptr_nh_prog%rho(jc,jk,jb)   = ptr_nh_prog%exner(jc,jk,jb)**cvd_o_rd    &
-                                          *p0ref/rd/theta(jc,jk,jb)
-            ptr_nh_prog%tracer(jc,jk,jb,:)= 0.0_wp 
-            ENDDO !jc
-      ENDDO !jk     
-     ENDDO !jb
+    ! Tropopause parameters
+    exner_tropo   = t_tropo_wk/theta_tropo_wk
+    e_tropo       = rh_min_wk*sat_pres_ice(t_tropo_wk)
+    pres_tropo    = p0ref*(exner_tropo**cpd_o_rd)
+    qv_tropo      = spec_humi(e_tropo,pres_tropo)
+    theta_v_tropo = theta_tropo_wk*(1._wp+vtmpc1*qv_tropo)
 
-!$OMP END DO
-!$OMP END PARALLEL
+    ! profiles above the tropopause: note that T = const here (and therefore e = e_tropo)
+    DO jk = 1, k_tropo
+      theta(jk) = theta_tropo_wk*EXP(grav_o_cpd/t_tropo_wk*(z_full(jk)-h_tropo_wk))
+      exner(jk) = exner_tropo*EXP(-grav_o_cpd/t_tropo_wk*(z_full(jk)-h_tropo_wk))
+      pres(jk)  = p0ref*(exner(jk)**cpd_o_rd)
+      qv(jk)    = spec_humi(e_tropo,pres(jk))
+      theta_v(jk) = theta(jk)*(1._wp+vtmpc1*qv(jk))
+      rh(jk)    = rh_min_wk
+      temp(jk)  = t_tropo_wk
+    ENDDO
 
-        ! the first guess for the pressure is calculated now
-        CALL diagnose_pres_temp ( p_metrics, ptr_nh_prog,     &
-            &                     ptr_nh_prog, ptr_nh_diag,   &
-            &                     ptr_patch,                  &
-            &                     opt_calc_pres=.TRUE.        )
+    ! known quantities below the tropopause
+    DO jk = k_tropo+1, nlev
+      theta(jk) = theta_0_wk+(theta_tropo_wk-theta_0_wk)*(z_full(jk)/h_tropo_wk)**expo_theta_wk
+      rh(jk)    = 1._wp-0.75_wp*(z_full(jk)/h_tropo_wk)**expo_relhum_wk
+    ENDDO
 
+    ! Piecewise vertical integration from the TP towards the bottom
+    jk = k_tropo+1
 
-!!$     WRITE(*,*)"max pres before iteration" ,MAXVAL(ptr_nh_diag%pres(:,:,:))
-!!$     WRITE(*,*)"max temp before iteration" ,MAXVAL(ptr_nh_diag%temp(:,:,:))
+    ! 1st step: preliminary estimate
+    exner_aux   = exner_tropo-grav_o_cpd/(0.5_wp*(theta_v_tropo+theta(jk)*        &
+                 (1._wp+vtmpc1*qv_tropo)))*(z_full(jk)-h_tropo_wk)
+    temp_aux    = theta(jk)*exner_aux
+    IF (temp_aux > tmelt) THEN
+      e_aux     = rh(jk)*sat_pres_water(temp_aux)
+    ELSE
+      e_aux     = rh(jk)*sat_pres_ice(temp_aux)
+    ENDIF
+    pres_aux    = p0ref*(exner_aux**cpd_o_rd)
+    qv_aux      = spec_humi(e_aux,pres_aux)
+    theta_v_aux = theta(jk)*(1._wp+vtmpc1*qv_aux) 
 
-    !==========================================================================
-    ! Now humidity and clouds come into play:
-    !
-    ! The total density depends on qv, qc and therefore also on the pressure (through qv),
-    ! but the pressure itself depends on qv via the hydrostatic approximation --> 
-    ! iterative solution of this implicit equation for piter necessary!
-    ! For this, each layer is again assumed to be a polytrope layer,
-    ! this time with a constant virtual temperature gradient:
-    !
-    ! For the sake of reproducible results, we do a fixed number of iterations
-    ! instead of iterating until convergence to a certain accuracy.
-    !==========================================================================
+    ! 2nd step: final computation  
+    exner(jk)   = exner_tropo-grav_o_cpd/(0.5_wp*(theta_v_tropo+theta_v_aux))*&
+                  (z_full(jk)-h_tropo_wk)
+    temp(jk)    = theta(jk)*exner(jk)
+    IF (temp(jk) > tmelt) THEN
+      e_aux     = rh(jk)*sat_pres_water(temp(jk))
+    ELSE
+      e_aux     = rh(jk)*sat_pres_ice(temp(jk))
+    ENDIF
+    pres(jk)    = p0ref*(exner(jk)**cpd_o_rd)
+    qv(jk)      = spec_humi(e_aux,pres(jk))
+    theta_v(jk) = theta(jk)*(1._wp+vtmpc1*qv(jk)) 
 
-    DO iter = 1, niter
+    ! Remaining model layers
+    DO jk = k_tropo+2, nlev
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk,jc, zesat,z_relhum, zrdm,zcpm )
-    DO jb = 1, nblks_c
-      IF (jb /= nblks_c) THEN
-         nlen = nproma
+      ! 1st step: preliminary estimate
+      qv_extrap   = MIN(qv_max_wk,qv(jk-1)+(qv(jk-2)-qv(jk-1))/          &
+                   (z_full(jk-2)-z_full(jk-1))*(z_full(jk)-z_full(jk-1)) )
+      exner_aux   = exner(jk-1)-grav_o_cpd/(0.5_wp*(theta_v(jk-1)+theta(jk)*  &
+                   (1._wp+vtmpc1*qv_extrap)))*(z_full(jk)-z_full(jk-1))
+      temp_aux    = theta(jk)*exner_aux
+      IF (temp_aux > tmelt) THEN
+        e_aux     = rh(jk)*sat_pres_water(temp_aux)
       ELSE
-         nlen = npromz_c
+        e_aux     = rh(jk)*sat_pres_ice(temp_aux)
       ENDIF
+      pres_aux    = p0ref*(exner_aux**cpd_o_rd)
+      qv_aux      = MIN(qv_max_wk,spec_humi(e_aux,pres_aux))
+      theta_v_aux = theta(jk)*(1._wp+vtmpc1*qv_aux) 
 
-      DO jk = nlev, 1, -1
-            DO jc = 1, nlen
-          ! Kept the previous values to compare with
-             temp(jc,jk,jb)= ptr_nh_diag%temp(jc,jk,jb)
-             pres(jc,jk,jb)= ptr_nh_diag%pres(jc,jk,jb)
-          ! Limit relhum to its maximum possible value p / E(T):
-             zesat    = sat_pres_water(ptr_nh_diag%temp(jc,jk,jb))
-             z_relhum = MIN(ptr_nh_diag%pres(jc,jk,jb) /zesat , relhum(jc,jk,jb)    )
-             ! calculate specific humidity from relative hum
-             ptr_nh_prog%tracer(jc,jk,jb,iqv)=     &
-               spec_humi(zesat*z_relhum,ptr_nh_diag%pres(jc,jk,jb))
+      ! 2nd step: final computation  
+      exner(jk)   = exner(jk-1)-grav_o_cpd/(0.5_wp*(theta_v(jk-1)+theta_v_aux))*&
+                    (z_full(jk)-z_full(jk-1))
+      temp(jk)    = theta(jk)*exner(jk)
+      IF (temp(jk) > tmelt) THEN
+        e_aux     = rh(jk)*sat_pres_water(temp(jk))
+      ELSE
+        e_aux     = rh(jk)*sat_pres_ice(temp(jk))
+      ENDIF
+      pres(jk)    = p0ref*(exner(jk)**cpd_o_rd)
+      qv(jk)      = MIN(qv_max_wk,spec_humi(e_aux,pres(jk)))
+      theta_v(jk) = theta(jk)*(1._wp+vtmpc1*qv(jk)) 
 
-            ! condensation is not allowed or cannot happen physically at 
-            ! that pressure and temperature, so just impose the limit qv_max_wk:
+    ENDDO
 
-            ptr_nh_prog%tracer(jc,jk,jb,iqv) =                                    &
-                                MIN(ptr_nh_prog%tracer(jc,jk,jb,iqv), qv_max_wk)
-
-            ! "moist" r_d:
-            zrdm     = rd_moist(ptr_nh_prog%tracer(jc,jk,jb,iqv),                 &
-                                0.0_wp)
-            ! "moist" cp:
-!!$            zcpm = cp_moist(qv(i,j,1),qc(i,j,1),0.0_ireals)
-            ! COSMO-approximation of "moist" cp:
-            zcpm     = cp_moist_cosmo(ptr_nh_prog%tracer(jc,jk,jb,iqv),           &
-                                     0.0_wp,0.0_wp)
-            !recalculate temperature
-            ptr_nh_diag%temp(jc,jk,jb) = theta(jc,jk,jb)*                         &
-                                         (ptr_nh_diag%pres(jc,jk,jb)/p0ref)**(zrdm/zcpm)
-!!$            IF (ABS(ptr_nh_diag%temp(jc,jk,jb)-temp(jc,jk,jb)) .GT. .5_wp ) THEN
-!!$              WRITE(*,*) "big change  in temperatue in the iterative process"
-!!$            END IF 
-            ! recalculate exner
-            ptr_nh_prog%exner(jc,jk,jb) = ptr_nh_diag%temp(jc,jk,jb)/theta(jc,jk,jb)
-            ENDDO !jc
-      ENDDO !jk     
-     ENDDO !jb
-
-!$OMP END DO
-!$OMP END PARALLEL
-        ! recalculate pressure 
-        CALL diagnose_pres_temp ( p_metrics, ptr_nh_prog,     &
-            &                     ptr_nh_prog, ptr_nh_diag,   &
-            &                     ptr_patch,                  &
-            &                     opt_calc_pres=.TRUE.        )
-!!$  WRITE(*,*)"max temp difference iteration" ,iter," ",MAXVAL(ABS(ptr_nh_diag%temp-temp))
-!!$  WRITE(*,*)"max pres difference  iteration" ,iter," ",MAXVAL(ABS(ptr_nh_diag%pres-pres))
-
-
-    END DO ! niter
-
-    ! after enough iteretaions we have exner and the tracers, we already had theta
-
-    ! use subroutine virtual_temp to calculate theta_v
-
-!$OMP PARALLEL
-!$OMP WORKSHARE
-    z_qv(:,:,:) = ptr_nh_prog%tracer(:,:,:,iqv)
-!$OMP END WORKSHARE
-!$OMP END PARALLEL
-
-    CALL virtual_temp ( ptr_patch, theta, z_qv,             &
-                     & temp_v= ptr_nh_prog%theta_v)
-
-!$OMP PARALLEL         !!!! PRIVATE(i_startblk)
+   ! Copy to prognostic model fields
+!$OMP PARALLEL PRIVATE(i_startblk)
 !$OMP DO PRIVATE(jb,jk,jc,nlen)
-     DO jb = 1, nblks_c
+    DO jb = 1, nblks_c
       IF (jb /= nblks_c) THEN
          nlen = nproma
       ELSE
@@ -395,23 +332,25 @@ MODULE mo_nh_wk_exp
       ENDIF
 
       DO jk = nlev, 1, -1
-            DO jc = 1, nlen  
-             ptr_nh_prog%rho(jc,jk,jb)  = ptr_nh_prog%exner(jc,jk,jb)**cvd_o_rd*p0ref &
-                             /rd/ptr_nh_prog%theta_v(jc,jk,jb)
-             ptr_nh_prog%rhotheta_v(jc,jk,jb)  = ptr_nh_prog%rho(jc,jk,jb) *          &
-                                        ptr_nh_prog%theta_v(jc,jk,jb)
-            ENDDO !jc
+        DO jc = 1, nlen  
+          ptr_nh_prog%theta_v(jc,jk,jb)    = theta_v(jk)
+          ptr_nh_prog%exner(jc,jk,jb)      = exner(jk)
+          ptr_nh_prog%tracer(jc,jk,jb,iqv) = qv(jk)
+
+          ptr_nh_prog%rho(jc,jk,jb)  = ptr_nh_prog%exner(jc,jk,jb)**cvd_o_rd*p0ref &
+                                       /rd/ptr_nh_prog%theta_v(jc,jk,jb)
+          ptr_nh_prog%rhotheta_v(jc,jk,jb) = ptr_nh_prog%rho(jc,jk,jb) *          &
+                                             ptr_nh_prog%theta_v(jc,jk,jb)
+        ENDDO !jc
       ENDDO !jk     
-     ENDDO !jb
+    ENDDO !jb
 !$OMP END DO
-!$OMP END PARALLEL
 
-
-! initialized horizontal velocities
+! initialize horizontal velocities
     i_startblk = ptr_patch%edges%start_blk(2,1)
+
     ! horizontal normal components of the velocity
-!$OMP PARALLEL          !!!! PRIVATE(i_startblk)
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,z_u, z_klev)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,z_u)
     DO jb = i_startblk, nblks_e
 
       CALL get_indices_e(ptr_patch, jb, i_startblk, nblks_e, &
@@ -419,8 +358,7 @@ MODULE mo_nh_wk_exp
 
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
-            z_klev = p_metrics%z_mc_e(je,jk,jb) 
-            z_u = u_infty_wk * TANH((z_klev-hmin_wk)/(href_wk-hmin_wk))  !v component is zero
+            z_u = u_infty_wk * TANH((z_full(jk)-hmin_wk)/(href_wk-hmin_wk))  !v component is zero
             ptr_nh_prog%vn(je,jk,jb) = &
              z_u * ptr_patch%edges%primal_normal(je,jb)%v1
           ENDDO !je
@@ -428,8 +366,11 @@ MODULE mo_nh_wk_exp
     ENDDO  !jb
 !$OMP END DO
 !$OMP END PARALLEL
-! initialized vertical velocity
 
+    CALL diagnose_pres_temp (p_metrics, ptr_nh_prog,ptr_nh_prog, ptr_nh_diag,     &
+                             ptr_patch, opt_calc_pres=.TRUE., opt_calc_temp=.TRUE.)
+
+! initialize vertical velocity
    CALL init_w(ptr_patch, p_int, ptr_nh_prog%vn, p_metrics%z_ifc, ptr_nh_prog%w)
    CALL sync_patch_array(SYNC_C, ptr_patch, ptr_nh_prog%w)
 
@@ -441,14 +382,7 @@ MODULE mo_nh_wk_exp
                      & ptr_nh_prog%rhotheta_v  )
 
   END IF
-!!$       ! recalculate pressure and temperature after hydrostatic adjustment
-!!$        CALL diagnose_pres_temp ( p_metrics, ptr_nh_prog,     &
-!!$            &                     ptr_nh_prog, ptr_nh_diag,   &
-!!$            &                     ptr_patch,                  &
-!!$            &                     opt_calc_temp=.TRUE.,       &
-!!$            &                     opt_calc_pres=.TRUE.,       &
-!!$            &                     opt_calc_tempv=.TRUE.)
-!!$       
+
   END SUBROUTINE init_nh_env_wk
 !--------------------------------------------------------------------
 !-------------------------------------------------------------------------
@@ -512,7 +446,7 @@ MODULE mo_nh_wk_exp
              IF (z_rad .LT. 1._wp ) THEN
               ptr_nh_prog%theta_v(jc,jk,jb) = ptr_nh_prog%theta_v(jc,jk,jb) + &
                            & bub_amp*COS(z_rad*pi/2._wp )**2  *               &
-                           &(1._wp + rvd_m_o*ptr_nh_prog%tracer(jc,jk,jb,iqv))
+                           &(1._wp + vtmpc1*ptr_nh_prog%tracer(jc,jk,jb,iqv))
               ptr_nh_prog%rho(jc,jk,jb)   = ptr_nh_prog%exner(jc,jk,jb)**cvd_o_rd    &
                                           *p0ref/rd/ptr_nh_prog%theta_v(jc,jk,jb)
               ptr_nh_prog%rhotheta_v(jc,jk,jb)  = ptr_nh_prog%rho(jc,jk,jb) *          &
@@ -554,7 +488,7 @@ MODULE mo_nh_wk_exp
     IMPLICIT NONE
     REAL(wp), INTENT(in) :: qv, qcrs
 
-    rd_moist = rd * (1.0_wp + rvd_m_o*qv - qcrs)
+    rd_moist = rd * (1.0_wp + vtmpc1*qv - qcrs)
 
   END FUNCTION rd_moist
 !--------------------------------------------------------------------
@@ -573,3 +507,4 @@ MODULE mo_nh_wk_exp
   END FUNCTION cp_moist_cosmo
 !--------------------------------------------------------------------
   END MODULE mo_nh_wk_exp
+
