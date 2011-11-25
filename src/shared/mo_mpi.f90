@@ -103,6 +103,7 @@ MODULE mo_mpi
   ! real data type matching real type of MPI implementation
   PUBLIC :: p_real_dp
   PUBLIC :: p_int
+  PUBLIC :: p_int_i8
   PUBLIC :: p_bool
   PUBLIC :: p_address_kind
   PUBLIC :: p_real_dp_byte
@@ -358,6 +359,7 @@ MODULE mo_mpi
      MODULE PROCEDURE p_bcast_bool
      MODULE PROCEDURE p_bcast_real_1d
      MODULE PROCEDURE p_bcast_int_1d
+     MODULE PROCEDURE p_bcast_int_i8_1d
      MODULE PROCEDURE p_bcast_bool_1d
      MODULE PROCEDURE p_bcast_real_2d
      MODULE PROCEDURE p_bcast_int_2d
@@ -4880,6 +4882,47 @@ CONTAINS
 #endif
 
   END SUBROUTINE p_bcast_int_1d
+
+  SUBROUTINE p_bcast_int_i8_1d (t_buffer, p_source, comm)
+
+    INTEGER(i8), INTENT(inout) :: t_buffer(:)
+    INTEGER, INTENT(in)    :: p_source
+    INTEGER, OPTIONAL, INTENT(in) :: comm
+
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+#ifdef DEBUG
+    nbcast = nbcast+1
+#endif
+
+    IF (process_mpi_all_size == 1) THEN
+       RETURN
+    ELSE
+       CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_int_i8, p_source, &
+            p_comm, p_error)
+    ENDIF
+
+#ifdef DEBUG
+    WRITE (nerr,'(a,i4,a,i4,a)') ' MPI_BCAST from ', p_source, &
+            ' with broadcast number ', nbcast, ' succesfull.'
+
+     IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
+            ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL p_abort
+    END IF
+#endif
+#endif
+
+  END SUBROUTINE p_bcast_int_i8_1d
 
   SUBROUTINE p_bcast_int_2d (t_buffer, p_source, comm)
 
