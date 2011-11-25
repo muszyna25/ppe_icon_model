@@ -33,6 +33,7 @@ MODULE mo_var_list
   PUBLIC :: t_var_list
   PUBLIC :: var_lists                 ! vector of output var_lists
   PUBLIC :: nvar_lists                ! number of output var_lists defined so far
+  PUBLIC :: max_var_lists
 
   PUBLIC :: add_var                   ! create/allocate a new var_list list entry
   PUBLIC :: add_ref                   ! create/reference a new var_list list entry
@@ -352,7 +353,10 @@ CONTAINS
     this_info%hgrid               = -1
     this_info%vgrid               = -1
     !
+    this_info%tlev_source         = 0
+    !
     this_info%cdiVarID            = -1
+    this_info%cdiVarID_2          = -1
     this_info%cdiGridID           = -1
     this_info%cdiZaxisID          = -1
     this_info%cdiDataType         = -1

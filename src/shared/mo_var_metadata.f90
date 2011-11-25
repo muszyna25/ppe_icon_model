@@ -45,7 +45,14 @@ MODULE mo_var_metadata
     INTEGER            :: hgrid                 ! CDI horizontal grid type
     INTEGER            :: vgrid                 ! CDI vertical grid type
     !
+    INTEGER            :: tlev_source           ! Information where to find the actual
+                                                ! timelevel for timelevel dependent variables:
+                                                ! = 0 : nnow
+                                                ! = 1 : nnow_rcf
+                                                ! ... more may follow
+    !
     INTEGER            :: cdiVarID
+    INTEGER            :: cdiVarID_2            ! for 2nd vector component in LatLon interpolation
     INTEGER            :: cdiGridID
     INTEGER            :: cdiZaxisID
     INTEGER            :: cdiDataType
