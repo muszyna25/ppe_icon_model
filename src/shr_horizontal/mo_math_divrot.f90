@@ -667,7 +667,7 @@ SUBROUTINE recon_lsq_cell_q( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
   IF (ptr_patch%id > 1) THEN
 !$OMP WORKSHARE
-    p_coeff(:,:,1:i_startblk,1:6) = 0._wp
+    p_coeff(:,:,1:6,1:i_startblk) = 0._wp
 !$OMP END WORKSHARE
   ENDIF
 
@@ -975,7 +975,7 @@ SUBROUTINE recon_lsq_cell_q_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
   IF (ptr_patch%id > 1) THEN
 !$OMP WORKSHARE
-    p_coeff(:,:,1:i_startblk,1:6) = 0._wp
+    p_coeff(:,:,1:6,1:i_startblk) = 0._wp
 !$OMP END WORKSHARE
   ENDIF
 
@@ -1263,7 +1263,7 @@ SUBROUTINE recon_lsq_cell_cpoor( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
   IF (ptr_patch%id > 1) THEN
 !$OMP WORKSHARE
-    p_coeff(:,:,1:i_startblk,1:8) = 0._wp
+    p_coeff(:,:,1:8,1:i_startblk) = 0._wp
 !$OMP END WORKSHARE
   ENDIF
 
@@ -1503,7 +1503,7 @@ SUBROUTINE recon_lsq_cell_cpoor_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
   IF (ptr_patch%id > 1) THEN
 !$OMP WORKSHARE
-    p_coeff(:,:,1:i_startblk,1:8) = 0._wp
+    p_coeff(:,:,1:8,1:i_startblk) = 0._wp
 !$OMP END WORKSHARE
   ENDIF
 
@@ -1726,7 +1726,7 @@ SUBROUTINE recon_lsq_cell_c( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
   IF (ptr_patch%id > 1) THEN
 !$OMP WORKSHARE
-    p_coeff(:,:,1:i_startblk,1:10) = 0._wp
+    p_coeff(:,:,1:10,1:i_startblk) = 0._wp
 !$OMP END WORKSHARE
   ENDIF
 
@@ -1991,7 +1991,7 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
   IF (ptr_patch%id > 1) THEN
 !$OMP WORKSHARE
-    p_coeff(:,:,1:i_startblk,1:10) = 0._wp
+    p_coeff(:,:,1:10,1:i_startblk) = 0._wp
 !$OMP END WORKSHARE
   ENDIF
 
