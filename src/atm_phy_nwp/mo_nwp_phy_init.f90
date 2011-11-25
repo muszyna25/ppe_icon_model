@@ -306,7 +306,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
     
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_endidx,jk,zprat,zpres,lland,lglac,zn1,zn2,zcdnc)
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,jk,zprat,zpres,lland,lglac,zn1,zn2,zcdnc)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
