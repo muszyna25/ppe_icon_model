@@ -461,8 +461,10 @@ MODULE mo_nh_stepping
     ! Set output flags
     !--------------------------------------------------------------------------
 
-    IF ( istime4output(sim_time(1)+dtime) .OR. &
-         istime4name_list_output(sim_time(1)+dtime) .OR. jstep==nsteps ) THEN
+    IF ( jstep==nsteps .OR. &
+         istime4output(sim_time(1)+dtime) .OR. &
+         (MOD(jstep_adv(1)%ntsteps+1,iadv_rcf)==0 .AND. &
+          istime4name_list_output(sim_time(1)+dtime)) ) THEN
       l_outputtime = .TRUE. ! Output is written at the end of the time step,
     ELSE                    ! thus diagnostic quantities need to be computed
       l_outputtime = .FALSE.
@@ -501,8 +503,10 @@ MODULE mo_nh_stepping
         CALL print_datetime(datetime)
         l_have_output = .TRUE.
       ENDIF
-      IF(istime4name_list_output(sim_time(1)) .OR. jstep==nsteps ) THEN
-        CALL write_name_list_output( datetime, sim_time(1) )
+      IF ( jstep==nsteps .OR. &
+           (MOD(jstep_adv(1)%ntsteps,iadv_rcf)==0 .AND. &
+            istime4name_list_output(sim_time(1))) ) THEN
+        CALL write_name_list_output( datetime, sim_time(1), jstep==nsteps )
         ! l_have_output must not be set here, this triggers the close
         ! of vlist output files (not touched by name list output)
       ENDIF

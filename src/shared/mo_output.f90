@@ -40,7 +40,7 @@ MODULE mo_output
   USE mo_exception,           ONLY: message_text, get_filename_noext !, finish
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH
   USE mo_kind,                ONLY: wp
-  USE mo_mpi,                 ONLY: p_pe, p_io, process_mpi_io_size
+  USE mo_mpi,                 ONLY: p_pe, p_io
   USE mo_io_units,            ONLY: filename_max
   USE mo_model_domain_import, ONLY: n_dom, &
     &                               n_dom_start !, nroot, lplane
@@ -55,7 +55,8 @@ MODULE mo_output
      &                              open_output_vlist, close_output_vlist, &
      &                              write_vlist
   USE mo_io_async,            ONLY: setup_io_procs, shutdown_io_procs, &
-     &                              output_async, set_output_file
+     &                              output_async, set_output_file,     &
+                                    use_async_vlist_io
   USE mo_datetime,            ONLY: t_datetime,iso8601
   USE mo_io_restart,          ONLY: set_restart_time, set_restart_vct,         &
                                   & init_restart, open_writing_restart_files,  &
@@ -155,7 +156,7 @@ CONTAINS
         ! Compare to the call of open_output_vlist below!
 
         CALL setup_vlist( TRIM(p_patch(jg)%grid_filename), jg, &
-                        & process_mpi_io_size==0 .AND. p_pe==p_io)
+                        & .NOT.use_async_vlist_io .AND. p_pe==p_io)
 
       ENDDO
 
@@ -163,7 +164,7 @@ CONTAINS
 
       ! If not called for the first time, close previous output files
       ! (only if we are actually doing output!)
-      IF(process_mpi_io_size == 0 .AND. p_pe == p_io) THEN
+      IF(.NOT.use_async_vlist_io .AND. p_pe == p_io) THEN
         DO jg = n_dom, 1, -1
           CALL close_output_vlist(jg)
         ENDDO
@@ -217,7 +218,7 @@ CONTAINS
      !  ! #slo# must be aligned with general output
      !  !CALL setup_vlist_oce( p_patch(1:), TRIM(p_patch(jg)%grid_filename), TRIM(outputfile), jg )
      !ELSE
-        IF(process_mpi_io_size == 0) THEN
+        IF(.NOT.use_async_vlist_io) THEN
           IF(p_pe == p_io) CALL open_output_vlist(TRIM(outputfile), jg)
         ELSE
           CALL set_output_file(outputfile, jg)
@@ -229,7 +230,7 @@ CONTAINS
     ! Setup I/O PEs if this is the initial call and I/O PEs are enabled
     ! Note that this has to be done AFTER the output files are set!
 
-    IF(jfile == 1 .AND. process_mpi_io_size>0) CALL setup_io_procs()
+    IF(jfile == 1 .AND. use_async_vlist_io) CALL setup_io_procs()
     
   END SUBROUTINE init_output_files
 
@@ -246,11 +247,11 @@ CONTAINS
     IF ( no_output ) RETURN
 
     DO jg = n_dom, 1, -1
-      IF(process_mpi_io_size == 0 .AND. p_pe == p_io) CALL close_output_vlist(jg)
+      IF(.NOT.use_async_vlist_io .AND. p_pe == p_io) CALL close_output_vlist(jg)
       CALL destruct_vlist( jg )
     ENDDO
 
-    IF(process_mpi_io_size>0) CALL shutdown_io_procs
+    IF(use_async_vlist_io) CALL shutdown_io_procs
 
   END SUBROUTINE close_output_files
 
@@ -274,7 +275,7 @@ CONTAINS
 !       CALL add_time(REAL(sec,wp),0,0,0,outptime)
 !    END IF
 !
-!    IF(process_mpi_io_size == 0) THEN
+!    IF(.NOT.use_async_vlist_io) THEN
 !      CALL write_vlist(outptime)
 !    ELSE
 !      CALL output_async(outptime)
@@ -285,7 +286,7 @@ CONTAINS
     IF (ltimer) CALL timer_start(timer_write_output)
 
     IF ( PRESENT(z_sim_time) ) THEN  
-      IF(process_mpi_io_size == 0) THEN
+      IF(.NOT.use_async_vlist_io) THEN
         CALL write_vlist(datetime, z_sim_time(1))
         ! write recent samples of meteogram output
         DO jg = 1, n_dom
@@ -297,7 +298,7 @@ CONTAINS
         CALL output_async(datetime,z_sim_time(1))
       ENDIF
     ELSE
-      IF(process_mpi_io_size == 0) THEN
+      IF(.NOT.use_async_vlist_io) THEN
         CALL write_vlist(datetime)
         ! write recent samples of meteogram output
         DO jg = 1, n_dom

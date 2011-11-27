@@ -283,6 +283,8 @@ CONTAINS
 
     END IF
 
+    ! If async IO is in effect, init_name_list_output is a collective call
+    ! with the IO procs and effectively starts async IO
     CALL init_name_list_output
 
     !------------------------------------------------------------------
@@ -331,7 +333,7 @@ CONTAINS
 
       CALL write_output( time_config%cur_datetime )
       l_have_output = .TRUE.
-      CALL write_name_list_output( time_config%cur_datetime, 0._wp )
+      CALL write_name_list_output( time_config%cur_datetime, 0._wp, .FALSE. )
 
     END IF ! not is_restart_run()
 

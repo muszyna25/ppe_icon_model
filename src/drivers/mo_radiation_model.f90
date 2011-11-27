@@ -44,8 +44,6 @@ USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs
 USE mo_master_control,      ONLY: is_restart_run, get_my_couple_id
 
 
-USE mo_io_async,            ONLY: io_main_proc            ! main procedure for I/O PEs
-
 ! Control parameters: run control, dynamics, i/o
 !
 USE mo_nonhydrostatic_config,ONLY: ivctype, kstart_moist, kstart_qv,    &

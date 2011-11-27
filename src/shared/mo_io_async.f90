@@ -1,5 +1,9 @@
 !>
 !! Contains routines for asynchronous I/O
+!! --------------------------------------------------------
+!! These are the routines for (old) asynchronous vlist I/O,
+!! not for (new) name_list I/O !!!
+!! --------------------------------------------------------
 !!
 !!
 !! @par Revision History
@@ -94,6 +98,10 @@ MODULE mo_io_async
 
   PRIVATE
 
+  ! Flag whether async vlist I/O is used, it is set in the main program:
+
+  LOGICAL, PUBLIC :: use_async_vlist_io = .FALSE.
+
   INCLUDE 'cdi.inc' ! for cdiEncodeDate/cdiEncodeTime
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_io_async'
@@ -187,7 +195,7 @@ MODULE mo_io_async
 
   ! Public routines:
 
-  PUBLIC :: io_main_proc, setup_io_procs, shutdown_io_procs, set_output_file, output_async
+  PUBLIC :: vlist_io_main_proc, setup_io_procs, shutdown_io_procs, set_output_file, output_async
 
 CONTAINS
 
@@ -195,8 +203,8 @@ CONTAINS
   ! The whole purpose of this module is to run under MPI, so just define
   ! entry points for an error-free link here
 
-  SUBROUTINE io_main_proc
-  END SUBROUTINE io_main_proc
+  SUBROUTINE vlist_io_main_proc
+  END SUBROUTINE vlist_io_main_proc
 
   SUBROUTINE setup_io_procs()
 !     CHARACTER(LEN=*), INTENT(INOUT) :: gridfile(:)
@@ -245,7 +253,7 @@ CONTAINS
   !! Main routine for I/O PEs.
   !! Please note that this routine never returns.
 
-  SUBROUTINE io_main_proc
+  SUBROUTINE vlist_io_main_proc
 
     INTEGER jg, idate, itime, iostep
     LOGICAL done
@@ -363,7 +371,7 @@ CONTAINS
 
     STOP
 
-  END SUBROUTINE io_main_proc
+  END SUBROUTINE vlist_io_main_proc
 
   !-------------------------------------------------------------------------------------------------
   !>

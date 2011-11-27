@@ -47,8 +47,6 @@ USE mo_master_control,      ONLY: is_restart_run, get_my_process_name, &
                                   get_my_model_no, get_my_couple_id
 
 
-USE mo_io_async,            ONLY: io_main_proc            ! main procedure for I/O PEs
-
 ! Control parameters: run control, dynamics, i/o
 !
 USE mo_nonhydrostatic_config,ONLY: ivctype, kstart_moist, kstart_qv,    &

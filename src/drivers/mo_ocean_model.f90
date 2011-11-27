@@ -49,7 +49,7 @@ MODULE mo_ocean_model
 !                                  dynamics_parent_grid_id
   USE mo_dynamics_config,     ONLY: iequations
 
-  USE mo_io_async,            ONLY: io_main_proc            ! main procedure for I/O PEs
+  USE mo_io_async,            ONLY: vlist_io_main_proc            ! main procedure for I/O PEs
 
   USE mo_interpol_config,     ONLY: configure_interpolation
   USE mo_advection_config,    ONLY: configure_advection
@@ -256,10 +256,10 @@ CONTAINS
     !-------------------------------------------------------------------
     ! 4. Import patches
     !-------------------------------------------------------------------
-    ! If we belong to the I/O PEs just call io_main_proc before reading patches.
+    ! If we belong to the I/O PEs just call vlist_io_main_proc before reading patches.
     ! This routine will never return
 
-    IF (my_process_is_io()) CALL io_main_proc
+    IF (my_process_is_io()) CALL vlist_io_main_proc
 
     ! Check patch allocation status
     IF ( ALLOCATED(p_patch_global)) THEN

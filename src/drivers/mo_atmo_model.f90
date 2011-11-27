@@ -40,7 +40,8 @@ USE mo_mpi,                 ONLY: p_stop, &
   & my_process_is_io,  my_process_is_mpi_seq, my_process_is_mpi_test, &
   & my_process_is_mpi_parallel,                                       &
   & set_mpi_work_communicators, set_comm_input_bcast, null_comm_type, &
-  & p_pe_work, get_my_mpi_all_id, p_min, p_max, p_comm_work
+  & p_pe_work, get_my_mpi_all_id, p_min, p_max, p_comm_work,          &
+  & process_mpi_io_size
 USE mo_sync,                ONLY: enable_sync_checks, disable_sync_checks, &
                                   decomposition_statistics
 USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, &
@@ -51,7 +52,10 @@ USE mo_lonlat_intp_config,  ONLY: configure_lonlat_intp
 USE mo_master_control,      ONLY: is_restart_run, get_my_couple_id
 
 
-USE mo_io_async,            ONLY: io_main_proc            ! main procedure for I/O PEs
+USE mo_io_async,            ONLY: vlist_io_main_proc, &            ! main procedure for I/O PEs
+                                  use_async_vlist_io
+USE mo_name_list_output,    ONLY: use_async_name_list_io, name_list_output_active, &
+                                  name_list_io_main_proc
 
 ! Control parameters: run control, dynamics, i/o
 !
@@ -290,10 +294,22 @@ CONTAINS
     !-------------------------------------------------------------------
     ! 4. Import patches
     !-------------------------------------------------------------------
-    ! If we belong to the I/O PEs just call io_main_proc before reading patches.
+    ! If we belong to the I/O PEs just call xxx_io_main_proc before reading patches.
     ! This routine will never return
 
-    IF (my_process_is_io()) CALL io_main_proc
+    IF (process_mpi_io_size > 0) THEN
+      ! Decide whether async vlist or name_list IO is to be used,
+      ! only one of both may be enabled!
+
+      ! Currently, async name_list IO is used if at leat one name_list was read
+      IF(name_list_output_active) THEN
+        use_async_name_list_io = .TRUE.
+        IF (my_process_is_io()) CALL name_list_io_main_proc
+      ELSE
+        use_async_vlist_io = .TRUE.
+        IF (my_process_is_io()) CALL vlist_io_main_proc
+      ENDIF
+    ENDIF
 
     ! Check patch allocation status
 
