@@ -182,8 +182,7 @@ USE mo_gnat_gridsearch,     ONLY: gnat_init_grid, gnat_destroy, gnat_tree,&
 USE mo_math_utilities,      ONLY: rotate_latlon_grid
 USE mo_physical_constants,  ONLY: re
 USE mo_lonlat_intp_config,  ONLY: t_lonlat_intp_config, lonlat_intp_config
-USE mo_mpi,                 ONLY: my_process_is_stdio, process_mpi_io_size, &
-  &                               process_mpi_stdio_id, p_gather_field
+USE mo_mpi,                 ONLY: p_gather_field
 USE mo_communication,       ONLY: idx_1d, blk_no, idx_no
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_idx
 
@@ -197,7 +196,7 @@ PRIVATE
 PUBLIC :: rbf_vec_index_cell, rbf_c2grad_index, rbf_vec_compute_coeff_cell,     &
           & rbf_compute_coeff_c2grad, rbf_vec_index_vertex, rbf_vec_index_edge, &
           & rbf_vec_compute_coeff_vertex, rbf_vec_compute_coeff_edge,           &
-          & rbf_setup_interpol_lonlat
+          & rbf_setup_interpol_lonlat, rbf_setup_interpol_lonlat_grid
 
 CONTAINS
 
@@ -2158,10 +2157,8 @@ END SUBROUTINE rbf_compute_coeff_c2grad_lonlat
 ! 
 ! @par Revision History
 !      Initial implementation  by  F.Prill, DWD (2011-08)
+!      Changed to a wrapper by Rainer Johanni   (2011-11)
 !
-! Note: So far, the RBF coefficients and indices are by all compute PEs
-!       though they are only required by the writing PEs.
-! Note also that asynchronous IO is not yet supported.
 !
 SUBROUTINE rbf_setup_interpol_lonlat(k_jg, ptr_patch, ptr_int_lonlat, ptr_int)
   
@@ -2171,16 +2168,40 @@ SUBROUTINE rbf_setup_interpol_lonlat(k_jg, ptr_patch, ptr_int_lonlat, ptr_int)
   ! Indices of source points and interpolation coefficients
   TYPE (t_lon_lat_intp), TARGET, INTENT(INOUT) :: ptr_int_lonlat
   TYPE (t_int_state),    TARGET, INTENT(INOUT) :: ptr_int
+
+  CALL rbf_setup_interpol_lonlat_grid(lonlat_intp_config(k_jg)%lonlat_grid, &
+                                      ptr_patch, ptr_int_lonlat, ptr_int)
+
+END SUBROUTINE rbf_setup_interpol_lonlat
+
+!-------------------------------------------------------------------------
+!> Setup routine for RBF reconstruction at lon-lat grid points for an arbitrary grid.
+! 
+! @par Revision History
+!      Initial implementation  by  F.Prill, DWD (2011-08)
+!      Changed for abritrary grids by Rainer Johanni (2011-11)
+!
+! Note: So far, the RBF coefficients and indices are by all compute PEs
+!       though they are only required by the writing PEs.
+! Note also that asynchronous IO is not yet supported.
+!
+SUBROUTINE rbf_setup_interpol_lonlat_grid(grid, ptr_patch, ptr_int_lonlat, ptr_int)
+  
+  TYPE (t_lon_lat_grid), INTENT(INOUT)         :: grid
+  ! data structure containing grid info:
+  TYPE(t_patch), TARGET, INTENT(IN)            :: ptr_patch
+  ! Indices of source points and interpolation coefficients
+  TYPE (t_lon_lat_intp), TARGET, INTENT(INOUT) :: ptr_int_lonlat
+  TYPE (t_int_state),    TARGET, INTENT(INOUT) :: ptr_int
   ! Local Parameters:
   CHARACTER(*), PARAMETER :: routine = TRIM("mo_intp_rbf_coeffs:rbf_setup_interpol_lonlat")
-  TYPE (t_lon_lat_grid), POINTER   :: grid ! lon-lat grid
   REAL(wp), ALLOCATABLE            :: rotated_pts(:,:,:)
   REAL(gk), ALLOCATABLE            :: in_points(:,:,:)
   REAL(gk), ALLOCATABLE            :: min_dist(:,:)       ! minimal distance
   INTEGER                          :: jb, jc, i_startidx, i_endidx,         &
     &                                 nblks_lonlat, npromz_lonlat, errstat, &
     &                                 jb_lonlat, jc_lonlat,                 &
-    &                                 block_size, glb_index, i, iroot_id,   &
+    &                                 block_size, glb_index, i,             &
     &                                 rl_start, rl_end, i_nchdom, i_startblk
   LOGICAL                          :: l_distributed, l_cutoff_local_domains
   LOGICAL, ALLOCATABLE             :: l_cutoff(:,:)
@@ -2208,7 +2229,6 @@ SUBROUTINE rbf_setup_interpol_lonlat(k_jg, ptr_patch, ptr_int_lonlat, ptr_int)
     CALL finish(routine, "Lon-lat interpolation not yet implemented for cell_type == 6!")
   END IF
 
-  grid => lonlat_intp_config(k_jg)%lonlat_grid
   nblks_lonlat  = grid%nblks
   npromz_lonlat = grid%npromz
 
@@ -2252,11 +2272,9 @@ SUBROUTINE rbf_setup_interpol_lonlat(k_jg, ptr_patch, ptr_int_lonlat, ptr_int)
       &                                 ptr_int_lonlat%tri_idx(:,:,:), in_points(:,:,:),         &
       &                                 ptr_int_lonlat%nlocal_pts(:), ptr_int_lonlat%owner(:),   &
       &                                 ithis_local_pts)
-    ! set "nblks" and "npromz" to new values:
-    grid%nblks    = ithis_local_pts/nproma + 1
-    grid%npromz   = ithis_local_pts - (grid%nblks-1)*nproma
-    nblks_lonlat  = grid%nblks
-    npromz_lonlat = grid%npromz
+    ! set local values for "nblks" and "npromz"
+    nblks_lonlat  = (ithis_local_pts-1)/nproma + 1
+    npromz_lonlat = ithis_local_pts - (nblks_lonlat-1)*nproma
   END IF
   ! clean up
   CALL gnat_destroy()
@@ -2340,9 +2358,6 @@ SUBROUTINE rbf_setup_interpol_lonlat(k_jg, ptr_patch, ptr_int_lonlat, ptr_int)
     &                                   npromz_lonlat, ptr_int_lonlat)
 
   IF (l_distributed) THEN
-    ! Compute coefficients locally on each working PE and send them to
-    ! the IO PE.
-    iroot_id = process_mpi_stdio_id
 
     ! translate local indices to global indices:
     DO jb=1,nblks_lonlat
@@ -2371,56 +2386,35 @@ SUBROUTINE rbf_setup_interpol_lonlat(k_jg, ptr_patch, ptr_int_lonlat, ptr_int)
       END DO
     END DO
 
-    ! set "nblks" and "npromz" to new values:
-    IF ((process_mpi_io_size == 0) .AND. my_process_is_stdio()) THEN
-      grid%total_dim = SUM(ptr_int_lonlat%nlocal_pts(:))
-      grid%nblks     = grid%total_dim / nproma + 1
-      grid%npromz    = grid%total_dim - (grid%nblks-1)*nproma
-    END IF
+    ! Gather local components - as a result, ALL PEs will own the complete set of coefficients
 
-    ! send to root IO PE
-    block_size        = 2*rbf_vec_dim_c
-    array_shape_4d(:) = (/ rbf_vec_dim_c, 2, nproma, grid%nblks /)
     CALL p_gather_field(grid%total_dim, ptr_int_lonlat%nlocal_pts, ptr_int_lonlat%owner, &
-      &                 block_size, array_shape_4d, iroot_id, ptr_int_lonlat%rbf_vec_coeff)
+      &                 ptr_int_lonlat%rbf_vec_coeff)
 
-    block_size        = 2*rbf_c2grad_dim
-    array_shape_4d(:) = (/ rbf_c2grad_dim, 2, nproma, grid%nblks /)
     CALL p_gather_field(grid%total_dim, ptr_int_lonlat%nlocal_pts, ptr_int_lonlat%owner, &
-      &                 block_size, array_shape_4d, iroot_id, ptr_int_lonlat%rbf_c2grad_coeff)
+      &                 ptr_int_lonlat%rbf_c2grad_coeff)
 
-    block_size        = rbf_vec_dim_c
-    array_shape_3d(:) = (/ rbf_vec_dim_c, nproma, grid%nblks /)
     CALL p_gather_field(grid%total_dim, ptr_int_lonlat%nlocal_pts, ptr_int_lonlat%owner, &
-      &                 block_size, array_shape_3d, iroot_id, ptr_int_lonlat%rbf_vec_idx)
+      &                 ptr_int_lonlat%rbf_vec_idx)
     CALL p_gather_field(grid%total_dim, ptr_int_lonlat%nlocal_pts, ptr_int_lonlat%owner, &
-      &                 block_size, array_shape_3d, iroot_id, ptr_int_lonlat%rbf_vec_blk)
+      &                 ptr_int_lonlat%rbf_vec_blk)
 
-    array_shape_2d(:) = (/ nproma, grid%nblks /)
     CALL p_gather_field(grid%total_dim, ptr_int_lonlat%nlocal_pts, ptr_int_lonlat%owner, &
-      &                 1, array_shape_2d, iroot_id, ptr_int_lonlat%rbf_vec_stencil)
+      &                 ptr_int_lonlat%rbf_vec_stencil)
 
-    block_size        = rbf_c2grad_dim
-    array_shape_3d(:) = (/ rbf_c2grad_dim, nproma, grid%nblks /)
     CALL p_gather_field(grid%total_dim, ptr_int_lonlat%nlocal_pts, ptr_int_lonlat%owner, &
-      &                 block_size, array_shape_3d, iroot_id, ptr_int_lonlat%rbf_c2grad_idx)
+      &                 ptr_int_lonlat%rbf_c2grad_idx)
     CALL p_gather_field(grid%total_dim, ptr_int_lonlat%nlocal_pts, ptr_int_lonlat%owner, &
-      &                 block_size, array_shape_3d, iroot_id, ptr_int_lonlat%rbf_c2grad_blk)
+      &                 ptr_int_lonlat%rbf_c2grad_blk)
 
-    block_size        = 2
-    array_shape_3d(:) = (/ 2, nproma, grid%nblks /)
     CALL p_gather_field(grid%total_dim, ptr_int_lonlat%nlocal_pts, ptr_int_lonlat%owner, &
-      &                 block_size, array_shape_3d, iroot_id, ptr_int_lonlat%rdist)
+      &                 ptr_int_lonlat%rdist)
 
-    block_size        = 2
-    array_shape_3d(:) = (/ 2, nproma, grid%nblks /)
     CALL p_gather_field(grid%total_dim, ptr_int_lonlat%nlocal_pts, ptr_int_lonlat%owner, &
-      &                 block_size, array_shape_3d, iroot_id, ptr_int_lonlat%tri_idx)
+      &                 ptr_int_lonlat%tri_idx)
   END IF
 
-  IF ( l_cutoff_local_domains     .AND.  &
-    &  (process_mpi_io_size == 0) .AND.  &
-    &   my_process_is_stdio() )  THEN
+  IF ( l_cutoff_local_domains ) THEN
     ! make a sensible guess for maximum distance (just taking a
     ! "randomly chosen" edge length)
     rl_start = 2
@@ -2453,11 +2447,11 @@ SUBROUTINE rbf_setup_interpol_lonlat(k_jg, ptr_patch, ptr_int_lonlat, ptr_int)
   END IF
 
   DEALLOCATE(in_points, rotated_pts, min_dist, stat=errstat)
-   IF (errstat /= SUCCESS) THEN
+  IF (errstat /= SUCCESS) THEN
     CALL finish (routine, 'DEALLOCATE of working arrays failed')
   ENDIF
 
-END SUBROUTINE rbf_setup_interpol_lonlat
+END SUBROUTINE rbf_setup_interpol_lonlat_grid
 
 
 END MODULE mo_intp_rbf_coeffs

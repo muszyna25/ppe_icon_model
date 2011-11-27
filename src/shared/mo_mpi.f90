@@ -5896,117 +5896,22 @@ CONTAINS
    !  the global array. From each PE we may receive a different number of 
    !  entries. The ordering of the array is defined by the argument "iowner".
    !
-   SUBROUTINE p_gather_field_2d_int(total_dim, nlocal_pts, owner, block_size, &
-     &                              array_shape, iroot_id, array, comm)
-
-     INTEGER, PARAMETER      :: array_dim = 2
-     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_gather_field_2d_int")
+   SUBROUTINE p_gather_field_2d_int(total_dim, nlocal_pts, owner, array)
 
      INTEGER, INTENT(IN)     :: total_dim              ! dimension of global vector             
      INTEGER, INTENT(IN)     :: nlocal_pts(:)          ! number of points located on each patch 
      INTEGER, INTENT(IN)     :: owner(:)               ! for each point: owning process         
-     INTEGER,  INTENT(IN)    :: block_size             ! block size for each idx/blk pair       
-     INTEGER, INTENT(IN)     :: array_shape(array_dim) ! shape of output field                  
-     INTEGER, INTENT(IN)     :: iroot_id               ! Rank of receiving PE
      INTEGER, INTENT(INOUT)  :: array(:,:)             ! gathered output data                   
-     INTEGER, OPTIONAL, INTENT(in) :: comm
 
      !-----------------------------------------------------------------------
 
 #ifndef NOMPI
      ! Local Parameters:
-     LOGICAL                 :: lreceiving_pe            ! Flag. true, if this PE receives
-     INTEGER                 :: i, ierr, nworking_procs, send_cnt
-     INTEGER                 :: displacements(p_n_work), icounter(p_n_work)
-     INTEGER, ALLOCATABLE    :: recv_buf(:), reordered_field(:)
-     INTEGER                 :: recv_buf_size, ipos, &
-       &                        recv_proc, total_counter
-     INTEGER :: p_comm
-     IF (PRESENT(comm)) THEN
-       p_comm = comm
-     ELSE
-       p_comm = process_mpi_all_comm
-     ENDIF
+     REAL(wp) :: r_array(1,1,UBOUND(array,1),UBOUND(array,2))
 
-     lreceiving_pe = (get_my_mpi_all_id() == iroot_id)
-
-     recv_buf_size = block_size*total_dim
-     IF ((process_mpi_io_size == 0) .AND. my_process_is_stdio()) THEN
-       ALLOCATE(recv_buf(recv_buf_size),                       &
-         &      reordered_field(recv_buf_size),                &
-         &      stat=ierr)
-       IF (ierr /= MPI_SUCCESS) THEN
-         CALL finish (routine, 'allocation of working arrays failed')
-       ENDIF
-     ELSE
-       ! allocate dummy field on sender PEs
-       ALLOCATE(recv_buf(1), stat=ierr)
-       IF (ierr /= MPI_SUCCESS) THEN
-         CALL finish (routine, 'allocation of working arrays failed')
-       ENDIF
-     END IF
-
-     ! Compute coefficients locally on each working PE and send them to
-     ! the IO PE.
-     nworking_procs = p_n_work
-     send_cnt       = block_size*nlocal_pts(get_my_mpi_all_id()+1)
-
-     displacements(1)                = 0
-     displacements(2:nworking_procs) = block_size*nlocal_pts(1:(nworking_procs-1))
-     DO i=2,nworking_procs
-       displacements(i) = displacements(i) + displacements(i-1)
-     END DO
-
-     ! paranoia
-     IF ((displacements(nworking_procs) + block_size*nlocal_pts(nworking_procs)) /= &
-       & block_size*total_dim) THEN
-       WRITE(message_text,*) "Inconsistent data: total_dim = ", block_size*total_dim, &
-         &      ", should be ", displacements(nworking_procs) + &
-         &      block_size*nlocal_pts(nworking_procs)
-       CALL finish(routine, TRIM(message_text))
-     END IF
-
-     CALL MPI_GATHERV(array, send_cnt, p_int, recv_buf,             &
-       &              block_size*nlocal_pts(:), displacements(:),   &
-       &              p_int, iroot_id, p_comm, ierr)
-     IF (ierr /= 0)  &
-       CALL finish (routine, 'Error in MPI_GATHERV operation!')
-
-     !-- The rest of this routine is only relevant for IO PEs: 
-     IF (lreceiving_pe) THEN
-       total_counter = 1
-       icounter(:)   = displacements(:) + 1
-       ! reordering of received data:
-       DO i=1,total_dim
-         recv_proc = owner(i) + 1
-         ipos      = icounter(recv_proc)
-
-         reordered_field(total_counter:(total_counter+block_size-1)) = &
-           &   recv_buf(ipos:(ipos+block_size-1))
-         icounter(recv_proc) = icounter(recv_proc) + block_size
-         total_counter       = total_counter + block_size
-       END DO
-
-       ! paranoia
-       DO i=2,nworking_procs
-         IF (icounter(i-1) /= displacements(i)+1) THEN
-           WRITE(message_text,*) "Inconsistent data: i = ", i, &
-             &      ", counter ", icounter(i-1), &
-             &      ", should be ", displacements(i)
-           CALL finish(routine, TRIM(message_text))       
-         END IF
-       END DO
-
-       array = RESHAPE( reordered_field(:), array_shape, (/ 0 /) )
-       DEALLOCATE(reordered_field, stat=ierr)
-       IF (ierr /= MPI_SUCCESS) THEN
-         CALL finish (routine, 'DEALLOCATE of working arrays failed')
-       ENDIF
-     END IF
-     DEALLOCATE(recv_buf, stat=ierr)
-     IF (ierr /= MPI_SUCCESS) THEN
-       CALL finish (routine, 'DEALLOCATE of working arrays failed')
-     ENDIF
+     r_array(1,1,:,:) = REAL(array(:,:),wp)
+     CALL p_gather_field_4d(total_dim, nlocal_pts, owner, r_array)
+     array(:,:) = INT(r_array(1,1,:,:))
 #else
      ! do nothing in the sequential case
 #endif
@@ -6019,117 +5924,22 @@ CONTAINS
    !  the global array. From each PE we may receive a different number of 
    !  entries. The ordering of the array is defined by the argument "iowner". 
    !
-   SUBROUTINE p_gather_field_3d_int(total_dim, nlocal_pts, owner, block_size, array_shape, &
-     &                              iroot_id, array, comm)
-
-     INTEGER, PARAMETER      :: array_dim = 3
-     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_gather_field_3d_int")
+   SUBROUTINE p_gather_field_3d_int(total_dim, nlocal_pts, owner, array)
 
      INTEGER,  INTENT(IN)    :: total_dim              ! dimension of global vector             
      INTEGER,  INTENT(IN)    :: nlocal_pts(:)          ! number of points located on each patch 
      INTEGER,  INTENT(IN)    :: owner(:)               ! for each point: owning process         
-     INTEGER,  INTENT(IN)    :: block_size             ! block size for each idx/blk pair       
-     INTEGER,  INTENT(IN)    :: array_shape(array_dim) ! shape of output field                  
-     INTEGER,  INTENT(IN)    :: iroot_id               ! Rank of receiving PE
      INTEGER,  INTENT(INOUT) :: array(:,:,:)           ! gathered output data                   
-     INTEGER, OPTIONAL, INTENT(in) :: comm
 
      !-----------------------------------------------------------------------
 
 #ifndef NOMPI
      ! Local Parameters:
-     LOGICAL                 :: lreceiving_pe            ! Flag. true, if this PE receives
-     INTEGER                 :: i, ierr, nworking_procs, send_cnt
-     INTEGER                 :: displacements(p_n_work), icounter(p_n_work)
-     INTEGER, ALLOCATABLE    :: recv_buf(:), reordered_field(:)
-     INTEGER                 :: recv_buf_size, ipos, &
-       &                        recv_proc, total_counter
-     INTEGER :: p_comm
-     IF (PRESENT(comm)) THEN
-       p_comm = comm
-     ELSE
-       p_comm = process_mpi_all_comm
-     ENDIF
+     REAL(wp) :: r_array(1,UBOUND(array,1),UBOUND(array,2),UBOUND(array,3))
 
-     lreceiving_pe = (get_my_mpi_all_id() == iroot_id)
-
-     recv_buf_size = block_size*total_dim
-     IF ((process_mpi_io_size == 0) .AND. my_process_is_stdio()) THEN
-       ALLOCATE(recv_buf(recv_buf_size),                       &
-         &      reordered_field(recv_buf_size),                &
-         &      stat=ierr)
-       IF (ierr /= MPI_SUCCESS) THEN
-         CALL finish (routine, 'allocation of working arrays failed')
-       ENDIF
-     ELSE
-       ! allocate dummy field on sender PEs
-       ALLOCATE(recv_buf(1), stat=ierr)
-       IF (ierr /= MPI_SUCCESS) THEN
-         CALL finish (routine, 'allocation of working arrays failed')
-       ENDIF
-     END IF
-
-     ! Compute coefficients locally on each working PE and send them to
-     ! the IO PE.
-     nworking_procs = p_n_work
-     send_cnt       = block_size*nlocal_pts(get_my_mpi_all_id()+1)
-
-     displacements(1)                = 0
-     displacements(2:nworking_procs) = block_size*nlocal_pts(1:(nworking_procs-1))
-     DO i=2,nworking_procs
-       displacements(i) = displacements(i) + displacements(i-1)
-     END DO
-
-     ! paranoia
-     IF ((displacements(nworking_procs) + block_size*nlocal_pts(nworking_procs)) /= &
-       & block_size*total_dim) THEN
-       WRITE(message_text,*) "Inconsistent data: total_dim = ", total_dim*block_size, &
-         &      ", should be ", displacements(nworking_procs) + &
-         &      block_size*nlocal_pts(nworking_procs)
-       CALL finish(routine, TRIM(message_text))
-     END IF
-
-     CALL MPI_GATHERV(array, send_cnt, p_int, recv_buf,             &
-       &              block_size*nlocal_pts(:), displacements(:),   &
-       &              p_int, iroot_id, p_comm, ierr)
-     IF (ierr /= 0)  &
-       CALL finish (routine, 'Error in MPI_GATHERV operation!')
-
-     !-- The rest of this routine is only relevant for IO PEs: 
-     IF (lreceiving_pe) THEN
-       total_counter = 1
-       icounter(:)   = displacements(:) + 1
-       ! reordering of received data:
-       DO i=1,total_dim
-         recv_proc = owner(i) + 1
-         ipos      = icounter(recv_proc)
-         reordered_field(total_counter:(total_counter+block_size-1)) = &
-           &   recv_buf(ipos:(ipos+block_size-1))
-         icounter(recv_proc) = icounter(recv_proc) + block_size
-         total_counter       = total_counter + block_size
-       END DO
-
-       ! paranoia
-       DO i=2,nworking_procs
-         IF (icounter(i-1) /= displacements(i)+1) THEN
-           WRITE(message_text,*) "Inconsistent data: i = ", i, &
-             &      ", counter ", icounter(i-1), &
-             &      ", should be ", displacements(i)
-           CALL finish(routine, TRIM(message_text))       
-         END IF
-       END DO
-
-       array = RESHAPE( reordered_field(:), array_shape, (/ 0 /) )
-
-       DEALLOCATE(reordered_field, stat=ierr)
-       IF (ierr /= MPI_SUCCESS) THEN
-         CALL finish (routine, 'DEALLOCATE of working arrays failed')
-       ENDIF
-     END IF
-     DEALLOCATE(recv_buf, stat=ierr)
-     IF (ierr /= MPI_SUCCESS) THEN
-       CALL finish (routine, 'DEALLOCATE of working arrays failed')
-     ENDIF
+     r_array(1,:,:,:) = REAL(array(:,:,:),wp)
+     CALL p_gather_field_4d(total_dim, nlocal_pts, owner, r_array)
+     array(:,:,:) = INT(r_array(1,:,:,:))
 #else
      ! do nothing in the sequential case
 #endif
@@ -6142,117 +5952,23 @@ CONTAINS
    !  the global array. From each PE we may receive a different number of 
    !  entries. The ordering of the array is defined by the argument "iowner". 
    !
-   SUBROUTINE p_gather_field_3d(total_dim, nlocal_pts, owner, block_size, array_shape, &
-     &                          iroot_id, array, comm)
-
-     INTEGER,      PARAMETER :: array_dim = 3
-     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_gather_field_3d")
+   SUBROUTINE p_gather_field_3d(total_dim, nlocal_pts, owner, array)
 
      INTEGER,  INTENT(IN)    :: total_dim               ! dimension of global vector             
      INTEGER,  INTENT(IN)    :: nlocal_pts(:)           ! number of points located on each patch 
      INTEGER,  INTENT(IN)    :: owner(:)                ! for each point: owning process         
-     INTEGER,  INTENT(IN)    :: block_size              ! block size for each idx/blk pair       
-     INTEGER,  INTENT(IN)    :: array_shape(array_dim)  ! shape of output field                  
-     INTEGER,  INTENT(IN)    :: iroot_id                ! Rank of receiving PE
      REAL(dp), INTENT(INOUT) :: array(:,:,:)            ! gathered output data                   
-     INTEGER, OPTIONAL, INTENT(in) :: comm
 
      !-----------------------------------------------------------------------
 
 #ifndef NOMPI
      ! Local Parameters:
-     LOGICAL                 :: lreceiving_pe            ! Flag. true, if this PE receives
-     INTEGER                 :: i, ierr, nworking_procs, send_cnt
-     INTEGER                 :: displacements(p_n_work), icounter(p_n_work)
-     REAL(dp), ALLOCATABLE   :: recv_buf(:), reordered_field(:)
-     INTEGER                 :: recv_buf_size, ipos, &
-       &                        recv_proc, total_counter
-     INTEGER :: p_comm
-     IF (PRESENT(comm)) THEN
-       p_comm = comm
-     ELSE
-       p_comm = process_mpi_all_comm
-     ENDIF
+     REAL(wp) :: r_array(1,UBOUND(array,1),UBOUND(array,2),UBOUND(array,3))
 
-     lreceiving_pe = (get_my_mpi_all_id() == iroot_id)
+     r_array(1,:,:,:) = array(:,:,:)
+     CALL p_gather_field_4d(total_dim, nlocal_pts, owner, r_array)
+     array(:,:,:) = r_array(1,:,:,:)
 
-     recv_buf_size = block_size*total_dim
-     IF ((process_mpi_io_size == 0) .AND. my_process_is_stdio()) THEN
-       ALLOCATE(recv_buf(recv_buf_size),                       &
-         &      reordered_field(recv_buf_size),                &
-         &      stat=ierr)
-       IF (ierr /= MPI_SUCCESS) THEN
-         CALL finish (routine, 'allocation of working arrays failed')
-       ENDIF
-     ELSE
-       ! allocate dummy field on sender PEs
-       ALLOCATE(recv_buf(1), stat=ierr)
-       IF (ierr /= MPI_SUCCESS) THEN
-         CALL finish (routine, 'allocation of working arrays failed')
-       ENDIF
-     END IF
-
-     ! Compute coefficients locally on each working PE and send them to
-     ! the IO PE.
-     nworking_procs = p_n_work
-     send_cnt       = block_size*nlocal_pts(get_my_mpi_all_id()+1)
-
-     displacements(1)                = 0
-     displacements(2:nworking_procs) = block_size*nlocal_pts(1:(nworking_procs-1))
-     DO i=2,nworking_procs
-       displacements(i) = displacements(i) + displacements(i-1)
-     END DO
-
-     ! paranoia
-     IF ((displacements(nworking_procs) + block_size*nlocal_pts(nworking_procs)) /= &
-       & block_size*total_dim) THEN
-       WRITE(message_text,*) "Inconsistent data: total_dim = ", total_dim*block_size, &
-         &      ", should be ", displacements(nworking_procs) + &
-         &      block_size*nlocal_pts(nworking_procs)
-       CALL finish(routine, TRIM(message_text))
-     END IF
-
-     CALL MPI_GATHERV(array, send_cnt, p_real_dp, recv_buf,            &
-       &              block_size*nlocal_pts(:), displacements(:),      &
-       &              p_real_dp, iroot_id, p_comm, ierr)
-     IF (ierr /= 0)  &
-       CALL finish (routine, 'Error in MPI_GATHERV operation!')
-
-     !-- The rest of this routine is only relevant for IO PEs: 
-     IF (lreceiving_pe) THEN
-       total_counter = 1
-       icounter(:)   = displacements(:) + 1
-       ! reordering of received data:
-       DO i=1,total_dim
-         recv_proc = owner(i) + 1
-         ipos      = icounter(recv_proc)
-         reordered_field(total_counter:(total_counter+block_size-1)) = &
-           &   recv_buf(ipos:(ipos+block_size-1))
-         icounter(recv_proc) = icounter(recv_proc) + block_size
-         total_counter       = total_counter + block_size
-       END DO
-
-       ! paranoia
-       DO i=2,nworking_procs
-         IF (icounter(i-1) /= displacements(i)+1) THEN
-           WRITE(message_text,*) "Inconsistent data: i = ", i, &
-             &      ", counter ", icounter(i-1), &
-             &      ", should be ", displacements(i)
-           CALL finish(routine, TRIM(message_text))       
-         END IF
-       END DO
-
-       array = RESHAPE( reordered_field(:), array_shape, (/ 0._dp /) )
-
-       DEALLOCATE(reordered_field, stat=ierr)
-       IF (ierr /= MPI_SUCCESS) THEN
-         CALL finish (routine, 'DEALLOCATE of working arrays failed')
-       ENDIF
-     END IF
-     DEALLOCATE(recv_buf, stat=ierr)
-     IF (ierr /= MPI_SUCCESS) THEN
-       CALL finish (routine, 'DEALLOCATE of working arrays failed')
-     ENDIF
 #else
      ! do nothing in the sequential case
 #endif
@@ -6265,117 +5981,41 @@ CONTAINS
    !  the global array. From each PE we may receive a different number of 
    !  entries. The ordering of the array is defined by the argument "iowner". 
    !
-   SUBROUTINE p_gather_field_4d(total_dim, nlocal_pts, owner, block_size, array_shape, &
-     &                          iroot_id, array, comm)
-
-     INTEGER,      PARAMETER :: array_dim = 4
-     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_gather_field_4d")
+   SUBROUTINE p_gather_field_4d(total_dim, nlocal_pts, owner, array)
 
      INTEGER,  INTENT(IN)    :: total_dim                ! dimension of global vector
      INTEGER,  INTENT(IN)    :: nlocal_pts(:)            ! number of points located on each patch
      INTEGER,  INTENT(IN)    :: owner(:)                 ! for each point: owning process
-     INTEGER,  INTENT(IN)    :: block_size               ! block size for each idx/blk pair
-     INTEGER,  INTENT(IN)    :: array_shape(array_dim)   ! shape of output field
-     INTEGER,  INTENT(IN)    :: iroot_id                 ! Rank of receiving PE
      REAL(dp), INTENT(INOUT) :: array(:,:,:,:)           ! gathered output data                   
-     INTEGER, OPTIONAL, INTENT(in) :: comm
 
      !-----------------------------------------------------------------------
 
 #ifndef NOMPI
      ! Local Parameters:
-     LOGICAL                 :: lreceiving_pe            ! Flag. true, if this PE receives
-     INTEGER                 :: i, ierr, nworking_procs, send_cnt
-     INTEGER                 :: displacements(p_n_work), icounter(p_n_work)
-     REAL(dp), ALLOCATABLE   :: recv_buf(:), reordered_field(:)
-     INTEGER                 :: recv_buf_size, ipos, &
-       &                        recv_proc, total_counter
-     INTEGER :: p_comm
-     IF (PRESENT(comm)) THEN
-       p_comm = comm
-     ELSE
-       p_comm = process_mpi_all_comm
-     ENDIF
+     REAL(wp) :: tot_array(UBOUND(array,1),UBOUND(array,2),UBOUND(array,3)*UBOUND(array,4))
+     INTEGER :: n, i, mpierr
 
-     lreceiving_pe = (get_my_mpi_all_id() == iroot_id)
+     ! Check if result fits into output
+     IF(UBOUND(tot_array,3) < total_dim) &
+       CALL finish('gather_field','Output array too small')
 
-     recv_buf_size = block_size*total_dim
-     IF ((process_mpi_io_size == 0) .AND. my_process_is_stdio()) THEN
-       ALLOCATE(recv_buf(recv_buf_size),                       &
-         &      reordered_field(recv_buf_size),                &
-         &      stat=ierr)
-       IF (ierr /= MPI_SUCCESS) THEN
-         CALL finish (routine, 'allocation of working arrays failed')
+     ! Insert my contribution into tot_array at the final location
+     tot_array(:,:,:) = 0
+     n = 0
+     DO i = 1, total_dim
+       IF(owner(i) == p_pe_work) THEN
+         tot_array(:,:,i) = array(:,:,MOD(n,UBOUND(array,3))+1,n/UBOUND(array,3)+1)
+         n = n+1
        ENDIF
-     ELSE
-       ! allocate dummy field on sender PEs
-       ALLOCATE(recv_buf(1), stat=ierr)
-       IF (ierr /= MPI_SUCCESS) THEN
-         CALL finish (routine, 'allocation of working arrays failed')
-       ENDIF
-     END IF
+    ENDDO
 
-     ! Compute coefficients locally on each working PE and send them to
-     ! the IO PE.
-     nworking_procs = p_n_work
-     send_cnt       = block_size*nlocal_pts(get_my_mpi_all_id()+1)
+    ! Plausibility check
+    IF(n /= nlocal_pts(p_pe_work+1)) &
+       CALL finish('gather_field','nlocal_pts inconsistent')
 
-     displacements(1)                = 0
-     displacements(2:nworking_procs) = block_size*nlocal_pts(1:(nworking_procs-1))
-     DO i=2,nworking_procs
-       displacements(i) = displacements(i) + displacements(i-1)
-     END DO
+    ! Take the global sum over tot_array, the result goes back into array
 
-     ! paranoia
-     IF ((displacements(nworking_procs) + block_size*nlocal_pts(nworking_procs)) /= &
-       & block_size*total_dim) THEN
-       WRITE(message_text,*) "Inconsistent data: total_dim = ", total_dim*block_size, &
-         &      ", should be ", displacements(nworking_procs) + &
-         &      block_size*nlocal_pts(nworking_procs)
-       CALL finish(routine, TRIM(message_text))
-     END IF
-
-     CALL MPI_GATHERV(array, send_cnt, p_real_dp, recv_buf,              &
-       &              block_size*nlocal_pts(:), displacements(:),        &
-       &              p_real_dp, iroot_id, p_comm, ierr)
-     IF (ierr /= 0)  &
-       CALL finish (routine, 'Error in MPI_GATHERV operation!')
-
-     !-- The rest of this routine is only relevant for IO PEs: 
-     IF (lreceiving_pe) THEN
-       total_counter = 1
-       icounter(:)   = displacements(:) + 1
-       ! reordering of received data:
-       DO i=1,total_dim
-         recv_proc = owner(i) + 1
-         ipos      = icounter(recv_proc)
-         reordered_field(total_counter:(total_counter+block_size-1)) = &
-           &   recv_buf(ipos:(ipos+block_size-1))
-         icounter(recv_proc) = icounter(recv_proc) + block_size
-         total_counter       = total_counter + block_size
-       END DO
-
-       ! paranoia
-       DO i=2,nworking_procs
-         IF (icounter(i-1) /= displacements(i)+1) THEN
-           WRITE(message_text,*) "Inconsistent data: i = ", i, &
-             &      ", counter ", icounter(i-1), &
-             &      ", should be ", displacements(i)
-           CALL finish(routine, TRIM(message_text))       
-         END IF
-       END DO
-
-       array = RESHAPE( reordered_field(:), array_shape, (/ 0._dp /) )
-
-       DEALLOCATE(reordered_field, stat=ierr)
-       IF (ierr /= MPI_SUCCESS) THEN
-         CALL finish (routine, 'DEALLOCATE of working arrays failed')
-       ENDIF
-     END IF
-     DEALLOCATE(recv_buf, stat=ierr)
-     IF (ierr /= MPI_SUCCESS) THEN
-       CALL finish (routine, 'DEALLOCATE of working arrays failed')
-     ENDIF
+    CALL MPI_Allreduce(tot_array, array, SIZE(tot_array), p_real_dp, MPI_SUM, p_comm_work, mpierr)
 #else
      ! do nothing in the sequential case
 #endif

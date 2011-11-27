@@ -185,6 +185,8 @@ USE mo_communication,       ONLY: t_comm_pattern, blk_no, idx_no, idx_1d, &
   &                               setup_comm_pattern, delete_comm_pattern, exchange_data
 USE mo_ocean_nml,           ONLY: idisc_scheme
 USE mo_impl_constants,      ONLY: ihs_ocean
+USE mo_math_utilities,      ONLY: t_lon_lat_grid
+
 
 
 IMPLICIT NONE
@@ -195,8 +197,9 @@ PRIVATE
 PUBLIC :: construct_2d_interpol_state, destruct_2d_interpol_state
 PUBLIC :: transfer_interpol_state
 PUBLIC :: allocate_int_state, deallocate_int_state
-PUBLIC :: allocate_int_state_lonlat,    &
-  &       rbf_setup_interpol_lonlat,    &
+PUBLIC :: allocate_int_state_lonlat,      &
+  &       allocate_int_state_lonlat_grid, &
+  &       rbf_setup_interpol_lonlat,      &
   &       deallocate_int_state_lonlat
 
 INTERFACE xfer_var
@@ -1405,11 +1408,29 @@ END SUBROUTINE allocate_int_state
 !> Allocation of components of interpolation state.
 !!
 !! @par Revision History
-!! Split off from construct_2d_interpol_state, Rainer Johanni (2010-10-26)
+!! Changed to a wrapper, Rainer Johanni (2011-11-25)
 !!
 SUBROUTINE allocate_int_state_lonlat( k_jg, ptr_int_lonlat)
 !
   INTEGER,                       INTENT(IN)    :: k_jg   ! patch index
+  TYPE (t_lon_lat_intp), TARGET, INTENT(INOUT) :: ptr_int_lonlat
+
+  CALL allocate_int_state_lonlat_grid(lonlat_intp_config(k_jg)%lonlat_grid, &
+                                      ptr_int_lonlat)
+
+END SUBROUTINE allocate_int_state_lonlat
+
+!-------------------------------------------------------------------------
+!
+!
+!> Allocation of components of interpolation state using an arbitrary grid.
+!!
+!! @par Revision History
+!! Introduced arbitrary grid, Rainer Johanni (2010-11-25)
+!!
+SUBROUTINE allocate_int_state_lonlat_grid( lonlat_grid, ptr_int_lonlat)
+!
+  TYPE (t_lon_lat_grid),         INTENT(IN)    :: lonlat_grid
   TYPE (t_lon_lat_intp), TARGET, INTENT(INOUT) :: ptr_int_lonlat
 
   CHARACTER(*), PARAMETER :: routine = TRIM("mo_intp_state:allocate_int_state_lonlat")
@@ -1418,7 +1439,7 @@ SUBROUTINE allocate_int_state_lonlat( k_jg, ptr_int_lonlat)
   ! ----------------------------------------------------------------------
 
   ! allocate memory only when needed.
-  total_dim    = lonlat_intp_config(k_jg)%lonlat_grid%total_dim
+  total_dim    = lonlat_grid%total_dim
   nblks_lonlat = (total_dim - 1)/nproma + 1
   ALLOCATE ( &
     &  ptr_int_lonlat%rbf_vec_coeff(rbf_vec_dim_c, 2, nproma, nblks_lonlat),     &
@@ -1456,7 +1477,7 @@ SUBROUTINE allocate_int_state_lonlat( k_jg, ptr_int_lonlat)
   IF (ist /= SUCCESS) &
     CALL finish (routine, 'allocation for lon-lat point distribution failed')
 
-END SUBROUTINE allocate_int_state_lonlat
+END SUBROUTINE allocate_int_state_lonlat_grid
 
 
 !-------------------------------------------------------------------------

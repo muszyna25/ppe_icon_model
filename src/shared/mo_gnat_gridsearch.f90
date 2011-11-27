@@ -58,7 +58,7 @@ MODULE mo_gnat_gridsearch
   USE mo_model_domain,        ONLY: t_grid_cells, t_grid_vertices, t_patch
   USE mo_impl_constants,      ONLY: min_rlcell_int
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
-  USE mo_mpi,                 ONLY: p_n_work, get_my_mpi_all_id, &
+  USE mo_mpi,                 ONLY: p_n_work, get_my_mpi_work_id, &
     &                               p_allreduce_minloc, p_comm_work
   USE mo_kind
   USE mo_physical_constants,  ONLY: re
@@ -966,7 +966,7 @@ CONTAINS
     !    to find out which process is in charge of which in_point
 
     in(1,:) = RESHAPE(REAL(min_dist(:,:)), (/ ntotal /) )
-    in(2,:) = REAL( get_my_mpi_all_id() )
+    in(2,:) = REAL( get_my_mpi_work_id() )
     
     CALL p_allreduce_minloc(in, ntotal, p_comm_work)
 
@@ -997,7 +997,7 @@ CONTAINS
             jc = 1
           END IF
           if (i > ntotal) EXIT TOTAL
-          IF (owner_list(i) == get_my_mpi_all_id()) EXIT SKIP
+          IF (owner_list(i) == get_my_mpi_work_id()) EXIT SKIP
         END DO SKIP
 
         IF (tri_idx(1,jc,jb) /= INVALID_NODE) THEN
@@ -1017,7 +1017,7 @@ CONTAINS
       lonlat_points(:,:,2) = RESHAPE( new_lonlat_points(:,2), array_shape(:), (/ 0._gk /) )
     END IF
 
-    ! now, (j-1) points are left for proc "get_my_mpi_all_id()"
+    ! now, (j-1) points are left for proc "get_my_mpi_work_id()"
     ithis_local_pts = (j-1)
 
     ! store the global list of receivers as well as the number of
@@ -1032,7 +1032,7 @@ CONTAINS
       WRITE(message_text,*) "lon-lat point distribution: ", nlocal_pts(:)
 
       IF (idummy_applied > 0) THEN
-        WRITE(message_text,*) "proc ", get_my_mpi_all_id(), ": dummy applied: ", idummy_applied
+        WRITE(message_text,*) "proc ", get_my_mpi_work_id(), ": dummy applied: ", idummy_applied
         CALL message(routine, TRIM(message_text))
       END IF
     END IF
