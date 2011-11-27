@@ -2252,7 +2252,7 @@ Possible values: 2 (=FILETYPE\_GRB2), 4 (=FILETYPE\_NC2), 5 (=FILETYPE\_NC4)
  namespace &
 C&' '& &
  'DWD' - DWD short names (or 'MPIM', 'CMIP', 'ECMWF') \\
- {\color{red} Not yet implemented.} \\
+ {\color{red} Currently unused.} \\
  RJ: For what exactly should that be used?
 &
 \tabularnewline
@@ -2261,7 +2261,7 @@ C&' '& &
  mode &
 I&1& &
  1 = forecast mode, 2 = climate mode \\
- {\color{red} Not yet implemented.} \\
+ {\color{red} Currently unused.} \\
  RJ: For what exactly should that be used?
 &
 \tabularnewline
@@ -2301,9 +2301,9 @@ I&100& &
 \tabularnewline
 
 \hline
- include\_start &
-L&.FALSE.& &
- include initial time step
+ include\_last &
+L&.TRUE.& &
+ Flag whether to include the last time step
 &
 \tabularnewline
 
@@ -2377,7 +2377,7 @@ R&None& &
  remap &
 I&0& &
  interpolate horizontally, 0: none, 1: to regular lat-lon grid, 2: to Gaussian grids, (3:...) \\
- {\color{red} Not yet implemented.}
+ {\color{red} Currently only 0 and 1 are implemented.}
 &
 \tabularnewline
 
@@ -2385,23 +2385,21 @@ I&0& &
  remap\_internal &
 L&.FALSE.& &
  do interpolations online in the model or external (including triggering) \\
- {\color{red} Not yet implemented.}
+ {\color{red} Currently unused, interpolations are always done internally.}
 &
 \tabularnewline
 
 \hline
  reg\_lon\_def(3) &
 R&None& &
- if remap=1: start, increment, end longitude in degrees \\
- {\color{red} Not yet implemented.}
+ if remap=1: start, increment, end longitude in degrees
 &
 \tabularnewline
 
 \hline
  reg\_lat\_def(3) &
 R&None& &
- if remap=1: start, increment, end latitude in degrees \\
- {\color{red} Not yet implemented.}
+ if remap=1: start, increment, end latitude in degrees
 &
 \tabularnewline
 
@@ -2409,15 +2407,14 @@ R&None& &
  gauss\_tgrid\_def &
 I&None& &
  if remap=2: triangular truncation (e.g.63 for T63) for which the Gauss grid should be used \\
- {\color{red} Not yet implemented.}
+ {\color{red} Currently unused since Gaussian grids are not implemented.}
 &
 \tabularnewline
 
 \hline
  north\_pole(2) &
-R&None& &
- definition of north pole for rotated lon-lat grids. \\
- {\color{red} Not yet implemented.}
+R&0,90& &
+ definition of north pole for rotated lon-lat grids.
 &
 \tabularnewline
 
