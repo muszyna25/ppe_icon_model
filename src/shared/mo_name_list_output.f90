@@ -2,7 +2,7 @@
 ! Define USE_CRAY_POINTER for platforms having problems with ISO_C_BINDING
 ! BUT understand CRAY pointers
 
-#define USE_CRAY_POINTER
+!   #define USE_CRAY_POINTER
 
 MODULE mo_name_list_output
 
