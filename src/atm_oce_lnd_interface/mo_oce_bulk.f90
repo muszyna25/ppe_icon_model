@@ -509,7 +509,7 @@ CONTAINS
     ! SST/sea ice surface temperature:
       WHERE (p_ice%isice(:,1,:))
         z_c(:,1,:) = p_ice%Tsurf(:,1,:)
-      ELSE WHERE
+      ELSEWHERE
         z_c(:,1,:) = p_os%p_prog(nold(1))%tracer(:,1,:,1)
       END WHERE
       buffer(:,1) = RESHAPE(z_c(:,1,:), (/nbr_points /) ) + tmelt
