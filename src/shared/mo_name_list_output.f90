@@ -1570,15 +1570,18 @@ ENDIF
     !
     INTEGER :: i
 
-
+#ifndef NOMPI
     IF(use_async_name_list_io.AND..NOT.my_process_is_io().AND..NOT.my_process_is_mpi_test()) THEN
       CALL compute_wait_for_async_io()
       CALL compute_shutdown_async_io()
     ELSE
+#endif
       DO i = 1, SIZE(output_file)
         CALL close_output_file(output_file(i))
       ENDDO
+#ifndef NOMPI
     ENDIF
+#endif
 
     DEALLOCATE(output_file)
 
@@ -1648,10 +1651,12 @@ ENDIF
     ! This routine (write_name_list_output) is also called from the I/O PEs,
     ! but in this case the calling routine cares about the flow control.
 
+#ifndef NOMPI
     IF(use_async_name_list_io) THEN
       IF(.NOT.my_process_is_io().AND..NOT.my_process_is_mpi_test()) &
         CALL compute_wait_for_async_io()
     ENDIF
+#endif
 
     ! Check if files have to be (re)opened
 
@@ -1762,11 +1767,12 @@ ENDIF
     ENDDO
 
     ! If asynchronous I/O is enabled, the compute PEs can now start the I/O PEs
-
+#ifndef NOMPI
     IF(use_async_name_list_io) THEN
       IF(.NOT.my_process_is_io().AND..NOT.my_process_is_mpi_test()) &
         CALL compute_start_async_io(datetime, sim_time, last_step)
     ENDIF
+#endif
 
   END SUBROUTINE write_name_list_output
 
