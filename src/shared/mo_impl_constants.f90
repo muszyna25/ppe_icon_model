@@ -186,10 +186,10 @@ MODULE mo_impl_constants
   !                    of the lateral boundaries of the child patch = end_idx(-1) + 1
   !    ... etc
   !    end_idx(minrl_int) = end of all the internal entities overlapping with the the child patch
-  !      
+  !
   ! D. The indexes from min_rl_int-1 to min_rl
   !    Mark the halo entities, when they do not overlap with a child patch
-  !  
+  !
   !---------------------------------------------
   !
   ! Examples:
@@ -202,7 +202,7 @@ MODULE mo_impl_constants
   !     Note, tha same as the noe in B.
   !
   !---------------------------------------------
-    
+
   INTEGER, PARAMETER :: max_hw         = 2                         ! maximum halo width (n_ghost_rows)
   !
   INTEGER, PARAMETER :: min_rlcell_int = -4                        ! previously -6
@@ -214,8 +214,6 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: min_rledge_int = 2*min_rlcell_int
   INTEGER, PARAMETER :: min_rledge     = min_rledge_int - (2*max_hw+1)
   INTEGER, PARAMETER :: max_rledge     = 2*max_rlcell
-
-  
 
   ! maximum allowed number of model domains (10 should be enough for the time being)
   INTEGER, PARAMETER :: max_dom = 10
