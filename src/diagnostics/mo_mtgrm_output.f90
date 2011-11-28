@@ -542,7 +542,7 @@ CONTAINS
   !! Initial implementation  by  F. Prill, DWD (2011-11-25)
   !!
   SUBROUTINE compute_diagnostics(station, jg, i_tstep)
-    TYPE(t_meteogram_station), INTENT(IN) :: station
+    TYPE(t_meteogram_station), INTENT(INOUT) :: station
     INTEGER, INTENT(IN) :: jg, i_tstep   ! patch, time step index
     ! local variables
     TYPE(t_meteogram_data), POINTER :: meteogram_data
