@@ -152,7 +152,7 @@ MODULE mo_impl_constants
   ! Finally, the indices between min_rl*_int-1 and min_rl*_int are reserved for halo points emerging
   !   from the MPI domain decomposition; these parts of the index lists are empty on exit of the
   !   grid generator and are filled only on mo_subdivision. However, the index list fields are always
-  !   dimensioned with (min_rl*:max_rl*). The values set below are sufficient for a halo 
+  !   dimensioned with (min_rl*:max_rl*). The values set below are sufficient for a halo
   !   width of two full cell rows; normally we use one, but stencils for high-order schemes may
   !   sometime require a halo width of two full rows
   !
@@ -176,7 +176,7 @@ MODULE mo_impl_constants
   !    end_idx(0)   = start_idx(-1) -1
   !
   ! C. The indexes from -1 to min_rl_int
-  !    Mark the internal entities that overlap with child patches 
+  !    Mark the internal entities that overlap with child patches
   !    (they are defined for each child patch)
   !    start_idx(-1) = start of the internal entities overlapping with the first (two) levels
   !                    of the lateral boundaries of the child patch
