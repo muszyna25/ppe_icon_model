@@ -588,6 +588,15 @@ CONTAINS
             pt_prog%rhotheta_v(jc,jk,jb) = pt_prog%theta_v(jc,jk,jb) &
 &                                        * pt_prog%rho(jc,jk,jb)
 
+          ENDDO
+        ENDDO
+
+        ! This loop needs to split here in order to ensure that the same
+        ! compiler optimization is applied as in the next loop below, where
+        ! the same calculations are made for the halo points.
+        DO jk = kstart_moist(jg), nlev
+          DO jc =  i_startidx, i_endidx
+
             ! finally compute dynamical temperature tendency
             pt_diag%ddt_temp_dyn(jc,jk,jb) = cpd_o_rd*pt_diag%temp(jc,jk,jb)    &
               * pt_diag%exner_dyn_incr(jc,jk,jb)/tcall_phy_jg(itupdate)         &

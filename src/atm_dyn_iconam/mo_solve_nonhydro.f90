@@ -41,7 +41,8 @@
 MODULE mo_solve_nonhydro
 
   USE mo_kind,                 ONLY: wp
-  USE mo_nonhydrostatic_config,ONLY: itime_scheme,iadv_rhotheta, igradp_method, l_open_ubc
+  USE mo_nonhydrostatic_config,ONLY: itime_scheme,iadv_rhotheta, igradp_method, l_open_ubc, &
+                                     kstart_moist
   USE mo_dynamics_config,      ONLY: idiv_method
   USE mo_parallel_config,    ONLY: nproma, p_test_run, itype_comm
   USE mo_run_config,         ONLY: ltimer, lvert_nest
@@ -1608,7 +1609,7 @@ MODULE mo_solve_nonhydro
       IF (istep == 2) THEN
         ! store dynamical part of exner time increment in exner_dyn_incr
         ! the conversion into a temperature tendency is done in the NWP interface
-        DO jk = 1, nlev
+        DO jk = kstart_moist(p_patch%id), nlev
           DO jc = i_startidx, i_endidx
             p_nh%diag%exner_dyn_incr(jc,jk,jb) = p_nh%diag%exner_dyn_incr(jc,jk,jb) + &
               p_nh%prog(nnew)%exner(jc,jk,jb) - p_nh%diag%exner_old(jc,jk,jb) -   &

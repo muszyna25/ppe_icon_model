@@ -424,7 +424,8 @@ DO jb = i_startblk, i_endblk
         (p_parent_prog%rho(jc,jk,jb) - p_parent_save%rho(jc,jk,jb))*   &
          p_patch(jgp)%cells%area(jc,jb)*p_nh_state(jgp)%metrics%ddqz_z_full(jc,jk,jb)
     ENDDO
-    WHERE(.NOT.p_patch(jgp)%cells%owner_mask(:,jb)) parent_tend(:,jk,jb) = 0._wp
+! obsolete because halo points are now all at the end
+!   WHERE(.NOT.p_patch(jgp)%cells%owner_mask(:,jb)) parent_tend(:,jk,jb) = 0._wp
   ENDDO
 
   IF (ltransport .AND. l_trac_fbk) THEN
@@ -444,10 +445,11 @@ DO jb = i_startblk, i_endblk
           parent_tr_totmass(jc,jk,jb) = parent_tr_totmass(jc,jk,jb) + &
                                         parent_tr_mass(jc,jk,jb,jt)
         ENDDO
-        WHERE(.NOT.p_patch(jgp)%cells%owner_mask(:,jb))
-          parent_tr_mass(:,jk,jb,jt) = 0._wp
-          parent_tr_totmass(:,jk,jb) = 0._wp
-        END WHERE
+! obsolete because halo points are now all at the end
+!       WHERE(.NOT.p_patch(jgp)%cells%owner_mask(:,jb))
+!         parent_tr_mass(:,jk,jb,jt) = 0._wp
+!         parent_tr_totmass(:,jk,jb) = 0._wp
+!       END WHERE
       ENDDO
     ENDDO
   ENDIF
