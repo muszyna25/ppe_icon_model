@@ -120,13 +120,13 @@ case "$fortran_compiler" in
         ;;
     cray)
         config_compiler=pgi
-        CFLAGS      = -v -Df2cFortran -DHAVE_CF_INTERFACE
+        CFLAGS      = -v -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3 
 	CC          = cc
-	F77         = ftn
-        FC          = ftn
+	F77         = ftn -rm
+        FC          = ftn -rm
         GEN_FLAGS   =
-        FDEBUG      = -g 
-        FFLAGS      = -v -O2 -D__LOOP_EXCHANGE -Df2cFortran -e Z -e m -e a
+        FDEBUG      = -g -R abc
+        FFLAGS      = -v -O3 -D__LOOP_EXCHANGE -Df2cFortran -e Z -e m -e a
         F77         = "$FC"
         F77FLAGS    = "$FFLAGS"
         OMPFLAG     = -mp
@@ -231,6 +231,11 @@ case "$ac_sitename" in
 		      MPI_LIB  = -lfmpich -lmpich -lmpichf90 -lmpich -lmpl -lpthread -lrt -lpmi -lalpslli -lalpsutil
                       MPIROOT=/opt/cray/mpt/5.2.1/xt/seastar/mpich2-cray
                       MPI_INCLUDE=${MPIROOT}/include
+                    ;;
+                esac
+		case "$mh_setup" in
+		    debug)
+		      FFLAGS = $FFLAGS $FDEBUG
                     ;;
                 esac
 
