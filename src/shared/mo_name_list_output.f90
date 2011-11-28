@@ -18,7 +18,7 @@ MODULE mo_name_list_output
   USE mo_impl_constants,        ONLY: max_phys_dom, ihs_ocean, zml_soil
   USE mo_grid_config,           ONLY: n_dom, n_phys_dom, global_cell_type
   USE mo_cdi_constants          ! We need all
-  USE mo_io_units,              ONLY: filename_max, nnml, nnml_output
+  USE mo_io_units,              ONLY: filename_max, nnml
   USE mo_exception,             ONLY: finish, message, message_text
   USE mo_namelist,              ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_var_metadata,          ONLY: t_var_metadata
@@ -42,18 +42,18 @@ MODULE mo_name_list_output
   USE mo_mpi,                   ONLY: process_mpi_io_size, num_work_procs, p_n_work
   ! Processor numbers
   USE mo_mpi,                   ONLY: p_pe, p_pe_work, p_work_pe0, p_io_pe0
-  USE mo_communication,         ONLY: blk_no, idx_no, idx_1d
-  USE mo_model_domain,          ONLY: t_patch, p_patch, p_phys_patch
+  USE mo_communication,         ONLY: blk_no, idx_no
+  USE mo_model_domain,          ONLY: p_patch, p_phys_patch
   USE mo_parallel_config,       ONLY: nproma, p_test_run
   USE mo_vertical_coord_table,  ONLY: vct
   USE mo_dynamics_config,       ONLY: iequations, nnow, nnow_rcf
-  USE mo_io_config,             ONLY: out_expname, lwrite_pzlev
+  USE mo_io_config,             ONLY: lwrite_pzlev
   USE mo_run_config,            ONLY: num_lev, num_levp1, dtime, ldump_states
   USE mo_nh_pzlev_config,       ONLY: nh_pzlev_config
   USE mo_lnd_nwp_config,        ONLY: nlev_snow
   USE mo_datetime,              ONLY: t_datetime
   USE mo_math_utilities,        ONLY: t_lon_lat_grid
-  USE mo_intp_data_strc,        ONLY: t_int_state, t_lon_lat_intp, p_int_state
+  USE mo_intp_data_strc,        ONLY: t_lon_lat_intp, p_int_state
   USE mo_intp_state,            ONLY: allocate_int_state_lonlat_grid, &
                                       deallocate_int_state_lonlat
   USE mo_intp_rbf_coeffs,       ONLY: rbf_setup_interpol_lonlat_grid
@@ -63,7 +63,6 @@ MODULE mo_name_list_output
   USE mo_oce_state,             ONLY: set_zlev
 
   USE mo_io_vlist,              ONLY: addGlobAtts, addAtmAtts, addOceAtts
-  USE mo_var_list_element,      ONLY: t_var_list_element
   USE mo_communication,         ONLY: exchange_data, t_comm_pattern, idx_no, blk_no
   USE mo_interpol_config,       ONLY: rbf_vec_dim_c, rbf_vec_dim_v, rbf_vec_dim_e, rbf_c2grad_dim
   USE mo_nonhydrostatic_config, ONLY: iadv_rcf
@@ -1111,7 +1110,7 @@ ENDIF
     TYPE(t_output_file), INTENT(INOUT) :: of
     INTEGER, INTENT(IN) :: jfile ! Number of file set to open
 
-    INTEGER :: i, j, k, nlev, nlevp1, nplev, nzlev, nzlevp1, znlev_soil, astatus, iv, jv, i_dom
+    INTEGER :: k, nlev, nlevp1, nplev, nzlev, nzlevp1, znlev_soil, astatus, i_dom
     INTEGER :: ll_dim(2)
     REAL(wp), ALLOCATABLE :: levels(:), levels_i(:), levels_m(:), p_lonlat(:)
 
@@ -1570,6 +1569,7 @@ ENDIF
     !
     INTEGER :: i
 
+
 #ifndef NOMPI
     IF(use_async_name_list_io.AND..NOT.my_process_is_io().AND..NOT.my_process_is_mpi_test()) THEN
       CALL compute_wait_for_async_io()
@@ -1596,7 +1596,7 @@ ENDIF
 
     TYPE (t_output_file), INTENT(INOUT) :: of
 
-    INTEGER :: i, j, fileID, vlistID
+    INTEGER :: j, fileID, vlistID
 
 
     fileID = of%cdiFileID
@@ -1638,7 +1638,7 @@ ENDIF
     REAL(wp), INTENT(in)         :: sim_time
     LOGICAL, INTENT(IN)          :: last_step
 
-    INTEGER :: i, j, idate, itime, iret, n
+    INTEGER :: i, idate, itime, iret, n
     TYPE(t_output_name_list), POINTER :: p_onl
     CHARACTER(LEN=filename_max+100) :: text
     REAL(wp), PARAMETER :: eps = 1.d-10 ! Tolerance for checking output bounds
@@ -1788,7 +1788,7 @@ ENDIF
 
     TYPE (t_output_file), INTENT(INOUT), TARGET :: of
 
-    INTEGER :: tl, i_dom, i_log_dom, i, iv, jk, n_points, nlevs, nblks, n, nindex
+    INTEGER :: tl, i_dom, i_log_dom, i, iv, jk, n_points, nlevs, nblks, nindex
     INTEGER :: mpierr, ll_dim(2)
     INTEGER(i8) :: ioff
     TYPE (t_var_metadata), POINTER :: info
@@ -2297,8 +2297,6 @@ ENDIF
 
   SUBROUTINE replicate_data_on_io_procs
 
-    USE mpi, ONLY: MPI_ROOT, MPI_PROC_NULL
-
     INTEGER :: ivct_len, jg
     INTEGER :: info_size, iv, nv, nelems, n, list_info(4)
     INTEGER, ALLOCATABLE :: info_storage(:,:)
@@ -2459,9 +2457,9 @@ ENDIF
 
   SUBROUTINE init_memory_window
 
-    USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_ROOT, MPI_PROC_NULL, MPI_INFO_NULL
+    USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_INFO_NULL
 
-    INTEGER :: jp, jl, n_cells, n_edges, n_verts, i, iv, nlevs
+    INTEGER :: jp, i, iv, nlevs
     INTEGER :: nbytes_real, mpierr
     INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size, mem_bytes
     TYPE (t_var_metadata), POINTER :: info
