@@ -16,12 +16,25 @@
 !!      CALL add_atmo_var(VAR_GROUP_ATMO_ML, "myvarname", "myvarunit", "long name", jg, <state_var>)
 !!
 !!      where "VAR_GROUP_ATMO_ML" (or "VAR_GROUP_ATMO_HL" or
-!!      "VAR_GROUP_SOIL_HL", ...)  determine the level heights of this
+!!      "VAR_GROUP_SOIL_HL", ...)  determines the level heights of this
 !!      variable.  The argument <state_var> denotes a 2D, 3D, or 4D
 !!      pointer to the corresponding data.
 !!
 !! b) for surface variables:
 !!      CALL add_sfc_var(VAR_GROUP_SFC, "myvarname", "myvarunit", "long name", jg, <state_var>)
+!!
+!! How to add additional diagnostic quantities
+!! -------------------------------------------
+!! In SR "meteogram_setup_variables", insert
+!!
+!!      CALL add_atmo/sfc_var (IBSET(VAR_GROUP_XX, FLAG_DIAG), &
+!!         &                   "myvarname", "myvarunit", "long name", jg, <var>)
+!! where <var> denotes a variable of _equal_size_.
+!!
+!! The computation of the diagnostic quantities should be placed inside
+!!  SR compute_diagnostics()
+!! based on sampled values. Here, one may use the utility functions get_var/get_sfcvar for
+!! convencience.
 !!
 !! Roles in MPI communication:
 !! ---------------------------
@@ -132,9 +145,13 @@ MODULE mo_meteogram_output
   USE mo_ext_data,              ONLY: t_external_data
   USE mo_nonhydro_state,        ONLY: t_nh_state, t_nh_prog, t_nh_diag,   &
     &                                 t_nh_metrics
-  USE mo_nwp_phy_state,         ONLY: t_nwp_phy_diag, varunits
+  USE mo_nwp_phy_state,         ONLY: t_nwp_phy_diag
   USE mo_nwp_lnd_state,         ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag
   USE mo_cf_convention,         ONLY: t_cf_var, t_cf_global
+  USE mo_physical_constants,    ONLY: o_m_rdv        , & !! 1 - r_d/r_v &
+    &                                 rdv,             & !! r_d / r_v
+    &                                 cpd, p0ref, rd
+  USE mo_satad,                 ONLY: sat_pres_water
   ! TODO[FP] : When using an already built GNAT, not all of the
   ! following USEs will be necessary:
   USE mo_gnat_gridsearch,       ONLY: gnat_init_grid, gnat_destroy, gnat_tree,&
@@ -142,7 +159,7 @@ MODULE mo_meteogram_output
     &                                 gnat_merge_distributed_queries, gk
   USE mo_dynamics_config,       ONLY: nnow
   USE mo_io_config,             ONLY: lwrite_extra, inextra_2d, inextra_3d
-  USE mo_run_config,            ONLY: iqv, iqc, iqi
+  USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs
   USE mo_util_string,           ONLY: int2string
   USE mo_meteogram_config,      ONLY: t_meteogram_output_config, t_station_list, &
     &                                 FTYPE_NETCDF, MAX_NAME_LENGTH, MAX_NUM_STATIONS
@@ -185,6 +202,7 @@ MODULE mo_meteogram_output
   INTEGER, PARAMETER :: VAR_GROUP_SURFACE    =    3  !< surface variables
   INTEGER, PARAMETER :: VAR_GROUP_SOIL_ML    =    4  !< variables defined on soil half levels
   INTEGER, PARAMETER :: VAR_GROUP_SOIL_MLp2  =    5  !< height levels [0m, soil half levels, -14.58m]
+  INTEGER, PARAMETER :: FLAG_DIAG            =    4  !< Flag bit: if set then this variable is a diagnostic
 
   !>
   !! Generic interface for adding atmospheric vars to list (required
@@ -345,6 +363,9 @@ MODULE mo_meteogram_output
   INTEGER,            SAVE              :: process_mpi_all_collector_id     !< rank of PE which gathers data
   INTEGER,            SAVE              :: owner(MAX_NUM_STATIONS)          !< rank of sender PE for each station
 
+  ! several variable indices, stored for convenience (when computing additional diagnostics)
+  INTEGER, DIMENSION(1:max_dom), SAVE   :: i_T, i_REL_HUM, i_QV, i_PEXNER
+
 CONTAINS
 
   !>
@@ -380,26 +401,31 @@ CONTAINS
     ! -- atmosphere
     CALL add_atmo_var(VAR_GROUP_ATMO_ML, "P", "Pa", "Pressure", jg, diag%pres(:,:,:))
     CALL add_atmo_var(VAR_GROUP_ATMO_ML, "T", "K", "Temperature", jg, diag%temp(:,:,:))
+    CALL add_atmo_var(VAR_GROUP_ATMO_ML, "PEXNER", "-", "Exner pressure", &
+      &               jg, prog%exner(:,:,:))
     CALL add_atmo_var(VAR_GROUP_ATMO_ML, "QV", "kg kg-1", "specific humidity", jg, &
       &               prog%tracer_ptr(iqv)%p_3d(:,:,:))
     CALL add_atmo_var(VAR_GROUP_ATMO_ML, "QC", "kg kg-1", "specific cloud water content", &
       &               jg, prog%tracer_ptr(iqc)%p_3d(:,:,:))
     CALL add_atmo_var(VAR_GROUP_ATMO_ML, "QI", "kg kg-1", "specific cloud ice content", &
       &               jg, prog%tracer_ptr(iqi)%p_3d(:,:,:))
+    CALL add_atmo_var(VAR_GROUP_ATMO_ML, "QR", "kg kg-1", "rain_mixing_ratio", &
+      &               jg, prog%tracer_ptr(iqr)%p_3d(:,:,:))
+    CALL add_atmo_var(VAR_GROUP_ATMO_ML, "QS", "kg kg-1", "snow_mixing_ratio", &
+      &               jg, prog%tracer_ptr(iqs)%p_3d(:,:,:))
+    CALL add_atmo_var(IBSET(VAR_GROUP_ATMO_ML, FLAG_DIAG), "REL_HUM", "%", "relative humidity", &
+      &               jg, prog%tracer_ptr(iqv)%p_3d(:,:,:))
     CALL add_atmo_var(VAR_GROUP_ATMO_ML, "RHO", "kg/m^3", "Density", jg, prog%rho(:,:,:))
-    CALL add_atmo_var(VAR_GROUP_ATMO_ML, "PEXNER", "-", "Exner pressure", jg, prog%exner(:,:,:))
     CALL add_atmo_var(VAR_GROUP_ATMO_ML, "THETAV", "K", "virtual potential temperature", &
       &               jg, prog%theta_v(:,:,:))
-    CALL add_atmo_var(VAR_GROUP_ATMO_ML, "RHOTHETAV", "K*kg/m^3", "rho*theta_v", jg, &
-      &               prog%rhotheta_v(:,:,:))
     CALL add_atmo_var(VAR_GROUP_ATMO_ML, "U", "m/s", "zonal wind", jg, diag%u(:,:,:))
     CALL add_atmo_var(VAR_GROUP_ATMO_ML, "V", "m/s", "meridional wind", jg, diag%v(:,:,:))
     CALL add_atmo_var(VAR_GROUP_ATMO_ML, "CLC", "-", "total cloud cover", jg, &
       &               prm_diag%tot_cld(:,:,:,:), icc)
-    CALL add_atmo_var(VAR_GROUP_ATMO_ML, "TKVM", "m/s2",               &
+    CALL add_atmo_var(VAR_GROUP_ATMO_ML, "TKVM", "m**2/s",             &
       &               "turbulent diffusion coefficients for momentum", &
       &               jg, prm_diag%tkvm(:,:,:))
-    CALL add_atmo_var(VAR_GROUP_ATMO_ML, "TKVH", "m/s2",               &
+    CALL add_atmo_var(VAR_GROUP_ATMO_ML, "TKVH", "m**2/s",             &
       &               "turbulent diffusion coefficients for heat",     &
       &               jg, prm_diag%tkvh(:,:,:))
 
@@ -471,13 +497,11 @@ CONTAINS
       &              jg, prm_diag%u_10m(:,:))
     CALL add_sfc_var(VAR_GROUP_SURFACE,  "V10M", "m/s", "meridional wind in 10m", &
       &              jg, prm_diag%v_10m(:,:))
-    CALL add_sfc_var(VAR_GROUP_SURFACE,  "SOBT", varunits, "shortwave net flux at toa", &
+    CALL add_sfc_var(VAR_GROUP_SURFACE,  "SOBT", "W m-2", "shortwave net flux at toa", &
       &              jg, prm_diag%swflxtoa(:,:))
-    CALL add_sfc_var(VAR_GROUP_SURFACE,  "SOBS", varunits, "shortwave net flux at surface", &
+    CALL add_sfc_var(VAR_GROUP_SURFACE,  "SOBS", "W m-2", "shortwave net flux at surface", &
       &              jg, prm_diag%swflxsfc(:,:))
-!    CALL add_sfc_var(VAR_GROUP_SURFACE,  "THBT", varunits, "longwave  net flux at TOA", &
-!      &              jg, prm_diag%lwflxtoa(:,:))
-    CALL add_sfc_var(VAR_GROUP_SURFACE,  "THBS", varunits, "longwave net flux at surface", &
+    CALL add_sfc_var(VAR_GROUP_SURFACE,  "THBS", "W m-2", "longwave net flux at surface", &
       &              jg, prm_diag%lwflxsfc(:,:))
     CALL add_sfc_var(VAR_GROUP_SURFACE,  "ALB", "-", "surface albedo for visible range, diffuse", &
       &              jg, prm_diag%albvisdif(:,:))
@@ -501,7 +525,49 @@ CONTAINS
       CALL add_atmo_var(VAR_GROUP_ATMO_ML, "EXTRA3D","","-", jg, diag%extra_3d(:,:,:,1:inextra_3d))
     END IF
 
+    ! several variable indices, stored for convenience (when computing
+    ! additional diagnostics):
+    i_T      (jg) = get_var("T"      , jg)
+    i_QV     (jg) = get_var("QV"     , jg)
+    i_REL_HUM(jg) = get_var("REL_HUM", jg)
+    i_PEXNER (jg) = get_var("PEXNER" , jg)
+
   END SUBROUTINE meteogram_setup_variables
+
+
+  !>
+  !! Computation of additional diagnostic quantities for meteogram.
+  !!
+  !! @par Revision History
+  !! Initial implementation  by  F. Prill, DWD (2011-11-25)
+  !!
+  SUBROUTINE compute_diagnostics(station, jg, i_tstep)
+    TYPE(t_meteogram_station), INTENT(IN) :: station
+    INTEGER, INTENT(IN) :: jg, i_tstep   ! patch, time step index
+    ! local variables
+    TYPE(t_meteogram_data), POINTER :: meteogram_data
+    INTEGER                         :: ilev
+    REAL(wp)                        :: e, e_s, temp, pres, qv, p_ex
+
+    meteogram_data => meteogram_local_data(jg)
+
+    !-- compute relative humidity as r = e/e_s:
+    DO ilev=1,meteogram_data%var_info(i_REL_HUM(jg))%nlevs
+      ! get values for temperature, etc.:
+      temp = station%var( i_T(jg))%values(ilev, i_tstep)
+      qv   = station%var(i_QV(jg))%values(ilev, i_tstep)
+      ! compute dynamic pressure from Exner pressure:
+      p_ex = station%var(i_PEXNER(jg))%values(ilev, i_tstep)
+      pres = p0ref * EXP((cpd/rd)*LOG(p_ex))
+
+      ! approx. saturation vapor pressure:
+      e_s = sat_pres_water(temp)
+      ! compute vapor pressure from formula for specific humidity:
+      e   = pres*qv / (rdv + o_m_rdv*qv)
+      station%var(i_REL_HUM(jg))%values(ilev, i_tstep) = 100._wp * e/e_s
+    END DO
+    
+  END SUBROUTINE compute_diagnostics
 
 
   !>
@@ -789,7 +855,7 @@ CONTAINS
             IF (ierrstat /= SUCCESS) &
               CALL finish (routine, 'ALLOCATE of meteogram data structures failed')
             ! initialize level heights:
-            SELECT CASE(meteogram_data%var_info(ivar)%igroup_id)
+            SELECT CASE(IBCLR(meteogram_data%var_info(ivar)%igroup_id, FLAG_DIAG))
             CASE(VAR_GROUP_ATMO_ML)
               ! model level heights
               hlevels(1:nlevs) = &
@@ -1005,22 +1071,31 @@ CONTAINS
         iidx  = meteogram_data%station(jc,jb)%tri_idx_local(1)
         iblk  = meteogram_data%station(jc,jb)%tri_idx_local(2)
 
-        DO ivar=1,var_list(jg)%no_atmo_vars
+        ! sample 3D variables:
+        VAR_LOOP : DO ivar=1,var_list(jg)%no_atmo_vars
+          IF (BTEST(meteogram_data%var_info(ivar)%igroup_id, FLAG_DIAG)) &
+            & CYCLE VAR_LOOP
+          
           IF (ASSOCIATED(meteogram_data%var_info(ivar)%p_source)) THEN
             DO ilev=1,meteogram_data%var_info(ivar)%nlevs
-              meteogram_data%station(jc,jb)%var(ivar)%values(ilev, i_tstep) =    &
+              meteogram_data%station(jc,jb)%var(ivar)%values(ilev, i_tstep) = &
                 &  meteogram_data%var_info(ivar)%p_source(                    &
                 &       iidx, meteogram_data%var_info(ivar)%levels(ilev), iblk )
             END DO
           ELSE 
             CALL finish (routine, 'Source array not associated!')
           END IF
-        END DO
-
-        DO ivar=1,var_list(jg)%no_sfc_vars
+        END DO VAR_LOOP
+        ! sample surface variables:
+        SFCVAR_LOOP : DO ivar=1,var_list(jg)%no_sfc_vars
+          IF (BTEST(meteogram_data%sfc_var_info(ivar)%igroup_id, FLAG_DIAG)) &
+            & CYCLE SFCVAR_LOOP
           meteogram_data%station(jc,jb)%sfc_var(ivar)%values(i_tstep) =  &
             &  meteogram_data%sfc_var_info(ivar)%p_source( iidx, iblk )
-        END DO
+        END DO SFCVAR_LOOP
+        
+        ! compute additional diagnostic quantities:
+        CALL compute_diagnostics(meteogram_data%station(jc,jb), jg, i_tstep)
 
       END DO
     END DO
@@ -2024,5 +2099,62 @@ CONTAINS
     END DO RCV_LOOP
 #endif
   END SUBROUTINE receive_var_info
+
+  
+  !>
+  !! @return Index of (3d) variable with given name.
+  !!
+  !! @par Revision History
+  !! Initial implementation  by  F. Prill, DWD (2011-08-22)
+  !!
+  FUNCTION get_var(zname, jg)
+    INTEGER :: get_var
+    CHARACTER(LEN=*),  INTENT(IN) :: zname
+    INTEGER         ,  INTENT(IN) :: jg
+    ! local variables
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_meteogram_output:get_var")
+    TYPE(t_meteogram_data), POINTER :: meteogram_data
+    INTEGER :: ivar
+
+    get_var = -1 ! invalid result
+    meteogram_data => meteogram_local_data(jg)
+    VAR_LOOP : DO ivar=1,var_list(jg)%no_atmo_vars
+      IF (TRIM(meteogram_data%var_info(ivar)%cf%standard_name) == TRIM(zname)) THEN
+        get_var = ivar
+        EXIT VAR_LOOP
+      END IF
+    END DO VAR_LOOP
+    IF (get_var == -1) &
+      CALL finish (routine, 'Invalid name!')      
+  END FUNCTION get_var
+
+
+  !>
+  !! @return Index of (2d) surface variable with given name.
+  !!
+  !! @par Revision History
+  !! Initial implementation  by  F. Prill, DWD (2011-08-22)
+  !!
+  FUNCTION get_sfcvar(zname, jg)
+    INTEGER :: get_sfcvar
+    CHARACTER(LEN=*),  INTENT(IN) :: zname
+    INTEGER         ,  INTENT(IN) :: jg
+    ! local variables
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_meteogram_output:get_sfcvar")
+    TYPE(t_meteogram_data), POINTER :: meteogram_data
+    INTEGER :: ivar
+
+    get_sfcvar = -1 ! invalid result
+    meteogram_data => meteogram_local_data(jg)
+    VAR_LOOP : DO ivar=1,var_list(jg)%no_sfc_vars
+      IF (TRIM(meteogram_data%sfc_var_info(ivar)%cf%standard_name) == TRIM(zname)) THEN
+        get_sfcvar = ivar
+        EXIT VAR_LOOP
+      END IF
+    END DO VAR_LOOP
+    IF (get_sfcvar == -1) &
+      CALL finish (routine, 'Invalid name!')      
+  END FUNCTION get_sfcvar
+
 
 END MODULE mo_meteogram_output
