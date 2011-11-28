@@ -237,7 +237,18 @@
 
 
   ; DETERMINE INPUT TYPE ------------------------------------------------------
-  if (getVarLevelType(iFile,varName) .eq. "hybrid") then ;atm input
+  if (isvar("varName")) then
+    vname = varName
+  else
+    if (isvar("vecVars")) then
+      vecs = str_split(vecVars," ")
+      vname = vecs(0)
+    else
+      print("Cannot determinte input variable! Please provide varName or vecVars.")
+      exit
+    end if
+  end if
+  if (getVarLevelType(iFile,vname) .eq. "hybrid") then ;atm input
     iType              = "atm"; oce otherwise
     if (atmLev .ne. "m" ) then
       atmPreProcFilename = preProc4Atm(iFile,atmLev,atmPLevs,atmHLevs,DEBUG)
@@ -271,7 +282,7 @@
     ; TODO addVars=(/ "PS","PHIS"/) 
     remapFilename = setRemapFilename(iFile,iType,atmLev)
     print("remapFilename:"+remapFilename)
-    if (.not. checkRemappedFile(iFile,remapFilename,varName,iType,atmLev,atmPLevs,atmHLevs) ) then
+    if (.not. checkRemappedFile(iFile,remapFilename,vname,iType,atmLev,atmPLevs,atmHLevs) ) then
       addVars=(/""/)
       print("PERFORM remapnn again!")
       remapForVecPlot(iFile,remapFilename,resolution,useMask,plotMode,DEBUG,addVars)
@@ -408,7 +419,7 @@
       var = mask(var,maskVar,1)
     end if
   end if ; Reading data variables =============================================
-  if (iType .eq. "atm" .and. varName .eq. "T" .and. k2c) var = var - 273.15 end if ;atmosphere used to write out Kelvin
+  if (iType .eq. "atm" .and. vname .eq. "T" .and. k2c) var = var - 273.15 end if ;atmosphere used to write out Kelvin
 
   ;---------------------------------------------------------------
   ; make the plot

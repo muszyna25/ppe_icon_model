@@ -14,15 +14,23 @@ DEFAULT_VARNAME    = 'T'
 PLOT_CMD           = 'qiv'
 
 # some helper methods for ease calling the icon plot scripts
-def iconPlot(ifile,ofile,otype,varname,opts=[])
+def iconPlot(ifile,ofile,otype,varname,vartype='scalar',opts=[])
   libdir = FileUtils.pwd
   unless File.exists?(ifile)
     warn "Input file #{ifile} dows NOT exist!"
     exit
   end
-  cmd   ="ncl #{SRC[0]} 'altLibDir=\"#{libdir}\"' 'varName=\"#{varname}\"' 'iFile=\"#{ifile}\"' 'oFile=\"#{ofile}\"' 'oType=\"#{otype}\"' #{opts.join(' ')}"
+  varIdent = (vartype == 'scalar') ? 'varName' : 'vecVars'
+
+  cmd   ="ncl #{SRC[0]} 'altLibDir=\"#{libdir}\"' '#{varIdent}=\"#{varname}\"' 'iFile=\"#{ifile}\"' 'oFile=\"#{ofile}\"' 'oType=\"#{otype}\"' #{opts.join(' ')}"
   puts cmd
   sh cmd
+end
+def scalarPlot(ifile,ofile,otype,varname,opts=[])
+  iconPlot(ifile,ofile,otype,varname,'scalar',opts)
+end
+def vectorPlot(ifile,ofile,otype,varname,opts=[])
+  iconPlot(ifile,ofile,otype,varname,'vector',opts)
 end
 
 def del(file)
@@ -32,7 +40,7 @@ def show(*files)
   system("#{PLOT_CMD} #{files.join(' ')} &")
 end
 def defaultPlot(ifile,ofile,opts=[])
-  iconPlot(ifile,ofile,OFMT,DEFAULT_VARNAME,opts)
+  scalarPlot(ifile,ofile,OFMT,DEFAULT_VARNAME,opts)
   ofile += ".#{OFMT}"
   show(ofile)
 end
@@ -57,7 +65,7 @@ task :test_oce_3d do
   ofile          = 'test_icon_plot.' + OFMT
   del(ofile)
   varname        = 'T'
-  iconPlot(OCE_PLOT_TEST_FILE,ofile,OFMT,varname)
+  scalarPlot(OCE_PLOT_TEST_FILE,ofile,OFMT,varname)
   show(ofile)
 end
 desc "perform simple oce plot from dd var"
@@ -65,7 +73,7 @@ task :test_oce_2d do
   ofile          = 'test_icon_plot.' + OFMT
   del(ofile)
   varname        = 'ELEV'
-  iconPlot(OCE_PLOT_TEST_FILE,ofile,OFMT,varname)
+  scalarPlot(OCE_PLOT_TEST_FILE,ofile,OFMT,varname)
   show(ofile)
 end
 desc "perform simple atm plot from 3d var"
@@ -73,7 +81,7 @@ task :test_atm_3d do
   ofile          = 'test_icon_plot.' + OFMT
   del(ofile)
   varname        = 'T'
-  iconPlot(ATM_PLOT_TEST_FILE,ofile,OFMT,varname)
+  scalarPlot(ATM_PLOT_TEST_FILE,ofile,OFMT,varname)
   show(ofile)
 end
 desc "perform simple atm plot from 2d var"
@@ -81,7 +89,7 @@ task :test_atm_2d do
   ofile          = 'test_icon_plot.' + OFMT
   del(ofile)
   varname        = 'SKT'
-  iconPlot(ATM_PLOT_TEST_FILE,ofile,OFMT,varname)
+  scalarPlot(ATM_PLOT_TEST_FILE,ofile,OFMT,varname)
   show(ofile)
 end
 
@@ -95,7 +103,7 @@ task :test_plotlevels_oce do
     ofile          = "test_icon_oce_plotlevel_#{lev}." + OFMT
     threads << Thread.new(ofile,varname,lev) {|ofile,varname,lev|
       del(ofile)
-      iconPlot(OCE_PLOT_TEST_FILE,ofile,OFMT,varname,["levIndex=#{lev}"])
+      scalarPlot(OCE_PLOT_TEST_FILE,ofile,OFMT,varname,["levIndex=#{lev}"])
     }
     images << ofile
   }
@@ -111,7 +119,7 @@ task :test_plotlevels_atm do
     ofile          = "test_icon_atm_plotlevel_#{lev}." + OFMT
     threads << Thread.new(ofile,varname,lev) {|ofile,varname,lev|
       del(ofile)
-      iconPlot(ATM_PLOT_TEST_FILE,ofile,OFMT,varname,["levIndex=#{lev}","'atmLev=\"m\"'"])
+      scalarPlot(ATM_PLOT_TEST_FILE,ofile,OFMT,varname,["levIndex=#{lev}","'atmLev=\"m\"'"])
     }
     images << ofile
   }
@@ -125,7 +133,7 @@ task :test_section_oce do
   images = []
   secopts = ["'secLC=(/0,80/)'","'secRC=(/0,-80/)'","showSecMap=False","secPoints=100"]
   ofile = "test_section_ice"
-  iconPlot(OCE_PLOT_TEST_FILE,ofile,OFMT,DEFAULT_VARNAME,secopts)
+  scalarPlot(OCE_PLOT_TEST_FILE,ofile,OFMT,DEFAULT_VARNAME,secopts)
   ofile += ".#{OFMT}"
   show(ofile)
 end
@@ -136,15 +144,37 @@ task :test_sections do
   COMPARISON.each {|itype,ifile|
     ofile = "test_section_#{itype.to_s}"
     if itype == :atm
-      iconPlot(ifile,ofile+'h',OFMT,DEFAULT_VARNAME,secopts +["'atmLev=\"h\"'"]);images << ofile+'h'
-      iconPlot(ifile,ofile+'p',OFMT,DEFAULT_VARNAME,secopts +["'atmLev=\"p\"'"]);images << ofile+'p'
-      iconPlot(ifile,ofile+'m',OFMT,DEFAULT_VARNAME,secopts +["'atmLev=\"m\"'"]);images << ofile+'m'
+      scalarPlot(ifile,ofile+'h',OFMT,DEFAULT_VARNAME,secopts +["'atmLev=\"h\"'"]);images << ofile+'h'
+      scalarPlot(ifile,ofile+'p',OFMT,DEFAULT_VARNAME,secopts +["'atmLev=\"p\"'"]);images << ofile+'p'
+      scalarPlot(ifile,ofile+'m',OFMT,DEFAULT_VARNAME,secopts +["'atmLev=\"m\"'"]);images << ofile+'m'
     else
-      iconPlot(ifile,ofile,OFMT,DEFAULT_VARNAME,secopts); images << ofile
+      scalarPlot(ifile,ofile,OFMT,DEFAULT_VARNAME,secopts); images << ofile
     end
   }
   images.map! {|i| i+= ".#{OFMT}"}
   show(*images)
+end
+
+desc "plot vectors of ocean input"
+task :test_vector_oce do
+  ofile='test_vector_oce'
+  vectorPlot(OCE_PLOT_TEST_FILE,ofile,OFMT,'u-veloc v-veloc')
+  show(ofile+'.png')
+end
+desc "plot vectors of atm input"
+task :test_vector_atm do
+  ofile='test_vector_atm'
+  images = []
+
+  ofile0 = ofile + '0'
+  vectorPlot(ATM_PLOT_TEST_FILE,ofile0,OFMT,'U V',["vecRefLength=0.01"])
+  images << ofile0+'.'+OFMT
+
+  ofile1 = ofile + '1'
+  vectorPlot(ATM_PLOT_TEST_FILE,ofile1,OFMT,'U V',["vecRefLength=0.01","'mapType=\"NHps\"'"])
+  images << ofile1+'.'+OFMT
+
+  show(images)
 end
 
 # orthographic projections
