@@ -17,17 +17,7 @@ procedure transform_unit(varname, src_unit, src_val, dst_unit, dst_val)
 begin
   dst_unit = src_unit
   dst_val  = 1.*src_val
-  if ((varname .eq. "QV") .and. (src_unit .eq. "kg kg-1")) then
-    dst_unit = "mg kg-1"
-    dst_val  = 1.e3 * src_val
-    return
-  end if
-  if ((varname .eq. "QC") .and. (src_unit .eq. "kg kg-1")) then
-    dst_unit = "mg kg-1"
-    dst_val  = 1.e3 * src_val
-    return
-  end if
-  if ((varname .eq. "QI") .and. (src_unit .eq. "kg kg-1")) then
+  if (((varname .eq. "QV") .or. (varname .eq. "QC") .or. (varname .eq. "QI") .or. (varname .eq. "QR") .or. (varname .eq. "QS")) .and. (src_unit .eq. "kg kg-1")) then
     dst_unit = "mg kg-1"
     dst_val  = 1.e3 * src_val
     return
@@ -54,6 +44,11 @@ begin
   end if
   if (src_unit .eq. "m H2O") then
     dst_unit = "mm H2O"
+    dst_val  = 1000.*src_val
+    return
+  end if
+  if (((varname .eq. "RAIN_GSP") .or. (varname .eq. "SNOW_GSP") .or. (varname .eq. "RAIN_CON") .or. (varname .eq. "SNOW_CON")) .and. (src_unit .eq. "kg/m2")) then
+    dst_unit = "g/m2"
     dst_val  = 1000.*src_val
     return
   end if
@@ -137,6 +132,15 @@ do ivar=0,(nvars(0)-1)
  end if
  if(zname .eq. "QI") then
    VAR_QI = ivar
+ end if
+ if(zname .eq. "QR") then
+   VAR_QR = ivar
+ end if
+ if(zname .eq. "QS") then
+   VAR_QS = ivar
+ end if
+ if(zname .eq. "REL_HUM") then
+   VAR_REL_HUM = ivar
  end if
  if(zname .eq. "CLC") then
    VAR_CLC = ivar
@@ -288,8 +292,8 @@ end do
 
 ; definition of table columns -----------------------------------------
 
-print_list       = (/ VAR_PMAIN, VAR_T, VAR_QV, VAR_QC, VAR_QI, VAR_CLC, VAR_U, VAR_V /)
-print_names      = (/ "Pmain",   "T",   "QV",   "QC",   "QI"  , "CLC",   "U",   "V"   /)
+print_list       = (/ VAR_PMAIN, VAR_T, VAR_QV, VAR_QC, VAR_QI, VAR_QR, VAR_QS,VAR_REL_HUM,VAR_CLC, VAR_U, VAR_V /)
+print_names      = (/ "Pmain",   "T",   "QV",   "QC",   "QI"  , "QR",   "QS"  ,"REL_HUM"  ,"CLC",   "U",   "V"   /)
 
 print_list_half  = (/ VAR_PHALF, VAR_W, VAR_TKVM, VAR_TKVH   /)
 print_names_half = (/ "Phalf",   "W",   "TKVM",   "TKVH"     /)
@@ -356,14 +360,14 @@ do istation = 0,(nstations-1)
     scolumn = center(charactertostring(cdf_file->var_name(print_list_half(ivar),:)),colwidth)
     column_str_half = column_str_half + scolumn
 
-    var_name = charactertostring(cdf_file->sfcvar_name(print_list_half(ivar),:))
-    var_unit = charactertostring(cdf_file->sfcvar_unit(print_list_half(ivar),:))
+    var_name = charactertostring(cdf_file->var_name(print_list_half(ivar),:))
+    var_unit = charactertostring(cdf_file->var_unit(print_list_half(ivar),:))
     transform_unit(var_name, var_unit, str_v, str_u, str_v)
     scolumn = center(str_u,colwidth)
     unit_str_half = unit_str_half + scolumn
   end do
-  column_str_half = column_str_half + center("HML", colwidth+1)
-  unit_str_half   = unit_str_half   + center(str_u,   colwidth+1)
+  column_str_half = column_str_half + center("HHL", colwidth+1)
+  unit_str_half   = unit_str_half   + center("m",   colwidth+1)
 
   ntimesteps = dimsizes(cdf_file->time_step)
   max_main_levs  = cdf_file->var_nlevs(VAR_PMAIN)
@@ -495,9 +499,9 @@ do istation = 0,(nstations-1)
     print(" " + ralign("("+str_u+")", 21) + "       " + lalign("T_G", colwidth) + ":"  + sprintf("%8.3f",str_v) +  "          "   \
     +     " " + ralign("("+str_u2+")", 19) + "        " + lalign("FRESHSNW", colwidth) + ":"  + sprintf("%8.3f",str_v2))
     sfc_get_unit_val(cdf_file, VAR_RHO_SNOW, itime, istation, str_u,  str_v)
-    print(" " + ralign("("+str_u+")", 81) + "       " + lalign("RHO_SNOW", colwidth) + ":"  + sprintf("%8.3f",str_v))
+    print(" " + ralign("("+str_u+")", 80) + "        " + lalign("RHO_SNOW", colwidth) + ":"  + sprintf("%8.3f",str_v))
     sfc_get_unit_val(cdf_file, VAR_H_SNOW, itime, istation, str_u,  str_v)
-    print(" " + ralign("("+str_u+")", 81) + "       " + lalign("H_SNOW", colwidth) + ":"  + sprintf("%8.3f",str_v) + str_get_nl())
+    print(" " + ralign("("+str_u+")", 80) + "        " + lalign("H_SNOW", colwidth) + ":"  + sprintf("%8.3f",str_v) + str_get_nl())
 
     do isoil=1,max_soil_levs
       sfc_get_unit_val(cdf_file, VAR_T_SO,     itime, istation, str_u,   str_v)
@@ -521,27 +525,25 @@ do istation = 0,(nstations-1)
 
     ; solar + thermal radiation
     sfc_get_unit_val(cdf_file, VAR_SOBT,    itime, istation, str_u,   str_v)
-    print("   Solar radiation:          " + lalign("SOBT", colwidth) + ":"  + sprintf("%8.3f",str_v) +  "          "   \
-    +     "   Thermal radiation:       " + lalign("THBT", colwidth) + ":"  + "    ???")
+    print("   Solar radiation:          " + lalign("SOBT", colwidth) + ":"  + sprintf("%8.3f",str_v) )
     sfc_get_unit_val(cdf_file, VAR_SOBS,    itime, istation, str_u,   str_v)
     sfc_get_unit_val(cdf_file, VAR_THBS,    itime, istation, str_u2,  str_v2)
     print(" " + ralign("("+str_u+")", 21) + "       " + lalign("SOBS", colwidth) + ":"  + sprintf("%8.3f",str_v) +  "          "   \
     +     " " + ralign("("+str_u2+")", 19) + "        " + lalign("THBS", colwidth) + ":"  + sprintf("%8.3f",str_v2))
     sfc_get_unit_val(cdf_file, VAR_ALB,    itime, istation, str_u2,   str_v2)
-    print("   Photosynt. active rad.    " + lalign("PABS", colwidth) + ":"  + "     ???" +  "          "   \
-    +     "   Surface albedo:          " + lalign("ALB", colwidth) + ":"  + sprintf("%8.3f",str_v2) + str_get_nl())
+    print("   Surface albedo:           " + lalign("ALB", colwidth) + ":"  + sprintf("%8.3f",str_v2) + str_get_nl())
 
     ; precipitation + cloud cover
-    print("   Precipitation:            " + center("rates",colwidth) + "  and  " + center("amount", colwidth))
+    print("   Precipitation:            " + center("amount", colwidth))
     sfc_get_unit_val(cdf_file, VAR_RAIN_GSP,    itime, istation, str_u,   str_v)
     sfc_get_unit_val(cdf_file, VAR_SNOW_GSP,    itime, istation, str_u2,  str_v2)
-    print(ralign("",29)+ center("(???)", colwidth) + "       " + center("("+str_u+")", colwidth))
-    print("       " + lalign("RAIN_GSP:", 22) + center("???", colwidth) + "       " + sprintf("%8.3f",str_v))
-    print("       " + lalign("SNOW_GSP:", 22) + center("???", colwidth) + "       " + sprintf("%8.3f",str_v2))
+    print(ralign("",29) + center("("+str_u+")", colwidth))
+    print("       " + lalign("RAIN_GSP:", 22) + sprintf("%8.3f",str_v))
+    print("       " + lalign("SNOW_GSP:", 22) + sprintf("%8.3f",str_v2))
     sfc_get_unit_val(cdf_file, VAR_RAIN_CON,    itime, istation, str_u,   str_v)
     sfc_get_unit_val(cdf_file, VAR_SNOW_CON,    itime, istation, str_u2,  str_v2)
-    print("       " + lalign("RAIN_CON:", 22) + center("???", colwidth) + "       " + sprintf("%8.3f",str_v))
-    print("       " + lalign("SNOW_CON:", 22) + center("???", colwidth) + "       " + sprintf("%8.3f",str_v2))
+    print("       " + lalign("RAIN_CON:", 22) + sprintf("%8.3f",str_v))
+    print("       " + lalign("SNOW_CON:", 22) + sprintf("%8.3f",str_v2))
 
 ;  end do ; itime
 
