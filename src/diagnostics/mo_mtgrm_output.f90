@@ -551,6 +551,9 @@ CONTAINS
 
     meteogram_data => meteogram_local_data(jg)
 
+    ! TODO[FP] : In some cases, values (slightly) greater than 100%
+    !            are computed for relative humidity.
+
     !-- compute relative humidity as r = e/e_s:
     DO ilev=1,meteogram_data%var_info(i_REL_HUM(jg))%nlevs
       ! get values for temperature, etc.:
