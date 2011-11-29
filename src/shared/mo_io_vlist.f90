@@ -2229,6 +2229,13 @@ CONTAINS
       &                    gridCellID(k_jg), &
       &                    zaxisID_surface(k_jg)),&
       &           k_jg)
+      CALL addVar(TimeVar('Ekin',&
+      &                   'kinetic energy at centers',&
+      &                   'm/s',4,128,&
+      &                   vlistID(k_jg),&
+      &                   gridCellID(k_jg),&
+      &                   zaxisIDdepth_m(k_jg)),&
+      &           k_jg)
     IF (iforc_oce > 10) THEN
       CALL addVar(TimeVar('forc_u',&
       &                   'u-forcing component at centers',&
@@ -3408,6 +3415,7 @@ CONTAINS
       CASE ('forc_fwfx');    ptr2d => forcing%forc_fwfx(:,:)
       CASE('horz_adv');      ptr3d => p_diag%veloc_adv_horz
       CASE('Ekin_grad');     ptr3d => p_diag%grad
+      CASE('Ekin');          ptr3d => p_diag%kin
       CASE ('flux_u');       ptr2d => p_aux%bc_top_u
       CASE ('flux_v');       ptr2d => p_aux%bc_top_v
       CASE ('flux-VN');      ptr2d => p_aux%bc_top_vn

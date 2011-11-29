@@ -3748,7 +3748,7 @@ END SUBROUTINE complete_patchinfo
         END DO
       END DO EDGE_IDX_LOOP_PRIMAL
     END DO EDGE_BLK_LOOP_PRIMAL
-    !In he edge loop above each triangle is visisted three times. Since the "fixed_vol_norm" is
+    !In the edge loop above each triangle is visisted three times. Since the "fixed_vol_norm" is
     !accumulated we correct its value here:
     ptr_intp%fixed_vol_norm = ptr_intp%fixed_vol_norm/3.0_wp
 
@@ -3839,7 +3839,7 @@ END SUBROUTINE complete_patchinfo
           ! #slo# - I assume all geographical coordinates are already synchronized
 
           cc_dual_edge(ie) = gc2cc(ptr_patch%edges%center(il_e,ib_e))
-          !Parts of this code parrallels the implementation in the grid-generator
+          !Parts of this code parallels the implementation in the grid-generator
           !module "mo_geometry".
           !
           !1) determine normal vector from adjacent cell to adjacent cell
@@ -3963,13 +3963,15 @@ END SUBROUTINE complete_patchinfo
             vert_edge_distance     = vert_edge_dist(ie,1)
             vert_dual_mid_distance = vert_dual_mid_dist(ie,1)
             recon_vec_cc           = recon_vec_cc_v1(ie)
-
-            ptr_intp%edge2vert_vector_cc(jv,jb,ie)=&
-            &vector_product(vert1_midedge_cc(jv, jb, ie), cc_mid_dual_edge(ie))
-            z_tmp = DOT_PRODUCT(ptr_intp%edge2vert_vector_cc(jv,jb,ie)%x,&
-            &ptr_patch%edges%primal_cart_normal(il_e,ib_e)%x)
-            IF (z_tmp <0._wp) ptr_intp%edge2vert_vector_cc(jv,jb,ie)%x&
-            & = -1._wp * ptr_intp%edge2vert_vector_cc(jv,jb,ie)%x
+!PK: not used
+!             ptr_intp%edge2vert_vector_cc(jv,jb,ie)=&
+!             &vector_product(vert1_midedge_cc(jv, jb, ie), cc_mid_dual_edge(ie))
+! 
+!             z_tmp = DOT_PRODUCT(ptr_intp%edge2vert_vector_cc(jv,jb,ie)%x,&
+!             &ptr_patch%edges%primal_cart_normal(il_e,ib_e)%x)
+! 
+!             IF (z_tmp <0._wp) ptr_intp%edge2vert_vector_cc(jv,jb,ie)%x&
+!             & = -1._wp * ptr_intp%edge2vert_vector_cc(jv,jb,ie)%x
 
 
           ELSE IF ( (ptr_patch%edges%vertex_idx(il_e,ib_e,2) == jv) .and. &
@@ -3979,12 +3981,14 @@ END SUBROUTINE complete_patchinfo
             vert_dual_mid_distance = vert_dual_mid_dist(ie,2)
             recon_vec_cc           = recon_vec_cc_v2(ie)
 
-            ptr_intp%edge2vert_vector_cc(jv,jb,ie)=&
-            &vector_product(vert2_midedge_cc(jv, jb, ie), cc_mid_dual_edge(ie))
-            z_tmp = DOT_PRODUCT(ptr_intp%edge2vert_vector_cc(jv,jb,ie)%x,&
-            & ptr_patch%edges%primal_cart_normal(il_e,ib_e)%x)
-            IF (z_tmp <0._wp) ptr_intp%edge2vert_vector_cc(jv,jb,ie)%x =&
-            & -1._wp * ptr_intp%edge2vert_vector_cc(jv,jb,ie)%x
+!             ptr_intp%edge2vert_vector_cc(jv,jb,ie)=&
+!             &vector_product(vert2_midedge_cc(jv, jb, ie), cc_mid_dual_edge(ie))
+! 
+!             z_tmp = DOT_PRODUCT(ptr_intp%edge2vert_vector_cc(jv,jb,ie)%x,&
+!             & ptr_patch%edges%primal_cart_normal(il_e,ib_e)%x)
+! 
+!             IF (z_tmp <0._wp) ptr_intp%edge2vert_vector_cc(jv,jb,ie)%x =&
+!             & -1._wp * ptr_intp%edge2vert_vector_cc(jv,jb,ie)%x
           ELSE
             CALL message (TRIM(routine), 'WARNING - vert_edge_distance not found')
             write(*,'(a,7i5)') 'jv, jb, edge, ptr_patch%edges%vertex_idx/blk(il_e,ib_e,1-2)=', &

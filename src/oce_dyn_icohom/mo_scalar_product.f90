@@ -104,14 +104,14 @@ CONTAINS
   !! @par Revision History
   !!  developed by Peter Korn, MPI-M (2010-9)
   !!
-  FUNCTION dual_flip_flop(p_patch, vn_old_e, vn_new_e, vort_v,&!p_vn, &
-                        & h_e, opt_slev, opt_elev) RESULT(vn_out_e)
+  FUNCTION dual_flip_flop(p_patch, vn_old_e, vn_new_e, vort_v,&
+                        & h_e,p_vn, opt_slev, opt_elev) RESULT(vn_out_e)
 
   TYPE(t_patch), INTENT(IN)    :: p_patch
   REAL(wp), INTENT(inout)      :: vn_old_e(:,:,:)
   REAL(wp), INTENT(inout)      :: vn_new_e(:,:,:)
-  REAL(wp), INTENT(in)         :: vort_v(:,:,:)
-  !TYPE(t_cartesian_coordinates):: p_vn(nproma,n_zlev,p_patch%nblks_c)
+  REAL(wp), INTENT(inout)         :: vort_v(:,:,:)
+  TYPE(t_cartesian_coordinates):: p_vn(nproma,n_zlev,p_patch%nblks_c)
   REAL(wp), INTENT(IN)      :: h_e(:,:)
   INTEGER, INTENT(IN), OPTIONAL ::  opt_slev  ! optional vertical start level
   INTEGER, INTENT(IN), OPTIONAL ::  opt_elev  ! optional vertical end level
@@ -126,13 +126,11 @@ CONTAINS
   INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
   INTEGER :: il_v1, il_v2, ib_v1, ib_v2, il_e, ib_e
   INTEGER :: je, jb, ie, jk, iie_v1, iie_v2!, jv
-  !INTEGER :: ic1, ib1, ic2,ib2
+  INTEGER :: ic1, ib1, ic2,ib2
   !INTEGER :: il_star1,ib_star1,il_star2,ib_star2, ie_star1, ie_star2
 
   REAL(wp) :: z_thick, z_weight!, z_tmp1, z_tmp2, z_sum1, z_sum2
-  !REAL(wp) :: vn_tmp!z_vn
-  !REAL(wp) :: z_mean
-  !REAL(wp) :: z_h_approx!, z_f_approx_v1,z_f_approx_v2 
+  REAL(wp) :: vn_tmp!z_vn
   REAL(wp) :: z_vn_e(nproma,n_zlev,p_patch%nblks_e)
   TYPE(t_cartesian_coordinates) :: u_v1_cc!(SIZE(vort_v,1),SIZE(vort_v,3))
   TYPE(t_cartesian_coordinates) :: u_v2_cc!(SIZE(vort_v,1),SIZE(vort_v,3))
@@ -184,87 +182,156 @@ CONTAINS
         u_v1_cc%x  = 0.0_wp
         z_weight   = 0.0_wp
         i_v1_ctr = 0
-        iie_v1   = 0
-        !z_h_approx = 0.0_wp
-        !z_f_approx_v1 = 0.0_wp
-        !z_sum1=0.0_wp
+
         DO ie=1, p_patch%verts%num_edges(il_v1,ib_v1) !no_vert_edges
 
           il_e = p_patch%verts%edge_idx(il_v1,ib_v1,ie)
           ib_e = p_patch%verts%edge_blk(il_v1,ib_v1,ie)
 
-          !IF(il_e==je.AND.ib_e==jb)ie_star1=ie
-          !IF(il_e==je.AND.ib_e==jb)THEN
-          !  iie_v1 = ie
-          !ENDIF
           z_thick = v_base%del_zlev_m(jk)
            IF ( iswm_oce == 1 ) THEN
              z_thick    = 1.0_wp!v_base%del_zlev_m(jk) +h_e(il_e,ib_e)
-             !z_h_approx = z_h_approx + h_e(il_e,ib_e)
            ELSEIF( iswm_oce /= 1 ) THEN 
              !IF (jk == 1 )THEN
                z_thick = v_base%del_zlev_m(jk) !+ h_e(il_e,ib_e) 
-             !  z_h_approx = z_h_approx + z_thick
              !ENDIF
            ENDIF 
 
-           !IF ( v_base%lsm_oce_e(il_e,jk,ib_e) < sea_boundary ) THEN
-             z_weight = z_weight + p_int_state(1)%variable_dual_vol_norm(il_v1,ib_v1,ie)*z_thick
+           IF ( v_base%lsm_oce_e(il_e,jk,ib_e) < sea_boundary ) THEN
+             i_v1_ctr=i_v1_ctr+1
+!              z_weight = z_weight + p_int_state(1)%variable_dual_vol_norm(il_v1,ib_v1,ie)!*z_thick
+!            ELSE
+!              z_weight = z_weight + 0.5_wp*p_int_state(1)%variable_dual_vol_norm(il_v1,ib_v1,ie)!*z_thick
+           ENDIF  
+           z_weight = z_weight + p_int_state(1)%variable_dual_vol_norm(il_v1,ib_v1,ie)!*z_thick
 
              u_v1_cc%x = u_v1_cc%x +                      &
              &           p_int_state(1)%edge2vert_coeff_cc(il_v1,ib_v1,ie)%x * &
-             &           z_vn_e(il_e,jk,ib_e)*z_thick
-             i_v1_ctr=i_v1_ctr+1
+             &           z_vn_e(il_e,jk,ib_e)!*z_thick
+
 ! write(1234,*)'dual-coeff',il_v1,ib_v1,ie,&
 ! &p_int_state(1)%edge2vert_coeff_cc(il_v1,ib_v1,ie)%x,&
 ! &z_weight
            !ENDIF
         END DO
-        IF(z_weight/=0.0_wp)THEN
-            !z_h_approx = z_h_approx/i_v1_ctr
-            u_v1_cc%x = u_v1_cc%x/(z_weight)!*z_h_approx)
-        ENDIF
+
+!           IF(z_weight/=0.0_wp)THEN
+               u_v1_cc%x = u_v1_cc%x/(z_weight)!p_patch%verts%dual_area(il_v1,ib_v1)!z_weight
+!           ENDIF
 
         u_v2_cc%x   = 0.0_wp
         z_weight    = 0.0_wp
         i_v2_ctr    = 0
-        iie_v2      = 0
-        !z_h_approx  = 0.0_wp
-        !z_sum2        =0.0_wp
+
         DO ie=1, p_patch%verts%num_edges(il_v2,ib_v2) !no_vert_edges
 
           il_e = p_patch%verts%edge_idx(il_v2,ib_v2,ie)
           ib_e = p_patch%verts%edge_blk(il_v2,ib_v2,ie)
-          !IF(il_e==je.AND.ib_e==jb)ie_star2=ie
-          !IF(il_e==je.AND.ib_e==jb)THEN
-          !  iie_v2 = ie
-          !ENDIF
 
           z_thick = v_base%del_zlev_m(jk)
            IF ( iswm_oce == 1 ) THEN
              z_thick    = 1.0_wp!v_base%del_zlev_m(jk) + h_e(il_e,ib_e)
-             !z_h_approx = z_h_approx + h_e(il_e,ib_e)
            ELSEIF( iswm_oce /= 1 ) THEN 
              !IF (jk == 1 )THEN
                z_thick = v_base%del_zlev_m(jk) !+ h_e(il_e,ib_e) 
-               !z_h_approx = z_h_approx + z_thick
              !ENDIF
            ENDIF 
 
-           !IF ( v_base%lsm_oce_e(il_e,jk,ib_e)  < sea_boundary ) THEN
-             z_weight = z_weight + p_int_state(1)%variable_dual_vol_norm(il_v2,ib_v2,ie)*z_thick
+           IF ( v_base%lsm_oce_e(il_e,jk,ib_e)  < sea_boundary ) THEN
+             i_v2_ctr=i_v2_ctr+1
+!              z_weight = z_weight + p_int_state(1)%variable_dual_vol_norm(il_v2,ib_v2,ie)!*z_thick
+!            ELSE
+!              z_weight = z_weight + 0.5_wp*p_int_state(1)%variable_dual_vol_norm(il_v2,ib_v2,ie)!*z_thick
+           ENDIF
+           z_weight = z_weight + p_int_state(1)%variable_dual_vol_norm(il_v2,ib_v2,ie)!*z_thick
 
+ 
              u_v2_cc%x = u_v2_cc%x +                      &
              &           p_int_state(1)%edge2vert_coeff_cc(il_v2,ib_v2,ie)%x * &
-             &           z_vn_e(il_e,jk,ib_e)*z_thick
-             i_v2_ctr=i_v2_ctr+1
+             &           z_vn_e(il_e,jk,ib_e)!*z_thick
+
            !ENDIF
         END DO
-        IF(z_weight/=0.0_wp)THEN
-            !z_h_approx = z_h_approx/i_v2_ctr
-            u_v2_cc%x = u_v2_cc%x/(z_weight)!*z_h_approx)
-        ENDIF
+!           IF(z_weight/=0.0_wp)THEN
+              u_v2_cc%x = u_v2_cc%x/(z_weight)!p_patch%verts%dual_area(il_v2,ib_v2)
+!           ENDIF
 
+
+
+
+!             IF(   i_v1_ctr==p_patch%verts%num_edges(il_v1,ib_v1)&
+!             &.AND.i_v2_ctr==p_patch%verts%num_edges(il_v2,ib_v2))THEN
+
+             u_v1_cc%x=u_v1_cc%x*(vort_v(il_v1,jk,ib_v1)+p_patch%verts%f_v(il_v1,ib_v1))
+             u_v2_cc%x=u_v2_cc%x*(vort_v(il_v2,jk,ib_v2)+p_patch%verts%f_v(il_v2,ib_v2))
+
+             vn_out_e(je,jk,jb) = &
+                &- DOT_PRODUCT(u_v2_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,2)%x)&
+                &+ DOT_PRODUCT(u_v1_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,1)%x)
+
+
+!            ELSEIF( i_v1_ctr==p_patch%verts%num_edges(il_v1,ib_v1)&
+!              &.AND.i_v2_ctr<p_patch%verts%num_edges(il_v2,ib_v2))THEN
+! 
+!              IF(i_v2_ctr>=p_patch%verts%num_edges(il_v2,ib_v2)-3)THEN
+!                u_v1_cc%x=u_v1_cc%x*(vort_v(il_v1,jk,ib_v1)+p_patch%verts%f_v(il_v1,ib_v1))
+!                u_v2_cc%x=u_v2_cc%x*(vort_v(il_v2,jk,ib_v2)+p_patch%verts%f_v(il_v2,ib_v2))
+! 
+!                vn_out_e(je,jk,jb) = &
+!                   &- DOT_PRODUCT(u_v2_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,2)%x)&
+!                   &+ DOT_PRODUCT(u_v1_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,1)%x)
+!              ELSE
+!                u_v1_cc%x=u_v1_cc%x*(vort_v(il_v1,jk,ib_v1)+p_patch%verts%f_v(il_v1,ib_v1))
+! 
+!                vn_out_e(je,jk,jb) = &
+!                   & 2.0_wp*DOT_PRODUCT(u_v1_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,1)%x)
+!              ENDIF  
+! 
+!            ELSEIF( i_v1_ctr<p_patch%verts%num_edges(il_v1,ib_v1)&
+!              &.AND.i_v2_ctr==p_patch%verts%num_edges(il_v2,ib_v2))THEN
+! 
+! 
+! 
+!              IF(i_v1_ctr>=p_patch%verts%num_edges(il_v1,ib_v1)-3)THEN
+!                u_v1_cc%x=u_v1_cc%x*(vort_v(il_v1,jk,ib_v1)+p_patch%verts%f_v(il_v1,ib_v1))
+!                u_v2_cc%x=u_v2_cc%x*(vort_v(il_v2,jk,ib_v2)+p_patch%verts%f_v(il_v2,ib_v2))
+! 
+!                vn_out_e(je,jk,jb) = &
+!                   &- DOT_PRODUCT(u_v2_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,2)%x)&
+!                   &+ DOT_PRODUCT(u_v1_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,1)%x)
+!              ELSE
+!                u_v2_cc%x=u_v2_cc%x*(vort_v(il_v2,jk,ib_v2)+p_patch%verts%f_v(il_v2,ib_v2))
+! 
+!                vn_out_e(je,jk,jb) = &
+!                   &- 2.0_wp*DOT_PRODUCT(u_v2_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,2)%x)
+!              ENDIF
+! 
+!            ELSE
+! 
+!             u_v1_cc%x=u_v1_cc%x*(vort_v(il_v1,jk,ib_v1)+p_patch%verts%f_v(il_v1,ib_v1))
+!              u_v2_cc%x=u_v2_cc%x*(vort_v(il_v2,jk,ib_v2)+p_patch%verts%f_v(il_v2,ib_v2))
+! 
+!              vn_out_e(je,jk,jb) = &
+!                 &- DOT_PRODUCT(u_v2_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,2)%x)&
+!                 &+ DOT_PRODUCT(u_v1_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,1)%x)
+! 
+! 
+! 
+! !              ic1 = p_patch%edges%cell_idx(je,jb,1)
+! !              ib1 = p_patch%edges%cell_blk(je,jb,1)
+! !              ic2 = p_patch%edges%cell_idx(je,jb,2)
+! !              ib2 = p_patch%edges%cell_blk(je,jb,2)
+! ! 
+! !              vn_tmp = 0.5_wp*&
+! !              &(DOT_PRODUCT(p_vn(ic1,jk,ib1)%x,p_patch%edges%dual_cart_normal(je,jb)%x)&
+! !              &+DOT_PRODUCT(p_vn(ic2,jk,ib2)%x,p_patch%edges%dual_cart_normal(je,jb)%x))
+! ! 
+! ! 
+! !               vn_out_e(je,jk,jb) =&
+! !               & vn_tmp*p_patch%edges%f_e(je,jb)&
+! !               &*0.5_wp*(vort_v(il_v1,jk,ib_v1)+vort_v(il_v2,jk,ib_v2))
+! 
+!            ENDIF 
 ! !--------------------------------------------------
 !               IF(   i_v1_ctr==p_patch%verts%num_edges(il_v1,ib_v1)&
 !               &.AND.i_v2_ctr==p_patch%verts%num_edges(il_v2,ib_v2))THEN
@@ -289,46 +356,12 @@ CONTAINS
 !                 u_v2_cc%x=u_v2_cc%x*(p_patch%verts%f_v(il_v2,ib_v2))
 !               ENDIF
 
-
-                u_v1_cc%x=u_v1_cc%x*(vort_v(il_v1,jk,ib_v1)+p_patch%verts%f_v(il_v1,ib_v1))
-                u_v2_cc%x=u_v2_cc%x*(vort_v(il_v2,jk,ib_v2)+p_patch%verts%f_v(il_v2,ib_v2))
-
-                 vn_out_e(je,jk,jb) = &
-                &- DOT_PRODUCT(u_v2_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,2)%x)&
-                &+ DOT_PRODUCT(u_v1_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,1)%x)
-
-! if(jk==1)then
-! write(1234,*)'vort-flx',&
-! &vn_out_e(je,jk,jb),&
-! &u_v2_cc%x,&!,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,2)%x!),&
-! &u_v1_cc%x!,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,1)%x)
-! endif
-!             u_v1_cc%x=u_v1_cc%x*(vort_v(il_v1,jk,ib_v1)+p_patch%verts%f_v(il_v1,ib_v1))
-!             u_v2_cc%x=u_v2_cc%x*(vort_v(il_v2,jk,ib_v2)+p_patch%verts%f_v(il_v2,ib_v2))
-!  
-!                 vn_out_e(je,jk,jb) = &
-!            &- DOT_PRODUCT(u_v2_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,2)%x)&
-!            &+ DOT_PRODUCT(u_v1_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,1)%x)
- !              z_thick = v_base%del_zlev_m(jk)
-!              IF ( iswm_oce == 1 ) THEN
-!                z_thick = h_e(il_e,ib_e)
-!              ELSEIF( iswm_oce /= 1 ) THEN 
-!                IF (jk == 1 )THEN
-!                  z_thick = v_base%del_zlev_m(jk) !+ h_e(il_e,ib_e) 
-!                ENDIF
-!              ENDIF 
-!              vn_out_e(je,jk,jb) = vn_out_e(je,jk,jb) * z_thick
-
-! write(123,*)'dual flx:',je,jb, vn_out_e(je,jk,jb),&
-! &-DOT_PRODUCT(u_v2_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,2)%x),&
-! &DOT_PRODUCT(u_v1_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,1)%x)!,&
-! &DOT_PRODUCT(u_v1_cc%x,&
-! &p_patch%edges%system_orientation(je,jb)&
-! &*p_int_state(1)%edge2vert_vector_cc(il_v1,il_v1,ie_star1)%x),&
-! &DOT_PRODUCT(u_v2_cc%x,&
-! &p_patch%edges%system_orientation(je,jb)*&
-! &p_int_state(1)%edge2vert_vector_cc(il_v2,il_v2,ie_star2)%x)
-! !--------------------------------------------------
+!                  u_v1_cc%x=u_v1_cc%x*(vort_v(il_v1,jk,ib_v1)+p_patch%verts%f_v(il_v1,ib_v1))
+!                  u_v2_cc%x=u_v2_cc%x*(vort_v(il_v2,jk,ib_v2)+p_patch%verts%f_v(il_v2,ib_v2))
+! 
+!                  vn_out_e(je,jk,jb) = &
+!                 &- DOT_PRODUCT(u_v2_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,2)%x)&
+!                 &+ DOT_PRODUCT(u_v1_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,1)%x)
 !----------------------------------------------------------------------------------------------
 !               vn_out_e(je,jk,jb) = &
 !              &- DOT_PRODUCT(u_v2_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,2)%x)&
@@ -382,18 +415,9 @@ CONTAINS
 ! !              &(DOT_PRODUCT(p_vn(ic1,jk,ib1)%x,p_patch%edges%dual_cart_normal(je,jb)%x)&
 ! !              &+DOT_PRODUCT(p_vn(ic2,jk,ib2)%x,p_patch%edges%dual_cart_normal(je,jb)%x))  
 ! 
-! !             vn_tmp =&
-! !             & vn_tmp*p_patch%edges%f_e(je,jb)&
-! !             &*0.5_wp*(vort_v(il_v1,jk,ib_v1)+vort_v(il_v2,jk,ib_v2))
-! !            !u_v1_cc%x=u_v1_cc%x*(vort_v(il_v1,jk,ib_v1)+z_f_approx_v1)!+p_patch%verts%f_v(il_v1,ib_v1))
-! !            !u_v2_cc%x=u_v2_cc%x*(vort_v(il_v2,jk,ib_v2)+z_f_approx_v2)!+p_patch%verts%f_v(il_v2,ib_v2))
-! !  
-! !             u_v1_cc%x=u_v1_cc%x*(vort_v(il_v1,jk,ib_v1)+p_patch%verts%f_v(il_v1,ib_v1))
-! !             u_v2_cc%x=u_v2_cc%x*(vort_v(il_v2,jk,ib_v2)+p_patch%verts%f_v(il_v2,ib_v2))
-! ! 
-! !            vn_out_e(je,jk,jb) =( &
-! !            &- DOT_PRODUCT(u_v2_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,2)%x)&
-! !            &+ DOT_PRODUCT(u_v1_cc%x,p_int_state(1)%edge2vert_coeff_cc_t(je,jb,1)%x))
+!               vn_out_e(je,jk,jb) =&
+!              & vn_old_e(je,jk,jb)*p_patch%edges%f_e(je,jb)&
+!              &*0.5_wp*(vort_v(il_v1,jk,ib_v1)+vort_v(il_v2,jk,ib_v2))
 ! ! 
 ! ! !write(*,*)'compare', je,jb,vn_out_e(je,jk,jb), vn_tmp
 ! ! !          ENDIF 
@@ -541,6 +565,7 @@ CONTAINS
        ENDIF
       END DO EDGE_IDX_LOOP
     END DO EDGE_BLK_LOOP
+
 !$OMP END DO
 !$OMP END PARALLEL
   END DO LEVEL_LOOP
@@ -598,8 +623,8 @@ i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
 
 !Step 1: Calculation of Pv in cartesian coordinates and of kinetic energy
 CALL map_edges2cell( p_patch, vn_e_old, z_pv_cc)
-CALL map_edges2cell( p_patch, vn_e_old, p_diag%p_vn, h_e )
-
+! CALL map_edges2cell( p_patch, vn_e_old, p_diag%p_vn, h_e )
+CALL map_edges2cell( p_patch, vn_e_old, p_diag%p_vn)
 DO jb = i_startblk_c, i_endblk_c
   CALL get_indices_c( p_patch, jb,&
                     & i_startblk_c, i_endblk_c,&

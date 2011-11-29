@@ -144,7 +144,7 @@ REAL(wp), PARAMETER :: &
        r_ak0=8.50935e-5_wp, r_ak1=-6.12293e-6_wp, r_ak2=5.2787e-8_wp, &
        r_am0=-9.9348e-7_wp, r_am1=2.0816e-8_wp, r_am2=9.1697e-10_wp
 
-
+REAL(wp), PARAMETER :: SALINITY_REF= 35.0_wp
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -481,7 +481,7 @@ END INTERFACE
       DO jk=1, n_zlev
         DO jc = i_startidx, i_endidx
           IF(v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-            rho(jc,jk,jb) = rho_ref - a_T * tracer(jc,jk,jb,1)
+            rho(jc,jk,jb) = rho_ref - a_T * tracer(jc,jk,jb,1) +b_S*SALINITY_REF
            !write(123,*)'density',jk,jc,jb,rho(jc,jk,jb), tracer(jc,jk,jb,1),a_T
            ELSE
              rho(jc,jk,jb) = 0.0_wp 
@@ -551,8 +551,8 @@ END INTERFACE
     REAL(wp), INTENT(INOUT)       :: rho(:,:,:)       !< density
 
 ! !LOCAL VARIABLES:
+  REAL(wp)::  z_p
 
-  REAL(wp):: z_s1, z_p
   INTEGER :: jc, jk, jb
   INTEGER :: rl_start, rl_end
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
@@ -584,8 +584,7 @@ END INTERFACE
        END DO
      END DO
    END DO
- ELSE
-   z_s1=35.0_wp
+ ELSE IF(no_tracer==1)THEN
    DO jb = i_startblk, i_endblk
      CALL get_indices_c(  p_patch, jb, i_startblk, i_endblk,&
                         & i_startidx, i_endidx, rl_start, rl_end)
@@ -595,7 +594,7 @@ END INTERFACE
          IF(v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
            z_p=sfc_press_bar ! rho_ref*v_base%zlev_m(jk)*SItodBar
            rho(jc,jk,jb) = calc_density_JMDWFG06_EOS_func(tracer(jc,jk,jb,1),&
-                                                        & z_s1,              &
+                                                        & SALINITY_REF,      &
                                                         & z_p)
 !           write(*,*)'rho',jc,jk,jb,rho(jc,jk,jb)
          END IF
@@ -802,7 +801,7 @@ end subroutine calc_density_JM_EOS
 
 ! !LOCAL VARIABLES:
 ! loop indices
-  REAL(wp):: z_s1, z_p
+  REAL(wp):: z_p
   INTEGER :: jc, jk, jb
   INTEGER :: rl_start, rl_end
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
@@ -833,7 +832,6 @@ end subroutine calc_density_JM_EOS
 
  ELSEIF(no_tracer==1)THEN
 
-   z_s1=35.0_wp
    DO jb = i_startblk, i_endblk
      CALL get_indices_c(  p_patch, jb, i_startblk, i_endblk,&
                         & i_startidx, i_endidx, rl_start, rl_end)
@@ -843,7 +841,7 @@ end subroutine calc_density_JM_EOS
          ! operate on wet ocean points only
          IF(v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
 
-           rho(jc,jk,jb) = calc_density_MPIOM_func( tracer(jc,jk,jb,1), z_s1, z_p)
+           rho(jc,jk,jb) = calc_density_MPIOM_func( tracer(jc,jk,jb,1), SALINITY_REF, z_p)
 !write(123,*)'rho',jc,jk,jb,rho(jc,jk,jb)
          END IF
        END DO

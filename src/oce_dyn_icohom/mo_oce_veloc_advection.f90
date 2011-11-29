@@ -270,10 +270,10 @@ END DO
 !calculate vorticity flux across dual edge
 IF ( iswm_oce == 1 ) THEN
   z_vort_flx(:,:,:) = dual_flip_flop(p_patch, vn_old, vn_new, p_diag%vort,&
-                     &p_diag%thick_e) 
+                     &p_diag%thick_e,  p_diag%p_vn) 
 ELSEIF ( iswm_oce /= 1 ) THEN
   z_vort_flx(:,:,:) = dual_flip_flop(p_patch, vn_old, vn_new, p_diag%vort,&
-                        & p_diag%thick_e)
+                        & p_diag%thick_e,  p_diag%p_vn)
 ENDIF
 DO jk = slev, elev
   CALL sync_patch_array(sync_v, p_patch, z_vort_flx(:,jk,:))

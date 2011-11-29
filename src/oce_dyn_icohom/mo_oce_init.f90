@@ -1947,8 +1947,8 @@ i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
                         & z_grad,    &
                         & opt_slev=1,opt_elev=1 )
 
-  z_x_out(:,:,:) = dual_flip_flop(p_patch, z_x_e, z_x_e, z_x_vort, h_e,&
-                                 &opt_slev=1, opt_elev=1)
+!   z_x_out(:,:,:) = dual_flip_flop(p_patch, z_x_e, z_x_e, z_x_vort, h_e,&
+!                                  &opt_slev=1, opt_elev=1)
 
    z_x_out=z_x_out!+z_grad
    llhs(1:nproma,1:p_patch%nblks_e) = p_coeff*z_x_out(1:nproma,1,1:p_patch%nblks_e)
