@@ -75,6 +75,7 @@ MODULE mo_nwp_lnd_state
     &                               add_var, add_ref,           &
     &                               new_var_list,               &
     &                               delete_var_list
+  USE mo_var_metadata,         ONLY: t_var_metadata
   USE mo_cf_convention
   USE mo_grib2
   USE mo_cdi_constants 
@@ -411,6 +412,8 @@ MODULE mo_nwp_lnd_state
 
     CHARACTER(len=4) suffix
 
+    TYPE(t_var_metadata), POINTER :: info  !< pointer to metadata
+
 !-----------------------------------------------------------------------
 
     ientr = 16 ! "entropy" of horizontal slice
@@ -441,8 +444,8 @@ MODULE mo_nwp_lnd_state
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'t_g'//suffix, p_prog_lnd%t_g,      &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,         &
-         & ldims=shape2d )
-
+         & ldims=shape2d, info=info )
+    info%tlev_source = 1   ! for output take field from nnow_rcf slice
 
     IF ( atm_phy_nwp_config(p_jg)%inwp_surface > 0 ) THEN
 
@@ -464,7 +467,8 @@ MODULE mo_nwp_lnd_state
                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                        &
                & t_cf_var('t_gt_'//TRIM(csfc), '', ''),                        &
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
-               & ldims=shape2d )
+               & ldims=shape2d, info=info )
+        info%tlev_source = 1   ! for output take field from nnow_rcf slice
       ENDDO
 
 
@@ -486,7 +490,8 @@ MODULE mo_nwp_lnd_state
                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                        &
                & t_cf_var('t_snow_'//csfc, '', ''),                            &
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
-               & ldims=shape2d )
+               & ldims=shape2d, info=info )
+        info%tlev_source = 1   ! for output take field from nnow_rcf slice
       ENDDO
 
 
@@ -533,7 +538,8 @@ MODULE mo_nwp_lnd_state
                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                        &
                & t_cf_var('t_s_'//csfc, '', ''),                               &
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
-               & ldims=shape2d )
+               & ldims=shape2d, info=info )
+        info%tlev_source = 1   ! for output take field from nnow_rcf slice
       ENDDO
 
 
@@ -555,7 +561,8 @@ MODULE mo_nwp_lnd_state
                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                        &
                & t_cf_var('w_snow_'//csfc, '', ''),                            &
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
-               & ldims=shape2d )
+               & ldims=shape2d, info=info )
+        info%tlev_source = 1   ! for output take field from nnow_rcf slice
       ENDDO
 
 
@@ -578,7 +585,8 @@ MODULE mo_nwp_lnd_state
                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                          &
                & t_cf_var('rho_snow_'//csfc, '', ''),                            &
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
-               & ldims=shape2d )
+               & ldims=shape2d, info=info )
+        info%tlev_source = 1   ! for output take field from nnow_rcf slice
       END DO
 
 
@@ -627,7 +635,8 @@ MODULE mo_nwp_lnd_state
                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                          &
                & t_cf_var('w_i_'//csfc, '', ''),                                 &
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
-               & ldims=shape2d )
+               & ldims=shape2d, info=info )
+        info%tlev_source = 1   ! for output take field from nnow_rcf slice
       ENDDO
 
 
@@ -651,7 +660,8 @@ MODULE mo_nwp_lnd_state
                & GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_LAND,                 &
                & t_cf_var('t_so_'//csfc, '', ''),                                &
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
-               & ldims=(/nproma,nlev_soil+2,kblks/) )
+               & ldims=(/nproma,nlev_soil+2,kblks/), info=info )
+        info%tlev_source = 1   ! for output take field from nnow_rcf slice
       ENDDO
 
 
@@ -674,7 +684,8 @@ MODULE mo_nwp_lnd_state
                & GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_LAND,                 &
                & t_cf_var('w_so_'//csfc, '', ''),                                &
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
-               & ldims=(/nproma,nlev_soil+1,kblks/) )
+               & ldims=(/nproma,nlev_soil+1,kblks/), info=info )
+        info%tlev_source = 1   ! for output take field from nnow_rcf slice
       ENDDO
 
 
@@ -697,7 +708,8 @@ MODULE mo_nwp_lnd_state
                & GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_LAND,                 &
                & t_cf_var('w_so_ice_'//csfc, '', ''),                            &
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
-               & ldims=(/nproma,nlev_soil+1,kblks/) )
+               & ldims=(/nproma,nlev_soil+1,kblks/), info=info )
+        info%tlev_source = 1   ! for output take field from nnow_rcf slice
       ENDDO
 
 

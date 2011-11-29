@@ -238,7 +238,30 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
         
       END DO
         CALL message('mo_nwp_phy_init:', 'initialized surface temp and humidity')
+
+    ELSE  ! if is_restart_run()
+      !
+      ! necessary, because only t_g(nnow_rcf) is written to the restart file
+      ! with the following copy statement the ocean points of t_g(nnew_rcf) are 
+      ! filled with the correct values.
+      !
+      rl_start = 1 ! Initialization should be done for all points
+      rl_end   = min_rlcell
+
+      i_startblk = p_patch%cells%start_blk(rl_start,1)
+      i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    
+      DO jb = i_startblk, i_endblk
+
+        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+          &  i_startidx, i_endidx, rl_start, rl_end)
+        DO jc = i_startidx, i_endidx
+          p_prog_lnd_new%t_g (jc,jb) = p_prog_lnd_now%t_g (jc,jb)
+        ENDDO
+      ENDDO
+
     END IF
+
 
     !--------------------------------------------------------------
     !< characteristic gridlength needed by convection and turbulence

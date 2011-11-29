@@ -78,7 +78,6 @@ MODULE mo_nh_diagnose_pres_temp
     TYPE(t_nh_prog),    INTENT(IN)    :: pt_prog_rcf  !!the prognostic variables which are
                                                       !! treated with reduced calling frequency
 
-!    TYPE(t_lnd_prog),   INTENT(IN), OPTIONAL :: lnd_prog
     TYPE(t_lnd_prog),   INTENT(IN), OPTIONAL :: lnd_prog 
     TYPE(t_nh_diag),    INTENT(INOUT) :: pt_diag      !!the diagnostic variables
 

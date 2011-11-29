@@ -82,7 +82,7 @@ MODULE mo_dynamics_config
 
     INTEGER :: nsav1(MAX_DOM)     !< Extra 'time levels' of prognostic variables
     INTEGER :: nsav2(MAX_DOM)     !< needed to compute boundary tendencies and
-                                  !< feedback increments
+                                          !< feedback increments
 
     INTEGER :: nnow_rcf(MAX_DOM)  !< Extra time levels for reduced
     INTEGER :: nnew_rcf(MAX_DOM)  !< calling frequency (rcf)

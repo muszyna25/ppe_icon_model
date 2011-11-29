@@ -22,6 +22,10 @@ MODULE mo_io_restart
        &                              scatter_cells, scatter_edges, scatter_vertices  
   USE mo_io_units,              ONLY: find_next_free_unit, filename_max
   USE mo_mpi,                   ONLY: my_process_is_stdio
+  USE mo_dynamics_config,       ONLY: iequations, nnew, nnew_rcf
+  USE mo_impl_constants,        ONLY: IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER, &
+    &                                 LEAPFROG_EXPL, LEAPFROG_SI
+  USE mo_ha_dyn_config,         ONLY: ha_dyn_config 
 #ifndef NOMPI
   USE mo_model_domain,          ONLY: t_patch
 #endif
@@ -742,6 +746,10 @@ CONTAINS
     !
     REAL(wp) :: casted_missval
     !
+    INTEGER :: idx 
+    INTEGER :: time_level
+    INTEGER :: tlev_skip
+
     element => start_with
     element%next_list_element => this_list%p%first_list_element
     !
@@ -757,6 +765,38 @@ CONTAINS
       ! skip this field ?
       !
       IF (.NOT. info%lrestart) CYCLE
+      !
+      ! skip this field because of wrong time index ?
+      !
+      ! get time index of current field
+      idx = INDEX(element%field%info%name,'.TL')
+      IF (idx == 0) THEN
+        time_level = -1
+      ELSE
+        time_level = ICHAR(element%field%info%name(idx+3:idx+3)) - ICHAR('0')
+      ENDIF
+
+      ! get information about timelevel to be skipped for current field
+      ! for the time being this will work with the global patch only
+      IF (element%field%info%tlev_source == 0) THEN
+        tlev_skip = nnew(1)          ! ATTENTION: 1 hardcoded
+      ELSE IF (element%field%info%tlev_source == 1) THEN
+        tlev_skip = nnew_rcf(1)      ! ATTENTION: 1 hardcoded
+      ELSE
+        tlev_skip = -99
+      ENDIF
+
+
+      SELECT CASE (iequations)
+      CASE(IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER)
+
+        IF ( time_level == tlev_skip                        &
+          & .AND. ha_dyn_config%itime_scheme/=LEAPFROG_EXPL &
+          & .AND. ha_dyn_config%itime_scheme/=LEAPFROG_SI   ) CYCLE   ! skip field
+      CASE default
+        IF ( time_level == tlev_skip ) CYCLE   ! skip field
+      END SELECT
+
       !
       ! set grid ID
       !
@@ -1039,6 +1079,11 @@ CONTAINS
     !
     INTEGER :: gdims(5), nindex
     !
+    INTEGER :: idx 
+    INTEGER :: time_level
+    INTEGER :: tlev_skip
+
+    !
     ! Loop over all fields in linked list
     !
     element => start_with
@@ -1060,6 +1105,38 @@ CONTAINS
       ! skip this field ?
       !
       IF (.NOT. info%lrestart) CYCLE
+      !
+      ! skip this field because of wrong time index ?
+      !
+      ! get time index of current field
+      idx = INDEX(element%field%info%name,'.TL')
+      IF (idx == 0) THEN
+        time_level = -1
+      ELSE
+        time_level = ICHAR(element%field%info%name(idx+3:idx+3)) - ICHAR('0')
+      ENDIF
+
+      ! get information about timelevel to be skipped for current field
+      ! for the time being this will work with the global patch only
+      IF (element%field%info%tlev_source == 0) THEN
+        tlev_skip = nnew(1)          ! ATTENTION: 1 hardcoded
+      ELSE IF (element%field%info%tlev_source == 1) THEN
+        tlev_skip = nnew_rcf(1)      ! ATTENTION: 1 hardcoded
+      ELSE
+        tlev_skip = -99
+      ENDIF
+
+      SELECT CASE (iequations)
+      CASE(IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER)
+
+        IF ( time_level == tlev_skip                        &
+          & .AND. ha_dyn_config%itime_scheme/=LEAPFROG_EXPL &
+          & .AND. ha_dyn_config%itime_scheme/=LEAPFROG_SI   ) CYCLE   ! skip field
+      CASE default
+        IF ( time_level == tlev_skip ) CYCLE   ! skip field
+      END SELECT
+
+
       !
       IF (info%lcontained) THEN 
         nindex = info%ncontained
