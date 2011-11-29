@@ -46,7 +46,10 @@ def defaultPlot(ifile,ofile,opts=[])
   ofile += ".#{OFMT}"
   show(ofile)
 end
-
+def showVector(ifile,ofile,vars)
+  vectorPlot(ifile,ofile,OFMT,vars)
+  show(ofile+'.'+OFMT)
+end
 # Checking/installing the script files
 desc "check files on pool"
 task :default => [:check]
@@ -157,11 +160,10 @@ task :test_sections do
   show(*images)
 end
 
+# vector plots from ICON input
 desc "plot vectors of ocean input"
 task :test_vector_oce do
-  ofile='test_vector_oce'
-  vectorPlot(OCE_PLOT_TEST_FILE,ofile,OFMT,'u-veloc v-veloc')
-  show(ofile+'.png')
+  showVector(OCE_PLOT_TEST_FILE,'test_vector_oce','u-veloc v-veloc')
 end
 desc "plot vectors of atm input"
 task :test_vector_atm do
@@ -208,6 +210,11 @@ task :test_reg_3d do
   ofile = 'test_atm_reg_3d'
   scalarPlot(ATM_REGPLOT_TEST_FILE,ofile,OFMT,'T')
   show(ofile+'.'+OFMT)
+end
+desc "Plot vector from regular grid"
+task :test_reg_vec do
+  showVector(OCE_REGPLOT_TEST_FILE,'test_reg_vec_oce','u-veloc v-veloc')
+  showVector(ATM_REGPLOT_TEST_FILE,'test_reg_vec_oce','U V')
 end
 
 # uncategoriesed tests on
