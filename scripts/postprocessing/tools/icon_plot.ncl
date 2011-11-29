@@ -33,7 +33,7 @@
 ;---------------------------------------------------------------
 ;
 ; Required Parameter:
-; iFile         : input file
+; iFile         : input file (based in ICON horizonal Grid or regular lonlat grid)
 ; oFile         : plot file wihtout extension (it set by the output type: oType)
 ; varName       : name of the variable to (contour) plot
 ; vecVars       : space separated string of the 2 vector components u and v to draw a vector plot
