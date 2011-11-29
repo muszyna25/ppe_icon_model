@@ -209,8 +209,12 @@ end
 desc "all together now"
 task :all_tests do
   tests = Rake::Task.tasks.find_all {|t| t.name =~ /^test/}
-  pp tests
-  tests.each {|t| t.execute}
+  pp tests.map(&:name)
+  tests.each {|t|
+    puts "################################################################################"
+    puts "Running test #{t.name}:"
+    t.execute
+  }
 end
 
 # vim:ft=ruby
