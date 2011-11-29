@@ -529,6 +529,8 @@ end
 undef("checkRemappedFile")
 function checkRemappedFile(infilename,remapfilename,varname,itype,atmlev,atmplevs,atmhlevs)
 begin
+  retval = True
+
   if (.not. isfilepresent(remapfilename)) return False end if
 
   orgFile             = addfile (infilename , "r")
@@ -538,10 +540,16 @@ begin
 
   remapFile           = addfile(remapfilename,"r")
   remapTime           = getfilevardimsizes(remapFile,"time")
-  remappedvertdimname = getVertDim(remapFile,remapFile->$varname$)
-  remappedvertdim     = remapFile->$remappedvertdimname$
+  ; test if the given variable can be found
+  if (.not. has_var(remapFile,varname)) then
+    print("Cannot find "+varname+" in remapped files:"+remapfilename)
+    retval = False
+    return retval
+  else
+    remappedvertdimname = getVertDim(remapFile,remapFile->$varname$)
+    remappedvertdim     = remapFile->$remappedvertdimname$
+  end if
 
-  retval = True
 
   if ( orgTime .eq. remapTime ) then
     print("#=====================================================================================")
@@ -577,7 +585,7 @@ begin
     end if
   end if
 
-    return retval
+  return retval
 end
 ;---------------------------------------------------------------
 ; Perform a remapping (wich CDO) to a regular grid with a given resolution and return the
