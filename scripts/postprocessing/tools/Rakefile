@@ -8,7 +8,8 @@ CP                    = 'scp -p'
 LS                    = 'ls -crtlh'
 OCE_PLOT_TEST_FILE    = ENV['HOME']+'/data/icon/oce.nc'
 ATM_PLOT_TEST_FILE    = ENV['HOME']+'/data/icon/atm.nc'
-OCE_REGPLOT_TEST_FILE = ENV['HOME']+'/data/icon/regular_oce.nc'
+OCE_REGPLOT_TEST_FILE = ENV['HOME']+'/data/icon/regular_oce.nc' #remapnn,r180x90
+ATM_REGPLOT_TEST_FILE = ENV['HOME']+'/data/icon/regular_atm.nc' #remapnn,n63
 COMPARISON            = {:oce => OCE_PLOT_TEST_FILE, :atm => ATM_PLOT_TEST_FILE}
 OFMT                  = 'png'
 DEFAULT_VARNAME       = 'T'
@@ -24,18 +25,6 @@ def iconPlot(ifile,ofile,otype,varname,vartype='scalar',opts=[])
   varIdent = (vartype == 'scalar') ? 'varName' : 'vecVars'
 
   cmd   ="ncl #{SRC[0]} 'altLibDir=\"#{libdir}\"' '#{varIdent}=\"#{varname}\"' 'iFile=\"#{ifile}\"' 'oFile=\"#{ofile}\"' 'oType=\"#{otype}\"' #{opts.join(' ')}"
-  puts cmd
-  sh cmd
-end
-def regularPlot(ifile,ofile,otype,varname,vartype='scalar',opts=[])
-  libdir = FileUtils.pwd
-  unless File.exists?(ifile)
-    warn "Input file #{ifile} dows NOT exist!"
-    exit
-  end
-  varIdent = (vartype == 'scalar') ? 'varName' : 'vecVars'
-
-  cmd   ="ncl #{SRC[0]} 'altLibDir=\"#{libdir}\"' '#{varIdent}=\"#{varname}\"' 'rFile=\"#{ifile}\"' 'oFile=\"#{ofile}\"' 'oType=\"#{otype}\"' #{opts.join(' ')}"
   puts cmd
   sh cmd
 end
@@ -210,10 +199,14 @@ COMPARISON.each {|itype,ifile|
   end
 }
 
+# plotting from regular grid input
 desc "Plot dat from a regular grid"
-task :test_oce_reg_3d do
+task :test_reg_3d do
   ofile = 'test_oce_reg_3d'
   scalarPlot(OCE_REGPLOT_TEST_FILE,ofile,OFMT,'T')
+  show(ofile+'.'+OFMT)
+  ofile = 'test_atm_reg_3d'
+  scalarPlot(ATM_REGPLOT_TEST_FILE,ofile,OFMT,'T')
   show(ofile+'.'+OFMT)
 end
 

@@ -888,7 +888,7 @@ end
 ;
 ; GLOBALS: lStrg, rStrg, tStrg
 undef("setAutomaticPlotCaptions")
-procedure setAutomaticPlotCaptions(resource,plotmode,varname,filehandle,filename,timestep,levelindex,itype,atmlev)
+procedure setAutomaticPlotCaptions(resource,plotmode,varname,filehandle,filename,timestep,levelindex,itype,atmlev,k2c)
 local varname
 begin
   ; titles
@@ -948,6 +948,8 @@ begin
   else
     resource@lbTitleString      = ""
   end if
+  if (itype .eq. "atm" .and. varname .eq. "T" .and. k2c) resource@lbTitleString = "C" end if
+
   resource@lbTitlePosition    = "Bottom"
   resource@cnInfoLabelOn      = False
   resource@lbTitleFontHeightF = 0.02

@@ -457,7 +457,7 @@
   end if
 
   if (plotMode.eq."scalar" .or. plotMode.eq."overlay" .or. plotMode.eq."section") 
-    setAutomaticPlotCaptions(ResC,plotMode,varName,File,iFile,timeStep,levIndex,iType,atmLev)
+    setAutomaticPlotCaptions(ResC,plotMode,varName,File,iFile,timeStep,levIndex,iType,atmLev,k2c)
   end if
 
   if (plotMode.eq."section") then
@@ -560,7 +560,7 @@
     points   = ispan(0,secPoints-1,1)*1.0 
 
     res  = setDefaultSectionResource(points,secPoints,secLC,secRC)
-    setAutomaticPlotCaptions(res,plotMode,varName,File,iFile,timeStep,levIndex,iType,atmLev)
+    setAutomaticPlotCaptions(res,plotMode,varName,File,iFile,timeStep,levIndex,iType,atmLev,k2c)
     setLevels(selMode,res,minVar,maxVar,scaleLimit,numLevs,DEBUG)
     setSectionVertLabel(res,iType,atmLev)
 
