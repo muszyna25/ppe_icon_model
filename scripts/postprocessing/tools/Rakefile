@@ -26,6 +26,18 @@ def iconPlot(ifile,ofile,otype,varname,vartype='scalar',opts=[])
   puts cmd
   sh cmd
 end
+def regularPlot(ifile,ofile,otype,varname,vartype='scalar',opts=[])
+  libdir = FileUtils.pwd
+  unless File.exists?(ifile)
+    warn "Input file #{ifile} dows NOT exist!"
+    exit
+  end
+  varIdent = (vartype == 'scalar') ? 'varName' : 'vecVars'
+
+  cmd   ="ncl #{SRC[0]} 'altLibDir=\"#{libdir}\"' '#{varIdent}=\"#{varname}\"' 'rFile=\"#{ifile}\"' 'oFile=\"#{ofile}\"' 'oType=\"#{otype}\"' #{opts.join(' ')}"
+  puts cmd
+  sh cmd
+end
 def scalarPlot(ifile,ofile,otype,varname,opts=[])
   iconPlot(ifile,ofile,otype,varname,'scalar',opts)
 end
@@ -196,6 +208,13 @@ COMPARISON.each {|itype,ifile|
                 "'mapType=\"ortho\"'","'atmLev=\"m\"'","centerLon=120"])
   end
 }
+
+desc "Plot dat from a regular grid"
+task :test_reg_oce do
+  ofile = 'test_reg_oce'
+  scalarPlot('/home/ram/data/icon/issues/1693/nn.ape1.4.ocn.20.nc',ofile,OFMT,'T')
+  show(ofile+'.'+OFMT)
+end
 
 # uncategoriesed tests on
 # * maptype
