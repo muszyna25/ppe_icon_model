@@ -278,17 +278,21 @@
   if (isvar("secLC").and.isvar("secRC")) plotMode = "section" end if
 
   if (plotMode.eq."vector" .or. plotMode.eq."overlay" .or. (plotMode.eq."section")) then
-    ; performe some remapping to a regular grid because ncl cannot draw vector
-    ; from unstructured grids
-    ; TODO addVars=(/ "PS","PHIS"/) 
-    remapFilename = setRemapFilename(iFile,iType,atmLev)
-    print("remapFilename:"+remapFilename)
-    if (.not. checkRemappedFile(iFile,remapFilename,vname,iType,atmLev,atmPLevs,atmHLevs) ) then
-      addVars=(/""/)
-      print("PERFORM remapnn again!")
-      remapForVecPlot(iFile,remapFilename,resolution,useMask,plotMode,DEBUG,addVars)
+    if (horizonalGridType .ne. "unstructured") then ; regular grid expected, i.e. remappgin is NOT required
+      rFile = addfile(iFile,"r")
+    else
+      ; performe some remapping to a regular grid because ncl cannot draw vector
+      ; from unstructured grids
+      ; TODO addVars=(/ "PS","PHIS"/) 
+      remapFilename = setRemapFilename(iFile,iType,atmLev)
+      print("remapFilename:"+remapFilename)
+      if (.not. checkRemappedFile(iFile,remapFilename,vname,iType,atmLev,atmPLevs,atmHLevs) ) then
+        addVars=(/""/)
+        print("PERFORM remapnn again!")
+        remapForVecPlot(iFile,remapFilename,resolution,useMask,plotMode,DEBUG,addVars)
+      end if
+      rFile = addfile( remapFilename, "r" )
     end if
-    rFile = addfile( remapFilename, "r" )
   end if
   File  = addfile( iFile, "r" )
 
@@ -452,8 +456,8 @@
 
 
 
-  if (getHorizGridType(iFile,varName) .eq. "unstructured") then
-  if (plotMode.eq."scalar" .or. plotMode.eq."overlay") setCoordinates(ResC,x,y) end if
+  if (getHorizGridType(iFile,vname) .eq. "unstructured") then
+    if (plotMode.eq."scalar" .or. plotMode.eq."overlay") setCoordinates(ResC,x,y) end if
   end if
 
   if (plotMode.eq."scalar" .or. plotMode.eq."overlay" .or. plotMode.eq."section") 
