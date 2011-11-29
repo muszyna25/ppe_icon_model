@@ -130,7 +130,6 @@
 
   Model     = "Icon: explicit ocean test"
 
-  ; input/output files
   if(.not. isvar("iFile")) then
     print("Input file is required! Use iFile option.")
     print(ABORTMSG)
@@ -255,6 +254,8 @@
       iFile              = atmPreProcFilename
     end if
   end if
+  ; DETERMINE HORIZONTAL GRID -------------------------------------------------
+  horizonalGridType = getHorizGridType(iFile,vname)
   ;----------------------------------------------------------------------------
 
   ; EXPECT A REGULAR GRID FOR VECTOR PLOT AS YOU GET IT FROM ------------------
@@ -350,20 +351,22 @@
 
     printVar(varName, File)
 
-    var = selIconField(varName,File,timeStep,levIndex)
+    var = selField(varName,File,timeStep,levIndex,horizonalGridType)
+
+    if (horizonalGridType .eq. "unstructured") then
+      if (isvar("gridFile")) then
+        x      = getCoordinateFromFile(lonCo,gridFile)
+        y      = getCoordinateFromFile(latCo,gridFile)
+        bounds = getBoundsFromFile(lonCo,latCo,gridFile)
+      else
+        lonlats = getLonLats(var,File)
+        x       = lonlats(0,:)
+        y       = lonlats(1,:)
+        bounds  = getBoundsOfCoordinates(var,File)
+      end if
+    end if
 
     scaleVar(var,scaleFactor)
-
-    if (isvar("gridFile")) then
-      x      = getCoordinateFromFile(lonCo,gridFile)
-      y      = getCoordinateFromFile(latCo,gridFile)
-      bounds = getBoundsFromFile(lonCo,latCo,gridFile)
-    else
-      lonlats = getLonLats(var,File)
-      x       = lonlats(0,:)
-      y       = lonlats(1,:)
-      bounds  = getBoundsOfCoordinates(var,File)
-    end if
 
     ; set minVar_maxVar for plotting
     if(.not. isvar("minVar")) minVar = min(var) end if
@@ -447,7 +450,11 @@
 
   if (useMask) setMaskColor(wks,ResC) end if
 
+
+
+  if (getHorizGridType(iFile,varName) .eq. "unstructured") then
   if (plotMode.eq."scalar" .or. plotMode.eq."overlay") setCoordinates(ResC,x,y) end if
+  end if
 
   if (plotMode.eq."scalar" .or. plotMode.eq."overlay" .or. plotMode.eq."section") 
     setAutomaticPlotCaptions(ResC,plotMode,varName,File,iFile,timeStep,levIndex,iType,atmLev)

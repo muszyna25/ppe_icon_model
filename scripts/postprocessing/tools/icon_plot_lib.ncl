@@ -261,6 +261,18 @@ begin
     return var
 end
 ;-------------------------------------------------------------------------------
+; abstract Field selection
+undef("selField")
+function selField(varname,filehandle,timestep,levelindex,horizontalgridtype)
+begin
+  if ( horizontalgridtype .eq. "unstructured") then
+    var = selIconField(varname,filehandle,timestep,levelindex)
+  else
+    var = selRegularField(varname,filehandle,timestep,levelindex)
+  end if
+  return var
+end
+;-------------------------------------------------------------------------------
 ; scale the given variable with the given factor, if it is NOT 1
 undef("scaleVar")
 procedure scaleVar(var,scalefactor)
@@ -931,8 +943,11 @@ begin
   resource@gsnCenterString    = centerstring
   resource@tiMainString       = titlestring
   v                           = filehandle->$varname$
-  if ( isatt(v,"units") ) resource@lbTitleString      = "["+v@units+"]" end if
-  resource@lbTitleString      = "[m/s]"
+  if ( isatt(v,"units") ) then
+    resource@lbTitleString      = "["+v@units+"]"
+  else
+    resource@lbTitleString      = ""
+  end if
   resource@lbTitlePosition    = "Bottom"
   resource@cnInfoLabelOn      = False
   resource@lbTitleFontHeightF = 0.02
@@ -1163,6 +1178,15 @@ begin
 
     return retval
   end if
+end
+;---------------------------------------------------------------
+; determine the horizontal grid type (unstructured or lonlat)
+undef("getHorizGridType")
+function getHorizGridType(filename,varname)
+begin
+  gridtype = systemfunc("cdo -griddes -selname,"+varname+" "+filename+" | grep gridtype | cut -d ' ' -f 4")
+  print("Found horizontal grid of type: "+gridtype)
+  return gridtype
 end
 ;---------------------------------------------------------------
 ; setting for vertical cross sections based on remapped icon data
