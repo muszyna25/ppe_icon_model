@@ -602,6 +602,8 @@ CONTAINS
       CALL print_mxmn('CPL: evap.',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
       z_c(:,1,:)=p_sfc_flx%forc_fwfx(:,:)
       CALL print_mxmn('CPL: frshw.flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+      z_c(:,1,:)=p_sfc_flx%forc_tracer_relax(:,:,1)
+      CALL print_mxmn('CPL: relax.temp',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
 
       DEALLOCATE(buffer)
       DEALLOCATE(field_id)      
