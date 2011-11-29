@@ -14,7 +14,7 @@ COMPARISON            = {:oce => OCE_PLOT_TEST_FILE, :atm => ATM_PLOT_TEST_FILE}
 COMPARISON_REG        = {:oce => OCE_REGPLOT_TEST_FILE, :atm => ATM_REGPLOT_TEST_FILE}
 OFMT                  = 'png'
 DEFAULT_VARNAME       = 'T'
-PLOT_CMD              = 'qiv'
+PLOT_CMD              = 'sxiv'
 
 # some helper methods for ease calling the icon plot scripts
 def iconPlot(ifile,ofile,otype,varname,vartype='scalar',opts=[])
@@ -50,6 +50,17 @@ end
 def showVector(ifile,ofile,vars)
   vectorPlot(ifile,ofile,OFMT,vars)
   show(ofile+'.'+OFMT)
+end
+def grepTests(pattern)
+  tests = Rake::Task.tasks.find_all {|t| t.name =~ pattern}
+end
+def runTests(tests)
+  pp tests.map(&:name)
+  tests.each {|t|
+    puts "################################################################################"
+    puts "Running test #{t.name}:"
+    t.execute
+  }
 end
 # Checking/installing the script files
 desc "check files on pool"
@@ -217,7 +228,7 @@ task :test_reg_3d do
 end
 # vectors
 desc "Plot vector from regular grid"
-task :test_reg_vec do
+task :test_reg_vector do
   showVector(OCE_REGPLOT_TEST_FILE,'test_reg_vec_oce','u-veloc v-veloc')
   showVector(ATM_REGPLOT_TEST_FILE,'test_reg_vec_oce','U V')
 end
@@ -277,15 +288,18 @@ task :test_misc_maptypes do
   }
 end
 #==============================================================================
-desc "all together now"
+# Test collections
+desc "Run all tests"
 task :all_tests do
-  tests = Rake::Task.tasks.find_all {|t| t.name =~ /^test/}
-  pp tests.map(&:name)
-  tests.each {|t|
-    puts "################################################################################"
-    puts "Running test #{t.name}:"
-    t.execute
-  }
+  tests = grepTests(/^test/)
+  runTests(tests)
 end
+%w[oce atm 2d 3d reg vector section overlay].each {|category|
+desc "Run #{category} tests"
+task "#{category}_tests".to_sym do
+  tests = grepTests(/_#{category}/)
+  runTests(tests)
+end
+}
 
 # vim:ft=ruby
