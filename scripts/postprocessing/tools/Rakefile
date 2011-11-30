@@ -159,15 +159,15 @@ end
 desc "plot section of ocean and atmosphere (height, pressure and model level)"
 task :test_sections do
   images = []
-  secopts = ["'secLC=(/0,80/)'","'secRC=(/0,-80/)'","showSecMap=False","secPoints=100"]
+  secopts = ["'secLC=(/0,80/)'","'secRC=(/0,-80/)'","showSecMap=True","secPoints=100"]
   COMPARISON.each {|itype,ifile|
     ofile = "test_section_#{itype.to_s}"
     if itype == :atm
-      scalarPlot(ifile,ofile+'h',OFMT,DEFAULT_VARNAME,secopts +["'atmLev=\"h\"'"]);images << ofile+'h'
-      scalarPlot(ifile,ofile+'p',OFMT,DEFAULT_VARNAME,secopts +["'atmLev=\"p\"'"]);images << ofile+'p'
-      scalarPlot(ifile,ofile+'m',OFMT,DEFAULT_VARNAME,secopts +["'atmLev=\"m\"'"]);images << ofile+'m'
+      scalarPlot(ifile,ofile+'h',OFMT,DEFAULT_VARNAME,secopts +["'atmLev=\"h\"'","'tStrg=\"atm: height levels\"'"]);images << ofile+'h'
+      scalarPlot(ifile,ofile+'p',OFMT,DEFAULT_VARNAME,secopts +["'atmLev=\"p\"'","'tStrg=\"atm: pressure levels\"'"]);images << ofile+'p'
+      scalarPlot(ifile,ofile+'m',OFMT,DEFAULT_VARNAME,secopts +["'atmLev=\"m\"'","'tStrg=\"atm: model levels\"'"]);images << ofile+'m'
     else
-      scalarPlot(ifile,ofile,OFMT,DEFAULT_VARNAME,secopts); images << ofile
+      scalarPlot(ifile,ofile,OFMT,DEFAULT_VARNAME,secopts+["'tStrg=\"oce: ocean depth\"'"]); images << ofile
     end
   }
   images.map! {|i| i+= ".#{OFMT}"}
@@ -211,7 +211,7 @@ COMPARISON.each {|itype,ifile|
   desc "overlay plot (#{itypeS})"
   task "test_overlay_#{itypeS}".to_sym do
     defaultPlot(ifile,"overlay_#{itypeS}",["'vecVars=\"#{vecvars}\"'",
-                "'mapType=\"ortho\"'","'atmLev=\"m\"'","centerLon=120"])
+                "'mapType=\"ortho\"'","'atmLev=\"m\"' levIndex=40","centerLon=120","vecRefLength=0.04"])
   end
 }
 
