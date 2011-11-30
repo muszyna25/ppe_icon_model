@@ -75,11 +75,10 @@ USE mo_physical_constants,  ONLY: rho_ref, sfc_press_bar, lsub, lvap, lfreez, cp
 USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell, sea_boundary,MIN_DOLIC
 USE mo_loopindices,         ONLY: get_indices_c
 USE mo_math_utilities,      ONLY: t_cartesian_coordinates, gvec2cvec, cvec2gvec
-USE mo_sea_ice,             ONLY: t_sea_ice
 ! USE mo_oce_forcing,         ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
-USE mo_sea_ice,             ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
+USE mo_sea_ice,             ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
                                   calc_atm_fluxes_from_bulk, set_ice_albedo, set_ice_temp, &
-                                  sum_fluxes
+                                  sum_fluxes, ice_slow
 USE mo_oce_thermodyn,       ONLY: convert_insitu2pot_temp_func
 USE mo_oce_index,           ONLY: print_mxmn, ipl_src
 USE mo_master_control,      ONLY: is_coupled_run
@@ -327,11 +326,8 @@ CONTAINS
         Qatm%latw   (:,:)   = 0.0_wp
 
         ! p_sfc_flx%forc_hflx is recalculated in upper_ocean_TS in mo_sea_ice.f90, called by
-        ! ice_fast
+        ! ice_slow
 
-        CALL set_ice_albedo(p_patch,p_ice)
-        CALL set_ice_temp(p_patch,p_ice,Qatm)
-        Qatm%counter = 1
       ENDIF
 
     END IF
@@ -388,16 +384,15 @@ CONTAINS
       IF (i_sea_ice == 1) THEN
 
         Qatm%SWin   (:,:)   = p_sfc_flx%forc_swflx(:,:)
-        Qatm%LWin   (:,:)   = p_sfc_flx%forc_lwflx(:,:)
+        Qatm%LWnet  (:,1,:) = p_sfc_flx%forc_lwflx(:,:)
         Qatm%sens   (:,1,:) = p_sfc_flx%forc_ssflx(:,:)
         Qatm%lat    (:,1,:) = p_sfc_flx%forc_slflx(:,:)
+        Qatm%LWnetw (:,:)   = p_sfc_flx%forc_lwflx(:,:)
+        Qatm%sensw  (:,:)   = p_sfc_flx%forc_ssflx(:,:)
+        Qatm%latw   (:,:)   = p_sfc_flx%forc_slflx(:,:)
         Qatm%dsensdT(:,:,:) = 0.0_wp
         Qatm%dlatdT (:,:,:) = 0.0_wp
-        Qatm%dLWdT  (:,1,:) = -4.0_wp * emiss*StefBol * (p_ice%Tsurf(:,1,:) + tmelt)**3
-
-        CALL set_ice_albedo(p_patch,p_ice)
-        CALL set_ice_temp(p_patch,p_ice,Qatm)
-        Qatm%counter = 1
+        Qatm%dLWdT  (:,:,:) = -4.0_wp * emiss*StefBol * (p_ice%Tsurf(:,:,:) + tmelt)**3
 
         ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%forc_hflx
         !  done in mo_sea_ice:upper_ocean_TS
@@ -458,6 +453,7 @@ CONTAINS
       CALL set_ice_albedo(p_patch,p_ice)
       CALL set_ice_temp(p_patch,p_ice,Qatm)
       Qatm%counter = 1
+      CALL ice_slow(p_patch, p_os, p_ice, Qatm, p_sfc_flx)
     ENDIF
 
   CASE (FORCING_FROM_FILE_FIELD)                                    !  13
@@ -602,8 +598,6 @@ CONTAINS
       CALL print_mxmn('CPL: evap.',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
       z_c(:,1,:)=p_sfc_flx%forc_fwfx(:,:)
       CALL print_mxmn('CPL: frshw.flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-      z_c(:,1,:)=p_sfc_flx%forc_tracer_relax(:,:,1)
-      CALL print_mxmn('CPL: relax.temp',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
 
       DEALLOCATE(buffer)
       DEALLOCATE(field_id)      
@@ -614,16 +608,20 @@ CONTAINS
       IF (i_sea_ice == 1) THEN
 
         Qatm%SWin   (:,:)   = p_sfc_flx%forc_swflx(:,:)
-        Qatm%LWin   (:,:)   = p_sfc_flx%forc_lwflx(:,:)
+        Qatm%LWnet  (:,1,:) = p_sfc_flx%forc_lwflx(:,:)
         Qatm%sens   (:,1,:) = p_sfc_flx%forc_ssflx(:,:)
         Qatm%lat    (:,1,:) = p_sfc_flx%forc_slflx(:,:)
+        Qatm%LWnetw (:,:)   = p_sfc_flx%forc_lwflx(:,:)
+        Qatm%sensw  (:,:)   = p_sfc_flx%forc_ssflx(:,:)
+        Qatm%latw   (:,:)   = p_sfc_flx%forc_slflx(:,:)
         Qatm%dsensdT(:,:,:) = 0.0_wp
         Qatm%dlatdT (:,:,:) = 0.0_wp
-        Qatm%dLWdT  (:,1,:) = -4.0_wp * emiss*StefBol * (p_ice%Tsurf(:,1,:) + tmelt)**3
+        Qatm%dLWdT  (:,:,:) = -4.0_wp * emiss*StefBol * (p_ice%Tsurf(:,:,:) + tmelt)**3
 
         CALL set_ice_albedo(p_patch,p_ice)
         CALL set_ice_temp(p_patch,p_ice,Qatm)
         Qatm%counter = 1
+        CALL ice_slow(p_patch, p_os, p_ice, Qatm, p_sfc_flx)
 
         ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%forc_hflx
         !  done in mo_sea_ice:upper_ocean_TS

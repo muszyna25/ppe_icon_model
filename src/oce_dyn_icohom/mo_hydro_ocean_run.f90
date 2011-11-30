@@ -212,8 +212,6 @@ CONTAINS
       !In case of a time-varying forcing: 
       CALL update_sfcflx(ppatch(jg), pstate_oce(jg), p_as, p_ice, p_atm_f, p_sfc_flx, &
         &                jstep, datetime)
-      IF ( i_sea_ice == 1 ) &
-        & CALL ice_slow(ppatch(jg), pstate_oce(jg), p_ice, p_atm_f, p_sfc_flx)
 
 !      write(*,*) minval(p_ice%hi), maxval(p_ice%hi)
 !
