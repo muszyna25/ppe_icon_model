@@ -13,7 +13,7 @@
 !!
 !!   All global variables of the model that are used by the soil model routine
 !!   terra_multlay.incf is imported by USE statements below.
-!!
+!! 
 !!   The parameterization package has been provided by B. Ritter in a
 !!   Plug-compatible Fortran77-Version, which is based on the EM/DM soil model
 !!   by E. Heise. Some technical modifications have been done for the
@@ -483,7 +483,8 @@ SUBROUTINE terra_multlay (                &
                   jstartpar,    & ! start index for computations in the parallel program
                   jendpar,      & ! end index for computations in the parallel program
 ! 4. variables for the time discretization and related variables
-                  ke,nsubs0,nsubs1      , &
+                  ke,nsubs0,    & ! nsubs0=1 for single tile, nsubs0=2 for multi-tile
+                  nsubs1,       & ! nsubs1=1 for single tile, nsubs1=#tiles+1 for multi-tile
                   ke_soil, ke_snow      , &
                   czmls                 , & ! processing soil level structure 
                   dt                    , &
@@ -505,26 +506,54 @@ SUBROUTINE terra_multlay (                &
 !                 pp           , & ! deviation from the reference pressure         ( pa  )
                   ps           , & ! surface pressure                              ( pa  )
 !
-                  t_snow       , & ! temperature of the snow-surface               (  K  )
-                  t_snow_mult  , & ! temperature of the snow-surface               (  K  )
-                  t_s          , & ! temperature of the ground surface             (  K  )
+                  t_snow_now   , & ! temperature of the snow-surface               (  K  )
+                  t_snow_new   , & ! temperature of the snow-surface               (  K  )
+!
+                  t_snow_mult_now  , & ! temperature of the snow-surface               (  K  )
+                  t_snow_mult_new  , & ! temperature of the snow-surface               (  K  )
+!
+                  t_s_now          , & ! temperature of the ground surface             (  K  )
+                  t_s_new          , & ! temperature of the ground surface             (  K  )
+!
                   t_g          , & ! weighted surface temperature                  (  K  )
                   qv_s         , & ! specific humidity at the surface              (kg/kg)
-                  w_snow       , & ! water content of snow                         (m H2O)
-                  rho_snow     , & ! snow density                                  (kg/m**3)
-                  rho_snow_mult, & ! snow density                                  (kg/m**3)
+                  w_snow_now       , & ! water content of snow                         (m H2O)
+                  w_snow_new       , & ! water content of snow                         (m H2O)
+!
+                  rho_snow_now     , & ! snow density                                  (kg/m**3)
+                  rho_snow_new     , & ! snow density                                  (kg/m**3)
+!
+                  rho_snow_mult_now, & ! snow density                                  (kg/m**3)
+                  rho_snow_mult_new, & ! snow density                                  (kg/m**3)
+!
                   h_snow       , & ! snow height                                   (  m  
-                  w_i          , & ! water content of interception water           (m H2O)
-                  t_so         , & ! soil temperature (main level)                 (  K  )
-                  w_so         , & ! total water conent (ice + liquid water)       (m H20)
-                  w_so_ice     , & ! ice content                                   (m H20)
+!
+                  w_i_now          , & ! water content of interception water           (m H2O)
+                  w_i_new          , & ! water content of interception water           (m H2O)
+!
+                  t_so_now         , & ! soil temperature (main level)                 (  K  )
+                  t_so_new         , & ! soil temperature (main level)                 (  K  )
+!
+                  w_so_now         , & ! total water conent (ice + liquid water)       (m H20)
+                  w_so_new         , & ! total water conent (ice + liquid water)       (m H20)
+!
+                  w_so_ice_now     , & ! ice content                                   (m H20)
+                  w_so_ice_new     , & ! ice content                                   (m H20)
+!
                   t_2m         , & ! temperature in 2m                             (  K  )
                   u_10m        , & ! zonal wind in 10m                             ( m/s )
                   v_10m        , & ! meridional wind in 10m                        ( m/s )
                   freshsnow    , & ! indicator for age of snow in top of snow layer(  -  )
-                  wliq_snow    , & ! liquid water content in the snow              (m H2O)
-                  wtot_snow    , & ! total (liquid + solid) water content of snow  (m H2O)
-                  dzh_snow     , & ! layer thickness between half levels in snow   (  m  )
+!
+                  wliq_snow_now    , & ! liquid water content in the snow              (m H2O)
+                  wliq_snow_new    , & ! liquid water content in the snow              (m H2O)
+!
+                  wtot_snow_now    , & ! total (liquid + solid) water content of snow  (m H2O)
+                  wtot_snow_new    , & ! total (liquid + solid) water content of snow  (m H2O)
+!
+                  dzh_snow_now     , & ! layer thickness between half levels in snow   (  m  )
+                  dzh_snow_new     , & ! layer thickness between half levels in snow   (  m  )
+!
                   subsfrac     , &
 !
                   prr_con      , & ! precipitation rate of rain, convective        (kg/m2*s)
@@ -543,12 +572,7 @@ SUBROUTINE terra_multlay (                &
 ! 
                   runoff_s     , & ! surface water runoff; sum over forecast      (kg/m2)
                   runoff_g     , & ! soil water runoff; sum over forecast         (kg/m2)
-!                 nstart       , & ! first time step of the forecast
-                  ntstep       , & ! actual time step
-                                   ! indices for permutation of three time levels
-!                 nold         , & ! corresponds to ntstep - 1
-                  nnow         , & ! corresponds to ntstep 
-                  nnew           & ! corresponds to ntstep + 1
+                  ntstep         & ! actual time step
                                          )
 
 
@@ -560,11 +584,11 @@ IMPLICIT NONE
 
   INTEGER (KIND=iintegers), INTENT(IN)  ::  &
 !                 nstart       , & ! first time step of the forecast
-                  ntstep       , & ! actual time step
+                  ntstep           ! actual time step
                                    ! indices for permutation of three time levels
 !                 nold         , & ! corresponds to ntstep - 1
-                  nnow         , & ! corresponds to ntstep 
-                  nnew             ! corresponds to ntstep + 1
+!                  nnow         , & ! corresponds to ntstep 
+!                  nnew             ! corresponds to ntstep + 1
 !                 nztlev              ! time step scheme 2,3 
 
   INTEGER (KIND=iintegers), INTENT(IN)  ::  &
@@ -600,48 +624,70 @@ IMPLICIT NONE
                   qv               ! specific water vapor content                  (kg/kg)
   REAL    (KIND = ireals), DIMENSION(ie,je,ke), INTENT(IN) :: & 
                   p0               !!!! base state pressure                           (Pa) 
-!!$  REAL    (KIND = ireals), DIMENSION(ie,je,ke,nztlev), INTENT(IN) :: & 
-!!$                  pp               ! deviation from the reference pressure         ( pa  )
 
   REAL    (KIND = ireals), DIMENSION(ie,je), INTENT(IN) ::    &
                   ps               ! surface pressure                               ( pa  )
 
-  REAL    (KIND = ireals), DIMENSION(ie,je,nztlev,nsubs1), INTENT(INOUT) :: &
-                  t_snow           ! temperature of the snow-surface               (  K  )
-  REAL    (KIND = ireals), DIMENSION(ie,je,0:ke_snow,nztlev,nsubs1), INTENT(INOUT) :: &
-                  t_snow_mult      ! temperature of the snow-surface               (  K  )
-  REAL    (KIND = ireals), DIMENSION(ie,je,nztlev,nsubs1), INTENT(INOUT) :: &
-                  t_s              ! temperature of the ground surface             (  K  )
+  REAL    (KIND = ireals), DIMENSION(ie,je,nsubs1), INTENT(INOUT) :: &
+                  t_snow_now              ! temperature of the snow-surface (K)
+  REAL    (KIND = ireals), DIMENSION(ie,je,nsubs1), INTENT(OUT) :: &
+                  t_snow_new
+!!$  REAL    (KIND = ireals), DIMENSION(ie,je,0:ke_snow,nztlev,nsubs1), INTENT(INOUT) :: &
+!!$                  t_snow_mult      ! temperature of the snow-surface               (  K  )
+  REAL    (KIND = ireals), DIMENSION(ie,je,0:ke_snow,nsubs1), INTENT(INOUT) :: &
+                  t_snow_mult_now      ! temperature of the snow-surface               (  K  )
+  REAL    (KIND = ireals), DIMENSION(ie,je,0:ke_snow,nsubs1), INTENT(OUT) :: &
+                  t_snow_mult_new      ! temperature of the snow-surface               (  K  )
+  REAL    (KIND = ireals), DIMENSION(ie,je,nsubs1), INTENT(INOUT) :: &
+                  t_s_now              ! temperature of the ground surface             (  K  )
+  REAL    (KIND = ireals), DIMENSION(ie,je,nsubs1), INTENT(OUT) :: &
+                  t_s_new              ! temperature of the ground surface             (  K  )
   REAL    (KIND = ireals), DIMENSION(ie,je,nsubs1)  :: &
                   t_g          , & ! weighted surface temperature                  (  K  )
                   qv_s             ! specific humidity at the surface              (kg/kg)
-  REAL    (KIND = ireals), DIMENSION(ie,je,nztlev,nsubs1), INTENT(INOUT) :: &
-                  w_snow       , & ! water content of snow                         (m H2O)
-                  rho_snow         ! snow density                                  (kg/m**3)
-  REAL    (KIND = ireals), DIMENSION(ie,je,ke_snow,nztlev,nsubs1), INTENT(INOUT) :: &
-                  rho_snow_mult    ! snow density                                  (kg/m**3)
-  REAL    (KIND = ireals), DIMENSION(ie,je,nztlev,nsubs1), INTENT(INOUT) :: &
-                  h_snow           ! snow height                                   (  m   )  
-  REAL    (KIND = ireals), DIMENSION(ie,je,nztlev,nsubs1), INTENT(INOUT) :: &
-                  w_i              ! water content of interception water           (m H2O)
-  REAL    (KIND = ireals), DIMENSION(ie,je,0:ke_soil+1,nztlev,nsubs1), INTENT(INOUT) :: &
-                  t_so             ! soil temperature (main level)                 (  K  )
-  REAL    (KIND = ireals), DIMENSION(ie,je,ke_soil+1,nztlev,nsubs1), INTENT(INOUT) :: &
-                  w_so         , & ! total water conent (ice + liquid water)       (m H20)
-                  w_so_ice         ! ice content                                   (m H20)
+  REAL    (KIND = ireals), DIMENSION(ie,je,nsubs1), INTENT(INOUT) :: &
+                  w_snow_now       , & ! water content of snow                         (m H2O)
+                  rho_snow_now         ! snow density                                  (kg/m**3)
+  REAL    (KIND = ireals), DIMENSION(ie,je,nsubs1), INTENT(OUT) :: &
+                  w_snow_new       , & ! water content of snow                         (m H2O)
+                  rho_snow_new         ! snow density                                  (kg/m**3)
+  REAL    (KIND = ireals), DIMENSION(ie,je,ke_snow,nsubs1), INTENT(INOUT) :: &
+                  rho_snow_mult_now    ! snow density                                  (kg/m**3)
+  REAL    (KIND = ireals), DIMENSION(ie,je,ke_snow,nsubs1), INTENT(OUT) :: &
+                  rho_snow_mult_new    ! snow density                                  (kg/m**3)
+  REAL    (KIND = ireals), DIMENSION(ie,je,nsubs1), INTENT(INOUT) :: &
+                  h_snow        ! snow height  
+  REAL    (KIND = ireals), DIMENSION(ie,je,nsubs1), INTENT(INOUT) :: &
+                  w_i_now              ! water content of interception water  (m H2O)
+  REAL    (KIND = ireals), DIMENSION(ie,je,nsubs1), INTENT(OUT) :: &
+                  w_i_new              ! water content of interception water  (m H2O)
+  REAL    (KIND = ireals), DIMENSION(ie,je,0:ke_soil+1,nsubs1), INTENT(INOUT) :: &
+                  t_so_now             ! soil temperature (main level)                 (  K  )
+  REAL    (KIND = ireals), DIMENSION(ie,je,0:ke_soil+1,nsubs1), INTENT(OUT) :: &
+                  t_so_new             ! soil temperature (main level)                 (  K  )
+  REAL    (KIND = ireals), DIMENSION(ie,je,ke_soil+1,nsubs1), INTENT(INOUT) :: &
+                  w_so_now         , & ! total water conent (ice + liquid water)       (m H20)
+                  w_so_ice_now         ! ice content                                   (m H20)
+  REAL    (KIND = ireals), DIMENSION(ie,je,ke_soil+1,nsubs1), INTENT(OUT) :: &
+                  w_so_new         , & ! total water conent (ice + liquid water)       (m H20)
+                  w_so_ice_new         ! ice content                                   (m H20)
   REAL    (KIND = ireals), DIMENSION(ie,je,nsubs1), INTENT(INOUT) :: &
                   t_2m         , & ! temperature in 2m                             (  K  )
                   u_10m        , & ! zonal wind in 10m                             ( m/s )
                   v_10m        , & ! meridional wind in 10m                        ( m/s )
                   freshsnow        ! indicator for age of snow in top of snow layer(  -  )
-  REAL    (KIND = ireals), DIMENSION(ie,je,ke_snow,nztlev,nsubs1), INTENT(INOUT) :: &
-                  wliq_snow    , & ! liquid water content in the snow              (m H2O)
-                  wtot_snow        ! total (liquid + solid) water content of snow  (m H2O)
-  REAL    (KIND = ireals), DIMENSION(ie,je,ke_snow,nztlev,nsubs1), INTENT(INOUT) :: &
-                  dzh_snow         ! layer thickness between half levels in snow   (  m  )
+  REAL    (KIND = ireals), DIMENSION(ie,je,ke_snow,nsubs1), INTENT(INOUT) :: &
+                  wliq_snow_now    , & ! liquid water content in the snow              (m H2O)
+                  wtot_snow_now        ! total (liquid + solid) water content of snow  (m H2O)
+  REAL    (KIND = ireals), DIMENSION(ie,je,ke_snow,nsubs1), INTENT(OUT) :: &
+                  wliq_snow_new    , & ! liquid water content in the snow              (m H2O)
+                  wtot_snow_new        ! total (liquid + solid) water content of snow  (m H2O)
+  REAL    (KIND = ireals), DIMENSION(ie,je,ke_snow,nsubs1), INTENT(INOUT) :: &
+                  dzh_snow_now         ! layer thickness between half levels in snow   (  m  )
+  REAL    (KIND = ireals), DIMENSION(ie,je,ke_snow,nsubs1), INTENT(OUT) :: &
+                  dzh_snow_new         ! layer thickness between half levels in snow   (  m  )
   REAL    (KIND = ireals), DIMENSION(ie,je,nsubs1), INTENT(INOUT) :: &
                   subsfrac
-
   REAL    (KIND = ireals), DIMENSION(ie,je), INTENT(IN) ::    &
                   prr_con      , & ! precipitation rate of rain, convective        (kg/m2*s)
                   prs_con      , & ! precipitation rate of snow, convective        (kg/m2*s)
@@ -1019,6 +1065,13 @@ IMPLICIT NONE
 ! -------------------------
 
   REAL    (KIND = ireals) :: &
+
+!
+! Two-time level variables exchange with interface
+!
+    h_snow_now (ie,je,nsubs1)    , & ! snow height  (m)  
+    h_snow_new (ie,je,nsubs1)    , & ! snow height  (m)  
+!
 !
 ! Model geometry
 !
@@ -1234,7 +1287,7 @@ IMPLICIT NONE
 ! and Runge-Kutta scheme.
 ! But the first timestep must not be done with dt/2, as in the Leapfrog
 ! scheme
-  nx  = nnow
+!  nx  = nnow
   IF ( (ntstep == 0) .AND. (.NOT. l2tls) ) THEN
     ! use the original dt and not dt/2
     zdt = 2._ireals * dt
@@ -1282,13 +1335,13 @@ IMPLICIT NONE
   
               zf_snow_old(i,j) = subsfrac(i,j,ns)/(subsfrac(i,j,ns-1)+subsfrac(i,j,ns))
   
-              zwsnow(i,j) = w_snow(i,j,nx,ns)*zf_snow_old(i,j) + &
-                w_snow(i,j,nx,ns-1)*(1._ireals - zf_snow_old(i,j))
+              zwsnow(i,j) = w_snow_now(i,j,ns)*zf_snow_old(i,j) + &
+                w_snow_now(i,j,ns-1)*(1._ireals - zf_snow_old(i,j))
               zf_snow(i,j) = MAX( 0.01_ireals, MIN(1.0_ireals,zwsnow(i,j)/cf_snow) ) &
                 &            *zsf_heav(zwsnow(i,j) - zepsi)
   
-              w_snow(i,j,nx,ns  ) = zwsnow(i,j)/MAX(zf_snow(i,j),zepsi)
-              w_snow(i,j,nx,ns-1) = 0._ireals
+              w_snow_now(i,j,ns  ) = zwsnow(i,j)/MAX(zf_snow(i,j),zepsi)
+              w_snow_now(i,j,ns-1) = 0._ireals
   
               fact1 = subsfrac(i,j,ns-1)+subsfrac(i,j,ns)
               subsfrac(i,j,ns-1) = (1._ireals - zf_snow(i,j))*fact1
@@ -1298,7 +1351,7 @@ IMPLICIT NONE
             END IF  ! land-points only
           END DO
         END DO
-      END DO
+     END DO
   !    DO ns = nsubs0+1, nsubs1, 2      ! 1 - mean, 2 - ocean, 3 - lake, 4 - no snow first
   !      DO kso = 1,ke_soil
   !        DO   j = jstarts, jends
@@ -1307,22 +1360,22 @@ IMPLICIT NONE
   !              fact1 = (MIN(1._ireals - zf_snow_old(i,j), 1._ireals - zf_snow(i,j)))/MAX((1._ireals - zf_snow(i,j)),zepsi)
   !              fact2 = (MAX(zf_snow(i,j) - zf_snow_old(i,j), 0._ireals))/MAX(zf_snow(i,j),zepsi)
   
-  !IF(MOD(i,340).eq.0 .and. MOD(j,186).eq.0 .and. w_snow(i,j,nx,ns).gt.0) &
-  !print *,i,j,kso,'snow',w_snow(i,j,nx,ns-1),w_snow(i,j,nx,ns  ),zf_snow    (i,j),fact1,fact2
+  !IF(MOD(i,340).eq.0 .and. MOD(j,186).eq.0 .and. w_snow_now(i,j,ns).gt.0) &
+  !print *,i,j,kso,'snow',w_snow_now(i,j,ns-1),w_snow_now(i,j,ns  ),zf_snow    (i,j),fact1,fact2
   
   !              tmp1 = t_so    (i,j,kso,nx,ns-1)
   !              tmp2 = w_so    (i,j,kso,nx,ns-1)
   !              tmp3 = w_so_ice(i,j,kso,nx,ns-1)
   
-  !              t_so    (i,j,kso,nx,ns-1) = t_so(i,j,kso,nx,ns-1)*fact1 + t_so(i,j,kso,nx,ns)*(1._ireals - fact1)
+  !              t_so    (i,j,kso,nx,ns-1) = t_so_now(i,j,kso,ns-1)*fact1 + t_so_now(i,j,kso,ns)*(1._ireals - fact1)
   !              w_so    (i,j,kso,nx,ns-1) = w_so(i,j,kso,nx,ns-1)*fact1 + w_so(i,j,kso,nx,ns)*(1._ireals - fact1)
   !              w_so_ice(i,j,kso,nx,ns-1) = w_so_ice(i,j,kso,nx,ns-1)*fact1 + w_so_ice(i,j,kso,nx,ns)*(1._ireals - fact1)
     
-  !              t_so    (i,j,kso,nx,ns) = tmp1 * fact2 + t_so(i,j,kso,nx,ns)*(1._ireals - fact2)
+  !              t_so    (i,j,kso,nx,ns) = tmp1 * fact2 + t_so_now(i,j,kso,ns)*(1._ireals - fact2)
   !              w_so    (i,j,kso,nx,ns) = tmp2 * fact2 + w_so(i,j,kso,nx,ns)*(1._ireals - fact2)
   !              w_so_ice(i,j,kso,nx,ns) = tmp3 * fact2 + w_so_ice(i,j,kso,nx,ns)*(1._ireals - fact2)
   
-  !IF(MOD(i,340).eq.0 .and. MOD(j,186).eq.0 .and. w_snow(i,j,nx,ns).gt.0) &
+  !IF(MOD(i,340).eq.0 .and. MOD(j,186).eq.0 .and. w_snow_now(i,j,ns).gt.0) &
   !print *,i,j,kso,'temp',t_so    (i,j,kso,nx,ns-1),t_so    (i,j,kso,nx,ns)
   !            END IF  ! land-points only
   !          END DO
@@ -1415,7 +1468,7 @@ DO ns=nsubs0,nsubs1
 ! ================================
 
   IF (ntstep == 0) THEN
-    w_so(:,:,:,nnew,ns) = w_so(:,:,:,nx,ns)
+    w_so_new(:,:,:,ns) = w_so_now(:,:,:,ns)
 
 !   Provide for a soil moisture 1 % above air dryness point, reset soil
 !   moisture to zero in case of ice and rock
@@ -1424,10 +1477,13 @@ DO ns=nsubs0,nsubs1
         DO i = istarts, iends
           IF (llandmask(i,j,ns)) THEN             ! for land-points only
             IF (m_styp(i,j).ge.3) THEN
-              w_so (i,j,kso,:,ns) = MAX(w_so(i,j,kso,:,ns),                     &
+              w_so_now (i,j,kso,ns) = MAX(w_so_now(i,j,kso,ns),                     &
+                                           1.01_ireals*zadp(i,j)*zdzhs(kso) )
+              w_so_new (i,j,kso,ns) = MAX(w_so_new(i,j,kso,ns),                     &
                                            1.01_ireals*zadp(i,j)*zdzhs(kso) )
             ELSE
-              w_so(i,j,kso,:,ns) = 0.0_ireals
+              w_so_now(i,j,kso,ns) = 0.0_ireals
+              w_so_new(i,j,kso,ns) = 0.0_ireals
             ENDIF
 
           END IF   ! land-points
@@ -1435,7 +1491,6 @@ DO ns=nsubs0,nsubs1
       END DO
     END DO
 
-  !>JH WRITE(*,*) 'W_SO: ',w_so (1,1,:,:,:),'zadp: ',zadp(1,1),'zdzhs: ',zdzhs(:)
 
 !   adjust temperature profile in lower soil layers, if temperature of first soil
 !   layer was reduced due to the detection of snow (e.g. in the analysis)
@@ -1443,48 +1498,48 @@ DO ns=nsubs0,nsubs1
     DO   j = jstarts, jends
       DO i = istarts, iends
         IF(llandmask(i,j,ns)) THEN   ! for land-points only
-          IF (w_snow(i,j,nx,ns) <=1.0E-6_ireals) THEN
+          IF (w_snow_now(i,j,ns) <=1.0E-6_ireals) THEN
             ! spurious snow is removed
-            t_snow(i,j,:,ns)=t_so(i,j,0,nx,ns)
-            w_snow(i,j,nx,ns)= 0.0_ireals
+            t_snow_now(i,j,ns)=t_so_now(i,j,0,ns)
+            t_snow_new(i,j,ns)=t_so_now(i,j,0,ns)
+            w_snow_now(i,j,ns)= 0.0_ireals
             IF(lmulti_snow) THEN
-              t_snow_mult(i,j,0,nx,ns) = t_so(i,j,0,nx,ns)
+              t_snow_mult_now(i,j,0,ns) = t_so_now(i,j,0,ns)
               DO ksn = 1, ke_snow
-                t_snow_mult(i,j,ksn,nx,ns) = t_so(i,j,0,nx,ns)
-                wliq_snow(i,j,ksn,nx,ns) = 0.0_ireals
-                wtot_snow(i,j,ksn,nx,ns) = 0.0_ireals
-                rho_snow_mult(i,j,ksn,nx,ns) = 0.0_ireals
-                dzh_snow (i,j,ksn,nx,ns) = 0.0_ireals
+                t_snow_mult_now(i,j,ksn,ns) = t_so_now(i,j,0,ns)
+                wliq_snow_now(i,j,ksn,ns) = 0.0_ireals
+                wtot_snow_now(i,j,ksn,ns) = 0.0_ireals
+                rho_snow_mult_now(i,j,ksn,ns) = 0.0_ireals
+                dzh_snow_now(i,j,ksn,ns) = 0.0_ireals
               END DO
             END IF
           ELSE
 !           adjust soil temperatures in presence of snow
-            zdel_t_so = MAX (0._ireals,t_so(i,j,0,nx,ns)-t0_melt)
-            t_so(i,j,0,nx,ns)  =MIN( t0_melt,t_so(i,j,0,nx,ns) )
-            t_so(i,j,0,nnew,ns)=MIN( t0_melt,t_so(i,j,0,nx,ns) )
-
+            zdel_t_so = MAX (0._ireals,t_so_now(i,j,0,ns)-t0_melt)
+            t_so_now(i,j,0,ns)=MIN( t0_melt,t_so_now(i,j,0,ns) )
+            t_so_new(i,j,0,ns)=MIN( t0_melt,t_so_now(i,j,0,ns) )
             DO kso=1,ke_soil
-              IF ( t_so(i,j,kso,nx,ns) > t0_melt) THEN
-
-                 t_so(i,j,kso,nx,ns) = MAX( t0_melt,                  &
-                                   t_so(i,j,kso,nx,ns) -zdel_t_so    &
+              IF ( t_so_now(i,j,kso,ns) > t0_melt) THEN
+                 t_so_now(i,j,kso,ns) = MAX( t0_melt,                  &
+                                   t_so_now(i,j,kso,ns) -zdel_t_so    &
                                    *(zmls(ke_soil+1)-zmls(kso))   &
                                    /(zmls(ke_soil+1)-zmls( 1 )) )
-                 t_so(i,j,kso,nnew,ns) = MAX( t0_melt,                  &
-                                   t_so(i,j,kso,nx,ns) -zdel_t_so    &
+                 t_so_new(i,j,kso,ns) = MAX( t0_melt,                  &
+                                   t_so_now(i,j,kso,ns) -zdel_t_so    &
                                    *(zmls(ke_soil+1)-zmls(kso))   &
                                    /(zmls(ke_soil+1)-zmls( 1 )) )
               ENDIF
-              IF ( t_so(i,j,kso,nx,ns) <= t0_melt) EXIT
+              IF ( t_so_now(i,j,kso,ns) <= t0_melt) EXIT
             ENDDO
           ENDIF
 
-          t_s(i,j,nx,ns)   = t_so(i,j,0,nx,ns)
-          t_s(i,j,nnew,ns) = t_so(i,j,0,nnew,ns)
+          t_s_now(i,j,ns) = t_so_now(i,j,0,ns)
+          t_s_new(i,j,ns) = t_so_new(i,j,0,ns)
 
 !         Set level 1 to level 0 for t_so for every landpoint
-          t_so(i,j,1,nx,ns)   = t_so(i,j,0,nx,ns)
-          t_so(i,j,1,nnew,ns) = t_so(i,j,0,nx,ns)
+          t_so_now(i,j,1,ns) = t_so_now(i,j,0,ns)
+          t_so_new(i,j,1,ns) = t_so_now(i,j,0,ns)
+
         ENDIF    ! llandmask
       END DO
     END DO
@@ -1503,10 +1558,14 @@ DO ns=nsubs0,nsubs1
         DO   j = jstarts, jends
           DO i = istarts, iends
             IF (llandmask(i,j,ns)) THEN             ! for land-points only
-              w_so_ice(i,j,kso,:,ns) = 0.0_ireals
-              IF (t_so(i,j,kso,nx,ns) < t0_melt) THEN
-                w_so_ice(i,j,kso,:,ns) = w_so(i,j,kso,nx,ns)
+              w_so_ice_now(i,j,kso,ns) = 0.0_ireals
+              w_so_ice_new(i,j,kso,ns) = 0.0_ireals
+
+              IF (t_so_now(i,j,kso,ns) < t0_melt) THEN
+                w_so_ice_now(i,j,kso,ns) = w_so_now(i,j,kso,ns)
+                w_so_ice_new(i,j,kso,ns) = w_so_now(i,j,kso,ns)
               END IF ! t_so(kso) < t0_melt
+
             END IF   ! land-points
           END DO
         END DO
@@ -1517,15 +1576,13 @@ DO ns=nsubs0,nsubs1
         DO   j = jstarts, jends
           DO i = istarts, iends
             IF (llandmask(i,j,ns)) THEN             ! for land-points only
-              IF (t_so(i,j,kso,nx,ns) < (t0_melt-zepsi)) THEN
+              IF (t_so_now(i,j,kso,ns) < (t0_melt-zepsi)) THEN
                 zaa    = g*zpsis(i,j)/lh_f
-
-! print*,i,j,zaa,zedb(i,j),zporv(i,j),t_so(i,j,0:4,1,:)
-
                 zw_m(i,j)     = zporv(i,j)*zdzhs(kso)
                 zw_m(i,j)   = zw_m(i,j)*                                          &
-                  ((t_so(i,j,kso,nx,ns) - t0_melt)/(t_so(i,j,kso,nx,ns)*zaa))**(-zedb(i,j))
-                w_so_ice(i,j,kso,:,ns) = MAX (0.0_ireals,w_so(i,j,kso,nx,ns) - zw_m(i,j))
+                  ((t_so_now(i,j,kso,ns) - t0_melt)/(t_so_now(i,j,kso,ns)*zaa))**(-zedb(i,j))
+                w_so_ice_now(i,j,kso,ns) = MAX (0.0_ireals,w_so_now(i,j,kso,ns) - zw_m(i,j))
+                w_so_ice_new(i,j,kso,ns) = MAX (0.0_ireals,w_so_now(i,j,kso,ns) - zw_m(i,j))
               END IF
             END IF   ! land-points
           END DO
@@ -1542,15 +1599,15 @@ DO ns=nsubs0,nsubs1
           IF (llandmask(i,j,ns)) THEN             ! for land-points only
             IF(lmulti_snow) THEN
               DO ksn = 1, ke_snow
-                rho_snow_mult(i,j,ksn,nx,ns) = 250.0_ireals    ! average initial density
-                t_snow_mult  (i,j,ksn,nx,ns) = t_snow  (i,j,nx,ns)
-                wtot_snow    (i,j,ksn,nx,ns) = w_snow(i,j,nx,ns)/REAL(ke_snow,ireals)
-                dzh_snow     (i,j,ksn,nx,ns) = w_snow(i,j,nx,ns)/REAL(ke_snow,ireals) &
-                  &                            *rho_w/rho_snow_mult(i,j,ksn,nx,ns)
-                wliq_snow    (i,j,ksn,nx,ns) = 0.0_ireals
+                rho_snow_mult_now(i,j,ksn,ns) = 250.0_ireals    ! average initial density
+                t_snow_mult_now  (i,j,ksn,ns) = t_snow_now(i,j,ns)
+                wtot_snow_now    (i,j,ksn,ns) = w_snow_now(i,j,ns)/REAL(ke_snow,ireals)
+                dzh_snow_now     (i,j,ksn,ns) = w_snow_now(i,j,ns)/REAL(ke_snow,ireals) &
+                  &                            *rho_w/rho_snow_mult_now(i,j,ksn,ns)
+                wliq_snow_now    (i,j,ksn,ns) = 0.0_ireals
               END DO
             ELSE
-              rho_snow(i,j,nx,ns) = 250.0_ireals    ! average initial density
+              rho_snow_now(i,j,ns) = 250.0_ireals    ! average initial density
             ENDIF
           ENDIF   ! land-points
         ENDDO
@@ -1562,7 +1619,7 @@ DO ns=nsubs0,nsubs1
           DO   j = jstarts, jends
             DO i = istarts, iends
               IF (llandmask(i,j,ns)) THEN             ! for land-points only
-                zw_snow_old(i,j) = zw_snow_old(i,j) + wtot_snow(i,j,ksn,nx,ns)
+                zw_snow_old(i,j) = zw_snow_old(i,j) + wtot_snow_now(i,j,ksn,ns)
               END IF
             END DO
           END DO
@@ -1571,18 +1628,18 @@ DO ns=nsubs0,nsubs1
           DO   j = jstarts, jends
             DO i = istarts, iends
               IF (llandmask(i,j,ns)) THEN             ! for land-points only
-                IF(dzh_snow(i,j,ksn,nx,ns) .LT. zepsi  &
-                  & .OR. ABS(zw_snow_old(i,j)-w_snow(i,j,nx,ns)).GE.zepsi) THEN
-                  IF(rho_snow(i,j,nx,ns) .EQ. 0._ireals) rho_snow(i,j,nx,ns) = 250._ireals
-                  rho_snow_mult(i,j,ksn,nx,ns) = rho_snow(i,j,nx,ns)
-                  t_snow_mult  (i,j,ksn,nx,ns) = t_snow  (i,j,nx,ns)
-                  wtot_snow    (i,j,ksn,nx,ns) = w_snow(i,j,nx,ns)/REAL(ke_snow,ireals)
-                  dzh_snow     (i,j,ksn,nx,ns) = w_snow(i,j,nx,ns)/REAL(ke_snow,ireals) &
-                    &                            *rho_w/rho_snow_mult(i,j,ksn,nx,ns)
-                  wliq_snow    (i,j,ksn,nx,ns) = 0.0_ireals
+                IF(dzh_snow_now(i,j,ksn,ns) .LT. zepsi  &
+                  & .OR. ABS(zw_snow_old(i,j)-w_snow_now(i,j,ns)).GE.zepsi) THEN
+                  IF(rho_snow_now(i,j,ns) .EQ. 0._ireals) rho_snow_now(i,j,ns) = 250._ireals
+                  rho_snow_mult_now(i,j,ksn,ns) = rho_snow_now(i,j,ns)
+                  t_snow_mult_now  (i,j,ksn,ns) = t_snow_now(i,j,ns)
+                  wtot_snow_now    (i,j,ksn,ns) = w_snow_now(i,j,ns)/REAL(ke_snow,ireals)
+                  dzh_snow_now     (i,j,ksn,ns) = w_snow_now(i,j,ns)/REAL(ke_snow,ireals) &
+                    &                            *rho_w/rho_snow_mult_now(i,j,ksn,ns)
+                  wliq_snow_now    (i,j,ksn,ns) = 0.0_ireals
                 ELSE
-                  rho_snow_mult(i,j,ksn,nx,ns) = wtot_snow(i,j,ksn,nx,ns)                 &
-                                               & /MAX(dzh_snow(i,j,ksn,nx,ns),0.0_ireals) &
+                  rho_snow_mult_now(i,j,ksn,ns) = wtot_snow_now(i,j,ksn,ns)                 &
+                                               & /MAX(dzh_snow_now(i,j,ksn,ns),0.0_ireals) &
                                                & *rho_w  ! initial density
                 END IF
               END IF
@@ -1593,7 +1650,7 @@ DO ns=nsubs0,nsubs1
         DO   j = jstarts, jends
           DO i = istarts, iends
             IF (llandmask(i,j,ns)) THEN             ! for land-points only
-              IF(rho_snow(i,j,nx,ns) .EQ. 0._ireals) rho_snow(i,j,nx,ns) = 250._ireals
+              IF(rho_snow_now(i,j,ns) .EQ. 0._ireals) rho_snow_now(i,j,ns) = 250._ireals
             END IF
           END DO
         END DO
@@ -1607,19 +1664,19 @@ DO ns=nsubs0,nsubs1
       DO   j = jstarts, jends
         DO i = istarts, iends
           IF(llandmask(i,j,ns)) THEN   ! for land-points only
-            h_snow(i,j,nnew,ns) = 0.0_ireals
+            h_snow_new(i,j,ns) = 0.0_ireals
             DO ksn = 1,ke_snow
-              zdzh_snow(i,j,ksn) = dzh_snow(i,j,ksn,nx,ns)
-              h_snow(i,j,nnew,ns) = h_snow(i,j,nnew,ns) + zdzh_snow(i,j,ksn)
+              zdzh_snow(i,j,ksn) = dzh_snow_now(i,j,ksn,ns)
+              h_snow_new(i,j,ns) = h_snow_new(i,j,ns) + zdzh_snow(i,j,ksn)
             END DO
-            h_snow(i,j,nnow,ns) = h_snow(i,j,nnew,ns)
+            h_snow_now(i,j,ns) = h_snow_new(i,j,ns)
 
-            zhh_snow(i,j,1) = - h_snow(i,j,nnow,ns) + dzh_snow(i,j,1,nx,ns)
+            zhh_snow(i,j,1) = - h_snow_now(i,j,ns) + dzh_snow_now(i,j,1,ns)
             DO ksn = 2,ke_snow
-              zhh_snow(i,j,ksn) = zhh_snow(i,j,ksn-1) + dzh_snow(i,j,ksn,nx,ns)
+              zhh_snow(i,j,ksn) = zhh_snow(i,j,ksn-1) + dzh_snow_now(i,j,ksn,ns)
             END DO
 
-            zhm_snow(i,j,1) = (-h_snow(i,j,nnow,ns) + zhh_snow(i,j,1))/2._ireals
+            zhm_snow(i,j,1) = (-h_snow_now(i,j,ns) + zhh_snow(i,j,1))/2._ireals
             DO ksn = 2,ke_snow
               zhm_snow(i,j,ksn) = (zhh_snow(i,j,ksn) + zhh_snow(i,j,ksn-1))/2._ireals
             END DO
@@ -1633,10 +1690,7 @@ DO ns=nsubs0,nsubs1
 ! End of timestep 0 preparations
 ! ==============================
 
-  ! Workaround for apparent NEC compiler problem
-  IF(lmulti_snow) THEN
-    zwsnew(:,:) = 0._ireals
-  ENDIF
+
 
 ! To ensure t_s = t_so(1) also at gme2lm-modified lateral boundaries by
 ! modifying the soil temperature profile:
@@ -1646,10 +1700,10 @@ DO ns=nsubs0,nsubs1
         IF (llandmask(i,j,ns)) THEN             ! for land-points only
         ! Next lines have to be modified/deleted if the soil surface temperature
         ! t_so(i,j,0,nx) predicted by the heat conduction equation is used
-          zdelt_bound = t_s(i,j,nx,ns) - t_so(i,j,1,nx,ns)
-          t_so(i,j,kso,nx,ns) = t_so(i,j,kso,nx,ns) + zdelt_bound * (1._ireals - &
+          zdelt_bound = t_s_now(i,j,ns) - t_so_now(i,j,1,ns)
+          t_so_now(i,j,kso,ns) = t_so_now(i,j,kso,ns) + zdelt_bound * (1._ireals - &
                            (zmls(kso) - zmls(1))/(zmls(ke_soil+1) - zmls(1)))
-          IF(kso.EQ.1) t_so(i,j,0,nx,ns) = t_so(i,j,1,nx,ns)
+          IF(kso.EQ.1) t_so_now(i,j,0,ns) = t_so_now(i,j,1,ns)
         ENDIF
       END DO
     END DO
@@ -1666,7 +1720,7 @@ DO ns=nsubs0,nsubs1
         zesoil (i,j)      = 0.0_ireals         ! to be equal to zero
         zrr    (i,j)      = 0.0_ireals         ! in first part formation of dew
         zrs    (i,j)      = 0.0_ireals         ! in first part formation of rime
-        zw_fr(i,j,ke_soil+1)  = w_so(i,j,ke_soil+1,nx,ns)/zdzhs(ke_soil+1)
+        zw_fr(i,j,ke_soil+1)  = w_so_now(i,j,ke_soil+1,ns)/zdzhs(ke_soil+1)
     END DO
   END DO
 
@@ -1674,7 +1728,7 @@ DO ns=nsubs0,nsubs1
   DO kso   = 1, ke_soil
     DO   j = jstarts, jends
       DO i = istarts, iends
-        zw_fr(i,j,kso)    = w_so(i,j,kso,nx,ns)/zdzhs(kso)
+        zw_fr(i,j,kso)    = w_so_now(i,j,kso,ns)/zdzhs(kso)
         ztrang (i,j,kso)  = 0._ireals
         zropartw(i,j,kso) = 0._ireals
       END DO
@@ -1705,8 +1759,8 @@ DO ns=nsubs0,nsubs1
     DO   j = jstarts, jends
       DO i = istarts, iends
         IF (llandmask(i,j,ns)) THEN   ! for land-points only
-          IF (kso.le.k10cm) zs1(i,j) = zs1(i,j) + w_so(i,j,kso,nx,ns)
-          zsnull(i,j)   = zsnull(i,j) + w_so(i,j,kso,nx,ns)
+          IF (kso.le.k10cm) zs1(i,j) = zs1(i,j) + w_so_now(i,j,kso,ns)
+          zsnull(i,j)   = zsnull(i,j) + w_so_now(i,j,kso,ns)
         END IF
       END DO
     END DO
@@ -1726,7 +1780,7 @@ DO ns=nsubs0,nsubs1
   
         zlamli  = 0.57_ireals
         zlamic  = 2.2_ireals
-        zthliq  = zthetas - (w_so_ice(i,j,kso,nx,ns)/zdzhs(kso))
+        zthliq  = zthetas - (w_so_ice_now(i,j,kso,ns)/zdzhs(kso))
         zlamq   = 7.7_ireals
   
         rsandf=zsandf(i,j)/100._ireals
@@ -1745,10 +1799,10 @@ DO ns=nsubs0,nsubs1
         zlamdry = ( 0.135_ireals*zrhod + 64.7_ireals )                     &
                 / ( 2700.0_ireals - 0.947_ireals*zrhod )
   
-        zsri    = MIN(1.0_ireals, (w_so(i,j,kso,nx,ns)/zdzhs(kso)) / zthetas)
+        zsri    = MIN(1.0_ireals, (w_so_now(i,j,kso,ns)/zdzhs(kso)) / zthetas)
   
         IF ( zsri >= 0.1_ireals ) THEN
-         IF ( t_so(i,j,kso,nx,ns) < t0_melt) THEN
+         IF ( t_so_now(i,j,kso,ns) < t0_melt) THEN
           zKe = zsri
          ELSE
           zKe = LOG10(zsri) + 1.0_ireals
@@ -1848,7 +1902,7 @@ DO ns=nsubs0,nsubs1
 !   estimate current energy budget of topmost soil layer
 
 !   heat flux between layers 1&2 based on current temperature profile
-        zg1(i,j)= zalam(i,j,1)*(t_so(i,j,1,nx,ns)-t_so(i,j,2,nx,ns))/zdzms(2)
+        zg1(i,j)= zalam(i,j,1)*(t_so_now(i,j,1,ns)-t_so_now(i,j,2,ns))/zdzms(2)
 
 !   estimates of sensible and latent heat flux
         zrho_atm(i,j)=ps(i,j)/(r_d*ztvs)
@@ -1866,9 +1920,9 @@ DO ns=nsubs0,nsubs1
         zeb1(i,j) = zshfl(i,j)+zlhfl(i,j)+zradfl(i,j)-zg1(i,j)
 
 !   energy required to melt existing snow
-        ze_melt(i,j)=w_snow(i,j,nx,ns)*rho_w*lh_f     ! (J/m**2)
+        ze_melt(i,j)=w_snow_now(i,j,ns)*rho_w*lh_f     ! (J/m**2)
 !   heat capacity of snow layer
-        zch_snow(i,j)=w_snow(i,j,nx,ns)*rho_w*chc_i   ! (J/(m**2 K))
+        zch_snow(i,j)=w_snow_now(i,j,ns)*rho_w*chc_i   ! (J/(m**2 K))
 
 !   constrain transfer coefficient, if energy budget  of topmost soil layer is:
 !   a) negative & surface layer is unstable (i.e   upward directed turbulent heat flux)
@@ -1887,9 +1941,9 @@ DO ns=nsubs0,nsubs1
     !         between the actual temperature and the melting point. The mean 
     !         snow temperature is set to the average of t_snow & t_so(1)
           IF(lmulti_snow) THEN
-            zdT_snow=MIN(0._ireals,t0_melt-0.5_ireals*(t_snow_mult(i,j,1,nx,ns)+t_so(i,j,1,nx,ns)))
+            zdT_snow=MIN(0._ireals,t0_melt-0.5_ireals*(t_snow_mult_now(i,j,1,ns)+t_so_now(i,j,1,ns)))
           ELSE
-            zdT_snow=MIN(0._ireals,t0_melt-0.5_ireals*(t_snow(i,j,nx,ns)+t_so(i,j,1,nx,ns)))
+            zdT_snow=MIN(0._ireals,t0_melt-0.5_ireals*(t_snow_now(i,j,ns)+t_so_now(i,j,1,ns)))
           ENDIF
           ztchv_max(i,j) =  &
           ( (zlim_dtdt*zch_soil*zdzhs(1)+zdT_snow*zch_snow(i,j)+ze_melt(i,j))/zdt  &
@@ -1965,7 +2019,7 @@ DO ns=nsubs0,nsubs1
   DO   j = jstarts, jends
     DO i = istarts, iends
       IF(llandmask(i,j,ns)) THEN        ! for land-points only
-        IF (w_snow(i,j,nx,ns) <=0.0_ireals) THEN
+        IF (w_snow_now(i,j,ns) <=0.0_ireals) THEN
           ! if no snow exists, reinitialize age indicator
           freshsnow(i,j,ns) = 1.0_ireals
         ELSE
@@ -1995,8 +2049,6 @@ DO ns=nsubs0,nsubs1
     ENDDO
   ENDDO
 
-  !>JH WRITE(*,*) 'TERRA-DIAG END I.1 +++++++++> ',t_so(1,1,:,nnew,:)
-
 
 !------------------------------------------------------------------------------
 ! Section I.2: temperatures, water contents (in mH2O), surface pressure, 
@@ -2008,16 +2060,16 @@ DO ns=nsubs0,nsubs1
       DO   j = jstarts, jends
         DO i = istarts, iends
           IF (llandmask(i,j,ns)) THEN     ! for land-points only
-            IF (w_snow(i,j,nx,ns) > 0.0_ireals) THEN
+            IF (w_snow_now(i,j,ns) > 0.0_ireals) THEN
               ! existence of snow
-              t_snow_mult(i,j,ksn,nx,ns) = MIN (t0_melt - zepsi, t_snow_mult(i,j,ksn,nx,ns) )
-            ELSE IF (t_snow_mult(i,j,ke_snow,nx,ns) >= t0_melt) THEN
+              t_snow_mult_now(i,j,ksn,ns) = MIN (t0_melt - zepsi, t_snow_mult_now(i,j,ksn,ns) )
+            ELSE IF (t_snow_mult_now(i,j,ke_snow,ns) >= t0_melt) THEN
               ! no snow and t_snow >= t0_melt --> t_s > t0_melt and t_snow = t_s
-              t_snow_mult(i,j,ksn,nx,ns) = MAX (t0_melt + zepsi, t_s(i,j,nx,ns) )
+              t_snow_mult_now(i,j,ksn,ns) = MAX (t0_melt + zepsi, t_s_now(i,j,ns) )
             ELSE
               ! no snow and  t_snow < t0_melt
               ! --> t_snow = t_s
-              t_snow_mult(i,j,ksn,nx,ns) = MIN (t0_melt - zepsi, t_s(i,j,nx,ns) )
+              t_snow_mult_now(i,j,ksn,ns) = MIN (t0_melt - zepsi, t_s_now(i,j,ns) )
             END IF
           END IF
         ENDDO
@@ -2027,48 +2079,47 @@ DO ns=nsubs0,nsubs1
     DO   j = jstarts, jends
       DO i = istarts, iends
         IF (llandmask(i,j,ns)) THEN     ! for land-points only
-          IF (w_snow(i,j,nx,ns) > 0.0_ireals) THEN
+          IF (w_snow_now(i,j,ns) > 0.0_ireals) THEN
             ! existence of snow
             ! --> no water in interception store and t_snow < t0_melt
-            w_snow(i,j,nx,ns) = w_snow(i,j,nx,ns) + w_i(i,j,nx,ns)
-            wtot_snow(i,j,1,nx,ns) = wtot_snow(i,j,1,nx,ns) + w_i(i,j,nx,ns)
-            dzh_snow(i,j,1,nx,ns)  = dzh_snow(i,j,1,nx,ns)  + w_i(i,j,nx,ns) &
-              &                      /rho_snow_mult(i,j,1,nx,ns)*rho_w
-            w_i   (i,j,nx,ns) = 0.0_ireals
-          ELSE IF (t_snow_mult(i,j,ke_snow,nx,ns) >= t0_melt) THEN
+            w_snow_now(i,j,ns) = w_snow_now(i,j,ns) + w_i_now(i,j,ns)
+            wtot_snow_now(i,j,1,ns) = wtot_snow_now(i,j,1,ns) + w_i_now(i,j,ns)
+            dzh_snow_now(i,j,1,ns)  = dzh_snow_now(i,j,1,ns)  + w_i_now(i,j,ns) &
+              &                      /rho_snow_mult_now(i,j,1,ns)*rho_w
+            w_i_now(i,j,ns) = 0.0_ireals
+          ELSE IF (t_snow_mult_now(i,j,ke_snow,ns) >= t0_melt) THEN
             ! no snow and t_snow >= t0_melt --> t_s > t0_melt and t_snow = t_s
-            t_s   (i,j,nx,ns) = t_snow_mult(i,j,ke_snow,nx,ns) 
+            t_s_now   (i,j,ns) = t_snow_mult_now(i,j,ke_snow,ns) 
           ELSE
             ! no snow and  t_snow < t0_melt
             ! --> t_snow = t_s and no water w_i in interception store
-            t_s   (i,j,nx,ns) = t_snow_mult(i,j,ke_snow,nx,ns)
-            w_i   (i,j,nx,ns) = 0.0_ireals
+            t_s_now   (i,j,ns) = t_snow_mult_now(i,j,ke_snow,ns)
+            w_i_now(i,j,ns) = 0.0_ireals
           END IF
         END IF
       ENDDO
     ENDDO
-
   ELSE ! no multi-layer snow
 
     DO   j = jstarts, jends
       DO i = istarts, iends
         IF (llandmask(i,j,ns)) THEN     ! for land-points only
-          IF (w_snow(i,j,nx,ns) > 0.0_ireals) THEN
+          IF (w_snow_now(i,j,ns) > 0.0_ireals) THEN
             ! existence of snow
             ! --> no water in interception store and t_snow < t0_melt
-            w_snow(i,j,nx,ns) = w_snow(i,j,nx,ns) + w_i(i,j,nx,ns)
-            w_i   (i,j,nx,ns) = 0.0_ireals
-            t_snow(i,j,nx,ns) = MIN (t0_melt - zepsi, t_snow(i,j,nx,ns) )
-          ELSE IF (t_snow(i,j,nx,ns) >= t0_melt) THEN
+            w_snow_now(i,j,ns) = w_snow_now(i,j,ns) + w_i_now(i,j,ns)
+            w_i_now(i,j,ns) = 0.0_ireals
+            t_snow_now(i,j,ns) = MIN (t0_melt - zepsi, t_snow_now(i,j,ns) )
+          ELSE IF (t_snow_now(i,j,ns) >= t0_melt) THEN
             ! no snow and t_snow >= t0_melt --> t_s > t0_melt and t_snow = t_s
-            t_s   (i,j,nx,ns) = MAX (t0_melt + zepsi, t_s(i,j,nx,ns) )
-            t_snow(i,j,nx,ns) = t_s(i,j,nx,ns)
+            t_s_now   (i,j,ns) = MAX (t0_melt + zepsi, t_s_now(i,j,ns) )
+            t_snow_now(i,j,ns) = t_s_now(i,j,ns)
           ELSE
             ! no snow and  t_snow < t0_melt
             ! --> t_snow = t_s and no water w_i in interception store
-            t_s   (i,j,nx,ns) = MIN (t0_melt - zepsi, t_s(i,j,nx,ns) )
-            t_snow(i,j,nx,ns) = t_s(i,j,nx,ns)
-            w_i   (i,j,nx,ns) = 0.0_ireals
+            t_s_now   (i,j,ns) = MIN (t0_melt - zepsi, t_s_now(i,j,ns) )
+            t_snow_now(i,j,ns) = t_s_now(i,j,ns)
+            w_i_now(i,j,ns) = 0.0_ireals
           END IF
         END IF
       ENDDO
@@ -2082,21 +2133,21 @@ DO ns=nsubs0,nsubs1
     DO   j = jstarts, jends
       DO i = istarts, iends
         IF (llandmask(i,j,ns)) THEN   ! for land-points only
-          ztsnow_mult   (i,j,0) = t_snow_mult(i,j,0,nx,ns)
-          ztsnow_mult   (i,j,1) = t_snow_mult(i,j,1,nx,ns)
+          ztsnow_mult   (i,j,0) = t_snow_mult_now(i,j,0,ns)
+          ztsnow_mult   (i,j,1) = t_snow_mult_now(i,j,1,ns)
 
-          zhh_snow(i,j,1) =  -h_snow(i,j,nnow,ns) + dzh_snow(i,j,1,nx,ns)
-          zhm_snow(i,j,1) = (-h_snow(i,j,nnow,ns) + zhh_snow(i,j,1))/2._ireals
+          zhh_snow(i,j,1) =  -h_snow_now(i,j,ns) + dzh_snow_now(i,j,1,ns)
+          zhm_snow(i,j,1) = (-h_snow_now(i,j,ns) + zhh_snow(i,j,1))/2._ireals
 
-          zdzh_snow(i,j,1) = dzh_snow(i,j,1,nx,ns)
-          zextinct (i,j,1) = 0.13_ireals*rho_snow_mult(i,j,1,nx,ns)+3.4_ireals
+          zdzh_snow(i,j,1) = dzh_snow_now(i,j,1,ns)
+          zextinct (i,j,1) = 0.13_ireals*rho_snow_mult_now(i,j,1,ns)+3.4_ireals
 
           ! set ztsnow to ztsnow_mult(ksn=1)
-          ztsnow   (i,j) = t_snow_mult(i,j,1,nx,ns)
+          ztsnow   (i,j) = t_snow_mult_now(i,j,1,ns)
 
           ! initialize zdz_snow (from Section I.3) to zdzh_snow(i,j,1)
-          zdz_snow (i,j) = dzh_snow(i,j,1,nx,ns) ! zdzh_snow
-          zwsnow   (i,j) = w_snow(i,j,nx,ns)
+          zdz_snow (i,j) = dzh_snow_now(i,j,1,ns) ! zdzh_snow
+          zwsnow   (i,j) = w_snow_now(i,j,ns)
         END IF
       ENDDO
     ENDDO
@@ -2105,13 +2156,13 @@ DO ns=nsubs0,nsubs1
       DO   j = jstarts, jends
         DO i = istarts, iends
           IF (llandmask(i,j,ns)) THEN   ! for land-points only
-            ztsnow_mult(i,j,ksn) = t_snow_mult(i,j,ksn,nx,ns)
+            ztsnow_mult(i,j,ksn) = t_snow_mult_now(i,j,ksn,ns)
 
-            zhh_snow   (i,j,ksn) = zhh_snow(i,j,ksn-1) + dzh_snow(i,j,ksn,nx,ns)
+            zhh_snow   (i,j,ksn) = zhh_snow(i,j,ksn-1) + dzh_snow_now(i,j,ksn,ns)
             zhm_snow   (i,j,ksn) = (zhh_snow(i,j,ksn) + zhh_snow(i,j,ksn-1))/2._ireals
 
-            zdzh_snow  (i,j,ksn) = dzh_snow(i,j,ksn,nx,ns)
-            zextinct   (i,j,ksn) = 0.13_ireals*rho_snow_mult(i,j,ksn,nx,ns)+3.4_ireals
+            zdzh_snow  (i,j,ksn) = dzh_snow_now(i,j,ksn,ns)
+            zextinct   (i,j,ksn) = 0.13_ireals*rho_snow_mult_now(i,j,ksn,ns)+3.4_ireals
 
             ! build sum over all layers for zdzh_snow in zdz_snow
             zdz_snow   (i,j)     = zdz_snow(i,j) + zdzh_snow(i,j,ksn)
@@ -2125,9 +2176,9 @@ DO ns=nsubs0,nsubs1
     DO   j = jstarts, jends
       DO i = istarts, iends
         IF (llandmask(i,j,ns)) THEN   ! for land-points only
-          ztsnow   (i,j) = t_snow(i,j,nx,ns)
-          zwsnow   (i,j) = w_snow(i,j,nx,ns)
-          zdz_snow (i,j) = zwsnow(i,j)*rho_w/rho_snow(i,j,nx,ns)
+          ztsnow   (i,j) = t_snow_now(i,j,ns)
+          zwsnow   (i,j) = w_snow_now(i,j,ns)
+          zdz_snow (i,j) = zwsnow(i,j)*rho_w/rho_snow_now(i,j,ns)
         END IF
       ENDDO
     ENDDO
@@ -2140,10 +2191,10 @@ DO ns=nsubs0,nsubs1
         ! ztsnow is now set according to lmulti_snow (see above);
         ! therefore we need not take care of it in this loop
         ! ztsnow   (i,j) = t_snow(i,j,nx)
-        zts      (i,j) = t_s   (i,j,nx,ns)
+        zts      (i,j) = t_s_now   (i,j,ns)
         zts_pm   (i,j) = zsf_heav(zts   (i,j) - t0_melt)
         ztsnow_pm(i,j) = zsf_heav(ztsnow(i,j) - t0_melt)
-        zwin     (i,j) = w_i   (i,j,nx,ns)
+        zwin     (i,j) = w_i_now(i,j,ns)
 
         ! moisture and potential temperature of lowest atmospheric layer
         zplow          = p0(i,j,ke) ! + pp(i,j,ke)
@@ -2176,7 +2227,6 @@ DO ns=nsubs0,nsubs1
     ENDDO
   ENDDO
 
-  !>JH WRITE(*,*) 'TERRA-DIAG END I.2 +++++++++> ',t_so(1,1,:,nnew,:)
 
 
 !------------------------------------------------------------------------------
@@ -2202,8 +2252,8 @@ DO ns=nsubs0,nsubs1
         ! zdz_snow has been computed in the initializations above depending
         ! on lmulti_snow
         ! zdz_snow(i,j)=zwsnow(i,j)*rho_w/rho_snow(i,j,nx)
-        h_snow(i,j,nnew,ns) = zdz_snow(i,j)
-        h_snow(i,j,nnow,ns) = zdz_snow(i,j)
+        h_snow_new(i,j,ns) = zdz_snow(i,j)
+        h_snow_now(i,j,ns) = zdz_snow(i,j)
 !        IF (.NOT. l2tls) h_snow(i,j,nold,ns) = zdz_snow(i,j)
 
 !       constrain snow depth and consider this constraint for the computation
@@ -2214,13 +2264,12 @@ DO ns=nsubs0,nsubs1
 !       limitation of snow depth to 1.5m for snow cover heat transfer
         zdz_snow_fl(i,j) = MIN(1.5_iREALs, zdz_snow(i,j))
         IF(.NOT. lmulti_snow) &
-          zrocs(i,j) = chc_i*zdz_snow_fl(i,j)*rho_snow(i,j,nx,ns)
+          zrocs(i,j) = chc_i*zdz_snow_fl(i,j)*rho_snow_now(i,j,ns)
 !BR 7/2005 End
       END IF
     ENDDO
   ENDDO
 
-  !>JH WRITE(*,*) 'TERRA-DIAG END I.3 +++++++++> ',t_so(1,1,:,nnew,:)
 
 
 !------------------------------------------------------------------------------
@@ -2390,7 +2439,7 @@ DO ns=nsubs0,nsubs1
                   zrootdz = zrootfr*MIN(zdzhs(kso),MAX(0.0_ireals, zbwt(i,j)-(zmls(kso) &
                     &       -0.5_ireals*zdzhs(kso)) ) )
                   zrootdz_int(i,j)=zrootdz_int(i,j) + zrootdz
-                  zwrootdz(i,j,kso)=zrootdz*(zw_fr(i,j,kso)-w_so_ice(i,j,kso,nx,ns)/zdzhs(kso))
+                  zwrootdz(i,j,kso)=zrootdz*(zw_fr(i,j,kso)-w_so_ice_now(i,j,kso,ns)/zdzhs(kso))
                   zwrootdz_int(i,j)=zwrootdz_int(i,j) + zwrootdz(i,j,kso)
                 END IF  ! negative potential evaporation only
               END IF  ! neither ice or rocks
@@ -2419,7 +2468,7 @@ DO ns=nsubs0,nsubs1
                                                    ! evaporation
                   zropart  = MIN ( zdzhs(kso), MAX(0.0_ireals,                     &
                              zbwt(i,j) - (zmls(kso) - 0.5_ireals*zdzhs(kso))))
-                  zropartw(i,j,kso) = zropart*(zw_fr(i,j,kso)-w_so_ice(i,j,kso,nx,ns)/zdzhs(kso))
+                  zropartw(i,j,kso) = zropart*(zw_fr(i,j,kso)-w_so_ice_now(i,j,kso,ns)/zdzhs(kso))
                   zwroot(i,j) = zwroot(i,j) + zropartw(i,j,kso)/MAX(zepsi,zbwt(i,j))
                 END IF  ! negative potential evaporation only
               END IF  ! neither ice or rocks
@@ -2564,8 +2613,6 @@ DO ns=nsubs0,nsubs1
 ! End of former module procedure terra1_multlay
 !------------------------------------------------------------------------------
 
-  !>JH WRITE(*,*) 'TERRA-DIAG END I.4 +++++++++> ',t_so(1,1,:,nnew,:)
-
 
 
 !------------------------------------------------------------------------------
@@ -2640,7 +2687,6 @@ DO ns=nsubs0,nsubs1
     END DO
   END IF
 
-  !>JH WRITE(*,*) 'TERRA-DIAG END II.1 +++++++++> ',t_so(1,1,:,nnew,:)
 
 
 !------------------------------------------------------------------------------
@@ -2666,7 +2712,7 @@ DO ns=nsubs0,nsubs1
     DO   j = jstarts, jends
       DO i = istarts, iends
         IF (llandmask(i,j,ns)) THEN     ! land-points only
-          ziw_fr(i,j,kso) = w_so_ice(i,j,kso,nx,ns)/zdzhs(kso)   ! ice frac.
+          ziw_fr(i,j,kso) = w_so_ice_now(i,j,kso,ns)/zdzhs(kso)   ! ice frac.
           zlw_fr(i,j,kso) = zw_fr(i,j,kso) - ziw_fr(i,j,kso)  ! liquid water frac.
           zroc(i,j,kso)   = zrocg(i,j) + rho_w*zlw_fr(i,j,kso)*chc_w +          &
                                          rho_w*ziw_fr(i,j,kso)*chc_i
@@ -2681,7 +2727,6 @@ DO ns=nsubs0,nsubs1
     END DO
   END DO      !soil layers
 
-  !>JH WRITE(*,*) 'TERRA-DIAG END II.2 +++++++++> ',t_so(1,1,:,nnew,:)
 
 
 !------------------------------------------------------------------------------
@@ -2813,7 +2858,6 @@ DO ns=nsubs0,nsubs1
     END DO
   END DO
 
-  !>JH WRITE(*,*) 'TERRA-DIAG END II.3 +++++++++> ',t_so(1,1,:,nnew,:)
 
 
 !------------------------------------------------------------------------------
@@ -3018,7 +3062,7 @@ DO ns=nsubs0,nsubs1
             zage(i,j,kso)     = zagd(i,j,kso) - zagc(i,j,kso)*zage(i,j,kso+1)
             ! compute implicit part of new liquid water content and add existing
             ! ice content
-            w_so(i,j,kso,nnew,ns) = zage(i,j,kso)*zdzhs(kso) + w_so_ice(i,j,kso,nx,ns)
+            w_so_new(i,j,kso,ns) = zage(i,j,kso)*zdzhs(kso) + w_so_ice_now(i,j,kso,ns)
           END IF
         END IF          ! land-points only
       END DO
@@ -3033,8 +3077,8 @@ DO ns=nsubs0,nsubs1
           ! boundary values ensure that the calculation below leaves the climate
           ! layer water contents unchanged compute implicit part of new liquid
           ! water content and add existing ice content
-          w_so(i,j,ke_soil_hy,nnew,ns) = zage(i,j,ke_soil_hy)*zdzhs(ke_soil_hy) + &
-                          w_so_ice(i,j,ke_soil_hy,nx,ns)
+          w_so_new(i,j,ke_soil_hy,ns) = zage(i,j,ke_soil_hy)*zdzhs(ke_soil_hy) + &
+                          w_so_ice_now(i,j,ke_soil_hy,ns)
         END IF 
       END IF          ! land-points only
     END DO
@@ -3051,7 +3095,7 @@ DO ns=nsubs0,nsubs1
         DO i = istarts, iends
           IF (llandmask(i,j,ns)) THEN          ! land-points only
             IF (m_styp(i,j) >= 3) THEN   ! neither ice nor rock as soil type
-              w_so(i,j,kso,nnew,ns) = zporv(i,j)*zdzhs(kso)
+              w_so_new(i,j,kso,ns) = zporv(i,j)*zdzhs(kso)
             END IF
           END IF          ! land-points only
         END DO
@@ -3063,7 +3107,7 @@ DO ns=nsubs0,nsubs1
        DO i = istarts, iends
          IF (llandmask(i,j,ns)) THEN          ! land-points only
            IF (m_styp(i,j) >= 3) THEN   ! neither ice nor rock as soil type
-             w_so(i,j,kso,nnew,ns) = w_so(i,j,kso-1,nnew,ns)*zdzhs(kso)/zdzhs(kso-1)
+             w_so_new(i,j,kso,ns) = w_so_new(i,j,kso-1,ns)*zdzhs(kso)/zdzhs(kso-1)
            END IF
          END IF          ! land-points only
        END DO
@@ -3080,10 +3124,10 @@ DO ns=nsubs0,nsubs1
           IF (m_styp(i,j) >= 3) THEN   ! neither ice nor rock as soil type
             zice_fr_ksom1 = ziw_fr(i,j,kso-1)
             zice_fr_kso   = ziw_fr(i,j,kso)
-            zlw_fr_ksom1_new= w_so(i,j,kso-1,nnew,ns)/zdzhs(kso-1) - zice_fr_ksom1
-            zlw_fr_kso_new  = w_so(i,j,kso  ,nnew,ns)/zdzhs(kso  ) - zice_fr_kso
-            zlw_fr_ksom1  = w_so(i,j,kso-1,nx,ns)/zdzhs(kso-1) - zice_fr_ksom1
-            zlw_fr_kso    = w_so(i,j,kso  ,nx,ns)/zdzhs(kso  ) - zice_fr_kso
+            zlw_fr_ksom1_new= w_so_new(i,j,kso-1,ns)/zdzhs(kso-1) - zice_fr_ksom1
+            zlw_fr_kso_new  = w_so_new(i,j,kso  ,ns)/zdzhs(kso  ) - zice_fr_kso
+            zlw_fr_ksom1  = w_so_now(i,j,kso-1,ns)/zdzhs(kso-1) - zice_fr_ksom1
+            zlw_fr_kso    = w_so_now(i,j,kso  ,ns)/zdzhs(kso  ) - zice_fr_kso
             !... additionally for runoff_g at lower level of lowest active water
             ! layer calculated with (upstream) main level soil water content
             ! compute reduction factor for transport coefficients
@@ -3111,7 +3155,7 @@ DO ns=nsubs0,nsubs1
                               (zporv(i,j) - zlw_fr_kso_new)/(zporv(i,j) - zadp(i,j)) )
   
             ! actual gravitation water flux
-            IF (w_so(i,j,kso,nnew,ns).LT.1.01_ireals*zadp(i,j)*zdzhs(kso)) THEN
+            IF (w_so_new(i,j,kso,ns).LT.1.01_ireals*zadp(i,j)*zdzhs(kso)) THEN
               zklw_fr_kso_new=0._ireals
             ENDIF
             zrunoff_grav(i,j,kso) =  - rho_w * zklw_fr_kso_new
@@ -3161,7 +3205,7 @@ DO ns=nsubs0,nsubs1
             ! evapotranspiration
             !zdwg   =  zflmg(i,j,kso+1) - zflmg(i,j,kso)
             !zdwg calculated above by flux divergence has to be aequivalent with 
-            zdwg =  (w_so(i,j,kso,nnew,ns)/zdzhs(kso)-zw_fr(i,j,kso))*zdzhs(kso) &
+            zdwg =  (w_so_new(i,j,kso,ns)/zdzhs(kso)-zw_fr(i,j,kso))*zdzhs(kso) &
                                                                    /zdtdrhw
             zdwg =  zdwg + zrunoff_grav(i,j,kso)*zfmb_fak
             zredfu =  MAX( 0.0_ireals, MIN( 1.0_ireals,(zw_fr(i,j,kso) -     &
@@ -3189,7 +3233,6 @@ DO ns=nsubs0,nsubs1
     END DO
   END DO         ! end loop over soil layers
 
-  !>JH WRITE(*,*) 'TERRA-DIAG END II.4 +++++++++> ',t_so(1,1,:,nnew,:)
 
 
 !------------------------------------------------------------------------------
@@ -3256,7 +3299,7 @@ DO ns=nsubs0,nsubs1
 
           IF(zdwsndt(i,j)-zrs(i,j)-zrr(i,j).GT.0.0_ireals) THEN
 
-            wtot_snow(i,j,1,nx,ns) = max(wtot_snow(i,j,1,nx,ns) + zdwsndt(i,j)*zdtdrhw,0.0_ireals)
+            wtot_snow_now(i,j,1,ns) = max(wtot_snow_now(i,j,1,ns) + zdwsndt(i,j)*zdtdrhw,0.0_ireals)
 
             zhm_snow(i,j,1) = zhm_snow(i,j,1) - (zdwsndt(i,j)-zrs(i,j)- &
                               zrr(i,j))*zdt/rho_i/2._ireals-  &
@@ -3264,36 +3307,36 @@ DO ns=nsubs0,nsubs1
             zdzh_snow(i,j,1) = zdzh_snow(i,j,1) + (zdwsndt(i,j)-zrs(i,j)-zrr(i,j))*zdt/rho_i +  &
               zrs(i,j)*zdt/zrho_snowf + zrr(i,j)*zdt/rho_i
 
-            rho_snow_mult(i,j,1,nx,ns) = max(wtot_snow(i,j,1,nx,ns)*rho_w/zdzh_snow(i,j,1), &
+            rho_snow_mult_now(i,j,1,ns) = max(wtot_snow_now(i,j,1,ns)*rho_w/zdzh_snow(i,j,1), &
               &                              0.0_ireals)
           ELSE
 
-            wtot_snow(i,j,1,nx,ns) = max(wtot_snow(i,j,1,nx,ns) + (zrs(i,j)+zrr(i,j))*zdtdrhw, &
+            wtot_snow_now(i,j,1,ns) = max(wtot_snow_now(i,j,1,ns) + (zrs(i,j)+zrr(i,j))*zdtdrhw, &
               &                          0.0_ireals)
 
             zhm_snow(i,j,1)  = zhm_snow(i,j,1) - zrs(i,j)*zdt/zrho_snowf/2._ireals- &
                                zrr(i,j)*zdt/rho_i/2._ireals
             zdzh_snow(i,j,1) = zdzh_snow(i,j,1) + zrs(i,j)*zdt/zrho_snowf + zrr(i,j)*zdt/rho_i
 
-            IF(wtot_snow(i,j,1,nx,ns) .GT. 0._ireals) THEN
-              rho_snow_mult(i,j,1,nx,ns) = max(wtot_snow(i,j,1,nx,ns)*rho_w/zdzh_snow(i,j,1), &
+            IF(wtot_snow_now(i,j,1,ns) .GT. 0._ireals) THEN
+              rho_snow_mult_now(i,j,1,ns) = max(wtot_snow_now(i,j,1,ns)*rho_w/zdzh_snow(i,j,1), &
                 &                              0.0_ireals)
 
-              wtot_snow(i,j,1,nx,ns) = max(wtot_snow(i,j,1,nx,ns) &
+              wtot_snow_now(i,j,1,ns) = max(wtot_snow_now(i,j,1,ns) &
                 &                      + (zdwsndt(i,j)-zrs(i,j)-zrr(i,j))*zdtdrhw,0.0_ireals)
 
               zhm_snow(i,j,1)  = zhm_snow(i,j,1) - (zdwsndt(i,j)-zrs(i,j)-zrr(i,j)) &
-                &                *zdt/rho_snow_mult(i,j,1,nx,ns)/2._ireals
+                &                *zdt/rho_snow_mult_now(i,j,1,ns)/2._ireals
               zdzh_snow(i,j,1) = zdzh_snow(i,j,1) + (zdwsndt(i,j)-zrs(i,j)-zrr(i,j)) &
-                &                *zdt/rho_snow_mult(i,j,1,nx,ns)
+                &                *zdt/rho_snow_mult_now(i,j,1,ns)
             ELSE
-              rho_snow_mult(i,j,1,nx,ns) = 0.0_ireals
+              rho_snow_mult_now(i,j,1,ns) = 0.0_ireals
               zdzh_snow(i,j,1) = 0.0_ireals
             END IF
 
           END IF
         END IF
-        h_snow(i,j,nnow,ns) = 0.
+        h_snow_now(i,j,ns) = 0.
         sum_weight(i,j) = 0.0_ireals
       END IF          ! land-points only
     END DO
@@ -3303,7 +3346,7 @@ DO ns=nsubs0,nsubs1
       DO i = istarts, iends
         IF (llandmask(i,j,ns)) THEN          ! land-points only
           IF (zwsnew(i,j).GT.zepsi) THEN          
-            h_snow(i,j,nnow,ns) = h_snow(i,j,nnow,ns) + zdzh_snow(i,j,ksn)
+            h_snow_now(i,j,ns) = h_snow_now(i,j,ns) + zdzh_snow(i,j,ksn)
           END IF
         END IF          ! land-points only
       END DO
@@ -3319,9 +3362,9 @@ DO ns=nsubs0,nsubs1
               dz_old(i,j,ksn) = zdzh_snow(i,j,ksn)
               z_old(i,j,ksn) = -sum_weight(i,j) - zdzh_snow(i,j,ksn)/2._ireals
               sum_weight(i,j) = sum_weight(i,j) + zdzh_snow(i,j,ksn)
-              zhh_snow(i,j,ksn) = -h_snow(i,j,nnow,ns)/ke_snow*(ke_snow-ksn)
+              zhh_snow(i,j,ksn) = -h_snow_now(i,j,ns)/ke_snow*(ke_snow-ksn)
             ELSE
-              zhh_snow(i,j,ksn) = -h_snow(i,j,nnow,ns)/ke_snow*(ke_snow-ksn)
+              zhh_snow(i,j,ksn) = -h_snow_now(i,j,ns)/ke_snow*(ke_snow-ksn)
             END IF
           END IF
         END IF          ! land-points only
@@ -3334,16 +3377,16 @@ DO ns=nsubs0,nsubs1
       IF (llandmask(i,j,ns)) THEN  ! for landpoints only
         IF(zwsnew(i,j) .GT. zepsi) THEN
           IF(zwsnow(i,j) .GT. zepsi) THEN
-            zhm_snow (i,j,1) = (-h_snow(i,j,nnow,ns) + zhh_snow(i,j,1))/2._ireals
-            zdzh_snow(i,j,1) = zhh_snow(i,j,1) + h_snow(i,j,nnow,ns)            !layer thickness betw. half levels of uppermost snow layer
-            zdzm_snow(i,j,1) = zhm_snow(i,j,1) + h_snow(i,j,nnow,ns)            !layer thickness between snow surface and main level of uppermost layer
-            IF(dz_old(i,j,1).ne.0..and.rho_snow_mult(i,j,1,nnow,ns).ne.0.) THEN
-              wliq_snow(i,j,1,nnow,ns) = wliq_snow(i,j,1,nnow,ns)/dz_old(i,j,1)
+            zhm_snow (i,j,1) = (-h_snow_now(i,j,ns) + zhh_snow(i,j,1))/2._ireals
+            zdzh_snow(i,j,1) = zhh_snow(i,j,1) + h_snow_now(i,j,ns)            !layer thickness betw. half levels of uppermost snow layer
+            zdzm_snow(i,j,1) = zhm_snow(i,j,1) + h_snow_now(i,j,ns)            !layer thickness between snow surface and main level of uppermost layer
+            IF(dz_old(i,j,1).ne.0..and.rho_snow_mult_now(i,j,1,ns).ne.0.) THEN
+              wliq_snow_now(i,j,1,ns) = wliq_snow_now(i,j,1,ns)/dz_old(i,j,1)
             END IF
           ELSE
-            zhm_snow (i,j,1) = (-h_snow(i,j,nnow,ns) + zhh_snow(i,j,1))/2._ireals
-            zdzh_snow(i,j,1) = zhh_snow(i,j,1) + h_snow(i,j,nnow,ns)
-            zdzm_snow(i,j,1) = zhm_snow(i,j,1) + h_snow(i,j,nnow,ns)
+            zhm_snow (i,j,1) = (-h_snow_now(i,j,ns) + zhh_snow(i,j,1))/2._ireals
+            zdzh_snow(i,j,1) = zhh_snow(i,j,1) + h_snow_now(i,j,ns)
+            zdzm_snow(i,j,1) = zhm_snow(i,j,1) + h_snow_now(i,j,ns)
           END IF
         END IF
       END IF          ! land-points only
@@ -3358,8 +3401,8 @@ DO ns=nsubs0,nsubs1
               zhm_snow  (i,j,ksn) = (zhh_snow(i,j,ksn) + zhh_snow(i,j,ksn-1))/2._ireals
               zdzh_snow (i,j,ksn) = zhh_snow(i,j,ksn) - zhh_snow(i,j,ksn-1) ! layer thickness betw. half levels
               zdzm_snow(i,j,ksn ) = zhm_snow(i,j,ksn) - zhm_snow(i,j,ksn-1) ! layer thickness betw. main levels
-              IF(dz_old(i,j,ksn).ne.0..and.rho_snow_mult(i,j,ksn,nnow,ns).ne.0.) THEN
-                wliq_snow(i,j,ksn,nnow,ns) = wliq_snow(i,j,ksn,nnow,ns)/dz_old(i,j,ksn)
+              IF(dz_old(i,j,ksn).ne.0..and.rho_snow_mult_now(i,j,ksn,ns).ne.0.) THEN
+                wliq_snow_now(i,j,ksn,ns) = wliq_snow_now(i,j,ksn,ns)/dz_old(i,j,ksn)
               END IF
             ELSE
               zhm_snow (i,j,ksn) = (zhh_snow(i,j,ksn) + zhh_snow(i,j,ksn-1))/2._ireals
@@ -3394,8 +3437,8 @@ DO ns=nsubs0,nsubs1
                        &/zdzh_snow(i,j,ksn)
 
               t_new  (i,j,ksn) = t_new  (i,j,ksn) + ztsnow_mult  (i,j,k      )*weight
-              rho_new(i,j,ksn) = rho_new(i,j,ksn) + rho_snow_mult(i,j,k,nx,ns)*weight
-              wl_new (i,j,ksn) = wl_new (i,j,ksn) + wliq_snow    (i,j,k,nx,ns)*weight
+              rho_new(i,j,ksn) = rho_new(i,j,ksn) + rho_snow_mult_now(i,j,k,ns)*weight
+              wl_new (i,j,ksn) = wl_new (i,j,ksn) + wliq_snow_now(i,j,k,ns)*weight
             END IF
           END IF          ! land-points only
         END DO
@@ -3410,13 +3453,13 @@ DO ns=nsubs0,nsubs1
           IF(zwsnew(i,j) .GT. zepsi) THEN
             IF(zwsnow(i,j) .GT. zepsi) THEN
               ztsnow_mult  (i,j,ksn      ) = t_new  (i,j,ksn)
-              rho_snow_mult(i,j,ksn,nx,ns) = rho_new(i,j,ksn)
-              wtot_snow    (i,j,ksn,nx,ns) = rho_new(i,j,ksn)*zdzh_snow(i,j,ksn)/rho_w
-              wliq_snow    (i,j,ksn,nx,ns) = wl_new (i,j,ksn)*zdzh_snow(i,j,ksn)
+              rho_snow_mult_now(i,j,ksn,ns) = rho_new(i,j,ksn)
+              wtot_snow_now    (i,j,ksn,ns) = rho_new(i,j,ksn)*zdzh_snow(i,j,ksn)/rho_w
+              wliq_snow_now    (i,j,ksn,ns) = wl_new (i,j,ksn)*zdzh_snow(i,j,ksn)
             ELSE
-              ztsnow_mult  (i,j,ksn      ) = t_s(i,j,nx,ns)
-              rho_snow_mult(i,j,ksn,nx,ns) = rho_snow_mult(i,j,1,nx,ns)
-              wtot_snow    (i,j,ksn,nx,ns) = zwsnew(i,j)/ke_snow
+              ztsnow_mult  (i,j,ksn      ) = t_s_now(i,j,ns)
+              rho_snow_mult_now(i,j,ksn,ns) = rho_snow_mult_now(i,j,1,ns)
+              wtot_snow_now    (i,j,ksn,ns) = zwsnew(i,j)/ke_snow
             END IF
           END IF
         END IF          ! land-points only
@@ -3430,7 +3473,7 @@ DO ns=nsubs0,nsubs1
       DO i = istarts, iends
         IF (llandmask(i,j,ns)) THEN  ! for landpoints only
           IF (zwsnew(i,j).GT.zepsi) THEN
-            zalas_mult(i,j,ksn) = 2.22_ireals*(rho_snow_mult(i,j,ksn,nx,ns)/rho_i)**1.88_ireals
+            zalas_mult(i,j,ksn) = 2.22_ireals*(rho_snow_mult_now(i,j,ksn,ns)/rho_i)**1.88_ireals
           END IF
         END IF          ! land-points only
       END DO
@@ -3443,7 +3486,7 @@ DO ns=nsubs0,nsubs1
         IF (zwsnew(i,j).GT.zepsi) THEN
           zgsb(i,j) = (zalas_mult(i,j,ke_snow)*(-zhm_snow(i,j,ke_snow))+zalam(i,j,1)*zdzms(1))/ &
                       (-zhm_snow(i,j,ke_snow)+zdzms(1)) * &
-                      (ztsnow_mult(i,j,ke_snow) - t_so(i,j,1,nx,ns))/(-zhm_snow(i,j,ke_snow) &
+                      (ztsnow_mult(i,j,ke_snow) - t_so_now(i,j,1,ns))/(-zhm_snow(i,j,ke_snow) &
                       +zdzms(1))
 
         END IF
@@ -3526,7 +3569,7 @@ DO ns=nsubs0,nsubs1
 !
 ! BR 7/2005 Introduce new dependency of snow heat conductivity on snow density
 !
-          zalas  = 2.22_ireals*(rho_snow(i,j,nx,ns)/rho_i)**1.88_ireals
+          zalas  = 2.22_ireals*(rho_snow_now(i,j,ns)/rho_i)**1.88_ireals
 
 ! BR 11/2005 Use alternative formulation for heat conductivity by Sun et al., 1999
 !            The water vapour transport associated conductivity is not included.
@@ -3547,7 +3590,6 @@ DO ns=nsubs0,nsubs1
 
  ENDIF ! lmulti_snow
 
-  !>JH WRITE(*,*) 'TERRA-DIAG END II.5 +++++++++> ',t_so(1,1,:,nnew,:)
 
 
 !------------------------------------------------------------------------------
@@ -3564,16 +3606,15 @@ DO ns=nsubs0,nsubs1
           zaga(i,j,kso) = -zalfa*zdt*zakb/(zdzhs(kso)*zdzms(kso))
           zagc(i,j,kso) = -zalfa*zdt*zakb/(zdzhs(kso)*zdzms(kso+1))
           zagb(i,j,kso) = 1._ireals - zaga(i,j,kso) - zagc(i,j,kso)
-          zagd(i,j,kso) = t_so(i,j,kso,nx,ns) +                                     &
-                 (1._ireals - zalfa)*( - zaga(i,j,kso)/zalfa*t_so(i,j,kso-1,nx,ns)+ &
-                 (zaga(i,j,kso)/zalfa + zagc(i,j,kso)/zalfa)*t_so(i,j,kso,nx,ns) -  &
-                  zagc(i,j,kso)/zalfa*t_so(i,j,kso+1,nx,ns)  )
+          zagd(i,j,kso) = t_so_now(i,j,kso,ns) +                                     &
+                 (1._ireals - zalfa)*( - zaga(i,j,kso)/zalfa*t_so_now(i,j,kso-1,ns)+ &
+                 (zaga(i,j,kso)/zalfa + zagc(i,j,kso)/zalfa)*t_so_now(i,j,kso,ns) -  &
+                  zagc(i,j,kso)/zalfa*t_so_now(i,j,kso+1,ns)  )
         END IF  ! land-points only
       END DO
     END DO
   END DO        ! soil layers
   
-  !>JH WRITE(*,*) 'TERRA-DIAG END II.6 - 1 +++++++++> ',t_so(1,1,:,nnew,:)
   
   DO   j = jstarts, jends
     DO i = istarts, iends
@@ -3583,19 +3624,19 @@ DO ns=nsubs0,nsubs1
         zaga(i,j,  1) = -zalfa*zdt*zakb/(zdzhs(1)*zdzms(1))
         zagc(i,j,  1) = -zalfa*zdt*zakb/(zdzhs(1)*zdzms(2))
         zagb(i,j,  1) = 1._ireals - zaga(i,j,1) - zagc(i,j,1)
-        zagd(i,j,  1) = t_so(i,j,1,nx,ns) + (1._ireals - zalfa)* (                 &
-                        - zaga(i,j,1)/zalfa * t_s(i,j,nx,ns) +                     &
-                        (zaga(i,j,1) + zagc(i,j,1))/zalfa * t_so(i,j,1,nx,ns) -    &
-                         zagc(i,j,1)/zalfa * t_so(i,j,2,nx,ns)   )
+        zagd(i,j,  1) = t_so_now(i,j,1,ns) + (1._ireals - zalfa)* (                 &
+                        - zaga(i,j,1)/zalfa * t_s_now(i,j,ns) +                     &
+                        (zaga(i,j,1) + zagc(i,j,1))/zalfa * t_so_now(i,j,1,ns) -    &
+                         zagc(i,j,1)/zalfa * t_so_now(i,j,2,ns)   )
         zaga(i,j,0)    = 0.0_ireals
         zagb(i,j,0)    = zalfa
         zagc(i,j,0)    = -zalfa
         zagd(i,j,0)    = zdzms(1) * zfor_s(i,j)/zalam(i,j,1)+(1._ireals-zalfa)* &
-                        (t_so(i,j,1,nx,ns) - t_s(i,j,nx,ns))
+                        (t_so_now(i,j,1,ns) - t_s_now(i,j,ns))
         zaga(i,j,ke_soil+1) = 0.0_ireals
         zagb(i,j,ke_soil+1) = 1.0_ireals
         zagc(i,j,ke_soil+1) = 0.0_ireals
-        zagd(i,j,ke_soil+1) = t_so(i,j,ke_soil+1,nx,ns)
+        zagd(i,j,ke_soil+1) = t_so_now(i,j,ke_soil+1,ns)
   
       END IF          ! land-points only
     END DO
@@ -3640,7 +3681,7 @@ DO ns=nsubs0,nsubs1
           zage(i,j,kso)     = zagd(i,j,kso) - zagc(i,j,kso)*zage(i,j,kso+1)
         ! The surface temperature computed by t_so(i,j,0,nnew)=zage(i,j,0) is
         ! presently unused
-          t_so(i,j,kso,nnew,ns) = zage(i,j,kso)
+          t_so_new(i,j,kso,ns) = zage(i,j,kso)
         END IF          ! land-points only
       END DO
     END DO
@@ -3649,7 +3690,7 @@ DO ns=nsubs0,nsubs1
   DO   j = jstarts, jends
     DO i = istarts, iends
       IF (llandmask(i,j,ns)) THEN          ! land-points only
-        t_so(i,j,ke_soil+1,nnew,ns) = zage(i,j,ke_soil+1) ! climate value, unchanged
+        t_so_new(i,j,ke_soil+1,ns) = zage(i,j,ke_soil+1) ! climate value, unchanged
       END IF          ! land-points only
     END DO
   END DO
@@ -3661,17 +3702,17 @@ DO ns=nsubs0,nsubs1
       DO i = istarts, iends
         IF (llandmask(i,j,ns)) THEN          ! land-points only
           IF(zwsnew(i,j) .GE. zepsi) THEN
-            zrocs(i,j) = wliq_snow(i,j,1,nx,ns)/wtot_snow(i,j,1,nx,ns)*chc_w*rho_w + &
-              (wtot_snow(i,j,1,nx,ns)-wliq_snow(i,j,1,nx,ns))/wtot_snow(i,j,1,nx,ns)*chc_i*rho_i
+            zrocs(i,j) = wliq_snow_now(i,j,1,ns)/wtot_snow_now(i,j,1,ns)*chc_w*rho_w + &
+              (wtot_snow_now(i,j,1,ns)-wliq_snow_now(i,j,1,ns))/wtot_snow_now(i,j,1,ns)*chc_i*rho_i
             zakb      = zalas_mult(i,j,1)/zrocs(i,j)  !(chc_i*rho_snow(1,nx))
             zaga(i,j,1) = 0.0_ireals
             zagc(i,j,1) = -zdt*zakb/(zdzh_snow(i,j,1)*zdzm_snow(i,j,2))
             zagb(i,j,1) = 1._ireals - zagc(i,j,1)
             zagd(i,j,1) = ztsnow_mult(i,j,1) + zdt/zdzh_snow(i,j,1)*zfor_snow_mult(i,j)/zrocs(i,j)
         
-            zrocs(i,j) = wliq_snow(i,j,ke_snow,nx,ns)/wtot_snow(i,j,ke_snow,nx,ns)*chc_w*rho_w + &
-              (wtot_snow(i,j,ke_snow,nx,ns)-wliq_snow(i,j,ke_snow,nx,ns))/                       &
-               wtot_snow(i,j,ke_snow,nx,ns)*chc_i*rho_i
+            zrocs(i,j) = wliq_snow_now(i,j,ke_snow,ns)/wtot_snow_now(i,j,ke_snow,ns)*chc_w*rho_w + &
+              & (wtot_snow_now(i,j,ke_snow,ns)-wliq_snow_now(i,j,ke_snow,ns))/                     &
+              & wtot_snow_now(i,j,ke_snow,ns)*chc_i*rho_i
             zakb = zalas_mult(i,j,ke_snow)/zrocs(i,j)  !(chc_i*rho_snow(1,nx))
             zaga(i,j,ke_snow) = -zdt*zakb/(zdzh_snow(i,j,ke_snow)*zdzm_snow(i,j,ke_snow))
             zagb(i,j,ke_snow) = 1.0_ireals - zaga(i,j,ke_snow)
@@ -3699,9 +3740,9 @@ DO ns=nsubs0,nsubs1
         DO i = istarts, iends
           IF (llandmask(i,j,ns)) THEN          ! land-points only
             IF(zwsnew(i,j) .GT. zepsi) THEN
-              zrocs(i,j) = wliq_snow(i,j,ksn,nx,ns)/wtot_snow(i,j,ksn,nx,ns)*chc_w*rho_w + &
-                (wtot_snow(i,j,ksn,nx,ns)-wliq_snow(i,j,ksn,nx,ns))/ &
-                &wtot_snow(i,j,ksn,nx,ns)*chc_i*rho_i
+              zrocs(i,j) = wliq_snow_now(i,j,ksn,ns)/wtot_snow_now(i,j,ksn,ns)*chc_w*rho_w + &
+                (wtot_snow_now(i,j,ksn,ns)-wliq_snow_now(i,j,ksn,ns))/ &
+                &wtot_snow_now(i,j,ksn,ns)*chc_i*rho_i
               zakb = zalas_mult(i,j,ksn)/zrocs(i,j) !(chc_i*rho_snow(ksn,nx))
               zaga(i,j,ksn) = -zdt*zakb/(zdzh_snow(i,j,ksn)*zdzm_snow(i,j,ksn))
               zagc(i,j,ksn) = -zdt*zakb/(zdzh_snow(i,j,ksn)*zdzm_snow(i,j,ksn+1))
@@ -3760,8 +3801,8 @@ DO ns=nsubs0,nsubs1
       DO i = istarts, iends
         IF (llandmask(i,j,ns)) THEN          ! land-points only
           IF(zwsnew(i,j) .GT. zepsi) THEN
-            zrocs(i,j) = wliq_snow(i,j,1,nx,ns)/wtot_snow(i,j,1,nx,ns)*chc_w*rho_w + &
-              (wtot_snow(i,j,1,nx,ns)-wliq_snow(i,j,1,nx,ns))/wtot_snow(i,j,1,nx,ns)*chc_i*rho_i
+            zrocs(i,j) = wliq_snow_now(i,j,1,ns)/wtot_snow_now(i,j,1,ns)*chc_w*rho_w + &
+              (wtot_snow_now(i,j,1,ns)-wliq_snow_now(i,j,1,ns))/wtot_snow_now(i,j,1,ns)*chc_i*rho_i
             zswitch(i,j) = MAX(-zfor_snow_mult(i,j)/50./zrocs(i,j)*zdt*ke_snow, &
                                 zgsb(i,j)/50./zrocs(i,j)*zdt*ke_snow)
             zswitch(i,j) = MAX(zswitch(i,j),1.E-03_ireals)
@@ -3769,18 +3810,18 @@ DO ns=nsubs0,nsubs1
             IF(zwsnew(i,j) .LT. zswitch(i,j)) THEN
   
               ztsnow(i,j) = (ztsnow_mult(i,j,1)*zdzh_snow(i,j,1) &
-               + ztsnow_mult(i,j,2)*zdzh_snow(i,j,2)) /          &
+              &+ ztsnow_mult(i,j,2)*zdzh_snow(i,j,2)) / &
                             (zdzh_snow(i,j,1) + zdzh_snow(i,j,2))
-              ztsn  (i,j) = t_so(i,j,1,nnew,ns)
+              ztsn  (i,j) = t_so_new(i,j,1,ns)
               tmp_num = ztsnow(i,j) + zdt*2._ireals*(zfor_snow_mult(i,j) - zgsb(i,j))  &
-                             /zrocs(i,j)/(zswitch(i,j)/rho_snow_mult(i,j,1,nx,ns)*rho_w) &
+                             /zrocs(i,j)/(zswitch(i,j)/rho_snow_mult_now(i,j,1,ns)*rho_w) &
                              &- ( ztsn(i,j) - zts(i,j) )
-              zalas  = 2.22_ireals*(rho_snow_mult(i,j,1,nx,ns)/rho_i)**1.88_ireals
+              zalas  = 2.22_ireals*(rho_snow_mult_now(i,j,1,ns)/rho_i)**1.88_ireals
   
               ztsnow_im    = - zrhoch(i,j) * (cp_d + zdqvtsnow(i,j) * lh_s)       &
                                            - zalas/(zdzh_snow(i,j,1) + zdzh_snow(i,j,2))
               zfak  = MAX(zepsi,1.0_ireals - zdt*zalfa*ztsnow_im/zrocs(i,j)/(zdzh_snow(i,j,1) &
-               + zdzh_snow(i,j,2)))
+              &+ zdzh_snow(i,j,2)))
               tmp_num = ztsnow(i,j) + (tmp_num-ztsnow(i,j))/zfak
   
               ztsnown_mult(i,j,1) = tmp_num
@@ -3802,10 +3843,10 @@ DO ns=nsubs0,nsubs1
             IF(zwsnew(i,j) .GT. zepsi .and. zwsnew(i,j) .LT. zswitch(i,j)) THEN
   
               IF(zfor_snow_mult(i,j)*zdt > zwsnew(i,j)*rho_w*lh_f) THEN
-                ztsnown_mult(i,j,ksn) = t_so(i,j,0,nx,ns)
+                ztsnown_mult(i,j,ksn) = t_so_now(i,j,0,ns)
               ELSE IF(zfor_snow_mult(i,j) .GT. 0._ireals) THEN
                 ztsnown_mult(i,j,ksn) = ztsnow_mult(i,j,ksn) + &
-                  zfor_snow_mult(i,j)*zdt/(chc_i*wtot_snow(i,j,ksn,nx,ns))/rho_w/ke_snow
+                  zfor_snow_mult(i,j)*zdt/(chc_i*wtot_snow_now(i,j,ksn,ns))/rho_w/ke_snow
               END IF
             END IF
           END IF  ! land-points only
@@ -3822,7 +3863,7 @@ DO ns=nsubs0,nsubs1
               zfor_snow_mult(i,j) = zfor_snow_mult(i,j) - zwsnew(i,j)*rho_w*lh_f/zdt
               zdwsndt(i,j) = zdwsndt(i,j) - zwsnew(i,j)*rho_w/zdt
               zwsnew(i,j)  = 0._ireals
-              ztsnown_mult(i,j,0) = t_so(i,j,0,nx,ns)
+              ztsnown_mult(i,j,0) = t_so_now(i,j,0,ns)
               zfor_s(i,j) = zfor_s(i,j) + zfor_snow_mult(i,j)
             ELSE IF(zfor_snow_mult(i,j) .GT. 0._ireals) THEN
               zfor_snow_mult(i,j) = 0._ireals
@@ -3833,7 +3874,7 @@ DO ns=nsubs0,nsubs1
         END IF  ! land-points only
       END DO
     END DO
-  
+
   END IF
 
 
@@ -3845,15 +3886,15 @@ DO ns=nsubs0,nsubs1
             IF (llandmask(i,j,ns)) THEN ! land points only,
               IF (m_styp(i,j).ge.3) THEN ! neither ice or rocks
                 ! melting or freezing of soil water
-                zenergy   = zroc(i,j,kso)*zdzhs(kso)*(t_so(i,j,kso,nnew,ns) - t0_melt)
+                zenergy   = zroc(i,j,kso)*zdzhs(kso)*(t_so_new(i,j,kso,ns) - t0_melt)
                 zdwi_max  = - zenergy/(lh_f*rho_w)
                 zdelwice  = zdwi_max
-                zwso_new  = w_so(i,j,kso,nx,ns) + zdt*zdwgdt(i,j,kso)/rho_w
+                zwso_new  = w_so_now(i,j,kso,ns) + zdt*zdwgdt(i,j,kso)/rho_w
                 IF (zdelwice.LT.0.0_ireals)                                    &
-                          zdelwice = - MIN( - zdelwice,w_so_ice(i,j,kso,nx,ns))
+                          zdelwice = - MIN( - zdelwice,w_so_ice_now(i,j,kso,ns))
                 IF (zdelwice.GT.0.0_ireals)                                    &
-                          zdelwice =   MIN(   zdelwice,zwso_new - w_so_ice(i,j,kso,nx,ns))
-                w_so_ice(i,j,kso,nnew,ns) = w_so_ice(i,j,kso,nx,ns) + zdelwice
+                          zdelwice =   MIN(   zdelwice,zwso_new - w_so_ice_now(i,j,kso,ns))
+                w_so_ice_new(i,j,kso,ns) = w_so_ice_now(i,j,kso,ns) + zdelwice
 
   !             At this point we have 0.0 LE w_so_ice(i,j,kso,nnew) LE w_so(i,j,kso,nnew)
   !             If we have 0.0 LT w_so_ice(i,j,kso,nnew) LT w_so(i,j,kso,nnew)
@@ -3862,7 +3903,7 @@ DO ns=nsubs0,nsubs1
   !             following line corrects the temperature. It also applies to cases
   !             where all soil water is completely ice or water, respectively.
 
-                t_so(i,j,kso,nnew,ns) = t0_melt + (zdelwice - zdwi_max)*(lh_f*rho_w)/     &
+                t_so_new(i,j,kso,ns) = t0_melt + (zdelwice - zdwi_max)*(lh_f*rho_w)/     &
                                               (zroc(i,j,kso)*zdzhs(kso))
               END IF  ! m_styp > 2
             END IF  ! land-points only
@@ -3875,28 +3916,27 @@ DO ns=nsubs0,nsubs1
           DO i = istarts, iends
             IF (llandmask(i,j,ns)) THEN ! land points only,
               IF (m_styp(i,j).ge.3) THEN ! neither ice or rocks
-              !>JH WRITE(*,*) 'TERRA-DIAG END II.6 4.0 +++++++++> ',t_so(1,1,:,nnew,:)
                 ztx      = t0_melt
                 zw_m(i,j)     = zporv(i,j)*zdzhs(kso)
-                IF(t_so(i,j,kso,nnew,ns).LT.(t0_melt-zepsi)) THEN
+                IF(t_so_new(i,j,kso,ns).LT.(t0_melt-zepsi)) THEN
                   zaa    = g*zpsis(i,j)/lh_f
-                  zw_m(i,j) = zw_m(i,j)*((t_so(i,j,kso,nnew,ns) - t0_melt)/(t_so(i,j,kso,nnew,ns)&
-                              *zaa))**(-zedb(i,j))
-                  zliquid= MAX(zepsi,w_so(i,j,kso,nx,ns) -  w_so_ice(i,j,kso,nx,ns))
+                  zw_m(i,j) = zw_m(i,j)*((t_so_new(i,j,kso,ns) - t0_melt)/(t_so_new(i,j,kso,ns)&
+                    &         *zaa))**(-zedb(i,j))
+                  zliquid= MAX(zepsi,w_so_now(i,j,kso,ns) -  w_so_ice_now(i,j,kso,ns))
                   znen   = 1._ireals-zaa*(zporv(i,j)*zdzhs(kso)/zliquid)**zb_por(i,j)
                   ztx    = t0_melt/znen
                 ENDIF
                 ztx      = MIN(t0_melt,ztx)
-                zenergy  = zroc(i,j,kso)*zdzhs(kso)*(t_so(i,j,kso,nnew,ns)-ztx)
+                zenergy  = zroc(i,j,kso)*zdzhs(kso)*(t_so_new(i,j,kso,ns)-ztx)
                 zdwi_max = - zenergy/(lh_f*rho_w)
                 zdelwice = zdwi_max
-                zwso_new  = w_so(i,j,kso,nx,ns) + zdt*zdwgdt(i,j,kso)/rho_w
-                zargu = zwso_new - zw_m(i,j) - w_so_ice(i,j,kso,nx,ns)
+                zwso_new  = w_so_now(i,j,kso,ns) + zdt*zdwgdt(i,j,kso)/rho_w
+                zargu = zwso_new - zw_m(i,j) - w_so_ice_now(i,j,kso,ns)
                 IF (zdelwice.LT.0.0_ireals) zdelwice =                           &
-                        - MIN( - zdelwice,MIN(-zargu,w_so_ice(i,j,kso,nx,ns)))
+                        - MIN( - zdelwice,MIN(-zargu,w_so_ice_now(i,j,kso,ns)))
                 IF (zdelwice.GT.0.0_ireals) zdelwice =                           &
                           MIN(   zdelwice,MAX( zargu,0.0_ireals))
-                w_so_ice(i,j,kso,nnew,ns) = w_so_ice(i,j,kso,nx,ns) + zdelwice
+                w_so_ice_new(i,j,kso,ns) = w_so_ice_now(i,j,kso,ns) + zdelwice
   !             At this point we have 0.0 LE w_so_ice(i,j,kso,nnew) LE zwso_new
   !             If we have 0.0 LT w_so_ice(i,j,kso,nnew) LT zwso_new
   !             the resulting new temperature has to be equal to ztx.
@@ -3904,8 +3944,8 @@ DO ns=nsubs0,nsubs1
   !             the following line corrects the temperature. It also applies
   !             to cases without any freezing/melting, in these cases the
   !             original temperature is reproduced.
-              !>JH WRITE(*,*) 'TERRA-DIAG END II.6 4.1 +++++++++> ',t_so(1,1,:,nnew,ns),'lhf ',lh_f, 'zroc ',zroc(i,j,:)
-                t_so(i,j,kso,nnew,ns) = ztx + (zdelwice - zdwi_max)*       &
+
+                t_so_new(i,j,kso,ns) = ztx + (zdelwice - zdwi_max)*       &
                                      (lh_f*rho_w)/(zroc(i,j,kso)*zdzhs(kso))
   
              END IF                   ! m_stpy > 2
@@ -3926,8 +3966,8 @@ DO ns=nsubs0,nsubs1
       IF (llandmask(i,j,ns)) THEN          ! land-points only
         ! next line has to be changed if a soil surface temperature is
         ! predicted by the heat conduction equation
-        zdtsdt (i,j) = (t_so(i,j,1,nnew,ns) - zts(i,j))*z1d2dt
-        ztsn   (i,j) =  t_so(i,j,1,nnew,ns)
+        zdtsdt (i,j) = (t_so_new(i,j,1,ns) - zts(i,j))*z1d2dt
+        ztsn   (i,j) =  t_so_new(i,j,1,ns)
         IF(.NOT. lmulti_snow)  &
           ztsnown(i,j) = ztsn(i,j)       ! default setting
         zwsnew(i,j)       = zwsnow(i,j) + zdwsndt(i,j)*zdtdrhw
@@ -3952,7 +3992,7 @@ DO ns=nsubs0,nsubs1
 ! BR        zalas  = MAX(calasmin,MIN(calasmax, calasmin + calas_dw*zwsnew(i,j)))
 ! BR 7/2005 Introduce new dependency of snow heat conductivity on snow density
 !
-            zalas  = 2.22_ireals*(rho_snow(i,j,nx,ns)/rho_i)**1.88_ireals
+            zalas  = 2.22_ireals*(rho_snow_now(i,j,ns)/rho_i)**1.88_ireals
 
             ztsnow_im    = - zrhoch(i,j) * (cp_d + zdqvtsnow(i,j) * lh_s)       &
                                          - zalas/zdz_snow_fl(i,j)
@@ -4012,7 +4052,7 @@ DO ns=nsubs0,nsubs1
           IF (zwsnew(i,j) > zepsi) THEN        ! points with snow cover only
             ! first case: T_snow > t0_melt: melting from above
             ! ----------
-            IF (ztsnown(i,j) > t0_melt .AND. t_so(i,j,1,nnew,ns) < t0_melt ) THEN
+            IF (ztsnown(i,j) > t0_melt .AND. t_so_new(i,j,1,ns) < t0_melt ) THEN
               zdwsnm(i,j)   = zwsnew(i,j)*.5_ireals*(ztsnown(i,j) - (t0_melt - zepsi))/ &
                               (.5_ireals* (zts(i,j) - (t0_melt - zepsi)) - lh_f/chc_i)
               zdwsnm(i,j)   = zdwsnm(i,j)*z1d2dt*rho_w 
@@ -4022,7 +4062,7 @@ DO ns=nsubs0,nsubs1
               runoff_s (i,j,ns)= runoff_s(i,j,ns) - zdwsnm(i,j)*zroffdt
             ENDIF ! melting from above
     
-            IF (t_so(i,j,1,nnew,ns) .gt. t0_melt) THEN
+            IF (t_so_new(i,j,1,ns) .gt. t0_melt) THEN
               !second case:  temperature of uppermost soil layer > t0_melt. First a
               !-----------   heat redistribution is performed. As a second step,
               !              melting of snow is considered.
@@ -4030,7 +4070,7 @@ DO ns=nsubs0,nsubs1
               ztsnew = t0_melt + zepsi
               ztsnownew      = ztsn(i,j) + ztsnown(i,j) - ztsnew +  &
                    2._ireals*(ztsn(i,j) - ztsnew)*zroc(i,j,1)*zdzhs(1)/zrocs(i,j)
-              zdtsdt(i,j)    = zdtsdt(i,j) + (ztsnew - t_so(i,j,1,nnew,ns))*z1d2dt
+              zdtsdt(i,j)    = zdtsdt(i,j) + (ztsnew - t_so_new(i,j,1,ns))*z1d2dt
               zdtsnowdt(i,j) = zdtsnowdt(i,j) + (ztsnownew - ztsnown(i,j))*z1d2dt
               ! b) Melting of snow (if possible)
               IF (ztsnownew > t0_melt) THEN
@@ -4106,17 +4146,17 @@ DO ns=nsubs0,nsubs1
               zmelt(i,j) = 0.0_ireals
               ztsnownew_mult(i,j,ksn) = ztsnown_mult(i,j,ksn)
     
-              IF(zdzh_snow(i,j,ksn) - wliq_snow(i,j,ksn,nx,ns).GT.zepsi .OR. &
-                wtot_snow(i,j,ksn,nx,ns) - wliq_snow(i,j,ksn,nx,ns).GT.zepsi) THEN
-                zrho_dry_old(i,j) = MAX(wtot_snow(i,j,ksn,nx,ns)-wliq_snow(i,j,ksn,nx,ns),zepsi)*&
-                  &                 rho_w/(zdzh_snow(i,j,ksn) - wliq_snow(i,j,ksn,nx,ns))
+              IF(zdzh_snow(i,j,ksn) - wliq_snow_now(i,j,ksn,ns).GT.zepsi .OR. &
+                wtot_snow_now(i,j,ksn,ns) - wliq_snow_now(i,j,ksn,ns).GT.zepsi) THEN
+                zrho_dry_old(i,j) = MAX(wtot_snow_now(i,j,ksn,ns)-wliq_snow_now(i,j,ksn,ns),zepsi)*&
+                  &                 rho_w/(zdzh_snow(i,j,ksn) - wliq_snow_now(i,j,ksn,ns))
               ELSE
                 zrho_dry_old(i,j) = rho_w
               END IF
     
-              ztsnownew_mult(i,j,ksn) = (ztsnown_mult(i,j,ksn)*wtot_snow(i,j,ksn,nx,ns) &
+              ztsnownew_mult(i,j,ksn) = (ztsnown_mult(i,j,ksn)*wtot_snow_now(i,j,ksn,ns) &
                 &                       + t0_melt*zqbase(i,j)*zdt)/(zqbase(i,j)*zdt     &
-                &                       + wtot_snow(i,j,ksn,nx,ns))
+                &                       + wtot_snow_now(i,j,ksn,ns))
     
               IF(zextinct(i,j,ksn).eq.0.0_ireals) THEN
                 ze_in = ze_out(i,j)
@@ -4136,50 +4176,50 @@ DO ns=nsubs0,nsubs1
               END IF
     
               ztsnownew_mult(i,j,ksn) = ztsnownew_mult(i,j,ksn) &
-                &                       + ze_in*zdt/(chc_i*wtot_snow(i,j,ksn,nx,ns))/rho_w
-              wtot_snow(i,j,ksn,nx,ns) = wtot_snow(i,j,ksn,nx,ns) + zqbase(i,j)*zdt
-              wliq_snow(i,j,ksn,nx,ns) = wliq_snow(i,j,ksn,nx,ns) + zqbase(i,j)*zdt
+                &                       + ze_in*zdt/(chc_i*wtot_snow_now(i,j,ksn,ns))/rho_w
+              wtot_snow_now(i,j,ksn,ns) = wtot_snow_now(i,j,ksn,ns) + zqbase(i,j)*zdt
+              wliq_snow_now(i,j,ksn,ns) = wliq_snow_now(i,j,ksn,ns) + zqbase(i,j)*zdt
     
               zdzh_old = zdzh_snow(i,j,ksn)
               zdzh_snow(i,j,ksn) = zdzh_snow(i,j,ksn) + zqbase(i,j)*zdt
     
-              rho_snow_mult(i,j,ksn,nx,ns) = MAX(wtot_snow(i,j,ksn,nx,ns)*&
+              rho_snow_mult_now(i,j,ksn,ns) = MAX(wtot_snow_now(i,j,ksn,ns)*&
                 &                                rho_w/zdzh_snow(i,j,ksn), &
                 &                                0.0_ireals)
     
               IF(ztsnownew_mult(i,j,ksn) .GT. t0_melt) THEN
     
-                IF(wtot_snow(i,j,ksn,nx,ns) .LE. wliq_snow(i,j,ksn,nx,ns)) THEN
-                  ze_out(i,j) = chc_i*wtot_snow(i,j,ksn,nx,ns)*(ztsnownew_mult(i,j,ksn)-t0_melt) &
+                IF(wtot_snow_now(i,j,ksn,ns) .LE. wliq_snow_now(i,j,ksn,ns)) THEN
+                  ze_out(i,j) = chc_i*wtot_snow_now(i,j,ksn,ns)*(ztsnownew_mult(i,j,ksn)-t0_melt) &
                     &      *z1d2dt*rho_w
                   zmelt(i,j) = 0.0_ireals
-                ELSEIF(chc_i*wtot_snow(i,j,ksn,nx,ns)*(ztsnownew_mult(i,j,ksn)-t0_melt)/lh_f .LE. &
-                  wtot_snow(i,j,ksn,nx,ns)-wliq_snow(i,j,ksn,nx,ns)) THEN
-                  zmelt(i,j) = chc_i*wtot_snow(i,j,ksn,nx,ns)*(ztsnownew_mult(i,j,ksn) - t0_melt) &
+                ELSEIF(chc_i*wtot_snow_now(i,j,ksn,ns)*(ztsnownew_mult(i,j,ksn)-t0_melt)/lh_f .LE. &
+                  wtot_snow_now(i,j,ksn,ns)-wliq_snow_now(i,j,ksn,ns)) THEN
+                  zmelt(i,j) = chc_i*wtot_snow_now(i,j,ksn,ns)*(ztsnownew_mult(i,j,ksn) - t0_melt) &
                     &          *z1d2dt/lh_f
                   ze_out(i,j) = 0.0_ireals
-                  wliq_snow(i,j,ksn,nx,ns) = wliq_snow(i,j,ksn,nx,ns) + zmelt(i,j)*zdt
+                  wliq_snow_now(i,j,ksn,ns) = wliq_snow_now(i,j,ksn,ns) + zmelt(i,j)*zdt
                 ELSE
-                  zmelt(i,j) = (wtot_snow(i,j,ksn,nx,ns)-wliq_snow(i,j,ksn,nx,ns))*z1d2dt
-                  ze_out(i,j) = chc_i*wtot_snow(i,j,ksn,nx,ns)*(ztsnownew_mult(i,j,ksn)-t0_melt) &
+                  zmelt(i,j) = (wtot_snow_now(i,j,ksn,ns)-wliq_snow_now(i,j,ksn,ns))*z1d2dt
+                  ze_out(i,j) = chc_i*wtot_snow_now(i,j,ksn,ns)*(ztsnownew_mult(i,j,ksn)-t0_melt) &
                     &      *z1d2dt*rho_w - zmelt(i,j)*lh_f*rho_w
-                  wliq_snow(i,j,ksn,nx,ns) = wliq_snow(i,j,ksn,nx,ns) + zmelt(i,j)*zdt
+                  wliq_snow_now(i,j,ksn,ns) = wliq_snow_now(i,j,ksn,ns) + zmelt(i,j)*zdt
                 END IF
                 ztsnownew_mult(i,j,ksn) = t0_melt
     
               ELSE
 !          T<0
-                IF(wliq_snow(i,j,ksn,nx,ns) .GT. -chc_i*wtot_snow(i,j,ksn,nx,ns) &
+                IF(wliq_snow_now(i,j,ksn,ns) .GT. -chc_i*wtot_snow_now(i,j,ksn,ns) &
                   & *(ztsnownew_mult(i,j,ksn) - t0_melt)/lh_f) THEN
-                  zrefr(i,j) = -chc_i*wtot_snow(i,j,ksn,nx,ns)*(ztsnownew_mult(i,j,ksn) &
+                  zrefr(i,j) = -chc_i*wtot_snow_now(i,j,ksn,ns)*(ztsnownew_mult(i,j,ksn) &
                     &          - t0_melt)*z1d2dt/lh_f
                   ztsnownew_mult(i,j,ksn)   = t0_melt
-                  wliq_snow(i,j,ksn,nx,ns) = wliq_snow(i,j,ksn,nx,ns) - zrefr(i,j)*zdt
+                  wliq_snow_now(i,j,ksn,ns) = wliq_snow_now(i,j,ksn,ns) - zrefr(i,j)*zdt
                 ELSE
-                  zrefr(i,j) = wliq_snow(i,j,ksn,nx,ns)*z1d2dt
-                  wliq_snow(i,j,ksn,nx,ns) = 0.0_ireals
+                  zrefr(i,j) = wliq_snow_now(i,j,ksn,ns)*z1d2dt
+                  wliq_snow_now(i,j,ksn,ns) = 0.0_ireals
                   ztsnownew_mult(i,j,ksn)   = ztsnownew_mult(i,j,ksn) + zrefr(i,j)*zdt*lh_f &
-                    &                         /(chc_i*wtot_snow(i,j,ksn,nx,ns))
+                    &                         /(chc_i*wtot_snow_now(i,j,ksn,ns))
                 END IF
                 ze_out(i,j) = 0.0_ireals
     
@@ -4187,12 +4227,12 @@ DO ns=nsubs0,nsubs1
     
               zdtsnowdt_mult(i,j,ksn) = zdtsnowdt_mult(i,j,ksn) + &
                                         (ztsnownew_mult(i,j,ksn) - ztsnown_mult(i,j,ksn))*z1d2dt
-              IF(wtot_snow(i,j,ksn,nx,ns) .LE. wliq_snow(i,j,ksn,nx,ns)) THEN
-                zqbase(i,j)           = wliq_snow(i,j,ksn,nx,ns)*z1d2dt
-                wliq_snow(i,j,ksn,nx,ns) = 0.0_ireals
-                wtot_snow(i,j,ksn,nx,ns) = 0.0_ireals
+              IF(wtot_snow_now(i,j,ksn,ns) .LE. wliq_snow_now(i,j,ksn,ns)) THEN
+                zqbase(i,j)           = wliq_snow_now(i,j,ksn,ns)*z1d2dt
+                wliq_snow_now(i,j,ksn,ns) = 0.0_ireals
+                wtot_snow_now(i,j,ksn,ns) = 0.0_ireals
                 zdzh_snow(i,j,ksn)    = 0.0_ireals
-                rho_snow_mult(i,j,ksn,nx,ns)  = 0.0_ireals
+                rho_snow_mult_now(i,j,ksn,ns)  = 0.0_ireals
               ELSE
                 IF(zrefr(i,j) .GT. 0.0_ireals .OR. zmelt(i,j) .GT. 0.0_ireals) THEN
                   zadd_dz = 0.0_ireals
@@ -4200,44 +4240,44 @@ DO ns=nsubs0,nsubs1
                   zadd_dz = MAX(zmelt(i,j),0._ireals)*(-1.0_ireals/zrho_dry_old(i,j)*rho_w &
                     &       + 1.0_ireals)*zdt
                   zdzh_snow(i,j,ksn)   = zdzh_snow(i,j,ksn) + zadd_dz
-                  rho_snow_mult(i,j,ksn,nx,ns) = MAX(wtot_snow(i,j,ksn,nx,ns)*rho_w &
+                  rho_snow_mult_now(i,j,ksn,ns) = MAX(wtot_snow_now(i,j,ksn,ns)*rho_w &
                     &                            /zdzh_snow(i,j,ksn),0.0_ireals)
-                  IF(wtot_snow(i,j,ksn,nx,ns) .LE. 0.0_ireals) zdzh_snow(i,j,ksn) = 0.0_ireals
-                  IF(rho_snow_mult(i,j,ksn,nx,ns) .GT. rho_w) THEN
-                    zdzh_snow(i,j,ksn)   = zdzh_snow(i,j,ksn)*rho_snow_mult(i,j,ksn,nx,ns)/rho_w
-                    rho_snow_mult(i,j,ksn,nx,ns) = rho_w
+                  IF(wtot_snow_now(i,j,ksn,ns) .LE. 0.0_ireals) zdzh_snow(i,j,ksn) = 0.0_ireals
+                  IF(rho_snow_mult_now(i,j,ksn,ns) .GT. rho_w) THEN
+                    zdzh_snow(i,j,ksn)   = zdzh_snow(i,j,ksn)*rho_snow_mult_now(i,j,ksn,ns)/rho_w
+                    rho_snow_mult_now(i,j,ksn,ns) = rho_w
                   END IF
                 END IF
     
-                zsn_porosity = 1._ireals - (rho_snow_mult(i,j,ksn,nx,ns)/rho_w -  &
-                               wliq_snow(i,j,ksn,nx,ns)/zdzh_snow(i,j,ksn))/rho_i*rho_w - &
-                               wliq_snow(i,j,ksn,nx,ns)/zdzh_snow(i,j,ksn)
+                zsn_porosity = 1._ireals - (rho_snow_mult_now(i,j,ksn,ns)/rho_w -  &
+                               wliq_snow_now(i,j,ksn,ns)/zdzh_snow(i,j,ksn))/rho_i*rho_w - &
+                               wliq_snow_now(i,j,ksn,ns)/zdzh_snow(i,j,ksn)
                 zsn_porosity = MAX(zsn_porosity,cwhc + 0.1_ireals)
                 zp1 = zsn_porosity - cwhc
     
-                IF (wliq_snow(i,j,ksn,nx,ns)/zdzh_snow(i,j,ksn) .GT. cwhc) THEN
-                  zfukt             = (wliq_snow(i,j,ksn,nx,ns)/zdzh_snow(i,j,ksn) - cwhc)/zp1
+                IF (wliq_snow_now(i,j,ksn,ns)/zdzh_snow(i,j,ksn) .GT. cwhc) THEN
+                  zfukt             = (wliq_snow_now(i,j,ksn,ns)/zdzh_snow(i,j,ksn) - cwhc)/zp1
                   zq0               = chcond * zfukt**3.0_ireals
-                  zqbase(i,j)       = MIN(zq0*zdt,wliq_snow(i,j,ksn,nx,ns))
-                  wliq_snow(i,j,ksn,nx,ns) = wliq_snow(i,j,ksn,nx,ns) - zqbase(i,j)
-                  wtot_snow(i,j,ksn,nx,ns) = wtot_snow(i,j,ksn,nx,ns) - zqbase(i,j)
+                  zqbase(i,j)       = MIN(zq0*zdt,wliq_snow_now(i,j,ksn,ns))
+                  wliq_snow_now(i,j,ksn,ns) = wliq_snow_now(i,j,ksn,ns) - zqbase(i,j)
+                  wtot_snow_now(i,j,ksn,ns) = wtot_snow_now(i,j,ksn,ns) - zqbase(i,j)
     
                   zdzh_old = zdzh_snow(i,j,ksn)
                   zdzh_snow(i,j,ksn) = zdzh_snow(i,j,ksn) - zqbase(i,j)
                   zqbase(i,j)        = zqbase(i,j)*z1d2dt
     
                   IF(zdzh_snow(i,j,ksn) .LT. zepsi*0.01_ireals) THEN
-                    wliq_snow(i,j,ksn,nx,ns) = 0.0_ireals
-                    wtot_snow(i,j,ksn,nx,ns) = 0.0_ireals
+                    wliq_snow_now(i,j,ksn,ns) = 0.0_ireals
+                    wtot_snow_now(i,j,ksn,ns) = 0.0_ireals
                     zdzh_snow(i,j,ksn)    = 0.0_ireals
-                    rho_snow_mult(i,j,ksn,nx,ns)  = 0.0_ireals
+                    rho_snow_mult_now(i,j,ksn,ns)  = 0.0_ireals
                   ELSE
-                    rho_snow_mult(i,j,ksn,nx,ns) = MAX(wtot_snow(i,j,ksn,nx,ns)*rho_w &
+                    rho_snow_mult_now(i,j,ksn,ns) = MAX(wtot_snow_now(i,j,ksn,ns)*rho_w &
                       &                            /zdzh_snow(i,j,ksn),0.0_ireals)
-                    IF(wtot_snow(i,j,ksn,nx,ns) .LE. 0.0_ireals) zdzh_snow(i,j,ksn) = 0.0_ireals
-                    IF(rho_snow_mult(i,j,ksn,nx,ns) .GT. rho_w) THEN
-                      zdzh_snow(i,j,ksn)   = zdzh_snow(i,j,ksn)*rho_snow_mult(i,j,ksn,nx,ns)/rho_w
-                      rho_snow_mult(i,j,ksn,nx,ns) = rho_w
+                    IF(wtot_snow_now(i,j,ksn,ns) .LE. 0.0_ireals) zdzh_snow(i,j,ksn) = 0.0_ireals
+                    IF(rho_snow_mult_now(i,j,ksn,ns) .GT. rho_w) THEN
+                      zdzh_snow(i,j,ksn)   = zdzh_snow(i,j,ksn)*rho_snow_mult_now(i,j,ksn,ns)/rho_w
+                      rho_snow_mult_now(i,j,ksn,ns) = rho_w
                     END IF
                   END IF
                 ELSE
@@ -4301,7 +4341,7 @@ DO ns=nsubs0,nsubs1
         DO   j = jstarts, jends
           DO i = istarts, iends
             IF (llandmask(i,j,ns)) THEN          ! land-points only
-              zp(i,j,ksn) = zp(i,j,ksn) + rho_snow_mult(i,j,k,nx,ns)*g*zdzh_snow(i,j,ksn)
+              zp(i,j,ksn) = zp(i,j,ksn) + rho_snow_mult_now(i,j,k,ns)*g*zdzh_snow(i,j,ksn)
             END IF         ! land-points only
           END DO
         END DO
@@ -4313,16 +4353,16 @@ DO ns=nsubs0,nsubs1
         DO i = istarts, iends 
           IF (llandmask(i,j,ns)) THEN          ! land-points only 
             IF (zwsnew(i,j) > zepsi) THEN        ! points with snow cover only
-              IF(rho_snow_mult(i,j,ksn,nx,ns) .LT. 600._ireals .AND. &
-                rho_snow_mult(i,j,ksn,nx,ns) .NE. 0.0_ireals) THEN
-                zdens_old = rho_snow_mult(i,j,ksn,nx,ns)
+              IF(rho_snow_mult_now(i,j,ksn,ns) .LT. 600._ireals .AND. &
+                rho_snow_mult_now(i,j,ksn,ns) .NE. 0.0_ireals) THEN
+                zdens_old = rho_snow_mult_now(i,j,ksn,ns)
                 zeta =         &! compactive viscosity of snow
-                  ca2*EXP(19.3_ireals*rho_snow_mult(i,j,ksn,nx,ns)/rho_i)* &
+                  ca2*EXP(19.3_ireals*rho_snow_mult_now(i,j,ksn,ns)/rho_i)* &
                   EXP(67300._ireals/8.31_ireals/ztsnownew_mult(i,j,ksn))
-                rho_snow_mult(i,j,ksn,nx,ns) = rho_snow_mult(i,j,ksn,nx,ns) + &
-                  zdt*rho_snow_mult(i,j,ksn,nx,ns)*(csigma+zp(i,j,ksn))/zeta
-                rho_snow_mult(i,j,ksn,nx,ns) = MIN(rho_snow_mult(i,j,ksn,nx,ns),rho_i)
-                zdzh_snow(i,j,ksn)   = zdzh_snow(i,j,ksn) * zdens_old/rho_snow_mult(i,j,ksn,nx,ns)
+                rho_snow_mult_now(i,j,ksn,ns) = rho_snow_mult_now(i,j,ksn,ns) + &
+                  zdt*rho_snow_mult_now(i,j,ksn,ns)*(csigma+zp(i,j,ksn))/zeta
+                rho_snow_mult_now(i,j,ksn,ns) = MIN(rho_snow_mult_now(i,j,ksn,ns),rho_i)
+                zdzh_snow(i,j,ksn)   = zdzh_snow(i,j,ksn) * zdens_old/rho_snow_mult_now(i,j,ksn,ns)
               END IF     
             END IF       ! points with snow cover only
           END IF         ! land-points only
@@ -4356,7 +4396,7 @@ DO ns=nsubs0,nsubs1
     DO   j = jstarts, jends
       DO i = istarts, iends
         IF (llandmask(i,j,ns)) THEN  ! for landpoints only
-          t_snow_mult  (i,j,0,nnew,ns) = t_snow_mult(i,j,0,nx,ns) + zdt*zdtsnowdt_mult(i,j,0)
+          t_snow_mult_new  (i,j,0,ns) = t_snow_mult_now(i,j,0,ns) + zdt*zdtsnowdt_mult(i,j,0)
         ENDIF
       ENDDO
     ENDDO
@@ -4365,12 +4405,12 @@ DO ns=nsubs0,nsubs1
       DO   j = jstarts, jends
         DO i = istarts, iends
           IF (llandmask(i,j,ns)) THEN  ! for landpoints only
-            t_snow_mult  (i,j,ksn,nnew,ns) = t_snow_mult(i,j,ksn,nx,ns) + &
+            t_snow_mult_new  (i,j,ksn,ns) = t_snow_mult_now(i,j,ksn,ns) + &
               &                              zdt*zdtsnowdt_mult(i,j,ksn)
-            dzh_snow     (i,j,ksn,nnew,ns) = zdzh_snow(i,j,ksn)
-            wtot_snow    (i,j,ksn,nnew,ns) = wtot_snow(i,j,ksn,nx,ns)
-            rho_snow_mult(i,j,ksn,nnew,ns) = rho_snow_mult(i,j,ksn,nx,ns)
-            wliq_snow    (i,j,ksn,nnew,ns) = wliq_snow(i,j,ksn,nx,ns)
+            dzh_snow_new     (i,j,ksn,ns) = zdzh_snow(i,j,ksn)
+            wtot_snow_new    (i,j,ksn,ns) = wtot_snow_now(i,j,ksn,ns)
+            rho_snow_mult_new(i,j,ksn,ns) = rho_snow_mult_now(i,j,ksn,ns)
+            wliq_snow_new    (i,j,ksn,ns) = wliq_snow_now(i,j,ksn,ns)
           ENDIF
         ENDDO
       ENDDO
@@ -4379,7 +4419,7 @@ DO ns=nsubs0,nsubs1
     DO   j = jstarts, jends
       DO i = istarts, iends
         IF (llandmask(i,j,ns)) THEN  ! for landpoints only
-          t_snow(i,j,nnew,ns)  = t_snow(i,j,nx,ns) + zdt*zdtsnowdt(i,j)
+          t_snow_new(i,j,ns)  = t_snow_now(i,j,ns) + zdt*zdtsnowdt(i,j)
         ENDIF
       ENDDO
     ENDDO
@@ -4390,28 +4430,28 @@ DO ns=nsubs0,nsubs1
       IF (llandmask(i,j,ns)) THEN  ! for landpoints only
         ! t_snow is computed above
         ! t_snow(i,j,nnew)  = t_snow(i,j,nx) + zdt*zdtsnowdt(i,j)
-        t_so(i,j,1,nnew,ns)  = t_so(i,j,1,nx,ns) + zdt*zdtsdt   (i,j)
+        t_so_new(i,j,1,ns)  = t_so_now(i,j,1,ns) + zdt*zdtsdt   (i,j)
   
         ! Next line has to be changed, if the soil surface temperature
         ! t_so(i,j,0,nnew) predicted by the heat conduction equation is used
-        t_s   (i,j,nnew,ns)    = t_so(i,j,1,nnew,ns)
-        t_so  (i,j,0,nnew,ns)  = t_so(i,j,1,nnew,ns)
-        w_snow(i,j,nnew,ns)  = w_snow(i,j,nx,ns) + zdt*zdwsndt  (i,j)/rho_w
-        w_i   (i,j,nnew,ns)  = w_i   (i,j,nx,ns) + zdt*zdwidt   (i,j)/rho_w
+        t_s_new   (i,j,ns)    = t_so_new(i,j,1,ns)
+        t_so_new  (i,j,0,ns)  = t_so_new(i,j,1,ns)
+        w_snow_new(i,j,ns)  = w_snow_now(i,j,ns) + zdt*zdwsndt  (i,j)/rho_w
+        w_i_new   (i,j,ns)  = w_i_now(i,j,ns) + zdt*zdwidt   (i,j)/rho_w
   
         ! melting-point adjustment of snow: if snow temp is above freezing and a non-negligible
         ! amount of snow is available, then melt as much snow as needed to get snow temp
         ! back to t0_melt while conserving energy
-        IF (t_snow(i,j,nnew,ns) > t0_melt .AND. w_snow(i,j,nnew,ns) > zepsi) THEN
-          w_snow(i,j,nnew,ns) = MAX(w_snow(i,j,nnew,ns)*(1._ireals-(t_snow(i,j,nnew,ns)-t0_melt) &
+        IF (t_snow_new(i,j,ns) > t0_melt .AND. w_snow_new(i,j,ns) > zepsi) THEN
+          w_snow_new(i,j,ns) = MAX(w_snow_new(i,j,ns)*(1._ireals-(t_snow_new(i,j,ns)-t0_melt) &
             *chc_i/lh_f), 0.0_ireals)
-          t_snow(i,j,nnew,ns) = t0_melt
-        ELSE IF (w_snow(i,j,nnew,ns) <= zepsi) THEN
+          t_snow_new(i,j,ns) = t0_melt
+        ELSE IF (w_snow_new(i,j,ns) <= zepsi) THEN
           ! if the amount of snow is negligible, then just remove it
-          w_snow(i,j,nnew,ns) = 0.0_ireals
-          t_snow(i,j,nnew,ns) = t_so(i,j,0,nnew,ns)
+          w_snow_new(i,j,ns) = 0.0_ireals
+          t_snow_new(i,j,ns) = t_so_new(i,j,0,ns)
         ENDIF
-        IF (w_i(i,j,nnew,ns) <= zepsi) w_i(i,j,nnew,ns) = 0.0_ireals
+        IF (w_i_new(i,j,ns) <= zepsi) w_i_new(i,j,ns) = 0.0_ireals
       END IF          ! land-points only
     END DO
   END DO
@@ -4423,12 +4463,12 @@ DO ns=nsubs0,nsubs1
       DO   j = jstarts, jends
         DO i = istarts, iends
           IF (llandmask(i,j,ns)) THEN  ! for landpoints only
-            IF (w_snow(i,j,nnew,ns) == 0.0_ireals) THEN
-              t_snow_mult(i,j,ksn,nnew,ns) = t_so(i,j,0,nnew,ns)
-              wliq_snow(i,j,ksn,nnew,ns) = 0.0_ireals
-              wtot_snow(i,j,ksn,nnew,ns) = 0.0_ireals
-              rho_snow_mult (i,j,ksn,nnew,ns) = 0.0_ireals
-              dzh_snow (i,j,ksn,nnew,ns) = 0.0_ireals
+            IF (w_snow_new(i,j,ns) == 0.0_ireals) THEN
+              t_snow_mult_new(i,j,ksn,ns) = t_so_new(i,j,0,ns)
+              wliq_snow_new(i,j,ksn,ns) = 0.0_ireals
+              wtot_snow_new(i,j,ksn,ns) = 0.0_ireals
+              rho_snow_mult_new(i,j,ksn,ns) = 0.0_ireals
+              dzh_snow_new(i,j,ksn,ns) = 0.0_ireals
             ENDIF
           END IF          ! land-points only
         END DO
@@ -4449,10 +4489,10 @@ DO ns=nsubs0,nsubs1
 !
 !     temperature dependence of relaxation/ageing constant
 
-         ztau_snow = crhosmint+(crhosmaxt-crhosmint)*(t_snow(i,j,nnew,ns)-csnow_tmin) &
+         ztau_snow = crhosmint+(crhosmaxt-crhosmint)*(t_snow_new(i,j,ns)-csnow_tmin) &
                                                     /(t0_melt         -csnow_tmin)
          ztau_snow = MAX(0.005_ireals,MIN(crhosmaxt,ztau_snow)) ! JH change time constant to 200d!
-         zrho_snowe= crhosmax_ml+(rho_snow(i,j,nx,ns)-crhosmax_ml)* &
+         zrho_snowe= crhosmax_ml+(rho_snow_now(i,j,ns)-crhosmax_ml)* &
                                EXP(-ztau_snow*zdt/86400._ireals)
 !
 !     b) density of fresh snow
@@ -4464,19 +4504,19 @@ DO ns=nsubs0,nsubs1
 !     c) new snow density is weighted average of existing and new snow
 !
          IF ( itype_gscp == 4 ) THEN
-           znorm=MAX(w_snow(i,j,nx,ns)+(prs_gsp(i,j)+prs_con(i,j)+prg_gsp(i,j))      &
+           znorm=MAX(w_snow_now(i,j,ns)+(prs_gsp(i,j)+prs_con(i,j)+prg_gsp(i,j))      &
                      *zdtdrhw,zepsi)
-           rho_snow(i,j,nnew,ns)  = ( zrho_snowe*w_snow(i,j,nx,ns) + &
+           rho_snow_new(i,j,ns)  = ( zrho_snowe*w_snow_now(i,j,ns) + &
                               zrho_snowf*(prs_gsp(i,j)+prs_con(i,j)+prg_gsp(i,j)) &
                                  *zdtdrhw )    /znorm
          ELSE
-           znorm=MAX(w_snow(i,j,nx,ns)+(prs_gsp(i,j)+prs_con(i,j) )      &
+           znorm=MAX(w_snow_now(i,j,ns)+(prs_gsp(i,j)+prs_con(i,j) )      &
                      *zdtdrhw,zepsi)
-           rho_snow(i,j,nnew,ns)  = ( zrho_snowe*w_snow(i,j,nx,ns) + &
+           rho_snow_new(i,j,ns)  = ( zrho_snowe*w_snow_now(i,j,ns) + &
                               zrho_snowf*(prs_gsp(i,j)+prs_con(i,j) ) &
                                  *zdtdrhw )    /znorm
          ENDIF
-         rho_snow(i,j,nnew,ns) = MIN(crhosmax_ml,MAX(crhosmin_ml, rho_snow(i,j,nnew,ns)))
+         rho_snow_new(i,j,ns) = MIN(crhosmax_ml,MAX(crhosmin_ml, rho_snow_new(i,j,ns)))
         END IF          ! land-points only
       END DO
     END DO
@@ -4486,7 +4526,7 @@ DO ns=nsubs0,nsubs1
     DO   j = jstarts, jends
       DO i = istarts, iends 
         IF (llandmask(i,j,ns)) THEN  ! for landpoints only
-          h_snow(i,j,nnew,ns) = 0.0_ireals
+          h_snow_new(i,j,ns) = 0.0_ireals
           sum_weight(i,j) = 0.0_ireals
         END IF          ! land-points only
       END DO  
@@ -4495,8 +4535,8 @@ DO ns=nsubs0,nsubs1
       DO   j = jstarts, jends
         DO i = istarts, iends
           IF (llandmask(i,j,ns)) THEN  ! for landpoints only
-            IF(w_snow(i,j,nnew,ns) .GT. zepsi) THEN
-              h_snow(i,j,nnew,ns) = h_snow(i,j,nnew,ns) + zdzh_snow(i,j,ksn)
+            IF(w_snow_new(i,j,ns) .GT. zepsi) THEN
+              h_snow_new(i,j,ns) = h_snow_new(i,j,ns) + zdzh_snow(i,j,ksn)
             END IF
           END IF          ! land-points only
         END DO
@@ -4507,11 +4547,11 @@ DO ns=nsubs0,nsubs1
       DO   j = jstarts, jends
         DO i = istarts, iends
           IF (llandmask(i,j,ns)) THEN  ! for landpoints only
-            IF(w_snow(i,j,nnew,ns) .GT. zepsi) THEN
-              dz_old(i,j,ksn) = dzh_snow(i,j,ksn,nnew,ns)
-              z_old(i,j,ksn) = -sum_weight(i,j) - dzh_snow(i,j,ksn,nnew,ns)/2._ireals
-              sum_weight(i,j) = sum_weight(i,j) + dzh_snow(i,j,ksn,nnew,ns)
-              zhh_snow(i,j,ksn) = -h_snow(i,j,nnew,ns)/ke_snow*(ke_snow-ksn)
+            IF(w_snow_new(i,j,ns) .GT. zepsi) THEN
+              dz_old(i,j,ksn) = dzh_snow_new(i,j,ksn,ns)
+              z_old(i,j,ksn) = -sum_weight(i,j) - dzh_snow_new(i,j,ksn,ns)/2._ireals
+              sum_weight(i,j) = sum_weight(i,j) + dzh_snow_new(i,j,ksn,ns)
+              zhh_snow(i,j,ksn) = -h_snow_new(i,j,ns)/ke_snow*(ke_snow-ksn)
             END IF
           END IF          ! land-points only
         END DO
@@ -4521,12 +4561,12 @@ DO ns=nsubs0,nsubs1
     DO   j = jstarts, jends
       DO i = istarts, iends
         IF (llandmask(i,j,ns)) THEN  ! for landpoints only
-          IF(w_snow(i,j,nnew,ns) .GT. zepsi) THEN
-            zhm_snow(i,j,1) = (-h_snow(i,j,nnew,ns) + zhh_snow(i,j,1))/2._ireals
-            dzh_snow (i,j,1,nnew,ns) = zhh_snow(i,j,1) + h_snow(i,j,nnew,ns)            !layer thickness betw. half levels of uppermost snow layer
-            zdzm_snow(i,j,1     ) = zhm_snow(i,j,1) + h_snow(i,j,nnew,ns)            !layer thickness between snow surface and main level of uppermost layer
-            IF(dz_old(i,j,1).ne.0..and.rho_snow_mult(i,j,1,nnew,ns).ne.0.) THEN
-              wliq_snow(i,j,1,nnew,ns) = wliq_snow(i,j,1,nnew,ns)/dz_old(i,j,1)
+          IF(w_snow_new(i,j,ns) .GT. zepsi) THEN
+            zhm_snow(i,j,1) = (-h_snow_new(i,j,ns) + zhh_snow(i,j,1))/2._ireals
+            dzh_snow_new(i,j,1,ns) = zhh_snow(i,j,1) + h_snow_new(i,j,ns)            !layer thickness betw. half levels of uppermost snow layer
+            zdzm_snow(i,j,1     ) = zhm_snow(i,j,1) + h_snow_new(i,j,ns)            !layer thickness between snow surface and main level of uppermost layer
+            IF(dz_old(i,j,1).ne.0..and.rho_snow_mult_new(i,j,1,ns).ne.0.) THEN
+              wliq_snow_new(i,j,1,ns) = wliq_snow_new(i,j,1,ns)/dz_old(i,j,1)
             END IF
           END IF
         END IF          ! land-points only
@@ -4536,12 +4576,12 @@ DO ns=nsubs0,nsubs1
       DO   j = jstarts, jends
         DO i = istarts, iends
           IF (llandmask(i,j,ns)) THEN  ! for landpoints only
-            IF(w_snow(i,j,nnew,ns) .GT. zepsi) THEN
+            IF(w_snow_new(i,j,ns) .GT. zepsi) THEN
               zhm_snow(i,j,ksn) = (zhh_snow(i,j,ksn) + zhh_snow(i,j,ksn-1))/2._ireals
-              dzh_snow (i,j,ksn,nnew,ns) = zhh_snow(i,j,ksn) - zhh_snow(i,j,ksn-1) ! layer thickness betw. half levels
+              dzh_snow_new(i,j,ksn,ns) = zhh_snow(i,j,ksn) - zhh_snow(i,j,ksn-1) ! layer thickness betw. half levels
               zdzm_snow(i,j,ksn     ) = zhm_snow(i,j,ksn) - zhm_snow(i,j,ksn-1) ! layer thickness betw. main levels
-              IF(dz_old(i,j,ksn).ne.0..and.rho_snow_mult(i,j,ksn,nnew,ns).ne.0.) THEN
-                wliq_snow(i,j,ksn,nnew,ns) = wliq_snow(i,j,ksn,nnew,ns)/dz_old(i,j,ksn)
+              IF(dz_old(i,j,ksn).ne.0..and.rho_snow_mult_new(i,j,ksn,ns).ne.0.) THEN
+                wliq_snow_new(i,j,ksn,ns) = wliq_snow_new(i,j,ksn,ns)/dz_old(i,j,ksn)
               END IF
             END IF
           END IF          ! land-points only
@@ -4562,17 +4602,17 @@ DO ns=nsubs0,nsubs1
         DO   j = jstarts, jends
           DO i = istarts, iends
             IF (llandmask(i,j,ns)) THEN  ! for landpoints only
-              IF(w_snow(i,j,nnew,ns) .GT. zepsi) THEN
+              IF(w_snow_new(i,j,ns) .GT. zepsi) THEN
     
                 weight = MAX(MIN(z_old(i,j,k)+dz_old(i,j,k)/2._ireals,zhm_snow(i,j,ksn) &
-                &+dzh_snow(i,j,ksn,nnew,ns)/2._ireals)-   &
+                &+dzh_snow_new(i,j,ksn,ns)/2._ireals)-   &
                          MAX(z_old(i,j,k)-dz_old(i,j,k)/2._ireals, &
-                         zhm_snow(i,j,ksn)-dzh_snow(i,j,ksn,nnew,ns)/2._ireals),0._ireals) &
-                         &/dzh_snow(i,j,ksn,nnew,ns)
+                         zhm_snow(i,j,ksn)-dzh_snow_new(i,j,ksn,ns)/2._ireals),0._ireals) &
+                         &/dzh_snow_new(i,j,ksn,ns)
     
-                t_new  (i,j,ksn) = t_new  (i,j,ksn) + t_snow_mult  (i,j,k,nnew,ns)*weight
-                rho_new(i,j,ksn) = rho_new(i,j,ksn) + rho_snow_mult(i,j,k,nnew,ns)*weight
-                wl_new (i,j,ksn) = wl_new (i,j,ksn) + wliq_snow    (i,j,k,nnew,ns)*weight
+                t_new  (i,j,ksn) = t_new  (i,j,ksn) + t_snow_mult_new  (i,j,k,ns)*weight
+                rho_new(i,j,ksn) = rho_new(i,j,ksn) + rho_snow_mult_new(i,j,k,ns)*weight
+                wl_new (i,j,ksn) = wl_new (i,j,ksn) + wliq_snow_new(i,j,k,ns)*weight
               END IF
             END IF          ! land-points only
           END DO
@@ -4584,11 +4624,11 @@ DO ns=nsubs0,nsubs1
       DO   j = jstarts, jends
         DO i = istarts, iends
           IF (llandmask(i,j,ns)) THEN  ! for landpoints only
-            IF(w_snow(i,j,nnew,ns) .GT. zepsi) THEN
-              t_snow_mult  (i,j,ksn,nnew,ns) = t_new  (i,j,ksn)
-              rho_snow_mult(i,j,ksn,nnew,ns) = rho_new(i,j,ksn)
-              wtot_snow    (i,j,ksn,nnew,ns) = rho_new(i,j,ksn)*dzh_snow(i,j,ksn,nnew,ns)/rho_w
-              wliq_snow    (i,j,ksn,nnew,ns) = wl_new (i,j,ksn)*dzh_snow(i,j,ksn,nnew,ns)
+            IF(w_snow_new(i,j,ns) .GT. zepsi) THEN
+              t_snow_mult_new  (i,j,ksn,ns) = t_new  (i,j,ksn)
+              rho_snow_mult_new(i,j,ksn,ns) = rho_new(i,j,ksn)
+              wtot_snow_new    (i,j,ksn,ns) = rho_new(i,j,ksn)*dzh_snow_new(i,j,ksn,ns)/rho_w
+              wliq_snow_new    (i,j,ksn,ns) = wl_new (i,j,ksn)*dzh_snow_new(i,j,ksn,ns)
             END IF
           END IF          ! land-points only
         END DO
@@ -4598,9 +4638,9 @@ DO ns=nsubs0,nsubs1
     DO   j = jstarts, jends
       DO i = istarts, iends
         IF (llandmask(i,j,ns)) THEN  ! for landpoints only
-          IF(w_snow(i,j,nnew,ns) .GT. zepsi) rho_snow(i,j,nnew,ns) = &
-          &w_snow(i,j,nnew,ns)/h_snow(i,j,nnew,ns)*rho_w
-          t_snow(i,j,nnew,ns) = t_snow_mult(i,j,1,nx,ns)
+          IF(w_snow_new(i,j,ns) .GT. zepsi) rho_snow_new(i,j,ns) = &
+          &w_snow_new(i,j,ns)/h_snow_new(i,j,ns)*rho_w
+          t_snow_new(i,j,ns) = t_snow_mult_now(i,j,1,ns)
         END IF          ! land-points only
       END DO
     END DO
@@ -4612,7 +4652,7 @@ DO ns=nsubs0,nsubs1
     DO   j = jstarts, jends
       DO i = istarts, iends
         IF (llandmask(i,j,ns)) THEN  ! for landpoints only
-          w_so(i,j,kso,nnew,ns) = w_so(i,j,kso,nx,ns) + zdt*zdwgdt(i,j,kso)/rho_w
+          w_so_new(i,j,kso,ns) = w_so_now(i,j,kso,ns) + zdt*zdwgdt(i,j,kso)/rho_w
         END IF  ! land-points only
       END DO
     END DO
@@ -4631,29 +4671,29 @@ END DO
           IF (llandmask(i,j,ns)) THEN  ! for landpoints only  !check is not necessary
     
 !>JH IF(i.eq.i_loc .and. j.eq.j_loc .and. my_cart_id.eq.isub) &
-! print *,'w_snow in the end:',w_snow(i,j,nnew,ns-1),w_snow(i,j,nnew,ns  )
-!dev        w_snow(i,j,nnew,ns  ) = w_snow(i,j,nnew,ns) + &
-!dev                                w_snow(i,j,nnew,ns-1)*subsfrac(i,j,ns-1)/MAX(subsfrac(i,j,ns),zepsi)
+! print *,'w_snow in the end:',w_snow_new(i,j,ns-1),w_snow_new(i,j,ns  )
+!dev        w_snow_new(i,j,ns  ) = w_snow_new(i,j,ns) + &
+!dev                                w_snow_new(i,j,ns-1)*subsfrac(i,j,ns-1)/MAX(subsfrac(i,j,ns),zepsi)
             fact1 = subsfrac(i,j,ns-1)+subsfrac(i,j,ns)
-            w_snow(i,j,nnew,ns  ) = (w_snow(i,j,nnew,ns)  *subsfrac(i,j,ns) + &
-                                     w_snow(i,j,nnew,ns-1)*subsfrac(i,j,ns-1))/MAX(fact1,zepsi)
-            w_snow(i,j,nnew,ns-1) = 0._ireals
+            w_snow_new(i,j,ns  ) = (w_snow_new(i,j,ns)  *subsfrac(i,j,ns) + &
+                                     w_snow_new(i,j,ns-1)*subsfrac(i,j,ns-1))/MAX(fact1,zepsi)
+            w_snow_new(i,j,ns-1) = 0._ireals
 !>JH IF(i.eq.i_loc .and. j.eq.j_loc .and. my_cart_id.eq.isub) &
-! print *,'w_snow in the end-2:',w_snow(i,j,nnew,ns-1),w_snow(i,j,nnew,ns  )
+! print *,'w_snow in the end-2:',w_snow_new(i,j,ns-1),w_snow_new(i,j,ns  )
 
             zf_snow_old(i,j) = subsfrac(i,j,ns) / (subsfrac(i,j,ns-1) + subsfrac(i,j,ns))
-!dev        zf_snow    (i,j) = MAX( 0.01_ireals, MIN(1.0_ireals,w_snow(i,j,nnew,ns)*zf_snow_old(i,j)/cf_snow) )* &
-            zf_snow    (i,j) = MAX( 0.01_ireals, MIN(1.0_ireals,w_snow(i,j,nnew,ns)/cf_snow) )* &
-                               zsf_heav(w_snow(i,j,nnew,ns) - zepsi)
+!dev        zf_snow    (i,j) = MAX( 0.01_ireals, MIN(1.0_ireals,w_snow_new(i,j,ns)*zf_snow_old(i,j)/cf_snow) )* &
+            zf_snow    (i,j) = MAX( 0.01_ireals, MIN(1.0_ireals,w_snow_new(i,j,ns)/cf_snow) )* &
+                               zsf_heav(w_snow_new(i,j,ns) - zepsi)
 
 !>JH IF(i.eq.i_loc .and. j.eq.j_loc .and. my_cart_id.eq.isub) &
 ! print *,'zf_snow_old, zf_snow',zf_snow_old(i,j),zf_snow    (i,j)
 
-!dev        w_snow(i,j,nnew,ns  ) = w_snow(i,j,nnew,ns) * zf_snow_old(i,j)/MAX(zf_snow(i,j),zepsi)
-            w_snow(i,j,nnew,ns  ) = w_snow(i,j,nnew,ns)/MAX(zf_snow(i,j),zepsi)
+!dev        w_snow_new(i,j,ns  ) = w_snow_new(i,j,ns) * zf_snow_old(i,j)/MAX(zf_snow(i,j),zepsi)
+            w_snow_new(i,j,ns  ) = w_snow_new(i,j,ns)/MAX(zf_snow(i,j),zepsi)
 
 !>JH IF(i.eq.i_loc .and. j.eq.j_loc .and. my_cart_id.eq.isub) &
-!print *,'w_snow in the end-3:',w_snow(i,j,nnew,ns-1),w_snow(i,j,nnew,ns  )
+!print *,'w_snow in the end-3:',w_snow_new(i,j,ns-1),w_snow_new(i,j,ns  )
 
             subsfrac(i,j,ns-1) = (1._ireals - zf_snow(i,j))*fact1
             subsfrac(i,j,ns  ) = zf_snow(i,j)              *fact1
@@ -4675,20 +4715,20 @@ END DO
     
 !>JH IF(i.eq.i_loc .and. j.eq.j_loc .and. kso.eq.1 .and. my_cart_id.eq.isub) &
 ! print *,'fact:',fact1,fact2
-              tmp1 = t_so    (i,j,kso,nnew,ns-1)
-              tmp2 = w_so    (i,j,kso,nnew,ns-1)
-              tmp3 = w_so_ice(i,j,kso,nnew,ns-1)
+              tmp1 = t_so_new    (i,j,kso,ns-1)
+              tmp2 = w_so_new    (i,j,kso,ns-1)
+              tmp3 = w_so_ice_new(i,j,kso,ns-1)
   
-              t_so    (i,j,kso,nnew,ns-1) = t_so(i,j,kso,nnew,ns-1)*fact1 &
-                &                         + t_so(i,j,kso,nnew,ns)*(1._ireals - fact1)
-              w_so    (i,j,kso,nnew,ns-1) = w_so(i,j,kso,nnew,ns-1)*fact1 &
-                &                         + w_so(i,j,kso,nnew,ns)*(1._ireals - fact1)
-              w_so_ice(i,j,kso,nnew,ns-1) = w_so_ice(i,j,kso,nnew,ns-1)*fact1 &
-                &                         + w_so_ice(i,j,kso,nnew,ns)*(1._ireals - fact1)
+              t_so_new    (i,j,kso,ns-1) = t_so_new(i,j,kso,ns-1)*fact1 &
+                &                         + t_so_new(i,j,kso,ns)*(1._ireals - fact1)
+              w_so_new    (i,j,kso,ns-1) = w_so_new(i,j,kso,ns-1)*fact1 &
+                &                         + w_so_new(i,j,kso,ns)*(1._ireals - fact1)
+              w_so_ice_new(i,j,kso,ns-1) = w_so_ice_new(i,j,kso,ns-1)*fact1 &
+                &                         + w_so_ice_new(i,j,kso,ns)*(1._ireals - fact1)
   
-              t_so    (i,j,kso,nnew,ns) = tmp1*fact2 + t_so(i,j,kso,nnew,ns)*(1._ireals-fact2)
-              w_so    (i,j,kso,nnew,ns) = tmp2*fact2 + w_so(i,j,kso,nnew,ns)*(1._ireals-fact2)
-              w_so_ice(i,j,kso,nnew,ns) = tmp3*fact2 + w_so_ice(i,j,kso,nnew,ns)*(1._ireals-fact2)
+              t_so_new    (i,j,kso,ns) = tmp1*fact2 + t_so_new(i,j,kso,ns)*(1._ireals-fact2)
+              w_so_new    (i,j,kso,ns) = tmp2*fact2 + w_so_new(i,j,kso,ns)*(1._ireals-fact2)
+              w_so_ice_new(i,j,kso,ns) = tmp3*fact2 + w_so_ice_new(i,j,kso,ns)*(1._ireals-fact2)
 
             END IF  ! land-points only
           END DO
@@ -4703,15 +4743,23 @@ END DO
   
   ! computation of the temperature at the boundary soil/snow-atmosphere
     IF(lmulti_snow) THEN
-      CALL tgcom ( t_g(:,:,ns), t_snow_mult(:,:,1,nnew,ns), t_s(:,:,nnew,ns), &
-                   w_snow(:,:,nnew,ns), llandmask(:,:,ns), ie, je, cf_snow,   &
+      CALL tgcom ( t_g(:,:,ns), t_snow_mult_new(:,:,1,ns), t_s_new(:,:,ns), &
+                   w_snow_new(:,:,ns), llandmask(:,:,ns), ie, je, cf_snow,   &
                    istarts, iends, jstarts, jends )
     ELSE
-      CALL tgcom ( t_g(:,:,ns), t_snow(:,:,nnew,ns), t_s(:,:,nnew,ns),        &
-                   w_snow(:,:,nnew,ns), llandmask(:,:,ns), ie, je, cf_snow,   &
+      CALL tgcom ( t_g(:,:,ns), t_snow_new(:,:,ns), t_s_new(:,:,ns),        &
+                   w_snow_new(:,:,ns), llandmask(:,:,ns), ie, je, cf_snow,   &
                    istarts, iends, jstarts, jends )
     ENDIF
   END DO
+
+
+! Update of two-time level interface variables 
+  
+     h_snow = h_snow_new
+
+
+! Debug messages
 
 
 #ifdef __ICON__
@@ -4720,9 +4768,9 @@ END DO
       DO   j = jstarts, jends
         DO i = istarts, iends
           IF (llandmask(i,j,ns)) THEN          ! land-points only
-            IF (w_snow(i,j,nnew,ns) > zepsi .AND. (t_snow(i,j,nnew,ns)<180. &
-                & .OR. t_snow(i,j,nnew,ns)>280.)) THEN 
-!                & .OR. w_i(i,j,nnew,ns)*1000. > 0.1_ireals ) THEN
+            IF (w_snow_new(i,j,ns) > zepsi .AND. (t_snow_new(i,j,ns)<180. &
+                & .OR. t_snow_new(i,j,ns)>280.)) THEN 
+!                & .OR. w_i_new(i,j,ns)*1000. > 0.1_ireals ) THEN
 
               write(0,*) "SFC-DIAGNOSIS TERRA ",i,j,ke,dt,nsubs1,ntstep
               write(0,*)" nztlev ",               nztlev   
@@ -4747,13 +4795,13 @@ END DO
               write(0,*) "u",u(i,j,ke)
               write(0,*) "ps",ps(i,j)
               write(0,*) "t_g",t_g(i,j,:)
-              write(0,*) "t_s",t_s(i,j,:,:)
-              write(0,*) "t_snow",t_snow(i,j,:,:)
-              write(0,*) "w_snow",w_snow(i,j,:,:)
-              write(0,*) "h_snow",h_snow(i,j,:,:)
+              write(0,*) "t_s",t_s_now(i,j,:),t_s_new(i,j,:)
+              write(0,*) "t_snow",t_snow_now(i,j,:),t_snow_new(i,j,:)
+              write(0,*) "w_snow",w_snow_now(i,j,:),w_snow_now(i,j,:)
+              write(0,*) "h_snow",h_snow_now(i,j,:),h_snow_new(i,j,:)
               write(0,*) "qv_s",qv_s(i,j,:)
-              write(0,*) "t_so",t_so(i,j,:,:,:)
-              write(0,*) "w_so",w_so(i,j,:,:,:)
+              write(0,*) "t_so",t_so_now(i,j,:,:),t_so_new(i,j,:,:)
+              write(0,*) "w_so",w_so_now(i,j,:,:),w_so_new(i,j,:,:)
               write(0,*) "tch_t",tch(i,j,:)
               write(0,*) "tcm_t",tcm(i,j,:)
               write(0,*) " tfv_t",tfv(i,j,:)
@@ -4827,9 +4875,12 @@ REAL (KIND=ireals), INTENT (INOUT)       ::    &
   tg (ie,je)    ! temperature at the boundary between ground and atmosphere
 
 REAL (KIND=ireals), INTENT (IN)          ::    &
-  ts (ie,je), & ! temperature of the snow surface
+!DR  ts (ie,je), & ! temperature of the snow surface
   tb (ie,je), & ! temperature of the ground surface
   ws (ie,je)    ! water content of snow
+
+REAL (KIND=ireals), INTENT (INOUT)          ::    &
+  ts (ie,je)    ! temperature of the snow surface
 
 LOGICAL,  INTENT (IN)                    ::    &
   llp (ie,je)   ! pattern of land- and sea-points
