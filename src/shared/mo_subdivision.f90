@@ -3029,7 +3029,7 @@ CONTAINS
             ! We don't want to receive any data, i.e. the number of cells is 0
             ! and owner/global index are dummies!
             CALL setup_comm_pattern(0, owner, glbidx, &
-              & p_patch_subdiv(jg)%cells%loc_index, p_phys_patch(jp)%comm_pat_gather_c)
+              & p_patch(jg)%cells%loc_index, p_phys_patch(jp)%comm_pat_gather_c)
           ENDIF
         ENDIF
 
@@ -3054,7 +3054,7 @@ CONTAINS
             ! We don't want to receive any data, i.e. the number of edges is 0
             ! and owner/global index are dummies!
             CALL setup_comm_pattern(0, owner, glbidx, &
-              & p_patch_subdiv(jg)%edges%loc_index, p_phys_patch(jp)%comm_pat_gather_e)
+              & p_patch(jg)%edges%loc_index, p_phys_patch(jp)%comm_pat_gather_e)
           ENDIF
         ENDIF
 
@@ -3079,7 +3079,7 @@ CONTAINS
             ! We don't want to receive any data, i.e. the number of verts is 0
             ! and owner/global index are dummies!
             CALL setup_comm_pattern(0, owner, glbidx, &
-              & p_patch_subdiv(jg)%verts%loc_index, p_phys_patch(jp)%comm_pat_gather_v)
+              & p_patch(jg)%verts%loc_index, p_phys_patch(jp)%comm_pat_gather_v)
           ENDIF
         ENDIF
 
