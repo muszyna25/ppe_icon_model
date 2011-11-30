@@ -123,7 +123,7 @@ export OMP_STACKSIZE=${use_omp_stacksize}
 calldir=\$(pwd)
 thisdir=\$(pwd)
 basedir=\${thisdir%/*}                   # determine base directory
-if [[  ${use_target} == "dole"  ]] ; then
+if [[  "${use_target}" = "dole"  ]] ; then
     basedir=/scratch/${USER}/trunk/icon-dev
     calldir=\$basedir
     thisdir=\$basedir
