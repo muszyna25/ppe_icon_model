@@ -1065,7 +1065,6 @@ IMPLICIT NONE
 ! -------------------------
 
   REAL    (KIND = ireals) :: &
-
 !
 ! Two-time level variables exchange with interface
 !
