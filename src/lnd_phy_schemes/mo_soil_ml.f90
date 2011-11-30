@@ -1941,7 +1941,8 @@ DO ns=nsubs0,nsubs1
     !         between the actual temperature and the melting point. The mean 
     !         snow temperature is set to the average of t_snow & t_so(1)
           IF(lmulti_snow) THEN
-            zdT_snow=MIN(0._ireals,t0_melt-0.5_ireals*(t_snow_mult_now(i,j,1,ns)+t_so_now(i,j,1,ns)))
+            zdT_snow=MIN(0._ireals, &
+              &          t0_melt-0.5_ireals*(t_snow_mult_now(i,j,1,ns)+t_so_now(i,j,1,ns)))
           ELSE
             zdT_snow=MIN(0._ireals,t0_melt-0.5_ireals*(t_snow_now(i,j,ns)+t_so_now(i,j,1,ns)))
           ENDIF
@@ -3299,7 +3300,8 @@ DO ns=nsubs0,nsubs1
 
           IF(zdwsndt(i,j)-zrs(i,j)-zrr(i,j).GT.0.0_ireals) THEN
 
-            wtot_snow_now(i,j,1,ns) = max(wtot_snow_now(i,j,1,ns) + zdwsndt(i,j)*zdtdrhw,0.0_ireals)
+            wtot_snow_now(i,j,1,ns) = max(wtot_snow_now(i,j,1,ns) + zdwsndt(i,j)*zdtdrhw, &
+              &                           0.0_ireals)
 
             zhm_snow(i,j,1) = zhm_snow(i,j,1) - (zdwsndt(i,j)-zrs(i,j)- &
                               zrr(i,j))*zdt/rho_i/2._ireals-  &
@@ -3710,8 +3712,8 @@ DO ns=nsubs0,nsubs1
             zagb(i,j,1) = 1._ireals - zagc(i,j,1)
             zagd(i,j,1) = ztsnow_mult(i,j,1) + zdt/zdzh_snow(i,j,1)*zfor_snow_mult(i,j)/zrocs(i,j)
         
-            zrocs(i,j) = wliq_snow_now(i,j,ke_snow,ns)/wtot_snow_now(i,j,ke_snow,ns)*chc_w*rho_w + &
-              & (wtot_snow_now(i,j,ke_snow,ns)-wliq_snow_now(i,j,ke_snow,ns))/                     &
+            zrocs(i,j) = wliq_snow_now(i,j,ke_snow,ns)/wtot_snow_now(i,j,ke_snow,ns)*chc_w*rho_w +&
+              & (wtot_snow_now(i,j,ke_snow,ns)-wliq_snow_now(i,j,ke_snow,ns))/                    &
               & wtot_snow_now(i,j,ke_snow,ns)*chc_i*rho_i
             zakb = zalas_mult(i,j,ke_snow)/zrocs(i,j)  !(chc_i*rho_snow(1,nx))
             zaga(i,j,ke_snow) = -zdt*zakb/(zdzh_snow(i,j,ke_snow)*zdzm_snow(i,j,ke_snow))
@@ -4148,8 +4150,9 @@ DO ns=nsubs0,nsubs1
     
               IF(zdzh_snow(i,j,ksn) - wliq_snow_now(i,j,ksn,ns).GT.zepsi .OR. &
                 wtot_snow_now(i,j,ksn,ns) - wliq_snow_now(i,j,ksn,ns).GT.zepsi) THEN
-                zrho_dry_old(i,j) = MAX(wtot_snow_now(i,j,ksn,ns)-wliq_snow_now(i,j,ksn,ns),zepsi)*&
-                  &                 rho_w/(zdzh_snow(i,j,ksn) - wliq_snow_now(i,j,ksn,ns))
+                zrho_dry_old(i,j) = MAX(wtot_snow_now(i,j,ksn,ns)-wliq_snow_now(i,j,ksn,ns), &
+                  &                     zepsi)                                               &
+                  &                 *rho_w/(zdzh_snow(i,j,ksn) - wliq_snow_now(i,j,ksn,ns))
               ELSE
                 zrho_dry_old(i,j) = rho_w
               END IF
@@ -4193,9 +4196,9 @@ DO ns=nsubs0,nsubs1
                   ze_out(i,j) = chc_i*wtot_snow_now(i,j,ksn,ns)*(ztsnownew_mult(i,j,ksn)-t0_melt) &
                     &      *z1d2dt*rho_w
                   zmelt(i,j) = 0.0_ireals
-                ELSEIF(chc_i*wtot_snow_now(i,j,ksn,ns)*(ztsnownew_mult(i,j,ksn)-t0_melt)/lh_f .LE. &
+                ELSEIF(chc_i*wtot_snow_now(i,j,ksn,ns)*(ztsnownew_mult(i,j,ksn)-t0_melt)/lh_f <= &
                   wtot_snow_now(i,j,ksn,ns)-wliq_snow_now(i,j,ksn,ns)) THEN
-                  zmelt(i,j) = chc_i*wtot_snow_now(i,j,ksn,ns)*(ztsnownew_mult(i,j,ksn) - t0_melt) &
+                  zmelt(i,j) = chc_i*wtot_snow_now(i,j,ksn,ns)*(ztsnownew_mult(i,j,ksn)-t0_melt) &
                     &          *z1d2dt/lh_f
                   ze_out(i,j) = 0.0_ireals
                   wliq_snow_now(i,j,ksn,ns) = wliq_snow_now(i,j,ksn,ns) + zmelt(i,j)*zdt
