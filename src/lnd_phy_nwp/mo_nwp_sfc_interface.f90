@@ -73,7 +73,7 @@ CONTAINS
   !!-------------------------------------------------------------------------
   !!
   SUBROUTINE nwp_surface( tcall_sfc_jg,                   & !>in
-                        & p_sim_time, dtadv_loc,          & !>in
+                        & p_sim_time, dtadv_loc,             & !>in
                         & p_patch,                        & !>in
                         & ext_data,                       & !>in
                         & p_prog_rcf,                     & !>in/inout
@@ -83,7 +83,7 @@ CONTAINS
                         & lnd_diag                        ) !>inout
 
     REAL(wp),                    INTENT(in)   :: p_sim_time    !< simulation time [s]
-    REAL(wp),                    INTENT(in)   :: dtadv_loc     !< advective time step [s]
+    REAL(wp),                    INTENT(in)   :: dtadv_loc        !< time step [s]
     TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch       !< grid/patch info
     TYPE(t_external_data),       INTENT(in)   :: ext_data      !< external data
     TYPE(t_nh_prog),      TARGET,INTENT(inout):: p_prog_rcf    !< call freq
@@ -113,24 +113,24 @@ CONTAINS
  
     ! local prognostic variables
     !
-    REAL(wp) :: t_snow_t       (nproma,               p_patch%nblks_c, nztlev, nsfc_subs)
-    REAL(wp) :: t_snow_mult_t  (nproma, 0:nlev_snow  ,p_patch%nblks_c, nztlev, nsfc_subs) 
-    REAL(wp) :: t_so_t         (nproma, 0:nlev_soil+1,p_patch%nblks_c, nztlev, nsfc_subs)
-    REAL(wp) :: w_so_t         (nproma, 1:nlev_soil+1,p_patch%nblks_c, nztlev, nsfc_subs)
-    REAL(wp) :: w_so_ice_t     (nproma, 1:nlev_soil+1,p_patch%nblks_c, nztlev, nsfc_subs)
-    REAL(wp) :: w_i_t          (nproma,               p_patch%nblks_c, nztlev, nsfc_subs) 
-    REAL(wp) :: t_s_t          (nproma,               p_patch%nblks_c, nztlev, nsfc_subs)
-    REAL(wp) :: w_snow_t       (nproma,               p_patch%nblks_c, nztlev, nsfc_subs)
-    REAL(wp) :: rho_snow_t     (nproma,               p_patch%nblks_c, nztlev, nsfc_subs)
-    REAL(wp) :: rho_snow_mult_t(nproma, 1:nlev_snow  ,p_patch%nblks_c, nztlev, nsfc_subs)
-    REAL(wp) :: wliq_snow_t    (nproma, 1:nlev_snow  ,p_patch%nblks_c, nztlev, nsfc_subs)
-    REAL(wp) :: wtot_snow_t    (nproma, 1:nlev_snow  ,p_patch%nblks_c, nztlev, nsfc_subs)
-    REAL(wp) :: dzh_snow_t     (nproma, 1:nlev_snow  ,p_patch%nblks_c, nztlev, nsfc_subs)
+!!$    REAL(wp) :: t_snow_t       (nproma,               p_patch%nblks_c, nztlev, nsfc_subs)
+!!$    REAL(wp) :: t_snow_mult_t  (nproma, 0:nlev_snow  ,p_patch%nblks_c, nztlev, nsfc_subs) 
+!!$    REAL(wp) :: t_so_t         (nproma, 0:nlev_soil+1,p_patch%nblks_c, nztlev, nsfc_subs)
+!!$    REAL(wp) :: w_so_t         (nproma, 1:nlev_soil+1,p_patch%nblks_c, nztlev, nsfc_subs)
+!!$    REAL(wp) :: w_so_ice_t     (nproma, 1:nlev_soil+1,p_patch%nblks_c, nztlev, nsfc_subs)
+!!$       REAL(wp) :: w_i_t          (nproma,               p_patch%nblks_c, nztlev, nsfc_subs) 
+!!$    REAL(wp) :: t_s_t          (nproma,               p_patch%nblks_c, nztlev, nsfc_subs)
+!!$    REAL(wp) :: w_snow_t       (nproma,               p_patch%nblks_c, nztlev, nsfc_subs)
+!!$    REAL(wp) :: rho_snow_t     (nproma,               p_patch%nblks_c, nztlev, nsfc_subs)
+!!$    REAL(wp) :: rho_snow_mult_t(nproma, 1:nlev_snow  ,p_patch%nblks_c, nztlev, nsfc_subs)
+!!$    REAL(wp) :: wliq_snow_t    (nproma, 1:nlev_snow  ,p_patch%nblks_c, nztlev, nsfc_subs)
+!!$    REAL(wp) :: wtot_snow_t    (nproma, 1:nlev_snow  ,p_patch%nblks_c, nztlev, nsfc_subs)
+!!$    REAL(wp) :: dzh_snow_t     (nproma, 1:nlev_snow  ,p_patch%nblks_c, nztlev, nsfc_subs)
 
 
     ! local diagnostic variables
     !
-    REAL(wp) :: h_snow_t(nproma, p_patch%nblks_c, nztlev, nsfc_subs) 
+!!$    REAL(wp) :: h_snow_t(nproma, p_patch%nblks_c, nztlev, nsfc_subs) 
 
 !DR    REAL(wp) :: pp_t(nproma, p_patch%nlev, p_patch%nblks_c, nztlev)
 
@@ -183,13 +183,12 @@ CONTAINS
     ! As long as this is not the case, we need to use an absolute time step counter, 
     ! instead of a relative one. Otherwise, the initialization part will be called after 
     ! restart.)
-!    nstep_soil = NINT(REAL(jstep,wp)/REAL(iadv_rcf,wp)) - 1
+!DR    nstep_soil = NINT(REAL(jstep,wp)/REAL(iadv_rcf,wp)) - 1
     nstep_soil = NINT(p_sim_time/dtadv_loc) - 1
 
     IF (msg_level >= 12) THEN
       CALL message('mo_nwp_sfc_interface: ', 'call land-surface scheme')
     ENDIF
-
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,isubs), SCHEDULE(guided)
@@ -231,6 +230,7 @@ CONTAINS
         ! Since the data structure of TERRA differs from that in ICON, 
         ! we have to do some matching (i.e. copying)
 
+
         DO isubs = 1,nsfc_subs
           tch_t(1:i_endidx,jb,isubs)       = prm_diag%tch(1:i_endidx,jb)
           tcm_t(1:i_endidx,jb,isubs)       = prm_diag%tcm(1:i_endidx,jb)
@@ -251,54 +251,54 @@ CONTAINS
 
 
           ! copy diagnostic variables
-          h_snow_t(1:i_endidx,jb,1,isubs) = lnd_diag%h_snow(1:i_endidx,jb,isubs)
-          h_snow_t(1:i_endidx,jb,2,isubs) = lnd_diag%h_snow(1:i_endidx,jb,isubs)
-
-          t_snow_t(1:i_endidx,jb,1,isubs) = lnd_prog_now%t_snow(1:i_endidx,jb,isubs)
-          t_snow_t(1:i_endidx,jb,2,isubs) = lnd_prog_now%t_snow(1:i_endidx,jb,isubs)
-          t_snow_mult_t(1:i_endidx,0:nlev_snow,jb,1,isubs) = &
-            & lnd_prog_now%t_snow_mult(1:i_endidx,1:nlev_snow+1,jb,isubs)
-          t_snow_mult_t(1:i_endidx,0:nlev_snow,jb,2,isubs) = &
-            & lnd_prog_now%t_snow_mult(1:i_endidx,1:nlev_snow+1,jb,isubs)
-          t_s_t(1:i_endidx,jb,1,isubs)   = lnd_prog_now%t_s(1:i_endidx,jb,isubs)
-          t_s_t(1:i_endidx,jb,2,isubs)   = lnd_prog_now%t_s(1:i_endidx,jb,isubs)
+!!$          h_snow_t(1:i_endidx,jb,1,isubs) = lnd_diag%h_snow(1:i_endidx,jb,isubs)
+!!$          h_snow_t(1:i_endidx,jb,2,isubs) = lnd_diag%h_snow(1:i_endidx,jb,isubs)
+!!$
+!!$          t_snow_t(1:i_endidx,jb,1,isubs) = lnd_prog_now%t_snow(1:i_endidx,jb,isubs)
+!!$          t_snow_t(1:i_endidx,jb,2,isubs) = lnd_prog_now%t_snow(1:i_endidx,jb,isubs)
+!!$          t_snow_mult_t(1:i_endidx,0:nlev_snow,jb,1,isubs) = &
+!!$            & lnd_prog_now%t_snow_mult(1:i_endidx,1:nlev_snow+1,jb,isubs)
+!!$          t_snow_mult_t(1:i_endidx,0:nlev_snow,jb,2,isubs) = &
+!!$            & lnd_prog_now%t_snow_mult(1:i_endidx,1:nlev_snow+1,jb,isubs)
+!!$          t_s_t(1:i_endidx,jb,1,isubs)   = lnd_prog_now%t_s(1:i_endidx,jb,isubs)
+!!$          t_s_t(1:i_endidx,jb,2,isubs)   = lnd_prog_now%t_s(1:i_endidx,jb,isubs)
 
 
           ! copy remaining prognostic variables
-          w_snow_t(1:i_endidx,jb,1,isubs) = lnd_prog_now%w_snow(1:i_endidx,jb,isubs)
-          w_snow_t(1:i_endidx,jb,2,isubs) = lnd_prog_now%w_snow(1:i_endidx,jb,isubs)
-          rho_snow_t(1:i_endidx,jb,1,isubs) = lnd_prog_now%rho_snow(1:i_endidx,jb,isubs)
-          rho_snow_t(1:i_endidx,jb,2,isubs) = lnd_prog_now%rho_snow(1:i_endidx,jb,isubs)
-          rho_snow_mult_t(1:i_endidx,1:nlev_snow,jb,1,isubs) = &
-            & lnd_prog_now%rho_snow_mult(1:i_endidx,1:nlev_snow,jb,isubs)
-          rho_snow_mult_t(1:i_endidx,1:nlev_snow,jb,2,isubs) = &
-            & lnd_prog_now%rho_snow_mult(1:i_endidx,1:nlev_snow,jb,isubs)
-          w_i_t(1:i_endidx,jb,1,isubs) = lnd_prog_now%w_i(1:i_endidx,jb,isubs)
-          w_i_t(1:i_endidx,jb,2,isubs) = lnd_prog_now%w_i(1:i_endidx,jb,isubs)
-          t_so_t(1:i_endidx,0:nlev_soil+1,jb,1,isubs) = &
-            & lnd_prog_now%t_so(1:i_endidx,1:nlev_soil+2,jb,isubs)
-          t_so_t(1:i_endidx,0:nlev_soil+1,jb,2,isubs) = &
-            & lnd_prog_now%t_so(1:i_endidx,1:nlev_soil+2,jb,isubs)
-          w_so_t(1:i_endidx,1:nlev_soil+1,jb,1,isubs) = &
-            & lnd_prog_now%w_so(1:i_endidx,1:nlev_soil+1,jb,isubs)
-          w_so_t(1:i_endidx,1:nlev_soil+1,jb,2,isubs) = &
-            & lnd_prog_now%w_so(1:i_endidx,1:nlev_soil+1,jb,isubs)
-          w_so_ice_t(1:i_endidx,1:nlev_soil+1,jb,1,isubs) = &
-            & lnd_prog_now%w_so_ice(1:i_endidx,1:nlev_soil+1,jb,isubs)
-          w_so_ice_t(1:i_endidx,1:nlev_soil+1,jb,2,isubs) = &
-            & lnd_prog_now%w_so_ice(1:i_endidx,1:nlev_soil+1,jb,isubs)  
-          wliq_snow_t(1:i_endidx,1:nlev_snow,jb,1,isubs) = &
-            & lnd_prog_now%wliq_snow(1:i_endidx,1:nlev_snow,jb,isubs)
-          wliq_snow_t(1:i_endidx,1:nlev_snow,jb,2,isubs) = &
-            & lnd_prog_now%wliq_snow(1:i_endidx,1:nlev_snow,jb,isubs)
-          wtot_snow_t(1:i_endidx,1:nlev_snow,jb,1,isubs) = &
-            & lnd_prog_now%wtot_snow(1:i_endidx,1:nlev_snow,jb,isubs)
-          wtot_snow_t(1:i_endidx,1:nlev_snow,jb,2,isubs) = &
-            & lnd_prog_now%wtot_snow(1:i_endidx,1:nlev_snow,jb,isubs)
-          dzh_snow_t(1:i_endidx,1:nlev_snow,jb,1,isubs)  = &
-            & lnd_prog_now%dzh_snow(1:i_endidx,1:nlev_snow,jb,isubs)
-          dzh_snow_t(1:i_endidx,1:nlev_snow,jb,2,isubs)  = &
-            & lnd_prog_now%dzh_snow(1:i_endidx,1:nlev_snow,jb,isubs)
+!!$          w_snow_t(1:i_endidx,jb,1,isubs) = lnd_prog_now%w_snow(1:i_endidx,jb,isubs)
+!!$          w_snow_t(1:i_endidx,jb,2,isubs) = lnd_prog_now%w_snow(1:i_endidx,jb,isubs)
+!!$          rho_snow_t(1:i_endidx,jb,1,isubs) = lnd_prog_now%rho_snow(1:i_endidx,jb,isubs)
+!!$          rho_snow_t(1:i_endidx,jb,2,isubs) = lnd_prog_now%rho_snow(1:i_endidx,jb,isubs)
+!!$          rho_snow_mult_t(1:i_endidx,1:nlev_snow,jb,1,isubs) = &
+!!$            & lnd_prog_now%rho_snow_mult(1:i_endidx,1:nlev_snow,jb,isubs)
+!!$          rho_snow_mult_t(1:i_endidx,1:nlev_snow,jb,2,isubs) = &
+!!$            & lnd_prog_now%rho_snow_mult(1:i_endidx,1:nlev_snow,jb,isubs)
+!!$          w_i_t(1:i_endidx,jb,1,isubs) = lnd_prog_now%w_i(1:i_endidx,jb,isubs)
+!!$          w_i_t(1:i_endidx,jb,2,isubs) = lnd_prog_now%w_i(1:i_endidx,jb,isubs)
+!!$          t_so_t(1:i_endidx,0:nlev_soil+1,jb,1,isubs) = &
+!!$            & lnd_prog_now%t_so(1:i_endidx,1:nlev_soil+2,jb,isubs)
+!!$          t_so_t(1:i_endidx,0:nlev_soil+1,jb,2,isubs) = &
+!!$            & lnd_prog_now%t_so(1:i_endidx,1:nlev_soil+2,jb,isubs)
+!!$          w_so_t(1:i_endidx,1:nlev_soil+1,jb,1,isubs) = &
+!!$            & lnd_prog_now%w_so(1:i_endidx,1:nlev_soil+1,jb,isubs)
+!!$          w_so_t(1:i_endidx,1:nlev_soil+1,jb,2,isubs) = &
+!!$            & lnd_prog_now%w_so(1:i_endidx,1:nlev_soil+1,jb,isubs)
+!!$          w_so_ice_t(1:i_endidx,1:nlev_soil+1,jb,1,isubs) = &
+!!$            & lnd_prog_now%w_so_ice(1:i_endidx,1:nlev_soil+1,jb,isubs)
+!!$          w_so_ice_t(1:i_endidx,1:nlev_soil+1,jb,2,isubs) = &
+!!$            & lnd_prog_now%w_so_ice(1:i_endidx,1:nlev_soil+1,jb,isubs)  
+!!$          wliq_snow_t(1:i_endidx,1:nlev_snow,jb,1,isubs) = &
+!!$            & lnd_prog_now%wliq_snow(1:i_endidx,1:nlev_snow,jb,isubs)
+!!$          wliq_snow_t(1:i_endidx,1:nlev_snow,jb,2,isubs) = &
+!!$            & lnd_prog_now%wliq_snow(1:i_endidx,1:nlev_snow,jb,isubs)
+!!$          wtot_snow_t(1:i_endidx,1:nlev_snow,jb,1,isubs) = &
+!!$            & lnd_prog_now%wtot_snow(1:i_endidx,1:nlev_snow,jb,isubs)
+!!$          wtot_snow_t(1:i_endidx,1:nlev_snow,jb,2,isubs) = &
+!!$            & lnd_prog_now%wtot_snow(1:i_endidx,1:nlev_snow,jb,isubs)
+!!$          dzh_snow_t(1:i_endidx,1:nlev_snow,jb,1,isubs)  = &
+!!$            & lnd_prog_now%dzh_snow(1:i_endidx,1:nlev_snow,jb,isubs)
+!!$          dzh_snow_t(1:i_endidx,1:nlev_snow,jb,2,isubs)  = &
+!!$            & lnd_prog_now%dzh_snow(1:i_endidx,1:nlev_snow,jb,isubs)
         ENDDO
 
 
@@ -315,15 +315,15 @@ CONTAINS
         &  ke_soil=nlev_soil, ke_snow=nlev_snow      , &
         &  czmls=zml_soil                            , & ! processing soil level structure 
         &  dt=tcall_sfc_jg                           , &
-        &  soiltyp_subs  = soiltyp_t(:,jb,:), & !ext_data%atm%soiltyp(:,jb) , &! (:,1,jb) , & ! type of the soil (keys 0-9)  --
-        &  plcov         = plcov_t(:,jb,:)  , & !ext_data%atm%plcov_mx(:,jb), &! ,1, fraction of plant cover                   --
-        &  rootdp        = rootdp_t(:,jb,:) , & !ext_data%atm%rootdp(:,jb) , & ! ,1, depth of the roots                        ( m  )
-        &  sai           = sai_t(:,jb,:)    , & !prm_diag%sai(:,jb)        , & ! ,1,surface area index                           --
-        &  tai           = tai_t(:,jb,:)    , & !prm_diag%tai(:,jb)        , & ! ,1, transpiration area index                    --
-        &  eai           = eai_t(:,jb,:)    , & !prm_diag%eai(:,jb)        , & ! ,1, earth area (evaporative surface area) index --
-        &  llandmask     = llandmask_t(:,jb,:) ,& !ext_data%atm%llsm_atm_c(:,jb) , & ! ,TRUE, landpoint mask                     --
-        &  rsmin2d       = ext_data%atm%rsmin(:,jb),  & ! minimum stomata resistance    ( s/m )
-           !
+        &  soiltyp_subs  = soiltyp_t(:,jb,:)       , & ! type of the soil (keys 0-9)  --
+        &  plcov         = plcov_t(:,jb,:)         , & ! fraction of plant cover      --
+        &  rootdp        = rootdp_t(:,jb,:)        , & ! depth of the roots         ( m  )
+        &  sai           = sai_t(:,jb,:)           , & ! surface area index           --
+        &  tai           = tai_t(:,jb,:)           , & ! transpiration area index     --
+        &  eai           = eai_t(:,jb,:)           , & ! earth area (evaporative surface area) index --
+        &  llandmask     = llandmask_t(:,jb,:)     , & ! landpoint mask               --
+        &  rsmin2d       = ext_data%atm%rsmin(:,jb), & ! minimum stomata resistance ( s/m )
+!
         &  u  =  p_diag%u(:,:,jb)             , & ! zonal wind speed                       ( m/s )
         &  v  =  p_diag%v(:,:,jb)             , & ! meridional wind speed                  ( m/s )
         &  t  =  p_diag%temp(:,:,jb)          , & ! temperature                            (  k  )
@@ -332,26 +332,55 @@ CONTAINS
 !       &  pp = pp_t(:,1:nlev,jb,:)           , & ! deviation from the reference pressure  ( pa  )
         &  ps = p_diag%pres_sfc(:,jb)         , & ! surface pressure                       ( pa  )
            !
-        &  t_snow        =  t_snow_t(:,jb,:,:)    , & ! temperature of the snow-surface              (  K  )
-        &  t_snow_mult   =  t_snow_mult_t(:,0:nlev_snow,jb,:,:), & ! temperature of the snow-surface (  K  )
-        &  t_s           =  t_s_t(:,jb,:,:)       , & ! temperature of the ground surface            (  K  )
+        &  t_snow_now    =  lnd_prog_now%t_snow(:,jb,:)     , & ! temperature of the snow-surface   (  K  )
+        &  t_snow_new    =  lnd_prog_new%t_snow(:,jb,:)     , & ! temperature of the snow-surface   (  K  )
+!
+        &  t_snow_mult_now   = lnd_prog_now%t_snow_mult(:,:,jb,:) ,& ! temperature of the snow-surface (  K  )
+        &  t_snow_mult_new   = lnd_prog_new%t_snow_mult(:,:,jb,:) ,& ! temperature of the snow-surface (  K  )
+!
+        &  t_s_now           =  lnd_prog_now%t_s(:,jb,:)   , & ! temperature of the ground surface            (  K  )
+        &  t_s_new           =  lnd_prog_new%t_s(:,jb,:)   , & ! temperature of the ground surface            (  K  )
+!
         &  t_g           =  lnd_prog_now%t_gt(:,jb,:)     , & ! weighted surface temperature                 (  K  )
         &  qv_s          =  lnd_diag%qv_st(:,jb,:)  , & ! specific humidity at the surface             (kg/kg)
-        &  w_snow        =  w_snow_t(:,jb,:,:)    , & ! water content of snow                        (m H2O)
-        &  rho_snow      =  rho_snow_t(:,jb,:,:)  , & ! snow density                                 (kg/m**3)
-        &  rho_snow_mult =  rho_snow_mult_t(:,1:nlev_snow,jb,:,:), & ! snow density                  (kg/m**3)
-        &  h_snow        =  h_snow_t(:,jb,:,:)    , & ! snow height                                  (  m  ) 
-        &  w_i           =  w_i_t(:,jb,:,:)       , & ! water content of interception water          (m H2O)
-        &  t_so          =  t_so_t(:,0:nlev_soil+1,jb,:,:),&      ! soil temperature (main level)    (  K  )
-        &  w_so          =  w_so_t(:,1:nlev_soil+1,jb,:,:)    , & ! total water conent (ice + liquid water)       (m H20)
-        &  w_so_ice      =  w_so_ice_t(:,1:nlev_soil+1,jb,:,:), & ! ice content                                   (m H20)
+!
+        &  w_snow_now    =  lnd_prog_now%w_snow(:,jb,:)  , & ! water content of snow                        (m H2O)
+        &  w_snow_new    =  lnd_prog_new%w_snow(:,jb,:)  , & ! water content of snow                        (m H2O)
+!
+        &  rho_snow_now      =  lnd_prog_now%rho_snow(:,jb,:)  , & ! snow density            (kg/m**3)
+        &  rho_snow_new      =  lnd_prog_new%rho_snow(:,jb,:)  , & ! snow density            (kg/m**3)
+!
+        &  rho_snow_mult_now =  lnd_prog_now%rho_snow_mult(:,:,jb,:), & ! snow density       (kg/m**3)
+        &  rho_snow_mult_new =  lnd_prog_new%rho_snow_mult(:,:,jb,:), & ! snow density       (kg/m**3)
+!
+        &  h_snow        =  lnd_diag%h_snow(:,jb,:)    , & ! snow height                            (  m  ) 
+!
+        &  w_i_now       =  lnd_prog_now%w_i(:,jb,:)   , & ! water content of interception water    (m H2O)
+        &  w_i_new       =  lnd_prog_new%w_i(:,jb,:)   , & ! water content of interception water    (m H2O)
+!
+        &  t_so_now          =  lnd_prog_now%t_so(:,:,jb,:) , & ! soil temperature (main level)    (  K  )
+        &  t_so_new          =  lnd_prog_new%t_so(:,:,jb,:) , & ! soil temperature (main level)    (  K  )
+!
+        &  w_so_now          =  lnd_prog_now%w_so(:,:,jb,:) , & ! total water content (ice + liquid water) (m H20)
+        &  w_so_new          =  lnd_prog_new%w_so(:,:,jb,:) , & ! total water content (ice + liquid water) (m H20)
+!
+        &  w_so_ice_now      =  lnd_prog_now%w_so_ice(:,:,jb,:)  , & ! ice content   (m H20)
+        &  w_so_ice_new      =  lnd_prog_new%w_so_ice(:,:,jb,:)  , & ! ice content   (m H20)
+!
         &  t_2m          =  t_2m_t(:,jb,:),& !prm_diag%t_2m(:,jb)      , & ! ,nsfc_subs, temperature in 2m        (  K  )
         &  u_10m         =  u_10m_t(:,jb,:),& !prm_diag%u_10m(:,jb)     , & ! ,nsfc_subs, zonal wind in 10m       ( m/s )
         &  v_10m         =  v_10m_t(:,jb,:),& !prm_diag%v_10m(:,jb)     , & ! ,nsfc_subs,  meridional wind in 10m ( m/s )
         &  freshsnow     =  lnd_diag%freshsnow(:,jb,:) , & ! indicator for age of snow in top of snow layer       (  -  )
-        &  wliq_snow     =  wliq_snow_t(:,1:nlev_snow,jb,:,:) , & ! liquid water content in the snow              (m H2O)
-        &  wtot_snow     =  wtot_snow_t(:,1:nlev_snow,jb,:,:) , & ! total (liquid + solid) water content of snow  (m H2O)
-        &  dzh_snow      =  dzh_snow_t(:,1:nlev_snow,jb,:,:)  , & ! layer thickness between half levels in snow   (  m  )
+!
+        &  wliq_snow_now     = lnd_prog_now%wliq_snow(:,:,jb,:) , & ! liquid water content in the snow       (m H2O)
+        &  wliq_snow_new     = lnd_prog_new%wliq_snow(:,:,jb,:) , & ! liquid water content in the snow       (m H2O)
+!
+        &  wtot_snow_now     = lnd_prog_now%wtot_snow(:,:,jb,:) , & ! total (liquid + solid) water content of snow  (m H2O)
+        &  wtot_snow_new     = lnd_prog_new%wtot_snow(:,:,jb,:) , & ! total (liquid + solid) water content of snow  (m H2O)
+!
+        &  dzh_snow_now      = lnd_prog_now%dzh_snow(:,:,jb,:) , & ! layer thickness between half levels in snow   (  m  )
+        &  dzh_snow_new      = lnd_prog_new%dzh_snow(:,:,jb,:) , & ! layer thickness between half levels in snow   (  m  )
+!
         &  subsfrac      =  lnd_diag%subsfrac(:,jb,:)  , & ! 
            !
         &  prr_con       =  prm_diag%tracer_rate(:,jb,3)  , & ! precipitation rate of rain, convective        (kg/m2*s)
@@ -372,44 +401,40 @@ CONTAINS
         &  runoff_g      =  lnd_diag%runoff_g(:,jb,:)  , & ! soil water runoff; sum over forecast         (kg/m2)
            !
 !        &  nstart        = 0                         , & ! first time step of the forecast
-        &   ntstep       = nstep_soil                , & ! actual time step
-                                ! indices for permutation of three time levels
-!        &   nold          = 1                         , & ! corresponds to ntstep - 1
-        &   nnow         = 1                         , & ! corresponds to ntstep 
-        &   nnew         = 2                           & ! corresponds to ntstep + 1
-                                                       )
+        &   ntstep       = nstep_soil                   & ! actual time step
+                                                    )
 
 
        ! copy updated variables back to ICON-prognostic fields
        ! Note: nest-boundary points MUST NOT BE OVERWRITTEN!!!
         DO isubs = 1,nsfc_subs
-          lnd_prog_new%t_snow(i_startidx:i_endidx,jb,isubs) = &
-            & t_snow_t(i_startidx:i_endidx,jb,2,isubs)
-          lnd_prog_new%t_snow_mult(i_startidx:i_endidx,1:nlev_snow+1,jb,isubs) = &
-            & t_snow_mult_t(i_startidx:i_endidx,0:nlev_snow,jb,2,isubs)
-          lnd_prog_new%t_s(i_startidx:i_endidx,jb,isubs) = t_s_t(i_startidx:i_endidx,jb,2,isubs)
-          lnd_prog_new%w_snow(i_startidx:i_endidx,jb,isubs) = &
-            & w_snow_t(i_startidx:i_endidx,jb,2,isubs)
-          lnd_prog_new%rho_snow(i_startidx:i_endidx,jb,isubs) = &
-            & rho_snow_t(i_startidx:i_endidx,jb,2,isubs)
-          lnd_prog_new%rho_snow_mult(i_startidx:i_endidx,1:nlev_snow,jb,isubs) = &
-            & rho_snow_mult_t(i_startidx:i_endidx,1:nlev_snow,jb,2,isubs)
-          lnd_prog_new%w_i(i_startidx:i_endidx,jb,isubs) = w_i_t(i_startidx:i_endidx,jb,2,isubs) 
-          lnd_prog_new%t_so(i_startidx:i_endidx,1:nlev_soil+2,jb,isubs) = &
-            & t_so_t(i_startidx:i_endidx,0:nlev_soil+1,jb,2,isubs)
-          lnd_prog_new%w_so(i_startidx:i_endidx,1:nlev_soil+1,jb,isubs) = &
-            & w_so_t(i_startidx:i_endidx,1:nlev_soil+1,jb,2,isubs)
-          lnd_prog_new%w_so_ice(i_startidx:i_endidx,1:nlev_soil+1,jb,isubs)= &
-            & w_so_ice_t(i_startidx:i_endidx,1:nlev_soil+1,jb,2,isubs)
-          lnd_prog_new%wliq_snow(i_startidx:i_endidx,1:nlev_snow,jb,isubs) = &
-            & wliq_snow_t(i_startidx:i_endidx,1:nlev_snow,jb,2,isubs)
-          lnd_prog_new%wtot_snow(i_startidx:i_endidx,1:nlev_snow,jb,isubs) = &
-            & wtot_snow_t(i_startidx:i_endidx,1:nlev_snow,jb,2,isubs)
-          lnd_prog_new%dzh_snow(i_startidx:i_endidx,1:nlev_snow,jb,isubs)  = &
-            & dzh_snow_t(i_startidx:i_endidx,1:nlev_snow,jb,2,isubs)
+!!$          lnd_prog_new%t_snow(i_startidx:i_endidx,jb,isubs) = &
+!!$            & t_snow_t(i_startidx:i_endidx,jb,2,isubs)
+!!$          lnd_prog_new%t_snow_mult(i_startidx:i_endidx,1:nlev_snow+1,jb,isubs) = &
+!!$            & t_snow_mult_t(i_startidx:i_endidx,0:nlev_snow,jb,2,isubs)
+!!$          lnd_prog_new%t_s(i_startidx:i_endidx,jb,isubs) = t_s_t(i_startidx:i_endidx,jb,2,isubs)
+!!$          lnd_prog_new%w_snow(i_startidx:i_endidx,jb,isubs) = &
+!!$            & w_snow_t(i_startidx:i_endidx,jb,2,isubs)
+!!$          lnd_prog_new%rho_snow(i_startidx:i_endidx,jb,isubs) = &
+!!$            & rho_snow_t(i_startidx:i_endidx,jb,2,isubs)
+!!$          lnd_prog_new%rho_snow_mult(i_startidx:i_endidx,1:nlev_snow,jb,isubs) = &
+!!$            & rho_snow_mult_t(i_startidx:i_endidx,1:nlev_snow,jb,2,isubs)
+!!$          lnd_prog_new%w_i(i_startidx:i_endidx,jb,isubs) = w_i_t(i_startidx:i_endidx,jb,2,isubs) 
+!!$          lnd_prog_new%t_so(i_startidx:i_endidx,1:nlev_soil+2,jb,isubs) = &
+!!$            & t_so_t(i_startidx:i_endidx,0:nlev_soil+1,jb,2,isubs)
+!!$          lnd_prog_new%w_so(i_startidx:i_endidx,1:nlev_soil+1,jb,isubs) = &
+!!$            & w_so_t(i_startidx:i_endidx,1:nlev_soil+1,jb,2,isubs)
+!!$          lnd_prog_new%w_so_ice(i_startidx:i_endidx,1:nlev_soil+1,jb,isubs)= &
+!!$            & w_so_ice_t(i_startidx:i_endidx,1:nlev_soil+1,jb,2,isubs)
+!!$          lnd_prog_new%wliq_snow(i_startidx:i_endidx,1:nlev_snow,jb,isubs) = &
+!!$            & wliq_snow_t(i_startidx:i_endidx,1:nlev_snow,jb,2,isubs)
+!!$          lnd_prog_new%wtot_snow(i_startidx:i_endidx,1:nlev_snow,jb,isubs) = &
+!!$            & wtot_snow_t(i_startidx:i_endidx,1:nlev_snow,jb,2,isubs)
+!!$          lnd_prog_new%dzh_snow(i_startidx:i_endidx,1:nlev_snow,jb,isubs)  = &
+!!$            & dzh_snow_t(i_startidx:i_endidx,1:nlev_snow,jb,2,isubs)
 
 
-          lnd_diag%h_snow(i_startidx:i_endidx,jb,isubs) = h_snow_t(i_startidx:i_endidx,jb,2,isubs)
+!          lnd_diag%h_snow(i_startidx:i_endidx,jb,isubs) = h_snow_t(i_startidx:i_endidx,jb,2,isubs)
 
 
           !DR ATTENTION: only valid, if nsfc_subs=1 !!!!!
@@ -424,7 +449,6 @@ CONTAINS
           END WHERE
 
         ENDDO
-
 
   
       ELSE IF ( atm_phy_nwp_config(jg)%inwp_surface == 2 ) THEN
@@ -542,4 +566,8 @@ CONTAINS
   END SUBROUTINE nwp_surface_init
 
 END MODULE mo_nwp_sfc_interface
+
+
+
+
 
