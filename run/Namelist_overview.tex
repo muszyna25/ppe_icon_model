@@ -51,6 +51,7 @@ Parameter& Type& Default& Unit& Description & Scope
 \title{ICON Namelist Overview}
 
 \maketitle
+
 \tableofcontents{}
 
 \newpage{}
@@ -774,7 +775,7 @@ End MPI rank for this model.&
 \tabularnewline
 
 \hline
-atmo\_inc\_rank &
+model\_inc\_rank &
 I & 0 & &
 Stride of MPI ranks.&
 \tabularnewline
@@ -880,6 +881,7 @@ l\_test\_openmp &
 L & .FALSE.& &
 if .TRUE. is combined with p\_test\_run=.TRUE. and OpenMP paralllelization,
 the test PE gets only 1 thread in order to verify the OpenMP paralllelization&
+p\_test\_run = .TRUE.
 \tabularnewline
 
 \hline 
@@ -991,21 +993,21 @@ model time step &
 lag &
 I &
 0 &   &
-offset to coupling event in number of model time step &
+offset to coupling event in number of model time steps &
 \tabularnewline
 
 \hline 
 l\_time\_average &
 L &
 .FALSE. &  &
-.TRUE.: time averaging between to coupling events &
+.TRUE.: time averaging between two coupling events &
 \tabularnewline
 
 \hline 
 l\_time\_accumulation &
 L &
 .FALSE. &  &
-.TRUE.: accumulation of coupling fields in time between to coupling events &
+.TRUE.: accumulation of coupling fields in time between two coupling events &
 \tabularnewline
 
 \hline 
@@ -2234,8 +2236,8 @@ Defined and used in: src/namelists/mo\_io\_nml.f90
 %------------------------------------------------------------------------------
 \subsection{output\_nml}
 
-Please note: Opposed to all other namelists, there may be several instances of
-output\_nml in the input file, every one defining a list of variables with
+Please note: There may be several instances of
+output\_nml in the namelist file, every one defining a list of variables with
 separate attributes for output.
 
 \begin{longtab}
