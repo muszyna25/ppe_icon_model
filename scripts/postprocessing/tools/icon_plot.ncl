@@ -544,6 +544,11 @@
     if (showPreview) preview = gsn_csm_contour_map(xwks,var,ResC) end if
 
     if (showGrid) then
+      if ( horizonalGridType .ne. "unstructured") then
+        print("#=====================================================================")
+        print("Grid representation is only implemented for the unstructured ICON grid")
+        exit
+      end if
       if (showPreview) then
         plotGrid(xwks,preview,var,x,bounds,File,ResC,DEBUG)
         print("#=======================================================")

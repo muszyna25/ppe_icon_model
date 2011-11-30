@@ -287,6 +287,11 @@ task :test_misc_maptypes do
     defaultPlot(ATM_PLOT_TEST_FILE,maptype,["'mapType=\"#{maptype}\"'","'atmLev=\"m\"'"])
   }
 end
+desc "test show grid"
+task :test_show_grid do
+  defaultPlot(OCE_PLOT_TEST_FILE   ,'test_show_grid',["showGrid=True","'atmLev=\"m\"'"])
+  defaultPlot(OCE_REGPLOT_TEST_FILE,'test_show_reg_grid',["showGrid=True","'atmLev=\"m\"'"])
+end
 #==============================================================================
 # Test collections
 desc "Run all tests"
