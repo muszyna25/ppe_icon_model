@@ -511,10 +511,10 @@ END SUBROUTINE grad_fd_tang
 !!  Modification by Guenther Zaengl (2010-03-09)
 !!  - optimization by using precomputed coefficients
 !!
-SUBROUTINE grad_green_gauss_cell( p_cc, ptr_patch, ptr_int, p_grad,  &
-  &                               opt_slev, opt_elev,   &
-  &                               opt_p_face, opt_rlstart, &
-  &                               opt_rlend )
+SUBROUTINE grad_green_gauss_cell( p_cc, ptr_patch, ptr_int, p_grad, &
+  &                               opt_slev, opt_elev, opt_p_face,   &
+  &                               opt_rlstart, opt_rlend,           &
+  &                               opt_dynmode, opt_ccin2            )
 !
 !
 !  patch on which computation is performed
@@ -531,6 +531,9 @@ TYPE(t_int_state), TARGET, INTENT(in) :: ptr_int
 REAL(wp), INTENT(in) ::  &
   &  p_cc(:,:,:)
 
+REAL(wp), INTENT(in), OPTIONAL ::  &  ! optional second input field
+  &  opt_ccin2(:,:,:)
+
 INTEGER, INTENT(in), OPTIONAL ::  &
   &  opt_slev    ! optional vertical start level
 
@@ -540,6 +543,7 @@ INTEGER, INTENT(in), OPTIONAL ::  &
 INTEGER, INTENT(in), OPTIONAL ::  &
   &  opt_rlstart, opt_rlend   ! start and end values of refin_ctrl flag
 
+LOGICAL, INTENT(in), OPTIONAL :: opt_dynmode ! true: use different storage order for call from solve_nh
 !
 ! cell based Green-Gauss reconstructed geographical gradient vector
 !
@@ -557,6 +561,8 @@ INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
 INTEGER :: nlen, npromz_c, nblks_c
 
 INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+LOGICAL :: l_dycoremode ! mode for call from dynamical core: processes 2 fields together
+                        ! and assumes different storage order for gradient
 
 
 !-----------------------------------------------------------------------
@@ -582,6 +588,19 @@ IF ( PRESENT(opt_rlend) ) THEN
 ELSE
   rl_end = min_rlcell
 END IF
+
+l_dycoremode = .FALSE.
+
+IF (PRESENT(opt_dynmode)) THEN
+  IF (opt_dynmode) THEN
+    IF (PRESENT(opt_ccin2)) THEN
+      l_dycoremode = .TRUE.
+    ELSE
+    CALL finish ('mo_math_operators:grad_green_gauss_cell',  &
+          &      'dynamical core mode requires second input field')
+    ENDIF
+  ENDIF
+ENDIF
 
 iidx => ptr_patch%cells%neighbor_idx
 iblk => ptr_patch%cells%neighbor_blk
@@ -609,7 +628,7 @@ SELECT CASE (ptr_patch%cell_type)
 !$OMP PARALLEL
 
   ! Fill nest boundaries with zero to avoid trouble with MPI synchronization
-  IF (ptr_patch%id > 1) THEN
+  IF (.NOT. l_dycoremode .AND. ptr_patch%id > 1) THEN
 !$OMP WORKSHARE
     p_grad(:,:,1:i_startblk,1) = 0._wp
     p_grad(:,:,1:i_startblk,2) = 0._wp
@@ -622,32 +641,71 @@ SELECT CASE (ptr_patch%cell_type)
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, rl_start, rl_end)
 
+    IF (.NOT. l_dycoremode) THEN
 #ifdef __LOOP_EXCHANGE
-    DO jc = i_startidx, i_endidx
-      DO jk = slev, elev
+      DO jc = i_startidx, i_endidx
+        DO jk = slev, elev
 #else
 !CDIR UNROLL=3
-    DO jk = slev, elev
-      DO jc = i_startidx, i_endidx
+      DO jk = slev, elev
+        DO jc = i_startidx, i_endidx
 #endif
 
-        ! multiply cell-based input values with precomputed grid geometry factor
+          ! multiply cell-based input values with precomputed grid geometry factor
 
-        ! zonal(u)-component of Green-Gauss gradient
-        p_grad(jc,jk,jb,1) = ptr_int%geofac_grg(jc,1,jb,1)*p_cc(jc,jk,jb)    + &
-          ptr_int%geofac_grg(jc,2,jb,1)*p_cc(iidx(jc,jb,1),jk,iblk(jc,jb,1)) + &
-          ptr_int%geofac_grg(jc,3,jb,1)*p_cc(iidx(jc,jb,2),jk,iblk(jc,jb,2)) + &
-          ptr_int%geofac_grg(jc,4,jb,1)*p_cc(iidx(jc,jb,3),jk,iblk(jc,jb,3))
+          ! zonal(u)-component of Green-Gauss gradient
+          p_grad(jc,jk,jb,1) = ptr_int%geofac_grg(jc,1,jb,1)*p_cc(jc,jk,jb)    + &
+            ptr_int%geofac_grg(jc,2,jb,1)*p_cc(iidx(jc,jb,1),jk,iblk(jc,jb,1)) + &
+            ptr_int%geofac_grg(jc,3,jb,1)*p_cc(iidx(jc,jb,2),jk,iblk(jc,jb,2)) + &
+            ptr_int%geofac_grg(jc,4,jb,1)*p_cc(iidx(jc,jb,3),jk,iblk(jc,jb,3))
 
-        ! meridional(v)-component of Green-Gauss gradient
-        p_grad(jc,jk,jb,2) = ptr_int%geofac_grg(jc,1,jb,2)*p_cc(jc,jk,jb)    + &
-          ptr_int%geofac_grg(jc,2,jb,2)*p_cc(iidx(jc,jb,1),jk,iblk(jc,jb,1)) + &
-          ptr_int%geofac_grg(jc,3,jb,2)*p_cc(iidx(jc,jb,2),jk,iblk(jc,jb,2)) + &
-          ptr_int%geofac_grg(jc,4,jb,2)*p_cc(iidx(jc,jb,3),jk,iblk(jc,jb,3))
+          ! meridional(v)-component of Green-Gauss gradient
+          p_grad(jc,jk,jb,2) = ptr_int%geofac_grg(jc,1,jb,2)*p_cc(jc,jk,jb)    + &
+            ptr_int%geofac_grg(jc,2,jb,2)*p_cc(iidx(jc,jb,1),jk,iblk(jc,jb,1)) + &
+            ptr_int%geofac_grg(jc,3,jb,2)*p_cc(iidx(jc,jb,2),jk,iblk(jc,jb,2)) + &
+            ptr_int%geofac_grg(jc,4,jb,2)*p_cc(iidx(jc,jb,3),jk,iblk(jc,jb,3))
 
-      END DO ! end loop over cells
+        END DO ! end loop over cells
+      END DO ! end loop over vertical levels
+    ELSE
 
-    END DO ! end loop over vertical levels
+#ifdef __LOOP_EXCHANGE
+      DO jc = i_startidx, i_endidx
+        DO jk = slev, elev
+#else
+!CDIR UNROLL=3
+      DO jk = slev, elev
+        DO jc = i_startidx, i_endidx
+#endif
+
+          ! zonal(u)-component of Green-Gauss gradient, field 1
+          p_grad(jc,1,jk,jb) = ptr_int%geofac_grg(jc,1,jb,1)*p_cc(jc,jk,jb)    + &
+            ptr_int%geofac_grg(jc,2,jb,1)*p_cc(iidx(jc,jb,1),jk,iblk(jc,jb,1)) + &
+            ptr_int%geofac_grg(jc,3,jb,1)*p_cc(iidx(jc,jb,2),jk,iblk(jc,jb,2)) + &
+            ptr_int%geofac_grg(jc,4,jb,1)*p_cc(iidx(jc,jb,3),jk,iblk(jc,jb,3))
+
+          ! meridional(v)-component of Green-Gauss gradient, field 1
+          p_grad(jc,2,jk,jb) = ptr_int%geofac_grg(jc,1,jb,2)*p_cc(jc,jk,jb)    + &
+            ptr_int%geofac_grg(jc,2,jb,2)*p_cc(iidx(jc,jb,1),jk,iblk(jc,jb,1)) + &
+            ptr_int%geofac_grg(jc,3,jb,2)*p_cc(iidx(jc,jb,2),jk,iblk(jc,jb,2)) + &
+            ptr_int%geofac_grg(jc,4,jb,2)*p_cc(iidx(jc,jb,3),jk,iblk(jc,jb,3))
+
+          ! zonal(u)-component of Green-Gauss gradient, field 2
+          p_grad(jc,3,jk,jb) = ptr_int%geofac_grg(jc,1,jb,1)*opt_ccin2(jc,jk,jb)    + &
+            ptr_int%geofac_grg(jc,2,jb,1)*opt_ccin2(iidx(jc,jb,1),jk,iblk(jc,jb,1)) + &
+            ptr_int%geofac_grg(jc,3,jb,1)*opt_ccin2(iidx(jc,jb,2),jk,iblk(jc,jb,2)) + &
+            ptr_int%geofac_grg(jc,4,jb,1)*opt_ccin2(iidx(jc,jb,3),jk,iblk(jc,jb,3))
+
+          ! meridional(v)-component of Green-Gauss gradient, field 2
+          p_grad(jc,4,jk,jb) = ptr_int%geofac_grg(jc,1,jb,2)*opt_ccin2(jc,jk,jb)    + &
+            ptr_int%geofac_grg(jc,2,jb,2)*opt_ccin2(iidx(jc,jb,1),jk,iblk(jc,jb,1)) + &
+            ptr_int%geofac_grg(jc,3,jb,2)*opt_ccin2(iidx(jc,jb,2),jk,iblk(jc,jb,2)) + &
+            ptr_int%geofac_grg(jc,4,jb,2)*opt_ccin2(iidx(jc,jb,3),jk,iblk(jc,jb,3))
+
+        END DO ! end loop over cells
+      END DO ! end loop over vertical levels
+
+    ENDIF
 
   END DO ! end loop over blocks
 !$OMP END DO

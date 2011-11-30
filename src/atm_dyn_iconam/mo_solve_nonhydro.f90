@@ -52,13 +52,14 @@ MODULE mo_solve_nonhydro
   USE mo_nonhydro_state,     ONLY: t_nh_state, t_nh_metrics, t_nh_diag, t_nh_prog, &
                                   t_buffer_memory
   USE mo_physical_constants,ONLY: cpd, rd, cvd, cvd_o_rd, grav, rd_o_cpd, p0ref
-  USE mo_math_operators,    ONLY: div, rot_vertex, div_avg
+  USE mo_math_operators,    ONLY: div, rot_vertex, div_avg, grad_green_gauss_cell
   USE mo_vertical_grid,     ONLY: nrdmax, nflat_gradp
   USE mo_nh_init_utils,     ONLY: nflatlev
   USE mo_loopindices,       ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants,    ONLY: min_rlcell_int, min_rledge_int, min_rlvert_int, min_rlcell
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_c, grf_bdywidth_e
-  USE mo_advection_hflux,   ONLY: upwind_hflux_miura, upwind_hflux_miura3
+  USE mo_advection_hflux,   ONLY: upwind_hflux_miura3
+  USE mo_advection_utils,   ONLY: back_traj_o1
   USE mo_sync,              ONLY: SYNC_E, SYNC_C, sync_patch_array, sync_patch_array_mult, &
                                   sync_patch_array_gm
   USE mo_mpi,               ONLY: my_process_is_mpi_all_seq
@@ -522,13 +523,16 @@ MODULE mo_solve_nonhydro
     INTEGER  :: nlev, nlevp1              !< number of full levels
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER  :: rl_start, rl_end, istep, ntl1, ntl2, nvar, nshift
-    INTEGER  :: ic, ie
+    INTEGER  :: ic, ie, ilc0, ibc0
 
     REAL(wp) :: z_theta_v_fl_e  (nproma,p_patch%nlev  ,p_patch%nblks_e), &
                 z_theta_v_e     (nproma,p_patch%nlev  ,p_patch%nblks_e), &
                 z_rho_e         (nproma,p_patch%nlev  ,p_patch%nblks_e), &
                 z_gradh_exner   (nproma,p_patch%nlev  ,p_patch%nblks_e), &
-                z_concorr_e     (nproma,p_patch%nlevp1,p_patch%nblks_e)
+                z_concorr_e     (nproma,p_patch%nlevp1,p_patch%nblks_e), &
+                z_distv_bary    (nproma,p_patch%nlev  ,p_patch%nblks_e,2)
+
+    INTEGER ::  z_cell_indices  (nproma,p_patch%nlev  ,p_patch%nblks_e,2)
 
     REAL(wp), TARGET :: z_vn_avg (nproma,p_patch%nlev,p_patch%nblks_e)
 
@@ -537,7 +541,8 @@ MODULE mo_solve_nonhydro
                 z_th_ddz_exner_c(nproma,p_patch%nlev  ,p_patch%nblks_c), &
                 z_dexner_dz_c (2,nproma,p_patch%nlev  ,p_patch%nblks_c), &
                 z_exner_ex_pr   (nproma,p_patch%nlev  ,p_patch%nblks_c), &
-                z_exner_pr      (nproma,p_patch%nlev  ,p_patch%nblks_c)
+                z_exner_pr      (nproma,p_patch%nlev  ,p_patch%nblks_c), &
+                z_grad_rth      (nproma,4,p_patch%nlev,p_patch%nblks_c)
 
     REAL(wp) :: z_w_expl        (nproma,p_patch%nlevp1),          &
                 z_contr_w_fl_l  (nproma,p_patch%nlevp1),          &
@@ -658,22 +663,69 @@ MODULE mo_solve_nonhydro
     IF (istep == 1) THEN
       IF (iadv_rhotheta == 2) THEN
 
-        lcompute =.TRUE.
-        lcleanup =.FALSE.
-        ! First call: compute backward trajectory with wind at time level nnow
-        CALL upwind_hflux_miura(p_patch, p_nh%prog(nnow)%rho, p_nh%prog(nnow)%vn,         &
-                                p_nh%prog(nnow)%vn, dtime, p_int, lcompute, lcleanup,     &
-                                2, 0, 1, z_rho_e, opt_rlstart=7, opt_rlend=min_rledge_int,&
-                                opt_lout_edge=.TRUE., opt_real_vt=p_nh%diag%vt )
+        ! Operations from upwind_hflux_miura are inlined in order to process both
+        ! fields in one step
+        CALL back_traj_o1(p_patch, p_int, p_nh%prog(nnow)%vn, p_nh%diag%vt, &
+                          0.5_wp*dtime, z_cell_indices, z_distv_bary,       &
+                          opt_rlstart=7, opt_rlend=min_rledge_int-1 )
 
-        ! Second call: compute only reconstructed value for flux divergence
-        lcompute =.FALSE.
-        lcleanup =.TRUE.
-        CALL upwind_hflux_miura(p_patch, p_nh%prog(nnow)%theta_v, p_nh%prog(nnow)%vn, &
-                                p_nh%prog(nnow)%vn, dtime, p_int, lcompute, lcleanup, &
-                                2, 0, 1, z_theta_v_e, opt_rlstart=7,                  &
-                                opt_rlend=min_rledge_int-1, opt_lout_edge=.TRUE.,     &
-                                opt_real_vt=p_nh%diag%vt )
+        CALL grad_green_gauss_cell(p_nh%prog(nnow)%rho, p_patch, p_int, z_grad_rth, &
+                                   opt_rlend=min_rlcell_int-1, opt_dynmode=.TRUE.,  &
+                                   opt_ccin2=p_nh%prog(nnow)%theta_v)
+
+        rl_start = 7
+        rl_end   = min_rledge_int-1
+
+!$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
+
+        i_startblk = p_patch%edges%start_blk(min_rledge_int-2,i_nchdom)
+        i_endblk   = p_patch%edges%end_blk  (min_rledge_int-3,i_nchdom)
+
+        ! Initialize halo edges with zero in order to avoid access of uninitialized array elements
+!$OMP WORKSHARE
+        z_rho_e    (:,:,i_startblk:i_endblk) = 0._wp
+        z_theta_v_e(:,:,i_startblk:i_endblk) = 0._wp
+!$OMP END WORKSHARE
+
+        i_startblk = p_patch%edges%start_blk(rl_start,1)
+        i_endblk   = p_patch%edges%end_blk  (rl_end,i_nchdom)
+
+        ! initialize also nest boundary points with zero
+        IF (p_patch%id > 1 ) THEN
+!$OMP WORKSHARE
+          z_rho_e    (:,:,1:i_startblk) = 0._wp
+          z_theta_v_e(:,:,1:i_startblk) = 0._wp
+!$OMP END WORKSHARE
+        ENDIF
+
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,ilc0,ibc0), SCHEDULE(runtime)
+        DO jb = i_startblk, i_endblk
+
+          CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+                             i_startidx, i_endidx, rl_start, rl_end)
+
+!CDIR UNROLL=4
+          DO jk = 1, nlev
+            DO je = i_startidx, i_endidx
+
+              ilc0 = z_cell_indices(je,jk,jb,1)
+              ibc0 = z_cell_indices(je,jk,jb,2)  
+
+              ! Calculate "edge values" of rho and theta_v
+              z_rho_e(je,jk,jb) = p_nh%prog(nnow)%rho(ilc0,jk,ibc0)     &
+                + z_distv_bary(je,jk,jb,1) * z_grad_rth(ilc0,1,jk,ibc0) &
+                + z_distv_bary(je,jk,jb,2) * z_grad_rth(ilc0,2,jk,ibc0)
+
+              z_theta_v_e(je,jk,jb) = p_nh%prog(nnow)%theta_v(ilc0,jk,ibc0) &
+                + z_distv_bary(je,jk,jb,1) * z_grad_rth(ilc0,3,jk,ibc0)     &
+                + z_distv_bary(je,jk,jb,2) * z_grad_rth(ilc0,4,jk,ibc0)
+
+            ENDDO ! loop over edges
+          ENDDO   ! loop over vertical levels
+
+        ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
 
       ELSE IF (iadv_rhotheta == 3) THEN
 

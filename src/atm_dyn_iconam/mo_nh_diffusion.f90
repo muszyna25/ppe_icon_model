@@ -194,8 +194,7 @@ MODULE mo_nh_diffusion
                                     u_vert, v_vert, opt_rlend=min_rlvert_int )
 
       ! empirically determined scaling factor (default of 0.15 for hdiff_smag_fac is somewhat
-      ! larger than suggested in the literature); increase with resolution might be
-      ! removed when a turbulence scheme becomes available
+      ! larger than suggested in the literature)
       jlev = p_patch%level
       diff_multfac_smag =  diffusion_config(jg)%hdiff_smag_fac*dtime
 
