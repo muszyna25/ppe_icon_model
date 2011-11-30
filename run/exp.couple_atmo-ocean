@@ -193,6 +193,7 @@ cat > $atmo_namelist << EOF
  dt_data          = ${dt_data}       ! [s] write output
  dt_file          = ${dt_file}       ! [s] trigger new output file
  dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
+ lwrite_initial   = .FALSE.          ! do/don't write out initial data
  lwrite_radiation = .TRUE.           ! add radiation fields to output
  lwrite_cloud     = .TRUE.           ! add cloud fraction to output
  lwrite_precip    = .TRUE.           ! add precipitation to output
@@ -509,13 +510,14 @@ cat > ${ocean_namelist} << EOF
  dt_data     = ${dt_data}        ! write output every 96 hours
  dt_file     = ${dt_file}        ! [s] interval for generation of new output file (3600*24*365 -> 1y)
  dt_checkpoint=${dt_checkpoint}
+ lwrite_initial   = .FALSE.      ! do/don't write out initial data
  lkeep_in_sync = .TRUE.          ! sync after each timestep
 /
 EOF
 #-----------------------------------------------------------------------------
 
 if [ $mpi_total_procs -lt 2 ] ; then
-  check_error 3 "This setup requires at least 2 mpi processes. Exit"
+  check_error 0 "This setup requires at least 2 mpi processes. Exit"
 fi
 
 
