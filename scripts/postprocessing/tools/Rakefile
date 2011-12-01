@@ -1,3 +1,5 @@
+require 'rake/clean'
+require 'thread'
 require 'pp'
 
 SRC                   = ["icon_plot.ncl","icon_plot_lib.ncl"]
@@ -15,6 +17,9 @@ COMPARISON_REG        = {:oce => OCE_REGPLOT_TEST_FILE, :atm => ATM_REGPLOT_TEST
 OFMT                  = 'png'
 DEFAULT_VARNAME       = 'T'
 PLOT_CMD              = 'sxiv'
+
+
+CLEAN.include(Dir.glob(File.join("test_*.png","remapnn_*nc","zonmean_*.nc")))
 
 # some helper methods for ease calling the icon plot scripts
 def iconPlot(ifile,ofile,otype,varname,vartype='scalar',opts=[])
@@ -81,10 +86,10 @@ end
 # the basics
 desc "perform simple oce plot from 3d var"
 task :test_oce_3d do
-  ofile          = 'test_icon_plot.' + OFMT
-  del(ofile)
+  ofile          = 'test_icon_plot'
   varname        = 'T'
   scalarPlot(OCE_PLOT_TEST_FILE,ofile,OFMT,varname)
+  ofile          += '.' + OFMT
   show(ofile)
 end
 desc "perform simple oce plot from dd var"
@@ -214,6 +219,15 @@ COMPARISON.each {|itype,ifile|
                 "'mapType=\"ortho\"'","'atmLev=\"m\"' levIndex=40","centerLon=120","vecRefLength=0.04"])
   end
 }
+# hoffmueller diagrams
+COMPARISON.each {|itype,ifile|
+  itypeS = itype.to_s
+  desc "hoffmueller diagram plot (#{itypeS})"
+  tag = "test_hoffm_#{itypeS}"
+  task tag.to_sym do
+    defaultPlot(ifile,tag,["'hoff=(/-50,50/)'"])
+  end
+}
 
 # -----------------------------------------------------------------------------
 # PLOTTING FROM REGULAR GRID INPUT
@@ -306,5 +320,6 @@ task "#{category}_tests".to_sym do
   runTests(tests)
 end
 }
+
 
 # vim:ft=ruby
