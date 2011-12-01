@@ -195,9 +195,11 @@ if [[ $run_ocean = 'true' ]]; then
    # ----------------------------------------------------
    if [[ "x$iforc" = "x12" ]] ; then
      FLUXNAME=iconR${R}B0${B}-flux.nc
-     OMIPNAME=omip4icon-R${R}B0${B}-monmean.nc
+     # general filename
+     OMIPNAME=omip4icon-R${R}B0${B}-annual.nc
      if [[ "x$iforc_len" = "x1" ]] ; then
        OMIPNAME=omip4icon-R${R}B0${B}-annual.nc
+     # filename for 12 monthly means
      elif [[ "x$iforc_len" = "x12" ]] ; then
        OMIPNAME=omip4icon-R${R}B0${B}-monmean.nc
      fi
@@ -215,6 +217,17 @@ if [[ $run_ocean = 'true' ]]; then
      rm ${EXPDIR}/${PROGNAME}
      ln -s ${HGRIDDIR}/${OININAME} ${EXPDIR}/${PROGNAME}
      check_error $? "ln -s ${HGRIDDIR}/${OININAME}"
+   fi
+   # =======================================================
+   #
+   # provide netcdf file for initialization of temp/sal relaxation
+   # --------------------------------------------------------------------
+   if [[ "x$init_relax" = "x1" ]] ; then
+     RELAXNAME=iconR${R}B0${B}-relax.nc
+     ORELNAME=ts_surf_annual-iconR${R}B0${B}-50m.nc
+     rm ${EXPDIR}/${RELAXNAME}
+     ln -s ${HGRIDDIR}/${ORELNAME} ${EXPDIR}/${RELAXNAME}
+     check_error $? "ln -s ${HGRIDDIR}/${ORELNAME}"
    fi
    # =======================================================
    #
