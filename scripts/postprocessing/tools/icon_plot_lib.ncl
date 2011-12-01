@@ -515,14 +515,26 @@ begin
   return maskdims
 end
 ;---------------------------------------------------------------
+; set new filename bases on the input filename and intput type
+undef("setNewFilename")
+function setNewFilename(filename,tag,itype,atmlev)
+begin
+  atmtag = ""
+  if (itype .eq. "atm") atmtag = "atmlev"+str_capital(atmlev)+"_" end if
+  newFilename = tag+"_"+atmtag+systemfunc("basename "+filename)
+  return newFilename
+end
+;---------------------------------------------------------------
 ; set filename for the automatically remapped file
 undef("setRemapFilename")
 function setRemapFilename(filename,itype,atmlev)
 begin
-  tag = ""
-  if (itype .eq. "atm") tag = "atmlev"+str_capital(atmlev)+"_" end if
-  remapFilename="remapnn_"+tag+systemfunc("basename "+filename)
-  return remapFilename
+  return setNewFilename(filename,"remapnn",itype,atmlev)
+end
+undef("setZonmeanFilename")
+function setZonmeanFilename(filename,itype,atmlev)
+begin
+  return setNewFilename(filename,"zonmean",itype,atmlev)
 end
 ;---------------------------------------------------------------
 ; Check, if two files have the same number of timestemps. Exit otherwise
@@ -610,6 +622,17 @@ begin
   if (plotMode.eq."overlay") variables = variables+","+varName end if
 
   cmd = "cdo -P 8 -remapnn,"+resolution+" -selname,"+variables+" "+iFile+" "+remapFilename
+  if debug then
+    print(cmd)
+  end if
+  system(cmd)
+end
+;---------------------------------------------------------------
+; perform zonal mean for hoffmueller plot
+undef("zonmean4HoffmuellerPlot")
+procedure zonmean4HoffmuellerPlot(filename,varname,zonmeanfilename)
+begin
+  cmd = "cdo zonmean -selname,"+varname+" "+filename+" "+zonmeanfilename
   if debug then
     print(cmd)
   end if

@@ -237,17 +237,17 @@
 
   ; DETERMINE INPUT TYPE ------------------------------------------------------
   if (isvar("varName")) then
-    vname = varName
+    ivarname = varName
   else
     if (isvar("vecVars")) then
       vecs = str_split(vecVars," ")
-      vname = vecs(0)
+      ivarname = vecs(0)
     else
       print("Cannot determinte input variable! Please provide varName or vecVars.")
       exit
     end if
   end if
-  if (getVarLevelType(iFile,vname) .eq. "hybrid") then ;atm input
+  if (getVarLevelType(iFile,ivarname) .eq. "hybrid") then ;atm input
     iType              = "atm"; oce otherwise
     if (atmLev .ne. "m" ) then
       atmPreProcFilename = preProc4Atm(iFile,atmLev,atmPLevs,atmHLevs,DEBUG)
@@ -255,7 +255,7 @@
     end if
   end if
   ; DETERMINE HORIZONTAL GRID -------------------------------------------------
-  horizonalGridType = getHorizGridType(iFile,vname)
+  horizonalGridType = getHorizGridType(iFile,ivarname)
   ;----------------------------------------------------------------------------
 
   ; EXPECT A REGULAR GRID FOR VECTOR PLOT AS YOU GET IT FROM ------------------
@@ -276,8 +276,9 @@
     exit
   end if
   if (isvar("secLC").and.isvar("secRC")) plotMode = "section" end if
+  if (isvar("hoff")) plotMode = "hoffmueller" end if
 
-  if (plotMode.eq."vector" .or. plotMode.eq."overlay" .or. (plotMode.eq."section")) then
+  if (plotMode.eq."vector" .or. plotMode.eq."overlay" .or. plotMode.eq."section" .or. plotMode .eq. "hoffmueller") then
     if (horizonalGridType .ne. "unstructured") then ; regular grid expected, i.e. remappgin is NOT required
       rFile = addfile(iFile,"r")
     else
@@ -286,12 +287,16 @@
       ; TODO addVars=(/ "PS","PHIS"/) 
       remapFilename = setRemapFilename(iFile,iType,atmLev)
       print("remapFilename:"+remapFilename)
-      if (.not. checkRemappedFile(iFile,remapFilename,vname,iType,atmLev,atmPLevs,atmHLevs) ) then
+      if (.not. checkRemappedFile(iFile,remapFilename,ivarname,iType,atmLev,atmPLevs,atmHLevs) ) then
         addVars=(/""/)
         print("PERFORM remapnn again!")
         remapForVecPlot(iFile,remapFilename,resolution,useMask,plotMode,DEBUG,addVars)
       end if
       rFile = addfile( remapFilename, "r" )
+    end if
+    if (plotMode .eq. "hoffmueller") then ; perform zonmean
+      zonmeanFilename = setZonmeanFilename(remapFilename,ivarname,atmLev)
+      zonmean4HoffmuellerPlot(remapFilename,ivarname,zonmeanFilename)
     end if
   end if
   File  = addfile( iFile, "r" )
@@ -426,7 +431,12 @@
       var = mask(var,maskVar,1)
     end if
   end if ; Reading data variables =============================================
-  if (iType .eq. "atm" .and. vname .eq. "T" .and. k2c) var = var - 273.15 end if ;atmosphere used to write out Kelvin
+  if (plotMode .eq. "hoffmueller") then ; create hoffmuelle diagram
+    ; select the whole time series
+    ; and plot it with
+    ; plot = gsn_csm_lat_time(wks, shov(0,{-80:80},:), res) 
+  end if
+  if (iType .eq. "atm" .and. ivarname .eq. "T" .and. k2c) var = var - 273.15 end if ;atmosphere used to write out Kelvin
 
   ;---------------------------------------------------------------
   ; make the plot
@@ -456,7 +466,7 @@
 
 
 
-  if (getHorizGridType(iFile,vname) .eq. "unstructured") then
+  if (getHorizGridType(iFile,ivarname) .eq. "unstructured") then
     if (plotMode.eq."scalar" .or. plotMode.eq."overlay") setCoordinates(ResC,x,y) end if
   end if
 
