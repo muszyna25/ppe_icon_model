@@ -120,7 +120,7 @@ CONTAINS
     INTEGER, OPTIONAL, INTENT(IN) :: opt_iadv_rcf  !< reduced calling freq. for advection
   
 
-    !0!CHARACTER(LEN=*),PARAMETER :: routine = 'mo_run_config:configure_run'
+    CHARACTER(LEN=*),PARAMETER :: routine = 'mo_run_config:configure_run'
 
     !----------------------------
     ! advective timestep on global patch
@@ -128,6 +128,7 @@ CONTAINS
       dtime_adv = REAL(opt_iadv_rcf,wp) * dtime  ! NH-atm
     ELSE
       dtime_adv = dtime  ! oce, H-atm
+      WRITE(0,*) routine, ': dtime_adv initialized with', dtime
     ENDIF
 
 

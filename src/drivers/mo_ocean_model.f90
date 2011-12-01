@@ -54,6 +54,7 @@ MODULE mo_ocean_model
   USE mo_interpol_config,     ONLY: configure_interpolation
   USE mo_advection_config,    ONLY: configure_advection
   USE mo_dynamics_config,     ONLY: configure_dynamics  ! subroutine
+  USE mo_run_config,          ONLY: configure_run
 
   ! Control parameters: run control, dynamics, i/o
   !
@@ -234,7 +235,7 @@ CONTAINS
     !    because some component of the state, e.g., num_lev, may be 
     !    modified in this subroutine which affect the following CALLs.
     !---------------------------------------------------------------------
-!     CALL configure_run
+    CALL configure_run
 
     !-------------------------------------------------------------------
     ! 3.1 Initialize the mpi work groups
