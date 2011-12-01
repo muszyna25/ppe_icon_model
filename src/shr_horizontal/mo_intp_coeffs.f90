@@ -3653,7 +3653,7 @@ END SUBROUTINE complete_patchinfo
 
           z_vec_c1(ie)%x = cc_edge(ie)%x - cc_c1%x     !ptr_patch%edges%primal_cart_normal(iil_c1(ie),iib_c1(ie))
           norm           = SQRT(SUM( z_vec_c1(ie)%x* z_vec_c1(ie)%x))
-          write(*,*)'NORM:',norm !TODOram
+          !write(*,*)'NORM:',norm !TODOram
 
           ptr_intp%edge2cell_coeff_cc(il_c1,ib_c1,ie)%x = &
             & z_vec_c1(ie)%x*ptr_patch%cells%edge_orientation(il_c1,ib_c1,ie)*z_edge_length(ie)

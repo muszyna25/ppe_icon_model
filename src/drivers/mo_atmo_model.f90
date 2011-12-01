@@ -737,4 +737,3 @@ CONTAINS
   END SUBROUTINE atmo_model
 
 END MODULE mo_atmo_model
-
