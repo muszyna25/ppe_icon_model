@@ -55,7 +55,8 @@ USE mo_run_config,         ONLY: ltimer
 USE mo_math_constants
 USE mo_physical_constants
 USE mo_impl_constants,     ONLY: land_boundary, boundary, sea, sea_boundary, &!land, sea,
-  &                              min_rlcell, min_rledge, min_rlvert ,max_char_length
+  &                              min_rlcell, min_rledge, min_rlvert ,max_char_length, &
+  &                              min_rledge_int
 USE mo_model_domain,       ONLY: t_patch
 USE mo_ext_data,           ONLY: t_external_data
 USE mo_ocean_nml,          ONLY: lviscous, n_zlev, iswm_oce
@@ -393,7 +394,7 @@ SUBROUTINE grad_fd_norm_oce_2d( psi_c, ptr_patch, grad_norm_psi_e)
   slev = 1
   elev = 1
   rl_start = 2
-  rl_end = min_rledge
+  rl_end = min_rledge_int
 
   iidx => ptr_patch%edges%cell_idx
   iblk => ptr_patch%edges%cell_blk
@@ -418,28 +419,25 @@ SUBROUTINE grad_fd_norm_oce_2d( psi_c, ptr_patch, grad_norm_psi_e)
     !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je)
     DO jb = i_startblk, i_endblk
 
-    CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
-      i_startidx, i_endidx, rl_start, rl_end)
+      CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
+        i_startidx, i_endidx, rl_start, rl_end)
 
 #ifdef _URD
-    !CDIR UNROLL=_URD
+      !CDIR UNROLL=_URD
 #endif
-    DO je = i_startidx, i_endidx
-    !
-    ! compute the normal derivative
-    ! by the finite difference approximation
-    ! (see Bonaventura and Ringler MWR 2005)
-    !
-    IF ( v_base%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN
-      grad_norm_psi_e(je,jb) =  &
-        &  ( psi_c(iidx(je,jb,2),iblk(je,jb,2)) - &
-        &    psi_c(iidx(je,jb,1),iblk(je,jb,1)) )  &
-        &  * ptr_patch%edges%inv_dual_edge_length(je,jb)
-    ELSE
-      grad_norm_psi_e(je,jb) =  0.0_wp
-    ENDIF
-    ENDDO
-
+      DO je = i_startidx, i_endidx
+        ! compute the normal derivative
+        ! by the finite difference approximation
+        ! (see Bonaventura and Ringler MWR 2005)
+        !
+        IF ( v_base%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN
+          grad_norm_psi_e(je,jb) =  &
+            &  ( psi_c(iidx(je,jb,2),iblk(je,jb,2)) - psi_c(iidx(je,jb,1),iblk(je,jb,1)) ) &
+            &  * ptr_patch%edges%inv_dual_edge_length(je,jb)
+        ELSE
+          grad_norm_psi_e(je,jb) =  0.0_wp
+        ENDIF
+      END DO
     END DO
     !$OMP END DO
 

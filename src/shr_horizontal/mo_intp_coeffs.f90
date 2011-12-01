@@ -3653,6 +3653,7 @@ END SUBROUTINE complete_patchinfo
 
           z_vec_c1(ie)%x = cc_edge(ie)%x - cc_c1%x     !ptr_patch%edges%primal_cart_normal(iil_c1(ie),iib_c1(ie))
           norm           = SQRT(SUM( z_vec_c1(ie)%x* z_vec_c1(ie)%x))
+          write(*,*)'NORM:',norm !TODOram
 
           ptr_intp%edge2cell_coeff_cc(il_c1,ib_c1,ie)%x = &
             & z_vec_c1(ie)%x*ptr_patch%cells%edge_orientation(il_c1,ib_c1,ie)*z_edge_length(ie)
@@ -4021,49 +4022,49 @@ END SUBROUTINE complete_patchinfo
       ENDDO VERT_IDX_LOOP
     END DO VERT_BLK_LOOP
 
-!TODOram notnec    !--------------------------------------------------------------------------
-!TODOram notnec    ! SYNCHRONIZE ALL ELEMENTS OF V_BASE:
-!TODOram notnec    ! synchronize elements on cells
-!TODOram notnec    DO ie = 1, no_cell_edges
-!TODOram notnec      DO icc = 1, 3
-!TODOram notnec        z_sync_c(:,:) =  ptr_intp%edge2cell_coeff_cc(:,:,ie)%x(icc)
-!TODOram notnec        CALL sync_patch_array(SYNC_C, ptr_patch, z_sync_c(:,:))
-!TODOram notnec        ptr_intp%edge2cell_coeff_cc(:,:,ie)%x(icc) = z_sync_c(:,:)
-!TODOram notnec      END DO
-!TODOram notnec      z_sync_c(:,:) = ptr_intp%variable_vol_norm(:,:,ie)
-!TODOram notnec      CALL sync_patch_array(SYNC_C, ptr_patch, z_sync_c(:,:))
-!TODOram notnec      ptr_intp%variable_vol_norm(:,:,ie) = z_sync_c(:,:)
-!TODOram notnec    END DO
-!TODOram notnec    CALL sync_patch_array(SYNC_C, ptr_patch,ptr_intp%fixed_vol_norm)
-!TODOram notnec
-!TODOram notnec    ! synchronize elements on edges
-!TODOram notnec    DO ie = 1, 2
-!TODOram notnec      DO icc = 1, 3
-!TODOram notnec        z_sync_e(:,:) =  ptr_intp%edge2vert_coeff_cc_t(:,:,ie)%x(icc)
-!TODOram notnec        CALL sync_patch_array(SYNC_E, ptr_patch, z_sync_e(:,:))
-!TODOram notnec        ptr_intp%edge2vert_coeff_cc_t(:,:,ie)%x(icc) = z_sync_e(:,:)
-!TODOram notnec
-!TODOram notnec        z_sync_e(:,:) =  ptr_intp%edge2cell_coeff_cc_t(:,:,ie)%x(icc)
-!TODOram notnec        CALL sync_patch_array(SYNC_E, ptr_patch, z_sync_e(:,:))
-!TODOram notnec        ptr_intp%edge2cell_coeff_cc_t(:,:,ie)%x(icc) = z_sync_e(:,:)
-!TODOram notnec      END DO
-!TODOram notnec    END DO
-!TODOram notnec
-!TODOram notnec    ! synchronize cartesian coordinates on vertices:
-!TODOram notnec    DO ie = 1, no_vert_edges
-!TODOram notnec      DO icc = 1, 3
-!TODOram notnec        z_sync_v(:,:) =  ptr_intp%edge2vert_vector_cc(:,:,ie)%x(icc)
-!TODOram notnec        CALL sync_patch_array(SYNC_V, ptr_patch, z_sync_v(:,:))
-!TODOram notnec        ptr_intp%edge2vert_vector_cc(:,:,ie)%x(icc) = z_sync_v(:,:)
-!TODOram notnec
-!TODOram notnec        z_sync_v(:,:) = ptr_intp%edge2vert_coeff_cc(:,:,ie)%x(icc)
-!TODOram notnec        CALL sync_patch_array(SYNC_V, ptr_patch, z_sync_v(:,:))
-!TODOram notnec        ptr_intp%edge2vert_coeff_cc(:,:,ie)%x(icc) = z_sync_v(:,:)
-!TODOram notnec      END DO
-!TODOram notnec      z_sync_v(:,:) = ptr_intp%variable_dual_vol_norm(:,:,ie)
-!TODOram notnec      CALL sync_patch_array(SYNC_V, ptr_patch, z_sync_v(:,:))
-!TODOram notnec      ptr_intp%variable_dual_vol_norm(:,:,ie) = z_sync_v(:,:)
-!TODOram notnec    END DO
+    !--------------------------------------------------------------------------
+    ! SYNCHRONIZE ALL ELEMENTS OF V_BASE:
+    ! synchronize elements on cells
+    DO ie = 1, no_cell_edges
+      DO icc = 1, 3
+        z_sync_c(:,:) =  ptr_intp%edge2cell_coeff_cc(:,:,ie)%x(icc)
+        CALL sync_patch_array(SYNC_C, ptr_patch, z_sync_c(:,:))
+        ptr_intp%edge2cell_coeff_cc(:,:,ie)%x(icc) = z_sync_c(:,:)
+      END DO
+      z_sync_c(:,:) = ptr_intp%variable_vol_norm(:,:,ie)
+      CALL sync_patch_array(SYNC_C, ptr_patch, z_sync_c(:,:))
+      ptr_intp%variable_vol_norm(:,:,ie) = z_sync_c(:,:)
+    END DO
+    CALL sync_patch_array(SYNC_C, ptr_patch,ptr_intp%fixed_vol_norm)
+
+    ! synchronize elements on edges
+    DO ie = 1, 2
+      DO icc = 1, 3
+        z_sync_e(:,:) =  ptr_intp%edge2vert_coeff_cc_t(:,:,ie)%x(icc)
+        CALL sync_patch_array(SYNC_E, ptr_patch, z_sync_e(:,:))
+        ptr_intp%edge2vert_coeff_cc_t(:,:,ie)%x(icc) = z_sync_e(:,:)
+
+        z_sync_e(:,:) =  ptr_intp%edge2cell_coeff_cc_t(:,:,ie)%x(icc)
+        CALL sync_patch_array(SYNC_E, ptr_patch, z_sync_e(:,:))
+        ptr_intp%edge2cell_coeff_cc_t(:,:,ie)%x(icc) = z_sync_e(:,:)
+      END DO
+    END DO
+
+    ! synchronize cartesian coordinates on vertices:
+    DO ie = 1, no_vert_edges
+      DO icc = 1, 3
+        z_sync_v(:,:) =  ptr_intp%edge2vert_vector_cc(:,:,ie)%x(icc)
+        CALL sync_patch_array(SYNC_V, ptr_patch, z_sync_v(:,:))
+        ptr_intp%edge2vert_vector_cc(:,:,ie)%x(icc) = z_sync_v(:,:)
+
+        z_sync_v(:,:) = ptr_intp%edge2vert_coeff_cc(:,:,ie)%x(icc)
+        CALL sync_patch_array(SYNC_V, ptr_patch, z_sync_v(:,:))
+        ptr_intp%edge2vert_coeff_cc(:,:,ie)%x(icc) = z_sync_v(:,:)
+      END DO
+      z_sync_v(:,:) = ptr_intp%variable_dual_vol_norm(:,:,ie)
+      CALL sync_patch_array(SYNC_V, ptr_patch, z_sync_v(:,:))
+      ptr_intp%variable_dual_vol_norm(:,:,ie) = z_sync_v(:,:)
+    END DO
 
     CALL message (TRIM(routine), 'end')
 
