@@ -1548,8 +1548,8 @@ END DO
              &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
             DO jc = i_startidx_c, i_endidx_c
               IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-              ! p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof_var(jk)
-                p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 35.0_wp
+                p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof_var(jk)
+              ! p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 35.0_wp
               ELSE
                 p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 0.0_wp
               ENDIF
