@@ -502,10 +502,6 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
 !$OMP END DO
 !$OMP END PARALLEL
 
-    ELSE
-      
-      p_prog%tracer(:,:,:,io3) = 0.0_wp
-      
     ENDIF ! (irad_o3 == io3_ape)
  
     DO ist = 1, 10
