@@ -4660,6 +4660,14 @@ DO ns=nsubs0,nsubs1
     END DO
   END DO        ! soil layers
 
+  ! Update of two-time level interface variables 
+  DO   j = jstarts, jends
+    DO i = istarts, iends
+      IF (llandmask(i,j,ns)) THEN  ! for landpoints only
+        h_snow(i,j,ns) = h_snow_new(i,j,ns)
+      END IF
+    END DO
+  END DO
   
 !---loop over tiles---
 END DO
@@ -4754,11 +4762,6 @@ END DO
                    istarts, iends, jstarts, jends )
     ENDIF
   END DO
-
-
-! Update of two-time level interface variables 
-  
-     h_snow = h_snow_new
 
 
 ! Debug messages

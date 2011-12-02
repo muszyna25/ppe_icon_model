@@ -133,7 +133,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
   TYPE(t_lnd_diag),            INTENT(inout) :: p_diag_lnd
 
   REAL(wp),INTENT(OUT)::  mean_charlen
-  INTEGER             :: jk , nsmax
+  INTEGER             :: jk, jk1, nsmax
   REAL(wp)            :: pdtime
   REAL(wp)            :: pref(p_patch%nlevp1)
   REAL(wp), PARAMETER :: h_scal = 8000._wp     ! [m]      scale height
@@ -145,6 +145,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
   
   INTEGER :: jb,jc,jg,ist
   INTEGER :: nlev, nlevp1            !< number of full and half levels
+  INTEGER :: nshift                  !< shift with respect to global grid
   INTEGER :: rl_start, rl_end
   INTEGER :: i_startblk, i_endblk    !> blocks
   INTEGER :: i_startidx, i_endidx    !! slices
@@ -165,7 +166,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
     nlevp1 = p_patch%nlevp1
     jg     = p_patch%id
 
-
+    nshift = p_patch%nshift_total
 
     IF (.NOT. is_restart_run())THEN
 
@@ -272,7 +273,8 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
     !>reference pressure
     !--------------------------------------------------------------
       DO jk = nlevp1, 1, -1
-         pref(jk)= p0sl_bg * EXP( -vct_a (jk)/h_scal)
+        jk1 = jk + nshift
+        pref(jk)= p0sl_bg * EXP( -vct_a (jk1)/h_scal)
       ENDDO
 
     !------------------------------------------

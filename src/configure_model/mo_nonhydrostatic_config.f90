@@ -176,7 +176,8 @@ CONTAINS
 
     ! Determine end level for qv-advection substepping (specified by hbot_qvsubstep)
     DO jk = nlev, 2, -1
-      IF (0.5_wp*(vct_a(jk)+vct_a(jk-1)) > hbot_qvsubstep) THEN
+      jk1 = jk + nshift_total
+      IF (0.5_wp*(vct_a(jk1)+vct_a(jk1-1)) > hbot_qvsubstep) THEN
         kend_qvsubstep(jg) = jk
         EXIT
       ENDIF
