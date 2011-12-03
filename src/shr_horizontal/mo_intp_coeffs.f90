@@ -3561,9 +3561,12 @@ END SUBROUTINE complete_patchinfo
     i_endblk     = ptr_patch%cells%end_blk(rl_end,1)
 
     rl_start_e   = 1
-    rl_end_e     = min_rledge_int
+    rl_end_e     = min_rledge ! Loop over the whole local domain
     i_startblk_e = ptr_patch%edges%start_blk(rl_start_e,1)
     i_endblk_e   = ptr_patch%edges%end_blk(rl_end_e,1)
+
+    ! For safety !!!!
+    ptr_intp%fixed_vol_norm(:,:) = 0._wp
 
     !-----------------------------------------------------------------------
     !STEP 1: edge2cell and cell2edge coefficients
@@ -3581,6 +3584,11 @@ END SUBROUTINE complete_patchinfo
         ib_c1 = ptr_patch%edges%cell_blk(je,jb,1)
         il_c2 = ptr_patch%edges%cell_idx(je,jb,2)
         ib_c2 = ptr_patch%edges%cell_blk(je,jb,2)
+
+        ! Go only over edges where at least one neighboring triangle is not in the halo
+        IF(il_c1<=0 .OR. il_c2<=0) CYCLE
+        IF(.NOT.ptr_patch%cells%owner_mask(il_c1,ib_c1) .AND. &
+           .NOT.ptr_patch%cells%owner_mask(il_c2,ib_c2) ) CYCLE
 
         cc_c1 = gc2cc(ptr_patch%cells%center(il_c1, ib_c1))
         cc_c2 = gc2cc(ptr_patch%cells%center(il_c2, ib_c2))
@@ -3819,8 +3827,7 @@ END SUBROUTINE complete_patchinfo
     !------------------------------------------------------------------------------
 
     rl_start = 1
-    rl_end   = min_rlvert
-   rl_end   = min_rlvert_int  ! inner part of decomposition only - no halo (!!)
+    rl_end   = min_rlvert ! Loop over the whole local domain
 
     i_startblk = ptr_patch%verts%start_blk(rl_start,1)
     i_endblk   = ptr_patch%verts%end_blk(rl_end,1)
@@ -3831,6 +3838,9 @@ END SUBROUTINE complete_patchinfo
       VERT_IDX_LOOP: DO jv =  i_startidx, i_endidx
         ! current number of edges around vertex (5 or 6)
         cc_v0        = gc2cc(ptr_patch%verts%vertex(jv,jb))
+
+        ! Go only over vertices where all edges are in the local domain (but maybe in the halo)
+        IF(ANY(ptr_patch%verts%edge_idx(jv,jb,:)<0)) CYCLE
 
         DO ie = 1, no_vert_edges  ! #slo# it_vertedges ??
 
