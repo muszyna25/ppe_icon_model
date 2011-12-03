@@ -4874,6 +4874,7 @@ SUBROUTINE tgcom (tg, ts, tb, ws, llp, ie, je, cf_snow,                 &
 
 INTEGER (KIND=iintegers), INTENT (IN)    ::    &
   ie,                      & ! dimensions of the fields
+  je,                      & ! unused argument
   istart, iend, jstart, jend    ! start and end-indices of the computation
 
 REAL (KIND=ireals), INTENT (INOUT)       ::    &
