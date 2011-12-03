@@ -1044,6 +1044,18 @@ from NetCDF dump files instead of calculating them.&
 \tabularnewline
 
 \hline 
+lone\_file\_per\_patch&
+L & .FALSE.& &
+Use one file per patch for all processors.\\
+This will decrease the amount of files used for dump/restore
+considerably, especially for massively parallel runs on hundreds
+or thousands of processors.\\
+Time for dumping will increase since the file has to be written sequentially,
+the time for restore should stay roughly the same, however.&
+ldump\_states=.TRUE. or lrestore\_states=.TRUE.
+\tabularnewline
+
+\hline 
 nsteps &
 I & 0 & &
 number of time steps of this run.&
