@@ -33,6 +33,7 @@ MODULE mo_run_nml
 
   USE mo_run_config, ONLY: config_ldump_states    => ldump_states,    &
                          & config_lrestore_states => lrestore_states, &
+                         & config_lone_file_per_patch => lone_file_per_patch, &
                          & config_ltestcase       => ltestcase,       &
                          & config_ldynamics       => ldynamics,       &
                          & config_iforcing        => iforcing,        &
@@ -78,6 +79,7 @@ MODULE mo_run_nml
                              ! end exit program
   LOGICAL :: lrestore_states ! Restore patch/interpolation/grid refinement states
                              ! from dump files instead of calculating them
+  LOGICAL :: lone_file_per_patch ! Use one or several files per patch for dump/restore
 
   LOGICAL :: ltestcase       ! if .TRUE. then
                              ! - compute analytical initial state,
@@ -109,6 +111,7 @@ MODULE mo_run_nml
   REAL(wp) :: check_epsilon ! small value for checks
 
   NAMELIST /run_nml/ ldump_states, lrestore_states, &
+                     lone_file_per_patch,           &
                      ltestcase,    ldynamics,       &
                      iforcing,     ltransport,      &
                      ntracer,                       &
@@ -133,6 +136,7 @@ CONTAINS
     !------------------------------------------------------------
     ldump_states    = .FALSE.
     lrestore_states = .FALSE.
+    lone_file_per_patch = .FALSE.
 
     ltestcase       = .TRUE.
     ldynamics       = .TRUE.
@@ -211,6 +215,7 @@ CONTAINS
     !----------------------------------------------------
     config_ldump_states    = ldump_states
     config_lrestore_states = lrestore_states
+    config_lone_file_per_patch = lone_file_per_patch
 
     config_ltestcase       = ltestcase 
     config_ldynamics       = ldynamics 

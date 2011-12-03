@@ -112,6 +112,37 @@
 !   or the index pair (uidx_io).
 !
 !-------------------------------------------------------------------------------
+!
+! Note about the unlimited dimension:
+!
+! Every variable has as the last dimension the NetCDF unlimited dimension which
+! is always set to 1 (when the file is complete).
+! This seems unnecessary at the first glance but it serves the following purpose:
+!
+! When the file is written in lone_file_per_patch mode, every processor opens
+! the output file, puts it into define mode, outputs its definitions and
+! closes the file again so that the next processor can add its definitions.
+!
+! After the definitions for all processors are complete, the data is written
+! in the same sequential manner.
+!
+! This is also possible in the same way without using an additional unlimited
+! dimension, but this would result in a huge amount of unecessary IO in the
+! definition mode:
+! If there is no unlimited dimension, the data will be added when closing
+! the NetCDF file (even though there has nothing been written yet),
+! just as data filled with zeros.
+! When the next processor opens the file and adds its definitions, this
+! NULL-data will be copied to another location in order to make space
+! in the header for the new definitions.
+! This will happen for every processor opening the file and adding definitions.
+!
+! To avoid these unnecessary copies, the unlimited dimension is introduced
+! which is initially 0, i.e. no data will be added to the file when in
+! definition mode and thus no data has to be copied when the next processor
+! adds its own definitions.
+! 
+!-------------------------------------------------------------------------------
 
 
 MODULE mo_dump_restore
@@ -123,7 +154,7 @@ MODULE mo_dump_restore
                                    min_rlcell_int, min_rledge_int
   USE mo_exception,          ONLY: message_text, message, finish, warning
   USE mo_parallel_config, ONLY: nproma
-  USE mo_run_config,         ONLY: ltransport, &
+  USE mo_run_config,         ONLY: lone_file_per_patch, ltransport, &
      &                             num_lev, num_levp1, nshift
   USE mo_dynamics_config,    ONLY: iequations
   USE mo_io_units,           ONLY: filename_max, nerr
@@ -137,7 +168,9 @@ MODULE mo_dump_restore
  USE mo_interpol_config      ! We need all from that module
   USE mo_gridref_config      ! We need all from that module         
   USE mo_mpi,                ONLY: my_process_is_mpi_all_parallel, p_n_work, p_pe_work, &
-    &                              process_mpi_io_size, my_process_is_stdio
+    &                              process_mpi_io_size, my_process_is_stdio, &
+    &                              my_process_is_mpi_workroot, p_int, p_comm_work, &
+    &                              num_work_procs, p_barrier, get_my_mpi_work_id
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e
   USE mo_communication,      ONLY: t_comm_pattern, blk_no, idx_no, idx_1d
   USE mo_model_domimp_patches, ONLY: allocate_patch
@@ -207,17 +240,18 @@ MODULE mo_dump_restore
 
   ! Common dimensions
 
+  INTEGER :: dim_unlimited ! The unlimted dimension
+
   INTEGER :: dim_2, dim_3, dim_4, dim_5, dim_7, dim_6, dim_8, dim_9
   INTEGER :: dim_ncells, dim_nedges, dim_nverts
   INTEGER :: dim_nverts_per_cell, dim_nverts_per_cell_p1
   INTEGER :: dim_nedges_per_vert
   INTEGER :: dim_nlev
-  INTEGER :: dim_p_n_work_p1
-  INTEGER :: dim_n_childdom
+  INTEGER :: dim_n_childdom(2)
 
   ! dimensions for patches
-  INTEGER :: dim_ncells_g, dim_nverts_g, dim_nedges_g
-  INTEGER :: dim_max_childdom
+  INTEGER :: dim_ncells_g(2), dim_nverts_g(2), dim_nedges_g(2)
+  INTEGER :: dim_max_childdom(2)
   INTEGER :: dim_nrlcell, dim_nrledge, dim_nrlvert
 
   ! dimensions for interpolation state
@@ -230,6 +264,8 @@ MODULE mo_dump_restore
 
   ! dimensions for grf state
   INTEGER :: dim_grf_vec_dim_1, dim_grf_vec_dim_2
+
+  LOGICAL :: dim_define_mode
 
   !-------------------------------------------------------------------------
 
@@ -272,8 +308,12 @@ CONTAINS
 !     WRITE(filename,'(a,a,i0,2(a,i2.2),2(a,i0),a)') &
 !       & TRIM(gridtype),'R',nroot,'B',level,'_DOM',id,'_proc',p_pe_work,'of',p_n_work,'.nc'
 
-     WRITE(filename,'(2(a,i0),a,a)') &
-       & 'dump_proc',p_pe_work,'of',p_n_work,"_",TRIM(patch_filename)
+     IF(lone_file_per_patch) THEN
+       filename = 'dump_'//TRIM(patch_filename)
+     ELSE
+       WRITE(filename,'(2(a,i0),a,a)') &
+         & 'dump_proc',p_pe_work,'of',p_n_work,"_",TRIM(patch_filename)
+     ENDIF
 
   END SUBROUTINE set_dump_restore_filename
 
@@ -289,7 +329,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: dim1
     INTEGER, INTENT(IN), OPTIONAL :: dim2, dim3
 
-    INTEGER nvdims, vdims(3), varid
+    INTEGER nvdims, vdims(4), varid
 
     nvdims = 1
     vdims(1) = dim1
@@ -303,9 +343,43 @@ CONTAINS
       ENDIF
     ENDIF
 
-    CALL nf(nf_def_var(ncid, TRIM(prefix)//var_name, var_type, nvdims, vdims, varid))
+    vdims(nvdims+1) = dim_unlimited
+
+    CALL nf(nf_def_var(ncid, TRIM(prefix)//var_name, var_type, nvdims+1, vdims, varid))
 
   END SUBROUTINE def_var
+
+  !-----------------------------------------------------------------------
+  !
+  !> def_inq_dim:
+  !! Defines or inquires a NetCDF dimension (based on dim_define_mode)
+
+  SUBROUTINE def_inq_dim(dim_name, dim_len, dimid)
+
+    CHARACTER(LEN=*), INTENT(IN) :: dim_name
+    INTEGER, INTENT(IN)  :: dim_len
+    INTEGER, INTENT(OUT) :: dimid
+
+    INTEGER :: len
+
+    ! If dim_len == 0, don't try to define/inquire this dimension,
+    ! it must not be used in the code
+
+    IF(dim_name/='unlimited' .AND. dim_len==0) THEN
+      dimid = -1
+      RETURN
+    ENDIF
+
+    IF(dim_define_mode) THEN
+      CALL nf(nf_def_dim(ncid, dim_name, dim_len, dimid))
+    ELSE
+      CALL nf(nf_inq_dimid(ncid, dim_name, dimid))
+      ! For safty: check stored value against own one:
+      CALL nf(nf_inq_dimlen(ncid, dimid, len))
+      IF(len /= dim_len) CALL finish(modname,'Dim stored value mismatch for '//TRIM(dim_name))
+    ENDIF
+
+  END SUBROUTINE def_inq_dim
 
   !-----------------------------------------------------------------------
   !
@@ -321,7 +395,7 @@ CONTAINS
     INTEGER, INTENT(IN)  :: var_type, ndims
     INTEGER, INTENT(OUT) :: varid, dimlen(:)
 
-    INTEGER i, stat, dimids(ndims), var_type_inq, ndims_inq
+    INTEGER i, stat, dimids(ndims+1), var_type_inq, ndims_inq
 
     ! Get varid, check return status explicitly so we can output the variable name
     ! in case of an error (most probably a typo in var_name)
@@ -339,14 +413,14 @@ CONTAINS
     ! Check if ndims is ok
 
     CALL nf(nf_inq_varndims(ncid, varid, ndims_inq))
-    if(ndims_inq /= ndims) &
+    if(ndims_inq /= ndims+1) &
       CALL finish(modname, TRIM(prefix)//var_name//': stored ndims not like expected')
 
     ! Get dimensions
 
     CALL nf(nf_inq_vardimid(ncid, varid, dimids))
 
-    DO i = 1, ndims
+    DO i = 1, ndims ! Don't return the unlimited dimension
       CALL nf(nf_inq_dimlen(ncid, dimids(i), dimlen(i)))
     ENDDO
 
@@ -507,7 +581,7 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: opt_start
 
     INTEGER :: var_start, varid, dimlen(2)
-    INTEGER :: start(2), count(2), pos_dim2
+    INTEGER :: start(3), count(3), pos_dim2
     INTEGER :: nblks, i
     REAL(wp), ALLOCATABLE :: buf(:)
 
@@ -527,8 +601,8 @@ CONTAINS
     buf(:) = 0._wp
 
     DO i=1,UBOUND(var,pos_dim2)
-      start = (/ 1, i /)
-      count = (/ dimlen(1), 1 /)
+      start = (/ 1, i, 1 /)
+      count = (/ dimlen(1), 1, 1 /)
       IF(netcdf_read) THEN
         CALL nf(nf_get_vara_double(ncid, varid, start, count, buf(var_start)))
         IF(pos_dim2==1) var(i,:,:) = RESHAPE(buf, (/ nproma, nblks /))
@@ -554,7 +628,7 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: opt_start
 
     INTEGER :: var_start, varid, dimlen(3)
-    INTEGER :: start(3), count(3), pos_dim2, pos_dim3
+    INTEGER :: start(4), count(4), pos_dim2, pos_dim3
     INTEGER :: nblks, i, j
     REAL(wp), ALLOCATABLE :: buf(:)
 
@@ -576,8 +650,8 @@ CONTAINS
 
     DO j=1,UBOUND(var,pos_dim3)
     DO i=1,UBOUND(var,pos_dim2)
-      start = (/ 1, i, j /)
-      count = (/ dimlen(1), 1, 1 /)
+      start = (/ 1, i, j, 1 /)
+      count = (/ dimlen(1), 1, 1, 1 /)
       IF(netcdf_read) THEN
         CALL nf(nf_get_vara_double(ncid, varid, start, count, buf(var_start)))
         IF(pos_dim2==3 .AND. pos_dim3==4) var(:,:,i,j) = RESHAPE(buf, (/ nproma, nblks /))
@@ -644,7 +718,7 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: opt_start
 
     INTEGER :: var_start, varid, dimlen(2)
-    INTEGER :: start(2), count(2), pos_dim2
+    INTEGER :: start(3), count(3), pos_dim2
     INTEGER :: nblks, i
     INTEGER, ALLOCATABLE :: buf(:)
 
@@ -664,8 +738,8 @@ CONTAINS
     buf(:) = 0
 
     DO i=1,UBOUND(var,pos_dim2)
-      start = (/ 1, i /)
-      count = (/ dimlen(1), 1 /)
+      start = (/ 1, i, 1 /)
+      count = (/ dimlen(1), 1, 1 /)
       IF(netcdf_read) THEN
         CALL nf(nf_get_vara_int(ncid, varid, start, count, buf(var_start)))
         IF(pos_dim2==1) var(i,:,:) = RESHAPE(buf, (/ nproma, nblks /))
@@ -956,40 +1030,18 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: base_name
     TYPE(t_comm_pattern), INTENT(IN) :: pat
 
-    INTEGER :: dim_n_pnts, dim_n_send, dim_npe_send, dim_npe_recv
+    INTEGER :: length, dim_length
 
     ! Some communication patterns are not allocated at all
 
     IF(.NOT. ALLOCATED(pat%recv_limits)) RETURN
 
-    ! Issue definition for recv_limits/send_limits, they are always > 0
-    CALL def_var(base_name//'.recv_limits',    nf_int, dim_p_n_work_p1)
-    CALL def_var(base_name//'.send_limits',    nf_int, dim_p_n_work_p1)
+    ! Communication patterns are stuffed into one integer array in the NetCDF file
+    ! which has the following length:
 
-    IF(pat%n_pnts>0) THEN
-      CALL def_dim_pref(base_name//'.n_pnts', pat%n_pnts, dim_n_pnts)
-      CALL def_var(base_name//'.recv_src',       nf_int, dim_n_pnts)
-      CALL def_var(base_name//'.recv_dst_index', nf_int, dim_n_pnts)
-    ENDIF
-
-    IF(pat%np_send>0) THEN
-      CALL def_dim_pref(base_name//'.np_send', pat%np_send, dim_npe_send)
-      CALL def_var(base_name//'.pelist_send', nf_int, dim_npe_send)
-      CALL def_var(base_name//'.send_startidx', nf_int, dim_npe_send)
-      CALL def_var(base_name//'.send_count', nf_int, dim_npe_send)
-    ENDIF
-
-    IF(pat%np_recv>0) THEN
-      CALL def_dim_pref(base_name//'.np_recv', pat%np_recv, dim_npe_recv)
-      CALL def_var(base_name//'.pelist_recv', nf_int, dim_npe_recv)
-      CALL def_var(base_name//'.recv_startidx', nf_int, dim_npe_recv)
-      CALL def_var(base_name//'.recv_count', nf_int, dim_npe_recv)
-    ENDIF
-
-    IF(pat%n_send>0) THEN
-      CALL def_dim_pref(base_name//'.n_send', pat%n_send, dim_n_send)
-      CALL def_var(base_name//'.send_src_index', nf_int, dim_n_send)
-    ENDIF
+    length = 3 + 2*(p_n_work+1) + 2*pat%n_pnts + 3*pat%np_send + 3*pat%np_recv + pat%n_send
+    CALL def_dim_pref(base_name//'.length', length, dim_length)
+    CALL def_var(base_name//'.data', nf_int, dim_length)
 
   END SUBROUTINE def_comm_pat
   !-----------------------------------------------------------------------
@@ -998,92 +1050,108 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: base_name
     TYPE(t_comm_pattern), INTENT(INOUT) :: pat
 
-    INTEGER :: stat, varid, dimid
+    INTEGER :: stat, dimid, n, length
+    INTEGER, ALLOCATABLE :: pat_data(:)
 
     IF(netcdf_read) THEN
 
-      ! Check if recv_limits is in netCDF file, otherwise this patch will not be allocated
-      stat = nf_inq_varid(ncid, TRIM(prefix)//base_name//'.recv_limits', varid)
+      ! Check if pattern length dimension is in netCDF file,
+      ! otherwise this patch will not be allocated
+      stat = nf_inq_dimid (ncid, TRIM(prefix)//base_name//'.length', dimid)
       IF (stat /= nf_noerr) RETURN
+      ! Get length of data
+      CALL nf(nf_inq_dimlen(ncid, dimid, length))
+
+      ! Allocate and read data
+      ALLOCATE(pat_data(length))
+      CALL uvar_io(base_name//'.data', pat_data)
+
+      ! Distribute data
+
+      pat%n_pnts  = pat_data(1)
+      pat%np_recv = pat_data(2)
+      pat%np_send = pat_data(3)
+      n = 3
 
       ALLOCATE(pat%recv_limits(0:p_n_work))
       ALLOCATE(pat%send_limits(0:p_n_work))
-
-      CALL uvar_io(base_name//'.recv_limits',    pat%recv_limits)
-      CALL uvar_io(base_name//'.send_limits',    pat%send_limits)
+      pat%recv_limits(0:p_n_work) = pat_data(n+1:n+p_n_work+1); n = n + p_n_work+1
+      pat%send_limits(0:p_n_work) = pat_data(n+1:n+p_n_work+1); n = n + p_n_work+1
 
       pat%n_recv = pat%recv_limits(p_n_work)
       pat%n_send = pat%send_limits(p_n_work)
-
-      IF(pat%n_recv > 0) THEN
-        CALL nf(nf_inq_dimid (ncid, TRIM(prefix)//base_name//'.n_pnts', dimid))
-        CALL nf(nf_inq_dimlen(ncid, dimid, pat%n_pnts))
-
-        CALL nf(nf_inq_dimid (ncid, TRIM(prefix)//base_name//'.np_recv', dimid))
-        CALL nf(nf_inq_dimlen(ncid, dimid, pat%np_recv))
-      ELSE
-        pat%n_pnts = 0
-        pat%np_recv = 0
-      ENDIF
-
-      IF(pat%n_send > 0) THEN
-        CALL nf(nf_inq_dimid (ncid, TRIM(prefix)//base_name//'.np_send', dimid))
-        CALL nf(nf_inq_dimlen(ncid, dimid, pat%np_send))
-      ELSE
-        pat%np_send = 0
-      ENDIF
 
       ALLOCATE(pat%recv_src(pat%n_pnts))
       ALLOCATE(pat%recv_dst_blk(pat%n_pnts))
       ALLOCATE(pat%recv_dst_idx(pat%n_pnts))
 
-      ALLOCATE(pat%send_src_blk(pat%n_send))
-      ALLOCATE(pat%send_src_idx(pat%n_send))
+      pat%recv_src(:) = pat_data(n+1:n+pat%n_pnts)
+      n = n + pat%n_pnts
+      pat%recv_dst_idx  = idx_no(pat_data(n+1:n+pat%n_pnts))
+      pat%recv_dst_blk  = blk_no(pat_data(n+1:n+pat%n_pnts))
+      n = n + pat%n_pnts
 
       ALLOCATE (pat%pelist_send(pat%np_send),   pat%pelist_recv(pat%np_recv),   &
                 pat%send_startidx(pat%np_send), pat%recv_startidx(pat%np_recv), &
                 pat%send_count(pat%np_send),    pat%recv_count(pat%np_recv)     )
 
-      IF (pat%np_recv > 0) THEN
-        CALL uvar_io(base_name//'.pelist_recv',    pat%pelist_recv)
-        CALL uvar_io(base_name//'.recv_startidx',  pat%recv_startidx)
-        CALL uvar_io(base_name//'.recv_count',     pat%recv_count)
-      ENDIF
+      pat%pelist_send(:)   = pat_data(n+1:n+pat%np_send); n = n + pat%np_send
+      pat%send_startidx(:) = pat_data(n+1:n+pat%np_send); n = n + pat%np_send
+      pat%send_count(:)    = pat_data(n+1:n+pat%np_send); n = n + pat%np_send
 
-      IF (pat%np_send > 0) THEN
-        CALL uvar_io(base_name//'.pelist_send',    pat%pelist_send)
-        CALL uvar_io(base_name//'.send_startidx',  pat%send_startidx)
-        CALL uvar_io(base_name//'.send_count',     pat%send_count)
-      ENDIF
+      pat%pelist_recv(:)   = pat_data(n+1:n+pat%np_recv); n = n + pat%np_recv
+      pat%recv_startidx(:) = pat_data(n+1:n+pat%np_recv); n = n + pat%np_recv
+      pat%recv_count(:)    = pat_data(n+1:n+pat%np_recv); n = n + pat%np_recv
+
+      ALLOCATE(pat%send_src_blk(pat%n_send))
+      ALLOCATE(pat%send_src_idx(pat%n_send))
+
+      pat%send_src_idx(:)  = idx_no(pat_data(n+1:n+pat%n_send))
+      pat%send_src_blk(:)  = blk_no(pat_data(n+1:n+pat%n_send))
+      n = n + pat%n_send
+      IF(n /= length) CALL finish(modname,'Inconsistent length for compat '//base_name)
+
+      DEALLOCATE(pat_data)
 
     ELSE
 
       ! Do nothing if the pattern is not allocated
       IF(.NOT. ALLOCATED(pat%recv_limits)) RETURN
 
-      CALL uvar_io(base_name//'.recv_limits',    pat%recv_limits)
-      CALL uvar_io(base_name//'.send_limits',    pat%send_limits)
+      ! Communication patterns are stuffed into one integer array in the NetCDF file
+      ! which has the following length:
 
-      IF (pat%np_recv > 0) THEN
-        CALL uvar_io(base_name//'.pelist_recv',    pat%pelist_recv)
-        CALL uvar_io(base_name//'.recv_startidx',  pat%recv_startidx)
-        CALL uvar_io(base_name//'.recv_count',     pat%recv_count)
-      ENDIF
+      length = 3 + 2*(p_n_work+1) + 2*pat%n_pnts + 3*pat%np_send + 3*pat%np_recv + pat%n_send
+      ALLOCATE(pat_data(length))
 
-      IF (pat%np_send > 0) THEN
-        CALL uvar_io(base_name//'.pelist_send',    pat%pelist_send)
-        CALL uvar_io(base_name//'.send_startidx',  pat%send_startidx)
-        CALL uvar_io(base_name//'.send_count',     pat%send_count)
-      ENDIF
+      pat_data(1) = pat%n_pnts
+      pat_data(2) = pat%np_recv
+      pat_data(3) = pat%np_send
+      n = 3
 
-    ENDIF
+      pat_data(n+1:n+p_n_work+1) = pat%recv_limits(0:p_n_work); n = n + p_n_work+1
+      pat_data(n+1:n+p_n_work+1) = pat%send_limits(0:p_n_work); n = n + p_n_work+1
 
-    IF(pat%n_pnts>0) THEN
-      CALL uvar_io(base_name//'.recv_src',       pat%recv_src)
-      CALL uidx_io(base_name//'.recv_dst_index', pat%recv_dst_idx, pat%recv_dst_blk)
-    ENDIF
-    IF(pat%n_send>0) THEN
-      CALL uidx_io(base_name//'.send_src_index', pat%send_src_idx, pat%send_src_blk)
+      pat_data(n+1:n+pat%n_pnts) = pat%recv_src(:)
+      n = n + pat%n_pnts
+      pat_data(n+1:n+pat%n_pnts) = idx_1d(pat%recv_dst_idx(:),pat%recv_dst_blk(:))
+      n = n + pat%n_pnts
+
+      pat_data(n+1:n+pat%np_send) = pat%pelist_send(:);   n = n + pat%np_send
+      pat_data(n+1:n+pat%np_send) = pat%send_startidx(:); n = n + pat%np_send
+      pat_data(n+1:n+pat%np_send) = pat%send_count(:);    n = n + pat%np_send
+
+      pat_data(n+1:n+pat%np_recv) = pat%pelist_recv(:);   n = n + pat%np_recv
+      pat_data(n+1:n+pat%np_recv) = pat%recv_startidx(:); n = n + pat%np_recv
+      pat_data(n+1:n+pat%np_recv) = pat%recv_count(:);    n = n + pat%np_recv
+
+      pat_data(n+1:n+pat%n_send)  = idx_1d(pat%send_src_idx(:),pat%send_src_blk(:))
+      n = n + pat%n_send
+
+      CALL uvar_io(base_name//'.data', pat_data)
+
+      DEALLOCATE(pat_data)
+
     ENDIF
 
   END SUBROUTINE comm_pat_io
@@ -1102,16 +1170,12 @@ CONTAINS
   !
   !> Defines patch variables for NetCDF
 
-  SUBROUTINE def_patch(p)
+  SUBROUTINE def_patch(p, np)
 
     TYPE(t_patch), INTENT(INOUT) :: p
+    INTEGER, INTENT(IN) :: np ! 1 for patch, 2 for local parent
 
     ! Dimensions specific for this patch (with prefix)
-
-    CALL def_dim_pref('max_childdom', p%max_childdom, dim_max_childdom)
-    dim_n_childdom = -1
-    IF(p%n_childdom>0) &
-     CALL def_dim_pref('n_childdom',   p%n_childdom,   dim_n_childdom)
 
     dim_ncells = -1
     dim_nedges = -1
@@ -1123,10 +1187,6 @@ CONTAINS
       CALL def_dim_pref('n_patch_edges', p%n_patch_edges, dim_nedges)
     IF(p%n_patch_verts>0) &
       CALL def_dim_pref('n_patch_verts', p%n_patch_verts, dim_nverts)
-
-    CALL def_dim_pref('n_patch_cells_g', p%n_patch_cells_g, dim_ncells_g)
-    CALL def_dim_pref('n_patch_edges_g', p%n_patch_edges_g, dim_nedges_g)
-    CALL def_dim_pref('n_patch_verts_g', p%n_patch_verts_g, dim_nverts_g)
 
     ! Variables for patch
 
@@ -1149,10 +1209,10 @@ CONTAINS
       CALL def_var('patch.cells.glb_index',        nf_int   , dim_ncells)
       CALL def_var('patch.cells.owner_local',      nf_int   , dim_ncells)
     ENDIF
-    CALL def_var  ('patch.cells.start_index',      nf_int   , dim_nrlcell, dim_max_childdom)
-    CALL def_var  ('patch.cells.end_index',        nf_int   , dim_nrlcell, dim_max_childdom)
-    CALL def_var  ('patch.cells.loc_index',        nf_int   , dim_ncells_g)
-    CALL def_var  ('patch.cells.owner_g',          nf_int   , dim_ncells_g)
+    CALL def_var  ('patch.cells.start_index',      nf_int   , dim_nrlcell, dim_max_childdom(np))
+    CALL def_var  ('patch.cells.end_index',        nf_int   , dim_nrlcell, dim_max_childdom(np))
+    CALL def_var  ('patch.cells.loc_index',        nf_int   , dim_ncells_g(np))
+    CALL def_var  ('patch.cells.owner_g',          nf_int   , dim_ncells_g(np))
 
 
     IF(p%n_patch_edges>0) THEN
@@ -1200,10 +1260,10 @@ CONTAINS
       CALL def_var('patch.edges.owner_mask',             nf_int   , dim_nedges)
       CALL def_var('patch.edges.glb_index',              nf_int   , dim_nedges)
     ENDIF
-    CALL def_var  ('patch.edges.start_index',            nf_int   , dim_nrledge, dim_max_childdom)
-    CALL def_var  ('patch.edges.end_index',              nf_int   , dim_nrledge, dim_max_childdom)
-    CALL def_var  ('patch.edges.loc_index',              nf_int   , dim_nedges_g)
-    CALL def_var  ('patch.edges.owner_g',                nf_int   , dim_nedges_g)
+    CALL def_var  ('patch.edges.start_index',            nf_int, dim_nrledge, dim_max_childdom(np))
+    CALL def_var  ('patch.edges.end_index',              nf_int, dim_nrledge, dim_max_childdom(np))
+    CALL def_var  ('patch.edges.loc_index',              nf_int   , dim_nedges_g(np))
+    CALL def_var  ('patch.edges.owner_g',                nf_int   , dim_nedges_g(np))
 
 
     IF(p%n_patch_verts>0) THEN
@@ -1222,10 +1282,10 @@ CONTAINS
       CALL def_var('patch.verts.owner_mask',       nf_int   , dim_nverts)
       CALL def_var('patch.verts.glb_index',        nf_int   , dim_nverts)
     ENDIF
-    CALL def_var  ('patch.verts.start_index',      nf_int   , dim_nrlvert, dim_max_childdom)
-    CALL def_var  ('patch.verts.end_index',        nf_int   , dim_nrlvert, dim_max_childdom)
-    CALL def_var  ('patch.verts.loc_index',        nf_int   , dim_nverts_g)
-    CALL def_var  ('patch.verts.owner_g',          nf_int   , dim_nverts_g)
+    CALL def_var  ('patch.verts.start_index',      nf_int   , dim_nrlvert, dim_max_childdom(np))
+    CALL def_var  ('patch.verts.end_index',        nf_int   , dim_nrlvert, dim_max_childdom(np))
+    CALL def_var  ('patch.verts.loc_index',        nf_int   , dim_nverts_g(np))
+    CALL def_var  ('patch.verts.owner_g',          nf_int   , dim_nverts_g(np))
 
 
     CALL def_comm_pat('comm_pat_c',                   p%comm_pat_c)
@@ -1404,11 +1464,10 @@ CONTAINS
   !
   !> Defines interpolation state for NetCDF
 
-  SUBROUTINE def_int_state(k_jg, p, output_dims)
+  SUBROUTINE def_int_state(k_jg, p)
 
     INTEGER, INTENT(IN)       :: k_jg  ! domain index
     TYPE(t_patch), INTENT(IN) :: p
-    LOGICAL, INTENT(IN)       :: output_dims
     ! local variables
     TYPE (t_lon_lat_grid), POINTER :: grid ! lon-lat grid
     INTEGER :: idummy
@@ -1417,7 +1476,7 @@ CONTAINS
     ! Output all variables defining interpolation as attributes (unless they are
     ! used as dimensions below)
 
-    IF(output_dims) THEN
+    IF(dim_define_mode) THEN
       CALL nf(nf_put_att_int(ncid, nf_global, 'llsq_high_consv',   nf_int, 1, &
         &  MERGE(1,0,llsq_high_consv)))
       CALL nf(nf_put_att_int(ncid, nf_global, 'rbf_vec_kern_c',   nf_int, 1, rbf_vec_kern_c))
@@ -1438,32 +1497,32 @@ CONTAINS
       CALL nf(nf_put_att_double(ncid, nf_global, 'nudge_efold_width', nf_double, 1, &
         &  nudge_efold_width))
       CALL nf(nf_put_att_double(ncid, nf_global, 'sick_a',          nf_double, 1, sick_a))
+    ENDIF
 
 
       ! Dimensions for interpolation state
 
-      SELECT CASE (i_cori_method)
-      CASE (1,3,4)
-        CALL nf(nf_def_dim(ncid, 'nincr', 14, dim_nincr))
-      CASE (2)
-        CALL nf(nf_def_dim(ncid, 'nincr', 10, dim_nincr))
-      END SELECT
+    SELECT CASE (i_cori_method)
+    CASE (1,3,4)
+      CALL def_inq_dim('nincr', 14, dim_nincr)
+    CASE (2)
+      CALL def_inq_dim('nincr', 10, dim_nincr)
+    END SELECT
 
-      CALL nf(nf_def_dim(ncid, 'lsq_dim_c_lin',    lsq_lin_set%dim_c, dim_lsq_dim_c_lin))
-      CALL nf(nf_def_dim(ncid, 'lsq_dim_unk_lin', lsq_lin_set%dim_unk, dim_lsq_dim_unk_lin))
-      idummy=(lsq_lin_set%dim_unk*lsq_lin_set%dim_unk - lsq_lin_set%dim_unk)/2
-      CALL nf(nf_def_dim(ncid, 'lsq_dim_unk2_lin', idummy,     dim_lsq_dim_unk2_lin))
+    CALL def_inq_dim('lsq_dim_c_lin',    lsq_lin_set%dim_c, dim_lsq_dim_c_lin)
+    CALL def_inq_dim('lsq_dim_unk_lin', lsq_lin_set%dim_unk, dim_lsq_dim_unk_lin)
+    idummy=(lsq_lin_set%dim_unk*lsq_lin_set%dim_unk - lsq_lin_set%dim_unk)/2
+    CALL def_inq_dim('lsq_dim_unk2_lin', idummy,     dim_lsq_dim_unk2_lin)
 
-      CALL nf(nf_def_dim(ncid, 'lsq_dim_c_high',    lsq_high_set%dim_c, dim_lsq_dim_c_high))
-      CALL nf(nf_def_dim(ncid, 'lsq_dim_unk_high', lsq_high_set%dim_unk, dim_lsq_dim_unk_high))
-      idummy=(lsq_high_set%dim_unk*lsq_high_set%dim_unk - lsq_high_set%dim_unk)/2
-      CALL nf(nf_def_dim(ncid, 'lsq_dim_unk2_high', idummy,   dim_lsq_dim_unk2_high))
+    CALL def_inq_dim('lsq_dim_c_high',    lsq_high_set%dim_c, dim_lsq_dim_c_high)
+    CALL def_inq_dim('lsq_dim_unk_high', lsq_high_set%dim_unk, dim_lsq_dim_unk_high)
+    idummy=(lsq_high_set%dim_unk*lsq_high_set%dim_unk - lsq_high_set%dim_unk)/2
+    CALL def_inq_dim('lsq_dim_unk2_high', idummy,   dim_lsq_dim_unk2_high)
 
-      CALL nf(nf_def_dim(ncid, 'rbf_c2grad_dim', rbf_c2grad_dim, dim_rbf_c2grad_dim))
-      CALL nf(nf_def_dim(ncid, 'rbf_vec_dim_c',  rbf_vec_dim_c,  dim_rbf_vec_dim_c))
-      CALL nf(nf_def_dim(ncid, 'rbf_vec_dim_e',  rbf_vec_dim_e,  dim_rbf_vec_dim_e))
-      CALL nf(nf_def_dim(ncid, 'rbf_vec_dim_v',  rbf_vec_dim_v,  dim_rbf_vec_dim_v))
-    ENDIF
+    CALL def_inq_dim('rbf_c2grad_dim', rbf_c2grad_dim, dim_rbf_c2grad_dim)
+    CALL def_inq_dim('rbf_vec_dim_c',  rbf_vec_dim_c,  dim_rbf_vec_dim_c)
+    CALL def_inq_dim('rbf_vec_dim_e',  rbf_vec_dim_e,  dim_rbf_vec_dim_e)
+    CALL def_inq_dim('rbf_vec_dim_v',  rbf_vec_dim_v,  dim_rbf_vec_dim_v)
 
     IF(p%n_patch_cells <= 0) RETURN
 
@@ -1591,6 +1650,8 @@ CONTAINS
     IF (k_jg>0) THEN
       l_dump_lonlat =  ((process_mpi_io_size == 0) .AND. my_process_is_stdio()) .AND. &
         &  lonlat_intp_config(k_jg)%l_enabled
+      ! RJ: There is no lonlat state for local parents !!!!
+      IF(INDEX(prefix,'lp.') /= 0) l_dump_lonlat = .FALSE.
     ELSE
        l_dump_lonlat = .FALSE.
     ENDIF
@@ -1796,10 +1857,10 @@ CONTAINS
   !
   !> Defines GRF state for NetCDF
 
-  SUBROUTINE def_grf_state(p, output_dims)
+  SUBROUTINE def_grf_state(p, np)
 
     TYPE(t_patch), INTENT(IN) :: p
-    LOGICAL, INTENT(IN) :: output_dims
+    INTEGER, INTENT(IN) :: np ! 1 for patch, 2 for local parent
 
     CHARACTER(LEN=80) ccd
     INTEGER :: jcd, js_e, je_e, js_c, je_c
@@ -1809,7 +1870,7 @@ CONTAINS
     ! Output all variables defining gridref state as attributes (unless they are
     ! used as dimensions below)
 
-    IF(output_dims) THEN
+    IF(dim_define_mode) THEN
       CALL nf(nf_put_att_int(ncid, nf_global, 'rbf_vec_kern_grf_e', nf_int, 1, rbf_vec_kern_grf_e))
       CALL nf(nf_put_att_int(ncid, nf_global, 'grf_intmethod_c',    nf_int, 1, grf_intmethod_c))
       CALL nf(nf_put_att_int(ncid, nf_global, 'grf_intmethod_ct',   nf_int, 1, grf_intmethod_ct))
@@ -1825,15 +1886,15 @@ CONTAINS
       CALL nf(nf_put_att_double(ncid, nf_global, 'grf_idw_exp_e34', nf_double, 1, grf_idw_exp_e34))
       CALL nf(nf_put_att_double(ncid, nf_global, 'denom_diffu_v',   nf_double, 1, denom_diffu_v))
       CALL nf(nf_put_att_double(ncid, nf_global, 'denom_diffu_t',   nf_double, 1, denom_diffu_t))
-
-      ! Dimensions and variables for grf state
-
-      CALL nf(nf_def_dim(ncid, 'grf_vec_dim_1', grf_vec_dim_1, dim_grf_vec_dim_1))
-      CALL nf(nf_def_dim(ncid, 'grf_vec_dim_2', grf_vec_dim_2, dim_grf_vec_dim_2))
     ENDIF
 
+    ! Dimensions and variables for grf state
+
+    CALL def_inq_dim('grf_vec_dim_1', grf_vec_dim_1, dim_grf_vec_dim_1)
+    CALL def_inq_dim('grf_vec_dim_2', grf_vec_dim_2, dim_grf_vec_dim_2)
+
     IF(p%n_childdom>0) THEN
-      CALL def_var('grf.fbk_dom_area',   nf_double, dim_n_childdom)
+      CALL def_var('grf.fbk_dom_area',   nf_double, dim_n_childdom(np))
     ENDIF
 
     IF(p%n_patch_cells <= 0) RETURN
@@ -2144,9 +2205,10 @@ CONTAINS
     TYPE (t_lon_lat_intp), INTENT(INOUT), OPTIONAL :: opt_pi_lonlat
 
     !---local variables
-    INTEGER :: old_mode, i
+    INTEGER :: old_mode, i, ip, dummy_varid
     CHARACTER (LEN=80) :: child_id_name, child_idl_name
     LOGICAL :: l_dump_lonlat
+    TYPE(t_patch), POINTER :: lp ! pointer to local parent
 
     !-------------------------------------------------------------------------
 
@@ -2157,128 +2219,232 @@ CONTAINS
     WRITE(message_text,'(a,a)') 'Write NetCDF file: ', TRIM(filename)
     CALL message ('', TRIM(message_text))
 
-    CALL nf(nf_set_default_format(nf_format_64bit, old_mode))
-    CALL nf(nf_create(TRIM(filename), nf_clobber, ncid))
-    CALL nf(nf_set_fill(ncid, nf_nofill, old_mode))
-
-    ! Output all values relevant for grid as attributes
-    ! (unless they are used as dimensions below)
-
-    CALL nf(nf_put_att_int(ncid, nf_global, 'start_lev', nf_int, 1, start_lev))
-    CALL nf(nf_put_att_int(ncid, nf_global, 'n_dom', nf_int, 1, n_dom))
-    IF(p%id > 0) CALL nf(nf_put_att_int(ncid, nf_global, 'lfeedback', nf_int, 1, &
-      &  MERGE(1,0,lfeedback(p%id))))
-    CALL nf(nf_put_att_int(ncid, nf_global, 'l_limited_area', nf_int, 1, &
-      &  MERGE(1,0,l_limited_area)))
-
-    CALL nf(nf_put_att_int(ncid, nf_global, 'patch.parent_id', nf_int, 1, p%parent_id))
-    CALL nf(nf_put_att_int(ncid, nf_global, 'patch.parent_child_index', nf_int, 1, &
-      &  p%parent_child_index))
-    CALL nf(nf_put_att_int(ncid, nf_global, 'patch.n_childdom', nf_int, 1, p%n_childdom))
-    CALL nf(nf_put_att_int(ncid, nf_global, 'patch.n_chd_total', nf_int, 1, p%n_chd_total))
-    CALL nf(nf_put_att_int(ncid, nf_global, 'patch.nlev', nf_int, 1, p%nlev))
-    CALL nf(nf_put_att_int(ncid, nf_global, 'patch.nlevp1', nf_int, 1, p%nlevp1))
-    CALL nf(nf_put_att_int(ncid, nf_global, 'patch.nshift', nf_int, 1, p%nshift))
-    !
-    DO i = 1, p%n_childdom
-      WRITE(child_id_name,'(a,i0)') 'patch.child_id',i
-      CALL nf(nf_put_att_int(ncid, nf_global, child_id_name, nf_int, 1, p%child_id(i)))
-    ENDDO
-    DO i = 1, p%n_chd_total
-      WRITE(child_idl_name,'(a,i0)') 'patch.child_id_list',i
-      CALL nf(nf_put_att_int(ncid, nf_global, child_idl_name, nf_int, 1, p%child_id_list(i)))
-    ENDDO
-    CALL nf(nf_put_att_int(ncid, nf_global, 'patch.n_proc', nf_int, 1, p%n_proc))
-    CALL nf(nf_put_att_int(ncid, nf_global, 'patch.proc0', nf_int, 1, p%proc0))
-
-    ! Dimensions
-
-    CALL nf(nf_def_dim(ncid, 'n_dim_2', 2, dim_2))
-    CALL nf(nf_def_dim(ncid, 'n_dim_3', 3, dim_3))
-    CALL nf(nf_def_dim(ncid, 'n_dim_4', 4, dim_4))
-    CALL nf(nf_def_dim(ncid, 'n_dim_5', 5, dim_5))
-    CALL nf(nf_def_dim(ncid, 'n_dim_6', 6, dim_6))
-    CALL nf(nf_def_dim(ncid, 'n_dim_7', 7, dim_7))
-    CALL nf(nf_def_dim(ncid, 'n_dim_8', 8, dim_8))
-    CALL nf(nf_def_dim(ncid, 'n_dim_9', 9, dim_9))
-
-    CALL nf(nf_def_dim(ncid, 'n_procs_plus_one', p_n_work+1, dim_p_n_work_p1))
-    CALL nf(nf_def_dim(ncid, 'n_levels', p%nlev, dim_nlev))
-
-    CALL nf(nf_def_dim(ncid, 'n_rlcell', max_rlcell-min_rlcell+1, dim_nrlcell))
-    CALL nf(nf_def_dim(ncid, 'n_rledge', max_rledge-min_rledge+1, dim_nrledge))
-    CALL nf(nf_def_dim(ncid, 'n_rlvert', max_rlvert-min_rlvert+1, dim_nrlvert))
-
-    IF (p%cell_type == 3) THEN
-      CALL nf(nf_def_dim(ncid, 'nverts_per_cell',  3, dim_nverts_per_cell))
-      CALL nf(nf_def_dim(ncid, 'nverts_per_cell_plus_1',  4, dim_nverts_per_cell_p1))
-      CALL nf(nf_def_dim(ncid, 'nedges_per_vert',  6, dim_nedges_per_vert))
+    ! Set pointer to local parent
+    IF(my_process_is_mpi_all_parallel() .AND. p%id>n_dom_start) THEN
+      lp => p_patch_local_parent(p%id)
     ELSE
-      CALL nf(nf_def_dim(ncid, 'nverts_per_cell',  6, dim_nverts_per_cell))
-      CALL nf(nf_def_dim(ncid, 'nverts_per_cell_plus_1',  7, dim_nverts_per_cell_p1))
-      CALL nf(nf_def_dim(ncid, 'nedges_per_vert',  3, dim_nedges_per_vert))
+      lp => NULL()
     ENDIF
 
+    DO ip = 0, num_work_procs-1
+
+      ! If there is only one file per patch, we have to wait until it is our turn
+      IF(lone_file_per_patch) CALL p_barrier
+
+      IF(ip /= get_my_mpi_work_id()) CYCLE
+
+      IF(lone_file_per_patch) THEN
+        ! Only the first PE defines common dimensions and attributes, all others check
+        dim_define_mode = (ip==0)
+        ! Prefix for local dimensions and variables
+        WRITE(prefix,'("proc",i0,".")') ip
+      ELSE
+        ! Every PE defines common dimensions and attributes
+        dim_define_mode = .TRUE.
+        prefix = ' '
+      ENDIF
+
+      IF(dim_define_mode) THEN
+        ! Open new output file
+        CALL nf(nf_set_default_format(nf_format_64bit, old_mode))
+        CALL nf(nf_create(TRIM(filename), nf_clobber, ncid))
+        CALL nf(nf_set_fill(ncid, nf_nofill, old_mode))
+      ELSE
+        ! Open existing output file and go into redefine mode
+        CALL nf(nf_open(TRIM(filename), NF_WRITE, ncid))
+        CALL nf(nf_set_fill(ncid, nf_nofill, old_mode))
+        CALL nf(nf_redef(ncid))
+      ENDIF
+
+      ! Output all values relevant for grid as attributes
+      ! (unless they are used as dimensions below)
+
+      IF(dim_define_mode) THEN
+        CALL nf(nf_put_att_int(ncid, nf_global, 'num_work_procs', nf_int, 1, num_work_procs))
+        CALL nf(nf_put_att_int(ncid, nf_global, 'start_lev', nf_int, 1, start_lev))
+        CALL nf(nf_put_att_int(ncid, nf_global, 'n_dom', nf_int, 1, n_dom))
+        IF(p%id > 0) CALL nf(nf_put_att_int(ncid, nf_global, 'lfeedback', nf_int, 1, &
+          &  MERGE(1,0,lfeedback(p%id))))
+        CALL nf(nf_put_att_int(ncid, nf_global, 'l_limited_area', nf_int, 1, &
+          &  MERGE(1,0,l_limited_area)))
+
+        CALL nf(nf_put_att_int(ncid, nf_global, 'patch.parent_id', nf_int, 1, p%parent_id))
+        CALL nf(nf_put_att_int(ncid, nf_global, 'patch.parent_child_index', nf_int, 1, &
+          &  p%parent_child_index))
+        CALL nf(nf_put_att_int(ncid, nf_global, 'patch.n_childdom', nf_int, 1, p%n_childdom))
+        CALL nf(nf_put_att_int(ncid, nf_global, 'patch.n_chd_total', nf_int, 1, p%n_chd_total))
+        CALL nf(nf_put_att_int(ncid, nf_global, 'patch.nlev', nf_int, 1, p%nlev))
+        CALL nf(nf_put_att_int(ncid, nf_global, 'patch.nlevp1', nf_int, 1, p%nlevp1))
+        CALL nf(nf_put_att_int(ncid, nf_global, 'patch.nshift', nf_int, 1, p%nshift))
+        !
+        DO i = 1, p%n_childdom
+          WRITE(child_id_name,'(a,i0)') 'patch.child_id',i
+          CALL nf(nf_put_att_int(ncid, nf_global, child_id_name, nf_int, 1, p%child_id(i)))
+        ENDDO
+        DO i = 1, p%n_chd_total
+          WRITE(child_idl_name,'(a,i0)') 'patch.child_id_list',i
+          CALL nf(nf_put_att_int(ncid, nf_global, child_idl_name, nf_int, 1, p%child_id_list(i)))
+        ENDDO
+        CALL nf(nf_put_att_int(ncid, nf_global, 'patch.n_proc', nf_int, 1, p%n_proc))
+        CALL nf(nf_put_att_int(ncid, nf_global, 'patch.proc0', nf_int, 1, p%proc0))
+      ENDIF
+
+      ! Set common dimensions which do not depend on the actual PE.
+      ! def_inq_dim outputs the dimension if dim_define_mode is set,
+      ! it inquires it and checks its  size otherwise
+
+      CALL def_inq_dim('unlimited', NF_UNLIMITED, dim_unlimited)
+
+      CALL def_inq_dim('n_dim_2', 2, dim_2)
+      CALL def_inq_dim('n_dim_3', 3, dim_3)
+      CALL def_inq_dim('n_dim_4', 4, dim_4)
+      CALL def_inq_dim('n_dim_5', 5, dim_5)
+      CALL def_inq_dim('n_dim_6', 6, dim_6)
+      CALL def_inq_dim('n_dim_7', 7, dim_7)
+      CALL def_inq_dim('n_dim_8', 8, dim_8)
+      CALL def_inq_dim('n_dim_9', 9, dim_9)
+
+      CALL def_inq_dim('n_levels', p%nlev, dim_nlev)
+
+      CALL def_inq_dim('n_rlcell', max_rlcell-min_rlcell+1, dim_nrlcell)
+      CALL def_inq_dim('n_rledge', max_rledge-min_rledge+1, dim_nrledge)
+      CALL def_inq_dim('n_rlvert', max_rlvert-min_rlvert+1, dim_nrlvert)
+
+      IF (p%cell_type == 3) THEN
+        CALL def_inq_dim('nverts_per_cell',  3, dim_nverts_per_cell)
+        CALL def_inq_dim('nverts_per_cell_plus_1',  4, dim_nverts_per_cell_p1)
+        CALL def_inq_dim('nedges_per_vert',  6, dim_nedges_per_vert)
+      ELSE
+        CALL def_inq_dim('nverts_per_cell',  6, dim_nverts_per_cell)
+        CALL def_inq_dim('nverts_per_cell_plus_1',  7, dim_nverts_per_cell_p1)
+        CALL def_inq_dim('nedges_per_vert',  3, dim_nedges_per_vert)
+      ENDIF
+
+      ! Dimensions in patch which are global for all PEs
+
+      CALL def_inq_dim('max_childdom', p%max_childdom, dim_max_childdom(1))
+      CALL def_inq_dim('n_childdom',   p%n_childdom,   dim_n_childdom(1))
+
+      CALL def_inq_dim('n_patch_cells_g', p%n_patch_cells_g, dim_ncells_g(1))
+      CALL def_inq_dim('n_patch_edges_g', p%n_patch_edges_g, dim_nedges_g(1))
+      CALL def_inq_dim('n_patch_verts_g', p%n_patch_verts_g, dim_nverts_g(1))
+
+
+      IF(my_process_is_mpi_all_parallel() .AND. p%id>n_dom_start) THEN ! Definitions for local parent
+        CALL def_inq_dim('lp.max_childdom', lp%max_childdom, dim_max_childdom(2))
+        CALL def_inq_dim('lp.n_childdom',   lp%n_childdom,   dim_n_childdom(2))
+
+        CALL def_inq_dim('lp.n_patch_cells_g', lp%n_patch_cells_g, dim_ncells_g(2))
+        CALL def_inq_dim('lp.n_patch_edges_g', lp%n_patch_edges_g, dim_nedges_g(2))
+        CALL def_inq_dim('lp.n_patch_verts_g', lp%n_patch_verts_g, dim_nverts_g(2))
+      ENDIF
+    
+
+      !-------------------------------------------------------------------------
+      ! Define a dummy variable with UNLIMITED as only dimension
+      ! This serves us later for setting the UNLIMITED dimension to 1
+
+      IF(dim_define_mode) CALL nf(nf_def_var(ncid, 'dummy', nf_int, 1, dim_unlimited, dummy_varid))
+
+      !-------------------------------------------------------------------------
+
+      ! Emit additional dimensions and variable definitions for patch/int state/grf state
+
+      CALL def_patch(p, 1)
+      CALL def_int_state(k_jg, p)
+      IF (n_dom_start==0 .OR. n_dom > 1) CALL def_grf_state(p, 1)
+
+      ! Definitions for local parent
+
+      IF(my_process_is_mpi_all_parallel() .AND. p%id>n_dom_start) THEN
+        prefix = TRIM(prefix)//'lp.'
+        dim_define_mode = .FALSE.
+        CALL def_patch(lp, 2)
+        CALL def_int_state(k_jg, lp)
+        IF (n_dom_start==0 .OR. n_dom > 1) CALL def_grf_state(lp, 2)
+      ENDIF
+
+      !-------------------------------------------------------------------------
+
+      ! End of definition mode
+
+      CALL nf(nf_enddef(ncid))
+      CALL nf(nf_close(ncid))
+
+    ENDDO
+
+    IF(lone_file_per_patch) CALL p_barrier
+
     !-------------------------------------------------------------------------
-
-    ! Emit additional dimensions and variable definitions for patch/int state/grf state
-
-    prefix = ' '
-    CALL def_patch(p)
-    CALL def_int_state(k_jg, p, .TRUE.)
-    IF (n_dom_start==0 .OR. n_dom > 1) &
-      & CALL def_grf_state(p, .TRUE.)
-
-    IF(my_process_is_mpi_all_parallel() .AND. p%id>n_dom_start) THEN ! Definitions for local parent
-      prefix = 'lp.'
-      CALL def_patch(p_patch_local_parent(p%id))
-      CALL def_int_state(k_jg, p_patch_local_parent(p%id), .FALSE.)
-      IF (n_dom_start==0 .OR. n_dom > 1) &
-        & CALL def_grf_state(p_patch_local_parent(p%id), .FALSE.)
+    ! If there is one file per patch:
+    ! Set the unlimited dimension to 1 by setting the dummy variable.
+    ! Unfortunatly this seems to fill up the whole file with zeros even though
+    ! nf_nofill is set, but at least this is done only once (and not after
+    ! every close above).
+    IF(lone_file_per_patch .AND. get_my_mpi_work_id()==0) THEN
+      CALL nf(nf_open(TRIM(filename), NF_WRITE, ncid))
+      CALL nf(nf_set_fill(ncid, nf_nofill, old_mode))
+      CALL nf(nf_inq_varid(ncid, 'dummy', dummy_varid))
+      CALL nf(nf_put_vara_int(ncid, dummy_varid, 1, 1, 0))
+      CALL nf(nf_close(ncid))
     ENDIF
-
     !-------------------------------------------------------------------------
 
-    ! End of definition mode
-
-    CALL nf(nf_enddef(ncid))
-
-    !-------------------------------------------------------------------------
+    IF(lone_file_per_patch) CALL p_barrier
 
     ! Output all variables
 
-    prefix = ' '
-    CALL patch_io(p)
+    DO ip = 0, num_work_procs-1
 
-    IF (k_jg>0) THEN
-      l_dump_lonlat = ((process_mpi_io_size == 0) .AND. my_process_is_stdio()) .AND. &
-        &  lonlat_intp_config(k_jg)%l_enabled  .AND. PRESENT(opt_pi_lonlat)
-    ELSE
-      l_dump_lonlat = .FALSE.
-    ENDIF
+      IF(lone_file_per_patch) CALL p_barrier
 
-    IF (l_dump_lonlat) THEN
-      CALL int_state_io(k_jg, p, pi, opt_pi_lonlat)
-    ELSE
-      CALL int_state_io(k_jg, p, pi)
-    END IF
+      IF(ip /= get_my_mpi_work_id()) CYCLE
 
-    IF (n_dom_start==0 .OR. n_dom > 1) &
-      & CALL grf_state_io(p, pg)
+      CALL nf(nf_open(TRIM(filename), NF_WRITE, ncid))
+      CALL nf(nf_set_fill(ncid, nf_nofill, old_mode))
 
-    IF(my_process_is_mpi_all_parallel() .AND. p%id>n_dom_start) THEN ! Output for local parent
-      prefix = 'lp.'
-      CALL patch_io(p_patch_local_parent(p%id))
-      CALL int_state_io(k_jg, p_patch_local_parent(p%id), p_int_state_local_parent(p%id))
+      IF(lone_file_per_patch) THEN
+        ! Prefix for local dimensions and variables
+        WRITE(prefix,'("proc",i0,".")') ip
+      ELSE
+        prefix = ' '
+        ! Set the unlimited dimension to 1 by setting the dummy variable
+        CALL nf(nf_inq_varid(ncid, 'dummy', dummy_varid))
+        CALL nf(nf_put_vara_int(ncid, dummy_varid, 1, 1, 0))
+      ENDIF
+
+      CALL patch_io(p)
+
+      IF (k_jg>0) THEN
+        l_dump_lonlat = ((process_mpi_io_size == 0) .AND. my_process_is_stdio()) .AND. &
+          &  lonlat_intp_config(k_jg)%l_enabled  .AND. PRESENT(opt_pi_lonlat)
+      ELSE
+        l_dump_lonlat = .FALSE.
+      ENDIF
+
+      IF (l_dump_lonlat) THEN
+        CALL int_state_io(k_jg, p, pi, opt_pi_lonlat)
+      ELSE
+        CALL int_state_io(k_jg, p, pi)
+      END IF
+
       IF (n_dom_start==0 .OR. n_dom > 1) &
-        & CALL grf_state_io(p_patch_local_parent(p%id), p_grf_state_local_parent(p%id))
-    ENDIF
+        & CALL grf_state_io(p, pg)
 
-    !-------------------------------------------------------------------------
+      IF(my_process_is_mpi_all_parallel() .AND. p%id>n_dom_start) THEN ! Output for local parent
+        prefix = TRIM(prefix)//'lp.'
+        CALL patch_io(p_patch_local_parent(p%id))
+        CALL int_state_io(k_jg, p_patch_local_parent(p%id), p_int_state_local_parent(p%id))
+        IF (n_dom_start==0 .OR. n_dom > 1) &
+          & CALL grf_state_io(p_patch_local_parent(p%id), p_grf_state_local_parent(p%id))
+      ENDIF
 
-    ! Close NetCDF file
+      ! Close NetCDF file
+      CALL nf(nf_close(ncid))
 
-    CALL nf(nf_close(ncid))
+    ENDDO
+
+    IF(lone_file_per_patch) CALL p_barrier
 
   END SUBROUTINE dump_patch_state_netcdf
 
@@ -2291,7 +2457,7 @@ CONTAINS
     TYPE(t_patch), INTENT(INOUT) :: p
 
     !---local variables
-    INTEGER :: dimid, jb, jl
+    INTEGER :: jb, jl
 
     !-------------------------------------------------------------------------
 
@@ -2305,6 +2471,9 @@ CONTAINS
     ! - child_id(1:n_childdom)
     ! - child_id_list(1:n_chd_total)
     ! - max_childdom
+    ! - n_patch_cells_g
+    ! - n_patch_edges_g
+    ! - n_patch_verts_g
     ! All other members are set here, all allocatable arrays must still be unallocated.
 
 
@@ -2313,15 +2482,6 @@ CONTAINS
     CALL get_dimlen_or_0(ncid, 'n_patch_cells', p%n_patch_cells)
     CALL get_dimlen_or_0(ncid, 'n_patch_edges', p%n_patch_edges)
     CALL get_dimlen_or_0(ncid, 'n_patch_verts', p%n_patch_verts)
-
-    CALL nf(nf_inq_dimid (ncid, TRIM(prefix)//'n_patch_cells_g', dimid))
-    CALL nf(nf_inq_dimlen(ncid, dimid, p%n_patch_cells_g))
-
-    CALL nf(nf_inq_dimid (ncid, TRIM(prefix)//'n_patch_edges_g', dimid))
-    CALL nf(nf_inq_dimlen(ncid, dimid, p%n_patch_edges_g))
-
-    CALL nf(nf_inq_dimid (ncid, TRIM(prefix)//'n_patch_verts_g', dimid))
-    CALL nf(nf_inq_dimlen(ncid, dimid, p%n_patch_verts_g))
 
     ! calculate and save values for the blocking
     !
@@ -2383,7 +2543,7 @@ CONTAINS
 
     TYPE(t_patch), INTENT(inout) :: p_patch(n_dom_start:)
 
-    INTEGER :: jg, jg1, jgp, i, n_chd, n_chdc
+    INTEGER :: jg, jg1, jgp, i, n_chd, n_chdc, dimid
     CHARACTER (LEN=80) :: child_id_name, child_idl_name
 
     CALL message ('restore_patches_netcdf','start to restore patches')
@@ -2547,6 +2707,12 @@ CONTAINS
       CALL set_dump_restore_filename(p_patch(jg)%grid_filename)
 !       write(0,*) "patch grid_filename:", TRIM( p_patch(jg)%grid_filename)
 !       write(0,*) "dump_restore_filename:", TRIM(filename)
+
+      IF(lone_file_per_patch) THEN
+        WRITE(prefix,'("proc",i0,".")') get_my_mpi_work_id()
+      ELSE
+        prefix = ' '
+      ENDIF
       
       CALL nf(nf_open(TRIM(filename), NF_NOWRITE, ncid))
 !       write(0,*) TRIM(filename), " is open."
@@ -2554,6 +2720,7 @@ CONTAINS
       ! First check if members in patch and variables from input
       ! conform with what is stored in NetCDF file
 
+      CALL check_att('num_work_procs', num_work_procs)
       CALL check_att('start_lev',      start_lev)
       CALL check_att('n_dom',          n_dom)
       IF(jg>0) CALL check_att('lfeedback', MERGE(1,0,lfeedback(p_patch(jg)%id)))
@@ -2590,11 +2757,23 @@ CONTAINS
       CALL nf(nf_get_att_int(ncid, nf_global, 'patch.n_proc', p_patch(jg)%n_proc))
       CALL nf(nf_get_att_int(ncid, nf_global, 'patch.proc0', p_patch(jg)%proc0))
 
-      prefix = ' '
+      CALL nf(nf_inq_dimid (ncid, 'n_patch_cells_g', dimid))
+      CALL nf(nf_inq_dimlen(ncid, dimid, p_patch(jg)%n_patch_cells_g))
+      CALL nf(nf_inq_dimid (ncid, 'n_patch_edges_g', dimid))
+      CALL nf(nf_inq_dimlen(ncid, dimid, p_patch(jg)%n_patch_edges_g))
+      CALL nf(nf_inq_dimid (ncid, 'n_patch_verts_g', dimid))
+      CALL nf(nf_inq_dimlen(ncid, dimid, p_patch(jg)%n_patch_verts_g))
+
       CALL restore_patch_netcdf(p_patch(jg))
 
       IF(my_process_is_mpi_all_parallel() .AND. jg>n_dom_start) THEN
-        prefix = 'lp.'
+        prefix = TRIM(prefix)//'lp.'
+        CALL nf(nf_inq_dimid (ncid, 'lp.n_patch_cells_g', dimid))
+        CALL nf(nf_inq_dimlen(ncid, dimid, p_patch_local_parent(jg)%n_patch_cells_g))
+        CALL nf(nf_inq_dimid (ncid, 'lp.n_patch_edges_g', dimid))
+        CALL nf(nf_inq_dimlen(ncid, dimid, p_patch_local_parent(jg)%n_patch_edges_g))
+        CALL nf(nf_inq_dimid (ncid, 'lp.n_patch_verts_g', dimid))
+        CALL nf(nf_inq_dimlen(ncid, dimid, p_patch_local_parent(jg)%n_patch_verts_g))
         CALL restore_patch_netcdf(p_patch_local_parent(jg))
       ENDIF
 
@@ -2636,6 +2815,12 @@ CONTAINS
       IF(p_pe_work==0) WRITE(nerr,'(a,i0)') 'Restoring interpolation state ',jg
 
       CALL set_dump_restore_filename(p_patch(jg)%grid_filename)
+
+      IF(lone_file_per_patch) THEN
+        WRITE(prefix,'("proc",i0,".")') get_my_mpi_work_id()
+      ELSE
+        prefix = ' '
+      ENDIF
 
       CALL nf(nf_open(TRIM(filename), NF_NOWRITE, ncid))
 
@@ -2679,20 +2864,18 @@ CONTAINS
         CALL allocate_int_state(p_patch(jg), p_int_state(jg))
         CALL allocate_int_state_lonlat(jg, opt_pi_lonlat(jg))
         ! Restore interpolation state
-        prefix = ' '
         CALL int_state_io(jg, p_patch(jg), p_int_state(jg), opt_pi_lonlat(jg))
 
       ELSE
         ! Allocate interpolation state
         CALL allocate_int_state(p_patch(jg), p_int_state(jg))
         ! Restore interpolation state
-        prefix = ' '
         CALL int_state_io(jg, p_patch(jg), p_int_state(jg))
       END IF
 
       IF(my_process_is_mpi_all_parallel() .AND. jg>n_dom_start) THEN
         CALL allocate_int_state(p_patch_local_parent(jg), p_int_state_local_parent(jg))
-        prefix = 'lp.'
+        prefix = TRIM(prefix)//'lp.'
         CALL int_state_io(jg, p_patch_local_parent(jg), p_int_state_local_parent(jg))
       ENDIF
 
@@ -2724,6 +2907,12 @@ CONTAINS
 
       CALL set_dump_restore_filename(p_patch(jg)%grid_filename)
 
+      IF(lone_file_per_patch) THEN
+        WRITE(prefix,'("proc",i0,".")') get_my_mpi_work_id()
+      ELSE
+        prefix = ' '
+      ENDIF
+
       CALL nf(nf_open(TRIM(filename), NF_NOWRITE, ncid))
 
       ! Check attributes and dimensions in NetCDF file if they conform
@@ -2746,12 +2935,11 @@ CONTAINS
       CALL allocate_grf_state(p_patch(jg), p_grf_state(jg))
 
       ! Restore grf state
-      prefix = ' '
       CALL grf_state_io(p_patch(jg), p_grf_state(jg))
 
       IF(my_process_is_mpi_all_parallel() .AND. jg>n_dom_start) THEN
         CALL allocate_grf_state(p_patch_local_parent(jg), p_grf_state_local_parent(jg))
-        prefix = 'lp.'
+        prefix = TRIM(prefix)//'lp.'
         CALL grf_state_io(p_patch_local_parent(jg), p_grf_state_local_parent(jg))
       ENDIF
 
