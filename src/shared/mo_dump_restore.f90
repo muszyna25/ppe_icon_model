@@ -119,7 +119,7 @@
 ! is always set to 1 (when the file is complete).
 ! This seems unnecessary at the first glance but it serves the following purpose:
 !
-! When the file is written in lone_file_per_patch mode, every processor opens
+! When the file is written in l_one_file_per_patch mode, every processor opens
 ! the output file, puts it into define mode, outputs its definitions and
 ! closes the file again so that the next processor can add its definitions.
 !
@@ -154,7 +154,7 @@ MODULE mo_dump_restore
                                    min_rlcell_int, min_rledge_int
   USE mo_exception,          ONLY: message_text, message, finish, warning
   USE mo_parallel_config, ONLY: nproma
-  USE mo_run_config,         ONLY: lone_file_per_patch, ltransport, &
+  USE mo_run_config,         ONLY: l_one_file_per_patch, ltransport, &
      &                             num_lev, num_levp1, nshift
   USE mo_dynamics_config,    ONLY: iequations
   USE mo_io_units,           ONLY: filename_max, nerr
@@ -308,7 +308,7 @@ CONTAINS
 !     WRITE(filename,'(a,a,i0,2(a,i2.2),2(a,i0),a)') &
 !       & TRIM(gridtype),'R',nroot,'B',level,'_DOM',id,'_proc',p_pe_work,'of',p_n_work,'.nc'
 
-     IF(lone_file_per_patch) THEN
+     IF(l_one_file_per_patch) THEN
        filename = 'dump_'//TRIM(patch_filename)
      ELSE
        WRITE(filename,'(2(a,i0),a,a)') &
@@ -2229,11 +2229,11 @@ CONTAINS
     DO ip = 0, num_work_procs-1
 
       ! If there is only one file per patch, we have to wait until it is our turn
-      IF(lone_file_per_patch) CALL p_barrier
+      IF(l_one_file_per_patch) CALL p_barrier
 
       IF(ip /= get_my_mpi_work_id()) CYCLE
 
-      IF(lone_file_per_patch) THEN
+      IF(l_one_file_per_patch) THEN
         ! Only the first PE defines common dimensions and attributes, all others check
         dim_define_mode = (ip==0)
         ! Prefix for local dimensions and variables
@@ -2373,7 +2373,7 @@ CONTAINS
 
     ENDDO
 
-    IF(lone_file_per_patch) CALL p_barrier
+    IF(l_one_file_per_patch) CALL p_barrier
 
     !-------------------------------------------------------------------------
     ! If there is one file per patch:
@@ -2381,7 +2381,7 @@ CONTAINS
     ! Unfortunatly this seems to fill up the whole file with zeros even though
     ! nf_nofill is set, but at least this is done only once (and not after
     ! every close above).
-    IF(lone_file_per_patch .AND. get_my_mpi_work_id()==0) THEN
+    IF(l_one_file_per_patch .AND. get_my_mpi_work_id()==0) THEN
       CALL nf(nf_open(TRIM(filename), NF_WRITE, ncid))
       CALL nf(nf_set_fill(ncid, nf_nofill, old_mode))
       CALL nf(nf_inq_varid(ncid, 'dummy', dummy_varid))
@@ -2390,20 +2390,20 @@ CONTAINS
     ENDIF
     !-------------------------------------------------------------------------
 
-    IF(lone_file_per_patch) CALL p_barrier
+    IF(l_one_file_per_patch) CALL p_barrier
 
     ! Output all variables
 
     DO ip = 0, num_work_procs-1
 
-      IF(lone_file_per_patch) CALL p_barrier
+      IF(l_one_file_per_patch) CALL p_barrier
 
       IF(ip /= get_my_mpi_work_id()) CYCLE
 
       CALL nf(nf_open(TRIM(filename), NF_WRITE, ncid))
       CALL nf(nf_set_fill(ncid, nf_nofill, old_mode))
 
-      IF(lone_file_per_patch) THEN
+      IF(l_one_file_per_patch) THEN
         ! Prefix for local dimensions and variables
         WRITE(prefix,'("proc",i0,".")') ip
       ELSE
@@ -2444,7 +2444,7 @@ CONTAINS
 
     ENDDO
 
-    IF(lone_file_per_patch) CALL p_barrier
+    IF(l_one_file_per_patch) CALL p_barrier
 
   END SUBROUTINE dump_patch_state_netcdf
 
@@ -2708,7 +2708,7 @@ CONTAINS
 !       write(0,*) "patch grid_filename:", TRIM( p_patch(jg)%grid_filename)
 !       write(0,*) "dump_restore_filename:", TRIM(filename)
 
-      IF(lone_file_per_patch) THEN
+      IF(l_one_file_per_patch) THEN
         WRITE(prefix,'("proc",i0,".")') get_my_mpi_work_id()
       ELSE
         prefix = ' '
@@ -2816,7 +2816,7 @@ CONTAINS
 
       CALL set_dump_restore_filename(p_patch(jg)%grid_filename)
 
-      IF(lone_file_per_patch) THEN
+      IF(l_one_file_per_patch) THEN
         WRITE(prefix,'("proc",i0,".")') get_my_mpi_work_id()
       ELSE
         prefix = ' '
@@ -2907,7 +2907,7 @@ CONTAINS
 
       CALL set_dump_restore_filename(p_patch(jg)%grid_filename)
 
-      IF(lone_file_per_patch) THEN
+      IF(l_one_file_per_patch) THEN
         WRITE(prefix,'("proc",i0,".")') get_my_mpi_work_id()
       ELSE
         prefix = ' '
