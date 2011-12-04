@@ -1373,10 +1373,21 @@ MODULE mo_nwp_rad_interface
             zaequo(jc,jb)    = zaequn
             zaeqdo(jc,jb)    = zaeqdn
 
-            zduo3(jc,jk,jb) = pt_prog_rcf%tracer(jc,jk,jb,io3) * pt_diag%dpres_mc(jc,jk,jb)
-            
           ENDDO
         ENDDO
+
+        IF (ntracer + ntracer_static >= io3) THEN
+          DO jk = 1,nlev
+            DO jc = i_startidx,i_endidx
+              zduo3(jc,jk,jb) = pt_prog_rcf%tracer(jc,jk,jb,io3) * pt_diag%dpres_mc(jc,jk,jb)
+            ENDDO
+          ENDDO
+        ELSE
+          DO jk = 1,nlev
+            zduo3(i_startidx:i_endidx,jk,jb) = 0.0_wp
+          ENDDO
+        ENDIF
+        
         
       ELSEIF (irad_o3 /= 0) THEN !no aerosols and other ozone
         
