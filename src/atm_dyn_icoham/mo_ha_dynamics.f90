@@ -251,7 +251,8 @@ CONTAINS
   REAL(wp),INTENT(inout) :: p_mdiv_int(:,:,:)   !< mass divergence
                                                 !< vertically integrated
 
-  REAL(wp), POINTER, INTENT(inout) :: p_mflux(:,:,:)  !< mass flux at edges
+!   REAL(wp), POINTER, INTENT(inout) :: p_mflux(:,:,:)  !< mass flux at edges
+  REAL(wp), POINTER :: p_mflux(:,:,:)  !< mass flux at edges
 
   REAL(wp),INTENT(inout) :: p_ddt_psfc(:,:) !< tendency of surface pressure
 

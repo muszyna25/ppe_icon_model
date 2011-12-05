@@ -189,7 +189,9 @@ CONTAINS
     INTEGER, INTENT(in)  :: itime_scheme
     REAL(wp),INTENT(in)  :: palpha
 
-    REAL(wp), POINTER, INTENT(inout) :: p_mflux_me(:,:,:)
+!     REAL(wp), POINTER, INTENT(inout) :: p_mflux_me(:,:,:)
+    REAL(wp), POINTER :: p_mflux_me(:,:,:)
+
     REAL(wp),INTENT(out) :: p_vn_traj    (nproma,nlev,  p_patch%nblks_e)
     REAL(wp),INTENT(out) :: p_mflux_ic   (nproma,nlevp1,p_patch%nblks_c)
     REAL(wp),INTENT(out) :: p_weta_traj  (nproma,nlevp1,p_patch%nblks_c)
