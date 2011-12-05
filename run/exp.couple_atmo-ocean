@@ -30,6 +30,11 @@ if [ $mpi_total_procs -lt 2 ] ; then
    check_error 0
    exit
 fi
+if [ $OMP_NUM_THREADS -gt 1 ] ; then
+   echo "The coupled runs will not run in OpenMP mode . Exiting."
+   check_error 0
+   exit
+fi
 #-----------------------------------------------------------------------------
 # ATMO
 #-----------------------------------------------------------------------------
