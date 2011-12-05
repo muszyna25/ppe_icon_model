@@ -1507,9 +1507,12 @@ MODULE mo_nh_stepping
         CASE (3)
           CALL rbf_vec_interpol_cell(p_vn,p_patch(jg),p_int_state(jg),&
                                      p_nh_state(jg)%diag%u,p_nh_state(jg)%diag%v)
+#if !defined(__CRAYXT_COMPUTE_LINUX_TARGET)
           CALL div_avg(p_vn, p_patch(jg), p_int_state(jg), p_int_state(jg)%c_bln_avg, &
                  p_nh_state(jg)%diag%div)
-
+#else
+          CALL message("mo_nh_stepping", "Skipping call of DIV_AVG on CRAY XT4")
+#endif
           ! Fill boundaries of nested domains
           IF (p_patch(jg)%n_childdom > 0) THEN
             CALL sync_patch_array_mult(SYNC_C, p_patch(jg), 3, p_nh_state(jg)%diag%u,      &

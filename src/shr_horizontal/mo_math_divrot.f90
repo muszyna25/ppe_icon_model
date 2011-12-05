@@ -2598,189 +2598,152 @@ nlev = ptr_patch%nlev
 ! values for the blocking
 i_nchdom   = MAX(1,ptr_patch%n_childdom)
 
-IF (l2fields) THEN
-   ! First compute divergence
-   !
-   !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
-   i_startblk = ptr_patch%cells%start_blk(rl_start,1)
-   i_endblk   = ptr_patch%cells%end_blk(rl_end_l1,i_nchdom)
+! First compute divergence
+!
+!$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
+i_startblk = ptr_patch%cells%start_blk(rl_start,1)
+i_endblk   = ptr_patch%cells%end_blk(rl_end_l1,i_nchdom)
 
-   !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk), SCHEDULE(runtime)
-   DO jb = i_startblk, i_endblk
-      
-      CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
-           i_startidx, i_endidx, rl_start, rl_end_l1)
-      
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk), SCHEDULE(runtime)
+DO jb = i_startblk, i_endblk
+
+  CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
+                     i_startidx, i_endidx, rl_start, rl_end_l1)
+
+  IF (l2fields) THEN
+
 #ifdef __LOOP_EXCHANGE
-      DO jc = i_startidx, i_endidx
-         DO jk = 1, nlev
+    DO jc = i_startidx, i_endidx
+      DO jk = 1, nlev
 #else
 !CDIR UNROLL=5
-      DO jk = 1, nlev
-         DO jc = i_startidx, i_endidx
+    DO jk = 1, nlev
+      DO jc = i_startidx, i_endidx
 #endif
 
-            aux_c(jc,jk,jb) =  &
-                 vec_e(ieidx(jc,jb,1),jk,ieblk(jc,jb,1)) * ptr_int%geofac_div(jc,1,jb) + &
-                 vec_e(ieidx(jc,jb,2),jk,ieblk(jc,jb,2)) * ptr_int%geofac_div(jc,2,jb) + &
-                 vec_e(ieidx(jc,jb,3),jk,ieblk(jc,jb,3)) * ptr_int%geofac_div(jc,3,jb)
+        aux_c(jc,jk,jb) =  &
+          vec_e(ieidx(jc,jb,1),jk,ieblk(jc,jb,1)) * ptr_int%geofac_div(jc,1,jb) + &
+          vec_e(ieidx(jc,jb,2),jk,ieblk(jc,jb,2)) * ptr_int%geofac_div(jc,2,jb) + &
+          vec_e(ieidx(jc,jb,3),jk,ieblk(jc,jb,3)) * ptr_int%geofac_div(jc,3,jb)
 
-            aux_c2(jc,jk,jb) =  &
-                 opt_in2(ieidx(jc,jb,1),jk,ieblk(jc,jb,1)) * ptr_int%geofac_div(jc,1,jb) + &
-                 opt_in2(ieidx(jc,jb,2),jk,ieblk(jc,jb,2)) * ptr_int%geofac_div(jc,2,jb) + &
-                 opt_in2(ieidx(jc,jb,3),jk,ieblk(jc,jb,3)) * ptr_int%geofac_div(jc,3,jb)
+        aux_c2(jc,jk,jb) =  &
+          opt_in2(ieidx(jc,jb,1),jk,ieblk(jc,jb,1)) * ptr_int%geofac_div(jc,1,jb) + &
+          opt_in2(ieidx(jc,jb,2),jk,ieblk(jc,jb,2)) * ptr_int%geofac_div(jc,2,jb) + &
+          opt_in2(ieidx(jc,jb,3),jk,ieblk(jc,jb,3)) * ptr_int%geofac_div(jc,3,jb)
 
-         END DO
       END DO
-
-   END DO
-!$OMP END DO
-
-   IF (l_limited_area .OR. ptr_patch%id > 1) THEN
-      ! Fill div_vec_c along the lateral boundaries of nests
-
-      i_startblk = ptr_patch%cells%start_blk(rl_start,1)
-      i_endblk   = ptr_patch%cells%end_blk(rl_start_l2,1)
-
-!$OMP WORKSHARE
-      div_vec_c(:,:,i_startblk:i_endblk) =  aux_c (:,:,i_startblk:i_endblk)
-      opt_out2 (:,:,i_startblk:i_endblk) =  aux_c2(:,:,i_startblk:i_endblk)
-!$OMP END WORKSHARE
-   ENDIF
-
-   !
-   ! Now do averaging with weights given by avg_coeff
-   
-   ! values for the blocking
-   i_startblk = ptr_patch%cells%start_blk(rl_start_l2,1)
-   i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
-   !
-   ! loop through all patch cells (and blocks)
-   !
-
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk), SCHEDULE(runtime)
-   DO jb = i_startblk, i_endblk
-
-      CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
-           i_startidx, i_endidx, rl_start_l2, rl_end)
+    END DO
+  ELSE
 
 #ifdef __LOOP_EXCHANGE
-      DO jc = i_startidx, i_endidx
-         DO jk = 1, nlev
-#else
-#ifdef _URD
-!CDIR UNROLL=_URD
-#endif
+    DO jc = i_startidx, i_endidx
       DO jk = 1, nlev
-         DO jc = i_startidx, i_endidx
-#endif
-
-            !  calculate the weighted average
-            div_vec_c(jc,jk,jb) =  &
-                 &    aux_c(jc,jk,jb)                         * avg_coeff(jc,1,jb) &
-                 &  + aux_c(inidx(jc,jb,1),jk,inblk(jc,jb,1)) * avg_coeff(jc,2,jb) &
-                 &  + aux_c(inidx(jc,jb,2),jk,inblk(jc,jb,2)) * avg_coeff(jc,3,jb) &
-                 &  + aux_c(inidx(jc,jb,3),jk,inblk(jc,jb,3)) * avg_coeff(jc,4,jb)
-
-            opt_out2(jc,jk,jb) =  &
-                 &    aux_c2(jc,jk,jb)                         * avg_coeff(jc,1,jb) &
-                 &  + aux_c2(inidx(jc,jb,1),jk,inblk(jc,jb,1)) * avg_coeff(jc,2,jb) &
-                 &  + aux_c2(inidx(jc,jb,2),jk,inblk(jc,jb,2)) * avg_coeff(jc,3,jb) &
-                 &  + aux_c2(inidx(jc,jb,3),jk,inblk(jc,jb,3)) * avg_coeff(jc,4,jb)
-
-         END DO !cell loop
-      END DO !vertical levels loop
-
-   END DO !block loop
-!$OMP END DO
-!$OMP END PARALLEL
-
-ELSE ! if (l2fields)
-
-   ! First compute divergence
-   !
-   !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
-   i_startblk = ptr_patch%cells%start_blk(rl_start,1)
-   i_endblk   = ptr_patch%cells%end_blk(rl_end_l1,i_nchdom)
-
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk), SCHEDULE(runtime)
-   DO jb = i_startblk, i_endblk
-      
-      CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
-           i_startidx, i_endidx, rl_start, rl_end_l1)
-
-#ifdef __LOOP_EXCHANGE
-      DO jc = i_startidx, i_endidx
-         DO jk = 1, nlev
 #else
 !CDIR UNROLL=6
-      DO jk = 1, nlev
-         DO jc = i_startidx, i_endidx
+    DO jk = 1, nlev
+      DO jc = i_startidx, i_endidx
 #endif
-            aux_c(jc,jk,jb) =  &
-                 vec_e(ieidx(jc,jb,1),jk,ieblk(jc,jb,1)) * ptr_int%geofac_div(jc,1,jb) + &
-                 vec_e(ieidx(jc,jb,2),jk,ieblk(jc,jb,2)) * ptr_int%geofac_div(jc,2,jb) + &
-                 vec_e(ieidx(jc,jb,3),jk,ieblk(jc,jb,3)) * ptr_int%geofac_div(jc,3,jb)
+        aux_c(jc,jk,jb) =  &
+          vec_e(ieidx(jc,jb,1),jk,ieblk(jc,jb,1)) * ptr_int%geofac_div(jc,1,jb) + &
+          vec_e(ieidx(jc,jb,2),jk,ieblk(jc,jb,2)) * ptr_int%geofac_div(jc,2,jb) + &
+          vec_e(ieidx(jc,jb,3),jk,ieblk(jc,jb,3)) * ptr_int%geofac_div(jc,3,jb)
 
-         END DO
       END DO
+    END DO
+  ENDIF
 
-   END DO
+END DO
 !$OMP END DO
 
-   IF (l_limited_area .OR. ptr_patch%id > 1) THEN
-      ! Fill div_vec_c along the lateral boundaries of nests
+IF (l_limited_area .OR. ptr_patch%id > 1) THEN
+  ! Fill div_vec_c along the lateral boundaries of nests
 
-      i_startblk = ptr_patch%cells%start_blk(rl_start,1)
-      i_endblk   = ptr_patch%cells%end_blk(rl_start_l2,1)
-      !
-      !$OMP WORKSHARE
-      div_vec_c(:,:,i_startblk:i_endblk) =  aux_c(:,:,i_startblk:i_endblk)
-      !$OMP END WORKSHARE
-   ENDIF
+  i_startblk = ptr_patch%cells%start_blk(rl_start,1)
+  i_endblk   = ptr_patch%cells%end_blk(rl_start_l2,1)
+!
+  IF (l2fields) THEN
+!$OMP WORKSHARE
+     div_vec_c(:,:,i_startblk:i_endblk) =  aux_c (:,:,i_startblk:i_endblk)
+     opt_out2 (:,:,i_startblk:i_endblk) =  aux_c2(:,:,i_startblk:i_endblk)
+!$OMP END WORKSHARE
+  ELSE
+!$OMP WORKSHARE
+     div_vec_c(:,:,i_startblk:i_endblk) =  aux_c(:,:,i_startblk:i_endblk)
+!$OMP END WORKSHARE
+  ENDIF
+ENDIF
 
-   !
-   ! Now do averaging with weights given by avg_coeff
-   
-   ! values for the blocking
-   i_startblk = ptr_patch%cells%start_blk(rl_start_l2,1)
-   i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
-   !
-   ! loop through all patch cells (and blocks)
-   !
+!
+! Now do averaging with weights given by avg_coeff
+
+! values for the blocking
+i_startblk = ptr_patch%cells%start_blk(rl_start_l2,1)
+i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
+!
+! loop through all patch cells (and blocks)
+!
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk), SCHEDULE(runtime)
-   DO jb = i_startblk, i_endblk
+DO jb = i_startblk, i_endblk
 
-      CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
-           i_startidx, i_endidx, rl_start_l2, rl_end)
+  CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
+                     i_startidx, i_endidx, rl_start_l2, rl_end)
+
+  IF (l2fields) THEN
 
 #ifdef __LOOP_EXCHANGE
-      DO jc = i_startidx, i_endidx
-         DO jk = 1, nlev
+    DO jc = i_startidx, i_endidx
+      DO jk = 1, nlev
 #else
 #ifdef _URD
 !CDIR UNROLL=_URD
 #endif
-      DO jk = 1, nlev
-         DO jc = i_startidx, i_endidx
+    DO jk = 1, nlev
+      DO jc = i_startidx, i_endidx
 #endif
 
-            !  calculate the weighted average
-            div_vec_c(jc,jk,jb) =  &
-                 &    aux_c(jc,jk,jb)                         * avg_coeff(jc,1,jb) &
-                 &  + aux_c(inidx(jc,jb,1),jk,inblk(jc,jb,1)) * avg_coeff(jc,2,jb) &
-                 &  + aux_c(inidx(jc,jb,2),jk,inblk(jc,jb,2)) * avg_coeff(jc,3,jb) &
-                 &  + aux_c(inidx(jc,jb,3),jk,inblk(jc,jb,3)) * avg_coeff(jc,4,jb)
+        !  calculate the weighted average
+        div_vec_c(jc,jk,jb) =  &
+          &    aux_c(jc,jk,jb)                         * avg_coeff(jc,1,jb) &
+          &  + aux_c(inidx(jc,jb,1),jk,inblk(jc,jb,1)) * avg_coeff(jc,2,jb) &
+          &  + aux_c(inidx(jc,jb,2),jk,inblk(jc,jb,2)) * avg_coeff(jc,3,jb) &
+          &  + aux_c(inidx(jc,jb,3),jk,inblk(jc,jb,3)) * avg_coeff(jc,4,jb)
 
-         END DO !cell loop
-      END DO !vertical levels loop
+        opt_out2(jc,jk,jb) =  &
+          &    aux_c2(jc,jk,jb)                         * avg_coeff(jc,1,jb) &
+          &  + aux_c2(inidx(jc,jb,1),jk,inblk(jc,jb,1)) * avg_coeff(jc,2,jb) &
+          &  + aux_c2(inidx(jc,jb,2),jk,inblk(jc,jb,2)) * avg_coeff(jc,3,jb) &
+          &  + aux_c2(inidx(jc,jb,3),jk,inblk(jc,jb,3)) * avg_coeff(jc,4,jb)
 
-   END DO !block loop
+      END DO !cell loop
+    END DO !vertical levels loop
+  ELSE
+
+#ifdef __LOOP_EXCHANGE
+    DO jc = i_startidx, i_endidx
+      DO jk = 1, nlev
+#else
+#ifdef _URD
+!CDIR UNROLL=_URD
+#endif
+    DO jk = 1, nlev
+      DO jc = i_startidx, i_endidx
+#endif
+
+        !  calculate the weighted average
+        div_vec_c(jc,jk,jb) =  &
+          &    aux_c(jc,jk,jb)                         * avg_coeff(jc,1,jb) &
+          &  + aux_c(inidx(jc,jb,1),jk,inblk(jc,jb,1)) * avg_coeff(jc,2,jb) &
+          &  + aux_c(inidx(jc,jb,2),jk,inblk(jc,jb,2)) * avg_coeff(jc,3,jb) &
+          &  + aux_c(inidx(jc,jb,3),jk,inblk(jc,jb,3)) * avg_coeff(jc,4,jb)
+
+      END DO !cell loop
+    END DO !vertical levels loop
+  ENDIF
+
+END DO !block loop
 !$OMP END DO
 !$OMP END PARALLEL
-
-END IF ! (l2fields)
 
 END SUBROUTINE div_avg
 
