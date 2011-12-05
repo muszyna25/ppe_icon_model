@@ -508,6 +508,10 @@ then
   fi
 fi
 
+# if we run on the hpc_serial, copy the grids to the buildbot.grids
+if [ x$target = "xhpc_serial"  ] ; then
+  cp grids/* /e/uscratch/extwsauf/buildbot.grids
+fi
 
 ################################################################
 
