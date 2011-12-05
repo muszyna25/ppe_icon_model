@@ -349,7 +349,7 @@ CONTAINS
 
      IF (myThreadNo == 0) h(k,i) = h_aux
 
-!$OMP DO PRIVATE(jb)
+!$OMP DO PRIVATE(jb, nlen)
      DO jb = 1, mnblks
        IF (jb /= mnblks) THEN
          nlen = nproma
@@ -776,7 +776,7 @@ CONTAINS
      ! 4.4) if w is independent from v, add v(:,:,i+1)
      IF (.NOT. done) THEN
        rh = 1.0_wp/h_aux
-!$OMP DO PRIVATE(jb)
+!$OMP DO PRIVATE(jb, nlen)
        DO jb = 1, mnblks
        IF (jb /= mnblks) THEN
          nlen = nproma

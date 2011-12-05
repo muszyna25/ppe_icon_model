@@ -333,7 +333,7 @@ CONTAINS
 
      IF (myThreadNo == 0) h(k,i) = h_aux
 
-!$OMP DO PRIVATE(jb)
+!$OMP DO PRIVATE(jb, nlen)
      DO jb = 1, mnblks
        IF (jb /= mnblks) THEN
          nlen = nproma
