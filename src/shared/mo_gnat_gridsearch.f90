@@ -820,7 +820,7 @@ CONTAINS
 
     ! tell the GNAT how many nodes are expected
     ! ("5" is for safety reasons)
-    expected_num_nodes = 5*p_patch%n_patch_cells/gnat_k
+    expected_num_nodes = 5*p_patch%n_patch_cells/gnat_k + 1
 
     ! build GNAT data structure based on clon, clat:
     CALL gnat_insert_mt(p_patch, nproc, count_dist)
