@@ -19,8 +19,13 @@ fi
 #-----------------------------------------------------------------------------
 if [[ "x$target" = "xsx9" ]] ; then
   echo "Disabled for ${target}. Copying grids from buildbot.grids."
-  cp  ../../../../buildbot.grids/* ${WRKDIR}
-  check_error 0 "create_nested_grids"
+#  cp  ../../../../buildbot.grids/* ${WRKDIR}
+#   copy the grids from the hpc_serial 
+  cp  /e/uhome/extwsauf/work/buildbot/hpc_serial/nightly/grids/* ${WRKDIR}
+  if [ ! -f $WRKDIR/iconR2B05_DOM02.nc ]; then
+    check_error 1 "copy grids from hpc_serial"
+  fi
+  
   exit 0
 fi
 #-----------------------------------------------------------------------------

@@ -733,7 +733,8 @@ CONTAINS
     & no_of_variables, status, scope, name )
     INTEGER, INTENT(IN)       :: grid_location
     TYPE(t_patch), INTENT(IN) :: p_patch
-    REAL(wp), POINTER, INTENT(INOUT)   :: var(:,:,:,:)
+!     REAL(wp), POINTER, INTENT(INOUT)   :: var(:,:,:,:)
+    REAL(wp), POINTER  :: var(:,:,:,:)
     
      INTEGER, INTENT(IN), OPTIONAL :: no_of_variables
 !     INTEGER, INTENT(IN), OPTIONAL :: var_dim
@@ -803,7 +804,8 @@ CONTAINS
     
     INTEGER, INTENT(IN)       :: grid_location
     TYPE(t_patch), INTENT(IN) :: p_patch
-    REAL(wp), POINTER, INTENT(INOUT)   :: var(:,:,:)
+!     REAL(wp), POINTER, INTENT(INOUT)   :: var(:,:,:)
+    REAL(wp), POINTER   :: var(:,:,:)
     
 !     INTEGER, INTENT(IN), OPTIONAL :: no_of_variables
 !     INTEGER, INTENT(IN), OPTIONAL :: var_dim
@@ -889,7 +891,8 @@ CONTAINS
     
     INTEGER, INTENT(IN)       :: grid_location
     TYPE(t_patch), INTENT(IN) :: p_patch
-    REAL(wp), POINTER, INTENT(INOUT)   :: var(:,:)
+!     REAL(wp), POINTER, INTENT(INOUT)   :: var(:,:)
+    REAL(wp), POINTER   :: var(:,:)
     
 !     INTEGER, INTENT(IN), OPTIONAL :: no_of_variables
 !     INTEGER, INTENT(IN), OPTIONAL :: var_dim
@@ -1072,7 +1075,8 @@ CONTAINS
   SUBROUTINE icon_comm_sync_1(var,  grid_location, patch)
     INTEGER, INTENT(IN)       :: grid_location
     TYPE(t_patch), INTENT(IN) :: patch
-    REAL(wp), POINTER, INTENT(INOUT)   :: var(:,:,:)
+!    REAL(wp), POINTER, INTENT(INOUT)   :: var(:,:,:)
+    REAL(wp), POINTER   :: var(:,:,:)
     
     INTEGER :: comm_var
 
@@ -1090,8 +1094,10 @@ CONTAINS
   SUBROUTINE icon_comm_sync_2(var1,  var2, grid_location, patch)
     INTEGER, INTENT(IN)       :: grid_location
     TYPE(t_patch), INTENT(IN) :: patch
-    REAL(wp), POINTER, INTENT(INOUT)   :: var1(:,:,:)
-    REAL(wp), POINTER, INTENT(INOUT)   :: var2(:,:,:)
+!     REAL(wp), POINTER, INTENT(INOUT)   :: var1(:,:,:)
+!     REAL(wp), POINTER, INTENT(INOUT)   :: var2(:,:,:)
+    REAL(wp), POINTER   :: var1(:,:,:)
+    REAL(wp), POINTER   :: var2(:,:,:)
     
     INTEGER :: comm_var_1, comm_var_2
 
