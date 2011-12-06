@@ -516,6 +516,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
 
   IF ( atm_phy_nwp_config(jg)%inwp_convection == 1 .OR. &
     &  atm_phy_nwp_config(jg)%inwp_cldcover == 1   .OR. &
+    &  atm_phy_nwp_config(jg)%inwp_surface == 1    .OR. &
     &  atm_phy_nwp_config(jg)%inwp_turb == 3 )     THEN
     
     !This has to be done here because not only convection, but also inwp_cldcover == 1 
