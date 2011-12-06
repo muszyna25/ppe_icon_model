@@ -114,6 +114,7 @@ USE mo_math_utilities,     ONLY: gvec2cvec, t_cartesian_coordinates
 USE mo_math_constants,     ONLY: pi_2
 USE mo_loopindices,        ONLY: get_indices_e
 USE mo_grid_config,        ONLY: corio_lat
+USE mo_sync,               ONLY: SYNC_E, sync_patch_array, sync_idx
 
 IMPLICIT NONE
 
@@ -124,7 +125,7 @@ CHARACTER(len=*), PARAMETER :: version = '$Id$'
 !modules interface-------------------------------------------
 !subroutines
 PUBLIC :: reshape_int, reshape_real, calculate_cart_normal, &
-        & init_quad_twoadjcells, init_coriolis !, mean_domain_values
+        & init_quad_twoadjcells, init_coriolis, set_verts_phys_id
 
 !-------------------------------------------------------------------------
 
@@ -292,6 +293,7 @@ DO jb = i_startblk, nblks_e
 
     DO je = i_startidx, i_endidx
 
+      IF(.NOT.p_patch%edges%owner_mask(je,jb)) CYCLE
       !
       ! get global indices of the edges of the two neighboring cells
       !
@@ -377,6 +379,8 @@ DO jb = i_startblk, nblks_e
 
     DO je = i_startidx, i_endidx
 
+      IF(.NOT.p_patch%edges%owner_mask(je,jb)) CYCLE
+
       iie = 0
       !
       ! get global indices of the edges of the two neighboring verts
@@ -437,6 +441,16 @@ DO jb = i_startblk, nblks_e
 END DO
 !$OMP END DO
 !$OMP END PARALLEL
+
+CALL sync_patch_array(SYNC_E,p_patch,p_patch%edges%quad_area)
+DO iie = 1, 4
+  CALL sync_patch_array(SYNC_E,p_patch,p_patch%edges%quad_orientation(:,:,iie))
+
+  CALL sync_idx(SYNC_E,SYNC_E,p_patch,p_patch%edges%quad_idx(:,:,iie), &
+                                    & p_patch%edges%quad_blk(:,:,iie), &
+                                    & opt_remap=.FALSE.)
+ENDDO
+
 
 END SUBROUTINE init_quad_twoadjcells
 
@@ -529,6 +543,56 @@ ELSE
 ENDIF
 
 END SUBROUTINE init_coriolis
+
+!-------------------------------------------------------------------------
+!
+!>
+!! Sets phys_id for verts since this is not read from input
+!!
+!!
+!! @par Revision History
+!! Developed by Rainer Johanni (2010-12-05).
+!!
+SUBROUTINE set_verts_phys_id( p_patch )
+!
+
+  TYPE(t_patch), INTENT(inout) :: p_patch ! patch on specific level
+
+  INTEGER :: nlen, jb, jv, ji, ilc, ibc
+
+  !-----------------------------------------------------------------------
+
+  IF (p_patch%cell_type == 3) THEN
+
+    DO jb = 1, p_patch%nblks_v
+      IF (jb /= p_patch%nblks_v) THEN
+        nlen = nproma
+      ELSE
+        nlen = p_patch%npromz_v
+      ENDIF
+      DO jv = 1, nlen
+        ! Just go over all neighboring cells of a vertex and take the phys_id
+        ! of the first valid neighbor cell
+        DO ji = 1, 6
+          ilc = p_patch%verts%cell_idx(jv,jb,ji)
+          ibc = p_patch%verts%cell_blk(jv,jb,ji)
+          IF(ilc > 0) THEN
+            p_patch%verts%phys_id(jv,jb) = p_patch%cells%phys_id(ilc, ibc)
+            EXIT
+          ENDIF
+        END DO
+      END DO
+    END DO
+
+  ELSE
+
+    ! There is no distinction between physical and logical patches for hex grids
+    p_patch%verts%phys_id(:,:) = p_patch%id
+
+  ENDIF
+
+
+END SUBROUTINE set_verts_phys_id
 
 !-------------------------------------------------------------------------
 !

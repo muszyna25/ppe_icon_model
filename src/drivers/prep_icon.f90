@@ -70,7 +70,7 @@ USE mo_model_domain,          ONLY: p_patch_global, p_patch_subdiv, p_patch, &
 !
 USE mo_grid_config,           ONLY: n_dom, n_dom_start, global_cell_type
                                   
-USE mo_model_domain_import,   ONLY: import_patches, destruct_patches
+USE mo_model_domimp_patches,  ONLY: import_basic_patches, complete_patches, destruct_patches
 
 ! Horizontal interpolation
 !
@@ -223,7 +223,7 @@ IMPLICIT NONE
       CALL finish(TRIM(routine), 'allocation of patch failed')
     ENDIF
     
-    CALL import_patches( p_patch_global,nlev,nlevp1,num_lev,num_levp1,nshift)
+    CALL import_basic_patches( p_patch_global,nlev,nlevp1,num_lev,num_levp1,nshift)
 
     IF(my_process_is_mpi_parallel()) then
       CALL decompose_domain()
@@ -231,6 +231,7 @@ IMPLICIT NONE
     ELSE
       p_patch => p_patch_global
     ENDIF
+    CALL complete_patches( p_patch )
     ! Note: from this point the p_patch is used
 
     !--------------------------------------------------------------------------------

@@ -785,15 +785,26 @@ END SUBROUTINE check_patch_array_4
 !! @par Revision History
 !! Initial version by Rainer Johanni, Oct 2011
 
-SUBROUTINE sync_idx(type_arr, type_idx, p_patch, idx, blk)
+SUBROUTINE sync_idx(type_arr, type_idx, p_patch, idx, blk, opt_remap)
 
   INTEGER, INTENT(IN) :: type_arr, type_idx
   TYPE(t_patch), TARGET, INTENT(IN) :: p_patch
   INTEGER, INTENT(INOUT) :: idx(:,:), blk(:,:)
+  LOGICAL, INTENT(IN), OPTIONAL :: opt_remap
 
   INTEGER :: nblks, n_idx, n_idx_g, jb, jl, i_l, i_g
+  LOGICAL :: remap
   REAL(wp), ALLOCATABLE :: z_idx(:,:)
   INTEGER, POINTER :: glb_index(:), loc_index(:)
+
+  ! opt_remap: Flag if index values pointing outside local domain
+  ! should be remapped to values within local domain
+
+  IF(PRESENT(opt_remap)) THEN
+    remap = opt_remap
+  ELSE
+    remap = .TRUE.
+  ENDIF
 
   IF(type_arr == SYNC_C) THEN
     nblks = p_patch%nblks_c
@@ -857,12 +868,20 @@ SUBROUTINE sync_idx(type_arr, type_idx, p_patch, idx, blk)
       i_g = INT(z_idx(jl,jb))
 
       IF(i_g <= 0 .or. i_g > n_idx_g) THEN
-        idx(jl,jb) = 0
-        blk(jl,jb) = 0
+        idx(jl,jb) = idx_no(0)
+        blk(jl,jb) = blk_no(0)
       ELSE
         i_l = loc_index(i_g)
-        ! Determine what to do with nonlocal values (like in get_local_index):
-        if(i_l<0) i_l = MAX(ABS(i_l)-1,1)
+        ! Determine what to do with nonlocal values
+        IF(i_l<0) THEN
+          IF(remap) THEN
+            ! Remap index to positive value like in mo_subdivision/remap_index
+            i_l = MAX(ABS(i_l)-1,1)
+          ELSE
+            ! Set it to negative global index like in mo_subdivision/get_local_index
+            i_l = -i_g
+          ENDIF
+        ENDIF
         idx(jl,jb) = idx_no(i_l)
         blk(jl,jb) = blk_no(i_l)
       ENDIF

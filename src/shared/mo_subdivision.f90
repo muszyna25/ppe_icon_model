@@ -94,7 +94,7 @@ MODULE mo_subdivision
     & grf_bdyintp_end_c, grf_bdyintp_end_e, grf_fbk_start_c, grf_fbk_start_e, &
     & grf_bdywidth_c, grf_bdywidth_e, grf_nudgintp_start_c, grf_nudgintp_start_e
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, patch_weight, n_phys_dom
-  USE mo_model_domimp_patches,ONLY: destruct_patches, allocate_patch
+  USE mo_model_domimp_patches,ONLY: allocate_patch, deallocate_basic_patch
 
 
   IMPLICIT NONE
@@ -573,7 +573,9 @@ CONTAINS
 
     ! The global patches may be discarded now
 
-    CALL destruct_patches( p_patch_global )
+    DO jg = n_dom_start, n_dom
+      CALL deallocate_basic_patch( p_patch_global(jg) )
+    ENDDO
     DEALLOCATE( p_patch_global, STAT = ist)
     IF (ist/=SUCCESS)THEN
       CALL message('mo_subdivision:decompose_atmo_domain',   &
@@ -1822,9 +1824,6 @@ CONTAINS
       jb_g = blk_no(wrk_p_patch%cells%glb_index(j)) ! Block index in global patch
       jl_g = idx_no(wrk_p_patch%cells%glb_index(j)) ! Line  index in global patch
 
-      wrk_p_patch%cells%idx(jl,jb) = jl
-      wrk_p_patch%cells%blk(jl,jb) = jb
-
       DO i=1,wrk_p_patch%cell_type
 
         CALL get_local_index(wrk_p_patch%cells%loc_index, &
@@ -1855,15 +1854,10 @@ CONTAINS
        & any(wrk_p_patch%cells%vertex_blk(jl,jb,:) <= 0) )    &
        & CALL finish('divide_patch','Illegal value for patch%cells%vertex_idx')
 
-      wrk_p_patch%cells%edge_orientation(jl,jb,:) = &
-        & wrk_p_patch_g%cells%edge_orientation(jl_g,jb_g,:)
       wrk_p_patch%cells%num_edges(jl,jb)          = wrk_p_patch_g%cells%num_edges(jl_g,jb_g)
       wrk_p_patch%cells%center(jl,jb)             = wrk_p_patch_g%cells%center(jl_g,jb_g)
-      wrk_p_patch%cells%area(jl,jb)               = wrk_p_patch_g%cells%area(jl_g,jb_g)
-      wrk_p_patch%cells%f_c(jl,jb)                = wrk_p_patch_g%cells%f_c(jl_g,jb_g)
       wrk_p_patch%cells%refin_ctrl(jl,jb)         = wrk_p_patch_g%cells%refin_ctrl(jl_g,jb_g)
       wrk_p_patch%cells%child_id(jl,jb)           = wrk_p_patch_g%cells%child_id(jl_g,jb_g)
-      wrk_p_patch%cells%phys_id(jl,jb)            = wrk_p_patch_g%cells%phys_id(jl_g,jb_g)
       wrk_p_patch%cells%decomp_domain(jl,jb)      = flag2_c(wrk_p_patch%cells%glb_index(j))
       wrk_p_patch%cells%owner_mask(jl,jb)         = &
         & wrk_p_patch%cells%owner_g(idx_1d(jl_g,jb_g)) == p_pe_work
@@ -1881,95 +1875,13 @@ CONTAINS
       jb_g = blk_no(wrk_p_patch%edges%glb_index(j)) ! Block index in global patch
       jl_g = idx_no(wrk_p_patch%edges%glb_index(j)) ! Line  index in global patch
 
-      wrk_p_patch%edges%idx(jl,jb) = jl
-      wrk_p_patch%edges%blk(jl,jb) = jb
-
-      DO i=1,2
-        CALL get_local_index(wrk_p_patch%cells%loc_index, &
-          & wrk_p_patch_g%edges%cell_idx(jl_g,jb_g,i),    &
-          & wrk_p_patch_g%edges%cell_blk(jl_g,jb_g,i),    &
-          & wrk_p_patch%edges%cell_idx(jl,jb,i),          &
-          & wrk_p_patch%edges%cell_blk(jl,jb,i))
-      ENDDO
-
-      DO i=1,4
-        CALL get_local_index(wrk_p_patch%verts%loc_index, &
-          & wrk_p_patch_g%edges%vertex_idx(jl_g,jb_g,i),  &
-          & wrk_p_patch_g%edges%vertex_blk(jl_g,jb_g,i),  &
-          & wrk_p_patch%edges%vertex_idx(jl,jb,i),        &
-          & wrk_p_patch%edges%vertex_blk(jl,jb,i))
-      ENDDO
-
-      ! Safety check only: vertex_idx(:,:,1:2) must always be valid,
-      ! vertex_idx(:,:,3:4) will be set later
-      if(any(wrk_p_patch%edges%vertex_idx(jl,jb,1:2) <= 0) .or. &
-       & any(wrk_p_patch%edges%vertex_blk(jl,jb,1:2) <= 0) )    &
-       & CALL finish('divide_patch','Illegal value for patch%edges%vertex_idx')
-
-      DO i=1,4
-        CALL get_local_index(wrk_p_patch%edges%loc_index, &
-          & wrk_p_patch_g%edges%quad_idx(jl_g,jb_g,i),    &
-          & wrk_p_patch_g%edges%quad_blk(jl_g,jb_g,i),    &
-          & wrk_p_patch%edges%quad_idx(jl,jb,i),          &
-          & wrk_p_patch%edges%quad_blk(jl,jb,i))
-      ENDDO
-
-      wrk_p_patch%edges%system_orientation(jl,jb)    =&
-        & wrk_p_patch_g%edges%system_orientation(jl_g,jb_g)
-      wrk_p_patch%edges%quad_orientation(jl,jb,:)    =&
-        & wrk_p_patch_g%edges%quad_orientation(jl_g,jb_g,:)
-
-      wrk_p_patch%edges%center(jl,jb)                =&
-        & wrk_p_patch_g%edges%center(jl_g,jb_g)
-      wrk_p_patch%edges%primal_normal(jl,jb)         =&
-        & wrk_p_patch_g%edges%primal_normal(jl_g,jb_g)
-      wrk_p_patch%edges%primal_cart_normal(jl,jb)    =&
-        & wrk_p_patch_g%edges%primal_cart_normal(jl_g,jb_g)
-      wrk_p_patch%edges%dual_normal(jl,jb)           =&
-        & wrk_p_patch_g%edges%dual_normal(jl_g,jb_g)
-      wrk_p_patch%edges%dual_cart_normal(jl,jb)      =&
-        & wrk_p_patch_g%edges%dual_cart_normal(jl_g,jb_g)
-      wrk_p_patch%edges%primal_normal_cell(jl,jb,:)  =&
-        & wrk_p_patch_g%edges%primal_normal_cell(jl_g,jb_g,:)
-      wrk_p_patch%edges%dual_normal_cell(jl,jb,:)    =&
-        & wrk_p_patch_g%edges%dual_normal_cell(jl_g,jb_g,:)
-      wrk_p_patch%edges%primal_normal_vert(jl,jb,:)  =&
-        & wrk_p_patch_g%edges%primal_normal_vert(jl_g,jb_g,:)
-      wrk_p_patch%edges%dual_normal_vert(jl,jb,:)    =&
-        & wrk_p_patch_g%edges%dual_normal_vert(jl_g,jb_g,:)
-
-      wrk_p_patch%edges%primal_edge_length(jl,jb)    =&
-        & wrk_p_patch_g%edges%primal_edge_length(jl_g,jb_g)
-      wrk_p_patch%edges%inv_primal_edge_length(jl,jb)=&
-        & wrk_p_patch_g%edges%inv_primal_edge_length(jl_g,jb_g)
-      wrk_p_patch%edges%dual_edge_length(jl,jb)      =&
-        & wrk_p_patch_g%edges%dual_edge_length(jl_g,jb_g)
-      wrk_p_patch%edges%inv_dual_edge_length(jl,jb)  =&
-        & wrk_p_patch_g%edges%inv_dual_edge_length(jl_g,jb_g)
-
-      wrk_p_patch%edges%edge_vert_length(jl,jb,:)    =&
-        & wrk_p_patch_g%edges%edge_vert_length(jl_g,jb_g,:)
-      wrk_p_patch%edges%edge_cell_length(jl,jb,:)    =&
-        & wrk_p_patch_g%edges%edge_cell_length(jl_g,jb_g,:)
-      wrk_p_patch%edges%area_edge(jl,jb)             =&
-        & wrk_p_patch_g%edges%area_edge(jl_g,jb_g)
-      wrk_p_patch%edges%quad_area(jl,jb)             =&
-        & wrk_p_patch_g%edges%quad_area(jl_g,jb_g)
-      wrk_p_patch%edges%f_e(jl,jb)                   =&
-        & wrk_p_patch_g%edges%f_e(jl_g,jb_g)
       wrk_p_patch%edges%refin_ctrl(jl,jb)            =&
         & wrk_p_patch_g%edges%refin_ctrl(jl_g,jb_g)
       wrk_p_patch%edges%child_id(jl,jb)              =&
         & wrk_p_patch_g%edges%child_id(jl_g,jb_g)
-      wrk_p_patch%edges%phys_id(jl,jb)               =wrk_p_patch_g%edges%phys_id(jl_g,jb_g)
       wrk_p_patch%edges%decomp_domain(jl,jb)         =flag2_e(wrk_p_patch%edges%glb_index(j))
       wrk_p_patch%edges%owner_mask(jl,jb)         = &
         & wrk_p_patch%edges%owner_g(idx_1d(jl_g,jb_g))==p_pe_work
-
-      IF (wrk_p_patch%cell_type==3) THEN
-        wrk_p_patch%edges%inv_vert_vert_length(jl,jb)   =&
-          & wrk_p_patch_g%edges%inv_vert_vert_length(jl_g,jb_g)
-      ENDIF
 
     ENDDO
 
@@ -1983,37 +1895,7 @@ CONTAINS
       jb_g = blk_no(wrk_p_patch%verts%glb_index(j)) ! Block index in global patch
       jl_g = idx_no(wrk_p_patch%verts%glb_index(j)) ! Line  index in global patch
 
-      wrk_p_patch%verts%idx(jl,jb) = jl
-      wrk_p_patch%verts%blk(jl,jb) = jb
-
-      DO i=1,9-wrk_p_patch%cell_type
-
-        CALL get_local_index(wrk_p_patch%verts%loc_index, &
-          & wrk_p_patch_g%verts%neighbor_idx(jl_g,jb_g,i),&
-          & wrk_p_patch_g%verts%neighbor_blk(jl_g,jb_g,i),&
-          & wrk_p_patch%verts%neighbor_idx(jl,jb,i),      &
-          & wrk_p_patch%verts%neighbor_blk(jl,jb,i))
-
-        CALL get_local_index(wrk_p_patch%edges%loc_index, &
-          & wrk_p_patch_g%verts%edge_idx(jl_g,jb_g,i),    &
-          & wrk_p_patch_g%verts%edge_blk(jl_g,jb_g,i),    &
-          & wrk_p_patch%verts%edge_idx(jl,jb,i),          &
-          & wrk_p_patch%verts%edge_blk(jl,jb,i))
-
-        CALL get_local_index(wrk_p_patch%cells%loc_index, &
-          & wrk_p_patch_g%verts%cell_idx(jl_g,jb_g,i),    &
-          & wrk_p_patch_g%verts%cell_blk(jl_g,jb_g,i),    &
-          & wrk_p_patch%verts%cell_idx(jl,jb,i),          &
-          & wrk_p_patch%verts%cell_blk(jl,jb,i))
-      ENDDO
-
-      wrk_p_patch%verts%phys_id(jl,jb)            = wrk_p_patch_g%verts%phys_id(jl_g,jb_g)
-      wrk_p_patch%verts%edge_orientation(jl,jb,:) = &
-        & wrk_p_patch_g%verts%edge_orientation(jl_g,jb_g,:)
-      wrk_p_patch%verts%num_edges(jl,jb)          = wrk_p_patch_g%verts%num_edges(jl_g,jb_g)
       wrk_p_patch%verts%vertex(jl,jb)             = wrk_p_patch_g%verts%vertex(jl_g,jb_g)
-      wrk_p_patch%verts%dual_area(jl,jb)          = wrk_p_patch_g%verts%dual_area(jl_g,jb_g)
-      wrk_p_patch%verts%f_v(jl,jb)                = wrk_p_patch_g%verts%f_v(jl_g,jb_g)
       wrk_p_patch%verts%refin_ctrl(jl,jb)         = wrk_p_patch_g%verts%refin_ctrl(jl_g,jb_g)
       wrk_p_patch%verts%decomp_domain(jl,jb)      = flag2_v(wrk_p_patch%verts%glb_index(j))
       wrk_p_patch%verts%owner_mask(jl,jb)         = &

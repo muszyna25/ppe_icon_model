@@ -95,8 +95,10 @@ MODULE mo_ocean_model
   !
   USE mo_model_domain_import, ONLY: &!  grid_nml_setup,          & ! process grid control parameters
     & n_dom,                & !    :
-    & n_dom_start,          & !    :
-    & import_patches,       & !
+    & n_dom_start
+  USE mo_model_domimp_patches,ONLY: &
+    & import_basic_patches, & !
+    & complete_patches,     & !
     & destruct_patches        !
 
   ! Horizontal interpolation
@@ -279,8 +281,11 @@ CONTAINS
       IF( .NOT. my_process_is_mpi_test()) THEN
         CALL restore_patches_netcdf( p_patch_global )
       ELSE
-        CALL import_patches( p_patch_global,                       &
-                            nlev,nlevp1,num_lev,num_levp1,nshift )
+        CALL import_basic_patches( p_patch_global,                       &
+                                   nlev,nlevp1,num_lev,num_levp1,nshift )
+        CALL disable_sync_checks
+        CALL complete_patches( p_patch_global )
+        CALL enable_sync_checks
       ENDIF
       ! After the restore is done set p_comm_input_bcast in the
       ! same way as it would be set in parallel_nml_setup when
@@ -289,14 +294,15 @@ CONTAINS
 
       p_patch => p_patch_global
     ELSE
-      CALL import_patches( p_patch_global,                       &
-                           nlev,nlevp1,num_lev,num_levp1,nshift )      
+      CALL import_basic_patches( p_patch_global,                       &
+                                 nlev,nlevp1,num_lev,num_levp1,nshift )      
       IF(my_process_is_mpi_parallel()) then
         CALL decompose_domain()
         p_patch => p_patch_subdiv
       ELSE
         p_patch => p_patch_global
       ENDIF
+      CALL complete_patches( p_patch )
     ENDIF
     ! Note: from this point the p_patch is used
 

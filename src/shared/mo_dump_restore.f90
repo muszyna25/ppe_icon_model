@@ -2507,29 +2507,6 @@ CONTAINS
 
     CALL allocate_patch(p)
 
-    ! The information in p%cells%idx/blk is redundant and not written to NetCDF
-    DO jb = 1, p%nblks_c
-    DO jl = 1, nproma
-      p%cells%idx(jl,jb) = jl
-      p%cells%blk(jl,jb) = jb
-    ENDDO
-    ENDDO
-    ! The information in p%edges%idx/blk is redundant and not written to NetCDF
-    DO jb = 1, p%nblks_e
-    DO jl = 1, nproma
-      p%edges%idx(jl,jb) = jl
-      p%edges%blk(jl,jb) = jb
-    ENDDO
-    ENDDO
-    ! The information in p%verts%idx/blk is redundant and not written to NetCDF
-    DO jb = 1, p%nblks_v
-    DO jl = 1, nproma
-      p%verts%idx(jl,jb) = jl
-      p%verts%blk(jl,jb) = jb
-    ENDDO
-    ENDDO
-
-
     CALL patch_io(p)
 
 

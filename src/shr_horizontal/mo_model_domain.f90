@@ -133,13 +133,6 @@ END TYPE t_tangent_vectors
 
 TYPE t_grid_cells
 
-  ! cell line index:
-  ! index1=1,nproma, index2=1,nblks_c
-  INTEGER, ALLOCATABLE :: idx(:,:)
-  ! cell block index:
-  ! index1=1,nproma, index2=1,nblks_c
-  INTEGER, ALLOCATABLE :: blk(:,:)
-
   ! number of edges connected to cell
   ! index1=1,nproma, index2=1,nblks_c
   INTEGER, ALLOCATABLE :: num_edges(:,:)
@@ -256,13 +249,6 @@ END TYPE t_grid_cells
 ! !grid_edge class
 
 TYPE t_grid_edges
-
-  ! edge line index
-  ! index1=1,nproma, index2=1,nblks_e
-  INTEGER, ALLOCATABLE :: idx(:,:)
-  ! edge block index
-  ! index1=1,nproma, index2=1,nblks_e
-  INTEGER, ALLOCATABLE :: blk(:,:)
 
   ! line index of parent edge:
   ! index1=1,nproma, index2=1,nblks_e
@@ -451,13 +437,6 @@ END TYPE t_grid_edges
 !  !grid_vertices class
 
 TYPE t_grid_vertices
-
-  ! vertex line index
-  ! index1=1,nproma, index2=1,nblks_v
-  INTEGER, ALLOCATABLE :: idx(:,:)
-  ! vertex block index
-  ! index1=1,nproma, index2=1,nblks_v
-  INTEGER, ALLOCATABLE :: blk(:,:)
 
   ! physical domain ID of verts
   ! (may differ from the "normal" domain ID in case of domain merging):

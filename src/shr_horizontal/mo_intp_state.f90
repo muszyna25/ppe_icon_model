@@ -1925,6 +1925,18 @@ SUBROUTINE transfer_interpol_state(p_p, p_lp, pi, po)
   CALL xfer_idx(SYNC_E,SYNC_V,1,2,p_p,p_lp,p_p %edges%vertex_idx,p_p %edges%vertex_blk, &
                                          & p_lp%edges%vertex_idx,p_lp%edges%vertex_blk)
 
+  ! The same for quad_area, quad_orientation, quad_idx which is calculated
+  ! after the complete patch has been read
+
+  CALL xfer_var(SYNC_E,1,2,p_p,p_lp,p_p %edges%quad_area, &
+                                  & p_lp%edges%quad_area)
+  CALL xfer_var(SYNC_E,1,2,p_p,p_lp,p_p %edges%quad_orientation, &
+                                  & p_lp%edges%quad_orientation)
+
+  CALL xfer_idx(SYNC_E,SYNC_E,1,2,p_p,p_lp,p_p %edges%quad_idx,p_p %edges%quad_blk, &
+                                         & p_lp%edges%quad_idx,p_lp%edges%quad_blk)
+
+
   ! Transfer interpolation state
 
   CALL xfer_var(SYNC_E,1,3,p_p,p_lp,pi%c_lin_e,po%c_lin_e)
