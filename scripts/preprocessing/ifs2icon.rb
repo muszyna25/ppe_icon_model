@@ -589,6 +589,8 @@ end
 # * (TODO) apply land-see-mask
 # * (TODO) to concistency checks
 class Ifs2Icon
+  VERSION = 1.0.to_s
+
   C_R          = 287.05
   SCALEHEIGHT  = 10000.0
   C_EARTH_GRAV = 9.80665
@@ -1020,9 +1022,9 @@ class Ifs2Icon
   # (pre-vertical-interpolation-state)
   def verticalVelocityHandling(intermediateFile, intermediateHeight)
     # select variable from intermediate IFS intput AND REMOVE it from the origin
-    verticalVelocityName = @config.selectBy(code: 135).outputname[0]
+    verticalVelocityName = @config.selectBy(:code => 135).outputname[0]
     intermediateW, intermediateWWithNewUnit, tmp = tfile, tfile, tfile
-    Cdo.selname(verticalVelocityName,in: intermediateFile, out: intermediateW)
+    Cdo.selname(verticalVelocityName,:in => intermediateFile, :out => intermediateW)
 
     # create pressure and temperature for appropriate vertical coordinate
     presFile, tempFile, densityFile = tfile , tfile, tfile
@@ -1031,17 +1033,17 @@ class Ifs2Icon
     Cdo.expr("'#{tempName}=#{TEMP_EXPR['geopotheight']}'", :in => intermediateHeight, :out => tempFile)
     # compute the hydrostatic density
     #Cdo.chainCall("setname,#{densityName} -mulc,#{C_R} -div",in: [presFile,tempFile].join(' '), out: densityFile)
-    Cdo.chainCall("setname,#{densityName} -divc,#{C_R} -div",in: [presFile,tempFile].join(' '), out: densityFile)
-    Cdo.merge(in: [intermediateW,densityFile].join(' '),out: tmp)
+    Cdo.chainCall("setname,#{densityName} -divc,#{C_R} -div",:in => [presFile,tempFile].join(' '), :out => densityFile)
+    Cdo.merge(:in => [intermediateW,densityFile].join(' '),:out => tmp)
     # compute vertical velocity in new units
-    Cdo.expr("'#{verticalVelocityName}=#{W_EXPR[verticalVelocityName,densityName]}'",in:  tmp, out: intermediateWWithNewUnit)
+    Cdo.expr("'#{verticalVelocityName}=#{W_EXPR[verticalVelocityName,densityName]}'",:in => tmp, :out => intermediateWWithNewUnit)
 
-    Cdo.copy(in: intermediateWWithNewUnit, out: 'intermediateVerticalVelocity.nc') if @options[:debug]
+    Cdo.copy(:in => intermediateWWithNewUnit, :out => 'intermediateVerticalVelocity.nc') if @options[:debug]
 
 
     # add the new vertical velocity to the intermediat file back again
     newIntermediateFile = tfile
-    Cdo.replace(in: [intermediateFile,intermediateWWithNewUnit].join(' '), out: newIntermediateFile)
+    Cdo.replace(:in => [intermediateFile,intermediateWWithNewUnit].join(' '), :out => newIntermediateFile)
 
     newIntermediateFile
   end
@@ -1081,6 +1083,15 @@ if __FILE__ == $0
   test = ENV['test'].nil? ? 'proc' : ENV['test']
   case test
   when 'proc'
+    #=======================================================
+    # test on using Ruby 1.9.x
+    if RUBY_VERSION < '1.9.0'
+      warn "Please use Ruby 1.9.x! Your version is #{RUBY_VERSION}"
+      exit -1
+    end
+
+    #=======================================================
+    # options handling
     options  = PreProcOptions.parse(ARGV)
     Cdo.setCdo(options[:cdo]) if options[:cdo]
     pp options if options[:debug]
