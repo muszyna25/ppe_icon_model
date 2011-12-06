@@ -321,6 +321,13 @@ class PreProcOptions
         puts opts
         exit
       end
+      # test on file presence
+      [:inputfile,:gridfile,:configfile].select {|param| not options[param].nil? }.each {|tag|
+        unless File.exist?(options[tag])
+          warn "Could not file #{tag.to_s} #{options[tag]}!"
+          exit -1
+        end
+      }
     rescue OptionParser::InvalidOption, OptionParser::MissingArgument
       puts $!.to_s
       puts opts
@@ -378,7 +385,7 @@ class PreProcOptions
         }
         options[:vctfile] = newvct
       end
-    end
+    end if options[:model_type] == 'hydrostatic'
   end
 end
 # ==============================================================================
@@ -899,7 +906,7 @@ class Ifs2Icon
       intermediateHeight = tfile
       Cdo.geopotheight(:in => intermediateFile,:out => intermediateHeight)
 
-      # Create output with vertical height axis of intermediate IFS
+      # Create output with vertical height axis of intermediate IFS (debug only)
       Cdo.copy(:in => intermediateHeight,:out => 'intermediateHeights.nc') if @options[:debug]
       Cdo.copy(:in => intermediateFile,  :out => 'intermediateIFS.nc')     if @options[:debug]
 
