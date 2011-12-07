@@ -547,8 +547,16 @@ begin
 
   orgFile             = addfile (infilename , "r")
   orgTime             = getfilevardimsizes(orgFile,"time")
+
+  if (.not. has_var(orgFile,varname)) then
+    print("Cannot find varname:"+varname)
+    exit
+  end if
+
   orgvertdimname      = getVertDim(orgFile,orgFile->$varname$)
-  orgvertdim          = orgFile->$orgvertdimname$
+  if (.not. ismissing(orgvertdimname) ) then
+    orgvertdim          = orgFile->$orgvertdimname$
+  end if
 
   remapFile           = addfile(remapfilename,"r")
   remapTime           = getfilevardimsizes(remapFile,"time")
@@ -559,7 +567,9 @@ begin
     return retval
   else
     remappedvertdimname = getVertDim(remapFile,remapFile->$varname$)
-    remappedvertdim     = remapFile->$remappedvertdimname$
+    if (.not. ismissing(remappedvertdimname)) then
+      remappedvertdim     = remapFile->$remappedvertdimname$
+    end if
   end if
 
 
@@ -575,13 +585,13 @@ begin
   end if
 
   if (itype .eq. "atm") then
-    if (atmlev .eq. "p" .and. (str_join(atmplevs,",") .ne. str_join(remappedvertdim,",")))
+    if (atmlev .eq. "p" .and. (str_join(atmplevs,",") .ne. str_join(remappedvertdim,",")) .and. (.not. ismissing(remappedvertdimname)))
       print("Vertical pressure levels differ")
       retval = False
     else
       print("Vertical pressure levels ok.")
     end if
-    if (atmlev .eq. "h" .and. (str_join(atmhlevs,",") .ne. str_join(remappedvertdim,",")))
+    if (atmlev .eq. "h" .and. (str_join(atmhlevs,",") .ne. str_join(remappedvertdim,",")) .and. (.not. ismissing(remappedvertdimname)))
       print("Vertical height levels differ")
       retval = False
     else
@@ -589,7 +599,7 @@ begin
     end if
   end if
   if (itype .eq. "oce") then
-    if (str_join(orgvertdim,",") .ne. str_join(remappedvertdim,","))
+    if ((.not. ismissing(orgvertdimname)) .and. (str_join(orgvertdim,",") .ne. str_join(remappedvertdim,",")) .and. (.not. ismissing(remappedvertdimname)))
       print("Vertical depth levels differ")
       retval = False
     else
@@ -738,7 +748,7 @@ begin
 ;;   else
 ;;     resource@cnLevelSpacingF    = 10^(floor(diffLog10))/numLevs
 ;;   end if
-    diffspacing               = abs(maxvar-minvar)/(numlevs)
+    diffspacing               = abs(maxvar-minvar)/(int2flt(numlevs))
     resource@cnLevelSpacingF      = diffspacing
   end if
 
