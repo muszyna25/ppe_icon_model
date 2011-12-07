@@ -460,7 +460,7 @@ specified for each nested domain separately)&
 Defined and used in: src/grid\_generator/mo\_gridrefinement.f90
 
 
-\subsection{Namelist parameters defining the ocean grid (NAMELIST\_OCEAN\_GRID)}
+\subsection{Namelist parameters defining the local grid generation}
 
 The ocean grids are created by the script \verb+run/create_ocen_grid.run+
 
@@ -469,7 +469,6 @@ The ocean grids are created by the script \verb+run/create_ocen_grid.run+
 % grid_geometry_conditions:
 %-----------------------------------------------------------------------------
 \subsubsection{grid\_geometry\_conditions}
-
 
 \begin{longtab}
 
@@ -483,7 +482,7 @@ Number of geometric conditions &
 
 \hline
 patch\_shape &
-I(no\_of\_conditions) &
+I(no\_of\_ conditions) &
 0 &
 &
 1=rectangle; 2=circle &
@@ -491,7 +490,7 @@ I(no\_of\_conditions) &
 
 \hline
 patch\_center\_x &
-R(no\_of\_conditions) &
+R(no\_of \_ conditions) &
 0.0 &
 degrees &
 longitude of patch center &
@@ -499,7 +498,7 @@ longitude of patch center &
 
 \hline
 patch\_center\_y &
-R(no\_of\_conditions) &
+R(no\_of \_ conditions) &
 0.0 &
 degrees &
 latitude of patch center &
@@ -507,7 +506,7 @@ latitude of patch center &
 
 \hline
 rectangle\_xradious &
-R(no\_of\_conditions) &
+R(no\_of\_ conditions) &
 0.0 &
 degrees &
 half meridional extension of a rectangular patch &
@@ -516,7 +515,7 @@ patch\_shape=1
 
 \hline
 rectangle\_yradious &
-R(no\_of\_conditions) &
+R(no\_of\_ conditions) &
 0.0 &
 degrees &
 half zonal extension of a rectangular patch &
@@ -525,7 +524,7 @@ patch\_shape=1
 
 \hline
 circle\_radious &
-R(no\_of\_conditions) &
+R(no\_of\_ conditions) &
 0.0 &
 degrees &
 radius of a circular patch &
@@ -534,8 +533,104 @@ patch\_shape=2
 
 \end{longtab}
 
-
 Defined in \verb+mo_grid_conditions.f90+
+
+
+%-----------------------------------------------------------------------------
+% grid_geometry_conditions:
+%-----------------------------------------------------------------------------
+\subsubsection{local\_grid\_optimization}
+
+\begin{longtab}
+
+\hline
+use\_optimization &
+L &
+.FALSE. &
+&
+Apply, or not, optimization &
+\tabularnewline
+
+\hline
+use\_edge\_springs &
+L &
+.FALSE. &
+&
+Use spring dynamics &
+\tabularnewline
+
+\hline
+prime\_ref\_length \_coeff &
+R &
+1.0 &
+&
+Spring length coefficient &
+\tabularnewline
+
+\hline
+use\_adaptive\_ spring\_length &
+L &
+.FALSE. &
+&
+Use adaptive spring length &
+\tabularnewline
+
+\hline
+use\_local\_reference \_length &
+L &
+.FALSE. &
+&
+Use locally adaptive spring length &
+\tabularnewline
+
+\hline
+local\_reference\_ length\_coeff &
+R &
+0.0 &
+&
+Coefficient of local vs global spring length &
+\tabularnewline
+
+\hline
+use\_isotropy\_force &
+L &
+.FALSE. &
+&
+Use isotropy force, tends to create symmetric triangles &
+\tabularnewline
+
+\hline
+isotropy\_rotation \_coeff &
+R &
+0.0 &
+&
+Coefficient of the rotational isotropy force &
+\tabularnewline
+
+\hline
+isotropy\_stretch \_coeff &
+R &
+0.0 &
+&
+Coefficient of the stretch isotropy force &
+\tabularnewline
+
+
+\hline
+optimize\_vertex \_depth &
+I &
+1 &
+&
+For patches the min depth of the vertices that will be optimized.
+The boundary vertices have depth 0, the next level 1, etc.
+ &
+\tabularnewline
+
+
+\end{longtab}
+
+
+Defined in \verb+mo_local_grid_optimization.f90+
 
 
 %-----------------------------------------------------------------------------
@@ -631,8 +726,6 @@ name of the output refined ocean grid file &
 
 Defined in \verb+mo_create_ocean_grid.f90+
 
-
-\subsection{Namelist parameters defining the torus grid (NAMELIST\_TORUS\_GRID)} 
 
 %-----------------------------------------------------------------------------
 % torus_grid_parameters:
