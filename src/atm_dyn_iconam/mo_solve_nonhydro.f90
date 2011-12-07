@@ -1713,13 +1713,15 @@ MODULE mo_solve_nonhydro
 
           ENDDO
         ENDDO
+!OMP END DO
 
+!$OMP DO PRIVATE(jc)
         DO jc = i_startidx, i_endidx
           p_nh%prog(nnew)%w(jc,nlevp1,jb) = p_nh%prog(nnow)%w(jc,nlevp1,jb) + &
             dtime*p_nh%diag%grf_tend_w(jc,nlevp1,jb)
         ENDDO
-!OMP END DO
       ENDDO
+!OMP END DO
 
     ELSE IF (istep == 1 .AND. (l_limited_area .OR. p_patch%id > 1)) THEN
       ! In the MPI-parallelized case, only rho and w are updated here,
@@ -1756,7 +1758,9 @@ MODULE mo_solve_nonhydro
 
           ENDDO
         ENDDO
+!OMP END DO
 
+!$OMP DO PRIVATE(jc)
         DO jc = i_startidx, i_endidx
           p_nh%prog(nnew)%w(jc,nlevp1,jb) = p_nh%prog(nnow)%w(jc,nlevp1,jb) + &
             dtime*p_nh%diag%grf_tend_w(jc,nlevp1,jb)
