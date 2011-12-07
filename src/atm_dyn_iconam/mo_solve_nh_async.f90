@@ -1908,7 +1908,9 @@ MODULE mo_solve_nh_async
 
           ENDDO
         ENDDO
+!OMP END DO
 
+!$OMP DO PRIVATE(jc)
         DO jc = i_startidx, i_endidx
           p_nh%prog(nnew)%w(jc,nlevp1,jb) = p_nh%prog(nnow)%w(jc,nlevp1,jb) + &
             dtime*p_nh%diag%grf_tend_w(jc,nlevp1,jb)
@@ -1951,7 +1953,9 @@ MODULE mo_solve_nh_async
 
           ENDDO
         ENDDO
+!OMP END DO
 
+!$OMP DO PRIVATE(jc)
         DO jc = i_startidx, i_endidx
           p_nh%prog(nnew)%w(jc,nlevp1,jb) = p_nh%prog(nnow)%w(jc,nlevp1,jb) + &
             dtime*p_nh%diag%grf_tend_w(jc,nlevp1,jb)
