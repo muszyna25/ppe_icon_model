@@ -1720,8 +1720,8 @@ MODULE mo_solve_nonhydro
           p_nh%prog(nnew)%w(jc,nlevp1,jb) = p_nh%prog(nnow)%w(jc,nlevp1,jb) + &
             dtime*p_nh%diag%grf_tend_w(jc,nlevp1,jb)
         ENDDO
-      ENDDO
 !OMP END DO
+      ENDDO
 
     ELSE IF (istep == 1 .AND. (l_limited_area .OR. p_patch%id > 1)) THEN
       ! In the MPI-parallelized case, only rho and w are updated here,
