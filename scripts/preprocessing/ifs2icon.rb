@@ -306,7 +306,6 @@ class PreProcOptions
       opts.on("-D", "--debug", "Run in debug mode") do |v|
         options[:debug] = v
       end
-
     end
 
     opts.parse!(args)
@@ -589,8 +588,6 @@ end
 # * (TODO) apply land-see-mask
 # * (TODO) to concistency checks
 class Ifs2Icon
-  VERSION = 1.0.to_s
-
   C_R          = 287.05
   SCALEHEIGHT  = 10000.0
   C_EARTH_GRAV = 9.80665
