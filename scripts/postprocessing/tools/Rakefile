@@ -211,13 +211,22 @@ COMPARISON.each {|itype,ifile|
 
 # overlay plots
 COMPARISON.each {|itype,ifile|
-  vecvars = {:oce => 'u-veloc v-veloc',:atm => "U V"}[itype]
-  levIndex = {:oce => 0,:atm => 40}[itype]
+  vecvars  = {:oce => 'u-veloc v-veloc', :atm => "U V"}[itype]
+  levIndex = {:oce => 0                , :atm => 40   }[itype]
+  var2d    = {:oce => "ELEV"           , :atm => "SKT"}[itype]
   itypeS = itype.to_s
-  desc "overlay plot (#{itypeS})"
-  task "test_overlay_#{itypeS}".to_sym do
-    defaultPlot(ifile,"overlay_#{itypeS}",["'vecVars=\"#{vecvars}\"'",
+  desc "overlay plot form 3d variable (#{itypeS})"
+  task "test_overlay_3d_#{itypeS}".to_sym do
+    defaultPlot(ifile,"test_overlay_3d_#{itypeS}",["'vecVars=\"#{vecvars}\"'",
                 "'mapType=\"ortho\"'","'atmLev=\"m\"' levIndex=#{levIndex}","centerLon=120","vecRefLength=0.04"])
+  end
+  desc "overlay plot from 2d variable (#{itypeS})"
+  task "test_overlay_2d_#{itypeS}".to_sym do
+    ofile = "test_overlay_2d_#{itypeS}"
+    iconPlot(ifile,ofile,OFMT,var2d,'scalar',["'vecVars=\"#{vecvars}\"'",
+                "'mapType=\"ortho\"'","'atmLev=\"m\"' levIndex=#{levIndex}","centerLon=120","vecRefLength=0.04"])
+    ofile += ".#{OFMT}"
+    show(ofile)
   end
 }
 # hoffmueller diagrams
