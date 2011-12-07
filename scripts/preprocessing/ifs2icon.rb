@@ -136,10 +136,26 @@ class PreProcOptions
       opts.separator "Specific options:"
 
       # Mandatory arguments
+      #   global gridfile
       opts.on("-g", "--grid-file FILE",
-              "Use FILE read grid definition/resolution") do |file|
+              "Use FILE to read grid definition/resolution") do |file|
         options[:gridfile] = file
               end
+      #   or preselected cell grid
+      opts.on("--cell-grid-file FILE",
+              "Use FILE for remapping onto the cell grid (precomputed weights)") do |file|
+        options[:cellgridfile] = file
+              end
+      #   or precomputed weight files
+      opts.on("--cell-weight-file FILE",
+              "Use FILE for remapping onto the cell grid (precomputed weights)") do |file|
+        options[:cellweightfile] = file
+              end
+      opts.on("--edge-weight-file FILE",
+              "Use FILE for remapping onto the edge grid (precomputed weights)") do |file|
+        options[:edgeweightfile] = file
+              end
+
       opts.on("-i", "--input-file FILE",
               "Use FILE read input variables") do |file|
         options[:inputfile] = file
@@ -157,7 +173,6 @@ class PreProcOptions
               "Select model type (hydrostatic, nonhydrostatic) - default:hydrostatic") do |t|
         options[:model_type] = t
       end
-      #
 
       opts.on("-c", "--global-config", "<filename>", String, :REQUIRED) do |file|
         options[:configfile] = file
@@ -355,36 +370,39 @@ class PreProcOptions
     end
   end
   def self.checkModelOptions(options)
-    # for hydrostatic mode vct and orography are required
-    if options[:model_type].to_s == "hydrostatic"
-      checkFile(options[:vctfile], 'vct'      , '--vct-file'      , options[:model_type])
-      checkFile(options[:orofile], 'orography', '--orography-file', options[:model_type])
+    pp options
+    unless options[:interpolation_type].to_sym == :horizontal_only
+      # for hydrostatic mode vct and orography are required
+      if options[:model_type].to_s == "hydrostatic"
+        checkFile(options[:vctfile], 'vct'      , '--vct-file'      , options[:model_type])
+        checkFile(options[:orofile], 'orography', '--orography-file', options[:model_type])
+        # check vct file: Should have C-style notation (start with 0) which is not
+        # the case for icon vcts
+        if options[:vctfile]
+          uncommentedLines = File.open(options[:vctfile]).readlines.map(&:chomp).find_all {|l| l[0] != '#'}.map(&:strip)
+          # check if first line starts with 1 or 0; if 1 increate all indicess by 1
+          if uncommentedLines[0][0] == "1"
+            newvct = options[:vctfile] + '_converted'
+            Dbg.msg("VCT start with 1 but CDO requires C-Style indexing. Create converted vct file '#{newvct}'",options[:verbose],options[:debug])
+            File.open(newvct,"w") {|f|
+              uncommentedLines.each {|line| i,a,b = line.gsub(/ +/,' ').split; f << [i.to_i-1 ,a,b].join(' ') << "\n"}
+            }
+            options[:vctfile] = newvct
+          end
+        end
+      end
+      # target vertical coordinate is required for nonhydrostatic mode
+      if options[:model_type].to_s == "nonhydrostatic"
+        # check for presence of 3d vertical coordinate on full level if there is such an output variable
+        levelKey = Ecmwf2Icon::DefaultColumnNames[:nlevels]
+        unless (options[:config].send(levelKey).uniq & Ecmwf2Icon::DefaultNlevelIDs[:full]).empty?
+          checkFile(options[:fullzcoordinates], 'target vertical coordinate', '--full-zcoordinates', options[:model_type]) 
+        end
+        unless (options[:config].send(levelKey).uniq & Ecmwf2Icon::DefaultNlevelIDs[:half]).empty?
+          checkFile(options[:halfzcoordinates], 'target vertical coordinate', '--half-zcoordinates', options[:model_type]) 
+        end
+      end
     end
-    # target vertical coordinate is required for nonhydrostatic mode
-    if options[:model_type].to_s == "nonhydrostatic"
-      # check for presence of 3d vertical coordinate on full level if there is such an output variable
-      levelKey = Ecmwf2Icon::DefaultColumnNames[:nlevels]
-      unless (options[:config].send(levelKey).uniq & Ecmwf2Icon::DefaultNlevelIDs[:full]).empty?
-        checkFile(options[:fullzcoordinates], 'target vertical coordinate', '--full-zcoordinates', options[:model_type]) 
-      end
-      unless (options[:config].send(levelKey).uniq & Ecmwf2Icon::DefaultNlevelIDs[:half]).empty?
-        checkFile(options[:halfzcoordinates], 'target vertical coordinate', '--half-zcoordinates', options[:model_type]) 
-      end
-    end
-    # check vct file: Should have C-style notation (start with 0) which is not
-    # the case for icon vcts
-    if options[:vctfile]
-      uncommentedLines = File.open(options[:vctfile]).readlines.map(&:chomp).find_all {|l| l[0] != '#'}.map(&:strip)
-      # check if first line starts with 1 or 0; if 1 increate all indicess by 1
-      if uncommentedLines[0][0] == "1"
-        newvct = options[:vctfile] + '_converted'
-        Dbg.msg("VCT start with 1 but CDO requires C-Style indexing. Create converted vct file '#{newvct}'",options[:verbose],options[:debug])
-        File.open(newvct,"w") {|f|
-          uncommentedLines.each {|line| i,a,b = line.gsub(/ +/,' ').split; f << [i.to_i-1 ,a,b].join(' ') << "\n"}
-        }
-        options[:vctfile] = newvct
-      end
-    end if options[:model_type] == 'hydrostatic'
   end
 end
 # ==============================================================================
@@ -729,15 +747,26 @@ class Ifs2Icon
       # only generate weights if they are needed
       next unless @config.grid.uniq.include?(k.to_s)
 
-      Dbg.msg("Selecting #{k} grid from #{@options[:gridfile]}",false, @options[:debug])
-      varfile = tfile
-      Cdo.selname(v,:in => @options[:gridfile],:out => varfile)
-      @grids[v] = varfile
-      Dbg.msg("#{k} grid is now in #{varfile}",false, @options[:debug])
+      if k == :cell and not @options[:cellgridfile].nil?
+        Dbg.msg("Use #{k} grid from #{@options[:cellgridfile]}",false, @options[:debug])
+        @grids[v] =  @options["#{k}gridfile".to_sym]
+      else
+        Dbg.msg("Selecting #{k} grid from #{@options[:gridfile]}",false, @options[:debug])
+        varfile = tfile
+        Cdo.selname(v,:in => @options[:gridfile],:out => varfile)
+        @grids[v] = varfile
+        Dbg.msg("#{k} grid is now in #{varfile}",false, @options[:debug])
+      end
 
-      weightsfile = tfile
-      Cdo.gencon(varfile,:in => @ifile, :out => weightsfile,:options => "-P #{@options[:openmp]}")
-      @weights[v] = weightsfile
+      unless @options[:cellweightfile].nil?
+        Dbg.msg("Using #{k} weights from precomputed file: #{@options[:cellweightfile]}",false, @options[:debug])
+        @weights[v] = @options["#{k}weightfile".to_sym]
+      else
+        weightsfile = @options[:debug] ? "#{k.to_s}_weight.nc" : tfile
+        Dbg.msg("Compute #{k} weights",false, @options[:debug])
+        Cdo.gencon(varfile,:in => @ifile, :out => weightsfile,:options => "-P #{@options[:openmp]}")
+        @weights[v] = weightsfile
+      end
     }
   end
 
