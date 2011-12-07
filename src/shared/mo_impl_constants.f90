@@ -155,7 +155,31 @@ MODULE mo_impl_constants
   !   dimensioned with (min_rl*:max_rl*). The values set below are sufficient for a halo
   !   width of two full cell rows; normally we use one, but stencils for high-order schemes may
   !   sometime require a halo width of two full rows
-  !
+!
+!   ------------------------------------------
+!   LL: copied for the icon_flowcontrol
+!
+!   The ordering of the halo points is as follows:
+!   min_rlcell_int- 1: halo cells having a prognostic cell as neighbor
+!   min_rlcell_int- 2: halo cells in the first cell row having no prognostic cell as neighbor
+!   and analogously for the second halo cell row if present. For n_ghost_rows = 1, the index segments
+!   corresponding to min_rlcell_int - 3 and min_rlcell_int - 4 (= min_rlcell) are empty.
+! 
+!   For edges and vertices, one needs to be aware of the fact that outer boundary edges/vertices of a prognostic
+!   cell may not be owned by the current PE because the PE of the neighboring cell has the ownership (otherwise
+!   there would be double-counting). There are, however, operations for which even such edges/vertices can be 
+!   excluded from prognostic computation because a halo synchronization follows immediately afterwards (and
+!   has to be there anyway). Thus, the following ordering is applied:
+!   min_rledge_int - 1: outer boundary edges of a prognostic cell not owned by the current PE\\
+!   min_rledge_int - 2: edges connecting halo cells of the first row
+!   min_rledge_int - 3: outer boundary edges of the first halo cells row, or edges connecting cells
+!   of the first halo cell row with cells of the second halo cell row.
+!   For n_ghost_rows = 2, an analogous setting applies to min_rledge_int - 4 and
+!   min_rledge_int - 5 (= min_rledge). For vertices, we have
+!   min_rlvert_int - 1: outer boundary vertices of a prognostic cell not owned by the current PE
+!   min_rlvert_int - 2: outer boundary vertices of the first halo cells row, or vertices connecting cells
+!   of the first halo cell row with cells of the second halo cell row.
+!   For n_ghost_rows = 2, an analogous setting applies to min_rlvert_int - 3  (= min_rlvert).
   !---------------------------------------------
   !
   ! Ordering Scheme:
@@ -189,17 +213,17 @@ MODULE mo_impl_constants
   !
   ! D. The indexes from min_rl_int-1 to min_rl
   !    Mark the halo entities, when they do not overlap with a child patch
+  !    Note: See above
   !
   !---------------------------------------------
   !
   ! Examples:
   !  A. Get all entities in the grid:    start_idx(1) -- end_idx(min_rl)
   !     This is the default range for most operators
-  !  B. Get all enitities, except halos: start_idx(1) -- end_idx(min_rl_int)
+  !  B. Get all owned enitities: start_idx(1) -- end_idx(min_rl_int)
   !     Note that this may still contain halo entities if they ovelap with child patches
-  !  C. Get all entities that are not on the first lateral boundary and are not halo,
-  !     ie, only use the internal entities: start_idx(2) -- end_idx(min_rl_int)
-  !     Note, tha same as the noe in B.
+  !  C. Get all enitities, except halos: for cells: start_idx(1) -- end_idx(min_rl_int)
+  !        For verts/edges: start_idx(1) -- end_idx(min_rl_int - 1)
   !
   !---------------------------------------------
 
