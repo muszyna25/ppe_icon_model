@@ -760,7 +760,7 @@ CONTAINS
     cf_desc    = t_cf_var('swflxsfc', 'W m-2', ' shortwave net flux at surface')
     grib2_desc = t_grib2_var(0, 4, 9, nbits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'swflxsfc', field%swflxsfc,                             &
-               & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) 
+               & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
         
     ! &      field%swflxtoa(nproma,nblks_c)
     cf_desc    = t_cf_var('swflxtoa', 'W m-2', ' shortwave net flux at TOA')

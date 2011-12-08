@@ -538,7 +538,7 @@ CONTAINS
     ! output
     ! ------
     !
-    REAL(wp), INTENT(out) ::      &
+    REAL(wp), INTENT(inout) ::      &
       &  cld_cvr(kbdim),          & !< Cloud cover in a column
 !!$      &  nir_sfc(:),           & !< SW Near Infrared
 !!$      &  nir_dff_sfc(:),       & !< Near-Infrared diffuse fraction of SW NIR

@@ -380,7 +380,7 @@ CONTAINS
                      & pu_stress_gbm_ac, pv_stress_gbm_ac, &! inout
                      & plhflx_gbm_ac, pshflx_gbm_ac,       &! inout
                      & pevap_gbm_ac,  dshflx_dT_ac_tile,   &! inout
-                     & pu_stress_tile, pv_stress_tile,     &! out
+                     & pu_stress_tile, pv_stress_tile,     &! inout  (practically out)
                      & plhflx_tile, pshflx_tile,           &! out
                      & dshflx_dT_tile,                    &! out
                      & pevap_tile, pqv_mflux_sfc           )! out

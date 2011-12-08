@@ -94,10 +94,10 @@ CONTAINS
     REAL(wp),INTENT(INOUT) ::     pevap_gbm_ac (kbdim)
     REAL(wp),INTENT(INOUT) :: dshflx_dT_ac_tile(kbdim,ksfc_type)
 
-    REAL(wp),INTENT(OUT)   :: pu_stress_tile (kbdim,ksfc_type)
-    REAL(wp),INTENT(OUT)   :: pv_stress_tile (kbdim,ksfc_type)
-    REAL(wp),INTENT(OUT)   ::    plhflx_tile (kbdim,ksfc_type)
-    REAL(wp),INTENT(OUT)   ::    pshflx_tile (kbdim,ksfc_type)
+    REAL(wp),INTENT(INOUT) :: pu_stress_tile (kbdim,ksfc_type) ! practically out
+    REAL(wp),INTENT(INOUT) :: pv_stress_tile (kbdim,ksfc_type) ! practically out
+    REAL(wp),INTENT(INOUT) ::    plhflx_tile (kbdim,ksfc_type) ! practically out
+    REAL(wp),INTENT(INOUT) ::    pshflx_tile (kbdim,ksfc_type) ! practically out
     REAL(wp),INTENT(OUT)   :: dshflx_dT_tile (kbdim,ksfc_type)
     REAL(wp),INTENT(OUT)   ::     pevap_tile (kbdim,ksfc_type)
     REAL(wp),INTENT(OUT)   ::     pevap_gbm  (kbdim)
@@ -258,7 +258,7 @@ CONTAINS
                       & zca, zcs, bb(:,:,ih:iqv),             &! in
                       & plhflx_gbm_ac, pshflx_gbm_ac,         &! inout
                       & pevap_gbm_ac,  dshflx_dT_ac_tile,     &! inout
-                      & plhflx_tile, pshflx_tile,             &! out
+                      & plhflx_tile, pshflx_tile,             &! inout (practically out)
                       & dshflx_dT_tile,                       &! out
                       & pevap_tile, pevap_gbm                 )! out
 
