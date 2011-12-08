@@ -176,7 +176,8 @@ cat > $atmo_namelist << EOF
  p_test_run     = .false.
  l_test_openmp  = .false.
  l_log_checks   = .false.
-/
+ use_icon_comm  = .true.
+ /
 &grid_nml
  cell_type = 3             ! triangular cells
  dynamics_grid_filename = "${atmo_dyn_grids}",
@@ -538,10 +539,10 @@ fi
 
 #-----------------------------------------------------------------------------
 #split the number of procs in two for each of the dummy component
-ocean_min_rank=0
-ocean_max_rank=0
+ocean_min_rank=`expr ${mpi_total_procs} - 1`
+ocean_max_rank=$ocean_min_rank
 ocean_inc_rank=1
-atmo_min_rank=1
-atmo_max_rank=`expr ${mpi_total_procs} - 1`
+atmo_min_rank=0
+atmo_max_rank=`expr ${ocean_min_rank} - 1`
 atmo_inc_rank=1
 #-----------------------------------------------------------------------------
