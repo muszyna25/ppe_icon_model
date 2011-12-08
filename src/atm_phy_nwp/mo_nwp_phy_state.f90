@@ -1349,7 +1349,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'rcld', diag%rcld,                             &
       & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,          &
-      & ldims=shape3dkp1)
+      & ldims=shape3dkp1 )
 
    ! &      diag%edr(nproma,nlevp1,nblks_c)
     cf_desc    = t_cf_var('edr', '', 'eddy dissipation rate')
@@ -1420,14 +1420,16 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
          &                            'turbulence temperature tendency')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( phy_tend_list, 'ddt_temp_turb', phy_tend%ddt_temp_turb,        &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc, ldims=shape3d )
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,     &
+                & ldims=shape3d, lrestart=.FALSE.)
 
    ! &      phy_tend%ddt_temp_drag(nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('temp_tend_drag', 'K s-1', &
          &                'sso + gwdrag temperature tendency')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( phy_tend_list, 'ddt_temp_drag', phy_tend%ddt_temp_drag,        &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc, ldims=shape3d )
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,     &
+                & ldims=shape3d, lrestart=.FALSE.)
 
    ! &      phy_tend%ddt_temp_pconv(nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('ddt_temp_pconv', 'K s-1', &
@@ -1468,7 +1470,8 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
          &                'Rayleigh friction tendency of zonal wind')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( phy_tend_list, 'ddt_u_raylfric', phy_tend%ddt_u_raylfric,        &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc, ldims=shape3d )
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
+                & ldims=shape3d,  lrestart=.FALSE.)
 
    ! &      phy_tend%ddt_u_pconv(nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('ddt_u_pconv', 'm s-2', &
@@ -1509,7 +1512,8 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
          &                'Rayleigh friction tendency of meridional wind')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( phy_tend_list, 'ddt_v_raylfric', phy_tend%ddt_v_raylfric,        &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc, ldims=shape3d )
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
+                & ldims=shape3d, lrestart=.FALSE.)
 
    ! &      phy_tend%ddt_v_pconv(nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('ddt_v_pconv', 'm s-2', &
@@ -1541,7 +1545,7 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
                     & t_cf_var('ddt_qv_turb', 'kg kg**-1 s**-1',                               &
                     & 'tendency_of_specific_humidity_due_to_turbulence'),           &
                     & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
-                    & ldims=shape3d)
+                    & ldims=shape3d, lrestart=.FALSE.)
 
          !qc
         CALL add_ref( phy_tend_list, 'ddt_tracer_turb', &
@@ -1550,7 +1554,7 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
                     & t_cf_var('ddt_qc_turb', 'kg kg**-1 s**-1',                                  &
                     & 'tendency_of_specific_cloud_water_due_to_turbulence'),           &
                     & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),    &
-                    & ldims=shape3d)
+                    & ldims=shape3d, lrestart=.FALSE.)
 
          !qi
         CALL add_ref( phy_tend_list, 'ddt_tracer_turb', &
@@ -1559,7 +1563,7 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
                     & t_cf_var('ddt_qi_turb', 'kg kg**-1 s**-1',                                &
                     & 'tendency_of_specific_cloud_ice_due_to_turbulence'),  &
                     & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),  &
-                    & ldims=shape3d)
+                    & ldims=shape3d, lrestart=.FALSE.)
 
 
    ! &      phy_tend%ddt_tracer_pconv(nproma,nlev,nblks,iqcond),          &
