@@ -66,10 +66,11 @@ MODULE mo_master_control
     & get_my_process_type, get_my_process_name, is_coupled_run,  &
     & atmo_process, ocean_process, radiation_process, dummy_process,  &
     & my_process_is_ocean, is_restart_run, get_my_model_no,           &
-    & get_my_couple_id
+    & get_my_couple_id, null_process
 
 
   ! ------------------------------------------------------------------------
+  INTEGER, PARAMETER :: null_process  = 0
   INTEGER, PARAMETER :: atmo_process  = 1
   INTEGER, PARAMETER :: ocean_process = 2
   INTEGER, PARAMETER :: radiation_process = 3
@@ -212,6 +213,7 @@ MODULE mo_master_control
     IF (my_model_name == '') CALL finish(method_name, 'my_model_name = NULL')
 
     SELECT CASE (my_process_model)
+      CASE (null_process)
       CASE (atmo_process)
       CASE (ocean_process)
       CASE (radiation_process)

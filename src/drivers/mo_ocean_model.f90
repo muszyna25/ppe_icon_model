@@ -134,6 +134,7 @@ MODULE mo_ocean_model
   USE mo_icon_cpl_def_grid,   ONLY : ICON_cpl_def_grid, ICON_cpl_def_location
   USE mo_icon_cpl_def_field,  ONLY : ICON_cpl_def_field
   USE mo_icon_cpl_search,     ONLY : ICON_cpl_search
+  USE mo_icon_cpl_finalize,   ONLY: icon_cpl_finalize
   USE mo_model_domain_import, ONLY : get_patch_global_indexes
 
   !-------------------------------------------------------------
@@ -618,6 +619,8 @@ CONTAINS
     ! Delete variable lists
     CALL close_output_files
 
+    IF ( is_coupled_run() ) CALL ICON_cpl_finalize
+    
     CALL message(TRIM(routine),'clean-up finished')
 
   END SUBROUTINE ocean_model

@@ -78,6 +78,7 @@ USE mo_icon_cpl_def_grid, ONLY : ICON_cpl_def_grid, ICON_cpl_def_location
 USE mo_icon_cpl_def_field, ONLY : ICON_cpl_def_field
 USE mo_icon_cpl_search, ONLY : ICON_cpl_search
 USE mo_icon_cpl_exchg, ONLY : ICON_cpl_put, ICON_cpl_get
+USE mo_icon_cpl_finalize,   ONLY: icon_cpl_finalize
 USE mo_model_domain_import, ONLY : get_patch_global_indexes
 
 ! Memory
@@ -520,6 +521,8 @@ CONTAINS
     IF (error_status/=SUCCESS) THEN
       CALL finish(TRIM(method_name),'deallocate for patch array failed')
     ENDIF
+  
+    IF ( is_coupled_run() ) CALL ICON_cpl_finalize
 
     CALL message(TRIM(method_name),'clean-up finished')
 

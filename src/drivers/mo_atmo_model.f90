@@ -90,6 +90,7 @@ USE mo_icon_cpl_def_grid, ONLY : ICON_cpl_def_grid, ICON_cpl_def_location
 USE mo_icon_cpl_def_field, ONLY : ICON_cpl_def_field
 USE mo_icon_cpl_search, ONLY : ICON_cpl_search
 USE mo_model_domain_import, ONLY : get_patch_global_indexes
+USE mo_icon_cpl_finalize,   ONLY: icon_cpl_finalize
 
 ! Memory
 !
@@ -716,6 +717,8 @@ CONTAINS
 
     ! clear restart namelist buffer
     CALL delete_restart_namelists()
+  
+    IF ( is_coupled_run() ) CALL ICON_cpl_finalize
 
     CALL message(TRIM(routine),'clean-up finished')
 
