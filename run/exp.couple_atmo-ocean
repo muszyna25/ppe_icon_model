@@ -191,6 +191,9 @@ cat > $atmo_namelist << EOF
  ntracer     = 5            ! number of tracers
  iforcing    = ${iforcing}  ! ECHAM physics                --> echam_phy_nml
  msg_level   = 10           ! detailed report during integration 
+ ltimer = .TRUE.
+ timers_level = 10
+ activate_sync_timers = .TRUE.
 /
 &ha_testcase_nml
  ctest_name  = 'APE'  ! test case identifier
