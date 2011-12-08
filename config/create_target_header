@@ -225,7 +225,10 @@ set_run_target_blizzard()
     total_memory=$use_memory
   else
     case $use_memory_model in
-      "huge" )
+      "extreme" )
+        set_default total_memory 98000
+        ;;
+       "huge" )
         set_default total_memory 49000
         ;;
       "verylarge" )
@@ -267,14 +270,14 @@ set_run_target_blizzard()
     networkMPI="network.MPI  = sn_all,not_shared,us"
     rset="rset         = rset_mcm_affinity"
     mcm_affinity_options="mcm_affinity_options = mcm_accumulate"
-    mcm_affinity_options="mcm_affinity_options = mcm_distribute"
+#    mcm_affinity_options="mcm_affinity_options = mcm_distribute"
     node="node             = $use_nodes"
     tasks_per_node="tasks_per_node   = $use_mpi_procs"
   fi
-    if  [[ $use_openmp_threads -gt 8 ]] ; then
-      rset=" # rset         = rset_mcm_affinity"
-      mcm_affinity_options=" # mcm_affinity_options = mcm_accumulate"
-    fi
+  if  [[ $use_openmp_threads -gt 8 ]] ; then
+    rset=" # rset         = rset_mcm_affinity"
+    mcm_affinity_options=" # mcm_affinity_options = mcm_accumulate"
+  fi
   # ------------------------------------
   # check if we can use the mcm affinity
   if  [[ $use_openmp_threads -gt 16 ]] ; then
