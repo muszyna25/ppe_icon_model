@@ -1822,6 +1822,7 @@ SUBROUTINE rbf_vec_compute_coeff_lonlat( ptr_patch, ptr_int, ptr_int_lonlat, lon
   REAL(gk),                      INTENT(IN)    :: lon_lat_points(:,:,:)
   INTEGER,                       INTENT(IN)    :: nblks_lonlat, npromz_lonlat ! blocking info
   ! Local parameters
+  CHARACTER(*), PARAMETER :: routine = TRIM("mo_interpolation:rbf_vec_compute_coeff_lonlat")
   REAL(wp)                         :: cc_e1(3), cc_e2(3), cc_c(nproma,3)  ! coordinates of edge midpoints
   TYPE(t_cartesian_coordinates)    :: cc_center                  ! coordinates of cell centers
   REAL(wp), DIMENSION (nproma,3)   :: z_nx1, z_nx2, z_nx3        ! 3d  normal velocity vectors at edge midpoints
@@ -1848,7 +1849,8 @@ SUBROUTINE rbf_vec_compute_coeff_lonlat( ptr_patch, ptr_int, ptr_int_lonlat, lon
 
   !--------------------------------------------------------------------
 
-  CALL message('mo_interpolation:rbf_vec_compute_coeff_lonlat', '')
+  CALL message(routine, '')
+  IF (ptr_patch%n_patch_cells == 0) RETURN;
 
   jg = ptr_patch%id
 
@@ -1866,8 +1868,7 @@ SUBROUTINE rbf_vec_compute_coeff_lonlat( ptr_patch, ptr_int, ptr_int_lonlat, lon
             z_rhs1(nproma,rbf_vec_dim_c),                  &
             z_rhs2(nproma,rbf_vec_dim_c), STAT=ist )
   IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_interpolation:rbf_vec_compute_coeff_lonlat',   &
-      &          'allocation for working arrays failed')
+    CALL finish (routine, 'allocation for working arrays failed')
   ENDIF
 
 !$OMP DO PRIVATE (jb,jc,i_startidx,i_endidx,je1,je2,istencil,       &
@@ -2049,8 +2050,7 @@ SUBROUTINE rbf_vec_compute_coeff_lonlat( ptr_patch, ptr_int, ptr_int_lonlat, lon
 
   DEALLOCATE( z_rbfmat, z_diag, z_rbfval, z_rhs1, z_rhs2,  STAT=ist )
   IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_interpolation:rbf_vec_compute_coeff_lonlat',  &
-      &          'deallocation for working arrays failed')
+    CALL finish (routine, 'deallocation for working arrays failed')
   ENDIF
 !$OMP END PARALLEL
 
@@ -2412,6 +2412,15 @@ SUBROUTINE rbf_setup_interpol_lonlat_grid(grid, ptr_patch, ptr_int_lonlat, ptr_i
 
     CALL p_gather_field(grid%total_dim, ptr_int_lonlat%nlocal_pts, ptr_int_lonlat%owner, &
       &                 ptr_int_lonlat%tri_idx)
+
+    ! In some cases, some of the lon-lat grid points are associated to none of
+    ! the PEs. We get index entries "0" then, which must be corrected by 
+    ! setting "1" as dummy index:
+    ptr_int_lonlat%rbf_vec_idx    = MAX(1,   ptr_int_lonlat%rbf_vec_idx)
+    ptr_int_lonlat%rbf_vec_blk    = MAX(1,   ptr_int_lonlat%rbf_vec_blk)
+    ptr_int_lonlat%rbf_c2grad_idx = MAX(1,ptr_int_lonlat%rbf_c2grad_idx)
+    ptr_int_lonlat%rbf_c2grad_blk = MAX(1,ptr_int_lonlat%rbf_c2grad_blk)
+    ptr_int_lonlat%tri_idx        = MAX(1,       ptr_int_lonlat%tri_idx)
   END IF
 
   IF ( l_cutoff_local_domains ) THEN

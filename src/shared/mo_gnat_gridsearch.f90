@@ -967,6 +967,7 @@ CONTAINS
 
     in(1,:) = RESHAPE(REAL(min_dist(:,:)), (/ ntotal /) )
     in(2,:) = REAL( get_my_mpi_work_id() )
+    IF (p_patch%n_patch_cells == 0) in(2,:) = -1.;
     
     CALL p_allreduce_minloc(in, ntotal, p_comm_work)
 
@@ -1072,6 +1073,12 @@ CONTAINS
       &                       i_startidx, i_endidx, &
       &                       rl_start, rl_end, i_nchdom
 
+    ! set default value ("failure notice")
+    tri_idx(1,:,:) = INVALID_NODE
+    min_dist(:,:)  = MAX_RANGE
+
+    IF (p_patch%n_patch_cells == 0) RETURN;
+
     ! TODO[FP] : for the time being, we find it sufficiently accurate to
     !            perform a simple nearest neighbor query.
     l_check_point_inside = .FALSE.
@@ -1102,9 +1109,6 @@ CONTAINS
     count_dist = 0
     CALL gnat_query_list_mt(tree, v, iv_nproma, iv_nblks, iv_npromz, &
       &                     min_dist, min_node_idx, count_dist, .FALSE., radius)
-
-    ! set default value ("failure notice")
-    tri_idx(1,:,:) = INVALID_NODE
 
     ! loop over blocks
 !$OMP PARALLEL DO private(jb, end_idx, jc, nb_idx, tri_vertex_idx, &
