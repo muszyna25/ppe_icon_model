@@ -258,8 +258,8 @@ CONTAINS
 
        cpl_fields(:)%coupling%lag            = 0
        cpl_fields(:)%coupling%time_operation = 0
-       cpl_fields(:)%coupling%frequency      = 0
-       cpl_fields(:)%coupling%time_step      = 0
+       cpl_fields(:)%coupling%dt_coupling    = 0
+       cpl_fields(:)%coupling%dt_model       = 0
 
        DO i = 1, nbr_ICON_fields
           NULLIFY ( cpl_fields(i)%send_field_acc )
