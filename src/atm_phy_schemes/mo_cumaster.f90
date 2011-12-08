@@ -103,8 +103,8 @@ MODULE mo_cumaster
   USE mo_cuparameters , ONLY :                                   &
     & rtwat                                                     ,&
     & entrpen  ,entrscv  ,lmfdd    ,lmfdudv                     ,&
-    & rtau      ,rdepths ,lmfscv  ,lmfpen   ,lmfit    ,njkt2    ,&
-    & rmfcfl    ,rmflic  ,rmflia  ,rmfsoluv                     ,&
+    & rdepths ,lmfscv  ,lmfpen   ,lmfit                         ,&
+    & rmflic  ,rmflia  ,rmfsoluv                                ,&
     & ruvper    ,rmfsoltq,rmfsolct,rmfcmin  ,lmfsmooth,lmfwstar ,&
     & lmftrac   ,   LMFUVDIS                                    ,&
     & rg       ,rd      ,rcpd  ,retv , rlvtt                    ,&
@@ -117,6 +117,7 @@ MODULE mo_cumaster
   USE mo_cuascn,      ONLY: cuascn
   USE mo_cudescn,     ONLY: cudlfsn, cuddrafn
   USE mo_cuflxtends,  ONLY: cuflxn, cudtdqn,cududv,cuctracer
+  USE mo_nwp_parameters,  ONLY: t_phy_params
 
   IMPLICIT NONE
 
@@ -131,7 +132,7 @@ CONTAINS
   !
   SUBROUTINE cumastrn &
   & (  kidia,    kfdia,    klon,     ktdia,    klev,&
-    & ldland,   ptsphy,                             &
+    & ldland,   ptsphy, phy_params,                 &
     & paer_ss,                                      &
     & pten,     pqen,     puen,     pven, plitot,   &
     & pvervel,  pqhfl,    pahfs,                    &
@@ -334,6 +335,7 @@ CONTAINS
 !    INTEGER(KIND=jpim)               :: kstart ! Argument NOT used
     LOGICAL           ,INTENT(in)    :: ldland(klon)
     REAL(KIND=jprb)   ,INTENT(in)    :: ptsphy
+    TYPE(t_phy_params),INTENT(in)    :: phy_params
     !KF
     REAL(KIND=jprb)   ,INTENT(in),OPTIONAL :: paer_ss(klon)
     !KF
@@ -468,8 +470,8 @@ CONTAINS
     ldcum(:)=.FALSE.
     pqsen(:,:)=pqen(:,:)
 
-    CALL satur (kidia , kfdia , klon  , njkt2, klev,&
-      & pap,    pten  , pqsen , 1  )
+    CALL satur (kidia, kfdia, klon, phy_params%kcon2, klev,&
+      & pap,    pten,  pqsen, 1  )
 
  
     !*UPG
@@ -479,7 +481,7 @@ CONTAINS
     !                  --------------------------------
     
     IF (lhook) CALL dr_hook('CUMASTRN',0,zhook_handle)
-    zcons2=rmfcfl/(rg*ptsphy)
+    zcons2=phy_params%mfcfl/(rg*ptsphy)
     zcons=1.0_JPRB/(rg*ptsphy)
     zorcpd=1.0_JPRB/rcpd
     zrdocpd=rd*zorcpd
@@ -547,7 +549,7 @@ CONTAINS
     ! Note by GZ: For unclear reasons, cuinin and cubasen have to be called
     ! for all model levels to obtain correct results
     CALL cuinin &
-      & ( kidia,    kfdia,    klon,   1,    klev,&
+      & ( kidia,    kfdia,    klon,   ktdia,    klev, phy_params%kcon2, &
       & pten,     pqen,     pqsen,    puen,     pven,&
       & pvervel,  pgeo,     paph,&
       & ilwmin,   ilab,&
@@ -568,7 +570,8 @@ CONTAINS
     !fields are not used
     !
     CALL cubasen &
-      & ( kidia,    kfdia,    klon,   1,    klev,&
+      & ( kidia,    kfdia,    klon,   ktdia,    klev,&
+      & phy_params%kcon1, phy_params%kcon2,          &
       & ztenh,    zqenh,    pgeoh,    paph,&
       & pqhfl,    pahfs,    &
       & pten,     pqen,     pgeo,&
@@ -594,7 +597,7 @@ CONTAINS
       zdhpbl(jl)=0.0_JPRB
       idtop(jl)=0
     ENDDO
-    DO jk=ktdia-1+njkt2,klev
+    DO jk=MAX(ktdia,phy_params%kcon2),klev
       DO jl=kidia,kfdia
         zdqcv(jl)=zdqcv(jl)+MAX(0.0_JPRB,ptenq(jl,jk))*(paph(jl,jk+1)-paph(jl,jk))
         IF(ldcum(jl).AND.jk >= kcbot(jl)) THEN
@@ -689,7 +692,7 @@ CONTAINS
           IF (zdhpbl(jl) > 0.0_JPRB) THEN
             zmfub(jl)=zdhpbl(jl)/zdh
             !EPS: temporary solution for explicit
-            IF(ptsphy>1800._jprb.AND.rmfcfl==1.0_jprb) THEN
+            IF(ptsphy>1800._jprb.AND.phy_params%mfcfl==1.0_jprb) THEN
               zmfub(jl)=MIN(zmfub(jl),3._jprb*zmfmax)
             ELSE
               zmfub(jl)=MIN(zmfub(jl),zmfmax)
@@ -732,7 +735,7 @@ CONTAINS
     !                  --------------------------------------------
 
     CALL cuascn &
-      & ( kidia,    kfdia,    klon,   ktdia,   klev,&
+      & ( kidia,    kfdia,    klon,   ktdia,   klev, phy_params%mfcfl, &
       & ptsphy,&
       & paer_ss, &
       & ztenh,    zqenh,&
@@ -813,7 +816,7 @@ CONTAINS
       !                  -----------------------------------------------
       CALL cuddrafn &
         & ( kidia,    kfdia,    klon,   ktdia,  klev,&
-        & llddraf,&
+        & phy_params%kcon3, llddraf,         &
         & ztenh,    zqenh                   ,&
         & pgeo,     pgeoh,    paph,     zrfl,&
         & zdph,     zdgeoh,                  &
@@ -870,7 +873,8 @@ CONTAINS
         ik=kctop(jl)
         zcape(jl)=MAX(0.0_JPRB,MIN(zcape(jl),5000.0_JPRB))
         zheat(jl)=MAX(1.e-4_JPRB,zheat(jl))
-        ztau(jl)=(pgeoh(jl,ik)-pgeoh(jl,ikb))/((2.0_JPRB+MIN(15.0_JPRB,pwmean(jl)))*rg)*rtau
+        ztau(jl)=(pgeoh(jl,ik)-pgeoh(jl,ikb))/((2.0_JPRB+MIN(15.0_JPRB,pwmean(jl)))*rg) &
+                *phy_params%tau
         ztau(jl)=MAX(ptsphy,MIN(10800._jprb,ztau(jl)))
         ztau(jl)=MAX(720.0_JPRB,ztau(jl))
         zmfub1(jl)=(zcape(jl)*zmfub(jl))/(zheat(jl)*ztau(jl))
@@ -916,7 +920,7 @@ CONTAINS
             zmfub1(jl)=zmfub(jl)
           ENDIF
           !EPS: temporary solution for explicit
-          IF(ptsphy>1800._jprb.AND.rmfcfl==1.0_jprb) THEN
+          IF(ptsphy>1800._jprb.AND.phy_params%mfcfl==1.0_jprb) THEN
             zmfub1(jl)=MIN(zmfub1(jl),3._jprb*zmfmax)
           ELSE
             zmfub1(jl)=MIN(zmfub1(jl),zmfmax)
@@ -974,7 +978,7 @@ CONTAINS
       !                  -------------------------------------------------
 
       CALL cuascn &
-        & ( kidia,    kfdia,    klon,   ktdia,   klev,&
+        & ( kidia,    kfdia,    klon,   ktdia,   klev, phy_params%mfcfl, &
         & ptsphy,&
         & paer_ss,&
         & ztenh,    zqenh,    &
@@ -1094,7 +1098,7 @@ CONTAINS
     ENDDO
 
     CALL cuflxn &
-      & ( kidia,    kfdia,    klon,   ktdia,    klev,&
+      & ( kidia,    kfdia,    klon,   ktdia,    klev, phy_params%mfcfl, &
       & ptsphy,&
       & pten,     pqen,     pqsen,    ztenh,    zqenh,&
       & paph,     pap,      pgeoh,    ldland,   ldcum,&

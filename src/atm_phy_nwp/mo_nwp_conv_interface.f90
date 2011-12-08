@@ -55,6 +55,7 @@ MODULE mo_nwp_conv_interface
   USE mo_cumaster,             ONLY: cumastrn
   USE mo_ext_data,             ONLY: t_external_data
   USE mo_icoham_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd
+  USE mo_nwp_parameters,       ONLY: phy_params
 
   IMPLICIT NONE
 
@@ -246,6 +247,7 @@ CONTAINS
 &           (kidia  = i_startidx ,                kfdia  = i_endidx           ,& !> IN
 &            klon   = nproma ,     ktdia  = kstart_moist(jg)  , klev = nlev   ,& !! IN
 &            ldland = ext_data%atm%llsm_atm_c(:,jb), ptsphy = tcall_conv_jg   ,& !! IN
+&            phy_params = phy_params(jg),                                      & !! IN
 &            pten   = p_diag%temp      (:,:,jb)                              ,& !! IN
 &            pqen   = p_prog_rcf%tracer(:,:,jb,iqv)                          ,& !! IN
 &            puen   = p_diag%u         (:,:,jb), pven   = p_diag%v( :,:,jb) ,& !! IN

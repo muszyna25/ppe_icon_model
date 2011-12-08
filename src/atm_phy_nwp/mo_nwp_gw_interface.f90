@@ -56,7 +56,7 @@ MODULE mo_nwp_gw_interface
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_sso_cosmo,            ONLY: sso
   USE mo_gwd_wms,              ONLY: gwdrag_wms
-
+  USE mo_nwp_parameters,       ONLY: phy_params
 
   IMPLICIT NONE
 
@@ -111,7 +111,6 @@ CONTAINS
       &  ztot_prec_rate(nproma)
 
     INTEGER :: jk,jc,jb,jg             !<block indeces
-
 
 
     ! local variables related to the blocking
@@ -213,6 +212,7 @@ CONTAINS
            & kfdia    = i_endidx                        ,  &
            & klon     = nproma                          ,  &
            & klev     = nlev                            ,  & !< in:  actual array size
+           & klaunch  = phy_params(jg)%klaunch          ,  & !< in:  launch level
            & ptstep   = tcall_gwd_jg                    ,  & !< in:  time step
            & ptm1     = p_diag%temp             (:,:,jb),  & !< in:  temperature
            & pum1     = p_diag%u                (:,:,jb),  & !< in:  zonal wind component

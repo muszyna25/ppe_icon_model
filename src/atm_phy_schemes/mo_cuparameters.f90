@@ -52,6 +52,7 @@ MODULE mo_cuparameters
   USE mo_kind,       ONLY: jpim=>i4, jprb=>wp
   USE mo_exception,  ONLY: message_text, message
   USE mo_datetime,   ONLY: rday => rdaylen
+  USE mo_nwp_parameters,  ONLY: t_phy_params
 #endif
 
 #ifdef __GME__
@@ -346,7 +347,7 @@ MODULE mo_cuparameters
   REAL(KIND=jprb) :: entrorg
   REAL(KIND=jprb) :: entrdd
   REAL(KIND=jprb) :: detrpen
-  REAL(KIND=jprb) :: rmfcfl
+  ! REAL(KIND=jprb) :: rmfcfl
   REAL(KIND=jprb) :: rmflic
   REAL(KIND=jprb) :: rmflia
   REAL(KIND=jprb) :: rmfsoluv
@@ -358,7 +359,7 @@ MODULE mo_cuparameters
   REAL(KIND=jprb) :: rdepths
   REAL(KIND=jprb) :: rhcdd
   REAL(KIND=jprb) :: rprcon
-  REAL(KIND=jprb) :: rtau
+  ! REAL(KIND=jprb) :: rtau
   REAL(KIND=jprb) :: rcpecons
   REAL(KIND=jprb) :: rcucov
   REAL(KIND=jprb) :: rtaumel
@@ -377,7 +378,7 @@ MODULE mo_cuparameters
   LOGICAL :: lmfsmooth
   LOGICAL :: lmftrac
   LOGICAL :: lmfwstar
-  INTEGER(KIND=jpim) :: njkt1, njkt2, njkt3, njkt4, njkt5
+  ! INTEGER(KIND=jpim) :: njkt1, njkt2, njkt3, njkt4, njkt5
 
   !     -----------------------------------------------------------------
   !     ** YOECLDP - CONTROL PARAMETERS FOR PROGNOSTIC CLOUD SCHEME
@@ -444,13 +445,13 @@ MODULE mo_cuparameters
   PUBLIC ::  entrorg, entrmid, rprcon, rmfcmax, rmfcmin,&
     & lmfmid   ,detrpen                       ,&
     & entrpen  ,entrscv   ,lmfdd    ,lmfdudv  ,&
-    & rtau     ,rdepths   ,lmfscv   ,lmfpen   ,&
-    & lmfit    ,rmfcfl    ,rmflic             ,&
+    & rdepths   ,lmfscv   ,lmfpen             ,&
+    & lmfit     ,rmflic                       ,&
     & rmflia   ,rmfsoluv                      ,&
     & ruvper   ,rmfsoltq  ,rmfsolct ,&
     & lmfsmooth,lmfwstar  ,LMFUVDIS , lmftrac ,&
-    & entrdd   ,njkt1                         ,&
-    & njkt2    ,njkt3     ,njkt4    ,njkt5    ,&
+    & entrdd   ,& ! njkt1                         ,&
+    ! & njkt2    ,njkt3     ,njkt4    ,njkt5    ,&
     & rcucov   ,rcpecons  ,rtaumel  ,rhebc    ,&
     & rmfdeps
   !yoephli
@@ -998,7 +999,7 @@ CONTAINS
   
   !     ------------------------------------------------------------------
   
-  SUBROUTINE sucumf(ksmax,klev,pmean)
+  SUBROUTINE sucumf(ksmax,klev,pmean,phy_params)
     
     !>
     !! Description:
@@ -1033,7 +1034,7 @@ CONTAINS
     INTEGER(KIND=jpim) :: nflevg
     INTEGER(KIND=jpim), INTENT(in) :: ksmax, klev
     REAL(KIND=jprb)   , INTENT(in) :: pmean(klev)
-
+    TYPE(t_phy_params), INTENT(inout) :: phy_params
     !* change to operations
 
 #ifdef __GME__
@@ -1151,18 +1152,18 @@ CONTAINS
     !     RTAU IS 1 HOUR FOR ANY OTHER RESOLUTION
     !     --------------------------------------------------------
 
-    rtau=3600.0_JPRB
-    IF (ksmax > 319) rtau=1200.0_JPRB
-    IF (ksmax > 511) rtau=600.0_JPRB
+    phy_params%tau=3600.0_JPRB
+    IF (ksmax > 319) phy_params%tau=1200.0_JPRB
+    IF (ksmax > 511) phy_params%tau=600.0_JPRB
 
     !     after Cy32r1:
     !     CONVECTIVE ADJUSTMENT TIME TAU=Z_cld/W_cld*rtau
     !     WHERE RTAU (unitless) NOW ONLY REPRESENTS THE RESOLUTION DEPENDENT PART
 
-    rtau=1.0_JPRB+264.0_JPRB/REAL(ksmax,jprb)
+    phy_params%tau=1.0_JPRB+264.0_JPRB/REAL(ksmax,jprb)
     !KF test 2010-03-29
-    rtau=1.0_JPRB+264.0_JPRB/REAL(ksmax,jprb)
-    rtau=MIN(3.0_JPRB,rtau)
+    phy_params%tau=1.0_JPRB+264.0_JPRB/REAL(ksmax,jprb)
+    phy_params%tau=MIN(3.0_JPRB,phy_params%tau)
 
     !     LOGICAL SWITCHES
     !     ----------------
@@ -1184,9 +1185,9 @@ CONTAINS
     !     -------
 
     IF( ksmax>=511 ) THEN
-      rmfcfl=3.0_JPRB
+      phy_params%mfcfl=3.0_JPRB
     ELSE
-      rmfcfl=5.0_JPRB
+      phy_params%mfcfl=5.0_JPRB
     ENDIF
     rmflic=1.0_JPRB   ! use CFL mass flux limit (1) or absolut limit (0)
     rmflia=0.0_JPRB   ! value of absolut mass flux limit
@@ -1209,9 +1210,9 @@ CONTAINS
 
     ruvper=0.3_JPRB
 
-    njkt1=2
-    njkt2=2
-    njkt3=nflevg-2
+    phy_params%kcon1=2
+    phy_params%kcon2=2
+    phy_params%kcon3=nflevg-2
     DO jlev=nflevg,2,-1
       ! IF(STPRE(JLEV) > 350.E2_JPRB)NJKT1=JLEV
       ! IF(STPRE(JLEV) >  60.E2_JPRB)NJKT2=JLEV
@@ -1223,13 +1224,13 @@ CONTAINS
       !  IF(PMEAN(JLEV)/PMEAN(KLEV)*1013.E2 > 950.E2_JPRB)NJKT3=JLEV
       !  IF(PMEAN(JLEV)/PMEAN(KLEV)*1013.E2 > 850.E2_JPRB)NJKT4=JLEV
       !  IF(PMEAN(JLEV)/PMEAN(KLEV)*1013.E2 > 500.E2_JPRB)NJKT5=JLEV
-      IF(pmean(jlev) > 350.e2_jprb)njkt1=jlev
-      IF(pmean(jlev) >  60.e2_jprb)njkt2=jlev
-      IF(pmean(jlev) > 950.e2_jprb)njkt3=jlev
-      IF(pmean(jlev) > 850.e2_jprb)njkt4=jlev
-      IF(pmean(jlev) > 500.e2_jprb)njkt5=jlev
+      IF(pmean(jlev) > 350.e2_jprb) phy_params%kcon1=jlev
+      IF(pmean(jlev) >  60.e2_jprb) phy_params%kcon2=jlev
+      IF(pmean(jlev) > 950.e2_jprb) phy_params%kcon3=jlev
+      IF(pmean(jlev) > 850.e2_jprb) phy_params%kcon4=jlev
+      IF(pmean(jlev) > 500.e2_jprb) phy_params%kcon5=jlev
     ENDDO
-    njkt3=MIN(nflevg-2,njkt3)
+    phy_params%kcon3=MIN(nflevg-2,phy_params%kcon3)
 
     !DO ip = 1,nproc2
     !PRint*,'proc=', ip
@@ -1253,11 +1254,11 @@ CONTAINS
 #ifdef __ICON__
     CALL message('mo_cuparameters, sucumf', 'NJKT1, NJKT2, NJKT3, KSMAX')
     !WRITE(message_text,'(i5,2x,i5,2x,i5,2x,i5)') NJKT1, NJKT2, NJKT3, KSMAX
-    WRITE(message_text,'(i7,i7,i7,i7)') njkt1, njkt2, njkt3, ksmax
+    WRITE(message_text,'(i7,i7,i7,i7)') phy_params%kcon1, phy_params%kcon2, phy_params%kcon3, ksmax
     CALL message('mo_cuparameters, sucumf ', TRIM(message_text))
     CALL message('mo_cuparameters, sucumf', 'LMFMID, LMFDD, LMFDUDV, RTAU')
     !WRITE(message_text,'(4x,l5,x,l5,x,l5,x,E12.5)')LMFMID,LMFDD,LMFDUDV,RTAU
-    WRITE(message_text,'(4x,l6,l6,l6,E12.5)')lmfmid,lmfdd,lmfdudv,rtau
+    WRITE(message_text,'(4x,l6,l6,l6,E12.5)')lmfmid,lmfdd,lmfdudv,phy_params%tau
     CALL message('mo_cuparameters, sucumf ', TRIM(message_text))
 #endif
     !ENDDO

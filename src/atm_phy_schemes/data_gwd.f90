@@ -54,7 +54,7 @@ MODULE data_gwd
   !-----------------------------------------------------------------
   
   LOGICAL :: lozpr     !If .TRUE. then enhancement of mom. flux over tropics
-  INTEGER(KIND=jpim) :: nlaunch   !launch height of gravity wave spectrum (Pa)
+  ! INTEGER(KIND=jpim) :: nlaunch   !launch height of gravity wave spectrum (Pa)
   INTEGER(KIND=jpim) :: nslope    !slope at small-m end of spectrum
   INTEGER(KIND=jpim) :: ngauss    !if LOZPR=TRUE and GGAUSS=2 then gaussian
   ! distribution of GFLUXLAUN based on GGAUSSA and GGAUSSB
@@ -73,7 +73,7 @@ MODULE data_gwd
   
   
   PUBLIC :: sugwwms          ! All constants and variables in this module are public
-  PUBLIC ::  nlaunch, gfluxlaun, gcstar, gptwo, nslope, &
+  PUBLIC :: gfluxlaun, gcstar, gptwo, nslope, &
     & lozpr, ggaussa, ggaussb, ngauss, gcoeff !, GTPHYGWWMS
   
   PRIVATE
@@ -83,7 +83,7 @@ MODULE data_gwd
 CONTAINS
   
   
-  SUBROUTINE sugwwms(ksmax,nflevg,ppref)
+  SUBROUTINE sugwwms(ksmax,nflevg,ppref,klaunch)
     
     !
     ! INITIALZE YOEGWWMS, THE MODULE THAT CONTROLS THE WARNER MCINTYRE GW PARAMETRIZATION
@@ -115,6 +115,7 @@ CONTAINS
     
     INTEGER(KIND=jpim),INTENT(in):: nflevg ! number of vertical levels
     REAL(KIND=jprb), INTENT(in)  :: ppref(nflevg) ! reference pressure to determine departure level
+    INTEGER(KIND=jpim),INTENT(out):: klaunch      ! launch height of gravity wave spectrum (Pa)
     
     ! internal
     INTEGER(KIND=jpim) :: jk
@@ -153,10 +154,10 @@ CONTAINS
     !*  COMPUTE MODEL LEVEL LAUNCH HEIGHT OF GW SPECTRUM
     !*  ------------------------------------------------
     
-    nlaunch=nflevg-1
+    klaunch=nflevg-1
     DO jk=nflevg,2,-1
-      ! IF(STPRE(JK) > ZLAUNCHP)NLAUNCH=JK
-      IF(ppref(jk) > zlaunchp)nlaunch=jk
+      ! IF(STPRE(JK) > ZLAUNCHP)klaunch=JK
+      IF(ppref(jk) > zlaunchp)klaunch=jk
     ENDDO
     
     !*  SETUP TIME FREQUENCY CALL OF SCHEME AS FUNCTION OF MODEL RESOLUTION

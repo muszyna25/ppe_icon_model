@@ -60,7 +60,7 @@ MODULE mo_cudescn
   USE mo_cufunctions , ONLY: foelhmcu
   USE mo_cuparameters, ONLY: lphylin  ,rlptrc, rg ,rcpd     ,retv,&
     &                        rlvtt    ,rlstt    , &
-    &                        entrdd   ,rmfcmin  ,njkt3,&
+    &                        entrdd   ,rmfcmin,       &
     &                        rmfdeps  ,lmfdd,         &
     &                        lhook,   dr_hook
   
@@ -370,7 +370,7 @@ CONTAINS
   !=======================================================================
 
   SUBROUTINE cuddrafn &
-    & ( kidia,    kfdia,    klon,     ktdia,  klev,&
+    & ( kidia,    kfdia,    klon,     ktdia,  klev, njkt3, &
     & lddraf,&
     & ptenh,    pqenh,                   &
     & pgeo,     pgeoh,    paph,     prfl,&
@@ -473,6 +473,7 @@ CONTAINS
     INTEGER(KIND=jpim),INTENT(in)    :: kidia
     INTEGER(KIND=jpim),INTENT(in)    :: kfdia
     INTEGER(KIND=jpim),INTENT(in)    :: ktdia
+    INTEGER(KIND=jpim),INTENT(in)    :: njkt3
     LOGICAL           ,INTENT(in)    :: lddraf(klon)
     REAL(KIND=jprb)   ,INTENT(in)    :: ptenh(klon,klev)
     REAL(KIND=jprb)   ,INTENT(in)    :: pqenh(klon,klev)

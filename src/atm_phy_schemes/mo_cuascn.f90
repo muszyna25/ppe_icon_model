@@ -63,7 +63,7 @@ MODULE mo_cuascn
     &                        rtt   ,rd   , ralfdcp,&
     &                        rtber, rtbercu  ,rticecu   ,&
     &                        lphylin  ,rlptrc,  entrorg ,&
-    &                        rmfcmin  ,rprcon   ,rmfcfl ,&
+    &                        rmfcmin  ,rprcon           ,&
     &                        rmflic   ,rmflia ,rvdifts  ,&
     &                        entrmid  ,rmfcmax          ,&
     &                        lmfmid   , rlmin, detrpen  ,&
@@ -85,7 +85,7 @@ CONTAINS
   !OPTIONS XOPT(HSFUN)
   !
   SUBROUTINE cuascn &
-    & ( kidia,    kfdia,    klon,    ktdia,  klev,&
+    & ( kidia,    kfdia,    klon,    ktdia,  klev, rmfcfl, &
     & ptsphy,&
     & paer_ss,&
     & ptenh,    pqenh,   &
@@ -247,6 +247,7 @@ INTEGER(KIND=jpim),INTENT(in)    :: klev
 INTEGER(KIND=jpim),INTENT(in)    :: kidia 
 INTEGER(KIND=jpim),INTENT(in)    :: kfdia 
 INTEGER(KIND=jpim),INTENT(in)    :: ktdia
+REAL(KIND=jprb)   ,INTENT(in)    :: rmfcfl 
 REAL(KIND=jprb)   ,INTENT(in)    :: ptsphy 
 !KF
 REAL(KIND=jprb)   ,INTENT(in), OPTIONAL:: paer_ss(klon)

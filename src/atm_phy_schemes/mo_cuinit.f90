@@ -63,7 +63,7 @@ MODULE mo_cuinit
   
   USE mo_cuparameters,  ONLY : rkap,  r4les, r4ies   ,&
     &                          r5les ,r5ies ,ralfdcp ,&
-    &                          lphylin, njkt2,njkt1  ,&
+    &                          lphylin               ,&
     &                       lmfdudv, entrpen, rdepths,&
     &                          rcpd   ,retv, rd, rg  ,&
     &                          rlmin                 ,&
@@ -82,7 +82,7 @@ MODULE mo_cuinit
 CONTAINS
 
   SUBROUTINE cuinin &
-    & ( kidia,    kfdia,    klon,    ktdia,  klev,&
+    & ( kidia,    kfdia,    klon,    ktdia,  klev, njkt2, &
     & pten,     pqen,     pqsen,    puen,     pven,&
     & pvervel,  pgeo,     paph,&
     & klwmin,   klab,&
@@ -178,6 +178,7 @@ CONTAINS
     INTEGER(KIND=jpim),INTENT(in)    :: kidia
     INTEGER(KIND=jpim),INTENT(in)    :: kfdia
     INTEGER(KIND=jpim),INTENT(in)    :: ktdia
+    INTEGER(KIND=jpim),INTENT(in)    :: njkt2
     REAL(KIND=jprb)   ,INTENT(in)    :: pten(klon,klev)
     REAL(KIND=jprb)   ,INTENT(in)    :: pqen(klon,klev)
     REAL(KIND=jprb)   ,INTENT(in)    :: pqsen(klon,klev)
@@ -236,7 +237,7 @@ CONTAINS
      ENDDO
 
       !orig   IF(JK.GE.KLEV-1) GO TO 130
-      IF(jk >= klev-1 .OR. jk<ktdia-1+njkt2) CYCLE
+      IF(jk >= klev-1 .OR. jk<njkt2) CYCLE
       ik=jk
 
       IF(lphylin)THEN
@@ -317,7 +318,7 @@ CONTAINS
   END SUBROUTINE cuinin
 
   SUBROUTINE cubasen &
-    & ( kidia,    kfdia,    klon,    ktdia,     klev,        &
+    & ( kidia,    kfdia,  klon,  ktdia, klev, njkt1, njkt2,  &
     & ptenh,    pqenh,    pgeoh,    paph,                    &
     & pqhfl,    pahfs,                                       &
   ! & PSSTRU,   PSSTRV,                                     &
@@ -470,6 +471,7 @@ INTEGER(KIND=jpim),INTENT(in)    :: klev
 INTEGER(KIND=jpim),INTENT(in)    :: kidia
 INTEGER(KIND=jpim),INTENT(in)    :: kfdia
 INTEGER(KIND=jpim),INTENT(in)    :: ktdia
+INTEGER(KIND=jpim),INTENT(in)    :: njkt1, njkt2
 REAL(KIND=jprb)   ,INTENT(in)    :: ptenh(klon,klev)
 REAL(KIND=jprb)   ,INTENT(in)    :: pqenh(klon,klev)
 REAL(KIND=jprb)   ,INTENT(in)    :: pgeoh(klon,klev+1)
@@ -626,7 +628,7 @@ DO jk=ktdia,klev
   ENDDO
 ENDDO
 
-DO jkk=klev,ktdia-1+jkt1,-1 ! Big external loop for level testing:
+DO jkk=klev,MAX(ktdia,jkt1),-1 ! Big external loop for level testing:
                             ! find first departure level that produces deepest cloud top
                             ! or take surface level for shallow convection and Sc
    !
@@ -766,7 +768,7 @@ DO jkk=klev,ktdia-1+jkt1,-1 ! Big external loop for level testing:
    !       ------------------------------------------------------------
    !        1.2  DO THE VERTICAL ASCENT UNTIL VELOCITY BECOMES NEGATIVE
    !       ------------------------------------------------------------
-  DO jk=jkk-1,ktdia-1+jkt2,-1
+  DO jk=jkk-1,MAX(ktdia,jkt2),-1
     is=0
 
     IF(jkk==klev) THEN ! 1/z mixing for shallow

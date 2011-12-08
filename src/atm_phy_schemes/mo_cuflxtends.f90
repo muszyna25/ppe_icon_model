@@ -68,7 +68,7 @@ MODULE mo_cuflxtends
   !KF
   USE mo_cuparameters, ONLY: lphylin  ,rlptrc,  lepcld              ,&
     &                        rcucov   ,rcpecons ,rtaumel  ,&!rhebc    ,&
-    &                        rmfcfl,  rmfsoltq,  rmfsoluv           ,&
+    &                        rmfsoltq,  rmfsoluv                    ,&
     &                        rmfsolct, rmfcmin,rg       ,rcpd       ,&
     &                        rlvtt   , rlstt    ,rlmlt    ,rtt      ,&
     &                        lhook,   dr_hook
@@ -90,7 +90,7 @@ CONTAINS
 
   !OPTIONS XOPT(HSFUN)
   SUBROUTINE cuflxn &
-    & (  kidia,    kfdia,    klon,   ktdia,   klev,&
+    & (  kidia,    kfdia,    klon,   ktdia,   klev, rmfcfl, &
     & ptsphy,&
     & pten,     pqen,     pqsen,    ptenh,    pqenh,&
     & paph,     pap,      pgeoh,    ldland,   ldcum,&
@@ -208,6 +208,7 @@ CONTAINS
     INTEGER(KIND=jpim),INTENT(in)    :: kidia
     INTEGER(KIND=jpim),INTENT(in)    :: kfdia
     INTEGER(KIND=jpim),INTENT(in)    :: ktdia
+    REAL(KIND=jprb)   ,INTENT(in)    :: rmfcfl
     REAL(KIND=jprb)   ,INTENT(in)    :: ptsphy
     REAL(KIND=jprb)   ,INTENT(in)    :: pten(klon,klev)
     REAL(KIND=jprb)   ,INTENT(in)    :: pqen(klon,klev)

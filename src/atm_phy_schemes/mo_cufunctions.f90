@@ -93,7 +93,7 @@ MODULE mo_cufunctions
     & rtwat_rtice_r,rticecu,rtwat_rticecu_r,   &
 !    & rcdhalf, rcdhpi2, rcheta, rchetb, rchbb, &
 !    & rchbcd,  rchbd, rchb23a, rchbbcd, rchba, &
-    & njkt1, njkt2,                            &
+!    & njkt1, njkt2,                            &
     & retv     ,rlvtt    ,rlstt    ,rtt,&
     & rd       ,rkappa   ,ratm ,               &
     & lhook,   dr_hook
@@ -501,7 +501,7 @@ CONTAINS
   !=======================================================================
 
 
-  SUBROUTINE cuancape2(kidia,  kfdia,  klon,   klev,&
+  SUBROUTINE cuancape2(kidia,  kfdia,  klon,   klev, njkt1, njkt2, &
     & pap,    paph,   pt,    pq,     pcape)
     !
     ! Description:
@@ -561,6 +561,7 @@ CONTAINS
     INTEGER(KIND=jpim),INTENT(in)    :: klev
     INTEGER(KIND=jpim),INTENT(in)    :: kidia
     INTEGER(KIND=jpim),INTENT(in)    :: kfdia
+    INTEGER(KIND=jpim),INTENT(in)    :: njkt1, njkt2
     REAL(KIND=jprb)   ,INTENT(in)    :: pap(klon,klev)
     REAL(KIND=jprb)   ,INTENT(in)    :: paph(klon,klev+1)
     REAL(KIND=jprb)   ,INTENT(in)    :: pt(klon,klev)

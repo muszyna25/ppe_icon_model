@@ -61,7 +61,7 @@ MODULE mo_gwd_wms
     & rcpd => cpd  , & ! specific heat capacity at constant pressure
     & rg   => grav     ! acceleration due to gravity
   
-  USE data_gwd,    ONLY : gcstar, gptwo, nslope, gfluxlaun, nlaunch, &
+  USE data_gwd,    ONLY : gcstar, gptwo, nslope, gfluxlaun, & ! nlaunch, &
     & ggaussa, ggaussb, ngauss, gcoeff, lozpr
   
   IMPLICIT NONE
@@ -74,7 +74,7 @@ MODULE mo_gwd_wms
   
 CONTAINS
   
-  SUBROUTINE gwdrag_wms(kidia,  kfdia,   klon,  klev, ptstep,&
+  SUBROUTINE gwdrag_wms(kidia,  kfdia,   klon,  klev, klaunch, ptstep,&
     & ptm1 ,  pum1,    pvm1,  papm1,  paphm1, pgeo1 ,&
     & pgelat, pprecip,&
     & ptenu, ptenv,   pfluxu, pfluxv)
@@ -92,7 +92,7 @@ CONTAINS
     
     
     !USE PARKIND1,    ONLY : JPIM, JPRB
-    !USE YOEGWWMS,    ONLY : GCSTAR, GPTWO, NSLOPE, GFLUXLAUN, NLAUNCH, &
+    !USE YOEGWWMS,    ONLY : GCSTAR, GPTWO, NSLOPE, GFLUXLAUN, klaunch, &
     !                      & GGAUSSA, GGAUSSB, NGAUSS, GCOEFF, LOZPR
     !USE YOMCST,      ONLY : RG, RD, RCPD, RPI
     !USE YOMHOOK,     ONLY : LHOOK,   DR_HOOK
@@ -104,6 +104,7 @@ CONTAINS
     INTEGER(KIND=jpim),INTENT(in) :: kidia, kfdia
     INTEGER(KIND=jpim),INTENT(in) :: klon              ! horizontal dimension
     INTEGER(KIND=jpim),INTENT(in) :: klev              ! vertical levels
+    INTEGER(KIND=jpim),INTENT(in) :: klaunch           ! launch level
     REAL(KIND=jprb),INTENT(in) :: ptstep               !model time step
     REAL(KIND=jprb),INTENT(in) :: pum1(klon,klev)      !full model level zonal velocity (t-dt)
     REAL(KIND=jprb),INTENT(in) :: pvm1(klon,klev)      !full model level meridional velocity (t-dt)
@@ -306,14 +307,14 @@ CONTAINS
     
     DO iazi=1,iazidim
       DO jl=kidia,kfdia
-        zul(jl,iazi)=zcosang(iazi)*zuhm1(jl,nlaunch)+zsinang(iazi)*zvhm1(jl,nlaunch)
+        zul(jl,iazi)=zcosang(iazi)*zuhm1(jl,klaunch)+zsinang(iazi)*zvhm1(jl,klaunch)
       ENDDO
     ENDDO
     DO jl=kidia,kfdia
-      zbvfl(jl)=zbvfhm1(jl,nlaunch)
+      zbvfl(jl)=zbvfhm1(jl,klaunch)
     ENDDO
     
-    DO jk=2,nlaunch
+    DO jk=2,klaunch
       DO iazi=1,iazidim
         DO jl=kidia,kfdia
           zu=zcosang(iazi)*zuhm1(jl,jk)+zsinang(iazi)*zvhm1(jl,jk)
@@ -325,7 +326,7 @@ CONTAINS
     !*       DEFINE RHO(Zo)/N(Zo)
     !*       -------------------
     
-    DO jk=2,nlaunch
+    DO jk=2,klaunch
       DO jl=kidia,kfdia
         zfct(jl,jk)=zrhohm1(jl,jk)/zbvfhm1(jl,jk)
       ENDDO
@@ -344,7 +345,7 @@ CONTAINS
         zcin4=(zms*zcin)**4
         DO jl=kidia,kfdia
           zbvfl4=zbvfl(jl)**4
-          zflux(jl,inc,1)=zfct(jl,nlaunch)*zbvfl4*zcin/(zbvfl4+zcin4)
+          zflux(jl,inc,1)=zfct(jl,klaunch)*zbvfl4*zcin/(zbvfl4+zcin4)
           zact(jl,inc,1)=1.0_JPRB
         ENDDO
       ENDDO
@@ -355,7 +356,7 @@ CONTAINS
         zcin2=(zms*zcin)**2
         DO jl=kidia,kfdia
           zbvfl2=zbvfl(jl)**2
-          zflux(jl,inc,1)=zfct(jl,nlaunch)*zbvfl2*zcin/(zbvfl2+zcin2)
+          zflux(jl,inc,1)=zfct(jl,klaunch)*zbvfl2*zcin/(zbvfl2+zcin2)
           zact(jl,inc,1)=1.0_JPRB
         ENDDO
       ENDDO
@@ -366,7 +367,7 @@ CONTAINS
         zcin3=(zms*zcin)**3
         DO jl=kidia,kfdia
           zbvfl3=zbvfl(jl)**3
-          zflux(jl,inc,1)=zfct(jl,nlaunch)*zbvfl3*zcin/(zbvfl3+zcin3)
+          zflux(jl,inc,1)=zfct(jl,klaunch)*zbvfl3*zcin/(zbvfl3+zcin3)
           zact(jl,inc,1)=1.0_JPRB
           zacc(jl,inc,1)=1.0_JPRB
         ENDDO
@@ -382,7 +383,7 @@ CONTAINS
     DO inc=1,incdim
       zcinc=zdci(inc)
       DO jl=kidia,kfdia
-        zpu(jl,nlaunch,1)=zpu(jl,nlaunch,1)+zflux(jl,inc,1)*zcinc
+        zpu(jl,klaunch,1)=zpu(jl,klaunch,1)+zflux(jl,inc,1)*zcinc
       ENDDO
     ENDDO
     
@@ -394,7 +395,7 @@ CONTAINS
     ! A=ZFNORM in Scinocca 2003.  A is independent of height.
     DO jl=kidia,kfdia
       zfluxlaun(jl)=gfluxlaun
-      zfnorm(jl)=zfluxlaun(jl)/zpu(jl,nlaunch,1)
+      zfnorm(jl)=zfluxlaun(jl)/zpu(jl,klaunch,1)
     ENDDO
     
     ! If LOZPR=TRUR then increase EPLAUNCH over tropics
@@ -403,14 +404,14 @@ CONTAINS
         DO jl=kidia,kfdia
           zfluxlaun(jl)=gfluxlaun*(1.0_JPRB+MIN(0.5_JPRB,gcoeff*pprecip(jl)))     !precip
           !  ZFLUXLAUN(JL)=GFLUXLAUN*(1.0_JPRB+MIN(0.5_JPRB,1.0E-3_JPRB*PPRECIP(JL)))!cape
-          zfnorm(jl)=zfluxlaun(jl)/zpu(jl,nlaunch,1)
+          zfnorm(jl)=zfluxlaun(jl)/zpu(jl,klaunch,1)
         ENDDO
       ELSEIF (ngauss==2) THEN
         DO jl=kidia,kfdia
           zgelatdeg=pgelat(jl)*zradtodeg
           zgauss(jl)=ggaussb*EXP((-zgelatdeg*zgelatdeg)/(2._jprb*ggaussa*ggaussa))
           zfluxlaun(jl)=(1.0_JPRB+zgauss(jl))*gfluxlaun
-          zfnorm(jl)=zfluxlaun(jl)/zpu(jl,nlaunch,1)
+          zfnorm(jl)=zfluxlaun(jl)/zpu(jl,klaunch,1)
         ENDDO
       ELSEIF (ngauss==4) THEN
         ! Set latitudinal dependence to optimize stratospheric winds for 36r1
@@ -419,20 +420,20 @@ CONTAINS
           zgelatdeg=pgelat(jl)*zradtodeg-z50s
           zgauss(jl)=ggaussb*EXP((-zgelatdeg*zgelatdeg)/(2._jprb*ggaussa*ggaussa))
           zfluxlaun(jl)=(1.0_JPRB+zgauss(jl))*gfluxlaun
-          zfnorm(jl)=zfluxlaun(jl)/zpu(jl,nlaunch,1)
+          zfnorm(jl)=zfluxlaun(jl)/zpu(jl,klaunch,1)
         ENDDO
       ENDIF
     ENDIF
     
     DO iazi=1,iazidim
       DO jl=kidia,kfdia
-        zpu(jl,nlaunch,iazi)=zfluxlaun(jl)
+        zpu(jl,klaunch,iazi)=zfluxlaun(jl)
       ENDDO
     ENDDO
     
     !*       ADJUST CONSTANT ZFCT
     !*       --------------------
-    DO jk=2,nlaunch
+    DO jk=2,klaunch
       DO jl=kidia,kfdia
         zfct(jl,jk)=zfnorm(jl)*zfct(jl,jk)
       ENDDO
@@ -475,7 +476,7 @@ CONTAINS
       !* begin JK do-loop
       !* ----------------
       
-      DO jk=nlaunch-1,2,-1
+      DO jk=klaunch-1,2,-1
         
         
         !* first do critical levels
@@ -592,7 +593,7 @@ CONTAINS
       DO jl=kidia,kfdia
         zcngl(jl)=0.0_JPRB
       ENDDO
-      DO jk=2,nlaunch
+      DO jk=2,klaunch
         DO jl=kidia,kfdia
           zulm=zcosang(iazi)*pum1(jl,jk)+zsinang(iazi)*pvm1(jl,jk)-zul(jl,iazi)
           zdfl(jl,jk-1,iazi)=zdfl(jl,jk-1,iazi)+zcngl(jl)
@@ -610,7 +611,7 @@ CONTAINS
     !*       ---------------------------------------------------
     
     DO iazi=1,iazidim
-      DO jk=nlaunch,2,-1
+      DO jk=klaunch,2,-1
         DO jl=kidia,kfdia
           pfluxu(jl,jk)=pfluxu(jl,jk)+zpu(jl,jk,iazi)*zaz_fct*zcosang(iazi)
           pfluxv(jl,jk)=pfluxv(jl,jk)+zpu(jl,jk,iazi)*zaz_fct*zsinang(iazi)
@@ -623,7 +624,7 @@ CONTAINS
     !*    ----------------------------
     
     zcons1=1.0_JPRB/rcpd
-    DO jk=1,nlaunch
+    DO jk=1,klaunch
       DO jl=kidia, kfdia
         zdelp= rg/(paphm1(jl,jk+1)-paphm1(jl,jk))
         ze1=(pfluxu(jl,jk+1)-pfluxu(jl,jk))*zdelp

@@ -102,6 +102,7 @@ MODULE mo_nwp_phy_init
   USE mo_nh_wk_exp,           ONLY: qv_max_wk
   USE mo_ape_params,          ONLY: ape_sst
   USE mo_master_control,      ONLY: is_restart_run
+  USE mo_nwp_parameters,      ONLY: t_phy_params
 
   IMPLICIT NONE
 
@@ -113,13 +114,13 @@ MODULE mo_nwp_phy_init
 
 CONTAINS
 
-SUBROUTINE init_nwp_phy ( pdtime                         , &
-                       &  p_patch, p_metrics,              &
-                       &  p_prog_now,  p_prog,  p_diag,    &
-                       &  prm_diag,prm_nwp_tend,           &
-                       &  p_prog_lnd_now, p_prog_lnd_new,  &
-                       &  p_diag_lnd,                      &
-                       &  ext_data, mean_charlen )
+SUBROUTINE init_nwp_phy ( pdtime,                           &
+                       &  p_patch, p_metrics,               &
+                       &  p_prog_now,  p_prog,  p_diag,     &
+                       &  prm_diag,prm_nwp_tend,            &
+                       &  p_prog_lnd_now, p_prog_lnd_new,   &
+                       &  p_diag_lnd,                       &
+                       &  ext_data, mean_charlen, phy_params)
 
   TYPE(t_patch),        TARGET,INTENT(in)    :: p_patch
   TYPE(t_nh_metrics),          INTENT(in)    :: p_metrics
@@ -131,15 +132,20 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
   TYPE(t_nwp_phy_tend), TARGET,INTENT(inout) :: prm_nwp_tend
   TYPE(t_lnd_prog),            INTENT(inout) :: p_prog_lnd_now, p_prog_lnd_new
   TYPE(t_lnd_diag),            INTENT(inout) :: p_diag_lnd
+  TYPE(t_phy_params),          INTENT(inout) :: phy_params
 
   REAL(wp),INTENT(OUT)::  mean_charlen
   INTEGER             :: jk, jk1, nsmax
   REAL(wp)            :: pdtime
-  REAL(wp)            :: pref(p_patch%nlevp1)
-  REAL(wp), PARAMETER :: h_scal = 8000._wp     ! [m]      scale height
+  REAL(wp)            :: pref(p_patch%nlev)
   REAL(wp)            :: zlat, zprat, zn1, zn2, zcdnc
-!  REAL(wp)            :: zf_aux(nproma,nlev_o3,p_patch%nblks_c)
   REAL(wp)            :: zpres
+
+  ! Reference atmosphere parameters
+  REAL(wp), PARAMETER :: dtdz_tropo = -6.5e-3_wp  ! [K/m]  tropospheric temperture gradient
+  REAL(wp), PARAMETER :: htropo = 11000._wp       ! [m]    tropopause height
+  REAL(wp), PARAMETER :: t00    = 288.15_wp       ! [m]    temperature at sea level
+  REAL(wp) :: ttropo, ptropo, temp, zfull
 
   LOGICAL  :: lland, lglac
   
@@ -270,12 +276,23 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
       CALL mean_domain_values (p_patch%level, nroot, mean_charlen)
 
     !--------------------------------------------------------------
-    !>reference pressure
+    !>reference pressure according to U.S. standard atmosphere
+    ! (with the caveat that the stratosphere is assumed isothermal, which does not hurt
+    !  because pref is used for determining model level indices referring to pressures
+    !  >= 60 hPa)
     !--------------------------------------------------------------
-      DO jk = nlevp1, 1, -1
-        jk1 = jk + nshift
-        pref(jk)= p0sl_bg * EXP( -vct_a (jk1)/h_scal)
-      ENDDO
+    ttropo = t00 + dtdz_tropo*htropo
+    ptropo = p0sl_bg*(ttropo/t00)**(-grav/(rd*dtdz_tropo))
+    DO jk = nlev, 1, -1
+      jk1 = jk + nshift
+      zfull = 0.5_wp*(vct_a(jk1) + vct_a(jk1+1))
+      IF (zfull < htropo) THEN
+        temp = t00 + dtdz_tropo*zfull
+        pref(jk) = p0sl_bg*(temp/t00)**(-grav/(rd*dtdz_tropo))
+      ELSE
+        pref(jk) = ptropo*EXP(-grav*(zfull-htropo)/(rd*ttropo))
+      ENDIF
+    ENDDO
 
     !------------------------------------------
     !< call for cloud microphysics
@@ -545,7 +562,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
 !        WRITE(message_text,'(i3,i10,f20.10)') jg,nsmax,mean_charlen
 !       CALL message('nwp_phy_init, nsmax=', TRIM(message_text))
 
-        CALL sucumf(nsmax,nlevp1,pref)
+        CALL sucumf(nsmax,nlev,pref,phy_params)
         CALL suphli
         CALL suvdf
         CALL suvdfs
@@ -722,7 +739,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
 
   IF ( atm_phy_nwp_config(jg)%inwp_gwd == 1 ) THEN  ! IFS gwd scheme
 
-     CALL sugwwms(nflevg= nlevp1, ppref=pref)
+     CALL sugwwms(nflevg=nlev, ppref=pref, klaunch=phy_params%klaunch)
      CALL message('mo_nwp_phy_init:', 'non-orog GWs initialized')
 
   END IF
