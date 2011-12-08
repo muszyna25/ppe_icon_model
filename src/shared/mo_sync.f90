@@ -1846,6 +1846,7 @@ FUNCTION order_insensit_ieee64_sum(vals, num_vals, mpi_comm) RESULT(global_sum)
    ! and we are done
    IF(abs_max == 0.0_dp) THEN
       global_sum = 0._dp
+      IF (activate_sync_timers) CALL timer_stop(timer_ordglb_sum)
       RETURN
    ENDIF
 
@@ -1858,6 +1859,7 @@ FUNCTION order_insensit_ieee64_sum(vals, num_vals, mpi_comm) RESULT(global_sum)
 
    IF(iexp < -980) THEN
       global_sum = 0._dp
+      IF (activate_sync_timers) CALL timer_stop(timer_ordglb_sum)
       RETURN
    ENDIF
 
