@@ -42,7 +42,7 @@ MODULE mo_timer
 
    USE mo_run_config, ONLY: ltimer, timers_level,  activate_sync_timers
 
-!   USE mo_run_config, ONLY: ltimer
+   USE mo_run_config, ONLY: ltimer
 
   IMPLICIT NONE
   PRIVATE
@@ -91,6 +91,7 @@ MODULE mo_timer
   PUBLIC :: timer_radheat
   PUBLIC :: timer_physic_acc, timer_physic_acc_1,timer_physic_acc_2
   PUBLIC :: timer_physic_sync, timer_physic_acc_2_2
+
   
 !   PUBLIC :: timer_sync_wait
 !   PUBLIC :: timer_sync_delay,timer_sync_outbuffer
@@ -120,7 +121,9 @@ MODULE mo_timer
   PUBLIC :: timer_prep_tracer_RK
   PUBLIC :: timer_hdiff_expl
   PUBLIC :: timer_dyn_theta, timer_dyn_temp
-!   PUBLIC :: ltimer                              !< if .true., switch on timer
+  
+  PUBLIC :: timer_con_l_theta2t, timer_con_l_t2theta, timer_con_theta2t, timer_con_t2theta
+  PUBLIC :: ltimer                              !< if .true., switch on timer
 
   !-------------------
   ! Module variables
@@ -206,6 +209,8 @@ MODULE mo_timer
     
   ! Timer ID for optional lon-lat interpolation
   INTEGER :: timer_lonlat_setup
+  
+  INTEGER :: timer_con_l_theta2t, timer_con_l_t2theta, timer_con_theta2t, timer_con_t2theta
 
 CONTAINS
 
@@ -319,6 +324,11 @@ CONTAINS
   
     timer_cube_root = new_timer("cube_root")          
     timer_lonlat_setup = new_timer("lonlat_setup")
+  
+    timer_con_l_theta2t = new_timer("con_l_theta2t")
+    timer_con_l_t2theta = new_timer("con_l_t2theta")
+    timer_con_theta2t = new_timer("con_theta2t")
+    timer_con_t2theta = new_timer("con_t2theta")
 
   END SUBROUTINE init_timer
 

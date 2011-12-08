@@ -44,7 +44,7 @@ MODULE mo_expensive_functions
 !
 !
   USE mo_kind,               ONLY: wp
-  USE mo_parallel_config,  ONLY: nproma
+  USE mo_parallel_config,    ONLY: nproma
   USE mo_run_config,         ONLY: nlevp1, nlev
   USE mo_physical_constants, ONLY: rd, cpd, p0ref
   USE mo_vertical_coord_table,ONLY: nplvp1, delpr, nplev
@@ -52,6 +52,9 @@ MODULE mo_expensive_functions
   USE mo_icoham_dyn_types,   ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_eta_coord_diag,     ONLY: half_level_pressure,  &
                                    full_level_pressure
+  USE mo_timer,              ONLY: timer_start, timer_stop,ltimer,  &
+    & timer_con_l_theta2t, timer_con_l_t2theta, timer_con_theta2t, timer_con_t2theta
+
 
   IMPLICIT NONE
 
@@ -92,6 +95,8 @@ CONTAINS
   INTEGER  :: jb, jc, jk   !< loop indices
   REAL(wp) :: rovcp        !< R/cp
 
+  IF (ltimer) CALL timer_start(timer_con_t2theta)
+  
   nblks_c   = pt_patch%nblks_int_c
   npromz_c  = pt_patch%npromz_int_c
 
@@ -137,15 +142,14 @@ CONTAINS
   ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
+  
+  IF (ltimer) CALL timer_stop(timer_con_t2theta)
 
 END SUBROUTINE convert_t2theta
 
 
 
-!-------------------------------------------------------------------------
-!
-!
-
+  !-------------------------------------------------------------------------
   !>
   !!               Converts potential temperature times delta p into temperature.
   !!
@@ -172,6 +176,8 @@ END SUBROUTINE convert_t2theta
   INTEGER  :: jb, jc, jk           ! loop indices
   REAL(wp) :: rovcp                ! R/cp
 
+  IF (ltimer) CALL timer_start(timer_con_theta2t)
+  
   nblks_c   = pt_patch%nblks_int_c
   npromz_c  = pt_patch%npromz_int_c
 
@@ -216,17 +222,14 @@ END SUBROUTINE convert_t2theta
   ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
+  
+  IF (ltimer) CALL timer_stop(timer_con_theta2t)
 
 END SUBROUTINE convert_theta2t
 
 
-!-------------------------------------------------------------------------
-!
-!
-
+  !-------------------------------------------------------------------------
   !>
-  !!               Converts temperature into potential temperature times delta p.
-  !!
   !!               Converts temperature into potential temperature times delta p
   !!               Linearized version for efficiency improvement
   !!
@@ -255,6 +258,8 @@ END SUBROUTINE convert_theta2t
   REAL(wp) :: rovcp                ! R/cp
 
   REAL(wp), DIMENSION ( nproma, nlevp1, pt_patch%nblks_c ) :: pres_old
+  
+  IF (ltimer) CALL timer_start(timer_con_l_t2theta)
 
   nblks_c   = pt_patch%nblks_int_c
   npromz_c  = pt_patch%npromz_int_c
@@ -299,18 +304,14 @@ END SUBROUTINE convert_theta2t
   ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
+  IF (ltimer) CALL timer_stop(timer_con_l_t2theta)
 
 END SUBROUTINE convert_t2theta_lin
 
 
 
-!-------------------------------------------------------------------------
-!
-!
-
+  !-------------------------------------------------------------------------
   !>
-  !!               Converts potential temperature times delta p into temperature.
-  !!
   !!               Converts potential temperature times delta p into temperature
   !!               Linearized version for efficiency improvement
   !!
@@ -337,6 +338,8 @@ END SUBROUTINE convert_t2theta_lin
   INTEGER  :: jb, jc, jk           ! loop indices
   REAL(wp) :: rovcp                !R/cp
 
+  IF (ltimer) CALL timer_start(timer_con_l_theta2t)
+  
   nblks_c   = pt_patch%nblks_int_c
   npromz_c  = pt_patch%npromz_int_c
 
@@ -383,6 +386,8 @@ END SUBROUTINE convert_t2theta_lin
   ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
+
+  IF (ltimer) CALL timer_stop(timer_con_l_theta2t)
 
 END SUBROUTINE convert_theta2t_lin
 
