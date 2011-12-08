@@ -42,8 +42,6 @@ MODULE mo_timer
 
    USE mo_run_config, ONLY: ltimer, timers_level,  activate_sync_timers
 
-   USE mo_run_config, ONLY: ltimer
-
   IMPLICIT NONE
   PRIVATE
 
@@ -123,7 +121,6 @@ MODULE mo_timer
   PUBLIC :: timer_dyn_theta, timer_dyn_temp
   
   PUBLIC :: timer_con_l_theta2t, timer_con_l_t2theta, timer_con_theta2t, timer_con_t2theta
-  PUBLIC :: ltimer                              !< if .true., switch on timer
 
   !-------------------
   ! Module variables
