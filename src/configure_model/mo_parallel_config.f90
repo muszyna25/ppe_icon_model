@@ -34,6 +34,7 @@
 MODULE mo_parallel_config
 
   USE mo_exception,          ONLY: message, finish
+  USE mo_io_units,           ONLY: filename_max
 
   IMPLICIT NONE
 
@@ -45,7 +46,7 @@ MODULE mo_parallel_config
 
   PUBLIC :: n_ghost_rows,                                     &
        &    div_from_file, div_geometric, div_metis, division_method, &
-       &    l_log_checks, l_fast_sum,                                 &
+       &    division_file_name, l_log_checks, l_fast_sum,             &
        &    p_test_run, l_test_openmp,                                &
        &    pio_type, itype_comm, iorder_sendrecv, num_io_procs,      &
        &    use_icon_comm, icon_comm_debug, max_send_recv_buffer_size
@@ -68,6 +69,7 @@ MODULE mo_parallel_config
   INTEGER, PARAMETER :: div_metis     = 2  ! Use Metis
 
   INTEGER :: division_method = 1
+  CHARACTER(LEN=filename_max) :: division_file_name ! if div_from_file
 
   ! Flag if checks in a verification run should be logged
   LOGICAL :: l_log_checks = .false.

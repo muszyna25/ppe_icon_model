@@ -65,7 +65,6 @@ MODULE mo_subdivision
   USE mo_exception,          ONLY: finish, message, message_text,    &
     &                              get_filename_noext
 
-  USE mo_parallel_config,    ONLY: nproma
   USE mo_run_config,         ONLY: ltransport, msg_level
   USE mo_dynamics_config,    ONLY: iequations
   USE mo_io_units,           ONLY: find_next_free_unit, filename_max
@@ -83,8 +82,8 @@ MODULE mo_subdivision
     & my_process_is_mpi_workroot, p_pe_work, p_n_work,                  &
     & get_my_mpi_all_id
 
-  USE mo_parallel_config,       ONLY:  p_test_run, &
-    & division_method, n_ghost_rows, div_from_file, div_geometric
+  USE mo_parallel_config,       ONLY:  nproma, p_test_run, &
+    & division_method, division_file_name, n_ghost_rows, div_from_file, div_geometric
     
 #ifdef HAVE_METIS
   USE mo_parallel_config,    ONLY: div_metis
@@ -666,7 +665,7 @@ CONTAINS
     INTEGER :: n, i, j, jl, jb, jl_p, jb_p
     INTEGER, ALLOCATABLE :: flag_c(:), tmp(:)
 
-    CHARACTER(filename_max) :: div_file
+!     CHARACTER(filename_max) :: div_file
 
     !-----------------------------------------------------------------------
     ! This routine must not be called in a single CPU run
@@ -686,17 +685,18 @@ CONTAINS
 
       IF(p_pe_work == 0) THEN
 
-        WRITE (div_file,'(a,a)') &
-          & TRIM(get_filename_noext(wrk_p_patch_g%grid_filename)),'-div.txt'
+!         WRITE (div_file,'(a,a)') &
+!           & TRIM(get_filename_noext(wrk_p_patch_g%grid_filename)),'-div.txt'
 
         n = find_next_free_unit(10,99)
 
-        OPEN(n,FILE=div_file,STATUS='OLD',IOSTAT=i)
-        IF(i /= 0) CALL finish('divide_patch','Unable to open input file: '//TRIM(div_file))
+        OPEN(n,FILE=TRIM(division_file_name),STATUS='OLD',IOSTAT=i)
+        IF(i /= 0) CALL finish('divide_patch',&
+          & 'Unable to open input file: '//TRIM(division_file_name))
 
         DO j = 1, wrk_p_patch_g%n_patch_cells
           READ(n,*,IOSTAT=i) cell_owner(j)
-          IF(i /= 0) CALL finish('divide_patch','Error reading: '//TRIM(div_file))
+          IF(i /= 0) CALL finish('divide_patch','Error reading: '//TRIM(division_file_name))
         ENDDO
         CLOSE(n)
 
@@ -709,7 +709,7 @@ CONTAINS
 
       CALL p_bcast(cell_owner, 0, comm=p_comm_work)
 
-      IF(p_pe_work==0) PRINT *,'Successfully read: '//TRIM(div_file)
+      IF(p_pe_work==0) PRINT *,'Successfully read: '//TRIM(division_file_name)
 
     ELSE
 

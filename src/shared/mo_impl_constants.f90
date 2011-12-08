@@ -157,7 +157,7 @@ MODULE mo_impl_constants
   !   sometime require a halo width of two full rows
 !
 !   ------------------------------------------
-!   LL: copied for the icon_flowcontrol as described by Guenther:
+!   LL: copied from the icon_flowcontrol as described by Guenther:
 !
 !   The ordering of the halo points is as follows:
 !   min_rlcell_int- 1: halo cells having a prognostic cell as neighbor

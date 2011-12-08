@@ -41,10 +41,12 @@ MODULE mo_parallel_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
     & open_and_restore_namelist, close_tmpfile
+  USE mo_io_units,           ONLY: filename_max
 
   USE mo_parallel_config,     ONLY: &
     & config_n_ghost_rows        => n_ghost_rows,        &
     & config_division_method     => division_method,     &
+    & config_division_file_name  => division_file_name,  &
     & config_l_log_checks        => l_log_checks,        &
     & config_l_fast_sum          => l_fast_sum,          &
     & config_p_test_run          => p_test_run,          &
@@ -87,8 +89,12 @@ MODULE mo_parallel_nml
     ! Number of rows of ghost cells
     INTEGER :: n_ghost_rows
 
-    INTEGER :: division_method
+    INTEGER :: division_method  ! div_from_file = 0  ! Read from file
+                                ! div_geometric = 1  ! Geometric subdivision
+                                ! div_metis     = 2  ! Use Metis
 
+    CHARACTER(LEN=filename_max) :: division_file_name ! if div_from_file
+    
     ! Flag if checks in a verification run should be logged
     LOGICAL :: l_log_checks
 
@@ -147,7 +153,8 @@ MODULE mo_parallel_nml
       & nproma, parallel_radiation_omp,         &
       & parallel_radiation_mpi,  use_icon_comm, &
       & test_parallel_radiation, openmp_threads, &
-      & icon_comm_debug, max_send_recv_buffer_size
+      & icon_comm_debug, max_send_recv_buffer_size, &
+      & division_file_name
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat
@@ -161,7 +168,8 @@ MODULE mo_parallel_nml
     ! Number of rows of ghost cells
     n_ghost_rows = 1
     division_method = div_geometric
-
+    division_file_name = ""
+     
     ! Flag if checks in a verification run should be logged
     l_log_checks = .FALSE.
 
@@ -245,6 +253,7 @@ MODULE mo_parallel_nml
     ! fill_parallel_nml_configure       
     config_n_ghost_rows        = n_ghost_rows
     config_division_method     = division_method
+    config_division_file_name  = division_file_name
     config_l_log_checks        = l_log_checks
     config_l_fast_sum          = l_fast_sum
     config_p_test_run          = p_test_run
