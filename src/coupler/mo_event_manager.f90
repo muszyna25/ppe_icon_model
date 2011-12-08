@@ -106,7 +106,7 @@ CONTAINS
                          lag        )  !< in
 
     INTEGER, INTENT(in)          :: time_step  !< time step between two consecutive calls
-    INTEGER, INTENT(in)          :: delta_time !< frequency at which events shall ocure
+    INTEGER, INTENT(in)          :: delta_time !< interval at which events shall ocure
     INTEGER, INTENT(in)          :: lag        !< lag times time_step
     INTEGER, INTENT(out)         :: event_id   !< returned hanle
 

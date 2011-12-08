@@ -17,8 +17,8 @@ MODULE mo_coupling_config
      INTEGER            :: lag
      LOGICAL            :: l_time_accumulation
      LOGICAL            :: l_time_average
-     INTEGER            :: frequency
-     INTEGER            :: time_step
+     INTEGER            :: dt_coupling
+     INTEGER            :: dt_model
      LOGICAL            :: l_diagnostic
      LOGICAL            :: l_activated
   END TYPE t_cpl_field_nml

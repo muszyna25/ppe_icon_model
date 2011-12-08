@@ -67,14 +67,14 @@ MODULE mo_coupling_nml
   LOGICAL            :: l_time_accumulation
   LOGICAL            :: l_diagnostic
   LOGICAL            :: l_activated
-  INTEGER            :: frequency
-  INTEGER            :: time_step
+  INTEGER            :: dt_coupling
+  INTEGER            :: dt_model
   INTEGER            :: lag
   CHARACTER(len=132) :: name
 
   NAMELIST /coupling_nml/ name,                &
-                          frequency,           &
-                          time_step,           &
+                          dt_coupling,         &
+                          dt_model,            &
                           lag,                 &
                           l_time_average,      &
                           l_time_accumulation, &
@@ -117,8 +117,8 @@ CONTAINS
     ! 1. Set default values
     !--------------------------------------------------------------------
 
-    frequency           = 0
-    time_step           = 0
+    dt_coupling         = 0
+    dt_model            = 0
 
     l_time_average      = .FALSE.
     l_time_accumulation = .FALSE.
@@ -155,9 +155,9 @@ CONTAINS
 
        CALL position_nml('coupling_nml', lrewind=first, status=istat)
 
-       frequency = 0
-       time_step = 0
-       lag       = 0
+       dt_coupling = 0
+       dt_model    = 0
+       lag         = 0
 
        l_time_average      = .FALSE.
        l_time_accumulation = .FALSE.
@@ -226,16 +226,17 @@ CONTAINS
           ! 4. Consistency check
           !--------------------------------------------------------------
 
-          if ( frequency < time_step ) &
-               CALL finish (TRIM(routine), 'Coupling frequency must be larger that time step' )
+          if ( dt_coupling < dt_model ) &
+               CALL finish (TRIM(routine), &
+               'Coupling interval must be larger orequal to model time step' )
 
           !--------------------------------------------------------------
           ! 5. Fill the configuration state
           !--------------------------------------------------------------
 
           config_cpl_fields(i)%name                = name
-          config_cpl_fields(i)%frequency           = frequency
-          config_cpl_fields(i)%time_step           = time_step
+          config_cpl_fields(i)%dt_coupling         = dt_coupling
+          config_cpl_fields(i)%dt_model            = dt_model
           config_cpl_fields(i)%lag                 = lag
           config_cpl_fields(i)%l_time_average      = l_time_average
           config_cpl_fields(i)%l_time_accumulation = l_time_accumulation

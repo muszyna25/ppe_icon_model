@@ -103,8 +103,8 @@ ozon_file="ape_o3_${grid_name}.nc"
 cat > $atmo_namelist << EOF
 &coupling_nml
   name                = 'TAUX'
-  time_step           =  ${dtime}
-  frequency           =  ${dt_coupling}
+  dt_model            =  ${dtime}
+  dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .TRUE.
@@ -112,8 +112,8 @@ cat > $atmo_namelist << EOF
 /
 &coupling_nml
   name                = 'TAUY'
-  time_step           =  ${dtime}
-  frequency           =  ${dt_coupling}
+  dt_model            =  ${dtime}
+  dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .TRUE.
@@ -121,15 +121,15 @@ cat > $atmo_namelist << EOF
 /
 &coupling_nml
   name                = 'SFWFLX'
-  time_step           =  ${dtime}
-  frequency           =  ${dt_coupling}
+  dt_model            =  ${dtime}
+  dt_coupling         =  ${dt_coupling}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
 /
 &coupling_nml
   name                = 'SFTEMP'
-  time_step           =  ${dtime}
-  frequency           =  ${dt_coupling}
+  dt_model            =  ${dtime}
+  dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .TRUE.
@@ -137,8 +137,8 @@ cat > $atmo_namelist << EOF
 /
 &coupling_nml
   name                = 'THFLX'
-  time_step           =  ${dtime}
-  frequency           =  ${dt_coupling}
+  dt_model            =  ${dtime}
+  dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .TRUE.
@@ -146,8 +146,8 @@ cat > $atmo_namelist << EOF
 /
 &coupling_nml
   name                = 'SST'
-  time_step           =  ${dtime}
-  frequency           =  ${dt_coupling}
+  dt_model            =  ${dtime}
+  dt_coupling         =  ${dt_coupling}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .TRUE.
@@ -155,8 +155,8 @@ cat > $atmo_namelist << EOF
 /
 &coupling_nml
   name                = 'OCEANU'
-  time_step           =  ${dtime}
-  frequency           =  ${dt_coupling}
+  dt_model            =  ${dtime}
+  dt_coupling         =  ${dt_coupling}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .TRUE.
@@ -164,8 +164,8 @@ cat > $atmo_namelist << EOF
 /
 &coupling_nml
   name                = 'OCEANV'
-  time_step           =  ${dtime}
-  frequency           =  ${dt_coupling}
+  dt_model            =  ${dtime}
+  dt_coupling         =  ${dt_coupling}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .TRUE.
@@ -311,8 +311,8 @@ cat > ${ocean_namelist} << EOF
 !
 &coupling_nml
   name                = 'TAUX'
-  time_step           =  ${dtime}
-  frequency           =  ${dt_coupling}
+  dt_model            =  ${dtime}
+  dt_coupling         =  ${dt_coupling}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .TRUE.
@@ -320,8 +320,8 @@ cat > ${ocean_namelist} << EOF
 /
 &coupling_nml
   name                = 'TAUY'
-  time_step           =  ${dtime}
-  frequency           =  ${dt_coupling}
+  dt_model            =  ${dtime}
+  dt_coupling         =  ${dt_coupling}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .TRUE.
@@ -329,15 +329,15 @@ cat > ${ocean_namelist} << EOF
 /
 &coupling_nml
   name                = 'SFWFLX'
-  time_step           =  ${dtime}
-  frequency           =  ${dt_coupling}
+  dt_model            =  ${dtime}
+  dt_coupling         =  ${dt_coupling}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
 /
 &coupling_nml
   name                = 'SFTEMP'
-  time_step           =  ${dtime}
-  frequency           =  ${dt_coupling}
+  dt_model            =  ${dtime}
+  dt_coupling         =  ${dt_coupling}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .TRUE.
@@ -345,8 +345,8 @@ cat > ${ocean_namelist} << EOF
 /
 &coupling_nml
   name                = 'THFLX'
-  time_step           =  ${dtime}
-  frequency           =  ${dt_coupling}
+  dt_model            =  ${dtime}
+  dt_coupling         =  ${dt_coupling}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .TRUE.
@@ -354,8 +354,8 @@ cat > ${ocean_namelist} << EOF
 /
 &coupling_nml
   name                = 'SST'
-  time_step           =  ${dtime}
-  frequency           =  ${dt_coupling}
+  dt_model            =  ${dtime}
+  dt_coupling         =  ${dt_coupling}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .TRUE.
@@ -363,8 +363,8 @@ cat > ${ocean_namelist} << EOF
 /
 &coupling_nml
   name                = 'OCEANU'
-  time_step           =  ${dtime}
-  frequency           =  ${dt_coupling}
+  dt_model            =  ${dtime}
+  dt_coupling         =  ${dt_coupling}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .TRUE.
@@ -372,8 +372,8 @@ cat > ${ocean_namelist} << EOF
 /
 &coupling_nml
   name                = 'OCEANV'
-  time_step           =  ${dtime}
-  frequency           =  ${dt_coupling}
+  dt_model            =  ${dtime}
+  dt_coupling         =  ${dt_coupling}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .TRUE.

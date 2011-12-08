@@ -1075,15 +1075,15 @@ short name of the coupling field &
 \tabularnewline
 
 \hline 
-frequency &
+dt\_coupling &
 I &
 0 &
 s &
-coupling frequency &
+coupling time step / coupling interval &
 \tabularnewline
 
 \hline 
-time\_step &
+dt\_model &
 I &
 0 &
 s &
@@ -1116,6 +1116,13 @@ l\_diagnostic &
 L &
 .FALSE. &  &
 .TRUE.: simple diagnostics (min, max, avg) for coupling fields is switched on &
+\tabularnewline
+
+\hline 
+l\_activated &
+L &
+.FALSE. &  &
+.TRUE.: activate the coupling of the respective coupling field &
 \tabularnewline
 
 \end{longtab}

@@ -126,9 +126,9 @@ CONTAINS
           new_cpl_fields(i)%field_shape     = 0
           new_cpl_fields(i)%l_field_status  = .FALSE.
 
-          new_cpl_fields(i)%coupling%lag       = 0
-          new_cpl_fields(i)%coupling%frequency = 0
-          new_cpl_fields(i)%coupling%time_step = 0
+          new_cpl_fields(i)%coupling%lag         = 0
+          new_cpl_fields(i)%coupling%dt_coupling = 0
+          new_cpl_fields(i)%coupling%dt_model    = 0
           new_cpl_fields(i)%coupling%time_operation = 0
 
           Nullify ( new_cpl_fields(i)%send_field_acc )
@@ -227,8 +227,8 @@ CONTAINS
 
     fptr%coupling%l_activated = config_cpl_fields(global_field_id)%l_activated
     fptr%coupling%lag         = config_cpl_fields(global_field_id)%lag
-    fptr%coupling%frequency   = config_cpl_fields(global_field_id)%frequency
-    fptr%coupling%time_step   = config_cpl_fields(global_field_id)%time_step
+    fptr%coupling%dt_coupling = config_cpl_fields(global_field_id)%dt_coupling
+    fptr%coupling%dt_model    = config_cpl_fields(global_field_id)%dt_model
 
     IF ( config_cpl_fields(global_field_id)%l_diagnostic ) &
     fptr%coupling%diagnostic = 1
@@ -237,8 +237,8 @@ CONTAINS
     ! Signal new coupling event and store event_id in  fptr%event_id
     ! -------------------------------------------------------------------
 
-    CALL event_add ( fptr%event_id, fptr%coupling%frequency, &
-                     fptr%coupling%time_step, fptr%coupling%lag )
+    CALL event_add ( fptr%event_id, fptr%coupling%dt_coupling, &
+                     fptr%coupling%dt_model, fptr%coupling%lag )
 
   END SUBROUTINE ICON_cpl_def_field
 

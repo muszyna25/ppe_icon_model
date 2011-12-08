@@ -212,8 +212,8 @@ MODULE mo_icon_cpl
   TYPE t_coupling
      INTEGER                :: lag
      INTEGER                :: time_operation
-     INTEGER                :: frequency
-     INTEGER                :: time_step
+     INTEGER                :: dt_coupling
+     INTEGER                :: dt_model
      INTEGER                :: diagnostic
      LOGICAL                :: l_activated
   END TYPE t_coupling
@@ -228,9 +228,7 @@ MODULE mo_icon_cpl
 !! - Global field ID
 !! - Status of the field: false || true
 !! - Field (short)name
-!! - time_operation ( average / accumulate / none )
-!! - diagnostic_operation ( min / max / sum / none )
-!! - couping_freq coupling frequency in seconds
+!! - coupling information
 !!
 
   TYPE t_cpl_field

@@ -91,12 +91,10 @@ MODULE mo_icon_cpl_init_comp
 CONTAINS
   
 
-  SUBROUTINE icon_cpl_init_comp ( comp_name, global_comp_no, global_comp_type, &
-    comp_id, ierror )
+  SUBROUTINE icon_cpl_init_comp ( comp_name, global_comp_no, comp_id, ierror )
 
     CHARACTER(len=*), INTENT(in) :: comp_name
     INTEGER, INTENT(in)          :: global_comp_no   ! the component unique number
-    INTEGER, INTENT(in)          :: global_comp_type ! the component type (ocean, atmo, etc)
     
     INTEGER, INTENT(out)         :: comp_id
     INTEGER, INTENT(out)         :: ierror
