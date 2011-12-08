@@ -53,6 +53,7 @@ MODULE mo_eta_coord_diag
     &                                delpr,  nlmsla, nplev,  ralpha,      &
     &                                rdelpr, rlnpr,  nlevm1
 
+  USE mo_fast_math_lib,      ONLY: vec_log, vec_exp
   IMPLICIT NONE
 
   PRIVATE
@@ -165,7 +166,9 @@ CONTAINS
 
     REAL(wp),INTENT(inout) :: pres_m(kdimp,nlev) !< full(/mid)-level pressure
 
-    REAL(wp):: ztmp, zpres_i_top_min
+    REAL(wp):: zpres_i_top_min
+    REAL(wp):: ztmp(kdimp,nlev)
+    REAL(wp):: log_press(kdimp,nlevp1)
     INTEGER :: jk, jl, ikp, ik_top
 
     !-----
@@ -178,15 +181,22 @@ CONTAINS
       pres_m(1:klen,1) = pres_i(1:klen,2)*0.5_wp
     END IF
 
+    DO jk = ik_top, nlev+1
+      CALL vec_log(pres_i(1:klen,jk), log_press(1:klen,jk), klen)
+    ENDDO
+    
     DO jk = ik_top, nlev
        ikp = jk+1
        DO jl = 1, klen
-         ztmp = ( pres_i(jl,ikp)*LOG(pres_i(jl,ikp))   &
-         &       -pres_i(jl,jk )*LOG(pres_i(jl,jk )) ) &
-         &     /( pres_i(jl,ikp)-pres_i(jl,jk) )
-         pres_m(jl,jk) = EXP(ztmp-1._wp)
+         ztmp(jl, jk) = (( pres_i(jl,ikp)*log_press(jl,ikp)   &
+         &       -pres_i(jl,jk )*log_press(jl,jk ) ) &
+         &     /( pres_i(jl,ikp)-pres_i(jl,jk) )) - 1._wp
        END DO
     END DO
+    
+    DO jk = ik_top, nlev
+      CALL vec_exp(ztmp(1:klen, jk), pres_m(1:klen,jk), klen)
+    ENDDO
 
   END SUBROUTINE full_level_pressure
 
