@@ -237,7 +237,7 @@ MODULE mo_solve_nh_async
 
       ENDIF ! istep == 1
 
-      IF (istep == 1 .AND. l_init) THEN
+      IF (istep == 1) THEN
         ! Interpolate vt to interface levels
         DO jk = nflatlev(p_patch%id)+1, nlev
           DO je = i_startidx, i_endidx
