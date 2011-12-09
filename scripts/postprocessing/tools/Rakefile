@@ -316,6 +316,11 @@ task :test_show_grid do
   defaultPlot(OCE_PLOT_TEST_FILE   ,'test_show_grid',["showGrid=True","'atmLev=\"m\"'"])
   defaultPlot(OCE_REGPLOT_TEST_FILE,'test_show_reg_grid',["showGrid=True","'atmLev=\"m\"'"])
 end
+desc "Try out different colormaps"
+task :test_colors do
+  defaultPlot(OCE_PLOT_TEST_FILE   ,'test_colors',
+["'colormap=(/ \"white\",\"black\",\"firebrick\",\"peachpuff\",\"orangered\",\"navyblue\",\"peru\",\"yellow\",\"wheat1\",\"gray55\",\"thistle\",\"coral\",\"dodgerblue\", \"seagreen\",\"maroon\",\"gold\",\"turquoise\",\"mediumorchid\" /)'"])
+end
 #==============================================================================
 # Test collections
 desc "Run all tests"
