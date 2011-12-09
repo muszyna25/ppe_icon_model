@@ -219,7 +219,7 @@ MODULE mo_master_control
       CASE (radiation_process)
       CASE (dummy_process)
       CASE default
-        CALL finish("set_my_component","my_process_model is unkown")
+        CALL finish("check_my_component","my_process_model is unkown")
     END SELECT
 
   END SUBROUTINE check_my_component
@@ -229,7 +229,7 @@ MODULE mo_master_control
   SUBROUTINE set_my_component_null()
 
     my_model_no          = 0
-    my_process_model     = 0
+    my_process_model     = -1
     my_namelist_filename = ''
     my_model_name        = ''
     my_model_min_rank    = -1
