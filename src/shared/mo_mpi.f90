@@ -382,6 +382,7 @@ MODULE mo_mpi
 
   INTERFACE p_max
      MODULE PROCEDURE p_max_0d
+     MODULE PROCEDURE p_max_int_0d
      MODULE PROCEDURE p_max_1d
      MODULE PROCEDURE p_max_2d
      MODULE PROCEDURE p_max_3d
@@ -389,6 +390,7 @@ MODULE mo_mpi
 
   INTERFACE p_min
      MODULE PROCEDURE p_min_0d
+     MODULE PROCEDURE p_min_int_0d
      MODULE PROCEDURE p_min_1d
      MODULE PROCEDURE p_min_2d
      MODULE PROCEDURE p_min_3d
@@ -5624,6 +5626,32 @@ CONTAINS
 
   END FUNCTION p_max_0d
 
+  FUNCTION p_max_int_0d (zfield, comm) RESULT (p_max)
+
+    INTEGER                       :: p_max
+    INTEGER,           INTENT(in) :: zfield
+    INTEGER, OPTIONAL, INTENT(in) :: comm
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+    IF (my_process_is_mpi_all_parallel()) THEN
+       CALL MPI_ALLREDUCE (zfield, p_max, 1, p_int, &
+            MPI_MAX, p_comm, p_error)
+    ELSE
+       p_max = zfield
+    END IF
+#else
+    p_max = zfield
+#endif
+
+  END FUNCTION p_max_int_0d
+
   FUNCTION p_max_1d (zfield, comm) RESULT (p_max)
 
     REAL(dp),          INTENT(in) :: zfield(:)
@@ -5731,6 +5759,32 @@ CONTAINS
 #endif
 
   END FUNCTION p_min_0d
+
+  FUNCTION p_min_int_0d (zfield, comm) RESULT (p_min)
+
+    INTEGER,           INTENT(in) :: zfield
+    INTEGER, OPTIONAL, INTENT(in) :: comm
+    INTEGER                       :: p_min
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+    IF (my_process_is_mpi_all_parallel()) THEN
+       CALL MPI_ALLREDUCE (zfield, p_min, 1, p_int, &
+            MPI_MIN, p_comm, p_error)
+    ELSE
+       p_min = zfield
+    END IF
+#else
+    p_min = zfield
+#endif
+
+  END FUNCTION p_min_int_0d
 
   FUNCTION p_min_1d (zfield, comm) RESULT (p_min)
 

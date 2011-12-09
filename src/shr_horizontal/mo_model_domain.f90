@@ -670,13 +670,11 @@ TYPE t_patch
   TYPE(t_comm_pattern) :: comm_pat_interpol_vec_ubc(4)
   TYPE(t_comm_pattern) :: comm_pat_interpol_scal_ubc(4)
 
-  ! Gather/scatter complete patch to/from proc 0
+  ! Gather complete patch to proc 0
   ! Useful only for regular patches (defined but unused on local parents)
   TYPE(t_comm_pattern) :: comm_pat_gather_c
   TYPE(t_comm_pattern) :: comm_pat_gather_e
   TYPE(t_comm_pattern) :: comm_pat_gather_v
-  TYPE(t_comm_pattern) :: comm_pat_scatter_c
-  TYPE(t_comm_pattern) :: comm_pat_scatter_e
 
   ! Communication between local parent and its global counterpart,
   ! defined only on local parents.

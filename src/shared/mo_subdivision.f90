@@ -108,6 +108,7 @@ MODULE mo_subdivision
   PUBLIC :: set_patch_communicators
   PUBLIC :: finalize_decomposition
   PUBLIC :: setup_phys_patches
+  PUBLIC :: set_comm_pat_gather
 
   ! pointers to the work patches
   TYPE(t_patch), POINTER :: wrk_p_patch, wrk_p_parent_patch
@@ -889,7 +890,7 @@ CONTAINS
                ilc1, ibc1, ilc2, ibc2, ilc3, ibc3, jl_c, jb_c, jc, irlev, ilev1, ilev_st, &
                jg, i_nchdom, irl0, irl1, irl2, irl3
 
-    INTEGER, ALLOCATABLE :: owner_c(:), owner_e(:), owner_v(:), tmp(:)
+    INTEGER, ALLOCATABLE :: owner_c(:), owner_e(:), owner_v(:)
     INTEGER, ALLOCATABLE :: flag_c(:), flag_e(:), flag_v(:)
     INTEGER, ALLOCATABLE :: flag2_c(:), flag2_e(:), flag2_v(:)
     LOGICAL, ALLOCATABLE :: lcount_c(:), lcount_e(:), lcount_v(:)
@@ -1745,51 +1746,7 @@ CONTAINS
     DEALLOCATE(owner_c)
 
     ! For gathering the global fields on p_pe_work==0
-    ALLOCATE(tmp(MAX(wrk_p_patch_g%n_patch_cells, wrk_p_patch_g%n_patch_edges, &
-                   & wrk_p_patch_g%n_patch_verts)))
-
-    DO j = 1, SIZE(tmp)
-      tmp(j) = j ! Global/local index in global array, i.e. identity!
-    ENDDO
-
-    IF(p_pe_work == 0) THEN
-      CALL setup_comm_pattern(wrk_p_patch_g%n_patch_cells, wrk_p_patch%cells%owner_g, tmp, &
-        & wrk_p_patch%cells%loc_index, wrk_p_patch%comm_pat_gather_c)
-    ELSE
-      ! We don't want to receive any data, i.e. the number of cells is 0
-      ! and owner/global index are dummies!
-      CALL setup_comm_pattern(0, wrk_p_patch%cells%owner_g, tmp, &
-        & wrk_p_patch%cells%loc_index, wrk_p_patch%comm_pat_gather_c)
-    ENDIF
-
-    IF(p_pe_work == 0) THEN
-      CALL setup_comm_pattern(wrk_p_patch_g%n_patch_edges, wrk_p_patch%edges%owner_g, tmp, &
-        & wrk_p_patch%edges%loc_index, wrk_p_patch%comm_pat_gather_e)
-    ELSE
-      ! We don't want to receive any data, i.e. the number of edges is 0
-      ! and owner/global index are dummies!
-      CALL setup_comm_pattern(0, wrk_p_patch%edges%owner_g, tmp, &
-        & wrk_p_patch%edges%loc_index, wrk_p_patch%comm_pat_gather_e)
-    ENDIF
-
-    IF(p_pe_work == 0) THEN
-      CALL setup_comm_pattern(wrk_p_patch_g%n_patch_verts, wrk_p_patch%verts%owner_g, tmp, &
-        & wrk_p_patch%verts%loc_index, wrk_p_patch%comm_pat_gather_v)
-    ELSE
-      ! We don't want to receive any data, i.e. the number of edges is 0
-      ! and owner/global index are dummies!
-      CALL setup_comm_pattern(0, wrk_p_patch%verts%owner_g, tmp, &
-        & wrk_p_patch%verts%loc_index, wrk_p_patch%comm_pat_gather_v)
-    ENDIF
-
-
-    ! For scattering the global fields from PE 0, i.e. owner is 0
-
-    CALL setup_comm_pattern(wrk_p_patch%n_patch_cells, (/ (0,j=1,wrk_p_patch%n_patch_cells) /), &
-      & wrk_p_patch%cells%glb_index, tmp, wrk_p_patch%comm_pat_scatter_c)
-
-    CALL setup_comm_pattern(wrk_p_patch%n_patch_edges, (/ (0,j=1,wrk_p_patch%n_patch_edges) /), &
-      & wrk_p_patch%edges%glb_index, tmp, wrk_p_patch%comm_pat_scatter_e)
+    CALL set_comm_pat_gather(wrk_p_patch)
 
     !-----------------------------------------------------------------------------------------------
     ! Set arrays of divided patch
@@ -1906,6 +1863,57 @@ CONTAINS
     DEALLOCATE(flag_c, flag_e, flag_v, flag2_c, flag2_e, flag2_v, lcount_c, lcount_e, lcount_v)
 
   END SUBROUTINE divide_patch
+
+  !-------------------------------------------------------------------------------------------------
+  !> Sets the gather communication patterns of a patch
+
+  SUBROUTINE set_comm_pat_gather(p)
+
+    TYPE(t_patch), INTENT(INOUT):: p
+
+    INTEGER, ALLOCATABLE :: tmp(:)
+    INTEGER :: j
+
+    ! For gathering the global fields on p_pe_work==0
+    ALLOCATE(tmp(MAX(p%n_patch_cells_g, p%n_patch_edges_g, p%n_patch_verts_g)))
+
+    DO j = 1, SIZE(tmp)
+      tmp(j) = j ! Global/local index in global array, i.e. identity!
+    ENDDO
+
+    IF(p_pe_work == 0) THEN
+      CALL setup_comm_pattern(p%n_patch_cells_g, p%cells%owner_g, tmp, &
+        & p%cells%loc_index, p%comm_pat_gather_c)
+    ELSE
+      ! We don't want to receive any data, i.e. the number of cells is 0
+      ! and owner/global index are dummies!
+      CALL setup_comm_pattern(0, p%cells%owner_g, tmp, &
+        & p%cells%loc_index, p%comm_pat_gather_c)
+    ENDIF
+
+    IF(p_pe_work == 0) THEN
+      CALL setup_comm_pattern(p%n_patch_edges_g, p%edges%owner_g, tmp, &
+        & p%edges%loc_index, p%comm_pat_gather_e)
+    ELSE
+      ! We don't want to receive any data, i.e. the number of edges is 0
+      ! and owner/global index are dummies!
+      CALL setup_comm_pattern(0, p%edges%owner_g, tmp, &
+        & p%edges%loc_index, p%comm_pat_gather_e)
+    ENDIF
+
+    IF(p_pe_work == 0) THEN
+      CALL setup_comm_pattern(p%n_patch_verts_g, p%verts%owner_g, tmp, &
+        & p%verts%loc_index, p%comm_pat_gather_v)
+    ELSE
+      ! We don't want to receive any data, i.e. the number of edges is 0
+      ! and owner/global index are dummies!
+      CALL setup_comm_pattern(0, p%verts%owner_g, tmp, &
+        & p%verts%loc_index, p%comm_pat_gather_v)
+    ENDIF
+
+    DEALLOCATE(tmp)
+
+  END SUBROUTINE set_comm_pat_gather
 
   !-------------------------------------------------------------------------------------------------
   !>
