@@ -336,6 +336,7 @@ MODULE mo_nonhydro_state
    REAL(wp), POINTER :: theta_ref_mc(:,:,:)
    REAL(wp), POINTER :: theta_ref_ic(:,:,:)
    REAL(wp), POINTER :: exner_ref_mc(:,:,:)
+   REAL(wp), POINTER :: rho_ref_mc  (:,:,:)
    REAL(wp), POINTER :: d_exner_dz_ref_ic(:,:,:)
    REAL(wp), POINTER :: d2dexdz2_fac1_mc(:,:,:)
    REAL(wp), POINTER :: d2dexdz2_fac2_mc(:,:,:)
@@ -855,7 +856,7 @@ MODULE mo_nonhydro_state
                     & t_grib2_var(0, 1, 0, ientr, GRID_REFERENCE, GRID_CELL),        &
                     & ldims=shape3d_c, info=info)
         info%tlev_source = 1   ! for output take field from nnow_rcf slice
-
+        info => NULL()
            !QC
         CALL add_ref( p_prog_list, 'tracer',&
                     & TRIM(vname_prefix)//'qc'//suffix, p_prog%tracer_ptr(iqc)%p_3d, &
@@ -865,6 +866,7 @@ MODULE mo_nonhydro_state
                     & t_grib2_var(192, 201, 31, ientr, GRID_REFERENCE, GRID_CELL),   &
                     & ldims=shape3d_c, info=info)
         info%tlev_source = 1   ! for output take field from nnow_rcf slice
+        info => NULL()
            !QI
         CALL add_ref( p_prog_list, 'tracer',                                         &
                     & TRIM(vname_prefix)//'qi'//suffix, p_prog%tracer_ptr(iqi)%p_3d, &
@@ -874,6 +876,7 @@ MODULE mo_nonhydro_state
                     & t_grib2_var(192, 201, 33, ientr, GRID_REFERENCE, GRID_CELL),   &
                     & ldims=shape3d_c, info=info)
         info%tlev_source = 1   ! for output take field from nnow_rcf slice
+        info => NULL()
            !QR
         CALL add_ref( p_prog_list, 'tracer',                                         &
                     & TRIM(vname_prefix)//'qr'//suffix, p_prog%tracer_ptr(iqr)%p_3d, &
@@ -883,6 +886,7 @@ MODULE mo_nonhydro_state
                     & t_grib2_var(0, 1, 24, ientr, GRID_REFERENCE, GRID_CELL),       &
                     & ldims=shape3d_c, info=info)
         info%tlev_source = 1   ! for output take field from nnow_rcf slice
+        info => NULL()
            !QS
         CALL add_ref( p_prog_list, 'tracer',                                         &
                     & TRIM(vname_prefix)//'qs'//suffix, p_prog%tracer_ptr(iqs)%p_3d, &
@@ -892,6 +896,7 @@ MODULE mo_nonhydro_state
                     & t_grib2_var(0, 1, 25, ientr, GRID_REFERENCE, GRID_CELL),       &
                     & ldims=shape3d_c, info=info)
         info%tlev_source = 1   ! for output take field from nnow_rcf slice
+        info => NULL()
 
         IF( irad_o3 == 4 .OR. irad_o3 == 6 .OR. irad_o3 == 7 ) THEN
            !O3
@@ -903,6 +908,7 @@ MODULE mo_nonhydro_state
             & t_grib2_var(0, 14, 1, ientr, GRID_REFERENCE, GRID_CELL),       &
             & ldims=shape3d_c, info=info)
         info%tlev_source = 0   ! for output take field from nnow_rcf slice
+        info => NULL()
         ENDIF
 
         ! tke            p_prog%tke(nproma,nlevp1,nblks_c)
@@ -912,6 +918,7 @@ MODULE mo_nonhydro_state
           &           GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, &
           &           cf_desc, grib2_desc, ldims=shape3d_chalf, info=info )
         info%tlev_source = 1   ! for output take field from nnow_rcf slice
+        info => NULL()
       ENDIF
 
     ENDIF ! allocation only if not extra_timelev
@@ -2648,6 +2655,17 @@ MODULE mo_nonhydro_state
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_metrics_list, 'exner_ref_mc', p_metrics%exner_ref_mc,     &
                   & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
+                  & ldims=shape3d_c )
+
+
+      ! Reference atmosphere field density
+      ! rho_ref_mc  p_metrics%rho_ref_mc(nproma,nlev,nblks_c)
+      !
+      cf_desc    = t_cf_var('Reference_atmosphere_field_density', '-',            &
+      &                     'Reference atmosphere field density')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_metrics_list, 'rho_ref_mc', p_metrics%rho_ref_mc,         &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
                   & ldims=shape3d_c )
 
 

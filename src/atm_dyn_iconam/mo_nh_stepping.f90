@@ -83,9 +83,10 @@ MODULE mo_nh_stepping
                                     edges2verts_scalar
   USE mo_grf_interpolation,   ONLY: t_gridref_state
   USE mo_grf_bdyintp,         ONLY: interpol_scal_grf
-  USE mo_nh_nest_utilities,   ONLY: compute_tendencies, boundary_interpolation, &
-                                    complete_nesting_setup, prep_bdy_nudging,   &
-                                    outer_boundary_nudging, nest_boundary_nudging
+  USE mo_nh_nest_utilities,   ONLY: compute_tendencies, boundary_interpolation,    &
+                                    complete_nesting_setup, prep_bdy_nudging,      &
+                                    outer_boundary_nudging, nest_boundary_nudging, &
+                                    prep_rho_bdy_nudging, density_boundary_nudging
   USE mo_nh_feedback,         ONLY: feedback
   USE mo_datetime,            ONLY: t_datetime, print_datetime, add_time
   USE mo_timer,               ONLY: timer_total, timer_start, timer_stop
@@ -1342,9 +1343,14 @@ MODULE mo_nh_stepping
         ENDIF
 
         ! Apply boundary nudging in case of one-way nesting
-        IF (jg > 1 .AND. lstep_adv(jg) .AND. .NOT. lfeedback(jg)) THEN
-          CALL nest_boundary_nudging(p_patch(jg), p_nh_state(jg), p_int_state(jg), &
-            &                        nnew(jg),nnew_rcf(jg),REAL(iadv_rcf,wp))
+        IF (jg > 1 .AND. lstep_adv(jg)) THEN
+          IF (lfeedback(jg)) THEN
+            CALL density_boundary_nudging(p_patch(jg), p_nh_state(jg), p_int_state(jg), &
+              &                        nnew(jg),REAL(iadv_rcf,wp))
+          ELSE
+            CALL nest_boundary_nudging(p_patch(jg), p_nh_state(jg), p_int_state(jg), &
+              &                        nnew(jg),nnew_rcf(jg),REAL(iadv_rcf,wp))
+          ENDIF
         ENDIF
 
         IF (  iforcing==inwp .AND. lstep_adv(jg) ) THEN
@@ -1467,7 +1473,9 @@ MODULE mo_nh_stepping
           ! If feedback is turned off for child domain, compute parent-child
           ! differences for boundary nudging
           ! *** prep_bdy_nudging adapted for reduced calling frequency of tracers ***
-          IF (.NOT. lfeedback(jgc)) THEN
+          IF (lfeedback(jgc)) THEN
+            CALL prep_rho_bdy_nudging( p_patch,p_nh_state,p_int_state,p_grf_state,jg,jgc)
+          ELSE
             CALL prep_bdy_nudging( p_patch,p_nh_state,p_int_state,p_grf_state, &
               &                   jg,jgc,lstep_adv(jg) )
           ENDIF

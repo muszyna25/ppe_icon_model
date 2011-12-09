@@ -118,8 +118,7 @@ MODULE mo_vertical_grid
     INTEGER :: ica(max_dom)
 
     REAL(wp) :: z_diff, z1, z2, z3, z_help(nproma),            &
-      &         z_temp(nproma), z_rho(nproma,p_patch(1)%nlev), &
-      &         z_aux1(nproma), z_aux2(nproma)
+      &         z_temp(nproma), z_aux1(nproma), z_aux2(nproma)
     REAL(wp) :: z_maxslope, z_maxhdiff, z_offctr
     REAL(wp), ALLOCATABLE :: z_ifv(:,:,:), z_mfv(:,:,:)
     REAL(wp), ALLOCATABLE :: z_me(:,:,:),z_maxslp(:,:,:),z_maxhgtd(:,:,:),z_shift(:,:,:)
@@ -864,7 +863,7 @@ MODULE mo_vertical_grid
 
       ! Reference atmosphere fields for triangular code
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, jk, z_help, z_temp, z_aux1, z_aux2, z_rho)
+!$OMP DO PRIVATE(jb, nlen, jk, z_help, z_temp, z_aux1, z_aux2)
         DO jb = 1,nblks_c
           IF (jb /= nblks_c) THEN
              nlen = nproma
@@ -886,7 +885,7 @@ MODULE mo_vertical_grid
               & EXP(-p_nh(jg)%metrics%z_mc(1:nlen,jk,jb)/h_scal_bg)
 
             ! Reference density, full level mass points
-            z_rho(1:nlen,jk) = z_aux1(1:nlen)/(rd*z_temp(1:nlen))
+            p_nh(jg)%metrics%rho_ref_mc(1:nlen,jk,jb) = z_aux1(1:nlen)/(rd*z_temp(1:nlen))
 
             ! Reference Potential temperature, full level mass points
             p_nh(jg)%metrics%theta_ref_mc(1:nlen,jk,jb) = z_temp(1:nlen) &

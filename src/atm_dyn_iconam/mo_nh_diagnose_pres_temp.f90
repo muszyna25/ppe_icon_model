@@ -286,12 +286,6 @@ MODULE mo_nh_diagnose_pres_temp
   &                                    - pt_diag%pres_ifc(jc,jk  ,jb)
           ENDDO
         ENDDO
-
-        IF ( MINVAL( pt_diag%dpres_mc(i_startidx:i_endidx,:,jb)) < 0._wp ) THEN
-          WRITE(message_text,'(a,(f20.10))') 'negative pressure thickness!!  = ',&
-               & MINVAL(pt_diag%dpres_mc(i_startidx:i_endidx,:,jb) )
-          CALL message(TRIM(routine), TRIM(message_text))
-        ENDIF
         
       ENDIF ! calc_pres
 

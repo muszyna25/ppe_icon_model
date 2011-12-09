@@ -73,7 +73,8 @@ PRIVATE
 CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
 PUBLIC :: compute_tendencies, boundary_interpolation, complete_nesting_setup, &
-          prep_bdy_nudging, outer_boundary_nudging, nest_boundary_nudging
+          prep_bdy_nudging, outer_boundary_nudging, nest_boundary_nudging,    &
+          prep_rho_bdy_nudging, density_boundary_nudging
 
 CONTAINS
 
@@ -273,6 +274,14 @@ DO jb = i_startblk, i_endblk
       p_nh_state%diag%grf_tend_thv(jc,jk,jb) = &
       ( p_prog_new%theta_v(jc,jk,jb) - p_prog_now%theta_v(jc,jk,jb) )*rdt
 
+      ! the div field carries perturbation density for use in SR boundary_interpolation
+      p_nh_state%diag%div(jc,jk,jb) = &
+        p_prog_now%rho(jc,jk,jb) - p_nh_state%metrics%rho_ref_mc(jc,jk,jb)
+
+      ! the dpres_mc field carries perturbation potential temperature for use in SR boundary_interpolation
+      p_nh_state%diag%dpres_mc(jc,jk,jb) = &
+        p_prog_now%theta_v(jc,jk,jb) - p_nh_state%metrics%theta_ref_mc(jc,jk,jb)
+
       p_nh_state%diag%grf_tend_w(jc,jk,jb) = &
       ( p_prog_new%w(jc,jk,jb) - p_prog_now%w(jc,jk,jb) )*rdt
     ENDDO
@@ -407,7 +416,9 @@ INTEGER :: nlev_c, nlevp1_c        ! number of full and half levels (child domai
 INTEGER :: i_chidx, i_nchdom, i_sbc, i_ebc
 
 REAL(wp) :: aux3dp(nproma,ntracer+3,p_patch(jg)%nblks_c), &
-            aux3dc(nproma,ntracer+3,p_patch(jgc)%nblks_c)
+            aux3dc(nproma,ntracer+3,p_patch(jgc)%nblks_c), &
+            theta_prc(nproma,p_patch(jgc)%nlev,p_patch(jgc)%nblks_c), &
+            rho_prc(nproma,p_patch(jgc)%nlev,p_patch(jgc)%nblks_c)
 
 ! Pointers to index fields
 INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
@@ -447,6 +458,7 @@ iidx          => p_gcp%child_idx
 iblk          => p_gcp%child_blk
 
 i_chidx = p_patch(jgc)%parent_child_index
+i_nchdom   = MAX(1,p_pc%n_childdom)
 
 ! number of vertical levels (child domain)
 nlev_c   = p_pc%nlev
@@ -549,16 +561,39 @@ ELSE IF (grf_intmethod_c == 2) THEN
 
 !$  IF (num_threads_omp <= 7) lpar_fields=.TRUE.
 
+  ! Interpolation of temporal tendencies
   CALL interpol_scal_grf (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), i_chidx, 3, &
                           p_diagp%grf_tend_rho, p_diagc%grf_tend_rho,          &
                           p_diagp%grf_tend_thv, p_diagc%grf_tend_thv,          &
                           p_diagp%grf_tend_w,   p_diagc%grf_tend_w,            &
                           lpar_fields=lpar_fields )
 
-  CALL interpol_scal_grf (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), i_chidx, 3,          &
-                          p_nhp_dyn%w, p_nhc_dyn%w, p_nhp_dyn%rho, p_nhc_dyn%rho,       &
-                          p_nhp_dyn%theta_v, p_nhc_dyn%theta_v, lpar_fields=lpar_fields )
+  ! Interpolation of full w and perturbation density (stored in div) and perturbation 
+  ! virtual potential temperature (stored in dpres_mc)
+  CALL interpol_scal_grf (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), i_chidx, 3,             &
+                          p_nhp_dyn%w, p_nhc_dyn%w, p_nh_state(jg)%diag%div, rho_prc,      &
+                          p_nh_state(jg)%diag%dpres_mc, theta_prc, lpar_fields=lpar_fields )
 
+  ! Start and end blocks for which interpolation is needed
+  i_startblk = p_pc%cells%start_blk(1,1)
+  i_endblk   = p_pc%cells%start_blk(grf_bdywidth_c,i_nchdom)
+
+  ! This loop is not OpenMP parallelized because the overhead for opening a
+  ! parallel section is too large
+  DO jb =  i_startblk, i_endblk
+
+    CALL get_indices_c(p_pc, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
+                       1, grf_bdywidth_c)
+
+    DO jk = 1, nlev_c
+      DO jc = i_startidx, i_endidx
+        p_nhc_dyn%rho(jc,jk,jb) = rho_prc(jc,jk,jb) + &
+          p_nh_state(jgc)%metrics%rho_ref_mc(jc,jk,jb)
+        p_nhc_dyn%theta_v(jc,jk,jb) = theta_prc(jc,jk,jb) + &
+          p_nh_state(jgc)%metrics%theta_ref_mc(jc,jk,jb)
+      ENDDO
+    ENDDO
+  ENDDO
 ENDIF
 
 
@@ -1144,6 +1179,230 @@ IF(ltransport .AND. lstep_adv) DEALLOCATE(parent_tr, diff_tr)
 
 END SUBROUTINE prep_bdy_nudging
 
+
+!>
+!! This routine prepares boundary nudging for density only (for use with 2-way nesting)
+!!
+!! The following steps are executed:
+!! 1. Mapping of coarse-grid density to intermediate grid sharing
+!!    the domain decomposition and vertical dimension with the child grid
+!! 2. Computation of differences between parent-grid values and averaged child-grid
+!!    values
+!! 3. Interpolation of difference fields to the child grid
+!!
+!! @par Revision History
+!! Developed  by Guenther Zaengl, DWD, 2011-12-08
+SUBROUTINE prep_rho_bdy_nudging(p_patch, p_nh_state, p_int_state, p_grf_state, jgp, jg)
+
+CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_nh_nest_utilities:prep_rho_bdy_nudging'
+
+TYPE(t_patch),       TARGET, INTENT(IN)    ::  p_patch(n_dom_start:n_dom)
+TYPE(t_nh_state), TARGET, INTENT(INOUT)    ::  p_nh_state(n_dom)
+TYPE(t_int_state),   TARGET, INTENT(IN)    ::  p_int_state(n_dom_start:n_dom)
+TYPE(t_gridref_state), TARGET, INTENT(IN)  ::  p_grf_state(n_dom_start:n_dom)
+
+INTEGER, INTENT(IN) :: jg   ! child grid level
+INTEGER, INTENT(IN) :: jgp  ! parent grid level
+
+
+! local variables
+
+TYPE(t_nh_prog),    POINTER     :: p_parent_prog => NULL()
+TYPE(t_nh_prog),    POINTER     :: p_child_prog  => NULL()
+TYPE(t_nh_diag),    POINTER     :: p_diag        => NULL()
+TYPE(t_grid_cells), POINTER     :: p_gcp => NULL()
+TYPE(t_gridref_state), POINTER  :: p_grf => NULL()
+TYPE(t_gridref_state), POINTER  :: p_grfc => NULL()
+TYPE(t_int_state), POINTER      :: p_int => NULL()
+TYPE(t_patch),      POINTER     :: p_pp => NULL()
+TYPE(t_patch),      POINTER     :: p_pc => NULL()
+
+! Indices
+INTEGER :: jb, jc, jk, jks, i_nchdom, i_chidx, i_startblk, i_endblk, &
+           i_startidx, i_endidx, istartblk_c
+INTEGER :: nlev_c, nlev_p
+INTEGER :: nshift      !< difference between upper boundary of parent or feedback-parent 
+                       !< domain and upper boundary of child domain (in terms 
+                       !< of vertical levels) 
+
+! Local arrays for interpolated parent-grid values, and difference fields. These have
+! to be allocatable because their dimensions differ between MPI and non-MPI runs
+REAL(wp), ALLOCATABLE, DIMENSION(:,:,:)   :: parent_rho, diff_rho
+
+INTEGER, DIMENSION(:,:,:), POINTER :: iidx, iblk
+LOGICAL :: l_parallel
+REAL(wp), DIMENSION(:,:,:), POINTER :: p_fbkwgt
+!-----------------------------------------------------------------------
+
+
+IF (my_process_is_mpi_seq()) THEN
+  l_parallel = .FALSE.
+ELSE
+  l_parallel = .TRUE.
+ENDIF
+
+p_parent_prog     => p_nh_state(jgp)%prog(nsav1(jgp))
+p_child_prog      => p_nh_state(jg)%prog(nnow(jg))
+p_diag            => p_nh_state(jg)%diag
+p_grfc            => p_grf_state(jg)
+p_pc              => p_patch(jg)
+
+IF (l_parallel) THEN
+  p_grf => p_grf_state_local_parent(jg)
+  p_int => p_int_state_local_parent(jg)
+  p_gcp => p_patch_local_parent(jg)%cells
+  p_pp  => p_patch_local_parent(jg)
+ELSE
+  p_grf => p_grf_state(jgp)
+  p_int => p_int_state(jgp)
+  p_gcp => p_patch(jgp)%cells
+  p_pp  => p_patch(jgp)
+ENDIF
+
+
+i_nchdom = MAX(1,p_pc%n_childdom)
+i_chidx  = p_pc%parent_child_index
+
+! number of full levels of child domain
+nlev_c   = p_pc%nlev
+
+! number of full/half levels of parent domain
+nlev_p   = p_pp%nlev
+
+! shift between upper model boundaries
+nshift = p_pc%nshift
+
+! Allocation of storage fields that differ between MPI and non-MPI runs
+IF (l_parallel) THEN
+
+  ! Please note: In the parallel case
+  ! - lower bound must be 1 due to synchronization calls
+  ! - upper bound must be nblks_c/e to include halo cells/edges
+  ! - this doesn't cost extra memory since p_patch_local_parent
+  !   only includes the cells/edges really needed
+
+  ! Value of i_startblk needed for subroutine call for parent-to-child interpolation
+  istartblk_c = 1
+
+  ALLOCATE(parent_rho  (nproma, nlev_p, p_patch_local_parent(jg)%nblks_c), &
+           diff_rho    (nproma, nlev_c, p_patch_local_parent(jg)%nblks_c)  )
+
+ELSE
+
+  i_startblk = p_gcp%start_blk(grf_nudgintp_start_c+1,i_chidx)
+  i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
+
+  ! Save value of i_startblk for subroutine call for parent-to-child interpolation
+  istartblk_c = i_startblk
+
+  ALLOCATE(parent_rho  (nproma, nlev_p, i_startblk:i_endblk),  &
+           diff_rho    (nproma, nlev_c, i_startblk:i_endblk)   )
+
+ENDIF
+
+! Set pointers to index and coefficient fields for cell-based variables
+iidx  => p_gcp%child_idx
+iblk  => p_gcp%child_blk
+
+p_fbkwgt    => p_grf%fbk_wgt_c
+
+! 1st step: Copy prognostic variables from parent grid to fields on feedback-parent grid
+! (trivial without MPI parallelization, but communication call needed for MPI)
+
+IF (l_parallel) THEN
+
+  CALL exchange_data(p_pp%comm_pat_glb_to_loc_c,        &
+                RECV=parent_rho, SEND=p_parent_prog%rho )  
+
+ELSE
+!$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
+
+  i_startblk = p_gcp%start_blk(grf_nudgintp_start_c+1,i_chidx)
+  i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
+
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
+  DO jb = i_startblk, i_endblk
+
+    CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
+                       grf_nudgintp_start_c+1, min_rlcell_int, i_chidx)
+
+    DO jk = 1, nlev_p
+      DO jc = i_startidx, i_endidx
+        parent_rho(jc,jk,jb) = p_parent_prog%rho(jc,jk,jb)
+      ENDDO
+    ENDDO
+
+  ENDDO
+!$OMP END DO
+
+!$OMP END PARALLEL
+ENDIF
+
+! 2nd step: perform feedback from refined grid to intermediate grid and compute differences
+
+!$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
+
+! Start/End block in the parent domain
+i_startblk = p_gcp%start_blk(grf_nudgintp_start_c+1,i_chidx)
+i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
+
+
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jks)
+DO jb = i_startblk, i_endblk
+
+  CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
+                     grf_nudgintp_start_c+1, min_rlcell_int, i_chidx)
+
+#ifdef __LOOP_EXCHANGE
+  DO jc = i_startidx, i_endidx
+    DO jk = 1, nlev_c
+      jks = jk + nshift
+#else
+!CDIR UNROLL=8
+  DO jk = 1, nlev_c
+    jks = jk + nshift
+    DO jc = i_startidx, i_endidx
+#endif
+
+      diff_rho(jc,jk,jb) = parent_rho(jc,jks,jb) - (                         &
+        p_child_prog%rho(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
+        p_child_prog%rho(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
+        p_child_prog%rho(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
+        p_child_prog%rho(iidx(jc,jb,4),jk,iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)   )
+
+    ENDDO
+  ENDDO
+
+ENDDO
+!$OMP END DO
+
+!$OMP END PARALLEL
+
+
+! Interpolate differences to child grid; the differences are stored in the grf_tend fields
+
+! interpol_scal_nudging needs all fields with full boundaries, so the arrays
+! have to be sync'd before calling these routines.
+! Please note that we cannot use sync_patch_array here (comparing parallel/non parallel results)
+! since the arrays don't start with lower bound 1 in the non parallel case!
+
+! Synchronization is needed after the interpolation step for cell-based variables because for
+! those, the nudging tendencies are applied outside the dynamical core for reasons of mass consistency
+
+ IF(l_parallel) CALL exchange_data(p_pp%comm_pat_c, diff_rho)
+ CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx, 0, 1, istartblk_c, &
+   &                         f3din1=diff_rho, f3dout1=p_diag%grf_tend_rho                   )
+ CALL sync_patch_array(SYNC_C,p_pc,p_diag%grf_tend_rho)
+
+
+DEALLOCATE(parent_rho, diff_rho)
+
+
+END SUBROUTINE prep_rho_bdy_nudging
+
+
+
 !>
 !! This routine executes boundary nudging for limited-area simulations.
 !!
@@ -1389,6 +1648,74 @@ SUBROUTINE nest_boundary_nudging(p_patch, p_nh, p_int, nnew, nnew_rcf, rcffac)
 
 
 END SUBROUTINE nest_boundary_nudging
+
+!>
+!! This routine executes boundary nudging for density (for use with 2-way nesting)
+!!
+!!
+!! @par Revision History
+!! Developed  by Guenther Zaengl, DWD, 2011-12-08
+SUBROUTINE density_boundary_nudging(p_patch, p_nh, p_int, nnew, rcffac)
+
+
+  TYPE(t_patch),     TARGET, INTENT(IN)    ::  p_patch
+  TYPE(t_nh_state),  TARGET, INTENT(INOUT) ::  p_nh
+  TYPE(t_int_state), TARGET, INTENT(IN)    ::  p_int
+
+
+  INTEGER, INTENT(IN)  :: nnew
+
+  REAL(wp), INTENT(IN) :: rcffac ! Ratio between advective and dynamical time step
+
+  ! Indices
+  INTEGER :: jb, jc, jk, ic
+
+  INTEGER :: nlev  ! number of vertical full levels
+
+  REAL(wp) :: rd_o_cvd, rd_o_p0ref
+
+  ! R/c_v (not present in physical constants)
+  rd_o_cvd = 1._wp / cvd_o_rd
+
+  ! R / p0ref
+  rd_o_p0ref = rd / p0ref
+
+  ! number of vertical levels
+  nlev = p_patch%nlev
+
+!$OMP PARALLEL
+
+!$OMP DO PRIVATE(jk,jc,jb,ic)
+#ifdef __LOOP_EXCHANGE
+  DO ic = 1, p_nh%metrics%nudge_c_dim
+    jc = p_nh%metrics%nudge_c_idx(ic)
+    jb = p_nh%metrics%nudge_c_blk(ic)
+    DO jk = 1, nlev
+#else
+  DO jk = 1, nlev
+!CDIR NODEP,VOVERTAKE,VOB
+    DO ic = 1, p_nh%metrics%nudge_c_dim
+      jc = p_nh%metrics%nudge_c_idx(ic)
+      jb = p_nh%metrics%nudge_c_blk(ic)
+#endif
+      p_nh%prog(nnew)%rho(jc,jk,jb) = p_nh%prog(nnew)%rho(jc,jk,jb) +  &
+        MIN(0.333_wp,3._wp*rcffac*p_int%nudgecoeff_c(jc,jb))*          &
+        p_nh%diag%grf_tend_rho(jc,jk,jb)
+
+      p_nh%prog(nnew)%rhotheta_v(jc,jk,jb) =                          &
+        p_nh%prog(nnew)%rho(jc,jk,jb)*p_nh%prog(nnew)%theta_v(jc,jk,jb)
+
+      p_nh%prog(nnew)%exner(jc,jk,jb) =                                  &
+        EXP(rd_o_cvd*LOG(rd_o_p0ref*p_nh%prog(nnew)%rhotheta_v(jc,jk,jb)))
+
+    ENDDO
+  ENDDO
+!$OMP END DO
+
+!$OMP END PARALLEL
+
+
+END SUBROUTINE density_boundary_nudging
 
 
 END MODULE mo_nh_nest_utilities
