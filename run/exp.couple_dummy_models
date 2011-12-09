@@ -78,57 +78,61 @@ cat > $namelist_filename << EOF
 !
 &coupling_nml
   name                = 'TEST1'
-  time_step           =  ${dtime}
-  frequency           =  ${dtime}
+  dt_model            =  ${dtime}
+  dt_coupling         =  ${dtime}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
+  l_activated         = .TRUE.
 /
 &coupling_nml
   name                = 'TEST2'
-  time_step           =  ${dtime}
-  frequency           =  ${dtime}
+  dt_model            =  ${dtime}
+  dt_coupling         =  ${dtime}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
+  l_activated         = .TRUE.
 /
 &coupling_nml
   name                = 'TEST3'
-  time_step           =  ${dtime}
-  frequency           =  ${dtime}
+  dt_model            =  ${dtime}
+  dt_coupling         =  ${dtime}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
+  l_activated         = .TRUE.
 /
 &coupling_nml
   name                = 'TEST4'
-  time_step           =  ${dtime}
-  frequency           =  ${dtime}
+  dt_model            =  ${dtime}
+  dt_coupling         =  ${dtime}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
+  l_activated         = .TRUE.
 /
 &coupling_nml
   name                = 'TEST5'
-  time_step           =  ${dtime}
-  frequency           =  ${dtime}
+  dt_model            =  ${dtime}
+  dt_coupling         =  ${dtime}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
 /
 &coupling_nml
   name                = 'TEST6'
-  time_step           =  ${dtime}
-  frequency           =  ${dtime}
+  dt_model            =  ${dtime}
+  dt_coupling         =  ${dtime}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
 /
 &coupling_nml
   name                = 'TEST7'
-  time_step           =  ${dtime}
-  frequency           =  ${dtime}
+  dt_model            =  ${dtime}
+  dt_coupling         =  ${dtime}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
 /
 &coupling_nml
   name                = 'TEST8'
-  time_step           =  ${dtime}
-  frequency           =  ${dtime}
+  dt_model            =  ${dtime}
+  dt_coupling         =  ${dtime}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
 /
