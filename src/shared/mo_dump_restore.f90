@@ -1133,10 +1133,6 @@ CONTAINS
       pat%np_send = pat_data(3)
       n = 3
 
-      ! Safety check
-      IF(3 + 2*(p_n_work+1) + 2*pat%n_pnts + 3*pat%np_send + 3*pat%np_recv + pat%n_send > length) &
-        & CALL finish(modname,'Illegal length for '//TRIM(prefix)//TRIM(base_name))
-
       ALLOCATE(pat%recv_limits(0:p_n_work))
       ALLOCATE(pat%send_limits(0:p_n_work))
       pat%recv_limits(0:p_n_work) = pat_data(n+1:n+p_n_work+1); n = n + p_n_work+1
@@ -1144,6 +1140,10 @@ CONTAINS
 
       pat%n_recv = pat%recv_limits(p_n_work)
       pat%n_send = pat%send_limits(p_n_work)
+
+      ! Safety check
+      IF(3 + 2*(p_n_work+1) + 2*pat%n_pnts + 3*pat%np_send + 3*pat%np_recv + pat%n_send > length) &
+        & CALL finish(modname,'Illegal length for '//TRIM(prefix)//TRIM(base_name))
 
       ALLOCATE(pat%recv_src(pat%n_pnts))
       ALLOCATE(pat%recv_dst_blk(pat%n_pnts))
