@@ -148,7 +148,7 @@ CONTAINS
       model_name=''
       model_namelist_filename=''
       model_restart_info_filename=''
-      model_type=0
+      model_type=-1
       model_min_rank=0
       model_max_rank=-1 
       model_inc_rank=1
