@@ -181,7 +181,7 @@ MODULE mo_meteogram_output
   PUBLIC ::  meteogram_finalize  
   PUBLIC ::  meteogram_flush_file
 
-  INTEGER, PARAMETER :: MAX_TIME_STAMPS      =  100  !< max. number of time stamps
+  INTEGER, PARAMETER :: MAX_TIME_STAMPS      =10000  !< max. number of time stamps
   INTEGER, PARAMETER :: MAX_NVARS            =   30  !< max. number of sampled 3d vars
   INTEGER, PARAMETER :: MAX_NSFCVARS         =   50  !< max. number of sampled surface vars
   INTEGER, PARAMETER :: MAX_DESCR_LENGTH     =  128  !< length of info strings (see cf_convention)
