@@ -1152,3 +1152,5 @@ end
 # Open Points:
 # * verification to hydrostatic model
 # * orography on edges
+#
+# vim:foldmethod=syntax
