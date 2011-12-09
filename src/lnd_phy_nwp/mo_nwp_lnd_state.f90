@@ -446,6 +446,7 @@ MODULE mo_nwp_lnd_state
          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,         &
          & ldims=shape2d, info=info )
     info%tlev_source = 1   ! for output take field from nnow_rcf slice
+    info => NULL()
 
     IF ( atm_phy_nwp_config(p_jg)%inwp_surface > 0 ) THEN
 
@@ -469,6 +470,7 @@ MODULE mo_nwp_lnd_state
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
                & ldims=shape2d, info=info )
         info%tlev_source = 1   ! for output take field from nnow_rcf slice
+        info => NULL()
       ENDDO
 
 
@@ -492,6 +494,7 @@ MODULE mo_nwp_lnd_state
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
                & ldims=shape2d, info=info )
         info%tlev_source = 1   ! for output take field from nnow_rcf slice
+        info => NULL()
       ENDDO
 
 
@@ -540,6 +543,7 @@ MODULE mo_nwp_lnd_state
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
                & ldims=shape2d, info=info )
         info%tlev_source = 1   ! for output take field from nnow_rcf slice
+        info => NULL()
       ENDDO
 
 
@@ -563,6 +567,7 @@ MODULE mo_nwp_lnd_state
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
                & ldims=shape2d, info=info )
         info%tlev_source = 1   ! for output take field from nnow_rcf slice
+        info => NULL()
       ENDDO
 
 
@@ -587,6 +592,7 @@ MODULE mo_nwp_lnd_state
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
                & ldims=shape2d, info=info )
         info%tlev_source = 1   ! for output take field from nnow_rcf slice
+        info => NULL()
       END DO
 
 
@@ -637,6 +643,7 @@ MODULE mo_nwp_lnd_state
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
                & ldims=shape2d, info=info )
         info%tlev_source = 1   ! for output take field from nnow_rcf slice
+        info => NULL()
       ENDDO
 
 
@@ -662,6 +669,7 @@ MODULE mo_nwp_lnd_state
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
                & ldims=(/nproma,nlev_soil+2,kblks/), info=info )
         info%tlev_source = 1   ! for output take field from nnow_rcf slice
+        info => NULL()
       ENDDO
 
 
@@ -686,6 +694,7 @@ MODULE mo_nwp_lnd_state
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
                & ldims=(/nproma,nlev_soil+1,kblks/), info=info )
         info%tlev_source = 1   ! for output take field from nnow_rcf slice
+        info => NULL()
       ENDDO
 
 
@@ -710,6 +719,7 @@ MODULE mo_nwp_lnd_state
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
                & ldims=(/nproma,nlev_soil+1,kblks/), info=info )
         info%tlev_source = 1   ! for output take field from nnow_rcf slice
+        info => NULL()
       ENDDO
 
 
