@@ -1405,15 +1405,17 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
     cf_desc    = t_cf_var('ddt_temp_radsw', 'K s-1', &
          &                            'short wave radiative temperature tendency')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( phy_tend_list, 'ddt_temp_radsw', phy_tend%ddt_temp_radsw,           &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc, ldims=shape3d )
+    CALL add_var( phy_tend_list, 'ddt_temp_radsw', phy_tend%ddt_temp_radsw,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,     &
+                & ldims=shape3d )
 
    ! &      phy_tend%ddt_temp_radlw(nproma,nlev,nblks)
     cf_desc    = t_cf_var('temp_tend_radlw', 'K s-1', &
          &                            'long wave radiative temperature tendency')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( phy_tend_list, 'ddt_temp_radlw', phy_tend%ddt_temp_radlw,        &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc, ldims=shape3d  )
+    CALL add_var( phy_tend_list, 'ddt_temp_radlw', phy_tend%ddt_temp_radlw,      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,     &
+                & ldims=shape3d )
 
    ! &      phy_tend%ddt_temp_turb(nproma,nlev,nblks)
     cf_desc    = t_cf_var('temp_tend_turb', 'K s-1', &

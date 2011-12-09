@@ -968,6 +968,7 @@ MODULE mo_nonhydro_state
     INTEGER :: jt
 
     CHARACTER(LEN=2) :: ctrc
+    CHARACTER(len=4) suffix
     !--------------------------------------------------------------
 
     !determine size of arrays
@@ -1250,7 +1251,7 @@ MODULE mo_nonhydro_state
 
 
       ! ddt_vn_adv   p_diag%ddt_vn_adv(nproma,nlev,nblks_e,n_timlevs)
-      ! *** needs to be saved for restart ***
+      ! *** needs to be saved for restart (TL nnow)***
       cf_desc    = t_cf_var('advective_normal_wind_tendency', 'm s-2',          &
         &                   'advective normal wind tendency')
       grib2_desc = t_grib2_var( 0, 2, 201, ientr, GRID_REFERENCE, GRID_EDGE)
@@ -1261,18 +1262,18 @@ MODULE mo_nonhydro_state
 
       ALLOCATE(p_diag%ddt_vn_adv_ptr(n_timlevs))
       DO jt =1,n_timlevs
-        WRITE(ctrc,'(I2.2)')jt
+        WRITE(suffix,'(".TL",i1)') jt
         CALL add_ref( p_diag_list, 'ddt_vn_adv',                                   &
-                    & 'ddt_vn_adv'//ctrc, p_diag%ddt_vn_adv_ptr(jt)%p_3d,          &
+                    & 'ddt_vn_adv'//suffix, p_diag%ddt_vn_adv_ptr(jt)%p_3d,        &
                     & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT,                        &
-                    & t_cf_var('ddt_adv_vn'//ctrc, 'm s-2',''),                    &
+                    & t_cf_var('ddt_adv_vn'//suffix, 'm s-2',''),                  &
                     & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),&
                     & ldims=shape3d_e )
       ENDDO
 
 
       ! ddt_w_adv    p_diag%ddt_w_adv(nproma,nlevp1,nblks_c,n_timlevs)
-      ! *** needs to be saved for restart ***
+      ! *** needs to be saved for restart (TL nnow) ***
       cf_desc    = t_cf_var('advective_vertical_wind_tendency', 'm s-2',        &
         &                   'advective vertical wind tendency')
       grib2_desc = t_grib2_var( 0, 2, 202, ientr, GRID_REFERENCE, GRID_CELL)
@@ -1283,11 +1284,11 @@ MODULE mo_nonhydro_state
 
       ALLOCATE(p_diag%ddt_w_adv_ptr(n_timlevs))
       DO jt =1,n_timlevs
-        WRITE(ctrc,'(I2.2)')jt
+        WRITE(suffix,'(".TL",i1)') jt
         CALL add_ref( p_diag_list, 'ddt_w_adv',                                     &
-                    & 'ddt_w_adv'//ctrc, p_diag%ddt_w_adv_ptr(jt)%p_3d,             &
+                    & 'ddt_w_adv'//suffix, p_diag%ddt_w_adv_ptr(jt)%p_3d,           &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                         &
-                    & t_cf_var('ddt_adv_w'//ctrc, 'm s-2',''),                      &
+                    & t_cf_var('ddt_adv_w'//suffix, 'm s-2',''),                    &
                     & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
                     & ldims=shape3d_chalf )
       ENDDO
