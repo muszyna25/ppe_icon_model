@@ -1227,7 +1227,7 @@ end
 undef("getHorizGridType")
 function getHorizGridType(filename,varname)
 begin
-  gridtype = systemfunc("cdo -griddes -selname,"+varname+" "+filename+" | grep gridtype | cut -d ' ' -f 4")
+  gridtype = systemfunc("cdo -griddes -selname,"+varname+" -seltimestep,1 "+filename+" | grep gridtype | cut -d ' ' -f 4")
   print("Found horizontal grid of type: "+gridtype)
   return gridtype
 end
