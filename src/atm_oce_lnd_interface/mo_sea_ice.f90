@@ -58,7 +58,7 @@ USE mo_physical_constants,  ONLY: rhoi, rhos, rhow,ki,ks,tf,albi,albim,albsm,alb
  &                                mus,ci, Lfreez, I_0, Lsub, Lvap, albedoW, clw,Sice,&
  &                                cpa, emiss,fr_fac,rgas, stefbol,tmelt   
 USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
-USE mo_ocean_nml,           ONLY: no_tracer, init_oce_prog
+USE mo_ocean_nml,           ONLY: no_tracer, init_oce_prog, iforc_oce, FORCING_FROM_FILE_FLUX
 USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base
 USE mo_oce_index,           ONLY: print_mxmn, ipl_src
 IMPLICIT NONE
@@ -1811,12 +1811,12 @@ SUBROUTINE upper_ocean_TS(ppatch, p_os,ice, QatmAve, p_sfc_flx)
    precw         ! liquid precipitation                                   [m]
 
   ! Needs work with FB_BGC_OCE etc.
-   REAL(wp)         :: swsum 
+!   REAL(wp)         :: swsum 
    !REAL(wp),POINTER :: sao_top(:,:)
 !  !-------------------------------------------------------------------------------
 
 ! #eoo# What is swsum?
-  swsum = 0.0_wp
+!  swsum = 0.0_wp
   !sao_top =>p_os%p_prog(nold(1))%tracer(:,1,:,2)
 
   ! Calculate change in water level 'zo' from liquid and solid precipitation and
@@ -1847,9 +1847,17 @@ SUBROUTINE upper_ocean_TS(ppatch, p_os,ice, QatmAve, p_sfc_flx)
   ! areas
   heatOceI        (:,:)   = sum(ice% heatOceI(:,:,:) * ice% conc(:,:,:),2)
 !  heatOceW        (:,:)   = (QatmAve%SWin(:,:) * (1.0_wp-albedoW) * (1.0_wp-swsum) +    &
-  heatOceW        (:,:)   = (QatmAve%SWin(:,:) + &
-                            QatmAve%LWnetw(:,:) + QatmAve%sensw(:,:)+         &
-                            QatmAve%latw(:,:))  *  (1.0_wp-sum(ice%conc,2))
+  ! A temporary hack: For iforc_oce == 12 (FORCING_FROM_FILE_FLUX) we have OMIP
+  ! data (or similar) and need to apply oceanic albedo to the short-wave flux.
+  ! For other cases we assume that the albedo has already been applied.
+  !!! We need a unified albedo calculation !!!
+  if ( iforc_oce == FORCING_FROM_FILE_FLUX ) then
+    heatOceW  (:,:) = QatmAve%SWin(:,:) * (1.0_wp-albedoW)
+  else
+    heatOceW  (:,:) = QatmAve%SWin(:,:)
+  endif
+  heatOceW    (:,:) = ( heatOceW(:,:) + QatmAve%LWnetw(:,:) + QatmAve%sensw(:,:)+ &
+                      QatmAve%latw(:,:) ) *  (1.0_wp-sum(ice%conc,2))
 
   ! Change temperature of upper ocean grid cell according to heat fluxes
 !  p_os%p_prog(nold(1))%tracer(:,1,:,1) = p_os%p_prog(nold(1))%tracer(:,1,:,1)&
