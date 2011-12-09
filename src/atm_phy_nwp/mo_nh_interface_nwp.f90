@@ -243,7 +243,7 @@ CONTAINS
       
       CALL nh_update_prog_phy(pt_patch              ,& !in
            &                  tcall_phy_jg(itupdate),& !in
-           &                  pt_diag               ,& !in
+           &                  prm_nwp_tend          ,& !in
            &                  prm_diag              ,& !inout phyfields 
            &                  pt_prog_rcf            )!inout tracer
 
@@ -1139,19 +1139,6 @@ CONTAINS
    &                                    +  prm_nwp_tend%ddt_temp_drag (i_startidx:i_endidx,:,jb) &
    &                                    +  prm_nwp_tend%ddt_temp_pconv(i_startidx:i_endidx,:,jb)
 
-!   microphysics and turbulent increments are already updated
-
-        pt_diag%ddt_tracer_phy(i_startidx: i_endidx,kstart_moist(jg):,jb,iqv) =       &
-          & prm_nwp_tend%ddt_tracer_pconv(i_startidx:i_endidx,kstart_moist(jg):,jb,iqv)
-
-        pt_diag%ddt_tracer_phy(i_startidx: i_endidx,kstart_moist(jg):,jb,iqc) =       &
-          & prm_nwp_tend%ddt_tracer_pconv(i_startidx:i_endidx,kstart_moist(jg):,jb,iqc)
-
-        pt_diag%ddt_tracer_phy(i_startidx: i_endidx,kstart_moist(jg):,jb,iqi) =       &
-          & prm_nwp_tend%ddt_tracer_pconv(i_startidx:i_endidx,kstart_moist(jg):,jb,iqi)
-
-!        pt_diag%ddt_tracer_phy(i_startidx: i_endidx,kstart_moist(jg):,jb,iqs) =       &
-!          & prm_nwp_tend%ddt_tracer_pconv(i_startidx:i_endidx,kstart_moist(jg):,jb,iqs)
 
 !------------------------
 !>
@@ -1184,17 +1171,18 @@ CONTAINS
               &     + pt_prog_rcf%tracer (jc,jk,jb,iqr) &
               &     + pt_prog_rcf%tracer (jc,jk,jb,iqs)
             
-!            z_ddt_qsum               = SUM(pt_diag%ddt_tracer_phy(jc,jk,jb,iqc:iqs))
-            z_ddt_qsum =   pt_diag%ddt_tracer_phy(jc,jk,jb,iqc) &
-              &          + pt_diag%ddt_tracer_phy(jc,jk,jb,iqi) &
-              &          + pt_diag%ddt_tracer_phy(jc,jk,jb,iqr) &
-              &          + pt_diag%ddt_tracer_phy(jc,jk,jb,iqs)
+!            z_ddt_qsum = SUM(prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqc:iqs))
+
+            z_ddt_qsum =   prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqc) &
+              &          + prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqi) &
+              &          + prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqr) &
+              &          + prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqs)
 
             pt_diag%ddt_exner_phy(jc,jk,jb) = rd_o_cpd / pt_prog%theta_v(jc,jk,jb)           &
               &                             * (z_ddt_temp(jc,jk,jb)                          &
               &                             *(1._wp + vtmpc1*pt_prog_rcf%tracer(jc,jk,jb,iqv)&
-              &                                - z_qsum) + pt_diag%temp(jc,jk,jb)             &
-              &                 * (vtmpc1 * pt_diag%ddt_tracer_phy(jc,jk,jb,iqv)-z_ddt_qsum ))
+              &                                - z_qsum) + pt_diag%temp(jc,jk,jb)            &
+              &           * (vtmpc1 * prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqv)-z_ddt_qsum ))
 
           ENDDO
         ENDDO
@@ -1382,11 +1370,12 @@ CONTAINS
   !-------------------------------------------------------------------------
 
 
-  SUBROUTINE nh_update_prog_phy(pt_patch, pdtime, pt_diag, prm_diag, pt_prog_rcf)
+  SUBROUTINE nh_update_prog_phy( pt_patch, pdtime, prm_nwp_tend, &
+    &                            prm_diag, pt_prog_rcf )
 
     TYPE(t_patch),       INTENT(IN)   :: pt_patch     !!grid/patch info.
-    TYPE(t_nh_diag),     INTENT(INOUT):: pt_diag      !!the diagnostic variables
-    TYPE(t_nwp_phy_diag),INTENT(inout):: prm_diag     !!the physics variables
+    TYPE(t_nwp_phy_tend),TARGET, INTENT(IN):: prm_nwp_tend   !< atm tend vars
+    TYPE(t_nwp_phy_diag),INTENT(INOUT):: prm_diag     !!the physics variables
     TYPE(t_nh_prog),     INTENT(INOUT):: pt_prog_rcf  !!the tracer field at
                                                    !!reduced calling frequency
     REAL(wp),INTENT(in)            :: pdtime
@@ -1430,27 +1419,27 @@ CONTAINS
       DO jt=1,ntracer
         DO jk = kstart_moist(jg), nlev
           DO jc = i_startidx, i_endidx
+
             pt_prog_rcf%tracer(jc,jk,jb,jt) =MAX(0._wp, pt_prog_rcf%tracer(jc,jk,jb,jt)  &
- &                                         + pdtime*pt_diag%ddt_tracer_phy(jc,jk,jb,jt))
+              &                       + pdtime*prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,jt))
           ENDDO
         ENDDO
       ENDDO
 
       prm_diag%rain_con(i_startidx:i_endidx,jb) =                                        &
-  &                                          prm_diag%rain_con(i_startidx:i_endidx,jb)   &
-  &                                        + pdtime                                          &
-  &                                        * prm_diag%tracer_rate(i_startidx:i_endidx,jb,3)
+        &                                  prm_diag%rain_con(i_startidx:i_endidx,jb)   &
+        &                                  + pdtime                                          &
+        &                                  * prm_diag%tracer_rate(i_startidx:i_endidx,jb,3)
       prm_diag%snow_con(i_startidx:i_endidx,jb) =                                        &
-  &                                          prm_diag%snow_con(i_startidx:i_endidx,jb)   &
-  &                                        + pdtime                                          &
-  &                                        * prm_diag%tracer_rate(i_startidx:i_endidx,jb,4)
+        &                                  prm_diag%snow_con(i_startidx:i_endidx,jb)   &
+        &                                  + pdtime                                          &
+        &                                  * prm_diag%tracer_rate(i_startidx:i_endidx,jb,4)
 
       prm_diag%tot_prec(i_startidx:i_endidx,jb) =                                        &
-  &                                       prm_diag%tot_prec(i_startidx:i_endidx,jb)      &
-  &                                    +  pdtime                                             &
-  &                                    * (prm_diag%tracer_rate (i_startidx:i_endidx,jb,3)&
-  &                                    +  prm_diag%tracer_rate (i_startidx:i_endidx,jb,4))
-
+        &                              prm_diag%tot_prec(i_startidx:i_endidx,jb)      &
+        &                              +  pdtime                                             &
+        &                              * (prm_diag%tracer_rate (i_startidx:i_endidx,jb,3)&
+        &                              +  prm_diag%tracer_rate (i_startidx:i_endidx,jb,4))
 
     ENDDO
 !$OMP END DO
@@ -1462,8 +1451,8 @@ CONTAINS
         CALL message('mo_nh_update_prog:', 'nh-tendencies')
 
         WRITE(message_text,'(a,2(E17.9,3x))') ' max/min ddt_qv  = ',&
-          & MAXVAL(pt_diag%ddt_tracer_phy(:,:,:,iqv) ), &
-          & MINVAL(pt_diag%ddt_tracer_phy(:,:,:,iqv) )
+          & MAXVAL(prm_nwp_tend%ddt_tracer_pconv(:,:,:,iqv) ), &
+          & MINVAL(prm_nwp_tend%ddt_tracer_pconv(:,:,:,iqv) )
         CALL message('', TRIM(message_text))
 
         WRITE(message_text,'(a,2E17.9)') 'updated max/min QV  = ',&

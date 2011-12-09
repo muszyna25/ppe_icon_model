@@ -140,8 +140,6 @@ MODULE mo_nonhydro_state
     &  ddt_exner_phy(:,:,:),& ! exner pressure tendency from physical forcing 
                               ! (nproma,nlev,nblks_c)                     [1/s]
     &  ddt_temp_dyn(:,:,:), & ! rediagnosed temperature tendency from dynamics [K/s]
-    &  ddt_tracer_phy(:,:,:,:), &! physics tendency of tracers
-                              ! (nproma,nlev,nblks_c,ntracer)             [kg/kg/s]
     &  ddt_tracer_adv(:,:,:,:), &! advective tendency of tracers          [kg/kg/s]
     &  tracer_vi(:,:,:),    & ! vertically integrated tracers(for q1,q2,q3) [kg/m**2]
     &  tracer_vi_avg(:,:,:),& ! average since last output of tracer_vi [kg/m**2]
@@ -233,7 +231,6 @@ MODULE mo_nonhydro_state
     TYPE(t_ptr_nh),ALLOCATABLE :: hfl_trc_ptr    (:)  !< pointer array: one pointer for each tracer
     TYPE(t_ptr_nh),ALLOCATABLE :: vfl_trc_ptr    (:)  !< pointer array: one pointer for each tracer
     TYPE(t_ptr_nh),ALLOCATABLE :: ddt_trc_adv_ptr(:)  !< pointer array: one pointer for each tracer
-    TYPE(t_ptr_nh),ALLOCATABLE :: ddt_trc_phy_ptr(:)  !< pointer array: one pointer for each tracer
 
     TYPE(t_ptr_nh),ALLOCATABLE :: ddt_vn_adv_ptr(:)  !< pointer array: one pointer for each tracer
     TYPE(t_ptr_nh),ALLOCATABLE :: ddt_w_adv_ptr (:)  !< pointer array: one pointer for each tracer
@@ -1212,13 +1209,12 @@ MODULE mo_nonhydro_state
 
 
     ! w_concorr_c  p_diag%w_concorr_c(nproma,nlevp1,nblks_c)
-    ! *** needs to be saved for restart ***
     cf_desc    = t_cf_var('contravariant_vertical_correction', 'm s-1',         &
       &                   'contravariant vertical correction')
     grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'w_concorr_c', p_diag%w_concorr_c,               &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
-                & ldims=shape3d_chalf )
+                & ldims=shape3d_chalf, lrestart=.FALSE.  )
 
 
     ! e_kinh       p_diag%e_kinh(nproma,nlev,nblks_c)
@@ -1732,31 +1728,6 @@ MODULE mo_nonhydro_state
                   & ldims=(/nproma, nblks_c,3/), lrestart=.FALSE.)
     ENDIF
 
-
-
-    IF( iforcing== inwp) THEN  !T.R
-      ! ddt_tracer_phy   p_diag%ddt_tracer_phy(nproma,nlev,nblks_c,ntracer)
-      ! *** needs to be saved for restart ***
-      cf_desc    = t_cf_var('physical tracer tendency', 'kg kg-1 s-1',          &
-        &                   'physical tracer tendency')
-      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_diag_list, 'ddt_tracer_phy', p_diag%ddt_tracer_phy,       &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
-                  & ldims=shape4d_c ,&
-                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
-
-      ALLOCATE(p_diag%ddt_trc_phy_ptr(ntracer))
-      DO jt =1,ntracer
-        WRITE(ctrc,'(I2.2)') jt
-        CALL add_ref( p_diag_list, 'ddt_tracer_phy',                               &
-                    & 'ddt_phy_q'//ctrc, p_diag%ddt_trc_phy_ptr(jt)%p_3d,          &
-                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                        &
-                    & t_cf_var('ddt_phy_q'//ctrc, 'kg kg-1 s-1',''),               &
-                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),&
-                    & ldims=shape3d_c )
-      ENDDO
-
-    ENDIF
 
 
     IF( lwrite_extra) THEN
