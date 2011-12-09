@@ -46,6 +46,7 @@ ocean_namelist=${ocean_namelist:="none"}
 dummy_1_namelist=${dummy_1_namelist:="none"}
 dummy_2_namelist=${dummy_2_namelist:="none"}
 dummy_3_namelist=${dummy_3_namelist:="none"}
+nullmodel_namelist=${null_namelist:="none"}
 
 #-----------------------------------------------------------------------------
 validate_component_run()
@@ -77,6 +78,7 @@ validate_component_run radiation
 validate_component_run dummy_1
 validate_component_run dummy_2
 validate_component_run dummy_3
+validate_component_run null
 
 echo "no_of_models=$no_of_models"
 #-----------------------------------------------------------------------------
@@ -92,6 +94,10 @@ ocean_inc_rank=${ocean_inc_rank:=1}
 radiation_min_rank=${radiation_min_rank:=0}
 radiation_max_rank=${radiation_max_rank:=65535}
 radiation_inc_rank=${radiation_inc_rank:=1}
+
+nullmodel_min_rank=${radiation_min_rank:=0}
+nullmodel_max_rank=${radiation_max_rank:=65535}
+nullmodel_inc_rank=${radiation_inc_rank:=1}
 
 #-----------------------------------------------------------------------------
 #split the number of procs in two (or three) for each of the dummy component
@@ -307,6 +313,7 @@ EOF
 }
 #-----------------------------------------------------------------------------
 
+add_component_to_master_namelist nullmodel 0
 add_component_to_master_namelist atmo      1
 add_component_to_master_namelist ocean     2
 add_component_to_master_namelist radiation 3
