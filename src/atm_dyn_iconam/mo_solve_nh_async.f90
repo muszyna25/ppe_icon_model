@@ -300,10 +300,7 @@ MODULE mo_solve_nh_async
       ENDDO
 
       ! Interpolate contravariant correction to cell centers
-      ! To save computing time, the contravariant correction calculated in the preceding
-      ! time step is retained here for the predictor step; the impact is that it does
-      ! not include the effect of the latest horizontal diffusion call
-      IF (istep == 1 .AND. l_init) THEN
+      IF (istep == 1) THEN
 
 #ifdef __LOOP_EXCHANGE
         DO jc = i_startidx, i_endidx
