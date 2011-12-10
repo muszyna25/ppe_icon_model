@@ -252,7 +252,7 @@ CONTAINS
                                                 !< vertically integrated
 
 !   REAL(wp), POINTER, INTENT(inout) :: p_mflux(:,:,:)  !< mass flux at edges
-  REAL(wp), POINTER :: p_mflux(:,:,:)  !< mass flux at edges
+  REAL(wp), POINTER :: p_mflux(:,:,:)  !< mass flux at edges, out
 
   REAL(wp),INTENT(inout) :: p_ddt_psfc(:,:) !< tendency of surface pressure
 
@@ -261,7 +261,7 @@ CONTAINS
                                              SIZE(p_mdiv_int,3) ) !< rho*eta-dot
 
   !! Local variables
-  REAL(wp), POINTER :: p_3d(:,:,:)  
+!   REAL(wp), POINTER :: p_3d(:,:,:)  
 
   INTEGER  :: nblks_e, nblks_c
   INTEGER  :: jb, jbs, is,ie, jk,jkp
@@ -283,9 +283,12 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
+   ! LL The assumpiton is that inner edges are the ones
+   !    adjacent to the owned cells. Thus no communication
+   !    is required here.
    IF (use_icon_comm) THEN
-     p_3d => p_mflux
-     CALL icon_comm_sync(p_3d, on_edges, pt_patch)
+!      p_3d => p_mflux
+     CALL icon_comm_sync(p_mflux, on_edges, pt_patch)
    ELSE
      CALL sync_patch_array(SYNC_E, pt_patch, p_mflux)
    ENDIF

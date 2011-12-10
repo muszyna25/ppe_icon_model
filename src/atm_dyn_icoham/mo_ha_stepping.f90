@@ -191,10 +191,9 @@ CONTAINS
      CALL update_dyn_output( p_patch(jg), p_int_state(jg),  &! in
                              p_hydro_state(jg)%prog_out,    &! in
                              p_hydro_state(jg)%diag_out )    ! inout
-
-     ! LL: maybe we will need here an icon_comm_sync_all
-      IF (use_icon_comm) CALL icon_comm_sync_all()
      
+     IF (use_icon_comm) CALL icon_comm_sync_all()
+   
      ! Fill boundary cells of nested domains
      DO jn = 1, p_patch(jg)%n_childdom
        jgc = p_patch(jg)%child_id(jn)

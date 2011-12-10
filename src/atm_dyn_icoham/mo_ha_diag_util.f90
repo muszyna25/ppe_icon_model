@@ -667,6 +667,8 @@ CONTAINS
     TYPE(t_hydro_atm_prog),INTENT(in)    :: p_prog
     TYPE(t_hydro_atm_diag),INTENT(inout) :: p_diag
 
+    IF (use_icon_comm) CALL icon_comm_sync_all()
+    
     IF ( no_output ) RETURN
     ! Diagnose divergence
 

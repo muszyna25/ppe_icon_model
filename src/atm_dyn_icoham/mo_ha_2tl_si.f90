@@ -362,36 +362,31 @@ MODULE mo_ha_2tl_si
 !---------------------------------------------
 ! Surface pressure
 
+!$OMP PARALLEL PRIVATE(jbs)
    jbs = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,is,ie)
    DO jb = jbs,nblks_c
       CALL get_indices_c( pt_patch, jb,jbs,nblks_c, is,ie, grf_bdywidth_c+1)
       p_dps(is:ie,jb) = p_dtime*pt_tend_save%pres_sfc(is:ie,jb)
    ENDDO
 !$OMP END DO
-!$OMP END PARALLEL
 
 !-------------
 ! Temperature
-
   IF (.NOT.lshallow_water) THEN
      jbs = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,is,ie)
      DO jb = jbs,nblks_c
        CALL get_indices_c( pt_patch, jb,jbs,nblks_c, is,ie, grf_bdywidth_c+1)
        p_dtemp(is:ie,:,jb) = p_dtime*pt_tend_save%temp(is:ie,:,jb)
      ENDDO
 !$OMP END DO
-!$OMP END PARALLEL
   ENDIF
 
 !----------
 ! Velocity
 
    jbs = pt_patch%edges%start_blk(grf_bdywidth_e+1,1)
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,is,ie)
    DO jb = jbs,nblks_e
       CALL get_indices_e( pt_patch, jb,jbs,nblks_e, is,ie, grf_bdywidth_e+1)
@@ -420,21 +415,18 @@ MODULE mo_ha_2tl_si
                     z_mdiv, z_mdiv_int, pt_diag%mass_flux_e, &! out
                     p_dps, pt_diag%weta                    )  ! out
 
-
+!$OMP PARALLEL PRIVATE(jbs)
    jbs = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,is,ie)
    DO jb = jbs,nblks_c
       CALL get_indices_c( pt_patch, jb,jbs,nblks_c, is,ie, grf_bdywidth_c+1)
       p_dps(is:ie,jb) = p_dtime*p_dps(is:ie,jb)
    ENDDO
 !$OMP END DO
-!$OMP END PARALLEL
 
 ! 3. Initialize velocity and temperature tendencies
 
    jbs = pt_patch%edges%start_blk(grf_bdywidth_e+1,1)
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,is,ie)
    DO jb = jbs,nblks_e
       CALL get_indices_e(pt_patch, jb,jbs,nblks_e, is,ie, grf_bdywidth_e+1)
@@ -442,11 +434,9 @@ MODULE mo_ha_2tl_si
       z_ddt_vn_fast(is:ie,:,jb) = 0._wp
    ENDDO
 !$OMP END DO
-!$OMP END PARALLEL
 
    IF (.NOT.lshallow_water) THEN
       jbs = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,is,ie)
       DO jb = jbs,nblks_c
          CALL get_indices_c( pt_patch, jb,jbs,nblks_c, is,ie, grf_bdywidth_c+1)
@@ -454,8 +444,8 @@ MODULE mo_ha_2tl_si
 !        z_ddt_temp_fast does not need initialization
       ENDDO
 !$OMP END DO
-!$OMP END PARALLEL
    ENDIF
+!$OMP END PARALLEL
 
 ! 4. Calculate tendency induced by slow processes
 
@@ -500,9 +490,9 @@ MODULE mo_ha_2tl_si
 
 ! 6. Merge the tendency terms, and save the "slow" tendencies of step n
 
+!$OMP PARALLEL PRIVATE(jbs)
    IF (.NOT.lshallow_water) THEN
       jbs = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,is,ie)
       DO jb = jbs,nblks_c
         CALL get_indices_c( pt_patch, jb,jbs,nblks_c, is,ie, grf_bdywidth_c+1)
@@ -515,13 +505,12 @@ MODULE mo_ha_2tl_si
         pt_tend_save%temp(is:ie,:,jb) = z_ddt_temp_slow(is:ie,:,jb)
       ENDDO
 !$OMP END DO
-!$OMP END PARALLEL
 
+      !LL : this is already calculated on the halos
       CALL sync_patch_array( SYNC_C, pt_patch, pt_tend_save%temp )
    ENDIF
 
    jbs = pt_patch%edges%start_blk(grf_bdywidth_e+1,1)
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,is,ie)
    DO jb = jbs,nblks_e
       CALL get_indices_e( pt_patch, jb,jbs,nblks_e, is,ie, grf_bdywidth_e+1)
@@ -585,8 +574,10 @@ MODULE mo_ha_2tl_si
     CALL finish ("conteq_vn", 'ALLOCATE z_mflux failed')
   
 ! Mass divergence and its vertical integral
-! (.FALSE. in the argument means do not diagnose vertical velocity)
 
+  ! LL: continuity should not need any communication
+
+! (.FALSE. in the argument means do not diagnose vertical velocity)
   CALL continuity( p_vn, p_delp_e, p_patch, p_int_state, .FALSE.,   &! in
                    z_mdiv, z_mdiv_int, z_mflux, p_dps              ) ! out
 
@@ -647,13 +638,6 @@ MODULE mo_ha_2tl_si
   npromz_e = p_patch%npromz_int_e
 
 !------------------------------------------------------
-! gradient of surface pressure change
-!------------------------------------------------------
-
-  CALL grad_fd_norm( p_dps, p_patch, z_gradps,  &
-                     opt_slev=1, opt_elev=1, opt_rlstart=4 )
-
-!------------------------------------------------------
 ! gradient of geopotential change
 !------------------------------------------------------
 !$OMP PARALLEL
@@ -684,8 +668,19 @@ MODULE mo_ha_2tl_si
 !$OMP END DO
 !$OMP END PARALLEL
 
+!------------------------------------------------------
+! LL: here requires z_tmp_c, and p_dps on halo cells sharing an edge
+!     with owned cells
+
+  
   CALL grad_fd_norm( z_tmp_c, p_patch, z_tmp_e, opt_rlstart=4 )
 
+!------------------------------------------------------
+! gradient of surface pressure change
+!------------------------------------------------------
+
+  CALL grad_fd_norm( p_dps, p_patch, z_gradps,  &
+                     opt_slev=1, opt_elev=1, opt_rlstart=4 )
 !------------------------------------------------------
 ! Combine two parts
 !------------------------------------------------------
@@ -709,8 +704,8 @@ MODULE mo_ha_2tl_si
 !$OMP END PARALLEL
 
   END SUBROUTINE pgrad_vn
+  
   !>
-  !!
   !! @par Revision History
   !! Initial version by Hui Wan (2009-11.10)
   !!
@@ -747,10 +742,12 @@ MODULE mo_ha_2tl_si
   nblks_e  = p_patch%nblks_int_e
   npromz_e = p_patch%npromz_int_e
 
+  ! LL: conteq_vn should not need communication
   CALL conteq_vn( p_dvn, p_delp_e, p_temp, p_rdelp_c,        &
                   p_rdlnpr, p_rdalpha, p_patch, p_int_state, &
                   z_dtemp, z_dps )
 
+  ! LL: pgrad_vn requires one communication point
   CALL pgrad_vn( z_dtemp, z_dps, p_rdlnpr, p_rdalpha, p_cgradps, &
                  p_patch, p_lhs )
 
