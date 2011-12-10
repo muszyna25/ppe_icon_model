@@ -409,7 +409,7 @@ INTEGER :: i_endblk                ! end index
 INTEGER :: i_startidx              ! start index
 INTEGER :: i_endidx                ! end index
 
-INTEGER :: jb, jc, jk, jt          ! loop indices
+INTEGER :: jb, jc, jk, jt, ic      ! loop indices
 
 INTEGER :: nlev_c, nlevp1_c        ! number of full and half levels (child domain)
 
@@ -576,7 +576,7 @@ ELSE IF (grf_intmethod_c == 2) THEN
 
   ! Start and end blocks for which interpolation is needed
   i_startblk = p_pc%cells%start_blk(1,1)
-  i_endblk   = p_pc%cells%start_blk(grf_bdywidth_c,i_nchdom)
+  i_endblk   = p_pc%cells%end_blk(grf_bdywidth_c,i_nchdom)
 
   ! This loop is not OpenMP parallelized because the overhead for opening a
   ! parallel section is too large
@@ -594,8 +594,24 @@ ELSE IF (grf_intmethod_c == 2) THEN
       ENDDO
     ENDDO
   ENDDO
-ENDIF
 
+  ! The following index list contains the halo points of the lateral boundary
+  ! cells. These have to be copied as well in order for rho and theta to be
+  ! synchronized.
+  DO ic = 1, p_nh_state(jgc)%metrics%bdy_halo_c_dim
+
+    jb = p_nh_state(jgc)%metrics%bdy_halo_c_blk(ic)
+    jc = p_nh_state(jgc)%metrics%bdy_halo_c_idx(ic)
+
+    DO jk = 1, nlev_c
+      p_nhc_dyn%rho(jc,jk,jb) = rho_prc(jc,jk,jb) + &
+        p_nh_state(jgc)%metrics%rho_ref_mc(jc,jk,jb)
+      p_nhc_dyn%theta_v(jc,jk,jb) = theta_prc(jc,jk,jb) + &
+        p_nh_state(jgc)%metrics%theta_ref_mc(jc,jk,jb)
+
+    ENDDO
+  ENDDO
+ENDIF
 
 ! Interpolation of cell based tracer variables
 IF (ltransport .AND. lstep_adv .AND. grf_intmethod_ct == 1) THEN

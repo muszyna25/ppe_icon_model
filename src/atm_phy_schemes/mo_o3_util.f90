@@ -45,7 +45,7 @@ MODULE mo_o3_util
   USE mo_exception,            ONLY: finish
   USE mo_get_utc_date_tr,      ONLY: get_utc_date_tr
   USE mo_parallel_config,      ONLY: nproma
-  USE mo_impl_constants,       ONLY: min_rlcell, max_dom
+  USE mo_impl_constants,       ONLY: min_rlcell_int, max_dom
   USE mo_kind,                 ONLY: wp
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_math_constants,       ONLY: pi,deg2rad,rad2deg
@@ -392,7 +392,7 @@ END SUBROUTINE o3_timeint
 
     ! nest boudaries have to be included for reduced-grid option
     rl_start = 1
-    rl_end   = min_rlcell
+    rl_end   = min_rlcell_int
 
     i_startblk = pt_patch%cells%start_blk(rl_start,1)
     i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
@@ -1025,7 +1025,7 @@ END SUBROUTINE o3_timeint
     
     ! nest boudaries have to be included for reduced-grid option
     rl_start = 1
-    rl_end   = min_rlcell
+    rl_end   = min_rlcell_int
 
     i_nchdom  = MAX(1,pt_patch%n_childdom)
 
