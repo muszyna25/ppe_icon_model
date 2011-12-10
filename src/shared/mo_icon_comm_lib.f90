@@ -1116,6 +1116,9 @@ CONTAINS
   !-----------------------------------------------------------------------
   SUBROUTINE icon_comm_sync_all()
 
+    LOGICAL :: exist_communication_var
+    INTEGER :: comm_var
+
     CHARACTER(*), PARAMETER :: method_name = "icon_comm_sync_all"
     
     
@@ -1125,6 +1128,17 @@ CONTAINS
 #endif
    
     IF(my_process_is_mpi_seq()) RETURN
+
+    ! check if we have any variables to communicate
+    exist_communication_var = .false.
+    DO comm_var = 1, max_active_comm_variables     
+      IF ( comm_variable(comm_var)%request == communicate ) THEN
+        exist_communication_var = .true.
+        EXIT
+      ENDIF
+    ENDDO
+    
+    IF (.NOT. exist_communication_var) RETURN
     
     IF (ltimer) CALL timer_start(timer_icon_comm_sync)
     

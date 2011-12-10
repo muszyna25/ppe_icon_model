@@ -85,7 +85,7 @@ MODULE mo_master_control
   CHARACTER(len=64) :: my_model_name
 
   INTEGER :: my_model_min_rank, my_model_max_rank, my_model_inc_rank 
-  LOGICAL :: in_coupled_mode
+  LOGICAL :: in_coupled_mode, multiple_models
 
 
   CONTAINS
@@ -124,15 +124,17 @@ MODULE mo_master_control
 
     !------------------------------------------------------------
     ! find what is my process
+    multiple_models = no_of_models > 1
     in_coupled_mode = no_of_models > 1
+    
 
-    IF ( in_coupled_mode ) THEN
-
-      CALL icon_cpl_init(debug_level=nml_debug_coupler_level)
-
+    IF ( multiple_models ) THEN
       CALL set_my_component_null()
 
       DO model_no =1, no_of_models
+
+        IF (master_nml_array(model_no)%model_type == null_process) &
+          in_coupled_mode = .false.
 
 !         write(0,*) 'master_nml_array:', model_no, master_nml_array(model_no)%model_name        
         DO jg = master_nml_array(model_no)%model_min_rank,&
@@ -152,6 +154,7 @@ MODULE mo_master_control
 
       ENDDO !model_no =1, no_of_models
 
+      CALL split_global_mpi_communicator ( my_model_no )
 
     ELSE
       ! only one component    
@@ -168,10 +171,10 @@ MODULE mo_master_control
 
     !------------------------------------------------------------
     IF ( in_coupled_mode ) THEN
+      CALL icon_cpl_init(debug_level=nml_debug_coupler_level)
       ! Inform the coupler about what we are
       CALL icon_cpl_init_comp ( my_model_name, my_model_no, my_coupling_comp_id, ierr )
       ! split the global_mpi_communicator into the components
-      CALL split_global_mpi_communicator ( my_model_no )
     ENDIF
     !------------------------------------------------------------
 
