@@ -115,32 +115,27 @@
 !
 ! Note about the unlimited dimension:
 !
-! Every variable has as the last dimension the NetCDF unlimited dimension which
-! is always set to 1 (when the file is complete).
-! This seems unnecessary at the first glance but it serves the following purpose:
+! Almost every variable has the NetCDF unlimited dimension as the last dimension
+! which is set to
+! - the number of work PEs if l_one_file_per_patch is in effect
+! - 1 if every PE writes a file of its own
 !
-! When the file is written in l_one_file_per_patch mode, every processor opens
-! the output file, puts it into define mode, outputs its definitions and
-! closes the file again so that the next processor can add its definitions.
+! Although it seems to be unnecessary to use the unlimited dimension here
+! since the number of work PEs a priori (and could be used as a dimension),
+! it is important to do it this way because of the internal structure
+! of a NetCDF file:
+! Variables having only fixed dimensions are stored at a contiguous location
+! which means that data belonging to one PE would be spread in pieces
+! over the whole file when the number of work PEs would be a fixed dimension.
 !
-! After the definitions for all processors are complete, the data is written
-! in the same sequential manner.
+! Using the unlimited dimension guarantees that the data for a single PE is
+! contiguous and thus can be read efficiently.
 !
-! This is also possible in the same way without using an additional unlimited
-! dimension, but this would result in a huge amount of unecessary IO in the
-! definition mode:
-! If there is no unlimited dimension, the data will be added when closing
-! the NetCDF file (even though there has nothing been written yet),
-! just as data filled with zeros.
-! When the next processor opens the file and adds its definitions, this
-! NULL-data will be copied to another location in order to make space
-! in the header for the new definitions.
-! This will happen for every processor opening the file and adding definitions.
+! The only exception to this rule are variables which are identical for every PE:
+! They are only stored once (without the unlimited dimension) for l_one_file_per_patch
 !
-! To avoid these unnecessary copies, the unlimited dimension is introduced
-! which is initially 0, i.e. no data will be added to the file when in
-! definition mode and thus no data has to be copied when the next processor
-! adds its own definitions.
+! If l_one_file_per_patch is not in effect, the unlimited dimension is not
+! necessary but it is left there in order not to complicate the code.
 !
 !-------------------------------------------------------------------------------
 
