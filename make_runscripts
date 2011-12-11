@@ -105,8 +105,8 @@ if [[  $use_target == "mpipc" && $use_openmp == "yes" ]] ; then
   name=couple_atmo-radiation
   $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" openmp_threads=3
 fi
-#
-# special treatment for exp.couple_dummy_models 
+#==============================================================================
+## special treatment for exp.couple_dummy_models 
 #
 if [[  $use_target == "tornado" ]] ; then
   name=couple_dummy_models
@@ -115,20 +115,40 @@ else
   name=couple_dummy_models
   $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="00:20:00" 
 fi
-#
+
+#==============================================================================
 # special treatment for exp.couple_atmo-ocean
+# this includes the restart in the test_couple_atmo-ocean_restart
 #
+restart_script=restart_parameters.tmp
+tmp_file=$input_folder/$restart_script
+cat > $tmp_file << EOF
+restart_from_folder="test_couple_atmo-ocean"
+restart_atmo_from="restart.iconR2B04-ocean_aqua_planet_20000101T120000Z_atm.nc"
+restart_ocean_from="restart.iconR2B04-ocean_aqua_planet_20000101T120000Z_oce.nc"
+EOF
+
+
 if [[  $use_target == "tornado" ]] ; then
   name=couple_atmo-ocean
   $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="01:00:00" mpi_procs=32
+
   name=test_couple_atmo-ocean
-  $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="01:00:00" mpi_procs=32
+  $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
+    in_script=$restart_script in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="01:00:00" mpi_procs=32
+
 else
+
   name=couple_atmo-ocean
-  $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="01:00:00" 
+  $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="01:00:00"
+
   name=test_couple_atmo-ocean
-  $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="01:00:00" 
+  $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
+    in_script=$restart_script in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="01:00:00" mpi_procs=32
+
 fi
+
+#rm $tmp_file
 
 #==============================================================================
 # Create the postprocessing scripts

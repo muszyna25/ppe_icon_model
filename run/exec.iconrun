@@ -12,8 +12,8 @@
 #
 # directories definition
 #
-DIR=$(pwd -P)
-ICONDIR=${DIR%/*}
+ICONDIR=${ICON_BASE_PATH}
+RUNSCRIPTDIR=${ICONDIR}/run
 HGRIDDIR=${ICONDIR}/grids
 EXPDIR=${ICONDIR}/experiments/${EXPNAME}
 # data directories
@@ -46,7 +46,7 @@ ocean_namelist=${ocean_namelist:="none"}
 dummy_1_namelist=${dummy_1_namelist:="none"}
 dummy_2_namelist=${dummy_2_namelist:="none"}
 dummy_3_namelist=${dummy_3_namelist:="none"}
-nullmodel_namelist=${null_namelist:="none"}
+nullmodel_namelist=${nullmodel_namelist:="none"}
 
 #-----------------------------------------------------------------------------
 validate_component_run()
@@ -78,7 +78,7 @@ validate_component_run radiation
 validate_component_run dummy_1
 validate_component_run dummy_2
 validate_component_run dummy_3
-validate_component_run null
+validate_component_run nullmodel
 
 echo "no_of_models=$no_of_models"
 #-----------------------------------------------------------------------------
@@ -95,9 +95,9 @@ radiation_min_rank=${radiation_min_rank:=0}
 radiation_max_rank=${radiation_max_rank:=65535}
 radiation_inc_rank=${radiation_inc_rank:=1}
 
-nullmodel_min_rank=${radiation_min_rank:=0}
-nullmodel_max_rank=${radiation_max_rank:=65535}
-nullmodel_inc_rank=${radiation_inc_rank:=1}
+nullmodel_min_rank=${nullmodel_min_rank:=0}
+nullmodel_max_rank=${nullmodel_max_rank:=65535}
+nullmodel_inc_rank=${nullmodel_inc_rank:=1}
 
 #-----------------------------------------------------------------------------
 #split the number of procs in two (or three) for each of the dummy component
@@ -302,12 +302,13 @@ cat >> $master_namelist << EOF
 /
 EOF
 
+#-----------
 #get namelist
-  if [ -f ${DIR}/$model_namelist_filename ] ; then
-    mv -f ${DIR}/$model_namelist_filename ${EXPDIR}
-    check_error $? "cp -f ${DIR}/$atmo_namelist"
+  if [ -f ${RUNSCRIPTDIR}/$model_namelist_filename ] ; then
+    mv -f ${RUNSCRIPTDIR}/$model_namelist_filename ${EXPDIR}
+    check_error $? "cp -f ${RUNSCRIPTDIR}/$model_namelist_filename"
   else
-    check_error 1 "${DIR}/$model_namelist_filename does not exist"
+    check_error 1 "${RUNSCRIPTDIR}/$model_namelist_filename does not exist"
   fi  
 
 }
@@ -323,6 +324,24 @@ add_component_to_master_namelist dummy_3   99
 
 #-----------------------------------------------------------------------------
 
+#-----------------------------------------------------------------------------
+# get restart files
+if  [ x$restart_from_folder != "x" ] ; then
+  cp ${ICONDIR}/experiments/${restart_from_folder}/restart.info      ${EXPDIR}/restart.info
+  ln -s ${ICONDIR}/experiments/${restart_from_folder}/restart_atm.nc ${EXPDIR}/restart_atm.nc
+  ln -s ${ICONDIR}/experiments/${restart_from_folder}/restart_atm.nc ${EXPDIR}/restart_oce.nc
+fi
+
+if  [ x$restart_atmo_from != "x" ] ; then
+  rm  ${EXPDIR}/restart_atm.nc
+  ln -s ${ICONDIR}/experiments/${restart_from_folder}/${restart_atmo_from} ${EXPDIR}/restart_atm.nc
+fi
+if  [ x$restart_ocean_from != "x" ] ; then
+  rm  ${EXPDIR}/restart_oce.nc
+  ln -s ${ICONDIR}/experiments/${restart_from_folder}/${restart_ocean_from} ${EXPDIR}/restart_oce.nc
+fi
+
+#
 
 #-----------------------------------------------------------------------------
 #
@@ -354,5 +373,7 @@ fi
 echo "============================"
 echo "Script run successfully"
 echo "============================"
-exit 0
+#-----------------------------------------------------------------------------
+cd $ICON_RUN_PATH
+# exit 0
 #-----------------------------------------------------------------------------

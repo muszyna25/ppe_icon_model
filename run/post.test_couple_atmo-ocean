@@ -1,0 +1,13 @@
+
+atmo_restart_1="../experiments/test_couple_atmo-ocean/restart.iconR2B04-ocean_aqua_planet_20000102T000000Z_atm.nc"
+atmo_restart_2="../experiments/test_couple_atmo-ocean_restart/restart.iconR2B04-ocean_aqua_planet_20000102T000000Z_atm.nc"
+ocean_restart_1="../experiments/test_couple_atmo-ocean/restart.iconR2B04-ocean_aqua_planet_20000102T000000Z_oce.nc"
+ocean_restart_2="../experiments/test_couple_atmo-ocean_restart/restart.iconR2B04-ocean_aqua_planet_20000102T000000Z_oce.nc"
+
+
+cdo diff $atmo_restart_1 $atmo_restart_2
+check_error $? "atmo restart differs"
+
+cdo diff $ocean_restart_1 $ocean_restart_2
+check_error $? "ocean restart differs"
+

@@ -95,6 +95,7 @@ target="$use_target"
 compiler="$use_compiler"
 loadmodule="$use_load_modules"
 job_name="$job_name"
+submit="$submit"
 # ----------------------------
 # restart sepicifics
 # ----------------------------
@@ -134,6 +135,7 @@ BUILDDIR=$use_builddir
 MODEL_BASE_PATH=\$basedir
 ICON_BASE_PATH=\$basedir
 export ICON_BASE_PATH
+ICON_RUN_PATH=\$ICON_BASE_PATH/run
 #-----------------------------------------------------------------------------
 # load ../setting if exists  
 if [ -a ../setting ]

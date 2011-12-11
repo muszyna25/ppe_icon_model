@@ -36,6 +36,19 @@ if [ $OMP_NUM_THREADS -gt 1 ] ; then
    exit
 fi
 #-----------------------------------------------------------------------------
+# Check if we are in restart mode
+if [ x$restart_atmo_from = "x" ] ; then
+  restart=".false."
+else
+  restart=".true."
+fi
+
+if [ $restart = ".true." ] ; then
+  EXPNAME=${EXPNAME}_restart
+fi
+
+
+#-----------------------------------------------------------------------------
 # ATMO
 #-----------------------------------------------------------------------------
 # The following values must be set here as shell variables so that they can be used
@@ -57,7 +70,7 @@ dtime_atmo=300
 dtime_ocean=1800
 dt_coupling=1800
 dt_restart=`expr ${ndays_restart} \* 86400`
-dt_checkpoint=`expr 90 \* 86400 `  # write restart file every 90 days
+dt_checkpoint=`expr 12 \* 3600`  # write restart file every 12 hours
 #
 #-----------------------------------------------------------------------------
 #
@@ -177,6 +190,7 @@ cat > $atmo_namelist << EOF
  l_test_openmp  = .false.
  l_log_checks   = .false.
  use_icon_comm  = .true.
+ ! l_fast_sum     = .true.
  /
 &grid_nml
  cell_type = 3             ! triangular cells
@@ -219,6 +233,8 @@ cat > $atmo_namelist << EOF
 /
 &ha_dyn_nml
  ldry_dycore = .FALSE.  ! moist dynamical core
+ ! itime_scheme=12   si 2t
+ ! si_rtol     = 1.e-4
 /
 &diffusion_nml
  hdiff_order = 24       ! 2nd order near model top, 4th order on the other levels
