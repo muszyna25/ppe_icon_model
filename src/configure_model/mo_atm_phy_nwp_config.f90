@@ -76,17 +76,14 @@ MODULE mo_atm_phy_nwp_config
   INTEGER ::  inwp_turb        !! turbulence
   INTEGER ::  inwp_surface     !! surface including soil, ocean, ice,lake
 
-  REAL(wp) :: dt_conv   !> field element for convection
-  REAL(wp) :: dt_ccov   !! field element for subscale cloud cover
-  REAL(wp) :: dt_rad    !! "-"                     radiation
-  REAL(wp) :: dt_radheat!! "-" rad. heating from radiative fluxes with updated cosmu0 
-  REAL(wp) :: dt_sso    !! "-"  for subscale orographic gravity waves
-  REAL(wp) :: dt_gwd    !! "-"  for subscale gravity waves
-  REAL(wp) :: dt_gscp   !! field element for microphysics
-  REAL(wp) :: dt_turb   !! field element for turbulence
-  REAL(wp) :: dt_sfc    !! field element for surface
-  REAL(wp) :: dt_satad  !! field element for sat. adjustment
-  REAL(wp) :: dt_update !! field element for tracer phys update
+  REAL(wp) :: dt_conv    !> field element for convection
+  REAL(wp) :: dt_ccov    !! field element for subscale cloud cover
+  REAL(wp) :: dt_rad     !! "-"                     radiation
+  REAL(wp) :: dt_sso     !! "-"  for subscale orographic gravity waves
+  REAL(wp) :: dt_gwd     !! "-"  for subscale gravity waves
+  REAL(wp) :: dt_fastphy !! field element for fast physics processes
+                         !! microphysics, saturation adjustment, turbulence, 
+                         !! surface (in addition: update and radheat)
 
   INTEGER :: imode_turb, itype_wcld, icldm_turb, itype_tran
   LOGICAL :: limpltkediff, ltkesso, lexpcor
@@ -138,13 +135,8 @@ SUBROUTINE configure_atm_phy_nwp( n_dom, pat_level, ltestcase, dtime_adv )
 
     DO jg = 1,n_dom
  
-     atm_phy_nwp_config(jg)%dt_gscp   = (dtime_adv/2._wp**(pat_level(jg) &
-          &                           -  pat_level(1)))                  !seconds
-     atm_phy_nwp_config(jg)%dt_turb   = atm_phy_nwp_config(jg)%dt_gscp
-     atm_phy_nwp_config(jg)%dt_sfc    = atm_phy_nwp_config(jg)%dt_gscp
-     atm_phy_nwp_config(jg)%dt_satad  = atm_phy_nwp_config(jg)%dt_gscp
-     atm_phy_nwp_config(jg)%dt_update = atm_phy_nwp_config(jg)%dt_gscp
-     atm_phy_nwp_config(jg)%dt_radheat= atm_phy_nwp_config(jg)%dt_gscp
+     atm_phy_nwp_config(jg)%dt_fastphy = (dtime_adv/2._wp**(pat_level(jg) &
+          &                            -  pat_level(1)))                  !seconds
     ENDDO
 
     tcall_phy(:,:) = 0._wp
@@ -172,7 +164,7 @@ SUBROUTINE configure_atm_phy_nwp( n_dom, pat_level, ltestcase, dtime_adv )
       IF (  atm_phy_nwp_config(jg)% inwp_convection > 0 ) THEN   ! 0 = no convection
         tcall_phy(jg,itccov) =  atm_phy_nwp_config(jg)% dt_conv    ! seconds
       ELSE 
-        tcall_phy(jg,itccov) =  atm_phy_nwp_config(jg)% dt_gscp    ! seconds
+        tcall_phy(jg,itccov) =  atm_phy_nwp_config(jg)% dt_fastphy ! seconds
       ENDIF
       !really switch off the clouds
       IF (  atm_phy_nwp_config(jg)% inwp_cldcover == 0 ) THEN     ! 0 = no cloud cover
@@ -183,8 +175,8 @@ SUBROUTINE configure_atm_phy_nwp( n_dom, pat_level, ltestcase, dtime_adv )
         tcall_phy(jg,itrad)     =  0._wp
         tcall_phy(jg,itradheat) =  0._wp
       ELSE
-        tcall_phy(jg,itrad)     =   atm_phy_nwp_config(jg)% dt_rad       ! seconds
-        tcall_phy(jg,itradheat) =   atm_phy_nwp_config(jg)% dt_radheat   ! seconds       
+        tcall_phy(jg,itrad)     =   atm_phy_nwp_config(jg)% dt_rad     ! seconds
+        tcall_phy(jg,itradheat) =   atm_phy_nwp_config(jg)% dt_fastphy ! seconds       
       ENDIF
 
       IF (  atm_phy_nwp_config(jg)% inwp_sso == 0 ) THEN          ! 0 = no sso
@@ -202,27 +194,27 @@ SUBROUTINE configure_atm_phy_nwp( n_dom, pat_level, ltestcase, dtime_adv )
       IF (  atm_phy_nwp_config(jg)% inwp_gscp == 0 ) THEN         ! 0 = no microphysics
         tcall_phy(jg,itgscp) =  0._wp
       ELSE
-        tcall_phy(jg,itgscp) =  atm_phy_nwp_config(jg)% dt_gscp    ! seconds
+        tcall_phy(jg,itgscp) =  atm_phy_nwp_config(jg)% dt_fastphy ! seconds
       ENDIF
 
       IF (  atm_phy_nwp_config(jg)%inwp_satad == 0 ) THEN         ! 0 = no satad
         tcall_phy(jg,itsatad)  =  0._wp
         tcall_phy(jg,itupdate) =  0._wp   ! no moist update needed if no satad
       ELSE
-        tcall_phy(jg,itsatad)  =   atm_phy_nwp_config(jg)%dt_satad  !seconds
-        tcall_phy(jg,itupdate) =   atm_phy_nwp_config(jg)%dt_update !seconds
+        tcall_phy(jg,itsatad)  =   atm_phy_nwp_config(jg)%dt_fastphy  !seconds
+        tcall_phy(jg,itupdate) =   atm_phy_nwp_config(jg)%dt_fastphy !seconds
       ENDIF
 
       IF (  atm_phy_nwp_config(jg)%inwp_turb == 0 ) THEN         ! 0 = no turbulence
         tcall_phy(jg,itturb) =  0._wp 
       ELSE
-        tcall_phy(jg,itturb) =   atm_phy_nwp_config(jg)%dt_turb   !seconds
+        tcall_phy(jg,itturb) =   atm_phy_nwp_config(jg)%dt_fastphy !seconds
       ENDIF
 
       IF (  atm_phy_nwp_config(jg)%inwp_surface == 0 ) THEN       ! 0 = no soil
         tcall_phy(jg,itsfc) =  0._wp 
       ELSE
-        tcall_phy(jg,itsfc) =   atm_phy_nwp_config(jg)%dt_turb  !seconds
+        tcall_phy(jg,itsfc) =   atm_phy_nwp_config(jg)%dt_fastphy  !seconds
       ENDIF
 
     ENDDO  ! jg loop

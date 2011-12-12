@@ -268,7 +268,7 @@ MODULE mo_nwp_rad_interface
       & kbdim        = nproma,                            &
       & cosmu0_dark  = cosmu0_dark,                       &
       & p_inc_rad    = atm_phy_nwp_config(jg)%dt_rad     ,&
-      & p_inc_radheat= atm_phy_nwp_config(jg)%dt_radheat, &
+      & p_inc_radheat= atm_phy_nwp_config(jg)%dt_fastphy, &
       & p_sim_time   = p_sim_time,                        &
       & pt_patch     = pt_patch,                          &
      !& zsmu0        = prm_diag%cosmu0(1,1),              &
@@ -607,7 +607,7 @@ MODULE mo_nwp_rad_interface
       & kbdim        = nproma,                            &
       & cosmu0_dark  = cosmu0_dark,                       &
       & p_inc_rad    = atm_phy_nwp_config(jg)%dt_rad,     &
-      & p_inc_radheat= atm_phy_nwp_config(jg)%dt_radheat, &
+      & p_inc_radheat= atm_phy_nwp_config(jg)%dt_fastphy, &
       & p_sim_time   = p_sim_time,                        &
       & pt_patch     = pt_patch,                          &
       & zsmu0        = prm_diag%cosmu0(:,:),              &

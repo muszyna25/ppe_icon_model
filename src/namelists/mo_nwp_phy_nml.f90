@@ -85,9 +85,8 @@ MODULE mo_nwp_phy_nml
     &                    inwp_radiation, inwp_sso, inwp_gwd,       &
     &                    inwp_gscp, inwp_satad,                    &
     &                    inwp_turb, inwp_surface,                  &
-    &                    dt_conv, dt_ccov,                         &
-    &                    dt_rad,                                   &
-    &                    dt_sso, dt_gwd, qi0, qc0,                 &
+    &                    dt_conv, dt_ccov, dt_rad, dt_sso, dt_gwd, &
+    &                    qi0, qc0,                                 &
     &                    ustart_raylfric, efdt_min_raylfric,       &
     &                    latm_above_top
 
