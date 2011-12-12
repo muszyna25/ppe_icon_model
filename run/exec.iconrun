@@ -249,6 +249,26 @@ fi
 
 #-----------------------------------------------------------------------------
 
+#-----------------------------------------------------------------------------
+# get restart files
+if  [ x$restart_from_folder != "x" ] ; then
+  cp ${ICONDIR}/experiments/${restart_from_folder}/restart.info      ${EXPDIR}/restart.info
+  ln -s ${ICONDIR}/experiments/${restart_from_folder}/restart_atm.nc ${EXPDIR}/restart_atm.nc
+  ln -s ${ICONDIR}/experiments/${restart_from_folder}/restart_oce.nc ${EXPDIR}/restart_oce.nc
+  restart=".true."
+fi
+
+if  [ x$restart_atmo_from != "x" ] ; then
+  rm  ${EXPDIR}/restart_atm.nc
+  ln -s ${ICONDIR}/experiments/${restart_from_folder}/${restart_atmo_from} ${EXPDIR}/restart_atm.nc
+fi
+if  [ x$restart_ocean_from != "x" ] ; then
+  rm  ${EXPDIR}/restart_oce.nc
+  ln -s ${ICONDIR}/experiments/${restart_from_folder}/${restart_ocean_from} ${EXPDIR}/restart_oce.nc
+fi
+#-----------------------------------------------------------------------------
+
+
 
 #-----------------------------------------------------------------------------
 #
@@ -261,7 +281,7 @@ cd ${EXPDIR}
 #-----------------------------------------------------------------------------
 # create master_namelist
 master_namelist=icon_master.namelist
-
+if [ x$end_date = x ]; then
 cat > $master_namelist << EOF
 &master_nml
  lrestart               = $restart
@@ -272,6 +292,19 @@ cat > $master_namelist << EOF
  dt_restart          = $dt_restart
 /
 EOF
+else
+cat > $master_namelist << EOF
+&master_nml
+ lrestart               = $restart
+ debug_coupler_level    = 0
+/
+&time_nml
+ ini_datetime_string = "$start_date"
+ end_datetime_string = "$end_date"
+ dt_restart          = $dt_restart
+/
+EOF
+fi
 #-----------------------------------------------------------------------------
 
 
@@ -324,24 +357,6 @@ add_component_to_master_namelist dummy_3   99
 
 #-----------------------------------------------------------------------------
 
-#-----------------------------------------------------------------------------
-# get restart files
-if  [ x$restart_from_folder != "x" ] ; then
-  cp ${ICONDIR}/experiments/${restart_from_folder}/restart.info      ${EXPDIR}/restart.info
-  ln -s ${ICONDIR}/experiments/${restart_from_folder}/restart_atm.nc ${EXPDIR}/restart_atm.nc
-  ln -s ${ICONDIR}/experiments/${restart_from_folder}/restart_atm.nc ${EXPDIR}/restart_oce.nc
-fi
-
-if  [ x$restart_atmo_from != "x" ] ; then
-  rm  ${EXPDIR}/restart_atm.nc
-  ln -s ${ICONDIR}/experiments/${restart_from_folder}/${restart_atmo_from} ${EXPDIR}/restart_atm.nc
-fi
-if  [ x$restart_ocean_from != "x" ] ; then
-  rm  ${EXPDIR}/restart_oce.nc
-  ln -s ${ICONDIR}/experiments/${restart_from_folder}/${restart_ocean_from} ${EXPDIR}/restart_oce.nc
-fi
-
-#
 
 #-----------------------------------------------------------------------------
 #
@@ -374,6 +389,6 @@ echo "============================"
 echo "Script run successfully"
 echo "============================"
 #-----------------------------------------------------------------------------
-cd $ICON_RUN_PATH
+cd $RUNSCRIPTDIR
 # exit 0
 #-----------------------------------------------------------------------------

@@ -135,7 +135,7 @@ BUILDDIR=$use_builddir
 MODEL_BASE_PATH=\$basedir
 ICON_BASE_PATH=\$basedir
 export ICON_BASE_PATH
-ICON_RUN_PATH=\$ICON_BASE_PATH/run
+# ICON_RUN_PATH=\$ICON_BASE_PATH/run
 #-----------------------------------------------------------------------------
 # load ../setting if exists  
 if [ -a ../setting ]

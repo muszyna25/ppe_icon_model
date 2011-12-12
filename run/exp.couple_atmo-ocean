@@ -35,18 +35,6 @@ if [ $OMP_NUM_THREADS -gt 1 ] ; then
    check_error 0
    exit
 fi
-#-----------------------------------------------------------------------------
-# Check if we are in restart mode
-if [ x$restart_atmo_from = "x" ] ; then
-  restart=".false."
-else
-  restart=".true."
-fi
-
-if [ $restart = ".true." ] ; then
-  EXPNAME=${EXPNAME}_restart
-fi
-
 
 #-----------------------------------------------------------------------------
 # ATMO

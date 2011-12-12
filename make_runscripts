@@ -120,13 +120,13 @@ fi
 # special treatment for exp.couple_atmo-ocean
 # this includes the restart in the test_couple_atmo-ocean_restart
 #
-restart_script=restart_parameters.tmp
-tmp_file=$input_folder/$restart_script
-cat > $tmp_file << EOF
-restart_from_folder="test_couple_atmo-ocean"
-restart_atmo_from="restart.iconR2B04-ocean_aqua_planet_20000101T120000Z_atm.nc"
-restart_ocean_from="restart.iconR2B04-ocean_aqua_planet_20000101T120000Z_oce.nc"
-EOF
+#restart_script=restart_parameters.tmp
+#tmp_file=$input_folder/$restart_script
+#cat > $tmp_file << EOF
+#restart_from_folder="test_couple_atmo-ocean"
+#restart_atmo_from="restart.iconR2B04-ocean_aqua_planet_20000101T120000Z_atm.nc"
+#restart_ocean_from="restart.iconR2B04-ocean_aqua_planet_20000101T120000Z_oce.nc"
+#EOF
 
 
 if [[  $use_target == "tornado" ]] ; then
@@ -134,9 +134,6 @@ if [[  $use_target == "tornado" ]] ; then
   $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="01:00:00" mpi_procs=32
 
   name=test_couple_atmo-ocean
-# disabled the restart check until the restart for the coupler is ready
-#   $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
-#     in_script=$restart_script in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="01:00:00" mpi_procs=32
   $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
     EXPNAME="$name" cpu_time="01:00:00" mpi_procs=32
 
@@ -146,15 +143,33 @@ else
   $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="01:00:00"
 
   name=test_couple_atmo-ocean
-# disabled the restart check until the restart for the coupler is ready
-#   $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
-#     in_script=$restart_script in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="01:00:00"
   $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
     EXPNAME="$name" cpu_time="01:00:00"
 
 fi
 
-#rm $tmp_file
+rm $tmp_file
+
+#==============================================================================
+# special treatment for test_hat_jww-moist_cld-cnv-vdf
+# this includes the restart in the test_hat_jww-moist_cld-cnv-vdf_restart
+#
+name=test_hat_jww-moist_cld-cnv-vdf
+
+restart_script=${name}_restart.tmp
+tmp_file=$input_folder/$restart_script
+cat > $tmp_file << EOF
+restart_from_folder="$name"
+restart_atmo_from="restart.iconR2B04-grid_20080902T000000Z_atm.nc"
+EXPNAME=${name}_restart
+EOF
+
+
+$make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
+  in_script=$restart_script in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="01:30:00"
+
+
+rm $tmp_file
 
 #==============================================================================
 # Create the postprocessing scripts

@@ -17,8 +17,6 @@
 # EXPNAME = experiment name
 # NPROMA  = array blocking length / inner loop length
 #-----------------------------------------------------------------------------
-#
-#-----------------------------------------------------------------------------
 # The following values must be set here as shell variables so that they can be used
 # also in the executing section of the completed run script
 #
@@ -29,14 +27,15 @@ atmo_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date=${start_date:="2008-09-01T00:00:00Z"}
+end_date=${end_date:="2008-09-03T00:00:00Z"}
 ndays_restart=60
 dt_restart=${dt_restart:=`expr ${ndays_restart} \* 86400`}
 #
 #-----------------------------------------------------------------------------
 # model timing
 dtime=600
-ndays=${ndays:=2}
-nsteps=`expr ${ndays} \* 86400 / ${dtime}`
+#ndays=${ndays:=2}
+#nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 dt_diag=`expr 24 \* 3600  `       # int output each 24 hours
 dt_file=`expr 1 \* 86400 `        # write a data file for every day
 dt_data=21600.                    # write output every 6 hours
@@ -79,7 +78,7 @@ cat > ${atmo_namelist} << EOF
 /
 &run_nml
  num_lev     = ${nlev},     ! number of full levels of vertical grid
- nsteps      = ${nsteps}    ! number of steps length of run
+ ! nsteps      = ${nsteps}    ! number of steps length of run
  dtime       = ${dtime}     ! [s] timestep in seconds
  ltestcase   = .TRUE.       ! run testcase                 --> testcase_ctl
  ldynamics   = .TRUE.       ! dynamics                     --> dynamics_ctl, diffusion_ctl
