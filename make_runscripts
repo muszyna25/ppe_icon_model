@@ -134,8 +134,11 @@ if [[  $use_target == "tornado" ]] ; then
   $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="01:00:00" mpi_procs=32
 
   name=test_couple_atmo-ocean
+# disabled the restart check until the restart for the coupler is ready
+#   $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
+#     in_script=$restart_script in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="01:00:00" mpi_procs=32
   $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
-    in_script=$restart_script in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="01:00:00" mpi_procs=32
+    EXPNAME="$name" cpu_time="01:00:00" mpi_procs=32
 
 else
 
@@ -143,8 +146,11 @@ else
   $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="01:00:00"
 
   name=test_couple_atmo-ocean
+# disabled the restart check until the restart for the coupler is ready
+#   $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
+#     in_script=$restart_script in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="01:00:00"
   $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
-    in_script=$restart_script in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="01:00:00"
+    EXPNAME="$name" cpu_time="01:00:00"
 
 fi
 
