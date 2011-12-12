@@ -166,7 +166,28 @@ EOF
 
 
 $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
-  in_script=$restart_script in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="01:30:00"
+  in_script=$restart_script in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="01:00:00"
+
+
+rm $tmp_file
+
+#==============================================================================
+# special treatment for test_hat_jww
+# this includes the restart in the test_hat_jww_restart
+#
+name=test_hat_jww
+
+restart_script=${name}_restart.tmp
+tmp_file=$input_folder/$restart_script
+cat > $tmp_file << EOF
+restart_from_folder="$name"
+restart_atmo_from="restart.iconR2B04-grid_20080906T000000Z_atm.nc"
+EXPNAME=${name}_restart
+EOF
+
+
+$make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
+  in_script=$restart_script in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="01:00:00"
 
 
 rm $tmp_file

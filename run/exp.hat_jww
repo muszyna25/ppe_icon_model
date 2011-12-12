@@ -29,15 +29,16 @@ atmo_namelist=NAMELIST_${EXPNAME}
 #
 #-----------------------------------------------------------------------------
 # global timing
-start_date="2008-09-01T00:00:00Z"
+start_date=${start_date:="2008-09-01T00:00:00Z"}
+end_date=${end_date:="2008-09-11T00:00:00Z"}
 ndays_restart=60
 dt_restart=`expr ${ndays_restart} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model timing
 dtime=600
-ndays=10
-nsteps=`expr ${ndays} \* 86400 / ${dtime}`
+#ndays=10
+#nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 dt_checkpoint=`expr 5 \* 86400 `  # write restart file every 5 days 
 #
 #-----------------------------------------------------------------------------
@@ -78,7 +79,7 @@ cat > $atmo_namelist << EOF
 &run_nml
  num_lev     = ${nlev},        ! number of full levels of vertical grid
  ntracer     = 0            ! number of tracers
- nsteps      = ${nsteps}    ! [day] length of run
+ ! nsteps      = ${nsteps}    ! [day] length of run
  dtime       = ${dtime}     ! [s] timestep
  ldynamics   = .TRUE.       ! dynamics
  ltransport  = .FALSE.      ! transport 
