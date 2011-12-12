@@ -84,7 +84,8 @@ echo "-- ---------------------------------------------------------"
 
 check_error $STATUS "Creating of Plots"
 
-
+#--------------------------------------------------------------------
+# compare the restart files
 cd $ICON_BASE_PATH/run
 atmo_restart_1="../experiments/test_hat_jww-moist_cld-cnv-vdf/restart.iconR2B04-grid_20080903T000000Z_atm.nc"
 atmo_restart_2="../experiments/test_hat_jww-moist_cld-cnv-vdf_restart/restart.iconR2B04-grid_20080903T000000Z_atm.nc"
@@ -93,7 +94,12 @@ atmo_restart_2="../experiments/test_hat_jww-moist_cld-cnv-vdf_restart/restart.ic
 out_file="test_hat_jww-moist_cld-cnv-vdf_restart.diff"
 cdo diff $atmo_restart_1 $atmo_restart_2 > $out_file
 grep " 0 of 1876 records differ" $out_file
-check_error $? "restart differs"
+return_status=$?
+if [ $return_status != 0 ] ; then
+  cat $out_file
+fi
+check_error $return_status "restart differs"
+#--------------------------------------------------------------------
 
 
 exit $STATUS
