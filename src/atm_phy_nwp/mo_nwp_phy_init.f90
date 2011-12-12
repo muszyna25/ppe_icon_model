@@ -557,7 +557,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
 
 
-      nsmax = INT(2._wp*pi*re/mean_charlen)
+      nsmax = INT(pi*re/mean_charlen)
 
 !        WRITE(message_text,'(i3,i10,f20.10)') jg,nsmax,mean_charlen
 !       CALL message('nwp_phy_init, nsmax=', TRIM(message_text))

@@ -1161,8 +1161,6 @@ CONTAINS
     !     WHERE RTAU (unitless) NOW ONLY REPRESENTS THE RESOLUTION DEPENDENT PART
 
     phy_params%tau=1.0_JPRB+264.0_JPRB/REAL(ksmax,jprb)
-    !KF test 2010-03-29
-    phy_params%tau=1.0_JPRB+264.0_JPRB/REAL(ksmax,jprb)
     phy_params%tau=MIN(3.0_JPRB,phy_params%tau)
 
     !     LOGICAL SWITCHES
