@@ -2386,6 +2386,19 @@ C&' '& &
 \tabularnewline
 
 \hline
+ map\_file &
+C&' '& &
+ File containig the mapping from internal names to names written to NetCDF. \\
+ The format of this file: \\
+ One mapping per line, first the internal name, then the name written to NetCDF,
+ separated by an arbitrary number of blanks.
+ The line may also start and end with an arbitrary number of blanks.
+ Empty lines or lines starting with \# are treated as comments. \\
+ Names not covered by the mapping are output as they are.
+&
+\tabularnewline
+
+\hline
  mode &
 I&1& &
  1 = forecast mode, 2 = climate mode \\
