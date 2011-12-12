@@ -58,7 +58,6 @@ MODULE mo_vertical_grid
   USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c, grf_bdywidth_e, grf_fbk_start_c
   USE mo_physical_constants,    ONLY: grav, p0ref, rd, rd_o_cpd, cpd, p0sl_bg
   USE mo_math_operators,        ONLY: grad_fd_norm, grad_fd_tang
-  USE mo_timer,                 ONLY: init_timer, cleanup_timer
   USE mo_interpolation,         ONLY: t_int_state, cells2edges_scalar, &
     &                               cells2verts_scalar, verts2edges_scalar
   USE mo_math_constants,        ONLY: pi_2
@@ -128,12 +127,6 @@ MODULE mo_vertical_grid
     LOGICAL :: l_half_lev_centr
 
     !------------------------------------------------------------------------
-
-
-    ! model timer is not yet initialized here and grad_fd_norm asks for a
-    ! running timer
-    CALL init_timer
-
 
     DO jg = 1,n_dom
 
