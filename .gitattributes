@@ -835,6 +835,7 @@ scripts/postprocessing/tools/metview/zonal.error -text
 scripts/postprocessing/tools/mtgrm_ascii.ncl -text
 scripts/postprocessing/tools/mtgrm_cosmo.ncl -text
 scripts/postprocessing/tools/mtgrm_plot.ncl -text
+scripts/postprocessing/tools/mtgrm_plot.s -text
 scripts/postprocessing/tools/namelist_postpro.ncl -text
 scripts/postprocessing/tools/namelist_postpro_driver.bash -text
 scripts/postprocessing/tools/plotIconSphereGrid.ncl -text
