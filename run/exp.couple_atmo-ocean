@@ -78,10 +78,9 @@ dt_checkpoint=`expr 12 \* 3600`  # write restart file every 12 hours
 #
 dtime=$dtime_atmo
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
-dt_diag=`expr 24 \* 3600  `  # global integral output each 24 hours
-dt_file=`expr ${ndays} \* 86400 `   # 1 file per job
-dt_data=86400.               # write output every 24 hours
-dt_rad=7200.                 # compute radiative transfer every other hour
+dt_file=`expr ${ndays} \* 86400 ` # 1 file per job
+dt_data=`expr 6 \* 3600 `         # write output every 6 hours
+dt_rad=7200.                      # compute radiative transfer every other hour
 #
 #
 #-----------------------------------------------------------------------------
@@ -307,13 +306,12 @@ dtime=$dtime_ocean   # ocean model timestep [s]
 # calculate model timesteps using $ndays
 #
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
-dt_data=86400.       # ocean model output interval [s]
-ndays_file=90        # new output file generation interval [days]
+dt_data=`expr 24 \* 3600 `        # write output every 24 hours
+dt_file=`expr ${ndays} \* 86400 ` # 1 file per job
 #
 #-----------------------------------------------------------------------------
 # diagnostic output (not in ocean model)
 #
-dt_file=`expr ${ndays_file} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -538,7 +536,7 @@ cat > ${ocean_namelist} << EOF
 /
 &io_nml
  out_expname = '${EXPNAME}_ocn'  ! file name base
- dt_data     = ${dt_data}        ! write output every 96 hours
+ dt_data     = ${dt_data}        ! [s] write output
  dt_file     = ${dt_file}        ! [s] interval for generation of new output file (3600*24*365 -> 1y)
  dt_checkpoint=${dt_checkpoint}
  lwrite_initial   = .FALSE.      ! do/don't write out initial data
