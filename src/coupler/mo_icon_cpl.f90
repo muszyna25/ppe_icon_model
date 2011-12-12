@@ -13,18 +13,16 @@
 !!       Initialisation of the components
 !!       --------------------------------
 !!
-!!       SUBROUTINE ICON_cpl_init ( comp_name, comp_id, ierror )
+!!       SUBROUTINE ICON_cpl_init ( comp_name, ierror )
 !!
 !!         CHARACTER(len=*), INTENT(in) :: comp_name
-!!         INTEGER, INTENT(out)         :: comp_id
 !!         INTEGER, INTENT(out)         :: ierror
 !!
 !!       Grid Definition
 !!       ---------------
 !!
-!!       SUBROUTINE ICON_cpl_def_grid ( comp_id, shape, grid_glob_index, grid_id, ierror )
+!!       SUBROUTINE ICON_cpl_def_grid ( shape, grid_glob_index, grid_id, ierror )
 !!
-!!         INTEGER, INTENT(in)         :: comp_id
 !!         INTEGER, INTENT(in)         :: shape(2)
 !!         INTEGER, INTENT(in)         :: grid_glob_index(shape(1):shape(2))
 !!         INTEGER, INTENT(out)        :: grid_id
@@ -34,10 +32,9 @@
 !!       Definition of coupling fields
 !!       -----------------------------
 !!
-!!       SUBROUTINE ICON_cpl_def_field ( field_name, comp_id, grid_id, field_id, ierror )
+!!       SUBROUTINE ICON_cpl_def_field ( field_name, grid_id, field_id, ierror )
 !!
 !!         CHARACTER(LEN=*), INTENT (in) :: field_name
-!!         INTEGER, INTENT(in)           :: comp_id
 !!         INTEGER, INTENT(in)           :: grid_id
 !!         INTEGER, INTENT(out)          :: field_id
 !!         INTEGER, INTENT(out)          :: ierror
@@ -191,7 +188,6 @@ MODULE mo_icon_cpl
 !!
 
   TYPE t_grid
-     INTEGER                :: comp_id
      INTEGER                :: grid_shape(2)
      LOGICAL                :: l_grid_status
      INTEGER, POINTER       :: grid_glob_index(:) => NULL()
@@ -232,7 +228,6 @@ MODULE mo_icon_cpl
 !!
 
   TYPE t_cpl_field
-     INTEGER                :: comp_id
      INTEGER                :: grid_id
      INTEGER                :: global_field_id
      INTEGER                :: event_id

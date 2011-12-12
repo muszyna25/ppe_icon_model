@@ -91,13 +91,14 @@ MODULE mo_icon_cpl_init_comp
 CONTAINS
   
 
-  SUBROUTINE icon_cpl_init_comp ( comp_name, global_comp_no, comp_id, ierror )
+  SUBROUTINE icon_cpl_init_comp ( comp_name, global_comp_no, ierror )
 
     CHARACTER(len=*), INTENT(in) :: comp_name
     INTEGER, INTENT(in)          :: global_comp_no   ! the component unique number
     
-    INTEGER, INTENT(out)         :: comp_id
     INTEGER, INTENT(out)         :: ierror
+
+    INTEGER                      :: comp_id
 
     INTEGER                      :: comp_comm
     INTEGER                      :: key, color
@@ -144,6 +145,11 @@ CONTAINS
 
     IF ( comp_id > nbr_ICON_comps ) THEN
        PRINT *, 'number of requested components exceeds maximum of nbr_ICON_comps'
+       CALL MPI_Abort ( ICON_comm, 1, ierr )
+    ENDIF
+
+    IF ( comp_id > 1 ) THEN
+       PRINT *, 'Only one component per MPI process is supported.'
        CALL MPI_Abort ( ICON_comm, 1, ierr )
     ENDIF
 
@@ -230,7 +236,6 @@ CONTAINS
           CALL MPI_Abort ( ICON_COMM, 1, ierr )
        ENDIF
 
-       grids(:)%comp_id       = -1
        grids(:)%l_grid_status = .FALSE.
 
     ENDIF
@@ -251,7 +256,6 @@ CONTAINS
           CALL MPI_Abort ( ICON_COMM, 1, ierr )
        ENDIF
 
-       cpl_fields(:)%comp_id        = -1
        cpl_fields(:)%grid_id        = -1
        cpl_fields(:)%event_id       = -1
        cpl_fields(:)%l_field_status = .FALSE.

@@ -33,7 +33,7 @@
 MODULE mo_ocean_model
 
   USE mo_exception,           ONLY: message, finish  ! use always
-  USE mo_master_control,      ONLY: is_restart_run, get_my_couple_id
+  USE mo_master_control,      ONLY: is_restart_run
   USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs
   USE mo_mpi,                 ONLY: p_stop, &
     & my_process_is_io,  my_process_is_mpi_seq, my_process_is_mpi_test, &
@@ -130,7 +130,6 @@ MODULE mo_ocean_model
   ! For the coupling
   USE mo_impl_constants,      ONLY: CELLS, MAX_CHAR_LENGTH
   USE mo_master_control,      ONLY : ocean_process, is_coupled_run
-  USE mo_icon_cpl_init_comp,  ONLY : get_my_local_comp_id
   USE mo_icon_cpl_def_grid,   ONLY : ICON_cpl_def_grid, ICON_cpl_def_location
   USE mo_icon_cpl_def_field,  ONLY : ICON_cpl_def_field
   USE mo_icon_cpl_search,     ONLY : ICON_cpl_search
@@ -138,7 +137,7 @@ MODULE mo_ocean_model
   USE mo_model_domain_import, ONLY : get_patch_global_indexes
 
   !-------------------------------------------------------------
-  USE mo_read_namelists,      ONLY: read_ocean_namelists
+  USE mo_read_namelists,       ONLY: read_ocean_namelists
   USE mo_io_restart,           ONLY: read_restart_info_file, read_restart_files
   USE mo_io_restart_namelist,  ONLY: read_restart_namelists
   USE mo_io_restart_attributes,ONLY: read_restart_attributes, get_restart_attribute
@@ -174,7 +173,6 @@ CONTAINS
     CHARACTER(LEN=MAX_CHAR_LENGTH) ::  field_name(no_of_fields)
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: grid_file_name
     INTEGER :: field_id(no_of_fields)
-    INTEGER :: comp_id
     INTEGER :: grid_id
     INTEGER :: grid_shape(2) 
     INTEGER :: field_shape(3) 
@@ -439,7 +437,6 @@ CONTAINS
 
     IF ( is_coupled_run() ) THEN
 
-      comp_id       = get_my_couple_id ()
       patch_no      = 1
 
       grid_shape(1) = 1
@@ -448,8 +445,8 @@ CONTAINS
       ! CALL get_patch_global_indexes ( patch_no, CELLS, no_of_entities, grid_glob_index )
       ! should grid_glob_index become a pointer in ICON_cpl_def_grid as well?
       CALL ICON_cpl_def_grid ( &
-        & comp_id, grid_shape, p_patch(patch_no)%cells%glb_index, & ! input
-        & grid_id, error_status )                                   ! output
+        & grid_shape, p_patch(patch_no)%cells%glb_index, & ! input
+        & grid_id, error_status )                          ! output
 
 
       ! Marker for internal and halo points, a list which contains the
@@ -479,7 +476,7 @@ CONTAINS
       ELSE
          field_shape(3) = 1
       ENDIF
-         CALL ICON_cpl_def_field ( field_name(i), comp_id, grid_id, field_id(i), &
+         CALL ICON_cpl_def_field ( field_name(i), grid_id, field_id(i), &
     &                               field_shape, error_status )
       ENDDO
 

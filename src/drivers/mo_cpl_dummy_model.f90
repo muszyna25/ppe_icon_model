@@ -44,7 +44,7 @@ USE mo_mpi,                 ONLY: p_stop, &
   & global_mpi_barrier, p_pe_work
 USE mo_timer,               ONLY: init_timer
 USE mo_master_control,      ONLY: is_restart_run, get_my_process_name, &
-                                  get_my_model_no, get_my_couple_id
+                                  get_my_model_no
 
 
 ! Control parameters: run control, dynamics, i/o
@@ -73,7 +73,6 @@ USE mo_impl_constants, ONLY:&
 ! For the coupling
 USE mo_impl_constants, ONLY: CELLS
 USE mo_master_control, ONLY : atmo_process, is_coupled_run
-! USE mo_icon_cpl_init_comp, ONLY : get_my_local_comp_id
 USE mo_icon_cpl_def_grid, ONLY : ICON_cpl_def_grid, ICON_cpl_def_location
 USE mo_icon_cpl_def_field, ONLY : ICON_cpl_def_field
 USE mo_icon_cpl_search, ONLY : ICON_cpl_search
@@ -172,7 +171,6 @@ CONTAINS
 
     CHARACTER(LEN=MAX_CHAR_LENGTH) ::  field_name(no_of_fields)
     INTEGER :: field_id(no_of_fields)
-    INTEGER :: comp_id
     INTEGER :: grid_id
     INTEGER :: grid_shape(2) 
     INTEGER :: field_shape(3) 
@@ -410,7 +408,6 @@ CONTAINS
     !---------------------------------------------------------------------
     IF ( is_coupled_run() ) THEN
  
-      comp_id = get_my_couple_id ()
       patch_no = 1
 
       grid_shape(1)=1
@@ -420,8 +417,8 @@ CONTAINS
       ! should grid_glob_index become a pointer in ICON_cpl_def_grid as well?
 
        CALL ICON_cpl_def_grid ( &
-         & comp_id, grid_shape, p_patch(patch_no)%cells%glb_index, & ! input
-         & grid_id, error_status )                                   ! output
+         & grid_shape, p_patch(patch_no)%cells%glb_index, & ! input
+         & grid_id, error_status )                          ! output
 
       ! Marker for internal and halo points, a list which contains the
       ! rank where the native vertices are located.
@@ -460,7 +457,7 @@ CONTAINS
       field_shape(3) = 1
 
       DO i = 1, no_of_fields
-          CALL ICON_cpl_def_field ( field_name(i), comp_id, grid_id, field_id(i), &
+          CALL ICON_cpl_def_field ( field_name(i), grid_id, field_id(i), &
                                   & field_shape, error_status )
       ENDDO
 

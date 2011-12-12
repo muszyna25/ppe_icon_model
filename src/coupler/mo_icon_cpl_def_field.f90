@@ -72,11 +72,10 @@ MODULE mo_icon_cpl_def_field
 
 CONTAINS
 
-  SUBROUTINE ICON_cpl_def_field ( field_name, comp_id, grid_id, field_id, field_shape, ierror )
+  SUBROUTINE ICON_cpl_def_field ( field_name, grid_id, field_id, field_shape, ierror )
 
     CHARACTER(LEN=*), INTENT (in) :: field_name
 
-    INTEGER, INTENT(in)           :: comp_id          !<  component id
     INTEGER, INTENT(in)           :: grid_id          !<  grid id
     INTEGER, INTENT(out)          :: field_id         !<  field id
     INTEGER, INTENT(in)           :: field_shape(3)
@@ -120,7 +119,6 @@ CONTAINS
            cpl_fields (1:nbr_ICON_fields)
 
        DO i = nbr_ICON_fields+1, new_dim
-          new_cpl_fields(i)%comp_id         = 0
           new_cpl_fields(i)%grid_id         = 0
           new_cpl_fields(i)%global_field_id = 0
           new_cpl_fields(i)%field_shape     = 0
@@ -206,7 +204,6 @@ CONTAINS
 
     fptr%field_name      = TRIM(field_name)
 
-    fptr%comp_id         = comp_id
     fptr%grid_id         = grid_id
     fptr%global_field_id = global_field_id
 

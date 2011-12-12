@@ -54,9 +54,8 @@ MODULE mo_icon_cpl_def_grid
 
 CONTAINS
 
-  SUBROUTINE ICON_cpl_def_grid ( comp_id, grid_shape, grid_glob_index, grid_id, ierror )
+  SUBROUTINE ICON_cpl_def_grid ( grid_shape, grid_glob_index, grid_id, ierror )
 
-    INTEGER, INTENT(in)  :: comp_id            !<  component id
     INTEGER, INTENT(in)  :: grid_shape(2)      !<  shape of index array
     INTEGER, INTENT(in)  :: grid_glob_index & 
                         (grid_shape(1):grid_shape(2)) !<  index array
@@ -93,7 +92,6 @@ CONTAINS
     ! Store grid parameters and global index list
     ! -------------------------------------------------------------------
 
-    gptr%comp_id       = comp_id
     gptr%l_grid_status = .TRUE.
 
     ALLOCATE ( gptr%grid_glob_index(grid_shape(1):grid_shape(2)), STAT = ierr )

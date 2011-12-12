@@ -41,7 +41,7 @@ USE mo_mpi,                 ONLY: p_stop, &
   & set_mpi_work_communicators, set_comm_input_bcast, null_comm_type
 USE mo_timer,               ONLY: init_timer
 USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs
-USE mo_master_control,      ONLY: is_restart_run, get_my_couple_id
+USE mo_master_control,      ONLY: is_restart_run
 
 
 ! Control parameters: run control, dynamics, i/o
@@ -68,7 +68,6 @@ USE mo_impl_constants, ONLY:&
 ! For the coupling
 USE mo_impl_constants, ONLY: CELLS
 USE mo_master_control, ONLY : is_coupled_run
-USE mo_icon_cpl_init_comp, ONLY : get_my_local_comp_id
 USE mo_icon_cpl_def_grid, ONLY : ICON_cpl_def_grid
 USE mo_icon_cpl_def_field, ONLY : ICON_cpl_def_field
 USE mo_icon_cpl_search, ONLY : ICON_cpl_search
@@ -159,7 +158,6 @@ CONTAINS
 
     CHARACTER(LEN=MAX_CHAR_LENGTH) ::  field_name(no_of_fields)
     INTEGER :: field_id(no_of_fields)
-    INTEGER :: comp_id
     INTEGER :: grid_id
     INTEGER :: grid_shape(2) 
     INTEGER :: field_shape(3) 
@@ -314,7 +312,6 @@ CONTAINS
     !---------------------------------------------------------------------
     IF ( is_coupled_run() ) THEN
  
-      comp_id = get_my_couple_id ()
       patch_no = 1
 
       grid_shape(1)=1
@@ -323,8 +320,8 @@ CONTAINS
       ! CALL get_patch_global_indexes ( patch_no, CELLS, no_of_entities, grid_glob_index )
       ! should grid_glob_index become a pointer in ICON_cpl_def_grid as well?
       CALL ICON_cpl_def_grid ( &
-        & comp_id, grid_shape, p_patch(patch_no)%cells%glb_index, & ! input
-        & grid_id, error_status )                                   ! output
+        & grid_shape, p_patch(patch_no)%cells%glb_index, & ! input
+        & grid_id, error_status )                          ! output
   
       field_name(1) = "SST"
       field_name(2) = "TAUX"
@@ -336,7 +333,7 @@ CONTAINS
       field_name(8) = ""
  
 !       DO i = 1, no_of_fields
-!          CALL ICON_cpl_def_field ( field_name(i), comp_id, grid_id, field_id(i), &
+!          CALL ICON_cpl_def_field ( field_name(i), grid_id, field_id(i), &
 !                                  & field_shape, error_status )
 !       ENDDO
 

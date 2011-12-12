@@ -65,9 +65,8 @@ MODULE mo_master_control
   PUBLIC ::  init_master_control, get_my_namelist_filename,           &
     & get_my_process_type, get_my_process_name, is_coupled_run,  &
     & atmo_process, ocean_process, radiation_process, dummy_process,  &
-    & my_process_is_ocean, is_restart_run, get_my_model_no,           &
-    & get_my_couple_id, null_process
-
+    & my_process_is_ocean, is_restart_run, get_my_model_no
+    & null_process
 
   ! ------------------------------------------------------------------------
   INTEGER, PARAMETER :: null_process  = 0
@@ -173,7 +172,7 @@ MODULE mo_master_control
     IF ( in_coupled_mode ) THEN
       CALL icon_cpl_init(debug_level=nml_debug_coupler_level)
       ! Inform the coupler about what we are
-      CALL icon_cpl_init_comp ( my_model_name, my_model_no, my_coupling_comp_id, ierr )
+      CALL icon_cpl_init_comp ( my_model_name, my_model_no, ierr )
       ! split the global_mpi_communicator into the components
     ENDIF
     !------------------------------------------------------------
@@ -274,14 +273,6 @@ MODULE mo_master_control
     get_my_model_no = my_model_no
 
   END FUNCTION get_my_model_no
-  !------------------------------------------------------------------------
-
-  !------------------------------------------------------------------------
-  INTEGER FUNCTION get_my_couple_id()
-
-    get_my_couple_id = my_coupling_comp_id 
-
-  END FUNCTION get_my_couple_id
   !------------------------------------------------------------------------
 
   !------------------------------------------------------------------------
