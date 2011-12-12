@@ -35,7 +35,8 @@ MODULE mo_atmo_nonhydrostatic
 USE mo_kind,                 ONLY: wp
 USE mo_exception,            ONLY: message, finish
 USE mo_impl_constants,       ONLY: SUCCESS, max_dom
-USE mo_timer,                ONLY: print_timer
+USE mo_timer,                ONLY: print_timer, timers_level, timer_start, &
+  &                                timer_stop, timer_model_init
 USE mo_master_control,       ONLY: is_restart_run
 USE mo_output,               ONLY: init_output_files, close_output_files,&
   &                                write_output
@@ -106,6 +107,8 @@ CONTAINS
     INTEGER :: jg, jfile, n_file, ist, n_diag, n_chkpt, ntl, ntlr
     LOGICAL :: l_have_output, l_realcase
     INTEGER :: pat_level(n_dom)
+
+    IF (timers_level > 3) CALL timer_start(timer_model_init)
 
     DO jg=1,n_dom
        pat_level(jg)= p_patch(jg)%level
@@ -336,6 +339,8 @@ CONTAINS
       CALL write_name_list_output( time_config%cur_datetime, 0._wp, .FALSE. )
 
     END IF ! not is_restart_run()
+
+    IF (timers_level > 3) CALL timer_stop(timer_model_init)
 
     !------------------------------------------------------------------
     ! Now start the time stepping:

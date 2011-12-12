@@ -45,7 +45,8 @@ USE mo_mpi,                 ONLY: p_stop, &
 USE mo_sync,                ONLY: enable_sync_checks, disable_sync_checks, &
                                   decomposition_statistics
 USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, &
-  &                               timer_lonlat_setup
+  &                               timers_level,                        &
+  &                               timer_lonlat_setup, timer_model_init
 USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, &
   &                               num_io_procs, nproma
 USE mo_lonlat_intp_config,  ONLY: configure_lonlat_intp
@@ -283,6 +284,7 @@ CONTAINS
     ! 3.2 Initialize various timers
     !-------------------------------------------------------------------
     IF (ltimer) CALL init_timer
+    IF (timers_level > 3) CALL timer_start(timer_model_init)
 
     !------------------
     ! Next, define the horizontal and vertical grids since they are aready
@@ -639,6 +641,8 @@ CONTAINS
       CALL ICON_cpl_search
 
     ENDIF
+
+    IF (timers_level > 3) CALL timer_stop(timer_model_init)
 
     !---------------------------------------------------------------------
     ! 12. The hydrostatic and nonhydrostatic models branch from this point

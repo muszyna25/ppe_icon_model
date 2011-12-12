@@ -59,8 +59,10 @@ MODULE mo_nh_stepping
   USE mo_parallel_config,      ONLY: nproma, itype_comm
   USE mo_run_config,           ONLY: ltestcase, dtime, dtime_adv, nsteps,     &
     &                                ltransport, ntracer, lforcing, iforcing, &
-    &                                msg_level, ltimer
-  USE mo_grid_config,          ONLY: global_cell_type
+    &                                msg_level
+  USE mo_timer,               ONLY: ltimer, timers_level, timer_start, timer_stop, &
+    &                               timer_model_init
+  USE mo_grid_config,         ONLY: global_cell_type
   USE mo_atm_phy_nwp_config,  ONLY: tcall_phy, atm_phy_nwp_config
   USE mo_nwp_phy_init,        ONLY: init_nwp_phy
   USE mo_nwp_phy_state,       ONLY: prm_diag, prm_nwp_tend, mean_charlen
@@ -282,6 +284,8 @@ MODULE mo_nh_stepping
 !$  INTEGER omp_get_max_active_levels
 !-----------------------------------------------------------------------
 
+  IF (timers_level > 3) CALL timer_start(timer_model_init)
+
   CALL allocate_nh_stepping (p_patch)
 
   ALLOCATE(phy_params(n_dom))
@@ -319,6 +323,8 @@ MODULE mo_nh_stepping
            & mean_charlen(jg), phy_params(jg)       )
     ENDDO
   ENDIF
+
+  IF (timers_level > 3) CALL timer_stop(timer_model_init)
 
   IF (parallel_radiation_omp) THEN
 
@@ -496,7 +502,6 @@ MODULE mo_nh_stepping
     ! output of results
     ! note: nnew has been replaced by nnow here because the update
     IF (l_outputtime) THEN
-
       ! Interpolate selected fields to p- and/or z-levels
       IF (lwrite_pzlev) THEN
         CALL intp_to_p_and_z_levels(p_patch(1:), prm_diag, p_nh_state)
@@ -515,7 +520,6 @@ MODULE mo_nh_stepping
         ! l_have_output must not be set here, this triggers the close
         ! of vlist output files (not touched by name list output)
       ENDIF
-
     ENDIF
 
     ! sample meteogram output

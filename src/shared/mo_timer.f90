@@ -214,7 +214,8 @@ CONTAINS
   SUBROUTINE init_timer
 
     ! major timers
-    timer_total     = new_timer("total")
+    timer_total        = new_timer("total")
+
     timer_exch_data = new_timer("exch_data")
     timer_exch_data_rv = new_timer("exch_data_rv")
     timer_exch_data_async = new_timer("exch_data_async")
