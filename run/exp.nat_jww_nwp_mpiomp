@@ -164,14 +164,15 @@ inwp_gscp       = 1
 inwp_convection = 1
 inwp_radiation  = 1
 inwp_cldcover   = 3
-inwp_turb       = 2
+inwp_turb       = 1
 inwp_satad      = 1
+inwp_surface    = 0
 /
 &radiation_nml
  irad_o3 = 6
 /
 &nonhydrostatic_nml
- itime_scheme   = 5
+ itime_scheme   = 4
  iadv_rhotheta  = 2
  ivctype        = 2            ! sleve vertical coordinate
  exner_expol    = 0.60
