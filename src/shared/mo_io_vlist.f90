@@ -2222,6 +2222,20 @@ CONTAINS
       &                     gridEdgeID(k_jg), &
       &                     zaxisIDdepth_m(k_jg)),&
       &           k_jg)
+   !  CALL addVar(ConstVar('dolic_c',&
+   !  &                    'deepest ocean layer on cells',&
+   !  &                    '', 1, 128,&
+   !  &                     vlistID(k_jg),&
+   !  &                     gridCellID(k_jg), &
+   !  &                     zaxisID_surface(k_jg)),&
+   !  &           k_jg)
+   !  CALL addVar(ConstVar('dolic_e',&
+   !  &                    'deepest ocean layer on edges',&
+   !  &                    '', 1, 128,&
+   !  &                     vlistID(k_jg),&
+   !  &                     gridEdgeID(k_jg), &
+   !  &                     zaxisID_surface(k_jg)),&
+   !  &           k_jg)
       CALL addVar(TimeVar('ELEV',&
       &                   'surface elevation at cell center',&
       &                   'm', 1, 128,&
@@ -3385,8 +3399,9 @@ CONTAINS
     TYPE(t_sfc_flx),          POINTER :: forcing
     TYPE(t_ho_params),        POINTER :: p_params
     TYPE(t_sea_ice),          POINTER :: p_ice
-    REAL(wp), POINTER                 :: r_isice(:,:,:)
-    INTEGER                           :: s_isice(3)
+    REAL(wp),                 POINTER :: r_isice(:,:,:)
+    REAL(wp),                 POINTER :: r_dolic_c(:,:), r_dolic_e(:,:)
+    INTEGER                           :: s_isice(3), shp_dolic(2)
 
     p_prog  => v_ocean_state(jg)%p_prog(nold(jg))
     p_diag  => v_ocean_state(jg)%p_diag
@@ -3404,6 +3419,16 @@ CONTAINS
     SELECT CASE(varname)
       CASE ('wet_c');        ptr3d => v_base%wet_c
       CASE ('wet_e');        ptr3d => v_base%wet_e
+      CASE ('dolic_c')
+        shp_dolic = SHAPE(v_base%dolic_c)
+        ALLOCATE(r_dolic_c(shp_dolic(1),shp_dolic(2)))
+        r_dolic_c(:,:) = REAL(v_base%dolic_c(:,:))
+        ptr2d => r_dolic_c
+      CASE ('dolic_e')
+        shp_dolic = SHAPE(v_base%dolic_e)
+        ALLOCATE(r_dolic_e(shp_dolic(1),shp_dolic(2)))
+        r_dolic_e(:,:) = REAL(v_base%dolic_e(:,:))
+        ptr2d => r_dolic_e
       CASE ('ELEV');         ptr2d => p_prog%h
       CASE ('forc_u');       ptr2d => forcing%forc_wind_u
       CASE ('forc_v');       ptr2d => forcing%forc_wind_v
