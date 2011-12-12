@@ -345,7 +345,7 @@ CONTAINS
 
     CALL perform_nh_stepping( p_patch, p_int_state, p_grf_state, p_nh_state, &
       &                       time_config%cur_datetime,                      &
-      &                       n_file, n_chkpt, n_diag, l_have_output         )
+      &                       n_file, jfile, n_chkpt, n_diag, l_have_output  )
  
     IF (ltimer) CALL print_timer
 

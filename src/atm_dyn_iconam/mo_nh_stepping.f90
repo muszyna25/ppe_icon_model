@@ -262,13 +262,14 @@ MODULE mo_nh_stepping
   !!
   SUBROUTINE perform_nh_stepping (p_patch, p_int_state,                   &
     &                             p_grf_state, p_nh_state,                &
-                                  datetime,n_file, n_checkpoint, n_diag,  &
-                                  l_have_output )
+    &                             datetime, n_file, jfile, n_checkpoint,  &
+    &                             n_diag, l_have_output )
 !
   TYPE(t_patch), TARGET, INTENT(IN)            :: p_patch(n_dom_start:n_dom)
   TYPE(t_int_state), TARGET, INTENT(IN)        :: p_int_state(n_dom_start:n_dom)
   TYPE(t_gridref_state), TARGET, INTENT(INOUT) :: p_grf_state(n_dom_start:n_dom)
   INTEGER, INTENT(IN)                          :: n_file, n_checkpoint, n_diag
+  INTEGER, INTENT(INOUT)                       :: jfile
   LOGICAL, INTENT(INOUT) :: l_have_output
 
   TYPE(t_nh_state), TARGET, INTENT(INOUT):: p_nh_state(n_dom)
@@ -335,7 +336,7 @@ MODULE mo_nh_stepping
 !$    write(0,*) 'omp_get_num_threads=',omp_get_num_threads()
 
     CALL perform_nh_timeloop (p_patch, p_int_state, p_grf_state, p_nh_state, &
-      &                       datetime, n_file, n_checkpoint, n_diag,        &
+      &                       datetime, n_file, jfile, n_checkpoint, n_diag, &
       &                       l_have_output )
     CALL model_end_ompthread()
 
@@ -349,7 +350,7 @@ MODULE mo_nh_stepping
     !---------------------------------------
 
     CALL perform_nh_timeloop (p_patch, p_int_state, p_grf_state, p_nh_state, &
-                              datetime, n_file, n_checkpoint, n_diag,        &
+                              datetime, n_file, jfile, n_checkpoint, n_diag, &
                               l_have_output )
   ENDIF
 
@@ -371,8 +372,8 @@ MODULE mo_nh_stepping
   !!
   SUBROUTINE perform_nh_timeloop (p_patch, p_int_state,                    &
                                &  p_grf_state, p_nh_state,                 &
-                                  datetime, n_file, n_checkpoint, n_diag,  &
-                                  l_have_output )
+                               &  datetime, n_file, jfile, n_checkpoint,   &
+                               &  n_diag, l_have_output )
 !
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_stepping:perform_nh_timeloop'
@@ -381,12 +382,13 @@ MODULE mo_nh_stepping
   TYPE(t_int_state), TARGET, INTENT(IN)        :: p_int_state(n_dom_start:n_dom)
   TYPE(t_gridref_state), TARGET, INTENT(INOUT) :: p_grf_state(n_dom_start:n_dom)
   INTEGER, INTENT(IN)                          :: n_file, n_checkpoint, n_diag
+  INTEGER, INTENT(INOUT)                       :: jfile
   LOGICAL, INTENT(INOUT) :: l_have_output
 
   TYPE(t_nh_state), TARGET, INTENT(INOUT):: p_nh_state(n_dom)
   TYPE(t_datetime), INTENT(INOUT)      :: datetime
 
-  INTEGER                              :: jfile, jstep, jb, nlen, jg
+  INTEGER                              :: jstep, jb, nlen, jg
   REAL(wp)                             :: vmax(2)
   REAL(wp)                             :: vn_aux(p_patch(1)%nblks_int_e)
   REAL(wp)                             :: w_aux(p_patch(1)%nblks_int_c)
@@ -396,8 +398,6 @@ MODULE mo_nh_stepping
 
 !$  INTEGER omp_get_num_threads
 !-----------------------------------------------------------------------
-
-  jfile = 1
 
   IF (ltimer) CALL timer_start(timer_total)
 
