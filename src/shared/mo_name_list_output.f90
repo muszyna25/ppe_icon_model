@@ -18,7 +18,7 @@ MODULE mo_name_list_output
   USE mo_impl_constants,        ONLY: max_phys_dom, ihs_ocean, zml_soil
   USE mo_grid_config,           ONLY: n_dom, n_phys_dom, global_cell_type
   USE mo_cdi_constants          ! We need all
-  USE mo_io_units,              ONLY: filename_max, nnml
+  USE mo_io_units,              ONLY: filename_max, nnml, nnml_output, find_next_free_unit
   USE mo_exception,             ONLY: finish, message, message_text
   USE mo_namelist,              ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_var_metadata,          ONLY: t_var_metadata
@@ -66,6 +66,10 @@ MODULE mo_name_list_output
   USE mo_communication,         ONLY: exchange_data, t_comm_pattern, idx_no, blk_no
   USE mo_interpol_config,       ONLY: rbf_vec_dim_c, rbf_vec_dim_v, rbf_vec_dim_e, rbf_c2grad_dim
   USE mo_nonhydrostatic_config, ONLY: iadv_rcf
+  USE mo_master_control,        ONLY: is_restart_run
+  USE mo_io_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist,  &
+                                    & open_and_restore_namelist, close_tmpfile
+
 
 
 
@@ -108,6 +112,7 @@ MODULE mo_name_list_output
 
     INTEGER  :: filetype            ! One of CDI's FILETYPE_XXX constants
     CHARACTER(LEN=8) :: namespace   ! 'DWD' - DWD short names (or 'MPIM', 'CMIP', 'ECMWF')
+    CHARACTER(LEN=filename_max) :: map_file ! File containig mapping internal names -> names in NetCDF
     INTEGER  :: mode                ! 1 = forecast mode, 2 = climate mode
     INTEGER  :: dom(max_phys_dom)   ! domains for which this namelist is used, ending with -1
     INTEGER  :: output_time_unit    ! 1 = second, 2=minute, 3=hour, 4=day, 5=month, 6=year
@@ -188,6 +193,8 @@ MODULE mo_name_list_output
     INTEGER                     :: num_vars
     TYPE(t_var_desc), ALLOCATABLE :: var_desc(:)
     TYPE(t_output_name_list), POINTER :: name_list ! Pointer to corresponding output name list
+
+    CHARACTER(LEN=vname_len), ALLOCATABLE :: name_map(:,:) ! mapping internal names -> names in NetCDF
 
     INTEGER                     :: remap         ! Copy of remap from associated namelist
 
@@ -299,7 +306,7 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(IN)   :: filename
 
-    INTEGER :: istat, i
+    INTEGER :: istat, i, funit
     TYPE(t_output_name_list), POINTER :: p_onl
 
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/read_name_list_output_namelists'
@@ -307,6 +314,7 @@ CONTAINS
     ! Local variables corresponding to members of output_name_list
     INTEGER  :: filetype
     CHARACTER(LEN=8) :: namespace
+    CHARACTER(LEN=filename_max) :: map_file
     INTEGER  :: mode
     INTEGER  :: dom(max_phys_dom)
     INTEGER  :: output_time_unit
@@ -333,6 +341,7 @@ CONTAINS
     NAMELIST /output_nml/ &
       filetype,           &
       namespace,          &
+      map_file,           &
       mode,               &
       dom,                &
       output_time_unit,   &
@@ -380,6 +389,7 @@ CONTAINS
 
       filetype           = FILETYPE_NC2 ! NetCDF
       namespace          = ' '
+      map_file           = ' '
       mode               = 1
       dom(:)             = -1
       output_time_unit   = 1
@@ -401,6 +411,16 @@ CONTAINS
       reg_lat_def(:)     = 0._wp
       gauss_tgrid_def    = 0
       north_pole(:)      = (/ 0._wp, 90._wp /)
+
+      !------------------------------------------------------------------
+      !  If this is a resumed integration, overwrite the defaults above 
+      !  by values used in the previous integration.
+      !------------------------------------------------------------------
+      IF (is_restart_run()) THEN
+        funit = open_and_restore_namelist('output_nml')
+        READ(funit,NML=output_nml)
+        CALL close_tmpfile(funit)
+      END IF
 
       ! Read output_nml
 
@@ -449,6 +469,7 @@ CONTAINS
 
       p_onl%filetype         = filetype
       p_onl%namespace        = namespace
+      p_onl%map_file         = map_file
       p_onl%mode             = mode
       p_onl%dom(:)           = dom(:)
       p_onl%output_time_unit = output_time_unit
@@ -499,11 +520,25 @@ CONTAINS
       p_onl%n_output_steps   = 0
       p_onl%next => NULL()
 
+      !-----------------------------------------------------
+      ! Store the namelist for restart
+      !-----------------------------------------------------
+      IF(my_process_is_stdio())  THEN
+        funit = open_tmpfile()
+        WRITE(funit,NML=output_nml)
+        CALL store_and_close_namelist(funit, 'output_nml')
+      ENDIF
+      !-----------------------------------------------------
+      ! write the contents of the namelist to an ASCII file
+      !-----------------------------------------------------
+      IF(my_process_is_stdio()) WRITE(nnml_output,nml=output_nml)
+
     ENDDO
 
     CALL close_nml
 
     IF(ASSOCIATED(first_output_name_list)) name_list_output_active = .TRUE.
+
 
   END SUBROUTINE read_name_list_output_namelists
 
@@ -1118,67 +1153,33 @@ ENDIF
 
 
   !------------------------------------------------------------------------------------------------
+  !> setup_output_vlist:
+  !! Sets up the vlist for a t_output_file structure
 
-  SUBROUTINE open_output_file(of, jfile)
+  SUBROUTINE setup_output_vlist(of)
 
     TYPE(t_output_file), INTENT(INOUT) :: of
-    INTEGER, INTENT(IN) :: jfile ! Number of file set to open
 
     INTEGER :: k, nlev, nlevp1, nplev, nzlev, nzlevp1, znlev_soil, astatus, i_dom
     INTEGER :: ll_dim(2)
     REAL(wp), ALLOCATABLE :: levels(:), levels_i(:), levels_m(:), p_lonlat(:)
 
-    CHARACTER(LEN=16) :: extn
+    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/setup_output_vlist'
 
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/open_output_file'
 
+    ! Read map_file - we do it here and not during initialization
+    ! since it is enough if only the output PE does the read (and not all)
+
+    IF(of%name_list%map_file /= ' ') CALL read_map_file(of, of%name_list%map_file)
 
     i_dom = of%phys_patch_id
 
-    !
-    ! check output file type
-    !
-    SELECT CASE (of%output_type)       
-    CASE (FILETYPE_NC)
-      CALL finish(routine,'netCDF classic not supported')
-    CASE (FILETYPE_NC2, FILETYPE_NC4)
-      ! this is ok, both formats can write more than 2GB files
-      extn = '.nc'
-    CASE (FILETYPE_GRB)
-      CALL finish(routine,'GRIB1 not supported')
-    CASE (FILETYPE_GRB2)
-      CALL message(routine,'GRIB2 support experimental')
-      extn = '.grb'
-    CASE default
-      CALL finish(routine,'unknown output_type')
-    END SELECT
-
-    ! Set actual output file name and open file
-
-    IF(my_process_is_mpi_test()) THEN
-      WRITE(of%filename,'(a,"_",i4.4,"_TEST",a)') TRIM(of%filename_pref),jfile,TRIM(extn)
-    ELSE
-      WRITE(of%filename,'(a,"_",i4.4,a)') TRIM(of%filename_pref),jfile,TRIM(extn)
-    ENDIF
-    of%cdiFileID = streamOpenWrite(TRIM(of%filename), of%output_type)
-
-    IF (of%cdiFileID < 0) THEN
-      WRITE(message_text,'(a)') cdiStringError(of%cdiFileID)
-      CALL message('',message_text)
-      CALL finish (routine, 'open failed on '//TRIM(of%filename))
-    ELSE
-      CALL message (routine, 'opened '//TRIM(of%filename))
-    END IF
     !
     ! The following sections add the file global properties collected in init_name_list_output
     !
     ! 1. create cdi vlist 
     !
     of%cdiVlistID = vlistCreate()
-    !
-    !    set cdi internal time index to 0 for writing time slices in netCDF
-    !
-    of%cdiTimeIndex = 0
     !
     ! 2. add global attributes for netCDF
     !
@@ -1418,9 +1419,134 @@ ENDIF
     !
     CALL add_variables_to_vlist(of)
 
-    CALL streamDefVlist(of%cdiFileID, of%cdiVlistID)
+  END SUBROUTINE setup_output_vlist
 
-  END SUBROUTINE open_output_file
+  !------------------------------------------------------------------------------------------------
+
+  SUBROUTINE read_map_file(p_of, map_file)
+
+    TYPE (t_output_file), INTENT(INOUT) :: p_of
+    CHARACTER(LEN=*) :: map_file
+
+    INTEGER :: iunit, ist, nvars
+    CHARACTER(LEN=256) :: line
+    CHARACTER(LEN=vname_len) :: key, val
+    LOGICAL :: valid
+
+    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/read_map_file'
+
+
+    iunit = find_next_free_unit(10,99)
+    OPEN (unit=iunit,file=map_file,access='SEQUENTIAL', &
+      &  form='FORMATTED', action='READ', status='OLD', IOSTAT=ist)
+
+    IF(ist/=0)THEN
+      CALL finish (routine, 'Open of map_file '//TRIM(map_file)//' failed')
+    ENDIF
+
+    nvars = 0
+
+    DO
+      line = ' '
+      READ(iunit,'(a)',iostat=ist) line
+      IF(ist < 0) EXIT ! No more lines
+      IF(ist > 0) CALL finish(routine, 'Read error in map_file '//TRIM(map_file))
+      CALL parse_line(line,key,val,valid)
+      IF(valid) nvars = nvars+1
+    ENDDO
+
+    REWIND(iunit)
+    ALLOCATE(p_of%name_map(2,nvars))
+
+    nvars = 0
+
+    DO
+      line = ' '
+      READ(iunit,'(a)',iostat=ist) line
+      IF(ist < 0) EXIT ! No more lines
+      IF(ist > 0) CALL finish(routine, 'Read error in map_file '//TRIM(map_file))
+      CALL parse_line(line,key,val,valid)
+      IF(valid) THEN
+        nvars = nvars+1
+        ! Safety only
+        IF(nvars > UBOUND(p_of%name_map,2)) &
+          CALL finish(routine,'INTERNAL: Length of name_map calculated wrong')
+        p_of%name_map(1,nvars) = key
+        p_of%name_map(2,nvars) = val
+      ENDIF
+    ENDDO
+
+    CLOSE(unit=iunit)
+
+  END SUBROUTINE read_map_file
+
+  !------------------------------------------------------------------------------------------------
+  ! parse_line:
+  ! Parses a line from map_file and returns key and value part
+  ! (first two nonblank words separated by blanks or tabs)
+
+  SUBROUTINE parse_line(line, key, val, valid)
+
+    CHARACTER(LEN=*), INTENT(IN)  :: line
+    CHARACTER(LEN=*), INTENT(OUT) :: key, val
+    LOGICAL, INTENT(OUT)          :: valid
+
+    INTEGER :: ipos1, ipos2
+
+    valid = .FALSE.
+    key = ' '
+    val = ' '
+
+    ! Search first nonblank character
+    DO ipos1 = 1, LEN(line)
+      IF(.NOT.isblank(line(ipos1:ipos1))) EXIT
+    ENDDO
+
+    IF(ipos1 > LEN(line)) RETURN ! completely empty line
+
+    IF(line(ipos1:ipos1) == '#') RETURN ! comment line
+
+    ! Search end of key
+    DO ipos2 = ipos1, LEN(line)
+      IF(isblank(line(ipos2:ipos2))) EXIT
+    ENDDO
+
+    key = line(ipos1:ipos2-1)
+
+    ! Search next nonblank character
+    DO ipos1 = ipos2, LEN(line)
+      IF(.NOT.isblank(line(ipos1:ipos1))) EXIT
+    ENDDO
+
+    IF(ipos1 > LEN(line)) THEN ! line contains no value part
+      CALL message('mo_name_list_output','Illegal line in name_map:')
+      CALL message('mo_name_list_output',TRIM(line))
+      RETURN
+    ENDIF
+
+    ! Search end of val
+    DO ipos2 = ipos1, LEN(line)
+      IF(isblank(line(ipos2:ipos2))) EXIT
+    ENDDO
+
+    val = line(ipos1:ipos2-1)
+
+    valid = .TRUE.
+
+    CONTAINS
+
+    ! Fortran equivalent to C isblank function
+    LOGICAL FUNCTION isblank(c)
+      CHARACTER(LEN=1) :: c
+      IF(c==' ' .OR. ICHAR(c)==9) THEN
+        ! Blank or Tab
+        isblank = .TRUE.
+      ELSE
+        isblank = .FALSE.
+      ENDIF
+    END FUNCTION isblank
+
+  END SUBROUTINE parse_line
 
   !------------------------------------------------------------------------------------------------
   !
@@ -1684,6 +1810,7 @@ ENDIF
     TYPE (t_var_metadata), POINTER :: info
     !
     INTEGER :: iv, vlistID, varID, gridID, zaxisID, nlev, nlevp1, znlev_soil, i, nvars
+    CHARACTER(LEN=vname_len) :: mapped_name
 
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/add_variables_to_vlist'
 
@@ -1798,6 +1925,18 @@ ENDIF
         nvars = 1
       ENDIF
 
+      ! Search name mapping for name in NetCDF file
+
+      mapped_name = info%name
+      IF(ALLOCATED(of%name_map)) THEN
+        DO i = 1, UBOUND(of%name_map, 2)
+          IF(info%name == of%name_map(1,i)) THEN
+            mapped_name = of%name_map(2,i)
+            EXIT
+          ENDIF
+        ENDDO
+      ENDIF
+
       DO i = 1, nvars
         varID = vlistDefVar(vlistID, gridID, zaxisID, TIME_VARIABLE)
         IF(i==1) THEN
@@ -1809,15 +1948,15 @@ ENDIF
         CALL vlistDefVarDatatype(vlistID, varID, DATATYPE_FLT32)
         IF(nvars==2) THEN
           IF(i==1) THEN
-            CALL vlistDefVarName(vlistID, varID, TRIM(info%name)//'_LONLAT_X')
+            CALL vlistDefVarName(vlistID, varID, TRIM(mapped_name)//'_LONLAT_X')
           ELSE
-            CALL vlistDefVarName(vlistID, varID, TRIM(info%name)//'_LONLAT_Y')
+            CALL vlistDefVarName(vlistID, varID, TRIM(mapped_name)//'_LONLAT_Y')
           ENDIF
         ELSE
           IF(of%name_list%remap == 1) THEN
-            CALL vlistDefVarName(vlistID, varID, TRIM(info%name)//'_LONLAT')
+            CALL vlistDefVarName(vlistID, varID, TRIM(mapped_name)//'_LONLAT')
           ELSE
-            CALL vlistDefVarName(vlistID, varID, TRIM(info%name))
+            CALL vlistDefVarName(vlistID, varID, TRIM(mapped_name))
           ENDIF
         ENDIF
         !
@@ -1831,6 +1970,69 @@ ENDIF
     ENDDO
     !
   END SUBROUTINE add_variables_to_vlist
+
+  !------------------------------------------------------------------------------------------------
+  !> open_output_file:
+  !! Opens a output file and sets its vlist
+
+  SUBROUTINE open_output_file(of, jfile)
+
+    TYPE(t_output_file), INTENT(INOUT) :: of
+    INTEGER, INTENT(IN) :: jfile ! Number of file set to open
+
+    CHARACTER(LEN=16) :: extn
+
+    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/open_output_file'
+
+    ! Please note that this routine is only executed on one processor (for a specific file)
+    ! and thus all calls to message get the all_print=.TRUE. argument so that the messages
+    ! really appear in the log
+
+    !
+    ! check output file type
+    !
+    SELECT CASE (of%output_type)       
+    CASE (FILETYPE_NC)
+      CALL finish(routine,'netCDF classic not supported')
+    CASE (FILETYPE_NC2, FILETYPE_NC4)
+      ! this is ok, both formats can write more than 2GB files
+      extn = '.nc'
+    CASE (FILETYPE_GRB)
+      CALL finish(routine,'GRIB1 not supported')
+    CASE (FILETYPE_GRB2)
+      CALL message(routine,'GRIB2 support experimental',all_print=.TRUE.)
+      extn = '.grb'
+    CASE default
+      CALL finish(routine,'unknown output_type')
+    END SELECT
+
+    ! Set actual output file name and open file
+
+    IF(my_process_is_mpi_test()) THEN
+      WRITE(of%filename,'(a,"_",i4.4,"_TEST",a)') TRIM(of%filename_pref),jfile,TRIM(extn)
+    ELSE
+      WRITE(of%filename,'(a,"_",i4.4,a)') TRIM(of%filename_pref),jfile,TRIM(extn)
+    ENDIF
+    of%cdiFileID = streamOpenWrite(TRIM(of%filename), of%output_type)
+
+    IF (of%cdiFileID < 0) THEN
+      WRITE(message_text,'(a)') cdiStringError(of%cdiFileID)
+      CALL message('',message_text,all_print=.TRUE.)
+      CALL finish (routine, 'open failed on '//TRIM(of%filename))
+    ELSE
+      CALL message (routine, 'opened '//TRIM(of%filename),all_print=.TRUE.)
+    END IF
+
+    ! assign the vlist (which must have ben set before)
+
+    CALL streamDefVlist(of%cdiFileID, of%cdiVlistID)
+
+    ! set cdi internal time index to 0 for writing time slices in netCDF
+
+    of%cdiTimeIndex = 0
+
+  END SUBROUTINE open_output_file
+
   !------------------------------------------------------------------------------------------------
   !
   SUBROUTINE close_name_list_output
@@ -1848,6 +2050,7 @@ ENDIF
 #endif
       DO i = 1, SIZE(output_file)
         CALL close_output_file(output_file(i))
+        CALL destroy_output_vlist(output_file(i))
       ENDDO
 #ifndef NOMPI
     ENDIF
@@ -1866,11 +2069,24 @@ ENDIF
 
     TYPE (t_output_file), INTENT(INOUT) :: of
 
-    INTEGER :: j, fileID, vlistID
 
+    IF(of%cdiFileID /= CDI_UNDEFID) CALL streamClose(of%cdiFileID)
 
-    fileID = of%cdiFileID
-    IF(fileID /= CDI_UNDEFID) CALL streamClose(fileID)
+    of%cdiFileID = CDI_UNDEFID
+
+  END SUBROUTINE close_output_file
+
+  !------------------------------------------------------------------------------------------------
+  !
+  ! Close output stream and the associated file,
+  ! destroy all vlist related data for this file
+  !
+  SUBROUTINE destroy_output_vlist(of)
+
+    TYPE (t_output_file), INTENT(INOUT) :: of
+
+    INTEGER :: j, vlistID
+
 
     vlistID = of%cdiVlistID
     IF(vlistID /= CDI_UNDEFID) THEN
@@ -1885,7 +2101,6 @@ ENDIF
       CALL vlistDestroy(vlistID)
     ENDIF
 
-    of%cdiFileID       = CDI_UNDEFID
     of%cdiVlistID      = CDI_UNDEFID
     of%cdiCellGridID   = CDI_UNDEFID
     of%cdiEdgeGridID   = CDI_UNDEFID
@@ -1894,7 +2109,7 @@ ENDIF
     of%cdiTaxisID      = CDI_UNDEFID
     of%cdiZaxisID(:)   = CDI_UNDEFID
 
-  END SUBROUTINE close_output_file
+  END SUBROUTINE destroy_output_vlist
 
   !------------------------------------------------------------------------------------------------
   !
@@ -1941,7 +2156,11 @@ ENDIF
 
         IF(MOD(p_onl%n_output_steps,p_onl%steps_per_file) == 0) THEN
           IF (output_file(i)%io_proc_id == p_pe .OR. my_process_is_mpi_test()) THEN
-            IF(p_onl%n_output_steps > 0) CALL close_output_file(output_file(i))
+            IF(p_onl%n_output_steps == 0) THEN
+              CALL setup_output_vlist(output_file(i))
+            ELSE
+              CALL close_output_file(output_file(i))
+            ENDIF
             CALL open_output_file(output_file(i),p_onl%n_output_steps/p_onl%steps_per_file+1)
           ENDIF
         ENDIF
@@ -1964,26 +2183,23 @@ ENDIF
       IF((p_onl%include_last .AND. last_step) .OR. &
           p_onl%next_output_time <= sim_time+iadv_rcf*dtime/2._wp) THEN
 
-        IF(.NOT.use_async_name_list_io) THEN
-          WRITE(text,'(a,a,a,1pg15.9)') &
-            'Output to ',TRIM(output_file(i)%filename),' at simulation time ',sim_time
-          CALL message('mo_name_list_output',text)
-        ENDIF
-
         IF (output_file(i)%io_proc_id == p_pe .OR. my_process_is_mpi_test()) THEN
           CALL taxisDefVdate(output_file(i)%cdiTaxisID, idate)
           CALL taxisDefVtime(output_file(i)%cdiTaxisID, itime)
 
           iret = streamDefTimestep(output_file(i)%cdiFileId, output_file(i)%cdiTimeIndex)
           output_file(i)%cdiTimeIndex = output_file(i)%cdiTimeIndex + 1
+
+          ! Notify user
+          WRITE(text,'(a,a,a,1pg15.9,a,i6)') &
+            'Output to ',TRIM(output_file(i)%filename),' at simulation time ',sim_time, &
+             ' by PE ',p_pe
+          CALL message('mo_name_list_output',text,all_print=.TRUE.)
         ENDIF
 
         IF(my_process_is_io()) THEN
 #ifndef NOMPI
           IF(output_file(i)%io_proc_id == p_pe) THEN
-            WRITE(*,'(a,a,a,1pg15.9,a,i6)') &
-              'Output to ',TRIM(output_file(i)%filename),' at simulation time ',sim_time, &
-              ' by PE ',p_pe
             CALL io_proc_write_name_list(output_file(i))
           ENDIF
 #endif
