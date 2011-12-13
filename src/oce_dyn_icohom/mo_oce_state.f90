@@ -1533,7 +1533,9 @@ END DO
     ZLEVEL_LOOP: DO jk = 1, n_zlev
 
       !-----------------------------
-      ! cells
+      ! set dolic and wet grid points on cells:
+      !  - if bathymetry is deeper than or equal to the coordinate surface (zlev_m)
+      !    then grid point is wet; dolic is in that level
       !  - values for BOUNDARY set below
 
       nolnd_c(jk)=0
@@ -1550,40 +1552,35 @@ END DO
         i_endidx=nproma
         IF (jb==nblks_c) i_endidx=npromz_c
 
-        !-----------------------------
-        ! set dolic and wet grid points:
-        !  - if bathymetry is deeper than or equal to the coordinate surface (zlev_m)
-        !    then grid point is wet; dolic is in that level
-
-        DO je = 1, i_endidx
+        DO jc = 1, i_endidx
 
           !  surface level of lsm defined by gridgenerator, not the current bathymetry
           !  read in from ext_data
           IF (jk == 1) THEN
 
             ! counts sea cells from lsm
-            IF (p_ext_data%oce%lsm_ctr_c(je,jb) <= -1) THEN
+            IF (p_ext_data%oce%lsm_ctr_c(jc,jb) <= -1) THEN
               nosea_c(jk)           = nosea_c(jk)+1
-              v_base%dolic_c(je,jb) = jk
-            ELSE IF (p_ext_data%oce%lsm_ctr_c(je,jb) >=  1) THEN
+              v_base%dolic_c(jc,jb) = jk
+            ELSE IF (p_ext_data%oce%lsm_ctr_c(jc,jb) >=  1) THEN
               nolnd_c(jk)           = nolnd_c(jk)+1
             ELSE ! 0 not defined
               STOP ' lsm_ctr_c = 0'
             END IF
 
             ! counts sea points from bathymetry
-            IF (p_ext_data%oce%bathymetry_c(je,jb) <= -v_base%zlev_m(jk)) &
+            IF (p_ext_data%oce%bathymetry_c(jc,jb) <= -v_base%zlev_m(jk)) &
               &   noct1_c = noct1_c+1
 
           !  second level of lsm and dolic defined by surface level, not the current bathymetry
           ELSE IF (jk == 2) THEN
 
             ! dependent on jk-1:
-            v_base%lsm_oce_c(je,jk,jb) = v_base%lsm_oce_c(je,jk-1,jb)
-            IF (v_base%lsm_oce_c(je,jk,jb) <= -1) THEN
+            v_base%lsm_oce_c(jc,jk,jb) = v_base%lsm_oce_c(jc,jk-1,jb)
+            IF (v_base%lsm_oce_c(jc,jk,jb) <= -1) THEN
               nosea_c(jk)           = nosea_c(jk)+1
-              v_base%dolic_c(je,jb) = jk
-            ELSE IF (v_base%lsm_oce_c(je,jk-1,jb) >=  1) THEN
+              v_base%dolic_c(jc,jb) = jk
+            ELSE IF (v_base%lsm_oce_c(jc,jk-1,jb) >=  1) THEN
               nolnd_c(jk)           = nolnd_c(jk)+1
             ELSE ! 0 not defined
               STOP ' lsm_oce_c = 0'
@@ -1591,13 +1588,13 @@ END DO
 
           ELSE  ! jk>2
 
-            IF (p_ext_data%oce%bathymetry_c(je,jb) <= -v_base%zlev_m(jk)) THEN
+            IF (p_ext_data%oce%bathymetry_c(jc,jb) <= -v_base%zlev_m(jk)) THEN
               nosea_c(jk)                = nosea_c(jk)+1
-              v_base%lsm_oce_c(je,jk,jb) = SEA
-              v_base%dolic_c(je,jb)      = jk
-            ELSE IF (p_ext_data%oce%bathymetry_c(je,jb)>-v_base%zlev_m(jk)) THEN
+              v_base%lsm_oce_c(jc,jk,jb) = SEA
+              v_base%dolic_c(jc,jb)      = jk
+            ELSE IF (p_ext_data%oce%bathymetry_c(jc,jb)>-v_base%zlev_m(jk)) THEN
               nolnd_c(jk)                = nolnd_c(jk)+1
-              v_base%lsm_oce_c(je,jk,jb) = LAND
+              v_base%lsm_oce_c(jc,jk,jb) = LAND
             END IF
 
           END IF
@@ -1618,8 +1615,8 @@ END DO
       END IF
 
       !-----------------------------
-      ! edges
-      !  - values for BOUNDARY set below, LAND, SEA only
+      ! set dolic and wet grid points on edges:
+      !  - values for BOUNDARY set below
 
       nolnd_e(jk)=0
       nosea_e(jk)=0
@@ -1685,43 +1682,40 @@ END DO
       END IF
 
 
-!-------------------------------------------------
-IF(LIMITED_AREA)THEN
-    z_south=-80.0_wp
-      DO jb = 1, nblks_c
-        i_endidx=nproma
-        IF (jb==nblks_c) i_endidx=npromz_c
-
-        DO jc = 1, i_endidx
-
-           !get latitude of actual cell
-           z_lat = p_patch%cells%center(jc,jb)%lat
-           z_lat_deg = z_lat*rad2deg
-
-           !If latitude of cell is above 80 N or below 80 S set triangle to land
-           IF(z_lat_deg>z_north.OR.z_lat_deg<z_south)THEN
-             v_base%lsm_oce_c(jc,:,jb)          = LAND
-             p_ext_data%oce%bathymetry_c(jc,jb) = 100.0_wp
-             v_base%dolic_c(jc,jb)              = 0
-             v_base%wet_c(jc,:,jb)              = 0.0_wp
-             !Set also all 3 edges to land
-             DO ji = 1, 3
-               ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
-               idxe                                   = p_patch%cells%edge_idx(jc,jb,ji)
-               ible                                   = p_patch%cells%edge_blk(jc,jb,ji)
-               v_base%lsm_oce_e(idxe,:,ible)          = LAND
-               p_ext_data%oce%bathymetry_e(idxe,ible) = 100.0_wp
-               v_base%dolic_e(idxe,ible)              = 0
-               v_base%wet_e(idxe,:,ible)              = 0.0_wp
-              END DO
-           ENDIF
+      !-------------------------------------------------
+      IF(LIMITED_AREA)THEN
+        z_south=-80.0_wp
+        DO jb = 1, nblks_c
+          i_endidx=nproma
+          IF (jb==nblks_c) i_endidx=npromz_c
+  
+          DO jc = 1, i_endidx
+  
+             !get latitude of actual cell
+             z_lat = p_patch%cells%center(jc,jb)%lat
+             z_lat_deg = z_lat*rad2deg
+  
+             !If latitude of cell is above 80 N or below 80 S set triangle to land
+             IF(z_lat_deg>z_north.OR.z_lat_deg<z_south)THEN
+               v_base%lsm_oce_c(jc,:,jb)          = LAND
+               p_ext_data%oce%bathymetry_c(jc,jb) = 100.0_wp
+               v_base%dolic_c(jc,jb)              = 0
+               v_base%wet_c(jc,:,jb)              = 0.0_wp
+               !Set also all 3 edges to land
+               DO ji = 1, 3
+                 ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
+                 idxe                                   = p_patch%cells%edge_idx(jc,jb,ji)
+                 ible                                   = p_patch%cells%edge_blk(jc,jb,ji)
+                 v_base%lsm_oce_e(idxe,:,ible)          = LAND
+                 p_ext_data%oce%bathymetry_e(idxe,ible) = 100.0_wp
+                 v_base%dolic_e(idxe,ible)              = 0
+                 v_base%wet_e(idxe,:,ible)              = 0.0_wp
+                END DO
+             ENDIF
+          END DO
         END DO
-      END DO
-ENDIF
-!-------------------------------------------------
-
-
-
+      ENDIF
+      !-------------------------------------------------
 
 
       !-----------------------------
@@ -1862,9 +1856,9 @@ ENDIF
 
     END DO ZLEVEL_LOOP
 
-!---------------------------------------------------------------------------------------------
-! preliminary - through all levels each wet point has at most one dry point as
-! neighbour
+    !---------------------------------------------------------------------------------------------
+    ! Correction loop for all levels, similar to surface done in grid generator
+    !  - through all levels each wet point has at most one dry point as neighbour
 
     rl_start = 1           
     rl_end = min_rlcell
@@ -1930,9 +1924,9 @@ ENDIF
       IF (ctr_jk == 0) EXIT
     END DO  ! jiter
 
-!---------------------------------------------------------------------------------------------
-! preliminary - run through whole zlevel_loop once more - after correction in
-! all levels
+    !---------------------------------------------------------------------------------------------
+    ! Now run through whole zlevel_loop once more - after correction in
+    ! all levels
 
     nogllnd_c = 0
     noglsea_c = 0
@@ -1969,13 +1963,13 @@ ENDIF
         i_endidx=nproma
         IF (jb==nblks_c) i_endidx=npromz_c
 
-        DO je = 1, i_endidx
-          IF (v_base%lsm_oce_c(je,jk,jb) <= SEA_BOUNDARY) THEN
+        DO jc = 1, i_endidx
+          IF (v_base%lsm_oce_c(jc,jk,jb) <= SEA_BOUNDARY) THEN
             nosea_c(jk)=nosea_c(jk)+1
-            v_base%dolic_c(je,jb) = jk
+            v_base%dolic_c(jc,jb) = jk
           ELSE
             ! -after correction: all other grid points are set to dry
-            v_base%lsm_oce_c(je,jk,jb) = LAND
+            v_base%lsm_oce_c(jc,jk,jb) = LAND
             nolnd_c(jk)=nolnd_c(jk)+1
           END IF
         END DO
@@ -2285,6 +2279,7 @@ ENDIF
 
   END SUBROUTINE init_ho_base
 
+  !-------------------------------------------------------------------------
   !
   !
   !>
