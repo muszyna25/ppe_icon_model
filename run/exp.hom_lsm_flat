@@ -178,6 +178,12 @@ ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
 #-----------------------------------------------------------------------------
 # 
 #  USE_POOLD="Y"      # "Y": ocean gridfile is read from $POOLDIR/$OCEGRID
+#
+#  DWD systems: $POOLDIR does not exist
+if [ "x$BB_SYSTEM" = "xhpc" -o "x$BB_SYSTEM" = "xnec" ] ; then
+   USE_POOLD="N"
+fi
+#
 if [ "x$USE_POOLD" = "xY" ] ; then
    POOLDIR="/pool/data/ICON/grids"
    if [ "x$USE_FLATB" = "xY" ] ; then
