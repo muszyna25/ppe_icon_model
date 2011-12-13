@@ -13,31 +13,28 @@
 # Preliminary test phase: run on specific systems and compiler only
 #  - 2011-01-31: mpipc/tornado/squall - all compilers
 #  - 2011-03-03: blizzard serial run included
-#
+#  - 2011-12-13: SX9 and HPC_serial - all machines in serial mode included
+#-----------------------------------------------------------------------------
+
+#  exit all buildbot slaves that run in parallel mode:
 if [ -z "$BB_SYSTEM" ]
 then
   echo " ===== (no buildbot) ======="
   echo " Run ocean testcase $EXPNAME"
   echo " ==========================="
 else
-  if [ "$BB_SYSTEM" == "mpipc" -o "$BB_SYSTEM" == "squall" -o "$BB_SYSTEM" == "tornado" ]
-  then 
-# if [ "$BB_SYSTEM" == "mpipc" -o "$BB_SYSTEM" == "squall" -o "$BB_SYSTEM" == "tornado" -o [ "$BB_SYSTEM" == "blizzard" -a "$BB_SLAVE" == "blizz_nMnO" ] ]
-    echo " ================================================="
-    echo " Run ocean testcase $EXPNAME on BB_SLAVE=$BB_SLAVE"
-    echo " ================================================="
-  else
-    if [ "$BB_SYSTEM" == "blizzard" -a "$BB_SLAVE" == "blizz_nMnO" ] 
-    then
-      echo " ================================================="
-      echo " Run ocean testcase $EXPNAME on BB_SLAVE=$BB_SLAVE"
-      echo " ================================================="
-    else
-      echo " ========================================================="
-      echo " No ocean testcase is run on BB_SLAVE=$BB_SLAVE - exit now"
-      echo " ========================================================="
-      exit 0
-    fi
+  echo " ================================================="
+  echo " Run ocean testcase $EXPNAME on BB_SLAVE=$BB_SLAVE"
+  echo " ================================================="
+  if [ $mpi_total_procs -gt 1 ] ; then
+     echo "The ocean test runs will not run in parallel MPI mode. Exiting."
+     check_error 0
+     exit
+  fi
+  if [ $OMP_NUM_THREADS -gt 1 ] ; then
+     echo "The ocean test runs will not run in OpenMP mode. Exiting."
+     check_error 0
+     exit
   fi
 fi
 
@@ -121,15 +118,15 @@ ocean_model_equations=-1 # equation system
 # USE_BATHY="Y"      # "Y": ocean horizontal gridfile base is "etopo40_planet"
 # USE_POOLD="Y"      # "Y": overwrite ocean gridfile from pool
 #-----------------------------------------------------------------------------
-if [ "x$USE_FLATB" == "xY"  ] ; then
+if [ "x$USE_FLATB" = "xY"  ] ; then
   grid_ext="etopo40_flat"
   USE_POOLD="Y"
-elif [ "x$USE_BATHY" == "xY"  ] ; then
+elif [ "x$USE_BATHY" = "xY"  ] ; then
   grid_ext="etopo40_planet"
   USE_POOLD="Y"
-elif [ "x$USE_AQUAP" == "xY"  ] ; then
+elif [ "x$USE_AQUAP" = "xY"  ] ; then
   grid_ext="aqua_planet"
-elif [ "x$USE_BASIN" == "xY"  ] ; then
+elif [ "x$USE_BASIN" = "xY"  ] ; then
 # grid_ext="bas10-80N"
   grid_ext="bas0-60N"
 else
@@ -140,12 +137,12 @@ ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
 #-----------------------------------------------------------------------------
 # 
 #  USE_POOLD="Y"      # "Y": ocean gridfile is read from $POOLDIR/$OCEGRID
-if [ "x$USE_POOLD" == "xY" ] ; then
+if [ "x$USE_POOLD" = "xY" ] ; then
    POOLDIR="/pool/data/ICON/grids"
-   if [ "x$USE_FLATB" == "xY" ] ; then
+   if [ "x$USE_FLATB" = "xY" ] ; then
      OCEGRID="ocegridR${R}B0${B}.cde3.3.flat.nc"
    fi
-   if [ "x$USE_BATHY" == "xY" ] ; then
+   if [ "x$USE_BATHY" = "xY" ] ; then
      OCEGRID="ocegridR${R}B0${B}.cde3.3.planet.nc"
    fi
    # other ocean grid files can be added here
