@@ -23,8 +23,8 @@ dt_checkpoint=`expr ${ndays_checkpoint} \* 86400 `
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=${dtime:=60}
-ndays=${ndays:=120}
+dtime=${dtime:=300}
+ndays=${ndays:=2}
 nsteps=${nsteps:=`expr ${ndays} \* 86400 / ${dtime}`}
 dt_rad=${dt_rad:=3600}             # compute radiative transfer every other hour
 dt_conv=${dt_conv:=$dtime}
@@ -32,7 +32,7 @@ dt_sso=${dt_sso:=$dt_conv}
 #
 #-----------------------------------------------------------------------------
 # the grid files if not defined
-atmo_dyn_grids=${atmo_dyn_grids:='iconR2B06-spr_cnt_sym.nc'}
+atmo_dyn_grids=${atmo_dyn_grids:='iconR2B04-grid.nc'}
 cell_type=${cell_type:=3}
 nlevels=${nlevels:=78}              # number of full levels
 #-----------------------------------------------------------------------------
