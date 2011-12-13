@@ -1459,7 +1459,7 @@ END DO
     INTEGER :: noglbnd_e, noglsbd_c, nogllbd_c
     INTEGER :: iic1, ibc1, iic2, ibc2, idxe, ible
     INTEGER :: n_zlvp, n_zlvm
-    INTEGER :: ctr, jiter, niter
+    INTEGER :: jiter, niter, ctr, ctr_jk
     REAL(wp):: perc_lnd_c(n_zlev), perc_gllnd_c
     REAL(wp):: perc_lnd_e(n_zlev), perc_gllnd_e
 
@@ -1874,10 +1874,11 @@ ENDIF
     niter=10
     DO jiter=1,niter
 
+      ctr_jk = 0
       DO jk=1,n_zlev
         !
         ! loop through all patch cells 
-        ctr=0
+        ctr = 0
         DO jb = i_startblk, i_endblk
           CALL get_indices_c  &
             &  (p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
@@ -1920,8 +1921,13 @@ ENDIF
             END IF
           END DO
         END DO
-        write(*,*)'triangles with 2 land edges present at jiter=',jiter,jk,ctr 
-      END DO
+      ! write(0,*)'triangles with 2 land edges present at jiter=',jiter,jk,ctr 
+        ctr_jk = ctr_jk + ctr
+      END DO  ! jk
+      WRITE(message_text,'(a,i2,a,i4)') 'Corrected wet cells with 2 land neighbors - iter=', &
+        &                              jiter,' no of cor:',ctr_jk
+      CALL message(TRIM(routine), TRIM(message_text))
+      IF (ctr_jk == 0) EXIT
     END DO  ! jiter
 
 !---------------------------------------------------------------------------------------------
