@@ -491,19 +491,19 @@ CONTAINS
   IF (icheck_str_proc == 0 ) RETURN
 
 ! ! valid e-format with first digit gt zero
-! 981 FORMAT(a,a18,' C:',i3,1pe30.18,3(a,i0,a,1pe20.8))
-! 982 FORMAT(a,a20,':'  ,i3,   30x,  3(a,i0,a,1pe20.8))
-! 991 FORMAT(a,a20,a,i3,1p2e30.18)
+! 981 FORMAT(a,a25,' C:',i3, 1pe26.18,3(a,i0,a,1pe16.8))
+! 982 FORMAT(a,a25,'  :',i3,    26x,  3(a,i0,a,1pe16.8))
+! 991 FORMAT(a,a25,':  ',i3,1p2e26.18)
 
 ! ! g-format with offset for decimal point not valid for NAG compiler
-! 981 FORMAT(a,a18,' C:',i3,1pg30.18,3(a,i0,a,1pg20.8))
-! 982 FORMAT(a,a20,':'  ,i3,   30x,  3(a,i0,a,1pg20.8))
-! 991 FORMAT(a,a20,a,i3,1p2g30.18)
+! 981 FORMAT(a,a25,' C:',i3, 1pg26.18,3(a,i0,a,1pg16.8))
+! 982 FORMAT(a,a25,'  :',i3,    26x,  3(a,i0,a,1pg16.8))
+! 991 FORMAT(a,a25,':  ',i3,1p2g26.18)
 
   ! valid g-format without offset of decimal point
-  981 FORMAT(a,a18,' C:',i3,  g30.18,3(a,i0,a,  g20.8))
-  982 FORMAT(a,a20,':'  ,i3,   30x,  3(a,i0,a,  g20.8))
-  991 FORMAT(a,a20,a,i3,2g30.18)
+  981 FORMAT(a,a25,' C:',i3,  g26.18,3(a,i0,a,  g16.8))
+  982 FORMAT(a,a25,'  :',i3,   26x,  3(a,i0,a,  g16.8))
+  991 FORMAT(a,a25,':  ',i3, 2g26.18)
 
   strout=TRIM(str_prntdes)
 
@@ -542,7 +542,7 @@ CONTAINS
  !END IF
 
   IF (my_process_is_stdio()) THEN
-    WRITE(iout,991) ' MAX/MIN ',strout,':',klev, &
+    WRITE(iout,991) ' MAX/MIN ',strout,klev, &
       &              maxval(p_array(1:nproma,klev,1:ndimblk)),     &
       &              minval(p_array(1:nproma,klev,1:ndimblk))
   END IF
