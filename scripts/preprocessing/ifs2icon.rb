@@ -822,12 +822,11 @@ class Ifs2Icon
     ivar              = @config.selectBy(DefaultColumnNames[:outName] => var).code[0].to_i
     copyfile, outfile = tfile, tfile
 
-    # create netcdf version of the input
-    #          Cdo.chainCall("-setname,#{var} -copy",:in => @invars[ivar],:out => copyfile,:options => "-f nc4")
-
-    # Perform conservative remapping with pregenerated weights
-    #          Cdo.remap([gridfile,weightfile],:in => copyfile,:out => outfile)
-    Cdo.chainCall("-remap,#{gridfile},#{weightfile} -setname,#{var} -copy",:in =>@invars[ivar],:out => outfile,:options => "-f nc2")
+    # Perform conservative remapping with pregenerated weights and rename to target variable names
+    Cdo.chainCall("-remap,#{gridfile},#{weightfile} -setname,#{var} -copy",
+                  :in => @invars[ivar],
+                  :out => outfile,
+                  :options => "-f nc2")
 
     outfile
   end
