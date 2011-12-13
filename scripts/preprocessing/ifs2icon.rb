@@ -811,52 +811,39 @@ class Ifs2Icon
     Cdo.send(operator,var,:in => @ifile, :out => varfile)
   end
 
+  def horizontalInterpolation4Var(var)
+    Dbg.msg("Processing '#{var}' ...",@options[:verbose],@options[:debug])
+    # determine the grid of the variable
+    grid       = Ecmwf2Icon.grid(var,@config).to_sym
+    gridfile   = @grids[GRID_VARIABLES[grid]]
+    weightfile = @weights[GRID_VARIABLES[grid]]
+
+    # remap the variable onto its icon grid provided in the configuration
+    ivar              = @config.selectBy(DefaultColumnNames[:outName] => var).code[0].to_i
+    copyfile, outfile = tfile, tfile
+
+    # create netcdf version of the input
+    #          Cdo.chainCall("-setname,#{var} -copy",:in => @invars[ivar],:out => copyfile,:options => "-f nc4")
+
+    # Perform conservative remapping with pregenerated weights
+    #          Cdo.remap([gridfile,weightfile],:in => copyfile,:out => outfile)
+    Cdo.chainCall("-remap,#{gridfile},#{weightfile} -setname,#{var} -copy",:in =>@invars[ivar],:out => outfile,:options => "-f nc2")
+
+    outfile
+  end
   def horizontalInterpolation
     if @options[:threaded]
       ths = []
       @outvars.each_key {|outvar|
-        Dbg.msg("Processing '#{outvar}' ...",@options[:verbose],@options[:debug])
-
-        ths << Thread.new(outvar) {|ovar|
-          # determine the grid of the variable
-          grid       = Ecmwf2Icon.grid(ovar,@config).to_sym
-          gridfile   = @grids[GRID_VARIABLES[grid]]
-          weightfile = @weights[GRID_VARIABLES[grid]]
-
-          # remap the variable onto its icon grid provided in the configuration
-          ivar              = @config.selectBy(DefaultColumnNames[:outName] => ovar).code[0].to_i
-          copyfile, outfile = tfile, tfile
-
-          # create netcdf version of the input
-#          Cdo.chainCall("-setname,#{ovar} -copy",:in => @invars[ivar],:out => copyfile,:options => "-f nc4")
-
-          # Perform conservative remapping with pregenerated weights
-#          Cdo.remap([gridfile,weightfile],:in => copyfile,:out => outfile)
-          Cdo.chainCall("-remap,#{gridfile},#{weightfile} -setname,#{ovar} -copy",:in =>@invars[ivar],:out => outfile,:options => "-f nc2")
-
-          @lock.synchronize { @outvars[ovar] = outfile }
+        ths << Thread.new(outvar) {|ovar| 
+          outfile = horizontalInterpolation4Var(ovar)
+          @lock.synchronize { @outvars[var] = outfile }
         }
       }
       ths.each {|t| t.join}
     else
       @outvars.each_key {|ovar|
-        Dbg.msg("Processing '#{ovar}' ...",@options[:verbose],@options[:debug])
-
-        # determine the grid of the variable
-        grid       = Ecmwf2Icon.grid(ovar,@config).to_sym
-        gridfile   = @grids[GRID_VARIABLES[grid]]
-        weightfile = @weights[GRID_VARIABLES[grid]]
-
-        # remap the variable onto its icon grid provided in the configuration
-        ivar              = @config.selectBy(DefaultColumnNames[:outName] => ovar).code[0].to_i
-        copyfile, outfile = tfile, tfile
-
-        # create netcdf version of the input
-        Cdo.chainCall("-setname,#{ovar} -copy",:in => @invars[ivar],:out => copyfile,:options => "-f nc2")
-
-        # Perform conservative remapping with pregenerated weights
-        Cdo.remap([gridfile,weightfile],:in => copyfile,:out => outfile)
-
+        outfile = horizontalInterpolation4Var(ovar)
         @outvars[ovar] = outfile
       }
     end
