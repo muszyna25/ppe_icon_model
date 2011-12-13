@@ -669,13 +669,14 @@ class Ifs2Icon
 
   def run
     splitInput
-    #readVars
 
     Dbg.msg("Start computing output variables",false,@options[:debug])
     Dbg.msg("Do only remapping of the required output varialbes if they are present in the input file",
             @options[:verbose],@options[:debug])
 
     horizontalInterpolation
+
+    cleanupHorizontalTempfiles
 
     if @options[:interpolation_type].to_s == "horizontal_only"
       # merge all horizontal interpolations together
@@ -827,8 +828,6 @@ class Ifs2Icon
     @invars.each_key {|var|
       @invars[var] = splitfiles.find_all {|f| cmp.call(f.split('_')[-1].split('.')[0],var) }.first
     }
-
-    pp @invars
   end
 
   def horizontalInterpolation4Var(outvar)
@@ -868,6 +867,19 @@ class Ifs2Icon
         @outvars[ovar] = outfile
       }
     end
+    @invars.each_value {|file|
+      # Remove temp file unless user as disabled this
+      Dbg.msg("Remove tempfile #{file}",@options[:verbose],@options[:debug])
+      FileUtils.rm(file) unless @options[:persistent_tempfiles]
+    }
+  end
+
+  def cleanupHorizontalTempfiles
+    @invars.each_value {|file|
+      # Remove temp file unless user as disabled this
+      Dbg.msg("Remove tempfile #{file}",@options[:verbose],@options[:debug])
+      FileUtils.rm(file) unless @options[:persistent_tempfiles]
+    }
   end
 
   def verticalInterpolation
