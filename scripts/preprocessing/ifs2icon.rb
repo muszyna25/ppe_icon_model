@@ -596,6 +596,8 @@ class Ifs2Icon
 
     @ifile, @ofile = @options[:inputfile], @options[:outputfile]
 
+    @itype = '.grb' == File.extname(@ifile) ? :code : :name
+
     # Create internal configuration state
     if @options[:config].nil?
       warn "Configuration is not provided. Internal default is used instead."
@@ -630,7 +632,7 @@ class Ifs2Icon
       when Fixnum
         conf = @config.selectBy(:code => var)
       when String
-        conf = @config.selectBy(:inputname => var)
+        conf = @config.selectBy(:inputname => var.upcase)
       else
         warn "Wrong class for variable identifier of '#{var}'!"
         exit 1
@@ -666,7 +668,8 @@ class Ifs2Icon
   end
 
   def run
-    readVars
+    splitInput
+    #readVars
 
     Dbg.msg("Start computing output variables",false,@options[:debug])
     Dbg.msg("Do only remapping of the required output varialbes if they are present in the input file",
@@ -723,7 +726,7 @@ class Ifs2Icon
   def getInputVariables
     invars = {}
     # Use names for netcdf files and codes for grib input files
-    operator  = /grb/.match(File.extname(@ifile)) ? :showcode : :showname
+    operator  = @itype == :code ? :showcode : :showname
     inputVars = Cdo.send(operator,:in => @ifile)
 
     # Use numbers as identifiers for grib input
@@ -811,19 +814,38 @@ class Ifs2Icon
     Cdo.send(operator,var,:in => @ifile, :out => varfile)
   end
 
-  def horizontalInterpolation4Var(var)
-    Dbg.msg("Processing '#{var}' ...",@options[:verbose],@options[:debug])
+  def splitInput(tag=Time.new.strftime("%Y%m%d-%H%M%S")+"_")
+    operator  = @itype == :code ? :splitcode : :splitname
+    Cdo.send(operator,:in => @ifile,:out => tag)
+    splitfiles = Dir.glob("#{tag}*.*")
+
+    cmp = @itype == :code \
+      ? lambda {|tagFromFile,varID| tagFromFile.to_i == varID} \
+      : lambda {|tagFromFile,varID| tagFromFile == varID}
+  
+    ids = splitfiles.map {|f| f.split('_')[-1].split('.')[0]}
+    @invars.each_key {|var|
+      @invars[var] = splitfiles.find_all {|f| cmp.call(f.split('_')[-1].split('.')[0],var) }.first
+    }
+
+    pp @invars
+  end
+
+  def horizontalInterpolation4Var(outvar)
+    Dbg.msg("Processing '#{outvar}' ...",@options[:verbose],@options[:debug])
     # determine the grid of the variable
-    grid       = Ecmwf2Icon.grid(var,@config).to_sym
+    grid       = Ecmwf2Icon.grid(outvar,@config).to_sym
     gridfile   = @grids[GRID_VARIABLES[grid]]
     weightfile = @weights[GRID_VARIABLES[grid]]
 
     # remap the variable onto its icon grid provided in the configuration
-    ivar              = @config.selectBy(DefaultColumnNames[:outName] => var).code[0].to_i
+    meth = @itype == :code ? :code : :inputname
+    ivar = @itype == :code ? @config.selectBy(DefaultColumnNames[:outName] => outvar).code[0].to_i \
+                           : @config.selectBy(DefaultColumnNames[:outName] => outvar).inputname[0].downcase
     copyfile, outfile = tfile, tfile
 
     # Perform conservative remapping with pregenerated weights and rename to target variable names
-    Cdo.chainCall("-remap,#{gridfile},#{weightfile} -setname,#{var} -copy",
+    Cdo.chainCall("-remap,#{gridfile},#{weightfile} -setname,#{outvar} -copy",
                   :in => @invars[ivar],
                   :out => outfile,
                   :options => "-f nc2")
@@ -836,7 +858,7 @@ class Ifs2Icon
       @outvars.each_key {|outvar|
         ths << Thread.new(outvar) {|ovar| 
           outfile = horizontalInterpolation4Var(ovar)
-          @lock.synchronize { @outvars[var] = outfile }
+          @lock.synchronize { @outvars[ovar] = outfile }
         }
       }
       ths.each {|t| t.join}
