@@ -3393,8 +3393,6 @@ SUBROUTINE do_delayed_exchange()
 
   DO np = 0, p_n_work-1
      send_bufs_r(np)%nelems = 0
-     send_bufs_i(np)%nelems = 0
-     send_bufs_l(np)%nelems = 0
   ENDDO
 
   use_exchange_delayed = .FALSE.
