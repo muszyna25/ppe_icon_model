@@ -19,35 +19,38 @@ plotBaseName="${EXP}_R2B04L4"
 #  - 2011-01-31: mpipc/tornado/squall - all compilers
 #  - 2011-03-03: blizzard serial run included
 #  - 2011-03-04: error test
+#  - 2011-12-13: SX9 and HPC_serial - all machines in serial mode included
+#-----------------------------------------------------------------------------
+
 if [ -z "$BB_SYSTEM" ]
 then
   echo " ===== (no buildbot) ======="
   echo " Run ocean testcase $EXPNAME"
   echo " ==========================="
 else
-  if [ "$BB_SYSTEM" == "mpipc" -o "$BB_SYSTEM" == "squall" -o "$BB_SYSTEM" == "tornado" ]
+# run on all slaves of squall and tornado
+  if [ "$BB_SYSTEM" = "squall" -o "$BB_SYSTEM" = "tornado" ]
   then 
-# if [ "$BB_SYSTEM" == "mpipc" -o "$BB_SYSTEM" == "squall" -o "$BB_SYSTEM" == "tornado" -o [ "$BB_SYSTEM" == "blizzard" -a "$BB_SLAVE" == "blizz_nMnO" ] ]
-    echo " ==================================================="
-    echo " Run ocean postprocessing $EXP on BB_SLAVE=$BB_SLAVE"
-    echo " ==================================================="
-  else
-    if [ "$BB_SYSTEM" == "blizzard" -a "$BB_SLAVE" == "blizz_nMnO" ] 
+    echo " ================================================="
+    echo " Run ocean testcase $EXPNAME on BB_SLAVE=$BB_SLAVE"
+    echo " ================================================="
+# run on specified slaves of blizzard, hpc, and nec
+  elif [ "$BB_SYSTEM" = "blizzard" -o  "$BB_SYSTEM" = "hpc" -o "$BB_SYSTEM" = "nec" ]
+  then
+    if [ "$BB_SLAVE" = "blizz_nMnO" -o  "$BB_SLAVE" = "sx9" -o "$BB_SLAVE" = "hpc_serial" -o "$BB_SLAVE" = "hpc_sun_debug" ] 
     then
-      echo " ==================================================="
-      echo " Run ocean postprocessing $EXP on BB_SLAVE=$BB_SLAVE"
-      echo " ==================================================="
+      echo " ================================================="
+      echo " Run ocean postproc $EXPNAME on BB_SLAVE=$BB_SLAVE"
+      echo " ================================================="
     else
-      echo " ==============================================================="
-      echo " No ocean postprocessing is run on BB_SLAVE=$BB_SLAVE - exit now"
-      echo " ==============================================================="
+      echo " ========================================================="
+      echo " No ocean postproc is run on BB_SLAVE=$BB_SLAVE - exit now"
+      echo " ========================================================="
       exit 0
     fi
   fi
 fi
-
-
-
+#-----------------------------------------------------------------------------
 
 cd ../scripts/postprocessing/testcases
 
