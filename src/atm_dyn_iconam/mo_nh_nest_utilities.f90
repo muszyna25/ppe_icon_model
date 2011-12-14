@@ -829,7 +829,7 @@ TYPE(t_patch),      POINTER     :: p_pp => NULL()
 TYPE(t_patch),      POINTER     :: p_pc => NULL()
 
 ! Indices
-INTEGER :: jb, jc, jk, jks, jt, je, i_nchdom, i_chidx, i_startblk, i_endblk, &
+INTEGER :: jb, jc, jk, jt, je, js, i_nchdom, i_chidx, i_startblk, i_endblk, &
            i_startidx, i_endidx, istartblk_c, istartblk_e
 INTEGER :: nlev_c, nlev_p
 INTEGER :: nshift      !< difference between upper boundary of parent or feedback-parent 
@@ -894,6 +894,7 @@ nlev_p   = p_pp%nlev
 
 ! shift between upper model boundaries
 nshift = p_pc%nshift
+js     = nshift
 
 ! Allocation of storage fields that differ between MPI and non-MPI runs
 IF (l_parallel) THEN
@@ -1049,7 +1050,7 @@ i_startblk = p_gcp%start_blk(grf_nudgintp_start_c+1,i_chidx)
 i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
 
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt,jks)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt)
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
@@ -1061,27 +1062,25 @@ DO jb = i_startblk, i_endblk
 #ifdef __LOOP_EXCHANGE
   DO jc = i_startidx, i_endidx
     DO jk = 1, nlev_c
-      jks = jk + nshift
 #else
 !CDIR UNROLL=5
   DO jk = 1, nlev_c
-    jks = jk + nshift
     DO jc = i_startidx, i_endidx
 #endif
 
-      diff_thv(jc,jk,jb) = parent_thv(jc,jks,jb) - (                             &
+      diff_thv(jc,jk,jb) = parent_thv(jc,jk+js,jb) - (                           &
         p_child_prog%theta_v(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
         p_child_prog%theta_v(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
         p_child_prog%theta_v(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
         p_child_prog%theta_v(iidx(jc,jb,4),jk,iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)   )
 
-      diff_rho(jc,jk,jb) = parent_rho(jc,jks,jb) - (                         &
+      diff_rho(jc,jk,jb) = parent_rho(jc,jk+js,jb) - (                       &
         p_child_prog%rho(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
         p_child_prog%rho(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
         p_child_prog%rho(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
         p_child_prog%rho(iidx(jc,jb,4),jk,iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)   )
 
-      diff_w(jc,jk,jb) = parent_w(jc,jks,jb) - (                           &
+      diff_w(jc,jk,jb) = parent_w(jc,jk+js,jb) - (                         &
         p_child_prog%w(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
         p_child_prog%w(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
         p_child_prog%w(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
@@ -1098,15 +1097,13 @@ DO jb = i_startblk, i_endblk
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
       DO jk = 1, nlev_c
-        jks = jk + nshift
 #else
 !CDIR UNROLL=8
       DO jk = 1, nlev_c
-        jks = jk + nshift
         DO jc = i_startidx, i_endidx
 #endif
 
-          diff_tr(jc,jk,jb,jt) = parent_tr(jc,jks,jb,jt) - (                                  &
+          diff_tr(jc,jk,jb,jt) = parent_tr(jc,jk+js,jb,jt) - (                                &
             p_child_prog_rcf%tracer(iidx(jc,jb,1),jk,iblk(jc,jb,1),jt)*p_fbkwgt_tr(jc,jb,1) + &
             p_child_prog_rcf%tracer(iidx(jc,jb,2),jk,iblk(jc,jb,2),jt)*p_fbkwgt_tr(jc,jb,2) + &
             p_child_prog_rcf%tracer(iidx(jc,jb,3),jk,iblk(jc,jb,3),jt)*p_fbkwgt_tr(jc,jb,3) + &
@@ -1126,7 +1123,7 @@ ENDDO
 i_startblk = p_gep%start_blk(grf_nudgintp_start_e+2,i_chidx)
 i_endblk   = p_gep%end_blk(min_rledge_int,i_chidx)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk,jks)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk)
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
@@ -1136,15 +1133,13 @@ DO jb = i_startblk, i_endblk
 #ifdef __LOOP_EXCHANGE
   DO je = i_startidx, i_endidx
     DO jk = 1, nlev_c
-      jks = jk + nshift
 #else
 !CDIR UNROLL=5
   DO jk = 1, nlev_c
-    jks = jk + nshift
     DO je = i_startidx, i_endidx
 #endif
 
-      diff_vn(je,jk,jb) = parent_vn(je,jks,jb) - (                              &
+      diff_vn(je,jk,jb) = parent_vn(je,jk+js,jb) - (                            &
         p_child_prog%vn(ieidx(je,jb,1),jk,ieblk(je,jb,1))*p_fbkwgt_v(je,jb,1) + &
         p_child_prog%vn(ieidx(je,jb,2),jk,ieblk(je,jb,2))*p_fbkwgt_v(je,jb,2)   )
 
@@ -1235,7 +1230,7 @@ TYPE(t_patch),      POINTER     :: p_pp => NULL()
 TYPE(t_patch),      POINTER     :: p_pc => NULL()
 
 ! Indices
-INTEGER :: jb, jc, jk, jks, i_nchdom, i_chidx, i_startblk, i_endblk, &
+INTEGER :: jb, jc, jk, js, i_nchdom, i_chidx, i_startblk, i_endblk, &
            i_startidx, i_endidx, istartblk_c
 INTEGER :: nlev_c, nlev_p
 INTEGER :: nshift      !< difference between upper boundary of parent or feedback-parent 
@@ -1288,6 +1283,7 @@ nlev_p   = p_pp%nlev
 
 ! shift between upper model boundaries
 nshift = p_pc%nshift
+js     = nshift
 
 ! Allocation of storage fields that differ between MPI and non-MPI runs
 IF (l_parallel) THEN
@@ -1364,7 +1360,7 @@ i_startblk = p_gcp%start_blk(grf_nudgintp_start_c+1,i_chidx)
 i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
 
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jks)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
@@ -1373,15 +1369,13 @@ DO jb = i_startblk, i_endblk
 #ifdef __LOOP_EXCHANGE
   DO jc = i_startidx, i_endidx
     DO jk = 1, nlev_c
-      jks = jk + nshift
 #else
 !CDIR UNROLL=8
   DO jk = 1, nlev_c
-    jks = jk + nshift
     DO jc = i_startidx, i_endidx
 #endif
 
-      diff_rho(jc,jk,jb) = parent_rho(jc,jks,jb) - (                         &
+      diff_rho(jc,jk,jb) = parent_rho(jc,jk+js,jb) - (                       &
         p_child_prog%rho(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
         p_child_prog%rho(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
         p_child_prog%rho(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &

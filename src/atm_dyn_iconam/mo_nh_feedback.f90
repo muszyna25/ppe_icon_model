@@ -122,7 +122,7 @@ TYPE(t_patch),      POINTER     :: p_pp => NULL()
 TYPE(t_patch),      POINTER     :: p_pc => NULL()
 
 ! Indices
-INTEGER :: jb, jc, jk, jks, jt, je, jgc, i_nchdom, i_chidx, &
+INTEGER :: jb, jc, jk, jt, je, js, jgc, i_nchdom, i_chidx, &
            i_startblk, i_endblk, i_startidx, i_endidx, ic, i_ncd
 
 INTEGER :: nlev_c, nlevp1_c  ! number of full and half levels (child dom)
@@ -197,6 +197,7 @@ nlev_p   = p_pp%nlev
 nlevp1_p = p_pp%nlevp1
  
 nshift = p_pc%nshift
+js     = nshift
 
 i_nchdom = MAX(1,p_pc%n_childdom)
 i_chidx  = p_pc%parent_child_index
@@ -325,7 +326,7 @@ i_startblk = p_gcp%start_blk(grf_fbk_start_c,i_chidx)
 i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
 
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jks,jt)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt)
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
@@ -336,22 +337,20 @@ DO jb = i_startblk, i_endblk
 #ifdef __LOOP_EXCHANGE
   DO jc = i_startidx, i_endidx
     DO jk = 1, nlev_c
-      jks = jk + nshift
 #else
 !CDIR UNROLL=8
   DO jk = 1, nlev_c
-    jks = jk + nshift
     DO jc = i_startidx, i_endidx
 #endif
 
-      feedback_rho_tend(jc,jks,jb) =                                             &
+      feedback_rho_tend(jc,jk+js,jb) =                                                &
         p_child_tend%grf_tend_rho(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
         p_child_tend%grf_tend_rho(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
         p_child_tend%grf_tend_rho(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
         p_child_tend%grf_tend_rho(iidx(jc,jb,4),jk,iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
 
-      fbk_tend(jc,jks,jb) = feedback_rho_tend(jc,jks,jb)*p_fbarea(jc,jb)* &
-                           p_fb_layer_thickness(jc,jks,jb)
+      fbk_tend(jc,jk+js,jb) = feedback_rho_tend(jc,jk+js,jb)*p_fbarea(jc,jb)* &
+                           p_fb_layer_thickness(jc,jk+js,jb)
 
     ENDDO
   ENDDO
@@ -370,15 +369,13 @@ DO jb = i_startblk, i_endblk
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
       DO jk = 1, nlev_c
-        jks = jk + nshift
 #else
 !CDIR UNROLL=8
       DO jk = 1, nlev_c
-        jks = jk + nshift
         DO jc = i_startidx, i_endidx
 #endif
 
-          feedback_tracer_mass(jc,jks,jb,jt) =                                          &
+          feedback_tracer_mass(jc,jk+js,jb,jt) =                                        &
           p_fbkwgt_tr(jc,jb,1)*p_child_prog%rho(iidx(jc,jb,1),jk,iblk(jc,jb,1))*        &
           p_child_prog_rcf%tracer(iidx(jc,jb,1),jk,iblk(jc,jb,1),jt) +                  &
           p_fbkwgt_tr(jc,jb,2)*p_child_prog%rho(iidx(jc,jb,2),jk,iblk(jc,jb,2))*        &
@@ -388,11 +385,11 @@ DO jb = i_startblk, i_endblk
           p_fbkwgt_tr(jc,jb,4)*p_child_prog%rho(iidx(jc,jb,4),jk,iblk(jc,jb,4))*        &
           p_child_prog_rcf%tracer(iidx(jc,jb,4),jk,iblk(jc,jb,4),jt)
 
-          fbk_tr_mass(jc,jks,jb,jt) = feedback_tracer_mass(jc,jks,jb,jt)        &
-            &                       * p_fbarea(jc,jb)*p_fb_layer_thickness(jc,jks,jb)
+          fbk_tr_mass(jc,jk+js,jb,jt) = feedback_tracer_mass(jc,jk+js,jb,jt)        &
+            &                       * p_fbarea(jc,jb)*p_fb_layer_thickness(jc,jk+js,jb)
 
-          fbk_tr_totmass(jc,jks,jb) = fbk_tr_totmass(jc,jks,jb)                 &
-            &                       + fbk_tr_mass(jc,jks,jb,jt)
+          fbk_tr_totmass(jc,jk+js,jb) = fbk_tr_totmass(jc,jk+js,jb)                 &
+            &                       + fbk_tr_mass(jc,jk+js,jb,jt)
 
         ENDDO
       ENDDO
@@ -565,7 +562,7 @@ ENDIF
 i_startblk = p_gcp%start_blk(grf_fbk_start_c,i_chidx)
 i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jks)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
@@ -574,23 +571,21 @@ DO jb = i_startblk, i_endblk
 #ifdef __LOOP_EXCHANGE
   DO jc = i_startidx, i_endidx
     DO jk = 1, nlev_c
-      jks = jk + nshift
 #else
 !CDIR UNROLL=4
   DO jk = 1, nlev_c
-    jks = jk + nshift
     DO jc = i_startidx, i_endidx
 #endif
 
-      feedback_rho_tend(jc,jks,jb) = feedback_rho_tend(jc,jks,jb) + tendency_corr(jks)
+      feedback_rho_tend(jc,jk+js,jb) = feedback_rho_tend(jc,jk+js,jb) + tendency_corr(jk+js)
 
-      feedback_thv_tend(jc,jks,jb) =                                             &
+      feedback_thv_tend(jc,jk+js,jb) =                                             &
         p_child_tend%grf_tend_thv(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
         p_child_tend%grf_tend_thv(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
         p_child_tend%grf_tend_thv(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
         p_child_tend%grf_tend_thv(iidx(jc,jb,4),jk,iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
 
-      feedback_w_tend(jc,jks,jb) =                                             &
+      feedback_w_tend(jc,jk+js,jb) =                                             &
         p_child_tend%grf_tend_w(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
         p_child_tend%grf_tend_w(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
         p_child_tend%grf_tend_w(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
@@ -691,7 +686,7 @@ IF (grf_velfbk == 1) THEN ! Averaging weighted with child edge lenghts
   i_startblk = p_gep%start_blk(grf_fbk_start_e,i_chidx)
   i_endblk   = p_gep%end_blk(min_rledge_int,i_chidx)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk,jks)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk)
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
@@ -704,15 +699,13 @@ IF (grf_velfbk == 1) THEN ! Averaging weighted with child edge lenghts
 #ifdef __LOOP_EXCHANGE
     DO je = i_startidx, i_endidx
       DO jk = 1, nlev_c
-        jks = jk + nshift
 #else
 !CDIR UNROLL=8
     DO jk = 1, nlev_c
-      jks = jk + nshift
       DO je = i_startidx, i_endidx
 #endif
 
-        feedback_vn_tend(je,jks,jb) =                                                 &
+        feedback_vn_tend(je,jk+js,jb) =                                                 &
           p_child_tend%grf_tend_vn(iidx(je,jb,1),jk,iblk(je,jb,1))*p_fbkwgt(je,jb,1) + &
           p_child_tend%grf_tend_vn(iidx(je,jb,2),jk,iblk(je,jb,2))*p_fbkwgt(je,jb,2)
       ENDDO
@@ -738,9 +731,7 @@ ELSE IF (grf_velfbk == 2) THEN ! Second-order interpolation of normal velocities
     DO je = i_startidx, i_endidx
       DO jk = 1, nlev_c
 #else
-#ifdef _URD
-!CDIR UNROLL=_URD
-#endif
+!CDIR UNROLL=6
     DO jk = 1, nlev_c
       DO je = i_startidx, i_endidx
 #endif
@@ -763,7 +754,7 @@ ELSE IF (grf_velfbk == 2) THEN ! Second-order interpolation of normal velocities
   i_endblk   = p_gep%end_blk(min_rledge_int,i_chidx)
 
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk,jks)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk)
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
@@ -776,17 +767,13 @@ ELSE IF (grf_velfbk == 2) THEN ! Second-order interpolation of normal velocities
 #ifdef __LOOP_EXCHANGE
     DO je = i_startidx, i_endidx
       DO jk = 1, nlev_c
-        jks = jk + nshift
 #else
-#ifdef _URD
-!CDIR UNROLL=_URD
-#endif
+!CDIR UNROLL=6
     DO jk = 1, nlev_c
-      jks = jk + nshift
       DO je = i_startidx, i_endidx
 #endif
 
-        feedback_vn_tend(je,jks,jb) =                                             &
+        feedback_vn_tend(je,jk+js,jb) =                                             &
         ( p_fbkwgt(je,jb,1)*(p_child_tend%grf_tend_vn(iidx(je,jb,1),jk,iblk(je,jb,1)) + &
                              p_child_tend%grf_tend_vn(iidx(je,jb,2),jk,iblk(je,jb,2)))+ &
           p_fbkwgt(je,jb,3)*vn_aux(iidx(je,jb,1),jk,iblk(je,jb,1),1) +                  &

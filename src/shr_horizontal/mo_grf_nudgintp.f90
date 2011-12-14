@@ -107,7 +107,7 @@ REAL(wp),INTENT(INOUT) :: p_vn_out(:,:,:) ! dim: (nproma,nlev_c,nblks_e)
 
 
 INTEGER :: jb, jk, je, jv            ! loop indices
-INTEGER :: jks                       ! jk + nshift
+INTEGER :: js                        ! shift parameter
 INTEGER :: i_startblk                ! start block
 INTEGER :: i_endblk                  ! end index
 INTEGER :: i_startidx                ! start index
@@ -163,6 +163,9 @@ ipcidx => ptr_grfc%pc_idx_e
 ! number of vertical full levels (child domain)
 nlev_c = ptr_pc%nlev
 
+! Shift parameter
+js = nshift
+
 ! Number of child domains of nested domain
 i_nchdom = MAX(1,ptr_pc%n_childdom)
 
@@ -173,7 +176,7 @@ i_nchdom = MAX(1,ptr_pc%n_childdom)
 i_startblk = ptr_pp%verts%start_blk(grf_nudgintp_start_c,i_chidx)
 i_endblk   = ptr_pp%verts%end_blk(min_rlvert_int,i_chidx)
 
-!$OMP DO PRIVATE(jb,jk,jv,i_startidx,i_endidx,jks)
+!$OMP DO PRIVATE(jb,jk,jv,i_startidx,i_endidx)
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_v(ptr_pp, jb, i_startblk, i_endblk, &
@@ -182,28 +185,26 @@ DO jb = i_startblk, i_endblk
 #ifdef __LOOP_EXCHANGE
   DO jv = i_startidx, i_endidx
     DO jk = 1, nlev_c
-      jks = jk + nshift
 #else
 !CDIR UNROLL=6
   DO jk = 1, nlev_c
-    jks = jk + nshift
     DO jv = i_startidx, i_endidx
 #endif
 
       u_vert(jv,jk,jb) =  &
-        ptr_rvcoeff(1,1,jv,jb)*p_vn_in(irvidx(1,jv,jb),jks,irvblk(1,jv,jb)) + &
-        ptr_rvcoeff(2,1,jv,jb)*p_vn_in(irvidx(2,jv,jb),jks,irvblk(2,jv,jb)) + &
-        ptr_rvcoeff(3,1,jv,jb)*p_vn_in(irvidx(3,jv,jb),jks,irvblk(3,jv,jb)) + &
-        ptr_rvcoeff(4,1,jv,jb)*p_vn_in(irvidx(4,jv,jb),jks,irvblk(4,jv,jb)) + &
-        ptr_rvcoeff(5,1,jv,jb)*p_vn_in(irvidx(5,jv,jb),jks,irvblk(5,jv,jb)) + &
-        ptr_rvcoeff(6,1,jv,jb)*p_vn_in(irvidx(6,jv,jb),jks,irvblk(6,jv,jb))
+        ptr_rvcoeff(1,1,jv,jb)*p_vn_in(irvidx(1,jv,jb),jk+js,irvblk(1,jv,jb)) + &
+        ptr_rvcoeff(2,1,jv,jb)*p_vn_in(irvidx(2,jv,jb),jk+js,irvblk(2,jv,jb)) + &
+        ptr_rvcoeff(3,1,jv,jb)*p_vn_in(irvidx(3,jv,jb),jk+js,irvblk(3,jv,jb)) + &
+        ptr_rvcoeff(4,1,jv,jb)*p_vn_in(irvidx(4,jv,jb),jk+js,irvblk(4,jv,jb)) + &
+        ptr_rvcoeff(5,1,jv,jb)*p_vn_in(irvidx(5,jv,jb),jk+js,irvblk(5,jv,jb)) + &
+        ptr_rvcoeff(6,1,jv,jb)*p_vn_in(irvidx(6,jv,jb),jk+js,irvblk(6,jv,jb))
       v_vert(jv,jk,jb) =  &
-        ptr_rvcoeff(1,2,jv,jb)*p_vn_in(irvidx(1,jv,jb),jks,irvblk(1,jv,jb)) + &
-        ptr_rvcoeff(2,2,jv,jb)*p_vn_in(irvidx(2,jv,jb),jks,irvblk(2,jv,jb)) + &
-        ptr_rvcoeff(3,2,jv,jb)*p_vn_in(irvidx(3,jv,jb),jks,irvblk(3,jv,jb)) + &
-        ptr_rvcoeff(4,2,jv,jb)*p_vn_in(irvidx(4,jv,jb),jks,irvblk(4,jv,jb)) + &
-        ptr_rvcoeff(5,2,jv,jb)*p_vn_in(irvidx(5,jv,jb),jks,irvblk(5,jv,jb)) + &
-        ptr_rvcoeff(6,2,jv,jb)*p_vn_in(irvidx(6,jv,jb),jks,irvblk(6,jv,jb))
+        ptr_rvcoeff(1,2,jv,jb)*p_vn_in(irvidx(1,jv,jb),jk+js,irvblk(1,jv,jb)) + &
+        ptr_rvcoeff(2,2,jv,jb)*p_vn_in(irvidx(2,jv,jb),jk+js,irvblk(2,jv,jb)) + &
+        ptr_rvcoeff(3,2,jv,jb)*p_vn_in(irvidx(3,jv,jb),jk+js,irvblk(3,jv,jb)) + &
+        ptr_rvcoeff(4,2,jv,jb)*p_vn_in(irvidx(4,jv,jb),jk+js,irvblk(4,jv,jb)) + &
+        ptr_rvcoeff(5,2,jv,jb)*p_vn_in(irvidx(5,jv,jb),jk+js,irvblk(5,jv,jb)) + &
+        ptr_rvcoeff(6,2,jv,jb)*p_vn_in(irvidx(6,jv,jb),jk+js,irvblk(6,jv,jb))
 
     ENDDO
   ENDDO
@@ -214,7 +215,7 @@ ENDDO
 i_startblk = ptr_pp%edges%start_blk(grf_nudgintp_start_e,i_chidx)
 i_endblk   = ptr_pp%edges%end_blk(min_rledge_int,i_chidx)
 
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,dvn_tang,jks)
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,dvn_tang)
 DO jb =  i_startblk, i_endblk
 
   CALL get_indices_e(ptr_pp, jb, i_startblk, i_endblk, &
@@ -224,11 +225,9 @@ DO jb =  i_startblk, i_endblk
 #ifdef __LOOP_EXCHANGE
   DO je = i_startidx, i_endidx
     DO jk = 1, nlev_c
-      jks = jk + nshift
 #else
 !CDIR UNROLL=6
   DO jk = 1, nlev_c
-    jks = jk + nshift
     DO je = i_startidx, i_endidx
 #endif
 
@@ -241,8 +240,8 @@ DO jb =  i_startblk, i_endblk
                      v_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) *    &
                      ptr_pp%edges%primal_normal_vert(je,jb,1)%v2 )
 
-      vn_aux(je,jk,jb,1) = p_vn_in(je,jks,jb) + dvn_tang(je)*ptr_dist(je,1,jb)
-      vn_aux(je,jk,jb,2) = p_vn_in(je,jks,jb) + dvn_tang(je)*ptr_dist(je,2,jb)
+      vn_aux(je,jk,jb,1) = p_vn_in(je,jk+js,jb) + dvn_tang(je)*ptr_dist(je,1,jb)
+      vn_aux(je,jk,jb,2) = p_vn_in(je,jk+js,jb) + dvn_tang(je)*ptr_dist(je,2,jb)
     ENDDO
   ENDDO
 
@@ -250,23 +249,21 @@ DO jb =  i_startblk, i_endblk
 #ifdef __LOOP_EXCHANGE
   DO je = i_startidx, i_endidx
     DO jk = 1, nlev_c
-      jks = jk + nshift
 #else
 !CDIR UNROLL=6
   DO jk = 1, nlev_c
-    jks = jk + nshift
     DO je = i_startidx, i_endidx
 #endif
       vn_aux(je,jk,jb,3) = ptr_grf%grf_vec_coeff_2a(1,je,jb) * &
-        p_vn_in(iidx_2a(je,1,jb),jks,iblk_2a(je,1,jb)) +       &
+        p_vn_in(iidx_2a(je,1,jb),jk+js,iblk_2a(je,1,jb)) +     &
         ptr_grf%grf_vec_coeff_2a(2,je,jb) *                    &
-        p_vn_in(iidx_2a(je,2,jb),jks,iblk_2a(je,2,jb)) +       &
+        p_vn_in(iidx_2a(je,2,jb),jk+js,iblk_2a(je,2,jb)) +     &
         ptr_grf%grf_vec_coeff_2a(3,je,jb) *                    &
-        p_vn_in(iidx_2a(je,3,jb),jks,iblk_2a(je,3,jb)) +       &
+        p_vn_in(iidx_2a(je,3,jb),jk+js,iblk_2a(je,3,jb)) +     &
         ptr_grf%grf_vec_coeff_2a(4,je,jb) *                    &
-        p_vn_in(iidx_2a(je,4,jb),jks,iblk_2a(je,4,jb)) +       &
+        p_vn_in(iidx_2a(je,4,jb),jk+js,iblk_2a(je,4,jb)) +     &
         ptr_grf%grf_vec_coeff_2a(5,je,jb) *                    &
-        p_vn_in(iidx_2a(je,5,jb),jks,iblk_2a(je,5,jb))
+        p_vn_in(iidx_2a(je,5,jb),jk+js,iblk_2a(je,5,jb))
     ENDDO
   ENDDO
 
@@ -274,23 +271,21 @@ DO jb =  i_startblk, i_endblk
 #ifdef __LOOP_EXCHANGE
   DO je = i_startidx, i_endidx
     DO jk = 1, nlev_c
-      jks = jk + nshift
 #else
 !CDIR UNROLL=6
   DO jk = 1, nlev_c
-    jks = jk + nshift
     DO je = i_startidx, i_endidx
 #endif
       vn_aux(je,jk,jb,4) = ptr_grf%grf_vec_coeff_2b(1,je,jb) * &
-        p_vn_in(iidx_2b(je,1,jb),jks,iblk_2b(je,1,jb)) +       &
+        p_vn_in(iidx_2b(je,1,jb),jk+js,iblk_2b(je,1,jb)) +     &
         ptr_grf%grf_vec_coeff_2b(2,je,jb) *                    &
-        p_vn_in(iidx_2b(je,2,jb),jks,iblk_2b(je,2,jb)) +       &
+        p_vn_in(iidx_2b(je,2,jb),jk+js,iblk_2b(je,2,jb)) +     &
         ptr_grf%grf_vec_coeff_2b(3,je,jb) *                    &
-        p_vn_in(iidx_2b(je,3,jb),jks,iblk_2b(je,3,jb)) +       &
+        p_vn_in(iidx_2b(je,3,jb),jk+js,iblk_2b(je,3,jb)) +     &
         ptr_grf%grf_vec_coeff_2b(4,je,jb) *                    &
-        p_vn_in(iidx_2b(je,4,jb),jks,iblk_2b(je,4,jb)) +       &
+        p_vn_in(iidx_2b(je,4,jb),jk+js,iblk_2b(je,4,jb)) +     &
         ptr_grf%grf_vec_coeff_2b(5,je,jb) *                    &
-        p_vn_in(iidx_2b(je,5,jb),jks,iblk_2b(je,5,jb))
+        p_vn_in(iidx_2b(je,5,jb),jk+js,iblk_2b(je,5,jb))
     ENDDO
   ENDDO
 
@@ -393,7 +388,7 @@ REAL(wp), INTENT(IN), OPTIONAL :: rlimval(nfields)
 REAL(wp), INTENT(IN), OPTIONAL :: overshoot_fac
 
 INTEGER :: jb, jk, jc, jn, n         ! loop indices
-INTEGER :: jks                       ! jk + nshift
+INTEGER :: js                        ! shift parameter
 INTEGER :: i_startblk                ! start block
 INTEGER :: i_endblk                  ! end index
 INTEGER :: i_startidx                ! start index
@@ -495,6 +490,8 @@ ptr_dist  => ptr_grf%grf_dist_pc2cc
 ichcidx => ptr_pp%cells%child_idx
 ichcblk => ptr_pp%cells%child_blk
 
+! Shift parameter
+js = nshift
 
 !$OMP PARALLEL PRIVATE(jn,elev)
 
@@ -502,8 +499,8 @@ DO jn = 1, nfields
 
   elev = SIZE(p_out(jn)%fld,2)
 
-!$OMP DO PRIVATE (jb,jk,jks,jc,i_startidx,i_endidx,grad_x,grad_y,min_expval, &
-!$OMP   max_expval,limfac1,limfac2,limfac,maxval_neighb,minval_neighb,       &
+!$OMP DO PRIVATE (jb,jk,jc,i_startidx,i_endidx,grad_x,grad_y,min_expval, &
+!$OMP   max_expval,limfac1,limfac2,limfac,maxval_neighb,minval_neighb,   &
 !$OMP   relaxed_minval,relaxed_maxval)
   DO jb = i_startblk, i_endblk
 
@@ -513,63 +510,59 @@ DO jn = 1, nfields
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
       DO jk = 1, elev
-        jks = jk + nshift
 #else
-!CDIR UNROLL=2
     DO jk = 1, elev
-      jks = jk + nshift
       DO jc = i_startidx, i_endidx
 #endif
 
         grad_x(jc,jk) =  &
-          ptr_coeff(1,1,jc,jb)*p_in(jn)%fld(jc,jks,jb) + &
-          ptr_coeff(2,1,jc,jb)*p_in(jn)%fld(iidx(2,jc,jb),jks,iblk(2,jc,jb)) + &
-          ptr_coeff(3,1,jc,jb)*p_in(jn)%fld(iidx(3,jc,jb),jks,iblk(3,jc,jb)) + &
-          ptr_coeff(4,1,jc,jb)*p_in(jn)%fld(iidx(4,jc,jb),jks,iblk(4,jc,jb)) + &
-          ptr_coeff(5,1,jc,jb)*p_in(jn)%fld(iidx(5,jc,jb),jks,iblk(5,jc,jb)) + &
-          ptr_coeff(6,1,jc,jb)*p_in(jn)%fld(iidx(6,jc,jb),jks,iblk(6,jc,jb)) + &
-          ptr_coeff(7,1,jc,jb)*p_in(jn)%fld(iidx(7,jc,jb),jks,iblk(7,jc,jb)) + &
-          ptr_coeff(8,1,jc,jb)*p_in(jn)%fld(iidx(8,jc,jb),jks,iblk(8,jc,jb)) + &
-          ptr_coeff(9,1,jc,jb)*p_in(jn)%fld(iidx(9,jc,jb),jks,iblk(9,jc,jb)) + &
-          ptr_coeff(10,1,jc,jb)*p_in(jn)%fld(iidx(10,jc,jb),jks,iblk(10,jc,jb))
+          ptr_coeff(1,1,jc,jb)*p_in(jn)%fld(jc,jk+js,jb) + &
+          ptr_coeff(2,1,jc,jb)*p_in(jn)%fld(iidx(2,jc,jb),jk+js,iblk(2,jc,jb)) + &
+          ptr_coeff(3,1,jc,jb)*p_in(jn)%fld(iidx(3,jc,jb),jk+js,iblk(3,jc,jb)) + &
+          ptr_coeff(4,1,jc,jb)*p_in(jn)%fld(iidx(4,jc,jb),jk+js,iblk(4,jc,jb)) + &
+          ptr_coeff(5,1,jc,jb)*p_in(jn)%fld(iidx(5,jc,jb),jk+js,iblk(5,jc,jb)) + &
+          ptr_coeff(6,1,jc,jb)*p_in(jn)%fld(iidx(6,jc,jb),jk+js,iblk(6,jc,jb)) + &
+          ptr_coeff(7,1,jc,jb)*p_in(jn)%fld(iidx(7,jc,jb),jk+js,iblk(7,jc,jb)) + &
+          ptr_coeff(8,1,jc,jb)*p_in(jn)%fld(iidx(8,jc,jb),jk+js,iblk(8,jc,jb)) + &
+          ptr_coeff(9,1,jc,jb)*p_in(jn)%fld(iidx(9,jc,jb),jk+js,iblk(9,jc,jb)) + &
+          ptr_coeff(10,1,jc,jb)*p_in(jn)%fld(iidx(10,jc,jb),jk+js,iblk(10,jc,jb))
         grad_y(jc,jk) =  &
-          ptr_coeff(1,2,jc,jb)*p_in(jn)%fld(jc,jks,jb) + &
-          ptr_coeff(2,2,jc,jb)*p_in(jn)%fld(iidx(2,jc,jb),jks,iblk(2,jc,jb)) + &
-          ptr_coeff(3,2,jc,jb)*p_in(jn)%fld(iidx(3,jc,jb),jks,iblk(3,jc,jb)) + &
-          ptr_coeff(4,2,jc,jb)*p_in(jn)%fld(iidx(4,jc,jb),jks,iblk(4,jc,jb)) + &
-          ptr_coeff(5,2,jc,jb)*p_in(jn)%fld(iidx(5,jc,jb),jks,iblk(5,jc,jb)) + &
-          ptr_coeff(6,2,jc,jb)*p_in(jn)%fld(iidx(6,jc,jb),jks,iblk(6,jc,jb)) + &
-          ptr_coeff(7,2,jc,jb)*p_in(jn)%fld(iidx(7,jc,jb),jks,iblk(7,jc,jb)) + &
-          ptr_coeff(8,2,jc,jb)*p_in(jn)%fld(iidx(8,jc,jb),jks,iblk(8,jc,jb)) + &
-          ptr_coeff(9,2,jc,jb)*p_in(jn)%fld(iidx(9,jc,jb),jks,iblk(9,jc,jb)) + &
-          ptr_coeff(10,2,jc,jb)*p_in(jn)%fld(iidx(10,jc,jb),jks,iblk(10,jc,jb))
-        maxval_neighb(jc,jk) =                               &
-          MAX(p_in(jn)%fld(jc,jks,jb),                       &
-              p_in(jn)%fld(iidx(2,jc,jb),jks,iblk(2,jc,jb)), &
-              p_in(jn)%fld(iidx(3,jc,jb),jks,iblk(3,jc,jb)), &
-              p_in(jn)%fld(iidx(4,jc,jb),jks,iblk(4,jc,jb)), &
-              p_in(jn)%fld(iidx(5,jc,jb),jks,iblk(5,jc,jb)), &
-              p_in(jn)%fld(iidx(6,jc,jb),jks,iblk(6,jc,jb)), &
-              p_in(jn)%fld(iidx(7,jc,jb),jks,iblk(7,jc,jb)), &
-              p_in(jn)%fld(iidx(8,jc,jb),jks,iblk(8,jc,jb)), &
-              p_in(jn)%fld(iidx(9,jc,jb),jks,iblk(9,jc,jb)), &
-              p_in(jn)%fld(iidx(10,jc,jb),jks,iblk(10,jc,jb)))
-        minval_neighb(jc,jk) =                               &
-          MIN(p_in(jn)%fld(jc,jks,jb),                       &
-              p_in(jn)%fld(iidx(2,jc,jb),jks,iblk(2,jc,jb)), &
-              p_in(jn)%fld(iidx(3,jc,jb),jks,iblk(3,jc,jb)), &
-              p_in(jn)%fld(iidx(4,jc,jb),jks,iblk(4,jc,jb)), &
-              p_in(jn)%fld(iidx(5,jc,jb),jks,iblk(5,jc,jb)), &
-              p_in(jn)%fld(iidx(6,jc,jb),jks,iblk(6,jc,jb)), &
-              p_in(jn)%fld(iidx(7,jc,jb),jks,iblk(7,jc,jb)), &
-              p_in(jn)%fld(iidx(8,jc,jb),jks,iblk(8,jc,jb)), &
-              p_in(jn)%fld(iidx(9,jc,jb),jks,iblk(9,jc,jb)), &
-              p_in(jn)%fld(iidx(10,jc,jb),jks,iblk(10,jc,jb)))
+          ptr_coeff(1,2,jc,jb)*p_in(jn)%fld(jc,jk+js,jb) + &
+          ptr_coeff(2,2,jc,jb)*p_in(jn)%fld(iidx(2,jc,jb),jk+js,iblk(2,jc,jb)) + &
+          ptr_coeff(3,2,jc,jb)*p_in(jn)%fld(iidx(3,jc,jb),jk+js,iblk(3,jc,jb)) + &
+          ptr_coeff(4,2,jc,jb)*p_in(jn)%fld(iidx(4,jc,jb),jk+js,iblk(4,jc,jb)) + &
+          ptr_coeff(5,2,jc,jb)*p_in(jn)%fld(iidx(5,jc,jb),jk+js,iblk(5,jc,jb)) + &
+          ptr_coeff(6,2,jc,jb)*p_in(jn)%fld(iidx(6,jc,jb),jk+js,iblk(6,jc,jb)) + &
+          ptr_coeff(7,2,jc,jb)*p_in(jn)%fld(iidx(7,jc,jb),jk+js,iblk(7,jc,jb)) + &
+          ptr_coeff(8,2,jc,jb)*p_in(jn)%fld(iidx(8,jc,jb),jk+js,iblk(8,jc,jb)) + &
+          ptr_coeff(9,2,jc,jb)*p_in(jn)%fld(iidx(9,jc,jb),jk+js,iblk(9,jc,jb)) + &
+          ptr_coeff(10,2,jc,jb)*p_in(jn)%fld(iidx(10,jc,jb),jk+js,iblk(10,jc,jb))
+        maxval_neighb(jc,jk) =                                 &
+          MAX(p_in(jn)%fld(jc,jk+js,jb),                       &
+              p_in(jn)%fld(iidx(2,jc,jb),jk+js,iblk(2,jc,jb)), &
+              p_in(jn)%fld(iidx(3,jc,jb),jk+js,iblk(3,jc,jb)), &
+              p_in(jn)%fld(iidx(4,jc,jb),jk+js,iblk(4,jc,jb)), &
+              p_in(jn)%fld(iidx(5,jc,jb),jk+js,iblk(5,jc,jb)), &
+              p_in(jn)%fld(iidx(6,jc,jb),jk+js,iblk(6,jc,jb)), &
+              p_in(jn)%fld(iidx(7,jc,jb),jk+js,iblk(7,jc,jb)), &
+              p_in(jn)%fld(iidx(8,jc,jb),jk+js,iblk(8,jc,jb)), &
+              p_in(jn)%fld(iidx(9,jc,jb),jk+js,iblk(9,jc,jb)), &
+              p_in(jn)%fld(iidx(10,jc,jb),jk+js,iblk(10,jc,jb)))
+        minval_neighb(jc,jk) =                                 &
+          MIN(p_in(jn)%fld(jc,jk+js,jb),                       &
+              p_in(jn)%fld(iidx(2,jc,jb),jk+js,iblk(2,jc,jb)), &
+              p_in(jn)%fld(iidx(3,jc,jb),jk+js,iblk(3,jc,jb)), &
+              p_in(jn)%fld(iidx(4,jc,jb),jk+js,iblk(4,jc,jb)), &
+              p_in(jn)%fld(iidx(5,jc,jb),jk+js,iblk(5,jc,jb)), &
+              p_in(jn)%fld(iidx(6,jc,jb),jk+js,iblk(6,jc,jb)), &
+              p_in(jn)%fld(iidx(7,jc,jb),jk+js,iblk(7,jc,jb)), &
+              p_in(jn)%fld(iidx(8,jc,jb),jk+js,iblk(8,jc,jb)), &
+              p_in(jn)%fld(iidx(9,jc,jb),jk+js,iblk(9,jc,jb)), &
+              p_in(jn)%fld(iidx(10,jc,jb),jk+js,iblk(10,jc,jb)))
       ENDDO
     ENDDO
 
     DO jk = 1, elev
-      jks = jk + nshift
       DO jc = i_startidx, i_endidx
         min_expval = MIN(grad_x(jc,jk)*ptr_dist(jc,1,1,jb) + &
                          grad_y(jc,jk)*ptr_dist(jc,1,2,jb),  &
@@ -604,11 +597,11 @@ DO jn = 1, nfields
           relaxed_maxval = r_ovsht_fac*maxval_neighb(jc,jk)
         ENDIF
 
-        IF (p_in(jn)%fld(jc,jks,jb) + min_expval < relaxed_minval-epsi) THEN
-          limfac1 = ABS((relaxed_minval-p_in(jn)%fld(jc,jks,jb))/min_expval)
+        IF (p_in(jn)%fld(jc,jk+js,jb) + min_expval < relaxed_minval-epsi) THEN
+          limfac1 = ABS((relaxed_minval-p_in(jn)%fld(jc,jk+js,jb))/min_expval)
         ENDIF
-        IF (p_in(jn)%fld(jc,jks,jb) + max_expval > relaxed_maxval+epsi) THEN
-          limfac2 = ABS((relaxed_maxval-p_in(jn)%fld(jc,jks,jb))/max_expval)
+        IF (p_in(jn)%fld(jc,jk+js,jb) + max_expval > relaxed_maxval+epsi) THEN
+          limfac2 = ABS((relaxed_maxval-p_in(jn)%fld(jc,jk+js,jb))/max_expval)
         ENDIF
         limfac = MIN(limfac1,limfac2)
 
@@ -619,20 +612,19 @@ DO jn = 1, nfields
     ENDDO
 
     DO jk = 1, elev
-      jks = jk + nshift
       DO jc = i_startidx, i_endidx
 
-        h_aux(jc,jk,jb,1,jn) = p_in(jn)%fld(jc,jks,jb) + &
-          grad_x(jc,jk)*ptr_dist(jc,1,1,jb)            + &
+        h_aux(jc,jk,jb,1,jn) = p_in(jn)%fld(jc,jk+js,jb) + &
+          grad_x(jc,jk)*ptr_dist(jc,1,1,jb)              + &
           grad_y(jc,jk)*ptr_dist(jc,1,2,jb)
-        h_aux(jc,jk,jb,2,jn) = p_in(jn)%fld(jc,jks,jb) + &
-          grad_x(jc,jk)*ptr_dist(jc,2,1,jb)            + &
+        h_aux(jc,jk,jb,2,jn) = p_in(jn)%fld(jc,jk+js,jb) + &
+          grad_x(jc,jk)*ptr_dist(jc,2,1,jb)              + &
           grad_y(jc,jk)*ptr_dist(jc,2,2,jb)
-        h_aux(jc,jk,jb,3,jn) = p_in(jn)%fld(jc,jks,jb) + &
-          grad_x(jc,jk)*ptr_dist(jc,3,1,jb)            + &
+        h_aux(jc,jk,jb,3,jn) = p_in(jn)%fld(jc,jk+js,jb) + &
+          grad_x(jc,jk)*ptr_dist(jc,3,1,jb)              + &
           grad_y(jc,jk)*ptr_dist(jc,3,2,jb)
-        h_aux(jc,jk,jb,4,jn) = p_in(jn)%fld(jc,jks,jb) + &
-          grad_x(jc,jk)*ptr_dist(jc,4,1,jb)            + &
+        h_aux(jc,jk,jb,4,jn) = p_in(jn)%fld(jc,jk+js,jb) + &
+          grad_x(jc,jk)*ptr_dist(jc,4,1,jb)              + &
           grad_y(jc,jk)*ptr_dist(jc,4,2,jb)
 
       ENDDO
