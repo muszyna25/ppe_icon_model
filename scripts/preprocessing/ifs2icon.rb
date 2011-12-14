@@ -867,11 +867,6 @@ class Ifs2Icon
         @outvars[ovar] = outfile
       }
     end
-    @invars.each_value {|file|
-      # Remove temp file unless user as disabled this
-      Dbg.msg("Remove tempfile #{file}",@options[:verbose],@options[:debug])
-      FileUtils.rm(file) unless @options[:persistent_tempfiles]
-    }
   end
 
   def cleanupHorizontalTempfiles
