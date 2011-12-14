@@ -873,7 +873,13 @@ class Ifs2Icon
     @invars.each_value {|file|
       # Remove temp file unless user as disabled this
       Dbg.msg("Remove tempfile #{file}",@options[:verbose],@options[:debug])
-      FileUtils.rm(file) unless @options[:persistent_tempfiles]
+      unless @options[:persistent_tempfiles]
+        if File.exist?(file)
+          FileUtils.rm(file)
+        else
+          Dbg.msg("Temporary file '#{file}' seems to be missing",@options[:verbose],@options[:debug])
+        end
+      end
     }
   end
 
