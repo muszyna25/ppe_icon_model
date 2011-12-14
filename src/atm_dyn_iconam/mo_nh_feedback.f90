@@ -887,22 +887,8 @@ ENDIF
 
   ENDDO
 !$OMP END DO
-!$OMP END PARALLEL
 
-ENDIF ! l_parallel
-
-CALL sync_patch_array_mult(SYNC_C,p_patch(jgp),3,p_parent_prog%rho,p_parent_prog%theta_v,   &
-                           p_parent_prog%w)
-CALL sync_patch_array(SYNC_E,p_patch(jgp),p_parent_prog%vn)
-
-IF (ltransport .AND. l_trac_fbk) THEN
-     CALL sync_patch_array_mult(SYNC_C, p_patch(jgp), ntracer, F4DIN=p_parent_prog_rcf%tracer,&
-                                lpart4d=.TRUE.)
-ENDIF
-
-IF (l_parallel) THEN ! Recompute rhotheta and exner on the halo points after sync of theta
-
-!$OMP PARALLEL
+! Recompute rhotheta and exner also on the halo points
 !$OMP DO PRIVATE(jk,jc,jb,ic)
 #ifdef __LOOP_EXCHANGE
   DO ic = 1, p_nh_state(jgp)%metrics%ovlp_halo_c_dim(i_chidx)
@@ -927,9 +913,66 @@ IF (l_parallel) THEN ! Recompute rhotheta and exner on the halo points after syn
     ENDDO
   ENDDO
 !$OMP END DO
+
+! Recompute tracer also on the halo points
+  IF (ltransport .AND. l_trac_fbk) THEN
+    IF (iforcing <= 1) THEN
+!$OMP DO PRIVATE(jk,jt,jc,jb,ic)
+#ifdef __LOOP_EXCHANGE
+      DO ic = 1, p_nh_state(jgp)%metrics%ovlp_halo_c_dim(i_chidx)
+        jc = p_nh_state(jgp)%metrics%ovlp_halo_c_idx(ic,i_chidx)
+        jb = p_nh_state(jgp)%metrics%ovlp_halo_c_blk(ic,i_chidx)
+        DO jt = 1, ntracer
+          DO jk = nshift+1, nlev_p
+#else
+      DO jt = 1, ntracer
+        DO jk = nshift+1, nlev_p
+!CDIR NODEP,VOVERTAKE,VOB
+          DO ic = 1, p_nh_state(jgp)%metrics%ovlp_halo_c_dim(i_chidx)
+            jc = p_nh_state(jgp)%metrics%ovlp_halo_c_idx(ic,i_chidx)
+            jb = p_nh_state(jgp)%metrics%ovlp_halo_c_blk(ic,i_chidx)
+#endif
+
+            p_parent_prog_rcf%tracer(jc,jk,jb,jt) =                 &
+              p_parent_prog_rcf%tracer(jc,jk,jb,jt) *               &
+              tracer_corr(jk+(jt-1)*nlev_p)/p_parent_prog%rho(jc,jk,jb)
+
+          ENDDO
+        ENDDO
+      ENDDO
+!$OMP END DO
+    ELSE ! iforcing > 1
+!$OMP DO PRIVATE(jk,jt,jc,jb,ic)
+#ifdef __LOOP_EXCHANGE
+      DO ic = 1, p_nh_state(jgp)%metrics%ovlp_halo_c_dim(i_chidx)
+        jc = p_nh_state(jgp)%metrics%ovlp_halo_c_idx(ic,i_chidx)
+        jb = p_nh_state(jgp)%metrics%ovlp_halo_c_blk(ic,i_chidx)
+        DO jt = 1, ntracer
+          DO jk = nshift+1, nlev_p
+#else
+      DO jt = 1, ntracer
+        DO jk = nshift+1, nlev_p
+!CDIR NODEP,VOVERTAKE,VOB
+          DO ic = 1, p_nh_state(jgp)%metrics%ovlp_halo_c_dim(i_chidx)
+            jc = p_nh_state(jgp)%metrics%ovlp_halo_c_idx(ic,i_chidx)
+            jb = p_nh_state(jgp)%metrics%ovlp_halo_c_blk(ic,i_chidx)
+#endif
+
+            p_parent_prog_rcf%tracer(jc,jk,jb,jt) =         &
+              p_parent_prog_rcf%tracer(jc,jk,jb,jt) *       &
+              tracer_corr(jk)/p_parent_prog%rho(jc,jk,jb)
+
+          ENDDO
+        ENDDO
+      ENDDO
+!$OMP END DO
+    ENDIF
+  ENDIF
+
 !$OMP END PARALLEL
 
-ENDIF
+ENDIF ! l_parallel
+
 
 DEALLOCATE(parent_tend, fbk_tend, feedback_thv_tend, feedback_rho_tend, &
            feedback_w_tend, feedback_vn_tend)

@@ -2231,7 +2231,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: i_chidx
 
     INTEGER, ALLOCATABLE :: owner(:)
-    INTEGER :: j, js, je
+    INTEGER :: j, js, je, icid, jb, jl
 
     ! Please note:
     ! For creating communication patterns for different amount of data to be transferred
@@ -2239,6 +2239,9 @@ CONTAINS
     ! by copying the code below and adjusting the limits in the calculation of js/je.
 
     !-----------------------------------------------------------------------------------------------
+
+    ! child ID
+    icid = p_pglb%child_id(i_chidx)
 
     ! Communication global -> local
     ! Only one pattern is set which can be used everywhere since it doesn't matter
@@ -2305,6 +2308,26 @@ CONTAINS
       owner(j) = p_ploc%cells%owner_g(p_pglb%cells%glb_index(j))
     ENDDO
 
+    IF (p_pglb%id > 0) THEN  ! include halo points belonging to nest overlap points
+      js = idx_1d(p_pglb%cells%start_idx(min_rlcell_int-1,1), &
+        &         p_pglb%cells%start_blk(min_rlcell_int-1,1))
+      je = idx_1d(p_pglb%cells%end_idx(min_rlcell,MAX(1,p_pglb%n_childdom)), &
+        &         p_pglb%cells%end_blk(min_rlcell,MAX(1,p_pglb%n_childdom)))
+
+      DO j = js, je
+
+        jb = blk_no(j) ! Block index
+        jl = idx_no(j) ! Line  index
+        IF (p_pglb%cells%child_id(jl,jb)   == icid            .AND. &
+            p_pglb%cells%refin_ctrl(jl,jb) <= grf_fbk_start_c .AND. &
+            p_pglb%cells%refin_ctrl(jl,jb) >= min_rlcell_int )   THEN
+
+          owner(j) = p_ploc%cells%owner_g(p_pglb%cells%glb_index(j))
+        ENDIF
+      ENDDO
+
+    ENDIF
+
     CALL setup_comm_pattern(p_pglb%n_patch_cells, owner, p_pglb%cells%glb_index, &
       & p_ploc%cells%loc_index, p_ploc%comm_pat_loc_to_glb_c_fbk)
 
@@ -2323,6 +2346,26 @@ CONTAINS
     DO j = js, je
       owner(j) = p_ploc%edges%owner_g(p_pglb%edges%glb_index(j))
     ENDDO
+
+    IF (p_pglb%id > 0) THEN  ! include halo points belonging to nest overlap points
+      js = idx_1d(p_pglb%edges%start_idx(min_rledge_int-1,1), &
+        &         p_pglb%edges%start_blk(min_rledge_int-1,1))
+      je = idx_1d(p_pglb%edges%end_idx(min_rledge,MAX(1,p_pglb%n_childdom)), &
+        &         p_pglb%edges%end_blk(min_rledge,MAX(1,p_pglb%n_childdom)))
+
+      DO j = js, je
+
+        jb = blk_no(j) ! Block index
+        jl = idx_no(j) ! Line  index
+        IF (p_pglb%edges%child_id(jl,jb)   == icid            .AND. &
+            p_pglb%edges%refin_ctrl(jl,jb) <= grf_fbk_start_e .AND. &
+            p_pglb%edges%refin_ctrl(jl,jb) >= min_rledge_int )   THEN
+
+          owner(j) = p_ploc%edges%owner_g(p_pglb%edges%glb_index(j))
+        ENDIF
+      ENDDO
+
+    ENDIF
 
     CALL setup_comm_pattern(p_pglb%n_patch_edges, owner, p_pglb%edges%glb_index, &
       & p_ploc%edges%loc_index, p_ploc%comm_pat_loc_to_glb_e_fbk)
