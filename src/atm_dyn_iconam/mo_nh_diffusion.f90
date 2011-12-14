@@ -389,14 +389,14 @@ MODULE mo_nh_diffusion
     rl_start = grf_bdywidth_e+1
     rl_end   = min_rledge_int
 
-!$OMP PARALLEL PRIVATE(i_startblk,i_endblk,jb,i_startidx,i_endidx)
+!$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
 
     i_startblk = p_patch%edges%start_blk(rl_start,1)
     i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
 
     IF (lsmag_diffu) THEN
       IF ( jg == 1 .AND. l_limited_area .OR. jg > 1 .AND. .NOT. lfeedback(jg)) THEN
-!$OMP DO PRIVATE(jk,je)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je)
         DO jb = i_startblk,i_endblk
 
           CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -414,7 +414,7 @@ MODULE mo_nh_diffusion
         ENDDO
 !$OMP END DO
       ELSE IF (jg > 1) THEN
-!$OMP DO PRIVATE(jk,je)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je)
         DO jb = i_startblk,i_endblk
 
           CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -432,7 +432,7 @@ MODULE mo_nh_diffusion
         ENDDO
 !$OMP END DO
       ELSE
-!$OMP DO PRIVATE(jk,je)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je)
         DO jb = i_startblk,i_endblk
 
           CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -450,7 +450,7 @@ MODULE mo_nh_diffusion
 !$OMP END DO
       ENDIF
     ELSE
-!$OMP DO PRIVATE(jk,je)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je)
       DO jb = i_startblk,i_endblk
 
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -473,22 +473,20 @@ MODULE mo_nh_diffusion
       i_startblk = p_patch%edges%start_blk(start_bdydiff_e,1)
       i_endblk   = p_patch%edges%end_blk(grf_bdywidth_e,1)
 
+!$OMP DO PRIVATE(jk,jb,i_startidx,i_endidx)
       DO jb = i_startblk,i_endblk
 
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                            i_startidx, i_endidx, start_bdydiff_e, grf_bdywidth_e)
 
-! OpenMP parallelization is done over jk for boundary diffusion because it affects
-! only few blocks
-!$OMP DO PRIVATE(jk)
         DO jk = 1, nlev
           p_nh_prog%vn(i_startidx:i_endidx,jk,jb) =   &
             p_nh_prog%vn(i_startidx:i_endidx,jk,jb) + &
             z_nabla2_e(i_startidx:i_endidx,jk,jb) * &
             p_patch%edges%area_edge(i_startidx:i_endidx,jb)*fac_bdydiff_v
         ENDDO
-!$OMP END DO
       ENDDO
+!$OMP END DO
 
     ENDIF ! vn boundary diffusion
 

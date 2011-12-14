@@ -664,7 +664,7 @@ CONTAINS
 
     ENDIF ! cell_type == 6
 
-!$OMP PARALLEL PRIVATE(i_rlstart,i_rlend,i_startblk,i_endblk,jb,i_startidx,i_endidx)
+!$OMP PARALLEL PRIVATE(i_rlstart,i_rlend,i_startblk,i_endblk)
     !
     ! update tracer array
     !
@@ -674,7 +674,7 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk  (i_rlend,i_nchdom)
 
 
-!$OMP DO PRIVATE(jk,jt,jc)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jt,jc)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -715,13 +715,12 @@ CONTAINS
       i_startblk = p_patch%cells%start_blk(i_rlstart,1)
       i_endblk   = p_patch%cells%end_blk(i_rlend,1)
 
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jt,jc)
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                            i_startidx, i_endidx, i_rlstart, i_rlend)
 
-! OpenMP parallelization is done over jk loop here because jb loop is too short in practice
-!$OMP DO PRIVATE(jk,jt,jc)
         DO jk = 1, nlev
           ! Tracer values are clipped here to avoid generation of negative values
           ! For mass conservation, a correction has to be applied in the
@@ -734,8 +733,8 @@ CONTAINS
             ENDDO
           ENDDO  ! Tracer loop
         ENDDO
-!$OMP END DO
       ENDDO
+!$OMP END DO
     ENDIF
 !$OMP END PARALLEL
 

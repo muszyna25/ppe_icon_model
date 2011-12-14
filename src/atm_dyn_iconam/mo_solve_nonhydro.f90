@@ -771,7 +771,7 @@ MODULE mo_solve_nonhydro
 
     ENDIF
 
-!$OMP PARALLEL PRIVATE (rl_start,rl_end,i_startblk,i_endblk,jb,i_startidx,i_endidx)
+!$OMP PARALLEL PRIVATE (rl_start,rl_end,i_startblk,i_endblk)
 
     rl_start = 3
     rl_end = min_rlcell_int - 1
@@ -782,7 +782,7 @@ MODULE mo_solve_nonhydro
     ! Computations at cell points; to be executed in predictor step only
     IF (istep == 1) THEN
 
-!$OMP DO PRIVATE(jk,jc,z_exner_ic)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,z_exner_ic)
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -863,7 +863,7 @@ MODULE mo_solve_nonhydro
     ENDIF
 
 
-!$OMP DO PRIVATE(jk,jc,z_theta_v_pr_mc,z_theta_v_pr_ic)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,z_theta_v_pr_mc,z_theta_v_pr_ic)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -983,7 +983,7 @@ MODULE mo_solve_nonhydro
     i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
 
     IF (istep == 1) THEN
-!$OMP DO PRIVATE(jk,je,z_theta1,z_theta2)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,z_theta1,z_theta2)
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -1107,7 +1107,7 @@ MODULE mo_solve_nonhydro
     ENDIF
 
     ! Update horizontal velocity field
-!$OMP DO PRIVATE(jk,je,ic)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -1137,7 +1137,7 @@ MODULE mo_solve_nonhydro
 !$OMP END DO
 
     IF (istep == 2 .AND. l_bdy_nudge) THEN ! apply boundary nudging if requested
-!$OMP DO PRIVATE(jk,je,ic)
+!$OMP DO PRIVATE(jb,jk,je,ic)
 #ifdef __LOOP_EXCHANGE
       DO ic = 1, p_nh%metrics%nudge_e_dim
         je = p_nh%metrics%nudge_e_idx(ic)
@@ -1167,22 +1167,20 @@ MODULE mo_solve_nonhydro
       i_endblk   = p_patch%edges%end_blk(rl_end,1)
 
 
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je)
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                            i_startidx, i_endidx, rl_start, rl_end)
 
-! OpenMP parallelization is done over jk here because the number of blocks is
-! too small for reasonable load balance (may be ifdef'd to go over blocks for other platforms)
-!$OMP DO PRIVATE(jk,je)
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
             p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnow)%vn(je,jk,jb) + &
               dtime*p_nh%diag%grf_tend_vn(je,jk,jb)
           ENDDO
         ENDDO
-!$OMP END DO
       ENDDO
+!$OMP END DO
     ENDIF
 
     IF (itype_comm == 2) THEN
@@ -1440,7 +1438,7 @@ MODULE mo_solve_nonhydro
     ENDIF
 
     ! Vertical solution:
-!$OMP PARALLEL PRIVATE (rl_start,rl_end,i_startblk,i_endblk,jb,i_startidx,i_endidx)
+!$OMP PARALLEL PRIVATE (rl_start,rl_end,i_startblk,i_endblk)
 
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
@@ -1448,8 +1446,8 @@ MODULE mo_solve_nonhydro
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jk,jc,z_w_expl,z_contr_w_fl_l,z_rho_expl,z_exner_expl,z_a,z_b,z_c,&
-!$OMP            z_g,z_q,z_alpha,z_beta,z_gamma,ic,z_raylfac)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,z_w_expl,z_contr_w_fl_l,z_rho_expl,    &
+!$OMP            z_exner_expl,z_a,z_b,z_c,z_g,z_q,z_alpha,z_beta,z_gamma,ic,z_raylfac)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -1680,14 +1678,12 @@ MODULE mo_solve_nonhydro
       i_startblk = p_patch%cells%start_blk(rl_start,1)
       i_endblk   = p_patch%cells%end_blk(rl_end,1)
 
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc)
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                            i_startidx, i_endidx, rl_start, rl_end)
 
-! OpenMP parallelization is done over jk here because the number of blocks is
-! too small for reasonable load balance (may be ifdef'd to go over blocks for other platforms)
-!$OMP DO PRIVATE(jk,jc)
         DO jk = 1, nlev
           DO jc = i_startidx, i_endidx
 
@@ -1710,15 +1706,13 @@ MODULE mo_solve_nonhydro
 
           ENDDO
         ENDDO
-!OMP END DO
 
-!$OMP DO PRIVATE(jc)
         DO jc = i_startidx, i_endidx
           p_nh%prog(nnew)%w(jc,nlevp1,jb) = p_nh%prog(nnow)%w(jc,nlevp1,jb) + &
             dtime*p_nh%diag%grf_tend_w(jc,nlevp1,jb)
         ENDDO
-!OMP END DO
       ENDDO
+!OMP END DO
 
     ELSE IF (istep == 1 .AND. (l_limited_area .OR. p_patch%id > 1)) THEN
       ! In the MPI-parallelized case, only rho and w are updated here,
@@ -1731,14 +1725,12 @@ MODULE mo_solve_nonhydro
       i_startblk = p_patch%cells%start_blk(rl_start,1)
       i_endblk   = p_patch%cells%end_blk(rl_end,1)
 
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc)
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                            i_startidx, i_endidx, rl_start, rl_end)
 
-! OpenMP parallelization is done over jk here because the number of blocks is
-! too small for reasonable load balance (may be ifdef'd to go over blocks for other platforms)
-!$OMP DO PRIVATE(jk,jc)
         DO jk = 1, nlev
           DO jc = i_startidx, i_endidx
 
@@ -1755,15 +1747,13 @@ MODULE mo_solve_nonhydro
 
           ENDDO
         ENDDO
-!OMP END DO
 
-!$OMP DO PRIVATE(jc)
         DO jc = i_startidx, i_endidx
           p_nh%prog(nnew)%w(jc,nlevp1,jb) = p_nh%prog(nnow)%w(jc,nlevp1,jb) + &
             dtime*p_nh%diag%grf_tend_w(jc,nlevp1,jb)
         ENDDO
-!OMP END DO
       ENDDO
+!OMP END DO
 
     ENDIF
 
@@ -1797,12 +1787,13 @@ MODULE mo_solve_nonhydro
     ! The remaining computations are needed for MPI-parallelized applications only
     IF (my_process_is_mpi_all_seq() ) RETURN
 
-!$OMP PARALLEL PRIVATE(rl_start,rl_end,jb,i_startblk,i_endblk,i_startidx,i_endidx)
+! OpenMP directives are commented for the time being because the overhead is too large
+!!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
     IF (l_limited_area .OR. p_patch%id > 1) THEN
 
       ! Index list over halo points lying in the boundary interpolation zone
       ! Note: this list typically contains at most 10 grid points 
-!$OMP DO PRIVATE(ic,jk,jc)
+!!$OMP DO PRIVATE(jb,ic,jk,jc)
       DO ic = 1, p_nh%metrics%bdy_halo_c_dim
 
         jb = p_nh%metrics%bdy_halo_c_blk(ic)
@@ -1821,7 +1812,7 @@ MODULE mo_solve_nonhydro
 
         ENDDO
       ENDDO
-!$OMP END DO
+!!$OMP END DO
 
       rl_start = 1
       rl_end   = grf_bdywidth_c
@@ -1829,12 +1820,12 @@ MODULE mo_solve_nonhydro
       i_startblk = p_patch%cells%start_blk(rl_start,1)
       i_endblk   = p_patch%cells%end_blk(rl_end,1)
 
+!!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc)
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                            i_startidx, i_endidx, rl_start, rl_end)
 
-!$OMP DO PRIVATE(jk,jc)
         DO jk = 1, nlev
           DO jc = i_startidx, i_endidx
 
@@ -1850,8 +1841,8 @@ MODULE mo_solve_nonhydro
 
           ENDDO
         ENDDO
-!$OMP END DO
       ENDDO
+!!$OMP END DO
     ENDIF
 
     rl_start = min_rlcell_int - 1
@@ -1860,12 +1851,12 @@ MODULE mo_solve_nonhydro
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
+!!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
 
-!$OMP DO PRIVATE(jk,jc)
       DO jk = 1, nlev
         DO jc = i_startidx, i_endidx
           IF (p_nh%metrics%mask_prog_halo_c(jc,jb)) THEN
@@ -1879,9 +1870,9 @@ MODULE mo_solve_nonhydro
           ENDIF
         ENDDO
       ENDDO
-!$OMP END DO
     ENDDO
-!$OMP END PARALLEL
+!!$OMP END DO
+!!$OMP END PARALLEL
 
 
   END SUBROUTINE solve_nh
