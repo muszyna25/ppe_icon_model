@@ -654,7 +654,9 @@ END SUBROUTINE interpol2_vec_grf
 !!
 SUBROUTINE interpol_scal_grf (ptr_pp, ptr_pc, ptr_int, ptr_grf, i_chidx, nfields,&
                               f3din1, f3dout1, f3din2, f3dout2, f3din3, f3dout3, &
-                              f4din, f4dout, lpar_fields, llimit_nneg, lnoshift )
+                              f3din4, f3dout4, f3din5, f3dout5, f3din6, f3dout6, &
+                              f4din1, f4dout1, f4din2, f4dout2,                  &
+                              lpar_fields, llimit_nneg, lnoshift )
 !
 TYPE(t_patch), TARGET, INTENT(in) :: ptr_pp
 TYPE(t_patch), TARGET, INTENT(in) :: ptr_pc
@@ -674,19 +676,21 @@ INTEGER, INTENT(IN) :: nfields
 LOGICAL, INTENT(IN), OPTIONAL :: lpar_fields
 
 ! logical switch: if present and true, limit horizontal gradient so as to avoid negative values
-LOGICAL, INTENT(IN), OPTIONAL :: llimit_nneg
+LOGICAL, INTENT(IN), OPTIONAL :: llimit_nneg(nfields)
 
 ! logical switch: if present and true, turn off accounting for shifts related to vertical nesting
 ! (needed for boundary interpolation of 2D diagnostic variables combined into a 3D field)
 LOGICAL, INTENT(IN), OPTIONAL :: lnoshift
 
-! input scalar fields at cell points (up to three 3D fields or one 4D field)
+! input scalar fields at cell points (up to six 3D fields or two 4D fields)
 REAL(wp), INTENT(IN), OPTIONAL, TARGET ::  & ! dim: (nproma,nlev,nblks_c)
-  f3din1(:,:,:), f3din2(:,:,:), f3din3(:,:,:), f4din(:,:,:,:)
+  f3din1(:,:,:), f3din2(:,:,:), f3din3(:,:,:), f3din4(:,:,:), f3din5(:,:,:), f3din6(:,:,:), &
+  f4din1(:,:,:,:), f4din2(:,:,:,:)
 
-! reconstructed scalar output fields (up to three 3D fields or one 4D field)
+! reconstructed scalar output fields (up to six 3D fields or two 4D fields)
 REAL(wp), INTENT(INOUT), OPTIONAL, TARGET ::  & ! dim: (nproma,nlev_c,nblks_c)
-  f3dout1(:,:,:), f3dout2(:,:,:), f3dout3(:,:,:), f4dout(:,:,:,:)
+  f3dout1(:,:,:), f3dout2(:,:,:), f3dout3(:,:,:), f3dout4(:,:,:), f3dout5(:,:,:), f3dout6(:,:,:), &
+  f4dout1(:,:,:,:), f4dout2(:,:,:,:)
 
 INTEGER :: jb, jk, jc, jn, n         ! loop indices
 INTEGER :: js                        ! shift parameter
@@ -697,9 +701,10 @@ INTEGER :: i_endidx                  ! end index
 INTEGER :: elev                      ! end index of vertical loop
 
 INTEGER :: nsendtot, nrecvtot, nlevtot  ! for MPI communication call
+INTEGER :: n4d
 
 LOGICAL :: l_par_fields              ! local variable corresponding to lpar_fields
-LOGICAL :: l_limit_nneg              ! local variable corresponding to llimit_nneg
+LOGICAL :: l_limit_nneg(nfields)     ! local variable corresponding to llimit_nneg
 LOGICAL :: l_noshift                 ! local variable corresponding to lnoshift
 LOGICAL :: l4d                       ! 4D field is provided as input
 
@@ -724,10 +729,21 @@ TYPE(t_fieldptr) :: p_in(nfields), p_out(nfields)
 
 !-----------------------------------------------------------------------
 
-IF (PRESENT(f4din)) THEN
+IF (PRESENT(f4din1) .AND. .NOT. PRESENT(f4din2)) THEN
   DO n = 1, nfields
-    p_in(n)%fld  => f4din(:,:,:,n)
-    p_out(n)%fld => f4dout(:,:,:,n)
+    p_in(n)%fld  => f4din1(:,:,:,n)
+    p_out(n)%fld => f4dout1(:,:,:,n)
+  ENDDO
+  l4d = .TRUE.
+ELSE IF (PRESENT(f4din1) .AND. PRESENT(f4din2)) THEN
+  n4d = nfields/2
+  DO n = 1, n4d
+    p_in(n)%fld  => f4din1(:,:,:,n)
+    p_out(n)%fld => f4dout1(:,:,:,n)
+  ENDDO
+  DO n = 1, n4d
+    p_in(n4d+n)%fld  => f4din2(:,:,:,n)
+    p_out(n4d+n)%fld => f4dout2(:,:,:,n)
   ENDDO
   l4d = .TRUE.
 ELSE
@@ -743,6 +759,18 @@ ELSE
     p_in(3)%fld  => f3din3
     p_out(3)%fld => f3dout3
   ENDIF
+  IF (PRESENT(f3din4)) THEN
+    p_in(4)%fld  => f3din4
+    p_out(4)%fld => f3dout4
+  ENDIF
+  IF (PRESENT(f3din5)) THEN
+    p_in(5)%fld  => f3din5
+    p_out(5)%fld => f3dout5
+  ENDIF
+  IF (PRESENT(f3din6)) THEN
+    p_in(6)%fld  => f3din6
+    p_out(6)%fld => f3dout6
+  ENDIF
   l4d = .FALSE.
 ENDIF
 
@@ -755,9 +783,9 @@ ENDIF
 
 ! Check if gradient limiting is required
 IF (PRESENT(llimit_nneg)) THEN
-  l_limit_nneg = llimit_nneg
+  l_limit_nneg(:) = llimit_nneg(:)
 ELSE
-  l_limit_nneg = .FALSE.
+  l_limit_nneg(:) = .FALSE.
 ENDIF
 
 ! Check if vertical shifting is to be turned off
@@ -915,7 +943,7 @@ IF (l_par_fields) THEN ! parallelization over fields
         ENDDO
       ENDDO
 
-      IF (l_limit_nneg) THEN
+      IF (l_limit_nneg(jn)) THEN
         DO jk = 1, elev
           DO jc = i_startidx, i_endidx
 
@@ -1078,7 +1106,7 @@ ELSE ! parallelization over jb loop
         ENDDO
       ENDDO
 
-      IF (l_limit_nneg) THEN
+      IF (l_limit_nneg(jn)) THEN
         DO jk = 1, elev
           DO jc = i_startidx, i_endidx
 
@@ -1169,11 +1197,19 @@ IF (my_process_is_mpi_parallel()) THEN
   nsendtot = SUM(ptr_pc%comm_pat_interpol_scal_grf(1:4)%n_send)
   nrecvtot = SUM(ptr_pc%comm_pat_interpol_scal_grf(1:4)%n_recv)
 
-  IF (l4d) THEN
+  IF (l4d .AND. .NOT. PRESENT(f4din2)) THEN
 
-    nlevtot = SIZE(f4dout,2)*nfields
-    CALL exchange_data_grf(ptr_pc%comm_pat_interpol_scal_grf,nfields,nlevtot,nsendtot, &
-                           nrecvtot,RECV4D=f4dout,SEND4D=h_aux,SEND_LBOUND3=LBOUND(h_aux,3))
+    nlevtot = SIZE(f4dout1,2)*nfields
+    CALL exchange_data_grf(ptr_pc%comm_pat_interpol_scal_grf,nfields,nlevtot,nsendtot,       &
+                           nrecvtot,RECV4D1=f4dout1,SEND4D1=h_aux,SEND_LBOUND3=LBOUND(h_aux,3))
+
+  ELSE IF (l4d) THEN
+
+    nlevtot = SIZE(f4dout1,2)*n4d+SIZE(f4dout2,2)*n4d
+    CALL exchange_data_grf(ptr_pc%comm_pat_interpol_scal_grf,nfields,nlevtot,nsendtot,  &
+                           nrecvtot,RECV4D1=f4dout1,SEND4D1=h_aux(:,:,:,:,1:n4d),       &
+                           RECV4D2=f4dout2,SEND4D2=h_aux(:,:,:,:,n4d+1:nfields),        &
+                           SEND_LBOUND3=LBOUND(h_aux,3))
 
   ELSE
     IF (nfields == 1) THEN
@@ -1188,11 +1224,21 @@ IF (my_process_is_mpi_parallel()) THEN
                              nrecvtot,RECV1=f3dout1,SEND1=h_aux(:,:,:,:,1),RECV2=f3dout2,&
                              SEND2=h_aux(:,:,:,:,2),SEND_LBOUND3=LBOUND(h_aux,3))
 
-    ELSE
+    ELSE IF (nfields == 3) THEN
       nlevtot = SIZE(f3dout1,2)+SIZE(f3dout2,2)+SIZE(f3dout3,2)
       CALL exchange_data_grf(ptr_pc%comm_pat_interpol_scal_grf,nfields,nlevtot,nsendtot, &
                              nrecvtot,RECV1=f3dout1,SEND1=h_aux(:,:,:,:,1),RECV2=f3dout2,&
                              SEND2=h_aux(:,:,:,:,2),RECV3=f3dout3,SEND3=h_aux(:,:,:,:,3),&
+                             SEND_LBOUND3=LBOUND(h_aux,3))
+
+    ELSE IF (nfields == 6) THEN
+      nlevtot = SIZE(f3dout1,2)+SIZE(f3dout2,2)+SIZE(f3dout3,2) + &
+                SIZE(f3dout4,2)+SIZE(f3dout5,2)+SIZE(f3dout6,2)
+      CALL exchange_data_grf(ptr_pc%comm_pat_interpol_scal_grf,nfields,nlevtot,nsendtot, &
+                             nrecvtot,RECV1=f3dout1,SEND1=h_aux(:,:,:,:,1),RECV2=f3dout2,&
+                             SEND2=h_aux(:,:,:,:,2),RECV3=f3dout3,SEND3=h_aux(:,:,:,:,3),&
+                             RECV4=f3dout4,SEND4=h_aux(:,:,:,:,4),RECV5=f3dout5,         &
+                             SEND5=h_aux(:,:,:,:,5),RECV6=f3dout6,SEND6=h_aux(:,:,:,:,6),&
                              SEND_LBOUND3=LBOUND(h_aux,3))
 
     ENDIF

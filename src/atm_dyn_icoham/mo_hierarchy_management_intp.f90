@@ -280,7 +280,7 @@ IF (p_test_run) CALL check_patch_array(0,p_pc,p_child_tend%tracer,'IT:tracer')
 ELSE IF (ltransport .AND. grf_intmethod_ct == 2) THEN
 
   CALL interpol_scal_grf (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), i_chidx, ntracer, &
-                          f4din=p_parent_tend%tracer, f4dout=p_child_tend%tracer)
+                          f4din1=p_parent_tend%tracer, f4dout1=p_child_tend%tracer)
 
 IF (p_test_run) CALL check_patch_array(0,p_pc,p_child_tend%tracer,'IT:tracer')
 ENDIF

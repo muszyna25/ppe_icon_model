@@ -430,6 +430,8 @@ LOGICAL :: lpar_fields=.FALSE.
 ! needs interpolation of upper boundary conditions
 LOGICAL :: l_child_vertnest
 
+LOGICAL :: l_limit(2*ntracer)
+
 !$ INTEGER :: num_threads_omp, omp_get_max_threads
 !-----------------------------------------------------------------------
 
@@ -559,20 +561,18 @@ IF (grf_intmethod_c == 1) THEN ! tendency copying for all cell-based variables
 ! grf_intmethod_c = 2, use gradient at cell center for interpolation
 ELSE IF (grf_intmethod_c == 2) THEN
 
-!$  IF (num_threads_omp <= 7) lpar_fields=.TRUE.
+!$  IF (num_threads_omp <= 14) lpar_fields=.TRUE.
 
-  ! Interpolation of temporal tendencies
-  CALL interpol_scal_grf (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), i_chidx, 3, &
+  ! Interpolation of temporal tendencies, full w, perturbation density (stored in div) 
+  !  and perturbationvirtual potential temperature (stored in dpres_mc)
+  CALL interpol_scal_grf (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), i_chidx, 6, &
                           p_diagp%grf_tend_rho, p_diagc%grf_tend_rho,          &
                           p_diagp%grf_tend_thv, p_diagc%grf_tend_thv,          &
                           p_diagp%grf_tend_w,   p_diagc%grf_tend_w,            &
+                          p_nhp_dyn%w,          p_nhc_dyn%w,                   &
+                          p_nh_state(jg)%diag%div, rho_prc,                    &
+                          p_nh_state(jg)%diag%dpres_mc, theta_prc,             &
                           lpar_fields=lpar_fields )
-
-  ! Interpolation of full w and perturbation density (stored in div) and perturbation 
-  ! virtual potential temperature (stored in dpres_mc)
-  CALL interpol_scal_grf (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), i_chidx, 3,             &
-                          p_nhp_dyn%w, p_nhc_dyn%w, p_nh_state(jg)%diag%div, rho_prc,      &
-                          p_nh_state(jg)%diag%dpres_mc, theta_prc, lpar_fields=lpar_fields )
 
   ! Start and end blocks for which interpolation is needed
   i_startblk = p_pc%cells%start_blk(1,1)
@@ -658,15 +658,16 @@ IF (ltransport .AND. lstep_adv .AND. grf_intmethod_ct == 1) THEN
 
 ELSE IF (ltransport .AND. lstep_adv .AND. grf_intmethod_ct == 2) THEN
 
-!$  IF (num_threads_omp <= 2*ntracer+1) lpar_fields=.TRUE.
+!$  IF (num_threads_omp <= 4*ntracer+1) lpar_fields=.TRUE.
 
-  CALL interpol_scal_grf ( p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), i_chidx, ntracer, &
-    &  f4din=p_diagp%grf_tend_tracer,f4dout=p_diagc%grf_tend_tracer,       &
-    &  lpar_fields=lpar_fields)
+  ! Apply positive definite limiter on full tracer fields but not on tendencies
+  l_limit(1:ntracer) = .FALSE.
+  l_limit(ntracer+1:2*ntracer) = .TRUE.
 
-  CALL interpol_scal_grf ( p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), i_chidx, ntracer, &
-                           f4din=p_nhp_tr%tracer, f4dout=p_nhc_tr%tracer,             &
-                           lpar_fields=lpar_fields, llimit_nneg=.TRUE. )
+  CALL interpol_scal_grf ( p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), i_chidx, 2*ntracer, &
+     f4din1=p_diagp%grf_tend_tracer, f4dout1=p_diagc%grf_tend_tracer,                   &
+     f4din2=p_nhp_tr%tracer, f4dout2=p_nhc_tr%tracer, lpar_fields=lpar_fields,          &
+     llimit_nneg=l_limit)
 
 ENDIF
 

@@ -115,7 +115,6 @@ MODULE mo_nh_stepping
   USE mo_sync,                ONLY: sync_patch_array_mult, &
                                     push_glob_comm, pop_glob_comm, global_max, &
                                     SYNC_C, SYNC_E, sync_patch_array
-  USE mo_communication,       ONLY: start_delayed_exchange, do_delayed_exchange
   USE mo_subdivision,         ONLY: proc_split
   USE mo_nh_interface_nwp,    ONLY: nwp_nh_interface
   USE mo_phys_nest_utilities, ONLY: interpol_phys_grf, feedback_phys_diag, interpol_rrg_grf
@@ -1442,19 +1441,6 @@ MODULE mo_nh_stepping
         CALL compute_tendencies (p_patch(jg),p_nh_state(jg),n_new,n_now_grf,n_new_rcf, &
           &                      n_now_rcf,rdt_loc,rdtadv_loc,lstep_adv(jg))
 
-        ! Please note:
-        ! The use of start_delayed_exchange/do_delayed_exchange is not restricted
-        ! to processor splitting only. If it turns out that the code below
-        ! works faster with these routines also in the case that processor
-        ! splitting is not in effect, it can be used always.
-        ! start_delayed_exchange/do_delayed_exchang can also be removed completely
-        ! if it should have any negative effects.
-
-        ! GZ: it turned out that the delayed exchange is detrimental on the NEC
-#ifndef __SX__
-        IF(proc_split) CALL start_delayed_exchange ! Data exchanges will be buffered
-#endif
-
         ! Loop over nested domains
         DO jn = 1, p_patch(jg)%n_childdom
 
@@ -1465,10 +1451,6 @@ MODULE mo_nh_stepping
             &     jg,jgc,n_now_grf,nnow(jgc),n_now_rcf,nnow_rcf(jgc),lstep_adv(jg))
 
         ENDDO
-
-#ifndef __SX__
-        IF(proc_split) CALL do_delayed_exchange ! actually execute exchanges
-#endif
 
         ! prep_bdy_nudging can not be called using delayed requests!
         DO jn = 1, p_patch(jg)%n_childdom

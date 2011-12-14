@@ -2303,20 +2303,23 @@ END SUBROUTINE complete_async_comm
 !!
 !! @par Revision History
 !! Initial version by Rainer Johanni, Nov 2009
-!! Optimized version by Guenther Zaengl to process 4D fields or up to three 3D fields
+!! Optimized version by Guenther Zaengl to process up to two 4D fields or up to six 3D fields
 !! for an array-sized communication pattern (as needed for boundary interpolation) in one step
 !!
-SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1, send1, &
-                             recv2, send2, recv3, send3, recv4d, send4d, send_lbound3)
+SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1, send1,   &
+                             recv2, send2, recv3, send3, recv4, send4, recv5, send5,       &
+                             recv6, send6, recv4d1, send4d1, recv4d2, send4d2, send_lbound3)
 
    TYPE(t_comm_pattern), INTENT(IN) :: p_pat(:)
 
    REAL(wp), INTENT(INOUT), TARGET, OPTIONAL ::  &
-     recv1(:,:,:), recv2(:,:,:), recv3(:,:,:), recv4d(:,:,:,:)
+     recv1(:,:,:), recv2(:,:,:), recv3(:,:,:), recv4d1(:,:,:,:), &
+     recv4(:,:,:), recv5(:,:,:), recv6(:,:,:), recv4d2(:,:,:,:)
    ! Note: the send fields have one additional dimension in this case because
    ! the fourth index corresponds to the dimension of p_pat
    REAL(wp), INTENT(IN   ), TARGET, OPTIONAL ::  &
-     send1(:,:,:,:), send2(:,:,:,:), send3(:,:,:,:), send4d(:,:,:,:,:)
+     send1(:,:,:,:), send2(:,:,:,:), send3(:,:,:,:), send4d1(:,:,:,:,:), &
+     send4(:,:,:,:), send5(:,:,:,:), send6(:,:,:,:), send4d2(:,:,:,:,:)
 
    INTEGER, INTENT(IN)           :: nfields  ! total number of input fields
    INTEGER, INTENT(IN)           :: ndim2tot ! sum of vertical levels of input fields
@@ -2336,7 +2339,7 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
                auxs_buf(ndim2tot,nsendtot),auxr_buf(ndim2tot,nrecvtot)
 
    INTEGER :: i, k, ik, jb, jl, n, np, irs, ire, iss, ise, &
-              npats, isum, ioffset, isum1
+              npats, isum, ioffset, isum1, n4d
 
 !-----------------------------------------------------------------------
 
@@ -2364,10 +2367,12 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
 
    ELSE IF (use_exchange_delayed) THEN! use_exchange_delayed
      IF(.NOT.PRESENT(send_lbound3)) CALL finish('exchange_data_grf','Missing send_lbound3')
-     IF (PRESENT(recv4d)) THEN
-       DO n = 1, UBOUND(recv4d, 4)
+     IF (PRESENT(recv4d2) .OR. PRESENT(recv6)) &
+       CALL finish('exchange_data_grf','delayed exchange not available for two 4D fields')
+     IF (PRESENT(recv4d1)) THEN
+       DO n = 1, UBOUND(recv4d1, 4)
          DO np = 1, npats
-           CALL exchange_data(p_pat(np), recv4d(:,:,:,n), send4d(:,:,:,np,n), &
+           CALL exchange_data(p_pat(np), recv4d1(:,:,:,n), send4d1(:,:,:,np,n), &
              &                  send_lbound3=send_lbound3)
          ENDDO
        ENDDO
@@ -2392,11 +2397,25 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
    ENDIF
 
    ! Set pointers to input fields
-   IF (PRESENT(recv4d)) THEN
+   IF (PRESENT(recv4d1) .AND. .NOT. PRESENT(recv4d2)) THEN
      DO n = 1, nfields
-       recv(n)%fld => recv4d(:,:,:,n)
+       recv(n)%fld => recv4d1(:,:,:,n)
        DO np = 1, npats
-         send(np+(n-1)*npats)%fld => send4d(:,:,:,np,n)
+         send(np+(n-1)*npats)%fld => send4d1(:,:,:,np,n)
+       ENDDO
+     ENDDO
+   ELSE IF (PRESENT(recv4d1) .AND. PRESENT(recv4d2)) THEN
+    n4d = nfields/2
+     DO n = 1, n4d
+       recv(n)%fld => recv4d1(:,:,:,n)
+       DO np = 1, npats
+         send(np+(n-1)*npats)%fld => send4d1(:,:,:,np,n)
+       ENDDO
+     ENDDO
+     DO n = 1, n4d
+       recv(n4d+n)%fld => recv4d2(:,:,:,n)
+       DO np = 1, npats
+         send(np+(n4d+n-1)*npats)%fld => send4d2(:,:,:,np,n)
        ENDDO
      ENDDO
    ELSE
@@ -2416,6 +2435,24 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
        recv(3)%fld => recv3
        DO np = 1, npats
          send(np+2*npats)%fld => send3(:,:,:,np)
+       ENDDO
+     ENDIF
+     IF (PRESENT(recv4)) THEN
+       recv(4)%fld => recv4
+       DO np = 1, npats
+         send(np+3*npats)%fld => send4(:,:,:,np)
+       ENDDO
+     ENDIF
+     IF (PRESENT(recv5)) THEN
+       recv(5)%fld => recv5
+       DO np = 1, npats
+         send(np+4*npats)%fld => send5(:,:,:,np)
+       ENDDO
+     ENDIF
+     IF (PRESENT(recv6)) THEN
+       recv(6)%fld => recv6
+       DO np = 1, npats
+         send(np+5*npats)%fld => send6(:,:,:,np)
        ENDDO
      ENDIF
    ENDIF

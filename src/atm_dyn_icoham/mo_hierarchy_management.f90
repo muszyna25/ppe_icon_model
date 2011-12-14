@@ -1028,8 +1028,8 @@ CONTAINS
           IF(ltransport .AND. grf_intmethod_ct == 2) THEN
             CALL interpol_scal_grf (p_patch(jg), p_patch(jgc), p_int_state(jg), &
               &  p_grf_state(jg)%p_dom(jn), jn, ntracer,                        &
-              &  f4din=p_hydro_state(jg)%prog(n_sav1)%tracer,                   &
-              &  f4dout=p_hydro_state(jgc)%prog(nnow(jgc))%tracer)
+              &  f4din1=p_hydro_state(jg)%prog(n_sav1)%tracer,                  &
+              &  f4dout1=p_hydro_state(jgc)%prog(nnow(jgc))%tracer)
           ENDIF
 
         ENDDO

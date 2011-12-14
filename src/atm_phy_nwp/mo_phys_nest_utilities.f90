@@ -1518,8 +1518,8 @@ SUBROUTINE interpol_phys_grf (ptr_pp,ptr_pc,ptr_int, ptr_grf, jg, jgc, jn )
     ! Halo update is needed before interpolation
     CALL sync_patch_array(SYNC_C,ptr_pp,z_aux3d_p)
 
-    CALL interpol_scal_grf (ptr_pp, ptr_pc, ptr_int, ptr_grf, jn, 1, &
-      &                     z_aux3d_p, z_aux3d_c, llimit_nneg=.TRUE.,&
+    CALL interpol_scal_grf (ptr_pp, ptr_pc, ptr_int, ptr_grf, jn, 1,     &
+      &                     z_aux3d_p, z_aux3d_c, llimit_nneg=(/.TRUE./),&
       &                     lnoshift=.TRUE.)
 
 
@@ -1615,8 +1615,8 @@ SUBROUTINE interpol_rrg_grf (ptr_pp, ptr_pc, ptr_int, ptr_grf, prm_diagp, prm_di
     ! Halo update is needed before interpolation
     CALL sync_patch_array(SYNC_C,ptr_pp,z_aux3d_p)
 
-    CALL interpol_scal_grf (ptr_pp, ptr_pc, ptr_int, ptr_grf, jn, 1, &
-      &                     z_aux3d_p, z_aux3d_c, llimit_nneg=.TRUE.,&
+    CALL interpol_scal_grf (ptr_pp, ptr_pc, ptr_int, ptr_grf, jn, 1,     &
+      &                     z_aux3d_p, z_aux3d_c, llimit_nneg=(/.TRUE./),&
       &                     lnoshift=.TRUE.)
 
 
