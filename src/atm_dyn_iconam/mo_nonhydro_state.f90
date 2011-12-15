@@ -375,6 +375,9 @@ MODULE mo_nonhydro_state
    INTEGER,  POINTER :: ovlp_halo_c_dim(:)
    INTEGER,  POINTER :: ovlp_halo_c_idx(:,:)
    INTEGER,  POINTER :: ovlp_halo_c_blk(:,:)
+   ! Correction term needed to use perturbation density for lateral boundary nudging
+   ! (note: this field is defined on the local parent grid in case of MPI parallelization)
+   REAL(wp), POINTER :: rho_ref_corr(:,:,:)
 
 
    ! c) Variables needed for the hexagonal grid only

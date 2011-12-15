@@ -97,13 +97,15 @@ TYPE(t_patch),      POINTER     :: p_pc => NULL()
 TYPE(t_patch),      POINTER     :: p_lp => NULL()
 TYPE(t_grid_cells), POINTER     :: p_gcp => NULL()
 
-REAL(wp), ALLOCATABLE :: cell_volume(:,:,:)
+REAL(wp), ALLOCATABLE :: cell_volume(:,:,:), z_rho_ref(:,:,:)
 
-INTEGER :: jg, ji, jgc, jb, jc, jk
+INTEGER :: jg, ji, jgc, jb, jc, jk, jks
 INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
-INTEGER :: nlev
+INTEGER :: nlev, nlev_c, nshift
 LOGICAL :: l_parallel
 
+INTEGER, DIMENSION(:,:,:), POINTER :: iidx, iblk
+REAL(wp), DIMENSION(:,:,:), POINTER :: p_fbkwgt
 
 ! The operations that need to be executed in this routine differ between
 ! MPI and non-MPI runs
@@ -178,6 +180,86 @@ DO jg = 1, n_dom-1
     p_grf(jg)%fbk_dom_volume(:,ji) = global_sum_array3(1,.FALSE.,cell_volume)
 
     DEALLOCATE(cell_volume)
+
+  ENDDO
+
+  ! Second part: compute correction term needed to use perturbation density for boundary nudging 
+
+  DO ji = 1, i_nchdom
+
+    jgc    =  p_pp%child_id(ji)
+    p_pc   => p_patch(jgc)
+
+    nlev_c = p_pc%nlev
+    nshift = p_pc%nshift
+
+    IF (l_parallel) THEN
+      p_fbkwgt => p_grf_state_local_parent(jgc)%fbk_wgt_c
+      p_gcp => p_patch_local_parent(jgc)%cells
+      p_pp  => p_patch_local_parent(jgc)
+    ELSE
+      p_fbkwgt => p_grf(jg)%fbk_wgt_c
+      p_gcp => p_patch(jg)%cells
+      p_pp  => p_patch(jg)
+    ENDIF
+
+    iidx  => p_gcp%child_idx
+    iblk  => p_gcp%child_blk
+
+    i_startblk = p_gcp%start_blk(grf_nudgintp_start_c+1,ji)
+    i_endblk   = p_gcp%end_blk(min_rlcell_int,ji)
+
+    IF (l_parallel) THEN
+
+      ALLOCATE(p_nh(jgc)%metrics%rho_ref_corr(nproma, nlev_c, p_pp%nblks_c), &
+               z_rho_ref(nproma, nlev, p_pp%nblks_c))
+      z_rho_ref(:,:,:) = 0._wp
+      p_nh(jgc)%metrics%rho_ref_corr(:,:,:) = 0._wp
+
+      CALL exchange_data(p_lp%comm_pat_glb_to_loc_c, RECV=z_rho_ref, &
+                         SEND=p_nh(jg)%metrics%rho_ref_mc)
+    ELSE
+      ALLOCATE(p_nh(jgc)%metrics%rho_ref_corr(nproma, nlev_c, i_startblk:i_endblk), &
+               z_rho_ref(nproma, nlev, i_startblk:i_endblk))
+
+      z_rho_ref(:,:,:) = 0._wp
+      p_nh(jgc)%metrics%rho_ref_corr(:,:,:) = 0._wp
+
+      DO jb = i_startblk, i_endblk
+
+        CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
+                           grf_nudgintp_start_c+1, min_rlcell_int, ji)
+
+        DO jk = 1, nlev
+          DO jc = i_startidx, i_endidx
+            z_rho_ref(jc,jk,jb) = p_nh(jg)%metrics%rho_ref_mc(jc,jk,jb)
+          ENDDO
+        ENDDO
+      ENDDO
+
+    ENDIF
+
+
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
+                         grf_nudgintp_start_c+1, min_rlcell_int, ji)
+
+      DO jk = 1, nlev_c
+        jks = jk + nshift
+        DO jc = i_startidx, i_endidx
+
+          p_nh(jgc)%metrics%rho_ref_corr(jc,jk,jb) = - z_rho_ref(jc,jks,jb) +(   &
+          p_nh(jgc)%metrics%rho_ref_mc(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
+          p_nh(jgc)%metrics%rho_ref_mc(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
+          p_nh(jgc)%metrics%rho_ref_mc(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
+          p_nh(jgc)%metrics%rho_ref_mc(iidx(jc,jb,4),jk,iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)   )
+
+        ENDDO
+      ENDDO
+    ENDDO
+
+    DEALLOCATE(z_rho_ref)
 
   ENDDO
 ENDDO
@@ -1079,7 +1161,8 @@ DO jb = i_startblk, i_endblk
         p_child_prog%rho(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
         p_child_prog%rho(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
         p_child_prog%rho(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
-        p_child_prog%rho(iidx(jc,jb,4),jk,iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)   )
+        p_child_prog%rho(iidx(jc,jb,4),jk,iblk(jc,jb,4))*p_fbkwgt(jc,jb,4))+ &
+        p_nh_state(jg)%metrics%rho_ref_corr(jc,jk,jb)
 
       diff_w(jc,jk,jb) = parent_w(jc,jk+js,jb) - (                         &
         p_child_prog%w(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
@@ -1380,7 +1463,8 @@ DO jb = i_startblk, i_endblk
         p_child_prog%rho(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
         p_child_prog%rho(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
         p_child_prog%rho(iidx(jc,jb,3),jk,iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
-        p_child_prog%rho(iidx(jc,jb,4),jk,iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)   )
+        p_child_prog%rho(iidx(jc,jb,4),jk,iblk(jc,jb,4))*p_fbkwgt(jc,jb,4))+ &
+        p_nh_state(jg)%metrics%rho_ref_corr(jc,jk,jb)
 
     ENDDO
   ENDDO
