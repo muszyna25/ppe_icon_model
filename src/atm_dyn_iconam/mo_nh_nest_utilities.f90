@@ -216,7 +216,7 @@ DO jg = 1, n_dom-1
       z_rho_ref(:,:,:) = 0._wp
       p_nh(jgc)%metrics%rho_ref_corr(:,:,:) = 0._wp
 
-      CALL exchange_data(p_lp%comm_pat_glb_to_loc_c, RECV=z_rho_ref, &
+      CALL exchange_data(p_pp%comm_pat_glb_to_loc_c, RECV=z_rho_ref, &
                          SEND=p_nh(jg)%metrics%rho_ref_mc)
     ELSE
       ALLOCATE(p_nh(jgc)%metrics%rho_ref_corr(nproma, nlev_c, i_startblk:i_endblk), &
