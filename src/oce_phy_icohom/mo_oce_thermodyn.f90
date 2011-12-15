@@ -56,7 +56,8 @@ USE mo_impl_constants,      ONLY: min_rlcell,sea_boundary, sea_boundary !, &
 USE mo_oce_state,           ONLY: v_base
 !USE mo_exception,           ONLY: message, finish
 USE mo_loopindices,         ONLY: get_indices_c!, get_indices_e, get_indices_v
-USE mo_physical_constants,  ONLY: grav, rho_ref, rho_inv, a_T, b_S, SItodBar, sfc_press_bar
+USE mo_physical_constants,  ONLY: grav, rho_ref, sal_ref, rho_inv, a_T, b_S, &
+  &                               SItodBar, sfc_press_bar
 
 IMPLICIT NONE
 
@@ -143,8 +144,6 @@ REAL(wp), PARAMETER :: &
        r_aj0=1.91075e-4_wp, &
        r_ak0=8.50935e-5_wp, r_ak1=-6.12293e-6_wp, r_ak2=5.2787e-8_wp, &
        r_am0=-9.9348e-7_wp, r_am1=2.0816e-8_wp, r_am2=9.1697e-10_wp
-
-REAL(wp), PARAMETER :: SALINITY_REF= 35.0_wp
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -481,7 +480,7 @@ END INTERFACE
       DO jk=1, n_zlev
         DO jc = i_startidx, i_endidx
           IF(v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-            rho(jc,jk,jb) = rho_ref - a_T * tracer(jc,jk,jb,1) +b_S*SALINITY_REF
+            rho(jc,jk,jb) = rho_ref - a_T * tracer(jc,jk,jb,1) +b_S*SAL_REF
            !write(123,*)'density',jk,jc,jb,rho(jc,jk,jb), tracer(jc,jk,jb,1),a_T
            ELSE
              rho(jc,jk,jb) = 0.0_wp 
@@ -594,7 +593,7 @@ END INTERFACE
          IF(v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
            z_p=sfc_press_bar ! rho_ref*v_base%zlev_m(jk)*SItodBar
            rho(jc,jk,jb) = calc_density_JMDWFG06_EOS_func(tracer(jc,jk,jb,1),&
-                                                        & SALINITY_REF,      &
+                                                        & SAL_REF,      &
                                                         & z_p)
 !           write(*,*)'rho',jc,jk,jb,rho(jc,jk,jb)
          END IF
@@ -841,7 +840,7 @@ end subroutine calc_density_JM_EOS
          ! operate on wet ocean points only
          IF(v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
 
-           rho(jc,jk,jb) = calc_density_MPIOM_func( tracer(jc,jk,jb,1), SALINITY_REF, z_p)
+           rho(jc,jk,jb) = calc_density_MPIOM_func( tracer(jc,jk,jb,1), SAL_REF, z_p)
 !write(123,*)'rho',jc,jk,jb,rho(jc,jk,jb)
          END IF
        END DO

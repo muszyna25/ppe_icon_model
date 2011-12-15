@@ -191,6 +191,7 @@ MODULE mo_physical_constants
   ! density reference values, to be constant in Boussinesq ocean models
   REAL(wp), PARAMETER :: rho_ref = 1025.022_wp         ! reference density [kg/m^3]
   REAL(wp), PARAMETER :: rho_inv = 0.0009755881663_wp  ! inverse reference density [m^3/kg]
+  REAL(wp), PARAMETER :: sal_ref = 35.0_wp             ! reference salinity [psu]
 
   REAL(wp), PARAMETER :: SItodBar = 1.0e-4_wp          !Conversion from pressure [p] to pressure [bar]
                                                        !used in ocean thermodynamics

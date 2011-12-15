@@ -70,8 +70,9 @@ USE mo_model_domain,        ONLY: t_patch
 USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base
 USE mo_exception,           ONLY: finish, message, message_text
 USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
-USE mo_physical_constants,  ONLY: rho_ref, sfc_press_bar, lsub, lvap, lfreez, cpa, emiss, &
-  &                               fr_fac, stefbol, rgas, tmelt, tf, cw, rhoi, rhow, rhos
+USE mo_physical_constants,  ONLY: rho_ref, sal_ref, sfc_press_bar, lsub, lvap, lfreez, &
+  &                               cpa, emiss, fr_fac, stefbol, rgas, tmelt, tf, cw,    &
+  &                               rhoi, rhow, rhos
 USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell, sea_boundary,MIN_DOLIC
 USE mo_loopindices,         ONLY: get_indices_c
 USE mo_math_utilities,      ONLY: t_cartesian_coordinates, gvec2cvec, cvec2gvec
@@ -131,8 +132,6 @@ CONTAINS
   INTEGER  :: rl_start_c, rl_end_c
   REAL(wp) :: z_tmin, z_relax, rday1, rday2
   REAL(wp) :: z_c(nproma,n_zlev,p_patch%nblks_c)
-
-  REAL(wp), PARAMETER :: z_s_ref = 35.0_wp  ! reference salinity
 
   ! Local declarations for coupling:
   INTEGER               :: info, ierror !< return values form cpl_put/get calls
@@ -840,9 +839,9 @@ CONTAINS
     !   Q_S = K_v*dS/dz(surf) = -W_s*S_ref  [psu*m/s]
     ! from above
 
-    ! p_sfc_flx%forc_fwfx(:,:) = -p_sfc_flx%forc_tracer(:,:,2) / z_s_ref
+    ! p_sfc_flx%forc_fwfx(:,:) = -p_sfc_flx%forc_tracer(:,:,2) / sal_ref
     ! now in m/month for diagnosis
-      p_sfc_flx%forc_fwfx(:,:) = -p_sfc_flx%forc_tracer(:,:,2) / z_s_ref * 2.592e6_wp
+      p_sfc_flx%forc_fwfx(:,:) = -p_sfc_flx%forc_tracer(:,:,2) / sal_ref * 2.592e6_wp
 
     ipl_src=1  ! output print level (1-5, fix)
     z_c(:,1,:) = p_sfc_flx%forc_fwfx(:,:)
@@ -885,7 +884,7 @@ CONTAINS
 
     ! Salinity boundary condition in vertical Diffusion D, see above
 
-    p_sfc_flx%forc_tracer(:,:,2) = -p_sfc_flx%forc_fwfx(:,:) * z_s_ref
+    p_sfc_flx%forc_tracer(:,:,2) = -p_sfc_flx%forc_fwfx(:,:) * sal_ref
 
     ipl_src=1  ! output print level (1-5, fix)
     z_c(:,1,:) = p_sfc_flx%forc_fwfx(:,:)

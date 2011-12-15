@@ -53,7 +53,7 @@ USE mo_kind,               ONLY: wp
 USE mo_io_units,           ONLY: filename_max
 USE mo_mpi,                ONLY: my_process_is_stdio
 USE mo_grid_config,        ONLY: nroot
-USE mo_physical_constants, ONLY: re, rre, omega, rgrav, rho_ref, grav, SItodBar,            &
+USE mo_physical_constants, ONLY: re, rre, omega, rgrav, rho_ref, sal_ref, grav, SItodBar,  &
   &                              sfc_press_bar, tmelt, Tf
 USE mo_math_constants
 USE mo_parallel_config,    ONLY: nproma
@@ -243,10 +243,13 @@ CONTAINS
       CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c,&
                 & i_startidx_c, i_endidx_c, rl_start, rl_end_c)
       DO jc = i_startidx_c, i_endidx_c
+
+        ! set values on land to zero/reference
         IF ( v_base%lsm_oce_c(jc,jk,jb) > sea_boundary ) THEN
           p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 0.0_wp
-          IF (no_tracer>1) p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 0.0_wp
+          IF (no_tracer>1) p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sal_ref
         ENDIF
+
       END DO
     END DO
   END DO
@@ -644,6 +647,12 @@ CONTAINS
   CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_init:init_ho_testcases'
   !-------------------------------------------------------------------------
   CALL message (TRIM(routine), 'start')
+
+  ! initialize salinity with reference value rather than with zero
+  !  - mainly for plotting purpose
+  IF ( no_tracer >= 2) THEN
+    p_os%p_prog(nold(1))%tracer(:,:,:,2) = sal_ref
+  END IF
 
   rl_start = 1
   rl_end_c = min_rlcell
@@ -1550,8 +1559,8 @@ END DO
               IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
                 p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof_var(jk)
               ! p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 35.0_wp
-              ELSE
-                p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 0.0_wp
+           !  ELSE
+           !    p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 0.0_wp
               ENDIF
             END DO
           END DO

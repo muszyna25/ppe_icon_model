@@ -111,7 +111,7 @@ MODULE mo_sea_ice
       &  forc_wind_u(:,:),         & ! forcing of zonal component of velocity equation,
       &  forc_wind_v(:,:),         & ! forcing of meridional component of velocity equation,
       &  forc_hflx(:,:),           & ! forcing of temperature tracer with surface heat flux [W/m2]
-      &  forc_fwfx(:,:),           & ! forcing of salinity tracer with surface freshwater flux [m/s]
+      &  forc_fwfx(:,:),           & ! forcing of salinity tracer with surface freshw. flux [m/s]
       &  forc_swflx(:,:),          & ! surface short wave heat flux [W/m2]
       &  forc_lwflx(:,:),          & ! surface long wave heat flux [W/m2]
       &  forc_ssflx(:,:),          & ! surface sensible heat flux [W/m2]
@@ -1770,6 +1770,9 @@ CONTAINS
       END WHERE
     
     END WHERE !isice
+
+    ipl_src=1  ! output print level (1-5, fix)
+    CALL print_mxmn('ice%hi',1,ice%hi(:,1,:),1,ppatch%nblks_c,'ice',ipl_src)
      
   END SUBROUTINE ice_growth
   !-------------------------------------------------------------------------------
@@ -1984,9 +1987,9 @@ CONTAINS
     INTEGER :: i
     REAL(wp) :: aw,bw,cw,dw,ai,bi,ci,di,AAw,BBw,CCw,AAi,BBi,CCi,alpha,beta
 
-    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:calc_atm_fluxes_from_bulk'
+    !CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:calc_atm_fluxes_from_bulk'
     !-------------------------------------------------------------------------
-    CALL message(TRIM(routine), 'start' )
+    !CALL message(TRIM(routine), 'start' )
 
     Tsurf  = p_os%p_prog(nold(1))%tracer(:,1,:,1)        ! set surface temp = mixed layer temp
     tafoK  = p_as%tafo  + tmelt                    ! Change units of tafoK  to Kelvin
