@@ -71,7 +71,7 @@ USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base
 USE mo_exception,           ONLY: finish, message, message_text
 USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
 USE mo_physical_constants,  ONLY: rho_ref, sfc_press_bar, lsub, lvap, lfreez, cpa, emiss, &
-  &                               fr_fac, stefbol, rgas, tmelt, tf, cw, rhoi, rhow, rhos, albedoW
+  &                               fr_fac, stefbol, rgas, tmelt, tf, cw, rhoi, rhow, rhos
 USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell, sea_boundary,MIN_DOLIC
 USE mo_loopindices,         ONLY: get_indices_c
 USE mo_math_utilities,      ONLY: t_cartesian_coordinates, gvec2cvec, cvec2gvec
@@ -618,7 +618,8 @@ CONTAINS
         Qatm%dlatdT (:,:,:) = 0.0_wp
         Qatm%dLWdT  (:,:,:) = -4.0_wp * emiss*StefBol * (p_ice%Tsurf(:,:,:) + tmelt)**3
 
-        CALL set_ice_albedo(p_patch,p_ice)
+        ! For now the ice albedo is the same as ocean albedo
+        ! CALL set_ice_albedo(p_patch,p_ice)
         CALL set_ice_temp(p_patch,p_ice,Qatm)
         Qatm%counter = 1
         CALL ice_slow(p_patch, p_os, p_ice, Qatm, p_sfc_flx)
