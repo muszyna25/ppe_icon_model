@@ -86,6 +86,9 @@ cat > ${atmo_namelist} << EOF
  ntracer     = 3            ! number of tracers
  iforcing    = ${iforcing}  ! forcing                      --> echam_phy_nml
  msg_level   = 10           ! detailed report during integration 
+ ltimer = .TRUE.
+ timers_level = 5
+ activate_sync_timers = .TRUE.
 /
 &dynamics_nml
  iequations  = ${atmo_model_equations}

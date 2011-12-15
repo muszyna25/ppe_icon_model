@@ -85,6 +85,9 @@ cat > $atmo_namelist << EOF
  ltransport  = .FALSE.      ! transport 
  iforcing    = 0            ! no forcing
  ltestcase   = .TRUE.       ! run testcase
+ ltimer = .TRUE.
+ timers_level = 5
+ activate_sync_timers = .TRUE.
 /
 &testcase_nml
  ctest_name  = 'JWw'        ! test case identifier
