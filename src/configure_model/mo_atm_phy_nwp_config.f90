@@ -43,12 +43,13 @@
 MODULE mo_atm_phy_nwp_config
 
   USE mo_kind,                ONLY: wp
-  USE mo_impl_constants,      ONLY: max_dom,MAX_CHAR_LENGTH,itconv,itccov,&
-    &                               itrad,itradheat, itsso,itgscp,itsatad,itupdate,&
-    &                               itturb, itsfc,  itgwd, iphysproc
+  USE mo_impl_constants,      ONLY: max_dom, MAX_CHAR_LENGTH, itconv, itccov,  &
+    &                               itrad, itradheat, itsso, itgscp, itsatad,  &
+    &                               itupdate, itturb, itsfc, itgwd, itfastphy, &
+    &                               iphysproc, iphysproc_short
   USE mo_exception,           ONLY: message, message_text !, finish
 
-  USE mo_icoham_sfc_indices,  ONLY: init_sfc_indices !, nsfc_type
+  USE mo_icoham_sfc_indices,  ONLY: init_sfc_indices
 
   IMPLICIT NONE
 
@@ -66,34 +67,43 @@ MODULE mo_atm_phy_nwp_config
 
     ! namelist variables
 
-  INTEGER ::  inwp_gscp        !> microphysics
-  INTEGER ::  inwp_satad       !! saturation adjustment
-  INTEGER ::  inwp_convection  !! convection
-  INTEGER ::  inwp_radiation   !! radiation
-  INTEGER ::  inwp_sso         !! sso
-  INTEGER ::  inwp_gwd         !! non-orographic gravity wave drag
-  INTEGER ::  inwp_cldcover    !! cloud cover
-  INTEGER ::  inwp_turb        !! turbulence
-  INTEGER ::  inwp_surface     !! surface including soil, ocean, ice,lake
+    INTEGER ::  inwp_gscp        !> microphysics
+    INTEGER ::  inwp_satad       !! saturation adjustment
+    INTEGER ::  inwp_convection  !! convection
+    INTEGER ::  inwp_radiation   !! radiation
+    INTEGER ::  inwp_sso         !! sso
+    INTEGER ::  inwp_gwd         !! non-orographic gravity wave drag
+    INTEGER ::  inwp_cldcover    !! cloud cover
+    INTEGER ::  inwp_turb        !! turbulence
+    INTEGER ::  inwp_surface     !! surface including soil, ocean, ice,lake
 
-  REAL(wp) :: dt_conv    !> field element for convection
-  REAL(wp) :: dt_ccov    !! field element for subscale cloud cover
-  REAL(wp) :: dt_rad     !! "-"                     radiation
-  REAL(wp) :: dt_sso     !! "-"  for subscale orographic gravity waves
-  REAL(wp) :: dt_gwd     !! "-"  for subscale gravity waves
-  REAL(wp) :: dt_fastphy !! field element for fast physics processes
+    REAL(wp) :: dt_conv    !> field element for convection
+    REAL(wp) :: dt_ccov    !! field element for subscale cloud cover
+    REAL(wp) :: dt_rad     !! "-"                     radiation
+    REAL(wp) :: dt_sso     !! "-"  for subscale orographic gravity waves
+    REAL(wp) :: dt_gwd     !! "-"  for subscale gravity waves
+    REAL(wp) :: dt_fastphy !! field element for fast physics processes
                          !! microphysics, saturation adjustment, turbulence, 
                          !! surface (in addition: update and radheat)
 
-  INTEGER :: imode_turb, itype_wcld, icldm_turb, itype_tran
-  LOGICAL :: limpltkediff, ltkesso, lexpcor
-  REAL(wp):: tur_len, pat_len, a_stab, tkhmin, tkmmin, c_diff, &
-    &        rlam_heat, rlam_mom, rat_sea 
+    INTEGER :: imode_turb, itype_wcld, icldm_turb, itype_tran
+    LOGICAL :: limpltkediff, ltkesso, lexpcor
+    REAL(wp):: tur_len, pat_len, a_stab, tkhmin, tkmmin, c_diff, &
+      &        rlam_heat, rlam_mom, rat_sea 
 
-  REAL(wp) :: qi0, qc0
-  REAL(wp) :: ustart_raylfric    !! velocity at which extra Rayleigh friction starts
-  REAL(wp) :: efdt_min_raylfric  !! e-folding time corresponding to maximum relaxation coefficient
-  LOGICAL  :: latm_above_top     !! use extra layer above model top for radiation (reduced grid only)
+    REAL(wp) :: qi0, qc0
+    REAL(wp) :: ustart_raylfric    !! velocity at which extra Rayleigh friction starts
+    REAL(wp) :: efdt_min_raylfric  !! e-folding time corresponding to maximum relaxation 
+                                   !! coefficient
+    LOGICAL  :: latm_above_top     !! use extra layer above model top for radiation 
+                                   !! (reduced grid only)
+
+
+    ! Derived variables
+    !
+    LOGICAL :: lproc_on(iphysproc) !> contains information about status of 
+                                   !! corresponding physical process
+                                    !! ON: TRUE; OFF: FALSE
 
   END TYPE t_atm_phy_nwp_config
 
@@ -102,8 +112,8 @@ MODULE mo_atm_phy_nwp_config
   TYPE(t_atm_phy_nwp_config) :: atm_phy_nwp_config(max_dom) !< shape: (n_dom)
 
 
-  REAL(wp) ::  &                    !> Field of calling-time interval (seconds) for
-    &  tcall_phy(max_dom,iphysproc) !! each domain and phys. process
+  REAL(wp) ::  &                          !> Field of calling-time interval (seconds) for
+    &  tcall_phy(max_dom,iphysproc_short) !! each domain and phys. process
 
 
 CONTAINS
@@ -130,8 +140,8 @@ SUBROUTINE configure_atm_phy_nwp( n_dom, pat_level, ltestcase, dtime_adv )
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
     &      routine = 'mo_atm_phy_nwp_config:configure_atm_phy_nwp'
 
-!      IF (msg_level >= 12) &
-         CALL message(TRIM(routine), '')
+
+    CALL message(TRIM(routine), '')
 
     DO jg = 1,n_dom
  
@@ -141,89 +151,89 @@ SUBROUTINE configure_atm_phy_nwp( n_dom, pat_level, ltestcase, dtime_adv )
 
     tcall_phy(:,:) = 0._wp
 
+
     DO jg = 1,n_dom
+
+      ! initialize lproc_on
+      atm_phy_nwp_config(jg)%lproc_on(1:iphysproc)    = .FALSE.
+
+
+      ! Fill derived variable lproc_on
+      IF ( atm_phy_nwp_config(jg)%inwp_satad > 0 )               &
+        &  atm_phy_nwp_config(jg)%lproc_on(itupdate)  = .TRUE.
+ 
+      IF ( atm_phy_nwp_config(jg)%inwp_satad > 0 )               &
+        &  atm_phy_nwp_config(jg)%lproc_on(itsatad)   = .TRUE. 
+
+      IF ( atm_phy_nwp_config(jg)%inwp_convection > 0 )          &
+        &  atm_phy_nwp_config(jg)%lproc_on(itconv)    = .TRUE. 
+
+      IF ( atm_phy_nwp_config(jg)%inwp_cldcover > 0 )            &
+        &  atm_phy_nwp_config(jg)%lproc_on(itccov)    = .TRUE.
+
+      IF ( atm_phy_nwp_config(jg)%inwp_radiation > 0 )           &
+        &  atm_phy_nwp_config(jg)%lproc_on(itrad)     = .TRUE.
+
+      IF ( atm_phy_nwp_config(jg)%inwp_sso > 0 )                 &
+        &  atm_phy_nwp_config(jg)%lproc_on(itsso)     = .TRUE.
+
+      IF ( atm_phy_nwp_config(jg)%inwp_gscp > 0 )                &
+        &  atm_phy_nwp_config(jg)%lproc_on(itgscp)    = .TRUE.
+
+      IF ( atm_phy_nwp_config(jg)%inwp_turb > 0 )                &
+        &  atm_phy_nwp_config(jg)%lproc_on(itturb)    = .TRUE.
+
+      IF ( atm_phy_nwp_config(jg)%inwp_radiation > 0 )           &
+        &  atm_phy_nwp_config(jg)%lproc_on(itradheat) = .TRUE.
+
+      IF ( atm_phy_nwp_config(jg)%inwp_surface > 0 )             &
+        &  atm_phy_nwp_config(jg)%lproc_on(itsfc)     = .TRUE.
+
+      IF ( atm_phy_nwp_config(jg)%inwp_gwd > 0 )                 &
+        &  atm_phy_nwp_config(jg)%lproc_on(itgwd)     = .TRUE.
 
 
       ! Slow physics:
       ! currently for each domain the same time intervals are set
       !
       ! Fast physics:
-      ! time interval are set equal to the time interval for advection
+      ! for each fast physics process the time interval is set equal to the 
+      ! time interval for advection.
       !
-      ! note that time intervalls are set to 0 if the physical process
-      ! is not considered at all.
-      IF (  atm_phy_nwp_config(jg)%inwp_convection == 0 ) THEN   ! 0 = no convection
-        tcall_phy(jg,itconv) = 0._wp
+
+      ! Slow physics
+      !
+      tcall_phy(jg,itconv) = atm_phy_nwp_config(jg)% dt_conv    ! sec
+
+      tcall_phy(jg,itsso)  = atm_phy_nwp_config(jg)% dt_sso     ! sec
+
+      tcall_phy(jg,itgwd)  = atm_phy_nwp_config(jg)% dt_gwd     ! sec
+
+      tcall_phy(jg,itrad)  = atm_phy_nwp_config(jg)% dt_rad     ! sec
+
+      !> KF always call clouds after convection
+      !! to ensure the proper output of Qx_tot
+      IF ( atm_phy_nwp_config(jg)%lproc_on(itccov)   .AND.  &
+        &  atm_phy_nwp_config(jg)%lproc_on(itconv) ) THEN
+        tcall_phy(jg,itccov) = atm_phy_nwp_config(jg)% dt_conv    ! sec
       ELSE
-        tcall_phy(jg,itconv) = atm_phy_nwp_config(jg)% dt_conv    ! seconds
+        tcall_phy(jg,itccov) = atm_phy_nwp_config(jg)% dt_fastphy ! sec
       ENDIF
 
-       !> KF always call clouds after convection
-       !! to ensure the proper output of Qx_tot
 
-      IF (  atm_phy_nwp_config(jg)% inwp_convection > 0 ) THEN   ! 0 = no convection
-        tcall_phy(jg,itccov) =  atm_phy_nwp_config(jg)% dt_conv    ! seconds
-      ELSE 
-        tcall_phy(jg,itccov) =  atm_phy_nwp_config(jg)% dt_fastphy ! seconds
-      ENDIF
-      !really switch off the clouds
-      IF (  atm_phy_nwp_config(jg)% inwp_cldcover == 0 ) THEN     ! 0 = no cloud cover
-        tcall_phy(jg,itccov) = 0._wp
-      ENDIF
-
-      IF (  atm_phy_nwp_config(jg)% inwp_radiation == 0 ) THEN    ! 0 = no radiation
-        tcall_phy(jg,itrad)     =  0._wp
-        tcall_phy(jg,itradheat) =  0._wp
-      ELSE
-        tcall_phy(jg,itrad)     =   atm_phy_nwp_config(jg)% dt_rad     ! seconds
-        tcall_phy(jg,itradheat) =   atm_phy_nwp_config(jg)% dt_fastphy ! seconds       
-      ENDIF
-
-      IF (  atm_phy_nwp_config(jg)% inwp_sso == 0 ) THEN          ! 0 = no sso
-        tcall_phy(jg,itsso) =  0._wp
-      ELSE
-        tcall_phy(jg,itsso) =   atm_phy_nwp_config(jg)% dt_sso           ! seconds
-      ENDIF
-
-      IF (  atm_phy_nwp_config(jg)% inwp_gwd == 0 ) THEN          ! 0 = no sso
-        tcall_phy(jg,itgwd) =  0._wp
-      ELSE
-        tcall_phy(jg,itgwd) =   atm_phy_nwp_config(jg)% dt_gwd    ! seconds
-      ENDIF
-
-      IF (  atm_phy_nwp_config(jg)% inwp_gscp == 0 ) THEN         ! 0 = no microphysics
-        tcall_phy(jg,itgscp) =  0._wp
-      ELSE
-        tcall_phy(jg,itgscp) =  atm_phy_nwp_config(jg)% dt_fastphy ! seconds
-      ENDIF
-
-      IF (  atm_phy_nwp_config(jg)%inwp_satad == 0 ) THEN         ! 0 = no satad
-        tcall_phy(jg,itsatad)  =  0._wp
-        tcall_phy(jg,itupdate) =  0._wp   ! no moist update needed if no satad
-      ELSE
-        tcall_phy(jg,itsatad)  =   atm_phy_nwp_config(jg)%dt_fastphy  !seconds
-        tcall_phy(jg,itupdate) =   atm_phy_nwp_config(jg)%dt_fastphy !seconds
-      ENDIF
-
-      IF (  atm_phy_nwp_config(jg)%inwp_turb == 0 ) THEN         ! 0 = no turbulence
-        tcall_phy(jg,itturb) =  0._wp 
-      ELSE
-        tcall_phy(jg,itturb) =   atm_phy_nwp_config(jg)%dt_fastphy !seconds
-      ENDIF
-
-      IF (  atm_phy_nwp_config(jg)%inwp_surface == 0 ) THEN       ! 0 = no soil
-        tcall_phy(jg,itsfc) =  0._wp 
-      ELSE
-        tcall_phy(jg,itsfc) =   atm_phy_nwp_config(jg)%dt_fastphy  !seconds
-      ENDIF
+      ! Fast physics
+      !
+      tcall_phy(jg,itfastphy)   = atm_phy_nwp_config(jg)%dt_fastphy ! sec
 
     ENDDO  ! jg loop
+
 
 
     IF( atm_phy_nwp_config(1)%inwp_turb == 2) THEN
        CALL init_sfc_indices( ltestcase, 'APE' ) !call of a hydrostatic testcase
                                              ! to obtain the demanded parameters
     ENDIF
+
 
 
     ! issue a warning, if advective and convective timesteps are not synchronized

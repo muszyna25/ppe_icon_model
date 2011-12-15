@@ -407,7 +407,10 @@ CONTAINS
       DO jp = 1, jp_end
         WRITE(attname,'(a,i2.2,a,i2.2)') 't_elapsed_phy_DOM',jg,'_PHY',jp
         CALL set_restart_attribute( TRIM(attname), opt_t_elapsed_phy(jg,jp) )
-
+      ENDDO
+      ! Inquire array size
+      jp_end = SIZE(opt_lcall_phy,2)
+      DO jp = 1, jp_end
         WRITE(attname,'(a,i2.2,a,i2.2)') 'lcall_phy_DOM',jg,'_PHY',jp
         CALL set_restart_attribute( TRIM(attname), opt_lcall_phy(jg,jp) )
       ENDDO

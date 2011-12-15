@@ -273,25 +273,35 @@ MODULE mo_impl_constants
   INTEGER,PARAMETER :: EULER_FORWARD = 1
   INTEGER,PARAMETER :: AB2           = 2
 
-  ! identifiers for NWP time control variables lcall_phy, t_elapsed_phy
-  INTEGER, PARAMETER :: itupdate =  1
-  INTEGER, PARAMETER :: itsatad  =  2
-  INTEGER, PARAMETER :: itconv   =  3
-  INTEGER, PARAMETER :: itccov   =  4
-  INTEGER, PARAMETER :: itrad    =  5
-  INTEGER, PARAMETER :: itsso    =  6
-  INTEGER, PARAMETER :: itgscp   =  7
+  ! identifiers for NWP time control variables lcall_phy, tcall_phy, t_elapsed_phy
+  INTEGER, PARAMETER :: itconv   =  1
+  INTEGER, PARAMETER :: itccov   =  2
+  INTEGER, PARAMETER :: itrad    =  3
+  INTEGER, PARAMETER :: itsso    =  4
+  INTEGER, PARAMETER :: itgwd    =  5
+  INTEGER, PARAMETER :: itupdate =  6
+  INTEGER, PARAMETER :: itsatad  =  7
   INTEGER, PARAMETER :: itturb   =  8
-  INTEGER, PARAMETER :: itradheat=  9 !calculation of radiative heating rates from radiative
-                                      !fluxes with updated solar zenith angle
+  INTEGER, PARAMETER :: itgscp   =  9
   INTEGER, PARAMETER :: itsfc    =  10
-  INTEGER, PARAMETER :: itgwd    =  11
+  INTEGER, PARAMETER :: itradheat=  11 !calculation of radiative heating rates from radiative
+                                       !fluxes with updated solar zenith angle
+  INTEGER, PARAMETER :: itfastphy=  6
 
   INTEGER, PARAMETER :: iphysproc = 11! for NWP:
                                       ! number of physical processes:
-                                      ! convection, sscloud cover, radiation, radheat, sso,
+                                      ! convection, cloud cover, radiation, radheat, sso,
                                       ! microphysics, saturation adjustment, tracerupdate, 
                                       ! gwd, turbulence, surface
+
+  INTEGER, PARAMETER :: iphysproc_short = 6 ! for NWP:
+                                            ! number of physical processes:
+                                            ! convection, cloud cover, radiation,
+                                            ! sso, gwd, fastphysics
+                                            ! i.e. fastphysics processes are treated 
+                                            ! as a combined process
+
+
 
   ! external parameter for radiation
 

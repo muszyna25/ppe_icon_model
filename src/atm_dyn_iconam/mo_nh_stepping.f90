@@ -96,9 +96,10 @@ MODULE mo_nh_stepping
     &                               create_restart_file
   USE mo_io_restart,          ONLY: write_restart_info_file
   USE mo_exception,           ONLY: message, message_text, finish
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH,iphysproc,itconv,   &
-    &                               itccov, itrad, itradheat, itsso, itsatad,    &
-    &                               itgwd, inwp
+  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, iphysproc,    &
+    &                               iphysproc_short, itconv, itccov, itrad, &
+    &                               itradheat, itsso, itsatad, itgwd, inwp, &
+    &                               itupdate, itturb, itgscp, itsfc
   USE mo_divergent_modes,     ONLY: divergent_modes_5band
   USE mo_math_operators,      ONLY: div_avg, div
   USE mo_solve_nonhydro,      ONLY: solve_nh
@@ -197,6 +198,7 @@ MODULE mo_nh_stepping
 
   REAL(wp), ALLOCATABLE :: t_elapsed_phy(:,:)  ! time (in s) since the last call of
                                                ! the corresponding physics package
+                                               ! (fast physics packages are treated as one)
 
   LOGICAL, ALLOCATABLE :: linit_slowphy(:) ! determines whether slow physics has already been initialized
 
@@ -205,6 +207,11 @@ MODULE mo_nh_stepping
 
   REAL(wp), ALLOCATABLE :: sim_time(:)  ! elapsed simulation time
 
+
+  ! additional time control variables which are not dimensioned with the number 
+  ! of model domains
+  LOGICAL :: map_phyproc(iphysproc,iphysproc_short) !< mapping matrix
+  INTEGER :: iproclist(iphysproc)  !< x-axis of mapping matrix
 
   PUBLIC :: prepare_nh_integration, perform_nh_stepping
 
@@ -249,6 +256,8 @@ MODULE mo_nh_stepping
   IF (ltestcase) THEN
     CALL init_nh_testcase(p_patch, p_nh_state, p_int, ntl)
   ENDIF
+
+  CALL setup_time_ctrl_physics( )
 
   END SUBROUTINE prepare_nh_integration
 
@@ -710,8 +719,8 @@ MODULE mo_nh_stepping
 
   ! allocate flow control variables for transport and slow physics calls
   ALLOCATE(lstep_adv(n_dom),lcall_phy(n_dom,iphysproc),linit_slowphy(n_dom), &
-    &      linit_dyn(n_dom),t_elapsed_phy(n_dom,iphysproc), sim_time(n_dom), &
-    &      STAT=ist )
+    &      linit_dyn(n_dom),t_elapsed_phy(n_dom,iphysproc_short),            &
+    &      sim_time(n_dom), STAT=ist )
   IF (ist /= SUCCESS) THEN
     CALL finish ( 'mo_nh_stepping: perform_nh_stepping',           &
     &      'allocation for flow control variables failed' )
@@ -729,10 +738,11 @@ MODULE mo_nh_stepping
       CALL get_restart_attribute(TRIM(attname), jstep_adv(jg)%marchuk_order)
       WRITE(attname,'(a,i2.2)') 'sim_time_DOM',jg
       CALL get_restart_attribute(TRIM(attname), sim_time(jg))
-      DO jp = 1,iphysproc
+      DO jp = 1,iphysproc_short
         WRITE(attname,'(a,i2.2,a,i2.2)') 't_elapsed_phy_DOM',jg,'_PHY',jp
         CALL get_restart_attribute(TRIM(attname), t_elapsed_phy(jg,jp))
-
+      ENDDO
+      DO jp = 1,iphysproc
         WRITE(attname,'(a,i2.2,a,i2.2)') 'lcall_phy_DOM',jg,'_PHY',jp
         CALL get_restart_attribute(TRIM(attname), lcall_phy(jg,jp))
       ENDDO
@@ -1143,7 +1153,8 @@ MODULE mo_nh_stepping
             &                      lcall_phy )                         ! out
 
           IF (msg_level >= 12) THEN
-            WRITE(message_text,'(a,i2,11l3)') 'initial call of slow physics',jg , lcall_phy(jg,:11)
+            WRITE(message_text,'(a,i2,a,5l2,a,6l2)') 'initial call of slow physics:', &
+              &  jg ,'   SP:', lcall_phy(jg,1:5), '   FP:',lcall_phy(jg,6:11)
             CALL message(TRIM(routine), TRIM(message_text))
           ENDIF
 
@@ -1204,7 +1215,9 @@ MODULE mo_nh_stepping
             &                      lcall_phy )                         ! out
 
           IF (msg_level >= 12) THEN
-            WRITE(message_text,'(a,i2,11l3)') 'call phys. packages DOM:',jg , lcall_phy(jg,:11)
+            WRITE(message_text,'(a,i2,a,5l2,a,6l2)') 'call phys. proc DOM:', &
+              &  jg ,'   SP:', lcall_phy(jg,1:5), '   FP:',lcall_phy(jg,6:11)
+
             CALL message(TRIM(routine), TRIM(message_text))
             IF(ltransport) THEN
               WRITE(message_text,'(a,i4,l4)') 'call advection',jg , lstep_adv(jg)
@@ -1607,6 +1620,9 @@ MODULE mo_nh_stepping
   !!
   !! @par Revision History
   !! Developed by Daniel Reinert, DWD (2010-09-23)
+  !! Modification by Daniel Reinert (2011-12-14)
+  !! - replaced zoo of fast physics time steps by a single time step, named 
+  !!   dt_fastphy.
   !!
   SUBROUTINE time_ctrl_physics ( tcall_phy, lstep_adv, dt_loc, jg, nstep_global, &
     &                            linit, t_elapsed_phy, lcall_phy )
@@ -1633,7 +1649,7 @@ MODULE mo_nh_stepping
 
     INTEGER, INTENT(IN) :: nstep_global !< counter of global time step
 
-    INTEGER :: ip                       !< loop index
+    INTEGER :: ip, ips                  !< loop index
 
 
   !-------------------------------------------------------------------------
@@ -1642,58 +1658,103 @@ MODULE mo_nh_stepping
     ! dynamics step
     IF (linit) THEN
 
-      ! Initialize lcall_phy as false. Only those set explicitly below are true
+      ! Initialize lcall_phy with .false. Only slow physics will be set to 
+      ! .true. initially.
       lcall_phy(jg,:)  = .FALSE.
 
       ! slow physics
-      IF ( tcall_phy(jg,itconv) > 0._wp ) lcall_phy(jg,itconv) = .TRUE.
+      IF ( atm_phy_nwp_config(jg)%lproc_on(itconv) ) lcall_phy(jg,itconv) = .TRUE.
 
-      IF ( tcall_phy(jg,itccov) > 0._wp ) lcall_phy(jg,itccov) = .TRUE.
+      IF ( atm_phy_nwp_config(jg)%lproc_on(itccov) ) lcall_phy(jg,itccov) = .TRUE.
 
-      IF ( tcall_phy(jg,itrad) > 0._wp )  lcall_phy(jg,itrad) = .TRUE.
+      IF ( atm_phy_nwp_config(jg)%lproc_on(itrad)  ) lcall_phy(jg,itrad)  = .TRUE.
 
-      IF ( tcall_phy(jg,itradheat) > 0._wp )  lcall_phy(jg,itradheat) = .TRUE.
+      IF ( atm_phy_nwp_config(jg)%lproc_on(itradheat) ) lcall_phy(jg,itradheat) = .TRUE.
 
-      IF ( tcall_phy(jg,itsso) > 0._wp )  lcall_phy(jg,itsso) = .TRUE.
+      IF ( atm_phy_nwp_config(jg)%lproc_on(itsso)  ) lcall_phy(jg,itsso)  = .TRUE.
 
-      IF ( tcall_phy(jg,itgwd) > 0._wp )  lcall_phy(jg,itgwd) = .TRUE.
+      IF ( atm_phy_nwp_config(jg)%lproc_on(itgwd)  ) lcall_phy(jg,itgwd)  = .TRUE.
  
     ELSE
       !
-      ! all physics packages (except saturation adjustment) are forced to run
-      ! at a multiple of the advective time step
+      ! all physical processes are forced to run at a multiple of 
+      ! the advective time step. Note that fast physics are treated 
+      ! as a combined process in the case of t_elapsed_phy and tcall_phy, 
+      ! but treated individually in the case of lcall_phy.
       !
-      DO ip = 1, iphysproc
+      DO ips = 1, iphysproc_short
 
         ! If a physics package has been called at previous timestep,
         ! reset the time counter.
-        IF ( lcall_phy(jg,ip) ) THEN
-           t_elapsed_phy(jg,ip)   = 0._wp
+        !
+        IF ( ANY(lcall_phy(jg,PACK(iproclist,map_phyproc(1:iphysproc,ips)))) ) THEN
+           t_elapsed_phy(jg,ips)  = 0._wp
         ENDIF
 
         ! update time counter
-        t_elapsed_phy(jg,ip) = t_elapsed_phy(jg,ip) + dt_loc  ! dynamics timestep !!
+        !
+        t_elapsed_phy(jg,ips) = t_elapsed_phy(jg,ips) + dt_loc  ! dynamics timestep !!
 
 
-        IF (.NOT. lstep_adv(jg) .AND. ip /= itsatad ) THEN
-          lcall_phy(jg,ip) = .FALSE.
+        IF ( .NOT. lstep_adv(jg) ) THEN
+          lcall_phy(jg,PACK(iproclist,map_phyproc(1:iphysproc,ips))) = .FALSE.
         ELSE
-          IF( t_elapsed_phy(jg,ip) >= tcall_phy(jg,ip) .AND. &
-            & tcall_phy(jg,ip) > 0._wp) THEN
 
-            ! Please note: tcall_phy(jg,ip) = 0._wp indicates that the process
-            ! with number ip will not be called at all (see mo_nwp_phy_nml)
-            lcall_phy(jg,ip)       = .TRUE.
+          IF( t_elapsed_phy(jg,ips) >= tcall_phy(jg,ips) ) THEN
+            lcall_phy(jg,PACK(iproclist,map_phyproc(1:iphysproc,ips)))  = .TRUE.
           ELSE
-            lcall_phy(jg,ip)       = .FALSE.
+            lcall_phy(jg,PACK(iproclist,map_phyproc(1:iphysproc,ips)))  = .FALSE.
           ENDIF
 
         ENDIF
 
-      ENDDO
+      ENDDO  ! ips
+
+      ! In addition, it must be checked, whether the individual processes 
+      ! are switched on at all (lproc_on =.TRUE.). If not, lcall_phy is 
+      ! reset to false.
+      !
+      DO ip = 1, iphysproc   ! not that we have to loop over ALL processes
+        IF (.NOT. atm_phy_nwp_config(jg)%lproc_on(ip) ) THEN
+          lcall_phy(jg,ip)  = .FALSE.
+        ENDIF
+      ENDDO  ! ip
+
     ENDIF
 
   END SUBROUTINE time_ctrl_physics
+
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Setup of physics time control
+  !!
+  !! Setup of time control for slow and fast physics. The mapping matrix is 
+  !! initialized, which provides mapping rules required when mapping 
+  !! between variables of size iphysproc and iphysproc_short. Typical examples 
+  !! are lcall_phy and t_elapsed_phy.
+  !!
+  !! @par Revision History
+  !! Developed by Daniel Reinert, DWD (2011-12-14)
+  !!
+  SUBROUTINE setup_time_ctrl_physics ( )
+
+  !-------------------------------------------------------------------------
+
+  ! list of physical processes (x-axis of mapping matrix)
+    iproclist = (/ itconv,itccov,itrad,itsso,itgwd,itupdate,itsatad,itturb,&
+      &            itgscp,itsfc,itradheat /)
+
+    map_phyproc(1:iphysproc,1:iphysproc_short) = .FALSE. ! initialization
+
+    map_phyproc(1,1)    = .TRUE.  ! simple one to one mapping
+    map_phyproc(2,2)    = .TRUE.  ! simple one to one mapping
+    map_phyproc(3,3)    = .TRUE.  ! simple one to one mapping
+    map_phyproc(4,4)    = .TRUE.  ! simple one to one mapping
+    map_phyproc(5,5)    = .TRUE.  ! simple one to one mapping
+    map_phyproc(6:11,6) = .TRUE.  ! mapping of fast physics processes to single one
+
+  END SUBROUTINE setup_time_ctrl_physics
 
 END MODULE mo_nh_stepping
 

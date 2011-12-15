@@ -56,7 +56,7 @@ MODULE mo_nh_interface_nwp
   USE mo_exception,          ONLY: message, message_text !, finish
   USE mo_impl_constants,     ONLY: itconv, itccov, itrad, itgscp,         &
     &                              itsatad, itupdate, itturb, itsfc, itradheat, &
-    &                              itsso, itgwd, icc,                           &
+    &                              itsso, itgwd, itfastphy, icc,          &
     &                              min_rlcell_int, min_rledge_int, min_rlcell
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
@@ -242,7 +242,7 @@ CONTAINS
       IF (timers_level > 2) CALL timer_start(timer_update_prog_phy)
       
       CALL nh_update_prog_phy(pt_patch              ,& !in
-           &                  tcall_phy_jg(itupdate),& !in
+           &                  tcall_phy_jg(itfastphy),& !in
            &                  prm_nwp_tend          ,& !in
            &                  prm_diag              ,& !inout phyfields 
            &                  pt_prog_rcf            )!inout tracer
@@ -474,7 +474,7 @@ CONTAINS
     IF (  lcall_phy_jg(itturb)) THEN
 
       IF (timers_level > 1) CALL timer_start(timer_nwp_turbulence)
-      CALL nwp_turbulence (  tcall_phy_jg(itturb),              & !>input
+      CALL nwp_turbulence (  tcall_phy_jg(itfastphy),           & !>input
                             & pt_patch, p_metrics,              & !>input
                             & ext_data, mean_charlen,           & !>input
                             & pt_prog,                          & !>inout
@@ -507,7 +507,7 @@ CONTAINS
       IF (timers_level > 2) CALL timer_stop(timer_diagnose_pres_temp)
 
       IF (timers_level > 1) CALL timer_start(timer_nwp_microphysics)
-      CALL nwp_microphysics ( tcall_phy_jg(itgscp),             & !>input
+      CALL nwp_microphysics ( tcall_phy_jg(itfastphy),          & !>input
                             & pt_patch, p_metrics,              & !>input
                             & pt_prog,                          & !>inout
                             & pt_prog_rcf,                      & !>inout
@@ -599,7 +599,7 @@ CONTAINS
 
             ! finally compute dynamical temperature tendency
             pt_diag%ddt_temp_dyn(jc,jk,jb) = cpd_o_rd*pt_diag%temp(jc,jk,jb)    &
-              * pt_diag%exner_dyn_incr(jc,jk,jb)/tcall_phy_jg(itupdate)         &
+              * pt_diag%exner_dyn_incr(jc,jk,jb)/tcall_phy_jg(itfastphy)        &
               / pt_prog%exner(jc,jk,jb) 
 
             ! reset dynamical exner increment to zero
@@ -688,7 +688,7 @@ CONTAINS
 
     IF (  lcall_phy_jg(itsfc)) THEN
 
-      CALL nwp_surface    (  tcall_phy_jg(itsfc),               & !>input
+      CALL nwp_surface    (  tcall_phy_jg(itfastphy),           & !>input
                             & p_sim_time-dt_loc, dtadv_loc,     & !>input
                             & pt_patch,                         & !>input
                             & ext_data,                         & !>input
@@ -917,7 +917,7 @@ CONTAINS
 
       CALL pre_radiation_nwp (                       &
         & kbdim      = nproma,                       &
-        & p_inc_rad  = tcall_phy_jg(itradheat),      &
+        & p_inc_rad  = tcall_phy_jg(itfastphy),      &
         & p_sim_time = p_sim_time-dt_loc,            &
         & pt_patch   = pt_patch,                     &
         & zsmu0      = zcosmu0,                      &
@@ -988,35 +988,37 @@ CONTAINS
           !e.g. tcall_phy_jg(itradheat) may then be greater than p_sim_time
           !leading to wrong averaging.
          DO jc =  i_startidx, i_endidx
+
           prm_diag%swflxsfc_a(jc,jb) = ( prm_diag%swflxsfc_a(jc,jb)                       &
-                                 &  * (p_sim_time - tcall_phy_jg(itradheat))              &
-                                 &  + tcall_phy_jg(itradheat) * prm_diag%swflxsfc(jc,jb)) &
+                                 &  * (p_sim_time - tcall_phy_jg(itfastphy))              &
+                                 &  + tcall_phy_jg(itfastphy) * prm_diag%swflxsfc(jc,jb)) &
                                  &  / p_sim_time
           prm_diag%lwflxsfc_a(jc,jb) = ( prm_diag%lwflxsfc_a(jc,jb)                       &
-                                 &  * (p_sim_time - tcall_phy_jg(itradheat))              &
-                                 &  + tcall_phy_jg(itradheat) * prm_diag%lwflxsfc(jc,jb)) &
+                                 &  * (p_sim_time - tcall_phy_jg(itfastphy))              &
+                                 &  + tcall_phy_jg(itfastphy) * prm_diag%lwflxsfc(jc,jb)) &
                                  &  / p_sim_time
           prm_diag%swflxtoa_a(jc,jb) = ( prm_diag%swflxtoa_a(jc,jb)                       &
-                                 &  * (p_sim_time - tcall_phy_jg(itradheat))              &
-                                 &  + tcall_phy_jg(itradheat) * prm_diag%swflxtoa(jc,jb)) &
+                                 &  * (p_sim_time - tcall_phy_jg(itfastphy))              &
+                                 &  + tcall_phy_jg(itfastphy) * prm_diag%swflxtoa(jc,jb)) &
                                  &  / p_sim_time
           prm_diag%lwflxtoa_a(jc,jb) = ( prm_diag%lwflxtoa_a(jc,jb)                       &
-                                 &  * (p_sim_time - tcall_phy_jg(itradheat))              &
-                                &  + tcall_phy_jg(itradheat) * prm_diag%lwflxall(jc,1,jb)) &
+                                 &  * (p_sim_time - tcall_phy_jg(itfastphy))              &
+                                &  + tcall_phy_jg(itfastphy) * prm_diag%lwflxall(jc,1,jb)) &
                                 &  / p_sim_time
          ENDDO
 
         ELSEIF ( .NOT. lflux_avg ) THEN
 
          DO jc =  i_startidx, i_endidx
+
           prm_diag%swflxsfc_a(jc,jb) = prm_diag%swflxsfc_a(jc,jb)                     &
-                                & + tcall_phy_jg(itradheat) * prm_diag%swflxsfc(jc,jb)
+                                & + tcall_phy_jg(itfastphy) * prm_diag%swflxsfc(jc,jb)
           prm_diag%lwflxsfc_a(jc,jb) = prm_diag%lwflxsfc_a(jc,jb)                     &
-                                & + tcall_phy_jg(itradheat) * prm_diag%lwflxsfc(jc,jb)
+                                & + tcall_phy_jg(itfastphy) * prm_diag%lwflxsfc(jc,jb)
           prm_diag%swflxtoa_a(jc,jb) = prm_diag%swflxtoa_a(jc,jb)                     &
-                                & + tcall_phy_jg(itradheat) * prm_diag%swflxtoa(jc,jb)
+                                & + tcall_phy_jg(itfastphy) * prm_diag%swflxtoa(jc,jb)
           prm_diag%lwflxtoa_a(jc,jb) = prm_diag%lwflxtoa_a(jc,jb)                     &
-                                & + tcall_phy_jg(itradheat) * prm_diag%lwflxall(jc,1,jb)
+                                & + tcall_phy_jg(itfastphy) * prm_diag%lwflxall(jc,1,jb)
          END DO
 
 

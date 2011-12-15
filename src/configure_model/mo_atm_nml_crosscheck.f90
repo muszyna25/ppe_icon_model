@@ -87,8 +87,7 @@ MODULE mo_nml_crosscheck
   USE mo_diffusion_config,   ONLY: diffusion_config, configure_diffusion
 
 
-  USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config, tcall_phy, &
-    &                              configure_atm_phy_nwp
+  USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config, configure_atm_phy_nwp
   USE mo_lnd_nwp_config,     ONLY: nlev_soil, nztlev ,nlev_snow ,nsfc_subs,&
     &                              lseaice,  llake, lmelt , lmelt_var, lmulti_snow
   USE mo_echam_phy_config,   ONLY: echam_phy_config, configure_echam_phy

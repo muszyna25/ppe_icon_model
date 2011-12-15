@@ -210,11 +210,11 @@ CONTAINS
       atm_phy_nwp_config(jg)%inwp_turb       = inwp_turb
       atm_phy_nwp_config(jg)%inwp_surface    = inwp_surface
       
-      atm_phy_nwp_config(jg)% dt_conv        = dt_conv (jg) 
-      atm_phy_nwp_config(jg)% dt_ccov        = dt_ccov (jg)
-      atm_phy_nwp_config(jg)% dt_rad         = dt_rad  (jg)
-      atm_phy_nwp_config(jg)% dt_sso         = dt_sso   (jg)
-      atm_phy_nwp_config(jg)% dt_gwd         = dt_gwd   (jg)
+      atm_phy_nwp_config(jg)%dt_conv         = dt_conv (jg) 
+      atm_phy_nwp_config(jg)%dt_ccov         = dt_ccov (jg)
+      atm_phy_nwp_config(jg)%dt_rad          = dt_rad  (jg)
+      atm_phy_nwp_config(jg)%dt_sso          = dt_sso  (jg)
+      atm_phy_nwp_config(jg)%dt_gwd          = dt_gwd  (jg)
       atm_phy_nwp_config(jg)%qi0             = qi0 
       atm_phy_nwp_config(jg)%qc0             = qc0 
       atm_phy_nwp_config(jg)%ustart_raylfric = ustart_raylfric 
