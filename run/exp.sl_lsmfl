@@ -230,14 +230,14 @@ cat > ${ocean_namelist} << EOF
   EOS_TYPE           =    2      ! 1=linear EOS
                                  ! 2= (nonlinear) EOS from MPI-OM 
                                  ! 3= not recommended: (nonlinear) Jacket-McDoudgall density-formulation
-  k_veloc_h          = 1.0E+5    ! [m2/s] horizontal viscosity coefficient for velocity
-  k_veloc_v          = 5.0E-5    ! [m/s]  vertical viscosity coefficient for velocity
-  MAX_VERT_DIFF_VELOC= 2.0E-3    ! max diffusion coeff, used in impl.vert.velocity diffusion, if stabil. crit.is met
-  k_pot_temp_h       = 5.0E+3    ! [m2/s] horizontal viscosity coefficient for temperature
+  k_veloc_h          = 7.5E+4    ! [m2/s] horizontal viscosity coefficient for velocity
+  k_veloc_v          = 1.0E-3    ! [m/s]  vertical viscosity coefficient for velocity
+  MAX_VERT_DIFF_VELOC= 1.0       ! max diffusion coeff, used in impl.vert.velocity diffusion, if stabil. crit.is met
+  k_pot_temp_h       = 1.0E+3    ! [m2/s] horizontal viscosity coefficient for temperature
   k_pot_temp_v       = 3.0E-5    ! [m/s]  vertical viscosity coefficient for temperature
-  k_sal_h            = 5.0E+3    ! [m2/s] horizontal viscosity coefficient for salinity
+  k_sal_h            = 1.0E+3    ! [m2/s] horizontal viscosity coefficient for salinity
   k_sal_v            = 3.0E-5    ! [m/s]  vertical viscosity coefficient for salinity
-  MAX_VERT_DIFF_TRAC = 3.0E-3    ! max diffusion coeff, used in impl.vert.tracer diffusion, if stability crit.is met
+  MAX_VERT_DIFF_TRAC = 3.0E-2    ! max diffusion coeff, used in impl.vert.tracer diffusion, if stability crit.is met
   HORZ_VELOC_DIFF_TYPE =  1      ! 0=no horizontal diffusion
                                  ! 1= constant Laplacian viscosity coefficient given in namelist (k_veloc_h)
                                  ! 2= constant Laplacian viscosity coefficient determined by requirement to
@@ -265,7 +265,7 @@ cat > ${ocean_namelist} << EOF
                                  ! 3=varying u with latitude globally
   init_oce_prog      = ${init_oce}    ! read ocean initialization file, see above
   init_oce_relax     = ${init_relax}  ! read ocean initialization file, see above
-  itestcase_oce      =   45      ! 25=shallow-water-Laeuter-Test; 26=shallow-water-Williamson test5;
+  itestcase_oce      =   50      ! 25=shallow-water-Laeuter-Test; 26=shallow-water-Williamson test5;
                                  ! 30=3D-multilayer Stommel; 31=3D-gravity wave
                                  ! 32=Multilayer Munk-Gyre test (following Sergey Danilov)
                                  ! 33=Collapsing density front, requires realistic lsm and topography
@@ -283,8 +283,8 @@ cat > ${ocean_namelist} << EOF
                                  ! -1: use net surface heat flux from atmosphere as boundary condition
   relaxation_param   =    1.0    ! strength of 2-dim relaxation for temperature (months)
                                  ! this value is divided by number of seconds per month (=30*24*3600)
-  irelax_2d_S        =    0      ! 2-dim relaxation of salinity - see "temperature_relaxation" for parameter values
-  relax_2d_mon_S     =    1.0    ! strength of 2-dim relaxation for salinity (months)
+  irelax_2d_S        =    1      ! 2-dim relaxation of salinity - see "temperature_relaxation" for parameter values
+  relax_2d_mon_S     =    3.0    ! strength of 2-dim relaxation for salinity (months)
   irelax_3d_T        =    0      ! 3-dim relaxation of temperature (0: no relax) 1-2: not yet used
                                  ! 3: use initial T read with init_oce=1
   relax_3d_mon_T     =    1.0    ! strength of 3-dim relaxation for temperature (months)
