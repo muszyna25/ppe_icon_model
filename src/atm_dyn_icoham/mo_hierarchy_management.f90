@@ -300,32 +300,35 @@ CONTAINS
       ENDIF !the 1st substep in a refined domain
 
 
-      IF ((nstep_global == 1) .AND. (jg == 1)) THEN
-
-        ! For the 1st step of on the coarsest grid level, set all tendencies
-        ! to zero
-
-        p_psfc => p_hydro_state(jg)%tend_dyn%pres_sfc
-        p_vn   => p_hydro_state(jg)%tend_dyn%vn
-        p_temp => p_hydro_state(jg)%tend_dyn%temp
-        IF (ntracer > 0) THEN
-          p_trac => p_hydro_state(jg)%tend_dyn%tracer
-        ENDIF
-
-!$OMP PARALLEL
-!$OMP WORKSHARE
-        p_psfc = 0._wp
-        p_vn   = 0._wp
-        p_temp = 0._wp
-!$OMP END WORKSHARE
-        IF (ntracer > 0) THEN
-!$OMP WORKSHARE
-          p_trac = 0._wp
-!$OMP END WORKSHARE
-        ENDIF
-!$OMP END PARALLEL
-
-      ENDIF !(nstep_global == 1) .AND. (jg == 1)
+      ! LL : These values should be already initialized.
+      !      In any case, they cannot be initilized here
+      !       when running in restart mode
+!       IF ((nstep_global == 1) .AND. (jg == 1)) THEN
+! 
+!         ! For the 1st step of on the coarsest grid level, set all tendencies
+!         ! to zero
+! 
+!         p_psfc => p_hydro_state(jg)%tend_dyn%pres_sfc
+!         p_vn   => p_hydro_state(jg)%tend_dyn%vn
+!         p_temp => p_hydro_state(jg)%tend_dyn%temp
+!         IF (ntracer > 0) THEN
+!           p_trac => p_hydro_state(jg)%tend_dyn%tracer
+!         ENDIF
+! 
+! !$OMP PARALLEL
+! !$OMP WORKSHARE
+!         p_psfc = 0._wp
+!         p_vn   = 0._wp
+!         p_temp = 0._wp
+! !$OMP END WORKSHARE
+!         IF (ntracer > 0) THEN
+! !$OMP WORKSHARE
+!           p_trac = 0._wp
+! !$OMP END WORKSHARE
+!         ENDIF
+! !$OMP END PARALLEL
+! 
+!       ENDIF !(nstep_global == 1) .AND. (jg == 1)
 
       IF ( l_limited_area .AND. (jg == 1) ) THEN
         ! Perform interpolation of lateral boundary tendencies from external data

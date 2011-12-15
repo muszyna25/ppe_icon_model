@@ -104,6 +104,14 @@ CONTAINS
     !------------------------------------------------------------------
     ! Set initial conditions for time integration.
     !------------------------------------------------------------------
+    ! Here constant values are also initialized,
+    ! such as anayltical topography.
+    ! It should be caleed even in reastart mode
+    CALL initcond_ha_dyn( p_patch(1:), p_int_state(1:),  &
+                        & p_grf_state(1:), p_hydro_state )
+
+    IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) &
+      CALL initcond_echam_phy( p_patch(1:),p_hydro_state, ltestcase, ctest_name )
 
     IF (is_restart_run()) THEN
     ! This is an resumed integration. Read model state from restart file(s).
@@ -126,15 +134,15 @@ CONTAINS
       IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) THEN
         CALL additional_restart_init( p_patch(1:), ltestcase, ctest_name )
       END IF
-    ELSE
-    ! This is an initial run (cold start). Compute initial condition for
-    ! test cases, or read externally given initial conditions.
-
-      CALL initcond_ha_dyn( p_patch(1:), p_int_state(1:),  &
-                          & p_grf_state(1:), p_hydro_state )
-
-      IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) &
-      CALL initcond_echam_phy( p_patch(1:),p_hydro_state, ltestcase, ctest_name )
+!     ELSE
+!     ! This is an initial run (cold start). Compute initial condition for
+!     ! test cases, or read externally given initial conditions.
+! 
+!       CALL initcond_ha_dyn( p_patch(1:), p_int_state(1:),  &
+!                           & p_grf_state(1:), p_hydro_state )
+! 
+!       IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) &
+!       CALL initcond_echam_phy( p_patch(1:),p_hydro_state, ltestcase, ctest_name )
 
     END IF ! is_restart_run()
 
