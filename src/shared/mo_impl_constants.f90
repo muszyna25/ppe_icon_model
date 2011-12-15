@@ -273,7 +273,7 @@ MODULE mo_impl_constants
   INTEGER,PARAMETER :: EULER_FORWARD = 1
   INTEGER,PARAMETER :: AB2           = 2
 
-  ! identifiers for NWP time control variables lcall_phy, tcall_phy, t_elapsed_phy
+  ! identifiers for NWP time control variables lcall_phy, dt_phy, t_elapsed_phy
   INTEGER, PARAMETER :: itconv   =  1
   INTEGER, PARAMETER :: itccov   =  2
   INTEGER, PARAMETER :: itrad    =  3

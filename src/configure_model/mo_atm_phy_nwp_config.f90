@@ -55,7 +55,7 @@ MODULE mo_atm_phy_nwp_config
 
   PRIVATE
 
-  PUBLIC :: atm_phy_nwp_config, t_atm_phy_nwp_config, tcall_phy
+  PUBLIC :: atm_phy_nwp_config, t_atm_phy_nwp_config, dt_phy
   PUBLIC :: configure_atm_phy_nwp
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
@@ -112,8 +112,8 @@ MODULE mo_atm_phy_nwp_config
   TYPE(t_atm_phy_nwp_config) :: atm_phy_nwp_config(max_dom) !< shape: (n_dom)
 
 
-  REAL(wp) ::  &                          !> Field of calling-time interval (seconds) for
-    &  tcall_phy(max_dom,iphysproc_short) !! each domain and phys. process
+  REAL(wp) ::  &                       !> Field of calling-time interval (seconds) for
+    &  dt_phy(max_dom,iphysproc_short) !! each domain and phys. process
 
 
 CONTAINS
@@ -149,7 +149,7 @@ SUBROUTINE configure_atm_phy_nwp( n_dom, pat_level, ltestcase, dtime_adv )
           &                            -  pat_level(1)))                  !seconds
     ENDDO
 
-    tcall_phy(:,:) = 0._wp
+    dt_phy(:,:) = 0._wp
 
 
     DO jg = 1,n_dom
@@ -203,27 +203,27 @@ SUBROUTINE configure_atm_phy_nwp( n_dom, pat_level, ltestcase, dtime_adv )
 
       ! Slow physics
       !
-      tcall_phy(jg,itconv) = atm_phy_nwp_config(jg)% dt_conv    ! sec
+      dt_phy(jg,itconv) = atm_phy_nwp_config(jg)% dt_conv    ! sec
 
-      tcall_phy(jg,itsso)  = atm_phy_nwp_config(jg)% dt_sso     ! sec
+      dt_phy(jg,itsso)  = atm_phy_nwp_config(jg)% dt_sso     ! sec
 
-      tcall_phy(jg,itgwd)  = atm_phy_nwp_config(jg)% dt_gwd     ! sec
+      dt_phy(jg,itgwd)  = atm_phy_nwp_config(jg)% dt_gwd     ! sec
 
-      tcall_phy(jg,itrad)  = atm_phy_nwp_config(jg)% dt_rad     ! sec
+      dt_phy(jg,itrad)  = atm_phy_nwp_config(jg)% dt_rad     ! sec
 
       !> KF always call clouds after convection
       !! to ensure the proper output of Qx_tot
       IF ( atm_phy_nwp_config(jg)%lproc_on(itccov)   .AND.  &
         &  atm_phy_nwp_config(jg)%lproc_on(itconv) ) THEN
-        tcall_phy(jg,itccov) = atm_phy_nwp_config(jg)% dt_conv    ! sec
+        dt_phy(jg,itccov) = atm_phy_nwp_config(jg)% dt_conv    ! sec
       ELSE
-        tcall_phy(jg,itccov) = atm_phy_nwp_config(jg)% dt_fastphy ! sec
+        dt_phy(jg,itccov) = atm_phy_nwp_config(jg)% dt_fastphy ! sec
       ENDIF
 
 
       ! Fast physics
       !
-      tcall_phy(jg,itfastphy)   = atm_phy_nwp_config(jg)%dt_fastphy ! sec
+      dt_phy(jg,itfastphy)   = atm_phy_nwp_config(jg)%dt_fastphy ! sec
 
     ENDDO  ! jg loop
 
@@ -243,7 +243,7 @@ SUBROUTINE configure_atm_phy_nwp( n_dom, pat_level, ltestcase, dtime_adv )
     IF( MOD( dtime_adv,atm_phy_nwp_config(1)%dt_conv) /= 0._wp )  THEN
       WRITE(message_text,'(a,2F9.1)') &
         &'WARNING: convective and advective timesteps not synchronized: ', &
-        & tcall_phy(1,itconv), dtime_adv
+        & dt_phy(1,itconv), dtime_adv
       CALL message(TRIM(routine), TRIM(message_text))
       WRITE(message_text,'(a,2F9.1)') &
         &'implicit synchronization in time_ctrl_physics: dt_conv !=!', &

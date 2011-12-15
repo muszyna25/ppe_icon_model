@@ -88,7 +88,7 @@ CONTAINS
   !! <Description of activity> by <name, affiliation> (<YYYY-MM-DD>)
   !!
   SUBROUTINE nwp_diagnosis(lcall_phy_jg,lredgrid,jstep,   & !input
-                            & tcall_phy_jg,p_sim_time,    & !input
+                            & dt_phy_jg,p_sim_time,       & !input
                             & kstart_moist,               & !input
                             & pt_patch, p_metrics,        & !input
                             & pt_prog, pt_prog_rcf,       & !in
@@ -103,7 +103,7 @@ CONTAINS
          &                          lcall_phy_jg(:) !< for domain jg
     LOGICAL, INTENT(IN)          :: lredgrid        !< use reduced grid for radiation
     INTEGER ,INTENT(in)          :: jstep
-    REAL(wp),INTENT(in)          :: tcall_phy_jg(:) !< time interval for all physics
+    REAL(wp),INTENT(in)          :: dt_phy_jg(:)    !< time interval for all physics
                                                     !< packages on domain jg
     REAL(wp),INTENT(in)          :: p_sim_time
 
@@ -224,9 +224,9 @@ CONTAINS
           DO jc = i_startidx, i_endidx
 
            prm_diag%tot_cld_vi_avg(jc,jb,1:4) = ( prm_diag%tot_cld_vi_avg(jc,jb,1:4) &
-                               &  * (p_sim_time - tcall_phy_jg(itfastphy))    &
+                               &  * (p_sim_time - dt_phy_jg(itfastphy))       &
                                &  + prm_diag%tot_cld_vi(jc,jb,1:4)            &
-                               &  * tcall_phy_jg(itfastphy) )                 &
+                               &  * dt_phy_jg(itfastphy) )                    &
                                & / p_sim_time 
           ENDDO
       ENDDO ! nblks     
@@ -257,9 +257,9 @@ CONTAINS
          DO jc = i_startidx, i_endidx 
 
           pt_diag%tracer_vi_avg(jc,jb,1:3) = ( pt_diag%tracer_vi_avg(jc,jb,1:3) &
-                              &  * (p_sim_time - tcall_phy_jg(itfastphy))   &
+                              &  * (p_sim_time - dt_phy_jg(itfastphy))      &
                               &  + pt_diag%tracer_vi(jc,jb,1:3)             &
-                              &  * tcall_phy_jg(itfastphy) )                &
+                              &  * dt_phy_jg(itfastphy) )                   &
                               & / p_sim_time
          ENDDO
         END IF
@@ -308,26 +308,26 @@ CONTAINS
           DO jc = i_startidx, i_endidx
 
            IF (atm_phy_nwp_config(jg)%inwp_turb == 1) THEN
-            prm_diag%lhfl_s_a(jc,jb) = ( prm_diag%lhfl_s_a(jc,jb)         &
-                               &  * (p_sim_time - tcall_phy_jg(itfastphy))&
-                               &  - prm_diag%lhfl_s(jc,jb)                &!attention to the sign, in the output all fluxes 
-                               &  * tcall_phy_jg(itfastphy) )             &!must be positive downwards 
+            prm_diag%lhfl_s_a(jc,jb) = ( prm_diag%lhfl_s_a(jc,jb)       &
+                               &  * (p_sim_time - dt_phy_jg(itfastphy)) &
+                               &  - prm_diag%lhfl_s(jc,jb)              &!attention to the sign, in the output all fluxes 
+                               &  * dt_phy_jg(itfastphy) )              &!must be positive downwards 
                                & / p_sim_time 
-            prm_diag%shfl_s_a(jc,jb) = ( prm_diag%shfl_s_a(jc,jb)         &
-                               &  * (p_sim_time - tcall_phy_jg(itfastphy))&
-                               &  - prm_diag%shfl_s(jc,jb)                &!attention to the sign, in the output all fluxes
-                               &  * tcall_phy_jg(itfastphy) )             &!must be positive downwards 
+            prm_diag%shfl_s_a(jc,jb) = ( prm_diag%shfl_s_a(jc,jb)       &
+                               &  * (p_sim_time - dt_phy_jg(itfastphy)) &
+                               &  - prm_diag%shfl_s(jc,jb)              &!attention to the sign, in the output all fluxes
+                               &  * dt_phy_jg(itfastphy) )              &!must be positive downwards 
                                & / p_sim_time 
            ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 2) THEN
-            prm_diag%lhfl_s_a(jc,jb) = ( prm_diag%lhfl_s_a(jc,jb)         &
-                               &  * (p_sim_time - tcall_phy_jg(itfastphy))&
-                               &  + prm_diag%qhfl_s(jc,jb)*lh_v           &
-                               &  * tcall_phy_jg(itfastphy) )             &
+            prm_diag%lhfl_s_a(jc,jb) = ( prm_diag%lhfl_s_a(jc,jb)       &
+                               &  * (p_sim_time - dt_phy_jg(itfastphy)) &
+                               &  + prm_diag%qhfl_s(jc,jb)*lh_v         &
+                               &  * dt_phy_jg(itfastphy) )              &
                                & / p_sim_time 
-            prm_diag%shfl_s_a(jc,jb) = ( prm_diag%shfl_s_a(jc,jb)         &
-                               &  * (p_sim_time - tcall_phy_jg(itfastphy))&
-                               &  + prm_diag%shfl_s(jc,jb)                &! it is 0 at the moment, with turb2 the
-                               &  * tcall_phy_jg(itfastphy) )             &! sensible heat is not output
+            prm_diag%shfl_s_a(jc,jb) = ( prm_diag%shfl_s_a(jc,jb)       &
+                               &  * (p_sim_time - dt_phy_jg(itfastphy)) &
+                               &  + prm_diag%shfl_s(jc,jb)              &! it is 0 at the moment, with turb2 the
+                               &  * dt_phy_jg(itfastphy) )              &! sensible heat is not output
                                & / p_sim_time 
 
            ENDIF
@@ -345,20 +345,20 @@ CONTAINS
           DO jc = i_startidx, i_endidx
 
            IF (atm_phy_nwp_config(jg)%inwp_turb == 1) THEN
-            prm_diag%lhfl_s_a(jc,jb) =  prm_diag%lhfl_s_a(jc,jb)          &
-                               &  - prm_diag%lhfl_s(jc,jb)                &!attention to the sign, in the output all fluxes 
-                               &  * tcall_phy_jg(itfastphy)                !must be positive downwards 
-            prm_diag%shfl_s_a(jc,jb) =  prm_diag%shfl_s_a(jc,jb)          &
-                               &  - prm_diag%shfl_s(jc,jb)                &!attention to the sign, in the output all fluxes 
-                               &  * tcall_phy_jg(itfastphy)                !must be positive downwards 
+            prm_diag%lhfl_s_a(jc,jb) =  prm_diag%lhfl_s_a(jc,jb)     &
+                               &  - prm_diag%lhfl_s(jc,jb)           &!attention to the sign, in the output all fluxes 
+                               &  * dt_phy_jg(itfastphy)              !must be positive downwards 
+            prm_diag%shfl_s_a(jc,jb) =  prm_diag%shfl_s_a(jc,jb)     &
+                               &  - prm_diag%shfl_s(jc,jb)           &!attention to the sign, in the output all fluxes 
+                               &  * dt_phy_jg(itfastphy)              !must be positive downwards 
 
            ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 2) THEN
-            prm_diag%lhfl_s_a(jc,jb) =  prm_diag%lhfl_s_a(jc,jb)          &
-                               &  + prm_diag%qhfl_s(jc,jb)*lh_v           &
-                               &  * tcall_phy_jg(itfastphy)
-            prm_diag%shfl_s_a(jc,jb) =  prm_diag%shfl_s_a(jc,jb)          &
-                               &  + prm_diag%shfl_s(jc,jb)                &! it is 0 at the moment, with turb2 the
-                               &  * tcall_phy_jg(itfastphy)                ! sensible heat is not output
+            prm_diag%lhfl_s_a(jc,jb) =  prm_diag%lhfl_s_a(jc,jb)     &
+                               &  + prm_diag%qhfl_s(jc,jb)*lh_v      &
+                               &  * dt_phy_jg(itfastphy)
+            prm_diag%shfl_s_a(jc,jb) =  prm_diag%shfl_s_a(jc,jb)     &
+                               &  + prm_diag%shfl_s(jc,jb)           &! it is 0 at the moment, with turb2 the
+                               &  * dt_phy_jg(itfastphy)              ! sensible heat is not output
 
            ENDIF
           ENDDO
@@ -380,17 +380,17 @@ CONTAINS
           DO jc = i_startidx, i_endidx
 
            IF (atm_phy_nwp_config(jg)%inwp_turb == 1) THEN
-             prm_diag%qhfl_s_avg(jc,jb) = ( prm_diag%qhfl_s_avg(jc,jb)    &
-                               &  * (p_sim_time - tcall_phy_jg(itfastphy))&
-                               &  - prm_diag%lhfl_s(jc,jb)/lh_v           & !attention to the sign, in the output all fluxes  
-                               &  * tcall_phy_jg(itfastphy) )             & !must be positive downwards 
+             prm_diag%qhfl_s_avg(jc,jb) = ( prm_diag%qhfl_s_avg(jc,jb)  &
+                               &  * (p_sim_time - dt_phy_jg(itfastphy)) &
+                               &  - prm_diag%lhfl_s(jc,jb)/lh_v         & !attention to the sign, in the output all fluxes  
+                               &  * dt_phy_jg(itfastphy) )              & !must be positive downwards 
                                & / p_sim_time
 
            ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 2) THEN
-             prm_diag%qhfl_s_avg(jc,jb) = ( prm_diag%qhfl_s_avg(jc,jb)    &
-                               &  * (p_sim_time - tcall_phy_jg(itfastphy))&
-                               &  + prm_diag%qhfl_s(jc,jb)                &
-                               &  * tcall_phy_jg(itfastphy) )             &
+             prm_diag%qhfl_s_avg(jc,jb) = ( prm_diag%qhfl_s_avg(jc,jb)  &
+                               &  * (p_sim_time - dt_phy_jg(itfastphy)) &
+                               &  + prm_diag%qhfl_s(jc,jb)              &
+                               &  * dt_phy_jg(itfastphy) )              &
                                & / p_sim_time
            ENDIF
           ENDDO

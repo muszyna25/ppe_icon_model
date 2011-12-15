@@ -63,7 +63,7 @@ MODULE mo_nh_stepping
   USE mo_timer,               ONLY: ltimer, timers_level, timer_start, timer_stop, &
     &                               timer_model_init
   USE mo_grid_config,         ONLY: global_cell_type
-  USE mo_atm_phy_nwp_config,  ONLY: tcall_phy, atm_phy_nwp_config
+  USE mo_atm_phy_nwp_config,  ONLY: dt_phy, atm_phy_nwp_config
   USE mo_nwp_phy_init,        ONLY: init_nwp_phy
   USE mo_nwp_phy_state,       ONLY: prm_diag, prm_nwp_tend, mean_charlen
   USE mo_lnd_nwp_config,      ONLY: nlev_soil
@@ -1147,10 +1147,10 @@ MODULE mo_nh_stepping
 
         IF ( linit_slowphy(jg) .AND. iforcing == inwp ) THEN
 
-          CALL time_ctrl_physics ( tcall_phy, lstep_adv, dt_loc, jg,  &! in
-            &                      nstep_global, .TRUE.,              &! in
-            &                      t_elapsed_phy,                     &! inout
-            &                      lcall_phy )                         ! out
+          CALL time_ctrl_physics ( dt_phy, lstep_adv, dt_loc, jg,  &! in
+            &                      nstep_global, .TRUE.,           &! in
+            &                      t_elapsed_phy,                  &! inout
+            &                      lcall_phy )                      ! out
 
           IF (msg_level >= 12) THEN
             WRITE(message_text,'(a,i2,a,5l2,a,6l2)') 'initial call of slow physics:', &
@@ -1175,13 +1175,13 @@ MODULE mo_nh_stepping
 
           ! NOTE (DR): To me it is not clear yet, which timestep should be
           ! used for the first call of the slow_physics part dtadv_loc, dt_loc,
-          ! tcall_phy(jg,:) ...?
+          ! dt_phy(jg,:) ...?
           CALL nwp_nh_interface(lcall_phy(jg,:),                   & !in
             &                  lredgrid_phys(jg),                  & !in
             &                  dt_loc,                             & !in
             &                  dtadv_loc,                          & !in
             &                  nstep_global,                       & !in
-            &                  tcall_phy(jg,:),                    & !in
+            &                  dt_phy(jg,:),                       & !in
             &                  sim_time(jg),                       & !in
             &                  datetime,                           & !in
             &                  p_patch(jg)  ,                      & !in
@@ -1209,10 +1209,10 @@ MODULE mo_nh_stepping
        ! Determine which physics packages must be called/not called at the current
        ! time step
         IF ( iforcing == inwp ) THEN
-          CALL time_ctrl_physics ( tcall_phy, lstep_adv, dt_loc, jg,  &! in
-            &                      nstep_global, .FALSE.,             &! in
-            &                      t_elapsed_phy,                     &! inout
-            &                      lcall_phy )                         ! out
+          CALL time_ctrl_physics ( dt_phy, lstep_adv, dt_loc, jg,  &! in
+            &                      nstep_global, .FALSE.,          &! in
+            &                      t_elapsed_phy,                  &! inout
+            &                      lcall_phy )                      ! out
 
           IF (msg_level >= 12) THEN
             WRITE(message_text,'(a,i2,a,5l2,a,6l2)') 'call phys. proc DOM:', &
@@ -1616,7 +1616,7 @@ MODULE mo_nh_stepping
   !! n_dom. A physical process (iphys) on domain (jg) will be called, if
   !! lcall_phy(jg,iphys)=.TRUE.. Whether it is .TRUE. or .FALSE. depends
   !! on the current time and the prescribed calling period listed in
-  !! tcall_phy.
+  !! dt_phy.
   !!
   !! @par Revision History
   !! Developed by Daniel Reinert, DWD (2010-09-23)
@@ -1624,11 +1624,11 @@ MODULE mo_nh_stepping
   !! - replaced zoo of fast physics time steps by a single time step, named 
   !!   dt_fastphy.
   !!
-  SUBROUTINE time_ctrl_physics ( tcall_phy, lstep_adv, dt_loc, jg, nstep_global, &
+  SUBROUTINE time_ctrl_physics ( dt_phy, lstep_adv, dt_loc, jg, nstep_global, &
     &                            linit, t_elapsed_phy, lcall_phy )
 
     REAL(wp), INTENT(IN)    ::   &      !< Field of calling-time interval (seconds) for
-      &  tcall_phy(:,:)                 !< each domain and physical process
+      &  dt_phy(:,:)                    !< each domain and physical process
 
     LOGICAL, INTENT(IN)     ::   &      !< determines whether this is a timestep with
       &  lstep_adv(:)                   !< (.TRUE.) or without (.FALSE.) scalar transport
@@ -1679,7 +1679,7 @@ MODULE mo_nh_stepping
       !
       ! all physical processes are forced to run at a multiple of 
       ! the advective time step. Note that fast physics are treated 
-      ! as a combined process in the case of t_elapsed_phy and tcall_phy, 
+      ! as a combined process in the case of t_elapsed_phy and dt_phy, 
       ! but treated individually in the case of lcall_phy.
       !
       DO ips = 1, iphysproc_short
@@ -1700,7 +1700,7 @@ MODULE mo_nh_stepping
           lcall_phy(jg,PACK(iproclist,map_phyproc(1:iphysproc,ips))) = .FALSE.
         ELSE
 
-          IF( t_elapsed_phy(jg,ips) >= tcall_phy(jg,ips) ) THEN
+          IF( t_elapsed_phy(jg,ips) >= dt_phy(jg,ips) ) THEN
             lcall_phy(jg,PACK(iproclist,map_phyproc(1:iphysproc,ips)))  = .TRUE.
           ELSE
             lcall_phy(jg,PACK(iproclist,map_phyproc(1:iphysproc,ips)))  = .FALSE.
