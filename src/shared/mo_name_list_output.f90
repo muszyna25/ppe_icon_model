@@ -62,7 +62,6 @@ MODULE mo_name_list_output
   USE mo_ocean_nml,             ONLY: n_zlev
   USE mo_oce_state,             ONLY: set_zlev
 
-  USE mo_io_vlist,              ONLY: addGlobAtts, addAtmAtts, addOceAtts
   USE mo_communication,         ONLY: exchange_data, t_comm_pattern, idx_no, blk_no
   USE mo_interpol_config,       ONLY: rbf_vec_dim_c, rbf_vec_dim_v, rbf_vec_dim_e, rbf_c2grad_dim
   USE mo_nonhydrostatic_config, ONLY: iadv_rcf
@@ -1403,16 +1402,6 @@ ENDIF
     !
     of%cdiTaxisID = taxisCreate(TAXIS_ABSOLUTE)
     CALL vlistDefTaxis(of%cdiVlistID, of%cdiTaxisID)
-
-    !
-    ! 6. global attributes
-    !
-    CALL addGlobAtts(of%cdiVlistID,of%log_patch_id,astatus)
-    IF (iequations/=ihs_ocean) THEN
-      CALL addAtmAtts(of%cdiVlistID,of%log_patch_id,astatus)
-    ELSE
-      CALL addOceAtts(of%cdiVlistID,astatus)
-    END IF
 
     !
     ! add variables
