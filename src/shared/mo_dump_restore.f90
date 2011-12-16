@@ -188,10 +188,10 @@ MODULE mo_dump_restore
   !subroutines
   PUBLIC :: dump_patch_state_netcdf
   PUBLIC :: dump_domain_decomposition
+  PUBLIC :: dump_all_domain_decompositions
   PUBLIC :: restore_patches_netcdf
   PUBLIC :: restore_interpol_state_netcdf
   PUBLIC :: restore_gridref_state_netcdf
-  PUBLIC :: dump_all_domain_decompositions
 
   INCLUDE 'netcdf.inc'
 
@@ -240,6 +240,10 @@ MODULE mo_dump_restore
 
   ! number of my record within unlimited dimension
   INTEGER :: my_record
+
+  ! Flag whether to use 1 file per patch, this is always set for dd output
+
+  LOGICAL :: use_one_file
 
   ! The following dimensions must be preserved between calls
   ! thus must be global
@@ -314,7 +318,7 @@ CONTAINS
 !     WRITE(filename,'(a,a,i0,2(a,i2.2),2(a,i0),a)') &
 !       & TRIM(gridtype),'R',nroot,'B',level,'_DOM',id,'_proc',p_pe_work,'of',p_n_work,'.nc'
 
-     IF(l_one_file_per_patch) THEN
+     IF(use_one_file) THEN
        filename = 'dump_'//TRIM(patch_filename)
      ELSE
        WRITE(filename,'(2(a,i0),a,a)') &
@@ -332,7 +336,7 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(in) :: patch_filename
 
-    ! Please note: Currently l_one_file_per_patch is enforced in this case
+    ! Please note: Currently use_one_file is enforced in this case
     filename = 'dd_'//TRIM(patch_filename)
 
   END SUBROUTINE set_dd_filename
@@ -410,10 +414,10 @@ CONTAINS
 
     ! Get the dimension IDs for the max_... dimensions and set the actual values
     ! on the current processor for these dimensions
-    ! This is only necessary if l_one_file_per_patch is set, otherwise
+    ! This is only necessary if use_one_file is set, otherwise
     ! we will get an error for empty patches on the current proc
 
-    IF(l_one_file_per_patch) THEN
+    IF(use_one_file) THEN
       CALL nf(nf_inq_dimid(ncid, TRIM(prefix)//'max_patch_cells', dim_max_cells))
       CALL nf(nf_inq_dimid(ncid, TRIM(prefix)//'max_patch_edges', dim_max_edges))
       CALL nf(nf_inq_dimid(ncid, TRIM(prefix)//'max_patch_verts', dim_max_verts))
@@ -1106,7 +1110,7 @@ CONTAINS
 
     length = 3 + 2*(p_n_work+1) + 2*pat%n_pnts + 3*pat%np_send + 3*pat%np_recv + pat%n_send
 
-    IF(l_one_file_per_patch) length = p_max(length, comm=p_comm_work)
+    IF(use_one_file) length = p_max(length, comm=p_comm_work)
 
     IF(output_defines) THEN
       CALL def_dim(base_name//'.length', length, dim_length)
@@ -1239,7 +1243,7 @@ CONTAINS
 
     TYPE(t_patch), INTENT(INOUT) :: p
 
-    IF(l_one_file_per_patch) THEN
+    IF(use_one_file) THEN
       max_patch_cells = p_max(p%n_patch_cells, comm=p_comm_work)
       max_patch_edges = p_max(p%n_patch_edges, comm=p_comm_work)
       max_patch_verts = p_max(p%n_patch_verts, comm=p_comm_work)
@@ -2074,7 +2078,7 @@ CONTAINS
 
       WRITE(ccd,'("ch_dom.",i0)') jcd
 
-      IF(l_one_file_per_patch) THEN
+      IF(use_one_file) THEN
         max_grf_edges = p_max(je_e-js_e+1, comm=p_comm_work)
       ELSE
         max_grf_edges = je_e-js_e+1
@@ -2101,7 +2105,7 @@ CONTAINS
         CALL def_var(TRIM(ccd)//'.grf_dist_pe2ce',     nf_double, dim_grf_edges, dim_2)
       ENDIF
 
-      IF(l_one_file_per_patch) THEN
+      IF(use_one_file) THEN
         max_grf_cells = p_max(je_c-js_c+1, comm=p_comm_work)
       ELSE
         max_grf_cells = je_c-js_c+1
@@ -2165,8 +2169,8 @@ CONTAINS
 
       ! Get the dimension IDs for the max_grf_... dimensions and set the actual values
       ! on the current processor for these dimensions
-      ! This is only necessary if l_one_file_per_patch is set
-      IF(l_one_file_per_patch) THEN
+      ! This is only necessary if use_one_file is set
+      IF(use_one_file) THEN
         CALL nf(nf_inq_dimid(ncid,TRIM(prefix)//TRIM(ccd)//'.max_grf_cells',dim_max_grf_cells))
         CALL nf(nf_inq_dimid(ncid,TRIM(prefix)//TRIM(ccd)//'.max_grf_edges',dim_max_grf_edges))
       ENDIF
@@ -2476,6 +2480,9 @@ CONTAINS
 
     !-------------------------------------------------------------------------
 
+    ! use_one_file is set according to l_one_file_per_patch
+    use_one_file = l_one_file_per_patch
+
     netcdf_read = .FALSE. ! Set I/O routines to write mode
 
     CALL set_dump_restore_filename(p%grid_filename)
@@ -2490,7 +2497,7 @@ CONTAINS
       lp => NULL()
     ENDIF
 
-    IF(l_one_file_per_patch) THEN
+    IF(use_one_file) THEN
       ! Only the first PE defines common dimensions and attributes, all others check
       output_defines = (get_my_mpi_work_id()==0)
     ELSE
@@ -2547,7 +2554,7 @@ CONTAINS
     ENDIF
 
 
-    IF(l_one_file_per_patch) THEN
+    IF(use_one_file) THEN
       my_record = get_my_mpi_work_id()+1
     ELSE
       my_record = 1
@@ -2557,7 +2564,7 @@ CONTAINS
 
     DO ip = 0, num_work_procs-1
 
-      IF(l_one_file_per_patch) CALL p_barrier(comm=p_comm_work)
+      IF(use_one_file) CALL p_barrier(comm=p_comm_work)
 
       IF(ip /= get_my_mpi_work_id()) CYCLE
 
@@ -2589,7 +2596,7 @@ CONTAINS
 
     ENDDO
 
-    IF(l_one_file_per_patch) CALL p_barrier(comm=p_comm_work)
+    IF(use_one_file) CALL p_barrier(comm=p_comm_work)
 
   END SUBROUTINE dump_patch_state_netcdf
 
@@ -2608,8 +2615,9 @@ CONTAINS
 
     !-------------------------------------------------------------------------
 
-    ! Currently, this is implemented only for l_one_file_per_patch, so enforce this here
-    l_one_file_per_patch = .TRUE.
+    ! Currently, this is implemented only for one file per patch,
+    ! independent of l_one_file_per_patch
+    use_one_file = .TRUE.
 
     netcdf_read = .FALSE. ! Set I/O routines to write mode
 
@@ -2701,8 +2709,9 @@ CONTAINS
 
     !-------------------------------------------------------------------------
 
-    ! Currently, this is implemented only for l_one_file_per_patch, so enforce this here
-    l_one_file_per_patch = .TRUE.
+    ! Currently, this is implemented only for one file per patch,
+    ! independent of l_one_file_per_patch
+    use_one_file = .TRUE.
 
     netcdf_read = .FALSE. ! Set I/O routines to write mode
 
@@ -2899,16 +2908,21 @@ CONTAINS
 
     CALL message ('restore_patches_netcdf','start to restore patches')
 
-    ! Currently, restoring domain decompositions is implemented only for 
-    ! l_one_file_per_patch, so enforce this here
-    IF(.NOT. lfull) l_one_file_per_patch = .TRUE.
+    ! Currently, restoring domain decompositions (lfull==.FALSE.) is implemented only for 
+    ! one file per patch, full restores are according to l_one_file_per_patch
+
+    IF(lfull) THEN
+      use_one_file = l_one_file_per_patch
+    ELSE
+      use_one_file = .TRUE.
+    ENDIF
 
     CALL set_patches_grid_filename(p_patch)
 
     netcdf_read = .TRUE. ! Set I/O routines to read mode
 
     ! Set my record in input file
-    IF(l_one_file_per_patch) THEN
+    IF(use_one_file) THEN
       my_record = get_my_mpi_work_id()+1
     ELSE
       my_record = 1
@@ -3149,10 +3163,13 @@ CONTAINS
 
     !-------------------------------------------------------------------------
 
+    ! use_one_file is set according to l_one_file_per_patch
+    use_one_file = l_one_file_per_patch
+
     netcdf_read = .TRUE. ! Set I/O routines to read mode
 
     ! Set my record in input file
-    IF(l_one_file_per_patch) THEN
+    IF(use_one_file) THEN
       my_record = get_my_mpi_work_id()+1
     ELSE
       my_record = 1
@@ -3250,10 +3267,13 @@ CONTAINS
 
     !-------------------------------------------------------------------------
 
+    ! use_one_file is set according to l_one_file_per_patch
+    use_one_file = l_one_file_per_patch
+
     netcdf_read = .TRUE. ! Set I/O routines to read mode
 
     ! Set my record in input file
-    IF(l_one_file_per_patch) THEN
+    IF(use_one_file) THEN
       my_record = get_my_mpi_work_id()+1
     ELSE
       my_record = 1
