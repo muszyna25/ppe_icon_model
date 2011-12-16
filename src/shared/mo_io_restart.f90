@@ -1332,9 +1332,11 @@ CONTAINS
     REAL(wp), POINTER :: rptr3d(:,:,:)
     !
     abbreviations(1:nvar_lists)%key = 0
+    key = 0
     n = 1
     for_all_model_types: DO i = 1, nvar_lists
-      key = util_hashword(var_lists(i)%p%model_type, LEN_TRIM(var_lists(i)%p%model_type), 0)
+! LL : commented only for testin. Should be uncommented!
+!       key = util_hashword(var_lists(i)%p%model_type, LEN_TRIM(var_lists(i)%p%model_type), 0)
       IF (.NOT. ANY(abbreviations(1:n)%key == key)) THEN 
         abbreviations(n)%abbreviation = var_lists(i)%p%model_type
         abbreviations(n)%key = key
