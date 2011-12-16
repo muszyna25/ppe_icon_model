@@ -752,7 +752,7 @@ CONTAINS
     z_c(:,1,:) = p_sfc_flx%forc_tracer_relax(:,:,1)-p_os%p_prog(nold(1))%tracer(:,1,:,1)
     CALL print_mxmn('Temp-difference',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
     z_c(:,1,:) = p_sfc_flx%forc_tracer(:,:,1)
-    CALL print_mxmn('T-forc-tracer-flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+    CALL print_mxmn('T-forc-tracer [Km/s]',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
 
   ENDIF
 
@@ -804,7 +804,7 @@ CONTAINS
     z_c(:,1,:) = p_sfc_flx%forc_tracer_relax(:,:,2)-p_os%p_prog(nold(1))%tracer(:,1,:,2)
     CALL print_mxmn('Sal.-difference',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
     z_c(:,1,:) = p_sfc_flx%forc_tracer(:,:,2)
-    CALL print_mxmn('S-forc-tracer-flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+    CALL print_mxmn('S-forc-tracer [psu*m/s]',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
 
   ENDIF
 
@@ -820,7 +820,7 @@ CONTAINS
 
     ipl_src=1  ! output print level (1-5, fix)
     z_c(:,1,:) = p_sfc_flx%forc_hflx(:,:)
-    CALL print_mxmn('T-forc-hflx [W/m2]',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+    CALL print_mxmn('T-relax-hflx [W/m2]',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
 
   END IF
 
@@ -840,7 +840,7 @@ CONTAINS
 
     ipl_src=1  ! output print level (1-5, fix)
     z_c(:,1,:) = p_sfc_flx%forc_fwfx(:,:)
-    CALL print_mxmn('S-forc-fwfx [m/mon]',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+    CALL print_mxmn('S-relax-fwfx [m/mon]',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
 
   END IF
 
@@ -865,10 +865,10 @@ CONTAINS
 
     ipl_src=1  ! output print level (1-5, fix)
     z_c(:,1,:) = p_sfc_flx%forc_hflx(:,:)
-    CALL print_mxmn('T-forc-nshflx',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+    CALL print_mxmn('T-forc-hflx [W/m2]',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
     ipl_src=2  ! output print level (1-5, fix)
     z_c(:,1,:) = p_sfc_flx%forc_tracer(:,:,1)
-    CALL print_mxmn('T-forc-tracer-flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+    CALL print_mxmn('T-forc-tracer [K*m/s]',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
 
   END IF
 
@@ -883,10 +883,10 @@ CONTAINS
 
     ipl_src=1  ! output print level (1-5, fix)
     z_c(:,1,:) = p_sfc_flx%forc_fwfx(:,:)
-    CALL print_mxmn('S-forc-frwflx',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+    CALL print_mxmn('S-forc-frwflx [m/s]',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
     ipl_src=2  ! output print level (1-5, fix)
     z_c(:,1,:) = p_sfc_flx%forc_tracer(:,:,1)
-    CALL print_mxmn('S-forc-tracer-flux',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+    CALL print_mxmn('S-forc-tracer [psu*m/s]',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
 
   END IF
 

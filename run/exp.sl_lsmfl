@@ -42,7 +42,7 @@ init_oce=1     # 1: use ocean initialization file; 0: init with constants or ana
 #
 #-----------------------------------------------------------------------------
 # relaxation initialization (init_relax=1) needs an additional file for temp/sal
-init_relax=0   # 1: use relaxation initialization file
+init_relax=1   # 1: use relaxation initialization file
 # relaxation initialization file must be provided and named as
 # $HGRIDDIR/ts_surf_annual-iconR${R}B0{B}-50m.nc
 #
