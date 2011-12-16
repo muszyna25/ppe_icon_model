@@ -211,21 +211,11 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
   i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
   
-!$OMP PARALLEL
-
-  IF (  atm_phy_nwp_config(jg)%inwp_turb == 2 ) THEN
-!$OMP WORKSHARE
-    zdummy_i  (:,:,:)   = 0.0_wp
-    zdummy_it (:,:,:,:) = 0.0_wp
-    zdummy_ith(:,:,:)   = 0.0_wp
-    zdummy_ot3(:,:,:,:) = 0.0_wp
-    z_dummy_shflx(:,:,:)   = 0.0_wp
-    z_dummy_shflx(:,:,:)   = 0.0_wp
-!$OMP END WORKSHARE
-
-  ELSEIF ( atm_phy_nwp_config(jg)%inwp_turb == 1 ) THEN
+  IF ( atm_phy_nwp_config(jg)%inwp_turb == 1 ) THEN
      CALL get_turbdiff_param(jg)
   ENDIF
+
+!$OMP PARALLEL
 
 !$OMP DO PRIVATE(jb,jt,jc,jk,i_startidx,i_endidx,ierrstat,errormsg,eroutine), SCHEDULE(guided)
   DO jb = i_startblk, i_endblk
@@ -277,11 +267,11 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 
       !KF tendencies  have to be set to zero
       ! GZ: this should be replaced by an appropriate switch in turbdiff
-      prm_nwp_tend%ddt_u_turb(i_startidx:i_endidx,:,jb) = 0._wp
-      prm_nwp_tend%ddt_v_turb(i_startidx:i_endidx,:,jb) = 0._wp
-      prm_nwp_tend%ddt_temp_turb(i_startidx:i_endidx,:,jb) = 0._wp
-      prm_nwp_tend%ddt_tracer_turb(i_startidx:i_endidx,:,jb,iqv) = 0._wp
-      prm_nwp_tend%ddt_tracer_turb(i_startidx:i_endidx,:,jb,iqc) = 0._wp
+      prm_nwp_tend%ddt_u_turb(:,:,jb) = 0._wp
+      prm_nwp_tend%ddt_v_turb(:,:,jb) = 0._wp
+      prm_nwp_tend%ddt_temp_turb(:,:,jb) = 0._wp
+      prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqv) = 0._wp
+      prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqc) = 0._wp
       
 
       ! note that TKE must be converted to the turbulence velocity scale SQRT(2*TKE)
@@ -375,6 +365,14 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 &                             + p_prog_rcf%tracer(jc,jk,jb,iqs) 
         ENDDO
       ENDDO
+
+      ! initialize dummy fields with zero
+      zdummy_i  (:,:,jb)   = 0.0_wp
+      zdummy_it (:,:,jb,:) = 0.0_wp
+      zdummy_ith(:,:,jb)   = 0.0_wp
+      zdummy_ot3(:,:,jb,:) = 0.0_wp
+      z_dummy_shflx(:,:,jb)   = 0.0_wp
+      z_dummy_shflx(:,:,jb)   = 0.0_wp
 
       ! Merge three pieces of information into one array for vdiff
 
