@@ -2305,6 +2305,8 @@ SUBROUTINE decomposition_statistics(p_patch)
 
    WRITE(message_text,'(a,i4)') 'grid ',p_patch%id
      CALL message('Information on domain decomposition',TRIM(message_text))
+   WRITE(message_text,'(i6)') NINT(csavg(6))
+     CALL message('Number of compute PEs used for this grid',TRIM(message_text))
    WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(csmax(1)),NINT(csmin(1)),csavg(1)
      CALL message('#         prognostic cells', TRIM(message_text))
    WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(csmax(2)),NINT(csmin(2)),csavg(2)
@@ -2339,6 +2341,12 @@ SUBROUTINE decomposition_statistics(p_patch)
    WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(vsmax(5)),NINT(vsmin(5)),vsavg(5)
      CALL message('# recv PEs (verts)', TRIM(message_text))
      CALL message('','')
+
+   ! Stop if the current model domain lives on only one processor. MPI communication
+   ! will not work in this case
+   IF (.NOT. p_test_run .AND. NINT(csavg(6)) <= 1) &
+     CALL finish('Bad use of processor splitting','This grid is processed by only one PE')
+
 
 END SUBROUTINE decomposition_statistics
 
