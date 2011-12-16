@@ -182,32 +182,81 @@ PRIVATE
 PUBLIC :: atmo_model
 
 CONTAINS
-!>
-!!
+  
+  !-------------------------------------------------------------------
+  !>
   SUBROUTINE atmo_model(atm_namelist_filename,shr_namelist_filename)
 
     CHARACTER(LEN=*), INTENT(in) :: atm_namelist_filename
     CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
 
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: grid_file_name 
     CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:atmo_model"
-    LOGICAL :: lsuccess, l_construct_lonlat_coeffs
-    INTEGER :: jg, jgp
-
-    ! For the coupling
-
-    INTEGER, PARAMETER :: no_of_fields = 8
-
-    CHARACTER(LEN=MAX_CHAR_LENGTH) ::  field_name(no_of_fields)
-    INTEGER :: field_id(no_of_fields)
-    INTEGER :: grid_id
-    INTEGER :: grid_shape(2) 
-    INTEGER :: field_shape(3) 
-    INTEGER :: i, error_status
-    INTEGER :: patch_no
 
     INTEGER  :: maxrss
     REAL(dp) :: maxrss_gridpt,maxrss_gridpt_min, maxrss_gridpt_max
+
+
+    CALL construct_atmo_model(atm_namelist_filename,shr_namelist_filename)
+    
+    !---------------------------------------------------------------------
+    ! 12. The hydrostatic and nonhydrostatic models branch from this point
+    !---------------------------------------------------------------------
+    SELECT CASE(iequations)
+    CASE(ishallow_water,ihs_atm_temp,ihs_atm_theta)
+      CALL atmo_hydrostatic
+
+    CASE(inh_atmosphere)
+      CALL atmo_nonhydrostatic
+
+    CASE DEFAULT
+      CALL finish( TRIM(routine),'unknown choice for iequaions.')
+    END SELECT
+
+
+    !---------------------------------------------------------------------
+    ! 13. Integration finished. Carry out the shared clean-up processes
+    !---------------------------------------------------------------------
+    CALL destruct_atmo_model()
+  
+    !---------------------------------------------------------------------
+    ! (optional:) write resident set size from OS
+#ifndef NOMPI    
+#if defined(__SX__)
+    IF (msg_level >= 16) THEN
+      CALL util_get_maxrss(maxrss)
+      PRINT  *, "PE #", get_my_mpi_all_id(), &
+        &    ": MAXRSS (MiB) = ", maxrss
+      ! compute memory consumption per grid point (w/out halo points)
+      maxrss_gridpt = REAL(maxrss)/SUM(npts_local(n_dom_start:n_dom, 1:3))
+      maxrss_gridpt_min = p_min(zfield=maxrss_gridpt, comm=p_comm_work)
+      maxrss_gridpt_max = p_max(zfield=maxrss_gridpt, comm=p_comm_work)
+      WRITE (message_text,'(a,a,f5.3,a,a,f5.3)')   &
+        & "memory consumption (MiB/grid point): ", &
+        & "min = ", maxrss_gridpt_min, " / ", &
+        & "max = ", maxrss_gridpt_max
+      CALL message(TRIM(routine),message_text)
+    END IF
+#endif
+#endif
+
+  END SUBROUTINE atmo_model
+  !-------------------------------------------------------------------
+
+  !-------------------------------------------------------------------
+  !>
+  SUBROUTINE construct_atmo_model(atm_namelist_filename,shr_namelist_filename)
+
+    CHARACTER(LEN=*), INTENT(in) :: atm_namelist_filename
+    CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
+
+    CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:init_atmo_model"
+    CHARACTER(LEN=MAX_CHAR_LENGTH) :: grid_file_name 
+    LOGICAL :: lsuccess, l_construct_lonlat_coeffs
+    INTEGER :: jg, jgp
+
+    INTEGER :: i, error_status
+    INTEGER :: patch_no
+
 
     !---------------------------------------------------------------------
     ! 0. If this is a resumed or warm-start run...
@@ -588,6 +637,102 @@ CONTAINS
     ! optionally read those data from netCDF file.
     CALL init_ext_data (p_patch(1:), p_int_state(1:), ext_data)
 
+    ! construct the coupler
+    IF ( is_coupled_run() ) THEN
+      CALL construct_atmo_coupler()
+    ENDIF 
+
+    IF (timers_level > 3) CALL timer_stop(timer_model_init)
+
+  END SUBROUTINE construct_atmo_model
+
+  !-------------------------------------------------------------------
+  !>
+  SUBROUTINE destruct_atmo_model()
+    
+    CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:destruct_atmo_model"
+    LOGICAL :: lsuccess, l_construct_lonlat_coeffs
+    INTEGER :: jg, jgp
+
+    INTEGER :: i, error_status
+    INTEGER :: patch_no
+    ! Destruct external data state
+
+    CALL destruct_ext_data
+
+    ! deallocate ext_data array
+    DEALLOCATE(ext_data, stat=error_status)
+    IF (error_status/=success) THEN
+      CALL finish(TRIM(routine), 'deallocation of ext_data')
+    ENDIF
+
+    ! Deconstruct grid refinement state
+
+    IF (n_dom > 1) THEN
+      CALL destruct_2d_gridref_state( p_patch, p_grf_state )
+    ENDIF
+
+    DEALLOCATE (p_grf_state, STAT=error_status)
+    IF (error_status /= SUCCESS) THEN
+      CALL finish(TRIM(routine),'deallocation for ptr_grf_state failed')
+    ENDIF
+
+    ! Deallocate interpolation fields
+
+    CALL destruct_2d_interpol_state( p_int_state )
+    IF (l_construct_lonlat_coeffs) THEN
+      DO jg = 1, n_dom
+        IF (lonlat_intp_config(jg)%l_enabled) &
+          CALL deallocate_int_state_lonlat(p_int_state_lonlat_global(jg))
+      ENDDO
+    END IF
+
+    IF  (my_process_is_mpi_seq()  &
+      & .OR. lrestore_states) THEN
+      DEALLOCATE (p_int_state_lonlat_global, STAT=error_status)
+    ENDIF
+    DEALLOCATE (p_int_state, STAT=error_status)
+    IF (error_status /= SUCCESS) THEN
+      CALL finish(TRIM(routine),'deallocation for ptr_int_state failed')
+    ENDIF
+
+    ! Deallocate grid patches
+    CALL destruct_patches( p_patch )
+
+    IF (my_process_is_mpi_seq()  &
+      & .OR. lrestore_states) THEN
+      DEALLOCATE( p_patch_global, STAT=error_status )
+    ELSE
+      DEALLOCATE( p_patch_subdiv, STAT=error_status )
+    ENDIF
+    IF (error_status/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'deallocate for patch array failed')
+    ENDIF
+
+    ! clear restart namelist buffer
+    CALL delete_restart_namelists()
+    
+    IF ( is_coupled_run() ) CALL ICON_cpl_finalize
+
+    CALL message(TRIM(routine),'clean-up finished')
+    
+  END SUBROUTINE destruct_atmo_model
+  !-------------------------------------------------------------------
+ 
+  !-------------------------------------------------------------------
+  !>
+  SUBROUTINE construct_atmo_coupler()
+    ! For the coupling
+
+    INTEGER, PARAMETER :: no_of_fields = 8
+
+    CHARACTER(LEN=MAX_CHAR_LENGTH) ::  field_name(no_of_fields)
+    INTEGER :: field_id(no_of_fields)
+    INTEGER :: grid_id
+    INTEGER :: grid_shape(2) 
+    INTEGER :: field_shape(3) 
+    INTEGER :: i, patch_no, error_status
+    
     !---------------------------------------------------------------------
     ! 11. Do the setup for the coupled run
     !
@@ -641,108 +786,7 @@ CONTAINS
       CALL ICON_cpl_search
 
     ENDIF
-
-    IF (timers_level > 3) CALL timer_stop(timer_model_init)
-
-    !---------------------------------------------------------------------
-    ! 12. The hydrostatic and nonhydrostatic models branch from this point
-    !---------------------------------------------------------------------
-    SELECT CASE(iequations)
-    CASE(ishallow_water,ihs_atm_temp,ihs_atm_theta)
-      CALL atmo_hydrostatic
-
-    CASE(inh_atmosphere)
-      CALL atmo_nonhydrostatic
-
-    CASE DEFAULT
-      CALL finish( TRIM(routine),'unknown choice for iequaions.')
-    END SELECT
-
-
-    !---------------------------------------------------------------------
-    ! 13. Integration finished. Carry out the shared clean-up processes
-    !---------------------------------------------------------------------
-    ! Destruct external data state
-
-    CALL destruct_ext_data
-
-    ! deallocate ext_data array
-    DEALLOCATE(ext_data, stat=error_status)
-    IF (error_status/=success) THEN
-      CALL finish(TRIM(routine), 'deallocation of ext_data')
-    ENDIF
-
-    ! Deconstruct grid refinement state
-
-    IF (n_dom > 1) THEN
-      CALL destruct_2d_gridref_state( p_patch, p_grf_state )
-    ENDIF
-
-    DEALLOCATE (p_grf_state, STAT=error_status)
-    IF (error_status /= SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for ptr_grf_state failed')
-    ENDIF
-
-    ! Deallocate interpolation fields
-
-    CALL destruct_2d_interpol_state( p_int_state )
-    IF (l_construct_lonlat_coeffs) THEN
-      DO jg = 1, n_dom
-        IF (lonlat_intp_config(jg)%l_enabled) &
-          CALL deallocate_int_state_lonlat(p_int_state_lonlat_global(jg))
-      ENDDO
-    END IF
-
-    IF  (my_process_is_mpi_seq()  &
-      & .OR. lrestore_states) THEN
-      DEALLOCATE (p_int_state_lonlat_global, STAT=error_status)
-    ENDIF
-    DEALLOCATE (p_int_state, STAT=error_status)
-    IF (error_status /= SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for ptr_int_state failed')
-    ENDIF
-
-    ! Deallocate grid patches
-
-    CALL destruct_patches( p_patch )
-
-    IF (my_process_is_mpi_seq()  &
-      & .OR. lrestore_states) THEN
-      DEALLOCATE( p_patch_global, STAT=error_status )
-    ELSE
-      DEALLOCATE( p_patch_subdiv, STAT=error_status )
-    ENDIF
-    IF (error_status/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocate for patch array failed')
-    ENDIF
-
-    ! clear restart namelist buffer
-    CALL delete_restart_namelists()
-  
-    IF ( is_coupled_run() ) CALL ICON_cpl_finalize
-
-    CALL message(TRIM(routine),'clean-up finished')
-
-    ! (optional:) write resident set size from OS
-#ifndef NOMPI    
-#if defined(__SX__)
-    IF (msg_level >= 16) THEN
-      CALL util_get_maxrss(maxrss)
-      PRINT  *, "PE #", get_my_mpi_all_id(), &
-        &    ": MAXRSS (MiB) = ", maxrss
-      ! compute memory consumption per grid point (w/out halo points)
-      maxrss_gridpt = REAL(maxrss)/SUM(npts_local(n_dom_start:n_dom, 1:3))
-      maxrss_gridpt_min = p_min(zfield=maxrss_gridpt, comm=p_comm_work)
-      maxrss_gridpt_max = p_max(zfield=maxrss_gridpt, comm=p_comm_work)
-      WRITE (message_text,'(a,a,f5.3,a,a,f5.3)')   &
-        & "memory consumption (MiB/grid point): ", &
-        & "min = ", maxrss_gridpt_min, " / ", &
-        & "max = ", maxrss_gridpt_max
-      CALL message(TRIM(routine),message_text)    
-    END IF
-#endif
-#endif
-
-  END SUBROUTINE atmo_model
+    
+  END SUBROUTINE construct_atmo_coupler
 
 END MODULE mo_atmo_model
