@@ -1374,9 +1374,9 @@ CONTAINS
     nfiles = n-1
     write(0,*) 'nfiles=', nfiles
     !
-    CALL message('','')
-    CALL message('',separator)
-    CALL message('','')
+    CALL message('--','--')
+!     CALL message('--',separator)
+!     CALL message('','')
     !
     for_all_files: DO n = 1, nfiles
       model_type =TRIM(abbreviations(n)%abbreviation)
