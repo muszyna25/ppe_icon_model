@@ -34,22 +34,24 @@
 !!
 MODULE mo_icon_testbed
 
-USE mo_exception,           ONLY: message, message_text, finish
-USE mo_mpi,                 ONLY: global_mpi_barrier
-USE mo_master_control,      ONLY: is_restart_run, get_my_process_name, &
-                                  get_my_model_no
+  USE mo_exception,           ONLY: message, message_text, finish
+  USE mo_mpi,                 ONLY: global_mpi_barrier
+  USE mo_master_control,      ONLY: is_restart_run, get_my_process_name, &
+                                    get_my_model_no
 
-USE mo_atmo_model,          ONLY: construct_atmo_model, destruct_atmo_model
+  USE mo_icon_testbed_config, ONLY: testbed_model, null_model, test_coupler
+  USE mo_icon_testbed_nml,    ONLY: read_icon_testbed_namelist
 
 !-------------------------------------------------------------------------
-IMPLICIT NONE
-PRIVATE
+  IMPLICIT NONE
+  PRIVATE
 
-PUBLIC :: icon_testbed
+  PUBLIC :: icon_testbed
 
 CONTAINS
-!>
-!!
+
+  !-------------------------------------------------------------------------
+  !>
   SUBROUTINE icon_testbed(testbed_namelist_filename,shr_namelist_filename)
 
     CHARACTER(LEN=*), INTENT(in) :: testbed_namelist_filename
@@ -57,14 +59,10 @@ CONTAINS
 
     CHARACTER(*), PARAMETER :: method_name = "mo_icon_testbed:icon_testbed"
 
-    CALL global_mpi_barrier()
-    write(0,*) TRIM(get_my_process_name()), ': Start of ', method_name
-
-    CALL construct_atmo_model(testbed_namelist_filename,shr_namelist_filename)
+    CALL read_icon_testbed_namelist(testbed_namelist_filename)
     
-    CALL global_mpi_barrier()
-
-    CALL destruct_atmo_model()
+    write(0,*) TRIM(get_my_process_name()), ': Start of ', method_name
+   
 
   END SUBROUTINE icon_testbed
   !-------------------------------------------------------------------------

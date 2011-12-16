@@ -1332,8 +1332,10 @@ CONTAINS
     REAL(wp), POINTER :: rptr3d(:,:,:)
     !
     CHARACTER(len=8)  :: this_model_type
-    INTEGER :: length_of_model_type
+    INTEGER :: length_of_model_type, k
+    LOGICAL :: found
     
+    write(0,*) "read_restart_files, nvar_lists=", nvar_lists
     abbreviations(1:nvar_lists)%key = 0
     abbreviations(1:nvar_lists)%abbreviation = ""
     key = 0
@@ -1352,7 +1354,13 @@ CONTAINS
 !       ENDIF
 ! --------------------------------------------------------------
 ! LL : Brute force name checking for testing on SX9. Should be commented!
-      IF (.NOT. ANY(abbreviations(1:n)%abbreviation == this_model_type)) THEN
+      DO k=1,n-1
+        IF ( (abbreviations(k)%abbreviation == this_model_type)) THEN
+          found = .true.
+          EXIT
+        ENDIF
+      ENDDO
+      IF (.NOT. found) THEN
         key = key + 1
         abbreviations(n)%abbreviation = this_model_type
         abbreviations(n)%key = key

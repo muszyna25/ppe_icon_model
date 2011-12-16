@@ -52,9 +52,11 @@ MODULE mo_coupling_nml
 
   IMPLICIT NONE
 
+  PRIVATE
+  
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
-  PUBLIC
+  PUBLIC :: read_coupling_namelist
 
   ! ------------------------------------------------------------------------
   ! Namelist variables and auxiliary parameters
