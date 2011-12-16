@@ -1164,6 +1164,33 @@ ldump\_states=.TRUE. or lrestore\_states=.TRUE.
 \tabularnewline
 
 \hline 
+ldump\_dd&
+L & .FALSE.& &
+Dump the domain decomposition (and a few related fields).
+This can be done either in a parallel run or in a single-CPU run.
+When done in a parallel run, the domain decoposition
+is for the number of parallel processes in use.
+When done in a single-CPU run, nproc\_dd (see below) determines
+the number of processes for the decomposition.
+Uses always only one file per patch,&
+\tabularnewline
+
+\hline 
+lread\_dd&
+L & .FALSE.& &
+Read the domain decomposition when dumped with ldump\_dd.
+&
+\tabularnewline
+
+\hline 
+nproc\_dd&
+L & .FALSE.& &
+Number of processors for the target domain decomposition
+(only relevant when running on a single processor).&
+ldump\_dd = TRUE and a single processor run
+\tabularnewline
+
+\hline 
 nsteps &
 I & 0 & &
 number of time steps of this run.&
