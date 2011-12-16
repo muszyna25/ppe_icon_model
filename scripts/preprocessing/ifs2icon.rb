@@ -370,7 +370,6 @@ class PreProcOptions
     end
   end
   def self.checkModelOptions(options)
-    pp options
     unless options[:interpolation_type].to_sym == :horizontal_only
       # for hydrostatic mode vct and orography are required
       if options[:model_type].to_s == "hydrostatic"
