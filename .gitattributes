@@ -1060,6 +1060,7 @@ src/configure_model/mo_grid_config.f90 -text
 src/configure_model/mo_gridref_config.f90 -text
 src/configure_model/mo_gw_hines_config.f90 -text
 src/configure_model/mo_ha_dyn_config.f90 -text
+src/configure_model/mo_icon_testbed_config.f90 -text
 src/configure_model/mo_interpol_config.f90 -text
 src/configure_model/mo_io_config.f90 -text
 src/configure_model/mo_lnd_nwp_config.f90 -text
@@ -1152,6 +1153,7 @@ src/namelists/mo_grid_nml.f90 -text
 src/namelists/mo_gridref_nml.f90 -text
 src/namelists/mo_gw_hines_nml.f90 -text
 src/namelists/mo_ha_dyn_nml.f90 -text
+src/namelists/mo_icon_testbed_nml.f90 -text
 src/namelists/mo_interpol_nml.f90 -text
 src/namelists/mo_io_nml.f90 -text
 src/namelists/mo_lnd_nwp_nml.f90 -text
