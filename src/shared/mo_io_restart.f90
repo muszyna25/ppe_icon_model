@@ -1354,7 +1354,9 @@ CONTAINS
 !       ENDIF
 ! --------------------------------------------------------------
 ! LL : Brute force name checking for testing on SX9. Should be commented!
+      found = .false.
       DO k=1,n-1
+        write(0,*) 'checking: ', k, abbreviations(k)%abbreviation,this_model_type
         IF ( (abbreviations(k)%abbreviation == this_model_type)) THEN
           found = .true.
           EXIT
@@ -1362,6 +1364,7 @@ CONTAINS
       ENDDO
       IF (.NOT. found) THEN
         key = key + 1
+        write(0,*) 'not found: ', k, key, n
         abbreviations(n)%abbreviation = this_model_type
         abbreviations(n)%key = key
         n = n+1
@@ -1369,6 +1372,7 @@ CONTAINS
     ENDDO for_all_model_types
 ! --------------------------------------------------------------
     nfiles = n-1
+    write(0,*) 'nfiles=', nfiles
     !
     CALL message('','')
     CALL message('',separator)
