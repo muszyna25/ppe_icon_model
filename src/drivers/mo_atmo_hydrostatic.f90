@@ -38,7 +38,8 @@ MODULE mo_atmo_hydrostatic
 
   USE mo_master_control,  ONLY: is_restart_run
   USE mo_time_config,       ONLY: time_config
-  USE mo_run_config,        ONLY: dtime, nsteps, ltestcase, ltimer,iforcing, nlev
+  USE mo_run_config,        ONLY: dtime, nsteps, ltestcase, ltimer,iforcing, nlev, &
+    & msg_level
   USE mo_ha_testcases,      ONLY: ctest_name
   USE mo_io_config,         ONLY: n_diags, n_checkpoints,n_files,n_ios,lwrite_initial
 
@@ -213,7 +214,11 @@ CONTAINS
       CALL cleanup_echam_phy
     ENDIF
 
+    IF (msg_level > 5) CALL message(TRIM(routine),'echam_phy clean up is done')
+    
     IF (l_have_output) CALL close_output_files
+    
+    IF (msg_level > 5) CALL message(TRIM(routine),'close_output_files is done')
 
   END SUBROUTINE atmo_hydrostatic
   !-------------

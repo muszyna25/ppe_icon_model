@@ -659,6 +659,7 @@ CONTAINS
     ! Destruct external data state
 
     CALL destruct_ext_data
+    IF (msg_level > 5) CALL message(TRIM(routine),'destruct_ext_data is done')
 
     ! deallocate ext_data array
     DEALLOCATE(ext_data, stat=error_status)
@@ -671,6 +672,7 @@ CONTAINS
     IF (n_dom > 1) THEN
       CALL destruct_2d_gridref_state( p_patch, p_grf_state )
     ENDIF
+    IF (msg_level > 5) CALL message(TRIM(routine),'destruct_2d_gridref_state is done')
 
     DEALLOCATE (p_grf_state, STAT=error_status)
     IF (error_status /= SUCCESS) THEN
@@ -680,6 +682,7 @@ CONTAINS
     ! Deallocate interpolation fields
 
     CALL destruct_2d_interpol_state( p_int_state )
+    IF (msg_level > 5) CALL message(TRIM(routine),'destruct_2d_interpol_state is done')
     IF (l_construct_lonlat_coeffs) THEN
       DO jg = 1, n_dom
         IF (lonlat_intp_config(jg)%l_enabled) &
@@ -698,6 +701,7 @@ CONTAINS
 
     ! Deallocate grid patches
     CALL destruct_patches( p_patch )
+    IF (msg_level > 5) CALL message(TRIM(routine),'destruct_patches is done')
 
     IF (my_process_is_mpi_seq()  &
       & .OR. lrestore_states) THEN
@@ -711,6 +715,7 @@ CONTAINS
 
     ! clear restart namelist buffer
     CALL delete_restart_namelists()
+    IF (msg_level > 5) CALL message(TRIM(routine),'delete_restart_namelists is done')
     
     IF ( is_coupled_run() ) CALL ICON_cpl_finalize
 

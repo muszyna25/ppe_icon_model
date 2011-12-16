@@ -1331,12 +1331,18 @@ CONTAINS
     REAL(wp), POINTER :: rptr2d(:,:)
     REAL(wp), POINTER :: rptr3d(:,:,:)
     !
+    CHARACTER(len=8)  :: this_model_type
+    INTEGER :: length_of_model_type
+    
     abbreviations(1:nvar_lists)%key = 0
     key = 0
     n = 1
     for_all_model_types: DO i = 1, nvar_lists
 ! LL : commented only for testin. Should be uncommented!
-!       key = util_hashword(var_lists(i)%p%model_type, LEN_TRIM(var_lists(i)%p%model_type), 0)
+      this_model_type=TRIM(var_lists(i)%p%model_type)
+      CALL message("key for:", var_lists(i)%p%model_type)
+      length_of_model_type = LEN(this_model_type)
+      key = util_hashword(this_model_type, length_of_model_type, 0)
       IF (.NOT. ANY(abbreviations(1:n)%key == key)) THEN 
         abbreviations(n)%abbreviation = var_lists(i)%p%model_type
         abbreviations(n)%key = key

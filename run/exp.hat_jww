@@ -70,7 +70,7 @@ cat > $atmo_namelist << EOF
  l_test_openmp  = .false.
  l_log_checks   = .false.
  use_icon_comm   = .false.
- icon_comm_debug = .false.
+ icon_comm_debug = .true.
 /
 &grid_nml
  cell_type = 3            ! triangular cells
@@ -90,6 +90,7 @@ cat > $atmo_namelist << EOF
  ltimer = .TRUE.
  timers_level = 5
  activate_sync_timers = .TRUE.
+ msg_level = 10
 /
 &testcase_nml
  ctest_name  = 'JWw'        ! test case identifier
