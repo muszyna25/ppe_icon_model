@@ -729,8 +729,13 @@ class Ifs2Icon
     operator  = @itype == :code ? :showcode : :showname
     inputVars = Cdo.send(operator,:in => @ifile)
 
-    # Use numbers as identifiers for grib input
-    inputVars.map!(& :to_i) if operator == :showcode
+    # Use numbers as identifiers for grib1 input 
+    # and downcase variable names for grib2/netcdf input
+    if @itype == :code
+      inputVars.map!(&:to_i)
+    else
+      inputVars.map!(&:downcase)
+    end
 
     Dbg.msg("Found these variables in the input file = #{inputVars.join(",")} in input file",@options[:verbose],@options[:debug])
 
@@ -820,8 +825,8 @@ class Ifs2Icon
     splitfiles = Dir.glob("#{tag}*.*")
 
     cmp = @itype == :code \
-      ? lambda {|tagFromFile,varID| tagFromFile.to_i == varID} \
-      : lambda {|tagFromFile,varID| tagFromFile == varID}
+      ? lambda {|tagFromFile,varID| tagFromFile.to_i     == varID} \
+      : lambda {|tagFromFile,varID| tagFromFile.downcase == varID}
   
     ids = splitfiles.map {|f| f.split('_')[-1].split('.')[0]}
     @invars.each_key {|var|
