@@ -4,6 +4,27 @@
 # Parameters are passed by the "${set_env}" file to be executed by the pp script.
 #
 #-----------------------------------------------------------------------------
+#--------------------------------------------------------------------
+# compare the restart files
+cd $ICON_BASE_PATH/run
+atmo_restart_1="../experiments/test_hat_jww/restart.iconR2B03-grid_20080901T003000Z_atm.nc"
+atmo_restart_2="../experiments/test_hat_jww_restart/restart.iconR2B03-grid_20080901T003000Z_atm.nc"
+atmo_restart_1="../experiments/test_hat_jww/restart.iconR2B03-grid_20080901T004000Z_atm.nc"
+atmo_restart_2="../experiments/test_hat_jww_restart/restart.iconR2B03-grid_20080901T004000Z_atm.nc"
+atmo_restart_1="../experiments/test_hat_jww/restart.iconR2B03-grid_20080901T005960Z_atm.nc"
+atmo_restart_2="../experiments/test_hat_jww_restart/restart.iconR2B03-grid_20080901T005960Z_atm.nc"
+
+out_file="test_hat_restart.diff"
+cdo diffn $atmo_restart_1 $atmo_restart_2 > $out_file
+grep " 0 of 1876 records differ" $out_file
+return_status=$?
+if [ $return_status != 0 ] ; then
+  cat $out_file
+fi
+check_error $return_status "restart differs"
+exit
+#-------------------------------------------------------------------
+
 
 # Set parameters for postprocessing
 #
