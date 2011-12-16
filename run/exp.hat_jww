@@ -31,6 +31,7 @@ atmo_namelist=NAMELIST_${EXPNAME}
 # global timing
 start_date=${start_date:="2008-09-01T00:00:00Z"}
 end_date=${end_date:="2008-09-01T01:00:00Z"}
+end_date=${end_date:="2008-09-11T00:00:00Z"}
 ndays_restart=60
 dt_restart=`expr ${ndays_restart} \* 86400`
 #
@@ -39,8 +40,8 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 dtime=600
 #ndays=10
 #nsteps=`expr ${ndays} \* 86400 / ${dtime}`
-dt_checkpoint=`expr 3 \* 3600`  # write restart file every 5 days
 dt_checkpoint=600
+dt_checkpoint=`expr 5 \* 86400 `  # write restart file every 5 days 
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -52,7 +53,7 @@ atmo_model_equations=1   # equation system
 nlev=31             # nlev = number of full levels
 #-----------------------------------------------------------------------------
 # the grid files
-atmo_dyn_grids='iconR2B03-grid.nc'
+atmo_dyn_grids='iconR2B04-grid.nc'
 #-----------------------------------------------------------------------------
 
 
