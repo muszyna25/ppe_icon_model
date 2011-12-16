@@ -78,6 +78,7 @@ MODULE mo_ocean_model
 !    & setup_transport         ! control parameters
 
   USE mo_subdivision,         ONLY: decompose_domain,         &
+    & complete_parallel_setup,       &
     & finalize_decomposition,        &
     & copy_processor_splitting,      &
     & set_patch_communicators
@@ -86,8 +87,7 @@ MODULE mo_ocean_model
     & restore_interpol_state_netcdf
 
   USE mo_icoham_dyn_memory,   ONLY: p_hydro_state
-  USE mo_model_domain,        ONLY: p_patch_global, p_patch_subdiv, p_patch, &
-    &                               p_patch_local_parent
+  USE mo_model_domain,        ONLY: t_patch, p_patch, p_patch_local_parent
   USE mo_intp_data_strc,      ONLY: p_int_state, p_int_state_local_parent
   USE mo_grf_intp_data_strc,  ONLY: p_grf_state, p_grf_state_local_parent
 
@@ -165,6 +165,8 @@ CONTAINS
     TYPE(t_datetime)                                :: datetime
 
     INTEGER :: n_io, jg, jgp, jfile, ist
+
+    TYPE(t_patch), ALLOCATABLE :: p_patch_global(:)
 
     ! For the coupling
 
@@ -264,12 +266,12 @@ CONTAINS
     IF (my_process_is_io()) CALL vlist_io_main_proc
 
     ! Check patch allocation status
-    IF ( ALLOCATED(p_patch_global)) THEN
+    IF ( ALLOCATED(p_patch)) THEN
       CALL finish(TRIM(routine), 'patch already allocated')
     END IF
 
     ! Allocate patch array to start patch construction
-    ALLOCATE(p_patch_global(n_dom_start:n_dom), stat=error_status)
+    ALLOCATE(p_patch(n_dom_start:n_dom), stat=error_status)
     IF (error_status/=success) THEN
       CALL finish(TRIM(routine), 'allocation of patch failed')
     ENDIF
@@ -278,12 +280,12 @@ CONTAINS
       ! Before the restore set p_comm_input_bcast to null
       CALL set_comm_input_bcast(null_comm_type)
       IF( .NOT. my_process_is_mpi_test()) THEN
-        CALL restore_patches_netcdf( p_patch_global )
+        CALL restore_patches_netcdf( p_patch, .TRUE. )
+        CALL set_patch_communicators(p_patch)
       ELSE
-        CALL import_basic_patches( p_patch_global,                       &
-                                   nlev,nlevp1,num_lev,num_levp1,nshift )
+        CALL import_basic_patches(p_patch,nlev,nlevp1,num_lev,num_levp1,nshift)
         CALL disable_sync_checks
-        CALL complete_patches( p_patch_global )
+        CALL complete_patches( p_patch )
         CALL enable_sync_checks
       ENDIF
       ! After the restore is done set p_comm_input_bcast in the
@@ -291,25 +293,32 @@ CONTAINS
       ! no restore is wanted:
       CALL set_comm_input_bcast()
 
-      p_patch => p_patch_global
     ELSE
-      CALL import_basic_patches( p_patch_global,                       &
-                                 nlev,nlevp1,num_lev,num_levp1,nshift )      
-      IF(my_process_is_mpi_parallel()) then
-        CALL decompose_domain()
-        p_patch => p_patch_subdiv
+
+      ! Please note: ldump_dd/lread_dd not (yet?) implemented
+      IF(my_process_is_mpi_parallel()) THEN
+        ALLOCATE(p_patch_global(n_dom_start:n_dom))
+        CALL import_basic_patches(p_patch_global,nlev,nlevp1,num_lev,num_levp1,nshift)      
+        CALL decompose_domain(p_patch_global)
+        DEALLOCATE(p_patch_global)
+        CALL complete_parallel_setup()
       ELSE
-        p_patch => p_patch_global
+        CALL import_basic_patches(p_patch,nlev,nlevp1,num_lev,num_levp1,nshift)
       ENDIF
+
+      ! Complete information which is not yet read or calculated
       CALL complete_patches( p_patch )
+
     ENDIF
-    ! Note: from this point the p_patch is used
+
+    ! In case of a test run: Copy processor splitting to test PE
+    IF(p_test_run) CALL copy_processor_splitting(p_patch)
 
     !--------------------------------------------------------------------------------
     ! 5. Construct interpolation state, compute interpolation coefficients.
     !--------------------------------------------------------------------------------
 
-    CALL configure_interpolation( global_cell_type, n_dom, p_patch_global(1:)%level )
+    CALL configure_interpolation( global_cell_type, n_dom, p_patch(1:)%level )
 
     ! Allocate array for interpolation state
 
@@ -367,19 +376,11 @@ CONTAINS
     !-------------------------------------------------------------------
     ! 7. Finalize domain decomposition
     !-------------------------------------------------------------------   
-    IF (my_process_is_mpi_seq()  &
-      &  .OR. lrestore_states) THEN
-
-      CALL set_patch_communicators(p_patch)
-
-    ELSE
+    IF (my_process_is_mpi_parallel() .AND. .NOT.lrestore_states) THEN
 
       CALL finalize_decomposition()
 
     ENDIF
-
-    ! In case of a test run: Copy processor splitting to test PE
-    IF(p_test_run) CALL copy_processor_splitting(p_patch)
 
     IF(ldump_states)THEN
 
@@ -604,11 +605,7 @@ CONTAINS
 
     CALL destruct_patches( p_patch )
 
-    IF(my_process_is_mpi_seq() .OR. lrestore_states) THEN
-      DEALLOCATE( p_patch_global, stat=ist )
-    ELSE
-      DEALLOCATE( p_patch_subdiv, stat=ist )
-    ENDIF
+    DEALLOCATE( p_patch, stat=ist )
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocate for patch array failed')
     ENDIF

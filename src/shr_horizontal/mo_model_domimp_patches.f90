@@ -132,7 +132,7 @@ USE mo_dynamics_config,    ONLY: lcoriolis
 USE mo_master_control,     ONLY: my_process_is_ocean
 USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e
 USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
-USE mo_mpi,                ONLY: my_process_is_mpi_parallel
+USE mo_mpi,                ONLY: my_process_is_mpi_parallel, p_comm_work
 USE mo_sync,               ONLY: disable_sync_checks, enable_sync_checks
 USE mo_communication,      ONLY: idx_no, blk_no
 
@@ -167,6 +167,7 @@ CHARACTER(len=*), PARAMETER :: version = '$Id$'
 !subroutines
 PUBLIC :: import_basic_patches
 PUBLIC :: complete_patches
+PUBLIC :: deallocate_patch
 PUBLIC :: destruct_patches
 PUBLIC :: allocate_basic_patch
 PUBLIC :: deallocate_basic_patch
@@ -486,6 +487,7 @@ GRID_LEVEL_LOOP: DO jg = n_dom_start, n_dom
 ENDDO GRID_LEVEL_LOOP
 
 CALL complete_parent_index(p_patch)
+CALL set_pc_idx(p_patch)
 
 END SUBROUTINE import_basic_patches
 
@@ -624,6 +626,90 @@ DO jg = n_dom_start, n_dom-1
 ENDDO
 
 END SUBROUTINE complete_parent_index
+
+!-------------------------------------------------------------------------
+!
+!>
+!! This routine sets the parent-child-index for cells and edges
+!!
+!! @par Revision History
+!! Developed  by Rainer Johanni, Dec 2011
+!!
+SUBROUTINE set_pc_idx(p_patch)
+
+TYPE(t_patch), TARGET, INTENT(inout) :: p_patch(n_dom_start:)
+
+! local variables
+
+INTEGER :: jg, jgp, jb, jl, ilp, ibp, nlen
+
+!-----------------------------------------------------------------------
+!
+
+DO jg = n_dom_start+1, n_dom
+
+  jgp = p_patch(jg)%parent_id
+
+  p_patch(jg)%cells%pc_idx(:,:) = 0
+  p_patch(jg)%edges%pc_idx(:,:) = 0
+
+  DO jb = 1, p_patch(jg)%nblks_c
+
+    IF (jb /= p_patch(jg)%nblks_c) THEN
+      nlen = nproma
+    ELSE
+      nlen = p_patch(jg)%npromz_c
+    ENDIF
+
+    DO jl = 1, nlen
+
+      ilp = p_patch(jg)%cells%parent_idx(jl,jb)
+      ibp = p_patch(jg)%cells%parent_blk(jl,jb)
+
+      IF(p_patch(jgp)%cells%child_idx(ilp,ibp,1) == jl .AND. &
+         p_patch(jgp)%cells%child_blk(ilp,ibp,1) == jb ) p_patch(jg)%cells%pc_idx(jl,jb) = 1
+      IF(p_patch(jgp)%cells%child_idx(ilp,ibp,2) == jl .AND. &
+         p_patch(jgp)%cells%child_blk(ilp,ibp,2) == jb ) p_patch(jg)%cells%pc_idx(jl,jb) = 2
+      IF(p_patch(jgp)%cells%child_idx(ilp,ibp,3) == jl .AND. &
+         p_patch(jgp)%cells%child_blk(ilp,ibp,3) == jb ) p_patch(jg)%cells%pc_idx(jl,jb) = 3
+      IF(p_patch(jgp)%cells%child_idx(ilp,ibp,4) == jl .AND. &
+         p_patch(jgp)%cells%child_blk(ilp,ibp,4) == jb ) p_patch(jg)%cells%pc_idx(jl,jb) = 4
+      IF(p_patch(jg)%cells%pc_idx(jl,jb) == 0) CALL finish('set_pc_idx','cells%pc_idx')
+
+    ENDDO
+
+  ENDDO
+
+  DO jb = 1, p_patch(jg)%nblks_e
+
+    IF (jb /= p_patch(jg)%nblks_e) THEN
+      nlen = nproma
+    ELSE
+      nlen = p_patch(jg)%npromz_e
+    ENDIF
+
+    DO jl = 1, nlen
+
+      ilp = p_patch(jg)%edges%parent_idx(jl,jb)
+      ibp = p_patch(jg)%edges%parent_blk(jl,jb)
+
+      IF(p_patch(jgp)%edges%child_idx(ilp,ibp,1) == jl .AND. &
+         p_patch(jgp)%edges%child_blk(ilp,ibp,1) == jb ) p_patch(jg)%edges%pc_idx(jl,jb) = 1
+      IF(p_patch(jgp)%edges%child_idx(ilp,ibp,2) == jl .AND. &
+         p_patch(jgp)%edges%child_blk(ilp,ibp,2) == jb ) p_patch(jg)%edges%pc_idx(jl,jb) = 2
+      IF(p_patch(jgp)%edges%child_idx(ilp,ibp,3) == jl .AND. &
+         p_patch(jgp)%edges%child_blk(ilp,ibp,3) == jb ) p_patch(jg)%edges%pc_idx(jl,jb) = 3
+      IF(p_patch(jgp)%edges%child_idx(ilp,ibp,4) == jl .AND. &
+         p_patch(jgp)%edges%child_blk(ilp,ibp,4) == jb ) p_patch(jg)%edges%pc_idx(jl,jb) = 4
+      IF(p_patch(jg)%edges%pc_idx(jl,jb) == 0) CALL finish('set_pc_idx','edges%pc_idx')
+
+    ENDDO
+
+  ENDDO
+
+ENDDO
+
+END SUBROUTINE set_pc_idx
 !-------------------------------------------------------------------------
 !
 !> Allocates all arrays in a basic patch
@@ -661,6 +747,7 @@ SUBROUTINE allocate_basic_patch(p_patch)
   ALLOCATE( p_patch%cells%num_edges(nproma,p_patch%nblks_c) )
   ALLOCATE( p_patch%cells%parent_idx(nproma,p_patch%nblks_c) )
   ALLOCATE( p_patch%cells%parent_blk(nproma,p_patch%nblks_c) )
+  ALLOCATE( p_patch%cells%pc_idx(nproma,p_patch%nblks_c) )
   ALLOCATE( p_patch%cells%child_idx(nproma,p_patch%nblks_c,4) )
   ALLOCATE( p_patch%cells%child_blk(nproma,p_patch%nblks_c,4) )
   ALLOCATE( p_patch%cells%child_id(nproma,p_patch%nblks_c) )
@@ -682,6 +769,7 @@ SUBROUTINE allocate_basic_patch(p_patch)
   !
   ALLOCATE( p_patch%edges%parent_idx(nproma,p_patch%nblks_e) )
   ALLOCATE( p_patch%edges%parent_blk(nproma,p_patch%nblks_e) )
+  ALLOCATE( p_patch%edges%pc_idx(nproma,p_patch%nblks_e) )
   ALLOCATE( p_patch%edges%child_idx(nproma,p_patch%nblks_e,4) )
   ALLOCATE( p_patch%edges%child_blk(nproma,p_patch%nblks_e,4) )
   ALLOCATE( p_patch%edges%child_id(nproma,p_patch%nblks_e) )
@@ -706,6 +794,7 @@ SUBROUTINE allocate_basic_patch(p_patch)
   p_patch%cells%num_edges = 0
   p_patch%cells%parent_idx = 0
   p_patch%cells%parent_blk = 0
+  p_patch%cells%pc_idx = 0
   p_patch%cells%child_idx = 0
   p_patch%cells%child_blk = 0
   p_patch%cells%child_id = 0
@@ -725,6 +814,7 @@ SUBROUTINE allocate_basic_patch(p_patch)
 
   p_patch%edges%parent_idx = 0
   p_patch%edges%parent_blk = 0
+  p_patch%edges%pc_idx = 0
   p_patch%edges%child_idx = 0
   p_patch%edges%child_blk = 0
   p_patch%edges%child_id = 0
@@ -760,6 +850,7 @@ SUBROUTINE deallocate_basic_patch(p_patch)
   DEALLOCATE( p_patch%cells%num_edges )
   DEALLOCATE( p_patch%cells%parent_idx )
   DEALLOCATE( p_patch%cells%parent_blk )
+  DEALLOCATE( p_patch%cells%pc_idx )
   DEALLOCATE( p_patch%cells%child_idx )
   DEALLOCATE( p_patch%cells%child_blk )
   DEALLOCATE( p_patch%cells%child_id )
@@ -780,6 +871,7 @@ SUBROUTINE deallocate_basic_patch(p_patch)
   !
   DEALLOCATE( p_patch%edges%parent_idx )
   DEALLOCATE( p_patch%edges%parent_blk )
+  DEALLOCATE( p_patch%edges%pc_idx )
   DEALLOCATE( p_patch%edges%child_idx )
   DEALLOCATE( p_patch%edges%child_blk )
   DEALLOCATE( p_patch%edges%child_id )
@@ -1691,7 +1783,7 @@ ENDIF
 ! Set values which are needed for parallel runs
 ! to the correct values for a single patch owner
 !
-p_patch%comm   = 0
+p_patch%comm   = p_comm_work
 p_patch%rank   = 0
 p_patch%n_proc = 1
 p_patch%proc0  = 0
@@ -2589,138 +2681,132 @@ END SUBROUTINE reshape_idx_list
 !! Modification by Almut Gassmann, MPI-M (2008-10-30)
 !! - add Coriolis destruction
 !!
-  SUBROUTINE destruct_patches( p_patch )
+  SUBROUTINE deallocate_patch( p_patch )
 
-    TYPE(t_patch), TARGET, INTENT(inout) :: p_patch(n_dom_start:)
-
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-    &        routine = 'mo_model_domimp_patches:destruct_patches'
+    TYPE(t_patch), TARGET, INTENT(inout) :: p_patch
 
 !local variables
-INTEGER :: jg, ist
+  INTEGER :: ist
 !-----------------------------------------------------------------------
-
-    CALL message (TRIM(routine), 'start')
-
-GRID_LEVEL_LOOP: DO jg = n_dom_start, n_dom
 
   !
   ! Deallocate grid information
   !
   ! CELLS
-  DEALLOCATE( p_patch(jg)%cells%num_edges,  &
+  DEALLOCATE( p_patch%cells%num_edges,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch cell index failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%cells%parent_idx,  &
-    &         p_patch(jg)%cells%parent_blk,  &
+  DEALLOCATE( p_patch%cells%parent_idx,  &
+    &         p_patch%cells%parent_blk,  &
+    &         p_patch%cells%pc_idx,      &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch cell parent index failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%cells%child_idx,  &
-    &         p_patch(jg)%cells%child_blk,  &
-    &         p_patch(jg)%cells%child_id,   &
-    &         p_patch(jg)%cells%phys_id,    &
+  DEALLOCATE( p_patch%cells%child_idx,  &
+    &         p_patch%cells%child_blk,  &
+    &         p_patch%cells%child_id,   &
+    &         p_patch%cells%phys_id,    &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch cell child index failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%cells%neighbor_idx,  &
-    &         p_patch(jg)%cells%neighbor_blk,  &
+  DEALLOCATE( p_patch%cells%neighbor_idx,  &
+    &         p_patch%cells%neighbor_blk,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch cell neighbor index failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%cells%edge_idx,  &
-    &         p_patch(jg)%cells%edge_blk,  &
+  DEALLOCATE( p_patch%cells%edge_idx,  &
+    &         p_patch%cells%edge_blk,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch cell edge index failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%cells%vertex_idx,  &
-    &         p_patch(jg)%cells%vertex_blk,  &
+  DEALLOCATE( p_patch%cells%vertex_idx,  &
+    &         p_patch%cells%vertex_blk,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch cell vertex index failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%cells%edge_orientation,  &
+  DEALLOCATE( p_patch%cells%edge_orientation,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch cell edge_orientation failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%cells%center,  &
+  DEALLOCATE( p_patch%cells%center,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch cell center failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%cells%area,  &
+  DEALLOCATE( p_patch%cells%area,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch cell area failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%cells%f_c,  &
+  DEALLOCATE( p_patch%cells%f_c,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch cell f_c failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%cells%refin_ctrl,  &
+  DEALLOCATE( p_patch%cells%refin_ctrl,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch cell refin_ctrl failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%cells%start_idx,  &
+  DEALLOCATE( p_patch%cells%start_idx,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch cell start_idx failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%cells%end_idx,  &
+  DEALLOCATE( p_patch%cells%end_idx,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch cell end_idx failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%cells%start_blk,  &
+  DEALLOCATE( p_patch%cells%start_blk,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch cell start_blk failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%cells%end_blk,  &
+  DEALLOCATE( p_patch%cells%end_blk,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch cell end_blk failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%cells%decomp_domain,  &
+  DEALLOCATE( p_patch%cells%decomp_domain,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch cell decomp_domain failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%cells%owner_mask,  &
+  DEALLOCATE( p_patch%cells%owner_mask,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch cell owner_mask failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%cells%glb_index,  &
-    &         p_patch(jg)%cells%loc_index,  &
-    &         p_patch(jg)%cells%owner_local,  &
-    &         p_patch(jg)%cells%owner_g,  &
+  DEALLOCATE( p_patch%cells%glb_index,  &
+    &         p_patch%cells%loc_index,  &
+    &         p_patch%cells%owner_local,  &
+    &         p_patch%cells%owner_g,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
@@ -2729,215 +2815,216 @@ GRID_LEVEL_LOOP: DO jg = n_dom_start, n_dom
   !
   !
   ! EDGES
-  DEALLOCATE( p_patch(jg)%edges%parent_idx,  &
-    &         p_patch(jg)%edges%parent_blk,  &
+  DEALLOCATE( p_patch%edges%parent_idx,  &
+    &         p_patch%edges%parent_blk,  &
+    &         p_patch%edges%pc_idx,      &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch edge parent index failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%edges%child_idx,  &
-    &         p_patch(jg)%edges%child_blk,  &
-    &         p_patch(jg)%edges%child_id,   &
-    &         p_patch(jg)%edges%phys_id,    &
+  DEALLOCATE( p_patch%edges%child_idx,  &
+    &         p_patch%edges%child_blk,  &
+    &         p_patch%edges%child_id,   &
+    &         p_patch%edges%phys_id,    &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch edge child index failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%edges%cell_idx,  &
-    &         p_patch(jg)%edges%cell_blk,  &
+  DEALLOCATE( p_patch%edges%cell_idx,  &
+    &         p_patch%edges%cell_blk,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch edge cell index failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%edges%vertex_idx,  &
-    &         p_patch(jg)%edges%vertex_blk,  &
+  DEALLOCATE( p_patch%edges%vertex_idx,  &
+    &         p_patch%edges%vertex_blk,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch edge vertex index failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%edges%system_orientation,  &
+  DEALLOCATE( p_patch%edges%system_orientation,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch edge system orientation failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%edges%quad_idx,  &
-    &         p_patch(jg)%edges%quad_blk,  &
+  DEALLOCATE( p_patch%edges%quad_idx,  &
+    &         p_patch%edges%quad_blk,  &
     &         STAT=ist)
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch edge quad index failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%edges%quad_orientation,  &
+  DEALLOCATE( p_patch%edges%quad_orientation,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch edge quad orientation failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%edges%center,  &
+  DEALLOCATE( p_patch%edges%center,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch edge center failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%edges%primal_normal,  &
+  DEALLOCATE( p_patch%edges%primal_normal,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch edge primal_normal failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%edges%primal_cart_normal,  &
+  DEALLOCATE( p_patch%edges%primal_cart_normal,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch edge primal_cart_normal failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%edges%dual_normal,  &
+  DEALLOCATE( p_patch%edges%dual_normal,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch edge dual_normal failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%edges%dual_cart_normal,  &
+  DEALLOCATE( p_patch%edges%dual_cart_normal,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch edge dual_cart_normal failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%edges%primal_normal_cell,  &
+  DEALLOCATE( p_patch%edges%primal_normal_cell,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch edge primal_normal_cell failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%edges%dual_normal_cell,  &
+  DEALLOCATE( p_patch%edges%dual_normal_cell,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch edge dual_normal_cell failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%edges%primal_normal_vert,  &
+  DEALLOCATE( p_patch%edges%primal_normal_vert,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch edge primal_normal_vert failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%edges%dual_normal_vert,  &
+  DEALLOCATE( p_patch%edges%dual_normal_vert,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch edge dual_normal_vert failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%edges%primal_edge_length,  &
+  DEALLOCATE( p_patch%edges%primal_edge_length,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch edge primal edge length failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%edges%inv_primal_edge_length,  &
+  DEALLOCATE( p_patch%edges%inv_primal_edge_length,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for inverse patch edge primal edge length failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%edges%dual_edge_length,  &
+  DEALLOCATE( p_patch%edges%dual_edge_length,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch edge dual edge length failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%edges%inv_dual_edge_length,  &
+  DEALLOCATE( p_patch%edges%inv_dual_edge_length,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for inverse patch edge dual edge length failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%edges%edge_vert_length,  &
+  DEALLOCATE( p_patch%edges%edge_vert_length,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for edge_vert_length failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%edges%inv_vert_vert_length,  &
+  DEALLOCATE( p_patch%edges%inv_vert_vert_length,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for inverse vert_vert_length failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%edges%edge_cell_length,  &
+  DEALLOCATE( p_patch%edges%edge_cell_length,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for edge_cell_length failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%edges%area_edge,  &
+  DEALLOCATE( p_patch%edges%area_edge,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch edge area_edge failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%edges%quad_area,  &
+  DEALLOCATE( p_patch%edges%quad_area,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch edge quad area failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%edges%f_e,  &
+  DEALLOCATE( p_patch%edges%f_e,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch edge f_e failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%edges%refin_ctrl,  &
+  DEALLOCATE( p_patch%edges%refin_ctrl,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch edge refin_ctrl failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%edges%start_idx,  &
+  DEALLOCATE( p_patch%edges%start_idx,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch edge start_idx failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%edges%end_idx,  &
+  DEALLOCATE( p_patch%edges%end_idx,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch edge end_idx failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%edges%start_blk,  &
+  DEALLOCATE( p_patch%edges%start_blk,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch edge start_blk failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%edges%end_blk,  &
+  DEALLOCATE( p_patch%edges%end_blk,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch edge end_blk failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%edges%decomp_domain,  &
+  DEALLOCATE( p_patch%edges%decomp_domain,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch edge decomp_domain failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%edges%owner_mask,  &
+  DEALLOCATE( p_patch%edges%owner_mask,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch edge owner_mask failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%edges%glb_index,  &
-    &         p_patch(jg)%edges%loc_index,  &
-    &         p_patch(jg)%edges%owner_local,  &
-    &         p_patch(jg)%edges%owner_g,  &
+  DEALLOCATE( p_patch%edges%glb_index,  &
+    &         p_patch%edges%loc_index,  &
+    &         p_patch%edges%owner_local,  &
+    &         p_patch%edges%owner_g,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
@@ -2946,116 +3033,137 @@ GRID_LEVEL_LOOP: DO jg = n_dom_start, n_dom
   !
   !
   ! VERTICES
-  DEALLOCATE( p_patch(jg)%verts%neighbor_idx,  &
-    &         p_patch(jg)%verts%neighbor_blk,  &
+  DEALLOCATE( p_patch%verts%neighbor_idx,  &
+    &         p_patch%verts%neighbor_blk,  &
+    &         p_patch%verts%phys_id,       &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch vertex neighbor index failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%verts%cell_idx,  &
-    &         p_patch(jg)%verts%cell_blk,  &
+  DEALLOCATE( p_patch%verts%cell_idx,  &
+    &         p_patch%verts%cell_blk,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch vertex cell index failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%verts%edge_idx,  &
-    &         p_patch(jg)%verts%edge_blk,  &
+  DEALLOCATE( p_patch%verts%edge_idx,  &
+    &         p_patch%verts%edge_blk,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch vertex edge index failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%verts%edge_orientation,  &
+  DEALLOCATE( p_patch%verts%edge_orientation,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch vertex edge orientation failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%verts%num_edges,  &
+  DEALLOCATE( p_patch%verts%num_edges,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch vertex number of edges failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%verts%vertex,  &
+  DEALLOCATE( p_patch%verts%vertex,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch vertex vertex failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%verts%dual_area,  &
+  DEALLOCATE( p_patch%verts%dual_area,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch vertex dual area failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%verts%f_v,  &
+  DEALLOCATE( p_patch%verts%f_v,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch vertex f_v failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%verts%refin_ctrl,  &
+  DEALLOCATE( p_patch%verts%refin_ctrl,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch vertex edge refin_ctrl failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%verts%start_idx,  &
+  DEALLOCATE( p_patch%verts%start_idx,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch vertex edge start_idx failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%verts%end_idx,  &
+  DEALLOCATE( p_patch%verts%end_idx,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch vertex edge end_idx failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%verts%start_blk,  &
+  DEALLOCATE( p_patch%verts%start_blk,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch vertex edge start_blk failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%verts%end_blk,  &
+  DEALLOCATE( p_patch%verts%end_blk,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch vertex edge end_blk failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%verts%decomp_domain,  &
+  DEALLOCATE( p_patch%verts%decomp_domain,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch vert decomp_domain failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%verts%owner_mask,  &
+  DEALLOCATE( p_patch%verts%owner_mask,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch vert owner_mask failed')
   ENDIF
-  DEALLOCATE( p_patch(jg)%verts%glb_index,  &
-    &         p_patch(jg)%verts%loc_index,  &
-    &         p_patch(jg)%verts%owner_local,  &
-    &         p_patch(jg)%verts%owner_g,  &
+  DEALLOCATE( p_patch%verts%glb_index,  &
+    &         p_patch%verts%loc_index,  &
+    &         p_patch%verts%owner_local,  &
+    &         p_patch%verts%owner_g,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN
     CALL finish  ('mo_model_domain_import:destruct_patches', &
       'deallocate for patch vert data failed')
   ENDIF
 
-  !
+END SUBROUTINE deallocate_patch
+
+!-------------------------------------------------------------------------
+!> destruct_patches: Calls destruct_patch in a loop
+
+SUBROUTINE destruct_patches( p_patch )
+
+    TYPE(t_patch), TARGET, INTENT(inout) :: p_patch(n_dom_start:)
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+    &        routine = 'mo_model_domimp_patches:destruct_patches'
+
+!local variables
+  INTEGER :: jg
+!-----------------------------------------------------------------------
+
+  CALL message (TRIM(routine), 'start')
+
+  GRID_LEVEL_LOOP: DO jg = n_dom_start, n_dom
+
+    CALL deallocate_patch(p_patch(jg))
+
+  END DO GRID_LEVEL_LOOP
+
   CALL message (routine, 'destruct_patches finished')
 
-END DO GRID_LEVEL_LOOP
-
 END SUBROUTINE destruct_patches
-
 
 !-------------------------------------------------------------------------
 

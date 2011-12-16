@@ -70,7 +70,7 @@ MODULE mo_io_async
   USE mo_datetime,            ONLY: t_datetime
   USE mo_parallel_config,     ONLY: pio_type
   USE mo_dynamics_config,     ONLY: iequations
-  USE mo_run_config,          ONLY: ldump_states
+  USE mo_run_config,          ONLY: ldump_states, ldump_dd
   USE mo_io_units,            ONLY: filename_max
   USE mo_communication,       ONLY: idx_no, blk_no
   USE mo_io_vlist,            ONLY: GATHER_C, GATHER_E, GATHER_V, GATHER_LONLAT,                 &
@@ -260,10 +260,10 @@ CONTAINS
 
     print '(a,i0)','============================================ Hello from I/O PE ',p_pe
 
-    ! If ldump_states is set, the compute PEs will exit after dumping,
+    ! If ldump_states or ldump_dd is set, the compute PEs will exit after dumping,
     ! there is nothing to do at all for I/O PEs
 
-    IF(ldump_states) THEN
+    IF(ldump_states .OR. ldump_dd) THEN
       CALL p_stop
       STOP
     ENDIF

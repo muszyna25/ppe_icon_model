@@ -77,11 +77,11 @@ USE mo_model_domain_import, ONLY : get_patch_global_indexes
 ! Memory
 !
 USE mo_subdivision,         ONLY: decompose_domain,         &
-& finalize_decomposition, &
-& copy_processor_splitting,      &
-& set_patch_communicators
+& complete_parallel_setup, &
+& finalize_decomposition,  &
+& copy_processor_splitting
 
-USE mo_model_domain,        ONLY: p_patch_global, p_patch_subdiv, p_patch
+USE mo_model_domain,        ONLY: t_patch, p_patch
 
 ! Horizontal grid
 USE mo_grid_config,         ONLY: n_dom, n_dom_start
@@ -152,6 +152,8 @@ CONTAINS
     LOGICAL :: lsuccess
     INTEGER :: jg
 
+    TYPE(t_patch), ALLOCATABLE :: p_patch_global(:)
+
     ! For the coupling
 
     INTEGER, PARAMETER :: no_of_fields = 12
@@ -210,29 +212,32 @@ CONTAINS
     
     ! Check patch allocation status
 
-    IF ( ALLOCATED(p_patch_global)) THEN
+    IF ( ALLOCATED(p_patch)) THEN
       CALL finish(TRIM(routine), 'patch already allocated')
     END IF
      
     ! Allocate patch array to start patch construction
 
-    ALLOCATE(p_patch_global(n_dom_start:n_dom), stat=error_status)
+    ALLOCATE(p_patch(n_dom_start:n_dom), stat=error_status)
     IF (error_status/=success) THEN
       CALL finish(TRIM(routine), 'allocation of patch failed')
     ENDIF
     
-    CALL import_basic_patches( p_patch_global,                       &
-      & nlev,nlevp1,num_lev,num_levp1,nshift)
-
-    IF(my_process_is_mpi_parallel()) then
-      CALL decompose_domain()
-      p_patch => p_patch_subdiv
+    IF(my_process_is_mpi_parallel()) THEN
+      ALLOCATE(p_patch_global(n_dom_start:n_dom))
+      CALL import_basic_patches(p_patch_global,nlev,nlevp1,num_lev,num_levp1,nshift)
+      CALL decompose_domain(p_patch_global)
+      DEALLOCATE(p_patch_global)
+      CALL complete_parallel_setup()
     ELSE
-      p_patch => p_patch_global
+      CALL import_basic_patches(p_patch,nlev,nlevp1,num_lev,num_levp1,nshift)
     ENDIF
 
+    ! Complete information which is not yet read or calculated
     CALL complete_patches( p_patch )
-    ! Note: from this point the p_patch is used
+
+    ! In case of a test run: Copy processor splitting to test PE
+    IF(p_test_run) CALL copy_processor_splitting(p_patch)
 
     !--------------------------------------------------------------------------------
     ! 5. Construct interpolation state, compute interpolation coefficients.
@@ -249,19 +254,12 @@ CONTAINS
     !-------------------------------------------------------------------
     ! 7. Finalize domain decomposition
     !-------------------------------------------------------------------   
-    IF (my_process_is_mpi_seq()) THEN
-      
-      CALL set_patch_communicators(p_patch)
-      
-    ELSE
+
+    IF(my_process_is_mpi_parallel()) then
       
       CALL finalize_decomposition()
       
     ENDIF
-
-    ! Note: from this point the p_patch is used
-    ! In case of a test run: Copy processor splitting to test PE
-    IF(p_test_run) CALL copy_processor_splitting(p_patch)
     
    !---------------------------------------------------------------------
    ! 8. Import vertical grid/ define vertical coordinate
@@ -377,11 +375,7 @@ CONTAINS
 
     CALL destruct_patches( p_patch )
 
-    IF (my_process_is_mpi_seq()) THEN
-      DEALLOCATE( p_patch_global, STAT=error_status )
-    ELSE
-      DEALLOCATE( p_patch_subdiv, STAT=error_status )
-    ENDIF
+    DEALLOCATE( p_patch, STAT=error_status )
     IF (error_status/=SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocate for patch array failed')
     ENDIF

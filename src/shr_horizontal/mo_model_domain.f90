@@ -143,6 +143,9 @@ TYPE t_grid_cells
   ! block index of parent triangle:
   ! index1=1,nproma, index2=1,nblks_c
   INTEGER, ALLOCATABLE :: parent_blk(:,:)
+  ! parent child index, number of current cell in parent's child_idx/child_blk:
+  ! index1=1,nproma, index2=1,nblks_c
+  INTEGER, ALLOCATABLE :: pc_idx(:,:)
 
   ! line indices of child triangles:
   ! index1=1,nproma, index2=1,nblks_c, index3=1,4
@@ -256,6 +259,9 @@ TYPE t_grid_edges
   ! block index of parent edge:
   ! index1=1,nproma, index2=1,nblks_e
   INTEGER, ALLOCATABLE :: parent_blk(:,:)
+  ! parent child index, number of current edge in parent's child_idx/child_blk:
+  ! index1=1,nproma, index2=1,nblks_e
+  INTEGER, ALLOCATABLE :: pc_idx(:,:)
 
   ! line indices of child edges:
   ! index1=1,nproma, index2=1,nblks_e, index3=1,4
@@ -705,9 +711,7 @@ TYPE t_phys_patch
 
 END TYPE t_phys_patch
 
-TYPE(t_patch), PUBLIC, TARGET, ALLOCATABLE :: p_patch_global(:), p_patch_subdiv(:), &
-                                            & p_patch_local_parent(:)
-TYPE(t_patch), PUBLIC, POINTER             :: p_patch(:)
+TYPE(t_patch), PUBLIC, TARGET, ALLOCATABLE :: p_patch(:), p_patch_local_parent(:)
 
 ! Please note: There is currently no means of determining the number
 ! of physical patches until they are actually assembled

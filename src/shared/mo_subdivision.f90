@@ -68,19 +68,19 @@ MODULE mo_subdivision
   USE mo_run_config,         ONLY: ltransport, msg_level
   USE mo_dynamics_config,    ONLY: iequations
   USE mo_io_units,           ONLY: find_next_free_unit, filename_max
-  USE mo_model_domain,       ONLY: t_patch, t_grid_cells, &
-    &                              p_patch_global, p_patch_subdiv, p_patch, &
-    &                              p_patch_local_parent,                    &
+  USE mo_model_domain,       ONLY: t_patch, t_grid_cells,       &
+    &                              p_patch,                     &
+    &                              p_patch_local_parent,        &
     &                              t_phys_patch, p_phys_patch
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
-  USE mo_mpi,                ONLY: p_bcast, p_send, p_recv, p_sum, p_max
+  USE mo_mpi,                ONLY: p_bcast, p_send, p_recv, p_sum, p_max, p_min
 #ifndef NOMPI
   USE mo_mpi,                ONLY: MPI_UNDEFINED, MPI_COMM_NULL
 #endif
   USE mo_mpi,                ONLY: p_comm_work, my_process_is_mpi_test, &
     & my_process_is_mpi_seq, process_mpi_all_test_id, process_mpi_all_workroot_id, &
     & my_process_is_mpi_workroot, p_pe_work, p_n_work,                  &
-    & get_my_mpi_all_id
+    & get_my_mpi_all_id, my_process_is_mpi_parallel
 
   USE mo_parallel_config,       ONLY:  nproma, p_test_run, &
     & division_method, division_file_name, n_ghost_rows, div_from_file, div_geometric
@@ -93,7 +93,8 @@ MODULE mo_subdivision
     & grf_bdyintp_end_c, grf_bdyintp_end_e, grf_fbk_start_c, grf_fbk_start_e, &
     & grf_bdywidth_c, grf_bdywidth_e, grf_nudgintp_start_c, grf_nudgintp_start_e
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, patch_weight, n_phys_dom
-  USE mo_model_domimp_patches,ONLY: allocate_patch, deallocate_basic_patch
+  USE mo_model_domimp_patches,ONLY: allocate_patch, deallocate_basic_patch, deallocate_patch
+  USE mo_dump_restore,        ONLY: dump_all_domain_decompositions
 
 
   IMPLICIT NONE
@@ -109,9 +110,10 @@ MODULE mo_subdivision
   PUBLIC :: finalize_decomposition
   PUBLIC :: setup_phys_patches
   PUBLIC :: set_comm_pat_gather
+  PUBLIC :: complete_parallel_setup
 
   ! pointers to the work patches
-  TYPE(t_patch), POINTER :: wrk_p_patch, wrk_p_parent_patch
+  TYPE(t_patch), POINTER :: wrk_p_patch
   TYPE(t_patch), POINTER :: wrk_p_patch_g, wrk_p_parent_patch_g
   TYPE(t_patch), POINTER :: wrk_divide_patch
 
@@ -135,10 +137,8 @@ MODULE mo_subdivision
 
   ! number of grid points of different categories:
   ! lateral points, interior points, nested points, halo points
-#ifndef NOMPI
   INTEGER(i8), PUBLIC :: npts_local(0:max_dom, 4)
-#endif
-  
+
 CONTAINS
 
   !-------------------------------------------------------------------------
@@ -174,9 +174,6 @@ CONTAINS
 
     TYPE(t_patch), INTENT(INOUT) :: p_patch(n_dom_start:)
 
-! #ifdef NOMPI
-!     CALL finish('mo_subdivision','set_patch_communicators must only be called in parallel runs')
-! #else
     INTEGER jc, jgc, jg, jgp, n_proc_total, comm, mpierr
     INTEGER, ALLOCATABLE :: patch_no(:)
 
@@ -222,8 +219,8 @@ CONTAINS
 
       ! Set comm and rank for childs of root patch
 
-      DO jc = 1, p_patch_global(1)%n_childdom
-        jgc = p_patch_global(1)%child_id(jc)
+      DO jc = 1, p_patch(1)%n_childdom
+        jgc = p_patch(1)%child_id(jc)
         IF(patch_no(p_pe_work) == jc) THEN
           p_patch(jgc)%comm = comm
           CALL MPI_Comm_rank(comm, p_patch(jgc)%rank, mpierr)
@@ -237,7 +234,7 @@ CONTAINS
 
       DO jg = 2, n_dom
 
-        jgp = p_patch_global(jg)%parent_id
+        jgp = p_patch(jg)%parent_id
 
         IF(jgp /= 1) THEN
           p_patch(jg)%comm   = p_patch(jgp)%comm
@@ -262,13 +259,13 @@ CONTAINS
   !------------------------------------------------------------------
   !>
   !!  Divide patches and interpolation states for mpi parallel runs.
-  SUBROUTINE decompose_domain( )
+  SUBROUTINE decompose_domain( p_patch_global, opt_n_procs )
+
+    TYPE(t_patch), INTENT(INOUT), TARGET :: p_patch_global(n_dom_start:)
+    INTEGER, INTENT(IN), OPTIONAL :: opt_n_procs
 
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_subdivision:decompose_domain")
 
-#ifdef NOMPI
-    CALL finish(routine,'decompose_domain must only be called in parallel runs')
-#else
     CHARACTER(len=20), PARAMETER, DIMENSION(4) :: summary = &
       & (/ "lateral grid points " , &
       &    "interior grid points", &
@@ -277,21 +274,31 @@ CONTAINS
 
     ! Local variables:
     INTEGER :: mpierr
-    INTEGER :: ist, jg, jgp, jc, jgc, comm, my_color, n, &
-      &        l1, i_nchdom
+    INTEGER :: ist, jg, jgp, jc, jgc, comm, n, &
+      &        l1, i_nchdom, n_procs_decomp
     INTEGER :: nprocs(p_patch_global(1)%n_childdom)
-    INTEGER, ALLOCATABLE :: cell_owner(:)
+    INTEGER, ALLOCATABLE :: cell_owner(:), cell_owner_p(:)
     REAL(wp) :: weight(p_patch_global(1)%n_childdom)
     INTEGER(i8) :: npts_global(4)
     ! (Optional:) Print a detailed summary on model grid points
     LOGICAL :: l_detailed_summary
+    TYPE(t_patch), ALLOCATABLE, TARGET :: p_patch_out(:), p_patch_lp_out(:)
 
     CALL message(routine, 'start of domain decomposition')
 
-    ALLOCATE (p_patch_subdiv(n_dom_start:n_dom),stat=ist)
-    IF (ist /= success) THEN
-      CALL finish(routine,'allocation for subdivided patches/states failed')
+    ! If opt_n_procs is set, this routine should be called from a single processor run
+    ! and it splits the domain into opt_n_procs parts.
+    ! Otherwise, the call should be from a parallel run and the domain is split
+    ! according to the number of processors
+
+    IF(present(opt_n_procs)) THEN
+      n_procs_decomp = opt_n_procs
+      IF(my_process_is_mpi_parallel()) &
+        CALL finish(routine, 'Call with opt_n_procs in parallel mode')
+    ELSE
+      n_procs_decomp = p_n_work
     ENDIF
+
 
     ! Check if the processor set should be split for patches of the 1st generation.
     ! This is the case if patch_weight > 0 for at least one of the root's childs.
@@ -321,7 +328,7 @@ CONTAINS
 
       ! In this case, the working processor set must be at least as big
       ! as the number of childs of the root patch
-      IF(p_patch_global(1)%n_childdom > p_n_work) &
+      IF(p_patch_global(1)%n_childdom > n_procs_decomp) &
         CALL finish(routine,'Too few procs for processor grid splitting')
 
       ! Get the number of procs per patch according to weight(:).
@@ -331,7 +338,7 @@ CONTAINS
       ! The remaining procs are divided among patches similar to
       ! the d'Hondt method for elections
 
-      DO n = p_patch_global(1)%n_childdom+1, p_n_work
+      DO n = p_patch_global(1)%n_childdom+1, n_procs_decomp
         jg = MAXLOC(weight(:)/REAL(nprocs(:)+1,wp),1)
         nprocs(jg) = nprocs(jg)+1
       ENDDO
@@ -341,50 +348,25 @@ CONTAINS
         DO jc = 1, p_patch_global(1)%n_childdom
           jgc =  p_patch_global(1)%child_id(jc)
           PRINT '(a,i0,a,f10.3,a,i0,a,i0)',                                             &
-            &   'Patch ',jgc,' weight ',weight(jc),' gets ',nprocs(jc),' of ',p_n_work
+            &   'Patch ',jgc,' weight ',weight(jc),' gets ',nprocs(jc),' of ',n_procs_decomp
         ENDDO
       ENDIF
 
-      ! Set proc0, n_proc, comm, rank for all patches ...
+      ! Set proc0, n_proc for all patches ...
 
       ! ... for the root patch and patch 0 if it exists
 
-      p_patch_subdiv(n_dom_start:1)%comm   = p_comm_work
-      p_patch_subdiv(n_dom_start:1)%rank   = p_pe_work
-      p_patch_subdiv(n_dom_start:1)%n_proc = p_n_work
-      p_patch_subdiv(n_dom_start:1)%proc0  = 0
+      p_patch(n_dom_start:1)%n_proc = n_procs_decomp
+      p_patch(n_dom_start:1)%proc0  = 0
 
       ! ... for 1st generation childs
 
-      my_color = MPI_UNDEFINED
       n = 0
       DO jc = 1, p_patch_global(1)%n_childdom
         jgc = p_patch_global(1)%child_id(jc)
-        p_patch_subdiv(jgc)%proc0  = n
-        p_patch_subdiv(jgc)%n_proc = nprocs(jc)
-        IF(p_pe_work >= n .AND. p_pe_work < n+nprocs(jc)) my_color = jc
+        p_patch(jgc)%proc0  = n
+        p_patch(jgc)%n_proc = nprocs(jc)
         n = n + nprocs(jc)
-      ENDDO
-
-      ! Safety only
-      IF(my_color == MPI_UNDEFINED) &
-        CALL finish(routine,'Internal error: my_color == MPI_UNDEFINED')
-
-      ! Split communicator among childs of root patch
-
-      CALL MPI_Comm_split(p_comm_work, my_color, p_pe_work, comm, mpierr)
-
-      ! Set comm and rank for childs of root patch
-
-      DO jc = 1, p_patch_global(1)%n_childdom
-        jgc = p_patch_global(1)%child_id(jc)
-        IF(my_color == jc) THEN
-          p_patch_subdiv(jgc)%comm = comm
-          CALL MPI_Comm_rank(comm, p_patch_subdiv(jgc)%rank, mpierr)
-        ELSE
-          p_patch_subdiv(jgc)%comm = MPI_COMM_NULL ! We should never use this comm
-          p_patch_subdiv(jgc)%rank = -1
-        ENDIF
       ENDDO
 
       ! ... for deeper level descandants
@@ -394,33 +376,45 @@ CONTAINS
         jgp = p_patch_global(jg)%parent_id
 
         IF(jgp /= 1) THEN
-          p_patch_subdiv(jg)%comm   = p_patch_subdiv(jgp)%comm
-          p_patch_subdiv(jg)%rank   = p_patch_subdiv(jgp)%rank
-          p_patch_subdiv(jg)%n_proc = p_patch_subdiv(jgp)%n_proc
-          p_patch_subdiv(jg)%proc0  = p_patch_subdiv(jgp)%proc0
+          p_patch(jg)%n_proc = p_patch(jgp)%n_proc
+          p_patch(jg)%proc0  = p_patch(jgp)%proc0
         ENDIF
 
       ENDDO
 
     ELSE
 
-      ! No splitting, proc0, n_proc, comm, rank are identical for all patches
+      ! No splitting, proc0, n_proc are identical for all patches
 
       IF(p_pe_work==0) PRINT *,'No splitting of processor grid'
-      p_patch_subdiv(:)%comm   = p_comm_work
-      p_patch_subdiv(:)%rank   = p_pe_work
-      p_patch_subdiv(:)%n_proc = p_n_work
-      p_patch_subdiv(:)%proc0  = 0
+      p_patch(:)%n_proc = n_procs_decomp
+      p_patch(:)%proc0  = 0
 
     ENDIF
 
-    ! Divide patches and set up communication patterns
+#ifdef NOMPI
+    p_patch(:)%comm = 0
+#else
+    p_patch(:)%comm = MPI_COMM_NULL
+#endif
+    p_patch(:)%rank = -1
+
+
+    IF(PRESENT(opt_n_procs)) THEN
+      ! Allocate p_patch_out, p_patch_lp_out so that they can keep
+      ! all domain decompositions for one patch
+      ALLOCATE(p_patch_out(opt_n_procs))
+      ALLOCATE(p_patch_lp_out(opt_n_procs))
+    ELSE
+      ! p_patch is already allocated, p_patch_local_parent needs allocation
+      ALLOCATE(p_patch_local_parent(n_dom_start+1:n_dom))
+    ENDIF
+
+    ! Divide patches
 
     DO jg = n_dom_start, n_dom
 
       jgp = p_patch_global(jg)%parent_id
-
-      NULLIFY(wrk_p_parent_patch) ! Safety only, not needed for patch division
 
       IF(jg == n_dom_start) THEN
         NULLIFY(wrk_p_parent_patch_g) ! Must be NULL for global patch
@@ -429,66 +423,104 @@ CONTAINS
       ENDIF
 
       wrk_p_patch_g => p_patch_global(jg)
-      wrk_p_patch   => p_patch_subdiv(jg)
 
       ! Set division method, divide_for_radiation is only used for patch 0
 
       divide_for_radiation = (jg == 0)
 
-      ALLOCATE(cell_owner(p_patch_global(jg)%n_patch_cells))
-      CALL divide_patch_cells(p_patch_subdiv(jg)%n_proc, p_patch_subdiv(jg)%proc0, cell_owner)
+      ! Here comes the actual domain decomposition:
+      ! Every cells gets assigned an owner.
 
-      !!!! Please note: For jg==0 no ghost rows are set
-      !!!CALL divide_patch(cell_owner, MERGE(0, n_ghost_rows, jg==0), .TRUE.)
-      ! We need ghost rows for jg==0 also for dividing the int state and grf state
+      ALLOCATE(cell_owner(p_patch_global(jg)%n_patch_cells))
+      CALL divide_patch_cells(p_patch(jg)%n_proc, p_patch(jg)%proc0, cell_owner)
+
+      IF(jg > n_dom_start) THEN
+        ! Assign the cell owners of the current patch to the parent cells
+        ! for the construction of the local parent:
+        ALLOCATE(cell_owner_p(p_patch_global(jgp)%n_patch_cells))
+        CALL divide_parent_cells(p_patch_global(jg),cell_owner,cell_owner_p)
+      ENDIF
+
+      ! Please note: Previously, for jg==0 no ghost rows were set.
+      ! Currently, we need ghost rows for jg==0 also for dividing the int state and grf state
       ! Have still to check if int state/grf state is needed at all for jg==0,
       ! if this is not the case, the ghost rows can be dropped again.
-      CALL divide_patch(cell_owner, n_ghost_rows, .TRUE.)
+
+      IF(PRESENT(opt_n_procs)) THEN
+
+        ! Calculate all basic patches and output them at once.
+        ! This is done in this way (calculating all before output) since
+        ! we need the biggest dimension of all patches before real NetCDF output starts.
+        ! All arrays in the patch which are not scaling (i.e. having global dimensions)
+        ! are discarded so that the stored patches shouldn't need much more space
+        ! than the global patch descriptions.
+
+        ! If the storage for the patches should get a problem nontheless, there has to be found
+        ! a way to output them before all are calculated.
+
+        ! Do all domain decompositions
+        DO n = 1, opt_n_procs
+
+          WRITE(0,'(2(a,i0))') 'Dividing patch ',jg,' for proc ',n-1
+          p_patch_out(n)%n_proc = p_patch(jg)%n_proc
+          p_patch_out(n)%proc0  = p_patch(jg)%proc0
+          wrk_p_patch_g => p_patch_global(jg)
+          wrk_p_patch   => p_patch_out(n)
+          CALL divide_patch(cell_owner, n_ghost_rows, .TRUE., n-1)
+          CALL discard_large_arrays(p_patch_out(n), n)
+
+          IF(jg > n_dom_start) THEN
+            ! Divide local parent
+            wrk_p_patch_g => p_patch_global(jgp)
+            wrk_p_patch   => p_patch_lp_out(n)
+            CALL divide_patch(cell_owner_p, 1, .FALSE., n-1)
+            CALL discard_large_arrays(p_patch_lp_out(n), n)
+          ENDIF
+
+        ENDDO
+
+        ! Dump domain decompositions to NetCDF
+        IF(jg > n_dom_start) THEN
+          CALL dump_all_domain_decompositions(p_patch_out, p_patch_lp_out)
+        ELSE
+          CALL dump_all_domain_decompositions(p_patch_out)
+        ENDIF
+
+        ! Deallocate patch arrays
+        DO n = 1, opt_n_procs
+          CALL deallocate_patch(p_patch_out(n))
+          IF(jg > n_dom_start) CALL deallocate_patch(p_patch_lp_out(n))
+        ENDDO
+
+      ELSE
+
+        wrk_p_patch_g => p_patch_global(jg)
+        wrk_p_patch   => p_patch(jg)
+        CALL divide_patch(cell_owner, n_ghost_rows, .TRUE., p_pe_work)
+
+        IF(jg > n_dom_start) THEN
+          wrk_p_patch_g => p_patch_global(jgp)
+          wrk_p_patch   => p_patch_local_parent(jg)
+          CALL divide_patch(cell_owner_p, 1, .FALSE., p_pe_work)
+        ENDIF
+
+      ENDIF
+
       DEALLOCATE(cell_owner)
-
-      IF(jg == n_dom_start) CYCLE
-
-      wrk_p_parent_patch   => p_patch_subdiv(jgp)
-
-      CALL setup_comm_cpy_interpolation()
-      CALL setup_comm_grf_interpolation()
-      CALL setup_comm_ubc_interpolation()
+      IF(jg > n_dom_start) DEALLOCATE(cell_owner_p)
 
     ENDDO
 
-    ! Create local parents for patches
 
-    ALLOCATE(p_patch_local_parent(n_dom_start+1:n_dom))
+    ! The global patches may be discarded now
 
-    DO jg = n_dom_start+1, n_dom
-
-      jgp = p_patch_global(jg)%parent_id
-
-      ALLOCATE(cell_owner(p_patch_global(jgp)%n_patch_cells))
-      CALL divide_parent_cells(p_patch_subdiv(jg),p_patch_global(jg),cell_owner)
-
-      wrk_p_patch_g => p_patch_global(jgp)
-      wrk_p_patch   => p_patch_local_parent(jg)
-      CALL divide_patch(cell_owner, 1, .FALSE.)
-      DEALLOCATE(cell_owner)
-
-      CALL set_parent_child_relations(p_patch_local_parent(jg), p_patch_subdiv(jg), &
-        &                             p_patch_global(jgp), p_patch_global(jg))
-      CALL set_glb_loc_comm(p_patch_subdiv(jgp), p_patch_local_parent(jg), &
-        &                   p_patch_subdiv(jg)%parent_child_index)
-
-    ENDDO
-
-    !-----------------------------
-    ! Fill the owner_local value
     DO jg = n_dom_start, n_dom
-      CALL fill_owner_local(p_patch_subdiv(jg))
+      CALL deallocate_basic_patch( p_patch_global(jg) )
     ENDDO
-    !-----------------------------
 
     ! (Optional:)
     ! Print a detailed summary on model grid points
-    l_detailed_summary = (msg_level >= 16)
+    l_detailed_summary = (msg_level >= 16) .AND. .NOT.PRESENT(opt_n_procs)
 
     IF (l_detailed_summary) THEN
       WRITE (message_text,*) "PE ", get_my_mpi_all_id(), &
@@ -497,31 +529,31 @@ CONTAINS
 
       DO jg = n_dom_start, n_dom
         ! count grid points for this PE:
-        i_nchdom     = MAX(1,p_patch_subdiv(jg)%n_childdom)
+        i_nchdom     = MAX(1,p_patch(jg)%n_childdom)
         ! local, lateral grid points
         npts_local(jg,1)    = count_entries(  &
-          &                   p_patch_subdiv(jg)%cells%start_blk(1,1),         &
-          &                   p_patch_subdiv(jg)%cells%start_idx(1,1),         &
-          &                   p_patch_subdiv(jg)%cells%end_blk(max_rlcell,1),  &
-          &                   p_patch_subdiv(jg)%cells%end_idx(max_rlcell,1) )
+          &                   p_patch(jg)%cells%start_blk(1,1),         &
+          &                   p_patch(jg)%cells%start_idx(1,1),         &
+          &                   p_patch(jg)%cells%end_blk(max_rlcell,1),  &
+          &                   p_patch(jg)%cells%end_idx(max_rlcell,1) )
         ! local, interior grid points
         npts_local(jg,2)    = count_entries(  &
-          &                   p_patch_subdiv(jg)%cells%start_blk(0,1), &
-          &                   p_patch_subdiv(jg)%cells%start_idx(0,1), &
-          &                   p_patch_subdiv(jg)%cells%end_blk(0,1),   &
-          &                   p_patch_subdiv(jg)%cells%end_idx(0,1) )
+          &                   p_patch(jg)%cells%start_blk(0,1), &
+          &                   p_patch(jg)%cells%start_idx(0,1), &
+          &                   p_patch(jg)%cells%end_blk(0,1),   &
+          &                   p_patch(jg)%cells%end_idx(0,1) )
         ! local, nested grid points:
         npts_local(jg,3)    = count_entries(  &
-          &                   p_patch_subdiv(jg)%cells%start_blk(-1,1), &
-          &                   p_patch_subdiv(jg)%cells%start_idx(-1,1), &
-          &                   p_patch_subdiv(jg)%cells%end_blk(min_rlcell_int,i_nchdom),        &
-          &                   p_patch_subdiv(jg)%cells%end_idx(min_rlcell_int,i_nchdom) )
+          &                   p_patch(jg)%cells%start_blk(-1,1), &
+          &                   p_patch(jg)%cells%start_idx(-1,1), &
+          &                   p_patch(jg)%cells%end_blk(min_rlcell_int,i_nchdom),        &
+          &                   p_patch(jg)%cells%end_idx(min_rlcell_int,i_nchdom) )
         ! local, halo grid points:
         npts_local(jg,4)    = count_entries(  &
-          &                   p_patch_subdiv(jg)%cells%start_blk(min_rlcell_int-1,1), &
-          &                   p_patch_subdiv(jg)%cells%start_idx(min_rlcell_int-1,1), &
-          &                   p_patch_subdiv(jg)%cells%end_blk(min_rlcell,i_nchdom),  &
-          &                   p_patch_subdiv(jg)%cells%end_idx(min_rlcell,i_nchdom) )
+          &                   p_patch(jg)%cells%start_blk(min_rlcell_int-1,1), &
+          &                   p_patch(jg)%cells%start_idx(min_rlcell_int-1,1), &
+          &                   p_patch(jg)%cells%end_blk(min_rlcell,i_nchdom),  &
+          &                   p_patch(jg)%cells%end_idx(min_rlcell,i_nchdom) )
         ! sum up over all PEs (collective operation):
         npts_global(:) = p_sum(npts_local(jg,:), p_comm_work)
 
@@ -541,50 +573,116 @@ CONTAINS
       END DO
     END IF
 
-#endif
-
   END SUBROUTINE decompose_domain
+
+  !-----------------------------------------------------------------------------
+  !> discard_large_arrays:
+  !! Deallocate large arrays in patch which are not output to NetCDF anyways
+
+  SUBROUTINE discard_large_arrays(p, n)
+
+    TYPE(t_patch), INTENT(INOUT) :: p
+    INTEGER, INTENT(IN) :: n
+
+    ! loc_index is never output to NetCDF
+
+    DEALLOCATE(p%cells%loc_index)
+    DEALLOCATE(p%edges%loc_index)
+    DEALLOCATE(p%verts%loc_index)
+    ! Allocate it again so that we don't get problems during patch destruction
+    ALLOCATE(p%cells%loc_index(1))
+    ALLOCATE(p%edges%loc_index(1))
+    ALLOCATE(p%verts%loc_index(1))
+
+    ! owner_g is identical everywhere and output only for the first patch
+
+    IF(n>1) THEN
+      DEALLOCATE(p%cells%owner_g)
+      DEALLOCATE(p%edges%owner_g)
+      DEALLOCATE(p%verts%owner_g)
+      ! Allocate it again
+      ALLOCATE(p%cells%owner_g(1))
+      ALLOCATE(p%edges%owner_g(1))
+      ALLOCATE(p%verts%owner_g(1))
+    ENDIF
+
+  END SUBROUTINE discard_large_arrays
+
+  !-----------------------------------------------------------------------------
+
+  SUBROUTINE complete_parallel_setup
+
+    INTEGER :: jg, jgp
+
+    DO jg = n_dom_start, n_dom
+
+      jgp = p_patch(jg)%parent_id
+
+      ! Set communication patterns for boundary exchange
+      CALL set_comm_pat_bound_exch(p_patch(jg))
+
+      ! Set communication patterns for gathering on proc 0
+      CALL set_comm_pat_gather(p_patch(jg))
+
+      ! Fill the owner_local value
+      CALL fill_owner_local(p_patch(jg))
+
+      CALL set_owner_mask(p_patch(jg))
+
+      IF(jg == n_dom_start) THEN
+
+        ! parent_idx/blk is set to 0 since it just doesn't exist,
+        ! child_idx/blk is set to 0 since it makes sense only on the local parent
+        p_patch(jg)%cells%parent_idx = 0
+        p_patch(jg)%cells%parent_blk = 0
+        p_patch(jg)%cells%child_idx  = 0
+        p_patch(jg)%cells%child_blk  = 0
+        p_patch(jg)%edges%parent_idx = 0
+        p_patch(jg)%edges%parent_blk = 0
+        p_patch(jg)%edges%child_idx  = 0
+        p_patch(jg)%edges%child_blk  = 0
+
+      ELSE
+
+        CALL setup_comm_cpy_interpolation(p_patch(jg), p_patch(jgp))
+        CALL setup_comm_grf_interpolation(p_patch(jg), p_patch(jgp))
+        CALL setup_comm_ubc_interpolation(p_patch(jg), p_patch(jgp))
+
+        CALL set_comm_pat_bound_exch(p_patch_local_parent(jg))
+        CALL set_comm_pat_gather(p_patch_local_parent(jg))
+
+        CALL set_parent_child_relations(p_patch_local_parent(jg), p_patch(jg))
+
+        CALL set_glb_loc_comm(p_patch(jgp), p_patch_local_parent(jg), &
+          &                   p_patch(jg)%parent_child_index)
+
+        CALL set_owner_mask(p_patch_local_parent(jg))
+      ENDIF
+
+    ENDDO
+
+    CALL set_patch_communicators(p_patch)
+
+  END SUBROUTINE complete_parallel_setup
 
   !-----------------------------------------------------------------------------
 
   SUBROUTINE finalize_decomposition
 
     implicit none
-    integer ist, jg
-    CALL message('mo_subdivision:finalize_decomposition','start')
+    integer jg
 
     ! Remap indices in patches and local parents
 
     DO jg = n_dom_start, n_dom
 
-      wrk_p_patch => p_patch_subdiv(jg)
-      CALL remap_patch_indices
+      CALL remap_patch_indices(p_patch(jg))
 
       IF(jg>n_dom_start) THEN
-        wrk_p_patch => p_patch_local_parent(jg)
-        CALL remap_patch_indices
+        CALL remap_patch_indices(p_patch_local_parent(jg))
       ENDIF
 
     ENDDO
-
-    ! Set pointers to subdivided patches
-
-    p_patch => p_patch_subdiv
-
-    ! The global patches may be discarded now
-
-    DO jg = n_dom_start, n_dom
-      CALL deallocate_basic_patch( p_patch_global(jg) )
-    ENDDO
-    DEALLOCATE( p_patch_global, STAT = ist)
-    IF (ist/=SUCCESS)THEN
-      CALL message('mo_subdivision:decompose_atmo_domain',   &
-                   'deallocation of p_patch_global failed')
-    ENDIF
-
-
-    CALL message('mo_subdivision:finalize_decomposition',   &
-                 'end of domain decomposition')
                  
   END SUBROUTINE finalize_decomposition
 
@@ -638,8 +736,51 @@ CONTAINS
     
   END SUBROUTINE fill_owner_local
  
+  !-----------------------------------------------------------------------------
+  !>
+  !! Sets the owner mask
 
+  SUBROUTINE set_owner_mask(p_patch)
 
+    TYPE(t_patch), INTENT(inout) :: p_patch
+
+    INTEGER :: j, jb, jl, jg
+
+    p_patch%cells%owner_mask = .false.
+    p_patch%edges%owner_mask = .false.
+    p_patch%verts%owner_mask = .false.
+
+    DO j = 1, p_patch%n_patch_cells
+
+      jb = blk_no(j) ! Block index in distributed patch
+      jl = idx_no(j) ! Line  index in distributed patch
+      jg = p_patch%cells%glb_index(j) ! index in global patch
+
+      p_patch%cells%owner_mask(jl,jb) = p_patch%cells%owner_g(jg)==p_pe_work
+
+    ENDDO
+
+    DO j = 1, p_patch%n_patch_edges
+
+      jb = blk_no(j) ! Block index in distributed patch
+      jl = idx_no(j) ! Line  index in distributed patch
+      jg = p_patch%edges%glb_index(j) ! index in global patch
+
+      p_patch%edges%owner_mask(jl,jb) = p_patch%edges%owner_g(jg)==p_pe_work
+
+    ENDDO
+
+    DO j = 1, p_patch%n_patch_verts
+
+      jb = blk_no(j) ! Block index in distributed patch
+      jl = idx_no(j) ! Line  index in distributed patch
+      jg = p_patch%verts%glb_index(j) ! index in global patch
+
+      p_patch%verts%owner_mask(jl,jb) = p_patch%verts%owner_g(jg)==p_pe_work
+
+    ENDDO
+
+  END SUBROUTINE set_owner_mask
 
   !-----------------------------------------------------------------------------
   !>
@@ -667,11 +808,6 @@ CONTAINS
     INTEGER, ALLOCATABLE :: flag_c(:), tmp(:)
 
 !     CHARACTER(filename_max) :: div_file
-
-    !-----------------------------------------------------------------------
-    ! This routine must not be called in a single CPU run
-    IF(my_process_is_mpi_seq()) &
-      & CALL finish('divide_patch','must not be called in a single CPU run')
 
 
     ! Please note: Unfortunatly we cannot use p_io for doing I/O,
@@ -820,45 +956,36 @@ CONTAINS
   !! Sets the owner for the division of the cells of the parent patch
   !! with the same subdivision as the child
 
-  SUBROUTINE divide_parent_cells(p_patch, p_patch_g, cell_owner)
+  SUBROUTINE divide_parent_cells(p_patch_g, cell_owner, cell_owner_p)
 
-    TYPE(t_patch), INTENT(IN) :: p_patch    !> Divided patch for which the parent should be divided
-    TYPE(t_patch), INTENT(IN) :: p_patch_g  !> Global patch to p_patch
-    INTEGER, INTENT(OUT) :: cell_owner(:) !> Output: Cell division for parent.
-                                          !> Must be allocated to n_patch_cells of the global parent
+    TYPE(t_patch), INTENT(IN) :: p_patch_g  !> Global patch for which the parent should be divided
+    INTEGER, INTENT(IN)  :: cell_owner(:)   !> Ownership of cells in p_patch_g
+    INTEGER, INTENT(OUT) :: cell_owner_p(:) !> Output: Cell division for parent.
+                                            !> Must be allocated to n_patch_cells of the global parent
 
-    INTEGER :: j, jl, jb, jl_p, jb_p
-    INTEGER :: cnt(SIZE(cell_owner))
+    INTEGER :: j, jl, jb, jp
+    INTEGER :: cnt(SIZE(cell_owner_p))
 
-    cell_owner(:) = -1
+    cell_owner_p(:) = -1
     cnt(:) = 0
 
     DO j = 1, p_patch_g%n_patch_cells
 
       jb = blk_no(j) ! block index
       jl = idx_no(j) ! line index
-      jl_p = p_patch_g%cells%parent_idx(jl,jb)
-      jb_p = p_patch_g%cells%parent_blk(jl,jb)
+      jp = idx_1d(p_patch_g%cells%parent_idx(jl,jb), p_patch_g%cells%parent_blk(jl,jb))
 
-      IF(cell_owner(idx_1d(jl_p,jb_p)) < 0) THEN
-        cell_owner(idx_1d(jl_p,jb_p)) = p_patch%cells%owner_g(j)
-      ELSEIF(cell_owner(idx_1d(jl_p,jb_p)) /= p_patch%cells%owner_g(j)) THEN
+      IF(cell_owner_p(jp) < 0) THEN
+        cell_owner_p(jp) = cell_owner(j)
+      ELSEIF(cell_owner_p(jp) /= cell_owner(j)) THEN
         CALL finish('divide_parent_cells','Divided parent cell encountered')
       ENDIF
-      cnt(idx_1d(jl_p,jb_p)) = cnt(idx_1d(jl_p,jb_p)) + 1 ! Only for safety check below
+      cnt(jp) = cnt(jp) + 1 ! Only for safety check below
     ENDDO
 
     ! Safety check
     IF(ANY(cnt(:)/=0 .AND. cnt(:)/=4)) &
       & CALL finish('divide_parent_cells','Incomplete parent cell encountered')
-
-  !  IF(p_pe_work==0) THEN
-  !    PRINT '(a,i0,a,i0)','Patch: ',p_patch%id,&
-  !      & ' Total number of parent cells: ',COUNT(cell_owner(:) >= 0)
-  !    DO j = 0, p_n_work-1
-  !      PRINT '(a,i5,a,i8)','PE',j,' # parent cells: ',COUNT(cell_owner(:) == j)
-  !    ENDDO
-  !  ENDIF
 
   END SUBROUTINE divide_parent_cells
 
@@ -880,17 +1007,17 @@ CONTAINS
   !! Initial version by Rainer Johanni, Nov 2009
   !! Changed for usage for parent patch division, Rainer Johanni, Oct 2010
 
-  SUBROUTINE divide_patch(cell_owner, n_boundary_rows, l_compute_grid)
+  SUBROUTINE divide_patch(cell_owner, n_boundary_rows, l_compute_grid, my_proc)
 
     INTEGER, INTENT(IN) :: cell_owner(:)
     INTEGER, INTENT(IN) :: n_boundary_rows
     LOGICAL, INTENT(IN) :: l_compute_grid
+    INTEGER, INTENT(IN) :: my_proc
 
     INTEGER :: n, i, j, jv, je, jl, jb, jl_g, jb_g, jl_e, jb_e, jl_v, jb_v, ilev, iown,   &
                ilc1, ibc1, ilc2, ibc2, ilc3, ibc3, jl_c, jb_c, jc, irlev, ilev1, ilev_st, &
                jg, i_nchdom, irl0, irl1, irl2, irl3
 
-    INTEGER, ALLOCATABLE :: owner_c(:), owner_e(:), owner_v(:)
     INTEGER, ALLOCATABLE :: flag_c(:), flag_e(:), flag_v(:)
     INTEGER, ALLOCATABLE :: flag2_c(:), flag2_e(:), flag2_v(:)
     LOGICAL, ALLOCATABLE :: lcount_c(:), lcount_e(:), lcount_v(:)
@@ -939,8 +1066,8 @@ CONTAINS
 
     ! flag inner cells
 
-    WHERE(cell_owner(:)==p_pe_work) flag_c(:) = 0
-    WHERE(cell_owner(:)==p_pe_work) flag2_c(:) = 0
+    WHERE(cell_owner(:)==my_proc) flag_c(:) = 0
+    WHERE(cell_owner(:)==my_proc) flag2_c(:) = 0
 
     jg = wrk_p_patch_g%id
     i_nchdom = MAX(1,wrk_p_patch_g%n_childdom)
@@ -1200,13 +1327,13 @@ CONTAINS
           jl_e = wrk_p_patch_g%cells%edge_idx(jl,jb,i)
           jb_e = wrk_p_patch_g%cells%edge_blk(jl,jb,i)
           je = idx_1d(jl_e,jb_e)
-          IF (wrk_p_patch%edges%owner_g(je) == p_pe_work) flag2_e(je)=0
+          IF (wrk_p_patch%edges%owner_g(je) == my_proc) flag2_e(je)=0
           IF (.NOT.l_compute_grid .AND. flag2_e(je)==1) flag2_e(je)=0
 
           jl_v = wrk_p_patch_g%cells%vertex_idx(jl,jb,i)
           jb_v = wrk_p_patch_g%cells%vertex_blk(jl,jb,i)
           jv = idx_1d(jl_v, jb_v)
-          IF (wrk_p_patch%verts%owner_g(jv) == p_pe_work) flag2_v(jv)=0
+          IF (wrk_p_patch%verts%owner_g(jv) == my_proc) flag2_v(jv)=0
           IF (.NOT.l_compute_grid .AND. flag2_v(jv)==1) flag2_v(jv)=0
         ENDDO
       ENDIF
@@ -1665,7 +1792,7 @@ CONTAINS
         ANY(wrk_p_patch%cells%end_idx(:,:)  <0) .OR. ANY(wrk_p_patch%cells%end_blk(:,:)  <0)) THEN
       DO j = 1, MAX(1,wrk_p_patch%n_childdom)
         DO i = min_rlcell, max_rlcell
-          write(0,'(a,2i5,2i4,4i7)') 'cells',p_pe_work,wrk_p_patch%id,i,j,     &
+          write(0,'(a,2i5,2i4,4i7)') 'cells',my_proc,wrk_p_patch%id,i,j,     &
             wrk_p_patch%cells%start_blk(i,j),wrk_p_patch%cells%start_idx(i,j), &
             wrk_p_patch%cells%end_blk(i,j),  wrk_p_patch%cells%end_idx(i,j)
         ENDDO
@@ -1677,7 +1804,7 @@ CONTAINS
         ANY(wrk_p_patch%edges%end_idx(:,:)  <0) .OR. ANY(wrk_p_patch%edges%end_blk(:,:)  <0)) THEN
       DO j = 1, MAX(1,wrk_p_patch%n_childdom)
         DO i = min_rledge, max_rledge
-          write(0,'(a,2i5,2i4,4i7)') 'edges',p_pe_work,wrk_p_patch%id,i,j,     &
+          write(0,'(a,2i5,2i4,4i7)') 'edges',my_proc,wrk_p_patch%id,i,j,     &
             wrk_p_patch%edges%start_blk(i,j),wrk_p_patch%edges%start_idx(i,j), &
             wrk_p_patch%edges%end_blk(i,j),  wrk_p_patch%edges%end_idx(i,j)
         ENDDO
@@ -1689,7 +1816,7 @@ CONTAINS
         ANY(wrk_p_patch%verts%end_idx(:,:)  <0) .OR. ANY(wrk_p_patch%verts%end_blk(:,:)  <0)) THEN
       DO j = 1, MAX(1,wrk_p_patch%n_childdom)
         DO i = min_rlvert, max_rlvert
-          write(0,'(a,2i5,2i4,4i7)') 'verts',p_pe_work,wrk_p_patch%id,i,j,     &
+          write(0,'(a,2i5,2i4,4i7)') 'verts',my_proc,wrk_p_patch%id,i,j,     &
             wrk_p_patch%verts%start_blk(i,j),wrk_p_patch%verts%start_idx(i,j), &
             wrk_p_patch%verts%end_blk(i,j),  wrk_p_patch%verts%end_idx(i,j)
         ENDDO
@@ -1697,79 +1824,15 @@ CONTAINS
       CALL finish('divide_patch','Error in vertex start/end indices')
     ENDIF
 
-
-    !-----------------------------------------------------------------------------------------------
-    ! Set up communication patterns
-    !-----------------------------------------------------------------------------------------------
-
-    ALLOCATE(owner_c(wrk_p_patch%n_patch_cells))
-    ALLOCATE(owner_e(wrk_p_patch%n_patch_edges))
-    ALLOCATE(owner_v(wrk_p_patch%n_patch_verts))
-
-    ! Set the owner arrays for cells/edges/verts which have to be transferred.
-    ! The following setting always transfers edges/verts if they are owned
-    ! (according to the MIN/MAX PE setting above) by another PE, which implies
-    ! that boundary edges/verts (with flag2_e/flag2_v = 1) can be excluded from
-    ! prognostic computations if they are followed by a synchronization call.
-
-    owner_c(:) = wrk_p_patch%cells%owner_g(wrk_p_patch%cells%glb_index(:))
-    WHERE(owner_c(:) == p_pe_work) owner_c(:) = -1
-
-    owner_e(:) = wrk_p_patch%edges%owner_g(wrk_p_patch%edges%glb_index(:))
-    WHERE(owner_e(:) == p_pe_work) owner_e(:) = -1
-
-    owner_v(:) = wrk_p_patch%verts%owner_g(wrk_p_patch%verts%glb_index(:))
-    WHERE(owner_v(:) == p_pe_work) owner_v(:) = -1
-
-    ! Set communication patterns for boundary exchange
-    CALL setup_comm_pattern(wrk_p_patch%n_patch_cells, owner_c, wrk_p_patch%cells%glb_index, &
-      & wrk_p_patch%cells%loc_index, wrk_p_patch%comm_pat_c)
-
-    CALL setup_comm_pattern(wrk_p_patch%n_patch_edges, owner_e, wrk_p_patch%edges%glb_index, &
-      & wrk_p_patch%edges%loc_index, wrk_p_patch%comm_pat_e)
-
-    CALL setup_comm_pattern(wrk_p_patch%n_patch_verts, owner_v, wrk_p_patch%verts%glb_index, &
-      & wrk_p_patch%verts%loc_index, wrk_p_patch%comm_pat_v)
-
-    DEALLOCATE(owner_c, owner_e, owner_v)
-
-    ! Set reduced communication pattern containing only level-1 halo cells (immediate neighbors)
-    jc = idx_1d(wrk_p_patch%cells%end_idx(min_rlcell_int-1,1), &
-                wrk_p_patch%cells%end_blk(min_rlcell_int-1,1))
-    ALLOCATE(owner_c(jc))
-    owner_c(1:jc) = wrk_p_patch%cells%owner_g(wrk_p_patch%cells%glb_index(1:jc))
-    WHERE(owner_c(:) == p_pe_work) owner_c(:) = -1
-
-    CALL setup_comm_pattern(jc, owner_c, wrk_p_patch%cells%glb_index, &
-      & wrk_p_patch%cells%loc_index, wrk_p_patch%comm_pat_c1)
-
-    DEALLOCATE(owner_c)
-
-    ! For gathering the global fields on p_pe_work==0
-    CALL set_comm_pat_gather(wrk_p_patch)
-
     !-----------------------------------------------------------------------------------------------
     ! Set arrays of divided patch
     !-----------------------------------------------------------------------------------------------
 
     ! decomp_domain is -1 for invalid locations (at the end of the last strip)
-    ! owner_mask is set to .FALSE.
 
     wrk_p_patch%cells%decomp_domain = -1
     wrk_p_patch%edges%decomp_domain = -1
     wrk_p_patch%verts%decomp_domain = -1
-    wrk_p_patch%cells%owner_mask = .false.
-    wrk_p_patch%edges%owner_mask = .false.
-    wrk_p_patch%verts%owner_mask = .false.
-
-    ! parent_idx/blk, child_idx/blk/id are set later (where it makes sense)
-    ! just set all to 0 here
-
-    wrk_p_patch%cells%parent_idx = 0
-    wrk_p_patch%cells%parent_blk = 0
-    wrk_p_patch%cells%child_idx  = 0
-    wrk_p_patch%cells%child_blk  = 0
-    wrk_p_patch%cells%child_id   = 0
 
     !---------------------------------------------------------------------------------------
 
@@ -1780,6 +1843,16 @@ CONTAINS
 
       jb_g = blk_no(wrk_p_patch%cells%glb_index(j)) ! Block index in global patch
       jl_g = idx_no(wrk_p_patch%cells%glb_index(j)) ! Line  index in global patch
+
+      ! parent_idx/parent_blk and child_idx/child_blk still point to the global values.
+      ! This will be changed in set_parent_child_relations.
+
+      wrk_p_patch%cells%parent_idx(jl,jb)  = wrk_p_patch_g%cells%parent_idx(jl_g,jb_g)
+      wrk_p_patch%cells%parent_blk(jl,jb)  = wrk_p_patch_g%cells%parent_blk(jl_g,jb_g)
+      wrk_p_patch%cells%pc_idx(jl,jb)      = wrk_p_patch_g%cells%pc_idx(jl_g,jb_g)
+      wrk_p_patch%cells%child_idx(jl,jb,:) = wrk_p_patch_g%cells%child_idx(jl_g,jb_g,:)
+      wrk_p_patch%cells%child_blk(jl,jb,:) = wrk_p_patch_g%cells%child_blk(jl_g,jb_g,:)
+      wrk_p_patch%cells%child_id (jl,jb)   = wrk_p_patch_g%cells%child_id(jl_g,jb_g)
 
       DO i=1,wrk_p_patch%cell_type
 
@@ -1816,11 +1889,8 @@ CONTAINS
       wrk_p_patch%cells%refin_ctrl(jl,jb)         = wrk_p_patch_g%cells%refin_ctrl(jl_g,jb_g)
       wrk_p_patch%cells%child_id(jl,jb)           = wrk_p_patch_g%cells%child_id(jl_g,jb_g)
       wrk_p_patch%cells%decomp_domain(jl,jb)      = flag2_c(wrk_p_patch%cells%glb_index(j))
-      wrk_p_patch%cells%owner_mask(jl,jb)         = &
-        & wrk_p_patch%cells%owner_g(idx_1d(jl_g,jb_g)) == p_pe_work
 
     ENDDO
-
 
     !---------------------------------------------------------------------------------------
 
@@ -1832,13 +1902,18 @@ CONTAINS
       jb_g = blk_no(wrk_p_patch%edges%glb_index(j)) ! Block index in global patch
       jl_g = idx_no(wrk_p_patch%edges%glb_index(j)) ! Line  index in global patch
 
-      wrk_p_patch%edges%refin_ctrl(jl,jb)            =&
-        & wrk_p_patch_g%edges%refin_ctrl(jl_g,jb_g)
-      wrk_p_patch%edges%child_id(jl,jb)              =&
-        & wrk_p_patch_g%edges%child_id(jl_g,jb_g)
-      wrk_p_patch%edges%decomp_domain(jl,jb)         =flag2_e(wrk_p_patch%edges%glb_index(j))
-      wrk_p_patch%edges%owner_mask(jl,jb)         = &
-        & wrk_p_patch%edges%owner_g(idx_1d(jl_g,jb_g))==p_pe_work
+      ! parent_idx/parent_blk and child_idx/child_blk still point to the global values.
+      ! This will be changed in set_parent_child_relations.
+
+      wrk_p_patch%edges%parent_idx(jl,jb)    = wrk_p_patch_g%edges%parent_idx(jl_g,jb_g)
+      wrk_p_patch%edges%parent_blk(jl,jb)    = wrk_p_patch_g%edges%parent_blk(jl_g,jb_g)
+      wrk_p_patch%edges%pc_idx(jl,jb)        = wrk_p_patch_g%edges%pc_idx(jl_g,jb_g)
+      wrk_p_patch%edges%child_idx(jl,jb,:)   = wrk_p_patch_g%edges%child_idx(jl_g,jb_g,:)
+      wrk_p_patch%edges%child_blk(jl,jb,:)   = wrk_p_patch_g%edges%child_blk(jl_g,jb_g,:)
+      wrk_p_patch%edges%child_id (jl,jb)     = wrk_p_patch_g%edges%child_id(jl_g,jb_g)
+
+      wrk_p_patch%edges%refin_ctrl(jl,jb)    = wrk_p_patch_g%edges%refin_ctrl(jl_g,jb_g)
+      wrk_p_patch%edges%decomp_domain(jl,jb) = flag2_e(wrk_p_patch%edges%glb_index(j))
 
     ENDDO
 
@@ -1852,17 +1927,385 @@ CONTAINS
       jb_g = blk_no(wrk_p_patch%verts%glb_index(j)) ! Block index in global patch
       jl_g = idx_no(wrk_p_patch%verts%glb_index(j)) ! Line  index in global patch
 
-      wrk_p_patch%verts%vertex(jl,jb)             = wrk_p_patch_g%verts%vertex(jl_g,jb_g)
-      wrk_p_patch%verts%refin_ctrl(jl,jb)         = wrk_p_patch_g%verts%refin_ctrl(jl_g,jb_g)
-      wrk_p_patch%verts%decomp_domain(jl,jb)      = flag2_v(wrk_p_patch%verts%glb_index(j))
-      wrk_p_patch%verts%owner_mask(jl,jb)         = &
-        & wrk_p_patch%verts%owner_g(idx_1d(jl_g,jb_g)) == p_pe_work
+      wrk_p_patch%verts%vertex(jl,jb)        = wrk_p_patch_g%verts%vertex(jl_g,jb_g)
+      wrk_p_patch%verts%refin_ctrl(jl,jb)    = wrk_p_patch_g%verts%refin_ctrl(jl_g,jb_g)
+      wrk_p_patch%verts%decomp_domain(jl,jb) = flag2_v(wrk_p_patch%verts%glb_index(j))
 
     ENDDO
 
     DEALLOCATE(flag_c, flag_e, flag_v, flag2_c, flag2_e, flag2_v, lcount_c, lcount_e, lcount_v)
 
   END SUBROUTINE divide_patch
+  !-------------------------------------------------------------------------------------------------
+  !>
+  !! Remaps negative index entries to valid ones
+  !!
+
+  SUBROUTINE remap_patch_indices(p_patch)
+
+    TYPE(t_patch), INTENT(INOUT) :: p_patch
+
+    INTEGER :: i, j, jb, jl, ilc1, ibc1, ilc2, ibc2, ilc3, ibc3, irl0, irl1, irl2, irl3
+
+    DO j = 1, p_patch%n_patch_cells
+
+      jb = blk_no(j) ! Block index in distributed patch
+      jl = idx_no(j) ! Line  index in distributed patch
+
+      DO i=1,p_patch%cell_type
+
+        CALL remap_index(p_patch%cells%loc_index, &
+          & p_patch%cells%neighbor_idx(jl,jb,i),      &
+          & p_patch%cells%neighbor_blk(jl,jb,i))
+
+        ! edge_idx and vertex_idx should not need a remap !!!
+        ! This is only left here if there should change something in the decomposition
+        CALL remap_index(p_patch%edges%loc_index, &
+          & p_patch%cells%edge_idx(jl,jb,i),          &
+          & p_patch%cells%edge_blk(jl,jb,i))
+
+        CALL remap_index(p_patch%verts%loc_index, &
+          & p_patch%cells%vertex_idx(jl,jb,i),        &
+          & p_patch%cells%vertex_blk(jl,jb,i))
+
+      ENDDO
+    ENDDO
+
+    ! ensure that cells%neighbor_idx lies in the correct grid row along the lateral boundary
+    DO j = 1, p_patch%n_patch_cells
+
+      jb = blk_no(j) ! Block index in distributed patch
+      jl = idx_no(j) ! Line  index in distributed patch
+
+      IF (p_patch%cells%refin_ctrl(jl,jb) > 0 .AND.             &
+          p_patch%cells%refin_ctrl(jl,jb) <= grf_bdywidth_c) THEN
+
+        ilc1 = p_patch%cells%neighbor_idx(jl,jb,1)
+        ibc1 = p_patch%cells%neighbor_blk(jl,jb,1)
+        ilc2 = p_patch%cells%neighbor_idx(jl,jb,2)
+        ibc2 = p_patch%cells%neighbor_blk(jl,jb,2)
+        ilc3 = p_patch%cells%neighbor_idx(jl,jb,3)
+        ibc3 = p_patch%cells%neighbor_blk(jl,jb,3)
+
+        irl0 = p_patch%cells%refin_ctrl(jl,jb)
+
+        IF (ilc1 > 0 .AND. ibc1 > 0) THEN
+          irl1 = p_patch%cells%refin_ctrl(ilc1,ibc1)
+          IF ( irl1 > 0 .AND. ABS(irl0 - irl1) >1 ) THEN
+            p_patch%cells%neighbor_idx(jl,jb,1) = jl
+            p_patch%cells%neighbor_blk(jl,jb,1) = jb
+          ENDIF
+        ENDIF
+
+        IF (ilc2 > 0 .AND. ibc2 > 0) THEN
+          irl2 = p_patch%cells%refin_ctrl(ilc2,ibc2)
+          IF ( irl2 > 0 .AND. ABS(irl0 - irl2) >1 ) THEN
+            p_patch%cells%neighbor_idx(jl,jb,2) = jl
+            p_patch%cells%neighbor_blk(jl,jb,2) = jb
+          ENDIF
+        ENDIF
+
+        IF (ilc3 > 0 .AND. ibc3 > 0) THEN
+          irl3 = p_patch%cells%refin_ctrl(ilc3,ibc3)
+          IF ( irl3 > 0 .AND. ABS(irl0 - irl3) >1 ) THEN
+            p_patch%cells%neighbor_idx(jl,jb,3) = jl
+            p_patch%cells%neighbor_blk(jl,jb,3) = jb
+          ENDIF
+        ENDIF
+
+      ENDIF
+    ENDDO
+
+    !---------------------------------------------------------------------------------------
+
+    DO j = 1,p_patch%n_patch_edges
+
+      jb = blk_no(j) ! Block index in distributed patch
+      jl = idx_no(j) ! Line  index in distributed patch
+
+      DO i=1,2
+        CALL remap_index(p_patch%cells%loc_index, &
+          & p_patch%edges%cell_idx(jl,jb,i),          &
+          & p_patch%edges%cell_blk(jl,jb,i))
+      ENDDO
+
+      DO i=1,4
+        CALL remap_index(p_patch%verts%loc_index, &
+          & p_patch%edges%vertex_idx(jl,jb,i),        &
+          & p_patch%edges%vertex_blk(jl,jb,i))
+      ENDDO
+
+      DO i=1,4
+        CALL remap_index(p_patch%edges%loc_index, &
+          & p_patch%edges%quad_idx(jl,jb,i),          &
+          & p_patch%edges%quad_blk(jl,jb,i))
+      ENDDO
+
+      ! ensure that edges%cell_idx lies in the correct grid row along the lateral boundary
+      IF (p_patch%edges%refin_ctrl(jl,jb) >= 2 .AND.            &
+          p_patch%edges%refin_ctrl(jl,jb) <= grf_bdywidth_e) THEN
+
+        ilc1 = p_patch%edges%cell_idx(jl,jb,1)
+        ibc1 = p_patch%edges%cell_blk(jl,jb,1)
+        ilc2 = p_patch%edges%cell_idx(jl,jb,2)
+        ibc2 = p_patch%edges%cell_blk(jl,jb,2)
+        irl1 = p_patch%cells%refin_ctrl(ilc1,ibc1)
+        irl2 = p_patch%cells%refin_ctrl(ilc2,ibc2)
+
+        IF (MOD(p_patch%edges%refin_ctrl(jl,jb),2)==0) THEN
+          IF (irl1 /= p_patch%edges%refin_ctrl(jl,jb)/2) THEN
+            p_patch%edges%cell_idx(jl,jb,1) = p_patch%edges%cell_idx(jl,jb,2)
+            p_patch%edges%cell_blk(jl,jb,1) = p_patch%edges%cell_blk(jl,jb,2)
+          ENDIF
+          IF (irl2 /= p_patch%edges%refin_ctrl(jl,jb)/2) THEN
+            p_patch%edges%cell_idx(jl,jb,2) = p_patch%edges%cell_idx(jl,jb,1)
+            p_patch%edges%cell_blk(jl,jb,2) = p_patch%edges%cell_blk(jl,jb,1)
+          ENDIF
+        ELSE
+          IF (irl1 /= p_patch%edges%refin_ctrl(jl,jb)/2 .AND. &
+              irl1 /= p_patch%edges%refin_ctrl(jl,jb)/2+1) THEN
+            p_patch%edges%cell_idx(jl,jb,1) = p_patch%edges%cell_idx(jl,jb,2)
+            p_patch%edges%cell_blk(jl,jb,1) = p_patch%edges%cell_blk(jl,jb,2)
+          ENDIF
+          IF (irl2 /= p_patch%edges%refin_ctrl(jl,jb)/2 .AND. &
+              irl2 /= p_patch%edges%refin_ctrl(jl,jb)/2+1) THEN
+            p_patch%edges%cell_idx(jl,jb,2) = p_patch%edges%cell_idx(jl,jb,1)
+            p_patch%edges%cell_blk(jl,jb,2) = p_patch%edges%cell_blk(jl,jb,1)
+          ENDIF
+        ENDIF
+
+      ENDIF
+
+    ENDDO
+
+    !---------------------------------------------------------------------------------------
+
+    DO j = 1,p_patch%n_patch_verts
+
+      jb = blk_no(j) ! Block index in distributed patch
+      jl = idx_no(j) ! Line  index in distributed patch
+
+      DO i=1,9-p_patch%cell_type
+
+        CALL remap_index(p_patch%verts%loc_index, &
+          & p_patch%verts%neighbor_idx(jl,jb,i),      &
+          & p_patch%verts%neighbor_blk(jl,jb,i))
+
+        CALL remap_index(p_patch%edges%loc_index, &
+          & p_patch%verts%edge_idx(jl,jb,i),          &
+          & p_patch%verts%edge_blk(jl,jb,i))
+
+        CALL remap_index(p_patch%cells%loc_index, &
+          & p_patch%verts%cell_idx(jl,jb,i),          &
+          & p_patch%verts%cell_blk(jl,jb,i))
+      ENDDO
+
+    ENDDO
+
+  END SUBROUTINE remap_patch_indices
+
+  !-------------------------------------------------------------------------------------------------
+  !
+  !> Sets parent_idx/blk in child and child_idx/blk in parent patches.
+
+  SUBROUTINE set_parent_child_relations(p_pp, p_pc)
+
+    TYPE(t_patch), INTENT(INOUT) :: p_pp   !> divided local parent patch
+    TYPE(t_patch), INTENT(INOUT) :: p_pc   !> divided child patch
+
+    INTEGER :: i, j, jl, jb, jc, jc_g, jp, jp_g
+
+    ! Before this call, parent_idx/parent_blk and child_idx/child_blk still point to the global values.
+    ! This is changed here.
+
+    ! Attention:
+    ! Only inner cells/edges get a valid child index,
+    ! indexes for boundary cells/edges are not set.
+    ! Therefore when these indexes are used, the code must assure that they are
+    ! used only for inner cells/edges!
+    ! The main reason for this is that - depending on the number of ghost rows -
+    ! there are cells/edges in the parent boundary with missing childs (n_ghost_rows==1)
+
+    ! Set child indices in parent ...
+
+    ! ... cells
+
+    DO j = 1, p_pp%n_patch_cells
+
+      jb = blk_no(j) ! Block index in distributed patch
+      jl = idx_no(j) ! Line  index in distributed patch
+
+      IF(p_pp%cells%decomp_domain(jl,jb)>0) THEN
+        p_pp%cells%child_idx(jl,jb,:) = 0
+        p_pp%cells%child_blk(jl,jb,:) = 0
+        CYCLE
+      ENDIF
+
+      DO i= 1, 4
+        jc_g = idx_1d(p_pp%cells%child_idx(jl,jb,i),p_pp%cells%child_blk(jl,jb,i))
+        IF(jc_g<1 .OR. jc_g>p_pc%n_patch_cells_g) &
+          & CALL finish('set_parent_child_relations','Invalid cell child index in global parent')
+        jc = p_pc%cells%loc_index(jc_g)
+        IF(jc <= 0) &
+          & CALL finish('set_parent_child_relations','cell child index outside child domain')
+        p_pp%cells%child_blk(jl,jb,i) = blk_no(jc)
+        p_pp%cells%child_idx(jl,jb,i) = idx_no(jc)
+      ENDDO
+
+    ENDDO
+
+    ! ... edges
+
+    DO j = 1, p_pp%n_patch_edges
+
+      jb = blk_no(j) ! Block index in distributed patch
+      jl = idx_no(j) ! Line  index in distributed patch
+
+      IF(p_pp%edges%decomp_domain(jl,jb)>1) THEN
+        p_pp%edges%child_idx(jl,jb,:) = 0
+        p_pp%edges%child_blk(jl,jb,:) = 0
+        CYCLE ! only inner edges get a valid parent index
+      ENDIF
+
+      DO i= 1, 4
+
+        IF(i==4 .AND. p_pp%edges%refin_ctrl(jl,jb) == -1) THEN
+          p_pp%edges%child_blk(jl,jb,i) = blk_no(0)
+          p_pp%edges%child_idx(jl,jb,i) = idx_no(0)
+          CYCLE
+        ENDIF
+
+        jc_g = idx_1d(p_pp%edges%child_idx(jl,jb,i),p_pp%edges%child_blk(jl,jb,i))
+        IF(jc_g<1 .OR. jc_g>p_pc%n_patch_edges_g) &
+          & CALL finish('set_parent_child_relations','Inv. edge child index in global parent')
+        jc = p_pc%edges%loc_index(ABS(jc_g))
+        IF(jc <= 0) &
+          & CALL finish('set_parent_child_relations','edge child index outside child domain')
+        p_pp%edges%child_blk(jl,jb,i) = blk_no(jc)
+        p_pp%edges%child_idx(jl,jb,i) = SIGN(idx_no(jc),jc_g)
+      ENDDO
+
+      p_pp%edges%child_id(jl,jb) = p_pc%id
+
+    ENDDO
+
+    ! Set parent indices in child ...
+
+    ! ... cells
+
+    DO j = 1, p_pc%n_patch_cells
+
+      jb = blk_no(j) ! Block index in distributed patch
+      jl = idx_no(j) ! Line  index in distributed patch
+
+      jp_g = idx_1d(p_pc%cells%parent_idx(jl,jb),p_pc%cells%parent_blk(jl,jb))
+      IF(jp_g<1 .OR. jp_g>p_pp%n_patch_cells_g) &
+        & CALL finish('set_parent_child_relations','Inv. cell parent index in global child')
+
+      jp = p_pp%cells%loc_index(jp_g)
+      IF(jp <= 0) THEN
+        p_pc%cells%parent_blk(jl,jb) = 0
+        p_pc%cells%parent_idx(jl,jb) = 0
+      ELSE
+        p_pc%cells%parent_blk(jl,jb) = blk_no(jp)
+        p_pc%cells%parent_idx(jl,jb) = idx_no(jp)
+      ENDIF
+
+    ENDDO
+
+    ! ... edges
+
+    DO j = 1, p_pc%n_patch_edges
+
+      jb = blk_no(j) ! Block index in distributed patch
+      jl = idx_no(j) ! Line  index in distributed patch
+
+      jp_g = idx_1d(p_pc%edges%parent_idx(jl,jb),p_pc%edges%parent_blk(jl,jb))
+      IF(jp_g<1 .OR. jp_g>p_pp%n_patch_edges_g) &
+        & CALL finish('set_parent_child_relations','Inv. edge parent index in global child')
+
+      jp = p_pp%edges%loc_index(jp_g)
+      IF(jp <= 0) THEN
+        p_pc%edges%parent_blk(jl,jb) = 0
+        p_pc%edges%parent_idx(jl,jb) = 0
+      ELSE
+        p_pc%edges%parent_blk(jl,jb) = blk_no(jp)
+        p_pc%edges%parent_idx(jl,jb) = idx_no(jp)
+      ENDIF
+
+    ENDDO
+
+    ! Although this is not really necessary, we set the child index in child
+    ! and the parent index in parent to 0 since these have no significance
+    ! in the parallel code (and must not be used as they are).
+
+    p_pc%cells%child_idx  = 0
+    p_pc%cells%child_blk  = 0
+    p_pp%cells%parent_idx = 0
+    p_pp%cells%parent_blk = 0
+
+    p_pc%edges%child_idx  = 0
+    p_pc%edges%child_blk  = 0
+    p_pp%edges%parent_idx = 0
+    p_pp%edges%parent_blk = 0
+
+  END SUBROUTINE set_parent_child_relations
+
+
+  !-------------------------------------------------------------------------------------------------
+  !> Sets the communication patterns for boundary exchange
+
+  SUBROUTINE set_comm_pat_bound_exch(p)
+
+    TYPE(t_patch), INTENT(INOUT):: p
+
+    INTEGER, ALLOCATABLE :: owner_c(:), owner_e(:), owner_v(:)
+    INTEGER :: jc
+
+    ALLOCATE(owner_c(p%n_patch_cells))
+    ALLOCATE(owner_e(p%n_patch_edges))
+    ALLOCATE(owner_v(p%n_patch_verts))
+
+    ! Set the owner arrays for cells/edges/verts which have to be transferred.
+    ! The following setting always transfers edges/verts if they are owned
+    ! (according to the MIN/MAX PE setting above) by another PE, which implies
+    ! that boundary edges/verts (with flag2_e/flag2_v = 1) can be excluded from
+    ! prognostic computations if they are followed by a synchronization call.
+
+    owner_c(:) = p%cells%owner_g(p%cells%glb_index(:))
+    WHERE(owner_c(:) == p_pe_work) owner_c(:) = -1
+
+    owner_e(:) = p%edges%owner_g(p%edges%glb_index(:))
+    WHERE(owner_e(:) == p_pe_work) owner_e(:) = -1
+
+    owner_v(:) = p%verts%owner_g(p%verts%glb_index(:))
+    WHERE(owner_v(:) == p_pe_work) owner_v(:) = -1
+
+    ! Set communication patterns for boundary exchange
+    CALL setup_comm_pattern(p%n_patch_cells, owner_c, p%cells%glb_index, &
+      & p%cells%loc_index, p%comm_pat_c)
+
+    CALL setup_comm_pattern(p%n_patch_edges, owner_e, p%edges%glb_index, &
+      & p%edges%loc_index, p%comm_pat_e)
+
+    CALL setup_comm_pattern(p%n_patch_verts, owner_v, p%verts%glb_index, &
+      & p%verts%loc_index, p%comm_pat_v)
+
+    DEALLOCATE(owner_c, owner_e, owner_v)
+
+    ! Set reduced communication pattern containing only level-1 halo cells (immediate neighbors)
+    jc = idx_1d(p%cells%end_idx(min_rlcell_int-1,1), &
+                p%cells%end_blk(min_rlcell_int-1,1))
+    ALLOCATE(owner_c(jc))
+    owner_c(1:jc) = p%cells%owner_g(p%cells%glb_index(1:jc))
+    WHERE(owner_c(:) == p_pe_work) owner_c(:) = -1
+
+    CALL setup_comm_pattern(jc, owner_c, p%cells%glb_index, &
+      & p%cells%loc_index, p%comm_pat_c1)
+
+    DEALLOCATE(owner_c)
+
+  END SUBROUTINE set_comm_pat_bound_exch
 
   !-------------------------------------------------------------------------------------------------
   !> Sets the gather communication patterns of a patch
@@ -1914,312 +2357,6 @@ CONTAINS
     DEALLOCATE(tmp)
 
   END SUBROUTINE set_comm_pat_gather
-
-  !-------------------------------------------------------------------------------------------------
-  !>
-  !! Remaps negative index entries to valid ones
-  !!
-
-  SUBROUTINE remap_patch_indices
-
-    INTEGER :: i, j, jb, jl, ilc1, ibc1, ilc2, ibc2, ilc3, ibc3, irl0, irl1, irl2, irl3
-
-    DO j = 1, wrk_p_patch%n_patch_cells
-
-      jb = blk_no(j) ! Block index in distributed patch
-      jl = idx_no(j) ! Line  index in distributed patch
-
-      DO i=1,wrk_p_patch%cell_type
-
-        CALL remap_index(wrk_p_patch%cells%loc_index, &
-          & wrk_p_patch%cells%neighbor_idx(jl,jb,i),      &
-          & wrk_p_patch%cells%neighbor_blk(jl,jb,i))
-
-        ! edge_idx and vertex_idx should not need a remap !!!
-        ! This is only left here if there should change something in the decomposition
-        CALL remap_index(wrk_p_patch%edges%loc_index, &
-          & wrk_p_patch%cells%edge_idx(jl,jb,i),          &
-          & wrk_p_patch%cells%edge_blk(jl,jb,i))
-
-        CALL remap_index(wrk_p_patch%verts%loc_index, &
-          & wrk_p_patch%cells%vertex_idx(jl,jb,i),        &
-          & wrk_p_patch%cells%vertex_blk(jl,jb,i))
-
-      ENDDO
-    ENDDO
-
-    ! ensure that cells%neighbor_idx lies in the correct grid row along the lateral boundary
-    DO j = 1, wrk_p_patch%n_patch_cells
-
-      jb = blk_no(j) ! Block index in distributed patch
-      jl = idx_no(j) ! Line  index in distributed patch
-
-      IF (wrk_p_patch%cells%refin_ctrl(jl,jb) > 0 .AND.             &
-          wrk_p_patch%cells%refin_ctrl(jl,jb) <= grf_bdywidth_c) THEN
-
-        ilc1 = wrk_p_patch%cells%neighbor_idx(jl,jb,1)
-        ibc1 = wrk_p_patch%cells%neighbor_blk(jl,jb,1)
-        ilc2 = wrk_p_patch%cells%neighbor_idx(jl,jb,2)
-        ibc2 = wrk_p_patch%cells%neighbor_blk(jl,jb,2)
-        ilc3 = wrk_p_patch%cells%neighbor_idx(jl,jb,3)
-        ibc3 = wrk_p_patch%cells%neighbor_blk(jl,jb,3)
-
-        irl0 = wrk_p_patch%cells%refin_ctrl(jl,jb)
-
-        IF (ilc1 > 0 .AND. ibc1 > 0) THEN
-          irl1 = wrk_p_patch%cells%refin_ctrl(ilc1,ibc1)
-          IF ( irl1 > 0 .AND. ABS(irl0 - irl1) >1 ) THEN
-            wrk_p_patch%cells%neighbor_idx(jl,jb,1) = jl
-            wrk_p_patch%cells%neighbor_blk(jl,jb,1) = jb
-          ENDIF
-        ENDIF
-
-        IF (ilc2 > 0 .AND. ibc2 > 0) THEN
-          irl2 = wrk_p_patch%cells%refin_ctrl(ilc2,ibc2)
-          IF ( irl2 > 0 .AND. ABS(irl0 - irl2) >1 ) THEN
-            wrk_p_patch%cells%neighbor_idx(jl,jb,2) = jl
-            wrk_p_patch%cells%neighbor_blk(jl,jb,2) = jb
-          ENDIF
-        ENDIF
-
-        IF (ilc3 > 0 .AND. ibc3 > 0) THEN
-          irl3 = wrk_p_patch%cells%refin_ctrl(ilc3,ibc3)
-          IF ( irl3 > 0 .AND. ABS(irl0 - irl3) >1 ) THEN
-            wrk_p_patch%cells%neighbor_idx(jl,jb,3) = jl
-            wrk_p_patch%cells%neighbor_blk(jl,jb,3) = jb
-          ENDIF
-        ENDIF
-
-      ENDIF
-    ENDDO
-
-    !---------------------------------------------------------------------------------------
-
-    DO j = 1,wrk_p_patch%n_patch_edges
-
-      jb = blk_no(j) ! Block index in distributed patch
-      jl = idx_no(j) ! Line  index in distributed patch
-
-      DO i=1,2
-        CALL remap_index(wrk_p_patch%cells%loc_index, &
-          & wrk_p_patch%edges%cell_idx(jl,jb,i),          &
-          & wrk_p_patch%edges%cell_blk(jl,jb,i))
-      ENDDO
-
-      DO i=1,4
-        CALL remap_index(wrk_p_patch%verts%loc_index, &
-          & wrk_p_patch%edges%vertex_idx(jl,jb,i),        &
-          & wrk_p_patch%edges%vertex_blk(jl,jb,i))
-      ENDDO
-
-      DO i=1,4
-        CALL remap_index(wrk_p_patch%edges%loc_index, &
-          & wrk_p_patch%edges%quad_idx(jl,jb,i),          &
-          & wrk_p_patch%edges%quad_blk(jl,jb,i))
-      ENDDO
-
-      ! ensure that edges%cell_idx lies in the correct grid row along the lateral boundary
-      IF (wrk_p_patch%edges%refin_ctrl(jl,jb) >= 2 .AND.            &
-          wrk_p_patch%edges%refin_ctrl(jl,jb) <= grf_bdywidth_e) THEN
-
-        ilc1 = wrk_p_patch%edges%cell_idx(jl,jb,1)
-        ibc1 = wrk_p_patch%edges%cell_blk(jl,jb,1)
-        ilc2 = wrk_p_patch%edges%cell_idx(jl,jb,2)
-        ibc2 = wrk_p_patch%edges%cell_blk(jl,jb,2)
-        irl1 = wrk_p_patch%cells%refin_ctrl(ilc1,ibc1)
-        irl2 = wrk_p_patch%cells%refin_ctrl(ilc2,ibc2)
-
-        IF (MOD(wrk_p_patch%edges%refin_ctrl(jl,jb),2)==0) THEN
-          IF (irl1 /= wrk_p_patch%edges%refin_ctrl(jl,jb)/2) THEN
-            wrk_p_patch%edges%cell_idx(jl,jb,1) = wrk_p_patch%edges%cell_idx(jl,jb,2)
-            wrk_p_patch%edges%cell_blk(jl,jb,1) = wrk_p_patch%edges%cell_blk(jl,jb,2)
-          ENDIF
-          IF (irl2 /= wrk_p_patch%edges%refin_ctrl(jl,jb)/2) THEN
-            wrk_p_patch%edges%cell_idx(jl,jb,2) = wrk_p_patch%edges%cell_idx(jl,jb,1)
-            wrk_p_patch%edges%cell_blk(jl,jb,2) = wrk_p_patch%edges%cell_blk(jl,jb,1)
-          ENDIF
-        ELSE
-          IF (irl1 /= wrk_p_patch%edges%refin_ctrl(jl,jb)/2 .AND. &
-              irl1 /= wrk_p_patch%edges%refin_ctrl(jl,jb)/2+1) THEN
-            wrk_p_patch%edges%cell_idx(jl,jb,1) = wrk_p_patch%edges%cell_idx(jl,jb,2)
-            wrk_p_patch%edges%cell_blk(jl,jb,1) = wrk_p_patch%edges%cell_blk(jl,jb,2)
-          ENDIF
-          IF (irl2 /= wrk_p_patch%edges%refin_ctrl(jl,jb)/2 .AND. &
-              irl2 /= wrk_p_patch%edges%refin_ctrl(jl,jb)/2+1) THEN
-            wrk_p_patch%edges%cell_idx(jl,jb,2) = wrk_p_patch%edges%cell_idx(jl,jb,1)
-            wrk_p_patch%edges%cell_blk(jl,jb,2) = wrk_p_patch%edges%cell_blk(jl,jb,1)
-          ENDIF
-        ENDIF
-
-      ENDIF
-
-    ENDDO
-
-    !---------------------------------------------------------------------------------------
-
-    DO j = 1,wrk_p_patch%n_patch_verts
-
-      jb = blk_no(j) ! Block index in distributed patch
-      jl = idx_no(j) ! Line  index in distributed patch
-
-      DO i=1,9-wrk_p_patch%cell_type
-
-        CALL remap_index(wrk_p_patch%verts%loc_index, &
-          & wrk_p_patch%verts%neighbor_idx(jl,jb,i),      &
-          & wrk_p_patch%verts%neighbor_blk(jl,jb,i))
-
-        CALL remap_index(wrk_p_patch%edges%loc_index, &
-          & wrk_p_patch%verts%edge_idx(jl,jb,i),          &
-          & wrk_p_patch%verts%edge_blk(jl,jb,i))
-
-        CALL remap_index(wrk_p_patch%cells%loc_index, &
-          & wrk_p_patch%verts%cell_idx(jl,jb,i),          &
-          & wrk_p_patch%verts%cell_blk(jl,jb,i))
-      ENDDO
-
-    ENDDO
-
-  END SUBROUTINE remap_patch_indices
-
-  !-------------------------------------------------------------------------------------------------
-  !
-  !> Sets parent_idx/blk in child and child_idx/blk in parent patches.
-
-  SUBROUTINE set_parent_child_relations(p_pp, p_pc, p_pp_g, p_pc_g)
-
-    TYPE(t_patch), INTENT(INOUT) :: p_pp   !> divided parent patch
-    TYPE(t_patch), INTENT(INOUT) :: p_pc   !> divided child patch
-    TYPE(t_patch), INTENT(INOUT) :: p_pp_g !> global parent patch
-    TYPE(t_patch), INTENT(INOUT) :: p_pc_g !> global child patch
-
-    INTEGER :: i, j, jl, jb, jl_g, jb_g, jc, jc_g, jp, jp_g
-
-    ! Attention:
-    ! Only inner cells/edges get a valid child index,
-    ! indexes for boundary cells/edges are not set.
-    ! Therefore when these indexes are used, the code must assure that they are
-    ! used only for inner cells/edges!
-    ! The main reason for this is that - depending on the number of ghost rows -
-    ! there are cells/edges in the parent boundary with missing childs (n_ghost_rows==1)
-
-    ! Set child indices in parent ...
-
-    ! ... cells
-
-    DO j = 1, p_pp%n_patch_cells
-
-      jb = blk_no(j) ! Block index in distributed patch
-      jl = idx_no(j) ! Line  index in distributed patch
-
-      IF(p_pp%cells%decomp_domain(jl,jb)>0) CYCLE ! only inner cells get a valid parent index
-
-      jb_g = blk_no(p_pp%cells%glb_index(j)) ! Block index in global patch
-      jl_g = idx_no(p_pp%cells%glb_index(j)) ! Line  index in global patch
-
-      DO i= 1, 4
-        jc_g = idx_1d(p_pp_g%cells%child_idx(jl_g,jb_g,i),p_pp_g%cells%child_blk(jl_g,jb_g,i))
-        IF(jc_g<1 .OR. jc_g>p_pc%n_patch_cells_g) &
-          & CALL finish('set_parent_child_relations','Invalid cell child index in global parent')
-        jc = p_pc%cells%loc_index(jc_g)
-        IF(jc <= 0) &
-          & CALL finish('set_parent_child_relations','cell child index outside child domain')
-        p_pp%cells%child_blk(jl,jb,i) = blk_no(jc)
-        p_pp%cells%child_idx(jl,jb,i) = idx_no(jc)
-      ENDDO
-
-      ! Check child_id, it must be p_pc%id
-
-      IF(p_pp_g%cells%child_id(jl_g,jb_g) /= p_pc%id) &
-        & CALL finish('set_parent_child_relations','Invalid cell child ID in global parent')
-
-      p_pp%cells%child_id(jl,jb) = p_pc%id
-
-    ENDDO
-
-    ! ... edges
-
-    DO j = 1, p_pp%n_patch_edges
-
-      jb = blk_no(j) ! Block index in distributed patch
-      jl = idx_no(j) ! Line  index in distributed patch
-
-      IF(p_pp%edges%decomp_domain(jl,jb)>1) CYCLE ! only inner edges get a valid parent index
-
-      jb_g = blk_no(p_pp%edges%glb_index(j)) ! Block index in global patch
-      jl_g = idx_no(p_pp%edges%glb_index(j)) ! Line  index in global patch
-
-      DO i= 1, 4
-
-        IF(i==4 .AND. p_pp_g%edges%refin_ctrl(jl_g,jb_g) == -1) THEN
-          p_pp%edges%child_blk(jl,jb,i) = blk_no(0)
-          p_pp%edges%child_idx(jl,jb,i) = idx_no(0)
-          CYCLE
-        ENDIF
-
-        jc_g = idx_1d(p_pp_g%edges%child_idx(jl_g,jb_g,i),p_pp_g%edges%child_blk(jl_g,jb_g,i))
-        IF(ABS(jc_g)<1 .OR. ABS(jc_g)>p_pc%n_patch_edges_g) &
-          & CALL finish('set_parent_child_relations','Inv. edge child index in global parent')
-        jc = p_pc%edges%loc_index(ABS(jc_g))
-        IF(jc <= 0) &
-          & CALL finish('set_parent_child_relations','edge child index outside child domain')
-        p_pp%edges%child_blk(jl,jb,i) = blk_no(jc)
-        p_pp%edges%child_idx(jl,jb,i) = SIGN(idx_no(jc),jc_g)
-      ENDDO
-
-      ! Check child_id, it must be p_pc%id
-
-      IF(p_pp_g%edges%child_id(jl_g,jb_g) /= p_pc%id) &
-        & CALL finish('set_parent_child_relations','Invalid edge child ID in global parent')
-
-      p_pp%edges%child_id(jl,jb) = p_pc%id
-
-    ENDDO
-
-    ! Set parent indices in child ...
-
-    ! ... cells
-
-    DO j = 1, p_pc%n_patch_cells
-
-      jb = blk_no(j) ! Block index in distributed patch
-      jl = idx_no(j) ! Line  index in distributed patch
-
-      jb_g = blk_no(p_pc%cells%glb_index(j)) ! Block index in global patch
-      jl_g = idx_no(p_pc%cells%glb_index(j)) ! Line  index in global patch
-
-      jp_g = idx_1d(p_pc_g%cells%parent_idx(jl_g,jb_g),p_pc_g%cells%parent_blk(jl_g,jb_g))
-      IF(jp_g<1 .OR. jp_g>p_pp%n_patch_cells_g) &
-        & CALL finish('set_parent_child_relations','Inv. cell parent index in global child')
-
-      jp = p_pp%cells%loc_index(jp_g)
-      IF(jp <= 0) CYCLE
-      p_pc%cells%parent_blk(jl,jb) = blk_no(jp)
-      p_pc%cells%parent_idx(jl,jb) = idx_no(jp)
-
-    ENDDO
-
-    ! ... edges
-
-    DO j = 1, p_pc%n_patch_edges
-
-      jb = blk_no(j) ! Block index in distributed patch
-      jl = idx_no(j) ! Line  index in distributed patch
-
-      jb_g = blk_no(p_pc%edges%glb_index(j)) ! Block index in global patch
-      jl_g = idx_no(p_pc%edges%glb_index(j)) ! Line  index in global patch
-
-      jp_g = idx_1d(p_pc_g%edges%parent_idx(jl_g,jb_g),p_pc_g%edges%parent_blk(jl_g,jb_g))
-      IF(jp_g<1 .OR. jp_g>p_pp%n_patch_edges_g) &
-        & CALL finish('set_parent_child_relations','Inv. edge parent index in global child')
-
-      jp = p_pp%edges%loc_index(jp_g)
-      IF(jp <= 0) CYCLE
-      p_pc%edges%parent_blk(jl,jb) = blk_no(jp)
-      p_pc%edges%parent_idx(jl,jb) = idx_no(jp)
-
-    ENDDO
-
-  END SUBROUTINE set_parent_child_relations
 
   !-------------------------------------------------------------------------------------------------
   !
@@ -2382,15 +2519,12 @@ CONTAINS
   !!
   !! @par Revision History
   !! Initial version by Rainer Johanni, Nov 2009
-  SUBROUTINE setup_comm_cpy_interpolation()
+  SUBROUTINE setup_comm_cpy_interpolation(p_patch, p_parent_patch)
 
-    INTEGER :: j, jc, jb
+    TYPE(t_patch), INTENT(INOUT) :: p_patch, p_parent_patch
 
-    INTEGER, ALLOCATABLE :: parent_index(:,:), owner(:), glb_index(:)
-    INTEGER ici1, icb1, ici2, icb2, ici3, icb3, ici4, icb4, jl_g, jb_g
-    INTEGER i_chidx, i_startblk, i_endblk, i_startidx, i_endidx
-
-    TYPE(t_grid_cells), POINTER::p_gcp => NULL()
+    INTEGER :: j, jc, jb, jp, p_index_s, p_index_e, i_chidx
+    INTEGER, ALLOCATABLE :: owner(:), glb_index(:)
 
     !-----------------------------------------------------------------------
 
@@ -2398,71 +2532,51 @@ CONTAINS
     IF(my_process_is_mpi_seq()) &
       & CALL finish('setup_comm_cpy_interpolation','must not be called in a single CPU run')
 
-    i_chidx = wrk_p_patch%parent_child_index
+    i_chidx = p_patch%parent_child_index
 
     !--------------------------------------------------------------------
     ! Cells
 
-    ! Assign the global parent index (1D) to every cell in the interpolation zone
-    ! of the global patch (in parent_index).
-    ! This is done in the same way as in mo_hierarchy_management/interpolate_tendencies.
+    ! Get start and end index of the GLOBAL parent cells as used in the interpolation
 
-    ALLOCATE(parent_index(nproma,wrk_p_patch%n_patch_cells_g/nproma+1)) ! spans GLOBAL patch
-    parent_index = 0
+    p_index_s = idx_1d(p_parent_patch%cells%start_idx(grf_bdyintp_start_c,i_chidx), &
+                       p_parent_patch%cells%start_blk(grf_bdyintp_start_c,i_chidx))
+    p_index_e = idx_1d(p_parent_patch%cells%end_idx(grf_bdyintp_end_c,i_chidx), &
+                       p_parent_patch%cells%end_blk(grf_bdyintp_end_c,i_chidx))
+    IF(p_index_s <= p_index_e) THEN
+      p_index_s = p_parent_patch%cells%glb_index(p_index_s)
+      p_index_e = p_parent_patch%cells%glb_index(p_index_e)
+    ELSE
+      p_index_s =  HUGE(0)
+      p_index_e = -HUGE(0)
+    ENDIF
+    p_index_s = p_min(p_index_s, p_comm_work)
+    p_index_e = p_max(p_index_e, p_comm_work)
 
-    p_gcp => wrk_p_parent_patch_g%cells
+    ! For our local child patch, gather which cells receive values from which parent cell
 
-    ! Start and end blocks for which interpolation is needed
-    i_startblk = p_gcp%start_blk(grf_bdyintp_start_c,i_chidx)
-    i_endblk   = p_gcp%end_blk(grf_bdyintp_end_c,i_chidx)
+    ALLOCATE(glb_index(p_patch%n_patch_cells))
+    ALLOCATE(owner(p_patch%n_patch_cells))
 
-    DO jb =  i_startblk, i_endblk
+    glb_index(:) = -1
+    owner(:)     = -1
 
-      CALL get_indices_c(wrk_p_parent_patch_g, jb, i_startblk, i_endblk, &
-        & i_startidx, i_endidx, grf_bdyintp_start_c, grf_bdyintp_end_c, i_chidx)
-      DO jc = i_startidx, i_endidx
-
-        ici1 = p_gcp%child_idx(jc,jb,1)
-        icb1 = p_gcp%child_blk(jc,jb,1)
-        ici2 = p_gcp%child_idx(jc,jb,2)
-        icb2 = p_gcp%child_blk(jc,jb,2)
-        ici3 = p_gcp%child_idx(jc,jb,3)
-        icb3 = p_gcp%child_blk(jc,jb,3)
-        ici4 = p_gcp%child_idx(jc,jb,4)
-        icb4 = p_gcp%child_blk(jc,jb,4)
-
-        parent_index(ici1,icb1) = idx_1d(jc,jb)
-        parent_index(ici2,icb2) = idx_1d(jc,jb)
-        parent_index(ici3,icb3) = idx_1d(jc,jb)
-        parent_index(ici4,icb4) = idx_1d(jc,jb)
-
-      ENDDO
-    ENDDO
-
-    ! Now, for our local child patch, gather which cells receive values from which parent cell
-
-    ALLOCATE(glb_index(wrk_p_patch%n_patch_cells))
-    ALLOCATE(owner(wrk_p_patch%n_patch_cells))
-
-    DO j = 1,wrk_p_patch%n_patch_cells
-      jl_g = idx_no(wrk_p_patch%cells%glb_index(j))
-      jb_g = blk_no(wrk_p_patch%cells%glb_index(j))
-      IF(parent_index(jl_g,jb_g) /= 0) THEN
-        owner(j) = wrk_p_parent_patch%cells%owner_g(ABS(parent_index(jl_g,jb_g)))
-        glb_index(j) = parent_index(jl_g,jb_g)
-      ELSE
-        owner(j) = -1
-        glb_index(j) = -1
-      ENDIF
+    DO j = 1, p_patch%n_patch_cells
+      jc = idx_no(j)
+      jb = blk_no(j)
+      jp = idx_1d(p_patch%cells%parent_idx(jc,jb),p_patch%cells%parent_blk(jc,jb))
+      IF(jp<p_index_s .OR. jp>p_index_e) CYCLE
+      glb_index(j) = jp
+      owner(j) = p_parent_patch%cells%owner_g(jp)
     ENDDO
 
     ! Set up communication pattern
 
-    CALL setup_comm_pattern(wrk_p_patch%n_patch_cells, owner, glb_index,  &
-      & wrk_p_parent_patch%cells%loc_index, &
-      & wrk_p_patch%comm_pat_interpolation_c)
+    CALL setup_comm_pattern(p_patch%n_patch_cells, owner, glb_index,  &
+      & p_parent_patch%cells%loc_index, &
+      & p_patch%comm_pat_interpolation_c)
 
-    DEALLOCATE(parent_index, owner, glb_index)
+    DEALLOCATE(owner, glb_index)
 
   END SUBROUTINE setup_comm_cpy_interpolation
 
@@ -2473,15 +2587,12 @@ CONTAINS
   !!
   !! @par Revision History
   !! Initial version by Rainer Johanni, Nov 2009
-  SUBROUTINE setup_comm_grf_interpolation()
+  SUBROUTINE setup_comm_grf_interpolation(p_patch, p_parent_patch)
 
-    INTEGER :: j, n, jc, je, jb, jl_g, jb_g
+    TYPE(t_patch), INTENT(INOUT) :: p_patch, p_parent_patch
 
-    INTEGER, ALLOCATABLE :: parent_index(:,:), owner(:), glb_index(:)
-    INTEGER ici1, icb1, ici2, icb2, ici3, icb3, ici4, icb4
-    INTEGER i_chidx, i_startblk, i_endblk, i_startidx, i_endidx
-
-    TYPE(t_patch), POINTER:: ptr_pp
+    INTEGER :: j, n, jc, je, jb, jp, p_index_s, p_index_e, i_chidx
+    INTEGER, ALLOCATABLE :: owner(:), glb_index(:)
 
     !-----------------------------------------------------------------------
 
@@ -2489,154 +2600,105 @@ CONTAINS
     IF(my_process_is_mpi_seq()) &
       & CALL finish('setup_comm_grf_interpolation','must not be called in a single CPU run')
 
-    i_chidx = wrk_p_patch%parent_child_index
+    i_chidx = p_patch%parent_child_index
 
     !--------------------------------------------------------------------
     ! Cells
 
-    ! Assign the global parent index (1D) to every cell in the interpolation zone
-    ! of the global patch (in parent_index).
-    ! This is done in the same way as in mo_grf_interpolation/interpol_scal_grf.
-    ! parent_index also gets the info about the number of the child in the parent.
+    ! Start and end index of the GLOBAL parent cells as used in the interpolation
+    p_index_s = idx_1d(p_parent_patch%cells%start_idx(grf_bdyintp_start_c,i_chidx), &
+                       p_parent_patch%cells%start_blk(grf_bdyintp_start_c,i_chidx))
+    p_index_e = idx_1d(p_parent_patch%cells%end_idx(grf_bdyintp_end_c,i_chidx), &
+                       p_parent_patch%cells%end_blk(grf_bdyintp_end_c,i_chidx))
+    IF(p_index_s <= p_index_e) THEN
+      p_index_s = p_parent_patch%cells%glb_index(p_index_s)
+      p_index_e = p_parent_patch%cells%glb_index(p_index_e)
+    ELSE
+      p_index_s =  HUGE(0)
+      p_index_e = -HUGE(0)
+    ENDIF
+    p_index_s = p_min(p_index_s, p_comm_work)
+    p_index_e = p_max(p_index_e, p_comm_work)
 
-    ALLOCATE(parent_index(nproma,wrk_p_patch%n_patch_cells_g/nproma+1)) ! spans GLOBAL patch
-    parent_index = 0
-
-    ptr_pp => wrk_p_parent_patch_g
-
-    i_startblk = ptr_pp%cells%start_blk(grf_bdyintp_start_c,i_chidx)
-    i_endblk   = ptr_pp%cells%end_blk(grf_bdyintp_end_c,i_chidx)
-
-    DO jb =  i_startblk, i_endblk
-
-      CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, &
-        & i_startidx, i_endidx, grf_bdyintp_start_c, grf_bdyintp_end_c, i_chidx)
-
-      DO jc = i_startidx, i_endidx
-
-        ici1 = ptr_pp%cells%child_idx(jc,jb,1)
-        icb1 = ptr_pp%cells%child_blk(jc,jb,1)
-        ici2 = ptr_pp%cells%child_idx(jc,jb,2)
-        icb2 = ptr_pp%cells%child_blk(jc,jb,2)
-        ici3 = ptr_pp%cells%child_idx(jc,jb,3)
-        icb3 = ptr_pp%cells%child_blk(jc,jb,3)
-        ici4 = ptr_pp%cells%child_idx(jc,jb,4)
-        icb4 = ptr_pp%cells%child_blk(jc,jb,4)
-
-        parent_index(ici1,icb1) = idx_1d(jc,jb)*4 + 0
-        parent_index(ici2,icb2) = idx_1d(jc,jb)*4 + 1
-        parent_index(ici3,icb3) = idx_1d(jc,jb)*4 + 2
-        parent_index(ici4,icb4) = idx_1d(jc,jb)*4 + 3
-
-      ENDDO
-    ENDDO
-
-    ! Now, for our local child patch, gather which cells receive values from which parent cell
+    ! For our local child patch, gather which cells receive values from which parent cell
     ! This is done once for every of the four child cells
 
-    ALLOCATE(glb_index(wrk_p_patch%n_patch_cells))
-    ALLOCATE(owner(wrk_p_patch%n_patch_cells))
+    ALLOCATE(glb_index(p_patch%n_patch_cells))
+    ALLOCATE(owner(p_patch%n_patch_cells))
 
     DO n = 1, 4
 
-      DO j = 1,wrk_p_patch%n_patch_cells
-        jl_g = idx_no(wrk_p_patch%cells%glb_index(j))
-        jb_g = blk_no(wrk_p_patch%cells%glb_index(j))
-        IF(parent_index(jl_g,jb_g) /= 0 .and.     &
-          & MOD(parent_index(jl_g,jb_g),4) == n-1) THEN
-          owner(j) = wrk_p_parent_patch%cells%owner_g(parent_index(jl_g,jb_g)/4)
-          glb_index(j) = parent_index(jl_g,jb_g)/4
-        ELSE
-          owner(j) = -1
-          glb_index(j) = -1
-        ENDIF
+      glb_index(:) = -1
+      owner(:)     = -1
+
+      DO j = 1,p_patch%n_patch_cells
+        jc = idx_no(j)
+        jb = blk_no(j)
+        jp = idx_1d(p_patch%cells%parent_idx(jc,jb),p_patch%cells%parent_blk(jc,jb))
+        IF(jp<p_index_s .OR. jp>p_index_e) CYCLE
+        IF(p_patch%cells%pc_idx(jc,jb) /= n) CYCLE
+        glb_index(j) = jp
+        owner(j) = p_parent_patch%cells%owner_g(jp)
       ENDDO
 
       ! Set up communication pattern
 
-      CALL setup_comm_pattern(wrk_p_patch%n_patch_cells, owner, glb_index,  &
-        & wrk_p_parent_patch%cells%loc_index, &
-        & wrk_p_patch%comm_pat_interpol_scal_grf(n))
+      CALL setup_comm_pattern(p_patch%n_patch_cells, owner, glb_index,  &
+        & p_parent_patch%cells%loc_index, &
+        & p_patch%comm_pat_interpol_scal_grf(n))
 
     ENDDO
 
-    DEALLOCATE(parent_index, owner, glb_index)
-
+    DEALLOCATE(owner, glb_index)
 
     !--------------------------------------------------------------------
     ! Edges
 
-    ! Assign the global parent index (1D) to every edge in the interpolation zone
-    ! of the global patch (in parent_index).
-    ! This is done in the same way as in mo_grf_interpolation/interpol_vec_grf.
-    ! parent_index also gets the info about the number of the child in the parent.
+    ! Start and end index of the GLOBAL parent edges as used in the interpolation
+    p_index_s = idx_1d(p_parent_patch%edges%start_idx(grf_bdyintp_start_e,i_chidx), &
+                       p_parent_patch%edges%start_blk(grf_bdyintp_start_e,i_chidx))
+    p_index_e = idx_1d(p_parent_patch%edges%end_idx(grf_bdyintp_end_e,i_chidx), &
+                       p_parent_patch%edges%end_blk(grf_bdyintp_end_e,i_chidx))
+    IF(p_index_s <= p_index_e) THEN
+      p_index_s = p_parent_patch%edges%glb_index(p_index_s)
+      p_index_e = p_parent_patch%edges%glb_index(p_index_e)
+    ELSE
+      p_index_s =  HUGE(0)
+      p_index_e = -HUGE(0)
+    ENDIF
+    p_index_s = p_min(p_index_s, p_comm_work)
+    p_index_e = p_max(p_index_e, p_comm_work)
 
-    ALLOCATE(parent_index(nproma,wrk_p_patch%n_patch_edges_g/nproma+1))
-    parent_index = 0
-
-    ptr_pp => wrk_p_parent_patch_g
-
-    ! Start and end blocks for which vector interpolation is needed
-    i_startblk = ptr_pp%edges%start_blk(grf_bdyintp_start_e,i_chidx)
-    i_endblk   = ptr_pp%edges%end_blk(grf_bdyintp_end_e,i_chidx)
-
-    DO jb =  i_startblk, i_endblk
-
-      CALL get_indices_e(ptr_pp, jb, i_startblk, i_endblk, &
-        & i_startidx, i_endidx, grf_bdyintp_start_e, grf_bdyintp_end_e, i_chidx)
-
-      DO je = i_startidx, i_endidx
-
-        ici1 = ptr_pp%edges%child_idx(je,jb,1)
-        icb1 = ptr_pp%edges%child_blk(je,jb,1)
-        ici2 = ptr_pp%edges%child_idx(je,jb,2)
-        icb2 = ptr_pp%edges%child_blk(je,jb,2)
-        ici3 = ABS(ptr_pp%edges%child_idx(je,jb,3))
-        icb3 = ptr_pp%edges%child_blk(je,jb,3)
-
-        parent_index(ici1,icb1) = idx_1d(je,jb)*4 + 0
-        parent_index(ici2,icb2) = idx_1d(je,jb)*4 + 1
-        parent_index(ici3,icb3) = idx_1d(je,jb)*4 + 2
-
-        IF (ptr_pp%edges%refin_ctrl(je,jb) /= -1) THEN
-          ici4 = ABS(ptr_pp%edges%child_idx(je,jb,4))
-          icb4 = ptr_pp%edges%child_blk(je,jb,4)
-          parent_index(ici4,icb4) = idx_1d(je,jb)*4 + 3
-        ENDIF
-
-      ENDDO
-    ENDDO
-
-    ! Now, for our local child patch, gather which edges receive values from which parent edge
+    ! For our local child patch, gather which edges receive values from which parent edge
     ! This is done once for every of the four child edges
 
-    ALLOCATE(glb_index(wrk_p_patch%n_patch_edges))
-    ALLOCATE(owner(wrk_p_patch%n_patch_edges))
+    ALLOCATE(glb_index(p_patch%n_patch_edges))
+    ALLOCATE(owner(p_patch%n_patch_edges))
 
     DO n = 1, 4
 
-      DO j = 1,wrk_p_patch%n_patch_edges
-        jl_g = idx_no(wrk_p_patch%edges%glb_index(j))
-        jb_g = blk_no(wrk_p_patch%edges%glb_index(j))
-        IF(parent_index(jl_g,jb_g) /= 0 .and.     &
-          & MOD(parent_index(jl_g,jb_g),4) == n-1) THEN
-          owner(j) = wrk_p_parent_patch%edges%owner_g(parent_index(jl_g,jb_g)/4)
-          glb_index(j) = parent_index(jl_g,jb_g)/4
-        ELSE
-          owner(j) = -1
-          glb_index(j) = -1
-        ENDIF
+      glb_index(:) = -1
+      owner(:)     = -1
+
+      DO j = 1,p_patch%n_patch_edges
+        je = idx_no(j)
+        jb = blk_no(j)
+        jp = idx_1d(p_patch%edges%parent_idx(je,jb),p_patch%edges%parent_blk(je,jb))
+        IF(jp<p_index_s .OR. jp>p_index_e) CYCLE
+        IF(p_patch%edges%pc_idx(je,jb) /= n) CYCLE
+        glb_index(j) = jp
+        owner(j) = p_parent_patch%edges%owner_g(jp)
       ENDDO
 
       ! Set up communication pattern
 
-      CALL setup_comm_pattern(wrk_p_patch%n_patch_edges, owner, glb_index,  &
-        & wrk_p_parent_patch%edges%loc_index, &
-        & wrk_p_patch%comm_pat_interpol_vec_grf(n))
+      CALL setup_comm_pattern(p_patch%n_patch_edges, owner, glb_index,  &
+        & p_parent_patch%edges%loc_index, &
+        & p_patch%comm_pat_interpol_vec_grf(n))
 
     ENDDO
 
-    DEALLOCATE(parent_index, owner, glb_index)
+    DEALLOCATE(owner, glb_index)
 
   END SUBROUTINE setup_comm_grf_interpolation
 
@@ -2647,15 +2709,12 @@ CONTAINS
   !!
   !! @par Revision History
   !! Initial version by Rainer Johanni, Nov 2009
-  SUBROUTINE setup_comm_ubc_interpolation()
+  SUBROUTINE setup_comm_ubc_interpolation(p_patch, p_parent_patch)
 
-    INTEGER :: j, n, jc, je, jb, jl_g, jb_g
+    TYPE(t_patch), INTENT(INOUT) :: p_patch, p_parent_patch
 
-    INTEGER, ALLOCATABLE :: parent_index(:,:), owner(:), glb_index(:)
-    INTEGER ici1, icb1, ici2, icb2, ici3, icb3, ici4, icb4
-    INTEGER i_chidx, i_startblk, i_endblk, i_startidx, i_endidx
-
-    TYPE(t_patch), POINTER:: ptr_pp
+    INTEGER :: j, n, jc, je, jb, jp, p_index_s, p_index_e, i_chidx
+    INTEGER, ALLOCATABLE :: owner(:), glb_index(:)
 
     !-----------------------------------------------------------------------
 
@@ -2663,154 +2722,105 @@ CONTAINS
     IF(my_process_is_mpi_seq()) &
       & CALL finish('setup_comm_ubc_interpolation','must not be called in a single CPU run')
 
-    i_chidx = wrk_p_patch%parent_child_index
+    i_chidx = p_patch%parent_child_index
 
     !--------------------------------------------------------------------
     ! Cells
 
-    ! Assign the global parent index (1D) to every cell in the interpolation zone
-    ! of the global patch (in parent_index).
-    ! This is done in the same way as in mo_grf_interpolation/interpol_scal_grf.
-    ! parent_index also gets the info about the number of the child in the parent.
+    ! Start and end index of the GLOBAL parent cells as used in the interpolation
+    p_index_s = idx_1d(p_parent_patch%cells%start_idx(grf_nudgintp_start_c,i_chidx), &
+                       p_parent_patch%cells%start_blk(grf_nudgintp_start_c,i_chidx))
+    p_index_e = idx_1d(p_parent_patch%cells%end_idx(min_rlcell_int,i_chidx), &
+                       p_parent_patch%cells%end_blk(min_rlcell_int,i_chidx))
+    IF(p_index_s <= p_index_e) THEN
+      p_index_s = p_parent_patch%cells%glb_index(p_index_s)
+      p_index_e = p_parent_patch%cells%glb_index(p_index_e)
+    ELSE
+      p_index_s =  HUGE(0)
+      p_index_e = -HUGE(0)
+    ENDIF
+    p_index_s = p_min(p_index_s, p_comm_work)
+    p_index_e = p_max(p_index_e, p_comm_work)
 
-    ALLOCATE(parent_index(nproma,wrk_p_patch%n_patch_cells_g/nproma+1)) ! spans GLOBAL patch
-    parent_index = 0
-
-    ptr_pp => wrk_p_parent_patch_g
-
-    i_startblk = ptr_pp%cells%start_blk(grf_nudgintp_start_c,i_chidx)
-    i_endblk   = ptr_pp%cells%end_blk(min_rlcell_int,i_chidx)
-
-    DO jb =  i_startblk, i_endblk
-
-      CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, &
-        & i_startidx, i_endidx, grf_nudgintp_start_c, min_rlcell_int, i_chidx)
-
-      DO jc = i_startidx, i_endidx
-
-        ici1 = ptr_pp%cells%child_idx(jc,jb,1)
-        icb1 = ptr_pp%cells%child_blk(jc,jb,1)
-        ici2 = ptr_pp%cells%child_idx(jc,jb,2)
-        icb2 = ptr_pp%cells%child_blk(jc,jb,2)
-        ici3 = ptr_pp%cells%child_idx(jc,jb,3)
-        icb3 = ptr_pp%cells%child_blk(jc,jb,3)
-        ici4 = ptr_pp%cells%child_idx(jc,jb,4)
-        icb4 = ptr_pp%cells%child_blk(jc,jb,4)
-
-        parent_index(ici1,icb1) = idx_1d(jc,jb)*4 + 0
-        parent_index(ici2,icb2) = idx_1d(jc,jb)*4 + 1
-        parent_index(ici3,icb3) = idx_1d(jc,jb)*4 + 2
-        parent_index(ici4,icb4) = idx_1d(jc,jb)*4 + 3
-
-      ENDDO
-    ENDDO
-
-    ! Now, for our local child patch, gather which cells receive values from which parent cell
+    ! For our local child patch, gather which cells receive values from which parent cell
     ! This is done once for every of the four child cells
 
-    ALLOCATE(glb_index(wrk_p_patch%n_patch_cells))
-    ALLOCATE(owner(wrk_p_patch%n_patch_cells))
+    ALLOCATE(glb_index(p_patch%n_patch_cells))
+    ALLOCATE(owner(p_patch%n_patch_cells))
 
     DO n = 1, 4
 
-      DO j = 1,wrk_p_patch%n_patch_cells
-        jl_g = idx_no(wrk_p_patch%cells%glb_index(j))
-        jb_g = blk_no(wrk_p_patch%cells%glb_index(j))
-        IF(parent_index(jl_g,jb_g) /= 0 .and.     &
-          & MOD(parent_index(jl_g,jb_g),4) == n-1) THEN
-          owner(j) = wrk_p_parent_patch%cells%owner_g(parent_index(jl_g,jb_g)/4)
-          glb_index(j) = parent_index(jl_g,jb_g)/4
-        ELSE
-          owner(j) = -1
-          glb_index(j) = -1
-        ENDIF
+      glb_index(:) = -1
+      owner(:)     = -1
+
+      DO j = 1,p_patch%n_patch_cells
+        jc = idx_no(j)
+        jb = blk_no(j)
+        jp = idx_1d(p_patch%cells%parent_idx(jc,jb),p_patch%cells%parent_blk(jc,jb))
+        IF(jp<p_index_s .OR. jp>p_index_e) CYCLE
+        IF(p_patch%cells%pc_idx(jc,jb) /= n) CYCLE
+        glb_index(j) = jp
+        owner(j) = p_parent_patch%cells%owner_g(jp)
       ENDDO
 
       ! Set up communication pattern
 
-      CALL setup_comm_pattern(wrk_p_patch%n_patch_cells, owner, glb_index,  &
-        & wrk_p_parent_patch%cells%loc_index, &
-        & wrk_p_patch%comm_pat_interpol_scal_ubc(n))
+      CALL setup_comm_pattern(p_patch%n_patch_cells, owner, glb_index,  &
+        & p_parent_patch%cells%loc_index, &
+        & p_patch%comm_pat_interpol_scal_ubc(n))
 
     ENDDO
 
-    DEALLOCATE(parent_index, owner, glb_index)
-
+    DEALLOCATE(owner, glb_index)
 
     !--------------------------------------------------------------------
     ! Edges
 
-    ! Assign the global parent index (1D) to every edge in the interpolation zone
-    ! of the global patch (in parent_index).
-    ! This is done in the same way as in mo_grf_interpolation/interpol_vec_grf.
-    ! parent_index also gets the info about the number of the child in the parent.
+    ! Start and end index of the GLOBAL parent edges as used in the interpolation
+    p_index_s = idx_1d(p_parent_patch%edges%start_idx(grf_nudgintp_start_e,i_chidx), &
+                       p_parent_patch%edges%start_blk(grf_nudgintp_start_e,i_chidx))
+    p_index_e = idx_1d(p_parent_patch%edges%end_idx(min_rledge_int,i_chidx), &
+                       p_parent_patch%edges%end_blk(min_rledge_int,i_chidx))
+    IF(p_index_s <= p_index_e) THEN
+      p_index_s = p_parent_patch%edges%glb_index(p_index_s)
+      p_index_e = p_parent_patch%edges%glb_index(p_index_e)
+    ELSE
+      p_index_s =  HUGE(0)
+      p_index_e = -HUGE(0)
+    ENDIF
+    p_index_s = p_min(p_index_s, p_comm_work)
+    p_index_e = p_max(p_index_e, p_comm_work)
 
-    ALLOCATE(parent_index(nproma,wrk_p_patch%n_patch_edges_g/nproma+1))
-    parent_index = 0
-
-    ptr_pp => wrk_p_parent_patch_g
-
-    ! Start and end blocks for which vector interpolation is needed
-    i_startblk = ptr_pp%edges%start_blk(grf_nudgintp_start_e,i_chidx)
-    i_endblk   = ptr_pp%edges%end_blk(min_rledge_int,i_chidx)
-
-    DO jb =  i_startblk, i_endblk
-
-      CALL get_indices_e(ptr_pp, jb, i_startblk, i_endblk, &
-        & i_startidx, i_endidx, grf_nudgintp_start_e, min_rledge_int, i_chidx)
-
-      DO je = i_startidx, i_endidx
-
-        ici1 = ptr_pp%edges%child_idx(je,jb,1)
-        icb1 = ptr_pp%edges%child_blk(je,jb,1)
-        ici2 = ptr_pp%edges%child_idx(je,jb,2)
-        icb2 = ptr_pp%edges%child_blk(je,jb,2)
-        ici3 = ABS(ptr_pp%edges%child_idx(je,jb,3))
-        icb3 = ptr_pp%edges%child_blk(je,jb,3)
-
-        parent_index(ici1,icb1) = idx_1d(je,jb)*4 + 0
-        parent_index(ici2,icb2) = idx_1d(je,jb)*4 + 1
-        parent_index(ici3,icb3) = idx_1d(je,jb)*4 + 2
-
-        IF (ptr_pp%edges%refin_ctrl(je,jb) /= -1) THEN
-          ici4 = ABS(ptr_pp%edges%child_idx(je,jb,4))
-          icb4 = ptr_pp%edges%child_blk(je,jb,4)
-          parent_index(ici4,icb4) = idx_1d(je,jb)*4 + 3
-        ENDIF
-
-      ENDDO
-    ENDDO
-
-    ! Now, for our local child patch, gather which edges receive values from which parent edge
+    ! For our local child patch, gather which edges receive values from which parent edge
     ! This is done once for every of the four child edges
 
-    ALLOCATE(glb_index(wrk_p_patch%n_patch_edges))
-    ALLOCATE(owner(wrk_p_patch%n_patch_edges))
+    ALLOCATE(glb_index(p_patch%n_patch_edges))
+    ALLOCATE(owner(p_patch%n_patch_edges))
 
     DO n = 1, 4
 
-      DO j = 1,wrk_p_patch%n_patch_edges
-        jl_g = idx_no(wrk_p_patch%edges%glb_index(j))
-        jb_g = blk_no(wrk_p_patch%edges%glb_index(j))
-        IF(parent_index(jl_g,jb_g) /= 0 .and.     &
-          & MOD(parent_index(jl_g,jb_g),4) == n-1) THEN
-          owner(j) = wrk_p_parent_patch%edges%owner_g(parent_index(jl_g,jb_g)/4)
-          glb_index(j) = parent_index(jl_g,jb_g)/4
-        ELSE
-          owner(j) = -1
-          glb_index(j) = -1
-        ENDIF
+      glb_index(:) = -1
+      owner(:)     = -1
+
+      DO j = 1,p_patch%n_patch_edges
+        je = idx_no(j)
+        jb = blk_no(j)
+        jp = idx_1d(p_patch%edges%parent_idx(je,jb),p_patch%edges%parent_blk(je,jb))
+        IF(jp<p_index_s .OR. jp>p_index_e) CYCLE
+        IF(p_patch%edges%pc_idx(je,jb) /= n) CYCLE
+        glb_index(j) = jp
+        owner(j) = p_parent_patch%edges%owner_g(jp)
       ENDDO
 
       ! Set up communication pattern
 
-      CALL setup_comm_pattern(wrk_p_patch%n_patch_edges, owner, glb_index,  &
-        & wrk_p_parent_patch%edges%loc_index, &
-        & wrk_p_patch%comm_pat_interpol_vec_ubc(n))
+      CALL setup_comm_pattern(p_patch%n_patch_edges, owner, glb_index,  &
+        & p_parent_patch%edges%loc_index, &
+        & p_patch%comm_pat_interpol_vec_ubc(n))
 
     ENDDO
 
-    DEALLOCATE(parent_index, owner, glb_index)
+    DEALLOCATE(owner, glb_index)
 
   END SUBROUTINE setup_comm_ubc_interpolation
 

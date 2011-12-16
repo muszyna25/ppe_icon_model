@@ -34,6 +34,9 @@ MODULE mo_run_nml
   USE mo_run_config, ONLY: config_ldump_states    => ldump_states,    &
                          & config_lrestore_states => lrestore_states, &
                          & config_l_one_file_per_patch => l_one_file_per_patch, &
+                         & config_ldump_dd        => ldump_dd,        &
+                         & config_lread_dd        => lread_dd,        &
+                         & config_nproc_dd        => nproc_dd,        &
                          & config_ltestcase       => ltestcase,       &
                          & config_ldynamics       => ldynamics,       &
                          & config_iforcing        => iforcing,        &
@@ -80,6 +83,9 @@ MODULE mo_run_nml
   LOGICAL :: lrestore_states ! Restore patch/interpolation/grid refinement states
                              ! from dump files instead of calculating them
   LOGICAL :: l_one_file_per_patch ! Use one or several files per patch for dump/restore
+  LOGICAL :: ldump_dd        ! Dump domain decomposition
+  LOGICAL :: lread_dd        ! Read domain decomposition
+  INTEGER :: nproc_dd        ! Number of procs for domain decomposition
 
   LOGICAL :: ltestcase       ! if .TRUE. then
                              ! - compute analytical initial state,
@@ -112,6 +118,8 @@ MODULE mo_run_nml
 
   NAMELIST /run_nml/ ldump_states, lrestore_states, &
                      l_one_file_per_patch,          &
+                     ldump_dd,     lread_dd,        &
+                     nproc_dd,                      &
                      ltestcase,    ldynamics,       &
                      iforcing,     ltransport,      &
                      ntracer,                       &
@@ -137,6 +145,9 @@ CONTAINS
     ldump_states    = .FALSE.
     lrestore_states = .FALSE.
     l_one_file_per_patch = .FALSE.
+    ldump_dd        = .FALSE.
+    lread_dd        = .FALSE.
+    nproc_dd        = 1
 
     ltestcase       = .TRUE.
     ldynamics       = .TRUE.
@@ -216,6 +227,9 @@ CONTAINS
     config_ldump_states    = ldump_states
     config_lrestore_states = lrestore_states
     config_l_one_file_per_patch = l_one_file_per_patch
+    config_ldump_dd        = ldump_dd
+    config_lread_dd        = lread_dd
+    config_nproc_dd        = nproc_dd
 
     config_ltestcase       = ltestcase 
     config_ldynamics       = ldynamics 

@@ -48,7 +48,7 @@ MODULE mo_name_list_output
   USE mo_vertical_coord_table,  ONLY: vct
   USE mo_dynamics_config,       ONLY: iequations, nnow, nnow_rcf
   USE mo_io_config,             ONLY: lwrite_pzlev
-  USE mo_run_config,            ONLY: num_lev, num_levp1, dtime, ldump_states
+  USE mo_run_config,            ONLY: num_lev, num_levp1, dtime, ldump_states, ldump_dd
   USE mo_nh_pzlev_config,       ONLY: nh_pzlev_config
   USE mo_lnd_nwp_config,        ONLY: nlev_snow
   USE mo_datetime,              ONLY: t_datetime
@@ -2667,10 +2667,10 @@ ENDIF
 
     print '(a,i0)','============================================ Hello from I/O PE ',p_pe
 
-    ! If ldump_states is set, the compute PEs will exit after dumping,
+    ! If ldump_states or ldump_dd is set, the compute PEs will exit after dumping,
     ! there is nothing to do at all for I/O PEs
 
-    IF(ldump_states) THEN
+    IF(ldump_states .OR. ldump_dd) THEN
       CALL p_stop
       STOP
     ENDIF

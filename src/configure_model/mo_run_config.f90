@@ -51,13 +51,16 @@ MODULE mo_run_config
   PUBLIC :: ltimer, timers_level, activate_sync_timers, msg_level
   PUBLIC :: iqv, iqc, iqi, iqs, iqr, iqcond, iqt, io3, ico2
   PUBLIC :: check_epsilon, test_gw_hines_opt
-  PUBLIC :: configure_run, l_one_file_per_patch
+  PUBLIC :: configure_run, l_one_file_per_patch, ldump_dd, lread_dd, nproc_dd
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
     LOGICAL :: ldump_states    !< Compute interpolation coefficients and stop.
     LOGICAL :: lrestore_states !< Read interpolation coefficients from external file.
     LOGICAL :: l_one_file_per_patch !< Use one or several files per patch for dump/restore
+    LOGICAL :: ldump_dd        !< Compute domain decomposition and stop
+    LOGICAL :: lread_dd        !< Read domain decomposition from external file
+    INTEGER :: nproc_dd        !< Number of procs for domain decomposition (when done on 1 CPU)
 
     LOGICAL :: ltestcase       !< Run idealized test case
     LOGICAL :: ldynamics       !< Switch on model dynamics
