@@ -1335,20 +1335,31 @@ CONTAINS
     INTEGER :: length_of_model_type
     
     abbreviations(1:nvar_lists)%key = 0
+    abbreviations(1:nvar_lists)%abbreviation = ""
     key = 0
     n = 1
     for_all_model_types: DO i = 1, nvar_lists
-! LL : commented only for testin. Should be uncommented!
       this_model_type=TRIM(var_lists(i)%p%model_type)
-      CALL message("key for:", var_lists(i)%p%model_type)
-      length_of_model_type = LEN(this_model_type)
-      key = util_hashword(this_model_type, length_of_model_type, 0)
-      IF (.NOT. ANY(abbreviations(1:n)%key == key)) THEN 
-        abbreviations(n)%abbreviation = var_lists(i)%p%model_type
+! --------------------------------------------------------------
+! LL : commented only for testing on SX9. Should be uncommented!
+!      CALL message("key for:", var_lists(i)%p%model_type)
+!      length_of_model_type = LEN(this_model_type)
+!      key = util_hashword(this_model_type, length_of_model_type, 0)
+!       IF (.NOT. ANY(abbreviations(1:n)%key == key)) THEN
+!         abbreviations(n)%abbreviation = var_lists(i)%p%model_type
+!         abbreviations(n)%key = key
+!         n = n+1
+!       ENDIF
+! --------------------------------------------------------------
+! LL : Brute force name checking for testing on SX9. Should be commented!
+      IF (.NOT. ANY(abbreviations(1:n)%abbreviation == this_model_type)) THEN
+        key = key + 1
+        abbreviations(n)%abbreviation = this_model_type
         abbreviations(n)%key = key
         n = n+1
       ENDIF
     ENDDO for_all_model_types
+! --------------------------------------------------------------
     nfiles = n-1
     !
     CALL message('','')
