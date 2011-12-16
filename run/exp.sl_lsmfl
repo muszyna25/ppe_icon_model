@@ -68,7 +68,7 @@ start_date="2000-01-01T00:00:00Z"
 # model timing
 dtime=1800           # ocean model timestep [s]
 ndays=370            # ocean model run in days
-dt_data=432000.      # ocean model output interval [s]
+dt_data=864000.      # ocean model output interval [s]
 ndays_file=1000      # new output file generation interval [days]
 ndays_checkp=90      # write restart file interval [days]
 ndays_restart=370    # stop model for restart [days]

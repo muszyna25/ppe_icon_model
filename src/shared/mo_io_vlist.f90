@@ -2436,18 +2436,18 @@ CONTAINS
 !       CALL addVar(TimeVar('p_ice_isice','','',&
 !       &         100,128,                    &
 !       &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
-       CALL addVar(TimeVar('p_ice_alb','albedo of the snow/ice system','',&
-       &         100,128,                    &
-       &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+!      CALL addVar(TimeVar('p_ice_alb','albedo of the snow/ice system','',&
+!      &         100,128,                    &
+!      &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
        CALL addVar(TimeVar('p_ice_Tsurf','surface temperature of snow/ice','C',&
        &         100,128,                    &
        &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
-       CALL addVar(TimeVar('p_ice_T1','temperature of the upper ice layer','C',&
-       &         100,128,                    &
-       &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
-       CALL addVar(TimeVar('p_ice_T2','temperature of the lower ice layer','C',&
-       &         100,128,                    &
-       &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+!      CALL addVar(TimeVar('p_ice_T1','temperature of the upper ice layer','C',&
+!      &         100,128,                    &
+!      &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+!      CALL addVar(TimeVar('p_ice_T2','temperature of the lower ice layer','C',&
+!      &         100,128,                    &
+!      &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
 !       CALL addVar(TimeVar('p_ice_E1','energy content of the upper ice layer','Jm/kg',&
 !       &         100,128,                    &
 !       &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
@@ -2457,9 +2457,9 @@ CONTAINS
        CALL addVar(TimeVar('p_ice_hi','ice thickness','m',&
        &         100,128,                    &
        &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
-       CALL addVar(TimeVar('p_ice_hs','snow thickness','m',&
-       &         100,128,                    &
-       &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
+!      CALL addVar(TimeVar('p_ice_hs','snow thickness','m',&
+!      &         100,128,                    &
+!      &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
 !       CALL addVar(TimeVar('p_ice_Qtop','energy flux available for surface melting','W/m2',&
 !       &         100,128,                    &
 !       &         vlistID(k_jg),gridCellID(k_jg),zaxisID_generic_ice(k_jg)),k_jg)
