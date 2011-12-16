@@ -1336,7 +1336,7 @@ CONTAINS
 
       IF (ltimer) CALL timer_stop(timer_physic_acc_2)
 
-      IF (msg_level >= 11) THEN ! CFL diagnostic
+      IF (msg_level >= 12) THEN ! CFL diagnostic
         cflmax = MAXVAL(maxcfl)
         cflmax = global_max(cflmax) ! maximum over all PEs
         WRITE(message_text,'(a,f12.8,a,i1)') 'maximum horizontal CFL = ', cflmax, ' in domain ',jg
