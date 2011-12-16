@@ -179,7 +179,7 @@ USE mo_atmo_nonhydrostatic, ONLY: atmo_nonhydrostatic
 IMPLICIT NONE
 PRIVATE
 
-PUBLIC :: atmo_model
+PUBLIC :: atmo_model, construct_atmo_model, destruct_atmo_model
 
 CONTAINS
   
@@ -196,7 +196,15 @@ CONTAINS
     REAL(dp) :: maxrss_gridpt,maxrss_gridpt_min, maxrss_gridpt_max
 
 
+    !---------------------------------------------------------------------
+    ! construct the atmo model
     CALL construct_atmo_model(atm_namelist_filename,shr_namelist_filename)
+    
+    !---------------------------------------------------------------------
+    ! construct the coupler
+    IF ( is_coupled_run() ) THEN
+      CALL construct_atmo_coupler()
+    ENDIF 
     
     !---------------------------------------------------------------------
     ! 12. The hydrostatic and nonhydrostatic models branch from this point
@@ -218,6 +226,10 @@ CONTAINS
     !---------------------------------------------------------------------
     CALL destruct_atmo_model()
   
+    !---------------------------------------------------------------------
+    ! destruct the coupler
+    IF ( is_coupled_run() ) CALL ICON_cpl_finalize
+    
     !---------------------------------------------------------------------
     ! (optional:) write resident set size from OS
 #ifndef NOMPI    
@@ -637,11 +649,6 @@ CONTAINS
     ! optionally read those data from netCDF file.
     CALL init_ext_data (p_patch(1:), p_int_state(1:), ext_data)
 
-    ! construct the coupler
-    IF ( is_coupled_run() ) THEN
-      CALL construct_atmo_coupler()
-    ENDIF 
-
     IF (timers_level > 3) CALL timer_stop(timer_model_init)
 
   END SUBROUTINE construct_atmo_model
@@ -717,8 +724,6 @@ CONTAINS
     CALL delete_restart_namelists()
     IF (msg_level > 5) CALL message(TRIM(routine),'delete_restart_namelists is done')
     
-    IF ( is_coupled_run() ) CALL ICON_cpl_finalize
-
     CALL message(TRIM(routine),'clean-up finished')
     
   END SUBROUTINE destruct_atmo_model

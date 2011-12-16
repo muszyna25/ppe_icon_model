@@ -1098,6 +1098,7 @@ src/drivers/mo_atmo_hydrostatic.f90 -text
 src/drivers/mo_atmo_model.f90 -text
 src/drivers/mo_atmo_nonhydrostatic.f90 -text
 src/drivers/mo_cpl_dummy_model.f90 -text
+src/drivers/mo_icon_testbed.f90 -text
 src/drivers/mo_master_control.f90 -text
 src/drivers/mo_ocean_model.f90 -text
 src/drivers/mo_radiation_model.f90 -text
