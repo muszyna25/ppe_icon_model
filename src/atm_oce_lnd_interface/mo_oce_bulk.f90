@@ -331,7 +331,7 @@ CONTAINS
 
     END IF
 
-    ! this is used for "intermediate complexity flux forcing
+    ! this is used for "intermediate complexity flux forcing"
     IF (iforc_omip == 4) THEN
 
       !-------------------------------------------------------------------------
@@ -675,7 +675,7 @@ CONTAINS
     CALL print_mxmn('update forcing u',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
     z_c(:,1,:)=p_sfc_flx%forc_wind_v(:,:)
     CALL print_mxmn('update forcing v',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-    ipl_src=1  ! output print level (1-5, fix)
+    ipl_src=2  ! output print level (1-5, fix)
     z_c(:,1,:)=p_sfc_flx%forc_wind_cc(:,:)%x(1)
     CALL print_mxmn('update forc-cc1',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
     z_c(:,1,:)=p_sfc_flx%forc_wind_cc(:,:)%x(2)
@@ -683,14 +683,9 @@ CONTAINS
 
   END IF
 
-  ! Memory fault?
-  ! IF (iforc_oce /= FORCING_FROM_FILE_FLUX .AND. temperature_relaxation == 2) THEN
-  !   write(0,*) ' ACHTUNG, temp_relax=',temperature_relaxation,' iforc_oce =',iforc_oce
-  !   CALL finish(TRIM(ROUTINE),' irelax_2d_T=2 (reading from flux file) but iforc_oce/=12')
-  ! END IF
-
   !-------------------------------------------------------------------------
   ! Apply temperature relaxation to surface boundary condition
+  !  - 2011-12: this is alternative to forcing by fluxes, not in addition
 
   IF (temperature_relaxation >= 1) THEN
 
@@ -728,16 +723,16 @@ CONTAINS
     !   dT/dt = Operators + F_T
     ! i.e. F_T <0 for  T-T* >0 (i.e. decreasing temperature if it is warmer than relaxation data) 
     ! 
-    ! Mixed boundary conditions (relaxation term plus fluxes) can be included accordingly
+    ! Mixed boundary conditions (relaxation term plus fluxes) are not yet included
 
     DO jb = i_startblk_c, i_endblk_c    
       CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
        &                i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
       DO jc = i_startidx_c, i_endidx_c
-!         z_relax = (v_base%del_zlev_m(1)+p_os%p_prog(nold(1))%h(jc,jb)) / &
-!           &       (relaxation_param*2.592e6_wp)
-      z_relax = (v_base%del_zlev_m(1)) / &
-           &       (relaxation_param*2.592e6_wp)
+!       z_relax = (v_base%del_zlev_m(1)+p_os%p_prog(nold(1))%h(jc,jb)) / &
+!         &       (relaxation_param*2.592e6_wp)
+        z_relax = (v_base%del_zlev_m(1)) / &
+          &       (relaxation_param*2.592e6_wp)
 
         IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
             p_sfc_flx%forc_tracer(jc,jb, 1) =                             &
@@ -825,7 +820,7 @@ CONTAINS
 
     ipl_src=1  ! output print level (1-5, fix)
     z_c(:,1,:) = p_sfc_flx%forc_hflx(:,:)
-    CALL print_mxmn('T-forc-nshflx',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+    CALL print_mxmn('T-forc-hflx [W/m2]',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
 
   END IF
 
@@ -845,14 +840,14 @@ CONTAINS
 
     ipl_src=1  ! output print level (1-5, fix)
     z_c(:,1,:) = p_sfc_flx%forc_fwfx(:,:)
-    CALL print_mxmn('S-forc-frwflx',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+    CALL print_mxmn('S-forc-fwfx [m/mon]',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
 
   END IF
 
   !-------------------------------------------------------------------------
   ! Apply net surface heat flux to boundary condition
   !  - heat flux is applied alternatively to temperature relaxation for coupling
-  !  - also done if sea ice model is used
+  !  - also done if sea ice model is used since forc_hflx is set in mo_sea_ice
 
   IF (temperature_relaxation == -1 .OR. i_sea_ice == 1) THEN
 

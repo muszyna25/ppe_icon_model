@@ -2315,7 +2315,7 @@ CONTAINS
       CALL addVar(TimeVar('forc_fwfx',&
       &                   'diagnosed net freshwater flux',&
 !     &                   'm/s',16,128,&
-      &                   'mm/month',16,128,&
+      &                   'm/month',16,128,&
       &                   vlistID(k_jg),&
       &                   gridCellID(k_jg),&
       &                   zaxisID_surface(k_jg)),&
