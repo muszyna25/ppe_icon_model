@@ -1345,30 +1345,30 @@ CONTAINS
 ! --------------------------------------------------------------
 ! LL : commented only for testing on SX9. Should be uncommented!
 !      CALL message("key for:", var_lists(i)%p%model_type)
-!      length_of_model_type = LEN(this_model_type)
-!      key = util_hashword(this_model_type, length_of_model_type, 0)
-!       IF (.NOT. ANY(abbreviations(1:n)%key == key)) THEN
-!         abbreviations(n)%abbreviation = var_lists(i)%p%model_type
-!         abbreviations(n)%key = key
-!         n = n+1
-!       ENDIF
-! --------------------------------------------------------------
-! LL : Brute force name checking for testing on SX9. Should be commented!
-      found = .false.
-      DO k=1,n-1
-        write(0,*) 'checking: ', k, abbreviations(k)%abbreviation,this_model_type
-        IF ( (abbreviations(k)%abbreviation == this_model_type)) THEN
-          found = .true.
-          EXIT
-        ENDIF
-      ENDDO
-      IF (.NOT. found) THEN
-        key = key + 1
-        write(0,*) 'not found: ', k, key, n
-        abbreviations(n)%abbreviation = this_model_type
+     length_of_model_type = LEN(this_model_type)
+     key = util_hashword(this_model_type, length_of_model_type, 0)
+      IF (.NOT. ANY(abbreviations(1:n)%key == key)) THEN
+        abbreviations(n)%abbreviation = var_lists(i)%p%model_type
         abbreviations(n)%key = key
         n = n+1
       ENDIF
+! --------------------------------------------------------------
+! LL : Brute force name checking for testing on SX9. Should be commented!
+!       found = .false.
+!       DO k=1,n-1
+!         write(0,*) 'checking: ', k, abbreviations(k)%abbreviation,this_model_type
+!         IF ( (abbreviations(k)%abbreviation == this_model_type)) THEN
+!           found = .true.
+!           EXIT
+!         ENDIF
+!       ENDDO
+!       IF (.NOT. found) THEN
+!         key = key + 1
+!         write(0,*) 'not found: ', k, key, n
+!         abbreviations(n)%abbreviation = this_model_type
+!         abbreviations(n)%key = key
+!         n = n+1
+!       ENDIF
     ENDDO for_all_model_types
 ! --------------------------------------------------------------
     nfiles = n-1
