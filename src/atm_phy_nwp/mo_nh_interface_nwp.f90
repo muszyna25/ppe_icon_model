@@ -1276,6 +1276,7 @@ CONTAINS
         DO jce = i_startidx, i_endidx
           DO jk = 1, nlev
 #else
+!CDIR UNROLL=8
         DO jk = 1, nlev
           DO jce = i_startidx, i_endidx
 #endif
@@ -1295,8 +1296,8 @@ CONTAINS
       ENDDO
 !$OMP END DO
 
-      ! CFL-diagnostic if msg_level >= 11
-      IF (msg_level >= 11) THEN
+      ! CFL-diagnostic if msg_level >= 12
+      IF (msg_level >= 12) THEN
 
         rl_start = grf_bdywidth_c+1
         rl_end   = min_rlcell_int
