@@ -88,15 +88,15 @@ MODULE mo_nh_wk_exp
 
 
 ! !DEFINED PARAMETERS for Weisman Klemp:
-   REAL(wp), PARAMETER ::hmin_wk          = 0.0_wp         ! [m], base height of the profile
-   REAL(wp), PARAMETER ::p_base_wk        = 1.e5                ! [Pa], pressure at height hmin_wk
+   REAL(wp), PARAMETER :: hmin_wk         = 0.0_wp         ! [m], base height of the profile
+   REAL(wp), PARAMETER :: p_base_wk       = 1.0e5_wp       ! [Pa], pressure at height hmin_wk
 
-   REAL(wp), PARAMETER ::h_tropo_wk       = 12000._wp      ! [m], height of the tropopause
+   REAL(wp), PARAMETER :: h_tropo_wk      = 12000._wp      ! [m], height of the tropopause
    REAL(wp), PARAMETER :: theta_0_wk      = 300._wp        ! [K], pot. temp. at z=0
-   REAL(wp), PARAMETER ::theta_tropo_wk   = 343._wp        ! [K], pot. temp. at z=h_tropo_wk
-   REAL(wp), PARAMETER ::expo_theta_wk    = 1.25_wp
-   REAL(wp), PARAMETER ::expo_relhum_wk   = 1.25_wp
-   REAL(wp), PARAMETER ::t_tropo_wk       = 213.0_wp
+   REAL(wp), PARAMETER :: theta_tropo_wk  = 343._wp        ! [K], pot. temp. at z=h_tropo_wk
+   REAL(wp), PARAMETER :: expo_theta_wk   = 1.25_wp
+   REAL(wp), PARAMETER :: expo_relhum_wk  = 1.25_wp
+   REAL(wp), PARAMETER :: t_tropo_wk      = 213.0_wp
 
 
   ! Data for the initial profile of relative humidity:

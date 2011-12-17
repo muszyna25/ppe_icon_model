@@ -195,14 +195,14 @@ CONTAINS
     IF (PRESENT(n)) vec_size = n
 
 #ifndef HAVE_FAST_MATH_LIB
-    y(1:vec_size) = log(x(1:vec_size)+1)
+    y(1:vec_size) = log(x(1:vec_size)+1._dp)
 #else
 #if (defined HAVE_MASS)
     CALL vlog1p(y(1:vec_size), x(1:vec_size), vec_size)
 #elif (defined HAVE_MKL)
     CALL vdlog1p( vec_size, x(1:vec_size), y(1:vec_size) )
 #else
-    y(1:vec_size) = log(x(1:vec_size)+1)
+    y(1:vec_size) = log(x(1:vec_size)+1._dp)
     ! logp1 - no fast math library call available, use native Fortran ...
 #endif
 #endif

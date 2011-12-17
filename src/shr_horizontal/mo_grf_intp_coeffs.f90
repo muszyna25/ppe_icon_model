@@ -364,7 +364,12 @@ TYPE(t_grid_edges), POINTER :: p_gep => NULL()
 TYPE(t_patch),      POINTER :: p_pp => NULL()
 
 INTEGER :: jb, jc, je, jg, jgp, ji, i_startblk, i_endblk,         &
-           i_startidx, i_endidx, iic, ibc, i_nchdom, i_child_id
+           i_startidx, i_endidx, iic, ibc, i_nchdom
+
+#ifdef  __SX__
+INTEGER :: i_child_id
+#endif
+
 
 REAL(wp), ALLOCATABLE :: z_area(:,:)
 
@@ -477,7 +482,7 @@ DO jg = n_dom_start, n_dom-1
     p_grf(jg)%fbk_dom_area(ji) = 0._wp
 
     ALLOCATE(z_area(nproma,p_pp%nblks_c))
-    z_area = 0
+    z_area = 0._wp
 
     i_startblk = p_gcp%start_blk(grf_fbk_start_c,ji)
     i_endblk   = p_gcp%end_blk(min_rlcell_int,ji)
@@ -577,7 +582,7 @@ DO jg = n_dom_start+1, n_dom
   i_chidx = p_pc%parent_child_index
 
   ALLOCATE (ierrcount(p_pp%nblks_c))
-  ierrcount(:) = 0._wp
+  ierrcount(:) = 0
 
   ! If the nested domain is barely larger than the boundary interpolation zone,
   ! the setting of the start and end indices may fail in the presence of 

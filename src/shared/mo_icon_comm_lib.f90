@@ -1310,7 +1310,7 @@ CONTAINS
     REAL(wp), POINTER :: send_var_3d(:,:,:)
     
     INTEGER :: dim_2, np, bfid, var_send_size, current_buffer_index
-    INTEGER :: i, k, endidx
+    INTEGER :: i, k
     
 !     CHARACTER(*), PARAMETER :: method_name = "fill_send_buffers_var"
 
@@ -1479,7 +1479,7 @@ CONTAINS
     REAL(wp), POINTER :: recv_var_3d(:,:,:)
     
     INTEGER :: dim_2, np, bfid, var_recv_size, current_buffer_index
-    INTEGER :: recv_var, recv_size, endidx
+    INTEGER :: recv_var, recv_size
     INTEGER :: i, k
     
     CHARACTER(*), PARAMETER :: method_name = "fill_var_from_recv_buffers"

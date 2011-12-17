@@ -433,7 +433,6 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     INTEGER :: jsfc 
     CHARACTER(len=NF_MAX_NAME) :: long_name
     CHARACTER(len=21) :: name
-    CHARACTER(len=4)  :: sufix
     CHARACTER(len=3)  :: prefix
     CHARACTER(len=8)  :: meaning
 

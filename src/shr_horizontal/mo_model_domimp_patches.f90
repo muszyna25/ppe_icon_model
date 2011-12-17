@@ -1183,7 +1183,7 @@ INTEGER :: ist
 
 INTEGER :: ncid, dimid, varid
 INTEGER :: ji
-INTEGER :: jv, jc, je, jvc, jcv, jve, jce, ilv, ibv, ilc, ibc
+INTEGER :: jc, je, jcv, jce, ilc, ibc
 INTEGER :: icheck, ilev, igrid_level, igrid_id, iparent_id, i_max_childdom, ipar_id
 
 !-----------------------------------------------------------------------
@@ -1816,8 +1816,8 @@ REAL(wp), ALLOCATABLE :: &
 ! status variable
 INTEGER :: ist
 
-INTEGER :: ncid, dimid, varid
-INTEGER :: ip, ji, jv, jve, jc, jce
+INTEGER :: ncid, varid
+INTEGER :: ip, ji, jv, jve
 
 TYPE(t_patch), POINTER :: p_p
 
