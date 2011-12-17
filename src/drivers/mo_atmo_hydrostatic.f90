@@ -114,38 +114,6 @@ CONTAINS
     IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) &
       CALL initcond_echam_phy( p_patch(1:),p_hydro_state, ltestcase, ctest_name )
 
-    IF (is_restart_run()) THEN
-    ! This is an resumed integration. Read model state from restart file(s).
-
-#ifdef NOMPI
-      CALL read_restart_files
-#else
-      jg = 1
-     !DO jg = n_dom_start,n_dom
-        CALL read_restart_files( p_patch(jg) )
-     !END DO
-#endif
-      CALL message(TRIM(routine),'normal exit from read_restart_files')
-
-      ! Re-initialize SST, sea ice and glacier for certain experiments; 
-      ! Initialize logical variables in echam physics state.
-      ! The latter is necessary for now because logical arrays can not yet be
-      ! written into restart files.
-
-      IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) THEN
-        CALL additional_restart_init( p_patch(1:), ltestcase, ctest_name )
-      END IF
-!     ELSE
-!     ! This is an initial run (cold start). Compute initial condition for
-!     ! test cases, or read externally given initial conditions.
-! 
-!       CALL initcond_ha_dyn( p_patch(1:), p_int_state(1:),  &
-!                           & p_grf_state(1:), p_hydro_state )
-! 
-!       IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) &
-!       CALL initcond_echam_phy( p_patch(1:),p_hydro_state, ltestcase, ctest_name )
-
-    END IF ! is_restart_run()
 
     !------------------------------------------------------------------
     ! The most primitive event handling algorithm:
@@ -186,6 +154,32 @@ CONTAINS
       END IF
 
     END IF ! (not) is_restart_run()
+
+    !------------------------------------------------------------------
+    IF (is_restart_run()) THEN
+    ! This is an resumed integration. Read model state from restart file(s).
+
+#ifdef NOMPI
+      CALL read_restart_files
+#else
+      jg = 1
+     !DO jg = n_dom_start,n_dom
+        CALL read_restart_files( p_patch(jg) )
+     !END DO
+#endif
+      CALL message(TRIM(routine),'normal exit from read_restart_files')
+
+      ! Re-initialize SST, sea ice and glacier for certain experiments; 
+      ! Initialize logical variables in echam physics state.
+      ! The latter is necessary for now because logical arrays can not yet be
+      ! written into restart files.
+
+      ! LL: initialization has already been done
+      ! IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) THEN
+      !  CALL additional_restart_init( p_patch(1:), ltestcase, ctest_name )
+      ! END IF
+
+    END IF ! is_restart_run()
 
     !------------------------------------------------------------------
     ! Time integraion

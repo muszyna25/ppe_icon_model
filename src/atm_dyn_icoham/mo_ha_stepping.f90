@@ -250,6 +250,11 @@ CONTAINS
 
   IF (ltimer) CALL timer_start(timer_total)
 
+!      DO jg = 1, n_dom
+!        CALL create_restart_file( p_patch(jg), datetime,         &
+!                                & jfile, .true., vct  )
+!      END DO
+
   TIME_LOOP: DO jstep = 1, nsteps
 
     !--------------------------------------------------------------------------
