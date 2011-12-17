@@ -33,6 +33,7 @@ else
   start="$use_mpi_startrun"
 fi
 
+set_default use_nodes 1
 set_default use_omp_stacksize 50M
 let mpi_total_procs=${use_nodes}*${use_mpi_procs}
 
