@@ -744,6 +744,8 @@ CONTAINS
 
     CALL destruct_2d_interpol_state( p_int_state )
     IF (msg_level > 5) CALL message(TRIM(routine),'destruct_2d_interpol_state is done')
+
+    l_construct_lonlat_coeffs = (.NOT. lrestore_states .OR. my_process_is_mpi_test()) 
     IF (l_construct_lonlat_coeffs) THEN
       DO jg = 1, n_dom
         IF (lonlat_intp_config(jg)%l_enabled) &
