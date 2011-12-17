@@ -98,7 +98,7 @@ REAL (wp), PARAMETER ::  sqrt1_2   = 0.707106781186547524400844362104849039_wp
 REAL (wp), PARAMETER ::  sqrt3     = 1.7320508075688772935274463415058723_wp
 REAL (wp), PARAMETER ::  sqrt1_3   = 0.5773502691896257645091487805019575_wp
 REAL (wp), PARAMETER ::  cos45     = sqrt1_2
-REAL (wp), PARAMETER ::  one_third = 1/3.0_wp
+REAL (wp), PARAMETER ::  one_third = 1.0_wp/3.0_wp
 
 !
 ! ! some more useful constants

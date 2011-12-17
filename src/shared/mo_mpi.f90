@@ -6110,7 +6110,7 @@ CONTAINS
        CALL finish('gather_field','Output array too small')
 
      ! Insert my contribution into tot_array at the final location
-     tot_array(:,:,:) = 0
+     tot_array(:,:,:) = 0._wp
      n = 0
      DO i = 1, total_dim
        IF(owner(i) == p_pe_work) THEN

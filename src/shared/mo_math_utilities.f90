@@ -1408,11 +1408,11 @@ SUBROUTINE rotate_latlon_grid( lon_lat_grid, rotated_pts )
   sincos_pole(:,2) = COS(lon_lat_grid%poleN(:))
 
   DO k=1,lon_lat_grid%dimen(1)
-    rlon_lat        = lon_lat_grid%start_corner(1) + (k-1)*lon_lat_grid%delta(1)
+    rlon_lat        = lon_lat_grid%start_corner(1) + REAL(k-1,wp)*lon_lat_grid%delta(1)
     sincos_lon(k,:) = (/ SIN(rlon_lat), COS(rlon_lat) /)
   END DO
   DO k=1,lon_lat_grid%dimen(2)
-    rlon_lat        = lon_lat_grid%start_corner(2) + (k-1)*lon_lat_grid%delta(2)
+    rlon_lat        = lon_lat_grid%start_corner(2) + REAL(k-1,wp)*lon_lat_grid%delta(2)
     sincos_lat(k,:) = (/ SIN(rlon_lat), COS(rlon_lat) /)
   END DO
 
@@ -1837,7 +1837,7 @@ SUBROUTINE month2hour( datetime, m1, m2, pw2 )
   ! Compute half of each month (in days)
   ! Leap Year ??
   month_days (2) = 28 + mleapy(myy)
-  zhalf(:) = 0.5_wp * REAL (month_days(:))
+  zhalf(:) = 0.5_wp * REAL(month_days(:),wp)
 
   ! Compute difference between the midth of actual month and the
   ! following one (in days)
@@ -1877,11 +1877,11 @@ SUBROUTINE month2hour( datetime, m1, m2, pw2 )
     ! point is in first half of month (EXAMPLE 2)
     m1 = mmon - 1
     IF(mmon == 1) m1 = 12
-    zact   = zhalf(m1) + REAL(mdayhour)/24._wp
+    zact   = zhalf(m1) + REAL(mdayhour,wp)/24._wp
   ELSE
     ! point is in second half of month (EXAMPLE 1)
     m1 = mmon
-    zact   = REAL(mdayhour-mmidthhours)/24._wp
+    zact   = REAL(mdayhour-mmidthhours,wp)/24._wp
   ENDIF
   m2 = mod(m1,12) + 1
   pw2 =  zact / zdiff(m1)

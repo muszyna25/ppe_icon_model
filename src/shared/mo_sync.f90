@@ -852,7 +852,7 @@ SUBROUTINE sync_idx(type_arr, type_idx, p_patch, idx, blk, opt_remap)
       IF(i_l <= 0 .or. i_l > n_idx) THEN
         z_idx(jl,jb) = 0._wp
       ELSE
-        z_idx(jl,jb) = glb_index(i_l)
+        z_idx(jl,jb) = REAL(glb_index(i_l),wp)
       ENDIF
 
     END DO
@@ -904,7 +904,6 @@ FUNCTION global_sum_array_0di (zfield) RESULT (global_sum)
   INTEGER,           INTENT(in) :: zfield
   INTEGER                       :: global_sum
   REAL(wp)                      :: z_aux, z_auxs
-  REAL(wp)                      :: sum_on_testpe(1)
 
   INTEGER :: p_comm_glob
 !-----------------------------------------------------------------------
