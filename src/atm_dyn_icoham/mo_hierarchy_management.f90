@@ -70,7 +70,7 @@ MODULE mo_hierarchy_management
                                     nold, nnow, nnew, nsav1, nsav2
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config 
   USE mo_diffusion_config,    ONLY: diffusion_config
-  USE mo_io_config,           ONLY: lprepare_output
+!   USE mo_io_config,           ONLY: lprepare_output
   USE mo_parallel_config,     ONLY: nproma, p_test_run
   USE mo_run_config,          ONLY: ldynamics, ltransport, &
     &                               nlev, nlevp1, ntracer, iforcing, lforcing
@@ -1097,28 +1097,29 @@ CONTAINS
       !====================
       ! Prepare for output
       !====================
-      IF (lprepare_output(jg)) THEN
-
-        CALL copy_prog_state( p_hydro_state(jg)%prog(n_now),  &! in
-          &                   p_hydro_state(jg)%prog_out,     &! out
-          &                   ha_dyn_config%ltheta_dyn,       &! in
-          &                   ltransport                     ) ! in
-
-        CALL update_diag_state( p_hydro_state(jg)%prog_out,   &! in
-          &                     p_patch(jg), p_int_state(jg), &! in
-          &                     ext_data(jg),                 &! in
-          &                     p_hydro_state(jg)%diag_out )   ! out
-
-        CALL update_dyn_output( p_patch(jg), p_int_state(jg), &! in
-          &                     p_hydro_state(jg)%prog_out,   &! in
-          &                     p_hydro_state(jg)%diag_out )   ! inout
-
-        ! For nested domains, output preparation is not needed during the
-        ! remaining substeps of the same big step
-
-        lprepare_output(jg) = .FALSE.
-
-      ENDIF
+      ! LL: this is moved into the mo_ha_stepping along with the output command
+!       IF (lprepare_output(jg)) THEN
+! 
+!         CALL copy_prog_state( p_hydro_state(jg)%prog(n_now),  &! in
+!           &                   p_hydro_state(jg)%prog_out,     &! out
+!           &                   ha_dyn_config%ltheta_dyn,       &! in
+!           &                   ltransport                     ) ! in
+! 
+!         CALL update_diag_state( p_hydro_state(jg)%prog_out,   &! in
+!           &                     p_patch(jg), p_int_state(jg), &! in
+!           &                     ext_data(jg),                 &! in
+!           &                     p_hydro_state(jg)%diag_out )   ! out
+! 
+!         CALL update_dyn_output( p_patch(jg), p_int_state(jg), &! in
+!           &                     p_hydro_state(jg)%prog_out,   &! in
+!           &                     p_hydro_state(jg)%diag_out )   ! inout
+! 
+!         ! For nested domains, output preparation is not needed during the
+!         ! remaining substeps of the same big step
+! 
+!         lprepare_output(jg) = .FALSE.
+! 
+!       ENDIF
 
       !===================
       ! Swap time indices

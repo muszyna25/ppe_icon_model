@@ -50,7 +50,7 @@ MODULE mo_ha_stepping
   USE mo_model_domain_import, ONLY: n_dom
   USE mo_dynamics_config,     ONLY: lshallow_water, ltwotime, nnow, nold
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config, configure_ha_dyn
-  USE mo_io_config,           ONLY: l_outputtime, lprepare_output, l_diagtime,  &
+  USE mo_io_config,           ONLY: is_output_time, l_diagtime,  &
                                   & is_checkpoint_time
   USE mo_run_config,          ONLY: nsteps, dtime, ntracer,  &
                                   & ldynamics, ltransport, msg_level,   &
@@ -216,7 +216,7 @@ CONTAINS
   SUBROUTINE perform_ha_stepping( p_patch, p_int_state,  &
                                 & p_grf_state,                        &
                                 & p_hydro_state, datetime,            &
-                                & n_io, n_file, n_checkpoint, n_diag, &
+                                & n_file, n_checkpoint, n_diag, &
                                 & jfile, l_have_output                )
 
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
@@ -225,7 +225,7 @@ CONTAINS
   TYPE(t_patch), TARGET, INTENT(IN)         :: p_patch(n_dom)
   TYPE(t_int_state), TARGET, INTENT(IN)     :: p_int_state(n_dom)
   TYPE(t_gridref_state), TARGET, INTENT(INOUT) :: p_grf_state(n_dom)
-  INTEGER, INTENT(IN) :: n_io, n_file, n_checkpoint, n_diag
+  INTEGER, INTENT(IN) :: n_file, n_checkpoint, n_diag
   INTEGER, INTENT(INOUT) :: jfile
   LOGICAL, INTENT(INOUT) :: l_have_output
 
@@ -286,13 +286,14 @@ CONTAINS
     ! modified within this integration cycle. Therefore at the end of the
     ! cycle, we write out variables of time step n rather than n+1.
 
-    IF ( MOD(jstep-1,n_io)==0 .AND. jstep/=1 ) THEN
-      l_outputtime       = .TRUE. ! Output at the end of the time step
-      lprepare_output(:) = .TRUE. ! Prepare output values on all grid levels
-    ELSE
-      l_outputtime       = .FALSE.
-      lprepare_output(:) = .FALSE.
-    ENDIF
+! LL: this is replaced by the function is_output_time()
+!     IF ( MOD(jstep-1,n_io)==0 .AND. jstep/=1 ) THEN
+!       is_output_time(jstep)       = .TRUE. ! Output at the end of the time step
+!       lprepare_output(:) = .TRUE. ! Prepare output values on all grid levels
+!     ELSE
+!       is_output_time(jstep)       = .FALSE.
+!       lprepare_output(:) = .FALSE.
+!     ENDIF
 
     IF ( MOD(jstep-1,n_diag)==0 .OR. jstep==nsteps ) THEN
       l_diagtime = .TRUE. ! Diagnostic output is done at the end of the
@@ -318,10 +319,35 @@ CONTAINS
       &                1, jstep, l_3tl_init, dtime, sim_time, 1, datetime )
 
     !--------------------------------------------------------------------------
+    ! One integration cycle finished on the lowest grid level (coarsest
+    ! resolution). Set model time.
+    !--------------------------------------------------------------------------
+    CALL add_time(dtime,0,0,0,datetime)
+    
+    !--------------------------------------------------------------------------
     ! Write output (prognostic and diagnostic variables) 
     !--------------------------------------------------------------------------
-    IF (l_outputtime) THEN
+    IF (is_output_time(jstep)) THEN
 
+      !====================
+      ! Prepare for output
+      !====================
+      DO jg = 1, n_dom
+        CALL copy_prog_state( p_hydro_state(jg)%prog(nnow(jg)),  &! in
+          &                   p_hydro_state(jg)%prog_out,     &! out
+          &                   ha_dyn_config%ltheta_dyn,       &! in
+          &                   ltransport                     ) ! in
+
+        CALL update_diag_state( p_hydro_state(jg)%prog_out,   &! in
+          &                     p_patch(jg), p_int_state(jg), &! in
+          &                     ext_data(jg),                 &! in
+          &                     p_hydro_state(jg)%diag_out )   ! out
+
+        CALL update_dyn_output( p_patch(jg), p_int_state(jg), &! in
+          &                     p_hydro_state(jg)%prog_out,   &! in
+          &                     p_hydro_state(jg)%diag_out )   ! inout
+      ENDDO
+      
       IF (ltimer) CALL timer_start(timer_intrp_diagn)
       
       ! Interpolate diagnostic variables to nest boundaries
@@ -344,7 +370,7 @@ CONTAINS
       
       IF (ltimer) CALL timer_stop(timer_intrp_diagn)
 
-    ENDIF !l_outputtime
+    ENDIF !is_output_time(jstep)
 
     ! If it's time, close the current output file and trigger a new one
     IF (jstep/=1.AND.(MOD(jstep-1,n_file)==0).AND.jstep/=nsteps) THEN
@@ -359,11 +385,6 @@ CONTAINS
     CALL supervise_total_integrals( jstep, p_patch, p_hydro_state, &
                                     nnow(1:n_dom) )
 
-    !--------------------------------------------------------------------------
-    ! One integration cycle finished on the lowest grid level (coarsest
-    ! resolution). Set model time.
-    !--------------------------------------------------------------------------
-    CALL add_time(dtime,0,0,0,datetime)
 
     !--------------------------------------------------------------------------
     ! Write restart file

@@ -106,7 +106,7 @@ MODULE mo_io_config
     LOGICAL :: l_diagtime        ! if .true., diagnostic output is computed and written
                                  ! at the end of the time step.
 
-    LOGICAL :: lprepare_output(max_dom) ! if .true., save the prognostic variables
+!     LOGICAL :: lprepare_output(max_dom) ! if .true., save the prognostic variables
                                         ! to p_prog_out and update p_diag_out.
 
   !END TYPE t_io_config
@@ -115,10 +115,11 @@ MODULE mo_io_config
   !TYPE(t_io_config):: io_config(max_dom)
 
 CONTAINS
-!  !>
-!  !!
-!  subroutine configure_io(n_dom)
-!  end subroutine configure_io
+  !----------------------------------------------------------------------------------
+  !  !>
+  !  !!
+  !  subroutine configure_io(n_dom)
+  !  end subroutine configure_io
 
    FUNCTION istime4output(sim_time) RESULT(retval)
      REAL(wp), INTENT(IN)  :: sim_time            ! simulation time [s]
@@ -134,6 +135,7 @@ CONTAINS
        &       ( (sim_time - nearest_output_time) <= (dtime/2._wp)) )
 
    END FUNCTION istime4output
+  !----------------------------------------------------------------------------------
 
 !!$   FUNCTION istime4output(current_timestep) RESULT(retval)
 !!$     LOGICAL :: retval
@@ -150,6 +152,7 @@ CONTAINS
 !!$     END IF
 !!$   END FUNCTION istime4output
 
+  !----------------------------------------------------------------------------------
    FUNCTION istime4newoutputfile(current_timestep) RESULT(retval)
      LOGICAL :: retval
      INTEGER, INTENT(IN) :: current_timestep
@@ -166,30 +169,43 @@ CONTAINS
        retval = .FALSE.
      END IF
    END FUNCTION istime4newoutputfile
+  !----------------------------------------------------------------------------------
 
+  !----------------------------------------------------------------------------------
    FUNCTION n_checkpoints()
 
      INTEGER :: n_checkpoints
 
      n_checkpoints = NINT(dt_checkpoint/dtime)  ! write restart files
    END FUNCTION
+  !----------------------------------------------------------------------------------
+   
+  !----------------------------------------------------------------------------------
    FUNCTION n_files()
 
      INTEGER :: n_files
      n_files  = NINT(dt_file/dtime)        ! trigger new output file
    END FUNCTION
+  !----------------------------------------------------------------------------------
+   
+  !----------------------------------------------------------------------------------
    FUNCTION n_ios()
 
      INTEGER :: n_ios
 
      n_ios    = NINT(dt_data/dtime)        ! number of: write output
    END FUNCTION
+  !----------------------------------------------------------------------------------
+   
+  !----------------------------------------------------------------------------------
    FUNCTION n_diags()
 
      INTEGER :: n_diags
 
      n_diags  = MAX(1,NINT(dt_diag/dtime)) ! number of: diagnose of total integrals
    END FUNCTION
+  !----------------------------------------------------------------------------------
+  !----------------------------------------------------------------------------------
 
    FUNCTION is_checkpoint_time(current_step, n_checkpoints, n_steps) RESULT(l_checkpoint)
      INTEGER, INTENT(IN)            :: current_step, n_checkpoints
@@ -211,5 +227,15 @@ CONTAINS
        END IF
      END IF
    END FUNCTION
+  !----------------------------------------------------------------------------------
+   
+  !----------------------------------------------------------------------------------
+   LOGICAL FUNCTION is_output_time(current_step)
+     INTEGER, INTENT(IN)            :: current_step
+
+     is_output_time = ( MOD(current_step,n_ios())==0 )
+     
+   END FUNCTION
+  !----------------------------------------------------------------------------------
 
 END MODULE mo_io_config
