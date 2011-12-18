@@ -181,9 +181,9 @@ CONTAINS
     INTEGER :: grid_shape(2) 
     INTEGER :: field_shape(3) 
     INTEGER :: i, error_status
-    INTEGER :: no_of_entities
+!    INTEGER :: no_of_entities
     INTEGER :: patch_no
-    INTEGER, POINTER :: grid_glob_index(:)
+!    INTEGER, POINTER :: grid_glob_index(:)
     LOGICAL :: lsuccess, l_have_output
 
     !-------------------------------------------------------------------

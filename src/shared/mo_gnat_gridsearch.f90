@@ -449,7 +449,7 @@ CONTAINS
 
           ! compute a true upper bound for search radius
           ! ("1.05" is just for safety)
-          r = MINVAL((/ rr, 1.05*(r2 + min_dist_old) /))
+          r = MINVAL((/ rr, 1.05_gk*(r2 + min_dist_old) /))
           
         END IF
 
@@ -721,7 +721,7 @@ CONTAINS
         & (COUNT(min_node_idx(:,:,1) == INVALID_NODE) == 0)) EXIT
       ! adapt search radius
       iadapt = iadapt + 1
-      r = r*2.
+      r = r*2._gk
       IF (r > MAX_RANGE) EXIT
       IF (dbg_level > 1) &
         CALL message(routine, "adapting radius")
@@ -793,7 +793,7 @@ CONTAINS
       node => node_storage(node%child(1))
     END DO
     ! increase radius for safety
-    gnat_std_radius = 2.*gnat_std_radius
+    gnat_std_radius = 2._gk*gnat_std_radius
   END FUNCTION gnat_std_radius
 
 

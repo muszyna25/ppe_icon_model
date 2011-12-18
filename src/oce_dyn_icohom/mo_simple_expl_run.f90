@@ -109,8 +109,6 @@ CONTAINS
 
     TYPE(t_patch),             TARGET, INTENT(IN)     :: ppatch(n_dom)
     TYPE(t_hydro_ocean_state), TARGET, INTENT(INOUT)  :: pstate_oce(n_dom)
-!   TYPE(t_ho_sfc_flx),                INTENT(INOUT)  :: p_sfc_flx
-    TYPE (t_ho_params)                                :: p_phys_param
     TYPE(t_datetime), INTENT(INOUT)                   :: datetime
     INTEGER, INTENT(IN)                               :: n_io, n_file
 
@@ -138,7 +136,6 @@ CONTAINS
 
 !    LOGICAL :: l_exist
 
-    CHARACTER(LEN=filename_max)               :: outputfile
 !    CHARACTER(LEN=filename_max)               :: gridfile
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       &      routine = 'mo_simple_expl_oce:perform_expl_step_oce'

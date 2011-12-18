@@ -1058,7 +1058,7 @@ CONTAINS
           CASE (GATHER_C); mem_size = mem_size + INT(patch_owner_info(jg)%n_own_cells*nlev,i8)
           CASE (GATHER_E); mem_size = mem_size + INT(patch_owner_info(jg)%n_own_edges*nlev,i8)
           CASE (GATHER_V); mem_size = mem_size + INT(patch_owner_info(jg)%n_own_verts*nlev,i8)
-          CASE (GATHER_LONLAT); mem_size = mem_size + 0
+          CASE (GATHER_LONLAT); mem_size = mem_size + 0_i8
           CASE DEFAULT
             CALL finish(modname, 'Illegal type from vlist_get_VarGrid')
         END SELECT

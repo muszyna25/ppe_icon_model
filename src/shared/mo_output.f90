@@ -327,9 +327,9 @@ CONTAINS
                                 & opt_jstep_adv_ntsteps,       &
                                 & opt_jstep_adv_marchuk_order, &
                                 & opt_depth, opt_depth_lnd,    &
-                                & opt_zheight,                 &
-                                & opt_zheight_mc,              &
-                                & opt_zheight_ifc )
+                                & opt_zheight)!,                 &
+!                                & opt_zheight_mc,              &
+!                                & opt_zheight_ifc )
 
     TYPE(t_patch),   INTENT(IN) :: patch
     TYPE(t_datetime),INTENT(IN) :: datetime
@@ -345,8 +345,8 @@ CONTAINS
     INTEGER,  INTENT(IN), OPTIONAL :: opt_jstep_adv_ntsteps
     INTEGER,  INTENT(IN), OPTIONAL :: opt_jstep_adv_marchuk_order
     INTEGER,  INTENT(IN), OPTIONAL :: opt_zheight
-    REAL(wp), INTENT(IN), OPTIONAL :: opt_zheight_mc (:,:,:) 
-    REAL(wp), INTENT(IN), OPTIONAL :: opt_zheight_ifc(:,:,:)
+!    REAL(wp), INTENT(IN), OPTIONAL :: opt_zheight_mc (:,:,:) 
+!    REAL(wp), INTENT(IN), OPTIONAL :: opt_zheight_ifc(:,:,:)
 
     INTEGER :: klev, jg, kcell, kvert, kedge, icelltype, izlev, i
     REAL(wp), ALLOCATABLE :: zlevels_full(:), zlevels_half(:)

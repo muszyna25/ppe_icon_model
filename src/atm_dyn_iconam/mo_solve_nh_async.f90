@@ -325,7 +325,7 @@ MODULE mo_solve_nh_async
 !$OMP END PARALLEL
 
     IF (istep == 2) THEN
-      CALL complete_async_comm(p_patch%comm_pat_c,1,nlevp1,bufr%recv_c1,p_prog%w)
+      CALL complete_async_comm(p_patch%comm_pat_c,1,bufr%recv_c1,p_prog%w)
     ENDIF
 
 !$OMP PARALLEL PRIVATE(rl_start, rl_end, i_startblk, i_endblk)
@@ -1316,14 +1316,14 @@ MODULE mo_solve_nh_async
 
     IF (istep == 1) THEN
       IF (idiv_method == 1) THEN
-        CALL complete_async_comm(p_patch%comm_pat_e,2,2*nlev,bufr%recv_e2,&
+        CALL complete_async_comm(p_patch%comm_pat_e,2,bufr%recv_e2,&
                                  p_nh%prog(nnew)%vn,z_rho_e)
       ELSE
-        CALL complete_async_comm(p_patch%comm_pat_e,3,3*nlev,bufr%recv_e3, &
+        CALL complete_async_comm(p_patch%comm_pat_e,3,bufr%recv_e3, &
                                  p_nh%prog(nnew)%vn,z_rho_e,z_theta_v_e)
       ENDIF
     ELSE
-      CALL complete_async_comm(p_patch%comm_pat_e,1,nlev,bufr%recv_e1,&
+      CALL complete_async_comm(p_patch%comm_pat_e,1,bufr%recv_e1,&
                                p_nh%prog(nnew)%vn)
     ENDIF
 
@@ -1563,7 +1563,7 @@ MODULE mo_solve_nh_async
 
     IF (istep == 2) THEN ! Do first part of computations for Smagorinsky diffusion
       
-      CALL complete_async_comm(p_patch%comm_pat_v,2,2*nlev,bufr%recv_v2,u_vert,v_vert)
+      CALL complete_async_comm(p_patch%comm_pat_v,2,bufr%recv_v2,u_vert,v_vert)
 
       rl_start = start_bdydiff_e
       rl_end   = min_rledge_int - 2
@@ -1956,7 +1956,7 @@ MODULE mo_solve_nh_async
 !$OMP END PARALLEL
 
     IF (istep == 2) THEN
-      CALL complete_async_comm(p_patch%comm_pat_v,2,2*nlev,bufr%recv_v2,u_vert,v_vert)
+      CALL complete_async_comm(p_patch%comm_pat_v,2,bufr%recv_v2,u_vert,v_vert)
     ENDIF
 
     IF (istep == 1) THEN ! Only w is updated in the predictor step
@@ -2125,7 +2125,7 @@ MODULE mo_solve_nh_async
 !$OMP END PARALLEL
 
 
-   CALL complete_async_comm(p_patch%comm_pat_c,3,3*nlev+1,bufr%recv_c3,                &
+   CALL complete_async_comm(p_patch%comm_pat_c,3,bufr%recv_c3,                &
                             p_nh%prog(nnew)%rho,p_nh%prog(nnew)%exner,p_nh%prog(nnew)%w)
 
    CALL start_async_comm(p_patch%comm_pat_e,1,nlev,bufr%send_e1,bufr%recv_e1,&
@@ -2330,7 +2330,7 @@ MODULE mo_solve_nh_async
    ENDIF ! temperature diffusion
 
 
-   CALL complete_async_comm(p_patch%comm_pat_e,1,nlev,bufr%recv_e1,p_nh%prog(nnew)%vn)
+   CALL complete_async_comm(p_patch%comm_pat_e,1,bufr%recv_e1,p_nh%prog(nnew)%vn)
 
 
    IF (ltimer) CALL timer_stop(timer_solve_nh)

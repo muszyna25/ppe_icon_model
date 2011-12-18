@@ -2206,7 +2206,7 @@ END SUBROUTINE start_async_comm
 !! @par Revision History
 !! Initial version by Guenther Zaengl, Feb 2011, based on work by Rainer Johanni
 !!
-SUBROUTINE complete_async_comm(p_pat, nfields, ndim2tot, recv_buf, recv1, recv2, recv3, &
+SUBROUTINE complete_async_comm(p_pat, nfields, recv_buf, recv1, recv2, recv3, &
                                recv4, recv5, recv4d)
 
    TYPE(t_comm_pattern), INTENT(IN) :: p_pat
@@ -2214,7 +2214,7 @@ SUBROUTINE complete_async_comm(p_pat, nfields, ndim2tot, recv_buf, recv1, recv2,
    REAL(wp), INTENT(INOUT), TARGET, OPTIONAL ::  &
      recv1(:,:,:), recv2(:,:,:), recv3(:,:,:), recv4(:,:,:), recv5(:,:,:), recv4d(:,:,:,:)
 
-   INTEGER, INTENT(IN)      :: nfields, ndim2tot
+   INTEGER, INTENT(IN)      :: nfields
 
    REAL(wp) , INTENT(INOUT) :: recv_buf(:,:)
 
