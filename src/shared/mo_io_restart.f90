@@ -281,7 +281,7 @@ CONTAINS
   !
   SUBROUTINE init_restart(model_name, model_version, &
        &                  nc, ncv, nv, nvv, ne, nev, &
-       &                  nlev, ndepth, nheight)
+       &                  nlev, ndepth)
     CHARACTER(len=*), INTENT(in) :: model_name
     CHARACTER(len=*), INTENT(in) :: model_version
     INTEGER,          INTENT(in) :: nc
@@ -292,7 +292,6 @@ CONTAINS
     INTEGER,          INTENT(in) :: nev
     INTEGER,          INTENT(in) :: nlev
     INTEGER,          INTENT(in) :: ndepth
-    INTEGER,          INTENT(in) :: nheight
     !
     CHARACTER(len=256) :: executable
     CHARACTER(len=256) :: user_name
@@ -1332,8 +1331,9 @@ CONTAINS
     REAL(wp), POINTER :: rptr3d(:,:,:)
     !
     CHARACTER(len=8)  :: this_model_type
-    INTEGER :: length_of_model_type, k
-    LOGICAL :: found
+    INTEGER :: length_of_model_type
+!    INTEGER :: k
+!    LOGICAL :: found
     
     write(0,*) "read_restart_files, nvar_lists=", nvar_lists
     abbreviations(1:nvar_lists)%key = 0

@@ -147,10 +147,7 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(in) :: rad_namelist_filename
     CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
 
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: grid_file_name 
     CHARACTER(*), PARAMETER :: routine = "mo_radiation_model:atmo_model"
-    LOGICAL :: lsuccess
-    INTEGER :: jg
 
     TYPE(t_patch), ALLOCATABLE :: p_patch_global(:)
 
@@ -159,14 +156,15 @@ CONTAINS
     INTEGER, PARAMETER :: no_of_fields = 12
 
     CHARACTER(LEN=MAX_CHAR_LENGTH) ::  field_name(no_of_fields)
-    INTEGER :: field_id(no_of_fields)
+!     INTEGER :: field_id(no_of_fields)
     INTEGER :: grid_id
     INTEGER :: grid_shape(2) 
-    INTEGER :: field_shape(3) 
-    INTEGER :: i, error_status
-    INTEGER :: no_of_entities
+!     INTEGER :: field_shape(3) 
+!     INTEGER :: i
+    INTEGER :: error_status
+!     INTEGER :: no_of_entities
     INTEGER :: patch_no
-    INTEGER, POINTER :: grid_glob_index(:)
+!     INTEGER, POINTER :: grid_glob_index(:)
 
 
     !---------------------------------------------------------------------

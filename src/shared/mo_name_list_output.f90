@@ -430,17 +430,17 @@ CONTAINS
       ! Check input
 
       ! We need dtime for this check
-      IF(dtime<=0) CALL finish(routine, 'dtime must be set before reading output namelists')
+      IF(dtime<=0._wp) CALL finish(routine, 'dtime must be set before reading output namelists')
 
       ! Output bounds
-      IF(output_bounds(1,1) < 0 .OR. &
+      IF(output_bounds(1,1) < 0._wp .OR. &
          output_bounds(2,1) <= output_bounds(1,1) .OR. &
          output_bounds(3,1) <= dtime) THEN
         CALL finish(routine,'Illegal output_bounds(:,1)')
       ENDIF
 
       DO i = 2, max_bounds-1
-        IF(output_bounds(3,i) <= 0) EXIT ! The last one
+        IF(output_bounds(3,i) <= 0._wp) EXIT ! The last one
         IF(output_bounds(1,i) <= output_bounds(2,i-1)) &
           CALL finish(routine,'output_bounds not increasing')
         IF(output_bounds(2,i) <= output_bounds(1,i)) &
@@ -477,11 +477,11 @@ CONTAINS
       ! output_time_unit: 1 = second, 2=minute, 3=hour, 4=day, 5=month, 6=year
       SELECT CASE(output_time_unit)
         CASE(1); p_onl%output_bounds(:,:) = output_bounds(:,:)
-        CASE(2); p_onl%output_bounds(:,:) = output_bounds(:,:)*60
-        CASE(3); p_onl%output_bounds(:,:) = output_bounds(:,:)*3600
-        CASE(4); p_onl%output_bounds(:,:) = output_bounds(:,:)*86400
-        CASE(5); p_onl%output_bounds(:,:) = output_bounds(:,:)*86400*30  ! Not a real calender month
-        CASE(6); p_onl%output_bounds(:,:) = output_bounds(:,:)*86400*365 ! Not a real calender year
+        CASE(2); p_onl%output_bounds(:,:) = output_bounds(:,:)*60._wp
+        CASE(3); p_onl%output_bounds(:,:) = output_bounds(:,:)*3600._wp
+        CASE(4); p_onl%output_bounds(:,:) = output_bounds(:,:)*86400._wp
+        CASE(5); p_onl%output_bounds(:,:) = output_bounds(:,:)*86400._wp*30._wp  ! Not a real calender month
+        CASE(6); p_onl%output_bounds(:,:) = output_bounds(:,:)*86400._wp*365._wp ! Not a real calender year
         CASE DEFAULT
           CALL finish(routine,'Illegal output_time_unit')
       END SELECT
@@ -1159,7 +1159,7 @@ ENDIF
 
     TYPE(t_output_file), INTENT(INOUT) :: of
 
-    INTEGER :: k, nlev, nlevp1, nplev, nzlev, nzlevp1, znlev_soil, astatus, i_dom
+    INTEGER :: k, nlev, nlevp1, nplev, nzlev, nzlevp1, znlev_soil, i_dom
     INTEGER :: ll_dim(2)
     REAL(wp), ALLOCATABLE :: levels(:), levels_i(:), levels_m(:), p_lonlat(:)
 
@@ -1222,14 +1222,14 @@ ENDIF
 
       ALLOCATE(p_lonlat(ll_dim(1)))
       DO k = 1, ll_dim(1)
-        p_lonlat(k) = of%name_list%reg_lon_def(1) + k*of%name_list%reg_lon_def(2)
+        p_lonlat(k) = of%name_list%reg_lon_def(1) + REAL(k,wp)*of%name_list%reg_lon_def(2)
       ENDDO
       CALL gridDefXvals(of%cdiLonLatGridID, p_lonlat)
       DEALLOCATE(p_lonlat)
 
       ALLOCATE(p_lonlat(ll_dim(2)))
       DO k = 1, ll_dim(2)
-        p_lonlat(k) = of%name_list%reg_lat_def(1) + k*of%name_list%reg_lat_def(2)
+        p_lonlat(k) = of%name_list%reg_lat_def(1) + REAL(k,wp)*of%name_list%reg_lat_def(2)
       ENDDO
       CALL gridDefYvals(of%cdiLonLatGridID, p_lonlat)
       DEALLOCATE(p_lonlat)
@@ -2141,7 +2141,7 @@ ENDIF
 
       ! Check if output is due for this file
       IF((p_onl%include_last .AND. last_step) .OR. &
-          p_onl%next_output_time <= sim_time+iadv_rcf*dtime/2._wp) THEN
+          p_onl%next_output_time <= sim_time+REAL(iadv_rcf,wp)*dtime/2._wp) THEN
 
         IF(MOD(p_onl%n_output_steps,p_onl%steps_per_file) == 0) THEN
           IF (output_file(i)%io_proc_id == p_pe .OR. my_process_is_mpi_test()) THEN
@@ -2170,7 +2170,7 @@ ENDIF
 
       ! Check if output is due for this file
       IF((p_onl%include_last .AND. last_step) .OR. &
-          p_onl%next_output_time <= sim_time+iadv_rcf*dtime/2._wp) THEN
+          p_onl%next_output_time <= sim_time+REAL(iadv_rcf,wp)*dtime/2._wp) THEN
 
         IF (output_file(i)%io_proc_id == p_pe .OR. my_process_is_mpi_test()) THEN
           CALL taxisDefVdate(output_file(i)%cdiTaxisID, idate)
@@ -2208,7 +2208,7 @@ ENDIF
       IF(.NOT.ASSOCIATED(p_onl)) EXIT
 
       IF((p_onl%include_last .AND. last_step) .OR. &
-          p_onl%next_output_time <= sim_time+iadv_rcf*dtime/2._wp) THEN
+          p_onl%next_output_time <= sim_time+REAL(iadv_rcf,wp)*dtime/2._wp) THEN
 
         p_onl%n_output_steps = p_onl%n_output_steps + 1
 
@@ -2219,7 +2219,7 @@ ENDIF
       ! where an output increment less than the time step
       ! or two output_bounds triples which are too close are specified.
 
-      DO WHILE(p_onl%next_output_time <= sim_time+iadv_rcf*dtime/2._wp)
+      DO WHILE(p_onl%next_output_time <= sim_time+REAL(iadv_rcf,wp)*dtime/2._wp)
         n = p_onl%cur_bounds_triple
         IF(p_onl%next_output_time + p_onl%output_bounds(3,n) <= p_onl%output_bounds(2,n)+eps) THEN
           ! Next output time will be within current bounds triple
@@ -2464,9 +2464,9 @@ ENDIF
 
         DO jk = 1, nlevs
           DO i = 1, p_ri%n_own
-            mem_ptr(ioff+i) = r_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i))
+            mem_ptr(ioff+INT(i,i8)) = r_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i))
           ENDDO
-          ioff = ioff + p_ri%n_own
+          ioff = ioff + INT(p_ri%n_own,i8)
         ENDDO
 
       ENDIF
@@ -2525,7 +2525,7 @@ ENDIF
     p_onl => first_output_name_list
     DO
       IF(.NOT.ASSOCIATED(p_onl)) EXIT
-      IF(p_onl%next_output_time <= sim_time+iadv_rcf*dtime/2._wp) retval = .TRUE.
+      IF(p_onl%next_output_time <= sim_time+REAL(iadv_rcf,wp)*dtime/2._wp) retval = .TRUE.
       p_onl => p_onl%next
     ENDDO
 
@@ -2574,7 +2574,7 @@ ENDIF
 
     nblks = (p_ri%n_log-1)/nproma + 1 ! Total number of blocks in logical domain
     ALLOCATE(r_full(nproma,nlev,nblks))
-    r_full(:,:,:) = 0
+    r_full(:,:,:) = 0._wp
 
     DO jk = 1, nlev
       DO i = 1, p_ri%n_glb
@@ -2977,11 +2977,11 @@ ENDIF
 
         SELECT CASE (info%hgrid)
           CASE (GRID_UNSTRUCTURED_CELL)
-            mem_size = mem_size + INT(nlevs*patch_info(jp)%cells%n_own)
+            mem_size = mem_size + INT(nlevs*patch_info(jp)%cells%n_own,i8)
           CASE (GRID_UNSTRUCTURED_EDGE)
-            mem_size = mem_size + INT(nlevs*patch_info(jp)%edges%n_own)
+            mem_size = mem_size + INT(nlevs*patch_info(jp)%edges%n_own,i8)
           CASE (GRID_UNSTRUCTURED_VERT)
-            mem_size = mem_size + INT(nlevs*patch_info(jp)%verts%n_own)
+            mem_size = mem_size + INT(nlevs*patch_info(jp)%verts%n_own,i8)
           CASE DEFAULT
             CALL finish(routine,'unknown grid type')
         END SELECT
