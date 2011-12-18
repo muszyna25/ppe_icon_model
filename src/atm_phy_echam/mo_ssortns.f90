@@ -124,7 +124,7 @@ SUBROUTINE ssodrag ( kproma,  kbdim,   klev,  krow,                   &
   !  INITIALIZE CONSTANT FOR THE GWD SCHEME
   !  ON-LINE SHOULD ONLY BE CALLED AT THE MODEL START UP.
 
-  CALL sugwd(kproma,klev)
+  CALL sugwd(klev)
 
   pustrgw(:) = 0.0_wp
   pvstrgw(:) = 0.0_wp

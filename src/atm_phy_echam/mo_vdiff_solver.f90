@@ -822,7 +822,7 @@ CONTAINS
     REAL(wp),INTENT(OUT) :: pvmixtau(kbdim,klev)
 
     REAL(wp) :: ztest, zrdt, zconst
-    REAL(wp) :: zunew, zvnew, zqnew, zsnew, ztnew, dqv
+    REAL(wp) :: zunew, zvnew, zqnew, zsnew, ztnew
     REAL(wp) :: zrhodz, zhexp, zlam, zcons23, z2geomf, zz2geo, zmix, ztkesq
     REAL(wp) :: zvidis(kbdim)
     REAL(wp) :: zdis  (kbdim,klev)

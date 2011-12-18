@@ -64,12 +64,12 @@ MODULE mo_ssodrag
 
 CONTAINS
   !======================================================================
-  SUBROUTINE sugwd(klon,klev)
+  SUBROUTINE sugwd(klev)
 
 !  USE mo_control, ONLY: nvclev, vct, nn
 
   !  Scalar arguments with intent(In):
-  INTEGER, INTENT (IN) :: klon, klev
+  INTEGER, INTENT (IN) :: klev
 
 !! ATTENTION
     INTEGER:: nvclev,  nn

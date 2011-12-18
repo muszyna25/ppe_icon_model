@@ -171,9 +171,6 @@ CONTAINS
     REAL(wp) :: zbb    (nbdim,nlev,nvar_vdiff)  !< r.h.s., all variables
     REAL(wp) :: zbb_btm(nbdim,nsfc_type,ih_vdiff:iqv_vdiff) !< last row of r.h.s. of heat and moisture
 
-    REAL(wp) :: zcosmu0 (nbdim)
-    INTEGER :: j
-
     ! Temporary arrays used by VDIFF
 
     REAL(wp) :: zfactor_sfc(nbdim)
@@ -184,11 +181,10 @@ CONTAINS
     REAL(wp) :: zqshear (nbdim,nlev) !<
     REAL(wp) :: zthvvar (nbdim,nlev) !< intermediate value of thvvar
     REAL(wp) :: ztkevn  (nbdim,nlev) !< intermediate value of tke
-    REAL(wp) :: zo3_timint(nbdim,nlev_o3) !< intermediate value of ozon 
 
+!!$    REAL(wp) :: zo3_timint(nbdim,nlev_o3) !< intermediate value of ozon 
 
-
-!!$ REAL(wp) :: rlfland (nbdim), rlfglac (nbdim)
+!!$    REAL(wp) :: rlfland (nbdim), rlfglac (nbdim)
 
     ! number of cells/columns from index jcs to jce
     nc = jce-jcs+1
@@ -540,14 +536,7 @@ CONTAINS
 
       zi0(jcs:jce) = MAX(0._wp,field%cosmu0(jcs:jce,jb)) * ztsi  ! instantaneous for radheat
 
-!      DO j=jcs,jce
-!        zi0(j) = DBLE(zcosmu0(j))!* !  ! instantaneous for radheat
-!      WRITE(0,*)'1 zi0=',j, zi0(j), zcosmu0 (j), izenith
-!        zi0(j) = DBLE(zi0(j))*DBLE(ztsi)  ! instantaneous for radheat
-!      WRITE(0,*)'2zi0=',j, zi0(j),ztsi, izenith
-!    ENDDO
-
-      field% flxdwswtoa(jcs:jce,jb) = zi0 (jcs:jce)               ! (to be accumulated for output)
+      field% flxdwswtoa(jcs:jce,jb) = zi0 (jcs:jce)              ! (to be accumulated for output)
 
       IF (ltimer) CALL timer_start(timer_radheat)
 
