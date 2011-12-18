@@ -12,12 +12,6 @@
 # | BLIZZ_yMnO    | blizzard  | blizz_yMnO    |
 # | BLIZZ_yMyO    | blizzard  | blizz_yMyO    |
 # |               |           |               |
-# | MPIPC_gcc     | mpipc     | mpipc_gcc     |
-# | MPIPC_nag     | mpipc     | mpipc_nag     |
-# | MPIPC_intel   | mpipc     | mpipc_intel   |
-# | MPIPC_pgi     | mpipc     | mpipc_pgi     |
-# | MPIPC_sun     | mpipc     | mpipc_sun     |
-# |               |           |               |
 # | SQUALL_gcc    | squall    | squall_gcc    |
 # | SQUALL_nag    | squall    | squall_nag    |
 # | SQUALL_intel  | squall    | squall_intel  |
@@ -33,9 +27,9 @@
 # +---------------+-----------+---------------+
 #
 # More info for 'builder' can be find on 
-#	http://mpipc51.mpi.zmaw.de:8011/buildslaves
+#	http://buildbot.zmaw.de:8011/buildslaves
 # or
-# 	http://mpipc51.mpi.zmaw.de:8011/waterfall
+# 	http://buildbot.zmaw.de:8011/waterfall
 #
 #------------------------------------------------------------------------------
 # First version by Walter Sauf (MPI-M, 2009-10-22)
@@ -259,17 +253,6 @@ run_scripts_submit()
     STATUS=1
     return
   fi
-#   if [ $submit = "qsubw" ]
-#   then
-#     echo "====================================================================================== "
-#     echo "                  "
-#     echo "The job is not send to the SX9 because "
-#     echo "only experiment jobs should run on sx9. And this has firt to be included into the run "
-#     echo "                  "
-#     echo "====================================================================================== "
-#     STATUS=1
-#     return
-#   fi
 
 # Change to directory 'run' 
   echo "run_scripts $1"
@@ -329,6 +312,7 @@ run_scripts_submit()
 #  Start of script
 #
 #==============================================================================
+
 # Set default values
 run_ALL=1
 run_GRID=0
@@ -595,7 +579,7 @@ then
 
   if [  -a ./run/run_post_list ] 
   then 
-    echo "Use spezial file ./run/run_post_list for post-script run"
+    echo "Use special file ./run/run_post_list for post-script run"
     EXP_FILES=`cat ./run/run_post_list` 
   else
     echo "Run all post-script post.test_*.run"
@@ -631,6 +615,7 @@ echo "|           Ends                                       |"
 echo "|              $(date)                                 |"
 echo "|                                                      |"
 echo "|======================================================|"
+
 # return OK Status
 
 exit ${RETURN_STATUS}
