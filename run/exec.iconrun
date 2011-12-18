@@ -285,7 +285,6 @@ if [ x$end_date = x ]; then
 cat > $master_namelist << EOF
 &master_nml
  lrestart               = $restart
- debug_coupler_level    = 0
 /
 &time_nml
  ini_datetime_string = "$start_date"
