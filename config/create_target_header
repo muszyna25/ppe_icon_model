@@ -185,7 +185,7 @@ do
 done
 
 cat >> $output_script << EOF
-cdo_diff=${cdo_diff}
+cdo_diff="${cdo_diff}"
 #=============================================================================
 EOF
 
