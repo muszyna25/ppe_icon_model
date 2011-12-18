@@ -40,6 +40,8 @@ eval_argument ()
   ;;
   "no_of_nodes" ) use_nodes=$2
   ;;
+  "queue" ) use_queue=$2
+  ;;
   "out_script" ) output_name=$2
 #     echo "output_name=$output_name"
   ;;

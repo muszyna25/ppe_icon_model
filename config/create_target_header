@@ -213,6 +213,13 @@ set_run_target_blizzard()
 #      set_default use_mpi_procs 1
     fi
   fi
+
+  class=""
+  if   [[ "x$use_queue" != "xexpress" ]] ; then
+    class="class = express"
+  elif [[ "x$use_queue" != "xbench" ]] ; then
+    class="class = bench"
+  fi
   
   # check if we are in smt mode
   let total_threads=${use_openmp_threads}*${use_mpi_procs}
@@ -333,7 +340,7 @@ set_run_target_blizzard()
 # --------------------------------
 # @ shell        = /client/bin/ksh
 # @ job_type     = $job_type
-## @ class        = bench
+# @ $class
 ## @ ll_res_id    = pio01.dkrz.de.13.r
 # @ node_usage   = $node_usage
 # @ $networkMPI

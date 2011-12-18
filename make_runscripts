@@ -45,6 +45,15 @@ input_folder=run
 use_shell=${use_shell:="/bin/ksh"}
 # The $make_runscript command directs to the ./config/make_target_runscript
 make_runscript="$use_shell ./config/make_target_runscript"
+
+#==============================================================================
+# use express queue for builtbot experiments on blizzard
+if [[ $use_target = "blizzard" && $use_mpi = "yes" ]] ; then
+  use_queue="express"
+else
+  use_queue="default"
+fi
+
 #==============================================================================
 #  Create the grid generator run scripts
 #  NOTE: The grid generator runs with 1 MPI proccess, but can use the default OPENMP threads
@@ -55,12 +64,14 @@ cd $base_folder
 for filename in $file_list
 do
   if [[ $filename != *.run && $filename != *~ && $filename != *.status ]] ; then
-    $make_runscript in_folder=$input_folder in_script=${filename}  mpi_procs=1 cpu_time="00:30:00"
+    $make_runscript in_folder=$input_folder in_script=${filename}  mpi_procs=1\
+    queue="$use_queue" cpu_time="00:30:00"
   fi
 done
 #  Create the grid generator for builtbot
-$make_runscript in_folder=$input_folder in_script=grid.create_atmo_grids in_script=grid.create_ocean_grids out_script=grid.create_bb_grids.run mpi_procs=1 cpu_time="00:30:00"
-
+$make_runscript in_folder=$input_folder in_script=grid.create_atmo_grids\
+  in_script=grid.create_ocean_grids out_script=grid.create_bb_grids.run\
+  mpi_procs=1 queue="$use_queue" cpu_time="00:30:00"
 
 
 #==============================================================================
@@ -79,76 +90,44 @@ do
   if [[ $filename != *.run && $filename != *~ &&  $filename != *.status ]] ; then
     # Note: hydrostatic ocean model (hom) not yet parallelized
     name=${filename#*.}
-    if [[ ${name} == *_hom_* ]]; then
-      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name} mpi_procs=1 memory_model="large" cpu_time="08:00:00"
-    elif [[ ${name} == *_nwp_* ]] ; then
-      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${filename#*.}  cpu_time="04:00:00" memory_model="huge"  omp_stacksize="400M"
-    elif [[ ${name} == *_nah_jww* ]] ; then
-      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${filename#*.}  cpu_time="08:00:00" memory_model="large" omp_stacksize=$omp_stacksize
-    elif [[ ${name} == *_nh35_tri_jws* ]] ; then
-      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${filename#*.}  cpu_time="04:00:00" memory_model="verysmall"
+    if [[ ${name} == test* ]]; then
+      queue="$use_queue"
     else
-      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${filename#*.}  cpu_time="04:00:00" memory_model="large" omp_stacksize=$omp_stacksize
+      queue="default"
+    fi
+    
+    if [[ ${name} == test_hom_* ]]; then
+      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
+      mpi_procs=1 memory_model="large" cpu_time="01:00:00" queue="express"
+    elif [[ ${name} == *_hom_* ]]; then
+      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
+      mpi_procs=1 memory_model="large" cpu_time="08:00:00"
+    elif [[ ${name} == *_nwp_* ]] ; then
+      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
+      cpu_time="04:00:00" memory_model="huge"  omp_stacksize="400M" queue="$queue"
+    elif [[ ${name} == *_nah_jww* ]] ; then
+      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
+      cpu_time="08:00:00" memory_model="large" omp_stacksize=$omp_stacksize queue="$queue"
+    elif [[ ${name} == *_nh35_tri_jws* ]] ; then
+      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
+      cpu_time="04:00:00" memory_model="verysmall" queue="$queue"
+    else
+      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
+      cpu_time="04:00:00" memory_model="large" omp_stacksize=$omp_stacksize queue="$queue"
     fi
   fi
 done
 #==============================================================================
-# special treatment for exp.test_nah_jww on blizzard
-#if [[  $use_target == "blizzard" && $use_mpi == "yes" && $use_openmp == "yes" ]] ; then
-#  $make_runscript in_folder=$input_folder in_script=exp.test_nah_jww in_script=exec.iconrun EXPNAME="test_nah_jww" mpi_procs=3 openmp_threads=16  p_test_run=".true." cpu_time="04:00:00"
-# $make_runscript in_folder=$input_folder in_script=exp.test_nah_jww in_script=exec.iconrun EXPNAME="test_nah_jww" no_of_nodes=3 mpi_procs=1 openmp_threads=64  p_test_run=".true." cpu_time="04:00:00"
-#fi
+
 
 #==============================================================================
 # special treatment for exp.couple_atmo-radiation
-if [[  $use_target == "mpipc" && $use_openmp == "yes" ]] ; then
-  name=couple_atmo-radiation
-  $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" openmp_threads=3
-fi
+# if [[  $use_target == "mpipc" && $use_openmp == "yes" ]] ; then
+#   name=couple_atmo-radiation
+#   $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" openmp_threads=3
+# fi
 #==============================================================================
-## special treatment for exp.couple_dummy_models 
-#
-if [[  $use_target == "tornado" ]] ; then
-  name=couple_dummy_models
-  $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="00:20:00" mpi_procs=16
-else
-  name=couple_dummy_models
-  $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="00:20:00" 
-fi
 
-#==============================================================================
-# special treatment for exp.couple_atmo-ocean
-# this includes the restart in the test_couple_atmo-ocean_restart
-#
-#restart_script=restart_parameters.tmp
-#tmp_file=$input_folder/$restart_script
-#cat > $tmp_file << EOF
-#restart_from_folder="test_couple_atmo-ocean"
-#restart_atmo_from="restart.iconR2B04-ocean_aqua_planet_20000101T120000Z_atm.nc"
-#restart_ocean_from="restart.iconR2B04-ocean_aqua_planet_20000101T120000Z_oce.nc"
-#EOF
-
-
-if [[  $use_target == "tornado" ]] ; then
-  name=couple_atmo-ocean
-  $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="01:00:00" mpi_procs=32
-
-  name=test_couple_atmo-ocean
-  $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
-    EXPNAME="$name" cpu_time="01:00:00" mpi_procs=32
-
-else
-
-  name=couple_atmo-ocean
-  $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="01:00:00"
-
-  name=test_couple_atmo-ocean
-  $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
-    EXPNAME="$name" cpu_time="01:00:00"
-
-fi
-
-rm $tmp_file
 
 #==============================================================================
 # special treatment for test_hat_jww-moist_cld-cnv-vdf
@@ -164,10 +143,9 @@ restart_atmo_from="restart.iconR2B04-grid_20080902T000000Z_atm.nc"
 EXPNAME=${name}_restart
 EOF
 
-
 $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
-  in_script=$restart_script in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="01:00:00"
-
+  in_script=$restart_script in_script=exp.$name in_script=exec.iconrun EXPNAME="$name"\
+  queue="$use_queue" cpu_time="01:00:00"
 
 rm $tmp_file
 
@@ -185,34 +163,14 @@ restart_atmo_from="restart.iconR2B04-grid_20080906T000000Z_atm.nc"
 EXPNAME=${name}_restart
 EOF
 
-
 $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
-  in_script=$restart_script in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="01:00:00"
-
+  in_script=$restart_script in_script=exp.$name in_script=exec.iconrun EXPNAME="$name"\
+  queue="$use_queue" cpu_time="01:00:00"
 
 rm $tmp_file
-
 
 #==============================================================================
-# special treatment for hat_jww_si-2t
-# this includes the restart in the test_hat_jww_restart
-#
-name=hat_jww_si-2t
 
-restart_script=${name}_restart.tmp
-tmp_file=$input_folder/$restart_script
-cat > $tmp_file << EOF
-restart_from_folder="$name"
-restart_atmo_from="restart.iconR2B03-grid_20080901T003000Z_atm.nc"
-EXPNAME=${name}_restart
-EOF
-
-
-# $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
-#   in_script=$restart_script in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="01:00:00"
-
-
-rm $tmp_file
 
 #==============================================================================
 # Create the postprocessing scripts
@@ -226,7 +184,8 @@ cd $base_folder
 for filename in $file_list
 do
   if [[ $filename != *.run && $filename != *~ &&  $filename != *.status ]] ; then
-    $make_runscript in_folder=$input_folder in_script=${filename} out_script=${filename}.run with_mpi="no" with_openmp="no" cpu_time="01:00:00"
+    $make_runscript in_folder=$input_folder in_script=${filename} out_script=${filename}.run\
+    with_mpi="no" with_openmp="no" queue="$use_queue" cpu_time="01:00:00"
   fi
 done
 
