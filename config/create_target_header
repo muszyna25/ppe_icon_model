@@ -215,9 +215,9 @@ set_run_target_blizzard()
   fi
 
   class=""
-  if   [[ "x$use_queue" != "xexpress" ]] ; then
+  if   [[ "x$use_queue" == "xexpress" ]] ; then
     class="class = express"
-  elif [[ "x$use_queue" != "xbench" ]] ; then
+  elif [[ "x$use_queue" == "xbench" ]] ; then
     class="class = bench"
   fi
   
