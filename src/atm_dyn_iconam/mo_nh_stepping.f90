@@ -902,8 +902,6 @@ MODULE mo_nh_stepping
 
 !$  INTEGER :: num_threads_omp, omp_get_max_threads
 
-    INTEGER :: i, iend, idx, nblks, i_blk
-
     !--------------------------------------------------------------------------
 
     !--------------------------------------------------------------------------
@@ -1148,7 +1146,7 @@ MODULE mo_nh_stepping
         IF ( linit_slowphy(jg) .AND. iforcing == inwp ) THEN
 
           CALL time_ctrl_physics ( dt_phy, lstep_adv, dt_loc, jg,  &! in
-            &                      nstep_global, .TRUE.,           &! in
+            &                      .TRUE.,                         &! in
             &                      t_elapsed_phy,                  &! inout
             &                      lcall_phy )                      ! out
 
@@ -1210,7 +1208,7 @@ MODULE mo_nh_stepping
        ! time step
         IF ( iforcing == inwp ) THEN
           CALL time_ctrl_physics ( dt_phy, lstep_adv, dt_loc, jg,  &! in
-            &                      nstep_global, .FALSE.,          &! in
+            &                      .FALSE.,                        &! in
             &                      t_elapsed_phy,                  &! inout
             &                      lcall_phy )                      ! out
 
@@ -1624,7 +1622,7 @@ MODULE mo_nh_stepping
   !! - replaced zoo of fast physics time steps by a single time step, named 
   !!   dt_fastphy.
   !!
-  SUBROUTINE time_ctrl_physics ( dt_phy, lstep_adv, dt_loc, jg, nstep_global, &
+  SUBROUTINE time_ctrl_physics ( dt_phy, lstep_adv, dt_loc, jg,  &
     &                            linit, t_elapsed_phy, lcall_phy )
 
     REAL(wp), INTENT(IN)    ::   &      !< Field of calling-time interval (seconds) for
@@ -1646,8 +1644,6 @@ MODULE mo_nh_stepping
     REAL(wp), INTENT(IN) :: dt_loc      !< dynamics time step
 
     INTEGER, INTENT(IN) :: jg           !< domain number
-
-    INTEGER, INTENT(IN) :: nstep_global !< counter of global time step
 
     INTEGER :: ip, ips                  !< loop index
 

@@ -197,8 +197,12 @@ CONTAINS
 
     CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:atmo_model"
 
+#ifndef NOMPI    
+#if defined(__SX__)
     INTEGER  :: maxrss
     REAL(dp) :: maxrss_gridpt,maxrss_gridpt_min, maxrss_gridpt_max
+#endif
+#endif
 
 
     !---------------------------------------------------------------------
@@ -271,8 +275,7 @@ CONTAINS
     LOGICAL :: lsuccess, l_construct_lonlat_coeffs
     INTEGER :: jg, jgp
 
-    INTEGER :: i, error_status
-    INTEGER :: patch_no
+    INTEGER :: error_status
 
     TYPE(t_patch), ALLOCATABLE :: p_patch_global(:)
 
@@ -714,11 +717,10 @@ CONTAINS
   SUBROUTINE destruct_atmo_model()
     
     CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:destruct_atmo_model"
-    LOGICAL :: lsuccess, l_construct_lonlat_coeffs
-    INTEGER :: jg, jgp
+    LOGICAL :: l_construct_lonlat_coeffs
+    INTEGER :: jg
 
-    INTEGER :: i, error_status
-    INTEGER :: patch_no
+    INTEGER :: error_status
     ! Destruct external data state
 
     CALL destruct_ext_data

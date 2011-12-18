@@ -82,7 +82,6 @@ MODULE mo_nh_interface_nwp
   USE mo_satad,              ONLY: satad_v_3D
   USE mo_radiation,          ONLY: radheat, pre_radiation_nwp
   USE mo_radiation_config,   ONLY: irad_aero
- ! USE mo_sso_cosmo,          ONLY: sso
   USE mo_nwp_gw_interface,   ONLY: nwp_gwdrag 
   USE mo_nwp_gscp_interface, ONLY: nwp_microphysics
   USE mo_nwp_turb_interface, ONLY: nwp_turbulence

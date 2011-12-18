@@ -522,8 +522,13 @@ SUBROUTINE sso (                                                       &
 !     Utility variables
 !     -----------------
       REAL(KIND=ireals) :: zgdph,zcons1
-      REAL(KIND=ireals) :: zdedt,zdis,zdelp,ztemp,zb,zc,zcs,zss,zconb,zabsv,zzd1
-      REAL(KIND=ireals) :: zratio,zbet,zust,zvst,zdt2
+#ifndef __ICON__
+      REAL(KIND=ireals) :: zdedt
+!     REAL(KIND=ireals) :: zdis
+#endif
+      REAL(KIND=ireals) :: zdelp,ztemp,zb,zc,zcs,zss,zconb,zabsv,zzd1
+      REAL(KIND=ireals) :: zratio,zbet,zdt2
+!     REAL(KIND=ireals) :: zust,zvst
 
       INTEGER j1,j2,j3      ! loop indices
 
@@ -572,7 +577,7 @@ SUBROUTINE sso (                                                       &
          istart, iend  , jstart, jend    ,               &
          pph   , ppf   , pu    , pv      , pt  , zfi  ,  &
          psso_stdh, psso_theta, psso_gamma,              &
-         lo_sso, ldebug,                                 &
+         lo_sso,                                         &
          zrho  , zri   , zstab, ztau, zvph, zpsi, zzdep, &
          zulow , zvlow , zd1  , zd2 ,zdmod,              &
          mkcrith, mcrit, mkenvh,mknu,mknu2 )
@@ -585,7 +590,7 @@ SUBROUTINE sso (                                                       &
          ie    , je    , ke1   ,                         &
          istart, iend  , jstart, jend    ,               &
          zrho,zstab,zvph,psso_stdh,psso_sigma,zdmod,     &
-         lo_sso, ldebug,                                 &
+         lo_sso,                                         &
          ztau )
 
 ! ========================================================
@@ -595,10 +600,10 @@ SUBROUTINE sso (                                                       &
       CALL gw_profil(                                    &
          ie    , je    , ke    , ke1     ,               &
          istart, iend  , jstart, jend    ,               &
-         pph   , zrho  , zstab , zvph    , zri  , ztau , &
-         zdmod , psso_sigma, psso_gamma, psso_stdh,      &
+         pph   , zrho  , zstab , zvph    , zri  ,        &
+         ztau  , zdmod , psso_sigma, psso_stdh  ,        &
          mkcrith, mcrit, mkenvh, mknu    , mknu2,        &
-         lo_sso, ldebug )
+         lo_sso )
 
 ! ========================================================
 !     Computation of SSO effects' tendencies
@@ -781,7 +786,7 @@ SUBROUTINE sso_setup (                                      &
            istart , iend   , jstart , jend     ,            &
            pph ,ppf ,pu ,pv ,pt ,pfi,                       &
            psso_stdh, psso_theta, psso_gamma   ,            &
-           lo_sso, ldebug,                                  &
+           lo_sso,                                          &
            prho  , pri   , pstab, ptau, pvph , ppsi, pzdep, &
            pulow , pvlow , pd1  , pd2 , pdmod,              &
            kkcrith, kcrit, kkenvh,kknu,kknu2)
@@ -838,7 +843,6 @@ SUBROUTINE sso_setup (                                      &
       REAL(KIND=ireals) :: psso_gamma(ie,je) 
 
       LOGICAL lo_sso(ie,je)
-      LOGICAL ldebug ! debug control switch
 
 !     Output arrays
 !     =============
@@ -1335,8 +1339,7 @@ SUBROUTINE gw_stress (                                  &
            ie     , je     , ke1    ,                   &
            istart , iend   , jstart , jend     ,        &
            prho,pstab,pvph,psso_stdh,psso_sigma,pdmod,  &
-           lo_sso, ldebug,                              &
-           ptau )
+           lo_sso, ptau )
 
 !------------------------------------------------------------------------------
 !
@@ -1376,7 +1379,6 @@ SUBROUTINE gw_stress (                                  &
       REAL(KIND=ireals) :: pdmod(ie,je)
       ! projection parameter = SQRT(D1**2+D2**2)    cf. eq.4.7
 
-      LOGICAL ldebug ! debug control switch
       LOGICAL lo_sso(ie,je)
       ! 
 
@@ -1426,10 +1428,10 @@ END SUBROUTINE gw_stress
 SUBROUTINE gw_profil(                                    &
            ie     , je     , ke     , ke1      ,         &
            istart , iend   , jstart , jend     ,         &
-           pph, prho, pstab, pvph, pri, ptau   ,         &
-           pdmod, psso_sigma, psso_gamma, psso_stdh,     &
+           pph    , prho   , pstab  , pvph     , pri ,   &
+           ptau   , pdmod  , psso_sigma, psso_stdh   ,   &
            kkcrith, kcrit, kkenvh, kknu, kknu2 ,         &
-           lo_sso, ldebug )
+           lo_sso )
 
 !------------------------------------------------------------------------------
 !
@@ -1485,8 +1487,6 @@ SUBROUTINE gw_profil(                                    &
       ! standard deviation of sso-height (m)
       REAL(KIND=ireals) :: psso_sigma(ie,je)
       ! mean sso-slope                   (-)
-      REAL(KIND=ireals) :: psso_gamma(ie,je)
-      ! anisotropy factor of sso         (-)
 
 !     various significant levels
       INTEGER kkcrith(ie,je)
@@ -1496,7 +1496,6 @@ SUBROUTINE gw_profil(                                    &
       INTEGER kknu2  (ie,je)
 
       LOGICAL lo_sso (ie,je)
-      LOGICAL ldebug
      
 !     local arrays and variables
 !     ==========================

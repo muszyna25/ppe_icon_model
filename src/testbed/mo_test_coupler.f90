@@ -71,7 +71,6 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
 
     CHARACTER(*), PARAMETER :: method_name = "mo_test_coupler:test_coupler"
-    INTEGER :: jg, jgp
 
     ! For the coupling
 
