@@ -213,13 +213,6 @@ set_run_target_blizzard()
 #      set_default use_mpi_procs 1
     fi
   fi
-
-  class=""
-  if   [[ "x$use_queue" == "xexpress" ]] ; then
-    class="class = express"
-  elif [[ "x$use_queue" == "xbench" ]] ; then
-    class="class = bench"
-  fi
   
   # check if we are in smt mode
   let total_threads=${use_openmp_threads}*${use_mpi_procs}
@@ -327,6 +320,14 @@ set_run_target_blizzard()
     account="account_no      = $use_account_no"
   else
     account=""
+  fi
+
+  class=""
+  if   [[ "x$use_queue" == "xexpress" ]] ; then
+    class="class = express"
+    wall_clock_limit="wall_clock_limit = 00:20:00"
+  elif [[ "x$use_queue" == "xbench" ]] ; then
+    class="class = bench"
   fi
 
 # smt mode
