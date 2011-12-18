@@ -41,16 +41,16 @@ MODULE mo_test_coupler
   USE mo_master_control,      ONLY: is_restart_run, get_my_process_name, &
                                     get_my_model_no
   ! For the coupling
-  USE mo_impl_constants,      ONLY : CELLS, MAX_CHAR_LENGTH
+  USE mo_impl_constants,      ONLY : MAX_CHAR_LENGTH
 ! USE mo_impl_constants,      ONLY: SUCCESS
-  USE mo_master_control,      ONLY : atmo_process, is_coupled_run
+  USE mo_coupling_config,     ONLY : is_coupled_run
   USE mo_icon_cpl_def_grid,   ONLY : ICON_cpl_def_grid, ICON_cpl_def_location
   USE mo_icon_cpl_def_field,  ONLY : ICON_cpl_def_field
   USE mo_icon_cpl_search,     ONLY : ICON_cpl_search
   USE mo_icon_cpl_exchg,      ONLY : ICON_cpl_put, ICON_cpl_get
   USE mo_icon_cpl_finalize,   ONLY : icon_cpl_finalize
   USE mo_model_domain_import, ONLY : get_patch_global_indexes
-  USE mo_read_namelists,      ONLY: read_cpl_dummy_namelists
+!   USE mo_read_namelists,      ONLY: read_cpl_dummy_namelists
 
   USE mo_model_domain,        ONLY:  p_patch
   
@@ -96,12 +96,13 @@ CONTAINS
 !     CALL p_stop
 !     STOP
     
-    CALL read_cpl_dummy_namelists(cpl_dummy_namelist_filename,shr_namelist_filename)
-    write(0,*) TRIM(get_my_process_name()), ': namelist is read '
-    CALL global_mpi_barrier()
     !---------------------------------------------------------------------
 
     CALL construct_atmo_model(cpl_dummy_namelist_filename,shr_namelist_filename)
+    
+!     CALL read_cpl_dummy_namelists(cpl_dummy_namelist_filename,shr_namelist_filename)
+!     write(0,*) TRIM(get_my_process_name()), ': namelist is read '
+    CALL global_mpi_barrier()
     
     !---------------------------------------------------------------------
     ! 11. Do the setup for the coupled run

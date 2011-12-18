@@ -50,7 +50,7 @@ USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, &
 USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, &
   &                               num_io_procs, nproma
 USE mo_lonlat_intp_config,  ONLY: configure_lonlat_intp
-USE mo_master_control,      ONLY: is_restart_run
+USE mo_master_control,      ONLY: is_restart_run, get_my_process_name, get_my_model_no
 
 
 USE mo_io_async,            ONLY: vlist_io_main_proc, &            ! main procedure for I/O PEs
@@ -86,8 +86,10 @@ USE mo_impl_constants, ONLY:&
 
 
 ! For the coupling
+USE mo_icon_cpl_init,      ONLY: icon_cpl_init
+USE mo_icon_cpl_init_comp, ONLY: icon_cpl_init_comp
 USE mo_impl_constants, ONLY: CELLS
-USE mo_master_control, ONLY : is_coupled_run
+USE mo_coupling_config,   ONLY : is_coupled_run, config_debug_coupler_level
 USE mo_icon_cpl_def_grid, ONLY : ICON_cpl_def_grid, ICON_cpl_def_location
 USE mo_icon_cpl_def_field, ONLY : ICON_cpl_def_field
 USE mo_icon_cpl_search, ONLY : ICON_cpl_search
@@ -803,6 +805,13 @@ CONTAINS
     !---------------------------------------------------------------------
     IF ( is_coupled_run() ) THEN
 
+      !------------------------------------------------------------
+      CALL icon_cpl_init(debug_level=config_debug_coupler_level)
+      ! Inform the coupler about what we are
+      CALL icon_cpl_init_comp ( get_my_process_name(), get_my_model_no(), error_status )
+      ! split the global_mpi_communicator into the components
+      !------------------------------------------------------------
+      
       patch_no = 1
 
       grid_shape(1)=1

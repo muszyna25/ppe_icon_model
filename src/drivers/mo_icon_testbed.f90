@@ -39,8 +39,10 @@ MODULE mo_icon_testbed
   USE mo_master_control,      ONLY: is_restart_run, get_my_process_name, &
                                     get_my_model_no
 
-  USE mo_icon_testbed_config, ONLY: testbed_model, null_model, test_coupler
+  USE mo_icon_testbed_config, ONLY: testbed_mode, null_mode, test_coupler_mode
   USE mo_icon_testbed_nml,    ONLY: read_icon_testbed_namelist
+
+  USE mo_test_coupler,        ONLY: test_coupler
 
 !-------------------------------------------------------------------------
   IMPLICIT NONE
@@ -59,9 +61,22 @@ CONTAINS
 
     CHARACTER(*), PARAMETER :: method_name = "mo_icon_testbed:icon_testbed"
 
+    write(0,*) TRIM(get_my_process_name()), ': Start of ', method_name
+    
     CALL read_icon_testbed_namelist(testbed_namelist_filename)
     
-    write(0,*) TRIM(get_my_process_name()), ': Start of ', method_name
+    SELECT CASE(testbed_mode)
+    CASE(null_mode)
+      ! do nothing
+      RETURN
+
+    CASE(test_coupler_mode)
+      CALL test_coupler(testbed_namelist_filename,shr_namelist_filename)
+
+    CASE default
+      CALL finish(method_name, "Unrecognized testbed_mode")
+
+    END SELECT    
    
 
   END SUBROUTINE icon_testbed

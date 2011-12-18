@@ -41,8 +41,9 @@ MODULE mo_icon_testbed_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_io_units,            ONLY: filename_max
   USE mo_icon_testbed_config, ONLY: &
-    & config_testbed_model => testbed_model, &
-    & null_model
+    & config_testbed_mode => testbed_mode, &
+    & null_mode
+    
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: read_icon_testbed_namelist
@@ -63,10 +64,10 @@ MODULE mo_icon_testbed_nml
 
     ! ------------------------------------------------------------------------
     ! Number of rows of ghost cells
-    INTEGER :: testbed_model
+    INTEGER :: testbed_mode
 
     
-    NAMELIST /testbed_nml/ testbed_model
+    NAMELIST /testbed_nml/ testbed_mode
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat
@@ -77,7 +78,7 @@ MODULE mo_icon_testbed_nml
     !--------------------------------------------
     ! set default values
     !--------------------------------------------
-    testbed_model = null_model
+    testbed_mode = null_mode
     !--------------------------------------------------------------------
     ! Read user's (new) specifications (Done so far by all MPI processes) 
     !--------------------------------------------------------------------
@@ -91,7 +92,7 @@ MODULE mo_icon_testbed_nml
     
     !-----------------------------------------------------
     ! fill_config_testbed
-    config_testbed_model       = testbed_model
+    config_testbed_mode       = testbed_mode
     
   END SUBROUTINE read_icon_testbed_namelist
   !-------------------------------------------------------------------------

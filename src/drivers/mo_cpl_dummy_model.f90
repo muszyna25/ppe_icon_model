@@ -72,7 +72,7 @@ USE mo_impl_constants, ONLY:&
 
 ! For the coupling
 USE mo_impl_constants, ONLY: CELLS
-USE mo_master_control, ONLY : atmo_process, is_coupled_run
+USE mo_coupling_config, ONLY : is_coupled_run
 USE mo_icon_cpl_def_grid, ONLY : ICON_cpl_def_grid, ICON_cpl_def_location
 USE mo_icon_cpl_def_field, ONLY : ICON_cpl_def_field
 USE mo_icon_cpl_search, ONLY : ICON_cpl_search

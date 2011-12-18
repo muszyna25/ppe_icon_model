@@ -56,11 +56,11 @@ PROGRAM control_model
   USE mo_radiation_model,     ONLY: radiation_model
   USE mo_cpl_dummy_model,     ONLY: cpl_dummy_model
   USE mo_icon_cpl_finalize,   ONLY: icon_cpl_finalize
-
+  USE mo_icon_testbed,        ONLY: icon_testbed
+  
   USE mo_master_control,      ONLY: init_master_control,  &
     & get_my_namelist_filename, get_my_process_type,      &
-    & is_coupled_run, dummy_process, null_process,        &
-    & atmo_process, ocean_process, radiation_process
+    & testbed_process,  atmo_process, ocean_process, radiation_process
 
   IMPLICIT NONE
 
@@ -126,18 +126,14 @@ PROGRAM control_model
   CASE (radiation_process)
     CALL radiation_model(my_namelist_filename, TRIM(master_namelist_filename))
 
-  CASE (dummy_process)
-    CALL cpl_dummy_model(my_namelist_filename, TRIM(master_namelist_filename))
+  CASE (testbed_process)
+    CALL icon_testbed(my_namelist_filename, TRIM(master_namelist_filename))
   
-  CASE (null_process) ! do nothing
-
   CASE default
     CALL finish("control_model","my_process_component is unkown")
     
   END SELECT
       
-!   IF ( is_coupled_run() ) CALL ICON_cpl_finalize
-
   ! write the control.status file
   IF (my_process_is_stdio()) THEN
     OPEN (500, FILE="finish.status")

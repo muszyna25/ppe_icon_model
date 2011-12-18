@@ -68,7 +68,7 @@ USE mo_impl_constants,     ONLY: max_char_length, sea, sea_boundary,            
   &                              min_rlcell, min_rledge, MIN_DOLIC,                         &
   &                              oce_testcase_zero, oce_testcase_init, oce_testcase_file
 USE mo_dynamics_config,    ONLY: nold,nnew
-USE mo_master_control,     ONLY: is_coupled_run
+USE mo_coupling_config,    ONLY: is_coupled_run
 USE mo_math_utilities,     ONLY: t_cartesian_coordinates
 USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
 USE mo_exception,          ONLY: finish, message, message_text

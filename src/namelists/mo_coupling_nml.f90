@@ -48,7 +48,8 @@ MODULE mo_coupling_nml
   USE mo_io_units,        ONLY: nnml
   USE mo_namelist,        ONLY: open_nml, close_nml, position_nml, POSITIONED
 
-  USE mo_coupling_config, ONLY: t_cpl_field_nml, config_cpl_fields
+  USE mo_coupling_config, ONLY: t_cpl_field_nml, config_cpl_fields, &
+    & number_of_coupled_variables, config_debug_coupler_level
 
   IMPLICIT NONE
 
@@ -73,15 +74,8 @@ MODULE mo_coupling_nml
   INTEGER            :: dt_model
   INTEGER            :: lag
   CHARACTER(len=132) :: name
-
-  NAMELIST /coupling_nml/ name,                &
-                          dt_coupling,         &
-                          dt_model,            &
-                          lag,                 &
-                          l_time_average,      &
-                          l_time_accumulation, &
-                          l_diagnostic,        &
-                          l_activated
+  
+    
 CONTAINS
 
   !>
@@ -100,7 +94,8 @@ CONTAINS
     !
     ! Local variables
     !
-
+    INTEGER            :: debug_coupler_level
+    
     TYPE(t_cpl_field_nml), POINTER :: new_cpl_fields(:)
 
     INTEGER :: i
@@ -115,6 +110,17 @@ CONTAINS
     CHARACTER(len=max_char_length), PARAMETER :: &
          &   routine = 'mo_coupling_nml:read_coupling_namelist'
 
+    NAMELIST /coupling_mode_nml/ debug_coupler_level
+  
+    NAMELIST /coupling_nml/ name,              &
+                          dt_coupling,         &
+                          dt_model,            &
+                          lag,                 &
+                          l_time_average,      &
+                          l_time_accumulation, &
+                          l_diagnostic,        &
+                          l_activated
+    
     !--------------------------------------------------------------------
     ! 1. Set default values
     !--------------------------------------------------------------------
@@ -129,6 +135,16 @@ CONTAINS
     l_diagnostic        = .FALSE.
     l_activated         = .FALSE.
 
+    debug_coupler_level = 0
+    !--------------------------------------------------------------------
+    ! 3. Read user's (new) specifications (done so far by all MPI processes)
+    !--------------------------------------------------------------------
+    CALL open_nml (TRIM(namelist_filename))
+    
+    CALL position_nml('coupling_mode_nml',STATUS=istat)
+    IF (istat==POSITIONED) THEN
+      READ (nnml, coupling_mode_nml)
+    ENDIF        
     !--------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
@@ -140,14 +156,9 @@ CONTAINS
 !rr      CALL close_tmpfile(funit)
 !rr    END IF
 
-    !--------------------------------------------------------------------
-    ! 3. Read user's (new) specifications (done so far by all MPI processes)
-    !--------------------------------------------------------------------
 
     first = .TRUE.
     i     = 0
-
-    CALL open_nml (TRIM(namelist_filename))
 
     !--------------------------------------------------------------------
     ! 3.a loop over occurences of namelist group /coupling_nml/
@@ -253,6 +264,9 @@ CONTAINS
 
     CALL close_nml
 
+    number_of_coupled_variables = i
+    config_debug_coupler_level  = debug_coupler_level
+    
   END SUBROUTINE read_coupling_namelist
 
 END MODULE mo_coupling_nml

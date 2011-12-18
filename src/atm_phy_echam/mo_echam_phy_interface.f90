@@ -69,7 +69,7 @@ MODULE mo_echam_phy_interface
     & timer_dyn2phy, timer_phy2dyn, timer_echam_phy, timer_coupling, &
     & timer_echam_sync_temp , timer_echam_sync_tracers
                                 
-  USE mo_master_control,    ONLY: is_coupled_run
+  USE mo_coupling_config,    ONLY: is_coupled_run
   USE mo_icon_cpl_exchg,    ONLY: ICON_cpl_put, ICON_cpl_get
   USE mo_icon_cpl_def_field, ONLY:ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
 

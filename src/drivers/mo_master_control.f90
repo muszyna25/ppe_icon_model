@@ -47,14 +47,10 @@ MODULE mo_master_control
   USE mo_mpi,                ONLY: set_process_mpi_name, get_my_global_mpi_id, &
     &                              split_global_mpi_communicator
 
-  USE mo_icon_cpl,           ONLY: get_cpl_local_comm
-  USE mo_icon_cpl_init,      ONLY: icon_cpl_init
-  USE mo_icon_cpl_init_comp, ONLY: icon_cpl_init_comp
-
   USE mo_io_units,           ONLY: filename_max
 
   USE mo_master_nml,         ONLY: read_master_namelist, lrestart,  &
-    & no_of_models, master_nml_array, nml_debug_coupler_level
+    & no_of_models, master_nml_array
 
   !USE mo_namelist,           ONLY: open_nml,  close_nml
 
@@ -62,29 +58,28 @@ MODULE mo_master_control
 
   PRIVATE
 
-  PUBLIC ::  init_master_control, get_my_namelist_filename,           &
-    & get_my_process_type, get_my_process_name, is_coupled_run,       &
-    & atmo_process, ocean_process, radiation_process, dummy_process,  &
-    & my_process_is_ocean, is_restart_run, get_my_model_no,           &
-    & null_process
+  PUBLIC ::  init_master_control, get_my_namelist_filename,            &
+    & get_my_process_type, get_my_process_name,                        &
+    & atmo_process, ocean_process, radiation_process, testbed_process, &
+    & my_process_is_ocean, is_restart_run, get_my_model_no,            &
+    & are_multiple_models
+   
 
   ! ------------------------------------------------------------------------
-  INTEGER, PARAMETER :: null_process  = 0
   INTEGER, PARAMETER :: atmo_process  = 1
   INTEGER, PARAMETER :: ocean_process = 2
   INTEGER, PARAMETER :: radiation_process = 3
-  INTEGER, PARAMETER :: dummy_process = 99
+  INTEGER, PARAMETER :: testbed_process = 99
   ! ------------------------------------------------------------------------
   INTEGER :: my_process_model ! =atmo_process,ocean_process,...
   INTEGER :: my_model_no ! 1,2,3  (id uniquely this process, even if it has the
                          ! same my_process_model with other compnents
                          ! Example: Two different components may run the dummy_process
-  INTEGER :: my_coupling_comp_id ! the coupling id for this component 
   CHARACTER(len=filename_max) :: my_namelist_filename
   CHARACTER(len=64) :: my_model_name
 
   INTEGER :: my_model_min_rank, my_model_max_rank, my_model_inc_rank 
-  LOGICAL :: in_coupled_mode, multiple_models
+  LOGICAL :: multiple_models
 
 
   CONTAINS
@@ -123,17 +118,12 @@ MODULE mo_master_control
 
     !------------------------------------------------------------
     ! find what is my process
-    multiple_models = no_of_models > 1
-    in_coupled_mode = no_of_models > 1
-    
+    multiple_models = no_of_models > 1    
 
     IF ( multiple_models ) THEN
       CALL set_my_component_null()
 
       DO model_no =1, no_of_models
-
-        IF (master_nml_array(model_no)%model_type == null_process) &
-          in_coupled_mode = .false.
 
 !         write(0,*) 'master_nml_array:', model_no, master_nml_array(model_no)%model_name        
         DO jg = master_nml_array(model_no)%model_min_rank,&
@@ -168,13 +158,6 @@ MODULE mo_master_control
     ! check if my component is ok
     CALL check_my_component()
 
-    !------------------------------------------------------------
-    IF ( in_coupled_mode ) THEN
-      CALL icon_cpl_init(debug_level=nml_debug_coupler_level)
-      ! Inform the coupler about what we are
-      CALL icon_cpl_init_comp ( my_model_name, my_model_no, ierr )
-      ! split the global_mpi_communicator into the components
-    ENDIF
     !------------------------------------------------------------
 
     init_master_control = 0
@@ -215,11 +198,10 @@ MODULE mo_master_control
     IF (my_model_name == '') CALL finish(method_name, 'my_model_name = NULL')
 
     SELECT CASE (my_process_model)
-      CASE (null_process)
       CASE (atmo_process)
       CASE (ocean_process)
       CASE (radiation_process)
-      CASE (dummy_process)
+      CASE (testbed_process)
       CASE default
         CALL finish("check_my_component","my_process_model is unkown")
     END SELECT
@@ -276,11 +258,11 @@ MODULE mo_master_control
   !------------------------------------------------------------------------
 
   !------------------------------------------------------------------------
-  LOGICAL FUNCTION is_coupled_run()
+  LOGICAL FUNCTION are_multiple_models()
 
-    is_coupled_run = in_coupled_mode
+    are_multiple_models = multiple_models
 
-  END FUNCTION is_coupled_run
+  END FUNCTION are_multiple_models
   !------------------------------------------------------------------------
 
   !------------------------------------------------------------------------

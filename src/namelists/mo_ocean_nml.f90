@@ -53,7 +53,7 @@ MODULE mo_ocean_nml
   USE mo_impl_constants,     ONLY: max_char_length
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
-  USE mo_master_control,     ONLY: is_coupled_run
+  USE mo_coupling_config,    ONLY: is_coupled_run
   USE mo_mpi,                ONLY: my_process_is_stdio
 
   IMPLICIT NONE

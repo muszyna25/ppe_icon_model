@@ -33,7 +33,7 @@
 MODULE mo_ocean_model
 
   USE mo_exception,           ONLY: message, finish  ! use always
-  USE mo_master_control,      ONLY: is_restart_run
+  USE mo_master_control,      ONLY: is_restart_run, get_my_process_name, get_my_model_no
   USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs
   USE mo_mpi,                 ONLY: p_stop, &
     & my_process_is_io,  my_process_is_mpi_seq, my_process_is_mpi_test, &
@@ -128,8 +128,10 @@ MODULE mo_ocean_model
     &                               v_sfc_flx, v_sea_ice
 
   ! For the coupling
+  USE mo_icon_cpl_init,      ONLY: icon_cpl_init
+  USE mo_icon_cpl_init_comp, ONLY: icon_cpl_init_comp
   USE mo_impl_constants,      ONLY: CELLS, MAX_CHAR_LENGTH
-  USE mo_master_control,      ONLY : ocean_process, is_coupled_run
+  USE mo_coupling_config,     ONLY : is_coupled_run, config_debug_coupler_level
   USE mo_icon_cpl_def_grid,   ONLY : ICON_cpl_def_grid, ICON_cpl_def_location
   USE mo_icon_cpl_def_field,  ONLY : ICON_cpl_def_field
   USE mo_icon_cpl_search,     ONLY : ICON_cpl_search
@@ -438,6 +440,12 @@ CONTAINS
 
     IF ( is_coupled_run() ) THEN
 
+     !------------------------------------------------------------
+      CALL icon_cpl_init(debug_level=config_debug_coupler_level)
+      ! Inform the coupler about what we are
+      CALL icon_cpl_init_comp ( get_my_process_name(), get_my_model_no(), error_status )
+      ! split the global_mpi_communicator into the components
+     !------------------------------------------------------------
       patch_no      = 1
 
       grid_shape(1) = 1

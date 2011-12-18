@@ -82,7 +82,7 @@ USE mo_sea_ice,             ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_
                                   sum_fluxes, ice_slow
 USE mo_oce_thermodyn,       ONLY: convert_insitu2pot_temp_func
 USE mo_oce_index,           ONLY: print_mxmn, ipl_src
-USE mo_master_control,      ONLY: is_coupled_run
+USE mo_coupling_config,      ONLY: is_coupled_run
 USE mo_icon_cpl_exchg,      ONLY: ICON_cpl_put, ICON_cpl_get
 USE mo_icon_cpl_def_field,  ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
 
