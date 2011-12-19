@@ -37,6 +37,7 @@
 #
 # For more details see the parameters in the ./config/make_target_runscript
 #==============================================================================
+# set -x
 echo "-----------------------------------------------------------"
 base_folder=$(pwd)
 input_folder=run
@@ -129,10 +130,6 @@ if [[ $use_target = "blizzard" ]] ; then
   
   if [[ $use_openmp = "yes" ]] ; then
 
-    name=test_hat_jww-moist_cld-cnv-vdf
-    $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
-    EXPNAME="$name"  memory_model="large" omp_stacksize=$omp_stacksize queue="express"
-    
     name=test_nh35_tri_jws
     $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
     EXPNAME="$name"  memory_model="small" queue="express"
@@ -153,6 +150,12 @@ fi
 # special treatment for test_hat_jww-moist_cld-cnv-vdf
 # this includes the restart in the test_hat_jww-moist_cld-cnv-vdf_restart
 #
+if [[ $use_target = "blizzard" &&  $use_openmp = "yes" ]] ; then
+  queue="express"
+else
+  queue="$use_queue"
+fi
+
 name=test_hat_jww-moist_cld-cnv-vdf
 
 restart_script=${name}_restart.tmp
@@ -165,7 +168,7 @@ EOF
 
 $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
   in_script=$restart_script in_script=exp.$name in_script=exec.iconrun EXPNAME="$name"\
-  queue="$use_queue" cpu_time="01:00:00"
+  queue="$queue" cpu_time="01:00:00"
 
 rm $tmp_file
 
