@@ -48,11 +48,13 @@ typedef struct {
 #include <fcntl.h>
 #include <sys/time.h>
 
+#ifndef _SX
 #ifdef _AIX
 #include <sys/thread.h>
 #else
 #include <sys/syscall.h>
 #include <sys/types.h>
+#endif
 #endif
 
 /****************************************************************************/
@@ -118,8 +120,10 @@ void generate_random_bytes(void *buf, int nbytes)
 
   memcpy(tmp_seed, jrand_seed, sizeof(tmp_seed));
 
-#ifdef _AIX
+#if defined _AIX
   jrand_seed[2] = jrand_seed[2] ^ thread_self();
+#elif defined _SX
+  jrand_seed[2] = jrand_seed[2] ^ getpid();
 #else
   jrand_seed[2] = jrand_seed[2] ^ syscall(SYS_gettid);
 #endif
