@@ -120,6 +120,8 @@ export ICON_THREADS=${use_openmp_threads}
 export OMP_SCHEDULE="static"
 export OMP_DYNAMIC="false"
 export OMP_STACKSIZE=${use_omp_stacksize}
+#----------------------------------
+ulimit -s unlimited
 #-----------------------------------------------------------------------------
 # absolute paths of directories
 calldir=\$(pwd)
@@ -397,9 +399,6 @@ set_run_target_mpipc()
   start_header
 
 cat >> $output_script << EOF
-#----------------------------------
-ulimit -s unlimited
-#----------------------------------
 EOF
   
   if [[ "$use_mpi" == "yes" ]] ; then

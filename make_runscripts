@@ -105,7 +105,7 @@ do
       mpi_procs=1 memory_model="large" cpu_time="08:00:00"
     elif [[ ${name} == *_nwp_* ]] ; then
       $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
-      cpu_time="04:00:00" memory_model="huge"  omp_stacksize="400M" queue="$queue"
+      cpu_time="04:00:00" memory_model="huge"  omp_stacksize="500M" queue="$queue"
     elif [[ ${name} == *_nah_jww* ]] ; then
       $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
       cpu_time="08:00:00" memory_model="large" omp_stacksize=$omp_stacksize queue="$queue"
