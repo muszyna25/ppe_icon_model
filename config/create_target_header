@@ -745,7 +745,6 @@ create_target_header()
 {
   exit_status=0 # exit status of database, 0=ok, 1=target not known
 
-/e/uhome/extrmuel/local/bin/cdo
   cdo="cdo"
   cdo_diff="diffn"
 
