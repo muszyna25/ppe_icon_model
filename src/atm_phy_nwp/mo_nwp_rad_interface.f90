@@ -38,7 +38,7 @@
 MODULE mo_nwp_rad_interface
 
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
-  USE mo_datetime,             ONLY: t_datetime
+  USE mo_datetime,             ONLY: t_datetime,  month2hour
   USE mo_exception,            ONLY: message,  finish !message_tex
   USE mo_ext_data,             ONLY: t_external_data
   USE mo_parallel_config,      ONLY: nproma, p_test_run, parallel_radiation_omp
@@ -51,7 +51,6 @@ MODULE mo_nwp_rad_interface
   USE mo_interpolation,        ONLY: t_int_state
   USE mo_kind,                 ONLY: wp
   USE mo_loopindices,          ONLY: get_indices_c
-  USE mo_math_utilities,       ONLY: month2hour
   USE mo_nwp_lnd_state,        ONLY: t_lnd_prog, t_lnd_diag
   USE mo_model_domain,         ONLY: t_patch, p_patch_local_parent
   USE mo_mpi,                  ONLY: my_process_is_mpi_seq
