@@ -4,15 +4,34 @@
 # GRIB2 after from 20110511
 #
 # attention: specify resolution in ifs2icon.conf and here
+# speed: IFS2ICON takes 3hours on R2B6
 # -------------------------------------------------------
 
 set -A dates 2011010100 2011010200 2011010300 2011010400 2011010500 \
-             2011010600 2011010700 2011010800 2011010900 2011011000
+             2011010600 2011010700 2011010800 2011010900 2011011000 \
+             2011011100                                            # \
+#             2011010112 2011010212 2011010312 2011010412 2011010512 \
+#             2011010612 2011010712 2011010812 2011010912 2011011120 \
+#             2011011112 
+#set -A dates 2011010100
+set -A dates 2011080100
+#set -A steps 0 3 6 9 
+set -A steps 0
+
 for date in ${dates[*]}
 do
-  mars4icon_smi_32r3+ ${date} 255 1/to/91
-  awk -v date="$date" '{sub(/YYYYMMDDHH/, date)}; 1' ifs2icon.conf > ifs2icon.conf.temp
-  ifs2icon.rb -c ifs2icon.conf.temp
+  for step in ${steps[*]}
+  do
+
+    mars4icon_smi_32r3+ ${date} ${step}  255 1/to/91
+   #mars4icon_smi_32r3+ ${date} ${step} 1279 1/to/91
+
+   #integer datestep
+   #datestep=date+step
+   #awk -v date="$datestep" '{sub(/YYYYMMDDHH/, date)}; 1' ifs2icon.conf > ifs2icon.conf.temp
+   #ifs2icon.rb -c ifs2icon.conf.temp
+
+  done
 done
 
 exit

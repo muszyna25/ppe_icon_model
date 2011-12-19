@@ -1,7 +1,7 @@
 #!/bin/ksh
 # -------------------------------------------------------
 # MARS request to read data used in the ifs2icon utility.
-# run as: mars4icon_smi_32r3+ 2011010100 255 1/to/91
+# run as: mars4icon_smi_32r3+ 2011010100 0 255 1/to/91
 #
 # versions:
 #   mars4icon_smi_32r3+:      conversion of SWVL to soil moisture index SMI
@@ -19,7 +19,7 @@
 #   * requires data routine "datconv" by J. Foerster
 #   * at DWD requires ECMWF login by eccert
 #   * requires mars version 1.9.9
-#     (. ${GRIB_API}/bin/grib_api-setenv -p)
+#     (. ${GRIB_API}/bin/grib_api-setenv -r -V1.9.9)
 #   * since cy36r4 (2010/11/09) there is rain and snow, which is required by IFS2ICON
 #     (optionally turn on/off crwc/csw)
 #   * GRIB2 not yet supported by IFS2ICON (since 2011/05/11)
@@ -35,9 +35,10 @@
 
 # --- argument list ---
 
-pdatin=${1:-g12}          # or "${1: 2010070100 2010070200}"
-res="${2:-255}"
-levelist=${3:-1/to/91}
+pdatin=${1:-g12}          # initial time (or "${1: 2010070100 2010070200}")
+step=${2:-0}              # forecast step (in hours)
+res="${3:-255}"           # resolution
+levelist=${4:-1/to/91}    # levels
 
 # --- data output ---
 
@@ -50,6 +51,13 @@ tempdir=${TMPDIR}
 cymdg=$(datconv -Cy ${pdatin})
 typeset -L8 cymd=${cymdg}
 typeset -R2 hh=${cymdg}
+cymdg_fc=$(datconv -Cy ${pdatin} -d ${step})
+
+if [ ${step} -eq 0 ]; then
+  type=an
+else
+  type=fc
+fi
 
 # --- read ---
 
@@ -58,7 +66,7 @@ case ${res} in
     799) grd=400 ;;
    1279) grd=640 ;;
 esac
-grib_file=${datadir}/ifs_oper_T${res}_${cymdg}.grb
+grib_file=${datadir}/ifs_oper_T${res}_${cymdg_fc}.grb
 
 cat > ${tempdir}/MARS_IN.$$ << MARS_IFS2ICON_EOF.$$
 # MARS request for ifs2icon
@@ -69,32 +77,42 @@ retrieve,
         expver   = 1,
         domain   = g,
         stream   = oper,
-        type     = an,
+        type     = ${type},
         date     = ${cymd},
         time     = ${hh},
-        step     = 0,
+        step     = ${step},
         target   = "${grib_file}",
         param    = u/v/w/t/q/clwc/ciwc/crwc/cswc/o3,    # /crwc/cswc/ rain,snow on/off
-        repres   = sh,                     # spherical harmonics,
+        repres   = sh,                                  # spherical harmonics,
         resol    = ${res},
         grid     = ${grd},
         gaussian = regular,
-        levtype  = ml,                     # model levels,
+        levtype  = ml,                                  # model levels,
         levelist = ${levelist}
 retrieve,
         param    = lnsp/z,
         levelist = 1
 retrieve,
-        param    = tsn/skt/stl1/stl2/stl3/stl4/sd/rsn/asn/src/ci/slt,
+        param    = tsn/skt/stl1/stl2/stl3/stl4/sd/rsn/asn/src/slt/z,
         repres   = gg, 
         resol    = off, 
         levtype  = surface
+retrieve,
+        param    = ci,
+        fieldset = ci0
+compute,
+        formula  = "nobitmap(ci0,0)",                   # missing value -> 0
+        fieldset = ci
+write,  
+        fieldset = ci, 
+        target   = "${grib_file}"
 
 # Retrieve the soil type to fieldset slt
 retrieve,
         param    = SLT/SWVL1/SWVL2/SWVL3/SWVL4,
         gaussian = reduced,
-        target   = "${datadir}/slt-swvl.grb"
+        target   = "${datadir}/slt-swvl.grb",
+        fieldset = off
 read,
         source   = "${datadir}/slt-swvl.grb",
         param    = SLT,
@@ -234,7 +252,6 @@ ls -al ${grib_file}
 rm -f ${tempdir}/MARS_IN.$$
 
 
-
 print ""
 print "Reset indicatorOfParameter to distinguish SMI fields from former SWV fields"
 
@@ -263,6 +280,9 @@ RULES_FILE_EOF.$$
 
 # modify grib file
 grib_filter ${tempdir}/RULES_FILE.$$ ${grib_file_orig} -o ${grib_file}
+#mv ${grib_file} ${grib_file_orig}
+# 16bit instead of 24bit: otherwise cdo and wgrib cannot read the file (fixed with cdo 1.5.3)
+#grib_set -s bitsPerValue=16 -r ${grib_file_orig} ${grib_file}
 \rm ${grib_file_orig}
 
 exit 0
