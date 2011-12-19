@@ -185,7 +185,8 @@ do
 done
 
 cat >> $output_script << EOF
-cdo_diff="${cdo_diff}"
+cdo="${cdo}"
+cdo_diff="${cdo} ${cdo_diff}"
 #=============================================================================
 EOF
 
@@ -610,7 +611,8 @@ set_run_target_hpc()
   set_default use_mpi_procs 1
   set_default use_openmp_threads 1
 
-  cdo_diff="cdo diff"
+  cdo="/e/uhome/extrmuel/local/bin/cdo"
+  cdo_diff="diff"
 
     
   cat >> $output_script << EOF
@@ -744,7 +746,9 @@ create_target_header()
 {
   exit_status=0 # exit status of database, 0=ok, 1=target not known
 
-  cdo_diff="cdo diffn" 
+/e/uhome/extrmuel/local/bin/cdo
+  cdo="cdo"
+  cdo_diff="diffn"
 
   if [[ "$use_mpi" == "no" ]]; then
     use_nodes=1
