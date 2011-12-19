@@ -110,7 +110,7 @@ do
       cpu_time="08:00:00" memory_model="large" omp_stacksize=$omp_stacksize queue="$queue"
     elif [[ ${name} == *_nh35_tri_jws* ]] ; then
       $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
-      cpu_time="04:00:00" memory_model="verysmall" queue="$queue"
+      cpu_time="04:00:00" memory_model="small" queue="$queue"
     else
       $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
       cpu_time="04:00:00" memory_model="large" omp_stacksize=$omp_stacksize queue="$queue"
@@ -119,6 +119,26 @@ do
 done
 #==============================================================================
 
+#==============================================================================
+# use express queue for some of the builtbot seq,openmp experiments on blizzard
+if [[ $use_target = "blizzard" ]] ; then
+
+  name=test_nh3_tri_tracer_solid_body
+  $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
+  EXPNAME="$name"  memory_model="large" omp_stacksize=$omp_stacksize queue="express"
+  
+  if [[ $use_openmp = "yes" ]] ; then
+
+    name=test_hat_jww-moist_cld-cnv-vdf
+    $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
+    EXPNAME="$name"  memory_model="large" omp_stacksize=$omp_stacksize queue="express"
+    
+    name=test_nh35_tri_jws
+    $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
+    EXPNAME="$name"  memory_model="small" queue="express"
+    
+  fi
+fi
 
 #==============================================================================
 # special treatment for exp.couple_atmo-radiation
