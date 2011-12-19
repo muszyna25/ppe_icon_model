@@ -107,7 +107,7 @@ CONTAINS
         ! if the user has specified a second corner, override the
         ! grid point numbers by the necessary values:
         grid => lonlat_intp_config(idom)%lonlat_grid
-        IF (ALL(lonlat_corner2(:,idom) /= DIM_UNDEFINED)) THEN
+        IF (ALL(grid%dimen(:) == DIM_UNDEFINED)) THEN
           grid%dimen(:) = NINT((lonlat_corner2(:,idom) - grid%start_corner(:))/grid%delta(:)) + 1
         END IF
 

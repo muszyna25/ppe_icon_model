@@ -161,7 +161,7 @@ CONTAINS
       grid%start_corner(1:2) = (/ lon_corner1(idom),   lat_corner1(idom)   /) * pi_180
       grid%poleN(1:2)        = (/ lon_poleN(idom),     lat_poleN(idom)     /) * pi_180
       grid%dimen(1:2)        = (/ lon_dimen(idom),     lat_dimen(idom)     /)
-      ! the dimension values above may be overruled by a definition of
+      ! the dimension values above may be replaced by a definition of
       ! a second area corner:
       lonlat_corner2(1:2,idom) = (/ lon_corner2(idom), lat_corner2(idom)   /) * pi_180
 
