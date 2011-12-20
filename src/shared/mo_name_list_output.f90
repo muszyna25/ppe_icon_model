@@ -65,9 +65,9 @@ MODULE mo_name_list_output
   USE mo_communication,         ONLY: exchange_data, t_comm_pattern, idx_no, blk_no
   USE mo_interpol_config,       ONLY: rbf_vec_dim_c, rbf_vec_dim_v, rbf_vec_dim_e, rbf_c2grad_dim
   USE mo_nonhydrostatic_config, ONLY: iadv_rcf
-  USE mo_master_control,        ONLY: is_restart_run
-  USE mo_io_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist,  &
-                                    & open_and_restore_namelist, close_tmpfile
+!  USE mo_master_control,        ONLY: is_restart_run
+!  USE mo_io_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist,  &
+!                                    & open_and_restore_namelist, close_tmpfile
 
 
 
@@ -414,12 +414,14 @@ CONTAINS
       !------------------------------------------------------------------
       !  If this is a resumed integration, overwrite the defaults above 
       !  by values used in the previous integration.
+      !  RJ: Disabled:
+      !  The output_nml namelists need not be written to the restart files.
       !------------------------------------------------------------------
-      IF (is_restart_run()) THEN
-        funit = open_and_restore_namelist('output_nml')
-        READ(funit,NML=output_nml)
-        CALL close_tmpfile(funit)
-      END IF
+      !IF (is_restart_run()) THEN
+      !  funit = open_and_restore_namelist('output_nml')
+      !  READ(funit,NML=output_nml)
+      !  CALL close_tmpfile(funit)
+      !END IF
 
       ! Read output_nml
 
@@ -521,12 +523,14 @@ CONTAINS
 
       !-----------------------------------------------------
       ! Store the namelist for restart
+      ! RJ: Disabled:
+      ! The output_nml namelists need not be written to the restart files.
       !-----------------------------------------------------
-      IF(my_process_is_stdio())  THEN
-        funit = open_tmpfile()
-        WRITE(funit,NML=output_nml)
-        CALL store_and_close_namelist(funit, 'output_nml')
-      ENDIF
+      !IF(my_process_is_stdio())  THEN
+      !  funit = open_tmpfile()
+      !  WRITE(funit,NML=output_nml)
+      !  CALL store_and_close_namelist(funit, 'output_nml')
+      !ENDIF
       !-----------------------------------------------------
       ! write the contents of the namelist to an ASCII file
       !-----------------------------------------------------
