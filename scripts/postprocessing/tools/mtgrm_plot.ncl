@@ -46,6 +46,43 @@ begin
   return -1
 end
 
+
+;----------------------------------------------------------------------
+; Function to get substring from string
+;----------------------------------------------------------------------
+
+function substring (instr[1]:string, first[1]:numeric, last[1]:numeric)
+local instr, first, last, main, p2
+begin
+   main = stringtochar (instr)   
+   if (last .ge. first) then
+      p2 = last
+   else
+      p2 = dimsizes (main) - 2
+   end if
+   return (chartostring (main(first:p2)))
+end
+
+
+;----------------------------------------------------------------------
+; Function to retrieve date from iso8601 string
+;    Input:  string in the format of "yymmddThhmmssZ"
+;    Output: year, month, day, hour, minute, second
+;----------------------------------------------------------------------
+
+function convert_date (zstr : string)
+begin
+  date = True
+  date@year   = stringtointeger(substring(zstr, 0, 3))
+  date@month  = stringtointeger(substring(zstr, 4, 5))
+  date@day    = stringtointeger(substring(zstr, 6, 7))
+  date@hour   = stringtointeger(substring(zstr, 9,10))
+  date@minute = stringtointeger(substring(zstr,11,12))
+  date@second = stringtointeger(substring(zstr,13,14))
+  return date
+end
+
+
 begin
 
 ;----------------------------------------------------------------------
@@ -61,6 +98,8 @@ begin
 
   iStation     = iStation - 1
   itime        = 0
+
+  stride       = 4 ; subdivisions of X-Axis labels
 
 ;----------------------------------------------------------------------
 ; read data
@@ -95,6 +134,36 @@ begin
   res@cnFillOn          = True                     ; turn on color fill
   res@gsnSpreadColors   = True                     ; use full colormap
   res@tiMainFontHeightF = 0.02  
+
+  ntimesteps = dimsizes(cdf_file->time_step(:))
+  expl_labels = new(ntimesteps(0), string)
+  expl_values = new(ntimesteps(0), float)
+  
+  count = 0
+  do i=0,(ntimesteps(0)-1)  
+    if (mod(i,stride) .eq. 0) then
+      date = convert_date(charactertostring(cdf_file->date(i,:)))
+      date_str = ""
+      if ((i .eq. 0) .or. (.not. (date@day .eq. last_date@day))) then
+        date_str = sprinti("%0.2i", date@month) \
+        +          "-" + sprinti("%0.2d", date@day) \
+        +          "-" + sprinti("%0.4d", date@year) + " "
+      end if
+      expl_values(count) = cdf_file->time_step(i)
+      expl_labels(count) = date_str + sprinti("%0.2d", date@hour) \
+      +                   "::" + sprinti("%0.2d", date@minute)
+      count = count + 1
+      last_date = date
+    end if
+  end do
+
+  res@tmXBMode       = "Explicit" ; Define own tick mark labels.
+  res@tmXBValues = expl_values(0:count)  ; location of explicit labels
+  res@tmXBLabels = expl_labels(0:count)
+  res@tmXBLabelAngleF      = 90.      ; change label angle
+  res@tmXBLabelFontHeightF = .01      ; Font size
+  res@tmXBLabelJust = "CenterRight"
+
 
   plot = gsn_contour(wks,vals,res)    ; plot contours
   
