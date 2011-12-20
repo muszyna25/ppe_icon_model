@@ -54,7 +54,7 @@ PROGRAM control_model
   USE mo_atmo_model,          ONLY: atmo_model
   USE mo_ocean_model,         ONLY: ocean_model
   USE mo_radiation_model,     ONLY: radiation_model
-  USE mo_cpl_dummy_model,     ONLY: cpl_dummy_model
+  ! USE mo_cpl_dummy_model,     ONLY: cpl_dummy_model
   USE mo_icon_cpl_finalize,   ONLY: icon_cpl_finalize
   USE mo_icon_testbed,        ONLY: icon_testbed
   
