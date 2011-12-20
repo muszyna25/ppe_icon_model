@@ -100,9 +100,9 @@ MODULE mo_name_list_output
   LOGICAL, PARAMETER :: l_output_phys_patch = .TRUE.
 
   INTEGER, PARAMETER :: &
-    max_var_ml = 400, & ! maximum number of output model-level variables
-    max_var_pl = 400, & ! maximum number of pressure-level variables
-    max_var_hl = 400, & ! maximum number of height-level variables
+    max_var_ml = 100, & ! maximum number of output model-level variables
+    max_var_pl = 100, & ! maximum number of pressure-level variables
+    max_var_hl = 100, & ! maximum number of height-level variables
     max_bounds = 100, & ! maximum number of output_bounds
     max_levels = 100, & ! maximum number of pressure/height levels
     vname_len  =  32    ! variable name length in I/O namelists
