@@ -57,8 +57,7 @@ MODULE mo_base_geometry
   PUBLIC :: t_coordinates_reference
   PUBLIC :: t_geographical_coordinates
   PUBLIC :: t_tangent_vectors
-  PUBLIC :: get_projection
-  PUBLIC :: sphere_cartesian_midpoint, geocoordinates_mid_point
+  PUBLIC :: sphere_cartesian_midpoint
   PUBLIC :: norma, normalize, angle_of_vectors, sin_cc, sphere_tanget_coordinates
   PUBLIC :: angle_of_points, arc_length_normalsphere
   PUBLIC :: cc2gc, gc2cc, cc2tv, gvec2cvec
@@ -883,53 +882,6 @@ CONTAINS
   END FUNCTION sphere_cartesian_midpoint
   !-------------------------------------------------------------------------
 
-  !-------------------------------------------------------------------------
-  ELEMENTAL FUNCTION geocoordinates_mid_point(p1, p2) RESULT(mid_point)
-    TYPE(t_geographical_coordinates), INTENT(in) :: p1, p2
-    TYPE(t_geographical_coordinates) :: mid_point
-
-    REAL(wp)  :: lon1,lon2,lat1,lat2,d_lon,cos_lat1,cos_lat2,bx,by
-!    TYPE(cartesian_coordinates) :: x1,x2,xm
-
-    lon1 = p1%lon
-    lon2 = p2%lon
-    lat1 = p1%lat
-    lat2 = p2%lat
-
-    d_lon = lon2 - lon1
-    cos_lat1 = COS(lat1)
-    cos_lat2 = COS(lat2)
-    bx = cos_lat2 * COS(d_lon)
-    by = cos_lat2 * SIN(d_lon)
-    mid_point%lat = ATAN2(SIN(lat1)+SIN(lat2), SQRT((cos_lat1+bx)**2 + by**2) )
-    mid_point%lon = lon1 + ATAN2(by, COS(lat1) + bx)
-    IF (mid_point%lon > pi) THEN
-      mid_point%lon = mid_point%lon - 2.0_wp*pi
-    ELSEIF (mid_point%lon < -pi) THEN
-      mid_point%lon = mid_point%lon + 2.0_wp*pi
-    ENDIF
-!     !  write(*,*) "compute:", midPoint%lon, midPoint%lat
-
-    ! check the result
-!     x1 = gc2cc(p1)
-!     x2 = gc2cc(p2)
-!
-!     xm = sphere_cartesian_midpoint(x1, x2)
-!
-!     x1 = gc2cc(mid_point)
-
-    ! use xm as midpoint
- !   mid_point = cc2gc(xm)
-
-
-!     IF (MAXVAL(ABS(x1%x - xm%x)) > 1e-15_wp) THEN
-!       WRITE(*,*) "   Middle: ", x1%x
-!       WRITE(*,*) "     Diff: ", x1%x - xm%x
-!     ENDIF
-
-  END FUNCTION geocoordinates_mid_point
-  !-------------------------------------------------------------------------
-
 
   !-------------------------------------------------------------------------
   ELEMENTAL FUNCTION angle_of_vectors(v1,v2) result(angle)
@@ -963,128 +915,6 @@ CONTAINS
   END FUNCTION angle_of_points
   !-------------------------------------------------------------------------
 
-  !-------------------------------------------------------------------------
-  FUNCTION get_projection (v1, v2, v) result(p)
-
-    TYPE(t_cartesian_coordinates), INTENT(in) :: v1, v2, v
-    TYPE(t_cartesian_coordinates) :: p
-
-    TYPE(t_cartesian_coordinates) :: nv
-
-    REAL(wp) :: mat(3,3), x(3), r
-    INTEGER :: i
-
-    nv = normal_vector(v1, v2)
-    ! solve the system a * v0 + b * v1 + c * nv = v
-!     mat(1,:) = v1%x
-!     mat(2,:) = v2%x
-!     mat(3,:) = nv%x
-    mat(:,1) = v1%x
-    mat(:,2) = v2%x
-    mat(:,3) = nv%x
-
-    CALL gaussian_elimination_solver (mat,x,v%x,3)
-    ! check the result
-    DO i=1,3
-      r = x(1)*v1%x(i) + x(2)*v1%x(i) + x(3) * nv%x(i) - v%x(i)
-      IF (ABS(r) > 1.0E-2_wp) THEN
-        print *, 'Gaussian elimination error'
-        print *, 'v1=', v1
-        print *, 'v2=', v2
-        print *, 'nv =', nv
-        print *, 'v =', v
-        print *, 'x =', x
-
-        print *, 'i=',i, ' r=', r
-        CALL finish('get_projection', "Couldn't solve the system")
-      ENDIF
-    ENDDO
-
-    p%x = x(1) * v1%x + x(2) * v2%x
-
-  END FUNCTION get_projection
-  !-------------------------------------------------------------------------
-
-  !-------------------------------------------------------------------------
-  ! Gaussian elimination solver for coeff_mat * x = c
-  ! coeff_mat is modified
-  ! c is not modified
-  SUBROUTINE gaussian_elimination_solver (coeff_mat,x,c,n)
-  !
-    INTEGER, INTENT(in) :: n
-    REAL(wp), INTENT(inout) :: coeff_mat(n,n)
-    REAL(wp), INTENT(in) :: c(n)
-    REAL(wp), INTENT(out):: x(n)
-
-    INTEGER :: i,j,k,itmp
-    ! indx(n) records the pivoting order.
-    INTEGER :: indx(n)
-    REAL(wp) :: pivot,pivot_1,pj
-    REAL(wp) :: coeff(n)
-    REAL(wp) :: b(n)
-
-  !
-  ! Initialize the index
-  !
-    DO i = 1, n
-      indx(i) = i
-    END DO
-
-
-    ! Find the rescaling factors, one from each row
-    DO i = 1, n
-      coeff(i) = MAXVAL(ABS(coeff_mat(i,:)))
-    END DO
-
-
-    ! Search the pivoting (largest) element from each column
-    k = 1
-    DO j = 1, n-1
-      pivot_1 = 0.0_wp
-      DO i = j, n
-        pivot = ABS(coeff_mat(indx(i),j))/coeff(indx(i))
-        IF (pivot.GT.pivot_1) THEN
-          pivot_1 = pivot
-          k = i
-        ENDIF
-      END DO
-
-      ! Interchange the rows via indx(n) to record pivoting order
-      itmp    = indx(j)
-      indx(j) = indx(k)
-      indx(k) = itmp
-      DO i = j+1, n
-        pj  = coeff_mat(indx(i),j)/coeff_mat(indx(j),j)
-  !
-  ! Record pivoting ratios below the diagonal
-        coeff_mat(indx(i),j) = pj
-  !
-  ! Modify other elements accordingly
-        DO k = j+1, n
-          coeff_mat(indx(i),k) = coeff_mat(indx(i),k)-pj*coeff_mat(indx(j),k)
-        END DO
-      END DO
-    END DO
-
-    ! solve for x
-    b = c
-    DO i = 1, n-1
-      DO j = i+1, n
-        b(indx(j)) = b(indx(j))-coeff_mat(indx(j),i)*b(indx(i))
-      END DO
-    END DO
-
-    x(n) = b(indx(n))/coeff_mat(indx(n),n)
-    DO i = n-1, 1, -1
-      x(i) = b(indx(i))
-      DO j = i+1, n
-        x(i) = x(i)-coeff_mat(indx(i),j)*x(j)
-      END DO
-      x(i) =  x(i)/coeff_mat(indx(i),i)
-    END DO
-
-  END SUBROUTINE gaussian_elimination_solver
-  !-------------------------------------------------------------------------
 
 END MODULE mo_base_geometry
 !----------------------------------------------------------------------------

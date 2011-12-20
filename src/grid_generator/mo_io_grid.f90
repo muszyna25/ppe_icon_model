@@ -97,7 +97,7 @@ MODULE mo_io_grid
   
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-  PUBLIC :: input_grid, write_grid, write_edges_grid
+  PUBLIC :: input_grid, write_grid
 
   !--------------------------------------------------------------------
   
@@ -847,122 +847,6 @@ CONTAINS
 !!$    write(*,*) '-------------------'
     
   END SUBROUTINE write_grid
-  !
-
-  SUBROUTINE write_edges_grid(gg, outfile)
-    !>
-    !!
-    !! @par Revision History
-    !!   Developed and tested by L. Linardakis, MPI-M (2010-02).
-    !!
-    TYPE(t_grid), INTENT(in) :: gg
-    CHARACTER(LEN=filename_max), INTENT(in) :: outfile
-
-    INTEGER :: i_nc, i_ne, i_nv   ! number of cells, edges and vertices
-
-    INTEGER :: old_mode
-
-    INTEGER :: ncid
-    INTEGER :: dimids(2)
-
-    INTEGER :: dim_nvertex, dim_nedge, dim_nvertex_per_cell, &
-         &     dim_ncells_per_edge, dim_nedges_per_vertex
-
-    INTEGER :: varid_vlon, varid_vlat
-    INTEGER :: varid10
-    
-    INTEGER :: ilevel, grid_root
-
-    !-------------------------------------------------------------------------
-
-    grid_root = 0
-    ilevel    = 1
-
-    WRITE(message_text,'(a,a)') 'Write edges gridmap file: ', TRIM(outfile)
-    CALL message ('', TRIM(message_text))
-    
-    i_nc = gg%ncells
-    i_ne = gg%nedges
-    i_nv = gg%nverts
-
-    !----------------------------------------------------------------------
-    !
-    CALL nf(nf_set_default_format(nf_format_64bit, old_mode))
-    
-    CALL nf(nf_create(TRIM(outfile), nf_clobber, ncid))
-    CALL nf(nf_set_fill(ncid, nf_nofill, old_mode))
-    !
-    !----------------------------------------------------------------------
-    !
-    ! Global attributes
-    !
-    !      CALL nf(nf_put_att_text    (ncid, NF_GLOBAL, 'title', 21, 'ICON grid description'))
-    !      CALL nf(nf_put_att_text    (ncid, NF_GLOBAL, 'institution', 59, &
-    !           'Max Planck Institute for Meteorology/Deutscher Wetterdienst'))
-    !
-    ! Dimensions
-    !
-    CALL nf(nf_def_dim(ncid, 'vertex', i_nv, dim_nvertex))
-    CALL nf(nf_def_dim(ncid, 'edge',   i_ne, dim_nedge))
-    CALL nf(nf_def_dim(ncid, 'nc',        2, dim_ncells_per_edge))
-    !
-    CALL nf(nf_def_dim(ncid, 'nv',  gg%cells%max_no_of_vertices, dim_nvertex_per_cell))
-    CALL nf(nf_def_dim(ncid, 'ne',  gg%verts%max_connectivity, dim_nedges_per_vertex))
-    !
-    !---------------------------------------------------------------------
-    !
-    ! Grid variables
-    !
-    !---------------------------------------------------------------------
-    !
-    ! public grid information
-    !
-    ! cell part:
-    !
-    !
-    ! vertex part:
-    !
-    CALL nf(nf_def_var(ncid, 'vlon', nf_double, 1, dim_nvertex, varid_vlon))
-    CALL nf(nf_put_att_text(ncid, varid_vlon, 'long_name', 16, 'vertex longitude'))
-    CALL nf(nf_put_att_text(ncid, varid_vlon, 'units', 6, 'radian'))
-    CALL nf(nf_put_att_text(ncid, varid_vlon, 'standard_name', 14, 'grid_longitude'))
-    CALL nf(nf_put_att_text(ncid, varid_vlon, 'bounds', 13, 'vlon_vertices'))
-    !
-    CALL nf(nf_def_var(ncid, 'vlat', nf_double, 1, dim_nvertex, varid_vlat))
-    CALL nf(nf_put_att_text(ncid, varid_vlat, 'long_name', 15, 'vertex latitude'))
-    CALL nf(nf_put_att_text(ncid, varid_vlat, 'units', 6, 'radian'))
-    CALL nf(nf_put_att_text(ncid, varid_vlat, 'standard_name', 13, 'grid_latitude'))
-    CALL nf(nf_put_att_text(ncid, varid_vlat, 'bounds', 13, 'vlat_vertices'))
-    !
-    !
-    ! edge part:
-    !
-    !
-    dimids = (/ dim_nedge, dim_ncells_per_edge /)
-    CALL nf(nf_def_var(ncid, 'edge_vertices', nf_int, 2, dimids, varid10))
-    CALL nf(nf_put_att_text(ncid, varid10, 'long_name', 35, &
-         & 'vertices at the end of of each edge'))
-    CALL nf(nf_put_att_text(ncid, varid10, 'cdi', 6, 'ignore'))
-    !
-    !
-    !
-    CALL nf(nf_enddef(ncid))
-    !
-    !-------------------------------------------------------------------------
-    !
-    ! vertex part:
-    !
-    CALL nf(nf_put_var_double(ncid, varid_vlon,  gg%verts%vertex(:)%lon))
-    CALL nf(nf_put_var_double(ncid, varid_vlat,  gg%verts%vertex(:)%lat))
-    !------------------------------------------------------------------------
-    ! edge part:
-    CALL nf(nf_put_var_int   (ncid, varid10, gg%edges%vertex_index))
-
-    !------------------------------------------------------------------------
-    CALL nf(nf_close(ncid))
-
-  END SUBROUTINE write_edges_grid
-  
   !--------------------------------------------------------------------------
   
   SUBROUTINE nf(status)
