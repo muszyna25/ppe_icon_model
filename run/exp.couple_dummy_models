@@ -76,6 +76,9 @@ create_namelist()
 namelist_filename=$1
 cat > $namelist_filename << EOF
 !
+&testbed_nml
+  testbed_mode        = 1  ! test the coupler
+/
 &coupling_nml
   name                = 'TEST1'
   dt_model            =  ${dtime}

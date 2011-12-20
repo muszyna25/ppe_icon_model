@@ -41,9 +41,11 @@ MODULE mo_test_coupler
   USE mo_master_control,      ONLY: is_restart_run, get_my_process_name, &
                                     get_my_model_no
   ! For the coupling
+  USE mo_icon_cpl_init,       ONLY: icon_cpl_init
+  USE mo_icon_cpl_init_comp,  ONLY: icon_cpl_init_comp
   USE mo_impl_constants,      ONLY : MAX_CHAR_LENGTH
 ! USE mo_impl_constants,      ONLY: SUCCESS
-  USE mo_coupling_config,     ONLY : is_coupled_run
+  USE mo_coupling_config,     ONLY : is_coupled_run, config_debug_coupler_level
   USE mo_icon_cpl_def_grid,   ONLY : ICON_cpl_def_grid, ICON_cpl_def_location
   USE mo_icon_cpl_def_field,  ONLY : ICON_cpl_def_field
   USE mo_icon_cpl_search,     ONLY : ICON_cpl_search
@@ -112,6 +114,13 @@ CONTAINS
     !---------------------------------------------------------------------
     IF ( is_coupled_run() ) THEN
  
+      !------------------------------------------------------------
+      CALL icon_cpl_init(debug_level=config_debug_coupler_level)
+      ! Inform the coupler about what we are
+      CALL icon_cpl_init_comp ( get_my_process_name(), get_my_model_no(), error_status )
+      ! split the global_mpi_communicator into the components
+      !------------------------------------------------------------
+
       patch_no = 1
 
       grid_shape(1)=1
