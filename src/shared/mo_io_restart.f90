@@ -1330,10 +1330,6 @@ CONTAINS
     REAL(wp), POINTER :: rptr2d(:,:)
     REAL(wp), POINTER :: rptr3d(:,:,:)
     !
-    CHARACTER(len=8)  :: this_model_type
-    INTEGER :: length_of_model_type
-!    INTEGER :: k
-!    LOGICAL :: found
     
     write(0,*) "read_restart_files, nvar_lists=", nvar_lists
     abbreviations(1:nvar_lists)%key = 0
@@ -1341,46 +1337,30 @@ CONTAINS
     key = 0
     n = 1
     for_all_model_types: DO i = 1, nvar_lists
-      this_model_type=TRIM(var_lists(i)%p%model_type)
 ! --------------------------------------------------------------
-! LL : commented only for testing on SX9. Should be uncommented!
-!      CALL message("key for:", var_lists(i)%p%model_type)
-     length_of_model_type = LEN(this_model_type)
-     key = util_hashword(this_model_type, length_of_model_type, 0)
+     key = util_hashword(TRIM(var_lists(i)%p%model_type), LEN_TRIM(var_lists(i)%p%model_type), 0)
       IF (.NOT. ANY(abbreviations(1:n)%key == key)) THEN
         abbreviations(n)%abbreviation = var_lists(i)%p%model_type
         abbreviations(n)%key = key
         n = n+1
       ENDIF
-! --------------------------------------------------------------
-! LL : Brute force name checking for testing on SX9. Should be commented!
-!       found = .false.
-!       DO k=1,n-1
-!         write(0,*) 'checking: ', k, abbreviations(k)%abbreviation,this_model_type
-!         IF ( (abbreviations(k)%abbreviation == this_model_type)) THEN
-!           found = .true.
-!           EXIT
-!         ENDIF
-!       ENDDO
-!       IF (.NOT. found) THEN
-!         key = key + 1
-!         write(0,*) 'not found: ', k, key, n
-!         abbreviations(n)%abbreviation = this_model_type
-!         abbreviations(n)%key = key
-!         n = n+1
-!       ENDIF
     ENDDO for_all_model_types
 ! --------------------------------------------------------------
     nfiles = n-1
     write(0,*) 'nfiles=', nfiles
     !
-    CALL message('--','--')
+!    CALL message('--','--')
 !     CALL message('--',separator)
 !     CALL message('','')
     !
     for_all_files: DO n = 1, nfiles
       model_type =TRIM(abbreviations(n)%abbreviation)
       restart_filename = 'restart_'//TRIM(model_type)//'.nc'
+      write(0,*) "n=", n
+      write(0,*) "model_type=", model_type
+      write(0,*) "restart_filename=", restart_filename
+      write(0,*) "util_islink(TRIM(restart_filename)=", &
+        util_islink(TRIM(restart_filename))
       !
       IF (.NOT. util_islink(TRIM(restart_filename))) THEN
         iret = util_rename(TRIM(restart_filename), TRIM(restart_filename)//'.bak')
@@ -1388,16 +1368,21 @@ CONTAINS
       ENDIF
       !
       fileID  = streamOpenRead(restart_filename)
+      write(0,*) "fileID=",fileID
       vlistID = streamInqVlist(fileID)
-      !
+      write(0,*) "vlistID=",vlistID
+      
       taxisID = vlistInqTaxis(vlistID)
+      write(0,*) "taxisID=",taxisID
       !
       idate = taxisInqVdate(taxisID)
+      write(0,*) "idate=",idate
       itime = taxisInqVtime(taxisID)
+      write(0,*) "itime=",itime
       !
       WRITE(message_text,'(a,i8.8,a,i6.6,a,a)') &
            'Read restart for : ', idate, 'T', itime, 'Z from ',TRIM(restart_filename)
-      CALL message('',message_text)      
+      CALL message('read_restart_files',message_text)      
       !
       CALL read_attributes(vlistID)
       !
