@@ -310,17 +310,6 @@ INTEGER :: grf_vec_dim_1, grf_vec_dim_2
       &             'allocation for fbk_wgt_e failed')
   ENDIF
 
-  ! "parent-child-index", i.e. child index number a grid point has at its parent point
-  ALLOCATE (ptr_grf%pc_idx_c(nproma,nblks_c), STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
-      &             'allocation for pc_idx_c failed')
-  ENDIF
-  ALLOCATE (ptr_grf%pc_idx_e(nproma,nblks_e), STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
-      &             'allocation for pc_idx_e failed')
-  ENDIF
   ALLOCATE (ptr_grf%fbk_dom_area(i_nchdom), STAT=ist )
   IF (ist /= SUCCESS) THEN
     CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
@@ -335,8 +324,6 @@ INTEGER :: grf_vec_dim_1, grf_vec_dim_2
   ptr_grf%fbk_wgt_c     = 0._wp
   ptr_grf%fbk_wgt_ct    = 0._wp
   ptr_grf%fbk_wgt_e     = 0._wp
-  ptr_grf%pc_idx_c      = 0
-  ptr_grf%pc_idx_e      = 0
   ptr_grf%fbk_dom_area  = 0._wp
   ptr_grf%fbk_dom_volume = 0._wp
 
@@ -759,12 +746,6 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
 
   p_lgrf%fbk_dom_area(:) = p_grf%fbk_dom_area(:)
 
-  ! Please note:
-
-  ! pc_idx_c and pc_idx_e are also calculated on the global parent,
-  ! but they don't make sense on the local parent, so they are not
-  ! transferred currently
-
 END SUBROUTINE transfer_grf_state
 
 !-------------------------------------------------------------------------
@@ -917,16 +898,6 @@ INTEGER :: ist
       &             'deallocation for fbk_wgt_e failed')
   ENDIF
 
-  DEALLOCATE (ptr_grf%pc_idx_c, STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
-      &             'deallocation for pc_idx_c failed')
-  ENDIF
-  DEALLOCATE (ptr_grf%pc_idx_e, STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
-      &             'deallocation for pc_idx_e failed')
-  ENDIF
   DEALLOCATE (ptr_grf%fbk_dom_area, STAT=ist )
   IF (ist /= SUCCESS) THEN
     CALL finish ('mo_grf_interpolation:construct_grf_state',                       &

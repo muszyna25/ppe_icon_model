@@ -91,8 +91,6 @@ TYPE t_gridref_state
                                                 !  index1=1,nproma, index2=nblks_c, index3=1,4
   REAL(wp), ALLOCATABLE :: fbk_wgt_e(:,:,:)     ! The same for edge-based variables
 
-  INTEGER, ALLOCATABLE  :: pc_idx_c(:,:), pc_idx_e(:,:)  ! Child index as seen from the parent grid point
-
   REAL(wp), ALLOCATABLE :: fbk_dom_area(:) ! Area of subdomain for which feedback is performed
                                            ! dimension: n_childdom
 

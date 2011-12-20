@@ -342,15 +342,11 @@ END SUBROUTINE compute_pe2ce_distances
 !
 !
 !>
-!! This routine completes the patch information for parent edges and computes.
-!!
-!! This routine completes the patch information for parent edges and computes
-!! an auxiliary field carrying the child index of the local grid point with
-!! respect to its parent grid point. This turned out to be useful for
-!! vectorization.
+!! This routine computes fbk_dom_area
 !!
 !! @par Revision History
 !! Developed  by Guenther. Zaengl, DWD, 2009-03-19
+!! Reduced to the computation of fbk_dom_area, Rainer Johanni, 2011-12-20
 !!
 SUBROUTINE gridref_info( p_grf)
 
@@ -360,7 +356,6 @@ TYPE(t_gridref_state), TARGET, INTENT(INOUT) :: p_grf  (n_dom_start:)
 ! local variables
 
 TYPE(t_grid_cells), POINTER :: p_gcp => NULL()
-TYPE(t_grid_edges), POINTER :: p_gep => NULL()
 TYPE(t_patch),      POINTER :: p_pp => NULL()
 
 INTEGER :: jb, jc, je, jg, jgp, ji, i_startblk, i_endblk,         &
@@ -376,100 +371,8 @@ REAL(wp), ALLOCATABLE :: z_area(:,:)
 !-----------------------------------------------------------------------
 !
 
-DO jg = n_dom_start+1, n_dom
-
-  jgp = p_patch(jg)%parent_id
-
-  IF(my_process_is_mpi_parallel()) THEN
-    p_pp   => p_patch_local_parent(jg)
-  ELSE
-    p_pp   => p_patch(jgp)
-  ENDIF
-
-  p_gep  => p_pp%edges
-  p_gcp  => p_pp%cells
-
-  i_nchdom = p_pp%n_childdom
-
-#ifdef __SX__
-!$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
-#endif
-
-  i_startblk = p_gep%start_blk(grf_bdyintp_start_e,1)
-  i_endblk   = p_gep%end_blk(min_rledge,i_nchdom)
-
-
-! b) Compute parent-child-indices, i.e. the child index number a grid point
-!    has at its parent grid point
-  i_startblk = p_gep%start_blk(grf_bdyintp_start_e,1)
-  i_endblk   = p_gep%end_blk(min_rledge,i_nchdom)
-
-#ifdef  __SX__
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,ji,je,iic,ibc,i_child_id)
-#endif
-  DO jb = i_startblk, i_endblk
-
-    CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge)
-
-    DO ji = 1, 4
-      DO je = i_startidx, i_endidx
-
-        IF(p_gep%child_id(je,jb) /= jg) CYCLE
-
-        iic = ABS(p_gep%child_idx(je,jb,ji))
-        ibc = p_gep%child_blk(je,jb,ji)
-
-        IF ((iic/= 0) .AND. (ibc/= 0)) THEN
-          p_grf(jg)%pc_idx_e(iic,ibc) = ji
-        ENDIF
-      ENDDO
-    ENDDO
-  ENDDO
-#ifdef  __SX__
-!$OMP END DO
-#endif
-
-  i_startblk = p_gcp%start_blk(grf_bdyintp_start_c,1)
-  i_endblk   = p_gcp%end_blk(min_rlcell,i_nchdom)
-
-#ifdef  __SX__
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,ji,jc,iic,ibc,i_child_id)
-#endif
-  DO jb = i_startblk, i_endblk
-
-    CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, grf_bdyintp_start_c, min_rlcell)
-
-    DO ji = 1, 4
-      DO jc = i_startidx, i_endidx
-
-        IF(p_gcp%child_id(jc,jb) /= jg) CYCLE
-
-        iic = p_gcp%child_idx(jc,jb,ji)
-        ibc = p_gcp%child_blk(jc,jb,ji)
-
-        IF ((iic/= 0) .AND. (ibc/= 0)) THEN
-          p_grf(jg)%pc_idx_c(iic,ibc) = ji
-        ENDIF
-      ENDDO
-    ENDDO
-  ENDDO
-#ifdef  __SX__
-!$OMP END DO
-!$OMP END PARALLEL
-#endif
-
-  IF(my_process_is_mpi_parallel()) THEN
-    CALL exchange_data(p_patch(jg)%comm_pat_e, p_grf(jg)%pc_idx_e)
-    CALL exchange_data(p_patch(jg)%comm_pat_c, p_grf(jg)%pc_idx_c)
-  ENDIF
-
-ENDDO
-
 DO jg = n_dom_start, n_dom-1
 
-  p_gep  => p_patch(jg)%edges
   p_gcp  => p_patch(jg)%cells
   p_pp   => p_patch(jg)
 

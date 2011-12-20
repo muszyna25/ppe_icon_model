@@ -2122,8 +2122,6 @@ CONTAINS
       CALL def_var('grf.fbk_wgt_c',  nf_double, dim_ncells, dim_4)
       CALL def_var('grf.fbk_wgt_ct', nf_double, dim_ncells, dim_4)
       CALL def_var('grf.fbk_wgt_e',  nf_double, dim_nedges, dim_6)
-      CALL def_var('grf.pc_idx_c',   nf_int,    dim_ncells)
-      CALL def_var('grf.pc_idx_e',   nf_int,    dim_nedges)
     ENDIF
 
   END SUBROUTINE def_grf_state
@@ -2216,8 +2214,6 @@ CONTAINS
     CALL bvar_io(1,2,'grf.fbk_wgt_c',  pg%fbk_wgt_c ) ! nproma,nblks_c,4
     CALL bvar_io(1,2,'grf.fbk_wgt_ct', pg%fbk_wgt_ct) ! nproma,nblks_c,4
     CALL bvar_io(1,2,'grf.fbk_wgt_e',  pg%fbk_wgt_e ) ! nproma,nblks_c,6
-    CALL bvar_io(1,2,'grf.pc_idx_c',   pg%pc_idx_c  ) ! nproma,nblks_c
-    CALL bvar_io(1,2,'grf.pc_idx_e',   pg%pc_idx_e  ) ! nproma,nblks_e
 
   END SUBROUTINE grf_state_io
   !

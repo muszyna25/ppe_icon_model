@@ -158,7 +158,7 @@ ptr_dist  => ptr_grf%grf_dist_pe2ce
 ! parent edge indices as seen from the child grid level
 ipeidx => ptr_pc%edges%parent_idx
 ipeblk => ptr_pc%edges%parent_blk
-ipcidx => ptr_grfc%pc_idx_e
+ipcidx => ptr_pc%edges%pc_idx
 
 ! number of vertical full levels (child domain)
 nlev_c = ptr_pc%nlev
