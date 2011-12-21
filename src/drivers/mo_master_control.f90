@@ -66,10 +66,10 @@ MODULE mo_master_control
    
 
   ! ------------------------------------------------------------------------
-  INTEGER, PARAMETER :: atmo_process  = 1
-  INTEGER, PARAMETER :: ocean_process = 2
+  INTEGER, PARAMETER :: atmo_process      = 1
+  INTEGER, PARAMETER :: ocean_process     = 2
   INTEGER, PARAMETER :: radiation_process = 3
-  INTEGER, PARAMETER :: testbed_process = 99
+  INTEGER, PARAMETER :: testbed_process   = 99
   ! ------------------------------------------------------------------------
   INTEGER :: my_process_model ! =atmo_process,ocean_process,...
   INTEGER :: my_model_no ! 1,2,3  (id uniquely this process, even if it has the
