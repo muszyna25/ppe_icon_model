@@ -1330,6 +1330,7 @@ CONTAINS
     REAL(wp), POINTER :: rptr2d(:,:)
     REAL(wp), POINTER :: rptr3d(:,:,:)
     !
+    INTEGER :: string_length
     
     write(0,*) "read_restart_files, nvar_lists=", nvar_lists
     abbreviations(1:nvar_lists)%key = 0
@@ -1369,8 +1370,11 @@ CONTAINS
         write(0,*) "util_symlink:", iret
       ENDIF
       !
-      write(0,*) "streamOpenRead ", TRIM(restart_filename)
-      fileID  = streamOpenRead(restart_filename)
+
+      string_length=LEN_TRIM(restart_filename)
+      name = TRIM(restart_filename)//CHAR(0)
+      write(0,*) "streamOpenRead ", TRIM(restart_filename)      
+      fileID  = streamOpenRead(name)
       write(0,*) "fileID=",fileID
       vlistID = streamInqVlist(fileID)
       write(0,*) "vlistID=",vlistID

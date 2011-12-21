@@ -22449,6 +22449,8 @@ int streamOpenRead(const char *filenames)
   stream_t *streamptr = NULL;
 
   //num_fnames = get_fnames(filenames, fnames, MAX_FNAMES);
+  printf("streamOpenRead starts\n"); fflush(stdout);
+  printf("num_fnames=%d\n", num_fnames); fflush(stdout);
 
   if ( num_fnames == 0 )
     filename = filenames;
