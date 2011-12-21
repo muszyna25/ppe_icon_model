@@ -67,7 +67,6 @@
 #ifndef _TAXIS_H
 #define _TAXIS_H
 
-int CDF_Debug = 1;
 
 typedef struct {
   /* Date format  YYYYMMDD */
@@ -19904,7 +19903,7 @@ void zaxisPrint(int zaxisID)
 
 extern int CDF_Fatal;
 extern int CDF_Verbose;
-//extern int CDF_Debug;
+extern int CDF_Debug;
 
 #if  defined  (HAVE_LIBNETCDF)
 /*
@@ -22133,9 +22132,7 @@ int streamOpen(const char *filename, const char *filemode, int filetype)
       }
     case FILETYPE_NC2:
       {
-        printf(" cdfOpen64 (%s, %s) ...",filename,filemode); fflush(stdout);
 	fileID = cdfOpen64(filename, filemode);
-        printf(" cdfOpen64 returned %d", fileID); fflush(stdout);
 	break;
       }
     case FILETYPE_NC4:
@@ -22167,31 +22164,23 @@ int streamOpen(const char *filename, const char *filemode, int filetype)
       streamptr->filemode = tolower(*filemode);
       streamptr->filename = strdupx(filename);
       streamptr->fileID   = fileID;
-     
-      printf(" streamptr->filemode = %d ", streamptr->filemode); fflush(stdout);
 
       if ( streamptr->filemode == 'r' )
 	{
-          printf(" treamptr->filemode == r... "); fflush(stdout);
 	  vlist_t *vlistptr;
 	  int vlistID;
-          printf(" vlistCreate()..."); fflush(stdout);
 	  vlistID = vlistCreate();
-          printf(" vlistCreate() returned:%d", vlistID); fflush(stdout);
 	  if ( vlistID < 0 ) return(CDI_ELIMIT);
 
 	  streamptr->vlistID = vlistID;
 	  /* cdiReadByteorder(streamID); */
-          printf(" cdiInqContents()..."); fflush(stdout);
 	  status = cdiInqContents(streamID);
-          printf(" cdiInqContents() returned:%d", status); fflush(stdout);
 	  if ( status < 0 ) return (status);
 	  vlistptr = vlist_to_pointer(streamptr->vlistID);
 	  vlistptr->ntsteps = streamNtsteps(streamID);
 	}
     }
  
-   printf("streamOpen exits"); fflush(stdout);
   return (streamID);
 }
 
@@ -22460,8 +22449,6 @@ int streamOpenRead(const char *filenames)
   stream_t *streamptr = NULL;
 
   //num_fnames = get_fnames(filenames, fnames, MAX_FNAMES);
-  printf("streamOpenRead starts\n"); fflush(stdout);
-  printf("num_fnames=%d\n", num_fnames); fflush(stdout);
 
   if ( num_fnames == 0 )
     filename = filenames;
@@ -22472,22 +22459,15 @@ int streamOpenRead(const char *filenames)
       filename = fnames[0];
     }
 
-  printf("getFiletype...\n"); fflush(stdout);
-  
   filetype = getFiletype(filename, &byteorder);
-  printf("filetype=%d\n", filetype); fflush(stdout);
 
   if ( filetype < 0 ) return (filetype);
 
-  printf("streamOpen...\n"); fflush(stdout);
   streamID = streamOpen(filename, "r", filetype);
-  printf("streamID=%d\n", streamID); fflush(stdout);
-  
+
   if ( streamID >= 0 )
     {
-      printf("stream_to_pointer...\n"); fflush(stdout);
       streamptr = stream_to_pointer(streamID);
-      printf("stream_to_pointer returned\n"); fflush(stdout);
       streamptr->byteorder = byteorder;
 
       if ( num_fnames > 0 )
@@ -22500,7 +22480,6 @@ int streamOpenRead(const char *filenames)
 	}
     }
 
-  printf("streamOpenRead returns\n"); fflush(stdout);
   return (streamID);
 }
 
@@ -36309,7 +36288,7 @@ int cdfWriteVarSliceDP(int streamID, int varID, int levelID, const double *data,
   int vlistID;
   double *mdata = NULL;
   stream_t *streamptr;
-//   extern int CDF_Debug;
+  extern int CDF_Debug;
 
   streamptr = stream_to_pointer(streamID);
 
@@ -51091,7 +51070,7 @@ const char *hdfLibraryVersion(void)
 }
 
 
-// int CDF_Debug   = 0;    /* If set to 1, debugging           */
+int CDF_Debug   = 0;    /* If set to 1, debugging           */
 
 
 void cdfDebug(int debug)
