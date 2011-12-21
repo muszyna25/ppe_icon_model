@@ -22132,7 +22132,9 @@ int streamOpen(const char *filename, const char *filemode, int filetype)
       }
     case FILETYPE_NC2:
       {
+        printf(" cdfOpen64 (%c, %c) ...",filename,filemode); fflush(stdout);   
 	fileID = cdfOpen64(filename, filemode);
+        printf(" cdfOpen64 returned %d", fileID); fflush(stdout);
 	break;
       }
     case FILETYPE_NC4:
@@ -22169,18 +22171,23 @@ int streamOpen(const char *filename, const char *filemode, int filetype)
 	{
 	  vlist_t *vlistptr;
 	  int vlistID;
+          printf(" vlistCreate()..."); fflush(stdout);
 	  vlistID = vlistCreate();
+          printf(" vlistCreate() returned:%d", vlistID); fflush(stdout);
 	  if ( vlistID < 0 ) return(CDI_ELIMIT);
 
 	  streamptr->vlistID = vlistID;
 	  /* cdiReadByteorder(streamID); */
+          printf(" cdiInqContents()..."); fflush(stdout);
 	  status = cdiInqContents(streamID);
+          printf(" cdiInqContents() returned:%d", status); fflush(stdout);
 	  if ( status < 0 ) return (status);
 	  vlistptr = vlist_to_pointer(streamptr->vlistID);
 	  vlistptr->ntsteps = streamNtsteps(streamID);
 	}
     }
  
+   printf("streamOpen exits"); fflush(stdout);
   return (streamID);
 }
 
