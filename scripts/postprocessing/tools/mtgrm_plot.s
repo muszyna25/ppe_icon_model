@@ -10,15 +10,16 @@
 # Martin Koehler, Dec 2011
 # -------------------------------------------------------
 
-set ex
+set -ex
 
 dates=${1}
 expnum=${2}
 echo "mtgrm_plot.s --- Arguments: dates="${dates}" expnum="${expnum}
-
+echo ${1}
 
 dir="/e/uwork/mkoehler/icon/experiments/"${expnum}"/"
 iFile=${dir}"NWP_iconR2B06_DOM01_"${dates}"_0001_meteogram.nc"
+
 mkdir -p ${dir}"meteo"
 oType="png"
 

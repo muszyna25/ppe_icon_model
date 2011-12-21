@@ -19,6 +19,8 @@
 ; Info:
 ; * There is a meteogram plot script available publically, which might be used to add features.
 ;   http://www.ncl.ucar.edu/Applications/meteo.shtml
+; * Defaults: Note that the default escape character is colon ":", which is
+;   changed to "~" in our .hluresfile.  Also the default font is set to helvetica.
 ;
 ;----------------------------------------------------------------------
 ; 12/2011 : F. Prill,   DWD (florian.prill@dwd.de)
@@ -46,6 +48,43 @@ begin
   return -1
 end
 
+
+;----------------------------------------------------------------------
+; Function to get substring from string
+;----------------------------------------------------------------------
+
+function substring (instr[1]:string, first[1]:numeric, last[1]:numeric)
+local instr, first, last, main, p2
+begin
+   main = stringtochar (instr)   
+   if (last .ge. first) then
+      p2 = last
+   else
+      p2 = dimsizes (main) - 2
+   end if
+   return (chartostring (main(first:p2)))
+end
+
+
+;----------------------------------------------------------------------
+; Function to retrieve date from iso8601 string
+;    Input:  string in the format of "yymmddThhmmssZ"
+;    Output: year, month, day, hour, minute, second
+;----------------------------------------------------------------------
+
+function convert_date (zstr : string)
+begin
+  date = True
+  date@year   = stringtointeger(substring(zstr, 0, 3))
+  date@month  = stringtointeger(substring(zstr, 4, 5))
+  date@day    = stringtointeger(substring(zstr, 6, 7))
+  date@hour   = stringtointeger(substring(zstr, 9,10))
+  date@minute = stringtointeger(substring(zstr,11,12))
+  date@second = stringtointeger(substring(zstr,13,14))
+  return date
+end
+
+
 begin
 
 ;----------------------------------------------------------------------
@@ -62,6 +101,8 @@ begin
   iStation     = iStation - 1
   itime        = 0
 
+  stride       = 6  ; subdivisions of X-Axis labels
+
 ;----------------------------------------------------------------------
 ; read data
 ;----------------------------------------------------------------------
@@ -71,15 +112,16 @@ begin
   nstations = dimsizes(cdf_file->station_lon)
 ; get index corresponding to variable
   ivar      = get_var_index(cdf_file, varName)
-  vals      = cdf_file->sfcvalues(0:, ivar, iStation) ; (time, level, var, station)
+  vals      = cdf_file->sfcvalues(0:, ivar, iStation)   ; (time, level, var, station)
   time      = cdf_file->time_step(0:)
-  ntime     = dimsizes(time)
- ;print(ntime)
+ ; station_name = cdf_file->station_name(iStation)
+ ; station_lat  = cdf_file->station_lat(iStation)
+ ; station_lon  = cdf_file->station_lon(iStation)
  ;print(time)
  ;print(vals)
 
 ;----------------------------------------------------------------------
-; plot
+; plot setup
 ;----------------------------------------------------------------------
   
   print("")
@@ -88,38 +130,68 @@ begin
 
   wks  = gsn_open_wks(oType,oFile)                 ; Opens a ps file
   gsn_define_colormap(wks,colormap)  
+  date = convert_date(charactertostring(cdf_file->date(0,:)))
+  yyyymmdd = sprinti("%0.2i", date@year)+sprinti("%0.2i", date@month)+sprinti("%0.2i", date@day)
+
   res                   = True
-  res@tiMainString      = charactertostring(cdf_file->sfcvar_long_name(ivar,:))
+  res@gsnLeftString     = charactertostring(cdf_file->sfcvar_long_name(ivar,:))
+  res@gsnRightString    = charactertostring(cdf_file->station_name(iStation,:))
+  res@tiXAxisString     = "Time  (from "+yyyymmdd+")"                                  ; x-axis label
   res@tiYAxisString     = "["+ charactertostring(cdf_file->sfcvar_unit(ivar,:)) + "]"  ; y-axis label
-  res@tiXAxisString     = "Time"                                                       ; x-axis label
-
-  res@tmXBMode          = "Explicit"               ; Define own tick mark labels.
-  res@tmXBValues        = time(0:ntime-1:24)       ; location of explicit labels
-  res@tmXBMinorValues   = time(0:ntime-1)          ; location of explicit labels
-  res@tmXBLabels        = charactertostring(cdf_file->date(1:ntime-1:24,:))
-  res@tmLabelAutoStride = True
-
-  res@tiMainFontHeightF    = 0.02 
+  res@gsnLeftStringFontHeightF  = 0.02
+  res@gsnRightStringFontHeightF = 0.017
   res@tiYAxisFontHeightF   = 0.018
   res@tiXAxisFontHeightF   = 0.018
   res@tmXBLabelFontHeightF = 0.014
-  res@vpWidthF          = 0.70   ; The Width of the plot box
-  res@vpHeightF         = 0.50   ; The height of the plot box
-; res@trXMaxF           = 72.0   ; max value on x-axis
-; res@trYMaxF           = max(tempht)   ; max value on y-axis
-; res@trYMinF           = min(tempht)   ; min value on y-axis
-  
-; res@tmXBMode          = "Explicit" ; Define own tick mark labels.
-; res@tmXBValues        = taus       ; location of explicit labels
-; res@tmXBLabels        = (/"12z", "", "18z",  "", "Apr29", \
-;                    "", "06z", "",  "12z", "",   \
-;                    "18z", "", "Apr30","", "06z",   \
-;                    "", "12z", "",  "18z", "",   \
-;                    "May01", "", "06z",  "", "12z"/)
-  res@tmXTOn            = False         ; turn off the top tickmarks
-  res@xyLineThicknesses = 2          ; increase line thickness
-  res@xyLineColor       =  "blue"        ; set line color
+  res@vpXF                 = 0.15                  ; viewport left margin (def: 0.2)
+  res@vpWidthF             = 0.75                  ; The Width of the plot box
+; res@vpHeightF            = 0.58                  ; The height of the plot box
+  res@tmXTOn               = False                 ; turn off the top tickmarks
+  res@xyLineThicknesses    = 5                     ; increase line thickness
+  res@xyLineColor          = "blue"                ; set line color
 
-  plot = gsn_csm_xy(wks,time,vals,res)   ; plot line
+;----------------------------------------------------------------------
+; create values and date labels for time axis explicitly
+;----------------------------------------------------------------------
+
+  ntimesteps = dimsizes(cdf_file->time_step(:))
+  expl_labels = new(ntimesteps(0), string)
+  expl_values = new(ntimesteps(0), float)
+
+  count = 0
+  do i=0,(ntimesteps(0)-1)  
+    if (mod(i,stride) .eq. 0) then
+      date = convert_date(charactertostring(cdf_file->date(i,:)))
+      date_str = ""
+      if ((i .eq. 0) .or. (.not. (date@day .eq. last_date@day))) then
+        date_str = sprinti("%0.2i", date@month) \
+        +          "-" + sprinti("%0.2d", date@day) + " "
+      end if
+      expl_values(count) = cdf_file->time_step(i)
+      expl_labels(count) = date_str + sprinti("%0.2d", date@hour) \
+      +                   ":" + sprinti("%0.2d", date@minute)
+      count = count + 1
+      last_date = date
+    end if
+  end do
+
+  res@tmXBMode             = "Explicit"            ; Define own tick mark labels.
+  res@tmXBMinorOn          = True
+  res@tmXBMinorValues      = cdf_file->time_step(:)
+  res@tmXBMinorThicknessF  = 0.1
+  res@tmXBValues           = expl_values(0:(count-1))  ; location of explicit labels
+  res@tmXBLabels           = expl_labels(0:(count-1))
+  res@tmXBLabelAngleF      = 90.             ; change label angle
+  res@tmXBLabelFontHeightF = .01             ; Font size
+  res@tmXBLabelJust        = "CenterRight"
+  ; remove mirrored tick marks (top, right):
+  res@tmXTOn               = False
+  res@tmYROn               = False
+
+;----------------------------------------------------------------------
+; line plot
+;----------------------------------------------------------------------
+
+  plot = gsn_csm_xy(wks,time,vals,res)             ; plot line
   
 end
