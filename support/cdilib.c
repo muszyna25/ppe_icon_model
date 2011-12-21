@@ -22132,7 +22132,7 @@ int streamOpen(const char *filename, const char *filemode, int filetype)
       }
     case FILETYPE_NC2:
       {
-        printf(" cdfOpen64 (%c, %c) ...",filename,filemode); fflush(stdout);   
+        printf(" cdfOpen64 (%s, %s) ...",filename,filemode); fflush(stdout);
 	fileID = cdfOpen64(filename, filemode);
         printf(" cdfOpen64 returned %d", fileID); fflush(stdout);
 	break;
@@ -22166,9 +22166,12 @@ int streamOpen(const char *filename, const char *filemode, int filetype)
       streamptr->filemode = tolower(*filemode);
       streamptr->filename = strdupx(filename);
       streamptr->fileID   = fileID;
+     
+      printf(" streamptr->filemode = %d ", streamptr->filemode); fflush(stdout);
 
       if ( streamptr->filemode == 'r' )
 	{
+          printf(" treamptr->filemode == r... "); fflush(stdout);
 	  vlist_t *vlistptr;
 	  int vlistID;
           printf(" vlistCreate()..."); fflush(stdout);
