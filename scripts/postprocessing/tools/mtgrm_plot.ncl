@@ -99,7 +99,8 @@ begin
   iStation     = iStation - 1
   itime        = 0
 
-  stride       = 4 ; subdivisions of X-Axis labels
+  stride       = 6  ; subdivisions of X-Axis labels
+  ystride      = 10 ; subdivisions of right Y-Axis labels
 
 ;----------------------------------------------------------------------
 ; read data
@@ -138,7 +139,8 @@ begin
   ntimesteps = dimsizes(cdf_file->time_step(:))
   expl_labels = new(ntimesteps(0), string)
   expl_values = new(ntimesteps(0), float)
-  
+
+  ; create values and date labels for time axis explicitly:
   count = 0
   do i=0,(ntimesteps(0)-1)  
     if (mod(i,stride) .eq. 0) then
@@ -146,8 +148,7 @@ begin
       date_str = ""
       if ((i .eq. 0) .or. (.not. (date@day .eq. last_date@day))) then
         date_str = sprinti("%0.2i", date@month) \
-        +          "-" + sprinti("%0.2d", date@day) \
-        +          "-" + sprinti("%0.4d", date@year) + " "
+        +          "-" + sprinti("%0.2d", date@day) + " "
       end if
       expl_values(count) = cdf_file->time_step(i)
       expl_labels(count) = date_str + sprinti("%0.2d", date@hour) \
@@ -158,13 +159,53 @@ begin
   end do
 
   res@tmXBMode       = "Explicit" ; Define own tick mark labels.
-  res@tmXBValues = expl_values(0:count)  ; location of explicit labels
-  res@tmXBLabels = expl_labels(0:count)
+  res@tmXBMinorOn = True
+  res@tmXBMinorValues = cdf_file->time_step(:)
+  res@tmXBMinorThicknessF = 0.1
+  res@tmXBValues = expl_values(0:(count-1))  ; location of explicit labels
+  res@tmXBLabels = expl_labels(0:(count-1))
   res@tmXBLabelAngleF      = 90.      ; change label angle
   res@tmXBLabelFontHeightF = .01      ; Font size
   res@tmXBLabelJust = "CenterRight"
+  ; remove mirrored tick marks (top, right):
+  res@tmXTOn       = False
+  res@tmYROn       = False
 
-
+  ; create an independent axis with level heights:
+  expl_labels2 = new(nlevs, string)
+  do i=0,(nlevs-1)
+    expl_labels2 = sprintf("%3.0f m", cdf_file->heights(0:(nlevs-1),ivar, iStation))
+  end do
+  xy3 = create "xy3" xyPlotClass wks
+  "trYReverse"              : "True"
+  "trYMaxF"                 :  cdf_file->var_levels(ivar, nlevs-1)
+  "trYMinF"                 :  cdf_file->var_levels(ivar, 0)
+  "tmYROn"                  : "True"
+  "tmYLOn"                  : "False"
+  "tmYUseLeft"              : "False"
+  "tmYRLabelsOn"            : "True"
+  "tmYRMajorLengthF"        : .01
+  "tmYRMajorOutwardLengthF" : .01
+  "tmXBOn"                  : "False"
+  "tmXTOn"                  : "False"
+  "tmYLOn"                  : "False"
+  "tmYROn"                  : "True"
+  "tmYRMode"                : "Explicit"
+  "tmYRValues"              : cdf_file->var_levels(ivar,0:(nlevs-1):ystride)
+  "tmYRLabels"              : expl_labels2(0:(nlevs-1):ystride)
+  "tmYRLabelJust"           : "CenterRight"
+  "tiYAxisSide"             : "Right"
+  "tmYRLabelFontHeightF"    : 0.01
+  "tiXAxisFontHeightF"      : 0.01
+  "tiYAxisFontHeightF"      : 0.03
+  "tmYRMinorOn"             : "False"
+  "tmYLMinorOn"             : "False"
+  "tmXBMinorOn"             : "False"
+  "tmXTBorderOn"            : "False"
+  "tmXBBorderOn"            : "False"
+  "tmYLBorderOn"            : "False"
+  end create
+  draw(xy3)
   plot = gsn_contour(wks,vals,res)    ; plot contours
   
 end
