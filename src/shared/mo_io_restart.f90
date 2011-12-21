@@ -1369,7 +1369,7 @@ CONTAINS
         write(0,*) "util_symlink:", iret
       ENDIF
       !
-      write(0,*) "fstreamOpenRead ", TRIM(restart_filename)
+      write(0,*) "streamOpenRead ", TRIM(restart_filename)
       fileID  = streamOpenRead(restart_filename)
       write(0,*) "fileID=",fileID
       vlistID = streamInqVlist(fileID)

@@ -22459,15 +22459,21 @@ int streamOpenRead(const char *filenames)
       filename = fnames[0];
     }
 
+  printf("getFiletype...\n");
   filetype = getFiletype(filename, &byteorder);
+  printf("filetype=%d\n", filetype);
 
   if ( filetype < 0 ) return (filetype);
 
+  printf("streamOpen...\n");
   streamID = streamOpen(filename, "r", filetype);
-
+  printf("streamID=%d\n", streamID);
+  
   if ( streamID >= 0 )
     {
+      printf("stream_to_pointer...\n");
       streamptr = stream_to_pointer(streamID);
+      printf("stream_to_pointer returned\n");
       streamptr->byteorder = byteorder;
 
       if ( num_fnames > 0 )
@@ -22480,6 +22486,7 @@ int streamOpenRead(const char *filenames)
 	}
     }
 
+  printf("streamOpenRead returns\n");
   return (streamID);
 }
 
