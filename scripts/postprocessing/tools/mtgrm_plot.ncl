@@ -188,18 +188,18 @@ begin
     end if
   end do
 
-  res@tmXBMode       = "Explicit"            ; Define own tick mark labels.
-  res@tmXBMinorOn = True
-  res@tmXBMinorValues = cdf_file->time_step(:)
-  res@tmXBMinorThicknessF = 0.1
-  res@tmXBValues = expl_values(0:(count-1))  ; location of explicit labels
-  res@tmXBLabels = expl_labels(0:(count-1))
+  res@tmXBMode             = "Explicit"            ; Define own tick mark labels.
+  res@tmXBMinorOn          = True
+  res@tmXBMinorValues      = cdf_file->time_step(:)
+  res@tmXBMinorThicknessF  = 0.1
+  res@tmXBValues           = expl_values(0:(count-1))  ; location of explicit labels
+  res@tmXBLabels           = expl_labels(0:(count-1))
   res@tmXBLabelAngleF      = 90.             ; change label angle
   res@tmXBLabelFontHeightF = .01             ; Font size
-  res@tmXBLabelJust = "CenterRight"
+  res@tmXBLabelJust        = "CenterRight"
   ; remove mirrored tick marks (top, right):
-  res@tmXTOn       = False
-  res@tmYROn       = False
+  res@tmXTOn               = False
+  res@tmYROn               = False
 
 ;----------------------------------------------------------------------
 ; create an independent axis with level heights
