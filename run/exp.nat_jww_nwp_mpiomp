@@ -116,7 +116,7 @@ for gridfile in ${atmo_rad_grids}; do
 done
 dynamics_parent_grid_id="${dynamics_parent_grid_id},"
 lredgrid_phys="${lredgrid_phys},"
-lfeedback="${lfeedback}," .true.,
+lfeedback="${lfeedback},"
 
 # ------------------------
 

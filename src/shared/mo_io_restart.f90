@@ -1364,9 +1364,12 @@ CONTAINS
       !
       IF (.NOT. util_islink(TRIM(restart_filename))) THEN
         iret = util_rename(TRIM(restart_filename), TRIM(restart_filename)//'.bak')
+        write(0,*) "util_rename returned:", iret        
         iret = util_symlink(TRIM(restart_filename)//'.bak', TRIM(restart_filename))
+        write(0,*) "util_symlink:", iret
       ENDIF
       !
+      write(0,*) "fstreamOpenRead ", TRIM(restart_filename)
       fileID  = streamOpenRead(restart_filename)
       write(0,*) "fileID=",fileID
       vlistID = streamInqVlist(fileID)
