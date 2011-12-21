@@ -67,6 +67,7 @@
 #ifndef _TAXIS_H
 #define _TAXIS_H
 
+int CDF_Debug = 1;
 
 typedef struct {
   /* Date format  YYYYMMDD */
@@ -19903,7 +19904,7 @@ void zaxisPrint(int zaxisID)
 
 extern int CDF_Fatal;
 extern int CDF_Verbose;
-extern int CDF_Debug;
+//extern int CDF_Debug;
 
 #if  defined  (HAVE_LIBNETCDF)
 /*
@@ -36308,7 +36309,7 @@ int cdfWriteVarSliceDP(int streamID, int varID, int levelID, const double *data,
   int vlistID;
   double *mdata = NULL;
   stream_t *streamptr;
-  extern int CDF_Debug;
+//   extern int CDF_Debug;
 
   streamptr = stream_to_pointer(streamID);
 
@@ -51090,7 +51091,7 @@ const char *hdfLibraryVersion(void)
 }
 
 
-int CDF_Debug   = 0;    /* If set to 1, debugging           */
+// int CDF_Debug   = 0;    /* If set to 1, debugging           */
 
 
 void cdfDebug(int debug)
