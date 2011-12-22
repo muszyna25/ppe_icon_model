@@ -1281,6 +1281,7 @@ src/templates/template_function.f90 -text
 src/templates/template_main.f90 -text
 src/templates/template_module.f90 -text
 src/templates/template_subroutine.f90 -text
+src/testbed/mo_test_communication.f90 -text
 src/testbed/mo_test_coupler.f90 -text
 src/testcases/mo_ape_params.f90 -text
 src/testcases/mo_df_test.f90 -text

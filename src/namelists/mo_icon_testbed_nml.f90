@@ -71,7 +71,6 @@ MODULE mo_icon_testbed_nml
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat
-    INTEGER :: funit
     !0!CHARACTER(len=*), PARAMETER ::   &
     !0!        &  method_name = 'mo_parallel_nml:read_parallel_namelist'
 

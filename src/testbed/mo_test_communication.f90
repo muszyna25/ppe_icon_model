@@ -32,61 +32,64 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
-MODULE mo_icon_testbed
+MODULE mo_test_communication
 
+  USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message, message_text, finish
-  USE mo_mpi,                 ONLY: global_mpi_barrier
-  USE mo_master_control,      ONLY: is_restart_run, get_my_process_name, &
-                                    get_my_model_no
+  USE mo_mpi,                 ONLY: global_mpi_barrier, p_pe_work
+  USE mo_timer,               ONLY: init_timer
+  USE mo_master_control,      ONLY: get_my_process_name, get_my_model_no
 
-  USE mo_icon_testbed_config, ONLY: testbed_mode, null_mode, test_coupler_mode, &
-    & test_communication_mode
-  USE mo_icon_testbed_nml,    ONLY: read_icon_testbed_namelist
-
-  USE mo_test_coupler,        ONLY: test_coupler
-  USE mo_test_communication,  ONLY: test_communication
+  USE mo_model_domain,        ONLY:  p_patch
+  
+  USE mo_atmo_model,          ONLY: construct_atmo_model, destruct_atmo_model
 
 !-------------------------------------------------------------------------
-  IMPLICIT NONE
-  PRIVATE
+IMPLICIT NONE
+PRIVATE
 
-  PUBLIC :: icon_testbed
+PUBLIC :: test_communication
 
 CONTAINS
+!>
+!!
+  SUBROUTINE test_communication(namelist_filename,shr_namelist_filename)
 
-  !-------------------------------------------------------------------------
-  !>
-  SUBROUTINE icon_testbed(testbed_namelist_filename,shr_namelist_filename)
-
-    CHARACTER(LEN=*), INTENT(in) :: testbed_namelist_filename
+    CHARACTER(LEN=*), INTENT(in) :: namelist_filename
     CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
 
-    CHARACTER(*), PARAMETER :: method_name = "mo_icon_testbed:icon_testbed"
+    CHARACTER(*), PARAMETER :: method_name = "mo_test_communication:test_communication"
 
+
+    !---------------------------------------------------------------------
+
+    CALL global_mpi_barrier()
     write(0,*) TRIM(get_my_process_name()), ': Start of ', method_name
     
-    CALL read_icon_testbed_namelist(testbed_namelist_filename)
+    !---------------------------------------------------------------------
+
+    CALL construct_atmo_model(namelist_filename,shr_namelist_filename)
     
-    SELECT CASE(testbed_mode)
+    CALL global_mpi_barrier()
     
-    CASE(null_mode)
-      ! do nothing
-      RETURN
 
-    CASE(test_coupler_mode)
-      CALL test_coupler(testbed_namelist_filename,shr_namelist_filename)
+    !---------------------------------------------------------------------
+    ! Call cmmunication methods
+    !---------------------------------------------------------------------
 
-    CASE(test_communication_mode)
-      CALL test_communication(testbed_namelist_filename,shr_namelist_filename)
 
-    CASE default
-      CALL finish(method_name, "Unrecognized testbed_mode")
+    !---------------------------------------------------------------------
+    ! Carry out the shared clean-up processes
+    !---------------------------------------------------------------------
+    CALL destruct_atmo_model()
+  
 
-    END SELECT    
-   
+    CALL message(TRIM(method_name),'clean-up finished')
 
-  END SUBROUTINE icon_testbed
+  END SUBROUTINE test_communication
   !-------------------------------------------------------------------------
 
-END MODULE mo_icon_testbed
+
+
+END MODULE mo_test_communication
 

@@ -38,8 +38,7 @@ MODULE mo_test_coupler
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_mpi,                 ONLY: global_mpi_barrier, p_pe_work
   USE mo_timer,               ONLY: init_timer
-  USE mo_master_control,      ONLY: is_restart_run, get_my_process_name, &
-                                    get_my_model_no
+  USE mo_master_control,      ONLY: get_my_process_name, get_my_model_no
   ! For the coupling
   USE mo_icon_cpl_init,       ONLY: icon_cpl_init
   USE mo_icon_cpl_init_comp,  ONLY: icon_cpl_init_comp
@@ -88,9 +87,6 @@ CONTAINS
     INTEGER :: patch_no
 
     !---------------------------------------------------------------------
-    ! 1.1 Read namelists (newly) specified by the user; fill the 
-    !     corresponding sections of the configuration states.
-    !---------------------------------------------------------------------
 
     CALL global_mpi_barrier()
     write(0,*) TRIM(get_my_process_name()), ': Start of ', method_name
@@ -106,7 +102,7 @@ CONTAINS
     CALL global_mpi_barrier()
     
     !---------------------------------------------------------------------
-    ! 11. Do the setup for the coupled run
+    ! Do the setup for the coupled run
     !
     ! For the time being this could all go into a subroutine which is
     ! common to atmo and ocean. Does this make sense if the setup deviates
@@ -179,7 +175,7 @@ CONTAINS
     ENDIF
 
     !---------------------------------------------------------------------
-    ! 12. Call dummy procedure
+    ! Call dummy procedure
     ! This procedure simulates the timestepping for the sent - receive
     ! coupling process
     !---------------------------------------------------------------------
@@ -187,7 +183,7 @@ CONTAINS
     CALL cpl_dummy_timestepping(no_of_fields, field_id, field_shape)
 
     !---------------------------------------------------------------------
-    ! 13. Dummy Carry out the shared clean-up processes
+    ! Carry out the shared clean-up processes
     !---------------------------------------------------------------------
     CALL destruct_atmo_model()
   
