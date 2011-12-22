@@ -856,10 +856,10 @@ CONTAINS
     !-------------------------------------------------------------------------
     ! register variables
     varids(:,k_jg)   = 0
+    ! initialize total number of varids for domain jg
+    num_varids(k_jg) = 0
     ! atm
     IF (iequations/=ihs_ocean) THEN
-      ! initialize total number of varids for domain jg
-      num_varids(k_jg) = 0
 
       ! get ctracer_list
       ctracer_list = advection_config(k_jg)%ctracer_list
