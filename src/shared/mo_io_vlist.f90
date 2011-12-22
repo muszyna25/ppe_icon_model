@@ -205,6 +205,8 @@ MODULE mo_io_vlist
   USE mo_mpi,                   ONLY: p_pe
   USE mo_util_string,           ONLY: string_contains_word, toupper
   USE mo_oce_physics,           ONLY: t_ho_params, v_params
+  USE mo_linked_list,           ONLY: t_list_element
+  USE mo_var_list,              ONLY: nvar_lists, var_lists
   IMPLICIT NONE
 
   PRIVATE
@@ -228,7 +230,7 @@ MODULE mo_io_vlist
     &       vlist_write_var, vlist_set_date_time, vlist_start_step, &
     &       de_reshape1, de_reshape2,                               &
     &       gather_array1, gather_array2, t_collected_var_ptr,      &
-    &       addGlobAtts, addAtmAtts, addOceAtts
+    &       addGlobAtts, addAtmAtts, addOceAtts, translate_vars
 
   PRIVATE :: addGlobAttInt, addGlobAttTxt, addGlobAttFlt
   ! I/O stream handler
@@ -4102,6 +4104,68 @@ CONTAINS
     END IF LONLAT
 
   END SUBROUTINE addVar
+
+
+  !>
+  !! Utility function: Translates NetCDF name to internal variable name.
+  !!
+  !! In the "traditional" vlist output mode, variable names appearing
+  !! in the NetCDF output were defined by addVar commands. For
+  !! example, the temperature was named "T". In contrast to this, the
+  !! new output mode (MODULE mo_name_list_output) uses the
+  !! varlistelement%field%info%name string as output name, which is
+  !! set by add_var. 
+  !! A name dictionary has been implemented by Rainer Johanni in
+  !! r7514. This subroutine serves the purpose to create such a
+  !! translation table automatically.
+  !!
+  !! @par Revision History
+  !! Initial implementation by F. Prill, DWD (2011-12-22)
+  !!
+  SUBROUTINE translate_vars(k_jg)
+    INTEGER, INTENT(IN)           :: k_jg
+    ! local variables
+    TYPE(t_list_element), POINTER :: list_element
+    INTEGER                       :: i, nindex, idx, ivar
+    REAL(wp),             POINTER :: ptr2(:,:)
+    REAL(wp),             POINTER :: ptr3(:,:,:)
+    LOGICAL                       :: reset, delete
+
+    ! loop over io_vlist variables:
+    DO ivar = 1, num_output_vars(k_jg)
+      ! skip lonlat postprocessing variables
+      IF (outvar_desc(ivar, k_jg)%type == GATHER_LONLAT) CYCLE
+      ! get pointer to variable
+      CALL get_outvar_ptr_nh &
+        & (outvar_desc(ivar,k_jg)%name, k_jg, 0._wp, ptr2, ptr3, reset, delete)
+      ! loop over "add_var" variable list and compare to pointer
+      DO i = 1, nvar_lists
+        list_element => var_lists(i)%p%first_list_element
+        DO WHILE (ASSOCIATED(list_element))
+          IF (list_element%field%info%lcontained) THEN 
+            nindex = list_element%field%info%ncontained
+          ELSE
+            nindex = 1
+          ENDIF
+          idx = INDEX(list_element%field%info%name,'.TL')
+          
+          IF (ASSOCIATED(ptr2,list_element%field%r_ptr(:,:,nindex,1,1)) .OR.  &
+            & ASSOCIATED(ptr3,list_element%field%r_ptr(:,:,:,nindex,1))) THEN
+            
+            IF(idx == 0) THEN
+              WRITE (0,*) TRIM(list_element%field%info%name), "  ", &
+                & outvar_desc(ivar,k_jg)%name
+            ELSE
+              WRITE (0,*) TRIM(list_element%field%info%name(1:idx-1)), "  ", &
+                & outvar_desc(ivar,k_jg)%name
+            END IF
+          END IF
+          list_element => list_element%next_list_element
+        END DO ! while
+      END DO !i
+    END DO ! ivar
+
+  END SUBROUTINE translate_vars
 
 
   !-------------------------------------------------------------------------------------------------
