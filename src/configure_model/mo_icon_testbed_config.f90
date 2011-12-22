@@ -44,6 +44,7 @@ MODULE mo_icon_testbed_config
   PUBLIC :: null_mode, test_coupler_mode, test_communication_mode
   ! Exported variables
   PUBLIC :: testbed_mode
+  PUBLIC :: testbed_iterations
   
   ! ---------------
   ! the tesbed modes
@@ -53,6 +54,7 @@ MODULE mo_icon_testbed_config
   
   INTEGER  :: testbed_mode
   ! ---------------
+  INTEGER  :: testbed_iterations
 
 CONTAINS
   

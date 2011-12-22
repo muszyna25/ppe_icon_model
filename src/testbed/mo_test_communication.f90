@@ -37,12 +37,16 @@ MODULE mo_test_communication
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_mpi,                 ONLY: global_mpi_barrier, p_pe_work
-  USE mo_timer,               ONLY: init_timer
-  USE mo_master_control,      ONLY: get_my_process_name, get_my_model_no
+  USE mo_timer,               ONLY: init_timer, ltimer, new_timer, timer_start, timer_stop, &
+    & print_timer
 
-  USE mo_model_domain,        ONLY:  p_patch
-  
+  USE mo_master_control,      ONLY: get_my_process_name, get_my_model_no
+  USE mo_icon_testbed_config, ONLY: testbed_iterations
+
+  USE mo_model_domain,        ONLY:  p_patch  
   USE mo_atmo_model,          ONLY: construct_atmo_model, destruct_atmo_model
+  
+  USE mo_sync,               ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_patch_array_mult
 
 !-------------------------------------------------------------------------
 IMPLICIT NONE
@@ -58,6 +62,9 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(in) :: namelist_filename
     CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
 
+    INTEGER :: timer_sync_2D_cells, timer_sync_2D_edges, timer_sync_2D_verts, timer_sync_2D_all
+    INTEGER :: patch_no, i
+    
     CHARACTER(*), PARAMETER :: method_name = "mo_test_communication:test_communication"
 
 
@@ -72,19 +79,66 @@ CONTAINS
     
     CALL global_mpi_barrier()
     
+    patch_no=1
 
     !---------------------------------------------------------------------
     ! Call cmmunication methods
     !---------------------------------------------------------------------
+    ! test the 2D sync
+    timer_sync_2D_cells  = new_timer  ("sync_2D_cells")
+    timer_sync_2D_edges  = new_timer  ("sync_2D_edges")
+    timer_sync_2D_verts  = new_timer  ("sync_2D_verts")
+    timer_sync_2D_all  = new_timer  ("sync_2D_all")
 
+    ! test the 2D sync on cells
+    CALL timer_start(timer_sync_2D_cells)
+    DO i=1,testbed_iterations
+      CALL sync_patch_array( SYNC_C, p_patch(patch_no), p_patch(patch_no)%cells%area(:,:) )
+    ENDDO    
+    CALL timer_stop(timer_sync_2D_cells)
+    
+    ! test the 2D sync on edges
+    CALL timer_start(timer_sync_2D_edges)
+    DO i=1,testbed_iterations
+      CALL sync_patch_array( SYNC_E, p_patch(patch_no), &
+        & p_patch(patch_no)%edges%primal_edge_length(:,:) )
+    ENDDO    
+    CALL timer_stop(timer_sync_2D_edges)
+    
+    ! test the 2D sync on verts
+    CALL timer_start(timer_sync_2D_verts)
+    DO i=1,testbed_iterations
+      CALL sync_patch_array( SYNC_V, p_patch(patch_no), p_patch(patch_no)%verts%dual_area(:,:) )
+    ENDDO    
+    CALL timer_stop(timer_sync_2D_verts)
+
+    ! test the 2D sync on cells and edges and verts
+    CALL timer_start(timer_sync_2D_all)
+    DO i=1,testbed_iterations
+      CALL sync_patch_array( SYNC_C, p_patch(patch_no), p_patch(patch_no)%cells%area(:,:) )
+      CALL sync_patch_array( SYNC_E, p_patch(patch_no), &
+        & p_patch(patch_no)%edges%primal_edge_length(:,:) )
+      CALL sync_patch_array( SYNC_V, p_patch(patch_no), p_patch(patch_no)%verts%dual_area(:,:) )
+    ENDDO    
+    CALL timer_stop(timer_sync_2D_all)
+    !---------------------------------------------------------------------
+    ! test the 3D sync
+    
 
     !---------------------------------------------------------------------
     ! Carry out the shared clean-up processes
     !---------------------------------------------------------------------
-    CALL destruct_atmo_model()
-  
-
+    CALL destruct_atmo_model()  
     CALL message(TRIM(method_name),'clean-up finished')
+
+    !---------------------------------------------------------------------
+    ! print the timers
+    CALL message("===================", "=======================")
+    WRITE(message_text,*) "Communication Iterations=", testbed_iterations
+    CALL message(method_name, TRIM(message_text))
+    CALL print_timer()
+    !---------------------------------------------------------------------
+     
 
   END SUBROUTINE test_communication
   !-------------------------------------------------------------------------

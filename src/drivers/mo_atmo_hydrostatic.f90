@@ -36,7 +36,7 @@ MODULE mo_atmo_hydrostatic
   USE mo_impl_constants,    ONLY: iecham, ildf_echam
   USE mo_timer,             ONLY: print_timer
 
-  USE mo_master_control,  ONLY: is_restart_run
+  USE mo_master_control,    ONLY: is_restart_run
   USE mo_time_config,       ONLY: time_config
   USE mo_run_config,        ONLY: dtime, nsteps, ltestcase, ltimer,iforcing, nlev, &
     & msg_level
@@ -197,6 +197,7 @@ CONTAINS
     ! Integration finished. Start to clean up.
     !---------------------------------------------------------------------
     CALL message(TRIM(routine),'start to clean up')
+
 
     CALL destruct_icoham_dyn_state
     

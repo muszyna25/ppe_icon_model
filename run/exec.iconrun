@@ -129,14 +129,8 @@ fi
 #-----------------------------------------------------------------------------
 
 
-cp_atmo_files="false"
+cp_atmo_files=${cp_atmo_files:="false"}
 if [ $run_atmo = "true" ] ;  then 
-  cp_atmo_files="true"
-fi
-if [ $run_radiation = "true" ] ;  then
-  cp_atmo_files="true"
-fi
-if [ $run_dummy_1 = "true" ] ;  then
   cp_atmo_files="true"
 fi
 

@@ -23,26 +23,21 @@
 #-----------------------------------------------------------------------------
 # This test must have available at least 2 MPI processes.
 # If the model runs with mpi_procs=1, then this script exits without error:
-if [[ ${mpi_procs} = 1 ]] ; then
-  echo "This test uses at least 2 mpi_procs. Exit test without error"
-  check_error 0 ${EXPNAME}
-  exit 0
-fi
+# if [[ ${mpi_procs} = 1 ]] ; then
+#   echo "This test uses at least 2 mpi_procs. Exit test without error"
+#   check_error 0 ${EXPNAME}
+#   exit 0
+# fi
 #-----------------------------------------------------------------------------
 # The following values must be set here as shell variables so that they can be used
 # also in the executing section of the completed run script
 #-----------------------------------------------------------------------------
 # the namelist filename
-dummy_1_namelist=NAMELIST_${EXPNAME}_1
-dummy_2_namelist=NAMELIST_${EXPNAME}_2
-dummy_3_namelist=NAMELIST_${EXPNAME}_3
-dummy_3_namelist="none"
+testbed_namelist=NAMELIST_${EXPNAME}
 #
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2008-09-01T00:00:00Z"
-ndays_restart=60
-dt_restart=`expr ${ndays_restart} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model timing
@@ -61,9 +56,8 @@ model_equations=1   # equation system
 nlev=31             # nlev = number of full levels
 #-----------------------------------------------------------------------------
 # the grid files
-atmo_dyn_grids='iconR2B02-grid.nc'
+atmo_dyn_grids='iconR2B04-grid.nc'
 #-----------------------------------------------------------------------------
-
 nproma=${nproma:=28}
 
 #-----------------------------------------------------------------------------
@@ -76,69 +70,9 @@ create_namelist()
 {
 namelist_filename=$1
 cat > $namelist_filename << EOF
-!
 &testbed_nml
-  testbed_mode        = 1  ! test the coupler
-/
-&coupling_nml
-  name                = 'TEST1'
-  dt_model            =  ${dtime}
-  dt_coupling         =  ${dtime}
-  l_time_average      = .FALSE.
-  l_time_accumulation = .FALSE.
-  l_activated         = .TRUE.
-/
-&coupling_nml
-  name                = 'TEST2'
-  dt_model            =  ${dtime}
-  dt_coupling         =  ${dtime}
-  l_time_average      = .FALSE.
-  l_time_accumulation = .FALSE.
-  l_activated         = .TRUE.
-/
-&coupling_nml
-  name                = 'TEST3'
-  dt_model            =  ${dtime}
-  dt_coupling         =  ${dtime}
-  l_time_average      = .FALSE.
-  l_time_accumulation = .FALSE.
-  l_activated         = .TRUE.
-/
-&coupling_nml
-  name                = 'TEST4'
-  dt_model            =  ${dtime}
-  dt_coupling         =  ${dtime}
-  l_time_average      = .FALSE.
-  l_time_accumulation = .FALSE.
-  l_activated         = .TRUE.
-/
-&coupling_nml
-  name                = 'TEST5'
-  dt_model            =  ${dtime}
-  dt_coupling         =  ${dtime}
-  l_time_average      = .FALSE.
-  l_time_accumulation = .FALSE.
-/
-&coupling_nml
-  name                = 'TEST6'
-  dt_model            =  ${dtime}
-  dt_coupling         =  ${dtime}
-  l_time_average      = .FALSE.
-  l_time_accumulation = .FALSE.
-/
-&coupling_nml
-  name                = 'TEST7'
-  dt_model            =  ${dtime}
-  dt_coupling         =  ${dtime}
-  l_time_average      = .FALSE.
-  l_time_accumulation = .FALSE.
-/
-&coupling_nml
-  name                = 'TEST8'
-  dt_model            =  ${dtime}
-  dt_coupling         =  ${dtime}
-  l_time_average      = .FALSE.
-  l_time_accumulation = .FALSE.
+  testbed_mode        = 2  ! test the communication
+  testbed_iterations  = 1000
 /
 &parallel_nml
  nproma         = ${nproma}
@@ -180,9 +114,8 @@ EOF
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
-create_namelist $dummy_1_namelist
-create_namelist $dummy_2_namelist
-create_namelist $dummy_3_namelist
+create_namelist $testbed_namelist
 cp_atmo_files="true"
+
 #-----------------------------------------------------------------------------
 

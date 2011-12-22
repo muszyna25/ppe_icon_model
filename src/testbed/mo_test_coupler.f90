@@ -37,7 +37,6 @@ MODULE mo_test_coupler
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_mpi,                 ONLY: global_mpi_barrier, p_pe_work
-  USE mo_timer,               ONLY: init_timer
   USE mo_master_control,      ONLY: get_my_process_name, get_my_model_no
   ! For the coupling
   USE mo_icon_cpl_init,       ONLY: icon_cpl_init
