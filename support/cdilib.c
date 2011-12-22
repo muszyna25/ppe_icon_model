@@ -19995,7 +19995,8 @@ int cdf_open(const char *path, int omode, int *ncidp)
         printf("cdf_open: nc__open(%s, %d, %d)...", path, omode, *ncidp);
         fflush(stdout);
       }
-      status = nc__open(path, omode, &chunksizehint, ncidp);
+      status = nc_open(path, omode, ncidp);
+//       status = nc__open(path, omode, &chunksizehint, ncidp);
 
       if ( CDF_Debug )
 	Message("chunksizehint %d", chunksizehint);
