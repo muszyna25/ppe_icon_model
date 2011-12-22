@@ -41,7 +41,7 @@ check_error()
 # temorary disable squall
 if [ x$BB_SYSTEM = "xsquall" ] ; then
   echo "Squall is disabled for the moment"
-  exit 0
+  exit 1
 fi
 #------------------------------------------------------------------------------
 

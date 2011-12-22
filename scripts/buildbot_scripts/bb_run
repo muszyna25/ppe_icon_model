@@ -47,14 +47,6 @@ use_exp_list="false"
 build_post_file="true"
 RUN_POST=""
 
-#------------------------------------------------------------------------------
-# temorary disable squall
-if [ x$BB_SYSTEM = "xsquall" ] ; then
-  echo "Squall is disabled for the moment"
-  exit 0
-fi
-#------------------------------------------------------------------------------
-
 #==============================================================================
 #
 # With this function it is possible to stop or continue this script after an 
