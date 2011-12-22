@@ -36,6 +36,15 @@ check_error()
     exit $1
   fi
 }
+
+#------------------------------------------------------------------------------
+# temorary disable squall
+if [ x$BB_SYSTEM = "xsquall" ] ; then
+  echo "Squall is disabled for the moment"
+  exit 0
+fi
+#------------------------------------------------------------------------------
+
 #==============================================================================
 
 # configure the Makefile and make the executables
