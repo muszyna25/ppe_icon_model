@@ -23,7 +23,7 @@ dt_checkpoint=`expr ${ndays_checkpoint} \* 86400 `
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=${dtime:=300}
+dtime=${dtime:=120}
 ndays=${ndays:=2}
 nsteps=${nsteps:=`expr ${ndays} \* 86400 / ${dtime}`}
 dt_rad=${dt_rad:=3600}             # compute radiative transfer every other hour
@@ -61,6 +61,7 @@ else
 fi
 
 initial_conditions=${initial_conditions:=1}
+ntracer=${ntracer:=5}
 
 #-----------------------------------------------------------------------------
 atmo_model_equations=3
