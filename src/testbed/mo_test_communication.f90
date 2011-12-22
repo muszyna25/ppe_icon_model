@@ -475,9 +475,9 @@ CONTAINS
        
     ENDDO
     CALL timer_stop(timer_iconcom_3D_keep)
-    CALL delete_icon_comm_variable(comm_1)
-    CALL delete_icon_comm_variable(comm_2)
     CALL delete_icon_comm_variable(comm_3)
+    CALL delete_icon_comm_variable(comm_2)
+    CALL delete_icon_comm_variable(comm_1)
     !---------------------------------------------------------------------
     
     

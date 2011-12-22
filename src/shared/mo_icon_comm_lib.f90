@@ -249,6 +249,7 @@ MODULE mo_icon_comm_lib
   INTEGER :: my_work_communicator
   INTEGER :: my_work_comm_size
   INTEGER :: my_mpi_work_id
+  LOGICAL :: this_is_sequential
   
   !-------------------------------------------------------------------------
   INTERFACE new_icon_comm_variable
@@ -277,7 +278,7 @@ CONTAINS
     IF (omp_in_parallel()) &
       CALL finish(method_name, 'cannot be called from openmp parallel')
 #endif
-    IF(my_process_is_mpi_seq()) RETURN
+    IF (this_is_sequential) RETURN
     
     DEALLOCATE(send_buffer, recv_buffer)
     CLOSE(log_file_id)
@@ -293,6 +294,8 @@ CONTAINS
     
     CHARACTER(*), PARAMETER :: method_name = "init_icon_comm_lib"
 
+    this_is_sequential = my_process_is_mpi_seq()
+    
 #ifdef NOMPI
    RETURN
 #endif
@@ -302,7 +305,7 @@ CONTAINS
       CALL finish(method_name, 'cannot be called from openmp parallel')
 #endif
 
-    IF(my_process_is_mpi_seq()) RETURN
+    IF(this_is_sequential) RETURN
 
     IF ( comm_lib_is_initialized ) THEN
       CALL message(method_name, 'cannot be called more than once')
@@ -363,7 +366,7 @@ CONTAINS
       CALL finish(method_name, 'cannot be called from openmp parallel')
 #endif
 
-    IF(my_process_is_mpi_seq()) RETURN
+    IF(this_is_sequential) RETURN
     
     IF ( p_patch%id > max_no_of_patches) &
       CALL finish(method_name, "p_patch%id > max_no_of_patches")
@@ -750,7 +753,7 @@ CONTAINS
     CHARACTER(*), PARAMETER :: method_name = "new_comm_variable_r4d"
 
     
-    IF(my_process_is_mpi_seq()) THEN
+    IF(this_is_sequential) THEN
       new_comm_variable_r4d = 0
       RETURN
     ENDIF
@@ -818,7 +821,7 @@ CONTAINS
     
     CHARACTER(*), PARAMETER :: method_name = "new_comm_variable_r3d"
         
-    IF(my_process_is_mpi_seq()) THEN
+    IF(this_is_sequential) THEN
       new_comm_variable_r3d = 0
       RETURN
     ENDIF
@@ -905,7 +908,7 @@ CONTAINS
     
     CHARACTER(*), PARAMETER :: method_name = "new_comm_variable_r2d"
         
-    IF(my_process_is_mpi_seq()) THEN
+    IF(this_is_sequential) THEN
       new_comm_variable_r2d = 0
       RETURN
     ENDIF
@@ -1018,7 +1021,7 @@ CONTAINS
     IF (omp_in_parallel()) &
       CALL finish(method_name, 'cannot be called from openmp parallel');
 #endif
-    IF(my_process_is_mpi_seq()) RETURN
+    IF(this_is_sequential) RETURN
 
     comm_variable(comm_variable_id)%status = not_active
     active_comm_variables = active_comm_variables - 1
@@ -1061,7 +1064,7 @@ CONTAINS
   SUBROUTINE icon_comm_var_is_ready(comm_variable_id)
     INTEGER, INTENT(in) :: comm_variable_id
     
-    IF(my_process_is_mpi_seq()) RETURN
+     IF(this_is_sequential) RETURN
 
 !     CALL check_active_comm_variable(comm_variable_id)
 !$OMP SINGLE
@@ -1081,7 +1084,7 @@ CONTAINS
     
     INTEGER :: comm_var
 
-    IF(my_process_is_mpi_seq()) RETURN
+    IF(this_is_sequential) RETURN
 
     comm_var = new_icon_comm_variable(var,  grid_location, patch, &
       & status=is_ready, scope=until_sync )
@@ -1100,7 +1103,7 @@ CONTAINS
     
     INTEGER :: comm_var
 
-    IF(my_process_is_mpi_seq()) RETURN
+    IF(this_is_sequential) RETURN
 
     comm_var = new_icon_comm_variable(var,  grid_location, patch, &
       & status=is_ready, scope=until_sync )
@@ -1121,7 +1124,7 @@ CONTAINS
     
     INTEGER :: comm_var_1, comm_var_2
 
-    IF(my_process_is_mpi_seq()) RETURN
+    IF(this_is_sequential) RETURN
 
     comm_var_1 = new_icon_comm_variable(var1,  grid_location, patch, &
       & status=is_ready, scope=until_sync)
@@ -1147,7 +1150,7 @@ CONTAINS
       CALL finish(method_name, 'cannot be called from openmp parallel');
 #endif
    
-    IF(my_process_is_mpi_seq()) RETURN
+    IF(this_is_sequential) RETURN
 
     ! check if we have any variables to communicate
     exist_communication_var = .false.
@@ -1194,7 +1197,7 @@ CONTAINS
     
     buffer_comm_status = not_active
     
-    IF(my_process_is_mpi_seq()) RETURN
+    IF(this_is_sequential) RETURN
 
     ! clear buffer sizes
 !     DO bfid = 1, active_send_buffers
@@ -1385,7 +1388,7 @@ CONTAINS
         ! fill 3d
 !         DO k = 1, dim_2
         DO i = 1, grid_comm_pattern%send(np)%no_of_points
-            send_buffer(current_buffer_index : current_buffer_index + dim_2 -1) = &
+            send_buffer(current_buffer_index : (current_buffer_index + dim_2 - 1)) = &
                send_var_3d ( grid_comm_pattern%send(np)%index_no(i), 1:dim_2, &
                   grid_comm_pattern%send(np)%block_no(i) )
 
@@ -1661,7 +1664,7 @@ CONTAINS
 !     INTEGER :: dim_2, np, current_buffer_index
 !     INTEGER :: i, k, endidx
 !     
-!    IF(my_process_is_mpi_seq()) RETURN
+!    IF(this_is_sequential) RETURN
 !   
 !     dim_2=SIZE(var,2)
 !     dim_2=1
