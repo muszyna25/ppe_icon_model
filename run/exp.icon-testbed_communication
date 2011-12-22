@@ -72,7 +72,7 @@ namelist_filename=$1
 cat > $namelist_filename << EOF
 &testbed_nml
   testbed_mode        = 2  ! test the communication
-  testbed_iterations  = 1000
+  testbed_iterations  = 10000
 /
 &parallel_nml
  nproma         = ${nproma}
@@ -95,6 +95,7 @@ cat > $namelist_filename << EOF
  ltransport  = .FALSE.      ! transport 
  iforcing    = 0            ! no forcing
  ltestcase   = .TRUE.       ! run testcase
+ ltimer      = .FALSE.
 /
 &testcase_nml
  ctest_name  = 'JWw'        ! test case identifier
