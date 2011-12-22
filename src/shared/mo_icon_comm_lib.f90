@@ -1383,16 +1383,16 @@ CONTAINS
       ELSE
       
         ! fill 3d
-        DO k = 1, dim_2
-          DO i = 1, grid_comm_pattern%send(np)%no_of_points
-            send_buffer(current_buffer_index) = send_var_3d &
-              & ( grid_comm_pattern%send(np)%index_no(i), k, &
+!         DO k = 1, dim_2
+        DO i = 1, grid_comm_pattern%send(np)%no_of_points
+            send_buffer(current_buffer_index : current_buffer_index + dim_2 -1) = &
+               send_var_3d ( grid_comm_pattern%send(np)%index_no(i), 1:dim_2, &
                   grid_comm_pattern%send(np)%block_no(i) )
 
-            current_buffer_index = current_buffer_index + 1
-            
-          ENDDO                
+            current_buffer_index = current_buffer_index + dim_2
+!             current_buffer_index = current_buffer_index + 1            
         ENDDO
+!         ENDDO
 
         IF (icon_comm_debug) THEN
           k=1
@@ -1564,15 +1564,16 @@ CONTAINS
       
       ELSE
         ! fill 3d
-        DO k = 1, dim_2
-          DO i = 1, grid_comm_pattern%recv(np)%no_of_points
+!         DO k = 1, dim_2
+        DO i = 1, grid_comm_pattern%recv(np)%no_of_points
             recv_var_3d &
-              & ( grid_comm_pattern%recv(np)%index_no(i), k, &
+              & ( grid_comm_pattern%recv(np)%index_no(i), 1:dim_2, &
                   grid_comm_pattern%recv(np)%block_no(i) ) = &
-            recv_buffer(current_buffer_index)
+            recv_buffer(current_buffer_index : (current_buffer_index + dim_2 - 1))
             
-            current_buffer_index = current_buffer_index + 1
-          ENDDO
+            current_buffer_index = current_buffer_index + dim_2
+!             current_buffer_index = current_buffer_index + 1
+!           ENDDO
         ENDDO
         
         IF (icon_comm_debug) THEN
