@@ -258,8 +258,9 @@ MODULE mo_icon_comm_lib
   END INTERFACE
   !-------------------------------------------------------------------------
   INTERFACE icon_comm_sync
-    MODULE PROCEDURE icon_comm_sync_1
-    MODULE PROCEDURE icon_comm_sync_2
+    MODULE PROCEDURE icon_comm_sync_2D_1
+    MODULE PROCEDURE icon_comm_sync_3D_1
+    MODULE PROCEDURE icon_comm_sync_3D_2
   END INTERFACE
   
   !-------------------------------------------------------------------------
@@ -1072,7 +1073,26 @@ CONTAINS
   
   !-----------------------------------------------------------------------
   !>
-  SUBROUTINE icon_comm_sync_1(var,  grid_location, patch)
+  SUBROUTINE icon_comm_sync_2D_1(var,  grid_location, patch)
+    INTEGER, INTENT(IN)       :: grid_location
+    TYPE(t_patch), INTENT(IN) :: patch
+!    REAL(wp), POINTER, INTENT(INOUT)   :: var(:,:,:)
+    REAL(wp), POINTER   :: var(:,:)
+    
+    INTEGER :: comm_var
+
+    IF(my_process_is_mpi_seq()) RETURN
+
+    comm_var = new_icon_comm_variable(var,  grid_location, patch, &
+      & status=is_ready, scope=until_sync )
+    CALL icon_comm_sync_all
+ 
+  END SUBROUTINE icon_comm_sync_2D_1
+  !-----------------------------------------------------------------------
+  
+  !-----------------------------------------------------------------------
+  !>
+  SUBROUTINE icon_comm_sync_3D_1(var,  grid_location, patch)
     INTEGER, INTENT(IN)       :: grid_location
     TYPE(t_patch), INTENT(IN) :: patch
 !    REAL(wp), POINTER, INTENT(INOUT)   :: var(:,:,:)
@@ -1086,12 +1106,12 @@ CONTAINS
       & status=is_ready, scope=until_sync )
     CALL icon_comm_sync_all
  
-  END SUBROUTINE icon_comm_sync_1
+  END SUBROUTINE icon_comm_sync_3D_1
   !-----------------------------------------------------------------------
   
   !-----------------------------------------------------------------------
   !>
-  SUBROUTINE icon_comm_sync_2(var1,  var2, grid_location, patch)
+  SUBROUTINE icon_comm_sync_3D_2(var1,  var2, grid_location, patch)
     INTEGER, INTENT(IN)       :: grid_location
     TYPE(t_patch), INTENT(IN) :: patch
 !     REAL(wp), POINTER, INTENT(INOUT)   :: var1(:,:,:)
@@ -1109,7 +1129,7 @@ CONTAINS
       & status=is_ready, scope=until_sync)
     CALL icon_comm_sync_all
  
-  END SUBROUTINE icon_comm_sync_2
+  END SUBROUTINE icon_comm_sync_3D_2
   !-----------------------------------------------------------------------
         
   

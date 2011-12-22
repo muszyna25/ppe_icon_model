@@ -776,11 +776,11 @@ CONTAINS
     ENDIF
     tot_str = time_str(total)
     IF (tid == -1) THEN
-      WRITE (message_text,'(a32,i6,4a12,f10.3)') '    '//srt(it)%text, &
+      WRITE (message_text,'(a32,i6,4a12,f11.4)') '    '//srt(it)%text, &
            rt(it)%call_n, min_str, avg_str, max_str, tot_str, total
       CALL message ('',message_text,all_print=.TRUE.)
     ELSE
-      WRITE (message_text,'(i2,a32,i6,4a12,f10.3)') tid,': '//srt(it)%text, &
+      WRITE (message_text,'(i2,a32,i6,4a12,f11.4)') tid,': '//srt(it)%text, &
            rt(it)%call_n, min_str, avg_str, max_str, tot_str, total
       CALL message ('',message_text,all_print=.TRUE.)
     ENDIF

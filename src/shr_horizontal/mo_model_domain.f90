@@ -193,7 +193,7 @@ TYPE t_grid_cells
 
   ! area of triangle
   ! index1=nproma, index2=1,nblks_c
-  REAL(wp), ALLOCATABLE :: area(:,:)
+  REAL(wp), POINTER :: area(:,:)
 
   ! Coriolis parameter at cell centers
   ! index1=1,nproma, index2=1,nblks_c
@@ -357,7 +357,7 @@ TYPE t_grid_edges
 
   ! length of triangle edge
   ! index=1,nproma, index2=1,nblks_e
-  REAL(wp), ALLOCATABLE :: primal_edge_length(:,:)
+  REAL(wp), POINTER :: primal_edge_length(:,:)
 
   ! inverse length of triangle edge
   ! index=1,nproma, index2=1,nblks_e
@@ -484,7 +484,7 @@ TYPE t_grid_vertices
 
   ! area of hexagon/pentagon of which vertex is center:
   ! index1=1,nproma, index2=1,nblks_v
-  REAL(wp), ALLOCATABLE :: dual_area(:,:)
+  REAL(wp), POINTER :: dual_area(:,:)
 
   ! Coriolis parameter at cell vertices
   ! index1=1,nproma, index2=1,nblks_v
