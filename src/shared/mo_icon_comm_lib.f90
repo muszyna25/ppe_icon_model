@@ -1369,35 +1369,41 @@ CONTAINS
                 grid_comm_pattern%send(np)%block_no(i) )
 
             current_buffer_index = current_buffer_index + 1
-          IF (icon_comm_debug) THEN
+        ENDDO
+        
+        IF (icon_comm_debug) THEN
+          DO i = 1, grid_comm_pattern%send(np)%no_of_points
             write(log_file_id,*) TRIM(comm_variable(comm_var)%name), " sent to ", &
               & send_procs_buffer(bfid)%pid, ":", &
               & i, send_var_2d( grid_comm_pattern%send(np)%index_no(i), &
                     grid_comm_pattern%send(np)%block_no(i) )
-          ENDIF
-        ENDDO
+          ENDDO
+        ENDIF
 
       ELSE
       
         ! fill 3d
-        DO i = 1, grid_comm_pattern%send(np)%no_of_points
-          DO k = 1, dim_2
+        DO k = 1, dim_2
+          DO i = 1, grid_comm_pattern%send(np)%no_of_points
             send_buffer(current_buffer_index) = send_var_3d &
               & ( grid_comm_pattern%send(np)%index_no(i), k, &
                   grid_comm_pattern%send(np)%block_no(i) )
 
             current_buffer_index = current_buffer_index + 1
             
-          ENDDO
-          IF (icon_comm_debug) THEN
-            k=1
+          ENDDO                
+        ENDDO
+
+        IF (icon_comm_debug) THEN
+          k=1
+          DO i = 1, grid_comm_pattern%send(np)%no_of_points
             write(log_file_id,*) TRIM(comm_variable(comm_var)%name), " sent to ", &
               & send_procs_buffer(bfid)%pid, ":", &
               & i,k, send_var_3d( grid_comm_pattern%send(np)%index_no(i), k, &
                     grid_comm_pattern%send(np)%block_no(i) )
-          ENDIF
-                
-        ENDDO
+          ENDDO                
+        ENDIF
+       
       ENDIF
         
       send_procs_buffer(bfid)%current_index = current_buffer_index
@@ -1544,19 +1550,22 @@ CONTAINS
           recv_buffer(current_buffer_index)
 
           current_buffer_index = current_buffer_index + 1
-          
-          IF (icon_comm_debug) THEN
+        ENDDO
+        
+        IF (icon_comm_debug) THEN
+          DO i = 1, grid_comm_pattern%recv(np)%no_of_points
             write(log_file_id,*) TRIM(comm_variable(comm_var)%name), " recv from ", &
               & recv_procs_buffer(bfid)%pid, ":", &
               & i, recv_var_2d( grid_comm_pattern%recv(np)%index_no(i), &
                     grid_comm_pattern%recv(np)%block_no(i) )
-          ENDIF
-        ENDDO
+          ENDDO
+        ENDIF
+        
       
       ELSE
         ! fill 3d
-        DO i = 1, grid_comm_pattern%recv(np)%no_of_points
-          DO k = 1, dim_2
+        DO k = 1, dim_2
+          DO i = 1, grid_comm_pattern%recv(np)%no_of_points
             recv_var_3d &
               & ( grid_comm_pattern%recv(np)%index_no(i), k, &
                   grid_comm_pattern%recv(np)%block_no(i) ) = &
@@ -1564,14 +1573,18 @@ CONTAINS
             
             current_buffer_index = current_buffer_index + 1
           ENDDO
-          IF (icon_comm_debug) THEN
-            k=1
+        ENDDO
+        
+        IF (icon_comm_debug) THEN
+          k=1
+          DO i = 1, grid_comm_pattern%recv(np)%no_of_points
             write(log_file_id,*) TRIM(comm_variable(comm_var)%name), " recv from ", &
               & recv_procs_buffer(bfid)%pid, ":", &
               & i,k, recv_var_3d( grid_comm_pattern%recv(np)%index_no(i), k, &
                     grid_comm_pattern%recv(np)%block_no(i) )
-          ENDIF
-        ENDDO
+          ENDDO
+        ENDIF
+        
       ENDIF
         
       recv_procs_buffer(bfid)%current_index = current_buffer_index

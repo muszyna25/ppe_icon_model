@@ -828,6 +828,7 @@ CONTAINS
     new_edge_index(:) = 0
 
     !------------------------------------------------
+    ! note that in each iteration the number of cells are x3
     no_of_output_cells = 2 * no_of_input_edges
     no_of_output_edges = 3 * no_of_input_edges
     no_of_output_verts = no_of_input_cells + no_of_input_verts
