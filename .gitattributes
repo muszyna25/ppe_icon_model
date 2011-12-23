@@ -603,7 +603,7 @@ lapack/izmax1.f -text
 /make_performance_runscripts -text
 /make_post_runscripts -text
 /make_runscripts -text
-run/Namelist_overview.pdf -text svneol=unset#application/octet-stream
+run/Namelist_overview.pdf -text
 run/Namelist_overview.tex -text
 run/README -text
 run/compile_for_dev.mpi.ksh -text

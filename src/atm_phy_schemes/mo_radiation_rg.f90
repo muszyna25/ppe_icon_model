@@ -77,9 +77,9 @@ CONTAINS
        kig1s ,kig1e,ki3s,ki3e,                                     &
        ki1sc ,ki1ec,                                               &
        lsolar,lthermal,lcrf ,                                      &
-       &       pflt  ,pfls  )
+       &       pflt  ,pfls,                                        &
 !!$       pfltf,pflsf,pflpar,                            &
-!!$       pflsp,pflsd,pflsu       )
+       pflsp,pflsd,pflsu       )
 
 
 ! 
@@ -226,11 +226,11 @@ CONTAINS
       REAL(wp) :: pflsf  (kig1s:kig1e,2)           ! (W/m**2)
 
       ! Solar and thermal radiation flux components
+      REAL(wp), INTENT(out), OPTIONAL :: pflsp  (kig1s:kig1e)             ! (W/m**2)
+      REAL(wp), INTENT(out), OPTIONAL :: pflsd  (kig1s:kig1e)             ! (W/m**2)
+      REAL(wp), INTENT(out), OPTIONAL :: pflsu  (kig1s:kig1e)             ! (W/m**2)
       REAL(wp) :: pflpar (kig1s:kig1e)             ! (W/m**2)
-      REAL(wp) :: pflsp  (kig1s:kig1e)             ! (W/m**2)
-      REAL(wp) :: pflsd  (kig1s:kig1e)             ! (W/m**2)
-      REAL(wp) :: pflsu  (kig1s:kig1e)             ! (W/m**2)
-
+      
 !     Arrays local to *fesft* or required for communication with
 !     subroutines called from *fesft*
 
@@ -480,9 +480,9 @@ CONTAINS
         pflsf (j1,1)=0._wp
         pflsf (j1,2)=0._wp
         pflpar(j1 ) =0._wp
-        pflsp (j1 ) =0._wp
-        pflsd (j1 ) =0._wp
-        pflsu (j1 ) =0._wp
+        IF ( PRESENT (pflsp) ) pflsp (j1 ) =0._wp
+        IF ( PRESENT (pflsd) ) pflsd (j1 ) =0._wp
+        IF ( PRESENT (pflsu) ) pflsu (j1 ) =0._wp
         papre (j1 ) = papre_in(j1)
       END DO
 
@@ -1250,9 +1250,9 @@ CONTAINS
       END DO     ! End of vertical loop
 
           DO j1 = ki1sc,ki1ec
-            pflsp(j1) = pflsp (j1)  + zflux  (j1,ki3e+1)
-            pflsd(j1) = pflsd (j1)  + zfluxd (j1,ki3e+1)
-            pflsu(j1) = pflsu (j1)  + zfluxu (j1,ki3e+1)
+            IF ( PRESENT (pflsp) ) pflsp(j1) = pflsp (j1)  + zflux  (j1,ki3e+1)
+            IF ( PRESENT (pflsd) ) pflsd(j1) = pflsd (j1)  + zfluxd (j1,ki3e+1)
+            IF ( PRESENT (pflsu) ) pflsu(j1) = pflsu (j1)  + zfluxu (j1,ki3e+1)
           END DO
         IF (jspec.EQ.3) THEN   ! Photosynthetic active radiation
             DO j1 = ki1sc,ki1ec

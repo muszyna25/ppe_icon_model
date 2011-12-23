@@ -528,12 +528,18 @@ MODULE mo_nwp_rad_interface
     ! Input fields
     REAL(wp), ALLOCATABLE, TARGET:: zrg_cosmu0   (:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_albvisdif(:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_albeff(:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_albefffac(:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_tsfc     (:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_o3       (:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_tot_cld  (:,:,:,:)
     ! Output fields
     REAL(wp), ALLOCATABLE, TARGET:: zrg_lwflxall (:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_trsolall (:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_fls (:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_flsp (:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_flsd (:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_flsu (:,:)
     ! Pointer to parent patach or local parent patch for reduced grid
     TYPE(t_patch), POINTER       :: ptr_pp
 
@@ -571,9 +577,9 @@ MODULE mo_nwp_rad_interface
     REAL(wp):: zsct        ! solar constant (at time of year)
     REAL(wp):: zvege, zsnow, zsalb_snow, zsnow_alb
     INTEGER:: jc,jk,jb
-    INTEGER:: jg                !domain id
-    INTEGER:: nlev, nlevp1      !< number of full and half levels
-    INTEGER:: nblks_par_c       !nblks for reduced grid
+    INTEGER:: jg                                !domain id
+    INTEGER:: nlev, nlevp1, nlev_rg, nlevp1_rg  !< number of full and half levels
+    INTEGER:: nblks_par_c                       !nblks for reduced grid
 
     INTEGER:: rl_start, rl_end
     INTEGER:: i_startblk, i_endblk    !> blocks
@@ -654,24 +660,40 @@ MODULE mo_nwp_rad_interface
       ! nlevp1 = ptr_pp%nlevp1
     ENDIF
 
-    ALLOCATE (zrg_cosmu0   (nproma,nblks_par_c),          &
-      zrg_albvisdif(nproma,nblks_par_c),          &
-      zrg_alb_ther (nproma,nblks_par_c),          &
-      zrg_pres_sfc (nproma,nblks_par_c),          &
-      zrg_temp_ifc (nproma,nlevp1,nblks_par_c),   &
-      zrg_dpres_mc (nproma,nlev  ,nblks_par_c),   &
-      zrg_sqv      (nproma,nlev  ,nblks_par_c),   &
-      zrg_duco2    (nproma,nlev  ,nblks_par_c),   &
-      zrg_o3       (nproma,nlev  ,nblks_par_c),   &
-      zrg_aeq1     (nproma,nlev  ,nblks_par_c),   &
-      zrg_aeq2     (nproma,nlev  ,nblks_par_c),   &
-      zrg_aeq3     (nproma,nlev  ,nblks_par_c),   &
-      zrg_aeq4     (nproma,nlev  ,nblks_par_c),   &
-      zrg_aeq5     (nproma,nlev  ,nblks_par_c),   &
-      zrg_tot_cld  (nproma,nlev  ,nblks_par_c,4), &
-      zrg_fls      (nproma,nlevp1,nblks_par_c),   &
-      zrg_lwflxall (nproma,nlevp1,nblks_par_c),   &
-      zrg_trsolall (nproma,nlevp1,nblks_par_c)    )
+    ! Add extra layer for atmosphere above model top if requested
+    IF (atm_phy_nwp_config(jg)%latm_above_top) THEN
+      nlev_rg   = nlev + 1
+      nlevp1_rg = nlevp1 + 1
+    ELSE
+      nlev_rg   = nlev
+      nlevp1_rg = nlevp1
+    ENDIF
+
+    ALLOCATE (                                       &
+      zrg_cosmu0   (nproma,          nblks_par_c),   &
+      zrg_albvisdif(nproma,          nblks_par_c),   &
+      zrg_albeff   (nproma,          nblks_par_c),   &
+      zrg_albefffac(nproma,          nblks_par_c),   &
+      zrg_alb_ther (nproma,          nblks_par_c),   &
+      zrg_pres_sfc (nproma,          nblks_par_c),   &
+      zrg_tsfc     (nproma,          nblks_par_c),   &
+      zrg_temp_ifc (nproma,nlevp1_rg,nblks_par_c),   &
+      zrg_dpres_mc (nproma,nlev_rg  ,nblks_par_c),   &
+      zrg_sqv      (nproma,nlev_rg  ,nblks_par_c),   &
+      zrg_duco2    (nproma,nlev_rg  ,nblks_par_c),   &
+      zrg_o3       (nproma,nlev_rg  ,nblks_par_c),   &
+      zrg_aeq1     (nproma,nlev_rg  ,nblks_par_c),   &
+      zrg_aeq2     (nproma,nlev_rg  ,nblks_par_c),   &
+      zrg_aeq3     (nproma,nlev_rg  ,nblks_par_c),   &
+      zrg_aeq4     (nproma,nlev_rg  ,nblks_par_c),   &
+      zrg_aeq5     (nproma,nlev_rg  ,nblks_par_c),   &
+      zrg_tot_cld  (nproma,nlev_rg  ,nblks_par_c,4), &
+      zrg_fls      (nproma,nlevp1_rg,nblks_par_c),   &
+      zrg_flsp     (nproma,          nblks_par_c),   &
+      zrg_flsd     (nproma,          nblks_par_c),   &
+      zrg_flsu     (nproma,          nblks_par_c),   &
+      zrg_lwflxall (nproma,nlevp1_rg,nblks_par_c),   &
+      zrg_trsolall (nproma,nlevp1_rg,nblks_par_c)  )
 
 
     rl_start = 1 ! SR radiation is not set up to handle boundaries of nested domains
@@ -814,12 +836,12 @@ MODULE mo_nwp_rad_interface
 !$OMP END DO
 !$OMP END PARALLEL
 
-    CALL upscale_rad_input_rg( pt_patch, pt_par_patch, pt_par_grf_state,                   &
-      & prm_diag%cosmu0, prm_diag%albvisdif, alb_ther, pt_diag%temp_ifc,                   &
-      & pt_diag%dpres_mc, prm_diag%tot_cld, zsqv ,zduco2, zduo3,                           &
-      & zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,pt_diag%pres_sfc,                                    &
-      & zrg_cosmu0, zrg_albvisdif, zrg_alb_ther, zrg_temp_ifc, zrg_dpres_mc,               &
-      & zrg_tot_cld, zrg_sqv ,zrg_duco2, zrg_o3,                                           &
+    CALL upscale_rad_input_rg( pt_patch, pt_par_patch, pt_par_grf_state, nlev_rg, nlevp1_rg, &
+      & prm_diag%cosmu0, prm_diag%albvisdif, alb_ther, pt_diag%temp_ifc,                     &
+      & pt_diag%dpres_mc, prm_diag%tot_cld, zsqv ,zduco2, zduo3,                             &
+      & zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,pt_diag%pres_sfc,pt_diag%pres_ifc,                     &
+      & zrg_cosmu0, zrg_albvisdif, zrg_alb_ther, zrg_temp_ifc, zrg_dpres_mc,                 &
+      & zrg_tot_cld, zrg_sqv ,zrg_duco2, zrg_o3,                                             &
       & zrg_aeq1,zrg_aeq2,zrg_aeq3,zrg_aeq4,zrg_aeq5,zrg_pres_sfc     )
 
     rl_start = grf_ovlparea_start_c
@@ -869,7 +891,7 @@ MODULE mo_nwp_rad_interface
         & kig1s = 1 ,&
         & kig1e = nproma , &
         & ki3s = 1, &
-        & ki3e = nlev,&
+        & ki3e = nlev_rg,&
         & ki1sc= i_startidx, &
         & ki1ec= i_endidx, &
         & lsolar = losol, &! control switch for solar calculations
@@ -878,12 +900,15 @@ MODULE mo_nwp_rad_interface
         & lcrf = .FALSE., &! control switch for cloud-free calcul.
                                 ! Output:
         & pflt  = zrg_lwflxall(:,:,jb) ,& ! Thermal radiative fluxes at each layer boundary
-        & pfls  = zrg_fls  (:,:,jb)  &! solar radiative fluxes at each layer boundary
+        & pfls  = zrg_fls  (:,:,jb),  &! solar radiative fluxes at each layer boundary
+        & pflsp = zrg_flsp (:,jb), &
+        & pflsd = zrg_flsd (:,jb), &
+        & pflsu = zrg_flsu (:,jb) &
         & )
 
       zi0 (i_startidx:i_endidx) = zrg_cosmu0(i_startidx:i_endidx,jb) * zsct
       ! compute sw transmissivity trsolall from sw fluxes
-      DO jk = 1,nlevp1
+      DO jk = 1,nlevp1_rg
         DO jc = i_startidx,i_endidx
           ! This is needed to avoid false synchronization errors
           IF (zrg_cosmu0(jc,jb) < 1.e-8_wp) THEN
@@ -894,19 +919,58 @@ MODULE mo_nwp_rad_interface
         ENDDO
       ENDDO
 
+      DO jc = i_startidx,i_endidx
+        
+        IF (zrg_cosmu0(jc,jb) < 1.e-8_wp) THEN
+          zrg_albefffac(jc,jb) = 1._wp
+          zrg_albeff(jc,jb)    = 0.5_wp
+        ELSE
+          zrg_albeff(jc,jb) = zrg_flsu(jc,jb) / ( zrg_flsp(jc,jb) + zrg_flsd(jc,jb) )
+          zrg_albefffac(jc,jb) = zrg_albeff(jc,jb) / zrg_albvisdif(jc,jb)
+        ENDIF
+        
+        zrg_tsfc(jc,jb) = zrg_temp_ifc(jc,nlevp1_rg,jb)
+        
+      ENDDO
+
+      ! to avoid division by zero inside downscale_rad_output_rg
+      zrg_flsp(i_startidx:i_endidx,jb)=MAX(zrg_flsp(i_startidx:i_endidx,jb),1.e-9_wp)
+      zrg_flsd(i_startidx:i_endidx,jb)=MAX(zrg_flsd(i_startidx:i_endidx,jb),1.e-9_wp)
+
     ENDDO ! blocks
 
 !$OMP END DO
 !$OMP END PARALLEL
 
-    CALL downscale_rad_output_rg(pt_patch, pt_par_patch, pt_par_int_state,         &
-      & pt_par_grf_state, zrg_lwflxall, zrg_trsolall, &
-      & prm_diag%lwflxall, prm_diag%trsolall )
 
-    DEALLOCATE (zrg_cosmu0,zrg_albvisdif,zrg_alb_ther,                      &
+    CALL downscale_rad_output_rg(          &
+      & p_patch      = pt_patch,           &
+      & p_par_patch  = pt_par_patch,       &
+      & p_par_int    = pt_par_int_state,   &
+      & p_par_grf    = pt_par_grf_state,   &
+      & nlev_rg      = nlev_rg,            &
+      & rg_lwflxall  = zrg_lwflxall,       &
+      & rg_trsolall  = zrg_trsolall,       &
+      & tsfc_rg      = zrg_tsfc,           &
+      & albeff_rg    = zrg_albeff,         &
+      & albefffac_rg = zrg_albefffac,      &
+      & flsp_rg      = zrg_flsp,           &
+      & flsd_rg      = zrg_flsd,           & 
+      & alb_ther_rg  = zrg_alb_ther,       &
+      & cosmu0_rg    = zrg_cosmu0,         &
+      & tot_cld_rg   = zrg_tot_cld,        &
+      & dpres_mc_rg  = zrg_dpres_mc,       &
+      & pres_sfc_rg  = zrg_pres_sfc,       &
+      & tsfc         = prm_diag%tsfctrad,  &
+      & albvisdif    = prm_diag%albvisdif, &
+      & zsct         = zsct,               &
+      & lwflxall     = prm_diag%lwflxall,  &
+      & trsolall     = prm_diag%trsolall )
+
+    DEALLOCATE (zrg_cosmu0,zrg_tsfc,zrg_albvisdif,zrg_alb_ther,             &
       & zrg_pres_sfc,zrg_temp_ifc,zrg_dpres_mc,zrg_sqv,zrg_duco2,zrg_o3,    &
       & zrg_aeq1,zrg_aeq2,zrg_aeq3,zrg_aeq4,zrg_aeq5,                       &
-      & zrg_tot_cld, zrg_fls,zrg_lwflxall, zrg_trsolall)
+      & zrg_tot_cld,zrg_fls,zrg_flsp,zrg_flsd,zrg_flsu,zrg_lwflxall,zrg_trsolall)
 
   END SUBROUTINE nwp_rg_radiation_reduced
 
