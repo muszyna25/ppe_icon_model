@@ -540,33 +540,35 @@ CONTAINS
 
       IF (ltimer) CALL timer_start(timer_radheat)
 
-      CALL radheat (                   &
+      CALL radheat (                                   &
         !
         ! input
         ! -----
         !
-        & jcs, jce ,nbdim             ,&! in     loop start/end indices and dimension size
-        & nlev  ,nlevp1               ,&! in     vertical dimension size
-        & zmair           (:,:)       ,&! in     layer air mass                [kg/m2]
-        & field% q(:,:,jb,iqv)        ,&! in     specific moisture             [kg/kg]
-        & zi0             (:)         ,&! in     solar incoming flux at TOA    [W/m2]
-        & ext_data(jg)%atm%emis_rad(:,jb), & !in lw sfc emissivity
-        & field% tsfc     (:,jb)      ,&! in     surface temperature           [K]
-        & field% tsfc     (:,jb)      ,&! in     sfc temp. used in "radiation" [K]
-        & field% temp     (:,nlev,jb) ,&!< in    temperature at lowest full level [K]
-        & field% trsolall (:,:,jb)    ,&! in     shortwave net tranmissivity   []
-        & field% emterall (:,:,jb)    ,&! in     longwave net flux             [W/m2]
+        & jcs        = jcs,                            &! in     loop start index
+        & jce        = jce,                            &! in     loop end index
+        & kbdim      = nbdim,                          &! in     dimension size
+        & klev       = nlev,                           &! in     vertical dimension size
+        & klevp1     = nlevp1,                         &! in     vertical dimension size
+        & pmair      = zmair                  (:,:)   ,&! in    layer air mass            [kg/m2]
+        & pq         = field%q                (:,:,jb,iqv),&!in specific moisture         [kg/kg]
+        & pi0        = zi0                      (:)   ,&! in    solar incoming flux at TOA [W/m2]
+        & pemiss     = ext_data(jg)%atm%emis_rad(:,jb),&! in    lw sfc emissivity
+        & ptsfc      = field%tsfc               (:,jb),&! in    surface temperature           [K]
+        & ptsfctrad  = field%tsfc               (:,jb),&! in    sfc temp. used in "radiation" [K]
+        & ptemp_klev = field%temp          (:,nlev,jb),&! in    temp at lowest full level     [K]
+        & ptrmsw     = field%trsolall         (:,:,jb),&! in    shortwave net tranmissivity   []
+        & pflxlw     = field%emterall         (:,:,jb),&! in    longwave net flux           [W/m2]
         !
         ! output
         ! ------
         !
-        & tend%temp_radsw (:,:,jb)    ,&! out    rad. heating by SW         [K/s]
-        & tend%temp_radlw (:,:,jb)    ,&! out    rad. heating by LW         [K/s]
-        & field%swflxsfc    (:,jb)    ,&! out shortwave surface net flux [W/m2]
-        & field%lwflxsfc    (:,jb)    ,&! out longwave surface net flux  [W/m2]
-        & field%swflxtoa    (:,jb)    ,&! out shortwave toa net flux     [W/m2]
-        & field%dlwflxsfc_dT (:,jb)    )! out Temp tend of sfc longwave net flux [W/m2/K]
-
+        & pdtdtradsw = tend%temp_radsw        (:,:,jb),&! out   rad. heating by SW         [K/s]
+        & pdtdtradlw = tend%temp_radlw        (:,:,jb),&! out   rad. heating by LW         [K/s]
+        & pflxsfcsw  = field%swflxsfc           (:,jb),&! out   shortwave surface net flux [W/m2]
+        & pflxsfclw  = field%lwflxsfc           (:,jb),&! out   longwave surface net flux  [W/m2]
+        & pflxtoasw  = field%swflxtoa           (:,jb),&! out   shortwave toa net flux     [W/m2]
+        & dflxlw_dT  = field%dlwflxsfc_dT       (:,jb) )! out   T tend of sfc lw net flux [W/m2/K]
 
       IF (ltimer) CALL timer_stop(timer_radheat)
 
