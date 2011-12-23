@@ -74,14 +74,14 @@ CONTAINS
       & timer_sync_1_1_2D_all
     INTEGER :: timer_sync_1_2_2D_cells, timer_sync_1_2_2D_edges, timer_sync_1_2_2D_verts, &
       & timer_sync_1_2_2D_all
-    INTEGER :: timer_sync_2_1_2D_cells, timer_sync_2_1_2D_edges, timer_sync_2_1_2D_verts, &
-      & timer_sync_2_1_2D_all
-    INTEGER :: timer_sync_2_2_2D_cells, timer_sync_2_2_2D_edges, timer_sync_2_2_2D_verts, &
-      & timer_sync_2_2_2D_all
-    INTEGER :: timer_sync_3_1_2D_cells, timer_sync_3_1_2D_edges, timer_sync_3_1_2D_verts, &
-      & timer_sync_3_1_2D_all
-    INTEGER :: timer_sync_3_2_2D_cells, timer_sync_3_2_2D_edges, timer_sync_3_2_2D_verts, &
-      & timer_sync_3_2_2D_all
+!     INTEGER :: timer_sync_2_1_2D_cells, timer_sync_2_1_2D_edges, timer_sync_2_1_2D_verts, &
+!       & timer_sync_2_1_2D_all
+!     INTEGER :: timer_sync_2_2_2D_cells, timer_sync_2_2_2D_edges, timer_sync_2_2_2D_verts, &
+!       & timer_sync_2_2_2D_all
+!     INTEGER :: timer_sync_3_1_2D_cells, timer_sync_3_1_2D_edges, timer_sync_3_1_2D_verts, &
+!       & timer_sync_3_1_2D_all
+!     INTEGER :: timer_sync_3_2_2D_cells, timer_sync_3_2_2D_edges, timer_sync_3_2_2D_verts, &
+!       & timer_sync_3_2_2D_all
     
     INTEGER :: timer_iconcom_2D_cells, timer_iconcom_2D_edges, timer_iconcom_2D_verts, &
       & timer_iconcom_2D_all, timer_iconcom_2D_comb, timer_iconcom_2D_keep
@@ -93,14 +93,14 @@ CONTAINS
       & timer_sync_1_1_3D_all
     INTEGER :: timer_sync_1_2_3D_cells, timer_sync_1_2_3D_edges, timer_sync_1_2_3D_verts, &
       & timer_sync_1_2_3D_all
-    INTEGER :: timer_sync_2_1_3D_cells, timer_sync_2_1_3D_edges, timer_sync_2_1_3D_verts, &
-      & timer_sync_2_1_3D_all
-    INTEGER :: timer_sync_2_2_3D_cells, timer_sync_2_2_3D_edges, timer_sync_2_2_3D_verts, &
-      & timer_sync_2_2_3D_all
-    INTEGER :: timer_sync_3_1_3D_cells, timer_sync_3_1_3D_edges, timer_sync_3_1_3D_verts, &
-      & timer_sync_3_1_3D_all
-    INTEGER :: timer_sync_3_2_3D_cells, timer_sync_3_2_3D_edges, timer_sync_3_2_3D_verts, &
-      & timer_sync_3_2_3D_all
+!     INTEGER :: timer_sync_2_1_3D_cells, timer_sync_2_1_3D_edges, timer_sync_2_1_3D_verts, &
+!       & timer_sync_2_1_3D_all
+!     INTEGER :: timer_sync_2_2_3D_cells, timer_sync_2_2_3D_edges, timer_sync_2_2_3D_verts, &
+!       & timer_sync_2_2_3D_all
+!     INTEGER :: timer_sync_3_1_3D_cells, timer_sync_3_1_3D_edges, timer_sync_3_1_3D_verts, &
+!       & timer_sync_3_1_3D_all
+!     INTEGER :: timer_sync_3_2_3D_cells, timer_sync_3_2_3D_edges, timer_sync_3_2_3D_verts, &
+!       & timer_sync_3_2_3D_all
     
     INTEGER :: timer_iconcom_3D_cells, timer_iconcom_3D_edges, timer_iconcom_3D_verts, &
       & timer_iconcom_3D_all, timer_iconcom_3D_comb, timer_iconcom_3D_keep
@@ -182,56 +182,56 @@ CONTAINS
     CALL test_sync_2D_all(pnt_2D_cells, pnt_2D_edges, pnt_2D_verts, timer_sync_1_2_2D_all)
 
     !---------------------------------------------------------------------
-    itype_comm = 2
-    iorder_sendrecv = 1
-    timer_sync_2_1_2D_cells  = new_timer  ("sync_2_1_2D_cells")
-    timer_sync_2_1_2D_edges  = new_timer  ("sync_2_1_2D_edges")
-    timer_sync_2_1_2D_verts  = new_timer  ("sync_2_1_2D_verts")
-    timer_sync_2_1_2D_all    = new_timer  ("sync_2_1_2D_all")
-
-    CALL test_sync_2D( SYNC_C, pnt_2D_cells, timer_sync_2_1_2D_cells)
-    CALL test_sync_2D( SYNC_E, pnt_2D_edges, timer_sync_2_1_2D_edges)
-    CALL test_sync_2D( SYNC_V, pnt_2D_verts, timer_sync_2_1_2D_verts)
-    CALL test_sync_2D_all(pnt_2D_cells, pnt_2D_edges, pnt_2D_verts, timer_sync_2_1_2D_all)
-        
-    !---------------------------------------------------------------------
-    itype_comm = 2
-    iorder_sendrecv = 2
-    timer_sync_2_2_2D_cells  = new_timer  ("sync_2_2_2D_cells")
-    timer_sync_2_2_2D_edges  = new_timer  ("sync_2_2_2D_edges")
-    timer_sync_2_2_2D_verts  = new_timer  ("sync_2_2_2D_verts")
-    timer_sync_2_2_2D_all    = new_timer  ("sync_2_2_2D_all")
-
-    CALL test_sync_2D( SYNC_C, pnt_2D_cells, timer_sync_2_2_2D_cells)
-    CALL test_sync_2D( SYNC_E, pnt_2D_edges, timer_sync_2_2_2D_edges)
-    CALL test_sync_2D( SYNC_V, pnt_2D_verts, timer_sync_2_2_2D_verts)
-    CALL test_sync_2D_all(pnt_2D_cells, pnt_2D_edges, pnt_2D_verts, timer_sync_2_2_2D_all)
-        
-    !---------------------------------------------------------------------
-    itype_comm = 3
-    iorder_sendrecv = 1
-    timer_sync_3_1_2D_cells  = new_timer  ("sync_3_1_2D_cells")
-    timer_sync_3_1_2D_edges  = new_timer  ("sync_3_1_2D_edges")
-    timer_sync_3_1_2D_verts  = new_timer  ("sync_3_1_2D_verts")
-    timer_sync_3_1_2D_all    = new_timer  ("sync_3_1_2D_all")
-
-    CALL test_sync_2D( SYNC_C, pnt_2D_cells, timer_sync_3_1_2D_cells)
-    CALL test_sync_2D( SYNC_E, pnt_2D_edges, timer_sync_3_1_2D_edges)
-    CALL test_sync_2D( SYNC_V, pnt_2D_verts, timer_sync_3_1_2D_verts)
-    CALL test_sync_2D_all(pnt_2D_cells, pnt_2D_edges, pnt_2D_verts, timer_sync_3_1_2D_all)
-        
-    !---------------------------------------------------------------------
-    itype_comm = 3
-    iorder_sendrecv = 2
-    timer_sync_3_2_2D_cells  = new_timer  ("sync_3_2_2D_cells")
-    timer_sync_3_2_2D_edges  = new_timer  ("sync_3_2_2D_edges")
-    timer_sync_3_2_2D_verts  = new_timer  ("sync_3_2_2D_verts")
-    timer_sync_3_2_2D_all    = new_timer  ("sync_3_2_2D_all")
-
-    CALL test_sync_2D( SYNC_C, pnt_2D_cells, timer_sync_3_2_2D_cells)
-    CALL test_sync_2D( SYNC_E, pnt_2D_edges, timer_sync_3_2_2D_edges)
-    CALL test_sync_2D( SYNC_V, pnt_2D_verts, timer_sync_3_2_2D_verts)
-    CALL test_sync_2D_all(pnt_2D_cells, pnt_2D_edges, pnt_2D_verts, timer_sync_3_2_2D_all)
+!     itype_comm = 2
+!     iorder_sendrecv = 1
+!     timer_sync_2_1_2D_cells  = new_timer  ("sync_2_1_2D_cells")
+!     timer_sync_2_1_2D_edges  = new_timer  ("sync_2_1_2D_edges")
+!     timer_sync_2_1_2D_verts  = new_timer  ("sync_2_1_2D_verts")
+!     timer_sync_2_1_2D_all    = new_timer  ("sync_2_1_2D_all")
+! 
+!     CALL test_sync_2D( SYNC_C, pnt_2D_cells, timer_sync_2_1_2D_cells)
+!     CALL test_sync_2D( SYNC_E, pnt_2D_edges, timer_sync_2_1_2D_edges)
+!     CALL test_sync_2D( SYNC_V, pnt_2D_verts, timer_sync_2_1_2D_verts)
+!     CALL test_sync_2D_all(pnt_2D_cells, pnt_2D_edges, pnt_2D_verts, timer_sync_2_1_2D_all)
+!         
+!     !---------------------------------------------------------------------
+!     itype_comm = 2
+!     iorder_sendrecv = 2
+!     timer_sync_2_2_2D_cells  = new_timer  ("sync_2_2_2D_cells")
+!     timer_sync_2_2_2D_edges  = new_timer  ("sync_2_2_2D_edges")
+!     timer_sync_2_2_2D_verts  = new_timer  ("sync_2_2_2D_verts")
+!     timer_sync_2_2_2D_all    = new_timer  ("sync_2_2_2D_all")
+! 
+!     CALL test_sync_2D( SYNC_C, pnt_2D_cells, timer_sync_2_2_2D_cells)
+!     CALL test_sync_2D( SYNC_E, pnt_2D_edges, timer_sync_2_2_2D_edges)
+!     CALL test_sync_2D( SYNC_V, pnt_2D_verts, timer_sync_2_2_2D_verts)
+!     CALL test_sync_2D_all(pnt_2D_cells, pnt_2D_edges, pnt_2D_verts, timer_sync_2_2_2D_all)
+!         
+!     !---------------------------------------------------------------------
+!     itype_comm = 3
+!     iorder_sendrecv = 1
+!     timer_sync_3_1_2D_cells  = new_timer  ("sync_3_1_2D_cells")
+!     timer_sync_3_1_2D_edges  = new_timer  ("sync_3_1_2D_edges")
+!     timer_sync_3_1_2D_verts  = new_timer  ("sync_3_1_2D_verts")
+!     timer_sync_3_1_2D_all    = new_timer  ("sync_3_1_2D_all")
+! 
+!     CALL test_sync_2D( SYNC_C, pnt_2D_cells, timer_sync_3_1_2D_cells)
+!     CALL test_sync_2D( SYNC_E, pnt_2D_edges, timer_sync_3_1_2D_edges)
+!     CALL test_sync_2D( SYNC_V, pnt_2D_verts, timer_sync_3_1_2D_verts)
+!     CALL test_sync_2D_all(pnt_2D_cells, pnt_2D_edges, pnt_2D_verts, timer_sync_3_1_2D_all)
+!         
+!     !---------------------------------------------------------------------
+!     itype_comm = 3
+!     iorder_sendrecv = 2
+!     timer_sync_3_2_2D_cells  = new_timer  ("sync_3_2_2D_cells")
+!     timer_sync_3_2_2D_edges  = new_timer  ("sync_3_2_2D_edges")
+!     timer_sync_3_2_2D_verts  = new_timer  ("sync_3_2_2D_verts")
+!     timer_sync_3_2_2D_all    = new_timer  ("sync_3_2_2D_all")
+! 
+!     CALL test_sync_2D( SYNC_C, pnt_2D_cells, timer_sync_3_2_2D_cells)
+!     CALL test_sync_2D( SYNC_E, pnt_2D_edges, timer_sync_3_2_2D_edges)
+!     CALL test_sync_2D( SYNC_V, pnt_2D_verts, timer_sync_3_2_2D_verts)
+!     CALL test_sync_2D_all(pnt_2D_cells, pnt_2D_edges, pnt_2D_verts, timer_sync_3_2_2D_all)
     
 
     !---------------------------------------------------------------------
@@ -346,56 +346,56 @@ CONTAINS
     CALL test_sync_3D_all(pnt_3D_cells, pnt_3D_edges, pnt_3D_verts, timer_sync_1_2_3D_all)
 
     !---------------------------------------------------------------------
-    itype_comm = 2
-    iorder_sendrecv = 1
-    timer_sync_2_1_3D_cells  = new_timer  ("sync_2_1_3D_cells")
-    timer_sync_2_1_3D_edges  = new_timer  ("sync_2_1_3D_edges")
-    timer_sync_2_1_3D_verts  = new_timer  ("sync_2_1_3D_verts")
-    timer_sync_2_1_3D_all    = new_timer  ("sync_2_1_3D_all")
-
-    CALL test_sync_3D( SYNC_C, pnt_3D_cells, timer_sync_2_1_3D_cells)
-    CALL test_sync_3D( SYNC_E, pnt_3D_edges, timer_sync_2_1_3D_edges)
-    CALL test_sync_3D( SYNC_V, pnt_3D_verts, timer_sync_2_1_3D_verts)
-    CALL test_sync_3D_all(pnt_3D_cells, pnt_3D_edges, pnt_3D_verts, timer_sync_2_1_3D_all)
-        
-    !---------------------------------------------------------------------
-    itype_comm = 2
-    iorder_sendrecv = 2
-    timer_sync_2_2_3D_cells  = new_timer  ("sync_2_2_3D_cells")
-    timer_sync_2_2_3D_edges  = new_timer  ("sync_2_2_3D_edges")
-    timer_sync_2_2_3D_verts  = new_timer  ("sync_2_2_3D_verts")
-    timer_sync_2_2_3D_all    = new_timer  ("sync_2_2_3D_all")
-
-    CALL test_sync_3D( SYNC_C, pnt_3D_cells, timer_sync_2_2_3D_cells)
-    CALL test_sync_3D( SYNC_E, pnt_3D_edges, timer_sync_2_2_3D_edges)
-    CALL test_sync_3D( SYNC_V, pnt_3D_verts, timer_sync_2_2_3D_verts)
-    CALL test_sync_3D_all(pnt_3D_cells, pnt_3D_edges, pnt_3D_verts, timer_sync_2_2_3D_all)
-        
-    !---------------------------------------------------------------------
-    itype_comm = 3
-    iorder_sendrecv = 1
-    timer_sync_3_1_3D_cells  = new_timer  ("sync_3_1_3D_cells")
-    timer_sync_3_1_3D_edges  = new_timer  ("sync_3_1_3D_edges")
-    timer_sync_3_1_3D_verts  = new_timer  ("sync_3_1_3D_verts")
-    timer_sync_3_1_3D_all    = new_timer  ("sync_3_1_3D_all")
-
-    CALL test_sync_3D( SYNC_C, pnt_3D_cells, timer_sync_3_1_3D_cells)
-    CALL test_sync_3D( SYNC_E, pnt_3D_edges, timer_sync_3_1_3D_edges)
-    CALL test_sync_3D( SYNC_V, pnt_3D_verts, timer_sync_3_1_3D_verts)
-    CALL test_sync_3D_all(pnt_3D_cells, pnt_3D_edges, pnt_3D_verts, timer_sync_3_1_3D_all)
-        
-    !---------------------------------------------------------------------
-    itype_comm = 3
-    iorder_sendrecv = 2
-    timer_sync_3_2_3D_cells  = new_timer  ("sync_3_2_3D_cells")
-    timer_sync_3_2_3D_edges  = new_timer  ("sync_3_2_3D_edges")
-    timer_sync_3_2_3D_verts  = new_timer  ("sync_3_2_3D_verts")
-    timer_sync_3_2_3D_all    = new_timer  ("sync_3_2_3D_all")
-
-    CALL test_sync_3D( SYNC_C, pnt_3D_cells, timer_sync_3_2_3D_cells)
-    CALL test_sync_3D( SYNC_E, pnt_3D_edges, timer_sync_3_2_3D_edges)
-    CALL test_sync_3D( SYNC_V, pnt_3D_verts, timer_sync_3_2_3D_verts)
-    CALL test_sync_3D_all(pnt_3D_cells, pnt_3D_edges, pnt_3D_verts, timer_sync_3_2_3D_all)
+!     itype_comm = 2
+!     iorder_sendrecv = 1
+!     timer_sync_2_1_3D_cells  = new_timer  ("sync_2_1_3D_cells")
+!     timer_sync_2_1_3D_edges  = new_timer  ("sync_2_1_3D_edges")
+!     timer_sync_2_1_3D_verts  = new_timer  ("sync_2_1_3D_verts")
+!     timer_sync_2_1_3D_all    = new_timer  ("sync_2_1_3D_all")
+! 
+!     CALL test_sync_3D( SYNC_C, pnt_3D_cells, timer_sync_2_1_3D_cells)
+!     CALL test_sync_3D( SYNC_E, pnt_3D_edges, timer_sync_2_1_3D_edges)
+!     CALL test_sync_3D( SYNC_V, pnt_3D_verts, timer_sync_2_1_3D_verts)
+!     CALL test_sync_3D_all(pnt_3D_cells, pnt_3D_edges, pnt_3D_verts, timer_sync_2_1_3D_all)
+!         
+!     !---------------------------------------------------------------------
+!     itype_comm = 2
+!     iorder_sendrecv = 2
+!     timer_sync_2_2_3D_cells  = new_timer  ("sync_2_2_3D_cells")
+!     timer_sync_2_2_3D_edges  = new_timer  ("sync_2_2_3D_edges")
+!     timer_sync_2_2_3D_verts  = new_timer  ("sync_2_2_3D_verts")
+!     timer_sync_2_2_3D_all    = new_timer  ("sync_2_2_3D_all")
+! 
+!     CALL test_sync_3D( SYNC_C, pnt_3D_cells, timer_sync_2_2_3D_cells)
+!     CALL test_sync_3D( SYNC_E, pnt_3D_edges, timer_sync_2_2_3D_edges)
+!     CALL test_sync_3D( SYNC_V, pnt_3D_verts, timer_sync_2_2_3D_verts)
+!     CALL test_sync_3D_all(pnt_3D_cells, pnt_3D_edges, pnt_3D_verts, timer_sync_2_2_3D_all)
+!         
+!     !---------------------------------------------------------------------
+!     itype_comm = 3
+!     iorder_sendrecv = 1
+!     timer_sync_3_1_3D_cells  = new_timer  ("sync_3_1_3D_cells")
+!     timer_sync_3_1_3D_edges  = new_timer  ("sync_3_1_3D_edges")
+!     timer_sync_3_1_3D_verts  = new_timer  ("sync_3_1_3D_verts")
+!     timer_sync_3_1_3D_all    = new_timer  ("sync_3_1_3D_all")
+! 
+!     CALL test_sync_3D( SYNC_C, pnt_3D_cells, timer_sync_3_1_3D_cells)
+!     CALL test_sync_3D( SYNC_E, pnt_3D_edges, timer_sync_3_1_3D_edges)
+!     CALL test_sync_3D( SYNC_V, pnt_3D_verts, timer_sync_3_1_3D_verts)
+!     CALL test_sync_3D_all(pnt_3D_cells, pnt_3D_edges, pnt_3D_verts, timer_sync_3_1_3D_all)
+!         
+!     !---------------------------------------------------------------------
+!     itype_comm = 3
+!     iorder_sendrecv = 2
+!     timer_sync_3_2_3D_cells  = new_timer  ("sync_3_2_3D_cells")
+!     timer_sync_3_2_3D_edges  = new_timer  ("sync_3_2_3D_edges")
+!     timer_sync_3_2_3D_verts  = new_timer  ("sync_3_2_3D_verts")
+!     timer_sync_3_2_3D_all    = new_timer  ("sync_3_2_3D_all")
+! 
+!     CALL test_sync_3D( SYNC_C, pnt_3D_cells, timer_sync_3_2_3D_cells)
+!     CALL test_sync_3D( SYNC_E, pnt_3D_edges, timer_sync_3_2_3D_edges)
+!     CALL test_sync_3D( SYNC_V, pnt_3D_verts, timer_sync_3_2_3D_verts)
+!     CALL test_sync_3D_all(pnt_3D_cells, pnt_3D_edges, pnt_3D_verts, timer_sync_3_2_3D_all)
     
     
 
