@@ -69,8 +69,8 @@ cat > $atmo_namelist << EOF
  p_test_run     = .false.
  l_test_openmp  = .false.
  l_log_checks   = .false.
- use_icon_comm   = .false.
- icon_comm_debug = .true.
+ use_icon_comm   = .true.
+ icon_comm_debug = .false.
 /
 &grid_nml
  cell_type = 3            ! triangular cells
