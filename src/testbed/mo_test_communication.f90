@@ -36,17 +36,18 @@ MODULE mo_test_communication
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message, message_text, finish
-  USE mo_mpi,                 ONLY: global_mpi_barrier, p_pe_work
+  USE mo_mpi,                 ONLY: global_mpi_barrier, my_process_is_stdio
   USE mo_timer,               ONLY: init_timer, ltimer, new_timer, timer_start, timer_stop, &
     & print_timer
 
   USE mo_master_control,      ONLY: get_my_process_name, get_my_model_no
-  USE mo_icon_testbed_config, ONLY: testbed_iterations
+  USE mo_icon_testbed_config, ONLY: testbed_iterations, calculate_iterations
 
   USE mo_model_domain,        ONLY:  p_patch  
   USE mo_atmo_model,          ONLY: construct_atmo_model, destruct_atmo_model
   USE mo_ha_stepping,         ONLY: prepare_ha_dyn!, initcond_ha_dyn
   USE mo_icoham_dyn_memory,   ONLY: p_hydro_state, destruct_icoham_dyn_state
+  USE mo_math_operators,      ONLY: grad_fd_norm
   
   USE mo_parallel_config,    ONLY: itype_comm, iorder_sendrecv
   USE mo_sync,               ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_patch_array_mult
@@ -412,21 +413,24 @@ CONTAINS
     ! test the 3D iconcom on cells
     CALL timer_start(timer_iconcom_3D_cells)
     DO i=1,testbed_iterations
-       CALL icon_comm_sync(pnt_3D_cells, on_cells, p_patch(patch_no))
+      CALL icon_comm_sync(pnt_3D_cells, on_cells, p_patch(patch_no))
+      CALL do_calculations()
     ENDDO
     CALL timer_stop(timer_iconcom_3D_cells)
 
     ! test the 3D iconcom on edges
     CALL timer_start(timer_iconcom_3D_edges)
     DO i=1,testbed_iterations
-       CALL icon_comm_sync(pnt_3D_edges, on_edges, p_patch(patch_no))
+      CALL icon_comm_sync(pnt_3D_edges, on_edges, p_patch(patch_no))
+      CALL do_calculations()
     ENDDO
     CALL timer_stop(timer_iconcom_3D_edges)
     
     ! test the 3D iconcom on verts
     CALL timer_start(timer_iconcom_3D_verts)
     DO i=1,testbed_iterations
-       CALL icon_comm_sync(pnt_3D_verts, on_verts, p_patch(patch_no))
+      CALL icon_comm_sync(pnt_3D_verts, on_verts, p_patch(patch_no))
+      CALL do_calculations()
     ENDDO
     CALL timer_stop(timer_iconcom_3D_verts)
     
@@ -443,16 +447,20 @@ CONTAINS
     CALL timer_start(timer_iconcom_3D_comb)
     DO i=1,testbed_iterations
     
-       comm_1 = new_icon_comm_variable(pnt_3D_cells, on_cells, &
-         & p_patch(patch_no), status=is_ready, scope=until_sync)
+      comm_1 = new_icon_comm_variable(pnt_3D_cells, on_cells, &
+        & p_patch(patch_no), status=is_ready, scope=until_sync)
          
-       comm_2 = new_icon_comm_variable(pnt_3D_edges, &
-         & on_edges, p_patch(patch_no), status=is_ready, scope=until_sync)
+      comm_2 = new_icon_comm_variable(pnt_3D_edges, &
+        & on_edges, p_patch(patch_no), status=is_ready, scope=until_sync)
        
-       comm_3 = new_icon_comm_variable(pnt_3D_verts, &
-         & on_verts, p_patch(patch_no), status=is_ready, scope=until_sync)
+      comm_3 = new_icon_comm_variable(pnt_3D_verts, &
+        & on_verts, p_patch(patch_no), status=is_ready, scope=until_sync)
 
-       CALL icon_comm_sync_all()
+      CALL icon_comm_sync_all()
+
+      CALL do_calculations()
+      CALL do_calculations()
+      CALL do_calculations()
 
     ENDDO
     CALL timer_stop(timer_iconcom_3D_comb)
@@ -468,11 +476,15 @@ CONTAINS
     CALL timer_start(timer_iconcom_3D_keep)
     DO i=1,testbed_iterations
     
-       CALL icon_comm_var_is_ready(comm_1)
-       CALL icon_comm_var_is_ready(comm_2)
-       CALL icon_comm_var_is_ready(comm_3)
-       CALL icon_comm_sync_all()
-       
+      CALL icon_comm_var_is_ready(comm_1)
+      CALL icon_comm_var_is_ready(comm_2)
+      CALL icon_comm_var_is_ready(comm_3)
+      CALL icon_comm_sync_all()
+ 
+      CALL do_calculations()
+      CALL do_calculations()
+      CALL do_calculations()
+        
     ENDDO
     CALL timer_stop(timer_iconcom_3D_keep)
     CALL delete_icon_comm_variable(comm_3)
@@ -492,10 +504,12 @@ CONTAINS
 
     !---------------------------------------------------------------------
     ! print the timers
-    CALL message("===================", "=======================")
-    WRITE(message_text,*) "Communication Iterations=", testbed_iterations
-    CALL message(method_name, TRIM(message_text))
-    CALL print_timer()
+!    IF (my_process_is_stdio()) THEN
+      CALL message("===================", "=======================")
+      WRITE(message_text,*) "Communication Iterations=", testbed_iterations
+      CALL message(method_name, TRIM(message_text))
+      CALL print_timer()
+!    ENDIF
     !---------------------------------------------------------------------
      
 
@@ -513,6 +527,7 @@ CONTAINS
     CALL timer_start(timer)
     DO i=1,testbed_iterations
       CALL sync_patch_array( comm_pattern, p_patch(patch_no), var )
+      CALL do_calculations()
     ENDDO    
     CALL timer_stop(timer)
   END SUBROUTINE test_sync_2D
@@ -547,6 +562,7 @@ CONTAINS
     CALL timer_start(timer)
     DO i=1,testbed_iterations
       CALL sync_patch_array( comm_pattern, p_patch(patch_no), var )
+      CALL do_calculations()
     ENDDO    
     CALL timer_stop(timer)
   END SUBROUTINE test_sync_3D
@@ -563,11 +579,28 @@ CONTAINS
     CALL timer_start(timer)
     DO i=1,testbed_iterations
       CALL sync_patch_array(SYNC_C , p_patch(patch_no), cell_var )
+      CALL do_calculations()
       CALL sync_patch_array(SYNC_E , p_patch(patch_no), edge_var )
+      CALL do_calculations()
       CALL sync_patch_array(SYNC_V , p_patch(patch_no), vert_var )
+      CALL do_calculations()
     ENDDO    
     CALL timer_stop(timer)
   END SUBROUTINE test_sync_3D_all
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  SUBROUTINE do_calculations()
+
+    INTEGER :: i, patch_no
+    
+    patch_no = 1
+    DO i=1,calculate_iterations
+      CALL grad_fd_norm (p_hydro_state(patch_no)%prog(1)%temp(:,:,:), &
+        & p_patch(patch_no), p_hydro_state(patch_no)%prog(1)%vn(:,:,:))
+    ENDDO
+
+  END SUBROUTINE do_calculations
   !-------------------------------------------------------------------------
 
 END MODULE mo_test_communication

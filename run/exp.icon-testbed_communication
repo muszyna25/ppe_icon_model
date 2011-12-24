@@ -44,7 +44,6 @@ start_date="2008-09-01T00:00:00Z"
 dtime=600
 ndays=10
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
-nsteps=5
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -53,12 +52,12 @@ model_equations=1   # equation system
 #                     2=non-hydrost. atm., 
 #                    -1=shallow water model
 #                    -2=hydrost. ocean
-nlev=31             # nlev = number of full levels
+nlev=95             # nlev = number of full levels
 #-----------------------------------------------------------------------------
 # the grid files
 atmo_dyn_grids='iconR2B04-grid.nc'
 #-----------------------------------------------------------------------------
-nproma=${nproma:=28}
+nproma=${nproma:=21}
 
 #-----------------------------------------------------------------------------
 # write ICON namelist parameters
@@ -73,6 +72,7 @@ cat > $namelist_filename << EOF
 &testbed_nml
   testbed_mode        = 2  ! test the communication
   testbed_iterations  = 10000
+  calculate_iterations  = 0
 /
 &parallel_nml
  nproma         = ${nproma}

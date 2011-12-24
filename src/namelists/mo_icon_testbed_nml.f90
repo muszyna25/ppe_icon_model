@@ -41,8 +41,9 @@ MODULE mo_icon_testbed_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_io_units,            ONLY: filename_max
   USE mo_icon_testbed_config, ONLY: &
-    & config_testbed_mode       => testbed_mode,       &
-    & config_testbed_iterations => testbed_iterations, &
+    & config_testbed_mode         => testbed_mode,       &
+    & config_testbed_iterations   => testbed_iterations, &
+    & config_calculate_iterations => calculate_iterations, &
     & null_mode
     
   IMPLICIT NONE
@@ -66,9 +67,10 @@ MODULE mo_icon_testbed_nml
     ! ------------------------------------------------------------------------
     INTEGER :: testbed_mode
     INTEGER :: testbed_iterations
+    INTEGER :: calculate_iterations
 
     
-    NAMELIST /testbed_nml/ testbed_mode, testbed_iterations
+    NAMELIST /testbed_nml/ testbed_mode, testbed_iterations, calculate_iterations
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat
@@ -78,8 +80,9 @@ MODULE mo_icon_testbed_nml
     !--------------------------------------------
     ! set default values
     !--------------------------------------------
-    testbed_mode       = null_mode
-    testbed_iterations = 1
+    testbed_mode         = null_mode
+    testbed_iterations   = 1
+    calculate_iterations = 0
     !--------------------------------------------------------------------
     ! Read user's (new) specifications (Done so far by all MPI processes) 
     !--------------------------------------------------------------------
@@ -93,8 +96,9 @@ MODULE mo_icon_testbed_nml
     
     !-----------------------------------------------------
     ! fill_config_testbed
-    config_testbed_mode       = testbed_mode
-    config_testbed_iterations = testbed_iterations
+    config_testbed_mode         = testbed_mode
+    config_testbed_iterations   = testbed_iterations
+    config_calculate_iterations = calculate_iterations
     
   END SUBROUTINE read_icon_testbed_namelist
   !-------------------------------------------------------------------------
