@@ -70,16 +70,6 @@ CONTAINS
     
     CHARACTER(*), PARAMETER :: method_name = "construct_icoham_communication"
 
-#ifdef NOMPI
-   RETURN
-#endif
-
-#ifdef _OPENMP
-    IF (omp_in_parallel()) &
-      CALL finish(method_name, 'cannot be called from openmp parallel')
-#endif
-
-    IF(my_process_is_mpi_seq()) RETURN
 
     CALL init_icon_comm_lib()
     
@@ -92,9 +82,7 @@ CONTAINS
 !         & new_comm_variable(p_hydro_state(grid_id)%tend_phy%temp, on_cells, &
 !         & p_patch(grid_id))
     
-    ENDDO
-
-    
+    ENDDO  
     
     RETURN
 
