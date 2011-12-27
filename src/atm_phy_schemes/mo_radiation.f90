@@ -1263,12 +1263,16 @@ CONTAINS
   SUBROUTINE radheat (jcs, jce, kbdim, &
     &                 klev  , klevp1,  &
     &                 pmair         ,  &
-    &                 pq            ,  &
+    &                 pqv           ,  &
     &                 pi0           ,  &
     &                 pemiss        ,  &
     &                 ptsfc         ,  &
     &                 ptsfctrad     ,  &
-    &                 ptemp_klev    ,  & ! optional
+    &                 ptemp_klev    ,  & ! optional ! must be present if dflxlw_dt is present
+    &                 pqc           ,  & ! optional ! must be present if opt_adapt_lw=.true.
+    &                 pqi           ,  & ! optional ! must be present if opt_adapt_lw=.true.
+    &                 ppres_ifc     ,  & ! optional ! must be present if opt_adapt_lw=.true.
+    &                 opt_adapt_lw  ,  & ! optional
     &                 ptrmsw        ,  &
     &                 pflxlw        ,  &
     &                 pdtdtradsw    ,  &
@@ -1284,7 +1288,7 @@ CONTAINS
 
     REAL(wp), INTENT(in)  ::         &
       &     pmair      (kbdim,klev), & ! mass of air in layer                     [kg/m2]
-      &     pq         (kbdim,klev), & ! specific humidity at t-dt                [kg/kg]
+      &     pqv        (kbdim,klev), & ! specific humidity at t-dt                [kg/kg]
       &     pi0        (kbdim),      & ! local solar incoming flux at TOA         [W/m2]
       &     pemiss     (kbdim),      & ! lw sfc emissivity
       &     ptsfc      (kbdim),      & ! surface temperature at t                 [K]
@@ -1294,7 +1298,14 @@ CONTAINS
 
     REAL(wp), INTENT(in), OPTIONAL  ::         &
       &     ptemp_klev  (kbdim)        ! lowest atm temperature at trad           [K]
-                                       ! mußt be present together with dflxlw_dt
+                                       ! must be present together with dflxlw_dt
+    REAL(wp), INTENT(in), OPTIONAL  ::         &
+      &     pqc       (kbdim,klev),  & ! specific cloud water               [kg/kg]
+      &     pqi       (kbdim,klev),  & ! specific cloud ice                 [kg/kg]
+      &     ppres_ifc (kbdim,klevp1)   ! pressure at interfaces             [Pa]
+
+    LOGICAL, INTENT(in), OPTIONAL   ::  &
+      &     opt_adapt_lw
 
     REAL(wp), INTENT(out) ::         &
       &     pdtdtradsw (kbdim,klev), & ! shortwave temperature tendency           [K/s]
@@ -1304,22 +1315,47 @@ CONTAINS
       &     pflxsfcsw (kbdim), &       ! shortwave surface net flux [W/m2]
       &     pflxsfclw (kbdim), &       ! longwave surface net flux [W/m2]
       &     pflxtoasw (kbdim)          ! shortwave toa net flux [W/m2]
+    
 
     REAL(wp), INTENT(out), OPTIONAL :: &
       &   dflxlw_dT (kbdim)            ! temperature tendency of 
-                                       !longwave surface net flux [W/m2/K]
+                                       ! longwave surface net flux [W/m2/K]
 
-    
     ! Local arrays
     REAL(wp) ::                    &
       &     zflxsw (kbdim,klevp1), &
       &     zflxlw (kbdim,klevp1), &
-      &     zconv  (kbdim,klev)
+      &     zconv  (kbdim,klev)  , &
+      &     tqv    (kbdim)       , &
+      &     dlwem_o_dtg(kbdim)   , &
+      &     lwfac1 (kbdim)       , &
+      &     lwfac2 (kbdim)       , &
+      &     intclw (kbdim,klevp1), &
+      &     intcli (kbdim,klevp1)
 
+    ! local scalars
+    REAL(wp) :: dpresg, pfaclw, intqctot, dlwflxclr_o_dtg, dlwflxall_o_dtg
+
+    REAL(wp), PARAMETER  :: pscal = 1._wp/4000._wp ! pressure scale for longwave correction
+
+    INTEGER :: jc,jk
+
+    LOGICAL  :: l_opt_adapt_lw
+
+    IF ( PRESENT(opt_adapt_lw) ) THEN
+      l_opt_adapt_lw = opt_adapt_lw
+      IF (l_opt_adapt_lw .AND. .NOT.(PRESENT(pqc).AND.PRESENT(pqi).AND.PRESENT(ppres_ifc))) THEN
+        CALL finish('radheat','error: if opt_adapt_lw, pqc, pqi, and ppres_ifc must be present.')
+      ENDIF
+    ELSE
+      l_opt_adapt_lw = .FALSE.
+    ENDIF
+    
+    
     ! Conversion factor for heating rates:
-    zconv(jcs:jce,1:klev) = rcpd/(pmair(jcs:jce,1:klev)*(1._wp+vtmpc2*pq(jcs:jce,1:klev)))
+    zconv(jcs:jce,1:klev) = rcpd/(pmair(jcs:jce,1:klev)*(1._wp+vtmpc2*pqv(jcs:jce,1:klev)))
 
-    ! Shortwave fluxes = transmissivity * loacal solar incoming flux at TOA
+    ! Shortwave fluxes = transmissivity * local solar incoming flux at TOA
     ! ----------------
     ! - TOA
     zflxsw(jcs:jce,1)      = ptrmsw(jcs:jce,1)      *        pi0(jcs:jce)
@@ -1329,19 +1365,68 @@ CONTAINS
     zflxsw(jcs:jce,klevp1) = ptrmsw(jcs:jce,klevp1) *        pi0(jcs:jce)
     ! Longwave fluxes
     ! - TOA
-    zflxlw(jcs:jce,1)      = pflxlw(jcs:jce,1)
-    ! - Atmosphere
-    zflxlw(jcs:jce,2:klev) = pflxlw(jcs:jce,2:klev)
-    ! - Surface
-    !   Adjust for changed surface temperature (ptsfc) with respect to the
-    !   surface temperature used for the longwave flux computation (ptsfctrad).
-    !   --> modifies heating in lowermost layer only (is this smart?)
-    zflxlw(jcs:jce,klevp1) = pflxlw(jcs:jce,klevp1)               &
-      &                   + pemiss(jcs:jce)*stbo * ptsfctrad(jcs:jce)**4 &
-      &                   - pemiss(jcs:jce)*stbo * ptsfc    (jcs:jce)**4
+!    zflxlw(jcs:jce,1)      = pflxlw(jcs:jce,1)
+!    ! - Atmosphere
+!    zflxlw(jcs:jce,2:klev) = pflxlw(jcs:jce,2:klev)
+
+    IF (l_opt_adapt_lw) THEN !
+      ! Longwave fluxes,  empirical corrections like in mo_phys_nest_utilities
+      
+      tqv(:)            = 0._wp
+      intclw(:,klevp1)  = 0._wp
+      intcli(:,klevp1)  = 0._wp
+      DO jk = klev,1,-1
+        DO jc = jcs, jce
+          dpresg        = (ppres_ifc(jc,jk+1) - ppres_ifc(jc,jk))/grav
+          tqv(jc)       = tqv(jc)+pqv(jc,jk)*dpresg
+          intclw(jc,jk) = intclw(jc,jk+1)+pqc(jc,jk)*dpresg
+          intcli(jc,jk) = intcli(jc,jk+1)+pqi(jc,jk)*dpresg
+        ENDDO
+      ENDDO
+
+      DO jc = jcs, jce
+        dlwem_o_dtg(jc) = pemiss(jc)*4._wp*stbo*ptsfc(jc)**3
+        IF (tqv(jc) > 15._wp) then
+          lwfac1(jc) = 1.677_wp*MAX(1._wp,tqv(jc))**(-0.72_wp)
+        ELSE
+          lwfac1(jc) = 0.4388_wp*MAX(1._wp,tqv(jc))**(-0.225_wp)
+        ENDIF
+        lwfac2(jc) = 0.92_wp*MAX(1._wp,tqv(jc))**(-0.07_wp)
+      ENDDO
+
+      DO jk = 1,klevp1
+        DO jc = jcs, jce
+          pfaclw = lwfac1(jc)+(lwfac2(jc)-lwfac1(jc))*EXP(-SQRT((ppres_ifc(jc,klevp1)- &
+            ppres_ifc(jc,jk))*pscal))
+          intqctot = MIN(0.30119_wp,MAX(1.008e-3_wp,intclw(jc,jk)+0.2_wp*intcli(jc,jk)))
+
+          dlwflxclr_o_dtg = -dlwem_o_dtg(jc)*pfaclw
+          dlwflxall_o_dtg = dlwflxclr_o_dtg*(1._wp-(6.9_wp+LOG(intqctot))/5.7_wp)
+          ! Now apply the correction
+          zflxlw(jc,jk) =  pflxlw(jc,jk) + dlwflxall_o_dtg * ( ptsfc(jc) - ptsfctrad(jc) )
+        ENDDO
+      ENDDO
+
+    ELSE !old version
+
+      ! Longwave fluxes
+      ! - TOA
+      zflxlw(jcs:jce,1)      = pflxlw(jcs:jce,1)
+      ! - Atmosphere
+      zflxlw(jcs:jce,2:klev) = pflxlw(jcs:jce,2:klev)
+      
+      ! - Surface
+      !   Adjust for changed surface temperature (ptsfc) with respect to the
+      !   surface temperature used for the longwave flux computation (ptsfctrad).
+      !   --> modifies heating in lowermost layer only (is this smart?)
+      zflxlw(jcs:jce,klevp1) = pflxlw(jcs:jce,klevp1)               &
+        &                   + pemiss(jcs:jce)*stbo * ptsfctrad(jcs:jce)**4 &
+        &                   - pemiss(jcs:jce)*stbo * ptsfc    (jcs:jce)**4
 
 
-    !KF for sea ice model: temperatur tendeny of longwave flux at surface
+    ENDIF
+    
+    !KF for sea-ice model: temperature tendency of longwave flux at surface
     IF(PRESENT (dflxlw_dT)) &
       &    dflxlw_dT(jcs:jce)= 4._wp*pemiss(jcs:jce)*stbo               &
       &                      * (ptemp_klev(jcs:jce)-ptsfc (jcs:jce))**3 &
@@ -1366,6 +1451,7 @@ CONTAINS
     !     4.4 net sw flux at toa
     !
     IF ( PRESENT(pflxtoasw) ) pflxtoasw(jcs:jce) = zflxsw(jcs:jce,1)
+
     
   END SUBROUTINE radheat
 

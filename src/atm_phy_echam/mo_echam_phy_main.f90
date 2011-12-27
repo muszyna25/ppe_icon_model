@@ -551,7 +551,7 @@ CONTAINS
         & klev       = nlev,                           &! in     vertical dimension size
         & klevp1     = nlevp1,                         &! in     vertical dimension size
         & pmair      = zmair                  (:,:)   ,&! in    layer air mass            [kg/m2]
-        & pq         = field%q                (:,:,jb,iqv),&!in specific moisture         [kg/kg]
+        & pqv        = field%q                (:,:,jb,iqv),&!in specific moisture         [kg/kg]
         & pi0        = zi0                      (:)   ,&! in    solar incoming flux at TOA [W/m2]
         & pemiss     = ext_data(jg)%atm%emis_rad(:,jb),&! in    lw sfc emissivity
         & ptsfc      = field%tsfc               (:,jb),&! in    surface temperature           [K]

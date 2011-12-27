@@ -963,9 +963,13 @@ CONTAINS
         & klev=nlev                              ,&! in     vertical dimension size
         & klevp1=nlevp1                          ,&! in     vertical dimension size
         & pmair=z_airmass                        ,&! in     layer air mass             [kg/m2]
-        & pq=pt_prog_rcf%tracer(:,:,jb,iqv)      ,&! in     specific moisture           [kg/kg]
+        & pqv=pt_prog_rcf%tracer(:,:,jb,iqv)     ,&! in     specific moisture           [kg/kg]
         & pi0=zi0                                ,&! in     solar incoming flux at TOA  [W/m2]
         & pemiss=ext_data%atm%emis_rad(:,jb)     ,&! in     lw sfc emissivity
+        & pqc=prm_diag%tot_cld    (:,:,jb,iqc)   ,&! in     specific cloud water        [kg/kg]
+        & pqi=prm_diag%tot_cld    (:,:,jb,iqi)   ,&! in     specific cloud ice          [kg/kg]
+        & ppres_ifc=pt_diag%pres_ifc(:,:,jb)     ,&! in     pressure at layer boundaries [Pa]
+        & opt_adapt_lw=.TRUE.                    ,&! in     switch for lw correction
         & ptsfc=lnd_prog_new%t_g(:,jb)           ,&! in     surface temperature         [K]
         & ptsfctrad=prm_diag%tsfctrad(:,jb)      ,&! in     sfc temp. used for pflxlw   [K]
         & ptrmsw=prm_diag%trsolall (:,:,jb)      ,&! in     shortwave net tranmissivity []
