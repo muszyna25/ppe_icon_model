@@ -289,6 +289,7 @@ CONTAINS
   SUBROUTINE init_icon_comm_lib()
 
     INTEGER :: i,k, return_status
+    LOGICAL :: unit_is_occupied
     
     CHARACTER(*), PARAMETER :: method_name = "init_icon_comm_lib"
 
@@ -335,10 +336,15 @@ CONTAINS
     my_mpi_work_id       = get_my_mpi_work_id()
     
 !    IF (icon_comm_debug) THEN
-      log_file_id = 500
-      WRITE(message_text,'(a,a,a,i4.4)') 'log.', TRIM(get_my_process_name()), &
-        & ".icon_comm.", my_mpi_work_id
-      OPEN (log_file_id, FILE=TRIM(message_text))
+    DO log_file_id = 500, 5000
+      INQUIRE (UNIT=log_file_id, OPENED=unit_is_occupied)
+      IF ( .NOT. unit_is_occupied ) EXIT
+    ENDDO
+    IF (unit_is_occupied) &
+      CALL finish(method_name, "Cannot find avaliable file unit")
+    WRITE(message_text,'(a,a,a,i4.4)') 'log.', TRIM(get_my_process_name()), &
+      & ".icon_comm.", my_mpi_work_id
+    OPEN (log_file_id, FILE=TRIM(message_text))
 !    ENDIF
     
     RETURN

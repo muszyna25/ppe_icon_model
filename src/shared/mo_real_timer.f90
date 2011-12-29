@@ -40,7 +40,8 @@ MODULE mo_real_timer
   USE mo_mpi,       ONLY: p_pe, p_io,  p_comm_work, p_comm_work_test
 #endif
 
-  USE mo_mpi, ONLY: num_test_procs, num_work_procs
+  USE mo_mpi, ONLY: num_test_procs, num_work_procs, get_my_mpi_work_id
+  USE mo_master_control,  ONLY: get_my_process_name
                             
 
   IMPLICIT NONE
@@ -529,7 +530,7 @@ CONTAINS
     ELSE
       it = -1 ! report of all timers
     ENDIF
-
+    
     IF (PRESENT(short)) THEN
       IF (short) THEN
         CALL timer_report_short(it)
@@ -660,6 +661,9 @@ CONTAINS
     INTEGER, INTENT(in) :: itimer
 
     INTEGER :: it
+    INTEGER :: timer_file_id
+    LOGICAL :: unit_is_occupied
+    
 #ifndef NOMPI
     INTEGER :: ibuf(2)
 #endif
@@ -677,10 +681,21 @@ CONTAINS
     ENDIF
 #endif
 
+    DO timer_file_id = 500, 5000
+      INQUIRE (UNIT=timer_file_id, OPENED=unit_is_occupied)
+      IF ( .NOT. unit_is_occupied ) EXIT
+    ENDDO
+    IF (unit_is_occupied) &
+      CALL finish("timer_report_full", "Cannot find avaliable file unit")
+    WRITE(message_text,'(a,a,a,i4.4)') 'timer.', TRIM(get_my_process_name()), ".", &
+      &  get_my_mpi_work_id()
+    OPEN (timer_file_id, FILE=TRIM(message_text))
+    
     CALL message ('','',all_print=.TRUE.)
     CALL message ('',separator,all_print=.TRUE.)
     WRITE (message_text,'(a)') 'Timer report: '
     CALL message ('',message_text,all_print=.TRUE.)
+    WRITE(timer_file_id,*) TRIM(message_text)
 
     IF (num_test_procs+num_work_procs > 1) THEN
       WRITE (message_text,'(a,i5,a)') &
@@ -692,17 +707,20 @@ CONTAINS
       CALL message ('',message_text,all_print=.TRUE.)
     END IF
     CALL message ('',separator,all_print=.TRUE.)
+    WRITE(timer_file_id,*) TRIM(message_text)
 
     IF (itimer > 0) THEN
-      IF (rt(itimer)%stat /= rt_undef_stat) CALL print_report(itimer)
+      IF (rt(itimer)%stat /= rt_undef_stat) CALL print_report(itimer, timer_file_id)
     ELSE
       DO it = 1, top_timer
         IF (rt(it)%stat /= rt_undef_stat) THEN
-          CALL print_report(it)
+          CALL print_report(it, timer_file_id)
         ENDIF
       ENDDO
     ENDIF
 
+    CLOSE(timer_file_id)
+    
 #ifndef NOMPI
     IF (p_pe < num_test_procs+num_work_procs-1) THEN
       CALL p_send(ibuf(1), p_pe+1, report_tag)
@@ -718,8 +736,8 @@ CONTAINS
 
   END SUBROUTINE timer_report_full
 
-  SUBROUTINE print_report(it1)
-    INTEGER, INTENT(in) :: it1
+  SUBROUTINE print_report(it1, timer_file_id)
+    INTEGER, INTENT(in) :: it1, timer_file_id
     INTEGER :: tid
 #if defined(_OPENMP) && !defined(__CRAYXT_COMPUTE_LINUX_TARGET)
     INTEGER :: itid
@@ -737,7 +755,7 @@ CONTAINS
 #if !defined(__CRAYXT_COMPUTE_LINUX_TARGET)
 !$OMP ORDERED
 #endif
-      CALL report(it1)
+      CALL report(it1, timer_file_id)
 #if defined(_OPENMP) && !defined(__CRAYXT_COMPUTE_LINUX_TARGET)
 !$OMP FLUSH
 !$OMP END ORDERED
@@ -747,8 +765,8 @@ CONTAINS
 #endif
   END SUBROUTINE print_report
 
-  SUBROUTINE report(it)
-    INTEGER, INTENT(in) :: it
+  SUBROUTINE report(it, timer_file_id)
+    INTEGER, INTENT(in) :: it, timer_file_id
 
     REAL(dp) :: avg, total
     CHARACTER(len=12) :: min_str, avg_str, max_str, tot_str
@@ -784,6 +802,7 @@ CONTAINS
            rt(it)%call_n, min_str, avg_str, max_str, tot_str, total
       CALL message ('',message_text,all_print=.TRUE.)
     ENDIF
+    WRITE(timer_file_id,*) TRIM(message_text)
 
   END SUBROUTINE report
 
