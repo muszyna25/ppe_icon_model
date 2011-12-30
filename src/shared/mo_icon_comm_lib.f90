@@ -39,7 +39,7 @@ MODULE mo_icon_comm_lib
 
   USE mo_kind,            ONLY: wp
   USE mo_io_units,        ONLY: filename_max
-  USE mo_exception,       ONLY: message_text, message, finish
+  USE mo_exception,       ONLY: message_text, message, finish, warning
   USE mo_parallel_config, ONLY: nproma, icon_comm_debug, max_send_recv_buffer_size
   USE mo_communication,   ONLY: blk_no, idx_no
   USE mo_model_domain,    ONLY: t_patch
@@ -528,7 +528,7 @@ CONTAINS
     IF (no_of_recv_requests /= no_comm_procs) THEN
       write(0,*) name, " no_of_recv_requests=", no_of_recv_requests,&
         & "no_comm_procs", no_comm_procs
-      CALL finish (method_name, 'total_requests /= no_comm_procs')
+      CALL warning (method_name, 'total_requests /= no_comm_procs')
     ENDIF
     DEALLOCATE(recv_requests, total_requests)
 
