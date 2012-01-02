@@ -76,7 +76,7 @@ MODULE mo_master_control
                          ! same my_process_model with other compnents
                          ! Example: Two different components may run the dummy_process
   CHARACTER(len=filename_max) :: my_namelist_filename
-  CHARACTER(len=64) :: my_model_name
+  CHARACTER(len=64) :: my_model_name = ""
 
   INTEGER :: my_model_min_rank, my_model_max_rank, my_model_inc_rank 
   LOGICAL :: multiple_models
