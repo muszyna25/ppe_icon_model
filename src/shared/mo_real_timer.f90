@@ -663,7 +663,7 @@ CONTAINS
     INTEGER :: it
     INTEGER :: timer_file_id
     LOGICAL :: unit_is_occupied
-    
+      
 #ifndef NOMPI
     INTEGER :: ibuf(2)
 #endif
@@ -687,8 +687,13 @@ CONTAINS
     ENDDO
     IF (unit_is_occupied) &
       CALL finish("timer_report_full", "Cannot find avaliable file unit")
-    WRITE(message_text,'(a,a,a,i4.4)') 'timer.', TRIM(get_my_process_name()), ".", &
-      &  get_my_mpi_work_id()
+
+    IF (get_my_process_name() /= "" ) THEN
+      WRITE(message_text,'(a,a,a,i4.4)') 'timer.', TRIM(get_my_process_name()), ".", &
+        &  get_my_mpi_work_id()
+    ELSE
+      WRITE(message_text,'(a,i4.4)') 'timer.', get_my_mpi_work_id()
+    ENDIF    
     OPEN (timer_file_id, FILE=TRIM(message_text))
     
     CALL message ('','',all_print=.TRUE.)
