@@ -5,6 +5,9 @@
 # Main ICON issue is https://code.zmaw.de/issues/735
 #
 # Use 'rdoc ifs2icon.rb' to get documentation
+#
+# Requires the grib_api tool "grib_get", used for determining
+# the GRIB version of the input file.
 
 require 'tempfile'
 require 'thread'
@@ -12,6 +15,8 @@ require 'pp'
 require 'extcsv'
 require 'optparse'
 require 'json'
+require 'open3'
+
 
 # ==============================================================================
 # CDO calling mechnism
@@ -595,7 +600,30 @@ class Ifs2Icon
 
     @ifile, @ofile = @options[:inputfile], @options[:outputfile]
 
-    @itype = '.grb' == File.extname(@ifile) ? :code : :name
+    # determine input file type by extension: *.grb or other
+    @itype = File.extname(@ifile) =~ /\.grb(|1)/ ? :code : :name
+    # if we found a *.grb file, check for "editionNumber" value
+    # because GRIB2 files might have the ending *.grb as well
+    # Note: This requires the grib_api tool "grib_get"
+    if @itype == :code
+      Dbg.msg("Checking GRIB edition",
+                @options[:verbose], @options[:debug])
+      @cmd = "grib_get -w count=1 -p editionNumber " + @ifile
+      stdin, stdout, stderr = Open3.popen3(@cmd)
+      @gribedition= stdout.read
+      if @gribedition =~ /^2/
+        @itype = :name
+      end
+    end
+
+    if @itype == :code
+      Dbg.msg("Input file: GRIB1 format",
+                @options[:verbose], @options[:debug])
+    else
+      Dbg.msg("Input file: GRIB2/NetCDF format",
+                @options[:verbose], @options[:debug])
+    end
+
 
     # Create internal configuration state
     if @options[:config].nil?
@@ -650,7 +678,7 @@ class Ifs2Icon
     }
     #check if all output variables have a config entry
     if @options[:outputvars] - possibleOutputVars != []
-      warn "Outout variables #{(@options[:outputvars] - possibleOutputVars).join(',')} cannot be computed because of missing configuration"
+      warn "Output variables #{(@options[:outputvars] - possibleOutputVars).join(',')} cannot be computed because of missing configuration"
       exit -1
     end
     #check if all output variables have grid information in config
