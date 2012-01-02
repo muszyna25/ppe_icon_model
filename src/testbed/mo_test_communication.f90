@@ -36,7 +36,7 @@ MODULE mo_test_communication
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message, message_text, finish
-  USE mo_mpi,                 ONLY: global_mpi_barrier, my_process_is_stdio
+  USE mo_mpi,                 ONLY: work_mpi_barrier, my_process_is_stdio
   USE mo_timer,               ONLY: init_timer, ltimer, new_timer, timer_start, timer_stop, &
     & print_timer
 
@@ -118,7 +118,6 @@ CONTAINS
 
     !---------------------------------------------------------------------
 
-    CALL global_mpi_barrier()
     write(0,*) TRIM(get_my_process_name()), ': Start of ', method_name
     
     !---------------------------------------------------------------------
@@ -128,7 +127,6 @@ CONTAINS
     CALL prepare_ha_dyn( p_patch(1:) )
     CALL construct_icoham_communication()
     
-    CALL global_mpi_barrier()
     
     !---------------------------------------------------------------------
     patch_no=1
@@ -140,6 +138,7 @@ CONTAINS
     pnt_3D_cells => p_hydro_state(patch_no)%prog(1)%temp(:,:,:)
     pnt_3D_edges => p_hydro_state(patch_no)%prog(1)%vn(:,:,:)
     pnt_3D_verts => p_hydro_state(patch_no)%diag%rel_vort(:,:,:)
+
     
     !---------------------------------------------------------------------
     ! Call cmmunication methods
@@ -164,9 +163,13 @@ CONTAINS
     timer_sync_1_1_2D_verts  = new_timer  ("sync_1_1_2D_verts")
     timer_sync_1_1_2D_all    = new_timer  ("sync_1_1_2D_all")
 
+    CALL work_mpi_barrier()
     CALL test_sync_2D( SYNC_C, pnt_2D_cells, timer_sync_1_1_2D_cells)
+    CALL work_mpi_barrier()
     CALL test_sync_2D( SYNC_E, pnt_2D_edges, timer_sync_1_1_2D_edges)
+    CALL work_mpi_barrier()
     CALL test_sync_2D( SYNC_V, pnt_2D_verts, timer_sync_1_1_2D_verts)
+    CALL work_mpi_barrier()
     CALL test_sync_2D_all(pnt_2D_cells, pnt_2D_edges, pnt_2D_verts, timer_sync_1_1_2D_all)
         
     !---------------------------------------------------------------------
@@ -177,9 +180,13 @@ CONTAINS
     timer_sync_1_2_2D_verts  = new_timer  ("sync_1_2_2D_verts")
     timer_sync_1_2_2D_all    = new_timer  ("sync_1_2_2D_all")
 
+    CALL work_mpi_barrier()
     CALL test_sync_2D( SYNC_C, pnt_2D_cells, timer_sync_1_2_2D_cells)
+    CALL work_mpi_barrier()
     CALL test_sync_2D( SYNC_E, pnt_2D_edges, timer_sync_1_2_2D_edges)
+    CALL work_mpi_barrier()
     CALL test_sync_2D( SYNC_V, pnt_2D_verts, timer_sync_1_2_2D_verts)
+    CALL work_mpi_barrier()
     CALL test_sync_2D_all(pnt_2D_cells, pnt_2D_edges, pnt_2D_verts, timer_sync_1_2_2D_all)
 
     !---------------------------------------------------------------------
@@ -247,6 +254,7 @@ CONTAINS
     
     ! test the 2D iconcom on cells
     
+    CALL work_mpi_barrier()
     CALL timer_start(timer_iconcom_2D_cells)
     DO i=1,testbed_iterations
        CALL icon_comm_sync(pnt_2D_cells, on_cells, p_patch(patch_no))
@@ -254,6 +262,7 @@ CONTAINS
     CALL timer_stop(timer_iconcom_2D_cells)
 
     ! test the 2D iconcom on edges
+    CALL work_mpi_barrier()
     CALL timer_start(timer_iconcom_2D_edges)
     DO i=1,testbed_iterations
        CALL icon_comm_sync(pnt_2D_edges, on_edges, p_patch(patch_no))
@@ -261,6 +270,7 @@ CONTAINS
     CALL timer_stop(timer_iconcom_2D_edges)
     
     ! test the 2D iconcom on verts
+    CALL work_mpi_barrier()
     CALL timer_start(timer_iconcom_2D_verts)
     DO i=1,testbed_iterations
        CALL icon_comm_sync(pnt_2D_verts, on_verts, p_patch(patch_no))
@@ -268,6 +278,7 @@ CONTAINS
     CALL timer_stop(timer_iconcom_2D_verts)
     
     ! test the 2D iconcom on all
+    CALL work_mpi_barrier()
     CALL timer_start(timer_iconcom_2D_all)
     DO i=1,testbed_iterations
        CALL icon_comm_sync(pnt_2D_cells, on_cells, p_patch(patch_no))
@@ -277,6 +288,7 @@ CONTAINS
     CALL timer_stop(timer_iconcom_2D_all)
     
     ! test the 2D iconcom on combined
+    CALL work_mpi_barrier()
     CALL timer_start(timer_iconcom_2D_comb)
     DO i=1,testbed_iterations
     
@@ -302,6 +314,7 @@ CONTAINS
     comm_3 = new_icon_comm_variable(pnt_2D_verts, &
       & on_verts, p_patch(patch_no))
     
+    CALL work_mpi_barrier()
     CALL timer_start(timer_iconcom_2D_keep)
     DO i=1,testbed_iterations
     
@@ -328,9 +341,13 @@ CONTAINS
     timer_sync_1_1_3D_verts  = new_timer  ("sync_1_1_3D_verts")
     timer_sync_1_1_3D_all    = new_timer  ("sync_1_1_3D_all")
 
+    CALL work_mpi_barrier()
     CALL test_sync_3D( SYNC_C, pnt_3D_cells, timer_sync_1_1_3D_cells)
+    CALL work_mpi_barrier()
     CALL test_sync_3D( SYNC_E, pnt_3D_edges, timer_sync_1_1_3D_edges)
+    CALL work_mpi_barrier()
     CALL test_sync_3D( SYNC_V, pnt_3D_verts, timer_sync_1_1_3D_verts)
+    CALL work_mpi_barrier()
     CALL test_sync_3D_all(pnt_3D_cells, pnt_3D_edges, pnt_3D_verts, timer_sync_1_1_3D_all)
         
     !---------------------------------------------------------------------
@@ -341,9 +358,13 @@ CONTAINS
     timer_sync_1_2_3D_verts  = new_timer  ("sync_1_2_3D_verts")
     timer_sync_1_2_3D_all    = new_timer  ("sync_1_2_3D_all")
 
+    CALL work_mpi_barrier()
     CALL test_sync_3D( SYNC_C, pnt_3D_cells, timer_sync_1_2_3D_cells)
+    CALL work_mpi_barrier()
     CALL test_sync_3D( SYNC_E, pnt_3D_edges, timer_sync_1_2_3D_edges)
+    CALL work_mpi_barrier()
     CALL test_sync_3D( SYNC_V, pnt_3D_verts, timer_sync_1_2_3D_verts)
+    CALL work_mpi_barrier()
     CALL test_sync_3D_all(pnt_3D_cells, pnt_3D_edges, pnt_3D_verts, timer_sync_1_2_3D_all)
 
     !---------------------------------------------------------------------
@@ -411,6 +432,7 @@ CONTAINS
     timer_iconcom_3D_keep   = new_timer  ("iconcom_3D_keep")
     
     ! test the 3D iconcom on cells
+    CALL work_mpi_barrier()
     CALL timer_start(timer_iconcom_3D_cells)
     DO i=1,testbed_iterations
       CALL icon_comm_sync(pnt_3D_cells, on_cells, p_patch(patch_no))
@@ -418,7 +440,10 @@ CONTAINS
     ENDDO
     CALL timer_stop(timer_iconcom_3D_cells)
 
+    CALL work_mpi_barrier()
+
     ! test the 3D iconcom on edges
+    CALL work_mpi_barrier()
     CALL timer_start(timer_iconcom_3D_edges)
     DO i=1,testbed_iterations
       CALL icon_comm_sync(pnt_3D_edges, on_edges, p_patch(patch_no))
@@ -435,6 +460,7 @@ CONTAINS
     CALL timer_stop(timer_iconcom_3D_verts)
     
     ! test the 3D iconcom on all
+    CALL work_mpi_barrier()
     CALL timer_start(timer_iconcom_3D_all)
     DO i=1,testbed_iterations
        CALL icon_comm_sync(pnt_3D_cells, on_cells, p_patch(patch_no))
@@ -444,6 +470,7 @@ CONTAINS
     CALL timer_stop(timer_iconcom_3D_all)
     
     ! test the 3D iconcom on combined
+    CALL work_mpi_barrier()
     CALL timer_start(timer_iconcom_3D_comb)
     DO i=1,testbed_iterations
     
@@ -473,6 +500,7 @@ CONTAINS
     comm_3 = new_icon_comm_variable(pnt_3D_verts, &
       & on_verts, p_patch(patch_no))
     
+    CALL work_mpi_barrier()
     CALL timer_start(timer_iconcom_3D_keep)
     DO i=1,testbed_iterations
     

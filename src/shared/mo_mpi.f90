@@ -70,6 +70,8 @@ MODULE mo_mpi
   
   ! Main communication methods
   PUBLIC :: global_mpi_barrier
+  PUBLIC :: work_mpi_barrier
+
   PUBLIC :: p_send, p_recv, p_sendrecv, p_bcast, p_barrier
   PUBLIC :: p_isend, p_irecv, p_wait, p_wait_any, &
     &       p_irecv_packed, p_send_packed,        &
@@ -5463,6 +5465,23 @@ CONTAINS
 #endif
 
   END SUBROUTINE global_mpi_barrier
+  !------------------------------------------------------
+
+  !------------------------------------------------------
+  SUBROUTINE work_mpi_barrier 
+#ifndef NOMPI
+    CALL MPI_BARRIER (p_comm_work, p_error)
+
+!#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a)') ' global_mpi_barrier on ', get_my_global_mpi_id(), ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL p_abort
+    END IF
+!#endif
+#endif
+
+  END SUBROUTINE work_mpi_barrier
   !------------------------------------------------------
 
   FUNCTION p_sum_dp_0d (zfield, comm) RESULT (p_sum)
