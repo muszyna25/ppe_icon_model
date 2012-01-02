@@ -691,9 +691,12 @@ CONTAINS
     IF (get_my_process_name() /= "" ) THEN
       WRITE(message_text,'(a,a,a,i4.4)') 'timer.', TRIM(get_my_process_name()), ".", &
         &  get_my_mpi_work_id()
+      write(0,*) "get_my_process_name() /= ''"
     ELSE
       WRITE(message_text,'(a,i4.4)') 'timer.', get_my_mpi_work_id()
-    ENDIF    
+    ENDIF
+    write(0,*) "timer filename=", TRIM(message_text)
+    
     OPEN (timer_file_id, FILE=TRIM(message_text))
     
     CALL message ('','',all_print=.TRUE.)
