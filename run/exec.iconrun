@@ -48,7 +48,6 @@ if [ x$namelist_list = x ]; then
   else
     check_error 1 "No namelist is defined"
   fi 
-  atmo_namelist
 fi
 
 #-----------------------------------------------------------------------------
