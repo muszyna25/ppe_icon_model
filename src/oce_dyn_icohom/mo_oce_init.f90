@@ -762,7 +762,10 @@ CONTAINS
 
       END IF
 
-    CASE (33) !collapsing density front testcase, taken from Stuhne-Peltier (JCP, 2006)
+    CASE (33) 
+    ! collapsing density front testcase, taken from Stuhne-Peltier (JCP, 2006)
+      CALL message(TRIM(routine), 'Initialization of testcases (33)')
+      CALL message(TRIM(routine), ' - here: Collapsing density front, Stuhne-Peltier')
 
       DO jb = i_startblk_c, i_endblk_c    
         CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
@@ -830,7 +833,10 @@ CONTAINS
     END DO
 
    CASE (34)
-      !Adjusting density front in a basin: vertical wall at basin_center_lon
+   ! Adjusting density front in a basin: vertical wall at basin_center_lon
+      CALL message(TRIM(routine), 'Initialization of testcases (34)')
+      CALL message(TRIM(routine),' - here: Adjusting density front in a basin with vertical wall')
+
       DO jb = i_startblk_c, i_endblk_c    
         CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
          &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
@@ -925,9 +931,9 @@ CONTAINS
 !                &   * sin(pi*v_base%zlev_m(jk)/4000.0_wp)!& 
                  &   * sin(pi*v_base%zlev_m(jk)/v_base%zlev_i(z_dolic+1))
                  !&v_base%del_zlev_i(z_dolic))
-  write(*,*)'temp init',jc,jb,jk,p_os%p_prog(nold(1))%tracer(jc,jk,jb,1),&
-  &z_permax*exp(-(z_dst/(z_perwid*deg2rad))**2) &
-  & * sin(pi*v_base%zlev_m(jk)/4000.0_wp)
+                 write(0,*)'temp init',jc,jb,jk,p_os%p_prog(nold(1))%tracer(jc,jk,jb,1),&
+                 &z_permax*exp(-(z_dst/(z_perwid*deg2rad))**2) &
+                 & * sin(pi*v_base%zlev_m(jk)/4000.0_wp)
               END DO
               ENDIF
             END IF
@@ -936,11 +942,11 @@ CONTAINS
 ! ENDIF
           END DO
         END DO
-DO jk = 1, n_zlev
-write(*,*)'Temperature init',jk,&
-&maxval(p_os%p_prog(nold(1))%tracer(:,jk,:,1)),&
-&minval(p_os%p_prog(nold(1))%tracer(:,jk,:,1))
-END DO
+        DO jk = 1, n_zlev
+          write(0,*)'Temperature init',jk,&
+          &maxval(p_os%p_prog(nold(1))%tracer(:,jk,:,1)),&
+          &minval(p_os%p_prog(nold(1))%tracer(:,jk,:,1))
+        END DO
 !         !After hot spot now a cool spot at a slightly different location
 !         ! Add temperature perturbation at new values - 35N; 10W
 !         z_perlat = basin_center_lat - 0.1_wp*basin_height_deg!             !45.5_wp
@@ -1251,12 +1257,14 @@ END DO
 ! !         END DO
 ! !       END DO
 
-    CASE (40) ! #slo# global temperature initialization for forcing tests
+    CASE (40)
+    ! Temperature profile depends on latitude and depth
+    ! Construct temperature profile 
+    !   ttrop for lat<ltrop; tpol for lat>lpol; cos for transition zone
+    !   for maximum tropical temperature see values above
+      CALL message(TRIM(routine), 'Simple Initialization of testcases (40)')
+      CALL message(TRIM(routine), ' - here: simple tropics-pol/vertical temperature profile')
       
-      ! Temperature profile depends on latitude and depth
-      ! Construct temperature profile 
-      !   ttrop for lat<ltrop; tpol for lat>lpol; cos for transition zone
-      !   for maximum tropical temperature see values above
       IF (i_sea_ice == 0) THEN
         z_tpol  =  5.0_wp      ! polar temperature
       ELSE
@@ -1320,9 +1328,11 @@ END DO
         END DO
       END DO
 
+    CASE (41)
     ! #slo 2011-10-05#
     !  incorrect (for n_zlev>9) old testcase 40 with z_tpol=0.0 at poles saved for reference
-    CASE (41)
+      CALL message(TRIM(routine), 'Simple Initialization of testcases (41)')
+      CALL message(TRIM(routine), ' - here: old erroneous profile saved for reference')
       
       ! Temperature profile depends on latitude and depth
       ! Construct temperature profile 
@@ -1379,8 +1389,11 @@ END DO
         END DO
       END DO
 
-    CASE (43) ! #slo# collapsing density front with much smaller amplitude
-              ! without temperature restoring / relaxation
+    CASE (43)
+    ! #slo# collapsing density front with much weaker gradient than testcase 33
+    ! without temperature restoring / relaxation
+      CALL message(TRIM(routine), 'Initialization of testcases (43)')
+      CALL message(TRIM(routine), ' - here: Collapsing density front with weaker gradient')
       
       ! Temperature profile in first layer depends on latitude only
       ! Construct temperature profile 
@@ -1454,7 +1467,10 @@ END DO
       END DO
 
     CASE (44) 
-      !Temperature is homogeneous in each layer. Varies from 30.5 in top to 0.5 in bottom layer
+    ! Temperature is homogeneous in each layer. Varies from 30.5 in top to 0.5 in bottom layer
+      CALL message(TRIM(routine), 'Initialization of testcases (44)')
+      CALL message(TRIM(routine), ' - here: horizontal homogen, stable vertical profile')
+
       z_temp_max  = 30.5_wp
       z_temp_min  = 0.5_wp
       z_temp_incr = (z_temp_max-z_temp_min)/(n_zlev-1.0_wp)
@@ -1478,7 +1494,11 @@ END DO
         END DO
       END DO
 
-    CASE (45) !T and S are horizontally homegeneous. Values are taken from t_prof[_var] and s_prof[_var]
+    CASE (45) 
+    ! T and S are horizontally homegeneous. Values are taken from t_prof[_var] and s_prof[_var]
+      CALL message(TRIM(routine), 'Initialization of testcases (45)')
+      CALL message(TRIM(routine), ' - here: as (44), tprof_var and sprof_var vertical profiles')
+
       DO jb = i_startblk_c, i_endblk_c    
         CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
          &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
@@ -1500,13 +1520,15 @@ END DO
       END DO
       ! p_os%p_prog(nold(1))%tracer(:,n_zlev,:,1)=-2.0_wp
 
+    CASE (50)
     ! Testcase for coupled Aquaplanet:
     !  - following APE_ATLAS Equations (2.1) - (2.5)
     !  - use function ape_sst for initializing SST
     !  - decrease maximum temperature vertically by z_temp_incr
-    CASE (50)
-
     !  - use parameter 'sst_qobs' - maximum temperature = 27, minimum polar temperature = 0 deg C
+      CALL message(TRIM(routine), 'Initialization of testcases (50)')
+      CALL message(TRIM(routine), ' - here: testcase for coupled aquaplanet, using sst_qobs')
+
       sst_case='sst_qobs'
       jk = 1
       DO jb = i_startblk_c, i_endblk_c    
@@ -1564,27 +1586,28 @@ END DO
               ENDIF
             END DO
           END DO
+          WRITE(0,*) TRIM(routine),': jk=',jk,' Salinity =', sprof_var(jk)
         END DO
       END IF
 
     CASE DEFAULT
      CALL finish(TRIM(routine), 'CHOSEN INITIALIZATION NOT SUPPORTED - TERMINATE')
-    END SELECT
+  END SELECT
 
-    ipl_src=1  ! output print level (0-5, fix)
-    z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,1)
+  ipl_src=1  ! output print level (0-5, fix)
+  z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,1)
+  DO jk=1, n_zlev
+    CALL print_mxmn('T-innitial',jk,z_c(:,:,:),n_zlev,ppatch%nblks_c,'per',ipl_src)
+  END DO
+  IF (no_tracer == 2) THEN
+    z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,2)
     DO jk=1, n_zlev
-      CALL print_mxmn('T-innitial',jk,z_c(:,:,:),n_zlev,ppatch%nblks_c,'per',ipl_src)
+      CALL print_mxmn('S-innitial',jk,z_c(:,:,:),n_zlev,ppatch%nblks_c,'per',ipl_src)
     END DO
-    IF (no_tracer == 2) THEN
-      z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,2)
-      DO jk=1, n_zlev
-        CALL print_mxmn('S-innitial',jk,z_c(:,:,:),n_zlev,ppatch%nblks_c,'per',ipl_src)
-      END DO
-    END IF
+  END IF
 
-    z_c(:,1,:) = p_os%p_prog(nold(1))%h(:,:)
-    CALL print_mxmn('Elevation-init',1,z_c(:,:,:),n_zlev,ppatch%nblks_c,'per',ipl_src)
+  z_c(:,1,:) = p_os%p_prog(nold(1))%h(:,:)
+  CALL print_mxmn('Elevation-init',1,z_c(:,:,:),n_zlev,ppatch%nblks_c,'per',ipl_src)
 
 ! Shallow water testcases:
 ELSEIF( iswm_oce == 1 )THEN
@@ -1761,30 +1784,26 @@ ELSEIF( iswm_oce == 1 )THEN
               (1.0_wp+cos(pi*z_dst/z_perwid))/2.0_wp +2.0_wp
             !!& 20.0_wp &!p_os%p_prog(nold(1))%tracer(jc,1,jb,1)          &
             !&   z_permax*exp(-(z_dst/(z_perwid*deg2rad))**2) 
-
-!write(*,*)'init temp',p_os%p_prog(nold(1))%tracer(jc,1,jb,1)!, z_dst,&
-!&z_dst/(z_perwid*deg2rad),&
-!&z_permax*exp(-(z_dst/(z_perwid*deg2rad))**2)
             ENDIF
             p_os%p_prog(nnew(1))%tracer(jc,1,jb,1)= p_os%p_prog(nold(1))%tracer(jc,1,jb,1)
             p_os%p_prog(nnew(1))%h(jc,jb)         = p_os%p_prog(nold(1))%h(jc,jb)
           ENDIF
         END DO
       END DO
-write(*,*)'max/min tracer at initial time',&
-&maxval( p_os%p_prog(nold(1))%tracer(:,1,:,1)),&
-&minval( p_os%p_prog(nold(1))%tracer(:,1,:,1))
-IF(idisc_scheme==1)THEN
-CALL calc_scalar_product_for_veloc( ppatch,                &
-                                    & p_os%p_prog(nold(1))%vn,&
-                                    & p_os%p_prog(nold(1))%vn,&
-                                    & p_os%p_diag%h_e,        &
-                                    & p_os%p_diag)
-CALL grad_fd_norm_oce( p_os%p_diag%kin, &
-                 & ppatch,    &
-                 & p_os%p_diag%grad,&
-                 & opt_slev=1,opt_elev=1 )
-ENDIF
+      write(*,*)'max/min tracer at initial time',&
+      &maxval( p_os%p_prog(nold(1))%tracer(:,1,:,1)),&
+      &minval( p_os%p_prog(nold(1))%tracer(:,1,:,1))
+      IF(idisc_scheme==1)THEN
+        CALL calc_scalar_product_for_veloc( ppatch,                 &
+          &                                 p_os%p_prog(nold(1))%vn,&
+          &                                 p_os%p_prog(nold(1))%vn,&
+          &                                 p_os%p_diag%h_e,        &
+          &                                 p_os%p_diag)
+        CALL grad_fd_norm_oce( p_os%p_diag%kin, &
+                             & ppatch,    &
+                             & p_os%p_diag%grad,&
+                             & opt_slev=1,opt_elev=1 )
+      ENDIF
 ! CALL rbf_vec_interpol_edge( p_os%p_prog(nold(1))%vn,&
 !                           & ppatch,                &
 !                           & p_int,                  &
