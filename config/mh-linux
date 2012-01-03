@@ -143,8 +143,8 @@ case "$fortran_compiler" in
         CFLAGS      = "$CFLAGS" -DpgiFortran
         FC          = ifort
         FDEBUG      = -check bounds -check pointers -check uninit -debug -g
-        FFLAGS      = "$FDEBUG" -O2 -msse2 -fltconsistency -fpe0 -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
- #       FFLAGS      = "$FDEBUG" -O0 -msse2 -fltconsistency -fpe0 -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
+        FFLAGS      = "$FDEBUG" -O2 -msse2 -fltconsistency       -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
+ #      FFLAGS      = "$FDEBUG" -O0 -msse2 -fltconsistency -fpe0 -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
         F77         = "$FC"
         F77FLAGS    = "$FFLAGS"
         OMPFLAG     = -openmp
