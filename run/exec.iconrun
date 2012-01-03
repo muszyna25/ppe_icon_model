@@ -23,25 +23,28 @@ DATADIR=${ICONDIR}/data
 # this works for subngle model runs
 # for coupled runs the lists should be declared explicilty
 if [ x$namelist_list = x ]; then
-  minrank_list=(        0           )
-  maxrank_list=(     65535          )
-  incrank_list=(        1           )
+#  minrank_list=(        0           )
+#  maxrank_list=(     65535          )
+#  incrank_list=(        1           )
+  minrank_list[0]=0
+  maxrank_list[0]=65535
+  incrank_list[0]=1
   if [ x$atmo_namelist != x ]; then
     # this is the atmo model
-    namelist_list=( "$atmo_namelist"  )
-    modelname_list=(   "atmo"         )
-    modeltype_list=(      1           )
+    namelist_list[0]="$atmo_namelist"
+    modelname_list[0]="atmo"
+    modeltype_list[0]=1
     run_atmo="true"
   elif [ x$ocean_namelist != x ]; then
     # this is the ocean model
-    namelist_list=( "$ocean_namelist"  )
-    modelname_list=(   "ocean"         )
-    modeltype_list=(      2           )
+    namelist_list[0]="$ocean_namelist"
+    modelname_list[0]="ocean"
+    modeltype_list[0]=2
   elif [ x$testbed_namelist != x ]; then
     # this is the testbed model
-    namelist_list=( "$testbed_namelist"  )
-    modelname_list=(   "testbed"         )
-    modeltype_list=(      99           )
+    namelist_list[0]="$testbed_namelist"
+    modelname_list[0]="testbed"
+    modeltype_list[0]=99
   else
     check_error 1 "No namelist is defined"
   fi 
