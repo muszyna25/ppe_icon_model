@@ -1,4 +1,4 @@
-# #!/bin/ksh
+#!/bin/ksh
 #=============================================================================
 #
 # Test experiment, running the coupled aquaplanet experiments
@@ -547,4 +547,12 @@ ocean_inc_rank=1
 atmo_min_rank=0
 atmo_max_rank=`expr ${ocean_min_rank} - 1`
 atmo_inc_rank=1
+#-----------------------------------------------------------------------------
+# fill model list
+namelist_list=( "$atmo_namelist"  "$ocean_namelist" )
+modelname_list=(   "atmo"           "ocean"         )
+modeltype_list=(     1                 2            )
+minrank_list=(  $atmo_min_rank   $ocean_min_rank    )
+maxrank_list=(  $atmo_max_rank   $ocean_max_rank    )
+incrank_list=(  $atmo_inc_rank   $ocean_inc_rank    )
 #-----------------------------------------------------------------------------
