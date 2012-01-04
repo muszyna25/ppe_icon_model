@@ -65,7 +65,8 @@ MODULE mo_parallel_nml
     & config_use_icon_comm       => use_icon_comm,        &
     & config_icon_comm_debug     => icon_comm_debug,        &
     & div_geometric, check_parallel_configuration,          &
-    & config_max_sr_buffer_size => max_send_recv_buffer_size
+    & config_max_sr_buffer_size => max_send_recv_buffer_size, &
+    & config_use_dycore_barrier => use_dycore_barrier
 
   IMPLICIT NONE
   PRIVATE
@@ -107,6 +108,8 @@ MODULE mo_parallel_nml
     ! model whereas the other PEs do a real parallelized run
     LOGICAL :: p_test_run
 
+    LOGICAL :: use_dycore_barrier ! put an mpi barrier before the dycore to eliminate imbalances
+    
     ! if l_test_openmp is set together with p_test_run, then the verification PE uses
     ! only 1 thread. This allows for verifying the OpenMP implementation
     LOGICAL :: l_test_openmp
@@ -154,7 +157,7 @@ MODULE mo_parallel_nml
       & parallel_radiation_mpi,  use_icon_comm, &
       & test_parallel_radiation, openmp_threads, &
       & icon_comm_debug, max_send_recv_buffer_size, &
-      & division_file_name
+      & division_file_name, use_dycore_barrier
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat
@@ -181,6 +184,8 @@ MODULE mo_parallel_nml
     ! model whereas the other PEs do a real parallelized run
     p_test_run = .FALSE.
 
+    use_dycore_barrier = .FALSE.
+    
     ! if l_test_openmp is set together with p_test_run, then the verification PE uses
     ! only 1 thread. This allows for verifying the OpenMP implementation
     l_test_openmp = .FALSE.
@@ -273,6 +278,7 @@ MODULE mo_parallel_nml
     config_parallel_radiation_mpi = parallel_radiation_mpi
     config_test_parallel_radiation= test_parallel_radiation
     config_max_sr_buffer_size  = max_send_recv_buffer_size
+    config_use_dycore_barrier  = use_dycore_barrier
     !-----------------------------------------------------
     CALL check_parallel_configuration()
     

@@ -44,7 +44,7 @@ MODULE mo_solve_nonhydro
   USE mo_nonhydrostatic_config,ONLY: itime_scheme,iadv_rhotheta, igradp_method, l_open_ubc, &
                                      kstart_moist
   USE mo_dynamics_config,      ONLY: idiv_method
-  USE mo_parallel_config,    ONLY: nproma, p_test_run, itype_comm
+  USE mo_parallel_config,    ONLY: nproma, p_test_run, itype_comm, use_dycore_barrier
   USE mo_run_config,         ONLY: ltimer, lvert_nest
   USE mo_model_domain,       ONLY: t_patch
   USE mo_model_domain_import,ONLY: l_limited_area
@@ -62,7 +62,7 @@ MODULE mo_solve_nonhydro
   USE mo_advection_utils,   ONLY: back_traj_o1
   USE mo_sync,              ONLY: SYNC_E, SYNC_C, sync_patch_array, sync_patch_array_mult, &
                                   sync_patch_array_gm
-  USE mo_mpi,               ONLY: my_process_is_mpi_all_seq
+  USE mo_mpi,               ONLY: my_process_is_mpi_all_seq, work_mpi_barrier
   USE mo_timer,             ONLY: timer_solve_nh, timer_start, timer_stop
 
   IMPLICIT NONE
@@ -582,6 +582,8 @@ MODULE mo_solve_nonhydro
     INTEGER,  DIMENSION(:),   POINTER :: iplev, ipeidx, ipeblk
 
     !-------------------------------------------------------------------
+    IF (use_dycore_barrier) CALL work_mpi_barrier()
+    
     IF (ltimer) CALL timer_start(timer_solve_nh)
 
     IF (lvert_nest .AND. (p_patch%nshift_total > 0)) THEN  

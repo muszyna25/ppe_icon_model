@@ -49,7 +49,8 @@ MODULE mo_parallel_config
        &    division_file_name, l_log_checks, l_fast_sum,             &
        &    p_test_run, l_test_openmp,                                &
        &    pio_type, itype_comm, iorder_sendrecv, num_io_procs,      &
-       &    use_icon_comm, icon_comm_debug, max_send_recv_buffer_size
+       &    use_icon_comm, icon_comm_debug, max_send_recv_buffer_size, &
+       &    use_dycore_barrier
        
   PUBLIC :: set_nproma, get_nproma, check_parallel_configuration
   
@@ -83,6 +84,8 @@ MODULE mo_parallel_config
   ! model whereas the other PEs do a real parallelized run
   LOGICAL :: p_test_run = .false.
 
+  LOGICAL :: use_dycore_barrier = .false. ! put an mpi barrier before the dycore to eliminate imbalances
+  
   ! if l_test_openmp is set together with p_test_run, then the verification PE uses
   ! only 1 thread. This allows for verifying the OpenMP implementation
   LOGICAL :: l_test_openmp = .false.
