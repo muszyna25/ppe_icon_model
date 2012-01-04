@@ -266,7 +266,7 @@ CONTAINS
     WRITE(65535) TRIM(nmlbuf)
     CLOSE(65535)
 #else
-    OPEN(UNIT=funit, FILE=filename(1:flen), ACTION='write', ACCESS='stream')
+    OPEN(UNIT=funit, FILE=filename(1:flen), ACTION='write', ACCESS='stream', FORM='unformatted')
     WRITE(funit) TRIM(nmlbuf)
     CLOSE(funit)
 #endif
