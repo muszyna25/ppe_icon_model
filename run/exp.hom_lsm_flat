@@ -124,11 +124,12 @@ iforc_len=1    # length of OMIP dataset: 1 = annual; 12 = monthly data; else = d
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2000-01-01T00:00:00Z"
+end_date="2000-01-02T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
 dtime=1800           # ocean model timestep [s]
-ndays=1              # ocean model run in days
+#ndays=1              # ocean model run in days
 dt_data=21600.       # ocean model output interval [s]
 ndays_file=360       # new output file generation interval [days]
 ndays_checkp=30      # write restart file interval [days]
@@ -136,7 +137,7 @@ ndays_restart=1      # stop model for restart [days]
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $ndays
-nsteps=`expr ${ndays} \* 86400 / ${dtime}`
+#nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 #nsteps=4 
 # diagnostic output (not in ocean model)
 #dt_diag=`expr 4 \* 3600 `    #  output each 4 hours
@@ -183,6 +184,7 @@ ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
 if [ "x$BB_SYSTEM" = "xhpc" -o "x$BB_SYSTEM" = "xnec" ] ; then
    USE_POOLD="N"
 fi
+USE_POOLD="N"
 #
 if [ "x$USE_POOLD" = "xY" ] ; then
    POOLDIR="/pool/data/ICON/grids"
@@ -218,7 +220,7 @@ cat > ${ocean_namelist} << EOF
  dynamics_grid_filename = "${ocean_grids}",
 /
 &run_nml
- nsteps      = ${nsteps}    ! number of steps length of run
+! nsteps      = ${nsteps}    ! number of steps length of run
  dtime       = ${dtime}     ! [s] timestep in seconds
  msg_level   = 10           ! detailed report during integration
 /

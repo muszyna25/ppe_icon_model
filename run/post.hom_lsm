@@ -110,5 +110,20 @@ echo "-- ---------------------------------------------------------"
 #rm -f ${set_env}
 
 check_error $STATUS "Creating of Plots"
+#--------------------------------------------------------------------
+# compare the restart files
+cd $ICON_BASE_PATH/run
+ocean_restart_1="../experiments/test_hom_lsm/restart.iconR2B04-ocean_etopo40_planet_20000102T000000Z_oce.nc"
+ocean_restart_2="../experiments/test_hom_lsm_restart/restart.iconR2B04-ocean_etopo40_planet_20000102T000000Z_oce.nc"
+
+out_file="test_hom_lsm.diff"
+${cdo_diff} $ocean_restart_1 $ocean_restart_2 > $out_file
+grep " 0 of 461 records differ" $out_file
+return_status=$?
+if [ $return_status != 0 ] ; then
+  cat $out_file
+fi
+check_error $return_status "restart differs"
+#-------------------------------------------------------------------
 
 exit $STATUS
