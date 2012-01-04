@@ -217,7 +217,7 @@ CONTAINS
     READ(65535) nmlbuf(1:nmllen)
     CLOSE(65535)
 #else
-    OPEN(UNIT=funit, FILE=TRIM(filename), ACTION='read', ACCESS='stream')
+    OPEN(UNIT=funit, FILE=TRIM(filename), ACTION='read', ACCESS='stream', FORM='unformatted')
     READ(funit) nmlbuf(1:nmllen)
     CLOSE(funit)
 #endif
