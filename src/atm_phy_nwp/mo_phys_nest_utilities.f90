@@ -1647,7 +1647,7 @@ SUBROUTINE downscale_rad_output_rg( p_patch, p_par_patch, p_par_int, p_par_grf, 
 
     DO jc = i_startidx, i_endidx
       dlwem_o_dtg(jc) = ( 1._wp-zrg_aux3d(jc,ialbther,jb) )*4._wp*stbo*zrg_aux3d(jc,itsfc,jb)**3
-      swfac2(jc) =  MAX(0.25_wp,3._wp*zrg_aux3d(jc,icosmu0,jb))**0.16_wp      
+      swfac2(jc) =  MAX(0.25_wp,3._wp*zrg_aux3d(jc,icosmu0,jb))**0.0677988_wp      
       IF (tqv(jc) > 15._wp) THEN
         lwfac1(jc) = 1.677_wp*MAX(1._wp,tqv(jc))**(-0.72_wp)
       ELSE
@@ -1662,8 +1662,8 @@ SUBROUTINE downscale_rad_output_rg( p_patch, p_par_patch, p_par_int, p_par_grf, 
 
         dtrans_o_dalb_all(jc,jk) = (-zrg_aux3d(jc,iflsp,jb)-zrg_aux3d(jc,iflsd,jb)) &
           &                      / ( zsct * zrg_aux3d(jc,icosmu0,jb) * swfac2(jc) ) &
-          &                      * ( 0.641515_wp + 0.156339_wp                      &
-          &                      * (zrg_aux3d(jc,iflsp,jb)/zrg_aux3d(jc,iflsd,jb))**0.190259_wp)
+          &                      * ( 0.482994_wp + 0.436556_wp                      &
+          &                      * (zrg_aux3d(jc,iflsp,jb)/zrg_aux3d(jc,iflsd,jb))**0.0953119_wp )
 
         pfaclw = lwfac1(jc)+(lwfac2(jc)-lwfac1(jc))*EXP(-SQRT((pres_ifc(jc,nlevp1_rg,jb)- &
                  pres_ifc(jc,jk1,jb))*pscal ))
