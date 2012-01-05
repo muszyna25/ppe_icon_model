@@ -62,7 +62,7 @@ MODULE mo_nh_diffusion
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array, &
                                     sync_patch_array_mult, sync_patch_array_gm
   USE mo_physical_constants,  ONLY: cvd_o_rd, cpd, re
-  USE mo_timer,             ONLY: timer_solve_nh, timer_start, timer_stop
+  USE mo_timer,             ONLY: timer_nh_hdiffusion, timer_start, timer_stop
 
   IMPLICIT NONE
 
@@ -126,7 +126,7 @@ MODULE mo_nh_diffusion
     !--------------------------------------------------------------------------
 
     ! The diffusion is an intrinsic part of the NH solver, thus it is added to the timer
-    IF (ltimer) CALL timer_start(timer_solve_nh)
+    IF (ltimer) CALL timer_start(timer_nh_hdiffusion)
 
     ! get patch ID
     jg = p_patch%id
@@ -602,7 +602,7 @@ MODULE mo_nh_diffusion
 !$OMP END PARALLEL
     ENDIF ! temperature diffusion
 
-    IF (ltimer) CALL timer_stop(timer_solve_nh)
+    IF (ltimer) CALL timer_stop(timer_nh_hdiffusion)
 
   END SUBROUTINE diffusion_tria
 

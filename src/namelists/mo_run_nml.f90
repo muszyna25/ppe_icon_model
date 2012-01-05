@@ -52,8 +52,8 @@ MODULE mo_run_nml
                          & config_timers_level    => timers_level,    &
                          & config_activate_sync_timers => activate_sync_timers, &
                          & config_msg_level       => msg_level,       &
-                         & config_test_gw_hines_opt=> test_gw_hines_opt,&
-                         & config_check_epsilon   => check_epsilon
+                         & config_check_epsilon   => check_epsilon,    &
+                         & config_testbed_mode    => testbed_mode
 
   USE mo_kind,           ONLY: wp
   USE mo_exception,      ONLY: finish
@@ -113,8 +113,10 @@ MODULE mo_run_nml
 
   INTEGER :: msg_level     ! how much printout is generated during runtime
 
-  INTEGER :: test_gw_hines_opt ! 0=no opt, 1= test 2 =use
   REAL(wp) :: check_epsilon ! small value for checks
+
+  INTEGER :: testbed_mode  ! if =0 then run the standard version, otherwise
+                           ! run using testbed methods
 
   NAMELIST /run_nml/ ldump_states, lrestore_states, &
                      l_one_file_per_patch,          &
@@ -128,7 +130,8 @@ MODULE mo_run_nml
                      nsteps,       dtime,           &
                      ltimer,       timers_level,    &
                      activate_sync_timers,          &
-                     msg_level, check_epsilon, test_gw_hines_opt
+                     msg_level, check_epsilon,      &
+                     testbed_mode
 
 CONTAINS
   !>
@@ -171,7 +174,7 @@ CONTAINS
     activate_sync_timers = .FALSE.
     msg_level    = 10
     check_epsilon=1.e-6_wp
-    test_gw_hines_opt = 0
+    testbed_mode = 0
 
     !------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above 
@@ -251,7 +254,7 @@ CONTAINS
     config_activate_sync_timers = activate_sync_timers
     config_msg_level       = msg_level
     config_check_epsilon   = check_epsilon
-    config_test_gw_hines_opt = test_gw_hines_opt
+    config_testbed_mode    = testbed_mode
     
     !-----------------------------------------------------
     ! Store the namelist for restart

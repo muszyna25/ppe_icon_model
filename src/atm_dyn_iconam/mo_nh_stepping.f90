@@ -59,7 +59,7 @@ MODULE mo_nh_stepping
   USE mo_parallel_config,      ONLY: nproma, itype_comm
   USE mo_run_config,           ONLY: ltestcase, dtime, dtime_adv, nsteps,     &
     &                                ltransport, ntracer, lforcing, iforcing, &
-    &                                msg_level
+    &                                msg_level, testbed_mode
   USE mo_timer,               ONLY: ltimer, timers_level, timer_start, timer_stop, &
     &                               timer_model_init
   USE mo_grid_config,         ONLY: global_cell_type
@@ -103,6 +103,7 @@ MODULE mo_nh_stepping
   USE mo_divergent_modes,     ONLY: divergent_modes_5band
   USE mo_math_operators,      ONLY: div_avg, div
   USE mo_solve_nonhydro,      ONLY: solve_nh
+  USE mo_test_solve_nonhydro, ONLY: test_solve_nh
   USE mo_solve_nh_async,      ONLY: solve_nh_ahc
   USE mo_advection_stepping,  ONLY: step_advection
   USE mo_nh_dtp_interface,    ONLY: prepare_tracer
@@ -1265,9 +1266,14 @@ MODULE mo_nh_stepping
 
           IF (itype_comm <= 2) THEN
 
-            CALL solve_nh(p_nh_state(jg), p_patch(jg), p_int_state(jg), bufr(jg),       &
+            IF (testbed_mode > 0) THEN            
+              CALL test_solve_nh(p_nh_state(jg), p_patch(jg), p_int_state(jg), bufr(jg),  &
                         n_now, n_new, linit_dyn(jg), linit_vertnest, l_bdy_nudge, dt_loc)
-
+            ELSE
+              CALL solve_nh(p_nh_state(jg), p_patch(jg), p_int_state(jg), bufr(jg),       &
+                        n_now, n_new, linit_dyn(jg), linit_vertnest, l_bdy_nudge, dt_loc)
+            ENDIF
+            
           IF (diffusion_config(jg)%lhdiff_vn) &
             CALL diffusion_tria(p_nh_state(jg)%prog(n_new), p_nh_state(jg)%diag,             &
               p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), bufr(jg), dt_loc, .FALSE.)

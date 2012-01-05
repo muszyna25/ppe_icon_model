@@ -72,7 +72,8 @@ MODULE mo_timer
   PUBLIC :: timer_gw_hines_opt
   PUBLIC :: timer_echam_phy
   PUBLIC :: timer_dyn2phy, timer_phy2dyn
-  PUBLIC :: timer_echam_sync_temp,timer_echam_sync_tracers 
+  PUBLIC :: timer_echam_sync_temp,timer_echam_sync_tracers
+  PUBLIC :: timer_nh_hdiffusion
   
   PUBLIC :: timer_update_prog_phy
   PUBLIC :: timer_diagnose_pres_temp
@@ -131,6 +132,7 @@ MODULE mo_timer
   INTEGER :: timer_exch_data, timer_exch_data_rv, timer_exch_data_async
   INTEGER :: timer_global_sum, timer_omp_global_sum, timer_ordglb_sum, timer_omp_ordglb_sum
   INTEGER :: timer_icon_comm_sync
+  INTEGER :: timer_nh_hdiffusion
 
   INTEGER :: timer_solve_nh
   INTEGER :: timer_physics
@@ -229,9 +231,10 @@ CONTAINS
     timer_write_output  = new_timer("wrt_output")
     timer_write_restart_file = new_timer("wrt_restart")
  
-    timer_solve_nh  = new_timer  ("nh_solve")
+    timer_solve_nh    = new_timer  ("nh_solve")
     timer_step_2tl_si = new_timer("2tl_si_solve")
     timer_step_RK     = new_timer("RK_solve")
+    timer_nh_hdiffusion= new_timer("nh_hdiff")
    
     timer_physics   = new_timer("physics")
     timer_echam_phy = new_timer("echam_phy")
