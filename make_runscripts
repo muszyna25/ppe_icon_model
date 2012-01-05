@@ -210,7 +210,7 @@ EOF
 
 $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
   in_script=$restart_script in_script=exp.$name in_script=exec.iconrun EXPNAME="$name"\
-  queue="$queue" cpu_time="01:00:00"
+  mpi_procs=1 queue="$queue" cpu_time="01:00:00"
 
 rm $tmp_file
 
