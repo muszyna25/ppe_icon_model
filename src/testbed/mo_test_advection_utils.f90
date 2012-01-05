@@ -155,7 +155,7 @@ CONTAINS
     
     INTEGER :: downwind_indices(SIZE(p_vn,1),SIZE(p_vn,2)), downwind_index
 
-  !-------------------------------------------------------------------------
+    !-------------------------------------------------------------------------
 
     ! Check for optional arguments
     IF ( PRESENT(opt_slev) ) THEN
@@ -203,10 +203,11 @@ CONTAINS
      CALL get_indices_e(ptr_p, jb, i_startblk, i_endblk,        &
                         i_startidx, i_endidx, i_rlstart, i_rlend)
 
-      DO jk = slev, elev
-        DO je = i_startidx, i_endidx
-
-           downwind_index = downwind_indices(je,jk)
+      DO je = i_startidx, i_endidx
+        
+        downwind_index = downwind_indices(je,jk)
+        
+        DO jk = slev, elev
 !            upwind_index = 3 - downwind_index
           !
           ! Calculate backward trajectories
@@ -234,11 +235,11 @@ CONTAINS
 !             & - MERGE(ptr_int%pos_on_tplane_e(je,jb,1,1:2),       &
 !             &         ptr_int%pos_on_tplane_e(je,jb,2,1:2),lvn_pos)
           ! position of barycenter in normal direction
-           z_ntdistv_bary(1) =  - (p_vn(je,jk,jb) * p_dthalf  &
-            & + ptr_int%pos_on_tplane_e(je,jb,downwind_index,1))
+          z_ntdistv_bary(1) =  - ( p_vn(je,jk,jb) * p_dthalf  &
+            & + ptr_int%pos_on_tplane_e(je,jb,downwind_index,1) )
           ! position of barycenter in tangential direction
-          z_ntdistv_bary(2) =  - p_vt(je,jk,jb) * p_dthalf  &
-            & - ptr_int%pos_on_tplane_e(je,jb,downwind_index,2)
+          z_ntdistv_bary(2) =  - ( p_vt(je,jk,jb) * p_dthalf  &
+            & + ptr_int%pos_on_tplane_e(je,jb,downwind_index,2) )
 
 
           ! In a last step, transform this distance vector into a rotated
