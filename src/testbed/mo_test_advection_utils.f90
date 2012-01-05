@@ -193,7 +193,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,z_ntdistv_bary, &
-!$OMP downwind_indices, downwind_index, upwind_index)
+!$OMP downwind_indices, downwind_index)
 
     DO jb = i_startblk, i_endblk
 
