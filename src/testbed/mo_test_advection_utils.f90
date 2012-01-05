@@ -197,18 +197,26 @@ CONTAINS
 
     DO jb = i_startblk, i_endblk
 
-     ! first find the downwind index
-     downwind_indices(:,:) = MERGE(1,2, p_vn(:,:,jb) >= 0._wp)
-     
-     CALL get_indices_e(ptr_p, jb, i_startblk, i_endblk,        &
+      ! first find the downwind index
+      downwind_indices(:,:) = MERGE(1,2, p_vn(:,:,jb) >= 0._wp)
+          
+      CALL get_indices_e(ptr_p, jb, i_startblk, i_endblk,        &
                         i_startidx, i_endidx, i_rlstart, i_rlend)
-
+                        
+      
+      
       DO je = i_startidx, i_endidx
         
-        downwind_index = downwind_indices(je,jk)
         
         DO jk = slev, elev
+        
+          downwind_index = downwind_indices(je,jk)
 !            upwind_index = 3 - downwind_index
+
+          ! line and block indices of neighbor cell with barycenter
+          p_cell_indices(je, jk, jb, 1) = ptr_p%edges%cell_idx(je,jb,downwind_index)
+          p_cell_indices(je, jk, jb, 2) = ptr_p%edges%cell_blk(je,jb,downwind_index)
+  
           !
           ! Calculate backward trajectories
           !
@@ -225,8 +233,6 @@ CONTAINS
           ! If vn > 0 (vn < 0), the upwind cell is cell 1 (cell 2)
 
           ! line and block indices of neighbor cell with barycenter          
-          p_cell_indices(je,jk,jb,1) = ptr_p%edges%cell_idx(je,jb,downwind_index)
-          p_cell_indices(je,jk,jb,2) = ptr_p%edges%cell_blk(je,jb,downwind_index)
 
           ! Calculate the distance cell center --> barycenter for the cell,
           ! in which the barycenter is located. The distance vector points
