@@ -55,7 +55,7 @@ MODULE mo_nh_stepping
   USE mo_diffusion_config,     ONLY: diffusion_config
   USE mo_dynamics_config,      ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1, nsav2
   USE mo_io_config,            ONLY: l_outputtime, l_diagtime, is_checkpoint_time,&
-    &                                lwrite_pzlev, istime4output
+    &                                lwrite_pzlev, istime4output, no_output
   USE mo_parallel_config,      ONLY: nproma, itype_comm
   USE mo_run_config,           ONLY: ltestcase, dtime, dtime_adv, nsteps,     &
     &                                ltransport, ntracer, lforcing, iforcing, &
@@ -494,13 +494,20 @@ MODULE mo_nh_stepping
       l_diagtime = .TRUE. ! Diagnostic output is written at the end of the time step,
                           ! thus diagnostic quantities need to be computed
     ENDIF
+    
+    IF (no_output) THEN
+      l_outputtime = .FALSE.
+      l_diagtime = .TRUE.
+    ENDIF
 
     l_compute_diagnostic_quants = l_outputtime
     DO jg = 1, n_dom
       l_compute_diagnostic_quants = l_compute_diagnostic_quants .OR. &
         &          meteogram_is_sample_step(meteogram_output_config(jg), jstep)
     END DO
+    !--------------------------------------------------------------------------
 
+    !--------------------------------------------------------------------------
     !
     ! dynamics stepping
     !
