@@ -54,6 +54,7 @@ MODULE mo_timer
   PUBLIC :: timer_exch_data, timer_exch_data_rv, timer_exch_data_async
   PUBLIC :: timer_global_sum, timer_omp_global_sum, timer_ordglb_sum, timer_omp_ordglb_sum
   PUBLIC :: timer_icon_comm_sync  
+  PUBLIC :: timer_barrier  
 
   PUBLIC :: timer_solve_nh
   PUBLIC :: timer_physics
@@ -69,7 +70,6 @@ MODULE mo_timer
   PUBLIC :: timer_cucall
   PUBLIC :: timer_vdiff
   PUBLIC :: timer_gw_hines
-  PUBLIC :: timer_gw_hines_opt
   PUBLIC :: timer_echam_phy
   PUBLIC :: timer_dyn2phy, timer_phy2dyn
   PUBLIC :: timer_echam_sync_temp,timer_echam_sync_tracers
@@ -132,6 +132,7 @@ MODULE mo_timer
   INTEGER :: timer_exch_data, timer_exch_data_rv, timer_exch_data_async
   INTEGER :: timer_global_sum, timer_omp_global_sum, timer_ordglb_sum, timer_omp_ordglb_sum
   INTEGER :: timer_icon_comm_sync
+  INTEGER :: timer_barrier
   INTEGER :: timer_nh_hdiffusion
 
   INTEGER :: timer_solve_nh
@@ -176,7 +177,6 @@ MODULE mo_timer
   INTEGER :: timer_cucall
   INTEGER :: timer_vdiff
   INTEGER :: timer_gw_hines
-  INTEGER :: timer_gw_hines_opt
   INTEGER :: timer_echam_phy
 
   ! Timer ID's for physics-dynamics coupling
@@ -226,6 +226,7 @@ CONTAINS
     timer_ordglb_sum = new_timer("ordglb_sum")
     timer_omp_ordglb_sum = new_timer("omp_ordglb_sum")
     timer_icon_comm_sync = new_timer("icon_comm_sync")
+    timer_barrier  = new_timer("barrier")
       
     timer_coupling      = new_timer("coupling")
     timer_write_output  = new_timer("wrt_output")
@@ -244,7 +245,6 @@ CONTAINS
     timer_dyn_temp  = new_timer("dyn_temp")
     
     timer_gw_hines  = new_timer("gw_hines")
-    timer_gw_hines_opt  = new_timer("gw_hines_opt")
 
     ! dynamics timers
     timer_gmres     = new_timer("gmres")

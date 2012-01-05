@@ -63,7 +63,7 @@ MODULE mo_solve_nonhydro
   USE mo_sync,              ONLY: SYNC_E, SYNC_C, sync_patch_array, sync_patch_array_mult, &
                                   sync_patch_array_gm
   USE mo_mpi,               ONLY: my_process_is_mpi_all_seq, work_mpi_barrier
-  USE mo_timer,             ONLY: timer_solve_nh, timer_start, timer_stop
+  USE mo_timer,             ONLY: timer_solve_nh, timer_barrier, timer_start, timer_stop
 
   IMPLICIT NONE
 
@@ -582,7 +582,12 @@ MODULE mo_solve_nonhydro
     INTEGER,  DIMENSION(:),   POINTER :: iplev, ipeidx, ipeblk
 
     !-------------------------------------------------------------------
-    IF (use_dycore_barrier) CALL work_mpi_barrier()
+    IF (use_dycore_barrier) THEN
+      CALL timer_start(timer_barrier)
+      CALL work_mpi_barrier()
+      CALL timer_stop(timer_barrier)
+    ENDIF
+    !-------------------------------------------------------------------
     
     IF (ltimer) CALL timer_start(timer_solve_nh)
 
