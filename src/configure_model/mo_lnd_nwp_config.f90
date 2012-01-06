@@ -48,7 +48,7 @@ MODULE mo_lnd_nwp_config
 
   IMPLICIT NONE
 
-  PUBLIC :: nlev_soil, nztlev ,nlev_snow ,nsfc_subs
+  PUBLIC :: nlev_soil, nztlev ,nlev_snow ,nsfc_subs, nsfc_snow
   PUBLIC :: lseaice,  llake, lmelt , lmelt_var ,   lmulti_snow 
   PUBLIC :: itype_gscp, itype_trvg ,    itype_evsl, itype_tran 
   PUBLIC :: itype_root, itype_heatcond, itype_hydbound  
@@ -67,6 +67,7 @@ MODULE mo_lnd_nwp_config
   INTEGER ::  nlev_soil, nztlev  ! number of soil layers, time integration scheme
   INTEGER ::  nlev_snow          ! number of snow layers
   INTEGER ::  nsfc_subs          ! number of TILES
+  INTEGER ::  nsfc_snow          ! number of static surface types which can have snow as a tile
   INTEGER ::  itype_gscp         ! type of grid-scale precipitation physics
   INTEGER ::  itype_trvg         ! type of vegetation transpiration parameterization
   INTEGER ::  itype_evsl         ! type of parameterization of bare soil evaporation
