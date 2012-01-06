@@ -497,7 +497,7 @@ MODULE mo_nh_stepping
     
     IF (no_output) THEN
       l_outputtime = .FALSE.
-      l_diagtime = .TRUE.
+      l_diagtime   = .FALSE.
     ENDIF
 
     l_compute_diagnostic_quants = l_outputtime
