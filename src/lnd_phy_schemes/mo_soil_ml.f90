@@ -406,6 +406,8 @@ USE mo_lnd_nwp_config,     ONLY: nztlev, lmelt, lmelt_var, lmulti_snow,  &
   &                              itype_tran, itype_root, itype_heatcond, &
   &                              itype_hydbound, lstomata, l2tls,        &
   &                              lana_rho_snow, itype_subs
+!
+USE mo_nwp_lnd_state,      ONLY: t_tiles
 !                           
 USE mo_exception,          ONLY: message, finish, message_text
 USE mo_run_config,         ONLY: msg_level
@@ -566,8 +568,9 @@ SUBROUTINE terra_multlay (                &
                   pabs         , & !!!! photosynthetic active radiation               ( W/m2)
 ! 
                   runoff_s     , & ! surface water runoff; sum over forecast      (kg/m2)
-                  runoff_g       & ! soil water runoff; sum over forecast         (kg/m2)
+                  runoff_g     , & ! soil water runoff; sum over forecast         (kg/m2)
 !                  ntstep         & ! actual time step
+                  pt_tiles       & ! tiles structure
                                          )
 
 
@@ -690,6 +693,9 @@ IMPLICIT NONE
   REAL    (KIND = ireals), DIMENSION(ie,nsubs1), INTENT(INOUT) :: &
                   runoff_s     , & ! surface water runoff; sum over forecast      (kg/m2)
                   runoff_g         ! soil water runoff; sum over forecast         (kg/m2)
+  TYPE(t_tiles), TARGET,                    INTENT(IN) :: &
+                  pt_tiles(nsubs1)
+
 !!$  REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
 !!$                  rstom            ! stomata resistance                           ( s/m )
 !!$  REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
@@ -1085,7 +1091,8 @@ IMPLICIT NONE
     zrs      (ie)      , & ! total snow rate including formation of rime
     zesoil   (ie)      , & ! evaporation from bare soil
     zrhoch   (ie)      , & ! transfer coefficient*rho*g
-    zf_snow  (ie)      , & ! surface fraction covered by snow
+!em    zf_snow  (ie)      , & ! surface fraction covered by snow
+    zf_snow  (ie,nsubs1)      , & ! surface fraction covered by snow
     zth_low  (ie)      , & ! potential temperature of lowest layer
     zf_wi    (ie)      , & ! surface fraction covered by interception water
     ztmch    (ie)      , & ! heat transfer coefficient*density*velocity
@@ -1493,6 +1500,21 @@ DO ns=nsubs0,nsubs1
         END IF
       END DO
   END DO
+
+!<em subs  
+!w_snow per fraction -> w_snow per unit
+  DO i = istarts, iends
+    IF (llandmask(i,ns)) THEN   ! for land-points only
+      zf_snow  (i, 1) = MAX( 0.01_ireals, MIN(1.0_ireals,w_snow_now(i, 1)/cf_snow) )* &
+                        zsf_heav(w_snow_now(i, 1) - zepsi)                               !true snow fraction
+      zf_snow  (i,ns) = MAX( 0.01_ireals, MIN(1.0_ireals,w_snow_now(i,ns)/cf_snow) )* &
+                        zsf_heav(w_snow_now(i,ns) - zepsi)                               !0 or 1
+      IF(pt_tiles(ns)%snow_tile .OR. pt_tiles(ns)%snowfree_tile) THEN
+        w_snow_now(i,ns) = w_snow_now(i,ns)*zf_snow(i,1)
+      END IF
+    END IF
+  END DO
+!em>
 
   IF (itype_heatcond == 2) THEN
 
@@ -1922,10 +1944,10 @@ DO ns=nsubs0,nsubs1
     DO i = istarts, iends
       IF (llandmask(i,ns)) THEN          ! land-points only
         ! snow and water covered fraction
-        zrss = MAX( 0.01_ireals, MIN(1.0_ireals,zwsnow(i)/cf_snow) ) 
+!em        zrss = MAX( 0.01_ireals, MIN(1.0_ireals,zwsnow(i)/cf_snow) ) 
         zrww = MAX( 0.01_ireals, 1.0_ireals -                           &
                                  EXP(MAX( -5.0_ireals, - zwin(i)/cf_w) ) )
-        zf_snow(i) = zrss*zsf_heav(zwsnow(i) - zepsi)
+!em        zf_snow(i) = zrss*zsf_heav(zwsnow(i) - zepsi)
         zf_wi  (i) = zrww*zsf_heav(zwin  (i) - zepsi)
 
 ! BR 7/2005 prognostic  snow density
@@ -1941,7 +1963,8 @@ DO ns=nsubs0,nsubs1
 
 !       constrain snow depth and consider this constraint for the computation
 !       of average snow density of snow layer
-        zdz_snow (i) =  zdz_snow (i)/MAX(0.01_ireals,zf_snow(i))
+!em        zdz_snow (i) =  zdz_snow (i)/MAX(0.01_ireals,zf_snow(i))
+        zdz_snow (i) =  zdz_snow (i)/MAX(0.01_ireals,zf_snow(i,ns))
         zdz_snow (i) =  MAX(cdsmin,zdz_snow(i))
 
 !       limitation of snow depth to 1.5m for snow cover heat transfer
@@ -1976,7 +1999,8 @@ DO ns=nsubs0,nsubs1
         ! Evaporation of snow, if snow exists (wsnow>0) and if zep_snow<0
         ! indicates potential evaporation for temperature t_snow
         zdwsndt(i) = zsf_heav(-zep_snow(i))  &
-                       * MAX(-zrhwddt*zwsnow(i), zf_snow(i)*zep_snow(i))
+!em                       * MAX(-zrhwddt*zwsnow(i), zf_snow(i)*zep_snow(i))
+                       * MAX(-zrhwddt*zwsnow(i), zf_snow(i,ns)*zep_snow(i))
         ! Formation of dew or rime, if zep_s > 0 . distinction between
         ! dew or rime is only controlled by sign of surface temperature
         ! and not effected by presence of snow !
@@ -2020,7 +2044,8 @@ DO ns=nsubs0,nsubs1
               zfqmax = - rho_w*zck*zd*zsnull(i)/SQRT(znull*z1)
               zevapor= MAX(zep_s(i),zfqmax)
               IF(zw_fr(i,1)+zevapor*(1.0_ireals - zf_wi(i))   &
-                                     *(1.0_ireals - zf_snow(i)) &
+!em                                     *(1.0_ireals - zf_snow(i)) &
+                                     *(1.0_ireals - zf_snow(i,ns)) &
                                      *eai(i,ns)/sai(i,ns)* zdtdrhw/zdzhs(1) &
                                      .LE.zadp(i)) zevapor = 0._ireals
               zbeta  = zevapor/MIN(zep_s(i),-zepsi)
@@ -2031,7 +2056,8 @@ DO ns=nsubs0,nsubs1
             ! consideration of plant or snow/water cover
             zesoil(i) = zevap*zbeta*zep_s(i)       & ! evaporation
                           *(1.0_ireals - zf_wi  (i)) & ! not water covered
-                          *(1.0_ireals - zf_snow(i)) & ! not snow covered
+!em                          *(1.0_ireals - zf_snow(i)) & ! not snow covered
+                          *(1.0_ireals - zf_snow(i,ns)) & ! not snow covered
                           * eai(i,ns)/sai(i,ns) ! relative source surface
                                               ! of the bare soil
 !            lhfl_bs(i) = lh_v * zesoil(i)
@@ -2075,7 +2101,8 @@ DO ns=nsubs0,nsubs1
             ! consideration of plant or snow/water cover
             zesoil(i) = zevap*zbeta*zep_s(i)       & ! evaporation
                           *(1.0_ireals - zf_wi  (i)) & ! not water covered
-                          *(1.0_ireals - zf_snow(i)) & ! not snow covered
+!em                          *(1.0_ireals - zf_snow(i)) & ! not snow covered
+                          *(1.0_ireals - zf_snow(i,ns)) & ! not snow covered
                           * eai(i,ns)/sai(i,ns) ! relative source surface of the bare soil
             
           END IF  ! upwards directed potential evaporation
@@ -2229,7 +2256,8 @@ DO ns=nsubs0,nsubs1
               IF (zep_s(i) < 0.0_ireals) THEN    ! upwards potential evaporation
                 ztrabpf  = ztraleav(i)*                   & ! plant covered part
                            (1.0_ireals - zf_wi(i))*       & ! not water covered
-                           (1.0_ireals - zf_snow(i))        ! not snow covered
+!em                           (1.0_ireals - zf_snow(i))        ! not snow covered
+                           (1.0_ireals - zf_snow(i,ns))        ! not snow covered
 
                 ! for root distribution
                 IF (itype_root == 2) THEN
@@ -2393,7 +2421,8 @@ DO ns=nsubs0,nsubs1
         ! store forcing terms due to evapotranspiration, formation of dew
         ! and rime for later use
         zverbo(i) = zdwidt(i) + zesoil(i) + ztrangs(i) +              &
-                        (1._ireals-zf_snow(i))*(zrr(i) + zrs(i))
+!em                        (1._ireals-zf_snow(i))*(zrr(i) + zrs(i))
+                        (1._ireals-zf_snow(i,ns))*(zrr(i) + zrs(i))
 
         zversn(i) = zdwsndt(i) + zrs(i)                                 &
                                   + zsf_heav (zwsnow(i) - zepsi) * zrr(i)
@@ -2408,19 +2437,13 @@ DO ns=nsubs0,nsubs1
         ENDIF
 
 !em subs
-        IF(ns.eq.2) THEN
-          IF(subsfrac(i,ns+1).gt.0._ireals) THEN
+        IF(pt_tiles(ns)%snowfree_tile) THEN
+          IF(subsfrac(i,pt_tiles(ns)%conjunct).gt.0._ireals) THEN
             IF((1._ireals-ztsnow_pm(i))*zrs(i) > 0.0_ireals) zrs(i) = 0.0_ireals
             IF((1._ireals-ztsnow_pm(i))*zrr(i) > 0.0_ireals) zrr(i) = 0.0_ireals
           END IF
-!        ELSE
-!          IF(subsfrac(i,ns).gt.0._ireals) THEN
-!            IF((1._ireals-ztsnow_pm(i))*zrs(i) > 0.0_ireals) zrs(i) = &
-!              zrs(i)*(subsfrac(i,ns-1)+subsfrac(i,ns))/MAX(subsfrac(i,ns),zepsi)
-!            IF((1._ireals-ztsnow_pm(i))*zrr(i) > 0.0_ireals) zrr(i) = &
-!              zrr(i)*(subsfrac(i,ns-1)+subsfrac(i,ns))/MAX(subsfrac(i,ns),zepsi) 
-!          END IF
         END IF 
+!em>
 
         ! infiltration and surface run-off
 
@@ -2443,7 +2466,8 @@ DO ns=nsubs0,nsubs1
         zinfmx = MIN(zinfmx, (zporv(i) - zw_fr(i,1))*zdzhs(1)*zrhwddt)
 
         ! to avoid infiltration at snow covered parts of soil surface
-        zinfmx = zinfmx*(1._ireals - zf_snow(i))
+!em        zinfmx = zinfmx*(1._ireals - zf_snow(i))
+        zinfmx = zinfmx*(1._ireals - zf_snow(i,ns))
 
         zwimax = cwimax_ml*(1._ireals + plcov(i,ns)*5._ireals)
         zalf   = SQRT(MAX(0.0_ireals,1.0_ireals - zwinstr/zwimax))
@@ -2875,8 +2899,10 @@ DO ns=nsubs0,nsubs1
         ! Estimate thermal surface fluxes over snow covered and snow free
         ! part of surface based on area mean values calculated in radiation
         ! code (positive = downward)
-        zgstr =   sigma*(1._ireals - Ctalb) * ( (1._ireals - zf_snow(i))* &
-                  zts(i) + zf_snow(i)*ztsnow_mult(i,1) )**4 + thbs(i,ns)
+!em        zgstr =   sigma*(1._ireals - Ctalb) * ( (1._ireals - zf_snow(i))* &
+!em                  zts(i) + zf_snow(i)*ztsnow_mult(i,1) )**4 + thbs(i,ns)
+        zgstr =   sigma*(1._ireals - Ctalb) * ( (1._ireals - zf_snow(i,ns))* &
+                  zts(i) + zf_snow(i,ns)*ztsnow_mult(i,1) )**4 + thbs(i,ns)
         zthsnw(i) = - sigma*(1._ireals - Ctalb)*ztsnow_mult(i,1)**4 + zgstr
         zthsoi(i) = - sigma*(1._ireals - Ctalb)*zts(i)**4 + zgstr
         ! the estimation of the solar component would require the availability
@@ -2886,8 +2912,10 @@ DO ns=nsubs0,nsubs1
         ! (evaporation, transpiration, formation of dew and rime are already
         !  weighted by correspondind surface fraction)
         ! net radiation, sensible and latent heat flux
-        zrnet_s(i) = (1._ireals - zf_snow(i))*(sobs(i,ns)+zthsoi(i))
-        zshfl_s(i) = (1._ireals - zf_snow(i))*cp_d*zrhoch(i)*  &
+!em        zrnet_s(i) = (1._ireals - zf_snow(i))*(sobs(i,ns)+zthsoi(i))
+!em        zshfl_s(i) = (1._ireals - zf_snow(i))*cp_d*zrhoch(i)*  &
+        zrnet_s(i) = (1._ireals - zf_snow(i,ns))*(sobs(i,ns)+zthsoi(i))
+        zshfl_s(i) = (1._ireals - zf_snow(i,ns))*cp_d*zrhoch(i)*  &
                                                       (zth_low(i) - zts(i))
         zlhfl_s(i) = (zts_pm(i)*lh_v + (1._ireals-zts_pm(i))*lh_s)*zverbo(i)
         zsprs  (i) = 0.0_ireals
@@ -3103,8 +3131,10 @@ DO ns=nsubs0,nsubs1
 
         ! total forcing for uppermost soil layer
         zfor_s(i) = zrnet_s(i) + zshfl_s(i) + zlhfl_s(i) + zsprs(i)* &
-                           (1._ireals - zf_snow(i))       &
-                         + zf_snow(i) * (1._ireals-ztsnow_pm(i)) * zgsb(i)
+!em                           (1._ireals - zf_snow(i))       &
+!em                         + zf_snow(i) * (1._ireals-ztsnow_pm(i)) * zgsb(i)
+                           (1._ireals - zf_snow(i,ns))       &
+                         + zf_snow(i,ns) * (1._ireals-ztsnow_pm(i)) * zgsb(i)
 
         IF(zwsnew(i) .GT. zepsi) THEN
           zrnet_snow = sobs(i,ns) * (1.0_ireals - EXP(-zextinct(i,1)*zdzm_snow(i,1))) &
@@ -3127,8 +3157,10 @@ DO ns=nsubs0,nsubs1
         ! Estimate thermal surface fluxes over snow covered and snow free
         ! part of surface based on area mean values calculated in radiation
         ! code (positive = downward)
-        zgstr =   sigma*(1._ireals - Ctalb) * ( (1._ireals - zf_snow(i))* &
-                  zts(i) + zf_snow(i)*ztsnow(i) )**4 + thbs(i,ns)
+!em        zgstr =   sigma*(1._ireals - Ctalb) * ( (1._ireals - zf_snow(i))* &
+!em                  zts(i) + zf_snow(i)*ztsnow(i) )**4 + thbs(i,ns)
+        zgstr =   sigma*(1._ireals - Ctalb) * ( (1._ireals - zf_snow(i,ns))* &
+                  zts(i) + zf_snow(i,ns)*ztsnow(i) )**4 + thbs(i,ns)
         zthsnw(i) = - sigma*(1._ireals - Ctalb)*ztsnow(i)**4 + zgstr
         zthsoi(i) = - sigma*(1._ireals - Ctalb)*zts(i)**4 + zgstr
         ! the estimation of the solar component would require the availability
@@ -3138,8 +3170,10 @@ DO ns=nsubs0,nsubs1
         ! (evaporation, transpiration, formation of dew and rime are already
         !  weighted by correspondind surface fraction)
         ! net radiation, sensible and latent heat flux
-        zrnet_s(i) = (1._ireals - zf_snow(i))*(sobs(i,ns)+zthsoi(i))
-        zshfl_s(i) = (1._ireals - zf_snow(i))*cp_d*zrhoch(i)*  &
+!em        zrnet_s(i) = (1._ireals - zf_snow(i))*(sobs(i,ns)+zthsoi(i))
+!em        zshfl_s(i) = (1._ireals - zf_snow(i))*cp_d*zrhoch(i)*  &
+        zrnet_s(i) = (1._ireals - zf_snow(i,ns))*(sobs(i,ns)+zthsoi(i))
+        zshfl_s(i) = (1._ireals - zf_snow(i,ns))*cp_d*zrhoch(i)*  &
                                                       (zth_low(i) - zts(i))
         zlhfl_s(i) = (zts_pm(i)*lh_v + (1._ireals-zts_pm(i))*lh_s)*zverbo(i)
         zsprs  (i) = 0.0_ireals
@@ -3191,7 +3225,8 @@ DO ns=nsubs0,nsubs1
 
         ! total forcing for uppermost soil layer
         zfor_s(i) = zrnet_s(i) + zshfl_s(i) + zlhfl_s(i) + zsprs(i)       &
-                         + zf_snow(i) * (1._ireals-ztsnow_pm(i)) * zgsb(i)
+!em                         + zf_snow(i) * (1._ireals-ztsnow_pm(i)) * zgsb(i)
+                         + zf_snow(i,ns) * (1._ireals-ztsnow_pm(i)) * zgsb(i)
       END IF          ! land-points only
     END DO
 
@@ -3692,7 +3727,8 @@ DO ns=nsubs0,nsubs1
           zcounter(i) = 0.0_ireals
 
           ze_rad(i) = 0.0_ireals
-          IF(zextinct(i,1).gt.0.0_ireals) ze_rad(i) = zf_snow(i) * sobs(i,ns)
+!em          IF(zextinct(i,1).gt.0.0_ireals) ze_rad(i) = zf_snow(i) * sobs(i,ns)
+          IF(zextinct(i,1).gt.0.0_ireals) ze_rad(i) = zf_snow(i,ns) * sobs(i,ns)
 
           ztsnownew_mult(i,0) = ztsnown_mult(i,0)
         END IF         ! land-points only

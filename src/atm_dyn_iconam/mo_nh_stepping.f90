@@ -67,7 +67,7 @@ MODULE mo_nh_stepping
   USE mo_nwp_phy_init,        ONLY: init_nwp_phy
   USE mo_nwp_phy_state,       ONLY: prm_diag, prm_nwp_tend, mean_charlen
   USE mo_lnd_nwp_config,      ONLY: nlev_soil
-  USE mo_nwp_lnd_state,       ONLY: p_lnd_state
+  USE mo_nwp_lnd_state,       ONLY: p_lnd_state, p_tiles
   USE mo_ext_data,            ONLY: ext_data
   USE mo_model_domain,        ONLY: t_patch
   USE mo_model_domain_import, ONLY: n_dom, lfeedback, l_limited_area, &
@@ -313,7 +313,8 @@ MODULE mo_nh_stepping
            & p_lnd_state(jg)%prog_lnd(nnew_rcf(jg)),&
            & p_lnd_state(jg)%diag_lnd              ,&
            & ext_data(jg)                          ,&
-           & mean_charlen(jg), phy_params(jg)       )
+           & mean_charlen(jg), phy_params(jg)      ,&
+           & p_tiles(jg,:)                          )
     ENDDO
   ELSE IF (iforcing == inwp) THEN ! for cold start, use atmospheric fields at time level nnow only
     DO jg=1, n_dom
@@ -329,7 +330,8 @@ MODULE mo_nh_stepping
            & p_lnd_state(jg)%prog_lnd(nnew_rcf(jg)),&
            & p_lnd_state(jg)%diag_lnd              ,&
            & ext_data(jg)                          ,&
-           & mean_charlen(jg), phy_params(jg)       )
+           & mean_charlen(jg), phy_params(jg)      ,& 
+           & p_tiles(jg,:)                          )
     ENDDO
   ENDIF
 
@@ -1206,7 +1208,8 @@ MODULE mo_nh_stepping
             &                  prm_nwp_tend(jg)                ,   &
             &                  p_lnd_state(jg)%diag_lnd,           &
             &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
-            &                  p_lnd_state(jg)%prog_lnd(n_now_rcf) ) !inout
+            &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
+            &                  p_tiles(jg,:)                       ) !in
 
           linit_slowphy(jg) = .FALSE. ! no further initialization calls needed
         ENDIF
@@ -1425,7 +1428,8 @@ MODULE mo_nh_stepping
             &                  prm_nwp_tend(jg),                   &
             &                  p_lnd_state(jg)%diag_lnd,           &
             &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
-            &                  p_lnd_state(jg)%prog_lnd(n_new_rcf) ) !inout
+            &                  p_lnd_state(jg)%prog_lnd(n_new_rcf),& !inout
+            &                  p_tiles(jg,:)                       ) !in
 
         ENDIF !iforcing
 

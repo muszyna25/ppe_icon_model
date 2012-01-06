@@ -42,7 +42,7 @@ MODULE mo_nwp_phy_init
   USE mo_math_utilities,      ONLY: mean_domain_values
   USE mo_model_domain_import, ONLY: nroot   
   USE mo_nwp_phy_state,       ONLY: t_nwp_phy_diag,t_nwp_phy_tend
-  USE mo_nwp_lnd_state,       ONLY: t_lnd_prog, t_lnd_diag  !, t_tiles
+  USE mo_nwp_lnd_state,       ONLY: t_lnd_prog, t_lnd_diag, t_tiles
   USE mo_ext_data,            ONLY: t_external_data, nlev_o3, nmonths
   USE mo_nonhydro_state,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_exception,           ONLY: message, finish,message_text
@@ -120,7 +120,8 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
                        &  prm_diag,prm_nwp_tend,            &
                        &  p_prog_lnd_now, p_prog_lnd_new,   &
                        &  p_diag_lnd,                       &
-                       &  ext_data, mean_charlen, phy_params)
+                       &  ext_data, mean_charlen, phy_params, &
+                       &  p_tiles)
 
   TYPE(t_patch),        TARGET,INTENT(in)    :: p_patch
   TYPE(t_nh_metrics),          INTENT(in)    :: p_metrics
@@ -133,6 +134,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   TYPE(t_lnd_prog),            INTENT(inout) :: p_prog_lnd_now, p_prog_lnd_new
   TYPE(t_lnd_diag),            INTENT(inout) :: p_diag_lnd
   TYPE(t_phy_params),          INTENT(inout) :: phy_params
+  TYPE(t_tiles),               INTENT(inout) :: p_tiles(:)
 
   REAL(wp),INTENT(OUT)::  mean_charlen
   INTEGER             :: jk, jk1, nsmax
@@ -733,7 +735,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
   IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. .NOT. is_restart_run() ) THEN  ! TERRA
     CALL nwp_surface_init(p_patch, ext_data, p_prog_lnd_now,  &
-      &                   p_prog_lnd_new, p_diag_lnd )
+      &                   p_prog_lnd_new, p_diag_lnd, p_tiles)
   END IF
 
 

@@ -66,7 +66,7 @@ MODULE mo_nh_interface_nwp
   USE mo_interpolation,      ONLY: t_int_state
   USE mo_nonhydro_state,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nonhydrostatic_config, ONLY: kstart_moist, l_open_ubc
-  USE mo_nwp_lnd_state,      ONLY: t_lnd_prog, t_lnd_diag!, t_lnd_state
+  USE mo_nwp_lnd_state,      ONLY: t_lnd_prog, t_lnd_diag, t_tiles!, t_lnd_state
   USE mo_ext_data,           ONLY: t_external_data
   USE mo_nwp_phy_state,      ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_parallel_config,    ONLY: nproma, p_test_run
@@ -121,7 +121,8 @@ CONTAINS
                             & pt_prog_now_rcf, pt_prog_rcf,        & !in/inout
                             & pt_diag ,                            & !inout
                             & prm_diag, prm_nwp_tend,lnd_diag,     &
-                            & lnd_prog_now, lnd_prog_new           ) !inout
+                            & lnd_prog_now, lnd_prog_new,          & !inout
+                            & pt_tiles                             ) !in  
 
     !>
     ! !INPUT PARAMETERS:
@@ -157,6 +158,7 @@ CONTAINS
     TYPE(t_nwp_phy_tend),TARGET,INTENT(inout) :: prm_nwp_tend
     TYPE(t_lnd_prog),           INTENT(inout) :: lnd_prog_now, lnd_prog_new
     TYPE(t_lnd_diag),           INTENT(inout) :: lnd_diag
+    TYPE(t_tiles),              INTENT(in   ) :: pt_tiles(:)
 
     ! !OUTPUT PARAMETERS:            !<variables induced by the whole physics
     ! Local array bounds:
@@ -695,7 +697,8 @@ CONTAINS
                             & pt_diag ,                         & !>inout
                             & prm_diag,                         & !>inout 
                             & lnd_prog_now, lnd_prog_new,       & !>inout
-                            & lnd_diag                          ) !>inout
+                            & lnd_diag,                         & !>inout
+                            & pt_tiles                          ) !>input
     ENDIF !lcall(itsfc)
 
     IF (timers_level > 1) CALL timer_stop(timer_fast_phys)
