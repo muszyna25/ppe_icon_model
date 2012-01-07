@@ -64,11 +64,17 @@ MODULE mo_advection_utils
   USE mo_impl_constants,      ONLY: min_rlcell_int, min_rledge_int
   USE mo_math_constants,      ONLY: dbl_eps
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
+  USE mo_timer,               ONLY: timer_start, timer_stop, timers_level, new_timer
 
   IMPLICIT NONE
 
   PRIVATE
 
+  PUBLIC :: laxfr_upflux, laxfr_upflux_v, ptr_delp_mc_now, ptr_delp_mc_new,  &
+    &       back_traj_o1, back_traj_dreg_o1, back_traj_o2,                   &
+    &       prep_gauss_quadrature_q, prep_gauss_quadrature_cpoor,            &
+    &       prep_gauss_quadrature_c
+  
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
 
@@ -81,10 +87,7 @@ MODULE mo_advection_utils
     &  ptr_delp_mc_new(:,:,:) => NULL() !< pointer to new layer thickness
                                         !< at cell center
 
-  PUBLIC :: laxfr_upflux, laxfr_upflux_v, ptr_delp_mc_now, ptr_delp_mc_new,  &
-    &       back_traj_o1, back_traj_dreg_o1, back_traj_o2,                   &
-    &       prep_gauss_quadrature_q, prep_gauss_quadrature_cpoor,            &
-    &       prep_gauss_quadrature_c
+  INTEGER :: timer_back_traj_o1   = 0
 
 CONTAINS
 
@@ -287,6 +290,12 @@ CONTAINS
 
     i_startblk = ptr_p%edges%start_blk(i_rlstart,1)
     i_endblk   = ptr_p%edges%end_blk(i_rlend,i_nchdom)
+    
+    !-------------------------------------------------------------------------
+    IF (timers_level > 5) THEN
+      timer_back_traj_o1 = new_timer("back_traj_o1", timer_back_traj_o1)
+      CALL timer_start(timer_back_traj_o1)
+    ENDIF
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,pos_barycenter,z_ntdistv_bary,lvn_pos)
@@ -353,6 +362,8 @@ CONTAINS
     END DO    ! loop over blocks
 !$OMP END DO
 !$OMP END PARALLEL
+    
+    IF (timers_level > 5) CALL timer_stop(timer_back_traj_o1)
 
   END SUBROUTINE back_traj_o1
 

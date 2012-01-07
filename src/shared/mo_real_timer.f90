@@ -323,11 +323,18 @@ CONTAINS
 
   !---
 
-  INTEGER FUNCTION new_timer(text)
+  INTEGER FUNCTION new_timer(text, timer_id)
     CHARACTER(len=*), INTENT(in), OPTIONAL :: text
+    INTEGER, INTENT(inout), OPTIONAL :: timer_id
 
     INTEGER::jt
 
+    IF (PRESENT(timer_id)) THEN
+      new_timer = timer_id
+      IF (timer_id > 0) RETURN
+    ENDIF
+      
+    
 #ifdef _OPENMP
     IF ( omp_in_parallel() ) &
          CALL real_timer_abort(0,'new_timer called in parallel region')
@@ -335,6 +342,7 @@ CONTAINS
 
     IF (need_init) CALL init
     top_timer = top_timer+1
+
 
     IF (top_timer > timer_max) THEN
        CALL message('new_timer','list of timers:')
@@ -354,6 +362,11 @@ CONTAINS
 !$omp end parallel
 
     new_timer = top_timer
+
+    IF (PRESENT(timer_id)) THEN
+      timer_id = new_timer
+    ENDIF
+    
   END FUNCTION new_timer
 
   !---

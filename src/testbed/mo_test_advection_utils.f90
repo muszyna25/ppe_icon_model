@@ -64,6 +64,7 @@ MODULE mo_test_advection_utils
   USE mo_impl_constants,      ONLY: min_rlcell_int, min_rledge_int
   USE mo_math_constants,      ONLY: dbl_eps
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
+  USE mo_timer,               ONLY: timer_start, timer_stop, timers_level, new_timer
 
   IMPLICIT NONE
 
@@ -83,9 +84,64 @@ MODULE mo_test_advection_utils
 
   PUBLIC :: test_back_traj_o1
 
+  INTEGER :: timer_back_traj_o1   = 0
+  INTEGER :: timer_back_traj_o1_2 = 0
+
+
 CONTAINS
 
 
+  SUBROUTINE test_back_traj_o1( ptr_p, ptr_int, p_vn, p_vt, p_dthalf, p_cell_indices, &
+    &                     p_distv_bary, opt_rlstart, opt_rlend, opt_slev,        &
+    &                     opt_elev )
+    TYPE(t_patch), TARGET, INTENT(in) ::      &  !< patch on which computation is performed
+      &  ptr_p
+
+    TYPE(t_int_state), TARGET, INTENT(in) ::  &  !< pointer to data structure for interpolation
+      &  ptr_int
+
+    REAL(wp), INTENT(IN)    ::  &  !< normal component of velocity vector at edge midpoints
+      &  p_vn(:,:,:)
+
+    REAL(wp), INTENT(IN)    ::  &  !< tangential component of velocity vector at
+      &  p_vt(:,:,:)               !< edge midpoints
+
+    REAL(wp), INTENT(IN)    ::  &  !< $0.5 \Delta t$
+      &  p_dthalf
+
+    REAL(wp), INTENT(OUT)   ::  &  !< distance vectors cell center --> barycenter of
+      &  p_distv_bary(:,:,:,:)     !< departure region. (geographical coordinates)
+                                   !< dim: (nproma,nlev,ptr_p%nblks_e,2)
+
+    INTEGER, INTENT(OUT)    ::  &  !< line and block indices of cell centers in which the
+      &  p_cell_indices(:,:,:,:)   !< calculated barycenters are located.
+                                   !< dim: (nproma,nlev,ptr_p%nblks_e,2)
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
+      &  opt_rlstart
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
+      &  opt_rlend                     !< (to avoid calculation of halo points)
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level
+      &  opt_slev
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
+      &  opt_elev
+
+  
+    CALL test_back_traj_o1_2( ptr_p, ptr_int, p_vn, p_vt, p_dthalf, p_cell_indices, &
+      &   p_distv_bary, opt_rlstart, opt_rlend, opt_slev,        &
+      &   opt_elev )
+    
+    CALL test_back_traj_o1_1( ptr_p, ptr_int, p_vn, p_vt, p_dthalf, p_cell_indices, &
+      &   p_distv_bary, opt_rlstart, opt_rlend, opt_slev,        &
+      &   opt_elev )
+  
+  
+  END SUBROUTINE test_back_traj_o1
+  !-------------------------------------------------------------------------
+  
   !-------------------------------------------------------------------------
   !>
   !! Computation of first order backward trajectories for FFSL transport scheme
@@ -104,7 +160,7 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2010-03-17)
   !!
-  SUBROUTINE test_back_traj_o1( ptr_p, ptr_int, p_vn, p_vt, p_dthalf, p_cell_indices, &
+  SUBROUTINE test_back_traj_o1_1( ptr_p, ptr_int, p_vn, p_vt, p_dthalf, p_cell_indices, &
     &                     p_distv_bary, opt_rlstart, opt_rlend, opt_slev,        &
     &                     opt_elev )
 
@@ -143,6 +199,7 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
       &  opt_elev
 
+    
     REAL(wp) :: z_ntdistv_bary(2)       !< cell center --> barycenter in 'normal' and
                                         !< 'tangential' coordinates.
 
@@ -190,6 +247,12 @@ CONTAINS
 
     i_startblk = ptr_p%edges%start_blk(i_rlstart,1)
     i_endblk   = ptr_p%edges%end_blk(i_rlend,i_nchdom)
+    
+    !-------------------------------------------------------------------------
+    IF (timers_level > 5) THEN
+      timer_back_traj_o1 = new_timer("back_traj_o1", timer_back_traj_o1)
+      CALL timer_start(timer_back_traj_o1)
+    ENDIF
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,z_ntdistv_bary, &
@@ -202,12 +265,9 @@ CONTAINS
           
       CALL get_indices_e(ptr_p, jb, i_startblk, i_endblk,        &
                         i_startidx, i_endidx, i_rlstart, i_rlend)
-                        
-      
-      
+                                    
       DO je = i_startidx, i_endidx
-        
-        
+                
         DO jk = slev, elev
         
           downwind_index = downwind_indices(je,jk)
@@ -231,8 +291,6 @@ CONTAINS
 !           lvn_pos = p_vn(je,jk,jb) >= 0._wp
 
           ! If vn > 0 (vn < 0), the upwind cell is cell 1 (cell 2)
-
-          ! line and block indices of neighbor cell with barycenter          
 
           ! Calculate the distance cell center --> barycenter for the cell,
           ! in which the barycenter is located. The distance vector points
@@ -268,8 +326,200 @@ CONTAINS
     END DO    ! loop over blocks
 !$OMP END DO
 !$OMP END PARALLEL
+    
+    IF (timers_level > 5) CALL timer_stop(timer_back_traj_o1)
 
-  END SUBROUTINE test_back_traj_o1
+  END SUBROUTINE test_back_traj_o1_1
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  ! This is a test with reverse indexing
+  SUBROUTINE test_back_traj_o1_2( ptr_p, ptr_int, p_vn, p_vt, p_dthalf, p_cell_indices, &
+    &                     p_distv_bary, opt_rlstart, opt_rlend, opt_slev,        &
+    &                     opt_elev )
+
+    TYPE(t_patch), TARGET, INTENT(in) ::      &  !< patch on which computation is performed
+      &  ptr_p
+
+    TYPE(t_int_state), TARGET, INTENT(in) ::  &  !< pointer to data structure for interpolation
+      &  ptr_int
+
+    REAL(wp), INTENT(IN)    ::  &  !< normal component of velocity vector at edge midpoints
+      &  p_vn(:,:,:)
+
+    REAL(wp), INTENT(IN)    ::  &  !< tangential component of velocity vector at
+      &  p_vt(:,:,:)               !< edge midpoints
+
+    REAL(wp), INTENT(IN)    ::  &  !< $0.5 \Delta t$
+      &  p_dthalf
+
+    REAL(wp), INTENT(INOUT)   ::  &  !< distance vectors cell center --> barycenter of
+      &  p_distv_bary(:,:,:,:)     !< departure region. (geographical coordinates)
+                                   !< dim: (nproma,nlev,ptr_p%nblks_e,2)
+
+    INTEGER, INTENT(INOUT)    ::  &  !< line and block indices of cell centers in which the
+      &  p_cell_indices(:,:,:,:)   !< calculated barycenters are located.
+                                   !< dim: (nproma,nlev,ptr_p%nblks_e,2)
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
+      &  opt_rlstart
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
+      &  opt_rlend                     !< (to avoid calculation of halo points)
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level
+      &  opt_slev
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
+      &  opt_elev
+
+    REAL(wp) :: z_ntdistv_bary(2)       !< cell center --> barycenter in 'normal' and
+                                        !< 'tangential' coordinates.
+
+    REAL(wp) :: p_vn_rv(SIZE(p_vn,2),SIZE(p_vn,1),SIZE(p_vn,3))
+    REAL(wp) :: p_vt_rv(SIZE(p_vn,2),SIZE(p_vt,1),SIZE(p_vt,3))
+    REAL(wp) :: pos_on_tplane_e_rv(2,2,SIZE(p_vn,1),SIZE(p_vn,3) ) ! dim(2,2,nproma,blocks)
+    
+    INTEGER  :: p_cell_indices_rv(SIZE(p_cell_indices,4),SIZE(p_cell_indices,2),&
+      & SIZE(p_cell_indices,1),SIZE(p_cell_indices,3)) ! dim: (2, nlev, nproma,blks)
+      
+    REAL(wp):: p_distv_bary_rv(SIZE(p_distv_bary,4), SIZE(p_distv_bary,2), &
+      & SIZE(p_distv_bary,1), SIZE(p_distv_bary,3)) !< dim: (2, nlev, nproma,nblks)
+            
+!     REAL(wp):: ptr_int%pos_on_tplane_e(je,jb,downwind_index,1) )
+      
+    INTEGER :: je, jk, jb        !< index of edge, vert level, block
+    INTEGER :: nlev              !< number of full levels
+    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+    INTEGER :: i_rlstart, i_rlend, i_nchdom
+    INTEGER :: slev, elev        !< vertical start and end level
+    LOGICAL :: lvn_pos
+    
+    INTEGER :: downwind_indices(SIZE(p_vn,2),SIZE(p_vn,1)), downwind_index
+
+    !-------------------------------------------------------------------------
+    ! reshape arrays
+!$OMP PARALLEL DO PRIVATE(jb,jk,je)
+    DO jb = 1, SIZE(p_vn,3)
+      DO je = 1, SIZE(p_vn,1)
+        pos_on_tplane_e_rv(1,1,je,jb) = ptr_int%pos_on_tplane_e(je,jb,1,1)
+        pos_on_tplane_e_rv(2,1,je,jb) = ptr_int%pos_on_tplane_e(je,jb,1,2)
+        pos_on_tplane_e_rv(1,2,je,jb) = ptr_int%pos_on_tplane_e(je,jb,2,1)
+        pos_on_tplane_e_rv(2,2,je,jb) = ptr_int%pos_on_tplane_e(je,jb,2,2)
+        
+        DO jk = 1, SIZE(p_vn,2)
+          p_vn_rv(jk,je,jb) = p_vn(je,jk,jb)
+          p_vt_rv(jk,je,jb) = p_vt(je,jk,jb)          
+        ENDDO
+        
+      ENDDO
+    ENDDO
+!$OMP END PARALLEL DO
+    
+    !-------------------------------------------------------------------------
+    ! Check for optional arguments
+    IF ( PRESENT(opt_slev) ) THEN
+      slev = opt_slev
+    ELSE
+      slev = 1
+    END IF
+
+    IF ( PRESENT(opt_elev) ) THEN
+      elev = opt_elev
+    ELSE
+      elev = ptr_p%nlev
+    END IF
+
+    IF ( PRESENT(opt_rlstart) ) THEN
+      i_rlstart = opt_rlstart
+    ELSE
+      i_rlstart = 4
+    ENDIF
+
+    IF ( PRESENT(opt_rlend) ) THEN
+      i_rlend = opt_rlend
+    ELSE
+      i_rlend = min_rledge_int - 2
+    ENDIF
+
+    ! number of vertical levels
+    nlev   = ptr_p%nlev
+
+    ! number of child domains
+    i_nchdom   = MAX(1,ptr_p%n_childdom)
+
+    i_startblk = ptr_p%edges%start_blk(i_rlstart,1)
+    i_endblk   = ptr_p%edges%end_blk(i_rlend,i_nchdom)
+
+    !-------------------------------------------------------------------------
+
+    !-------------------------------------------------------------------------
+    IF (timers_level > 5) THEN
+      timer_back_traj_o1_2 = new_timer("back_traj_2", timer_back_traj_o1_2)
+      CALL timer_start(timer_back_traj_o1_2)
+    ENDIF
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,z_ntdistv_bary, &
+!$OMP downwind_indices, downwind_index)
+
+    DO jb = i_startblk, i_endblk
+
+      ! first find the downwind index
+      downwind_indices(:,:) = MERGE(1,2, p_vn_rv(:,:,jb) >= 0._wp)
+          
+      CALL get_indices_e(ptr_p, jb, i_startblk, i_endblk,        &
+                        i_startidx, i_endidx, i_rlstart, i_rlend)
+                                    
+      DO je = i_startidx, i_endidx
+                
+        DO jk = slev, elev
+        
+          downwind_index = downwind_indices(jk,je)
+!            upwind_index = 3 - downwind_index
+
+          ! line and block indices of neighbor cell with barycenter
+          p_cell_indices_rv(1, jk, je, jb) = ptr_p%edges%cell_idx(je,jb,downwind_index)
+          p_cell_indices_rv(2, jk, je, jb) = ptr_p%edges%cell_idx(je,jb,downwind_index)
+  
+          !
+          ! Calculate backward trajectories
+          !
+
+          ! position of barycenter in normal direction
+          z_ntdistv_bary(1) =  - ( p_vn_rv(jk, je, jb) * p_dthalf  &
+            & + pos_on_tplane_e_rv(1,downwind_index, je,jb) )
+          ! position of barycenter in tangential direction
+          z_ntdistv_bary(2) =  - ( p_vt_rv(jk, je, jb) * p_dthalf  &
+            & + pos_on_tplane_e_rv(2,downwind_index, je,jb) )
+
+
+          ! In a last step, transform this distance vector into a rotated
+          ! geographical coordinate system with its origin at the circumcenter
+          ! of the upstream cell. Coordinate axes point to local East and local
+          ! North.
+
+          ! component in longitudinal direction
+          p_distv_bary_rv(1, jk, je, jb ) =                                       &
+            &   z_ntdistv_bary(1) * ptr_p%edges%primal_normal_cell(je,jb,downwind_index)%v1 &
+            & + z_ntdistv_bary(2) * ptr_p%edges%dual_normal_cell(je,jb,downwind_index)%v1
+
+          ! component in latitudinal direction
+          p_distv_bary_rv(2, jk, je, jb) =                                         &
+            &   z_ntdistv_bary(1) * ptr_p%edges%primal_normal_cell(je,jb,downwind_index)%v2 &
+            & + z_ntdistv_bary(2) * ptr_p%edges%dual_normal_cell(je,jb,downwind_index)%v2
+
+        ENDDO ! loop over edges
+      ENDDO   ! loop over vertical levels
+    END DO    ! loop over blocks
+!$OMP END DO
+!$OMP END PARALLEL
+
+    IF (timers_level > 5) CALL timer_stop(timer_back_traj_o1_2)
+    
+  END SUBROUTINE test_back_traj_o1_2
+  !-------------------------------------------------------------------------
+
 
 
 
