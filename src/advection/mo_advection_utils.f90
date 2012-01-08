@@ -244,8 +244,7 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
       &  opt_elev
 
-    REAL(wp) :: pos_barycenter(2),  &   !< position of barycenter and distance vector
-      &         z_ntdistv_bary(2)       !< cell center --> barycenter in 'normal' and
+    REAL(wp) :: z_ntdistv_bary(2)       !< cell center --> barycenter in 'normal' and
                                         !< 'tangential' coordinates.
 
     INTEGER :: je, jk, jb        !< index of edge, vert level, block
@@ -298,7 +297,7 @@ CONTAINS
     ENDIF
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,pos_barycenter,z_ntdistv_bary,lvn_pos)
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,z_ntdistv_bary,lvn_pos)
     DO jb = i_startblk, i_endblk
 
      CALL get_indices_e(ptr_p, jb, i_startblk, i_endblk,        &
@@ -312,10 +311,10 @@ CONTAINS
           !
 
           ! position of barycenter in normal direction
-          pos_barycenter(1) = - p_vn(je,jk,jb) * p_dthalf
+          ! pos_barycenter(1) = - p_vn(je,jk,jb) * p_dthalf
 
           ! position of barycenter in tangential direction
-          pos_barycenter(2) = - p_vt(je,jk,jb) * p_dthalf
+          ! pos_barycenter(2) = - p_vt(je,jk,jb) * p_dthalf
 
           ! logical auxiliary for MERGE operations: .TRUE. for vn >= 0
           lvn_pos = p_vn(je,jk,jb) >= 0._wp
@@ -333,10 +332,13 @@ CONTAINS
           ! Calculate the distance cell center --> barycenter for the cell,
           ! in which the barycenter is located. The distance vector points
           ! from the cell center to the barycenter.
-          z_ntdistv_bary(1:2) = pos_barycenter(1:2)               &
-            & - MERGE(ptr_int%pos_on_tplane_e(je,jb,1,1:2),       &
-            &         ptr_int%pos_on_tplane_e(je,jb,2,1:2),lvn_pos)
+          z_ntdistv_bary(1) =  - ( p_vn(je,jk,jb) * p_dthalf     &
+            & + MERGE(ptr_int%pos_on_tplane_e(je,jb,1,1),        &
+            &         ptr_int%pos_on_tplane_e(je,jb,2,1),lvn_pos))
 
+          z_ntdistv_bary(2) =  - ( p_vt(je,jk,jb) * p_dthalf     &
+            & + MERGE(ptr_int%pos_on_tplane_e(je,jb,1,2),        &
+            &         ptr_int%pos_on_tplane_e(je,jb,2,2),lvn_pos))
 
           ! In a last step, transform this distance vector into a rotated
           ! geographical coordinate system with its origin at the circumcenter
