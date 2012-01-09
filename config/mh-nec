@@ -19,7 +19,7 @@ URDEPTHS = -D_URD=10 -D_URD2=10
 ###################################################################################
  
 config_target=sx9
-load_modules="sxf90/rev430" "sxcc/rev091" "crosskit/r181"
+load_modules="sxf90/rev441" "sxcc/rev092" "crosskit/r181"
 load_profile="." "/etc/profile.d/modules.sh"
 make_command="make"
 mpi_startrun="mpirun" "-nn" "\\\$no_of_nodes" -nnp "\\\$mpi_procs"
