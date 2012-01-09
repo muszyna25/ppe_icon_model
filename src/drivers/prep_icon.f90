@@ -116,6 +116,9 @@ USE mo_nh_vert_interp,        ONLY: vertical_interpolation,                     
 USE mo_extpar_config,         ONLY: itopo
 USE mo_master_nml,            ONLY: lrestart
 
+#ifdef __INTEL_COMPILER
+USE, INTRINSIC :: ieee_arithmetic
+#endif
 !-------------------------------------------------------------------------
 
 IMPLICIT NONE
@@ -156,7 +159,8 @@ IMPLICIT NONE
 
 #ifdef __INTEL_COMPILER
   ! Important on Intel: disable underflow exceptions:
-  CALL disable_ufl_exception
+!  CALL disable_ufl_exception
+  CALL ieee_set_halting_mode(ieee_underflow, .FALSE.)
 #endif
 
     !-------------------------------------------------------------------

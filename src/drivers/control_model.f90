@@ -62,6 +62,10 @@ PROGRAM control_model
     & get_my_namelist_filename, get_my_process_type,      &
     & testbed_process,  atmo_process, ocean_process, radiation_process
 
+#ifdef __INTEL_COMPILER
+  USE, INTRINSIC :: ieee_arithmetic
+#endif
+
   IMPLICIT NONE
 
   INTEGER    :: master_control_status
@@ -98,7 +102,8 @@ PROGRAM control_model
 
 #ifdef __INTEL_COMPILER
   ! Important on Intel: disable underflow exceptions:
-  CALL disable_ufl_exception
+  ! CALL disable_ufl_exception
+  CALL ieee_set_halting_mode(ieee_underflow, .FALSE.)
 #endif
 
   !-------------------------------------------------------------------
