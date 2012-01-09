@@ -68,6 +68,12 @@ Note: At the end of this script, volumetric soil water layer fields (SWVL1-4) ar
 3. IFS2ICON script
 ------------------
 
+For general info on IFS2ICON command line parameters simply type
+
+   ./ifs2icon.rb -h
+
+
+
 3.1 Precomputation of weights
 -----------------------------
 
@@ -81,7 +87,7 @@ MUST USE /e/uhome/extrmuel/local/bin/cdo  !!!
 (Check version, at least 1.5.3, with ".../cdo -V"
 
 Execute 
- >    /e/uhome/extrmuel/local/bin/cdo -P 8 gencon,/e/uhome/gzaengl/icon-1.0.6_RESTRUCT/experiments/GRF_R2B6N8_EUR2/iconR2B06_DOM01.nc ifs_T255_2011010100_new.grb cell_weight_ifs255_R2B06.nc
+ >    /e/uhome/extrmuel/local/bin/cdo -P 8 gencon,<input_file.nc> <input_file_ifs.grb> cell_weight.nc
 before first application of IFS2ICON script!
 
 Perform this on lxt, see also Redmine Features #1712 (performance issues).
