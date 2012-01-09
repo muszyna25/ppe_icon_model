@@ -59,8 +59,12 @@ MODULE mo_sea_ice
     &                               cpa, emiss,fr_fac,rgas, stefbol,tmelt   
   USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
   USE mo_ocean_nml,           ONLY: no_tracer, init_oce_prog, iforc_oce, FORCING_FROM_FILE_FLUX
-  USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base
+  USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base, ocean_var_list
   USE mo_oce_index,           ONLY: print_mxmn, ipl_src
+  USE mo_var_list,            ONLY: add_var
+  USE mo_cf_convention
+  USE mo_grib2
+  USE mo_cdi_constants
 
   IMPLICIT NONE
 
@@ -200,10 +204,10 @@ MODULE mo_sea_ice
   ! The description of the sea-ice state, defined on cell-centers
   ! dimension: (nproma, nblks_c)
 
-    LOGICAL, ALLOCATABLE :: &
+    LOGICAL, POINTER :: &
       &  isice(:,:,:)    ! Logical field that marks ice-covered grid cells
     
-    REAL(wp), ALLOCATABLE :: &
+    REAL(wp), POINTER :: &
       & alb(:,:,:)         ,   & ! Albedo of snow-ice system
       & Tsurf(:,:,:)       ,   & ! Surface temperature                           [C]
       & T1 (:,:,:)         ,   & ! Temperature upper layer                       [C]
@@ -223,7 +227,7 @@ MODULE mo_sea_ice
       & evapwi(:,:,:)      ,   & ! amount of evaporated water if no ice left     [kg/m2]
       & conc(:,:,:)              ! ice concentration in each ice class           
                                                                                
-    REAL(wp), ALLOCATABLE :: &
+    REAL(wp), POINTER :: &
       & u(:,:)          ,      & ! Zonal velocity                                [m/s]
       & v(:,:)          ,      & ! Meridional velocity                           [m/s]
       & concSum(:,:)    ,      & ! Total ice concentration within a grid cell        
@@ -272,155 +276,137 @@ CONTAINS
       CALL finish(TRIM(routine),'allocation for isice failed')
     END IF
 
-    ALLOCATE(p_ice%alb(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for alb failed')
-    END IF
+    CALL add_var(ocean_var_list, 'alb', p_ice%alb ,&
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          t_cf_var('alb', '', 'albedo of snow-ice system'),&
+      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/))
+    CALL add_var(ocean_var_list, 'Tsurf', p_ice%Tsurf ,&
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          t_cf_var('Tsurf', '', 'surface temperature'),&
+      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/))
+    CALL add_var(ocean_var_list, 'T1', p_ice%T1 ,&
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          t_cf_var('T1', 'C', 'Temperature upper layer'),&
+      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/))
+    CALL add_var(ocean_var_list, 'T2', p_ice%T2 ,&
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          t_cf_var('T2', 'C', 'Temperature lower layer'),&
+      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/))
+    CALL add_var(ocean_var_list, 'E1', p_ice%E1 ,&
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          t_cf_var('E1', 'Jm/kg', 'Energy content upper layer'),&
+      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/))
+    CALL add_var(ocean_var_list, 'E2', p_ice%E2 ,&
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          t_cf_var('E2', 'Jm/kg', 'Energy content upper layer'),&
+      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/))
+    CALL add_var(ocean_var_list, 'hi', p_ice%hi ,&
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          t_cf_var('hi', '', 'ice thickness'),&
+      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/))
+    CALL add_var(ocean_var_list, 'hs', p_ice%hs ,&
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          t_cf_var('hs', '', 'snow thickness'),&
+      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/))
+    CALL add_var(ocean_var_list, 'hiold', p_ice%hiold ,&
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          t_cf_var('hiold', '', 'ice thickness (last timstep)'),&
+      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/))
+    CALL add_var(ocean_var_list, 'hsold', p_ice%hsold ,&
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          t_cf_var('hsold', '', 'snow thickness (last timstep)'),&
+      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/))
 
-    ALLOCATE(p_ice%Tsurf(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for Tsurf failed')
-    END IF
+    CALL add_var(ocean_var_list, 'Qtop', p_ice%Qtop ,&
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          t_cf_var('Qtop', '', 'snow thickness (last timstep)'),&
+      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/))
+    CALL add_var(ocean_var_list, 'Qbot', p_ice%Qbot ,&
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          t_cf_var('Qbot', '', 'snow thickness (last timstep)'),&
+      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/))
 
-    ALLOCATE(p_ice%T1(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for T1 failed')
-    END IF
+    CALL add_var(ocean_var_list, 'heatocei', p_ice%heatocei ,&
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          t_cf_var('heatocei', '', 'snow thickness (last timstep)'),&
+      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/))
+    CALL add_var(ocean_var_list, 'snow_to_ice', p_ice%snow_to_ice ,&
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          t_cf_var('snow_to_ice', '', 'snow thickness (last timstep)'),&
+      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/))
 
-    ALLOCATE(p_ice%T2(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for T2 failed')
-    END IF
+    CALL add_var(ocean_var_list, 'surfmelt', p_ice%surfmelt ,&
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          t_cf_var('surfmelt', '', 'snow thickness (last timstep)'),&
+      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/))
+    CALL add_var(ocean_var_list, 'surfmeltT', p_ice%surfmeltT ,&
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          t_cf_var('surfmeltT', '', 'snow thickness (last timstep)'),&
+      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/))
 
-    ALLOCATE(p_ice%E1(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for E1 failed')
-    END IF
 
-    ALLOCATE(p_ice%E2(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for E2 failed')
-    END IF
+    CALL add_var(ocean_var_list, 'evapwi', p_ice%evapwi ,&
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          t_cf_var('evapwi', '', 'snow thickness (last timstep)'),&
+      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/))
 
-    ALLOCATE(p_ice%hi(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for hi failed')
-    END IF
+    CALL add_var(ocean_var_list, 'conc', p_ice%conc ,&
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          t_cf_var('conc', '', 'snow thickness (last timstep)'),&
+      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/))
 
-    ALLOCATE(p_ice%hs(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for hs failed')
-    END IF
-
-    ALLOCATE(p_ice%hiold(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for hiold failed')
-    END IF
-
-    ALLOCATE(p_ice%hsold(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for hsold failed')
-    END IF
-
-    ALLOCATE(p_ice%Qtop(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for Qtop failed')
-    END IF
-
-    ALLOCATE(p_ice%Qbot(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for Qbot failed')
-    END IF
-
-    ALLOCATE(p_ice%heatocei(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for heatocei failed')
-    END IF
-
-    ALLOCATE(p_ice%snow_to_ice(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for snow_to_ice failed')
-    END IF
-
-    ALLOCATE(p_ice%surfmelt(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for surfmelt failed')
-    END IF
-
-    ALLOCATE(p_ice%surfmeltT(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for surfmeltT failed')
-    END IF
-
-    ALLOCATE(p_ice%evapwi(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for evapwi failed')
-    END IF
-
-    ALLOCATE(p_ice%conc(nproma,i_no_ice_thick_class,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for conc failed')
-    END IF
-
-    ALLOCATE(p_ice%u(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for u failed')
-    END IF
+    CALL add_var(ocean_var_list, 'ice_u', p_ice%u ,&
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          t_cf_var('ice_u', '', 'snow thickness (last timstep)'),&
+      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,nblks_c/))
+    CALL add_var(ocean_var_list, 'ice_v', p_ice%v ,&
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          t_cf_var('ice_v', '', 'snow thickness (last timstep)'),&
+      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,nblks_c/))
       
-    ALLOCATE(p_ice%v(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for v failed')
-    END IF
+    CALL add_var(ocean_var_list, 'concSum', p_ice%concSum ,&
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          t_cf_var('concSum', '', 'snow thickness (last timstep)'),&
+      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,nblks_c/))
 
-    ALLOCATE(p_ice%concSum(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for concSum failed')
-    END IF
+    CALL add_var(ocean_var_list, 'newice', p_ice%newice ,&
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          t_cf_var('newice', '', 'snow thickness (last timstep)'),&
+      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,nblks_c/))
 
-    ALLOCATE(p_ice%newice(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for newice failed')
-    END IF
-
-    ALLOCATE(p_ice%zUnderIce(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for zUnderIce failed')
-    END IF
+    CALL add_var(ocean_var_list, 'zUnderIce', p_ice%zUnderIce ,&
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, &
+      &          t_cf_var('zUnderIce', '', 'snow thickness (last timstep)'),&
+      &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
+      &          ldims=(/nproma,nblks_c/))
 
     ALLOCATE(p_ice%hi_lim(i_no_ice_thick_class), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for hi_lim failed')
     END IF
 
-    p_ice%alb        = 0.0_wp       
-    p_ice%Tsurf      = 0.0_wp       
-    p_ice%T1         = 0.0_wp        
-    p_ice%T2         = 0.0_wp      
-    p_ice%E1         = 0.0_wp        
-    p_ice%E2         = 0.0_wp          
-    p_ice%hi         = 0.0_wp          
-    p_ice%hs         = 0.0_wp        
-    p_ice%hiold      = 0.0_wp     
-    p_ice%hsold      = 0.0_wp       
-    p_ice%Qtop       = 0.0_wp       
-    p_ice%Qbot       = 0.0_wp       
-    p_ice%heatocei   = 0.0_wp    
-    p_ice%snow_to_ice= 0.0_wp  
-    p_ice%surfmelt   = 0.0_wp    
-    p_ice%surfmeltT  = 0.0_wp   
-    p_ice%evapwi     = 0.0_wp      
-    p_ice%conc       = 0.0_wp         
-   
-    p_ice%snow_to_ice= 0.0_wp 
-    p_ice%surfmelt   = 0.0_wp 
-    p_ice%surfmeltT  = 0.0_wp 
-    p_ice%evapwi     = 0.0_wp 
-    p_ice%conc       = 0.0_wp 
-    p_ice%u          = 0.0_wp 
-    p_ice%v          = 0.0_wp 
-    p_ice%concSum    = 0.0_wp 
-    p_ice%newice     = 0.0_wp 
-    p_ice%zUnderIce  = 0.0_wp 
 
     IF(p_ice%kice==1)THEN
       p_ice%hi_lim = 0.0_wp
@@ -446,119 +432,10 @@ CONTAINS
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_sea_ice:destruct_sea_ice'
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'start' )
-    DEALLOCATE(p_ice%alb, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for alb failed')
-    END IF
 
-    DEALLOCATE(p_ice%Tsurf, STAT=ist)
+    DEALLOCATE(p_ice%hi_lim, STAT=ist)
     IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for Tsurf failed')
-    END IF
-
-    DEALLOCATE(p_ice%T1, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for T1 failed')
-    END IF
-
-    DEALLOCATE(p_ice%T2, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for T2 failed')
-    END IF
-
-    DEALLOCATE(p_ice%E1, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for E1 failed')
-    END IF
-
-    DEALLOCATE(p_ice%E2, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for E2 failed')
-    END IF
-
-    DEALLOCATE(p_ice%hi, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for hi failed')
-    END IF
-
-    DEALLOCATE(p_ice%hs, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for hs failed')
-    END IF
-
-    DEALLOCATE(p_ice%hiold, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for hiold failed')
-    END IF
-
-    DEALLOCATE(p_ice%hsold, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for hsold failed')
-    END IF
-
-    DEALLOCATE(p_ice%Qtop, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for Qtop failed')
-    END IF
-
-    DEALLOCATE(p_ice%Qbot, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for Qbot failed')
-    END IF
-
-    DEALLOCATE(p_ice%heatocei, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for heatocei failed')
-    END IF
-
-    DEALLOCATE(p_ice%snow_to_ice, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for snow_to_ice failed')
-    END IF
-
-    DEALLOCATE(p_ice%surfmelt, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for surfmelt failed')
-    END IF
-
-    DEALLOCATE(p_ice%surfmeltT, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for surfmeltT failed')
-    END IF
-
-    DEALLOCATE(p_ice%evapwi, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for evapwi failed')
-    END IF
-
-    DEALLOCATE(p_ice%conc, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for conc failed')
-    END IF
-
-    DEALLOCATE(p_ice%u, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for u failed')
-    END IF
-      
-    DEALLOCATE(p_ice%v, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'adellocation for v failed')
-    END IF
-
-    DEALLOCATE(p_ice%concSum, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for concSum failed')
-    END IF
-
-    DEALLOCATE(p_ice%newice, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for newice failed')
-    END IF
-
-    DEALLOCATE(p_ice%zUnderIce, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for zUnderIce failed')
+      CALL finish(TRIM(routine),'deallocation for hi_lim failed')
     END IF
 
     CALL message(TRIM(routine), 'end' )
