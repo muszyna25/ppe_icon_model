@@ -32,8 +32,10 @@ MODULE mo_io_restart
   USE mo_mpi,                   ONLY: my_process_is_stdio
   !
   IMPLICIT NONE
-  !
+  !  
   PRIVATE
+  
+  INCLUDE 'netcdf.inc'
   !
   PUBLIC :: set_restart_time
   PUBLIC :: set_restart_vct, set_restart_depth
@@ -1339,7 +1341,7 @@ CONTAINS
     REAL(wp), POINTER :: rptr2d(:,:)
     REAL(wp), POINTER :: rptr3d(:,:,:)
     !
-    INTEGER :: string_length
+    INTEGER :: string_length, ncid
     
     write(0,*) "read_restart_files, nvar_lists=", nvar_lists
     abbreviations(1:nvar_lists)%key = 0
@@ -1357,7 +1359,7 @@ CONTAINS
     ENDDO for_all_model_types
 ! --------------------------------------------------------------
     nfiles = n-1
-    write(0,*) 'nfiles=', nfiles
+!     write(0,*) 'nfiles=', nfiles
     !
 !    CALL message('--','--')
 !     CALL message('--',separator)
@@ -1382,19 +1384,24 @@ CONTAINS
 
       string_length=LEN_TRIM(restart_filename)
       name = TRIM(restart_filename)//CHAR(0)
-      write(0,*) "streamOpenRead ", TRIM(restart_filename)      
+      ! check if the netcdf open works
+      write(0,*) "nf_open ", TRIM(restart_filename)
+      CALL nf(nf_open(TRIM(restart_filename), nf_nowrite, ncid))
+      CALL nf(nf_close(ncid))
+      
+      write(0,*) "streamOpenRead ", TRIM(restart_filename)
       fileID  = streamOpenRead(name)
       write(0,*) "fileID=",fileID
       vlistID = streamInqVlist(fileID)
-      write(0,*) "vlistID=",vlistID
+!       write(0,*) "vlistID=",vlistID
       
       taxisID = vlistInqTaxis(vlistID)
-      write(0,*) "taxisID=",taxisID
+!       write(0,*) "taxisID=",taxisID
       !
       idate = taxisInqVdate(taxisID)
-      write(0,*) "idate=",idate
+!       write(0,*) "idate=",idate
       itime = taxisInqVtime(taxisID)
-      write(0,*) "itime=",itime
+!       write(0,*) "itime=",itime
       !
       WRITE(message_text,'(a,i8.8,a,i6.6,a,a)') &
            'Read restart for : ', idate, 'T', itime, 'Z from ',TRIM(restart_filename)
@@ -1496,5 +1503,16 @@ CONTAINS
     CALL message('','')
     !
   END SUBROUTINE read_restart_files
-  !
+  !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
+  SUBROUTINE nf(STATUS)
+    INTEGER, INTENT(in) :: STATUS
+
+    IF (STATUS /= nf_noerr) THEN
+      CALL finish('mo_io_grid netCDF error', nf_strerror(STATUS))
+    ENDIF
+
+  END SUBROUTINE nf
+  !-------------------------------------------------------------------------
 END MODULE mo_io_restart
