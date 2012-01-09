@@ -72,7 +72,7 @@ MODULE mo_io_restart
   END type t_v_grid
   !
   INTEGER, SAVE :: nv_grids = 0 
-  TYPE(t_v_grid) :: vgrid_def(9)
+  TYPE(t_v_grid) :: vgrid_def(10)
   !
   TYPE t_t_axis
     INTEGER :: type
@@ -86,6 +86,7 @@ MODULE mo_io_restart
   REAL(wp), ALLOCATABLE :: private_depth_full(:),  private_depth_half(:)
   REAL(wp), ALLOCATABLE :: private_depth_lnd_full(:),  private_depth_lnd_half(:)
   REAL(wp), ALLOCATABLE :: private_height_full(:),  private_height_half(:)
+  REAL(wp), ALLOCATABLE :: private_generic_level(:)
   !
   LOGICAL, SAVE :: lvct_initialised = .FALSE. 
   LOGICAL, SAVE :: ldepth_initialised = .FALSE. 
@@ -349,6 +350,7 @@ CONTAINS
     ! define vertical grids 
     !
     CALL set_vertical_grid(ZAXIS_SURFACE,     1)
+    CALL set_vertical_grid(ZAXIS_GENERIC,     1)
     CALL set_vertical_grid(ZAXIS_HYBRID,      nlev)
     CALL set_vertical_grid(ZAXIS_HYBRID_HALF, nlev+1)
     CALL set_vertical_grid(ZAXIS_DEPTH_BELOW_SEA, ndepth)
@@ -579,6 +581,14 @@ CONTAINS
             levels(1) = 0.0_wp
             CALL zaxisDefLevels(var_lists(i)%p%cdiSurfZaxisID, levels)
             DEALLOCATE(levels)
+          CASE (ZAXIS_GENERIC)
+            write(0,*)'ZAXIS_GENERIC '
+            var_lists(i)%p%cdiGenericZaxisID = zaxisCreate(ZAXIS_GENERIC, &
+                 &                                         vgrid_def(ivg)%nlevels)
+            ALLOCATE(levels(1))
+            levels(1) = 0.0_wp
+            CALL zaxisDefLevels(var_lists(i)%p%cdiGenericZaxisID, levels)
+            DEALLOCATE(levels)
           CASE (ZAXIS_HYBRID)
             IF (.NOT. lvct_initialised) CYCLE
             var_lists(i)%p%cdiFullZaxisID = zaxisCreate(ZAXIS_HYBRID, vgrid_def(ivg)%nlevels)
@@ -602,7 +612,6 @@ CONTAINS
             nlevp1 = vgrid_def(ivg)%nlevels
             CALL zaxisDefVct(var_lists(i)%p%cdiHalfZaxisID, 2*nlevp1, private_vct(1:2*nlevp1))
           CASE (ZAXIS_DEPTH_BELOW_SEA)
-          ! WRITE(0,*)'we are in zaxis_depth_elow_sea', ZAXIS_DEPTH_BELOW_SEA,  ldepth_initialised
             IF (.NOT. ldepth_initialised) CYCLE
             IF (SIZE(private_depth_full) == vgrid_def(ivg)%nlevels) THEN
               var_lists(i)%p%cdiDepthFullZaxisID = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, &
@@ -618,8 +627,6 @@ CONTAINS
               CALL finish('open_writing_restart_files','Number of depth levels not available.')
             ENDIF
           CASE (ZAXIS_DEPTH_BELOW_LAND)
-          ! WRITE(0,*)'we are in zaxis_depth_below_land', &
-          !    &  ZAXIS_DEPTH_BELOW_LAND,  ldepth_lnd_initialised
             IF (.NOT. ldepth_lnd_initialised) CYCLE
             IF (SIZE(private_depth_lnd_full) == vgrid_def(ivg)%nlevels) THEN
               var_lists(i)%p%cdiDepthFullZaxisID = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, &
@@ -635,22 +642,17 @@ CONTAINS
               CALL finish('open_writing_restart_files','Number of lnd depth levels not available.')
             ENDIF
           CASE (ZAXIS_HEIGHT)
-          ! WRITE(0,*)'we are in zaxis_height', ZAXIS_HEIGHT,  lheight_initialised
             IF (.NOT. lheight_initialised) CYCLE
             IF (SIZE(private_height_full) == vgrid_def(ivg)%nlevels) THEN
               var_lists(i)%p%cdiHeightFullZaxisID = zaxisCreate(ZAXIS_HEIGHT, &
                    &                                            vgrid_def(ivg)%nlevels)
-          !   WRITE(0,*)'we are in zaxis_full height',var_lists(i)%p%cdiHeightFullZaxisID 
               CALL zaxisDefLevels(var_lists(i)%p%cdiHeightFullZaxisID, &
                    &              private_height_full)
-          !   WRITE(0,*)'we are in zaxis_full height', private_height_full
             ELSE IF (SIZE(private_height_half) == vgrid_def(ivg)%nlevels) THEN
               var_lists(i)%p%cdiHeightHalfZaxisID = zaxisCreate(ZAXIS_HEIGHT, &
                    &                                            vgrid_def(ivg)%nlevels)
               CALL zaxisDefLevels(var_lists(i)%p%cdiHeightHalfZaxisID, &
                    &              private_height_half)
-          !   WRITE(0,*)'we are in zaxis_half height', &
-          !      & var_lists(i)%p%cdiHeightHalfZaxisID,private_height_half
             ELSE
               CALL finish('open_writing_restart_files','Number of height levels not available.')
             ENDIF
@@ -686,9 +688,9 @@ CONTAINS
           CALL finish('open_output_streams', 'different file types for the same restart file')
         ENDIF
         !
-        IF (var_lists(i)%p%model_type == var_lists(j)%p%model_type) THEN 
+        IF (var_lists(i)%p%model_type == var_lists(j)%p%model_type) THEN
           var_lists(j)%p%restart_opened = .TRUE.
-          var_lists(j)%p%filename = var_lists(i)%p%filename          
+          var_lists(j)%p%filename = var_lists(i)%p%filename
           !
           ! set file IDs of all associated restart files
           !
@@ -697,13 +699,14 @@ CONTAINS
           var_lists(j)%p%cdiCellGridID        = var_lists(i)%p%cdiCellGridID
           var_lists(j)%p%cdiVertGridID        = var_lists(i)%p%cdiVertGridID
           var_lists(j)%p%cdiEdgeGridID        = var_lists(i)%p%cdiEdgeGridID
-          var_lists(j)%p%cdiSurfZaxisID       = var_lists(i)%p%cdiSurfZaxisID 
-          var_lists(j)%p%cdiFullZaxisID       = var_lists(i)%p%cdiFullZaxisID 
-          var_lists(j)%p%cdiHalfZaxisID       = var_lists(i)%p%cdiHalfZaxisID 
-          var_lists(j)%p%cdiDepthFullZaxisID  = var_lists(i)%p%cdiDepthFullZaxisID 
-          var_lists(j)%p%cdiDepthHalfZaxisID  = var_lists(i)%p%cdiDepthHalfZaxisID 
-          var_lists(j)%p%cdiHeightFullZaxisID = var_lists(i)%p%cdiHeightFullZaxisID 
-          var_lists(j)%p%cdiHeightHalfZaxisID = var_lists(i)%p%cdiHeightHalfZaxisID 
+          var_lists(j)%p%cdiSurfZaxisID       = var_lists(i)%p%cdiSurfZaxisID
+          var_lists(j)%p%cdiGenericZaxisID    = var_lists(i)%p%cdiGenericZaxisID
+          var_lists(j)%p%cdiFullZaxisID       = var_lists(i)%p%cdiFullZaxisID
+          var_lists(j)%p%cdiHalfZaxisID       = var_lists(i)%p%cdiHalfZaxisID
+          var_lists(j)%p%cdiDepthFullZaxisID  = var_lists(i)%p%cdiDepthFullZaxisID
+          var_lists(j)%p%cdiDepthHalfZaxisID  = var_lists(i)%p%cdiDepthHalfZaxisID
+          var_lists(j)%p%cdiHeightFullZaxisID = var_lists(i)%p%cdiHeightFullZaxisID
+          var_lists(j)%p%cdiHeightHalfZaxisID = var_lists(i)%p%cdiHeightHalfZaxisID
           var_lists(j)%p%cdiTaxisID           = var_lists(i)%p%cdiTaxisID
           !
           ! add variables to already existing cdi vlists
@@ -719,13 +722,13 @@ CONTAINS
           ENDIF
         ENDIF
       ENDDO
-      !      
+      !
       IF (my_process_is_stdio() .AND. var_lists(i)%p%first) THEN
         CALL streamDefVlist(var_lists(i)%p%cdiFileID_restart, var_lists(i)%p%cdiVlistID)
       ENDIF
       !
     END DO
-    !    
+    !
     CALL message('','')
     !
   END SUBROUTINE open_writing_restart_files
@@ -816,6 +819,9 @@ CONTAINS
       SELECT CASE (info%vgrid)
       CASE (ZAXIS_SURFACE)
         info%cdiZaxisID =  this_list%p%cdiSurfZaxisID
+        zaxisID = info%cdiZaxisID
+      CASE (ZAXIS_GENERIC)
+        info%cdiZaxisID =  this_list%p%cdiGenericZaxisID
         zaxisID = info%cdiZaxisID
       CASE (ZAXIS_HYBRID)
         info%cdiZaxisID =  this_list%p%cdiFullZaxisID
@@ -1247,6 +1253,8 @@ CONTAINS
         CALL gridDestroy(var_lists(i)%p%cdiEdgeGridID)
         IF (var_lists(i)%p%cdiSurfZaxisID /= CDI_UNDEFID) &
              CALL zaxisDestroy(var_lists(i)%p%cdiSurfZaxisID)
+        IF (var_lists(i)%p%cdiGenericZaxisID /= CDI_UNDEFID) &
+             CALL zaxisDestroy(var_lists(i)%p%cdiGenericZaxisID)
         IF (var_lists(i)%p%cdiFullZaxisID /= CDI_UNDEFID) &
              CALL zaxisDestroy(var_lists(i)%p%cdiFullZaxisID)
         IF (var_lists(i)%p%cdiHalfZaxisID /= CDI_UNDEFID) &
@@ -1265,6 +1273,7 @@ CONTAINS
         var_lists(i)%p%cdiVertGridID        = CDI_UNDEFID
         var_lists(i)%p%cdiEdgeGridID        = CDI_UNDEFID
         var_lists(i)%p%cdiSurfZaxisID       = CDI_UNDEFID
+        var_lists(i)%p%cdiGenericZaxisID    = CDI_UNDEFID
         var_lists(i)%p%cdiHalfZaxisID       = CDI_UNDEFID
         var_lists(i)%p%cdiFullZaxisID       = CDI_UNDEFID
         var_lists(i)%p%cdiDepthHalfZaxisID  = CDI_UNDEFID

@@ -277,121 +277,121 @@ CONTAINS
     END IF
 
     CALL add_var(ocean_var_list, 'alb', p_ice%alb ,&
-      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
       &          t_cf_var('alb', '', 'albedo of snow-ice system'),&
       &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/))
     CALL add_var(ocean_var_list, 'Tsurf', p_ice%Tsurf ,&
-      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
       &          t_cf_var('Tsurf', '', 'surface temperature'),&
       &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/))
     CALL add_var(ocean_var_list, 'T1', p_ice%T1 ,&
-      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
       &          t_cf_var('T1', 'C', 'Temperature upper layer'),&
       &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/))
     CALL add_var(ocean_var_list, 'T2', p_ice%T2 ,&
-      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
       &          t_cf_var('T2', 'C', 'Temperature lower layer'),&
       &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/))
     CALL add_var(ocean_var_list, 'E1', p_ice%E1 ,&
-      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
       &          t_cf_var('E1', 'Jm/kg', 'Energy content upper layer'),&
       &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/))
     CALL add_var(ocean_var_list, 'E2', p_ice%E2 ,&
-      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
       &          t_cf_var('E2', 'Jm/kg', 'Energy content upper layer'),&
       &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/))
     CALL add_var(ocean_var_list, 'hi', p_ice%hi ,&
-      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
       &          t_cf_var('hi', '', 'ice thickness'),&
       &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/))
     CALL add_var(ocean_var_list, 'hs', p_ice%hs ,&
-      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
       &          t_cf_var('hs', '', 'snow thickness'),&
       &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/))
     CALL add_var(ocean_var_list, 'hiold', p_ice%hiold ,&
-      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
       &          t_cf_var('hiold', '', 'ice thickness (last timstep)'),&
       &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/))
     CALL add_var(ocean_var_list, 'hsold', p_ice%hsold ,&
-      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
       &          t_cf_var('hsold', '', 'snow thickness (last timstep)'),&
       &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/))
 
     CALL add_var(ocean_var_list, 'Qtop', p_ice%Qtop ,&
-      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
       &          t_cf_var('Qtop', '', 'snow thickness (last timstep)'),&
       &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/))
     CALL add_var(ocean_var_list, 'Qbot', p_ice%Qbot ,&
-      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
       &          t_cf_var('Qbot', '', 'snow thickness (last timstep)'),&
       &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/))
 
     CALL add_var(ocean_var_list, 'heatocei', p_ice%heatocei ,&
-      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
       &          t_cf_var('heatocei', '', 'snow thickness (last timstep)'),&
       &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/))
     CALL add_var(ocean_var_list, 'snow_to_ice', p_ice%snow_to_ice ,&
-      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
       &          t_cf_var('snow_to_ice', '', 'snow thickness (last timstep)'),&
       &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/))
 
     CALL add_var(ocean_var_list, 'surfmelt', p_ice%surfmelt ,&
-      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
       &          t_cf_var('surfmelt', '', 'snow thickness (last timstep)'),&
       &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/))
     CALL add_var(ocean_var_list, 'surfmeltT', p_ice%surfmeltT ,&
-      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
       &          t_cf_var('surfmeltT', '', 'snow thickness (last timstep)'),&
       &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/))
 
 
     CALL add_var(ocean_var_list, 'evapwi', p_ice%evapwi ,&
-      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
       &          t_cf_var('evapwi', '', 'snow thickness (last timstep)'),&
       &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/))
 
     CALL add_var(ocean_var_list, 'conc', p_ice%conc ,&
-      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
       &          t_cf_var('conc', '', 'snow thickness (last timstep)'),&
       &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,nblks_c/))
 
     CALL add_var(ocean_var_list, 'ice_u', p_ice%u ,&
-      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
       &          t_cf_var('ice_u', '', 'snow thickness (last timstep)'),&
       &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,nblks_c/))
     CALL add_var(ocean_var_list, 'ice_v', p_ice%v ,&
-      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
       &          t_cf_var('ice_v', '', 'snow thickness (last timstep)'),&
       &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,nblks_c/))
       
     CALL add_var(ocean_var_list, 'concSum', p_ice%concSum ,&
-      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
       &          t_cf_var('concSum', '', 'snow thickness (last timstep)'),&
       &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,nblks_c/))
 
     CALL add_var(ocean_var_list, 'newice', p_ice%newice ,&
-      &          GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_SEA, &
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC, &
       &          t_cf_var('newice', '', 'snow thickness (last timstep)'),&
       &          t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,nblks_c/))

@@ -75,6 +75,7 @@ MODULE mo_linked_list
     INTEGER                       :: cdiEdgeGridID
     !
     INTEGER                       :: cdiSurfZaxisID
+    INTEGER                       :: cdiGenericZaxisID
     INTEGER                       :: cdiHalfZaxisID
     INTEGER                       :: cdiFullZaxisID
     INTEGER                       :: cdiDepthHalfZaxisID
@@ -143,6 +144,7 @@ CONTAINS
     this_list%p%cdiEdgeGridID      = -1
     !
     this_list%p%cdiSurfZaxisID      = -1
+    this_list%p%cdiGenericZaxisID   = -1
     this_list%p%cdiHalfZaxisID      = -1
     this_list%p%cdiFullZaxisID      = -1
     this_list%p%cdiDepthFullZaxisID = -1
