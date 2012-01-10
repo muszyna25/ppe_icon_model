@@ -46,6 +46,7 @@ TEXT_RUN_OK="OK"
 use_exp_list="false"
 build_post_file="true"
 RUN_POST=""
+RUN_POST_COMP=""
 
 #==============================================================================
 #
@@ -96,9 +97,15 @@ warning_on_error()
     else
       printf '%-50s : %s\n' $2 ${TEXT_RUN_OK} >> ../${LOOP_STATUS_FILE}
       if [ "${build_post_file}" == "true" ]
-      then 
-        RUN_POST="${RUN_POST} post.`echo $2 | cut -d '.' -f2`.run"
+      then
+        name="`echo $2 | cut -d '.' -f2`"
+        RUN_POST="${RUN_POST} post.${name}.run"
         echo "${RUN_POST}" > ./run_post_list
+        
+        RUN_POST_COMP="${RUN_POST_COMP} post.${name}_compare-restart.run"
+        if [  -a ./run/${RUN_POST_COMP} ] ; then
+          echo "${RUN_POST_COMP}" > ./run_post_comp_list
+        fi
       fi
     fi
 }
@@ -513,7 +520,9 @@ then
 
   rm -f ${LOOP_STATUS_FILE}
   rm -f ./run/run_post_list
+  rm -f ./run/run_post_comp_list
   touch ./run/run_post_list
+  touch ./run/run_post_comp_list
 
   stop_check="warning_on_error"
   build_post_file="true"
@@ -587,6 +596,11 @@ then
     cd run
     EXP_FILES=`ls post.test_*.run`
     cd ..
+  fi
+  if [  -a ./run/run_post_comp_list ]
+  then 
+    echo "Use special file ./run/run_post_comp_list for post-script run"
+    EXP_FILES="${EXP_FILES} `cat ./run/run_post_comp_list`"
   fi
 
   run_scripts run

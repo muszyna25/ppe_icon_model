@@ -1,0 +1,20 @@
+#=============================================================================
+# compare the restart files
+#
+# requires the definofiont of the following variables
+# restart_1, restart_2, diff_file
+#
+cd $ICON_BASE_PATH/run
+#restart_1="../experiments/test_hat_jww/restart.iconR2B04-grid_20080911T000000Z_atm.nc"
+#restart_2="../experiments/test_hat_jww_restart/restart.iconR2B04-grid_20080911T000000Z_atm.nc"
+#diff_file="test_hat_restart.diff"
+${cdo_diff} $restart_1 $restart_2 > $diff_file
+grep " 0 of .* records" $diff_file
+return_status=$?
+if [ $return_status != 0 ] ; then
+  cat $diff_file
+fi
+
+check_error $return_status "restart differs"
+exit $STATUS
+#-------------------------------------------------------------------

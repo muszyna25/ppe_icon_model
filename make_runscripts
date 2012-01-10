@@ -147,6 +147,24 @@ fi
 
 
 #==============================================================================
+# Create the postprocessing scripts
+#
+# NOTE: The postprocessing scripts are all sequential, so we define:
+#    with_mpi="no" with_openmp="no"
+#==============================================================================
+cd $input_folder
+file_list=`ls post.*`
+cd $base_folder
+for filename in $file_list
+do
+  if [[ $filename != *.run && $filename != *~ &&  $filename != *.status ]] ; then
+    $make_runscript in_folder=$input_folder in_script=${filename} out_script=${filename}.run\
+    with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00"
+  fi
+done
+
+
+#==============================================================================
 # special treatment for test_hat_jww-moist_cld-cnv-vdf
 # this includes the restart in the test_hat_jww-moist_cld-cnv-vdf_restart
 #
@@ -172,6 +190,16 @@ $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconr
 
 rm $tmp_file
 
+# postprocessing for comparing the restarts
+restart_1="../experiments/${name}/restart.iconR2B04-grid_20080903T000000Z_atm.nc"
+restart_2="../experiments/${name}_restart/restart.iconR2B04-grid_20080903T000000Z_atm.nc"
+out_file=${name}_restart.diff
+$make_runscript in_folder=$input_folder in_script=post.compare_restarts out_script=post.${name}_compare-restart.run\
+  with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00" \
+  restart_1="$restart_1" restart_2="$restart_2"  diff_file=${name}_restart.diff
+
+
+
 #==============================================================================
 # special treatment for test_hat_jww
 # this includes the restart in the test_hat_jww_restart
@@ -191,6 +219,14 @@ $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconr
   queue="$use_queue" cpu_time="01:00:00"
 
 rm $tmp_file
+
+# postprocessing for comparing the restarts
+restart_1="../experiments/${name}/restart.iconR2B04-grid_20080911T000000Z_atm.nc"
+restart_2="../experiments/${name}_restart/restart.iconR2B04-grid_20080911T000000Z_atm.nc"
+out_file=${name}_restart.diff
+$make_runscript in_folder=$input_folder in_script=post.compare_restarts out_script=post.${name}_compare-restart.run\
+  with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00" \
+  restart_1="$restart_1" restart_2="$restart_2"  diff_file=${name}_restart.diff
 
 #==============================================================================
 # special treatment for exp.test_hom_lsm
@@ -214,23 +250,14 @@ $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconr
 
 rm $tmp_file
 
+# postprocessing for comparing the restarts
+restart_1="../experiments/${name}/restart.iconR2B04-ocean_etopo40_planet_20000102T000000Z_oce.nc"
+restart_2="../experiments/${name}_restart/restart.iconR2B04-ocean_etopo40_planet_20000102T000000Z_oce.nc"
+out_file=${name}_restart.diff
+$make_runscript in_folder=$input_folder in_script=post.compare_restarts out_script=post.${name}_compare-restart.run\
+  with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00" \
+  restart_1="$restart_1" restart_2="$restart_2"  diff_file=${name}_restart.diff
 
-#==============================================================================
-# Create the postprocessing scripts
-#
-# NOTE: The postprocessing scripts are all sequential, so we define:
-#    with_mpi="no" with_openmp="no"
-#==============================================================================
-cd $input_folder
-file_list=`ls post.*`
-cd $base_folder
-for filename in $file_list
-do
-  if [[ $filename != *.run && $filename != *~ &&  $filename != *.status ]] ; then
-    $make_runscript in_folder=$input_folder in_script=${filename} out_script=${filename}.run\
-    with_mpi="no" with_openmp="no" queue="$use_queue" cpu_time="01:00:00"
-  fi
-done
 
 
 echo "-----------------------------------------------------------"
