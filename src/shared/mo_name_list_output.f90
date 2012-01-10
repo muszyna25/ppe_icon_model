@@ -1165,6 +1165,7 @@ ENDIF
 
     INTEGER :: k, nlev, nlevp1, nplev, nzlev, nzlevp1, znlev_soil, i_dom
     INTEGER :: ll_dim(2)
+    INTEGER :: gridtype
     REAL(wp), ALLOCATABLE :: levels(:), levels_i(:), levels_m(:), p_lonlat(:)
 
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/setup_output_vlist'
@@ -1174,6 +1175,15 @@ ENDIF
     ! since it is enough if only the output PE does the read (and not all)
 
     IF(of%name_list%map_file /= ' ') CALL read_map_file(of, of%name_list%map_file)
+
+
+    IF (of%output_type == FILETYPE_GRB2) THEN
+      ! since the current CDI-version does not fully support "GRID_UNSTRUCTURED", the 
+      ! grid type is changed to "GRID_REFERENCE".
+      gridtype = GRID_REFERENCE
+    ELSE
+      gridtype = GRID_UNSTRUCTURED
+    ENDIF
 
     i_dom = of%phys_patch_id
 
@@ -1241,7 +1251,7 @@ ENDIF
     ELSE
       ! Cells
 
-      of%cdiCellGridID = gridCreate(GRID_UNSTRUCTURED, patch_info(i_dom)%cells%n_glb)
+      of%cdiCellGridID = gridCreate(gridtype, patch_info(i_dom)%cells%n_glb)
       CALL gridDefNvertex(of%cdiCellGridID, global_cell_type)
       !
       CALL gridDefXname(of%cdiCellGridID, 'clon')
@@ -1254,7 +1264,7 @@ ENDIF
 
       ! Verts
 
-      of%cdiVertGridID = gridCreate(GRID_UNSTRUCTURED, patch_info(i_dom)%verts%n_glb)
+      of%cdiVertGridID = gridCreate(gridtype, patch_info(i_dom)%verts%n_glb)
       CALL gridDefNvertex(of%cdiVertGridID, 9-global_cell_type)
       !
       CALL gridDefXname(of%cdiVertGridID, 'vlon')
@@ -1267,7 +1277,7 @@ ENDIF
 
       ! Edges
 
-      of%cdiEdgeGridID = gridCreate(GRID_UNSTRUCTURED, patch_info(i_dom)%edges%n_glb)
+      of%cdiEdgeGridID = gridCreate(gridtype, patch_info(i_dom)%edges%n_glb)
       CALL gridDefNvertex(of%cdiEdgeGridID, 4)
       !
       CALL gridDefXname(of%cdiEdgeGridID, 'elon')
