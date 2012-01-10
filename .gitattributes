@@ -1311,7 +1311,6 @@ src/testcases/mo_sv_test.f90 -text
 src/testcases/mo_sw_test.f90 -text
 support/cdilib.c -text
 support/cfortran.h -text
-support/disable_ufl_exception.c -text
 support/rtc_sx.s -text
 support/util_backtrace.c -text
 support/util_backtrace.c_luis -text
