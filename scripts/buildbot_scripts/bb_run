@@ -101,9 +101,10 @@ warning_on_error()
         name="`echo $2 | cut -d '.' -f2`"
         RUN_POST="${RUN_POST} post.${name}.run"
         echo "${RUN_POST}" > ./run_post_list
-        
-        RUN_POST_COMP="${RUN_POST_COMP} post.${name}_compare-restart.run"
-        if [  -a ./${RUN_POST_COMP} ] ; then
+
+        compare_run="post.${name}_compare-restart.run"
+        if [  -a ./${compare_run} ] ; then
+          RUN_POST_COMP="${RUN_POST_COMP} $compare_run"
           echo "${RUN_POST_COMP}" > ./run_post_comp_list
         fi
       fi
