@@ -102,24 +102,25 @@ CONTAINS
     
     !in
     INTEGER(KIND=jpim),INTENT(in) :: kidia, kfdia
-    INTEGER(KIND=jpim),INTENT(in) :: klon              ! horizontal dimension
-    INTEGER(KIND=jpim),INTENT(in) :: klev              ! vertical levels
-    INTEGER(KIND=jpim),INTENT(in) :: klaunch           ! launch level
-    REAL(KIND=jprb),INTENT(in) :: ptstep               !model time step
-    REAL(KIND=jprb),INTENT(in) :: pum1(klon,klev)      !full model level zonal velocity (t-dt)
-    REAL(KIND=jprb),INTENT(in) :: pvm1(klon,klev)      !full model level meridional velocity (t-dt)
-    REAL(KIND=jprb),INTENT(in) :: ptm1(klon,klev)      !full model level temperature (t-dt)
-    REAL(KIND=jprb),INTENT(in) :: papm1(klon,klev)     !full model level pressure (t-dt)
-    REAL(KIND=jprb),INTENT(in) :: paphm1(klon,klev+1)  !half-model level pressure (t-dt)
-    REAL(KIND=jprb),INTENT(in) :: pgeo1(klon,klev)     !full model level geopotential
-    REAL(KIND=jprb),INTENT(in) :: pgelat(klon)         !latitude
-    REAL(KIND=jprb),INTENT(in) :: pprecip(klon)        !total surface precipitation
+    INTEGER(KIND=jpim),INTENT(in) :: klon         ! horizontal dimension
+    INTEGER(KIND=jpim),INTENT(in) :: klev         ! vertical levels
+    INTEGER(KIND=jpim),INTENT(in) :: klaunch      ! launch level
+    REAL(KIND=jprb),INTENT(in) :: ptstep      !model time step
+    ! GZ passed arrays changed to assumed shape in order to avoid copy-in/out
+    REAL(KIND=jprb),INTENT(in) :: pum1(:,:)   ! (klon,klev)   full model level zonal velocity (t-dt)
+    REAL(KIND=jprb),INTENT(in) :: pvm1(:,:)   ! (klon,klev)   full model level meridional velocity (t-dt)
+    REAL(KIND=jprb),INTENT(in) :: ptm1(:,:)   ! (klon,klev)   full model level temperature (t-dt)
+    REAL(KIND=jprb),INTENT(in) :: papm1(:,:)  ! (klon,klev)   full model level pressure (t-dt)
+    REAL(KIND=jprb),INTENT(in) :: paphm1(:,:) ! (klon,klev+1) half-model level pressure (t-dt)
+    REAL(KIND=jprb),INTENT(in) :: pgeo1(:,:)  ! (klon,klev)   full model level geopotential
+    REAL(KIND=jprb),INTENT(in) :: pgelat(:)   ! (klon)        latitude
+    REAL(KIND=jprb),INTENT(in) :: pprecip(:)  ! (klon)        total surface precipitation
     
     !inout
-    REAL(KIND=jprb),INTENT(out):: ptenu(klon,klev)     !full-model level zonal momentum tendency
-    REAL(KIND=jprb),INTENT(out):: ptenv(klon,klev)     !full-model level meridional momentum tendency
-    REAL(KIND=jprb),INTENT(out):: pfluxu(klon,klev+1)  != zonal component of vertical momentum flux (Pa)
-    REAL(KIND=jprb),INTENT(out):: pfluxv(klon,klev+1)  != meridional component of vertical momentum flux (Pa)
+    REAL(KIND=jprb),INTENT(out):: ptenu(:,:)  ! (klon,klev)   full-model level zonal momentum tendency
+    REAL(KIND=jprb),INTENT(out):: ptenv(:,:)  ! (klon,klev)   full-model level meridional momentum tendency
+    REAL(KIND=jprb),INTENT(out):: pfluxu(:,:) ! (klon,klev+1) zonal component of vertical momentum flux (Pa)
+    REAL(KIND=jprb),INTENT(out):: pfluxv(:,:) ! (klon,klev+1) meridional component of vertical momentum flux (Pa)
     !work
     INTEGER(KIND=jpim), PARAMETER :: iazidim=4      !number of azimuths
     INTEGER(KIND=jpim), PARAMETER :: incdim=20      !number of discretized c spectral elements in launch spectrum

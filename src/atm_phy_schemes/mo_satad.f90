@@ -157,22 +157,22 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
        tol                 ! Desired abs. accuracy in K of the adjusted temperature
 
 #ifdef __COSMO__
-  REAL    (KIND=ireals),    INTENT (IN),  DIMENSION(idim,kdim) ::  &
+  REAL    (KIND=ireals),    INTENT (IN),  DIMENSION(:,:) ::  &  !  dim (idim,kdim)
        p0e      , & ! Reference pressure
        qle      , & ! Liquid hydrometeors which are not affected by saturation adj.
                     ! (i.e., rain drops)
        qie          ! Solid hydrometeors (sum of qi, qs, qg and, if present, qh)
-  REAL    (KIND=ireals),    INTENT (INOUT), DIMENSION(idim,kdim) ::  &
+  REAL    (KIND=ireals),    INTENT (INOUT), DIMENSION(:,:) ::  &  !  dim (idim,kdim)
        ppe          ! Pressure deviation from reference pressure needed in COSMO
 #endif
 
-  REAL    (KIND=ireals),    INTENT (INOUT), DIMENSION(idim,kdim) ::  &
+  REAL    (KIND=ireals),    INTENT (INOUT), DIMENSION(:,:) ::  &  !  dim (idim,kdim)
        te      , & ! Temperature on input/ouput
        qve     , & ! Specific humidity on input/output
        qce         ! Specific cloud water content on input/output
 
 #ifdef __ICON__
-  REAL    (KIND=ireals),    INTENT (IN),  DIMENSION(idim,kdim) ::  &
+  REAL    (KIND=ireals),    INTENT (IN),  DIMENSION(:,:) ::  &  !  dim (idim,kdim)
        rhotot    ! density containing dry air and water constituents
 #endif
 
