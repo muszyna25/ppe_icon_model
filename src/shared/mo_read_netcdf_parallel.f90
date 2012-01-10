@@ -60,7 +60,7 @@ PRIVATE
 
 INCLUDE 'netcdf.inc'
 
-INTEGER, PARAMETER :: nf_read = 1
+INTEGER, PARAMETER :: nf_read = NF_NOWRITE
 
 CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
