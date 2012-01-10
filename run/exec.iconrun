@@ -197,22 +197,31 @@ fi
 
 #-----------------------------------------------------------------------------
 
+cd ${EXPDIR}
+
 #-----------------------------------------------------------------------------
 # get restart files
-if  [ x$restart_from_folder != "x" ] ; then
-  cp ${ICONDIR}/experiments/${restart_from_folder}/restart.info      ${EXPDIR}/restart.info
-  ln -s ${ICONDIR}/experiments/${restart_from_folder}/restart_atm.nc ${EXPDIR}/restart_atm.nc
-  ln -s ${ICONDIR}/experiments/${restart_from_folder}/restart_oce.nc ${EXPDIR}/restart_oce.nc
-  restart=".true."
-fi
+# try copying instead of linking
+#
+#if  [ x$restart_from_folder != "x" ] ; then
+#  cp ${ICONDIR}/experiments/${restart_from_folder}/restart.info      ${EXPDIR}/restart.info
+#  ln -s ${ICONDIR}/experiments/${restart_from_folder}/restart_atm.nc ${EXPDIR}/restart_atm.nc
+#  ln -s ${ICONDIR}/experiments/${restart_from_folder}/restart_oce.nc ${EXPDIR}/restart_oce.nc
+#fi
 
 if  [ x$restart_atmo_from != "x" ] ; then
-  rm  ${EXPDIR}/restart_atm.nc
-  ln -s ${ICONDIR}/experiments/${restart_from_folder}/${restart_atmo_from} ${EXPDIR}/restart_atm.nc
+  rm -f restart_atm.nc
+#  ln -s ${ICONDIR}/experiments/${restart_from_folder}/${restart_atmo_from} ${EXPDIR}/restart_atm.nc
+  cp ${ICONDIR}/experiments/${restart_from_folder}/${restart_atmo_from} cp_restart_atm.nc
+  ln -s cp_restart_atm.nc restart_atm.nc
+  restart=".true."
 fi
 if  [ x$restart_ocean_from != "x" ] ; then
-  rm  ${EXPDIR}/restart_oce.nc
-  ln -s ${ICONDIR}/experiments/${restart_from_folder}/${restart_ocean_from} ${EXPDIR}/restart_oce.nc
+  rm -f restart_oce.nc
+#  ln -s ${ICONDIR}/experiments/${restart_from_folder}/${restart_ocean_from} ${EXPDIR}/restart_oce.nc
+  cp ${ICONDIR}/experiments/${restart_from_folder}/${restart_ocean_from} cp_restart_oce.nc
+  ln -s cp_restart_oce.nc restart_oce.nc
+  restart=".true."
 fi
 #-----------------------------------------------------------------------------
 
@@ -223,8 +232,6 @@ fi
 # create ICON master namelist
 # ------------------------
 # For a complete list see Namelist_overview and Namelist_overview.pdf
-
-cd ${EXPDIR}
 
 #-----------------------------------------------------------------------------
 # create master_namelist
