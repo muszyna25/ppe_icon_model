@@ -10,6 +10,7 @@ MODULE mo_io_restart
   USE mo_util_sysinfo,          ONLY: util_user_name, util_os_system, util_node_name 
   USE mo_util_file,             ONLY: util_symlink, util_rename, util_islink, util_unlink
   USE mo_util_hash,             ONLY: util_hashword
+  USE mo_util_uuid,             ONLY: t_uuid
   USE mo_io_restart_namelist,   ONLY: nmls, restart_namelist   
   USE mo_io_restart_attributes, ONLY: set_restart_attribute, get_restart_attribute, &
        &                              read_attributes, delete_attributes,           &
@@ -22,14 +23,17 @@ MODULE mo_io_restart
        &                              scatter_cells, scatter_edges, scatter_vertices  
   USE mo_io_units,              ONLY: find_next_free_unit, filename_max
   USE mo_mpi,                   ONLY: my_process_is_stdio
+!LK comment: should not be here !!!!!! polution of namespace !!!!!!
   USE mo_dynamics_config,       ONLY: iequations, nnew, nnew_rcf
   USE mo_impl_constants,        ONLY: IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER, &
     &                                 LEAPFROG_EXPL, LEAPFROG_SI
   USE mo_ha_dyn_config,         ONLY: ha_dyn_config 
+!LK comment: should not be here !!!!!! polution of namespace !!!!!!
 #ifndef NOMPI
   USE mo_model_domain,          ONLY: t_patch
 #endif
   USE mo_mpi,                   ONLY: my_process_is_stdio
+  
   !
   IMPLICIT NONE
   !  
@@ -63,6 +67,7 @@ MODULE mo_io_restart
     INTEGER :: type
     INTEGER :: nelements
     INTEGER :: nvertices
+    TYPE(t_uuid) :: uuid
   END type t_h_grid
   !
   INTEGER, SAVE :: nh_grids = 0 
@@ -246,16 +251,21 @@ CONTAINS
   END SUBROUTINE set_restart_depth_lnd
   !------------------------------------------------------------------------------------------------
   !
-  SUBROUTINE set_horizontal_grid(grid_type, nelements, nvertices)
-    INTEGER, INTENT(in) :: grid_type
-    INTEGER, INTENT(in) :: nelements
-    INTEGER, INTENT(in) :: nvertices
+  SUBROUTINE set_horizontal_grid(grid_type, nelements, nvertices, grid_uuid)
+    INTEGER,      INTENT(in)           :: grid_type
+    INTEGER,      INTENT(in)           :: nelements
+    INTEGER,      INTENT(in)           :: nvertices
+    TYPE(t_uuid), INTENT(in), OPTIONAL :: grid_uuid
     !    
     nh_grids = nh_grids+1
     !
     hgrid_def(nh_grids)%type      = grid_type
     hgrid_def(nh_grids)%nelements = nelements
     hgrid_def(nh_grids)%nvertices = nvertices
+    !
+    IF (PRESENT(grid_uuid)) THEN
+      hgrid_def(nh_grids)%uuid = grid_uuid
+    ENDIF
     !
   END SUBROUTINE set_horizontal_grid
   !------------------------------------------------------------------------------------------------
@@ -373,6 +383,11 @@ CONTAINS
     private_nvv = nvv
     private_ne  = ne
     private_nev = nev
+    !
+    IF (.NOT. (lvct_initialised .OR. ldepth_initialised .OR. lheight_initialised)) THEN
+      CALL finish('init_restart','none of the vertical grids is initialised')
+      ! more consistency checks need to follow
+    ENDIF
     !
     lrestart_initialised = .TRUE.
     !
