@@ -39,6 +39,7 @@
 !!
 MODULE mo_lnd_nwp_nml
 
+  USE mo_exception,           ONLY: finish
   USE mo_impl_constants,      ONLY: max_dom
   USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
@@ -147,7 +148,8 @@ MODULE mo_lnd_nwp_nml
     INTEGER :: istat, funit
     INTEGER :: jg            ! loop index
 
-    !0!CHARACTER(len=*), PARAMETER :: routine = 'mo_lnd_nwp_nml:read_nwp_lnd_namelist'
+    CHARACTER(len=*), PARAMETER ::  &
+      &  routine = 'mo_lnd_nwp_nml:read_nwp_lnd_namelist'
 
     !-----------------------
     ! 1. default settings   
@@ -165,7 +167,7 @@ MODULE mo_lnd_nwp_nml
     itype_gscp     = 3       ! type of grid-scale precipitation physics
     itype_trvg     = 2       ! type of vegetation transpiration parameterization
     itype_evsl     = 2       ! type of parameterization of bare soil evaporation
-    itype_tran     = 2       ! type of surface to atmospher transfer
+    itype_tran     = 2       ! type of surface to atmosphere transfer
     itype_root     = 1       ! type of root density distribution
     itype_heatcond = 1       ! type of soil heat conductivity
     itype_hydbound = 1       ! type of hydraulic lower boundary condition
@@ -206,7 +208,10 @@ MODULE mo_lnd_nwp_nml
     !----------------------------------------------------
     ! 4. Sanity check (if necessary)
     !----------------------------------------------------
-
+    IF ( nsfc_snow > nsfc_subs ) THEN
+      CALL finish( TRIM(routine),                                   &
+        &  'incorrect settings for nsfc_snow. Must be <= nsfc_subs')
+    ENDIF
 
     !----------------------------------------------------
     ! 5. Fill the configuration state

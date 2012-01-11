@@ -94,20 +94,17 @@ MODULE mo_nwp_lnd_state
   ! subroutines
   PUBLIC :: construct_nwp_lnd_state
   PUBLIC :: destruct_nwp_lnd_state
-  PUBLIC :: construct_tiles_arrays  !! HW: no corresponding "destruct" subroutine?
-  PUBLIC :: destruct_tiles_arrays
+
   !
   !variables
   PUBLIC :: t_lnd_state  !> state vector for land scheme
   PUBLIC :: t_lnd_prog   !!       for prognostic variables
   PUBLIC :: t_lnd_diag   !!       for diagnostic variables
-  PUBLIC :: t_tiles
 #ifdef HAVE_F95
   PUBLIC :: t_ptr_lnd
 #endif
   PUBLIC :: p_lnd_state  !> state vector (variable) for land scheme
 
-  PUBLIC :: p_tiles
 
   TYPE t_ptr_lnd
     REAL(wp),POINTER :: p_3d(:,:,:) ! pointer to 3D (spatial) array
@@ -180,21 +177,6 @@ MODULE mo_nwp_lnd_state
     TYPE(t_ptr_lnd), ALLOCATABLE :: subsfrac_ptr(:)
 
   END TYPE t_lnd_diag
-
-  TYPE t_tiles
-    INTEGER, ALLOCATABLE :: length(:)      ! jb
-    INTEGER, ALLOCATABLE :: corrsp(:,:)    ! jc,jb
-
-    LOGICAL :: snow_tile                 ! whether it is a snow tile
-    LOGICAL :: snowfree_tile             ! whether it is a snow-free tile, a counterpart to a snow tile
-    INTEGER :: conjunct                  ! index of a counterpart for a given tile in the array of tiles
-                                         ! (snow-free for snow tile, snow for snow-free tile, 
-                                         ! itself for tiles-surface types for which no explicit snow tile is considered
-    LOGICAL :: lake_tile                 ! whether it is a lake tile
-
-  END TYPE t_tiles
-
-  TYPE(t_tiles),TARGET,ALLOCATABLE :: p_tiles(:,:) 
 
 ! complete state vector
 
@@ -424,8 +406,6 @@ MODULE mo_nwp_lnd_state
 
     CHARACTER(len=4) suffix
 
-    TYPE(t_var_metadata), POINTER :: info  !< pointer to metadata
-
 !-----------------------------------------------------------------------
 
     ientr = 16 ! "entropy" of horizontal slice
@@ -456,9 +436,8 @@ MODULE mo_nwp_lnd_state
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'t_g'//suffix, p_prog_lnd%t_g,      &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,         &
-         & ldims=shape2d, info=info )
-    info%tlev_source = 1   ! for output take field from nnow_rcf slice
-    info => NULL()
+         & ldims=shape2d,                                                      &
+         & tlev_source=1 ) ! for output take field from nnow_rcf slice
 
     IF ( atm_phy_nwp_config(p_jg)%inwp_surface > 0 ) THEN
 
@@ -480,9 +459,8 @@ MODULE mo_nwp_lnd_state
                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                        &
                & t_cf_var('t_gt_'//TRIM(csfc), '', ''),                        &
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
-               & ldims=shape2d, info=info )
-        info%tlev_source = 1   ! for output take field from nnow_rcf slice
-        info => NULL()
+               & ldims=shape2d,                                                &
+               & tlev_source=1 ) ! for output take field from nnow_rcf slice
       ENDDO
 
 
@@ -504,9 +482,8 @@ MODULE mo_nwp_lnd_state
                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                        &
                & t_cf_var('t_snow_'//csfc, '', ''),                            &
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
-               & ldims=shape2d, info=info )
-        info%tlev_source = 1   ! for output take field from nnow_rcf slice
-        info => NULL()
+               & ldims=shape2d,                                                &
+               & tlev_source=1 ) ! for output take field from nnow_rcf slice
       ENDDO
 
 
@@ -553,9 +530,8 @@ MODULE mo_nwp_lnd_state
                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                        &
                & t_cf_var('t_s_'//csfc, '', ''),                               &
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
-               & ldims=shape2d, info=info )
-        info%tlev_source = 1   ! for output take field from nnow_rcf slice
-        info => NULL()
+               & ldims=shape2d,                                                &
+               & tlev_source=1 ) ! for output take field from nnow_rcf slice
       ENDDO
 
 
@@ -577,9 +553,8 @@ MODULE mo_nwp_lnd_state
                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                        &
                & t_cf_var('w_snow_'//csfc, '', ''),                            &
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
-               & ldims=shape2d, info=info )
-        info%tlev_source = 1   ! for output take field from nnow_rcf slice
-        info => NULL()
+               & ldims=shape2d,                                                &
+               & tlev_source=1 ) ! for output take field from nnow_rcf slice
       ENDDO
 
 
@@ -602,9 +577,8 @@ MODULE mo_nwp_lnd_state
                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                          &
                & t_cf_var('rho_snow_'//csfc, '', ''),                            &
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
-               & ldims=shape2d, info=info )
-        info%tlev_source = 1   ! for output take field from nnow_rcf slice
-        info => NULL()
+               & ldims=shape2d,                                                  &
+               & tlev_source=1 ) ! for output take field from nnow_rcf slice
       END DO
 
 
@@ -653,9 +627,8 @@ MODULE mo_nwp_lnd_state
                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                          &
                & t_cf_var('w_i_'//csfc, '', ''),                                 &
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
-               & ldims=shape2d, info=info )
-        info%tlev_source = 1   ! for output take field from nnow_rcf slice
-        info => NULL()
+               & ldims=shape2d,                                                  &
+               & tlev_source=1 ) ! for output take field from nnow_rcf slice
       ENDDO
 
 
@@ -679,9 +652,8 @@ MODULE mo_nwp_lnd_state
                & GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_LAND,                 &
                & t_cf_var('t_so_'//csfc, '', ''),                                &
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
-               & ldims=(/nproma,nlev_soil+2,kblks/), info=info )
-        info%tlev_source = 1   ! for output take field from nnow_rcf slice
-        info => NULL()
+               & ldims=(/nproma,nlev_soil+2,kblks/),                             &
+               & tlev_source=1 ) ! for output take field from nnow_rcf slice
       ENDDO
 
 
@@ -704,9 +676,8 @@ MODULE mo_nwp_lnd_state
                & GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_LAND,                 &
                & t_cf_var('w_so_'//csfc, '', ''),                                &
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
-               & ldims=(/nproma,nlev_soil+1,kblks/), info=info )
-        info%tlev_source = 1   ! for output take field from nnow_rcf slice
-        info => NULL()
+               & ldims=(/nproma,nlev_soil+1,kblks/),                             &
+               & tlev_source=1 ) ! for output take field from nnow_rcf slice
       ENDDO
 
 
@@ -729,9 +700,8 @@ MODULE mo_nwp_lnd_state
                & GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_LAND,                 &
                & t_cf_var('w_so_ice_'//csfc, '', ''),                            &
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
-               & ldims=(/nproma,nlev_soil+1,kblks/), info=info )
-        info%tlev_source = 1   ! for output take field from nnow_rcf slice
-        info => NULL()
+               & ldims=(/nproma,nlev_soil+1,kblks/),                             &
+               & tlev_source=1 ) ! for output take field from nnow_rcf slice
       ENDDO
 
 
@@ -1064,99 +1034,6 @@ MODULE mo_nwp_lnd_state
 
   END SUBROUTINE  new_nwp_lnd_diag_list
 
-
-  !-------------------------------------------------------------------------
-  !>
-  !! Construction of tiles arrays.
-  !!
-  !! Initialization of components with zero.
-  !!
-  !! @par Revision History
-  !! Initial release by , DWD (2011-07-26)
-  !!
-  !!
-  SUBROUTINE construct_tiles_arrays (p_patch, p_tiles)
-! 
-    TYPE(t_patch), TARGET, INTENT(IN)   :: p_patch(n_dom)    
-
-    ! arrays of correspondences between tiles and grid points
-    TYPE(t_tiles), TARGET, INTENT(INOUT):: p_tiles(n_dom, nsfc_subs) 
-  
-    INTEGER :: nblks_c, & ! number of cell blocks to allocate
-      &        jg     , & ! index of domain
-      &        ns     , & ! index of tile
-      &        ist        ! status 
-                 
-!-----------------------------------------------------------------------
-
-  DO jg = 1, n_dom
-    DO ns = 1, nsfc_subs
-  
-    !determine size of arrays
-    nblks_c = p_patch(jg)%nblks_c
-  
-    ! length
-    ALLOCATE(p_tiles(jg,ns)%length(nblks_c), STAT = ist)
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_lnd_state:construct_tiles_arrays', &
-                  'allocation for length of arrays failed')
-    ENDIF
-    p_tiles(jg,ns)%length(:) = 0
-
-    ! corrsp
-    ALLOCATE(p_tiles(jg,ns)%corrsp(nproma,nblks_c), STAT = ist)
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_lnd_state:construct_tiles_arrays', &
-                  'allocation for correspondences arrays failed')
-    ENDIF
-    p_tiles(jg,ns)%corrsp(:,:) = 0
-
-    ENDDO !nsfc_subs
-  ENDDO !ndom
-
-  END SUBROUTINE construct_tiles_arrays
-
-  !-------------------------------------------------------------------------
-  !>
-  !! Destruction of tiles arrays.
-  !!
-  !! @par Revision History
-  !! Initial release by , DWD (2011-07-26)
-  !!
-  !!
-  SUBROUTINE destruct_tiles_arrays (p_tiles)
-
-    ! arrays of correspondences between tiles and grid points
-    TYPE(t_tiles), TARGET, INTENT(INOUT):: p_tiles(n_dom, nsfc_subs)
-
-    INTEGER :: jg     , & ! index of domain
-      &        ns     , & ! index of tile
-      &        ist        ! status
-                 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_nwp_lnd_state:destruct_tiles_arrays'
-!-----------------------------------------------------------------------
-
-  DO jg = 1, n_dom
-    DO ns = 1, nsfc_subs
-
-      DEALLOCATE(p_tiles(jg,ns)%length, STAT=ist)
-        IF(ist/=SUCCESS)THEN
-          CALL finish (TRIM(routine),  &
-            &  'deallocation of grid points arrays length failed')
-        ENDIF
-      DEALLOCATE(p_tiles(jg,ns)%corrsp, STAT=ist)
-        IF(ist/=SUCCESS)THEN
-          CALL finish (TRIM(routine),  &
-            &  'deallocation of arrays  th the correspondence between &
-            &   grid points and one-dimensional arrays failed')
-        ENDIF
-    ENDDO !nsfc_subs
-  ENDDO !ndom
-
-  END SUBROUTINE destruct_tiles_arrays
-!
-!-------------------------------------------------------------------------
 
 END MODULE mo_nwp_lnd_state
 

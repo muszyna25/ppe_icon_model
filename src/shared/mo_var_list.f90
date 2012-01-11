@@ -374,7 +374,7 @@ CONTAINS
          &                     name, hgrid, vgrid, cf, grib2, ldims,         &
          &                     loutput, lcontainer, lrestart, lrestart_cont, &
          &                     initval, laccu, resetval, lmiss, missval,     &
-         &                     verbose)
+         &                     tlev_source, verbose)
     !
     TYPE(t_var_metadata), INTENT(inout)        :: info          ! memory info struct.
     CHARACTER(len=*),     INTENT(in), OPTIONAL :: name          ! variable name
@@ -392,6 +392,7 @@ CONTAINS
     TYPE(t_union_vals),   INTENT(in), OPTIONAL :: resetval      ! reset value
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss         ! missing value flag
     TYPE(t_union_vals),   INTENT(in), OPTIONAL :: missval       ! missing value
+    INTEGER,              INTENT(in), OPTIONAL :: tlev_source   ! actual TL for TL dependent vars
     LOGICAL,              INTENT(in), OPTIONAL :: verbose
     !
     LOGICAL :: lverbose
@@ -430,6 +431,7 @@ CONTAINS
     CALL assign_if_present (info%lrestart,      lrestart)
     CALL assign_if_present (info%lrestart_cont, lrestart_cont)
     CALL assign_if_present (info%initval,       initval)
+    CALL assign_if_present (info%tlev_source,   tlev_source)
     !
     ! printout (optional)
     !
@@ -452,7 +454,7 @@ CONTAINS
   SUBROUTINE add_var_list_element_r5d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,    &
        lrestart, lrestart_cont, initval_r, laccu, resetval_r,  &
-       lmiss, missval_r, info, p5, verbose)
+       lmiss, missval_r, tlev_source, info, p5, verbose)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -471,6 +473,7 @@ CONTAINS
     REAL(wp),             INTENT(in), OPTIONAL :: resetval_r          ! reset value (after accumulation)
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
     REAL(wp),             INTENT(in), OPTIONAL :: missval_r           ! missing value
+    INTEGER,              INTENT(in), OPTIONAL :: tlev_source         ! actual TL for TL dependent vars
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
     REAL(wp),             POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
@@ -513,7 +516,7 @@ CONTAINS
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput, lcontainer=lcontainer, &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,         &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,            & 
-         verbose=verbose)
+         tlev_source=tlev_source, verbose=verbose)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:5), ldims(1:5))
@@ -562,7 +565,7 @@ CONTAINS
   SUBROUTINE add_var_list_element_r4d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,    &
        lrestart, lrestart_cont, initval_r, laccu, resetval_r,  &
-       lmiss, missval_r, info, p5, verbose)
+       lmiss, missval_r, tlev_source, info, p5, verbose)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -581,6 +584,7 @@ CONTAINS
     REAL(wp),             INTENT(in), OPTIONAL :: resetval_r          ! reset value (after accumulation)
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
     REAL(wp),             INTENT(in), OPTIONAL :: missval_r           ! missing value
+    INTEGER,              INTENT(in), OPTIONAL :: tlev_source         ! actual TL for TL dependent vars
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
     REAL(wp),             POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
@@ -623,7 +627,7 @@ CONTAINS
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput, lcontainer=lcontainer, &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,         &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,            & 
-         verbose=verbose)
+         tlev_source=tlev_source, verbose=verbose)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:4), ldims(1:4))
@@ -673,7 +677,7 @@ CONTAINS
   SUBROUTINE add_var_list_element_r3d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,    &
        lrestart, lrestart_cont, initval_r, laccu, resetval_r,  &
-       lmiss, missval_r, info, p5, verbose)
+       lmiss, missval_r, tlev_source, info, p5, verbose)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -692,6 +696,7 @@ CONTAINS
     REAL(wp),             INTENT(in), OPTIONAL :: resetval_r          ! reset value (after accumulation)
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
     REAL(wp),             INTENT(in), OPTIONAL :: missval_r           ! missing value
+    INTEGER,              INTENT(in), OPTIONAL :: tlev_source         ! actual TL for TL dependent vars
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
     REAL(wp),             POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
@@ -734,7 +739,7 @@ CONTAINS
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput, lcontainer=lcontainer, &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,         &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,            & 
-         verbose=verbose)
+         tlev_source=tlev_source, verbose=verbose)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:3), ldims(1:3))
@@ -784,7 +789,7 @@ CONTAINS
   SUBROUTINE add_var_list_element_r2d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,    &
        lrestart, lrestart_cont, initval_r, laccu, resetval_r,  &
-       lmiss, missval_r, info, p5, verbose)
+       lmiss, missval_r, tlev_source, info, p5, verbose)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -803,6 +808,7 @@ CONTAINS
     REAL(wp),             INTENT(in), OPTIONAL :: resetval_r          ! reset value (after accumulation)
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
     REAL(wp),             INTENT(in), OPTIONAL :: missval_r           ! missing value
+    INTEGER,              INTENT(in), OPTIONAL :: tlev_source         ! actual TL for TL dependent vars
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
     REAL(wp),             POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
@@ -845,7 +851,7 @@ CONTAINS
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput, lcontainer=lcontainer, &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,         &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,            & 
-         verbose=verbose)
+         tlev_source=tlev_source, verbose=verbose)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:2), ldims(1:2))
@@ -895,7 +901,7 @@ CONTAINS
   SUBROUTINE add_var_list_element_r1d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,    &
        lrestart, lrestart_cont, initval_r, laccu, resetval_r,  &
-       lmiss, missval_r, info, p5, verbose)
+       lmiss, missval_r, tlev_source, info, p5, verbose)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -914,6 +920,7 @@ CONTAINS
     REAL(wp),             INTENT(in), OPTIONAL :: resetval_r          ! reset value (after accumulation)
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
     REAL(wp),             INTENT(in), OPTIONAL :: missval_r           ! missing value
+    INTEGER,              INTENT(in), OPTIONAL :: tlev_source         ! actual TL for TL dependent vars
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
     REAL(wp),             POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
@@ -956,7 +963,7 @@ CONTAINS
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput, lcontainer=lcontainer, &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,         &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,            & 
-         verbose=verbose)
+         tlev_source=tlev_source, verbose=verbose)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:1), ldims(1:1))
@@ -2362,7 +2369,7 @@ CONTAINS
   SUBROUTINE add_var_list_reference_r3d (this_list, target_name, name, ptr,                      &
        &                                 hgrid, vgrid, cf, grib2, ldims, loutput,                &
        &                                 lrestart, lrestart_cont, initval_r, laccu, resetval_r,  &
-       &                                 lmiss, missval_r, info, verbose)
+       &                                 lmiss, missval_r, tlev_source, info, verbose)
     !
     TYPE(t_var_list), INTENT(inout)            :: this_list
     CHARACTER(len=*), INTENT(in)               :: target_name
@@ -2381,6 +2388,7 @@ CONTAINS
     REAL(wp),             INTENT(in), OPTIONAL :: resetval_r          ! reset value (after accumulation)
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
     REAL(wp),             INTENT(in), OPTIONAL :: missval_r           ! missing value
+    INTEGER,              INTENT(in), OPTIONAL :: tlev_source         ! actual TL for TL dependent vars
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
     LOGICAL,              INTENT(in), OPTIONAL :: verbose
     !
@@ -2441,7 +2449,7 @@ CONTAINS
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
-         verbose=verbose)
+         tlev_source=tlev_source, verbose=verbose)
     !
     ref_info%ndims = 3
     ref_info%used_dimensions =  target_element%field%info%used_dimensions
@@ -2480,7 +2488,7 @@ CONTAINS
   SUBROUTINE add_var_list_reference_r2d (this_list, target_name, name, ptr,                      &
        &                                 hgrid, vgrid, cf, grib2, ldims, loutput,                &
        &                                 lrestart, lrestart_cont, initval_r, laccu, resetval_r,  &
-       &                                 lmiss, missval_r, info, verbose)
+       &                                 lmiss, missval_r, tlev_source, info, verbose)
 
     TYPE(t_var_list), INTENT(inout)            :: this_list
     CHARACTER(len=*), INTENT(in)               :: target_name
@@ -2499,6 +2507,7 @@ CONTAINS
     REAL(wp),             INTENT(in), OPTIONAL :: resetval_r          ! reset value (after accumulation)
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
     REAL(wp),             INTENT(in), OPTIONAL :: missval_r           ! missing value
+    INTEGER,              INTENT(in), OPTIONAL :: tlev_source         ! actual TL for TL dependent vars
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
     LOGICAL,              INTENT(in), OPTIONAL :: verbose
     !
@@ -2558,7 +2567,7 @@ CONTAINS
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
-         verbose=verbose)
+         tlev_source=tlev_source, verbose=verbose)
     !
     ref_info%ndims = 2
     ref_info%used_dimensions = target_element%field%info%used_dimensions

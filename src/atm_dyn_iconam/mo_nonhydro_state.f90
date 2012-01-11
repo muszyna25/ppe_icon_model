@@ -745,7 +745,6 @@ MODULE mo_nonhydro_state
 
     CHARACTER(len=4) suffix
 
-    TYPE(t_var_metadata), POINTER :: info  !< pointer to metadata
     !--------------------------------------------------------------
 
     !determine size of arrays
@@ -857,9 +856,8 @@ MODULE mo_nonhydro_state
                     & t_cf_var(TRIM(vname_prefix)//'qv',                             &
                     &  'kg kg-1','specific_humidity'),                               &
                     & t_grib2_var(0, 1, 0, ientr, GRID_REFERENCE, GRID_CELL),        &
-                    & ldims=shape3d_c, info=info)
-        info%tlev_source = 1   ! for output take field from nnow_rcf slice
-        info => NULL()
+                    & ldims=shape3d_c,                                               &
+                    & tlev_source=1 ) ! for output take field from nnow_rcf slice
            !QC
         CALL add_ref( p_prog_list, 'tracer',&
                     & TRIM(vname_prefix)//'qc'//suffix, p_prog%tracer_ptr(iqc)%p_3d, &
@@ -867,9 +865,8 @@ MODULE mo_nonhydro_state
                     & t_cf_var(TRIM(vname_prefix)//'qc',                             &
                     &  'kg kg-1', 'specific_cloud_water_content'),                   &
                     & t_grib2_var(192, 201, 31, ientr, GRID_REFERENCE, GRID_CELL),   &
-                    & ldims=shape3d_c, info=info)
-        info%tlev_source = 1   ! for output take field from nnow_rcf slice
-        info => NULL()
+                    & ldims=shape3d_c,                                               &
+                    & tlev_source=1 ) ! for output take field from nnow_rcf slice
            !QI
         CALL add_ref( p_prog_list, 'tracer',                                         &
                     & TRIM(vname_prefix)//'qi'//suffix, p_prog%tracer_ptr(iqi)%p_3d, &
@@ -877,9 +874,8 @@ MODULE mo_nonhydro_state
                     & t_cf_var(TRIM(vname_prefix)//'qi',                             &
                     &  'kg kg-1','specific_cloud_ice_content'),                      &
                     & t_grib2_var(192, 201, 33, ientr, GRID_REFERENCE, GRID_CELL),   &
-                    & ldims=shape3d_c, info=info)
-        info%tlev_source = 1   ! for output take field from nnow_rcf slice
-        info => NULL()
+                    & ldims=shape3d_c,                                               &
+                    & tlev_source=1 ) ! for output take field from nnow_rcf slice
            !QR
         CALL add_ref( p_prog_list, 'tracer',                                         &
                     & TRIM(vname_prefix)//'qr'//suffix, p_prog%tracer_ptr(iqr)%p_3d, &
@@ -887,9 +883,8 @@ MODULE mo_nonhydro_state
                     & t_cf_var(TRIM(vname_prefix)//'qr',                             &
                     &  'kg kg-1','rain_mixing_ratio'),                               &
                     & t_grib2_var(0, 1, 24, ientr, GRID_REFERENCE, GRID_CELL),       &
-                    & ldims=shape3d_c, info=info)
-        info%tlev_source = 1   ! for output take field from nnow_rcf slice
-        info => NULL()
+                    & ldims=shape3d_c,                                               &
+                    & tlev_source=1 ) ! for output take field from nnow_rcf slice
            !QS
         CALL add_ref( p_prog_list, 'tracer',                                         &
                     & TRIM(vname_prefix)//'qs'//suffix, p_prog%tracer_ptr(iqs)%p_3d, &
@@ -897,9 +892,8 @@ MODULE mo_nonhydro_state
                     & t_cf_var(TRIM(vname_prefix)//'qs',                             &
                     &  'kg kg-1','snow_mixing_ratio'),                               &
                     & t_grib2_var(0, 1, 25, ientr, GRID_REFERENCE, GRID_CELL),       &
-                    & ldims=shape3d_c, info=info)
-        info%tlev_source = 1   ! for output take field from nnow_rcf slice
-        info => NULL()
+                    & ldims=shape3d_c,                                               &
+                    & tlev_source=1 ) ! for output take field from nnow_rcf slice
 
         IF( irad_o3 == 4 .OR. irad_o3 == 6 .OR. irad_o3 == 7 ) THEN
            !O3
@@ -909,19 +903,17 @@ MODULE mo_nonhydro_state
             & t_cf_var(TRIM(vname_prefix)//'O3',                             &
             &  'kg kg-1','ozone_mass_mixing_ratio'),                         &
             & t_grib2_var(0, 14, 1, ientr, GRID_REFERENCE, GRID_CELL),       &
-            & ldims=shape3d_c, info=info)
-        info%tlev_source = 0   ! for output take field from nnow_rcf slice
-        info => NULL()
+            & ldims=shape3d_c,                                               &
+            & tlev_source=0 ) ! for output take field from nnow_rcf slice
         ENDIF
 
         ! tke            p_prog%tke(nproma,nlevp1,nblks_c)
         cf_desc    = t_cf_var('turbulent_kinetic_energy', 'm2 s-2', 'turbulent kinetic energy')
         grib2_desc = t_grib2_var(0, 19, 11, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( p_prog_list, TRIM(vname_prefix)//'tke'//suffix, p_prog%tke, &
-          &           GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, &
-          &           cf_desc, grib2_desc, ldims=shape3d_chalf, info=info )
-        info%tlev_source = 1   ! for output take field from nnow_rcf slice
-        info => NULL()
+          &           GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                       &
+          &           cf_desc, grib2_desc, ldims=shape3d_chalf,                   &
+          &           tlev_source=1 ) ! for output take field from nnow_rcf slice
       ENDIF
 
     ENDIF ! allocation only if not extra_timelev

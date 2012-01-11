@@ -46,14 +46,14 @@ MODULE mo_nwp_sfc_interface
   USE mo_ext_data,            ONLY: t_external_data !DR, nclass_lu
   USE mo_nonhydro_state,      ONLY: t_nh_prog, t_nh_diag
   USE mo_nwp_phy_state,       ONLY: t_nwp_phy_diag
-  USE mo_nwp_lnd_state,       ONLY: t_lnd_prog, t_lnd_diag, t_tiles
+  USE mo_nwp_lnd_state,       ONLY: t_lnd_prog, t_lnd_diag
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: iqv, msg_level
   USe mo_extpar_config,       ONLY: itopo
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_nonhydrostatic_config,ONLY: iadv_rcf
-  USE mo_lnd_nwp_config,      ONLY: nlev_soil, nztlev, nlev_snow, nsfc_subs, nsfc_snow !, &
-!    &                               lseaice ,llake, lmulti_snow
+  USE mo_lnd_nwp_config,      ONLY: nlev_soil, nztlev, nlev_snow, nsfc_subs, nsfc_snow, &
+    &                               t_tiles !,  lseaice ,llake, lmulti_snow
   USE mo_satad,               ONLY: sat_pres_water, spec_humi  
   USE mo_soil_ml,             ONLY: terra_multlay, terra_multlay_init
 !  USE mo_aggregate_surface,   ONLY: subsmean,subs_disaggregate_radflux,subsmean_albedo
@@ -406,7 +406,7 @@ CONTAINS
 !!$                                   frac_thres,     &
 !!$                                   pt_tiles )
   SUBROUTINE nwp_surface_init( p_patch, ext_data, p_prog_lnd_now, &
-    &                          p_prog_lnd_new, p_diag_lnd, p_tiles )
+    &                          p_prog_lnd_new, p_diag_lnd )
  
 !!$     SUBROUTINE nwp_surface_init( tcall_sfc_jg,                   & !>in
 !!$                        & p_sim_time, dtadv_loc,             & !>in
@@ -424,7 +424,6 @@ CONTAINS
     TYPE(t_lnd_diag),      INTENT(inout) :: p_diag_lnd
 !!$    REAL(wp)             , INTENT(IN)   :: subsfrac(nproma,1,nsfc_subs)
 !!$    REAL(wp)             , INTENT(IN)   :: frac_thres     
-    TYPE(t_tiles), TARGET, INTENT(INOUT):: p_tiles(:)      !correspondence between grid & tiles
     
     ! Local array bounds:
     
@@ -480,39 +479,6 @@ CONTAINS
             p_diag_lnd%freshsnow(jc,jb,isubs) = REAL(NINT(ext_data%atm%fr_land(jc,jb)),wp)
           ENDDO
         ENDDO
-
-        DO isubs = 1, nsfc_subs - nsfc_snow
-          p_tiles(isubs)%snow_tile     = .FALSE.
-          p_tiles(isubs)%snowfree_tile = .FALSE.
-          p_tiles(isubs)%conjunct = isubs
-        END DO
-
-        DO isubs = nsfc_subs - nsfc_snow + 1, nsfc_subs-1, 2
-          p_tiles(isubs  )%snow_tile     = .FALSE.
-          p_tiles(isubs+1)%snow_tile     = .TRUE.
-          p_tiles(isubs  )%snowfree_tile = .TRUE.
-          p_tiles(isubs+1)%snowfree_tile = .FALSE.
-          p_tiles(isubs  )%conjunct = isubs+1
-          p_tiles(isubs+1)%conjunct = isubs
-        END DO
-!!$        p_tiles(:)%lake_tile = .FALSE.
-!!$        IF(nsfc_subs .NE. nsfc_snow) THEN       !temporary
-!!$          p_tiles(2)%lake_tile = .TRUE.
-!!$        END IF
-
-!!$        DO ns = 1, nsfc_subs
-!!$          pt_tiles%length(ns,jb) = 0
-!!$
-!!$          DO jc = i_startidx, i_endidx
-!!$
-!!$            IF(subsfrac(jc,1,ns) > frac_thres) THEN
-!!$              pt_tiles%length(ns,jb) = pt_tiles%length(ns,jb) + 1
-!!$              pt_tiles%corrsp(pt_tiles%length(ns,jb),ns,jb) = jc
-!!$            END IF
-!!$          END DO
-!!$
-!!$        END DO
-
 
 
         DO isubs = 1,nsfc_subs

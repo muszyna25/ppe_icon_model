@@ -66,7 +66,7 @@ MODULE mo_nh_interface_nwp
   USE mo_interpolation,      ONLY: t_int_state
   USE mo_nonhydro_state,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nonhydrostatic_config, ONLY: kstart_moist, l_open_ubc
-  USE mo_nwp_lnd_state,      ONLY: t_lnd_prog, t_lnd_diag, t_tiles!, t_lnd_state
+  USE mo_nwp_lnd_state,      ONLY: t_lnd_prog, t_lnd_diag !, t_lnd_state
   USE mo_ext_data,           ONLY: t_external_data
   USE mo_nwp_phy_state,      ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_parallel_config,    ONLY: nproma, p_test_run
@@ -78,6 +78,7 @@ MODULE mo_nh_interface_nwp
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
 
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
+  USE mo_lnd_nwp_config,     ONLY: t_tiles
   USE mo_cover_koe,          ONLY: cover_koe
   USE mo_satad,              ONLY: satad_v_3D
   USE mo_radiation,          ONLY: radheat, pre_radiation_nwp

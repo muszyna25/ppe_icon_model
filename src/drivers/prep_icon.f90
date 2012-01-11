@@ -36,7 +36,7 @@ PROGRAM prep_icon
 USE mo_exception,             ONLY: message, finish
 !$  USE mo_exception,         ONLY: message_text     ! use only if compiled with OpenMP
 
-USE mo_parallel_config,       ONLY: p_test_run, l_test_openmp, num_io_procs
+USE mo_parallel_config,       ONLY: p_test_run, l_test_openmp, num_io_procs, nproma
 USE mo_mpi,                   ONLY: start_mpi, p_stop,         &
   &                                 my_process_is_mpi_seq,     &
   &                                 my_process_is_mpi_parallel,&
@@ -336,7 +336,7 @@ IMPLICIT NONE
 
     CALL configure_dynamics ( n_dom )
 
-    CALL configure_lnd_nwp()
+    CALL configure_lnd_nwp( p_patch(1:), n_dom, nproma )
 
     !------------------------------------------------------------------
     ! 10. Create and optionally read external data fields

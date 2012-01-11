@@ -407,7 +407,7 @@ USE mo_lnd_nwp_config,     ONLY: nztlev, lmelt, lmelt_var, lmulti_snow,  &
   &                              itype_hydbound, lstomata, l2tls,        &
   &                              lana_rho_snow, itype_subs
 !
-USE mo_nwp_lnd_state,      ONLY: t_tiles
+USE mo_lnd_nwp_config,     ONLY: t_tiles
 !                           
 USE mo_exception,          ONLY: message, finish, message_text
 USE mo_run_config,         ONLY: msg_level
