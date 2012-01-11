@@ -4,7 +4,7 @@
 ; Meteogram plot script for vertical variables.
 ;
 ; Basic Usage:
-;   ncl -n mtgrm_plot.ncl 'iFile="path/file.nc"' iStation=1 'varName="SHFL"'
+;   ncl -n mtgrm_plot_sfc.ncl 'iFile="path/file.nc"' iStation=1 'varName="SHFL"' 'expnum="${expnum}"'
 ;
 ; Required Parameters:
 ; iFile         : input file (e.g. "METEOGRAM_patch001.nc")
@@ -101,7 +101,7 @@ begin
   iStation     = iStation - 1
   itime        = 0
 
-  stride       = 6  ; subdivisions of X-Axis labels
+  xstride      = 6  ; subdivisions of X-Axis labels (small ticks)
 
 ;----------------------------------------------------------------------
 ; read data
@@ -112,13 +112,8 @@ begin
   nstations = dimsizes(cdf_file->station_lon)
 ; get index corresponding to variable
   ivar      = get_var_index(cdf_file, varName)
-  vals      = cdf_file->sfcvalues(0:, ivar, iStation)   ; (time, level, var, station)
+  vals      = cdf_file->sfcvalues(0:, ivar, iStation)   ; (time, var, station)
   time      = cdf_file->time_step(0:)
- ; station_name = cdf_file->station_name(iStation)
- ; station_lat  = cdf_file->station_lat(iStation)
- ; station_lon  = cdf_file->station_lon(iStation)
- ;print(time)
- ;print(vals)
 
 ;----------------------------------------------------------------------
 ; plot setup
@@ -126,7 +121,7 @@ begin
   
   print("")
   print("Meteogram  '" + charactertostring(cdf_file->station_name(iStation,:))+"'" )
-  print("Outputfile '"+str_concat((/oFile,".",oType/))+"' will be created in "+systemfunc("dirname "+iFile))
+  print("Outputfile '"+str_concat((/oFile,".000001.",oType/))+"' will be created in "+systemfunc("dirname "+iFile))
 
   wks  = gsn_open_wks(oType,oFile)                 ; Opens a ps file
   gsn_define_colormap(wks,colormap)  
@@ -134,15 +129,18 @@ begin
   yyyymmdd = sprinti("%0.2i", date@year)+sprinti("%0.2i", date@month)+sprinti("%0.2i", date@day)
 
   res                   = True
-  res@gsnLeftString     = charactertostring(cdf_file->sfcvar_long_name(ivar,:))
+  res@gsnCenterString   = charactertostring(cdf_file->sfcvar_long_name(ivar,:))
+  res@gsnCenterStringOrthogonalPosF = 0.06
+  res@gsnLeftString     = expnum
   res@gsnRightString    = charactertostring(cdf_file->station_name(iStation,:))
   res@tiXAxisString     = "Time  (from "+yyyymmdd+")"                                  ; x-axis label
   res@tiYAxisString     = "["+ charactertostring(cdf_file->sfcvar_unit(ivar,:)) + "]"  ; y-axis label
-  res@gsnLeftStringFontHeightF  = 0.02
-  res@gsnRightStringFontHeightF = 0.017
-  res@tiYAxisFontHeightF   = 0.018
-  res@tiXAxisFontHeightF   = 0.018
-  res@tmXBLabelFontHeightF = 0.014
+  res@gsnCenterStringFontHeightF = 0.02
+  res@gsnLeftStringFontHeightF   = 0.018
+  res@gsnRightStringFontHeightF  = 0.018
+  res@tiYAxisFontHeightF         = 0.018
+  res@tiXAxisFontHeightF         = 0.018
+  res@tmXBLabelFontHeightF       = 0.014
   res@vpXF                 = 0.15                  ; viewport left margin (def: 0.2)
   res@vpWidthF             = 0.75                  ; The Width of the plot box
 ; res@vpHeightF            = 0.58                  ; The height of the plot box
@@ -160,7 +158,7 @@ begin
 
   count = 0
   do i=0,(ntimesteps(0)-1)  
-    if (mod(i,stride) .eq. 0) then
+    if (mod(i,xstride) .eq. 0) then
       date = convert_date(charactertostring(cdf_file->date(i,:)))
       date_str = ""
       if ((i .eq. 0) .or. (.not. (date@day .eq. last_date@day))) then

@@ -4,7 +4,7 @@
 ; Meteogram plot script for vertical variables.
 ;
 ; Basic Usage:
-;   ncl -n mtgrm_plot.ncl 'iFile="path/file.nc"' iStation=1 'varName="T"'
+;   ncl -n mtgrm_plot.ncl 'iFile="path/file.nc"' iStation=1 'varName="T"' 'expnum="${expnum}"'
 ;
 ; Required Parameters:
 ; iFile         : input file (e.g. "METEOGRAM_patch001.nc")
@@ -101,7 +101,7 @@ begin
   iStation     = iStation - 1
   itime        = 0
 
-  stride       = 6  ; subdivisions of X-Axis labels
+  xstride      = 6  ; subdivisions of X-Axis labels (small ticks)
   ystride      = 10 ; subdivisions of right Y-Axis labels
 
 ;----------------------------------------------------------------------
@@ -115,7 +115,6 @@ begin
   ivar      = get_var_index(cdf_file, varName)
   nlevs     = cdf_file->var_nlevs(ivar)
   vals      = transpose(cdf_file->values(:, 0:(nlevs-1), ivar, iStation)) ; (time, level, var, station)
-  vals@long_name = charactertostring(cdf_file->var_long_name(ivar,:))
 
 ;----------------------------------------------------------------------
 ; plot setup
@@ -123,7 +122,7 @@ begin
   
   print("")
   print("Meteogram  '" + charactertostring(cdf_file->station_name(iStation,:))+"'" )
-  print("Outputfile '"+str_concat((/oFile,".",oType/))+"' will be created in "+systemfunc("dirname "+iFile))
+  print("Outputfile '"+str_concat((/oFile,".000001.",oType/))+"' will be created in "+systemfunc("dirname "+iFile))
 
   wks  = gsn_open_wks(oType,oFile)                 ; Opens a ps file
   gsn_define_colormap(wks,colormap)  
@@ -131,6 +130,9 @@ begin
   yyyymmdd = sprinti("%0.2i", date@year)+sprinti("%0.2i", date@month)+sprinti("%0.2i", date@day)
 
   res                   = True
+  res@gsnCenterString   = charactertostring(cdf_file->var_long_name(ivar,:))
+  res@gsnCenterStringOrthogonalPosF = 0.06
+  res@gsnLeftString     = expnum
   res@gsnRightString    = charactertostring(cdf_file->station_name(iStation,:))
   res@tiXAxisString     = "Time  (from "+yyyymmdd+")" ; x-axis label
   res@tiYAxisString     = "Model Level"               ; y-axis label
@@ -139,10 +141,11 @@ begin
   res@trYReverse        = True                        ; reverses y axis
   res@cnFillOn          = True                        ; turn on color fill
   res@gsnSpreadColors   = True                        ; use full colormap
-  res@gsnLeftStringFontHeightF  = 0.02
-  res@gsnRightStringFontHeightF = 0.017
-  res@tiYAxisFontHeightF   = 0.018
-  res@tiXAxisFontHeightF   = 0.018
+  res@gsnCenterStringFontHeightF = 0.02
+  res@gsnLeftStringFontHeightF   = 0.018
+  res@gsnRightStringFontHeightF  = 0.018
+  res@tiYAxisFontHeightF         = 0.018
+  res@tiXAxisFontHeightF         = 0.018
 
 ;----------------------------------------------------------------------
 ; contour and label bar resources
@@ -173,7 +176,7 @@ begin
 
   count = 0
   do i=0,(ntimesteps(0)-1)  
-    if (mod(i,stride) .eq. 0) then
+    if (mod(i,xstride) .eq. 0) then
       date = convert_date(charactertostring(cdf_file->date(i,:)))
       date_str = ""
       if ((i .eq. 0) .or. (.not. (date@day .eq. last_date@day))) then

@@ -2,7 +2,7 @@
 # -------------------------------------------------------
 # Meteogram plots
 #
-# run as: mtgrm_plot.s 2011010100 exp24
+# run as: mtgrm_plot.s 2011010100 R2B04 exp24
 #
 # attention:
 #   scripts need to be local (mtgrm_plot.s, mtgrm_plot.ncl)
@@ -13,12 +13,12 @@
 set -ex
 
 dates=${1}
-expnum=${2}
-echo "mtgrm_plot.s --- Arguments: dates="${dates}" expnum="${expnum}
-echo ${1}
+res=${2}
+expnum=${3}
+echo "mtgrm_plot.s --- Arguments: dates="${dates}" res="${res}" expnum="${expnum}
 
 dir="/e/uwork/mkoehler/icon/experiments/"${expnum}"/"
-iFile=${dir}"NWP_iconR2B06_DOM01_"${dates}"_0001_meteogram.nc"
+iFile=${dir}"NWP_icon"${res}"_DOM01_"${dates}"_0001_meteogram.nc"
 
 mkdir -p ${dir}"meteo"
 oType="png"
@@ -37,28 +37,27 @@ set -A varName3D \
   REL_HUM  RHO      THETAV  U          V   CLC  TKVM  TKVH  W  \
   Phalf    t_so_1   w_so_1  w_so_ice_1
 
-# -------------------------------------------------------
-
-for station in ${iStation[*]}
-do
-for var in ${varNameSfc[*]}
-do
-   oFile=${dir}"meteo/NWP_iconR2B06_DOM01_"${dates}"_0001_meteogram.loc"${station}"."${var}
-   ncl -n mtgrm_plot_sfc.ncl iFile=\"${iFile}\" oFile=\"${oFile}\" oType=\"${oType}\" \
-      varName=\"${var}\" iStation=${station}
-done	
-done	
+#set -A iStation   1 
+#set -A varNameSfc T2M
+#set -A varName3D  T
 
 # -------------------------------------------------------
 
 for station in ${iStation[*]}
 do
-for var in ${varName3D[*]}
-do
-   oFile=${dir}"meteo/NWP_iconR2B06_DOM01_"${dates}"_0001_meteogram.loc"${station}"."${var}
-   ncl -n mtgrm_plot.ncl iFile=\"${iFile}\" oFile=\"${oFile}\" oType=\"${oType}\" \
-      varName=\"${var}\" iStation=${station}
-done	
+  for var in ${varNameSfc[*]}
+  do
+    oFile=${dir}"meteo/NWP_icon"${res}"_DOM01_"${dates}"_0001_meteogram.loc"${station}"."${var}
+    ncl -n mtgrm_plot_sfc.ncl iFile=\"${iFile}\" oFile=\"${oFile}\" oType=\"${oType}\" \
+      varName=\"${var}\" iStation=${station} expnum=\"${expnum}\"
+  done	
+
+  for var in ${varName3D[*]}
+  do
+    oFile=${dir}"meteo/NWP_icon"${res}"_DOM01_"${dates}"_0001_meteogram.loc"${station}"."${var}
+    ncl -n mtgrm_plot.ncl iFile=\"${iFile}\" oFile=\"${oFile}\" oType=\"${oType}\" \
+      varName=\"${var}\" iStation=${station} expnum=\"${expnum}\"
+  done	
 done	
 
 exit
