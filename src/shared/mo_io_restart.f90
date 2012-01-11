@@ -1387,7 +1387,7 @@ CONTAINS
 !       write(0,*) "model_type=", model_type
 !       write(0,*) "restart_filename=", restart_filename
 !       write(0,*) "util_islink(TRIM(restart_filename)=", &
-        util_islink(TRIM(restart_filename))
+!        util_islink(TRIM(restart_filename))
       !
       IF (.NOT. util_islink(TRIM(restart_filename))) THEN
         iret = util_rename(TRIM(restart_filename), TRIM(restart_filename)//'.bak')
