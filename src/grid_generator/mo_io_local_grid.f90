@@ -77,21 +77,27 @@
 !! $Id: n/a$
 !!
 MODULE mo_io_local_grid
+
 #include "grid_definitions.inc"
 
-  USE mo_kind,               ONLY: wp
-  USE mo_io_units,           ONLY: filename_max
-  USE mo_exception,          ONLY: message_text, message, finish
-  USE mo_math_constants,     ONLY: pi,pi_2!, eps
-  USE mo_physical_constants, ONLY: re
+  USE mo_kind,                ONLY: wp
+  USE mo_io_units,            ONLY: filename_max
+  USE mo_exception,           ONLY: message_text, message, finish
+  USE mo_math_constants,      ONLY: pi,pi_2!, eps
+  USE mo_physical_constants,  ONLY: re
   USE mo_local_grid
-  USE mo_impl_constants,     ONLY: min_rlcell, max_rlcell, &
-    & min_rlvert, max_rlvert, &
-    & min_rledge, max_rledge
-  USE mo_local_grid_geometry,ONLY: geographical_to_cartesian, cartesian_to_geographical, &
-    & get_cell_barycenters
-  USE mo_base_geometry,  ONLY: t_cartesian_coordinates, t_geographical_coordinates
-  USE mo_impl_constants,     ONLY: min_rledge, max_rledge, min_rlvert, max_rlvert
+  USE mo_impl_constants,      ONLY: min_rlcell, max_rlcell, &
+       &                            min_rlvert, max_rlvert, &
+       &                            min_rledge, max_rledge
+  USE mo_local_grid_geometry, ONLY: geographical_to_cartesian, &
+       &                            cartesian_to_geographical, &
+       &                            get_cell_barycenters
+  USE mo_base_geometry,       ONLY: t_cartesian_coordinates, &
+       &                            t_geographical_coordinates
+  USE mo_impl_constants,      ONLY: min_rledge, max_rledge, &
+       &                            min_rlvert, max_rlvert
+  USE mo_util_uuid,           ONLY: t_uuid, uuid_generate, &
+       &                            uuid_unparse, uuid_string_length
 
   IMPLICIT NONE
 
@@ -99,13 +105,13 @@ MODULE mo_io_local_grid
 !#define lat_is_pole(lat) (ABS(ABS(lat) - pi_2) < eps )
 
 
-  PUBLIC nf
+!!  PUBLIC nf
 
   PRIVATE
 
   INCLUDE 'netcdf.inc'
 
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
+  CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
   PUBLIC :: read_netcdf_grid, write_netcdf_grid
   PUBLIC :: read_netcdf_cell_elevation
@@ -115,15 +121,14 @@ MODULE mo_io_local_grid
 
 CONTAINS
 
-
   !-------------------------------------------------------------------------
-  SUBROUTINE nf(STATUS)
-    INTEGER, INTENT(in) :: STATUS
-
-    IF (STATUS /= nf_noerr) THEN
-      CALL finish('mo_io_grid netCDF error', nf_strerror(STATUS))
+  SUBROUTINE nf(istatus)
+    INTEGER, INTENT(in) :: istatus
+    
+    IF (istatus /= nf_noerr) THEN
+      CALL finish('mo_io_grid netCDF error', nf_strerror(istatus))
     ENDIF
-
+    
   END SUBROUTINE nf
   !-------------------------------------------------------------------------
 
@@ -645,10 +650,10 @@ CONTAINS
     INTEGER :: ncid
     INTEGER :: dimids(2)
 
-    INTEGER :: dim_ncell, dim_nvertex, dim_nedge, dim_two, dim_cell_refine, &
-      & dim_edge_refine, dim_vert_refine, dim_nvertex_per_cell,      &
-      & dim_ncells_per_edge, dim_nedges_per_vertex, dim_nchilds_per_cell, &
-      & dim_list, dim_nchdom
+    INTEGER :: dim_ncell, dim_nvertex, dim_nedge, dim_two, dim_cell_refine,      &
+         &     dim_edge_refine, dim_vert_refine, dim_nvertex_per_cell,           &
+         &     dim_ncells_per_edge, dim_nedges_per_vertex, dim_nchilds_per_cell, &
+         &     dim_list, dim_nchdom
 
     INTEGER :: varid_clon, varid_clat, varid_clonv, varid_clatv
     INTEGER :: varid_vlon, varid_vlat, varid_vlonv, varid_vlatv
@@ -678,15 +683,13 @@ CONTAINS
     INTEGER :: max_vert_connect, max_cell_vertices
     INTEGER, POINTER :: tmp_index(:,:)
     REAL(wp), POINTER :: tmp_real(:,:)
-    INTEGER :: i,j,j1,j2,pole_index
+    INTEGER :: i, j, j1, j2, pole_index
 
     TYPE(t_cartesian_coordinates), POINTER :: barycenters(:)
     TYPE(t_geographical_coordinates), POINTER :: lon_lat(:)
 
-#ifdef __SX__
-    INTEGER :: iargc
-    CHARACTER(LEN= 32) :: arg_str
-#endif
+    TYPE(t_uuid) :: uuid
+    CHARACTER(len=uuid_string_length) :: uuid_string
 
     REAL(wp) :: rotation_vector(3)
     REAL(wp), ALLOCATABLE :: zv2dx(:,:), zv2dy(:,:)
@@ -696,8 +699,11 @@ CONTAINS
     INTEGER :: itype_optimize=0
     LOGICAL :: l_c_grid = .false.
 
-!     INTEGER :: str_idx, end_idx
+!!     INTEGER :: str_idx, end_idx
     !-------------------------------------------------------------------------
+    ! get unique grid file identifier for GRIB2 and updated CF-Convention
+    CALL uuid_generate(uuid)
+    CALL uuid_unparse(uuid, uuid_string)
 
     grid_obj => get_grid(grid_id)
     cells => grid_obj%cells
@@ -711,11 +717,8 @@ CONTAINS
     ENDIF
 
     !-------------------------------------------------------------------------
-    ! distinguish between gridgeneration for optimization strategies
-
-    ! Dummy settings for special grids
+    ! dummy setting for only available  grid root in new grid generator
     grid_root = 2
-    ! ilevel    = 1level
     ilevel    = grid_obj%level
 
     !----------------------------------------------------------------------
@@ -727,8 +730,10 @@ CONTAINS
 
     rotation_vector = (/ 0.0_wp, 0.0_wp, 0.0_wp /)
 
-    WRITE(message_text,'(a,a,a,i9)') 'Write gridmap file: ', TRIM(grid_obj%file_name), &
-      ' cells=', no_of_cells
+    WRITE(message_text,'(a,a,a,a,a,i9)')                              &
+         &             'Write grid file: ', TRIM(grid_obj%file_name), &
+         &             ' uuid ', TRIM(uuid_string),                   &
+         &             ' number of cells ', no_of_cells
     CALL message ('', TRIM(message_text))
     !----------------------------------------------------------------------
 
@@ -742,6 +747,7 @@ CONTAINS
     CALL nf(nf_put_att_text    (ncid, nf_global, 'institution', 59, &
       & 'Max Planck Institute for Meteorology/Deutscher Wetterdienst'))
     CALL nf(nf_put_att_text    (ncid, nf_global, 'source', 8, 'icon-dev'))
+    CALL nf(nf_put_att_text    (ncid, nf_global, 'uuid' , uuid_string_length, TRIM(uuid_string)))
     CALL nf(nf_put_att_text    (ncid, nf_global, 'grid_mapping_name' , 18, 'lat_long_on_sphere'))
     CALL nf(nf_put_att_text    (ncid, nf_global, 'crs_id' , 28, 'urn:ogc:def:cs:EPSG:6.0:6422'))
     CALL nf(nf_put_att_text    (ncid, nf_global, 'crs_name',30,'Spherical 2D Coordinate System'))
@@ -753,9 +759,9 @@ CONTAINS
     ! The following three attributes are nontrivial in the presence of grid refinement
     ! and are set here because they are checked in the ICON code
     IF (grid_obj%patch_id < 0) THEN
-      CALL nf(nf_put_att_int     (ncid, nf_global, 'grid_ID', nf_int, 1,1))
+      CALL nf(nf_put_att_int     (ncid, nf_global, 'grid_ID', nf_int, 1, 1))
     ELSE
-      CALL nf(nf_put_att_int     (ncid, nf_global, 'grid_ID', nf_int, 1,grid_obj%patch_id))
+      CALL nf(nf_put_att_int     (ncid, nf_global, 'grid_ID', nf_int, 1, grid_obj%patch_id))
     ENDIF
 
     CALL nf(nf_put_att_int     (ncid, nf_global, 'parent_grid_ID', nf_int, 1, &
