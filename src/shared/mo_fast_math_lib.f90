@@ -5,8 +5,7 @@ MODULE mo_fast_math_lib
   IMPLICIT NONE
 
   PRIVATE
-  
-  PUBLIC :: cube_root
+
   PUBLIC :: vec_div
   PUBLIC :: vec_aint
   PUBLIC :: vec_anint
@@ -36,12 +35,6 @@ MODULE mo_fast_math_lib
 
   REAL(dp), PARAMETER, PRIVATE :: onethird = 1.0_dp/3.0_dp
   REAL(dp), PARAMETER, PRIVATE :: onefourth = 0.25_dp
-  
-  INTERFACE cube_root
-    MODULE PROCEDURE vec_cbrt
-!     MODULE PROCEDURE vector_cube_root_rt
-!    MODULE PROCEDURE scalar_cube_root_rt
-  END INTERFACE
 
 CONTAINS
 
@@ -195,14 +188,14 @@ CONTAINS
     IF (PRESENT(n)) vec_size = n
 
 #ifndef HAVE_FAST_MATH_LIB
-    y(1:vec_size) = log(x(1:vec_size)+1._dp)
+    y(1:vec_size) = log(x(1:vec_size)+1)
 #else
 #if (defined HAVE_MASS)
     CALL vlog1p(y(1:vec_size), x(1:vec_size), vec_size)
 #elif (defined HAVE_MKL)
     CALL vdlog1p( vec_size, x(1:vec_size), y(1:vec_size) )
 #else
-    y(1:vec_size) = log(x(1:vec_size)+1._dp)
+    y(1:vec_size) = log(x(1:vec_size)+1)
     ! logp1 - no fast math library call available, use native Fortran ...
 #endif
 #endif
@@ -364,7 +357,7 @@ CONTAINS
 #elif (defined HAVE_MKL)
     CALL vdinvsqrt(vec_size, x(1:vec_size), y(1:vec_size))
 #else
-    y(1:vec_size) = 1.o_dp/sqrt(x(1:vec_size))
+    y(1:vec_size) = 1.0_dp/sqrt(x(1:vec_size))
     ! rsqrt - no fast math library call available, use native Fortran ...
 #endif
 #endif

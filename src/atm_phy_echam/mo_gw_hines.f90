@@ -66,7 +66,7 @@ MODULE mo_gw_hines
     & timer_gw_hines
 
   USE mo_math_constants,      ONLY: cos45, one_third
-  USE mo_fast_math_lib
+  USE mo_fast_math_lib,       ONLY: vec_cbrt ! cube root
 
 !!$  USE mo_geoloc,               ONLY: ilat
 !!$  USE mo_vertical_coord_table, ONLY: vct_a, vct_b
@@ -932,7 +932,7 @@ CONTAINS
           vtmp2(j) = bvfreq(i,l)*kstar/visc
        END DO
 
-       CALL cube_root(vtmp2, vtmp2, n=nlorms)
+       CALL vec_cbrt(vtmp2, vtmp2, n=nlorms)
        
        DO j = 1,nlorms
           i = ilorms(j)
