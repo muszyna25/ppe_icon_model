@@ -71,6 +71,7 @@ PUBLIC :: p_nf_close
 PUBLIC :: p_nf_inq_dimid
 PUBLIC :: p_nf_inq_dimlen
 PUBLIC :: p_nf_inq_varid
+PUBLIC :: p_nf_get_att_text
 PUBLIC :: p_nf_get_att_int
 PUBLIC :: p_nf_get_var_int
 PUBLIC :: p_nf_get_var_double
@@ -265,6 +266,33 @@ END FUNCTION p_nf_inq_varid
 !-------------------------------------------------------------------------
 !
 !
+
+!>
+!!               Wrapper for nf_get_att_text.
+!!
+!!
+!! @par Revision History
+!! Initial version by Luis Kornblueh, Jan 2011
+!!
+INTEGER FUNCTION p_nf_get_att_text(ncid, varid, name, tval)
+  INTEGER,          INTENT(in)  :: ncid, varid
+  CHARACTER(len=*), INTENT(in)  :: name
+  CHARACTER(len=*), INTENT(out) :: tval
+  
+  INTEGER :: res
+  
+  !-----------------------------------------------------------------------
+
+  IF (p_pe == p_io) THEN
+    res = nf_get_att_text(ncid, varid, name, tval)
+  ENDIF
+
+  CALL p_bcast(res, p_io, p_comm_input_bcast)
+  p_nf_get_att_text = res
+  
+  CALL p_bcast(tval, p_io, p_comm_input_bcast)
+
+END FUNCTION p_nf_get_att_text
 
 !>
 !!               Wrapper for nf_get_att_int.
