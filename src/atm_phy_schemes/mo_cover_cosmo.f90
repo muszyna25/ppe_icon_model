@@ -95,12 +95,9 @@ CONTAINS
 
 SUBROUTINE cover_cosmo ( &
     ie         ,    & ! number of grid points in zonal direction
-    je         ,    & ! number of grid points in meridional direction
     ke         ,    & ! number of grid points in vertical direction
     istartrad  ,    & ! start- and end-indices for computing the radiation (i-start)
-    jstartrad  ,    & !    -"- (j-start)
     iendparrad ,    & !    -"- (i-end)
-    jendparrad ,    & !    -"- (j-end)
     kstart     ,    & ! vertical start index of region where moist physics is active
     t          ,    & ! temperature                                   (  k  )
     ps         ,    & ! surface pressure                              ( pa  )
@@ -133,12 +130,9 @@ SUBROUTINE cover_cosmo ( &
 
 INTEGER(KIND=iintegers), INTENT(IN) ::  &
   & ie               , & ! number of grid points in zonal direction
-  & je               , & ! number of grid points in meridional direction
   & ke               , & ! number of grid points in vertical direction
   & istartrad        , & ! start- and end-indices for computing the radiation
-  & jstartrad        , & !  -"-
   & iendparrad       , & ! end-index just for preparations
-  & jendparrad       , & !  -"-
   & kstart
 
 INTEGER(KIND=iintegers), PARAMETER ::  &
@@ -146,21 +140,21 @@ INTEGER(KIND=iintegers), PARAMETER ::  &
   & nnew=1           , & ! corresponds to ntstep + 1
   & nzx=1                ! time level of prognostic variables
 
-REAL(KIND=ireals), DIMENSION(ie,je,ke,nnew), INTENT(IN) ::   &
+REAL(KIND=ireals), DIMENSION(ie,ke,nnew), INTENT(IN) ::   &
   & t                , & ! temperature                                   (  k  )
   & pp               , & ! deviation from the reference pressure         ( pa  )
   & qv               , & ! specific water vapor content                  (kg/kg)
   & qc               , & ! specific cloud water content                  (kg/kg)
   & qi                   ! specific cloud ice content                    (kg/kg)
 
-REAL(KIND=ireals), DIMENSION(ie,je,ke+1), INTENT(IN) ::   &
+REAL(KIND=ireals), DIMENSION(ie,ke+1), INTENT(IN) ::   &
   & rcld                 ! standard deviation of saturation deficit
 
-REAL(KIND=ireals), DIMENSION(ie,je,nnew), INTENT(IN) ::   &
+REAL(KIND=ireals), DIMENSION(ie,nnew), INTENT(IN) ::   &
   & ps               , & ! surface pressure                              ( pa  )
   & t_g                  ! weighted surface temperature                  (  k  )
 
-REAL(KIND=ireals), DIMENSION(ie,je,ke), INTENT(IN) ::   &
+REAL(KIND=ireals), DIMENSION(ie,ke), INTENT(IN) ::   &
   & p0               , & ! reference pressure at full levels             ( pa  )
   & pgeo                 ! geopotential                                  (m2/s2 )
 
@@ -170,14 +164,14 @@ INTEGER(KIND=iintegers), INTENT(IN) ::  &
 
 LOGICAL, INTENT(IN) :: &
   & lprog_qi         , & ! if .TRUE., running with cloud ice
-  & llandmask(ie,je) , & ! landpoint mask
-  & ldcum(ie,je)         ! true for convection points
+  & llandmask(ie)    , & ! landpoint mask
+  & ldcum(ie)            ! true for convection points
 
-INTEGER(KIND=iintegers), DIMENSION(ie,je), INTENT(IN) ::  &
+INTEGER(KIND=iintegers), DIMENSION(ie), INTENT(IN) ::  &
   & kcbot            , & ! convective cloud base level (klev: bottom level, -1: no conv)
   & kctop                ! convective cloud top level
 
-REAL(KIND=ireals), DIMENSION(ie,je,ke), INTENT(INOUT) ::   &
+REAL(KIND=ireals), DIMENSION(ie,ke), INTENT(INOUT) ::   &
   & clc_sgs          , & ! subgrid-scale stratiform cloud cover          ( --- )
   & clc_con          , & ! cloud cover due to convection                 ( --- )
   & zwv              , & ! OUT: Water vapour mixing ratio
@@ -192,7 +186,7 @@ INTEGER(KIND=iintegers) ::    &
   i, j, k
 ! klv500,                     & ! k index of the LM-mainlevel, on 500 hPa
 
-REAL(KIND=ireals), DIMENSION(ie,je,ke) :: &
+REAL(KIND=ireals), DIMENSION(ie,ke) :: &
   zsw                       , & ! Saturation water vapour mixing ratio over water
   zse                           ! Saturation water vapour mixing ratio over ice
 
@@ -244,27 +238,25 @@ REAL(KIND=ireals), PARAMETER :: &
   !              (taken from cosmo/src_convection.f90)
   !------------------------------------------------------------------------------
 
-  clc_con(:,:,:) = 0.0_ireals
+  clc_con(:,:) = 0.0_ireals
   DO k = kstart, ke
-    DO j = jstartrad, jendparrad       ! jstartpar, jendpar
-      DO  i = istartrad, iendparrad    ! istartpar, iendpar
-        IF( ldcum(i,j) .AND. kctop(i,j) > 0 .AND. k <= kcbot(i,j) .AND. k >= kctop(i,j) ) THEN
+    DO  i = istartrad, iendparrad    ! istartpar, iendpar
+      IF( ldcum(i) .AND. kctop(i) > 0 .AND. k <= kcbot(i) .AND. k >= kctop(i) ) THEN
  
-          clc_con(i,j,k) = 0.7_ireals/10000.0_ireals &
-                       & * ( pgeo(i,j,kctop(i,j)) - pgeo(i,j,kcbot(i,j)) ) / grav
+        clc_con(i,k) = 0.7_ireals/10000.0_ireals &
+                     & * ( pgeo(i,kctop(i)) - pgeo(i,kcbot(i)) ) / grav
 
-          IF ( k ==  kctop(i,j) ) THEN
-            zdtbot = t(i,j,k+1,nzx) - t(i,j,k  ,nzx)
-            zdttop = t(i,j,k  ,nzx) - t(i,j,k-1,nzx)
-            IF ( zdtbot > 0.0_ireals .AND. zdttop <= 0.0_ireals ) THEN
-              clc_con(i,j,k) = 2.0_ireals * clc_con(i,j,k)
-            ENDIF
+        IF ( k ==  kctop(i) ) THEN
+          zdtbot = t(i,k+1,nzx) - t(i,k  ,nzx)
+          zdttop = t(i,k  ,nzx) - t(i,k-1,nzx)
+          IF ( zdtbot > 0.0_ireals .AND. zdttop <= 0.0_ireals ) THEN
+            clc_con(i,k) = 2.0_ireals * clc_con(i,k)
           ENDIF
-
-          clc_con(i,j,k) = MIN ( 1.0_ireals, MAX(0.05_ireals, clc_con(i,j,k)) )
-
         ENDIF
-      ENDDO
+
+        clc_con(i,k) = MIN ( 1.0_ireals, MAX(0.05_ireals, clc_con(i,k)) )
+
+      ENDIF
     ENDDO
   ENDDO
 
@@ -278,16 +270,14 @@ REAL(KIND=ireals), PARAMETER :: &
   zt_ice2= t0_melt - 25.0_ireals
 
   DO k = kstart, ke
-    DO j = jstartrad, jendparrad       ! jstartpar, jendpar
-      DO  i = istartrad, iendparrad    ! istartpar, iendpar
+    DO  i = istartrad, iendparrad    ! istartpar, iendpar
 
-        ! specific humidity (zwv) specific total water content (zqdw),
-        ! specific humidity at saturation
-        ! over water (zsw ) and ice (zse)
-        zph       = p0(i,j,k) + pp(i,j,k,nzx)
-        zse (i,j,k) = fgqv ( fgee(t(i,j,k,nzx)), zph)
-        zsw (i,j,k) = fgqv ( fgew(t(i,j,k,nzx)), zph)
-      ENDDO
+      ! specific humidity (zwv) specific total water content (zqdw),
+      ! specific humidity at saturation
+      ! over water (zsw ) and ice (zse)
+      zph       = p0(i,k) + pp(i,k,nzx)
+      zse (i,k) = fgqv ( fgee(t(i,k,nzx)), zph)
+      zsw (i,k) = fgqv ( fgew(t(i,k,nzx)), zph)
     ENDDO
   ENDDO
 
@@ -301,12 +291,10 @@ REAL(KIND=ireals), PARAMETER :: &
     !-----------------------------------------------------------------
 
     DO  k = kstart, ke
-      DO j = jstartrad, jendparrad       ! jstartpar, jendpar
-        DO  i = istartrad, iendparrad    ! istartpar, iendpar
-          zclwc(i,j,k) = 0.0_ireals
-          zciwc(i,j,k) = 0.0_ireals
-          zclc (i,j,k) = 0.0_ireals
-        ENDDO
+      DO  i = istartrad, iendparrad    ! istartpar, iendpar
+        zclwc(i,k) = 0.0_ireals
+        zciwc(i,k) = 0.0_ireals
+        zclc (i,k) = 0.0_ireals
       ENDDO
     ENDDO
 
@@ -316,26 +304,24 @@ REAL(KIND=ireals), PARAMETER :: &
     !-------------------------------------------------------------------
 
     DO  k = kstart, ke
-      DO j = jstartrad, jendparrad       ! jstartpar, jendpar
-        DO  i = istartrad, iendparrad    ! istartpar, iendpar
-          zclwc(i,j,k) = qc(i,j,k,nzx)
-          IF (lprog_qi) THEN
-            IF ( qc(i,j,k,nzx)+qi(i,j,k,nnow) > 0.0_ireals ) THEN
-              zclc(i,j,k) = 1.0_ireals
-            ELSE
-              zclc(i,j,k) = 0.0_ireals
-            END IF
-            zciwc(i,j,k) = qi(i,j,k,nnow)
+      DO  i = istartrad, iendparrad    ! istartpar, iendpar
+        zclwc(i,k) = qc(i,k,nzx)
+        IF (lprog_qi) THEN
+          IF ( qc(i,k,nzx)+qi(i,k,nnow) > 0.0_ireals ) THEN
+            zclc(i,k) = 1.0_ireals
           ELSE
-            IF ( qc(i,j,k,nzx) > 0.0_ireals ) THEN
-              zclc(i,j,k) = 1.0_ireals
-            ELSE
-              zclc(i,j,k) = 0.0_ireals
-            END IF
-            zciwc(i,j,k) = 0.0_ireals
-          ENDIF
-          clc_sgs(i,j,k) = zclc(i,j,k)
-        ENDDO
+            zclc(i,k) = 0.0_ireals
+          END IF
+          zciwc(i,k) = qi(i,k,nnow)
+        ELSE
+          IF ( qc(i,k,nzx) > 0.0_ireals ) THEN
+            zclc(i,k) = 1.0_ireals
+          ELSE
+            zclc(i,k) = 0.0_ireals
+          END IF
+          zciwc(i,k) = 0.0_ireals
+        ENDIF
+        clc_sgs(i,k) = zclc(i,k)
       ENDDO
     ENDDO
 
@@ -344,47 +330,45 @@ REAL(KIND=ireals), PARAMETER :: &
     ! c) Cloud cover and water content from statistical diagnosis
     !------------------------------------------------------------
 
-    CALL cloud_diag(zclc, zclwc,                                     &
-         istartrad, iendparrad, jstartrad, jendparrad, kstart, ke,   &
-         ie, je, ke,                                                 &
-         t(:,:,:,nzx), qv(:,:,:,nzx), qc(:,:,:,nzx), pp(:,:,:,nzx),  &
-         p0, rcld, ps(:,:,nzx),                                      &
+    CALL cloud_diag(zclc, zclwc,                             &
+         istartrad, iendparrad, 1, 1, kstart, ke,            &
+         ie, 1 , ke,                                         &
+         t(:,:,nzx), qv(:,:,nzx), qc(:,:,nzx), pp(:,:,nzx),  &
+         p0, rcld, ps(:,nzx),                                &
          itype_wcld )
 
     DO  k = kstart, ke
-      DO j = jstartrad, jendparrad       ! jstartpar, jendpar
-        DO  i = istartrad, iendparrad    ! istartpar, iendpar
-          ! convective (in-)cloud water content
-          ! as a function of specific humidity at saturation
-          IF ( t(i,j,k,nzx) >= t0_melt )  THEN
-             zclwck = zsw(i,j,k)*zclwfk  !
-          ELSE
-             zclwck = zse(i,j,k)*zclwfk
+      DO  i = istartrad, iendparrad    ! istartpar, iendpar
+        ! convective (in-)cloud water content
+        ! as a function of specific humidity at saturation
+        IF ( t(i,k,nzx) >= t0_melt )  THEN
+           zclwck = zsw(i,k)*zclwfk  !
+        ELSE
+           zclwck = zse(i,k)*zclwfk
+        ENDIF
+
+        ! cloud cover of the non convective part of the grid box and cloud ice
+        zcs = zclc(i,k)
+        zciwc(i,k) = 0.0_ireals
+
+        IF (lprog_qi) THEN
+          ! if there is a grid scale cloud with cloud ice,
+          ! even there might has been diagnosed subgrid scale water clouds,
+          ! their water is thought to be distributed over the
+          ! whole grid volume:
+          IF ( qi(i,k,nnow) > 0.0_ireals ) THEN
+            zcs = 1.0_ireals
           ENDIF
+          zciwc(i,k) = qi(i,k,nnow)
+        ENDIF
+        clc_sgs(i,k) = zcs
 
-          ! cloud cover of the non convective part of the grid box and cloud ice
-          zcs = zclc(i,j,k)
-          zciwc(i,j,k) = 0.0_ireals
+        ! convective cloud cover
+        zck = clc_con(i,k)
 
-          IF (lprog_qi) THEN
-            ! if there is a grid scale cloud with cloud ice,
-            ! even there might has been diagnosed subgrid scale water clouds,
-            ! their water is thought to be distributed over the
-            ! whole grid volume:
-            IF ( qi(i,j,k,nnow) > 0.0_ireals ) THEN
-              zcs = 1.0_ireals
-            ENDIF
-            zciwc(i,j,k) = qi(i,j,k,nnow)
-          ENDIF
-          clc_sgs(i,j,k) = zcs
-
-          ! convective cloud cover
-          zck = clc_con(i,j,k)
-
-          ! grid scale cloud cover and water content
-          zclc (i,j,k) = zcs + zck*(1.0_ireals-zcs)
-          zclwc(i,j,k) = zclwc(i,j,k)*(1.0_ireals-zck) + zclwck*zck
-        ENDDO
+        ! grid scale cloud cover and water content
+        zclc (i,k) = zcs + zck*(1.0_ireals-zcs)
+        zclwc(i,k) = zclwc(i,k)*(1.0_ireals-zck) + zclwck*zck
       ENDDO
     ENDDO
 
@@ -393,37 +377,35 @@ REAL(KIND=ireals), PARAMETER :: &
     ! a) Standard diagnosis
     ! ---------------------
 
-    DO  k = kstart, ke
-      DO j = jstartrad, jendparrad       ! jstartpar, jendpar
+    IF (lprog_qi) THEN
+      DO  k = kstart, ke
         DO  i = istartrad, iendparrad    ! istartpar, iendpar
           ! Critical relative humidity as function of thermal stability
-          zph      = p0(i,j,k) + pp(i,j,k,nzx)
-          zsigma   = zph / ps(i,j,nzx)
+          zph      = p0(i,k) + pp(i,k,nzx)
+          zsigma   = zph / ps(i,nzx)
           zdthdz   = 0.0_ireals
 
-          zsex      = zsw(i,j,k)
-          zqdw      = qv(i,j,k,nzx) + qc(i,j,k,nzx)
-          IF (lprog_qi) THEN
-            zf_ice      = 1.0_ireals - MIN( 1.0_ireals, MAX( 0.0_ireals, &
-                          (t(i,j,k,nzx)-zt_ice2)/(zt_ice1-zt_ice2) ) )
-            zqdw        = zqdw      + qi(i,j,k,nnow)
-            zsex        = zsw(i,j,k) * (1.0_ireals - zf_ice) + zse(i,j,k)*zf_ice
-          ENDIF
+          zsex      = zsw(i,k)
+          zqdw      = qv(i,k,nzx) + qc(i,k,nzx)
+          zf_ice      = 1.0_ireals - MIN( 1.0_ireals, MAX( 0.0_ireals, &
+                        (t(i,k,nzx)-zt_ice2)/(zt_ice1-zt_ice2) ) )
+          zqdw        = zqdw      + qi(i,k,nnow)
+          zsex        = zsw(i,k) * (1.0_ireals - zf_ice) + zse(i,k)*zf_ice
 
           IF(k == ke) THEN
-            zpio    = ( 1.0E-5_ireals *( p0(i,j,k)+pp(i,j,k,nzx) ) )**rdocp
-            zpiu    = ( 1.0E-5_ireals * ps(i,j,nzx)  )**rdocp
+            zpio    = ( 1.0E-5_ireals *( p0(i,k)+pp(i,k,nzx) ) )**rdocp
+            zpiu    = ( 1.0E-5_ireals * ps(i,nzx)  )**rdocp
             zpim    = 0.5_ireals*(zpio+zpiu)
-            zthvo   = t  (i,j,k  ,nzx)/zpio
-            zthvu   = t_g(i,j,    nzx)/zpiu
+            zthvo   = t  (i,k  ,nzx)/zpio
+            zthvu   = t_g(i,    nzx)/zpiu
             zdthdz  = zthvo - zthvu
           ELSE IF(zsigma.GT.0.95_ireals) THEN
-            zpio    = ( 1.0E-5_ireals *( p0(i,j,k  )+pp(i,j,k  ,nzx) ) )**rdocp
-            zpiu    = ( 1.0E-5_ireals *( p0(i,j,k+1)+pp(i,j,k+1,nzx) ) )**rdocp
+            zpio    = ( 1.0E-5_ireals *( p0(i,k  )+pp(i,k  ,nzx) ) )**rdocp
+            zpiu    = ( 1.0E-5_ireals *( p0(i,k+1)+pp(i,k+1,nzx) ) )**rdocp
             zpim    = 0.5_ireals*(zpio+zpiu)
-            zthvo   = t(i,j,k  ,nzx)/zpio
-            zthvu   = t(i,j,k+1,nzx)/zpiu
-            zdthdz  = zthvo - zthvu + (lh_v*cpdr/zpim)*(qv(i,j,k,nzx)-qv(i,j,k+1,nzx))
+            zthvo   = t(i,k  ,nzx)/zpio
+            zthvu   = t(i,k+1,nzx)/zpiu
+            zdthdz  = zthvo - zthvu + (lh_v*cpdr/zpim)*(qv(i,k,nzx)-qv(i,k+1,nzx))
           ENDIF
 
           ! grid scale cloud cover as function of relative humidity
@@ -435,92 +417,141 @@ REAL(KIND=ireals), PARAMETER :: &
           IF ( (zsigma > 0.95_ireals) .AND. (zdthdz < 0.0_ireals) ) THEN
             zcs = 0.0_ireals  ! no cloud cover in unstable stratification
           ENDIF
-          IF ( qc(i,j,k,nzx) > 0.0_ireals ) THEN  ! grid scale clouds
-            IF ( llandmask(i,j) .AND. k < ke ) zcs = 1.0_ireals
+          IF ( qc(i,k,nzx) > 0.0_ireals ) THEN  ! grid scale clouds
+            IF ( llandmask(i) .AND. k < ke ) zcs = 1.0_ireals
           ENDIF
-          IF (lprog_qi) THEN
-            IF (qi(i,j,k,nnow) > 1.0E-7_ireals) THEN
-              zcs = 1.0_ireals ! grid scale clouds with cloud ice
-            ENDIF
+          IF (qi(i,k,nnow) > 1.0E-7_ireals) THEN
+            zcs = 1.0_ireals ! grid scale clouds with cloud ice
           ENDIF
 
           ! store grid-scale cloud cover on global array
-          clc_sgs(i,j,k) = zcs
+          clc_sgs(i,k) = zcs
 
           ! Maximum in-cloud water content:  1.0% of specific humidity at saturation
           !                                  except for convective clouds (fixed)
           ! Standard diagnosis
 
-          IF (lprog_qi) THEN
-            zclws  = 0.005_ireals*zsex
-            zclwcs = zclws*(1.0_ireals-zf_ice)
-            zclics = zclws*zf_ice
+          zclws  = 0.005_ireals*zsex
+          zclwcs = zclws*(1.0_ireals-zf_ice)
+          zclics = zclws*zf_ice
 
 ! OLD: Check for grid-scale water or ice-clouds
-!            IF ( qc(i,j,k,nzx) > 0.0 .OR. qi(i,j,k,nnow) > 1.0E-7_ireals ) THEN
+!            IF ( qc(i,k,nzx) > 0.0 .OR. qi(i,k,nnow) > 1.0E-7_ireals ) THEN
 !              zclics = 0.0_ireals
 !              zclwcs = 0.0_ireals
-!              IF ( qc(i,j,k,nzx) > 0.0 ) THEN  ! grid scale cloud water
-!                 zclwcs = MAX( zclws, 0.5_ireals*qc(i,j,k,nzx) )
+!              IF ( qc(i,k,nzx) > 0.0 ) THEN  ! grid scale cloud water
+!                 zclwcs = MAX( zclws, 0.5_ireals*qc(i,k,nzx) )
 !              ENDIF
-!              IF ( qi(i,j,k,nnow) > 1.0E-7_ireals ) THEN  ! grid scale cloud ice
-!                 zclics = MAX( zclws, 0.5_ireals*qi(i,j,k,nnow) )
+!              IF ( qi(i,k,nnow) > 1.0E-7_ireals ) THEN  ! grid scale cloud ice
+!                 zclics = MAX( zclws, 0.5_ireals*qi(i,k,nnow) )
 !              ENDIF
 !            ENDIF
 
-            ! Check for grid-scale water or ice-clouds
-            IF ( qc(i,j,k,nzx) > 0.0_ireals ) THEN      ! grid scale cloud water
-              zclwcs = MAX( zclwcs, 0.5_ireals*qc(i,j,k,nzx) )
-            ENDIF
-            IF ( qi(i,j,k,nnow) > 1.0E-7_ireals ) THEN  ! grid scale cloud ice
-              zclics = MAX( zclics, 0.5_ireals*qi(i,j,k,nnow) )
-            ENDIF
-
-            ! Convective cloud water / ice content
-            zclwk  = MAX( 2.0_ireals*zclws, 0.0002_ireals )
-            zclwck = zclwk*(1.0_ireals-zf_ice)
-            zclick = zclwk*zf_ice
-
-            ! Reduce the cloud cover of ice clouds in the upper troposphere
-            ! for the diagnosis of clch and clct
-!           IF ((k <= klv500) .AND. (zclwcs <= 1.0E-10_ireals) .AND. &
-            IF (                    (zclwcs <= 1.0E-10_ireals) .AND. &
-                                    (zclics  > 0.0_ireals) ) THEN
-              clc_sgs(i,j,k) = clc_sgs(i,j,k)*MIN( 1._ireals, MAX(0.2_ireals, &
-                                 ( LOG(zclics)       - LOG(1.E-7_ireals) )/ &
-                                 ( LOG(5.E-5_ireals) - LOG(1.E-7_ireals) )) )
-            ENDIF
-
-            ! set area-average cloud water/ice content
-            zclwc(i,j,k) = zclwck*clc_con(i,j,k) + &
-                           zclwcs*clc_sgs(i,j,k)*(1.0_ireals-clc_con(i,j,k))
-            zciwc(i,j,k) = zclick*clc_con(i,j,k) + &
-                           zclics*clc_sgs(i,j,k)*(1.0_ireals-clc_con(i,j,k))
-
-          ELSE
-
-            zclwcs = 0.005_ireals*zsw(i,j,k)
-            zclwck = MAX( zclwcs, 0.0002_ireals )
-            IF ( qc(i,j,k,nzx) > 0.0_ireals ) THEN  ! grid scale clouds
-               zclwcs = MAX( zclwcs, 0.5_ireals*qc(i,j,k,nzx) )
-            ENDIF
-
-            ! set area-average cloud water/ice content
-            zclwc(i,j,k) = zclwck*clc_con(i,j,k) + &
-                           zclwcs*clc_sgs(i,j,k)*(1.0_ireals-clc_con(i,j,k))
-
-            ! set area average cloud ice content (in-cloud)
-            zciwc(i,j,k) = 0.0_ireals
-
+          ! Check for grid-scale water or ice-clouds
+          IF ( qc(i,k,nzx) > 0.0_ireals ) THEN      ! grid scale cloud water
+            zclwcs = MAX( zclwcs, 0.5_ireals*qc(i,k,nzx) )
+          ENDIF
+          IF ( qi(i,k,nnow) > 1.0E-7_ireals ) THEN  ! grid scale cloud ice
+            zclics = MAX( zclics, 0.5_ireals*qi(i,k,nnow) )
           ENDIF
 
+          ! Convective cloud water / ice content
+          zclwk  = MAX( 2.0_ireals*zclws, 0.0002_ireals )
+          zclwck = zclwk*(1.0_ireals-zf_ice)
+          zclick = zclwk*zf_ice
+
+          ! Reduce the cloud cover of ice clouds in the upper troposphere
+          ! for the diagnosis of clch and clct
+!         IF ((k <= klv500) .AND. (zclwcs <= 1.0E-10_ireals) .AND. &
+          IF (                    (zclwcs <= 1.0E-10_ireals) .AND. &
+                                  (zclics  > 0.0_ireals) ) THEN
+            clc_sgs(i,k) = clc_sgs(i,k)*MIN( 1._ireals, MAX(0.2_ireals, &
+                               ( LOG(zclics)       - LOG(1.E-7_ireals) )/ &
+                               ( LOG(5.E-5_ireals) - LOG(1.E-7_ireals) )) )
+          ENDIF
+
+          ! set area-average cloud water/ice content
+          zclwc(i,k) = zclwck*clc_con(i,k) + &
+                       zclwcs*clc_sgs(i,k)*(1.0_ireals-clc_con(i,k))
+          zciwc(i,k) = zclick*clc_con(i,k) + &
+                       zclics*clc_sgs(i,k)*(1.0_ireals-clc_con(i,k))
+
           ! calculate combined cloud cover
-          zclc (i,j,k) = clc_sgs(i,j,k) + &
-                         clc_con(i,j,k)*( 1.0_ireals - clc_sgs(i,j,k) )
+          zclc (i,k) = clc_sgs(i,k) + &
+                         clc_con(i,k)*( 1.0_ireals - clc_sgs(i,k) )
 
         ENDDO
       ENDDO
-    ENDDO
+
+    ELSE  ! not lprog_qi
+
+      DO  k = kstart, ke
+        DO  i = istartrad, iendparrad    ! istartpar, iendpar
+          ! Critical relative humidity as function of thermal stability
+          zph      = p0(i,k) + pp(i,k,nzx)
+          zsigma   = zph / ps(i,nzx)
+          zdthdz   = 0.0_ireals
+
+          zsex      = zsw(i,k)
+          zqdw      = qv(i,k,nzx) + qc(i,k,nzx)
+
+          IF(k == ke) THEN
+            zpio    = ( 1.0E-5_ireals *( p0(i,k)+pp(i,k,nzx) ) )**rdocp
+            zpiu    = ( 1.0E-5_ireals * ps(i,nzx)  )**rdocp
+            zpim    = 0.5_ireals*(zpio+zpiu)
+            zthvo   = t  (i,k  ,nzx)/zpio
+            zthvu   = t_g(i,    nzx)/zpiu
+            zdthdz  = zthvo - zthvu
+          ELSE IF(zsigma.GT.0.95_ireals) THEN
+            zpio    = ( 1.0E-5_ireals *( p0(i,k  )+pp(i,k  ,nzx) ) )**rdocp
+            zpiu    = ( 1.0E-5_ireals *( p0(i,k+1)+pp(i,k+1,nzx) ) )**rdocp
+            zpim    = 0.5_ireals*(zpio+zpiu)
+            zthvo   = t(i,k  ,nzx)/zpio
+            zthvu   = t(i,k+1,nzx)/zpiu
+            zdthdz  = zthvo - zthvu + (lh_v*cpdr/zpim)*(qv(i,k,nzx)-qv(i,k+1,nzx))
+          ENDIF
+
+          ! grid scale cloud cover as function of relative humidity
+          zuc     = 0.95_ireals - uc1*zsigma*(1._ireals-zsigma)*(1._ireals+uc2*(zsigma-0.5_ireals))
+          zcs     = MAX ( 0.0_ireals,                &
+                    MIN ( 1.0_ireals, (zqdw/zsex-zuc)/(ucl-zuc) ) )**2
+
+          ! Corrections and limitations
+          IF ( (zsigma > 0.95_ireals) .AND. (zdthdz < 0.0_ireals) ) THEN
+            zcs = 0.0_ireals  ! no cloud cover in unstable stratification
+          ENDIF
+          IF ( qc(i,k,nzx) > 0.0_ireals ) THEN  ! grid scale clouds
+            IF ( llandmask(i) .AND. k < ke ) zcs = 1.0_ireals
+          ENDIF
+
+          ! store grid-scale cloud cover on global array
+          clc_sgs(i,k) = zcs
+
+          ! Maximum in-cloud water content:  1.0% of specific humidity at saturation
+          !                                  except for convective clouds (fixed)
+          ! Standard diagnosis
+
+          zclwcs = 0.005_ireals*zsw(i,k)
+          zclwck = MAX( zclwcs, 0.0002_ireals )
+          IF ( qc(i,k,nzx) > 0.0_ireals ) THEN  ! grid scale clouds
+            zclwcs = MAX( zclwcs, 0.5_ireals*qc(i,k,nzx) )
+          ENDIF
+
+          ! set area-average cloud water/ice content
+          zclwc(i,k) = zclwck*clc_con(i,k) + &
+                         zclwcs*clc_sgs(i,k)*(1.0_ireals-clc_con(i,k))
+
+          ! set area average cloud ice content (in-cloud)
+          zciwc(i,k) = 0.0_ireals
+
+
+          ! calculate combined cloud cover
+          zclc (i,k) = clc_sgs(i,k) + &
+                         clc_con(i,k)*( 1.0_ireals - clc_sgs(i,k) )
+
+        ENDDO
+      ENDDO
+    ENDIF ! lprog_qi
 
   ENDIF  ! icldm_rad
 
@@ -528,13 +559,11 @@ REAL(KIND=ireals), PARAMETER :: &
   ! ---------------------------------------
 
   DO  k = kstart, ke
-    DO j = jstartrad, jendparrad       ! jstartpar, jendpar
-      DO  i = istartrad, iendparrad    ! istartpar, iendpar
-        zwv  (i,j,k) = MIN( MAX(zeph2o,qv(i,j,k,nzx)), zsw(i,j,k) )
-        zclc (i,j,k) = MAX( zepclc, MIN(1.0_ireals-zepclc,zclc(i,j,k)) )
-        zclwc(i,j,k) = MAX( zclwcm, zclwc(i,j,k) )
-        zciwc(i,j,k) = MAX( zclwcm, zciwc(i,j,k) )
-      ENDDO
+    DO  i = istartrad, iendparrad    ! istartpar, iendpar
+      zwv  (i,k) = MIN( MAX(zeph2o,qv(i,k,nzx)), zsw(i,k) )
+      zclc (i,k) = MAX( zepclc, MIN(1.0_ireals-zepclc,zclc(i,k)) )
+      zclwc(i,k) = MAX( zclwcm, zclwc(i,k) )
+      zciwc(i,k) = MAX( zclwcm, zciwc(i,k) )
     ENDDO
   ENDDO
 

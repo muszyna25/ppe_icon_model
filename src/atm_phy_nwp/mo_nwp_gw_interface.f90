@@ -155,13 +155,10 @@ CONTAINS
 
         CALL sso(                                          &
           & ie        =nproma                           ,  & !> in:  actual array size
-          & je        =1                                ,  & !< in:  dummy  array dimension
           & ke        =nlev                             ,  & !< in:  actual array size
           & ke1       =nlevp1                           ,  & !< in:  ke + 1
           & istart    =i_startidx                       ,  & !< in:  start index of calculation
           & iend      =i_endidx                         ,  & !< in:  end index of calculation
-          & jstart    =1                                ,  & !< in:  dummy start index 
-          & jend      =1                                ,  & !< in:  dummy end index
           & ppf       =p_diag%pres              (:,:,jb),  & !< in:  full level pressure
           & pph       =p_diag%pres_ifc          (:,:,jb),  & !< in:  half level pressure
           & pfif      =p_metrics%geopot_agl     (:,:,jb),  & !< in:  full level geopotential height

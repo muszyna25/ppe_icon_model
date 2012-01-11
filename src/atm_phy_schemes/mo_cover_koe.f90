@@ -360,12 +360,9 @@ CASE( 3 )
 
   CALL cover_cosmo ( &
     klon       ,    & ! number of grid points in zonal direction
-    1          ,    & ! number of grid points in meridional direction
     klev       ,    & ! number of grid points in vertical direction
     kidia      ,    & ! start- and end-indices for computing the radiation (i-start)
-    1          ,    & !    -"- (j-start)
     kfdia      ,    & !    -"- (i-end)
-    1          ,    & !    -"- (j-end)
     kstart     ,    & ! vertical start index
     tt         ,    & ! temperature                                   (  K  )
     ps         ,    & ! surface pressure                              ( Pa  )
