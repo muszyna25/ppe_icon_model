@@ -50,6 +50,7 @@ MODULE mo_lnd_nwp_nml
   USE mo_lnd_nwp_config,      ONLY: config_nztlev      => nztlev        , &
     &                               config_nlev_snow   => nlev_snow     , &
     &                               config_nsfc_subs   => nsfc_subs     , &
+    &                               config_nsfc_snow   => nsfc_snow     , &
     &                               config_lseaice     => lseaice       , &
     &                               config_llake       => llake         , &
     &                               config_lmelt       => lmelt         , &
@@ -76,6 +77,8 @@ MODULE mo_lnd_nwp_nml
   INTEGER ::  nztlev            !< time integration scheme
   INTEGER ::  nlev_snow         !< number of snow layers
   INTEGER ::  nsfc_subs         !< number of TILES
+  INTEGER ::  nsfc_snow         !< number of static surface types which can have 
+                                !< snow as a tile
   INTEGER ::  itype_gscp        !< type of grid-scale precipitation physics
   INTEGER ::  itype_trvg        !< type of vegetation transpiration parameterization
   INTEGER ::  itype_evsl        !< type of parameterization of bare soil evaporation
@@ -96,22 +99,23 @@ MODULE mo_lnd_nwp_nml
        lmulti_snow,& !! run the multi-layer snow model
        lstomata   , & ! map of minimum stomata resistance
        l2tls      , & ! forecast with 2-TL integration scheme
-       lana_rho_snow                         ! if .TRUE., take rho_snow-values from analysis file 
+       lana_rho_snow  ! if .TRUE., take rho_snow-values from analysis file 
 !--------------------------------------------------------------------
 ! nwp forcing (right hand side)
 !--------------------------------------------------------------------
 
-  NAMELIST/lnd_nml/ nztlev, nlev_snow, nsfc_subs, lseaice, llake, &
-    &               lmelt, lmelt_var, lmulti_snow, itype_gscp   , & 
-    &               itype_trvg                                  , & 
-    &               itype_evsl                                  , & 
-    &               itype_tran                                  , & 
-    &               itype_root                                  , & 
-    &               itype_heatcond                              , & 
-    &               itype_hydbound                              , & 
-    &               lstomata                                    , & 
-    &               l2tls                                       , & 
-    &               lana_rho_snow                               , & 
+  NAMELIST/lnd_nml/ nztlev, nlev_snow, nsfc_subs, nsfc_snow   , &
+    &               lseaice, llake, lmelt, lmelt_var          , &
+    &               lmulti_snow, itype_gscp                   , & 
+    &               itype_trvg                                , & 
+    &               itype_evsl                                , & 
+    &               itype_tran                                , & 
+    &               itype_root                                , & 
+    &               itype_heatcond                            , & 
+    &               itype_hydbound                            , & 
+    &               lstomata                                  , & 
+    &               l2tls                                     , & 
+    &               lana_rho_snow                             , & 
     &               itype_subs            
    
   PUBLIC :: read_nwp_lnd_namelist
@@ -152,6 +156,8 @@ MODULE mo_lnd_nwp_nml
     nztlev         = 2       ! 2 = default value for time integration scheme
     nlev_snow      = 1       ! 0 = default value for number of snow layers
     nsfc_subs      = 1       ! 1 = default value for number of TILES
+    nsfc_snow      = 0       ! 0 = default value for number of static surface 
+                             !     types which can have snow as a tile
     lmelt          = .TRUE.  ! soil model with melting process
     lmelt_var      = .TRUE.  ! freezing temperature dependent on water content
     lmulti_snow    = .FALSE. ! run the multi-layer snow model
@@ -196,14 +202,21 @@ MODULE mo_lnd_nwp_nml
     END SELECT
     CALL close_nml
 
+
     !----------------------------------------------------
-    ! 4. Fill the configuration state
+    ! 4. Sanity check (if necessary)
+    !----------------------------------------------------
+
+
+    !----------------------------------------------------
+    ! 5. Fill the configuration state
     !----------------------------------------------------
 
     DO jg = 1,max_dom
       config_nztlev      = nztlev
       config_nlev_snow   = nlev_snow
       config_nsfc_subs   = nsfc_subs
+      config_nsfc_snow   = nsfc_snow
       config_lseaice     = lseaice
       config_llake       = llake
       config_lmelt       = lmelt
@@ -223,7 +236,7 @@ MODULE mo_lnd_nwp_nml
     ENDDO
 
     !-----------------------------------------------------
-    ! 5. Store the namelist for restart
+    ! 6. Store the namelist for restart
     !-----------------------------------------------------
     IF(my_process_is_stdio())  THEN
       funit = open_tmpfile()
@@ -232,7 +245,7 @@ MODULE mo_lnd_nwp_nml
     ENDIF
 
 
-    ! 6. write the contents of the namelist to an ASCII file
+    ! 7. write the contents of the namelist to an ASCII file
     IF(my_process_is_stdio()) WRITE(nnml_output,nml=lnd_nml)
 
   END SUBROUTINE read_nwp_lnd_namelist

@@ -79,7 +79,7 @@ MODULE mo_lnd_nwp_config
 
 
   LOGICAL ::  lseaice     !> forecast with sea ice model
-  LOGICAL ::  llake       !! forecst with lake model FLake
+  LOGICAL ::  llake       !! forecast with lake model FLake
   LOGICAL ::  lmelt       !! soil model with melting process
   LOGICAL ::  lmelt_var   !! freezing temperature dependent on water content
   LOGICAL ::  lmulti_snow !! run the multi-layer snow model
