@@ -135,6 +135,7 @@ USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
 USE mo_mpi,                ONLY: my_process_is_mpi_parallel, p_comm_work
 USE mo_sync,               ONLY: disable_sync_checks, enable_sync_checks
 USE mo_communication,      ONLY: idx_no, blk_no
+USE mo_util_uuid,          ONLY: uuid_string_length, uuid_parse 
 
 #ifndef NOMPI
 ! The USE statement below lets this module use the routines from
@@ -148,6 +149,7 @@ USE mo_read_netcdf_parallel, ONLY:                &
    nf_inq_dimid       => p_nf_inq_dimid,          &
    nf_inq_dimlen      => p_nf_inq_dimlen,         &
    nf_inq_varid       => p_nf_inq_varid,          &
+   nf_get_att_text    => p_nf_get_att_text,       &
    nf_get_att_int     => p_nf_get_att_int,        &
    nf_get_var_int     => p_nf_get_var_int,        &
    nf_get_var_double  => p_nf_get_var_double
@@ -1178,6 +1180,8 @@ INTEGER :: n_e_halo_verts
 ! LOGICAL :: lnetcdf = .TRUE.
 ! CHARACTER(len=filename_max) :: file
 
+CHARACTER(len=uuid_string_length) :: uuid_string
+
 ! status variable
 INTEGER :: ist
 
@@ -1209,10 +1213,15 @@ ENDIF
   
 CALL message ('mo_model_domimp_patches:read_patch', 'start to init patch')
 
-WRITE(message_text,'(a,a)') 'Read gridmap file ', TRIM(p_patch%grid_filename)
+WRITE(message_text,'(a,a)') 'Read grid file ', TRIM(p_patch%grid_filename)
 CALL message ('', TRIM(message_text))
 
 CALL nf(nf_open(TRIM(p_patch%grid_filename), NF_NOWRITE, ncid))
+
+CALL nf(nf_get_att_text(ncid, NF_GLOBAL, 'uuid', uuid_string))
+CALL uuid_parse(uuid_string, p_patch%grid_uuid)
+WRITE(message_text,'(a,a)') 'grid uuid: ', uuid_string
+CALL message  ('mo_model_domain_import/read_patch', message_text)
 
 CALL nf(nf_get_att_int(ncid, NF_GLOBAL, 'grid_root', icheck))
 IF (icheck /= nroot) THEN
