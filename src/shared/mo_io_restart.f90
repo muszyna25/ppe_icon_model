@@ -1368,10 +1368,10 @@ CONTAINS
     for_all_files: DO n = 1, nfiles
       model_type =TRIM(abbreviations(n)%abbreviation)
       restart_filename = 'restart_'//TRIM(model_type)//'.nc'
-      write(0,*) "n=", n
-      write(0,*) "model_type=", model_type
-      write(0,*) "restart_filename=", restart_filename
-      write(0,*) "util_islink(TRIM(restart_filename)=", &
+!       write(0,*) "n=", n
+!       write(0,*) "model_type=", model_type
+!       write(0,*) "restart_filename=", restart_filename
+!       write(0,*) "util_islink(TRIM(restart_filename)=", &
         util_islink(TRIM(restart_filename))
       !
       IF (.NOT. util_islink(TRIM(restart_filename))) THEN
@@ -1385,9 +1385,9 @@ CONTAINS
       string_length=LEN_TRIM(restart_filename)
       name = TRIM(restart_filename)//CHAR(0)
       ! check if the netcdf open works
-      write(0,*) "nf_open ", TRIM(restart_filename)
-      CALL nf(nf_open(TRIM(restart_filename), nf_nowrite, ncid))
-      CALL nf(nf_close(ncid))
+!       write(0,*) "nf_open ", TRIM(restart_filename)
+!       CALL nf(nf_open(TRIM(restart_filename), nf_nowrite, ncid))
+!       CALL nf(nf_close(ncid))
       
       write(0,*) "streamOpenRead ", TRIM(restart_filename)
       fileID  = streamOpenRead(name)
