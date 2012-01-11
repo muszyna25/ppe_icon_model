@@ -301,7 +301,7 @@ REAL(KIND=jprb) ::     zoentr(klon), zph(klon), zpbase(klon)
 REAL(KIND=jprb) ::     zcrit(klon), zdrain(klon)
 LOGICAL ::  llflag(klon), llflaguv(klon), llo1(klon), llo3, llo4
 
-INTEGER(KIND=jpim) :: icall, ik, is, jk, jl, ikb
+INTEGER(KIND=jpim) :: icall, ik, is, jk, jl, ikb, kk
 INTEGER(KIND=jpim) :: jll, jlm, jlx(klon)
 
 REAL(KIND=jprb) :: z_cldmax, z_cprc2, z_cwdrag, z_cwifrac, zalfaw,&
@@ -311,7 +311,7 @@ REAL(KIND=jprb) :: z_cldmax, z_cprc2, z_cwdrag, z_cwifrac, zalfaw,&
  & zleen, zlnew, zmfmax, zmftest, zmfulk, zmfun, &
  & zmfuqk, zmfusk, zoealfa, zoealfap, zprcdgw, &
  & zprcon, zqeen, zqude, zrnew, zrold, zscde, &
- & zseen, ztglace, zvi, zvv, zvw, zwu, zzco  
+ & zseen, ztglace, zvi, zvv, zvw, zwu, zzco, zzzmb, zrg, zdz, zentr
 
 REAL(KIND=jprb) ::  zchange,zxs,zxe
 REAL(KIND=jprb) :: zhook_handle
@@ -356,9 +356,9 @@ z_cwdrag=(3._jprb/8._jprb)*0.506_JPRB/0.2_JPRB/rg
  plude  = 0.0_JPRB 
  pdmfup  = 0.0_JPRB 
  pdmfen  = 0.0_JPRB 
- kctop = 0 
  pmfude_rate  = 0.0_JPRB 
- pkineu  = 0.0_JPRB   
+ pkineu  = 0.0_JPRB
+ kctop = 0 
  pwmean  = 0.0_JPRB
 
 llo3=.FALSE.
@@ -370,7 +370,7 @@ DO jl=kidia,kfdia
     pqu(jl,klev)=0.0_JPRB
     ktype(jl)=0
   ENDIF
-  pwmean(jl)=0.0_JPRB
+  ! pwmean(jl)=0.0_JPRB
   zdpmean(jl)=0.0_JPRB
   zoentr(jl)=0.0_JPRB
 ENDDO
@@ -392,26 +392,26 @@ DO jk=ktdia,klev
     IF (jk /= kcbot(jl)) THEN 
       plu(jl,jk)=0.0_JPRB
     ENDIF
-    pkineu(jl,jk)=0.0_JPRB
+    IF( llklab(jl) ) klab(jl,jk)=0
+    IF(.NOT.ldcum(jl).AND.paph(jl,jk) < 4.e4_jprb) kctop0(jl)=jk
+    ! pkineu(jl,jk)=0.0_JPRB
   ENDDO
   DO jl=kidia,kfdia
     pmfu(jl,jk)=0.0_JPRB
-    pmfus(jl,jk)=0.0_JPRB
-    pmfuq(jl,jk)=0.0_JPRB
-    pmful(jl,jk)=0.0_JPRB
-  ENDDO
-  DO jl=kidia,kfdia
-    plude(jl,jk)=0.0_JPRB
-    plglac(jl,jk)=0.0_JPRB
-    pdmfup(jl,jk)=0.0_JPRB
+    ! pmfus(jl,jk)=0.0_JPRB
+    ! pmfuq(jl,jk)=0.0_JPRB
+    ! pmful(jl,jk)=0.0_JPRB
+  ! ENDDO
+  ! DO jl=kidia,kfdia
+    ! plude(jl,jk)=0.0_JPRB
+    ! plglac(jl,jk)=0.0_JPRB
+    ! pdmfup(jl,jk)=0.0_JPRB
     zlrain(jl,jk)=0.0_JPRB
-  ENDDO
-  DO jl=kidia,kfdia
+  ! ENDDO
+  ! DO jl=kidia,kfdia
     zbuo(jl,jk)=0.0_JPRB
-    IF( llklab(jl) ) klab(jl,jk)=0
-    IF(.NOT.ldcum(jl).AND.paph(jl,jk) < 4.e4_jprb) kctop0(jl)=jk
-    pdmfen(jl,jk)=0.0_JPRB
-    pmfude_rate(jl,jk)=0.0_JPRB
+    ! pdmfen(jl,jk)=0.0_JPRB
+    ! pmfude_rate(jl,jk)=0.0_JPRB
   ENDDO
 ENDDO
 !DIR$ IVDEP
@@ -489,15 +489,43 @@ DO jk=klev-1,ktdia+2,-1
 !!                  IN *CUBASMC* IN CASE THERE IS NOT ALREADY CONVECTION
 !!                  ----------------------------------------------------
 
-  ik=jk
-  CALL cubasmcn &
-   & ( kidia,    kfdia,    klon,    klev,&
-   & ik,&
-   & pten,     pqen,     pqsen,&
-   & pvervel,  pgeo,     pgeoh,    ldcum,    ktype,    klab,&
-   & kcbot,    pmfu,     pmfub,    pentr,    zlrain,&
-   & ptu,      pqu,      plu,&
-   & pmfus,    pmfuq,    pmful,    pdmfup)  
+!  ik=jk
+!  CALL cubasmcn &
+!   & ( kidia,    kfdia,    klon,    klev,&
+!   & ik,&
+!   & pten,     pqen,     pqsen,&
+!   & pvervel,  pgeo,     pgeoh,    ldcum,    ktype,    klab,&
+!   & kcbot,    pmfu,     pmfub,    pentr,    zlrain,&
+!   & ptu,      pqu,      plu,&
+!   & pmfus,    pmfuq,    pmful,    pdmfup)  
+
+  ! cubasmcn is inlined for better efficiency
+  kk=jk
+  DO jl=kidia,kfdia
+
+    IF(.NOT.ldcum(jl).AND.klab(jl,kk+1) == 0 ) THEN
+      IF(lmfmid.AND.pgeo(jl,kk) > 5000.0_JPRB.AND.pgeo(jl,kk)<1.e5_jprb &
+        & .AND.pqen(jl,kk) > 0.80_JPRB*pqsen(jl,kk)) THEN
+        ptu(jl,kk+1)=(rcpd*pten(jl,kk)+pgeo(jl,kk)-pgeoh(jl,kk+1))/rcpd
+        pqu(jl,kk+1)=pqen(jl,kk)
+        plu(jl,kk+1)=0.0_JPRB
+        zzzmb=MAX(rmfcmin,-pvervel(jl,kk)/rg)
+        zzzmb=MIN(zzzmb,rmfcmax)
+        pmfub(jl)=zzzmb
+        pmfu(jl,kk+1)=pmfub(jl)
+        pmfus(jl,kk+1)=pmfub(jl)*(rcpd*ptu(jl,kk+1)+pgeoh(jl,kk+1))
+        pmfuq(jl,kk+1)=pmfub(jl)*pqu(jl,kk+1)
+        pmful(jl,kk+1)=0.0_JPRB
+        pdmfup(jl,kk+1)=0.0_JPRB
+        zlrain(jl,kk+1)=0.0_JPRB
+        kcbot(jl)=kk
+        klab(jl,kk+1)=1
+        ktype(jl)=3
+        pentr(jl)=entrmid
+      ENDIF
+    ENDIF
+  ENDDO
+  ! End of code inlined from cubasmcn
 
   is=0
   jlm=0
@@ -538,14 +566,49 @@ DO jk=klev-1,ktdia+2,-1
 !>                  SPECIFY ENTRAINMENT RATES IN *CUENTR*
 !!                   -------------------------------------
 
-  ik=jk
-  CALL cuentr &
-   & ( kidia,    kfdia,    klon,     klev,&
-   & ik,       kcbot,&
-   & ldcum,    llo3,&
-   & paph,     pgeoh, zdgeoh,&
-   & pmfu,     pentr,&
-   &  zpbase, zdmfen,   zdmfde )
+!  ik=jk
+!  CALL cuentr &
+!   & ( kidia,    kfdia,    klon,     klev,&
+!   & ik,       kcbot,&
+!   & ldcum,    llo3,&
+!   & paph,     pgeoh, zdgeoh,&
+!   & pmfu,     pentr,&
+!   &  zpbase, zdmfen,   zdmfde )
+  kk=jk
+
+  ! Code inlined from cuentr for better efficiency
+  IF(llo3) THEN
+
+    zrg=1.0_JPRB/rg
+    DO jl=kidia,kfdia
+      zdmfen(jl)=0.0_JPRB
+      zdmfde(jl)=0.0_JPRB
+      !KF only needed for cloud depth threshold in cuascn.F90
+      IF(ldcum(jl)) THEN
+        ik=MAX(1,kcbot(jl))
+        zpbase(jl)=paph(jl,ik)
+      ENDIF
+    ENDDO
+
+    !*    1.1          SPECIFY ENTRAINMENT RATES
+    !!                  -------------------------
+
+    DO jl=kidia,kfdia
+      IF(ldcum(jl)) THEN
+        !>KF
+         ZDZ=(PGEOH(JL,KK)-PGEOH(JL,KK+1))*ZRG
+        !zdz=zdgeoh(jl,kk+1)*zrg
+        !<KF
+        zentr=pmfu(jl,kk+1)*zdz
+        IF(kk < kcbot(jl)) THEN
+          zdmfen(jl)=pentr(jl)*zentr
+          zdmfde(jl)=detrpen*zentr
+        ENDIF
+      ENDIF
+    ENDDO
+
+  ENDIF
+  ! End of code inlined from cuentr
 
 !>                  DO ADIABATIC ASCENT FOR ENTRAINING/DETRAINING PLUME
 !!                  ---------------------------------------------------
