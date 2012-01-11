@@ -567,7 +567,7 @@ then
      cp config/set-up.info config/set-up.info.bac
      echo  'use_target="hpc"' >> config/set-up.info
   #   ./configure postscripts setup=hpc
-     ./make_post_runscripts
+     ./make_runscripts only_post
      cp config/set-up.info config/set-up.info.hpc
      cp config/set-up.info.bac config/set-up.info
   fi

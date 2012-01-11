@@ -41,6 +41,14 @@
 echo "-----------------------------------------------------------"
 base_folder=$(pwd)
 input_folder=run
+make_grid='true'
+make_exp='true'
+make_post='true'
+if [ x$1 = "only_post" ] ; then
+  make_grid='false'
+  make_exp='false'
+fi
+  
 #==============================================================================
 . $base_folder/config/set-up.info
 use_shell=${use_shell:="/bin/ksh"}
@@ -59,21 +67,23 @@ fi
 #  Create the grid generator run scripts
 #  NOTE: The grid generator runs with 1 MPI proccess, but can use the default OPENMP threads
 #==============================================================================
-cd $input_folder
-file_list=`ls grid.*`
-cd $base_folder
-for filename in $file_list
-do
-  if [[ $filename != *.run && $filename != *~ && $filename != *.status ]] ; then
-    $make_runscript in_folder=$input_folder in_script=${filename}  mpi_procs=1\
-    queue="$use_queue" cpu_time="00:30:00"
-  fi
-done
-#  Create the grid generator for builtbot
-$make_runscript in_folder=$input_folder in_script=grid.create_atmo_grids\
-  in_script=grid.create_ocean_grids out_script=grid.create_bb_grids.run\
-  mpi_procs=1 queue="$use_queue" cpu_time="00:30:00"
 
+if [ $make_grid = "true" ] ; then
+  cd $input_folder
+  file_list=`ls grid.*`
+  cd $base_folder
+  for filename in $file_list
+  do
+    if [[ $filename != *.run && $filename != *~ && $filename != *.status ]] ; then
+      $make_runscript in_folder=$input_folder in_script=${filename}  mpi_procs=1\
+      queue="$use_queue" cpu_time="00:30:00"
+    fi
+  done
+  #  Create the grid generator for builtbot
+  $make_runscript in_folder=$input_folder in_script=grid.create_atmo_grids\
+    in_script=grid.create_ocean_grids out_script=grid.create_bb_grids.run\
+    mpi_procs=1 queue="$use_queue" cpu_time="00:30:00"
+fi
 
 #==============================================================================
 # Create the ICON experiment run scripts
@@ -83,57 +93,63 @@ $make_runscript in_folder=$input_folder in_script=grid.create_atmo_grids\
 # Note: The ICON experiments require the definition of the EXPNAME=<name> variable
 #==============================================================================
 omp_stacksize=200M
-cd $input_folder
-file_list=`ls exp.*`
-cd $base_folder
-for filename in $file_list
-do
-  if [[ $filename != *.run && $filename != *~ &&  $filename != *.status ]] ; then
-    # Note: hydrostatic ocean model (hom) not yet parallelized
-    name=${filename#*.}
-    if [[ ${name} == test* ]]; then
-      queue="$use_queue"
-    else
-      queue="default"
+
+if [ $make_exp = "true" ] ; then
+
+  cd $input_folder
+  file_list=`ls exp.*`
+  cd $base_folder
+  for filename in $file_list
+  do
+    if [[ $filename != *.run && $filename != *~ &&  $filename != *.status ]] ; then
+      # Note: hydrostatic ocean model (hom) not yet parallelized
+      name=${filename#*.}
+      if [[ ${name} == test* ]]; then
+        queue="$use_queue"
+      else
+        queue="default"
+      fi
+
+      if [[ ${name} == test_hom_* ]]; then
+        $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
+        mpi_procs=1 memory_model="large" cpu_time="01:00:00" queue="express"
+      elif [[ ${name} == *_hom_* ]]; then
+        $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
+        mpi_procs=1 memory_model="large" cpu_time="08:00:00"
+      elif [[ ${name} == *_nwp_* ]] ; then
+        $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
+        cpu_time="04:00:00" memory_model="huge"  omp_stacksize="500M" queue="$queue"
+      elif [[ ${name} == *_nah_jww* ]] ; then
+        $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
+        cpu_time="08:00:00" memory_model="large" omp_stacksize=$omp_stacksize queue="$queue"
+      elif [[ ${name} == *_nh35_tri_jws* ]] ; then
+        $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
+        cpu_time="04:00:00" memory_model="small" queue="$queue"
+      else
+        $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
+        cpu_time="04:00:00" memory_model="large" omp_stacksize=$omp_stacksize queue="$queue"
+      fi
     fi
-    
-    if [[ ${name} == test_hom_* ]]; then
-      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
-      mpi_procs=1 memory_model="large" cpu_time="01:00:00" queue="express"
-    elif [[ ${name} == *_hom_* ]]; then
-      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
-      mpi_procs=1 memory_model="large" cpu_time="08:00:00"
-    elif [[ ${name} == *_nwp_* ]] ; then
-      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
-      cpu_time="04:00:00" memory_model="huge"  omp_stacksize="500M" queue="$queue"
-    elif [[ ${name} == *_nah_jww* ]] ; then
-      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
-      cpu_time="08:00:00" memory_model="large" omp_stacksize=$omp_stacksize queue="$queue"
-    elif [[ ${name} == *_nh35_tri_jws* ]] ; then
-      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
-      cpu_time="04:00:00" memory_model="small" queue="$queue"
-    else
-      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
-      cpu_time="04:00:00" memory_model="large" omp_stacksize=$omp_stacksize queue="$queue"
-    fi
-  fi
-done
+  done
+fi
 #==============================================================================
 
 #==============================================================================
 # use express queue for some of the builtbot seq,openmp experiments on blizzard
-if [[ $use_target = "blizzard" ]] ; then
+if [ $make_exp = "true" ] ; then
+  if [[ $use_target = "blizzard" ]] ; then
 
-  name=test_nh3_tri_tracer_solid_body
-  $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
-  EXPNAME="$name"  memory_model="large" omp_stacksize=$omp_stacksize queue="express"
-  
-  if [[ $use_openmp = "yes" ]] ; then
-
-    name=test_nh35_tri_jws
+    name=test_nh3_tri_tracer_solid_body
     $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
-    EXPNAME="$name"  memory_model="small" queue="express"
-    
+    EXPNAME="$name"  memory_model="large" omp_stacksize=$omp_stacksize queue="express"
+
+    if [[ $use_openmp = "yes" ]] ; then
+
+      name=test_nh35_tri_jws
+      $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
+      EXPNAME="$name"  memory_model="small" queue="express"
+
+    fi
   fi
 fi
 
@@ -152,17 +168,18 @@ fi
 # NOTE: The postprocessing scripts are all sequential, so we define:
 #    with_mpi="no" with_openmp="no"
 #==============================================================================
-cd $input_folder
-file_list=`ls post.*`
-cd $base_folder
-for filename in $file_list
-do
-  if [[ $filename != *.run && $filename != *~ &&  $filename != *.status ]] ; then
-    $make_runscript in_folder=$input_folder in_script=${filename} out_script=${filename}.run\
-    with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00"
-  fi
-done
-
+if [ $make_post = "true" ] ; then
+  cd $input_folder
+  file_list=`ls post.*`
+  cd $base_folder
+  for filename in $file_list
+  do
+    if [[ $filename != *.run && $filename != *~ &&  $filename != *.status ]] ; then
+      $make_runscript in_folder=$input_folder in_script=${filename} out_script=${filename}.run\
+      with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00"
+    fi
+  done
+fi
 
 #==============================================================================
 # special treatment for test_hat_jww-moist_cld-cnv-vdf
@@ -176,28 +193,31 @@ fi
 
 name=test_hat_jww-moist_cld-cnv-vdf
 
-restart_script=${name}_restart.tmp
-tmp_file=$input_folder/$restart_script
+if [ $make_exp = "true" ] ; then
+  restart_script=${name}_restart.tmp
+  tmp_file=$input_folder/$restart_script
 cat > $tmp_file << EOF
 restart_from_folder="$name"
 restart_atmo_from="restart.iconR2B04-grid_20080902T000000Z_atm.nc"
 EXPNAME=${name}_restart
 EOF
 
-$make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
-  in_script=$restart_script in_script=exp.$name in_script=exec.iconrun EXPNAME="$name"\
-  queue="$queue" cpu_time="01:00:00"
+  $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
+    in_script=$restart_script in_script=exp.$name in_script=exec.iconrun EXPNAME="$name"\
+    queue="$queue" cpu_time="01:00:00"
 
-rm $tmp_file
+  rm $tmp_file
+fi
 
 # postprocessing for comparing the restarts
-restart_1="../experiments/${name}/restart.iconR2B04-grid_20080903T000000Z_atm.nc"
-restart_2="../experiments/${name}_restart/restart.iconR2B04-grid_20080903T000000Z_atm.nc"
-out_file=${name}_restart.diff
-$make_runscript in_folder=$input_folder in_script=post.compare_restarts out_script=post.${name}_compare-restart.run\
-  with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00" \
-  restart_1="$restart_1" restart_2="$restart_2"  diff_file=${name}_restart.diff
-
+if [ $make_post = "true" ] ; then
+  restart_1="../experiments/${name}/restart.iconR2B04-grid_20080903T000000Z_atm.nc"
+  restart_2="../experiments/${name}_restart/restart.iconR2B04-grid_20080903T000000Z_atm.nc"
+  out_file=${name}_restart.diff
+  $make_runscript in_folder=$input_folder in_script=post.compare_restarts out_script=post.${name}_compare-restart.run\
+    with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00" \
+    restart_1="$restart_1" restart_2="$restart_2"  diff_file=${name}_restart.diff
+fi
 
 
 #==============================================================================
@@ -206,28 +226,31 @@ $make_runscript in_folder=$input_folder in_script=post.compare_restarts out_scri
 #
 name=test_hat_jww
 
-restart_script=${name}_restart.tmp
-tmp_file=$input_folder/$restart_script
+if [ $make_exp = "true" ] ; then
+  restart_script=${name}_restart.tmp
+  tmp_file=$input_folder/$restart_script
 cat > $tmp_file << EOF
 restart_from_folder="$name"
 restart_atmo_from="restart.iconR2B04-grid_20080906T000000Z_atm.nc"
 EXPNAME=${name}_restart
 EOF
 
-$make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
-  in_script=$restart_script in_script=exp.$name in_script=exec.iconrun EXPNAME="$name"\
-  queue="$use_queue" cpu_time="01:00:00"
+  $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
+    in_script=$restart_script in_script=exp.$name in_script=exec.iconrun EXPNAME="$name"\
+    queue="$use_queue" cpu_time="01:00:00"
 
-rm $tmp_file
+  rm $tmp_file
+fi
 
 # postprocessing for comparing the restarts
-restart_1="../experiments/${name}/restart.iconR2B04-grid_20080911T000000Z_atm.nc"
-restart_2="../experiments/${name}_restart/restart.iconR2B04-grid_20080911T000000Z_atm.nc"
-out_file=${name}_restart.diff
-$make_runscript in_folder=$input_folder in_script=post.compare_restarts out_script=post.${name}_compare-restart.run\
-  with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00" \
-  restart_1="$restart_1" restart_2="$restart_2"  diff_file=${name}_restart.diff
-
+if [ $make_post = "true" ] ; then
+  restart_1="../experiments/${name}/restart.iconR2B04-grid_20080911T000000Z_atm.nc"
+  restart_2="../experiments/${name}_restart/restart.iconR2B04-grid_20080911T000000Z_atm.nc"
+  out_file=${name}_restart.diff
+  $make_runscript in_folder=$input_folder in_script=post.compare_restarts out_script=post.${name}_compare-restart.run\
+    with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00" \
+    restart_1="$restart_1" restart_2="$restart_2"  diff_file=${name}_restart.diff
+fi
 #==============================================================================
 # special treatment for exp.test_hom_lsm
 # this includes the restart in the exp.test_hom_lsm_restart
@@ -236,28 +259,33 @@ queue="express"
 
 name=test_hom_lsm
 
-restart_script=${name}_restart.tmp
-tmp_file=$input_folder/$restart_script
+if [ $make_exp = "true" ] ; then
+  restart_script=${name}_restart.tmp
+  tmp_file=$input_folder/$restart_script
 cat > $tmp_file << EOF
 restart_from_folder="$name"
 restart_ocean_from="restart.iconR2B04-ocean_etopo40_planet_20000101T120000Z_oce.nc"
 EXPNAME=${name}_restart
 EOF
 
-$make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
-  in_script=$restart_script in_script=exp.$name in_script=exec.iconrun EXPNAME="$name"\
-  mpi_procs=1 queue="$queue" cpu_time="01:00:00"
+  $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
+    in_script=$restart_script in_script=exp.$name in_script=exec.iconrun EXPNAME="$name"\
+    mpi_procs=1 queue="$queue" cpu_time="01:00:00"
 
-rm $tmp_file
+  rm $tmp_file
+fi
 
 # postprocessing for comparing the restarts
-restart_1="../experiments/${name}/restart.iconR2B04-ocean_etopo40_planet_20000102T000000Z_oce.nc"
-restart_2="../experiments/${name}_restart/restart.iconR2B04-ocean_etopo40_planet_20000102T000000Z_oce.nc"
-out_file=${name}_restart.diff
-$make_runscript in_folder=$input_folder in_script=post.compare_restarts out_script=post.${name}_compare-restart.run\
-  with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00" \
-  restart_1="$restart_1" restart_2="$restart_2"  diff_file=${name}_restart.diff
-
+if [ $make_post = "true" ] ; then
+ 
+    restart_1="../experiments/${name}/restart.iconR2B04-ocean_etopo40_planet_20000102T000000Z_oce.nc"
+    restart_2="../experiments/${name}_restart/restart.iconR2B04-ocean_etopo40_planet_20000102T000000Z_oce.nc"
+    out_file=${name}_restart.diff
+    $make_runscript in_folder=$input_folder in_script=post.compare_restarts out_script=post.${name}_compare-restart.run\
+      with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00" \
+      restart_1="$restart_1" restart_2="$restart_2"  diff_file=${name}_restart.diff
+    fi
+fi
 
 
 echo "-----------------------------------------------------------"

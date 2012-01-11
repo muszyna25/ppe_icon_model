@@ -8,6 +8,13 @@ cd $ICON_BASE_PATH/run
 #restart_1="../experiments/test_hat_jww/restart.iconR2B04-grid_20080911T000000Z_atm.nc"
 #restart_2="../experiments/test_hat_jww_restart/restart.iconR2B04-grid_20080911T000000Z_atm.nc"
 #diff_file="test_hat_restart.diff"
+
+if [ ! -r $restart_1 ] ; then
+  echo "$restart_1 does nor exist"
+  check_error 0
+  exit 0
+fi
+
 ${cdo_diff} $restart_1 $restart_2 > $diff_file
 grep " 0 of .* records" $diff_file
 return_status=$?

@@ -601,7 +601,6 @@ lapack/ilazlr.f -text
 lapack/iparmq.f -text
 lapack/izmax1.f -text
 /make_performance_runscripts -text
-/make_post_runscripts -text
 /make_runscripts -text
 run/Namelist_overview.pdf -text
 run/Namelist_overview.tex -text
