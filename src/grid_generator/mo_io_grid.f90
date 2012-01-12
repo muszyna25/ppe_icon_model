@@ -88,6 +88,8 @@ MODULE mo_io_grid
   USE mo_impl_constants,     ONLY: min_rlcell, max_rlcell, &
        &                           min_rlvert, max_rlvert, &
        &                           min_rledge, max_rledge
+  USE mo_util_uuid,          ONLY: t_uuid, uuid_generate, &
+       &                           uuid_unparse, uuid_string_length
   
   IMPLICIT NONE
   
@@ -268,17 +270,25 @@ CONTAINS
     REAL(wp), POINTER :: double_pnt_1d(:)
     INTEGER,  POINTER :: int_pnt_1d(:)
 
+    TYPE(t_uuid) :: uuid
+    CHARACTER(len=uuid_string_length) :: uuid_string
+
     REAL(wp) :: rotation_vector(3)
 
     INTEGER :: ilevel, grid_root
     INTEGER :: str_idx, end_idx, i
 
+    !-------------------------------------------------------------------------
+    ! get unique grid file identifier for GRIB2 and updated CF-Convention
+    CALL uuid_generate(uuid)
+    CALL uuid_unparse(uuid, uuid_string)
+
     grid_root = 0
     ilevel    = 1
-    WRITE(message_text,'(a,a)') 'Write gridmap file: ', TRIM(outfile)
+    WRITE(message_text,'(a,a,a,a)') 'Write grid file: ', TRIM(outfile), &
+         &             ' uuid ', TRIM(uuid_string)
     CALL message ('', TRIM(message_text))
-    
-    
+        
     i_nc = gg%ncells
     i_ne = gg%nedges
     i_nv = gg%nverts
@@ -300,6 +310,7 @@ CONTAINS
     CALL nf(nf_put_att_text    (ncid, nf_global, 'institution', 59, &
          &   'Max Planck Institute for Meteorology/Deutscher Wetterdienst'))
     CALL nf(nf_put_att_text    (ncid, nf_global, 'source', 10, 'icon-dev'))
+    CALL nf(nf_put_att_text    (ncid, nf_global, 'uuid' , uuid_string_length, TRIM(uuid_string)))
     CALL nf(nf_put_att_text    (ncid, nf_global, 'grid_mapping_name' , 18, 'lat_long_on_sphere'))
     CALL nf(nf_put_att_text    (ncid, nf_global, 'crs_id' , 28, 'urn:ogc:def:cs:EPSG:6.0:6422'))
     CALL nf(nf_put_att_text    (ncid, nf_global, 'crs_name',30,'Spherical 2D Coordinate System'))

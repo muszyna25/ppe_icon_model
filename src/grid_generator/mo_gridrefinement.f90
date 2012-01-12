@@ -79,14 +79,17 @@ MODULE mo_gridref
   USE mo_io_units,           ONLY: ngmt, nnml, filename_max
   USE mo_namelist,           ONLY: position_nml, open_nml, positioned
   USE mo_grid,               ONLY: t_grid,                                  &
-    & t_grid_cells, t_grid_vertices, t_grid_edges
+       &                           t_grid_cells, t_grid_vertices, t_grid_edges
   USE mo_base_geometry,      ONLY: gvec2cvec, t_cartesian_coordinates,      &
-    & gc2cc, arc_length
+       &                           gc2cc, arc_length
   USE mo_grid_levels,        ONLY: nf, check_orientation
   USE mo_math_utilities,     ONLY: rotate_latlon
   USE mo_impl_constants,     ONLY: min_rlcell, max_rlcell, min_rlvert,    &
-    & max_rlvert, min_rledge, max_rledge, min_rlcell_int, min_rlvert_int, &
-    & min_rledge_int, max_dom, max_phys_dom
+       &                           max_rlvert, min_rledge, max_rledge,    &
+       &                           min_rlcell_int, min_rlvert_int,        &
+       &                           min_rledge_int, max_dom, max_phys_dom
+  USE mo_util_uuid,          ONLY: t_uuid, uuid_generate, &
+       &                           uuid_unparse, uuid_string_length
 
   IMPLICIT NONE
 
@@ -2354,12 +2357,20 @@ CONTAINS
 
     REAL(wp), ALLOCATABLE :: zv2d(:,:), zv2dx(:,:), zv2dy(:,:)
 
+    TYPE(t_uuid) :: uuid
+    CHARACTER(len=uuid_string_length) :: uuid_string
+
     REAL(wp) :: swap(4)
     INTEGER :: str_idx, end_idx
 
     !EOP
     !-------------------------------------------------------------------------
     !BOC
+
+    !-------------------------------------------------------------------------
+    ! get unique grid file identifier for GRIB2 and updated CF-Convention
+    CALL uuid_generate(uuid)
+    CALL uuid_unparse(uuid, uuid_string)
 
     g=>p%pgrid
 
@@ -2398,6 +2409,7 @@ CONTAINS
     CALL nf(nf_put_att_text    (ncid, nf_global, 'institution', 59, &
       & 'Max Planck Institute for Meteorology/Deutscher Wetterdienst'))
     CALL nf(nf_put_att_text    (ncid, nf_global, 'source', 10, 'icon-dev'))
+    CALL nf(nf_put_att_text    (ncid, nf_global, 'uuid' , uuid_string_length, TRIM(uuid_string)))
     CALL nf(nf_put_att_text    (ncid, nf_global, 'grid_mapping_name' , 18, 'lat_long_on_sphere'))
     CALL nf(nf_put_att_text    (ncid, nf_global, 'crs_id' , 28, 'urn:ogc:def:cs:EPSG:6.0:6422'))
     CALL nf(nf_put_att_text    (ncid, nf_global, 'crs_name', 30,'Spherical 2D Coordinate System'))

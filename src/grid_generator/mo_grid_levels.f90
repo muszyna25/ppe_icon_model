@@ -82,26 +82,28 @@ MODULE mo_grid_levels
   !    modified for ICON project, DWD/MPI-M 2005
   !
   !-------------------------------------------------------------------------
-  USE mo_kind,           ONLY: wp
-  USE mo_exception,      ONLY: message_text, message, finish
+  USE mo_kind,               ONLY: wp
+  USE mo_exception,          ONLY: message_text, message, finish
 
-  USE mo_io_units,       ONLY: filename_max, nnml, nstat
+  USE mo_io_units,           ONLY: filename_max, nnml, nstat
   USE mo_namelist,           ONLY: position_nml, open_nml, positioned
   USE mo_math_constants,     ONLY: pi, rad2deg
   USE mo_physical_constants, ONLY: re
-  USE mo_base_geometry,  ONLY: t_geographical_coordinates,  &
-    & cc2gc, x_rot_angle, y_rot_angle, z_rot_angle
+  USE mo_base_geometry,      ONLY: t_geographical_coordinates,  &
+       &                           cc2gc, x_rot_angle, y_rot_angle, z_rot_angle
 
   USE mo_grid
 
-  USE mo_base_datatypes, ONLY: t_spheres
+  USE mo_base_datatypes,     ONLY: t_spheres
 
-  USE mo_topology,        ONLY: spheres_on_levels
+  USE mo_topology,           ONLY: spheres_on_levels
 
 
-  USE mo_impl_constants,  ONLY: min_rlcell, max_rlcell, &
-    & min_rlvert, max_rlvert, &
-    & min_rledge, max_rledge
+  USE mo_impl_constants,     ONLY: min_rlcell, max_rlcell, &
+       &                           min_rlvert, max_rlvert, &
+       &                           min_rledge, max_rledge
+  USE mo_util_uuid,          ONLY: t_uuid, uuid_generate, &
+       &                           uuid_unparse, uuid_string_length
 
   IMPLICIT NONE
 
@@ -664,6 +666,9 @@ CONTAINS
     INTEGER :: command_line_len
 
     REAL(wp), ALLOCATABLE :: zv2d(:,:), zv2dx(:,:), zv2dy(:,:)
+    
+    TYPE(t_uuid) :: uuid
+    CHARACTER(len=uuid_string_length) :: uuid_string
 
     REAL(wp) :: rotation_vector(3)
 
@@ -673,6 +678,11 @@ CONTAINS
 
     !EOP
     !-------------------------------------------------------------------------
+
+    !-------------------------------------------------------------------------
+    ! get unique grid file identifier for GRIB2 and updated CF-Convention
+    CALL uuid_generate(uuid)
+    CALL uuid_unparse(uuid, uuid_string)
 
     ! distinguish between gridgeneration for optimization strategies
 
@@ -780,6 +790,7 @@ CONTAINS
       CALL nf(nf_put_att_text  (ncid, nf_global, 'institution', 59, &
         & 'Max Planck Institute for Meteorology/Deutscher Wetterdienst'))
       CALL nf(nf_put_att_text  (ncid, nf_global, 'source', 10, 'icon-dev'))
+      CALL nf(nf_put_att_text  (ncid, nf_global, 'uuid' , uuid_string_length, TRIM(uuid_string)))
       CALL nf(nf_put_att_text  (ncid, nf_global, 'grid_mapping_name' , 18, 'lat_long_on_sphere'))
       CALL nf(nf_put_att_text  (ncid, nf_global, 'crs_id' , 28, 'urn:ogc:def:cs:EPSG:6.0:6422'))
       CALL nf(nf_put_att_text  (ncid, nf_global, 'crs_name',30,'Spherical 2D Coordinate System'))
