@@ -24,6 +24,12 @@
   PLOTMODE   = "scalar"
   ABORTMSG   = "Abort Script."
   NUMLEVS    = 10
+  CDO        = "cdo"
+;-------------------------------------------------------------------------------
+procedure setCDO(path)
+begin
+  CDO=path
+end
 ;-------------------------------------------------------------------------------
 ; signum function
 undef("sign")
@@ -631,7 +637,7 @@ begin
   end if
   if (plotMode.eq."overlay") variables = variables+","+varName end if
 
-  cmd = "cdo -P 8 -remapnn,"+resolution+" -selname,"+variables+" "+iFile+" "+remapFilename
+  cmd = CDO+" -P 8 -remapnn,"+resolution+" -selname,"+variables+" "+iFile+" "+remapFilename
   if debug then
     print(cmd)
   end if
@@ -642,7 +648,7 @@ end
 undef("zonmean4HoffmuellerPlot")
 procedure zonmean4HoffmuellerPlot(filename,varname,zonmeanfilename)
 begin
-  cmd = "cdo zonmean -selname,"+varname+" "+filename+" "+zonmeanfilename
+  cmd = CDO+" zonmean -selname,"+varname+" "+filename+" "+zonmeanfilename
   if debug then
     print(cmd)
   end if
@@ -1181,7 +1187,7 @@ begin
     levels = str_join(atmhlevs,",")
   end if
 
-  cmd = "cdo "+ operator +","+levels+" -selgrid,1 "+ filename +" "+ atmfilename
+  cmd = CDO+" "+ operator +","+levels+" -selgrid,1 "+ filename +" "+ atmfilename
   if debug then
     print(cmd)
   end if
@@ -1227,7 +1233,8 @@ end
 undef("getHorizGridType")
 function getHorizGridType(filename,varname)
 begin
-  gridtype = systemfunc("cdo -griddes -selname,"+varname+" -seltimestep,1 "+filename+" | grep gridtype | cut -d ' ' -f 4")
+print("CDO:"+CDO)
+  gridtype = systemfunc(CDO+" -griddes -selname,"+varname+" -seltimestep,1 "+filename+" | grep gridtype | cut -d ' ' -f 4")
   print("Found horizontal grid of type: "+gridtype)
   return gridtype
 end

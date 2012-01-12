@@ -195,7 +195,6 @@
   if (.not.isvar("latCo"))         latCo       =  DEFAULTLAT     end if
 
   if (.not.isvar("showSecMap")) showSecMap     =  True           end if
-
   ; ATMOSPEHRE SETUP ----------------------------------------------------------
   if (.not.isvar("atmLev"))     atmLev         =  "p"           end if
   if (.not.isvar("atmPLevs")) then
@@ -206,6 +205,9 @@
     atmHLevSetup = (/0,100000,2000/);     unit: m
     atmHLevs     = ispan(atmHLevSetup(0),atmHLevSetup(1),atmHLevSetup(2))*1.0
   end if
+  ; CDO settings --------------------------------------------------------------
+  if (.not.isvar("cdo")) cdo                   =  "cdo"          end if
+  setCDO(cdo)
   ;----------------------------------------------------------------------------
 
   ; MASK HANDLING -------------------------------------------------------------
