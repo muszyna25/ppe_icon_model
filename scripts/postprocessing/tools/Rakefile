@@ -17,6 +17,7 @@ COMPARISON_REG        = {:oce => OCE_REGPLOT_TEST_FILE, :atm => ATM_REGPLOT_TEST
 OFMT                  = 'png'
 DEFAULT_VARNAME       = 'T'
 PLOT_CMD              = 'sxiv'
+CDO                   = ENV['CDO'].nil? ? 'cdo' : ENV['CDO']
 
 
 CLEAN.add(*Dir.glob(["test_*.png","remapnn_*nc","zonmean_*.nc"]))
@@ -30,7 +31,7 @@ def iconPlot(ifile,ofile,otype,varname,vartype='scalar',opts=[])
   end
   varIdent = (vartype == 'scalar') ? 'varName' : 'vecVars'
 
-  cmd   ="ncl #{SRC[0]} 'altLibDir=\"#{libdir}\"' '#{varIdent}=\"#{varname}\"' 'iFile=\"#{ifile}\"' 'oFile=\"#{ofile}\"' 'oType=\"#{otype}\"' #{opts.join(' ')}"
+  cmd   ="ncl #{SRC[0]} 'altLibDir=\"#{libdir}\"' '#{varIdent}=\"#{varname}\"' 'iFile=\"#{ifile}\"' 'oFile=\"#{ofile}\"' 'oType=\"#{otype}\"' #{opts.join(' ')} 'cdo=\"#{CDO}\"'"
   puts cmd
   sh cmd
 end
