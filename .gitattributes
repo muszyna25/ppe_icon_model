@@ -1283,7 +1283,6 @@ src/templates/template_function.f90 -text
 src/templates/template_main.f90 -text
 src/templates/template_module.f90 -text
 src/templates/template_subroutine.f90 -text
-src/testbed/mo_test_advection_utils.f90 -text
 src/testbed/mo_test_communication.f90 -text
 src/testbed/mo_test_coupler.f90 -text
 src/testbed/mo_test_solve_nonhydro.f90 -text
