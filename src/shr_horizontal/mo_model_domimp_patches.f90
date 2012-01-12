@@ -1826,7 +1826,7 @@ REAL(wp), ALLOCATABLE :: &
 INTEGER :: ist
 
 INTEGER :: ncid, varid
-INTEGER :: ip, ji, jv, jve
+INTEGER :: ip, ji, jv
 
 TYPE(t_patch), POINTER :: p_p
 
@@ -2383,7 +2383,7 @@ CONTAINS
     DO j = 1, UBOUND(array,1)
       DO je = 1, 6
         IF (array(j,je) == 0) THEN
-          IF ( jve /= 6 ) array(j,je) = array(j,6)
+          IF ( je /= 6 ) array(j,je) = array(j,6)
           IF ( duplicate ) THEN
             array(j,6) = array(j,5)
           ELSE
