@@ -117,7 +117,7 @@ USE mo_impl_constants,     ONLY: SUCCESS, &
      &                           min_rledge, max_rledge, &
      &                           min_rlvert, max_rlvert, &
      &                           max_dom
-USE mo_exception,          ONLY: message_text, message, finish
+USE mo_exception,          ONLY: message_text, message, finish, em_warn
 USE mo_model_domain,       ONLY: t_patch, t_grid_cells, t_grid_edges
 USE mo_parallel_config,    ONLY: nproma
 USE mo_model_domain,       ONLY: p_patch_local_parent
@@ -1218,7 +1218,7 @@ CALL message ('', TRIM(message_text))
 
 CALL nf(nf_open(TRIM(p_patch%grid_filename), NF_NOWRITE, ncid))
 
-CALL nf(nf_get_att_text(ncid, NF_GLOBAL, 'uuid', uuid_string))
+CALL nf(nf_get_att_text(ncid, NF_GLOBAL, 'uuid', uuid_string),warnonly=.TRUE.)
 CALL uuid_parse(uuid_string, p_patch%grid_uuid)
 WRITE(message_text,'(a,a)') 'grid uuid: ', uuid_string
 CALL message  ('mo_model_domain_import/read_patch', message_text)
@@ -3176,13 +3176,24 @@ END SUBROUTINE destruct_patches
 
 !-------------------------------------------------------------------------
 
-SUBROUTINE nf(status)
-
-INTEGER, INTENT(in) :: status
-
-IF (status /= nf_noerr) THEN
-  CALL finish('mo_model_domain_import netCDF error', nf_strerror(status))
-ENDIF
+SUBROUTINE nf(status, warnonly)
+  
+  INTEGER, INTENT(in)           :: status
+  LOGICAL, INTENT(in), OPTIONAL :: warnonly
+  
+  LOGICAL :: lwarnonly
+  
+  lwarnonly = .FALSE.
+  IF(PRESENT(warnonly)) lwarnonly = .TRUE.
+  
+  IF (status /= nf_noerr) THEN
+    IF (lwarnonly) THEN
+      CALL message('mo_model_domain_import netCDF error', nf_strerror(status), &
+           &       level=em_warn)
+    ELSE
+      CALL finish('mo_model_domain_import netCDF error', nf_strerror(status))
+    ENDIF
+  ENDIF
 
 END SUBROUTINE nf
 
