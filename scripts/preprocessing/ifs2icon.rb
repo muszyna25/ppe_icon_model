@@ -665,11 +665,14 @@ class Ifs2Icon
         exit 1
       end
       if conf.size != 0
-        outvar, invar, code, desc = conf.datasets(*DefaultColumnNames.values_at(:outName, :inName, :code, :info))[0]
-        possibleOutputVars << outvar
-        Dbg.msg("Found info for code:#{code} => dwd:#{outvar}, ecmwf:#{invar}, desc:#{desc})",
-                @options[:verbose],
-                @options[:debug])
+        conf.datasets(*DefaultColumnNames.values_at(:outName, :inName, :code, :info, :levType)).each {|varconf|
+          outvar, invar, code, desc, levType = varconf
+          possibleOutputVars << outvar
+
+          Dbg.msg("Found info for code:#{code} => dwd:#{outvar}, ecmwf:#{invar}, levType:#{levType}, desc:#{desc})",
+                  @options[:verbose],
+                  @options[:debug])
+        }
       else
         Dbg.msg("Input variable with code '#{var}' has no config",
                 @options[:verbose],
@@ -870,13 +873,25 @@ class Ifs2Icon
     weightfile = @weights[GRID_VARIABLES[grid]]
 
     # remap the variable onto its icon grid provided in the configuration
-    meth = @itype == :code ? :code : :inputname
-    ivar = @itype == :code ? @config.selectBy(DefaultColumnNames[:outName] => outvar).code[0].to_i \
-                           : @config.selectBy(DefaultColumnNames[:outName] => outvar).inputname[0].downcase
+    outvarConf = @config.selectBy(DefaultColumnNames[:outName] => outvar)
+    ivar       = @itype == :code ? outvarConf.code[0].to_i \
+                                 : outvarConf.inputname[0].downcase
+
+    # In GRIB1 there are TWO geopotentials with the same code 129: one on
+    # surface layer, one on hybrid layer. To process both, they have to be
+    # split by cdo.
+    if 129 == ivar and ( conf129 = @config.selectBy(DefaultColumnNames[:code] => ivar) ; 2 == conf129.size)
+      levTyps = conf129.datasets(DefaultColumnNames[:levType])
+      ltype129 = outvarConf.datasets(DefaultColumnNames[:levType]).flatten[0]
+      preselLevType = " -selltype,"
+      preselLevType += ("surface" == ltype129) ? "1" : "109"
+    else
+      preselLevType = ''
+    end
     copyfile, outfile = tfile, tfile
 
     # Perform conservative remapping with pregenerated weights and rename to target variable names
-    Cdo.chainCall("-remap,#{gridfile},#{weightfile} -setname,#{outvar} -copy",
+    Cdo.chainCall("-remap,#{gridfile},#{weightfile} -setname,#{outvar} -copy #{preselLevType}",
                   :in => @invars[ivar],
                   :out => outfile,
                   :options => "-f nc2")
