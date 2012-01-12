@@ -1300,8 +1300,8 @@ CONTAINS
     !-------------------------------------------------------------------------
 
     nlevp1 = nlev+1
-    dvct1 = 100._wp
-    dvct2 = 300._wp
+    dvct1 = 125._wp
+    dvct2 = 500._wp
     ierr(:) = 0
 
 !$OMP PARALLEL
@@ -1347,7 +1347,7 @@ CONTAINS
        ENDDO
        ! Ensure that layer thicknesses are not too small; this would potentially cause
        ! instabilities in vertical advection
-       DO jk = nlev-1, 1, -1
+       DO jk = nlev, 1, -1
          jk1 = jk + nshift
          dvct = vct_a(jk1) - vct_a(jk1+1)
          IF (dvct < dvct1) THEN ! limit layer thickness to 2/3 of its nominal value
