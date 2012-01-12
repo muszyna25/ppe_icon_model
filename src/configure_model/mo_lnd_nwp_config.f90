@@ -1,7 +1,7 @@
 !>
-!! <Short description of module for listings and indices>
+!! @brief configuration setup for NWP land scheme TERRA
 !!
-!! <Describe the concepts of the procedures and algorithms used in the module.>
+!! configuration setup for NWP land scheme TERRA
 !! <Details of procedures are documented below with their definitions.>
 !! <Include any applicable external references inline as module::procedure,>
 !! <external_procedure(), or by using @see.>
@@ -50,6 +50,8 @@ MODULE mo_lnd_nwp_config
   USE mo_model_domain,    ONLY: t_patch
 
   IMPLICIT NONE
+
+  PRIVATE
 
   PUBLIC :: nlev_soil, nztlev ,nlev_snow ,nsfc_subs, nsfc_snow
   PUBLIC :: lseaice,  llake, lmelt , lmelt_var ,   lmulti_snow 
@@ -155,7 +157,7 @@ CONTAINS
 
 
 
-    ! setup tiles arrays
+    ! setup tile arrays
     !
     ALLOCATE (p_tiles(n_dom, nsfc_subs), stat=ist)
     IF (ist /= success) THEN

@@ -325,7 +325,7 @@ CONTAINS
     END SELECT
 
     !--------------------------------------------------------------------
-    ! Testcases
+    ! Testcases (hydrostatic)
     !--------------------------------------------------------------------
     IF(global_cell_type==6) THEN
       linit_tracer_fv  = .FALSE.
@@ -366,12 +366,21 @@ CONTAINS
         & 'lflux_avg must be set true to run this setup')
     ENDIF     
 
+    !--------------------------------------------------------------------
+    ! Testcases (nonhydrostatic)
+    !--------------------------------------------------------------------
+    IF ((TRIM(nh_test_name)=='APE_nh') .AND.                    &
+      & ( ANY(atm_phy_nwp_config(:)%inwp_surface == 1 ) )) THEN
+      CALL finish(TRIM(routine), &
+        & 'surface scheme must be switched off, when running the APE test')
+    ENDIF     
+
 
     !--------------------------------------------------------------------
     ! Shallow water
     !--------------------------------------------------------------------
     IF (iequations==ISHALLOW_WATER.AND.ha_dyn_config%lsi_3d) THEN
-      CALL message( TRIM(routine), 'lsi_3d = .TRUE. not appicable to shallow water model')
+      CALL message( TRIM(routine), 'lsi_3d = .TRUE. not applicable to shallow water model')
     ENDIF
 
     IF ((iequations==ISHALLOW_WATER).AND.(nlev/=1)) &

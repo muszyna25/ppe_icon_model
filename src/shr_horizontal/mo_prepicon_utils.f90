@@ -199,7 +199,9 @@ MODULE mo_prepicon_utils
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = 'mo_prepicon_utils:init_prepicon'
     CHARACTER(LEN=filename_max) :: topo_file(max_dom), ifs2icon_file(max_dom)
-    CHARACTER(LEN=10) :: psvar
+    CHARACTER(LEN=10) :: psvar 
+    CHARACTER(LEN=10) :: geop_ml_var  ! model level surface geopotential
+    CHARACTER(LEN=10) :: geop_sfc_var ! surface-level surface geopotential
 !-------------------------------------------------------------------------
 
     IF (l_zp_out) THEN ! set number of z and p levels for diagnostic output
@@ -401,17 +403,31 @@ MODULE mo_prepicon_utils
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     nlev_in,prepicon(jg)%atm_in%qs)
 
-        ! Check if surface pressure (PS) or its logarithm (LNPS) is provided as input
         IF (p_pe == p_io) THEN
+          !
+          ! Check if surface pressure (PS) or its logarithm (LNPS) is provided as input
+          !
           IF (nf_inq_varid(ncid, 'PS', varid) == nf_noerr) THEN
             psvar = 'PS'
           ELSE IF (nf_inq_varid(ncid, 'LNPS', varid) == nf_noerr) THEN
             psvar = 'LNPS'
           ENDIF
+          !
+          ! Check if model-level surface Geopotential is provided as GEOSP or GEOP_ML
+          !
+          IF (nf_inq_varid(ncid, 'GEOSP', varid) == nf_noerr) THEN
+            geop_ml_var = 'GEOSP'
+          ELSE IF (nf_inq_varid(ncid, 'GEOP_ML', varid) == nf_noerr) THEN
+            geop_ml_var = 'GEOP_ML'
+          ELSE
+            CALL finish(TRIM(routine),'Could not find model-level sfc geopotential')
+          ENDIF
         ENDIF
 
         IF (msg_level >= 10) THEN
           WRITE(message_text,'(a)') 'surface pressure variable: '//TRIM(psvar)
+          CALL message('', TRIM(message_text))
+          WRITE(message_text,'(a)') 'Model-level surface geopotential: '//TRIM(geop_ml_var)
           CALL message('', TRIM(message_text))
         ENDIF
 
@@ -419,7 +435,7 @@ MODULE mo_prepicon_utils
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     prepicon(jg)%atm_in%psfc)
 
-        CALL read_netcdf_data (ncid, 'GEOSP', p_patch(jg)%n_patch_cells_g,              &
+        CALL read_netcdf_data (ncid, TRIM(geop_ml_var), p_patch(jg)%n_patch_cells_g,    &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     prepicon(jg)%atm_in%phi_sfc)
 
@@ -434,10 +450,25 @@ MODULE mo_prepicon_utils
 
       IF (i_oper_mode >= 2 .AND. l_sfc_in) THEN ! Read also surface data
 
-        ! Here, surface-level surface geopotential should be read in
-        ! This is not yet available because it has the same GRIB code as model-level 
-        ! surface geopotential, thus, we use the latter for the time being
-        CALL read_netcdf_data (ncid, 'GEOSP', p_patch(jg)%n_patch_cells_g,              &
+        ! Check, if the surface-level surface geopotential (GEOSP_SFC) is available. 
+        ! If GEOSP_SFC is missing, a warning will be issued and the model-level surface 
+        ! geopotential (GEOSP or GEOSP_ML) will be used instead.
+        IF (p_pe == p_io) THEN
+          IF (nf_inq_varid(ncid, 'GEOSP_SFC', varid) == nf_noerr) THEN
+            geop_sfc_var = 'GEOSP_SFC'
+          ELSE
+
+            WRITE (message_text,'(a,a)')                            &
+              &  'surface-level surface geopotential is missing. ', &
+              &  'use model-level surface geopotential, instead.'
+            CALL message(TRIM(routine),TRIM(message_text))
+
+            ! use model level geopotential instead
+            geop_sfc_var = geop_ml_var
+          ENDIF
+        ENDIF
+
+        CALL read_netcdf_data (ncid, TRIM(geop_sfc_var), p_patch(jg)%n_patch_cells_g,   &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     prepicon(jg)%sfc_in%phi)
 
