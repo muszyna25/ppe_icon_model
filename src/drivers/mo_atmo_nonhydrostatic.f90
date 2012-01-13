@@ -161,23 +161,6 @@ CONTAINS
       ! Set initial conditions for time integration.
       !------------------------------------------------------------------
 
-    IF (is_restart_run()) THEN
-      ! This is an resumed integration. Read model state from restart file(s).
-
-#ifdef NOMPI
-      CALL read_restart_files
-#else
-      jg = 1
-      !DO jg = n_dom_start,n_dom
-      CALL read_restart_files( p_patch(jg) )
-      !END DO
-#endif      
-      CALL message(TRIM(routine),'normal exit from read_restart_files')
-
-    ENDIF
-
-   !--------------------
-
     ! Initialize model with real atmospheric data if appropriate switches are set
     IF (l_realcase .AND. .NOT. is_restart_run()) THEN
 
@@ -206,6 +189,26 @@ CONTAINS
     ENDIF
 
     CALL prepare_nh_integration(p_patch(1:), p_nh_state, p_int_state(1:), p_grf_state(1:))
+
+
+    !
+    ! Read restart files (if necessary)
+    !
+    IF (is_restart_run()) THEN
+      ! This is a resumed integration. Read model state from restart file(s).
+
+#ifdef NOMPI
+      CALL read_restart_files
+#else
+      jg = 1
+      !DO jg = n_dom_start,n_dom
+      CALL read_restart_files( p_patch(jg) )
+      !END DO
+#endif      
+      CALL message(TRIM(routine),'normal exit from read_restart_files')
+
+    ENDIF
+
 
     !---------------------------------------------------------------------
     !     Setup of meteogram output
