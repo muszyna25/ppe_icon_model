@@ -249,7 +249,7 @@ CONTAINS
           sobs_t(1:i_endidx,jb,isubs)      = prm_diag%swflxsfc(1:i_endidx,jb) 
           thbs_t(1:i_endidx,jb,isubs)      = prm_diag%lwflxsfc(1:i_endidx,jb) 
           pabs_t(1:i_endidx,jb,isubs)      = prm_diag%swflxsfc(1:i_endidx,jb) 
-!          llandmask_t(1:i_endidx,jb,isubs) = ext_data%atm%llsm_atm_c(1:i_endidx,jb)
+          llandmask_t(1:i_endidx,jb,isubs) = ext_data%atm%llsm_atm_c(1:i_endidx,jb)
 
         ENDDO
 
@@ -272,7 +272,7 @@ CONTAINS
         &  sai           = sai_t(:,jb,:)           , & ! surface area index           --
         &  tai           = tai_t(:,jb,:)           , & ! transpiration area index     --
         &  eai           = eai_t(:,jb,:)           , & ! earth area (evaporative surface area) index --
-!        &  llandmask     = llandmask_t(:,jb,:)     , & ! landpoint mask               --
+        &  llandmask     = llandmask_t(:,jb,:)     , & ! landpoint mask               --
         &  rsmin2d       = ext_data%atm%rsmin(:,jb), & ! minimum stomata resistance ( s/m )
 !
         &  u  =  p_diag%u(:,:,jb)             , & ! zonal wind speed                       ( m/s )
@@ -484,7 +484,7 @@ CONTAINS
         DO isubs = 1,nsfc_subs
           soiltyp_t(1:i_endidx,jb,isubs)   = ext_data%atm%soiltyp(1:i_endidx,jb) 
           rootdp_t(1:i_endidx,jb,isubs)    = ext_data%atm%rootdp(1:i_endidx,jb) 
-!          llandmask_t(1:i_endidx,jb,isubs) = ext_data%atm%llsm_atm_c(1:i_endidx,jb)
+          llandmask_t(1:i_endidx,jb,isubs) = ext_data%atm%llsm_atm_c(1:i_endidx,jb)
         ENDDO
 
  
@@ -501,7 +501,7 @@ CONTAINS
         &  czmls=zml_soil                            , & ! processing soil level structure 
         &  soiltyp_subs  = soiltyp_t(:,jb,:)       , & ! type of the soil (keys 0-9)  --
         &  rootdp        = rootdp_t(:,jb,:)        , & ! depth of the roots         ( m  )
-!        &  llandmask     = llandmask_t(:,jb,:)     , & ! landpoint mask               --
+        &  llandmask     = llandmask_t(:,jb,:)     , & ! landpoint mask               --
 !
         &  t_snow_now    =  p_prog_lnd_now%t_snow(:,jb,:)     , & ! temperature of the snow-surface   (  K  )
         &  t_snow_mult_now   = p_prog_lnd_now%t_snow_mult(:,:,jb,:) ,& ! temperature of the snow-surface (  K  )
