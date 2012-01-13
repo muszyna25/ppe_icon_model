@@ -92,7 +92,7 @@
 ; atmLev        : chooses vertical plot levels for atmosphere input (h: height,p:pressure,m:modellevel,default:p)
 ;---------------------------------------------------------------
 ; altLibDir     : Alternative directory for loading icon_plot_lib.ncl
-; cdo           : Path to an alternatice cdo version
+; cdo           : Path to an alternative cdo version
 ;---------------------------------------------------------------
 ; Authors       : Ralf Mueller (ralf.mueller@zmaw.de)
 ;                 Stephan Lorenz (stephan.lorenz@zmaw.de)
