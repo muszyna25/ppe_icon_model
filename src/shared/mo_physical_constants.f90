@@ -206,21 +206,14 @@ MODULE mo_physical_constants
     ki           = 2.03_wp,         & ! heat conductivity ice      [J  / (m s K)]   
     rhoi         = 910.0_wp,        & ! density of sea ice         [kg / m�]
     rhos         = 330.0_wp,        & ! density of snow            [kg / m�]
-    rhow         = 1025.0_wp,       & ! density of water           [kg / ]
     ci           = 2100.0_wp,       & ! Heat capacity of ice       [J / (kg K)]
-!   cw           = 4200.0_wp,       & ! Heat capacity of water     [J / (kg K)]
-    cw           = 4186.8_wp,       & ! Heat capacity of water     [J / (kg K)]
     Tf           = -1.80_wp,        & ! Temperature ice bottom     [C]
-    Lfreez       = 0.334E6_wp,      & ! Latent heat of freezing    [J / kg]
-!   L            = 0.334E6,     & ! Latent heat of freezing    [J / kg]
-    Lvap         = 2.501E6_wp,      & ! Latent heat of vaporisation[J / kg]
-    Lsub         = Lfreez+Lvap-0.001e6_wp,& ! Latent heat of sublimation [J / kg]
     Sice         = 5.0_wp,          & ! Sea-ice bulk salinity      [ppt]
-    sig          = 5.67e-8_wp,      & ! Stefan-Boltzman constant   [W / (m K^4)]
     mu           = 0.054_wp,        & ! Constant in linear freezing-
                                       ! point relationship         [�C/ppt]
     muS          = mu*Sice,         & ! = - (sea-ice liquidus 
                                       ! (aka melting) temperature) [�C]
+!   muS          = -(-0.0575 + 1.710523E-3*Sqrt(Sice) - 2.154996E-4*Sice) * Sice
     albs         = 0.75_wp,         & ! Albedo of snow (not melting)
     albsm        = 0.65_wp,         & ! Albedo of snow (melting)    
     albi         = 0.66_wp,         & ! Albedo of ice (not melting)
@@ -229,12 +222,6 @@ MODULE mo_physical_constants
     !I_0          = 0.3             ! Ice-surface penetrating shortwave fraction
     I_0          = 0.0_wp             ! Ice-surface penetrating shortwave fraction
 
-  REAL(wp), PARAMETER :: &
-    rgas     = 287.1_wp,    & ! specific gas constant of dry air         [J/kg/K]
-    cpa      = 1004.67_wp,  & ! specific heat of dry air                 [J/kg/K] 
-    fr_fac   = 1.1925_wp,   & ! Frank Roeske's budget closing factor
-    emiss    = 0.97_wp,     & ! Emissivity of air, water, ice
-    StefBol  = 5.67e-8_wp     ! Stefan Boltzman constant                 [W/m�/K^4]
 !------------------------------------------------------------
 
 

@@ -54,9 +54,9 @@ MODULE mo_sea_ice
   USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell 
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_math_utilities,      ONLY: t_cartesian_coordinates
-  USE mo_physical_constants,  ONLY: rhoi, rhos, rhow,ki,ks,tf,albi,albim,albsm,albs,&
-    &                               mus,ci, Lfreez, I_0, Lsub, Lvap, albedoW, clw,Sice,&
-    &                               cpa, emiss,fr_fac,rgas, stefbol,tmelt   
+  USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref,ki,ks,tf,albi,albim,albsm,albs,&
+    &                               mus,ci, alf, I_0, als, alv, albedoW, clw,Sice,     &
+    &                               cpd, zemiss_def,rd, stbo,tmelt   
   USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
   USE mo_ocean_nml,           ONLY: no_tracer, init_oce_prog, iforc_oce, FORCING_FROM_FILE_FLUX
   USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base, ocean_var_list
@@ -1050,7 +1050,7 @@ CONTAINS
       ice% isice (:,:,:) = .TRUE.
       ice% T1    (:,:,:) = Tf + 2._wp/3._wp*(Tinterface(:,:,:)-Tf)
       ice% T2    (:,:,:) = Tf + 1._wp/3._wp*(Tinterface(:,:,:)-Tf)
-      draft      (:,:,:) = (rhos * ice%hs(:,:,:) + rhoi * ice%hi(:,:,:)) / rhow
+      draft      (:,:,:) = (rhos * ice%hs(:,:,:) + rhoi * ice%hi(:,:,:)) / rho_ref
     END WHERE
     
     !ice%zUnderIce (:,:)   = dzw(1) + zo (:,:) &
@@ -1386,10 +1386,10 @@ CONTAINS
       
       A1a   (:,:,:)  =  rhoi*ice%hi * idt2 * ci + K2* (4.0_wp * dtime * K2 + rhoi*ice%hi*ci)*D 
       A1    (:,:,:)  =  A1a + K1*B * iK1B                                                  ! Eq. 16
-      B1a   (:,:,:)  =  -rhoi*ice%hi* (ci*ice%T1 - Lfreez*muS/ice%T1) * idt2 - I_0 & 
+      B1a   (:,:,:)  =  -rhoi*ice%hi* (ci*ice%T1 - alf*muS/ice%T1) * idt2 - I_0 & 
         &                - K2*(4.0_wp*dtime*K2*Tf+rhoi*ice%hi*ci*ice%T2)*D
       B1    (:,:,:)  =  B1a + A*K1*iK1B                                                    ! Eq. 17
-      C1    (:,:,:)  =  - rhoi*ice%hi * Lfreez * muS * idt2                                ! Eq. 18
+      C1    (:,:,:)  =  - rhoi*ice%hi * alf * muS * idt2                                   ! Eq. 18
       ice%T1    (:,:,:)  =  -(B1 + SQRT(B1*B1-4.0_wp*A1*C1)) / (2.0_wp*A1)                 ! Eq. 21
       ice%Tsurf (:,:,:)  =  (K1*ice%T1-A) * iK1B                                           ! Eq.  6
 
@@ -1473,7 +1473,7 @@ CONTAINS
     delh2=0._wp
     !-------------------------------------------------------------------------------
     ! Calculate snow fall and create array split into ice categories
-    new_snow3d (:,1,:)   = rpreci (:,:) * dtime * rhow / rhos 
+    new_snow3d (:,1,:)   = rpreci (:,:) * dtime * rho_ref / rhos 
     FORALL(k=2:i_no_ice_thick_class)  new_snow3d(:,k,:)  = new_snow3d(:,1,:)
 
     ! Add oceanic heat flux to energy available at the bottom of the ice.
@@ -1483,7 +1483,7 @@ CONTAINS
     DO k=1,i_no_ice_thick_class
       WHERE (ice%isice(:,k,:)) 
         heatOceI(:,k,:) = ( p_os%p_prog(nold(1))%tracer(:,1,:,1) - Tf ) &
-          &                 * ice%zUnderIce * clw*rhow/dtime
+          &                 * ice%zUnderIce * clw*rho_ref/dtime
         ice%Qbot(:,k,:) = ice%Qbot(:,k,:) + heatOceI(:,k,:)
       ENDWHERE
     END DO
@@ -1511,7 +1511,7 @@ CONTAINS
       ! #eoo# Eqns. 24, 27--29 and 31--36 appear to be missing rhoi or rhos to get the proper units
       ! for Delta h. But these are included in this program
       WHERE (ice%Qbot < 0.0_wp) 
-        delh2(:,:,:)  = ice%Qbot * dtime / (rhoi * (ci * (Tf + muS) - Lfreez))  ! Eq. 24 & 25
+        delh2(:,:,:)  = ice%Qbot * dtime / (rhoi * (ci * (Tf + muS) - alf))     ! Eq. 24 & 25
         ice%T2   (:,:,:)  = (delh2*Tf + h2 * ice%T2) / (delh2 + h2)             ! Eq. 26
         h2   (:,:,:)  = h2 + delh2
       END WHERE
@@ -1520,7 +1520,7 @@ CONTAINS
       ! 1. Evaporation
       ! #eoo# Not in Winton - does this count the latent fluxes twice?
 
-      !subli(:,:,:) = lat  / Lsub * dtime;    ![kg/m�]
+      !subli(:,:,:) = lat  / als * dtime;    ![kg/m�]
       !WHERE     (subli <= ice%hs*rhos )         
       !  ice%hs(:,:,:) = ice%hs - subli / rhos
       !ELSEWHERE (subli <= ice%hs*rhos + h1*rhoi )              ! if all snow is gone
@@ -1534,30 +1534,30 @@ CONTAINS
       !  ice%hs(:,:,:) = 0.0_wp
       !  h1(:,:,:) = 0.0_wp
       !  h2(:,:,:) = 0.0_wp
-      !  ice% evapwi(:,:,:) = (subli - ice%hs*rhos - (h1+h2)*rhoi) * Lsub / Lvap
+      !  ice% evapwi(:,:,:) = (subli - ice%hs*rhos - (h1+h2)*rhoi) * als / alv
       !END WHERE
      
    
       ! 2. surface ablation (if any) 
 
-      E1(:,:,:) = ci * ( ice%T1+muS ) - Lfreez*(1.0_wp+muS/ice%T1)    ! Eq.  1 (energy upper layer)
-      E2(:,:,:) = ci * ( ice%T2+muS ) - Lfreez                        ! Eq. 25 (energy lower layer)
-      C1(:,:,:) = Lfreez  * rhos * ice%hs
+      E1(:,:,:) = ci * ( ice%T1+muS ) - alf*(1.0_wp+muS/ice%T1)    ! Eq.  1 (energy upper layer)
+      E2(:,:,:) = ci * ( ice%T2+muS ) - alf                        ! Eq. 25 (energy lower layer)
+      C1(:,:,:) = alf  * rhos * ice%hs
       C2(:,:,:) = E1 * rhoi * h1
       C3(:,:,:) = E2 * rhoi * h2
     
       WHERE ( ice%Qtop(:,:,:) > 0.0_wp ) 
-        surfmeltsn   (:,:,:) = MIN(ice%Qtop*dtime / (Lfreez * rhos), ice%hs)
+        surfmeltsn   (:,:,:) = MIN(ice%Qtop*dtime / (alf * rhos), ice%hs)
         ice%hs           (:,:,:) = ice%hs - surfmeltsn                                  ! Eq. 27
-        ice%surfmelt (:,:,:) = surfmeltsn * rhos/rhow
+        ice%surfmelt (:,:,:) = surfmeltsn * rhos/rho_ref
         WHERE (ice%hs(:,:,:) <= 0.0_wp) 
           surfmelti1   (:,:,:) = MIN((ice%Qtop*dtime-C1) / (-E1*rhoi), h1)
           h1           (:,:,:) = h1 - surfmelti1                                        ! Eq. 28
-          ice%surfmelt (:,:,:) = ice%surfmelt + surfmelti1 * rhoi/rhow
+          ice%surfmelt (:,:,:) = ice%surfmelt + surfmelti1 * rhoi/rho_ref
           WHERE (h1(:,:,:) <= 0.0_wp) 
             surfmelti2   (:,:,:) = MIN((ice%Qtop*dtime-C1+C2) / (-E2*rhoi), h2)
             h2           (:,:,:) = h2 - surfmelti2                                      ! Eq. 29
-            ice%surfmelt (:,:,:) = ice%surfmelt + surfmelti2 * rhoi/rhow
+            ice%surfmelt (:,:,:) = ice%surfmelt + surfmelti2 * rhoi/rho_ref
             WHERE (h2(:,:,:) <= 0.0_wp) 
               ice% heatOceI(:,:,:) = ice%Qtop + (-C1 + C2 + C3)/dtime                   ! Eq. 30
               !Flux - not heat
@@ -1570,7 +1570,7 @@ CONTAINS
         ice%surfmeltT = (surfmelti1+surfmelti2) * (-muS) /  ice%surfmelt
       END WHERE
      
-      C1(:,:,:) = Lfreez    * rhos * ice%hs
+      C1(:,:,:) = alf    * rhos * ice%hs
       C2(:,:,:) = E1 * rhoi * h1
       C3(:,:,:) = E2 * rhoi * h2
    
@@ -1582,7 +1582,7 @@ CONTAINS
           h1 (:,:,:) = h1 - MIN((ice%Qbot * dtime  + C3) / (-E1*rhoi), h1)              ! Eq. 32
           WHERE (h1(:,:,:) <= 0.0_wp) 
             ice%hs (:,:,:) = ice%hs(:,:,:) - MIN((ice%Qbot * dtime+C3+C2)&
-              & /(Lfreez*rhos), ice%hs(:,:,:))                                          ! Eq. 33
+              & /(alf*rhos), ice%hs(:,:,:))                                             ! Eq. 33
             WHERE (ice%hs (:,:,:) <= 0.0_wp) 
               ice% heatOceI(:,:,:) = ice% heatOceI + ice%Qbot + (-C1 + C2 + C3)/dtime   ! Eq. 34
               ! Flux - not heat
@@ -1594,7 +1594,7 @@ CONTAINS
 
       ! Calculate ice thickness and draft (ice+snow depth below water line)
       ice%hi      (:,:,:) = h1 + h2
-      draft       (:,:,:) = (rhoi*ice%hi+rhos*ice%hs) / rhow
+      draft       (:,:,:) = (rhoi*ice%hi+rhos*ice%hs) / rho_ref
       below_water (:,:,:) = draft - ice%hi
 
       
@@ -1608,8 +1608,8 @@ CONTAINS
         ice% snow_to_ice(:,:,:) = below_water * rhoi / rhos
         ice%hs          (:,:,:) = ice%hs - ice% snow_to_ice
         f1              (:,:,:) = h1 / (h1+below_water)
-        Tbar            (:,:,:) = f1  * ( ice%T1 - Lfreez* muS/(ci*ice%T1) ) - (1.0_wp-f1)*muS 
-        ice%T1          (:,:,:) = 0.5_wp * ( Tbar - SQRT(Tbar*Tbar + 4.0_wp*muS*Lfreez/ci) )
+        Tbar            (:,:,:) = f1  * ( ice%T1 - alf* muS/(ci*ice%T1) ) - (1.0_wp-f1)*muS 
+        ice%T1          (:,:,:) = 0.5_wp * ( Tbar - SQRT(Tbar*Tbar + 4.0_wp*muS*alf/ci) )
         h1              (:,:,:) = h1 + below_water
         ice%hi          (:,:,:) = h1 + h2
       END WHERE
@@ -1617,11 +1617,11 @@ CONTAINS
       ! Even up upper and lower layer
       WHERE ( h1(:,:,:) < h2(:,:,:)  ) 
         f1    (:,:,:) =  h1 / (0.5_wp*ice%hi)                                
-        Tbar  (:,:,:) =  f1 * ( ice%T1 - Lfreez*muS/(ci*ice%T1) ) + (1.0_wp-f1)*ice%T2  ! Eq. 39
-        ice%T1(:,:,:) =  0.5_wp * ( Tbar - SQRT(Tbar*Tbar + 4.0_wp*muS*Lfreez/ci) )     ! Eq. 38
+        Tbar  (:,:,:) =  f1 * ( ice%T1 - alf*muS/(ci*ice%T1) ) + (1.0_wp-f1)*ice%T2  ! Eq. 39
+        ice%T1(:,:,:) =  0.5_wp * ( Tbar - SQRT(Tbar*Tbar + 4.0_wp*muS*alf/ci) )     ! Eq. 38
       ELSEWHERE ( h1(:,:,:) > h2(:,:,:) ) 
         f1    (:,:,:) =  h1 / (0.5_wp*ice%hi) - 1.0_wp
-        ice%T2(:,:,:) =  f1 * ( ice%T1 - Lfreez*muS/(ci*ice%T1) ) + (1.0_wp-f1)*ice%T2  ! Eq. 40
+        ice%T2(:,:,:) =  f1 * ( ice%T1 - alf*muS/(ci*ice%T1) ) + (1.0_wp-f1)*ice%T2  ! Eq. 40
       END WHERE
     
       ! ice%T2 can get above bulk melting temperature. If this happens, use additional energy to
@@ -1631,7 +1631,7 @@ CONTAINS
       ! Energy needed for melting upper layer: -(ci*(ice%T1+muS)-L*(1+muS/ice%T1)) (Eq. 1)
       WHERE (ice%t2 (:,:,:) > -muS)                  
         ice%hi (:,:,:) = ice%hi - h2*ci*(ice%T2+muS) / &
-          &            ( 0.5_wp*Lfreez - 0.5_wp*(ci*(ice%T1+muS) - Lfreez*(1.0_wp+muS/ice%T1)) )
+          &            ( 0.5_wp*alf - 0.5_wp*(ci*(ice%T1+muS) - alf*(1.0_wp+muS/ice%T1)) )
         ice%T2 (:,:,:) = -muS
       END WHERE
 
@@ -1702,9 +1702,9 @@ CONTAINS
     ! evaporation
     precw           (:,:)   = QatmAve% rprecw (:,:) * dtime
     preci           (:,:)   = QatmAve% rpreci (:,:) * dtime
-    evap            (:,:)   = (QatmAve% latw(:,:)/ Lvap * dtime * &
-      &                       sum(ice%conc(:,:,:), 2) +           &
-      &                       sum(ice%evapwi(:,:,:) * ice% conc(:,:,:), 2)) /rhow
+    evap            (:,:)   = (QatmAve% latw(:,:)/ alv * dtime * &
+      &                       sum(ice%conc(:,:,:), 2) +          &
+      &                       sum(ice%evapwi(:,:,:) * ice% conc(:,:,:), 2)) /rho_ref
 
     ! TODO: This should probably be done via surface fluxes?
     !p_os%p_prog(nold(1))%h(:,:) = p_os%p_prog(nold(1))%h(:,:) +  precw + preci - evap
@@ -1712,7 +1712,7 @@ CONTAINS
     ! Calculate average draft and thickness of water underneath ice in upper ocean
     ! grid box
     zUnderIceOld    (:,:)   = ice%zUnderIce
-    draft           (:,:,:) = (rhos * ice%hs + rhoi * ice%hi) / rhow
+    draft           (:,:,:) = (rhos * ice%hs + rhoi * ice%hi) / rho_ref
     draftave        (:,:)   = sum(draft(:,:,:) * ice%conc(:,:,:),2)
     ice%zUnderIce   (:,:)   = v_base%del_zlev_m(1) + p_os%p_prog(nold(1))%h(:,:) - draftave(:,:) 
    
@@ -1740,9 +1740,9 @@ CONTAINS
     ! Change temperature of upper ocean grid cell according to heat fluxes
     !p_os%p_prog(nold(1))%tracer(:,1,:,1) = p_os%p_prog(nold(1))%tracer(:,1,:,1)&
     !  &                                    + dtime*(heatOceI + heatOceW) /               &
-    !  &                                    (clw*rhow * ice%zUnderIce)
+    !  &                                    (clw*rho_ref * ice%zUnderIce)
     ! TODO: should we also divide with ice%zUnderIce / ( v_base%del_zlev_m(1) +  p_os%p_prog(nold(1))%h(:,:) ) ?
-    !p_sfc_flx%forc_tracer(:,:,1) = (heatOceI + heatOceW) / (clw*rhow)
+    !p_sfc_flx%forc_tracer(:,:,1) = (heatOceI + heatOceW) / (clw*rho_ref)
     p_sfc_flx%forc_hflx(:,:) = heatOceI(:,:) + heatOceW(:,:)
 
     ! TODO:
@@ -1758,7 +1758,7 @@ CONTAINS
     ! Change salinity of upper ocean grid box from ice growth/melt, snowice
     ! formation and precipitation
     !p_os%p_prog(nold(1))%tracer(:,1,:,2) = p_os%p_prog(nold(1))%tracer(:,1,:,2)  &
-    !  &                                    + (Delhice(:,:)*rhoi - snowiceave(:,:)*rhos)/rhow *  &
+    !  &                                    + (Delhice(:,:)*rhoi - snowiceave(:,:)*rhos)/rho_ref *  &
     !  &                                    MIN(Sice, sao_top(:,:)) / ice%zUnderIce(:,:)
 
     !heatabs         (:,:)   = swsum * QatmAve% SWin * (1 - ice%concsum)
@@ -1792,7 +1792,7 @@ CONTAINS
 
     ice % newice = 0.0_wp
     WHERE (sst <= Tf)
-      ice%newice(:,:) = - (sst - Tf) * ice%zUnderIce * clw*rhow / (Lfreez*rhoi)
+      ice%newice(:,:) = - (sst - Tf) * ice%zUnderIce * clw*rho_ref / (alf*rhoi)
       ! Add energy for new-ice formation due to supercooled ocean to  ocean temperature
       p_sfc_flx%forc_tracer(:,:,1) = &
         &     ice%zUnderIce * ( Tf - p_os%p_prog(nold(1))%tracer(:,1,:,1) ) / dtime
@@ -1914,9 +1914,9 @@ CONTAINS
 
     humi    = 0.601_wp+ 5.95_wp*1.0e-7_wp*esta*EXP(1500.0_wp/tafoK)
     fakts   =  1.0_wp + 0.3_wp*p_as%fclou**2
-    Qatm%LWin = fakts * humi * emiss*StefBol * tafoK**4
+    Qatm%LWin = fakts * humi * zemiss_def*StBo * tafoK**4
 
-    Qatm%LWoutw = emiss*StefBol * (Tsurf+tmelt)**4
+    Qatm%LWoutw = zemiss_def*StBo * (Tsurf+tmelt)**4
     Qatm%LWnetw = Qatm%LWin - Qatm%LWoutw
 
     Qatm%SWin = p_as%fswr
@@ -1927,7 +1927,7 @@ CONTAINS
     !      Air-Sea Flux Estimates And The 19971998 Enso Event,  Bound.-Lay.
     !      Met., 103(3), 439-458, doi: 10.1023/A:1014945408605.
     !-----------------------------------------------------------------------    
-    rhoair     = p_as%pao/(rgas*tafoK*(1.0_wp+0.61_wp*sphumida) )
+    rhoair     = p_as%pao/(rd*tafoK*(1.0_wp+0.61_wp*sphumida) )
     fu10lim    = MAX (2.5_wp, MIN(32.5_wp,p_as%fu10) )
     dragl1     = 1e-3_wp*(-0.0154_wp + 0.5698_wp/fu10lim - 0.6743_wp/(fu10lim * fu10lim))
     dragl0     = 1e-3_wp*(0.8195_wp+0.0506_wp*fu10lim - 0.0009_wp*fu10lim*fu10lim)
@@ -1935,8 +1935,8 @@ CONTAINS
     ! Need to keep the drag honest
     dragl      = MAX(0.5e-3_wp, MIN(3.0e-3_wp,dragl))
     drags      = 0.95_wp * dragl
-    Qatm%sensw = drags*rhoair*cpa*p_as%fu10 * (p_as%tafo -Tsurf)
-    Qatm%latw  = dragl*rhoair*Lvap*p_as%fu10 * (sphumida-sphumidw)
+    Qatm%sensw = drags*rhoair*cpd*p_as%fu10 * (p_as%tafo -Tsurf)
+    Qatm%latw  = dragl*rhoair*alv*p_as%fu10 * (sphumida-sphumidw)
 
     DO i = 1, p_ice%kice
       WHERE (p_ice% isice(:,i,:))
@@ -1950,17 +1950,17 @@ CONTAINS
         dragl    = MAX(0.5e-3_wp, MIN(3.0e-3_wp,dragl))
         drags    = 0.95_wp * dragl
 
-        Qatm%LWout (:,i,:) = emiss*StefBol * (Tsurf+tmelt)**4
+        Qatm%LWout (:,i,:) = zemiss_def*StBo * (Tsurf+tmelt)**4
         Qatm%LWnet (:,i,:) = Qatm%LWin - Qatm%LWout(:,i,:)
-        Qatm%dLWdT (:,i,:) = - 4.0_wp * emiss*StefBol * (Tsurf + tmelt)**3
-        Qatm%sens  (:,i,:) = drags * rhoair*cpa*p_as%fu10 * (p_as%tafo -Tsurf)
-        Qatm%lat   (:,i,:) = dragl * rhoair* Lfreez *p_as%fu10 * (sphumida-sphumidi)
+        Qatm%dLWdT (:,i,:) = - 4.0_wp * zemiss_def*StBo * (Tsurf + tmelt)**3
+        Qatm%sens  (:,i,:) = drags * rhoair*cpd*p_as%fu10 * (p_as%tafo -Tsurf)
+        Qatm%lat   (:,i,:) = dragl * rhoair* alf *p_as%fu10 * (sphumida-sphumidi)
 
-        Qatm%dsensdT(:,i,:)= 0.95_wp*cpa*rhoair*p_as%fu10*(dragl0 - 2.0_wp*dragl)
+        Qatm%dsensdT(:,i,:)= 0.95_wp*cpd*rhoair*p_as%fu10*(dragl0 - 2.0_wp*dragl)
         dsphumididesti     = alpha/(p_as%pao-beta*esti) * (1.0_wp + beta*esti/(p_as%pao-beta*esti))
         destidT            = (bi*ci*di-Tsurf*(2.0_wp*ci+Tsurf))/(di*(ci+Tsurf)**2) * esti
         dfdT               = 2.0_wp*CCi*BBi*Tsurf
-        Qatm%dlatdT(:,i,:) = Lfreez*rhoair*p_as%fu10*( (sphumida-sphumidi)*dragl1 &
+        Qatm%dlatdT(:,i,:) = alf*rhoair*p_as%fu10*( (sphumida-sphumidi)*dragl1 &
           & - dragl*dsphumididesti*(fi*destidT + esti*dfdT) )
       ENDWHERE
     ENDDO

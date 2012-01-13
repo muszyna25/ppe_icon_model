@@ -70,9 +70,9 @@ USE mo_model_domain,        ONLY: t_patch
 USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base
 USE mo_exception,           ONLY: finish, message, message_text
 USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
-USE mo_physical_constants,  ONLY: rho_ref, sal_ref, sfc_press_bar, lsub, lvap, lfreez, &
-  &                               cpa, emiss, fr_fac, stefbol, rgas, tmelt, tf, cw,    &
-  &                               rhoi, rhow, rhos
+USE mo_physical_constants,  ONLY: rho_ref, sal_ref, sfc_press_bar, als, alv, alf, &
+  &                               cpd, zemiss_def, stbo, rd, tmelt, tf, clw, &
+  &                               rhoi, rho_ref, rhos
 USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell, sea_boundary,MIN_DOLIC
 USE mo_loopindices,         ONLY: get_indices_c
 USE mo_math_utilities,      ONLY: t_cartesian_coordinates, gvec2cvec, cvec2gvec
@@ -317,7 +317,7 @@ CONTAINS
         Qatm%lat    (:,:,:) = 0.0_wp
         Qatm%dsensdT(:,:,:) = 0.0_wp
         Qatm%dlatdT (:,:,:) = 0.0_wp
-        Qatm%dLWdT  (:,:,:) = -4.0_wp * emiss*StefBol * (p_ice%Tsurf(:,:,:) + tmelt)**3
+        Qatm%dLWdT  (:,:,:) = -4.0_wp * zemiss_def*StBo * (p_ice%Tsurf(:,:,:) + tmelt)**3
 
         ! Fluxes into the water are the same as into the ice
         Qatm%LWnetw (:,:)   = p_sfc_flx%forc_hflx(:,:)
@@ -391,7 +391,7 @@ CONTAINS
         Qatm%latw   (:,:)   = p_sfc_flx%forc_slflx(:,:)
         Qatm%dsensdT(:,:,:) = 0.0_wp
         Qatm%dlatdT (:,:,:) = 0.0_wp
-        Qatm%dLWdT  (:,:,:) = -4.0_wp * emiss*StefBol * (p_ice%Tsurf(:,:,:) + tmelt)**3
+        Qatm%dLWdT  (:,:,:) = -4.0_wp * zemiss_def*StBo * (p_ice%Tsurf(:,:,:) + tmelt)**3
 
         ! sum of flux from sea ice to the ocean is stored in p_sfc_flx%forc_hflx
         !  done in mo_sea_ice:upper_ocean_TS
@@ -615,7 +615,7 @@ CONTAINS
         Qatm%latw   (:,:)   = p_sfc_flx%forc_slflx(:,:)
         Qatm%dsensdT(:,:,:) = 0.0_wp
         Qatm%dlatdT (:,:,:) = 0.0_wp
-        Qatm%dLWdT  (:,:,:) = -4.0_wp * emiss*StefBol * (p_ice%Tsurf(:,:,:) + tmelt)**3
+        Qatm%dLWdT  (:,:,:) = -4.0_wp * zemiss_def*StBo * (p_ice%Tsurf(:,:,:) + tmelt)**3
 
         ! For now the ice albedo is the same as ocean albedo
         ! CALL set_ice_albedo(p_patch,p_ice)
@@ -816,7 +816,7 @@ CONTAINS
     ! where
     !   Q_T = K_v*dT/dz(surf) = Q_s/Rho/Cp  [K*m/s]
 
-    p_sfc_flx%forc_hflx(:,:) = p_sfc_flx%forc_tracer(:,:,1) * rho_ref * cw
+    p_sfc_flx%forc_hflx(:,:) = p_sfc_flx%forc_tracer(:,:,1) * rho_ref * clw
 
     ipl_src=1  ! output print level (1-5, fix)
     z_c(:,1,:) = p_sfc_flx%forc_hflx(:,:)
@@ -859,9 +859,9 @@ CONTAINS
     !   Q_s = Rho*Cp*Q_T  with density Rho and Cp specific heat capacity
     !   K_v*dT/dz(surf) = Q_T = Q_s/Rho/Cp  [K*m/s]
     ! discretized:
-    !   top_bc_tracer = forc_tracer = forc_hflx / (rho_ref*cw)
+    !   top_bc_tracer = forc_tracer = forc_hflx / (rho_ref*clw)
 
-    p_sfc_flx%forc_tracer(:,:,1) = p_sfc_flx%forc_hflx(:,:) / (rho_ref*cw)
+    p_sfc_flx%forc_tracer(:,:,1) = p_sfc_flx%forc_hflx(:,:) / (rho_ref*clw)
 
     ipl_src=1  ! output print level (1-5, fix)
     z_c(:,1,:) = p_sfc_flx%forc_hflx(:,:)
@@ -945,7 +945,7 @@ CONTAINS
                                                        ! liquid/solid  precipitation rate are zero
 
           !This prepares freshwater flux calculation below; eq. (64) in Marsland et al.
-          z_evap(jc,jb) = Qatm%lat(jc,jb,i)/(Lsub*z_rho_w)
+          z_evap(jc,jb) = Qatm%lat(jc,jb,i)/(als*z_rho_w)
 
         ELSEIF(.NOT.p_ice% isice(jc,jb,i))THEN
 
@@ -956,7 +956,7 @@ CONTAINS
                                                        ! liquid/solid  precipitation rate are zero
 
          !This prepares freshwater flux calculation below; eq. (64) in Marsland et al.
-          z_evap(jc,jb) = Qatm%latw(jc,jb)/(Lvap*z_rho_w)
+          z_evap(jc,jb) = Qatm%latw(jc,jb)/(alv*z_rho_w)
         ENDIF
       END DO
 
