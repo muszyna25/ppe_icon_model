@@ -121,62 +121,119 @@ PUBLIC           ! All constants and variables in this module are public
   ! soil type  / ice           , rock          , sand          , sandyloam     , loam          , &
   !            & clayloam      , clay          , peat          , sea water     , sea ice         /
 
+!!$  DATA  cporv  / 1.E-10_ireals , 1.E-10_ireals , 0.364_ireals  , 0.445_ireals  , 0.455_ireals  , &
+!!$               & 0.475_ireals  , 0.507_ireals  , 0.863_ireals  , 1.E-10_ireals , 1.E-10_ireals   /
+!!$
+!!$  DATA  cfcap  / 1.E-10_ireals , 1.E-10_ireals , 0.196_ireals  , 0.260_ireals  , 0.340_ireals  , &
+!!$               & 0.370_ireals  , 0.463_ireals  , 0.763_ireals  , 1.E-10_ireals , 1.E-10_ireals   /
+!!$
+!!$  DATA  cpwp   / 0.000_ireals  , 0.000_ireals  , 0.042_ireals  , 0.100_ireals  , 0.110_ireals  , &
+!!$               & 0.185_ireals  , 0.257_ireals  , 0.265_ireals  , 0.000_ireals  , 0.000_ireals    /
+!!$
+!!$  DATA  cadp   / 0.000_ireals  , 0.000_ireals  , 0.012_ireals  , 0.030_ireals  , 0.035_ireals  , &
+!!$               & 0.060_ireals  , 0.065_ireals  , 0.098_ireals  , 0.000_ireals  , 0.000_ireals    /
+!!$
+!!$  DATA  crhoc  / 1.92E6_ireals , 2.10E6_ireals , 1.28E6_ireals , 1.35E6_ireals , 1.42E6_ireals , &
+!!$               & 1.50E6_ireals , 1.63E6_ireals , 0.58E6_ireals , 4.18E6_ireals , 1.92E6_ireals   /
+!!$
+!!$  DATA  cik2   / 0.0000_ireals , 0.0000_ireals , 0.0035_ireals , 0.0023_ireals , 0.0010_ireals , &
+!!$               & 0.0006_ireals , 0.0001_ireals , 0.0002_ireals , 0.0000_ireals , 0.0000_ireals   /
+!!$
+!!$  DATA  ckw0   / 0.00_ireals   , 0.00_ireals   , 479.E-7_ireals, 943.E-8_ireals, 531.E-8_ireals, &
+!!$               & 764.E-9_ireals,  17.E-9_ireals, 58.E-9_ireals , 0.00_ireals   , 0.00_ireals     /
+!!$
+!!$  DATA  ckw1   / 0.00_ireals   , 0.00_ireals   , -19.27_ireals , -20.86_ireals , -19.66_ireals , &
+!!$               & -18.52_ireals , -16.32_ireals , -16.48_ireals , 0.00_ireals   , 0.00_ireals     /
+!!$
+!!$  DATA  cdw0   / 0.00_ireals   , 0.00_ireals   , 184.E-7_ireals, 346.E-8_ireals, 357.E-8_ireals, &
+!!$               & 118.E-8_ireals, 442.E-9_ireals, 106.E-9_ireals, 0.00_ireals   , 0.00_ireals     /
+!!$
+!!$  DATA  cdw1   / 0.00_ireals   , 0.00_ireals   , -8.45_ireals  , -9.47_ireals  , -7.44_ireals  , &
+!!$               & -7.76_ireals  , -6.74_ireals  , -5.97_ireals  , 0.00_ireals   , 0.00_ireals     /
+!!$
+!!$  DATA  crock  / 0.00_ireals   , 0.00_ireals   , 1.00_ireals   , 1.00_ireals   , 1.00_ireals   , &
+!!$               & 1.00_ireals   , 1.00_ireals   , 1.00_ireals   , 0.00_ireals   , 0.00_ireals     /
+!!$
+!!$  DATA  cala0  / 2.26_ireals   , 2.41_ireals   , 0.30_ireals   , 0.28_ireals   , 0.25_ireals   , &
+!!$               & 0.21_ireals   , 0.18_ireals   , 0.06_ireals   , 1.0_ireals    , 2.26_ireals     /
+!!$
+!!$  DATA  cala1  / 2.26_ireals   , 2.41_ireals   , 2.40_ireals   , 2.40_ireals   , 1.58_ireals   , &
+!!$               & 1.55_ireals   , 1.50_ireals   , 0.50_ireals   , 1.0_ireals    , 2.26_ireals     /
+!!$
+!!$  DATA  csalb  / 0.70_ireals   , 0.30_ireals   , 0.30_ireals   , 0.25_ireals   , 0.25_ireals   , &
+!!$               & 0.25_ireals   , 0.25_ireals   , 0.20_ireals   , 0.07_ireals   , 0.70_ireals     /
+!!$
+!!$  DATA  csalbw / 0.00_ireals   , 0.00_ireals   , 0.44_ireals   , 0.27_ireals   , 0.24_ireals   , &
+!!$               & 0.23_ireals   , 0.22_ireals   , 0.10_ireals   , 0.00_ireals   , 0.00_ireals     /
+!!$
+!!$  DATA  ck0di  / 1.E-4_ireals  , 1.E-4_ireals  , 2.E-4_ireals  , 2.E-5_ireals  , 6.E-6_ireals  , &
+!!$               & 2.E-6_ireals  , 1.E-6_ireals  , 1.5E-6_ireals , 0.00_ireals   , 0.00_ireals     /
+!!$
+!!$  DATA  cbedi  / 1.0_ireals    , 1.00_ireals   , 3.5_ireals    , 4.8_ireals    , 6.1_ireals    , &
+!!$               & 8.6_ireals    , 10.00_ireals  , 9.0_ireals    , 0.00_ireals   , 0.00_ireals     /
+!!$
+!!$  DATA  csandf / 0.00_ireals   , 0.00_ireals   , 90.00_ireals  , 65.0_ireals   , 40.0_ireals   , &
+!!$               & 35.0_ireals   , 15.0_ireals   , 90.00_ireals  , 0.00_ireals   , 0.00_ireals     /
+!!$
+!!$  DATA  cclayf / 0.00_ireals   , 0.00_ireals   , 5.0_ireals    , 10.0_ireals   , 20.0_ireals   , &
+!!$               & 35.0_ireals   , 70.0_ireals   , 5.0_ireals    , 0.00_ireals   , 0.00_ireals     /
+
   DATA  cporv  / 1.E-10_ireals , 1.E-10_ireals , 0.364_ireals  , 0.445_ireals  , 0.455_ireals  , &
-               & 0.475_ireals  , 0.507_ireals  , 0.863_ireals  , 1.E-10_ireals , 1.E-10_ireals   /
+               & 0.475_ireals  , 0.507_ireals  , 0.863_ireals  , 0.364_ireals , 1.E-10_ireals   /
 
   DATA  cfcap  / 1.E-10_ireals , 1.E-10_ireals , 0.196_ireals  , 0.260_ireals  , 0.340_ireals  , &
-               & 0.370_ireals  , 0.463_ireals  , 0.763_ireals  , 1.E-10_ireals , 1.E-10_ireals   /
+               & 0.370_ireals  , 0.463_ireals  , 0.763_ireals  , 0.196_ireals , 1.E-10_ireals   /
 
   DATA  cpwp   / 0.000_ireals  , 0.000_ireals  , 0.042_ireals  , 0.100_ireals  , 0.110_ireals  , &
-               & 0.185_ireals  , 0.257_ireals  , 0.265_ireals  , 0.000_ireals  , 0.000_ireals    /
+               & 0.185_ireals  , 0.257_ireals  , 0.265_ireals  , 0.042_ireals  , 0.000_ireals    /
 
   DATA  cadp   / 0.000_ireals  , 0.000_ireals  , 0.012_ireals  , 0.030_ireals  , 0.035_ireals  , &
-               & 0.060_ireals  , 0.065_ireals  , 0.098_ireals  , 0.000_ireals  , 0.000_ireals    /
+               & 0.060_ireals  , 0.065_ireals  , 0.098_ireals  , 0.012_ireals  , 0.000_ireals    /
 
   DATA  crhoc  / 1.92E6_ireals , 2.10E6_ireals , 1.28E6_ireals , 1.35E6_ireals , 1.42E6_ireals , &
-               & 1.50E6_ireals , 1.63E6_ireals , 0.58E6_ireals , 4.18E6_ireals , 1.92E6_ireals   /
+               & 1.50E6_ireals , 1.63E6_ireals , 0.58E6_ireals , 1.28E6_ireals , 1.92E6_ireals   /
 
   DATA  cik2   / 0.0000_ireals , 0.0000_ireals , 0.0035_ireals , 0.0023_ireals , 0.0010_ireals , &
-               & 0.0006_ireals , 0.0001_ireals , 0.0002_ireals , 0.0000_ireals , 0.0000_ireals   /
+               & 0.0006_ireals , 0.0001_ireals , 0.0002_ireals , 0.0035_ireals , 0.0000_ireals   /
 
   DATA  ckw0   / 0.00_ireals   , 0.00_ireals   , 479.E-7_ireals, 943.E-8_ireals, 531.E-8_ireals, &
-               & 764.E-9_ireals,  17.E-9_ireals, 58.E-9_ireals , 0.00_ireals   , 0.00_ireals     /
+               & 764.E-9_ireals,  17.E-9_ireals, 58.E-9_ireals , 479.E-7_ireals   , 0.00_ireals     /
 
   DATA  ckw1   / 0.00_ireals   , 0.00_ireals   , -19.27_ireals , -20.86_ireals , -19.66_ireals , &
-               & -18.52_ireals , -16.32_ireals , -16.48_ireals , 0.00_ireals   , 0.00_ireals     /
+               & -18.52_ireals , -16.32_ireals , -16.48_ireals , -19.27_ireals  , 0.00_ireals     /
 
   DATA  cdw0   / 0.00_ireals   , 0.00_ireals   , 184.E-7_ireals, 346.E-8_ireals, 357.E-8_ireals, &
-               & 118.E-8_ireals, 442.E-9_ireals, 106.E-9_ireals, 0.00_ireals   , 0.00_ireals     /
+               & 118.E-8_ireals, 442.E-9_ireals, 106.E-9_ireals, 184.E-7_ireals   , 0.00_ireals     /
 
   DATA  cdw1   / 0.00_ireals   , 0.00_ireals   , -8.45_ireals  , -9.47_ireals  , -7.44_ireals  , &
-               & -7.76_ireals  , -6.74_ireals  , -5.97_ireals  , 0.00_ireals   , 0.00_ireals     /
+               & -7.76_ireals  , -6.74_ireals  , -5.97_ireals  , -8.45_ireals   , 0.00_ireals     /
 
   DATA  crock  / 0.00_ireals   , 0.00_ireals   , 1.00_ireals   , 1.00_ireals   , 1.00_ireals   , &
-               & 1.00_ireals   , 1.00_ireals   , 1.00_ireals   , 0.00_ireals   , 0.00_ireals     /
+               & 1.00_ireals   , 1.00_ireals   , 1.00_ireals   , 1.00_ireals   , 0.00_ireals     /
 
   DATA  cala0  / 2.26_ireals   , 2.41_ireals   , 0.30_ireals   , 0.28_ireals   , 0.25_ireals   , &
-               & 0.21_ireals   , 0.18_ireals   , 0.06_ireals   , 1.0_ireals    , 2.26_ireals     /
+               & 0.21_ireals   , 0.18_ireals   , 0.06_ireals   , 0.30_ireals   , 2.26_ireals     /
 
   DATA  cala1  / 2.26_ireals   , 2.41_ireals   , 2.40_ireals   , 2.40_ireals   , 1.58_ireals   , &
-               & 1.55_ireals   , 1.50_ireals   , 0.50_ireals   , 1.0_ireals    , 2.26_ireals     /
+               & 1.55_ireals   , 1.50_ireals   , 0.50_ireals   , 2.40_ireals    , 2.26_ireals     /
 
   DATA  csalb  / 0.70_ireals   , 0.30_ireals   , 0.30_ireals   , 0.25_ireals   , 0.25_ireals   , &
-               & 0.25_ireals   , 0.25_ireals   , 0.20_ireals   , 0.07_ireals   , 0.70_ireals     /
+               & 0.25_ireals   , 0.25_ireals   , 0.20_ireals   ,  0.30_ireals  , 0.70_ireals     /
 
   DATA  csalbw / 0.00_ireals   , 0.00_ireals   , 0.44_ireals   , 0.27_ireals   , 0.24_ireals   , &
-               & 0.23_ireals   , 0.22_ireals   , 0.10_ireals   , 0.00_ireals   , 0.00_ireals     /
+               & 0.23_ireals   , 0.22_ireals   , 0.10_ireals   , 0.44_ireals   , 0.00_ireals     /
 
   DATA  ck0di  / 1.E-4_ireals  , 1.E-4_ireals  , 2.E-4_ireals  , 2.E-5_ireals  , 6.E-6_ireals  , &
-               & 2.E-6_ireals  , 1.E-6_ireals  , 1.5E-6_ireals , 0.00_ireals   , 0.00_ireals     /
+               & 2.E-6_ireals  , 1.E-6_ireals  , 1.5E-6_ireals , 2.E-4_ireals   , 0.00_ireals     /
 
   DATA  cbedi  / 1.0_ireals    , 1.00_ireals   , 3.5_ireals    , 4.8_ireals    , 6.1_ireals    , &
-               & 8.6_ireals    , 10.00_ireals  , 9.0_ireals    , 0.00_ireals   , 0.00_ireals     /
+               & 8.6_ireals    , 10.00_ireals  , 9.0_ireals    , 3.5_ireals   , 0.00_ireals     /
 
   DATA  csandf / 0.00_ireals   , 0.00_ireals   , 90.00_ireals  , 65.0_ireals   , 40.0_ireals   , &
-               & 35.0_ireals   , 15.0_ireals   , 90.00_ireals  , 0.00_ireals   , 0.00_ireals     /
+               & 35.0_ireals   , 15.0_ireals   , 90.00_ireals  , 90.00_ireals   , 0.00_ireals     /
 
   DATA  cclayf / 0.00_ireals   , 0.00_ireals   , 5.0_ireals    , 10.0_ireals   , 20.0_ireals   , &
-               & 35.0_ireals   , 70.0_ireals   , 5.0_ireals    , 0.00_ireals   , 0.00_ireals     /
+               & 35.0_ireals   , 70.0_ireals   , 5.0_ireals    , 5.0_ireals   , 0.00_ireals     /
  
 
 !==============================================================================
