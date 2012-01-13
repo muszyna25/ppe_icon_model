@@ -251,6 +251,8 @@ if [ $make_post = "true" ] ; then
     with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00" \
     restart_1="$restart_1" restart_2="$restart_2"  diff_file=${name}_restart.diff
 fi
+
+
 #==============================================================================
 # special treatment for exp.test_hom_lsm
 # this includes the restart in the exp.test_hom_lsm_restart
@@ -276,16 +278,49 @@ EOF
 fi
 
 # postprocessing for comparing the restarts
-if [ $make_post = "true" ] ; then
- 
-    restart_1="../experiments/${name}/restart.iconR2B04-ocean_etopo40_planet_20000102T000000Z_oce.nc"
-    restart_2="../experiments/${name}_restart/restart.iconR2B04-ocean_etopo40_planet_20000102T000000Z_oce.nc"
-    out_file=${name}_restart.diff
-    $make_runscript in_folder=$input_folder in_script=post.compare_restarts out_script=post.${name}_compare-restart.run\
-      with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00" \
-      restart_1="$restart_1" restart_2="$restart_2"  diff_file=${name}_restart.diff
-    fi
+if [ $make_post = "true" ] ; then 
+  restart_1="../experiments/${name}/restart.iconR2B04-ocean_etopo40_planet_20000102T000000Z_oce.nc"
+  restart_2="../experiments/${name}_restart/restart.iconR2B04-ocean_etopo40_planet_20000102T000000Z_oce.nc"
+  out_file=${name}_restart.diff
+  $make_runscript in_folder=$input_folder in_script=post.compare_restarts out_script=post.${name}_compare-restart.run\
+    with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00" \
+    restart_1="$restart_1" restart_2="$restart_2"  diff_file=${name}_restart.diff
 fi
+
+#==============================================================================
+# special treatment for test_nh35_tri_jws
+# this includes the restart in the exp.test_nh35_tri_jws_restart
+#
+queue=$use_queue
+
+name=test_nh35_tri_jws
+
+if [ $make_exp = "true" ] ; then
+  restart_script=${name}_restart.tmp
+  tmp_file=$input_folder/$restart_script
+cat > $tmp_file << EOF
+restart_from_folder="$name"
+restart_atmo_from="restart.iconR2B04-grid_20080907T000000Z_atm.nc"
+EXPNAME=${name}_restart
+EOF
+
+  $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
+    in_script=$restart_script in_script=exp.$name in_script=exec.iconrun EXPNAME="$name"\
+    mpi_procs=1 queue="$queue" cpu_time="04:00:00" memory_model="small"
+        
+  rm $tmp_file
+fi
+
+# postprocessing for comparing the restarts
+if [ $make_post = "true" ] ; then 
+  restart_1="../experiments/${name}/restart.iconR2B04-grid_20080913T000000Z_atm.nc"
+  restart_2="../experiments/${name}_restart/restart.iconR2B04-grid_20080913T000000Z_atm.nc"
+  out_file=${name}_restart.diff
+  $make_runscript in_folder=$input_folder in_script=post.compare_restarts out_script=post.${name}_compare-restart.run\
+    with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00" \
+    restart_1="$restart_1" restart_2="$restart_2"  diff_file=${name}_restart.diff
+fi
+#==============================================================================
 
 
 echo "-----------------------------------------------------------"
