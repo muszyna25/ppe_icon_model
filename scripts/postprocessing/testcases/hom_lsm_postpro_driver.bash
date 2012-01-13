@@ -102,12 +102,20 @@ PROJSAT=" "                                     #  Projection: Cylindrical Equid
 bstrg="S.J.Lorenz;"                             #  base string
 tstrg="ICON Ocean"                              #  title string
 
+# set the CDO path for the dwd to a local installation
+case "$(hostname -d)" in
+  dwd.de)
+    CDO="/e/uhome/extrmuel/local/bin/cdo"
+    ;;
+  *)
+    CDO="cdo"
+esac
 # these parameters are stored in here-document due to necessary single and double quotes:
 cat >scr_${EXP}_nclcmd.here <<eo_here
   ncl ${ncl_script_path}/icon_plot.ncl \
       'iFile="$ifile"' 'oFile="$ofile"' 'varName="$varname"' 'oType="$otype"' 'altLibDir="${ncl_script_path}"' \
       'selMode="$selmode"' minVar=$minvar maxVar=$maxvar $MAP timeStep=$plotstep \
-      'maskName="$mname"' $PROJSAT 'bStrg="$bstrg"' 'tStrg="$tstrg"'
+      'maskName="$mname"' $PROJSAT 'bStrg="$bstrg"' 'tStrg="$tstrg"' 'cdo="$CDO"'
 eo_here
 
 # run the ncl script
