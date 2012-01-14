@@ -291,7 +291,7 @@ fi
 # special treatment for test_nh35_tri_jws
 # this includes the restart in the exp.test_nh35_tri_jws_restart
 #
-queue=$use_queue
+queue="default"
 
 name=test_nh35_tri_jws
 
@@ -306,7 +306,7 @@ EOF
 
   $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
     in_script=$restart_script in_script=exp.$name in_script=exec.iconrun EXPNAME="$name"\
-    mpi_procs=1 queue="$queue" cpu_time="04:00:00" memory_model="small"
+    mpi_procs=1 queue="$queue" cpu_time="03:00:00" memory_model="small"
         
   rm $tmp_file
 fi
