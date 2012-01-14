@@ -113,7 +113,7 @@ if [ $make_exp = "true" ] ; then
       if [[ ${name} == test_hom_* ]]; then
         $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
         mpi_procs=1 memory_model="large" cpu_time="01:00:00" queue="express"
-      elif [[ ${name} == *_hom_* ]]; then
+      elif [[ ${name} == *hom_* ]]; then
         $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
         mpi_procs=1 memory_model="large" cpu_time="08:00:00"
       elif [[ ${name} == *_nwp_* ]] ; then
@@ -124,7 +124,7 @@ if [ $make_exp = "true" ] ; then
         cpu_time="08:00:00" memory_model="large" omp_stacksize=$omp_stacksize queue="$queue"
       elif [[ ${name} == *_nh35_tri_jws* ]] ; then
         $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
-        cpu_time="04:00:00" memory_model="small" queue="$queue"
+        cpu_time="03:00:00" memory_model="small" queue="$queue"
       else
         $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
         cpu_time="04:00:00" memory_model="large" omp_stacksize=$omp_stacksize queue="$queue"
@@ -306,7 +306,7 @@ EOF
 
   $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun\
     in_script=$restart_script in_script=exp.$name in_script=exec.iconrun EXPNAME="$name"\
-    mpi_procs=1 queue="$queue" cpu_time="03:00:00" memory_model="small"
+    queue="$queue" cpu_time="03:00:00" memory_model="small"
         
   rm $tmp_file
 fi
