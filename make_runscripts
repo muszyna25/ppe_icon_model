@@ -291,7 +291,8 @@ fi
 # special treatment for test_nh35_tri_jws
 # this includes the restart in the exp.test_nh35_tri_jws_restart
 #
-queue="default"
+#queue="default"
+queue="$use_queue"
 
 name=test_nh35_tri_jws
 
