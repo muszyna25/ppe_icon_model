@@ -101,6 +101,9 @@ ozon_file="ape_o3_${grid_name}.nc"
 # For a complete list see Namelist_overview and Namelist_overview.pdf
 #  
 cat > $atmo_namelist << EOF
+&coupling_mode_nml
+  debug_coupler_level = 1
+/
 &coupling_nml
   name                = 'TAUX'
   dt_model            =  ${dtime}
@@ -315,6 +318,9 @@ ocean_model_equations=-1 # equation system
 #
 cat > ${ocean_namelist} << EOF
 !
+&coupling_mode_nml
+  debug_coupler_level = 1
+/
 &coupling_nml
   name                = 'TAUX'
   dt_model            =  ${dtime}
