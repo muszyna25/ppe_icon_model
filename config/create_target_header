@@ -420,8 +420,9 @@ EOF
 set_run_target_squall()
 {
   set_default use_nproma 8
-  set_default use_nodes 1
+  use_nodes=1
   
+    
   if [[ $use_openmp == "yes" ]]; then
     echo "Error: Squall is not set-up for OPENMP"
     exit 1
@@ -465,7 +466,7 @@ EOF
 set_run_target_tornado()
 {  
   set_default use_nproma 8
-  set_default use_nodes 1
+  use_nodes=1
    
   if [[ $use_openmp == "yes" ]]; then
     use_mpi="no"

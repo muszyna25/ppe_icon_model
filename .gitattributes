@@ -600,6 +600,7 @@ lapack/ilazlc.f -text
 lapack/ilazlr.f -text
 lapack/iparmq.f -text
 lapack/izmax1.f -text
+/make_nat-ape-dec_runs -text
 /make_performance_runscripts -text
 /make_runscripts -text
 run/Namelist_overview.pdf -text

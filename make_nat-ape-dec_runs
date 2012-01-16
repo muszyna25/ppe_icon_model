@@ -1,0 +1,293 @@
+#!/bin/bash
+
+#==============================================================================
+# Creates the ICON run scripts
+# Leonidas Linardakis, MPI-M, 2011-25-1
+#==============================================================================
+#==============================================================================
+# The basic command for creating an ICON experiment run script is
+#   
+#  $make_runscript in_script=exp.<name> in_script=exec.iconrun EXPNAME=<name>
+#
+# By default the folder in use is ./run, and the run script is named exp.<name>.run.
+# 
+# Basic optional parameters for the $make_runscript command are:
+#
+#    out_script=<output run script name>. By default is <in_script>.run
+#
+#    in_folder=<input folder>. By default is run
+#
+#    out_folder=<output folder>. By default is =<in_folder>
+#
+#    mpi_procs=<number of mpi processes>. In the case of MPI configuration,
+#       defines how many processes per node will be used.
+# 
+#    no_of_nodes=<Number of nodes>. In the case of MPI configuration,
+#       defines how many nodes will be used.
+# 
+#    openmp_threads=<Number of openmp threads>. In the case of OPENMP
+#       configuration, defines how many OPENMP threads will be used.
+#
+#    cpu_time=<wall time>. Defines the expected run wall time.
+#  
+#    <free_variable>=<value> Free variables can be passed to the run script
+#       using this syntax. For example: EXPNAME=test, will result the
+#       definition of the variable EXPNAME=test in the run script. 
+   
+
+#
+# For more details see the parameters in the ./config/make_target_runscript
+#==============================================================================
+set -x
+echo "-----------------------------------------------------------"
+base_folder=$(pwd)
+input_folder=run
+#==============================================================================
+. $base_folder/config/set-up.info
+use_shell=${use_shell:="/bin/ksh"}
+# The $make_runscript command directs to the ./config/make_target_runscript
+make_runscript="$use_shell ./config/make_target_runscript"
+
+#==============================================================================
+create_dec()
+{
+#setup for blizzard
+mpi_procs=16
+mod=`expr ${dec_size} % ${mpi_procs}`
+if [ $mod -eq 0 ] ; then
+  nodes=`expr ${dec_size} / ${mpi_procs}`
+else
+  nodes=`expr ${dec_size} /${mpi_procs} + 1`
+fi
+
+#note that mpi_procs change on tornado
+if [ $use_target = "tornado" ] ; then
+  mod=`expr ${dec_size} % 8`
+  if [ $mod -eq 0 ] ; then
+    nodes=`expr ${dec_size} / 8`
+  else
+    nodes=`expr ${dec_size} / 8 + 1`
+  fi
+  mpi_procs=`expr ${nodes} \* 8`
+  nodes=1
+fi
+
+exp_name=${outname}.${dec_size}.${nodes}nodes
+runname=exp.${exp_name}.run
+nproma=12
+
+$make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME=${exp_name} out_script=${runname} \
+atmo_dyn_gridname="$atmo_dyn_gridname" atmo_rad_gridname="$atmo_rad_gridname" nproma=$nproma no_of_nodes=$nodes dec_size=$dec_size \
+mpi_procs=$mpi_procs openmp_threads=4 cpu_time="00:10:00" use_barrier=$use_barrier testbed_mode=$testbed_mode division_method=$division_method
+# queue="express"
+
+if [ $run = "true" ]; then
+  cd $input_folder
+  $use_submit ${runname}
+  cd $base_folder
+fi
+
+}
+#==============================================================================
+
+create_scaling_dec()
+{
+
+atmo_dyn_gridname='iconR2B04_dec-162'
+if [ x$rrad = "xtrue" ]; then
+  atmo_rad_gridname='iconR2B03_dec-162_rad_rrad'
+else
+  atmo_rad_gridname=""
+fi
+dec_size=162
+create_dec
+
+atmo_dyn_gridname='iconR2B05_dec-642'
+if [ x$rrad = "xtrue" ]; then
+  atmo_rad_gridname='iconR2B04_dec-642_rad_rrad'
+else
+  atmo_rad_gridname=""
+fi
+dec_size=642
+create_dec
+
+atmo_dyn_gridname='iconR2B06_dec-1082'
+if [ x$rrad = "xtrue" ]; then
+  atmo_rad_gridname='iconR2B05_dec-1082_rad_rrad'
+else
+  atmo_rad_gridname=""
+fi
+dec_size=1082
+create_dec
+
+
+}
+
+#==============================================================================
+
+name=nat_ape-dec
+#---------------------------------
+run="false"
+use_barrier=".false."
+testbed_mode=0
+#---------------------------------
+division_method=0
+rrad="true"
+outname=nat_ape-hexdec-rrad
+create_scaling_dec
+exit
+
+#==============================================================================
+
+name=nat_ape-dec
+run="false"
+#---------------------------------
+use_barrier=".false."
+atmo_dyn_gridname='iconR2B03_dec-12'
+dec_size=12
+division_method=0
+
+testbed_mode=1
+outname=testbed_timer
+create_dec
+
+testbed_mode=0
+outname=ori_timer
+create_dec
+
+exit
+
+#---------------------------------
+
+
+#==============================================================================
+
+name=nat_ape-dec
+run="true"
+#---------------------------------
+use_barrier=".true."
+use_barrier=".false."
+testbed_mode=1
+testbed_mode=0
+division_method=0
+division_method=1
+outname=nat_ape-dec.testbed.barrier
+outname=nat_ape-dec.1h_rad
+outname=nat_ape-dec.geomdec.1h_rad
+create_scaling_dec
+exit
+
+#---------------------------------
+use_barrier=".true."
+testbed_mode=0
+outname=nat_ape-dec.barrier
+create_scaling_dec
+exit
+#---------------------------------
+
+exit
+
+#==============================================================================
+
+
+name=icon-testbed_communication-dec
+run="true"
+#---------------------------------
+use_barrier=".false."
+testbed_mode=0
+
+division_method=0
+outname=icon-testbed_communication-hexdec
+create_scaling_dec
+
+division_method=1
+outname=icon-testbed_communication-geomdec
+create_scaling_dec
+
+exit
+
+
+#==============================================================================
+name=nat_ape-dec
+atmo_dyn_gridname='iconR2B04_dec-162'
+dec_size=162
+
+create_dec
+
+exit
+#==============================================================================
+
+name=nat_ape-dec_1082
+nodes=68
+nproma=12
+grid_name='iconR2B06_dec-1082'
+exp_name=${name}.R2B6
+runname=exp.${exp_name}.run
+
+$make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun-2 EXPNAME=${exp_name} out_script=${runname} \
+grid_name="$grid_name" nproma=$nproma no_of_nodes=$nodes mpi_procs=16 openmp_threads=4 cpu_time="00:10:00"
+
+#exit
+#==============================================================================
+
+name=nat_ape-dec_642
+nodes=41
+nproma=33
+nproma=12
+grid_name='iconR2B05_dec-hex-642'
+exp_name=${name}."R2B05"
+runname=exp.${exp_name}.run
+
+$make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun-2 EXPNAME=${exp_name} out_script=${runname} \
+grid_name="$grid_name" nproma=$nproma no_of_nodes=$nodes mpi_procs=16 openmp_threads=4 cpu_time="00:10:00"
+
+exit
+#==============================================================================
+
+name=icon-testbed_communication-dec
+nodes=41
+nproma=33
+exp_name=${name}.${nodes}nodes
+runname=exp.${exp_name}.run
+
+$make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun-2 EXPNAME=${exp_name} out_script=${runname} \
+nproma=$nproma no_of_nodes=$nodes mpi_procs=16 openmp_threads=4 cpu_time="00:10:00"
+
+exit
+
+
+#==============================================================================
+# special treatment for exp.icon-testbed_communication
+# this includes the restart in the test_hat_jww-moist_cld-cnv-vdf_restart
+#
+
+run_script="true"
+
+nodes_list=(  10 20 40 60 80 )
+nproma_list=( 37 37 33 29 33 )
+nodes_list_size=${#nodes_list[*]}
+
+name=icon-testbed_communication
+
+j=0
+while [ $j -lt ${nodes_list_size} ]
+do
+  nodes=${nodes_list[$j]}
+  nproma=${nproma_list[$j]}
+ 
+  exp_name=${name}.${nodes}nodes
+  runname=exp.${exp_name}.run
+  $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME=$exp_name out_script=$runname\
+  grid="iconR2B06-grid.nc"  nproma=$nproma no_of_nodes=$nodes mpi_procs=16 openmp_threads=4 cpu_time="00:10:00"
+
+  if [[ $run_script == "true" ]] ; then
+     cd $input_folder
+     $use_submit ./$runname
+     cd ..
+  fi
+
+  let j=j+1
+done
+#==============================================================================
+
+echo "-----------------------------------------------------------"

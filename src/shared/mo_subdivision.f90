@@ -828,6 +828,7 @@ CONTAINS
           use_division_file_name = division_file_name
         ENDIF
         
+        WRITE(0,*) "Read decomposition from file: ", TRIM(use_division_file_name)
         n = find_next_free_unit(10,99)
 
         OPEN(n,FILE=TRIM(use_division_file_name),STATUS='OLD',IOSTAT=i)
@@ -842,8 +843,11 @@ CONTAINS
 
         ! Quick check for correct values
 
-        IF(MINVAL(cell_owner(:)) < 0 .or. MAXVAL(cell_owner(:)) >= n_proc) &
-          & CALL finish('divide_patch','Illegal subdivision in input file')
+        IF(MINVAL(cell_owner(:)) < 0 .or. MAXVAL(cell_owner(:)) >= n_proc) THEN
+          WRITE(0,*) "n_porc=",n_proc, " MINAVAL=", MINVAL(cell_owner(:)), &
+            " MAXVAL=", MAXVAL(cell_owner(:))
+          CALL finish('divide_patch','Illegal subdivision in input file')
+        ENDIF
 
       ENDIF
 
