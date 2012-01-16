@@ -44,6 +44,7 @@
 MODULE mo_extpar_config
 
   USE mo_kind,               ONLY: wp
+  USE mo_impl_constants,     ONLY: max_dom
 
   IMPLICIT NONE
 
@@ -62,9 +63,9 @@ MODULE mo_extpar_config
                           ! 1: topography read from netcdf files
 
   REAL(wp) :: fac_smooth_topo
-  INTEGER  :: n_iter_smooth_topo
+  INTEGER  :: n_iter_smooth_topo(max_dom)
   LOGICAL  :: l_emiss     ! if true: read external emissivity map 
-  REAL(wp) :: heightdiff_threshold
+  REAL(wp) :: heightdiff_threshold(max_dom)
   
   !!----------------------------------------------------------------------------
 

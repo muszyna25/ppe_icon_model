@@ -323,8 +323,8 @@ CONTAINS
 
     IF(proc_split) THEN
 
-      IF(p_pe_work==0) PRINT *,'Splitting processor grid for first level patches'
-      IF(p_pe_work==0) PRINT '(a,10f12.3)','Weights for first level patches:',weight(:)
+      IF(p_pe_work==0) WRITE(0,*) 'Splitting processor grid for first level patches'
+      IF(p_pe_work==0) WRITE(0,'(a,10f12.3)') 'Weights for first level patches:',weight(:)
 
       ! In this case, the working processor set must be at least as big
       ! as the number of childs of the root patch
@@ -344,11 +344,13 @@ CONTAINS
       ENDDO
 
       IF(p_pe_work==0) THEN
-        PRINT *,'Processor splitting:'
+        WRITE(0,*) 'Processor splitting:'
         DO jc = 1, p_patch_global(1)%n_childdom
           jgc =  p_patch_global(1)%child_id(jc)
-          PRINT '(a,i0,a,f10.3,a,i0,a,i0)',                                             &
+          WRITE(0,'(a,i0,a,f10.3,a,i0,a,i0)')                                              &
             &   'Patch ',jgc,' weight ',weight(jc),' gets ',nprocs(jc),' of ',n_procs_decomp
+          IF (nprocs(jc) <= 1) &
+            CALL finish(routine,'Processor splitting requires at least 2 PEs per patch')
         ENDDO
       ENDIF
 

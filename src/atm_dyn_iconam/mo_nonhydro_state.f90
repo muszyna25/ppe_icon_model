@@ -378,7 +378,8 @@ MODULE mo_nonhydro_state
    ! Correction term needed to use perturbation density for lateral boundary nudging
    ! (note: this field is defined on the local parent grid in case of MPI parallelization)
    REAL(wp), POINTER :: rho_ref_corr(:,:,:)
-
+   ! Area of subdomain for which feedback is performed; dim: (nlev)
+   REAL(wp), POINTER :: fbk_dom_volume(:)
 
    ! c) Variables needed for the hexagonal grid only
    !

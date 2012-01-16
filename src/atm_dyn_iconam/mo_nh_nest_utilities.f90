@@ -115,6 +115,8 @@ ELSE
   l_parallel = .TRUE.
 ENDIF
 
+ALLOCATE(p_nh(1)%metrics%fbk_dom_volume(p_patch(1)%nlev))
+p_nh(1)%metrics%fbk_dom_volume(:) = 0._wp
 
 DO jg = 1, n_dom-1
 
@@ -130,6 +132,9 @@ DO jg = 1, n_dom-1
 
     jgc    =  p_pp%child_id(ji)
     p_pc   => p_patch(jgc)
+
+    ! Note: the number of levels of fbk_dom_volume is that of the parent grid
+    ALLOCATE(p_nh(jgc)%metrics%fbk_dom_volume(nlev))
 
     IF (l_parallel) THEN
 
@@ -177,7 +182,7 @@ DO jg = 1, n_dom-1
       ENDIF
     ENDDO
 
-    p_grf(jg)%fbk_dom_volume(:,ji) = global_sum_array3(1,.FALSE.,cell_volume)
+    p_nh(jgc)%metrics%fbk_dom_volume(:) = global_sum_array3(1,.FALSE.,cell_volume)
 
     DEALLOCATE(cell_volume)
 

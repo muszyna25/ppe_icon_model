@@ -4585,8 +4585,8 @@ I & 0& &
 
 \hline 
 n\_iter\_smooth\_topo &
-I &
-2&
+I(n\_dom) &
+0&
 &
 iterations of topography smoother
 &
@@ -4605,12 +4605,11 @@ n\_iter\_smooth\_topo > 0
 
 \hline 
 heightdiff\_threshold&
-R &
-2000.&
+R(n\_dom) &
+3000.&
 m &
 height difference between neighboring grid points above which additional local nabla2 diffusion is applied
 &
-n\_iter\_smooth\_topo > 0
 \tabularnewline
 
 \hline 

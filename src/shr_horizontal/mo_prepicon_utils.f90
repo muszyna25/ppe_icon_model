@@ -581,14 +581,15 @@ MODULE mo_prepicon_utils
       IF(p_pe == p_io .AND. i_oper_mode >= 2) CALL nf(nf_close(ncid))
 
 
-      IF (n_iter_smooth_topo > 0) THEN
+      IF (.NOT. PRESENT(extdata)) THEN
 
-        ! The topography smoothing is supposed to be moved into extpar later on
         CALL smooth_topography (p_patch(jg), p_int_state(jg), prepicon(jg)%topography_c, &
                                 prepicon(jg)%topography_v)
 
-        WRITE(message_text,'(a,i4)') 'number of topography smoothing steps: ',n_iter_smooth_topo
-        CALL message('', TRIM(message_text))
+      ELSE ! Copy the already smoothed extdata topography fields to prepicon
+
+        prepicon(jg)%topography_c(:,:) = extdata(jg)%atm%topography_c(:,:)
+        prepicon(jg)%topography_v(:,:) = extdata(jg)%atm%topography_v(:,:)
 
       ENDIF
 
@@ -598,7 +599,7 @@ MODULE mo_prepicon_utils
 
     IF (PRESENT(extdata)) THEN
 
-      ! Copy smoothed and blended external data to the topography fields in the external parameter state
+      ! Copy blended topography fields back to the external parameter state
       DO jg = 1, n_dom
 
         extdata(jg)%atm%topography_c(:,:) = prepicon(jg)%topography_c(:,:)

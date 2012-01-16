@@ -1218,9 +1218,10 @@ CALL message ('', TRIM(message_text))
 
 CALL nf(nf_open(TRIM(p_patch%grid_filename), NF_NOWRITE, ncid))
 
+uuid_string = ' ' ! To avoid null characters in the standard output
 CALL nf(nf_get_att_text(ncid, NF_GLOBAL, 'uuid', uuid_string),warnonly=.TRUE.)
 CALL uuid_parse(uuid_string, p_patch%grid_uuid)
-WRITE(message_text,'(a,a)') 'grid uuid: ', uuid_string
+WRITE(message_text,'(a,a)') 'grid uuid: ', TRIM(uuid_string)
 CALL message  ('mo_model_domain_import/read_patch', message_text)
 
 CALL nf(nf_get_att_int(ncid, NF_GLOBAL, 'grid_root', icheck))

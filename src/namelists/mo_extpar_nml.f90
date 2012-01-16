@@ -38,6 +38,7 @@ MODULE mo_extpar_nml
   USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_master_control,      ONLY: is_restart_run
+  USE mo_impl_constants,      ONLY: max_dom
 
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist         , &
                                   & open_and_restore_namelist, close_tmpfile
@@ -61,9 +62,9 @@ MODULE mo_extpar_nml
                       ! 1: topography read from netcdf files
 
   REAL(wp) :: fac_smooth_topo
-  INTEGER  :: n_iter_smooth_topo
+  INTEGER  :: n_iter_smooth_topo(max_dom)
   LOGICAL  :: l_emiss ! if true: read external emissivity map
-  REAL(wp) :: heightdiff_threshold
+  REAL(wp) :: heightdiff_threshold(max_dom)
 
   NAMELIST /extpar_nml/ itopo, fac_smooth_topo,n_iter_smooth_topo,l_emiss, &
                         heightdiff_threshold
@@ -80,11 +81,11 @@ CONTAINS
     !------------------------------------------------------------
     ! Default settings
     !------------------------------------------------------------
-    itopo              = 0
-    fac_smooth_topo    = 0.015625_wp
-    n_iter_smooth_topo = 2
-    l_emiss            = .TRUE.
-    heightdiff_threshold = 2000._wp
+    itopo                   = 0
+    fac_smooth_topo         = 0.015625_wp
+    n_iter_smooth_topo(:)   = 0
+    l_emiss                 = .TRUE.
+    heightdiff_threshold(:) = 3000._wp
 
     !------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above 

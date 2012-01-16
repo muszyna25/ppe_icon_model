@@ -94,9 +94,6 @@ TYPE t_gridref_state
   REAL(wp), ALLOCATABLE :: fbk_dom_area(:) ! Area of subdomain for which feedback is performed
                                            ! dimension: n_childdom
 
-  REAL(wp), ALLOCATABLE :: fbk_dom_volume(:,:)! Area of subdomain for which feedback is performed
-                                              ! dimensions: (nlev,n_childdom)
-
 END TYPE t_gridref_state
 
   !----------------------------------------------------------------------------

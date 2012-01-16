@@ -254,7 +254,6 @@ MODULE mo_dump_restore
   INTEGER :: dim_ncells, dim_nedges, dim_nverts
   INTEGER :: dim_nverts_per_cell, dim_nverts_per_cell_p1
   INTEGER :: dim_nedges_per_vert
-  INTEGER :: dim_nlev
 
   INTEGER :: dim_nrlcell, dim_nrledge, dim_nrlvert
 
@@ -2409,9 +2408,6 @@ CONTAINS
       &  p%parent_child_index))
     CALL nf(nf_put_att_int(ncid, nf_global, 'patch.n_childdom', nf_int, 1, p%n_childdom))
     CALL nf(nf_put_att_int(ncid, nf_global, 'patch.n_chd_total', nf_int, 1, p%n_chd_total))
-    CALL nf(nf_put_att_int(ncid, nf_global, 'patch.nlev', nf_int, 1, p%nlev))
-    CALL nf(nf_put_att_int(ncid, nf_global, 'patch.nlevp1', nf_int, 1, p%nlevp1))
-    CALL nf(nf_put_att_int(ncid, nf_global, 'patch.nshift', nf_int, 1, p%nshift))
     !
     DO i = 1, p%n_childdom
       WRITE(child_id_name,'(a,i0)') 'patch.child_id',i
@@ -2436,8 +2432,6 @@ CONTAINS
     CALL def_dim('n_dim_7', 7, dim_7)
     CALL def_dim('n_dim_8', 8, dim_8)
     CALL def_dim('n_dim_9', 9, dim_9)
-
-    CALL def_dim('n_levels', p%nlev, dim_nlev)
 
     CALL def_dim('n_rlcell', max_rlcell-min_rlcell+1, dim_nrlcell)
     CALL def_dim('n_rledge', max_rledge-min_rledge+1, dim_nrledge)
@@ -3116,8 +3110,6 @@ CONTAINS
 
       ! nverts_per_cell must conform to p%cell_type
       CALL restore_dim('nverts_per_cell', p_patch(jg)%cell_type)
-
-      CALL check_dim('n_levels', p_patch(jg)%nlev)
 
       ! Just for safety
       CALL check_dim('n_rlcell', max_rlcell-min_rlcell+1)

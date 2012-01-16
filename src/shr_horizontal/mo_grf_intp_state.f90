@@ -315,17 +315,11 @@ INTEGER :: grf_vec_dim_1, grf_vec_dim_2
     CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
       &             'allocation for fbk_dom_area failed')
   ENDIF
-  ALLOCATE (ptr_grf%fbk_dom_volume(nlev,i_nchdom), STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
-      &             'allocation for fbk_dom_volume failed')
-  ENDIF
 
   ptr_grf%fbk_wgt_c     = 0._wp
   ptr_grf%fbk_wgt_ct    = 0._wp
   ptr_grf%fbk_wgt_e     = 0._wp
   ptr_grf%fbk_dom_area  = 0._wp
-  ptr_grf%fbk_dom_volume = 0._wp
 
 END SUBROUTINE allocate_grf_state
 
@@ -902,11 +896,6 @@ INTEGER :: ist
   IF (ist /= SUCCESS) THEN
     CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
       &             'deallocation for fbk_dom_area failed')
-  ENDIF
-  DEALLOCATE (ptr_grf%fbk_dom_volume, STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
-      &             'deallocation for fbk_dom_volume failed')
   ENDIF
 
   DEALLOCATE (ptr_grf%p_dom, STAT=ist )

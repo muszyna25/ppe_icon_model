@@ -1156,7 +1156,7 @@ CONTAINS
                                (z3d_in(jc,jk1,jb)-z3d_in(jc,jk1+1,jb))
               bot_idx(jc,jb) = jk
               l_found(jc) = .TRUE.
-            ELSE IF (z3d_out(jc,jk,jb) < z3d_in(jc,nlevs_in,jb)) THEN
+            ELSE IF (z3d_out(jc,jk,jb) <= z3d_in(jc,nlevs_in,jb)) THEN
               l_found(jc) = .TRUE.
               idx0(jc,jk,jb) = nlevs_in
             ELSE IF (z3d_out(jc,jk,jb) > z3d_in(jc,1,jb)) THEN ! linear extrapolation
@@ -1176,6 +1176,14 @@ CONTAINS
           jk_start = MIN(MINVAL(idx0(1:nlen,jk,jb)),nlevs_in-1)
         ELSE
           ierror(jb) = ierror(jb) + 1
+          ! Write extra debug output before finishing
+          WRITE(0,*) 'prepare_lin_intp',jb,jk,nlevs_out,jk_start,jk1,nlevs_in
+          DO jc = 1, nlen
+            IF(.NOT.l_found(jc)) THEN
+              WRITE(0,*)'prepare_lin_intp',z3d_in(jc,jk_start,jb),z3d_in(jc,jk1,jb),&
+                z3d_in(jc,nlevs_in,jb),z3d_out(jc,jk,jb)
+            ENDIF
+          ENDDO
         ENDIF
       ENDDO
 
@@ -1198,7 +1206,7 @@ CONTAINS
     nerror = SUM(ierror)
 
     IF (nerror > 0) CALL finish("prepare_lin_intp:",&
-      "Top of input data lower than top of output data")
+      "Error in computing linear interpolation coefficients")
 
   END SUBROUTINE prepare_lin_intp
 
@@ -1369,7 +1377,7 @@ CONTAINS
                                 (z3d_out(jc,jk,jb)-z3d_in(jc,jk1+1,jb))
               bot_idx(jc,jb) = jk
               l_found(jc) = .TRUE.
-            ELSE IF (z3d_out(jc,jk,jb) < z3d_in(jc,nlevs_in-1,jb)) THEN
+            ELSE IF (z3d_out(jc,jk,jb) <= z3d_in(jc,nlevs_in-1,jb)) THEN
               l_found(jc) = .TRUE.
               idx0(jc,jk,jb) = nlevs_in-1
             ELSE IF (z3d_out(jc,jk,jb) >  z3d_in(jc,2,jb)) THEN 
@@ -1412,7 +1420,7 @@ CONTAINS
     nerror = SUM(ierror)
 
     IF (nerror > 0) CALL finish("prepare_cubic_intp:",&
-      "Not enough input levels for cubic interpolation available")
+      "Error in computing cubic interpolation coefficients")
 
   END SUBROUTINE prepare_cubic_intp
 
