@@ -100,7 +100,14 @@ for gridfile in ${all_grids}; do
   ls -l ${HGRIDDIR}/$gridfile
   check_error $? "${HGRIDDIR}/$gridfile does not exist."
   rm ${EXPDIR}/$gridfile
-  ln -s ${HGRIDDIR}/${gridfile} ${EXPDIR}/${gridfile}  
+  ln -s ${HGRIDDIR}/${gridfile} ${EXPDIR}/${gridfile}
+  echo $division_method
+  if [ x$division_method = x0 ] ; then
+     name="`echo $gridfile | cut -d '.' -f1`".cell_domain_ids
+     if [ -r ${HGRIDDIR}/$name ] ; then
+       ln -s ${HGRIDDIR}/$name ${EXPDIR}/$name
+     fi
+  fi 
 done
 #-----------------------------------------------------------------------------
 

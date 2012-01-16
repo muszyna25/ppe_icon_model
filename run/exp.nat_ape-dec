@@ -8,6 +8,9 @@
 #
 # EXPNAME = experiment name
 # NPROMA  = array blocking length / inner loop length
+#
+# atmo_dyn_gridname
+#
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 # the namelist filename
@@ -23,16 +26,26 @@ dt_checkpoint=`expr ${ndays_checkpoint} \* 86400 `
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=${dtime:=120}
-ndays=${ndays:=2}
+dtime=${dtime:=60}
+ndays=${ndays:=16}
 nsteps=${nsteps:=`expr ${ndays} \* 86400 / ${dtime}`}
-dt_rad=${dt_rad:=3600}             # compute radiative transfer every other hour
+dt_rad=${dt_rad:=1800}             # compute radiative transfer every half hour
+dt_rad=3600             # compute radiative transfer every half hour
 dt_conv=${dt_conv:=$dtime}
 dt_sso=${dt_sso:=$dt_conv}
 #
 #-----------------------------------------------------------------------------
 # the grid files if not defined
-atmo_dyn_grids=${atmo_dyn_grids:='iconR2B04-grid.nc'}
+atmo_dyn_grids=${atmo_dyn_gridname}.nc
+if [ x$atmo_rad_gridname = x ] ; then
+  lredgrid_phys=".false."
+else
+  atmo_rad_grids=${atmo_rad_gridname}.nc
+  lredgrid_phys=".true."
+fi  
+
+# division_file_name="../../grids/${atmo_grid_filename}.cell_domain_ids"
+division_method=${division_method:=0}
 cell_type=${cell_type:=3}
 nlevels=${nlevels:=78}              # number of full levels
 #-----------------------------------------------------------------------------
@@ -43,11 +56,11 @@ dt_diag=`expr ${out_diag_hours} \* 3600  `
 dt_data=`expr ${out_data_hours} \* 3600  `
 out_newfile_days=${out_newfile_days:=1}     # 1 day per file
 dt_file=`expr ${out_newfile_days} \* 86400 `
-msg_level=${msg_level:=1}
+msg_level=${msg_level:=0}
 
 iorder_sendrecv=${iorder_sendrecv:=3}
 test_gw_hines_opt=${test_gw_hines_opt:=0}
-ltimer=${ltimer:=".false."}
+ltimer=${ltimer:=".true."}
 timers_level=${timers_level:=100}
 activate_sync_timers=${activate_sync_timers:=".true."}
 
@@ -86,17 +99,10 @@ itime_scheme=3
 #-----------------------------------------------------------------------------
 ldump_states=".false."
 lrestore_states=".false."
-if [[ x$dump_mode == "xdump" ]] ; then
-  ldump_states=".true."
-  lrestore_states=".false."
-fi
-if [[ x$dump_mode == "xrestore" ]] ; then
-  ldump_states=".false."
-  lrestore_states=".true."
-fi
 
 #-----------------------------------------------------------------------------
-
+use_barrier=${use_barrier:=".false."}
+testbed_mode=${testbed_mode:=0}
 #-----------------------------------------------------------------------------
 
 
@@ -104,11 +110,14 @@ fi
 # write ICON namelist parameters
 # ------------------------
 # For a complete list see Namelist_overview and Namelist_overview.pdf
-if [ x$atmo_rad_grids = x ]; then
+if [ x$lredgrid_phys = "x.true." ]; then
 cat > ${atmo_namelist} << EOF
 &grid_nml
  cell_type = ${cell_type}        ! triangular cells
  dynamics_grid_filename = "${atmo_dyn_grids}",
+ radiation_grid_filename = "${atmo_rad_grids}",
+ dynamics_radiation_grid_link = 1,
+ lredgrid_phys   = ${lredgrid_phys},
 /
 EOF
 else
@@ -116,8 +125,6 @@ cat > ${atmo_namelist} << EOF
 &grid_nml
  cell_type = ${cell_type}        ! triangular cells
  dynamics_grid_filename = "${atmo_dyn_grids}",
- radiation_grid_filename = "${atmo_rad_grids}",
- dynamics_radiation_grid_link = 1,
 /
 EOF
 fi
@@ -130,6 +137,9 @@ cat >> ${atmo_namelist} << EOF
  l_test_openmp  = ${l_test_openmp}
  l_log_checks   = ${l_log_checks}
  l_fast_sum     = .true.
+ division_method=${division_method}
+ division_file_name="$division_file_name"
+ use_dycore_barrier = ${use_barrier}
 /
 &run_nml
  num_lev     = ${nlevels},  ! number of full levels of vertical grid
@@ -145,7 +155,8 @@ cat >> ${atmo_namelist} << EOF
  msg_level   =  $msg_level           ! detailed report during integration
  ltimer = ${ltimer}
  timers_level = ${timers_level}
-! activate_sync_timers = ${activate_sync_timers}
+ activate_sync_timers = ${activate_sync_timers}
+ testbed_mode = ${testbed_mode}
 /
 &dynamics_nml
  iequations  = ${atmo_model_equations}  
@@ -254,5 +265,23 @@ EOF
 #
 #-----------------------------------------------------------------------------
 
+run_atmo="true"
+#-----------------------------------------------------------------------------
+null_namelist="NAMELIST_null$_{EXPNAME}"
+cat > ${null_namelist} << EOF
+&testbed_nml
+  testbed_mode = 0
+/
+EOF
+#-----------------------------------------------------------------------------
+end_atmo_proc=`expr $dec_size - 1`
+end_null_proc=`expr $mpi_total_procs - 1`
+namelist_list=( "$atmo_namelist"  "$null_namelist" )
+modelname_list=(   "atmo"          "null"          )
+modeltype_list=(      1               99           )
+minrank_list=(        0            $dec_size       )
+maxrank_list=(  $end_atmo_proc    $end_null_proc   )
+incrank_list=(        1                1           )
+#-----------------------------------------------------------------------------
 
 
