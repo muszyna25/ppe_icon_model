@@ -517,7 +517,7 @@ MODULE mo_nh_mrw_exp
 
                 ptr_nh_diag%temp(jc,jk,jb) = temp_i_mwbr_const    
                 ptr_nh_diag%pres(jc,jk,jb) = z_pres
-               ELSEIF (z_klev > z_int_c(jc,jb) ) THEN
+               ELSEIF (z_klev >= z_int_c(jc,jb) ) THEN
                 zhelp4 = z_klev - z_int_c(jc,jb)
                 z_pres = p_int_mwbr_const * ( 1.0_wp +       &
                               (EXP(-bruntvaissq_u*zhelp4/grav) - 1.0_wp) *   &
