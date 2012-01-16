@@ -223,6 +223,7 @@ CONTAINS
     IF (nsteps < 0) CALL finish(TRIM(routine),'"nsteps" must not be negative')
     IF (dtime <= 0._wp) CALL finish(TRIM(routine),'"dtime" must be positive')
 
+    IF (.NOT. ltimer) timers_level = 0
 
     !----------------------------------------------------
     ! Fill part of the configuration state
