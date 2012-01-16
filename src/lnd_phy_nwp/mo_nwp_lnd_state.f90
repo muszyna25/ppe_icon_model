@@ -68,8 +68,8 @@ MODULE mo_nwp_lnd_state
   USE mo_model_domain_import,  ONLY: n_dom !!$, l_limited_area
 !!$  USE mo_nonhydrostatic_config,ONLY: l_nest_rcf
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
-  USE mo_lnd_nwp_config,       ONLY: nlev_soil,nlev_snow, &
-                                     nsfc_subs
+  USE mo_lnd_nwp_config,       ONLY: nlev_soil,nlev_snow, nsfc_subs, &
+    &                                lmulti_snow
   USE mo_linked_list,          ONLY: t_var_list
   USE mo_var_list,             ONLY: default_var_list_settings, &
     &                               add_var, add_ref,           &
@@ -492,24 +492,26 @@ MODULE mo_nwp_lnd_state
     cf_desc    = t_cf_var('t_snow_mult', 'K', 'temperature of the snow-surface')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'t_snow_mult'//suffix, p_prog_lnd%t_snow_mult, &
-     & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,                 &
+     & GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC_SNOW, cf_desc, grib2_desc,           &
      & ldims=(/nproma,nlev_snow+1,kblks,nsfc_subs/),                              &
      & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. ) 
 
-    ! fill the seperate variables belonging to the container t_snow_mult
-    ALLOCATE(p_prog_lnd%t_snow_mult_ptr(nsfc_subs))
+    IF (lmulti_snow) THEN
+      ! fill the seperate variables belonging to the container t_snow_mult
+      !
+      ALLOCATE(p_prog_lnd%t_snow_mult_ptr(nsfc_subs))
       DO jsfc = 1,nsfc_subs
         WRITE(csfc,'(i2)') jsfc  
-        CALL add_ref( prog_list, vname_prefix//'t_snow_mult'//suffix,          &
-               & vname_prefix//'t_snow_mult_'//TRIM(ADJUSTL(csfc))//suffix,    &
-               & p_prog_lnd%t_snow_mult_ptr(jsfc)%p_3d,                        &
-               & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                         &
-               & t_cf_var('t_snow_mult_'//csfc, '', ''),                       &
-               & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
-               & ldims=(/nproma,nlev_snow+1,kblks/), lrestart=.FALSE. )
-!DR needs to be saved for restart as soon as we make use of the multi layer snow model
-!DR for snow no proper vertical axis available so far
+        CALL add_ref( prog_list, vname_prefix//'t_snow_mult'//suffix,        &
+             & vname_prefix//'t_snow_mult_'//TRIM(ADJUSTL(csfc))//suffix,    &
+             & p_prog_lnd%t_snow_mult_ptr(jsfc)%p_3d,                        &
+             & GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC_SNOW,                   &
+             & t_cf_var('t_snow_mult_'//csfc, '', ''),                       &
+             & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
+             & ldims=(/nproma,nlev_snow+1,kblks/), lrestart=.TRUE.,          &
+             & tlev_source=1 ) ! for output take field from nnow_rcf slice 
       ENDDO
+    ENDIF 
 
 
 
@@ -522,17 +524,17 @@ MODULE mo_nwp_lnd_state
 
     ! fill the seperate variables belonging to the container t_s
     ALLOCATE(p_prog_lnd%t_s_ptr(nsfc_subs))
-      DO jsfc = 1,nsfc_subs
-        WRITE(csfc,'(i2)') jsfc  
-        CALL add_ref( prog_list, vname_prefix//'t_s'//suffix,                  &
-               & vname_prefix//'t_s_'//TRIM(ADJUSTL(csfc))//suffix,            &
-               & p_prog_lnd%t_s_ptr(jsfc)%p_2d,                                &
-               & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                        &
-               & t_cf_var('t_s_'//csfc, '', ''),                               &
-               & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
-               & ldims=shape2d,                                                &
-               & tlev_source=1 ) ! for output take field from nnow_rcf slice
-      ENDDO
+    DO jsfc = 1,nsfc_subs
+      WRITE(csfc,'(i2)') jsfc  
+      CALL add_ref( prog_list, vname_prefix//'t_s'//suffix,                &
+           & vname_prefix//'t_s_'//TRIM(ADJUSTL(csfc))//suffix,            &
+           & p_prog_lnd%t_s_ptr(jsfc)%p_2d,                                &
+           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                        &
+           & t_cf_var('t_s_'//csfc, '', ''),                               &
+           & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
+           & ldims=shape2d,                                                &
+           & tlev_source=1 ) ! for output take field from nnow_rcf slice
+    ENDDO
 
 
 
@@ -545,17 +547,17 @@ MODULE mo_nwp_lnd_state
 
     ! fill the seperate variables belonging to the container w_snow
     ALLOCATE(p_prog_lnd%w_snow_ptr(nsfc_subs))
-      DO jsfc = 1,nsfc_subs
-        WRITE(csfc,'(i2)') jsfc  
-        CALL add_ref( prog_list, vname_prefix//'w_snow'//suffix,               &
-               & vname_prefix//'w_snow_'//TRIM(ADJUSTL(csfc))//suffix,         &
-               & p_prog_lnd%w_snow_ptr(jsfc)%p_2d,                             &
-               & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                        &
-               & t_cf_var('w_snow_'//csfc, '', ''),                            &
-               & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
-               & ldims=shape2d,                                                &
-               & tlev_source=1 ) ! for output take field from nnow_rcf slice
-      ENDDO
+    DO jsfc = 1,nsfc_subs
+      WRITE(csfc,'(i2)') jsfc  
+      CALL add_ref( prog_list, vname_prefix//'w_snow'//suffix,             &
+           & vname_prefix//'w_snow_'//TRIM(ADJUSTL(csfc))//suffix,         &
+           & p_prog_lnd%w_snow_ptr(jsfc)%p_2d,                             &
+           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                        &
+           & t_cf_var('w_snow_'//csfc, '', ''),                            &
+           & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
+           & ldims=shape2d,                                                &
+           & tlev_source=1 ) ! for output take field from nnow_rcf slice
+    ENDDO
 
 
 
@@ -569,17 +571,17 @@ MODULE mo_nwp_lnd_state
 
     ! fill the seperate variables belonging to the container rho_snow
     ALLOCATE(p_prog_lnd%rho_snow_ptr(nsfc_subs))
-      DO jsfc = 1,nsfc_subs
-        WRITE(csfc,'(i2)') jsfc 
-        CALL add_ref( prog_list, vname_prefix//'rho_snow'//suffix,               &
-               & vname_prefix//'rho_snow_'//TRIM(ADJUSTL(csfc))//suffix,         &
-               & p_prog_lnd%rho_snow_ptr(jsfc)%p_2d,                             &
-               & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                          &
-               & t_cf_var('rho_snow_'//csfc, '', ''),                            &
-               & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
-               & ldims=shape2d,                                                  &
-               & tlev_source=1 ) ! for output take field from nnow_rcf slice
-      END DO
+    DO jsfc = 1,nsfc_subs
+      WRITE(csfc,'(i2)') jsfc 
+      CALL add_ref( prog_list, vname_prefix//'rho_snow'//suffix,             &
+           & vname_prefix//'rho_snow_'//TRIM(ADJUSTL(csfc))//suffix,         &
+           & p_prog_lnd%rho_snow_ptr(jsfc)%p_2d,                             &
+           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                          &
+           & t_cf_var('rho_snow_'//csfc, '', ''),                            &
+           & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
+           & ldims=shape2d,                                                  &
+           & tlev_source=1 ) ! for output take field from nnow_rcf slice
+    END DO
 
 
 
@@ -587,26 +589,28 @@ MODULE mo_nwp_lnd_state
     ! & p_prog_lnd%rho_snow_mult(nproma,nlev_snow,nblks_c,nsfc_subs)
     cf_desc    = t_cf_var('rho_snow_mult', 'kg/m**3', 'snow density')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( prog_list, vname_prefix//'rho_snow_mult'//suffix,        &
-         & p_prog_lnd%rho_snow_mult, GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, &
-         & cf_desc, grib2_desc, ldims=shape4d_snow_subs,                   &
+    CALL add_var( prog_list, vname_prefix//'rho_snow_mult'//suffix,              &
+         & p_prog_lnd%rho_snow_mult, GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC_SNOW, &
+         & cf_desc, grib2_desc, ldims=shape4d_snow_subs,                         &
          & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
 
-    ! fill the seperate variables belonging to the container rho_snow_mult
-    ALLOCATE(p_prog_lnd%rho_snow_mult_ptr(nsfc_subs))
+    IF (lmulti_snow) THEN
+      ! fill the seperate variables belonging to the container rho_snow_mult
+      !
+      ALLOCATE(p_prog_lnd%rho_snow_mult_ptr(nsfc_subs))
       DO jsfc = 1,nsfc_subs
         WRITE(csfc,'(i2)') jsfc 
-        CALL add_ref( prog_list, vname_prefix//'rho_snow_mult'//suffix,           &
-               & vname_prefix//'rho_snow_mult_'//TRIM(ADJUSTL(csfc))//suffix,     &
-               & p_prog_lnd%rho_snow_mult_ptr(jsfc)%p_3d,                         &
-               & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                            &
-               & t_cf_var('rho_snow_mult_'//csfc, '', ''),                        &
-               & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),    &
-               & ldims=(/nproma,nlev_snow,kblks/), lrestart=.FALSE. )
-!DR needs to be saved for restart as soon as we make use of the multi layer snow model
-!DR for snow no proper vertical axis available so far
+        CALL add_ref( prog_list, vname_prefix//'rho_snow_mult'//suffix,         &
+             & vname_prefix//'rho_snow_mult_'//TRIM(ADJUSTL(csfc))//suffix,     &
+             & p_prog_lnd%rho_snow_mult_ptr(jsfc)%p_3d,                         &
+             & GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC_SNOW,                      &
+             & t_cf_var('rho_snow_mult_'//csfc, '', ''),                        &
+             & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),    &
+             & ldims=(/nproma,nlev_snow,kblks/), lrestart=.TRUE.,               &
+             & tlev_source=1 ) ! for output take field from nnow_rcf slice 
       ENDDO
+    ENDIF
 
 
 
@@ -619,17 +623,17 @@ MODULE mo_nwp_lnd_state
 
     ! fill the seperate variables belonging to the container w_i
     ALLOCATE(p_prog_lnd%w_i_ptr(nsfc_subs))
-      DO jsfc = 1,nsfc_subs
-        WRITE(csfc,'(i2)') jsfc  
-        CALL add_ref( prog_list, vname_prefix//'w_i'//suffix,                    &
-               & vname_prefix//'w_i_'//TRIM(ADJUSTL(csfc))//suffix,              &
-               & p_prog_lnd%w_i_ptr(jsfc)%p_2d,                                  &
-               & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                          &
-               & t_cf_var('w_i_'//csfc, '', ''),                                 &
-               & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
-               & ldims=shape2d,                                                  &
-               & tlev_source=1 ) ! for output take field from nnow_rcf slice
-      ENDDO
+    DO jsfc = 1,nsfc_subs
+      WRITE(csfc,'(i2)') jsfc  
+      CALL add_ref( prog_list, vname_prefix//'w_i'//suffix,                  &
+           & vname_prefix//'w_i_'//TRIM(ADJUSTL(csfc))//suffix,              &
+           & p_prog_lnd%w_i_ptr(jsfc)%p_2d,                                  &
+           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                          &
+           & t_cf_var('w_i_'//csfc, '', ''),                                 &
+           & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
+           & ldims=shape2d,                                                  &
+           & tlev_source=1 ) ! for output take field from nnow_rcf slice
+    ENDDO
 
 
 
@@ -643,18 +647,19 @@ MODULE mo_nwp_lnd_state
          & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )  
 
     ! fill the seperate variables belonging to the container t_so
+    !
     ALLOCATE(p_prog_lnd%t_so_ptr(nsfc_subs))
-      DO jsfc = 1,nsfc_subs
-        WRITE(csfc,'(i2)') jsfc  
-        CALL add_ref( prog_list, vname_prefix//'t_so'//suffix,                   &
-               & vname_prefix//'t_so_'//TRIM(ADJUSTL(csfc))//suffix,             &
-               & p_prog_lnd%t_so_ptr(jsfc)%p_3d,                                 &
-               & GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_LAND,                 &
-               & t_cf_var('t_so_'//csfc, '', ''),                                &
-               & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
-               & ldims=(/nproma,nlev_soil+2,kblks/),                             &
-               & tlev_source=1 ) ! for output take field from nnow_rcf slice
-      ENDDO
+    DO jsfc = 1,nsfc_subs
+      WRITE(csfc,'(i2)') jsfc  
+      CALL add_ref( prog_list, vname_prefix//'t_so'//suffix,                   &
+           & vname_prefix//'t_so_'//TRIM(ADJUSTL(csfc))//suffix,             &
+           & p_prog_lnd%t_so_ptr(jsfc)%p_3d,                                 &
+           & GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_LAND,                 &
+           & t_cf_var('t_so_'//csfc, '', ''),                                &
+           & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
+           & ldims=(/nproma,nlev_soil+2,kblks/),                             &
+           & tlev_source=1 ) ! for output take field from nnow_rcf slice
+    ENDDO
 
 
 
@@ -668,17 +673,17 @@ MODULE mo_nwp_lnd_state
 
     ! fill the seperate variables belonging to the container w_so
     ALLOCATE(p_prog_lnd%w_so_ptr(nsfc_subs))
-      DO jsfc = 1,nsfc_subs
-        WRITE(csfc,'(i2)') jsfc  
-        CALL add_ref( prog_list, vname_prefix//'w_so'//suffix,                   &
-               & vname_prefix//'w_so_'//TRIM(ADJUSTL(csfc))//suffix,             &
-               & p_prog_lnd%w_so_ptr(jsfc)%p_3d,                                 &
-               & GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_LAND,                 &
-               & t_cf_var('w_so_'//csfc, '', ''),                                &
-               & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
-               & ldims=(/nproma,nlev_soil+1,kblks/),                             &
-               & tlev_source=1 ) ! for output take field from nnow_rcf slice
-      ENDDO
+    DO jsfc = 1,nsfc_subs
+      WRITE(csfc,'(i2)') jsfc  
+      CALL add_ref( prog_list, vname_prefix//'w_so'//suffix,                 &
+           & vname_prefix//'w_so_'//TRIM(ADJUSTL(csfc))//suffix,             &
+           & p_prog_lnd%w_so_ptr(jsfc)%p_3d,                                 &
+           & GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_LAND,                 &
+           & t_cf_var('w_so_'//csfc, '', ''),                                &
+           & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
+           & ldims=(/nproma,nlev_soil+1,kblks/),                             &
+           & tlev_source=1 ) ! for output take field from nnow_rcf slice
+    ENDDO
 
 
 
@@ -692,41 +697,43 @@ MODULE mo_nwp_lnd_state
 
     ! fill the seperate variables belonging to the container w_so_ice
     ALLOCATE(p_prog_lnd%w_so_ice_ptr(nsfc_subs))
-      DO jsfc = 1,nsfc_subs
-        WRITE(csfc,'(i2)') jsfc  
-        CALL add_ref( prog_list, vname_prefix//'w_so_ice'//suffix,               &
-               & vname_prefix//'w_so_ice_'//TRIM(ADJUSTL(csfc))//suffix,         &
-               & p_prog_lnd%w_so_ice_ptr(jsfc)%p_3d,                             &
-               & GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_LAND,                 &
-               & t_cf_var('w_so_ice_'//csfc, '', ''),                            &
-               & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
-               & ldims=(/nproma,nlev_soil+1,kblks/),                             &
-               & tlev_source=1 ) ! for output take field from nnow_rcf slice
-      ENDDO
+    DO jsfc = 1,nsfc_subs
+      WRITE(csfc,'(i2)') jsfc  
+      CALL add_ref( prog_list, vname_prefix//'w_so_ice'//suffix,             &
+           & vname_prefix//'w_so_ice_'//TRIM(ADJUSTL(csfc))//suffix,         &
+           & p_prog_lnd%w_so_ice_ptr(jsfc)%p_3d,                             &
+           & GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_LAND,                 &
+           & t_cf_var('w_so_ice_'//csfc, '', ''),                            &
+           & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
+           & ldims=(/nproma,nlev_soil+1,kblks/),                             &
+           & tlev_source=1 ) ! for output take field from nnow_rcf slice
+    ENDDO
 
 
     ! & p_prog_lnd%wliq_snow(nproma,nlev_snow,nblks_c,nsfc_subs)
     cf_desc    = t_cf_var('wliq_snow', 'm H2O', 'liquid water content in snow')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'wliq_snow'//suffix,                  &
-         & p_prog_lnd%wliq_snow, GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,           & 
+         & p_prog_lnd%wliq_snow, GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC_SNOW,     & 
          & cf_desc, grib2_desc, ldims=shape4d_snow_subs,                         &
          & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
-    ! fill the seperate variables belonging to the container wliq_snow
-    ALLOCATE(p_prog_lnd%wliq_snow_ptr(nsfc_subs))
+    IF (lmulti_snow) THEN
+      ! fill the seperate variables belonging to the container wliq_snow
+      !
+      ALLOCATE(p_prog_lnd%wliq_snow_ptr(nsfc_subs))
       DO jsfc = 1,nsfc_subs
         WRITE(csfc,'(i2)') jsfc 
-        CALL add_ref( prog_list, vname_prefix//'wliq_snow'//suffix,              &
-               & vname_prefix//'wliq_snow_'//TRIM(ADJUSTL(csfc))//suffix,        &
-               & p_prog_lnd%wliq_snow_ptr(jsfc)%p_3d,                            &
-               & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                           &
-               & t_cf_var('wliq_snow_'//csfc, '', ''),                           &
-               & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
-               & ldims=(/nproma,nlev_snow,kblks/), lrestart=.FALSE. )
-!DR needs to be saved for restart as soon as we make use of the multi layer snow model
-!DR for snow no proper vertical axis available so far
+        CALL add_ref( prog_list, vname_prefix//'wliq_snow'//suffix,            &
+             & vname_prefix//'wliq_snow_'//TRIM(ADJUSTL(csfc))//suffix,        &
+             & p_prog_lnd%wliq_snow_ptr(jsfc)%p_3d,                            &
+             & GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC_SNOW,                     &
+             & t_cf_var('wliq_snow_'//csfc, '', ''),                           &
+             & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
+             & ldims=(/nproma,nlev_snow,kblks/), lrestart=.TRUE.,              &
+             & tlev_source=1 ) ! for output take field from nnow_rcf slice
       ENDDO
+    ENDIF
 
 
 
@@ -735,24 +742,26 @@ MODULE mo_nwp_lnd_state
     cf_desc    = t_cf_var('wtot_snow', 'm H2O', 'total water content in snow')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'wtot_snow'//suffix,                  &
-         & p_prog_lnd%wtot_snow, GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,           &
+         & p_prog_lnd%wtot_snow, GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC_SNOW,     &
          & cf_desc, grib2_desc, ldims=shape4d_snow_subs,                         &
          & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
-    ! fill the seperate variables belonging to the container wtot_snow
-    ALLOCATE(p_prog_lnd%wtot_snow_ptr(nsfc_subs))
+    IF (lmulti_snow) THEN
+      ! fill the seperate variables belonging to the container wtot_snow
+      !
+      ALLOCATE(p_prog_lnd%wtot_snow_ptr(nsfc_subs))
       DO jsfc = 1,nsfc_subs
         WRITE(csfc,'(i2)') jsfc 
-        CALL add_ref( prog_list, vname_prefix//'wtot_snow'//suffix,              &
-               & vname_prefix//'wtot_snow_'//TRIM(ADJUSTL(csfc))//suffix,        &
-               & p_prog_lnd%wtot_snow_ptr(jsfc)%p_3d,                            &
-               & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                           &
-               & t_cf_var('wtot_snow_'//csfc, '', ''),                           &
-               & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
-               & ldims=(/nproma,nlev_snow,kblks/), lrestart=.FALSE. )
-!DR needs to be saved for restart as soon as we make use of the multi layer snow model
-!DR for snow no proper vertical axis available so far
+        CALL add_ref( prog_list, vname_prefix//'wtot_snow'//suffix,            &
+             & vname_prefix//'wtot_snow_'//TRIM(ADJUSTL(csfc))//suffix,        &
+             & p_prog_lnd%wtot_snow_ptr(jsfc)%p_3d,                            &
+             & GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC_SNOW,                     &
+             & t_cf_var('wtot_snow_'//csfc, '', ''),                           &
+             & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
+             & ldims=(/nproma,nlev_snow,kblks/), lrestart=.TRUE.,              &
+             & tlev_source=1 ) ! for output take field from nnow_rcf slice
       ENDDO
+    ENDIF
 
 
 
@@ -760,24 +769,26 @@ MODULE mo_nwp_lnd_state
     cf_desc    = t_cf_var('dzh_snow', 'm', 'layer thickness between half levels in snow')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'dzh_snow'//suffix,                   &
-         & p_prog_lnd%dzh_snow, GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,            &
+         & p_prog_lnd%dzh_snow, GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC_SNOW,      &
          & cf_desc, grib2_desc, ldims=shape4d_snow_subs,                         &
          & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
-    ! fill the seperate variables belonging to the container dzh_snow
-    ALLOCATE(p_prog_lnd%dzh_snow_ptr(nsfc_subs))
+    IF (lmulti_snow) THEN
+      ! fill the seperate variables belonging to the container dzh_snow
+      !
+      ALLOCATE(p_prog_lnd%dzh_snow_ptr(nsfc_subs))
       DO jsfc = 1,nsfc_subs
         WRITE(csfc,'(i2)') jsfc  
         CALL add_ref( prog_list, vname_prefix//'dzh_snow'//suffix,               &
                & vname_prefix//'dzh_snow_'//TRIM(ADJUSTL(csfc))//suffix,         &
                & p_prog_lnd%dzh_snow_ptr(jsfc)%p_3d,                             &
-               & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                           &
+               & GRID_UNSTRUCTURED_CELL, ZAXIS_GENERIC_SNOW,                     &
                & t_cf_var('dzh_snow_'//csfc, '', ''),                            &
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
-               & ldims=(/nproma,nlev_snow,kblks/), lrestart=.FALSE. )
-!DR needs to be saved for restart as soon as we make use of the multi layer snow model
-!DR for snow no proper vertical axis available so far
+               & ldims=(/nproma,nlev_snow,kblks/), lrestart=.TRUE.,              &
+               & tlev_source=1 ) ! for output take field from nnow_rcf slice
       ENDDO
+    ENDIF
  
 
     p_prog_lnd%t_gt(:,:,:)   = 290.4_wp

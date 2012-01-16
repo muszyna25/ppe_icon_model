@@ -66,7 +66,7 @@ MODULE mo_nh_stepping
   USE mo_atm_phy_nwp_config,  ONLY: dt_phy, atm_phy_nwp_config
   USE mo_nwp_phy_init,        ONLY: init_nwp_phy
   USE mo_nwp_phy_state,       ONLY: prm_diag, prm_nwp_tend, mean_charlen
-  USE mo_lnd_nwp_config,      ONLY: nlev_soil, p_tiles
+  USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, p_tiles
   USE mo_nwp_lnd_state,       ONLY: p_lnd_state
   USE mo_ext_data,            ONLY: ext_data
   USE mo_model_domain,        ONLY: t_patch
@@ -607,7 +607,8 @@ MODULE mo_nh_stepping
                                 & opt_jstep_adv_ntsteps      = jstep_adv(jg)%ntsteps,      &
                                 & opt_jstep_adv_marchuk_order= jstep_adv(jg)%marchuk_order,&
                                 & opt_zheight                = p_patch(jg)%nlev           ,&
-                                & opt_depth_lnd              = nlev_soil                   ) !,&
+                                & opt_depth_lnd              = nlev_soil,                  &
+                                & opt_nlev_snow              = nlev_snow ) !,&
 !                                & opt_zheight_mc             = p_nh_state(jg)%metrics%z_mc,& 
 !                                & opt_zheight_ifc            = p_nh_state(jg)%metrics%z_ifc) 
       END DO

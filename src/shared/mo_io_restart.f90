@@ -18,7 +18,6 @@ MODULE mo_io_restart
        &                              restart_attributes_count_real,                &
        &                              restart_attributes_count_int,                 &
        &                              restart_attributes_count_bool
-  USE mo_lnd_nwp_config,        ONLY: nlev_soil
   USE mo_io_distribute,         ONLY: gather_cells, gather_edges, gather_vertices,  &
        &                              scatter_cells, scatter_edges, scatter_vertices  
   USE mo_io_units,              ONLY: find_next_free_unit, filename_max
@@ -45,6 +44,7 @@ MODULE mo_io_restart
   PUBLIC :: set_restart_vct, set_restart_depth
   PUBLIC :: set_restart_height  
   PUBLIC :: set_restart_depth_lnd
+  PUBLIC :: set_restart_height_snow
   PUBLIC :: init_restart
   PUBLIC :: open_writing_restart_files
   PUBLIC :: write_restart
@@ -79,7 +79,7 @@ MODULE mo_io_restart
   END type t_v_grid
   !
   INTEGER, SAVE :: nv_grids = 0 
-  TYPE(t_v_grid) :: vgrid_def(10)
+  TYPE(t_v_grid) :: vgrid_def(12)
   !
   TYPE t_t_axis
     INTEGER :: type
@@ -94,13 +94,15 @@ MODULE mo_io_restart
   REAL(wp), ALLOCATABLE :: private_depth_lnd_full(:),  private_depth_lnd_half(:)
   REAL(wp), ALLOCATABLE :: private_height_full(:),  private_height_half(:)
   REAL(wp), ALLOCATABLE :: private_generic_level(:)
+  REAL(wp), ALLOCATABLE :: private_height_snow_half(:), private_height_snow_full(:)
   !
-  LOGICAL, SAVE :: lvct_initialised = .FALSE. 
-  LOGICAL, SAVE :: ldepth_initialised = .FALSE. 
-  LOGICAL, SAVE :: ldepth_lnd_initialised = .FALSE. 
-  LOGICAL, SAVE :: lheight_initialised = .FALSE.
+  LOGICAL, SAVE :: lvct_initialised         = .FALSE. 
+  LOGICAL, SAVE :: ldepth_initialised       = .FALSE. 
+  LOGICAL, SAVE :: ldepth_lnd_initialised   = .FALSE. 
+  LOGICAL, SAVE :: lheight_initialised      = .FALSE.
+  LOGICAL, SAVE :: lheight_snow_initialised = .FALSE.
   !
-  LOGICAL, SAVE :: lrestart_initialised = .FALSE. 
+  LOGICAL, SAVE :: lrestart_initialised     = .FALSE. 
   !
   INTEGER :: private_nc  = -1
   INTEGER :: private_ncv = -1
@@ -108,6 +110,7 @@ MODULE mo_io_restart
   INTEGER :: private_nvv = -1
   INTEGER :: private_ne  = -1
   INTEGER :: private_nev = -1
+  !
   !
   CHARACTER(len=12), PARAMETER :: restart_info_file = 'restart.info'
   !
@@ -243,12 +246,24 @@ CONTAINS
   !
   SUBROUTINE set_restart_depth_lnd(zh, zf)
     REAL(wp), INTENT(in) :: zh(:), zf(:)
-    IF (ldepth_initialised) RETURN
+    IF (ldepth_lnd_initialised) RETURN
     ALLOCATE(private_depth_lnd_half(SIZE(zh)), private_depth_lnd_full(SIZE(zf)))
     private_depth_lnd_half(:) = zh(:)
     private_depth_lnd_full(:) = zf(:)
     ldepth_lnd_initialised = .TRUE.
   END SUBROUTINE set_restart_depth_lnd
+  !------------------------------------------------------------------------------------------------
+  !
+  !  height based vertical coordinates for multi layer snow model (TERRA)
+  !
+  SUBROUTINE set_restart_height_snow(zh, zf)
+    REAL(wp), INTENT(in) :: zh(:), zf(:)
+    IF (lheight_snow_initialised) RETURN
+    ALLOCATE(private_height_snow_half(SIZE(zh)), private_height_snow_full(SIZE(zf)))
+    private_height_snow_half(:) = zh(:)
+    private_height_snow_full(:) = zf(:)
+    lheight_snow_initialised = .TRUE.
+  END SUBROUTINE set_restart_height_snow
   !------------------------------------------------------------------------------------------------
   !
   SUBROUTINE set_horizontal_grid(grid_type, nelements, nvertices, grid_uuid)
@@ -294,7 +309,8 @@ CONTAINS
   !
   SUBROUTINE init_restart(model_name, model_version, &
        &                  nc, ncv, nv, nvv, ne, nev, &
-       &                  nlev, ndepth)
+       &                  nlev, ndepth, nlev_soil,   &
+       &                  nlev_snow)
     CHARACTER(len=*), INTENT(in) :: model_name
     CHARACTER(len=*), INTENT(in) :: model_version
     INTEGER,          INTENT(in) :: nc
@@ -305,6 +321,8 @@ CONTAINS
     INTEGER,          INTENT(in) :: nev
     INTEGER,          INTENT(in) :: nlev
     INTEGER,          INTENT(in) :: ndepth
+    INTEGER,          INTENT(in) :: nlev_soil
+    INTEGER,          INTENT(in) :: nlev_snow
     !
     CHARACTER(len=256) :: executable
     CHARACTER(len=256) :: user_name
@@ -371,6 +389,8 @@ CONTAINS
     CALL set_vertical_grid(ZAXIS_HEIGHT, nlev+1)
     CALL set_vertical_grid(ZAXIS_DEPTH_BELOW_LAND, nlev_soil+1)
     CALL set_vertical_grid(ZAXIS_DEPTH_BELOW_LAND, nlev_soil+2)
+    CALL set_vertical_grid(ZAXIS_GENERIC_SNOW, nlev_snow)
+    CALL set_vertical_grid(ZAXIS_GENERIC_SNOW, nlev_snow+1)
     !
     ! define time axis
     !
@@ -384,7 +404,8 @@ CONTAINS
     private_ne  = ne
     private_nev = nev
     !
-    IF (.NOT. (lvct_initialised .OR. ldepth_initialised .OR. lheight_initialised)) THEN
+    IF (.NOT. (lvct_initialised .OR. ldepth_initialised &
+      & .OR. lheight_initialised .OR. ldepth_lnd_initialised )) THEN
       CALL finish('init_restart','none of the vertical grids is initialised')
       ! more consistency checks need to follow
     ENDIF
@@ -673,6 +694,21 @@ CONTAINS
             ELSE
               CALL finish('open_writing_restart_files','Number of height levels not available.')
             ENDIF
+          CASE (ZAXIS_GENERIC_SNOW)
+            IF (.NOT. lheight_snow_initialised) CYCLE
+            IF (SIZE(private_height_snow_full) == vgrid_def(ivg)%nlevels) THEN
+              var_lists(i)%p%cdiSnowGenericZaxisID = zaxisCreate(ZAXIS_GENERIC, &
+                   &                                            vgrid_def(ivg)%nlevels)
+              CALL zaxisDefLevels(var_lists(i)%p%cdiSnowGenericZaxisID, &
+                   &              private_height_snow_full)
+            ELSE IF (SIZE(private_height_snow_half) == vgrid_def(ivg)%nlevels) THEN
+              var_lists(i)%p%cdiSnowHalfGenericZaxisID = zaxisCreate(ZAXIS_GENERIC, &
+                   &                                            vgrid_def(ivg)%nlevels)
+              CALL zaxisDefLevels(var_lists(i)%p%cdiSnowHalfGenericZaxisID, &
+                   &              private_height_snow_half)
+            ELSE
+              CALL finish('open_writing_restart_files','Number of height levels not available.')
+            ENDIF
           END SELECT
         ENDDO
         !
@@ -711,20 +747,22 @@ CONTAINS
           !
           ! set file IDs of all associated restart files
           !
-          var_lists(j)%p%cdiFileID_restart    = var_lists(i)%p%cdiFileID_restart
-          var_lists(j)%p%cdiVlistID           = var_lists(i)%p%cdiVlistID
-          var_lists(j)%p%cdiCellGridID        = var_lists(i)%p%cdiCellGridID
-          var_lists(j)%p%cdiVertGridID        = var_lists(i)%p%cdiVertGridID
-          var_lists(j)%p%cdiEdgeGridID        = var_lists(i)%p%cdiEdgeGridID
-          var_lists(j)%p%cdiSurfZaxisID       = var_lists(i)%p%cdiSurfZaxisID
-          var_lists(j)%p%cdiGenericZaxisID    = var_lists(i)%p%cdiGenericZaxisID
-          var_lists(j)%p%cdiFullZaxisID       = var_lists(i)%p%cdiFullZaxisID
-          var_lists(j)%p%cdiHalfZaxisID       = var_lists(i)%p%cdiHalfZaxisID
-          var_lists(j)%p%cdiDepthFullZaxisID  = var_lists(i)%p%cdiDepthFullZaxisID
-          var_lists(j)%p%cdiDepthHalfZaxisID  = var_lists(i)%p%cdiDepthHalfZaxisID
-          var_lists(j)%p%cdiHeightFullZaxisID = var_lists(i)%p%cdiHeightFullZaxisID
-          var_lists(j)%p%cdiHeightHalfZaxisID = var_lists(i)%p%cdiHeightHalfZaxisID
-          var_lists(j)%p%cdiTaxisID           = var_lists(i)%p%cdiTaxisID
+          var_lists(j)%p%cdiFileID_restart     = var_lists(i)%p%cdiFileID_restart
+          var_lists(j)%p%cdiVlistID            = var_lists(i)%p%cdiVlistID
+          var_lists(j)%p%cdiCellGridID         = var_lists(i)%p%cdiCellGridID
+          var_lists(j)%p%cdiVertGridID         = var_lists(i)%p%cdiVertGridID
+          var_lists(j)%p%cdiEdgeGridID         = var_lists(i)%p%cdiEdgeGridID
+          var_lists(j)%p%cdiSurfZaxisID        = var_lists(i)%p%cdiSurfZaxisID
+          var_lists(j)%p%cdiGenericZaxisID     = var_lists(i)%p%cdiGenericZaxisID
+          var_lists(j)%p%cdiFullZaxisID        = var_lists(i)%p%cdiFullZaxisID
+          var_lists(j)%p%cdiHalfZaxisID        = var_lists(i)%p%cdiHalfZaxisID
+          var_lists(j)%p%cdiDepthFullZaxisID   = var_lists(i)%p%cdiDepthFullZaxisID
+          var_lists(j)%p%cdiDepthHalfZaxisID   = var_lists(i)%p%cdiDepthHalfZaxisID
+          var_lists(j)%p%cdiHeightFullZaxisID  = var_lists(i)%p%cdiHeightFullZaxisID
+          var_lists(j)%p%cdiHeightHalfZaxisID  = var_lists(i)%p%cdiHeightHalfZaxisID
+          var_lists(j)%p%cdiSnowGenericZaxisID = var_lists(i)%p%cdiSnowGenericZaxisID
+          var_lists(j)%p%cdiSnowHalfGenericZaxisID = var_lists(i)%p%cdiSnowHalfGenericZaxisID
+          var_lists(j)%p%cdiTaxisID            = var_lists(i)%p%cdiTaxisID
           !
           ! add variables to already existing cdi vlists
           !
@@ -862,7 +900,14 @@ CONTAINS
           info%cdiZaxisID =  this_list%p%cdiDepthFullZaxisID
           zaxisID = info%cdiZaxisID
         ENDIF
-
+      CASE (ZAXIS_GENERIC_SNOW)
+        IF (info%used_dimensions(2) == SIZE(private_height_snow_half)) THEN
+          info%cdiZaxisID =  this_list%p%cdiSnowHalfGenericZaxisID
+          zaxisID = info%cdiZaxisID
+        ELSE IF (info%used_dimensions(2) == SIZE(private_height_snow_full)) THEN
+          info%cdiZaxisID =  this_list%p%cdiSnowGenericZaxisID
+          zaxisID = info%cdiZaxisID
+        ENDIF
     !   WRITE(0,*)'before checking zaxis_height',info%used_dimensions(2),&
     !     & SIZE(private_height_full)
     !   WRITE(0,*)'size of zh= ',SIZE(private_height_half)
@@ -1284,21 +1329,27 @@ CONTAINS
              CALL zaxisDestroy(var_lists(i)%p%cdiHeightFullZaxisID)
         IF (var_lists(i)%p%cdiHeightHalfZaxisID /= CDI_UNDEFID) &
              CALL zaxisDestroy(var_lists(i)%p%cdiHeightHalfZaxisID)
-        var_lists(i)%p%cdiFileId_restart    = CDI_UNDEFID
-        var_lists(i)%p%cdiVlistId           = CDI_UNDEFID
-        var_lists(i)%p%cdiCellGridID        = CDI_UNDEFID
-        var_lists(i)%p%cdiVertGridID        = CDI_UNDEFID
-        var_lists(i)%p%cdiEdgeGridID        = CDI_UNDEFID
-        var_lists(i)%p%cdiSurfZaxisID       = CDI_UNDEFID
-        var_lists(i)%p%cdiGenericZaxisID    = CDI_UNDEFID
-        var_lists(i)%p%cdiHalfZaxisID       = CDI_UNDEFID
-        var_lists(i)%p%cdiFullZaxisID       = CDI_UNDEFID
-        var_lists(i)%p%cdiDepthHalfZaxisID  = CDI_UNDEFID
-        var_lists(i)%p%cdiDepthFullZaxisID  = CDI_UNDEFID
-        var_lists(i)%p%cdiHeightHalfZaxisID = CDI_UNDEFID
-        var_lists(i)%p%cdiHeightFullZaxisID = CDI_UNDEFID
-        var_lists(i)%p%cdiTaxisID           = CDI_UNDEFID
-        var_lists(i)%p%cdiTimeIndex         = CDI_UNDEFID
+        IF (var_lists(i)%p%cdiSnowGenericZaxisID /= CDI_UNDEFID) &
+             CALL zaxisDestroy(var_lists(i)%p%cdiSnowGenericZaxisID)
+        IF (var_lists(i)%p%cdiSnowHalfGenericZaxisID /= CDI_UNDEFID) &
+             CALL zaxisDestroy(var_lists(i)%p%cdiSnowHalfGenericZaxisID)
+        var_lists(i)%p%cdiFileId_restart     = CDI_UNDEFID
+        var_lists(i)%p%cdiVlistId            = CDI_UNDEFID
+        var_lists(i)%p%cdiCellGridID         = CDI_UNDEFID
+        var_lists(i)%p%cdiVertGridID         = CDI_UNDEFID
+        var_lists(i)%p%cdiEdgeGridID         = CDI_UNDEFID
+        var_lists(i)%p%cdiSurfZaxisID        = CDI_UNDEFID
+        var_lists(i)%p%cdiGenericZaxisID     = CDI_UNDEFID
+        var_lists(i)%p%cdiHalfZaxisID        = CDI_UNDEFID
+        var_lists(i)%p%cdiFullZaxisID        = CDI_UNDEFID
+        var_lists(i)%p%cdiDepthHalfZaxisID   = CDI_UNDEFID
+        var_lists(i)%p%cdiDepthFullZaxisID   = CDI_UNDEFID
+        var_lists(i)%p%cdiHeightHalfZaxisID  = CDI_UNDEFID
+        var_lists(i)%p%cdiHeightFullZaxisID  = CDI_UNDEFID
+        var_lists(i)%p%cdiTaxisID            = CDI_UNDEFID
+        var_lists(i)%p%cdiTimeIndex          = CDI_UNDEFID
+        var_lists(i)%p%cdiSnowGenericZaxisID = CDI_UNDEFID
+        var_lists(i)%p%cdiSnowHalfGenericZaxisID = CDI_UNDEFID
       ENDIF
     ENDDO for_all_var_lists
     !
@@ -1313,6 +1364,9 @@ CONTAINS
     IF (ALLOCATED(private_height_full)) DEALLOCATE(private_height_full)
     IF (ALLOCATED(private_height_half)) DEALLOCATE(private_height_half)
     lheight_initialised = .FALSE.
+    IF (ALLOCATED(private_height_snow_full)) DEALLOCATE(private_height_snow_full)
+    IF (ALLOCATED(private_height_snow_half)) DEALLOCATE(private_height_snow_half)
+    lheight_snow_initialised = .FALSE.
     !
     CALL delete_attributes
     !

@@ -52,17 +52,18 @@ MODULE mo_output
 !     &                              ishallow_water
   USE mo_dynamics_config,     ONLY: iequations, nold, nnow, nnew, nnew_rcf, nnow_rcf 
   USE mo_io_vlist,            ONLY: setup_vlist, destruct_vlist,           &
-     &                              open_output_vlist, close_output_vlist, &
-     &                              write_vlist
+    &                               open_output_vlist, close_output_vlist, &
+    &                               write_vlist
   USE mo_io_async,            ONLY: setup_io_procs, shutdown_io_procs, &
-     &                              output_async, set_output_file,     &
+    &                              output_async, set_output_file,     &
                                     use_async_vlist_io
   USE mo_datetime,            ONLY: t_datetime,iso8601
   USE mo_io_restart,          ONLY: set_restart_time, set_restart_vct,         &
-                                  & init_restart, open_writing_restart_files,  &
-                                  & write_restart, close_writing_restart_files,&
-                                  & finish_restart, set_restart_depth,         &
-                                  & set_restart_depth_lnd, set_restart_height
+    &                               init_restart, open_writing_restart_files,  &
+    &                               write_restart, close_writing_restart_files,&
+    &                               finish_restart, set_restart_depth,         &
+    &                               set_restart_depth_lnd, set_restart_height, &
+    &                               set_restart_height_snow
   USE mo_io_restart_attributes,ONLY: set_restart_attribute
   USE mo_model_domain,        ONLY: t_patch, p_patch
   USE mo_interpolation,       ONLY: t_lon_lat_intp
@@ -327,7 +328,7 @@ CONTAINS
                                 & opt_jstep_adv_ntsteps,       &
                                 & opt_jstep_adv_marchuk_order, &
                                 & opt_depth, opt_depth_lnd,    &
-                                & opt_zheight)!,                 &
+                                & opt_zheight, opt_nlev_snow)!, &
 !                                & opt_zheight_mc,              &
 !                                & opt_zheight_ifc )
 
@@ -345,10 +346,12 @@ CONTAINS
     INTEGER,  INTENT(IN), OPTIONAL :: opt_jstep_adv_ntsteps
     INTEGER,  INTENT(IN), OPTIONAL :: opt_jstep_adv_marchuk_order
     INTEGER,  INTENT(IN), OPTIONAL :: opt_zheight
+    INTEGER,  INTENT(IN), OPTIONAL :: opt_nlev_snow
 !    REAL(wp), INTENT(IN), OPTIONAL :: opt_zheight_mc (:,:,:) 
 !    REAL(wp), INTENT(IN), OPTIONAL :: opt_zheight_ifc(:,:,:)
 
-    INTEGER :: klev, jg, kcell, kvert, kedge, icelltype, izlev, i
+    INTEGER :: klev, jg, kcell, kvert, kedge, icelltype 
+    INTEGER :: izlev, inlev_soil, inlev_snow, i
     REAL(wp), ALLOCATABLE :: zlevels_full(:), zlevels_half(:)
 
 
@@ -440,17 +443,36 @@ CONTAINS
       DEALLOCATE(zlevels_half)
     ENDIF
     IF (PRESENT(opt_depth_lnd)) THEN            ! geometrical depth for land module
-      ALLOCATE(zlevels_full(opt_depth_lnd+1))
-      ALLOCATE(zlevels_half(opt_depth_lnd+2))
-      DO i = 1, opt_depth_lnd+1
+      inlev_soil = opt_depth_lnd
+      ALLOCATE(zlevels_full(inlev_soil+1))
+      ALLOCATE(zlevels_half(inlev_soil+2))
+      DO i = 1, inlev_soil+1
         zlevels_full(i) = REAL(i,wp)
       END DO
-      DO i = 1, opt_depth_lnd+2
+      DO i = 1, inlev_soil+2
         zlevels_half(i) = REAL(i,wp)
       END DO
       CALL set_restart_depth_lnd(zlevels_half, zlevels_full)
       DEALLOCATE(zlevels_full)
       DEALLOCATE(zlevels_half)
+    ELSE
+      inlev_soil = 0
+    ENDIF
+    IF (PRESENT(opt_nlev_snow)) THEN            ! number of snow levels (multi layer snow model)
+      inlev_snow = opt_nlev_snow
+      ALLOCATE(zlevels_full(inlev_snow))
+      ALLOCATE(zlevels_half(inlev_snow+1))
+      DO i = 1, inlev_snow
+        zlevels_full(i) = REAL(i,wp)
+      END DO
+      DO i = 1, inlev_snow+1
+        zlevels_half(i) = REAL(i,wp)
+      END DO
+      CALL set_restart_height_snow(zlevels_half, zlevels_full)
+      DEALLOCATE(zlevels_full)
+      DEALLOCATE(zlevels_half)
+    ELSE
+      inlev_snow = 0
     ENDIF
 !DR end preliminary fix
     IF (PRESENT(opt_depth)) THEN                              ! Ocean depth
@@ -471,7 +493,9 @@ CONTAINS
                      & kvert, 9-icelltype,&! total # of vertices, # of vertices per dual cell
                      & kedge, 4,          &! total # of cells, shape of control volume for edge 
                      & klev,              &! total # of vertical layers
-                     & izlev)              ! total # of depths below sea
+                     & izlev,             &! total # of depths below sea
+                     & inlev_soil,        &! total # of depths below land (TERRA)
+                     & inlev_snow         )! total # of vertical snow layers (TERRA)      
 
     CALL set_restart_time( iso8601(datetime) )  ! Time tag
 

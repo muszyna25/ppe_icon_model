@@ -82,6 +82,8 @@ MODULE mo_linked_list
     INTEGER                       :: cdiDepthFullZaxisID
     INTEGER                       :: cdiHeightHalfZaxisID
     INTEGER                       :: cdiHeightFullZaxisID
+    INTEGER                       :: cdiSnowGenericZaxisID
+    INTEGER                       :: cdiSnowHalfGenericZaxisID
     !
     INTEGER                       :: cdiTaxisID
     !
