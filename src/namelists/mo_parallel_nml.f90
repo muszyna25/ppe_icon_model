@@ -42,6 +42,7 @@ MODULE mo_parallel_nml
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
     & open_and_restore_namelist, close_tmpfile
   USE mo_io_units,           ONLY: filename_max
+!   USE mo_impl_constants,     ONLY: max_dom
 
   USE mo_parallel_config,     ONLY: &
     & config_n_ghost_rows        => n_ghost_rows,        &

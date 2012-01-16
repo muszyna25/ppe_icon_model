@@ -805,12 +805,9 @@ CONTAINS
     INTEGER, INTENT(IN)  :: proc0  !> First processor of patch
     INTEGER, INTENT(OUT) :: cell_owner(:) !> Cell division
 
-
     INTEGER :: n, i, j, jl, jb, jl_p, jb_p
     INTEGER, ALLOCATABLE :: flag_c(:), tmp(:)
-
-!     CHARACTER(filename_max) :: div_file
-
+    CHARACTER(LEN=filename_max) :: use_division_file_name ! if div_from_file
 
     ! Please note: Unfortunatly we cannot use p_io for doing I/O,
     ! since this might be the test PE which is never calling this routine
@@ -824,18 +821,22 @@ CONTAINS
 
       IF(p_pe_work == 0) THEN
 
-!         WRITE (div_file,'(a,a)') &
-!           & TRIM(get_filename_noext(wrk_p_patch_g%grid_filename)),'-div.txt'
-
+        IF (division_file_name == "") THEN
+          use_division_file_name = &
+            & TRIM(get_filename_noext(wrk_p_patch_g%grid_filename))//'.cell_domain_ids'
+        ELSE
+          use_division_file_name = division_file_name
+        ENDIF
+        
         n = find_next_free_unit(10,99)
 
-        OPEN(n,FILE=TRIM(division_file_name),STATUS='OLD',IOSTAT=i)
+        OPEN(n,FILE=TRIM(use_division_file_name),STATUS='OLD',IOSTAT=i)
         IF(i /= 0) CALL finish('divide_patch',&
-          & 'Unable to open input file: '//TRIM(division_file_name))
+          & 'Unable to open input file: '//TRIM(use_division_file_name))
 
         DO j = 1, wrk_p_patch_g%n_patch_cells
           READ(n,*,IOSTAT=i) cell_owner(j)
-          IF(i /= 0) CALL finish('divide_patch','Error reading: '//TRIM(division_file_name))
+          IF(i /= 0) CALL finish('divide_patch','Error reading: '//TRIM(use_division_file_name))
         ENDDO
         CLOSE(n)
 

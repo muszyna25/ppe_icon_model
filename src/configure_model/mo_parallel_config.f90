@@ -35,6 +35,7 @@ MODULE mo_parallel_config
 
   USE mo_exception,          ONLY: message, finish
   USE mo_io_units,           ONLY: filename_max
+!   USE mo_impl_constants,     ONLY: max_dom
 
   IMPLICIT NONE
 
