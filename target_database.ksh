@@ -26,16 +26,16 @@ case ${target} in
     # Blizzard
     # --------
     blizz_nMnO)
-        configureoption="--with-mpi=no  --with-openmp=no"
+        configureoption="--with-mpi=no  --with-openmp=no --with-flags=hiopt"
         ;;
     blizz_nMyO)
-        configureoption="--with-mpi=no  --with-openmp=yes"
+        configureoption="--with-mpi=no  --with-openmp=yes --with-flags=hiopt"
         ;;
     blizz_yMnO)
-        configureoption="--with-openmp=no"
+        configureoption="--with-openmp=no --with-flags=hiopt"
         ;;
     blizz_yMyO)
-        configureoption="--with-openmp=yes"
+        configureoption="--with-openmp=yes --with-flags=hiopt"
         ;;
 
     # MPIPC

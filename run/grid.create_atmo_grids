@@ -1,4 +1,4 @@
-# #!/bin/ksh
+#!/bin/ksh
 #-----------------------------------------------------------------------------
 # Leonidas Linardakis   MPI-M,   2010-10 
 #
@@ -268,6 +268,38 @@ check_error $? "create icon patch hierarchy"
 }
 #-----------------------------------------------------------------------------
 
+#-----------------------------------------------------------------------------
+reduced_rad_grid()
+{
+  in_child_grid=$1.nc
+  parent_grid=$2.nc
+
+  child_grid=${1}_dyn_rrad.nc
+  reduced_grid=${2}_rad_rrad.nc
+  
+  cp $in_child_grid $child_grid
+  
+  no_of_patches=2
+  
+  echo "coarsen_grid $child_grid $parent_grid $reduced_grid" > $commandFile
+  ${run_commmand}
+
+  hierInNameList="$reduced_grid, $child_grid"
+  hierOutNameList="$reduced_grid, $child_grid"
+  hierIDList="1 2"
+  hierParentList="0 1"
+  create_hierarchy
+  
+  # recreate ids to start from 0 instead of 1
+  command=shift_grid_ids
+  echo "$command $child_grid -1" > $commandFile
+  ${run_commmand}
+  echo "$command $reduced_grid -1" > $commandFile
+  ${run_commmand}
+  
+}
+#=============================================================================
+
 
 #=============================================================================
 if [ "x$make_patches" == "xtrue" ] ; then
@@ -348,6 +380,9 @@ if [ "x$make_patches" == "xtrue" ] ; then
     check_error $? "change_grid_ids"
     i=$((i+1));
   done
+
+  # create an r2b5-r2b4 reduced radiation
+  # reduced_rad_grid iconR2B05-grid.nc iconR2B04-grid.nc
 
 fi
 #=============================================================================
