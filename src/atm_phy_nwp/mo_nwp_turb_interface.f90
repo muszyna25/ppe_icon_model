@@ -58,7 +58,7 @@ MODULE mo_nwp_turb_interface
 
   USE mo_parallel_config,      ONLY: nproma
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, &
-    &                                iqi, iqr, iqs
+    &                                iqi, iqr, iqs, nqtendphy
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_data_turbdiff,        ONLY: get_turbdiff_param
   USE src_turbdiff,            ONLY: organize_turbdiff
@@ -478,7 +478,8 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
       !> in case of ECHAM version  update temperature and moist fields
       !-------------------------------------------------------------------------
 
-      DO jt=1,3 ! iqv,iqc,iqi
+!DR      DO jt=1,3 ! iqv,iqc,iqi
+      DO jt=1,nqtendphy ! iqv,iqc,iqi
         DO jk = 1, nlev
           DO jc = i_startidx, i_endidx
             p_prog_rcf%tracer(jc,jk,jb,jt) =MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,jt)  &

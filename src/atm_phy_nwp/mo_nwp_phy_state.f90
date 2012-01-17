@@ -67,7 +67,7 @@ MODULE mo_nwp_phy_state
 USE mo_kind,                ONLY: wp
 USE mo_impl_constants,      ONLY: success, max_char_length
 USE mo_parallel_config,     ONLY: nproma
-USE mo_run_config,          ONLY: ntracer, iqcond
+USE mo_run_config,          ONLY: ntracer, nqtendphy
 USE mo_exception,           ONLY: message, finish !,message_text
 USE mo_model_domain,        ONLY: t_patch
 USE mo_model_domain_import, ONLY: n_dom
@@ -441,7 +441,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     shape2d    = (/nproma,            kblks            /)
     shape3d    = (/nproma, klev,      kblks            /)
     shape3dkp1 = (/nproma, klevp1,    kblks            /)
-    shape4d    = (/nproma, klev,      kblks, iqcond    /)
+!DR    shape4d    = (/nproma, klev,      kblks, nqtendphy /)
 
     IF( atm_phy_nwp_config(k_jg)%inwp_turb == 2) THEN
       shapesfc   = (/nproma,          kblks, nsfc_type /)
@@ -1385,9 +1385,9 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
 
     ientr = 16 ! "entropy" of horizontal slice
 
-    shape3d    = (/nproma, klev,  kblks        /)
-    shape3dkp1 = (/nproma, klev+1,    kblks    /)
-    shape4d    = (/nproma, klev,  kblks, iqcond/)
+    shape3d    = (/nproma, klev  , kblks            /)
+    shape3dkp1 = (/nproma, klev+1, kblks            /)
+    shape4d    = (/nproma, klev  , kblks, nqtendphy /)
 
 
     CALL new_var_list( phy_tend_list, TRIM(listname), patch_id=k_jg )
@@ -1527,7 +1527,7 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
     ! Moist tracer tendencies
     !------------------------------
 
-   ! &      phy_tend%ddt_tracer_turb(nproma,nlev,nblks,iqcond),          &
+   ! &      phy_tend%ddt_tracer_turb(nproma,nlev,nblks,nqtendphy),          &
     cf_desc    = t_cf_var('ddt_tracer_turb', 's-1', &
          &                            'turbulence tendency of tracers')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
@@ -1536,8 +1536,8 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
                   & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
 
-    ktracer=iqcond
-    ALLOCATE( phy_tend%tracer_turb_ptr(ktracer) )
+    ktracer=nqtendphy
+    ALLOCATE( phy_tend%tracer_turb_ptr(nqtendphy) )
 
          !qv
         CALL add_ref( phy_tend_list, 'ddt_tracer_turb', &
@@ -1567,7 +1567,7 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
                     & ldims=shape3d, lrestart=.FALSE.)
 
 
-   ! &      phy_tend%ddt_tracer_pconv(nproma,nlev,nblks,iqcond),          &
+   ! &      phy_tend%ddt_tracer_pconv(nproma,nlev,nblks,nqtendphy),          &
     cf_desc    = t_cf_var('ddt_tracer_pconv', 's-1', &
          &                            'convective tendency y of tracers')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
@@ -1575,8 +1575,8 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
                 & GRID_UNSTRUCTURED_CELL,ZAXIS_HEIGHT, cf_desc, grib2_desc, ldims=shape4d,&
                   & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
-    ktracer=iqcond
-    ALLOCATE( phy_tend%tracer_conv_ptr(ktracer) )
+    ktracer=nqtendphy
+    ALLOCATE( phy_tend%tracer_conv_ptr(nqtendphy) )
 
          !qv
         CALL add_ref( phy_tend_list, 'ddt_tracer_pconv', &

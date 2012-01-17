@@ -70,8 +70,8 @@ MODULE mo_nh_interface_nwp
   USE mo_ext_data,           ONLY: t_external_data
   USE mo_nwp_phy_state,      ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_parallel_config,    ONLY: nproma, p_test_run
-  USE mo_run_config,         ONLY: ntracer, iqv, iqc, iqi, &
-       &                           iqr, iqs, msg_level, ltimer, timers_level
+  USE mo_run_config,         ONLY: ntracer, iqv, iqc, iqi, iqr, iqs,          &
+    &                              msg_level, ltimer, timers_level, nqtendphy
   USE mo_io_config,          ONLY: lflux_avg
   USE mo_physical_constants, ONLY: rd, rd_o_cpd, vtmpc1, p0ref, cvd_o_rd, rcvd, cpd
 
@@ -105,7 +105,7 @@ MODULE mo_nh_interface_nwp
   REAL(wp), PARAMETER :: rd_o_p0ref = rd / p0ref
   REAL(wp), PARAMETER :: cpd_o_rd = 1._wp / rd_o_cpd
 
-  PUBLIC :: nwp_nh_interface, nh_update_prog_phy
+  PUBLIC :: nwp_nh_interface
 
 CONTAINS
   !
@@ -1183,9 +1183,9 @@ CONTAINS
 !            z_ddt_qsum = SUM(prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqc:iqs))
 
             z_ddt_qsum =   prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqc) &
-              &          + prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqi) &
-              &          + prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqr) &
-              &          + prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqs)
+              &          + prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqi) !DR&
+!DR              &          + prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqr) &
+!DR              &          + prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqs)
 
             pt_diag%ddt_exner_phy(jc,jk,jb) = rd_o_cpd / pt_prog%theta_v(jc,jk,jb)           &
               &                             * (z_ddt_temp(jc,jk,jb)                          &
@@ -1418,15 +1418,16 @@ CONTAINS
     i_startblk = pt_patch%cells%start_blk(rl_start,1)
     i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
+
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, jk,jc,jt,i_startidx, i_endidx)
+!$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx,i_endidx)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
            &                       i_startidx, i_endidx, rl_start, rl_end)
 
 ! KF fix to positive values
-      DO jt=1,ntracer
+      DO jt=1, nqtendphy  ! qv,qc,qi
         DO jk = kstart_moist(jg), nlev
           DO jc = i_startidx, i_endidx
 
@@ -1435,6 +1436,18 @@ CONTAINS
           ENDDO
         ENDDO
       ENDDO
+
+!DR additional clipping for qr, qs 
+!DR (very small negative values may occur during the transport process (order 10E-15)) 
+      DO jt=iqr, iqs  ! qr,qs
+        DO jk = kstart_moist(jg), nlev
+          DO jc = i_startidx, i_endidx
+
+            pt_prog_rcf%tracer(jc,jk,jb,jt) =MAX(0._wp, pt_prog_rcf%tracer(jc,jk,jb,jt))
+          ENDDO
+        ENDDO
+      ENDDO
+
 
       prm_diag%rain_con(i_startidx:i_endidx,jb) =                                        &
         &                                  prm_diag%rain_con(i_startidx:i_endidx,jb)   &

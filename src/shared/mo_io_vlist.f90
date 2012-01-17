@@ -138,7 +138,7 @@ MODULE mo_io_vlist
     &                                 ntracer, ltransport, nsteps, dtime,         &
     &                                 dtime_adv, ldynamics, ltestcase,            &
     &                                 lvert_nest, msg_level, iqv, iqc, iqi,       &
-    &                                 iqcond, ntracer_static, io3
+    &                                 iqhydro, nqtendphy, ntracer_static, io3
   USE mo_grid_config,           ONLY: global_cell_type
   USE mo_echam_phy_config
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
@@ -1879,7 +1879,7 @@ CONTAINS
         ! Tracer tendencies
 
         IF (ntracer > 0) THEN
-          DO jt = 1, iqcond
+          DO jt = 1, iqhydro
             ctracer = ctracer_list(jt:jt)
             WRITE(name,'(A6,A1,A4)') "tend_q", ctracer, "_cnv"
             CALL addVar(TimeVar(TRIM(name), &
@@ -1889,7 +1889,7 @@ CONTAINS
                 &       k_jg)
           END DO
 
-          DO jt = 1, iqcond
+          DO jt = 1, iqhydro
             ctracer = ctracer_list(jt:jt)
             WRITE(name,'(A6,A1,A4)') "tend_q", ctracer, "_vdf"
             CALL addVar(TimeVar(TRIM(name),&
@@ -1989,7 +1989,7 @@ CONTAINS
 
         ! Tracer tendencies
         IF (ntracer > 0) THEN
-          DO jt = 1, iqcond
+          DO jt = 1, iqhydro
             ctracer = ctracer_list(jt:jt)
             WRITE(qname,'(A6,A1,A5)') "tend_q",ctracer, "_conv"
             CALL addVar(TimeVar(TRIM(qname), &
@@ -1999,7 +1999,7 @@ CONTAINS
                 &       k_jg)
           END DO
 
-          DO jt = 1, iqcond
+          DO jt = 1, iqhydro
             ctracer = ctracer_list(jt:jt)
             WRITE(qname,'(A6,A1,A5)') "tend_q",ctracer, "_turb"
             CALL addVar(TimeVar(TRIM(qname),&
@@ -2963,7 +2963,7 @@ CONTAINS
         ENDIF
       ENDDO
 
-      DO jt = 1, iqcond
+      DO jt = 1, iqhydro
         ctracer = ctracer_list(jt:jt)
         IF(varname == 'tend_q'//ctracer//'_cnv') THEN
           ptr3 => prm_tend(jg)%q_cnv(:,:,:,jt)
@@ -3241,7 +3241,7 @@ CONTAINS
           RETURN
         ENDIF
       ENDDO
-      DO jt = 1, iqcond ! only hydromet-tendencies
+      DO jt = 1, nqtendphy ! only hydromet-tendencies (qv,qc,qi)
         ctracer = ctracer_list(jt:jt)
         IF(varname == 'tend_q'//ctracer//'_conv') THEN
           ptr3 => prm_nwp_tend(jg)%ddt_tracer_pconv(:,:,:,jt)
@@ -3519,7 +3519,7 @@ CONTAINS
     !       RETURN
     !     ENDIF
     !   ENDDO
-    !   DO jt = 1, iqcond ! only hydromet-tendencies
+    !   DO jt = 1, nqtendphy ! only hydromet-tendencies (qv,qc,qi)
     !     ctracer = ctracer_list(jt:jt)
     !     IF(varname == 'tend_q'//ctracer//'_conv') THEN
     !       ptr3 => prm_nwp_tend(jg)%ddt_tracer_pconv(:,:,:,jt)

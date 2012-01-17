@@ -404,7 +404,7 @@ CONTAINS
     private_ne  = ne
     private_nev = nev
     !
-    IF (.NOT. (lvct_initialised .OR. ldepth_initialised &
+    IF (.NOT. (lvct_initialised .OR. ldepth_initialised            &
       & .OR. lheight_initialised .OR. ldepth_lnd_initialised )) THEN
       CALL finish('init_restart','none of the vertical grids is initialised')
       ! more consistency checks need to follow
@@ -836,9 +836,9 @@ CONTAINS
       ! get information about timelevel to be skipped for current field
       ! for the time being this will work with the global patch only
       IF (element%field%info%tlev_source == 0) THEN
-        tlev_skip = nnew(1)          ! ATTENTION: 1 hardcoded
+        tlev_skip = nnew(1)          ! ATTENTION: 1 (global patch) hardcoded
       ELSE IF (element%field%info%tlev_source == 1) THEN
-        tlev_skip = nnew_rcf(1)      ! ATTENTION: 1 hardcoded
+        tlev_skip = nnew_rcf(1)      ! ATTENTION: 1 (global patch) hardcoded
       ELSE
         tlev_skip = -99
       ENDIF
@@ -1186,9 +1186,9 @@ CONTAINS
       ! get information about timelevel to be skipped for current field
       ! for the time being this will work with the global patch only
       IF (element%field%info%tlev_source == 0) THEN
-        tlev_skip = nnew(1)          ! ATTENTION: 1 hardcoded
+        tlev_skip = nnew(1)          ! ATTENTION: 1 (global patch) hardcoded
       ELSE IF (element%field%info%tlev_source == 1) THEN
-        tlev_skip = nnew_rcf(1)      ! ATTENTION: 1 hardcoded
+        tlev_skip = nnew_rcf(1)      ! ATTENTION: 1 (global patch) hardcoded
       ELSE
         tlev_skip = -99
       ENDIF

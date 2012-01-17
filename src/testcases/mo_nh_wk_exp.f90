@@ -51,30 +51,27 @@ MODULE mo_nh_wk_exp
 !
 !
 
-   USE mo_kind,                ONLY: wp
-   USE mo_physical_constants,  ONLY: rd_o_cpd, p0ref, grav, tmelt,  &
-                                   & cvd_o_rd, re, omega, cpd ,     &
-                                     vtmpc1 , rdv,  rd,             &
-                                     cp_d => cpd
-   USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
-   USE mo_model_domain,        ONLY: t_patch
-   USE mo_nonhydro_state,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
-   USE mo_run_config,          ONLY: iqv,iqc,iqcond, ntracer
-   USE mo_impl_constants,      ONLY: inwp, MAX_CHAR_LENGTH, min_rlcell_int
-   USE mo_parallel_config,     ONLY: nproma, p_test_run
-   USE mo_satad,               ONLY:  sat_pres_water, &  !! saturation vapor pressure w.r.t. water
-            &                         sat_pres_ice,   &  !! saturation vapor pressure w.r.t. ice
-            &                         spec_humi          !! Specific humidity
-   USE mo_exception,           ONLY: message, finish, message_text
-   USE mo_advection_config,    ONLY: advection_config
-   USE mo_interpolation,       ONLY: t_int_state, cells2edges_scalar, edges2cells_scalar, &
-                                   & rbf_vec_interpol_cell
-   USE mo_loopindices,         ONLY: get_indices_e
+   USE mo_kind,                 ONLY: wp
+   USE mo_physical_constants,   ONLY: rd_o_cpd, p0ref, grav, tmelt,  &
+     &                                cvd_o_rd, re, omega, cpd ,     &
+     &                                vtmpc1 , rdv,  rd,             &
+     &                                cp_d => cpd
+   USE mo_math_constants,       ONLY: pi, deg2rad
+   USE mo_model_domain,         ONLY: t_patch
+   USE mo_nonhydro_state,       ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
+   USE mo_run_config,           ONLY: iqv
+   USE mo_impl_constants,       ONLY: min_rlcell_int
+   USE mo_parallel_config,      ONLY: nproma
+   USE mo_satad,                ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
+     &                                sat_pres_ice,   &  !! saturation vapor pressure w.r.t. ice
+     &                                spec_humi          !! Specific humidity
+   USE mo_exception,            ONLY: message, finish, message_text
+   USE mo_interpolation,        ONLY: t_int_state
+   USE mo_loopindices,          ONLY: get_indices_e
    USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
    USE mo_extpar_config,        ONLY: itopo
-   USE mo_sync,                 ONLY: global_sum_array, sync_patch_array,  sync_patch_array_mult, &
-                                   &  SYNC_C, SYNC_E
-   USE mo_nh_init_utils,        ONLY: init_w, hydro_adjust, convert_thdvars, virtual_temp
+   USE mo_sync,                 ONLY: sync_patch_array, SYNC_C
+   USE mo_nh_init_utils,        ONLY: init_w, hydro_adjust
    USE mo_vertical_coord_table, ONLY: vct_a
 
    IMPLICIT NONE

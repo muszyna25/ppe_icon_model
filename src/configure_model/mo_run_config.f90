@@ -49,7 +49,7 @@ MODULE mo_run_config
   PUBLIC :: ltransport, ntracer, ntracer_static, nlev, nlevp1, nvclev
   PUBLIC :: lvert_nest, num_lev, num_levp1, nshift, nsteps, dtime, dtime_adv
   PUBLIC :: ltimer, timers_level, activate_sync_timers, msg_level
-  PUBLIC :: iqv, iqc, iqi, iqs, iqr, iqcond, iqt, io3, ico2
+  PUBLIC :: iqv, iqc, iqi, iqs, iqr, iqhydro, nqtendphy, iqt, io3, ico2
   PUBLIC :: check_epsilon, testbed_mode
   PUBLIC :: configure_run, l_one_file_per_patch, ldump_dd, lread_dd, nproc_dd
 
@@ -81,14 +81,14 @@ MODULE mo_run_config
     INTEGER :: nshift   (MAX_DOM) ! half level of parent domain which coincides 
                                   ! with the upper boundary of the current domain jg
 
-    INTEGER  :: nsteps            ! number of time steps to integrate
-    REAL(wp) :: dtime             ! [s] length of a time step
+    INTEGER :: nsteps          ! number of time steps to integrate
+    REAL(wp):: dtime           ! [s] length of a time step
 
     LOGICAL :: ltimer          ! if .TRUE.,  the timer is switched on
     INTEGER :: timers_level    ! what level of timers to run
     LOGICAL :: activate_sync_timers
   
-    REAL(wp) :: check_epsilon  ! small value for checks
+    REAL(wp):: check_epsilon   ! small value for checks
     INTEGER :: testbed_mode
 
     INTEGER :: msg_level       ! how much printout is generated during runtime
@@ -100,7 +100,8 @@ MODULE mo_run_config
     INTEGER :: iqi        ! cloud ice
     INTEGER :: iqr        ! rain water
     INTEGER :: iqs        ! snow
-    INTEGER :: iqcond     ! index of last hydrometeor to ease summation over all of them
+    INTEGER :: iqhydro    ! index of last hydrometeor to ease summation over all of them
+    INTEGER :: nqtendphy  ! number of water species for which physical tendencies are stored
   
     ! Tracer indices of other species
 

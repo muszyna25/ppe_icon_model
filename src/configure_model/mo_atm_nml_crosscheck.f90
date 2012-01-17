@@ -66,9 +66,8 @@ MODULE mo_nml_crosscheck
     &                              num_io_procs
   USE mo_run_config,         ONLY: lrestore_states, nsteps, dtime, iforcing,  &
     &                              ltransport, ntracer, nlev, io3, ltestcase, &
-    &                              iqcond, ntracer_static,&
-    &                              iqv, iqc, iqi, iqs, iqr, iqcond, iqt, io3, &
-    &                              ico2
+    &                              iqhydro, nqtendphy, ntracer_static, iqv,   &
+    &                              iqc, iqi, iqs, iqr, iqt, ico2
                                   
 !  USE mo_io_config
   USE mo_gridref_config
@@ -491,7 +490,7 @@ CONTAINS
       iqv    = 1     !> water vapour
       iqc    = 2     !! cloud water
       iqi    = 3     !! ice
-      iqcond = iqi   !! index of last hydrometeor to ease summation over all of them
+      iqhydro= iqi   !! index of last hydrometeor to ease summation over all of them
       iqt    = 4     !! starting index of non-water species 
       io3    = 5     !! O3
       ico2   = 6     !! CO2
@@ -503,7 +502,7 @@ CONTAINS
       iqi    = 3     !! ice
       iqr    = 4     !! rain water
       iqs    = 5     !! snow
-      iqcond = iqs   !! index of last hydrometeor to ease summation over all of them
+      iqhydro= iqs   !! index of last hydrometeor to ease summation over all of them
       io3    = 6     !! O3
       ico2   = 7     !! CO2
       iqt    = 6     !! start index of other tracers than hydrometeors
@@ -513,13 +512,14 @@ CONTAINS
       iqv    = 1     !> water vapour
       iqc    = 2     !! cloud water
       iqi    = 3     !! ice
-      iqcond = iqi   !! index of last hydrometeor to ease summation over all of them
+      iqhydro= iqi   !! index of last hydrometeor to ease summation over all of them
       iqt    = 4     !! starting index of non-water species
       io3    = 5     !! O3
       ico2   = 6     !! CO2
 
     END SELECT
 
+    nqtendphy = 3  !! number of water species for which physical tendencies are stored
     ntracer_static = 0
 
     IF (ltransport) THEN
@@ -535,13 +535,13 @@ CONTAINS
         
         SELECT CASE (atm_phy_nwp_config(jg)%inwp_radiation)
         CASE (0)
-          IF ( ntracer /= iqcond ) THEN
-            ntracer = iqcond
+          IF ( ntracer /= iqhydro ) THEN
+            ntracer = iqhydro
             WRITE(message_text,'(a,i3)') 'Attention: for NWP physics, '//&
-                                         'ntracer is set to',iqcond
+                                         'ntracer is set to',iqhydro
             CALL message(TRIM(routine),message_text)
           ENDIF
-          IF ( i_listlen /= iqcond ) THEN
+          IF ( i_listlen /= iqhydro ) THEN
             DO jt=1,ntracer
               WRITE(advection_config(jg)%ctracer_list(jt:jt),'(i1.1)')jt
             ENDDO
@@ -552,10 +552,10 @@ CONTAINS
           ENDIF
         CASE (1)
           ntracer_static = 1
-          IF ( ntracer /= iqcond ) THEN
-            ntracer = iqcond
+          IF ( ntracer /= iqhydro ) THEN
+            ntracer = iqhydro
             WRITE(message_text,'(a,i3)') &
-              &  'Attention: according to physics, ntracer is set to', iqcond   
+              &  'Attention: according to physics, ntracer is set to', iqhydro   
             CALL message(TRIM(routine),message_text)
             WRITE(message_text,'(a)') &
               &  'In addition, there is one static tracer for O3'
@@ -573,10 +573,10 @@ CONTAINS
         CASE (2)
           SELECT CASE (irad_o3)
           CASE (0)
-            IF ( ntracer /= iqcond  ) THEN
-              ntracer = iqcond
+            IF ( ntracer /= iqhydro  ) THEN
+              ntracer = iqhydro
               WRITE(message_text,'(a,i3)') &
-                &  'Attention: according to physics, ntracer is set to', iqcond      
+                &  'Attention: according to physics, ntracer is set to', iqhydro      
               CALL message(TRIM(routine),message_text)
             ENDIF
             IF ( i_listlen /= ntracer ) THEN
@@ -590,10 +590,10 @@ CONTAINS
             ENDIF
           CASE (4,6,7)
             ntracer_static = 1
-            IF ( ntracer /= iqcond  ) THEN
-              ntracer = iqcond
+            IF ( ntracer /= iqhydro  ) THEN
+              ntracer = iqhydro
               WRITE(message_text,'(a,i3)') &
-                &  'Attention: according to physics, ntracer is set to', iqcond
+                &  'Attention: according to physics, ntracer is set to', iqhydro
               CALL message(TRIM(routine),message_text)           
               WRITE(message_text,'(a)') &
                 &  'In addition, there is one static tracer for O3'

@@ -50,15 +50,15 @@ MODULE mo_nh_jabw_exp
 
    USE mo_kind,                ONLY: wp
    USE mo_physical_constants,  ONLY: rd, rd_o_cpd, p0ref, grav, tmelt,  &
-                                   & cvd_o_rd, re, omega, rv
+     &                               cvd_o_rd, re, omega, rv
    USE mo_model_domain,        ONLY: t_patch
    USE mo_nonhydro_state,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
-   USE mo_run_config,          ONLY: iqv,iqcond, ntracer
+   USE mo_run_config,          ONLY: iqv, ntracer
    USE mo_impl_constants,      ONLY: inwp, MAX_CHAR_LENGTH
    USE mo_parallel_config,     ONLY: nproma, p_test_run
-   USE mo_satad,               ONLY:  sat_pres_water, &  !! saturation vapor pressure w.r.t. water
-            &                         sat_pres_ice,   &  !! saturation vapor pressure w.r.t. ice
-            &                         spec_humi          !! Specific humidity
+   USE mo_satad,               ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
+     &                               sat_pres_ice,   &  !! saturation vapor pressure w.r.t. ice
+     &                               spec_humi          !! Specific humidity
    USE mo_exception,           ONLY: message, finish, message_text
    USE mo_advection_config,    ONLY: advection_config
    USE mo_ncar_testcases,      ONLY: tracer_q1_q2, tracer_q3

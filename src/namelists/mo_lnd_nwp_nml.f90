@@ -213,6 +213,14 @@ MODULE mo_lnd_nwp_nml
         &  'incorrect settings for nsfc_snow. Must be <= nsfc_subs')
     ENDIF
 
+    !Multi-layer snow model
+    !
+    IF ( (lmulti_snow) .AND. (nlev_snow <= 1) ) THEN
+      CALL finish( TRIM(routine),                                   &
+        &  'nlev_snow must be >1 when running the multi-layer snow model')
+    ENDIF
+
+
     !----------------------------------------------------
     ! 5. Fill the configuration state
     !----------------------------------------------------
