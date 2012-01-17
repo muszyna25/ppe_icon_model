@@ -1183,9 +1183,7 @@ CONTAINS
 !            z_ddt_qsum = SUM(prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqc:iqs))
 
             z_ddt_qsum =   prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqc) &
-              &          + prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqi) !DR&
-!DR              &          + prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqr) &
-!DR              &          + prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqs)
+              &          + prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqi)
 
             pt_diag%ddt_exner_phy(jc,jk,jb) = rd_o_cpd / pt_prog%theta_v(jc,jk,jb)           &
               &                             * (z_ddt_temp(jc,jk,jb)                          &

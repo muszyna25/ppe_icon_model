@@ -478,7 +478,6 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
       !> in case of ECHAM version  update temperature and moist fields
       !-------------------------------------------------------------------------
 
-!DR      DO jt=1,3 ! iqv,iqc,iqi
       DO jt=1,nqtendphy ! iqv,iqc,iqi
         DO jk = 1, nlev
           DO jc = i_startidx, i_endidx

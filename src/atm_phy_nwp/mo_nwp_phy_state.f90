@@ -427,7 +427,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     TYPE(t_cf_var)    ::    cf_desc
     TYPE(t_grib2_var) :: grib2_desc
 
-    INTEGER :: shape2d(2), shape3d(3), shape4d(4), shapesfc(3)
+    INTEGER :: shape2d(2), shape3d(3), shapesfc(3)
     INTEGER :: shape3dkp1(3)
     INTEGER :: ientr,  kcloud
     INTEGER :: jsfc 
@@ -441,7 +441,6 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     shape2d    = (/nproma,            kblks            /)
     shape3d    = (/nproma, klev,      kblks            /)
     shape3dkp1 = (/nproma, klevp1,    kblks            /)
-!DR    shape4d    = (/nproma, klev,      kblks, nqtendphy /)
 
     IF( atm_phy_nwp_config(k_jg)%inwp_turb == 2) THEN
       shapesfc   = (/nproma,          kblks, nsfc_type /)
