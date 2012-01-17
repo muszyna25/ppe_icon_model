@@ -202,7 +202,7 @@ CONTAINS
       IF( atm_phy_nwp_config(jg)%inwp_surface == 0) THEN
         ! check dry case
         IF( atm_phy_nwp_config(jg)%inwp_satad == 0) THEN
-          lnd_diag%qv_s (:,:) = 0._wp
+          lnd_diag%qv_s (:,jb) = 0._wp
         ELSE
           ! 
           !> adjust  humidity at water surface because of changed surface pressure
