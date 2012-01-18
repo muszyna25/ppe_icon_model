@@ -374,6 +374,17 @@ export MP_RFIFO_SIZE=4M
 export MP_SHM_ATTACH_THRESH=500000
 export LAPI_DEBUG_STRIPE_SEND_FLIP=8
 #========================================
+
+run_model()
+{
+  date
+  mkdir -p rusage
+  poe ksh93 -c 'exec getrusage -o rusage/model.${MP_CHILD} ${MODEL}'
+  getrusage_aggregate rusage/model.*
+  date
+}
+#========================================
+
 EOF
 }
 

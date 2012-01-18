@@ -324,7 +324,7 @@ done
 #
 #  get model
 #
-MODEL=${bindir}/control_model
+export MODEL=${bindir}/control_model
 #
 ls -l ${MODEL}
 check_error $? "${MODEL} does not exist?"
@@ -335,9 +335,13 @@ check_error $? "${MODEL} does not exist?"
 #
 cd ${EXPDIR}
 #
-date
-${START} ${MODEL}
-date
+if [ x$target = "blizzard" ] ; then
+  run_model
+else
+  date
+  ${START} ${MODEL}
+  date
+fi
 #
 if [ -r finish.status ] ; then
   check_error 0 "${START} ${MODEL}"
