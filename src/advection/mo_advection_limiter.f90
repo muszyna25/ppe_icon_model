@@ -48,6 +48,7 @@ MODULE mo_advection_limiter
   USE mo_math_constants,      ONLY: dbl_eps
   USE mo_physical_constants,  ONLY: re
   USE mo_model_domain,        ONLY: t_patch
+  USE mo_grid_config,         ONLY: l_limited_area
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_sync,                ONLY: SYNC_C1, sync_patch_array, sync_patch_array_mult
   USE mo_parallel_config,     ONLY: nproma, p_test_run
@@ -353,6 +354,18 @@ CONTAINS
     ENDDO
 !$OMP END DO
 
+    ! Additional initialization of lateral boundary points is needed for limited-area mode
+    IF ( l_limited_area .AND. ptr_patch%id == 1) THEN
+
+      i_startblk   = ptr_patch%cells%start_blk(1,1)
+      i_endblk     = ptr_patch%cells%end_blk(grf_bdywidth_c-1,1)
+
+!$OMP WORKSHARE
+      r_m(:,:,i_startblk:i_endblk) = 0._wp
+      r_p(:,:,i_startblk:i_endblk) = 0._wp
+!$OMP END WORKSHARE
+    ENDIF
+
     ! 4. Limit the antidiffusive fluxes z_mflx_anti, such that the updated tracer
     !    field is free of any new extrema.
 
@@ -603,6 +616,17 @@ CONTAINS
     SELECT CASE (ptr_patch%cell_type)
 
     CASE(3)
+
+      ! Additional initialization of lateral boundary points is needed for limited-area mode
+      IF ( l_limited_area .AND. ptr_patch%id == 1) THEN
+
+        i_startblk   = ptr_patch%cells%start_blk(1,1)
+        i_endblk     = ptr_patch%cells%end_blk(grf_bdywidth_c-1,1)
+
+!$OMP WORKSHARE
+        r_m(:,:,i_startblk:i_endblk) = 0._wp
+!$OMP END WORKSHARE
+      ENDIF
 
       i_rlstart_c = grf_bdywidth_c 
       i_rlend_c   = min_rlcell_int
