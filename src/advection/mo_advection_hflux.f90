@@ -85,6 +85,7 @@ MODULE mo_advection_hflux
     &                               ifluxl_m, ifluxl_sm, INH_ATMOSPHERE,        &
     &                               IHS_ATM_TEMP, ISHALLOW_WATER, IHS_ATM_THETA
   USE mo_model_domain,        ONLY: t_patch
+  USE mo_grid_config,         ONLY: l_limited_area
   USE mo_math_operators,      ONLY: grad_green_gauss_cell, recon_lsq_cell_l,    &
     &                               recon_lsq_cell_q, recon_lsq_cell_cpoor,     &
     &                               recon_lsq_cell_c, directional_laplace,      &
@@ -948,7 +949,7 @@ CONTAINS
     i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
 
     ! initialize also nest boundary points with zero
-    IF ( l_out_edgeval .AND. p_patch%id > 1 ) THEN
+    IF ( l_out_edgeval .AND. (p_patch%id > 1 .OR. l_limited_area)) THEN
 !$OMP WORKSHARE
       p_out_e(:,:,1:i_startblk) = 0._wp
 !$OMP END WORKSHARE
@@ -1495,7 +1496,7 @@ CONTAINS
       i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
 
 
-    IF ( p_patch%id > 1 ) THEN
+    IF ( p_patch%id > 1 .OR. l_limited_area) THEN
 !$OMP WORKSHARE
       z_tracer_mflx(:,:,1:i_startblk) = 0._wp
 !$OMP END WORKSHARE
@@ -1569,7 +1570,7 @@ CONTAINS
 
 
     ! initialize also nest boundary points with zero
-    IF ( p_patch%id > 1 ) THEN
+    IF ( p_patch%id > 1 .OR. l_limited_area) THEN
 !$OMP WORKSHARE
       z_tracer(:,:,1:i_startblk,nnew) = 0._wp
 !$OMP END WORKSHARE
@@ -1636,7 +1637,7 @@ CONTAINS
     ENDIF
 
     ! initialize also nest boundary points with zero
-    IF ( l_out_edgeval .AND. p_patch%id > 1 ) THEN
+    IF ( l_out_edgeval .AND. (p_patch%id > 1 .OR. l_limited_area) ) THEN
 !$OMP WORKSHARE
       p_out_e(:,:,1:i_startblk) = 0._wp
 !$OMP END WORKSHARE
@@ -2122,7 +2123,7 @@ CONTAINS
     i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
 
     ! initialize also nest boundary points with zero
-    IF ( l_out_edgeval .AND. p_patch%id > 1 ) THEN
+    IF ( l_out_edgeval .AND. (p_patch%id > 1 .OR. l_limited_area) ) THEN
 !$OMP WORKSHARE
       p_out_e(:,:,1:i_startblk) = 0._wp
 !$OMP END WORKSHARE
