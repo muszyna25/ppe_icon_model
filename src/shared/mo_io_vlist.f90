@@ -1989,7 +1989,7 @@ CONTAINS
 
         ! Tracer tendencies
         IF (ntracer > 0) THEN
-          DO jt = 1, iqhydro
+          DO jt = 1, nqtendphy
             ctracer = ctracer_list(jt:jt)
             WRITE(qname,'(A6,A1,A5)') "tend_q",ctracer, "_conv"
             CALL addVar(TimeVar(TRIM(qname), &
@@ -1999,7 +1999,7 @@ CONTAINS
                 &       k_jg)
           END DO
 
-          DO jt = 1, iqhydro
+          DO jt = 1, nqtendphy
             ctracer = ctracer_list(jt:jt)
             WRITE(qname,'(A6,A1,A5)') "tend_q",ctracer, "_turb"
             CALL addVar(TimeVar(TRIM(qname),&

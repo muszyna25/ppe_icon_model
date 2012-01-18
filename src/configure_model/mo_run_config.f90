@@ -55,6 +55,8 @@ MODULE mo_run_config
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
+    ! Namelist variables
+    !
     LOGICAL :: ldump_states    !< Compute interpolation coefficients and stop.
     LOGICAL :: lrestore_states !< Read interpolation coefficients from external file.
     LOGICAL :: l_one_file_per_patch !< Use one or several files per patch for dump/restore
@@ -65,54 +67,55 @@ MODULE mo_run_config
     LOGICAL :: ltestcase       !< Run idealized test case
     LOGICAL :: ldynamics       !< Switch on model dynamics
     INTEGER :: iforcing        !< Choice of diabatic forcing
-    LOGICAL :: lforcing        !<
 
     LOGICAL :: ltransport      !< Switch on tracer transport
     INTEGER :: ntracer         !< Total number of advected tracers
-    INTEGER :: ntracer_static  !< Total number of non-advected tracers
 
-    INTEGER :: nlev               ! number of full levels for each domain
-    INTEGER :: nlevp1             ! number of half levels for each domain
-    INTEGER :: nvclev             ! number of levels at which the coeffs A, B are given
+    LOGICAL :: lvert_nest         !< switch for vertical nesting
+    INTEGER :: num_lev  (MAX_DOM) !< number of full levels for each domain
+    INTEGER :: nshift   (MAX_DOM) !< half level of parent domain which coincides 
+                                  !< with the upper boundary of the current domain jg
 
-    LOGICAL :: lvert_nest         ! switch for vertical nesting
-    INTEGER :: num_lev  (MAX_DOM) ! number of full levels for each domain
-    INTEGER :: num_levp1(MAX_DOM) ! number of half levels for each domain
-    INTEGER :: nshift   (MAX_DOM) ! half level of parent domain which coincides 
-                                  ! with the upper boundary of the current domain jg
+    INTEGER :: nsteps          !< number of time steps to integrate
+    REAL(wp):: dtime           !< [s] length of a time step
 
-    INTEGER :: nsteps          ! number of time steps to integrate
-    REAL(wp):: dtime           ! [s] length of a time step
-
-    LOGICAL :: ltimer          ! if .TRUE.,  the timer is switched on
-    INTEGER :: timers_level    ! what level of timers to run
+    LOGICAL :: ltimer          !< if .TRUE.,  the timer is switched on
+    INTEGER :: timers_level    !< what level of timers to run
     LOGICAL :: activate_sync_timers
   
-    REAL(wp):: check_epsilon   ! small value for checks
+    REAL(wp):: check_epsilon   !< small value for checks
     INTEGER :: testbed_mode
 
-    INTEGER :: msg_level       ! how much printout is generated during runtime
+    INTEGER :: msg_level       !< how much printout is generated during runtime
 
+
+    ! Derived variables
+    !
     ! Tracer indices of water species
-
-    INTEGER :: iqv        ! water vapor
-    INTEGER :: iqc        ! cloud water
-    INTEGER :: iqi        ! cloud ice
-    INTEGER :: iqr        ! rain water
-    INTEGER :: iqs        ! snow
-    INTEGER :: iqhydro    ! index of last hydrometeor to ease summation over all of them
-    INTEGER :: nqtendphy  ! number of water species for which physical tendencies are stored
+    INTEGER :: iqv        !< water vapor
+    INTEGER :: iqc        !< cloud water
+    INTEGER :: iqi        !< cloud ice
+    INTEGER :: iqr        !< rain water
+    INTEGER :: iqs        !< snow
+    INTEGER :: iqhydro    !< index of last hydrometeor to ease summation over all of them
+    INTEGER :: nqtendphy  !< number of water species for which physical tendencies are stored
   
     ! Tracer indices of other species
+    INTEGER :: io3        !< O3
+    INTEGER :: ico2       !< CO2
+    INTEGER :: iqt        !< start index of other tracers than hydrometeors
 
-    INTEGER :: io3        ! O3
-    INTEGER :: ico2       ! CO2
-  
-    INTEGER :: iqt        ! start index of other tracers than hydrometeors
 
-    ! derived variables
+    REAL(wp) :: dtime_adv !< advective timestep on global patch (iadv_rcf*dtime) [s]
 
-    REAL(wp) :: dtime_adv ! advective timestep on global patch (iadv_rcf*dtime) [s]
+    INTEGER :: num_levp1(MAX_DOM) !< number of half levels for each domain
+    INTEGER :: nlev               !< number of full levels for each domain
+    INTEGER :: nlevp1             !< number of half levels for each domain
+    INTEGER :: nvclev             !< number of levels at which the coeffs A, B are given
+
+    INTEGER :: ntracer_static     !< Total number of non-advected tracers
+
+    LOGICAL :: lforcing           !< diabatic forcing TRUE/FALSE
 
 CONTAINS
   !>
@@ -160,10 +163,6 @@ CONTAINS
       lforcing = .FALSE.
     END SELECT
 
-   !!--------------------------
-   !! Number of static tracers
-
-   !ntracer_static = 0
 
   END SUBROUTINE configure_run
 

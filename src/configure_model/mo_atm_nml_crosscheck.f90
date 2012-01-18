@@ -494,6 +494,8 @@ CONTAINS
       iqt    = 4     !! starting index of non-water species 
       io3    = 5     !! O3
       ico2   = 6     !! CO2
+      nqtendphy = 0  !! number of water species for which convective and turbulent 
+                     !! tendencies are stored
 
     CASE (INWP)
 
@@ -506,6 +508,8 @@ CONTAINS
       io3    = 6     !! O3
       ico2   = 7     !! CO2
       iqt    = 6     !! start index of other tracers than hydrometeors
+      nqtendphy = 3  !! number of water species for which convective and turbulent 
+                     !! tendencies are stored
 
     CASE default
 
@@ -516,11 +520,12 @@ CONTAINS
       iqt    = 4     !! starting index of non-water species
       io3    = 5     !! O3
       ico2   = 6     !! CO2
+      nqtendphy = 0  !! number of water species for which convective and turbulent 
+                     !! tendencies are stored
 
     END SELECT
 
-    nqtendphy = 3  !! number of water species for which physical tendencies are stored
-    ntracer_static = 0
+    ntracer_static = 0  !! Total number of non-advected (static) tracers
 
     IF (ltransport) THEN
     DO jg = 1,n_dom

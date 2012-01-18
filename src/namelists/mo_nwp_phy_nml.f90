@@ -196,8 +196,14 @@ CONTAINS
     END SELECT
     CALL close_nml
 
+
     !----------------------------------------------------
-    ! 4. Fill the configuration state
+    ! 4. Sanity check  (if necessary)
+    !----------------------------------------------------
+
+
+    !----------------------------------------------------
+    ! 5. Fill the configuration state
     !----------------------------------------------------
     DO jg=1,max_dom
       atm_phy_nwp_config(jg)%inwp_convection = inwp_convection
@@ -224,14 +230,15 @@ CONTAINS
     ENDDO
 
     !-----------------------------------------------------
-    ! 5. Store the namelist for restart
+    ! 6. Store the namelist for restart
     !-----------------------------------------------------
     IF(my_process_is_stdio())  THEN
       funit = open_tmpfile()
       WRITE(funit,NML=nwp_phy_nml)                    
       CALL store_and_close_namelist(funit, 'nwp_phy_nml') 
     ENDIF
-    ! 6. write the contents of the namelist to an ASCII file
+
+    ! 7. write the contents of the namelist to an ASCII file
     !
     IF(my_process_is_stdio()) WRITE(nnml_output,nml=nwp_phy_nml)
 
