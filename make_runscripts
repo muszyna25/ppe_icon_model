@@ -330,8 +330,11 @@ if [ $make_exp = "true" ] ; then
   exp_name=test_nat_ape-dec
   runname=exp.${exp_name}.run
 
+#   $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME=${exp_name} out_script=${runname} \
+#   atmo_dyn_gridname="iconR2B04_DOM01" atmo_rad_gridname="iconR2B03_DOM00" division_method=1 nsteps=720 cpu_time="04:00:00" \
+#   memory_model="small"
   $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME=${exp_name} out_script=${runname} \
-  atmo_dyn_gridname="iconR2B04_DOM01" atmo_rad_gridname="iconR2B03_DOM00" division_method=1 nsteps=720 cpu_time="04:00:00" \
+  atmo_dyn_gridname="iconR2B04_DOM01" atmo_rad_gridname="" division_method=1 nsteps=720 cpu_time="04:00:00" \
   memory_model="small"
 fi
 #==============================================================================
