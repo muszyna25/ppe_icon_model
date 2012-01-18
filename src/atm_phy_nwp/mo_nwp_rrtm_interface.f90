@@ -653,8 +653,13 @@ CONTAINS
       &           CALL message('mo_nwp_rad_interface', 'RRTM radiation on full grid')
 
 !$OMP PARALLEL
+#ifdef __xlC__
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,itype, &
+!$OMP            ist,zvege,zsnow,zsalb_snow,zsnow_alb)
+#else
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,itype, &
 !$OMP            ist,zvege,zsnow,zsalb_snow,zsnow_alb),SCHEDULE(guided)
+#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -1179,8 +1184,11 @@ CONTAINS
       i_endblk   = ptr_pp%cells%end_blk(rl_end,i_chidx)
 
 !$OMP PARALLEL
+#ifdef __xlC__
+!$OMP DO PRIVATE(jb,jk,i_startidx,i_endidx,itype)
+#else
 !$OMP DO PRIVATE(jb,jk,i_startidx,i_endidx,itype),SCHEDULE(guided)      
-
+#endif
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, &

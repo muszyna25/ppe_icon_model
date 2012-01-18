@@ -139,9 +139,13 @@ CONTAINS
 
 !$OMP PARALLEL
 
+#ifdef __xlC__
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_omega_p,z_plitot,z_qhfl,z_shfl,z_mflxr,&
+!$OMP            z_mflxs,z_dtdqv,z_dtdt,z_dtdqv_sv,z_dtdt_sv)
+#else
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_omega_p,z_plitot,z_qhfl,z_shfl,z_mflxr,&
 !$OMP            z_mflxs,z_dtdqv,z_dtdt,z_dtdqv_sv,z_dtdt_sv),SCHEDULE(guided)
-
+#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &

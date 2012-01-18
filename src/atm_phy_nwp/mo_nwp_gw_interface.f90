@@ -141,8 +141,11 @@ CONTAINS
 
 
 !$OMP PARALLEL
+#ifdef __xlC__
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,ztot_prec_rate)
+#else
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,ztot_prec_rate),SCHEDULE(guided)
-
+#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &

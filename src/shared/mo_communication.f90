@@ -1926,7 +1926,7 @@ SUBROUTINE exchange_data_gm(p_pat, nfields, ndim2tot, send_buf, recv_buf, recv1,
    ! Set up send buffer
 #ifdef __SX__
    IF ( lsend ) THEN
-!$OMP DO SCHEDULE(guided)
+!$OMP DO
      DO n = 1, nfields
 !CDIR UNROLL=6
        DO k = 1, ndim2(n)
@@ -1939,7 +1939,7 @@ SUBROUTINE exchange_data_gm(p_pat, nfields, ndim2tot, send_buf, recv_buf, recv1,
 !$OMP END DO NOWAIT
    ELSE
        ! Send and receive arrays are identical (for boundary exchange)
-!$OMP DO SCHEDULE(guided)
+!$OMP DO 
      DO n = 1, nfields
 !CDIR UNROLL=6
        DO k = 1, ndim2(n)

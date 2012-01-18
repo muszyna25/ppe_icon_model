@@ -613,7 +613,11 @@ CONTAINS
       &           CALL message('mo_nwp_rad_interface', 'RRTM radiation on full grid')
 
 !$OMP PARALLEL
+#ifdef __xlC__
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,itype)
+#else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,itype),SCHEDULE(guided)
+#endif
     !
     DO jb = i_startblk, i_endblk
 

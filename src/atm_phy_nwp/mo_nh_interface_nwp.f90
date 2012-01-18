@@ -804,8 +804,11 @@ CONTAINS
       !-------------------------------------------------------------------------
 
 !$OMP PARALLEL
+#ifdef __xlC__
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,rcld)
+#else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,rcld),SCHEDULE(guided)
-
+#endif
       DO jb = i_startblk, i_endblk
         !
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &

@@ -296,8 +296,13 @@ MODULE mo_nwp_rad_interface
     i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
+#ifdef __xlC__
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,zi0,losol,lo_sol, &
+!$OMP            ist,zvege,zsnow,zsalb_snow,zsnow_alb)
+#else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,zi0,losol,lo_sol, &
 !$OMP            ist,zvege,zsnow,zsalb_snow,zsnow_alb),SCHEDULE(guided)
+#endif
     
     DO jb = i_startblk, i_endblk
 
@@ -852,7 +857,11 @@ MODULE mo_nwp_rad_interface
 
 
 !$OMP PARALLEL
+#ifdef __xlC__
+!$OMP DO PRIVATE(jb,jk,i_startidx,i_endidx,lo_sol,losol,zi0)
+#else
 !$OMP DO PRIVATE(jb,jk,i_startidx,i_endidx,lo_sol,losol,zi0) ,SCHEDULE(guided)
+#endif
     !
     DO jb = i_startblk, i_endblk
 

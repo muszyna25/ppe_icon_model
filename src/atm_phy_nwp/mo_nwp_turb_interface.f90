@@ -217,7 +217,11 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 
 !$OMP PARALLEL
 
+#ifdef __xlC__
+!$OMP DO PRIVATE(jb,jt,jc,jk,i_startidx,i_endidx,ierrstat,errormsg,eroutine)
+#else
 !$OMP DO PRIVATE(jb,jt,jc,jk,i_startidx,i_endidx,ierrstat,errormsg,eroutine), SCHEDULE(guided)
+#endif
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &

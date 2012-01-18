@@ -193,7 +193,11 @@ CONTAINS
     ENDIF
 
 !$OMP PARALLEL
+#ifdef __xlC__
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,isubs)
+#else
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,isubs), SCHEDULE(guided)
+#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -451,8 +455,11 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
-
+#ifdef __xlC__
+!$OMP DO PRIVATE(jb,jc,isubs,i_startidx,i_endidx)
+#else
 !$OMP DO PRIVATE(jb,jc,isubs,i_startidx,i_endidx), SCHEDULE(guided)
+#endif
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &

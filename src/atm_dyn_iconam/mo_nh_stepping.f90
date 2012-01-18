@@ -1,6 +1,5 @@
 #ifdef __xlC__
 !@PROCESS NOHOT
-!@PROCESS NOOPTimize
 #endif
 !>
 !! Initializes and controls the time stepping in the nonhydrostatic model.
