@@ -488,8 +488,8 @@ CONTAINS
     REAL(wp), INTENT(INOUT) :: w(:,:,:)  ! vertical wind component (m/s)
 
     ! LOCAL VARIABLES
-    INTEGER :: jb, jk, je, jc
-    INTEGER :: nlev, nlevp1, nblks_e, nblks_c, i_startblk, i_startidx, i_endidx
+    INTEGER :: jb, jk, je, jc, ktop
+    INTEGER :: nlev, nlevp1, nblks_e, nblks_c, nshift, i_startblk, i_startidx, i_endidx
 
     REAL(wp) :: z_wsfc_e(nproma,1,p_patch%nblks_e) ! w at surface (edge points)
     REAL(wp) :: z_wsfc_c(nproma,1,p_patch%nblks_c) ! w at surface (cell points)
@@ -499,6 +499,14 @@ CONTAINS
     nlevp1  = p_patch%nlevp1
     nblks_e = p_patch%nblks_e
     nblks_c = p_patch%nblks_c
+    nshift  = p_patch%nshift_total
+
+    ! In order to initialize w(1) = 0 except for vertical nesting
+    IF (nshift == 0) THEN
+      ktop = 2
+    ELSE
+      ktop = 1
+    ENDIF
 
     ! Compute slope at edges
     CALL grad_fd_norm (z_ifc, p_patch, z_slope_e, 1, nlevp1)
@@ -538,9 +546,9 @@ CONTAINS
       DO jc = i_startidx, i_endidx
         w(jc,nlevp1,jb) = z_wsfc_c(jc,1,jb)
       ENDDO
-      DO jk = nlev, 2, -1
+      DO jk = nlev, ktop, -1
         DO jc = i_startidx, i_endidx
-          w(jc,jk,jb) = z_wsfc_c(jc,1,jb)*vct_b(jk)**2
+          w(jc,jk,jb) = z_wsfc_c(jc,1,jb)*vct_b(jk+nshift)
         ENDDO
       ENDDO
     ENDDO
@@ -579,8 +587,8 @@ CONTAINS
     REAL(wp), INTENT(INOUT) :: w(:,:,:)  ! vertical wind component (m/s)
 
     ! LOCAL VARIABLES
-    INTEGER :: jb, jk, je, jc
-    INTEGER :: nlev, nlevp1, nblks_e, nblks_c, i_startblk, i_startidx, i_endidx
+    INTEGER :: jb, jk, je, jc, ktop
+    INTEGER :: nlev, nlevp1, nblks_e, nblks_c, nshift, i_startblk, i_startidx, i_endidx
     REAL(wp):: wfac
 
     REAL(wp) :: z_wsfc_e(nproma,1,p_patch%nblks_e) ! w at surface (edge points)
@@ -591,6 +599,14 @@ CONTAINS
     nlevp1  = p_patch%nlevp1
     nblks_e = p_patch%nblks_e
     nblks_c = p_patch%nblks_c
+    nshift  = p_patch%nshift_total
+
+    ! In order to initialize w(1) = 0 except for vertical nesting
+    IF (nshift == 0) THEN
+      ktop = 2
+    ELSE
+      ktop = 1
+    ENDIF
 
     ! Compute slope at edges
     CALL grad_fd_norm (z_ifc, p_patch, z_slope_e, 1, nlevp1)
@@ -628,19 +644,22 @@ CONTAINS
       ENDDO
 
       ! Merging of lower boundary condition with interpolated data
-      DO jk = nlev, 2, -1
-        wfac = vct_b(jk)**6
+      DO jk = nlev, ktop, -1
+        wfac = vct_b(jk+nshift)**2
         DO jc = i_startidx, i_endidx
           w(jc,jk,jb) = (1._wp-wfac)*w(jc,jk,jb) + wfac*z_wsfc_c(jc,1,jb)
         ENDDO
       ENDDO
 
-      ! Upper boundary condition and smooth transition below
-      DO jc = i_startidx, i_endidx
-        w(jc,1,jb) = 0._wp
-        w(jc,2,jb) = 0.33_wp*w(jc,2,jb)
-        w(jc,3,jb) = 0.66_wp*w(jc,3,jb)
-      ENDDO
+      IF (nshift == 0) THEN
+        ! Upper boundary condition and smooth transition below
+        ! if domain is not vertically nested
+        DO jc = i_startidx, i_endidx
+          w(jc,1,jb) = 0._wp
+          w(jc,2,jb) = 0.33_wp*w(jc,2,jb)
+          w(jc,3,jb) = 0.66_wp*w(jc,3,jb)
+        ENDDO
+      ENDIF
 
     ENDDO
 !$OMP END DO
@@ -780,10 +799,6 @@ CONTAINS
                    'allocation of vct failed')
     ENDIF
 
-    DO jk = 1, nlevp1
-      vct_b(jk) = (REAL(jk-1,wp)/REAL(nlev,wp))**1.25_wp
-    ENDDO
-
     z_exp = LOG(min_lay_thckn/top_height)/LOG(2._wp/pi*ACOS(REAL(nlev-1,wp)**stretch_fac/&
       &     REAL(nlev,wp)**stretch_fac))
 
@@ -794,6 +809,7 @@ CONTAINS
     DO jk = 1, nlevp1
       vct_a(jk)      = top_height*(2._wp/pi*ACOS(REAL(jk-1,wp)**stretch_fac/ &
         &              REAL(nlev,wp)**stretch_fac))**z_exp
+      vct_b(jk)      = EXP(-vct_a(jk)/5000._wp)
       vct(jk)        = vct_a(jk)
       vct(jk+nlevp1) = vct_b(jk)
     ENDDO
