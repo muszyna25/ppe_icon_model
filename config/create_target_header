@@ -117,7 +117,7 @@ START="\$start"
 # ----------------------------
 export OMP_NUM_THREADS=${use_openmp_threads}
 export ICON_THREADS=${use_openmp_threads}
-export OMP_SCHEDULE="static"
+export OMP_SCHEDULE=${use_OMP_SCHEDULE}
 export OMP_DYNAMIC="false"
 export OMP_STACKSIZE=${use_omp_stacksize}
 #----------------------------------
@@ -202,6 +202,7 @@ set_run_target_blizzard()
 
   set_default use_nproma 32
   set_default use_nodes 1
+  use_OMP_SCHEDULE="dynamic,1"
   
   if [[ $use_mpi == "yes" ]]; then
     if [[ $use_openmp == "yes" ]]; then
@@ -378,9 +379,9 @@ export LAPI_DEBUG_STRIPE_SEND_FLIP=8
 run_model()
 {
   date
-  mkdir -p rusage
-  poe ksh93 -c 'exec getrusage -o rusage/model.${MP_CHILD} ${MODEL}'
-  getrusage_aggregate rusage/model.*
+  mkdir -p resource_usage
+  poe ksh93 -c 'exec getrusage -o resource_usage/model.\${MP_CHILD} \${MODEL}'
+  getrusage_aggregate resource_usage/model.*
   date
 }
 #========================================
@@ -759,6 +760,7 @@ create_target_header()
 
   cdo="cdo"
   cdo_diff="diffn"
+  use_OMP_SCHEDULE="static"
 
   if [[ "$use_mpi" == "no" ]]; then
     use_nodes=1
