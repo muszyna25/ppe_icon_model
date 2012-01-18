@@ -326,6 +326,7 @@ fi
 #==============================================================================
 # check typical nh ape setup for exp.nat_ape-dec
 if [ $make_exp = "true" ] ; then
+  if [ $use_mpi = "yes" ] ; then
   name=nat_ape-dec
   exp_name=test_nat_ape-dec
   runname=exp.${exp_name}.run
@@ -336,6 +337,7 @@ if [ $make_exp = "true" ] ; then
 #   $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME=${exp_name} out_script=${runname} \
 #   atmo_dyn_gridname="iconR2B04_DOM01" atmo_rad_gridname="" division_method=1 nsteps=720 cpu_time="04:00:00" \
 #   memory_model="small"
+  fi
 fi
 #==============================================================================
 
