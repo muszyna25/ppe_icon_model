@@ -335,7 +335,7 @@ check_error $? "${MODEL} does not exist?"
 #
 cd ${EXPDIR}
 #
-if [ x$target = "blizzard" ] ; then
+if [ x$target = "xblizzard" ] ; then
   run_model
 else
   date
