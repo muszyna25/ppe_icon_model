@@ -748,7 +748,7 @@ MODULE mo_solve_nh_async
         i_endblk   = p_patch%edges%end_blk  (rl_end,i_nchdom)
 
         ! initialize also nest boundary points with zero
-        IF (p_patch%id > 1 ) THEN
+        IF (p_patch%id > 1 .OR. l_limited_area) THEN
 !$OMP WORKSHARE
           z_rho_e    (:,:,1:i_startblk) = 0._wp
           z_theta_v_e(:,:,1:i_startblk) = 0._wp
