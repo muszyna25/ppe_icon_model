@@ -166,13 +166,25 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
        ppe          ! Pressure deviation from reference pressure needed in COSMO
 #endif
 
+#ifdef __xlC__
+  ! LL: xlc has trouble optimizing with the assumed shape, define the shape
+  REAL    (KIND=ireals),    INTENT (INOUT), DIMENSION(idim,kdim) ::  &  !  dim (idim,kdim)
+#else
   REAL    (KIND=ireals),    INTENT (INOUT), DIMENSION(:,:) ::  &  !  dim (idim,kdim)
+#endif
        te      , & ! Temperature on input/ouput
        qve     , & ! Specific humidity on input/output
        qce         ! Specific cloud water content on input/output
 
 #ifdef __ICON__
+#ifdef __xlC__
+  ! LL: xlc has trouble optimizing with the assumed shape, define the shape
+  ! note: that these are actually intent(in)
+  !       declared as intent(inout) to avoid copying
+  REAL    (KIND=ireals),    INTENT (inout),  DIMENSION(idim,kdim) ::  &  !  dim (idim,kdim)
+#else
   REAL    (KIND=ireals),    INTENT (IN),  DIMENSION(:,:) ::  &  !  dim (idim,kdim)
+#endif
        rhotot    ! density containing dry air and water constituents
 #endif
 
