@@ -467,7 +467,14 @@ SUBROUTINE hydci_pp(                 &
     qi0,qc0          !> cloud ice/water threshold for autoconversion
 #endif
 
+#ifdef __xlC__
+  ! LL: xlc has trouble optimizing with the assumed shape, define the shape
+  ! note: that these are actually intent(in)
+  !       declared as intent(inout) to avoid copying
+  REAL(KIND=ireals), DIMENSION(ie,ke), INTENT(INOUT) ::      &   ! (ie,ke)
+#else
   REAL(KIND=ireals), DIMENSION(:,:), INTENT(IN) ::      &   ! (ie,ke)
+#endif
     dz              ,    & !> layer thickness of full levels                (  m  )
     rho             ,    & !! density of moist air                          (kg/m3)
     p                      !! pressure                                      ( Pa  )
@@ -475,7 +482,12 @@ SUBROUTINE hydci_pp(                 &
   LOGICAL, INTENT(IN), OPTIONAL :: &
     l_cv                   !! if true, cv is used instead of cp
 
+#ifdef __xlC__
+  ! LL: xlc has trouble optimizing with the assumed shape, define the shape
+  REAL(KIND=ireals), DIMENSION(ie,ke), INTENT(INOUT) ::   &   ! dim (ie,ke)
+#else
   REAL(KIND=ireals), DIMENSION(:,:), INTENT(INOUT) ::   &   ! dim (ie,ke)
+#endif
     t               ,    & !> temperature                                   (  K  )
     qv              ,    & !! specific water vapor content                  (kg/kg)
     qc              ,    & !! specific cloud water content                  (kg/kg)
@@ -483,11 +495,24 @@ SUBROUTINE hydci_pp(                 &
     qr              ,    & !! specific rain content                         (kg/kg)
     qs                     !! specific snow content                         (kg/kg)
 
+#ifdef __xlC__
+  ! LL: xlc has trouble optimizing with the assumed shape, define the shape
+  REAL(KIND=ireals), DIMENSION(ie), INTENT(INOUT) ::   &   ! dim (ie)
+#else
   REAL(KIND=ireals), DIMENSION(:), INTENT(INOUT) ::   &   ! dim (ie)
+#endif
     prr_gsp,             & !> precipitation rate of rain, grid-scale        (kg/(m2*s))
     prs_gsp                !! precipitation rate of snow, grid-scale        (kg/(m2*s))
 
+#ifdef __xlC__
+  ! LL: xlc has trouble optimizing with the assumed shape, define the shape
+  ! note: that these are actually intent(out)
+  !       declared as intent(inout) to avoid copying
+  REAL(KIND=ireals), DIMENSION(ie,ke), INTENT(INOUT), OPTIONAL ::   &     ! dim (ie,ke)
+#else
   REAL(KIND=ireals), DIMENSION(:,:), INTENT(OUT), OPTIONAL ::   &     ! dim (ie,ke)
+#endif
+
     ddt_tend_t      , & !> tendency T                                       ( 1/s )
     ddt_tend_qv     , & !! tendency qv                                      ( 1/s )
     ddt_tend_qc     , & !! tendency qc                                      ( 1/s )
@@ -495,7 +520,14 @@ SUBROUTINE hydci_pp(                 &
     ddt_tend_qr     , & !! tendency qr                                      ( 1/s )
     ddt_tend_qs         !! tendency qs                                      ( 1/s )
 
+#ifdef __xlC__
+  ! LL: xlc has trouble optimizing with the assumed shape, define the shape
+  ! note: that these are actually intent(out)
+  !       declared as intent(inout) to avoid copying
+  REAL(KIND=ireals), DIMENSION(ie,ke), INTENT(INOUT), OPTIONAL ::   &   ! dim (ie,ke)
+#else
   REAL(KIND=ireals), DIMENSION(:,:), INTENT(OUT), OPTIONAL ::   &   ! dim (ie,ke)
+#endif
     ddt_diag_au     , & !> optional output autoconversion rate cloud to rain           ( 1/s )
     ddt_diag_ac     , & !! optional output accretion rate cloud to rain                ( 1/s )
     ddt_diag_ev     , & !! optional output evaporation of rain                         ( 1/s )
