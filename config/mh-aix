@@ -82,7 +82,8 @@ case $ac_sitename in
     config_target=blizzard
     NETCDFROOT  = /sw/aix53/netcdf-3.6.3
     LAPACKROOT  = /sw/aix53/lapack-3.2.0
-    LAPACK_LIB  = -llapack -lessl -lblas
+   # LAPACK_LIB  = -llapack -lessl -lblas
+    LAPACK_LIB  = -lmass -lmassvp6  -L/sw/aix53/lapack-3.2.0/lib -llapack -lessl -lblas
     MPIROOT=/usr/lpp/ppe.poe
     
     load_profile="." "/client/etc/profile.blizzard"
