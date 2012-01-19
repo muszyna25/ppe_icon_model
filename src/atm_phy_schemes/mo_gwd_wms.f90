@@ -116,7 +116,7 @@ CONTAINS
     REAL(KIND=jprb),INTENT(inout) :: papm1(klon,klev)  ! (klon,klev)   full model level pressure (t-dt)
     REAL(KIND=jprb),INTENT(inout) :: paphm1(klon,klev+1) ! (klon,klev+1) half-model level pressure (t-dt)
     REAL(KIND=jprb),INTENT(inout) :: pgeo1(klon,klev)  ! (klon,klev)   full model level geopotential
-    REAL(KIND=jprb),INTENT(inout) :: pgelat(klon)   ! (klon)        latitude
+    REAL(KIND=jprb),INTENT(in)    :: pgelat(klon)   ! (klon)        latitude
     REAL(KIND=jprb),INTENT(inout) :: pprecip(klon)  ! (klon)        total surface precipitation
     
     ! these are inout
