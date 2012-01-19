@@ -198,13 +198,16 @@ CONTAINS
 
 
     !----------------------------------------------------
-    ! 4. Sanity check  (if necessary)
+    ! 4. Sanity check
     !----------------------------------------------------
+
+    ! check for valid parameters in namelists
 
 
     !----------------------------------------------------
     ! 5. Fill the configuration state
     !----------------------------------------------------
+
     DO jg=1,max_dom
       atm_phy_nwp_config(jg)%inwp_convection = inwp_convection
       atm_phy_nwp_config(jg)%inwp_cldcover   = inwp_cldcover
@@ -237,7 +240,6 @@ CONTAINS
       WRITE(funit,NML=nwp_phy_nml)                    
       CALL store_and_close_namelist(funit, 'nwp_phy_nml') 
     ENDIF
-
     ! 7. write the contents of the namelist to an ASCII file
     !
     IF(my_process_is_stdio()) WRITE(nnml_output,nml=nwp_phy_nml)

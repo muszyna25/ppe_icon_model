@@ -37,6 +37,7 @@
 !!
 !! @par Revision History
 !! implemented into ICOHAM by Kristina Froehlich and Axel Seifert (2010-06-10)
+!! warm-rain scheme (kessler_pp) implemented by Felix Rieper (2011-12-23)
 !!
 !! @par Copyright
 !! 2002-2009 by DWD and MPI-M
@@ -188,6 +189,7 @@ USE mo_satad             , ONLY: satad_v_3d     , & !! new saturation adjustment
 !                                 spec_humi          !! Specific humidity 
 USE mo_exception         , ONLY: message, message_text
 
+
 #endif
 
 !==============================================================================
@@ -199,7 +201,7 @@ PRIVATE
 !! Public subroutines
 !------------------------------------------------------------------------------
 
-PUBLIC :: hydci_pp, hydci_pp_init,satad
+PUBLIC :: hydci_pp, hydci_pp_init, satad, kessler_pp
 
 !------------------------------------------------------------------------------
 !! Public variables
@@ -1571,6 +1573,636 @@ ENDDO loop_over_levels
 !------------------------------------------------------------------------------
 
 END SUBROUTINE hydci_pp
+
+
+
+
+
+SUBROUTINE kessler_pp(               &
+  ie,ke,                             & ! array dimensions
+  istart,iend,kstart,                & ! optional start/end indicies
+  idbg,                              & ! optional debug level
+  l_cv,                              &
+  dz,zdt,                            & ! numerics parameters
+  t,p,rho,qv,qc,qr,                  & ! prognostic variables
+#ifdef __ICON__
+  qc0,                               & ! cloud water threshold for autoconversion
+#endif
+  prr_gsp,                           & ! surface precipitation rates
+  ddt_tend_t     , ddt_tend_qv     , &
+  ddt_tend_qc    ,                   & ! ddt_tend_xx are tendencies
+  ddt_tend_qr    ,                   & !    necessary for dynamics
+  ddt_diag_au    , ddt_diag_ac     , & !
+  ddt_diag_ev                        ) ! ddt_diag_xxx are optional
+                                       !   diagnostic tendencies of all
+                                       !   individual microphysical processes
+
+!------------------------------------------------------------------------------
+!>
+!! Description:
+!!   This module procedure calculates the rates of change of temperature, 
+!!   cloud water, water vapor, and rain due to cloud microphysical processes 
+!!   related to the formation of grid scale precipitation. The variables will
+!!   be updated in this subroutine.
+!!   The precipitation fluxes at the 
+!!   surface are stored on the corresponding global fields.
+!!   This subroutine relies on conversion rates used in the subroutine 
+!!   hydorprog.
+!!
+!! Method:
+!!   The tendencies involving cloud water are calculated using a full implicit 
+!!   scheme whereas evaporation is computed explicitly.
+!!   Rain is a prognostic variable and the sedimentation term is 
+!!   computed implicitly.
+!
+!------------------------------------------------------------------------------
+!
+! Declarations:
+
+! Subroutine arguments: 
+! --------------------
+
+  INTEGER, INTENT(IN) ::  &
+    ie               ,    & !< number of grid points in first (zonal) direction
+    ke                      !< number of grid points in vertical direction
+
+  INTEGER, INTENT(IN), OPTIONAL ::  &
+    istart    ,    & !< optional start index for computations in the parallel program
+    iend      ,    & !< optional end index for computations in the parallel program
+    kstart    ,    & !< optional start index for the vertical index
+    idbg             !< optional debug level
+
+  REAL(KIND=ireals), INTENT(IN) :: &
+    zdt              !< time step for integration of microphysics     (  s  )
+#ifdef __ICON__
+  REAL(KIND=ireals), INTENT(IN) :: &
+    qc0              !< cloud ice/water threshold for autoconversion
+#endif
+
+  REAL(KIND=ireals), DIMENSION(ie,ke), INTENT(IN) ::      &
+    dz              ,    & !< layer thickness of full levels                (  m  )
+    rho             ,    & !< density of moist air                          (kg/m3)
+    p                      !< pressure                                      ( Pa  )
+
+  LOGICAL, INTENT(IN), OPTIONAL :: &
+    l_cv                   !< if true, cv is used instead of cp
+
+  REAL(KIND=ireals), DIMENSION(ie,ke), INTENT(INOUT) ::   &
+    t               ,    & !< temperature                                   (  K  )
+    qv              ,    & !< specific water vapor content                  (kg/kg)
+    qc              ,    & !< specific cloud water content                  (kg/kg)
+    qr                     !< specific rain content                         (kg/kg)
+
+  REAL(KIND=ireals), DIMENSION(ie), INTENT(INOUT) ::   &
+    prr_gsp                !<  precipitation rate of rain, grid-scale        (kg/(m2*s))
+
+  REAL(KIND=ireals), DIMENSION(ie,ke), INTENT(OUT), OPTIONAL ::   &
+    ddt_tend_t      , & !< tendency T                                       ( 1/s )
+    ddt_tend_qv     , & !< tendency qv                                      ( 1/s )
+    ddt_tend_qc     , & !< tendency qc                                      ( 1/s )
+    ddt_tend_qr         !< tendency qr                                      ( 1/s )
+
+  REAL(KIND=ireals), DIMENSION(ie,ke), INTENT(OUT), OPTIONAL ::   &
+    ddt_diag_au     , & !< optional output autoconversion rate cloud to rain           ( 1/s )     
+    ddt_diag_ac     , & !< optional output accretion rate cloud to rain                ( 1/s )
+    ddt_diag_ev         !< optional output evaporation of rain                         ( 1/s )
+
+
+! Local parameters:
+! ----------------
+! TODO[FR] : put parameters to module header
+
+  REAL    (KIND=ireals   ), PARAMETER ::  &
+    ! basic constants of the parameterization scheme
+    zaau   = 1.0_ireals/1000.0_ireals,         & ! coef. for autoconversion
+    zaac   = 1.72_ireals,                      & ! coef. for accretion (neu)
+!    zbev   = 9.1_ireals,                      & ! coef. for drop ventilation,
+    !                                              already module var
+
+    ! constants for the process rates
+    z1d8   = 1.0_ireals/8.0_ireals,               & !
+    z7d8   = 7.0_ireals/8.0_ireals,               & !
+    z3d16  = 3.0_ireals/16.0_ireals,              & !
+
+    ! constants for sedimentation
+!    zvz0r = 12.63_ireals,                        & ! coefficient of sedimentation velocity
+    !                                                 for rain, alread module variable
+ 
+    ! to avoid illegal operations in power expressions
+    znull = 1.E-20_ireals
+
+! Local scalars:
+! -------------
+  INTEGER (KIND=iintegers) ::  &
+    k, i                 ! loop indices
+  
+  
+
+  REAL    (KIND=ireals   ) ::  &
+    ztx   ,            & ! 
+!xxx    zpx   ,            & ! dummy arguments for statement function
+!xxx    zgex  ,            & ! -""-
+!xxx    fspw  ,            & ! function for equilibrium vapour pressure over water
+!xxx    fsqv  ,            & ! function for specific humidity at 
+    fsa3  ,            & !
+!xxx    zspw  ,            & ! equilibrium vapour pressure over water
+    zsa3  ,            & !
+    zc3   ,            & !
+    zc1c  ,            & !
+    zc1   ,            & !
+    zx    ,            & !
+    zsrmax
+
+  REAL    (KIND=ireals   ) ::  & 
+!    zphf  ,            & !  pressure in a k-layer
+    zsqvw ,            & !  specific humidity at water saturation
+    zqvts ,            & !  qv-tendency in a layer
+    zqcts ,            & !  qc-tendency in a layer
+    zqrts ,            & !  qr-tendency in a layer
+    ztts                 !  t -tendency in a layer
+
+  REAL    (KIND=ireals   ) :: z_heat_cap_r ! reciprocal of cpdr or cvdr (depending on l_cv)
+  
+  INTEGER ::  &
+    istartpar    ,    & ! start index for computations in the parallel program
+    iendpar      ,    & ! end index for computations in the parallel program
+    k_start      ,    & ! model level where computations start
+    izdebug             ! debug level
+
+  REAL(KIND=ireals), DIMENSION(ie,ke) ::   &
+    t_in         ,    & ! temperature                                   (  K  )
+    qv_in        ,    & ! specific water vapor content                  (kg/kg)
+    qc_in        ,    & ! specific cloud water content                  (kg/kg)
+    qr_in                     ! specific rain content                         (kg/kg)
+
+  REAL    (KIND=ireals   ) ::  & 
+    zdtr         ,     & ! 
+    zimr         ,     & !
+    qvg          ,     & !  specific water vapor content: local grid cell value
+    qcg          ,     & !  specfic cloud water content:  - "" -
+    tg           ,     & !  temperature:                  - "" -
+    qrg          ,     & !  specific rain content:        - "" -
+    rhog         ,     & !  density                       - "" -
+    rhogr        ,     & !  reciprocal density            - "" -
+    ppg                  !  full level pressure           - "" -
+  
+
+  LOGICAL :: &
+    llqr, llqc           !  switch for existence of qr, qc
+
+ 
+  !! Local (automatic) arrays:
+  !! -------------------------
+#ifdef __COSMO__
+  REAL    (KIND=ireals   ) :: &
+    zpres       (ie)     !  pressure
+#endif
+  
+  REAL    (KIND=ireals   ) ::  &
+    lnzqrk (ie),       & !
+    zzar   (ie),       & !
+    zdtdh  (ie),       & !
+    zvzr   (ie),       & !
+    zprvr  (ie),       & !
+    zpkr   (ie),       & !
+    zqrk   (ie),       & !
+    zpkm1r (ie),       & !
+    zdummy (ie,8),     & !
+    zsrd   (ie),       & !  local evaporation rate S_ev
+    zswra  (ie),       & !  local autoconversion rate S_au
+    zswrk  (ie)          !  local accretion rate S_ac
+
+    
+    
+    
+!------------ End of header ---------------------------------------------------
+
+!------------------------------------------------------------------------------
+! Begin Subroutine kessler_pp
+!------------------------------------------------------------------------------
+
+! Statement functions
+! -------------------
+ 
+!xxx fspw(ztx)     = b1*EXP( b2w*(ztx-b3)/(ztx-b4w) ) ! sat.vap. pressure over water
+!xxx fsqv(zgex,zpx) = rdv*zgex/( zpx - o_m_rdv*zgex ) ! specific humidity at sat.
+  
+! coefficients for conversion rates
+fsa3(ztx) = 3.86E-3_ireals - 9.41E-5_ireals*(ztx-t0) 
+
+!------------------------------------------------------------------------------
+!  Section 1: Initial setting of local variables
+!
+!------------------------------------------------------------------------------
+
+! Define reciprocal of heat capacity of dry air (at constant pressure vs at constant volume)
+
+#ifdef __COSMO__
+  z_heat_cap_r = cpdr
+#endif
+
+#ifdef __GME__
+  z_heat_cap_r = cpdr
+#endif
+
+#ifdef __ICON__
+  IF (PRESENT(l_cv)) THEN
+    IF (l_cv) THEN
+      z_heat_cap_r = cvdr
+    ELSE
+      z_heat_cap_r = cpdr
+    ENDIF
+  ELSE
+    z_heat_cap_r = cpdr
+  ENDIF
+#endif
+
+  ! Delete precipitation fluxes from previous timestep
+  prr_gsp (:) = 0.0_ireals
+  zpkr    (:) = 0.0_ireals
+  zprvr   (:) = 0.0_ireals
+  zvzr    (:) = 0.0_ireals
+  ! CDIR COLLAPSE
+  zdummy(:,:)=0.0_ireals
+  
+  ! Optional arguments
+  
+  IF (PRESENT(ddt_tend_t)) THEN
+    ! save input arrays for final tendency calculation
+    t_in(:,:)  = t(:,:)
+    qv_in(:,:) = qv(:,:)
+    qc_in(:,:) = qc(:,:)
+    qr_in(:,:) = qr(:,:)
+  END IF
+
+  IF (PRESENT(istart)) THEN
+    istartpar = istart
+  ELSE
+    istartpar = 1
+  END IF
+
+  IF (PRESENT(iend)) THEN
+    iendpar = iend
+  ELSE
+    iendpar = ie
+  END IF
+
+  IF (PRESENT(kstart)) THEN
+    k_start = kstart
+  ELSE
+    k_start = 1
+  END IF
+
+  IF (PRESENT(idbg)) THEN
+    izdebug = idbg
+  ELSE
+    izdebug = 0
+  END IF
+  
+  ! timestep for calculations
+  zdtr  = 1.0_ireals / zdt
+
+  ! output for various debug levels
+  IF (izdebug > 15) CALL message('','SRC_GSCP: Start of keppler_pp')
+
+!!$  IF (izdebug > 15) THEN
+!!$    WRITE (message_text,'(A,E10.3)') '      ccslam = ',ccslam ; CALL message('',message_text)
+!!$    WRITE (message_text,'(A,E10.3)') '      ccsvel = ',ccsvel ; CALL message('',message_text)
+!!$    WRITE (message_text,'(A,E10.3)') '      ccsrim = ',ccsrim ; CALL message('',message_text)
+!!$    WRITE (message_text,'(A,E10.3)') '      ccsagg = ',ccsagg ; CALL message('',message_text)
+!!$    WRITE (message_text,'(A,E10.3)') '      ccsdep = ',ccsdep ; CALL message('',message_text)
+!!$    WRITE (message_text,'(A,E10.3)') '      ccslxp = ',ccslxp ; CALL message('',message_text)
+!!$    WRITE (message_text,'(A,E10.3)') '      ccidep = ',ccidep ; CALL message('',message_text)
+!!$  ENDIF
+
+  IF (izdebug > 20) THEN
+    WRITE (message_text,*) '   ie = ',ie ; CALL message('',message_text)
+    WRITE (message_text,*) '   ke = ',ke ; CALL message('',message_text)
+    WRITE (message_text,*) '   istartpar = ',istartpar ; CALL message('',message_text)
+    WRITE (message_text,*) '   iendpar   = ',iendpar   ; CALL message('',message_text)
+  END IF
+
+  IF (izdebug > 50) THEN
+    WRITE (message_text,'(A,2E10.3)') '      MAX/MIN dz  = ',MAXVAL(dz),MINVAL(dz)
+    CALL message('',message_text)
+    WRITE (message_text,'(A,2E10.3)') '      MAX/MIN T   = ',MAXVAL(t),MINVAL(t)
+    CALL message('',message_text)
+    WRITE (message_text,'(A,2E10.3)') '      MAX/MIN p   = ',MAXVAL(p),MINVAL(p)
+    CALL message('',message_text)
+    WRITE (message_text,'(A,2E10.3)') '      MAX/MIN rho = ',MAXVAL(rho),MINVAL(rho)
+    CALL message('',message_text)
+    WRITE (message_text,'(A,2E10.3)') '      MAX/MIN qv  = ',MAXVAL(qv),MINVAL(qv)
+    CALL message('',message_text)
+    WRITE (message_text,'(A,2E10.3)') '      MAX/MIN qc  = ',MAXVAL(qc),MINVAL(qc)
+    CALL message('',message_text)
+    WRITE (message_text,'(A,2E10.3)') '      MAX/MIN qr  = ',MAXVAL(qr),MINVAL(qr)
+    CALL message('',message_text)
+  ENDIF
+
+
+!!$  ! select timelevel and timestep for calculations
+!!$  nu    = nnew
+!!$  IF ( l2tls ) THEN
+!!$    zdt   = dt
+!!$  ELSE
+!!$    zdt   = dt2
+!!$  ENDIF
+
+
+! ----------------------------------------------------------------------
+! Loop from the top of the model domain to the surface to calculate the
+! transfer rates  and sedimentation terms
+! ----------------------------------------------------------------------
+
+
+!!$#ifdef NUDGING
+!!$  ! add part of latent heating calculated in subroutine kessler_pp to model latent
+!!$  ! heating field: subtract temperature from model latent heating field
+!!$    IF (llhn) &
+!!$       CALL get_gs_lheating ('add',1,ke)
+!!$#endif
+
+  loop_over_levels: DO k = k_start, ke
+
+#ifdef __COSMO__
+    IF ( ldiabf_lh ) THEN
+      ! initialize temperature increment due to latent heat
+      tinc_lh(:,k) = tinc_lh(:,k) - t(:,k)
+    ENDIF
+#endif
+    
+    
+  !----------------------------------------------------------------------------
+  !  Section 2: Test for clouds and precipitation in present layer.
+  !             If no cloud or precipitation points have been found
+  !             go to the next layer.
+  !----------------------------------------------------------------------------
+
+    DO i = istartpar, iendpar 
+      IF(qr (i,k) < 1.0e-15_ireals) qr (i,k) = 0.0_ireals
+      IF(qc (i,k) < 1.0e-15_ireals) qc (i,k) = 0.0_ireals
+    END DO
+    
+    loop_over_i: DO i = istartpar, iendpar 
+      
+      qcg  = qc(i,k)
+      qvg  = qv(i,k)
+      qrg  = qr(i,k)
+      tg   = t(i,k)
+      ppg  = p(i,k)
+      rhog = rho(i,k)
+      rhogr= 1.0_ireals / rhog
+!      zphf = p0(i,k) + pp(i,k)  !xxx
+
+      zqrk(i) = qrg * rhog
+
+      ! check existence of rain and cloud
+      llqr = zqrk(i) > zqmin    ! zqmin: module var
+      llqc = qcg     > zqmin
+
+
+      zdtdh(i)  = 0.5_ireals * zdt / dz(i,k)
+
+      zpkm1r(i) = zpkr(i)  
+      zzar(i)   = zqrk(i)/zdtdh(i) + zprvr(i) + zpkm1r(i) 
+
+      IF (llqr) THEN
+        zpkr(i)   = zqrk(i) * zvz0r * EXP(z1d8*LOG(zqrk(i)))
+      ELSE
+        zpkr(i)   = 0.0_ireals
+      ENDIF  
+      zpkr(i)   = MIN( zpkr(i), zzar(i) )
+      zzar(i)   = zdtdh(i) * (zzar(i)-zpkr(i))
+
+      IF( zvzr(i) == 0.0_ireals ) THEN 
+        ! xxx: why different from hydci_pp_ICON?
+        zvzr(i) = zvz0r * EXP(z1d8 * LOG(MAX(0.5_ireals*zqrk(i),znull)))
+      END IF
+ 
+      zimr        = 1.0_ireals / (1.0_ireals + zvzr(i) * zdtdh(i))    ! implicit factor
+      zqrk(i)     = zzar(i)*zimr
+
+!      lnzqrk(i)      = LOG(MAX(zqrk(i),znull))  ! Optimization
+      IF (llqr) THEN
+        lnzqrk(i)      = LOG(zqrk(i))
+      ELSE
+        lnzqrk(i)      = 0.0_ireals
+      ENDIF
+        
+      ztts        = 0.0_ireals
+      zqvts       = 0.0_ireals
+      zqcts       = 0.0_ireals
+
+      !------------------------------------------------------------------------
+      !  Section 5: Calculation of cloud microphysics for cloud case
+      !             ( qc > 0)
+      !------------------------------------------------------------------------
+
+      IF (llqc) THEN
+
+        ! Calculate conversion rates
+
+        ! Coefficients
+
+        zc1c  = zaac *  EXP(lnzqrk(i)*z7d8)
+        zc1   = zaau + zc1c
+        zx    = qcg / (1.0_ireals + zc1*zdt)
+   
+        ! Conversion rates
+        zswra(i)  = zaau * zx    ! S_au
+        zswrk(i)  = zc1c * zx    ! S_ac
+ 
+        ! Store tendencies
+        zqcts  = - zswra(i) - zswrk(i)
+        zqrts  =   zswra(i) + zswrk(i)
+ 
+        ! Update values
+
+        qrg = MAX(0.0_ireals,(zzar(i)*rhogr + zqrts*zdt)*zimr)
+
+      !------------------------------------------------------------------------
+      !  Section 7: Calculation of cloud microphysics for
+      !             precipitation case without cloud ( qc = 0 )
+      !             -> Evaporation
+      !------------------------------------------------------------------------
+
+      ELSEIF ( llqr .AND. .NOT.llqc )    THEN
+
+!xxx        zspw  = fspw(tg)
+!xxx        zspw  = sat_pres_water(tg)
+!xxx        zsqvw = fsqv(zspw, ppg)   
+        zsqvw = sat_pres_water(tg)/(rhog * r_v *tg)
+
+        ! Coefficients
+        zsrmax = zzar(i)*rhogr * zdtr
+        zsa3   = fsa3(tg)
+        zc3    = zsa3 * SQRT(zqrk(i)) * (1.0_ireals + zbev * EXP(lnzqrk(i)*z3d16))
+ 
+        ! Conversion rate: S_ev
+        zsrd(i)   = -zc3 * (qvg - zsqvw)
+        zsrd(i)   = MIN (zsrmax, zsrd(i))         
+
+ 
+        ! Store tendencies
+        zqvts =   zsrd(i)
+        ztts  = - lh_v*zsrd(i)*z_heat_cap_r
+        zqrts = - zsrd(i)
+
+        ! Update values
+
+        qrg = MAX(0.0_ireals,(zzar(i)*rhogr + zqrts*zdt)*zimr)
+ 
+      ENDIF         
+
+      !------------------------------------------------------------------------
+      !  Section 8: Complete time step
+      !------------------------------------------------------------------------
+
+      IF ( k /= ke ) THEN
+        ! Store precipitation fluxes and sedimentation velocities for the next level
+        zprvr(i) = qrg*rhog*zvzr(i)
+        !zvzr(i)  = zvz0r * EXP(z1d8 * LOG(MAX((qrg+qr(i,k+1,nu))*0.5_ireals*rhog,znull)))
+        zvzr(i)  = zvz0r * EXP(z1d8 * LOG(MAX((qrg+qr_in(i,k+1))*0.5_ireals*rhog,znull)))
+        
+      ELSE
+        ! Precipitation flux at the ground
+        prr_gsp(i) = 0.5_ireals * (qrg*rhog*zvzr(i) + zpkr(i))
+      ENDIF
+
+      ! Update of prognostic variables or tendencies
+      qr (i,k) = qrg
+      t  (i,k) = t (i,k) + ztts*zdt 
+      qv (i,k) = MAX ( 0.0_ireals, qv(i,k) + zqvts*zdt )
+      qc (i,k) = MAX ( 0.0_ireals, qc(i,k) + zqcts*zdt )
+
+    ENDDO loop_over_i
+
+#ifndef __ICON__
+    ! Store optional microphysical rates for diagnostics
+    IF (PRESENT(ddt_diag_au   )) ddt_diag_au(:,k) = zswra(:)
+    IF (PRESENT(ddt_diag_ac   )) ddt_diag_ac(:,k) = zswrk(:)
+    IF (PRESENT(ddt_diag_ev   )) ddt_diag_ev(:,k) = zsrd(:)
+#endif
+
+    IF (izdebug > 15) THEN
+      ! Check for negative values
+      DO i = istartpar, iendpar
+        IF (qr(i,k) < 0.0_ireals) THEN
+          WRITE(message_text,'(a)') ' WARNING: kessler_pp, negative value in qr'
+          CALL message('',message_text)
+        ENDIF
+        IF (qc(i,k) < 0.0_ireals) THEN
+          WRITE(message_text,'(a)') ' WARNING: kessler_pp, negative value in qc'
+          CALL message('',message_text)
+        ENDIF
+        IF (qv(i,k) < 0.0_ireals) THEN
+          WRITE(message_text,'(a)') ' WARNING: kessler_pp, negative value in qv'
+          CALL message('',message_text)
+        ENDIF
+      ENDDO
+    ENDIF
+    
+#if defined (__COSMO__)
+    !Do a final saturation adjustment for new values of t, qv and qc
+    zpres(:) = p(:,k)
+
+    CALL satad ( 1, t(:,k), qv(:,k),          &
+      qc(:,k), t(:,k), zpres,                 &
+      zdummy(:,1),zdummy(:,2),zdummy(:,3),    &
+      zdummy(:,4),zdummy(:,5),zdummy(:,6),    &
+      zdummy(:,7),zdummy(:,8),                &
+      b1, b2w, b3, b4w, b234w, rdv, o_m_rdv,  &
+      rvd_m_o, lh_v, cpdr, cp_d,              &
+      ie, istartpar, iendpar )
+
+    IF ( ldiabf_lh ) THEN
+      ! compute temperature increment due to latent heat
+      tinc_lh(:,k) = tinc_lh(:,k) + t(:,k)
+    ENDIF
+#endif
+    
+ENDDO loop_over_levels
+
+
+#ifdef __ICON__
+
+ CALL satad_v_3d (                             &
+               & maxiter  = 10_iintegers ,& !> IN
+               & tol      = 1.e-3_ireals ,& !> IN
+               & te       = t            ,&
+               & qve      = qv           ,&
+               & qce      = qc           ,&
+               & rhotot   = rho          ,&
+               & idim     = ie           ,&
+               & kdim     = ke           ,&
+               & ilo      = istartpar    ,&
+               & iup      = iendpar      ,&
+               & klo      = k_start      ,&
+               & kup      = ke            &
+!              !& count, errstat,
+               )
+#endif
+
+!------------------------------------------------------------------------------
+! final tendency calculation for ICON
+!
+! Note: as soon as we have a new satad subroutine in ICON, this tendency
+! calculation will be done in the k-loop and the original 3D variables wont
+! be used to store the new values. Then we wont need the _in variables anymore.
+!------------------------------------------------------------------------------
+
+  IF (PRESENT(ddt_tend_t)) THEN
+
+    DO k=k_start,ke
+      DO i=istartpar,iendpar
+
+        ! calculated pseudo-tendencies
+        ddt_tend_t (i,k) = (t (i,k) - t_in (i,k))*zdtr
+        ddt_tend_qv(i,k) = MAX(-qv_in(i,k)*zdtr,(qv(i,k) - qv_in(i,k))*zdtr)
+        ddt_tend_qc(i,k) = MAX(-qc_in(i,k)*zdtr,(qc(i,k) - qc_in(i,k))*zdtr)
+        ddt_tend_qr(i,k) = MAX(-qr_in(i,k)*zdtr,(qr(i,k) - qr_in(i,k))*zdtr)
+
+        ! restore input values
+        t (i,k) = t_in (i,k)
+        qv(i,k) = qv_in(i,k)
+        qc(i,k) = qc_in(i,k)
+        qr(i,k) = qr_in(i,k)
+
+      END DO
+    END DO
+
+  END IF
+
+  IF (izdebug > 15) THEN
+    CALL message('mo_gscp', 'UPDATED VARIABLES')
+   WRITE(message_text,'(a,2E20.9)') 'kessler_pp T= ' ,&
+    MAXVAL( t(:,:)), MINVAL(t(:,:) )
+    CALL message('', TRIM(message_text))
+   WRITE(message_text,'(a,2E20.9)') 'kessler_pp qv= ',&
+    MAXVAL( qv(:,:)), MINVAL(qv(:,:) )
+    CALL message('', TRIM(message_text))
+   WRITE(message_text,'(a,2E20.9)') 'kessler_pp qc= ',&
+    MAXVAL( qc(:,:)), MINVAL(qc(:,:) )
+    CALL message('', TRIM(message_text))
+   WRITE(message_text,'(a,2E20.9)') 'kessler_pp qr= ',&
+    MAXVAL( qr(:,:)), MINVAL(qr(:,:) )
+    CALL message('', TRIM(message_text))
+  ENDIF
+
+!!$#ifdef NUDGING
+!!$! add part of latent heating calculated in subroutine kessler_pp to model latent
+!!$! heating field: add temperature to model latent heating field
+!!$IF (llhn) &
+!!$ CALL get_gs_lheating ('inc',1,ke)
+!!$#endif
+
+!------------------------------------------------------------------------------
+! End of module  kessler_pp
+!------------------------------------------------------------------------------
+
+END SUBROUTINE kessler_pp
+
+
 
 
 SUBROUTINE SATAD ( kitera, te, qve, qce, tstart, phfe,                        &

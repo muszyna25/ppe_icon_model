@@ -55,7 +55,10 @@ MODULE mo_nwp_gscp_interface
   USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi, iqr, iqs
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
-  USE mo_gscp_cosmo,           ONLY: hydci_pp
+  USE mo_gscp_cosmo,           ONLY: hydci_pp, kessler_pp
+
+  USE mo_exception,            ONLY: finish
+
 
   IMPLICIT NONE
 
@@ -138,8 +141,9 @@ CONTAINS
           !!  NOTE: since microphysics is a fast process it is
           !!        allowed to do a sequential updating!
 
-        IF( atm_phy_nwp_config(jg)%inwp_gscp == 1 ) THEN
+        SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
 
+        CASE(1)  ! COSMO-EU scheme (2-cat ice: cloud ice, snow)
 
           CALL hydci_pp (                                           &
             & ie     =nproma                            ,    & !> in:  actual array size
@@ -161,9 +165,54 @@ CONTAINS
             & qs     =p_prog_rcf%tracer (:,:,jb,iqs)   ,    & !< in:  snow
             & prr_gsp=prm_diag%tracer_rate (:,jb,1)     ,    & !< out: precipitation rate of rain
             & prs_gsp=prm_diag%tracer_rate (:,jb,2)     ,    & !< out: precipitation rate of snow
-            & idbg=msg_level, l_cv=.TRUE. )
+            & idbg=msg_level                            ,    &
+            & l_cv=.TRUE. )
 
-        ENDIF ! inwp_gscp
+
+        CASE(2)  ! Kessler scheme (warm rain scheme)
+
+          CALL kessler_pp (                                  &
+            & ie     =nproma                            ,    & ! in:  actual array size
+            & ke     =nlev                              ,    & ! in:  actual array size
+            & istart =i_startidx                        ,    & ! in:  start index of calculation
+            & iend   =i_endidx                          ,    & ! in:  end index of calculation
+            & kstart =kstart_moist(jg)                  ,    & ! in:  vertical start index
+            & zdt    =tcall_gscp_jg                     ,    & ! in:  timestep
+            & qc0    = atm_phy_nwp_config(jg)%qc0       ,    & 
+            & dz     =p_metrics%ddqz_z_full(:,:,jb)     ,    & ! in:  vertical layer thickness
+            & t      =p_diag%temp   (:,:,jb)            ,    & ! in:  temp,tracer,...
+            & p      =p_diag%pres   (:,:,jb)            ,    & ! in:  full level pres
+            & rho    =p_prog%rho    (:,:,jb  )          ,    & ! in:  density
+            & qv     =p_prog_rcf%tracer (:,:,jb,iqv)    ,    & ! in:  spec. humidity
+            & qc     =p_prog_rcf%tracer (:,:,jb,iqc)    ,    & ! in:  cloud water
+            & qr     =p_prog_rcf%tracer (:,:,jb,iqr)    ,    & ! in:  rain water
+            & prr_gsp=prm_diag%tracer_rate (:,jb,1)     ,    & ! out: precipitation rate of rain
+            & idbg   =msg_level                         ,    &
+            & l_cv    =.TRUE. )
+
+
+
+        CASE(3)  ! COSMO-DE (3-cat ice: snow, cloud ice, graupel)
+
+          CALL finish('mo_nwp_gscp_interface', 'Graupel scheme not implemented.')
+
+
+        CASE(4)  ! improved ice nucleation scheme
+
+          CALL finish('mo_nwp_gscp_interface', 'Improved ice nucleation scheme not implemented.')
+
+        CASE(5)  ! two-moment scheme 
+
+          CALL finish('mo_nwp_gscp_interface', 'Two-moment scheme not implemented.')
+
+
+        CASE DEFAULT
+
+          CALL finish('mo_nwp_gscp_interface', 'Unknown cloud physics scheme [1-5].')
+
+        END SELECT
+
+
 
         !-------------------------------------------------------------------------
         !>
