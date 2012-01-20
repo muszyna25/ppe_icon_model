@@ -267,7 +267,7 @@ EOF
 
 run_atmo="true"
 #-----------------------------------------------------------------------------
-null_namelist="NAMELIST_null$_${EXPNAME}"
+null_namelist="NAMELIST_null_${EXPNAME}"
 cat > ${null_namelist} << EOF
 &testbed_nml
   testbed_mode = 0
