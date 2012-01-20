@@ -42,6 +42,7 @@
 MODULE mo_nwp_phy_nml
 
   USE mo_kind,                ONLY: wp
+  USE mo_exception,           ONLY: finish
   USE mo_impl_constants,      ONLY: max_dom !,MAX_CHAR_LENGTH
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
@@ -142,8 +143,8 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit, jg
-    !0!CHARACTER(len=*), PARAMETER ::  &
-    !0!  &  routine = 'mo_atm_phy_nwp_nml:read_nwp_phy_namelist'
+    CHARACTER(len=*), PARAMETER ::  &
+         &  routine = 'mo_atm_phy_nwp_nml:read_nwp_phy_namelist'
 
     !-----------------------
     ! 1. default settings   
@@ -200,8 +201,15 @@ CONTAINS
     !----------------------------------------------------
     ! 4. Sanity check
     !----------------------------------------------------
-
+    
     ! check for valid parameters in namelists
+    
+    IF (inwp_gscp /= 1 .AND. inwp_gscp /= 2 .AND. inwp_gscp /= 3 .AND. &
+      & inwp_gscp /= 4 .AND. inwp_gscp /= 9 ) THEN
+       
+       CALL finish( TRIM(routine), 'Incorrect setting for inwp_gscp. Must be 1,2,3,4 or 9.')
+
+    END IF
 
 
     !----------------------------------------------------

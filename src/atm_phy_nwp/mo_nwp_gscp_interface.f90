@@ -169,7 +169,21 @@ CONTAINS
             & l_cv=.TRUE. )
 
 
-        CASE(2)  ! Kessler scheme (warm rain scheme)
+        CASE(2)  ! COSMO-DE (3-cat ice: snow, cloud ice, graupel)
+
+          CALL finish('mo_nwp_gscp_interface', 'Graupel scheme not implemented.')
+
+
+        CASE(3)  ! improved ice nucleation scheme
+
+          CALL finish('mo_nwp_gscp_interface', 'Improved ice nucleation scheme not implemented.')
+
+        CASE(4)  ! two-moment scheme 
+
+          CALL finish('mo_nwp_gscp_interface', 'Two-moment scheme not implemented.')
+
+
+        CASE(9)  ! Kessler scheme (warm rain scheme)
 
           CALL kessler_pp (                                  &
             & ie     =nproma                            ,    & ! in:  actual array size
@@ -190,20 +204,6 @@ CONTAINS
             & idbg   =msg_level                         ,    &
             & l_cv    =.TRUE. )
 
-
-
-        CASE(3)  ! COSMO-DE (3-cat ice: snow, cloud ice, graupel)
-
-          CALL finish('mo_nwp_gscp_interface', 'Graupel scheme not implemented.')
-
-
-        CASE(4)  ! improved ice nucleation scheme
-
-          CALL finish('mo_nwp_gscp_interface', 'Improved ice nucleation scheme not implemented.')
-
-        CASE(5)  ! two-moment scheme 
-
-          CALL finish('mo_nwp_gscp_interface', 'Two-moment scheme not implemented.')
 
 
         CASE DEFAULT

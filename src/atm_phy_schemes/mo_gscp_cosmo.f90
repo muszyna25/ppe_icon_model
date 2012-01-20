@@ -214,7 +214,7 @@ PUBLIC :: cloud_num, mu_rain
 !------------------------------------------------------------------------------
 
 INTEGER (KIND=iintegers), PARAMETER ::  &
-  iautocon       = 1,&
+  iautocon       = 1,&       ! Autoconversion: 0 -> Kessler, 1 -> Seifert/Beheng
   isnow_n0temp   = 2
 
 REAL    (KIND=ireals   ), PARAMETER ::  &
@@ -1158,7 +1158,7 @@ SUBROUTINE hydci_pp(                 &
       tg   =    t(i,k)
       llqs = zqsk(i) > zqmin
 
-      if (iautocon == 0) THEN
+      IF (iautocon == 0) THEN
         ! Kessler (1969) autoconversion rate
         zscau  = zccau * MAX( qcg - qc0, 0.0_ireals )
         zscac  = zcac  * qcg * zeln7o8qrk(i)
@@ -1719,7 +1719,10 @@ SUBROUTINE kessler_pp(               &
     zqvts ,            & !  qv-tendency in a layer
     zqcts ,            & !  qc-tendency in a layer
     zqrts ,            & !  qr-tendency in a layer
-    ztts                 !  t -tendency in a layer
+    ztts  ,            & !  t -tendency in a layer
+    ztau  ,            & !  some auxiliary variables
+    zphi  
+  
 
   REAL    (KIND=ireals   ) :: z_heat_cap_r ! reciprocal of cpdr or cvdr (depending on l_cv)
   
@@ -1773,7 +1776,12 @@ SUBROUTINE kessler_pp(               &
     zswrk  (ie)          !  local accretion rate S_ac
 
     
-    
+  ! Debugging / auxiliary variables
+  REAL  (KIND=ireals   ) :: &
+       & aux
+  
+
+
     
 !------------ End of header ---------------------------------------------------
 
@@ -1861,7 +1869,14 @@ fsa3(ztx) = 3.86E-3_ireals - 9.41E-5_ireals*(ztx-t0)
   
   ! timestep for calculations
   zdtr  = 1.0_ireals / zdt
-
+  
+  !------------------------------------------------------------------------------
+  !>  Initial setting of local and global variables
+  !------------------------------------------------------------------------------
+  
+  zconst = zkcau / (20.0_ireals*zxstar*cloud_num*cloud_num) &
+    * (zcnue+2.0_ireals)*(zcnue+4.0_ireals)/(zcnue+1.0_ireals)**2
+  
   ! output for various debug levels
   IF (izdebug > 15) CALL message('','SRC_GSCP: Start of keppler_pp')
 
@@ -1992,25 +2007,44 @@ fsa3(ztx) = 3.86E-3_ireals - 9.41E-5_ireals*(ztx-t0)
       ztts        = 0.0_ireals
       zqvts       = 0.0_ireals
       zqcts       = 0.0_ireals
-
+      
       !------------------------------------------------------------------------
       !  Section 5: Calculation of cloud microphysics for cloud case
       !             ( qc > 0)
       !------------------------------------------------------------------------
 
       IF (llqc) THEN
+! Calculate conversion rates
+        
+! Coefficients
+        
+        IF (iautocon == 0) THEN
+! Kessler (1969) autoconversion rate 
+          zc1c  = zaac *  EXP(lnzqrk(i)*z7d8)
+          zc1   = zaau + zc1c
+          zx    = qcg / (1.0_ireals + zc1*zdt)
+          
+! Conversion rates
+          zswra(i)  = zaau * zx    ! S_au
+          zswrk(i)  = zc1c * zx    ! S_ac
 
-        ! Calculate conversion rates
+        ELSE
+! Seifert and Beheng (2001) autoconversion rate
+! with constant cloud droplet number concentration cloud_num
 
-        ! Coefficients
-
-        zc1c  = zaac *  EXP(lnzqrk(i)*z7d8)
-        zc1   = zaau + zc1c
-        zx    = qcg / (1.0_ireals + zc1*zdt)
-   
-        ! Conversion rates
-        zswra(i)  = zaau * zx    ! S_au
-        zswrk(i)  = zc1c * zx    ! S_ac
+          IF (qcg > 1.0e-6_ireals) THEN
+            ztau      = MIN(1.0_ireals-qcg/(qcg+qrg),0.9_ireals)
+            zphi      = zkphi1 * ztau**zkphi2 * (1.0_ireals - ztau**zkphi2)**3
+            zswra(i)  = zconst * qcg*qcg*qcg*qcg &                      ! S_au
+              &    * (1.0_ireals + zphi/(1.0_ireals - ztau)**2)
+            zphi      = (ztau/(ztau+zkphi3))**4
+            zswrk(i)  = zkcac * qcg * qrg * zphi !* zrho1o2(i)          ! S_ac
+          ELSE
+            zswra(i)  = 0.0_ireals  ! S_au                    
+            zswrk(i)  = 0.0_ireals  ! S_ac
+          ENDIF
+          
+        END IF
  
         ! Store tendencies
         zqcts  = - zswra(i) - zswrk(i)
@@ -2062,8 +2096,7 @@ fsa3(ztx) = 3.86E-3_ireals - 9.41E-5_ireals*(ztx-t0)
         ! Store precipitation fluxes and sedimentation velocities for the next level
         zprvr(i) = qrg*rhog*zvzr(i)
         !zvzr(i)  = zvz0r * EXP(z1d8 * LOG(MAX((qrg+qr(i,k+1,nu))*0.5_ireals*rhog,znull)))
-        zvzr(i)  = zvz0r * EXP(z1d8 * LOG(MAX((qrg+qr_in(i,k+1))*0.5_ireals*rhog,znull)))
-        
+        zvzr(i)  = zvz0r * EXP(z1d8 * LOG(MAX((qrg+qr(i,k+1))*0.5_ireals*rhog,znull)))
       ELSE
         ! Precipitation flux at the ground
         prr_gsp(i) = 0.5_ireals * (qrg*rhog*zvzr(i) + zpkr(i))
