@@ -181,7 +181,7 @@ SUBROUTINE satad_v_3D (maxiter, tol, te, qve, qce,    & ! IN, INOUT
   ! LL: xlc has trouble optimizing with the assumed shape, define the shape
   ! note: that these are actually intent(in)
   !       declared as intent(inout) to avoid copying
-  REAL    (KIND=ireals),    INTENT (inout),  DIMENSION(idim,kdim) ::  &  !  dim (idim,kdim)
+  REAL    (KIND=ireals),    DIMENSION(idim,kdim) ::  &  !  dim (idim,kdim)
 #else
   REAL    (KIND=ireals),    INTENT (IN),  DIMENSION(:,:) ::  &  !  dim (idim,kdim)
 #endif
