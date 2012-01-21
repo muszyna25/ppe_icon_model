@@ -44,16 +44,18 @@ MODULE mo_communication
 !
 !
 !
-
 USE mo_kind,               ONLY: wp
-USE mo_exception,          ONLY: finish
+USE mo_exception,          ONLY: finish, message, message_text
 USE mo_mpi,                ONLY: p_send, p_recv, p_irecv, p_wait, p_isend, &
-     & p_real_dp, p_int, p_bool, p_comm_work, &
-     & my_process_is_mpi_seq, &
-     & p_pe_work, p_n_work
+     & p_real_dp, p_int, p_bool, p_comm_work,             &
+     & my_process_is_mpi_seq,                             &
+     & p_pe_work, p_n_work, get_my_mpi_work_communicator, &
+     & get_my_mpi_work_comm_size, get_my_mpi_work_id,     &
+     & p_gather, p_gatherv
 USE mo_parallel_config, ONLY: iorder_sendrecv, nproma
 USE mo_timer,           ONLY: timer_start, timer_stop, activate_sync_timers, &
   & timer_exch_data, timer_exch_data_rv, timer_exch_data_async
+USE mo_run_config,      ONLY: msg_level
 
 
 IMPLICIT NONE
@@ -501,6 +503,12 @@ SUBROUTINE setup_comm_pattern(n_points, owner, global_index, local_index, p_pat)
 
    DEALLOCATE(icnt, flag, global_recv_index, send_src)
 
+   ! consistency check of communication pattern
+#ifndef NOMPI
+   IF (msg_level >= 13)  &
+     CALL check_comm_pattern(p_pat)
+#endif
+
 END SUBROUTINE setup_comm_pattern
 !-------------------------------------------------------------------------
 !
@@ -548,6 +556,163 @@ SUBROUTINE delete_comm_pattern(p_pat)
    p_pat%np_send = 0
 
 END SUBROUTINE delete_comm_pattern
+
+
+!-------------------------------------------------------------------------
+!> Consistency check of communication pattern.
+!! Sends pattern info to working PE 0, which checks this data
+!! for consistency wrt. send/receive counts.
+!!
+!! @par Revision History
+!! Initial implementation  by  F. Prill, DWD (2012-01-20)
+!!
+SUBROUTINE check_comm_pattern(p_pat)
+  TYPE(t_comm_pattern), INTENT(INOUT) :: p_pat
+
+  ! local variables
+  CHARACTER(*), PARAMETER :: routine = TRIM("mo_communication:check_comm_pattern")
+  INTEGER, PARAMETER      :: root    = 0
+  INTEGER                 :: ierr, npes, i_pe, i_target_pe, ntarget_pes,        &
+    &                        target_pe, target_cnt, this_pe, i_source_pe,       &
+    &                        nsource_pes, source_pe, source_cnt, p_comm
+  INTEGER, ALLOCATABLE    :: recvbuf_send(:), displs(:),                        &
+    &                        recvbuf_recv(:), recvbuf_scnt(:), recvbuf_rcnt(:), &
+    &                        recvbuf_npsnd(:), recvbuf_nprcv(:)
+  LOGICAL                 :: lcheck, lfound_peer
+
+  CALL message(routine, "Consistency check of communication pattern.")
+  this_pe = get_my_mpi_work_id()
+  p_comm  = get_my_mpi_work_communicator()
+
+  !-- allocate memory -------------------------
+  npes = get_my_mpi_work_comm_size()
+  ALLOCATE(recvbuf_send(npes*npes), displs(npes), recvbuf_recv(npes*npes), &
+    &      recvbuf_scnt(npes*npes), recvbuf_rcnt(npes*npes),               &
+    &      recvbuf_npsnd(npes), recvbuf_nprcv(npes),                       &
+    &      STAT=ierr)
+  IF (ierr /= 0) CALL finish (routine, 'Error in ALLOCATE operation!')
+
+  !-- gather fields at work PE 0 --------------
+
+  ! gather numbers of send/receiver partners
+  CALL p_gather(p_pat%np_send, recvbuf_npsnd, root, p_comm)
+  CALL p_gather(p_pat%np_recv, recvbuf_nprcv, root, p_comm)
+
+  ! set displacements array
+  displs(:)     = (/ ( (i_pe-1)*npes, i_pe=1, npes) /)
+    
+  ! field 1: list of target PEs
+  CALL p_gatherv(p_pat%pelist_send, p_pat%np_send,    &
+    &            recvbuf_send, recvbuf_npsnd, displs, &
+    &            root, p_comm)
+  ! field 2: list of source PEs
+  CALL p_gatherv(p_pat%pelist_recv, p_pat%np_recv,    &
+    &            recvbuf_recv, recvbuf_nprcv, displs, &
+    &            root, p_comm)
+  ! field 3: list of target counts
+  CALL p_gatherv(p_pat%send_count, p_pat%np_send,     &
+    &            recvbuf_scnt, recvbuf_npsnd, displs, &
+    &            root, p_comm)
+  ! field 4: list of source counts
+  CALL p_gatherv(p_pat%recv_count, p_pat%np_recv,     &
+    &            recvbuf_rcnt, recvbuf_nprcv, displs, &
+    &            root, p_comm)
+
+  !-- perform consistency checks --------------
+  lcheck = .TRUE.
+  IF (this_pe == root) THEN
+    ! now loop over PEs and check if their send counts match the info
+    ! on the receiver side:
+    DO i_pe=1, npes
+      ntarget_pes = recvbuf_npsnd(i_pe)
+      DO i_target_pe=1,ntarget_pes
+        target_pe  = recvbuf_send(displs(i_pe) + i_target_pe)
+        target_cnt = recvbuf_scnt(displs(i_pe) + i_target_pe)
+        ! loop over target PE's receiver array
+        lfound_peer = .FALSE.
+        nsource_pes = recvbuf_nprcv(target_pe+1)
+        DO i_source_pe=1, nsource_pes
+          source_pe  = recvbuf_recv(displs(target_pe+1) + i_source_pe)
+          IF ((source_pe+1) == i_pe) THEN
+            lfound_peer = .TRUE.
+            source_cnt = recvbuf_rcnt(displs(target_pe+1) + i_source_pe)
+            IF (source_cnt /= target_cnt) THEN
+              WRITE (message_text,*) "PE ", i_pe-1, ": sends ", target_cnt, &
+                &         " values to ", target_pe, " but PE ", target_pe,  &
+                &         " receives ", source_cnt, " values from ", source_pe
+              CALL message(routine, message_text)
+              lcheck = .FALSE.
+            END IF
+          END IF
+        END DO ! i_source_pe
+        IF (.NOT. lfound_peer) THEN
+          WRITE (message_text,*) "PE ", i_pe-1, ": Missing peer!" 
+          CALL message(routine, message_text)
+          lcheck = .FALSE.
+        ELSE
+          IF (msg_level >= 15) THEN
+            WRITE (message_text,*) "PE ", i_pe-1, ": sends ", target_cnt, &
+              &                    " values to ", target_pe
+            CALL message(routine, message_text)
+          END IF
+        END IF
+      END DO ! i_target_pe
+    END DO ! i_pe
+
+    ! loop over PEs and check if their receive counts match the info
+    ! on the sender side:
+    DO i_pe=1, npes
+      nsource_pes = recvbuf_nprcv(i_pe)
+      DO i_source_pe=1,nsource_pes
+        source_pe  = recvbuf_recv(displs(i_pe) + i_source_pe)
+        source_cnt = recvbuf_rcnt(displs(i_pe) + i_source_pe)
+        ! loop over source PE's sender array
+        lfound_peer = .FALSE.
+        ntarget_pes = recvbuf_npsnd(source_pe+1)
+        DO i_target_pe=1, ntarget_pes
+          target_pe  = recvbuf_send(displs(source_pe+1) + i_target_pe)
+          IF ((target_pe+1) == i_pe) THEN
+            lfound_peer = .TRUE.
+            target_cnt = recvbuf_scnt(displs(source_pe+1) + i_target_pe)
+            IF (source_cnt /= target_cnt) THEN
+              WRITE (message_text,*) "PE ", i_pe-1, ": receives ", source_cnt, &
+                &         " values from ", source_pe, " but PE ", source_pe,   &
+                &         " sends ", target_cnt, " values to ", target_pe
+              CALL message(routine, message_text)
+              lcheck = .FALSE.
+            END IF
+          END IF
+        END DO ! i_target_pe
+        IF (.NOT. lfound_peer) THEN
+          WRITE (message_text,*) "PE ", i_pe-1, ": Missing peer!" 
+          CALL message(routine, message_text)
+          lcheck = .FALSE.
+        ELSE
+          IF (msg_level >= 15) THEN
+            WRITE (message_text,*) "PE ", i_pe-1, ": receives ", source_cnt, &
+              &                    " values from ", source_pe
+            CALL message(routine, message_text)
+          END IF
+        END IF
+      END DO ! i_source_pe
+    END DO ! i_pe
+  END IF ! (this_pe == root)
+
+  ! clean up
+  DEALLOCATE(recvbuf_send, displs,                      &
+    &        recvbuf_recv, recvbuf_scnt, recvbuf_rcnt,  &
+    &        recvbuf_npsnd, recvbuf_nprcv,              &
+    &        STAT=ierr)
+  IF (ierr /= 0) CALL finish (routine, 'Error in DEALLOCATE operation!')
+
+  ! abort in case of inconsistencies:
+  IF (.NOT. lcheck) &
+    CALL finish(routine, "Inconsistencies detected in communication pattern!")
+
+  CALL message(routine, "Done.")
+  
+END SUBROUTINE check_comm_pattern
+
 
 !-------------------------------------------------------------------------
 !

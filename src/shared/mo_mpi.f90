@@ -85,6 +85,7 @@ MODULE mo_mpi
   PUBLIC :: p_probe
   PUBLIC :: p_allreduce_minloc
   PUBLIC :: p_gather_field
+  PUBLIC :: p_gatherv
 
   !----------- to be removed -----------------------------------------
   PUBLIC :: p_pe, p_io
@@ -380,6 +381,11 @@ MODULE mo_mpi
   INTERFACE p_gather
      MODULE PROCEDURE p_gather_real_1d2d
      MODULE PROCEDURE p_gather_real_5d6d
+     MODULE PROCEDURE p_gather_int
+  END INTERFACE
+
+  INTERFACE p_gatherv
+     MODULE PROCEDURE p_gatherv_int
   END INTERFACE
 
   INTERFACE p_max
@@ -5993,6 +5999,58 @@ CONTAINS
      recvbuf(:,:,:,:,:,LBOUND(recvbuf,6)) = sendbuf(:,:,:,:,:)
 #endif
    END SUBROUTINE p_gather_real_5d6d
+
+
+   SUBROUTINE p_gather_int (sendbuf, recvbuf, p_dest, comm)
+     INTEGER,           INTENT(inout) :: sendbuf, recvbuf(:)
+     INTEGER,           INTENT(in) :: p_dest
+     INTEGER, OPTIONAL, INTENT(in) :: comm
+     
+#ifndef NOMPI
+     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_gather_int")
+     INTEGER :: p_comm
+     
+     IF (PRESENT(comm)) THEN
+       p_comm = comm
+     ELSE
+       p_comm = process_mpi_all_comm
+     ENDIF
+     
+     CALL MPI_GATHER(sendbuf, 1, MPI_INTEGER, &
+       &             recvbuf, 1, MPI_INTEGER, &
+       &             p_dest, p_comm, p_error)
+     IF (p_error /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_GATHER operation!')
+#else
+     recvbuf(:) = sendbuf
+#endif
+   END SUBROUTINE p_gather_int
+
+
+   SUBROUTINE p_gatherv_int (sendbuf, sendcount, recvbuf, recvcounts, &
+     &                       displs, p_dest, comm)
+     INTEGER,           INTENT(inout) :: sendbuf(:), sendcount,  &
+       &                                 recvbuf(:), recvcounts(:), displs(:)
+     INTEGER,           INTENT(in)    :: p_dest
+     INTEGER, OPTIONAL, INTENT(in)    :: comm
+     
+#ifndef NOMPI
+     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_gatherv_int")
+     INTEGER :: p_comm
+     
+     IF (PRESENT(comm)) THEN
+       p_comm = comm
+     ELSE
+       p_comm = process_mpi_all_comm
+     ENDIF
+     
+     CALL MPI_GATHERV(sendbuf, sendcount,  MPI_INTEGER, &
+       &              recvbuf, recvcounts, displs, MPI_INTEGER, &
+       &              p_dest, p_comm, p_error)
+     IF (p_error /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_GATHERV operation!')
+#else
+     recvbuf((displs(1)+1):(displs(1)+sendcount)) = sendbuf(1:sendcount)
+#endif
+   END SUBROUTINE p_gatherv_int 
 
    
    SUBROUTINE p_allreduce_minloc(array, ntotal, comm)
