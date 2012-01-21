@@ -335,13 +335,13 @@ check_error $? "${MODEL} does not exist?"
 #
 cd ${EXPDIR}
 #
-if [ x$target = "xblizzard" ] ; then
-  run_model
-else
+#if [ x$target = "xblizzard" ] ; then
+#  run_model
+#else
   date
   ${START} ${MODEL}
   date
-fi
+#fi
 #
 if [ -r finish.status ] ; then
   check_error 0 "${START} ${MODEL}"
