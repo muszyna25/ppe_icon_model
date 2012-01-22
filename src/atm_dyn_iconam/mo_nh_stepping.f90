@@ -1164,21 +1164,6 @@ MODULE mo_nh_stepping
             CALL message(TRIM(routine), TRIM(message_text))
           ENDIF
 
-          ! Boundary interpolation of land state variables entering into radiation computation
-          ! if reduced grid is used
-          IF (jg > 1 .AND. lredgrid_phys(jg) .AND. atm_phy_nwp_config(jg)%inwp_surface >= 1) THEN
-
-            jn = p_patch(jg)%parent_child_index
-
-            CALL interpol_rrg_grf(p_patch(jgp), p_patch(jg), p_int_state(jgp),             &
-                                  p_grf_state(jgp)%p_dom(jn), prm_diag(jgp), prm_diag(jg), &
-                                  p_lnd_state(jgp)%prog_lnd(nnow_rcf(jgp)),                &
-                                  p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)),                  &
-                                  p_lnd_state(jgp)%diag_lnd, p_lnd_state(jg)%diag_lnd,     &
-                                  jgp, jg, jn )
-          ENDIF
-
-
           ! NOTE (DR): To me it is not clear yet, which timestep should be
           ! used for the first call of the slow_physics part dtadv_loc, dt_loc,
           ! dt_phy(jg,:) ...?
@@ -1210,11 +1195,29 @@ MODULE mo_nh_stepping
             &                  p_tiles(jg,:)                       ) !in
 
           linit_slowphy(jg) = .FALSE. ! no further initialization calls needed
+
+          ! Boundary interpolation of land state variables entering into radiation computation
+          ! if a reduced grid is used in the child domain(s)
+          DO jn = 1, p_patch(jg)%n_childdom
+
+            jgc = p_patch(jg)%child_id(jn)
+
+            IF (lredgrid_phys(jgc) .AND. atm_phy_nwp_config(jgc)%inwp_surface >= 1) THEN
+
+              CALL interpol_rrg_grf(p_patch(jg), p_patch(jgc), p_int_state(jg),             &
+                                    p_grf_state(jg)%p_dom(jn), prm_diag(jg), prm_diag(jgc), &
+                                    p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)),                 &
+                                    p_lnd_state(jgc)%prog_lnd(nnow_rcf(jgc)),               &
+                                    p_lnd_state(jg)%diag_lnd, p_lnd_state(jgc)%diag_lnd,    &
+                                    jg, jgc, jn )
+            ENDIF
+          ENDDO
+
         ENDIF
 
 
-       ! Determine which physics packages must be called/not called at the current
-       ! time step
+        ! Determine which physics packages must be called/not called at the current
+        ! time step
         IF ( iforcing == inwp ) THEN
           CALL time_ctrl_physics ( dt_phy, lstep_adv, dt_loc, jg,  &! in
             &                      .FALSE.,                        &! in
@@ -1385,23 +1388,6 @@ MODULE mo_nh_stepping
 
           !> moist tracer update is now synchronized with advection and satad
 
-          ! Boundary interpolation of land state variables entering into radiation computation
-          ! if reduced grid is used
-          IF (jg > 1 .AND. lredgrid_phys(jg) .AND. lcall_phy(jg,itrad) &
-              .AND. atm_phy_nwp_config(jg)%inwp_surface >= 1) THEN
-
-            jn = p_patch(jg)%parent_child_index
-
-            ! Note: interpolation is done from land(now) to land(new) because the time
-            ! level in the parent grid has already been switched
-            CALL interpol_rrg_grf(p_patch(jgp), p_patch(jg), p_int_state(jgp),             &
-                                  p_grf_state(jgp)%p_dom(jn), prm_diag(jgp), prm_diag(jg), &
-                                  p_lnd_state(jgp)%prog_lnd(nnow_rcf(jgp)),                &
-                                  p_lnd_state(jg)%prog_lnd(nnew_rcf(jg)),                  &
-                                  p_lnd_state(jgp)%diag_lnd, p_lnd_state(jg)%diag_lnd,     &
-                                  jgp, jg, jn )
-          ENDIF
-
           CALL nwp_nh_interface(lcall_phy(jg,:),                   & !in
             &                  lredgrid_phys(jg),                  & !in
             &                  dt_loc,                             & !in
@@ -1428,6 +1414,30 @@ MODULE mo_nh_stepping
             &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
             &                  p_lnd_state(jg)%prog_lnd(n_new_rcf),& !inout
             &                  p_tiles(jg,:)                       ) !in
+
+          ! Boundary interpolation of land state variables entering into radiation computation
+          ! if a reduced grid is used in the child domain(s)
+          DO jn = 1, p_patch(jg)%n_childdom
+
+            jgc = p_patch(jg)%child_id(jn)
+
+            ! Remark: ideally, we should check for lcall_phy(jgc,itrad) here, but
+            ! it is not yet known at the time of the call whether one of the 
+            ! two physics time steps in the upcoming nest call will be a radiation
+            ! step. Calling interpol_rrg_grf from the nested domain would be better
+            ! from a flow control perspective but does not work with processor splitting
+            !
+            IF (lredgrid_phys(jgc) .AND. atm_phy_nwp_config(jgc)%inwp_surface >= 1 &
+              .AND. lcall_phy(jg,itrad) ) THEN
+
+              CALL interpol_rrg_grf(p_patch(jg), p_patch(jgc), p_int_state(jg),             &
+                                    p_grf_state(jg)%p_dom(jn), prm_diag(jg), prm_diag(jgc), &
+                                    p_lnd_state(jg)%prog_lnd(nnew_rcf(jg)),                 &
+                                    p_lnd_state(jgc)%prog_lnd(nnew_rcf(jgc)),               &
+                                    p_lnd_state(jg)%diag_lnd, p_lnd_state(jgc)%diag_lnd,    &
+                                    jg, jgc, jn )
+            ENDIF
+          ENDDO
 
         ENDIF !iforcing
 
@@ -1768,4 +1778,6 @@ MODULE mo_nh_stepping
   END SUBROUTINE setup_time_ctrl_physics
 
 END MODULE mo_nh_stepping
+
+
 
