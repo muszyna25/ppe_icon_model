@@ -54,6 +54,7 @@ MODULE mo_grid_nml
   USE mo_grid_config,        ONLY:                                         &
     & config_global_cell_type             => global_cell_type,             &
     & config_lfeedback                    => lfeedback,                    &
+    & config_ifeedback_type               => ifeedback_type,               &
     & config_lplane                       => lplane,                       &
     & config_corio_lat                    => corio_lat,                    &
     & config_l_limited_area               => l_limited_area,               &
@@ -80,6 +81,7 @@ MODULE mo_grid_nml
   INTEGER    :: cell_type                ! cell type:
 
   LOGICAL    :: lfeedback(max_dom)       ! specifies if feedback to parent grid is performed
+  INTEGER    :: ifeedback_type           ! type of feedback (incremental or relaxation)
   LOGICAL    :: lredgrid_phys(max_dom)   ! If set to .true. is calculated on a reduced grid
   LOGICAL    :: l_limited_area            
 
@@ -97,7 +99,7 @@ MODULE mo_grid_nml
 
   INTEGER :: no_of_dynamics_grids, no_of_radiation_grids
 
-  NAMELIST /grid_nml/ cell_type, lfeedback,       &
+  NAMELIST /grid_nml/ cell_type, lfeedback, ifeedback_type,      &
     &                 lplane, corio_lat, l_limited_area,        &
     &                 patch_weight, lredgrid_phys,                &
     &                 dynamics_grid_filename,  dynamics_parent_grid_id,    &
@@ -145,6 +147,7 @@ MODULE mo_grid_nml
     cell_type   = itri
       
     lfeedback   = .TRUE.
+    ifeedback_type = 1
     lplane      = .FALSE.
     l_limited_area = .FALSE.
     corio_lat   = 0.0_wp
@@ -279,6 +282,7 @@ MODULE mo_grid_nml
 
     config_global_cell_type  = cell_type
     config_lfeedback         = lfeedback
+    config_ifeedback_type    = ifeedback_type
     config_lplane            = lplane
     config_corio_lat         = corio_lat
     config_l_limited_area    = l_limited_area

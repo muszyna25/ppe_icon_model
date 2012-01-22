@@ -60,7 +60,7 @@ USE mo_read_netcdf_parallel, ONLY:                &
   
   PUBLIC :: global_cell_type, nroot, start_lev, n_dom, lfeedback,       &
     &       lplane, corio_lat, l_limited_area, patch_weight, &
-    &       lredgrid_phys
+    &       lredgrid_phys, ifeedback_type
 
   PUBLIC :: dynamics_grid_filename,  dynamics_parent_grid_id,     &
     &       radiation_grid_filename, dynamics_radiation_grid_link
@@ -86,8 +86,8 @@ INCLUDE 'netcdf.inc'
   INTEGER  :: start_lev                ! coarsest bisection level
   INTEGER  :: n_dom                    ! number of model domains, 1=global domain only 
   INTEGER  :: n_dom_start=1 
-  INTEGER  :: max_childdom
-
+  INTEGER  :: max_childdom             ! type of feedback (incremental or relaxation)
+  INTEGER  :: ifeedback_type
   INTEGER  :: n_phys_dom               ! Number of physical domains, computed when reading the patches
 
   LOGICAL  :: lfeedback(max_dom)       ! specifies if feedback to parent grid is performed

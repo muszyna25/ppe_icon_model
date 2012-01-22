@@ -69,7 +69,7 @@ MODULE mo_nh_stepping
   USE mo_nwp_lnd_state,       ONLY: p_lnd_state
   USE mo_ext_data,            ONLY: ext_data
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_model_domain_import, ONLY: n_dom, lfeedback, l_limited_area, &
+  USE mo_grid_config,         ONLY: n_dom, lfeedback, ifeedback_type, l_limited_area, &
     &                               n_dom_start, lredgrid_phys
   USE mo_nh_testcases,        ONLY: init_nh_testtopo, init_nh_testcase, nh_test_name, &
     &                               rotate_axis_deg
@@ -88,7 +88,7 @@ MODULE mo_nh_stepping
                                     complete_nesting_setup, prep_bdy_nudging,      &
                                     outer_boundary_nudging, nest_boundary_nudging, &
                                     prep_rho_bdy_nudging, density_boundary_nudging
-  USE mo_nh_feedback,         ONLY: feedback
+  USE mo_nh_feedback,         ONLY: feedback, relax_feedback
   USE mo_datetime,            ONLY: t_datetime, print_datetime, add_time
   USE mo_timer,               ONLY: timer_total, timer_start, timer_stop
   USE mo_output,              ONLY: init_output_files, write_output,  &
@@ -1525,8 +1525,13 @@ MODULE mo_nh_stepping
 
           jgc = p_patch(jg)%child_id(jn)
           IF (lfeedback(jgc)) THEN
-            CALL feedback(p_patch, p_nh_state, p_int_state, p_grf_state, jgc, &
-                          jg, lstep_adv(jg))
+            IF (ifeedback_type == 1) THEN
+              CALL feedback(p_patch, p_nh_state, p_int_state, p_grf_state, jgc, &
+                            jg, lstep_adv(jg))
+            ELSE
+              CALL relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, jgc, &
+                                  jg, lstep_adv(jg))
+            ENDIF
             ! Note: the last argument of "feedback" ensures that tracer feedback is
             ! only done for those time steps in which transport and microphysics are called
           ENDIF
