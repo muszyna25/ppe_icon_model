@@ -30,7 +30,6 @@ dtime=${dtime:=60}
 ndays=${ndays:=16}
 nsteps=${nsteps:=`expr ${ndays} \* 86400 / ${dtime}`}
 dt_rad=${dt_rad:=1800}             # compute radiative transfer every half hour
-dt_rad=3600             # compute radiative transfer every half hour
 dt_conv=${dt_conv:=$dtime}
 dt_sso=${dt_sso:=$dt_conv}
 #

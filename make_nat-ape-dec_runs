@@ -78,7 +78,8 @@ nproma=12
 
 $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME=${exp_name} out_script=${runname} \
 atmo_dyn_gridname="$atmo_dyn_gridname" atmo_rad_gridname="$atmo_rad_gridname" nproma=$nproma no_of_nodes=$nodes dec_size=$dec_size dt_rad=$dt_rad \
-mpi_procs=$mpi_procs openmp_threads=4 cpu_time="00:10:00" use_barrier=$use_barrier testbed_mode=$testbed_mode division_method=$division_method
+mpi_procs=$mpi_procs openmp_threads=4 cpu_time=$cpu_time use_barrier=$use_barrier testbed_mode=$testbed_mode division_method=$division_method \
+ndays=$ndays
 # queue="express"
 
 if [ $run = "true" ]; then
@@ -90,8 +91,11 @@ fi
 }
 #==============================================================================
 
-create_scaling_dec()
+create_scaling_dec_lowres()
 {
+cpu_time="00:10:00"
+ndays=16
+outname="${outname}_lowres"
 
 atmo_dyn_gridname='iconR2B04_dec-162'
 if [ x$rrad = "xtrue" ]; then
@@ -119,8 +123,41 @@ else
 fi
 dec_size=1082
 create_dec
+}
 
 
+create_scaling_dec_hires()
+{
+cpu_time="00:20:00"
+ndays=10
+outname="${outname}_hires"
+
+atmo_dyn_gridname='iconR2B05_dec-162'
+if [ x$rrad = "xtrue" ]; then
+  atmo_rad_gridname='iconR2B04_dec-162_rrad'
+else
+  atmo_rad_gridname=""
+fi
+dec_size=162
+create_dec
+
+atmo_dyn_gridname='iconR2B06_dec-642'
+if [ x$rrad = "xtrue" ]; then
+  atmo_rad_gridname='iconR2B05_dec-642_rrad'
+else
+  atmo_rad_gridname=""
+fi
+dec_size=642
+create_dec
+
+atmo_dyn_gridname='iconR2B07_dec-1082'
+if [ x$rrad = "xtrue" ]; then
+  atmo_rad_gridname='iconR2B06_dec-1082_rrad'
+else
+  atmo_rad_gridname=""
+fi
+dec_size=1082
+create_dec
 }
 
 #==============================================================================
@@ -133,25 +170,59 @@ use_barrier=".false."
 testbed_mode=0
 #==============================================================================
 rrad="false"
+dt_rad=1800
 #---------------------------------
 division_method=0
+outname=nat_ape-hexdec_30min
+create_scaling_dec_hires
+
+division_method=1
+outname=nat_ape-geomdec_30min
+create_scaling_dec_hires
+
+#=================================
+rrad="true"
+dt_rad=3600
+#---------------------------------
+division_method=0
+outname=nat_ape-hexdec-rrad_1h
+create_scaling_dec_hires
+
+division_method=1
+outname=nat_ape-geomdec-rrad-1h
+create_scaling_dec_hires
+
+exit
+
+
+#==============================================================================
+rrad="false"
+dt_rad=1800
+#---------------------------------
+division_method=0
+outname=nat_ape-hexdec_30min
+create_scaling_dec_lowres
+
+division_method=1
+outname=nat_ape-geomec_30min
+create_scaling_dec_lowres
+
+exit
+
 dt_rad=3600
 outname=nat_ape-hexdec_1h
-create_scaling_dec
+create_scaling_dec_lowres
 
-dt_rad=1800
-outname=nat_ape-hexdec_30min
-create_scaling_dec
 
 #---------------------------------
 division_method=1
 dt_rad=3600
 outname=nat_ape-geomdec_1h
-create_scaling_dec
+create_scaling_dec_lowres
 
 dt_rad=1800
 outname=nat_ape-geomec_30min
-create_scaling_dec
+create_scaling_dec_lowres
 
 #==============================================================================
 rrad="true"
@@ -159,13 +230,13 @@ rrad="true"
 division_method=0
 dt_rad=3600
 outname=nat_ape-hexdec-rrad_1h
-create_scaling_dec
+create_scaling_dec_lowres
 
 #---------------------------------
 division_method=1
 dt_rad=3600
 outname=nat_ape-geomdec-rrad_1h
-create_scaling_dec
+create_scaling_dec_lowres
 
 
 exit
@@ -183,11 +254,11 @@ testbed_mode=0
 
 division_method=0
 outname=icon-testbed_communication-hexdec
-create_scaling_dec
+create_scaling_dec_lowres
 
 division_method=1
 outname=icon-testbed_communication-geomdec
-create_scaling_dec
+create_scaling_dec_lowres
 
 exit
 
