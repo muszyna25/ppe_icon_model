@@ -939,7 +939,12 @@ procedure setAutomaticPlotCaptions(resource,plotmode,varname,filehandle,filename
 local varname
 begin
   ; titles
-  left_str = varname
+  if (plotmode.eq."vector") then
+    varname = vecVars(0)
+    left_str = "velocity"
+  else
+    left_str = varname
+  end if
   if(.not. isvar("lStrg")) then
     hastime = var_has_time(varname, filehandle)
     if (hastime) then
@@ -950,9 +955,6 @@ begin
       minute  = doubletointeger(floor((86400*dayfrag - hour*3600)/60))
       second  = doubletointeger(86400*dayfrag - hour*3600 - minute*60)
       timeStr = str_join((/day,hour,minute,second/),"|")
-      if (plotmode.eq."vector") then
-        varname = "Velocity"
-      end if
       left_str   = left_str + " (ts:"+timestep+"["+timeStr+"] "
     else
       left_str = "("
@@ -1586,4 +1588,24 @@ end
 undef("readMaskVar")
 function readMaskVar()
 begin
+end
+;---------------------------------------------------------------
+; plot vector/streamlines to resource
+undef("plotVecOrStream")
+function plotVecOrStream(useScalar,useStreamlines,uvar,vvar,scalarvar,resource,workstation)
+begin
+  if (useScalar) then
+    if (useStreamlines) then
+      vc = gsn_csm_streamline_contour_map(workstation,uvar,vvar,scalarvar,resource)
+    else
+      vc = gsn_csm_vector_scalar_map(workstation,uvar,vvar,scalarvar,resource)
+    end if
+  else
+    if (useStreamlines) then
+      vc = gsn_csm_streamline_map(workstation,uvar,vvar,resource)
+    else
+      vc = gsn_csm_vector_map(workstation,uvar,vvar,resource)
+    end if
+  end if
+  return vc
 end

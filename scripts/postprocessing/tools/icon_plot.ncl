@@ -45,6 +45,7 @@
 ; vecRefLength  : reference vector length (default: 8.0)
 ; vecColByLen   : should vectors get coloured according to their lengths (default:False)
 ; vecMinDist    : minimal distance between vectors (default:0.017)
+; streamLine    : display streamlines instead of vectors
 ; timeStep      : no of timestep (default:0)
 ; levIndex      : vertical level index (default:0)
 ; minVar/maxVar : set the lower/upper limit of the labelbar
@@ -189,6 +190,7 @@
   if (.not.isvar("vecRefLength")) vecRefLength = 8.0             end if
   if (.not.isvar("vecColByLen"))  vecColByLen  = False           end if
   if (.not.isvar("vecMinDist"))   vecMinDist   = 0.017           end if
+  if (.not.isvar("streamLine"))   streamLine   = False           end if
   if (.not.isvar("secPoints"))    secPoints    = 20              end if
   ; default + optional coordinates
   if (.not.isvar("lonCo"))         lonCo       =  DEFAULTLON     end if
@@ -466,9 +468,11 @@
     if (plotMode.eq."scalar" .or. plotMode.eq."overlay") setCoordinates(ResC,x,y) end if
   end if
 
-  if (plotMode.eq."scalar" .or. plotMode.eq."overlay" .or. plotMode.eq."section") 
+  if (plotMode.eq."vector") then
+    setAutomaticPlotCaptions(ResC,plotMode,vecVars(0),File,iFile,timeStep,levIndex,iType,atmLev,k2c)
+  else
     setAutomaticPlotCaptions(ResC,plotMode,varName,File,iFile,timeStep,levIndex,iType,atmLev,k2c)
-  end if
+  end if 
 
   if (plotMode.eq."section") then
     if ( ismissing(getVertDim(File,var)) ) then
@@ -502,13 +506,9 @@
       print(ABORTMSG)
       exit
     else
-        setDefaultVectorPlot(ResC,5.0,vecRefLength,"CurlyVector",vecMinDist)
+      setDefaultVectorPlot(ResC,5.0,vecRefLength,"CurlyVector",vecMinDist)
 
-        if (vecColByLen) then
-          vc = gsn_csm_vector_scalar_map(wks,uvar,vvar,velocity,ResC)
-        else
-          vc = gsn_csm_vector_map(wks,uvar,vvar,ResC)
-        end if
+      vc = plotVecOrStream(vecColByLen,streamLine,uvar,vvar,velocity,ResC,wks)
     end if
   end if
   if (plotMode.eq."overlay") then
@@ -525,7 +525,6 @@
       vc = gsn_csm_vector_scalar(wks,uvar,vvar,velocity,ResC2)
     else
       vc = gsn_csm_vector(wks,uvar,vvar,ResC2)
-   ;   vc = gsn_csm_vector(wks,uvar,vvar,ResC2)
     end if
 
     plot = gsn_csm_contour_map(wks,var,ResC)
@@ -548,7 +547,6 @@
         exit
       end if
       plotGrid(wks,plot,var,x,bounds,File,ResC,DEBUG)
-      end if
     end if
   end if
   if (plotMode.eq."section") then
