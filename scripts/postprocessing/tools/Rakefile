@@ -303,6 +303,7 @@ task :test_reg_sections do
   show(*images)
 end
 
+
 # -----------------------------------------------------------------------------
 # uncategoriesed tests on
 # * maptype

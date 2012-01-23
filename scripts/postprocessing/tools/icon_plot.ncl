@@ -81,7 +81,6 @@
 ; rStrg         : right string
 ; tStrg         : title string
 ; bStrg         : base string - default is prgr name and time stamp only
-; showPreview   : (logical) draw a preview window
 ; maxView       : (logical) maximize plot area on paper (not for buildbot -> convert to png)
 ; colormap      : string for predefined colormaps of the plot (e.g. 'colormap="BlAqGrYeOrReVi200"')
 ; showGrid      : display polygon lines with filled colors instead of contour plot
@@ -163,7 +162,6 @@
   end if
 
   if (.not. isvar("DEBUG"))       DEBUG       = False           end if
-  if (.not. isvar("showPreview")) showPreview = False           end if
   if (.not. isvar("showGrid"))    showGrid    = False           end if
   if (.not. isvar("showNdc"))     showNdc     = False           end if
   if (.not. isvar("maxView"))     maxView     = False           end if
@@ -450,14 +448,8 @@
 
   gsn_define_colormap(wks,colormap)
 
-  if (showPreview) then
-    xwks = gsn_open_wks("x11","x11")
-    gsn_define_colormap(xwks,colormap)
-  end if
-
   if (showNdc)
     drawNDCGrid(wks)
-    if (showPreview) drawNDCGrid(xwks) end if
   end if
 
   ResC = True
@@ -490,7 +482,6 @@
   end if
 
   setAutomaticBaseString(wks,plotMode)
-  if (showPreview) setAutomaticBaseString(xwks,plotMode) end if
 
   setLevels(selMode,ResC,minVar,maxVar,scaleLimit,numLevs,DEBUG)
 
@@ -513,13 +504,6 @@
     else
         setDefaultVectorPlot(ResC,5.0,vecRefLength,"CurlyVector",vecMinDist)
 
-        if ( showPreview ) then
-          if (vecColByLen) then
-            x11 = gsn_csm_vector_scalar_map(xwks,uvar,vvar,velocity,ResC)
-          else
-            x11 = gsn_csm_vector_map(xwks,uvar,vvar,ResC)
-          end if
-        end if
         if (vecColByLen) then
           vc = gsn_csm_vector_scalar_map(wks,uvar,vvar,velocity,ResC)
         else
@@ -541,6 +525,7 @@
       vc = gsn_csm_vector_scalar(wks,uvar,vvar,velocity,ResC2)
     else
       vc = gsn_csm_vector(wks,uvar,vvar,ResC2)
+   ;   vc = gsn_csm_vector(wks,uvar,vvar,ResC2)
     end if
 
     plot = gsn_csm_contour_map(wks,var,ResC)
@@ -555,7 +540,6 @@
   if (plotMode.eq."scalar") then
     if (DEBUG) print("Gridtype is "+getGridType(var)) end if
     plot                     = gsn_csm_contour_map(wks,var,ResC)
-    if (showPreview) preview = gsn_csm_contour_map(xwks,var,ResC) end if
 
     if (showGrid) then
       if ( horizonalGridType .ne. "unstructured") then
@@ -563,13 +547,7 @@
         print("Grid representation is only implemented for the unstructured ICON grid")
         exit
       end if
-      if (showPreview) then
-        plotGrid(xwks,preview,var,x,bounds,File,ResC,DEBUG)
-        print("#=======================================================")
-        print("For reasons of performance, the preview of a grid plot is not written to the output file be default")
-        print("Please set 'showPreview=False' on the command line!")
-      else
-        plotGrid(wks,plot,var,x,bounds,File,ResC,DEBUG)
+      plotGrid(wks,plot,var,x,bounds,File,ResC,DEBUG)
       end if
     end if
   end if
@@ -617,6 +595,5 @@
      draw(plot(1))
    end if
   end if
-  if (showPreview) frame(xwks) end if
   frame(wks)
 end
