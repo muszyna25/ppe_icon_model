@@ -508,7 +508,7 @@
     else
       setDefaultVectorPlot(ResC,5.0,vecRefLength,"CurlyVector",vecMinDist)
 
-      vc = plotVecOrStream(vecColByLen,streamLine,uvar,vvar,velocity,ResC,wks)
+      vc = plotVecOrStream(vecColByLen,streamLine,uvar,vvar,velocity,ResC,wks,True)
     end if
   end if
   if (plotMode.eq."overlay") then
@@ -521,11 +521,7 @@
 
     ResC@gsnDraw             = False
     ResC@gsnFrame            = False
-    if (vecColByLen) then
-      vc = gsn_csm_vector_scalar(wks,uvar,vvar,velocity,ResC2)
-    else
-      vc = gsn_csm_vector(wks,uvar,vvar,ResC2)
-    end if
+    vc   = plotVecOrStream(vecColByLen,streamLine,uvar,vvar,velocity,ResC2,wks,False)
 
     plot = gsn_csm_contour_map(wks,var,ResC)
     if (showGrid) then

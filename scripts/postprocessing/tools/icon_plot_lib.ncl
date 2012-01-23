@@ -1592,19 +1592,35 @@ end
 ;---------------------------------------------------------------
 ; plot vector/streamlines to resource
 undef("plotVecOrStream")
-function plotVecOrStream(useScalar,useStreamlines,uvar,vvar,scalarvar,resource,workstation)
+function plotVecOrStream(useScalar,useStreamlines,uvar,vvar,scalarvar,resource,workstation,showMap)
 begin
   if (useScalar) then
     if (useStreamlines) then
-      vc = gsn_csm_streamline_contour_map(workstation,uvar,vvar,scalarvar,resource)
+      if (showMap)
+        vc = gsn_csm_streamline_contour_map(workstation,uvar,vvar,scalarvar,resource)
+      else
+        vc = gsn_streamline_scalar(workstation,uvar,vvar,scalarvar,resource)
+      end if
     else
-      vc = gsn_csm_vector_scalar_map(workstation,uvar,vvar,scalarvar,resource)
+      if (showMap)
+        vc = gsn_csm_vector_scalar_map(workstation,uvar,vvar,scalarvar,resource)
+      else
+        vc = gsn_csm_vector_scalar(workstation,uvar,vvar,scalarvar,resource)
+      end if
     end if
   else
-    if (useStreamlines) then
-      vc = gsn_csm_streamline_map(workstation,uvar,vvar,resource)
+    if (showMap)
+      if (useStreamlines) then
+        vc = gsn_csm_streamline_map(workstation,uvar,vvar,resource)
+      else
+        vc = gsn_csm_vector_map(workstation,uvar,vvar,resource)
+      end if
     else
-      vc = gsn_csm_vector_map(workstation,uvar,vvar,resource)
+      if (useStreamlines) then
+        vc = gsn_csm_streamline(workstation,uvar,vvar,resource)
+      else
+        vc = gsn_csm_vector(workstation,uvar,vvar,resource)
+      end if
     end if
   end if
   return vc

@@ -185,11 +185,11 @@ end
 desc "plot vectors of ocean input"
 task :test_vector_oce do
   showVector(OCE_PLOT_TEST_FILE,'test_vector_oce','u-veloc v-veloc')
-  showVector(OCE_PLOT_TEST_FILE,'test_vector_oce','u-veloc v-veloc',["tstrg='\"title\"'","mapType='\"ortho\"'"])
-  showVector(OCE_PLOT_TEST_FILE,'test_stream_oce','u-veloc v-veloc',["tstrg='\"title\"'","streamLine=True"])
-  showVector(OCE_PLOT_TEST_FILE,'test_stream_oce','u-veloc v-veloc',["tstrg='\"title\"'","streamLine=True","mapType='\"ortho\"'"])
-  showVector(OCE_PLOT_TEST_FILE,'test_vector_oce','u-veloc v-veloc',["tstrg='\"title\"'","vecColByLen=True"])
-  showVector(OCE_PLOT_TEST_FILE,'test_stream_oce','u-veloc v-veloc',["tstrg='\"title\"'","streamLine=True","vecColByLen=True"])
+  showVector(OCE_PLOT_TEST_FILE,'test_vector_oce','u-veloc v-veloc',["mapType='\"ortho\"'"])
+  showVector(OCE_PLOT_TEST_FILE,'test_stream_oce','u-veloc v-veloc',["streamLine=True"])
+  showVector(OCE_PLOT_TEST_FILE,'test_stream_oce','u-veloc v-veloc',["streamLine=True","mapType='\"ortho\"'"])
+  showVector(OCE_PLOT_TEST_FILE,'test_vector_oce','u-veloc v-veloc',["vecColByLen=True"])
+  showVector(OCE_PLOT_TEST_FILE,'test_stream_oce','u-veloc v-veloc',["streamLine=True","vecColByLen=True"])
 end
 desc "plot vectors of atm input"
 task :test_vector_atm do
@@ -223,9 +223,9 @@ COMPARISON.each {|itype,ifile|
   desc "overlay plot form 3d variable (#{itypeS})"
   task "test_overlay_3d_#{itypeS}".to_sym do
     defaultPlot(ifile,"test_overlay_3d_#{itypeS}",["'vecVars=\"#{vecvars}\"'",
-                "'mapType=\"ortho\"'","'atmLev=\"m\"' levIndex=#{levIndex}","centerLon=120","vecRefLength=0.04"])
+                "'mapType=\"ortho\"'","'atmLev=\"m\"' levIndex=#{levIndex}","centerLat=90"])
     defaultPlot(ifile,"test_overlay_stream_3d_#{itypeS}",["'vecVars=\"#{vecvars}\"'",
-                "'mapType=\"ortho\"'","'atmLev=\"m\"' levIndex=#{levIndex}","centerLon=120","streamLine=True"])
+                "'mapType=\"ortho\"'","'atmLev=\"m\"' levIndex=#{levIndex}","centerLat=-90","streamLine=True"])
   end
   desc "overlay plot from 2d variable (#{itypeS})"
   task "test_overlay_2d_#{itypeS}".to_sym do
