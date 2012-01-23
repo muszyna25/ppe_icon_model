@@ -31,9 +31,13 @@ def iconPlot(ifile,ofile,otype,varname,vartype='scalar',opts=[])
   end
   varIdent = (vartype == 'scalar') ? 'varName' : 'vecVars'
 
+  opts << "'tStrg=\"#{ofile}\"'"
+
   cmd   ="ncl #{SRC[0]} 'altLibDir=\"#{libdir}\"' '#{varIdent}=\"#{varname}\"' 'iFile=\"#{ifile}\"' 'oFile=\"#{ofile}\"' 'oType=\"#{otype}\"' #{opts.join(' ')} 'cdo=\"#{CDO}\"'"
   puts cmd
   sh cmd
+
+  return "#{ofile}.#{otype}"
 end
 def scalarPlot(ifile,ofile,otype,varname,opts=[])
   iconPlot(ifile,ofile,otype,varname,'scalar',opts)
@@ -46,16 +50,13 @@ def del(file)
   FileUtils.rm(file) if File.exists?(file)
 end
 def show(*files)
-  system("#{PLOT_CMD} #{files.join(' ')} &")
+  files.flatten.each {|file| sh "#{PLOT_CMD} #{file} &" }
 end
 def defaultPlot(ifile,ofile,opts=[])
-  scalarPlot(ifile,ofile,OFMT,DEFAULT_VARNAME,opts)
-  ofile += ".#{OFMT}"
-  show(ofile)
+  show(scalarPlot(ifile,ofile,OFMT,DEFAULT_VARNAME,opts))
 end
-def showVector(ifile,ofile,vars)
-  vectorPlot(ifile,ofile,OFMT,vars)
-  show(ofile+'.'+OFMT)
+def showVector(ifile,ofile,vars,opts=[])
+  show(vectorPlot(ifile,ofile,OFMT,vars,opts))
 end
 def grepTests(pattern)
   tests = Rake::Task.tasks.find_all {|t| t.name =~ pattern}
@@ -184,20 +185,23 @@ end
 desc "plot vectors of ocean input"
 task :test_vector_oce do
   showVector(OCE_PLOT_TEST_FILE,'test_vector_oce','u-veloc v-veloc')
+  showVector(OCE_PLOT_TEST_FILE,'test_vector_oce','u-veloc v-veloc',["tstrg='\"title\"'","mapType='\"ortho\"'"])
+  showVector(OCE_PLOT_TEST_FILE,'test_stream_oce','u-veloc v-veloc',["tstrg='\"title\"'","streamLine=True"])
+  showVector(OCE_PLOT_TEST_FILE,'test_stream_oce','u-veloc v-veloc',["tstrg='\"title\"'","streamLine=True","mapType='\"ortho\"'"])
+  showVector(OCE_PLOT_TEST_FILE,'test_vector_oce','u-veloc v-veloc',["tstrg='\"title\"'","vecColByLen=True"])
+  showVector(OCE_PLOT_TEST_FILE,'test_stream_oce','u-veloc v-veloc',["tstrg='\"title\"'","streamLine=True","vecColByLen=True"])
 end
 desc "plot vectors of atm input"
 task :test_vector_atm do
   ofile='test_vector_atm'
   images = []
 
-  ofile0 = ofile + '0'
-  vectorPlot(ATM_PLOT_TEST_FILE,ofile0,OFMT,'U V',["vecRefLength=0.01"])
-  images << ofile0+'.'+OFMT
+  images << vectorPlot(ATM_PLOT_TEST_FILE,ofile+'0',OFMT,'U V',["vecRefLength=0.01"])
+  images << vectorPlot(ATM_PLOT_TEST_FILE,ofile+'1',OFMT,'U V',["vecRefLength=0.01","'mapType=\"NHps\"'"])
+  images << vectorPlot(ATM_PLOT_TEST_FILE,ofile+'_stream_0',OFMT,'U V',["streamLine=True"])
+  images << vectorPlot(ATM_PLOT_TEST_FILE,ofile+'_stream_1',OFMT,'U V',["streamLine=True","'mapType=\"NHps\"'"])
 
-  ofile1 = ofile + '1'
-  vectorPlot(ATM_PLOT_TEST_FILE,ofile1,OFMT,'U V',["vecRefLength=0.01","'mapType=\"NHps\"'"])
-  images << ofile1+'.'+OFMT
-
+  pp images
   show(images)
 end
 
@@ -220,14 +224,19 @@ COMPARISON.each {|itype,ifile|
   task "test_overlay_3d_#{itypeS}".to_sym do
     defaultPlot(ifile,"test_overlay_3d_#{itypeS}",["'vecVars=\"#{vecvars}\"'",
                 "'mapType=\"ortho\"'","'atmLev=\"m\"' levIndex=#{levIndex}","centerLon=120","vecRefLength=0.04"])
+    defaultPlot(ifile,"test_overlay_stream_3d_#{itypeS}",["'vecVars=\"#{vecvars}\"'",
+                "'mapType=\"ortho\"'","'atmLev=\"m\"' levIndex=#{levIndex}","centerLon=120","streamLine=True"])
   end
   desc "overlay plot from 2d variable (#{itypeS})"
   task "test_overlay_2d_#{itypeS}".to_sym do
     ofile = "test_overlay_2d_#{itypeS}"
-    iconPlot(ifile,ofile,OFMT,var2d,'scalar',["'vecVars=\"#{vecvars}\"'",
+    image = iconPlot(ifile,ofile,OFMT,var2d,'scalar',["'vecVars=\"#{vecvars}\"'",
                 "'mapType=\"ortho\"'","'atmLev=\"m\"' levIndex=#{levIndex}","centerLon=120","vecRefLength=0.04"])
-    ofile += ".#{OFMT}"
-    show(ofile)
+    show(image)
+    ofile = "test_overlay_stream_2d_#{itypeS}"
+    image = iconPlot(ifile,ofile,OFMT,var2d,'scalar',["'vecVars=\"#{vecvars}\"'",
+                "'mapType=\"ortho\"'","'atmLev=\"m\"' levIndex=#{levIndex}","centerLon=120","streamLine=True"])
+    show(image)
   end
 }
 # hoffmueller diagrams
