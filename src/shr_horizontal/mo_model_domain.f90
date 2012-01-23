@@ -562,6 +562,7 @@ TYPE t_patch
   INTEGER :: parent_id
   !
   ! child domain index of current domain as seen from parent domain
+  ! In other words: I am the nth child of my parents (n=parent_child_index)
   INTEGER :: parent_child_index
   !
   ! list of child domain ID's
