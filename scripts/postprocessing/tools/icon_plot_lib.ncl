@@ -818,7 +818,7 @@ begin
   resource@cnFillMode           = "rasterfill"
   resource@cnRasterSmoothingOn  = True
   resource@mpGreatCircleLinesOn = True
-
+  resource@stMinArrowSpacingF   = 0.001
 end
 ;---------------------------------------------------------------
 undef("setDefaultSectionResource")
