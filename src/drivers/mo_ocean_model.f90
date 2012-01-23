@@ -556,7 +556,6 @@ CONTAINS
       CALL get_restart_attribute('next_output_file',jfile)
       IF (n_io.le.nsteps) THEN
          CALL init_output_files(jfile, lclose=.FALSE.)
-         IF (lwrite_initial) CALL write_output( time_config%cur_datetime )
          l_have_output = .TRUE.
       ELSE
          l_have_output = .FALSE.
