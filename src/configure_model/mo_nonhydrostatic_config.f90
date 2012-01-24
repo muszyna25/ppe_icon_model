@@ -145,6 +145,7 @@ CONTAINS
     !-----------------------------------------------------------------------
 
     ! Determine start level for moist physics processes (specified by htop_moist_proc)
+    kstart_moist(jg) = 1
     DO jk = 1, nlev
       jk1 = jk + nshift_total
       IF (0.5_wp*(vct_a(jk1)+vct_a(jk1+1)) < htop_moist_proc) THEN
@@ -153,13 +154,14 @@ CONTAINS
       ENDIF
     ENDDO
 
-    IF ( kstart_moist(jg) > 1 ) THEN
+    IF ( kstart_moist(jg) >= 1 ) THEN
       WRITE(message_text,'(2(a,i4))') 'Domain', jg, &
         '; computation of moist physics processes starts in layer ', kstart_moist(jg)
       CALL message(TRIM(routine),message_text)
     ENDIF
 
     ! Determine start level for QV advection (specified by htop_qvadv)
+    kstart_qv(jg) = 1
     DO jk = 1, nlev
       jk1 = jk + nshift_total
       IF (0.5_wp*(vct_a(jk1)+vct_a(jk1+1)) < htop_qvadv) THEN
@@ -168,13 +170,14 @@ CONTAINS
       ENDIF
     ENDDO
 
-    IF ( kstart_qv(jg) > 1 ) THEN
+    IF ( kstart_qv(jg) >= 1 ) THEN
       WRITE(message_text,'(2(a,i4))') 'Domain', jg, &
         '; QV advection starts in layer ', kstart_qv(jg)
       CALL message(TRIM(routine),message_text)
     ENDIF
 
     ! Determine end level for qv-advection substepping (specified by hbot_qvsubstep)
+    kend_qvsubstep(jg) = nlev
     DO jk = nlev, 2, -1
       jk1 = jk + nshift_total
       IF (0.5_wp*(vct_a(jk1)+vct_a(jk1-1)) > hbot_qvsubstep) THEN
@@ -183,7 +186,7 @@ CONTAINS
       ENDIF
     ENDDO
 
-    IF ( kend_qvsubstep(jg) > 1 ) THEN
+    IF ( kend_qvsubstep(jg) >= 1 ) THEN
       WRITE(message_text,'(2(a,i4))') 'Domain', jg, &
         '; QV substepping ends in layer ', kend_qvsubstep(jg)
       CALL message(TRIM(routine),message_text)
