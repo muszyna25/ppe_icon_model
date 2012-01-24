@@ -1208,6 +1208,7 @@ MODULE mo_nh_stepping
                                     p_grf_state(jg)%p_dom(jn), prm_diag(jg), prm_diag(jgc), &
                                     p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)),                 &
                                     p_lnd_state(jgc)%prog_lnd(nnow_rcf(jgc)),               &
+                                    p_lnd_state(jgc)%prog_lnd(nnew_rcf(jgc)),               &
                                     p_lnd_state(jg)%diag_lnd, p_lnd_state(jgc)%diag_lnd,    &
                                     jg, jgc, jn )
             ENDIF
@@ -1433,6 +1434,7 @@ MODULE mo_nh_stepping
               CALL interpol_rrg_grf(p_patch(jg), p_patch(jgc), p_int_state(jg),             &
                                     p_grf_state(jg)%p_dom(jn), prm_diag(jg), prm_diag(jgc), &
                                     p_lnd_state(jg)%prog_lnd(nnew_rcf(jg)),                 &
+                                    p_lnd_state(jgc)%prog_lnd(nnow_rcf(jgc)),               &
                                     p_lnd_state(jgc)%prog_lnd(nnew_rcf(jgc)),               &
                                     p_lnd_state(jg)%diag_lnd, p_lnd_state(jgc)%diag_lnd,    &
                                     jg, jgc, jn )

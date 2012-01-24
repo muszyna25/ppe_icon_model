@@ -1856,8 +1856,9 @@ END SUBROUTINE interpol_phys_grf
 !! @par Revision History
 !! Developed  by Guenther Zaengl, DWD, 2011-09-19
 !!
-SUBROUTINE interpol_rrg_grf (ptr_pp, ptr_pc, ptr_int, ptr_grf, prm_diagp, prm_diagc,   &
-                             ptr_lprogp, ptr_lprogc, ptr_ldiagp, ptr_ldiagc, jg, jgc, jn)
+SUBROUTINE interpol_rrg_grf (ptr_pp, ptr_pc, ptr_int, ptr_grf, prm_diagp, prm_diagc, &
+                             ptr_lprogp, ptr_lprogc_now, ptr_lprogc_new, ptr_ldiagp, &
+                             ptr_ldiagc, jg, jgc, jn)
 
   ! Input:
   TYPE(t_patch),                INTENT(in) :: ptr_pp
@@ -1867,7 +1868,8 @@ SUBROUTINE interpol_rrg_grf (ptr_pp, ptr_pc, ptr_int, ptr_grf, prm_diagp, prm_di
   TYPE(t_nwp_phy_diag),         INTENT(in) :: prm_diagp
   TYPE(t_nwp_phy_diag),         INTENT(inout) :: prm_diagc
   TYPE(t_lnd_prog),             INTENT(in) :: ptr_lprogp
-  TYPE(t_lnd_prog),             INTENT(inout) :: ptr_lprogc
+  TYPE(t_lnd_prog),             INTENT(inout) :: ptr_lprogc_now
+  TYPE(t_lnd_prog),             INTENT(inout) :: ptr_lprogc_new
   TYPE(t_lnd_diag),             INTENT(in) :: ptr_ldiagp
   TYPE(t_lnd_diag),             INTENT(inout) :: ptr_ldiagc
 
@@ -1917,6 +1919,9 @@ SUBROUTINE interpol_rrg_grf (ptr_pp, ptr_pc, ptr_int, ptr_grf, prm_diagp, prm_di
   i_startblk = ptr_pc%cells%start_blk(1,1)
   i_endblk   = ptr_pc%cells%end_blk(grf_bdywidth_c,1)
 
+  ! Note: prognostic land fields are set on both time levels to safely avoid
+  ! errors when radiation calls for parent and child grids are not properly 
+  ! synchronized
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc)
   DO jb = i_startblk, i_endblk
@@ -1926,9 +1931,12 @@ SUBROUTINE interpol_rrg_grf (ptr_pp, ptr_pc, ptr_int, ptr_grf, prm_diagp, prm_di
 
     DO jc = i_startidx, i_endidx
 
-      ptr_lprogc%t_g(jc,jb)          = z_aux3d_c(jc,1,jb)
-      ptr_lprogc%w_so(jc,1,jb,1)     = z_aux3d_c(jc,2,jb)
-      ptr_lprogc%w_snow(jc,jb,1)     = z_aux3d_c(jc,3,jb)
+      ptr_lprogc_now%t_g(jc,jb)      = z_aux3d_c(jc,1,jb)
+      ptr_lprogc_new%t_g(jc,jb)      = z_aux3d_c(jc,1,jb)
+      ptr_lprogc_now%w_so(jc,1,jb,1) = z_aux3d_c(jc,2,jb)
+      ptr_lprogc_new%w_so(jc,1,jb,1) = z_aux3d_c(jc,2,jb)
+      ptr_lprogc_now%w_snow(jc,jb,1) = z_aux3d_c(jc,3,jb)
+      ptr_lprogc_new%w_snow(jc,jb,1) = z_aux3d_c(jc,3,jb)
       ptr_ldiagc%freshsnow(jc,jb,1)  = z_aux3d_c(jc,4,jb)
       prm_diagc%h_ice(jc,jb)         = z_aux3d_c(jc,5,jb)
 
