@@ -44,11 +44,11 @@ MODULE mo_nh_testcases
 !  
 !  
   USE mo_kind,               ONLY: wp
-  USE mo_exception,          ONLY: message, finish
+  USE mo_exception,          ONLY: message, finish, message_text
   USE mo_namelist,           ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, inwp
-  USE mo_model_domain_import,ONLY: lplane, n_dom
+  USE mo_model_domain_import,ONLY: lplane, n_dom, l_limited_area
   USE mo_model_domain,       ONLY: t_patch
   USE mo_ext_data,           ONLY: ext_data
   USE mo_math_constants,     ONLY: pi, pi_2
@@ -59,7 +59,7 @@ MODULE mo_nh_testcases
   USE mo_run_config,         ONLY: ltransport, ntracer, iforcing, iqv
   USE mo_extpar_config,         ONLY: itopo
     
-  USE mo_dynamics_config,    ONLY: nnow, nnow_rcf, nnew, nnew_rcf
+  USE mo_dynamics_config,    ONLY: nnow, nnow_rcf, nnew, nnew_rcf, lcoriolis
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
   USE mo_physical_constants, ONLY: grav, cpd, rd, cvd_o_rd, &
    &                               p0ref, re, omega, tmelt, vtmpc1, rv
@@ -95,6 +95,12 @@ MODULE mo_nh_testcases
                                    & qv_max_wk, u_infty_wk,                       &
                                    & bubctr_lat, bubctr_lon, bubctr_z,            &
                                    & bub_hor_width, bub_ver_width, bub_amp 
+  USE mo_nh_lim_area_testcases, ONLY: init_nh_atmo_ana_nconstlayers, nlayers_nconst, &
+                                   & p_base_nconst, theta0_base_nconst, h_nconst,    &
+                                   & N_nconst, rh_nconst, rhgr_nconst,               &
+                                   & init_nh_anaprof_uv,                             &
+                                   & itype_anaprof_uv, nlayers_linwind, h_linwind,   &
+                                   & u_linwind, ugr_linwind, vel_const
 
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
   USE mo_sync,                 ONLY: SYNC_E, sync_patch_array
@@ -142,7 +148,12 @@ MODULE mo_nh_testcases
                             linit_tracer_fv, lhs_fric_heat,                  &
                             qv_max_wk, u_infty_wk,                           &
                             bubctr_lat, bubctr_lon, bubctr_z,                &
-                            bub_hor_width, bub_ver_width, bub_amp 
+                            bub_hor_width, bub_ver_width, bub_amp,           &
+                            nlayers_nconst,                                  &
+                            p_base_nconst, theta0_base_nconst, h_nconst,     &
+                            N_nconst, rh_nconst, rhgr_nconst,                &
+                            itype_anaprof_uv, nlayers_linwind, h_linwind,    &
+                            u_linwind, ugr_linwind, vel_const
 
   PUBLIC :: read_nh_testcase_namelist, layer_thickness, init_nh_testtopo,    &
     &       init_nh_testcase, n_flat_level, nh_test_name, ape_sst_case,      &
@@ -227,6 +238,42 @@ MODULE mo_nh_testcases
     bubctr_z               = 1400._wp
     bub_hor_width          = 10000._wp
     bub_ver_width          = 1400._wp
+    ! for the limited area test cases
+    ! for the piecewise const Brunt-Vaisala freq layers 
+    p_base_nconst  = 100000.0_wp
+    !theta0_base_nconst  = 300.0_wp
+    theta0_base_nconst  = 288.0_wp
+    nlayers_nconst  = 1
+    h_nconst(:)  = 1.0_wp
+      h_nconst(1)  = 0.0_wp
+      h_nconst(2)  = 1500.0_wp
+      h_nconst(3)  = 12000.0_wp
+    N_nconst(:)  = 0.01_wp
+      N_nconst(1)  = 0.01_wp
+      N_nconst(2)  = 0.001_wp
+      N_nconst(3)  = 0.02_wp
+    rh_nconst(:)  = 0.5_wp     
+   ! rel hum gradients,  positive for decreasing humidity with height
+    rhgr_nconst(:)  = 0.0_wp
+      rhgr_nconst(1)  = 0.0_wp ! 
+      rhgr_nconst(2)  = 0.0_wp ! 
+      rhgr_nconst(3)  = 0.0_wp
+    ! for the wind profiles
+    vel_const = 20.0_wp
+    itype_anaprof_uv  = 1
+    nlayers_linwind   = 2
+    h_linwind(:)      = 1._wp
+      h_linwind(1)    = 0._wp
+      h_linwind(2)    = 2500._wp
+    u_linwind(:)      = 20._wp
+      u_linwind(1)    = 5._wp
+      u_linwind(2)    = 10._wp
+    ugr_linwind(:)    = 0._wp
+      ugr_linwind(1)  = 0._wp
+      ugr_linwind(2)  = 0._wp
+
+    
+    
     
 
     CALL open_nml(TRIM(filename))
@@ -470,6 +517,10 @@ MODULE mo_nh_testcases
 
    ! The topography has been initialized to 0 at the begining of this SUB
     CALL message(TRIM(routine),'running Aqua-Planet Experiment')
+  CASE ('g_lim_area')
+
+   ! The topography has been initialized to 0 at the begining of this SUB
+    CALL message(TRIM(routine),'running g_lim_area')
 
   CASE DEFAULT
 
@@ -900,6 +951,40 @@ MODULE mo_nh_testcases
 
    CALL message(TRIM(routine),'End setup wk82 test')
 
+  
+  CASE ('g_lim_area')
+
+   CALL message(TRIM(routine),'g_lim_area test')
+  
+   l_hydro_adjust = .TRUE.
+
+   IF (.NOT. l_limited_area  .OR. lcoriolis) THEN
+
+     WRITE(message_text,'(a)') &
+             & 'For g_lim_area test case l_limited_area must &
+             & be .TRUE. and lcoriolis must be .FALSE.'
+            CALL finish  (routine, TRIM(message_text))
+   END IF
+
+   DO jg = 1, n_dom
+
+         ! initialize environment atmosphere
+    
+    CALL   init_nh_atmo_ana_nconstlayers( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
+                                     & p_nh_state(jg)%diag,                 &
+                                     & p_nh_state(jg)%metrics,              &
+                                     & p_int(jg),l_hydro_adjust  )
+         ! initialize wind
+    CALL   init_nh_anaprof_uv  ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%vn, &
+                               & p_nh_state(jg)%prog(nnow(jg))%w,               &
+                               & p_nh_state(jg)%metrics, p_int(jg) ) 
+         
+
+    CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
+
+  ENDDO !jg
+
+   CALL message(TRIM(routine),'End setup g_lim_area test')
   END SELECT
 
  END SUBROUTINE init_nh_testcase
@@ -907,5 +992,3 @@ MODULE mo_nh_testcases
 
  
 END MODULE mo_nh_testcases
-  
-
