@@ -510,8 +510,8 @@ CONTAINS
   !! - Adaption for hexagonal model by Almut Gassmann, MPI-M (2010-11-18)
   !!
   SUBROUTINE hflx_limiter_sm( ptr_patch, ptr_int, p_dtime, p_cc,        &
-    &                         p_mflx_tracer_h, opt_rlstart, opt_rlend,  &
-    &                         opt_slev, opt_elev )
+    &                         p_mflx_tracer_h, opt_rho, opt_rlstart,    &
+    &                         opt_rlend, opt_slev, opt_elev )
 
     TYPE(t_patch), TARGET, INTENT(IN) ::  &   !< patch on which computation is performed
       &  ptr_patch
@@ -529,6 +529,10 @@ CONTAINS
     REAL(wp), INTENT(INOUT) ::  &    !< calculated horizontal tracer mass flux
       &  p_mflx_tracer_h(:,:,:)      !< dim: (nproma,nlev,nblks_e)
                                      !< [kg m^-2 s^-1]
+
+    REAL(wp), INTENT(IN), TARGET, OPTIONAL :: &!< density (\rho \Delta z)
+      &  opt_rho(:,:,:)                !< dim: (nproma,nlev,nblks_c)
+                                       !< [kg m^-2]
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
      &  opt_rlstart                    !< only valid for calculation of 'edge value'
@@ -560,6 +564,9 @@ CONTAINS
     INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices (array)
       &  iidx, iblk                          !< of edges
 
+    REAL(wp), DIMENSION(:,:,:), POINTER:: &  !< pointer to density field (nnow)
+      &  ptr_rho
+
     INTEGER  :: slev, elev                   !< vertical start and end level
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER  :: i_rlstart, i_rlend, i_rlstart_c, i_rlend_c, i_nchdom
@@ -589,6 +596,12 @@ CONTAINS
       i_rlend = opt_rlend
     ELSE
       i_rlend = min_rledge_int - 1
+    ENDIF
+
+    IF ( PRESENT(opt_rho) ) THEN
+      ptr_rho => opt_rho
+    ELSE
+      ptr_rho => ptr_delp_mc_now
     ENDIF
 
     ! number of child domains
@@ -682,7 +695,7 @@ CONTAINS
             ! fraction which must multiply all fluxes out of cell jc to guarantee no
             ! undershoot
             ! Nominator: maximum allowable decrease of \rho q
-            r_m(jc,jk,jb) = MIN(1._wp, (p_cc(jc,jk,jb)*ptr_delp_mc_now(jc,jk,jb)) &
+            r_m(jc,jk,jb) = MIN(1._wp, (p_cc(jc,jk,jb)*ptr_rho(jc,jk,jb)) &
               &                        /(p_m + dbl_eps) )
 
           ENDDO
@@ -761,7 +774,7 @@ CONTAINS
             ! fraction which must multiply all fluxes out of cell jc to guarantee no
             ! undershoot
             ! Nominator: maximum allowable decrease of \rho q
-            r_m(jc,jk,jb) = MIN(1._wp, (p_cc(jc,jk,jb)*ptr_delp_mc_now(jc,jk,jb)) &
+            r_m(jc,jk,jb) = MIN(1._wp, (p_cc(jc,jk,jb)*ptr_rho(jc,jk,jb)) &
               &                        /(p_m + dbl_eps) )
 
           ENDDO

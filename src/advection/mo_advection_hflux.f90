@@ -1116,7 +1116,10 @@ CONTAINS
   !! subcyling-option.
   !!
   !! @par Revision History
-  !! Initial revision by Daniel Reinert, DWD (2011-09-20)
+  !! - Initial revision by Daniel Reinert, DWD (2011-09-20)
+  !! Modification by Daniel Reinert, DWD (2012-01-25)
+  !! - bug fix for positive definite limiter. Limiter is now called after each 
+  !!   substep.
   !!
   !! @par LITERATURE
   !! - Miura, H. (2007), Mon. Weather Rev., 135, 4038-4044
@@ -1127,8 +1130,8 @@ CONTAINS
   SUBROUTINE upwind_hflux_miura_cycl( p_patch, p_cc, p_rho, p_mass_flx_e, p_vn,    &
     &                   p_dtime,  p_ncycl, p_int, ld_compute, ld_cleanup,          &
     &                   p_igrad_c_miura, p_itype_hlimit, p_iord_backtraj, p_out_e, &
-    &                   opt_lconsv, opt_rlstart, opt_rlend, opt_lout_edge,         &
-    &                   opt_real_vt, opt_slev, opt_elev  )
+    &                   opt_lconsv, opt_rlstart, opt_rlend, opt_real_vt,           &
+    &                   opt_slev, opt_elev  )
 
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
@@ -1186,9 +1189,6 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
       &  opt_rlend                     !< (to avoid calculation of halo points)
 
-    LOGICAL, INTENT(IN), OPTIONAL :: & !< optional: output edge value (.TRUE.),
-      & opt_lout_edge                  !< or the flux across the edge (.FALSE./not specified)
-
     REAL(wp), INTENT(IN), OPTIONAL,  & ! optional: tangential velocity
       & TARGET :: opt_real_vt(:,:,:)
 
@@ -1197,9 +1197,6 @@ CONTAINS
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
       &  opt_elev
-
-    LOGICAL  :: l_out_edgeval          !< corresponding local variable; default .FALSE.
-                                       !< i.e. output flux across the edge
 
     REAL(wp), TARGET ::    &                   !< reconstructed gradient vector at
       &  z_grad(nproma,p_patch%nlev,p_patch%nblks_c,2) 
@@ -1234,11 +1231,8 @@ CONTAINS
 
     REAL(wp) :: z_dtsub                 !< sub timestep p_dtime/p_ncycl
     REAL(wp) :: z_dthalf                !< z_dtsub/2
-    REAL(wp) ::                     &   !< intermediate tracer flux at n + nsub/p_ncycl
-      &  z_tracer_mflx(nproma,p_patch%nlev,p_patch%nblks_e)
-
-    REAL(wp) ::                     &   !< 'tracer edge value' at interm.  
-      &  z_tracer_e(nproma,p_patch%nlev,p_patch%nblks_e,p_ncycl) !< timesteps
+    REAL(wp) ::                     &   !< tracer flux at n + nsub/p_ncycl
+      &  z_tracer_mflx(nproma,p_patch%nlev,p_patch%nblks_e,p_ncycl)
 
     REAL(wp) ::                     &   !< tracer mass flux divergence at cell center
       &  z_rhofluxdiv_c(nproma,p_patch%nlev,p_patch%nblks_c)
@@ -1292,12 +1286,6 @@ CONTAINS
      l_consv = opt_lconsv
     ELSE
      l_consv = .FALSE. ! non-conservative reconstruction
-    ENDIF
-
-    IF ( PRESENT(opt_lout_edge) ) THEN
-      l_out_edgeval = opt_lout_edge
-    ELSE
-      l_out_edgeval = .FALSE.
     ENDIF
 
     IF ( PRESENT(opt_real_vt) ) THEN
@@ -1386,7 +1374,7 @@ CONTAINS
 
       !
       ! 1. Approximation of the 'departure region'. In case of a linear
-      !    reconstruction it is sufficient to calculate the barycenter
+      !    reconstruction it is sufficient to compute the barycenter
       !    of the departure region (instead of all the vertices).
       !
 
@@ -1498,7 +1486,7 @@ CONTAINS
 
     IF ( p_patch%id > 1 .OR. l_limited_area) THEN
 !$OMP WORKSHARE
-      z_tracer_mflx(:,:,1:i_startblk) = 0._wp
+      z_tracer_mflx(:,:,1:i_startblk,nsub) = 0._wp
 !$OMP END WORKSHARE
     ENDIF
 
@@ -1522,20 +1510,35 @@ CONTAINS
             ilc0 = z_cell_indices(je,jk,jb,1)
             ibc0 = z_cell_indices(je,jk,jb,2)  
 
-            z_tracer_e(je,jk,jb,nsub) = ptr_cc(ilc0,jk,ibc0)               &
-              &    + z_distv_bary(je,jk,jb,1) * ptr_grad(ilc0,jk,ibc0,1)   &
-              &    + z_distv_bary(je,jk,jb,2) * ptr_grad(ilc0,jk,ibc0,2)
+            ! compute intermediate flux at cell edge (cc_bary*v_{n}* \Delta p)
+            z_tracer_mflx(je,jk,jb,nsub) = ( ptr_cc(ilc0,jk,ibc0)            &
+              &      + z_distv_bary(je,jk,jb,1) * ptr_grad(ilc0,jk,ibc0,1)   &
+              &      + z_distv_bary(je,jk,jb,2) * ptr_grad(ilc0,jk,ibc0,2) ) &
+              &      * p_mass_flx_e(je,jk,jb)
 
-
-            ! intermediate tracer mass flux
-            z_tracer_mflx(je,jk,jb) = z_tracer_e(je,jk,jb,nsub)  &
-              &                     * p_mass_flx_e(je,jk,jb)
           ENDDO ! loop over edges
         ENDDO   ! loop over vertical levels
 
       ENDDO    ! loop over blocks
 !$OMP END DO
 !$OMP END PARALLEL
+
+
+      ! 4. limit intermediate tracer fluxes to achieve positive definiteness
+      !    The flux limiter is based on work by Zalesak (1979)
+      !
+      IF ( p_itype_hlimit == ifluxl_sm .OR. p_itype_hlimit == ifluxl_m ) THEN
+        ! MPI-sync necessary (to be precise: only necessary for
+        ! igrad_c_miura /= 3. For simplicity, we perform the sync for
+        ! igrad_c_miura = 3 as well.
+        !
+        CALL hflx_limiter_sm( p_patch, p_int, z_dtsub          , & !in
+          &                   z_tracer(:,:,:,nnow)             , & !in
+          &                   z_tracer_mflx(:,:,:,nsub)        , & !inout
+          &                   opt_rho = z_rho(:,:,:,nnow)      , & !in 
+          &                   opt_rlend=i_rlend, opt_slev=slev , & !in
+          &                   opt_elev=elev                      ) !in
+      ENDIF
 
 
       ! during the last iteration step, the following computations can be skipped
@@ -1554,14 +1557,14 @@ CONTAINS
       ENDIF
 
 
-      CALL div( z_tracer_mflx(:,:,:), p_patch, p_int,   &! in
-        &       z_fluxdiv_c(:,:,:),                     &! inout
-        &       opt_slev=slev, opt_elev=elev,           &! in
-        &       opt_rlstart=3, opt_rlend=min_rlcell_int )! in
+      CALL div( z_tracer_mflx(:,:,:,nsub), p_patch, p_int, &! in
+        &       z_fluxdiv_c(:,:,:),                        &! inout
+        &       opt_slev=slev, opt_elev=elev,              &! in
+        &       opt_rlstart=3, opt_rlend=min_rlcell_int    )! in
 
 
       !
-      ! 3.3/3.4 compute updated density and tracer fields
+      ! 4.1/4.2 compute updated density and tracer fields
       !
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
 
@@ -1586,13 +1589,13 @@ CONTAINS
           DO jc = i_startidx, i_endidx
 
             !
-            ! 3.3 updated density field for intermediate timestep n + nsub/p_ncycl
+            ! 4.1 updated density field for intermediate timestep n + nsub/p_ncycl
             !
             z_rho(jc,jk,jb,nnew) = z_rho(jc,jk,jb,nnow)              &
               &                   - z_dtsub * z_rhofluxdiv_c(jc,jk,jb)
 
             !
-            ! 3.4 updated tracer field for intermediate timestep n + nsub/p_ncycl
+            ! 4.2 updated tracer field for intermediate timestep n + nsub/p_ncycl
             !
             z_tracer(jc,jk,jb,nnew) = ( z_tracer(jc,jk,jb,nnow)          &
               &                      * z_rho(jc,jk,jb,nnow)              &
@@ -1618,7 +1621,7 @@ CONTAINS
 
 
     !
-    ! 4. compute (averaged) tracer mass flux or edge value
+    ! 5. compute averaged tracer mass flux
     !
 
     ! Before starting, preset halo edges that are not processed with zero's in order
@@ -1626,23 +1629,6 @@ CONTAINS
     ! Necessary when called within dycore
   
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
-
-    IF ( l_out_edgeval ) THEN
-      i_startblk = p_patch%edges%start_blk(i_rlend-1,i_nchdom)
-      i_endblk   = p_patch%edges%end_blk(min_rledge_int-3,i_nchdom)
-
-!$OMP WORKSHARE
-      p_out_e(:,:,i_startblk:i_endblk) = 0._wp
-!$OMP END WORKSHARE
-    ENDIF
-
-    ! initialize also nest boundary points with zero
-    IF ( l_out_edgeval .AND. (p_patch%id > 1 .OR. l_limited_area) ) THEN
-!$OMP WORKSHARE
-      p_out_e(:,:,1:i_startblk) = 0._wp
-!$OMP END WORKSHARE
-    ENDIF
-
 
     i_startblk = p_patch%edges%start_blk(i_rlstart,1)
     i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
@@ -1653,55 +1639,20 @@ CONTAINS
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, i_rlstart, i_rlend)
 
-      IF ( l_out_edgeval ) THEN   ! Calculate 'edge value' of advected quantity
-
-!CDIR UNROLL=5
-        DO jk = slev, elev
-          DO je = i_startidx, i_endidx
-
-            ! Calculate time-averaged 'edge value' of advected quantity
-            p_out_e(je,jk,jb) = SUM(z_tracer_e(je,jk,jb,1:2))/REAL(p_ncycl,wp)
-
-          ENDDO ! loop over edges
-        ENDDO   ! loop over vertical levels
-
-      ELSE
-
 !CDIR UNROLL=5
         DO jk = slev, elev
           DO je = i_startidx, i_endidx
 
             ! Calculate flux at cell edge (cc_bary*v_{n}* \Delta p)
-            p_out_e(je,jk,jb) = (SUM(z_tracer_e(je,jk,jb,1:2))/REAL(p_ncycl,wp)) &
-                &             * p_mass_flx_e(je,jk,jb)
+            p_out_e(je,jk,jb) = SUM(z_tracer_mflx(je,jk,jb,1:2))/REAL(p_ncycl,wp)
 
           ENDDO ! loop over edges
         ENDDO   ! loop over vertical levels
-
-      ENDIF
 
     ENDDO    ! loop over blocks
 !$OMP END DO
 !$OMP END PARALLEL
 
-
-
-    !
-    ! 5. If desired, apply a (semi-)monotone flux limiter to limit computed fluxes.
-    !    The flux limiter is based on work by Zalesak (1979)
- !   IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_m) THEN
- !     CALL hflx_limiter_mo( p_patch, p_int, p_dtime, p_cc, p_mass_flx_e, & !in
- !       &                p_out_e, opt_rlend=i_rlend, opt_slev=slev,      & !inout,in
- !       &                opt_elev=elev                                   ) !in
-
- !   ELSE IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_sm) THEN
-      ! MPI-sync necessary (to be precise: only necessary for
-      ! igrad_c_miura /= 3. For simplicity, we perform the sync for
-      ! igrad_c_miura = 3 as well.
-      CALL hflx_limiter_sm( p_patch, p_int, p_dtime, p_cc, p_out_e, & !in,inout
-        &                   opt_rlend=i_rlend, opt_slev=slev,       & !in
-        &                   opt_elev=elev                           ) !in
- !   ENDIF
 
 
     IF ( ld_cleanup ) THEN
