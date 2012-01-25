@@ -62,6 +62,8 @@ MODULE mo_name_list_output
   USE mo_ocean_nml,             ONLY: n_zlev
   USE mo_oce_state,             ONLY: set_zlev
 
+  USE mo_util_string,           ONLY: int2string, toupper
+
   USE mo_communication,         ONLY: exchange_data, t_comm_pattern, idx_no, blk_no
   USE mo_interpol_config,       ONLY: rbf_vec_dim_c, rbf_vec_dim_v, rbf_vec_dim_e, rbf_c2grad_dim
   USE mo_nonhydrostatic_config, ONLY: iadv_rcf
@@ -269,6 +271,12 @@ MODULE mo_name_list_output
   ! of physical or the number of logical domains.
 
   INTEGER :: n_dom_out
+
+  ! Total number of variables of all lists that have been tagged with
+  ! "loutput=.TRUE."
+  INTEGER :: n_allvars
+
+  CHARACTER(LEN=31), ALLOCATABLE :: all_varlist(:)
 
   !------------------------------------------------------------------------------------------------
   ! Currently, we use only 1 MPI window for all output files
@@ -553,7 +561,11 @@ CONTAINS
     USE mpi, ONLY: MPI_ROOT, MPI_PROC_NULL
 #endif
 
-    INTEGER :: i, j, nfiles, i_typ, i_dom, nvl, vl_list(max_var_lists)
+    ! For a list of all variables, enable the following:
+    LOGICAL, PARAMETER :: l_print_list = .TRUE.
+
+    INTEGER :: i, j, nfiles, i_typ, i_dom, nvl, vl_list(max_var_lists), &
+      &        idx, ierr, ivar, l1
     CHARACTER(LEN=2) :: lev_type
     TYPE (t_output_name_list), POINTER :: p_onl
     TYPE (t_output_file), POINTER :: p_of
@@ -575,19 +587,22 @@ CONTAINS
       !IF(var_lists(i)%p%name(1:15) == 'ext_data_atm_td' ) var_lists(i)%p%loutput = .FALSE.
       !IF(var_lists(i)%p%name(1:16) == 'nh_state_metrics') var_lists(i)%p%loutput = .FALSE.
 
-! For a list of all variables, enable the following!
-IF(.FALSE.) THEN
-      IF (my_process_is_stdio()) THEN
-        PRINT '(3a, i2)','Var_list name: ',TRIM(var_lists(i)%p%name), &
-                         ' Patch: ',var_lists(i)%p%patch_id
-        element => var_lists(i)%p%first_list_element
-        DO
-          IF(.NOT. ASSOCIATED(element)) EXIT
-          PRINT *,'    ',element%field%info%name,element%field%info%loutput
-          element => element%next_list_element
-        ENDDO
-      ENDIF
-ENDIF
+      ! print list of all variables
+      IF (l_print_list) THEN
+        IF (my_process_is_stdio()) THEN
+          PRINT '(3a, i2)','Var_list name: ',TRIM(var_lists(i)%p%name), &
+            ' Patch: ',var_lists(i)%p%patch_id
+          element => var_lists(i)%p%first_list_element
+          DO
+            IF(.NOT. ASSOCIATED(element)) EXIT
+            PRINT *,'    ',element%field%info%name,                             &
+              &            element%field%info%loutput, '  ',                    &
+              &            TRIM(int2string(element%field%info%ndims)),'D   ',   &
+              &            trim(element%field%info%cf%long_name)
+            element => element%next_list_element
+          ENDDO
+        ENDIF
+      ENDIF ! IF (l_print_list)
 
     ENDDO
 
@@ -729,14 +744,69 @@ ENDIF
 
           ENDDO
 
+          ! count the total number of variables tagged with
+          ! "loutput=.TRUE.", build a total varlist
+          n_allvars = 0
+          DO l1 = 1, nvl
+            element => var_lists(vl_list(l1))%p%first_list_element
+            DO
+              IF (.NOT. ASSOCIATED(element)) EXIT
+              IF (element%field%info%loutput) n_allvars = n_allvars + 1
+              element => element%next_list_element
+            ENDDO
+          ENDDO ! l1 = 1, nvar_lists
+          
+          ALLOCATE(all_varlist(MAX(1, n_allvars)), STAT=ierr)
+          IF (ierr /= 0) CALL finish(routine, 'ALLOCATE error!')
+          IF (n_allvars == 0) THEN
+            all_varlist(1) = ' '
+            p_of%num_vars  = 0
+          ELSE
+            ivar = 1
+            DO l1 = 1, nvl
+              element => var_lists(vl_list(l1))%p%first_list_element
+              DO
+                IF (.NOT. ASSOCIATED(element)) EXIT
+                IF (element%field%info%loutput) THEN
+                  idx = INDEX(element%field%info%name,'.TL')
+                  IF(idx == 0) THEN
+                    all_varlist(ivar) = element%field%info%name
+                  ELSE
+                    all_varlist(ivar) = element%field%info%name(1:idx-1)
+                  ENDIF
+                  ivar = ivar + 1
+                END IF
+                element => element%next_list_element
+              ENDDO
+            ENDDO ! l1 = 1, nvl
+          END IF
+
           SELECT CASE(i_typ)
             CASE(1)
-              CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%ml_varlist)
+              IF (toupper(TRIM(p_onl%ml_varlist(1))) == "ALL") THEN
+                IF (n_allvars > 0) &
+                  CALL add_varlist_to_output_file(p_of,vl_list(1:nvl), all_varlist)
+              ELSE
+                CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%ml_varlist)
+              END IF
             CASE(2)
-              CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%pl_varlist)
+              IF (toupper(TRIM(p_onl%ml_varlist(1))) == "ALL") THEN
+                IF (n_allvars > 0) &
+                  CALL add_varlist_to_output_file(p_of,vl_list(1:nvl), all_varlist)
+              ELSE
+                CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%pl_varlist)
+              END IF
             CASE(3)
-              CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%hl_varlist)
+              IF (toupper(TRIM(p_onl%ml_varlist(1))) == "ALL") THEN
+                IF (n_allvars > 0) &
+                  CALL add_varlist_to_output_file(p_of,vl_list(1:nvl), all_varlist)
+              ELSE
+                CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%hl_varlist)
+              END IF
           END SELECT
+
+          DEALLOCATE(all_varlist, STAT=ierr)
+          IF (ierr /= 0) CALL finish(routine, 'DEALLOCATE error!')
 
         ENDDO
 
@@ -805,8 +875,6 @@ ENDIF
 
     ALLOCATE(p_of%var_desc(p_of%num_vars))
 
-    ! Loop over all variables in varlist
-
     DO ivar = 1, p_of%num_vars
 
       ! Nullify pointers in p_of%var_desc
@@ -829,7 +897,6 @@ ENDIF
 
         element => NULL()
         DO
-
           IF(.NOT.ASSOCIATED(element)) THEN
             element => var_lists(iv)%p%first_list_element
           ELSE
@@ -887,14 +954,14 @@ ENDIF
 
         ENDDO
 
-      ENDDO
+      ENDDO ! i = 1, SIZE(vl_list)
 
       ! Check that at least one element with this name has been found
 
       IF(.NOT. found) &
         CALL finish(routine,'Output name list variable not found: '//TRIM(varlist(ivar)))
 
-    ENDDO
+    ENDDO ! ivar = 1, p_of%num_vars
 
   END SUBROUTINE add_varlist_to_output_file
 
