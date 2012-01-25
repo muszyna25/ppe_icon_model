@@ -719,6 +719,9 @@ CONTAINS
 
 
     ! land sea mask for cells (LOGICAL)
+    ! Note: Here "loutput" is set to .FALSE. since the output
+    !       scheme operates on REAL model variables only and
+    !       throws an error on this.
     !
     ! llsm_atm_c    p_ext_atm%llsm_atm_c(nproma,nblks_c)
     cf_desc    = t_cf_var('land_sea_mask_(cell)', '-', &
@@ -726,8 +729,7 @@ CONTAINS
     grib2_desc = t_grib2_var( 2, 0, 0, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_list, 'llsm_atm_c', p_ext_atm%llsm_atm_c, &
       &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc,     &
-      &           grib2_desc, ldims=shape2d_c )
-
+      &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
 
     ! land fraction
     !

@@ -56,8 +56,9 @@ MODULE mo_nonhydro_state
   USE mo_dynamics_config,      ONLY: nsav1, nsav2
   USE mo_parallel_config,      ONLY: nproma
   USE mo_run_config,           ONLY: iforcing, &!ltransport,    &
-    &                                ntracer, ntracer_static, &
-    &                                iqv, iqc, iqi, iqr, iqs, io3
+    &                                ntracer, ntracer_static,      &
+    &                                iqv, iqc, iqi, iqr, iqs, io3, &
+    &                                nqtendphy
   USE mo_radiation_config,     ONLY: irad_o3
   USE mo_io_config,            ONLY: lwrite_extra, inextra_2d, inextra_3d, &
     &                                lwrite_pzlev
@@ -236,6 +237,9 @@ MODULE mo_nonhydro_state
     TYPE(t_ptr_nh),ALLOCATABLE :: ddt_w_adv_ptr (:)  !< pointer array: one pointer for each tracer
     TYPE(t_ptr_nh),ALLOCATABLE :: q_int_ptr     (:)
     TYPE(t_ptr_nh),ALLOCATABLE :: q_ubc_ptr     (:)
+
+    TYPE(t_ptr_nh),ALLOCATABLE :: tracer_vi_ptr(:)      !< pointer array: one pointer for each tracer
+    TYPE(t_ptr_nh),ALLOCATABLE :: tracer_vi_avg_ptr(:)  !< pointer array: one pointer for each tracer
 
   END TYPE t_nh_diag
 
@@ -965,7 +969,8 @@ MODULE mo_nonhydro_state
       &        shape3d_e(3), shape3d_v(3), shape3d_chalf(3),       &
       &        shape3d_ehalf(3), shape4d_chalf(4), shape4d_e(4),   &
       &        shape4d_entl(4), shape4d_chalfntl(4), shape4d_c(4), &
-      &        shape3d_ctra(3), shape2d_extra(3), shape3d_extra(4)
+      &        shape3d_ctra(3), shape2d_extra(3), shape3d_extra(4),&
+      &        shape3d_c3(3)
  
     INTEGER :: ientr         !< "entropy" of horizontal slice
     INTEGER :: jt
@@ -1001,6 +1006,7 @@ MODULE mo_nonhydro_state
     shape3d_chalf = (/nproma, nlevp1 , nblks_c    /)
     shape3d_ehalf = (/nproma, nlevp1 , nblks_e    /)
     shape3d_ctra  = (/nproma, nblks_c, ntracer    /)
+    shape3d_c3    = (/nproma, nblks_c, nqtendphy  /)
     shape3d_extra = (/nproma, nlev   , nblks_c, inextra_3d  /)
     shape4d_c     = (/nproma, nlev   , nblks_c, ntracer     /)
     shape4d_chalf = (/nproma, nlevp1 , nblks_c, ntracer     /)
@@ -1720,16 +1726,37 @@ MODULE mo_nonhydro_state
       ! tracer_vi(nproma,nblks_c,3), only Q1, Q2, Q3
       cf_desc    = t_cf_var('tracer_vi', '', 'tracer_vi')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_diag_list, 'tracer_vi', p_diag%tracer_vi,                 &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
-                  & ldims=(/nproma, nblks_c,3/), lrestart=.FALSE. )
+      CALL add_var( p_diag_list, 'tracer_vi', p_diag%tracer_vi,                  &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,  &
+                  & ldims=shape3d_c3, lrestart=.FALSE., loutput=.FALSE.,         &
+                  & lcontainer=.TRUE.)
+
+      ALLOCATE(p_diag%tracer_vi_ptr(nqtendphy))
+      DO jt =1,nqtendphy
+        WRITE(ctrc,'(I2.2)')jt
+        CALL add_ref( p_diag_list, 'tracer_vi', 'tracer_vi'//ctrc,               &
+          &           p_diag%tracer_vi_ptr(jt)%p_3d,                             &
+          &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                     &
+          &           cf_desc, grib2_desc, ldims=shape3d_c3, lrestart=.FALSE.)
+
+      ENDDO
 
       ! tracer_vi_avg(nproma,nblks_c,3), only Q1, Q2, Q3
       cf_desc    = t_cf_var('tracer_vi_avg', '', 'tracer_vi_avg')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'tracer_vi_avg', p_diag%tracer_vi_avg,          &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,   &
-                  & ldims=(/nproma, nblks_c,3/), lrestart=.FALSE.)
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,  &
+                  & ldims=shape3d_c3, lrestart=.FALSE., loutput=.FALSE.,         &
+                  & lcontainer=.TRUE.)
+
+      ALLOCATE(p_diag%tracer_vi_avg_ptr(nqtendphy))
+      DO jt =1,nqtendphy
+        WRITE(ctrc,'(I2.2)')jt
+        CALL add_ref( p_diag_list, 'tracer_vi_avg', 'tracer_vi_avg'//ctrc,       &
+          &           p_diag%tracer_vi_avg_ptr(jt)%p_3d,                         &
+          &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                     &
+          &           cf_desc, grib2_desc, ldims=shape3d_c3, lrestart=.FALSE. )
+      ENDDO
     ENDIF
 
 
@@ -2595,7 +2622,7 @@ MODULE mo_nonhydro_state
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE)
       CALL add_var( p_metrics_list, 'vertidx_gradp', p_metrics%vertidx_gradp,   &
                   & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
-                  & ldims=shape3d_esquared )
+                  & ldims=shape3d_esquared, loutput=.FALSE. )
 
 
       ! Height differences between local edge point and neighbor cell points used for
@@ -2607,7 +2634,7 @@ MODULE mo_nonhydro_state
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE)
       CALL add_var( p_metrics_list, 'zdiff_gradp', p_metrics%zdiff_gradp,       &
                   & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
-                  & ldims=shape3d_esquared  )
+                  & ldims=shape3d_esquared, loutput=.FALSE.  )
 
 
       ! Extrapolation factor for Exner pressure
@@ -2700,13 +2727,16 @@ MODULE mo_nonhydro_state
 
       ! mask field that excludes boundary halo points
       ! mask_prog_halo_c  p_metrics%mask_prog_halo_c(nproma,nblks_c)
+      ! Note: Here "loutput" is set to .FALSE. since the output
+      !       scheme operates on REAL model variables only and
+      !       throws an error on this.
       !
       cf_desc    = t_cf_var('mask_field', '-',                                  &
       &                     'mask field that excludes boundary halo points')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_metrics_list, 'mask_prog_halo_c', p_metrics%mask_prog_halo_c, &
                   & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,     &
-                  & ldims=shape2d_c )
+                  & ldims=shape2d_c, loutput=.FALSE. )
 
 
     ELSE IF (p_patch%cell_type== 6) THEN
