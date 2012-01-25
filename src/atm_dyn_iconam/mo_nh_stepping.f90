@@ -538,14 +538,16 @@ MODULE mo_nh_stepping
     ENDIF
 
     ! sample meteogram output
-    DO jg = 1, n_dom
-      IF (meteogram_is_sample_step(meteogram_output_config(jg), jstep)) THEN
-        CALL meteogram_sample_vars(jg, jstep, datetime, ierr)
-        IF (ierr /= SUCCESS) THEN
-          CALL finish (routine, 'Error in meteogram sampling! Sampling buffer too small?')
-        ENDIF
-      END IF
-    END DO
+    IF (.NOT. ltestcase) THEN
+      DO jg = 1, n_dom
+        IF (meteogram_is_sample_step(meteogram_output_config(jg), jstep)) THEN
+          CALL meteogram_sample_vars(jg, jstep, datetime, ierr)
+          IF (ierr /= SUCCESS) THEN
+            CALL finish (routine, 'Error in meteogram sampling! Sampling buffer too small?')
+          ENDIF
+        END IF
+      END DO
+    END IF
 
     ! Diagnostics computation is not yet properly MPI-parallelized
 #ifdef NOMPI
