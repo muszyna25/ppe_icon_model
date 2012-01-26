@@ -242,16 +242,16 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
       ! check dry case
       IF( atm_phy_nwp_config(jg)%inwp_satad == 0) THEN
         lnd_diag%qv_s (:,:) = 0._wp
-      ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == 1) THEN 
+      ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == 1) THEN
         IF ( ltestcase .AND. nh_test_name == 'wk82') THEN   
-!!$         DO jc = i_startidx, i_endidx
-!!$          lnd_prog_now%t_g(jc,jb) = p_diag%temp(jc,nlev,jb)*  &
-!!$                      ((p_diag%pres_sfc(jc,jb))/p_diag%pres(jc,nlev,jb))**rd_o_cpd
-!!$          lnd_diag%qv_s (jc,jb) = &
-!!$             &         spec_humi(sat_pres_water(lnd_prog_now%t_g(jc,jb)),&
-!!$             &                                   p_diag%pres_sfc(jc,jb) )          
-!!$          lnd_diag%qv_s(jc,jb) = MIN (lnd_diag%qv_s(jc,jb) ,p_prog_rcf%tracer(jc,nlev,jb,iqv))
-!!$         END DO
+         DO jc = i_startidx, i_endidx
+          lnd_prog_now%t_g(jc,jb) = p_diag%temp(jc,nlev,jb)*  &
+                      ((p_diag%pres_sfc(jc,jb))/p_diag%pres(jc,nlev,jb))**rd_o_cpd
+          lnd_diag%qv_s (jc,jb) = &
+             &         spec_humi(sat_pres_water(lnd_prog_now%t_g(jc,jb)),&
+             &                                   p_diag%pres_sfc(jc,jb) )          
+          lnd_diag%qv_s(jc,jb) = MIN (lnd_diag%qv_s(jc,jb) ,p_prog_rcf%tracer(jc,nlev,jb,iqv))
+         END DO
         ELSE
          !
          !> adjust  humidity at water surface because of changed surface pressure
@@ -340,6 +340,15 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
       p_prog_rcf%tke(i_startidx:i_endidx,:,jb)= 0.5_wp                                &
         &                                     * (z_tvs(i_startidx:i_endidx,:,jb,1))**2
 
+      ! Artificial limiter for temperature tendencies
+      DO jk = 1, nlev
+        DO jc = i_startidx, i_endidx
+          prm_nwp_tend%ddt_temp_turb(jc,jk,jb) = &
+            MIN(0.01_wp,MAX(-0.01_wp,prm_nwp_tend%ddt_temp_turb(jc,jk,jb)))
+          p_prog_rcf%tke(jc,jk,jb) = MIN(60._wp,p_prog_rcf%tke(jc,jk,jb))
+        ENDDO
+      ENDDO
+
        ! Update QV, QC and temperature with turbulence tendencies
       DO jk = 1, nlev
         DO jc = i_startidx, i_endidx
@@ -406,8 +415,8 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
       ! KF as long as if nsfc_type = 1 !!!!!
       zdummy_tsfc (1:i_endidx,nsfc_type,jb) = &
            &                              lnd_prog_now%t_g (1:i_endidx,jb)
-      !zdummy_qvsfc(1:i_endidx,nsfc_type,jb) = &                                 
-      !     &                                 lnd_diag%qv_s (1:i_endidx,jb)      
+      !zdummy_qvsfc(1:i_endidx,nsfc_type,jb) = &
+      !     &                                 lnd_diag%qv_s (1:i_endidx,jb)
 
       ! Workarounds needed because vdiff is not coded properly for use with nesting
       DO jk = 1, nlev
