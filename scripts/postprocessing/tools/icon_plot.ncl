@@ -96,7 +96,7 @@
 ;---------------------------------------------------------------
 ; Authors       : Ralf Mueller (ralf.mueller@zmaw.de)
 ;                 Stephan Lorenz (stephan.lorenz@zmaw.de)
-; VERSION       : r7862 (2012-01-23)
+; VERSION       : r7862 (2012-01-26)
 ;---------------------------------------------------------------
 
  load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/gsn_code.ncl"
@@ -370,12 +370,16 @@
       if (isvar("gridFile")) then
         x      = getCoordinateFromFile(lonCo,gridFile)
         y      = getCoordinateFromFile(latCo,gridFile)
-        bounds = getBoundsFromFile(lonCo,latCo,gridFile)
+        if (showGrid) then
+          bounds = getBoundsFromFile(lonCo,latCo,gridFile)
+        end if
       else
         lonlats = getLonLats(var,File)
         x       = lonlats(0,:)
         y       = lonlats(1,:)
-        bounds  = getBoundsOfCoordinates(var,File)
+        if (showGrid) then
+          bounds  = getBoundsOfCoordinates(var,File)
+        end if
       end if
     end if
 
