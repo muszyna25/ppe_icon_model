@@ -347,6 +347,7 @@ CONTAINS
           &           opt_slev=qvsubstep_elev+1, opt_elev=p_patch%nlev,  &! in
           &           opt_rlend=i_rlend                                  )! in
 
+        IF (qvsubstep_elev > 0) &
         ! Note that lcompute/lcleanup%miura3_mcycl_h is only used for miura 
         ! with substepping. This prevents us from computing the backward 
         ! trajectories twice for the standard miura3-scheme.
