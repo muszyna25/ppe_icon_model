@@ -56,11 +56,10 @@ USE mo_ocean_nml,           ONLY: n_zlev,iswm_oce, L_INVERSE_FLIP_FLOP !, ab_bet
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
 USE mo_oce_index,           ONLY: print_mxmn, jkc, jkdim, ipl_src
 USE mo_oce_state,           ONLY: t_hydro_ocean_diag, t_hydro_ocean_aux, v_base
-USE mo_oce_math_operators,  ONLY: rot_vertex_ocean,rot_vertex_ocean_mod,rot_vertex_ocean_total,&
- &                                grad_fd_norm_oce, div_oce
+USE mo_oce_math_operators,  ONLY: rot_vertex_ocean,grad_fd_norm_oce, div_oce
 USE mo_math_utilities,      ONLY: gvec2cvec, t_cartesian_coordinates!gc2cc,cc2gc
 
-USE mo_scalar_product,      ONLY: map_cell2edges, dual_flip_flop, &
+USE mo_scalar_product,      ONLY: map_cell2edges, dual_flip_flop,nonlinear_Coriolis, &
   &                               primal_map_c2e, map_edges2edges, map_edges2cell
 USE mo_interpolation,       ONLY: t_int_state, rbf_vec_interpol_edge,&
   &                               verts2edges_scalar,&!edges2cells_scalar,&
@@ -200,8 +199,8 @@ INTEGER :: rl_start_e, rl_end_e, rl_start_c, rl_end_c !, rl_start_v, rl_end_v
 REAL(wp) :: z_e  (nproma,n_zlev,p_patch%nblks_e)
 REAL(wp) :: z_u_c(nproma,n_zlev,p_patch%nblks_c)
 REAL(wp) :: z_v_c(nproma,n_zlev,p_patch%nblks_c)
-REAL(wp) :: z_vort_glb(nproma,n_zlev,p_patch%nblks_v)
 REAL(wp) :: z_vort_flx(nproma,n_zlev,p_patch%nblks_e)
+REAL(wp) :: z_vort_flx2(nproma,n_zlev,p_patch%nblks_e)
 REAL(wp) :: z_grad_ekin_RBF(nproma,n_zlev,p_patch%nblks_e)
 REAL(wp) :: z_kin_RBF_e(nproma,n_zlev,p_patch%nblks_e)
 REAL(wp) :: z_kin_RBF_c(nproma,n_zlev,p_patch%nblks_c)
@@ -220,15 +219,15 @@ REAL(wp) :: z_weight_e1, z_weight_e2, z_weight_e3!, z_weight
 REAL(wp) :: z_vt(nproma,n_zlev,p_patch%nblks_e)
 REAL(wp) :: z_vort_e(nproma,n_zlev,p_patch%nblks_e)
 REAL(wp) :: z_vort_flx_RBF(nproma,n_zlev,p_patch%nblks_e)
+!REAL(wp) :: z_vort2(nproma,n_zlev,p_patch%nblks_v)
 !REAL(wp) :: z_veloc_adv_horz_e(nproma,n_zlev,p_patch%nblks_e)
-LOGICAL, PARAMETER :: L_DEBUG = .FALSE. 
+LOGICAL, PARAMETER :: L_DEBUG = .TRUE. 
 LOGICAL, PARAMETER :: L_ENSTROPHY_DISSIPATION=.FALSE.
 !-----------------------------------------------------------------------
 ! #slo# set local variable to zero due to nag -nan compiler-option
 z_e             (:,:,:) = 0.0_wp
 z_u_c           (:,:,:) = 0.0_wp
 z_v_c           (:,:,:) = 0.0_wp
-z_vort_glb      (:,:,:) = 0.0_wp
 z_vort_flx      (:,:,:) = 0.0_wp
 veloc_adv_horz_e(:,:,:) = 0.0_wp
 z_vt            (:,:,:) = 0.0_wp
@@ -236,6 +235,7 @@ z_vort_e        (:,:,:) = 0.0_wp
 z_vort_flx_RBF  (:,:,:) = 0.0_wp
 z_kin_RBF_c     (:,:,:) = 0.0_wp
 z_grad_ekin_RBF (:,:,:) = 0.0_wp
+z_vort_flx2=0.0_wp
 
 !rl_start_v = 1
 !rl_end_v   = min_rlvert
@@ -259,34 +259,41 @@ elev = n_zlev
  ipl_src=3  ! output print level (1-5, fix)
  CALL print_mxmn('vorticity (bef. rot_vertex_ocean)',jk,p_diag%vort(:,:,:),n_zlev, &
    &              p_patch%nblks_v,'vel',ipl_src)
- eND do
-CALL rot_vertex_ocean(p_diag%ptp_vn, z_vt, p_patch, p_diag%vort)
-!CALL rot_vertex_ocean(vn_old, z_vt, p_patch, p_diag%vort)
+ END DO
+
+!CALL rot_vertex_ocean(vn_old, p_patch, p_diag%vort)
+
 ! synchronize vort
-DO jk = slev, elev
-  CALL sync_patch_array(sync_v, p_patch, p_diag%vort(:,jk,:))
-END DO
+!DO jk = slev, elev
+!  CALL sync_patch_array(sync_v, p_patch, p_diag%vort(:,jk,:))
+!END DO
 
 !calculate vorticity flux across dual edge
-IF ( iswm_oce == 1 ) THEN
-  z_vort_flx(:,:,:) = dual_flip_flop(p_patch, vn_old, vn_new, p_diag%vort,&
-                     &p_diag%thick_e,  p_diag%p_vn) 
-ELSEIF ( iswm_oce /= 1 ) THEN
-  z_vort_flx(:,:,:) = dual_flip_flop(p_patch, vn_old, vn_new, p_diag%vort,&
-                        & p_diag%thick_e,  p_diag%p_vn)
-ENDIF
+! IF ( iswm_oce == 1 ) THEN
+!   z_vort_flx(:,:,:) = dual_flip_flop(p_patch, vn_old, vn_new, p_diag%vort,&
+!                      &p_diag%thick_e,  p_diag%p_vn) 
+! ELSEIF ( iswm_oce /= 1 ) THEN
+!   z_vort_flx(:,:,:) = dual_flip_flop(p_patch, vn_old, vn_new, p_diag%vort,&
+!                         & p_diag%thick_e,  p_diag%p_vn)
+! ENDIF
+! CALL rbf_vec_interpol_edge( vn_old,       &
+!                           & p_patch,  &
+!                           & p_int,    &
+!                           & p_diag%vt, opt_slev=slev,opt_elev=elev)
+CALL nonlinear_Coriolis(p_patch,vn_old,p_diag%p_vn, p_diag%p_vn_dual,&
+                       &p_diag%thick_e,p_diag%vt, p_diag%vort, z_vort_flx)
 DO jk = slev, elev
   CALL sync_patch_array(sync_v, p_patch, z_vort_flx(:,jk,:))
 END DO
 
 !-------------------------------------------------------------------------------
-IF(L_ENSTROPHY_DISSIPATION)THEN
-DO jk = slev, elev
-write(*,*)'max/min vort flux before:              ',MAXVAL(z_vort_flx(:,jk,:)),&
-                                                 &MINVAL(z_vort_flx(:,jk,:))
-END DO
-z_vort_flx=laplacian4vortex_flux(p_patch,z_vort_flx) 
-ENDIF
+! IF(L_ENSTROPHY_DISSIPATION)THEN
+! DO jk = slev, elev
+! write(*,*)'max/min vort flux before: ',MAXVAL(z_vort_flx(:,jk,:)),&
+!                                       &MINVAL(z_vort_flx(:,jk,:))
+! END DO
+! z_vort_flx=laplacian4vortex_flux(p_patch,z_vort_flx) 
+! ENDIF
 !-------------------------------------------------------------------------------
  DO jk = slev, elev
  ipl_src=3  ! output print level (1-5, fix)
@@ -295,16 +302,9 @@ ENDIF
  ipl_src=4  ! output print level (1-5, fix)
  CALL print_mxmn('vort flux',jk,z_vort_flx(:,:,:),n_zlev, &
    &              p_patch%nblks_e,'vel',ipl_src)
- !write(*,*)'max/min vorticity:              ', jk,MAXVAL(p_diag%vort(:,jk,:)),&
- !                                                &MINVAL(p_diag%vort(:,jk,:)) 
- !write(*,*)'max/min vort flux:              ', jk,MAXVAL(z_vort_flx(:,jk,:)),&
- !                                                &MINVAL(z_vort_flx(:,jk,:))
-
- !write(987,*)'max/min vorticity:              ', jk,MAXVAL(p_diag%vort(:,jk,:)),&
- !                                                &MINVAL(p_diag%vort(:,jk,:)) 
- !write(987,*)'max/min vort flux:              ', jk,MAXVAL(z_vort_flx(:,jk,:)),&
- !                                                 &MINVAL(z_vort_flx(:,jk,:))
-
+!  write(*,*)'max/min vorticity:              ', jk,MAXVAL(p_diag%vort(:,jk,:)),&
+!                                                  &MINVAL(p_diag%vort(:,jk,:)) 
+!  write(*,*)'max/min vort flux:              ', jk,MAXVAL(z_vort_flx(:,jk,:)),&
  END DO
 
 !calculate gradient of kinetic energy
@@ -330,20 +330,15 @@ END DO
  !                                            &MINVAL(p_diag%kin(:,jk,:))
  !write(*,*)'max/min grad kin energy:       ',jk, MAXVAL(p_diag%grad(:,jk,:)),&
  !                                            &MINVAL(p_diag%grad(:,jk,:)) 
-
-  !write(987,*)'max/min kin energy:          ',jk, MAXVAL(p_diag%kin(:,jk,:)),&
-  !                                            &MINVAL(p_diag%kin(:,jk,:))
-  !write(987,*)'max/min grad kin energy:     ',jk, MAXVAL(p_diag%grad(:,jk,:)),&
-  !                                            &MINVAL(p_diag%grad(:,jk,:)) 
 END DO
-IF(L_INVERSE_FLIP_FLOP)THEN
-  CALL map_edges2edges( p_patch,    &
-                      & p_diag%grad,&
-                      & z_e,        &
-                      & p_diag%thick_e)
-  p_diag%grad = z_e
-  CALL sync_patch_array(sync_e, p_patch, p_diag%grad(:,jk,:))
-ENDIF
+! IF(L_INVERSE_FLIP_FLOP)THEN
+!   CALL map_edges2edges( p_patch,    &
+!                       & p_diag%grad,&
+!                       & z_e,        &
+!                       & p_diag%thick_e)
+!   p_diag%grad = z_e
+!   CALL sync_patch_array(sync_e, p_patch, p_diag%grad(:,jk,:))
+! ENDIF
 
 !---------------------------for testing and comparison with RBF--------------------------
 !----------nonlinear coriolis and grad of kinetic energy computed with RBFs--------------
@@ -355,20 +350,20 @@ CALL rbf_vec_interpol_edge( vn_old,       &
                           & p_int,    &
                           & p_diag%vt,&
                           & opt_slev=slev,opt_elev=elev)
-DO jb = i_startblk_e,i_endblk_e
-  CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e, &
-    &                              i_startidx_e, i_endidx_e, rl_start_e,rl_end_e)
-  DO jk = slev, elev
-    DO je=i_startidx_e, i_endidx_e
-      IF ( v_base%lsm_oce_e(je,jk,jb) == boundary ) THEN
-        p_diag%vt(je,jk,jb) = 0.0_wp
-        vn_old(je,jk,jb) = 0.0_wp
-      ENDIF
-    END DO
-  END DO
-END DO
+! DO jb = i_startblk_e,i_endblk_e
+!   CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e, &
+!     &                              i_startidx_e, i_endidx_e, rl_start_e,rl_end_e)
+!   DO jk = slev, elev
+!     DO je=i_startidx_e, i_endidx_e
+!       IF ( v_base%lsm_oce_e(je,jk,jb) == boundary ) THEN
+!         !p_diag%vt(je,jk,jb) = 0.0_wp
+!         vn_old(je,jk,jb) = 0.0_wp
+!       ENDIF
+!     END DO
+!   END DO
+! END DO
 
-CALL rot_vertex_ocean(vn_old, p_diag%vt, p_patch, p_diag%vort)
+CALL rot_vertex_ocean(vn_old, p_patch, p_diag%vort)
 CALL verts2edges_scalar( p_diag%vort, p_patch, p_int%v_1o2_e, &
                          z_vort_e, opt_slev=slev,opt_elev=elev, opt_rlstart=3)
 
@@ -378,7 +373,7 @@ CALL verts2edges_scalar( p_diag%vort, p_patch, p_int%v_1o2_e, &
     DO jk = slev, elev
       DO je=i_startidx_e, i_endidx_e
         IF ( v_base%lsm_oce_e(je,jk,jb) == sea ) THEN  !  #slo# <= sea_boundary?
-         z_vort_flx_RBF(je,jk,jb) = &!p_diag%vt(je,jk,jb)*p_patch%edges%f_e(je,jb)!&
+         z_vort_flx_RBF(je,jk,jb) = &
          & p_diag%vt(je,jk,jb)*(z_vort_e(je,jk,jb)+ p_patch%edges%f_e(je,jb))         
 
         ELSE
@@ -469,6 +464,9 @@ DO jb = i_startblk_e, i_endblk_e
 !        ENDIF
 !      write(*,*)'horz adv:grad ekin:vort-flx:',je,jk,jb, vn(je,1,jb),z_vort_flx(je,1,jb), &
 !        &        veloc_adv_horz_e(je,1,jb) !, p_diag%grad(je,1,jb)
+! IF ( v_base%lsm_oce_e(je,jk,jb) == boundary ) THEN
+! write(*,*)'vt ',je,jk,jb, p_diag%vt(je,jk,jb)
+! ENDIF
    END DO
   END DO
 END DO
@@ -567,122 +565,122 @@ DO jb = i_startblk_e, i_endblk_e
 END DO
 END subroutine veloc_adv_horz_mimetic_div
 !-------------------------------------------------------------------------
-FUNCTION laplacian4vortex_flux(p_patch, vort_flux_in) RESULT(vort_flux_out)
-TYPE(t_patch),TARGET, INTENT(in) :: p_patch
-REAL(wp), INTENT(inout) :: vort_flux_in(:,:,:)
-REAL(wp) ::vort_flux_out(SIZE(vort_flux_in,1), SIZE(vort_flux_in,2), SIZE(vort_flux_in,3))
-
-!
-!Local Variables
-!
-INTEGER :: slev, elev    
-INTEGER :: jk, jb, jc, je
-INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
-INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
-INTEGER :: rl_start_e, rl_end_e,rl_start_c, rl_end_c
-REAL(wp) :: z_tmp(nproma,n_zlev,p_patch%nblks_e)
-TYPE(t_cartesian_coordinates)    :: z_pv_cc(nproma,n_zlev,p_patch%nblks_c)
-INTEGER :: il_c1, ib_c1, il_c2, ib_c2
-INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
-TYPE(t_cartesian_coordinates) :: z_grad_u(nproma,n_zlev,p_patch%nblks_e)
-TYPE(t_cartesian_coordinates) :: z_div_grad_u(nproma,n_zlev,p_patch%nblks_c)
-!-----------------------------------------------------------------------
-rl_start_e = 1
-rl_end_e   = min_rledge
-rl_start_c = 1
-rl_end_c   = min_rlcell
-
-i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
-i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
-i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
-i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
-
-slev = 1
-elev = n_zlev
-
-z_tmp = vort_flux_in
-
-CALL map_edges2cell( p_patch, z_tmp, z_pv_cc)
-DO jb = i_startblk_c, i_endblk_c
-
-  CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
-                     i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
-    DO jk = slev, elev
-      DO jc = i_startidx_c, i_endidx_c
-          z_div_grad_u(jc,jk,jb)%x =  0.0_wp
-      END DO
-    END DO
-  END DO
-DO jb = i_startblk_e, i_endblk_e
-
-  CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e,&
-                   &  i_startidx_e, i_endidx_e,&
-                   &  rl_start_e, rl_end_e)
-  DO jk = slev, elev
-    DO je = i_startidx_e, i_endidx_e
-      z_grad_u(je,jk,jb)%x = 0.0_wp
-    ENDDO
-  END DO
-END DO
-
-!Step 1: Calculate gradient of cell velocity vector.
-!Result is a gradient vector, located at edges
-!Step 2: Multiply each component of gradient vector with mixing coefficients
-DO jb = i_startblk_e, i_endblk_e
-
-  CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e,&
-                   &  i_startidx_e, i_endidx_e,&
-                   &  rl_start_e, rl_end_e)
-  DO jk = slev, elev
-    DO je = i_startidx_e, i_endidx_e
-
-      !Get indices of two adjacent triangles
-      il_c1 = p_patch%edges%cell_idx(je,jb,1)
-      ib_c1 = p_patch%edges%cell_blk(je,jb,1)
-      il_c2 = p_patch%edges%cell_idx(je,jb,2)
-      ib_c2 = p_patch%edges%cell_blk(je,jb,2)
-
-    IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
-      z_grad_u(je,jk,jb)%x = &
-        &                  (z_pv_cc(il_c2,jk,ib_c2)%x &
-        &                  - z_pv_cc(il_c1,jk,ib_c1)%x)              &
-        &                  / p_patch%edges%dual_edge_length(je,jb)
-    ELSE
-      z_grad_u(je,jk,jb)%x = 0.0_wp
-    ENDIF 
-    ENDDO
-  END DO
-END DO
-
-!Step 2: Apply divergence to each component of mixing times gradient vector
-iidx => p_patch%cells%edge_idx
-iblk => p_patch%cells%edge_blk
-
-DO jb = i_startblk_c, i_endblk_c
-
-  CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
-                     i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
-    DO jk = slev, elev
-      DO jc = i_startidx_c, i_endidx_c
-
-         IF ( v_base%lsm_oce_c(jc,jk,jb) >= boundary ) THEN
-           z_div_grad_u(jc,jk,jb)%x = 0.0_wp
-         ELSE
-          z_div_grad_u(jc,jk,jb)%x =  &
-            z_grad_u(iidx(jc,jb,1),jk,iblk(jc,jb,1))%x * p_int_state(1)%geofac_div(jc,1,jb) + &
-            z_grad_u(iidx(jc,jb,2),jk,iblk(jc,jb,2))%x * p_int_state(1)%geofac_div(jc,2,jb) + &
-            z_grad_u(iidx(jc,jb,3),jk,iblk(jc,jb,3))%x * p_int_state(1)%geofac_div(jc,3,jb)
-        ENDIF
-      END DO
-    END DO
-  END DO
-
-!Step 3: Map divergence back to edges
-CALL map_cell2edges( p_patch, z_div_grad_u, z_tmp)
-vort_flux_out = vort_flux_in + 1000000.0_wp*z_tmp
-
-
-END FUNCTION laplacian4vortex_flux
+! ! FUNCTION laplacian4vortex_flux(p_patch, vort_flux_in) RESULT(vort_flux_out)
+! ! TYPE(t_patch),TARGET, INTENT(in) :: p_patch
+! ! REAL(wp), INTENT(inout) :: vort_flux_in(:,:,:)
+! ! REAL(wp) ::vort_flux_out(SIZE(vort_flux_in,1), SIZE(vort_flux_in,2), SIZE(vort_flux_in,3))
+! ! 
+! ! !
+! ! !Local Variables
+! ! !
+! ! INTEGER :: slev, elev    
+! ! INTEGER :: jk, jb, jc, je
+! ! INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
+! ! INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
+! ! INTEGER :: rl_start_e, rl_end_e,rl_start_c, rl_end_c
+! ! REAL(wp) :: z_tmp(nproma,n_zlev,p_patch%nblks_e)
+! ! TYPE(t_cartesian_coordinates)    :: z_pv_cc(nproma,n_zlev,p_patch%nblks_c)
+! ! INTEGER :: il_c1, ib_c1, il_c2, ib_c2
+! ! INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+! ! TYPE(t_cartesian_coordinates) :: z_grad_u(nproma,n_zlev,p_patch%nblks_e)
+! ! TYPE(t_cartesian_coordinates) :: z_div_grad_u(nproma,n_zlev,p_patch%nblks_c)
+! ! !-----------------------------------------------------------------------
+! ! rl_start_e = 1
+! ! rl_end_e   = min_rledge
+! ! rl_start_c = 1
+! ! rl_end_c   = min_rlcell
+! ! 
+! ! i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
+! ! i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
+! ! i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
+! ! i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
+! ! 
+! ! slev = 1
+! ! elev = n_zlev
+! ! 
+! ! z_tmp = vort_flux_in
+! ! 
+! ! CALL map_edges2cell( p_patch, z_tmp, z_pv_cc)
+! ! DO jb = i_startblk_c, i_endblk_c
+! ! 
+! !   CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
+! !                      i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
+! !     DO jk = slev, elev
+! !       DO jc = i_startidx_c, i_endidx_c
+! !           z_div_grad_u(jc,jk,jb)%x =  0.0_wp
+! !       END DO
+! !     END DO
+! !   END DO
+! ! DO jb = i_startblk_e, i_endblk_e
+! ! 
+! !   CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e,&
+! !                    &  i_startidx_e, i_endidx_e,&
+! !                    &  rl_start_e, rl_end_e)
+! !   DO jk = slev, elev
+! !     DO je = i_startidx_e, i_endidx_e
+! !       z_grad_u(je,jk,jb)%x = 0.0_wp
+! !     ENDDO
+! !   END DO
+! ! END DO
+! ! 
+! ! !Step 1: Calculate gradient of cell velocity vector.
+! ! !Result is a gradient vector, located at edges
+! ! !Step 2: Multiply each component of gradient vector with mixing coefficients
+! ! DO jb = i_startblk_e, i_endblk_e
+! ! 
+! !   CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e,&
+! !                    &  i_startidx_e, i_endidx_e,&
+! !                    &  rl_start_e, rl_end_e)
+! !   DO jk = slev, elev
+! !     DO je = i_startidx_e, i_endidx_e
+! ! 
+! !       !Get indices of two adjacent triangles
+! !       il_c1 = p_patch%edges%cell_idx(je,jb,1)
+! !       ib_c1 = p_patch%edges%cell_blk(je,jb,1)
+! !       il_c2 = p_patch%edges%cell_idx(je,jb,2)
+! !       ib_c2 = p_patch%edges%cell_blk(je,jb,2)
+! ! 
+! !     IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+! !       z_grad_u(je,jk,jb)%x = &
+! !         &                  (z_pv_cc(il_c2,jk,ib_c2)%x &
+! !         &                  - z_pv_cc(il_c1,jk,ib_c1)%x)              &
+! !         &                  / p_patch%edges%dual_edge_length(je,jb)
+! !     ELSE
+! !       z_grad_u(je,jk,jb)%x = 0.0_wp
+! !     ENDIF 
+! !     ENDDO
+! !   END DO
+! ! END DO
+! ! 
+! ! !Step 2: Apply divergence to each component of mixing times gradient vector
+! ! iidx => p_patch%cells%edge_idx
+! ! iblk => p_patch%cells%edge_blk
+! ! 
+! ! DO jb = i_startblk_c, i_endblk_c
+! ! 
+! !   CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
+! !                      i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
+! !     DO jk = slev, elev
+! !       DO jc = i_startidx_c, i_endidx_c
+! ! 
+! !          IF ( v_base%lsm_oce_c(jc,jk,jb) >= boundary ) THEN
+! !            z_div_grad_u(jc,jk,jb)%x = 0.0_wp
+! !          ELSE
+! !           z_div_grad_u(jc,jk,jb)%x =  &
+! !             z_grad_u(iidx(jc,jb,1),jk,iblk(jc,jb,1))%x * p_int_state(1)%geofac_div(jc,1,jb) + &
+! !             z_grad_u(iidx(jc,jb,2),jk,iblk(jc,jb,2))%x * p_int_state(1)%geofac_div(jc,2,jb) + &
+! !             z_grad_u(iidx(jc,jb,3),jk,iblk(jc,jb,3))%x * p_int_state(1)%geofac_div(jc,3,jb)
+! !         ENDIF
+! !       END DO
+! !     END DO
+! !   END DO
+! ! 
+! ! !Step 3: Map divergence back to edges
+! ! CALL map_cell2edges( p_patch, z_div_grad_u, z_tmp)
+! ! vort_flux_out = vort_flux_in + 1000000.0_wp*z_tmp
+! ! 
+! ! 
+! ! END FUNCTION laplacian4vortex_flux
 !-------------------------------------------------------------------------
 !
 !
@@ -1056,7 +1054,7 @@ DO jb = i_startblk_e,i_endblk_e
   END DO
 END DO
 
-CALL rot_vertex_ocean(vn, p_diag%vt, p_patch, p_diag%vort)
+CALL rot_vertex_ocean(vn, p_patch, p_diag%vort)
 !CALL rot_vertex_ocean_total(vn, p_patch, p_diag%vort)
 ! CALL verts2edges_scalar( p_diag%vort, p_patch, p_int%v_1o2_e, &
 !                          z_vort_e, opt_slev=slev,opt_elev=elev, opt_rlstart=3)

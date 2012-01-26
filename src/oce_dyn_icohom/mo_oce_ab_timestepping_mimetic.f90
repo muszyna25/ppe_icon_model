@@ -57,7 +57,7 @@ USE mo_impl_constants,            ONLY: sea_boundary,                           
 USE mo_ocean_nml,                 ONLY: n_zlev, solver_tolerance, l_inverse_flip_flop,    &
   &                                     ab_const, ab_beta, ab_gam, iswm_oce, i_dbg_oce,   &
   &                                     expl_vertical_velocity_diff,iforc_oce, EOS_TYPE,  &
-  &                                     no_tracer, l_RIGID_LID, i_sfc_forcing_form
+  &                                     no_tracer, l_RIGID_LID
 USE mo_run_config,                ONLY: dtime, ltimer
 USE mo_timer,                     ONLY: timer_start, timer_stop, timer_ab_expl,           &
   &                                     timer_ab_rhs4sfc, timer_ab_first
@@ -81,12 +81,12 @@ USE mo_sea_ice,                   ONLY: t_sfc_flx
 USE mo_scalar_product,            ONLY: map_cell2edges, map_edges2cell, map_edges2edges,  &
   &                                     calc_scalar_product_for_veloc !,map_cell2edges_upwind
 USE mo_oce_math_operators,        ONLY: div_oce, grad_fd_norm_oce, grad_fd_norm_oce_2d,   &
-  &                                     height_related_quantities
+  &                                     height_related_quantities, nabla2_vec_ocean
 USE mo_oce_veloc_advection,       ONLY: veloc_adv_horz_mimetic, veloc_adv_vert_mimetic
 USE mo_interpolation,             ONLY: t_int_state !, rbf_vec_interpol_cell
 USE mo_oce_diffusion,             ONLY: velocity_diffusion_horz_mimetic,                  &
   &                                     velocity_diffusion_vert_mimetic,                  &
-  &                                     veloc_diffusion_vert_impl,                        &
+  !&                                     veloc_diffusion_vert_impl,                        &
   &                                     veloc_diffusion_vert_impl_hom
 
 IMPLICIT NONE
@@ -114,7 +114,7 @@ LOGICAL, PARAMETER :: l_forc_freshw        = .FALSE.
 
 ! TRUE=staggering between thermodynamic and dynamic part, offset of half timestep
 ! between dynamic and thermodynamic variables thermodynamic and dnamic variables are colocated in time
-LOGICAL, PUBLIC,PARAMETER :: l_STAGGERED_TIMESTEP = .TRUE. 
+LOGICAL, PUBLIC,PARAMETER :: l_STAGGERED_TIMESTEP = .FALSE. 
 
 CONTAINS
 !-------------------------------------------------------------------------  
@@ -367,7 +367,7 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param, p_int, l_ini
   REAL(wp) :: z_e(nproma,n_zlev,p_patch%nblks_e)
   REAL(wp) :: z_en(nproma,n_zlev,p_patch%nblks_e)
   REAL(wp) :: z_e1(nproma,1,p_patch%nblks_e)
-  !REAL(wp) :: z_vt(nproma,n_zlev,p_patch%nblks_e)
+  REAL(wp) :: z_vt(nproma,n_zlev,p_patch%nblks_e)
   !TYPE(t_cartesian_coordinates) :: p_vn_c(nproma,n_zlev,p_patch%nblks_c)
   !INTEGER  :: rl_start_c, rl_end_c, i_startblk_c, i_endblk_c,i_startidx_c, i_endidx_c
   CHARACTER(len=max_char_length), PARAMETER :: &
@@ -387,10 +387,9 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param, p_int, l_ini
 
   !STEP 1: calculate gradient of surface height at previous timestep
   !IF ( iswm_oce == 1 ) THEN
-  CALL sync_patch_array(sync_e, p_patch, z_gradh_e(:,1,:))
-  CALL grad_fd_norm_oce_2d( p_os%p_prog(nold(1))%h, &
-          &                 p_patch,                &
-          &                 z_gradh_e(:,1,:))
+   CALL grad_fd_norm_oce_2d( p_os%p_prog(nold(1))%h, &
+          &                  p_patch,                &
+          &                  z_gradh_e(:,1,:))
   !ENDIF
   CALL sync_patch_array(sync_e, p_patch, z_gradh_e(:,1,:))
 
@@ -500,31 +499,40 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param, p_int, l_ini
   ! calculate horizontal laplacian of horizontal velocity, provided this term is discretized explicitly
   ! ! IF(horizontal_diffusion_veloc==EXPLICIT)THEN
 
-  CALL velocity_diffusion_horz_mimetic(p_patch,&
-                                     & p_os%p_prog(nold(1))%vn,&
-                                     & p_phys_param,&
-                                     & p_os%p_diag,&
-                                     & p_os%p_diag%laplacian_horz)
-  ! CALL nabla2_vec_ocean( p_os%p_prog(nold(1))%vn, z_vt, p_patch, p_os%p_diag%laplacian_horz)
-  ! DO jb = i_startblk, i_endblk
-  !   CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
-  !   DO jk = 1, n_zlev
-  !     DO je = i_startidx, i_endidx
-  ! 
-  !      p_os%p_diag%laplacian_horz(je,jk,jb) = &
-  !      & p_phys_param%K_veloc_h(je,jk,jb)*p_os%p_diag%laplacian_horz(je,jk,jb)
-  ! 
-  !     ENDDO
-  !   END DO
-  ! END DO
+!     CALL velocity_diffusion_horz_mimetic(p_patch,&
+!                                        & p_os%p_prog(nold(1))%vn,&
+!                                        & p_phys_param,&
+!                                        & p_os%p_diag,&
+!                                        & p_os%p_diag%laplacian_horz)
+      CALL nabla2_vec_ocean( p_os%p_prog(nold(1))%vn,&
+                           & z_vt,                   &
+                           & p_os%p_diag%vort,       &
+                           & p_patch,                &
+                           & p_phys_param%K_veloc_h, &
+                           & p_os%p_diag%laplacian_horz)
+
 
   ipl_src=4  ! output print level (1-5, fix)
   DO jk=1, n_zlev
+! write(*,*)'LAPLACIAN',jk,&
+! &maxval(p_os%p_diag%laplacian_horz(:,jk,:)),minval(p_os%p_diag%laplacian_horz(:,jk,:)),&
+! &maxval(z_e(:,jk,:)),minval(z_e(:,jk,:))
     CALL print_mxmn('horizontal diffusion',jk,p_os%p_diag%laplacian_horz(:,:,:),n_zlev, &
       &              p_patch%nblks_e,'abt',ipl_src)
   END DO
 
-
+!  DO jb = i_startblk, i_endblk
+!    CALL get_indices_e( p_patch, jb, i_startblk, i_endblk,&
+!                     &  i_startidx, i_endidx,&
+!                     &  rl_start, rl_end)
+!    DO jk = 1, n_zlev
+!      DO je = i_startidx, i_endidx
+!      IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+!      write(123,*)'laplacian',jk,p_os%p_diag%laplacian_horz(je,jk,jb),z_e(je,jk,jb)
+!      ENDIF 
+!      ENDDO
+!    END DO
+!  END DO
 
   IF (L_INVERSE_FLIP_FLOP) THEN
 
@@ -682,11 +690,11 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param, p_int, l_ini
       ENDIF!Staggered
     ENDIF!Rigid lid
     !IF surface forcing applied as top boundary condition to vertical diffusion
-    !IF (i_sfc_forcing_form==1) then surface forcing is applied as volume forcing at rhs, 
+    !The surface forcing is applied as volume forcing at rhs, 
     !i.e. if it part of explicit term in momentum and tracer eqs.
     !in this case, top boundary ondition of vertical Laplacians are homogeneous.
     !Below is the code that adds surface forcing to explicit term of momentum eq. 
-    IF(i_sfc_forcing_form==1.AND.expl_vertical_velocity_diff==1)THEN
+    IF(expl_vertical_velocity_diff==1)THEN
       DO jb = i_startblk, i_endblk
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
           &                rl_start, rl_end)
@@ -732,27 +740,13 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param, p_int, l_ini
   !In 3D case and if impliit vertical velocity diffusion is chosen
   IF(iswm_oce /= 1.AND.expl_vertical_velocity_diff==1)THEN
 
-    !Surface forcing implemente as top boundary condition for vertical diffusion
-    IF(i_sfc_forcing_form==0)THEN
-
-      CALL veloc_diffusion_vert_impl( p_patch,                  &
-                                    & p_os%p_diag%vn_pred,      &
-                                    & p_os%p_aux%bc_top_vn,     &
-                                    & p_os%p_aux%bc_bot_vn,     &
-                                    & p_os%p_diag%h_e,          &
-                                    & p_phys_param%A_veloc_v,   &
-                                    & p_os%p_diag%vn_impl_vert_diff)
     !Surface forcing implemente as volume forcing in top layer.
     !In this case homogeneousboundary conditions for vertical Laplacian
-    ELSEIF(i_sfc_forcing_form==1)THEN
-
       CALL veloc_diffusion_vert_impl_hom( p_patch,                  &
                                     & p_os%p_diag%vn_pred,      &
                                     & p_os%p_diag%h_e,          &
                                     & p_phys_param%A_veloc_v,   &
                                     & p_os%p_diag%vn_impl_vert_diff)
-
-    ENDIF
 !DO jk = 1, n_zlev
 !   write(*,*)'min/max vn_pred after:',jk,     minval(p_os%p_diag%vn_impl_vert_diff(:,jk,:)), &
 !     &                                  maxval(p_os%p_diag%vn_impl_vert_diff(:,jk,:))

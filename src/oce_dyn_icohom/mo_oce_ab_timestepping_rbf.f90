@@ -48,7 +48,7 @@ USE mo_kind,                      ONLY: wp
 USE mo_parallel_config,           ONLY: nproma
 USE mo_impl_constants,            ONLY: sea_boundary, &
   &                                     min_rlcell, min_rledge, min_rlcell, &
-  &                                     max_char_length 
+  &                                     max_char_length, MIN_DOLIC
 USE mo_ocean_nml,                 ONLY: n_zlev, solver_tolerance, iforc_oce,&! toplev, &
   &                                     ab_const, ab_beta, ab_gam, iswm_oce,&
                                     &   expl_vertical_velocity_diff, itestcase_oce, l_RIGID_LID
@@ -71,7 +71,7 @@ USE mo_sea_ice,                   ONLY: t_sfc_flx
 USE mo_oce_math_operators,        ONLY: div_oce, grad_fd_norm_oce, grad_fd_norm_oce_2d,&
   &                                     height_related_quantities
 USE mo_oce_diffusion,             ONLY: velocity_diffusion_horz_RBF, velocity_diffusion_vert_RBF, &
-  &                                     veloc_diffusion_vert_impl
+  &                                     veloc_diffusion_vert_impl_hom
 USE mo_oce_veloc_advection,       ONLY: veloc_adv_horz_RBF, veloc_adv_vert_RBF
 USE mo_interpolation,             ONLY: t_int_state, rbf_vec_interpol_edge,       &
   &                                     rbf_vec_interpol_cell !, verts2edges_scalar
@@ -528,12 +528,36 @@ ELSEIF ( iswm_oce == 1)THEN! .AND. iforc_oce==11) THEN
     END DO
   END DO
 ENDIF
+    !IF surface forcing applied as top boundary condition to vertical diffusion
+    !The surface forcing is applied as volume forcing at rhs, 
+    !i.e. if it part of explicit term in momentum and tracer eqs.
+    !in this case, top boundary ondition of vertical Laplacians are homogeneous.
+    !Below is the code that adds surface forcing to explicit term of momentum eq. 
+    IF(expl_vertical_velocity_diff==1)THEN
+      DO jb = i_startblk, i_endblk
+        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
+          &                rl_start, rl_end)
+        DO je = i_startidx, i_endidx
+          IF(v_base%dolic_e(je,jb)>=MIN_DOLIC)THEN
+            p_os%p_diag%vn_pred(je,1,jb) =  p_os%p_diag%vn_pred(je,1,jb)      &
+            &                            + dtime*p_os%p_aux%bc_top_vn(je,jb)/v_base%del_zlev_m(1)
+
+            p_os%p_diag%vn_pred(je,v_base%dolic_e(je,jb),jb)&
+            & = p_os%p_diag%vn_pred(je,v_base%dolic_e(je,jb),jb)       &
+            & - dtime*p_os%p_aux%bc_bot_vn(je,jb)&
+            &/v_base%del_zlev_m(v_base%dolic_e(je,jb))
+
+
+          ENDIF
+        END DO
+      END DO
+    ENDIF 
+
+
 
 IF(expl_vertical_velocity_diff==1.AND.iswm_oce /= 1)THEN
-  CALL veloc_diffusion_vert_impl( p_patch,                  &
+  CALL veloc_diffusion_vert_impl_hom( p_patch,                  &
                                 & p_os%p_diag%vn_pred,      &
-                                & p_os%p_aux%bc_top_vn,     &
-                                & p_os%p_aux%bc_bot_vn,     &
                                  & p_os%p_diag%h_e,         &
                                 & p_phys_param%A_veloc_v,   &
                                 & p_os%p_diag%vn_impl_vert_diff)

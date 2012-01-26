@@ -141,8 +141,8 @@ MODULE mo_ocean_nml
                                             ! i_bc_veloc_bot =2 : bottom friction plus topographic
                                             !                     slope (not implemented yet)
 
-  INTEGER  :: i_sfc_forcing_form        = 0 !=0: surface forcing applied as top boundary condition to vertical diffusion
-                                            !=1: surface forcing applied as volume forcing at rhs, i.e.part of explicit term in momentum and tracer eqs. 
+  !this distinction is no longer used: INTEGER  :: i_sfc_forcing_form        = 0 !=0: surface forcing applied as top boundary condition to vertical diffusion
+  !                                          !=1: surface forcing applied as volume forcing at rhs, i.e.part of explicit term in momentum and tracer eqs. 
                                             !in this case, top boundary ondition of vertical Laplacians are homogeneous
   !INTEGER            :: vbc_zero_cond   =   0   ! no or zero boundary condition
 
@@ -248,8 +248,7 @@ MODULE mo_ocean_nml
     &                 itestcase_oce, idiag_oce,                            &
     &                 temperature_relaxation, relaxation_param,            &
     &                 irelax_2d_S, relax_2d_mon_S,&!relax_2d_T, relax_2d_mon_T, &
-    &                 irelax_3d_S, relax_3d_mon_S, irelax_3d_T, relax_3d_mon_T, &
-    &                 i_sfc_forcing_form
+    &                 irelax_3d_S, relax_3d_mon_S, irelax_3d_T, relax_3d_mon_T
 
 
   ! ------------------------------------------------------------------------

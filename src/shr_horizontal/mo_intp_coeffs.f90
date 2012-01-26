@@ -3946,8 +3946,7 @@ END SUBROUTINE complete_patchinfo
           ENDIF
 
           !calculate normal vector that is perpendicular to vertex-vertex- and edge position vector
-          !If one uses the edge position vector this results in the moved primal normal. Later
-          !edge position vector has to be replaced by the midpoint of the dual edge.
+          !If one uses the edge position vector this results in the moved primal normal.
           recon_vec_cc_v1(ie)   = vector_product(vert1_midedge_cc(jv, jb, ie),&
             &                                    cc_mid_dual_edge(ie))
           norm                  = SQRT(SUM(recon_vec_cc_v1(ie)%x*recon_vec_cc_v1(ie)%x))
@@ -3975,15 +3974,19 @@ END SUBROUTINE complete_patchinfo
             vert_dual_mid_distance = vert_dual_mid_dist(ie,1)
             recon_vec_cc           = recon_vec_cc_v1(ie)
 !PK: not used
-!             ptr_intp%edge2vert_vector_cc(jv,jb,ie)=&
-!             &vector_product(vert1_midedge_cc(jv, jb, ie), cc_mid_dual_edge(ie))
-! 
-!             z_tmp = DOT_PRODUCT(ptr_intp%edge2vert_vector_cc(jv,jb,ie)%x,&
-!             &ptr_patch%edges%primal_cart_normal(il_e,ib_e)%x)
-! 
-!             IF (z_tmp <0._wp) ptr_intp%edge2vert_vector_cc(jv,jb,ie)%x&
-!             & = -1._wp * ptr_intp%edge2vert_vector_cc(jv,jb,ie)%x
+!              ptr_intp%edge2vert_vector_cc(jv,jb,ie)=&
+!              &vector_product(vert1_midedge_cc(jv, jb, ie), cc_mid_dual_edge(ie))
+             ptr_intp%edge2vert_vector_cc(jv,jb,ie)%x=vert1_midedge_cc(jv, jb, ie)%x
+ 
+             z_tmp = DOT_PRODUCT(ptr_intp%edge2vert_vector_cc(jv,jb,ie)%x,&
+             &ptr_patch%edges%primal_cart_normal(il_e,ib_e)%x)
+ 
+             IF (z_tmp <0._wp) ptr_intp%edge2vert_vector_cc(jv,jb,ie)%x&
+             & = -1._wp * ptr_intp%edge2vert_vector_cc(jv,jb,ie)%x
 
+
+            ptr_intp%edge2vert_vector_cc(jv,jb,ie)%x = vert_edge_distance&
+            &*ptr_intp%edge2vert_vector_cc(jv,jb,ie)%x
 
           ELSE IF ( (ptr_patch%edges%vertex_idx(il_e,ib_e,2) == jv) .and. &
                     (ptr_patch%edges%vertex_blk(il_e,ib_e,2) == jb) ) THEN
@@ -3992,14 +3995,21 @@ END SUBROUTINE complete_patchinfo
             vert_dual_mid_distance = vert_dual_mid_dist(ie,2)
             recon_vec_cc           = recon_vec_cc_v2(ie)
 
-!             ptr_intp%edge2vert_vector_cc(jv,jb,ie)=&
-!             &vector_product(vert2_midedge_cc(jv, jb, ie), cc_mid_dual_edge(ie))
-! 
-!             z_tmp = DOT_PRODUCT(ptr_intp%edge2vert_vector_cc(jv,jb,ie)%x,&
-!             & ptr_patch%edges%primal_cart_normal(il_e,ib_e)%x)
-! 
-!             IF (z_tmp <0._wp) ptr_intp%edge2vert_vector_cc(jv,jb,ie)%x =&
-!             & -1._wp * ptr_intp%edge2vert_vector_cc(jv,jb,ie)%x
+!              ptr_intp%edge2vert_vector_cc(jv,jb,ie)=&
+!              &vector_product(vert2_midedge_cc(jv, jb, ie), cc_mid_dual_edge(ie))
+
+            ptr_intp%edge2vert_vector_cc(jv,jb,ie)%x=vert2_midedge_cc(jv, jb, ie)%x
+
+             z_tmp = DOT_PRODUCT(ptr_intp%edge2vert_vector_cc(jv,jb,ie)%x,&
+             & ptr_patch%edges%primal_cart_normal(il_e,ib_e)%x)
+ 
+            IF (z_tmp <0._wp) ptr_intp%edge2vert_vector_cc(jv,jb,ie)%x =&
+             & -1._wp * ptr_intp%edge2vert_vector_cc(jv,jb,ie)%x
+
+            ptr_intp%edge2vert_vector_cc(jv,jb,ie)%x = vert_edge_distance&
+            &*ptr_intp%edge2vert_vector_cc(jv,jb,ie)%x
+
+
           ELSE
             CALL message (TRIM(routine), 'WARNING - vert_edge_distance not found')
             write(*,'(a,7i5)') 'jv, jb, edge, ptr_patch%edges%vertex_idx/blk(il_e,ib_e,1-2)=', &

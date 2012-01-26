@@ -51,7 +51,7 @@ USE mo_impl_constants,            ONLY: sea_boundary, &
 USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer, idisc_scheme,    &
   &                                     irelax_3d_T, relax_3d_mon_T, irelax_3d_S, relax_3d_mon_S, &
   &                                     ab_const, ab_gam, expl_vertical_tracer_diff,&
-  &                                     iswm_oce, i_sfc_forcing_form
+  &                                     iswm_oce
 USE mo_physical_constants,        ONLY: tf
 USE mo_parallel_config,           ONLY: nproma
 USE mo_dynamics_config,           ONLY: nold, nnew 
@@ -826,19 +826,9 @@ END DO
 !Case: Implicit Vertical diffusion
 IF(expl_vertical_tracer_diff==1)THEN
 
-  SELECT CASE(i_sfc_forcing_form) 
-
-  CASE(0)!surface forcing applied as top boundary condition to vertical diffusion
-
-!     IF( is_initial_timestep(timestep))THEN
-!       G_nimd_c_v(:,:,:) = G_n_c_v(:,:,:)
-!     ELSE
-!       G_nimd_c_v(:,:,:) = (1.5_wp+AB_const)* G_n_c_v(:,:,:)   &
-!         &               - (0.5_wp+AB_const)*G_nm1_c_v(:,:,:)
-!     ENDIF
-
-
     !Add advective part to old tracer
+    !surface forcing applied as volume forcing at rhs, i.e.part of explicit term in momentum and tracer eqs.
+    !in this case, top boundary ondition of vertical Laplacians are homogeneous
     DO jb = i_startblk_c, i_endblk_c
       CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c,&
                        & i_startidx_c, i_endidx_c,&
@@ -853,7 +843,8 @@ IF(expl_vertical_tracer_diff==1)THEN
               !IF(jk==1) delta_z = v_base%del_zlev_m(top)+p_os%p_prog(nnew(1))%h(jc,jb)
 
                 z_temp(jc,jk,jb)= (trac_in(jc,jk,jb)*dummy_h_c(jc,jk,jb) &
-                                & -delta_t*z_div_adv_v(jc,jk,jb))/dummy_h_c_new(jc,jk,jb)
+                                & -delta_t*z_div_adv_v(jc,jk,jb)&
+                                & +delta_t*bc_top_tracer(jc,jb))/dummy_h_c_new(jc,jk,jb)
                  !  write(789,*)'tracer_old:_new',jc,jk,jb,trac_in(jc,jk,jb),z_temp(jc,jk,jb),&
                  !  &z_div_adv_v(jc,jk,jb), dummy_h_c(jc,jk,jb),dummy_h_c_new(jc,jk,jb)
 
@@ -870,89 +861,26 @@ IF(expl_vertical_tracer_diff==1)THEN
   !  END DO
     ipl_src=5  ! output print level (1-5, fix)
     DO jk = 1, n_zlev
-      CALL print_mxmn('bef impl v-trc:G_n',jk,G_n_c_v(:,:,:),n_zlev, &
+      CALL print_mxmn('bef impl v-trc:',jk,z_temp(:,:,:),n_zlev, &
       &              p_patch%nblks_c,'trc',ipl_src)
     END DO
     DO jk = 1, n_zlev
-      CALL print_mxmn('bef.impl v-trc:Gnimd',jk,G_nimd_c_v(:,:,:),n_zlev, &
-      &              p_patch%nblks_c,'trc',ipl_src)
-    END DO
-    DO jk = 1, n_zlev
-      CALL print_mxmn('bef.impl adv-flux-v',jk,z_adv_flux_v(:,:,:),n_zlev+1, &
+      CALL print_mxmn('adv-flux-v',jk,z_adv_flux_v(:,:,:),n_zlev+1, &
       &              p_patch%nblks_c,'trc',ipl_src)
     END DO
 
-    !IF(ldbg)THEN
-    !  DO jk = 1, n_zlev
-    ! write(*,*)'before impl: max/min vtracer G_n:G_n+1/2:',jk,&
-    ! &maxval(G_n_c_v(:,jk,:)), minval(G_n_c_v(:,jk,:)),& 
-    ! &maxval(G_nimd_c_v(:,jk,:)), minval(G_nimd_c_v(:,jk,:))
-
-    ! write(123,*)'before impl: max/min vtracer G_n:G_n+1/2:',jk,&
-    ! &maxval(G_n_c_v(:,jk,:)), minval(G_n_c_v(:,jk,:)),& 
-    ! &maxval(G_nimd_c_v(:,jk,:)), minval(G_nimd_c_v(:,jk,:))
-
-      !END DO
-    !ENDIF
 
     !calculate vert diffusion impicit: result is stored in trac_out
-      CALL tracer_diffusion_vert_impl( p_patch,             &
-                                   & z_temp,&!G_n_c_v,&!z_temp,                &!G_nimd_c_v,            &!& G_n_c_v,&
-                                   & bc_top_tracer,         & 
-                                   & bc_bot_tracer,         &
+      CALL tracer_diffusion_vert_impl_hom( p_patch,             &
+                                   & z_temp,&!G_n_c_v,&!z_temp,&!G_nimd_c_v
                                    & p_os%p_prog(nold(1))%h,&
                                    & A_v,                   &
                                    & trac_out(:,:,:))
-
-
 !      DO jk = 1, n_zlev
 !     write(*,*)'after impl-diff: max/min:',jk,&
 !      &maxval(trac_out(:,jk,:)), minval(trac_out(:,jk,:)) 
 !     END DO
 
-  CASE(1)!=1: surface forcing applied as volume forcing at rhs, i.e.part of explicit term in momentum and tracer eqs.
-         !    in this case, top boundary ondition of vertical Laplacians are homogeneous
-
-    !Add advective part and boundary condition to old tracer
-    DO jb = i_startblk_c, i_endblk_c
-      CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c,&
-                       & i_startidx_c, i_endidx_c,             &
-                       & rl_start_c, rl_end_c)
-        DO jc = i_startidx_c, i_endidx_c
-          z_dolic = v_base%dolic_c(jc,jb)
-          IF(z_dolic>=MIN_DOLIC)THEN
-
-            DO jk = 1, z_dolic
-            !IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-              IF(jk==1)THEN
-                delta_z  = v_base%del_zlev_m(top)+p_os%p_prog(nold(1))%h(jc,jb)
-              ELSE
-                delta_z  = v_base%del_zlev_m(jk)
-              ENDIF
-              G_n_c_v(jc,jk,jb) = (trac_in(jc,jk,jb)*delta_z       &
-                                 & -delta_t*z_div_adv_v(jc,jk,jb)  &
-                                 & + delta_t*bc_top_tracer(jc,jb)) &
-                                 &/z_h(jc,jk,jb)
-            END DO
-          ELSE
-            G_n_c_v(jc,:,jb) = 0.0_wp
-          ENDIF
-      END DO
-    END DO
-    IF( is_initial_timestep(timestep))THEN
-      G_nimd_c_v(:,:,:) = G_n_c_v(:,:,:)
-    ELSE
-      G_nimd_c_v(:,:,:) = (1.5_wp+AB_const)* G_n_c_v(:,:,:)   &
-        &               - (0.5_wp+AB_const)*G_nm1_c_v(:,:,:)
-    ENDIF
-
-    CALL tracer_diffusion_vert_impl_hom( p_patch,         &
-                                 & G_nimd_c_v,            &!& G_n_c_v,               &
-                                 & p_os%p_prog(nold(1))%h,&
-                                 & A_v,                   &
-                                 & trac_out(:,:,:))
-
-  END SELECT
 
 !vertival diffusion is calculated explicitely
 ELSEIF(expl_vertical_tracer_diff==0)THEN

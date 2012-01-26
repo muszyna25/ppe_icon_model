@@ -258,7 +258,8 @@ CONTAINS
         !calculate lower bound for diffusivity
         !The factor cos(lat) is omitted here, because of equatorial reference (cf. Griffies, eq. (18.29)) 
         lower_bound_diff = 3.82E-12_wp&
-        &*(N_POINTS_IN_MUNK_LAYER*z_largest_edge_length)**3
+        &*(N_POINTS_IN_MUNK_LAYER*z_largest_edge_length)**3&
+          &*cos( p_patch%edges%center(je,jb)%lat)!*deg2rad
       END DO
     END DO
 
@@ -312,7 +313,8 @@ CONTAINS
           !calculate lower bound for diffusivity
           !The factor cos(lat) is omitted here, because of equatorial reference (cf. Griffies, eq. (18.29)) 
           K_h(je,:,jb) = 3.82E-12_wp&
-          &*(N_POINTS_IN_MUNK_LAYER*z_largest_edge_length)**3
+          &*(N_POINTS_IN_MUNK_LAYER*z_largest_edge_length)**3&
+          &*cos( p_patch%edges%center(je,jb)%lat)!*deg2rad
         END DO
       END DO
 
@@ -326,8 +328,12 @@ CONTAINS
           !calculate lower bound for diffusivity
           !The factor cos(lat) is omitted here, because of equatorial reference (cf. Griffies, eq. (18.29)) 
           K_h(je,:,jb) = 3.82E-12_wp&
-          &*(N_POINTS_IN_MUNK_LAYER*p_patch%edges%primal_edge_length(je,jb))**3!&
-          !&*cos( p_patch%edges%center(je,jb)%lat)!*deg2rad
+          &*(N_POINTS_IN_MUNK_LAYER*p_patch%edges%primal_edge_length(je,jb))**3&
+          &*cos( p_patch%edges%center(je,jb)%lat)!*deg2rad
+! write(123,*)'visc',K_h(je,1,jb),&
+! &3.82E-12_wp&
+! &*(N_POINTS_IN_MUNK_LAYER*p_patch%edges%primal_edge_length(je,jb))**3,&
+! &cos( p_patch%edges%center(je,jb)%lat)
         END DO
       END DO
     END SELECT
