@@ -177,7 +177,7 @@ CONTAINS
     ENDIF
 
     ! Determine end level for qv-advection substepping (specified by hbot_qvsubstep)
-    kend_qvsubstep(jg) = nlev
+    kend_qvsubstep(jg) = 0
     DO jk = nlev, 2, -1
       jk1 = jk + nshift_total
       IF (0.5_wp*(vct_a(jk1)+vct_a(jk1-1)) > hbot_qvsubstep) THEN
@@ -189,6 +189,10 @@ CONTAINS
     IF ( kend_qvsubstep(jg) >= 1 ) THEN
       WRITE(message_text,'(2(a,i4))') 'Domain', jg, &
         '; QV substepping ends in layer ', kend_qvsubstep(jg)
+      CALL message(TRIM(routine),message_text)
+    ELSE
+      WRITE(message_text,'(a,i4,a)') 'Domain', jg, &
+        '; No QV substepping'
       CALL message(TRIM(routine),message_text)
     ENDIF
 

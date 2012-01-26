@@ -868,7 +868,7 @@ SUBROUTINE downscale_rad_output(p_patch, p_par_patch, p_par_int, p_par_grf, &
 #else
 !CDIR NOLOOPCHG
     DO jk = 1,nlevp1
-!CDIR NODEP
+!CDIR NODEP,VOVERTAKE,VOB
       DO jc = i_startidx, i_endidx
         jc1 = iidx(jc,jb,1)
         jc2 = iidx(jc,jb,2)
@@ -1689,7 +1689,7 @@ SUBROUTINE downscale_rad_output_rg( p_patch, p_par_patch, p_par_int, p_par_grf, 
 #else
 !CDIR NOLOOPCHG
     DO jk = 1,nlevp1
-!CDIR NODEP
+!CDIR NODEP,VOVERTAKE,VOB
       DO jc = i_startidx, i_endidx
         jc1 = iidx(jc,jb,1)
         jc2 = iidx(jc,jb,2)

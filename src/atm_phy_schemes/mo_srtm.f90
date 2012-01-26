@@ -377,7 +377,6 @@ CONTAINS
       ! all bands
       DO jk=1,klev+1
 !IBM* ASSERT(NODEPS)
-!CDIR NODEP
         DO ic = 1, icount
           zflxu_sw(ic,jk)     = zflxu_sw(ic,jk) + bnd_wght(jb)*(     &
             &   zcloud(ic)*zbbfu(ic,jk,jb)                      &
@@ -491,7 +490,7 @@ CONTAINS
 
       DO jk=1,klev+1
 !IBM* ASSERT(NODEPS)
-!CDIR NODEP
+!CDIR NODEP,VOVERTAKE,VOB
         DO ic = 1, icount
           jl = idx(ic)
           flxu_sw(jl,jk)     = zflxu_sw(ic,jk)
@@ -612,7 +611,6 @@ CONTAINS
          z_ptaveli(ic) = 1.0_wp/ptavel(ic,jk)
          z_exptavel(ic) = z_ptaveli(ic)*EXP(-1919.4_wp*z_ptaveli(ic))/8.7604e-4_wp
       END DO
-!CDIR NODEP
       DO ic = 1,icount
 
         ! Find the two reference pressures on either side of the

@@ -458,7 +458,7 @@ CONTAINS
 
     IF (PRESENT(uc)) THEN
 !IBM* NOVECTOR
-!CDIR NODEP
+!CDIR NODEP,VOVERTAKE,VOB
 !IBM* ASSERT(NODEPS)
       DO nl = 1,kidx
         jl = list(nl)
@@ -469,7 +469,7 @@ CONTAINS
       END DO
     ELSE
 !IBM* NOVECTOR
-!CDIR NODEP
+!CDIR NODEP,VOVERTAKE,VOB
 !IBM* ASSERT(NODEPS)
       DO nl = 1,kidx
         jl = list(nl)
@@ -575,7 +575,7 @@ CONTAINS
     INTEGER  ::  jl,nl
 
     IF (PRESENT(ua) .AND. .NOT. PRESENT(dua)) THEN
-!CDIR NODEP
+!CDIR NODEP,VOVERTAKE,VOB
 !IBM* ASSERT(NODEPS)
       DO nl = 1,size
 
@@ -601,7 +601,7 @@ CONTAINS
         ua(jl) = d + x*(c + x*bxa)
       END DO
     ELSE IF (PRESENT(ua) .AND. PRESENT(dua)) THEN
-!CDIR NODEP
+!CDIR NODEP,VOVERTAKE,VOB
 !IBM* ASSERT(NODEPS)
       DO nl = 1,size
 
@@ -642,7 +642,7 @@ CONTAINS
 
     INTEGER  ::  jl,nl
 
-!CDIR NODEP
+!CDIR NODEP,VOVERTAKE,VOB
 !IBM* ASSERT(NODEPS)
     DO nl = 1, kidx
 
@@ -970,7 +970,7 @@ CONTAINS
 
     ! first compute all lookup indices and check if they are all within allowed bounds
 
-!CDIR NODEP
+!CDIR NODEP,VOVERTAKE,VOB
 !IBM* ASSERT(NODEPS)
     DO nl = 1,size
       jl = list(nl)
@@ -1014,7 +1014,7 @@ CONTAINS
 
     ! first compute all lookup indices and check if they are all within allowed bounds
 
-!CDIR NODEP
+!CDIR NODEP,VOVERTAKE,VOB
 !IBM* ASSERT(NODEPS)
     DO nl = 1,kidx
       jl = list(nl)
@@ -1058,7 +1058,7 @@ CONTAINS
 
     ! first compute all lookup indices and check if they are all within allowed bounds
 
-!CDIR NODEP
+!CDIR NODEP,VOVERTAKE,VOB
 !IBM* ASSERT(NODEPS)
     DO nl = 1,size
 
@@ -1103,7 +1103,7 @@ CONTAINS
 
     ! first compute all lookup indices and check if they are all within allowed bounds
 
-!CDIR NODEP
+!CDIR NODEP,VOVERTAKE,VOB
 !IBM* ASSERT(NODEPS)
     DO nl = 1,size
 

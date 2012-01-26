@@ -2642,7 +2642,6 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
      DO np = 1, npats
 !CDIR UNROLL=6
        DO k = 1, ndim2(n)
-!CDIR NODEP
          DO i = 1, p_pat(np)%n_send
            send_buf(k+noffset(n),i+ioffset_s(np)) =                                            &
              & send(np+(n-1)*npats)%fld(p_pat(np)%send_src_idx(i),k,p_pat(np)%send_src_blk(i)- &
