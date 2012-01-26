@@ -62,7 +62,7 @@ MODULE mo_name_list_output
   USE mo_ocean_nml,             ONLY: n_zlev
   USE mo_oce_state,             ONLY: set_zlev
 
-  USE mo_util_string,           ONLY: int2string, toupper
+  USE mo_util_string,           ONLY: toupper
 
   USE mo_communication,         ONLY: exchange_data, t_comm_pattern, idx_no, blk_no
   USE mo_interpol_config,       ONLY: rbf_vec_dim_c, rbf_vec_dim_v, rbf_vec_dim_e, rbf_c2grad_dim
@@ -562,7 +562,7 @@ CONTAINS
 #endif
 
     ! For a list of all variables, enable the following:
-    LOGICAL, PARAMETER :: l_print_list = .TRUE.
+    LOGICAL, PARAMETER :: l_print_list = .FALSE.
 
     INTEGER :: i, j, nfiles, i_typ, i_dom, nvl, vl_list(max_var_lists), &
       &        idx, ierr, ivar, l1
@@ -597,7 +597,6 @@ CONTAINS
             IF(.NOT. ASSOCIATED(element)) EXIT
             PRINT *,'    ',element%field%info%name,                             &
               &            element%field%info%loutput, '  ',                    &
-              &            TRIM(int2string(element%field%info%ndims)),'D   ',   &
               &            trim(element%field%info%cf%long_name)
             element => element%next_list_element
           ENDDO
