@@ -1735,10 +1735,9 @@ MODULE mo_nonhydro_state
       DO jt =1,nqtendphy
         WRITE(ctrc,'(I2.2)')jt
         CALL add_ref( p_diag_list, 'tracer_vi', 'tracer_vi'//ctrc,               &
-          &           p_diag%tracer_vi_ptr(jt)%p_3d,                             &
+          &           p_diag%tracer_vi_ptr(jt)%p_2d,                             &
           &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                     &
           &           cf_desc, grib2_desc, ldims=shape3d_c3, lrestart=.FALSE.)
-
       ENDDO
 
       ! tracer_vi_avg(nproma,nblks_c,3), only Q1, Q2, Q3
@@ -1753,7 +1752,7 @@ MODULE mo_nonhydro_state
       DO jt =1,nqtendphy
         WRITE(ctrc,'(I2.2)')jt
         CALL add_ref( p_diag_list, 'tracer_vi_avg', 'tracer_vi_avg'//ctrc,       &
-          &           p_diag%tracer_vi_avg_ptr(jt)%p_3d,                         &
+          &           p_diag%tracer_vi_avg_ptr(jt)%p_2d,                         &
           &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                     &
           &           cf_desc, grib2_desc, ldims=shape3d_c3, lrestart=.FALSE. )
       ENDDO
