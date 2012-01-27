@@ -2415,8 +2415,10 @@ CONTAINS
       !
       target_info%ncontained = target_info%ncontained+1
       IF (SIZE(target_ptr4d,4) < target_info%ncontained) THEN
-        CALL finish('add_var_list_reference_r3d', &
-             TRIM(name)//' exceeds the number of predefined entries in container.')      
+        WRITE (message_text, *) &
+          &  TRIM(name), ' exceeds the number of predefined entries in container:', &
+          &  SIZE(target_ptr4d,4)      
+        CALL finish('add_var_list_reference_r3d', message_text)
       ENDIF
       IF ( ldims(1) /=  target_info%used_dimensions(1) .OR. &
            ldims(2) /=  target_info%used_dimensions(2) .OR. & 
@@ -2534,8 +2536,10 @@ CONTAINS
       !
       target_info%ncontained = target_info%ncontained+1
       IF (SIZE(target_ptr3d,3) < target_info%ncontained) THEN
-        CALL finish('add_var_list_reference_r2d', &
-             TRIM(name)//' exceeds the number of predefined entries in container.')      
+        WRITE (message_text, *) &
+          &  TRIM(name), ' exceeds the number of predefined entries in container:', &
+          &  SIZE(target_ptr3d,3)
+        CALL finish('add_var_list_reference_r2d', message_text)
       ENDIF
       IF ( ldims(1) /=  target_info%used_dimensions(1) .OR. &
            ldims(2) /=  target_info%used_dimensions(2) ) THEN

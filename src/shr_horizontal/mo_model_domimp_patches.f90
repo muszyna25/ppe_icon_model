@@ -136,6 +136,7 @@ USE mo_mpi,                ONLY: my_process_is_mpi_parallel, p_comm_work
 USE mo_sync,               ONLY: disable_sync_checks, enable_sync_checks
 USE mo_communication,      ONLY: idx_no, blk_no
 USE mo_util_uuid,          ONLY: uuid_string_length, uuid_parse 
+USE mo_name_list_output_config, ONLY: is_grib_output
 
 #ifndef NOMPI
 ! The USE statement below lets this module use the routines from
@@ -1149,7 +1150,7 @@ END SUBROUTINE allocate_patch
 !!
 SUBROUTINE read_basic_patch( ig, p_patch, patch_file )
 
-
+CHARACTER(LEN=*), PARAMETER :: routine = 'mo_model_domimp_patches/read_basic_patch'
 INTEGER,             INTENT(in)    ::  ig           ! domain ID
 CHARACTER(len=*),    INTENT(in), OPTIONAL  ::  patch_file   ! name of grid file
 
@@ -1211,7 +1212,7 @@ ENDIF
 !  at the moment is filled in the patch allocation
 ! p_patch%cell_type = global_cell_type
   
-CALL message ('mo_model_domimp_patches:read_patch', 'start to init patch')
+CALL message (TRIM(routine), 'start to init patch')
 
 WRITE(message_text,'(a,a)') 'Read grid file ', TRIM(p_patch%grid_filename)
 CALL message ('', TRIM(message_text))
@@ -1219,29 +1220,30 @@ CALL message ('', TRIM(message_text))
 CALL nf(nf_open(TRIM(p_patch%grid_filename), NF_NOWRITE, ncid))
 
 uuid_string = ' ' ! To avoid null characters in the standard output
-CALL nf(nf_get_att_text(ncid, NF_GLOBAL, 'uuid', uuid_string),warnonly=.TRUE.)
+CALL nf(nf_get_att_text(ncid, NF_GLOBAL, 'uuid', uuid_string), &
+  &     warnonly=.TRUE., silent=(.NOT. is_grib_output()))
 CALL uuid_parse(uuid_string, p_patch%grid_uuid)
 WRITE(message_text,'(a,a)') 'grid uuid: ', TRIM(uuid_string)
-CALL message  ('mo_model_domain_import/read_patch', message_text)
+CALL message  (TRIM(routine), message_text)
 
 CALL nf(nf_get_att_int(ncid, NF_GLOBAL, 'grid_root', icheck))
 IF (icheck /= nroot) THEN
    WRITE(message_text,'(a,i4,a,i4)') &
      & 'grid_root attribute:', icheck,', R:',nroot
-   CALL message  ('mo_model_domain_import/read_patch', TRIM(message_text))
+   CALL message  (TRIM(routine), TRIM(message_text))
    WRITE(message_text,'(a)') &
      & 'Mismatch between "grid_root" attribute and "R" parameter in the filename'
-   CALL finish  ('mo_model_domain_import/read_patch', TRIM(message_text))
+   CALL finish  (TRIM(routine), TRIM(message_text))
 END IF
 
 CALL nf(nf_get_att_int(ncid, NF_GLOBAL, 'grid_level', igrid_level))
 IF (igrid_level /= ilev) THEN
    WRITE(message_text,'(a,i4,a,i4)') &
      & 'grid_level attribute:', igrid_level,', B:',ilev
-   CALL message  ('mo_model_domain_import/read_patch', TRIM(message_text))
+   CALL message  (TRIM(routine), TRIM(message_text))
    WRITE(message_text,'(a)') &
      & 'Mismatch between "grid_level" attribute and "B" parameter in the filename'
-   CALL finish  ('mo_model_domain_import/read_patch', TRIM(message_text))
+   CALL finish  (TRIM(routine), TRIM(message_text))
 END IF
 
 ! Check additional attributes for consistency with the current namelist settings
@@ -1249,30 +1251,30 @@ CALL nf(nf_get_att_int(ncid, NF_GLOBAL, 'grid_ID', igrid_id))
 IF ((.NOT.l_limited_area).AND.(igrid_id /= ig)) THEN
    WRITE(message_text,'(a,i4,a,i4)') &
      & 'grid ID attribute:', igrid_id,', namelist value:',ig
-   CALL message  ('mo_model_domain_import/read_patch', TRIM(message_text))
+   CALL message  (TRIM(routine), TRIM(message_text))
    WRITE(message_text,'(a)') &
      & 'Mismatch between "grid ID" attribute and corresponding namelist setting'
-   CALL finish  ('mo_model_domain_import/read_patch', TRIM(message_text))
+   CALL finish  (TRIM(routine), TRIM(message_text))
 END IF
 
 CALL nf(nf_get_att_int(ncid, NF_GLOBAL, 'parent_grid_ID', iparent_id))
 IF ((.NOT.l_limited_area).AND.(iparent_id /= ipar_id)) THEN
    WRITE(message_text,'(a,i4,a,i4)') &
      & 'parent ID attribute:', iparent_id,', namelist value:',ipar_id
-   CALL message  ('mo_model_domain_import/read_patch', TRIM(message_text))
+   CALL message  (TRIM(routine), TRIM(message_text))
    WRITE(message_text,'(a)') &
      & 'Mismatch between "parent grid ID" attribute and corresponding namelist setting'
-   CALL finish  ('mo_model_domain_import/read_patch', TRIM(message_text))
+   CALL finish  (TRIM(routine), TRIM(message_text))
 END IF
 
 CALL nf(nf_get_att_int(ncid, NF_GLOBAL, 'max_childdom', i_max_childdom))
 IF (i_max_childdom /= max_childdom) THEN
    WRITE(message_text,'(a,i4,a,i4)') &
      & 'max_childdom attribute:', i_max_childdom,', namelist value:',max_childdom
-   CALL message  ('mo_model_domain_import/read_patch', TRIM(message_text))
+   CALL message  (TRIM(routine), TRIM(message_text))
    WRITE(message_text,'(a)') &
      & 'Mismatch between "max_childdom" attribute and corresponding namelist setting'
-   CALL finish  ('mo_model_domain_import/read_patch', TRIM(message_text))
+   CALL finish  (TRIM(routine), TRIM(message_text))
 END IF
 
 !
@@ -1337,8 +1339,7 @@ ALLOCATE( array_c_int(p_patch%n_patch_cells,6),  &
   &       array_v_int(p_patch%n_patch_verts,6),  &
   &       STAT=ist )
 IF (ist /= SUCCESS) THEN
-  CALL finish ('mo_model_domain_import:read_patch',  &
-    &             'allocation for array_[cev]_int failed')
+  CALL finish (TRIM(routine), 'allocation for array_[cev]_int failed')
 ENDIF
 ! real arrays
 ALLOCATE( array_c_real(p_patch%n_patch_cells,6),  &
@@ -1346,8 +1347,7 @@ ALLOCATE( array_c_real(p_patch%n_patch_cells,6),  &
   &       array_v_real(p_patch%n_patch_verts,6),  &
   &       STAT=ist )
 IF (ist /= SUCCESS) THEN
-  CALL finish ('mo_model_domain_import:read_patch',  &
-    &             'allocation for array_[cev]_real failed')
+  CALL finish (TRIM(routine), 'allocation for array_[cev]_real failed')
 ENDIF
 ! integer arrays for index lists
 ALLOCATE( start_idx_c(min_rlcell:max_rlcell,max_childdom),  &
@@ -1359,8 +1359,7 @@ ALLOCATE( start_idx_c(min_rlcell:max_rlcell,max_childdom),  &
   &       STAT=ist )
 
 IF (ist /= SUCCESS) THEN
-  CALL finish ('mo_model_domain_import:read_patch',  &
-    &          'allocation for array_[cev]_indlist failed')
+  CALL finish (TRIM(routine), 'allocation for array_[cev]_indlist failed')
 ENDIF
 
 ! Number of global cells/edges/verts
@@ -1581,7 +1580,7 @@ CALL nf(nf_get_var_int(ncid, varid, array_e_int(:,1:4)))
 ! if there are negative values, grid files are too old
 
 IF(ANY(array_e_int(:,1:4)<0)) THEN
-  CALL finish ('mo_model_domimp_patches:read_patch',  &
+  CALL finish (TRIM(routine), &
     &          'negative child edge indices detected - patch files are too old')
 ENDIF
 
@@ -1771,22 +1770,19 @@ CALL nf(nf_close(ncid))
 DEALLOCATE( array_c_int, array_e_int, array_v_int,  &
   &         STAT=ist )
 IF (ist /= SUCCESS) THEN
-  CALL finish ('mo_model_domain_import:read_patch',  &
-    &             'deallocation for array_[cev]_int failed')
+  CALL finish (TRIM(routine), 'deallocation for array_[cev]_int failed')
 ENDIF
 ! real arrays
 DEALLOCATE( array_c_real, array_e_real, array_v_real,  &
   &         STAT=ist )
 IF (ist /= SUCCESS) THEN
-  CALL finish ('mo_model_domain_import:read_patch',  &
-    &             'deallocation for array_[cev]_real failed')
+  CALL finish (TRIM(routine), 'deallocation for array_[cev]_real failed')
 ENDIF
 ! index lists arrays
 DEALLOCATE( start_idx_c, end_idx_c, start_idx_e, end_idx_e, start_idx_v, end_idx_v, &
   &         STAT=ist )
 IF (ist /= SUCCESS) THEN
-  CALL finish ('mo_model_domain_import:read_patch',  &
-    &             'deallocation for array_[cev]_indlist failed')
+  CALL finish (TRIM(routine), 'deallocation for array_[cev]_indlist failed')
 ENDIF
 
 !
@@ -1798,7 +1794,7 @@ p_patch%rank   = 0
 p_patch%n_proc = 1
 p_patch%proc0  = 0
 
-CALL message ('mo_model_domimp_patches:read_basic_patch', 'read_patches finished')
+CALL message (TRIM(routine), 'read_patches finished')
 
 END SUBROUTINE read_basic_patch
 
@@ -3177,16 +3173,20 @@ END SUBROUTINE destruct_patches
 
 !-------------------------------------------------------------------------
 
-SUBROUTINE nf(status, warnonly)
+SUBROUTINE nf(status, warnonly, silent)
   
   INTEGER, INTENT(in)           :: status
   LOGICAL, INTENT(in), OPTIONAL :: warnonly
+  LOGICAL, INTENT(in), OPTIONAL :: silent
   
-  LOGICAL :: lwarnonly
+  LOGICAL :: lwarnonly, lsilent
   
   lwarnonly = .FALSE.
+  lsilent   = .FALSE.
   IF(PRESENT(warnonly)) lwarnonly = .TRUE.
-  
+  IF(PRESENT(silent))   lsilent   = silent
+
+  IF (lsilent) RETURN
   IF (status /= nf_noerr) THEN
     IF (lwarnonly) THEN
       CALL message('mo_model_domain_import netCDF error', nf_strerror(status), &

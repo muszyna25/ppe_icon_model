@@ -55,8 +55,9 @@ USE mo_master_control,      ONLY: is_restart_run, get_my_process_name, get_my_mo
 
 USE mo_io_async,            ONLY: vlist_io_main_proc, &            ! main procedure for I/O PEs
                                   use_async_vlist_io
-USE mo_name_list_output,    ONLY: use_async_name_list_io, name_list_output_active, &
-                                  name_list_io_main_proc
+USE mo_name_list_output,    ONLY: name_list_io_main_proc
+USE mo_name_list_output_config, ONLY: use_async_name_list_io, name_list_output_active
+
 
 ! Control parameters: run control, dynamics, i/o
 !
