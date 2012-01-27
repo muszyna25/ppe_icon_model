@@ -852,7 +852,7 @@ DO jb = i_startblk, i_endblk
   DO jk = slev, elev
 
 !$OMP PARALLEL DO SCHEDULE(runtime) DEFAULT(PRIVATE)  &
-!$OMP   SHARED(u_vec_e,v_vec_e,ptr_patch,rot_vec_v,jb) FIRSTPRIVATE(jk)
+!$OMP   SHARED(u_vec_e,ptr_patch,rot_vec_v,jb) FIRSTPRIVATE(jk)
     DO jv = i_startidx, i_endidx
 
       ztmp = 0.0_wp
