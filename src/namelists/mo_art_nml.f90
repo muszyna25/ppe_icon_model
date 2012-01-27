@@ -62,11 +62,23 @@ MODULE mo_art_nml
   ! art_nml namelist variables       !
   !----------------------------------!
 
-  LOGICAL :: lart                 !< main switch for using the ART-package
+  LOGICAL :: lart                 !< main switch for running the ART-package
                                   !< .TRUE.: switch ON
                                   !<.FALSE.: switch OFF
 
-  NAMELIST/art_nml/ lart
+  LOGICAL :: lemi_volc            !< Emission of volcanic ash (TRUE/FALSE)
+
+  LOGICAL :: lconv_tracer         !< Convection of tracers (TRUE/FALSE)
+
+  LOGICAL :: lwash_tracer         !< Washout of tracers (TRUE/FALSE)
+
+  LOGICAL :: lrad_volc            !< Radiative impact of volcanic ash (TRUE/FALSE)
+
+  LOGICAL :: lcld_tracer          !< Impact on clouds (TRUE/FALSE)
+
+
+  NAMELIST/art_nml/ lart, lemi_volc, lconv_tracer, lwash_tracer, &
+    &               lrad_volc, lcld_tracer
 
 
 CONTAINS
@@ -102,8 +114,13 @@ CONTAINS
     !-----------------------
     ! 1. default settings   
     !-----------------------
-    lart    = .FALSE.           ! ART-package switched off
-
+    lart         = .FALSE.        ! ART-package switched off
+    lemi_volc    = .FALSE.        ! Emission of volcanic ash
+    lconv_tracer = .FALSE.        ! Convection of tracers
+    lwash_tracer = .FALSE.        ! Washout of tracers
+    lrad_volc    = .FALSE.        ! Radiative impact of volcanic ash
+    lcld_tracer  = .FALSE.        ! Impact on clouds
+  
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
@@ -139,7 +156,12 @@ CONTAINS
     !----------------------------------------------------
 
     DO jg= 0,max_dom
-      art_config(jg)%lart   = lart
+      art_config(jg)%lart          = lart
+      art_config(jg)%lemi_volc     = lemi_volc
+      art_config(jg)%lconv_tracer  = lconv_tracer
+      art_config(jg)%lwash_tracer  = lwash_tracer
+      art_config(jg)%lrad_volc     = lrad_volc
+      art_config(jg)%lcld_tracer   = lcld_tracer
     ENDDO
 
 

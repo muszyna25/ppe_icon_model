@@ -45,10 +45,13 @@ MODULE mo_art_config
   USE mo_impl_constants     ,ONLY: max_dom
 
   IMPLICIT NONE
-  PUBLIC
 
-  CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
+  PRIVATE
 
+  PUBLIC :: t_art_config, art_config
+
+
+  CHARACTER(len=*),PARAMETER :: version = '$Id$'
 
 
   !!--------------------------------------------------------------------------
@@ -62,8 +65,20 @@ MODULE mo_art_config
                                     !< .TRUE.: switch ON
                                     !<.FALSE.: switch OFF
 
-    ! derived variables
+    LOGICAL :: lemi_volc            !< Emission of volcanic ash (TRUE/FALSE)
 
+    LOGICAL :: lconv_tracer         !< Convection of tracers (TRUE/FALSE)
+
+    LOGICAL :: lwash_tracer         !< Washout of tracers (TRUE/FALSE)
+
+    LOGICAL :: lrad_volc            !< Radiative impact of volcanic ash (TRUE/FALSE)
+
+    LOGICAL :: lcld_tracer          !< Impact on clouds (TRUE/FALSE)
+
+
+    ! derived variables
+    !
+  
   END TYPE t_art_config
 
   !>
