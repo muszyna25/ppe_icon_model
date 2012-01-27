@@ -66,7 +66,7 @@ MODULE mo_ext_data
   USE mo_math_operators,     ONLY: nabla2_scalar, nabla4_scalar
   USE mo_loopindices,        ONLY: get_indices_c
   USE mo_sync,               ONLY: SYNC_C, SYNC_V, sync_patch_array
-  USE mo_mpi,                ONLY: my_process_is_stdio, p_pe,p_io, p_bcast,&
+  USE mo_mpi,                ONLY: my_process_is_stdio, p_pe, p_io, p_bcast,&
     &                              p_comm_work_test, p_comm_work
   USE mo_parallel_config,    ONLY: p_test_run
   USE mo_communication,      ONLY: idx_no, blk_no
@@ -651,12 +651,14 @@ CONTAINS
     shape2d_v  = (/ nproma, nblks_v /)
     shape3d_sfc= (/ nproma, nblks_c, nclass_lu(jg) /) 
 
+
     !
     ! Register a field list and apply default settings
     !
     CALL new_var_list( p_ext_atm_list, TRIM(listname), patch_id=p_patch%id )
     CALL default_var_list_settings( p_ext_atm_list,            &
                                   & lrestart=.FALSE.,          &
+                                  & loutput=.FALSE.,           &
                                   & restart_type=FILETYPE_NC2  )
 
 
@@ -1035,9 +1037,6 @@ CONTAINS
       ! landuse class fraction
       !
       ! lu_class_fraction    p_ext_atm%lu_class_fraction(nproma,nblks_c,nclass_lu)
-
-      ! Note: lrestart flag is disabled for the time being, because it throws
-      !       a runtime error in combination with "p_test_run = .TRUE."!
       cf_desc    = t_cf_var('lu_class_fraction', '-', 'landuse class fraction')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'lu_class_fraction', p_ext_atm%lu_class_fraction, &
@@ -1136,6 +1135,7 @@ CONTAINS
     CALL new_var_list( p_ext_atm_td_list, TRIM(listname), patch_id=p_patch%id )
     CALL default_var_list_settings( p_ext_atm_td_list,         &
                                   & lrestart=.FALSE.,          &
+                                  & loutput=.FALSE.,           &
                                   & restart_type=FILETYPE_NC2  )
 
 
@@ -1483,6 +1483,12 @@ CONTAINS
 
 !--------------------------------------------------------------------------
 
+    IF(p_test_run) THEN
+      mpi_comm = p_comm_work_test
+    ELSE
+      mpi_comm = p_comm_work
+    ENDIF
+
     DO jg= 1,n_dom
 
       !------------------------------------------------!
@@ -1547,7 +1553,11 @@ CONTAINS
           !
           CALL nf(nf_close(ncid))
 
-        ENDIF
+        ENDIF ! my_process_is_stdio()
+
+        ! broadcast from nclass_lu I-Pe to WORK Pes
+        CALL p_bcast(nclass_lu(jg), p_io, mpi_comm)
+
       ENDIF
 
 
@@ -1828,9 +1838,10 @@ CONTAINS
               &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
               &                     ext_data(jg)%atm%soiltyp)
 
-!!$            CALL read_netcdf_data (ncid, 'LU_CLASS_FRACTION', p_patch(jg)%n_patch_cells_g,  &
-!!$              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-!!$              &                     nclass_lu(jg), ext_data(jg)%atm%lu_class_fraction)
+            CALL read_netcdf_lu (ncid, 'LU_CLASS_FRACTION', p_patch(jg)%n_patch_cells_g,  &
+              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+              &                     nclass_lu(jg), ext_data(jg)%atm%lu_class_fraction)
+
 
             IF ( irad_aero == 6 ) THEN
 
@@ -2659,7 +2670,64 @@ CONTAINS
     ENDDO
 
   END SUBROUTINE read_netcdf_aero
-  
+
+
+
+  !-------------------------------------------------------------------------
+  ! Specific read-routine for LU_CLASS_FRACTION. Probably, read_netcdf_aero 
+  ! and read_netcdf_lu can be merged into a single routine in the near 
+  ! future.
+
+  SUBROUTINE read_netcdf_lu (ncid, varname, glb_arr_len, &
+       &                     loc_arr_len, glb_index, nslice, var_out)
+
+    CHARACTER(len=*), INTENT(IN)  ::  &  !< Var name of field to be read
+      &  varname
+
+    INTEGER, INTENT(IN) :: ncid          !< id of netcdf file
+    INTEGER, INTENT(IN) :: nslice        !< slices o netcdf field
+    INTEGER, INTENT(IN) :: glb_arr_len   !< length of 1D field (global)
+    INTEGER, INTENT(IN) :: loc_arr_len   !< length of 1D field (local)
+    INTEGER, INTENT(IN) :: glb_index(:)  !< Index mapping local to global
+
+    REAL(wp), INTENT(INOUT) :: &         !< output field
+      &  var_out(:,:,:)
+
+    INTEGER :: varid, mpi_comm, j, jl, jb, js
+    REAL(wp):: z_dummy_array(nslice,glb_arr_len)!< local dummy array
+  !-------------------------------------------------------------------------
+
+    ! Get var ID
+    IF(my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid))
+
+    IF(p_test_run) THEN
+      mpi_comm = p_comm_work_test
+    ELSE
+      mpi_comm = p_comm_work
+    ENDIF
+
+
+    ! I/O PE reads and broadcasts data
+
+    IF(my_process_is_stdio()) CALL nf(nf_get_var_double(ncid, varid, z_dummy_array(:,:)))
+    CALL p_bcast(z_dummy_array, p_io , mpi_comm)
+
+    var_out(:,:,:) = 0._wp
+
+    ! Set var_out from global data
+    DO j = 1, loc_arr_len
+      DO js = 1, nslice
+
+        jb = blk_no(j) ! Block index in distributed patch
+        jl = idx_no(j) ! Line  index in distributed patch
+               
+        var_out(jl,jb,js) = z_dummy_array(js,glb_index(j))
+
+          ENDDO
+    ENDDO
+
+  END SUBROUTINE read_netcdf_lu
+
 
  !-------------------------------------------------------------------------
   !>
