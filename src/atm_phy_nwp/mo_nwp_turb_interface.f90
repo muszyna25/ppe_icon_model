@@ -281,8 +281,11 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
       ! note that TKE must be converted to the turbulence velocity scale SQRT(2*TKE)
       ! for turbdiff
       ! INPUT to turbdiff is timestep now
+      ! Artificial limitation of input TKE to 60 m^2/s^2
       z_tvs(i_startidx:i_endidx,:,jb,1)=  &
-        &           SQRT(2._wp * p_prog_now_rcf%tke(i_startidx:i_endidx,:,jb))
+        &     SQRT(2._wp * MIN(60._wp,p_prog_now_rcf%tke(i_startidx:i_endidx,:,jb)))
+!      z_tvs(i_startidx:i_endidx,:,jb,1)=  &
+!        &           SQRT(2._wp * p_prog_now_rcf%tke(i_startidx:i_endidx,:,jb))
 
 
 !-------------------------------------------------------------------------
@@ -340,15 +343,6 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
       p_prog_rcf%tke(i_startidx:i_endidx,:,jb)= 0.5_wp                                &
         &                                     * (z_tvs(i_startidx:i_endidx,:,jb,1))**2
 
-      ! Artificial limiter for temperature tendencies
-      DO jk = 1, nlev
-        DO jc = i_startidx, i_endidx
-          prm_nwp_tend%ddt_temp_turb(jc,jk,jb) = &
-            MIN(0.01_wp,MAX(-0.01_wp,prm_nwp_tend%ddt_temp_turb(jc,jk,jb)))
-          p_prog_rcf%tke(jc,jk,jb) = MIN(60._wp,p_prog_rcf%tke(jc,jk,jb))
-        ENDDO
-      ENDDO
-
        ! Update QV, QC and temperature with turbulence tendencies
       DO jk = 1, nlev
         DO jc = i_startidx, i_endidx
@@ -356,8 +350,11 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
                &           + tcall_turb_jg*prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqv))
           p_prog_rcf%tracer(jc,jk,jb,iqc) =MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqc) &
                &           + tcall_turb_jg*prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqc))
+          ! Artificial limitation of turbulent temperature tendency to 0.01 K/s
           p_diag%temp(jc,jk,jb) = p_diag%temp(jc,jk,jb)  &
-            &  + tcall_turb_jg*prm_nwp_tend%ddt_temp_turb(jc,jk,jb)
+            &  + tcall_turb_jg*MIN(0.01_wp,MAX(-0.01_wp,prm_nwp_tend%ddt_temp_turb(jc,jk,jb)))
+!          p_diag%temp(jc,jk,jb) = p_diag%temp(jc,jk,jb)  &
+!           &  + tcall_turb_jg*prm_nwp_tend%ddt_temp_turb(jc,jk,jb)
         ENDDO
       ENDDO
 
