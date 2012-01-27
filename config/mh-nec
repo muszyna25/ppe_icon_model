@@ -276,6 +276,21 @@ case "$mh_setup" in
 
     ;;
 
+*sx9artmpiftr)
+
+    # Specific flags for selected configuration
+    with_mpi=yes
+    with_openmp=no
+
+    FC       = sxmpif90
+    F77      = sxmpif90
+    CC       = sxmpic++
+
+    CFLAGS   = $CFLAGS $FTRFLAGS
+    FFLAGS   =    -sx9 $FTRFLAGS -D__ICON_ART
+    LDFLAGS  = $LDFLAGS $FTRFLAGS
+
+    ;;
 esac
 
 
