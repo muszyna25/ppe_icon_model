@@ -53,7 +53,8 @@ MODULE mo_name_list_output_config
 
   PUBLIC :: is_grib_output
 
-  CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
+  CHARACTER(len=*),PARAMETER,PRIVATE :: &
+    &  version = '$Id$'
 
   ! Flag whether name_list output is active, i.e. at least one /output_nml/ has been read
 
