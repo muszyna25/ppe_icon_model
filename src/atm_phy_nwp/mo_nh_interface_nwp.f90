@@ -204,6 +204,8 @@ CONTAINS
     ! variables for CFL diagnostic
     REAL(wp) :: maxcfl(pt_patch%nblks_c), cflmax, avg_invedgelen(nproma), csfac
     REAL(wp) :: rcld(nproma,pt_patch%nlevp1)
+    ! variables for TKE diagnostic
+    REAL(wp) :: maxtke(pt_patch%nblks_c,pt_patch%nlevp1),tkemax(pt_patch%nlevp1)
 
 !     write(0,*) "Entering nwp_nh_interface"
 !     write(0,*) "========================="
@@ -1218,8 +1220,11 @@ CONTAINS
         z_ddt_v_tot = 0._wp
       ENDIF
 
-      ! In case that maximum CFL is diagnosed
-      maxcfl(:) = 0._wp
+      ! In case that maximum CFL and TKE are diagnosed
+      IF (msg_level >= 12) THEN
+        maxcfl(:) = 0._wp
+        maxtke(:,:) = 0._wp
+      ENDIF
 
       IF (ltimer) CALL timer_start(timer_physic_acc_2)
 !$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
@@ -1335,6 +1340,14 @@ CONTAINS
             ENDDO
           ENDDO
 
+          IF (lcall_phy_jg(itturb)) THEN
+            DO jk = 1, nlevp1
+              DO jc = i_startidx, i_endidx
+                maxtke(jb,jk) = MAX(maxtke(jb,jk),pt_prog_rcf%tke(jc,jk,jb))
+              ENDDO
+            ENDDO
+          ENDIF
+
         ENDDO
 !$OMP END DO
 
@@ -1344,11 +1357,25 @@ CONTAINS
 
       IF (ltimer) CALL timer_stop(timer_physic_acc_2)
 
-      IF (msg_level >= 12) THEN ! CFL diagnostic
+      IF (msg_level >= 12) THEN ! CFL and TKE diagnostic
         cflmax = MAXVAL(maxcfl)
         cflmax = global_max(cflmax) ! maximum over all PEs
-        WRITE(message_text,'(a,f12.8,a,i1)') 'maximum horizontal CFL = ', cflmax, ' in domain ',jg
+        WRITE(message_text,'(a,f12.8,a,i2)') 'maximum horizontal CFL = ', cflmax, ' in domain ',jg
         CALL message('nwp_nh_interface: ', TRIM(message_text))
+
+        IF (msg_level >= 13 .AND. lcall_phy_jg(itturb)) THEN
+          DO jk = 1, nlevp1
+            tkemax(jk) = MAXVAL(maxtke(:,jk))
+          ENDDO
+          tkemax = global_max(tkemax) ! maximum over all PEs
+          WRITE(message_text,'(a,i2)') 'maximum TKE [m**2/s**2] per level in domain ',jg
+          CALL message('nwp_nh_interface: ', TRIM(message_text))
+          DO jk = 1, nlevp1
+            WRITE(message_text,'(a,i3,a,e12.5)') 'level ',jk,': max. TKE = ',tkemax(jk)
+            CALL message('', TRIM(message_text))
+          ENDDO
+        ENDIF
+
       ENDIF
 
       IF (msg_level >= 15) THEN

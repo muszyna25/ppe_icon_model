@@ -281,11 +281,11 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
       ! note that TKE must be converted to the turbulence velocity scale SQRT(2*TKE)
       ! for turbdiff
       ! INPUT to turbdiff is timestep now
-      ! Artificial limitation of input TKE to 60 m^2/s^2
-      z_tvs(i_startidx:i_endidx,:,jb,1)=  &
-        &     SQRT(2._wp * MIN(60._wp,p_prog_now_rcf%tke(i_startidx:i_endidx,:,jb)))
+!      ! Artificial limitation of input TKE to 60 m^2/s^2
 !      z_tvs(i_startidx:i_endidx,:,jb,1)=  &
-!        &           SQRT(2._wp * p_prog_now_rcf%tke(i_startidx:i_endidx,:,jb))
+!        &     SQRT(2._wp * MIN(60._wp,p_prog_now_rcf%tke(i_startidx:i_endidx,:,jb)))
+      z_tvs(i_startidx:i_endidx,:,jb,1)=  &
+        &           SQRT(2._wp * p_prog_now_rcf%tke(i_startidx:i_endidx,:,jb))
 
 
 !-------------------------------------------------------------------------
