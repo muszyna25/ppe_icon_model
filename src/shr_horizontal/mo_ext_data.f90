@@ -1010,7 +1010,7 @@ CONTAINS
       grib2_desc = t_grib2_var( 2, 3, 0, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'soiltyp', p_ext_atm%soiltyp,   &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
-        &           grib2_desc, ldims=shape2d_c  )
+        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
 
 
       ! Climat. temperature
