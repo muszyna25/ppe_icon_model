@@ -37,7 +37,7 @@ else
 # run on specified slaves of blizzard, hpc, and nec
   elif [ "$BB_SYSTEM" = "blizzard" -o  "$BB_SYSTEM" = "hpc" -o "$BB_SYSTEM" = "nec" ]
   then
-    if [ "$BB_SLAVE" = "blizz_nMnO" -o  "$BB_SLAVE" = "sx9" -o "$BB_SLAVE" = "hpc_serial" -o "$BB_SLAVE" = "hpc_sun_debug" ] 
+    if [ "$BB_SLAVE" = "blizz_nMnO" -o "$BB_SLAVE" = "blizz_yMnO" -o "$BB_SLAVE" = "sx9" -o "$BB_SLAVE" = "hpc_serial" -o "$BB_SLAVE" = "hpc_sun_debug" ] 
     then
       echo " ================================================="
       echo " Run ocean postproc $EXPNAME on BB_SLAVE=$BB_SLAVE"
