@@ -35,6 +35,7 @@
 !!
 !!
 MODULE mo_util_string
+
   !
   ! String conversion utilities
   !
@@ -52,6 +53,10 @@ MODULE mo_util_string
   PUBLIC :: split_string         ! splits string into words
   PUBLIC :: string_contains_word ! searches in a string list
   PUBLIC :: tocompact      ! remove gaps in string
+  PUBLIC :: str_replace       ! replace any occurrence of keyword by substring
+  PUBLIC :: t_keyword_list
+  PUBLIC :: associate_keyword ! add a pair (keyword -> substitution) to a keyword list
+  PUBLIC :: with_keywords     ! subroutine for keyword substitution
 
   !
   PUBLIC :: normal, bold
@@ -93,6 +98,17 @@ MODULE mo_util_string
   !
   CHARACTER(len=*), PARAMETER :: separator = REPEAT('-',100)
   !
+  ! String length constants used for keyword substitution
+  INTEGER, PARAMETER :: MAX_STRING_LEN  = 128
+  INTEGER, PARAMETER :: MAX_KEYWORD_LEN =  32
+
+  ! Linked list used for keyword substitution in strings
+  TYPE t_keyword_list
+    CHARACTER(len=MAX_KEYWORD_LEN) :: keyword    !< keyword string ...
+    CHARACTER(len=MAX_KEYWORD_LEN) :: subst      !< ... will be substituted by "subst"
+    TYPE(t_keyword_list), POINTER  :: next
+  END TYPE t_keyword_list
+
 CONTAINS
   !
   !------------------------------------------------------------------------------------------------
@@ -317,4 +333,144 @@ CONTAINS
 
   END FUNCTION string_contains_word
   !
+
+  !==============================================================================
+  !+ Utility function: Insert (keyword, substitution) pair into keyword list
+  !------------------------------------------------------------------------------
+  SUBROUTINE keyword_list_push(keyword, subst, list_head)
+    ! Parameters
+    CHARACTER(len=*),        INTENT(IN) :: keyword, subst
+    TYPE(t_keyword_list),    POINTER    :: list_head
+    ! Local parameters
+    TYPE (t_keyword_list),   POINTER    :: tmp
+    INTEGER                             :: errstat
+
+    ! throw error if keyword, subst are too long
+    ! note: we don't call "finish" to avoid circular dep
+    IF ((LEN_TRIM(keyword) > MAX_KEYWORD_LEN) .OR.  &
+      & (LEN_TRIM(subst)   > MAX_KEYWORD_LEN))      &
+      &  WRITE (0,*) "ERROR: keyword_list_push: keyword too long"
+
+    ! insert element into linked list
+    tmp => list_head
+    ALLOCATE(list_head, stat=errstat)
+    IF (errstat /= 0) &
+      & WRITE (0,*) "ERROR: keyword_list_push: ALLOCATE"
+    list_head%keyword = keyword
+    list_head%subst   = subst
+    list_head%next    => tmp
+
+  END SUBROUTINE keyword_list_push
+  
+
+  !==============================================================================
+  !+ Utility function: Get (keyword, substitution) pair from keyword list
+  !------------------------------------------------------------------------------
+  SUBROUTINE keyword_list_pop(list_head, keyword, subst)
+    ! Parameters
+    CHARACTER(len=MAX_KEYWORD_LEN),  INTENT(OUT) :: keyword, subst
+    TYPE(t_keyword_list),            POINTER     :: list_head
+    ! Local parameters
+    TYPE (t_keyword_list),   POINTER    :: tmp
+    INTEGER                             :: errstat
+    
+    IF (.NOT. ASSOCIATED(list_head)) THEN
+      keyword = ""
+      subst   = ""
+    ELSE
+      ! remove list head
+      keyword =  list_head%keyword
+      subst   =  list_head%subst
+      tmp     => list_head%next
+      DEALLOCATE(list_head, STAT=errstat)
+      ! note: we don't call "finish" to avoid circular dep
+      IF (errstat /= 0) &
+        & WRITE (0,*) "ERROR: keyword_list_pop: DEALLOCATE"
+      list_head => tmp
+    END IF
+    
+  END SUBROUTINE keyword_list_pop
+
+
+  !==============================================================================
+  !+ Utility function: replace any occurrence of keyword by substring
+  !------------------------------------------------------------------------------
+  FUNCTION str_replace(in_str, keyword, subst) RESULT(out_str)
+    ! Parameters
+    CHARACTER(len=MAX_KEYWORD_LEN), INTENT(IN) :: keyword, subst
+    CHARACTER(len=*),               INTENT(IN) :: in_str
+    CHARACTER(len=MAX_STRING_LEN)              :: out_str
+    ! Local parameters
+    INTEGER :: kw_len, in_len, subs_len, pos, out_pos
+    
+    out_str = ""
+    kw_len   = LEN_TRIM(keyword)
+    subs_len = LEN_TRIM(subst)
+    in_len   = LEN_TRIM(in_str)
+    pos      = 1
+    out_pos  = 1
+    DO
+      IF (pos > in_len) EXIT
+      IF (in_str(pos:(pos+kw_len-1)) == keyword) THEN
+        pos     = pos + kw_len
+        ! note: we don't call "finish" to avoid circular dep
+        IF ((out_pos + subs_len) > MAX_STRING_LEN) &
+          & WRITE (0,*) "ERROR: str_replace: string too long"
+        out_str(out_pos:(out_pos+subs_len-1)) = subst(1:subs_len)
+        out_pos = out_pos + subs_len
+      ELSE
+        IF (out_pos > MAX_STRING_LEN) &
+          & WRITE (0,*) "ERROR: str_replace: string too long"
+        out_str(out_pos:out_pos) = in_str(pos:pos)
+        pos     = pos + 1
+        out_pos = out_pos + 1
+      END IF
+    END DO
+    
+  END FUNCTION str_replace
+
+
+  !==============================================================================
+  !+ Add a pair (keyword -> substitution) to a keyword list
+  ! see FUNCTION with_keywords for further documentation.
+  !------------------------------------------------------------------------------
+  SUBROUTINE associate_keyword(keyword, subst, keyword_list)
+    CHARACTER(len=*), INTENT(IN)   :: keyword, subst
+    TYPE(t_keyword_list), POINTER  :: keyword_list
+    
+    CALL keyword_list_push(keyword, subst, keyword_list)
+  END SUBROUTINE associate_keyword
+
+
+  !==============================================================================
+  !+ Subroutine for keyword substitution
+  ! Usage example: Consider the following code snippet:
+  ! \code
+  !    CHARACTER(len=*), PARAMETER    :: filename = "<path>/bin/<prefix>grid.nc"
+  !    TYPE (t_keyword_list), POINTER :: keywords => NULL()
+  !    CALL associate_keyword("<path>",   "/usr/local", keywords)
+  !    CALL associate_keyword("<prefix>", "exp01_",     keywords)
+  ! \endcode
+  ! Then, by calling 'with_keywords(keywords, filename)',
+  ! the filename is transformed into '/usr/local/bin/exp01_grid.nc'.
+  ! 
+  !------------------------------------------------------------------------------
+  FUNCTION with_keywords(keyword_list, in_str) RESULT(result_str)
+    TYPE(t_keyword_list), POINTER  :: keyword_list
+    CHARACTER(len=*), INTENT(IN)   :: in_str
+    CHARACTER(len=MAX_STRING_LEN)  :: result_str
+    CHARACTER(len=MAX_KEYWORD_LEN) :: keyword, subst
+    
+    ! note: we don't call "finish" to avoid circular dep
+    IF (LEN_TRIM(in_str) > MAX_STRING_LEN) &
+      & WRITE (0,*) "ERROR: with_keywords: string too long"
+    result_str = in_str
+    IF (.NOT. ASSOCIATED(keyword_list)) RETURN
+    DO
+      CALL keyword_list_pop(keyword_list, keyword, subst)
+      result_str = str_replace(result_str, keyword, subst)
+      IF (.NOT. ASSOCIATED(keyword_list)) RETURN
+    END DO
+  END FUNCTION with_keywords
+  
 END MODULE mo_util_string
