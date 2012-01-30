@@ -450,12 +450,12 @@ MODULE mo_prepicon_utils
 
       IF (i_oper_mode >= 2 .AND. l_sfc_in) THEN ! Read also surface data
 
-        ! Check, if the surface-level surface geopotential (GEOSP_SFC) is available. 
-        ! If GEOSP_SFC is missing, a warning will be issued and the model-level surface 
-        ! geopotential (GEOSP or GEOSP_ML) will be used instead.
+        ! Check, if the surface-level surface geopotential (GEOP_SFC) is available. 
+        ! If GEOP_SFC is missing, a warning will be issued and the model-level surface 
+        ! geopotential (GEOSP or GEOP_ML) will be used instead.
         IF (p_pe == p_io) THEN
-          IF (nf_inq_varid(ncid, 'GEOSP_SFC', varid) == nf_noerr) THEN
-            geop_sfc_var = 'GEOSP_SFC'
+          IF (nf_inq_varid(ncid, 'GEOP_SFC', varid) == nf_noerr) THEN
+            geop_sfc_var = 'GEOP_SFC'
           ELSE
 
             WRITE (message_text,'(a,a)')                            &
