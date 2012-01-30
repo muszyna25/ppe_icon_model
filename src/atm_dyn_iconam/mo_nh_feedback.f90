@@ -134,7 +134,7 @@ REAL(wp) ::   &  ! RBF-reconstructed velocity
   &  vn_aux(nproma,p_patch(jg)%nlev,p_patch(jg)%nblks_e,2)
 REAL(wp), ALLOCATABLE :: feedback_thv_tend(:,:,:)
 REAL(wp), ALLOCATABLE :: feedback_rho_tend(:,:,:)
-REAL(wp), ALLOCATABLE :: feedback_vn_tend(:,:,:)
+REAL(wp), ALLOCATABLE :: feedback_vn(:,:,:)
 REAL(wp), ALLOCATABLE :: feedback_w_tend(:,:,:)
 REAL(wp), ALLOCATABLE :: feedback_tracer_mass(:,:,:,:)
 REAL(wp), ALLOCATABLE, DIMENSION(:,:,:)   :: fbk_tend, parent_tend
@@ -245,7 +245,7 @@ i_endblk   = p_gep%end_blk(min_rledge,i_chidx)
 
 IF(l_parallel) i_startblk = 1
 
-ALLOCATE(feedback_vn_tend(nproma, nlev_p, i_startblk:i_endblk))
+ALLOCATE(feedback_vn(nproma, nlev_p, i_startblk:i_endblk))
 
 
 ! Set pointers to index and coefficient fields for cell-based variables
@@ -294,26 +294,6 @@ DO jb = i_startblk, i_endblk
   DO jc = i_startidx, i_endidx
     p_child_tend%grf_tend_w(jc,nlevp1_c,jb) = &
       p_child_prog%w(jc,nlevp1_c,jb) - p_child_save%w(jc,nlevp1_c,jb)
-  ENDDO
-
-ENDDO
-!$OMP END DO
-
-! Part 2: Velocity components
-i_startblk = p_gec%start_blk(4,1)
-i_endblk   = p_gec%end_blk(min_rledge_int-1,i_nchdom)
-
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk)
-DO jb = i_startblk, i_endblk
-
-  CALL get_indices_e(p_pc, jb, i_startblk, i_endblk, &
-                     i_startidx, i_endidx, 4, min_rledge_int-1)
-
-  DO jk = 1, nlev_c
-    DO je = i_startidx, i_endidx
-      p_child_tend%grf_tend_vn(je,jk,jb) = &
-        p_child_prog%vn(je,jk,jb) - p_child_save%vn(je,jk,jb)
-    ENDDO
   ENDDO
 
 ENDDO
@@ -664,8 +644,7 @@ ENDIF
 
 
 IF (grf_velfbk == 2) THEN ! Interpolate velocity tendencies in child domain to vertices
-  CALL rbf_vec_interpol_vertex( p_child_tend%grf_tend_vn, p_pc,  &
-                                p_intc, z_u, z_v)
+  CALL rbf_vec_interpol_vertex( p_child_prog%vn, p_pc, p_intc, z_u, z_v)
 ENDIF
 
 ! Set pointers to index and coefficient fields
@@ -693,7 +672,7 @@ IF (grf_velfbk == 1) THEN ! Averaging weighted with child edge lenghts
                        i_startidx, i_endidx, grf_fbk_start_e, min_rledge_int, i_chidx)
 
     IF (l_parallel) THEN
-      feedback_vn_tend(:,1:nshift,jb) = 0._wp
+      feedback_vn(:,1:nshift,jb) = 0._wp
     ENDIF
 
 #ifdef __LOOP_EXCHANGE
@@ -705,9 +684,9 @@ IF (grf_velfbk == 1) THEN ! Averaging weighted with child edge lenghts
       DO je = i_startidx, i_endidx
 #endif
 
-        feedback_vn_tend(je,jk+js,jb) =                                                 &
-          p_child_tend%grf_tend_vn(iidx(je,jb,1),jk,iblk(je,jb,1))*p_fbkwgt(je,jb,1) + &
-          p_child_tend%grf_tend_vn(iidx(je,jb,2),jk,iblk(je,jb,2))*p_fbkwgt(je,jb,2)
+        feedback_vn(je,jk+js,jb) =                                            &
+          p_child_prog%vn(iidx(je,jb,1),jk,iblk(je,jb,1))*p_fbkwgt(je,jb,1) + &
+          p_child_prog%vn(iidx(je,jb,2),jk,iblk(je,jb,2))*p_fbkwgt(je,jb,2)
       ENDDO
     ENDDO
 
@@ -761,7 +740,7 @@ ELSE IF (grf_velfbk == 2) THEN ! Second-order interpolation of normal velocities
                        i_startidx, i_endidx, grf_fbk_start_e, min_rledge_int, i_chidx)
 
     IF (l_parallel) THEN
-      feedback_vn_tend(:,1:nshift,jb) = 0._wp
+      feedback_vn(:,1:nshift,jb) = 0._wp
     ENDIF
 
 #ifdef __LOOP_EXCHANGE
@@ -773,12 +752,12 @@ ELSE IF (grf_velfbk == 2) THEN ! Second-order interpolation of normal velocities
       DO je = i_startidx, i_endidx
 #endif
 
-        feedback_vn_tend(je,jk+js,jb) =                                             &
-        ( p_fbkwgt(je,jb,1)*(p_child_tend%grf_tend_vn(iidx(je,jb,1),jk,iblk(je,jb,1)) + &
-                             p_child_tend%grf_tend_vn(iidx(je,jb,2),jk,iblk(je,jb,2)))+ &
-          p_fbkwgt(je,jb,3)*vn_aux(iidx(je,jb,1),jk,iblk(je,jb,1),1) +                  &
-          p_fbkwgt(je,jb,4)*vn_aux(iidx(je,jb,1),jk,iblk(je,jb,1),2) +                  &
-          p_fbkwgt(je,jb,5)*vn_aux(iidx(je,jb,2),jk,iblk(je,jb,2),1) +                  &
+        feedback_vn(je,jk+js,jb) =                                             &
+        ( p_fbkwgt(je,jb,1)*(p_child_prog%vn(iidx(je,jb,1),jk,iblk(je,jb,1)) + &
+                             p_child_prog%vn(iidx(je,jb,2),jk,iblk(je,jb,2)))+ &
+          p_fbkwgt(je,jb,3)*vn_aux(iidx(je,jb,1),jk,iblk(je,jb,1),1) +         &
+          p_fbkwgt(je,jb,4)*vn_aux(iidx(je,jb,1),jk,iblk(je,jb,1),2) +         &
+          p_fbkwgt(je,jb,5)*vn_aux(iidx(je,jb,2),jk,iblk(je,jb,2),1) +         &
           p_fbkwgt(je,jb,6)*vn_aux(iidx(je,jb,2),jk,iblk(je,jb,2),2) )
       ENDDO
     ENDDO
@@ -798,8 +777,7 @@ IF (.NOT. l_parallel) THEN
                        i_startidx, i_endidx, grf_fbk_start_e, min_rledge_int, i_chidx)
 
     p_parent_prog%vn(i_startidx:i_endidx,nshift+1:nlev_p,jb) =   &
-      p_parent_save%vn(i_startidx:i_endidx,nshift+1:nlev_p,jb) + &
-      feedback_vn_tend(i_startidx:i_endidx,nshift+1:nlev_p,jb)
+      feedback_vn(i_startidx:i_endidx,nshift+1:nlev_p,jb)
 
   ENDDO
 !$OMP END DO
@@ -818,9 +796,9 @@ IF (l_parallel) THEN
                           ADD3=p_parent_save%w,    nshift=nshift )
 
 
-  CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_e_fbk, 1, nlev_c,      &
-                          RECV1=p_parent_prog%vn, SEND1=feedback_vn_tend, &
-                          ADD1=p_parent_save%vn,  nshift=nshift)
+  CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_e_fbk, 1, nlev_c, &
+                          RECV1=p_parent_prog%vn, SEND1=feedback_vn, &
+                          nshift=nshift)
 
 IF (ltransport .AND. l_trac_fbk) THEN
 
@@ -962,7 +940,7 @@ ENDIF ! l_parallel
 
 
 DEALLOCATE(parent_tend, fbk_tend, feedback_thv_tend, feedback_rho_tend, &
-           feedback_w_tend, feedback_vn_tend)
+           feedback_w_tend, feedback_vn)
 IF (ltransport .AND. l_trac_fbk) &
   DEALLOCATE(feedback_tracer_mass,parent_tr_mass,parent_tr_totmass,fbk_tr_mass,fbk_tr_totmass)
 
