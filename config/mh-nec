@@ -298,6 +298,10 @@ case "$mh_setup" in
     with_mpi=no
     with_openmp=yes
 
+    FC       = sxf90
+    F77      = sxf90
+    CC       = sxc++
+
     CFLAGS   = $CFLAGS -DNOMPI $FTRFLAGS
     FFLAGS   =    -sx9 -DNOMPI $FTRFLAGS $OMPFLAGS -D__ICON_ART
     LDFLAGS  = $LDFLAGS $FTRFLAGS
