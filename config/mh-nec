@@ -291,6 +291,19 @@ case "$mh_setup" in
     LDFLAGS  = $LDFLAGS $FTRFLAGS
 
     ;;
+
+*sx9artftromp)
+
+    # Specific flags for selected configuration
+    with_mpi=no
+    with_openmp=yes
+
+    CFLAGS   = $CFLAGS -DNOMPI $FTRFLAGS
+    FFLAGS   =    -sx9 -DNOMPI $FTRFLAGS $OMPFLAGS -D__ICON_ART
+    LDFLAGS  = $LDFLAGS $FTRFLAGS
+
+    ;;
+
 esac
 
 
