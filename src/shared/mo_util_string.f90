@@ -57,6 +57,7 @@ MODULE mo_util_string
   PUBLIC :: t_keyword_list
   PUBLIC :: associate_keyword ! add a pair (keyword -> substitution) to a keyword list
   PUBLIC :: with_keywords     ! subroutine for keyword substitution
+  PUBLIC :: MAX_STRING_LEN
 
   !
   PUBLIC :: normal, bold
@@ -99,8 +100,8 @@ MODULE mo_util_string
   CHARACTER(len=*), PARAMETER :: separator = REPEAT('-',100)
   !
   ! String length constants used for keyword substitution
-  INTEGER, PARAMETER :: MAX_STRING_LEN  = 128
-  INTEGER, PARAMETER :: MAX_KEYWORD_LEN =  32
+  INTEGER, PARAMETER :: MAX_STRING_LEN  = 256
+  INTEGER, PARAMETER :: MAX_KEYWORD_LEN = 128
 
   ! Linked list used for keyword substitution in strings
   TYPE t_keyword_list
@@ -221,11 +222,19 @@ CONTAINS
   !
   ! returns integer n as a string (often needed in printing messages)
   !
-  FUNCTION int2string(n)
+  FUNCTION int2string(n, opt_fmt)
     CHARACTER(len=10) :: int2string ! result
     INTEGER, INTENT(in) :: n
+    CHARACTER(len=*), INTENT(in), OPTIONAL :: opt_fmt
     !
-    WRITE(int2string,'(I10)') n
+    CHARACTER(len=10) :: fmt
+
+    IF (PRESENT(opt_fmt)) THEN
+      fmt = opt_fmt
+    ELSE
+      fmt = '(I10)'
+    END IF
+    WRITE(int2string,fmt) n
     int2string = ADJUSTL(int2string)
     !
   END FUNCTION int2string

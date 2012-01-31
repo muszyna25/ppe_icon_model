@@ -52,14 +52,16 @@ MODULE mo_run_nml
                          & config_timers_level    => timers_level,    &
                          & config_activate_sync_timers => activate_sync_timers, &
                          & config_msg_level       => msg_level,       &
-                         & config_check_epsilon   => check_epsilon,    &
-                         & config_testbed_mode    => testbed_mode
+                         & config_check_epsilon   => check_epsilon,   &
+                         & config_testbed_mode    => testbed_mode,    &
+                         & config_dump_filename   => dump_filename,   &
+                         & config_dd_filename     => dd_filename
 
   USE mo_kind,           ONLY: wp
   USE mo_exception,      ONLY: finish
   USE mo_impl_constants, ONLY: max_dom, max_ntracer, inoforcing, IHELDSUAREZ, &
                                INWP,IECHAM,ILDF_ECHAM,IMPIOM,INOFORCING,ILDF_DRY
-  USE mo_io_units,       ONLY: nnml, nnml_output
+  USE mo_io_units,       ONLY: nnml, nnml_output, filename_max
   USE mo_namelist,       ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,            ONLY: my_process_is_stdio 
   USE mo_master_control, ONLY: is_restart_run
@@ -118,6 +120,9 @@ MODULE mo_run_nml
   INTEGER :: testbed_mode  ! if =0 then run the standard version, otherwise
                            ! run using testbed methods
 
+  ! dump/restore file names, may contain keywords
+  CHARACTER(LEN=filename_max) :: dump_filename, dd_filename
+
   NAMELIST /run_nml/ ldump_states, lrestore_states, &
                      l_one_file_per_patch,          &
                      ldump_dd,     lread_dd,        &
@@ -131,7 +136,8 @@ MODULE mo_run_nml
                      ltimer,       timers_level,    &
                      activate_sync_timers,          &
                      msg_level, check_epsilon,      &
-                     testbed_mode
+                     testbed_mode,                  &
+                     dump_filename, dd_filename
 
 CONTAINS
   !>
@@ -147,6 +153,9 @@ CONTAINS
     !------------------------------------------------------------
     ldump_states    = .FALSE.
     lrestore_states = .FALSE.
+    dump_filename   = "<path>dump_<proc><gridfile>"
+    dd_filename     = "<path>dd_<gridfile>"
+
     l_one_file_per_patch = .FALSE.
     ldump_dd        = .FALSE.
     lread_dd        = .FALSE.
@@ -256,6 +265,9 @@ CONTAINS
     config_msg_level       = msg_level
     config_check_epsilon   = check_epsilon
     config_testbed_mode    = testbed_mode
+
+    config_dump_filename   = dump_filename
+    config_dd_filename     = dd_filename
     
     !-----------------------------------------------------
     ! Store the namelist for restart

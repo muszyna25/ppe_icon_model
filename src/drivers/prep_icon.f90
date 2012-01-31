@@ -109,7 +109,7 @@ USE mo_prepicon_utils,        ONLY: init_prepicon, prepicon, write_prepicon_outp
   & compute_coord_fields, init_topo_output_files, close_prepicon_output_files,      &
   & convert_variables, init_atmo_output_files, deallocate_prepicon
   
-USE mo_prepicon_nml,          ONLY: i_oper_mode, l_zp_out
+USE mo_prepicon_config,       ONLY: i_oper_mode, l_zp_out
 USE mo_nh_vert_interp,        ONLY: vertical_interpolation,                         &
   &                                 intp_to_p_and_z_levels_prepicon
 

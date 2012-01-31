@@ -1,6 +1,4 @@
 !>
-!! Contains the setup of the sleve coordinate
-!!
 !!        
 !! @par Revision History
 !!
@@ -41,20 +39,29 @@ MODULE mo_prepicon_nml
 !-------------------------------------------------------------------------
 !
 !
-!
-!
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: finish
   USE mo_impl_constants,     ONLY: max_char_length
-  USE mo_io_units,           ONLY: nnml, nnml_output
+  USE mo_io_units,           ONLY: nnml, nnml_output, filename_max
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: my_process_is_stdio 
+  USE mo_prepicon_config,    ONLY: &
+    & config_i_oper_mode        => i_oper_mode,  &
+    & config_nlev_in            => nlev_in,      &
+    & config_nlevsoil_in        => nlevsoil_in,  &
+    & config_zpbl1              => zpbl1,        &
+    & config_zpbl2              => zpbl2,        &
+    & config_l_w_in             => l_w_in,       &
+    & config_l_sfc_in           => l_sfc_in,     &
+    & config_l_zp_out           => l_zp_out,     &
+    & config_l_extdata_out      => l_extdata_out,&
+    & config_ifs2icon_filename  => ifs2icon_filename
 
   IMPLICIT NONE
 
-  CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
+  PUBLIC :: read_prepicon_namelist
 
-  PUBLIC
+  CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
   CHARACTER(len=*), PARAMETER :: modelname    = 'icon'
   CHARACTER(len=*), PARAMETER :: modelversion = 'dev'
@@ -73,12 +80,13 @@ MODULE mo_prepicon_nml
   LOGICAL  :: l_zp_out      ! Logical switch for diagnostic output on pressure and height levels
   LOGICAL  :: l_extdata_out ! Logical switch to write extdata fields into output (to simplify checking)
 
+  ! IFS2ICON input filename, may contain keywords, by default
+  ! ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
+  CHARACTER(LEN=filename_max) :: ifs2icon_filename
+
   NAMELIST /prepicon_nml/ i_oper_mode, nlev_in, zpbl1, zpbl2,                  &
                           l_w_in, l_zp_out, nlevsoil_in, l_sfc_in, l_extdata_out
-  !
-  !
-  !
-
+  
 CONTAINS
 
 !-------------------------------------------------------------------------
@@ -112,8 +120,8 @@ CONTAINS
   l_sfc_in    = .TRUE.      ! true: surface fields are provided as input
   l_zp_out    = .FALSE.     ! true: diagnostic output on p and z levels
   l_extdata_out = .FALSE.   ! true: copy extdata fields into output
-  !
-  !
+  ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
+
   !------------------------------------------------------------
   ! 3.0 Read the prepicon namelist.
   !------------------------------------------------------------
@@ -126,9 +134,24 @@ CONTAINS
      READ (nnml, prepicon_nml)
   END SELECT
   CALL close_nml
-  !
+
   !------------------------------------------------------------
-  ! 4.0 check the consistency of the parameters
+  ! 4.0 Fill the configuration state
+  !------------------------------------------------------------
+
+  config_i_oper_mode       = i_oper_mode
+  config_nlev_in           = nlev_in
+  config_nlevsoil_in       = nlevsoil_in
+  config_zpbl1             = zpbl1
+  config_zpbl2             = zpbl2
+  config_l_w_in            = l_w_in
+  config_l_sfc_in          = l_sfc_in
+  config_l_zp_out          = l_zp_out
+  config_l_extdata_out     = l_extdata_out
+  config_ifs2icon_filename = ifs2icon_filename
+
+  !------------------------------------------------------------
+  ! 5.0 check the consistency of the parameters
   !------------------------------------------------------------
   !
   !currently no consistency check...

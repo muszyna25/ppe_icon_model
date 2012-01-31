@@ -37,6 +37,7 @@ MODULE mo_master_nml
   USE mo_exception,      ONLY: warning, message_text, finish
   USE mo_io_units,       ONLY: filename_max, nnml
   USE mo_namelist,       ONLY: open_nml, position_nml, POSITIONED
+  USE mo_util_string,    ONLY: t_keyword_list, associate_keyword, with_keywords
 
   IMPLICIT NONE
 
@@ -46,21 +47,27 @@ MODULE mo_master_nml
 
   PUBLIC :: read_master_namelist, lrestart, no_of_models
   PUBLIC :: t_master_nml, master_nml_array
+  PUBLIC :: model_base_dir
 
 
   ! Component models
   !--------------------------------------------------------------
   ! TYPE definitions
-  !> Holds a list of initegers
+  !> Holds a list of integers
   TYPE t_master_nml
     CHARACTER(len=132) :: model_name
+
     CHARACTER(len=filename_max) :: model_namelist_filename
     CHARACTER(len=filename_max) :: model_restart_info_filename
+
     INTEGER :: model_type
     INTEGER :: model_min_rank
     INTEGER :: model_max_rank
     INTEGER :: model_inc_rank
   END TYPE t_master_nml
+
+  !> base directory (for file names)
+  CHARACTER(len=99)  :: model_base_dir
 
   INTEGER, PARAMETER :: max_no_of_models=10
   INTEGER :: no_of_models
@@ -105,17 +112,21 @@ CONTAINS
       model_min_rank,              &
       model_max_rank,              &
       model_inc_rank               
-    NAMELIST /master_nml/ lrestart
+    NAMELIST /master_nml/          &
+      lrestart,                    &
+      model_base_dir
 
     INTEGER :: istat
     LOGICAL :: rewnd
     CHARACTER(len=*), PARAMETER :: routine = 'mo_master_nml:read_master_namelist'
-
+    TYPE (t_keyword_list), POINTER :: keywords         => NULL()
+    TYPE (t_keyword_list), POINTER :: keywords_restart => NULL()
 
     !------------------------------------------------------------------
     ! Read  master_nml (done so far by all MPI processes)
     !------------------------------------------------------------------
     lrestart      = .FALSE.
+    model_base_dir=''
     OPEN( nnml, FILE=TRIM(namelist_filename), IOSTAT=istat, &
         & STATUS='old', ACTION='read', DELIM='apostrophe')
     IF (istat/=0) THEN
@@ -153,9 +164,15 @@ CONTAINS
 
       no_of_models=no_of_models+1
       master_nml_array(no_of_models)%model_name              = model_name
-      master_nml_array(no_of_models)%model_namelist_filename = model_namelist_filename
+
+      CALL associate_keyword("<path>", TRIM(model_base_dir), keywords)
+      master_nml_array(no_of_models)%model_namelist_filename = &
+        &  TRIM(with_keywords(keywords, model_namelist_filename))
+
+      CALL associate_keyword("<path>", TRIM(model_base_dir), keywords_restart)
       master_nml_array(no_of_models)%model_restart_info_filename=&
-        & model_restart_info_filename
+        & TRIM(with_keywords(keywords_restart, model_restart_info_filename))
+
       master_nml_array(no_of_models)%model_type              = model_type
       master_nml_array(no_of_models)%model_min_rank          = model_min_rank
       master_nml_array(no_of_models)%model_max_rank          = model_max_rank

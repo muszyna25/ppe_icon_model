@@ -829,9 +829,18 @@ L & .FALSE. & &
 If .TRUE.: Current experiment is started from a restart.&
 \tabularnewline
 
+\hline
+model\_base\_dir &
+C & ' ' & &
+General path which may be used in file names of other name lists:
+If a file name contains the keyword "\texttt{<path>}", then this
+\texttt{model\_base\_dir} will be substituted.
+ &
+\tabularnewline
+
 \end{longtab}
 
-\subsection{master\_model\_nml (reapeated for each model)}
+\subsection{master\_model\_nml (repeated for each model)}
 \begin{longtab}
 
 \hline
@@ -839,7 +848,6 @@ model\_name &
 C & & &
 Character string for naming this component.&
 \tabularnewline
-
 
 \hline
 model\_namelist\_ filename &
@@ -1152,6 +1160,30 @@ from NetCDF dump files instead of calculating them.&
 \tabularnewline
 
 \hline 
+dump\_filename&
+C &
+&
+&
+Filename of dump/restore files,
+default: ''\texttt{<path>dump\_<proc><gridfile>}''.
+May contain the keyword \texttt{<path>} which will be substituted by
+\texttt{model\_base\_dir}, \texttt{<proc>} substituted by ``procXofY\_'',
+and the grid filename \texttt{<gridfile>}. &
+\tabularnewline
+
+\hline 
+dd\_filename&
+C &
+&
+&
+Filename of NetCDF domain decomposition dump files,
+default: ''\texttt{<path>dd\_<gridfile>}''.
+May contain the keyword \texttt{<path>} which will be substituted by
+\texttt{model\_base\_dir},
+and the grid filename \texttt{<gridfile>}. &
+\tabularnewline
+
+\hline 
 l\_one\_file\_per\_patch&
 L & .FALSE.& &
 Use one file per patch for all processors.\\
@@ -1370,7 +1402,9 @@ If set to .true.  is calculated on a reduced grid (= one grid level higher) &
 \hline 
 dynamics\_grid\_ filename &
 C & & &
-Array of the grid filenames to be used by the dycore. &
+Array of the grid filenames to be used by the dycore.
+May contain the keyword \texttt{<path>} which will be substituted by
+\texttt{model\_base\_dir}. &
 \tabularnewline
 
 \hline 
@@ -1384,7 +1418,10 @@ Indexes start at 1, an index of 0 indicates no parent. &
 radiation\_grid\_ filename &
 C & & &
 Array of the grid filenames to be used for the radiation model.
-Filled only if the radiation grid is different from the dycore grid. &
+Filled only if the radiation grid is different from the dycore grid.
+May contain the keyword \texttt{<path>} which will be substituted by
+\texttt{model\_base\_dir}.
+&
 \tabularnewline
 
 \hline 
@@ -1581,6 +1618,17 @@ L & .FALSE.& &
 Logical switch to write extdata fields into output & prep\_icon only
 \tabularnewline
 
+\hline 
+ifs2icon\_filename&
+C &
+&
+&
+Filename of IFS2ICON input file, default
+''\texttt{<path>ifs2icon\_R<nroot>B<jlev>\_DOM<idom>.nc}''.
+May contain the keywords \texttt{<path>} which will be substituted by
+\texttt{model\_base\_dir}, as well as \texttt{nroot}, \texttt{jlev},
+and \texttt{idom} defining the current patch. &
+\tabularnewline
 
 \end{longtab}
 
@@ -2427,7 +2475,9 @@ C&' '& &
 \hline
  map\_file &
 C&' '& &
- File containig the mapping from internal names to names written to NetCDF. \\
+ File containig the mapping from internal names to names written to NetCDF. 
+ May contain the keyword \texttt{<path>} which will be substituted by
+ \texttt{model\_base\_dir}.\\
  The format of this file: \\
  One mapping per line, first the internal name, then the name written to NetCDF,
  separated by an arbitrary number of blanks.
@@ -4585,7 +4635,7 @@ Defined and used in: src/testcases/mo\_nh\_testcases.f90
 %------------------------------------------------------------------------------
 % ext_par_nml:
 %------------------------------------------------------------------------------
-\subsection{ext\_par\_nml (Scope: itopo=1 in run\_nml)}
+\subsection{extpar\_nml (Scope: itopo=1 in run\_nml)}
 
 \begin{longtab}
 
@@ -4633,6 +4683,17 @@ L &
 read and use  external surface emissivity map
 &
 itopo = 1
+\tabularnewline
+
+\hline 
+extpar\_filename&
+C &
+&
+&
+Filename of external parameter input file,
+default: ''\texttt{<path>extpar\_<gridfile>}''.
+May contain the keyword \texttt{<path>} which will be substituted by
+\texttt{model\_base\_dir}. &
 \tabularnewline
 
 \end{longtab}

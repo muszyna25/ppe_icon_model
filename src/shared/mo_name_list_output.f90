@@ -59,10 +59,13 @@ MODULE mo_name_list_output
   USE mo_intp_rbf_coeffs,       ONLY: rbf_setup_interpol_lonlat_grid
   USE mo_intp_rbf,              ONLY: rbf_vec_interpol_lonlat_nl, rbf_interpol_lonlat_nl
 
+  USE mo_master_nml,            ONLY: model_base_dir
   USE mo_ocean_nml,             ONLY: n_zlev
   USE mo_oce_state,             ONLY: set_zlev
 
-  USE mo_util_string,           ONLY: toupper
+  USE mo_util_string,           ONLY: toupper, &
+    &                                 t_keyword_list, associate_keyword, &
+    &                                 with_keywords, MAX_STRING_LEN
 
   USE mo_communication,         ONLY: exchange_data, t_comm_pattern, idx_no, blk_no
   USE mo_interpol_config,       ONLY: rbf_vec_dim_c, rbf_vec_dim_v, rbf_vec_dim_e, rbf_c2grad_dim
@@ -1460,10 +1463,14 @@ CONTAINS
     LOGICAL :: valid
 
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/read_map_file'
+    TYPE (t_keyword_list), POINTER :: keywords => NULL()
+    CHARACTER(len=MAX_STRING_LEN)  :: filename
 
+    CALL associate_keyword("<path>", TRIM(model_base_dir), keywords)
+    filename = TRIM(with_keywords(keywords, map_file))
 
     iunit = find_next_free_unit(10,99)
-    OPEN (unit=iunit,file=map_file,access='SEQUENTIAL', &
+    OPEN (unit=iunit,file=filename,access='SEQUENTIAL', &
       &  form='FORMATTED', action='READ', status='OLD', IOSTAT=ist)
 
     IF(ist/=0)THEN

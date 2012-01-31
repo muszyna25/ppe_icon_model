@@ -80,7 +80,7 @@ USE mo_nh_stepping,          ONLY: prepare_nh_integration, perform_nh_stepping
 ! Initialization with real data
 USE mo_prepicon_utils,      ONLY: init_prepicon, prepicon, copy_prepicon2prog, &
   &                               compute_coord_fields,  deallocate_prepicon
-USE mo_prepicon_nml,        ONLY: i_oper_mode, l_sfc_in
+USE mo_prepicon_config,     ONLY: i_oper_mode, l_sfc_in
 USE mo_nh_vert_interp,      ONLY: vertical_interpolation, intp_to_p_and_z_levels
 USE mo_ext_data,            ONLY: ext_data
 ! meteogram output

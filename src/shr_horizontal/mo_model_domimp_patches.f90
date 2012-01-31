@@ -137,6 +137,8 @@ USE mo_sync,               ONLY: disable_sync_checks, enable_sync_checks
 USE mo_communication,      ONLY: idx_no, blk_no
 USE mo_util_uuid,          ONLY: uuid_string_length, uuid_parse 
 USE mo_name_list_output_config, ONLY: is_grib_output
+USE mo_util_string,        ONLY: t_keyword_list, associate_keyword, with_keywords
+USE mo_master_nml,         ONLY: model_base_dir
 
 #ifndef NOMPI
 ! The USE statement below lets this module use the routines from
@@ -258,14 +260,16 @@ SUBROUTINE set_patches_grid_filename( p_patch )
   TYPE(t_patch), TARGET, INTENT(inout) :: p_patch(n_dom_start:)
 
   INTEGER :: jg
+  TYPE (t_keyword_list), POINTER :: keywords => NULL()
 
   !-----------------------------------------------------------------------
   DO jg = n_dom_start, n_dom
 
+    CALL associate_keyword("<path>", TRIM(model_base_dir), keywords)
     IF (jg==0) THEN
-      p_patch(jg)%grid_filename = radiation_grid_filename(1)
+      p_patch(jg)%grid_filename = TRIM(with_keywords(keywords, radiation_grid_filename(1)))
     ELSE
-      p_patch(jg)%grid_filename = dynamics_grid_filename(jg)
+      p_patch(jg)%grid_filename = TRIM(with_keywords(keywords, dynamics_grid_filename(jg)))
     ENDIF
 !     write(0,*) jg, "grid_filename:",TRIM(p_patch(jg)%grid_filename)
   ENDDO

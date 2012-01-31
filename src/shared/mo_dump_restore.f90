@@ -150,7 +150,8 @@ MODULE mo_dump_restore
   USE mo_exception,          ONLY: message_text, message, finish, warning
   USE mo_parallel_config, ONLY: nproma
   USE mo_run_config,         ONLY: l_one_file_per_patch, ltransport, &
-     &                             num_lev, num_levp1, nshift
+     &                             num_lev, num_levp1, nshift,       &
+     &                             dump_filename, dd_filename
   USE mo_dynamics_config,    ONLY: iequations
   USE mo_io_units,           ONLY: filename_max, nerr
   USE mo_model_domain,       ONLY: t_patch, p_patch_local_parent
@@ -176,6 +177,10 @@ MODULE mo_dump_restore
   USE mo_model_domain_import, ONLY: set_patches_grid_filename
   USE mo_lonlat_intp_config, ONLY: lonlat_intp_config
   USE mo_math_utilities,     ONLY: t_lon_lat_grid
+  USE mo_util_string,        ONLY: t_keyword_list, MAX_STRING_LEN,   &
+    &                              associate_keyword, with_keywords, &
+    &                              int2string
+  USE mo_master_nml,         ONLY: model_base_dir
 
   IMPLICIT NONE
 
@@ -302,27 +307,24 @@ CONTAINS
   !> set_dump_restore_filename:
   !! Sets the filename for NetCDF dump/restore files
   !! from the patch_filename
-  SUBROUTINE set_dump_restore_filename(patch_filename)
+  SUBROUTINE set_dump_restore_filename(patch_filename, model_base_dir)
 
-    CHARACTER(LEN=*), INTENT(in) :: patch_filename
-!     INTEGER, INTENT(in) :: level, id
-!     CHARACTER(LEN=8) :: gridtype
+    CHARACTER(LEN=*), INTENT(in)   :: patch_filename
+    CHARACTER(len=*), INTENT(IN)   :: model_base_dir
 
-!     IF (lplane) THEN
-!       gridtype='plandump'
-!     ELSE
-!       gridtype='icondump'
-!     END IF
-!
-!     WRITE(filename,'(a,a,i0,2(a,i2.2),2(a,i0),a)') &
-!       & TRIM(gridtype),'R',nroot,'B',level,'_DOM',id,'_proc',p_pe_work,'of',p_n_work,'.nc'
+    TYPE (t_keyword_list), POINTER :: keywords => NULL()
+    CHARACTER(len=MAX_STRING_LEN)  :: proc_str
 
-     IF(use_one_file) THEN
-       filename = 'dump_'//TRIM(patch_filename)
-     ELSE
-       WRITE(filename,'(2(a,i0),a,a)') &
-         & 'dump_proc',p_pe_work,'of',p_n_work,"_",TRIM(patch_filename)
-     ENDIF
+    IF(use_one_file) THEN
+      proc_str = ""
+    ELSE
+      WRITE (proc_str,'(a,i0,a,i0,a)') "proc", p_pe_work, "of", p_n_work, "_"
+    END IF
+
+    CALL associate_keyword("<path>",     TRIM(model_base_dir),  keywords)
+    CALL associate_keyword("<proc>",     TRIM(proc_str),        keywords)
+    CALL associate_keyword("<gridfile>", TRIM(patch_filename),  keywords)
+    filename = TRIM(with_keywords(keywords, TRIM(dump_filename)))
 
   END SUBROUTINE set_dump_restore_filename
 
@@ -331,12 +333,16 @@ CONTAINS
   !> set_dd_filename:
   !! Sets the filename for NetCDF domain decomposition files
   !! from the patch_filename
-  SUBROUTINE set_dd_filename(patch_filename)
+  SUBROUTINE set_dd_filename(patch_filename, model_base_dir)
 
-    CHARACTER(LEN=*), INTENT(in) :: patch_filename
+    CHARACTER(LEN=*), INTENT(in)   :: patch_filename
+    CHARACTER(len=*), INTENT(IN)   :: model_base_dir
+    TYPE (t_keyword_list), POINTER :: keywords => NULL()
 
     ! Please note: Currently use_one_file is enforced in this case
-    filename = 'dd_'//TRIM(patch_filename)
+    CALL associate_keyword("<path>",     TRIM(model_base_dir),  keywords)
+    CALL associate_keyword("<gridfile>", TRIM(patch_filename),  keywords)
+    filename = TRIM(with_keywords(keywords, TRIM(dd_filename)))
 
   END SUBROUTINE set_dd_filename
 
@@ -2475,7 +2481,7 @@ CONTAINS
 
     netcdf_read = .FALSE. ! Set I/O routines to write mode
 
-    CALL set_dump_restore_filename(p%grid_filename)
+    CALL set_dump_restore_filename(p%grid_filename, model_base_dir)
 
     WRITE(message_text,'(a,a)') 'Write NetCDF file: ', TRIM(filename)
     CALL message ('', TRIM(message_text))
@@ -2611,7 +2617,7 @@ CONTAINS
 
     netcdf_read = .FALSE. ! Set I/O routines to write mode
 
-    CALL set_dd_filename(p%grid_filename)
+    CALL set_dd_filename(p%grid_filename, model_base_dir)
 
     WRITE(message_text,'(a,a)') 'Write domain decomposition NetCDF file: ', TRIM(filename)
     CALL message ('', TRIM(message_text))
@@ -2705,7 +2711,7 @@ CONTAINS
 
     netcdf_read = .FALSE. ! Set I/O routines to write mode
 
-    CALL set_dd_filename(p(1)%grid_filename)
+    CALL set_dd_filename(p(1)%grid_filename, model_base_dir)
 
     WRITE(message_text,'(a,a)') 'Write domain decomposition NetCDF file: ', TRIM(filename)
     CALL message ('', TRIM(message_text))
@@ -3071,9 +3077,9 @@ CONTAINS
       IF(p_pe_work==0) WRITE(nerr,'(a,i0)') 'Restoring patch ',jg
 
       IF(lfull) THEN
-        CALL set_dump_restore_filename(p_patch(jg)%grid_filename)
+        CALL set_dump_restore_filename(p_patch(jg)%grid_filename, model_base_dir)
       ELSE
-        CALL set_dd_filename(p_patch(jg)%grid_filename)
+        CALL set_dd_filename(p_patch(jg)%grid_filename, model_base_dir)
       ENDIF
 !       write(0,*) "patch grid_filename:", TRIM( p_patch(jg)%grid_filename)
 !       write(0,*) "dump_restore_filename:", TRIM(filename)
@@ -3175,7 +3181,7 @@ CONTAINS
 
       IF(p_pe_work==0) WRITE(nerr,'(a,i0)') 'Restoring interpolation state ',jg
 
-      CALL set_dump_restore_filename(p_patch(jg)%grid_filename)
+      CALL set_dump_restore_filename(p_patch(jg)%grid_filename, model_base_dir)
 
       CALL nf(nf_open(TRIM(filename), NF_NOWRITE, ncid))
 
@@ -3271,7 +3277,7 @@ CONTAINS
 
       IF(p_pe_work==0) WRITE(nerr,'(a,i0)') 'Restoring gridref state ',jg
 
-      CALL set_dump_restore_filename(p_patch(jg)%grid_filename)
+      CALL set_dump_restore_filename(p_patch(jg)%grid_filename, model_base_dir)
 
       CALL nf(nf_open(TRIM(filename), NF_NOWRITE, ncid))
 

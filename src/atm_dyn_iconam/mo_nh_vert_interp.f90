@@ -51,7 +51,7 @@ MODULE mo_nh_vert_interp
   USE mo_dynamics_config,     ONLY: nnow
   USE mo_impl_constants,      ONLY: icc
   USE mo_exception,           ONLY: finish
-  USE mo_prepicon_nml,        ONLY: nlev_in, zpbl1, zpbl2, &
+  USE mo_prepicon_config,     ONLY: nlev_in, zpbl1, zpbl2, &
                                     i_oper_mode, l_w_in, l_sfc_in
   USE mo_prepicon_utils,      ONLY: t_prepicon_state, nzplev
   USE mo_ifs_coord,           ONLY: half_level_pressure, full_level_pressure, &

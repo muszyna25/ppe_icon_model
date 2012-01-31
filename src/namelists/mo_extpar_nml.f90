@@ -34,7 +34,7 @@ MODULE mo_extpar_nml
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish
-  USE mo_io_units,            ONLY: nnml, nnml_output
+  USE mo_io_units,            ONLY: nnml, nnml_output, filename_max
   USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_master_control,      ONLY: is_restart_run
@@ -47,7 +47,8 @@ MODULE mo_extpar_nml
                                   & config_fac_smooth_topo    => fac_smooth_topo   , &
                                   & config_n_iter_smooth_topo => n_iter_smooth_topo, &
                                   & config_l_emiss            => l_emiss,            &
-                                  & config_heightdiff_threshold => heightdiff_threshold
+                                  & config_heightdiff_threshold => heightdiff_threshold, &
+                                  & config_extpar_filename    => extpar_filename
 
   IMPLICIT NONE
   PRIVATE
@@ -65,9 +66,10 @@ MODULE mo_extpar_nml
   INTEGER  :: n_iter_smooth_topo(max_dom)
   LOGICAL  :: l_emiss ! if true: read external emissivity map
   REAL(wp) :: heightdiff_threshold(max_dom)
+  CHARACTER(LEN=filename_max) :: extpar_filename
 
   NAMELIST /extpar_nml/ itopo, fac_smooth_topo,n_iter_smooth_topo,l_emiss, &
-                        heightdiff_threshold
+                        heightdiff_threshold, extpar_filename
 
 CONTAINS
   !>
@@ -86,6 +88,7 @@ CONTAINS
     n_iter_smooth_topo(:)   = 0
     l_emiss                 = .TRUE.
     heightdiff_threshold(:) = 3000._wp
+    extpar_filename         = "<path>extpar_<gridfile>"
 
     !------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above 
@@ -125,6 +128,7 @@ CONTAINS
     config_n_iter_smooth_topo = n_iter_smooth_topo
     config_l_emiss            = l_emiss
     config_heightdiff_threshold = heightdiff_threshold
+    config_extpar_filename    = extpar_filename
 
     !-----------------------------------------------------
     ! Store the namelist for restart

@@ -45,11 +45,15 @@ MODULE mo_extpar_config
 
   USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: max_dom
+  USE mo_io_units,           ONLY: filename_max
+  USE mo_util_string,        ONLY: t_keyword_list, MAX_STRING_LEN,  &
+    &                              associate_keyword, with_keywords
 
   IMPLICIT NONE
 
   PRIVATE
   PUBLIC :: itopo, fac_smooth_topo, n_iter_smooth_topo, l_emiss, heightdiff_threshold
+  PUBLIC :: extpar_filename, generate_filename
 
   CHARACTER(len=*),PARAMETER :: version = '$Id$'
 
@@ -66,7 +70,29 @@ MODULE mo_extpar_config
   INTEGER  :: n_iter_smooth_topo(max_dom)
   LOGICAL  :: l_emiss     ! if true: read external emissivity map 
   REAL(wp) :: heightdiff_threshold(max_dom)
+
+  ! ExtPar input filename, may contain keywords, by default
+  ! extpar_filename = "<path>extpar_<gridfile>"
+  CHARACTER(LEN=filename_max) :: extpar_filename
   
   !!----------------------------------------------------------------------------
+
+CONTAINS
+
+  FUNCTION generate_filename(extpar_filename, model_base_dir, grid_filename) &
+    &  RESULT(result_str)
+    CHARACTER(len=*), INTENT(IN)   :: extpar_filename, &
+      &                               model_base_dir,  &
+      &                               grid_filename
+    CHARACTER(len=MAX_STRING_LEN)  :: result_str
+    TYPE (t_keyword_list), POINTER :: keywords => NULL()
+
+    CALL associate_keyword("<path>",     TRIM(model_base_dir), keywords)
+    CALL associate_keyword("<gridfile>", TRIM(grid_filename),  keywords)
+    ! replace keywords in "extpar_filename", which is by default
+    ! extpar_filename = "<path>extpar_<gridfile>"
+    result_str = TRIM(with_keywords(keywords, TRIM(extpar_filename)))
+
+  END FUNCTION generate_filename
 
 END MODULE mo_extpar_config

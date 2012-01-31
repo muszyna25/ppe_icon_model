@@ -56,7 +56,8 @@ MODULE mo_ext_data
   USE mo_run_config,         ONLY: iforcing
   USE mo_ocean_nml,          ONLY: iforc_oce, iforc_omip, iforc_len
   USE mo_extpar_config,      ONLY: itopo, fac_smooth_topo, n_iter_smooth_topo, l_emiss, &
-                                   heightdiff_threshold
+    &                              heightdiff_threshold,                                &
+    &                              extpar_filename, generate_filename
   USE mo_dynamics_config,    ONLY: iequations
   USE mo_radiation_config,   ONLY: irad_o3,irad_aero
   USE mo_model_domain,       ONLY: t_patch
@@ -75,9 +76,12 @@ MODULE mo_ext_data
     &                              add_var,                   &
     &                              new_var_list,              &
     &                              delete_var_list
+  USE mo_master_nml,         ONLY: model_base_dir
   USE mo_cf_convention
   USE mo_grib2
   USE mo_cdi_constants
+  USE mo_util_string,        ONLY: t_keyword_list,  &
+    &                              associate_keyword, with_keywords
 
 
   IMPLICIT NONE
@@ -1499,8 +1503,9 @@ CONTAINS
         IF( my_process_is_stdio()) THEN
           !
           ! generate file name
-          !
-          WRITE(extpar_file,'(a,a)') 'extpar_',TRIM(p_patch(jg)%grid_filename)
+          extpar_file = generate_filename(extpar_filename,                   &
+            &                             model_base_dir,                    &
+            &                             TRIM(p_patch(jg)%grid_filename))
           CALL message("read_ext_data_atm, extpar_file=",extpar_file)
         
           INQUIRE (FILE=extpar_file, EXIST=l_exist)
@@ -1736,9 +1741,9 @@ CONTAINS
 
           !
           ! generate file name and open file
-          !
-          WRITE(extpar_file,'(a,a)') &
-            & 'extpar_',TRIM(p_patch(jg)%grid_filename)
+          extpar_file = generate_filename(extpar_filename,                  &
+            &                             model_base_dir,                   &
+            &                             TRIM(p_patch(jg)%grid_filename))
           CALL nf(nf_open(TRIM(extpar_file), NF_NOWRITE, ncid))
 
         ENDIF
@@ -2112,6 +2117,7 @@ CONTAINS
 
     !REAL(wp):: z_flux(nproma, 12,p_patch(1)%nblks_c)
     REAL(wp):: z_flux(nproma,iforc_len,p_patch(1)%nblks_c)
+    TYPE (t_keyword_list), POINTER :: keywords => NULL()
 
 !-------------------------------------------------------------------------
 
@@ -2136,7 +2142,8 @@ CONTAINS
       !WRITE (bathy_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-grid.nc'
       !write(*,*) 'bathy_file = ',TRIM(bathy_file)
       !write(*,*) 'dynamics_grid_filename = ', TRIM(dynamics_grid_filename(1))
-      grid_file = dynamics_grid_filename(jg)
+      CALL associate_keyword("<path>", TRIM(model_base_dir), keywords)
+      grid_file = TRIM(with_keywords(keywords, TRIM(dynamics_grid_filename(jg))))
 
       INQUIRE (FILE=grid_file, EXIST=l_exist)
       IF (.NOT.l_exist) THEN
@@ -3064,7 +3071,6 @@ CONTAINS
     ENDIF
 
   END SUBROUTINE smooth_topography
-
 
 END MODULE mo_ext_data
 

@@ -42,13 +42,16 @@ MODULE mo_prepicon_utils
   USE mo_parallel_config,     ONLY: nproma, p_test_run
   USE mo_run_config,          ONLY: num_lev, num_levp1, msg_level, nvclev, &
                                     iqv, iqc, iqi, iqr, iqs
-  USE mo_extpar_config,       ONLY: n_iter_smooth_topo
+  USE mo_extpar_config,       ONLY: n_iter_smooth_topo, &
+    &                               extpar_filename,    &
+    &                               generate_extpar_filename => generate_filename
   USE mo_dynamics_config,     ONLY: iequations, nnow, nnow_rcf, nnew, nnew_rcf
   USE mo_nonhydrostatic_config,ONLY: ivctype
   USE mo_nonhydro_state,      ONLY: t_nh_state
   USE mo_nwp_lnd_state,       ONLY: t_lnd_state
-  USE mo_prepicon_nml,        ONLY: i_oper_mode, nlev_in, l_zp_out, l_w_in,&
-  &                                 nlevsoil_in, l_sfc_in, l_extdata_out
+  USE mo_prepicon_config,     ONLY: i_oper_mode, nlev_in, l_zp_out, l_w_in,&
+  &                                 nlevsoil_in, l_sfc_in, l_extdata_out,  &
+  &                                 ifs2icon_filename, generate_filename
   USE mo_impl_constants,      ONLY: max_char_length, max_dom
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom, nroot, start_lev, global_cell_type
@@ -68,6 +71,7 @@ MODULE mo_prepicon_utils
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nsfc_subs
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
+  USE mo_master_nml,          ONLY: model_base_dir
 
   IMPLICIT NONE
 
@@ -244,7 +248,9 @@ MODULE mo_prepicon_utils
         !
         ! generate file name
         !
-        WRITE(topo_file(jg),'(2a)') 'extpar_',TRIM(p_patch(jg)%grid_filename)
+        topo_file(jg) = generate_extpar_filename(extpar_filename,                   &
+          &                                      model_base_dir,                    &
+          &                                      TRIM(p_patch(jg)%grid_filename))
 
         INQUIRE (FILE=topo_file(jg), EXIST=l_exist)
         IF (.NOT.l_exist) THEN
@@ -324,8 +330,8 @@ MODULE mo_prepicon_utils
         !
         ! generate file name
         !
-        WRITE(ifs2icon_file(jg),'(a,i1,2(a,i2.2),a)') 'ifs2icon_R',nroot,'B',jlev,'_DOM',jg,'.nc'
-
+        ifs2icon_file(jg) = generate_filename(ifs2icon_filename, model_base_dir, &
+          &                                   nroot, jlev, jg)
         INQUIRE (FILE=ifs2icon_file(jg), EXIST=l_exist)
         IF (.NOT.l_exist) THEN
           CALL finish(TRIM(routine),'IFS2ICON file is not found: '//TRIM(ifs2icon_file(jg)))
@@ -2341,7 +2347,6 @@ MODULE mo_prepicon_utils
     dup2 = arr
 
   END FUNCTION dup2
-
 
 END MODULE mo_prepicon_utils
 
