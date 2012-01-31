@@ -510,7 +510,7 @@ CONTAINS
     LOGICAL, PARAMETER :: l_print_list = .FALSE.
 
     INTEGER :: i, j, nfiles, i_typ, i_dom, nvl, vl_list(max_var_lists), &
-      &        idx, ierr, ivar, l1
+      &        idx, ierr, ivar, l1, tl
     CHARACTER(LEN=2) :: lev_type
     TYPE (t_output_name_list), POINTER :: p_onl
     TYPE (t_output_file), POINTER :: p_of
@@ -715,35 +715,47 @@ CONTAINS
                   idx = INDEX(element%field%info%name,'.TL')
                   IF(idx == 0) THEN
                     all_varlist(ivar) = element%field%info%name
+                    ivar = ivar + 1
                   ELSE
-                    all_varlist(ivar) = element%field%info%name(1:idx-1)
-                  ENDIF
-                  ivar = ivar + 1
-                END IF
+                    ! Get time level
+                    tl = ICHAR(element%field%info%name(idx+3:idx+3)) - ICHAR('0')
+                    IF(tl<=0 .OR. tl>max_time_levels) &
+                      CALL finish(routine, 'Illegal time level')
+                    ! Add only the first time level to avoid duplicates:
+                    IF (tl == 1) THEN
+                      all_varlist(ivar) = element%field%info%name(1:idx-1)
+                      ivar = ivar + 1
+                    END IF
+                  END IF
+                END IF ! element%field%info%loutput
                 element => element%next_list_element
-              ENDDO
-            ENDDO ! l1 = 1, nvl
+              END DO
+            END DO ! l1 = 1, nvl
+            n_allvars = ivar - 1
           END IF
 
           SELECT CASE(i_typ)
             CASE(1)
               IF (toupper(TRIM(p_onl%ml_varlist(1))) == "ALL") THEN
                 IF (n_allvars > 0) &
-                  CALL add_varlist_to_output_file(p_of,vl_list(1:nvl), all_varlist)
+                  CALL add_varlist_to_output_file(p_of,vl_list(1:nvl), &
+                  &                               all_varlist(1:n_allvars))
               ELSE
                 CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%ml_varlist)
               END IF
             CASE(2)
               IF (toupper(TRIM(p_onl%ml_varlist(1))) == "ALL") THEN
                 IF (n_allvars > 0) &
-                  CALL add_varlist_to_output_file(p_of,vl_list(1:nvl), all_varlist)
+                  CALL add_varlist_to_output_file(p_of,vl_list(1:nvl), &
+                  &                               all_varlist(1:n_allvars))
               ELSE
                 CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%pl_varlist)
               END IF
             CASE(3)
               IF (toupper(TRIM(p_onl%ml_varlist(1))) == "ALL") THEN
                 IF (n_allvars > 0) &
-                  CALL add_varlist_to_output_file(p_of,vl_list(1:nvl), all_varlist)
+                  CALL add_varlist_to_output_file(p_of,vl_list(1:nvl), &
+                  &                               all_varlist(1:n_allvars))
               ELSE
                 CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%hl_varlist)
               END IF
@@ -2352,6 +2364,7 @@ CONTAINS
 
       SELECT CASE (info%ndims)
       CASE (1)
+        CALL message(routine, info%name)
         CALL finish(routine,'1d arrays not handled yet.')
       CASE (2)
         ! Make a 3D copy of the array
@@ -2369,10 +2382,13 @@ CONTAINS
           r_ptr => of%var_desc(iv)%tlev_ptr(tl)%p(:,:,:,nindex,1)
         ENDIF
       CASE (4)
+        CALL message(routine, info%name)
         CALL finish(routine,'4d arrays not handled yet.')
       CASE (5)
+        CALL message(routine, info%name)
         CALL finish(routine,'5d arrays not handled yet.')
       CASE DEFAULT 
+        CALL message(routine, info%name)
         CALL finish(routine,'dimension not set.')        
       END SELECT
 
