@@ -1845,7 +1845,7 @@ CONTAINS
 
             CALL read_netcdf_lu (ncid, 'LU_CLASS_FRACTION', p_patch(jg)%n_patch_cells_g,  &
               &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-              &                     nclass_lu(jg), ext_data(jg)%atm%lu_class_fraction)
+              &                     nclass_lu(jg), ext_data(jg)%atm%lu_class_fraction )
 
 
             IF ( irad_aero == 6 ) THEN
@@ -2685,7 +2685,7 @@ CONTAINS
   ! and read_netcdf_lu can be merged into a single routine in the near 
   ! future.
 
-  SUBROUTINE read_netcdf_lu (ncid, varname, glb_arr_len, &
+  SUBROUTINE read_netcdf_lu (ncid, varname, glb_arr_len,            &
        &                     loc_arr_len, glb_index, nslice, var_out)
 
     CHARACTER(len=*), INTENT(IN)  ::  &  !< Var name of field to be read
@@ -2701,8 +2701,10 @@ CONTAINS
       &  var_out(:,:,:)
 
     INTEGER :: varid, mpi_comm, j, jl, jb, js
-    REAL(wp):: z_dummy_array(nslice,glb_arr_len)!< local dummy array
+    REAL(wp):: z_dummy_array(glb_arr_len, nslice)!< local dummy array
+
   !-------------------------------------------------------------------------
+
 
     ! Get var ID
     IF(my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid))
@@ -2714,6 +2716,7 @@ CONTAINS
     ENDIF
 
 
+
     ! I/O PE reads and broadcasts data
 
     IF(my_process_is_stdio()) CALL nf(nf_get_var_double(ncid, varid, z_dummy_array(:,:)))
@@ -2721,16 +2724,17 @@ CONTAINS
 
     var_out(:,:,:) = 0._wp
 
+
     ! Set var_out from global data
-    DO j = 1, loc_arr_len
-      DO js = 1, nslice
+    DO js = 1, nslice
+      DO j = 1, loc_arr_len
 
         jb = blk_no(j) ! Block index in distributed patch
         jl = idx_no(j) ! Line  index in distributed patch
                
-        var_out(jl,jb,js) = z_dummy_array(js,glb_index(j))
+        var_out(jl,jb,js) = z_dummy_array(glb_index(j),js)
 
-          ENDDO
+      ENDDO
     ENDDO
 
   END SUBROUTINE read_netcdf_lu
