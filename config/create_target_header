@@ -98,7 +98,7 @@ loadmodule="$use_load_modules"
 job_name="$job_name"
 submit="$submit"
 # ----------------------------
-# restart sepicifics
+# restart specifics
 # ----------------------------
 export F_NORCW=65535
 # ----------------------------
