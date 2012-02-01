@@ -138,7 +138,6 @@ MODULE mo_icon_cpl
 
   ! Setting for debug output
 
-  LOGICAL                   :: debug_coupler
   INTEGER                   :: debug_coupler_level
   INTEGER                   :: cplout   ! output unit, determined in init_comp
 
@@ -188,12 +187,11 @@ MODULE mo_icon_cpl
 !!
 
   TYPE t_grid
-     INTEGER                :: grid_shape(2)
-     LOGICAL                :: l_grid_status
-     INTEGER, POINTER       :: grid_glob_index(:) => NULL()
-     INTEGER, POINTER       :: glob_index_rank(:) => NULL()
+     INTEGER                 :: grid_shape(2)
+     LOGICAL                 :: l_grid_status
+     INTEGER, POINTER        :: grid_glob_index(:) => NULL()
+     INTEGER, POINTER        :: glob_index_rank(:) => NULL()
   END TYPE t_grid
-
 !>
 !! Grid Type
 !!
@@ -237,6 +235,13 @@ MODULE mo_icon_cpl
      CHARACTER(len=maxchar) :: field_name
      REAL(wp), POINTER      :: send_field_acc(:,:) => NULL()
      TYPE(t_coupling)       :: coupling
+
+     ! for writing out coupled restarts
+     INTEGER                :: global_size     ! relevant on root only
+     INTEGER, ALLOCATABLE   :: local_sizes(:)  ! relevant on root only
+     INTEGER, ALLOCATABLE   :: displacement(:) ! relevant on root only
+     INTEGER, ALLOCATABLE   :: global_index(:) ! relevant on root only
+
   END TYPE t_cpl_field
 
   TYPE (t_comp),  POINTER     :: comps (:)     => NULL()
@@ -352,7 +357,7 @@ MODULE mo_icon_cpl
 
   ! Length of header messages
 
-  INTEGER, PARAMETER            :: msg_len = 3
+  INTEGER, PARAMETER            :: msg_len = 4
 
   PUBLIC :: l_MPI_was_initialized
   PUBLIC :: ICON_comm, ICON_comp_comm, ICON_comm_active
@@ -382,7 +387,7 @@ MODULE mo_icon_cpl
   PUBLIC :: target_locs, t_target_struct
   
 
-  PUBLIC :: debug_coupler, debug_coupler_level, cplout
+  PUBLIC :: debug_coupler_level, cplout
   PUBLIC :: maxchar
 
   CONTAINS

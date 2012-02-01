@@ -1092,9 +1092,8 @@ src/coupler/mo_icon_cpl_exchg.f90 -text
 src/coupler/mo_icon_cpl_finalize.f90 -text
 src/coupler/mo_icon_cpl_init.f90 -text
 src/coupler/mo_icon_cpl_init_comp.f90 -text
+src/coupler/mo_icon_cpl_restart.f90 -text
 src/coupler/mo_icon_cpl_search.f90 -text
-src/coupler/mo_icon_cpl_send_restart.f90 -text
-src/coupler/mo_icon_cpl_write_restart.f90 -text
 src/coupler/psmile_bsend.c -text
 src/coupler/psmile_char2buf.f90 -text
 src/coupler/psmile_f2c.h -text

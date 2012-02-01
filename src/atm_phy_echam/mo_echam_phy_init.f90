@@ -89,10 +89,10 @@ MODULE mo_echam_phy_init
                                    & prm_tend,  t_echam_phy_tend,  &
                                    & mean_charlen
   ! for coupling
-  USE mo_coupling_config,       ONLY: is_coupled_run
-  USE mo_icon_cpl_exchg,       ONLY: ICON_cpl_get
+  USE mo_coupling_config,      ONLY: is_coupled_run
+  USE mo_icon_cpl_exchg,       ONLY: ICON_cpl_get_init, ICON_cpl_put_init
   USE mo_icon_cpl_def_field,   ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
-  USE mo_timer,              ONLY: ltimer, timers_level, timer_start, timer_stop, &
+  USE mo_timer,                ONLY: ltimer, timers_level, timer_start, timer_stop, &
     & timer_prep_echam_phy
 
   IMPLICIT NONE
@@ -242,6 +242,9 @@ CONTAINS
 
     ! in case of coupling
     INTEGER               :: nbr_fields
+    INTEGER               :: nbr_points
+    INTEGER               :: nbr_hor_points
+
     INTEGER               :: field_shape(3)
     INTEGER, ALLOCATABLE  :: field_id(:)
     REAL(wp), ALLOCATABLE :: buffer(:,:)
@@ -294,50 +297,118 @@ CONTAINS
 
           IF ( is_coupled_run() ) THEN
 
-              ALLOCATE(buffer(nproma*nblks_c,1))
-               !
-               !  see drivers/mo_atmo_model.f90:
-               !
-               !   field_id(1) represents "TAUX"   wind stress component
-               !   field_id(2) represents "TAUY"   wind stress component
-               !   field_id(3) represents "SFWFLX" surface fresh water flux
-               !   field_id(4) represents "SFTEMP" surface temperature
-               !   field_id(5) represents "THFLX"  total heat flux
-               !
-               !   field_id(6) represents "SST"    sea surface temperature
-               !   field_id(7) represents "OCEANU" u component of ocean surface current
-               !   field_id(8) represents "OCEANV" v component of ocean surface current
-               !
-               CALL ICON_cpl_get_nbr_fields ( nbr_fields )
-               ALLOCATE(field_id(nbr_fields))
-               CALL ICON_cpl_get_field_ids ( nbr_fields, field_id )
-               !
-               field_shape(1) = 1
-               field_shape(2) = p_patch(jg)%n_patch_cells
-               field_shape(3) = 1
-               !
-               ! Send fields away 
-               ! ----------------
-               !
-               ! Is there really anything to send or can the ocean live without?
-               !
-               ! Receive fields, only assign values if something was received ( info > 0 )
-               ! -------------------------------------------------------------------------
-               !
-               ! I guess that only the SST is really needed.
-               !
-               CALL ICON_cpl_get ( field_id(6), field_shape, buffer, info, ierror )
+             ALLOCATE(buffer(nproma*nblks_c,4))
 
-               IF ( info > 0 ) THEN
-                 field%tsfc_tile(:,:,iwtr) = RESHAPE (buffer(:,1), (/ nproma, nblks_c /) )
-                 field%tsfc     (:,:)      = field%tsfc_tile(:,:,iwtr)
-               ENDIF
+             nbr_hor_points = p_patch(jg)%n_patch_cells
+             nbr_points     = nproma * p_patch(jg)%nblks_c
 
-               CALL sync_patch_array(sync_c, p_patch(jg), field%tsfc_tile(:,:,iwtr))
-               CALL sync_patch_array(sync_c, p_patch(jg), field%tsfc     (:,:))
+             !
+             !  see drivers/mo_atmo_model.f90:
+             !
+             !   field_id(1) represents "TAUX"   wind stress component
+             !   field_id(2) represents "TAUY"   wind stress component
+             !   field_id(3) represents "SFWFLX" surface fresh water flux
+             !   field_id(4) represents "SFTEMP" surface temperature
+             !   field_id(5) represents "THFLX"  total heat flux
+             !
+             !   field_id(6) represents "SST"    sea surface temperature
+             !   field_id(7) represents "OCEANU" u component of ocean surface current
+             !   field_id(8) represents "OCEANV" v component of ocean surface current
+             !
+             CALL ICON_cpl_get_nbr_fields ( nbr_fields )
+             ALLOCATE(field_id(nbr_fields))
+             CALL ICON_cpl_get_field_ids ( nbr_fields, field_id )
+             !
+             field_shape(1) = 1
+             field_shape(2) = nbr_hor_points
+             field_shape(3) = 1
+             !
+             ! Send fields away 
+             ! ----------------
+             !
+             ! Is there really anything to send or can the ocean live without?
+             !
+             ! Receive fields, only assign values if something was received ( info > 0 )
+             ! -------------------------------------------------------------------------
+             !
+             ! I guess that only the SST is really needed.
+             !
+             CALL ICON_cpl_get_init ( field_id(6), field_shape, &
+                                      buffer(1:nbr_hor_points,1:1), info, ierror )
 
-               DEALLOCATE(field_id)
-               DEALLOCATE(buffer)
+             IF ( info > 0 ) THEN
+                buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
+                field%tsfc_tile(:,:,iwtr) = RESHAPE (buffer(:,1), (/ nproma, nblks_c /) )
+                field%tsfc     (:,:)      = field%tsfc_tile(:,:,iwtr)
+             ENDIF
+             !
+             ! OCEANU
+             CALL ICON_cpl_get_init ( field_id(7), field_shape, &
+                                      buffer(1:nbr_hor_points,1:1), info, ierror )
+             IF ( info > 0 ) THEN
+                buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
+                field%ocu(:,:) = RESHAPE (buffer(:,1), (/ nproma, nblks_c /) )
+             ENDIF
+             !
+             ! OCEANV
+             CALL ICON_cpl_get_init ( field_id(8), field_shape, &
+                                      buffer(1:nbr_hor_points,1:1), info, ierror )
+             IF ( info > 0 ) THEN
+                buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
+                field%ocv(:,:) = RESHAPE (buffer(:,1), (/ nproma, nblks_c /) )
+             ENDIF
+
+             CALL sync_patch_array(sync_c, p_patch(jg), field%tsfc_tile(:,:,iwtr))
+             CALL sync_patch_array(sync_c, p_patch(jg), field%tsfc     (:,:))
+
+             CALL sync_patch_array(sync_c, p_patch(jg), field%ocu(:,:))
+             CALL sync_patch_array(sync_c, p_patch(jg), field%ocv(:,:))
+
+             !
+             ! Send fields away
+             ! ----------------
+             !
+             ! TAUX
+             buffer(:,1) = RESHAPE ( field%u_stress_tile(:,:,iwtr), (/ nbr_points /) )
+             CALL ICON_cpl_put_init ( field_id(1), field_shape, &
+                                      buffer(1:nbr_hor_points,1:1), ierror )
+             !
+             ! TAUY
+             buffer(:,1) = RESHAPE ( field%v_stress_tile(:,:,iwtr), (/ nbr_points /) )
+             CALL ICON_cpl_put_init ( field_id(2), field_shape, &
+                                      buffer(1:nbr_hor_points,1:1), ierror )
+             !
+             ! SFWFLX Note: the evap_tile should be properly updated and added
+             buffer(:,1) = RESHAPE ( field%rsfl(:,:), (/ nbr_points /) ) + &
+                  &        RESHAPE ( field%rsfc(:,:), (/ nbr_points /) ) + &
+                  &        RESHAPE ( field%ssfl(:,:), (/ nbr_points /) ) + &
+                  &        RESHAPE ( field%ssfc(:,:), (/ nbr_points /) )
+             buffer(:,2) = RESHAPE ( field%evap_tile(:,:,iwtr), (/ nbr_points /) )
+
+             field_shape(3) = 2
+             CALL ICON_cpl_put_init ( field_id(3), field_shape, &
+                                      buffer(1:nbr_hor_points,1:2), ierror )
+             !
+             ! SFTEMP
+             buffer(:,1) =  RESHAPE ( field%temp(:,nlev,:), (/ nbr_points /) )
+             field_shape(3) = 1
+             CALL ICON_cpl_put_init ( field_id(4), field_shape, &
+                                      buffer(1:nbr_hor_points,1:1), ierror )
+             !
+             ! THFLX, total heat flux
+
+             buffer(:,1) =  RESHAPE ( field%swflxsfc  (:,:)     , (/ nbr_points /) ) !net shortwave flux at sfc
+             buffer(:,2) =  RESHAPE ( field%lwflxsfc  (:,:)     , (/ nbr_points /) ) !net longwave flux at sfc
+             buffer(:,3) =  RESHAPE ( field%shflx_tile(:,:,iwtr), (/ nbr_points /) ) !sensible heat flux
+             buffer(:,4) =  RESHAPE ( field%lhflx_tile(:,:,iwtr), (/ nbr_points /) ) !latent heat flux
+
+             field_shape(3) = 4
+             CALL ICON_cpl_put_init ( field_id(5), field_shape, &
+                                      buffer(1:nbr_hor_points,1:4), ierror )
+             field_shape(3) = 1
+
+             DEALLOCATE(field_id)
+             DEALLOCATE(buffer)
 
           ENDIF
 

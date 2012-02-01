@@ -110,6 +110,7 @@ cat > $atmo_namelist << EOF
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
+  lag                 = 1
   l_diagnostic        = .TRUE.
   l_activated         = .TRUE.
 /
@@ -119,6 +120,7 @@ cat > $atmo_namelist << EOF
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
+  lag                 = 1
   l_diagnostic        = .TRUE.
   l_activated         = .TRUE.
 /
@@ -135,6 +137,7 @@ cat > $atmo_namelist << EOF
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
+  lag                 = 1
   l_diagnostic        = .TRUE.
   l_activated         = .FALSE.
 /
@@ -144,6 +147,7 @@ cat > $atmo_namelist << EOF
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .TRUE.
   l_time_accumulation = .FALSE.
+  lag                 = 1
   l_diagnostic        = .TRUE.
   l_activated         = .TRUE.
 /
@@ -153,6 +157,7 @@ cat > $atmo_namelist << EOF
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
+  lag                 = 1
   l_diagnostic        = .TRUE.
   l_activated         = .TRUE.
 /
@@ -162,6 +167,7 @@ cat > $atmo_namelist << EOF
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
+  lag                 = 1
   l_diagnostic        = .TRUE.
   l_activated         = .TRUE.
 /
@@ -171,6 +177,7 @@ cat > $atmo_namelist << EOF
   dt_coupling         =  ${dt_coupling}
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
+  lag                 = 1
   l_diagnostic        = .TRUE.
   l_activated         = .TRUE.
 /

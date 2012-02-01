@@ -61,7 +61,7 @@ MODULE mo_icon_cpl_init_comp
 
   USE mo_icon_cpl, ONLY : set_cpl_local_comm, maxchar,        &
    &                      l_MPI_was_initialized,              &
-   &                      debug_coupler, cplout,              &
+   &                      debug_coupler_level, cplout,        &
    &                      grids, comps, cpl_fields,           &
    &                      nbr_active_comps,                   &
    &                      nbr_active_grids,                   &
@@ -174,7 +174,7 @@ CONTAINS
        WRITE  ( * , '(A14,I3,A)' ) 'Error on rank ', ICON_comp_comm, err_string
     ENDIF
 
-    IF ( debug_coupler ) &
+    IF ( debug_coupler_level > 0 ) &
          WRITE ( cplout , '(I3,A1,A)' ) ICON_global_rank, ':', ' returned from split '
 
     ! -------------------------------------------------------------------

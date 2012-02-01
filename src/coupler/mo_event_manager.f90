@@ -50,9 +50,11 @@
 !!
 MODULE mo_event_manager
 
-  USE mo_time_base, ONLY : t_julian_date, add_time
-  USE mo_icon_cpl,  ONLY : initial_date
-  USE mo_exception, ONLY : finish
+  USE mo_time_config, ONLY : time_config
+  USE mo_io_config, ONLY   : dt_checkpoint
+  USE mo_time_base, ONLY   : t_julian_date, add_time
+  USE mo_icon_cpl,  ONLY   : initial_date
+  USE mo_exception, ONLY   : finish
 
   IMPLICIT NONE
 
@@ -63,6 +65,8 @@ MODULE mo_event_manager
      INTEGER             :: delta_time
      INTEGER             :: time_step
      INTEGER             :: elapsed_time
+     INTEGER             :: restart_time
+     INTEGER             :: check_time
      INTEGER             :: lag
      TYPE(t_julian_date) :: current_date
   END TYPE t_event
@@ -92,6 +96,8 @@ CONTAINS
        events(id)%delta_time       = 0
        events(id)%time_step        = 0
        events(id)%elapsed_time     = 0
+       events(id)%restart_time     = 0
+       events(id)%check_time       = 0
        events(id)%lag              = 0
        events(id)%current_date     = initial_date
     ENDDO
@@ -153,6 +159,8 @@ CONTAINS
        new_events(number_of_events+1:new_dim)%delta_time       = 0
        new_events(number_of_events+1:new_dim)%time_step        = 0
        new_events(number_of_events+1:new_dim)%elapsed_time     = 0
+       new_events(number_of_events+1:new_dim)%restart_time     = 0
+       new_events(number_of_events+1:new_dim)%check_time       = 0
        new_events(number_of_events+1:new_dim)%lag              = 0
        new_events(number_of_events+1:new_dim)%current_date     = initial_date
 
@@ -183,8 +191,14 @@ CONTAINS
     events(id)%l_is_initialised = .TRUE.
     events(id)%delta_time       = delta_time
     events(id)%time_step        = time_step
+    events(id)%restart_time     = time_config%dt_restart
+    events(id)%check_time       = dt_checkpoint
+
+    ! Something is needed here for check poitning as well
 
     IF ( lag > 0 ) THEN
+
+       ! fast-forward internal event by lag coupling time steps
 
        events(id)%elapsed_time  = lag * time_step
        events(id)%lag           = lag
@@ -211,18 +225,16 @@ CONTAINS
 
     l_action = .FALSE.
 
+    IF ( MOD(events(event_id)%elapsed_time,events(event_id)%delta_time) == 0 ) &
+       l_action = .TRUE.
+
     events(event_id)%elapsed_time = &
     events(event_id)%elapsed_time + events(event_id)%time_step
-
-    IF ( events(event_id)%elapsed_time >= events(event_id)%delta_time ) THEN
-       l_action = .TRUE.
-       events(event_id)%elapsed_time = 0
-    ENDIF
 
     seconds = events(event_id)%time_step
     days    = 0
 
-    ! Update date and time for this event
+    ! Update date and time for the next event
 
     CALL add_time ( days, seconds, events(event_id)%current_date )
 

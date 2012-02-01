@@ -84,8 +84,8 @@ USE mo_oce_math_operators, ONLY: grad_fd_norm_oce,grad_fd_norm_oce_2D, height_re
 USE mo_oce_thermodyn,      ONLY: convert_insitu2pot_temp_func
 USE mo_oce_ab_timestepping,ONLY: calc_vert_velocity,update_time_indices
 USE mo_oce_linear_solver,  ONLY: gmres_e2e
-USE mo_icon_cpl_exchg,     ONLY: ICON_cpl_put
-USE mo_icon_cpl_def_field, ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
+!rr USE mo_icon_cpl_exchg,     ONLY: ICON_cpl_put_init
+!rr USE mo_icon_cpl_def_field, ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
 USE mo_master_control,     ONLY: is_restart_run
 USE mo_ape_params,         ONLY: ape_sst
 
@@ -526,67 +526,66 @@ CONTAINS
   TYPE(t_patch)                     :: ppatch
   TYPE(t_hydro_ocean_state), TARGET :: p_os
 
-  ! Local declarations for coupling:
-  INTEGER               :: ierror         !   return values form cpl_put/get calls
-  INTEGER               :: nbr_hor_points ! = inner and halo points
-  INTEGER               :: nbr_points     ! = nproma * nblks
-  INTEGER               :: nbr_fields
-  INTEGER, ALLOCATABLE  :: field_id(:)
-  INTEGER               :: field_shape(3)
-  REAL(wp), ALLOCATABLE :: buffer(:,:)
-
-  !-------------------------------------------------------------------------
-
-    IF ( is_coupled_run() ) THEN 
-
-      nbr_hor_points = ppatch%n_patch_cells
-      nbr_points     = nproma * ppatch%nblks_c
-      ALLOCATE(buffer(nbr_points,1))
-     !
-    !  see drivers/mo_atmo_model.f90:
-    !
-    !   field_id(1) represents "TAUX"   wind stress component
-    !   field_id(2) represents "TAUY"   wind stress component
-    !   field_id(3) represents "SFWFLX" surface fresh water flux
-    !   field_id(4) represents "SHFLX"  sensible heat flux
-    !   field_id(5) represents "LHFLX"  latent heat flux
-    !
-    !   field_id(6) represents "SST"    sea surface temperature
-    !   field_id(7) represents "OCEANU" u component of ocean surface current
-    !   field_id(8) represents "OCEANV" v component of ocean surface current
-    !
-      CALL ICON_cpl_get_nbr_fields ( nbr_fields )
-      ALLOCATE(field_id(nbr_fields))
-      CALL ICON_cpl_get_field_ids ( nbr_fields, field_id )
-    !
-      field_shape(1) = 1
-      field_shape(2) = ppatch%n_patch_cells 
-      field_shape(3) = 1
-
-    !
-    ! buffer is allocated over nproma only
-
-    !
-    ! Send fields from ocean to atmosphere
-    ! ------------------------------------
-    !
-    ! SST:
-      buffer(:,1) = RESHAPE(p_os%p_prog(nold(1))%tracer(:,1,:,1), (/nbr_points /) ) + tmelt
-      CALL ICON_cpl_put ( field_id(6), field_shape, buffer, ierror )
-    !
-    ! zonal wind
-!       buffer(:,1) = RESHAPE(p_os%p_diag%u(:,1,:), (/nbr_points /) )
-!       CALL ICON_cpl_put ( field_id(7), field_shape, buffer, ierror )
-    !
-    ! meridional wind
-!       buffer(:,1) = RESHAPE(p_os%p_diag%v(:,1,:), (/nbr_points /) )
-!       CALL ICON_cpl_put ( field_id(8), field_shape, buffer, ierror )
-
-      DeALLOCATE(field_id)
-      DEALLOCATE(buffer)
-
-
-    END IF
+!rr  ! Local declarations for coupling:
+!rr  INTEGER               :: ierror         !   return values form cpl_put/get calls
+!rr  INTEGER               :: nbr_hor_points ! = inner and halo points
+!rr  INTEGER               :: nbr_points     ! = nproma * nblks
+!rr  INTEGER               :: nbr_fields
+!rr  INTEGER, ALLOCATABLE  :: field_id(:)
+!rr  INTEGER               :: field_shape(3)
+!rr  REAL(wp), ALLOCATABLE :: buffer(:,:)
+!rr
+!rr  !-------------------------------------------------------------------------
+!rr
+!rr  IF ( is_coupled_run() ) THEN 
+!rr
+!rr     nbr_hor_points = ppatch%n_patch_cells
+!rr     nbr_points     = nproma * ppatch%nblks_c
+!rr     ALLOCATE(buffer(nbr_points,1))
+!rr     !
+!rr     !  see drivers/mo_atmo_model.f90:
+!rr     !
+!rr     !   field_id(1) represents "TAUX"   wind stress component
+!rr     !   field_id(2) represents "TAUY"   wind stress component
+!rr     !   field_id(3) represents "SFWFLX" surface fresh water flux
+!rr     !   field_id(4) represents "SHFLX"  sensible heat flux
+!rr     !   field_id(5) represents "LHFLX"  latent heat flux
+!rr     !
+!rr     !   field_id(6) represents "SST"    sea surface temperature
+!rr     !   field_id(7) represents "OCEANU" u component of ocean surface current
+!rr     !   field_id(8) represents "OCEANV" v component of ocean surface current
+!rr     !
+!rr     CALL ICON_cpl_get_nbr_fields ( nbr_fields )
+!rr     ALLOCATE(field_id(nbr_fields))
+!rr     CALL ICON_cpl_get_field_ids ( nbr_fields, field_id )
+!rr     !
+!rr     field_shape(1) = 1
+!rr     field_shape(2) = ppatch%n_patch_cells 
+!rr     field_shape(3) = 1
+!rr
+!rr     !
+!rr     ! buffer is allocated over nproma only
+!rr
+!rr     !
+!rr     ! Send fields from ocean to atmosphere
+!rr     ! ------------------------------------
+!rr     !
+!rr     ! SST:
+!rr     buffer(:,1) = RESHAPE(p_os%p_prog(nold(1))%tracer(:,1,:,1), (/nbr_points /) ) + tmelt
+!rr     CALL ICON_cpl_put_init ( field_id(6), field_shape, buffer, ierror )
+!rr     !
+!rr     ! zonal velocity
+!rr     buffer(:,1) = RESHAPE(p_os%p_diag%u(:,1,:), (/nbr_points /) )
+!rr     CALL ICON_cpl_put_init ( field_id(7), field_shape, buffer, ierror )
+!rr     !
+!rr     ! meridional velocity
+!rr     buffer(:,1) = RESHAPE(p_os%p_diag%v(:,1,:), (/nbr_points /) )
+!rr     CALL ICON_cpl_put_init ( field_id(8), field_shape, buffer, ierror )
+!rr
+!rr     DeALLOCATE(field_id)
+!rr     DEALLOCATE(buffer)
+!rr
+!rr  END IF
 
   END SUBROUTINE init_ho_coupled
 
