@@ -320,7 +320,8 @@ CONTAINS
                  WRITE ( cplout , '(a9,2i8)' ) ' with dy ', day,   time_config%cur_datetime%day
                  WRITE ( cplout , '(a9,2i8)' ) ' with hr ', hour,  time_config%cur_datetime%hour
                  WRITE ( cplout , '(a9,2i8)' ) ' with mn', minute, time_config%cur_datetime%minute
-                 WRITE ( cplout , '(a9,i8,F8.3)' ) ' with sc', second, time_config%cur_datetime%second
+                 WRITE ( cplout , '(a9,i8,F8.3)' ) ' with sc', second, &
+                   &  time_config%cur_datetime%second
              ENDIF
              EXIT
           ELSE
@@ -363,7 +364,8 @@ CONTAINS
     coupling_field = global_field
 #endif
     IF ( debug_coupler_level > -1 ) THEN
-       WRITE ( cplout , '(a,a)' ) 'cpl_read_restart: overwrite coupling field ', TRIM(fptr%field_name)
+       WRITE ( cplout , '(a,a)' ) 'cpl_read_restart: overwrite coupling field ', &
+         &  TRIM(fptr%field_name)
     ENDIF
 
 

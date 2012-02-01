@@ -144,7 +144,7 @@ CONTAINS
                             field_shape,       &! in
                             recv_field,        &! out
                             info,              &! out
-                            ierror )           &! out
+                            ierror )            ! out
 
     INTEGER, INTENT(in)    :: field_id         !<  field id
     INTEGER, INTENT(in)    :: field_shape(3)   !<  shape of recv field
@@ -418,7 +418,7 @@ CONTAINS
                                  field_shape,       &! in
                                  recv_field,        &! out
                                  info,              &! out
-                                 ierror )           &! out
+                                 ierror )            ! out
 
     INTEGER, INTENT(in)    :: field_id         !<  field id
     INTEGER, INTENT(in)    :: field_shape(3)   !<  shape of recv field
@@ -580,7 +580,8 @@ CONTAINS
              IF ( debug_coupler_level > 2 ) THEN
                 DO m = 1, nbr_bundles
                    DO i = 1, len
-                      WRITE ( cplout, '(i4,a,i4,a,i4,f13.6)' ) ICON_global_rank, ' extract from ', &
+                      WRITE ( cplout, '(i4,a,i4,a,i4,f13.6)' ) ICON_global_rank, &
+                        &  ' extract from ', &
                            source_rank, ' : ', tptr%source_list(i), recv_buffer(i,m) 
                    ENDDO
                 ENDDO
@@ -663,7 +664,7 @@ CONTAINS
                                   data,         &! out
                                   count,        &! out
                                   info,         &! out
-                                  ierror )      &! out
+                                  ierror )       ! out
 
     INTEGER, INTENT(out)          :: field_id         !<  field id
     INTEGER, INTENT(in)           :: field_shape(3)   !<  shape of outgoing data
@@ -728,7 +729,7 @@ CONTAINS
   SUBROUTINE ICON_cpl_put ( field_id,    &! in
                             field_shape, &! in
                             send_field,  &! in
-                            ierror )     &! out
+                            ierror )      ! out
 
     INTEGER, INTENT(in)    :: field_id         !<  field id
     INTEGER, INTENT(in)    :: field_shape(3)   !<  shape of send field
@@ -1021,7 +1022,7 @@ CONTAINS
   SUBROUTINE ICON_cpl_put_init ( field_id,    &! in
                                  field_shape, &! in
                                  send_field,  &! in
-                                 ierror )     &! out
+                                 ierror )      ! out
 
     INTEGER, INTENT(in)    :: field_id         !<  field id
     INTEGER, INTENT(in)    :: field_shape(3)   !<  shape of send field
