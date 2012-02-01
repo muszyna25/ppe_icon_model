@@ -238,9 +238,9 @@ MODULE mo_icon_cpl
 
      ! for writing out coupled restarts
      INTEGER                :: global_size     ! relevant on root only
-     INTEGER, ALLOCATABLE   :: local_sizes(:)  ! relevant on root only
-     INTEGER, ALLOCATABLE   :: displacement(:) ! relevant on root only
-     INTEGER, ALLOCATABLE   :: global_index(:) ! relevant on root only
+     INTEGER, POINTER       :: local_sizes(:)  ! relevant on root only
+     INTEGER, POINTER       :: displacement(:) ! relevant on root only
+     INTEGER, POINTER       :: global_index(:) ! relevant on root only
 
   END TYPE t_cpl_field
 
