@@ -686,6 +686,8 @@ CONTAINS
     ierror = 0
     info   = 0
 
+#ifndef NOMPI
+
     ! -------------------------------------------------------------------
     ! Check field id and return if field was not declared.
     ! -------------------------------------------------------------------
@@ -715,7 +717,10 @@ CONTAINS
     count = fptr%accumulation_count
 
     data  = fptr%send_field_acc
-
+#else
+    data  = 0.0
+    count = 0
+#endif
   END SUBROUTINE ICON_cpl_get_field
 
   ! --------------------------------------------------------------------

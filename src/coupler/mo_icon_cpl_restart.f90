@@ -79,17 +79,16 @@ CONTAINS
     INTEGER, INTENT(IN)  :: field_id
     INTEGER, INTENT(out) :: ierror           !<  returned error code
 
+#ifndef NOMPI
     INTEGER :: local_size
     INTEGER :: tag = 4711
     INTEGER :: status(MPI_STATUS_SIZE)
-#ifndef NOMPI
     INTEGER :: i
 
     fptr => cpl_fields(field_id)
     gptr => grids(fptr%grid_id)
-#endif
+
     local_size = fptr%field_shape(2) - fptr%field_shape(1) + 1
-#ifndef NOMPI
 
     ! Collect local sizes of coupling fields
 
@@ -126,8 +125,6 @@ CONTAINS
     CALL mpi_gatherv ( gptr%grid_glob_index, local_size, MPI_INTEGER, &
                        fptr%global_index, fptr%local_sizes, fptr%displacement, MPI_INTEGER, &
                        ICON_root, ICON_comp_comm, ierror )
-#else
-    fptr%global_size = local_size
 #endif
 
   END SUBROUTINE cpl_init_restart
@@ -148,7 +145,6 @@ CONTAINS
     REAL(wp), ALLOCATABLE  :: global_buffer(:,:)
 
     INTEGER :: i, j, jj, local_size
-#endif
 
     ierror = 0
 
@@ -156,7 +152,6 @@ CONTAINS
 
     IF ( fptr%coupling%time_operation == cpl_field_none ) RETURN
 
-#ifndef NOMPI
     local_size = field_shape(2) - field_shape(1) + 1
 
     IF ( ICON_local_rank == ICON_root ) THEN
@@ -182,11 +177,9 @@ CONTAINS
           ENDDO
        ENDDO
     ENDIF
-#endif
 
-#ifndef NOMPI
     IF ( ICON_local_rank == ICON_root ) THEN
-#endif
+
     second = INT(time_config%end_datetime%second)
     len = 12 + LEN_TRIM(comps(1)%comp_name) + 1 + 16
     WRITE(file_name(1:len), '(A12,A,A1,I4.4,2I2.2,A1,3I2.2,A1)')   &
@@ -212,18 +205,14 @@ CONTAINS
                                 time_config%end_datetime%second
     WRITE  ( unit = rest_unit ) count
     WRITE  ( unit = rest_unit ) global_size, field_shape(3)
-#ifndef NOMPI
+
     WRITE  ( unit = rest_unit ) global_field
-#else
-    WRITE  ( unit = rest_unit ) coupling_field
-#endif
+
     CLOSE  ( unit = rest_unit )
 
-#ifndef NOMPI
     ENDIF
     DEALLOCATE (global_buffer,global_field)
-#else
-    DEALLOCATE (global_field)
+
 #endif
 
   END SUBROUTINE cpl_write_restart
@@ -245,7 +234,7 @@ CONTAINS
     REAL(wp), ALLOCATABLE  :: global_buffer(:,:)
 
     INTEGER :: i, j, jj, local_size
-#endif
+
     INTEGER :: year, month, day, hour, minute, second
     INTEGER :: global_size, nbr_bundles
     INTEGER :: global_field_id
@@ -279,31 +268,25 @@ CONTAINS
 
     IF ( .NOT. existing ) RETURN
 
-#ifndef NOMPI
     IF ( ICON_local_rank == ICON_root ) THEN
-#endif
+
        rest_unit = find_next_free_unit(10,100)
        OPEN  ( UNIT = rest_unit, FILE = file_name(1:len), FORM = "UNFORMATTED", status = 'OLD' )
 
-#ifndef NOMPI
     ENDIF
-#endif
 
     local_size = field_shape(2) - field_shape(1) + 1
 
     ALLOCATE (global_field (fptr%global_size,field_shape(3)))
 
-#ifndef NOMPI
     IF ( ICON_local_rank == ICON_root ) THEN
-#endif
        ALLOCATE (global_buffer(fptr%global_size,field_shape(3)))
-#ifndef NOMPI
     ELSE
        ALLOCATE (global_buffer(1,1))
     ENDIF
 
     IF ( ICON_local_rank == ICON_root ) THEN
-#endif
+
        global_field_id = -1
 
        DO WHILE ( eof >=0 ) 
@@ -332,10 +315,9 @@ CONTAINS
           ENDIF
        ENDDO
        REWIND ( unit = rest_unit )
-#ifndef NOMPI
+
     ENDIF
     CALL MPI_BCAST ( global_field_id, 1, MPI_INTEGER, ICON_root, ICON_comp_comm, ierror )
-#endif
 
     ! ids do not match, we have not found the correct field in the restart
 
@@ -343,7 +325,6 @@ CONTAINS
 
     info = 1
 
-#ifndef NOMPI
     ! rearrange global_field in global buffer and scatter global buffer
     IF ( ICON_local_rank == ICON_root ) THEN
        DO i = 1, ICON_local_size
@@ -360,21 +341,19 @@ CONTAINS
             coupling_field(:,i), local_size, datatype, &
             ICON_root, ICON_comp_comm, ierror )
     ENDDO
-#else
-    coupling_field = global_field
-#endif
+
     IF ( debug_coupler_level > -1 ) THEN
        WRITE ( cplout , '(a,a)' ) 'cpl_read_restart: overwrite coupling field ', &
          &  TRIM(fptr%field_name)
     ENDIF
 
-
-#ifndef NOMPI
     IF ( ICON_local_rank == ICON_root ) DEALLOCATE (global_buffer)
-#endif
+
     DEALLOCATE (global_field)
 
     CLOSE ( unit = rest_unit )
+
+#endif
 
   END SUBROUTINE cpl_read_restart
 
