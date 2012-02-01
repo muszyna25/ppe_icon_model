@@ -810,7 +810,7 @@ CONTAINS
         &           p_diag_z%tracer(:,:,:,iqc),                          & !out
         &           p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev,      & !in
         &           wfac_lin_zlev, idx0_lin_zlev, bot_idx_lin, wfacpbl1, & !in
-        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.TRUE.,             & !in
+        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.FALSE.,            & !in
         &           l_extrapol=.TRUE., l_pd_limit=.FALSE.,               & !in
         &           lower_limit=0._wp                                    ) !in
 
@@ -821,7 +821,7 @@ CONTAINS
         &           p_diag_z%tracer(:,:,:,iqr),                          & !out
         &           p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev,      & !in
         &           wfac_lin_zlev, idx0_lin_zlev, bot_idx_lin, wfacpbl1, & !in
-        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.TRUE.,             & !in
+        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.FALSE.,            & !in
         &           l_extrapol=.TRUE., l_pd_limit=.FALSE.,               & !in
         &           lower_limit=0._wp                                    ) !in
 
@@ -832,7 +832,7 @@ CONTAINS
         &           p_diag_z%tracer(:,:,:,iqi),                          & !out
         &           p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev,      & !in
         &           wfac_lin_zlev, idx0_lin_zlev, bot_idx_lin, wfacpbl1, & !in
-        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.TRUE.,             & !in
+        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.FALSE.,            & !in
         &           l_extrapol=.TRUE., l_pd_limit=.FALSE.,               & !in
         &           lower_limit=0._wp                                    ) !in
 
@@ -843,7 +843,7 @@ CONTAINS
         &           p_diag_z%tracer(:,:,:,iqs),                          & !out
         &           p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev,      & !in
         &           wfac_lin_zlev, idx0_lin_zlev, bot_idx_lin, wfacpbl1, & !in
-        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.TRUE.,             & !in
+        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.FALSE.,            & !in
         &           l_extrapol=.TRUE., l_pd_limit=.FALSE.,               & !in
         &           lower_limit=0._wp                                    ) !in
 
@@ -854,7 +854,7 @@ CONTAINS
         &           p_diag_z%tot_cld(:,:,:,iqc),                         & !out
         &           p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev,      & !in
         &           wfac_lin_zlev, idx0_lin_zlev, bot_idx_lin, wfacpbl1, & !in
-        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.TRUE.,             & !in
+        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.FALSE.,            & !in
         &           l_extrapol=.TRUE., l_pd_limit=.FALSE.,               & !in
         &           lower_limit=0._wp                                    ) !in
 
@@ -864,7 +864,7 @@ CONTAINS
         &           p_diag_z%tot_cld(:,:,:,iqi),                         & !out
         &           p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev,      & !in
         &           wfac_lin_zlev, idx0_lin_zlev, bot_idx_lin, wfacpbl1, & !in
-        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.TRUE.,             & !in
+        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.FALSE.,            & !in
         &           l_extrapol=.TRUE., l_pd_limit=.FALSE.,               & !in
         &           lower_limit=0._wp                                    ) !in
 
@@ -874,7 +874,7 @@ CONTAINS
         &           p_diag_z%tot_cld(:,:,:,icc),                         & !out
         &           p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev,      & !in
         &           wfac_lin_zlev, idx0_lin_zlev, bot_idx_lin, wfacpbl1, & !in
-        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.TRUE.,             & !in
+        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.FALSE.,            & !in
         &           l_extrapol=.TRUE., l_pd_limit=.FALSE.,               & !in
         &           lower_limit=0._wp                                    ) !in
 
@@ -1010,7 +1010,7 @@ CONTAINS
         &           p_diag_p%tracer(:,:,:,iqc),                          & !out
         &           p_patch%nblks_c, p_patch%npromz_c, nlev, nplev,      & !in
         &           wfac_lin_plev, idx0_lin_plev, bot_idx_lin, wfacpbl1, & !in
-        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.TRUE.,             & !in
+        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.FALSE.,            & !in
         &           l_extrapol=.TRUE., l_pd_limit=.FALSE.,               & !in
         &           lower_limit=0._wp                                    ) !in
 
@@ -1020,7 +1020,7 @@ CONTAINS
         &           p_diag_p%tracer(:,:,:,iqr),                          & !out
         &           p_patch%nblks_c, p_patch%npromz_c, nlev, nplev,      & !in
         &           wfac_lin_plev, idx0_lin_plev, bot_idx_lin, wfacpbl1, & !in
-        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.TRUE.,             & !in
+        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.FALSE.,            & !in
         &           l_extrapol=.TRUE., l_pd_limit=.FALSE.,               & !in
         &           lower_limit=0._wp                                    ) !in
 
@@ -1031,7 +1031,7 @@ CONTAINS
         &           p_diag_p%tracer(:,:,:,iqi),                          & !out
         &           p_patch%nblks_c, p_patch%npromz_c, nlev, nplev,      & !in
         &           wfac_lin_plev, idx0_lin_plev, bot_idx_lin, wfacpbl1, & !in
-        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.TRUE.,             & !in
+        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.FALSE.,            & !in
         &           l_extrapol=.TRUE., l_pd_limit=.FALSE.,               & !in
         &           lower_limit=0._wp                                    ) !in
 
@@ -1042,7 +1042,7 @@ CONTAINS
         &           p_diag_p%tracer(:,:,:,iqs),                          & !out
         &           p_patch%nblks_c, p_patch%npromz_c, nlev, nplev,      & !in
         &           wfac_lin_plev, idx0_lin_plev, bot_idx_lin, wfacpbl1, & !in
-        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.TRUE.,             & !in
+        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.FALSE.,            & !in
         &           l_extrapol=.TRUE., l_pd_limit=.FALSE.,               & !in
         &           lower_limit=0._wp                                    ) !in
 
@@ -1053,7 +1053,7 @@ CONTAINS
         &           p_diag_p%tot_cld(:,:,:,iqc),                         & !out
         &           p_patch%nblks_c, p_patch%npromz_c, nlev, nplev,      & !in
         &           wfac_lin_plev, idx0_lin_plev, bot_idx_lin, wfacpbl1, & !in
-        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.TRUE.,             & !in
+        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.FALSE.,            & !in
         &           l_extrapol=.TRUE., l_pd_limit=.FALSE.,               & !in
         &           lower_limit=0._wp                                    ) !in
 
@@ -1063,7 +1063,7 @@ CONTAINS
         &           p_diag_p%tot_cld(:,:,:,iqi),                         & !out
         &           p_patch%nblks_c, p_patch%npromz_c, nlev, nplev,      & !in
         &           wfac_lin_plev, idx0_lin_plev, bot_idx_lin, wfacpbl1, & !in
-        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.TRUE.,             & !in
+        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.FALSE.,            & !in
         &           l_extrapol=.TRUE., l_pd_limit=.FALSE.,               & !in
         &           lower_limit=0._wp                                    ) !in
 
@@ -1073,7 +1073,7 @@ CONTAINS
         &           p_diag_p%tot_cld(:,:,:,icc),                         & !out
         &           p_patch%nblks_c, p_patch%npromz_c, nlev, nplev,      & !in
         &           wfac_lin_plev, idx0_lin_plev, bot_idx_lin, wfacpbl1, & !in
-        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.TRUE.,             & !in
+        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.FALSE.,            & !in
         &           l_extrapol=.TRUE., l_pd_limit=.FALSE.,               & !in
         &           lower_limit=0._wp                                    ) !in
 
