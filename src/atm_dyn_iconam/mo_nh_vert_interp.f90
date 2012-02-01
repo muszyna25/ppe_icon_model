@@ -1344,6 +1344,9 @@ CONTAINS
 
 !-------------------------------------------------------------------------
 
+    IF (nlevs_in <= 3) CALL finish("prepare_cubic_intp:",&
+      "Error, number of levels too small for cubic interpolation")
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,nlen,jk,jc,jk1,jk_start,l_found,lfound_all)
 
