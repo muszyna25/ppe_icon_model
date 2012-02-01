@@ -191,8 +191,8 @@ CONTAINS
     events(id)%l_is_initialised = .TRUE.
     events(id)%delta_time       = delta_time
     events(id)%time_step        = time_step
-    events(id)%restart_time     = time_config%dt_restart
-    events(id)%check_time       = dt_checkpoint
+    events(id)%restart_time     = NINT(time_config%dt_restart)
+    events(id)%check_time       = NINT(dt_checkpoint)
 
     ! Something is needed here for check poitning as well
 

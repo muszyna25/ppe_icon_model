@@ -152,6 +152,8 @@ CONTAINS
     INTEGER, INTENT(out)   :: info             !<  action performed
     INTEGER, INTENT(out)   :: ierror           !<  returned error code
 
+#ifndef NOMPI
+
     ! Local variables and fields
 
     REAL(wp)               :: recv_buf(field_shape(3))
@@ -178,8 +180,6 @@ CONTAINS
     IF ( field_id < 1 .OR.  field_id > nbr_ICON_fields ) RETURN
 
     IF ( .NOT. cpl_fields(field_id)%l_field_status ) RETURN
-
-#ifndef NOMPI
 
     ! -------------------------------------------------------------------
     ! Check event
@@ -399,7 +399,16 @@ CONTAINS
     DEALLOCATE ( lrequests )
     DEALLOCATE ( msg_fm_src )
 #else
+
+    PRINT *, ' Restart requires MPI! '
+    PRINT *, ' field ID    ', field_id
+    PRINT *, ' field shape ', field_shape
+
     recv_field(:,:) = 0.0_wp
+
+    ierror = -1
+    info   = 0
+
 #endif
 
   END SUBROUTINE ICON_cpl_get
@@ -426,6 +435,8 @@ CONTAINS
     INTEGER, INTENT(out)   :: info             !<  action performed
     INTEGER, INTENT(out)   :: ierror           !<  returned error code
 
+#ifndef NOMPI
+
     ! for coupling diagnostic
     !
     REAL(wp)               :: recv_buf(field_shape(3))
@@ -445,8 +456,6 @@ CONTAINS
     IF ( field_id < 1 .OR.  field_id > nbr_ICON_fields ) RETURN
 
     IF ( .NOT. cpl_fields(field_id)%l_field_status ) RETURN
-
-#ifndef NOMPI
 
     ! -------------------------------------------------------------------
     ! Check event
@@ -647,7 +656,16 @@ CONTAINS
     ENDIF
 
 #else
+
+    PRINT *, ' Restart requires MPI! '
+    PRINT *, ' field ID    ', field_id
+    PRINT *, ' field shape ', field_shape
+
     recv_field(:,:) = 0.0_wp
+
+    ierror = -1
+    info   = 0
+
 #endif
 
   END SUBROUTINE ICON_cpl_get_init
@@ -673,20 +691,14 @@ CONTAINS
     INTEGER, INTENT(out)          :: info             !<  returned info code
     INTEGER, INTENT(out)          :: ierror           !<  returned error code
 
-    ! ----------------
-    ! Local variables:
-    ! ----------------
-
-    TYPE(t_cpl_field), POINTER    :: fptr
- 
     ! -------------------------------------------------------------------
     ! Initialise variables
     ! -------------------------------------------------------------------
 
+#ifndef NOMPI
+
     ierror = 0
     info   = 0
-
-#ifndef NOMPI
 
     ! -------------------------------------------------------------------
     ! Check field id and return if field was not declared.
@@ -718,8 +730,17 @@ CONTAINS
 
     data  = fptr%send_field_acc
 #else
-    data  = 0.0
-    count = 0
+
+    PRINT *, ' Restart requires MPI! '
+    PRINT *, ' field ID    ', field_id
+    PRINT *, ' field shape ', field_shape
+
+    data   = 0.0_wp
+    count  = 0
+
+    ierror = -1
+    info   = 0
+
 #endif
   END SUBROUTINE ICON_cpl_get_field
 
@@ -1008,7 +1029,12 @@ CONTAINS
 
 #else
 
-    ierror = 0
+    PRINT *, ' Restart requires MPI! '
+    PRINT *, ' field ID    ', field_id
+    PRINT *, ' field shape ', field_shape
+    PRINT *, ' send field  ', send_field(1,1)
+
+    ierror = -1 
 
 #endif
 
@@ -1216,7 +1242,11 @@ CONTAINS
 
 #else
 
-    ierror = 0
+    PRINT *, ' Restart requires MPI! '
+    PRINT *, ' field ID    ', field_id
+    PRINT *, ' field shape ', field_shape
+    PRINT *, ' send field  ', send_field(1,1)
+    ierror = -1
 
 #endif
 

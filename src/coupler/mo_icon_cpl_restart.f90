@@ -125,6 +125,9 @@ CONTAINS
     CALL mpi_gatherv ( gptr%grid_glob_index, local_size, MPI_INTEGER, &
                        fptr%global_index, fptr%local_sizes, fptr%displacement, MPI_INTEGER, &
                        ICON_root, ICON_comp_comm, ierror )
+#else
+    fptr => cpl_fields(field_id)
+    ierror = 0
 #endif
 
   END SUBROUTINE cpl_init_restart
@@ -212,7 +215,10 @@ CONTAINS
 
     ENDIF
     DEALLOCATE (global_buffer,global_field)
-
+#else
+    fptr => cpl_fields(field_id)
+    print *, 'Restart is not supported', coupling_field (field_shape(1),field_shape(3)), count
+    ierror = 0
 #endif
 
   END SUBROUTINE cpl_write_restart
@@ -352,7 +358,12 @@ CONTAINS
     DEALLOCATE (global_field)
 
     CLOSE ( unit = rest_unit )
-
+#else
+    print *, 'Restart is not supported'
+    fptr => cpl_fields(field_id)
+    coupling_field(field_shape(1):field_shape(2),field_shape(3)) = 0.0_wp
+    info   = 0
+    ierror = 0
 #endif
 
   END SUBROUTINE cpl_read_restart

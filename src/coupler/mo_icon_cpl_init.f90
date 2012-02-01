@@ -111,6 +111,7 @@ CONTAINS
   SUBROUTINE ICON_cpl_init(debug_level)
 
      INTEGER, OPTIONAL, INTENT(in) :: debug_level
+
     ! -------------------------------------------------------------------
     ! Initialise variables
     ! -------------------------------------------------------------------
@@ -235,6 +236,8 @@ CONTAINS
     ! -------------------------------------------------------------------
 
     ierror = 0
+
+    IF (PRESENT(debug_level)) RETURN
 
 #endif
 
