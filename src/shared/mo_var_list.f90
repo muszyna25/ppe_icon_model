@@ -6,7 +6,7 @@ MODULE mo_var_list
        &                         DATATYPE_INT8
   USE mo_cf_convention,    ONLY: t_cf_var
   USE mo_grib2,            ONLY: t_grib2_var
-  USE mo_var_metadata,     ONLY: t_var_metadata, t_union_vals
+  USE mo_var_metadata,     ONLY: t_var_metadata, t_union_vals, t_tracer_meta
   USE mo_var_list_element, ONLY: t_var_list_element
   USE mo_linked_list,      ONLY: t_var_list, t_list_element, &
        &                         new_list, delete_list,      &
@@ -25,6 +25,7 @@ MODULE mo_var_list
   PUBLIC :: delete_var_lists          ! delete all output var_lists
   PUBLIC :: get_var_list              ! get a pointer to an existing output var_list
   PUBLIC :: set_var_list              ! set default parameters of an output var_list
+  PUBLIC :: create_tracer_metadata    ! create metadata for tracer variables
   PUBLIC :: print_var_list
   PUBLIC :: print_memory_use
 
@@ -36,6 +37,7 @@ MODULE mo_var_list
   PUBLIC :: max_var_lists
 
   PUBLIC :: add_var                   ! create/allocate a new var_list list entry
+  PUBLIC :: add_var_list_reference
   PUBLIC :: add_ref                   ! create/reference a new var_list list entry
   PUBLIC :: get_var                   ! obtain reference to existing list entry
 
@@ -61,7 +63,9 @@ MODULE mo_var_list
     MODULE PROCEDURE add_var_list_reference_r3d
     MODULE PROCEDURE add_var_list_reference_r2d
   END INTERFACE add_ref
-  
+
+
+
   INTERFACE get_var  ! obtain reference to a list entry
     MODULE PROCEDURE get_var_list_element_r5d
     MODULE PROCEDURE get_var_list_element_r4d
@@ -89,6 +93,7 @@ MODULE mo_var_list
     MODULE PROCEDURE assign_if_present_cf
     MODULE PROCEDURE assign_if_present_grib2
     MODULE PROCEDURE assign_if_present_union
+    MODULE PROCEDURE assign_if_present_tracer_meta
   END INTERFACE assign_if_present
   
   INTEGER, PARAMETER             :: max_var_lists  = 128      ! max number of output var_lists
@@ -361,7 +366,95 @@ CONTAINS
     this_info%cdiZaxisID          = -1
     this_info%cdiDataType         = -1
     !
+    this_info%tracer              = create_tracer_metadata()
+    !
   END FUNCTION default_var_list_metadata
+  !------------------------------------------------------------------------------------------------
+  !
+  ! Set tracer parameters of list element already created
+  ! (public routine. Can be used for two things:
+  ! 1.) default settings: If used without any argument, it gives back a variable
+  !     of type t_tracer_meta, containing the default settings.
+  ! 2.) Setting of metadata: If used with arguments, it gives back a variable 
+  !     of type t_tracer_meta, containing the default settings except for those components 
+  !     which are given in the argument list.
+  !
+  ! Comment by DR: Maybe for the future one could define different sets of default values
+  ! for different groups of ART species.
+  ! 
+  FUNCTION create_tracer_metadata(lis_tracer, ihadv_tracer, ivadv_tracer, lturb_tracer, &
+    &                            lsed_tracer, ldep_tracer, lconv_tracer,                &
+    &                            lwash_tracer) RESULT(tracer_meta)
+
+    LOGICAL, INTENT(IN), OPTIONAL :: lis_tracer      ! this is a tracer field (TRUE/FALSE)
+    INTEGER, INTENT(IN), OPTIONAL :: ihadv_tracer    ! method for horizontal transport
+    INTEGER, INTENT(IN), OPTIONAL :: ivadv_tracer    ! method for vertical transport
+    LOGICAL, INTENT(IN), OPTIONAL :: lturb_tracer    ! turbulent transport (TRUE/FALSE)
+    LOGICAL, INTENT(IN), OPTIONAL :: lsed_tracer     ! sedimentation (TRUE/FALSE)
+    LOGICAL, INTENT(IN), OPTIONAL :: ldep_tracer     ! dry deposition (TRUE/FALSE)  
+    LOGICAL, INTENT(IN), OPTIONAL :: lconv_tracer    ! convection  (TRUE/FALSE)
+    LOGICAL, INTENT(IN), OPTIONAL :: lwash_tracer    ! washout (TRUE/FALSE)
+
+    TYPE(t_tracer_meta) :: tracer_meta               ! tracer metadata
+
+    ! lis_tracer
+    IF ( PRESENT(lis_tracer) ) THEN
+      tracer_meta%lis_tracer = lis_tracer
+    ELSE
+      tracer_meta%lis_tracer = .FALSE.
+    ENDIF
+
+    ! ihadv_tracer
+    IF ( PRESENT(ihadv_tracer) ) THEN
+      tracer_meta%ihadv_tracer = ihadv_tracer
+    ELSE
+      tracer_meta%ihadv_tracer = 2
+    ENDIF
+
+    ! ivadv_tracer
+    IF ( PRESENT(ivadv_tracer) ) THEN
+      tracer_meta%ivadv_tracer = ivadv_tracer
+    ELSE
+      tracer_meta%ivadv_tracer = 3
+    ENDIF
+
+    ! lturb_tracer  
+    IF ( PRESENT(lturb_tracer) ) THEN
+      tracer_meta%lturb_tracer = lturb_tracer
+    ELSE
+      tracer_meta%lturb_tracer = .FALSE.
+    ENDIF
+
+    ! lsed_tracer
+    IF ( PRESENT(lsed_tracer) ) THEN
+      tracer_meta%lsed_tracer = lsed_tracer
+    ELSE
+      tracer_meta%lsed_tracer = .FALSE.
+    ENDIF
+
+    ! ldep_tracer
+    IF ( PRESENT(ldep_tracer) ) THEN
+      tracer_meta%ldep_tracer = ldep_tracer
+    ELSE
+      tracer_meta%ldep_tracer = .FALSE.
+    ENDIF
+
+    ! lconv_tracer
+    IF ( PRESENT(lconv_tracer) ) THEN
+      tracer_meta%lconv_tracer = lconv_tracer
+    ELSE
+      tracer_meta%lconv_tracer = .FALSE.
+    ENDIF
+
+    ! lwash_tracer
+    IF ( PRESENT(lwash_tracer) ) THEN
+      tracer_meta%lwash_tracer = lwash_tracer
+    ELSE
+      tracer_meta%lwash_tracer = .FALSE.
+    ENDIF
+
+  END FUNCTION create_tracer_metadata
+
   !------------------------------------------------------------------------------------------------
   !
   ! Set parameters of list element already created
@@ -374,7 +467,7 @@ CONTAINS
          &                     name, hgrid, vgrid, cf, grib2, ldims,         &
          &                     loutput, lcontainer, lrestart, lrestart_cont, &
          &                     initval, laccu, resetval, lmiss, missval,     &
-         &                     tlev_source, verbose)
+         &                     tlev_source, tracer_info, verbose)
     !
     TYPE(t_var_metadata), INTENT(inout)        :: info          ! memory info struct.
     CHARACTER(len=*),     INTENT(in), OPTIONAL :: name          ! variable name
@@ -393,6 +486,7 @@ CONTAINS
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss         ! missing value flag
     TYPE(t_union_vals),   INTENT(in), OPTIONAL :: missval       ! missing value
     INTEGER,              INTENT(in), OPTIONAL :: tlev_source   ! actual TL for TL dependent vars
+    TYPE(t_tracer_meta),  INTENT(in), OPTIONAL :: tracer_info   ! tracer meta data
     LOGICAL,              INTENT(in), OPTIONAL :: verbose
     !
     LOGICAL :: lverbose
@@ -432,6 +526,10 @@ CONTAINS
     CALL assign_if_present (info%lrestart_cont, lrestart_cont)
     CALL assign_if_present (info%initval,       initval)
     CALL assign_if_present (info%tlev_source,   tlev_source)
+    !
+    ! set flags concerning tracer fields
+    !
+    CALL assign_if_present (info%tracer,   tracer_info)
     !
     ! printout (optional)
     !
@@ -2369,7 +2467,8 @@ CONTAINS
   SUBROUTINE add_var_list_reference_r3d (this_list, target_name, name, ptr,                      &
        &                                 hgrid, vgrid, cf, grib2, ldims, loutput,                &
        &                                 lrestart, lrestart_cont, initval_r, laccu, resetval_r,  &
-       &                                 lmiss, missval_r, tlev_source, info, verbose)
+       &                                 lmiss, missval_r, tlev_source, tracer_info, info,       &
+       &                                 verbose)
     !
     TYPE(t_var_list), INTENT(inout)            :: this_list
     CHARACTER(len=*), INTENT(in)               :: target_name
@@ -2389,6 +2488,7 @@ CONTAINS
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
     REAL(wp),             INTENT(in), OPTIONAL :: missval_r           ! missing value
     INTEGER,              INTENT(in), OPTIONAL :: tlev_source         ! actual TL for TL dependent vars
+    TYPE(t_tracer_meta),  INTENT(in), OPTIONAL :: tracer_info         ! tracer meta data
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
     LOGICAL,              INTENT(in), OPTIONAL :: verbose
     !
@@ -2451,7 +2551,7 @@ CONTAINS
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
-         tlev_source=tlev_source, verbose=verbose)
+         tlev_source=tlev_source, tracer_info=tracer_info, verbose=verbose)
     !
     ref_info%ndims = 3
     ref_info%used_dimensions =  target_element%field%info%used_dimensions
@@ -2481,6 +2581,10 @@ CONTAINS
     END IF
     !
   END SUBROUTINE add_var_list_reference_r3d
+
+
+
+
   !------------------------------------------------------------------------------------------------
   !
   ! create (allocate) a new table entry
@@ -2490,7 +2594,8 @@ CONTAINS
   SUBROUTINE add_var_list_reference_r2d (this_list, target_name, name, ptr,                      &
        &                                 hgrid, vgrid, cf, grib2, ldims, loutput,                &
        &                                 lrestart, lrestart_cont, initval_r, laccu, resetval_r,  &
-       &                                 lmiss, missval_r, tlev_source, info, verbose)
+       &                                 lmiss, missval_r, tlev_source, tracer_info,             &
+       &                                 info, verbose)
 
     TYPE(t_var_list), INTENT(inout)            :: this_list
     CHARACTER(len=*), INTENT(in)               :: target_name
@@ -2510,6 +2615,7 @@ CONTAINS
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
     REAL(wp),             INTENT(in), OPTIONAL :: missval_r           ! missing value
     INTEGER,              INTENT(in), OPTIONAL :: tlev_source         ! actual TL for TL dependent vars
+    TYPE(t_tracer_meta),  INTENT(in), OPTIONAL :: tracer_info         ! tracer meta data
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
     LOGICAL,              INTENT(in), OPTIONAL :: verbose
     !
@@ -2571,7 +2677,7 @@ CONTAINS
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
-         tlev_source=tlev_source, verbose=verbose)
+         tlev_source=tlev_source, tracer_info=tracer_info, verbose=verbose)
     !
     ref_info%ndims = 2
     ref_info%used_dimensions = target_element%field%info%used_dimensions
@@ -2887,5 +2993,12 @@ CONTAINS
     IF (.NOT.PRESENT(x)) RETURN
     y = x
   END SUBROUTINE assign_if_present_union
+  !------------------------------------------------------------------------------------------------
+  SUBROUTINE assign_if_present_tracer_meta (y,x)
+    TYPE(t_tracer_meta), INTENT(inout)        :: y
+    TYPE(t_tracer_meta) ,INTENT(in) ,OPTIONAL :: x
+    IF (.NOT.PRESENT(x)) RETURN
+    y = x
+  END SUBROUTINE assign_if_present_tracer_meta
   !------------------------------------------------------------------------------------------------
 END MODULE mo_var_list

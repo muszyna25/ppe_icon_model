@@ -45,7 +45,7 @@
 !!
 MODULE mo_ext_data
 
-  USE mo_kind
+  USE mo_kind,               ONLY: wp
   USE mo_io_units,           ONLY: filename_max
   USE mo_parallel_config,    ONLY: nproma
   USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam, io3_clim, io3_ape, &
@@ -67,10 +67,9 @@ MODULE mo_ext_data
   USE mo_math_operators,     ONLY: nabla2_scalar, nabla4_scalar
   USE mo_loopindices,        ONLY: get_indices_c
   USE mo_sync,               ONLY: SYNC_C, SYNC_V, sync_patch_array
-  USE mo_mpi,                ONLY: my_process_is_stdio, p_pe, p_io, p_bcast,&
+  USE mo_mpi,                ONLY: my_process_is_stdio, p_io, p_bcast, &
     &                              p_comm_work_test, p_comm_work
   USE mo_parallel_config,    ONLY: p_test_run
-  USE mo_communication,      ONLY: idx_no, blk_no
   USE mo_linked_list,        ONLY: t_var_list
   USE mo_var_list,           ONLY: default_var_list_settings, &
     &                              add_var,                   &
@@ -80,6 +79,7 @@ MODULE mo_ext_data
   USE mo_cf_convention
   USE mo_grib2
   USE mo_cdi_constants
+  USE mo_util_netcdf,        ONLY: read_netcdf_data, read_netcdf_lu, nf
   USE mo_util_string,        ONLY: t_keyword_list,  &
     &                              associate_keyword, with_keywords
 
@@ -103,7 +103,6 @@ MODULE mo_ext_data
 
 
 
-
   PUBLIC :: t_external_data
   PUBLIC :: t_external_atmos
   PUBLIC :: t_external_atmos_td
@@ -114,18 +113,10 @@ MODULE mo_ext_data
 
   PUBLIC :: init_ext_data
   PUBLIC :: destruct_ext_data
-  PUBLIC :: smooth_topography, read_netcdf_data
+  PUBLIC :: smooth_topography 
 
   PUBLIC :: nlev_o3,nmonths
 	
-
-  INTERFACE read_netcdf_data
-    MODULE PROCEDURE read_netcdf_2d
-    MODULE PROCEDURE read_netcdf_2d_int
-    MODULE PROCEDURE read_netcdf_3d
-    MODULE PROCEDURE read_netcdf_aero
-    MODULE PROCEDURE read_netcdf_4d
-  END INTERFACE read_netcdf_data
 
 
   !>
@@ -1850,39 +1841,34 @@ CONTAINS
 
             IF ( irad_aero == 6 ) THEN
 
-              CALL read_netcdf_data (ncid, 12, 'AER_SS', & ! &
+              CALL read_netcdf_data (ncid, 12, 'AER_SS',           &
                 &                    p_patch(jg)%n_patch_cells_g,  &
                 &                    p_patch(jg)%n_patch_cells,    &
                 &                    p_patch(jg)%cells%glb_index,  & 
-!                &                    12,                      &
                 &                    ext_data(jg)%atm_td%aer_ss)
 
-              CALL read_netcdf_data (ncid, 12, 'AER_DUST', & ! &
+              CALL read_netcdf_data (ncid, 12, 'AER_DUST',         &
                 &                    p_patch(jg)%n_patch_cells_g,  &
                 &                    p_patch(jg)%n_patch_cells,    &
                 &                    p_patch(jg)%cells%glb_index,  & 
-!                &                    12,                      &
                 &                    ext_data(jg)%atm_td%aer_dust)
 
-              CALL read_netcdf_data (ncid, 12, 'AER_ORG', & ! &
+              CALL read_netcdf_data (ncid, 12, 'AER_ORG',          &
                 &                    p_patch(jg)%n_patch_cells_g,  &
                 &                    p_patch(jg)%n_patch_cells,    &
                 &                    p_patch(jg)%cells%glb_index,  & 
-!                &                    12,                      &
                 &                    ext_data(jg)%atm_td%aer_org)
 
-              CALL read_netcdf_data (ncid, 12, 'AER_SO4', & ! &
+              CALL read_netcdf_data (ncid, 12, 'AER_SO4',          &
                 &                    p_patch(jg)%n_patch_cells_g,  &
                 &                    p_patch(jg)%n_patch_cells,    &
                 &                    p_patch(jg)%cells%glb_index,  & 
-!                &                    12,                      &
                 &                    ext_data(jg)%atm_td%aer_so4)
 
-              CALL read_netcdf_data (ncid, 12, 'AER_BC', & ! &
+              CALL read_netcdf_data (ncid, 12, 'AER_BC',           &
                 &                    p_patch(jg)%n_patch_cells_g,  &
                 &                    p_patch(jg)%n_patch_cells,    &
                 &                    p_patch(jg)%cells%glb_index,  & 
-!                &                    12,                      &
                 &                    ext_data(jg)%atm_td%aer_bc)
 
             ENDIF
@@ -2033,7 +2019,7 @@ CONTAINS
         ext_data(jg)%atm_td%phoz(1)           = 0._wp
         ext_data(jg)%atm_td%phoz(2:nlev_o3) = (ext_data(jg)%atm_td%pfoz(1:nlev_o3-1) &
           &                                   +  ext_data(jg)%atm_td%pfoz(2:nlev_o3))*.5_wp
-        ext_data(jg)%atm_td%phoz(nlev_o3+1) = 125000._dp
+        ext_data(jg)%atm_td%phoz(nlev_o3+1) = 125000._wp
 
         DO i=1,nlev_o3
           WRITE(0,*) 'full/half level press ozone ', i, ext_data(jg)%atm_td%pfoz(i),&
@@ -2463,356 +2449,6 @@ CONTAINS
 
 
 
-  !-------------------------------------------------------------------------
-  !>
-  !! Read dataset from netcdf file
-  !!
-  !! @par Revision History
-  !! Initial revision by Daniel Reinert, DWD (2010-07-14)
-  !! Adapted for parallel runs by Rainer Johanni (2010-12-07)
-  !!
-  SUBROUTINE read_netcdf_2d (ncid, varname, glb_arr_len, loc_arr_len, glb_index, var_out)
-
-    CHARACTER(len=*), INTENT(IN)  ::  &  !< Var name of field to be read
-      &  varname
-
-    INTEGER, INTENT(IN) :: ncid          !< id of netcdf file
-    INTEGER, INTENT(IN) :: glb_arr_len   !< length of 1D field (global)
-    INTEGER, INTENT(IN) :: loc_arr_len   !< length of 1D field (local)
-    INTEGER, INTENT(IN) :: glb_index(:)  !< Index mapping local to global
-
-    REAL(wp), INTENT(INOUT) :: &         !< output field
-      &  var_out(:,:)
-
-    INTEGER :: varid, mpi_comm, j, jl, jb
-    REAL(wp):: z_dummy_array(glb_arr_len)!< local dummy array
-  !-------------------------------------------------------------------------
-
-    ! Get var ID
-    IF( my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid))
-
-    IF(p_test_run) THEN
-      mpi_comm = p_comm_work_test
-    ELSE
-      mpi_comm = p_comm_work
-    ENDIF
-
-    ! I/O PE reads and broadcasts data
-
-    IF(my_process_is_stdio()) CALL nf(nf_get_var_double(ncid, varid, z_dummy_array(:)))
-    CALL p_bcast(z_dummy_array, p_io, mpi_comm)
-
-    var_out(:,:) = 0._wp
-
-    ! Set var_out from global data
-    DO j = 1, loc_arr_len
-
-      jb = blk_no(j) ! Block index in distributed patch
-      jl = idx_no(j) ! Line  index in distributed patch
-
-      var_out(jl,jb) = z_dummy_array(glb_index(j))
-    ENDDO
-
-  END SUBROUTINE read_netcdf_2d
-
-  !-------------------------------------------------------------------------
-  !>
-  !! Read dataset from netcdf file
-  !!
-  !! @par Revision History
-  !! Initial revision by Daniel Reinert, DWD (2010-07-14)
-  !! Adapted for parallel runs by Rainer Johanni (2010-12-07)
-  !!
-  SUBROUTINE read_netcdf_2d_int (ncid, varname, glb_arr_len, loc_arr_len, glb_index, var_out)
-
-    CHARACTER(len=*), INTENT(IN)  ::  &  !< Var name of field to be read
-      &  varname
-
-    INTEGER, INTENT(IN) :: ncid          !< id of netcdf file
-    INTEGER, INTENT(IN) :: glb_arr_len   !< length of 1D field (global)
-    INTEGER, INTENT(IN) :: loc_arr_len   !< length of 1D field (local)
-    INTEGER, INTENT(IN) :: glb_index(:)  !< Index mapping local to global
-
-    INTEGER, INTENT(INOUT) :: &          !< output field
-      &  var_out(:,:)
-
-    INTEGER :: varid, mpi_comm, j, jl, jb
-    INTEGER :: z_dummy_array(glb_arr_len)!< local dummy array
-  !-------------------------------------------------------------------------
-
-    ! Get var ID
-    IF( my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid))
-
-    IF(p_test_run) THEN
-      mpi_comm = p_comm_work_test
-    ELSE
-      mpi_comm = p_comm_work
-    ENDIF
-
-    ! I/O PE reads and broadcasts data
-
-    IF( my_process_is_stdio()) CALL nf(nf_get_var_int(ncid, varid, z_dummy_array(:)))
-    CALL p_bcast(z_dummy_array, p_io, mpi_comm)
-
-    var_out(:,:) = 0
-
-    ! Set var_out from global data
-    DO j = 1, loc_arr_len
-
-      jb = blk_no(j) ! Block index in distributed patch
-      jl = idx_no(j) ! Line  index in distributed patch
-
-      var_out(jl,jb) = z_dummy_array(glb_index(j))
-    ENDDO
-
-  END SUBROUTINE read_netcdf_2d_int
-
- !-------------------------------------------------------------------------
-  !>
-  !! Read 3D (inlcuding height) dataset from netcdf file
-  !!
-  !! @par Revision History
-  !! Initial revision by Daniel Reinert, DWD (2010-07-14)
-  !! Adapted for parallel runs by Rainer Johanni (2010-12-07)
-  !! Adapted for 3 D by Guenther Zaengl, DWD (2011-07-11)
-  !!
-  SUBROUTINE read_netcdf_3d (ncid, varname, glb_arr_len, &
-       &                     loc_arr_len, glb_index, &
-       &                     nlevs,      var_out)
-
-    CHARACTER(len=*), INTENT(IN)  ::  &  !< Var name of field to be read
-      &  varname
-
-    INTEGER, INTENT(IN) :: ncid          !< id of netcdf file
-    INTEGER, INTENT(IN) :: nlevs         !< vertical levels of netcdf file
-    INTEGER, INTENT(IN) :: glb_arr_len   !< length of 1D field (global)
-    INTEGER, INTENT(IN) :: loc_arr_len   !< length of 1D field (local)
-    INTEGER, INTENT(IN) :: glb_index(:)  !< Index mapping local to global
-
-    REAL(wp), INTENT(INOUT) :: &         !< output field
-      &  var_out(:,:,:)
-
-    INTEGER :: varid, mpi_comm, j, jl, jb, jk
-    REAL(wp):: z_dummy_array(glb_arr_len,nlevs)!< local dummy array
-  !-------------------------------------------------------------------------
-
-    ! Get var ID
-    IF(my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid))
-
-    IF(p_test_run) THEN
-      mpi_comm = p_comm_work_test
-    ELSE
-      mpi_comm = p_comm_work
-    ENDIF
-
-    ! I/O PE reads and broadcasts data
-
-    IF(my_process_is_stdio()) CALL nf(nf_get_var_double(ncid, varid, z_dummy_array(:,:)))
-    CALL p_bcast(z_dummy_array, p_io, mpi_comm)
-
-    var_out(:,:,:) = 0._wp
-
-    ! Set var_out from global data
-     DO jk = 1, nlevs
-       DO j = 1, loc_arr_len
-
-         jb = blk_no(j) ! Block index in distributed patch
-         jl = idx_no(j) ! Line  index in distributed patch
-               
-         var_out(jl,jk,jb) = z_dummy_array(glb_index(j),jk)
-
-       ENDDO
-     ENDDO
-
-  END SUBROUTINE read_netcdf_3d
-
-  !-------------------------------------------------------------------------
-
-  SUBROUTINE read_netcdf_aero (ncid, ntime, varname, glb_arr_len, &
-       &                     loc_arr_len, glb_index, var_out)
-
-    CHARACTER(len=*), INTENT(IN)  ::  &  !< Var name of field to be read
-      &  varname
-
-    INTEGER, INTENT(IN) :: ncid          !< id of netcdf file
-    INTEGER, INTENT(IN) :: ntime         !< time levels of netcdf file
-    INTEGER, INTENT(IN) :: glb_arr_len   !< length of 1D field (global)
-    INTEGER, INTENT(IN) :: loc_arr_len   !< length of 1D field (local)
-    INTEGER, INTENT(IN) :: glb_index(:)  !< Index mapping local to global
-
-    REAL(wp), INTENT(INOUT) :: &         !< output field
-      &  var_out(:,:,:)
-
-    INTEGER :: varid, mpi_comm, j, jl, jb, jt
-    REAL(wp):: z_dummy_array(glb_arr_len,ntime)!< local dummy array
-  !-------------------------------------------------------------------------
-
-    ! Get var ID
-    IF(my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid))
-
-    IF(p_test_run) THEN
-      mpi_comm = p_comm_work_test
-    ELSE
-      mpi_comm = p_comm_work
-    ENDIF
-
-
-    ! I/O PE reads and broadcasts data
-
-    IF(my_process_is_stdio()) CALL nf(nf_get_var_double(ncid, varid, z_dummy_array(:,:)))
-    CALL p_bcast(z_dummy_array, p_io , mpi_comm)
-
-    var_out(:,:,:) = 0._wp
-
-    ! Set var_out from global data
-    DO jt = 1, ntime
-           DO j = 1, loc_arr_len
-
-             jb = blk_no(j) ! Block index in distributed patch
-             jl = idx_no(j) ! Line  index in distributed patch
-               
-             var_out(jl,jb,jt) = z_dummy_array(glb_index(j),jt)
-
-          ENDDO
-    ENDDO
-
-  END SUBROUTINE read_netcdf_aero
-
-
-
-  !-------------------------------------------------------------------------
-  ! Specific read-routine for LU_CLASS_FRACTION. Probably, read_netcdf_aero 
-  ! and read_netcdf_lu can be merged into a single routine in the near 
-  ! future.
-
-  SUBROUTINE read_netcdf_lu (ncid, varname, glb_arr_len,            &
-       &                     loc_arr_len, glb_index, nslice, var_out)
-
-    CHARACTER(len=*), INTENT(IN)  ::  &  !< Var name of field to be read
-      &  varname
-
-    INTEGER, INTENT(IN) :: ncid          !< id of netcdf file
-    INTEGER, INTENT(IN) :: nslice        !< slices o netcdf field
-    INTEGER, INTENT(IN) :: glb_arr_len   !< length of 1D field (global)
-    INTEGER, INTENT(IN) :: loc_arr_len   !< length of 1D field (local)
-    INTEGER, INTENT(IN) :: glb_index(:)  !< Index mapping local to global
-
-    REAL(wp), INTENT(INOUT) :: &         !< output field
-      &  var_out(:,:,:)
-
-    INTEGER :: varid, mpi_comm, j, jl, jb, js
-    REAL(wp):: z_dummy_array(glb_arr_len, nslice)!< local dummy array
-
-  !-------------------------------------------------------------------------
-
-
-    ! Get var ID
-    IF(my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid))
-
-    IF(p_test_run) THEN
-      mpi_comm = p_comm_work_test
-    ELSE
-      mpi_comm = p_comm_work
-    ENDIF
-
-
-
-    ! I/O PE reads and broadcasts data
-
-    IF(my_process_is_stdio()) CALL nf(nf_get_var_double(ncid, varid, z_dummy_array(:,:)))
-    CALL p_bcast(z_dummy_array, p_io , mpi_comm)
-
-    var_out(:,:,:) = 0._wp
-
-
-    ! Set var_out from global data
-    DO js = 1, nslice
-      DO j = 1, loc_arr_len
-
-        jb = blk_no(j) ! Block index in distributed patch
-        jl = idx_no(j) ! Line  index in distributed patch
-               
-        var_out(jl,jb,js) = z_dummy_array(glb_index(j),js)
-
-      ENDDO
-    ENDDO
-
-  END SUBROUTINE read_netcdf_lu
-
-
- !-------------------------------------------------------------------------
-  !>
-  !! Read 4D (inlcuding height and time) dataset from netcdf file
-  !!
-  !! @par Revision History
-  !! Initial revision by Daniel Reinert, DWD (2010-07-14)
-  !! Adapted for parallel runs by Rainer Johanni (2010-12-07)
-  !! Adapted for 4 D by Kristina Froehlich, MPI-M (2011-06-16)
-  !!
-  SUBROUTINE read_netcdf_4d (ncid, varname, glb_arr_len, &
-       &                     loc_arr_len, glb_index, &
-       &                     nlevs, ntime,      var_out)
-
-    CHARACTER(len=*), INTENT(IN)  ::  &  !< Var name of field to be read
-      &  varname
-
-    INTEGER, INTENT(IN) :: ncid          !< id of netcdf file
-    INTEGER, INTENT(IN) :: nlevs         !< vertical levels of netcdf file
-    INTEGER, INTENT(IN) :: ntime         !< time levels of netcdf file
-    INTEGER, INTENT(IN) :: glb_arr_len   !< length of 1D field (global)
-    INTEGER, INTENT(IN) :: loc_arr_len   !< length of 1D field (local)
-    INTEGER, INTENT(IN) :: glb_index(:)  !< Index mapping local to global
-
-    REAL(wp), INTENT(INOUT) :: &         !< output field
-      &  var_out(:,:,:,:)
-
-    INTEGER :: varid, mpi_comm, j, jl, jb, jk, jt
-    REAL(wp):: z_dummy_array(glb_arr_len,nlevs,ntime)!< local dummy array
-  !-------------------------------------------------------------------------
-
-    ! Get var ID
-    IF(my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid))
-
-    IF(p_test_run) THEN
-      mpi_comm = p_comm_work_test
-    ELSE
-      mpi_comm = p_comm_work
-    ENDIF
-
-    ! I/O PE reads and broadcasts data
-
-    IF(my_process_is_stdio()) CALL nf(nf_get_var_double(ncid, varid, z_dummy_array(:,:,:)))
-    CALL p_bcast(z_dummy_array, p_io , mpi_comm)
-
-    var_out(:,:,:,:) = 0._wp
-
-    ! Set var_out from global data
-    DO jt = 1, ntime
-        DO jk = 1, nlevs
-           DO j = 1, loc_arr_len
-
-             jb = blk_no(j) ! Block index in distributed patch
-             jl = idx_no(j) ! Line  index in distributed patch
-               
-             var_out(jl,jk,jb,jt) = z_dummy_array(glb_index(j),jk,jt)
-
-          ENDDO
-       ENDDO
-    ENDDO
-
-  END SUBROUTINE read_netcdf_4d
-
-  !-------------------------------------------------------------------------
-
-  SUBROUTINE nf(status)
-
-    INTEGER, INTENT(in) :: status
-
-    IF (status /= nf_noerr) THEN
-      CALL finish('mo_ext_data netCDF error', nf_strerror(status))
-    ENDIF
-
-  END SUBROUTINE nf
 
   !-------------------------------------------------------------------------
 

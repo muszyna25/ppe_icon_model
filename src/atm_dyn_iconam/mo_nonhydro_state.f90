@@ -64,8 +64,10 @@ MODULE mo_nonhydro_state
     &                                lwrite_pzlev
   USE mo_nh_pzlev_config,      ONLY: nh_pzlev_config
   USE mo_linked_list,          ONLY: t_var_list
-  USE mo_var_list,             ONLY: default_var_list_settings, add_var, &
-    &                                add_ref, new_var_list, delete_var_list
+  USE mo_var_list,             ONLY: default_var_list_settings, add_var,     &
+    &                                add_ref, new_var_list, delete_var_list, &
+    &                                create_tracer_metadata, add_var_list_reference
+  USE mo_linked_list,          ONLY: t_list_element
   USE mo_var_metadata,         ONLY: t_var_metadata
   USE mo_cf_convention
   USE mo_grib2
@@ -445,6 +447,8 @@ MODULE mo_nonhydro_state
     TYPE(t_nh_metrics) :: metrics
     TYPE(t_var_list)   :: metrics_list
 
+    TYPE(t_var_list), ALLOCATABLE :: tracer_list(:) !< shape: (timelevels)
+
   END TYPE t_nh_state
 
   TYPE(t_nh_state), TARGET, ALLOCATABLE :: p_nh_state(:)
@@ -533,9 +537,16 @@ MODULE mo_nonhydro_state
           &          'allocation of prognostic state list array failed')
       ENDIF
 
+      ! create tracer list
+      ALLOCATE(p_nh_state(jg)%tracer_list(1:ntl), STAT=ist)
+      IF(ist/=SUCCESS)THEN
+        CALL finish (TRIM(routine),                                    &
+          &          'allocation of prognostic tracer list array failed')
+      ENDIF
+
+
       !
-      ! Build prog list for every timelevel
-      ! includes memory allocation
+      ! Build lists for every timelevel
       ! 
       DO jt = 1, ntl
 
@@ -550,11 +561,24 @@ MODULE mo_nonhydro_state
         WRITE(listname,'(a,i2.2,a,i2.2)') 'nh_state_prog_of_domain_',jg, &
           &                               '_and_timelev_',jt
 
+        ! Build prog state list
+        ! includes memory allocation
+        !
         ! varname_prefix = 'nh_prog_'
         varname_prefix = ''
         CALL new_nh_state_prog_list(p_patch(jg), p_nh_state(jg)%prog(jt),  &
           &  p_nh_state(jg)%prog_list(jt), listname, TRIM(varname_prefix), &
           &  l_extra_timelev, jt)
+
+        !
+        ! Build prog state tracer list
+        ! no memory allocation (only references to prog list)
+        !
+        WRITE(listname,'(a,i2.2,a,i2.2)') 'nh_state_tracer_of_domain_',jg, &
+          &                               '_and_timelev_',jt
+        varname_prefix = ''
+        CALL new_nh_state_tracer_list(p_patch(jg), p_nh_state(jg)%prog_list(jt),  &
+          &  p_nh_state(jg)%tracer_list(jt), listname )
 
       ENDDO
 
@@ -655,11 +679,20 @@ MODULE mo_nonhydro_state
         CALL delete_var_list( p_nh_state(jg)%prog_list(jt) )
       ENDDO
 
+      ! delete tracer list list elements
+      DO jt = 1, ntl
+        CALL delete_var_list( p_nh_state(jg)%tracer_list(jt) )
+      ENDDO
+
 
       ! destruct state lists and arrays
       DEALLOCATE(p_nh_state(jg)%prog_list, STAT=ist )
       IF(ist/=SUCCESS) CALL finish (TRIM(routine),&
         & 'deallocation of prognostic state list array failed')
+
+      DEALLOCATE(p_nh_state(jg)%tracer_list, STAT=ist )
+      IF(ist/=SUCCESS) CALL finish (TRIM(routine),&
+        & 'deallocation of tracer list array failed')
 
       DEALLOCATE(p_nh_state(jg)%prog )
       IF(ist/=SUCCESS) CALL finish (TRIM(routine),&
@@ -847,6 +880,8 @@ MODULE mo_nonhydro_state
           &           lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
       ENDIF
 
+
+
       IF (  iforcing == inwp  ) THEN
 
       ! Reference to individual tracer, for I/O
@@ -862,7 +897,8 @@ MODULE mo_nonhydro_state
                     &  'kg kg-1','specific_humidity'),                               &
                     & t_grib2_var(0, 1, 0, ientr, GRID_REFERENCE, GRID_CELL),        &
                     & ldims=shape3d_c,                                               &
-                    & tlev_source=1 ) ! for output take field from nnow_rcf slice
+                    & tlev_source=1,     &              ! output from nnow_rcf slice
+                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.) )
            !QC
         CALL add_ref( p_prog_list, 'tracer',&
                     & TRIM(vname_prefix)//'qc'//suffix, p_prog%tracer_ptr(iqc)%p_3d, &
@@ -871,7 +907,8 @@ MODULE mo_nonhydro_state
                     &  'kg kg-1', 'specific_cloud_water_content'),                   &
                     & t_grib2_var(192, 201, 31, ientr, GRID_REFERENCE, GRID_CELL),   &
                     & ldims=shape3d_c,                                               &
-                    & tlev_source=1 ) ! for output take field from nnow_rcf slice
+                    & tlev_source=1,     &              ! output from nnow_rcf slice
+                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.) )
            !QI
         CALL add_ref( p_prog_list, 'tracer',                                         &
                     & TRIM(vname_prefix)//'qi'//suffix, p_prog%tracer_ptr(iqi)%p_3d, &
@@ -880,7 +917,8 @@ MODULE mo_nonhydro_state
                     &  'kg kg-1','specific_cloud_ice_content'),                      &
                     & t_grib2_var(192, 201, 33, ientr, GRID_REFERENCE, GRID_CELL),   &
                     & ldims=shape3d_c,                                               &
-                    & tlev_source=1 ) ! for output take field from nnow_rcf slice
+                    & tlev_source=1,     &              ! output from nnow_rcf slice
+                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.) )
            !QR
         CALL add_ref( p_prog_list, 'tracer',                                         &
                     & TRIM(vname_prefix)//'qr'//suffix, p_prog%tracer_ptr(iqr)%p_3d, &
@@ -889,7 +927,8 @@ MODULE mo_nonhydro_state
                     &  'kg kg-1','rain_mixing_ratio'),                               &
                     & t_grib2_var(0, 1, 24, ientr, GRID_REFERENCE, GRID_CELL),       &
                     & ldims=shape3d_c,                                               &
-                    & tlev_source=1 ) ! for output take field from nnow_rcf slice
+                    & tlev_source=1,     &              ! output from nnow_rcf slice
+                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.) )
            !QS
         CALL add_ref( p_prog_list, 'tracer',                                         &
                     & TRIM(vname_prefix)//'qs'//suffix, p_prog%tracer_ptr(iqs)%p_3d, &
@@ -898,7 +937,8 @@ MODULE mo_nonhydro_state
                     &  'kg kg-1','snow_mixing_ratio'),                               &
                     & t_grib2_var(0, 1, 25, ientr, GRID_REFERENCE, GRID_CELL),       &
                     & ldims=shape3d_c,                                               &
-                    & tlev_source=1 ) ! for output take field from nnow_rcf slice
+                    & tlev_source=1,     &              ! output from nnow_rcf slice
+                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.) )
 
         IF( irad_o3 == 4 .OR. irad_o3 == 6 .OR. irad_o3 == 7 ) THEN
            !O3
@@ -909,7 +949,8 @@ MODULE mo_nonhydro_state
             &  'kg kg-1','ozone_mass_mixing_ratio'),                         &
             & t_grib2_var(0, 14, 1, ientr, GRID_REFERENCE, GRID_CELL),       &
             & ldims=shape3d_c,                                               &
-            & tlev_source=0 ) ! for output take field from nnow_rcf slice
+            & tlev_source=0,     &              ! output from nnow_rcf slice
+            & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.) )
         ENDIF
 
         ! tke            p_prog%tke(nproma,nlevp1,nblks_c)
@@ -925,6 +966,77 @@ MODULE mo_nonhydro_state
 
   END SUBROUTINE new_nh_state_prog_list
 
+
+
+  !-------------------------------------------------------------------------
+  !
+  !
+  !>
+  !! Creates tracer var list.
+  !!
+  !! Creates tracer var list containing references to all prognostic tracer 
+  !! fields.
+  !!
+  !! @par Revision History
+  !! Initial release by Daniel Reinert, DWD (2012-02-02)
+  !!
+  SUBROUTINE new_nh_state_tracer_list ( p_patch, from_var_list, p_tracer_list,  &
+    &                                 listname )
+!
+    TYPE(t_patch), TARGET, INTENT(IN) :: & !< current patch
+      &  p_patch
+
+    TYPE(t_var_list), INTENT(IN)      :: & !< source list to be referenced
+      &  from_var_list 
+
+    TYPE(t_var_list), INTENT(INOUT)   :: & !< new tracer list (containing all tracers)
+      &  p_tracer_list
+
+    CHARACTER(len=*), INTENT(IN)      :: & !< list name
+      &  listname
+
+    ! local variables
+    TYPE (t_var_metadata), POINTER :: from_info
+    TYPE (t_list_element), POINTER :: element
+    TYPE (t_list_element), TARGET  :: start_with
+
+    !--------------------------------------------------------------
+
+    !
+    ! Register a field list and apply default settings
+    !
+    CALL new_var_list( p_tracer_list, TRIM(listname), patch_id=p_patch%id )
+    CALL default_var_list_settings( p_tracer_list,             &
+                                  & lrestart=.FALSE.,          &
+                                  & loutput =.FALSE.           )
+
+
+    !
+    ! add references to all tracer fields of the source list (prognostic state)
+    !
+    element => start_with
+    element%next_list_element => from_var_list%p%first_list_element
+    !
+    for_all_list_elements: DO
+      !
+      element => element%next_list_element
+      IF (.NOT.ASSOCIATED(element)) EXIT
+      !
+      ! retrieve information from actual linked list element
+      !
+      from_info => element%field%info
+
+      ! Only add tracer fields to the tracer list
+      IF (from_info%tracer%lis_tracer .AND. .NOT. from_info%lcontainer ) THEN
+
+        CALL add_var_list_reference(p_tracer_list, from_info%name, from_var_list%p%name)
+
+      ENDIF
+
+    ENDDO for_all_list_elements
+
+
+  END SUBROUTINE new_nh_state_tracer_list
 
 
   !-------------------------------------------------------------------------

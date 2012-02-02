@@ -15,6 +15,23 @@ MODULE mo_var_metadata
     LOGICAL  :: lval
   END type t_union_vals
 
+
+  TYPE t_tracer_meta
+    !
+    LOGICAL  :: lis_tracer         ! this is a tracer field (TRUE/FALSE)
+    !  
+    INTEGER  :: ihadv_tracer       ! method for horizontal transport
+    INTEGER  :: ivadv_tracer       ! method for vertical transport
+    !
+    LOGICAL  :: lturb_tracer       ! turbulent transport (TRUE/FALSE)
+    LOGICAL  :: lsed_tracer        ! sedimentation (TRUE/FALSE)
+    LOGICAL  :: ldep_tracer        ! dry deposition (TRUE/FALSE)  
+    LOGICAL  :: lconv_tracer       ! convection  (TRUE/FALSE)
+    LOGICAL  :: lwash_tracer       ! washout (TRUE/FALSE)
+    !
+  END TYPE t_tracer_meta
+
+ 
   TYPE t_var_metadata
     !
     INTEGER            :: key                   ! hash value of name
@@ -57,9 +74,12 @@ MODULE mo_var_metadata
     INTEGER            :: cdiZaxisID
     INTEGER            :: cdiDataType
     !
+    TYPE(t_tracer_meta):: tracer                ! metadata for tracer fields
+    !
   END TYPE t_var_metadata
 
   PUBLIC :: t_union_vals
   PUBLIC :: t_var_metadata
+  PUBLIC :: t_tracer_meta
 
 END MODULE mo_var_metadata

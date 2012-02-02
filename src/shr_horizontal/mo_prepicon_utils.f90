@@ -58,7 +58,8 @@ MODULE mo_prepicon_utils
   USE mo_interpolation,       ONLY: t_int_state
   USE mo_grf_interpolation,   ONLY: t_gridref_state
   USE mo_mpi,                 ONLY: p_pe, p_io, p_bcast, p_comm_work_test, p_comm_work
-  USE mo_ext_data,            ONLY: smooth_topography, read_netcdf_data, t_external_data, ext_data
+  USE mo_ext_data,            ONLY: smooth_topography, t_external_data, ext_data
+  USE mo_util_netcdf,         ONLY: read_netcdf_data
   USE mo_model_domain,        ONLY: p_patch
   USE mo_io_vlist,            ONLY: GATHER_C, GATHER_E, GATHER_V, num_output_vars, outvar_desc, &
                                     gather_array1, gather_array2

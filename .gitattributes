@@ -1247,6 +1247,7 @@ src/shared/mo_util_backtrace.f90 -text
 src/shared/mo_util_debug.f90 -text
 src/shared/mo_util_file.f90 -text
 src/shared/mo_util_hash.f90 -text
+src/shared/mo_util_netcdf.f90 -text
 src/shared/mo_util_postgresql.f90_off -text
 src/shared/mo_util_string.f90 -text
 src/shared/mo_util_sysinfo.f90 -text
