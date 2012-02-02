@@ -1029,7 +1029,10 @@ MODULE mo_nonhydro_state
       ! Only add tracer fields to the tracer list
       IF (from_info%tracer%lis_tracer .AND. .NOT. from_info%lcontainer ) THEN
 
-        CALL add_var_list_reference(p_tracer_list, from_info%name, from_var_list%p%name)
+!DR set loutput=.FALSE. for each individual field until a possible bug in the new 
+!DR output scheme is fixed.
+        CALL add_var_list_reference(p_tracer_list, from_info%name, &
+          &                         from_var_list%p%name, loutput=.FALSE.)
 
       ENDIF
 
