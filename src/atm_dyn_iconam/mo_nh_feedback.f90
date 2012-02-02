@@ -466,7 +466,7 @@ ELSE ! iforcing >= 2; tracers represent moisture variables
   ENDDO
 ENDIF
 
-!$OMP PARALLEL PRIVATE(i_startblk,i_endblk,nshift_c,i_ncd)
+!$OMP PARALLEL PRIVATE(i_startblk,i_endblk,nshift_c,i_ncd,ic,jgc)
 
 IF (l_masscorr_nest) THEN
   ! Add mass conservation correction to child domain in order to prevent
@@ -1545,7 +1545,7 @@ ELSE
   ENDDO
 ENDIF
 
-!$OMP PARALLEL PRIVATE(i_startblk,i_endblk,nshift_c,i_ncd)
+!$OMP PARALLEL PRIVATE(i_startblk,i_endblk,nshift_c,i_ncd,ic,jgc)
 
 IF (l_masscorr_nest) THEN
   ! Add mass conservation correction to child domain in order to prevent
