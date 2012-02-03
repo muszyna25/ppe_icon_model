@@ -801,7 +801,7 @@ CONTAINS
 !    Generation of index list  
 !
       i_count=0
-      DO jc = 1, i_endidx
+      DO jc = i_startidx, i_endidx
         IF (ext_data%atm%llsm_atm_c(jc,jb)) THEN
           i_count=i_count+1
           i_lst(i_count)=jc  ! write index of land-points
