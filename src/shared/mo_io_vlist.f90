@@ -3888,7 +3888,7 @@ CONTAINS
           DO jl = 1, jend
             IF(ANY(tmp_field(jl,:,jb) /= in_field(jl,:,jb))) THEN
                 IF (PRESENT(opt_name)) THEN
-                  WRITE(0,*)'Error ',opt_name,jl,jb !,tmp_field(jl,:,jb),in_field(jl,:,jb)
+                  WRITE(0,*)'Error ',TRIM(opt_name),jl,jb ,tmp_field(jl,:,jb),in_field(jl,:,jb)
                 ELSE
                   WRITE(0,*)'Error ',jl,jb !,tmp_field(jl,:,jb),in_field(jl,:,jb)
                ENDIF
