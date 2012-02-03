@@ -107,8 +107,8 @@
 ;------- config ---------------------------------------------------------------
   ; default settings from user file
   CONFIGFILE = getenv("HOME")+"/.icon_plot.rc"
-  print(CONFIGFILE)
-  if (isfile(CONFIGFILE)) then
+  if (isfilepresent(CONFIGFILE)) then
+    print("Found configfile:"+CONFIGFILE)
     loadscript(CONFIGFILE)
   end if
   
@@ -123,7 +123,6 @@
 ;===============================================================
 ;----- MAIN PROGRAM --------------------------------------------
 ;- options handling + checking
- begin
   plotMode  = PLOTMODE
 
   wcStrt    = systemfunc("date")
@@ -284,7 +283,7 @@
 
   if (plotMode.eq."vector" .or. plotMode.eq."overlay" .or. plotMode.eq."section" .or. plotMode .eq. "hoffmueller") then
     if (horizonalGridType .ne. "unstructured") then ; regular grid expected, i.e. remappgin is NOT required
-      rFile = addfile(iFile,"r")
+      rFile = addfile(iFile+".nc","r")
     else
       ; performe some remapping to a regular grid because ncl cannot draw vector
       ; from unstructured grids
@@ -296,14 +295,14 @@
         print("PERFORM remapnn again!")
         remapForVecPlot(iFile,remapFilename,resolution,useMask,plotMode,DEBUG,addVars)
       end if
-      rFile = addfile( remapFilename, "r" )
+      rFile = addfile( remapFilename+".nc", "r" )
     end if
     if (plotMode .eq. "hoffmueller") then ; perform zonmean
       zonmeanFilename = setZonmeanFilename(remapFilename,ivarname,atmLev)
       zonmean4HoffmuellerPlot(remapFilename,ivarname,zonmeanFilename)
     end if
   end if
-  File  = addfile( iFile, "r" )
+  File  = addfile( iFile+".nc", "r" )
 
   if (DEBUG) printVarNames(File) end if
 
@@ -374,9 +373,10 @@
           bounds = getBoundsFromFile(lonCo,latCo,gridFile)
         end if
       else
-        lonlats = getLonLats(var,File)
-        x       = lonlats(0,:)
-        y       = lonlats(1,:)
+        lonlatSizes = getCoordSizes(var,File)
+        x           = new(lonlatSizes(0),double)
+        y           = new(lonlatSizes(1),double)
+        getLonLats(var,File,x,y)
         if (showGrid) then
           bounds  = getBoundsOfCoordinates(var,File)
         end if
@@ -469,7 +469,10 @@
 
 
   if (getHorizGridType(iFile,ivarname) .eq. "unstructured") then
-    if (plotMode.eq."scalar" .or. plotMode.eq."overlay") setCoordinates(ResC,x,y) end if
+    if (plotMode.eq."scalar" .or. plotMode.eq."overlay") 
+      setCoordinates(ResC,x,y)
+      ;setBounds(ResC,x,y)
+    end if
   end if
 
   if (plotMode.eq."vector") then
@@ -594,4 +597,3 @@
    end if
   end if
   frame(wks)
-end
