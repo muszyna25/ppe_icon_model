@@ -1027,7 +1027,7 @@ SUBROUTINE relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, jg, jgp
   REAL(wp) :: theta_v_pr(nproma,p_patch(jg)%nlev,p_patch(jg)%nblks_c)
 
   REAL(wp) :: tendency_corr(p_patch(jgp)%nlev), tracer_corr(p_patch(jgp)%nlev), &
-              aux_diff(2*p_patch(jgp)%nlev), z_fbk_rho(nproma,p_patch(jg)%nlev,4)
+              aux_diff(2*p_patch(jgp)%nlev), z_fbk_rho(nproma,4,p_patch(jg)%nlev)
 
   REAL(wp) :: rd_o_cvd, rd_o_p0ref, relfac, dcoef_vec
 
@@ -1195,16 +1195,16 @@ DO jb = i_startblk, i_endblk
     DO jc = i_startidx, i_endidx
 #endif
 
-      z_fbk_rho(jc,jk,1) =                                                   & 
+      z_fbk_rho(jc,1,jk) =                                                   & 
         p_child_prog%rho(iccidx(jc,jb,1),jk,iccblk(jc,jb,1))*p_fbkwgt(jc,jb,1)
-      z_fbk_rho(jc,jk,2) =                                                   &
+      z_fbk_rho(jc,2,jk) =                                                   &
         p_child_prog%rho(iccidx(jc,jb,2),jk,iccblk(jc,jb,2))*p_fbkwgt(jc,jb,2)
-      z_fbk_rho(jc,jk,3) =                                                   &
+      z_fbk_rho(jc,3,jk) =                                                   &
         p_child_prog%rho(iccidx(jc,jb,3),jk,iccblk(jc,jb,3))*p_fbkwgt(jc,jb,3)
-      z_fbk_rho(jc,jk,4) =                                                   &
+      z_fbk_rho(jc,4,jk) =                                                   &
         p_child_prog%rho(iccidx(jc,jb,4),jk,iccblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
 
-      feedback_rho(jc,jk+js,jb) = SUM(z_fbk_rho(jc,jk,1:4)) - &
+      feedback_rho(jc,jk+js,jb) = SUM(z_fbk_rho(jc,1:4,jk)) - &
         p_nh_state(jg)%metrics%rho_ref_corr(jc,jk,jb) 
 
       feedback_thv(jc,jk+js,jb) =                                          &
@@ -1225,7 +1225,7 @@ DO jb = i_startblk, i_endblk
 
   IF (ltransport .AND. l_trac_fbk) THEN ! tracer mass feedback
 #ifdef __LOOP_EXCHANGE
-    DO jc = i_startidx, i_endidx
+    dO jc = i_startidx, i_endidx
       DO jt = 1, ntracer
         DO jk = 1, nlev_c
 #else
@@ -1235,13 +1235,13 @@ DO jb = i_startblk, i_endblk
         DO jc = i_startidx, i_endidx
 #endif
           feedback_rhoqx(jc,jk+js,jb,jt) =                                    &
-            z_fbk_rho(jc,jk,1) *                                              &
+            z_fbk_rho(jc,1,jk) *                                              &
             p_child_prog_rcf%tracer(iccidx(jc,jb,1),jk,iccblk(jc,jb,1),jt) +  &
-            z_fbk_rho(jc,jk,2) *                                              &
+            z_fbk_rho(jc,2,jk) *                                              &
             p_child_prog_rcf%tracer(iccidx(jc,jb,2),jk,iccblk(jc,jb,2),jt) +  &
-            z_fbk_rho(jc,jk,3) *                                              &
+            z_fbk_rho(jc,3,jk) *                                              &
             p_child_prog_rcf%tracer(iccidx(jc,jb,3),jk,iccblk(jc,jb,3),jt) +  &
-            z_fbk_rho(jc,jk,4) *                                              &
+            z_fbk_rho(jc,4,jk) *                                              &
             p_child_prog_rcf%tracer(iccidx(jc,jb,4),jk,iccblk(jc,jb,4),jt)
         ENDDO
       ENDDO
@@ -1326,7 +1326,7 @@ ENDIF
   i_startblk = p_patch(jgp)%cells%start_blk(-1,i_chidx)
   i_endblk   = p_patch(jgp)%cells%start_blk(i_rlstart_c,i_chidx)
 
-!OMP WORKSHARE
+!$OMP WORKSHARE
   diff_rho     (:,:,i_startblk:i_endblk) = 0._wp
   diff_thv     (:,:,i_startblk:i_endblk) = 0._wp
   diff_w       (:,:,i_startblk:i_endblk) = 0._wp
@@ -1334,7 +1334,7 @@ ENDIF
   diff_mass    (:,:,:)                   = 0._wp 
   parent_trmass(:,:,:)                   = 0._wp
   fbk_trmass   (:,:,:)                   = 0._wp
-!OMP END WORKSHARE
+!$OMP END WORKSHARE
 
   i_startblk = p_patch(jgp)%cells%start_blk(i_rlstart_c,i_chidx)
   i_endblk   = p_patch(jgp)%cells%end_blk(i_rlend_c,i_chidx)
@@ -1700,8 +1700,6 @@ ENDIF
 
 IF (l_parallel) THEN ! Recompute rhotheta and exner on the halo points after sync of theta
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jk,jc,jb,ic)
 #ifdef __LOOP_EXCHANGE
   DO ic = 1, p_nh_state(jgp)%metrics%ovlp_halo_c_dim(i_chidx)
     jc = p_nh_state(jgp)%metrics%ovlp_halo_c_idx(ic,i_chidx)
@@ -1724,8 +1722,6 @@ IF (l_parallel) THEN ! Recompute rhotheta and exner on the halo points after syn
 
     ENDDO
   ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
 
 ENDIF
 
