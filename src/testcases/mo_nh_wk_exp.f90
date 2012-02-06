@@ -205,7 +205,7 @@ MODULE mo_nh_wk_exp
                       exner_aux, temp_aux, e_aux, pres_aux, qv_aux, theta_v_aux, qv_extrap
 
     REAL(wp), DIMENSION(ptr_patch%nlev) :: z_full, theta, exner, pres, qv, theta_v, rh, &
-                                           temp
+                                           temp, rhcheck
 
 !--------------------------------------------------------------------
 !
@@ -316,6 +316,26 @@ MODULE mo_nh_wk_exp
       qv(jk)      = MIN(qv_max_wk,spec_humi(e_aux,pres(jk)))
       theta_v(jk) = theta(jk)*(1._wp+vtmpc1*qv(jk)) 
 
+    ENDDO
+
+    ! check on rh
+    WRITE(message_text,'(a)') ' Check on initial WK humidity profile '
+    CALL message('', TRIM(message_text))
+    DO jk = 1, nlev
+      ! recalculate RH from final atmospheric profile
+      IF (temp(jk) > tmelt) THEN
+        e_aux = sat_pres_water(temp(jk))
+      ELSE
+        e_aux = sat_pres_ice(temp(jk))
+      ENDIF
+      rhcheck(jk) = qv(jk)*pres(jk)/(rdv - (1._wp-rdv)*qv(jk))/e_aux
+      ! Limit analytic RH to the value corresponding to qv_max_wk
+      e_aux = e_aux*rh(jk)
+      qv_aux = spec_humi(e_aux,pres(jk))
+      IF (qv_aux > qv_max_wk) rh(jk) = rh(jk)*qv_max_wk/qv_aux
+      WRITE(message_text,'(a,i4,2(a,f7.2))') 'level ',jk,': analytical RH(%)',rh(jk)*100._wp, &
+        ', actual RH(%) ',rhcheck(jk)*100._wp
+      CALL message('', TRIM(message_text))
     ENDDO
 
    ! Copy to prognostic model fields
