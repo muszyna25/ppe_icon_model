@@ -494,11 +494,6 @@ MODULE mo_nh_stepping
                           ! thus diagnostic quantities need to be computed
     ENDIF
     
-    IF (no_output) THEN
-      l_outputtime = .FALSE.
-      l_diagtime   = .FALSE.
-    ENDIF
-
     l_compute_diagnostic_quants = l_outputtime
     DO jg = 1, n_dom
       l_compute_diagnostic_quants = l_compute_diagnostic_quants .OR. &
@@ -522,7 +517,8 @@ MODULE mo_nh_stepping
         CALL intp_to_p_and_z_levels(p_patch(1:), prm_diag, p_nh_state)
       ENDIF
 
-      IF(istime4output(sim_time(1)) .OR. jstep==nsteps ) THEN
+      IF  ((.NOT. no_output) .AND.  &
+        &  (istime4output(sim_time(1)) .OR. jstep==nsteps )) THEN
         CALL write_output( datetime, sim_time(1) )
         CALL message('','Output at:')
         CALL print_datetime(datetime)
