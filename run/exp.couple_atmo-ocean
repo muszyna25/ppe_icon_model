@@ -52,13 +52,13 @@ atmo_namelist=NAMELIST_${EXPNAME}_atmo
 start_date="2000-01-01T00:00:00Z"
 #
 ndays=1
-ndays_restart=90
+ndays_restart=${ndays}
 #
 dtime_atmo=300
 dtime_ocean=1800
 dt_coupling=1800
 dt_restart=`expr ${ndays_restart} \* 86400`
-dt_checkpoint=`expr 12 \* 3600`  # write restart file every 12 hours
+dt_checkpoint=$dt_restart  # checkpointing not yet supported for coupling fields
 #
 #-----------------------------------------------------------------------------
 #
