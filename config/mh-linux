@@ -265,7 +265,7 @@ case "$ac_sitename" in
                         IB_LIBS    = -lrdmacm -libverbs -lnuma -ldl -Wl,--export-dynamic -lnsl -lutil -lm -ldl
                         MPIROOT    = /sw/sles10-x64/ofed/openmpi-1.4.0-gcc43
                         MPI_LIB    = -WL,-pthread -lmpi_f90 -lmpi_f77 -lmpi -lopen-rte -lopen-pal "$IB_LIBS"
-                        load_modules="gcc/4.6.0" "${load_modules}"
+                        load_modules="GCC/4.3.3" "${load_modules}"
                         ;;
                     nag)
                         IB_LIBS    = -lrdmacm -libverbs -lnuma -ldl -Wl,--export-dynamic -lnsl -lutil -lm -ldl
@@ -398,7 +398,7 @@ case "$ac_sitename" in
 			MPIROOT            = /sw/lenny-x64/mpi/mpich2-1.3.1-static-gcc45
 			MPI_LIB            = -lmpichf90 -lmpich -lopa -lmpl -lpthread -lrt
 			load_mpi_modules   = "mpich2/1.3.1-static-gcc45"
-			load_modules       = "gcc/4.6.0" "${load_modules}"
+                        load_modules       = "gcc/4.5.2" "${load_modules}"
 			;;
 		    nag)
 			NETCDFROOT         = /sw/lenny-x64/netcdf-4.1.1-static-nag52
