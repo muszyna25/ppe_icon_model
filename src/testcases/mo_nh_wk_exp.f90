@@ -260,8 +260,9 @@ MODULE mo_nh_wk_exp
     jk = k_tropo+1
 
     ! 1st step: preliminary estimate
-    exner_aux   = exner_tropo-grav_o_cpd/(0.5_wp*(theta_v_tropo+theta(jk)*        &
-                 (1._wp+vtmpc1*qv_tropo)))*(z_full(jk)-h_tropo_wk)
+    theta_v_aux = theta(jk)*(1._wp+vtmpc1*qv_tropo)
+    exner_aux   = exner_tropo-grav_o_cpd*(z_full(jk)-h_tropo_wk)/(theta_v_aux-theta_v_tropo)*&
+                  LOG(theta_v_aux/theta_v_tropo)
     temp_aux    = theta(jk)*exner_aux
     IF (temp_aux > tmelt) THEN
       e_aux     = rh(jk)*sat_pres_water(temp_aux)
@@ -273,8 +274,8 @@ MODULE mo_nh_wk_exp
     theta_v_aux = theta(jk)*(1._wp+vtmpc1*qv_aux) 
 
     ! 2nd step: final computation  
-    exner(jk)   = exner_tropo-grav_o_cpd/(0.5_wp*(theta_v_tropo+theta_v_aux))*&
-                  (z_full(jk)-h_tropo_wk)
+    exner(jk)   = exner_tropo-grav_o_cpd*(z_full(jk)-h_tropo_wk)/(theta_v_aux-theta_v_tropo)*&
+                  LOG(theta_v_aux/theta_v_tropo)
     temp(jk)    = theta(jk)*exner(jk)
     IF (temp(jk) > tmelt) THEN
       e_aux     = rh(jk)*sat_pres_water(temp(jk))
@@ -291,8 +292,9 @@ MODULE mo_nh_wk_exp
       ! 1st step: preliminary estimate
       qv_extrap   = MIN(qv_max_wk,qv(jk-1)+(qv(jk-2)-qv(jk-1))/          &
                    (z_full(jk-2)-z_full(jk-1))*(z_full(jk)-z_full(jk-1)) )
-      exner_aux   = exner(jk-1)-grav_o_cpd/(0.5_wp*(theta_v(jk-1)+theta(jk)*  &
-                   (1._wp+vtmpc1*qv_extrap)))*(z_full(jk)-z_full(jk-1))
+      theta_v_aux = theta(jk)*(1._wp+vtmpc1*qv_extrap)
+      exner_aux   = exner(jk-1)-grav_o_cpd*(z_full(jk)-z_full(jk-1))/ &
+                   (theta_v_aux-theta_v(jk-1))*LOG(theta_v_aux/theta_v(jk-1))
       temp_aux    = theta(jk)*exner_aux
       IF (temp_aux > tmelt) THEN
         e_aux     = rh(jk)*sat_pres_water(temp_aux)
@@ -304,8 +306,8 @@ MODULE mo_nh_wk_exp
       theta_v_aux = theta(jk)*(1._wp+vtmpc1*qv_aux) 
 
       ! 2nd step: final computation  
-      exner(jk)   = exner(jk-1)-grav_o_cpd/(0.5_wp*(theta_v(jk-1)+theta_v_aux))*&
-                    (z_full(jk)-z_full(jk-1))
+      exner(jk)   = exner(jk-1)-grav_o_cpd*(z_full(jk)-z_full(jk-1))/ &
+                   (theta_v_aux-theta_v(jk-1))*LOG(theta_v_aux/theta_v(jk-1))
       temp(jk)    = theta(jk)*exner(jk)
       IF (temp(jk) > tmelt) THEN
         e_aux     = rh(jk)*sat_pres_water(temp(jk))
