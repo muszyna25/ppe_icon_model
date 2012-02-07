@@ -1,0 +1,95 @@
+#!/bin/bash
+
+#==============================================================================
+# Creates the ICON run scripts
+# Leonidas Linardakis, MPI-M, 2011-25-1
+#==============================================================================
+#==============================================================================
+# The basic command for creating an ICON experiment run script is
+#   
+#  $make_runscript in_script=exp.<name> in_script=exec.iconrun EXPNAME=<name>
+#
+# By default the folder in use is ./run, and the run script is named exp.<name>.run.
+# 
+# Basic optional parameters for the $make_runscript command are:
+#
+#    out_script=<output run script name>. By default is <in_script>.run
+#
+#    in_folder=<input folder>. By default is run
+#
+#    out_folder=<output folder>. By default is =<in_folder>
+#
+#    mpi_procs=<number of mpi processes>. In the case of MPI configuration,
+#       defines how many processes per node will be used.
+# 
+#    no_of_nodes=<Number of nodes>. In the case of MPI configuration,
+#       defines how many nodes will be used.
+# 
+#    openmp_threads=<Number of openmp threads>. In the case of OPENMP
+#       configuration, defines how many OPENMP threads will be used.
+#
+#    cpu_time=<wall time>. Defines the expected run wall time.
+#  
+#    <free_variable>=<value> Free variables can be passed to the run script
+#       using this syntax. For example: EXPNAME=test, will result the
+#       definition of the variable EXPNAME=test in the run script. 
+   
+
+#
+# For more details see the parameters in the ./config/make_target_runscript
+#==============================================================================
+set -x
+#==============================================================================
+# Define run parameters
+
+#   The experiment name (descriptor is ./run/exp.hat_jww)
+exp_name="hat_jww"
+
+#   Define how many nodes to use on blizzard, should be 1 for all other machines
+no_of_nodes=1
+
+#   Define how mane mpi procs to use. On blizzard it defines the mpi procs per node,
+#   on all other machines defines the total mpi procs. On tornado this should be
+#   a multiple of 8
+mpi_procs=32
+
+#   Define how many openmp threads. This has effect only when compiled with openmp.
+#   Only tested on blizzard
+openmp_threads=1
+
+#   The wall clock time
+cpu_time="01:00:00"
+#==============================================================================
+
+
+#==============================================================================
+create_runscript()
+{
+base_folder=$(pwd)
+input_folder=run
+#==============================================================================
+. $base_folder/config/set-up.info
+use_shell=${use_shell:="/bin/ksh"}
+# The $make_runscript command directs to the ./config/make_target_runscript
+make_runscript="$use_shell ./config/make_target_runscript"
+
+
+runname=exp.${exp_name}.run
+nproma=24
+memory_model="large"
+
+$make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME=${exp_name} out_script=${runname} \
+nproma=$nproma no_of_nodes=$nodes mpi_procs=$mpi_procs openmp_threads=$openmp_threads memory_model=$memory_model \
+cpu_time=$cpu_time 
+# queue="express"
+
+}
+#==============================================================================
+
+
+#==============================================================================
+#   create the runsciprt
+echo "-----------------------------------------------------------"
+create_runscript()
+echo "-----------------------------------------------------------"
+#==============================================================================
