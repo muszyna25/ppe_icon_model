@@ -143,7 +143,7 @@ MODULE mo_meteogram_output
   USE mo_impl_constants,        ONLY: inwp, max_dom, SUCCESS, zml_soil, icc
   USE mo_communication,         ONLY: idx_1d, blk_no, idx_no
   USE mo_ext_data,              ONLY: t_external_data
-  USE mo_nonhydro_state,        ONLY: t_nh_state, t_nh_prog, t_nh_diag,   &
+  USE mo_nonhydro_types,        ONLY: t_nh_state, t_nh_prog, t_nh_diag,   &
     &                                 t_nh_metrics
   USE mo_nwp_phy_state,         ONLY: t_nwp_phy_diag
   USE mo_nwp_lnd_state,         ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag

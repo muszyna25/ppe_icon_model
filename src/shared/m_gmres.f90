@@ -64,7 +64,7 @@ MODULE m_gmres
   USE mo_model_domain,        ONLY: t_patch
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_gmres
   USE mo_interpolation,       ONLY: t_int_state
-  USE mo_nonhydro_state,      ONLY: t_nh_metrics
+  USE mo_nonhydro_types,      ONLY: t_nh_metrics
   USE mo_sync,                ONLY: omp_global_sum_array
 
   IMPLICIT NONE
@@ -527,7 +527,7 @@ CONTAINS
       USE mo_kind, ONLY: wp
       USE mo_model_domain, ONLY: t_patch
       USE mo_interpolation,ONLY: t_int_state
-      USE mo_nonhydro_state,ONLY: t_nh_metrics
+      USE mo_nonhydro_types,ONLY: t_nh_metrics
       REAL(wp),    INTENT(in) :: x(:,:)
       TYPE(t_patch), INTENT(in) :: curr_patch
       TYPE(t_int_state), INTENT(in) :: p_int

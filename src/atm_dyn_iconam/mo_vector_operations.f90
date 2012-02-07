@@ -49,7 +49,7 @@ MODULE mo_vector_operations
                                  edges2verts_scalar, verts2edges_scalar, &
                                  verts2cells_scalar, cells2verts_scalar, &
                                  i_cori_method, sick_a, sick_o, l_corner_vort
-  USE mo_nonhydro_state,   ONLY: t_nh_diag, t_nh_metrics
+  USE mo_nonhydro_types,   ONLY: t_nh_diag, t_nh_metrics
   USE mo_math_operators,   ONLY: rot_vertex, grad_fd_norm
   USE mo_sync,             ONLY: SYNC_E, SYNC_V, &
                                  sync_patch_array, sync_patch_array_mult

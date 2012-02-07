@@ -39,7 +39,7 @@
 MODULE mo_nh_diffusion
 
   USE mo_kind,                ONLY: wp
-  USE mo_nonhydro_state,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics, t_buffer_memory
+  USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics, t_buffer_memory
   USE mo_model_domain,        ONLY: t_patch
   USE mo_model_domain_import, ONLY: nroot, l_limited_area, lfeedback
   USE mo_interpolation,       ONLY: t_int_state, rbf_vec_interpol_vertex, nudge_max_coeff, &

@@ -156,7 +156,7 @@ MODULE mo_io_vlist
     &  my_process_is_mpi_test, my_process_is_mpi_seq, process_mpi_all_test_id,         &
     &  process_mpi_all_workroot_id, p_recv, p_send, num_work_procs, get_my_mpi_all_id
   USE mo_icoham_dyn_types,      ONLY: t_hydro_atm_prog, t_hydro_atm_diag
-  USE mo_nonhydro_state,        ONLY: t_nh_prog, t_nh_diag, t_nh_diag_pz
+  USE mo_nonhydro_types,        ONLY: t_nh_prog, t_nh_diag, t_nh_diag_pz
   USE mo_oce_state,             ONLY: t_hydro_ocean_state, t_hydro_ocean_prog,       &
        &                              t_hydro_ocean_diag, t_hydro_ocean_base,        &
        &                              t_hydro_ocean_aux,                             &

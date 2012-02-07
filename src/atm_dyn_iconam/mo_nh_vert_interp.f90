@@ -39,7 +39,7 @@ MODULE mo_nh_vert_interp
 
   USE mo_kind,                ONLY: wp
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_nonhydro_state,      ONLY: t_nh_state, t_nh_prog, t_nh_diag,  &
+  USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag,  &
     &                               t_nh_diag_pz, t_nh_metrics
   USE mo_nwp_phy_state,       ONLY: t_nwp_phy_diag
   USE mo_interpolation,       ONLY: t_int_state, edges2cells_scalar

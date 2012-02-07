@@ -57,7 +57,7 @@ MODULE mo_nh_df_test
     &                              t_cartesian_coordinates, gc2cc
   USE mo_math_operators,      ONLY: div
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
-  USE mo_nonhydro_state,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
+  USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_interpolation,       ONLY: t_int_state
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: ntracer

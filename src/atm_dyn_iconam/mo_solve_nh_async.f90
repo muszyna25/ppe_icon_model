@@ -53,7 +53,7 @@ MODULE mo_solve_nh_async
   USE mo_interpolation,        ONLY: t_int_state, cells2edges_scalar, edges2cells_scalar,      &
                                   rbf_vec_interpol_edge, cell_avg, rbf_vec_interpol_vertex, &
                                   nudge_max_coeff
-  USE mo_nonhydro_state,    ONLY: t_nh_state, t_nh_metrics, t_nh_diag, t_nh_prog, &
+  USE mo_nonhydro_types,    ONLY: t_nh_state, t_nh_metrics, t_nh_diag, t_nh_prog, &
                                   t_buffer_memory
   USE mo_physical_constants,ONLY: cpd, rd, cvd, cvd_o_rd, grav, rd_o_cpd, p0ref
   USE mo_math_operators,    ONLY: div, rot_vertex, div_avg, grad_green_gauss_cell

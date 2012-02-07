@@ -62,7 +62,7 @@ MODULE mo_vertical_grid
     &                               cells2verts_scalar, verts2edges_scalar
   USE mo_math_constants,        ONLY: pi_2
   USE mo_loopindices,           ONLY: get_indices_e, get_indices_c
-  USE mo_nonhydro_state,        ONLY: t_nh_state
+  USE mo_nonhydro_types,        ONLY: t_nh_state
   USE mo_nh_init_utils,         ONLY: nflat, nflatlev, compute_smooth_topo, init_vert_coord
   USE mo_sync,                  ONLY: SYNC_E, SYNC_V, sync_patch_array, global_sum_array, &
                                       sync_patch_array_mult, global_min, global_max

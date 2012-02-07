@@ -68,8 +68,8 @@ MODULE mo_nh_testcases
 !  &                               B2_i => c3ies ,&
 !  &                               B4_w => c4les ,&
 !  &                               B4_i => c4ies
-  USE mo_nonhydro_state,       ONLY: t_nh_state, duplicate_prog_state
-  
+  USE mo_nonhydro_types,       ONLY: t_nh_state
+  USE mo_nonhydro_state,       ONLY: duplicate_prog_state
   
   USE mo_interpolation,        ONLY: t_int_state, cells2edges_scalar, edges2cells_scalar
   USE mo_mpi,                  ONLY: my_process_is_stdio

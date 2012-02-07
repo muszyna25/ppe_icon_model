@@ -45,7 +45,7 @@ MODULE mo_nwp_conv_interface
   USE mo_impl_constants,       ONLY: min_rlcell_int
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_loopindices,          ONLY: get_indices_c
-  USE mo_nonhydro_state,       ONLY: t_nh_prog, t_nh_diag,&
+  USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag,&
     &                                t_nh_metrics
   USE mo_nonhydrostatic_config,ONLY: kstart_moist
   USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag, t_nwp_phy_tend

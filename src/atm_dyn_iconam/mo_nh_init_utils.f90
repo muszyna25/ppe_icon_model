@@ -39,7 +39,7 @@ MODULE mo_nh_init_utils
 
   USE mo_kind,                  ONLY: wp
   USE mo_model_domain,          ONLY: t_patch, p_patch_local_parent
-  USE mo_nonhydro_state,        ONLY: t_nh_metrics
+  USE mo_nonhydro_types,        ONLY: t_nh_metrics
   USE mo_parallel_config,       ONLY: nproma
   USE mo_run_config,            ONLY: msg_level
   USE mo_dynamics_config,       ONLY: iequations

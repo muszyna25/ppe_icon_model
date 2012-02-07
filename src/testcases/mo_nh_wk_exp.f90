@@ -58,7 +58,7 @@ MODULE mo_nh_wk_exp
      &                                cp_d => cpd
    USE mo_math_constants,       ONLY: pi, deg2rad
    USE mo_model_domain,         ONLY: t_patch
-   USE mo_nonhydro_state,       ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
+   USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
    USE mo_run_config,           ONLY: iqv
    USE mo_impl_constants,       ONLY: min_rlcell_int
    USE mo_parallel_config,      ONLY: nproma

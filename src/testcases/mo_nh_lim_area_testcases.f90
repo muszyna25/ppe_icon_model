@@ -57,7 +57,7 @@
                                      
    USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
    USE mo_model_domain,        ONLY: t_patch
-   USE mo_nonhydro_state,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
+   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
    USE mo_run_config,          ONLY: iqv,iqc, ntracer
    USE mo_impl_constants,      ONLY: inwp, MAX_CHAR_LENGTH, min_rlcell_int
    USE mo_parallel_config,     ONLY: nproma, p_test_run

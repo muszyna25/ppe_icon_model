@@ -42,7 +42,7 @@ MODULE mo_nh_prog_util
   USE mo_kind,                ONLY: wp
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_nonhydro_state,      ONLY:  t_nh_prog
+  USE mo_nonhydro_types,      ONLY: t_nh_prog
   USE mo_exception,           ONLY: message, finish
 
   IMPLICIT NONE

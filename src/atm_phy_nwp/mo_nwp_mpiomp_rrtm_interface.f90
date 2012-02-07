@@ -55,7 +55,7 @@ MODULE mo_nwp_mpiomp_rrtm_interface
     &                                csalb_snow_fe, csalb_snow_fd, csalb_p, cf_snow
   USE mo_phys_nest_utilities,  ONLY: upscale_rad_input, downscale_rad_output, &
     &                                upscale_rad_input_rg, downscale_rad_output_rg
-  USE mo_nonhydro_state,       ONLY: t_nh_prog, t_nh_diag
+  USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag
   USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag !,prm_diag
   USE mo_radiation,            ONLY: radiation, pre_radiation_nwp_steps
   USE mo_radiation_config,     ONLY: irad_o3, irad_aero, vmr_co2, rad_csalbw

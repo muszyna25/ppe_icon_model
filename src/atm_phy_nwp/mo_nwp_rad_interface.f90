@@ -58,7 +58,7 @@ MODULE mo_nwp_rad_interface
     &                                csalb_snow_fe, csalb_snow_fd, csalb_p, cf_snow
   USE mo_phys_nest_utilities,  ONLY: upscale_rad_input, downscale_rad_output, &
     &                                upscale_rad_input_rg, downscale_rad_output_rg
-  USE mo_nonhydro_state,       ONLY: t_nh_prog, t_nh_diag
+  USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag
   USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag !,prm_diag
   USE mo_o3_util,              ONLY: calc_o3_clim,calc_o3_gems
   USE mo_physical_constants,   ONLY: tmelt

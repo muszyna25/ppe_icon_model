@@ -56,7 +56,7 @@ MODULE mo_nh_mrw_exp
    USE mo_math_constants,      ONLY: pi
    USE mo_physical_constants,  ONLY: rd, cpd, cvd_o_rd, re, grav, omega, p0ref
    USE mo_extpar_config,       ONLY: itopo
-   USE mo_nonhydro_state,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
+   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
 
    USE mo_nh_init_utils,       ONLY: convert_thdvars, virtual_temp, init_w ,      &
                                    & hydro_adjust

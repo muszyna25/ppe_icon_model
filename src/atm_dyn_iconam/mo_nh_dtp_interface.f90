@@ -47,7 +47,7 @@ MODULE mo_nh_dtp_interface
   USE mo_parallel_config,    ONLY: nproma, p_test_run
   USE mo_run_config,         ONLY: lvert_nest, ntracer
   USE mo_model_domain,       ONLY: t_patch
-  USE mo_nonhydro_state,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
+  USE mo_nonhydro_types,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_interpolation,      ONLY: t_int_state
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants,     ONLY: min_rledge_int, min_rlcell_int, min_rlcell

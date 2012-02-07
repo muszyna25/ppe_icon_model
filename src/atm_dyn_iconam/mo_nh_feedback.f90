@@ -46,7 +46,7 @@ USE mo_nonhydrostatic_config, ONLY: l_masscorr_nest
 USE mo_dynamics_config,     ONLY: nnow, nnew, nnow_rcf, nnew_rcf, nsav1, nsav2 
 USE mo_parallel_config,     ONLY: nproma, p_test_run
 USE mo_run_config,          ONLY: ltransport, iforcing, msg_level, ntracer
-USE mo_nonhydro_state,      ONLY: t_nh_state, t_nh_prog, t_nh_diag
+USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag
 USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlcell_int, min_rledge_int, &
             &                     min_rlvert_int, MAX_CHAR_LENGTH
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v

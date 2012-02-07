@@ -68,8 +68,7 @@ USE mo_grf_intp_data_strc,   ONLY: p_grf_state
 ! NH-namelist state
 USE mo_atm_phy_nwp_config,   ONLY: configure_atm_phy_nwp, atm_phy_nwp_config
 ! NH-Model states
-USE mo_nonhydro_state,       ONLY: p_nh_state, construct_nh_state,             &
-  &                                destruct_nh_state
+USE mo_nonhydro_state,       ONLY: p_nh_state, construct_nh_state, destruct_nh_state
 USE mo_nwp_phy_state,        ONLY: construct_nwp_phy_state,                    &
   &                                destruct_nwp_phy_state, prm_diag
 USE mo_nwp_lnd_state,        ONLY: p_lnd_state, construct_nwp_lnd_state,       &

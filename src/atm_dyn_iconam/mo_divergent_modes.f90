@@ -60,7 +60,7 @@ MODULE mo_divergent_modes
   USE mo_model_domain_import,   ONLY: lplane
   USE mo_interpolation,         ONLY: t_int_state,  &
     &                                 cells2edges_scalar, edges2cells_scalar
-  USE mo_nonhydro_state,        ONLY: t_nh_state, t_nh_metrics
+  USE mo_nonhydro_types,        ONLY: t_nh_state, t_nh_metrics
   USE mo_physical_constants,    ONLY: cpd, rd, cvd, cvd_o_rd, rd_o_cpd
   USE mo_math_operators,        ONLY: div, grad_fd_norm, grad_dir_edge,  &
     &                                 directional_laplace

@@ -44,7 +44,7 @@ MODULE mo_nwp_phy_init
   USE mo_nwp_phy_state,       ONLY: t_nwp_phy_diag,t_nwp_phy_tend
   USE mo_nwp_lnd_state,       ONLY: t_lnd_prog, t_lnd_diag
   USE mo_ext_data,            ONLY: t_external_data, nlev_o3, nmonths
-  USE mo_nonhydro_state,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
+  USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_exception,           ONLY: message, finish,message_text
   USE mo_vertical_coord_table,ONLY: vct_a, vct
   USE mo_model_domain,        ONLY: t_patch

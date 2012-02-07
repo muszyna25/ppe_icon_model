@@ -51,7 +51,7 @@ MODULE mo_o3_util
   USE mo_math_constants,       ONLY: pi,deg2rad,rad2deg
   USE mo_model_domain,         ONLY: t_patch
   USE mo_nh_vert_interp,       ONLY: prepare_lin_intp, lin_intp
-  USE mo_nonhydro_state,       ONLY: t_nh_prog, t_nh_diag
+  USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag
   USE mo_o3_gems_data,         ONLY: rghg7
   USE mo_physical_constants,   ONLY: amd,amo3
   USE mo_run_config,           ONLY: io3

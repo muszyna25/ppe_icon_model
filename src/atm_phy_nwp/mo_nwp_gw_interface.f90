@@ -49,7 +49,7 @@ MODULE mo_nwp_gw_interface
   USE mo_loopindices,          ONLY: get_indices_c
 
   USE mo_ext_data,             ONLY: t_external_data
-  USE mo_nonhydro_state,       ONLY: t_nh_diag, t_nh_metrics
+  USE mo_nonhydro_types,       ONLY: t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_parallel_config,      ONLY: nproma
   USE mo_run_config,           ONLY: msg_level
