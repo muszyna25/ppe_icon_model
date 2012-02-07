@@ -1,7 +1,6 @@
 * text=auto !eol
 /Makefile.in -text
 /README -text
-/TODO -text
 /aclocal.m4 -text
 blas/dasum.f -text
 blas/daxpy.f -text
