@@ -78,10 +78,9 @@ MODULE mo_nh_stepping
   USE mo_nh_hex_util,         ONLY: forcing_straka, momentum_adv
   USE mo_nh_supervise,        ONLY: supervise_total_integrals_nh
   USE mo_interpolation,       ONLY: t_int_state, t_lon_lat_intp, &
-                                 &  rbf_vec_interpol_cell, &
-                                    edges2cells_scalar,&
-                                    verts2edges_scalar,&
-                                    edges2verts_scalar
+    &                               rbf_vec_interpol_cell, edges2cells_scalar,     &
+    &                               verts2edges_scalar, edges2verts_scalar,        &
+    &                               verts2cells_scalar
   USE mo_grf_interpolation,   ONLY: t_gridref_state
   USE mo_grf_bdyintp,         ONLY: interpol_scal_grf
   USE mo_nh_nest_utilities,   ONLY: compute_tendencies, boundary_interpolation,    &
@@ -131,7 +130,9 @@ MODULE mo_nh_stepping
   USE mo_parallel_config,     ONLY: parallel_radiation_omp, nh_stepping_ompthreads
   USE mo_meteogram_config,    ONLY: meteogram_output_config
   USE mo_meteogram_output,    ONLY: meteogram_sample_vars, meteogram_is_sample_step
-  USE mo_name_list_output,    ONLY: write_name_list_output, istime4name_list_output
+  USE mo_name_list_output_config,  ONLY: is_any_output_file_active
+  USE mo_name_list_output,    ONLY: write_name_list_output, istime4name_list_output, &
+    &                               output_file
   USE mo_nwp_parameters,      ONLY: phy_params
 
   IMPLICIT NONE
@@ -517,8 +518,21 @@ MODULE mo_nh_stepping
         CALL intp_to_p_and_z_levels(p_patch(1:), prm_diag, p_nh_state)
       ENDIF
 
+      ! Special treatment of vertex-based vorticity field: If desired,
+      ! interpolate vorticity onto cell grid:
+      DO jg = 1, n_dom
+        IF (is_any_output_file_active(output_file, sim_time(1), dtime, &
+          &              iadv_rcf, (jstep==nsteps), jg, "omega_z")) THEN
+          CALL verts2cells_scalar( p_nh_state(jg)%diag%omega_z, p_patch(jg), &
+            &                      p_int_state(jg)%verts_aw_cells,           &
+            &                      p_nh_state(jg)%diag%omega_z_c, 1,         &
+            &                      p_patch(jg)%nlev )
+        END IF
+      END DO
+
       IF  ((.NOT. no_output) .AND.  &
         &  (istime4output(sim_time(1)) .OR. jstep==nsteps )) THEN
+
         CALL write_output( datetime, sim_time(1) )
         CALL message('','Output at:')
         CALL print_datetime(datetime)

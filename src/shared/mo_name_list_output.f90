@@ -84,7 +84,10 @@ MODULE mo_name_list_output
   &                                     vname_len,               &  
   &                                     t_output_name_list,      &
   &                                     first_output_name_list,  &
-  &                                     max_time_levels
+  &                                     max_time_levels,         &
+  &                                     t_output_file,           &
+  &                                     is_output_nml_active,    &
+  &                                     is_output_file_active
 
 
   IMPLICIT NONE
@@ -99,18 +102,7 @@ MODULE mo_name_list_output
   PUBLIC :: close_name_list_output
   PUBLIC :: istime4name_list_output
   PUBLIC :: name_list_io_main_proc
-
-
-  ! Unfortunately, Fortran does not allow arrays of pointers, so we have to define an extra type
-  TYPE t_rptr_5d
-    REAL(wp), POINTER :: p(:,:,:,:,:)
-  END TYPE
-
-  TYPE t_var_desc
-    REAL(wp), POINTER :: r_ptr(:,:,:,:,:) ! Pointer to time level independent data (or NULL)
-    TYPE(t_rptr_5d) :: tlev_ptr(max_time_levels) ! Pointers to time level dependet data
-    TYPE(t_var_metadata) :: info          ! Info structure for variable
-  END TYPE
+  PUBLIC :: output_file
 
   !------------------------------------------------------------------------------------------------
 
@@ -131,49 +123,6 @@ MODULE mo_name_list_output
   INTEGER, PARAMETER, PUBLIC      :: ZA_depth_half          = 11
   INTEGER, PARAMETER, PUBLIC      :: ZA_generic_ice         = 12
 
-  !------------------------------------------------------------------------------------------------
-  TYPE t_output_file
-
-    ! The following data must be set before opening the output file:
-    CHARACTER(LEN=filename_max) :: filename_pref ! Prefix of output file name
-    INTEGER                     :: output_type   ! CDI format
-    INTEGER                     :: phys_patch_id ! ID of physical output patch
-    INTEGER                     :: log_patch_id  ! ID of logical output patch
-    INTEGER                     :: num_vars
-    TYPE(t_var_desc), ALLOCATABLE :: var_desc(:)
-    TYPE(t_output_name_list), POINTER :: name_list ! Pointer to corresponding output name list
-
-    CHARACTER(LEN=vname_len), ALLOCATABLE :: name_map(:,:) ! mapping internal names -> names in NetCDF
-
-    INTEGER                     :: remap         ! Copy of remap from associated namelist
-
-    !----------------------------
-    ! Used for lon/lat interpolation only
-    TYPE (t_lon_lat_grid)       :: lonlat_grid
-    TYPE(t_lon_lat_intp)        :: int_state_lonlat
-    !----------------------------
-
-    INTEGER                     :: io_proc_id    ! ID of process doing I/O on this file
-
-    !----------------------------
-    ! Used for async IO only
-    INTEGER(i8)                 :: my_mem_win_off
-    INTEGER(i8), ALLOCATABLE    :: mem_win_off(:)
-    !----------------------------
-
-    ! The following members are set during open
-    CHARACTER(LEN=filename_max) :: filename      ! Actual name of output file
-    INTEGER                     :: cdiFileId
-    INTEGER                     :: cdiVlistId         ! cdi vlist handler
-    INTEGER                     :: cdiCellGridID
-    INTEGER                     :: cdiVertGridID
-    INTEGER                     :: cdiEdgeGridID
-    INTEGER                     :: cdiLonLatGridID
-    INTEGER                     :: cdiZaxisID(12) ! All types of possible Zaxis ID's
-    INTEGER                     :: cdiTaxisID
-    INTEGER                     :: cdiTimeIndex
-
-  END TYPE t_output_file
   !------------------------------------------------------------------------------------------------
 
   TYPE(t_output_file), ALLOCATABLE, TARGET :: output_file(:)
@@ -592,7 +541,7 @@ CONTAINS
 
       ! If dom(:) was not specified in namelist input, it is set completely to -1.
       ! In this case all domains are wanted in the output, so set it here
-      ! appropriatly - this cannot be done during reading of the namelists
+      ! appropriately - this cannot be done during reading of the namelists
       ! since the number of physical domains is not known there.
 
       IF(p_onl%dom(1) <= 0) THEN
@@ -747,7 +696,7 @@ CONTAINS
                 CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%ml_varlist)
               END IF
             CASE(2)
-              IF (toupper(TRIM(p_onl%ml_varlist(1))) == "ALL") THEN
+              IF (toupper(TRIM(p_onl%pl_varlist(1))) == "ALL") THEN
                 IF (n_allvars > 0) &
                   CALL add_varlist_to_output_file(p_of,vl_list(1:nvl), &
                   &                               all_varlist(1:n_allvars))
@@ -755,7 +704,7 @@ CONTAINS
                 CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%pl_varlist)
               END IF
             CASE(3)
-              IF (toupper(TRIM(p_onl%ml_varlist(1))) == "ALL") THEN
+              IF (toupper(TRIM(p_onl%hl_varlist(1))) == "ALL") THEN
                 IF (n_allvars > 0) &
                   CALL add_varlist_to_output_file(p_of,vl_list(1:nvl), &
                   &                               all_varlist(1:n_allvars))
@@ -868,7 +817,6 @@ CONTAINS
 
           ! Do not inspect element if it is a container
           IF(element%field%info%lcontainer) CYCLE
-
           ! Check for matching name
           idx = INDEX(element%field%info%name,'.TL')
           IF(idx == 0) THEN
@@ -1963,7 +1911,7 @@ CONTAINS
       mapped_name = info%name
       IF(ALLOCATED(of%name_map)) THEN
         DO i = 1, UBOUND(of%name_map, 2)
-          IF(info%name == of%name_map(1,i)) THEN
+          IF(TRIM(info%name) == TRIM(of%name_map(1,i))) THEN
             mapped_name = of%name_map(2,i)
             EXIT
           ENDIF
@@ -1980,13 +1928,24 @@ CONTAINS
         !
         CALL vlistDefVarDatatype(vlistID, varID, DATATYPE_FLT32)
         IF(nvars==2) THEN
-          IF(i==1) THEN
-            CALL vlistDefVarName(vlistID, varID, TRIM(mapped_name)//'_LONLAT_X')
+          IF ((of%output_type == FILETYPE_NC2) .OR.  &
+            & (of%output_type == FILETYPE_NC4)) THEN
+            IF(i==1) THEN
+              CALL vlistDefVarName(vlistID, varID, TRIM(mapped_name)//'_LONLAT_X')
+            ELSE
+              CALL vlistDefVarName(vlistID, varID, TRIM(mapped_name)//'_LONLAT_Y')
+            ENDIF
           ELSE
-            CALL vlistDefVarName(vlistID, varID, TRIM(mapped_name)//'_LONLAT_Y')
-          ENDIF
+            IF(i==1) THEN
+              CALL vlistDefVarName(vlistID, varID, TRIM(mapped_name))
+            ELSE
+              CALL vlistDefVarName(vlistID, varID, TRIM(mapped_name))
+            ENDIF
+          END IF
         ELSE
-          IF(of%name_list%remap == 1) THEN
+          IF ((of%name_list%remap == 1) .AND.         &  
+            & ((of%output_type == FILETYPE_NC2) .OR.  &
+            &  (of%output_type == FILETYPE_NC4))) THEN
             CALL vlistDefVarName(vlistID, varID, TRIM(mapped_name)//'_LONLAT')
           ELSE
             CALL vlistDefVarName(vlistID, varID, TRIM(mapped_name))
@@ -2184,8 +2143,7 @@ CONTAINS
       p_onl => output_file(i)%name_list
 
       ! Check if output is due for this file
-      IF((p_onl%include_last .AND. last_step) .OR. &
-          p_onl%next_output_time <= sim_time+REAL(iadv_rcf,wp)*dtime/2._wp) THEN
+      IF (is_output_file_active(output_file(i), sim_time, dtime, iadv_rcf, last_step)) THEN
 
         IF(MOD(p_onl%n_output_steps,p_onl%steps_per_file) == 0) THEN
           IF (output_file(i)%io_proc_id == p_pe .OR. my_process_is_mpi_test()) THEN
@@ -2210,11 +2168,8 @@ CONTAINS
     ! Go over all output files
     DO i = 1, SIZE(output_file)
 
-      p_onl => output_file(i)%name_list
-
       ! Check if output is due for this file
-      IF((p_onl%include_last .AND. last_step) .OR. &
-          p_onl%next_output_time <= sim_time+REAL(iadv_rcf,wp)*dtime/2._wp) THEN
+      IF (is_output_file_active(output_file(i), sim_time, dtime, iadv_rcf, last_step)) THEN
 
         IF (output_file(i)%io_proc_id == p_pe .OR. my_process_is_mpi_test()) THEN
           CALL taxisDefVdate(output_file(i)%cdiTaxisID, idate)
@@ -2251,11 +2206,8 @@ CONTAINS
     DO
       IF(.NOT.ASSOCIATED(p_onl)) EXIT
 
-      IF((p_onl%include_last .AND. last_step) .OR. &
-          p_onl%next_output_time <= sim_time+REAL(iadv_rcf,wp)*dtime/2._wp) THEN
-
+      IF (is_output_nml_active(p_onl, sim_time, dtime, iadv_rcf, last_step)) THEN
         p_onl%n_output_steps = p_onl%n_output_steps + 1
-
       ENDIF
 
       ! Switch all name lists to next output time.
@@ -2263,7 +2215,7 @@ CONTAINS
       ! where an output increment less than the time step
       ! or two output_bounds triples which are too close are specified.
 
-      DO WHILE(p_onl%next_output_time <= sim_time+REAL(iadv_rcf,wp)*dtime/2._wp)
+      DO WHILE (is_output_nml_active(p_onl, sim_time, dtime, iadv_rcf))
         n = p_onl%cur_bounds_triple
         IF(p_onl%next_output_time + p_onl%output_bounds(3,n) <= p_onl%output_bounds(2,n)+eps) THEN
           ! Next output time will be within current bounds triple
@@ -2573,7 +2525,8 @@ CONTAINS
     p_onl => first_output_name_list
     DO
       IF(.NOT.ASSOCIATED(p_onl)) EXIT
-      IF(p_onl%next_output_time <= sim_time+REAL(iadv_rcf,wp)*dtime/2._wp) retval = .TRUE.
+      IF (retval) EXIT
+      retval = is_output_nml_active(p_onl, sim_time, dtime, iadv_rcf)
       p_onl => p_onl%next
     ENDDO
 

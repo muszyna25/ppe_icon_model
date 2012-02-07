@@ -137,6 +137,8 @@ MODULE mo_nonhydro_state
     &  vt(:,:,:),           & ! tangential wind (nproma,nlev,nblks_e)          [m/s]
     &  omega_z(:,:,:),      & ! vertical vorticity at dual grid
                               ! (nproma,nlev,nblks_v or nblks_e)               [1/s]
+    &  omega_z_c(:,:,:),    & ! vertical vorticity at cells, available only for output
+                              ! (nproma,nlev,nblks_v or nblks_e)               [1/s]
     &  ddt_vn_phy(:,:,:),   & ! normal wind tendency from forcing
                               ! (nproma,nlev,nblks_e)                          [m/s^2]
     &  ddt_exner(:,:,:),    & ! exner pressure tendency from forcing (nproma,nlev,nblks_c)  [1/s]
@@ -1166,12 +1168,19 @@ MODULE mo_nonhydro_state
 
     ! omega_z      p_diag%omega_z(nproma,nlev,nblks_v)
     !
-    cf_desc    = t_cf_var('vertical_vorticity', 'm s-1', 'vertical voritcity')
+    cf_desc    = t_cf_var('vertical_vorticity', 'm s-1', 'vertical vorticity')
     grib2_desc = t_grib2_var(0, 2, 197, ientr, GRID_REFERENCE, GRID_VERTEX)
     CALL add_var( p_diag_list, 'omega_z', p_diag%omega_z,                       &
                 & GRID_UNSTRUCTURED_VERT, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
-                & ldims=shape3d_v, lrestart=.FALSE. )
+                & ldims=shape3d_v, lrestart=.FALSE., loutput=.FALSE. )
 
+    ! omega_z_c    p_diag%omega_z_c(nproma,nlev,nblks_c)
+    !
+    cf_desc    = t_cf_var('vertical_vorticity', 'm s-1', 'vertical vorticity')
+    grib2_desc = t_grib2_var(0, 2, 197, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_diag_list, 'omega_z', p_diag%omega_z_c,                   &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
+                & ldims=shape3d_c, lrestart=.FALSE. )
 
     ! ddt_vn_phy   p_diag%ddt_vn_phy(nproma,nlev,nblks_e)
     ! *** needs to be saved for restart ***
