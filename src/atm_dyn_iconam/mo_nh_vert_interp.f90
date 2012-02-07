@@ -1678,7 +1678,12 @@ CONTAINS
             ENDIF
 
             ! Finally, apply inverse-distance weighting between top-down and bottom-up integrated value
-            pres_out(jc,jk,jb) = wfac(jc,jk,jb)*p_up + (1._wp-wfac(jc,jk,jb))*p_down
+            ! except in the case of extrapolation above the top of the input data
+            IF (jk1 == 1 .AND. wfac(jc,jk,jb) > 1._wp) THEN
+              pres_out(jc,jk,jb) = p_up
+            ELSE
+              pres_out(jc,jk,jb) = wfac(jc,jk,jb)*p_up + (1._wp-wfac(jc,jk,jb))*p_down
+            ENDIF
 
           ELSE ! downward extrapolation
 
@@ -1794,13 +1799,19 @@ CONTAINS
             IF (pres_pl(jc,jkp,jb) >= pres_ml(jc,jkm,jb) .AND. &
                 pres_pl(jc,jkp,jb) <  pres_ml(jc,jkm+1,jb)) THEN
               idx0_ml(jc,jkp) = jkm
-              wfac_ml(jc,jkp) = (pres_pl(jc,jkp  ,jb)-pres_ml(jc,jkm,jb))/&
-                                (pres_ml(jc,jkm+1,jb)-pres_ml(jc,jkm,jb))
+              wfac_ml(jc,jkp) = (pres_pl(jc,jkp,jb)-pres_ml(jc,jkm+1,jb))/&
+                                (pres_ml(jc,jkm,jb)-pres_ml(jc,jkm+1,jb))
               bot_idx_ml(jc) = jkp
               l_found(jc) = .TRUE.
             ELSE IF (pres_pl(jc,jkp,jb) > pres_ml(jc,nlevs_ml,jb)) THEN
               l_found(jc) = .TRUE.
               idx0_ml(jc,jkp) = nlevs_ml
+            ELSE IF (pres_pl(jc,jkp,jb) < pres_ml(jc,1,jb)) THEN
+              idx0_ml(jc,jkp) = 1
+              wfac_ml(jc,jkp) = (pres_pl(jc,jkp,jb)-pres_ml(jc,2,jb))/&
+                                (pres_ml(jc,1  ,jb)-pres_ml(jc,2,jb))
+              bot_idx_ml(jc) = jkp
+              l_found(jc) = .TRUE.
             ENDIF
           ENDDO
           IF (ALL(l_found(1:nlen))) THEN
@@ -1827,8 +1838,8 @@ CONTAINS
             IF (pres_pl(jc,jkp,jb) >= pres_zl(jc,jkz,jb) .AND. &
                 pres_pl(jc,jkp,jb) <  pres_zl(jc,jkz+1,jb)) THEN
               idx0_zl(jc,jkp) = jkz
-              wfac_zl(jc,jkp) = (pres_pl(jc,jkp  ,jb)-pres_zl(jc,jkz,jb))/&
-                                (pres_zl(jc,jkz+1,jb)-pres_zl(jc,jkz,jb))
+              wfac_zl(jc,jkp) = (pres_pl(jc,jkp,jb)-pres_zl(jc,jkz+1,jb))/&
+                                (pres_zl(jc,jkz,jb)-pres_zl(jc,jkz+1,jb))
               bot_idx_zl(jc) = jkp
               l_found(jc) = .TRUE.
             ELSE IF (pres_pl(jc,jkp,jb) > pres_zl(jc,nlevs_zl,jb)) THEN
@@ -1910,7 +1921,12 @@ CONTAINS
             ENDIF
 
             ! Finally, apply inverse-distance weighting between top-down and bottom-up integrated value
-            z3d_pl(jc,jkp,jb) = wfac_ml(jc,jkp)*z_up + (1._wp-wfac_ml(jc,jkp))*z_down
+            ! except in the case of extrapolation above the top of the input data
+            IF (jkm == 1 .AND. wfac_ml(jc,jkp) > 1._wp) THEN
+              z3d_pl(jc,jkp,jb) = z_up
+            ELSE
+              z3d_pl(jc,jkp,jb) = wfac_ml(jc,jkp)*z_up + (1._wp-wfac_ml(jc,jkp))*z_down
+            ENDIF
 
           ELSE IF (jkp <= bot_idx_zl(jc)) THEN
 
