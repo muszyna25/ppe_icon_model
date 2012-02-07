@@ -583,9 +583,6 @@ CONTAINS
             pt_diag%exner_old(jc,jk,jb) = pt_diag%exner_old(jc,jk,jb) + &
               pt_prog%exner(jc,jk,jb) - z_exner_sv(jc,jk,jb)
 
-            pt_diag%exner_fphy_incr(jc,jk,jb) =                        &
-              -0.5_wp * (pt_prog%exner(jc,jk,jb) - z_exner_sv(jc,jk,jb))
-
             pt_prog%theta_v(jc,jk,  jb) = z_aux_tempv  (jc,jk,jb) &
 &                                       / pt_prog%exner(jc,jk,jb)
 
@@ -645,9 +642,6 @@ CONTAINS
 
                 pt_diag%exner_old(jc,jk,jb) = pt_diag%exner_old(jc,jk,jb) + &
                   pt_prog%exner(jc,jk,jb) - z_exner_sv(jc,jk,jb)
-
-                pt_diag%exner_fphy_incr(jc,jk,jb) =                        &
-                  -0.5_wp * (pt_prog%exner(jc,jk,jb) - z_exner_sv(jc,jk,jb))
 
                 pt_prog%theta_v(jc,jk,  jb) = z_aux_tempv  (jc,jk,jb) &
 &                                           / pt_prog%exner(jc,jk,jb)

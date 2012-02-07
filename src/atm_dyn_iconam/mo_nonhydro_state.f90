@@ -149,7 +149,6 @@ MODULE mo_nonhydro_state
     &  tracer_vi(:,:,:),    & ! vertically integrated tracers(for q1,q2,q3) [kg/m**2]
     &  tracer_vi_avg(:,:,:),& ! average since last output of tracer_vi [kg/m**2]
     &  exner_old(:,:,:),    & ! exner pres from previous step (nproma,nlev,nblks_c)
-    &  exner_fphy_incr(:,:,:), & ! exner pres fast-physics increment (nproma,nlev,nblks_c)
     &  exner_dyn_incr(:,:,:), & ! exner pres dynamics increment (nproma,nlev,nblks_c)
     &  temp(:,:,:),         & ! temperature (nproma,nlev,nblks_c)                 [K]
     &  tempv(:,:,:),        & ! virtual temperature (nproma,nlev,nblks_c)         [K]
@@ -1225,14 +1224,6 @@ MODULE mo_nonhydro_state
     cf_desc    = t_cf_var('old_exner_pressure', '-', 'old exner pressure')
     grib2_desc = t_grib2_var(0, 3, 196, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'exner_old', p_diag%exner_old,                   &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
-                & ldims=shape3d_c )
-
-    ! exner_fphy_incr    p_diag%exner_fphy_incr(nproma,nlev,nblks_c)
-    ! *** needs to be saved for restart ***
-    cf_desc    = t_cf_var('exner_fast_physics_increment', '-', 'exner fast physics increment')
-    grib2_desc = t_grib2_var(0, 3, 196, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_diag_list, 'exner_fphy_incr', p_diag%exner_fphy_incr,       &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
                 & ldims=shape3d_c )
 
