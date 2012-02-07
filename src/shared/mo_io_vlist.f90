@@ -2409,6 +2409,13 @@ CONTAINS
       &                   gridEdgeID(k_jg),&
       &                   zaxisID_halfdepth(k_jg)),&
       &           k_jg)
+      CALL addVar(TimeVar('Horz_Mixing_V',&
+      &                   'horizontal mixing coeff veloc',&
+      &                   'm^2/s', 6, 128,&
+      &                   vlistid(k_jg),&
+      &                   gridEdgeID(k_jg),&
+      &                   zaxisIDdepth_m(k_jg)),&
+      &           k_jg)
       CALL addVar(TimeVar('Vert_Mixing_T',&
       &                   'vertical mixing coeff temp',&
       &                   'm^2/s', 6, 128,&
@@ -3473,6 +3480,7 @@ CONTAINS
       CASE ('rho');          ptr3d => p_diag%rho   
       CASE('Vert_Mixing_V'); ptr3d => p_params%A_veloc_v
       CASE('Vert_Mixing_T'); ptr3d => p_params%A_tracer_v(:,:,:,1)
+      CASE('Horz_Mixing_V'); ptr3d => p_params%K_veloc_h
       CASE ('cell_owner');   ptr2d => cell_owner
       ! sea ice variables
       CASE('p_ice_isice')

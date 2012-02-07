@@ -99,6 +99,7 @@ doc/resources/img/mpglogo.pdf -text svneol=unset#unset
 doc/resources/img/mpglogo.png -text
 doc/resources/img/mpilogo.pdf -text
 doc/resources/img/mpilogo.png -text
+doc/science1/ICON-Ocean-Kladde.tex -text
 doc/science1/IFS_gw_param.pdf -text
 doc/science1/NWP_physics/IFS_gw_param.pdf -text
 doc/science1/NWP_physics/Microphys.tar -text
@@ -610,6 +611,7 @@ run/README -text
 run/compile_for_dev.mpi.ksh -text
 run/compile_for_developers.ksh -text
 run/exec.iconrun -text
+run/exp.ChannelFlow -text
 run/exp.couple_atmo-ocean -text
 run/exp.couple_atmo-radiation -text
 run/exp.couple_dummy_models -text
@@ -1192,7 +1194,9 @@ src/oce_dyn_icohom/mo_oce_init.f90 -text
 src/oce_dyn_icohom/mo_oce_linear_solver.f90 -text
 src/oce_dyn_icohom/mo_oce_math_operators.f90 -text
 src/oce_dyn_icohom/mo_oce_state.f90 -text
-src/oce_dyn_icohom/mo_oce_tracer_transport.f90 -text
+src/oce_dyn_icohom/mo_oce_tracer.f90 -text
+src/oce_dyn_icohom/mo_oce_tracer_transport_horz.f90 -text
+src/oce_dyn_icohom/mo_oce_tracer_transport_vert.f90 -text
 src/oce_dyn_icohom/mo_oce_veloc_advection.f90 -text
 src/oce_dyn_icohom/mo_scalar_product.f90 -text
 src/oce_dyn_icohom/mo_simple_expl_run.f90 -text

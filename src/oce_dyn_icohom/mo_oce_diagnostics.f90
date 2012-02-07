@@ -174,48 +174,51 @@ IF(iswm_oce/=1)THEN
       !z_dolic = v_base%dolic_c(jc,jb)
       !IF ( z_dolic>=MIN_DOLIC)THEN 
         DO jk=1,n_zlev!z_dolic
-          delta_z = v_base%del_zlev_m(jk)
 
-          IF (jk == 1) THEN
-           delta_z = v_base%del_zlev_m(jk)&
-                   & + p_os%p_prog(nold(1))%h(jc,jb)
-          ENDIF
+!          IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
 
-          prism_vol = p_patch%cells%area(jc,jb)*delta_z
+            delta_z = v_base%del_zlev_m(jk)
 
-          !Fluid volume 
-          ptr_monitor%volume = ptr_monitor%volume + prism_vol
+            IF (jk == 1) THEN
+              delta_z = v_base%del_zlev_m(jk)&
+                     & + p_os%p_prog(nold(1))%h(jc,jb)
+            ENDIF
 
-          !kinetic energy
-          ptr_monitor%kin_energy = ptr_monitor%kin_energy+ p_os%p_diag%kin(jc,jk,jb)*prism_vol
+            prism_vol = p_patch%cells%area(jc,jb)*delta_z
 
-          !Potential energy
-          IF(jk==1)THEN
-            z_w = (p_os%p_diag%w(jc,jk,jb)*p_os%p_prog(nold(1))%h(jc,jb)&
-               & +p_os%p_diag%w(jc,jk+1,jb)*0.5_wp*v_base%del_zlev_i(jk))&
-               &/(0.5_wp*v_base%del_zlev_i(jk)+p_os%p_prog(nold(1))%h(jc,jb))
-          ELSEIF(jk>1.AND.jk<n_zlev)THEN
-            z_w = (p_os%p_diag%w(jc,jk,jb)*v_base%del_zlev_i(jk)&
-               & +p_os%p_diag%w(jc,jk+1,jb)*v_base%del_zlev_i(jk+1))&
-               &/(v_base%del_zlev_i(jk)+v_base%del_zlev_i(jk+1))
-          ENDIF 
+            !Fluid volume 
+            ptr_monitor%volume = ptr_monitor%volume + prism_vol
 
-          ptr_monitor%pot_energy = ptr_monitor%pot_energy&
-          &+ grav*z_w* p_os%p_diag%rho(jc,jk,jb)* prism_vol
+            !kinetic energy
+            ptr_monitor%kin_energy = ptr_monitor%kin_energy+ p_os%p_diag%kin(jc,jk,jb)*prism_vol
 
-          !Tracer content
-          DO i_no_t=1, no_tracer
-            ptr_monitor%tracer_content(i_no_t) = ptr_monitor%tracer_content(i_no_t)&
-            & + prism_vol*p_os%p_prog(nold(1))%tracer(jc,jk,jb,i_no_t)
-          END DO
+            !Potential energy
+            IF(jk==1)THEN
+              z_w = (p_os%p_diag%w(jc,jk,jb)*p_os%p_prog(nold(1))%h(jc,jb)&
+                 & +p_os%p_diag%w(jc,jk+1,jb)*0.5_wp*v_base%del_zlev_i(jk))&
+                 &/(0.5_wp*v_base%del_zlev_i(jk)+p_os%p_prog(nold(1))%h(jc,jb))
+            ELSEIF(jk>1.AND.jk<n_zlev)THEN
+              z_w = (p_os%p_diag%w(jc,jk,jb)*v_base%del_zlev_i(jk)&
+                 & +p_os%p_diag%w(jc,jk+1,jb)*v_base%del_zlev_i(jk+1))&
+                 &/(v_base%del_zlev_i(jk)+v_base%del_zlev_i(jk+1))
+            ENDIF 
 
+            ptr_monitor%pot_energy = ptr_monitor%pot_energy&
+            &+ grav*z_w* p_os%p_diag%rho(jc,jk,jb)* prism_vol
+
+            !Tracer content
+            DO i_no_t=1, no_tracer
+              ptr_monitor%tracer_content(i_no_t) = ptr_monitor%tracer_content(i_no_t)&
+              & + prism_vol*p_os%p_prog(nold(1))%tracer(jc,jk,jb,i_no_t)
+            END DO
+ !         ENDIF
         END DO
       !ENDIF
     END DO
   END DO
 
   !divide by volume
-  IF(ptr_monitor%volume/=0.0)THEN
+  IF(ptr_monitor%volume/=0.0_wp)THEN
     ptr_monitor%kin_energy = ptr_monitor%kin_energy/ptr_monitor%volume
     ptr_monitor%pot_energy = ptr_monitor%pot_energy/ptr_monitor%volume
   ELSE
@@ -224,7 +227,7 @@ IF(iswm_oce/=1)THEN
   ENDIF
   ptr_monitor%total_energy = ptr_monitor%pot_energy + ptr_monitor%kin_energy
 
-  IF(ptr_monitor%volume/=0.0)THEN
+  IF(ptr_monitor%volume/=0.0_wp)THEN
     DO i_no_t=1, no_tracer
       ptr_monitor%tracer_content(i_no_t) = ptr_monitor%tracer_content(i_no_t)/ptr_monitor%volume
     END DO
@@ -240,24 +243,24 @@ ELSEIF(iswm_oce==1)THEN
     CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
        &                             rl_start_c, rl_end_c)
     DO jc = i_startidx_c, i_endidx_c
+      IF ( v_base%lsm_oce_e(jc,1,jb) <= sea_boundary ) THEN
+        prism_vol = p_patch%cells%area(jc,jb)*p_os%p_prog(nold(1))%h(jc,jb)
+        ptr_monitor%volume = ptr_monitor%volume + prism_vol
 
-      prism_vol = p_patch%cells%area(jc,jb)*p_os%p_prog(nold(1))%h(jc,jb)
-      ptr_monitor%volume = ptr_monitor%volume + prism_vol
+        ptr_monitor%pot_energy = ptr_monitor%pot_energy &
+        &+ 0.5_wp*grav*p_os%p_prog(nold(1))%h(jc,jb)*p_os%p_prog(nold(1))%h(jc,jb)
 
-      ptr_monitor%pot_energy = ptr_monitor%pot_energy &
-      &+ 0.5_wp*grav*p_os%p_prog(nold(1))%h(jc,jb)*p_os%p_prog(nold(1))%h(jc,jb)
+        ptr_monitor%kin_energy = ptr_monitor%kin_energy &
+        &+p_os%p_diag%kin(jc,1,jb)*p_os%p_prog(nold(1))%h(jc,jb)
 
-      ptr_monitor%kin_energy = ptr_monitor%kin_energy &
-      &+p_os%p_diag%kin(jc,1,jb)*p_os%p_prog(nold(1))%h(jc,jb)
-
-      DO i_no_t=1, no_tracer
-        ptr_monitor%tracer_content(i_no_t) = ptr_monitor%tracer_content(i_no_t)&
-        & + prism_vol*p_os%p_prog(nold(1))%tracer(jc,1,jb,i_no_t)
-      END DO
-
+        DO i_no_t=1, no_tracer
+          ptr_monitor%tracer_content(i_no_t) = ptr_monitor%tracer_content(i_no_t)&
+          & + prism_vol*p_os%p_prog(nold(1))%tracer(jc,1,jb,i_no_t)
+        END DO
+      ENDIF
     END DO
   END DO
-IF(ptr_monitor%volume/=0.0)THEN
+IF(ptr_monitor%volume/=0.0_wp)THEN
    DO i_no_t=1, no_tracer
      ptr_monitor%tracer_content(i_no_t) = ptr_monitor%tracer_content(i_no_t)/ptr_monitor%volume
    END DO
@@ -266,7 +269,7 @@ ELSE
      ptr_monitor%tracer_content(i_no_t) = 0.0_wp
    END DO
 ENDIF
-IF(ptr_monitor%volume/=0.0)THEN
+IF(ptr_monitor%volume/=0.0_wp)THEN
   ptr_monitor%pot_energy = ptr_monitor%pot_energy/ptr_monitor%volume
   ptr_monitor%kin_energy = ptr_monitor%kin_energy/ptr_monitor%volume
 ELSE

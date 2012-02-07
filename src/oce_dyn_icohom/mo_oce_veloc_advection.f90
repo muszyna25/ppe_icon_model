@@ -56,7 +56,7 @@ USE mo_ocean_nml,           ONLY: n_zlev,iswm_oce, L_INVERSE_FLIP_FLOP !, ab_bet
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
 USE mo_oce_index,           ONLY: print_mxmn, jkc, jkdim, ipl_src
 USE mo_oce_state,           ONLY: t_hydro_ocean_diag, t_hydro_ocean_aux, v_base
-USE mo_oce_math_operators,  ONLY: rot_vertex_ocean,grad_fd_norm_oce, div_oce
+USE mo_oce_math_operators,  ONLY: rot_vertex_ocean,rot_vertex_ocean_rbf, grad_fd_norm_oce, div_oce
 USE mo_math_utilities,      ONLY: gvec2cvec, t_cartesian_coordinates!gc2cc,cc2gc
 
 USE mo_scalar_product,      ONLY: map_cell2edges, dual_flip_flop,nonlinear_Coriolis, &
@@ -78,13 +78,14 @@ PRIVATE :: veloc_adv_horz_mimetic_rot
 PUBLIC  :: veloc_adv_vert_mimetic
 PRIVATE :: veloc_adv_vert_mimetic_div
 PRIVATE :: veloc_adv_vert_mimetic_rot
+PRIVATE :: veloc_adv_vert_mimetic_rot2
 PUBLIC  :: veloc_adv_horz_RBF
 PUBLIC  :: veloc_adv_vert_RBF
 
 
 INTEGER, PARAMETER, PRIVATE :: ROTATIONAL_FORM = 0
 INTEGER, PARAMETER, PRIVATE :: DIVERGENCE_FORM = 1
-INTEGER, PARAMETER, PRIVATE :: VELOCITY_ADVETION_FORM=0
+INTEGER, PARAMETER, PRIVATE :: VELOCITY_ADVECTION_FORM=0
 
 CONTAINS
 !-------------------------------------------------------------------------
@@ -110,9 +111,9 @@ REAL(wp), INTENT(out)            :: veloc_adv_horz_e(:,:,:)
 TYPE(t_int_state),TARGET,INTENT(IN), OPTIONAL :: p_int
 !-----------------------------------------------------------------------
 
-IF(VELOCITY_ADVETION_FORM==ROTATIONAL_FORM)THEN
+IF(VELOCITY_ADVECTION_FORM==ROTATIONAL_FORM)THEN
  CALL veloc_adv_horz_mimetic_rot( p_patch, vn_old, vn_new, p_diag, veloc_adv_horz_e, p_int)
-ELSEIF(VELOCITY_ADVETION_FORM==DIVERGENCE_FORM)THEN
+ELSEIF(VELOCITY_ADVECTION_FORM==DIVERGENCE_FORM)THEN
   CALL veloc_adv_horz_mimetic_div( p_patch, vn_old, p_diag, veloc_adv_horz_e)
 ENDIF
 
@@ -135,10 +136,12 @@ TYPE(t_hydro_ocean_diag)          :: p_diag
 REAL(wp), INTENT(inout)           :: veloc_adv_vert_e(:,:,:)
 !-----------------------------------------------------------------------
 
-IF(VELOCITY_ADVETION_FORM==ROTATIONAL_FORM)THEN
- CALL veloc_adv_vert_mimetic_rot( p_patch, p_diag,&
+IF(VELOCITY_ADVECTION_FORM==ROTATIONAL_FORM)THEN
+  CALL veloc_adv_vert_mimetic_rot( p_patch, p_diag,&
+  &                          veloc_adv_vert_e)
+ CALL veloc_adv_vert_mimetic_rot2( p_patch, p_diag,&
  &                          veloc_adv_vert_e)
-ELSEIF(VELOCITY_ADVETION_FORM==DIVERGENCE_FORM)THEN
+ELSEIF(VELOCITY_ADVECTION_FORM==DIVERGENCE_FORM)THEN
   CALL  veloc_adv_vert_mimetic_div( p_patch, p_diag,&
  &                          veloc_adv_vert_e)
 ENDIF
@@ -221,7 +224,7 @@ REAL(wp) :: z_vort_e(nproma,n_zlev,p_patch%nblks_e)
 REAL(wp) :: z_vort_flx_RBF(nproma,n_zlev,p_patch%nblks_e)
 !REAL(wp) :: z_vort2(nproma,n_zlev,p_patch%nblks_v)
 !REAL(wp) :: z_veloc_adv_horz_e(nproma,n_zlev,p_patch%nblks_e)
-LOGICAL, PARAMETER :: L_DEBUG = .TRUE. 
+LOGICAL, PARAMETER :: L_DEBUG = .FALSE. 
 LOGICAL, PARAMETER :: L_ENSTROPHY_DISSIPATION=.FALSE.
 !-----------------------------------------------------------------------
 ! #slo# set local variable to zero due to nag -nan compiler-option
@@ -254,32 +257,8 @@ i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
 slev = 1
 elev = n_zlev
 
-! calculate local vorticity for all vertical layers
- DO jk = slev, elev
- ipl_src=3  ! output print level (1-5, fix)
- CALL print_mxmn('vorticity (bef. rot_vertex_ocean)',jk,p_diag%vort(:,:,:),n_zlev, &
-   &              p_patch%nblks_v,'vel',ipl_src)
- END DO
-
-!CALL rot_vertex_ocean(vn_old, p_patch, p_diag%vort)
-
-! synchronize vort
-!DO jk = slev, elev
-!  CALL sync_patch_array(sync_v, p_patch, p_diag%vort(:,jk,:))
-!END DO
 
 !calculate vorticity flux across dual edge
-! IF ( iswm_oce == 1 ) THEN
-!   z_vort_flx(:,:,:) = dual_flip_flop(p_patch, vn_old, vn_new, p_diag%vort,&
-!                      &p_diag%thick_e,  p_diag%p_vn) 
-! ELSEIF ( iswm_oce /= 1 ) THEN
-!   z_vort_flx(:,:,:) = dual_flip_flop(p_patch, vn_old, vn_new, p_diag%vort,&
-!                         & p_diag%thick_e,  p_diag%p_vn)
-! ENDIF
-! CALL rbf_vec_interpol_edge( vn_old,       &
-!                           & p_patch,  &
-!                           & p_int,    &
-!                           & p_diag%vt, opt_slev=slev,opt_elev=elev)
 CALL nonlinear_Coriolis(p_patch,vn_old,p_diag%p_vn, p_diag%p_vn_dual,&
                        &p_diag%thick_e,p_diag%vt, p_diag%vort, z_vort_flx)
 DO jk = slev, elev
@@ -288,10 +267,10 @@ END DO
 
 !-------------------------------------------------------------------------------
 ! IF(L_ENSTROPHY_DISSIPATION)THEN
-! DO jk = slev, elev
-! write(*,*)'max/min vort flux before: ',MAXVAL(z_vort_flx(:,jk,:)),&
-!                                       &MINVAL(z_vort_flx(:,jk,:))
-! END DO
+!  DO jk = slev, elev
+!  write(*,*)'max/min vort flux before: ',MAXVAL(z_vort_flx(:,jk,:)),&
+!                                        &MINVAL(z_vort_flx(:,jk,:))
+!  END DO
 ! z_vort_flx=laplacian4vortex_flux(p_patch,z_vort_flx) 
 ! ENDIF
 !-------------------------------------------------------------------------------
@@ -363,7 +342,7 @@ CALL rbf_vec_interpol_edge( vn_old,       &
 !   END DO
 ! END DO
 
-CALL rot_vertex_ocean(vn_old, p_patch, p_diag%vort)
+CALL rot_vertex_ocean_rbf(p_patch, vn_old, p_diag%vt, p_diag%vort)
 CALL verts2edges_scalar( p_diag%vort, p_patch, p_int%v_1o2_e, &
                          z_vort_e, opt_slev=slev,opt_elev=elev, opt_rlstart=3)
 
@@ -470,10 +449,9 @@ DO jb = i_startblk_e, i_endblk_e
    END DO
   END DO
 END DO
-
 END subroutine veloc_adv_horz_mimetic_rot
 !-------------------------------------------------------------------------
-SUBROUTINE veloc_adv_horz_mimetic_div( p_patch, vn_old, p_diag, veloc_adv_horz_e)
+SUBROUTINE veloc_adv_horz_mimetic_div( p_patch, vn, p_diag, veloc_adv_horz_e)
 !
 !
 !  patch on which computation is performed
@@ -481,8 +459,8 @@ SUBROUTINE veloc_adv_horz_mimetic_div( p_patch, vn_old, p_diag, veloc_adv_horz_e
 TYPE(t_patch),TARGET, INTENT(in) :: p_patch
 
 !
-! normal velocity  of which advection is computed
-REAL(wp), INTENT(inout) :: vn_old(:,:,:) ! dim: (nproma,n_zlev,nblks_e)
+! normal velocity of which advection is computed
+REAL(wp), INTENT(inout) :: vn(:,:,:) ! dim: (nproma,n_zlev,nblks_e)
 !
 !diagnostic ocean state stores horizontally advected velocity
 TYPE(t_hydro_ocean_diag) :: p_diag
@@ -530,15 +508,16 @@ DO jb = i_startblk_e, i_endblk_e
       z_e(je,jk,jb)=0.0_wp
     ELSE
         !Neighbouring cells
-        il_c1 = p_patch%edges%cell_idx(je,jb,1)
-        ib_c1 = p_patch%edges%cell_blk(je,jb,1)
-        il_c2 = p_patch%edges%cell_idx(je,jb,2)
-        ib_c2 = p_patch%edges%cell_blk(je,jb,2)
+        il_c1 = p_patch%edges%vertex_idx(je,jb,1)
+        ib_c1 = p_patch%edges%vertex_blk(je,jb,1)
+        il_c2 = p_patch%edges%vertex_idx(je,jb,2)
+        ib_c2 = p_patch%edges%vertex_blk(je,jb,2)
 
         !velocity vector at edges
-        u_v_cc(je,jk,jb)%x=0.5_wp*(p_diag%p_vn(il_c1,jk,ib_c1)%x+p_diag%p_vn(il_c2,jk,ib_c2)%x)
+        u_v_cc(je,jk,jb)%x=0.5_wp*(p_diag%p_vn_dual(il_c1,jk,ib_c1)%x&
+        &+p_diag%p_vn_dual(il_c2,jk,ib_c2)%x)
 
-        z_e(je,jk,jb)=vn_old(je,jk,jb)&
+        z_e(je,jk,jb)=vn(je,jk,jb)&
         &*DOT_PRODUCT(u_v_cc(je,jk,jb)%x,p_patch%edges%primal_cart_normal(je,jb)%x)
 
      ENDIF
@@ -563,6 +542,10 @@ DO jb = i_startblk_e, i_endblk_e
    END DO
   END DO
 END DO
+!calculates the curl. This is needed in Laplace-beltrami operator (velocity diffusion).
+!It is not needed for velocity advection.
+CALL rot_vertex_ocean( p_patch, vn, p_diag%p_vn_dual, p_diag%vort)
+
 END subroutine veloc_adv_horz_mimetic_div
 !-------------------------------------------------------------------------
 ! ! FUNCTION laplacian4vortex_flux(p_patch, vort_flux_in) RESULT(vort_flux_out)
@@ -760,9 +743,9 @@ DO jb = i_startblk, i_endblk
     z_dolic = v_base%dolic_c(jc,jb)
 
     IF(z_dolic>=MIN_DOLIC)THEN 
-! !       ! 1a) ocean surface  !Code below explodes: Use upper boundary condition for d_z u ?
-! !         z_adv_u_i(jc,slev,jb)%x&
-! !         & = p_diag%w(jc,slev,jb)*(p_diag%p_vn(jc,slev,jb)%x - p_diag%p_vn(jc,slev+1,jb)%x)
+! !       ! 1a) ocean surface
+         z_adv_u_i(jc,slev,jb)%x&
+         & = p_diag%w(jc,slev,jb)*(p_diag%p_vn(jc,slev,jb)%x - p_diag%p_vn(jc,slev+1,jb)%x)
 
       ! 1b) ocean interior 
       DO jk = slev+1, z_dolic-1
@@ -773,12 +756,12 @@ DO jb = i_startblk, i_endblk
 !  write(*,*)'vert adv:v: ',jk, jc,jb,w_c(jc,jk,jb),&
 !&( p_diag%p_vn(jc,jk-1,jb)%x - p_diag%p_vn(jc,jk,jb)%x )
       END DO
-      z_adv_u_i(jc,slev,jb)%x=0.0_wp!z_adv_u_i(jc,slev+1,jb)%x
+!      z_adv_u_i(jc,slev,jb)%x=0.0_wp!z_adv_u_i(jc,slev+1,jb)%x
     ENDIF 
   END DO
 
 END DO
-
+! & maxval(z_adv_v_m(:,jk,:)), minval(z_adv_v_m(:,jk,:))
 ! CALL print_mxmn('check z_adv_u_i',1,z_adv_u_i%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
 ! CALL print_mxmn('check z_adv_u_i',2,z_adv_u_i%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
 ! CALL print_mxmn('check z_adv_u_i',3,z_adv_u_i%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
@@ -796,13 +779,13 @@ DO jb = i_startblk, i_endblk
       DO jk = slev+1,z_dolic-1
 
             !This seems to work well
-           z_adv_u_m(jc,jk,jb)%x &
-           & = 0.5_wp*(z_adv_u_i(jc,jk,jb)%x+z_adv_u_i(jc,jk+1,jb)%x)
+           !z_adv_u_m(jc,jk,jb)%x &
+           !& = 0.5_wp*(z_adv_u_i(jc,jk,jb)%x+z_adv_u_i(jc,jk+1,jb)%x)
              !Map back from cell top to cell center and weight according to thickness
-!             z_adv_u_m(jc,jk,jb)%x &
-!             & = (v_base%del_zlev_i(jk)*z_adv_u_i(jc,jk,jb)%x&
-!            & +  v_base%del_zlev_i(jk+1)*z_adv_u_i(jc,jk+1,jb)%x) &
-!             & / (v_base%del_zlev_i(jk+1)+v_base%del_zlev_i(jk))
+             z_adv_u_m(jc,jk,jb)%x &
+             & = (v_base%del_zlev_i(jk)  *z_adv_u_i(jc,jk,jb)%x&
+             & +  v_base%del_zlev_i(jk+1)*z_adv_u_i(jc,jk+1,jb)%x) &
+             & / (v_base%del_zlev_i(jk+1)+v_base%del_zlev_i(jk))
       END DO
        ! 2c) ocean bottom
          z_adv_u_m(jc,z_dolic,jb)%x =0.0_wp!=  z_adv_u_i(jc,z_dolic,jb)%x
@@ -823,11 +806,152 @@ CALL map_cell2edges( p_patch, z_adv_u_m, veloc_adv_vert_e, &
     ipl_src=3  ! output print level (1-5, fix)
     CALL print_mxmn('vert adv FINAL',jk,veloc_adv_vert_e(:,:,:),n_zlev, &
       &              p_patch%nblks_e,'vel',ipl_src)
-  ! WRITE(987,*) 'max/min vert adv FINAL',jk, &
-  !   &        MAXVAL(veloc_adv_vert_e(:,jk,:)), MINVAL(veloc_adv_vert_e(:,jk,:))
+    !WRITE(987,*) 'max/min vert adv FINAL',jk, &
+    !  &        MAXVAL(veloc_adv_vert_e(:,jk,:)), MINVAL(veloc_adv_vert_e(:,jk,:))
   END DO
 
 END subroutine veloc_adv_vert_mimetic_rot
+!-------------------------------------------------------------------------
+!
+!
+!>
+!! Computes vertical advection of a (edge based) horizontal vector field that
+!! suits to rotational form of velocity equation.
+!! The vertical derivative of the velocity vector at circumcenters that
+!! is reconstructed from edge data is calculated and then multiplied by
+!! the vertical velocity. The product is mapped from top of the computational
+!! prism to the middle (still at centers) via the transposed of vertical differentiation
+!! and then transformed to edges.
+!!
+!! IMPORTANT: It is assumed that the velocity vector reconstruction from
+!! edges to cells has been done before.
+!!
+!! input:  lives on cells (velocity points)
+!! output: lives on edges (velocity points)
+!!
+!! @par Revision History
+!! Developed  by  Peter Korn, MPI-M (2010).
+!!
+SUBROUTINE veloc_adv_vert_mimetic_rot2( p_patch, p_diag,&
+&                          veloc_adv_vert_e)
+
+TYPE(t_patch), TARGET, INTENT(in) :: p_patch
+TYPE(t_hydro_ocean_diag)          :: p_diag
+REAL(wp), INTENT(inout)           :: veloc_adv_vert_e(:,:,:)
+
+!local variables
+INTEGER :: slev, elev     ! vertical start and end level
+INTEGER :: jc, jk, jb
+INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+INTEGER :: z_dolic
+REAL(wp) :: z_w_ave(nproma,n_zlev,p_patch%nblks_c)
+REAL(wp) :: z_w_diff(nproma,n_zlev-1,p_patch%nblks_c)
+TYPE(t_cartesian_coordinates) :: z_adv_u_i(nproma,n_zlev+1,p_patch%nblks_c),  &
+  &                              z_adv_u_m(nproma,n_zlev,p_patch%nblks_c)
+!-----------------------------------------------------------------------
+
+! blocking
+i_startblk = p_patch%cells%start_blk(1,1)
+i_endblk   = p_patch%cells%end_blk(min_rlcell,1)
+slev = 1
+elev = n_zlev
+DO jk = slev, elev
+  DO jb = i_startblk, i_endblk
+    CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                       i_startidx, i_endidx, 1,min_rlcell)
+    DO jc = i_startidx, i_endidx
+      z_adv_u_i(jc,jk,jb)%x = 0.0_wp
+      z_adv_u_m(jc,jk,jb)%x = 0.0_wp
+    END DO
+  END DO
+END DO
+DO jb = i_startblk, i_endblk
+  CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                     i_startidx, i_endidx, 1,min_rlcell)
+  DO jc = i_startidx, i_endidx
+    z_adv_u_i(jc,elev+1,jb)%x = 0.0_wp
+  END DO
+END DO
+!Step 1: multiply vertical velocity with vertical derivative of horizontal velocity 
+!This requires appropriate boundary conditions
+DO jb = i_startblk, i_endblk
+  CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                       i_startidx, i_endidx, 1,min_rlcell)
+  DO jc = i_startidx, i_endidx
+    z_dolic = v_base%dolic_c(jc,jb)
+
+    IF(z_dolic>=MIN_DOLIC)THEN 
+      DO jk = slev, z_dolic-1        
+        z_w_ave(jc,jk,jb)= 0.5_wp*(p_diag%w(jc,jk,jb)+p_diag%w(jc,jk+1,jb))
+        z_w_diff(jc,jk,jb)=(p_diag%w(jc,jk,jb)-p_diag%w(jc,jk+1,jb))/v_base%del_zlev_m(jk)
+      END DO
+      z_w_ave(jc,z_dolic,jb)= p_diag%w(jc,z_dolic,jb)
+    ELSE
+      z_w_ave(jc,:,jb)=0.0_wp
+    ENDIF 
+  END DO
+END DO
+
+DO jb = i_startblk, i_endblk
+  CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
+    &                i_startidx, i_endidx, 1,min_rlcell)
+  DO jc = i_startidx, i_endidx
+    z_dolic = v_base%dolic_c(jc,jb)
+    IF(z_dolic>=MIN_DOLIC)THEN 
+      DO jk = slev,z_dolic-1
+           z_adv_u_i(jc,jk,jb)%x &
+           &= (z_w_ave(jc,jk,jb)*p_diag%p_vn(jc,jk,jb)%x    &
+           & -z_w_ave(jc,jk+1,jb)*p_diag%p_vn(jc,jk+1,jb)%x)/v_base%del_zlev_i(jk)&
+           &- z_w_diff(jc,jk,jb)*p_diag%p_vn(jc,jk,jb)%x
+      END DO
+    ENDIF
+  END DO
+END DO
+
+
+DO jb = i_startblk, i_endblk
+  CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
+    &                i_startidx, i_endidx, 1,min_rlcell)
+  DO jc = i_startidx, i_endidx
+    z_dolic = v_base%dolic_c(jc,jb)
+    IF(z_dolic>=MIN_DOLIC)THEN 
+      ! 2b) ocean interior
+      DO jk = slev+1,z_dolic-1
+
+            !This seems to work well
+           !z_adv_u_m(jc,jk,jb)%x &
+           !& = 0.5_wp*(z_adv_u_i(jc,jk,jb)%x+z_adv_u_i(jc,jk+1,jb)%x)
+             !Map back from cell top to cell center and weight according to thickness
+             z_adv_u_m(jc,jk,jb)%x &
+             & = (v_base%del_zlev_i(jk)*z_adv_u_i(jc,jk,jb)%x&
+            & +  v_base%del_zlev_i(jk+1)*z_adv_u_i(jc,jk+1,jb)%x) &
+             & / (v_base%del_zlev_i(jk+1)+v_base%del_zlev_i(jk))
+      END DO
+       ! 2c) ocean bottom
+         z_adv_u_m(jc,z_dolic,jb)%x =0.0_wp!=  z_adv_u_i(jc,z_dolic,jb)%x
+    ENDIF
+  END DO
+! write(*,*)'B max/min vert adv:',jk, maxval(z_adv_u_m(:,jk,:)), minval(z_adv_u_m(:,jk,:)),&
+! & maxval(z_adv_v_m(:,jk,:)), minval(z_adv_v_m(:,jk,:))
+END DO
+
+do jk=1,4
+CALL print_mxmn('check z_adv_u_m',jk,z_adv_u_m%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
+enddo
+
+! ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
+CALL map_cell2edges( p_patch, z_adv_u_m, veloc_adv_vert_e, &
+  &                  opt_slev=slev, opt_elev=elev )
+
+  DO jk=1,n_zlev
+    ipl_src=3  ! output print level (1-5, fix)
+    CALL print_mxmn('vert adv FINAL',jk,veloc_adv_vert_e(:,:,:),n_zlev, &
+      &              p_patch%nblks_e,'vel',ipl_src)
+!     WRITE(9876,*) 'max/min vert adv FINAL',jk, &
+!       &        MAXVAL(veloc_adv_vert_e(:,jk,:)), MINVAL(veloc_adv_vert_e(:,jk,:))
+  END DO
+
+END subroutine veloc_adv_vert_mimetic_rot2
 !-------------------------------------------------------------------------
 !
 !
@@ -1054,8 +1178,7 @@ DO jb = i_startblk_e,i_endblk_e
   END DO
 END DO
 
-CALL rot_vertex_ocean(vn, p_patch, p_diag%vort)
-!CALL rot_vertex_ocean_total(vn, p_patch, p_diag%vort)
+CALL rot_vertex_ocean_rbf(p_patch,vn, p_diag%vt, p_diag%vort)
 ! CALL verts2edges_scalar( p_diag%vort, p_patch, p_int%v_1o2_e, &
 !                          z_vort_e, opt_slev=slev,opt_elev=elev, opt_rlstart=3)
 

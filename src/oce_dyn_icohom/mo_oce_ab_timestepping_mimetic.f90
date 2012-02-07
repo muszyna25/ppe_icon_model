@@ -81,7 +81,8 @@ USE mo_sea_ice,                   ONLY: t_sfc_flx
 USE mo_scalar_product,            ONLY: map_cell2edges, map_edges2cell, map_edges2edges,  &
   &                                     calc_scalar_product_for_veloc !,map_cell2edges_upwind
 USE mo_oce_math_operators,        ONLY: div_oce, grad_fd_norm_oce, grad_fd_norm_oce_2d,   &
-  &                                     height_related_quantities, nabla2_vec_ocean
+  &                                     height_related_quantities, nabla2_vec_ocean, &
+  &                                     nabla4_vec_ocean
 USE mo_oce_veloc_advection,       ONLY: veloc_adv_horz_mimetic, veloc_adv_vert_mimetic
 USE mo_interpolation,             ONLY: t_int_state !, rbf_vec_interpol_cell
 USE mo_oce_diffusion,             ONLY: velocity_diffusion_horz_mimetic,                  &
@@ -511,6 +512,13 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param, p_int, l_ini
                            & p_phys_param%K_veloc_h, &
                            & p_os%p_diag%laplacian_horz)
 
+!       CALL nabla4_vec_ocean( p_os%p_prog(nold(1))%vn,&
+!                            & z_vt,                   &
+!                            & p_os%p_diag%vort,       &
+!                            & p_os%p_diag%p_vn_dual,  &
+!                            & p_patch,                &
+!                            & p_phys_param%K_veloc_h, &
+!                            & p_os%p_diag%laplacian_horz)
 
   ipl_src=4  ! output print level (1-5, fix)
   DO jk=1, n_zlev
@@ -585,12 +593,6 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param, p_int, l_ini
            &                   + p_os%p_diag%laplacian_vert(:,jk,:)
       END DO
     ENDIF
-
-
-    ! #slo 2011-09-08 - include effect of surface boundary condition on G_n
-    !                   eliminate in vertical diffusion: laplacian_vert
-  ! p_os%p_aux%g_n(:,1,:) =  p_os%p_aux%g_n(:,1,:) &
-  !   &                     +p_os%p_aux%bc_top_vn(:,:)/v_base%del_zlev_m(1)  ! +p_os%p_prog(nold(1))%h_e
 
   ENDIF!(L_INVERSE_FLIP_FLOP)
 
@@ -726,15 +728,35 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param, p_int, l_ini
 
             p_os%p_diag%vn_pred(je,jk,jb) = p_os%p_prog(nold(1))%vn(je,jk,jb)        &
              &                            + dtime*(p_os%p_aux%g_nimd(je,jk,jb)       &
-             &                            - (1.0_wp-ab_beta)*grav*z_gradh_e(je,1,jb))&
-             &                            + p_os%p_aux%bc_top_vn(je,jb)              &
-             &                            - p_os%p_aux%bc_bot_vn(je,jb)
+             &                            - (1.0_wp-ab_beta)*grav*z_gradh_e(je,1,jb))!&
           ELSE
             p_os%p_diag%vn_pred(je,jk,jb) = 0.0_wp
           ENDIF
         END DO
       END DO
     END DO
+   !In case of Shallow-water with forcing and or damping
+    IF ( iforc_oce/=10) THEN
+      DO jb = i_startblk, i_endblk
+        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk,&
+                         & i_startidx, i_endidx, rl_start, rl_end)
+        DO jk = 1, n_zlev
+          DO je = i_startidx, i_endidx
+            IF(v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+
+              p_os%p_diag%vn_pred(je,jk,jb) = p_os%p_diag%vn_pred(je,jk,jb)  &
+               &                            + p_os%p_aux%bc_top_vn(je,jb)    &
+               &                            - p_os%p_aux%bc_bot_vn(je,jb)
+            ELSE
+              p_os%p_diag%vn_pred(je,jk,jb) = 0.0_wp
+            ENDIF
+          END DO
+        END DO
+      END DO
+    ENDIF! write(*,*)'B max/min vert adv:',jk, maxval(z_adv_u_m(:,jk,:)), minval(z_adv_u_m(:,jk,:)),&
+! & maxval(z_adv_v_m(:,jk,:)), minval(z_adv_v_m(:,jk,:))
+
+
   ENDIF
 
   !In 3D case and if impliit vertical velocity diffusion is chosen
@@ -806,11 +828,11 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param, p_int, l_ini
   !write(*,*)'min/max -dt*g*grad_h:',minval(dtime*grav*z_gradh_e), maxval(dtime* grav*z_gradh_e)
 
   !-------------------------------------------
-!    DO jk = 1, n_zlev
-!     write(*,*)'min/max vn_pred:',jk,     minval(p_os%p_diag%vn_pred(:,jk,:)), &
-!       &                                  maxval(p_os%p_diag%vn_pred(:,jk,:))
-!     write(*,*)'min/max vn_pred Term 1:',jk,     minval(p_os%p_aux%g_nimd(:,jk,:)), &
-!      &                                         maxval(p_os%p_aux%g_nimd(:,jk,:))
+!     DO jk = 1, n_zlev
+!      write(*,*)'min/max vn_pred:',jk,     minval(p_os%p_diag%vn_pred(:,jk,:)), &
+!        &                                  maxval(p_os%p_diag%vn_pred(:,jk,:))
+!      write(*,*)'min/max vn_pred Term 1:',jk,     minval(p_os%p_aux%g_nimd(:,jk,:)), &
+!       &                                         maxval(p_os%p_aux%g_nimd(:,jk,:))
 !     IF(ab_beta/=1.0_wp)THEN
 !       write(*,*)'min/max vn_pred Term 2:',jk,&
 !       &minval((1.0_wp-ab_beta) * p_os%p_diag%press_grad(:,1,:)), &
@@ -832,7 +854,7 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param, p_int, l_ini
 ! !   !   write(987,*)'min/max adv:',    jk, minval(z_e(:,jk,:)), &
 ! !   !   &                                maxval(z_e(:,jk,:))
 ! !   ! ENDIF
-!   END DO
+! !  END DO
 ! write(987,*)'min/max -dt*g*grad_h:',minval(dtime*grav*z_gradh_e), maxval(dtime* grav*z_gradh_e)
 
   !-------------------------------------------
@@ -924,9 +946,9 @@ ENDIF
 !   z_vn_ab = ab_gam*p_os%p_diag%vn_pred + (1.0_wp -ab_gam)* p_os%p_prog(nold(1))%vn
 ! ENDIF
 
-!   DO jk = 1, n_zlev
-!     write(*,*)'MAX/MIN z_vn_ab:', jk,maxval(z_vn_ab(:,jk,:)),minval(z_vn_ab(:,jk,:))
-!   END DO
+!    DO jk = 1, n_zlev
+!      write(*,*)'MAX/MIN z_vn_ab:', jk,maxval(z_vn_ab(:,jk,:)),minval(z_vn_ab(:,jk,:))
+!    END DO
 !Step 1) Do within each layer a edge to cell mapping of vn_pred
 !For below-surface cells, no height has to be provided, and the reconstructions
 !are normalized by cell area (see primal flip-flop).
@@ -1318,15 +1340,15 @@ ipl_src=3  ! output print level (1-5, fix)
 DO jk = 1, n_zlev
   CALL print_mxmn('vn old',jk,p_os%p_prog(nold(1))%vn(:,:,:), &
     &              n_zlev, p_patch%nblks_e,'abt',ipl_src)
-! write(*,*)'MIN/MAX vn old:',jk,minval(p_os%p_prog(nold(1))%vn(:,jk,:) ),&
-!                                maxval(p_os%p_prog(nold(1))%vn(:,jk,:) ) 
+!  write(*,*)'MIN/MAX vn old:',jk,minval(p_os%p_prog(nold(1))%vn(:,jk,:) ),&
+!                                 maxval(p_os%p_prog(nold(1))%vn(:,jk,:) ) 
 END DO
 ipl_src=2  ! output print level (1-5, fix)
 DO jk = 1, n_zlev
    CALL print_mxmn('vn new',jk,p_os%p_prog(nnew(1))%vn(:,:,:), &
      &              n_zlev, p_patch%nblks_e,'abt',ipl_src)
-! write(*,*)'MIN/MAX vn new:',jk,minval(p_os%p_prog(nnew(1))%vn(:,jk,:) ),&
-!                                maxval(p_os%p_prog(nnew(1))%vn(:,jk,:) ) 
+!  write(*,*)'MIN/MAX vn new:',jk,minval(p_os%p_prog(nnew(1))%vn(:,jk,:) ),&
+!                                 maxval(p_os%p_prog(nnew(1))%vn(:,jk,:) ) 
 END DO
 ipl_src=3  ! output print level (1-5, fix)
 DO jk = 1, n_zlev
@@ -1434,11 +1456,9 @@ i_endblk   = p_patch%cells%end_blk(rl_end,1)
 !------------------------------------------------------------------
 ! Step 1) Calculate divergence of horizontal velocity at all levels
 !------------------------------------------------------------------
- !z_vn= ab_gam*p_os%p_prog(nnew(1))%vn + (1.0_wp-ab_gam)*p_os%p_prog(nold(1))%vn
- !CALL map_edges2cell( p_patch, z_vn, z_vn_c, ph_e)
-
-
- CALL map_edges2cell( p_patch, p_os%p_prog(nnew(1))%vn, z_vn_c, ph_e)
+ z_vn= ab_gam*p_os%p_prog(nnew(1))%vn + (1.0_wp-ab_gam)*p_os%p_prog(nold(1))%vn
+ CALL map_edges2cell( p_patch, z_vn, z_vn_c, ph_e)
+ !CALL map_edges2cell( p_patch, p_os%p_prog(nnew(1))%vn, z_vn_c, ph_e)
  CALL map_cell2edges( p_patch, z_vn_c, z_vn)
  CALL div_oce(z_vn, p_patch, z_div_c)
 ! iidx => p_patch%edges%cell_idx

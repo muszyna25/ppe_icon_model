@@ -58,12 +58,12 @@ USE mo_ocean_nml,           ONLY: n_zlev, bottom_drag_coeff, k_veloc_h, k_veloc_
 USE mo_parallel_config,     ONLY: nproma
 USE mo_model_domain,        ONLY: t_patch
 USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell, min_rledge,&
-  &                               sea_boundary, MIN_DOLIC
+  &                               min_rlvert, sea_boundary, MIN_DOLIC, sea
 USE mo_exception,           ONLY: message, finish
 USE mo_oce_index,           ONLY: print_mxmn, jkc, jkdim, ipl_src
 USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base, oce_config
 USE mo_physical_constants,  ONLY: grav, rho_ref, SItodBar
-USE mo_loopindices,         ONLY: get_indices_c,get_indices_e
+USE mo_loopindices,         ONLY: get_indices_c,get_indices_e, get_indices_v
 USE mo_math_constants,      ONLY: dbl_eps
 USE mo_dynamics_config,     ONLY: nold, nnew
 ! USE mo_oce_forcing,         ONLY: t_sfc_flx
@@ -186,6 +186,8 @@ CONTAINS
 
     END SELECT
 
+    CALL smooth_lapl_diff( ppatch, p_phys_param%K_veloc_h )
+
     DO i=1,no_tracer
 
       IF(i==1)THEN!temperature
@@ -205,6 +207,7 @@ CONTAINS
     END DO
 
     p_phys_param%bottom_drag_coeff = bottom_drag_coeff
+
 
   END SUBROUTINE init_ho_params
   !-------------------------------------------------------------------------
@@ -342,6 +345,99 @@ CONTAINS
     CALL print_mxmn('PHY diffusivity',1,K_h(:,:,:),n_zlev,p_patch%nblks_c,'per',ipl_src)
 
   END SUBROUTINE calc_munk_based_lapl_diff
+ !-------------------------------------------------------------------------
+  !
+  !>
+  !! Initialisation 
+  !!
+  !!
+  !! @par Revision History
+  !! Initial release by Peter Korn, MPI-M (2011-08)
+  !
+  !
+  SUBROUTINE smooth_lapl_diff( p_patch, K_h )
+   TYPE(t_patch), INTENT(IN)  :: p_patch
+   REAL(wp), INTENT(OUT)      :: K_h(:,:,:) 
+    ! Local variables
+    INTEGER  :: je,jv,jb,jk, jev, ile, ibe, i_edge_ctr
+    INTEGER  :: il_v1,ib_v1, il_v2,ib_v2
+    INTEGER  :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, rl_start_e, rl_end_e 
+    INTEGER  :: i_startblk_v, i_endblk_v, i_startidx_v, i_endidx_v, rl_start_v, rl_end_v 
+    REAL(wp) :: z_K_ave_v(nproma,n_zlev,p_patch%nblks_v), z_K_max
+    !-------------------------------------------------------------------------
+    rl_start_e   = 1
+    rl_end_e     = min_rledge
+    i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
+    i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
+
+    rl_start_v   = 1
+    rl_end_v     = min_rlvert
+    i_startblk_v = p_patch%verts%start_blk(rl_start_v,1)
+    i_endblk_v   = p_patch%verts%end_blk(rl_end_v,1)
+
+    z_K_ave_v(:,:,:)=0.0_wp
+
+    DO jk = 1, n_zlev
+      DO jb = i_startblk_v, i_endblk_v
+        CALL get_indices_v( p_patch, jb, i_startblk_v, i_endblk_v, i_startidx_v, i_endidx_v, &
+        &                   rl_start_v, rl_end_v)
+        DO jv = i_startidx_v, i_endidx_v 
+          i_edge_ctr = 0
+          z_K_max    = 0.0_wp
+          DO jev = 1, p_patch%verts%num_edges(jv,jb)
+            ile = p_patch%verts%edge_idx(jv,jb,jev)
+            ibe = p_patch%verts%edge_blk(jv,jb,jev)
+            IF ( v_base%lsm_oce_e(ile,jk,ibe) == sea) THEN
+              z_K_ave_v(jv,jk,jb)= z_K_ave_v(jv,jk,jb) + K_h(ile,jk,ibe)
+              i_edge_ctr=i_edge_ctr+1  
+              IF(K_h(ile,jk,ibe)>z_K_max)THEN
+              z_K_max=K_h(ile,jk,ibe)
+              ENDIF
+            ENDIF
+          END DO
+          IF(i_edge_ctr/=0)THEN!.and.i_edge_ctr== p_patch%verts%num_edges(jv,jb))THEN
+            z_K_ave_v(jv,jk,jb)= z_K_ave_v(jv,jk,jb)/REAL(i_edge_ctr,wp)
+          ELSEIF(i_edge_ctr==0)THEN
+            z_K_ave_v(jv,jk,jb)=0.0_wp
+          ENDIF
+          !IF(p_patch%verts%num_edges(jv,jb)== 5)THEN
+          !  z_K_ave_v(jv,jk,jb)=80000_wp!°z_K_max
+          !ENDIF 
+        END DO
+      ENDDO
+    END DO
+
+
+    DO jk = 1, n_zlev
+      DO jb = i_startblk_e, i_endblk_e
+        CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, &
+        &                   rl_start_e, rl_end_e)
+        DO je = i_startidx_e, i_endidx_e 
+
+          il_v1 = p_patch%edges%vertex_idx(je,jb,1)
+          ib_v1 = p_patch%edges%vertex_blk(je,jb,1)
+          il_v2 = p_patch%edges%vertex_idx(je,jb,2)
+          ib_v2 = p_patch%edges%vertex_blk(je,jb,2)
+
+          IF ( v_base%lsm_oce_e(je,jk,jb) == sea) THEN
+            K_h(je,jk,jb)= 0.5_wp*(z_K_ave_v(il_v1,jk,ib_v1) + z_K_ave_v(il_v2,jk,ib_v2))
+          ELSE
+            K_h(je,jk,jb)=0.0_wp
+          ENDIF
+!          IF(p_patch%verts%num_edges(il_v1,ib_v1)== 5.OR.p_patch%verts%num_edges(il_v2,ib_v2)==5)THEN
+!            K_h(je,jk,jb)=max(z_K_ave_v(il_v1,jk,ib_v1),z_K_ave_v(il_v2,jk,ib_v2))
+!          ENDIF 
+        END DO
+      ENDDO
+    END DO
+write(*,*)'max-min horizontal smoothes diffusion',maxval(K_h(:,1,:))&
+&,minval(K_h(:,1,:))
+
+
+    ipl_src=1  ! output print level (1-5, fix)
+    CALL print_mxmn('smoothed PHY diffusivity',1,K_h(:,:,:),n_zlev,p_patch%nblks_c,'per',ipl_src)
+
+  END SUBROUTINE smooth_lapl_diff
   !
   !
   !-------------------------------------------------------------------------

@@ -69,7 +69,7 @@ USE mo_oce_ab_timestepping,    ONLY: solve_free_surface_eq_ab, &
   &                                  calc_vert_velocity,       &
   &                                  update_time_indices
 
-USE mo_oce_tracer_transport,   ONLY: advect_tracer_ab
+USE mo_oce_tracer,             ONLY: advect_tracer_ab
 USE mo_oce_state,              ONLY: t_hydro_ocean_state, t_hydro_ocean_base, &
   &                                  init_ho_base, v_base, &
   &                                  construct_hydro_ocean_base, destruct_hydro_ocean_base, &

@@ -222,7 +222,6 @@ DO jb = i_startblk_v, i_endblk_v
           il_v2 = p_patch%edges%vertex_idx(ile,ibe,2)
           ib_v2 = p_patch%edges%vertex_blk(ile,ibe,2)
 
-
           z_vt(ile,jk,ibe)= &
           &- DOT_PRODUCT(p_vn_dual(il_v1,jk,ib_v1)%x,&
           &p_int_state(1)%edge2vert_coeff_cc_t(ile,ibe,2)%x)&
@@ -299,7 +298,6 @@ DO jb = i_startblk_v, i_endblk_v
            zarea_fraction = zarea_fraction  &
               &  + 0.5_wp*triangle_area(cell1_cc, vertex_cc, cell2_cc)
           END IF
-
         END DO
         z_area_scaled   = zarea_fraction*re*re        
        !z_area_scaled       = p_patch%verts%dual_area(jv,jb)/(re*re)
@@ -325,16 +323,28 @@ DO jb = i_startblk_v, i_endblk_v
 !  &z_vort_tmp_boundary,0.5_wp*z_vort_tmp_boundary/zarea_fraction, vort_v(jv,jk,jb) 
         ELSEIF(i_v_ctr(jv,jk,jb)==4)THEN
 
-
-!           !In case of 4 boundary edges within a dual loop, we have 2 land triangles 
-!           !around the vertex. these two land triangles have one vertex in common and are
-!           !seperated by two wet triangles. If the dual loop is accessed in a specific order ,ie
-!           !clockwise or counterclockwise, the first and second and the third and fourth
-!           !boundary edge belong to the same land triangle.This implies that the loop has to be closed by 
-!           !connecting  the first and last boundary edge as well as for the third 
-!           !and fourth boundary edge.
-!  
-!            vort_v(jv,jk,jb)    = z_vort_tmp/zarea_fraction + 0.5_wp*z_vort_tmp_boundary
+           !In case of 4 boundary edges within a dual loop, we have 2 land triangles 
+           !around the vertex. these two land triangles have one vertex in common and are
+           !seperated by two wet triangles. 
+           z_vort_tmp_boundary =&
+           &z_orientation(1)*&
+           &z_vt(ibnd_edge_idx(1),jk,ibnd_edge_blk(1)) &
+           &*p_patch%edges%primal_edge_length(ibnd_edge_idx(1),ibnd_edge_blk(1))&
+           &+&
+           &z_orientation(2)*&
+           &z_vt(ibnd_edge_idx(2),jk,ibnd_edge_blk(2)) &
+           &*p_patch%edges%primal_edge_length(ibnd_edge_idx(2),ibnd_edge_blk(2))&
+           &+&
+           &z_orientation(3)*&
+           &z_vt(ibnd_edge_idx(3),jk,ibnd_edge_blk(3)) &
+           &*p_patch%edges%primal_edge_length(ibnd_edge_idx(3),ibnd_edge_blk(3))&
+           &+&
+           &z_orientation(4)*&
+           &z_vt(ibnd_edge_idx(4),jk,ibnd_edge_blk(4)) &
+           &*p_patch%edges%primal_edge_length(ibnd_edge_idx(4),ibnd_edge_blk(4))
+  
+           vort_v(jv,jk,jb) = (z_vort_tmp+0.5_wp*z_vort_tmp_boundary)&
+           &/p_patch%verts%dual_area(jv,jb)!z_area_scaled
         ENDIF
       ENDIF
     END DO
@@ -412,11 +422,6 @@ END DO
   END DO LEVEL_LOOP
 
 END SUBROUTINE nonlinear_Coriolis
-  !-------------------------------------------------------------------------
-
-
-
-
 !-------------------------------------------------------------------------
 !
 !>

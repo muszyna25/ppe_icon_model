@@ -1027,7 +1027,7 @@ CONTAINS
   INTEGER :: rl_start_c, rl_end_c
 
   REAL(wp) :: zonal_str
-  REAL(wp) :: z_lat, z_lon
+  REAL(wp) :: z_lat, z_lon, z_lat_deg,z_lon_deg
   REAL(wp) :: z_forc_period = 1.0_wp !=1.0: single gyre
                                      !=2.0: double gyre
                                      !=n.0: n-gyre 
@@ -1035,6 +1035,7 @@ CONTAINS
   REAL(wp) :: z_T_init(nproma,p_patch%nblks_c)
   REAL(wp) :: z_perlat, z_perlon, z_permax, z_perwid, z_relax, z_dst
   INTEGER  :: z_dolic
+  REAL(wp) :: z_temp_max, z_temp_min, z_temp_incr
   CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:update_ho_sfcflx'
   !-------------------------------------------------------------------------
   rl_start_c   = 1
@@ -1224,6 +1225,40 @@ CONTAINS
 ! ! ! !-----------End of Old version of Forcing-------------------------------------------
 
     CASE (33)
+      IF(iforc_oce/=10)THEN 
+      y_length = basin_height_deg * deg2rad
+      DO jb = i_startblk_c, i_endblk_c    
+        CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
+         &                i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
+
+        DO jc = i_startidx_c, i_endidx_c
+
+          IF(v_base%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
+
+             ! #slo# Warning: s.th. more missing?
+             z_lat = p_patch%cells%center(jc,jb)%lat
+             z_lon = p_patch%cells%center(jc,jb)%lon
+
+             zonal_str = wstress_coeff*cos(z_forc_period*pi*z_lat-y_length/y_length)
+             p_sfc_flx%forc_wind_cc(jc,jb)%x(1) = wstress_coeff*zonal_str*sin(z_lon)
+             p_sfc_flx%forc_wind_cc(jc,jb)%x(2) = wstress_coeff*zonal_str*cos(z_lon)
+             p_sfc_flx%forc_wind_cc(jc,jb)%x(3) = 0.0_wp
+ 
+             CALL cvec2gvec(p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
+                          & p_sfc_flx%forc_wind_cc(jc,jb)%x(2),&
+                          & p_sfc_flx%forc_wind_cc(jc,jb)%x(3),&
+                          & z_lon, z_lat,                      &
+                          & p_sfc_flx%forc_wind_u(jc,jb),      &
+                          & p_sfc_flx%forc_wind_v(jc,jb))
+           ELSE
+             p_sfc_flx%forc_wind_cc(jc,jb)%x(:) = 0.0_wp
+             p_sfc_flx%forc_wind_u(jc,jb)       = 0.0_wp
+             p_sfc_flx%forc_wind_v(jc,jb)       = 0.0_wp
+           ENDIF 
+        END DO
+      END DO
+      write(*,*)'max/min-Wind-Forcing',maxval(p_sfc_flx%forc_wind_u), minval(p_sfc_flx%forc_wind_u)
+      ENDIF
       IF(temperature_relaxation>=1)THEN
       ! CALL message(TRIM(routine), &
       !   &  'Testcase (33): stationary temperature relaxation - latitude dependent')
@@ -1242,6 +1277,82 @@ CONTAINS
     & minval(p_sfc_flx%forc_tracer_relax)
     write(*,*)'max/min-Temp-Flux',maxval(p_sfc_flx%forc_tracer(:,:,1)),&
                                   & minval(p_sfc_flx%forc_tracer(:,:,1))
+    CASE(51)
+
+      CALL message(TRIM(routine), &
+      &  'Testcase (44) - stationary lat/lon wind forcing &
+      &and eventually relax. to T perturbation')
+      y_length = basin_height_deg * deg2rad
+      DO jb = i_startblk_c, i_endblk_c    
+        CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
+         &                i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
+
+        DO jc = i_startidx_c, i_endidx_c
+
+          IF(v_base%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
+
+             ! #slo# Warning: s.th. more missing?
+             z_lat = p_patch%cells%center(jc,jb)%lat
+             z_lon = p_patch%cells%center(jc,jb)%lon
+
+             p_sfc_flx%forc_wind_u(jc,jb) = wstress_coeff * &
+             & cos(z_forc_period*pi*(z_lat-y_length)/y_length) 
+
+             p_sfc_flx%forc_wind_v(jc,jb)= 0.0_wp
+
+             CALL gvec2cvec(  p_sfc_flx%forc_wind_u(jc,jb),&
+                           & p_sfc_flx%forc_wind_v(jc,jb),&
+                           & p_patch%cells%center(jc,jb)%lon,&
+                           & p_patch%cells%center(jc,jb)%lat,&
+                           & p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
+                           & p_sfc_flx%forc_wind_cc(jc,jb)%x(2),&
+                           & p_sfc_flx%forc_wind_cc(jc,jb)%x(3))
+           ELSE
+             p_sfc_flx%forc_wind_u(jc,jb)       = 0.0_wp
+             p_sfc_flx%forc_wind_v(jc,jb)       = 0.0_wp
+             p_sfc_flx%forc_wind_cc(jc,jb)%x(:) = 0.0_wp
+             p_sfc_flx%forc_wind_u(jc,jb)       = 0.0_wp
+             p_sfc_flx%forc_wind_v(jc,jb)       = 0.0_wp
+           ENDIF 
+        END DO
+      END DO
+      write(*,*)'max/min-Wind-Forcing',maxval(p_sfc_flx%forc_wind_u), minval(p_sfc_flx%forc_wind_u)
+ 
+      IF(temperature_relaxation>=1)THEN
+
+        z_relax = relaxation_param/(30.0_wp*24.0_wp*3600.0_wp)
+
+        z_temp_max  = 30.5_wp
+        z_temp_min  = 0.5_wp
+        z_temp_incr = (z_temp_max-z_temp_min)/(n_zlev-1.0_wp)
+      
+      !Add horizontal variation
+      DO jb = i_startblk_c, i_endblk_c    
+        CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
+         &                i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
+        DO jc = i_startidx_c, i_endidx_c
+          z_lat = p_patch%cells%center(jc,jb)%lat
+          z_lat_deg = z_lat*rad2deg
+
+            IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
+
+              z_temp_max     =0.01_wp*(z_lat_deg-basin_center_lat)*(z_lat_deg-basin_center_lat)
+              z_T_init(jc,jb)=30.5_wp
+
+              z_T_init(jc,jb)&
+              &=z_T_init(jc,jb)*exp(-z_temp_max/basin_height_deg)
+            ELSE
+              z_T_init(jc,jb)=0.0_wp
+            ENDIF
+        END DO
+      END DO
+      p_sfc_flx%forc_tracer_relax(:,:,1)=z_T_init(:,:)
+
+      p_sfc_flx%forc_tracer(:,:, 1) = z_relax*( p_sfc_flx%forc_tracer_relax(:,:,1) &
+          &                                      -p_os%p_prog(nold(1))%tracer(:,1,:,1) )
+
+      END IF
+
   ! CASE (43)
   !   ! no forcing applied
   !   CONTINUE

@@ -134,10 +134,10 @@ CONTAINS
       read_master_namelist=-1
       RETURN
     ENDIF
-    CALL position_nml('master_nml',STATUS=istat)
-    IF (istat==POSITIONED) THEN
-      READ (nnml, master_nml)
-    ENDIF        
+!     CALL position_nml('master_nml',STATUS=istat)
+!     IF (istat==POSITIONED) THEN
+!       READ (nnml, master_nml)
+!     ENDIF        
     !------------------------------------------------------------------
     ! Read  master_model_nml (done so far by all MPI processes)
     !------------------------------------------------------------------

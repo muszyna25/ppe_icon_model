@@ -1590,9 +1590,91 @@ CONTAINS
         END DO
       END IF
 
+
+    CASE (51)
+      CALL message(TRIM(routine), 'Simple Initialization of testcases (51)')
+
+      z_temp_max  = 30.5_wp
+      z_temp_min  = 0.5_wp
+      z_temp_incr = (z_temp_max-z_temp_min)/(n_zlev-1.0_wp)
+      DO jb = i_startblk_c, i_endblk_c    
+        CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
+         &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
+
+        DO jc = i_startidx_c, i_endidx_c
+
+          p_os%p_prog(nold(1))%tracer(jc,:,jb,1)=0.0_wp
+          !IF(v_base%dolic_c(jc,jb)>=MIN_DOLIC)THEN  
+          !ENDIF 
+
+          IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
+            p_os%p_prog(nold(1))%tracer(jc,1,jb,1)=30.5_wp
+          ENDIF
+          IF ( v_base%lsm_oce_c(jc,n_zlev,jb) <= sea_boundary ) THEN
+            p_os%p_prog(nold(1))%tracer(jc,n_zlev,jb,1)=0.5_wp
+          ENDIF
+          DO jk=2,n_zlev-1
+            IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+
+            p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)&
+            &=p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1)-z_temp_incr
+
+            ENDIF
+          END DO
+        END DO
+      END DO
+
+      !Add horizontal variation
+      DO jb = i_startblk_c, i_endblk_c    
+        CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
+         &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
+        DO jc = i_startidx_c, i_endidx_c
+          z_lat = ppatch%cells%center(jc,jb)%lat
+          z_lat_deg = z_lat*rad2deg
+
+          DO jk=1,n_zlev
+            IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+
+            z_temp_max=0.01_wp*(z_lat_deg-basin_center_lat)*(z_lat_deg-basin_center_lat)
+
+            p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)&
+            &=p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)*exp(-z_temp_max/basin_height_deg)!(1.0_wp-exp(-z_temp_max/basin_height_deg))
+
+            ENDIF
+          END DO
+        END DO
+      END DO
+
+      !Add local perturbation
+      DO jb = i_startblk_c, i_endblk_c    
+        CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
+         &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
+        DO jc = i_startidx_c, i_endidx_c
+          z_lat = ppatch%cells%center(jc,jb)%lat
+          z_lat_deg = z_lat*rad2deg
+          z_lon = ppatch%cells%center(jc,jb)%lon
+          z_lon_deg = z_lon*rad2deg
+
+          DO jk=1,n_zlev
+            IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+
+              IF(abs(z_lon_deg)<2.5_wp&
+           &.AND.abs(z_lat_deg-basin_center_lat)<0.25_wp*basin_height_deg)THEN
+
+                p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)&
+                &=p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) &
+                &+ 0.1_wp*p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)
+              ENDIF
+            ENDIF
+          END DO
+        END DO
+      END DO
+
     CASE DEFAULT
      CALL finish(TRIM(routine), 'CHOSEN INITIALIZATION NOT SUPPORTED - TERMINATE')
   END SELECT
+
+
 
   ipl_src=1  ! output print level (0-5, fix)
   z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,1)
