@@ -72,14 +72,21 @@ use_shell=${use_shell:="/bin/ksh"}
 # The $make_runscript command directs to the ./config/make_target_runscript
 make_runscript="$use_shell ./config/make_target_runscript"
 
-
-runname=exp.${exp_name}.run
 nproma=24
 memory_model="large"
 
-$make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME=${exp_name} out_script=${runname} \
-nproma=$nproma no_of_nodes=$nodes mpi_procs=$mpi_procs openmp_threads=$openmp_threads memory_model=$memory_model \
-cpu_time=$cpu_time 
+$make_runscript                  \
+  in_folder=$input_folder        \
+  in_script=exp.${exp_name}      \
+  in_script=exec.iconrun         \
+  out_script=exp.${exp_name}.run \
+  EXPNAME=${exp_name}            \
+  nproma=$nproma                 \
+  no_of_nodes=$nodes             \
+  mpi_procs=$mpi_procs           \
+  openmp_threads=$openmp_threads \
+  memory_model=$memory_model     \
+  cpu_time=$cpu_time             #\
 # queue="express"
 
 }
@@ -89,6 +96,6 @@ cpu_time=$cpu_time
 #==============================================================================
 #   create the runscript
 echo "-----------------------------------------------------------"
-create_runscript()
+create_runscript
 echo "-----------------------------------------------------------"
 #==============================================================================
