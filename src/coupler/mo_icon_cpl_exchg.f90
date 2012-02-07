@@ -684,7 +684,7 @@ CONTAINS
                                   info,         &! out
                                   ierror )       ! out
 
-    INTEGER, INTENT(out)          :: field_id         !<  field id
+    INTEGER, INTENT(in)           :: field_id         !<  field id
     INTEGER, INTENT(in)           :: field_shape(3)   !<  shape of outgoing data
     REAL(wp), INTENT(out)         :: data(field_shape(1):field_shape(2),field_shape(3))
     INTEGER, INTENT(out)          :: count            !<  number of accumulations in data
@@ -704,7 +704,7 @@ CONTAINS
     ! Check field id and return if field was not declared.
     ! -------------------------------------------------------------------
 
-    IF ( field_id < 1 .OR.  field_id > nbr_ICON_fields ) RETURN
+    IF ( field_id < 1 .OR. field_id > nbr_ICON_fields ) RETURN
 
     IF ( .NOT. cpl_fields(field_id)%l_field_status ) RETURN
 
@@ -729,6 +729,7 @@ CONTAINS
     count = fptr%accumulation_count
 
     data  = fptr%send_field_acc
+
 #else
 
     PRINT *, ' Restart requires MPI! '

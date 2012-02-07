@@ -161,8 +161,8 @@ CONTAINS
        ALLOCATE (global_buffer(fptr%global_size,field_shape(3)))
        ALLOCATE (global_field (fptr%global_size,field_shape(3)))
     ELSE
-       ALLOCATE (global_buffer(1,1))
-       ALLOCATE (global_field (1,1))
+       ALLOCATE (global_buffer(1,field_shape(3)))
+       ALLOCATE (global_field (1,field_shape(3)))
     ENDIF
 
     ! Could we use MPI_Type_vector?
@@ -288,7 +288,7 @@ CONTAINS
     IF ( ICON_local_rank == ICON_root ) THEN
        ALLOCATE (global_buffer(fptr%global_size,field_shape(3)))
     ELSE
-       ALLOCATE (global_buffer(1,1))
+       ALLOCATE (global_buffer(1,field_shape(3)))
     ENDIF
 
     IF ( ICON_local_rank == ICON_root ) THEN
