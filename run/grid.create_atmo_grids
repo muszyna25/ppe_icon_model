@@ -7,6 +7,25 @@
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
+# if make_patches="true", the hierarchy of nested patches
+#   iconR2B03_DOM00.nc, iconR2B04_DOM01.nc, iconR2B05_DOM02.nc
+#   will be created
+make_patches="true"
+
+# define number of levels (bisections) to create
+no_of_levels=5
+
+#define optimization
+use_spring_optimization="true"          
+use_symmetry_optimization="true"
+start_optimize=2
+end_optimize=$no_of_levels
+
+# define refinement method
+refinement_method=1     # 1=edge bisection, 2=dual centers
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
 # paths of directories
 GRIDDIR=grids
 WRKDIR=${basedir}/$GRIDDIR
@@ -14,6 +33,9 @@ echo $WRKDIR
 if [ ! -d $WRKDIR ]; then
     mkdir -p $WRKDIR
 fi
+run_commmand="${start} $bindir/grid_command"
+commandFile=command.grid
+cd $WRKDIR
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
@@ -30,20 +52,6 @@ if [[ "x$target" = "xsx9" ]] ; then
 fi
 #-----------------------------------------------------------------------------
 
-#-----------------------------------------------------------------------------
-make_comb_opt_grids="true"
-make_patches="true"
-run_commmand="${start} $bindir/grid_command"
-commandFile=command.grid
-#-----------------------------------------------------------------------------
-# define the levels to create
-start_level=0
-# define number of levels (bisections)
-no_of_levels=5            
-start_optimize=2
-end_optimize=5
-refinement_method=1     # 1=edge bisection, 2=dual centers
-cd $WRKDIR
 #-----------------------------------------------------------------------------
 
 
@@ -100,26 +108,33 @@ optimize_vertex_depth=4
 
 
 #-----------------------------------------------------------------------------
-set_comb_optimization_grids()
+set_grid_optimization()
 {
   set_default_optimization_grids
-  
-  use_optimization='.true.'
 
-  use_edge_springs='.true.'
-  prime_ref_length_coeff=1.0
-  use_adaptive_spring_length='.true.'
+  if [ "x$use_spring_optimization" = "xtrue" ] ; then
+    use_optimization='.true.'
+    use_edge_springs='.true.'
+    prime_ref_length_coeff=1.0
+    use_adaptive_spring_length='.true.'
   
-  use_local_reference_length='.true.'
-  local_reference_length_coeff=0.75
+    if [ "x$use_symmetry_optimization" = "xtrue" ] ; then
+      use_local_reference_length='.true.'
+      local_reference_length_coeff=0.75
+    fi
+  fi
+    
+  if [ "x$use_symmetry_optimization" = "xtrue" ] ; then
+    use_optimization='.true.'
+    use_isotropy_force='.true.'
+    isotropy_rotation_coeff=1.0
+    isotropy_stretch_coeff=0.1
+  fi
+
   
 #   use_prime_spring_cellcenters='.true.'
 #   centers_ref_length_coeff=1.0 
 #   centers_spring_stiffness=1.0  # the stiffness of vertex-cell center springs
-  
-  use_isotropy_force='.true.'
-  isotropy_rotation_coeff=1.0
-  isotropy_stretch_coeff=0.1
 }
 #-----------------------------------------------------------------------------
 
@@ -197,15 +212,14 @@ check_error $? "create icon grid"
 
 
 #=============================================================================
-# create symmetry grids
-if [ "x$make_comb_opt_grids" == "xtrue" ] ; then
-  set_comb_optimization_grids
+# create icon grids
+start_level=0
+set_grid_optimization
 #  set_default_optimization_grids
-  base_file_name=iconR2B
-  optimization_extension="-grid"
-  #-----------------------------------------------------------------------------
-  create_grids
-fi
+base_file_name=iconR2B
+optimization_extension="-grid"
+#-----------------------------------------------------------------------------
+create_grids
 #=============================================================================
 
 
@@ -326,7 +340,7 @@ if [ "x$make_patches" == "xtrue" ] ; then
   patch_center_x=-90.0
   patch_center_y=40.0
 
-  set_comb_optimization_grids
+  set_grid_optimization
 #  set_default_optimization_grids
 
   # create patches
