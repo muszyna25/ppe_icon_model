@@ -332,7 +332,7 @@ MODULE mo_nonhydro_state
       ENDDO
 
       ! delete tracer list list elements
-      DO jt = 1, ntl-1  ! no extra time level  !! quick fix !!
+      DO jt = 1, 2  ! no extra time level  !! quick fix !!
         CALL delete_var_list( p_nh_state(jg)%tracer_list(jt) )
       ENDDO
 
@@ -940,6 +940,14 @@ MODULE mo_nonhydro_state
     cf_desc    = t_cf_var('surface_pressure', 'Pa', 'surface pressure')
     grib2_desc = t_grib2_var(0, 3, 0, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'pres_sfc', p_diag%pres_sfc,                     &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,   &
+                & ldims=shape2d_c, lrestart=.FALSE. )
+
+    ! pres_sfc_old     p_diag%pres_sfc_old(nproma,nblks_c)
+    !
+    cf_desc    = t_cf_var('surface_pressure', 'Pa', 'surface pressure')
+    grib2_desc = t_grib2_var(0, 3, 0, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_diag_list, 'pres_sfc_old', p_diag%pres_sfc_old,             &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,   &
                 & ldims=shape2d_c, lrestart=.FALSE. )
 

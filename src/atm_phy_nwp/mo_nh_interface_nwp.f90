@@ -90,7 +90,7 @@ MODULE mo_nh_interface_nwp
   USE mo_nwp_conv_interface, ONLY: nwp_convection
   USE mo_nwp_rad_interface,  ONLY: nwp_radiation
   USE mo_sync,               ONLY: sync_patch_array, sync_patch_array_mult, &
-                                   SYNC_C, SYNC_C1, global_max
+                                   SYNC_C, SYNC_C1, global_max, global_sum_array
   USE mo_mpi,                ONLY: my_process_is_mpi_all_parallel
   USE mo_nwp_diagnosis,      ONLY: nwp_diagnosis
 !  USE mo_communication,      ONLY: time_sync
@@ -206,6 +206,9 @@ CONTAINS
     REAL(wp) :: rcld(nproma,pt_patch%nlevp1)
     ! variables for TKE diagnostic
     REAL(wp) :: maxtke(pt_patch%nblks_c,pt_patch%nlevp1),tkemax(pt_patch%nlevp1)
+    ! Variables for dpsdt diagnostic
+    REAL(wp) :: dpsdt_blk(pt_patch%nblks_c), dpsdt_avg
+    INTEGER  :: npoints_blk(pt_patch%nblks_c), npoints
 
 !     write(0,*) "Entering nwp_nh_interface"
 !     write(0,*) "========================="
@@ -1220,6 +1223,12 @@ CONTAINS
         maxtke(:,:) = 0._wp
       ENDIF
 
+      ! In case that average ABS(dpsdt) is diagnosed
+      IF (msg_level >= 11) THEN
+        dpsdt_blk(:)   = 0._wp
+        npoints_blk(:) = 0
+      ENDIF
+
       IF (ltimer) CALL timer_start(timer_physic_acc_2)
 !$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
       rl_start = grf_bdywidth_c+1
@@ -1303,6 +1312,31 @@ CONTAINS
       ENDDO
 !$OMP END DO
 
+      ! Diagnosis of ABS(dpsdt) if nsg_level >= 11
+      IF (msg_level >= 11) THEN
+
+        rl_start = grf_bdywidth_c+1
+        rl_end   = min_rlcell_int
+
+        i_startblk = pt_patch%cells%start_blk(rl_start,1)
+        i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx)
+        DO jb = i_startblk, i_endblk
+
+          CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+                             i_startidx, i_endidx, rl_start, rl_end)
+
+          DO jc = i_startidx, i_endidx
+            dpsdt_blk(jb) = dpsdt_blk(jb) + &
+              ABS(pt_diag%pres_sfc(jc,jb)-pt_diag%pres_sfc_old(jc,jb))
+            npoints_blk(jb) = npoints_blk(jb) + 1
+            pt_diag%pres_sfc_old(jc,jb) = pt_diag%pres_sfc(jc,jb)
+          ENDDO
+        ENDDO
+!$OMP END DO
+      ENDIF
+
       ! CFL-diagnostic if msg_level >= 12
       IF (msg_level >= 12) THEN
 
@@ -1350,6 +1384,19 @@ CONTAINS
 !$OMP END PARALLEL
 
       IF (ltimer) CALL timer_stop(timer_physic_acc_2)
+
+      IF (msg_level >= 11) THEN ! dpsdt diagnostic
+        dpsdt_avg = SUM(dpsdt_blk)
+        npoints   = SUM(npoints_blk)
+        dpsdt_avg = global_sum_array(dpsdt_avg)
+        npoints   = global_sum_array(npoints)
+        dpsdt_avg = dpsdt_avg/REAL(npoints,wp)
+        ! Exclude initial time step where pres_sfc_old is zero
+        IF (dpsdt_avg < 10000._wp) THEN
+          WRITE(message_text,'(a,f12.4,a,i2)') 'average |dPS/dt| =',dpsdt_avg, ' Pa in domain ',jg
+          CALL message('nwp_nh_interface: ', TRIM(message_text))
+        ENDIF
+      ENDIF
 
       IF (msg_level >= 12) THEN ! CFL and TKE diagnostic
         cflmax = MAXVAL(maxcfl)
