@@ -2,7 +2,7 @@
 !! soil vegetation atmosphere transfer: source module  "mo_soil_ml_v413.f90"
 !!------------------------------------------------------------------------------
 !!----------------------------------------------------------------------------- 
-!!
+!! 
 !! @par Description:
 !!   The module "mo_soil_ml_v413.f90" performs calculations related to the
 !!   parameterization of soil processes. It contains the soubroutine
@@ -1502,6 +1502,12 @@ IMPLICIT NONE
 !        END IF
       END DO
   END DO
+
+! JH Copy soil moisture and ice content for all soiltypes and levels on new state, untouched for rock and ice
+ 
+  w_so_new(:,:)     = w_so_now(:,:)
+  w_so_ice_new(:,:) = w_so_ice_now(:,:)
+  
 
 !<em subs  
 !w_snow per fraction -> w_snow per unit
@@ -4047,7 +4053,7 @@ IMPLICIT NONE
     DO ksn = 1, ke_snow
         DO i = istarts, iends
 !          IF (llandmask(i)) THEN  ! for landpoints only
-            IF (w_snow_new(i) == 0.0_ireals) THEN
+            IF (w_snow_new(i) <= zepsi) THEN
               t_snow_mult_new(i,ksn) = t_so_new(i,0)
               wliq_snow_new(i,ksn) = 0.0_ireals
               wtot_snow_new(i,ksn) = 0.0_ireals
@@ -4190,7 +4196,7 @@ IMPLICIT NONE
     DO ksn = ke_snow,1,-1
         DO i = istarts, iends
 !          IF (llandmask(i)) THEN  ! for landpoints only
-            IF(w_snow_new(i) .GT. zepsi) THEN
+            IF(w_snow_new(i) > zepsi) THEN
               t_snow_mult_new  (i,ksn) = t_new  (i,ksn)
               rho_snow_mult_new(i,ksn) = rho_new(i,ksn)
               wtot_snow_new    (i,ksn) = rho_new(i,ksn)*dzh_snow_new(i,ksn)/rho_w
@@ -4202,9 +4208,11 @@ IMPLICIT NONE
     
       DO i = istarts, iends
 !        IF (llandmask(i)) THEN  ! for landpoints only
-          IF(w_snow_new(i) .GT. zepsi) rho_snow_new(i) = &
-          &w_snow_new(i)/h_snow_new(i)*rho_w
-          t_snow_new(i) = t_snow_mult_now(i,1)
+          IF(w_snow_new(i) > zepsi) THEN
+             rho_snow_new(i) = w_snow_new(i)/h_snow_new(i)*rho_w
+          ELSE !JH
+          rho_snow_new(i) = 250._ireals ! workaround need to be inspected!!
+          END IF
 !        END IF          ! land-points only
       END DO
 

@@ -58,7 +58,7 @@
 !! software.
 
 MODULE mo_phyparam_soil
-
+ 
 ! Modules used:
 
 #ifdef __COSMO__
@@ -82,9 +82,119 @@ USE mo_kind, ONLY:     &
 IMPLICIT NONE
 PUBLIC           ! All constants and variables in this module are public
 
+INTEGER, PARAMETER :: nclass_lu = 23
+
 !==============================================================================
 ! 1. Data arrays for properties of different soil types (array index)     
 ! -------------------------------------------------------------------
+
+    REAL (ireals) ::          &
+         c_lnd      = 2.0_ireals,     & ! surface area density of the roughness elements over land
+         c_sea      = 1.5_ireals,     & ! surface area density of the waves over sea
+         c_soil     = 1.0_ireals,     & ! surface area density of the (evaporative) soil surface
+         e_surf     = 1.0_ireals,     & ! exponent to get the effective surface area
+         red_fac                        ! reduction factor for effective area indeces multiplication
+
+    REAL (ireals) :: zplcmxc_lu(nclass_lu)  = (/ &     !< lookup table landuse class to maximal plant cover
+         &            0.80, &       ! 1 evergreen broadleaf forest   
+         &            0.90, &       ! 2 deciduous broadleaf closed forest
+         &            0.80, &       ! 3 deciduous broadleaf open   forest
+         &            0.80, &       ! 4 evergreen needleleaf forest   
+         &            0.90, &       ! 5 deciduous needleleaf forest
+         &            0.90, &       ! 6 mixed leaf trees            
+         &            0.80, &       ! 7 fresh water flooded trees
+         &            0.80, &       ! 8 saline water flooded trees
+         &            0.80, &       ! 9 mosaic tree / natural vegetation
+         &            0.50, &       ! 10 burnt tree cover
+         &            0.80, &       ! 11 evergreen shrubs closed-open
+         &            0.80, &       ! 12 decidous shrubs closed-open
+         &            0.90, &       ! 13 herbaceous vegetation closed-open
+         &            0.50, &       ! 14 sparse herbaceous or grass 
+         &            0.80, &       ! 15 flooded shrubs or herbaceous
+         &            0.90, &       ! 16 cultivated & managed areas
+         &            0.80, &       ! 17 mosaic crop / tree / natural vegetation
+         &            0.90, &       ! 18 mosaic crop / shrub / grass
+         &            0.05, &       ! 19 bare areas                       
+         &            0.00, &       ! 20 water
+         &            0.00, &       ! 21 snow & ice 
+         &            0.20, &       ! 22 artificial surface   
+         &            0.       /)   ! 23 undefined
+
+    REAL (ireals) :: zlaimxc_lu(nclass_lu)  = (/ &      !< lookup table landuse class to maximal leaf area index
+         &            5.00, &       ! evergreen broadleaf forest   
+         &            6.00, &       ! deciduous broadleaf closed forest
+         &            4.00, &       ! deciduous broadleaf open   forest
+         &            5.00, &       ! evergreen needleleaf forest   
+         &            5.00, &       ! deciduous needleleaf forest
+         &            5.00, &       ! mixed leaf trees            
+         &            5.00, &       ! fresh water flooded trees
+         &            5.00, &       ! saline water flooded trees
+         &            2.50, &       ! mosaic tree / natural vegetation
+         &            0.60, &       ! burnt tree cover
+         &            3.00, &       ! evergreen shrubs closed-open
+         &            1.50, &       ! decidous shrubs closed-open
+         &            3.10, &       ! herbaceous vegetation closed-open
+         &            0.60, &       ! sparse herbaceous or grass 
+         &            2.00, &       ! flooded shrubs or herbaceous
+         &            3.30, &       ! cultivated & managed areas
+         &            3.00, &       ! mosaic crop / tree / natural vegetation
+         &            3.50, &       ! mosaic crop / shrub / grass
+         &            0.60, &       ! bare areas                       
+         &            0.00, &       ! water
+         &            0.00, &       ! snow & ice 
+         &            1.00, &       ! artificial surface   
+         &            0.      /)    ! undefined
+
+
+    REAL (ireals) :: zrd_lu(nclass_lu)   = (/ &         !< lookup table landuse class to root depth [m]
+         &          1.00,       &       ! evergreen broadleaf forest   
+         &          1.00,       &       ! deciduous broadleaf closed forest
+         &          2.00,       &       ! deciduous broadleaf open   forest
+         &          0.60,       &       ! evergreen needleleaf forest   
+         &          0.60,       &       ! deciduous needleleaf forest
+         &          0.80,       &       ! mixed leaf trees            
+         &          1.00,       &       ! fresh water flooded trees
+         &          1.00,       &       ! saline water flooded trees
+         &          1.00,       &       ! mosaic tree / natural vegetation
+         &          0.30,       &       ! burnt tree cover
+         &          1.00,       &       ! evergreen shrubs closed-open
+         &          2.00,       &       ! decidous shrubs closed-open
+         &          0.60,       &       ! herbaceous vegetation closed-open
+         &          0.30,       &       ! sparse herbaceous or grass 
+         &          0.40,       &       ! flooded shrubs or herbaceous
+         &          1.00,       &       ! cultivated & managed areas
+         &          1.00,       &       ! mosaic crop / tree / natural vegetation
+         &          1.00,       &       ! mosaic crop / shrub / grass
+         &          0.30,       &       ! bare areas                       
+         &          0.00,       &       ! water
+         &          0.00,       &       ! snow & ice 
+         &          0.60,       &       ! artificial surface   
+         &          0.         /)       ! undefined
+
+    REAL (ireals) :: zrs_min_lu(nclass_lu) =(/ &
+         &          250.0,      &       ! evergreen broadleaf forest   
+         &          150.0,      &       ! deciduous broadleaf closed forest
+         &          150.0,      &       ! deciduous broadleaf open   forest
+         &          150.0,      &       ! evergreen needleleaf forest   
+         &          150.0,      &       ! deciduous needleleaf forest
+         &          150.0,      &       ! mixed leaf trees            
+         &          150.0,      &       ! fresh water flooded trees
+         &          150.0,      &       ! saline water flooded trees
+         &          150.0,      &       ! mosaic tree / natural vegetation
+         &          150.0,      &       ! burnt tree cover
+         &          120.0,      &       ! evergreen shrubs closed-open
+         &          120.0,      &       ! decidous shrubs closed-open
+         &          40.0,      &       ! herbaceous vegetation closed-open
+         &          40.0,      &       ! sparse herbaceous or grass 
+         &          40.0,      &       ! flooded shrubs or herbaceous
+         &          120.0,      &       ! cultivated & managed areas
+         &          120.0,      &       ! mosaic crop / tree / natural vegetation
+         &          100.0,      &       ! mosaic crop / shrub / grass
+         &          120.0,      &       ! bare areas                       
+         &          120.0,      &       ! water
+         &          120.0,      &       ! snow & ice 
+         &          120.0,     &       ! artificial surface   
+         &          0.         /)       ! undefined
  
   REAL  (KIND=ireals) ::  &
 !   a) parameters describing the soil water budget
