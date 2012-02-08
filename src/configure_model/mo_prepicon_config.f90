@@ -39,12 +39,13 @@ MODULE mo_prepicon_config
     &                              associate_keyword, with_keywords, &
     &                              int2string
   USE mo_io_units,           ONLY: filename_max
+  USE mo_impl_constants,     ONLY: max_dom
 
   IMPLICIT NONE
 
   PUBLIC :: i_oper_mode, nlev_in, nlevsoil_in, zpbl1, zpbl2
   PUBLIC :: l_w_in, l_sfc_in      
-  PUBLIC :: l_zp_out, l_extdata_out 
+  PUBLIC :: l_zp_out, l_extdata_out, l_coarse2fine_mode
   PUBLIC :: ifs2icon_filename
   PUBLIC :: generate_filename
 
@@ -65,6 +66,9 @@ MODULE mo_prepicon_config
   LOGICAL  :: l_sfc_in      ! Logical switch if surface fields are provided as input
   LOGICAL  :: l_zp_out      ! Logical switch for diagnostic output on pressure and height levels
   LOGICAL  :: l_extdata_out ! Logical switch to write extdata fields into output (to simplify checking)
+
+  LOGICAL  :: l_coarse2fine_mode(max_dom)  ! If true, apply special corrections for interpolation from coarse
+                                           ! to fine resolutions over mountainous terrain
 
   ! IFS2ICON input filename, may contain keywords, by default
   ! ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"

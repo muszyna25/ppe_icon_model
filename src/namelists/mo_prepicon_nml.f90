@@ -41,7 +41,7 @@ MODULE mo_prepicon_nml
 !
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: finish
-  USE mo_impl_constants,     ONLY: max_char_length
+  USE mo_impl_constants,     ONLY: max_char_length, max_dom
   USE mo_io_units,           ONLY: nnml, nnml_output, filename_max
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: my_process_is_stdio 
@@ -55,7 +55,8 @@ MODULE mo_prepicon_nml
     & config_l_sfc_in           => l_sfc_in,     &
     & config_l_zp_out           => l_zp_out,     &
     & config_l_extdata_out      => l_extdata_out,&
-    & config_ifs2icon_filename  => ifs2icon_filename
+    & config_ifs2icon_filename  => ifs2icon_filename, &
+    & config_l_coarse2fine_mode => l_coarse2fine_mode
 
   IMPLICIT NONE
 
@@ -79,12 +80,14 @@ MODULE mo_prepicon_nml
   LOGICAL  :: l_sfc_in      ! Logical switch if surface fields are provided as input
   LOGICAL  :: l_zp_out      ! Logical switch for diagnostic output on pressure and height levels
   LOGICAL  :: l_extdata_out ! Logical switch to write extdata fields into output (to simplify checking)
+  LOGICAL  :: l_coarse2fine_mode(max_dom)  ! If true, apply special corrections for interpolation from coarse
+                                           ! to fine resolutions over mountainous terrain
 
   ! IFS2ICON input filename, may contain keywords, by default
   ! ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
   CHARACTER(LEN=filename_max) :: ifs2icon_filename
 
-  NAMELIST /prepicon_nml/ i_oper_mode, nlev_in, zpbl1, zpbl2,                  &
+  NAMELIST /prepicon_nml/ i_oper_mode, nlev_in, zpbl1, zpbl2, l_coarse2fine_mode, &
                           l_w_in, l_zp_out, nlevsoil_in, l_sfc_in, l_extdata_out
   
 CONTAINS
@@ -121,6 +124,7 @@ CONTAINS
   l_zp_out    = .FALSE.     ! true: diagnostic output on p and z levels
   l_extdata_out = .FALSE.   ! true: copy extdata fields into output
   ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
+  l_coarse2fine_mode(:) = .FALSE. ! true: apply corrections for coarse-to-fine-mesh interpolation
 
   !------------------------------------------------------------
   ! 3.0 Read the prepicon namelist.
@@ -149,6 +153,7 @@ CONTAINS
   config_l_zp_out          = l_zp_out
   config_l_extdata_out     = l_extdata_out
   config_ifs2icon_filename = ifs2icon_filename
+  config_l_coarse2fine_mode = l_coarse2fine_mode
 
   !------------------------------------------------------------
   ! 5.0 check the consistency of the parameters

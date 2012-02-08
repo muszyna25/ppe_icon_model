@@ -52,7 +52,7 @@ MODULE mo_nh_vert_interp
   USE mo_impl_constants,      ONLY: icc
   USE mo_exception,           ONLY: finish
   USE mo_prepicon_config,     ONLY: nlev_in, zpbl1, zpbl2, &
-                                    i_oper_mode, l_w_in, l_sfc_in
+                                    i_oper_mode, l_w_in, l_sfc_in, l_coarse2fine_mode
   USE mo_prepicon_utils,      ONLY: t_prepicon_state, nzplev
   USE mo_ifs_coord,           ONLY: half_level_pressure, full_level_pressure, &
                                     auxhyb, geopot
@@ -218,6 +218,7 @@ CONTAINS
 
     INTEGER :: jb, jc, jk
     INTEGER :: nlen, nlev, nlevp1
+    LOGICAL :: lc2f
 
     ! Auxiliary fields for input data
     REAL(wp), DIMENSION(nproma,nlev_in+1) :: pres_ic, lnp_ic, geop_ic
@@ -252,6 +253,9 @@ CONTAINS
 
     nlev   = p_patch%nlev
     nlevp1 = p_patch%nlevp1
+
+    ! Switch to determine if corrections for coarse-to-fine-mesh interpolation are to be used
+    lc2f   = l_coarse2fine_mode(p_patch%id)
 
     ! Compute virtual temperature of input data
     CALL virtual_temp(p_patch, prepicon%atm_in%temp, prepicon%atm_in%qv, prepicon%atm_in%qc, &
@@ -319,7 +323,7 @@ CONTAINS
                           coef1, coef2, coef3, wfac_lin,                    &
                           idx0_cub, idx0_lin, bot_idx_cub, bot_idx_lin,     &
                           wfacpbl1, kpbl1, wfacpbl2, kpbl2,                 &
-                          l_restore_sfcinv=.TRUE., l_hires_corr=.FALSE.,    &
+                          l_restore_sfcinv=.TRUE., l_hires_corr=lc2f,       &
                           extrapol_dist=-1500._wp, slope=slope              )
 
     ! horizontal wind components
@@ -329,14 +333,14 @@ CONTAINS
                  coef1, coef2, coef3, wfac_lin,                    &
                  idx0_cub, idx0_lin, bot_idx_cub, bot_idx_lin,     &
                  wfacpbl1, kpbl1, wfacpbl2, kpbl2,                 &
-                 l_hires_intp=.FALSE.                              )
+                 l_hires_intp=lc2f                                 )
     CALL uv_intp(prepicon%atm_in%v, prepicon%atm%v,                &
                  prepicon%atm_in%z3d, prepicon%z_mc,               &
                  p_patch%nblks_c, p_patch%npromz_c, nlev_in, nlev, &
                  coef1, coef2, coef3, wfac_lin,                    &
                  idx0_cub, idx0_lin, bot_idx_cub, bot_idx_lin,     &
                  wfacpbl1, kpbl1, wfacpbl2, kpbl2,                 &
-                 l_hires_intp=.FALSE.                              )
+                 l_hires_intp=lc2f                                 )
 
     ! Preliminary interpolation of QV: this is needed to compute virtual temperature
     ! below, which in turn is required to integrate the hydrostatic equation
