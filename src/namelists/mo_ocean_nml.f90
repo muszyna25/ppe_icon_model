@@ -141,19 +141,11 @@ MODULE mo_ocean_nml
                                             ! i_bc_veloc_bot =2 : bottom friction plus topographic
                                             !                     slope (not implemented yet)
 
-  !this distinction is no longer used: INTEGER  :: i_sfc_forcing_form        = 0 !=0: surface forcing applied as top boundary condition to vertical diffusion
-  !                                          !=1: surface forcing applied as volume forcing at rhs, i.e.part of explicit term in momentum and tracer eqs. 
-                                            !in this case, top boundary ondition of vertical Laplacians are homogeneous
+  !this distinction is no longer used: INTEGER  :: i_sfc_forcing_form        = 0
+  !=0: surface forcing applied as top boundary condition to vertical diffusion
+  !=1: surface forcing applied as volume forcing at rhs, i.e.part of explicit term in momentum and tracer eqs. 
+  !in this case, top boundary ondition of vertical Laplacians are homogeneous
   !INTEGER            :: vbc_zero_cond   =   0   ! no or zero boundary condition
-
-  ! parameterized time stepping scheme
-  !  #slo# - might later be splitted into stepping scheme and call of core
-  ! in mo_test_hydro_ocean:
-  !   i_oce_stepping = 1 => call test_expl_core_oce
-  !   i_oce_stepping = 2 => call perform_ho_stepping
-  !   i_oce_stepping = 2 => call perform_core201006
-  INTEGER            :: i_oce_stepping  =   1  ! switch for time stepping scheme
-
 
   ! parameterized shallow water mode in the ocean model
   INTEGER            :: iswm_oce        =   0  ! switch for shallow water mode (1 = on, 0 = 3dim)
@@ -225,7 +217,7 @@ MODULE mo_ocean_nml
                                                ! 1=sea ice
 
   NAMELIST/ocean_dynamics_nml/ n_zlev, dzlev_m, idisc_scheme,              &
-    &                 iswm_oce, i_oce_stepping,                            &
+    &                 iswm_oce,                                            &
     &                 i_bc_veloc_lateral,i_bc_veloc_top,i_bc_veloc_bot,    &
     &                 ab_const, ab_beta, ab_gam, solver_tolerance,         &
     &                 l_RIGID_LID, lviscous, l_inverse_flip_flop,          &

@@ -389,11 +389,6 @@ MODULE mo_impl_constants
   !        OCEAN        !
   !---------------------!
 
-  ! identifiers for oce time stepping schemes (i_oce_stepping)
-  INTEGER, PARAMETER :: semi_impl_ab  = 1 ! Adams-Bashforth time stepping scheme
-  INTEGER, PARAMETER :: expl_step_oce = 2 ! simplified explicit ocean core
-  INTEGER, PARAMETER :: core201006    = 3 ! saved core of summer 2010
-
   ! identifier for parameterized forcing of the ocean model (iforc_oce)
   INTEGER, PARAMETER :: analyt_stat    = 11   ! stationary harmonic wind forcing
   INTEGER, PARAMETER :: core_forc      = 12   ! forcing from CORE database

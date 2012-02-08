@@ -93,13 +93,13 @@ MODULE mo_oce_state
   !public interface
   !
   ! subroutines
-  PUBLIC :: init_ho_base
- !PUBLIC :: fill_ho_base
   PUBLIC :: construct_hydro_ocean_base
   PUBLIC :: destruct_hydro_ocean_base
   PUBLIC :: construct_hydro_ocean_state
   PUBLIC :: destruct_hydro_ocean_state
   PUBLIC :: set_lateral_boundary_values
+  PUBLIC :: init_ho_base
+  PUBLIC :: init_ho_basins
   PUBLIC :: init_coriolis_oce
   PUBLIC :: set_del_zlev, set_zlev
   PUBLIC :: is_initial_timestep
@@ -195,6 +195,10 @@ MODULE mo_oce_state
     ! index1=1,nproma, index2=1,nblks_e
     INTEGER, ALLOCATABLE :: dolic_e(:,:)
 
+    ! For diagnosis like stream functions and area calculations we add surface arrays
+    ! index1=1,nproma, index2=1,nblks_c
+    INTEGER, ALLOCATABLE :: basin_c(:,:)  ! basin information Atlantic/Indian/Pacific
+    INTEGER, ALLOCATABLE :: regio_c(:,:)  ! area information like tropical Atlantic etc.
 
     ! To simply set land points to zero we store additional 3-dim wet points
     ! dimensions as in lsm_oce:
@@ -629,6 +633,15 @@ CONTAINS
     IF (ist /= SUCCESS) THEN
       CALL finish (routine,'allocating dolic_e failed')
     ENDIF
+    ! 2-dim basins and areas
+    ALLOCATE(v_base%basin_c(nproma,nblks_c),STAT=ist)
+    IF (ist /= SUCCESS) THEN
+      CALL finish (routine,'allocating basin_c failed')
+    ENDIF
+    ALLOCATE(v_base%regio_c(nproma,nblks_c),STAT=ist)
+    IF (ist /= SUCCESS) THEN
+      CALL finish (routine,'allocating regio_c failed')
+    ENDIF
     ! 3-dim real land-sea-mask
     ! cells
     ALLOCATE(v_base%wet_c(nproma,n_zlev,nblks_c),STAT=ist)
@@ -650,6 +663,8 @@ CONTAINS
     v_base%lsm_oce_e = 0
     v_base%dolic_c = 0
     v_base%dolic_e = 0
+    v_base%basin_c = 0
+    v_base%regio_c = 0
 
     v_base%wet_c = 0.0_wp
     v_base%wet_e = 0.0_wp
@@ -2256,6 +2271,192 @@ END DO
   !   ENDDO
   ! ENDDO
 
+    ! synchronize all elements of v_base:
+
+    DO jk = 1, n_zlev
+
+      z_sync_c(:,:) =  REAL(v_base%lsm_oce_c(:,jk,:),wp)
+      CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
+      v_base%lsm_oce_c(:,jk,:) = INT(z_sync_c(:,:))
+
+      z_sync_e(:,:) =  REAL(v_base%lsm_oce_e(:,jk,:),wp)
+      CALL sync_patch_array(SYNC_e, p_patch, z_sync_e(:,:))
+      v_base%lsm_oce_e(:,jk,:) = INT(z_sync_e(:,:))
+
+    END DO
+
+    CALL message (TRIM(routine), 'end')
+
+  END SUBROUTINE init_ho_base
+
+  !-------------------------------------------------------------------------
+  !
+  !
+  !>
+  !! Initializes 2-dimensional definitions of basins for the ocean state variable.
+  !!
+  !! The 2-dimensional land-sea-mask is used to define basins for calculation of
+  !! meridional overturning circulation (MOC) and to define areas of certain interest.
+  !!
+  !! @par Revision History
+  !! Initial release by Stephan Lorenz, MPI-M (2012-02)
+  !! Modified by Stephan Lorenz,        MPI-M (2012-02)
+  !!
+  SUBROUTINE init_ho_basins( p_patch, v_base )
+
+    TYPE(t_patch),            INTENT(IN)       :: p_patch
+    TYPE(t_hydro_ocean_base), INTENT(INOUT)    :: v_base
+
+    REAL(wp) :: z_sync_c(nproma,p_patch%nblks_c)
+    REAL(wp) :: z_sync_e(nproma,p_patch%nblks_e)
+    INTEGER  :: ibase   (nproma,p_patch%nblks_c)
+    INTEGER  :: iarea   (nproma,p_patch%nblks_c)
+
+    INTEGER  :: jb, jc, jk, i_endidx, nblks_c, npromz_c
+    REAL(wp) :: z60n, z50n, z30n, z30s, z85s
+    REAL(wp) :: z_lat_deg, z_lon_deg
+    REAL(wp) :: z_lon_pta, z_lon_ati, z_lon_itp, z_lon_ind, z_lon_nam, z_lon_med
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+    &        routine = 'mo_oce_state:init_ho_basins'
+
+    !-----------------------------------------------------------------------------
+    CALL message (TRIM(routine), 'start')
+
+    z_sync_c(:,:) = 0.0_wp
+    z_sync_e(:,:) = 0.0_wp
+
+    ! values for the blocking
+    nblks_c = p_patch%nblks_c
+    !nblks_e = p_patch%nblks_e
+    !nblks_v = p_patch%nblks_v
+    npromz_c = p_patch%npromz_c
+    !npromz_e = p_patch%npromz_e
+
+    !-----------------------------
+    !
+    ! Ocean basins:
+    !  1: Atlantic; 2: Indian; 3: Pacific Basin; 4: Southern Ocean (for global)
+    !
+    !-----------------------------
+  
+    !-----------------------------
+    !
+    ! Ocean areas/regions:
+    !  0 = land point
+    !  1 = Greenland-Iceland-Norwegian Sea
+    !  2 = Arctic Ocean
+    !  3 = Labrador Sea
+    !  4 = North Atlantic Ocean
+    !  5 = Tropical Atlantic Ocean
+    !  6 = Southern Ocean
+    !  7 = Indian Ocean
+    !  8 = Tropical Pacific Ocean
+    !  9 = North Pacific Ocean
+    !
+    !-----------------------------
+
+    !-----------------------------
+    ! Define borders of region:
+
+    z60n     =  60.0_wp
+    z50n     =  50.0_wp
+    z30n     =  30.0_wp
+    z30s     = -30.0_wp
+    z85s     = -85.0_wp
+    z_lon_pta = -70.0_wp   !  Pac/Atl - Drake Passage
+    z_lon_ati =  25.0_wp   !  Atl/Ind - South Africa
+    z_lon_itp = 115.0_wp   !  Ind/Pac - Australia-Indonesia
+    z_lon_ind = 100.0_wp   !  Ind/Pac - Indonesia (north of Equator)
+    z_lon_nam = -90.0_wp   !  Pac/Atl - North America
+    z_lon_med =  35.0_wp   !  Atl/Ind - Mediterranean
+
+    !-----------------------------
+    ! Fill ocean areas:
+
+    DO jb = 1, nblks_c
+      i_endidx=nproma
+      IF (jb==nblks_c) i_endidx=npromz_c
+  
+      DO jc = 1, i_endidx
+  
+         ! get lat/lon of actual cell
+         z_lat_deg = rad2deg * p_patch%cells%center(jc,jb)%lat
+         z_lon_deg = rad2deg * p_patch%cells%center(jc,jb)%lon
+         IF (z_lon_deg >  180.0_wp) z_lon_deg = z_lon_deg-360.0_wp
+         IF (z_lon_deg < -180.0_wp) z_lon_deg = z_lon_deg+360.0_wp
+
+         ! Arctic Ocean: default
+         iarea(jc,jb) = 2
+
+         ! GIN Sea (not yet)
+
+         ! Labrador Sea (not yet)
+
+         ! North Atlantic
+         IF (                                                           &
+           & (z_lat_deg >= z30n      .AND. z_lat_deg < z60n)     .AND.  &
+           & (z_lon_deg >= z_lon_nam .AND. z_lon_deg < z_lon_med)       &
+           & ) iarea(jc,jb) = 4
+
+         ! North Pacific
+         IF (                                                           &
+           & (z_lat_deg >= z30n      .AND. z_lat_deg < z60n)     .AND.  &
+           & (z_lon_deg >= z_lon_itp .OR.  z_lon_deg < z_lon_nam)       &
+           & ) iarea(jc,jb) = 9
+
+         ! Tropical Atlantic (without Caribbean - yet)
+         IF (                                                           &
+           & (z_lat_deg >= z30s      .AND. z_lat_deg < z30n)     .AND.  &
+           & (z_lon_deg >= z_lon_pta .AND. z_lon_deg < z_lon_med)       &
+           & ) iarea(jc,jb) = 5
+
+         ! Southern Ocean (south of 30s)
+         IF (z_lat_deg < z30s) iarea(jc,jb) = 6
+
+         ! Indian (including Indonesian Pacific - yet)
+         IF (                                                           &
+           & (z_lat_deg >= z30s      .AND. z_lat_deg < z50n)     .AND.  &
+           & (z_lon_deg >= z_lon_ati .AND. z_lon_deg < z_lon_itp)       &
+           & ) iarea(jc,jb) = 7
+
+         ! Tropical Pacific (without Indonesian Pacific - yet)
+         IF (                                                           &
+           & (z_lat_deg >= z30s      .AND. z_lat_deg < z30n)     .AND.  &
+           & (z_lon_deg >= z_lon_itp .OR.  z_lon_deg < z_lon_pta)       &
+           & ) iarea(jc,jb) = 8
+
+         ! Land points
+         IF (v_base%lsm_oce_c(jc,1,jb) <= SEA_BOUNDARY) iarea(jc,jb) = 0
+  
+      END DO
+    END DO
+
+    !-----------------------------
+    ! Fill ocean basins using ocean areas:
+
+    WHERE ( iarea(:,:) <= 5 )
+      ibase(:,:) = 1
+    ELSE WHERE ( iarea(:,:) == 6 )
+      ibase(:,:) = 4
+    ELSE WHERE ( iarea(:,:) == 7 )
+      ibase(:,:) = 2
+    ELSE WHERE ( iarea(:,:) >= 8 )
+      ibase(:,:) = 3
+    END WHERE
+
+    WHERE ( iarea(:,:) == 0 )
+      ibase(:,:) = 0
+    END WHERE
+
+    v_base%basin_c(:,:) = ibase(:,:)
+    v_base%regio_c(:,:) = iarea(:,:)
+
+  ! write(66,*) 'IBASE:'
+  ! write(66,'(100i1)') ibase(:,:)
+  ! write(66,*) 'IAREA:'
+  ! write(66,'(100i1)') iarea(:,:)
+
     !-----------------------------
     ! set wet_c and wet_e to 1 at sea points including boundaries
 
@@ -2269,7 +2470,6 @@ END DO
       v_base%wet_e(:,:,:) = 1.0_wp
     END WHERE
 
-
     ! #slo# for test:
     !v_base%wet_c(:,:,:) = real(v_base%lsm_oce_c(:,:,:),wp)
     !v_base%wet_e(:,:,:) = real(v_base%lsm_oce_e(:,:,:),wp)
@@ -2281,20 +2481,19 @@ END DO
 
     ! synchronize all elements of v_base:
 
+    z_sync_c(:,:) =  REAL(v_base%basin_c(:,:),wp)
+    CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
+    v_base%basin_c(:,:) = INT(z_sync_c(:,:))
+
+    z_sync_c(:,:) =  REAL(v_base%regio_c(:,:),wp)
+    CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
+    v_base%regio_c(:,:) = INT(z_sync_c(:,:))
+
     DO jk = 1, n_zlev
-
-      z_sync_c(:,:) =  REAL(v_base%lsm_oce_c(:,jk,:),wp)
-      CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
-      v_base%lsm_oce_c(:,jk,:) = INT(z_sync_c(:,:))
-
 
       z_sync_c(:,:) =  v_base%wet_c(:,jk,:)
       CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
       v_base%wet_c(:,jk,:) = z_sync_c(:,:)
-
-      z_sync_e(:,:) =  REAL(v_base%lsm_oce_e(:,jk,:),wp)
-      CALL sync_patch_array(SYNC_e, p_patch, z_sync_e(:,:))
-      v_base%lsm_oce_e(:,jk,:) = INT(z_sync_e(:,:))
 
       z_sync_e(:,:) =  v_base%wet_e(:,jk,:)
       CALL sync_patch_array(SYNC_e, p_patch, z_sync_e(:,:))
@@ -2302,9 +2501,7 @@ END DO
 
     END DO
 
-    CALL message (TRIM(routine), 'end')
-
-  END SUBROUTINE init_ho_base
+  END SUBROUTINE init_ho_basins
 
   !-------------------------------------------------------------------------
   !

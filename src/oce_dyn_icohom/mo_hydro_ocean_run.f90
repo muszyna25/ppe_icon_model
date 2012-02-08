@@ -71,7 +71,7 @@ USE mo_oce_ab_timestepping,    ONLY: solve_free_surface_eq_ab, &
 
 USE mo_oce_tracer,             ONLY: advect_tracer_ab
 USE mo_oce_state,              ONLY: t_hydro_ocean_state, t_hydro_ocean_base, &
-  &                                  init_ho_base, v_base, &
+  &                                  init_ho_base, init_ho_basins, v_base, &
   &                                  construct_hydro_ocean_base, destruct_hydro_ocean_base, &
   &                                  construct_hydro_ocean_state, destruct_hydro_ocean_state, &
   &                                  init_coriolis_oce, init_oce_config, &
@@ -388,7 +388,8 @@ CONTAINS
 
     ! hydro_ocean_base contains the 3-dimensional structures for the ocean state
     CALL construct_hydro_ocean_base(ppatch(jg), v_base)
-    CALL init_ho_base(ppatch(jg), p_ext_data(jg), v_base)
+    CALL init_ho_base     (ppatch(jg), p_ext_data(jg), v_base)
+    CALL init_ho_basins   (ppatch(jg),                 v_base)
     CALL init_coriolis_oce( ppatch(jg) )
 
     !------------------------------------------------------------------
