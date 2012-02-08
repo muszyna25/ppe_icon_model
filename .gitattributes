@@ -816,11 +816,9 @@ scripts/postprocessing/tools/PLOT_examples/icon_triangle_polygons.ncl -text
 scripts/postprocessing/tools/PLOT_examples/icon_triangles_mesh.ncl -text
 scripts/postprocessing/tools/PLOT_examples/icon_vectorplots.ncl -text
 scripts/postprocessing/tools/PLOT_examples/vertical_transection.ncl -text
-scripts/postprocessing/tools/README -text
 scripts/postprocessing/tools/Rakefile -text
 scripts/postprocessing/tools/angle-dist.rb -text
 scripts/postprocessing/tools/color_map/testcmapshort.rgb -text
-scripts/postprocessing/tools/exportvars.bash -text
 scripts/postprocessing/tools/globSum-over-time.rb -text
 scripts/postprocessing/tools/icon_plot.ncl -text
 scripts/postprocessing/tools/icon_plot_lib.ncl -text
@@ -849,15 +847,11 @@ scripts/postprocessing/tools/namelist_postpro_driver.bash -text
 scripts/postprocessing/tools/plotIconSphereGrid.ncl -text
 scripts/postprocessing/tools/plotNestedGrids.ncl -text
 scripts/postprocessing/tools/plotOceanGrid.ncl -text
-scripts/postprocessing/tools/plot_diff_contour.ncl -text
-scripts/postprocessing/tools/plot_diff_scalar_and_vector -text
 scripts/postprocessing/tools/plot_field_nc.ncl -text
 scripts/postprocessing/tools/plot_field_nc_driver -text
 scripts/postprocessing/tools/plot_latlon.ncl -text
 scripts/postprocessing/tools/plot_profile.ncl -text
 scripts/postprocessing/tools/plot_profile_driver.bash -text
-scripts/postprocessing/tools/plot_scalar_and_vector -text
-scripts/postprocessing/tools/plot_single_contour.ncl -text
 scripts/postprocessing/tools/plot_vcs.ncl -text
 scripts/postprocessing/tools/plot_vcs_driver.bash -text
 scripts/preprocessing/IFS2ICON_README.TXT -text
