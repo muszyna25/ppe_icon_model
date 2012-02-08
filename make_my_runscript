@@ -37,6 +37,7 @@
 # For more details see the parameters in the ./config/make_target_runscript
 #==============================================================================
 set -x
+. $base_folder/config/set-up.info
 #==============================================================================
 # Define run parameters
 
@@ -59,6 +60,9 @@ openmp_threads=1
 #   The wall clock time in "hh:mm:ss"
 cpu_time="01:00:00"
 #==============================================================================
+nproma=24
+memory_model="large"
+#==============================================================================
 
 
 #==============================================================================
@@ -67,13 +71,9 @@ create_runscript()
 base_folder=$(pwd)
 input_folder=run
 #==============================================================================
-. $base_folder/config/set-up.info
 use_shell=${use_shell:="/bin/ksh"}
 # The $make_runscript command directs to the ./config/make_target_runscript
 make_runscript="$use_shell ./config/make_target_runscript"
-
-nproma=24
-memory_model="large"
 
 $make_runscript                  \
   in_folder=$input_folder        \
