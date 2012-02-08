@@ -301,7 +301,7 @@ IF(oce_ts%oce_diagnostics(0)%total_energy/=0.0_wp)THEN
 ENDIF
 DO i_no_t=1, no_tracer
   IF(oce_ts%oce_diagnostics(0)%tracer_content(i_no_t)/=0.0_wp)THEN
-    write(0,*)'ACTUAL VALUES OF TOTAL TRACER CONTENT:                        ',i,&
+    write(0,*)'ACTUAL VALUES OF TOTAL TRACER CONTENT:                        ',i_no_t,i,&
     &oce_ts%oce_diagnostics(i)%tracer_content(i_no_t)&
     &/ oce_ts%oce_diagnostics(0)%tracer_content(i_no_t)
 

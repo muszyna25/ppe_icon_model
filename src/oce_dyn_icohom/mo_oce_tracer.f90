@@ -287,7 +287,6 @@ CALL advect_horizontal(p_patch, trac_old,           &
 !  END DO
 
 IF( iswm_oce /= 1) THEN
-
      CALL advect_vertical(p_patch, trac_tmp,              &
                          & p_os,                           &
 !                         & G_n_c_v, G_nm1_c_v, G_nimd_c_v, &

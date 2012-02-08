@@ -500,11 +500,11 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param, p_int, l_ini
   ! calculate horizontal laplacian of horizontal velocity, provided this term is discretized explicitly
   ! ! IF(horizontal_diffusion_veloc==EXPLICIT)THEN
 
-!     CALL velocity_diffusion_horz_mimetic(p_patch,&
-!                                        & p_os%p_prog(nold(1))%vn,&
-!                                        & p_phys_param,&
-!                                        & p_os%p_diag,&
-!                                        & p_os%p_diag%laplacian_horz)
+!      CALL velocity_diffusion_horz_mimetic(p_patch,&
+!                                         & p_os%p_prog(nold(1))%vn,&
+!                                         & p_phys_param,&
+!                                         & p_os%p_diag,&
+!                                         & p_os%p_diag%laplacian_horz)
       CALL nabla2_vec_ocean( p_os%p_prog(nold(1))%vn,&
                            & z_vt,                   &
                            & p_os%p_diag%vort,       &

@@ -370,7 +370,8 @@ z_h_tmp_c       = 0.0_wp
       END DO
     END DO
   END DO
-!stop
+!stop 
+!CALL elad(p_patch, trac_old, trac_new, p_os)
 END SUBROUTINE advect_horizontal
 !-----------------------------------------------------------------------
 !

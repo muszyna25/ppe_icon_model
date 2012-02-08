@@ -248,7 +248,7 @@ CONTAINS
         ! set values on land to zero/reference
         IF ( v_base%lsm_oce_c(jc,jk,jb) > sea_boundary ) THEN
           p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 0.0_wp
-          IF (no_tracer>1) p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sal_ref
+          IF (no_tracer>=2) p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 0.0_wp!sal_ref
         ENDIF
 
       END DO

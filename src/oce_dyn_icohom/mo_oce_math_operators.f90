@@ -787,8 +787,8 @@ DO jb = i_startblk_v, i_endblk_v
   CALL get_indices_v(p_patch, jb, i_startblk_v, i_endblk_v, &
                      i_startidx_v, i_endidx_v, rl_start_v, rl_end_v)
   DO jk = slev, elev
-!$OMP PARALLEL DO SCHEDULE(runtime) DEFAULT(PRIVATE)  &
-!$OMP   SHARED(rot_vec_v,jb) FIRSTPRIVATE(jk)
+!!$OMP PARALLEL DO SCHEDULE(runtime) DEFAULT(PRIVATE)  &
+!!$OMP   SHARED(u_vec_e,v_vec_e,ptr_patch,rot_vec_v,jb) FIRSTPRIVATE(jk)
     DO jv = i_startidx_v, i_endidx_v
 
       z_vort_tmp          = 0.0_wp
@@ -962,7 +962,7 @@ DO jb = i_startblk_v, i_endblk_v
         ENDIF
       ENDIF
     END DO
-!$OMP END PARALLEL DO
+!!$OMP END PARALLEL DO
   END DO
 END DO
 END SUBROUTINE rot_vertex_ocean
@@ -1044,7 +1044,8 @@ DO jb = i_startblk_v, i_endblk_v
   CALL get_indices_v(p_patch, jb, i_startblk_v, i_endblk_v, &
                      i_startidx_v, i_endidx_v, rl_start_v, rl_end_v)
   DO jk = slev, elev
-!$OMP PARALLEL DO SCHEDULE(runtime) DEFAULT(PRIVATE)  &
+!!$OMP PARALLEL DO SCHEDULE(runtime) DEFAULT(PRIVATE)  &
+!!$OMP   SHARED(u_vec_e,v_vec_e,ptr_patch,rot_vec_v,jb) FIRSTPRIVATE(jk)
 !$OMP   SHARED(rot_vec_v,jb) FIRSTPRIVATE(jk)
     DO jv = i_startidx_v, i_endidx_v
 
@@ -1206,7 +1207,7 @@ DO jb = i_startblk_v, i_endblk_v
         ENDIF
       ENDIF
     END DO
-!$OMP END PARALLEL DO
+!!$OMP END PARALLEL DO
   END DO
 END DO
 END SUBROUTINE rot_vertex_ocean_rbf
@@ -1354,8 +1355,8 @@ DO jb = i_startblk, i_endblk
 
   DO jk = slev, elev
 
-!$OMP PARALLEL DO SCHEDULE(runtime) DEFAULT(PRIVATE)  &
-!$OMP   SHARED(u_vec_e,ptr_patch,rot_vec_v,jb) FIRSTPRIVATE(jk)
+!!$OMP PARALLEL DO SCHEDULE(runtime) DEFAULT(PRIVATE)  &
+!!$OMP   SHARED(u_vec_e,ptr_patch,rot_vec_v,jb) FIRSTPRIVATE(jk)
     DO jv = i_startidx, i_endidx
 
       ztmp = 0.0_wp
@@ -1501,7 +1502,7 @@ DO jb = i_startblk, i_endblk
         ENDIF
       ENDIF
     END DO
-!$OMP END PARALLEL DO
+!!F$OMP END PARALLEL DO
   END DO
 END DO
 END SUBROUTINE rot_vertex_ocean_old

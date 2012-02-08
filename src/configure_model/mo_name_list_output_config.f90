@@ -58,7 +58,8 @@ MODULE mo_name_list_output_config
   PUBLIC :: name_list_output_active, use_async_name_list_io, l_output_phys_patch
   PUBLIC :: max_var_ml, max_var_pl, max_var_hl, max_bounds              
   PUBLIC :: max_levels, vname_len, t_output_name_list
-  PUBLIC :: first_output_name_list, max_time_levels, t_output_file
+  PUBLIC :: first_output_name_list, max_time_levels, t_output_file,&
+    &       t_var_desc,t_rptr_5d
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: &
     &  version = '$Id$'
@@ -149,7 +150,7 @@ MODULE mo_name_list_output_config
     INTEGER                     :: phys_patch_id ! ID of physical output patch
     INTEGER                     :: log_patch_id  ! ID of logical output patch
     INTEGER                     :: num_vars
-    TYPE(t_var_desc), ALLOCATABLE :: var_desc(:)
+    TYPE(t_var_desc),ALLOCATABLE :: var_desc(:)
     TYPE(t_output_name_list), POINTER :: name_list ! Pointer to corresponding output name list
 
     CHARACTER(LEN=vname_len), ALLOCATABLE :: name_map(:,:) ! mapping internal names -> names in NetCDF
