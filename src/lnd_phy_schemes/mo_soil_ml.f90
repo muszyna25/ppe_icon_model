@@ -1505,8 +1505,8 @@ IMPLICIT NONE
 
 ! JH Copy soil moisture and ice content for all soiltypes and levels on new state, untouched for rock and ice
  
-  w_so_new(:,:)     = w_so_now(:,:)
-  w_so_ice_new(:,:) = w_so_ice_now(:,:)
+  w_so_new(istarts:iends,ke_soil+1) = w_so_now(istarts:iends,ke_soil+1)
+  w_so_ice_new(istarts:iends,:)     = w_so_ice_now(istarts:iends,:)
   
 
 !<em subs  
@@ -4209,9 +4209,9 @@ IMPLICIT NONE
       DO i = istarts, iends
 !        IF (llandmask(i)) THEN  ! for landpoints only
           IF(w_snow_new(i) > zepsi) THEN
-             rho_snow_new(i) = w_snow_new(i)/h_snow_new(i)*rho_w
+            rho_snow_new(i) = w_snow_new(i)/h_snow_new(i)*rho_w
           ELSE !JH
-          rho_snow_new(i) = 250._ireals ! workaround need to be inspected!!
+            rho_snow_new(i) = 250._ireals ! workaround need to be inspected!!
           END IF
 !        END IF          ! land-points only
       END DO
@@ -4309,7 +4309,7 @@ IMPLICIT NONE
 
 
 #ifdef __ICON__
-  IF (msg_level >= 11) THEN
+  IF (msg_level >= 12) THEN
 !    DO ns = nsubs0, nsubs1
         DO i = istarts, iends
 !          IF (llandmask(i)) THEN          ! land-points only
