@@ -656,10 +656,12 @@ CONTAINS
               qv_s_s = qv_s_s +  lu_class_frac(isubs)* qv_s_t(ic,jb,isubs)  ! TILES aggregation
             END DO
 !           print*,'t_g_s', ic,jc,lnd_prog_new%t_g(jc,jb),t_g_s,t_g_t (ic,jb,:)
-               lnd_prog_new%t_g(jc,jb)  = (1._ireals-ext_data%atm%fr_land(jc,jb))*lnd_prog_new%t_g(jc,jb) + &
-              &                             ext_data%atm%fr_land(jc,jb)*t_g_s 
-               lnd_diag%qv_s(jc,jb)     = (1._ireals-ext_data%atm%fr_land(jc,jb))*lnd_diag%qv_s(jc,jb) + &
-              &                             ext_data%atm%fr_land(jc,jb)*qv_s_s
+               lnd_prog_new%t_g(jc,jb)  = &
+                 &   (1._ireals-ext_data%atm%fr_land(jc,jb))*lnd_prog_new%t_g(jc,jb) + &
+                 &    ext_data%atm%fr_land(jc,jb)*t_g_s 
+               lnd_diag%qv_s(jc,jb)     = &
+                 &  (1._ireals-ext_data%atm%fr_land(jc,jb))*lnd_diag%qv_s(jc,jb) + &
+                 &   ext_data%atm%fr_land(jc,jb)*qv_s_s
            END DO
 
   
