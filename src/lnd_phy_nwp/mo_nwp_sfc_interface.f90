@@ -206,7 +206,7 @@ CONTAINS
     REAL(wp) :: w_so_ice_new_t(nproma, nlev_soil+1, p_patch%nblks_c, nsfc_subs)
 
     REAL(wp) :: lu_class_frac(nsfc_subs) 
-    LOGICAL  :: tile_mask(nclass_lu)= .true. 
+    LOGICAL  :: tile_mask(nclass_lu)
     REAL(wp) :: tile_frac(nclass_lu)
     INTEGER  :: i_tile(nproma, nsfc_subs),lu_subs
     REAL(wp) :: subsfrac_t (nproma, p_patch%nblks_c, nsfc_subs)
@@ -253,7 +253,8 @@ CONTAINS
 
 !$OMP PARALLEL
 #ifdef __xlC__
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,isubs,i_count,ic,i_lst,i_tile,lu_subs,lu_class_frac,t_g_s,qv_s_s,jk)
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,isubs,i_count,ic,i_lst,i_tile,lu_subs,lu_class_frac,&
+!$OMP       t_g_s,qv_s_s,jk,tile_frac,tile_mask,tile_fr,red_fac)
 #else
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,isubs,i_count,ic,i_lst,i_tile, &
 !$OMP            lu_subs,lu_class_frac,t_g_s,qv_s_s,jk,tile_frac,         &
@@ -299,6 +300,10 @@ CONTAINS
 !
 !---------- Copy index list fields
 
+        IF (nsfc_subs > 1) THEN
+
+! GZ: The following computations need to be moved into the initialization
+!     because they do not vectorize
 ! Sorting of land-use classes in land point vector for dominant tiles
       DO ic = 1, i_count
          jc = i_lst(ic)
@@ -324,12 +329,13 @@ CONTAINS
             IF(SUM(lu_class_frac) > 0._wp) THEN
             tile_fr(ic,isubs) = tile_fr(ic,isubs)/SUM(lu_class_frac) 
             ELSE
-            i_tile(ic,isubs)  = 21                    ! Workaround for GLC2000 hole below 60°S
-            tile_fr(ic,isubs) = 1._wp/real(nsfc_subs) ! Points treated as snow/ice
+            i_tile(ic,isubs)  = 21                    ! Workaround for GLC2000 hole below 60 deg S
+            tile_fr(ic,isubs) = 1._wp/REAL(nsfc_subs,wp) ! Points treated as snow/ice
             END IF
          END DO
       END DO
 
+        ENDIF ! nsfc_subs > 1
 
         DO ic = 1, i_count
           jc = i_lst(ic)
@@ -350,24 +356,40 @@ CONTAINS
        DO isubs = 1,nsfc_subs
 !----------------------------------
 
+        IF (nsfc_subs > 1) THEN
+          DO ic = 1, i_count
+            jc = i_lst(ic)
+            lu_subs = i_tile(ic,isubs)
+
+            plcov_t(ic,jb,isubs)        =  zplcmxc_lu(lu_subs) !ext_data%atm%plcov_mx(jc,jb) ! MAX PLCOV !!!
+            rootdp_t(ic,jb,isubs)       =  zrd_lu(lu_subs)     !ext_data%atm%rootdp(jc,jb) 
+            rsmin2d_t(ic,jb,isubs)      =  zrs_min_lu(lu_subs) !ext_data%atm%rsmin(jc,jb)
+!> From src_turbdiff.f90
+            tai_t(ic,jb,isubs)          =  zplcmxc_lu(lu_subs)*zlaimxc_lu(lu_subs) !prm_diag%tai(jc,jb)        
+            eai_t(ic,jb,isubs)          =  c_soil                              !prm_diag%eai(jc,jb)   
+            sai_t(ic,jb,isubs)          =  c_lnd+tai_t(ic,jb,isubs)            !prm_diag%sai(jc,jb)        
+!------
+            red_fac=EXP( e_surf*LOG( sai_t(ic,jb,isubs)) )/sai_t(ic,jb,isubs)
+
+            tai_t(ic,jb,isubs)          =  red_fac*tai_t(ic,jb,isubs)
+            eai_t(ic,jb,isubs)          =  red_fac*eai_t(ic,jb,isubs)
+            sai_t(ic,jb,isubs)          =  red_fac*sai_t(ic,jb,isubs)
+          ENDDO
+        ELSE
+          DO ic = 1, i_count
+            jc = i_lst(ic)
+            plcov_t(ic,jb,isubs)    =  ext_data%atm%plcov_mx(jc,jb) ! MAX PLCOV !!!
+            rootdp_t(ic,jb,isubs)   =  ext_data%atm%rootdp(jc,jb) 
+            rsmin2d_t(ic,jb,isubs)  =  ext_data%atm%rsmin(jc,jb)
+            sai_t(ic,jb,isubs)      =  prm_diag%sai(jc,jb)        
+            tai_t(ic,jb,isubs)      =  prm_diag%tai(jc,jb)        
+            eai_t(ic,jb,isubs)      =  prm_diag%eai(jc,jb)   
+          ENDDO
+        ENDIF
+
         DO ic = 1, i_count
           jc = i_lst(ic)
-          lu_subs = i_tile(ic,isubs)
-
           soiltyp_t(ic,jb,isubs)             =  ext_data%atm%soiltyp(jc,jb) 
-          plcov_t(ic,jb,isubs)               =  zplcmxc_lu(lu_subs) !ext_data%atm%plcov_mx(jc,jb) ! MAX PLCOV !!!
-          rootdp_t(ic,jb,isubs)              =  zrd_lu(lu_subs)     !ext_data%atm%rootdp(jc,jb) 
-          rsmin2d_t(ic,jb,isubs)             =  zrs_min_lu(lu_subs) !ext_data%atm%rsmin(jc,jb)
-!> From src_turbdiff.f90
-          tai_t(ic,jb,isubs)                 =  zplcmxc_lu(lu_subs)*zlaimxc_lu(lu_subs) !prm_diag%tai(jc,jb)        
-          eai_t(ic,jb,isubs)                 =  c_soil                              !prm_diag%eai(jc,jb)   
-          sai_t(ic,jb,isubs)                 =  c_lnd+tai_t(ic,jb,isubs)            !prm_diag%sai(jc,jb)        
-!------
-          red_fac=EXP( e_surf*LOG( sai_t(ic,jb,isubs)) )/sai_t(ic,jb,isubs)
-
-          tai_t(ic,jb,isubs)                 =  red_fac*tai_t(ic,jb,isubs)
-          eai_t(ic,jb,isubs)                 =  red_fac*eai_t(ic,jb,isubs)
-          sai_t(ic,jb,isubs)                 =  red_fac*sai_t(ic,jb,isubs)
           t_snow_now_t(ic,jb,isubs)          =  lnd_prog_now%t_snow(jc,jb,isubs) 
           t_s_now_t(ic,jb,isubs)             =  lnd_prog_now%t_s(jc,jb,isubs)   
           t_g_t (ic,jb,isubs)                =  lnd_prog_now%t_gt(jc,jb,isubs)
@@ -388,24 +410,17 @@ CONTAINS
           pabs_t(ic,jb,isubs)                =  prm_diag%swflxsfc(jc,jb) 
           runoff_s_t(ic,jb,isubs)            =  lnd_diag%runoff_s(jc,jb,isubs) 
           runoff_g_t(ic,jb,isubs)            =  lnd_diag%runoff_g(jc,jb,isubs)
+
+          t_so_now_t(ic,nlev_soil+2,jb,isubs) = lnd_prog_now%t_so(jc,nlev_soil+2,jb,isubs)
+
+          IF(lmulti_snow) THEN
+            t_snow_mult_now_t(ic,nlev_snow+1,jb,isubs) = &
+              lnd_prog_now%t_snow_mult(jc,nlev_snow+1,jb,isubs)
+            h_snow_t(ic,jb,isubs)  =  lnd_diag%h_snow(jc,jb,isubs)
+          ENDIF
         ENDDO
 
-        MSNOWI: IF(lmulti_snow) THEN
-
-#ifdef __LOOP_EXCHANGE
-        DO ic = 1, i_count
-          jc = i_lst(ic)
-          DO jk=1,nlev_snow+1
-#else
-!CDIR UNROLL=nlsnow+1
-        DO jk=1,nlev_snow+1
-          DO ic = 1, i_count
-            jc = i_lst(ic)
-#endif
-            t_snow_mult_now_t(ic,jk,jb,isubs) = lnd_prog_now%t_snow_mult(jc,jk,jb,isubs) 
-
-          ENDDO
-        ENDDO
+       MSNOWI: IF(lmulti_snow) THEN
 
 #ifdef __LOOP_EXCHANGE
         DO ic = 1, i_count
@@ -417,6 +432,7 @@ CONTAINS
           DO ic = 1, i_count
             jc = i_lst(ic)
 #endif
+            t_snow_mult_now_t(ic,jk,jb,isubs) = lnd_prog_now%t_snow_mult(jc,jk,jb,isubs) 
             rho_snow_mult_now_t(ic,jk,jb,isubs) = lnd_prog_now%rho_snow_mult(jc,jk,jb,isubs)
             wliq_snow_now_t(ic,jk,jb,isubs) = lnd_prog_now%wliq_snow(jc,jk,jb,isubs) 
             wtot_snow_now_t(ic,jk,jb,isubs) = lnd_prog_now%wtot_snow(jc,jk,jb,isubs)
@@ -424,21 +440,7 @@ CONTAINS
           ENDDO
         ENDDO
 
-     END IF MSNOWI
-
-#ifdef __LOOP_EXCHANGE
-        DO ic = 1, i_count
-          jc = i_lst(ic)
-          DO jk=1,nlev_soil+2
-#else
-!CDIR UNROLL=nlsoil+2
-        DO jk=1,nlev_soil+2
-          DO ic = 1, i_count
-            jc = i_lst(ic)
-#endif
-            t_so_now_t(ic,jk,jb,isubs) =  lnd_prog_now%t_so(jc,jk,jb,isubs) 
-          ENDDO
-        ENDDO
+       END IF MSNOWI
 
 #ifdef __LOOP_EXCHANGE
         DO ic = 1, i_count
@@ -450,6 +452,7 @@ CONTAINS
           DO ic = 1, i_count
             jc = i_lst(ic)
 #endif
+            t_so_now_t(ic,jk,jb,isubs) =  lnd_prog_now%t_so(jc,jk,jb,isubs) 
             w_so_now_t(ic,jk,jb,isubs)     = lnd_prog_now%w_so(jc,jk,jb,isubs) 
             w_so_ice_now_t(ic,jk,jb,isubs) = lnd_prog_now%w_so_ice(jc,jk,jb,isubs)
           ENDDO
@@ -460,7 +463,6 @@ CONTAINS
        CALL terra_multlay(                             &
         &  ie=nproma,                                  & ! array dimensions
         &  istartpar=1, iendpar=i_count    , & ! optional start/end indicies
-!        &  ke=nlev                                  , &
         &  nsubs0=1, nsubs1=nsfc_subs       , & ! nsfc_subs
         &  ke_soil=nlev_soil, ke_snow=nlev_snow      , &
         &  czmls=zml_soil                            , & ! processing soil level structure 
@@ -568,25 +570,16 @@ CONTAINS
           lnd_diag%subsfrac(jc,jb,isubs)  = subsfrac_t(ic,jb,isubs)
           lnd_diag%runoff_s(jc,jb,isubs) = runoff_s_t(ic,jb,isubs)  
           lnd_diag%runoff_g(jc,jb,isubs) = runoff_g_t(ic,jb,isubs)  
+
+          lnd_prog_new%t_so(jc,nlev_soil+2,jb,isubs) = t_so_new_t(ic,nlev_soil+2,jb,isubs)
+
+          IF(lmulti_snow) THEN
+            lnd_prog_new%t_snow_mult(jc,nlev_snow+1,jb,isubs) = &
+              t_snow_mult_new_t(ic,nlev_snow+1,jb,isubs)
+          ENDIF
         ENDDO
 
         MSNOWO: IF(lmulti_snow) THEN
-
-#ifdef __LOOP_EXCHANGE
-        DO ic = 1, i_count
-          jc = i_lst(ic)
-          DO jk=1,nlev_snow+1
-#else
-!CDIR UNROLL=nlsnow+1
-        DO jk=1,nlev_snow+1
-!CDIR NODEP,VOVERTAKE,VOB
-          DO ic = 1, i_count
-            jc = i_lst(ic)
-#endif
-
-            lnd_prog_new%t_snow_mult(jc,jk,jb,isubs) = t_snow_mult_new_t(ic,jk,jb,isubs)   
-          ENDDO
-        ENDDO
 
 #ifdef __LOOP_EXCHANGE
         DO ic = 1, i_count
@@ -599,6 +592,7 @@ CONTAINS
           DO ic = 1, i_count
             jc = i_lst(ic)
 #endif
+            lnd_prog_new%t_snow_mult(jc,jk,jb,isubs) = t_snow_mult_new_t(ic,jk,jb,isubs)   
             lnd_prog_new%rho_snow_mult(jc,jk,jb,isubs) = rho_snow_mult_new_t(ic,jk,jb,isubs) 
             lnd_prog_new%wliq_snow(jc,jk,jb,isubs) = wliq_snow_new_t(ic,jk,jb,isubs)     
             lnd_prog_new%wtot_snow(jc,jk,jb,isubs) = wtot_snow_new_t(ic,jk,jb,isubs)     
@@ -608,20 +602,6 @@ CONTAINS
         
         END IF MSNOWO
 
-#ifdef __LOOP_EXCHANGE
-        DO ic = 1, i_count
-          jc = i_lst(ic)
-          DO jk=1,nlev_soil+2
-#else
-!CDIR UNROLL=nlsoil+2
-        DO jk=1,nlev_soil+2
-!CDIR NODEP,VOVERTAKE,VOB
-          DO ic = 1, i_count
-            jc = i_lst(ic)
-#endif
-            lnd_prog_new%t_so(jc,jk,jb,isubs) = t_so_new_t(ic,jk,jb,isubs)          
-          ENDDO
-        ENDDO
 
 #ifdef __LOOP_EXCHANGE
         DO ic = 1, i_count
@@ -634,6 +614,7 @@ CONTAINS
           DO ic = 1, i_count
             jc = i_lst(ic)
 #endif
+            lnd_prog_new%t_so(jc,jk,jb,isubs) = t_so_new_t(ic,jk,jb,isubs)          
             lnd_prog_new%w_so(jc,jk,jb,isubs) = w_so_new_t(ic,jk,jb,isubs)          
             lnd_prog_new%w_so_ice(jc,jk,jb,isubs) = w_so_ice_new_t(ic,jk,jb,isubs)     
           ENDDO
@@ -641,7 +622,14 @@ CONTAINS
 
        END DO ! isubs
 
-
+       IF (nsfc_subs == 1) THEN
+!CDIR NODEP,VOVERTAKE,VOB
+         DO ic = 1, i_count
+           jc = i_lst(ic)
+           lnd_prog_new%t_g(jc,jb)  = lnd_prog_new%t_gt(jc,jb,1)
+           lnd_diag%qv_s(jc,jb)     = lnd_diag%qv_st(jc,jb,1) 
+         ENDDO
+       ELSE
 !CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, i_count
             jc = i_lst(ic)
@@ -663,7 +651,7 @@ CONTAINS
                  &  (1._ireals-ext_data%atm%fr_land(jc,jb))*lnd_diag%qv_s(jc,jb) + &
                  &   ext_data%atm%fr_land(jc,jb)*qv_s_s
            END DO
-
+        ENDIF
   
       ELSE IF ( atm_phy_nwp_config(jg)%inwp_surface == 2 ) THEN
 
