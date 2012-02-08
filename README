@@ -98,40 +98,29 @@ your web browser.
 
 B) Construct grids
 ==================
+The ICON horizontal spherical grid is based on the projection of the icosahedron
+on the sphere. The initial icosahedron grid is refined by <n>-secting the edges,
+and further refinement is obtained by iteratively bisecting the created edges.
+The grid produced at the <k> refining iteration is named "R<n>B<k>", and the
+corresponding netcdf file is iconR<n>B<k>-grid.nc. The grid files, after their
+creation,  are located in the ./grids folder.
 
-ICON grids of resolution R<m>B<nn> are created in two steps. Firstly, graphs
-are constructed, which represent the grid structure by the indices of all 
-grid items (cells, edges and vertices) and the indices of the relevant items 
-in the neighborhood of each grid item. Secondly, the grid file is generated, 
-which contains also all geometric properties like positions, lengths, distances
-or areas.
+ICON atmosphere grids of resolution R<m>B<nn> are created by the
+"grid.create_atmo_grids.run". It generates 5 levels of icon grids using
+spring dynamics and symmetry optimizations. In addition it creates an
+hierarchy of three nested grids for the exp.nat_jww_nwp_mpiomp experiment.
+The "grid.create_atmo_grids.run" is created automatically by the "./configure"
+procedure. The script is located in the "./run" folder.
 
-Both steps are carried out by the "create_global_grids.run" script.
-which is created automatically by the "./configure" procedure.
-The script is located under "./run.<target>.<compiler>[.seq][.mpi][.openmp]"
-depending on the configuration you have chosen. A related message will appear
-at the end of the configure procedure. 
+The script variable no_of_levels determines the horizontal resolution, and is
+set to no_of_level=5, giving in the highest resolution the triangular grid R2B05
+of 81920 triangles, with a mean distance of 70 km between triangle circumcenters,
+where scalars are defined.
 
-The script variables R and B determine the horizontal resolution, and are
-set to R=2 and B=4, resulting in a triangular grid of 20480 triangles
-with a mean distance of 139 km between triangle circumcenters, where scalars
-are defined. Two sets of grids are created. The first is optimized using the
-spring dynamics procedure, while the second the Heikes-Randall procedure.
-They have suffix "spr0.90" and "hro", respectively.
-
-Graphs are stored in NetCDF files named iconR2B<nn>-graph.nc, and grids in
-NetCDF files named iconR2B<nn>-grid_<opt>.nc, with <nn> from 00 to 04 and 
-<opt>=spr0.90 or <opt>=hro.
-
-By default the graph and grid files are stored in a directory "<ICON base dir>/grids/", 
+By default the grid files are stored in a directory "<ICON base dir>/grids/",
 which is created first, if not existing. Use ncdump and an editor to view 
-the content of graph and grid files, or use NCL or other graphics packages 
+the content of the grid files, or use NCL or other graphics packages
 enabled for viewing data, as e.g. cell area, on irregular grids.
-
-% cd run
-% emacs create_global_grids.run
-% qsub  create_global_grids.run
-% cd ..
 
 
 C) Make experiments
@@ -154,7 +143,7 @@ hydrostatic atmosphere on a triangular R2B04 grid with initial condition for
 the Jablonowski Williamson baroclinic wave test.
 
 This generates the run script run/exp.test_hat_jww.run. This script contains
-architecture and site specific parameters for parallelization, vectorization
+architecture and site specific parameters for parallelization, vectorization,
 etc. Read the run script.
 
 
