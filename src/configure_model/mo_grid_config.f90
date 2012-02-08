@@ -241,7 +241,7 @@ CONTAINS
   SUBROUTINE nf(status)
     INTEGER, INTENT(in) :: status
     IF (status /= nf_noerr) THEN
-      CALL finish('mo_model_domain_import netCDF error', nf_strerror(status))
+      CALL finish('mo_grid_config netCDF error', nf_strerror(status))
     ENDIF
   END SUBROUTINE nf
   !-------------------------------------------------------------------------

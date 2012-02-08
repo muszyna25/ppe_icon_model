@@ -108,9 +108,10 @@ MODULE mo_math_laplace
 !
 USE mo_kind,                ONLY: wp
 USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlvert
-USE mo_interpolation,       ONLY: t_int_state, edges2verts_scalar, verts2edges_scalar
+USE mo_intp_data_strc,      ONLY: t_int_state
+USE mo_intp,                ONLY: edges2verts_scalar, verts2edges_scalar
 USE mo_model_domain,        ONLY: t_patch
-USE mo_model_domain_import, ONLY: l_limited_area
+USE mo_grid_config,         ONLY: l_limited_area
 USE mo_parallel_config,     ONLY: nproma, p_test_run
 USE mo_exception,           ONLY: finish
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e

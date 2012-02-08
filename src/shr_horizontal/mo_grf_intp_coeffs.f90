@@ -62,7 +62,7 @@ USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell, min_rledge, min_rlcell_in
 USE mo_model_domain,        ONLY: t_patch, t_grid_edges, t_grid_cells, t_grid_vertices, &
  &                                p_patch_local_parent
 
-USE mo_model_domain_import, ONLY: n_dom, n_dom_start, l_limited_area
+USE mo_grid_config,         ONLY: n_dom, n_dom_start, l_limited_area
 
 USE mo_math_utilities,      ONLY: gc2cc, gvec2cvec, solve_chol_v, choldec_v, arc_length, &
                                   t_cartesian_coordinates, arc_length_v

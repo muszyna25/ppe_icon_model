@@ -61,7 +61,7 @@ USE mo_kind,                ONLY: wp
 USE mo_exception,           ONLY: message, finish
 USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int, min_rledge_int
 USE mo_model_domain,        ONLY: t_patch, p_patch_local_parent
-USE mo_model_domain_import, ONLY: n_dom, n_dom_start
+USE mo_grid_config,         ONLY: n_dom, n_dom_start
 USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e
 USE mo_parallel_config,     ONLY: nproma
 USE mo_mpi,                 ONLY: my_process_is_mpi_parallel, p_pe

@@ -64,7 +64,7 @@ USE mo_oce_math_operators,        ONLY: div_oce, grad_fd_norm_oce, grad_fd_norm_
 USE mo_oce_physics,               ONLY: t_ho_params
 !USE mo_oce_forcing,               ONLY: t_sfc_flx
 USE mo_sea_ice,                   ONLY: t_sfc_flx
-USE mo_interpolation,             ONLY: t_int_state
+USE mo_intp_data_strc,            ONLY: t_int_state
 USE mo_scalar_product,            ONLY: calc_scalar_product_for_veloc
 USE mo_interpolation,             ONLY: t_int_state, rbf_vec_interpol_edge,       &
                                         rbf_vec_interpol_cell!verts2edges_scalar

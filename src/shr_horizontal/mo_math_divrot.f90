@@ -114,7 +114,8 @@ MODULE mo_math_divrot
 !
 USE mo_kind,                ONLY: wp
 USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlvert
-USE mo_interpolation,       ONLY: t_int_state, t_lsq, lsq_high_set
+USE mo_intp_data_strc,      ONLY: t_int_state, t_lsq
+USE mo_interpol_config,     ONLY: lsq_high_set
 USE mo_model_domain,        ONLY: t_patch
 USE mo_grid_config,         ONLY: l_limited_area
 USE mo_parallel_config,     ONLY: nproma

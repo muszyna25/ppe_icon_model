@@ -76,9 +76,9 @@ MODULE mo_ha_testcases
                                  & open_and_restore_namelist, close_tmpfile
   USE mo_model_domain,    ONLY: t_patch
   USE mo_ext_data,        ONLY: ext_data
-  USE mo_model_domain_import,ONLY: n_dom
-  USE mo_interpolation,   ONLY: t_int_state
-  USE mo_parallel_config,  ONLY: nproma
+  USE mo_grid_config,     ONLY: n_dom
+  USE mo_intp_data_strc,  ONLY: t_int_state
+  USE mo_parallel_config, ONLY: nproma
   USE mo_run_config,      ONLY: ltransport, iqv
   USE mo_dynamics_config, ONLY: ltwotime, lshallow_water, lcoriolis, &
                                 nnow,nold,nnew

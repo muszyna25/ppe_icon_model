@@ -174,7 +174,7 @@ MODULE mo_dump_restore
     &                              allocate_int_state_lonlat
   USE mo_grf_intp_state,     ONLY: allocate_grf_state
 
-  USE mo_model_domain_import, ONLY: set_patches_grid_filename
+  USE mo_model_domimp_patches, ONLY: set_patches_grid_filename
   USE mo_lonlat_intp_config, ONLY: lonlat_intp_config
   USE mo_math_utilities,     ONLY: t_lon_lat_grid
   USE mo_util_string,        ONLY: t_keyword_list, MAX_STRING_LEN,   &

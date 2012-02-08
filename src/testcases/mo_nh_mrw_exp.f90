@@ -63,7 +63,7 @@ MODULE mo_nh_mrw_exp
    USE mo_nh_jabw_exp,         ONLY: init_nh_inwp_tracers
    USE mo_loopindices,         ONLY: get_indices_e
    USE mo_run_config,          ONLY: iqv
-   USE mo_interpolation,       ONLY: t_int_state
+   USE mo_intp_data_strc,      ONLY: t_int_state
    USE mo_exception,           ONLY: message, message_text, finish
    USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH,inwp
    USE mo_sync,                ONLY: sync_patch_array, SYNC_C

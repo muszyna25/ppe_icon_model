@@ -55,8 +55,8 @@ MODULE mo_prepicon_utils
   USE mo_impl_constants,      ONLY: max_char_length, max_dom
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom, nroot, start_lev, global_cell_type
-  USE mo_interpolation,       ONLY: t_int_state
-  USE mo_grf_interpolation,   ONLY: t_gridref_state
+  USE mo_intp_data_strc,      ONLY: t_int_state
+  USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
   USE mo_mpi,                 ONLY: p_pe, p_io, p_bcast, p_comm_work_test, p_comm_work
   USE mo_ext_data,            ONLY: smooth_topography, t_external_data, ext_data
   USE mo_util_netcdf,         ONLY: read_netcdf_data
@@ -68,7 +68,7 @@ MODULE mo_prepicon_utils
   USE mo_nh_init_utils,       ONLY: nflat, nflatlev, compute_smooth_topo, init_vert_coord,  &
                                     topography_blending, topography_feedback, hydro_adjust, &
                                     interp_uv_2_vn, init_w, convert_thdvars, virtual_temp
-  USE mo_model_domain_import, ONLY: lfeedback
+  USE mo_grid_config,         ONLY: lfeedback
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nsfc_subs
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config

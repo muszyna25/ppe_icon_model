@@ -42,7 +42,7 @@ MODULE mo_output
   USE mo_kind,                ONLY: wp
   USE mo_mpi,                 ONLY: p_pe, p_io
   USE mo_io_units,            ONLY: filename_max
-  USE mo_model_domain_import, ONLY: n_dom, &
+  USE mo_grid_config,         ONLY: n_dom, &
     &                               n_dom_start !, nroot, lplane
   USE mo_io_config,           ONLY: out_expname, no_output
   USE mo_impl_constants,      ONLY: ihs_ocean !,            &
@@ -66,7 +66,7 @@ MODULE mo_output
     &                               set_restart_height_snow
   USE mo_io_restart_attributes,ONLY: set_restart_attribute
   USE mo_model_domain,        ONLY: t_patch, p_patch
-  USE mo_interpolation,       ONLY: t_lon_lat_intp
+  USE mo_intp_data_strc,      ONLY: t_lon_lat_intp
   USE mo_run_config,          ONLY: ltimer
   USE mo_timer,               ONLY: timer_start, timer_stop,&
     &                     timer_write_restart_file, timer_write_output

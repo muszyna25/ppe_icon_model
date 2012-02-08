@@ -66,8 +66,9 @@
             &                         spec_humi          !! Specific humidity
    USE mo_exception,           ONLY: message, finish, message_text
    USE mo_advection_config,    ONLY: advection_config
-   USE mo_interpolation,       ONLY: t_int_state, cells2edges_scalar, edges2cells_scalar, &
-                                   & rbf_vec_interpol_cell
+   USE mo_intp_data_strc,      ONLY: t_int_state
+   USE mo_intp,                ONLY: cells2edges_scalar, edges2cells_scalar
+   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
    USE mo_loopindices,         ONLY: get_indices_e
    USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
    USE mo_extpar_config,        ONLY: itopo

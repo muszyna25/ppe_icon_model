@@ -63,8 +63,9 @@ MODULE mo_ext_data
   USE mo_model_domain,       ONLY: t_patch
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_grid_config,        ONLY: n_dom, nroot, dynamics_grid_filename
-  USE mo_interpolation,      ONLY: t_int_state, cells2verts_scalar
-  USE mo_math_operators,     ONLY: nabla2_scalar, nabla4_scalar
+  USE mo_intp_data_strc,     ONLY: t_int_state
+  USE mo_intp,               ONLY: cells2verts_scalar
+  USE mo_math_laplace,       ONLY: nabla2_scalar, nabla4_scalar
   USE mo_loopindices,        ONLY: get_indices_c
   USE mo_sync,               ONLY: SYNC_C, SYNC_V, sync_patch_array
   USE mo_mpi,                ONLY: my_process_is_stdio, p_io, p_bcast, &

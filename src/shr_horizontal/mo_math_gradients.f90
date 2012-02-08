@@ -108,7 +108,8 @@ MODULE mo_math_gradients
 !
 USE mo_kind,               ONLY: wp
 USE mo_impl_constants,     ONLY: min_rlcell, min_rledge
-USE mo_interpolation,      ONLY: t_int_state, cells2edges_scalar
+USE mo_intp_data_strc,     ONLY: t_int_state
+USE mo_intp,               ONLY: cells2edges_scalar
 USE mo_model_domain,       ONLY: t_patch
 USE mo_nonhydrostatic_config,   ONLY: upstr_beta
 USE mo_parallel_config,  ONLY: nproma

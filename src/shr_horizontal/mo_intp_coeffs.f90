@@ -170,7 +170,7 @@ USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlvert, MAX_CHAR_L
   &  beta_plane_coriolis,full_coriolis,min_rledge_int,min_rlcell_int,min_rlvert_int
 USE mo_impl_constants_grf,  ONLY: grf_nudge_start_c, grf_nudge_start_e
 USE mo_model_domain,        ONLY: t_patch, t_grid_edges, t_grid_vertices, t_grid_cells
-USE mo_model_domain_import, ONLY: lplane, lfeedback
+USE mo_grid_config,         ONLY: lplane, lfeedback
 USE mo_math_utilities,      ONLY: gc2cc, cc2gc, gnomonic_proj,               &
                                 & gvec2cvec, cvec2gvec,                      &
                                 & t_cartesian_coordinates,                   &

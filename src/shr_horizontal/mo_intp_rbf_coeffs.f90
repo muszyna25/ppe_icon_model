@@ -165,7 +165,7 @@ USE mo_kind,                ONLY: wp, dp
 USE mo_exception,           ONLY: message, message_text, finish
 USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int
 USE mo_model_domain,        ONLY: t_patch, t_tangent_vectors
-USE mo_model_domain_import, ONLY: l_limited_area, n_dom_start
+USE mo_grid_config,         ONLY: l_limited_area, n_dom_start
 USE mo_dynamics_config,     ONLY: iequations
 USE mo_math_utilities,      ONLY: gc2cc, gvec2cvec, solve_chol_v, choldec_v, &
                                 & arc_length_v, t_cartesian_coordinates,     &

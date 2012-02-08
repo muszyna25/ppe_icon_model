@@ -57,7 +57,8 @@ USE mo_eta_coord_diag,      ONLY: half_level_pressure, full_level_pressure
 USE mo_model_domain,        ONLY: t_patch
 USE mo_ext_data,            ONLY: t_external_data
 USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog, t_hydro_atm_diag
-USE mo_interpolation,       ONLY: cells2edges_scalar, t_int_state
+USE mo_intp_data_strc,      ONLY: t_int_state
+USE mo_intp,                ONLY: cells2edges_scalar
 USE mo_parallel_config,     ONLY: nproma
 USE mo_run_config,          ONLY: nsteps, ntracer
 USE mo_ncar_testcases,      ONLY: init_pure_adv_wind, init_pure_adv_tracers

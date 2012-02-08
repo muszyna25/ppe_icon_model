@@ -54,7 +54,8 @@ MODULE mo_df_test
     &                              t_cartesian_coordinates, gc2cc
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog, t_hydro_atm_diag
-  USE mo_interpolation,       ONLY: cells2edges_scalar,t_int_state
+  USE mo_intp_data_strc,      ONLY: t_int_state
+  USE mo_intp,                ONLY: cells2edges_scalar
   USE mo_eta_coord_diag,      ONLY: half_level_pressure, full_level_pressure
   USE mo_parallel_config,  ONLY: nproma
   USE mo_run_config,          ONLY: ntracer

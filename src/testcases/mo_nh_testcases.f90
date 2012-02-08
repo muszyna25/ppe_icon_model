@@ -48,7 +48,7 @@ MODULE mo_nh_testcases
   USE mo_namelist,           ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, inwp
-  USE mo_model_domain_import,ONLY: lplane, n_dom, l_limited_area
+  USE mo_grid_config,        ONLY: lplane, n_dom, l_limited_area
   USE mo_model_domain,       ONLY: t_patch
   USE mo_ext_data,           ONLY: ext_data
   USE mo_math_constants,     ONLY: pi, pi_2
@@ -71,7 +71,8 @@ MODULE mo_nh_testcases
   USE mo_nonhydro_types,       ONLY: t_nh_state
   USE mo_nonhydro_state,       ONLY: duplicate_prog_state
   
-  USE mo_interpolation,        ONLY: t_int_state, cells2edges_scalar, edges2cells_scalar
+  USE mo_intp_data_strc,       ONLY: t_int_state
+  USE mo_intp,                 ONLY: cells2edges_scalar, edges2cells_scalar
   USE mo_mpi,                  ONLY: my_process_is_stdio
   USE mo_vertical_coord_table, ONLY: vct_b
   USE mo_loopindices,          ONLY: get_indices_e, get_indices_c

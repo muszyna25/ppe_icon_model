@@ -166,7 +166,7 @@ USE mo_kind,                ONLY: wp
 USE mo_exception,           ONLY: message, finish
 USE mo_impl_constants,      ONLY: SUCCESS
 USE mo_model_domain,        ONLY: t_patch
-USE mo_model_domain_import, ONLY: n_dom, n_dom_start, lplane, l_limited_area
+USE mo_grid_config,         ONLY: n_dom, n_dom_start, lplane, l_limited_area
 USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH
 USE mo_parallel_config,     ONLY: nproma
 USE mo_grid_config,         ONLY: global_cell_type

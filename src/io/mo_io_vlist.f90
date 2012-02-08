@@ -147,8 +147,8 @@ MODULE mo_io_vlist
   USE mo_lnd_nwp_config,        ONLY: nsfc_subs, nlev_snow
 ! USE mo_gw_hines_nml,          ONLY: lheatcal, emiss_lev, rmscon, kstar, m_min
   USE mo_vertical_coord_table,  ONLY: vct
-  USE mo_model_domain_import,   ONLY: start_lev, nroot, n_dom, lfeedback, lplane, &
-    & n_dom_start
+  USE mo_grid_config,           ONLY: start_lev, nroot, n_dom, lfeedback, lplane, &
+    &                                 n_dom_start
   USE mo_model_domain,          ONLY: t_patch, p_patch
   USE mo_physical_constants,    ONLY: grav
   USE mo_communication,         ONLY: exchange_data, t_comm_pattern
@@ -198,10 +198,9 @@ MODULE mo_io_vlist
   USE mo_math_constants,        ONLY: pi
   USE mo_impl_constants,        ONLY: SUCCESS
   USE mo_math_utilities,        ONLY: t_lon_lat_grid
-  USE mo_interpolation,         ONLY: t_lon_lat_intp,                               &
-    &                                 rbf_interpol_lonlat, rbf_vec_interpol_lonlat, &
-    &                                 verts2cells_scalar
-  USE mo_intp_data_strc,        ONLY: p_int_state, p_int_state_lonlat
+  USE mo_intp_rbf,              ONLY: rbf_interpol_lonlat, rbf_vec_interpol_lonlat
+  USE mo_intp,                  ONLY: verts2cells_scalar
+  USE mo_intp_data_strc,        ONLY: t_lon_lat_intp, p_int_state, p_int_state_lonlat
   USE mo_mpi,                   ONLY: p_pe
   USE mo_util_string,           ONLY: string_contains_word, toupper
   USE mo_oce_physics,           ONLY: t_ho_params, v_params

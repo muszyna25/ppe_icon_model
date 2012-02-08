@@ -66,7 +66,7 @@ MODULE mo_nh_wk_exp
      &                                sat_pres_ice,   &  !! saturation vapor pressure w.r.t. ice
      &                                spec_humi          !! Specific humidity
    USE mo_exception,            ONLY: message, finish, message_text
-   USE mo_interpolation,        ONLY: t_int_state
+   USE mo_intp_data_strc,       ONLY: t_int_state
    USE mo_loopindices,          ONLY: get_indices_e
    USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
    USE mo_extpar_config,        ONLY: itopo
