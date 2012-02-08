@@ -51,7 +51,7 @@ MODULE mo_nwp_diagnosis
   USE mo_impl_constants,     ONLY: itccov, itfastphy, icc, min_rlcell_int
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_loopindices,        ONLY: get_indices_c
-  USE mo_interpolation,      ONLY: t_int_state
+  USE mo_intp_data_strc,     ONLY: t_int_state
 
   USE mo_model_domain,       ONLY: t_patch
   

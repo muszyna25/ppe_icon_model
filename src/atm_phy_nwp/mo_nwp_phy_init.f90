@@ -40,7 +40,7 @@ MODULE mo_nwp_phy_init
   USE mo_math_constants,      ONLY: pi
   USE mo_physical_constants,  ONLY: re, grav, rd_o_cpd, cpd, p0ref, rd, p0sl_bg
   USE mo_math_utilities,      ONLY: mean_domain_values
-  USE mo_model_domain_import, ONLY: nroot   
+  USE mo_grid_config,         ONLY: nroot   
   USE mo_nwp_phy_state,       ONLY: t_nwp_phy_diag,t_nwp_phy_tend
   USE mo_nwp_lnd_state,       ONLY: t_lnd_prog, t_lnd_diag
   USE mo_ext_data,            ONLY: t_external_data, nlev_o3, nmonths

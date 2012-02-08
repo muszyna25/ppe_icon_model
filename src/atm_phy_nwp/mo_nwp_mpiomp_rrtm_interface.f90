@@ -42,10 +42,10 @@ MODULE mo_nwp_mpiomp_rrtm_interface
   USE mo_parallel_config,      ONLY: nproma, p_test_run, test_parallel_radiation
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi, &
     &                                io3, ntracer, ntracer_static
-  USE mo_grf_interpolation,    ONLY: t_gridref_state
+  USE mo_grf_intp_data_strc,   ONLY: t_gridref_state
   USE mo_impl_constants,       ONLY: min_rlcell_int, icc!, min_rlcell 
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c, grf_ovlparea_start_c
-  USE mo_interpolation,        ONLY: t_int_state
+  USE mo_intp_data_strc,       ONLY: t_int_state
   USE mo_kind,                 ONLY: wp
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_nwp_lnd_state,        ONLY: t_lnd_prog, t_lnd_diag

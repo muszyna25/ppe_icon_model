@@ -70,7 +70,7 @@ USE mo_parallel_config,     ONLY: nproma
 USE mo_run_config,          ONLY: ntracer, nqtendphy
 USE mo_exception,           ONLY: message, finish !,message_text
 USE mo_model_domain,        ONLY: t_patch
-USE mo_model_domain_import, ONLY: n_dom
+USE mo_grid_config,         ONLY: n_dom
 USE mo_icoham_sfc_indices,  ONLY: nsfc_type
 USE mo_linked_list,         ONLY: t_var_list
 USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config

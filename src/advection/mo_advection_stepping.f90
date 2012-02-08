@@ -67,8 +67,8 @@ MODULE mo_advection_stepping
   USE mo_kind,                ONLY: wp
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_transport
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_math_operators,      ONLY: div
-  USE mo_interpolation,       ONLY: t_int_state
+  USE mo_math_divrot,         ONLY: div
+  USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: ntracer, ltimer, iforcing
   USE mo_advection_hflux,     ONLY: hor_upwind_flux
@@ -81,7 +81,7 @@ MODULE mo_advection_stepping
   USE mo_sync,                ONLY: SYNC_C, sync_patch_array_mult
   USE mo_advection_config,    ONLY: advection_config
   USE mo_advection_utils,     ONLY: ptr_delp_mc_now, ptr_delp_mc_new
-  USE mo_model_domain_import, ONLY: l_limited_area
+  USE mo_grid_config,         ONLY: l_limited_area
 
   IMPLICIT NONE
 

@@ -58,7 +58,7 @@ MODULE mo_advection_utils
   USE mo_advection_config,    ONLY: shape_func, zeta, eta, wgt_zeta, wgt_eta
   USE mo_kind,                ONLY: wp
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_interpolation,       ONLY: t_int_state
+  USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_parallel_config,     ONLY: nproma
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants,      ONLY: min_rlcell_int, min_rledge_int

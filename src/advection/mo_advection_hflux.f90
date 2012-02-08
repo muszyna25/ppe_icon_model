@@ -86,16 +86,17 @@ MODULE mo_advection_hflux
     &                               IHS_ATM_TEMP, ISHALLOW_WATER, IHS_ATM_THETA
   USE mo_model_domain,        ONLY: t_patch
   USE mo_grid_config,         ONLY: l_limited_area
-  USE mo_math_operators,      ONLY: grad_green_gauss_cell, recon_lsq_cell_l,    &
-    &                               recon_lsq_cell_q, recon_lsq_cell_cpoor,     &
-    &                               recon_lsq_cell_c, directional_laplace,      &
+  USE mo_math_gradients,      ONLY: grad_green_gauss_cell
+  USE mo_math_laplace,        ONLY: directional_laplace
+  USE mo_math_divrot,         ONLY: recon_lsq_cell_l, recon_lsq_cell_q,         &
+    &                               recon_lsq_cell_cpoor, recon_lsq_cell_c,     &
     &                               recon_lsq_cell_l_svd, recon_lsq_cell_q_svd, &
     &                               recon_lsq_cell_cpoor_svd,                   &
     &                               recon_lsq_cell_c_svd, div
-  USE mo_interpol_config,     ONLY: llsq_lin_consv
-  USE mo_interpolation,       ONLY: t_int_state, rbf_vec_interpol_edge,         &
-    &                               rbf_interpol_c2grad, lsq_high_ord,          &
-    &                               lsq_high_set, cells2edges_scalar
+  USE mo_interpol_config,     ONLY: llsq_lin_consv, lsq_high_ord, lsq_high_set
+  USE mo_intp_data_strc,      ONLY: t_int_state
+  USE mo_intp_rbf,            ONLY: rbf_vec_interpol_edge, rbf_interpol_c2grad                         
+  USE mo_intp,                ONLY: cells2edges_scalar
   USE mo_dynamics_config,     ONLY: iequations
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config
   USE mo_nonhydrostatic_config, ONLY: itime_scheme_nh_atm => itime_scheme

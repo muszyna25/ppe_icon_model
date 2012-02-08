@@ -44,10 +44,10 @@ MODULE mo_nwp_rrtm_interface
   USE mo_parallel_config,      ONLY: nproma, p_test_run
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi, &
     &                                io3, ntracer, ntracer_static
-  USE mo_grf_interpolation,    ONLY: t_gridref_state
+  USE mo_grf_intp_data_strc,   ONLY: t_gridref_state
   USE mo_impl_constants,       ONLY: min_rlcell_int, icc, io3_ape!, min_rlcell 
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c, grf_ovlparea_start_c
-  USE mo_interpolation,        ONLY: t_int_state
+  USE mo_intp_data_strc,       ONLY: t_int_state
   USE mo_kind,                 ONLY: wp
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_lrtm_par,             ONLY: jpband => nbndlw

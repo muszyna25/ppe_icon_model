@@ -60,10 +60,11 @@ MODULE mo_nh_interface_nwp
     &                              min_rlcell_int, min_rledge_int, min_rlcell
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
-  USE mo_interpolation,      ONLY: rbf_vec_interpol_cell, edges2cells_scalar
-  USE mo_grf_interpolation,  ONLY: t_gridref_state!,t_gridref_single_state, &
+  USE mo_intp_rbf,           ONLY: rbf_vec_interpol_cell
+  USE mo_intp,               ONLY: edges2cells_scalar
+  USE mo_grf_intp_data_strc, ONLY: t_gridref_state!,t_gridref_single_state, &
   USE mo_model_domain,       ONLY: t_patch
-  USE mo_interpolation,      ONLY: t_int_state
+  USE mo_intp_data_strc,     ONLY: t_int_state
   USE mo_nonhydro_types,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nonhydrostatic_config, ONLY: kstart_moist, l_open_ubc
   USE mo_nwp_lnd_state,      ONLY: t_lnd_prog, t_lnd_diag !, t_lnd_state
