@@ -860,8 +860,6 @@ scripts/postprocessing/tools/plot_scalar_and_vector -text
 scripts/postprocessing/tools/plot_single_contour.ncl -text
 scripts/postprocessing/tools/plot_vcs.ncl -text
 scripts/postprocessing/tools/plot_vcs_driver.bash -text
-scripts/postprocessing/tools/plotdiff.ncl -text
-scripts/postprocessing/tools/plotvar.ncl -text
 scripts/preprocessing/IFS2ICON_README.TXT -text
 scripts/preprocessing/estimate.py -text
 scripts/preprocessing/ifs2icon-hs.conf -text
