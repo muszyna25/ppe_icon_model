@@ -67,7 +67,8 @@ MODULE mo_nml_crosscheck
   USE mo_run_config,         ONLY: lrestore_states, nsteps, dtime, iforcing,  &
     &                              ltransport, ntracer, nlev, io3, ltestcase, &
     &                              iqhydro, nqtendphy, ntracer_static, iqv,   &
-    &                              iqc, iqi, iqs, iqr, iqt, ico2
+    &                              iqc, iqi, iqs, iqr, iqt, ico2,             &
+    &                              ltimer, activate_sync_timers
                                   
 !  USE mo_io_config
   USE mo_gridref_config
@@ -864,8 +865,16 @@ CONTAINS
     IF (inextra_2D == 0 .AND. inextra_3D == 0 .AND. lwrite_extra) &
       CALL finish('io_namelist','need to specify number of fields for extra output')
 
+    IF (activate_sync_timers .AND. .NOT. ltimer) THEN
+      activate_sync_timers = .FALSE.
+      WRITE (message_text,*) &
+        & "warning: namelist parameter 'activate_sync_timers' has been set to .FALSE., ", &
+        & "because global 'ltimer' flag is disabled."
+    END IF
+
     !---------------------------------------------------------------
-    ! lon-lat interpolation is not yet fully implemented
+    ! lon-lat interpolation is not fully implemented for the "old"
+    ! output mode implemented in module mo_io_vlist.
     !---------------------------------------------------------------
 
     IF ((num_io_procs>0) .AND. (ANY(lonlat_intp_config(:)%l_enabled))) THEN
