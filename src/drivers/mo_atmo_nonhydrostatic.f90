@@ -40,8 +40,8 @@ USE mo_timer,                ONLY: print_timer, timers_level, timer_start, &
 USE mo_master_control,       ONLY: is_restart_run
 USE mo_output,               ONLY: init_output_files, close_output_files,&
   &                                write_output
-USE mo_interpolation,        ONLY: rbf_vec_interpol_cell,       &
-  &                                edges2cells_scalar
+USE mo_intp_rbf,             ONLY: rbf_vec_interpol_cell
+USE mo_intp,                 ONLY: edges2cells_scalar
 USE mo_time_config,          ONLY: time_config      ! variable
 USE mo_io_restart,           ONLY: read_restart_files
 USE mo_io_restart_attributes,ONLY: get_restart_attribute

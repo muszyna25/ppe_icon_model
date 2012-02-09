@@ -72,7 +72,7 @@ USE mo_icon_cpl_def_grid, ONLY : ICON_cpl_def_grid
 USE mo_icon_cpl_def_field, ONLY : ICON_cpl_def_field
 USE mo_icon_cpl_search, ONLY : ICON_cpl_search
 USE mo_icon_cpl_finalize,   ONLY: icon_cpl_finalize
-USE mo_model_domain_import, ONLY : get_patch_global_indexes
+USE mo_model_domimp_patches, ONLY : get_patch_global_indexes
 
 ! Memory
 !
@@ -90,7 +90,6 @@ USE mo_model_domimp_patches,ONLY: import_basic_patches, complete_patches, destru
 ! Horizontal interpolation
 !
 ! USE mo_intp_state,          ONLY: construct_2d_interpol_state,  destruct_2d_interpol_state
-! USE mo_grf_interpolation,   ONLY: construct_2d_gridref_state,   destruct_2d_gridref_state
 
 ! Vertical grid
 !

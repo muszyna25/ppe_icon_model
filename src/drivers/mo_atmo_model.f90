@@ -94,7 +94,7 @@ USE mo_coupling_config,   ONLY : is_coupled_run, config_debug_coupler_level
 USE mo_icon_cpl_def_grid, ONLY : ICON_cpl_def_grid, ICON_cpl_def_location
 USE mo_icon_cpl_def_field, ONLY : ICON_cpl_def_field
 USE mo_icon_cpl_search, ONLY : ICON_cpl_search
-USE mo_model_domain_import, ONLY : get_patch_global_indexes
+USE mo_model_domimp_patches, ONLY : get_patch_global_indexes
 USE mo_icon_cpl_finalize,   ONLY: icon_cpl_finalize
 
 ! Memory
@@ -132,9 +132,8 @@ USE mo_intp_state,          ONLY: construct_2d_interpol_state,  &
   &                               rbf_setup_interpol_lonlat,    &
   &                               deallocate_int_state_lonlat,  &
   &                               transfer_interpol_state
-USE mo_grf_interpolation,   ONLY: construct_2d_gridref_state,   &
-  &                               destruct_2d_gridref_state
-USE mo_grf_intp_state,      ONLY: transfer_grf_state
+USE mo_grf_intp_state,      ONLY: construct_2d_gridref_state,   &
+  &                               destruct_2d_gridref_state, transfer_grf_state
 USE mo_lonlat_intp_config,  ONLY: lonlat_intp_config
 
 ! Vertical grid

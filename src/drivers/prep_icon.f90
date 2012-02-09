@@ -77,9 +77,9 @@ USE mo_model_domimp_patches,  ONLY: import_basic_patches, complete_patches, dest
 USE mo_intp_state,            ONLY: construct_2d_interpol_state, &
 & destruct_2d_interpol_state, transfer_interpol_state
 
-USE mo_grf_interpolation,     ONLY: construct_2d_gridref_state,  &
-& destruct_2d_gridref_state
-USE mo_grf_intp_state,        ONLY: transfer_grf_state
+USE mo_grf_intp_state,     ONLY: construct_2d_gridref_state,  &
+& destruct_2d_gridref_state, transfer_grf_state
+
 
 ! Vertical grid
 !

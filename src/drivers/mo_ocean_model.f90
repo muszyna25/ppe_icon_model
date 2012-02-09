@@ -93,7 +93,7 @@ MODULE mo_ocean_model
 
   ! Horizontal grid
   !
-  USE mo_model_domain_import, ONLY: &!  grid_nml_setup,          & ! process grid control parameters
+  USE mo_grid_config,         ONLY: &!  grid_nml_setup,          & ! process grid control parameters
     & n_dom,                & !    :
     & n_dom_start
   USE mo_model_domimp_patches,ONLY: &
@@ -136,7 +136,7 @@ MODULE mo_ocean_model
   USE mo_icon_cpl_def_field,  ONLY : ICON_cpl_def_field
   USE mo_icon_cpl_search,     ONLY : ICON_cpl_search
   USE mo_icon_cpl_finalize,   ONLY: icon_cpl_finalize
-  USE mo_model_domain_import, ONLY : get_patch_global_indexes
+  USE mo_model_domimp_patches, ONLY : get_patch_global_indexes
 
   !-------------------------------------------------------------
   USE mo_read_namelists,       ONLY: read_ocean_namelists
