@@ -70,18 +70,20 @@ MODULE m_dyn
   USE mo_physical_constants, ONLY: cpd, rd, grav, vtmpc1, p0ref
   USE mo_model_domain,       ONLY: t_patch
   USE mo_ext_data,           ONLY: t_external_data
-  USE mo_math_operators,     ONLY: grad_fd_norm, div, div_avg
+  USE mo_math_gradients,     ONLY: grad_fd_norm
+  USE mo_math_divrot,        ONLY: div, div_avg
   USE mo_dynamics_config,    ONLY: idiv_method
   USE mo_ha_dyn_config,      ONLY: ha_dyn_config
   USE mo_io_config,          ONLY: l_outputtime, lwrite_omega, no_output
-  USE mo_parallel_config,  ONLY: nproma
+  USE mo_parallel_config,    ONLY: nproma
   USE mo_run_config,         ONLY: nlev, nlevp1,iqv, iforcing, &
                                    iqc, iqi, iqr, iqs
   USE mo_icoham_dyn_types,   ONLY: t_hydro_atm_prog, t_hydro_atm_diag
-  USE mo_interpolation,      ONLY: t_int_state, cell_avg,                    &
+  USE mo_intp_data_strc,     ONLY: t_int_state, sick_a, sick_o
+  USE mo_intp,               ONLY: cell_avg,                    &
                                  & cells2edges_scalar, edges2cells_scalar, &
-                                 & verts2edges_scalar, cells2verts_scalar, &
-                                 & i_cori_method, sick_a, sick_o
+                                 & verts2edges_scalar, cells2verts_scalar
+  USE mo_interpol_config,    ONLY: i_cori_method                                   
   USE mo_nonlinear_adv,      ONLY: kin_vel_rot, lamb_rot
   USE mo_eta_coord_diag,     ONLY: half_level_pressure, full_level_pressure, &
                                    auxhyb, geopot

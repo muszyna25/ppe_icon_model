@@ -44,16 +44,16 @@ MODULE mo_hdiff_hyb_lin
   USE mo_kind,              ONLY: wp
   USE mo_diffusion_config,  ONLY: diffusion_config
   USE mo_ha_dyn_config,     ONLY: ha_dyn_config
-  USE mo_math_operators,    ONLY: nabla2_vec, nabla2_scalar, &
+  USE mo_math_laplace,      ONLY: nabla2_vec, nabla2_scalar, &
                                 & nabla4_vec, nabla4_scalar   
   USE mo_model_domain,      ONLY: t_patch
-  USE mo_interpolation,     ONLY: t_int_state
+  USE mo_intp_data_strc,     ONLY: t_int_state
   USE mo_icoham_dyn_types,  ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_parallel_config,  ONLY: nproma
   USE mo_impl_constants,    ONLY: min_rlcell, min_rledge
   USE mo_loopindices,       ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_c, grf_bdywidth_e
-  USE mo_grf_interpolation, ONLY: denom_diffu_v, denom_diffu_t, grf_intmethod_c
+  USE mo_gridref_config,    ONLY: denom_diffu_v, denom_diffu_t, grf_intmethod_c
   USE mo_sync,              ONLY: SYNC_C, SYNC_E, sync_patch_array
 
   IMPLICIT NONE

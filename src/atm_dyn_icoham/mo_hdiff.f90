@@ -60,23 +60,25 @@ MODULE mo_hdiff
 
   USE mo_kind,                ONLY: wp
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_model_domain_import, ONLY: nroot
+  USE mo_grid_config,          ONLY: nroot
 !  USE mo_diffusion_nml,       ONLY: k2, k4
   USE mo_diffusion_config,    ONLY: diffusion_config  
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config
   USE mo_parallel_config,     ONLY: nproma, p_test_run
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog, t_hydro_atm_diag
-  USE mo_math_operators,      ONLY: nabla2_vec, nabla2_scalar, &
+  USE mo_math_laplace,        ONLY: nabla2_vec, nabla2_scalar, &
                                     nabla4_vec, nabla4_scalar
   USE mo_math_constants,      ONLY: pi
   USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlvert
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
-  USE mo_interpolation,       ONLY: t_int_state, rbf_vec_interpol_cell, &
-                                    rbf_vec_interpol_vertex, edges2cells_scalar, &
+  USE mo_intp_data_strc,      ONLY: t_int_state
+  USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell, &
+                                    rbf_vec_interpol_vertex
+  USE mo_intp,                ONLY: edges2cells_scalar, &
                                     cells2verts_scalar, edges2verts_scalar, &
                                     verts2cells_scalar
-  USE mo_grf_interpolation,   ONLY: denom_diffu_v, denom_diffu_t, grf_intmethod_c
+  USE mo_gridref_config,      ONLY: denom_diffu_v, denom_diffu_t, grf_intmethod_c
   USE mo_sync,                ONLY: SYNC_C, SYNC_E, sync_patch_array
   USE mo_physical_constants,  ONLY: cpd, re
   USE mo_timer,               ONLY: ltimer, timer_start, timer_stop, timer_hdiff_expl

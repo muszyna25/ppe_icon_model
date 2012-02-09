@@ -40,7 +40,7 @@ MODULE mo_ha_diagnostics
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: finish
   USE mo_impl_constants,     ONLY: SUCCESS, MAX_CHAR_LENGTH,inwp,iecham,ildf_echam
-  USE mo_model_domain_import,ONLY: n_dom
+  USE mo_grid_config,        ONLY: n_dom
   USE mo_model_domain,       ONLY: t_patch
   USE mo_ext_data,           ONLY: ext_data
   USE mo_parallel_config,    ONLY: nproma

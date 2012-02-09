@@ -47,7 +47,7 @@ MODULE mo_test_communication
   USE mo_atmo_model,          ONLY: construct_atmo_model, destruct_atmo_model
   USE mo_ha_stepping,         ONLY: prepare_ha_dyn!, initcond_ha_dyn
   USE mo_icoham_dyn_memory,   ONLY: p_hydro_state, destruct_icoham_dyn_state
-  USE mo_math_operators,      ONLY: grad_fd_norm
+  USE mo_math_gradients,      ONLY: grad_fd_norm
   
   USE mo_parallel_config,    ONLY: itype_comm, iorder_sendrecv
   USE mo_sync,               ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_patch_array_mult

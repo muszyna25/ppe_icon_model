@@ -79,7 +79,7 @@ MODULE mo_echam_phy_init
   ! domain and indices
   USE mo_model_domain,         ONLY: t_patch
   USE mo_loopindices,          ONLY: get_indices_c
-  USE mo_model_domain_import,  ONLY: nroot   
+  USE mo_grid_config,          ONLY: nroot
 
   ! atmospheric state
   USE mo_icoham_dyn_types,     ONLY: t_hydro_atm

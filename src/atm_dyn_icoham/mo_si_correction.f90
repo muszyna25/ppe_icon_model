@@ -86,13 +86,14 @@ MODULE mo_si_correction
   USE mo_exception,          ONLY: message, finish
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, SUCCESS
   USE mo_physical_constants, ONLY: rcpd, rd, grav
-  USE mo_math_operators,     ONLY: div, grad_fd_norm, nabla2_scalar, &
-                                   div_avg, nabla2_scalar_avg
-  USE mo_interpolation,      ONLY: t_int_state
+  USE mo_math_gradients,     ONLY: grad_fd_norm
+  USE mo_math_divrot,        ONLY: div, div_avg
+  USE mo_math_laplace,       ONLY: nabla2_scalar, nabla2_scalar_avg
+  USE mo_intp_data_strc,     ONLY: t_int_state
   USE mo_model_domain,       ONLY: t_patch
-  USE mo_model_domain_import, ONLY: l_limited_area
+  USE mo_grid_config,        ONLY: l_limited_area
   USE mo_dynamics_config,    ONLY: idiv_method, sw_ref_height
-  USE mo_parallel_config,  ONLY: nproma
+  USE mo_parallel_config,    ONLY: nproma
   USE mo_run_config,         ONLY: msg_level, nlev, nlevp1
   USE mo_icoham_dyn_types,   ONLY: t_hydro_atm_prog
   USE mo_vertical_coord_table,ONLY: delpr, rdelpr, nlevm1

@@ -42,12 +42,12 @@ MODULE mo_ha_stepping
   USE mo_kind,                ONLY: wp
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm
   USE mo_icoham_dyn_memory,   ONLY: construct_icoham_dyn_state
-  USE mo_interpolation,       ONLY: t_int_state, t_lon_lat_intp
+  USE mo_intp_data_strc,      ONLY: t_int_state, t_lon_lat_intp
   USE mo_datetime,            ONLY: t_datetime, print_datetime, add_time
   USE mo_exception,           ONLY: message, message_text
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data,            ONLY: ext_data
-  USE mo_model_domain_import, ONLY: n_dom
+  USE mo_grid_config,         ONLY: n_dom
   USE mo_dynamics_config,     ONLY: lshallow_water, ltwotime, nnow, nold
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config, configure_ha_dyn
   USE mo_io_config,           ONLY: is_output_time, l_diagtime,  &
@@ -67,7 +67,7 @@ MODULE mo_ha_stepping
   USE mo_output,              ONLY: init_output_files, write_output, &
                                   & create_restart_file
   USE mo_hierarchy_management,ONLY: process_grid, interpolate_diagnostics
-  USE mo_grf_interpolation,   ONLY: t_gridref_state
+  USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
   USE mo_impl_constants,      ONLY: LEAPFROG_EXPL, LEAPFROG_SI, &
                                     RK4, SSPRK54, MAX_CHAR_LENGTH
   USE mo_timer,               ONLY: ltimer, timer_start, timer_stop, timer_total, timer_intrp_diagn

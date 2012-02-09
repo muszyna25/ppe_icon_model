@@ -52,7 +52,7 @@ MODULE mo_ha_2tl_si_solver
   USE mo_kind,         ONLY: wp
   USE mo_model_domain, ONLY: t_patch
   USE mo_timer,        ONLY: timer_start, timer_stop, timer_gmres
-  USE mo_interpolation,ONLY: t_int_state
+  USE mo_intp_data_strc, ONLY: t_int_state
   USE mo_sync,         ONLY: omp_global_sum_array
   USE mo_parallel_config,  ONLY: nproma
   USE mo_run_config,   ONLY: ltimer
@@ -127,7 +127,7 @@ CONTAINS
                  curr_patch,p_int,coeff)  RESULT(ax)
       USE mo_kind, ONLY: wp
       USE mo_model_domain, ONLY: t_patch
-      USE mo_interpolation,ONLY: t_int_state
+      USE mo_intp_data_strc,ONLY: t_int_state
       REAL(wp),    INTENT(in) :: x(:,:,:)
       REAL(wp),    INTENT(in) :: temp(:,:,:), rdelp_c(:,:,:), delp_e(:,:,:)
       REAL(wp),    INTENT(in) :: rdlnpr(:,:,:), rdalpha(:,:,:), cgradps(:,:,:)

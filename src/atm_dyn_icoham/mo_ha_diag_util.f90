@@ -41,7 +41,8 @@ MODULE mo_ha_diag_util
   USE mo_physical_constants, ONLY: grav, vtmpc1
   USE mo_model_domain,       ONLY: t_patch
   USE mo_ext_data,           ONLY: t_external_data
-  USE mo_math_operators,     ONLY: grad_fd_norm, div, div_avg, rot_vertex
+  USE mo_math_gradients,     ONLY: grad_fd_norm
+  USE mo_math_divrot,        ONLY: div, div_avg, rot_vertex
   USE mo_dynamics_config,    ONLY: idiv_method, lshallow_water
   USE mo_ha_dyn_config,      ONLY: ha_dyn_config
   USE mo_io_config,          ONLY: lwrite_omega, l_outputtime, no_output
@@ -49,11 +50,13 @@ MODULE mo_ha_diag_util
   USE mo_run_config,         ONLY: nlev, nlevp1, iqv, iqc, iqi, iqr, iqs, iforcing
   USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam
   USE mo_icoham_dyn_types,   ONLY: t_hydro_atm_prog, t_hydro_atm_diag
-  USE mo_interpolation,      ONLY: t_int_state, cells2verts_scalar,        &
+  USE mo_intp_data_strc,     ONLY: t_int_state, sick_a, sick_o
+  USE mo_intp,               ONLY: cells2verts_scalar,        &
                                    cells2edges_scalar, edges2cells_scalar, &
                                    verts2edges_scalar, edges2verts_scalar, &
-                                   rbf_vec_interpol_cell, cell_avg,        &
-                                   i_cori_method, sick_a, sick_o
+                                   cell_avg
+  USE mo_interpol_config,    ONLY: i_cori_method                                   
+  USE mo_intp_rbf,           ONLY: rbf_vec_interpol_cell
   USE mo_eta_coord_diag,     ONLY: half_level_pressure, full_level_pressure, &
                                    auxhyb, geopot
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e

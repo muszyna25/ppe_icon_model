@@ -37,7 +37,7 @@
 MODULE mo_echam_phy_interface
 
   USE mo_kind,              ONLY: wp
-  USE mo_exception,         ONLY: message
+  USE mo_exception,         ONLY: message, finish
   USE mo_impl_constants,    ONLY: min_rlcell_int, min_rledge_int, min_rlcell
   USE mo_datetime,          ONLY: t_datetime, print_datetime, add_time
   USE mo_math_constants,    ONLY: pi
@@ -46,9 +46,9 @@ MODULE mo_echam_phy_interface
   USE mo_echam_phy_config,  ONLY: phy_config => echam_phy_config
   USE mo_echam_phy_memory,  ONLY: prm_field, prm_tend, mean_charlen
   USE mo_icoham_dyn_types,  ONLY: t_hydro_atm_prog, t_hydro_atm_diag
-  USE mo_interpolation,     ONLY: t_int_state, rbf_vec_interpol_cell, & 
-                                & edges2cells_scalar
-  USE mo_exception,        ONLY: finish
+  USE mo_intp_data_strc,    ONLY: t_int_state
+  USE mo_intp_rbf,          ONLY: rbf_vec_interpol_cell
+  USE mo_intp,              ONLY: edges2cells_scalar
                                 
   USE mo_parallel_config,   ONLY: nproma, use_icon_comm
   

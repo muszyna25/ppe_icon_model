@@ -47,12 +47,15 @@ MODULE mo_test_solve_nonhydro
   USE mo_parallel_config,    ONLY: nproma, p_test_run, itype_comm, use_dycore_barrier
   USE mo_run_config,         ONLY: ltimer, lvert_nest
   USE mo_model_domain,       ONLY: t_patch
-  USE mo_model_domain_import,ONLY: l_limited_area
-  USE mo_interpolation,      ONLY: t_int_state, cells2edges_scalar, rbf_vec_interpol_edge
+  USE mo_grid_config,        ONLY: l_limited_area
+  USE mo_intp_data_strc,     ONLY: t_int_state
+  USE mo_intp,               ONLY: cells2edges_scalar
+  USE mo_intp_rbf,           ONLY: rbf_vec_interpol_edge
   USE mo_nonhydro_types,     ONLY: t_nh_state, t_nh_metrics, t_nh_diag, t_nh_prog, &
                                   t_buffer_memory
   USE mo_physical_constants,ONLY: cpd, rd, cvd, cvd_o_rd, grav, rd_o_cpd, p0ref
-  USE mo_math_operators,    ONLY: div, rot_vertex, div_avg, grad_green_gauss_cell
+  USE mo_math_gradients,    ONLY: grad_green_gauss_cell
+  USE mo_math_divrot,       ONLY: div, rot_vertex, div_avg
   USE mo_vertical_grid,     ONLY: nrdmax, nflat_gradp
   USE mo_nh_init_utils,     ONLY: nflatlev
   USE mo_loopindices,       ONLY: get_indices_c, get_indices_e

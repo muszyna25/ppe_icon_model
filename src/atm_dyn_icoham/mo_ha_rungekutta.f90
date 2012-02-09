@@ -94,7 +94,7 @@ MODULE mo_ha_rungekutta
   USE mo_impl_constants,   ONLY: SUCCESS, RK4, SSPRK54
   USE mo_model_domain,     ONLY: t_patch
   USE mo_ext_data,         ONLY: t_external_data
-  USE mo_interpolation,    ONLY: t_int_state
+  USE mo_intp_data_strc,   ONLY: t_int_state
   USE mo_parallel_config,  ONLY: nproma
   USE mo_run_config,       ONLY: nlev, ltransport
   USE mo_icoham_dyn_types, ONLY: t_hydro_atm_prog, t_hydro_atm_diag

@@ -41,7 +41,8 @@ MODULE mo_ha_dtp_interface
   USE mo_run_config,         ONLY: nlev, nlevp1
   USE mo_model_domain,       ONLY: t_patch
   USE mo_ext_data,           ONLY: t_external_data
-  USE mo_interpolation,      ONLY: t_int_state, verts2edges_scalar,       &
+  USE mo_intp_data_strc,     ONLY: t_int_state
+  USE mo_intp,               ONLY: verts2edges_scalar,       &
                                    edges2cells_scalar, verts2cells_scalar
   USE mo_icoham_dyn_types,   ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
@@ -51,7 +52,7 @@ MODULE mo_ha_dtp_interface
                                    update_delp_e,      &
                                    update_pres,        &
                                    update_tempv_geopot
-  USE mo_math_operators,     ONLY: rot_vertex
+  USE mo_math_divrot,        ONLY: rot_vertex
   USE mo_physical_constants, ONLY: rd_o_cpd, p0ref
   USE mo_sync,               ONLY: SYNC_E, SYNC_V, sync_patch_array
   USE mo_impl_constants,     ONLY: SUCCESS, TWO_TL_SI

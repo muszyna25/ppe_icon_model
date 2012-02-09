@@ -39,17 +39,19 @@ MODULE mo_ha_dynamics_adv
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: message,finish
   USE mo_model_domain,       ONLY: t_patch
-  USE mo_math_operators,     ONLY: grad_fd_norm, div, div_avg
+  USE mo_math_gradients,     ONLY: grad_fd_norm
+  USE mo_math_divrot,        ONLY: div, div_avg
   USE mo_dynamics_config,    ONLY: idiv_method, lshallow_water
   USE mo_io_config,          ONLY: l_outputtime, lwrite_omega, l_diagtime
-  USE mo_parallel_config,  ONLY: nproma
+  USE mo_parallel_config,    ONLY: nproma
   USE mo_run_config,         ONLY: nlev, nlevp1
-  USE mo_interpolation,      ONLY: t_int_state, rbf_vec_interpol_edge,     &
-                                   cells2edges_scalar, edges2cells_scalar, &
+  USE mo_intp_data_strc,     ONLY: t_int_state, sick_a, sick_o
+  USE mo_intp_rbf,           ONLY: rbf_vec_interpol_edge
+  USE mo_intp,               ONLY: cells2edges_scalar, edges2cells_scalar, &
                                    verts2edges_scalar, cells2verts_scalar, &
                                    edges2verts_scalar, verts2cells_scalar, &
-                                   edges2edges_scalar, i_cori_method,      &
-                                   sick_a, sick_o, l_corner_vort
+                                   edges2edges_scalar
+  USE mo_interpol_config,    ONLY: i_cori_method, l_corner_vort
   USE mo_vertical_coord_table, ONLY: rdelpr, nlevm1, nplev, nplvp1
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_impl_constants,     ONLY: min_rledge

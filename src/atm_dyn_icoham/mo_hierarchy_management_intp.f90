@@ -59,11 +59,13 @@ USE mo_kind,                ONLY: wp
 USE mo_exception,           ONLY: message_text, message
 USE mo_model_domain,        ONLY: t_patch, t_grid_cells, t_grid_edges,    &
                                   p_patch_local_parent
-USE mo_model_domain_import, ONLY: n_dom
-USE mo_interpolation,       ONLY: t_int_state, rbf_vec_interpol_vertex
-USE mo_grf_interpolation,   ONLY: t_gridref_state, grf_velfbk,            &
-                                  grf_intmethod_c, grf_intmethod_e,       &
-                                  grf_intmethod_ct, p_grf_state_local_parent
+USE mo_grid_config,         ONLY: n_dom
+USE mo_intp_data_strc,      ONLY: t_int_state
+USE mo_intp_rbf,            ONLY: rbf_vec_interpol_vertex
+USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
+USE mo_gridref_config,      ONLY: grf_velfbk, grf_intmethod_c, grf_intmethod_e,   &
+                                  grf_intmethod_ct
+USE mo_grf_intp_data_strc , ONLY: p_grf_state_local_parent
 USE mo_grf_bdyintp,         ONLY: interpol_scal_grf, interpol_scal2d_grf, &
                                   interpol_vec_grf, interpol2_vec_grf
 USE mo_dynamics_config,     ONLY: nnew, nnow, nsav1, nsav2, lshallow_water
