@@ -57,13 +57,14 @@ MODULE mo_divergent_modes
   USE mo_parallel_config,       ONLY: nproma
   USE mo_run_config,            ONLY: dtime
   USE mo_model_domain,          ONLY: t_patch
-  USE mo_model_domain_import,   ONLY: lplane
-  USE mo_interpolation,         ONLY: t_int_state,  &
-    &                                 cells2edges_scalar, edges2cells_scalar
+  USE mo_grid_config,           ONLY: lplane
+  USE mo_intp_data_strc,        ONLY: t_int_state
+  USE mo_intp,                  ONLY: cells2edges_scalar, edges2cells_scalar
   USE mo_nonhydro_types,        ONLY: t_nh_state, t_nh_metrics
   USE mo_physical_constants,    ONLY: cpd, rd, cvd, cvd_o_rd, rd_o_cpd
-  USE mo_math_operators,        ONLY: div, grad_fd_norm, grad_dir_edge,  &
-    &                                 directional_laplace
+  USE mo_math_gradients,        ONLY: grad_fd_norm, grad_dir_edge
+  USE mo_math_divrot,           ONLY: div
+  USE mo_math_laplace,          ONLY: directional_laplace
   USE m_gmres,                  ONLY: gmres
   USE mo_exception,             ONLY: finish
   USE mo_nh_init_utils,         ONLY: nflat

@@ -38,19 +38,20 @@
 !!
 MODULE mo_vector_operations
 
-  USE mo_kind,                    ONLY: wp
-  USE mo_io_config,               ONLY: l_outputtime
+  USE mo_kind,             ONLY: wp
+  USE mo_io_config,        ONLY: l_outputtime
   USE mo_parallel_config,  ONLY: nproma, p_test_run
   USE mo_run_config,       ONLY: ltimer, dtime
   USE mo_nh_init_utils,    ONLY: nflat
   USE mo_model_domain,     ONLY: t_patch
-  USE mo_interpolation,    ONLY: t_int_state,        edges2edges_scalar, &
-                                 edges2cells_scalar, cells2edges_scalar, &
+  USE mo_intp_data_strc,   ONLY: t_int_state, sick_a, sick_o
+  USE mo_interpol_config,  ONLY: i_cori_method, l_corner_vort
+  USE mo_intp,             ONLY: edges2edges_scalar, edges2cells_scalar, cells2edges_scalar, &
                                  edges2verts_scalar, verts2edges_scalar, &
-                                 verts2cells_scalar, cells2verts_scalar, &
-                                 i_cori_method, sick_a, sick_o, l_corner_vort
+                                 verts2cells_scalar, cells2verts_scalar
   USE mo_nonhydro_types,   ONLY: t_nh_diag, t_nh_metrics
-  USE mo_math_operators,   ONLY: rot_vertex, grad_fd_norm
+  USE mo_math_divrot,      ONLY: rot_vertex
+  USE mo_math_gradients,   ONLY: grad_fd_norm
   USE mo_sync,             ONLY: SYNC_E, SYNC_V, &
                                  sync_patch_array, sync_patch_array_mult
   USE mo_timer,            ONLY: timer_start, timer_stop, timer_corio

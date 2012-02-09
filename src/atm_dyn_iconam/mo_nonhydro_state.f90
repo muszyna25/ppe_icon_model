@@ -57,7 +57,7 @@ MODULE mo_nonhydro_state
   USE mo_nonhydro_types,       ONLY: t_nh_state, t_nh_prog, t_nh_diag,        &
     &                                t_nh_metrics, t_ptr_nh, t_nh_diag_pz,    &
     &                                t_buffer_memory
-  USE mo_model_domain_import,  ONLY: n_dom, l_limited_area
+  USE mo_grid_config,          ONLY: n_dom, l_limited_area
   USE mo_nonhydrostatic_config,ONLY: itime_scheme, l_nest_rcf
   USE mo_dynamics_config,      ONLY: nsav1, nsav2
   USE mo_parallel_config,      ONLY: nproma

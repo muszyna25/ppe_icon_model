@@ -42,7 +42,8 @@ MODULE mo_nh_vert_interp
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag,  &
     &                               t_nh_diag_pz, t_nh_metrics
   USE mo_nwp_phy_state,       ONLY: t_nwp_phy_diag
-  USE mo_interpolation,       ONLY: t_int_state, edges2cells_scalar
+  USE mo_intp_data_strc,      ONLY: t_int_state
+  USE mo_intp,                ONLY: edges2cells_scalar
   USE mo_parallel_config,     ONLY: nproma
   USE mo_nh_pzlev_config,     ONLY: nh_pzlev_config 
   USE mo_physical_constants,  ONLY: grav, rd, rdv, o_m_rdv
@@ -58,9 +59,9 @@ MODULE mo_nh_vert_interp
                                     auxhyb, geopot
   USE mo_nh_init_utils,       ONLY: interp_uv_2_vn, init_w, adjust_w, convert_thdvars, & 
                                     virtual_temp, convert_omega2w
-  USE mo_math_operators,      ONLY: grad_fd_norm, grad_fd_tang
+  USE mo_math_gradients,      ONLY: grad_fd_norm, grad_fd_tang
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c
-  USE mo_grf_interpolation,   ONLY: t_gridref_state
+  USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
   USE mo_grf_bdyintp,         ONLY: interpol_scal_grf, interpol2_vec_grf
   USE mo_sync,                ONLY: sync_patch_array, SYNC_C, SYNC_E
   USE mo_satad,               ONLY: sat_pres_water

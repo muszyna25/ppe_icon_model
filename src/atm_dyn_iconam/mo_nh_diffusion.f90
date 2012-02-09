@@ -41,28 +41,29 @@ MODULE mo_nh_diffusion
   USE mo_kind,                ONLY: wp
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics, t_buffer_memory
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_model_domain_import, ONLY: nroot, l_limited_area, lfeedback
-  USE mo_interpolation,       ONLY: t_int_state, rbf_vec_interpol_vertex, nudge_max_coeff, &
-                                    verts2edges_scalar, edges2verts_scalar, &
+  USE mo_grid_config,         ONLY: nroot, l_limited_area, lfeedback
+  USE mo_intp_data_strc,      ONLY: t_int_state
+  USE mo_intp_rbf,            ONLY: rbf_vec_interpol_vertex
+  USE mo_interpol_config,     ONLY: nudge_max_coeff
+  USE mo_intp,                ONLY: verts2edges_scalar, edges2verts_scalar, &
                                     cells2verts_scalar, cells2edges_scalar, &
                                     edges2cells_scalar, verts2cells_scalar
   USE mo_nonhydrostatic_config,  ONLY: l_zdiffu_t, damp_height, k2_updamp_coeff
-!  USE mo_diffusion_nml,       ONLY: k4
   USE mo_diffusion_config,    ONLY: diffusion_config
-  USE mo_parallel_config,  ONLY: nproma
+  USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: ltimer
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c, get_indices_v
   USE mo_impl_constants    ,  ONLY: min_rledge, min_rlcell, min_rlvert, &
                                     min_rledge_int, min_rlcell_int, min_rlvert_int
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_e, grf_bdywidth_c
-  USE mo_math_operators,      ONLY: nabla4_vec
+  USE mo_math_laplace,        ONLY: nabla4_vec
   USE mo_math_constants,      ONLY: dbl_eps, pi
-  USE mo_grf_interpolation,   ONLY: denom_diffu_v
-  USE mo_parallel_config, ONLY: p_test_run, itype_comm
+  USE mo_gridref_config,      ONLY: denom_diffu_v
+  USE mo_parallel_config,     ONLY: p_test_run, itype_comm
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array, &
                                     sync_patch_array_mult, sync_patch_array_gm
   USE mo_physical_constants,  ONLY: cvd_o_rd, cpd, re
-  USE mo_timer,             ONLY: timer_nh_hdiffusion, timer_start, timer_stop
+  USE mo_timer,               ONLY: timer_nh_hdiffusion, timer_start, timer_stop
 
   IMPLICIT NONE
 

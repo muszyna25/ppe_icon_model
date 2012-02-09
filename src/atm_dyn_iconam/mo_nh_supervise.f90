@@ -39,7 +39,7 @@ MODULE mo_nh_supervise
   USE mo_exception,           ONLY: finish
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_model_domain_import, ONLY: n_dom
+  USE mo_grid_config,         ONLY: n_dom
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: dtime, nsteps,  &
     &                               ltransport, ntracer, lforcing, iforcing

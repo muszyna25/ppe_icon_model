@@ -39,9 +39,11 @@ MODULE mo_nh_feedback
 USE mo_kind,                ONLY: wp
 USE mo_exception,           ONLY: message_text, message
 USE mo_model_domain,        ONLY: t_patch, t_grid_cells, t_grid_edges, p_patch_local_parent
-USE mo_model_domain_import, ONLY: n_dom, n_dom_start
-USE mo_interpolation,       ONLY: t_int_state, rbf_vec_interpol_vertex
-USE mo_grf_interpolation,   ONLY: t_gridref_state, grf_velfbk, p_grf_state_local_parent
+USE mo_grid_config,         ONLY: n_dom, n_dom_start
+USE mo_intp_data_strc,      ONLY: t_int_state
+USE mo_intp_rbf,            ONLY: rbf_vec_interpol_vertex
+USE mo_grf_intp_data_strc,  ONLY: t_gridref_state, p_grf_state_local_parent
+USE mo_gridref_config,      ONLY: grf_velfbk
 USE mo_nonhydrostatic_config, ONLY: l_masscorr_nest
 USE mo_dynamics_config,     ONLY: nnow, nnew, nnow_rcf, nnew_rcf, nsav1, nsav2 
 USE mo_parallel_config,     ONLY: nproma, p_test_run

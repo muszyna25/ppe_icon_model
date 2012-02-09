@@ -49,14 +49,16 @@ MODULE mo_solve_nh_async
   USE mo_parallel_config,      ONLY: nproma, p_test_run
   USE mo_run_config,           ONLY: ltimer, lvert_nest
   USE mo_model_domain,         ONLY: t_patch
-  USE mo_model_domain_import,  ONLY: nroot, l_limited_area, lfeedback
-  USE mo_interpolation,        ONLY: t_int_state, cells2edges_scalar, edges2cells_scalar,      &
-                                  rbf_vec_interpol_edge, cell_avg, rbf_vec_interpol_vertex, &
-                                  nudge_max_coeff
+  USE mo_grid_config,          ONLY: nroot, l_limited_area, lfeedback
+  USE mo_intp_data_strc,       ONLY: t_int_state
+  USE mo_intp,                 ONLY: cells2edges_scalar, cell_avg, edges2cells_scalar
+  USE mo_intp_rbf,             ONLY: rbf_vec_interpol_edge, rbf_vec_interpol_vertex
+  USE mo_interpol_config,      ONLY: nudge_max_coeff
   USE mo_nonhydro_types,    ONLY: t_nh_state, t_nh_metrics, t_nh_diag, t_nh_prog, &
                                   t_buffer_memory
   USE mo_physical_constants,ONLY: cpd, rd, cvd, cvd_o_rd, grav, rd_o_cpd, p0ref
-  USE mo_math_operators,    ONLY: div, rot_vertex, div_avg, grad_green_gauss_cell
+  USE mo_math_gradients,    ONLY: grad_green_gauss_cell
+  USE mo_math_divrot,       ONLY: div, rot_vertex, div_avg
   USE mo_vertical_grid,     ONLY: nrdmax, nflat_gradp
   USE mo_nh_init_utils,     ONLY: nflatlev
   USE mo_loopindices,       ONLY: get_indices_c, get_indices_e
@@ -67,7 +69,7 @@ MODULE mo_solve_nh_async
   USE mo_communication,     ONLY: start_async_comm, complete_async_comm
   USE mo_mpi,               ONLY: my_process_is_mpi_all_seq, my_process_is_mpi_all_parallel
   USE mo_math_constants,    ONLY: dbl_eps
-  USE mo_grf_interpolation, ONLY: denom_diffu_v
+  USE mo_gridref_config,    ONLY: denom_diffu_v
   USE mo_timer,             ONLY: timer_solve_nh, timer_start, timer_stop
 
   IMPLICIT NONE

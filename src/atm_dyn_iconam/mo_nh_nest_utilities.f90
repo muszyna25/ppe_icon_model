@@ -39,11 +39,10 @@ MODULE mo_nh_nest_utilities
 USE mo_kind,                ONLY: wp
 USE mo_exception,           ONLY: message_text, message
 USE mo_model_domain,        ONLY: t_patch, t_grid_cells, t_grid_edges, p_patch_local_parent
-USE mo_model_domain_import, ONLY: n_dom, n_dom_start
-USE mo_interpolation,       ONLY: t_int_state, p_int_state_local_parent
-USE mo_grf_interpolation,   ONLY: t_gridref_state, grf_intmethod_c,  &
-                                  grf_intmethod_e, grf_intmethod_ct, &
-                                  p_grf_state_local_parent
+USE mo_grid_config,         ONLY: n_dom, n_dom_start
+USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state_local_parent
+USE mo_grf_intp_data_strc,  ONLY: t_gridref_state, p_grf_state_local_parent
+USE mo_gridref_config,      ONLY: grf_intmethod_c, grf_intmethod_e, grf_intmethod_ct
 USE mo_grf_bdyintp,         ONLY: interpol_scal_grf, interpol_vec_grf, interpol2_vec_grf
 USE mo_grf_nudgintp,        ONLY: interpol_scal_nudging, interpol_vec_nudging
 USE mo_grf_ubcintp,         ONLY: interpol_scal_ubc,interpol_vec_ubc

@@ -77,11 +77,11 @@ MODULE mo_nh_stepping
   USE mo_nh_df_test,          ONLY: get_nh_df_velocity, get_nh_df_mflx_rho
   USE mo_nh_hex_util,         ONLY: forcing_straka, momentum_adv
   USE mo_nh_supervise,        ONLY: supervise_total_integrals_nh
-  USE mo_interpolation,       ONLY: t_int_state, t_lon_lat_intp, &
-    &                               rbf_vec_interpol_cell, edges2cells_scalar,     &
-    &                               verts2edges_scalar, edges2verts_scalar,        &
+  USE mo_intp_data_strc,      ONLY: t_int_state, t_lon_lat_intp
+  USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
+  USE mo_intp,                ONLY: edges2cells_scalar, verts2edges_scalar, edges2verts_scalar, &
     &                               verts2cells_scalar
-  USE mo_grf_interpolation,   ONLY: t_gridref_state
+  USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
   USE mo_grf_bdyintp,         ONLY: interpol_scal_grf
   USE mo_nh_nest_utilities,   ONLY: compute_tendencies, boundary_interpolation,    &
                                     complete_nesting_setup, prep_bdy_nudging,      &
@@ -99,7 +99,7 @@ MODULE mo_nh_stepping
     &                               itradheat, itsso, itsatad, itgwd, inwp, &
     &                               itupdate, itturb, itgscp, itsfc
   USE mo_divergent_modes,     ONLY: divergent_modes_5band
-  USE mo_math_operators,      ONLY: div_avg, div
+  USE mo_math_divrot,         ONLY: div_avg, div
   USE mo_solve_nonhydro,      ONLY: solve_nh
   USE mo_test_solve_nonhydro, ONLY: test_solve_nh
   USE mo_solve_nh_async,      ONLY: solve_nh_ahc

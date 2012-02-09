@@ -43,11 +43,9 @@ MODULE mo_nh_hex_util
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_exception,           ONLY: message, finish
   USE mo_physical_constants,  ONLY: cvd_o_rd
-  USE mo_interpolation,       ONLY: t_int_state, &
-                                    verts2edges_scalar,&
-                                    cells2verts_scalar,&
-                                    cells2edges_scalar, &
-                                    sick_a, sick_o
+  USE mo_intp_data_strc,      ONLY: t_int_state, sick_a, sick_o
+  USE mo_intp,                ONLY: verts2edges_scalar, cells2verts_scalar,&
+                                    cells2edges_scalar
   USE mo_vector_operations,   ONLY: covariant_velocities,       &
                                     contravariant_vorticities,  &
                                     contravariant_vert_mass_flux,&
@@ -56,7 +54,7 @@ MODULE mo_nh_hex_util
                                     kinetic_energy,             &
                                     impl_vert_adv_vn
   USE mo_divergent_modes,     ONLY: impl_vert_adv_theta, impl_vert_adv_theta_5diag
-  USE mo_math_operators,      ONLY: nabla2_scalar, nabla2_vec
+  USE mo_math_laplace,        ONLY: nabla2_scalar, nabla2_vec
   USE mo_sync,                ONLY: SYNC_C, sync_patch_array
 
   IMPLICIT NONE

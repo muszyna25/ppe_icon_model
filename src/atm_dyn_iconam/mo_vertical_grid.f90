@@ -45,7 +45,7 @@ MODULE mo_vertical_grid
   USE mo_exception,             ONLY: finish, message, message_text
   USE mo_model_domain,          ONLY: t_patch
   USE mo_ext_data,              ONLY: ext_data
-  USE mo_model_domain_import,   ONLY: n_dom
+  USE mo_grid_config,           ONLY: n_dom
   USE mo_nonhydrostatic_config, ONLY: rayleigh_coeff,damp_height, igradp_method, ivctype,  & 
     &                                 vwind_offctr, exner_expol, l_zdiffu_t, thslp_zdiffu, &
     &                                 thhgtd_zdiffu
@@ -57,9 +57,9 @@ MODULE mo_vertical_grid
     &                                 min_rlcell_int, min_rlcell
   USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c, grf_bdywidth_e, grf_fbk_start_c
   USE mo_physical_constants,    ONLY: grav, p0ref, rd, rd_o_cpd, cpd, p0sl_bg
-  USE mo_math_operators,        ONLY: grad_fd_norm, grad_fd_tang
-  USE mo_interpolation,         ONLY: t_int_state, cells2edges_scalar, &
-    &                               cells2verts_scalar, verts2edges_scalar
+  USE mo_math_gradients,        ONLY: grad_fd_norm, grad_fd_tang
+  USE mo_intp_data_strc,        ONLY: t_int_state
+  USE mo_intp,                  ONLY: cells2edges_scalar, cells2verts_scalar, verts2edges_scalar
   USE mo_math_constants,        ONLY: pi_2
   USE mo_loopindices,           ONLY: get_indices_e, get_indices_c
   USE mo_nonhydro_types,        ONLY: t_nh_state
