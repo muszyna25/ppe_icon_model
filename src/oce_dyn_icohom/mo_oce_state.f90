@@ -2325,8 +2325,9 @@ END DO
     INTEGER  :: ibase   (nproma,p_patch%nblks_c)
     INTEGER  :: iarea   (nproma,p_patch%nblks_c)
 
-    INTEGER  :: jb, jc, jk, i_endidx, nblks_c, npromz_c
-    REAL(wp) :: z60n, z30n, z30s, z85s
+    INTEGER  :: jb, jc, jk, i_endidx, nblks_c, npromz_c, i, no_cor, g_cor, jiter, iter
+    INTEGER  :: n_idx(3), n_blk(3)
+    REAL(wp) :: z60n, z30n, z30s, z85s, z10n, z100w
     REAL(wp) :: z_lat_deg, z_lon_deg
     REAL(wp) :: z_lon_pta, z_lon_ati, z_lon_itp, z_lon_ind, z_lon_nam, z_lon_med
 
@@ -2371,14 +2372,14 @@ END DO
 
     !-----------------------------
     ! Define borders of region:
-    !  two problematic regions remain that must be accessed via space filling curves
-    !  or a simple iterating algorithm to sort the cells to the respective region
+    !  two problematic regions remain that can be accessed via space filling curves
     !   - Caribbian Sea is partly divided in Pacific/Atlantic (border are land points)
+    !     iterative loop is used as first guess, see below
     !   - Indonesian Region is both in Pacific/Indian Ocean 
     !     there is no clear land border since the Indonesian Throughflow(s) exist
+    !     here a slanted geographic line can be implemented
 
     z60n     =  61.0_wp
-  ! z50n     =  50.0_wp
     z30n     =  30.0_wp
     z30s     = -30.0_wp
     z85s     = -85.0_wp
@@ -2389,6 +2390,9 @@ END DO
     z_lon_nam = -90.0_wp   !  Pac/Atl - North America
     z_lon_med =  50.0_wp   !  Atl/Ind - Mediterranean
 
+    ! for Caribbean: 5N and 105W are crucial
+    z10n     =    5.0_wp
+    z100w    = -105.0_wp
 
     !-----------------------------
     ! Fill ocean areas:
@@ -2412,44 +2416,103 @@ END DO
 
          ! Labrador Sea (not yet)
 
-         ! North Atlantic
+         ! 4 = North Atlantic
          IF (                                                           &
            & (z_lat_deg >= z30n      .AND. z_lat_deg < z60n)     .AND.  &
            & (z_lon_deg >= z_lon_nam .AND. z_lon_deg < z_lon_med)       &
            & ) iarea(jc,jb) = 4
 
-         ! North Pacific
+         ! 9 = North Pacific
          IF (                                                           &
            & (z_lat_deg >= z30n      .AND. z_lat_deg < z60n)     .AND.  &
            & (z_lon_deg >= z_lon_itp .OR.  z_lon_deg < z_lon_nam)       &
            & ) iarea(jc,jb) = 9
 
-         ! Tropical Atlantic (without Caribbean - yet)
+         ! 5 = Tropical Atlantic (without Caribbean - yet)
          IF (                                                           &
            & (z_lat_deg >= z30s      .AND. z_lat_deg < z30n)     .AND.  &
            & (z_lon_deg >= z_lon_pta .AND. z_lon_deg < z_lon_med)       &
            & ) iarea(jc,jb) = 5
 
-         ! Southern Ocean
+         ! 6 = Southern Ocean
          IF (z_lat_deg < z30s) iarea(jc,jb) = 6
 
-         ! Indian (including Indonesian Pacific - yet)
+         ! 7 = Indian (including Indonesian Pacific - yet)
          IF (                                                           &
            & (z_lat_deg >= z30s      .AND. z_lat_deg < z30n)     .AND.  &
            & (z_lon_deg >= z_lon_ati .AND. z_lon_deg < z_lon_itp)       &
            & ) iarea(jc,jb) = 7
 
-         ! Tropical Pacific
+         ! 8 = Tropical Pacific
          IF (                                                           &
            & (z_lat_deg >= z30s      .AND. z_lat_deg < z30n)     .AND.  &
            & (z_lon_deg >= z_lon_itp .OR.  z_lon_deg < z_lon_pta)       &
            & ) iarea(jc,jb) = 8
+
+         ! Crucial Region: Caribbean undefined (-33)
+         IF (                                                           &
+           & (z_lat_deg >= z10n      .AND. z_lat_deg < z30n)     .AND.  &
+           & (z_lon_deg >= z100w     .AND. z_lon_deg < z_lon_pta)       &
+           & ) iarea(jc,jb) = -33
 
          ! Land points
          IF (v_base%lsm_oce_c(jc,1,jb) >= BOUNDARY) iarea(jc,jb) = 0
   
       END DO
     END DO
+
+    !-----------------------------
+    ! Fill crucial areas:
+
+    ! Caribbean: border is land point
+    !  - border is at least one line of land points (not valid for Indonesian)
+    !  - no cell has Pacific and Atlantic neighbor
+    !  - iterative procedure (time consuming in higher resolution)
+
+    g_cor=0
+!   Do jiter=1,1000 ! should be adjusted to higher resolution
+    Do jiter=1,100
+!   Do jiter=1,10
+!   Do jiter=1,1
+
+      no_cor = 0
+      DO jb = 1, nblks_c
+        i_endidx=nproma
+        IF (jb==nblks_c) i_endidx=npromz_c
+        DO jc = 1, i_endidx
+     
+           IF (iarea(jc,jb) == -33) THEN
+             DO i = 1, 3  !  no_of_edges
+               ! coordinates of neighbouring cells
+               n_blk(i) = p_patch%cells%neighbor_blk(jc,jb,i)
+               n_idx(i) = p_patch%cells%neighbor_idx(jc,jb,i)
+               IF (iarea(n_idx(i),n_blk(i)) == 5) THEN       ! neighbor is TropAtl
+                 iarea(jc,jb)=5
+                 no_cor=no_cor+1
+                 exit
+               ELSE IF (iarea(n_idx(i),n_blk(i)) == 8) THEN  ! neighbor is TropPac
+                 iarea(jc,jb)=8
+                 no_cor=no_cor+1
+                 exit
+               END IF
+             END DO
+           END IF
+     
+        END DO
+      END DO
+
+      iter=jiter
+      IF (no_cor == 0) exit
+      WRITE(message_text,'(a,i4,a,i8)') 'Corrected Caribbean region - iter=', &
+        &                              jiter,' no of cor:',no_cor
+      CALL message(TRIM(routine), TRIM(message_text))
+      g_cor=g_cor+no_cor
+
+    END DO
+
+    WRITE(message_text,'(a,i4,a,i8)') 'Corrected Caribbean region - iterations=', &
+      &                              iter,' no of cor:',g_cor
+    CALL message(TRIM(routine), TRIM(message_text))
 
     !-----------------------------
     ! Fill ocean basins using ocean areas:
@@ -2527,6 +2590,8 @@ END DO
       v_base%wet_e(:,jk,:) = z_sync_e(:,:)
 
     END DO
+
+    CALL message (TRIM(routine), 'end')
 
   END SUBROUTINE init_ho_basins
 
