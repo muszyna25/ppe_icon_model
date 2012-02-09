@@ -2223,6 +2223,20 @@ CONTAINS
       &                     gridEdgeID(k_jg), &
       &                     zaxisIDdepth_m(k_jg)),&
       &           k_jg)
+      CALL addVar(ConstVar('rbasin_c',&
+      &                    '2d basin ID on cells',&
+      &                    '', 1, 128,&
+      &                     vlistID(k_jg),&
+      &                     gridCellID(k_jg), &
+      &                     zaxisID_surface(k_jg)),&
+      &           k_jg)
+      CALL addVar(ConstVar('rregio_c',&
+      &                    '2d region ID on cells',&
+      &                    '', 1, 128,&
+      &                     vlistID(k_jg),&
+      &                     gridCellID(k_jg), &
+      &                     zaxisID_surface(k_jg)),&
+      &           k_jg)
    !  CALL addVar(ConstVar('dolic_c',&
    !  &                    'deepest ocean layer on cells',&
    !  &                    '', 1, 128,&
@@ -3427,6 +3441,8 @@ CONTAINS
     SELECT CASE(varname)
       CASE ('wet_c');        ptr3d => v_base%wet_c
       CASE ('wet_e');        ptr3d => v_base%wet_e
+      CASE ('rbasin_c');     ptr2d => v_base%rbasin_c(:,:)
+      CASE ('rregio_c');     ptr2d => v_base%rregio_c(:,:)
       CASE ('dolic_c')
         shp_dolic = SHAPE(v_base%dolic_c)
         ALLOCATE(r_dolic_c(shp_dolic(1),shp_dolic(2)))

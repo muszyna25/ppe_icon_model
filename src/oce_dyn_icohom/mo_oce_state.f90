@@ -197,8 +197,10 @@ MODULE mo_oce_state
 
     ! For diagnosis like stream functions and area calculations we add surface arrays
     ! index1=1,nproma, index2=1,nblks_c
-    INTEGER, ALLOCATABLE :: basin_c(:,:)  ! basin information Atlantic/Indian/Pacific
-    INTEGER, ALLOCATABLE :: regio_c(:,:)  ! area information like tropical Atlantic etc.
+    INTEGER,  ALLOCATABLE :: basin_c(:,:)  ! basin information Atlantic/Indian/Pacific
+    INTEGER,  ALLOCATABLE :: regio_c(:,:)  ! area information like tropical Atlantic etc.
+    REAL(wp), ALLOCATABLE :: rbasin_c(:,:) ! real for output
+    REAL(wp), ALLOCATABLE :: rregio_c(:,:) ! real for output
 
     ! To simply set land points to zero we store additional 3-dim wet points
     ! dimensions as in lsm_oce:
@@ -642,6 +644,14 @@ CONTAINS
     IF (ist /= SUCCESS) THEN
       CALL finish (routine,'allocating regio_c failed')
     ENDIF
+    ALLOCATE(v_base%rbasin_c(nproma,nblks_c),STAT=ist)
+    IF (ist /= SUCCESS) THEN
+      CALL finish (routine,'allocating basin_c failed')
+    ENDIF
+    ALLOCATE(v_base%rregio_c(nproma,nblks_c),STAT=ist)
+    IF (ist /= SUCCESS) THEN
+      CALL finish (routine,'allocating regio_c failed')
+    ENDIF
     ! 3-dim real land-sea-mask
     ! cells
     ALLOCATE(v_base%wet_c(nproma,n_zlev,nblks_c),STAT=ist)
@@ -665,6 +675,9 @@ CONTAINS
     v_base%dolic_e = 0
     v_base%basin_c = 0
     v_base%regio_c = 0
+
+    v_base%rbasin_c = 0.0_wp
+    v_base%rregio_c = 0.0_wp
 
     v_base%wet_c = 0.0_wp
     v_base%wet_e = 0.0_wp
@@ -1960,7 +1973,7 @@ END DO
       ! write(0,*)'triangles with 2 land edges present at jiter=',jiter,jk,ctr 
         ctr_jk = ctr_jk + ctr
       END DO  ! jk
-      WRITE(message_text,'(a,i2,a,i4)') 'Corrected wet cells with 2 land neighbors - iter=', &
+      WRITE(message_text,'(a,i2,a,i8)') 'Corrected wet cells with 2 land neighbors - iter=', &
         &                              jiter,' no of cor:',ctr_jk
       CALL message(TRIM(routine), TRIM(message_text))
       IF (ctr_jk == 0) EXIT
@@ -2313,7 +2326,7 @@ END DO
     INTEGER  :: iarea   (nproma,p_patch%nblks_c)
 
     INTEGER  :: jb, jc, jk, i_endidx, nblks_c, npromz_c
-    REAL(wp) :: z60n, z50n, z30n, z30s, z85s
+    REAL(wp) :: z60n, z30n, z30s, z85s
     REAL(wp) :: z_lat_deg, z_lon_deg
     REAL(wp) :: z_lon_pta, z_lon_ati, z_lon_itp, z_lon_ind, z_lon_nam, z_lon_med
 
@@ -2358,9 +2371,14 @@ END DO
 
     !-----------------------------
     ! Define borders of region:
+    !  two problematic regions remain that must be accessed via space filling curves
+    !  or a simple iterating algorithm to sort the cells to the respective region
+    !   - Caribbian Sea is partly divided in Pacific/Atlantic (border are land points)
+    !   - Indonesian Region is both in Pacific/Indian Ocean 
+    !     there is no clear land border since the Indonesian Throughflow(s) exist
 
-    z60n     =  60.0_wp
-    z50n     =  50.0_wp
+    z60n     =  61.0_wp
+  ! z50n     =  50.0_wp
     z30n     =  30.0_wp
     z30s     = -30.0_wp
     z85s     = -85.0_wp
@@ -2369,7 +2387,8 @@ END DO
     z_lon_itp = 115.0_wp   !  Ind/Pac - Australia-Indonesia
     z_lon_ind = 100.0_wp   !  Ind/Pac - Indonesia (north of Equator)
     z_lon_nam = -90.0_wp   !  Pac/Atl - North America
-    z_lon_med =  35.0_wp   !  Atl/Ind - Mediterranean
+    z_lon_med =  50.0_wp   !  Atl/Ind - Mediterranean
+
 
     !-----------------------------
     ! Fill ocean areas:
@@ -2411,23 +2430,23 @@ END DO
            & (z_lon_deg >= z_lon_pta .AND. z_lon_deg < z_lon_med)       &
            & ) iarea(jc,jb) = 5
 
-         ! Southern Ocean (south of 30s)
+         ! Southern Ocean
          IF (z_lat_deg < z30s) iarea(jc,jb) = 6
 
          ! Indian (including Indonesian Pacific - yet)
          IF (                                                           &
-           & (z_lat_deg >= z30s      .AND. z_lat_deg < z50n)     .AND.  &
+           & (z_lat_deg >= z30s      .AND. z_lat_deg < z30n)     .AND.  &
            & (z_lon_deg >= z_lon_ati .AND. z_lon_deg < z_lon_itp)       &
            & ) iarea(jc,jb) = 7
 
-         ! Tropical Pacific (without Indonesian Pacific - yet)
+         ! Tropical Pacific
          IF (                                                           &
            & (z_lat_deg >= z30s      .AND. z_lat_deg < z30n)     .AND.  &
            & (z_lon_deg >= z_lon_itp .OR.  z_lon_deg < z_lon_pta)       &
            & ) iarea(jc,jb) = 8
 
          ! Land points
-         IF (v_base%lsm_oce_c(jc,1,jb) <= SEA_BOUNDARY) iarea(jc,jb) = 0
+         IF (v_base%lsm_oce_c(jc,1,jb) >= BOUNDARY) iarea(jc,jb) = 0
   
       END DO
     END DO
@@ -2451,6 +2470,8 @@ END DO
 
     v_base%basin_c(:,:) = ibase(:,:)
     v_base%regio_c(:,:) = iarea(:,:)
+    v_base%rbasin_c(:,:) = REAL(ibase(:,:),wp)
+    v_base%rregio_c(:,:) = REAL(iarea(:,:),wp)
 
   ! write(66,*) 'IBASE:'
   ! write(66,'(100i1)') ibase(:,:)
@@ -2484,10 +2505,16 @@ END DO
     z_sync_c(:,:) =  REAL(v_base%basin_c(:,:),wp)
     CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
     v_base%basin_c(:,:) = INT(z_sync_c(:,:))
-
     z_sync_c(:,:) =  REAL(v_base%regio_c(:,:),wp)
     CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
     v_base%regio_c(:,:) = INT(z_sync_c(:,:))
+
+    z_sync_c(:,:) =  v_base%rbasin_c(:,:)
+    CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
+    v_base%rbasin_c(:,:) = z_sync_c(:,:)
+    z_sync_c(:,:) =  v_base%rregio_c(:,:)
+    CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
+    v_base%rregio_c(:,:) = z_sync_c(:,:)
 
     DO jk = 1, n_zlev
 
