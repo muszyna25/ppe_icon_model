@@ -666,7 +666,7 @@ run/post.nah_jww -text
 run/post.nat_jww_nwp_mpiomp -text
 run/post.nh35_tri_jws -text
 run/post.nh3_tri_tracer_solid_body -text
-run/post.plotGrid -text
+run/post.plot_icon_grids -text
 run/post.test_couple_atmo-ocean -text
 run/post.test_hat_jww -text
 run/post.test_hat_jww-moist_cld-cnv-vdf -text

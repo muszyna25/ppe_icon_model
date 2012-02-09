@@ -3,19 +3,18 @@
 # plots one grid, coloring the edges depending on given variable
 # Leonidas Linardakis, MPI-M 2010-12-23
 #
-# TODO: 1. plot nested grids, 2. plot colored cells,  3. integrate the plotOceanGrid.ncl here
 # 
 
 
 #####################################
 # script to plot grid properties
-nclscript=../scripts/postprocessing/tools/plotIconSphereGrid.ncl
+# nclscript=../scripts/postprocessing/tools/plotIconSphereGrid.ncl
 # example of plotting the dual edge length
 # ncl $nclscript 'grid="../grids/iconR2B03-grid_spr0.90.nc"' 'var="dual_edge_length"'
 # examples of using min-max values
 # ncl plotIconSphereGrid.ncl 'grid="iconR2B05-grid_spr0.90"'   'var="dual_edge_length"' 'minValue=42000.0' 'maxValue=84000.0' &
 # example of plotting the edge sea-land mask
-ncl $nclscript 'grid="../grids/iconR2B04-ocean_etopo40_flat.nc"'   'var="edge_sea_land_mask"'
+# ncl $nclscript 'grid="../grids/iconR2B04-ocean_etopo40_flat.nc"'   'var="edge_sea_land_mask"'
 # ncl $nclscript 'grid="../grids/iconR2B04-r_ref.nc"' 'lon=60.0' 'lat=0.0'
 # ncl $nclscript 'grid="../grids/iconR2B04-r_ref-hex.nc"' 'lon=60.0' 'lat=0.0'
 #ncl $nclscript 'grid="../grids/iconR2B04-r_ref.nc"'
@@ -29,10 +28,11 @@ ncl $nclscript 'grid="../grids/iconR2B04-ocean_etopo40_flat.nc"'   'var="edge_se
 
 #####################################
 # script to plot nested grid 
-# nclscript=../scripts/postprocessing/tools/plotNestedGrids.ncl
+nclscript=../scripts/postprocessing/tools/plotNestedGrids.ncl
 # example 
-# ncl $nclscript 'format="pdf"' 'gridFolder="../grids_local/"' 'grid1="iconR2B_icosahedron.nc"' 'grid2="iconR2B00-base.nc"' 'grid3="iconR2B01-north_hemisphere.nc"' 'grid4="iconR2B02-europe.nc"' 'lon=15.0' 'lat=42.0'
-# ncl $nclscript 'gridFolder="../grids_local/"' 'grid1="europe_03.nc"' 'grid2="europe_04.nc"' 'grid3="europe_05.nc"' 'grid4="europe_06.nc"' 'lon=20.0' 'lat=25.0'
+# ncl $nclscript 'format="pdf"' 'gridFolder="../grids/"' 'grid1="iconR2B_icosahedron.nc"' 'grid2="iconR2B00-base.nc"' 'grid3="iconR2B01-north_hemisphere.nc"' 'grid4="iconR2B02-europe.nc"' 'lon=15.0' 'lat=42.0'
+# ncl $nclscript 'gridFolder="../grids/"' 'grid1="europe_03.nc"' 'grid2="europe_04.nc"' 'grid3="europe_05.nc"' 'grid4="europe_06.nc"' 'lon=20.0' 'lat=25.0'
+ncl $nclscript 'format="pdf"' 'gridFolder="../grids/"' 'grid1="iconR2B04_DOM01.nc"' 'grid2="iconR2B05_DOM02.nc"' 'lon=-60.0' 'lat=60.0'
 
 
 
