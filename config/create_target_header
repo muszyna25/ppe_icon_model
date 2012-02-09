@@ -442,7 +442,7 @@ set_run_target_squall()
   set_default use_openmp_threads 1
 
   if [[ $use_mpi == "yes" ]]; then
-    set_default use_mpi_procs 8
+    set_default use_mpi_procs 4
   fi
 
 # create header
