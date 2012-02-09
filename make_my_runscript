@@ -54,7 +54,6 @@ no_of_nodes=1
 mpi_procs=32
 
 #   Define how many openmp threads. This has effect only when compiled with openmp.
-#   Only tested on blizzard
 openmp_threads=1
 
 #   The wall clock time in "hh:mm:ss"
