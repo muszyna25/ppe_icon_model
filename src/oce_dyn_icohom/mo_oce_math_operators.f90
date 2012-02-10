@@ -1735,7 +1735,7 @@ DO jb = i_startblk, i_endblk
           &   ( z_rot_v(ividx(je,jb,2),jk,ivblk(je,jb,2))  &
           &   - z_rot_v(ividx(je,jb,1),jk,ivblk(je,jb,1)) )  &
           &   * ptr_patch%edges%inv_primal_edge_length(je,jb))  &
-          & + K_h(je,jk,jb)*(( z_div_c(icidx(je,jb,2),jk,icblk(je,jb,2))    &
+          & + 2.0_wp*K_h(je,jk,jb)*(( z_div_c(icidx(je,jb,2),jk,icblk(je,jb,2))    &
           &   - z_div_c(icidx(je,jb,1),jk,icblk(je,jb,1)) )  &
           &   * ptr_patch%edges%inv_dual_edge_length(je,jb))
 ! 

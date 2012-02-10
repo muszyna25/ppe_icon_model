@@ -147,6 +147,10 @@ CONTAINS
 
   CALL message (TRIM(routine), 'start')
 
+  rl_start     = 1
+  rl_end_c     = min_rlcell
+  i_startblk_c = ppatch%cells%start_blk(rl_start,1)
+  i_endblk_c   = ppatch%cells%end_blk(rl_end_c,1)
   i_lev        = ppatch%level
 
   IF(my_process_is_stdio()) THEN
@@ -216,10 +220,12 @@ CONTAINS
     &                    ppatch%cells%glb_index, n_zlev, z_prog)
 
   IF (no_tracer>=1) THEN
-    p_os%p_prog(nold(1))%tracer(:,1:n_zlev,:,1) = z_prog(:,1:n_zlev,:)
+    !p_os%p_prog(nold(1))%tracer(:,1:n_zlev,:,1) = z_prog(:,1:n_zlev,:)
+    p_os%p_diag%temp_insitu(:,1:n_zlev,:) = z_prog(:,1:n_zlev,:)
   ELSE
     CALL message( TRIM(routine),'WARNING: no tracer used, but init temperature attempted')
   END IF
+
 
   ! read salinity
   !  - "S": annual mean salinity
@@ -229,15 +235,35 @@ CONTAINS
     p_os%p_prog(nold(1))%tracer(:,1:n_zlev,:,2) = z_prog(:,1:n_zlev,:)
   END IF
 
+
+
+IF (no_tracer >=2) THEN
+  DO jk=1, n_zlev
+    DO jb = i_startblk_c, i_endblk_c    
+      CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c,&
+                & i_startidx_c, i_endidx_c, rl_start, rl_end_c)
+      DO jc = i_startidx_c, i_endidx_c
+
+        ! set values on land to zero/reference
+        IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+
+          p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)=&
+          &convert_insitu2pot_temp_func(p_os%p_diag%temp_insitu(jc,jk,jb),&
+                                       &p_os%p_prog(nold(1))%tracer(jc,jk,jb,2),&
+                                       &sfc_press_bar)
+        ENDIF
+
+      END DO
+    END DO
+  END DO
+ELSEIF(no_tracer==1)THEN
+p_os%p_prog(nold(1))%tracer(:,1:n_zlev,:,1)=p_os%p_diag%temp_insitu(:,1:n_zlev,:)
+ENDIF
+
   !
   ! close file
   !
   IF(my_process_is_stdio()) CALL nf(nf_close(ncid))
-
-  rl_start     = 1
-  rl_end_c     = min_rlcell
-  i_startblk_c = ppatch%cells%start_blk(rl_start,1)
-  i_endblk_c   = ppatch%cells%end_blk(rl_end_c,1)
 
   DO jk=1, n_zlev
     DO jb = i_startblk_c, i_endblk_c    
