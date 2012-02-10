@@ -81,7 +81,7 @@ CONTAINS
   !!-------------------------------------------------------------------------
   !!
   SUBROUTINE nwp_surface( tcall_sfc_jg,                   & !>in
-                        & p_sim_time, dtadv_loc,             & !>in
+                        & dtadv_loc,                      & !>in
                         & p_patch,                        & !>in
                         & ext_data,                       & !>in
                         & p_prog_rcf,                     & !>in/inout
@@ -91,7 +91,6 @@ CONTAINS
                         & lnd_diag,                       & !>inout
                         & p_tiles                         ) !>in
 
-    REAL(wp),                    INTENT(in)   :: p_sim_time    !< simulation time [s]
     REAL(wp),                    INTENT(in)   :: dtadv_loc        !< time step [s]
     TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch       !< grid/patch info
     TYPE(t_external_data),       INTENT(in)   :: ext_data      !< external data
@@ -119,8 +118,6 @@ CONTAINS
     !
     INTEGER :: jc,jb,jg,jk      !loop indices
 
-    INTEGER :: nstep_soil
-  
 
     REAL(wp) ::          ps_t        (nproma, p_patch%nblks_c)
     REAL(wp) ::          prr_con_t   (nproma, p_patch%nblks_c)
@@ -238,13 +235,6 @@ CONTAINS
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-    ! soil model time step - has to be zero for initial call
-    ! (actually, the initialization operations should be encapsulated in a separate routine!
-    ! As long as this is not the case, we need to use an absolute time step counter, 
-    ! instead of a relative one. Otherwise, the initialization part will be called after 
-    ! restart.)
-!DR    nstep_soil = NINT(REAL(jstep,wp)/REAL(iadv_rcf,wp)) - 1
-    nstep_soil = NINT(p_sim_time/dtadv_loc) - 1
 
     IF (msg_level >= 12) THEN
       CALL message('mo_nwp_sfc_interface: ', 'call land-surface scheme')

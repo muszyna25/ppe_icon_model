@@ -691,7 +691,7 @@ CONTAINS
     IF (  lcall_phy_jg(itsfc)) THEN
 
       CALL nwp_surface    (  dt_phy_jg(itfastphy),              & !>input
-                            & p_sim_time-dt_loc, dtadv_loc,     & !>input
+                            & dtadv_loc,                        & !>input
                             & pt_patch,                         & !>input
                             & ext_data,                         & !>input
                             & pt_prog_rcf,     & !>in/inout rcf=reduced calling freq.

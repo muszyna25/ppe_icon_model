@@ -1257,7 +1257,6 @@ src/shared/mo_vertical_coord_table.f90 -text
 src/shr_horizontal/intp_functions.f90.inc -text
 src/shr_horizontal/mo_ext_data.f90 -text
 src/shr_horizontal/mo_grf_bdyintp.f90 -text
-src/shr_horizontal/mo_grf_interpolation.f90 -text
 src/shr_horizontal/mo_grf_intp_coeffs.f90 -text
 src/shr_horizontal/mo_grf_intp_data_strc.f90 -text
 src/shr_horizontal/mo_grf_intp_state.f90 -text
@@ -1274,7 +1273,6 @@ src/shr_horizontal/mo_intp_state.f90 -text
 src/shr_horizontal/mo_math_divrot.f90 -text
 src/shr_horizontal/mo_math_gradients.f90 -text
 src/shr_horizontal/mo_math_laplace.f90 -text
-src/shr_horizontal/mo_math_operators.f90 -text
 src/shr_horizontal/mo_model_domain.f90 -text
 src/shr_horizontal/mo_model_domain_import.f90 -text
 src/shr_horizontal/mo_model_domimp_patches.f90 -text
