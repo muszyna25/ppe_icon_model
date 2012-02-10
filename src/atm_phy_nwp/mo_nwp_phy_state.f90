@@ -467,7 +467,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
     ! &      diag%tracer_rate(nproma,nblks_c,4)
     cf_desc    = t_cf_var('tracer_rate','kg m-2 ','precipitation rate of rain and snow')
-    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'tracer_rate', diag%tracer_rate,          &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,cf_desc, grib2_desc, &
           &                                   ldims=(/nproma,kblks,4/),&
@@ -481,56 +481,63 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                     & TRIM(vname_prefix)//'qv', diag%tra_rate_ptr(1)%p_2d,          &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                        &
                     & t_cf_var(TRIM(vname_prefix)//'qv', '','unknown'),             &
-                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & t_grib2_var(0, 1, 201, ientr, GRID_REFERENCE, GRID_CELL), &
                     & ldims=shape2d)
            !qc
         CALL add_ref( diag_list, 'tracer_rate',                                     &
                     & TRIM(vname_prefix)//'qc', diag%tra_rate_ptr(2)%p_2d,          &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                        &
                     & t_cf_var(TRIM(vname_prefix)//'qc', '','unknown'),             &
-                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & t_grib2_var(0, 1, 202, ientr, GRID_REFERENCE, GRID_CELL), &
                     & ldims=shape2d)
+!          !qi
+!       CALL add_ref( diag_list, 'tracer_rate',                                     &
+!                   & TRIM(vname_prefix)//'qi', diag%tra_rate_ptr(3)%p_2d,          &
+!                   & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                        &
+!                   & t_cf_var(TRIM(vname_prefix)//'qi', '','unknown'),             &
+!                   & t_grib2_var(0, 1, 203, ientr, GRID_REFERENCE, GRID_CELL), &
+!                   & ldims=shape2d)
            !qr
         CALL add_ref( diag_list, 'tracer_rate',                                     &
                     & TRIM(vname_prefix)//'qr', diag%tra_rate_ptr(3)%p_2d,          &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                        &
                     & t_cf_var(TRIM(vname_prefix)//'qr', '','precipitation rate'),  &
-                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & t_grib2_var(0, 1, 24, ientr, GRID_REFERENCE, GRID_CELL), &
                     & ldims=shape2d)
            !qs
         CALL add_ref( diag_list, 'tracer_rate',                                     &
                     & TRIM(vname_prefix)//'qs', diag%tra_rate_ptr(4)%p_2d,          &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                        &
                     & t_cf_var(TRIM(vname_prefix)//'qs', '','snowfall rate'),       &
-                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & t_grib2_var(0, 1, 25, ientr, GRID_REFERENCE, GRID_CELL), &
                     & ldims=shape2d)
 
 
 
     ! &      diag%rain_gsp(nproma,nblks_c)
     cf_desc    = t_cf_var('rain_gsp ', 'kg m-2 ', 'gridscale rain ')
-    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'rain_gsp', diag%rain_gsp,                      &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,&
                 & ldims=shape2d )
 
     ! &      diag%snow_gsp(nproma,nblks_c)
     cf_desc    = t_cf_var('snow_gsp', 'kg m-2 ', 'gridscale snow')
-    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(0, 1, 15, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'snow_gsp', diag%snow_gsp,                      &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,&
                 & ldims=shape2d )
 
     ! &      diag%rain_con(nproma,nblks_c)
     cf_desc    = t_cf_var('rain_con', 'kg m-2 ', 'convective rain')
-    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'rain_con', diag%rain_con,                       &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
                 & ldims=shape2d )
 
     ! &      diag%snow_con(nproma,nblks_c)
     cf_desc    = t_cf_var('snow_con', 'kg m-2', 'convective snow')
-    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(0, 1, 14, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'snow_con', diag%snow_con,                       &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
                 & ldims=shape2d )
@@ -551,42 +558,42 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
     ! &      diag%con_prec_rate_avg(nproma,nblks_c)
     cf_desc    = t_cf_var('con_prec_rate_avg', '', 'convective precip, time average')
-    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(0, 1, 10, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'con_prec_rate_avg', diag%con_prec_rate_avg,     &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
                 & ldims=shape2d,  lrestart=.FALSE. )
 
     ! &      diag%gsp_prec_rate_avg(nproma,nblks_c)
     cf_desc    = t_cf_var('gsp_prec_rate_avg', '', 'gridscale precip, time average')
-    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'gsp_prec_rate_avg', diag%gsp_prec_rate_avg,     &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
                 & ldims=shape2d, lrestart=.FALSE. )
 
     ! &      diag%cape(nproma,nblks_c)
     cf_desc    = t_cf_var('cape', 'J kg-1 ', 'conv avail pot energy')
-    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'cape', diag%cape,                               &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
                 & ldims=shape2d, lrestart=.FALSE. )
 
     ! &      diag%con_gust(nproma,nblks_c)
     cf_desc    = t_cf_var('con_gust', 'm s-1 ', 'convective gusts')
-    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'con_gust', diag%con_gust,                       &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
                 & ldims=shape2d, lrestart=.FALSE. )
    
     ! &      diag%rain_upd(nproma,nblks_c)
     cf_desc    = t_cf_var('rain_upd', 'unit ', 'rain in updroughts')
-    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'rain_upd', diag%rain_upd,                       &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
                 & ldims=shape2d, lrestart=.FALSE. )
 
     ! &      diag%con_udd(nproma,nlev,nblks,8)
     cf_desc    = t_cf_var('con_udd', 'unit ', 'convective up/downdraft fields')
-    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'con_udd', diag%con_udd,                         &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
                 & ldims=(/nproma,klev,kblks,n_updown/),                       &
@@ -594,35 +601,35 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
     ! &      diag%mbas_con(nproma,nblks_c)
     cf_desc    = t_cf_var('mbas_con', '', 'cloud base level index')
-    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'mbas_con', diag%mbas_con,                        &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,  &
                 & ldims=shape2d, lrestart=.FALSE., loutput=.FALSE. )
 
     ! &      diag%mtop_con(nproma,nblks_c)
     cf_desc    = t_cf_var('mtop_con', '', 'cloud top level index')
-    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'mtop_con', diag%mtop_con,                        &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,  &
                 & ldims=shape2d, lrestart=.FALSE., loutput=.FALSE. )
 
     ! &      diag%locum(nproma,nblks_c)
     cf_desc    = t_cf_var('locum', '', 'convective  activity indicator')
-    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'locum', diag%locum,                              &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,  &
                 & ldims=shape2d, lrestart=.FALSE., loutput=.FALSE. )
 
     ! &      diag%ktype(nproma,nblks_c)
     cf_desc    = t_cf_var('ktype', '', 'convective up/downdraft fields')
-    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'ktype', diag%ktype,                              &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc,              &
                 & grib2_desc,ldims=shape2d, lrestart=.FALSE., loutput=.FALSE. )
 
    ! &      diag%tot_cld_vi(nproma,nblks_c,4)
     cf_desc    = t_cf_var('tot_cld_vi', 'unit ','vertical integr total cloud variables')
-    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'tot_cld_vi', diag%tot_cld_vi,                   &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
                 &                                 ldims=(/nproma,kblks,4/),   &
@@ -637,7 +644,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
       & TRIM(vname_prefix)//'CC', diag%tci_ptr(1)%p_2d,                  &
       & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                           &
       & t_cf_var(TRIM(vname_prefix)//'CC', '%','total_column_integrated_cloud_cover'), &
-      & t_grib2_var(192, 128, 164, ientr, GRID_REFERENCE, GRID_CELL), &
+      & t_grib2_var(0, 6, 1, ientr, GRID_REFERENCE, GRID_CELL), &
       & ldims=shape2d, lrestart=.FALSE. )
 
     !QV
@@ -654,7 +661,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
       & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                     &
       & t_cf_var(TRIM(vname_prefix)//'QC', 'kg m**-2',             &
       & 'total_column-integrated_cloud_water'),                    &
-      & t_grib2_var( 0, 1, 69, ientr, GRID_REFERENCE, GRID_CELL),  &
+      & t_grib2_var( 0, 6, 18, ientr, GRID_REFERENCE, GRID_CELL),  &
       & ldims=shape2d, lrestart=.FALSE.)
 
     !qi
@@ -663,13 +670,13 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
       & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                     &
       & t_cf_var(TRIM(vname_prefix)//'qi', 'kg m**-2',             &
       & 'total_column-integrated_cloud_water'),                    &
-      & t_grib2_var(0, 1, 70, ientr, GRID_REFERENCE, GRID_CELL),   &
+      & t_grib2_var(0, 6, 19, ientr, GRID_REFERENCE, GRID_CELL),   &
       & ldims=shape2d, lrestart=.FALSE.)
     
 
    ! &      diag%tot_cld_vi_avg(nproma,nblks_c,4)
     cf_desc    = t_cf_var('tot_cld_vi_avg', 'unit ','vertical integr total cloud variables')
-    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'tot_cld_vi_avg', diag%tot_cld_vi_avg,           &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
                 &                                 ldims=(/nproma,kblks,4/)  , &
@@ -684,7 +691,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                     & TRIM(vname_prefix)//'cc', diag%tav_ptr(1)%p_2d,     &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,              &
                     & t_cf_var(TRIM(vname_prefix)//'cc', '','tci_cloud_cover_avg'), &
-                    & t_grib2_var(192, 128, 164, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & t_grib2_var(0, 6, 1, ientr, GRID_REFERENCE, GRID_CELL), &
                     & ldims=shape2d, lrestart=.FALSE. )
 
            !QV
@@ -701,7 +708,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                        &
                     & t_cf_var(TRIM(vname_prefix)//'qc', '',                        &
                     & 'tci_specific_cloud_water_content_avg'),                      &
-                    & t_grib2_var(0, 1, 69, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & t_grib2_var(0, 6, 18, ientr, GRID_REFERENCE, GRID_CELL), &
                     & ldims=shape2d, lrestart=.FALSE. )
 
            !qi
@@ -710,12 +717,12 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                       &
                     & t_cf_var(TRIM(vname_prefix)//'qi', '',                       &
                     & 'tci_specific_cloud_ice_content_avg'),                       &
-                    & t_grib2_var(0, 1, 70, ientr, GRID_REFERENCE, GRID_CELL),&
+                    & t_grib2_var(0, 6, 19, ientr, GRID_REFERENCE, GRID_CELL),&
                     & ldims=shape2d, lrestart=.FALSE. )
 
    ! &      diag%tot_cld(nproma,nlev,nblks_c,4)
     cf_desc    = t_cf_var('tot_cld', ' ','total cloud variables (cc,qv,qc,qi)')
-    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'tot_cld', diag%tot_cld,                       &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,&
                 & ldims=(/nproma,klev,kblks,4/)    ,&
@@ -731,7 +738,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                     & TRIM(vname_prefix)//'cc', diag%tot_ptr(1)%p_3d,               &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                         &
                     & t_cf_var(TRIM(vname_prefix)//'cc', '','total_cloud_cover'),   &
-                    & t_grib2_var(0, 6, 32, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & t_grib2_var(0, 6, 22, ientr, GRID_REFERENCE, GRID_CELL), &
                     & ldims=shape3d)
 
            !QV
@@ -748,7 +755,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                         &
                     & t_cf_var(TRIM(vname_prefix)//'qc', '',                        &
                     & 'total_specific_cloud_water_content'),                        &
-                    & t_grib2_var(0, 1, 83, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & t_grib2_var(0, 6, 6, ientr, GRID_REFERENCE, GRID_CELL), &
                     & ldims=shape3d)
 
            !QI
@@ -757,13 +764,13 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                         &
                     & t_cf_var(TRIM(vname_prefix)//'qi', '',                        &
                     & 'total_specific_cloud_ice_content'),                          &
-                    & t_grib2_var(0, 1, 84, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & t_grib2_var(0, 6, 0, ientr, GRID_REFERENCE, GRID_CELL), &
                     & ldims=shape3d)
 
 
         ! &      diag%acdnc(nproma,nlsacev,nblks_c)
         cf_desc    = t_cf_var('acdnc', 'm-3', 'cloud droplet number concentration')
-        grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'acdnc', diag%acdnc,                               &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,              &
           & ldims=shape3d, lrestart=.FALSE. )
@@ -791,14 +798,14 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
         ! &      diag%tsfctrad(nproma,nblks_c)
         cf_desc    = t_cf_var('tsfctrad', 'W m-2 ', 'surface temperature at trad')
-        grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'tsfctrad', diag%tsfctrad,                             &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
 
 
         ! &       diag% flxdwswtoa(nproma,       nblks),          &
         cf_desc    = t_cf_var('flxdwswtoa', 'W m-2', 'downward shortwave flux at TOA')
-        grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(0, 4, 2, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'flxdwswtoa', diag%flxdwswtoa,                 &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,         &
           & ldims=shape2d, lrestart=.FALSE. )
@@ -806,14 +813,14 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
         ! &      diag%swflxsfc(nproma,nblks_c)
         cf_desc    = t_cf_var('SOB_S', 'W m-2', ' shortwave net flux at surface')
-        grib2_desc = t_grib2_var(0, 4, 9, ientr, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(0, 4, 0, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'SOB_S', diag%swflxsfc,                             &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
 
         
         ! &      diag%swflxtoa(nproma,nblks_c)
         cf_desc    = t_cf_var('SOB_T', 'W m-2', ' shortwave net flux at TOA')
-        grib2_desc = t_grib2_var(0, 4, 9, ientr, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(0, 4, 1, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'SOB_T', diag%swflxtoa,                        &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,         &
           & ldims=shape2d, lrestart=.FALSE. )
@@ -821,7 +828,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         
         ! &      diag%lwflxsfc(nproma,nblks_c)
         cf_desc    = t_cf_var('THB_S', 'W m-2', 'longwave net flux at surface')
-        grib2_desc = t_grib2_var(0, 5, 5, ientr, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(0, 5, 0, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'THB_S', diag%lwflxsfc,                             &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
 
@@ -840,7 +847,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                                       & " since model start"
         cf_desc    = t_cf_var(TRIM(name), TRIM(varunits), &
           &                          TRIM(long_name))
-        grib2_desc = t_grib2_var(0, 5, 5, ientr, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(0, 5, 1, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, TRIM(name), diag%lwflxtoa_a,                      &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
 
@@ -851,7 +858,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                                       &" since model start"
         cf_desc    = t_cf_var(TRIM(name), TRIM(varunits), &
           &                         TRIM(long_name))
-        grib2_desc = t_grib2_var(0, 4, 9, ientr, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(0, 4, 1, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, TRIM(name) , diag%swflxtoa_a,                      &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
 
@@ -862,7 +869,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                                       &" since model start"
         cf_desc    = t_cf_var(TRIM(name), TRIM(varunits), &
           &                      TRIM(long_name))
-        grib2_desc = t_grib2_var(0, 5, 5, ientr, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(0, 5, 0, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, TRIM(name), diag%lwflxsfc_a,                      &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
 
@@ -873,14 +880,14 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                                       &" since model start"
         cf_desc    = t_cf_var(TRIM(name), TRIM(varunits), &
           &                    TRIM(long_name) )
-        grib2_desc = t_grib2_var(0, 4, 9, ientr, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(0, 4, 0, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, TRIM(name), diag%swflxsfc_a,                      &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
 
 
         ! &      diag%vio3(nproma,nblks_c)
         cf_desc    = t_cf_var('vio3', '', 'vertically integrated ozone amount')
-        grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(0, 14, 0, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'vio3', diag%vio3,                             &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,         &
           & ldims=shape2d, lrestart=.FALSE. )
@@ -888,7 +895,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
         ! &      diag%hmo3(nproma,nblks_c)
         cf_desc    = t_cf_var('hmo3', 'Pa', 'height of O3 maximum (Pa)')
-        grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'hmo3', diag%hmo3,                             &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,         &
           & ldims=shape2d, lrestart=.FALSE. )
@@ -899,7 +906,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
         ! &      diag%aersea(nproma,nblks_c)
         cf_desc    = t_cf_var('aersea', '', '')
-        grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'aersea', diag%aersea,                         &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,         &
           & ldims=shape2d, lrestart=.FALSE. ) 
@@ -907,7 +914,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         
         ! &      diag%aerlan(nproma,nblks_c)
         cf_desc    = t_cf_var('aerlan', '', '')
-        grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'aerlan', diag%aerlan,                         &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,         &
           & ldims=shape2d, lrestart=.FALSE. ) 
@@ -915,7 +922,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         
         ! &      diag%aerurb(nproma,nblks_c)
         cf_desc    = t_cf_var('aerurb', '', '')
-        grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'aerurb', diag%aerurb,                          &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,          &
           & ldims=shape2d, lrestart=.FALSE. ) 
@@ -923,7 +930,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         
         ! &      diag%aerdes(nproma,nblks_c)
         cf_desc    = t_cf_var('aerdes', '', '')
-        grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'aerdes', diag%aerdes,                          &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,          &
           & ldims=shape2d, lrestart=.FALSE. ) 
@@ -934,27 +941,27 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
         ! &      diag%lwflxclr(nproma,nlev,nblks_c)
         cf_desc    = t_cf_var('lwflxclr', 'W m-2', 'longwave clear-sky net flux')
-        grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(0, 5, 6, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'lwflxclr', diag%lwflxclr,                       &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,            &
           & ldims=shape3dkp1, lrestart=.FALSE. )
 
         ! &      diag% lwflxall(nproma,nlevp1,nblks_c)
         cf_desc    = t_cf_var('lwflxall', 'W m-2 ', 'longwave net flux')
-        grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(0, 5, 5, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'lwflxall', diag%lwflxall,                             &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc, ldims=shape3dkp1 )
 
         ! &      diag% trsolclr(nproma,nlev,nblks_c)
         cf_desc    = t_cf_var('trsolclr', '', 'shortwave clear-sky net tranmissivity')
-        grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'trsolclr', diag%trsolclr,                        &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,             &
           & ldims=shape3dkp1, lrestart=.FALSE. )
 
         ! &      diag%  trsolall(nproma,nlevp1,nblks_c)
         cf_desc    = t_cf_var('trsolall', '', 'shortwave net tranmissivity')
-        grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'trsolall', diag%trsolall,                             &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc, ldims=shape3dkp1)
 
@@ -996,20 +1003,20 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
         ! &      diag%qhfl_s(nproma,nblks_c)
         cf_desc    = t_cf_var('qhfl_s', 'Kg m-2 s-1', 'surface moisture flux')
-        grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(2, 0, 6, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'qhfl_s', diag%qhfl_s,                             &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
 
 
         cf_desc    = t_cf_var('qhfl_s_avg', 'Kg m-2 s-1', 'surface moisture flux')
-        grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(2, 0, 6, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'qhfl_s_avg', diag%qhfl_s_avg,                             &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
 
 
         ! &      diag%tcm(nproma,nblks_c)
         cf_desc    = t_cf_var('tcm', ' ','turbulent transfer coefficients for momentum')
-        grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'tcm', diag%tcm,                             &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,       &
           & ldims=shape2d, lrestart=.FALSE. )
@@ -1017,7 +1024,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
         ! &      diag%tch(nproma,nblks_c)
         cf_desc    = t_cf_var('tch', ' ','turbulent transfer coefficients for heat')
-        grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'tch', diag%tch,                             &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,       &
           & ldims=shape2d, lrestart=.FALSE. )
@@ -1025,7 +1032,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         
         ! &      diag%tfm(nproma,nblks_c)
         cf_desc    = t_cf_var('tfm', ' ','factor of laminar transfer of momentum')
-        grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'tfm', diag%tfm,                             &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,       &
           & ldims=shape2d, lrestart=.FALSE. )
@@ -1033,7 +1040,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
         ! &      diag%tfh(nproma,nblks_c)
         cf_desc    = t_cf_var('tfh', ' ','factor of laminar transfer of scalars')
-        grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'tfh', diag%tfh,                             &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,       &
           & ldims=shape2d, lrestart=.FALSE. )
@@ -1041,7 +1048,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
         ! &      diag%tfv(nproma,nblks_c)
         cf_desc    = t_cf_var('tfv', ' ','laminar reduction factor for evaporation')
-        grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'tfv', diag%tfv,                             &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,       &
           & ldims=shape2d, lrestart=.FALSE. )
@@ -1058,7 +1065,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
         ! &      diag%sai(nproma,nblks_c)
         cf_desc    = t_cf_var('sai', ' ','surface area index')
-        grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'sai', diag%sai,                             &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,       &
           & ldims=shape2d)
@@ -1066,14 +1073,14 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
         ! &      diag%tai(nproma,nblks_c)
         cf_desc    = t_cf_var('tai', ' ','transpiration area index')
-        grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'tai', diag%tai,                             &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
 
 
         ! &      diag%eai(nproma,nblks_c)
         cf_desc    = t_cf_var('eai', ' ','(evaporative) earth area index')
-        grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'eai', diag%eai,                             &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
 
@@ -1110,7 +1117,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
         ! &      diag%rh_2m(nproma,nblks_c)
         cf_desc    = t_cf_var('rh_2m', '%','relative humidity in 2m')
-        grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(0, 1, 1, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'rh_2m', diag%rh_2m,                          &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,        &
           & ldims=shape2d, lrestart=.FALSE. )
@@ -1169,7 +1176,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
       ! &      diag%cfm_tile(nproma,nblks_c)
       cf_desc    = t_cf_var('cfm_tile','',&
          & 'turbulent exchange coefficient of momentum at surface')
-      grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( diag_list, 'cfm_tile', diag%cfm_tile,                   &
         & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shapesfc ,&
         & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.           )
@@ -1187,7 +1194,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
       ! &      diag%cfh_tile(nproma,nblks_c)
       cf_desc    = t_cf_var('cfh_tile', '','turbulent exchange coefficient of heat at surface')
-      grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( diag_list, 'cfh_tile', diag%cfh_tile,                             &
         & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shapesfc,&
         & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.           )
@@ -1205,20 +1212,20 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
        ! &      diag%ghpbl(nproma,nblks_c)
        cf_desc    = t_cf_var('gh_pbl','','turbulent exchange coefficient of momentum at surface')
-       grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+       grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
        CALL add_var( diag_list, 'ghpbl', diag%ghpbl,                        &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
        ! &      diag%z0m(nproma,nblks_c)
        cf_desc    = t_cf_var('z0m', '','geopotential of the top of the atmospheric boundary layer')
-       grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+       grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
        CALL add_var( diag_list, 'z0m', diag%z0m,                             &
          & GRID_UNSTRUCTURED_CELL,ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
        ! &      diag%z0m_tile(nproma,nblks_c,nsfc_type)
        cf_desc    = t_cf_var('z0m_tile', '',&
          &'geopotential of the top of the atmospheric boundary layer')
-       grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+       grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
        CALL add_var( diag_list, 'z0m_tile', diag%z0m_tile,                    &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shapesfc ,&
          & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.           )
@@ -1237,25 +1244,25 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
        ! &      diag%ustar(nproma,nblks_c)
        cf_desc    = t_cf_var('ustar', 'm s-1','friction velocity')
-       grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+       grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
        CALL add_var( diag_list, 'ustar', diag%ustar,                             &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
 
        ! &      diag%kedisp(nproma,nblks_c)
        cf_desc    = t_cf_var('kedisp','','KE dissipation rate')
-       grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+       grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
        CALL add_var( diag_list, 'kedisp', diag%kedisp,                             &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
 
        ! &      diag%ocu(nproma,nblks_c)
        cf_desc    = t_cf_var('ocu', 'm s-1','eastward  velocity of ocean surface current')
-       grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+       grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
        CALL add_var( diag_list, 'ocu', diag%ocu,                             &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
 
        ! &      diag%ocv(nproma,nblks_c)
        cf_desc    = t_cf_var('ocv','','northward velocity of ocean surface current')
-       grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+       grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
        CALL add_var( diag_list, 'ocv', diag%ocv,                             &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
 
@@ -1266,14 +1273,14 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
        ! &      diag%ri(nproma,nlevp1,nblks_c)
        cf_desc    = t_cf_var('ri', '', '  moist Richardson number at layer interfaces')
-       grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+       grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
        CALL add_var( diag_list, 'ri', diag%ri,                               &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,        &
          & ldims=shape3dkp1, lrestart=.FALSE. ) 
 
        ! &      diag%mixlen(nproma,nlevp1,nblks_c)
        cf_desc    = t_cf_var('mixlen', 'm s-2', 'mixing length at layer interfaces')
-       grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+       grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
        CALL add_var( diag_list, 'mixlen', diag%mixlen,                       &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
           & ldims=shape3dkp1, lrestart=.FALSE. )
@@ -1281,42 +1288,42 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
        ! &      diag%thvvar(nproma,nlevp1,nblks_c)
        cf_desc    = t_cf_var('thvvar', 'm s-2', &
          &'variance of virtual potential temperature at layer interfaces')
-       grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+       grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
        CALL add_var( diag_list, 'thvvar', diag%thvvar,                       &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,        &
          & ldims=shape3dkp1 ) 
 
        ! &      diag%cfm(nproma,nlevp1,nblks_c)
        cf_desc    = t_cf_var('cfm', '', 'turbulent exchange coefficient')
-       grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+       grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
        CALL add_var( diag_list, 'cfm', diag%cfm,                             &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,        &
          & ldims=shape3dkp1, lrestart=.FALSE. ) 
 
        ! &      diag%cfh(nproma,nlevp1,nblks_c)
        cf_desc    = t_cf_var('cfh', '', 'turbulent exchange coefficient')
-       grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+       grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
        CALL add_var( diag_list, 'cfh', diag%cfh,                             &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,        &
          & ldims=shape3dkp1, lrestart=.FALSE. ) 
 
        ! &      diag%cfv(nproma,nlevp1,nblks_c)
        cf_desc    = t_cf_var('cfv', '','turbulent exchange coefficient')
-       grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+       grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
        CALL add_var( diag_list, 'cfv', diag%cfv,                             &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,        &
          & ldims=shape3dkp1, lrestart=.FALSE. )
 
        ! &      diag%cftke(nproma,nlevp1,nblks_c)
        cf_desc    = t_cf_var('cftke', '', 'turbulent exchange coefficient')
-       grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+       grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
        CALL add_var( diag_list, 'cftke', diag%cftke,                         &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,        &
          & ldims=shape3dkp1, lrestart=.FALSE. )
 
        ! &      diag%cfthv(nproma,nlevp1,nblks_c)
        cf_desc    = t_cf_var('cfthv', '','turbulent exchange coefficient')
-       grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+       grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
        CALL add_var( diag_list, 'cfthv', diag%cfthv,                         &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,        &
          & ldims=shape3dkp1, lrestart=.FALSE. ) 
@@ -1331,28 +1338,28 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
 
    ! &      diag%tkvm(nproma,nlev,nblks_c)
     cf_desc    = t_cf_var('tkvm', 'm**2/s', ' turbulent diffusion coefficients for momentum')
-    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'tkvm', diag%tkvm,                             &
       & GRID_UNSTRUCTURED_CELL,  ZAXIS_HEIGHT, cf_desc, grib2_desc,         &
       & ldims=shape3d )
 
    ! &      diag%tkvh(nproma,nlev,nblks_c)
     cf_desc    = t_cf_var('tkvh', 'm**2/s', ' turbulent diffusion coefficients for heat')
-    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'tkvh', diag%tkvh,                             &
       & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,          &
       & ldims=shape3d ) 
 
    ! &      diag%rcld(nproma,nlev,nblks_c)
     cf_desc    = t_cf_var('rcld', '', 'standard deviation of the saturation deficit')
-    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'rcld', diag%rcld,                             &
       & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,          &
       & ldims=shape3dkp1 )
 
    ! &      diag%edr(nproma,nlevp1,nblks_c)
     cf_desc    = t_cf_var('edr', '', 'eddy dissipation rate')
-    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'edr', diag%edr,                               &
       & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,          &
       & ldims=shape3dkp1, lrestart=.FALSE. ) 
@@ -1403,7 +1410,7 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
    ! &      phy_tend%ddt_temp_radsw(nproma,nlev,nblks)
     cf_desc    = t_cf_var('ddt_temp_radsw', 'K s-1', &
          &                            'short wave radiative temperature tendency')
-    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( phy_tend_list, 'ddt_temp_radsw', phy_tend%ddt_temp_radsw,      &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,     &
                 & ldims=shape3d )

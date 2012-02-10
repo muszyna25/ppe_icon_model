@@ -547,7 +547,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                          &
                     & t_cf_var(TRIM(vname_prefix)//'qv',                             &
                     &  'kg kg-1','specific_humidity'),                               &
-                    & t_grib2_var(0, 1, 0, ientr, GRID_REFERENCE, GRID_CELL),        &
+                    & t_grib2_var(0, 1, 201, ientr, GRID_REFERENCE, GRID_CELL),        &
                     & ldims=shape3d_c,                                               &
                     & tlev_source=1,     &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.) )
@@ -557,7 +557,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                          &
                     & t_cf_var(TRIM(vname_prefix)//'qc',                             &
                     &  'kg kg-1', 'specific_cloud_water_content'),                   &
-                    & t_grib2_var(192, 201, 31, ientr, GRID_REFERENCE, GRID_CELL),   &
+                    & t_grib2_var(0, 1, 202, ientr, GRID_REFERENCE, GRID_CELL),   &
                     & ldims=shape3d_c,                                               &
                     & tlev_source=1,     &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.) )
@@ -567,7 +567,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                          &
                     & t_cf_var(TRIM(vname_prefix)//'qi',                             &
                     &  'kg kg-1','specific_cloud_ice_content'),                      &
-                    & t_grib2_var(192, 201, 33, ientr, GRID_REFERENCE, GRID_CELL),   &
+                    & t_grib2_var(0, 1, 203, ientr, GRID_REFERENCE, GRID_CELL),   &
                     & ldims=shape3d_c,                                               &
                     & tlev_source=1,     &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.) )
@@ -868,7 +868,7 @@ MODULE mo_nonhydro_state
     ! omega_z      p_diag%omega_z(nproma,nlev,nblks_v)
     !
     cf_desc    = t_cf_var('vertical_vorticity', 'm s-1', 'vertical vorticity')
-    grib2_desc = t_grib2_var(0, 2, 197, ientr, GRID_REFERENCE, GRID_VERTEX)
+    grib2_desc = t_grib2_var(0, 2, 10, ientr, GRID_REFERENCE, GRID_VERTEX)
     CALL add_var( p_diag_list, 'omega_z', p_diag%omega_z,                       &
                 & GRID_UNSTRUCTURED_VERT, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
                 & ldims=shape3d_v, lrestart=.FALSE., loutput=.FALSE. )
@@ -971,7 +971,7 @@ MODULE mo_nonhydro_state
     ! tempv        p_diag%tempv(nproma,nlev,nblks_c)
     !
     cf_desc    = t_cf_var('virtual_temperature', 'K', 'virtual temperature')
-    grib2_desc = t_grib2_var(0, 0, 192, ientr, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(0, 0, 1, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'tempv', p_diag%tempv,                           &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
                 & ldims=shape3d_c, lrestart=.FALSE. )
@@ -1749,7 +1749,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE,                  &
                     & t_cf_var(TRIM(vname_prefix)//'qv',                       &
                     &  'kg kg-1','specific_humidity'),                         &
-                    & t_grib2_var(0, 1, 0, ientr, GRID_REFERENCE, GRID_CELL),  &
+                    & t_grib2_var(0, 1, 201, ientr, GRID_REFERENCE, GRID_CELL),  &
                     & ldims=shape3d_c)
            !QC
         CALL add_ref( p_diag_z_list, 'tracer',                                     &
@@ -1757,7 +1757,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE,                      &
                     & t_cf_var(TRIM(vname_prefix)//'qc',                           &
                     &  'kg kg-1', 'specific_cloud_water_content'),                 &
-                    & t_grib2_var(192, 201, 31, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & t_grib2_var(0, 1, 202, ientr, GRID_REFERENCE, GRID_CELL), &
                     & ldims=shape3d_c)
            !QI
         CALL add_ref( p_diag_z_list, 'tracer',                                     &
@@ -1765,7 +1765,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE,                      &
                     & t_cf_var(TRIM(vname_prefix)//'qi',                           & 
                     &  'kg kg-1','specific_cloud_ice_content'),                    &
-                    & t_grib2_var(192, 201, 33, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & t_grib2_var(0, 1, 203, ientr, GRID_REFERENCE, GRID_CELL), &
                     & ldims=shape3d_c)
            !QR
         CALL add_ref( p_diag_z_list, 'tracer',                                  &
@@ -1800,7 +1800,7 @@ MODULE mo_nonhydro_state
 
         ! &      p_diag_z%tot_cld(nproma,nlev,nblks_c,4)
         cf_desc    = t_cf_var('tot_cld', 'kg kg-1','total cloud variables (cc,qv,qc,qi)')
-        grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( p_diag_z_list, 'tot_cld', p_diag_z%tot_cld,                  &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE, cf_desc, grib2_desc, &
                     &                         ldims=(/nproma,nlev,nblks_c,kcloud/),&
@@ -1815,7 +1815,7 @@ MODULE mo_nonhydro_state
                     & TRIM(vname_prefix)//'cc', p_diag_z%tot_ptr(1)%p_3d,           &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE,                       &
                     & t_cf_var(TRIM(vname_prefix)//'cc', '','total_cloud_cover'),   &
-                    & t_grib2_var(192, 128, 164, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & t_grib2_var(0, 6, 22, ientr, GRID_REFERENCE, GRID_CELL), &
                     & ldims=shape3d_c)
 
            !QV
@@ -1832,7 +1832,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE,                       &
                     & t_cf_var(TRIM(vname_prefix)//'qc', '',                        &
                     & 'total_specific_cloud_water_content'),                        &
-                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & t_grib2_var(0, 6, 6, ientr, GRID_REFERENCE, GRID_CELL), &
                     & ldims=shape3d_c)
 
            !QI
@@ -1841,7 +1841,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE,                       &
                     & t_cf_var(TRIM(vname_prefix)//'qi', '',                        &
                     & 'total_specific_cloud_ice_content'),                          &
-                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & t_grib2_var(0, 6, 0, ientr, GRID_REFERENCE, GRID_CELL), &
                     & ldims=shape3d_c)
 
 
@@ -1997,7 +1997,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE,                  &
                     & t_cf_var(TRIM(vname_prefix)//'qv',                       &
                     &  'kg kg-1','specific_humidity'),                         &
-                    & t_grib2_var(0, 1, 0, ientr, GRID_REFERENCE, GRID_CELL),  &
+                    & t_grib2_var(0, 1, 201, ientr, GRID_REFERENCE, GRID_CELL),  &
                     & ldims=shape3d_c)
            !QC
         CALL add_ref( p_diag_p_list, 'tracer',                                     &
@@ -2005,7 +2005,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE,                      &
                     & t_cf_var(TRIM(vname_prefix)//'qc',                           &
                     &  'kg kg-1', 'specific_cloud_water_content'),                 &
-                    & t_grib2_var(192, 201, 31, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & t_grib2_var(0, 1, 202, ientr, GRID_REFERENCE, GRID_CELL),      &
                     & ldims=shape3d_c)
            !QI
         CALL add_ref( p_diag_p_list, 'tracer',                                     &
@@ -2013,7 +2013,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE,                      &
                     & t_cf_var(TRIM(vname_prefix)//'qi',                           & 
                     &  'kg kg-1','specific_cloud_ice_content'),                    &
-                    & t_grib2_var(192, 201, 33, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & t_grib2_var(0, 1, 203, ientr, GRID_REFERENCE, GRID_CELL),      &
                     & ldims=shape3d_c)
            !QR
         CALL add_ref( p_diag_p_list, 'tracer',                                  &
@@ -2047,7 +2047,7 @@ MODULE mo_nonhydro_state
 
         ! &      p_diag_p%tot_cld(nproma,nlev,nblks_c,4)
         cf_desc    = t_cf_var('tot_cld', 'kg kg-1','total cloud variables (cc,qv,qc,qi)')
-        grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( p_diag_p_list, 'tot_cld', p_diag_p%tot_cld,                  &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, grib2_desc, &
                     &                         ldims=(/nproma,nlev,nblks_c,kcloud/),&
@@ -2062,7 +2062,7 @@ MODULE mo_nonhydro_state
                     & TRIM(vname_prefix)//'cc', p_diag_p%tot_ptr(1)%p_3d,           &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE,                       &
                     & t_cf_var(TRIM(vname_prefix)//'cc', '','total_cloud_cover'),   &
-                    & t_grib2_var(192, 128, 164, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & t_grib2_var(0, 6, 22, ientr, GRID_REFERENCE, GRID_CELL), &
                     & ldims=shape3d_c)
 
            !QV
@@ -2079,7 +2079,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE,                       &
                     & t_cf_var(TRIM(vname_prefix)//'qc', '',                        &
                     & 'total_specific_cloud_water_content'),                        &
-                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & t_grib2_var(0, 6, 6, ientr, GRID_REFERENCE, GRID_CELL), &
                     & ldims=shape3d_c)
 
            !QI
@@ -2088,7 +2088,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE,                       &
                     & t_cf_var(TRIM(vname_prefix)//'qi', '',                        &
                     & 'total_specific_cloud_ice_content'),                          &
-                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & t_grib2_var(0, 6, 0, ientr, GRID_REFERENCE, GRID_CELL), &
                     & ldims=shape3d_c)
 
 
@@ -2273,7 +2273,7 @@ MODULE mo_nonhydro_state
     !
     cf_desc    = t_cf_var('geopotential', 'm2 s-2',                             &
       &                   'geopotential above groundlevel at cell center')
-    grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var( 0, 3, 4, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_metrics_list, 'geopot_agl', p_metrics%geopot_agl,           &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
                 & ldims=shape3d_c )
@@ -2284,7 +2284,7 @@ MODULE mo_nonhydro_state
     !
     cf_desc    = t_cf_var('geopotential', 'm2 s-2',                             &
       &                   'geopotential above groundlevel at cell center')
-    grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var( 0, 3, 4, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_metrics_list, 'geopot_agl_ifc', p_metrics%geopot_agl_ifc,   &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
                 & ldims=shape3d_chalf )
@@ -2295,7 +2295,7 @@ MODULE mo_nonhydro_state
     !
     cf_desc    = t_cf_var('geopotential', 'm2 s-2',                             &
       &                   'geopotential at cell center')
-    grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var( 0, 3, 4, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_metrics_list, 'dgeopot_mc', p_metrics%dgeopot_mc,           &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
                 & ldims=shape3d_c )
