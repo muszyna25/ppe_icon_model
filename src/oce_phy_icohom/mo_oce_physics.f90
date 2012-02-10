@@ -357,7 +357,7 @@ CONTAINS
   !
   SUBROUTINE smooth_lapl_diff( p_patch, K_h )
    TYPE(t_patch), INTENT(IN)  :: p_patch
-   REAL(wp), INTENT(OUT)      :: K_h(:,:,:) 
+   REAL(wp), INTENT(INOUT)    :: K_h(:,:,:) 
     ! Local variables
     INTEGER  :: je,jv,jb,jk, jev, ile, ibe, i_edge_ctr
     INTEGER  :: il_v1,ib_v1, il_v2,ib_v2
