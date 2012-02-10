@@ -208,7 +208,7 @@ CONTAINS
     ! variables for TKE diagnostic
     REAL(wp) :: maxtke(pt_patch%nblks_c,pt_patch%nlevp1),tkemax(pt_patch%nlevp1)
     ! Variables for dpsdt diagnostic
-    REAL(wp) :: dpsdt_blk(pt_patch%nblks_c), dpsdt_avg
+    REAL(wp) :: dps_blk(pt_patch%nblks_c), dpsdt_avg
     INTEGER  :: npoints_blk(pt_patch%nblks_c), npoints
 
 !     write(0,*) "Entering nwp_nh_interface"
@@ -1226,7 +1226,7 @@ CONTAINS
 
       ! In case that average ABS(dpsdt) is diagnosed
       IF (msg_level >= 11) THEN
-        dpsdt_blk(:)   = 0._wp
+        dps_blk(:)   = 0._wp
         npoints_blk(:) = 0
       ENDIF
 
@@ -1329,7 +1329,8 @@ CONTAINS
                              i_startidx, i_endidx, rl_start, rl_end)
 
           DO jc = i_startidx, i_endidx
-            dpsdt_blk(jb) = dpsdt_blk(jb) + &
+            ! Note: division by time step follows below
+            dps_blk(jb) = dps_blk(jb) + &
               ABS(pt_diag%pres_sfc(jc,jb)-pt_diag%pres_sfc_old(jc,jb))
             npoints_blk(jb) = npoints_blk(jb) + 1
             pt_diag%pres_sfc_old(jc,jb) = pt_diag%pres_sfc(jc,jb)
@@ -1387,14 +1388,14 @@ CONTAINS
       IF (ltimer) CALL timer_stop(timer_physic_acc_2)
 
       IF (msg_level >= 11) THEN ! dpsdt diagnostic
-        dpsdt_avg = SUM(dpsdt_blk)
+        dpsdt_avg = SUM(dps_blk)
         npoints   = SUM(npoints_blk)
         dpsdt_avg = global_sum_array(dpsdt_avg)
         npoints   = global_sum_array(npoints)
-        dpsdt_avg = dpsdt_avg/REAL(npoints,wp)
+        dpsdt_avg = dpsdt_avg/(REAL(npoints,wp)*dtadv_loc)
         ! Exclude initial time step where pres_sfc_old is zero
-        IF (dpsdt_avg < 10000._wp) THEN
-          WRITE(message_text,'(a,f12.4,a,i2)') 'average |dPS/dt| =',dpsdt_avg, ' Pa in domain ',jg
+        IF (dpsdt_avg < 10000._wp/dtadv_loc) THEN
+          WRITE(message_text,'(a,f12.6,a,i3)') 'average |dPS/dt| =',dpsdt_avg,' Pa/s in domain',jg
           CALL message('nwp_nh_interface: ', TRIM(message_text))
         ENDIF
       ENDIF
