@@ -85,6 +85,7 @@ USE mo_oce_math_operators,        ONLY: div_oce, grad_fd_norm_oce, grad_fd_norm_
   &                                     nabla4_vec_ocean
 USE mo_oce_veloc_advection,       ONLY: veloc_adv_horz_mimetic, veloc_adv_vert_mimetic
 USE mo_interpolation,             ONLY: t_int_state !, rbf_vec_interpol_cell
+!USE mo_intp_data_strc,            ONLY: t_int_state !, rbf_vec_interpol_cell
 USE mo_oce_diffusion,             ONLY: velocity_diffusion_horz_mimetic,                  &
   &                                     velocity_diffusion_vert_mimetic,                  &
   !&                                     veloc_diffusion_vert_impl,                        &

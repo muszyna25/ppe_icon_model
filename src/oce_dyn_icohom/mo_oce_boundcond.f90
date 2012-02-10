@@ -67,6 +67,8 @@ USE mo_oce_physics,        ONLY: t_ho_params
 USE mo_oce_math_operators, ONLY: grad_fd_norm_oce_2d, div_oce
 USE mo_math_utilities,     ONLY: t_cartesian_coordinates, gvec2cvec,cvec2gvec
 USE mo_interpolation,      ONLY: t_int_state, rbf_vec_interpol_cell
+!USE mo_intp_data_strc,     ONLY: t_int_state
+!USE mo_intp_rbf            ONLY: rbf_vec_interpol_cell
 IMPLICIT NONE
 
 PRIVATE

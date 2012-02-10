@@ -68,6 +68,8 @@ USE mo_intp_data_strc,            ONLY: t_int_state
 USE mo_scalar_product,            ONLY: calc_scalar_product_for_veloc
 USE mo_interpolation,             ONLY: t_int_state, rbf_vec_interpol_edge,       &
                                         rbf_vec_interpol_cell!verts2edges_scalar
+!USE mo_intp_data_strc,            ONLY: t_int_state
+!USE mo_intp_rbf                   ONLY: rbf_vec_interpol_cell, rbf_vec_interpol_edge
 USE mo_oce_ab_timestepping,       ONLY: calc_vert_velocity
 
 IMPLICIT NONE

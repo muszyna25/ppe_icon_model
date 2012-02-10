@@ -75,6 +75,9 @@ USE mo_oce_diffusion,             ONLY: velocity_diffusion_horz_RBF, velocity_di
 USE mo_oce_veloc_advection,       ONLY: veloc_adv_horz_RBF, veloc_adv_vert_RBF
 USE mo_interpolation,             ONLY: t_int_state, rbf_vec_interpol_edge,       &
   &                                     rbf_vec_interpol_cell !, verts2edges_scalar
+!USE mo_intp_data_strc,            ONLY: t_int_state
+!USE mo_intp_rbf                   ONLY: rbf_vec_interpol_edge, &
+!  &                                     rbf_vec_interpol_cell !, verts2edges_scalar
 USE mo_math_utilities,            ONLY: gvec2cvec
 !USE mo_scalar_product,            ONLY: map_edges2edges
 

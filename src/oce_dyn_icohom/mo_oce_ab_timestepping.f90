@@ -56,6 +56,7 @@ USE mo_oce_index,                 ONLY: print_mxmn, jkc, jkdim, ipl_src
 !USE mo_oce_forcing,                    ONLY: t_sfc_flx
 USE mo_sea_ice,                   ONLY: t_sfc_flx
 USE mo_interpolation,                  ONLY: t_int_state
+!USE mo_intp_data_strc,                 ONLY: t_int_state
 USE mo_model_domain,                   ONLY: t_patch
 USE mo_ext_data,                       ONLY: t_external_data
 !USE mo_exception,                      ONLY: message, finish!, message_text
