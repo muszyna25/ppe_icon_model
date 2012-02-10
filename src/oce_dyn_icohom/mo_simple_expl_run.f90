@@ -56,6 +56,7 @@ USE mo_impl_constants,         ONLY: sea_boundary, max_char_length,           &
   &                                  min_rlcell, min_rledge, toplev
 USE mo_model_domain,           ONLY: t_patch
 USE mo_model_domain_import,    ONLY: n_dom
+!USE mo_grid_config,            ONLY: n_dom
 USE mo_ocean_nml,              ONLY: n_zlev, iswm_oce
 USE mo_dynamics_config,        ONLY: nold
 USE mo_io_config,              ONLY: out_expname

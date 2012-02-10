@@ -40,6 +40,8 @@ USE mo_kind,                   ONLY: wp
 USE mo_mpi,                    ONLY: my_process_is_stdio
 USE mo_io_units,               ONLY: nerr
 USE mo_parallel_config,        ONLY: nproma
+USE mo_model_domain_import,    ONLY: n_dom
+!USE mo_grid_config,            ONLY: n_dom
 USE mo_run_config,             ONLY: nsteps!, ltimer
 !USE mo_timer,                  ONLY: timer_start, timer_stop, timer_print_mxmn
 USE mo_ocean_nml,              ONLY: n_zlev, i_dbg_oce, i_dbg_inx, str_proc_tst,no_tracer, &
@@ -55,7 +57,6 @@ USE mo_math_constants,         ONLY: pi
 USE mo_exception,              ONLY: message, message_text, finish
 USE mo_model_domain,           ONLY: t_patch
 USE mo_ext_data,               ONLY: t_external_data
-USE mo_model_domain_import,    ONLY: n_dom
 USE mo_oce_state,              ONLY: t_hydro_ocean_state, v_base
 
 

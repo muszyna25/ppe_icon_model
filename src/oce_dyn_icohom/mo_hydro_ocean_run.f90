@@ -49,6 +49,7 @@ MODULE mo_hydro_ocean_run
 USE mo_kind,                   ONLY: wp
 USE mo_impl_constants,         ONLY: max_char_length
 USE mo_model_domain,           ONLY: t_patch
+!USE mo_grid_config,            ONLY: n_dom
 USE mo_model_domain_import,    ONLY: n_dom
 USE mo_ocean_nml,              ONLY: iswm_oce, idisc_scheme, n_zlev, no_tracer, &
   &                                  itestcase_oce, idiag_oce, init_oce_prog, EOS_type, i_sea_ice
