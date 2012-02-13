@@ -185,7 +185,7 @@ set_test_list ()
   do
    echo "exp.${list}.run " >> ./run/run_exp_list
    echo "post.${list}.run " >> ./run/run_post_list
-   if [ -a ./post.${list}_compare-restart.run ]
+   if [ -a ./run/post.${list}_compare-restart.run ]
    then
      echo "post.${list}_compare-restart.run " >> ./run/run_post_comp_list
    fi
