@@ -62,7 +62,6 @@ INLINE   = -pi expin=../../../src/testcases/mo_ncar_testcases.f90
 INLINE   = $INLINE -pi expin=../../../src/shared/mo_sync.f90
 INLINE   = $INLINE -pi expin=../../../src/shared/mo_communication.f90
 INLINE   = $INLINE -pi expin=../../../src/shared/mo_math_utilities.f90
-INLINE   = $INLINE -pi expin=../../../src/shr_horizontal/mo_interpolation.f90
 INLINE   = $INLINE -pi expin=../../../src/shared/mo_loopindices.f90
 INLINE   = $INLINE -pi expin=../../../src/advection/mo_advection_utils.f90
 INLINE   = $INLINE -pi expin=../../../src/testcases/mo_nh_testcases.f90
