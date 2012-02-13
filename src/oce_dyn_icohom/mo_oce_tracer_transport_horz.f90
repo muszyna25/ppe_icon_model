@@ -1317,7 +1317,8 @@ END SUBROUTINE elad
 !CDIR UNROLL=2
       DO jk = slev, elev
         DO jc = i_startidx, i_endidx
-#endif
+#endif      
+          IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
           ! max value of cell and its neighbors
           ! also look back to previous time step
           z_max(jc,jk) = MAX( z_tracer_max(jc,jk,jb),                          &
@@ -1330,11 +1331,13 @@ END SUBROUTINE elad
             &                 z_tracer_min(iilnc(jc,jb,1),jk,iibnc(jc,jb,1)),  &
             &                 z_tracer_min(iilnc(jc,jb,2),jk,iibnc(jc,jb,2)),  &
             &                 z_tracer_min(iilnc(jc,jb,3),jk,iibnc(jc,jb,3)) )
+          ENDIF 
         ENDDO
       ENDDO
 
       DO jk = slev, elev
         DO jc = i_startidx, i_endidx
+          IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
           ! Sum of all incoming antidiffusive fluxes into cell jc
           p_p =  -1._wp * (MIN(0._wp,z_mflx_anti(jc,jk,jb,1))   &
                          + MIN(0._wp,z_mflx_anti(jc,jk,jb,2))   &
@@ -1352,6 +1355,7 @@ END SUBROUTINE elad
           ! overshoot
           ! Nominator: maximum allowable increase of q
           r_p(jc,jk,jb) = (z_max(jc,jk) - z_tracer_new_low(jc,jk,jb))/(p_p + dbl_eps)
+          ENDIF
         ENDDO
       ENDDO
     ENDDO
