@@ -47,14 +47,14 @@ MODULE mo_scalar_product
 !
 USE mo_kind,               ONLY: wp
 USE mo_parallel_config,    ONLY: nproma
-USE mo_run_config,         ONLY: dtime
+!USE mo_run_config,         ONLY: dtime
 USE mo_intp_data_strc,     ONLY: p_int_state
 USE mo_impl_constants,     ONLY: sea_boundary, boundary, sea,   &!max_char_length, &
 !  &                             land, land_boundary, boundary  &
   &                              min_rlcell, min_rledge , min_rlvert
 USE mo_loopindices,        ONLY: get_indices_c, get_indices_e, get_indices_v
 USE mo_model_domain,       ONLY: t_patch
-USE mo_oce_state,          ONLY: t_hydro_ocean_diag, t_hydro_ocean_state, v_base
+USE mo_oce_state,          ONLY: t_hydro_ocean_diag, v_base!, t_hydro_ocean_state
 USE mo_ocean_nml,          ONLY: n_zlev, iswm_oce !, ab_gam
 USE mo_math_utilities,     ONLY: t_cartesian_coordinates, gc2cc, vector_product,&
                                & gvec2cvec, cvec2gvec 
@@ -115,29 +115,28 @@ SUBROUTINE nonlinear_Coriolis(p_patch, vn, p_vn, p_vn_dual,h_e, vt, &
 !Local variables
 ! 
 REAL(wp) :: z_vort_tmp, z_vort_tmp_boundary
-REAL(wp) :: z_weight(nproma,n_zlev,p_patch%nblks_v)
+!REAL(wp) :: z_weight(nproma,n_zlev,p_patch%nblks_v)
 REAL(wp) :: zarea_fraction
 REAL(wp) :: z_area_scaled
 
 INTEGER :: slev, elev     ! vertical start and end level
 INTEGER :: jv, jk, jb, jev,je
-INTEGER :: ile, ibe, il, ib, ill
-INTEGER :: ik, ikk
+INTEGER :: ile, ibe!, il, ib
 INTEGER :: rl_start_e, rl_end_e
-INTEGER :: i_startblk_v, i_endblk_v, i_startidx_v, i_endidx_v, i_nchdom
+INTEGER :: i_startblk_v, i_endblk_v, i_startidx_v, i_endidx_v
 INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
 
-INTEGER :: i_bdr_ctr
+!INTEGER :: i_bdr_ctr
 INTEGER :: icell_idx_1, icell_blk_1
 INTEGER :: icell_idx_2, icell_blk_2
 !INTEGER :: ibnd_edge_idx_1, ibnd_edge_blk_1
 !INTEGER :: ibnd_edge_idx_2, ibnd_edge_blk_2
-INTEGER :: il_v1, il_v2,ib_v1, ib_v2
+INTEGER :: il_v1, il_v2, ib_v1, ib_v2
 INTEGER  :: i_v_ctr(nproma,n_zlev,p_patch%nblks_v)
 INTEGER  :: i_v_bnd_edge_ctr(nproma,n_zlev,p_patch%nblks_v)
 INTEGER  ::ibnd_edge_idx(4), ibnd_edge_blk(4)  !maximal 4 boundary edges in a dual loop.
 INTEGER  :: i_edge_idx(4) 
-REAL(wp) :: z_orientation(4),temp1,temp2
+REAL(wp) :: z_orientation(4)
 TYPE(t_cartesian_coordinates) :: cell1_cc, cell2_cc, vertex_cc
 !TYPE(t_cartesian_coordinates) :: u_v_cc(nproma,n_zlev,p_patch%nblks_v)
 TYPE(t_cartesian_coordinates) :: u_v1_cc, u_v2_cc
@@ -261,6 +260,7 @@ DO jb = i_startblk_v, i_endblk_v
            CALL finish ('TRIM(sbr nonlinear Coriolis)','Grid-boundary error !!')
            ENDIF
          END IF
+
       END DO
 
       !write(*,*)'no: sea edges+bnd edges',i_v_ctr(jv,jk,jb),i_v_bnd_edge_ctr(jv,jk,jb)
@@ -303,7 +303,8 @@ DO jb = i_startblk_v, i_endblk_v
        !z_area_scaled       = p_patch%verts%dual_area(jv,jb)/(re*re)
 
         !Finalize vorticity calculation by closing the dual loop along boundary edges
-        IF(i_v_ctr(jv,jk,jb)==2)THEN
+        IF(i_v_bnd_edge_ctr(jv,jk,jb)==2)THEN
+        !IF(i_v_ctr(jv,jk,jb)==2)THEN ! #slo# corrected 2012-02-13
 
            z_vort_tmp_boundary =&
            !& p_patch%edges%system_orientation(ibnd_edge_idx(1),ibnd_edge_blk(1))*&
@@ -321,7 +322,8 @@ DO jb = i_startblk_v, i_endblk_v
 
 !  write(*,*)'vorticity:',jv,jk,jb,z_vort_tmp,z_vort_tmp/zarea_fraction,&
 !  &z_vort_tmp_boundary,0.5_wp*z_vort_tmp_boundary/zarea_fraction, vort_v(jv,jk,jb) 
-        ELSEIF(i_v_ctr(jv,jk,jb)==4)THEN
+        ELSEIF(i_v_bnd_edge_ctr(jv,jk,jb)==4)THEN
+        !ELSEIF(i_v_ctr(jv,jk,jb)==4)THEN ! #slo# corrected 2012-02-13
 
            !In case of 4 boundary edges within a dual loop, we have 2 land triangles 
            !around the vertex. these two land triangles have one vertex in common and are
@@ -435,7 +437,7 @@ END SUBROUTINE nonlinear_Coriolis
 
 !Local variables
 ! 
-REAL(wp) :: z_weight(nproma,n_zlev,p_patch%nblks_v)
+!REAL(wp) :: z_weight(nproma,n_zlev,p_patch%nblks_v)
 REAL(wp) :: zarea_fraction
 REAL(wp) :: z_area_scaled
 
@@ -443,7 +445,7 @@ INTEGER :: slev, elev     ! vertical start and end level
 INTEGER :: jv, jk, jb,jev
 INTEGER :: ile, ibe
 INTEGER :: i_startblk_v, i_endblk_v, i_startidx_v, i_endidx_v
-INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
+!INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
 INTEGER,PARAMETER :: rl_start_v = 2
 INTEGER,PARAMETER :: rl_end_v   = min_rlvert
 
@@ -925,12 +927,12 @@ END SUBROUTINE map_edges2vert
   !INTEGER :: i_startblk_v, i_endblk_v, i_startidx_v, i_endidx_v
   INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
   INTEGER :: il_v1, il_v2, ib_v1, ib_v2, il_e, ib_e
-  INTEGER :: je, jb, ie, jk, iie_v1, iie_v2!, jv
-  INTEGER :: ic1, ib1, ic2,ib2
+  INTEGER :: je, jb, ie, jk!, iie_v1, iie_v2!, jv
+  !INTEGER :: ic1, ib1, ic2, ib2
   !INTEGER :: il_star1,ib_star1,il_star2,ib_star2, ie_star1, ie_star2
 
   REAL(wp) :: z_thick, z_weight!, z_tmp1, z_tmp2, z_sum1, z_sum2
-  REAL(wp) :: vn_tmp!z_vn
+  !REAL(wp) :: vn_tmp!z_vn
   REAL(wp) :: z_vn_e(nproma,n_zlev,p_patch%nblks_e)
   TYPE(t_cartesian_coordinates) :: u_v1_cc!(SIZE(vort_v,1),SIZE(vort_v,3))
   TYPE(t_cartesian_coordinates) :: u_v2_cc!(SIZE(vort_v,1),SIZE(vort_v,3))
@@ -1398,12 +1400,12 @@ END SUBROUTINE map_edges2vert
   !INTEGER :: i_startblk_v, i_endblk_v, i_startidx_v, i_endidx_v
   INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
   INTEGER :: il_v1, il_v2, ib_v1, ib_v2, il_e, ib_e
-  INTEGER :: je, jb, ie, jk, iie_v1, iie_v2!, jv
-  INTEGER :: ic1, ib1, ic2,ib2
+  INTEGER :: je, jb, ie, jk!, iie_v1, iie_v2!, jv
+  !INTEGER :: ic1, ib1, ic2,ib2
   !INTEGER :: il_star1,ib_star1,il_star2,ib_star2, ie_star1, ie_star2
 
   REAL(wp) :: z_thick, z_weight!, z_tmp1, z_tmp2, z_sum1, z_sum2
-  REAL(wp) :: vn_tmp!z_vn
+  !REAL(wp) :: vn_tmp!z_vn
   REAL(wp) :: z_vn_e(nproma,n_zlev,p_patch%nblks_e)
   TYPE(t_cartesian_coordinates) :: u_v1_cc!(SIZE(vort_v,1),SIZE(vort_v,3))
   TYPE(t_cartesian_coordinates) :: u_v2_cc!(SIZE(vort_v,1),SIZE(vort_v,3))
@@ -2056,7 +2058,7 @@ END SUBROUTINE map_edges2edges_without_height
   INTEGER :: rl_start_e, rl_end_e 
   INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
   !INTEGER :: il_c1, ib_c1, il_c2, ib_c2
-  INTEGER :: je, jb, jk,i! ie,je
+  INTEGER :: je, jb, jk!, i, ie,je
   INTEGER :: il_c1,ib_c1, il_c2,ib_c2!, ile_c1 , ibe_c1, ile_c2 , ibe_c2
   !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
   !  & routine = ('mo_scalar_product:primal_map_e2c')
