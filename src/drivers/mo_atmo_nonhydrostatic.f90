@@ -134,10 +134,7 @@ CONTAINS
       CALL finish(TRIM(routine),'allocation for p_nh_state failed')
     ENDIF
 
-    CALL construct_nh_state(p_patch(1:), p_nh_state, n_timelevels=2)
-
     IF(iforcing == inwp) THEN
-      CALL construct_nwp_phy_state( p_patch(1:) )
        
       ALLOCATE (p_lnd_state(n_dom), stat=ist)
       IF (ist /= success) THEN
@@ -145,22 +142,16 @@ CONTAINS
       ENDIF
 
       CALL configure_lnd_nwp(p_patch(1:), n_dom, nproma)
-      CALL construct_nwp_lnd_state( p_patch(1:),p_lnd_state,n_timelevels=2 )
 
     ENDIF
 
-    !---------------------------------------------------------------------
-    ! 5. Perform time stepping
-    !---------------------------------------------------------------------
       !------------------------------------------------------------------
-      ! Prepare for time integration
-      !------------------------------------------------------------------
-
-      !------------------------------------------------------------------
-      ! Set initial conditions for time integration.
+      ! Prepare initial conditions for time integration.
       !------------------------------------------------------------------
 
     ! Initialize model with real atmospheric data if appropriate switches are set
+    ! This has been shifted before the allocation of the NH and physics state
+    ! in order to reduce the maximum amount of memory consumed
     IF (l_realcase .AND. .NOT. is_restart_run()) THEN
 
       CALL message(TRIM(routine),'Real-data mode: perform initialization with IFS2ICON data')
@@ -186,6 +177,24 @@ CONTAINS
       CALL init_prepicon (p_int_state(1:), p_grf_state(1:), prepicon, ext_data)
 
     ENDIF
+
+    ! Now allocate memory for the states
+    CALL construct_nh_state(p_patch(1:), p_nh_state, n_timelevels=2)
+
+    IF(iforcing == inwp) THEN
+
+      CALL construct_nwp_phy_state( p_patch(1:) )
+      CALL construct_nwp_lnd_state( p_patch(1:),p_lnd_state,n_timelevels=2 )
+
+    ENDIF
+
+    !---------------------------------------------------------------------
+    ! 5. Perform time stepping
+    !---------------------------------------------------------------------
+      !------------------------------------------------------------------
+      ! Prepare for time integration
+      !------------------------------------------------------------------
+
 
     CALL prepare_nh_integration(p_patch(1:), p_nh_state, p_int_state(1:), p_grf_state(1:))
 
