@@ -61,14 +61,12 @@ USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
 USE mo_oce_index,          ONLY: print_mxmn, jkc, jkdim, ipl_src
 USE mo_oce_state,          ONLY: t_hydro_ocean_state, v_base
 USE mo_scalar_product,     ONLY: map_edges2cell, map_cell2edges_2D
-! USE mo_oce_forcing,        ONLY: t_sfc_flx
 USE mo_sea_ice,            ONLY: t_sfc_flx
 USE mo_oce_physics,        ONLY: t_ho_params
 USE mo_oce_math_operators, ONLY: grad_fd_norm_oce_2d, div_oce
 USE mo_math_utilities,     ONLY: t_cartesian_coordinates, gvec2cvec,cvec2gvec
-USE mo_interpolation,      ONLY: t_int_state, rbf_vec_interpol_cell
-!USE mo_intp_data_strc,     ONLY: t_int_state
-!USE mo_intp_rbf            ONLY: rbf_vec_interpol_cell
+USE mo_intp_data_strc,     ONLY: t_int_state
+USE mo_intp_rbf,           ONLY: rbf_vec_interpol_cell
 IMPLICIT NONE
 
 PRIVATE

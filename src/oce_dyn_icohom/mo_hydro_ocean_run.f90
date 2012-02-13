@@ -49,8 +49,7 @@ MODULE mo_hydro_ocean_run
 USE mo_kind,                   ONLY: wp
 USE mo_impl_constants,         ONLY: max_char_length
 USE mo_model_domain,           ONLY: t_patch
-!USE mo_grid_config,            ONLY: n_dom
-USE mo_model_domain_import,    ONLY: n_dom
+USE mo_grid_config,            ONLY: n_dom
 USE mo_ocean_nml,              ONLY: iswm_oce, idisc_scheme, n_zlev, no_tracer, &
   &                                  itestcase_oce, idiag_oce, init_oce_prog, EOS_type, i_sea_ice
 USE mo_dynamics_config,        ONLY: nold, nnew
@@ -81,8 +80,7 @@ USE mo_oce_math_operators,     ONLY: height_related_quantities
 USE mo_scalar_product,         ONLY: calc_scalar_product_for_veloc
 USE mo_oce_tracer,             ONLY: advect_tracer_ab
 USE mo_io_restart,             ONLY: write_restart_info_file
-USE mo_interpolation,          ONLY: t_int_state
-!USE mo_intp_data_strc,         ONLY: t_int_state
+USE mo_intp_data_strc,         ONLY: t_int_state
 USE mo_sea_ice,                ONLY: construct_sfcflx,destruct_sfcflx,&
   &                                  construct_atmos_for_ocean,&
   &                                  destruct_atmos_for_ocean,&

@@ -76,7 +76,6 @@ USE mo_oce_thermodyn,             ONLY: calc_density, calc_internal_press,&
   &                                     calc_internal_press_new, calc_density_JMDWFG06_EOS_func,&
   &                                     calc_density_MPIOM_func, calc_density_lin_EOS_func
 USE mo_oce_physics,               ONLY: t_ho_params
-!USE mo_oce_forcing,               ONLY: t_sfc_flx!, update_sfcflx
 USE mo_sea_ice,                   ONLY: t_sfc_flx
 USE mo_scalar_product,            ONLY: map_cell2edges, map_edges2cell, map_edges2edges,  &
   &                                     calc_scalar_product_for_veloc !,map_cell2edges_upwind
@@ -84,8 +83,7 @@ USE mo_oce_math_operators,        ONLY: div_oce, grad_fd_norm_oce, grad_fd_norm_
   &                                     height_related_quantities, nabla2_vec_ocean, &
   &                                     nabla4_vec_ocean
 USE mo_oce_veloc_advection,       ONLY: veloc_adv_horz_mimetic, veloc_adv_vert_mimetic
-USE mo_interpolation,             ONLY: t_int_state !, rbf_vec_interpol_cell
-!USE mo_intp_data_strc,            ONLY: t_int_state !, rbf_vec_interpol_cell
+USE mo_intp_data_strc,            ONLY: t_int_state !, rbf_vec_interpol_cell
 USE mo_oce_diffusion,             ONLY: velocity_diffusion_horz_mimetic,                  &
   &                                     velocity_diffusion_vert_mimetic,                  &
   !&                                     veloc_diffusion_vert_impl,                        &

@@ -64,7 +64,7 @@ MODULE mo_oce_state
     &                               CORIOLIS_TYPE, basin_center_lat, basin_height_deg
   USE mo_exception,           ONLY: message_text, message, finish
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_model_domain_import, ONLY: n_dom
+  USE mo_grid_config,         ONLY: n_dom
   USE mo_ext_data,            ONLY: t_external_data
   USE mo_math_utilities,      ONLY: gc2cc,t_cartesian_coordinates,      &
     &                               t_geographical_coordinates, &!vector_product, &

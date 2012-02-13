@@ -61,13 +61,10 @@ USE mo_math_utilities,      ONLY: gvec2cvec, t_cartesian_coordinates!gc2cc,cc2gc
 
 USE mo_scalar_product,      ONLY: map_cell2edges, dual_flip_flop,nonlinear_Coriolis, &
   &                               primal_map_c2e, map_edges2edges, map_edges2cell
-USE mo_interpolation,       ONLY: t_int_state, rbf_vec_interpol_edge,&
-  &                               verts2edges_scalar,&!edges2cells_scalar,&
-  &                               rbf_vec_interpol_cell
-!USE mo_intp_data_strc,      ONLY: t_int_state
-!USE mo_intp                 ONLY: verts2edges_scalar
-!USE mo_intp_rbf             ONLY: rbf_vec_interpol_cell, rbf_vec_interpol_edge
-USE mo_intp_data_strc,     ONLY: p_int_state
+USE mo_intp_data_strc,      ONLY: t_int_state
+USE mo_intp,                ONLY: verts2edges_scalar
+USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell, rbf_vec_interpol_edge
+USE mo_intp_data_strc,      ONLY: p_int_state
 
 IMPLICIT NONE
 
