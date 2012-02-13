@@ -161,9 +161,8 @@ CONTAINS
     REAL(wp)               :: recv_max(field_shape(3))
     REAL(wp)               :: recv_avg(field_shape(3))
 
-    INTEGER                :: j, nsum
+    INTEGER                :: nsum
     LOGICAL                :: l_end_of_run = .FALSE.
-    LOGICAL                :: l_restart    = .FALSE.
 
     ! -------------------------------------------------------------------
     ! Initialisation
@@ -353,7 +352,7 @@ CONTAINS
              DO m = 1, nbr_bundles
                 recv_min(m) = MINVAL(recv_buffer(:,m))
                 recv_max(m) = MAXVAL(recv_buffer(:,m))
-                recv_avg(m) = 0.0
+                recv_avg(m) = 0.0_wp
                 DO i = 1, len
                    recv_avg(m) = recv_avg(m) + recv_buffer(i,m)
                 ENDDO
@@ -383,7 +382,7 @@ CONTAINS
        CALL MPI_Allreduce ( len, nsum, 1, MPI_INTEGER, &
             MPI_SUM, ICON_comp_comm, ierror )
 
-       recv_avg(:) = recv_avg(:) / nsum
+       recv_avg(:) = recv_avg(:) / REAL(nsum,wp)
 
        DO i = 1, nbr_bundles
           WRITE ( cplout, '(a32,a3,3(a6,f13.6))' ) fptr%field_name, ' : ', &
@@ -443,7 +442,7 @@ CONTAINS
     REAL(wp)               :: recv_min(field_shape(3))
     REAL(wp)               :: recv_max(field_shape(3))
     REAL(wp)               :: recv_avg(field_shape(3))
-    INTEGER                :: j, nsum
+    INTEGER                :: nsum
 
     ierror = 0
 
@@ -601,7 +600,7 @@ CONTAINS
                 DO m = 1, nbr_bundles
                    recv_min(m) = MINVAL(recv_buffer(:,m))
                    recv_max(m) = MAXVAL(recv_buffer(:,m))
-                   recv_avg(m) = 0.0
+                   recv_avg(m) = 0.0_wp
                    DO i = 1, len
                       recv_avg(m) = recv_avg(m) + recv_buffer(i,m)
                    ENDDO
@@ -644,7 +643,7 @@ CONTAINS
        CALL MPI_Allreduce ( len, nsum, 1, MPI_INTEGER, &
             MPI_SUM, ICON_comp_comm, ierror )
 
-       recv_avg(:) = recv_avg(:) / nsum
+       recv_avg(:) = recv_avg(:) / REAL(nsum,wp)
 
        DO i = 1, nbr_bundles
           WRITE ( cplout, '(a32,a3,3(a6,f13.6))' ) fptr%field_name, ' : ', &
@@ -772,7 +771,6 @@ CONTAINS
     LOGICAL                :: l_end_of_run = .FALSE.
     LOGICAL                :: l_restart    = .FALSE.
     REAL (wp)              :: weight
-    INTEGER                :: info
     !
     ! for coupling diagnostic
     !
@@ -972,7 +970,7 @@ CONTAINS
 
           IF ( fptr%coupling%diagnostic == 1 ) THEN
 
-             send_avg(:) = 0.0
+             send_avg(:) = 0.0_wp
 
              DO i = 1, nbr_bundles
                 send_min(i) = MINVAL(send_buffer(:,i))
@@ -997,7 +995,7 @@ CONTAINS
              CALL MPI_Allreduce ( len, nsum, 1, MPI_INTEGER, &
                   MPI_SUM, ICON_comp_comm, ierror )
 
-             send_avg(:) = send_avg(:) / nsum
+             send_avg(:) = send_avg(:) / REAL(nsum,wp)
 
              DO i = 1, nbr_bundles
                 WRITE ( cplout, '(a32,a3,3(a6,f13.6))' ) fptr%field_name, ' : ', &
@@ -1067,8 +1065,6 @@ CONTAINS
 
     ! Local variables
 
-    LOGICAL                :: l_end_of_run
-    REAL (wp)              :: weight
     INTEGER                :: info
     REAL (wp)              :: rest_field (field_shape(1):field_shape(2),field_shape(3))
     !
@@ -1194,7 +1190,7 @@ CONTAINS
 
           IF ( fptr%coupling%diagnostic == 1 ) THEN
 
-             send_avg(:) = 0.0
+             send_avg(:) = 0.0_wp
 
              DO i = 1, nbr_bundles
                 send_min(i) = MINVAL(send_buffer(:,i))
@@ -1219,7 +1215,7 @@ CONTAINS
              CALL MPI_Allreduce ( len, nsum, 1, MPI_INTEGER, &
                   MPI_SUM, ICON_comp_comm, ierror )
 
-             send_avg(:) = send_avg(:) / nsum
+             send_avg(:) = send_avg(:) / REAL(nsum,wp)
 
              DO i = 1, nbr_bundles
                 WRITE ( cplout, '(a32,a3,3(a6,f13.6))' ) fptr%field_name, ' : ', &
