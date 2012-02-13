@@ -100,12 +100,12 @@ warning_on_error()
       then
         name="`echo $2 | cut -d '.' -f2`"
         RUN_POST="${RUN_POST} post.${name}.run"
-        echo "${RUN_POST}" > ./run_post_list
+        echo "${RUN_POST}" > ./run/run_post_list
 
         compare_run="post.${name}_compare-restart.run"
         if [  -a ./${compare_run} ] ; then
           RUN_POST_COMP="${RUN_POST_COMP} $compare_run"
-          echo "${RUN_POST_COMP}" > ./run_post_comp_list
+          echo "${RUN_POST_COMP}" > ./run/run_post_comp_list
         fi
       fi
     fi
@@ -172,14 +172,17 @@ set_test_list ()
   lists=`echo $1 | sed s/,/\ /g`
   lists=`echo $lists | sed s/:/\ /g`
 
-  if [ -a ./run_exp_list ]
+  if [ -a ./run/run_exp_list ]
   then
     rm -f ./run/run_exp_list
     rm -f ./run/run_post_list
     rm -f ./run/run_post_comp_list
   fi
 
-  touch ./run_exp_list
+  touch ./run/run_exp_list
+  touch ./run/run_post_list
+  touch ./run/run_post_comp_list
+
 
   for list in ${lists}
   do
@@ -538,8 +541,8 @@ then
   if [ "${use_exp_list}" == "true" ] 
   then 
     echo "Run one or more special experiments"
-    EXP_FILES=`cat ./run_exp_list`
-    rm ./run_exp_list
+    EXP_FILES=`cat ./run/run_exp_list`
+    rm ./run/run_exp_list
   else
     echo "Run all exp.test_*.run in run directory"
     cd run
