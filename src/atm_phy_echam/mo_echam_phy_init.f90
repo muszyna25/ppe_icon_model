@@ -328,43 +328,6 @@ CONTAINS
              !
              ! Is there really anything to send or can the ocean live without?
              !
-             ! Receive fields, only assign values if something was received ( info > 0 )
-             ! -------------------------------------------------------------------------
-             !
-             ! I guess that only the SST is really needed.
-             !
-             CALL ICON_cpl_get_init ( field_id(6), field_shape, &
-                                      buffer(1:nbr_hor_points,1:1), info, ierror )
-
-             IF ( info > 0 ) THEN
-                buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
-                field%tsfc_tile(:,:,iwtr) = RESHAPE (buffer(:,1), (/ nproma, nblks_c /) )
-                field%tsfc     (:,:)      = field%tsfc_tile(:,:,iwtr)
-             ENDIF
-             !
-             ! OCEANU
-             CALL ICON_cpl_get_init ( field_id(7), field_shape, &
-                                      buffer(1:nbr_hor_points,1:1), info, ierror )
-             IF ( info > 0 ) THEN
-                buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
-                field%ocu(:,:) = RESHAPE (buffer(:,1), (/ nproma, nblks_c /) )
-             ENDIF
-             !
-             ! OCEANV
-             CALL ICON_cpl_get_init ( field_id(8), field_shape, &
-                                      buffer(1:nbr_hor_points,1:1), info, ierror )
-             IF ( info > 0 ) THEN
-                buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
-                field%ocv(:,:) = RESHAPE (buffer(:,1), (/ nproma, nblks_c /) )
-             ENDIF
-
-             CALL sync_patch_array(sync_c, p_patch(jg), field%tsfc_tile(:,:,iwtr))
-             CALL sync_patch_array(sync_c, p_patch(jg), field%tsfc     (:,:))
-
-             CALL sync_patch_array(sync_c, p_patch(jg), field%ocu(:,:))
-             CALL sync_patch_array(sync_c, p_patch(jg), field%ocv(:,:))
-
-             !
              ! Send fields away
              ! ----------------
              !
@@ -406,6 +369,42 @@ CONTAINS
              CALL ICON_cpl_put_init ( field_id(5), field_shape, &
                                       buffer(1:nbr_hor_points,1:4), ierror )
              field_shape(3) = 1
+
+             ! Receive fields, only assign values if something was received ( info > 0 )
+             ! -------------------------------------------------------------------------
+             !
+             ! I guess that only the SST is really needed.
+             !
+             CALL ICON_cpl_get_init ( field_id(6), field_shape, &
+                                      buffer(1:nbr_hor_points,1:1), info, ierror )
+
+             IF ( info > 0 ) THEN
+                buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
+                field%tsfc_tile(:,:,iwtr) = RESHAPE (buffer(:,1), (/ nproma, nblks_c /) )
+                field%tsfc     (:,:)      = field%tsfc_tile(:,:,iwtr)
+             ENDIF
+             !
+             ! OCEANU
+             CALL ICON_cpl_get_init ( field_id(7), field_shape, &
+                                      buffer(1:nbr_hor_points,1:1), info, ierror )
+             IF ( info > 0 ) THEN
+                buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
+                field%ocu(:,:) = RESHAPE (buffer(:,1), (/ nproma, nblks_c /) )
+             ENDIF
+             !
+             ! OCEANV
+             CALL ICON_cpl_get_init ( field_id(8), field_shape, &
+                                      buffer(1:nbr_hor_points,1:1), info, ierror )
+             IF ( info > 0 ) THEN
+                buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
+                field%ocv(:,:) = RESHAPE (buffer(:,1), (/ nproma, nblks_c /) )
+             ENDIF
+
+             CALL sync_patch_array(sync_c, p_patch(jg), field%tsfc_tile(:,:,iwtr))
+             CALL sync_patch_array(sync_c, p_patch(jg), field%tsfc     (:,:))
+
+             CALL sync_patch_array(sync_c, p_patch(jg), field%ocu(:,:))
+             CALL sync_patch_array(sync_c, p_patch(jg), field%ocv(:,:))
 
              DEALLOCATE(field_id)
              DEALLOCATE(buffer)
