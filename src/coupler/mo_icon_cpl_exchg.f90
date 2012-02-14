@@ -345,8 +345,9 @@ CONTAINS
                            source_rank, ' : ', tptr%source_list(i), recv_buffer(i,m) 
                 ENDDO
              ENDDO
+             PRINT *, 'Control ', TRIM(fptr%field_name), '(1,1)', recv_buffer(1,1)
           ENDIF
-
+ 
           IF ( fptr%coupling%diagnostic == 1 ) THEN
 
              DO m = 1, nbr_bundles
@@ -593,6 +594,7 @@ CONTAINS
                            source_rank, ' : ', tptr%source_list(i), recv_buffer(i,m) 
                    ENDDO
                 ENDDO
+                PRINT *, 'Control ', TRIM(fptr%field_name), '(1,1)', recv_buffer(1,1)
              ENDIF
 
              IF ( fptr%coupling%diagnostic == 1 ) THEN

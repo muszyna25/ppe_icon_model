@@ -81,8 +81,6 @@ CONTAINS
 
 #ifndef NOMPI
     INTEGER :: local_size
-    INTEGER :: tag = 4711
-    INTEGER :: status(MPI_STATUS_SIZE)
     INTEGER :: i
 
     fptr => cpl_fields(field_id)
@@ -101,7 +99,7 @@ CONTAINS
        ALLOCATE(fptr%global_index(1))
     ENDIF
 
-    CALL mpi_gather ( local_size, 1, MPI_INTEGER, fptr%local_sizes, 1, MPI_INTEGER, &
+    CALL MPI_GATHER ( local_size, 1, MPI_INTEGER, fptr%local_sizes, 1, MPI_INTEGER, &
                       ICON_root, ICON_comp_comm, ierror )
 
     IF ( ICON_local_rank == ICON_root ) THEN
@@ -122,7 +120,7 @@ CONTAINS
 
     ! Collect global indices
 
-    CALL mpi_gatherv ( gptr%grid_glob_index, local_size, MPI_INTEGER, &
+    CALL MPI_GATHERV ( gptr%grid_glob_index, local_size, MPI_INTEGER, &
                        fptr%global_index, fptr%local_sizes, fptr%displacement, MPI_INTEGER, &
                        ICON_root, ICON_comp_comm, ierror )
 #else
@@ -145,9 +143,8 @@ CONTAINS
     INTEGER, INTENT(out)   :: ierror           !<  returned error code
 #ifndef NOMPI
     REAL(wp), ALLOCATABLE  :: global_field (:,:)
-    REAL(wp), ALLOCATABLE  :: global_buffer(:,:)
 
-    INTEGER :: i, j, jj, local_size
+    INTEGER :: i, j, local_size
 
     ierror = 0
 
@@ -158,28 +155,32 @@ CONTAINS
     local_size = field_shape(2) - field_shape(1) + 1
 
     IF ( ICON_local_rank == ICON_root ) THEN
-       ALLOCATE (global_buffer(fptr%global_size,field_shape(3)))
        ALLOCATE (global_field (fptr%global_size,field_shape(3)))
     ELSE
-       ALLOCATE (global_buffer(1,field_shape(3)))
        ALLOCATE (global_field (1,field_shape(3)))
     ENDIF
 
+    rest_unit = find_next_free_unit(10,100)
+
+    IF ( debug_coupler_level > 2 ) THEN
+       WRITE(file_name(1:22), '(A15,A4,A1,I2.2)') 'debug_wrte_rst_', &
+               fptr%field_name, '_', ICON_local_rank
+       OPEN ( UNIT = rest_unit, FILE = file_name(1:22), FORM = "FORMATTED", STATUS = "UNKNOWN" )
+       DO j = 1, field_shape(3)
+       DO i = field_shape(1), field_shape(2)
+         WRITE ( rest_unit ,  * ) j, i, coupling_field(i,j)
+       ENDDO
+       ENDDO
+       CLOSE ( UNIT = rest_unit)
+    ENDIF
+
     ! Could we use MPI_Type_vector?
+
     DO i = 1, field_shape(3)
-       CALL mpi_gatherv ( coupling_field(:,i), local_size, datatype, &
-                          global_buffer (:,i), fptr%local_sizes, fptr%displacement, datatype, &
+       CALL MPI_GATHERV ( coupling_field(field_shape(1),i), local_size, datatype, &
+                          global_field(:,i), fptr%local_sizes, fptr%displacement, datatype, &
                           ICON_root, ICON_comp_comm, ierror )
     ENDDO
-
-    IF ( ICON_local_rank == ICON_root ) THEN
-       DO i = 1, ICON_local_size
-          DO j = 1, fptr%local_sizes(i)
-             jj = fptr%global_index(fptr%displacement(i)+j)
-             global_field(jj,:) = global_buffer(fptr%displacement(i)+j,:)
-          ENDDO
-       ENDDO
-    ENDIF
 
     IF ( ICON_local_rank == ICON_root ) THEN
 
@@ -193,8 +194,6 @@ CONTAINS
           time_config%end_datetime%hour,     &
           time_config%end_datetime%minute,   &
           second, "Z"
-
-    rest_unit = find_next_free_unit(10,100)
 
     OPEN   ( UNIT = rest_unit, FILE = file_name(1:len), FORM = "UNFORMATTED", &
                                       STATUS = "UNKNOWN", POSITION = "APPEND" )
@@ -214,7 +213,7 @@ CONTAINS
     CLOSE  ( unit = rest_unit )
 
     ENDIF
-    DEALLOCATE (global_buffer,global_field)
+    DEALLOCATE (global_field)
 #else
     fptr => cpl_fields(field_id)
     print *, 'Restart is not supported', coupling_field (field_shape(1),field_shape(3)), count
@@ -237,15 +236,15 @@ CONTAINS
 
 #ifndef NOMPI
     REAL(wp), ALLOCATABLE  :: global_field (:,:)
-    REAL(wp), ALLOCATABLE  :: global_buffer(:,:)
 
-    INTEGER :: i, j, jj, local_size
+    INTEGER :: i, j, local_size
 
     INTEGER :: year, month, day, hour, minute, second
     INTEGER :: global_size, nbr_bundles
     INTEGER :: global_field_id
     INTEGER :: count
     INTEGER :: eof
+    INTEGER :: bcast_buffer(2)
     LOGICAL :: existing
 
     fptr => cpl_fields(field_id)
@@ -275,20 +274,16 @@ CONTAINS
     IF ( .NOT. existing ) RETURN
 
     IF ( ICON_local_rank == ICON_root ) THEN
-
        rest_unit = find_next_free_unit(10,100)
        OPEN  ( UNIT = rest_unit, FILE = file_name(1:len), FORM = "UNFORMATTED", status = 'OLD' )
-
     ENDIF
 
     local_size = field_shape(2) - field_shape(1) + 1
 
-    ALLOCATE (global_field (fptr%global_size,field_shape(3)))
-
     IF ( ICON_local_rank == ICON_root ) THEN
-       ALLOCATE (global_buffer(fptr%global_size,field_shape(3)))
+       ALLOCATE (global_field (fptr%global_size,field_shape(3)))
     ELSE
-       ALLOCATE (global_buffer(1,field_shape(3)))
+       ALLOCATE (global_field (               1,field_shape(3)))
     ENDIF
 
     IF ( ICON_local_rank == ICON_root ) THEN
@@ -320,10 +315,17 @@ CONTAINS
              READ  ( unit = rest_unit, IOSTAT=eof )
           ENDIF
        ENDDO
-       REWIND ( unit = rest_unit )
+       CLOSE ( unit = rest_unit )
 
     ENDIF
-    CALL MPI_BCAST ( global_field_id, 1, MPI_INTEGER, ICON_root, ICON_comp_comm, ierror )
+
+    bcast_buffer(1) = global_field_id
+    bcast_buffer(2) = count
+
+    CALL MPI_BCAST ( bcast_buffer, 2, MPI_INTEGER, ICON_root, ICON_comp_comm, ierror )
+
+    global_field_id = bcast_buffer(1)
+    count           = bcast_buffer(2)
 
     ! ids do not match, we have not found the correct field in the restart
 
@@ -331,33 +333,38 @@ CONTAINS
 
     info = 1
 
-    ! rearrange global_field in global buffer and scatter global buffer
-    IF ( ICON_local_rank == ICON_root ) THEN
-       DO i = 1, ICON_local_size
-          DO j = 1, fptr%local_sizes(i)
-             jj = fptr%global_index(fptr%displacement(i)+j)
-             global_buffer(fptr%displacement(i)+j,:) = global_field(jj,:) 
-          ENDDO
-       ENDDO
-    ENDIF
-
     ! Could we use MPI_Type_vector?
     DO i = 1, field_shape(3)
-       CALL mpi_scatterv ( global_buffer (:,i), fptr%local_sizes, fptr%displacement, datatype, &
+       CALL MPI_SCATTERV ( global_field (:,i), fptr%local_sizes, fptr%displacement, datatype, &
             coupling_field(:,i), local_size, datatype, &
             ICON_root, ICON_comp_comm, ierror )
     ENDDO
+
+    IF ( debug_coupler_level > 2 ) THEN
+       rest_unit = find_next_free_unit(10,100)
+       WRITE(file_name(1:22), '(A15,A4,A1,I2.2)') 'debug_read_rst_', &
+              fptr%field_name, '_', ICON_local_rank
+       OPEN ( UNIT = rest_unit, FILE = file_name(1:22), FORM = "FORMATTED", STATUS = "UNKNOWN" )
+       DO j = 1, field_shape(3)
+       DO i = field_shape(1), field_shape(2)
+         WRITE ( rest_unit ,  * ) j, i, coupling_field(i,j)
+       ENDDO
+       ENDDO
+       CLOSE ( UNIT = rest_unit)
+    ENDIF
 
     IF ( debug_coupler_level > -1 ) THEN
        WRITE ( cplout , '(a,a)' ) 'cpl_read_restart: overwrite coupling field ', &
          &  TRIM(fptr%field_name)
     ENDIF
 
-    IF ( ICON_local_rank == ICON_root ) DEALLOCATE (global_buffer)
-
     DEALLOCATE (global_field)
 
     CLOSE ( unit = rest_unit )
+
+    IF ( count > 0 ) THEN
+       coupling_field(:,:) = coupling_field(:,:) / REAL(count,wp)
+    ENDIF
 #else
     print *, 'Restart is not supported'
     fptr => cpl_fields(field_id)
