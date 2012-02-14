@@ -175,23 +175,23 @@ set_test_list ()
   if [ -a ./run/run_exp_list ]
   then
     rm -f ./run/run_exp_list
-    rm -f ./run/run_post_list
-    rm -f ./run/run_post_comp_list
+#    rm -f ./run/run_post_list
+#    rm -f ./run/run_post_comp_list
   fi
 
   touch ./run/run_exp_list
-  touch ./run/run_post_list
-  touch ./run/run_post_comp_list
+#  touch ./run/run_post_list
+#  touch ./run/run_post_comp_list
 
 
   for list in ${lists}
   do
    echo "exp.${list}.run " >> ./run/run_exp_list
-   echo "post.${list}.run " >> ./run/run_post_list
-   if [ -a ./run/post.${list}_compare-restart.run ]
-   then
-     echo "post.${list}_compare-restart.run " >> ./run/run_post_comp_list
-   fi
+#   echo "post.${list}.run " >> ./run/run_post_list
+#   if [ -a ./run/post.${list}_compare-restart.run ]
+#   then
+#     echo "post.${list}_compare-restart.run " >> ./run/run_post_comp_list
+#   fi
   done
 }
 #==============================================================================
