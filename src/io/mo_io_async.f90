@@ -70,7 +70,7 @@ MODULE mo_io_async
   USE mo_datetime,            ONLY: t_datetime
   USE mo_parallel_config,     ONLY: pio_type
   USE mo_dynamics_config,     ONLY: iequations
-  USE mo_run_config,          ONLY: ldump_states, ldump_dd
+  USE mo_run_config,          ONLY: ldump_states, ldump_dd, ltestcase
   USE mo_io_units,            ONLY: filename_max
   USE mo_communication,       ONLY: idx_no, blk_no
   USE mo_io_vlist,            ONLY: GATHER_C, GATHER_E, GATHER_V, GATHER_LONLAT,                 &
@@ -269,11 +269,13 @@ CONTAINS
     ENDIF
 
     ! setup of meteogram output
-    DO jg =1,n_dom
-      IF (meteogram_output_config(jg)%lenabled) THEN
-        CALL meteogram_init(meteogram_output_config(jg), jg)
-      END IF
-    END DO
+    IF (.NOT. ltestcase) THEN
+      DO jg =1,n_dom
+        IF (meteogram_output_config(jg)%lenabled) THEN
+          CALL meteogram_init(meteogram_output_config(jg), jg)
+        END IF
+      END DO
+    END IF
 
     ! receive information on patch
     CALL receive_patch_configuration
