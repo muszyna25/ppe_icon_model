@@ -1387,7 +1387,10 @@ CONTAINS
 
       IF (ltimer) CALL timer_stop(timer_physic_acc_2)
 
-      IF (msg_level >= 11) THEN ! dpsdt diagnostic
+      ! dpsdt diagnostic - omitted in the case of a parallization test (p_test_run) because this
+      ! is a purely diagnostic quantitiy, for which it does not make sense to implement an order-invariant
+      ! summation
+      IF (.NOT. p_test_run .AND. msg_level >= 11) THEN
         dpsdt_avg = SUM(dps_blk)
         npoints   = SUM(npoints_blk)
         dpsdt_avg = global_sum_array(dpsdt_avg)
