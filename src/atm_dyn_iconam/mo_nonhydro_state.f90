@@ -1099,7 +1099,7 @@ MODULE mo_nonhydro_state
                     & 'ddt_vn_adv'//suffix, p_diag%ddt_vn_adv_ptr(jt)%p_3d,        &
                     & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT,                        &
                     & t_cf_var('ddt_adv_vn'//suffix, 'm s-2',''),                  &
-                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),&
+                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE),&
                     & ldims=shape3d_e )
       ENDDO
 
@@ -1497,7 +1497,7 @@ MODULE mo_nonhydro_state
                     & 'hfl_q'//ctrc, p_diag%hfl_trc_ptr(jt)%p_3d,                   &
                     & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT,                         &
                     & t_cf_var('hfl_q'//ctrc, 'kg m-1 s-1',''),                     &
-                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE), &
                     & ldims=shape3d_e, lrestart=.FALSE. )
       ENDDO
 
@@ -1560,7 +1560,7 @@ MODULE mo_nonhydro_state
         CALL add_ref( p_diag_list, 'tracer_vi', 'tracer_vi'//ctrc,               &
           &           p_diag%tracer_vi_ptr(jt)%p_2d,                             &
           &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                     &
-          &           cf_desc, grib2_desc, ldims=shape3d_c3, lrestart=.FALSE.)
+          &           cf_desc, grib2_desc, ldims=shape2d_c, lrestart=.FALSE.)
       ENDDO
 
       ! tracer_vi_avg(nproma,nblks_c,3), only Q1, Q2, Q3
@@ -1577,7 +1577,7 @@ MODULE mo_nonhydro_state
         CALL add_ref( p_diag_list, 'tracer_vi_avg', 'tracer_vi_avg'//ctrc,       &
           &           p_diag%tracer_vi_avg_ptr(jt)%p_2d,                         &
           &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                     &
-          &           cf_desc, grib2_desc, ldims=shape3d_c3, lrestart=.FALSE. )
+          &           cf_desc, grib2_desc, ldims=shape2d_c, lrestart=.FALSE. )
       ENDDO
     ENDIF
 
