@@ -64,8 +64,6 @@ MODULE mo_icon_cpl_restart
   INTEGER                :: rest_unit
   INTEGER                :: year, month, day, hour, minute, second
 
-  INTEGER                :: global_size
-
   CHARACTER(len=132) :: file_name
 
   PUBLIC :: cpl_init_restart, cpl_write_restart, cpl_read_restart 
@@ -206,7 +204,7 @@ CONTAINS
                                 time_config%end_datetime%minute, &
                                 time_config%end_datetime%second
     WRITE  ( unit = rest_unit ) count
-    WRITE  ( unit = rest_unit ) global_size, field_shape(3)
+    WRITE  ( unit = rest_unit ) fptr%global_size, field_shape(3)
 
     WRITE  ( unit = rest_unit ) global_field
 
@@ -240,7 +238,7 @@ CONTAINS
     INTEGER :: i, j, local_size
 
     INTEGER :: year, month, day, hour, minute, second
-    INTEGER :: global_size, nbr_bundles
+    INTEGER :: nbr_bundles
     INTEGER :: global_field_id
     INTEGER :: count
     INTEGER :: eof
@@ -295,7 +293,7 @@ CONTAINS
           IF ( global_field_id == fptr%global_field_id ) THEN
              READ  ( unit = rest_unit, IOSTAT=eof ) year, month, day, hour, minute, second
              READ  ( unit = rest_unit, IOSTAT=eof ) count
-             READ  ( unit = rest_unit ) global_size, nbr_bundles
+             READ  ( unit = rest_unit ) fptr%global_size, nbr_bundles
              READ  ( unit = rest_unit, IOSTAT=eof ) global_field
              IF ( debug_coupler_level > 0 ) THEN
                  WRITE ( cplout , '(a)' ) ' reading restart ...'
