@@ -3,8 +3,22 @@ require 'pp'
 # Methods for generating Namelist files
 module NmlLib
   def NmlLib.create(name,values)
+    {name => values}
   end
-  def NmlLib.write(filename)
+  def NmlLib.write(nml,filename)
+    File.open(filename,"w+") {|f|
+      nml.each {|k,v|
+        f << "&#{nml.keys.first}\n"
+          v.each {|kk,vv|
+            f << if vv.kind_of?(Array)
+              "#{[kk,vv.join(',')].join(' = ')}\n"
+            else 
+              "#{[kk,vv].join(' = ')}\n"
+            end
+          }
+        f << '/' << "\n"
+      }
+    }
   end
 end
 

@@ -372,6 +372,7 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param, p_int, l_ini
   !CALL message (TRIM(routine), 'start')        
 
   z_gradh_e(:,:,:) = 0.0_wp
+  CALL sync_patch_array(sync_e, p_patch, z_gradh_e(:,1,:))
   gdt              = grav*dtime
 
   rl_start   = 1
@@ -383,9 +384,13 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param, p_int, l_ini
 
   !STEP 1: calculate gradient of surface height at previous timestep
   !IF ( iswm_oce == 1 ) THEN
-   CALL grad_fd_norm_oce_2d( p_os%p_prog(nold(1))%h, &
-          &                  p_patch,                &
-          &                  z_gradh_e(:,1,:))
+  CALL sync_patch_array(sync_c, p_patch, p_os%p_prog(nold(1))%h)
+
+  CALL sync_patch_array(sync_e, p_patch, z_gradh_e(:,1,:))
+
+  CALL grad_fd_norm_oce_2d( p_os%p_prog(nold(1))%h, &
+         &                  p_patch,                &
+         &                  z_gradh_e(:,1,:))
   !ENDIF
   CALL sync_patch_array(sync_e, p_patch, z_gradh_e(:,1,:))
 
