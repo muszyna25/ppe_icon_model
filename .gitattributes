@@ -869,6 +869,8 @@ scripts/preprocessing/testdata/atm_hyb_sp_31 -text
 scripts/preprocessing/testdata/iconR2B04-grid.nc -text svneol=unset#unset
 scripts/preprocessing/testdata/oro_R2B04.nc -text svneol=unset#unset
 scripts/preprocessing/testdata/vct -text
+scripts/run_scripts/experiments.rb -text
+scripts/run_scripts/run.rb -text
 src/advection/mo_advection_hflux.f90 -text
 src/advection/mo_advection_limiter.f90 -text
 src/advection/mo_advection_stepping.f90 -text
