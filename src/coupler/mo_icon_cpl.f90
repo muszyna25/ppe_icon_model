@@ -237,10 +237,12 @@ MODULE mo_icon_cpl
      TYPE(t_coupling)       :: coupling
 
      ! for writing out coupled restarts
-     INTEGER                :: global_size     ! relevant on root only
-     INTEGER, POINTER       :: local_sizes(:)  ! relevant on root only
+     INTEGER                :: local_size      ! local size without halos
+     INTEGER                :: global_size     ! global size without halos, relevant on root only
+     INTEGER, POINTER       :: local_sizes(:)  ! local sizes without halos,  relevant on root only
      INTEGER, POINTER       :: displacement(:) ! relevant on root only
      INTEGER, POINTER       :: global_index(:) ! relevant on root only
+     INTEGER, POINTER       :: local_index(:)  ! local grid index list without halo
 
   END TYPE t_cpl_field
 
