@@ -55,9 +55,9 @@ MODULE mo_nh_testcases
   USE mo_math_utilities,     ONLY: gc2cc, t_cartesian_coordinates, &
                                    t_geographical_coordinates, &
                                    arc_length
-  USE mo_parallel_config,  ONLY: nproma, p_test_run
+  USE mo_parallel_config,    ONLY: nproma, p_test_run
   USE mo_run_config,         ONLY: ltransport, ntracer, iforcing, iqv
-  USE mo_extpar_config,         ONLY: itopo
+  USE mo_extpar_config,      ONLY: itopo
     
   USE mo_dynamics_config,    ONLY: nnow, nnow_rcf, nnew, nnew_rcf, lcoriolis
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
@@ -101,7 +101,14 @@ MODULE mo_nh_testcases
                                    & N_nconst, rh_nconst, rhgr_nconst,               &
                                    & init_nh_anaprof_uv,                             &
                                    & itype_anaprof_uv, nlayers_linwind, h_linwind,   &
-                                   & u_linwind, ugr_linwind, vel_const
+                                   & u_linwind, ugr_linwind, vel_const,              &
+                                   & init_nh_topo_ana,  itype_topo_ana, schaer_h0,   &
+                                   & schaer_a, schaer_lambda, halfwidth_2dm,         &
+                                   & mount_lonc_deg, mount_latc_deg, m_height,       &
+                                   & m_width_x, m_width_y, itype_atmo_ana,           &
+                                   & init_nh_atmo_ana_poly, nlayers_poly,            &
+                                   & p_base_poly, h_poly, t_poly,                    &
+                                   & tgr_poly, rh_poly, rhgr_poly
 
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
   USE mo_sync,                 ONLY: SYNC_E, sync_patch_array
@@ -154,13 +161,19 @@ MODULE mo_nh_testcases
                             p_base_nconst, theta0_base_nconst, h_nconst,     &
                             N_nconst, rh_nconst, rhgr_nconst,                &
                             itype_anaprof_uv, nlayers_linwind, h_linwind,    &
-                            u_linwind, ugr_linwind, vel_const
+                            u_linwind, ugr_linwind, vel_const,               &
+                            itype_topo_ana,                                  &
+                            schaer_h0, schaer_a, schaer_lambda,              &
+                            halfwidth_2dm, mount_lonc_deg, mount_latc_deg,   &
+                            m_height, m_width_x, m_width_y, itype_atmo_ana,  &
+                            nlayers_poly, p_base_poly, h_poly, t_poly,       &
+                            tgr_poly, rh_poly, rhgr_poly 
 
   PUBLIC :: read_nh_testcase_namelist, layer_thickness, init_nh_testtopo,    &
     &       init_nh_testcase, n_flat_level, nh_test_name, ape_sst_case,      &
     &       mount_height, torus_domain_length, nh_brunt_vais, nh_u0, nh_t0,  &
     &       jw_up, rh_at_1000hpa,  qv_max,                                   &
-    &       rotate_axis_deg, lhs_nh_vn_ptb, hs_nh_vn_ptb_scale,              &
+    &       rotate_axis_deg, lhs_nh_vn_ptb, hs_nh_vn_ptb_scale,              & 
     &       linit_tracer_fv, lhs_fric_heat
 
   PRIVATE
@@ -240,6 +253,7 @@ MODULE mo_nh_testcases
     bub_hor_width          = 10000._wp
     bub_ver_width          = 1400._wp
     ! for the limited area test cases
+    itype_atmo_ana   = 1
     ! for the piecewise const Brunt-Vaisala freq layers 
     p_base_nconst  = 100000.0_wp
     !theta0_base_nconst  = 300.0_wp
@@ -259,6 +273,21 @@ MODULE mo_nh_testcases
       rhgr_nconst(1)  = 0.0_wp ! 
       rhgr_nconst(2)  = 0.0_wp ! 
       rhgr_nconst(3)  = 0.0_wp
+    ! for the piecewise polytropic layers
+    nlayers_poly = 2
+    p_base_poly = 100000._wp
+    h_poly(:) = 1.0_wp
+     h_poly(1) = 0._wp
+     h_poly(2) = 12000._wp
+    t_poly(:) = 280._wp
+     t_poly(1) = 288._wp
+     t_poly(2) = 213._wp
+    rh_poly(:) = 0.1_wp
+     rh_poly(1)= 0.8_wp
+     rh_poly(2)= 0.2_wp
+    rhgr_poly(:)= 1.e-6_wp
+     rhgr_poly(1)=5.e-5_wp
+     rhgr_poly(1)=0._wp
     ! for the wind profiles
     vel_const = 20.0_wp
     itype_anaprof_uv  = 1
@@ -272,10 +301,18 @@ MODULE mo_nh_testcases
     ugr_linwind(:)    = 0._wp
       ugr_linwind(1)  = 0._wp
       ugr_linwind(2)  = 0._wp
-
-    
-    
-    
+     itype_topo_ana   = 1
+    !For the Schaer mountain
+    schaer_h0 = 250.0_wp
+    schaer_a  = 5000.0_wp
+    schaer_lambda = 4000._wp
+    halfwidth_2dm = 100000.0_wp
+    !For a mountain
+    mount_lonc_deg = 90.0_wp
+    mount_latc_deg = 0.0_wp
+    m_height       = 1000.0_wp
+    m_width_x      = 5000.0_wp
+    m_width_y      = 5000.0_wp
 
     CALL open_nml(TRIM(filename))
     CALL position_nml ('nh_testcase_nml', status=i_status)
@@ -518,9 +555,20 @@ MODULE mo_nh_testcases
 
    ! The topography has been initialized to 0 at the begining of this SUB
     CALL message(TRIM(routine),'running Aqua-Planet Experiment')
+
   CASE ('g_lim_area')
 
-   ! The topography has been initialized to 0 at the begining of this SUB
+    DO jg = 1, n_dom 
+     nblks_c   = p_patch(jg)%nblks_int_c
+     npromz_c  = p_patch(jg)%npromz_c
+     nblks_v   = p_patch(jg)%nblks_int_v
+     npromz_v  = p_patch(jg)%npromz_v
+
+     CALL init_nh_topo_ana ( p_patch(jg), lplane, ext_data(jg)%atm%topography_c,  &
+                          & ext_data(jg)%atm%topography_v, nblks_c, npromz_c,     &
+                          & nblks_v, npromz_v )
+
+    END DO
     CALL message(TRIM(routine),'running g_lim_area')
 
   CASE DEFAULT
@@ -970,11 +1018,29 @@ MODULE mo_nh_testcases
    DO jg = 1, n_dom
 
          ! initialize environment atmosphere
+    SELECT CASE (itype_atmo_ana)
+
+    CASE(1)
     
-    CALL   init_nh_atmo_ana_nconstlayers( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
+      CALL  init_nh_atmo_ana_nconstlayers( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
                                      & p_nh_state(jg)%diag,                 &
                                      & p_nh_state(jg)%metrics,              &
                                      & p_int(jg),l_hydro_adjust  )
+    CASE(2) 
+      CALL  init_nh_atmo_ana_poly( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
+                                     & p_nh_state(jg)%diag,                 &
+                                     & p_nh_state(jg)%metrics,              &
+                                     & p_int(jg),l_hydro_adjust  )
+
+    CASE default
+     WRITE(message_text,'(a)') &
+             & 'You should define a valid option for    &
+             & itype_atmo_ana for the &
+             & g_lim_area test case'
+            CALL finish  (routine, TRIM(message_text))
+
+    END SELECT
+ 
          ! initialize wind
     CALL   init_nh_anaprof_uv  ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%vn, &
                                & p_nh_state(jg)%prog(nnow(jg))%w,               &
