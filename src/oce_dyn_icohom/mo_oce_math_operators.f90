@@ -451,24 +451,23 @@ SUBROUTINE grad_fd_norm_oce_2d( psi_c, ptr_patch, grad_norm_psi_e)
     !$OMP DO PRIVATE(jb,nlen,je)
     DO jb = 1, nblks_e
 
-    IF (jb /= nblks_e) THEN
-      nlen = nproma
-    ELSE
-      nlen = npromz_e
-    ENDIF
+      IF (jb /= nblks_e) THEN
+        nlen = nproma
+      ELSE
+        nlen = npromz_e
+      ENDIF
 
-    DO je = 1, nlen
-    !
-    ! compute the normal derivative
-    ! by the finite difference approximation
-    ! (see Bonaventura and Ringler MWR 2005)
-    !
-    grad_norm_psi_e(je,jb) =  &
-      &  ( psi_c(iidx(je,jb,2),iblk(je,jb,2)) - &
-      &    psi_c(iidx(je,jb,1),iblk(je,jb,1)) )  &
-      &  * ptr_patch%edges%inv_dual_edge_length(je,jb) &
-      &  * ptr_patch%edges%system_orientation(je,jb)
-    ENDDO
+      DO je = 1, nlen
+        !
+        ! compute the normal derivative
+        ! by the finite difference approximation
+        ! (see Bonaventura and Ringler MWR 2005)
+        !
+        grad_norm_psi_e(je,jb) =  &
+          &  ( psi_c(iidx(je,jb,2),iblk(je,jb,2)) - psi_c(iidx(je,jb,1),iblk(je,jb,1)) ) &
+          &  * ptr_patch%edges%inv_dual_edge_length(je,jb) &
+          &  * ptr_patch%edges%system_orientation(je,jb)
+      ENDDO
     END DO
     !$OMP END DO
   END SELECT
