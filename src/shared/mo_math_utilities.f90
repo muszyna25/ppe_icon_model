@@ -89,6 +89,7 @@ MODULE mo_math_utilities
 !
 !
 
+!define SINGULARITY_CHECKS
 !
 
   USE mo_kind,                ONLY: wp
@@ -387,13 +388,14 @@ MODULE mo_math_utilities
         z_max = z_temp
       ENDIF
     ENDDO
-
+#if defined(SINGULARITY_CHECKS)
     IF (z_max <= 1.e-12_wp) THEN
       CALL message ('mo_math_utilities:ludec', &
                    & 'error in matrix inversion, nearly singular matrix')
       CALL finish  ('mo_math_utilities:ludec', &
                    &'error in matrix inversion, nearly singular matrix')
     ENDIF
+#endif
 
     z_rmax(ji) = 1._wp / z_max
   ENDDO
@@ -434,14 +436,14 @@ MODULE mo_math_utilities
     ENDIF
 
     k_pivot(jj) = imax
-
+#if defined(SINGULARITY_CHECKS)
     IF (ABS(p_a(jj,jj)) <= 1.e-12_wp) THEN
       CALL message ('mo_math_utilities:ludec', &
                    & 'error  in matrix inversion, nearly singular matrix 2')
       CALL finish  ('mo_math_utilities:ludec', &
                    & 'error  in matrix inversion, nearly singular matrix 2')
     ENDIF
-
+#endif
     IF (jj /= k_dim) THEN
       z_dum = 1._wp / p_a(jj,jj)
       DO ji = jj + 1, k_dim
@@ -561,14 +563,18 @@ MODULE mo_math_utilities
       ENDDO
 
       IF (ji == jj) THEN
+#if defined(SINGULARITY_CHECKS)
         IF (z_sum <= 1.e-12_wp) THEN
           CALL message ('mo_math_utilities:choldec',                           &
                       & 'error in matrix inversion, nearly singular matrix')
           CALL finish  ('mo_math_utilities:choldec',                           &
                       & 'error in matrix inversion, nearly singular matrix')
         ELSE
+#endif
           p_diag(ji) = SQRT(z_sum)
+#if defined(SINGULARITY_CHECKS)
         ENDIF
+#endif
       ELSE
         p_a(jj,ji) = z_sum / p_diag(ji)
       ENDIF
@@ -662,6 +668,7 @@ DO jc = istart, iend
       ENDDO
 
       IF (ji == jj) THEN
+#if defined(SINGULARITY_CHECKS)
         IF (z_sum <= 1.e-12_wp) THEN
           WRITE (*,*) p_a
           CALL message ('mo_math_utilities:choldec',                           &
@@ -669,8 +676,11 @@ DO jc = istart, iend
           CALL finish  ('mo_math_utilities:choldec',                           &
                       & 'error in matrix inversion, nearly singular matrix')
         ELSE
+#endif
           p_diag(jc,ji) = SQRT(z_sum)
+#if defined(SINGULARITY_CHECKS)
         ENDIF
+#endif
       ELSE
         p_a(jc,jj,ji) = z_sum / p_diag(jc,ji)
       ENDIF
