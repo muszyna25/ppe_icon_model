@@ -32,25 +32,59 @@ copy_files ()
     dir_name=`echo $file | cut -d '/' -f2-10`
     name=`basename $dir_name .$1`
     dir=`dirname $dir_name`
-#    echo "DIR: $dir NAME: $name"
     mkdir -p ${BASE_DIR}/${dir}
-#    echo "Copy:"
-#    echo "Source: experiments/${dir}/${name}"
-#    echo "Target: ${BASE_DIR}/${dir}/${name}"
+
     cp experiments/${dir}/${name}.$1 ${BASE_DIR}/${dir}/${name}.$1
-#    convert experiments/${dir}/${name}.$1 ${BASE_DIR}/${dir}/${name}.png
+ 
+    if [ "x$1" = "xps" -o "x$1" = "xeps" ]
+    then
+      if [ ${CONVERT_STATUS} = 0 ]
+      then
+        ${CONVERT} experiments/${dir}/${name}.$1 ${BASE_DIR}/${dir}/${name}.png
+        echo "INFO: Convert ${name}.$1  --> ${name}.png "
+      else
+        echo "INFO: No convert available " 
+      fi
+    fi
+  done
+}
+
+build_png_files ()
+{
+
+  for file in $FILES
+  do
+    dir_name=`echo $file | cut -d '/' -f2-10`
+    name=`basename $dir_name .$1`
+    dir=`dirname $dir_name`
+
+    mkdir -p ${BASE_DIR}/${dir}
+
+    if [ ${CONVERT_STATUS} = 0 ]
+    then
+      ${CONVERT} experiments/${dir}/${name}.$1 ${BASE_DIR}/${dir}/${name}.png
+      echo "INFO: Convert ${name}.$1  --> ${name}.png "
+    else
+      cp experiments/${dir}/${name}.$1 ${BASE_DIR}/${dir}/${name}.$1
+      echo "INFO: Copy ${name}.$1"
+    fi
   done
 }
 
 #===============================================================
 # Script begin
 #===============================================================
-set -x
+#set -x
 #---------------------------------------------------------------------
 #---------------------------------------------------------------------
 # Save Plots for Buildbot web-Page
 #---------------------------------------------------------------------
 #---------------------------------------------------------------------
+
+# Check if convert is known
+
+CONVERT=`which convert`
+CONVERT_STATUS=$?
 
 if [ "x${BUILDER}" = "x" ]
 then
@@ -97,14 +131,20 @@ then
 fi
 
 mkdir -p ${BASE_DIR}
+
 pwd
 echo "Copy eps-files"
 FILES=`find experiments -name '*.eps'`
 copy_files eps
+
 pwd
 echo "Copy ps-files"
 FILES=`find experiments -name '*.ps'`
 copy_files ps
+
+echo "Copy png-files"
+FILES=`find experiments -name '*.png'`
+copy_files png
 
 #==================== Begin =====================================================
 # The following part of the script is included to check the download from buildbot.
