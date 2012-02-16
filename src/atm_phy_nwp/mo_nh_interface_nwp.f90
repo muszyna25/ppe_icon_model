@@ -90,7 +90,7 @@ MODULE mo_nh_interface_nwp
   USE mo_nwp_sfc_interface,  ONLY: nwp_surface
   USE mo_nwp_conv_interface, ONLY: nwp_convection
   USE mo_nwp_rad_interface,  ONLY: nwp_radiation
-  USE mo_sync,               ONLY: sync_patch_array, sync_patch_array_mult, &
+  USE mo_sync,               ONLY: sync_patch_array, sync_patch_array_mult, SYNC_E, &
                                    SYNC_C, SYNC_C1, global_max, global_sum_array
   USE mo_mpi,                ONLY: my_process_is_mpi_all_parallel
   USE mo_nwp_diagnosis,      ONLY: nwp_diagnosis
@@ -1246,15 +1246,13 @@ CONTAINS
 &                       i_startidx, i_endidx, rl_start, rl_end)
 
         z_ddt_u_tot(i_startidx:i_endidx,:,jb) =                   &
-   &        prm_nwp_tend%ddt_u_turb    (i_startidx:i_endidx,:,jb) &
-   &      + prm_nwp_tend%ddt_u_gwd     (i_startidx:i_endidx,:,jb) &
+   &        prm_nwp_tend%ddt_u_gwd     (i_startidx:i_endidx,:,jb) &
    &      + prm_nwp_tend%ddt_u_raylfric(i_startidx:i_endidx,:,jb) &
    &      + prm_nwp_tend%ddt_u_sso     (i_startidx:i_endidx,:,jb) &
    &      + prm_nwp_tend%ddt_u_pconv  ( i_startidx:i_endidx,:,jb)
 
         z_ddt_v_tot(i_startidx:i_endidx,:,jb) =                   &
-   &        prm_nwp_tend%ddt_v_turb    (i_startidx:i_endidx,:,jb) &
-   &      + prm_nwp_tend%ddt_v_gwd     (i_startidx:i_endidx,:,jb) &
+   &        prm_nwp_tend%ddt_v_gwd     (i_startidx:i_endidx,:,jb) &
    &      + prm_nwp_tend%ddt_v_raylfric(i_startidx:i_endidx,:,jb) &
    &      + prm_nwp_tend%ddt_v_sso     (i_startidx:i_endidx,:,jb) &
    &      + prm_nwp_tend%ddt_v_pconv  ( i_startidx:i_endidx,:,jb)
@@ -1263,7 +1261,8 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
-    CALL sync_patch_array_mult(SYNC_C1, pt_patch, 2, z_ddt_u_tot, z_ddt_v_tot)
+    CALL sync_patch_array_mult(SYNC_C1, pt_patch, 4, z_ddt_u_tot, z_ddt_v_tot, &
+                               prm_nwp_tend%ddt_u_turb, prm_nwp_tend%ddt_v_turb)
 
       !-------------------------------------------------------------------------
       !>
@@ -1293,7 +1292,7 @@ CONTAINS
         DO jce = i_startidx, i_endidx
           DO jk = 1, nlev
 #else
-!CDIR UNROLL=8
+!CDIR UNROLL=5
         DO jk = 1, nlev
           DO jce = i_startidx, i_endidx
 #endif
@@ -1308,6 +1307,19 @@ CONTAINS
 &                                    * pt_patch%edges%primal_normal_cell(jce,jb,2)%v1  &
 &                                  +  z_ddt_v_tot(iidx(jce,jb,2),jk,iblk(jce,jb,2))    &
 &                                   *  pt_patch%edges%primal_normal_cell(jce,jb,2)%v2 )
+
+            pt_prog%vn(jce,jk,jb) = pt_prog%vn(jce,jk,jb) + dtadv_loc * (              &
+                                              pt_int_state%c_lin_e(jce,1,jb)           &
+&                     * ( prm_nwp_tend%ddt_u_turb(iidx(jce,jb,1),jk,iblk(jce,jb,1))    &
+&                                   *  pt_patch%edges%primal_normal_cell(jce,jb,1)%v1  &
+&                       + prm_nwp_tend%ddt_v_turb(iidx(jce,jb,1),jk,iblk(jce,jb,1))    &
+&                                   *  pt_patch%edges%primal_normal_cell(jce,jb,1)%v2 )&
+&                                                 + pt_int_state%c_lin_e(jce,2,jb)     &
+&                     * ( prm_nwp_tend%ddt_u_turb(iidx(jce,jb,2),jk,iblk(jce,jb,2))    &
+&                                    * pt_patch%edges%primal_normal_cell(jce,jb,2)%v1  &
+&                      +  prm_nwp_tend%ddt_v_turb(iidx(jce,jb,2),jk,iblk(jce,jb,2))    &
+&                                  *  pt_patch%edges%primal_normal_cell(jce,jb,2)%v2 ) )
+
           ENDDO
         ENDDO
       ENDDO
@@ -1384,6 +1396,8 @@ CONTAINS
       ENDIF
 
 !$OMP END PARALLEL
+
+      CALL sync_patch_array(SYNC_E, pt_patch, pt_prog%vn)
 
       IF (ltimer) CALL timer_stop(timer_physic_acc_2)
 
