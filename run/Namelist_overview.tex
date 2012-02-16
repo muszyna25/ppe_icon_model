@@ -4392,11 +4392,17 @@ u=v=0, topography=0.0).&
 with Jablonowski Williamson initial conditions and zero topography.&
 \tabularnewline
 &&&&'APE\_nh': Initializes the APE experiments. With the 
-jabw test case, including moisture.&\tabularnewline
+jabw test case, including moisture.&
+\tabularnewline
 &&&&'wk82': Initializes the Weisman Klemp test case&
 l\_limited\_area =.TRUE.
 \tabularnewline
-
+&&&&'g\_lim\_area': Initializes a series of general limited area test cases:
+ itype\_atmos\_ana determines the atmospheric profile, itype\_anaprof\_uv 
+determines the wind profile and itype\_topo\_ana determines the topography&
+l\_limited\_area =.TRUE. \\
+and lcoriolis = .FALSE.
+\tabularnewline
 \hline
 jw\_up&
 R& 1.0& m/s&
@@ -4631,6 +4637,227 @@ R& 1400.& m&
 vertical radius of the thermal perturbation&
 nh\_test\_name='wk82'
 \tabularnewline
+
+\hline 
+itype\_atmo\_ana&
+I& 1 & &
+kind of atmospheric profile:\\
+1 piecewise N constant layers\\
+2 piecewise polytropic layers&
+nh\_test\_name=\\'g\_lim\_area'
+\tabularnewline
+\hline 
+itype\_anaprof\_uv&
+I& 1 & &
+kind of wind profile:\\
+1 piecewise linear wind layers\\
+2 constant zonal wind\\
+3 constant meridional wind&
+nh\_test\_name=\\'g\_lim\_area'
+\tabularnewline
+\hline 
+itype\_topo\_ana&
+I& 1 & &
+kind of orography:\\
+1 schaer test case mountain\\
+2 gaussian\_2d mountain\\
+3 gaussian\_3d mountain\\
+any other no orography&
+nh\_test\_name=\\'g\_lim\_area'
+\tabularnewline
+\hline 
+nlayers\_nconst&
+I& 1 & &
+Number of the desired layers with a constant Brunt-Vaisala-frequency&
+nh\_test\_name=\\'g\_lim\_area' and 
+itype\_atmo\_ana=1
+\tabularnewline
+\hline 
+p\_base\_nconst&
+R& 100000. & Pa &
+pressure at the base of the first N constant layer&
+nh\_test\_name=\\'g\_lim\_area' and 
+itype\_atmo\_ana=1
+\tabularnewline
+\hline 
+theta0\_base\_nconst&
+R& 288. & K &
+potential temperature at the base of the first N constant layer&
+nh\_test\_name=\\'g\_lim\_area' and 
+itype\_atmo\_ana=1
+\tabularnewline
+\hline 
+h\_nconst&
+R(nlayers\_nconst)& 0., 1500., 12000.  & m &
+height of the base of each of the N constant layers&
+nh\_test\_name=\\'g\_lim\_area' and 
+itype\_atmo\_ana=1
+\tabularnewline
+\hline 
+N\_nconst&
+R(nlayers\_nconst)& 0.01  & 1/s &
+Brunt-Vaisala-frequency at each of the N constant layers&
+nh\_test\_name=\\'g\_lim\_area' and 
+itype\_atmo\_ana=1
+\tabularnewline
+\hline 
+rh\_nconst&
+R(nlayers\_nconst)& 0.5  & \% &
+relative humidity at the base of each N constant layers&
+nh\_test\_name=\\'g\_lim\_area' and 
+itype\_atmo\_ana=1
+\tabularnewline
+\hline 
+rhgr\_nconst&
+R(nlayers\_nconst)& 0.  & \% &
+relative humidity gradient at each of the N constant layers&
+nh\_test\_name=\\'g\_lim\_area' and 
+itype\_atmo\_ana=1
+\tabularnewline
+\hline 
+nlayers\_poly&
+I& 2 & &
+Number of the desired layers with constant gradient temperature&
+nh\_test\_name=\\'g\_lim\_area' and 
+itype\_atmo\_ana=2
+\tabularnewline
+\hline 
+p\_base\_poly&
+R& 100000. & Pa &
+pressure at the base of the first polytropic layer&
+nh\_test\_name=\\'g\_lim\_area' and 
+itype\_atmo\_ana=2
+\tabularnewline
+\hline 
+h\_poly&
+R(nlayers\_poly)& 0., 12000.  & m &
+height of the base of each of the polytropic layers&
+nh\_test\_name=\\'g\_lim\_area' and 
+itype\_atmo\_ana=2
+\tabularnewline
+\hline 
+t\_poly&
+R(nlayers\_poly)& 288., 213.  & K &
+temperature at the base of each of the polytropic layers&
+nh\_test\_name=\\'g\_lim\_area' and 
+itype\_atmo\_ana=2
+\tabularnewline
+\hline 
+rh\_poly&
+R(nlayers\_poly)& 0.8, 0.2  & \% &
+relative humidity at the base of each of the polytropic layers&
+nh\_test\_name=\\'g\_lim\_area' and 
+itype\_atmo\_ana=2
+\tabularnewline
+\hline 
+rhgr\_poly&
+R(nlayers\_poly)& 5.e-5, 0. & \% &
+relative humidity gradient at each of the polytropic layers&
+nh\_test\_name=\\'g\_lim\_area' and 
+itype\_atmo\_ana=2
+\tabularnewline
+\hline 
+nlayers\_linwind&
+I& 2 & &
+Number of the desired layers with constant U gradient &
+nh\_test\_name=\\'g\_lim\_area' and 
+itype\_anaprof\_uv=1
+\tabularnewline
+\hline 
+h\_linwind&
+R(nlayers\_linwind)& 0., 2500.  & m &
+height of the base of each of the linear wind layers&
+nh\_test\_name=\\'g\_lim\_area' and 
+itype\_anaprof\_uv=1
+\tabularnewline
+\hline 
+u\_linwind&
+R(nlayers\_linwind)& 5,  10.  & m/s &
+zonal wind at the base of each of the linear wind layers&
+nh\_test\_name=\\'g\_lim\_area' and
+itype\_anaprof\_uv=1
+\tabularnewline
+\hline 
+ugr\_linwind&
+R(nlayers\_linwind)& 0., 0. & 1/s &
+zonal wind gradient at each of the linear wind layers&
+nh\_test\_name=\\'g\_lim\_area' and 
+itype\_anaprof\_uv=1
+\tabularnewline
+\hline 
+vel\_const&
+R& 20. & m/s &
+constant zonal/meridional wind (itype\_anaprof\_uv=2,3)&
+nh\_test\_name=\\'g\_lim\_area' and 
+itype\_anaprof\_uv=2,3
+\tabularnewline
+\hline 
+mount\_lonc\_deg&
+R& 90. & deg &
+longitud of the center of the  mountain&
+nh\_test\_name=\\'g\_lim\_area' 
+\tabularnewline
+\hline 
+mount\_latc\_deg&
+R& 0. & deg &
+latitud of the center of the  mountain&
+nh\_test\_name=\\'g\_lim\_area' 
+\tabularnewline
+\hline 
+schaer\_h0&
+R& 250. & m &
+h0 parameter for the schaer mountain&
+nh\_test\_name=\\'g\_lim\_area' and 
+itype\_topo\_ana=1
+\tabularnewline
+\hline 
+schaer\_a&
+R& 5000. & m &
+-a- parameter for the schaer mountain, \\
+also half width in the north and south side of the 
+finite ridge to round the sharp edges&
+nh\_test\_name=\\'g\_lim\_area' and 
+itype\_topo\_ana=1,2
+\tabularnewline
+\hline 
+schaer\_lambda&
+R& 4000. & m &
+lambda parameter for the schaer mountain&
+nh\_test\_name=\\'g\_lim\_area' and 
+itype\_topo\_ana=1
+\tabularnewline
+\hline 
+halfwidth\_2d&
+R& 10000. & m &
+half lenght of the finite ridge in the north-south 
+direction&
+nh\_test\_name=\\'g\_lim\_area' and 
+itype\_topo\_ana=1,2
+\tabularnewline
+\hline 
+m\_height&
+R& 1000. & m &
+height of the mountain&
+nh\_test\_name=\\'g\_lim\_area' and 
+itype\_topo\_ana=2,3
+\tabularnewline
+\hline 
+m\_width\_x&
+R& 5000. & m &
+half width of the gaussian mountain in the east-west direction \\
+half width in the north-south direction in the rounding of the 
+finite ridge (gaussian\_2d)&
+nh\_test\_name=\\'g\_lim\_area' and 
+itype\_topo\_ana=2,3
+\tabularnewline
+\hline 
+m\_width\_y&
+R& 5000. & m &
+half width of the gaussian mountain in the north-south direction&
+nh\_test\_name=\\'g\_lim\_area' and 
+itype\_topo\_ana=2,3
+\tabularnewline
+
 
 \end{longtab}
 
