@@ -559,7 +559,6 @@ CONTAINS
       END DO
 
       ! Build external data list for time-dependent fields
-!      IF (iforcing==inwp) THEN
       IF (iforcing > 1 ) THEN ! further distinction is made inside
       DO jg = 1, n_dom
           WRITE(listname,'(a,i2.2)') 'ext_data_atm_td_D',jg
@@ -1421,7 +1420,7 @@ CONTAINS
         CALL delete_var_list( ext_data(jg)%atm_list )
       ENDDO
 
-      IF (iforcing==inwp) THEN
+      IF (iforcing > 1 ) THEN
       DO jg = 1,n_dom
         ! Delete list of time-dependent atmospheric elements
         CALL delete_var_list( ext_data(jg)%atm_td_list )

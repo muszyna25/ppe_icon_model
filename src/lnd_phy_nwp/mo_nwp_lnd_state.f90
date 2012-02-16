@@ -244,19 +244,6 @@ MODULE mo_nwp_lnd_state
       !determine size of arrays
       nblks_c = p_patch(jg)%nblks_c
 
-!!$      ! If grid nesting is not called at every dynamics time step, an extra time
-!!$      ! level is needed for full-field interpolation and boundary-tendency calculation
-!!$      IF (l_nest_rcf .AND. n_dom > 1) THEN
-!!$        ntl = ntl + 1
-!!$        nsav1(jg) = ntl
-!!$      ENDIF
-
-!!$      ! In the presence of grid nesting, another extra time level is needed to save
-!!$      ! the feedback increments
-!!$      ! This extra time level is also used to store the driving-model data in the
-!!$      ! limited-area mode
-!!$      IF (l_limited_area .OR. jg > 1) ntl = ntl + 1
-!!$      nsav2(jg) = ntl
 
       !
       !create state arrays and lists
@@ -314,9 +301,8 @@ MODULE mo_nwp_lnd_state
   !! @par Revision History
   !! Initial release by Kristina Froehlich (2010-11-09)
   !!
-  SUBROUTINE destruct_nwp_lnd_state(p_lnd_state, n_timelevels)
+  SUBROUTINE destruct_nwp_lnd_state(p_lnd_state)
    !
-    INTEGER, OPTIONAL, INTENT(IN)     :: n_timelevels ! number of timelevels
     TYPE(t_lnd_state),  INTENT(INOUT) :: & 
       &   p_lnd_state(n_dom)             ! land state at different grid levels
 
@@ -333,19 +319,11 @@ MODULE mo_nwp_lnd_state
 
     DO jg = 1, n_dom
 
-      IF(PRESENT(n_timelevels))THEN
-        ntl = n_timelevels
-      ELSE
-        ntl = 1
-      ENDIF
-
+      ntl = SIZE(p_lnd_state(jg)%prog_lnd(:))
       IF(ntl==0)THEN
-        CALL finish('mo_land_state:destruct_lnd_state', &
-                    'prognostic array has no timelevels')
+        CALL finish(TRIM(routine), 'prognostic array has no timelevels')
       ENDIF
 
-      ! delete diagnostic state list elements
-      CALL delete_var_list( p_lnd_state(jg)%lnd_diag_nwp_list )
 
       DO jt = 1, ntl
         ! delete prognostic state list elements
@@ -353,13 +331,17 @@ MODULE mo_nwp_lnd_state
       ENDDO
 
 
+      ! delete diagnostic state list elements
+      CALL delete_var_list( p_lnd_state(jg)%lnd_diag_nwp_list )
+
+
       ! destruct state lists and arrays
       DEALLOCATE(p_lnd_state(jg)%prog_lnd,&
            &     p_lnd_state(jg)%lnd_prog_nwp_list, STAT=ist)
-        IF(ist/=SUCCESS)THEN
-          CALL finish (TRIM(routine),  &
-               'deallocation of land prognostic state array failed')
-        ENDIF
+      IF(ist/=SUCCESS)THEN
+        CALL finish (TRIM(routine),  &
+             'deallocation of land prognostic state array failed')
+      ENDIF
 
     ENDDO
 

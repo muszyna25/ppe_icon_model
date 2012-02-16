@@ -133,10 +133,11 @@ MODULE mo_nonhydro_state
     INTEGER, OPTIONAL, INTENT(IN)   ::  & ! number of timelevels
       &  n_timelevels    
 
-    INTEGER  :: ntl, &    ! local number of timelevels
-                ist, &    ! status
-                jg,  &    ! grid level counter
-                jt        ! time level counter
+    INTEGER  :: ntl,      &! local number of timelevels
+                ntl_pure, &! local number of timelevels (without any extra timelevs)
+                ist,      &! status
+                jg,       &! grid level counter
+                jt         ! time level counter
 
     LOGICAL  :: l_extra_timelev
 
@@ -151,9 +152,11 @@ MODULE mo_nonhydro_state
     DO jg = 1, n_dom
 
       IF(PRESENT(n_timelevels))THEN
-        ntl = n_timelevels
+        ntl      = n_timelevels
+        ntl_pure = n_timelevels
       ELSE
-        ntl = 1
+        ntl      = 1
+        ntl_pure = 1
       ENDIF
 
       ! If grid nesting is not called at every dynamics time step, an extra time
@@ -188,8 +191,8 @@ MODULE mo_nonhydro_state
           &          'allocation of prognostic state list array failed')
       ENDIF
 
-      ! create tracer list
-      ALLOCATE(p_nh_state(jg)%tracer_list(1:ntl), STAT=ist)
+      ! create tracer list (no extra timelevels)
+      ALLOCATE(p_nh_state(jg)%tracer_list(1:ntl_pure), STAT=ist)
       IF(ist/=SUCCESS)THEN
         CALL finish (TRIM(routine),                                    &
           &          'allocation of prognostic tracer list array failed')
@@ -291,10 +294,11 @@ MODULE mo_nonhydro_state
     TYPE(t_nh_state), INTENT(INOUT) :: & ! nh state at different grid levels
       &  p_nh_state(n_dom)
                                              
-    INTEGER  :: ntl, &    ! local number of timelevels
-                ist, &    ! status
-                jg,  &    ! grid level counter
-                jt        ! time level counter
+    INTEGER  :: ntl_prog, & ! number of timelevels prog state
+                ntl_tra,  & ! number of timelevels 
+                ist, &      ! status
+                jg,  &      ! grid level counter
+                jt          ! time level counter
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nonhydro_state:destruct_nh_state'
@@ -305,9 +309,14 @@ MODULE mo_nonhydro_state
 
     DO jg = 1, n_dom
 
-      ntl = SIZE(p_nh_state(jg)%prog(:))
-      IF(ntl==0)THEN
+      ntl_prog = SIZE(p_nh_state(jg)%prog(:))
+      IF(ntl_prog==0)THEN
         CALL finish(TRIM(routine), 'prognostic array has no timelevels')
+      ENDIF
+
+      ntl_tra = SIZE(p_nh_state(jg)%tracer_list(:))
+      IF(ntl_tra==0)THEN
+        CALL finish(TRIM(routine), 'tracer list has no timelevels')
       ENDIF
 
       ! delete diagnostic state list elements
@@ -327,12 +336,12 @@ MODULE mo_nonhydro_state
 
 
       ! delete prognostic state list elements
-      DO jt = 1, ntl
+      DO jt = 1, ntl_prog
         CALL delete_var_list( p_nh_state(jg)%prog_list(jt) )
       ENDDO
 
       ! delete tracer list list elements
-      DO jt = 1, 2  ! no extra time level  !! quick fix !!
+      DO jt = 1, ntl_tra
         CALL delete_var_list( p_nh_state(jg)%tracer_list(jt) )
       ENDDO
 

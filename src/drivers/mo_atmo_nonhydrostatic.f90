@@ -385,7 +385,7 @@ CONTAINS
 
     IF (iforcing == inwp) THEN
       CALL destruct_nwp_phy_state
-      CALL destruct_nwp_lnd_state(p_lnd_state)
+      CALL destruct_nwp_lnd_state( p_lnd_state )
       CALL destruct_tiles_arrays(p_tiles)
     ENDIF
 
