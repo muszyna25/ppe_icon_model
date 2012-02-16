@@ -55,7 +55,8 @@ USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer, idisc_scheme,    &
 USE mo_physical_constants,        ONLY: tf
 USE mo_parallel_config,           ONLY: nproma
 USE mo_dynamics_config,           ONLY: nold, nnew 
-USE mo_run_config,                ONLY: dtime
+USE mo_run_config,                ONLY: dtime, ltimer
+USE mo_timer,                     ONLY: timer_start, timer_stop, timer_adv_horz, timer_hflx_lim
 USE mo_oce_state,                 ONLY: t_hydro_ocean_state, v_base, is_initial_timestep
 USE mo_model_domain,              ONLY: t_patch
 USE mo_exception,                 ONLY: finish !, message_text, message
@@ -198,7 +199,11 @@ z_h_tmp_c       = 0.0_wp
 !     END DO
 !   END DO
 
+  ! Initialize timer for horizontal advection
+  IF (ltimer) CALL timer_start(timer_adv_horz)
+
   !Step 1) Horizontal advection and diffusion
+
   SELECT CASE(FLUX_CALCULATION_HORZ)
 
   CASE(UPWIND)!, MIMETIC)
@@ -247,6 +252,8 @@ z_h_tmp_c       = 0.0_wp
                         & p_os%p_diag%p_vn_dual,&
                         & z_adv_flux_h )
   END SELECT
+
+  IF (ltimer) CALL timer_stop(timer_adv_horz)
  
   DO jb = i_startblk_e, i_endblk_e
     CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, &
@@ -295,6 +302,7 @@ z_h_tmp_c       = 0.0_wp
   END DO
 
   IF(FLUX_CALCULATION_HORZ==MIMETIC_MIURA .OR. FLUX_CALCULATION_HORZ==MIMETIC)THEN
+     IF (ltimer) CALL timer_start(timer_hflx_lim)
      z_h_tmp_c = z_adv_flux_h
      CALL hflx_limiter_oce_mo( p_patch,&
 &                              trac_old,       &  !p_cc
@@ -302,6 +310,7 @@ z_h_tmp_c       = 0.0_wp
 &                              z_adv_flux_h,   &  !p_mflx_tracer_h
 &                              z_h,            &  !p_thick_old,    
 &                              dummy_h_c)      !  !p_thick_new)
+     IF (ltimer) CALL timer_stop(timer_hflx_lim)
   ENDIF
 
 

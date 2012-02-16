@@ -2505,7 +2505,7 @@ END DO
       IF (no_cor == 0) exit
       WRITE(message_text,'(a,i4,a,i8)') 'Corrected Caribbean region - iter=', &
         &                              jiter,' no of cor:',no_cor
-      CALL message(TRIM(routine), TRIM(message_text))
+      !CALL message(TRIM(routine), TRIM(message_text))
       g_cor=g_cor+no_cor
 
     END DO

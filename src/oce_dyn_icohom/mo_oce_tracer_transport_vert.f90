@@ -54,7 +54,8 @@ USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer, idisc_scheme,    &
 USE mo_physical_constants,        ONLY: tf
 USE mo_parallel_config,           ONLY: nproma
 USE mo_dynamics_config,           ONLY: nold, nnew 
-USE mo_run_config,                ONLY: dtime
+USE mo_run_config,                ONLY: dtime, ltimer
+USE mo_timer,                     ONLY: timer_start, timer_stop, timer_adv_vert, timer_ppm_slim
 USE mo_oce_state,                 ONLY: t_hydro_ocean_state, v_base, is_initial_timestep
 USE mo_model_domain,              ONLY: t_patch
 USE mo_exception,                 ONLY: finish !, message_text, message
@@ -238,6 +239,7 @@ z_transport_w  = ab_gam*p_os%p_diag%w + (1.0_wp-ab_gam)*p_os%p_diag%w_old
       END DO
     END DO
   END DO 
+
 !IF(ldbg)THEN
  !DO jk = 1, n_zlev
  !  write(*,*)'max/min adv flux & div:',jk,&
@@ -251,6 +253,8 @@ z_transport_w  = ab_gam*p_os%p_diag%w + (1.0_wp-ab_gam)*p_os%p_diag%w_old
 !ENDIF 
 
 
+! Initialize timer for horizontal advection
+IF (ltimer) CALL timer_start(timer_adv_vert)
 
 SELECT CASE(FLUX_CALCULATION_VERT)
 
@@ -273,6 +277,8 @@ CASE(MIMETIC)
     &                    dummy_h_c_new,       &!p_cellhgt_mc_now, &
     &                    z_adv_flux_v)
 END SELECT
+
+IF (ltimer) CALL timer_stop(timer_adv_vert)
  
 !divergence is calculated for advective fluxes
 DO jb = i_startblk_c, i_endblk_c
@@ -1012,8 +1018,10 @@ END SUBROUTINE advect_vertical
     !
      IF (p_itype_vlimit == islopel_vsm) THEN
 !       ! monotonic (mo) limiter
+       IF (ltimer) CALL timer_start(timer_ppm_slim)
        CALL v_ppm_slimiter_mo( p_patch, p_cc, z_face, z_slope, &  !in
          &                   z_face_up, z_face_low)               !inout
+       IF (ltimer) CALL timer_stop(timer_ppm_slim)
      ELSE
 !       ! simply copy face values to 'face_up' and 'face_low' arrays
  !$OMP PARALLEL
