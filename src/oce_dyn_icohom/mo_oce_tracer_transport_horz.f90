@@ -56,7 +56,8 @@ USE mo_physical_constants,        ONLY: tf
 USE mo_parallel_config,           ONLY: nproma
 USE mo_dynamics_config,           ONLY: nold, nnew 
 USE mo_run_config,                ONLY: dtime, ltimer
-USE mo_timer,                     ONLY: timer_start, timer_stop, timer_adv_horz, timer_hflx_lim
+USE mo_timer,                     ONLY: timer_start, timer_stop, timer_adv_horz, timer_hflx_lim, &
+  &                                     timer_dif_horz
 USE mo_oce_state,                 ONLY: t_hydro_ocean_state, v_base, is_initial_timestep
 USE mo_model_domain,              ONLY: t_patch
 USE mo_exception,                 ONLY: finish !, message_text, message
@@ -337,11 +338,13 @@ z_h_tmp_c       = 0.0_wp
 
 !trac_old=trac_new
   !The diffusion part: calculate horizontal diffusive flux
+  IF (ltimer) CALL timer_start(timer_dif_horz)
   CALL tracer_diffusion_horz( p_patch, &
    &                          trac_old,&
    &                          p_os,    &
    &                          K_h,     & 
    &                          z_diff_flux_h)
+  IF (ltimer) CALL timer_stop(timer_dif_horz)
 
   !Calculate divergence of diffusive flux
   CALL div_oce( z_diff_flux_h, p_patch, z_div_diff_h)

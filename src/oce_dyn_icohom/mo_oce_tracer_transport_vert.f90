@@ -55,7 +55,8 @@ USE mo_physical_constants,        ONLY: tf
 USE mo_parallel_config,           ONLY: nproma
 USE mo_dynamics_config,           ONLY: nold, nnew 
 USE mo_run_config,                ONLY: dtime, ltimer
-USE mo_timer,                     ONLY: timer_start, timer_stop, timer_adv_vert, timer_ppm_slim
+USE mo_timer,                     ONLY: timer_start, timer_stop, timer_adv_vert, timer_ppm_slim, &
+  &                                     timer_dif_vert
 USE mo_oce_state,                 ONLY: t_hydro_ocean_state, v_base, is_initial_timestep
 USE mo_model_domain,              ONLY: t_patch
 USE mo_exception,                 ONLY: finish !, message_text, message
@@ -312,6 +313,7 @@ DO jk = 1, n_zlev
 !  &maxval(z_div_adv_v(:,jk,:))
 END DO
 
+IF (ltimer) CALL timer_start(timer_dif_vert)
 
 !Case: Implicit Vertical diffusion
 IF(expl_vertical_tracer_diff==1)THEN
@@ -462,6 +464,7 @@ ELSEIF(expl_vertical_tracer_diff==0)THEN
     END DO
   END DO
 ENDIF!(lvertical_diff_implicit)THEN
+IF (ltimer) CALL timer_stop(timer_dif_vert)
 
 END SUBROUTINE advect_vertical
 !-----------------------------------------------------------------------

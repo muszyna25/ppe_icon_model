@@ -105,7 +105,8 @@ MODULE mo_timer
   PUBLIC :: timer_model_init
   PUBLIC :: timer_solve_ab, timer_tracer_ab, timer_vert_veloc, timer_normal_veloc, timer_oce_init
   PUBLIC :: timer_ab_expl, timer_ab_rhs4sfc, timer_ab_first, timer_height
-  PUBLIC :: timer_adv_horz, timer_hflx_lim, timer_adv_vert, timer_ppm_slim
+  PUBLIC :: timer_adv_horz, timer_dif_horz, timer_hflx_lim
+  PUBLIC :: timer_adv_vert, timer_dif_vert, timer_ppm_slim
   PUBLIC :: timer_print_mxmn
   PUBLIC :: timer_si_correction
   PUBLIC :: timer_cube_root
@@ -192,7 +193,8 @@ MODULE mo_timer
   INTEGER :: timer_model_init
   INTEGER :: timer_solve_ab, timer_tracer_ab, timer_vert_veloc, timer_normal_veloc, timer_oce_init
   INTEGER :: timer_ab_expl, timer_ab_rhs4sfc, timer_ab_first, timer_height
-  INTEGER :: timer_adv_horz, timer_hflx_lim, timer_adv_vert, timer_ppm_slim
+  INTEGER :: timer_adv_horz, timer_dif_horz, timer_hflx_lim
+  INTEGER :: timer_adv_vert, timer_dif_vert, timer_ppm_slim
   INTEGER :: timer_print_mxmn
   INTEGER :: timer_si_correction
   INTEGER :: timer_cube_root
@@ -322,8 +324,10 @@ CONTAINS
     timer_height        = new_timer("height")
     timer_tracer_ab     = new_timer("tracer_ab")
     timer_adv_horz      = new_timer("adv_horz")
+    timer_dif_horz      = new_timer("dif_horz")
     timer_hflx_lim      = new_timer("hflx_lim")
     timer_adv_vert      = new_timer("adv_vert")
+    timer_dif_vert      = new_timer("dif_vert")
     timer_ppm_slim      = new_timer("ppm_slim")
     timer_vert_veloc    = new_timer("vert_veloc")
     timer_normal_veloc  = new_timer("normal_veloc")
