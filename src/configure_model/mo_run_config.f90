@@ -50,7 +50,7 @@ MODULE mo_run_config
   PUBLIC :: ltransport, ntracer, ntracer_static, nlev, nlevp1, nvclev
   PUBLIC :: lvert_nest, num_lev, num_levp1, nshift, nsteps, dtime, dtime_adv
   PUBLIC :: ltimer, timers_level, activate_sync_timers, msg_level
-  PUBLIC :: iqv, iqc, iqi, iqs, iqr, iqhydro, nqtendphy, iqt, io3, ico2
+  PUBLIC :: iqv, iqc, iqi, iqs, iqr, nqtendphy, iqt, io3, ico2
   PUBLIC :: check_epsilon, testbed_mode
   PUBLIC :: configure_run, l_one_file_per_patch, ldump_dd, lread_dd, nproc_dd
   PUBLIC :: dump_filename, dd_filename
@@ -101,7 +101,6 @@ MODULE mo_run_config
     INTEGER :: iqi        !< cloud ice
     INTEGER :: iqr        !< rain water
     INTEGER :: iqs        !< snow
-    INTEGER :: iqhydro    !< index of last hydrometeor to ease summation over all of them
     INTEGER :: nqtendphy  !< number of water species for which physical tendencies are stored
   
     ! Tracer indices of other species

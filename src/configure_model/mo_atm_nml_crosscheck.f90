@@ -66,9 +66,9 @@ MODULE mo_nml_crosscheck
     &                              num_io_procs
   USE mo_run_config,         ONLY: lrestore_states, nsteps, dtime, iforcing,  &
     &                              ltransport, ntracer, nlev, io3, ltestcase, &
-    &                              iqhydro, nqtendphy, ntracer_static, iqv,   &
-    &                              iqc, iqi, iqs, iqr, iqt, ico2,             &
-    &                              ltimer, activate_sync_timers
+    &                              nqtendphy, ntracer_static, iqv, iqc, iqi,  &
+    &                              iqs, iqr, iqt, ico2, ltimer,               &
+    &                              activate_sync_timers
                                   
 !  USE mo_io_config
   USE mo_gridref_config
@@ -466,46 +466,45 @@ CONTAINS
     !--------------------------------------------------------------------
     ! Tracers and diabatic forcing
     !--------------------------------------------------------------------
-    SELECT CASE (iforcing)
-    CASE(IECHAM,ILDF_ECHAM)
-
-      IF (ntracer < 3) &
-      CALL finish(TRIM(routine),'ECHAM physics needs at least 3 tracers')
-
-    CASE(INWP)
-
-      ! If iforcing=INWP is chosen, we do not want to set ntracer explicitly.
-      ! Instead, ntracer and ntracer_static will be set automatically, 
-      ! according to the selected radiation scheme.
-      !IF (ntracer < 5) &
-      !CALL finish(TRIM(routine),'NWP physics needs at least 5 tracers')
-
-    END SELECT
 
     !
-    ! Tracer indices need to be set before further checking
+    ! Check settings of ntracer
+    !
+    ! Set tracer indices
     !
     SELECT CASE(iforcing)
     CASE (IECHAM,ILDF_ECHAM)
 
+      IF (ntracer < 3) &
+      CALL finish(TRIM(routine),'ECHAM physics needs at least 3 tracers')
+
       iqv    = 1     !> water vapour
       iqc    = 2     !! cloud water
       iqi    = 3     !! ice
-      iqhydro= iqi   !! index of last hydrometeor to ease summation over all of them
-      iqt    = 4     !! starting index of non-water species 
       io3    = 5     !! O3
       ico2   = 6     !! CO2
+      iqt    = 4     !! starting index of non-water species 
       nqtendphy = 0  !! number of water species for which convective and turbulent 
                      !! tendencies are stored
 
     CASE (INWP)
+
+      ! If iforcing=INWP is chosen, ntracer will automatically be set to 5.
+      ! In addition, ntracer_static will be set automatically as well, 
+      ! according to the selected radiation scheme (following section).
+      !
+      IF ( ntracer /= 5 ) THEN
+         ntracer = 5
+         WRITE(message_text,'(a,i3)') 'Attention: for NWP physics, '//&
+                                      'ntracer is set to',ntracer
+         CALL message(TRIM(routine),message_text)
+      ENDIF
 
       iqv    = 1     !> water vapour
       iqc    = 2     !! cloud water
       iqi    = 3     !! ice
       iqr    = 4     !! rain water
       iqs    = 5     !! snow
-      iqhydro= iqs   !! index of last hydrometeor to ease summation over all of them
       io3    = 6     !! O3
       ico2   = 7     !! CO2
       iqt    = 6     !! start index of other tracers than hydrometeors
@@ -517,14 +516,14 @@ CONTAINS
       iqv    = 1     !> water vapour
       iqc    = 2     !! cloud water
       iqi    = 3     !! ice
-      iqhydro= iqi   !! index of last hydrometeor to ease summation over all of them
-      iqt    = 4     !! starting index of non-water species
       io3    = 5     !! O3
       ico2   = 6     !! CO2
+      iqt    = 4     !! starting index of non-water species
       nqtendphy = 0  !! number of water species for which convective and turbulent 
                      !! tendencies are stored
 
     END SELECT
+
 
     ntracer_static = 0  !! Total number of non-advected (static) tracers
 
@@ -538,88 +537,48 @@ CONTAINS
       !...........................................................
       ! in NWP physics
       !...........................................................
-        
+
+        IF ( i_listlen /= ntracer ) THEN
+          DO jt=1,ntracer
+            WRITE(advection_config(jg)%ctracer_list(jt:jt),'(i1.1)')jt
+          ENDDO
+          WRITE(message_text,'(a,a)') &
+            & 'Attention: according to physics, ctracer_list is set to ',&
+            & advection_config(jg)%ctracer_list(1:ntracer)
+          CALL message(TRIM(routine),message_text)
+        ENDIF
+
+
+        ! set total number of non-advected (static) tracers
+        !
         SELECT CASE (atm_phy_nwp_config(jg)%inwp_radiation)
         CASE (0)
-          IF ( ntracer /= iqhydro ) THEN
-            ntracer = iqhydro
-            WRITE(message_text,'(a,i3)') 'Attention: for NWP physics, '//&
-                                         'ntracer is set to',iqhydro
-            CALL message(TRIM(routine),message_text)
-          ENDIF
-          IF ( i_listlen /= iqhydro ) THEN
-            DO jt=1,ntracer
-              WRITE(advection_config(jg)%ctracer_list(jt:jt),'(i1.1)')jt
-            ENDDO
-            WRITE(message_text,'(a,a)') &
-              & 'Attention: according to physics, ctracer_list is set to ',&
-              & advection_config(jg)%ctracer_list(1:ntracer)
-            CALL message(TRIM(routine),message_text)
-          ENDIF
+
         CASE (1)
           ntracer_static = 1
-          IF ( ntracer /= iqhydro ) THEN
-            ntracer = iqhydro
-            WRITE(message_text,'(a,i3)') &
-              &  'Attention: according to physics, ntracer is set to', iqhydro   
-            CALL message(TRIM(routine),message_text)
-            WRITE(message_text,'(a)') &
-              &  'In addition, there is one static tracer for O3'
-            CALL message(TRIM(routine),message_text)
-          ENDIF
-          IF ( i_listlen /= ntracer ) THEN
-            DO jt=1,ntracer
-              WRITE(advection_config(jg)%ctracer_list(jt:jt),'(i1.1)')jt
-            ENDDO
-            WRITE(message_text,'(a,a)') &
-              & 'Attention: according to physics, ctracer_list is set to ',&
-              &   advection_config(jg)%ctracer_list(1:ntracer)
-            CALL message(TRIM(routine),message_text)
-          ENDIF
+
+          WRITE(message_text,'(a)') &
+            &  'In addition, there is one static tracer for O3'
+          CALL message(TRIM(routine),message_text)
+
         CASE (2)
           SELECT CASE (irad_o3)
           CASE (0)
-            IF ( ntracer /= iqhydro  ) THEN
-              ntracer = iqhydro
-              WRITE(message_text,'(a,i3)') &
-                &  'Attention: according to physics, ntracer is set to', iqhydro      
-              CALL message(TRIM(routine),message_text)
-            ENDIF
-            IF ( i_listlen /= ntracer ) THEN
-              DO jt=1,ntracer
-                WRITE(advection_config(jg)%ctracer_list(jt:jt),'(i1.1)')jt
-              ENDDO
-              WRITE(message_text,'(a,a)') &
-                & 'Attention: according to physics, ctracer_list is set to ', &
-                &  advection_config(jg)%ctracer_list(1:ntracer)
-              CALL message(TRIM(routine),message_text)
-            ENDIF
+
           CASE (4,6,7)
             ntracer_static = 1
-            IF ( ntracer /= iqhydro  ) THEN
-              ntracer = iqhydro
-              WRITE(message_text,'(a,i3)') &
-                &  'Attention: according to physics, ntracer is set to', iqhydro
-              CALL message(TRIM(routine),message_text)           
-              WRITE(message_text,'(a)') &
-                &  'In addition, there is one static tracer for O3'
-              CALL message(TRIM(routine),message_text)           
-            ENDIF
-            IF ( i_listlen /= ntracer ) THEN
-              DO jt=1,ntracer
-                WRITE(advection_config(jg)%ctracer_list(jt:jt),'(i1.1)')jt
-              ENDDO
-              WRITE(message_text,'(a,a)') &
-              & 'Attention: according to physics, ctracer_list is set to ',&
-                &  advection_config(jg)%ctracer_list(1:ntracer)
-              CALL message(TRIM(routine),message_text)
-            ENDIF
-          END SELECT
-        END SELECT
+          
+            WRITE(message_text,'(a)') &
+              &  'In addition, there is one static tracer for O3'
+            CALL message(TRIM(routine),message_text)           
+
+          END SELECT  ! irad_o3
+        END SELECT  ! atm_phy_nwp_config(jg)%inwp_radiation
+
 
 
         IF ( ( atm_phy_nwp_config(jg)%inwp_radiation > 0 )      &
-          &  .AND. ( irad_o3 == 0 .OR. irad_o3 == 6 .OR. irad_o3 == 7 ) )         THEN
+          &  .AND. ( irad_o3 == 0 .OR. irad_o3 == 6 .OR. irad_o3 == 7 ) )    THEN
           IF ( advection_config(jg)%ihadv_tracer(io3) /= 0 ) THEN
             advection_config(jg)%ihadv_tracer(io3) = 0
             WRITE(message_text,'(a,i1,a)') &

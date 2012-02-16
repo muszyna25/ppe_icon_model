@@ -523,7 +523,7 @@ MODULE mo_nonhydro_state
       ! Tracer array for (model) internal use
 
       ! tracer         p_prog%tracer(nproma,nlev,nblks_c,ntracer+ntracer_static)
-      IF (ntracer > 0) THEN
+      IF (ntracer+ntracer_static > 0) THEN
         cf_desc    = t_cf_var('tracer', 'kg kg-1', 'tracer')
         grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( p_prog_list, 'tracer', p_prog%tracer,                       &
@@ -652,6 +652,16 @@ MODULE mo_nonhydro_state
             & ldims=shape3d_c,                                               &
             & tlev_source=0,     &              ! output from nnow_rcf slice
             & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.) )
+
+!!$           !O3
+!!$          CALL add_tracer_ref( p_prog_list, 'tracer',                        &
+!!$            & TRIM(vname_prefix)//'O3'//suffix, io3, p_prog%tracer_ptr,      &
+!!$            & t_cf_var(TRIM(vname_prefix)//'O3',                             &
+!!$            &  'kg kg-1','ozone_mass_mixing_ratio'),                         &
+!!$            & t_grib2_var(0, 14, 1, ientr, GRID_REFERENCE, GRID_CELL),       &
+!!$            & ldims=shape3d_c,                                               &
+!!$            & tlev_source=0,     &              ! output from nnow_rcf slice
+!!$            & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.) )
         ENDIF
 
         ! tke            p_prog%tke(nproma,nlevp1,nblks_c)
@@ -730,7 +740,7 @@ MODULE mo_nonhydro_state
       ! Only add tracer fields to the tracer list
       IF (from_info%tracer%lis_tracer .AND. .NOT. from_info%lcontainer ) THEN
 
-!DR set loutput=.FALSE. for each individual field until a possible bug in the new 
+!DR set loutput=.FALSE. for each individual field until a potential bug in the new 
 !DR output scheme is fixed.
         CALL add_var_list_reference(p_tracer_list, from_info%name, &
           &                         from_var_list%p%name, loutput=.FALSE.)
@@ -2682,10 +2692,10 @@ MODULE mo_nonhydro_state
     ! get tracer field metadata
     target_info => target_element%field%info
 
-    ! get index in 4D
+    ! get index of current field in 4D container
     tracer_idx = target_info%ncontained+1  ! index in 4D tracer container
 
-    ! create new table entry reference
+    ! create new table entry reference including new tracer metadata
     CALL add_ref( this_list, target_name, tracer_name, ptr_arr(tracer_idx)%p_3d, &
        &          target_info%hgrid, target_info%vgrid, cf, grib2,               &
        &          ldims=ldims, loutput=loutput, lrestart=lrestart,               &
