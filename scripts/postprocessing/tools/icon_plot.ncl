@@ -96,7 +96,7 @@
 ;---------------------------------------------------------------
 ; Authors       : Ralf Mueller (ralf.mueller@zmaw.de)
 ;                 Stephan Lorenz (stephan.lorenz@zmaw.de)
-; VERSION       : r7884 (2012-01-26)
+; VERSION       : r8012 (2012-01-26)
 ;---------------------------------------------------------------
 
  load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/gsn_code.ncl"
