@@ -59,7 +59,7 @@ MODULE mo_prepicon_utils
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
   USE mo_mpi,                 ONLY: p_pe, p_io, p_bcast, p_comm_work_test, p_comm_work
   USE mo_ext_data,            ONLY: smooth_topography, t_external_data, ext_data
-  USE mo_util_netcdf,         ONLY: read_netcdf_data
+  USE mo_util_netcdf,         ONLY: read_netcdf_data, read_netcdf_data_single
   USE mo_model_domain,        ONLY: p_patch
   USE mo_io_vlist,            ONLY: GATHER_C, GATHER_E, GATHER_V, num_output_vars, outvar_desc, &
                                     gather_array1, gather_array2
@@ -372,41 +372,41 @@ MODULE mo_prepicon_utils
 
       IF (i_oper_mode >= 2) THEN
 
-        CALL read_netcdf_data (ncid, 'T', p_patch(jg)%n_patch_cells_g,                  &
+        CALL read_netcdf_data_single (ncid, 'T', p_patch(jg)%n_patch_cells_g,                  &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     nlev_in,prepicon(jg)%atm_in%temp)
 
-        CALL read_netcdf_data (ncid, 'U', p_patch(jg)%n_patch_cells_g,                  &
+        CALL read_netcdf_data_single (ncid, 'U', p_patch(jg)%n_patch_cells_g,                  &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     nlev_in,prepicon(jg)%atm_in%u)
 
-        CALL read_netcdf_data (ncid, 'V', p_patch(jg)%n_patch_cells_g,                  &
+        CALL read_netcdf_data_single (ncid, 'V', p_patch(jg)%n_patch_cells_g,                  &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     nlev_in,prepicon(jg)%atm_in%v)
 
         IF (l_w_in) THEN ! note: input vertical velocity is in fact omega (Pa/s)
-          CALL read_netcdf_data (ncid, 'W', p_patch(jg)%n_patch_cells_g,                  &
+          CALL read_netcdf_data_single (ncid, 'W', p_patch(jg)%n_patch_cells_g,                  &
             &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
             &                     nlev_in,prepicon(jg)%atm_in%omega)
         ENDIF
 
-        CALL read_netcdf_data (ncid, 'QV', p_patch(jg)%n_patch_cells_g,                 &
+        CALL read_netcdf_data_single (ncid, 'QV', p_patch(jg)%n_patch_cells_g,                 &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     nlev_in,prepicon(jg)%atm_in%qv)
 
-        CALL read_netcdf_data (ncid, 'QC', p_patch(jg)%n_patch_cells_g,                 &
+        CALL read_netcdf_data_single (ncid, 'QC', p_patch(jg)%n_patch_cells_g,                 &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     nlev_in,prepicon(jg)%atm_in%qc)
 
-        CALL read_netcdf_data (ncid, 'QI', p_patch(jg)%n_patch_cells_g,                 &
+        CALL read_netcdf_data_single (ncid, 'QI', p_patch(jg)%n_patch_cells_g,                 &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     nlev_in,prepicon(jg)%atm_in%qi)
 
-        CALL read_netcdf_data (ncid, 'QR', p_patch(jg)%n_patch_cells_g,                 &
+        CALL read_netcdf_data_single (ncid, 'QR', p_patch(jg)%n_patch_cells_g,                 &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     nlev_in,prepicon(jg)%atm_in%qr)
 
-        CALL read_netcdf_data (ncid, 'QS', p_patch(jg)%n_patch_cells_g,                 &
+        CALL read_netcdf_data_single (ncid, 'QS', p_patch(jg)%n_patch_cells_g,                 &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     nlev_in,prepicon(jg)%atm_in%qs)
 
@@ -450,7 +450,7 @@ MODULE mo_prepicon_utils
 
       IF (i_oper_mode == 2) THEN ! read in additional fields when vertical interpolation 
                                  ! has already been done in IFS2ICON
-        CALL read_netcdf_data (ncid, 'pres', p_patch(jg)%n_patch_cells_g,              &
+        CALL read_netcdf_data_single (ncid, 'pres', p_patch(jg)%n_patch_cells_g,              &
           &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                    nlev_in,prepicon(jg)%atm_in%pres)
       ENDIF

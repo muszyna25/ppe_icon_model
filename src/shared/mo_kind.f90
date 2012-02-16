@@ -69,8 +69,8 @@ MODULE mo_kind
   INTEGER, PARAMETER :: pd =  12
   INTEGER, PARAMETER :: rd = 307
   !
-  INTEGER, PARAMETER :: sp = SELECTED_REAL_KIND(ps,rs) !< single precission
-  INTEGER, PARAMETER :: dp = SELECTED_REAL_KIND(pd,rd) !< double precission
+  INTEGER, PARAMETER :: sp = SELECTED_REAL_KIND(ps,rs) !< single precision
+  INTEGER, PARAMETER :: dp = SELECTED_REAL_KIND(pd,rd) !< double precision
   !
   INTEGER, PARAMETER :: wp = dp                        !< selected working precission
   !

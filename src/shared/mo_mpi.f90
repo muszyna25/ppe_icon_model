@@ -365,6 +365,7 @@ MODULE mo_mpi
      MODULE PROCEDURE p_bcast_int_i8_1d
      MODULE PROCEDURE p_bcast_bool_1d
      MODULE PROCEDURE p_bcast_real_2d
+     MODULE PROCEDURE p_bcast_real_2d_single
      MODULE PROCEDURE p_bcast_int_2d
      MODULE PROCEDURE p_bcast_bool_2d
      MODULE PROCEDURE p_bcast_real_3d
@@ -4648,6 +4649,49 @@ CONTAINS
 #endif
 
   END SUBROUTINE p_bcast_real_2d
+
+
+  SUBROUTINE p_bcast_real_2d_single (t_buffer, p_source, comm)
+
+    REAL (sp), INTENT(inout) :: t_buffer(:,:) ! SINGLE PRECISION
+    INTEGER,   INTENT(in)    :: p_source
+    INTEGER, OPTIONAL, INTENT(in) :: comm
+
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+#ifdef DEBUG
+    nbcast = nbcast+1
+#endif
+
+    IF (process_mpi_all_size == 1) THEN
+       RETURN
+    ELSE
+       CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_real_sp, p_source, &
+            p_comm, p_error)
+    ENDIF
+
+#ifdef DEBUG
+    WRITE (nerr,'(a,i4,a,i4,a)') ' MPI_BCAST from ', p_source, &
+            ' with broadcast number ', nbcast, ' succesfull.'
+
+     IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
+            ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL p_abort
+    END IF
+#endif
+#endif
+
+  END SUBROUTINE p_bcast_real_2d_single
+
 
   SUBROUTINE p_bcast_real_3d (t_buffer, p_source, comm)
 

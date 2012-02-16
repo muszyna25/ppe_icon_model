@@ -42,7 +42,7 @@
 !!
 MODULE mo_util_netcdf
 
-  USE mo_kind,               ONLY: wp
+  USE mo_kind,               ONLY: wp, sp
   USE mo_exception,          ONLY: finish
   USE mo_communication,      ONLY: idx_no, blk_no
   USE mo_parallel_config,    ONLY: p_test_run
@@ -58,6 +58,7 @@ MODULE mo_util_netcdf
   PRIVATE
 
   PUBLIC  :: read_netcdf_data
+  PUBLIC  :: read_netcdf_data_single
   PUBLIC  :: read_netcdf_lu
   PUBLIC  :: nf
 
@@ -69,6 +70,10 @@ MODULE mo_util_netcdf
     MODULE PROCEDURE read_netcdf_aero
     MODULE PROCEDURE read_netcdf_4d
   END INTERFACE read_netcdf_data
+
+  INTERFACE read_netcdf_data_single
+    MODULE PROCEDURE read_netcdf_3d_single
+  END INTERFACE read_netcdf_data_single
 
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
@@ -243,6 +248,63 @@ CONTAINS
 
   END SUBROUTINE read_netcdf_3d
 
+
+ !-------------------------------------------------------------------------
+  !>
+  !! Read 3D dataset from netcdf file in SINGLE PRECISION
+  !!
+  !! @par Revision History
+  !! Initial revision by F. Prill, DWD (2012-02-15)
+  !!
+  SUBROUTINE read_netcdf_3d_single (ncid, varname, glb_arr_len, &
+    &                               loc_arr_len, glb_index, &
+    &                               nlevs,      var_out)
+
+    CHARACTER(len=*), INTENT(IN)  ::  &  !< Var name of field to be read
+      &  varname
+
+    INTEGER, INTENT(IN) :: ncid          !< id of netcdf file
+    INTEGER, INTENT(IN) :: nlevs         !< vertical levels of netcdf file
+    INTEGER, INTENT(IN) :: glb_arr_len   !< length of 1D field (global)
+    INTEGER, INTENT(IN) :: loc_arr_len   !< length of 1D field (local)
+    INTEGER, INTENT(IN) :: glb_index(:)  !< Index mapping local to global
+
+    REAL(wp), INTENT(INOUT) :: &         !< output field
+      &  var_out(:,:,:)
+
+    INTEGER :: varid, mpi_comm, j, jl, jb, jk
+    REAL(sp):: z_dummy_array(glb_arr_len,nlevs)!< SINGLE PRECISION local array
+  !-------------------------------------------------------------------------
+
+    ! Get var ID
+    IF(my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid))
+
+    IF(p_test_run) THEN
+      mpi_comm = p_comm_work_test
+    ELSE
+      mpi_comm = p_comm_work
+    ENDIF
+
+    ! I/O PE reads and broadcasts data
+
+    IF(my_process_is_stdio()) CALL nf(nf_get_var_real(ncid, varid, z_dummy_array(:,:)))
+    CALL p_bcast(z_dummy_array, p_io, mpi_comm)
+
+    var_out(:,:,:) = 0._wp
+
+    ! Set var_out from global data
+     DO jk = 1, nlevs
+       DO j = 1, loc_arr_len
+
+         jb = blk_no(j) ! Block index in distributed patch
+         jl = idx_no(j) ! Line  index in distributed patch
+               
+         var_out(jl,jk,jb) = REAL(z_dummy_array(glb_index(j),jk), wp)
+
+       ENDDO
+     ENDDO
+
+   END SUBROUTINE read_netcdf_3d_single
 
 
   !-------------------------------------------------------------------------
