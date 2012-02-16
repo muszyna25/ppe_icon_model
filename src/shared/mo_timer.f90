@@ -104,7 +104,7 @@ MODULE mo_timer
   PUBLIC :: timer_write_output
   PUBLIC :: timer_model_init
   PUBLIC :: timer_solve_ab, timer_tracer_ab, timer_vert_veloc, timer_normal_veloc, timer_oce_init
-  PUBLIC :: timer_ab_expl, timer_ab_rhs4sfc, timer_ab_first, timer_height
+  PUBLIC :: timer_ab_expl, timer_ab_rhs4sfc
   PUBLIC :: timer_adv_horz, timer_dif_horz, timer_hflx_lim
   PUBLIC :: timer_adv_vert, timer_dif_vert, timer_ppm_slim
   PUBLIC :: timer_print_mxmn
@@ -192,7 +192,7 @@ MODULE mo_timer
   INTEGER :: timer_write_output
   INTEGER :: timer_model_init
   INTEGER :: timer_solve_ab, timer_tracer_ab, timer_vert_veloc, timer_normal_veloc, timer_oce_init
-  INTEGER :: timer_ab_expl, timer_ab_rhs4sfc, timer_ab_first, timer_height
+  INTEGER :: timer_ab_expl, timer_ab_rhs4sfc
   INTEGER :: timer_adv_horz, timer_dif_horz, timer_hflx_lim
   INTEGER :: timer_adv_vert, timer_dif_vert, timer_ppm_slim
   INTEGER :: timer_print_mxmn
@@ -320,8 +320,6 @@ CONTAINS
     timer_solve_ab      = new_timer("solve_ab")
     timer_ab_expl       = new_timer("ab_expl")
     timer_ab_rhs4sfc    = new_timer("ab_rhs4sfc")
-    timer_ab_first      = new_timer("ab_first")
-    timer_height        = new_timer("height")
     timer_tracer_ab     = new_timer("tracer_ab")
     timer_adv_horz      = new_timer("adv_horz")
     timer_dif_horz      = new_timer("dif_horz")

@@ -64,7 +64,7 @@ USE mo_dynamics_config,    ONLY: nold
 USE mo_oce_index,                 ONLY: print_mxmn, jkc, jkdim, ipl_src
 USE mo_exception,          ONLY: finish, message
 #ifndef __SX__
-USE mo_timer,              ONLY: timer_start, timer_stop, timer_div, timer_grad, timer_height
+USE mo_timer,              ONLY: timer_start, timer_stop, timer_div, timer_grad
 #endif
 USE mo_loopindices,        ONLY: get_indices_c, get_indices_e, get_indices_v
 USE mo_oce_state,          ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, v_base
@@ -1997,9 +1997,9 @@ INTEGER, PARAMETER :: UPWIND          =2
 !-------------------------------------------------------------------------------
 !CALL message (TRIM(routine), 'start')
 
-#ifndef __SX__
-IF (ltimer) CALL timer_start(timer_height)
-#endif
+! #ifndef __SX__
+! IF (ltimer) CALL timer_start(timer_height)
+! #endif
 
 rl_start_c = 1
 rl_end_c = min_rlcell
@@ -2219,9 +2219,9 @@ ENDIF
 ! write(*,*)'max/min h_e:',maxval(p_os%p_diag%h_e),minval(p_os%p_diag%h_e) 
 ! !CALL message (TRIM(routine), 'end')        
 
-#ifndef __SX__
-IF (ltimer) CALL timer_stop(timer_height)
-#endif
+! #ifndef __SX__
+! IF (ltimer) CALL timer_stop(timer_height)
+! #endif
 
 END SUBROUTINE height_related_quantities
 

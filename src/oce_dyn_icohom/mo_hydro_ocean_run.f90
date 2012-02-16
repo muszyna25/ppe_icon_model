@@ -61,8 +61,8 @@ USE mo_ext_data,               ONLY: t_external_data
 USE mo_io_units,               ONLY: filename_max
 USE mo_datetime,               ONLY: t_datetime, print_datetime, add_time, datetime_to_string
 USE mo_timer,                  ONLY: timer_start, timer_stop, timer_total, timer_solve_ab, &
-  &                                  timer_tracer_ab, timer_vert_veloc, timer_normal_veloc, &
-  &                                  timer_oce_init
+  &                                  timer_tracer_ab, timer_vert_veloc, timer_normal_veloc!, &
+!  &                                  timer_oce_init
 USE mo_oce_ab_timestepping,    ONLY: solve_free_surface_eq_ab, &
   &                                  calc_normal_velocity_ab,  &
   &                                  calc_vert_velocity,       &
@@ -365,7 +365,7 @@ CONTAINS
     ! no grid refinement allowed here so far
     !------------------------------------------------------------------
 
-    IF (ltimer) CALL timer_start(timer_oce_init)
+ !  IF (ltimer) CALL timer_start(timer_oce_init)
 
     IF (n_dom > 1 ) THEN
       CALL finish(TRIM(routine), ' N_DOM > 1 is not allowed')
@@ -419,7 +419,7 @@ CONTAINS
     IF (i_sea_ice == 1) &
       &   CALL ice_init(ppatch(jg), pstate_oce(jg), p_ice)
 
-    IF (ltimer) CALL timer_stop(timer_oce_init)
+  ! IF (ltimer) CALL timer_stop(timer_oce_init)
     CALL message (TRIM(routine),'end')
 
   END SUBROUTINE prepare_ho_integration
