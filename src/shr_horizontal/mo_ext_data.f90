@@ -2283,13 +2283,10 @@ CONTAINS
       !
       !-------------------------------------------------------
 
-      ! provide OMIP fluxes for sea ice (interface to ocean)
-      ! 4:  tafo(:,:),   &  ! 2 m air temperature                              [C]
-      ! 5:  ftdew(:,:),  &  ! 2 m dew-point temperature                        [K]
-      ! 6:  fu10(:,:) ,  &  ! 10 m wind speed                                  [m/s]
-      ! 7:  fclou(:,:),  &  ! Fractional cloud cover
-      ! 8:  pao(:,:),    &  ! Surface atmospheric pressure                     [hPa]
-      ! 9:  fswr(:,:),   &  ! Incoming surface solar radiation                 [W/m]
+      ! provide OMIP fluxes for wind stress forcing
+      ! 1:  'stress_x': zonal wind stress       [m/s]
+      ! 2:  'stress_y': meridional wind stress  [m/s]
+      ! 3:  'SST"     : sea surface temperature [K]
 
       ! zonal wind stress
       CALL read_netcdf_data (ncid, 'stress_x', p_patch(jg)%n_patch_cells_g,          &
