@@ -287,7 +287,7 @@ MODULE mo_nh_testcases
      rh_poly(2)= 0.2_wp
     rhgr_poly(:)= 1.e-6_wp
      rhgr_poly(1)=5.e-5_wp
-     rhgr_poly(1)=0._wp
+     rhgr_poly(2)=0._wp   !DR rhgr_poly(1)=0._wp
     ! for the wind profiles
     vel_const = 20.0_wp
     itype_anaprof_uv  = 1
@@ -324,7 +324,8 @@ MODULE mo_nh_testcases
 
     n_flat_level=MAX(2,n_flat_level)
 
-    IF(my_process_is_stdio()) WRITE(nnml_output,nml=nh_testcase_nml)
+!DR Quick fix (see REDMINE-Issue 1975)
+!DR    IF(my_process_is_stdio()) WRITE(nnml_output,nml=nh_testcase_nml)
 
   END SUBROUTINE read_nh_testcase_namelist
 
