@@ -2,14 +2,16 @@ require 'pp'
 
 # Methods for generating Namelist files
 module NmlLib
+  INDENT = '    '
   def NmlLib.create(name,values)
     {name => values}
   end
   def NmlLib.write(nml,filename)
-    File.open(filename,"w+") {|f|
+    File.open(filename,"a") {|f|
       nml.each {|k,v|
         f << "&#{nml.keys.first}\n"
           v.each {|kk,vv|
+            f << INDENT
             f << if vv.kind_of?(Array)
               "#{[kk,vv.join(',')].join(' = ')}\n"
             else 

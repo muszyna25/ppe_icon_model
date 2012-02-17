@@ -11,9 +11,9 @@ class TestExperiments < Test::Unit::TestCase
     assert_equal({:itopo => 0},nml['nml'])
   end
   def test_nmlWrite
-    nml = NmlLib.create('nml_1',:itopo => 0,:dz_lev => [50,50,50,100,200].map(&:to_f))
+    nml      = lambda {|tag| NmlLib.create('nml_'+tag,:itopo => 0,:dz_lev => [50,50,50,100,200].map(&:to_f))}
     filename = Tempfile.new(self.class.to_s).path
-    NmlLib.write(nml,filename)
+    4.times {|i| NmlLib.write(nml.call(i.to_s),filename) }
     puts IO.popen("cat #{filename}").readlines
   end
 end
