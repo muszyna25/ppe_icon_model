@@ -74,7 +74,6 @@ fi
 
 exp_name=${outname}.${dec_size}.${nodes}nodes
 runname=exp.${exp_name}.run
-nproma=12
 
 $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME=${exp_name} out_script=${runname} \
 atmo_dyn_gridname="$atmo_dyn_gridname" atmo_rad_gridname="$atmo_rad_gridname" nproma=$nproma no_of_nodes=$nodes dec_size=$dec_size dt_rad=$dt_rad \
@@ -164,13 +163,31 @@ create_dec
 
 name=nat_ape-dec
 #---------------------------------
-run="false"
 run="true"
+run="false"
 use_barrier=".false."
 testbed_mode=0
+nproma=12
 #==============================================================================
+#=================================
+rrad="true"
+dt_rad=3600
+nproma=4
+#---------------------------------
+division_method=0
+outname=nat_ape-hexdec-rrad_1h_4nproma
+create_scaling_dec_lowres
+exit
+
+division_method=1
+outname=nat_ape-geomdec-rrad-1h
+create_scaling_dec_hires
+
+
+#---------------------------------
 rrad="false"
 dt_rad=1800
+nproma=12
 #---------------------------------
 division_method=0
 outname=nat_ape-hexdec_30min
@@ -179,20 +196,6 @@ create_scaling_dec_hires
 division_method=1
 outname=nat_ape-geomdec_30min
 create_scaling_dec_hires
-
-#=================================
-rrad="true"
-dt_rad=3600
-#---------------------------------
-division_method=0
-outname=nat_ape-hexdec-rrad_1h
-create_scaling_dec_hires
-
-division_method=1
-outname=nat_ape-geomdec-rrad-1h
-create_scaling_dec_hires
-
-exit
 
 
 #==============================================================================

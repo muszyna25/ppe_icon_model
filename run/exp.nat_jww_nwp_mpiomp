@@ -24,18 +24,17 @@ fi
 # This test must have available at least 3 MPI processes.
 #
 # If the model runs with mpi_procs=1, then this script exits without error:
-# LL: check witout p_test
-#if [[ ${mpi_procs} = 1 ]]; then
-#  echo "This test must not be started if mpi_procs=1 --> exit test without error"
-#  check_error 0 "exp.nat_jww_nwp_mpiomp"
-#  exit 0
-#fi
+if [[ ${mpi_procs} = 1 ]]; then
+  echo "This test must not be started if mpi_procs=1 --> exit test without error"
+  check_error 0 "exp.nat_jww_nwp_mpiomp"
+  exit 0
+fi
 # If running in parallel, mpi_procs must be bigger than 2:
-#if [[ ${mpi_procs} = 2 ]]; then
-#  echo "This test needs at least 3 MPI processes --> increase mpi_procs from 2 to 3"
-#  mpi_procs=3
-#  START=${START%2}3
-#fi
+if [[ ${mpi_procs} = 2 ]]; then
+  echo "This test needs at least 3 MPI processes --> increase mpi_procs from 2 to 3"
+  mpi_procs=3
+  START=${START%2}3
+fi
 #-----------------------------------------------------------------------------
 
 #=============================================================================
@@ -95,7 +94,6 @@ atmo_dyn_grids="iconR2B04_DOM01.nc iconR2B05_DOM02.nc"
 dynamics_parent_grid_id="0,                1"
 atmo_rad_grids="iconR2B03_DOM00.nc"
 lredgrid_phys=".true., .true."
-lredgrid_phys=".false., .false."
 lfeedback=.true.
 #-----------------------------------------------------------------------------
 
@@ -125,16 +123,16 @@ lfeedback="${lfeedback},"
 cat > ${atmo_namelist} << EOF
 &parallel_nml
  nproma         = ${nproma}
- p_test_run     = .false.
- l_test_openmp  = .false.
- l_log_checks   = .false.
+ p_test_run     = .true.
+ l_test_openmp  = .true.
+ l_log_checks   = .true.
 /
 &grid_nml
  cell_type = 3            ! triangular cells
  dynamics_grid_filename  = ${dynamics_grid_filename}
- ! radiation_grid_filename = ${radiation_grid_filename}
+ radiation_grid_filename = ${radiation_grid_filename}
  dynamics_parent_grid_id = ${dynamics_parent_grid_id}
- ! lredgrid_phys           = ${lredgrid_phys}
+ lredgrid_phys           = ${lredgrid_phys}
 /
 &nh_testcase_nml
  nh_test_name   = 'jabw_m'     ! test case identifier
@@ -172,6 +170,7 @@ inwp_surface    = 0
 /
 &radiation_nml
  irad_o3 = 6
+ irad_aero  = 0             ! switch off aerosols
 /
 &nonhydrostatic_nml
  itime_scheme   = 4
