@@ -135,7 +135,8 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   TYPE(t_phy_params),          INTENT(inout) :: phy_params
 
   REAL(wp),INTENT(OUT)::  mean_charlen
-  INTEGER             :: jk, jk1, nsmax
+  INTEGER             :: jk, jk1
+  INTEGER             :: nsmax   ! horizontal resolution/sepctral truncation
   REAL(wp)            :: pdtime
   REAL(wp)            :: pref(p_patch%nlev)
   REAL(wp)            :: zlat, zprat, zn1, zn2, zcdnc
@@ -554,21 +555,20 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     &  atm_phy_nwp_config(jg)%inwp_turb == 3 )     THEN
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init convection')
-! Please take care for scale-dependent initializations!
 
+    ! Please take care for scale-dependent initializations!
+    nsmax = INT(2._wp*pi*re/mean_charlen) ! Spectral resolution corresponding to ICON
+                                          ! needed for RTAU - CAPE calculation
 
+!    WRITE(message_text,'(i3,i10,f20.10)') jg,nsmax,mean_charlen
+!    CALL message('nwp_phy_init, nsmax=', TRIM(message_text))
 
-      nsmax = INT(pi*re/mean_charlen)
-
-!        WRITE(message_text,'(i3,i10,f20.10)') jg,nsmax,mean_charlen
-!       CALL message('nwp_phy_init, nsmax=', TRIM(message_text))
-
-        CALL sucumf(nsmax,nlev,pref,phy_params)
-        CALL suphli
-        CALL suvdf
-        CALL suvdfs
-        CALL sucldp
-        CALL message('mo_nwp_phy_init:', 'convection initialized')
+    CALL sucumf(nsmax,nlev,pref,phy_params)
+    CALL suphli
+    CALL suvdf
+    CALL suvdfs
+    CALL sucldp
+    CALL message('mo_nwp_phy_init:', 'convection initialized')
   ENDIF
 
 
