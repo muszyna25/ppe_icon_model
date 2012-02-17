@@ -196,7 +196,7 @@ CONTAINS
     dtm1 = dtime - 1.0_wp
     IF ( (iforc_omip == 5 .AND. &
       &   jmon == 1 .AND. jdmon == 1 .AND. dsec < dtm1) .OR. &
-      &   jstep == 1 )
+      &   jstep == 1 ) &
       & CALL read_forc_data_oce(p_patch, ext_data)
 
     !
