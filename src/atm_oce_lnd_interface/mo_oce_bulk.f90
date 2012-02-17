@@ -191,13 +191,17 @@ CONTAINS
     !  - #slo# 2012-02-17: first quick solution for reading NCEP data
     !  - ext_data has rank n_dom due to grid refinement in the atmosphere but not in the ocean
 
-    ! Check if file should be read: Begin of Jan. 1st; seconds gone less than a timestep
+    ! Check if file should be read:
+    !   - for iforc_omip=5 only - NCEP type forcing
+    !   - begin of Jan. 1st; seconds gone less than a timestep
+    !   - or at begin of each run (must not be first of january
     !write(0,*) 'BULK: jmon=',jmon,' jdmon=',jdmon,' dsec=',dsec
     dtm1 = dtime - 1.0_wp
-    IF ( (iforc_omip == 5 .AND. &
-      &   jmon == 1 .AND. jdmon == 1 .AND. dsec < dtm1) .OR. &
+    IF (iforc_omip == 5) THEN
+      IF ( (jmon == 1 .AND. jdmon == 1 .AND. dsec < dtm1) .OR. &
       &   jstep == 1 ) &
       & CALL read_forc_data_oce(p_patch, ext_data)
+    END IF
 
     !
     ! use annual forcing-data:
