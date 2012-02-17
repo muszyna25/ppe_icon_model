@@ -1332,6 +1332,7 @@ CONTAINS
     IF (iforc_omip == 2 ) idim_omip = 15
     IF (iforc_omip == 3 ) idim_omip =  5
     IF (iforc_omip == 4 ) idim_omip =  9
+    IF (iforc_omip == 5 ) idim_omip = 15
     shape4d_c = (/ nproma, iforc_len, nblks_c, idim_omip /)
 
     !
