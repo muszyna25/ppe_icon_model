@@ -194,10 +194,16 @@ CONTAINS
     ! Check if file should be read:
     !   - for iforc_omip=5 only - NCEP type forcing
     !   - begin of Jan. 1st; seconds gone less than a timestep
-    !   - or at begin of each run (must not be first of january
-    !write(0,*) 'BULK: jmon=',jmon,' jdmon=',jdmon,' dsec=',dsec
+    !   - or at begin of each run (must not be first of january)
     dtm1 = dtime - 1.0_wp
     IF (iforc_omip == 5) THEN
+      ipl_src=4  ! output print level (1-5, fix)
+      IF (i_dbg_oce >= ipl_src) THEN
+        !write(0,*) 'BULK: jmon=',jmon,' jdmon=',jdmon,' dsec=',dsec
+        WRITE(message_text,'(a,i3,a,i3,a,e15.5))') 'BULK: First step in year: month=', &
+          &  jmon,' day=',jdmon,' seconds=',dsec
+        CALL message (' ', message_text)
+      END IF
       IF ( (jmon == 1 .AND. jdmon == 1 .AND. dsec < dtm1) .OR. &
       &   jstep == 1 ) &
       & CALL read_forc_data_oce(p_patch, ext_data)
