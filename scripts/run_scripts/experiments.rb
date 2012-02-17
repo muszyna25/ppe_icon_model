@@ -36,7 +36,44 @@ class TestCase
   end
 end
 module TestCases
-  TC33 = TestCase.new('33',nil,nil,nil)
+  initNml = NmlLib.create( :ocean_forcing_and_init_nml,{
+    :iforc_oce          =>10,
+    :iforc_omip         =>10,
+    :iforc_len          =>10,
+    :iforc_stat_oce     => 3,
+    :init_oce_prog      =>10,
+    :itestcase_oce      =>  50,
+    :idiag_oce          =>   1,
+    :temperature_relaxation  => 2,
+    :relaxation_param   =>   1.0,
+    :irelax_3d_T        =>   0,
+    :relax_3d_mon_T     =>   1.0,
+    :irelax_3d_S        =>   0,
+    :relax_3d_mon_S     =>   0.0
+  })
+  dynNml = NmlLib.create('ocean_dynamics_nml',{
+  :n_zlev             =>  10,
+  :dzlev_m      =>  [50.0,  100.0,  200.0,  300.0,  450.0,  600.0,  800.0, 1000.0, 1000.0, 1000.0],
+  :iswm_oce           =>   0  ,
+  :idisc_scheme       =>   1  ,
+  :l_inverse_flip_flop=>'.FALSE.',
+  :l_rigid_lid        =>'.FALSE.',
+  :ab_beta            =>   0.7,
+  :ab_gam             =>   0.7,
+  :solver_tolerance   =>1.0E-6,
+  :i_bc_veloc_lateral =>   0  ,
+  :i_bc_veloc_top     =>   1  ,
+  :i_bc_veloc_bot     =>   1  ,
+  :basin_center_lat   =>  30.0,
+  :basin_center_lon   =>   0.0,
+  :basin_width_deg    =>  60.0,
+  :basin_height_deg   =>  60.0,
+  :coriolis_type      =>   1  ,
+  :expl_vertical_velocity_diff => 1,
+  :expl_vertical_tracer_diff   => 1
+  })
+
+  TC33 = TestCase.new('33',initNml,nil,dynNml)
 end
 
 # Implements the main functionality for running an experiment:
