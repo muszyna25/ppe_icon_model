@@ -630,6 +630,7 @@ run/exp.nah_jww -text
 run/exp.nat_ape -text
 run/exp.nat_ape-dec -text
 run/exp.nat_ape_r2b4 -text
+run/exp.nat_jww -text
 run/exp.nat_jww_nwp_mpiomp -text
 run/exp.nh35_heldsuarez -text
 run/exp.nh35_tri_jws -text
@@ -645,6 +646,7 @@ run/exp.test_hat_jww -text
 run/exp.test_hat_jww-moist_cld-cnv-vdf -text
 run/exp.test_hom_lsm -text
 run/exp.test_nah_jww -text
+run/exp.test_nat_jww -text
 run/exp.test_nat_jww_nwp_mpiomp -text
 run/exp.test_nh35_tri_jws -text
 run/exp.test_nh3_tri_tracer_solid_body -text
