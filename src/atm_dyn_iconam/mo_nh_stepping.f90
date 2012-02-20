@@ -1267,18 +1267,10 @@ MODULE mo_nh_stepping
             linit_vertnest(1) = .FALSE.
           ENDIF
 
-          IF (MOD(iadv_rcf,2) == 0) THEN
-            IF (.NOT. l_nest_rcf .OR. lstep_adv(jg)) THEN
-              linit_vertnest(2) = .TRUE.
-            ELSE
-              linit_vertnest(2) = .FALSE.
-            ENDIF
+          IF (.NOT. l_nest_rcf .OR. lstep_adv(jg)) THEN
+            linit_vertnest(2) = .TRUE.
           ELSE
-            IF (.NOT. l_nest_rcf .OR. lclean_mflx) THEN
-              linit_vertnest(2) = .TRUE.
-            ELSE
-              linit_vertnest(2) = .FALSE.
-            ENDIF
+            linit_vertnest(2) = .FALSE.
           ENDIF
 
           ! For real-data runs, perform an extra diffusion call before the first time
