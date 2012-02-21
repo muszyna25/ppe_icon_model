@@ -211,7 +211,7 @@ CONTAINS
 !               maxval(pstate_oce(jg)%p_prog(nold(1))%tracer(:,1,:,1), &
 !                  mask=pstate_oce(jg)%p_prog(nold(1))%tracer(:,1,:,1) /= 0._wp)
 
-      IF(iswm_oce /= 1)THEN
+!     IF(iswm_oce /= 1)THEN  #slo# 2012-02-21 - called for SW-Mode as well
 
         ! ATTENTION - in namelist - TBD
         IF(.NOT.l_STAGGERED_TIMESTEP)THEN
@@ -247,7 +247,7 @@ CONTAINS
             &                   calc_density_JMDWFG06_EOS_func)
         CASE DEFAULT
         END SELECT
-      ENDIF
+!     ENDIF
 
       ! solve for new free surface
       IF (ltimer) CALL timer_start(timer_solve_ab)
