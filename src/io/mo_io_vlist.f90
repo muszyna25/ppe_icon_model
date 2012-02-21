@@ -112,7 +112,7 @@ MODULE mo_io_vlist
     &                                 gmres_rtol_nh, iadv_rcf, ivctype,           &
     &                                 upstr_beta, l_open_ubc, l_nest_rcf,         &
     &                                 itime_scheme_nh_atm => itime_scheme
-  USE mo_ocean_nml,             ONLY: n_zlev, dzlev_m, iforc_oce,no_tracer,       &
+  USE mo_ocean_nml,             ONLY: n_zlev, dzlev_m, iforc_oce, no_tracer,      &
     &                                 temperature_relaxation, i_sea_ice,          &
     &                                 irelax_2d_S
   USE mo_dynamics_config,       ONLY: iequations,lshallow_water,                  &
@@ -2429,27 +2429,29 @@ CONTAINS
       &                   gridEdgeID(k_jg),&
       &                   zaxisIDdepth_m(k_jg)),&
       &           k_jg)
-      CALL addVar(TimeVar('Vert_Mixing_T',&
-      &                   'vertical mixing coeff temp',&
-      &                   'm^2/s', 6, 128,&
+      IF (no_tracer > 0) THEN
+        CALL addVar(TimeVar('Vert_Mixing_T',&
+        &                   'vertical mixing coeff temp',&
+        &                   'm^2/s', 6, 128,&
+        &                   vlistid(k_jg),&
+        &                   gridCellID(k_jg),&
+        &                   zaxisID_halfdepth(k_jg)),&
+        &           k_jg)
+      END IF
+      CALL addVar(TimeVar('press_grad',&
+      &                   'pressure-gradient at edges',&
+      &                   'm/s',5,128,&
+      &                   vlistID(k_jg), &
+      &                   gridEdgeID(k_jg), &
+      &                   zaxisIDdepth_m(k_jg)),&
+      &                   k_jg)
+      CALL addVar(TimeVar('rho',&
+      &                   'density cells',&
+      &                   'kg/m**3', 6, 128,&
       &                   vlistid(k_jg),&
       &                   gridCellID(k_jg),&
-      &                   zaxisID_halfdepth(k_jg)),&
+      &                   zaxisIDdepth_m(k_jg)),&
       &           k_jg)
-     CALL addVar(TimeVar('press_grad',&
-     &                   'pressure-gradient at edges',&
-     &                   'm/s',5,128,&
-     &                   vlistID(k_jg), &
-     &                   gridEdgeID(k_jg), &
-     &                   zaxisIDdepth_m(k_jg)),&
-     &                   k_jg)
-    CALL addVar(TimeVar('rho',&
-     &                   'density cells',&
-     &                   'kg/m**3', 6, 128,&
-     &                   vlistid(k_jg),&
-     &                   gridCellID(k_jg),&
-     &                   zaxisIDdepth_m(k_jg)),&
-     &           k_jg)
 
 
 
@@ -3494,7 +3496,8 @@ CONTAINS
       CASE('press_grad');    ptr3d => p_diag%press_grad
       CASE ('rho');          ptr3d => p_diag%rho   
       CASE('Vert_Mixing_V'); ptr3d => p_params%A_veloc_v
-      CASE('Vert_Mixing_T'); ptr3d => p_params%A_tracer_v(:,:,:,1)
+        CASE('Vert_Mixing_T')
+          IF (no_tracer > 0) ptr3d => p_params%A_tracer_v(:,:,:,1)
       CASE('Horz_Mixing_V'); ptr3d => p_params%K_veloc_h
       CASE ('cell_owner');   ptr2d => cell_owner
       ! sea ice variables
