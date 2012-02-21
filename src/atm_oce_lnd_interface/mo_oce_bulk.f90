@@ -73,7 +73,7 @@ USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base
 USE mo_exception,           ONLY: finish, message, message_text
 USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
 USE mo_physical_constants,  ONLY: rho_ref, sal_ref, sfc_press_bar, als, alv, alf, &
-  &                               cpd, zemiss_def, stbo, rd, tmelt, tf, clw, &
+  &                               cpd, zemiss_def, stbo, rd, tmelt, tf, mu, clw, &
   &                               rhoi, rho_ref, rhos
 USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell, sea_boundary,MIN_DOLIC
 USE mo_loopindices,         ONLY: get_indices_c
@@ -134,6 +134,7 @@ CONTAINS
   INTEGER  :: rl_start_c, rl_end_c
   REAL(wp) :: z_tmin, z_relax, rday1, rday2, dtm1, dsec
   REAL(wp) :: z_c(nproma,n_zlev,p_patch%nblks_c)
+  REAL(wp) :: Tfw(nproma,p_patch%nblks_c)
 
   ! Local declarations for coupling:
   INTEGER               :: info, ierror !< return values form cpl_put/get calls
@@ -472,7 +473,13 @@ CONTAINS
 
       ! This is a stripped down version of ice_fast for ice-ocean model only
       CALL set_ice_albedo(p_patch,p_ice)
-      CALL set_ice_temp(p_patch,p_ice,Qatm)
+      IF ( no_tracer >= 2 ) THEN
+        Tfw = -mu*p_os%p_prog(nold(1))%tracer(:,1,:,2)
+      ELSE
+        Tfw = Tf
+      ENDIF
+      CALL set_ice_temp(p_patch,p_ice,Tfw,Qatm)
+
       Qatm%counter = 1
       CALL ice_slow(p_patch, p_os, p_ice, Qatm, p_sfc_flx)
     ENDIF
@@ -641,7 +648,12 @@ CONTAINS
 
         ! For now the ice albedo is the same as ocean albedo
         ! CALL set_ice_albedo(p_patch,p_ice)
-        CALL set_ice_temp(p_patch,p_ice,Qatm)
+        IF ( no_tracer >= 2 ) THEN
+          Tfw = -mu*p_os%p_prog(nold(1))%tracer(:,1,:,2)
+        ELSE
+          Tfw = Tf
+        ENDIF
+        CALL set_ice_temp(p_patch,p_ice,Tfw,Qatm)
         Qatm%counter = 1
         CALL ice_slow(p_patch, p_os, p_ice, Qatm, p_sfc_flx)
 
