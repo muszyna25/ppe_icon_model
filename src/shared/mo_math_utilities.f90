@@ -1,3 +1,9 @@
+
+! LL: xlc has trouble optimizing routines with implicit shaped parameters
+#ifdef __xlC__
+@PROCESS NOHOT
+! @PROCESS NOOPTIMIZE
+#endif
 !>
 !!   Contains the implementation of various mathematical algorithms.
 !!
