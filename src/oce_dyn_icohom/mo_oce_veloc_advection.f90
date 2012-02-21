@@ -257,7 +257,6 @@ i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
 slev = 1
 elev = n_zlev
 
-
 !calculate vorticity flux across dual edge
 CALL nonlinear_Coriolis(p_patch,vn_old,p_diag%p_vn, p_diag%p_vn_dual,&
                        &p_diag%thick_e,p_diag%vt, p_diag%vort, z_vort_flx)
@@ -274,6 +273,7 @@ END DO
 ! z_vort_flx=laplacian4vortex_flux(p_patch,z_vort_flx) 
 ! ENDIF
 !-------------------------------------------------------------------------------
+
  DO jk = slev, elev
  ipl_src=3  ! output print level (1-5, fix)
  CALL print_mxmn('vorticity',jk,p_diag%vort(:,:,:),n_zlev, &
@@ -281,9 +281,12 @@ END DO
  ipl_src=4  ! output print level (1-5, fix)
  CALL print_mxmn('vort flux',jk,z_vort_flx(:,:,:),n_zlev, &
    &              p_patch%nblks_e,'vel',ipl_src)
-!  write(*,*)'max/min vorticity:              ', jk,MAXVAL(p_diag%vort(:,jk,:)),&
-!                                                  &MINVAL(p_diag%vort(:,jk,:)) 
-!  write(*,*)'max/min vort flux:              ', jk,MAXVAL(z_vort_flx(:,jk,:)),&
+ CALL print_mxmn('Corio: p_vn%x(1)',jk,p_diag%p_vn%x(1),n_zlev, &
+   &              p_patch%nblks_c,'vel',ipl_src)
+ !CALL print_mxmn('p_vn_dual%x(1)',jk,p_diag%p_vn_dual%x(1),n_zlev, &
+ !  &              p_patch%nblks_v,'vel',ipl_src)
+ ! write(0,*)' XXX max/min p_vn_dual%x(1): ',MAXVAL(p_diag%p_vn_dual(:,jk,:)%x(1)),&
+ !   &                                       MINVAL(p_diag%p_vn_dual(:,jk,:)%x(1))
  END DO
 
 !calculate gradient of kinetic energy
