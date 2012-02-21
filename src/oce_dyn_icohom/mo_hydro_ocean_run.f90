@@ -81,6 +81,7 @@ USE mo_scalar_product,         ONLY: calc_scalar_product_for_veloc
 USE mo_oce_tracer,             ONLY: advect_tracer_ab
 USE mo_io_restart,             ONLY: write_restart_info_file
 USE mo_intp_data_strc,         ONLY: t_int_state
+USE mo_oce_bulk,               ONLY: update_sfcflx
 USE mo_sea_ice,                ONLY: construct_sfcflx,destruct_sfcflx,&
   &                                  construct_atmos_for_ocean,&
   &                                  destruct_atmos_for_ocean,&
@@ -89,7 +90,6 @@ USE mo_sea_ice,                ONLY: construct_sfcflx,destruct_sfcflx,&
   &                                  t_sea_ice, construct_sea_ice, destruct_sea_ice, &
   &                                  ice_init, ice_slow
 USE mo_oce_forcing,            ONLY: init_sfcflx
-USE mo_oce_bulk,               ONLY: update_sfcflx
 USE mo_oce_physics,            ONLY: t_ho_params, &
   &                                  construct_ho_params, init_ho_params, &
   &                                  destruct_ho_params, update_ho_params
