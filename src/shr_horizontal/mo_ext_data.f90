@@ -2226,6 +2226,8 @@ CONTAINS
 
     !-------------------------------------------------------------------------
 
+    IF (iforc_omip .ne. 5) THEN
+
     IF (iforc_oce == 12) THEN
 
     !DO jg = 1,n_dom
@@ -2441,6 +2443,7 @@ CONTAINS
       CALL message( TRIM(routine),'Ocean OMIP fluxes for external data read' )
 
     END IF ! iforc_oce=12
+    END IF ! iforc_omip.ne.5
 
   END SUBROUTINE read_ext_data_oce
   !-------------------------------------------------------------------------
