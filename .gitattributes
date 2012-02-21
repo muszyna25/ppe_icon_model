@@ -1149,6 +1149,7 @@ src/io/mo_io_output.f90 svneol=native#text/plain
 src/io/mo_io_vlist.f90 -text
 src/io/mo_mtgrm_output.f90 -text
 src/io/mo_name_list_output.f90 -text
+src/io/mo_output.f90 -text
 src/lnd_phy_nwp/mo_nwp_lnd_state.f90 -text
 src/lnd_phy_nwp/mo_nwp_sfc_interface.f90 -text
 src/lnd_phy_nwp/mo_nwp_sfc_interp.f90 -text
@@ -1236,7 +1237,6 @@ src/shared/mo_mpi.f90 -text
 src/shared/mo_namelist.f90 -text
 src/shared/mo_ompthreads.f90 -text
 src/shared/mo_orbit.f90 -text
-src/shared/mo_output.f90 -text
 src/shared/mo_physical_constants.f90 -text
 src/shared/mo_profile.f90 -text
 src/shared/mo_read_netcdf_parallel.f90 -text
