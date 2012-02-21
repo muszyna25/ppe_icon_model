@@ -1700,14 +1700,13 @@ ENDIF
      CALL finish(TRIM(routine), 'CHOSEN INITIALIZATION NOT SUPPORTED - TERMINATE')
   END SELECT
 
-
-
-  ipl_src=1  ! output print level (0-5, fix)
-  z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,1)
-  DO jk=1, n_zlev
-    CALL print_mxmn('T-innitial',jk,z_c(:,:,:),n_zlev,ppatch%nblks_c,'per',ipl_src)
-  END DO
-  IF (no_tracer == 2) THEN
+  IF (no_tracer >=1) THEN
+    ipl_src=1  ! output print level (0-5, fix)
+    z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,1)
+    DO jk=1, n_zlev
+      CALL print_mxmn('T-innitial',jk,z_c(:,:,:),n_zlev,ppatch%nblks_c,'per',ipl_src)
+    END DO
+  ELSE IF (no_tracer == 2) THEN
     z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,2)
     DO jk=1, n_zlev
       CALL print_mxmn('S-innitial',jk,z_c(:,:,:),n_zlev,ppatch%nblks_c,'per',ipl_src)
