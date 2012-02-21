@@ -100,17 +100,16 @@ CONTAINS
 !
 !>
 !! 
-SUBROUTINE nonlinear_Coriolis(p_patch, vn, p_vn, p_vn_dual,h_e, vt, &
-                        & vort_v, vort_flux)
+SUBROUTINE nonlinear_Coriolis(p_patch, vn, p_vn, p_vn_dual, h_e, vt, vort_v, vort_flux)
 
   TYPE(t_patch), INTENT(IN)      :: p_patch
-  REAL(wp), INTENT(in)           :: vn(:,:,:)
-  TYPE(t_cartesian_coordinates)  :: p_vn(nproma,n_zlev,p_patch%nblks_c)
-  TYPE(t_cartesian_coordinates)  :: p_vn_dual(nproma,n_zlev,p_patch%nblks_v)
+  REAL(wp), INTENT(IN)           :: vn(:,:,:)
+  TYPE(t_cartesian_coordinates), INTENT(IN) :: p_vn(nproma,n_zlev,p_patch%nblks_c)
+  TYPE(t_cartesian_coordinates), INTENT(IN) :: p_vn_dual(nproma,n_zlev,p_patch%nblks_v)
   REAL(wp), INTENT(IN)           :: h_e(:,:)
-  REAL(wp), INTENT(in)           :: vt(:,:,:)
-  REAL(wp), INTENT(inout)        :: vort_v(:,:,:)
-  REAL(wp), INTENT(inout)        :: vort_flux(:,:,:)
+  REAL(wp), INTENT(IN)           :: vt(:,:,:)
+  REAL(wp), INTENT(INOUT)        :: vort_v(:,:,:)
+  REAL(wp), INTENT(INOUT)        :: vort_flux(:,:,:)
 
 !Local variables
 ! 
@@ -456,14 +455,14 @@ INTEGER  :: i_v_ctr(nproma,n_zlev,p_patch%nblks_v)
 TYPE(t_cartesian_coordinates) :: cell1_cc, cell2_cc, vertex_cc
 INTEGER,PARAMETER :: ino_dual_edges = 6
 
-i_v_ctr(:,:,:) = 0
 !-----------------------------------------------------------------------
+i_v_ctr(:,:,:) = 0
+
 slev         = 1
 elev         = n_zlev
 
 i_startblk_v = p_patch%verts%start_blk(rl_start_v,1)
 i_endblk_v   = p_patch%verts%end_blk(rl_end_v,1)
-
 
 DO jb = i_startblk_v, i_endblk_v
   CALL get_indices_v(p_patch, jb, i_startblk_v, i_endblk_v, &
