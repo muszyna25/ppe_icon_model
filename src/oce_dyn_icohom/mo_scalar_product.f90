@@ -456,6 +456,7 @@ INTEGER  :: i_v_ctr(nproma,n_zlev,p_patch%nblks_v)
 TYPE(t_cartesian_coordinates) :: cell1_cc, cell2_cc, vertex_cc
 INTEGER,PARAMETER :: ino_dual_edges = 6
 
+i_v_ctr(:,:,:) = 0
 !-----------------------------------------------------------------------
 slev         = 1
 elev         = n_zlev
