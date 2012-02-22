@@ -1329,10 +1329,10 @@ CONTAINS
     ! OMIP/NCEP or other flux forcing data on cell centers: 3, 5 or 12 variables, iforc_len data sets
     ! for type of forcing see mo_oce_bulk
     IF (iforc_omip == 1 ) idim_omip =  3    !  stress (x, y) and SST
-    IF (iforc_omip == 2 ) idim_omip = 12    !  OMIP type forcing
+    IF (iforc_omip == 2 ) idim_omip = 13    !  OMIP type forcing
     IF (iforc_omip == 3 ) idim_omip =  5    !  stress (x, y), SST, net heat and freshwater
     IF (iforc_omip == 4 ) idim_omip =  9    !  stress (x, y), SST, and 6 parts of net fluxes
-    IF (iforc_omip == 5 ) idim_omip = 12    !  NCEP type forcing - time dependent read in mo_oce_bulk
+    IF (iforc_omip == 5 ) idim_omip = 13    !  NCEP type forcing - time dependent read in mo_oce_bulk
     shape4d_c = (/ nproma, iforc_len, nblks_c, idim_omip /)
 
     !

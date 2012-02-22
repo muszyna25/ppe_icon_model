@@ -54,37 +54,34 @@ USE mo_parallel_config,     ONLY: nproma
 USE mo_run_config,          ONLY: dtime, ltimer
 USE mo_timer,               ONLY: timer_start, timer_stop, timer_coupling
 USE mo_io_units,            ONLY: filename_max
-USE mo_mpi,                 ONLY: p_pe, p_io, p_bcast, my_process_is_stdio
+USE mo_mpi,                 ONLY: my_process_is_stdio
 USE mo_util_string,         ONLY: t_keyword_list
 USE mo_util_netcdf,         ONLY: read_netcdf_data
 USE mo_datetime,            ONLY: t_datetime
 USE mo_ext_data,            ONLY: ext_data, t_external_data
 USE mo_grid_config,         ONLY: nroot
-USE mo_ocean_nml,           ONLY: iforc_oce, iforc_omip, iforc_len, itestcase_oce,    &
-  &           no_tracer, n_zlev, basin_center_lat, basin_center_lon, basin_width_deg, &
-  &                               basin_height_deg, relaxation_param, wstress_coeff,  &
-  &               relax_2d_mon_s, i_bc_veloc_top, temperature_relaxation, irelax_2d_S,&
-  &                               NO_FORCING, ANALYT_FORC, FORCING_FROM_FILE_FLUX,    &
-  &                               FORCING_FROM_FILE_FIELD, FORCING_FROM_COUPLED_FLUX, &
+USE mo_ocean_nml,           ONLY: iforc_oce, iforc_omip, iforc_len, itestcase_oce,         &
+  &           no_tracer, n_zlev, basin_center_lat, basin_center_lon, basin_width_deg,      &
+  &                               basin_height_deg, relaxation_param, wstress_coeff,       &
+  &                               relax_2d_mon_s, temperature_relaxation, irelax_2d_S,     &
+  &                               NO_FORCING, ANALYT_FORC, FORCING_FROM_FILE_FLUX,         &
+  &                               FORCING_FROM_FILE_FIELD, FORCING_FROM_COUPLED_FLUX,      &
   &                               FORCING_FROM_COUPLED_FIELD, i_dbg_oce, i_sea_ice
 USE mo_dynamics_config,     ONLY: nold
 USE mo_model_domain,        ONLY: t_patch
 USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base
 USE mo_exception,           ONLY: finish, message, message_text
 USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
-USE mo_physical_constants,  ONLY: rho_ref, sal_ref, sfc_press_bar, als, alv, alf, &
-  &                               cpd, zemiss_def, stbo, rd, tmelt, tf, mu, clw, &
-  &                               rhoi, rho_ref, rhos
-USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell, sea_boundary,MIN_DOLIC
+USE mo_physical_constants,  ONLY: rho_ref, sal_ref, als, alv, zemiss_def, stbo, tmelt, tf, &
+  &                               mu, clw, rho_ref
+USE mo_impl_constants,      ONLY: max_char_length, min_rlcell, sea_boundary,MIN_DOLIC
 USE mo_loopindices,         ONLY: get_indices_c
-USE mo_math_utilities,      ONLY: t_cartesian_coordinates, gvec2cvec, cvec2gvec
-! USE mo_oce_forcing,         ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
+USE mo_math_utilities,      ONLY: gvec2cvec, cvec2gvec
 USE mo_sea_ice,             ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
                                   calc_atm_fluxes_from_bulk, set_ice_albedo, set_ice_temp, &
-                                  sum_fluxes, ice_slow
-USE mo_oce_thermodyn,       ONLY: convert_insitu2pot_temp_func
+                                  ice_slow
 USE mo_oce_index,           ONLY: print_mxmn, ipl_src
-USE mo_coupling_config,      ONLY: is_coupled_run
+USE mo_coupling_config,     ONLY: is_coupled_run
 USE mo_icon_cpl_exchg,      ONLY: ICON_cpl_put, ICON_cpl_get
 USE mo_icon_cpl_def_field,  ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
 
@@ -129,7 +126,7 @@ CONTAINS
   ! local variables
   CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:update_sfcflx'
   INTEGER  :: jmon, jdmon, jmon1, jmon2!, jdays, njday
-  INTEGER  :: jc, jb, i
+  INTEGER  :: jc, jb, i, jt
   INTEGER  :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
   INTEGER  :: rl_start_c, rl_end_c
   REAL(wp) :: z_tmin, z_relax, rday1, rday2, dtm1, dsec
@@ -208,6 +205,7 @@ CONTAINS
       IF ( (jmon == 1 .AND. jdmon == 1 .AND. dsec < dtm1) .OR. &
       &   jstep == 1 ) &
       & CALL read_forc_data_oce(p_patch, ext_data)
+
     END IF
 
     !
@@ -1061,7 +1059,7 @@ CONTAINS
   INTEGER :: rl_start_c, rl_end_c
 
   REAL(wp) :: zonal_str
-  REAL(wp) :: z_lat, z_lon, z_lat_deg,z_lon_deg
+  REAL(wp) :: z_lat, z_lon, z_lat_deg
   REAL(wp) :: z_forc_period = 1.0_wp !=1.0: single gyre
                                      !=2.0: double gyre
                                      !=n.0: n-gyre 
@@ -1420,10 +1418,10 @@ CONTAINS
     CHARACTER(filename_max) :: ncep_file   !< file name for reading in
 
     LOGICAL :: l_exist
-    INTEGER :: jg, i_lev, i_cell_type, no_cells, no_verts, no_tst
+    INTEGER :: jg, i_lev, i_cell_type, no_cells, no_tst, jlevs, jtime, jt, jb
     INTEGER :: ncid, dimid
 
-    REAL(wp):: z_flux(nproma,iforc_len,p_patch%nblks_c)
+    REAL(wp):: z_flux(nproma,1,p_patch%nblks_c,iforc_len)  ! forcing data: time length is iforc_len
     TYPE (t_keyword_list), POINTER :: keywords => NULL()
 
     !-------------------------------------------------------------------------
@@ -1484,13 +1482,18 @@ CONTAINS
         CALL message( TRIM(routine), TRIM(message_text) )
         WRITE(message_text,'(A,I6,A)')  'Now read ',iforc_len,' NCEP data sets'
         CALL message( TRIM(routine), TRIM(message_text) )
+
       ENDIF
 
       !-------------------------------------------------------
       !
-      ! Read 12 monthly NCEP data sets for triangle centers
+      ! Read 12 monthly NCEP data sets for triangle centers using 4-dim routine
       !
       !-------------------------------------------------------
+
+      jlevs = 1            !  surface data
+      jtime = iforc_len    !  time period to read (not yet)
+      
 
       ! provide NCEP fluxes for sea ice (interface to ocean)
       ! 1:  'stress_x': zonal wind stress       [m/s]
@@ -1498,94 +1501,135 @@ CONTAINS
       ! 3:  'SST"     : sea surface temperature [K]
 
       ! zonal wind stress
-      write(0,*) ' ncep set 1: dimensions:',p_patch%n_patch_cells_g, p_patch%n_patch_cells, &
-        &  iforc_len, nproma, p_patch%nblks_c
+      !write(0,*) ' ncep set 1: dimensions:',p_patch%n_patch_cells_g, p_patch%n_patch_cells, &
+      ! &  iforc_len, nproma, p_patch%nblks_c
       CALL read_netcdf_data (ncid, 'stress_x', p_patch%n_patch_cells_g,      &
         &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
-        &                    iforc_len, z_flux(:,:,:))
-      write(0,*) ' ncep set 1: stress_x read'
-      ext_data(jg)%oce%omip_forc_mon_c(:,:,:,1) = z_flux(:,:,:)
+        &                    jlevs, iforc_len, z_flux(:,:,:,:))
+      write(0,*) ' READ_FORC: ncep set 1: stress_x read'
+      DO jt = 1, iforc_len
+        ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,1) = z_flux(:,1,:,jt)
+      END DO
+
+  !   write(0,*) 'READ 1: first data sets: stress-x, block=5, index=1,5:'
+  !   do jt=1,12
+  !     write(0,*) 'jt=',jt,' val:',(ext_data(1)%oce%omip_forc_mon_c(jb,jt,5,1),jb=1,5)
+  !   enddo
+
+  ! ! nochmal test
+  ! do j=1,3
+  ! isrt(j)=1
+  ! enddo
+  ! !isrt(3)=1
+  ! icnt(1)=glb_arr_len  !  dim 1
+  ! icnt(2)=nlevs        !  dim 2
+  ! icnt(3)=ntime        !  last set to read
+
+  ! IF(my_process_is_stdio()) CALL nf(nf_get_vara_double(ncid, varid, &
+  !   &                               isrt, icnt, z_dummy_array(:,:,:)))
+  ! write(0,*) ' ncep set 2: stress_x read'
+  ! CALL p_bcast(z_dummy_array, p_io , mpi_comm)
+
+  ! var_out(:,:,:,:) = 0._wp
+  !   DO jt = 1, iforc_len
+  !     ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,1) = z_flux(:,1,:,jt)
+  !   END DO
+
+  !   write(0,*) 'READ 2: first data sets: stress-x, block=5, index=1,5:'
+  !   do jt=1,12
+  !     write(0,*) 'jt=',jt,' val:',(ext_data(1)%oce%omip_forc_mon_c(jb,jt,5,1),jb=1,5)
+  !   enddo
+
+  !   write(0,*) ' READ_FORC: ncep set 2: stress_x read'
+  !   CALL read_netcdf_data (ncid, 'stress_x', p_patch%n_patch_cells_g,      &
+  !     &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
+  !     &                    jlevs, iforc_len, z_flux(:,:,:,:))
+  !   write(0,*) ' READ_FORC: ncep set 1: stress_x read'
 
       ! meridional wind stress
       CALL read_netcdf_data (ncid, 'stress_y', p_patch%n_patch_cells_g,      &
         &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
-        &                    iforc_len, z_flux)
-      ext_data(jg)%oce%omip_forc_mon_c(:,:,:,2) = z_flux(:,:,:)
+        &                    jlevs, iforc_len, z_flux)
+      DO jt = 1, iforc_len
+        ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,2) = z_flux(:,1,:,jt)
+      END DO
 
       ! SST
       CALL read_netcdf_data (ncid, 'SST', p_patch%n_patch_cells_g,           &
         &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
-        &                    iforc_len, z_flux)
-      ext_data(jg)%oce%omip_forc_mon_c(:,:,:,3) = z_flux(:,:,:)
+        &                    jlevs, iforc_len, z_flux)
+      DO jt = 1, iforc_len
+        ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,3) = z_flux(:,1,:,jt)
+      END DO
 
-      IF (iforc_omip == 5) THEN
+ !    IF (iforc_omip == 5) THEN
 
-      ! Read complete NCEP data sets for focing ocean model
-      ! 4:  tafo(:,:),   &  ! 2 m air temperature                              [C]
-      ! 5:  ftdew(:,:),  &  ! 2 m dew-point temperature                        [K]
-      ! 6:  fu10(:,:) ,  &  ! 10 m wind speed                                  [m/s]
-      ! 7:  fclou(:,:),  &  ! Fractional cloud cover
-      ! 8:  pao(:,:),    &  ! Surface atmospheric pressure                     [hPa]
-      ! 9:  fswr(:,:),   &  ! Incoming surface solar radiation                 [W/m]
+ !    ! Read complete NCEP data sets for focing ocean model
+ !    ! 4:  tafo(:,:),   &  ! 2 m air temperature                              [C]
+ !    ! 5:  ftdew(:,:),  &  ! 2 m dew-point temperature                        [K]
+ !    ! 6:  fu10(:,:) ,  &  ! 10 m wind speed                                  [m/s]
+ !    ! 7:  fclou(:,:),  &  ! Fractional cloud cover
+ !    ! 8:  pao(:,:),    &  ! Surface atmospheric pressure                     [hPa]
+ !    ! 9:  fswr(:,:),   &  ! Incoming surface solar radiation                 [W/m]
 
-        ! 2m-temperature
-        CALL read_netcdf_data (ncid, 'temp_2m', p_patch%n_patch_cells_g,       &
-          &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
-          &                    iforc_len, z_flux)
-        ext_data(jg)%oce%omip_forc_mon_c(:,:,:,4) = z_flux(:,:,:)
-     
-        ! 2m dewpoint temperature
-        CALL read_netcdf_data (ncid, 'dpt_temp_2m', p_patch%n_patch_cells_g,   &
-          &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
-          &                    iforc_len, z_flux)
-        ext_data(jg)%oce%omip_forc_mon_c(:,:,:,5) = z_flux(:,:,:)
-     
-        ! Scalar wind
-        CALL read_netcdf_data (ncid, 'scalar_wind', p_patch%n_patch_cells_g,   &
-          &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
-          &                    iforc_len, z_flux)
-        ext_data(jg)%oce%omip_forc_mon_c(:,:,:,6) = z_flux(:,:,:)
-     
-        ! cloud cover
-        CALL read_netcdf_data (ncid, 'cloud', p_patch%n_patch_cells_g,         &
-          &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
-          &                    iforc_len, z_flux)
-        ext_data(jg)%oce%omip_forc_mon_c(:,:,:,7) = z_flux(:,:,:)
-     
-        ! sea level pressure
-        CALL read_netcdf_data (ncid, 'pressure', p_patch%n_patch_cells_g,      &
-          &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
-          &                    iforc_len, z_flux)
-        ext_data(jg)%oce%omip_forc_mon_c(:,:,:,8) = z_flux(:,:,:)
-     
-        ! total solar radiation
-        CALL read_netcdf_data (ncid, 'tot_solar', p_patch%n_patch_cells_g,     &
-          &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
-          &                    iforc_len, z_flux)
-        ext_data(jg)%oce%omip_forc_mon_c(:,:,:,9) = z_flux(:,:,:)
-     
-        ! precipitation
-        CALL read_netcdf_data (ncid, 'precip', p_patch%n_patch_cells_g,        &
-          &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
-          &                    iforc_len, z_flux)
-        ext_data(jg)%oce%omip_forc_mon_c(:,:,:,10) = z_flux(:,:,:)
-     
-        ! evaporation or downward surface LW flux
-   !    CALL read_netcdf_data (ncid, 'evap', p_patch%n_patch_cells_g,          &
-   !      &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
-   !      &                    iforc_len, z_flux)
-   !    CALL read_netcdf_data (ncid, 'dlwrf', p_patch%n_patch_cells_g,         &
-   !      &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
-   !      &                    iforc_len, z_flux)
-   !    ext_data(jg)%oce%omip_forc_mon_c(:,:,:,11) = z_flux(:,:,:)
-     
-        ! runoff
-        CALL read_netcdf_data (ncid, 'runoff', p_patch%n_patch_cells_g,        &
-          &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
-          &                    iforc_len, z_flux)
-        ext_data(jg)%oce%omip_forc_mon_c(:,:,:,12) = z_flux(:,:,:)
+ !      ! 2m-temperature
+ !      CALL read_netcdf_data (ncid, 'temp_2m', p_patch%n_patch_cells_g,       &
+ !        &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
+ !        &                    iforc_len, z_flux)
+ !      ext_data(jg)%oce%omip_forc_mon_c(:,:,:,4) = z_flux(:,:,:)
+ !   
+ !      ! 2m dewpoint temperature
+ !      CALL read_netcdf_data (ncid, 'dpt_temp_2m', p_patch%n_patch_cells_g,   &
+ !        &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
+ !        &                    iforc_len, z_flux)
+ !      ext_data(jg)%oce%omip_forc_mon_c(:,:,:,5) = z_flux(:,:,:)
+ !   
+ !      ! Scalar wind
+ !      CALL read_netcdf_data (ncid, 'scalar_wind', p_patch%n_patch_cells_g,   &
+ !        &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
+ !        &                    iforc_len, z_flux)
+ !      ext_data(jg)%oce%omip_forc_mon_c(:,:,:,6) = z_flux(:,:,:)
+ !   
+ !      ! cloud cover
+ !      CALL read_netcdf_data (ncid, 'cloud', p_patch%n_patch_cells_g,         &
+ !        &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
+ !        &                    iforc_len, z_flux)
+ !      ext_data(jg)%oce%omip_forc_mon_c(:,:,:,7) = z_flux(:,:,:)
+ !   
+ !      ! sea level pressure
+ !      CALL read_netcdf_data (ncid, 'pressure', p_patch%n_patch_cells_g,      &
+ !        &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
+ !        &                    iforc_len, z_flux)
+ !      ext_data(jg)%oce%omip_forc_mon_c(:,:,:,8) = z_flux(:,:,:)
+ !   
+ !      ! total solar radiation
+ !      CALL read_netcdf_data (ncid, 'tot_solar', p_patch%n_patch_cells_g,     &
+ !        &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
+ !        &                    iforc_len, z_flux)
+ !      ext_data(jg)%oce%omip_forc_mon_c(:,:,:,9) = z_flux(:,:,:)
+ !   
+ !      ! precipitation
+ !      CALL read_netcdf_data (ncid, 'precip', p_patch%n_patch_cells_g,        &
+ !        &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
+ !        &                    iforc_len, z_flux)
+ !      ext_data(jg)%oce%omip_forc_mon_c(:,:,:,10) = z_flux(:,:,:)
+ !   
+ !      ! evaporation or downward surface LW flux
+ ! !    CALL read_netcdf_data (ncid, 'evap', p_patch%n_patch_cells_g,          &
+ ! !      &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
+ ! !      &                    iforc_len, z_flux)
+ ! !    CALL read_netcdf_data (ncid, 'dlwrf', p_patch%n_patch_cells_g,         &
+ ! !      &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
+ ! !      &                    iforc_len, z_flux)
+ ! !    ext_data(jg)%oce%omip_forc_mon_c(:,:,:,11) = z_flux(:,:,:)
+ !   
+ !      ! runoff
+ !      CALL read_netcdf_data (ncid, 'runoff', p_patch%n_patch_cells_g,        &
+ !        &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
+ !        &                    iforc_len, z_flux)
+ !      ext_data(jg)%oce%omip_forc_mon_c(:,:,:,12) = z_flux(:,:,:)
 
-      END IF
+ !    END IF
 
       !
       ! close file
