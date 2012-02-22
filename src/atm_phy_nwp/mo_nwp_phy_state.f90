@@ -78,10 +78,11 @@ USE mo_var_list,            ONLY: default_var_list_settings, &
                                 & add_var, add_ref,          &
                                 & new_var_list,              &
                                 & delete_var_list
-USE mo_cf_convention
-USE mo_grib2
-USE mo_cdi_constants 
+USE mo_nwp_parameters,      ONLY: t_phy_params
+USE mo_cf_convention,       ONLY: t_cf_var
+USE mo_grib2,               ONLY: t_grib2_var
 USE mo_io_config,           ONLY: lflux_avg
+USE mo_cdi_constants 
 
 IMPLICIT NONE
 PRIVATE
@@ -97,24 +98,25 @@ CHARACTER(len=*), PARAMETER :: version = '$Id$'
 PUBLIC :: construct_nwp_phy_state
 PUBLIC :: destruct_nwp_phy_state
 !
-!variables
+!types
 PUBLIC :: t_nwp_phy_diag, t_nwp_phy_tend
-PUBLIC :: prm_diag, prm_nwp_tend
-PUBLIC :: mean_charlen
-PUBLIC :: prm_nwp_diag_list, prm_nwp_tend_list  !< variable lists
-PUBLIC :: varunits
 #ifdef HAVE_F95
 PUBLIC :: t_ptr_phy
 #endif
+!
+!variables
+PUBLIC :: prm_diag 
+PUBLIC :: prm_nwp_tend
+PUBLIC :: phy_params
+PUBLIC :: prm_nwp_diag_list  !< variable lists
+PUBLIC :: prm_nwp_tend_list  !< variable lists
+PUBLIC :: varunits
+
 !
 !!data structure defining model states
 !
 !!diagnostic variables
 !
-INTEGER :: n_updown = 7 !> number of up/downdrafts variables
-
-REAL(wp), POINTER :: mean_charlen(:)
-
 
   TYPE t_ptr_phy
     REAL(wp),POINTER :: p_3d(:,:,:) ! pointer to 3D (spatial) array
@@ -307,7 +309,13 @@ END TYPE t_nwp_phy_tend
 !!--------------------------------------------------------------------------
   TYPE(t_var_list),ALLOCATABLE :: prm_nwp_diag_list(:)  !< shape: (n_dom)
   TYPE(t_var_list),ALLOCATABLE :: prm_nwp_tend_list(:)  !< shape: (n_dom)
-  
+
+!!-------------------------------------------------------------------------
+!! Parameters of various physics parameterizations that have to be 
+!! domain-dependent (computed during physics initialization phase)
+!!-------------------------------------------------------------------------
+  TYPE (t_phy_params), ALLOCATABLE :: phy_params(:)  !< shape: (n_dom)
+
   ! variable units, depending on "lflux_avg"
   CHARACTER(len=10) :: varunits 
 
@@ -327,11 +335,6 @@ INTEGER ::  jg,ist, nblks_c, nlev, nlevp1
 CALL message('mo_nwp_phy_state:construct_nwp_state', &
   'start to construct 3D state vector')
 
-  !This array is only defined via its patches
-  ALLOCATE(mean_charlen(n_dom), STAT=ist)
-  IF (ist/=success) THEN
-  CALL finish('mo_nwp_phys_state:', 'allocation of mean_charlen failed')
-  ENDIF
 
   ! Allocate pointer arrays prm_diag_nwp and prm_nwp_tend, 
   ! as well as the corresponding list arrays.
@@ -366,6 +369,16 @@ CALL message('mo_nwp_phy_state:construct_nwp_state', &
      CALL new_nwp_phy_tend_list ( jg, nlev, nblks_c,&
                                 & TRIM(listname), prm_nwp_tend_list(jg), prm_nwp_tend(jg))
   ENDDO
+
+
+  ! Allocate variable of type t_phy_params containing domain-dependent parameters
+  !
+  ALLOCATE(phy_params(n_dom), STAT=ist)
+  IF(ist/=success)THEN
+    CALL finish ('mo_nwp_phy_state:construct_nwp_state', &
+      'allocation of phy_params array failed')
+  ENDIF
+
   
   CALL message('mo_nwp_phy_state:construct_nwp_state', &
     'construction of state vector finished')
@@ -375,7 +388,7 @@ END SUBROUTINE construct_nwp_phy_state
 !
 SUBROUTINE destruct_nwp_phy_state
 
-  INTEGER :: jg,ist  !< grid level/domain index
+  INTEGER :: jg, ist  !< grid level/domain index
 
   CALL message('mo_nwp_phy_state:destruct_nwp_phy_state', &
   'start to destruct 3D state vector')
@@ -385,23 +398,23 @@ SUBROUTINE destruct_nwp_phy_state
     CALL delete_var_list( prm_nwp_tend_list (jg) )
   ENDDO
 
-  !This array is only defined via its patches
-  DEALLOCATE(mean_charlen, STAT=ist)
-  IF(ist/=success)THEN
-    CALL finish ('mo_nwp_phy_state:construct_nwp_phy_state', &
-         &       'deallocation of mean_charlen failed')
-  ENDIF
 
   DEALLOCATE(prm_diag, prm_nwp_diag_list, STAT=ist)
   IF(ist/=success)THEN
-    CALL finish ('mo_nwp_phy_state:construct_nwp_phy_state', &
+    CALL finish ('mo_nwp_phy_state:destruct_nwp_phy_state', &
        &  'deallocation of NWP physics diagnostic array and list failed')
   ENDIF
  
   DEALLOCATE(prm_nwp_tend, prm_nwp_tend_list, STAT=ist)
   IF(ist/=success)THEN
-    CALL finish ('mo_nwp_phy_state:construct_nwp_phy_state', &
+    CALL finish ('mo_nwp_phy_state:destruct_nwp_phy_state', &
          &' deallocation of NWP physics tendencies array and list failed') 
+  ENDIF
+
+  DEALLOCATE(phy_params, STAT=ist)
+  IF(ist/=success)THEN
+    CALL finish ('mo_nwp_phy_state:destruct_nwp_phy_state', &
+         &' deallocation of phy_params array failed') 
   ENDIF
 
   CALL message('mo_nwp_phy_state:destruct_nwp_phy_state', &
@@ -423,6 +436,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     TYPE(t_nwp_phy_diag),INTENT(INOUT) :: diag
 
     ! Local variables
+
+    INTEGER :: n_updown = 7 !> number of up/downdrafts variables
 
     TYPE(t_cf_var)    ::    cf_desc
     TYPE(t_grib2_var) :: grib2_desc

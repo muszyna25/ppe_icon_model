@@ -118,7 +118,7 @@ CONTAINS
                             & pt_patch, pt_int_state, p_metrics,   & !input
                             & pt_par_patch, pt_par_int_state,      & !input
                             & pt_par_grf_state,                    & !input
-                            & ext_data, mean_charlen,              & !input
+                            & ext_data,                            & !input
                             & pt_prog,                             & !inout
                             & pt_prog_now_rcf, pt_prog_rcf,        & !in/inout
                             & pt_diag ,                            & !inout
@@ -138,8 +138,7 @@ CONTAINS
     REAL(wp),INTENT(in)          :: dt_phy_jg(:)    !< time interval for all physics
                                                     !< packages on domain jg
     REAL(wp),INTENT(in)          :: p_sim_time
-    REAL(wp),INTENT(in),OPTIONAL :: mean_charlen !< characteristic griddistance, needed
-                                                 !< by turbulence
+
     TYPE(t_datetime),            INTENT(in):: datetime
     TYPE(t_patch),        TARGET,INTENT(in):: pt_patch     !<grid/patch info.
     TYPE(t_patch),        TARGET,INTENT(in):: pt_par_patch !<grid/patch info (parent grid)
@@ -484,7 +483,7 @@ CONTAINS
       IF (timers_level > 1) CALL timer_start(timer_nwp_turbulence)
       CALL nwp_turbulence (  dt_phy_jg(itfastphy),              & !>input
                             & pt_patch, p_metrics,              & !>input
-                            & ext_data, mean_charlen,           & !>input
+                            & ext_data,                         & !>input
                             & pt_prog,                          & !>inout
                             & pt_prog_now_rcf, pt_prog_rcf,     & !>in/inout
                             & pt_diag ,                         & !>inout

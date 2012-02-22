@@ -53,7 +53,7 @@ MODULE mo_nwp_turb_interface
   USE mo_ext_data,             ONLY: t_external_data
   USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag,&
     &                                t_nh_metrics
-  USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag,t_nwp_phy_tend
+  USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag, t_nwp_phy_tend, phy_params 
   USE mo_nwp_lnd_state,        ONLY: t_lnd_prog, t_lnd_diag
 
   USE mo_parallel_config,      ONLY: nproma
@@ -86,7 +86,7 @@ CONTAINS
   !!
 SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
                           & p_patch,p_metrics,                 & !>input
-                          & ext_data, mean_charlen,            & !>input
+                          & ext_data,                          & !>input
                           & p_prog,                            & !>inout
                           & p_prog_now_rcf, p_prog_rcf,        & !>in/inout
                           & p_diag ,                           & !>inout
@@ -107,8 +107,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
   TYPE(t_lnd_diag),            INTENT(inout):: lnd_diag        !< diag vars for sfc
   REAL(wp),                    INTENT(in)   :: tcall_turb_jg   !< time interval for 
                                                                !< turbulence
-  REAL(wp),                    INTENT(in)   :: mean_charlen    !< characteristic griddistance
-                                                               !< needed by turbulence
+
   ! Local array bounds:
 
   INTEGER :: nblks_c, nblks_e        !> number of blocks for cells / edges
@@ -304,7 +303,8 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
          &  jstart   =1,          jend   =1       , jstartu=1         , jendu=1       , &
          &  jstartpar=1         , jendpar=1       , jstartv=1         , jendv=1       , &
 !       
-         &  l_hori=mean_charlen, hhl=p_metrics%z_ifc(:,:,jb), dp0=p_diag%dpres_mc(:,:,jb), &
+         &  l_hori=phy_params(jg)%mean_charlen, hhl=p_metrics%z_ifc(:,:,jb),            &
+         &  dp0=p_diag%dpres_mc(:,:,jb),                                                &
 !
          &  fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb), &
          &  sai=prm_diag%sai(:,jb), h_ice=prm_diag%h_ice (:,jb), &

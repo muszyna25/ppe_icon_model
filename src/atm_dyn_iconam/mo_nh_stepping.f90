@@ -64,7 +64,7 @@ MODULE mo_nh_stepping
   USE mo_grid_config,         ONLY: global_cell_type
   USE mo_atm_phy_nwp_config,  ONLY: dt_phy, atm_phy_nwp_config
   USE mo_nwp_phy_init,        ONLY: init_nwp_phy
-  USE mo_nwp_phy_state,       ONLY: prm_diag, prm_nwp_tend, mean_charlen
+  USE mo_nwp_phy_state,       ONLY: prm_diag, prm_nwp_tend, phy_params
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, p_tiles
   USE mo_nwp_lnd_state,       ONLY: p_lnd_state
   USE mo_ext_data,            ONLY: ext_data
@@ -133,7 +133,7 @@ MODULE mo_nh_stepping
   USE mo_name_list_output_config,  ONLY: is_any_output_file_active
   USE mo_name_list_output,    ONLY: write_name_list_output, istime4name_list_output, &
     &                               output_file
-  USE mo_nwp_parameters,      ONLY: phy_params
+
 
   IMPLICIT NONE
 
@@ -297,7 +297,6 @@ MODULE mo_nh_stepping
 
   CALL allocate_nh_stepping (p_patch)
 
-  ALLOCATE(phy_params(n_dom))
 
   IF (iforcing == inwp .AND. is_restart_run()) THEN
     DO jg=1, n_dom
@@ -313,7 +312,7 @@ MODULE mo_nh_stepping
            & p_lnd_state(jg)%prog_lnd(nnew_rcf(jg)),&
            & p_lnd_state(jg)%diag_lnd              ,&
            & ext_data(jg)                          ,&
-           & mean_charlen(jg), phy_params(jg)      )
+           & phy_params(jg)                         )
     ENDDO
   ELSE IF (iforcing == inwp) THEN ! for cold start, use atmospheric fields at time level nnow only
     DO jg=1, n_dom
@@ -329,7 +328,7 @@ MODULE mo_nh_stepping
            & p_lnd_state(jg)%prog_lnd(nnew_rcf(jg)),&
            & p_lnd_state(jg)%diag_lnd              ,&
            & ext_data(jg)                          ,&
-           & mean_charlen(jg), phy_params(jg)      )
+           & phy_params(jg)                         )
     ENDDO
   ENDIF
 
@@ -372,7 +371,6 @@ MODULE mo_nh_stepping
 
   CALL deallocate_nh_stepping ()
 
-  DEALLOCATE(phy_params)
 
   END SUBROUTINE perform_nh_stepping
   !-------------------------------------------------------------------------
@@ -1194,7 +1192,6 @@ MODULE mo_nh_stepping
             &                  p_int_state(jgp),                   & !in
             &                  p_grf_state(jgp),                   & !in
             &                  ext_data(jg)           ,            & !in
-            &                  mean_charlen(jg)       ,            & !in
             &                  p_nh_state(jg)%prog(n_now) ,        & !inout
             &                  p_nh_state(jg)%prog(n_now_rcf) ,    & !inout
             &                  p_nh_state(jg)%prog(n_now_rcf) ,    & !inout
@@ -1408,7 +1405,6 @@ MODULE mo_nh_stepping
             &                  p_int_state(jgp),                   & !in
             &                  p_grf_state(jgp),                   & !in
             &                  ext_data(jg)           ,            & !in
-            &                  mean_charlen(jg)       ,            & !in
             &                  p_nh_state(jg)%prog(n_new) ,        & !inout
             &                  p_nh_state(jg)%prog(n_now_rcf),     & !in for tke
             &                  p_nh_state(jg)%prog(n_new_rcf) ,    & !inout

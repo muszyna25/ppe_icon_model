@@ -123,7 +123,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
                        &  prm_diag,prm_nwp_tend,            &
                        &  p_prog_lnd_now, p_prog_lnd_new,   &
                        &  p_diag_lnd,                       &
-                       &  ext_data, mean_charlen, phy_params)
+                       &  ext_data, phy_params)
 
   TYPE(t_patch),        TARGET,INTENT(in)    :: p_patch
   TYPE(t_nh_metrics),          INTENT(in)    :: p_metrics
@@ -137,7 +137,6 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   TYPE(t_lnd_diag),            INTENT(inout) :: p_diag_lnd
   TYPE(t_phy_params),          INTENT(inout) :: phy_params
 
-  REAL(wp),INTENT(OUT):: mean_charlen
   INTEGER             :: jk, jk1
   INTEGER             :: nsmax   ! horizontal resolution/sepctral truncation
   REAL(wp)            :: pdtime
@@ -282,7 +281,8 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     !--------------------------------------------------------------
     !< characteristic gridlength needed by convection and turbulence
     !--------------------------------------------------------------
-      CALL mean_domain_values (p_patch%level, nroot, mean_charlen)
+      CALL mean_domain_values (p_patch%level, nroot, phy_params%mean_charlen)
+
 
     !--------------------------------------------------------------
     !>reference pressure according to U.S. standard atmosphere
@@ -553,7 +553,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     
     ! get current date in iso-format "yyyymmddThhmmssZ" (String)
     cur_date = iso8601(time_config%cur_datetime)
-    ! convert first 8 characters to interger (yyyymmdd)
+    ! convert first 8 characters to integer (yyyymmdd)
     READ(cur_date(1:8),'(i8)') icur_date
 
     CALL sucst(54,icur_date,0,1)
@@ -571,10 +571,11 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init convection')
 
     ! Please take care for scale-dependent initializations!
-    nsmax = INT(2._wp*pi*re/mean_charlen) ! Spectral resolution corresponding to ICON
-                                          ! needed for RTAU - CAPE calculation
+    ! Spectral resolution corresponding to ICON
+    ! needed for RTAU - CAPE calculation
+    nsmax = INT(2._wp*pi*re/phy_params%mean_charlen) 
 
-!    WRITE(message_text,'(i3,i10,f20.10)') jg,nsmax,mean_charlen
+!    WRITE(message_text,'(i3,i10,f20.10)') jg, nsmax, phy_params%mean_charlen
 !    CALL message('nwp_phy_init, nsmax=', TRIM(message_text))
 
 
@@ -649,7 +650,8 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
          &  jstart   =1,          jend   =1       , jstartu=1         , jendu=1       , &
          &  jstartpar=1         , jendpar=1       , jstartv=1         , jendv=1       , &
 !
-         &  l_hori=mean_charlen, hhl=p_metrics%z_ifc(:,:,jb), dp0=p_diag%dpres_mc(:,:,jb), &
+         &  l_hori=phy_params%mean_charlen, hhl=p_metrics%z_ifc(:,:,jb),                &
+         &  dp0=p_diag%dpres_mc(:,:,jb),                                                &
 !
          &  fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb), &
          &  sai=prm_diag%sai(:,jb), h_ice=prm_diag%h_ice (:,jb), &

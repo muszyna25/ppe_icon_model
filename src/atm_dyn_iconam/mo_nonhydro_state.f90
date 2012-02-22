@@ -52,7 +52,7 @@ MODULE mo_nonhydro_state
 
   USE mo_kind,                 ONLY: wp
   USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH, INWP
-  USE mo_exception,            ONLY: message, finish
+  USE mo_exception,            ONLY: message, finish, message_text
   USE mo_model_domain,         ONLY: t_patch
   USE mo_nonhydro_types,       ONLY: t_nh_state, t_nh_prog, t_nh_diag,        &
     &                                t_nh_metrics, t_ptr_nh, t_nh_diag_pz,    &
@@ -95,9 +95,9 @@ MODULE mo_nonhydro_state
   PUBLIC :: bufr
 
 
-!!$  INTERFACE add_tracer_ref
-!!$    MODULE PROCEDURE add_var_list_reference_tracer
-!!$  END INTERFACE add_tracer_ref
+  INTERFACE add_tracer_ref
+    MODULE PROCEDURE add_var_list_reference_tracer
+  END INTERFACE add_tracer_ref
 
 
   TYPE (t_buffer_memory), POINTER :: bufr(:)
@@ -545,7 +545,11 @@ MODULE mo_nonhydro_state
 
       IF (  iforcing == inwp  ) THEN
 
-      ! Reference to individual tracer, for I/O
+      ! Reference to individual tracer, for I/O and setting of additional metadata
+      ! Note that for qv, qc, qi, qr, qs the corresponding indices iqv, iqc, iqi, 
+      ! iqr, iqs are hardcoded. For additional tracers, indices need to be set via 
+      ! add_tracer_ref (see e.g. O3). 
+     
 
         ktracer=ntracer+ntracer_static
         ALLOCATE( p_prog%tracer_ptr(ktracer) )
@@ -556,7 +560,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                          &
                     & t_cf_var(TRIM(vname_prefix)//'qv',                             &
                     &  'kg kg-1','specific_humidity'),                               &
-                    & t_grib2_var(0, 1, 201, ientr, GRID_REFERENCE, GRID_CELL),        &
+                    & t_grib2_var(0, 1, 201, ientr, GRID_REFERENCE, GRID_CELL),      &
                     & ldims=shape3d_c,                                               &
                     & tlev_source=1,     &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.) )
@@ -566,7 +570,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                          &
                     & t_cf_var(TRIM(vname_prefix)//'qc',                             &
                     &  'kg kg-1', 'specific_cloud_water_content'),                   &
-                    & t_grib2_var(0, 1, 202, ientr, GRID_REFERENCE, GRID_CELL),   &
+                    & t_grib2_var(0, 1, 202, ientr, GRID_REFERENCE, GRID_CELL),      &
                     & ldims=shape3d_c,                                               &
                     & tlev_source=1,     &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.) )
@@ -576,7 +580,7 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                          &
                     & t_cf_var(TRIM(vname_prefix)//'qi',                             &
                     &  'kg kg-1','specific_cloud_ice_content'),                      &
-                    & t_grib2_var(0, 1, 203, ientr, GRID_REFERENCE, GRID_CELL),   &
+                    & t_grib2_var(0, 1, 203, ientr, GRID_REFERENCE, GRID_CELL),      &
                     & ldims=shape3d_c,                                               &
                     & tlev_source=1,     &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.) )
@@ -602,75 +606,18 @@ MODULE mo_nonhydro_state
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.) )
 
 
-!!$           !QV
-!!$        CALL add_tracer_ref( p_prog_list, 'tracer',                   &
-!!$                    & TRIM(vname_prefix)//'qv'//suffix, iqv, p_prog%tracer_ptr,      &
-!!$                    & t_cf_var(TRIM(vname_prefix)//'qv',                             &
-!!$                    &  'kg kg-1','specific_humidity'),                               &
-!!$                    & t_grib2_var(0, 1, 0, ientr, GRID_REFERENCE, GRID_CELL),        &
-!!$                    & ldims=shape3d_c,                                               &
-!!$                    & tlev_source=1,     &              ! output from nnow_rcf slice
-!!$                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.) )
-!!$
-!!$           !QC
-!!$        CALL add_tracer_ref( p_prog_list, 'tracer',&
-!!$                    & TRIM(vname_prefix)//'qc'//suffix, iqc, p_prog%tracer_ptr,      &
-!!$                    & t_cf_var(TRIM(vname_prefix)//'qc',                             &
-!!$                    &  'kg kg-1', 'specific_cloud_water_content'),                   &
-!!$                    & t_grib2_var(192, 201, 31, ientr, GRID_REFERENCE, GRID_CELL),   &
-!!$                    & ldims=shape3d_c,                                               &
-!!$                    & tlev_source=1,     &              ! output from nnow_rcf slice
-!!$                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.) )
-!!$           !QI
-!!$        CALL add_tracer_ref( p_prog_list, 'tracer',                                  &
-!!$                    & TRIM(vname_prefix)//'qi'//suffix, iqi, p_prog%tracer_ptr,      &
-!!$                    & t_cf_var(TRIM(vname_prefix)//'qi',                             &
-!!$                    &  'kg kg-1','specific_cloud_ice_content'),                      &
-!!$                    & t_grib2_var(192, 201, 33, ientr, GRID_REFERENCE, GRID_CELL),   &
-!!$                    & ldims=shape3d_c,                                               &
-!!$                    & tlev_source=1,     &              ! output from nnow_rcf slice
-!!$                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.) )
-!!$           !QR
-!!$        CALL add_tracer_ref( p_prog_list, 'tracer',                                  &
-!!$                    & TRIM(vname_prefix)//'qr'//suffix, iqr, p_prog%tracer_ptr,      &
-!!$                    & t_cf_var(TRIM(vname_prefix)//'qr',                             &
-!!$                    &  'kg kg-1','rain_mixing_ratio'),                               &
-!!$                    & t_grib2_var(0, 1, 24, ientr, GRID_REFERENCE, GRID_CELL),       &
-!!$                    & ldims=shape3d_c,                                               &
-!!$                    & tlev_source=1,     &              ! output from nnow_rcf slice
-!!$                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.) )
-!!$           !QS
-!!$        CALL add_tracer_ref( p_prog_list, 'tracer',                                  &
-!!$                    & TRIM(vname_prefix)//'qs'//suffix, iqs, p_prog%tracer_ptr,      &
-!!$                    & t_cf_var(TRIM(vname_prefix)//'qs',                             &
-!!$                    &  'kg kg-1','snow_mixing_ratio'),                               &
-!!$                    & t_grib2_var(0, 1, 25, ientr, GRID_REFERENCE, GRID_CELL),       &
-!!$                    & ldims=shape3d_c,                                               &
-!!$                    & tlev_source=1,     &              ! output from nnow_rcf slice
-!!$                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.) )
-
 
         IF( irad_o3 == 4 .OR. irad_o3 == 6 .OR. irad_o3 == 7 ) THEN
+
            !O3
-          CALL add_ref( p_prog_list, 'tracer',                               &
-            & TRIM(vname_prefix)//'O3'//suffix, p_prog%tracer_ptr(io3)%p_3d, &
-            & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                          &
+          CALL add_tracer_ref( p_prog_list, 'tracer',                        &
+            & TRIM(vname_prefix)//'O3'//suffix, io3, p_prog%tracer_ptr,      &
             & t_cf_var(TRIM(vname_prefix)//'O3',                             &
             &  'kg kg-1','ozone_mass_mixing_ratio'),                         &
             & t_grib2_var(0, 14, 1, ientr, GRID_REFERENCE, GRID_CELL),       &
             & ldims=shape3d_c,                                               &
             & tlev_source=0,     &              ! output from nnow_rcf slice
             & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.) )
-
-!!$           !O3
-!!$          CALL add_tracer_ref( p_prog_list, 'tracer',                        &
-!!$            & TRIM(vname_prefix)//'O3'//suffix, io3, p_prog%tracer_ptr,      &
-!!$            & t_cf_var(TRIM(vname_prefix)//'O3',                             &
-!!$            &  'kg kg-1','ozone_mass_mixing_ratio'),                         &
-!!$            & t_grib2_var(0, 14, 1, ientr, GRID_REFERENCE, GRID_CELL),       &
-!!$            & ldims=shape3d_c,                                               &
-!!$            & tlev_source=0,     &              ! output from nnow_rcf slice
-!!$            & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.) )
         ENDIF
 
         ! tke            p_prog%tke(nproma,nlevp1,nblks_c)
@@ -2682,7 +2629,7 @@ MODULE mo_nonhydro_state
     TYPE(t_var_list)    , INTENT(inout)        :: this_list
     CHARACTER(len=*)    , INTENT(in)           :: target_name
     CHARACTER(len=*)    , INTENT(in)           :: tracer_name
-    INTEGER             , INTENT(out)          :: tracer_idx          ! index in 4D tracer container
+    INTEGER             , INTENT(inout)        :: tracer_idx          ! index in 4D tracer container
     TYPE(t_ptr_nh)      , INTENT(inout)        :: ptr_arr(:)
     TYPE(t_cf_var)      , INTENT(in)           :: cf                  ! CF related metadata
     TYPE(t_grib2_var)   , INTENT(in)           :: grib2               ! GRIB2 related metadata
@@ -2696,15 +2643,27 @@ MODULE mo_nonhydro_state
     TYPE(t_list_element), POINTER :: target_element  
     TYPE(t_var_metadata), POINTER :: target_info
 
+    CHARACTER(*), PARAMETER :: routine = "add_tracer_ref"
+  !------------------------------------------------------------------
+
     ! get pointer to target element (in this case 4D tracer container)
     target_element => find_list_element (this_list, target_name)
     ! get tracer field metadata
     target_info => target_element%field%info
 
-    ! get index of current field in 4D container
+    ! get index of current field in 4D container and set 
+    ! tracer index accordingly.
+    ! Note that this will be repeated for each patch. Otherwise it may happen that 
+    ! some MPI-processes miss this assignment.
+    !
     tracer_idx = target_info%ncontained+1  ! index in 4D tracer container
 
-    ! create new table entry reference including new tracer metadata
+    WRITE (message_text,'(a,i3,a,a)')                                            &
+      & "tracer index ", tracer_idx," assigned to tracer field ", TRIM(tracer_name)
+    CALL message(TRIM(routine),message_text)
+
+
+    ! create new table entry reference including additional tracer metadata
     CALL add_ref( this_list, target_name, tracer_name, ptr_arr(tracer_idx)%p_3d, &
        &          target_info%hgrid, target_info%vgrid, cf, grib2,               &
        &          ldims=ldims, loutput=loutput, lrestart=lrestart,               &

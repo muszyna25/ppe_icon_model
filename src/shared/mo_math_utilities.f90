@@ -1796,7 +1796,6 @@ INTEGER , INTENT(IN)  :: p_level !  level of patch
 INTEGER , INTENT(IN)  :: nroot   !  root division of initial edges
 REAL(wp), INTENT(OUT) :: mean_charlen
 
-!!mean_charlen (jg) = SQRT (pi*re**2 /REAL(20*nroot**2*4**(p_patch%level),wp))
  mean_charlen      = SQRT (4._wp*pi*re**2 /REAL(20*nroot**2*4**(p_level),wp))
 
 END SUBROUTINE mean_domain_values

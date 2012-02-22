@@ -36,25 +36,28 @@
 MODULE mo_nwp_parameters
 !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: wp
-  USE mo_exception,          ONLY: message_text, finish
-  USE mo_impl_constants,     ONLY: max_dom
 
 
   IMPLICIT NONE
 
-  CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
+  PRIVATE
 
-  PUBLIC
+  CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
   TYPE t_phy_params
     ! Level parameters for convection scheme
     INTEGER  :: kcon1, kcon2, kcon3, kcon4, kcon5
     ! resolution-dependent parameters for convection scheme
     REAL(wp) :: tau, mfcfl
+    ! characteristic horizontal length scale (grid-scale) for 
+    ! turbulence scheme and convection scheme
+    REAL(wp) :: mean_charlen
     ! launch level for GWD scheme
     INTEGER  :: klaunch
   END TYPE t_phy_params
 
-  TYPE (t_phy_params), ALLOCATABLE :: phy_params(:)
+
+  PUBLIC :: t_phy_params
+
 
 END MODULE mo_nwp_parameters

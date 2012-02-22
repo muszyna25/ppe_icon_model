@@ -505,8 +505,10 @@ CONTAINS
       iqi    = 3     !! ice
       iqr    = 4     !! rain water
       iqs    = 5     !! snow
-      io3    = 6     !! O3
-      ico2   = 7     !! CO2
+
+      ! Note: Indices for additional tracers are assigned automatically 
+      ! via add_tracer_ref in mo_nonhydro_state.
+
       iqt    = 6     !! start index of other tracers than hydrometeors
       nqtendphy = 3  !! number of water species for which convective and turbulent 
                      !! tendencies are stored
