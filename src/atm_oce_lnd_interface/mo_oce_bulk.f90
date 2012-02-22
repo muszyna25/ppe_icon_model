@@ -1418,8 +1418,9 @@ CONTAINS
     CHARACTER(filename_max) :: ncep_file   !< file name for reading in
 
     LOGICAL :: l_exist
-    INTEGER :: jg, i_lev, i_cell_type, no_cells, no_tst, jlevs, jtime, jt, jb
+    INTEGER :: jg, i_lev, i_cell_type, no_cells, no_tst, jlevs, jtime, jt, jb, j
     INTEGER :: ncid, dimid
+    INTEGER :: isrt(3),icnt(3), jcells
 
     REAL(wp):: z_flux(nproma,1,p_patch%nblks_c,iforc_len)  ! forcing data: time length is iforc_len
     TYPE (t_keyword_list), POINTER :: keywords => NULL()
@@ -1491,8 +1492,9 @@ CONTAINS
       !
       !-------------------------------------------------------
 
-      jlevs = 1            !  surface data
-      jtime = iforc_len    !  time period to read (not yet)
+      jlevs  = 1                      !  surface data
+      jcells = p_patch%n_patch_cells  ! global dimension
+      jtime  = iforc_len              !  time period to read (not yet)
       
 
       ! provide NCEP fluxes for sea ice (interface to ocean)
@@ -1505,62 +1507,57 @@ CONTAINS
       ! &  iforc_len, nproma, p_patch%nblks_c
       CALL read_netcdf_data (ncid, 'stress_x', p_patch%n_patch_cells_g,      &
         &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
-        &                    jlevs, iforc_len, z_flux(:,:,:,:))
+        &                    jlevs, jtime, z_flux(:,:,:,:))
       write(0,*) ' READ_FORC: ncep set 1: stress_x read'
       DO jt = 1, iforc_len
         ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,1) = z_flux(:,1,:,jt)
       END DO
 
-  !   write(0,*) 'READ 1: first data sets: stress-x, block=5, index=1,5:'
-  !   do jt=1,12
-  !     write(0,*) 'jt=',jt,' val:',(ext_data(1)%oce%omip_forc_mon_c(jb,jt,5,1),jb=1,5)
-  !   enddo
+      write(0,*) ' READ_FORC, READ 1: first data sets: stress-x, block=5, index=1,5:'
+      do jt=1,3
+        write(0,*) 'jt=',jt,' val:',(ext_data(1)%oce%omip_forc_mon_c(jb,jt,5,1),jb=1,5)
+      enddo
 
-  ! ! nochmal test
-  ! do j=1,3
-  ! isrt(j)=1
-  ! enddo
-  ! !isrt(3)=1
-  ! icnt(1)=glb_arr_len  !  dim 1
-  ! icnt(2)=nlevs        !  dim 2
-  ! icnt(3)=ntime        !  last set to read
+    ! nochmal test
+    do j=1,3
+    isrt(j)=1
+    enddo
+    ! start: first set
+    !isrt(3)=1
+    icnt(1)=jcells       !  dim 1
+    icnt(2)=jlevs        !  dim 2
+    icnt(3)=12           !  last set to read
 
-  ! IF(my_process_is_stdio()) CALL nf(nf_get_vara_double(ncid, varid, &
-  !   &                               isrt, icnt, z_dummy_array(:,:,:)))
-  ! write(0,*) ' ncep set 2: stress_x read'
-  ! CALL p_bcast(z_dummy_array, p_io , mpi_comm)
-
-  ! var_out(:,:,:,:) = 0._wp
-  !   DO jt = 1, iforc_len
-  !     ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,1) = z_flux(:,1,:,jt)
-  !   END DO
-
-  !   write(0,*) 'READ 2: first data sets: stress-x, block=5, index=1,5:'
-  !   do jt=1,12
-  !     write(0,*) 'jt=',jt,' val:',(ext_data(1)%oce%omip_forc_mon_c(jb,jt,5,1),jb=1,5)
-  !   enddo
-
-  !   write(0,*) ' READ_FORC: ncep set 2: stress_x read'
-  !   CALL read_netcdf_data (ncid, 'stress_x', p_patch%n_patch_cells_g,      &
-  !     &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
-  !     &                    jlevs, iforc_len, z_flux(:,:,:,:))
-  !   write(0,*) ' READ_FORC: ncep set 1: stress_x read'
-
-      ! meridional wind stress
-      CALL read_netcdf_data (ncid, 'stress_y', p_patch%n_patch_cells_g,      &
+      write(0,*) ' READ_FORC: ncep set 2: stress_x read using read_netcdf_time'
+      CALL read_netcdf_data (ncid, 'stress_x', p_patch%n_patch_cells_g,      &
         &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
-        &                    jlevs, iforc_len, z_flux)
+        &                    jlevs, jtime, isrt, icnt, z_flux(:,:,:,:))
+      write(0,*) ' READ_FORC: ncep set 2: stress_x read'
+
       DO jt = 1, iforc_len
-        ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,2) = z_flux(:,1,:,jt)
+        ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,1) = z_flux(:,1,:,jt)
       END DO
 
-      ! SST
-      CALL read_netcdf_data (ncid, 'SST', p_patch%n_patch_cells_g,           &
-        &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
-        &                    jlevs, iforc_len, z_flux)
-      DO jt = 1, iforc_len
-        ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,3) = z_flux(:,1,:,jt)
-      END DO
+      write(0,*) ' READ_FORC, READ 2: first data sets: stress-x, block=5, index=1,5:'
+      do jt=1,3
+        write(0,*) 'jt=',jt,' val:',(ext_data(1)%oce%omip_forc_mon_c(jb,jt,5,1),jb=1,5)
+      enddo
+
+ !    ! meridional wind stress
+ !    CALL read_netcdf_data (ncid, 'stress_y', p_patch%n_patch_cells_g,      &
+ !      &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
+ !      &                    jlevs, iforc_len, z_flux)
+ !    DO jt = 1, iforc_len
+ !      ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,2) = z_flux(:,1,:,jt)
+ !    END DO
+
+ !    ! SST
+ !    CALL read_netcdf_data (ncid, 'SST', p_patch%n_patch_cells_g,           &
+ !      &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
+ !      &                    jlevs, iforc_len, z_flux)
+ !    DO jt = 1, iforc_len
+ !      ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,3) = z_flux(:,1,:,jt)
+ !    END DO
 
  !    IF (iforc_omip == 5) THEN
 
