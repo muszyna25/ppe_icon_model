@@ -104,13 +104,16 @@ MODULE mo_nwp_phy_init
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_nwp_parameters,      ONLY: t_phy_params
 
-  IMPLICIT NONE
+  USE mo_datetime,            ONLY: iso8601
+  USE mo_time_config,         ONLY: time_config
 
-  PUBLIC  :: init_nwp_phy
+  IMPLICIT NONE
 
   PRIVATE
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
+
+  PUBLIC  :: init_nwp_phy
 
 CONTAINS
 
@@ -134,13 +137,16 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   TYPE(t_lnd_diag),            INTENT(inout) :: p_diag_lnd
   TYPE(t_phy_params),          INTENT(inout) :: phy_params
 
-  REAL(wp),INTENT(OUT)::  mean_charlen
+  REAL(wp),INTENT(OUT):: mean_charlen
   INTEGER             :: jk, jk1
   INTEGER             :: nsmax   ! horizontal resolution/sepctral truncation
   REAL(wp)            :: pdtime
   REAL(wp)            :: pref(p_patch%nlev)
   REAL(wp)            :: zlat, zprat, zn1, zn2, zcdnc
   REAL(wp)            :: zpres
+
+  CHARACTER(len=16)   :: cur_date     ! current date (iso-Format)
+  INTEGER             :: icur_date    ! current date converted to integer
 
   ! Reference atmosphere parameters
   REAL(wp), PARAMETER :: dtdz_tropo = -6.5e-3_wp  ! [K/m]  tropospheric temperture gradient
@@ -165,6 +171,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   CHARACTER (LEN=80) :: errormsg=''
 
   INTEGER :: khydromet, ktrac
+
 
 
     i_nchdom  = MAX(1,p_patch%n_childdom)
@@ -432,7 +439,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
       
     ENDIF
 
-    DO ist = 1, 10
+    DO ist = 1, UBOUND(csalbw,1)
       rad_csalbw(ist) = csalbw(ist) / (2.0_wp * zml_soil(1))
     ENDDO
     
@@ -523,11 +530,13 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
     ENDIF ! (irad_o3 == io3_ape)
  
-    DO ist = 1, 10
+
+    DO ist = 1, UBOUND(csalbw,1)
       rad_csalbw(ist) = csalbw(ist) / (2.0_wp * zml_soil(1))
     ENDDO
 
   ENDIF !inwp_radiation
+
 
   !----------------------------------------------------------------
   !< initializations needed both for convection and inwp_cldcover=1 
@@ -542,7 +551,12 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     !uses mo_cufunctions's foealfa. Therefore, the parameters of the function foealfa
     !have to be initialized by calls of sucst and su_yoethf.
     
-    CALL sucst(54,20020211,0,0)
+    ! get current date in iso-format "yyyymmddThhmmssZ" (String)
+    cur_date = iso8601(time_config%cur_datetime)
+    ! convert first 8 characters to interger (yyyymmdd)
+    READ(cur_date(1:8),'(i8)') icur_date
+
+    CALL sucst(54,icur_date,0,1)
     CALL su_yoethf
 
   ENDIF
@@ -563,6 +577,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 !    WRITE(message_text,'(i3,i10,f20.10)') jg,nsmax,mean_charlen
 !    CALL message('nwp_phy_init, nsmax=', TRIM(message_text))
 
+
     CALL sucumf(nsmax,nlev,pref,phy_params)
     CALL suphli
     CALL suvdf
@@ -578,9 +593,8 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
   ! nsfc_type is used for dimensioning local variables in the NWP interface;
   ! thus, it must be set even if vdiff is not called
- ! IF ( atm_phy_nwp_config(jg)%inwp_turb /= 2) &
-    nsfc_type = 1 ! for the time being, nsfc_type must be reset to 1 because land
-                  ! is not yet avaliable for vdiff
+  nsfc_type = 1 ! for the time being, nsfc_type must be reset to 1 because land
+                ! is not yet avaliable for vdiff
 
   IF (  atm_phy_nwp_config(jg)%inwp_turb == 1 .AND. .NOT. is_restart_run() ) THEN
 
