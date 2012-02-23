@@ -1020,6 +1020,21 @@ CONTAINS
       !
       jkb = klev+1-jk
       cld_frc_vr(1:jce,jk)  = cld_frc(1:jce,jkb)
+
+! LL: Apparently xlf gets confused with this where, replace it by IFs
+#ifdef __xlC__
+      icldlyr  (:,jk) = 0
+      ziwgkg_vr(:,jk) = 0.0_wp
+      zlwgkg_vr(:,jk) = 0.0_wp
+
+      DO jl=1,jce
+        IF (cld_frc_vr(jl,jk) > 2.0_wp*EPSILON(1.0_wp)) THEN
+          icldlyr  (jl,jk) = 1
+          ziwgkg_vr(jl,jk) = xm_ice(jl,jkb)*1000.0_wp/cld_frc_vr(jl,jk)
+          zlwgkg_vr(jl,jk) = xm_liq(jl,jkb)*1000.0_wp/cld_frc_vr(jl,jk)
+        ENDIF
+      END DO
+#else
       !
       WHERE (cld_frc_vr(1:jce,jk) > 2.0_wp*EPSILON(1.0_wp))
         ! only clouds > 2 epsilon are made visible to radiation
@@ -1032,6 +1047,7 @@ CONTAINS
         ziwgkg_vr(1:jce,jk) = 0.0_wp
         zlwgkg_vr(1:jce,jk) = 0.0_wp
       END WHERE
+#endif
     END DO
     !
     ! --- main constituent reordering
