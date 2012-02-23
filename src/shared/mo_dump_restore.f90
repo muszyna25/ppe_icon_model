@@ -2175,9 +2175,11 @@ CONTAINS
       ! This is only necessary if use_one_file is set
       IF(use_one_file) THEN
          IF (je_c >= js_c) &
-              CALL nf(nf_inq_dimid(ncid,TRIM(prefix)//TRIM(ccd)//'.max_grf_cells',dim_max_grf_cells))
+              CALL nf(nf_inq_dimid(ncid,TRIM(prefix)//TRIM(ccd)//'.max_grf_cells',&
+                & dim_max_grf_cells))
          IF (je_e >= js_e) &
-              CALL nf(nf_inq_dimid(ncid,TRIM(prefix)//TRIM(ccd)//'.max_grf_edges',dim_max_grf_edges))
+              CALL nf(nf_inq_dimid(ncid,TRIM(prefix)//TRIM(ccd)//'.max_grf_edges',&
+                & dim_max_grf_edges))
       ENDIF
 
       n_grf_cells = je_c-js_c+1
