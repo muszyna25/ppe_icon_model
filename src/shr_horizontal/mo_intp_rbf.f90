@@ -156,8 +156,7 @@ USE mo_kind,                ONLY: wp
 USE mo_impl_constants,      ONLY: min_rlcell_int, min_rledge_int, min_rlvert_int
 USE mo_model_domain,        ONLY: t_patch
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
-
-USE mo_intp_data_strc
+USE mo_intp_data_strc,      ONLY: t_int_state, t_lon_lat_intp
 USE mo_mpi,                 ONLY: p_pe
 
 USE mo_lonlat_intp_config,  ONLY: t_lonlat_intp_config, lonlat_intp_config
@@ -269,7 +268,7 @@ END IF
 IF ( PRESENT(opt_elev) ) THEN
   elev = opt_elev
 ELSE
-  elev = ptr_patch%nlev
+  elev = UBOUND(p_vn_in,2)
 END IF
 
 IF ( PRESENT(opt_rlstart) ) THEN
@@ -402,7 +401,7 @@ END IF
 IF ( PRESENT(opt_elev) ) THEN
   elev = opt_elev
 ELSE
-  elev = ptr_patch%nlev
+  elev = UBOUND(p_cell_in,2)
 END IF
 
 IF ( PRESENT(opt_rlstart) ) THEN
@@ -558,7 +557,7 @@ END IF
 IF ( PRESENT(opt_elev) ) THEN
   elev = opt_elev
 ELSE
-  elev = ptr_patch%nlev
+  elev = UBOUND(p_e_in,2)
 END IF
 
 IF ( PRESENT(opt_rlstart) ) THEN
@@ -688,7 +687,7 @@ END IF
 IF ( PRESENT(opt_elev) ) THEN
   elev = opt_elev
 ELSE
-  elev = ptr_patch%nlev
+  elev = UBOUND(p_vn_in,2)
 END IF
 
 IF ( PRESENT(opt_rlstart) ) THEN
@@ -783,7 +782,7 @@ SUBROUTINE rbf_vec_interpol_lonlat( p_vn_in, ptr_patch, ptr_int, &
   !-----------------------------------------------------------------------
 
   slev = 1
-  elev = ptr_patch%nlev
+  elev = UBOUND(p_vn_in,2)
   ! check optional arguments
   IF ( PRESENT(opt_slev) ) slev = opt_slev
   IF ( PRESENT(opt_elev) ) elev = opt_elev
@@ -886,7 +885,7 @@ SUBROUTINE rbf_interpol_c2grad_lonlat( p_cell_in, ptr_patch, ptr_int, &
   !-----------------------------------------------------------------------
 
   slev = 1
-  elev = ptr_patch%nlev
+  elev = UBOUND(p_cell_in,2)
   ! check optional arguments
   IF ( PRESENT(opt_slev) ) slev = opt_slev
   IF ( PRESENT(opt_elev) ) elev = opt_elev
@@ -977,7 +976,7 @@ SUBROUTINE rbf_interpol_lonlat(k_jg, ptr_patch, ptr_int, p_cell_in, p_lonlat_out
     CALL message(routine, message_text)
   END IF
 
-  elev = SIZE(p_cell_in,2)
+  elev = UBOUND(p_cell_in,2)
   IF (PRESENT(opt_elev)) elev = MIN(elev, opt_elev)
   CALL rbf_interpol_c2grad_lonlat( p_cell_in(:,:,:), ptr_patch, ptr_int, &
     &                              nblks_lonlat, npromz_lonlat,    &
@@ -1061,7 +1060,7 @@ SUBROUTINE rbf_vec_interpol_lonlat_nl( p_vn_in, ptr_int, &
   !-----------------------------------------------------------------------
 
   slev = 1
-  elev = SIZE(p_vn_in,2)
+  elev = UBOUND(p_vn_in,2)
   ! check optional arguments
   IF ( PRESENT(opt_slev) ) slev = opt_slev
   IF ( PRESENT(opt_elev) ) elev = opt_elev
@@ -1161,7 +1160,7 @@ SUBROUTINE rbf_interpol_c2grad_lonlat_nl( p_cell_in, ptr_int,            &
   !-----------------------------------------------------------------------
 
   slev = 1
-  elev = SIZE(p_cell_in,2)
+  elev = UBOUND(p_cell_in,2)
   ! check optional arguments
   IF ( PRESENT(opt_slev) ) slev = opt_slev
   IF ( PRESENT(opt_elev) ) elev = opt_elev
@@ -1243,7 +1242,7 @@ SUBROUTINE rbf_interpol_lonlat_nl( p_cell_in, ptr_int,            &
   !-----------------------------------------------------------------------
 
   slev = 1
-  elev = SIZE(p_cell_in,2)
+  elev = UBOUND(p_cell_in,2)
   ! check optional arguments
   IF ( PRESENT(opt_slev) ) slev = opt_slev
   IF ( PRESENT(opt_elev) ) elev = opt_elev

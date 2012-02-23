@@ -156,20 +156,26 @@ USE mo_kind,                ONLY: wp
 USE mo_exception,           ONLY: finish
 USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlvert, min_rlcell_int
 USE mo_model_domain,        ONLY: t_patch
-USE mo_parallel_config,  ONLY: nproma
+USE mo_parallel_config,     ONLY: nproma
 USE mo_run_config,          ONLY: ltimer
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
-
-USE mo_intp_data_strc
+USE mo_intp_data_strc,      ONLY: t_int_state
 USE mo_timer,               ONLY: timer_start, timer_stop, timer_intp
 
 IMPLICIT NONE
 
 PRIVATE
 
-PUBLIC :: verts2edges_scalar, cells2edges_scalar, edges2verts_scalar,   &
-          & edges2cells_scalar, edges2cells_vector, cells2verts_scalar, &
-          & verts2cells_scalar, cell_avg, edges2edges_scalar
+PUBLIC :: verts2edges_scalar
+PUBLIC :: cells2edges_scalar
+PUBLIC :: edges2verts_scalar
+PUBLIC :: edges2cells_scalar 
+PUBLIC :: edges2cells_vector
+PUBLIC :: cells2verts_scalar
+PUBLIC :: verts2cells_scalar
+PUBLIC :: cell_avg
+PUBLIC :: edges2edges_scalar
+
 CONTAINS
 
 !-----------------------------------------------------------------------
@@ -236,7 +242,7 @@ END IF
 IF ( PRESENT(opt_elev) ) THEN
   elev = opt_elev
 ELSE
-  elev = ptr_patch%nlev
+  elev = UBOUND(p_vertex_in,2)
 END IF
 
 IF ( PRESENT(opt_rlstart) ) THEN
@@ -359,7 +365,7 @@ END IF
 IF ( PRESENT(opt_elev) ) THEN
   elev = opt_elev
 ELSE
-  elev = ptr_patch%nlev
+  elev = UBOUND(p_cell_in,2) 
 END IF
 
 IF ( PRESENT(opt_rlstart) ) THEN
@@ -506,7 +512,7 @@ END IF
 IF ( PRESENT(opt_elev) ) THEN
   elev = opt_elev
 ELSE
-  elev = ptr_patch%nlev
+  elev = UBOUND(p_edge_in,2)
 END IF
 
 
@@ -661,7 +667,7 @@ END IF
 IF ( PRESENT(opt_elev) ) THEN
   elev = opt_elev
 ELSE
-  elev = ptr_patch%nlev
+  elev = UBOUND(p_edge_in,2)
 END IF
 
 
@@ -813,7 +819,7 @@ END IF
 IF ( PRESENT(opt_elev) ) THEN
   elev = opt_elev
 ELSE
-  elev = ptr_patch%nlev
+  elev = UBOUND(p_vn_in,2)
 END IF
 
 IF ( PRESENT(opt_rlstart) ) THEN
@@ -932,7 +938,7 @@ END IF
 IF ( PRESENT(opt_elev) ) THEN
   elev = opt_elev
 ELSE
-  elev = ptr_patch%nlev
+  elev = UBOUND(p_cell_in,2)
 END IF
 
 IF ( PRESENT(opt_rlstart) ) THEN
@@ -1069,7 +1075,7 @@ END IF
 IF ( PRESENT(opt_elev) ) THEN
   elev = opt_elev
 ELSE
-  elev = ptr_patch%nlev
+  elev = UBOUND(p_vert_in,2)
 END IF
 
 iidx => ptr_patch%cells%vertex_idx
@@ -1168,7 +1174,8 @@ END SUBROUTINE verts2cells_scalar
 !! Modified by Almut Gassmann, MPI-M (2010-10-18)
 !! - center is always counted (remove option l_skip_center)
 !!
-SUBROUTINE edges2edges_scalar(p_edge_in,ptr_patch,c_int,p_edge_out)
+SUBROUTINE edges2edges_scalar(p_edge_in,ptr_patch,c_int,p_edge_out,&
+  &                           opt_slev, opt_elev)
 !
 
 TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
@@ -1182,12 +1189,30 @@ REAL(wp), INTENT(in) :: c_int(:,:,:)       ! dim: (4 or 5,nproma,nblks_e)
 ! vertex based scalar output field
 REAL(wp), INTENT(inout) :: p_edge_out(:,:,:) ! dim: (nproma,nlev,nblks_e)
 
+INTEGER, INTENT(in), OPTIONAL ::  &
+  &  opt_slev    ! optional vertical start level
+
+INTEGER, INTENT(in), OPTIONAL ::  &
+  &  opt_elev    ! optional vertical end level
+
 INTEGER :: nblks_e, npromz_e, nlen, jb, jk, je
-INTEGER :: nlev              !< number of full levels
+INTEGER :: slev, elev        !< vertical start and end level
 
 INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
 
 !-----------------------------------------------------------------------
+
+! check optional arguments
+IF ( PRESENT(opt_slev) ) THEN
+  slev = opt_slev
+ELSE
+  slev = 1
+END IF
+IF ( PRESENT(opt_elev) ) THEN
+  elev = opt_elev
+ELSE
+  elev = UBOUND(p_edge_in,2)
+END IF
 
 iidx => ptr_patch%edges%quad_idx
 iblk => ptr_patch%edges%quad_blk
@@ -1196,8 +1221,6 @@ iblk => ptr_patch%edges%quad_blk
 nblks_e  = ptr_patch%nblks_int_e
 npromz_e = ptr_patch%npromz_int_e
 
-! number of vertical levels
-nlev = ptr_patch%nlev
 
 IF (ltimer) CALL timer_start(timer_intp)
 
@@ -1212,9 +1235,9 @@ IF (ltimer) CALL timer_start(timer_intp)
 
 #ifdef __LOOP_EXCHANGE
     DO je = 1, nlen
-      DO jk = 1, nlev
+      DO jk = slev, elev
 #else
-    DO jk = 1, nlev
+    DO jk = slev, elev
       DO je = 1, nlen
 #endif
         p_edge_out(je,jk,jb) =                                        &
@@ -1303,7 +1326,7 @@ END IF
 IF ( PRESENT(opt_elev) ) THEN
   elev = opt_elev
 ELSE
-  elev = ptr_patch%nlev
+  elev = UBOUND(psi_c,2)
 END IF
 
 IF ( PRESENT(opt_rlstart) ) THEN

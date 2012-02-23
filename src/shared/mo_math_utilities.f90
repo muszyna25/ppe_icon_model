@@ -99,8 +99,8 @@ MODULE mo_math_utilities
 !
 
   USE mo_kind,                ONLY: wp
-  USE mo_math_constants
-  USE mo_physical_constants
+  USE mo_math_constants,      ONLY: pi, pi_2, dbl_eps
+  USE mo_physical_constants,  ONLY: re 
   USE mo_exception,           ONLY: message, finish
   USE mo_parallel_config,     ONLY: nproma
  

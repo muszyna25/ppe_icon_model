@@ -2506,7 +2506,7 @@ CONTAINS
       z_hdiffmax(:,:)   = 0._wp
       lnabla2_mask(:,:) = .FALSE.
 
-      CALL nabla2_scalar(z_topo, p_patch, p_int, z_nabla2_topo, opt_slev=1, opt_elev=1)
+      CALL nabla2_scalar( z_topo, p_patch, p_int, z_nabla2_topo )
 
       npts = 0
 
@@ -2572,7 +2572,7 @@ CONTAINS
       z_topo_old(:,1,:) = z_topo(:,1,:)
 
       CALL nabla4_scalar(z_topo, p_patch, p_int, z_nabla4_topo, &
-        & opt_slev=1, opt_elev=1, opt_nabla2=z_nabla2_topo )
+        & opt_nabla2=z_nabla2_topo )
 
       DO jb = i_startblk,nblks_c
 
@@ -2687,7 +2687,7 @@ CONTAINS
 
     ! Interpolate smooth topography from cells to vertices
     z_topo(:,1,:)   = topography_c(:,:)
-    CALL cells2verts_scalar(z_topo,p_patch,p_int%cells_aw_verts,z_topo_v,1,1)
+    CALL cells2verts_scalar(z_topo,p_patch,p_int%cells_aw_verts,z_topo_v)
 
     CALL sync_patch_array(SYNC_V,p_patch,z_topo_v)
 

@@ -169,7 +169,7 @@ USE mo_exception,           ONLY: message, finish
 USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell
 USE mo_model_domain,        ONLY: t_patch
 USE mo_math_utilities,      ONLY: gnomonic_proj, rotate_latlon, qrdec
-USE mo_parallel_config,  ONLY: nproma
+USE mo_parallel_config,     ONLY: nproma
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
 USE mo_advection_config,    ONLY: advection_config
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_idx
@@ -180,8 +180,10 @@ IMPLICIT NONE
 
 PRIVATE
 
-PUBLIC ::  lsq_stencil_create, lsq_compute_coeff_cell, scalar_int_coeff,     &
-          & bln_int_coeff_e2c
+PUBLIC :: lsq_stencil_create
+PUBLIC :: lsq_compute_coeff_cell
+PUBLIC :: scalar_int_coeff
+PUBLIC :: bln_int_coeff_e2c
 
 CONTAINS
 

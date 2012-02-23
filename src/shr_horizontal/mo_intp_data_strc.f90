@@ -155,10 +155,8 @@ MODULE mo_intp_data_strc
 
 USE mo_kind,                ONLY: wp
 USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlvert, max_dom
-!DR for testing purposes
-USE mo_math_utilities,      ONLY: gc2cc, cc2gc, t_cartesian_coordinates,      &
-  &                               t_geographical_coordinates, vector_product, &
-  &                               arc_length
+USE mo_math_utilities,      ONLY: t_cartesian_coordinates,   &
+  &                               t_geographical_coordinates
 
 IMPLICIT NONE
 

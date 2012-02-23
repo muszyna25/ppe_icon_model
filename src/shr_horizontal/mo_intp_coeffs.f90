@@ -175,16 +175,16 @@ USE mo_math_utilities,      ONLY: gc2cc, cc2gc, gnomonic_proj,               &
                                 & gvec2cvec, cvec2gvec,                      &
                                 & t_cartesian_coordinates,                   &
                                 & rotate_latlon, arc_length,                 &
-                                & t_geographical_coordinates
+                                & t_geographical_coordinates, vector_product
 USE mo_dynamics_config,     ONLY: divavg_cntrwgt
-USE mo_parallel_config,  ONLY: nproma
+USE mo_parallel_config,     ONLY: nproma
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
-Use mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_idx, global_max
-
-USE mo_intp_data_strc
-USE mo_intp_coeffs_lsq_bln
-!USE mo_interpol_nml
-USE mo_interpol_config
+USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_idx, global_max
+USE mo_intp_data_strc,      ONLY: t_int_state
+USE mo_intp_coeffs_lsq_bln, ONLY: lsq_stencil_create, lsq_compute_coeff_cell, &
+  &                               scalar_int_coeff, bln_int_coeff_e2c
+USE mo_interpol_config,     ONLY: i_cori_method, nudge_zone_width, nudge_max_coeff, &
+  &                               nudge_efold_width
 USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer, t_ref, s_ref,          &
   &                               CORIOLIS_TYPE, basin_center_lat, basin_height_deg
 

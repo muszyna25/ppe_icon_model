@@ -161,27 +161,28 @@ MODULE mo_intp_rbf_coeffs
 !
 !
 !
-USE mo_kind,                ONLY: wp, dp
+USE mo_kind,                ONLY: wp
 USE mo_exception,           ONLY: message, message_text, finish
 USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int
 USE mo_model_domain,        ONLY: t_patch, t_tangent_vectors
-USE mo_grid_config,         ONLY: l_limited_area, n_dom_start
+USE mo_grid_config,         ONLY: l_limited_area
 USE mo_dynamics_config,     ONLY: iequations
 USE mo_math_utilities,      ONLY: gc2cc, gvec2cvec, solve_chol_v, choldec_v, &
-                                & arc_length_v, t_cartesian_coordinates,     &
-                                & t_lon_lat_grid, cc_dot_product
+  &                               arc_length_v, t_cartesian_coordinates,     &
+  &                               t_geographical_coordinates, t_lon_lat_grid
 USE mo_parallel_config,     ONLY: nproma
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
-USE mo_intp_data_strc
-!USE mo_interpol_nml
-USE mo_interpol_config
-
+USE mo_intp_data_strc,      ONLY: t_int_state, t_lon_lat_intp
+USE mo_interpol_config,     ONLY: rbf_vec_dim_c, rbf_vec_dim_e, rbf_vec_dim_v,     &
+  &                               rbf_c2grad_dim, rbf_vec_kern_c, rbf_vec_kern_e,  &
+  &                               rbf_vec_kern_v, rbf_vec_scale_c, rbf_vec_scale_e,&
+  &                               rbf_vec_scale_v
 USE mo_gnat_gridsearch,     ONLY: gnat_init_grid, gnat_destroy, gnat_tree,&
   &                               gnat_query_containing_triangles,        &
   &                               gnat_merge_distributed_queries, gk
 USE mo_math_utilities,      ONLY: rotate_latlon_grid
 USE mo_physical_constants,  ONLY: re
-USE mo_lonlat_intp_config,  ONLY: t_lonlat_intp_config, lonlat_intp_config
+USE mo_lonlat_intp_config,  ONLY: lonlat_intp_config
 USE mo_mpi,                 ONLY: p_gather_field
 USE mo_communication,       ONLY: idx_1d, blk_no, idx_no
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_idx

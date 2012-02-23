@@ -164,27 +164,34 @@ MODULE mo_intp_state
 !
 USE mo_kind,                ONLY: wp
 USE mo_exception,           ONLY: message, finish
-USE mo_impl_constants,      ONLY: SUCCESS
+USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, ihs_ocean
 USE mo_model_domain,        ONLY: t_patch
-USE mo_grid_config,         ONLY: n_dom, n_dom_start, lplane, l_limited_area
-USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH
+USE mo_grid_config,         ONLY: n_dom, n_dom_start, lplane, l_limited_area, &
+  &                               global_cell_type
 USE mo_parallel_config,     ONLY: nproma
-USE mo_grid_config,         ONLY: global_cell_type
 USE mo_run_config,          ONLY: ltransport, ltimer
 USE mo_dynamics_config,     ONLY: iequations
-
-!USE mo_interpol_nml
-USE mo_interpol_config
-USE mo_intp_data_strc
-USE mo_intp_rbf_coeffs
-USE mo_intp_coeffs
+USE mo_interpol_config,     ONLY: i_cori_method, rbf_vec_dim_c, rbf_c2grad_dim, &
+  &                               rbf_vec_dim_v, rbf_vec_dim_e, lsq_lin_set,    &
+  &                               lsq_high_set
+USE mo_intp_data_strc,      ONLY: t_int_state, t_lon_lat_intp
+USE mo_intp_rbf_coeffs,     ONLY: rbf_vec_index_cell, rbf_vec_index_edge,                &
+  &                               rbf_vec_index_vertex, rbf_vec_compute_coeff_cell,      &
+  &                               rbf_vec_compute_coeff_edge, rbf_setup_interpol_lonlat, &
+  &                               rbf_vec_compute_coeff_vertex, rbf_c2grad_index,        &
+  &                               rbf_compute_coeff_c2grad
+USE mo_intp_coeffs,         ONLY: lsq_stencil_create, lsq_compute_coeff_cell,          &
+  &                               scalar_int_coeff, bln_int_coeff_e2c,                 &
+  &                               compute_heli_bra_coeff_idx, init_cellavg_wgt,        &
+  &                               init_geo_factors, complete_patchinfo, init_tplane_e, &
+  &                               init_geo_factors_oce, init_scalar_product_oce,       &
+  &                               init_nudgecoeffs, tri_quadrature_pts
 USE mo_lonlat_intp_config,  ONLY: lonlat_intp_config
 USE mo_mpi,                 ONLY: p_n_work, my_process_is_io, process_mpi_io_size
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V
 USE mo_communication,       ONLY: t_comm_pattern, blk_no, idx_no, idx_1d, &
   &                               setup_comm_pattern, delete_comm_pattern, exchange_data
 USE mo_ocean_nml,           ONLY: idisc_scheme
-USE mo_impl_constants,      ONLY: ihs_ocean
 USE mo_math_utilities,      ONLY: t_lon_lat_grid
 
 
