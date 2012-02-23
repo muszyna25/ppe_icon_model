@@ -110,7 +110,6 @@ PUBLIC :: prm_nwp_tend
 PUBLIC :: phy_params
 PUBLIC :: prm_nwp_diag_list  !< variable lists
 PUBLIC :: prm_nwp_tend_list  !< variable lists
-PUBLIC :: varunits
 
 !
 !!data structure defining model states
@@ -316,8 +315,6 @@ END TYPE t_nwp_phy_tend
 !!-------------------------------------------------------------------------
   TYPE (t_phy_params), ALLOCATABLE :: phy_params(:)  !< shape: (n_dom)
 
-  ! variable units, depending on "lflux_avg"
-  CHARACTER(len=10) :: varunits 
 
 CONTAINS
 
@@ -450,7 +447,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     CHARACTER(len=21) :: name
     CHARACTER(len=3)  :: prefix
     CHARACTER(len=8)  :: meaning
-
+    CHARACTER(len=10) :: varunits  ! variable units, depending on "lflux_avg"
+ 
     ientr = 16 ! bits "entropy" of horizontal slice
 
     shape2d    = (/nproma,            kblks            /)

@@ -505,6 +505,7 @@ CONTAINS
       iqi    = 3     !! ice
       iqr    = 4     !! rain water
       iqs    = 5     !! snow
+      io3    = 6     !! O3
 
       ! Note: Indices for additional tracers are assigned automatically 
       ! via add_tracer_ref in mo_nonhydro_state.

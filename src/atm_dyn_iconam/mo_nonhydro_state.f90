@@ -61,22 +61,22 @@ MODULE mo_nonhydro_state
   USE mo_nonhydrostatic_config,ONLY: itime_scheme, l_nest_rcf
   USE mo_dynamics_config,      ONLY: nsav1, nsav2
   USE mo_parallel_config,      ONLY: nproma
-  USE mo_run_config,           ONLY: iforcing, &!ltransport,    &
-    &                                ntracer, ntracer_static,      &
-    &                                iqv, iqc, iqi, iqr, iqs, io3, &
+  USE mo_run_config,           ONLY: iforcing, ntracer, ntracer_static,    &
+    &                                iqv, iqc, iqi, iqr, iqs, io3,         &
     &                                nqtendphy
   USE mo_radiation_config,     ONLY: irad_o3
   USE mo_io_config,            ONLY: lwrite_extra, inextra_2d, inextra_3d, &
     &                                lwrite_pzlev
   USE mo_nh_pzlev_config,      ONLY: nh_pzlev_config
+  USE mo_advection_config,     ONLY: t_advection_config, advection_config
   USE mo_linked_list,          ONLY: t_var_list
   USE mo_var_list,             ONLY: default_var_list_settings, add_var,     &
     &                                add_ref, new_var_list, delete_var_list, &
     &                                create_tracer_metadata, add_var_list_reference
   USE mo_linked_list,          ONLY: t_list_element, find_list_element
   USE mo_var_metadata,         ONLY: t_var_metadata, t_tracer_meta
-  USE mo_cf_convention
-  USE mo_grib2
+  USE mo_cf_convention,        ONLY: t_cf_var
+  USE mo_grib2,                ONLY: t_grib2_var
   USE mo_cdi_constants
 
 
@@ -424,7 +424,8 @@ MODULE mo_nonhydro_state
     CHARACTER(len=*), INTENT(IN)      :: & !< list name
       &  listname, vname_prefix
 
-    LOGICAL, INTENT(IN) :: l_extra_timelev  !< specifies extra time levels for which not all variables are allocated
+    LOGICAL, INTENT(IN) :: l_extra_timelev  !< specifies extra time levels for which 
+                                            !< not all variables are allocated
 
     INTEGER, INTENT(IN) :: timelev
 
@@ -444,11 +445,15 @@ MODULE mo_nonhydro_state
 
     CHARACTER(len=4) suffix
 
+    TYPE(t_advection_config), POINTER :: advconf
     !--------------------------------------------------------------
 
     !determine size of arrays
     nblks_c = p_patch%nblks_c
     nblks_e = p_patch%nblks_e
+
+    ! pointer to advection_config(jg) to save some paperwork
+    advconf => advection_config(p_patch%id)
 
     ! number of vertical levels
     nlev   = p_patch%nlev
@@ -563,7 +568,9 @@ MODULE mo_nonhydro_state
                     & t_grib2_var(0, 1, 201, ientr, GRID_REFERENCE, GRID_CELL),      &
                     & ldims=shape3d_c,                                               &
                     & tlev_source=1,     &              ! output from nnow_rcf slice
-                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.) )
+                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             ihadv_tracer=advconf%ihadv_tracer(iqv),            &
+                    &             ivadv_tracer=advconf%ivadv_tracer(iqv)) )
            !QC
         CALL add_ref( p_prog_list, 'tracer',&
                     & TRIM(vname_prefix)//'qc'//suffix, p_prog%tracer_ptr(iqc)%p_3d, &
@@ -573,7 +580,9 @@ MODULE mo_nonhydro_state
                     & t_grib2_var(0, 1, 202, ientr, GRID_REFERENCE, GRID_CELL),      &
                     & ldims=shape3d_c,                                               &
                     & tlev_source=1,     &              ! output from nnow_rcf slice
-                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.) )
+                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             ihadv_tracer=advconf%ihadv_tracer(iqc),            &
+                    &             ivadv_tracer=advconf%ivadv_tracer(iqc)) )
            !QI
         CALL add_ref( p_prog_list, 'tracer',                                         &
                     & TRIM(vname_prefix)//'qi'//suffix, p_prog%tracer_ptr(iqi)%p_3d, &
@@ -583,7 +592,9 @@ MODULE mo_nonhydro_state
                     & t_grib2_var(0, 1, 203, ientr, GRID_REFERENCE, GRID_CELL),      &
                     & ldims=shape3d_c,                                               &
                     & tlev_source=1,     &              ! output from nnow_rcf slice
-                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.) )
+                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             ihadv_tracer=advconf%ihadv_tracer(iqi),            &
+                    &             ivadv_tracer=advconf%ivadv_tracer(iqi)) )
            !QR
         CALL add_ref( p_prog_list, 'tracer',                                         &
                     & TRIM(vname_prefix)//'qr'//suffix, p_prog%tracer_ptr(iqr)%p_3d, &
@@ -593,7 +604,9 @@ MODULE mo_nonhydro_state
                     & t_grib2_var(0, 1, 24, ientr, GRID_REFERENCE, GRID_CELL),       &
                     & ldims=shape3d_c,                                               &
                     & tlev_source=1,     &              ! output from nnow_rcf slice
-                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.) )
+                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             ihadv_tracer=advconf%ihadv_tracer(iqr),            &
+                    &             ivadv_tracer=advconf%ivadv_tracer(iqr)) )
            !QS
         CALL add_ref( p_prog_list, 'tracer',                                         &
                     & TRIM(vname_prefix)//'qs'//suffix, p_prog%tracer_ptr(iqs)%p_3d, &
@@ -603,21 +616,26 @@ MODULE mo_nonhydro_state
                     & t_grib2_var(0, 1, 25, ientr, GRID_REFERENCE, GRID_CELL),       &
                     & ldims=shape3d_c,                                               &
                     & tlev_source=1,     &              ! output from nnow_rcf slice
-                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.) )
+                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             ihadv_tracer=advconf%ihadv_tracer(iqs),            &
+                    &             ivadv_tracer=advconf%ivadv_tracer(iqs)) )
 
 
 
         IF( irad_o3 == 4 .OR. irad_o3 == 6 .OR. irad_o3 == 7 ) THEN
 
            !O3
-          CALL add_tracer_ref( p_prog_list, 'tracer',                        &
-            & TRIM(vname_prefix)//'O3'//suffix, io3, p_prog%tracer_ptr,      &
+          CALL add_ref( p_prog_list, 'tracer',                               &
+            & TRIM(vname_prefix)//'O3'//suffix, p_prog%tracer_ptr(io3)%p_3d, &
+            & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                          &
             & t_cf_var(TRIM(vname_prefix)//'O3',                             &
             &  'kg kg-1','ozone_mass_mixing_ratio'),                         &
             & t_grib2_var(0, 14, 1, ientr, GRID_REFERENCE, GRID_CELL),       &
             & ldims=shape3d_c,                                               &
             & tlev_source=0,     &              ! output from nnow_rcf slice
-            & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.) )
+            & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+            &             ihadv_tracer=advconf%ihadv_tracer(io3),            &
+            &             ivadv_tracer=advconf%ivadv_tracer(io3)) )
         ENDIF
 
         ! tke            p_prog%tke(nproma,nlevp1,nblks_c)
@@ -630,6 +648,7 @@ MODULE mo_nonhydro_state
       ENDIF
 
     ENDIF ! allocation only if not extra_timelev
+
 
   END SUBROUTINE new_nh_state_prog_list
 
@@ -1421,7 +1440,6 @@ MODULE mo_nonhydro_state
     !
     ! tracers
     !
-!    IF ( ltransport ) THEN
     IF ( ntracer >0 ) THEN
 
       ! grf_tend_tracer   p_diag%grf_tend_tracer(nproma,nlev,nblks_c,ntracer)

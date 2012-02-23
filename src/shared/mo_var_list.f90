@@ -2904,6 +2904,53 @@ CONTAINS
         ELSE
           CALL message('', 'Added to Restart                            : no.')
         ENDIF
+        !
+        IF (this_list_element%field%info%tracer%lis_tracer) THEN
+          CALL message('', 'Tracer field                                : yes.')
+
+          WRITE (message_text,'(a,3i3)') &
+             'Horizontal transport method                 : ', &
+             this_list_element%field%info%tracer%ihadv_tracer
+          CALL message('', message_text)
+
+          WRITE (message_text,'(a,3i3)') &
+             'Vertical transport method                   : ', &
+             this_list_element%field%info%tracer%ivadv_tracer
+          CALL message('', message_text)
+
+          IF (this_list_element%field%info%tracer%lturb_tracer) THEN
+            CALL message('', 'Turbulent transport                         : yes.')
+          ELSE
+            CALL message('', 'Turbulent transport                         : no.')
+          ENDIF
+
+          IF (this_list_element%field%info%tracer%lsed_tracer) THEN
+            CALL message('', 'Sedimentation                               : yes.')
+          ELSE
+            CALL message('', 'Sedimentation                               : no.')
+          ENDIF
+
+          IF (this_list_element%field%info%tracer%ldep_tracer) THEN
+            CALL message('', 'Dry deposition                              : yes.')
+          ELSE
+            CALL message('', 'Dry deposition                              : no.')
+          ENDIF
+
+          IF (this_list_element%field%info%tracer%lconv_tracer) THEN
+            CALL message('', 'Convection                                  : yes.')
+          ELSE
+            CALL message('', 'Convection                                  : no.')
+          ENDIF
+
+          IF (this_list_element%field%info%tracer%lwash_tracer) THEN
+            CALL message('', 'Washout                                     : yes.')
+          ELSE
+            CALL message('', 'Washout                                     : no.')
+          ENDIF
+        ELSE
+          CALL message('', 'Tracer field                                : no.')
+        ENDIF
+
         CALL message('', '')
       ENDIF
       !
