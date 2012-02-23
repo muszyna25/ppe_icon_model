@@ -43,7 +43,8 @@ case "$fortran_compiler" in
       HPM_INCL  = -I$IHPCT_BASE/include
       HPM_LIB  = -L$IHPCT_BASE/lib64 -lhpc -lm -lpmapi
       
-      load_modules="IBM/xlf13.1.0.2" "IBM/xlc10.1.0.2" "${load_modules}"
+  #    load_modules="IBM/xlf13.1.0.2" "IBM/xlc10.1.0.2" "${load_modules}"
+      load_modules="IBM/xlf13.1.0.8" "IBM/xlc11.1.0.8" "${load_modules}"
     ;;
     
     gcc)
