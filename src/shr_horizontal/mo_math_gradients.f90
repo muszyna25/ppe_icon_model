@@ -112,7 +112,7 @@ USE mo_intp_data_strc,     ONLY: t_int_state
 USE mo_intp,               ONLY: cells2edges_scalar
 USE mo_model_domain,       ONLY: t_patch
 USE mo_nonhydrostatic_config,   ONLY: upstr_beta
-USE mo_parallel_config,  ONLY: nproma
+USE mo_parallel_config,    ONLY: nproma
 USE mo_run_config,         ONLY: ltimer, timers_level
 USE mo_exception,          ONLY: finish
 USE mo_timer,              ONLY: timer_start, timer_stop, timer_grad
@@ -205,7 +205,7 @@ END IF
 IF ( PRESENT(opt_elev) ) THEN
   elev = opt_elev
 ELSE
-  elev = ptr_patch%nlev
+  elev = UBOUND(psi_c,2)
 END IF
 
 IF ( PRESENT(opt_rlstart) ) THEN
@@ -433,7 +433,7 @@ END IF
 IF ( PRESENT(opt_elev) ) THEN
   elev = opt_elev
 ELSE
-  elev =ptr_patch%nlev
+  elev = UBOUND(psi_v,2)
 END IF
 
 IF ( PRESENT(opt_rlstart) ) THEN
@@ -577,7 +577,7 @@ END IF
 IF ( PRESENT(opt_elev) ) THEN
   elev = opt_elev
 ELSE
-  elev = ptr_patch%nlev
+  elev = UBOUND(p_cc,2)
 END IF
 IF ( PRESENT(opt_rlstart) ) THEN
   rl_start = opt_rlstart

@@ -238,7 +238,7 @@ SUBROUTINE recon_lsq_cell_l( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   IF ( PRESENT(opt_elev) ) THEN
     elev = opt_elev
   ELSE
-    elev = ptr_patch%nlev
+    elev = UBOUND(p_cc,2)
   END IF
   IF ( PRESENT(opt_rlstart) ) THEN
     rl_start = opt_rlstart
@@ -426,7 +426,7 @@ SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   IF ( PRESENT(opt_elev) ) THEN
     elev = opt_elev
   ELSE
-    elev = ptr_patch%nlev
+    elev = UBOUND(p_cc,2)
   END IF
   IF ( PRESENT(opt_rlstart) ) THEN
     rl_start = opt_rlstart
@@ -631,7 +631,7 @@ SUBROUTINE recon_lsq_cell_q( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   IF ( PRESENT(opt_elev) ) THEN
     elev = opt_elev
   ELSE
-    elev = ptr_patch%nlev
+    elev = UBOUND(p_cc,2)
   END IF
   IF ( PRESENT(opt_rlstart) ) THEN
     rl_start = opt_rlstart
@@ -945,7 +945,7 @@ SUBROUTINE recon_lsq_cell_q_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   IF ( PRESENT(opt_elev) ) THEN
     elev = opt_elev
   ELSE
-    elev = ptr_patch%nlev
+    elev = UBOUND(p_cc,2)
   END IF
   IF ( PRESENT(opt_rlstart) ) THEN
     rl_start = opt_rlstart
@@ -1229,7 +1229,7 @@ SUBROUTINE recon_lsq_cell_cpoor( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   IF ( PRESENT(opt_elev) ) THEN
     elev = opt_elev
   ELSE
-    elev = ptr_patch%nlev
+    elev = UBOUND(p_cc,2)
   END IF
   IF ( PRESENT(opt_rlstart) ) THEN
     rl_start = opt_rlstart
@@ -1476,7 +1476,7 @@ SUBROUTINE recon_lsq_cell_cpoor_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   IF ( PRESENT(opt_elev) ) THEN
     elev = opt_elev
   ELSE
-    elev = ptr_patch%nlev
+    elev = UBOUND(p_cc,2)
   END IF
   IF ( PRESENT(opt_rlstart) ) THEN
     rl_start = opt_rlstart
@@ -1692,7 +1692,7 @@ SUBROUTINE recon_lsq_cell_c( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   IF ( PRESENT(opt_elev) ) THEN
     elev = opt_elev
   ELSE
-    elev = ptr_patch%nlev
+    elev = UBOUND(p_cc,2)
   END IF
   IF ( PRESENT(opt_rlstart) ) THEN
     rl_start = opt_rlstart
@@ -1963,7 +1963,7 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   IF ( PRESENT(opt_elev) ) THEN
     elev = opt_elev
   ELSE
-    elev = ptr_patch%nlev
+    elev = UBOUND(p_cc,2)
   END IF
   IF ( PRESENT(opt_rlstart) ) THEN
     rl_start = opt_rlstart
@@ -2170,7 +2170,7 @@ END IF
 IF ( PRESENT(opt_elev) ) THEN
   elev = opt_elev
 ELSE
-  elev = ptr_patch%nlev
+  elev = UBOUND(vec_e,2)
 END IF
 
 IF ( PRESENT(opt_rlstart) ) THEN
@@ -2386,7 +2386,7 @@ END IF
 IF ( PRESENT(opt_elev) ) THEN
   elev = opt_elev
 ELSE
-  elev = ptr_patch%nlev
+  elev = UBOUND(f4din,2)
 END IF
 
 IF ( PRESENT(opt_rlstart) ) THEN
@@ -2514,8 +2514,9 @@ END SUBROUTINE div4d
 !! Modification by Guenther Zaengl, DWD (2010-04-20) :
 !! - Option for processing two fields at once for efficiency optimization
 !!
-SUBROUTINE div_avg( vec_e, ptr_patch, ptr_int, avg_coeff, div_vec_c, &
-  &                 opt_in2, opt_out2, opt_rlstart, opt_rlend )
+SUBROUTINE div_avg( vec_e, ptr_patch, ptr_int, avg_coeff, div_vec_c,    &
+  &                 opt_in2, opt_out2, opt_slev, opt_elev, opt_rlstart, &
+  &                 opt_rlend )
 !
 !
 !  patch on which computation is performed
@@ -2539,6 +2540,12 @@ REAL(wp), OPTIONAL, INTENT(in) ::  &
   &  opt_in2(:,:,:) ! dim: (nproma,nlev,nblks_e)
 
 INTEGER, INTENT(in), OPTIONAL ::  &
+  &  opt_slev    ! optional vertical start level
+
+INTEGER, INTENT(in), OPTIONAL ::  &
+  &  opt_elev    ! optional vertical end level
+
+INTEGER, INTENT(in), OPTIONAL ::  &
   &  opt_rlstart, opt_rlend   ! start and end values of refin_ctrl flag
 
 !
@@ -2552,9 +2559,9 @@ REAL(wp), OPTIONAL, INTENT(inout) ::  &
   &  opt_out2(:,:,:) ! dim: (nproma,nlev,nblks_c)
 
 INTEGER :: jc, jk, jb
+INTEGER :: slev, elev     ! vertical start and end level
 INTEGER :: rl_start, rl_end, rl_start_l2, rl_end_l1
 INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
-INTEGER :: nlev              !< number of full levels
 
 REAL(wp), DIMENSION (nproma,ptr_patch%nlev,ptr_patch%nblks_c) :: aux_c, aux_c2
 
@@ -2564,6 +2571,17 @@ LOGICAL :: l2fields
 !-----------------------------------------------------------------------
 
 ! check optional arguments
+IF ( PRESENT(opt_slev) ) THEN
+  slev = opt_slev
+ELSE
+  slev = 1
+END IF
+IF ( PRESENT(opt_elev) ) THEN
+  elev = opt_elev
+ELSE
+  elev = UBOUND(vec_e,2)
+END IF
+
 IF ( PRESENT(opt_rlstart) ) THEN
   rl_start = opt_rlstart
 ELSE
@@ -2593,8 +2611,6 @@ inblk => ptr_patch%cells%neighbor_blk
 ieidx => ptr_patch%cells%edge_idx
 ieblk => ptr_patch%cells%edge_blk
 
-! number of vertical levels
-nlev = ptr_patch%nlev
 
 ! values for the blocking
 i_nchdom   = MAX(1,ptr_patch%n_childdom)
@@ -2615,10 +2631,10 @@ DO jb = i_startblk, i_endblk
 
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
-      DO jk = 1, nlev
+      DO jk = slev, elev
 #else
 !CDIR UNROLL=5
-    DO jk = 1, nlev
+    DO jk = slev, elev
       DO jc = i_startidx, i_endidx
 #endif
 
@@ -2638,10 +2654,10 @@ DO jb = i_startblk, i_endblk
 
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
-      DO jk = 1, nlev
+      DO jk = slev, elev
 #else
 !CDIR UNROLL=6
-    DO jk = 1, nlev
+    DO jk = slev, elev
       DO jc = i_startidx, i_endidx
 #endif
         aux_c(jc,jk,jb) =  &
@@ -2694,12 +2710,12 @@ DO jb = i_startblk, i_endblk
 
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
-      DO jk = 1, nlev
+      DO jk = slev, elev
 #else
 #ifdef _URD
 !CDIR UNROLL=_URD
 #endif
-    DO jk = 1, nlev
+    DO jk = slev, elev
       DO jc = i_startidx, i_endidx
 #endif
 
@@ -2722,12 +2738,12 @@ DO jb = i_startblk, i_endblk
 
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
-      DO jk = 1, nlev
+      DO jk = slev, elev
 #else
 #ifdef _URD
 !CDIR UNROLL=_URD
 #endif
-    DO jk = 1, nlev
+    DO jk = slev, elev
       DO jc = i_startidx, i_endidx
 #endif
 
@@ -2815,7 +2831,7 @@ END IF
 IF ( PRESENT(opt_elev) ) THEN
   elev = opt_elev
 ELSE
-  elev = ptr_patch%nlev
+  elev = UBOUND(vec_e,2)
 END IF
 
 
@@ -2952,7 +2968,7 @@ END IF
 IF ( PRESENT(opt_elev) ) THEN
   elev = opt_elev
 ELSE
-  elev = ptr_patch%nlev
+  elev = UBOUND(vec_e,2)
 END IF
 
 IF ( PRESENT(opt_rlstart) ) THEN
