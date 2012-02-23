@@ -2166,7 +2166,7 @@ CONTAINS
 
       ! Cycle if there is nothing to do.
       ! This also avoids inquiring possibly nonexisting dimensions below.
-      IF(je_e < js_e .OR. je_c < js_c) CYCLE
+      ! IF(je_e < js_e .OR. je_c < js_c) CYCLE
 
       WRITE(ccd,'("ch_dom.",i0)') jcd
 
@@ -2174,45 +2174,55 @@ CONTAINS
       ! on the current processor for these dimensions
       ! This is only necessary if use_one_file is set
       IF(use_one_file) THEN
-        CALL nf(nf_inq_dimid(ncid,TRIM(prefix)//TRIM(ccd)//'.max_grf_cells',dim_max_grf_cells))
-        CALL nf(nf_inq_dimid(ncid,TRIM(prefix)//TRIM(ccd)//'.max_grf_edges',dim_max_grf_edges))
+         IF (je_c >= js_c) &
+              CALL nf(nf_inq_dimid(ncid,TRIM(prefix)//TRIM(ccd)//'.max_grf_cells',dim_max_grf_cells))
+         IF (je_e >= js_e) &
+              CALL nf(nf_inq_dimid(ncid,TRIM(prefix)//TRIM(ccd)//'.max_grf_edges',dim_max_grf_edges))
       ENDIF
 
       n_grf_cells = je_c-js_c+1
       n_grf_edges = je_e-js_e+1
 
-      CALL bidx_io(1,3,TRIM(ccd)//'.grf_vec_index_1a',   &
-        &          pg%p_dom(jcd)%grf_vec_ind_1a, pg%p_dom(jcd)%grf_vec_blk_1a, is_e)
-      CALL bidx_io(1,3,TRIM(ccd)//'.grf_vec_index_1b',   &
-        &          pg%p_dom(jcd)%grf_vec_ind_1b, pg%p_dom(jcd)%grf_vec_blk_1b, is_e)
-      CALL bidx_io(1,3,TRIM(ccd)//'.grf_vec_index_2a',   &
-        &          pg%p_dom(jcd)%grf_vec_ind_2a, pg%p_dom(jcd)%grf_vec_blk_2a, is_e)
-      CALL bidx_io(1,3,TRIM(ccd)//'.grf_vec_index_2b',   &
-        &          pg%p_dom(jcd)%grf_vec_ind_2b, pg%p_dom(jcd)%grf_vec_blk_2b, is_e)
+      IF (je_e >= js_e) THEN
 
-      CALL bvar_io(1,2,TRIM(ccd)//'.grf_vec_stencil_1a', &
-        &          pg%p_dom(jcd)%grf_vec_stencil_1a, is_e) ! nproma_grf, isb_e:ieb_e
-      CALL bvar_io(1,2,TRIM(ccd)//'.grf_vec_stencil_1b', &
-        &          pg%p_dom(jcd)%grf_vec_stencil_1b, is_e) ! nproma_grf, isb_e:ieb_e
-      CALL bvar_io(1,2,TRIM(ccd)//'.grf_vec_stencil_2a', &
-        &          pg%p_dom(jcd)%grf_vec_stencil_2a, is_e) ! nproma_grf, isb_e:ieb_e
-      CALL bvar_io(1,2,TRIM(ccd)//'.grf_vec_stencil_2b', &
-        &          pg%p_dom(jcd)%grf_vec_stencil_2b, is_e) ! nproma_grf, isb_e:ieb_e
+         CALL bidx_io(1,3,TRIM(ccd)//'.grf_vec_index_1a',   &
+              &          pg%p_dom(jcd)%grf_vec_ind_1a, pg%p_dom(jcd)%grf_vec_blk_1a, is_e)
+         CALL bidx_io(1,3,TRIM(ccd)//'.grf_vec_index_1b',   &
+              &          pg%p_dom(jcd)%grf_vec_ind_1b, pg%p_dom(jcd)%grf_vec_blk_1b, is_e)
+         CALL bidx_io(1,3,TRIM(ccd)//'.grf_vec_index_2a',   &
+              &          pg%p_dom(jcd)%grf_vec_ind_2a, pg%p_dom(jcd)%grf_vec_blk_2a, is_e)
+         CALL bidx_io(1,3,TRIM(ccd)//'.grf_vec_index_2b',   &
+              &          pg%p_dom(jcd)%grf_vec_ind_2b, pg%p_dom(jcd)%grf_vec_blk_2b, is_e)
+         
+         CALL bvar_io(1,2,TRIM(ccd)//'.grf_vec_stencil_1a', &
+              &          pg%p_dom(jcd)%grf_vec_stencil_1a, is_e) ! nproma_grf, isb_e:ieb_e
+         CALL bvar_io(1,2,TRIM(ccd)//'.grf_vec_stencil_1b', &
+              &          pg%p_dom(jcd)%grf_vec_stencil_1b, is_e) ! nproma_grf, isb_e:ieb_e
+         CALL bvar_io(1,2,TRIM(ccd)//'.grf_vec_stencil_2a', &
+              &          pg%p_dom(jcd)%grf_vec_stencil_2a, is_e) ! nproma_grf, isb_e:ieb_e
+         CALL bvar_io(1,2,TRIM(ccd)//'.grf_vec_stencil_2b', &
+              &          pg%p_dom(jcd)%grf_vec_stencil_2b, is_e) ! nproma_grf, isb_e:ieb_e
 
-      CALL bvar_io(2,3,TRIM(ccd)//'.grf_vec_coeff_1a',   &
-        &          pg%p_dom(jcd)%grf_vec_coeff_1a,   is_e) ! grf_vec_dim_1,nproma_grf,isb_e:ieb_e
-      CALL bvar_io(2,3,TRIM(ccd)//'.grf_vec_coeff_1b',   &
-        &          pg%p_dom(jcd)%grf_vec_coeff_1b,   is_e) ! grf_vec_dim_1,nproma_grf,isb_e:ieb_e
-      CALL bvar_io(2,3,TRIM(ccd)//'.grf_vec_coeff_2a',   &
-        &          pg%p_dom(jcd)%grf_vec_coeff_2a,   is_e) ! grf_vec_dim_2,nproma_grf,isb_e:ieb_e
-      CALL bvar_io(2,3,TRIM(ccd)//'.grf_vec_coeff_2b',   &
-        &          pg%p_dom(jcd)%grf_vec_coeff_2b,   is_e) ! grf_vec_dim_2,nproma_grf,isb_e:ieb_e
+         CALL bvar_io(2,3,TRIM(ccd)//'.grf_vec_coeff_1a',   &
+              &          pg%p_dom(jcd)%grf_vec_coeff_1a,   is_e) ! grf_vec_dim_1,nproma_grf,isb_e:ieb_e
+         CALL bvar_io(2,3,TRIM(ccd)//'.grf_vec_coeff_1b',   &
+              &          pg%p_dom(jcd)%grf_vec_coeff_1b,   is_e) ! grf_vec_dim_1,nproma_grf,isb_e:ieb_e
+         CALL bvar_io(2,3,TRIM(ccd)//'.grf_vec_coeff_2a',   &
+              &          pg%p_dom(jcd)%grf_vec_coeff_2a,   is_e) ! grf_vec_dim_2,nproma_grf,isb_e:ieb_e
+         CALL bvar_io(2,3,TRIM(ccd)//'.grf_vec_coeff_2b',   &
+              &          pg%p_dom(jcd)%grf_vec_coeff_2b,   is_e) ! grf_vec_dim_2,nproma_grf,isb_e:ieb_e
 
-      CALL bvar_io(1,3,TRIM(ccd)//'.grf_dist_pe2ce',   &
-        &          pg%p_dom(jcd)%grf_dist_pe2ce,     is_e) ! nproma_grf, 2, isb_e:ieb_e
+         CALL bvar_io(1,3,TRIM(ccd)//'.grf_dist_pe2ce',   &
+              &          pg%p_dom(jcd)%grf_dist_pe2ce,     is_e) ! nproma_grf, 2, isb_e:ieb_e
 
-      CALL bvar_io(1,4,TRIM(ccd)//'.grf_dist_pc2cc',   &
-        &          pg%p_dom(jcd)%grf_dist_pc2cc,     is_c) ! nproma_grf, 4, 2, isb_c:ieb_c
+      END IF
+
+      IF (je_c >= js_c) THEN
+
+         CALL bvar_io(1,4,TRIM(ccd)//'.grf_dist_pc2cc',   &
+              &          pg%p_dom(jcd)%grf_dist_pc2cc,     is_c) ! nproma_grf, 4, 2, isb_c:ieb_c
+
+      END IF
 
     ENDDO
 
