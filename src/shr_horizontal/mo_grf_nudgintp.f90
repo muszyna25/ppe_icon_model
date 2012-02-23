@@ -497,7 +497,7 @@ js = nshift
 
 DO jn = 1, nfields
 
-  elev = SIZE(p_out(jn)%fld,2)
+  elev = UBOUND(p_out(jn)%fld,2)
 
 !$OMP DO PRIVATE (jb,jk,jc,i_startidx,i_endidx,grad_x,grad_y,min_expval, &
 !$OMP   max_expval,limfac1,limfac2,limfac,maxval_neighb,minval_neighb,   &
@@ -642,7 +642,7 @@ ENDDO ! fields
 
 DO jn = 1, nfields
 
-  elev = SIZE(p_out(jn)%fld,2)
+  elev = UBOUND(p_out(jn)%fld,2)
 
 !$OMP DO PRIVATE (jb,jk,jc,i_startidx,i_endidx)
   DO jb =  i_startblk, i_endblk

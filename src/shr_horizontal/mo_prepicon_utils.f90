@@ -58,13 +58,14 @@ MODULE mo_prepicon_utils
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
   USE mo_mpi,                 ONLY: p_pe, p_io, p_bcast, p_comm_work_test, p_comm_work
-  USE mo_ext_data,            ONLY: smooth_topography, t_external_data, ext_data
+  USE mo_ext_data,            ONLY: t_external_data, ext_data
+  USE mo_smooth_topo,         ONLY: smooth_topography
   USE mo_util_netcdf,         ONLY: read_netcdf_data, read_netcdf_data_single
   USE mo_model_domain,        ONLY: p_patch
   USE mo_io_vlist,            ONLY: GATHER_C, GATHER_E, GATHER_V, num_output_vars, outvar_desc, &
                                     gather_array1, gather_array2
   USE mo_datetime,            ONLY: t_datetime
-  USE mo_io_config,              ONLY: lkeep_in_sync
+  USE mo_io_config,           ONLY: lkeep_in_sync
   USE mo_nh_init_utils,       ONLY: nflat, nflatlev, compute_smooth_topo, init_vert_coord,  &
                                     topography_blending, topography_feedback, hydro_adjust, &
                                     interp_uv_2_vn, init_w, convert_thdvars, virtual_temp

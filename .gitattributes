@@ -1282,6 +1282,7 @@ src/shr_horizontal/mo_model_domimp_patches.f90 -text
 src/shr_horizontal/mo_model_domimp_setup.f90 -text
 src/shr_horizontal/mo_nonlinear_adv.f90 -text
 src/shr_horizontal/mo_prepicon_utils.f90 -text
+src/shr_horizontal/mo_smooth_topo.f90 -text
 src/templates/README -text
 src/templates/template_function.f90 -text
 src/templates/template_main.f90 -text

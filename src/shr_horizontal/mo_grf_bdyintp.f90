@@ -831,7 +831,7 @@ IF (l_par_fields) THEN ! parallelization over fields
 
   DO jn = 1, nfields
 
-    elev   = SIZE(p_out(jn)%fld,2)
+    elev   = UBOUND(p_out(jn)%fld,2)
 
     DO jb = i_startblk, i_endblk
 
@@ -991,7 +991,7 @@ ELSE ! parallelization over jb loop
 
   DO jn = 1, nfields
 
-    elev = SIZE(p_out(jn)%fld,2)
+    elev = UBOUND(p_out(jn)%fld,2)
 
 !$OMP DO PRIVATE (jk,jc,grad_x,grad_y,min_expval,max_expval,limfac1,  &
 !$OMP   limfac2,limfac,maxval_neighb,minval_neighb,relaxed_minval,    &
@@ -1161,7 +1161,7 @@ IF (my_process_is_mpi_seq()) THEN
 
   DO jn = 1, nfields
 
-    elev = SIZE(p_out(jn)%fld,2)
+    elev = UBOUND(p_out(jn)%fld,2)
 
 !$OMP DO PRIVATE (jk,jc)
     DO jb =  i_startblk, i_endblk
