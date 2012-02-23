@@ -116,9 +116,8 @@ USE mo_parallel_config,     ONLY: nproma, p_test_run
 USE mo_exception,           ONLY: finish
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array
-
-USE mo_math_gradients
-USE mo_math_divrot
+USE mo_math_gradients,      ONLY: grad_fd_norm
+USE mo_math_divrot,         ONLY: div, rot_vertex, recon_lsq_cell_q
 
 
 IMPLICIT NONE
@@ -226,7 +225,7 @@ END IF
 IF ( PRESENT(opt_elev) ) THEN
   elev = opt_elev
 ELSE
-  elev = ptr_patch%nlev
+  elev = UBOUND(vec_e,2)
 END IF
 
 IF ( PRESENT(opt_rlstart) ) THEN
@@ -463,7 +462,7 @@ END IF
 IF ( PRESENT(opt_elev) ) THEN
   elev = opt_elev
 ELSE
-  elev = ptr_patch%nlev
+  elev = UBOUND(vec_e,2)
 END IF
 
 IF ( PRESENT(opt_rlstart) ) THEN
@@ -596,7 +595,7 @@ END IF
 IF ( PRESENT(opt_elev) ) THEN
   elev = opt_elev
 ELSE
-  elev = ptr_patch%nlev
+  elev = UBOUND(vec_e,2)
 END IF
 
 IF ( PRESENT(opt_rlstart) ) THEN
@@ -705,7 +704,6 @@ REAL(wp), INTENT(inout) ::  &
 INTEGER :: slev, elev     ! vertical start and end level
 INTEGER :: rl_start, rl_end
 INTEGER :: jb, jc, jk, i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
-INTEGER :: nlev                !< number of full levels
 
 REAL(wp) ::  &
   &  z_grad_fd_norm_e(nproma,ptr_patch%nlev,ptr_patch%nblks_e)
@@ -713,9 +711,6 @@ REAL(wp) ::  &
 INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
 
 !-----------------------------------------------------------------------
-
-! number of vertical levels
-nlev = ptr_patch%nlev
 
 ! check optional arguments
 IF ( PRESENT(opt_slev) ) THEN
@@ -726,7 +721,7 @@ END IF
 IF ( PRESENT(opt_elev) ) THEN
   elev = opt_elev
 ELSE
-  elev = nlev
+  elev = UBOUND(psi_c,2)
 END IF
 
 IF ( PRESENT(opt_rlstart) ) THEN
@@ -890,16 +885,12 @@ REAL(wp), INTENT(inout) ::  &
 INTEGER :: slev, elev     ! vertical start and end level
 INTEGER :: rl_start, rl_end, rl_start_l2
 INTEGER :: jb, jc, jk, i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
-INTEGER :: nlev              !< number of full levels
 
 REAL(wp), DIMENSION (nproma,ptr_patch%nlev,ptr_patch%nblks_c) :: aux_c
 
 INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
 
 !-----------------------------------------------------------------------
-
-! number of vertical levels
-nlev = ptr_patch%nlev
 
 ! check optional arguments
 IF ( PRESENT(opt_slev) ) THEN
@@ -910,7 +901,7 @@ END IF
 IF ( PRESENT(opt_elev) ) THEN
   elev = opt_elev
 ELSE
-  elev = nlev
+  elev = UBOUND(psi_c,2)
 END IF
 
 iidx => ptr_patch%cells%neighbor_idx
@@ -1183,7 +1174,7 @@ END IF
 IF ( PRESENT(opt_elev) ) THEN
   elev = opt_elev
 ELSE
-  elev = ptr_patch%nlev
+  elev = UBOUND(psi_c,2)
 END IF
 
 IF ( PRESENT(opt_rlstart) ) THEN
@@ -1289,7 +1280,7 @@ END SUBROUTINE nabla4_scalar
     IF ( PRESENT(opt_elev) ) THEN
       elev = opt_elev
     ELSE
-      elev = pt_patch%nlev
+      elev = UBOUND(p_scalar,2)
     END IF
 
     IF (p_test_run) coeff(:,:,:,:) = 0.0_wp
