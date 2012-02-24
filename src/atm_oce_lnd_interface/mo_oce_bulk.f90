@@ -1420,9 +1420,10 @@ CONTAINS
     LOGICAL :: l_exist
     INTEGER :: jg, i_lev, i_cell_type, no_cells, no_tst, jlevs, jtime, jt, jb, jc, j
     INTEGER :: ncid, dimid
-    INTEGER :: isrt(3),icnt(3), jcells
+    INTEGER :: isrt(2),icnt(2), jcells
 
-    REAL(wp):: z_flux(nproma,1,p_patch%nblks_c,iforc_len)  ! forcing data: time length is iforc_len
+    REAL(wp):: z_flux(nproma,p_patch%nblks_c,iforc_len)  ! time length is iforc_len as 3rd dimension
+    REAL(wp):: z_flx2(nproma,24,p_patch%nblks_c)  ! 2nd dimension is iforc_len
     TYPE (t_keyword_list), POINTER :: keywords => NULL()
 
     !-------------------------------------------------------------------------
@@ -1492,7 +1493,7 @@ CONTAINS
       !
       !-------------------------------------------------------
 
-      jlevs  = 1                      !  surface data
+      !jlevs  = 1                     !  surface data
       jcells = p_patch%n_patch_cells  ! global dimension
       jtime  = iforc_len              !  time period to read (not yet)
       
@@ -1505,42 +1506,57 @@ CONTAINS
       ! zonal wind stress
       !write(0,*) ' ncep set 1: dimensions:',p_patch%n_patch_cells_g, p_patch%n_patch_cells, &
       ! &  iforc_len, nproma, p_patch%nblks_c
+      ! Attention: jtime is here passed to read_netcdf_3d with 2nd dimension is vertical level
       CALL read_netcdf_data (ncid, 'stress_x', p_patch%n_patch_cells_g,      &
         &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
-        &                    jlevs, jtime, z_flux(:,:,:,:))
+        &                    24, z_flx2(:,:,:))
       write(0,*) ' READ_FORC: ncep set 1: stress_x read'
       DO jt = 1, iforc_len
-        ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,1) = z_flux(:,1,:,jt)
+        ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,1) = z_flx2(:,jt,:)
       END DO
 
       write(0,*) ' READ_FORC, READ 1: first data sets: stress-x, block=5, index=1,5:'
-      do jt=1,3
-        write(0,*) 'jt=',jt,' val:',(ext_data(1)%oce%omip_forc_mon_c(jc,jt,5,1),jc=1,5)
+      do jt=1,24
+  !     write(0,*) 'jt=',jt,' val:',(ext_data(1)%oce%omip_forc_mon_c(jc,jt,5,1),jc=1,5)
+        write(0,*) 'jt=',jt,' val:',(z_flx2(jc,jt,5),jc=1,5)
       enddo
 
-    ! start: first set (1,1,1)
-    do j=1,3
-    isrt(j)=1
-    enddo
-    !isrt(3)=1
+  !   write(77,*) ' READ_FORC, READ 1: after reading all data'
+  !   do jt=1,iforc_len
+  !     do jb=1,p_patch%nblks_c
+  !       write(77,*) 'jt=',jt,' jb=',jb
+  !       write(77,'(10f8.3)') (ext_data(1)%oce%omip_forc_mon_c(jc,jt,jb,1),jc=1,nproma)
+  !     enddo
+  !   enddo
+
+    ! start: first set (1,1); second year (1,13)
+    isrt(1)=1
+    isrt(2)=13
     icnt(1)=jcells       !  dim 1 of read_netcdf_time, z_dummy_array
-    icnt(2)=jlevs        !  dim 2 of read_netcdf_time, z_dummy_array
-    icnt(3)=12           !  last time-set to read
+    icnt(2)=2            !  last time-set to read
 
       write(0,*) ' READ_FORC: ncep set 2: stress_x read using read_netcdf_time'
       CALL read_netcdf_data (ncid, 'stress_x', p_patch%n_patch_cells_g,      &
         &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
-        &                    jlevs, jtime, isrt, icnt, z_flux(:,:,:,:))
+        &                    jtime, isrt, icnt, z_flux(:,:,:))
       write(0,*) ' READ_FORC: ncep set 2: stress_x read'
 
       DO jt = 1, iforc_len
-        ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,1) = z_flux(:,1,:,jt)
+        ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,1) = z_flux(:,:,jt)
       END DO
 
       write(0,*) ' READ_FORC, READ 2: first data sets: stress-x, block=5, index=1,5:'
       do jt=1,3
         write(0,*) 'jt=',jt,' val:',(ext_data(1)%oce%omip_forc_mon_c(jc,jt,5,1),jc=1,5)
       enddo
+
+  !   write(77,*) ' READ_FORC, READ 2: after reading time period'
+  !   do jt=1,iforc_len
+  !     do jb=1,p_patch%nblks_c
+  !       write(77,*) 'jt=',jt,' jb=',jb
+  !       write(77,'(10f8.3)') (ext_data(1)%oce%omip_forc_mon_c(jc,jt,jb,1),jc=1,nproma)
+  !     enddo
+  !   enddo
 
  !    ! meridional wind stress
  !    CALL read_netcdf_data (ncid, 'stress_y', p_patch%n_patch_cells_g,      &

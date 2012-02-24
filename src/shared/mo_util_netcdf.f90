@@ -490,17 +490,16 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  !! Read 4D (inlcuding height and a period of time) dataset from netcdf file
+  !! Read 3D (inlcuding a period of time) dataset from netcdf file
   !!
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2010-07-14)
   !! Adapted for parallel runs by Rainer Johanni (2010-12-07)
-  !! Adapted for 4 D by Kristina Froehlich, MPI-M (2011-06-16)
   !! Adapted for time periods by Stephan Lorenz, MPI-M (2012-02-22)
   !!
   SUBROUTINE read_netcdf_time (ncid, varname, glb_arr_len, &
        &                       loc_arr_len, glb_index,     &
-       &                       nlevs, ntime, nstart, ncount, var_out)
+       &                       ntime, nstart, ncount, var_out)
 
     CHARACTER(len=*), INTENT(IN)  ::  &  !< Var name of field to be read
       &  varname
@@ -509,16 +508,15 @@ CONTAINS
     INTEGER, INTENT(IN) :: glb_arr_len   !< length of 1D field (global)
     INTEGER, INTENT(IN) :: loc_arr_len   !< length of 1D field (local)
     INTEGER, INTENT(IN) :: glb_index(:)  !< Index mapping local to global
-    INTEGER, INTENT(IN) :: nlevs         !< vertical levels of netcdf file
-    INTEGER, INTENT(IN) :: ntime         !< number of time levels to read
-    INTEGER, INTENT(IN) :: nstart(3)     !< start value for reading in all array dims
-    INTEGER, INTENT(IN) :: ncount(3)     !< count value for length of array to read
+    INTEGER, INTENT(IN) :: ntime         !< number of time steps to read
+    INTEGER, INTENT(IN) :: nstart(2)     !< start value for reading in all array dims
+    INTEGER, INTENT(IN) :: ncount(2)     !< count value for length of array to read
 
     REAL(wp), INTENT(INOUT) :: &         !< output field
-      &  var_out(:,:,:,:)                !< dimensions: nproma, nlevs, nblks, ntime
+      &  var_out(:,:,:)                  !< dimensions: nproma, nblks, ntime
 
     INTEGER :: varid, mpi_comm, j, jl, jb, jk, jt
-    REAL(wp):: z_dummy_array(glb_arr_len,nlevs,ntime)!< local dummy array
+    REAL(wp):: z_dummy_array(glb_arr_len,ntime)!< local dummy array
 
     !-------------------------------------------------------------------------
 
@@ -532,30 +530,34 @@ CONTAINS
     ENDIF
 
     ! I/O PE reads and broadcasts data
+    z_dummy_array(:,:) = 0.0_wp
 
-    write(0,*) ' Dimensions: glb, nlevs, ntime: ',glb_arr_len,nlevs,ntime
+    write(0,*) ' Dimensions: glb, ntime: ',glb_arr_len,ntime
     write(0,*) ' ncep set ',varname,': begin of read - time period'
-  ! IF(my_process_is_stdio()) CALL nf(nf_get_var_double(ncid, varid, z_dummy_array(:,:,:)))
+    write(0,*) ' nstart, ncount: ',nstart, ncount
     IF(my_process_is_stdio()) CALL nf(nf_get_vara_double(ncid, varid, &
-      &                               nstart(:), ncount(:), z_dummy_array(:,:,:)))
+      &                               nstart(:), ncount(:), z_dummy_array(:,:)))
     write(0,*) ' ncep set ',varname,' read'
     CALL p_bcast(z_dummy_array, p_io , mpi_comm)
 
-    var_out(:,:,:,:) = 0._wp
+    var_out(:,:,:) = 0.0_wp
 
     ! Set var_out from global data
     DO jt = 1, ntime
-        DO jk = 1, nlevs
-           DO j = 1, loc_arr_len
+      DO j = 1, loc_arr_len
 
-             jb = blk_no(j) ! Block index in distributed patch
-             jl = idx_no(j) ! Line  index in distributed patch
-               
-             var_out(jl,jk,jb,jt) = z_dummy_array(glb_index(j),jk,jt)
+        jb = blk_no(j) ! Block index in distributed patch
+        jl = idx_no(j) ! Line  index in distributed patch
+          
+        var_out(jl,jb,jt) = z_dummy_array(glb_index(j),jt)
 
-          ENDDO
-       ENDDO
+      ENDDO
     ENDDO
+
+      write(0,*) ' READ_NETCD_TIME: z_dummy_array stress-x, index 4*64+1,5:'
+      do jt=1,3
+        write(0,*) 'jt=',jt,' val:',(z_dummy_array(j+4*64,jt),j=1,5)
+      enddo
 
   END SUBROUTINE read_netcdf_time
 
