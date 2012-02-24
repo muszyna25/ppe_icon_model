@@ -170,7 +170,7 @@ inwp_surface    = 0
 /
 &radiation_nml
  irad_o3 = 6
- irad_aero  = 0             ! switch off aerosols
+ irad_aero = 2 ! switch off aerosols
 /
 &nonhydrostatic_nml
  itime_scheme   = 4

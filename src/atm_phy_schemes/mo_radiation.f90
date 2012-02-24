@@ -1004,11 +1004,6 @@ CONTAINS
 !!$    ! for debugging
 !!$    REAL(wp) :: rloland(kbdim) ,rloglac(kbdim)
 
-    ! LL: zeroed here in order to check if the memory
-    !     is corruped at this point
-    !     should be removed after debugging
-    aer_tau_lw_vr(:,:,:) = 0.0_wp
-
     !
     ! 1.0 Constituent properties
     !--------------------------------
