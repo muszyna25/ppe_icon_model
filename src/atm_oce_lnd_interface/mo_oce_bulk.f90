@@ -1418,7 +1418,7 @@ CONTAINS
     CHARACTER(filename_max) :: ncep_file   !< file name for reading in
 
     LOGICAL :: l_exist
-    INTEGER :: jg, i_lev, i_cell_type, no_cells, no_tst, jlevs, jtime, jt, jb, j
+    INTEGER :: jg, i_lev, i_cell_type, no_cells, no_tst, jlevs, jtime, jt, jb, jc, j
     INTEGER :: ncid, dimid
     INTEGER :: isrt(3),icnt(3), jcells
 
@@ -1515,18 +1515,17 @@ CONTAINS
 
       write(0,*) ' READ_FORC, READ 1: first data sets: stress-x, block=5, index=1,5:'
       do jt=1,3
-        write(0,*) 'jt=',jt,' val:',(ext_data(1)%oce%omip_forc_mon_c(jb,jt,5,1),jb=1,5)
+        write(0,*) 'jt=',jt,' val:',(ext_data(1)%oce%omip_forc_mon_c(jc,jt,5,1),jc=1,5)
       enddo
 
-    ! nochmal test
+    ! start: first set (1,1,1)
     do j=1,3
     isrt(j)=1
     enddo
-    ! start: first set
     !isrt(3)=1
-    icnt(1)=jcells       !  dim 1
-    icnt(2)=jlevs        !  dim 2
-    icnt(3)=12           !  last set to read
+    icnt(1)=jcells       !  dim 1 of read_netcdf_time, z_dummy_array
+    icnt(2)=jlevs        !  dim 2 of read_netcdf_time, z_dummy_array
+    icnt(3)=12           !  last time-set to read
 
       write(0,*) ' READ_FORC: ncep set 2: stress_x read using read_netcdf_time'
       CALL read_netcdf_data (ncid, 'stress_x', p_patch%n_patch_cells_g,      &
@@ -1540,7 +1539,7 @@ CONTAINS
 
       write(0,*) ' READ_FORC, READ 2: first data sets: stress-x, block=5, index=1,5:'
       do jt=1,3
-        write(0,*) 'jt=',jt,' val:',(ext_data(1)%oce%omip_forc_mon_c(jb,jt,5,1),jb=1,5)
+        write(0,*) 'jt=',jt,' val:',(ext_data(1)%oce%omip_forc_mon_c(jc,jt,5,1),jc=1,5)
       enddo
 
  !    ! meridional wind stress
