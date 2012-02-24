@@ -184,12 +184,12 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
   
   IF (msg_level >= 15) THEN
     WRITE(message_text,'(a,3E15.7)') ' bottom TKE before turbulence now = ', &
-         &  p_prog_now_rcf%tke(1,nlev+1,12), p_prog_now_rcf%tke(1,nlev,12),&
-         &  p_prog_now_rcf%tke(1,nlev-1,12)
-   CALL message('', TRIM(message_text))
+         &  p_prog_now_rcf%tke(1,nlev+1,6), p_prog_now_rcf%tke(1,nlev,6),&
+         &  p_prog_now_rcf%tke(1,nlev-1,6)
+    CALL message('', TRIM(message_text))
     WRITE(message_text,'(a,3E15.7)') ' bottom TKE before turbulence new = ', &
-         &  p_prog_rcf%tke(1,nlev+1,12), p_prog_rcf%tke(1,nlev,12),&
-        &  p_prog_rcf%tke(1,nlev-1,12)
+         &  p_prog_rcf%tke(1,nlev+1,6), p_prog_rcf%tke(1,nlev,6),&
+        &  p_prog_rcf%tke(1,nlev-1,6)
     CALL message('', TRIM(message_text))
   ENDIF
   
@@ -668,13 +668,13 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 !$OMP END PARALLEL
 
   IF (msg_level >= 15) THEN
-    WRITE(message_text,'(a,3E15.7)') ' bottom TKE after turbulence = ', &
-         &  p_prog_now_rcf%tke(2,nlev+1,12), p_prog_now_rcf%tke(1,nlev,12),&
-         &  p_prog_now_rcf%tke(1,MAX(1,nlev-11),12)
+    WRITE(message_text,'(a,3E15.7)') ' bottom TKE after turbulence now = ', &
+         &  p_prog_now_rcf%tke(1,nlev+1,6), p_prog_now_rcf%tke(1,nlev,6),&
+         &  p_prog_now_rcf%tke(1,nlev-1,6)
     CALL message('', TRIM(message_text))
-    WRITE(message_text,'(a,3E15.7)') ' bottom TKE after turbulence = ', &
-         &  p_prog_rcf%tke(1,nlev+1,12), p_prog_rcf%tke(1,nlev,12),&
-         &  p_prog_rcf%tke(1,nlev-1,12)
+    WRITE(message_text,'(a,3E15.7)') ' bottom TKE after turbulence new = ', &
+         &  p_prog_rcf%tke(1,nlev+1,6), p_prog_rcf%tke(1,nlev,6),&
+         &  p_prog_rcf%tke(1,nlev-1,6)
     CALL message('', TRIM(message_text))
   ENDIF
 
