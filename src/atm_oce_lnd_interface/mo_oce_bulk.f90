@@ -58,6 +58,7 @@ USE mo_mpi,                 ONLY: my_process_is_stdio
 !USE mo_util_string,         ONLY: t_keyword_list
 USE mo_util_netcdf,         ONLY: read_netcdf_data
 USE mo_datetime,            ONLY: t_datetime
+USE mo_time_config,         ONLY: time_config
 USE mo_ext_data,            ONLY: ext_data, t_external_data
 USE mo_grid_config,         ONLY: nroot
 USE mo_ocean_nml,           ONLY: iforc_oce, iforc_omip, iforc_len, itestcase_oce,         &
@@ -125,7 +126,8 @@ CONTAINS
   !
   ! local variables
   CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:update_sfcflx'
-  INTEGER  :: jmon, jdmon, jmon1, jmon2!, jdays, njday
+  INTEGER  :: jmon, jdmon, jmon1, jmon2
+  INTEGER  :: iniyear, curyear, offset
   INTEGER  :: jc, jb, i, no_set
   INTEGER  :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
   INTEGER  :: rl_start_c, rl_end_c
@@ -194,21 +196,26 @@ CONTAINS
     !   - read annual data at Jan, 1st: seconds of year are less than a timestep
     !   - or at begin of each run (must not be first of january)
     IF (iforc_omip == 5) THEN
-
+        
       dtm1 = dtime - 1.0_wp
 
-      ! use initial date to define correct set (year) of reading NCEP data
-      ! no_set = INT(datetime%year) - 1000
-      no_set = 1
+      IF ( (jmon == 1 .AND. jdmon == 1 .AND. dsec < dtm1) .OR. (jstep == 1) ) THEN
 
-      ipl_src=4  ! output print level (1-5, fix)
-      IF (i_dbg_oce >= ipl_src) THEN
+        ! use initial date to define correct set (year) of reading NCEP data
+        !  - with offset=0 always the first year of NCEP data is used
+        iniyear = time_config%ini_datetime%year
+        curyear = time_config%cur_datetime%year
+        offset = 0
+        no_set = offset + curyear-iniyear + 1 
+        
         WRITE(message_text,'(a,i3,a,i3,a,e15.5))') 'BULK: First step in year: month=', &
           &  jmon,' day=',jdmon,' seconds=',dsec
         CALL message (' ', message_text)
+        WRITE(message_text,'(a,3i5)') ' iniyear curyear no_set: ',iniyear, curyear, no_set
+
+        CALL read_forc_data_oce(p_patch, ext_data, no_set)
+
       END IF
-      IF ( (jmon == 1 .AND. jdmon == 1 .AND. dsec < dtm1) .OR. (jstep == 1) ) &
-      & CALL read_forc_data_oce(p_patch, ext_data, no_set)
 
     END IF
 
