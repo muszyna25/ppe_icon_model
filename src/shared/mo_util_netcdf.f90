@@ -515,7 +515,7 @@ CONTAINS
     REAL(wp), INTENT(INOUT) :: &         !< output field
       &  var_out(:,:,:)                  !< dimensions: nproma, nblks, ntime
 
-    INTEGER :: varid, mpi_comm, j, jl, jb, jk, jt
+    INTEGER :: varid, mpi_comm, j, jl, jb, jt
     REAL(wp):: z_dummy_array(glb_arr_len,ntime)!< local dummy array
 
     !-------------------------------------------------------------------------
@@ -532,12 +532,12 @@ CONTAINS
     ! I/O PE reads and broadcasts data
     z_dummy_array(:,:) = 0.0_wp
 
-    write(0,*) ' Dimensions: glb, ntime: ',glb_arr_len,ntime
-    write(0,*) ' ncep set ',varname,': begin of read - time period'
-    write(0,*) ' nstart, ncount: ',nstart, ncount
+    !write(0,*) ' Dimensions: glb, ntime: ',glb_arr_len,ntime
+    !write(0,*) ' ncep set ',varname,': begin of read - time period'
+    !write(0,*) ' nstart, ncount: ',nstart, ncount
+
     IF(my_process_is_stdio()) CALL nf(nf_get_vara_double(ncid, varid, &
       &                               nstart(:), ncount(:), z_dummy_array(:,:)))
-    write(0,*) ' ncep set ',varname,' read'
     CALL p_bcast(z_dummy_array, p_io , mpi_comm)
 
     var_out(:,:,:) = 0.0_wp
@@ -554,10 +554,10 @@ CONTAINS
       ENDDO
     ENDDO
 
-      write(0,*) ' READ_NETCD_TIME: z_dummy_array stress-x, index 4*64+1,5:'
-      do jt=1,3
-        write(0,*) 'jt=',jt,' val:',(z_dummy_array(j+4*64,jt),j=1,5)
-      enddo
+    !write(0,*) ' READ_NETCD_TIME: z_dummy_array stress-x, index 4*64+1,5:'
+    !do jt=1,3
+    !  write(0,*) 'jt=',jt,' val:',(z_dummy_array(j+4*64,jt),j=1,5)
+    !enddo
 
   END SUBROUTINE read_netcdf_time
 
