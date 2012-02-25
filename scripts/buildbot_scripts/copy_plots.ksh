@@ -34,7 +34,6 @@ copy_files ()
     dir=`dirname $dir_name`
     mkdir -p ${BASE_DIR}/${dir}
 
-    cp experiments/${dir}/${name}.$1 ${BASE_DIR}/${dir}/${name}.$1
  
     if [ "x$1" = "xps" -o "x$1" = "xeps" ]
     then
@@ -45,6 +44,8 @@ copy_files ()
       else
         echo "INFO: No convert available " 
       fi
+    else
+      cp experiments/${dir}/${name}.$1 ${BASE_DIR}/${dir}/${name}.$1
     fi
   done
 }
