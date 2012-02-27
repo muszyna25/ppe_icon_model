@@ -976,7 +976,7 @@ MODULE mo_nh_stepping
     ! This executes one time step for the global domain and two steps for nested domains
     DO jstep = 1, num_steps
 
-      IF ( jstep == 1 .AND. jg > 1 ) THEN
+      IF (ifeedback_type == 1 .AND. jstep == 1 .AND. jg > 1 ) THEN
         ! Save prognostic variables at current timestep to compute
         ! feedback increments (not needed in global domain)
         n_now = nnow(jg)
