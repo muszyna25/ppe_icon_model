@@ -134,16 +134,16 @@ CONTAINS
       CALL finish(TRIM(routine),'allocation for p_nh_state failed')
     ENDIF
 
-    IF(iforcing == inwp) THEN
-       
-      ALLOCATE (p_lnd_state(n_dom), stat=ist)
-      IF (ist /= success) THEN
-        CALL finish(TRIM(routine),'allocation for p_lnd_state failed')
-      ENDIF
-
-      CALL configure_lnd_nwp(p_patch(1:), n_dom, nproma)
-
+    ! Note(GZ): Land state now needs to be allocated even if physics is turned
+    ! off because ground temperature is included in feedback since r8133
+    ! However, setting inwp_surface = 0 effects that only a few 2D fields are allocated
+    ALLOCATE (p_lnd_state(n_dom), stat=ist)
+    IF (ist /= success) THEN
+      CALL finish(TRIM(routine),'allocation for p_lnd_state failed')
     ENDIF
+
+    CALL configure_lnd_nwp(p_patch(1:), n_dom, nproma)
+    IF(iforcing /= inwp) atm_phy_nwp_config(:)%inwp_surface = 0
 
       !------------------------------------------------------------------
       ! Prepare initial conditions for time integration.
@@ -184,9 +184,10 @@ CONTAINS
     IF(iforcing == inwp) THEN
 
       CALL construct_nwp_phy_state( p_patch(1:) )
-      CALL construct_nwp_lnd_state( p_patch(1:),p_lnd_state,n_timelevels=2 )
 
     ENDIF
+
+    CALL construct_nwp_lnd_state( p_patch(1:),p_lnd_state,n_timelevels=2 )
 
     !---------------------------------------------------------------------
     ! 5. Perform time stepping
@@ -385,9 +386,9 @@ CONTAINS
 
     IF (iforcing == inwp) THEN
       CALL destruct_nwp_phy_state
-      CALL destruct_nwp_lnd_state( p_lnd_state )
       CALL destruct_tiles_arrays(p_tiles)
     ENDIF
+    CALL destruct_nwp_lnd_state( p_lnd_state )
 
     ! Delete output variable lists
     IF (l_have_output) CALL close_output_files
