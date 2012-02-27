@@ -673,7 +673,11 @@ CONTAINS
       ! Calculation of surface albedo taking soil type,              
       ! vegetation and snow/ice conditions into account
       !------------------------------------------------------------------------------
-      
+
+      ! It may happen that an MPI patch contains only nest boundary points
+      ! In this case, no action is needed
+      IF (i_startidx > i_endidx) CYCLE
+
       IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
         
         DO jc = 1,i_endidx
@@ -1318,6 +1322,10 @@ CONTAINS
           &                         i_startidx, i_endidx, rl_start, rl_end, i_chidx)
 
         itype(:) = 0
+
+        ! It may happen that an MPI patch contains only nest boundary points
+        ! In this case, no action is needed
+        IF (i_startidx > i_endidx) CYCLE
 
         ! Unfortunately, the coding of SR radiation is not compatible with the presence
         ! of nested domains. Therefore, the normally unused elements of the first block
