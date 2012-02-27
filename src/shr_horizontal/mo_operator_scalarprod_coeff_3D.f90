@@ -1003,8 +1003,8 @@ END DO
           ptr_intp%edge2cell_coeff_cc(il_c2,jk,ib_c2,ie)%x&
             & = z_vec_c2(ie)%x*ptr_patch%cells%edge_orientation(il_c2,ib_c2,ie)*z_edge_length(ie)
 
-          ptr_intp%fixed_vol_norm(il_c2,jk,ib_c2)       = ptr_intp%fixed_vol_norm(il_c2,jk,ib_c2) + &
-            &                                        0.5_wp*norm*z_edge_length(ie)
+          ptr_intp%fixed_vol_norm(il_c2,jk,ib_c2)       = ptr_intp%fixed_vol_norm(il_c2,jk,ib_c2) &
+            &                                      + 0.5_wp*norm*z_edge_length(ie)
           ptr_intp%variable_vol_norm(il_c2,jk,ib_c2,ie) = 0.5_wp*norm*z_edge_length(ie)
 
         END DO

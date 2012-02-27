@@ -157,13 +157,14 @@ CONTAINS
     !
     ! Prognostic variables are read from prog_init_file
     WRITE (prog_init_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-prog.nc'
-prog_init_file="/scratch/local1/m212053/ICON/trunk/icon-dev/grids/&
-&ts_phc_annual-iconR2B04-L10_50-1000m.nc"
-    !write(*,*)'init file is: ',TRIM(prog_init_file)
+  ! prog_init_file="/scratch/local1/m212053/ICON/trunk/icon-dev/grids/&
+  ! &ts_phc_annual-iconR2B04-L10_50-1000m.nc"
 
     INQUIRE (FILE=prog_init_file, EXIST=l_exist)
     IF (.NOT.l_exist) THEN
-      CALL finish(TRIM(routine),'netcdf file for reading ocean prognostic input not found.')
+      WRITE(message_text,'(3a)') 'netcdf file named ', TRIM(prog_init_file), ' not found!'
+      CALL message(TRIM(routine),TRIM(message_text))
+      CALL finish(TRIM(routine),'File for reading ocean prognostic input not found - ABORT')
     ENDIF
 
     WRITE(message_text,'(3a)') 'netcdf file named ', TRIM(prog_init_file), ' opened for reading'
@@ -187,7 +188,7 @@ prog_init_file="/scratch/local1/m212053/ICON/trunk/icon-dev/grids/&
     CALL message(TRIM(routine),TRIM(message_text))
     IF(ppatch%n_patch_cells_g /= no_cells) THEN
       CALL finish(TRIM(ROUTINE),&
-      & 'Number of patch cells and cells in ocean prognostic input file do not match.')
+      & 'Number of patch cells and cells in ocean prognostic input file do not match - ABORT')
     ENDIF
     !
     ! get number of levels
@@ -202,7 +203,7 @@ prog_init_file="/scratch/local1/m212053/ICON/trunk/icon-dev/grids/&
     CALL message(TRIM(routine),TRIM(message_text))
     IF(n_zlev /= no_levels) THEN
       CALL finish(TRIM(ROUTINE),&
-      & 'Number of vertical levels and levels in ocean prognostic input file do not match.')
+      & 'Number of vertical levels and levels in ocean prognostic input file do not match - ABORT')
     ENDIF
 
   ENDIF
@@ -345,7 +346,9 @@ ENDIF
    
         INQUIRE (FILE=relax_init_file, EXIST=l_exist)
         IF (.NOT.l_exist) THEN
-          CALL finish(TRIM(routine),'netcdf file for reading T/S relaxation input not found.')
+          WRITE(message_text,'(3a)') 'netcdf file named ', TRIM(relax_init_file),' not found!'
+          CALL message(TRIM(routine),TRIM(message_text))
+          CALL finish(TRIM(routine),'netcdf file for reading T/S relax. input not found - ABORT')
         ENDIF
    
         WRITE(message_text,'(3a)') 'netcdf file named ', TRIM(relax_init_file), &
@@ -370,7 +373,7 @@ ENDIF
         CALL message(TRIM(routine),TRIM(message_text))
         IF (ppatch%n_patch_cells_g /= no_cells) THEN
           CALL finish(TRIM(ROUTINE),&
-          & 'Number of patch cells and cells in T/S relaxation input file do not match.')
+          & 'Number of patch cells and cells in T/S relaxation input file do not match - ABORT')
         ENDIF
         !
         ! get number of levels
@@ -384,7 +387,7 @@ ENDIF
         WRITE(message_text,'(a,i6)') 'No of vertical levels =', no_levels
         CALL message(TRIM(routine),TRIM(message_text))
         IF (no_levels /= 1) THEN
-          CALL finish(TRIM(ROUTINE),'Number of vertical levels is not equal 1 ')
+          CALL finish(TRIM(ROUTINE),'Number of vertical levels is not equal 1 - ABORT')
         ENDIF
    
       ENDIF  !  stdio
@@ -458,7 +461,7 @@ ENDIF
       IF (no_tracer > 1) THEN
         p_sfc_flx%forc_tracer_relax(:,:,2) = p_os%p_prog(nold(1))%tracer(:,1,:,2)
       ELSE
-        CALL finish(TRIM(ROUTINE),' irelax_2d_S=3 and no_tracer<2')
+        CALL finish(TRIM(ROUTINE),' irelax_2d_S=3 and no_tracer<2 - ABORT')
       END IF
     END IF
     
@@ -469,7 +472,7 @@ ENDIF
       IF (no_tracer > 1) THEN
         p_os%p_aux%relax_3d_data_S(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,2)
       ELSE
-        CALL finish(TRIM(ROUTINE),' irelax_3d_S=3 and no_tracer<2')
+        CALL finish(TRIM(ROUTINE),' irelax_3d_S=3 and no_tracer<2 - ABORT')
       END IF
     END IF
    

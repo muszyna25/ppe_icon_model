@@ -2239,12 +2239,11 @@ CONTAINS
 
         !omip_file=TRIM('/pool/data/ICON/external/iconR2B04-flux.nc')
         !omip_file='/scratch/local1/m212053/ICON/trunk/icon-dev/grids/omip4icon-R2B02-monmean.nc'
-omip_file='/scratch/local1/m212053/ICON/trunk/icon-dev/grids/omip4icon-R2B04-monmean.nc'
         CALL message( TRIM(routine),'Ocean OMIP forcing flux file is: '//TRIM(omip_file) )
         INQUIRE (FILE=omip_file, EXIST=l_exist)
         IF (.NOT.l_exist) THEN
           write(*,*)'FORCING FILE: ',TRIM(omip_file)
-          CALL finish(TRIM(routine),'OMIP forcing flux file is not found.')
+          CALL finish(TRIM(routine),'OMIP forcing flux file is not found - ABORT')
         ENDIF
 
         !
@@ -2261,7 +2260,7 @@ omip_file='/scratch/local1/m212053/ICON/trunk/icon-dev/grids/omip4icon-R2B04-mon
 
         IF(p_patch(jg)%n_patch_cells_g /= no_cells) THEN
           CALL finish(TRIM(ROUTINE),&
-          & 'Number of patch cells and cells in OMIP flux file do not match.')
+          & 'Number of patch cells and cells in OMIP flux file do not match - ABORT')
         ENDIF
 
         !
@@ -2276,7 +2275,7 @@ omip_file='/scratch/local1/m212053/ICON/trunk/icon-dev/grids/omip4icon-R2B04-mon
         CALL message( TRIM(routine), TRIM(message_text) )
         IF(no_tst /= iforc_len ) THEN
           CALL finish(TRIM(ROUTINE),&
-          & 'Number of forcing timesteps is not equal iforc_len specified in namelist!')
+          & 'Number of forcing timesteps is not equal iforc_len specified in namelist - ABORT')
         ENDIF
       ENDIF
 
