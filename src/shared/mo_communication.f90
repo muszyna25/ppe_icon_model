@@ -1488,7 +1488,7 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
 
    REAL(wp) :: send_buf(ndim2tot,p_pat%n_send),recv_buf(ndim2tot,p_pat%n_recv)
 
-   INTEGER :: i, k, kshift, jb,ik, jl, n, np, irs, iss, pid, icount
+   INTEGER :: i, k, kshift(nfields), jb,ik, jl, n, np, irs, iss, pid, icount
    LOGICAL :: lsend, ladd, l_par
 
 !-----------------------------------------------------------------------
@@ -1601,11 +1601,16 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
      l_par = .FALSE.
    ENDIF
 
+   ! Reset kshift to 0 if 2D fields are passed together with 3D fields
+   DO n = 1, nfields
+     IF (SIZE(recv(n)%fld,2) == 1) kshift(n) = 0
+   ENDDO
+
    noffset(1) = 0
-   ndim2(1)   = SIZE(recv(1)%fld,2) - kshift
+   ndim2(1)   = SIZE(recv(1)%fld,2) - kshift(1)
    DO n = 2, nfields
      noffset(n) = noffset(n-1)+ndim2(n-1)
-     ndim2(n)   = SIZE(recv(n)%fld,2) - kshift
+     ndim2(n)   = SIZE(recv(n)%fld,2) - kshift(n)
    ENDDO
 
    ! Set up send buffer
@@ -1618,7 +1623,7 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
        DO k = 1, ndim2(n)
          DO i = 1, p_pat%n_send
            send_buf(k+noffset(n),i) = &
-             send(n)%fld(p_pat%send_src_idx(i),k+kshift,p_pat%send_src_blk(i))
+             send(n)%fld(p_pat%send_src_idx(i),k+kshift(n),p_pat%send_src_blk(i))
          ENDDO
        ENDDO
      ENDDO
@@ -1630,7 +1635,7 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
        DO k = 1, ndim2(n)
          DO i = 1, p_pat%n_send
            send_buf(k+noffset(n),i) = &
-             send(n)%fld(p_pat%send_src_idx(i),k+kshift,p_pat%send_src_blk(i))
+             send(n)%fld(p_pat%send_src_idx(i),k+kshift(n),p_pat%send_src_blk(i))
          ENDDO
        ENDDO
      ENDDO
@@ -1641,7 +1646,7 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
        DO k = 1, ndim2(n)
          DO i = 1, p_pat%n_send
            send_buf(k+noffset(n),i) = &
-             recv(n)%fld(p_pat%send_src_idx(i),k+kshift,p_pat%send_src_blk(i))
+             recv(n)%fld(p_pat%send_src_idx(i),k+kshift(n),p_pat%send_src_blk(i))
          ENDDO
        ENDDO
      ENDDO
@@ -1653,13 +1658,13 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
      IF ( lsend ) THEN
        DO n = 1, nfields
          DO k = 1, ndim2(n)
-           send_buf(k+noffset(n),i) = send(n)%fld(jl,k+kshift,jb)
+           send_buf(k+noffset(n),i) = send(n)%fld(jl,k+kshift(n),jb)
          ENDDO
        ENDDO
      ELSE
        DO n = 1, nfields
          DO k = 1, ndim2(n)
-           send_buf(k+noffset(n),i) = recv(n)%fld(jl,k+kshift,jb)
+           send_buf(k+noffset(n),i) = recv(n)%fld(jl,k+kshift(n),jb)
          ENDDO
        ENDDO
      ENDIF
@@ -1720,9 +1725,9 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
 !CDIR UNROLL=6
        DO k = 1, ndim2(n)
          DO i = 1, p_pat%n_pnts
-           recv(n)%fld(p_pat%recv_dst_idx(i),k+kshift,p_pat%recv_dst_blk(i)) =  &
+           recv(n)%fld(p_pat%recv_dst_idx(i),k+kshift(n),p_pat%recv_dst_blk(i)) =  &
              recv_buf(k+noffset(n),p_pat%recv_src(i)) +                         &
-             add(n)%fld(p_pat%recv_dst_idx(i),k+kshift,p_pat%recv_dst_blk(i))
+             add(n)%fld(p_pat%recv_dst_idx(i),k+kshift(n),p_pat%recv_dst_blk(i))
          ENDDO
        ENDDO
      ENDDO
@@ -1733,9 +1738,9 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
 !CDIR UNROLL=6
        DO k = 1, ndim2(n)
          DO i = 1, p_pat%n_pnts
-           recv(n)%fld(p_pat%recv_dst_idx(i),k+kshift,p_pat%recv_dst_blk(i)) =  &
+           recv(n)%fld(p_pat%recv_dst_idx(i),k+kshift(n),p_pat%recv_dst_blk(i)) =  &
              recv_buf(k+noffset(n),p_pat%recv_src(i)) +                         &
-             add(n)%fld(p_pat%recv_dst_idx(i),k+kshift,p_pat%recv_dst_blk(i))
+             add(n)%fld(p_pat%recv_dst_idx(i),k+kshift(n),p_pat%recv_dst_blk(i))
          ENDDO
        ENDDO
      ENDDO
@@ -1744,7 +1749,7 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
 !CDIR UNROLL=6
        DO k = 1, ndim2(n)
          DO i = 1, p_pat%n_pnts
-           recv(n)%fld(p_pat%recv_dst_idx(i),k+kshift,p_pat%recv_dst_blk(i)) =  &
+           recv(n)%fld(p_pat%recv_dst_idx(i),k+kshift(n),p_pat%recv_dst_blk(i)) =  &
              recv_buf(k+noffset(n),p_pat%recv_src(i))
          ENDDO
        ENDDO
@@ -1758,13 +1763,13 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
      IF (ladd) THEN
        DO n = 1, nfields
          DO k = 1, ndim2(n)
-           recv(n)%fld(jl,k+kshift,jb) = recv_buf(k+noffset(n),ik)+add(n)%fld(jl,k+kshift,jb)
+           recv(n)%fld(jl,k+kshift(n),jb)= recv_buf(k+noffset(n),ik)+add(n)%fld(jl,k+kshift(n),jb)
          ENDDO
        ENDDO
      ELSE
        DO n = 1, nfields
          DO k = 1, ndim2(n)
-           recv(n)%fld(jl,k+kshift,jb) = recv_buf(k+noffset(n),ik)
+           recv(n)%fld(jl,k+kshift(n),jb) = recv_buf(k+noffset(n),ik)
          ENDDO
        ENDDO
      ENDIF

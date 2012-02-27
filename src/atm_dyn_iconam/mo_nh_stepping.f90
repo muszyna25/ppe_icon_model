@@ -97,7 +97,8 @@ MODULE mo_nh_stepping
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, iphysproc,    &
     &                               iphysproc_short, itconv, itccov, itrad, &
     &                               itradheat, itsso, itsatad, itgwd, inwp, &
-    &                               itupdate, itturb, itgscp, itsfc
+    &                               itupdate, itturb, itgscp, itsfc, min_rlcell_int, &
+                                    min_rledge_int
   USE mo_divergent_modes,     ONLY: divergent_modes_5band
   USE mo_math_divrot,         ONLY: div_avg, div
   USE mo_solve_nonhydro,      ONLY: solve_nh
@@ -403,10 +404,10 @@ MODULE mo_nh_stepping
 
   INTEGER                              :: jstep, jb, nlen, jg
   REAL(wp)                             :: vmax(2)
-  REAL(wp)                             :: vn_aux(p_patch(1)%nblks_int_e)
-  REAL(wp)                             :: w_aux(p_patch(1)%nblks_int_c)
+  REAL(wp) :: vn_aux(p_patch(1)%edges%end_blk(min_rledge_int,MAX(1,p_patch(1)%n_childdom)))
+  REAL(wp) :: w_aux (p_patch(1)%cells%end_blk(min_rlcell_int,MAX(1,p_patch(1)%n_childdom)))
   REAL(wp), DIMENSION(:,:,:), POINTER  :: p_vn, p_w
-  INTEGER                              :: ierr
+  INTEGER                              :: ierr, i_nchdom
   LOGICAL                              :: l_compute_diagnostic_quants
 
 !$  INTEGER omp_get_num_threads
@@ -426,23 +427,25 @@ MODULE mo_nh_stepping
       p_vn => p_nh_state(1)%prog(nnow(1))%vn
       p_w  => p_nh_state(1)%prog(nnow(1))%w
 
+      i_nchdom = MAX(1,p_patch(1)%n_childdom)
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, nlen)
-      DO jb = 1, p_patch(1)%nblks_int_e
-        IF (jb /= p_patch(1)%nblks_int_e) THEN
+      DO jb = 1, p_patch(1)%edges%end_blk(min_rledge_int,i_nchdom)
+        IF (jb /= p_patch(1)%edges%end_blk(min_rledge_int,i_nchdom)) THEN
           nlen = nproma
         ELSE
-          nlen = p_patch(1)%npromz_int_e
+          nlen = p_patch(1)%edges%end_idx(min_rledge_int,i_nchdom)
         ENDIF
         vn_aux(jb) = MAXVAL(ABS(p_vn(1:nlen,:,jb)))
       ENDDO
 !$OMP END DO
 !$OMP DO PRIVATE(jb, nlen)
-      DO jb = 1, p_patch(1)%nblks_int_c
-        IF (jb /= p_patch(1)%nblks_int_c) THEN
+      DO jb = 1, p_patch(1)%cells%end_blk(min_rlcell_int,i_nchdom)
+        IF (jb /=  p_patch(1)%cells%end_blk(min_rlcell_int,i_nchdom)) THEN
           nlen = nproma
         ELSE
-          nlen = p_patch(1)%npromz_int_c
+          nlen = p_patch(1)%cells%end_idx(min_rlcell_int,i_nchdom)
         ENDIF
         w_aux(jb) = MAXVAL(ABS(p_w(1:nlen,:,jb)))
       ENDDO
@@ -984,6 +987,7 @@ MODULE mo_nh_stepping
         p_nh_state(jg)%prog(n_save)%w       = p_nh_state(jg)%prog(n_now)%w
         p_nh_state(jg)%prog(n_save)%rho     = p_nh_state(jg)%prog(n_now)%rho
         p_nh_state(jg)%prog(n_save)%theta_v = p_nh_state(jg)%prog(n_now)%theta_v
+        p_lnd_state(jg)%diag_lnd%t_g_save   = p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g
 !$OMP END WORKSHARE
 !$OMP END PARALLEL
       ENDIF
@@ -1528,11 +1532,11 @@ MODULE mo_nh_stepping
           jgc = p_patch(jg)%child_id(jn)
           IF (lfeedback(jgc)) THEN
             IF (ifeedback_type == 1) THEN
-              CALL feedback(p_patch, p_nh_state, p_int_state, p_grf_state, jgc, &
+              CALL feedback(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, jgc, &
                             jg, lstep_adv(jg))
             ELSE
-              CALL relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, jgc, &
-                                  jg, lstep_adv(jg))
+              CALL relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, &
+                                  jgc, jg, lstep_adv(jg))
             ENDIF
             ! Note: the last argument of "feedback" ensures that tracer feedback is
             ! only done for those time steps in which transport and microphysics are called

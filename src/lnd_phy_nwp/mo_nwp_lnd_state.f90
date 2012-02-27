@@ -158,6 +158,7 @@ MODULE mo_nwp_lnd_state
     REAL(wp), POINTER ::   &
     &  qv_s     (:,:)     , & ! specific humidity at the surface             (kg/kg)
     &  qv_st    (:,:,:)   , & ! specific humidity at the surface             (kg/kg)
+    &  t_g_save (:,:)     , & ! save variable for t_g needed for incremental feedback
     &  h_snow   (:,:,:)   , & ! snow height                                  (  m  ) 
     &  freshsnow(:,:,:)   , & ! indicator for age of snow in top of snow layer(  -  )
     &  runoff_s (:,:,:)   , & ! surface water runoff; sum over forecast      (kg/m2)
@@ -864,6 +865,13 @@ MODULE mo_nwp_lnd_state
            & ldims=shape2d,                                                &
            & initval_r=0.001_wp )    
 
+    ! & p_diag_lnd%t_g_save(nproma,nblks_c)
+    cf_desc    = t_cf_var('t_g_save', 'K', 'old ground temperature')
+    grib2_desc = t_grib2_var(0, 1, 0, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, vname_prefix//'t_g_save', p_diag_lnd%t_g_save,&
+           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,   &
+           & ldims=shape2d,                                                &
+           & initval_r=0.0_wp )    
 
     ! & p_diag_lnd%fr_seaice(nproma,nblks_c)
     ! check restart settings again, once we have a sea ice model

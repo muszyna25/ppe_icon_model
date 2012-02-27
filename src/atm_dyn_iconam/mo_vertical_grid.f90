@@ -864,6 +864,10 @@ MODULE mo_vertical_grid
              nlen = npromz_c
           ENDIF
 
+          ! Reference surface temperature
+          p_nh(jg)%metrics%tsfc_ref(1:nlen,jb) = (t0sl_bg-del_t_bg)+del_t_bg*   &
+            & EXP(-p_nh(jg)%metrics%z_ifc(1:nlen,nlevp1,jb)/h_scal_bg)
+
           DO jk = 1, nlev
             ! Reference pressure, full level mass points
             z_aux1(1:nlen) = p0sl_bg*EXP(-grav/rd*h_scal_bg/(t0sl_bg-del_t_bg) &
