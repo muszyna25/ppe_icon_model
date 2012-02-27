@@ -115,6 +115,7 @@ iforc=11
 #  2 = use full OMIP datasets; 
 #  3 = u/v-stress [and temperature relaxation], heat and mass flux
 #  4 = u/v-stress [and temperature relaxation], 4 parts of heat flux, precip/evap flux
+#  5 = use full NCEP datasets; read monthly mean data of consecutive years, set iforc_len=12 !
 iforc_omip=1
 iforc_len=1    # length of OMIP dataset: 1 = annual; 12 = monthly data; else = daily data
 # flux files must be provided at grid directory and named monmean/annual accordingly

@@ -1440,13 +1440,11 @@ CONTAINS
 
     !-------------------------------------------------------------------------
 
-    CALL message (TRIM(routine), 'start')
-
-    !-------------------------------------------------------------------------
-
     !  READ NCEP FORCING
 
     !-------------------------------------------------------------------------
+
+    CALL message (TRIM(routine), 'start')
 
     IF (iforc_oce == 12) THEN
 
@@ -1461,17 +1459,17 @@ CONTAINS
         WRITE (ncep_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-flux.nc'
 
         !ncep_file=TRIM('/pool/data/ICON/external/iconR2B04-flux.nc')
-        CALL message( TRIM(routine),'Ocean ncep forcing flux file is: '//TRIM(ncep_file) )
+        CALL message( TRIM(routine),'Ocean NCEP forcing flux file is: '//TRIM(ncep_file) )
         INQUIRE (FILE=ncep_file, EXIST=l_exist)
         IF (.NOT.l_exist) THEN
-          CALL finish(TRIM(routine),'ncep forcing flux file is not found.')
+          CALL finish(TRIM(routine),'NCEP forcing flux file is not found.')
         ENDIF
 
         !
         ! open file
         !
         CALL nf(nf_open(TRIM(ncep_file), NF_NOWRITE, ncid))
-        CALL message( TRIM(routine),'Ocean ncep flux file opened for read' )
+        CALL message( TRIM(routine),'Ocean NCEP flux file opened for read' )
 
         !
         ! get and check number of cells in ncep data
@@ -1481,7 +1479,7 @@ CONTAINS
 
         IF(p_patch%n_patch_cells_g /= no_cells) THEN
           CALL finish(TRIM(ROUTINE),&
-          & 'Number of patch cells and cells in ncep flux file do not match.')
+          & 'Number of patch cells and cells in NCEP flux file do not match.')
         ENDIF
 
         !

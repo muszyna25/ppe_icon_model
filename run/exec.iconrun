@@ -163,6 +163,10 @@ if [[ $run_ocean = 'true' ]]; then
      # filename for 12 monthly means
      elif [[ "x$iforc_len" = "x12" ]] ; then
        OMIPNAME=omip4icon-R${R}B0${B}-monmean.nc
+       # provide netcdf file for NCEP ocean forcing - preliminary solution
+       if [[ "x$iforc_omip" = "x5" ]] ; then
+         OMIPNAME=ncep4icon_R${R}B0${B}.nc
+       fi
      fi
      rm ${EXPDIR}/${FLUXNAME}
      ln -s ${HGRIDDIR}/${OMIPNAME} ${EXPDIR}/${FLUXNAME}
