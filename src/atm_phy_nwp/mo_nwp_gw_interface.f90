@@ -125,18 +125,12 @@ CONTAINS
     ! domain ID
     jg     = p_patch%id
 
-    !in order to account for mesh refinement
+    ! exclude boundary interpolation zone of nested domains
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
 
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
-
-
-    IF (lcall_sso_jg .AND. msg_level >= 12)  &
-      CALL message('mo_nwp_gw_interface', 'subgrid scale orography')
-    IF (lcall_gwd_jg .AND. msg_level >= 12)  &
-      CALL message('mo_nwp_gw_interface', 'non-orographic GW drag')
 
 
 !$OMP PARALLEL

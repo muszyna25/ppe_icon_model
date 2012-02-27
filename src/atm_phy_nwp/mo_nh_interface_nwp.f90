@@ -91,7 +91,7 @@ MODULE mo_nh_interface_nwp
   USE mo_nwp_conv_interface, ONLY: nwp_convection
   USE mo_nwp_rad_interface,  ONLY: nwp_radiation
   USE mo_sync,               ONLY: sync_patch_array, sync_patch_array_mult, SYNC_E, &
-                                   SYNC_C, SYNC_C1, global_max, global_sum_array
+                                   SYNC_C, SYNC_C1, global_max, global_min, global_sum_array
   USE mo_mpi,                ONLY: my_process_is_mpi_all_parallel
   USE mo_nwp_diagnosis,      ONLY: nwp_diagnosis
 !  USE mo_communication,      ONLY: time_sync
@@ -198,20 +198,25 @@ CONTAINS
 
     REAL(wp) :: z_qsum       !< summand of virtual increment
     REAL(wp) :: z_ddt_qsum   !< summand of tendency of virtual increment
+    REAL(wp) :: rcld(nproma,pt_patch%nlevp1)
 
     ! auxiliaries for Rayleigh friction computation
     REAL(wp) :: vabs, rfric_fac, ustart, uoffset_q, ustart_q, max_relax
+
     ! variables for CFL diagnostic
     REAL(wp) :: maxcfl(pt_patch%nblks_c), cflmax, avg_invedgelen(nproma), csfac
-    REAL(wp) :: rcld(nproma,pt_patch%nlevp1)
-    ! variables for TKE diagnostic
-    REAL(wp) :: maxtke(pt_patch%nblks_c,pt_patch%nlevp1),tkemax(pt_patch%nlevp1)
     ! Variables for dpsdt diagnostic
     REAL(wp) :: dps_blk(pt_patch%nblks_c), dpsdt_avg
     INTEGER  :: npoints_blk(pt_patch%nblks_c), npoints
 
-!     write(0,*) "Entering nwp_nh_interface"
-!     write(0,*) "========================="
+    ! variables for extended debug output
+    REAL(wp) :: maxtke(pt_patch%nblks_c,pt_patch%nlevp1),tkemax(pt_patch%nlevp1)
+    REAL(wp), DIMENSION(pt_patch%nblks_c,pt_patch%nlev) :: maxabs_u, maxabs_v, &
+      maxtemp, mintemp, maxqv, minqv, maxqc, maxtturb, maxuturb, maxvturb
+    REAL(wp), DIMENSION(pt_patch%nlev) :: umax, vmax, tmax, tmin, qvmax, qvmin, qcmax, &
+      tturbmax, uturbmax, vturbmax
+
+
     IF (ltimer) CALL timer_start(timer_physics)
 
     ! local variables related to the blocking
@@ -243,7 +248,7 @@ CONTAINS
 
     IF (lcall_phy_jg(itupdate)) THEN
 
-      IF (msg_level >= 12) &
+      IF (msg_level >= 15) &
            & CALL message('mo_nh_interface_nwp:', 'update_tracers')
 
       IF (timers_level > 2) CALL timer_start(timer_update_prog_phy)
@@ -258,18 +263,53 @@ CONTAINS
     
     ENDIF
 
+    IF ( lcall_phy_jg(itturb) .OR. lcall_phy_jg(itconv) .OR. &
+         lcall_phy_jg(itsso)  .OR. lcall_phy_jg(itgwd) ) THEN
+    
+      !-------------------------------------------------------------------------
+      !>
+      !!   Interpolation from v_n onto u,v =>  Reconstruct u and v
+      !!   This is needed for turbulence, convection and SSO/GWdrag
+      !!
+      !-------------------------------------------------------------------------
+
+      IF (msg_level >= 15) &
+           & CALL message('mo_nh_interface_nwp:', 'reconstruct u/v')
+
+      IF (timers_level > 3) CALL timer_start(timer_phys_u_v)
+      
+      SELECT CASE (pt_patch%cell_type)
+      CASE (3)
+        CALL rbf_vec_interpol_cell(pt_prog%vn,            & !< normal wind comp.
+          &                        pt_patch,              & !< patch
+          &                        pt_int_state,          & !< interpolation state
+          &                        pt_diag%u, pt_diag%v )   !<  reconstr. u,v wind
+      CASE (6)
+        CALL edges2cells_scalar(pt_prog%vn,pt_patch, &
+          &                     pt_int_state%hex_east ,pt_diag%u)
+        CALL edges2cells_scalar(pt_prog%vn,pt_patch, &
+          &                     pt_int_state%hex_north,pt_diag%v)
+      END SELECT
+
+      IF (timers_level > 3) CALL timer_stop(timer_phys_u_v)
+
+    ENDIF ! diagnose u/v
+
     !!-------------------------------------------------------------------------
-    !> ONLY saturation adjustment
+    !> Initial saturation adjustment (a second one follows at the end of the microphysics)
     !!-------------------------------------------------------------------------
 
     IF (lcall_phy_jg(itsatad)) THEN
 
-      IF (msg_level >= 12) &
+      IF (msg_level >= 15) &
            & CALL message('mo_nh_interface_nwp:', 'satad')
 
-
       IF (timers_level > 2) CALL timer_start(timer_diagnose_pres_temp)
-        
+
+!!GZ: Why do we need to diagnose pressure here? It is not used in satad.
+!!    NOTE: when the rediagnosis of temperature before the turbulence scheme is dropped,
+!!    temperature needs to be diagnosed here for all model levels (i.e. remove opt_slev)
+      
       CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf,    &
            &                              pt_diag, pt_patch,       &
            &                              opt_calc_temp=.TRUE.,    &
@@ -279,22 +319,81 @@ CONTAINS
 
       IF (timers_level > 2) CALL timer_stop(timer_diagnose_pres_temp)
 
-      IF (msg_level >= 15) THEN
 
-        CALL message('mo_nh_interface_nwp:', 'before satad')
+      IF (msg_level >= 20) THEN ! Initial debug output
 
-        WRITE(message_text,'(a,2E17.9)') ' max/min QV  = ',&
-             & MAXVAL(pt_prog_rcf%tracer(:,:,:,iqv)), MINVAL(pt_prog_rcf%tracer (:,:,: ,iqv))
-        CALL message('', TRIM(message_text))
-        WRITE(message_text,'(a,2E17.9)') ' max/min QC  = ',&
-             & MAXVAL(pt_prog_rcf%tracer(:,:,:,iqc)), MINVAL(pt_prog_rcf%tracer (:,:,: ,iqc))
-        CALL message('', TRIM(message_text))
-        WRITE(message_text,'(a,2E17.9)') ' max/min T  = ',&
-             & MAXVAL(pt_diag%temp(:,:,:)), MINVAL(pt_diag%temp (:,:,:) )
-        CALL message('', TRIM(message_text))
+        CALL message('mo_nh_interface_nwp:','Initial debug output')
 
-      ENDIF
-      !in order to account for mesh refinement
+        maxabs_u(:,:) = 0._wp
+        maxabs_v(:,:) = 0._wp
+        maxtemp(:,:)  = 0._wp
+        mintemp(:,:)  = 1.e20_wp
+        maxqv(:,:)    = 0._wp
+        minqv(:,:)    = 1.e20_wp
+        maxqc(:,:)    = 0._wp
+
+
+        rl_start = grf_bdywidth_c+1
+        rl_end   = min_rlcell_int
+
+        i_startblk = pt_patch%cells%start_blk(rl_start,1)
+        i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
+        DO jb = i_startblk, i_endblk
+
+          CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+                             i_startidx, i_endidx, rl_start, rl_end)
+
+            DO jk = 1, nlev
+              DO jc = i_startidx, i_endidx
+                maxabs_u(jb,jk) = MAX(maxabs_u(jb,jk),ABS(pt_diag%u(jc,jk,jb)))
+                maxabs_v(jb,jk) = MAX(maxabs_v(jb,jk),ABS(pt_diag%v(jc,jk,jb)))
+                maxtemp(jb,jk)  = MAX(maxtemp(jb,jk),pt_diag%temp(jc,jk,jb))
+                mintemp(jb,jk)  = MIN(mintemp(jb,jk),pt_diag%temp(jc,jk,jb))
+                maxqv(jb,jk)    = MAX(maxqv(jb,jk),pt_prog_rcf%tracer(jc,jk,jb,iqv))
+                minqv(jb,jk)    = MIN(minqv(jb,jk),pt_prog_rcf%tracer(jc,jk,jb,iqv))
+                maxqc(jb,jk)    = MAX(maxqc(jb,jk),pt_prog_rcf%tracer(jc,jk,jb,iqc))
+              ENDDO
+            ENDDO
+
+        ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+
+        DO jk = 1, nlev
+          umax(jk)  = MAXVAL(maxabs_u(:,jk))
+          vmax(jk)  = MAXVAL(maxabs_v(:,jk))
+          tmax(jk)  = MAXVAL(maxtemp(:,jk))
+          tmin(jk)  = MINVAL(mintemp(:,jk))
+          qvmax(jk) = MAXVAL(maxqv(:,jk))
+          qvmin(jk) = MINVAL(minqv(:,jk))
+          qcmax(jk) = MAXVAL(maxqc(:,jk))
+        ENDDO
+
+        ! Finally take maximum/minimum over all PEs
+        umax  = global_max(umax)
+        vmax  = global_max(vmax)
+        tmax  = global_max(tmax)
+        tmin  = global_min(tmin)
+        qvmax = global_max(qvmax)
+        qvmin = global_min(qvmin)
+        qcmax = global_max(qcmax)
+
+        WRITE(message_text,'(a,i2)') 'max |U|, max |V|, min/max T, min/max QV,&
+          & max QC per level in domain ',jg
+        CALL message('', TRIM(message_text))
+        DO jk = 1, nlev
+          WRITE(message_text,'(a,i3,7(a,e12.5))') 'level ',jk,': u =',umax(jk),', v =',vmax(jk), &
+            ', t =', tmin(jk),' ', tmax(jk),', qv =', qvmin(jk),' ', qvmax(jk),', qc =', qcmax(jk)  
+          CALL message('', TRIM(message_text))
+        ENDDO
+
+      ENDIF ! debug output for msg_level >= 20
+
+
+      ! exclude boundary interpolation zone of nested domains
       rl_start = grf_bdywidth_c+1
       rl_end   = min_rlcell_int
 
@@ -341,13 +440,16 @@ CONTAINS
 
         IF (timers_level > 2) CALL timer_start(timer_phys_exner)
 
+!!GZ: A full rediagnosis of the thermodynamic state variables is unnecessary at this point
+!!    It should be sufficient to recalculate tempv and maybe the Exner function ---
+!!    Check with Matthias if the turbulence scheme needs the hydrostatic or the nonhydrostatic pressure!
+
         DO jk = kstart_moist(jg), nlev
           DO jc = i_startidx, i_endidx
 
             ! calculate virtual temperature from condens' output temperature
             ! taken from SUBROUTINE update_tempv_geopot in hydro_atmos/mo_ha_update_diag.f90
 
-!            z_qsum                = SUM(pt_prog_rcf%tracer (jc,jk,jb,iqc:iqs))
             z_qsum=   pt_prog_rcf%tracer (jc,jk,jb,iqc) &
               &     + pt_prog_rcf%tracer (jc,jk,jb,iqi) &
               &     + pt_prog_rcf%tracer (jc,jk,jb,iqr) &
@@ -374,23 +476,6 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
-
-      IF (msg_level >= 15) THEN
-
-        CALL message('mo_nh_interface_nwp:', 'after satad')
-
-        WRITE(message_text,'(a,2E17.9)') ' max/min QV  = ',&
-             & MAXVAL(pt_prog_rcf%tracer(:,:,:,iqv)), MINVAL(pt_prog_rcf%tracer (:,:,: ,iqv) )
-        CALL message('', TRIM(message_text))
-        WRITE(message_text,'(a,2E17.9)') ' max/min QC  = ',&
-             & MAXVAL(pt_prog_rcf%tracer(:,:,:,iqc)), MINVAL(pt_prog_rcf%tracer (:,:,: ,iqc) )
-        CALL message('', TRIM(message_text))
-        WRITE(message_text,'(a,2E17.9)') ' max/min T  = ',&
-             & MAXVAL(pt_diag%temp(:,:,:)), MINVAL(pt_diag%temp (:,:,:) )
-        CALL message('', TRIM(message_text))
-
-      ENDIF
-
     ELSE ! satad turned off
 
 !$OMP PARALLEL WORKSHARE
@@ -399,50 +484,6 @@ CONTAINS
 !$OMP END PARALLEL WORKSHARE
 
     ENDIF ! satad
-
-    IF ( lcall_phy_jg(itturb) .OR. lcall_phy_jg(itconv) ) THEN
-    
-      !-------------------------------------------------------------------------
-      !>
-      !!   Interpolation from v_n onto u,v =>  Reconstruct u and v
-      !!   This is needed for turbulence and convection
-      !!
-      !-------------------------------------------------------------------------
-
-      IF (msg_level >= 12) &
-           & CALL message('mo_nh_interface_nwp:', 'reconstruct u/v')
-
-      IF (timers_level > 3) CALL timer_start(timer_phys_u_v)
-      
-      SELECT CASE (pt_patch%cell_type)
-      CASE (3)
-        CALL rbf_vec_interpol_cell(pt_prog%vn,            & !< normal wind comp.
-          &                        pt_patch,              & !< patch
-          &                        pt_int_state,          & !< interpolation state
-          &                        pt_diag%u, pt_diag%v )   !<  reconstr. u,v wind
-      CASE (6)
-        CALL edges2cells_scalar(pt_prog%vn,pt_patch, &
-          &                     pt_int_state%hex_east ,pt_diag%u)
-        CALL edges2cells_scalar(pt_prog%vn,pt_patch, &
-          &                     pt_int_state%hex_north,pt_diag%v)
-      END SELECT
-
-      IF (timers_level > 3) CALL timer_stop(timer_phys_u_v)
-
-      IF (msg_level >= 15) THEN
-        WRITE(message_text,'(a,2E17.9)') 'max/min vn  = ',&
-             & MAXVAL (pt_prog%vn(:,:,:)), MINVAL(pt_prog%vn(:,:,:))
-        CALL message('', TRIM(message_text))
-        WRITE(message_text,'(a,2E17.9)') 'max/min u  = ',&
-             & MAXVAL (pt_diag%u(:,:,:)), MINVAL(pt_diag%u(:,:,:))
-        CALL message('', TRIM(message_text))
-        WRITE(message_text,'(a,2E17.9)') 'max/min v  = ',&
-             & MAXVAL (pt_diag%v(:,:,:)), MINVAL(pt_diag%v(:,:,:) )
-        CALL message('', TRIM(message_text))
-      ENDIF
-
-    ENDIF ! diagnose u/v
-
 
     !!-------------------------------------------------------------------------
     !>  turbulent transfer and diffusion  and microphysics
@@ -455,7 +496,7 @@ CONTAINS
 
     IF (lcall_phy_jg(itgscp) .OR. lcall_phy_jg(itturb)) THEN
 
-      IF (msg_level >= 12) &
+      IF (msg_level >= 15) &
         & CALL message('mo_nh_interface_nwp:', 'diagnose pres/temp for fast physics')
 
       !-------------------------------------------------------------------------
@@ -467,6 +508,9 @@ CONTAINS
       !!
       !-------------------------------------------------------------------------
 
+!!GZ: Temperature and virtual temperature have just been calculated!
+!!    It should be sufficient to diagnose pressure here
+
       IF (timers_level > 2) CALL timer_start(timer_diagnose_pres_temp)
       CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf, &
         & pt_diag, pt_patch,       &
@@ -477,6 +521,11 @@ CONTAINS
       IF (timers_level > 2) CALL timer_stop(timer_diagnose_pres_temp)
     
     ENDIF 
+
+!!GZ: Strictly spoken, the pressure and Exner fields passed to the turbulence scheme
+!!    are not consistent with each other because pres is the hydrostatically integrated
+!!    pressure whereas exner is the (nonhydrostatic) prognostic model variable
+!!    See comment above --- check with Matthias "which" pressure is needed in the turbulence scheme
 
     IF (  lcall_phy_jg(itturb)) THEN
 
@@ -497,12 +546,18 @@ CONTAINS
     !-------------------------------------------------------------------------
     IF ( lcall_phy_jg(itgscp)) THEN
 
-      IF (msg_level >= 12) &
+      IF (msg_level >= 15) &
         & CALL message('mo_nh_interface_nwp:', 'microphysics')
 
-      !> temperture and tracers have been update by turbulence therefore
+      !> temperature and tracers have been update by turbulence therefore
       !! no update from prognostic variables is needed. virtual temperature
       !! no INPUT in microphysics
+
+!!GZ: Recalculation of pressure for microphysics can be restricted to the part of the
+!!    model domain for which moist physics is computed (i.e. opt_slev=kstart_moist(jg)).
+!!    It does not matter if the hydrostatic or the nonhydrostatic pressure is passed to microphysics.
+!!    Most likely, it would not even matter if the pressure is not recalculated at all,
+!!    as its usage is restricted to a single microphysical process.
 
       IF (timers_level > 2) CALL timer_start(timer_diagnose_pres_temp)
       CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf, &
@@ -542,13 +597,13 @@ CONTAINS
       ! this is the easiest way to combine minimization of halo communications
       ! with a failsafe flow control
 
-      IF (msg_level >= 12) &
+      IF (msg_level >= 15) &
         & CALL message('mo_nh_interface_nwp:', 'recalculate thermodynamic variables')
 
       IF (p_test_run) z_aux_tempv(:,:,:) = 0._wp
 
 
-      !in order to account for mesh refinement
+      ! exclude boundary interpolation zone of nested domains
       rl_start = grf_bdywidth_c+1
       rl_end   = min_rlcell_int
 
@@ -662,10 +717,16 @@ CONTAINS
       ENDIF
 
 
-    IF (lcall_phy_jg(itturb)) THEN
+    IF (lcall_phy_jg(itsfc)) THEN
 
-      IF (msg_level >= 12) &
-        & CALL message('mo_nh_interface_nwp:', 'diagnose pres/temp for fast physics')
+      IF (msg_level >= 15) &
+        & CALL message('mo_nh_interface_nwp:', 'diagnose pres/temp for land scheme')
+
+!!GZ: Why is the diagnosis needed here???
+!!    Terra needs pressure and temperature at the lowest model level as input;
+!!    temperature is already up to date, virtual temperature is not needed at all,
+!!    and pressure is already available as well and only needed for an adiabatic
+!!    extrapolation of the model level temperature towards the surface
 
       !-------------------------------------------------------------------------
       !> diagnose
@@ -714,7 +775,7 @@ CONTAINS
 &     .OR. lcall_phy_jg(itccov) .OR. lcall_phy_jg(itsso) &
 &                                 .OR. lcall_phy_jg(itgwd)) THEN
 
-      IF (msg_level >= 12) &
+      IF (msg_level >= 15) &
 &           CALL message('mo_nh_interface', 'diagnose pres/temp for slow physics')
 
       !-------------------------------------------------------------------------
@@ -744,6 +805,10 @@ CONTAINS
 
       ELSE ! diagnose only pressure because temperature is up to date
 
+!!GZ: The slow-physics parameterizations definitely need the hydrostatically integrated
+!!    pressure. In case that diagnose_pres_temp is changed to provide the nonhydrostatic
+!!    pressure to the turbulence scheme, the (current) hydrostatic computation needs to be retained
+
         CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf, &
           &                               pt_diag, pt_patch,      &
           &                               opt_calc_temp=.FALSE.,  &
@@ -758,7 +823,7 @@ CONTAINS
 
     IF ( lcall_phy_jg(itconv)  ) THEN
 
-      IF (msg_level >= 12) &
+      IF (msg_level >= 15) &
 &           CALL message('mo_nh_interface', 'convection')
 
       IF (timers_level > 2) CALL timer_start(timer_nwp_convection)
@@ -787,7 +852,7 @@ CONTAINS
       i_startblk = pt_patch%cells%start_blk(rl_start,1)
       i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
-      IF (msg_level >= 12) &
+      IF (msg_level >= 15) &
         &  CALL message('mo_nh_interface', 'cloud cover')
 
 
@@ -859,6 +924,10 @@ CONTAINS
       ! To be on the safe side and to avoid confusion during development,
       ! do the diagnosis of t and p also here.
       ! May be removed when final state is reached.
+
+!!GZ: I fully agree! In the slow physics part, there should be no more than ONE call to
+!!    diagnose_pres_temp
+
       IF (timers_level > 2) CALL timer_start(timer_diagnose_pres_temp)
       IF ( atm_phy_nwp_config(jg)%inwp_radiation == 1 ) THEN
         IF ( irad_aero == 5 .OR. irad_aero == 6 ) THEN
@@ -908,13 +977,9 @@ CONTAINS
     ENDIF
 
 
-!GZ: The radheat call has to be done every physics time step once it has reached its final state!!
-!    (missing items: computation of surface radiation balance, perhaps also linearized 
-!    update of downward LW radiation depending on change of sfc temp since last full rad call)
-
     IF ( lcall_phy_jg(itradheat) ) THEN
 
-      IF (msg_level >= 12) &
+      IF (msg_level >= 15) &
 &           CALL message('mo_nh_interface', 'radiative heating')
 
 
@@ -929,7 +994,7 @@ CONTAINS
         & zsct       = zsct )
       IF (timers_level > 1) CALL timer_stop(timer_pre_radiation_nwp)      
 
-      !in order to account for mesh refinement
+      ! exclude boundary interpolation zone of nested domains
       rl_start = grf_bdywidth_c+1
       rl_end   = min_rlcell_int
 
@@ -953,10 +1018,12 @@ CONTAINS
         z_airmass(i_startidx:i_endidx,:) = p_metrics%ddqz_z_full(i_startidx:i_endidx,:,jb) * &
                                            pt_prog%rho(i_startidx:i_endidx,:,jb)
 
-!test KF
         prm_diag%swflxsfc (:,jb)=0._wp
         prm_diag%lwflxsfc (:,jb)=0._wp
         prm_diag%swflxtoa (:,jb)=0._wp
+
+!!GZ: The computation of heating rates in radheat needs to be changed from constant pressure (c_pd)
+!!    to constant volume (c_vd)
 
         CALL radheat (                   &
         !
@@ -1040,24 +1107,6 @@ CONTAINS
 
       IF (timers_level > 2) CALL timer_stop(timer_radheat)
       
-      IF (msg_level >= 14) THEN
-        WRITE(message_text,'(a,2E17.9)') 'max/min SW transmissivity  = ',&
-             & MAXVAL (prm_diag%trsolall(:,:,:)), MINVAL(prm_diag%trsolall(:,:,:))
-        CALL message('', TRIM(message_text))
-        WRITE(message_text,'(a,2E17.9)') 'max/min LW net flux  = ',&
-             & MAXVAL (prm_diag%lwflxall(:,:,:)), MINVAL(prm_diag%lwflxall(:,:,:))
-        CALL message('', TRIM(message_text))
-        WRITE(message_text,'(a,2E17.9)') 'max/min SW SFC flux  = ',&
-             & MAXVAL (prm_diag%swflxsfc(:,:)), MINVAL(prm_diag%swflxsfc(:,:))
-        CALL message('', TRIM(message_text))
-        WRITE(message_text,'(a,2E17.9)') 'max/min dTdt sw= ',&
-          & MAXVAL (prm_nwp_tend%ddt_temp_radsw(:,:,:)),MINVAL(prm_nwp_tend%ddt_temp_radsw(:,:,:))
-        CALL message('', TRIM(message_text))
-         WRITE(message_text,'(a,2E17.9)') 'max/min dTdt lw= ',&
-          & MAXVAL (prm_nwp_tend%ddt_temp_radlw(:,:,:)),MINVAL(prm_nwp_tend%ddt_temp_radlw(:,:,:))
-        CALL message('', TRIM(message_text))
-      ENDIF
-      
     ENDIF  ! inwp_radiation
 
     !-------------------------------------------------------------------------
@@ -1066,7 +1115,7 @@ CONTAINS
 
     IF (lcall_phy_jg(itsso) .OR. lcall_phy_jg(itgwd)) THEN
 
-      IF (msg_level >= 12) &
+      IF (msg_level >= 15) &
         &  CALL message('mo_nh_interface', 'gravity waves')
 
       IF (timers_level > 3) CALL timer_start(timer_sso)
@@ -1088,7 +1137,7 @@ CONTAINS
     !>  accumulate scalar tendencies of slow_physics
     !-------------------------------------------------------------------------
     IF (lcall_phy_jg(itradheat) .OR. lcall_phy_jg(itconv) & 
-&       .OR. lcall_phy_jg(itccov).OR. lcall_phy_jg(itsso)) THEN
+&     .OR. lcall_phy_jg(itccov) .OR. lcall_phy_jg(itsso).OR. lcall_phy_jg(itgwd)) THEN
 
       IF (timers_level > 2) CALL timer_start(timer_physic_acc_1)
 
@@ -1098,7 +1147,7 @@ CONTAINS
       ustart_q  = ustart + 50._wp
       max_relax = -1._wp/atm_phy_nwp_config(jg)%efdt_min_raylfric
 
-      !in order to account for mesh refinement
+      ! exclude boundary interpolation zone of nested domains
       rl_start = grf_bdywidth_c+1
       rl_end   = min_rlcell_int
 
@@ -1217,16 +1266,23 @@ CONTAINS
         z_ddt_v_tot = 0._wp
       ENDIF
 
-      ! In case that maximum CFL and TKE are diagnosed
-      IF (msg_level >= 12) THEN
-        maxcfl(:) = 0._wp
-        maxtke(:,:) = 0._wp
-      ENDIF
-
       ! In case that average ABS(dpsdt) is diagnosed
-      IF (msg_level >= 11) THEN
+      IF (msg_level >= 12) THEN
         dps_blk(:)   = 0._wp
         npoints_blk(:) = 0
+      ENDIF
+
+      ! In case that maximum CFL is diagnosed
+      IF (msg_level >= 13) THEN
+        maxcfl(:) = 0._wp
+      ENDIF
+
+      ! In case that turbulence diagnostics are computed
+      IF (msg_level >= 18) THEN
+        maxtke(:,:)   = 0._wp
+        maxtturb(:,:) = 0._wp
+        maxuturb(:,:) = 0._wp
+        maxvturb(:,:) = 0._wp
       ENDIF
 
       IF (ltimer) CALL timer_start(timer_physic_acc_2)
@@ -1272,7 +1328,7 @@ CONTAINS
 
 !$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
 
-      !in order to account for mesh refinement
+      ! exclude boundary interpolation zone of nested domains
       rl_start = grf_bdywidth_e+1
       rl_end   = min_rledge_int
 
@@ -1324,8 +1380,8 @@ CONTAINS
       ENDDO
 !$OMP END DO
 
-      ! Diagnosis of ABS(dpsdt) if nsg_level >= 11
-      IF (msg_level >= 11) THEN
+      ! Diagnosis of ABS(dpsdt) if msg_level >= 12
+      IF (msg_level >= 12) THEN
 
         rl_start = grf_bdywidth_c+1
         rl_end   = min_rlcell_int
@@ -1350,8 +1406,8 @@ CONTAINS
 !$OMP END DO
       ENDIF
 
-      ! CFL-diagnostic if msg_level >= 12
-      IF (msg_level >= 12) THEN
+      ! CFL-diagnostic if msg_level >= 13
+      IF (msg_level >= 13) THEN
 
         rl_start = grf_bdywidth_c+1
         rl_end   = min_rlcell_int
@@ -1381,13 +1437,40 @@ CONTAINS
             ENDDO
           ENDDO
 
-          IF (lcall_phy_jg(itturb)) THEN
-            DO jk = 1, nlevp1
-              DO jc = i_startidx, i_endidx
-                maxtke(jb,jk) = MAX(maxtke(jb,jk),pt_prog_rcf%tke(jc,jk,jb))
-              ENDDO
+        ENDDO
+!$OMP END DO
+
+      ENDIF
+
+      ! Extended turbulence diagnostics if msg_level >= 18
+      IF (lcall_phy_jg(itturb) .AND. msg_level >= 18) THEN
+
+        rl_start = grf_bdywidth_c+1
+        rl_end   = min_rlcell_int
+
+        i_startblk = pt_patch%cells%start_blk(rl_start,1)
+        i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,avg_invedgelen)
+        DO jb = i_startblk, i_endblk
+
+          CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+                             i_startidx, i_endidx, rl_start, rl_end)
+
+
+          DO jk = 1, nlevp1
+            DO jc = i_startidx, i_endidx
+              maxtke(jb,jk) = MAX(maxtke(jb,jk),pt_prog_rcf%tke(jc,jk,jb))
             ENDDO
-          ENDIF
+          ENDDO
+
+          DO jk = 1, nlev
+            DO jc = i_startidx, i_endidx
+              maxtturb(jb,jk) = MAX(maxtturb(jb,jk),ABS(prm_nwp_tend%ddt_temp_turb(jc,jk,jb)))
+              maxuturb(jb,jk) = MAX(maxuturb(jb,jk),ABS(prm_nwp_tend%ddt_u_turb(jc,jk,jb)))
+              maxvturb(jb,jk) = MAX(maxvturb(jb,jk),ABS(prm_nwp_tend%ddt_v_turb(jc,jk,jb)))
+            ENDDO
+          ENDDO
 
         ENDDO
 !$OMP END DO
@@ -1403,7 +1486,7 @@ CONTAINS
       ! dpsdt diagnostic - omitted in the case of a parallization test (p_test_run) because this
       ! is a purely diagnostic quantitiy, for which it does not make sense to implement an order-invariant
       ! summation
-      IF (.NOT. p_test_run .AND. msg_level >= 11) THEN
+      IF (.NOT. p_test_run .AND. msg_level >= 12) THEN
         dpsdt_avg = SUM(dps_blk)
         npoints   = SUM(npoints_blk)
         dpsdt_avg = global_sum_array(dpsdt_avg)
@@ -1416,30 +1499,42 @@ CONTAINS
         ENDIF
       ENDIF
 
-      IF (msg_level >= 12) THEN ! CFL and TKE diagnostic
+      IF (msg_level >= 13) THEN ! CFL diagnostic
         cflmax = MAXVAL(maxcfl)
         cflmax = global_max(cflmax) ! maximum over all PEs
         WRITE(message_text,'(a,f12.8,a,i2)') 'maximum horizontal CFL = ', cflmax, ' in domain ',jg
         CALL message('nwp_nh_interface: ', TRIM(message_text))
 
-        IF (msg_level >= 13 .AND. lcall_phy_jg(itturb)) THEN
-          DO jk = 1, nlevp1
-            tkemax(jk) = MAXVAL(maxtke(:,jk))
-          ENDDO
-          tkemax = global_max(tkemax) ! maximum over all PEs
-          WRITE(message_text,'(a,i2)') 'maximum TKE [m**2/s**2] per level in domain ',jg
-          CALL message('nwp_nh_interface: ', TRIM(message_text))
-          DO jk = 1, nlevp1
-            WRITE(message_text,'(a,i3,a,e12.5)') 'level ',jk,': max. TKE = ',tkemax(jk)
-            CALL message('', TRIM(message_text))
-          ENDDO
-        ENDIF
-
       ENDIF
 
-      IF (msg_level >= 15) THEN
-        WRITE(message_text,'(a,2(E17.9,2x))') 'max/min ddt_vn  = ',&
-             & MAXVAL (pt_diag%ddt_vn_phy(:,:,:) ), MINVAL(pt_diag%ddt_vn_phy(:,:,:)  )
+      IF (msg_level >= 18 .AND. lcall_phy_jg(itturb)) THEN ! extended turbulence diagnostic
+        DO jk = 1, nlevp1
+          tkemax(jk) = MAXVAL(maxtke(:,jk))
+        ENDDO
+        DO jk = 1, nlev
+          tturbmax(jk) = MAXVAL(maxtturb(:,jk))
+          uturbmax(jk) = MAXVAL(maxuturb(:,jk))
+          vturbmax(jk) = MAXVAL(maxvturb(:,jk))
+        ENDDO
+
+        ! Take maximum over all PEs
+        tkemax   = global_max(tkemax)
+        tturbmax = global_max(tturbmax)
+        uturbmax = global_max(uturbmax)
+        vturbmax = global_max(vturbmax)
+
+        WRITE(message_text,'(a,i2)') 'Extended turbulence diagnostic for domain ',jg
+        CALL message('nwp_nh_interface: ', TRIM(message_text))
+        WRITE(message_text,'(a)') 'maximum TKE [m**2/s**2] and U,V,T-tendencies/s per level'
+        CALL message('', TRIM(message_text))
+
+        DO jk = 1, nlev
+          WRITE(message_text,'(a,i3,4(a,e13.5))') 'level ',jk,': TKE =',tkemax(jk), &
+            ', utend =',uturbmax(jk),', vtend =',vturbmax(jk),', ttend =',tturbmax(jk)
+          CALL message('', TRIM(message_text))
+        ENDDO
+        jk = nlevp1
+        WRITE(message_text,'(a,i3,a,e13.5)') 'level ',jk,': TKE =',tkemax(jk)
         CALL message('', TRIM(message_text))
       ENDIF
 
@@ -1554,24 +1649,6 @@ CONTAINS
     ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
-
-    IF (msg_level > 15) THEN
-
-
-        CALL message('mo_nh_update_prog:', 'nh-tendencies')
-
-        WRITE(message_text,'(a,2(E17.9,3x))') ' max/min ddt_qv  = ',&
-          & MAXVAL(prm_nwp_tend%ddt_tracer_pconv(:,:,:,iqv) ), &
-          & MINVAL(prm_nwp_tend%ddt_tracer_pconv(:,:,:,iqv) )
-        CALL message('', TRIM(message_text))
-
-        WRITE(message_text,'(a,2E17.9)') 'updated max/min QV  = ',&
-          & MAXVAL(pt_prog_rcf%tracer(:,:,:,iqv)), MINVAL(pt_prog_rcf%tracer (:,:,: ,iqv) )
-        CALL message('', TRIM(message_text))
-        WRITE(message_text,'(a,2E17.9)') 'updated max/min QC  = ',&
-          & MAXVAL(pt_prog_rcf%tracer(:,:,:,iqc)), MINVAL(pt_prog_rcf%tracer (:,:,: ,iqc) )
-        CALL message('', TRIM(message_text))
-      ENDIF
 
 
   END SUBROUTINE nh_update_prog_phy

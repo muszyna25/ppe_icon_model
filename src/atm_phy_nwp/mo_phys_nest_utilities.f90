@@ -1725,23 +1725,6 @@ SUBROUTINE downscale_rad_output_rg( p_patch, p_par_patch, p_par_int, p_par_grf, 
   ENDDO !jb
 !$OMP END DO
 !$OMP END PARALLEL
-
-  IF (msg_level >= 16) THEN
-    DO jk = 1, nlevp1
-      WRITE(message_text,'(a,i3,2E10.3)') 'max/min SW rg transmissivity  = ',&
-           & jk, MAXVAL (p_trsolall(:,jk,:)), MINVAL(p_trsolall(:,jk,:))
-      CALL message('', TRIM(message_text))
-      WRITE(message_text,'(a,i3,2E10.3)') 'max/min SW fg transmissivity  = ',&
-           & jk, MAXVAL (trsolall(:,jk,:)), MINVAL(trsolall(:,jk,:))
-      CALL message('', TRIM(message_text))
-      WRITE(message_text,'(a,i3,2E10.3)') 'max/min LW rg net flux  = ',&
-           & jk, MAXVAL (p_lwflxall(:,jk,:)), MINVAL(p_lwflxall(:,jk,:))
-      CALL message('', TRIM(message_text))
-      WRITE(message_text,'(a,i3,2E10.3)') 'max/min LW fg net flux  = ',&
-           & jk, MAXVAL (lwflxall(:,jk,:)), MINVAL(lwflxall(:,jk,:))
-      CALL message('', TRIM(message_text))
-    ENDDO
-  ENDIF
   
   IF (l_parallel .AND. jgp == 0) THEN
     DEALLOCATE( z_lwflxall, z_trsolall, z_dpres_mc, z_tot_cld, zpg_aux3d )

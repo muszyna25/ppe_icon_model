@@ -382,7 +382,7 @@ SUBROUTINE hydci_pp_init(idbg)
   ccidep = 4.0_ireals * zami**(-x1o3)
 
   IF (PRESENT(idbg)) THEN
-    IF (idbg > 10) THEN
+    IF (idbg > 12) THEN
       CALL message('mo_gscp_cosmo','hydci_pp_init: Initialized coefficients for hydci_pp')
       WRITE (message_text,'(A,E10.3)') '      ccslam = ',ccslam ; CALL message('',message_text)
       WRITE (message_text,'(A,E10.3)') '      ccsvel = ',ccsvel ; CALL message('',message_text)
@@ -779,9 +779,9 @@ SUBROUTINE hydci_pp(                 &
   zdtr  = 1.0_ireals / zdt
 
 ! output for various debug levels
-  IF (izdebug > 15) CALL message('','SRC_GSCP: Start of hydci_pp')
+  IF (izdebug > 25) CALL message('','SRC_GSCP: Start of hydci_pp')
 
-  IF (izdebug > 15) THEN
+  IF (izdebug > 25) THEN
     WRITE (message_text,'(A,E10.3)') '      ccslam = ',ccslam ; CALL message('',message_text)
     WRITE (message_text,'(A,E10.3)') '      ccsvel = ',ccsvel ; CALL message('',message_text)
     WRITE (message_text,'(A,E10.3)') '      ccsrim = ',ccsrim ; CALL message('',message_text)
@@ -790,7 +790,7 @@ SUBROUTINE hydci_pp(                 &
     WRITE (message_text,'(A,E10.3)') '      ccslxp = ',ccslxp ; CALL message('',message_text)
     WRITE (message_text,'(A,E10.3)') '      ccidep = ',ccidep ; CALL message('',message_text)
   ENDIF
-  IF (izdebug > 20) THEN
+  IF (izdebug > 30) THEN
     WRITE (message_text,*) '   ie = ',ie ; CALL message('',message_text)
     WRITE (message_text,*) '   ke = ',ke ; CALL message('',message_text)
     WRITE (message_text,*) '   istartpar = ',istartpar ; CALL message('',message_text)
@@ -1443,7 +1443,7 @@ SUBROUTINE hydci_pp(                 &
     IF (PRESENT(ddt_diag_shed )) ddt_diag_shed (:,k) = sshed (:)
 #endif
 
-  IF (izdebug > 15) THEN
+  IF (izdebug > 25) THEN
     ! Check for negative values
     DO i = istartpar, iendpar
       IF (qr(i,k) < 0.0_ireals) THEN
@@ -1545,7 +1545,7 @@ ENDDO loop_over_levels
 
   END IF
 
-  IF (izdebug > 15) THEN
+  IF (izdebug > 25) THEN
     CALL message('mo_gscp', 'UPDATED VARIABLES')
    WRITE(message_text,'(a,2E20.9)') 'hydci_pp T= ',&
     MAXVAL( t(:,:)), MINVAL(t(:,:) )
@@ -1878,7 +1878,7 @@ fsa3(ztx) = 3.86E-3_ireals - 9.41E-5_ireals*(ztx-t0)
     * (zcnue+2.0_ireals)*(zcnue+4.0_ireals)/(zcnue+1.0_ireals)**2
   
   ! output for various debug levels
-  IF (izdebug > 15) CALL message('','SRC_GSCP: Start of keppler_pp')
+  IF (izdebug > 25) CALL message('','SRC_GSCP: Start of keppler_pp')
 
 !!$  IF (izdebug > 15) THEN
 !!$    WRITE (message_text,'(A,E10.3)') '      ccslam = ',ccslam ; CALL message('',message_text)
@@ -1890,7 +1890,7 @@ fsa3(ztx) = 3.86E-3_ireals - 9.41E-5_ireals*(ztx-t0)
 !!$    WRITE (message_text,'(A,E10.3)') '      ccidep = ',ccidep ; CALL message('',message_text)
 !!$  ENDIF
 
-  IF (izdebug > 20) THEN
+  IF (izdebug > 30) THEN
     WRITE (message_text,*) '   ie = ',ie ; CALL message('',message_text)
     WRITE (message_text,*) '   ke = ',ke ; CALL message('',message_text)
     WRITE (message_text,*) '   istartpar = ',istartpar ; CALL message('',message_text)
@@ -2117,7 +2117,7 @@ fsa3(ztx) = 3.86E-3_ireals - 9.41E-5_ireals*(ztx-t0)
     IF (PRESENT(ddt_diag_ev   )) ddt_diag_ev(:,k) = zsrd(:)
 #endif
 
-    IF (izdebug > 15) THEN
+    IF (izdebug > 25) THEN
       ! Check for negative values
       DO i = istartpar, iendpar
         IF (qr(i,k) < 0.0_ireals) THEN
@@ -2206,7 +2206,7 @@ ENDDO loop_over_levels
 
   END IF
 
-  IF (izdebug > 15) THEN
+  IF (izdebug > 25) THEN
     CALL message('mo_gscp', 'UPDATED VARIABLES')
    WRITE(message_text,'(a,2E20.9)') 'kessler_pp T= ' ,&
     MAXVAL( t(:,:)), MINVAL(t(:,:) )

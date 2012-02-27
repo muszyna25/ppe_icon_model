@@ -505,7 +505,7 @@ SUBROUTINE setup_comm_pattern(n_points, owner, global_index, local_index, p_pat)
 
    ! consistency check of communication pattern
 #ifndef NOMPI
-   IF (msg_level >= 13)  &
+   IF (msg_level >= 16)  &
      CALL check_comm_pattern(p_pat)
 #endif
 
@@ -650,7 +650,7 @@ SUBROUTINE check_comm_pattern(p_pat)
           CALL message(routine, message_text)
           lcheck = .FALSE.
         ELSE
-          IF (msg_level >= 15) THEN
+          IF (msg_level >= 16) THEN
             WRITE (message_text,*) "PE ", i_pe-1, ": sends ", target_cnt, &
               &                    " values to ", target_pe
             CALL message(routine, message_text)
@@ -688,7 +688,7 @@ SUBROUTINE check_comm_pattern(p_pat)
           CALL message(routine, message_text)
           lcheck = .FALSE.
         ELSE
-          IF (msg_level >= 15) THEN
+          IF (msg_level >= 16) THEN
             WRITE (message_text,*) "PE ", i_pe-1, ": receives ", source_cnt, &
               &                    " values from ", source_pe
             CALL message(routine, message_text)

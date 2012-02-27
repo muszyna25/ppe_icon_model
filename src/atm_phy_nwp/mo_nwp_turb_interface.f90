@@ -179,20 +179,9 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
   nlev   = p_patch%nlev
   nlevp1 = p_patch%nlevp1
   
-  IF (msg_level >= 12) &
+  IF (msg_level >= 15) &
         & CALL message('mo_nwp_turb:', 'turbulence')
-  
-  IF (msg_level >= 15) THEN
-    WRITE(message_text,'(a,3E15.7)') ' bottom TKE before turbulence now = ', &
-         &  p_prog_now_rcf%tke(1,nlev+1,6), p_prog_now_rcf%tke(1,nlev,6),&
-         &  p_prog_now_rcf%tke(1,nlev-1,6)
-    CALL message('', TRIM(message_text))
-    WRITE(message_text,'(a,3E15.7)') ' bottom TKE before turbulence new = ', &
-         &  p_prog_rcf%tke(1,nlev+1,6), p_prog_rcf%tke(1,nlev,6),&
-        &  p_prog_rcf%tke(1,nlev-1,6)
-    CALL message('', TRIM(message_text))
-  ENDIF
-  
+    
   ! local variables related to the blocking
   
   nblks_c   = p_patch%nblks_int_c
@@ -202,7 +191,7 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
   i_nchdom  = MAX(1,p_patch%n_childdom)
   jg        = p_patch%id
   
-  !in order to account for mesh refinement
+  ! exclude boundary interpolation zone of nested domains
   rl_start = grf_bdywidth_c+1
   rl_end   = min_rlcell_int
 
@@ -666,18 +655,6 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
   ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
-
-  IF (msg_level >= 15) THEN
-    WRITE(message_text,'(a,3E15.7)') ' bottom TKE after turbulence now = ', &
-         &  p_prog_now_rcf%tke(1,nlev+1,6), p_prog_now_rcf%tke(1,nlev,6),&
-         &  p_prog_now_rcf%tke(1,nlev-1,6)
-    CALL message('', TRIM(message_text))
-    WRITE(message_text,'(a,3E15.7)') ' bottom TKE after turbulence new = ', &
-         &  p_prog_rcf%tke(1,nlev+1,6), p_prog_rcf%tke(1,nlev,6),&
-         &  p_prog_rcf%tke(1,nlev-1,6)
-    CALL message('', TRIM(message_text))
-  ENDIF
-
 
 END SUBROUTINE nwp_turbulence
 

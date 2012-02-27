@@ -278,17 +278,10 @@ MODULE mo_nwp_rad_interface
     !> Radiation
     !-------------------------------------------------------------------------
 
-    rl_start = grf_bdywidth_c+1
-    rl_end   = min_rlcell_int
-
-    i_startblk = pt_patch%cells%start_blk(rl_start,1)
-    i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
-
-
-    IF (msg_level >= 12) &
+    IF (msg_level >= 15) &
       &           CALL message('mo_nwp_rad_interface', 'RG radiation on full grid')
 
-    !in order to account for mesh refinement
+    ! exclude boundary interpolation zone of nested domains
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
 
@@ -634,7 +627,7 @@ MODULE mo_nwp_rad_interface
       prm_diag%trsolall(:,:,:) = 0._wp
     ENDIF
 
-    IF (msg_level >= 12) &
+    IF (msg_level >= 15) &
       &  CALL message('mo_nwp_rad_interface', 'Ritter-Geleyn radiation on reduced grid')
 
     IF (my_process_is_mpi_seq()) THEN

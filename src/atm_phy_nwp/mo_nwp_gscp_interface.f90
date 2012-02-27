@@ -118,7 +118,7 @@ CONTAINS
     ! domain ID
     jg = p_patch%id
 
-    !in order to account for mesh refinement
+    ! exclude boundary interpolation zone of nested domains
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
 
@@ -238,22 +238,6 @@ CONTAINS
       ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
-
-
-      IF (msg_level >= 15) THEN
-        WRITE(message_text,'(a,2E15.5)') 'max/min QV  = ',&
-          & MAXVAL(p_prog_rcf%tracer(:,:,:,iqv)), MINVAL(p_prog_rcf%tracer (:,:,: ,iqv) )
-        CALL message('', TRIM(message_text))
-        WRITE(message_text,'(a,2E15.5)') ' max/min QC  = ',&
-          & MAXVAL(p_prog_rcf%tracer(:,:,:,iqc)), MINVAL(p_prog_rcf%tracer (:,:,: ,iqc) )
-        CALL message('', TRIM(message_text))
-        WRITE(message_text,'(a,2E15.5)') ' max/min QI  = ',&
-          & MAXVAL(p_prog_rcf%tracer(:,:,:,iqi)), MINVAL(p_prog_rcf%tracer (:,:,: ,iqi) )
-        CALL message('', TRIM(message_text))
-        WRITE(message_text,'(a,2E15.5)') ' max/min T  = ',&
-             & MAXVAL(p_diag%temp(:,:,:)), MINVAL(p_diag%temp (:,:,:) )
-        CALL message('', TRIM(message_text))
-      ENDIF
        
   END SUBROUTINE nwp_microphysics
 

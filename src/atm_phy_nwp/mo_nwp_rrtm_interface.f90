@@ -1193,7 +1193,7 @@ CONTAINS
       i_endblk   = ptr_pp%cells%end_blk(rl_end,i_chidx)
 
       ! Debug output of radiation input fields
-      IF (msg_level >= 12) THEN
+      IF (msg_level >= 16) THEN
         max_albvisdir = 0._wp
         min_albvisdir = 1.e10_wp
         max_albvisdif = 0._wp
@@ -1304,7 +1304,7 @@ CONTAINS
           CALL message('nwp_nh_interface: ', TRIM(message_text))
         ENDDO
 
-      ENDIF ! msg_level >= 12
+      ENDIF ! msg_level >= 16
 
 !$OMP PARALLEL
 #ifdef __xlC__
