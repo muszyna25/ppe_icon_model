@@ -39,7 +39,7 @@ MODULE mo_nwp_rrtm_interface
   USE mo_aerosol_util,         ONLY: zaea_rrtm,zaes_rrtm,zaeg_rrtm
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_datetime,             ONLY: t_datetime,  month2hour
-  USE mo_exception,            ONLY: message,  finish !message_tex
+  USE mo_exception,            ONLY: message,  finish, message_text
   USE mo_ext_data,             ONLY: t_external_data
   USE mo_parallel_config,      ONLY: nproma, p_test_run
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi, &
@@ -68,7 +68,7 @@ MODULE mo_nwp_rrtm_interface
   USE mo_radiation_rg_par,     ONLY: aerdis
   USE mo_satad,                ONLY: qsat_rho
   USE mo_srtm_config,          ONLY: jpsw
-!  USE mo_sync,                 ONLY: SYNC_C, sync_patch_array
+  USE mo_sync,                 ONLY: global_max, global_min
 
   IMPLICIT NONE
 
@@ -920,6 +920,14 @@ CONTAINS
 
     INTEGER :: itype(nproma)   !< type of convection
 
+    ! Variables for debug output
+    REAL(wp) :: max_albvisdir, min_albvisdir, max_albvisdif, min_albvisdif, &
+                max_tsfc, min_tsfc, max_psfc, min_psfc
+
+    REAL(wp), DIMENSION(pt_patch%nlevp1) :: max_pres_ifc, max_pres, max_temp, max_acdnc, &
+        max_qv, max_qc, max_qi, max_cc, min_pres_ifc, min_pres, min_temp, min_acdnc, &
+        min_qv, min_qc, min_qi, min_cc
+
     ! Local scalars:
     REAL(wp):: zsct        ! solar constant (at time of year)
     REAL(wp):: zvege, zsnow, zsalb_snow, zsnow_alb
@@ -1177,11 +1185,126 @@ CONTAINS
         & zrg_acdnc, zrg_tot_cld, zrg_o3,                               &
         & zrg_aeq1, zrg_aeq2, zrg_aeq3, zrg_aeq4, zrg_aeq5 )
 
+
       rl_start = grf_ovlparea_start_c
       rl_end   = min_rlcell_int
 
       i_startblk = ptr_pp%cells%start_blk(rl_start,i_chidx)
       i_endblk   = ptr_pp%cells%end_blk(rl_end,i_chidx)
+
+      ! Debug output of radiation input fields
+      IF (msg_level >= 12) THEN
+        max_albvisdir = 0._wp
+        min_albvisdir = 1.e10_wp
+        max_albvisdif = 0._wp
+        min_albvisdif = 1.e10_wp
+        max_tsfc = 0._wp
+        min_tsfc = 1.e10_wp
+        max_psfc = 0._wp
+        min_psfc = 1.e10_wp
+        max_pres_ifc = 0._wp
+        max_pres    = 0._wp
+        max_temp     = 0._wp
+        max_acdnc    = 0._wp
+        max_qv = 0._wp
+        max_qc = 0._wp
+        max_qi = 0._wp
+        max_cc  = 0._wp
+        min_pres_ifc = 1.e10_wp
+        min_pres    = 1.e10_wp
+        min_temp     = 1.e10_wp
+        min_acdnc    = 1.e10_wp
+        min_qv = 1.e10_wp
+        min_qc = 1.e10_wp
+        min_qi = 1.e10_wp
+        min_cc  = 1.e10_wp
+
+        DO jb = i_startblk, i_endblk
+
+         CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, &
+                            i_startidx, i_endidx, rl_start, rl_end, i_chidx)
+
+         max_albvisdir = MAX(max_albvisdir,MAXVAL(zrg_albvisdir(i_startidx:i_endidx,jb)))
+         min_albvisdir = MIN(min_albvisdir,MINVAL(zrg_albvisdir(i_startidx:i_endidx,jb)))
+         max_albvisdif = MAX(max_albvisdif,MAXVAL(zrg_albvisdif(i_startidx:i_endidx,jb)))
+         min_albvisdif = MIN(min_albvisdif,MINVAL(zrg_albvisdif(i_startidx:i_endidx,jb)))
+         max_tsfc = MAX(max_tsfc,MAXVAL(zrg_tsfc(i_startidx:i_endidx,jb)))
+         min_tsfc = MIN(min_tsfc,MINVAL(zrg_tsfc(i_startidx:i_endidx,jb)))
+         max_psfc = MAX(max_psfc,MAXVAL(zrg_pres_ifc(i_startidx:i_endidx,nlev_rg+1,jb)))
+         min_psfc = MIN(min_psfc,MINVAL(zrg_pres_ifc(i_startidx:i_endidx,nlev_rg+1,jb)))
+         DO jk = 1, nlev_rg
+          max_pres_ifc(jk) = MAX(max_pres_ifc(jk),MAXVAL(zrg_pres_ifc(i_startidx:i_endidx,jk,jb)))
+          max_pres(jk)    = MAX(max_pres(jk),MAXVAL(zrg_pres     (i_startidx:i_endidx,jk,jb)))
+          max_temp(jk)     = MAX(max_temp(jk),MAXVAL(zrg_temp     (i_startidx:i_endidx,jk,jb)))
+          max_acdnc(jk)    = MAX(max_acdnc(jk),MAXVAL(zrg_acdnc    (i_startidx:i_endidx,jk,jb)))
+          max_qv(jk) = MAX(max_qv(jk),MAXVAL(zrg_tot_cld(i_startidx:i_endidx,jk,jb,iqv)))
+          max_qc(jk) = MAX(max_qc(jk),MAXVAL(zrg_tot_cld(i_startidx:i_endidx,jk,jb,iqc)))
+          max_qi(jk) = MAX(max_qi(jk),MAXVAL(zrg_tot_cld(i_startidx:i_endidx,jk,jb,iqi)))
+          max_cc(jk)  = MAX(max_cc(jk),MAXVAL(zrg_tot_cld(i_startidx:i_endidx,jk,jb,icc)))
+          min_pres_ifc(jk) = MIN(min_pres_ifc(jk),MINVAL(zrg_pres_ifc(i_startidx:i_endidx,jk,jb)))
+          min_pres(jk)    = MIN(min_pres(jk),MINVAL(zrg_pres     (i_startidx:i_endidx,jk,jb)))
+          min_temp(jk)     = MIN(min_temp(jk),MINVAL(zrg_temp     (i_startidx:i_endidx,jk,jb)))
+          min_acdnc(jk)    = MIN(min_acdnc(jk),MINVAL(zrg_acdnc    (i_startidx:i_endidx,jk,jb)))
+          min_qv(jk) = MIN(min_qv(jk),MINVAL(zrg_tot_cld(i_startidx:i_endidx,jk,jb,iqv)))
+          min_qc(jk) = MIN(min_qc(jk),MINVAL(zrg_tot_cld(i_startidx:i_endidx,jk,jb,iqc)))
+          min_qi(jk) = MIN(min_qi(jk),MINVAL(zrg_tot_cld(i_startidx:i_endidx,jk,jb,iqi)))
+          min_cc(jk)  = MIN(min_cc(jk),MINVAL(zrg_tot_cld(i_startidx:i_endidx,jk,jb,icc)))
+         ENDDO
+        ENDDO ! blocks
+
+        max_albvisdir = global_max(max_albvisdir)
+        min_albvisdir = global_min(min_albvisdir)
+        max_albvisdif = global_max(max_albvisdif)
+        min_albvisdif = global_min(min_albvisdif)
+        max_tsfc = global_max(max_tsfc)
+        min_tsfc = global_min(min_tsfc)
+        max_psfc = global_max(max_psfc)
+        min_psfc = global_min(min_psfc)
+        max_pres_ifc = global_max(max_pres_ifc)
+        max_pres    = global_max(max_pres)
+        max_temp     = global_max(max_temp)
+        max_acdnc    = global_max(max_acdnc)
+        max_qv = global_max(max_qv)
+        max_qc = global_max(max_qc)
+        max_qi = global_max(max_qi)
+        max_cc  = global_max(max_cc)
+        min_pres_ifc = global_min(min_pres_ifc)
+        min_pres    = global_min(min_pres)
+        min_temp     = global_min(min_temp)
+        min_acdnc    = global_min(min_acdnc)
+        min_qv = global_min(min_qv)
+        min_qc = global_min(min_qc)
+        min_qi = global_min(min_qi)
+        min_cc  = global_min(min_cc)
+
+
+        WRITE(message_text,'(a,4f12.8)') 'max/min alb = ', max_albvisdir, min_albvisdir, &
+          max_albvisdif, min_albvisdif
+        CALL message('nwp_nh_interface: ', TRIM(message_text))
+
+        WRITE(message_text,'(a,2f10.3,2f10.2)') 'max/min sfc temp/pres = ', max_tsfc, min_tsfc, &
+          max_psfc, min_psfc
+        CALL message('nwp_nh_interface: ', TRIM(message_text))
+
+        WRITE(message_text,'(a)') 'max/min pres_ifc, pres, temp, acdnc'
+        CALL message('nwp_nh_interface: ', TRIM(message_text))
+
+        DO jk = 1, nlev_rg
+          WRITE(message_text,'(i4,4f10.2,2f10.3,2f12.1)') jk,max_pres_ifc(jk), min_pres_ifc(jk), &
+            max_pres(jk), min_pres(jk), max_temp(jk), min_temp(jk), max_acdnc(jk), min_acdnc(jk)
+          CALL message('nwp_nh_interface: ', TRIM(message_text))
+        ENDDO
+
+        WRITE(message_text,'(a)') 'max/min QV, QC, QI, CC'
+        CALL message('nwp_nh_interface: ', TRIM(message_text))
+
+        DO jk = 1, nlev_rg
+          WRITE(message_text,'(i4,8e13.5)') jk,max_qv(jk), min_qv(jk), max_qc(jk), min_qc(jk), &
+             max_qi(jk), min_qi(jk), max_cc(jk), min_cc(jk)
+          CALL message('nwp_nh_interface: ', TRIM(message_text))
+        ENDDO
+
+      ENDIF ! msg_level >= 12
 
 !$OMP PARALLEL
 #ifdef __xlC__
@@ -1299,4 +1422,5 @@ CONTAINS
 
 
 END MODULE mo_nwp_rrtm_interface
+
 
