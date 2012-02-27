@@ -1365,12 +1365,12 @@ DO jk = slev, elev
  ipl_src=5  ! output print level (1-5, fix)
  CALL print_mxmn('vorticity edges',jk,z_vort_e(:,:,:),n_zlev, &
    &              p_patch%nblks_e,'vel',ipl_src)
- write(876,*)'max/min kin energy:           ', jk,MAXVAL(p_diag%kin(:,jk,:)),&
-                                                 &MINVAL(p_diag%kin(:,jk,:)) 
- write(876,*)'max/min grad kin energy:      ', jk,MAXVAL(z_grad_ekin_RBF(:,jk,:)),&
-                                                 &MINVAL(z_grad_ekin_RBF(:,jk,:)) 
- write(876,*)'max/min vorticity:            ', jk,MAXVAL(p_diag%vort(:,jk,:)),&
-                                                 &MINVAL(p_diag%vort(:,jk,:)) 
+ !write(876,*)'max/min kin energy:           ', jk,MAXVAL(p_diag%kin(:,jk,:)),&
+ !                                                &MINVAL(p_diag%kin(:,jk,:)) 
+ !write(876,*)'max/min grad kin energy:      ', jk,MAXVAL(z_grad_ekin_RBF(:,jk,:)),&
+ !                                                &MINVAL(z_grad_ekin_RBF(:,jk,:)) 
+ !write(876,*)'max/min vorticity:            ', jk,MAXVAL(p_diag%vort(:,jk,:)),&
+ !                                                &MINVAL(p_diag%vort(:,jk,:)) 
 !write(876,*)'max/min vorticity edges:', jk,MAXVAL(z_vort_e(:,jk,:)),MINVAL(z_vort_e(:,jk,:)) 
 END DO
 
@@ -1381,9 +1381,9 @@ DO jk = slev, elev
  CALL print_mxmn('vort advection',jk,veloc_adv_horz_e(:,:,:),n_zlev, &
    &              p_patch%nblks_e,'vel',ipl_src)
 
- write(876,*)'max/min vort flux:  advection:', jk,&
- & MAXVAL(z_vort_flx_RBF(:,jk,:)),MINVAL(z_vort_flx_RBF(:,jk,:)),&
- & MAXVAL(veloc_adv_horz_e(:,jk,:)),MINVAL(veloc_adv_horz_e(:,jk,:))
+ !write(876,*)'max/min vort flux:  advection:', jk,&
+ !& MAXVAL(z_vort_flx_RBF(:,jk,:)),MINVAL(z_vort_flx_RBF(:,jk,:)),&
+ !& MAXVAL(veloc_adv_horz_e(:,jk,:)),MINVAL(veloc_adv_horz_e(:,jk,:))
 END DO
 
 END subroutine veloc_adv_horz_RBF

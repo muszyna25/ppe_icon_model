@@ -182,7 +182,7 @@ DO jb = i_startblk_c, i_endblk_c
 END DO
 
  DO jk = slev, elev
-   write(*,*)'max/min kin energy:',maxval(p_diag%kin(:,jk,:)), minval(p_diag%kin(:,jk,:))!,&
+ ! write(*,*)'max/min kin energy:',maxval(p_diag%kin(:,jk,:)), minval(p_diag%kin(:,jk,:))!,&
  !&maxval(z_kin(:,1,:)), minval(z_kin(:,1,:))
  END DO
 !convert cartesian velocity vector p_diag%p_vn(jc,jk,jb)%x to geographical coordinate system
