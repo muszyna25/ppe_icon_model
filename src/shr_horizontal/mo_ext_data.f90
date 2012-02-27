@@ -2238,9 +2238,12 @@ CONTAINS
         WRITE (omip_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-flux.nc'
 
         !omip_file=TRIM('/pool/data/ICON/external/iconR2B04-flux.nc')
+        !omip_file='/scratch/local1/m212053/ICON/trunk/icon-dev/grids/omip4icon-R2B02-monmean.nc'
+omip_file='/scratch/local1/m212053/ICON/trunk/icon-dev/grids/omip4icon-R2B04-monmean.nc'
         CALL message( TRIM(routine),'Ocean OMIP forcing flux file is: '//TRIM(omip_file) )
         INQUIRE (FILE=omip_file, EXIST=l_exist)
         IF (.NOT.l_exist) THEN
+          write(*,*)'FORCING FILE: ',TRIM(omip_file)
           CALL finish(TRIM(routine),'OMIP forcing flux file is not found.')
         ENDIF
 

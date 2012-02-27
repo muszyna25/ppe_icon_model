@@ -203,7 +203,7 @@ REAL(wp) :: z_e  (nproma,n_zlev,p_patch%nblks_e)
 REAL(wp) :: z_u_c(nproma,n_zlev,p_patch%nblks_c)
 REAL(wp) :: z_v_c(nproma,n_zlev,p_patch%nblks_c)
 REAL(wp) :: z_vort_flx(nproma,n_zlev,p_patch%nblks_e)
-REAL(wp) :: z_vort_flx2(nproma,n_zlev,p_patch%nblks_e)
+!REAL(wp) :: z_vort_flx2(nproma,n_zlev,p_patch%nblks_e)
 REAL(wp) :: z_grad_ekin_RBF(nproma,n_zlev,p_patch%nblks_e)
 REAL(wp) :: z_kin_RBF_e(nproma,n_zlev,p_patch%nblks_e)
 REAL(wp) :: z_kin_RBF_c(nproma,n_zlev,p_patch%nblks_c)
@@ -225,7 +225,7 @@ REAL(wp) :: z_vort_flx_RBF(nproma,n_zlev,p_patch%nblks_e)
 !REAL(wp) :: z_vort2(nproma,n_zlev,p_patch%nblks_v)
 !REAL(wp) :: z_veloc_adv_horz_e(nproma,n_zlev,p_patch%nblks_e)
 LOGICAL, PARAMETER :: L_DEBUG = .FALSE. 
-LOGICAL, PARAMETER :: L_ENSTROPHY_DISSIPATION=.FALSE.
+!LOGICAL, PARAMETER :: L_ENSTROPHY_DISSIPATION=.FALSE.
 !-----------------------------------------------------------------------
 ! #slo# set local variable to zero due to nag -nan compiler-option
 z_e             (:,:,:) = 0.0_wp
@@ -238,7 +238,7 @@ z_vort_e        (:,:,:) = 0.0_wp
 z_vort_flx_RBF  (:,:,:) = 0.0_wp
 z_kin_RBF_c     (:,:,:) = 0.0_wp
 z_grad_ekin_RBF (:,:,:) = 0.0_wp
-z_vort_flx2=0.0_wp
+!z_vort_flx2=0.0_wp
 
 !rl_start_v = 1
 !rl_end_v   = min_rlvert
@@ -474,8 +474,8 @@ REAL(wp), INTENT(out) :: veloc_adv_horz_e(:,:,:)
 
 
 INTEGER :: slev, elev     ! vertical start and end level
-INTEGER :: jk, jb, jc, je!, jv, ile, ibe, ie, jev
-INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
+INTEGER :: jk, jb, je!, jv, ile, ibe, ie, jev
+INTEGER :: i_startblk_c, i_endblk_c!, i_startidx_c, i_endidx_c
 INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
 INTEGER :: rl_start_e, rl_end_e, rl_start_c, rl_end_c !, rl_start_v, rl_end_v
 REAL(wp) :: z_e  (nproma,n_zlev,p_patch%nblks_e)

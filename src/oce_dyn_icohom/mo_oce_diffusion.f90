@@ -354,12 +354,12 @@ i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
 slev = 1
 elev = n_zlev
 
-CALL nabla2_vec_ocean( vn_in,&
-                    & p_diag%vt,&
-                    & p_diag%vort,&
-                    & p_patch, p_param%K_veloc_h,&
-                    &laplacian_vn_out,&
-                    &opt_slev=slev,opt_elev=elev )
+! CALL nabla2_vec_ocean( vn_in,&
+!                     & p_diag%vt,&
+!                     & p_diag%vort,&
+!                     & p_patch, p_param%K_veloc_h,&
+!                     &laplacian_vn_out,&
+!                     &opt_slev=slev,opt_elev=elev )
 
 !Step 2: Multiply laplacian with mixing coefficients
 DO jb = i_startblk_e, i_endblk_e

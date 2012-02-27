@@ -65,7 +65,7 @@ USE mo_oce_physics,               ONLY: t_ho_params
 !USE mo_oce_forcing,               ONLY: t_sfc_flx
 USE mo_sea_ice,                   ONLY: t_sfc_flx
 USE mo_intp_data_strc,            ONLY: t_int_state
-USE mo_scalar_product,            ONLY: calc_scalar_product_for_veloc
+USE mo_scalar_product,            ONLY: calc_scalar_product_veloc, calc_scalar_product_veloc_3D
 USE mo_intp_data_strc,            ONLY: t_int_state
 USE mo_intp_rbf,                  ONLY: rbf_vec_interpol_cell, rbf_vec_interpol_edge
 USE mo_oce_ab_timestepping,       ONLY: calc_vert_velocity

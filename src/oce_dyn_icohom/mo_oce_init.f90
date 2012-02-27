@@ -79,7 +79,7 @@ USE mo_util_netcdf,        ONLY: read_netcdf_data
 USE mo_sea_ice,            ONLY: t_sfc_flx
 USE mo_oce_state,          ONLY: t_hydro_ocean_state, v_base
 USE mo_scalar_product,     ONLY: map_cell2edges, map_edges2cell, map_edges2edges, &
-  &                              calc_scalar_product_for_veloc, dual_flip_flop
+  &                              calc_scalar_product_veloc,calc_scalar_product_veloc_3D, dual_flip_flop
 USE mo_oce_math_operators, ONLY: grad_fd_norm_oce,grad_fd_norm_oce_2D, height_related_quantities,&
   &                              rot_vertex_ocean
 USE mo_oce_thermodyn,      ONLY: convert_insitu2pot_temp_func
@@ -89,7 +89,7 @@ USE mo_oce_linear_solver,  ONLY: gmres_e2e
 !rr USE mo_icon_cpl_def_field, ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
 USE mo_master_control,     ONLY: is_restart_run
 USE mo_ape_params,         ONLY: ape_sst
-
+USE mo_operator_scalarprod_coeff_3D, ONLY: t_operator_coeff
 IMPLICIT NONE
 INCLUDE 'netcdf.inc'
 PRIVATE
@@ -157,6 +157,9 @@ CONTAINS
     !
     ! Prognostic variables are read from prog_init_file
     WRITE (prog_init_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-prog.nc'
+prog_init_file="/scratch/local1/m212053/ICON/trunk/icon-dev/grids/&
+&ts_phc_annual-iconR2B04-L10_50-1000m.nc"
+    !write(*,*)'init file is: ',TRIM(prog_init_file)
 
     INQUIRE (FILE=prog_init_file, EXIST=l_exist)
     IF (.NOT.l_exist) THEN
@@ -505,15 +508,16 @@ ENDIF
   !-------------------------------------------------------------------------
   !>
   !!
-  SUBROUTINE init_ho_recon_fields( p_patch, p_os)
+  SUBROUTINE init_ho_recon_fields( p_patch, p_os, p_coeff)
     TYPE(t_patch), TARGET, INTENT(in)             :: p_patch
     TYPE(t_hydro_ocean_state), TARGET             :: p_os
+    TYPE(t_operator_coeff)                        :: p_coeff 
 
     INTEGER :: jk
 
     IF(idisc_scheme==1)THEN
       IF (is_restart_run()) CALL update_time_indices(1)
-      CALL calc_scalar_product_for_veloc( p_patch,                &
+      CALL calc_scalar_product_veloc( p_patch,&
         & p_os%p_prog(nold(1))%vn,&
         & p_os%p_prog(nold(1))%vn,&
         & p_os%p_diag%h_e,        &
@@ -1499,7 +1503,7 @@ ENDIF
 
       z_temp_max  = 30.5_wp
       z_temp_min  = 0.5_wp
-      z_temp_incr = (z_temp_max-z_temp_min)/(n_zlev-1.0_wp)
+      z_temp_incr = (z_temp_max-z_temp_min)/(REAL(n_zlev,wp)-1.0_wp)
       DO jb = i_startblk_c, i_endblk_c    
         CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
          &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
@@ -1622,7 +1626,7 @@ ENDIF
 
       z_temp_max  = 30.5_wp
       z_temp_min  = 0.5_wp
-      z_temp_incr = (z_temp_max-z_temp_min)/(n_zlev-1.0_wp)
+      z_temp_incr = (z_temp_max-z_temp_min)/(REAL(n_zlev,wp)-1.0_wp)
       DO jb = i_startblk_c, i_endblk_c    
         CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
          &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
@@ -1901,7 +1905,7 @@ ELSEIF( iswm_oce == 1 )THEN
       &maxval( p_os%p_prog(nold(1))%tracer(:,1,:,1)),&
       &minval( p_os%p_prog(nold(1))%tracer(:,1,:,1))
       IF(idisc_scheme==1)THEN
-        CALL calc_scalar_product_for_veloc( ppatch,                 &
+        CALL calc_scalar_product_veloc( ppatch,                 &
           &                                 p_os%p_prog(nold(1))%vn,&
           &                                 p_os%p_prog(nold(1))%vn,&
           &                                 p_os%p_diag%h_e,        &
@@ -2986,7 +2990,7 @@ END FUNCTION lhs_geo_balance_mim
 ! !IROUTINE:  test_usbr_v
 !  
 ! !FUNCTION INTERFACE: 
-  FUNCTION test_usbr_v( p_lon, p_lat, p_t) RESULT(p_vv)
+  FUNCTION test_usbr_v( p_lon, p_lat,p_t) RESULT(p_vv)
 !
 ! !DESCRIPTION:
 ! Initial datum for meridional velocity v, test case unsteady solid body 
@@ -3025,7 +3029,7 @@ END FUNCTION lhs_geo_balance_mim
 ! !IROUTINE:  test_usbr_oro
 !  
 ! !FUNCTION INTERFACE:   
-  FUNCTION test_usbr_oro(p_lon, p_lat, p_t) RESULT(p_or)
+  FUNCTION test_usbr_oro(p_lon,p_lat,p_t) RESULT(p_or)
 !
 ! !DESCRIPTION:
 ! Initial datum for orography, test case unsteady solid body rotation

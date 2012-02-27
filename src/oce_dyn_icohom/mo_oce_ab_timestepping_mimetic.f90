@@ -78,16 +78,17 @@ USE mo_oce_thermodyn,             ONLY: calc_density, calc_internal_press,&
 USE mo_oce_physics,               ONLY: t_ho_params
 USE mo_sea_ice,                   ONLY: t_sfc_flx
 USE mo_scalar_product,            ONLY: map_cell2edges, map_edges2cell, map_edges2edges,  &
-  &                                     calc_scalar_product_for_veloc !,map_cell2edges_upwind
+  &                                     calc_scalar_product_veloc, calc_scalar_product_veloc_3D!,map_cell2edges_upwind
 USE mo_oce_math_operators,        ONLY: div_oce, grad_fd_norm_oce, grad_fd_norm_oce_2d,   &
   &                                     height_related_quantities, nabla2_vec_ocean, &
-  &                                     nabla4_vec_ocean
+  &                                     nabla4_vec_ocean, nabla2_vec_ocean_3D
 USE mo_oce_veloc_advection,       ONLY: veloc_adv_horz_mimetic, veloc_adv_vert_mimetic
 USE mo_intp_data_strc,            ONLY: t_int_state !, rbf_vec_interpol_cell
 USE mo_oce_diffusion,             ONLY: velocity_diffusion_horz_mimetic,                  &
   &                                     velocity_diffusion_vert_mimetic,                  &
   !&                                     veloc_diffusion_vert_impl,                        &
   &                                     veloc_diffusion_vert_impl_hom
+USE mo_operator_scalarprod_coeff_3D, ONLY: t_operator_coeff
 
 IMPLICIT NONE
 
@@ -127,7 +128,7 @@ CONTAINS
 !! Developed  by  Peter Korn, MPI-M (2010).
 !! 
 SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
-    &                                  p_phys_param, timestep, p_int)
+    &                                  p_phys_param, timestep, ptr_coeff,p_int)
   !
   TYPE(t_patch), TARGET, INTENT(in)             :: p_patch
   TYPE(t_hydro_ocean_state), TARGET             :: p_os
@@ -135,7 +136,8 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
   TYPE(t_sfc_flx), INTENT(INOUT)                :: p_sfc_flx
   TYPE (t_ho_params)                            :: p_phys_param
   INTEGER                                       :: timestep
-  TYPE(t_int_state),TARGET,INTENT(IN), OPTIONAL :: p_int
+  TYPE(t_int_state),TARGET,INTENT(IN)           :: p_int  
+  TYPE(t_operator_coeff)                        :: ptr_coeff
   !
   !Local variables
   !
@@ -179,7 +181,7 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
 
     Call set_lateral_boundary_values(p_patch, p_os%p_prog(nold(1))%vn)
 
-    CALL calc_scalar_product_for_veloc( p_patch,                &
+    CALL calc_scalar_product_veloc( p_patch,                &
       & p_os%p_prog(nold(1))%vn,&
       & p_os%p_prog(nold(1))%vn,&
       & p_os%p_diag%h_e,        &
@@ -200,7 +202,7 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
 
 !   Call set_lateral_boundary_values(p_patch, p_os%p_prog(nold(1))%vn)
 
-!   CALL calc_scalar_product_for_veloc( p_patch,                &
+!   CALL calc_scalar_product_veloc( p_patch,                &
 !     & p_os%p_prog(nold(1))%vn,&
 !     & p_os%p_prog(nold(1))%vn,&
 !     & p_os%p_diag%h_e,        &
@@ -250,11 +252,9 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
   CALL bot_bound_cond_horz_veloc(p_patch, p_os, p_phys_param)
 
   ! Calculate explicit terms of Adams-Bashforth timestepping
-  !CALL message (TRIM(routine), 'call calculate_explicit_term_ab')        
-
   IF (ltimer) CALL timer_start(timer_ab_expl)
   CALL calculate_explicit_term_ab(p_patch, p_os, p_phys_param, p_int,&
-    &                             is_initial_timestep(timestep))
+    &                             is_initial_timestep(timestep), ptr_coeff)
   IF (ltimer) CALL timer_stop(timer_ab_expl)
 
   IF(.NOT.l_RIGID_LID)THEN
@@ -343,13 +343,14 @@ END SUBROUTINE solve_free_sfc_ab_mimetic
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2010).
 !! 
-SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param, p_int, l_initial_timestep)
+SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param, p_int, l_initial_timestep, ptr_coeff)
 
   TYPE(t_patch), TARGET, INTENT(in)             :: p_patch
   TYPE(t_hydro_ocean_state), TARGET             :: p_os
   TYPE (t_ho_params)                            :: p_phys_param
   TYPE(t_int_state),TARGET,INTENT(IN), OPTIONAL :: p_int
   LOGICAL,INTENT(IN)                            :: l_initial_timestep
+  TYPE(t_operator_coeff)                        :: ptr_coeff
   !
   !local variables
   !
@@ -510,15 +511,15 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param, p_int, l_ini
                            & p_os%p_diag%vort,       &
                            & p_patch,                &
                            & p_phys_param%K_veloc_h, &
+                           & p_os%p_diag%p_vn_dual,  &
                            & p_os%p_diag%laplacian_horz)
 
-!       CALL nabla4_vec_ocean( p_os%p_prog(nold(1))%vn,&
-!                            & z_vt,                   &
-!                            & p_os%p_diag%vort,       &
-!                            & p_os%p_diag%p_vn_dual,  &
-!                            & p_patch,                &
-!                            & p_phys_param%K_veloc_h, &
-!                            & p_os%p_diag%laplacian_horz)
+
+!       CALL nabla2_vec_ocean_3D( p_os%p_prog(nold(1))%vn, z_vt, p_os%p_diag%vort,&
+!                               & p_patch, p_phys_param%K_veloc_h, &
+!                               & ptr_coeff,&
+!                               & p_os%p_diag%p_vn_dual, p_os%p_diag%laplacian_horz)
+
 
   ipl_src=4  ! output print level (1-5, fix)
   DO jk=1, n_zlev
@@ -636,6 +637,10 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param, p_int, l_ini
             &                rl_start, rl_end)
           DO jk = 1, n_zlev
             DO je = i_startidx, i_endidx
+!IF(p_os%p_diag%laplacian_horz(je,jk,jb)/=0.0_wp)THEN
+!write(123456,*)'nabla2:',jk,je,jb,p_os%p_diag%laplacian_horz(je,jk,jb), z_e(je,jk,jb)
+!ENDIF
+
 
               IF(v_base%dolic_e(je,jb)>=MIN_DOLIC)THEN
               !IF(v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
@@ -1387,11 +1392,11 @@ END DO
     Call set_lateral_boundary_values(p_patch, &
                                     &p_os%p_prog(nnew(1))%vn)
 
-    CALL calc_scalar_product_for_veloc( p_patch,                &
-                                      & p_os%p_prog(nnew(1))%vn,&
-                                      & p_os%p_prog(nnew(1))%vn,&
-                                      & p_os%p_diag%h_e,        &
-                                      & p_os%p_diag)
+     CALL calc_scalar_product_veloc( p_patch,                &
+                                       & p_os%p_prog(nnew(1))%vn,&
+                                       & p_os%p_prog(nnew(1))%vn,&
+                                       & p_os%p_diag%h_e,        &
+                                       & p_os%p_diag)
   ENDIF
 
 !CALL message (TRIM(routine), 'end')

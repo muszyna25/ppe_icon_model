@@ -76,8 +76,9 @@ USE mo_oce_state,              ONLY: t_hydro_ocean_state, t_hydro_ocean_base, &
   &                                  construct_hydro_ocean_state, destruct_hydro_ocean_state, &
   &                                  init_coriolis_oce, init_oce_config, &
   &                                  set_lateral_boundary_values
-USE mo_oce_math_operators,     ONLY: height_related_quantities
-USE mo_scalar_product,         ONLY: calc_scalar_product_for_veloc
+USE mo_oce_math_operators!,     ONLY: height_related_quantities
+USE mo_operator_scalarprod_coeff_3D
+USE mo_scalar_product,         ONLY: calc_scalar_product_veloc, calc_scalar_product_veloc_3D
 USE mo_oce_tracer,             ONLY: advect_tracer_ab
 USE mo_io_restart,             ONLY: write_restart_info_file
 USE mo_intp_data_strc,         ONLY: t_int_state
@@ -138,7 +139,7 @@ CONTAINS
                                 & p_as, p_atm_f, p_ice,                         &
                                 & l_have_output)
 
-  TYPE(t_patch),             TARGET, INTENT(IN)    :: ppatch(n_dom)
+  TYPE(t_patch),             TARGET, INTENT(INout)    :: ppatch(n_dom)
   TYPE(t_hydro_ocean_state), TARGET, INTENT(INOUT) :: pstate_oce(n_dom)
   TYPE(t_external_data), TARGET, INTENT(IN)        :: p_ext_data(n_dom)
   TYPE(t_datetime), INTENT(INOUT)                  :: datetime
@@ -160,7 +161,7 @@ CONTAINS
   LOGICAL :: l_outputtime
   CHARACTER(len=32) :: datestring
   TYPE(t_oce_timeseries), POINTER :: oce_ts
-
+  TYPE(t_operator_coeff)  :: ptr_coeff
   ! TRUE=staggering between thermodynamic and dynamic part, offset of half timestep
   ! between dynamic and thermodynamic variables thermodynamic and dnamic variables are colocated in time
   LOGICAL, PARAMETER :: l_STAGGERED_TIMESTEP = .FALSE. 
@@ -179,12 +180,18 @@ CONTAINS
   END IF
   jg = n_dom
 
-  CALL init_ho_recon_fields( ppatch(jg), pstate_oce(jg))
+  CALL allocate_exp_coeff( ppatch(jg), ptr_coeff)
+  CALL init_operator_coeff( ppatch(jg), ptr_coeff)
+  CALL apply_boundary2coeffs(ppatch(jg), ptr_coeff)
+
+  CALL init_ho_recon_fields( ppatch(jg), pstate_oce(jg), ptr_coeff)
 
   IF (idiag_oce == 1) &
     & CALL construct_oce_diagnostics( ppatch(jg), pstate_oce(jg), p_ext_data(jg), oce_ts)
 
   IF (ltimer) CALL timer_start(timer_total)
+
+
 
   !------------------------------------------------------------------
   ! call the dynamical core: start the time loop
@@ -204,13 +211,6 @@ CONTAINS
       CALL update_sfcflx(ppatch(jg), pstate_oce(jg), p_as, p_ice, p_atm_f, p_sfc_flx, &
         &                jstep, datetime)
 
-!      write(*,*) minval(p_ice%hi), maxval(p_ice%hi)
-!
-!      write(*,*) minval(pstate_oce(jg)%p_prog(nold(1))%tracer(:,1,:,1), &
-!                  mask=pstate_oce(jg)%p_prog(nold(1))%tracer(:,1,:,1) /= 0._wp), &
-!               maxval(pstate_oce(jg)%p_prog(nold(1))%tracer(:,1,:,1), &
-!                  mask=pstate_oce(jg)%p_prog(nold(1))%tracer(:,1,:,1) /= 0._wp)
-
 !     IF(iswm_oce /= 1)THEN  #slo# 2012-02-21 - called for SW-Mode as well
 
         ! ATTENTION - in namelist - TBD
@@ -226,7 +226,7 @@ CONTAINS
    
           Call set_lateral_boundary_values(ppatch(jg), pstate_oce(jg)%p_prog(nold(1))%vn)
    
-          CALL calc_scalar_product_for_veloc( ppatch(jg), &
+          CALL calc_scalar_product_veloc( ppatch(jg), &
             & pstate_oce(jg)%p_prog(nold(1))%vn,&
             & pstate_oce(jg)%p_prog(nold(1))%vn,&
             & pstate_oce(jg)%p_diag%h_e,        &
@@ -252,7 +252,7 @@ CONTAINS
       ! solve for new free surface
       IF (ltimer) CALL timer_start(timer_solve_ab)
       CALL solve_free_surface_eq_ab (ppatch(jg), pstate_oce(jg), p_ext_data(jg), &
-        &                            p_sfc_flx, p_phys_param, jstep, p_int(jg))
+        &                            p_sfc_flx, p_phys_param, jstep, ptr_coeff, p_int(jg))
       IF (ltimer) CALL timer_stop(timer_solve_ab)
 
       ! Step 4: calculate final normal velocity from predicted horizontal velocity vn_pred
