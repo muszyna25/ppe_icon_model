@@ -1391,6 +1391,8 @@ CONTAINS
 
 !$OMP END PARALLEL
 
+      IF (ltimer) CALL timer_stop(timer_physic_acc_2)
+
       ! dpsdt diagnostic - omitted in the case of a parallization test (p_test_run) because this
       ! is a purely diagnostic quantitiy, for which it does not make sense to implement an order-invariant
       ! summation
@@ -1448,7 +1450,7 @@ CONTAINS
 
     IF (lcall_phy_jg(itturb)) CALL sync_patch_array(SYNC_E, pt_patch, pt_prog%vn)
 
-    IF (ltimer) CALL timer_stop(timer_physic_acc_2)
+    IF (ltimer) CALL timer_stop(timer_physic_acc)
 
 
     IF (jstep > 1 .OR. (jstep == 1 .AND. lcall_phy_jg(itupdate))) THEN
