@@ -338,6 +338,8 @@ check_error $? "${MODEL} does not exist?"
 # start experiment
 #
 cd ${EXPDIR}
+
+rm -f finish_status
 #
 #if [ x$target = "xblizzard" ] ; then
 #  run_model
@@ -355,11 +357,26 @@ fi
 #
 #-----------------------------------------------------------------------------
 #
+finish_status=`cat finish.status`
+echo $finish_status
 echo "============================"
-echo "Script run successfully"
+echo "Script run successfully: $finish_status"
 echo "============================"
+#-----------------------------------------------------------------------------
+
 #-----------------------------------------------------------------------------
 namelist_list=""
 cd $RUNSCRIPTDIR
+#-----------------------------------------------------------------------------
+if [ $finish_status = "RESTART" ] ; then
+  echo "restart next experiment..."
+  this_script=$0
+  mv $this_script $this_script.tmp
+  echo  "restart=.true." > $this_script
+  cat $this_script.tmp >> $this_script
+  chmod +x $this_script
+  $submit $this_script    
+fi
+
 # exit 0
 #-----------------------------------------------------------------------------
