@@ -370,7 +370,7 @@ cd $RUNSCRIPTDIR
 #-----------------------------------------------------------------------------
 if [ $finish_status = "RESTART" ] ; then
   echo "restart next experiment..."
-  this_script=$jjob_name
+  this_script=$job_name
   mv $this_script $this_script.tmp
   echo  "restart=.true." > $this_script
   cat $this_script.tmp >> $this_script
