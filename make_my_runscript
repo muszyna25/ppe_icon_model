@@ -37,6 +37,7 @@
 # For more details see the parameters in the ./config/make_target_runscript
 #==============================================================================
 set -x
+base_folder=$(pwd)
 . $base_folder/config/set-up.info
 #==============================================================================
 # Define run parameters
