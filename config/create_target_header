@@ -96,7 +96,7 @@ target="$use_target"
 compiler="$use_compiler"
 loadmodule="$use_load_modules"
 job_name="$job_name"
-submit="$submit"
+submit="$use_submit"
 # ----------------------------
 # restart specifics
 # ----------------------------
