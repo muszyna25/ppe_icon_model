@@ -483,8 +483,8 @@ CONTAINS
     CALL print_mxmn('Ext data3 (t) mon2',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
 
     IF (i_sea_ice == 1) THEN
-      IF (iforc_omip == 2) &
-        CALL calc_atm_fluxes_from_bulk (p_patch, p_as, p_os, p_ice, Qatm)
+      IF (iforc_omip == 2 .OR. iforc_omip == 5) &
+        & CALL calc_atm_fluxes_from_bulk (p_patch, p_as, p_os, p_ice, Qatm)
 
       ! This is a stripped down version of ice_fast for ice-ocean model only
       CALL set_ice_albedo(p_patch,p_ice)
