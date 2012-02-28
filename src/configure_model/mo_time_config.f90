@@ -48,7 +48,7 @@ MODULE mo_time_config
  
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: t_time_config, time_config
+  PUBLIC :: t_time_config, time_config, restart_experiment
 
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
@@ -75,6 +75,8 @@ MODULE mo_time_config
   !!
   TYPE(t_time_config) :: time_config
 
+  LOGICAL :: restart_experiment ! if true, we have to restart the experiment
+  
 !CONTAINS
 !
 !  SUBROUTINE configure_time

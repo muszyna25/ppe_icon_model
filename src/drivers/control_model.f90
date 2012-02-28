@@ -59,6 +59,8 @@ PROGRAM control_model
   USE mo_master_control,      ONLY: init_master_control,  &
     & get_my_namelist_filename, get_my_process_type,      &
     & testbed_process,  atmo_process, ocean_process, radiation_process
+  
+  USE mo_time_config,        ONLY: restart_experiment
 
 #ifdef __INTEL_COMPILER
   USE, INTRINSIC :: ieee_arithmetic
@@ -140,7 +142,11 @@ PROGRAM control_model
   ! write the control.status file
   IF (my_process_is_stdio()) THEN
     OPEN (500, FILE="finish.status")
-    WRITE(500,*) "OK"
+    IF (restart_experiment) THEN
+      WRITE(500,*) "RESTART"
+    ELSE
+      WRITE(500,*) "OK"
+    ENDIF
     CLOSE(500)    
   END IF
 

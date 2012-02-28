@@ -55,7 +55,7 @@ MODULE mo_nml_crosscheck
     &                              NO_HADV, UP, MIURA, MIURA3, UP3, MCYCL,    &
     &                              MIURA_MCYCL, MIURA3_MCYCL, ifluxl_sm,      &
     &                              islopel_m, islopel_sm, ifluxl_m, ihs_ocean  
-  USE mo_time_config,        ONLY: time_config
+  USE mo_time_config,        ONLY: time_config, restart_experiment
   USE mo_extpar_config,      ONLY: itopo
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d,       &
     &                              inextra_3d, lwrite_cloud, lwrite_extra,    &
@@ -191,7 +191,13 @@ CONTAINS
  
     ! Length of this integration is limited by length of the restart cycle.
     !
-    nsteps = MIN(nsteps,INT(time_config%dt_restart/dtime))
+    IF (nsteps > INT(time_config%dt_restart/dtime)) THEN
+      nsteps = INT(time_config%dt_restart/dtime)
+      restart_experiment = .TRUE.
+    ELSE
+      restart_experiment = .FALSE.
+    ENDIF    
+!     nsteps = MIN(nsteps,INT(time_config%dt_restart/dtime))
 
 
     CALL message(' ',' ')
