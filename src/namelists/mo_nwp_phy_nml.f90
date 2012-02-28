@@ -204,8 +204,8 @@ CONTAINS
     
     ! check for valid parameters in namelists
     
-    IF (inwp_gscp /= 1 .AND. inwp_gscp /= 2 .AND. inwp_gscp /= 3 .AND. &
-      & inwp_gscp /= 4 .AND. inwp_gscp /= 9 ) THEN
+    IF (inwp_gscp /= 0 .AND. inwp_gscp /= 1 .AND. inwp_gscp /= 2 .AND. &
+      & inwp_gscp /= 3 .AND. inwp_gscp /= 4 .AND. inwp_gscp /= 9 ) THEN
        
        CALL finish( TRIM(routine), 'Incorrect setting for inwp_gscp. Must be 1,2,3,4 or 9.')
 

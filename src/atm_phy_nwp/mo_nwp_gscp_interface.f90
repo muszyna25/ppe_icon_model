@@ -143,6 +143,10 @@ CONTAINS
 
         SELECT CASE (atm_phy_nwp_config(jg)%inwp_gscp)
 
+        CASE(0)  ! no micro physics scheme
+          
+          WRITE(0,*) "Hallo Carmi!"
+          
         CASE(1)  ! COSMO-EU scheme (2-cat ice: cloud ice, snow)
 
           CALL hydci_pp (                                           &

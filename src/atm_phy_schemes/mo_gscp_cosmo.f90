@@ -37,6 +37,7 @@
 !!
 !! @par Revision History
 !! implemented into ICOHAM by Kristina Froehlich and Axel Seifert (2010-06-10)
+!! @par Revision History
 !! warm-rain scheme (kessler_pp) implemented by Felix Rieper (2011-12-23)
 !!
 !! @par Copyright
@@ -355,6 +356,8 @@ SUBROUTINE hydci_pp_init(idbg)
 !!   Calculates some coefficients for hydci_pp. Usually called only once at
 !!   model startup.
 !------------------------------------------------------------------------------
+
+ 
 
   INTEGER, INTENT(IN), OPTIONAL::  &
     idbg              !! debug level
@@ -1582,7 +1585,7 @@ SUBROUTINE kessler_pp(               &
   ie,ke,                             & ! array dimensions
   istart,iend,kstart,                & ! optional start/end indicies
   idbg,                              & ! optional debug level
-  l_cv,                              &
+  l_cv,                              & ! switch for cv, cp 
   dz,zdt,                            & ! numerics parameters
   t,p,rho,qv,qc,qr,                  & ! prognostic variables
 #ifdef __ICON__
@@ -1674,7 +1677,8 @@ SUBROUTINE kessler_pp(               &
 
   REAL    (KIND=ireals   ), PARAMETER ::  &
     ! basic constants of the parameterization scheme
-    zaau   = 1.0_ireals/1000.0_ireals,         & ! coef. for autoconversion
+
+    zaau   = 1.0_ireals/1000.0_ireals,         & ! coef. for autoconversion  
     zaac   = 1.72_ireals,                      & ! coef. for accretion (neu)
 !    zbev   = 9.1_ireals,                      & ! coef. for drop ventilation,
     !                                              already module var
@@ -1777,8 +1781,7 @@ SUBROUTINE kessler_pp(               &
 
     
   ! Debugging / auxiliary variables
-  REAL  (KIND=ireals   ) :: &
-       & aux
+  INTEGER, PARAMETER ::  iautocon1 = 0     ! 0 -> Kessler 1969, 1-> Seifert, Beheng 2001
   
 
 
@@ -2018,7 +2021,7 @@ fsa3(ztx) = 3.86E-3_ireals - 9.41E-5_ireals*(ztx-t0)
         
 ! Coefficients
         
-        IF (iautocon == 0) THEN
+        IF (iautocon1 == 0) THEN
 ! Kessler (1969) autoconversion rate 
           zc1c  = zaac *  EXP(lnzqrk(i)*z7d8)
           zc1   = zaau + zc1c
@@ -2049,6 +2052,10 @@ fsa3(ztx) = 3.86E-3_ireals - 9.41E-5_ireals*(ztx-t0)
         ! Store tendencies
         zqcts  = - zswra(i) - zswrk(i)
         zqrts  =   zswra(i) + zswrk(i)
+
+!>FR: test Kessler scheme with losing water load
+!        zqrts = 0.0_ireals
+!<FR
  
         ! Update values
 

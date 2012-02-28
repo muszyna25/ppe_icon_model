@@ -290,8 +290,12 @@ MODULE mo_nh_wk_exp
     DO jk = k_tropo+2, nlev
 
       ! 1st step: preliminary estimate
+!>FR
       qv_extrap   = MIN(qv_max_wk,qv(jk-1)+(qv(jk-2)-qv(jk-1))/          &
-                   (z_full(jk-2)-z_full(jk-1))*(z_full(jk)-z_full(jk-1)) )
+      (z_full(jk-2)-z_full(jk-1))*(z_full(jk)-z_full(jk-1)) )
+!      qv_extrap   = qv(jk-1)+(qv(jk-2)-qv(jk-1))/          &
+!        (z_full(jk-2)-z_full(jk-1))*(z_full(jk)-z_full(jk-1)) 
+!<FR
       theta_v_aux = theta(jk)*(1._wp+vtmpc1*qv_extrap)
       exner_aux   = exner(jk-1)-grav_o_cpd*(z_full(jk)-z_full(jk-1))/ &
                    (theta_v_aux-theta_v(jk-1))*LOG(theta_v_aux/theta_v(jk-1))
@@ -302,7 +306,10 @@ MODULE mo_nh_wk_exp
         e_aux     = rh(jk)*sat_pres_ice(temp_aux)
       ENDIF
       pres_aux    = p0ref*(exner_aux**cpd_o_rd)
+!>FR
       qv_aux      = MIN(qv_max_wk,spec_humi(e_aux,pres_aux))
+!      qv_aux      = spec_humi(e_aux,pres_aux)
+!<FR
       theta_v_aux = theta(jk)*(1._wp+vtmpc1*qv_aux) 
 
       ! 2nd step: final computation  
@@ -315,8 +322,12 @@ MODULE mo_nh_wk_exp
         e_aux     = rh(jk)*sat_pres_ice(temp(jk))
       ENDIF
       pres(jk)    = p0ref*(exner(jk)**cpd_o_rd)
+!>FR
       qv(jk)      = MIN(qv_max_wk,spec_humi(e_aux,pres(jk)))
+!      qv(jk)      = spec_humi(e_aux,pres(jk))
+!<FR
       theta_v(jk) = theta(jk)*(1._wp+vtmpc1*qv(jk)) 
+
 
     ENDDO
 
@@ -355,7 +366,6 @@ MODULE mo_nh_wk_exp
           ptr_nh_prog%theta_v(jc,jk,jb)    = theta_v(jk)
           ptr_nh_prog%exner(jc,jk,jb)      = exner(jk)
           ptr_nh_prog%tracer(jc,jk,jb,iqv) = qv(jk)
-
           ptr_nh_prog%rho(jc,jk,jb)  = ptr_nh_prog%exner(jc,jk,jb)**cvd_o_rd*p0ref &
                                        /rd/ptr_nh_prog%theta_v(jc,jk,jb)
           ptr_nh_prog%rhotheta_v(jc,jk,jb) = ptr_nh_prog%rho(jc,jk,jb) *          &
