@@ -110,9 +110,7 @@ MODULE mo_nh_diagnose_pres_temp
       l_opt_calc_temp_ifc = .FALSE.
     ENDIF
 
-    IF (l_opt_calc_temp_ifc) THEN   ! For temp at interfaces we need temp at main levels!
-       l_opt_calc_temp = .TRUE.     !
-    ELSEIF ( PRESENT(opt_calc_temp ) ) THEN
+    IF ( PRESENT(opt_calc_temp ) ) THEN
       l_opt_calc_temp = opt_calc_temp
     ELSE
       l_opt_calc_temp = .TRUE.

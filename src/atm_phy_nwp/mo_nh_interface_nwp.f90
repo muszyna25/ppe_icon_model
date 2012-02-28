@@ -175,15 +175,14 @@ CONTAINS
     INTEGER :: jc,jk,jb,jce      !block index
     INTEGER :: jg                !domain id
 
+    LOGICAL :: ltemp, lpres, ltemp_ifc, l_any_fastphys, l_any_slowphys
+
     INTEGER,  POINTER ::  iidx(:,:,:), iblk(:,:,:), ieidx(:,:,:), ieblk(:,:,:)
 
     REAL(wp):: &                                              !> temporal arrays for 
       & z_ddt_u_tot (nproma,pt_patch%nlev,pt_patch%nblks_c),& 
       & z_ddt_v_tot (nproma,pt_patch%nlev,pt_patch%nblks_c),& !< hor. wind tendencies
       & z_ddt_temp  (nproma,pt_patch%nlev,pt_patch%nblks_c)   !< Temperature tendency
-
-    REAL(wp) :: &                                             !> virtual temperature
-      &  z_aux_tempv(nproma,pt_patch%nlev  ,pt_patch%nblks_c)
  
     REAL(wp) :: z_exner_sv(nproma,pt_patch%nlev,pt_patch%nblks_c)
 
@@ -239,12 +238,24 @@ CONTAINS
     ! factor for sound speed computation
     csfac = rd*cpd*rcvd
 
+    IF (lcall_phy_jg(itsatad) .OR. lcall_phy_jg(itgscp) .OR. &
+        lcall_phy_jg(itturb)  .OR. lcall_phy_jg(itsfc)) THEN
+      l_any_fastphys = .TRUE.
+    ELSE
+      l_any_fastphys = .FALSE.
+    ENDIF
+
+    IF (lcall_phy_jg(itrad) .OR.  lcall_phy_jg(itconv) .OR. lcall_phy_jg(itccov)  &
+       .OR. lcall_phy_jg(itsso) .OR. lcall_phy_jg(itgwd)) THEN
+      l_any_slowphys = .TRUE.
+    ELSE
+      l_any_slowphys = .FALSE.
+    ENDIF
+
     !-------------------------------------------------------------------------
     !>  Update the tracer for every advective timestep,
     !!  all other updates are done in dynamics
     !-------------------------------------------------------------------------
-
-    ! KF synchronize the update with satad
 
     IF (lcall_phy_jg(itupdate)) THEN
 
@@ -295,27 +306,18 @@ CONTAINS
 
     ENDIF ! diagnose u/v
 
-    !!-------------------------------------------------------------------------
-    !> Initial saturation adjustment (a second one follows at the end of the microphysics)
-    !!-------------------------------------------------------------------------
+    IF (l_any_fastphys) THEN
 
-    IF (lcall_phy_jg(itsatad)) THEN
-
-      IF (msg_level >= 15) &
-           & CALL message('mo_nh_interface_nwp:', 'satad')
+      ! Diagnose temperature if any of the fast physics schemes is called
 
       IF (timers_level > 2) CALL timer_start(timer_diagnose_pres_temp)
 
-!!GZ: Why do we need to diagnose pressure here? It is not used in satad.
-!!    NOTE: when the rediagnosis of temperature before the turbulence scheme is dropped,
-!!    temperature needs to be diagnosed here for all model levels (i.e. remove opt_slev)
-      
       CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf,    &
            &                              pt_diag, pt_patch,       &
            &                              opt_calc_temp=.TRUE.,    &
-           &                              opt_calc_pres=.TRUE.,    &
-           &                              opt_rlend=min_rlcell_int,&
-           &                              opt_slev=kstart_moist(jg))
+           &                              opt_calc_tempv=.TRUE.,   &
+           &                              opt_calc_pres=.FALSE.,   &
+           &                              opt_rlend=min_rlcell_int )
 
       IF (timers_level > 2) CALL timer_stop(timer_diagnose_pres_temp)
 
@@ -386,12 +388,21 @@ CONTAINS
         CALL message('', TRIM(message_text))
         DO jk = 1, nlev
           WRITE(message_text,'(a,i3,7(a,e12.5))') 'level ',jk,': u =',umax(jk),', v =',vmax(jk), &
-            ', t =', tmin(jk),' ', tmax(jk),', qv =', qvmin(jk),' ', qvmax(jk),', qc =', qcmax(jk)  
+            ', t =', tmin(jk),' ', tmax(jk),', qv =', qvmin(jk),' ', qvmax(jk),', qc =', qcmax(jk)
           CALL message('', TRIM(message_text))
         ENDDO
 
       ENDIF ! debug output for msg_level >= 20
 
+    ENDIF ! fast physics activated
+
+    !!-------------------------------------------------------------------------
+    !> Initial saturation adjustment (a second one follows at the end of the microphysics)
+    !!-------------------------------------------------------------------------
+
+    IF (lcall_phy_jg(itsatad)) THEN
+
+      IF (msg_level >= 15) CALL message('mo_nh_interface_nwp:', 'satad')
 
       ! exclude boundary interpolation zone of nested domains
       rl_start = grf_bdywidth_c+1
@@ -440,10 +451,6 @@ CONTAINS
 
         IF (timers_level > 2) CALL timer_start(timer_phys_exner)
 
-!!GZ: A full rediagnosis of the thermodynamic state variables is unnecessary at this point
-!!    It should be sufficient to recalculate tempv and maybe the Exner function ---
-!!    Check with Matthias if the turbulence scheme needs the hydrostatic or the nonhydrostatic pressure!
-
         DO jk = kstart_moist(jg), nlev
           DO jc = i_startidx, i_endidx
 
@@ -455,18 +462,12 @@ CONTAINS
               &     + pt_prog_rcf%tracer (jc,jk,jb,iqr) &
               &     + pt_prog_rcf%tracer (jc,jk,jb,iqs)
             
-            z_aux_tempv(jc,jk,jb) =  pt_diag%temp(jc,jk,jb)                    &
+            pt_diag%tempv(jc,jk,jb) =  pt_diag%temp(jc,jk,jb)                  &
               &                   * ( 1._wp +  vtmpc1                          &
               &                   * pt_prog_rcf%tracer(jc,jk,jb,iqv)  - z_qsum )
 
-            pt_prog%exner(jc,jk,jb) = EXP(rd_o_cpd*LOG(rd_o_p0ref                 &
-              &                     * pt_prog%rho(jc,jk,jb)*z_aux_tempv(jc,jk,jb)))
-
-            pt_prog%theta_v(jc,jk,jb) = z_aux_tempv  (jc,jk,jb) &
-              &                       / pt_prog%exner(jc,jk,jb)
-
-            pt_prog%rhotheta_v(jc,jk,jb) = pt_prog%theta_v(jc,jk,jb) &
-              &                          * pt_prog%rho    (jc,jk,jb)
+            pt_prog%exner(jc,jk,jb) = EXP(rd_o_cpd*LOG(rd_o_p0ref                   &
+              &                     * pt_prog%rho(jc,jk,jb)*pt_diag%tempv(jc,jk,jb)))
 
           ENDDO
         ENDDO
@@ -488,44 +489,34 @@ CONTAINS
     !!-------------------------------------------------------------------------
     !>  turbulent transfer and diffusion  and microphysics
     !!
-    !!  Because we consider  the followings physical processes as fast ones
-    !!  we allow her the update of prognostic variables inside the subroutines
+    !!  Because we consider the following physical processes as fast ones
+    !!  we allow here the update of prognostic variables inside the subroutines
     !!  This means that the conversion back to the ICON-prognostic variables
     !!  has to be done atferwards
     !!-------------------------------------------------------------------------
 
-    IF (lcall_phy_jg(itgscp) .OR. lcall_phy_jg(itturb)) THEN
+    IF (lcall_phy_jg(itgscp) .OR. lcall_phy_jg(itturb) .OR. lcall_phy_jg(itsfc)) THEN
 
       IF (msg_level >= 15) &
-        & CALL message('mo_nh_interface_nwp:', 'diagnose pres/temp for fast physics')
+        & CALL message('mo_nh_interface_nwp:', 'diagnose pressure for fast physics')
 
       !-------------------------------------------------------------------------
-      !> diagnose
-      !!    - pressure on main and intermediate levels    =>  opt_calc_pres=.TRUE.
-      !!    - temperature on main and intermediate levels =>  opt_calc_temp=.TRUE.
-      !!    - virtual temperature on main levels          =>  opt_calc_tempv=.TRUE.
-      !!    out of prognostic variables
-      !!
+      !> temperature and virtual temperature are already up to date:
+      !! thus diagnose only pressure on main and interface levels  
+      !! =>  opt_calc_pres_nh=.TRUE.
       !-------------------------------------------------------------------------
-
-!!GZ: Temperature and virtual temperature have just been calculated!
-!!    It should be sufficient to diagnose pressure here
 
       IF (timers_level > 2) CALL timer_start(timer_diagnose_pres_temp)
+
       CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf, &
-        & pt_diag, pt_patch,       &
-        & opt_calc_temp =.TRUE.,   &
-        & opt_calc_pres =.TRUE.,   &
-        & opt_calc_tempv=.TRUE.,   &
-        & opt_rlend=min_rlcell_int )
+        & pt_diag, pt_patch,      &
+        & opt_calc_temp =.FALSE., &
+        & opt_calc_pres =.TRUE.,  &
+        & opt_rlend=min_rlcell_int)
+
       IF (timers_level > 2) CALL timer_stop(timer_diagnose_pres_temp)
     
     ENDIF 
-
-!!GZ: Strictly spoken, the pressure and Exner fields passed to the turbulence scheme
-!!    are not consistent with each other because pres is the hydrostatically integrated
-!!    pressure whereas exner is the (nonhydrostatic) prognostic model variable
-!!    See comment above --- check with Matthias "which" pressure is needed in the turbulence scheme
 
     IF (  lcall_phy_jg(itturb)) THEN
 
@@ -549,46 +540,45 @@ CONTAINS
       IF (msg_level >= 15) &
         & CALL message('mo_nh_interface_nwp:', 'microphysics')
 
-      !> temperature and tracers have been update by turbulence therefore
-      !! no update from prognostic variables is needed. virtual temperature
-      !! no INPUT in microphysics
-
-!!GZ: Recalculation of pressure for microphysics can be restricted to the part of the
-!!    model domain for which moist physics is computed (i.e. opt_slev=kstart_moist(jg)).
-!!    It does not matter if the hydrostatic or the nonhydrostatic pressure is passed to microphysics.
-!!    Most likely, it would not even matter if the pressure is not recalculated at all,
-!!    as its usage is restricted to a single microphysical process.
-
-      IF (timers_level > 2) CALL timer_start(timer_diagnose_pres_temp)
-      CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf, &
-                            &  pt_diag, pt_patch,               &
-                            &  opt_calc_temp =.FALSE.,          &
-                            &  opt_calc_pres =.TRUE.,           &
-                            &  opt_calc_tempv=.FALSE.,          &
-                            &  opt_rlend=min_rlcell_int         )
-      IF (timers_level > 2) CALL timer_stop(timer_diagnose_pres_temp)
+      !> temperature and tracers have been updated by turbulence;
+      !! an update of the pressure field is not needed because pressure
+      !! is not needed at high accuracy in the microphysics scheme
 
       IF (timers_level > 1) CALL timer_start(timer_nwp_microphysics)
+
       CALL nwp_microphysics ( dt_phy_jg(itfastphy),             & !>input
                             & pt_patch, p_metrics,              & !>input
                             & pt_prog,                          & !>inout
                             & pt_prog_rcf,                      & !>inout
                             & pt_diag ,                         & !>inout
-                            & prm_diag                          ) !>inout 
+                            & prm_diag                          ) !>inout
+
       IF (timers_level > 1) CALL timer_stop(timer_nwp_microphysics)
 
     ENDIF
 
+    IF (lcall_phy_jg(itsfc)) THEN
 
-    ! Synchronize tracers if any of the updating processes was active
-    IF (timers_level > 1) CALL timer_start(timer_phys_sync_patch)
-    CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer, f4din=pt_prog_rcf%tracer, &
-                               lpart4d=.TRUE.)
-    IF (timers_level > 1) CALL timer_stop(timer_phys_sync_patch)
+      !> temperature and tracers have been updated by microphysics;
+      !! as pressure is needed only for an approximate adiabatic extrapolation
+      !! of the temperature at the lowest model level towards ground level,
+      !! a recalculation is not required
+
+      CALL nwp_surface    (  dt_phy_jg(itfastphy),              & !>input
+                            & dtadv_loc,                        & !>input
+                            & pt_patch,                         & !>input
+                            & ext_data,                         & !>input
+                            & pt_prog_rcf,                      & !>in/inout rcf=reduced calling freq.
+                            & pt_diag ,                         & !>inout
+                            & prm_diag,                         & !>inout 
+                            & lnd_prog_now, lnd_prog_new,       & !>inout
+                            & lnd_diag,                         & !>inout
+                            & pt_tiles                          ) !>input
+
+    ENDIF
 
 
-    IF (lcall_phy_jg(itsatad) .OR. lcall_phy_jg(itgscp) .OR. &
-      & lcall_phy_jg(itturb)) THEN
+    IF (lcall_phy_jg(itsatad) .OR. lcall_phy_jg(itgscp) .OR. lcall_phy_jg(itturb)) THEN
       
       IF (timers_level > 1) CALL timer_start(timer_fast_phys)
 
@@ -599,8 +589,6 @@ CONTAINS
 
       IF (msg_level >= 15) &
         & CALL message('mo_nh_interface_nwp:', 'recalculate thermodynamic variables')
-
-      IF (p_test_run) z_aux_tempv(:,:,:) = 0._wp
 
 
       ! exclude boundary interpolation zone of nested domains
@@ -630,18 +618,18 @@ CONTAINS
               &     + pt_prog_rcf%tracer (jc,jk,jb,iqi) &
               &     + pt_prog_rcf%tracer (jc,jk,jb,iqr) &
               &     + pt_prog_rcf%tracer (jc,jk,jb,iqs)
-            z_aux_tempv(jc,jk,jb) =  pt_diag%temp(jc,jk,jb)            &
+            pt_diag%tempv(jc,jk,jb) =  pt_diag%temp(jc,jk,jb)          &
 &                                  * ( 1._wp +  vtmpc1                 &
 &                                  *  pt_prog_rcf%tracer(jc,jk,jb,iqv) &
 &                                   - z_qsum )
 
-            pt_prog%exner(jc,jk,jb) = EXP(rd_o_cpd*LOG(rd_o_p0ref                 &
-              &                     * pt_prog%rho(jc,jk,jb)*z_aux_tempv(jc,jk,jb)))
+            pt_prog%exner(jc,jk,jb) = EXP(rd_o_cpd*LOG(rd_o_p0ref                   &
+              &                     * pt_prog%rho(jc,jk,jb)*pt_diag%tempv(jc,jk,jb)))
 
             pt_diag%exner_old(jc,jk,jb) = pt_diag%exner_old(jc,jk,jb) + &
               pt_prog%exner(jc,jk,jb) - z_exner_sv(jc,jk,jb)
 
-            pt_prog%theta_v(jc,jk,  jb) = z_aux_tempv  (jc,jk,jb) &
+            pt_prog%theta_v(jc,jk,  jb) = pt_diag%tempv(jc,jk,jb) &
 &                                       / pt_prog%exner(jc,jk,jb)
 
             pt_prog%rhotheta_v(jc,jk,jb) = pt_prog%theta_v(jc,jk,jb) &
@@ -650,7 +638,7 @@ CONTAINS
           ENDDO
         ENDDO
 
-        ! This loop needs to split here in order to ensure that the same
+        ! This loop needs to be split here in order to ensure that the same
         ! compiler optimization is applied as in the next loop below, where
         ! the same calculations are made for the halo points.
         DO jk = kstart_moist(jg), nlev
@@ -672,96 +660,6 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
-      ! Synchronize z_aux_tempv, then recompute thermodynamic variables on halo points
-      ! (This is more efficient than synchronizing three variables)
-      CALL sync_patch_array(SYNC_C, pt_patch, z_aux_tempv)
-
-      IF (my_process_is_mpi_all_parallel() ) THEN
-
-        rl_start = min_rlcell_int-1
-        rl_end   = min_rlcell 
-
-        i_startblk = pt_patch%cells%start_blk(rl_start,1)
-        i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx, i_endidx)
-
-        DO jb = i_startblk, i_endblk
-          CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-            & i_startidx, i_endidx, rl_start, rl_end )
-
-          DO jk = 1, nlev
-            DO jc =  i_startidx, i_endidx
-
-              IF (p_metrics%mask_prog_halo_c(jc,jb)) THEN
-                pt_prog%exner(jc,jk,jb) = EXP(rd_o_cpd*LOG(rd_o_p0ref                 &
-                  &                     * pt_prog%rho(jc,jk,jb)*z_aux_tempv(jc,jk,jb)))
-
-                pt_diag%exner_old(jc,jk,jb) = pt_diag%exner_old(jc,jk,jb) + &
-                  pt_prog%exner(jc,jk,jb) - z_exner_sv(jc,jk,jb)
-
-                pt_prog%theta_v(jc,jk,  jb) = z_aux_tempv  (jc,jk,jb) &
-&                                           / pt_prog%exner(jc,jk,jb)
-
-                pt_prog%rhotheta_v(jc,jk,jb) = pt_prog%theta_v(jc,jk,jb) &
-&                                            * pt_prog%rho(jc,jk,jb)
-              ENDIF
-
-            ENDDO
-          ENDDO
-        ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
-
-      ENDIF
-
-
-    IF (lcall_phy_jg(itsfc)) THEN
-
-      IF (msg_level >= 15) &
-        & CALL message('mo_nh_interface_nwp:', 'diagnose pres/temp for land scheme')
-
-!!GZ: Why is the diagnosis needed here???
-!!    Terra needs pressure and temperature at the lowest model level as input;
-!!    temperature is already up to date, virtual temperature is not needed at all,
-!!    and pressure is already available as well and only needed for an adiabatic
-!!    extrapolation of the model level temperature towards the surface
-
-      !-------------------------------------------------------------------------
-      !> diagnose
-      !!    - pressure on main levels    =>  opt_calc_pres=.TRUE.
-      !!    - temperature on main levels =>  opt_calc_temp=.TRUE.
-      !!    - pressure and temperature on interface levels
-      !!
-      !!    out of prognostic variables
-      !!
-      !-------------------------------------------------------------------------
-
-      CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf, &
-        & pt_diag, pt_patch,       &
-        & opt_calc_temp =.TRUE.,   &
-        & opt_calc_pres =.TRUE.,   &
-        & opt_calc_tempv=.TRUE.,   &
-        & opt_rlend=min_rlcell_int )
-
-    ENDIF 
-
-
-    IF (  lcall_phy_jg(itsfc)) THEN
-
-      CALL nwp_surface    (  dt_phy_jg(itfastphy),              & !>input
-                            & dtadv_loc,                        & !>input
-                            & pt_patch,                         & !>input
-                            & ext_data,                         & !>input
-                            & pt_prog_rcf,     & !>in/inout rcf=reduced calling freq.
-                            & pt_diag ,                         & !>inout
-                            & prm_diag,                         & !>inout 
-                            & lnd_prog_now, lnd_prog_new,       & !>inout
-                            & lnd_diag,                         & !>inout
-                            & pt_tiles                          ) !>input
-    ENDIF !lcall(itsfc)
-
     IF (timers_level > 1) CALL timer_stop(timer_fast_phys)
    
    ENDIF ! end of fast physics part
@@ -771,55 +669,46 @@ CONTAINS
     !!-------------------------------------------------------------------------
 
 
-    IF (lcall_phy_jg(itrad) .OR.  lcall_phy_jg(itconv) &
-&     .OR. lcall_phy_jg(itccov) .OR. lcall_phy_jg(itsso) &
-&                                 .OR. lcall_phy_jg(itgwd)) THEN
+    IF (l_any_slowphys) THEN
 
       IF (msg_level >= 15) &
-&           CALL message('mo_nh_interface', 'diagnose pres/temp for slow physics')
+         CALL message('mo_nh_interface', 'diagnose pres/temp for slow physics')
 
-      !-------------------------------------------------------------------------
-      !> diagnose
-      !!    - pressure on main levels   
-      !!    - pressure and temperature on interface levels
-      !!    - pressure thickness   
-      !!    - temperature at interface levels
-      !!                                 =>  opt_calc_pres=.TRUE.
-      !!    - temperature on main levels =>  opt_calc_temp=.TRUE.
-      !!
-      !! out of prognostic variables
-      !!
-      !-------------------------------------------------------------------------
+      ! If slow physics is called without fast physics (which should happen
+      ! at the initial time step only), temperature needs to be calculated
+      ! Otherwise, temperature is up to date
+      IF ( .NOT. (lcall_phy_jg(itgscp) .OR. lcall_phy_jg(itturb))) THEN
+        ltemp = .TRUE.
+      ELSE
+        ltemp = .FALSE.
+      ENDIF
+
+      ! Pressure should always be rediagnosed for slow physics in order to have
+      ! the correct air masses for computing heating rates
+      lpres = .TRUE.
+
+      ! Temperature at interface levels is needed if irad_aero = 5 or 6
+      ! or if Ritter-Geleyn radiation is called
+      IF ( lcall_phy_jg(itrad) .AND. ( irad_aero == 5 .OR. irad_aero == 6 &
+           .OR. atm_phy_nwp_config(jg)%inwp_radiation == 2 ) )         THEN 
+        ltemp_ifc = .TRUE.
+      ELSE
+        ltemp_ifc = .FALSE.
+      ENDIF
 
       IF (timers_level > 2) CALL timer_start(timer_diagnose_pres_temp)
-      IF ( .NOT. (lcall_phy_jg(itgscp) .OR. lcall_phy_jg(itturb))) THEN
 
-        ! If slow physics is called without fast physics (which should happen
-        ! at the initial time step only), temperature and pressure need to be calculated
-        CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf, &
-          &                               pt_diag, pt_patch,      &
-          &                               opt_calc_temp=.TRUE.,   &
-          &                               opt_calc_pres=.TRUE.,   &
-          &                               opt_rlend=min_rlcell_int)
+      CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf,   &
+        &                      pt_diag, pt_patch,                 &
+        &                      opt_calc_temp     = ltemp,         &
+        &                      opt_calc_pres     = lpres,         &
+        &                      lnd_prog          = lnd_prog_new,  &
+        &                      opt_calc_temp_ifc = ltemp_ifc,     &
+        &                      opt_rlend         = min_rlcell_int )
 
-
-      ELSE ! diagnose only pressure because temperature is up to date
-
-!!GZ: The slow-physics parameterizations definitely need the hydrostatically integrated
-!!    pressure. In case that diagnose_pres_temp is changed to provide the nonhydrostatic
-!!    pressure to the turbulence scheme, the (current) hydrostatic computation needs to be retained
-
-        CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf, &
-          &                               pt_diag, pt_patch,      &
-          &                               opt_calc_temp=.FALSE.,  &
-          &                               opt_calc_pres=.TRUE.,   &
-          &                               opt_rlend=min_rlcell_int)
-
-
-      ENDIF
       IF (timers_level > 2) CALL timer_stop(timer_diagnose_pres_temp)
-    ENDIF ! checking slow physics
 
+    ENDIF
 
     IF ( lcall_phy_jg(itconv)  ) THEN
 
@@ -920,45 +809,6 @@ CONTAINS
     !-------------------------------------------------------------------------
 
     IF ( lcall_phy_jg(itrad) ) THEN
-
-      ! To be on the safe side and to avoid confusion during development,
-      ! do the diagnosis of t and p also here.
-      ! May be removed when final state is reached.
-
-!!GZ: I fully agree! In the slow physics part, there should be no more than ONE call to
-!!    diagnose_pres_temp
-
-      IF (timers_level > 2) CALL timer_start(timer_diagnose_pres_temp)
-      IF ( atm_phy_nwp_config(jg)%inwp_radiation == 1 ) THEN
-        IF ( irad_aero == 5 .OR. irad_aero == 6 ) THEN
-          CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf,   &
-            &                               pt_diag, pt_patch,        &
-            &                               opt_calc_temp =.TRUE.,    &
-            &                               opt_calc_tempv=.FALSE.,   &
-            &                               opt_calc_pres =.TRUE.,    &
-            &                               lnd_prog = lnd_prog_new,  &
-            &                               opt_calc_temp_ifc =.TRUE.,&
-            &                               opt_rlend=min_rlcell_int  )
-        ELSE
-          CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf, &
-            &                               pt_diag, pt_patch,      &
-            &                               opt_calc_temp =.TRUE.,  &
-            &                               opt_calc_tempv=.FALSE., &
-            &                               opt_calc_pres =.TRUE.,  &
-            &                               opt_rlend=min_rlcell_int)
-        ENDIF
-      ELSEIF ( atm_phy_nwp_config(jg)%inwp_radiation == 2 ) THEN
-        CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf,   &
-          &                               pt_diag, pt_patch,        &
-          &                               opt_calc_temp =.TRUE.,    &
-          &                               opt_calc_tempv=.FALSE.,   &
-          &                               opt_calc_pres =.TRUE.,    &
-          &                               lnd_prog = lnd_prog_new,  &
-          &                               opt_calc_temp_ifc =.TRUE.,&
-          &                               opt_rlend=min_rlcell_int  )
- 
-      ENDIF
-      IF (timers_level > 2) CALL timer_stop(timer_diagnose_pres_temp)
 
       IF (ltimer) CALL timer_start(timer_nwp_radiation)
       CALL nwp_radiation (lredgrid,              & ! in
@@ -1134,10 +984,14 @@ CONTAINS
      
     IF (ltimer) CALL timer_start(timer_physic_acc)
     !-------------------------------------------------------------------------
-    !>  accumulate scalar tendencies of slow_physics
+    !>  accumulate tendencies of slow_physics
     !-------------------------------------------------------------------------
-    IF (lcall_phy_jg(itradheat) .OR. lcall_phy_jg(itconv) & 
-&     .OR. lcall_phy_jg(itccov) .OR. lcall_phy_jg(itsso).OR. lcall_phy_jg(itgwd)) THEN
+    IF (l_any_slowphys .OR. lcall_phy_jg(itradheat)) THEN
+
+      IF (p_test_run) THEN
+        z_ddt_u_tot = 0._wp
+        z_ddt_v_tot = 0._wp
+      ENDIF
 
       IF (timers_level > 2) CALL timer_start(timer_physic_acc_1)
 
@@ -1163,9 +1017,8 @@ CONTAINS
 &                       i_startidx, i_endidx, rl_start, rl_end)
 
 
-        ! artificial Rayleigh friction: active if GWD scheme is switched on,
-        ! but computed at fast-physics time step
-        IF (atm_phy_nwp_config(jg)%inwp_gwd > 0) THEN
+        ! artificial Rayleigh friction: active if GWD or SSO scheme is called
+        IF (lcall_phy_jg(itsso) .OR. lcall_phy_jg(itgwd)) THEN
           DO jk = 1, nlev
             DO jc = i_startidx, i_endidx
               vabs = SQRT(pt_diag%u(jc,jk,jb)**2 + pt_diag%v(jc,jk,jb)**2)
@@ -1200,28 +1053,7 @@ CONTAINS
    &                                    +  prm_nwp_tend%ddt_temp_pconv(i_startidx:i_endidx,:,jb)
 
 
-!------------------------
-!>
-!! @par convert temperature tendencies into exner tendencies
-!! Since the exner function shows up as @f$\Pi=\frac{T_v}{\theta_v} @f$ this relates
-!! to pressure and virtual temperature tendencies
-!! @f$ \frac{d \pi}{d t} = \frac{1}{c_{pd} \theta_v \rho} \, \frac{dp}{d t} @f$
-!!
-!! @f$ \frac{dp}{d t} = (c_p/c_v -1) Q_h + c_p/c_v Q_h @f$ ,
-!!
-!!  where @f$ Q_h = \frac{d T}{d t} |_{phys} @f$
-!!
-!! and @f$ Q_m = R_d \,T \,\rho \frac{d \alpha}{d t} @f$.
-!!
-!! The resulting tendency can be written as
-!!
-!! @f$ \frac{d \pi}{d t}= \frac{R}{c_{v} \theta_v} \left( \frac{d T}{dt} \\
-!!                        + T \frac{d \alpha}{ d t} \right) @f$
-!!
-!! GZ: this derivation is incorrect. The factor is R/c_p if a temperature tendency
-!! is to be converted into an Exner tendency, and R/c_v for a theta tendency.
-!--------------------------------------------------------------------------------
-
+        ! Convert temperature tendency into Exner function tendency
         DO jk = 1, nlev
           DO jc = i_startidx, i_endidx
 
@@ -1244,8 +1076,25 @@ CONTAINS
 
           ENDDO
         ENDDO
-      ENDDO !blocks
 
+        ! Accumulate wind tendencies of slow physics
+        ! Strictly spoken, this would not be necessary if only radiation was called
+        ! in the current time step, but the radiation time step should be a multiple 
+        ! of the convection time step anyway in order to obtain up-to-date cloud cover fields
+        IF (l_any_slowphys) THEN
+          z_ddt_u_tot(i_startidx:i_endidx,:,jb) =                   &
+   &          prm_nwp_tend%ddt_u_gwd     (i_startidx:i_endidx,:,jb) &
+   &        + prm_nwp_tend%ddt_u_raylfric(i_startidx:i_endidx,:,jb) &
+   &        + prm_nwp_tend%ddt_u_sso     (i_startidx:i_endidx,:,jb) &
+   &        + prm_nwp_tend%ddt_u_pconv  ( i_startidx:i_endidx,:,jb)
+
+          z_ddt_v_tot(i_startidx:i_endidx,:,jb) =                   &
+   &          prm_nwp_tend%ddt_v_gwd     (i_startidx:i_endidx,:,jb) &
+   &        + prm_nwp_tend%ddt_v_raylfric(i_startidx:i_endidx,:,jb) &
+   &        + prm_nwp_tend%ddt_v_sso     (i_startidx:i_endidx,:,jb) &
+   &        + prm_nwp_tend%ddt_v_pconv  ( i_startidx:i_endidx,:,jb)
+          ENDIF
+        ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
 
@@ -1253,95 +1102,129 @@ CONTAINS
       IF (timers_level > 2) CALL timer_stop(timer_physic_acc_1)
     ENDIF ! slow physics tendency accumulation
 
-  !--------------------------------------------------------
+    !--------------------------------------------------------
+    ! Final section: Synchronization of updated prognostic variables,
+    !                interpolation of u/v tendendies to edge points,
+    !                and diagnostic computations
+    !--------------------------------------------------------
 
-    !-------------------------------------------------------------------------
-    !>  accumulate vector tendencies of all physics
-    !-------------------------------------------------------------------------
+    IF (l_any_fastphys) THEN
 
-    IF ( lcall_phy_jg(itconv) .OR. lcall_phy_jg(itturb) ) THEN
+      IF (timers_level > 1) CALL timer_start(timer_phys_sync_patch)
 
-      IF (p_test_run) THEN
-        z_ddt_u_tot = 0._wp
-        z_ddt_v_tot = 0._wp
-      ENDIF
+      ! Synchronize tracers if any of the updating (fast-physics) processes was active
+      CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer, f4din=pt_prog_rcf%tracer, &
+                                 lpart4d=.TRUE.)
 
-      ! In case that average ABS(dpsdt) is diagnosed
-      IF (msg_level >= 12) THEN
-        dps_blk(:)   = 0._wp
-        npoints_blk(:) = 0
-      ENDIF
+      ! Synchronize tempv, then recompute thermodynamic variables on halo points
+      ! (This is more efficient than synchronizing three variables)
+      CALL sync_patch_array(SYNC_C, pt_patch, pt_diag%tempv)
 
-      ! In case that maximum CFL is diagnosed
-      IF (msg_level >= 13) THEN
-        maxcfl(:) = 0._wp
-      ENDIF
+      IF (timers_level > 1) CALL timer_stop(timer_phys_sync_patch)
 
-      ! In case that turbulence diagnostics are computed
-      IF (msg_level >= 18) THEN
-        maxtke(:,:)   = 0._wp
-        maxtturb(:,:) = 0._wp
-        maxuturb(:,:) = 0._wp
-        maxvturb(:,:) = 0._wp
-      ENDIF
+      IF (my_process_is_mpi_all_parallel() ) THEN
 
-      IF (ltimer) CALL timer_start(timer_physic_acc_2)
-!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
-      rl_start = grf_bdywidth_c+1
-      rl_end   = min_rlcell_int
+        rl_start = min_rlcell_int-1
+        rl_end   = min_rlcell 
 
-      i_startblk = pt_patch%cells%start_blk(rl_start,1)
-      i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
+        i_startblk = pt_patch%cells%start_blk(rl_start,1)
+        i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb,i_startidx, i_endidx)
-!
-      DO jb = i_startblk, i_endblk
-!
-        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-&                       i_startidx, i_endidx, rl_start, rl_end)
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx, i_endidx)
 
-        z_ddt_u_tot(i_startidx:i_endidx,:,jb) =                   &
-   &        prm_nwp_tend%ddt_u_gwd     (i_startidx:i_endidx,:,jb) &
-   &      + prm_nwp_tend%ddt_u_raylfric(i_startidx:i_endidx,:,jb) &
-   &      + prm_nwp_tend%ddt_u_sso     (i_startidx:i_endidx,:,jb) &
-   &      + prm_nwp_tend%ddt_u_pconv  ( i_startidx:i_endidx,:,jb)
+        DO jb = i_startblk, i_endblk
+          CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+            & i_startidx, i_endidx, rl_start, rl_end )
 
-        z_ddt_v_tot(i_startidx:i_endidx,:,jb) =                   &
-   &        prm_nwp_tend%ddt_v_gwd     (i_startidx:i_endidx,:,jb) &
-   &      + prm_nwp_tend%ddt_v_raylfric(i_startidx:i_endidx,:,jb) &
-   &      + prm_nwp_tend%ddt_v_sso     (i_startidx:i_endidx,:,jb) &
-   &      + prm_nwp_tend%ddt_v_pconv  ( i_startidx:i_endidx,:,jb)
+          DO jk = 1, nlev
+            DO jc =  i_startidx, i_endidx
 
+              IF (p_metrics%mask_prog_halo_c(jc,jb)) THEN
+                pt_prog%exner(jc,jk,jb) = EXP(rd_o_cpd*LOG(rd_o_p0ref                   &
+                  &                     * pt_prog%rho(jc,jk,jb)*pt_diag%tempv(jc,jk,jb)))
+
+                pt_diag%exner_old(jc,jk,jb) = pt_diag%exner_old(jc,jk,jb) + &
+                  pt_prog%exner(jc,jk,jb) - z_exner_sv(jc,jk,jb)
+
+                pt_prog%theta_v(jc,jk,  jb) = pt_diag%tempv(jc,jk,jb) &
+&                                           / pt_prog%exner(jc,jk,jb)
+
+                pt_prog%rhotheta_v(jc,jk,jb) = pt_prog%theta_v(jc,jk,jb) &
+&                                            * pt_prog%rho(jc,jk,jb)
+              ENDIF
+
+            ENDDO
+          ENDDO
         ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
 
-    CALL sync_patch_array_mult(SYNC_C1, pt_patch, 4, z_ddt_u_tot, z_ddt_v_tot, &
-                               prm_nwp_tend%ddt_u_turb, prm_nwp_tend%ddt_v_turb)
+      ENDIF
 
-      !-------------------------------------------------------------------------
-      !>
-      !!    @par Interpolation from  u,v onto v_n
-      !!      ddt_vn_phy  =interpol(ddt_u_tot)+interpol(ddt_v_tot)
-      !!      Calculate normal velocity at edge midpoints
-      !-------------------------------------------------------------------------
+    ENDIF ! fast-physics synchronization
+
+    ! Initialize fields for runtime diagnostics
+    ! In case that average ABS(dpsdt) is diagnosed
+    IF (msg_level >= 12) THEN
+      dps_blk(:)   = 0._wp
+      npoints_blk(:) = 0
+    ENDIF
+
+    ! In case that maximum CFL is diagnosed
+    IF (msg_level >= 13) THEN
+      maxcfl(:) = 0._wp
+    ENDIF
+
+    ! In case that turbulence diagnostics are computed
+    IF (msg_level >= 18) THEN
+      maxtke(:,:)   = 0._wp
+      maxtturb(:,:) = 0._wp
+      maxuturb(:,:) = 0._wp
+      maxvturb(:,:) = 0._wp
+    ENDIF
+
+
+    IF ( l_any_slowphys .AND. lcall_phy_jg(itturb) ) THEN
+
+      CALL sync_patch_array_mult(SYNC_C1, pt_patch, 4, z_ddt_u_tot, z_ddt_v_tot, &
+                                 prm_nwp_tend%ddt_u_turb, prm_nwp_tend%ddt_v_turb)
+
+    ELSE IF (lcall_phy_jg(itturb) ) THEN
+
+      CALL sync_patch_array_mult(SYNC_C1, pt_patch, 2, prm_nwp_tend%ddt_u_turb, &
+                                 prm_nwp_tend%ddt_v_turb)
+
+    ENDIF
+
+
+    IF (ltimer) CALL timer_start(timer_physic_acc_2)
+
+    !-------------------------------------------------------------------------
+    !>
+    !!    @par Interpolation from  u,v onto v_n
+    !!      ddt_vn_phy  =interpol(ddt_u_tot)+interpol(ddt_v_tot)
+    !!      Calculate normal velocity at edge midpoints
+    !-------------------------------------------------------------------------
 
 !$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
 
-      ! exclude boundary interpolation zone of nested domains
-      rl_start = grf_bdywidth_e+1
-      rl_end   = min_rledge_int
+    ! exclude boundary interpolation zone of nested domains
+    rl_start = grf_bdywidth_e+1
+    rl_end   = min_rledge_int
 
-      i_startblk = pt_patch%edges%start_blk(rl_start,1)
-      i_endblk   = pt_patch%edges%end_blk(rl_end,i_nchdom)
+    i_startblk = pt_patch%edges%start_blk(rl_start,1)
+    i_endblk   = pt_patch%edges%end_blk(rl_end,i_nchdom)
 
 
 !$OMP DO PRIVATE(jb,jk,jce,i_startidx,i_endidx)
 
-      DO jb = i_startblk, i_endblk
+    DO jb = i_startblk, i_endblk
 
-        CALL get_indices_e(pt_patch, jb, i_startblk, i_endblk, &
-&                            i_startidx, i_endidx, rl_start, rl_end)
+      CALL get_indices_e(pt_patch, jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, rl_start, rl_end)
+
+      IF ( l_any_slowphys .AND. lcall_phy_jg(itturb) ) THEN
 
 #ifdef __LOOP_EXCHANGE
         DO jce = i_startidx, i_endidx
@@ -1377,9 +1260,39 @@ CONTAINS
 
           ENDDO
         ENDDO
-      ENDDO
+
+      ELSE IF (lcall_phy_jg(itturb) ) THEN
+#ifdef __LOOP_EXCHANGE
+        DO jce = i_startidx, i_endidx
+          DO jk = 1, nlev
+#else
+!CDIR UNROLL=8
+        DO jk = 1, nlev
+          DO jce = i_startidx, i_endidx
+#endif
+
+            pt_prog%vn(jce,jk,jb) = pt_prog%vn(jce,jk,jb) + dtadv_loc * (              &
+                                              pt_int_state%c_lin_e(jce,1,jb)           &
+&                     * ( prm_nwp_tend%ddt_u_turb(iidx(jce,jb,1),jk,iblk(jce,jb,1))    &
+&                                   *  pt_patch%edges%primal_normal_cell(jce,jb,1)%v1  &
+&                       + prm_nwp_tend%ddt_v_turb(iidx(jce,jb,1),jk,iblk(jce,jb,1))    &
+&                                   *  pt_patch%edges%primal_normal_cell(jce,jb,1)%v2 )&
+&                                                 + pt_int_state%c_lin_e(jce,2,jb)     &
+&                     * ( prm_nwp_tend%ddt_u_turb(iidx(jce,jb,2),jk,iblk(jce,jb,2))    &
+&                                    * pt_patch%edges%primal_normal_cell(jce,jb,2)%v1  &
+&                      +  prm_nwp_tend%ddt_v_turb(iidx(jce,jb,2),jk,iblk(jce,jb,2))    &
+&                                  *  pt_patch%edges%primal_normal_cell(jce,jb,2)%v2 ) )
+
+          ENDDO
+        ENDDO
+
+      ENDIF
+
+    ENDDO
 !$OMP END DO
 
+
+    IF ( l_any_slowphys .AND. lcall_phy_jg(itturb) ) THEN
       ! Diagnosis of ABS(dpsdt) if msg_level >= 12
       IF (msg_level >= 12) THEN
 
@@ -1479,10 +1392,6 @@ CONTAINS
 
 !$OMP END PARALLEL
 
-      CALL sync_patch_array(SYNC_E, pt_patch, pt_prog%vn)
-
-      IF (ltimer) CALL timer_stop(timer_physic_acc_2)
-
       ! dpsdt diagnostic - omitted in the case of a parallization test (p_test_run) because this
       ! is a purely diagnostic quantitiy, for which it does not make sense to implement an order-invariant
       ! summation
@@ -1538,10 +1447,12 @@ CONTAINS
         CALL message('', TRIM(message_text))
       ENDIF
 
-    ENDIF ! iaction
+    ENDIF ! slow physics or turbulence
 
+    IF (lcall_phy_jg(itturb)) CALL sync_patch_array(SYNC_E, pt_patch, pt_prog%vn)
 
-    IF (ltimer) CALL timer_stop(timer_physic_acc)
+    IF (ltimer) CALL timer_stop(timer_physic_acc_2)
+
 
     IF (jstep > 1 .OR. (jstep == 1 .AND. lcall_phy_jg(itupdate))) THEN
      CALL nwp_diagnosis(lcall_phy_jg,lredgrid,jstep,         & !input
