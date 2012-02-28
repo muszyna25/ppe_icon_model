@@ -1292,7 +1292,6 @@ CONTAINS
 !$OMP END DO
 
 
-    IF ( l_any_slowphys .AND. lcall_phy_jg(itturb) ) THEN
       ! Diagnosis of ABS(dpsdt) if msg_level >= 12
       IF (msg_level >= 12) THEN
 
@@ -1390,6 +1389,8 @@ CONTAINS
 
       ENDIF
 
+!$OMP END PARALLEL
+
       ! dpsdt diagnostic - omitted in the case of a parallization test (p_test_run) because this
       ! is a purely diagnostic quantitiy, for which it does not make sense to implement an order-invariant
       ! summation
@@ -1444,10 +1445,6 @@ CONTAINS
         WRITE(message_text,'(a,i3,a,e13.5)') 'level ',jk,': TKE =',tkemax(jk)
         CALL message('', TRIM(message_text))
       ENDIF
-
-    ENDIF ! slow physics or turbulence
-
-!$OMP END PARALLEL
 
     IF (lcall_phy_jg(itturb)) CALL sync_patch_array(SYNC_E, pt_patch, pt_prog%vn)
 
