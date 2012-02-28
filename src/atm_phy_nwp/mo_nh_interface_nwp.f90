@@ -1390,8 +1390,6 @@ CONTAINS
 
       ENDIF
 
-!$OMP END PARALLEL
-
       ! dpsdt diagnostic - omitted in the case of a parallization test (p_test_run) because this
       ! is a purely diagnostic quantitiy, for which it does not make sense to implement an order-invariant
       ! summation
@@ -1448,6 +1446,8 @@ CONTAINS
       ENDIF
 
     ENDIF ! slow physics or turbulence
+
+!$OMP END PARALLEL
 
     IF (lcall_phy_jg(itturb)) CALL sync_patch_array(SYNC_E, pt_patch, pt_prog%vn)
 
