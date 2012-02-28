@@ -204,17 +204,17 @@ CONTAINS
         ! use initial date to define correct set (year) of reading NCEP data
         !  - with offset=0 always the first year of NCEP data is used
         iniyear = time_config%ini_datetime%year
-        !curyear = time_config%cur_datetime%year  ! seems not to be updated correctly
+        !curyear = time_config%cur_datetime%year  ! not updated each timestep
         curyear = datetime%year
         offset = 0
         no_set = offset + curyear-iniyear + 1 
 
-        ipl_src=3  ! output print level (1-5, fix)
+        ipl_src=2  ! output print level (1-5, fix)
         IF (i_dbg_oce >= ipl_src) THEN
-          WRITE(message_text,'(a,i2,a,i2,a,e15.5))') 'Read NCEP data: month=', &
-            &  jmon,' day=',jdmon,' seconds=',dsec
-          CALL message(TRIM(routine), message_text) 
-          WRITE(message_text,'(a,3i5)') 'initial year, current year, no. of set:', &
+     !    WRITE(message_text,'(a,i2,a,i2,a,e15.5))') 'Read NCEP data: month=', &
+     !      &  jmon,' day=',jdmon,' seconds=',dsec
+     !    CALL message(TRIM(routine), message_text) 
+          WRITE(message_text,'(a,3i5)') 'Read NCEP data: init. year, current year, no. of set:', &
             &                            iniyear, curyear, no_set
           CALL message(TRIM(routine), message_text) 
         END IF
@@ -1531,15 +1531,15 @@ CONTAINS
       i_count(1) = jcells                ! length of pointer, dim 1 of z_dummy_array
       i_count(2) = jtime                 ! length of pointer, dim 2 of z_dummy_array
 
-      ipl_src=3  ! output print level (1-5, fix)
+      ipl_src=2  ! output print level (1-5, fix)
       IF (i_dbg_oce >= ipl_src) THEN
         !
         WRITE(message_text,'(A,I6,A)')  'Ocean NCEP flux file contains',no_tst,' data sets'
         CALL message( TRIM(routine), TRIM(message_text) )
 
-        WRITE(message_text,'(4(A,I4))')  'NCEP data: jtime =',jtime, &
-          &   '; no_set =',no_set,                                   &
-          &   '; position of ptr =', i_start(2)
+        WRITE(message_text,'(4(A,I4))')  'NCEP data set: length = ',jtime, &
+          &   '; no. of set =',no_set,                                     &
+          &   '; pos. of ptr =', i_start(2)
         CALL message( TRIM(routine), TRIM(message_text) )
       END IF
 
@@ -1688,7 +1688,9 @@ CONTAINS
 
     !ENDDO
 
-      CALL message( TRIM(routine),'Ocean NCEP fluxes for external data read' )
+      ipl_src=2  ! output print level (1-5, fix)
+      IF (i_dbg_oce >= ipl_src) &
+        & CALL message( TRIM(routine),'Ocean NCEP fluxes for external data read' )
 
     END IF ! iforc_oce=12
 

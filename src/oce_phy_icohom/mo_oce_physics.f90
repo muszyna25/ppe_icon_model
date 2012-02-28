@@ -174,7 +174,7 @@ CONTAINS
                       &to stability problems for experiments with lateral boundaries')
       ENDIF
       p_phys_param%K_veloc_h(:,:,:) = p_phys_param%K_veloc_h_back
-      write(*,*)'lower bound',z_lower_bound_diff
+      write(0,*)'lower bound of diffusivity:',z_lower_bound_diff
 
     CASE(2)
 
@@ -430,9 +430,6 @@ CONTAINS
         END DO
       ENDDO
     END DO
-write(*,*)'max-min horizontal smoothes diffusion',maxval(K_h(:,1,:))&
-&,minval(K_h(:,1,:))
-
 
     ipl_src=1  ! output print level (1-5, fix)
     CALL print_mxmn('smoothed PHY diffusivity',1,K_h(:,:,:),n_zlev,p_patch%nblks_c,'per',ipl_src)
