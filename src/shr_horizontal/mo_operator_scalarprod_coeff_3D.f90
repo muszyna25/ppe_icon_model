@@ -919,8 +919,8 @@ END DO
           ptr_intp%edge2cell_coeff_cc(il_c1,jk,ib_c1,ie)%x = &
             & z_vec_c1(ie)%x*ptr_patch%cells%edge_orientation(il_c1,ib_c1,ie)*z_edge_length(ie)
 
-          ptr_intp%fixed_vol_norm(il_c1,jk,ib_c1)       = ptr_intp%fixed_vol_norm(il_c1,jk,ib_c1) + &
-            &                                        0.5_wp*norm*z_edge_length(ie)
+          ptr_intp%fixed_vol_norm(il_c1,jk,ib_c1) = ptr_intp%fixed_vol_norm(il_c1,jk,ib_c1) + &
+            &                                       0.5_wp*norm*z_edge_length(ie)
           ptr_intp%variable_vol_norm(il_c1,jk,ib_c1,ie) = 0.5_wp*norm*z_edge_length(ie)
 
           !write(*,*)'edge length   :',z_edge_length(ie),ptr_patch%edges%primal_edge_length(iil_c1(ie),iib_c1(ie))/re
@@ -1433,7 +1433,7 @@ END DO
     CALL message (TRIM(routine), 'start')
     i_nchdom   = MAX(1,ptr_patch%n_childdom)
 
-!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk,ifac)
+!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
 
     ! 1) coefficients for divergence
     rl_start = 1
@@ -1521,8 +1521,8 @@ END DO
       !
       ! loop through all patch cells (and blocks)
       !
-!$OMP DO PRIVATE(jb,je,jc,ic,i_startidx,i_endidx,ile,ibe,ilc1,ibc1,&
-!$OMP    ilc2,ibc2,ilnc,ibnc)
+!!$OMP DO PRIVATE(jb,je,jc,ic,i_startidx,i_endidx,ile,ibe,ilc1,ibc1,&
+!!$OMP    ilc2,ibc2,ilnc,ibnc)
 ! !       DO jk=1,n_zlev
 ! !       DO jb = i_startblk, i_endblk
 ! ! 
@@ -1584,7 +1584,7 @@ END DO
 ! !       ENDDO
 ! !     END DO !block loop
 ! !     END DO
-!$OMP END DO
+!!$OMP END DO
 
 
     ! 4) coefficients for gradient

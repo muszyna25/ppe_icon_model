@@ -333,7 +333,8 @@ END SUBROUTINE div_oce_3D
 !! Modified by Almut Gassmann, MPI-M (2007-04-20)
 !! - abandon grid for the sake of patch
 !!
-SUBROUTINE nabla2_vec_ocean_3D( u_vec_e, v_vec_e, vort, ptr_patch, K_h, p_op_coeff,p_vn_dual, nabla2_vec_e)
+SUBROUTINE nabla2_vec_ocean_3D( u_vec_e, v_vec_e, vort, ptr_patch, K_h, &
+  &                             p_op_coeff,p_vn_dual, nabla2_vec_e)
 !
 !  patch on which computation is performed
 !
@@ -1105,10 +1106,11 @@ DO jb = i_startblk_v, i_endblk_v
      !IF(i_v_bnd_edge_ctr(jv,jk,jb)==2)THEN 
      IF(p_op_coeff%bnd_edges_per_vertex(jv,jk,jb)==2)THEN
 
-       z_vort_boundary(jv,jk,jb)=&
-       &z_vt(ibnd_edge_idx(jv,jk,jb,1),jk,ibnd_edge_blk(jv,jk,jb,1))*p_op_coeff%rot_coeff(jv,jk,jb,i_edge_idx(jv,jk,jb,1))&
-       &+&
-       &z_vt(ibnd_edge_idx(jv,jk,jb,2),jk,ibnd_edge_blk(jv,jk,jb,2))*p_op_coeff%rot_coeff(jv,jk,jb,i_edge_idx(jv,jk,jb,2))
+       z_vort_boundary(jv,jk,jb)= &
+       &     z_vt(ibnd_edge_idx(jv,jk,jb,1),jk,ibnd_edge_blk(jv,jk,jb,1)) *    &
+       &                p_op_coeff%rot_coeff(jv,jk,jb,i_edge_idx(jv,jk,jb,1))  &
+       & +   z_vt(ibnd_edge_idx(jv,jk,jb,2),jk,ibnd_edge_blk(jv,jk,jb,2)) *    &
+       &                p_op_coeff%rot_coeff(jv,jk,jb,i_edge_idx(jv,jk,jb,2))
 
      !ELSEIF(i_v_bnd_edge_ctr(jv,jk,jb)==4)THEN
       ELSEIF(p_op_coeff%bnd_edges_per_vertex(jv,jk,jb)==4)THEN
@@ -1117,13 +1119,14 @@ DO jb = i_startblk_v, i_endblk_v
        !seperated by two wet triangles
 
        z_vort_boundary(jv,jk,jb)=&
-       &z_vt(ibnd_edge_idx(jv,jk,jb,1),jk,ibnd_edge_blk(jv,jk,jb,1))*p_op_coeff%rot_coeff(jv,jk,jb,i_edge_idx(jv,jk,jb,1))&
-       &+&
-       &z_vt(ibnd_edge_idx(jv,jk,jb,2),jk,ibnd_edge_blk(jv,jk,jb,2))*p_op_coeff%rot_coeff(jv,jk,jb,i_edge_idx(jv,jk,jb,2))&
-       &+&
-       &z_vt(ibnd_edge_idx(jv,jk,jb,3),jk,ibnd_edge_blk(jv,jk,jb,3))*p_op_coeff%rot_coeff(jv,jk,jb,i_edge_idx(jv,jk,jb,3))&
-       &+&
-       &z_vt(ibnd_edge_idx(jv,jk,jb,4),jk,ibnd_edge_blk(jv,jk,jb,4))*p_op_coeff%rot_coeff(jv,jk,jb,i_edge_idx(jv,jk,jb,4))
+       &   z_vt(ibnd_edge_idx(jv,jk,jb,1),jk,ibnd_edge_blk(jv,jk,jb,1)) *     &
+       &                p_op_coeff%rot_coeff(jv,jk,jb,i_edge_idx(jv,jk,jb,1)) &
+       & + z_vt(ibnd_edge_idx(jv,jk,jb,2),jk,ibnd_edge_blk(jv,jk,jb,2)) *     &
+       &                p_op_coeff%rot_coeff(jv,jk,jb,i_edge_idx(jv,jk,jb,2)) &
+       & + z_vt(ibnd_edge_idx(jv,jk,jb,3),jk,ibnd_edge_blk(jv,jk,jb,3)) *     &
+       &                p_op_coeff%rot_coeff(jv,jk,jb,i_edge_idx(jv,jk,jb,3)) &
+       & + z_vt(ibnd_edge_idx(jv,jk,jb,4),jk,ibnd_edge_blk(jv,jk,jb,4)) *     &
+       &                p_op_coeff%rot_coeff(jv,jk,jb,i_edge_idx(jv,jk,jb,4))
      ENDIF
 
      !Final vorticity calculation

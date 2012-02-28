@@ -79,9 +79,9 @@ USE mo_util_netcdf,        ONLY: read_netcdf_data
 USE mo_sea_ice,            ONLY: t_sfc_flx
 USE mo_oce_state,          ONLY: t_hydro_ocean_state, v_base
 USE mo_scalar_product,     ONLY: map_cell2edges, map_edges2cell, map_edges2edges, &
-  &                              calc_scalar_product_veloc,calc_scalar_product_veloc_3D, dual_flip_flop
-USE mo_oce_math_operators, ONLY: grad_fd_norm_oce,grad_fd_norm_oce_2D, height_related_quantities,&
-  &                              rot_vertex_ocean
+  &                              calc_scalar_product_veloc,calc_scalar_product_veloc_3D
+USE mo_oce_math_operators, ONLY: grad_fd_norm_oce,grad_fd_norm_oce_2D, &
+  &                              height_related_quantities, rot_vertex_ocean
 USE mo_oce_thermodyn,      ONLY: convert_insitu2pot_temp_func
 USE mo_oce_ab_timestepping,ONLY: calc_vert_velocity,update_time_indices
 USE mo_oce_linear_solver,  ONLY: gmres_e2e

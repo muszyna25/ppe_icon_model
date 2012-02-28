@@ -343,7 +343,8 @@ END SUBROUTINE solve_free_sfc_ab_mimetic
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2010).
 !! 
-SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param, p_int, l_initial_timestep, ptr_coeff)
+SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param, p_int, &
+  &                                    l_initial_timestep, ptr_coeff)
 
   TYPE(t_patch), TARGET, INTENT(in)             :: p_patch
   TYPE(t_hydro_ocean_state), TARGET             :: p_os

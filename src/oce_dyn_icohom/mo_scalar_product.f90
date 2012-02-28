@@ -1298,7 +1298,8 @@ ENDIF
   !! @par Revision History
   !!  developed by Peter Korn, MPI-M (2010-11)
   !!
-  SUBROUTINE map_edges2cell_with_height_3D( p_patch, vn_e, p_vn_c, h_e, p_op_coeff, opt_slev, opt_elev)
+  SUBROUTINE map_edges2cell_with_height_3D( p_patch, vn_e, p_vn_c, h_e, &
+    &                                       p_op_coeff, opt_slev, opt_elev)
 
   TYPE(t_patch), INTENT(IN)                  :: p_patch        ! patch on which computation is performed
   REAL(wp), INTENT(IN)                       :: vn_e(:,:,:)    ! input (nproma,n_zlev,nblks_e)
