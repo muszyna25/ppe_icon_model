@@ -182,7 +182,7 @@ DO jb = i_startblk_c, i_endblk_c
 END DO
 
  DO jk = slev, elev
- ! write(*,*)'max/min kin energy:',maxval(p_diag%kin(:,jk,:)), minval(p_diag%kin(:,jk,:))!,&
+   write(*,*)'max/min kin energy:',maxval(p_diag%kin(:,jk,:)), minval(p_diag%kin(:,jk,:))!,&
  !&maxval(z_kin(:,1,:)), minval(z_kin(:,1,:))
  END DO
 !convert cartesian velocity vector p_diag%p_vn(jc,jk,jb)%x to geographical coordinate system
@@ -321,7 +321,7 @@ SUBROUTINE nonlinear_Coriolis(p_patch, vn, p_vn, p_vn_dual, h_e, vt, vort_v, vor
 REAL(wp) :: z_vort_tmp, z_vort_tmp_boundary
 !REAL(wp) :: z_weight(nproma,n_zlev,p_patch%nblks_v)
 REAL(wp) :: zarea_fraction
-REAL(wp) :: z_area_scaled
+!REAL(wp) :: z_area_scaled
 
 INTEGER :: slev, elev     ! vertical start and end level
 INTEGER :: jv, jk, jb, jev,je
@@ -1298,8 +1298,8 @@ ENDIF
   !! @par Revision History
   !!  developed by Peter Korn, MPI-M (2010-11)
   !!
-  SUBROUTINE map_edges2cell_with_height_3D( p_patch, vn_e, p_vn_c, h_e, &
-    &                                       p_op_coeff, opt_slev, opt_elev)
+  SUBROUTINE map_edges2cell_with_height_3D( p_patch, vn_e, p_vn_c, h_e,&
+                                          & p_op_coeff, opt_slev, opt_elev)
 
   TYPE(t_patch), INTENT(IN)                  :: p_patch        ! patch on which computation is performed
   REAL(wp), INTENT(IN)                       :: vn_e(:,:,:)    ! input (nproma,n_zlev,nblks_e)

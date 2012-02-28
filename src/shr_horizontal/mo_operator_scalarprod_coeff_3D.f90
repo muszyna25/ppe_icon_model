@@ -143,6 +143,8 @@ TYPE t_operator_coeff
   !!$    TYPE(t_geographical_coordinates), ALLOCATABLE :: mid_dual_edge(:,:)
   ! Cartesian distance from vertex1 to vertex2 via dual edge midpoint
   REAL(wp), ALLOCATABLE                      :: dist_cell2edge(:,:,:,:)
+  TYPE(t_cartesian_coordinates), ALLOCATABLE :: cell_position_cc(:,:,:)
+  TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge_position_cc(:,:,:)
   TYPE(t_cartesian_coordinates), ALLOCATABLE :: upwind_edge_position_cc(:,:,:)
 
 END TYPE t_operator_coeff
@@ -289,9 +291,18 @@ CONTAINS
     CALL finish ('mo_operator_scalarprod_coeff_3D:allocating edge2vert_vector failed')
   ENDIF
 
-  ALLOCATE(ptr_coeff%upwind_edge_position_cc(nproma,nz_lev,nblks_v),STAT=ist)
+
+  ALLOCATE(ptr_coeff%upwind_edge_position_cc(nproma,nz_lev,nblks_e),STAT=ist)
   IF (ist /= SUCCESS) THEN
     CALL finish ('mo_operator_scalarprod_coeff_3D:allocating upwind edge failed')
+  ENDIF
+  ALLOCATE(ptr_coeff%edge_position_cc(nproma,nz_lev,nblks_e),STAT=ist)
+  IF (ist /= SUCCESS) THEN
+    CALL finish ('mo_operator_scalarprod_coeff_3D:allocating edge failed')
+  ENDIF
+  ALLOCATE(ptr_coeff%cell_position_cc(nproma,nz_lev,nblks_c),STAT=ist)
+  IF (ist /= SUCCESS) THEN
+    CALL finish ('mo_operator_scalarprod_coeff_3D:allocating cell failed')
   ENDIF
   !
   !normalizing factors for edge to cell mapping.
@@ -332,6 +343,8 @@ CONTAINS
     ptr_coeff%edge2vert_coeff_cc_t%x(ie)   = 0._wp
     ptr_coeff%edge2vert_vector_cc%x(ie)    = 0._wp
     ptr_coeff%upwind_edge_position_cc%x(ie)= 0._wp
+    ptr_coeff%edge_position_cc%x(ie)       = 0._wp
+    ptr_coeff%cell_position_cc%x(ie)       = 0._wp
     ptr_coeff%edge2cell_coeff_cc_dyn%x(ie) = 0._wp
     ptr_coeff%edge2vert_coeff_cc_dyn%x(ie) = 0._wp
   END DO
@@ -351,7 +364,7 @@ CONTAINS
   ptr_coeff%bnd_edge_idx = 0
   ptr_coeff%bnd_edge_blk = 0
   ptr_coeff%edge_idx     = 0
-  ptr_coeff%orientation  = 0.0_wp
+  ptr_coeff%orientation  = 0.0_wp 
   ptr_coeff%bnd_edges_per_vertex= 0
 
   CALL message ('mo_operator_scalarprod_coeff_3D:allocate_exp_coeff','memory allocation finished')
@@ -371,11 +384,49 @@ CONTAINS
    TYPE(t_patch),      INTENT(INOUT)     :: ptr_patch
    TYPE(t_operator_coeff), INTENT(inout) :: ptr_coeff
 
+   INTEGER :: rl_start_e,rl_end_e,rl_start_c,rl_end_c
+   INTEGER :: i_startblk_e, i_endblk_e,i_startidx_e,i_endidx_e
+   INTEGER :: i_startblk_c, i_endblk_c,i_startidx_c,i_endidx_c
+   INTEGER :: jk,je,jb,jc
 !-----------------------------------------------------------------------
+  rl_start_e   = 1
+  rl_end_e     = min_rledge ! Loop over the whole local domain
+  i_startblk_e = ptr_patch%edges%start_blk(rl_start_e,1)
+  i_endblk_e   = ptr_patch%edges%end_blk(rl_end_e,1)
 
-    CALL init_scalar_product_oce_3D( ptr_patch, ptr_coeff)
+  rl_start_c   = 1
+  rl_end_c     = min_rlcell
+  i_startblk_c = ptr_patch%cells%start_blk(rl_start_c,1)
+  i_endblk_c   = ptr_patch%cells%end_blk(rl_end_c,1)
 
-    CALL init_geo_factors_oce_3D( ptr_patch, ptr_coeff )
+
+  CALL init_scalar_product_oce_3D( ptr_patch, ptr_coeff)
+  CALL init_geo_factors_oce_3D( ptr_patch, ptr_coeff )
+
+   DO jk=1,n_zlev
+     DO jb = i_startblk_e, i_endblk_e
+       CALL get_indices_e(ptr_patch, jb, i_startblk_e, i_endblk_e,      &
+         &                i_startidx_e, i_endidx_e, rl_start_e, rl_end_e)
+       DO je = i_startidx_e, i_endidx_e
+         IF(v_base%lsm_oce_e(je,jk,jb) /= sea) THEN
+           ptr_coeff%edge_position_cc(je,jk,jb) = gc2cc(ptr_patch%edges%center(je,jb))
+         ENDIF
+       ENDDO 
+     END DO 
+   END DO
+ 
+   DO jk=1,n_zlev
+     DO jb = i_startblk_c, i_endblk_c
+       CALL get_indices_c(ptr_patch, jb, i_startblk_c, i_endblk_c,      &
+         &                i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
+       DO jc = i_startidx_c, i_endidx_c
+ 
+         IF(v_base%lsm_oce_c(jc,jk,jb) /= sea) THEN
+           ptr_coeff%cell_position_cc(jc,jk,jb) = gc2cc(ptr_patch%cells%center(jc,jb))
+         ENDIF
+       ENDDO 
+     END DO 
+   END DO
 
   END SUBROUTINE init_operator_coeff
 ! !-------------------------------------------------------------------------
@@ -919,8 +970,8 @@ END DO
           ptr_intp%edge2cell_coeff_cc(il_c1,jk,ib_c1,ie)%x = &
             & z_vec_c1(ie)%x*ptr_patch%cells%edge_orientation(il_c1,ib_c1,ie)*z_edge_length(ie)
 
-          ptr_intp%fixed_vol_norm(il_c1,jk,ib_c1) = ptr_intp%fixed_vol_norm(il_c1,jk,ib_c1) + &
-            &                                       0.5_wp*norm*z_edge_length(ie)
+          ptr_intp%fixed_vol_norm(il_c1,jk,ib_c1) = ptr_intp%fixed_vol_norm(il_c1,jk,ib_c1)&
+            &                                  +  0.5_wp*norm*z_edge_length(ie)
           ptr_intp%variable_vol_norm(il_c1,jk,ib_c1,ie) = 0.5_wp*norm*z_edge_length(ie)
 
           !write(*,*)'edge length   :',z_edge_length(ie),ptr_patch%edges%primal_edge_length(iil_c1(ie),iib_c1(ie))/re
@@ -1003,8 +1054,8 @@ END DO
           ptr_intp%edge2cell_coeff_cc(il_c2,jk,ib_c2,ie)%x&
             & = z_vec_c2(ie)%x*ptr_patch%cells%edge_orientation(il_c2,ib_c2,ie)*z_edge_length(ie)
 
-          ptr_intp%fixed_vol_norm(il_c2,jk,ib_c2)       = ptr_intp%fixed_vol_norm(il_c2,jk,ib_c2) &
-            &                                      + 0.5_wp*norm*z_edge_length(ie)
+          ptr_intp%fixed_vol_norm(il_c2,jk,ib_c2) = ptr_intp%fixed_vol_norm(il_c2,jk,ib_c2)&
+            &                                     + 0.5_wp*norm*z_edge_length(ie)
           ptr_intp%variable_vol_norm(il_c2,jk,ib_c2,ie) = 0.5_wp*norm*z_edge_length(ie)
 
         END DO
@@ -1433,7 +1484,7 @@ END DO
     CALL message (TRIM(routine), 'start')
     i_nchdom   = MAX(1,ptr_patch%n_childdom)
 
-!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
+!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk,ifac)
 
     ! 1) coefficients for divergence
     rl_start = 1
@@ -1521,8 +1572,8 @@ END DO
       !
       ! loop through all patch cells (and blocks)
       !
-!!$OMP DO PRIVATE(jb,je,jc,ic,i_startidx,i_endidx,ile,ibe,ilc1,ibc1,&
-!!$OMP    ilc2,ibc2,ilnc,ibnc)
+!$OMP DO PRIVATE(jb,je,jc,ic,i_startidx,i_endidx,ile,ibe,ilc1,ibc1,&
+!$OMP    ilc2,ibc2,ilnc,ibnc)
 ! !       DO jk=1,n_zlev
 ! !       DO jb = i_startblk, i_endblk
 ! ! 
@@ -1584,7 +1635,7 @@ END DO
 ! !       ENDDO
 ! !     END DO !block loop
 ! !     END DO
-!!$OMP END DO
+!$OMP END DO
 
 
     ! 4) coefficients for gradient

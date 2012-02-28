@@ -79,9 +79,10 @@ USE mo_util_netcdf,        ONLY: read_netcdf_data
 USE mo_sea_ice,            ONLY: t_sfc_flx
 USE mo_oce_state,          ONLY: t_hydro_ocean_state, v_base
 USE mo_scalar_product,     ONLY: map_cell2edges, map_edges2cell, map_edges2edges, &
-  &                              calc_scalar_product_veloc,calc_scalar_product_veloc_3D
-USE mo_oce_math_operators, ONLY: grad_fd_norm_oce,grad_fd_norm_oce_2D, &
-  &                              height_related_quantities, rot_vertex_ocean
+  &                              calc_scalar_product_veloc,calc_scalar_product_veloc_3D,&
+  &                              dual_flip_flop
+USE mo_oce_math_operators, ONLY: grad_fd_norm_oce,grad_fd_norm_oce_2D, height_related_quantities,&
+  &                              rot_vertex_ocean
 USE mo_oce_thermodyn,      ONLY: convert_insitu2pot_temp_func
 USE mo_oce_ab_timestepping,ONLY: calc_vert_velocity,update_time_indices
 USE mo_oce_linear_solver,  ONLY: gmres_e2e
@@ -157,14 +158,13 @@ CONTAINS
     !
     ! Prognostic variables are read from prog_init_file
     WRITE (prog_init_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-prog.nc'
-  ! prog_init_file="/scratch/local1/m212053/ICON/trunk/icon-dev/grids/&
-  ! &ts_phc_annual-iconR2B04-L10_50-1000m.nc"
+prog_init_file="/scratch/local1/m212053/ICON/trunk/icon-dev/grids/&
+&ts_phc_annual-iconR2B04-L10_50-1000m.nc"
+    !write(*,*)'init file is: ',TRIM(prog_init_file)
 
     INQUIRE (FILE=prog_init_file, EXIST=l_exist)
     IF (.NOT.l_exist) THEN
-      WRITE(message_text,'(3a)') 'netcdf file named ', TRIM(prog_init_file), ' not found!'
-      CALL message(TRIM(routine),TRIM(message_text))
-      CALL finish(TRIM(routine),'File for reading ocean prognostic input not found - ABORT')
+      CALL finish(TRIM(routine),'netcdf file for reading ocean prognostic input not found.')
     ENDIF
 
     WRITE(message_text,'(3a)') 'netcdf file named ', TRIM(prog_init_file), ' opened for reading'
@@ -188,7 +188,7 @@ CONTAINS
     CALL message(TRIM(routine),TRIM(message_text))
     IF(ppatch%n_patch_cells_g /= no_cells) THEN
       CALL finish(TRIM(ROUTINE),&
-      & 'Number of patch cells and cells in ocean prognostic input file do not match - ABORT')
+      & 'Number of patch cells and cells in ocean prognostic input file do not match.')
     ENDIF
     !
     ! get number of levels
@@ -203,7 +203,7 @@ CONTAINS
     CALL message(TRIM(routine),TRIM(message_text))
     IF(n_zlev /= no_levels) THEN
       CALL finish(TRIM(ROUTINE),&
-      & 'Number of vertical levels and levels in ocean prognostic input file do not match - ABORT')
+      & 'Number of vertical levels and levels in ocean prognostic input file do not match.')
     ENDIF
 
   ENDIF
@@ -346,9 +346,7 @@ ENDIF
    
         INQUIRE (FILE=relax_init_file, EXIST=l_exist)
         IF (.NOT.l_exist) THEN
-          WRITE(message_text,'(3a)') 'netcdf file named ', TRIM(relax_init_file),' not found!'
-          CALL message(TRIM(routine),TRIM(message_text))
-          CALL finish(TRIM(routine),'netcdf file for reading T/S relax. input not found - ABORT')
+          CALL finish(TRIM(routine),'netcdf file for reading T/S relaxation input not found.')
         ENDIF
    
         WRITE(message_text,'(3a)') 'netcdf file named ', TRIM(relax_init_file), &
@@ -373,7 +371,7 @@ ENDIF
         CALL message(TRIM(routine),TRIM(message_text))
         IF (ppatch%n_patch_cells_g /= no_cells) THEN
           CALL finish(TRIM(ROUTINE),&
-          & 'Number of patch cells and cells in T/S relaxation input file do not match - ABORT')
+          & 'Number of patch cells and cells in T/S relaxation input file do not match.')
         ENDIF
         !
         ! get number of levels
@@ -387,7 +385,7 @@ ENDIF
         WRITE(message_text,'(a,i6)') 'No of vertical levels =', no_levels
         CALL message(TRIM(routine),TRIM(message_text))
         IF (no_levels /= 1) THEN
-          CALL finish(TRIM(ROUTINE),'Number of vertical levels is not equal 1 - ABORT')
+          CALL finish(TRIM(ROUTINE),'Number of vertical levels is not equal 1 ')
         ENDIF
    
       ENDIF  !  stdio
@@ -461,7 +459,7 @@ ENDIF
       IF (no_tracer > 1) THEN
         p_sfc_flx%forc_tracer_relax(:,:,2) = p_os%p_prog(nold(1))%tracer(:,1,:,2)
       ELSE
-        CALL finish(TRIM(ROUTINE),' irelax_2d_S=3 and no_tracer<2 - ABORT')
+        CALL finish(TRIM(ROUTINE),' irelax_2d_S=3 and no_tracer<2')
       END IF
     END IF
     
@@ -472,7 +470,7 @@ ENDIF
       IF (no_tracer > 1) THEN
         p_os%p_aux%relax_3d_data_S(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,2)
       ELSE
-        CALL finish(TRIM(ROUTINE),' irelax_3d_S=3 and no_tracer<2 - ABORT')
+        CALL finish(TRIM(ROUTINE),' irelax_3d_S=3 and no_tracer<2')
       END IF
     END IF
    

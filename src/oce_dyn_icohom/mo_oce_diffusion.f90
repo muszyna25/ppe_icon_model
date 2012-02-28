@@ -114,9 +114,9 @@ INTEGER :: rl_start_c, rl_end_c, rl_start_e, rl_end_e
 INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
 TYPE(t_cartesian_coordinates) :: z_grad_u(nproma,n_zlev,p_patch%nblks_e)
 TYPE(t_cartesian_coordinates) :: z_div_grad_u(nproma,n_zlev,p_patch%nblks_c)
-REAL(wp) :: z_grad_vn(nproma,n_zlev,p_patch%nblks_e)
-REAL(wp) :: z_div_grad_vn(nproma,n_zlev,p_patch%nblks_c)
-REAL(wp) :: laplacian_vn_out2(nproma,n_zlev,p_patch%nblks_e)
+!REAL(wp) :: z_grad_vn(nproma,n_zlev,p_patch%nblks_e)
+!REAL(wp) :: z_div_grad_vn(nproma,n_zlev,p_patch%nblks_c)
+!REAL(wp) :: laplacian_vn_out2(nproma,n_zlev,p_patch%nblks_e)
 ! CHARACTER(len=max_char_length), PARAMETER :: &
 !        & routine = ('mo_oce_diffusion:velocity_diffusion_horz')
 !-------------------------------------------------------------------------------
