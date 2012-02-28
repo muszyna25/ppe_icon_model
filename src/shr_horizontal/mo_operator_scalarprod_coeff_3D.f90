@@ -1484,7 +1484,7 @@ END DO
     CALL message (TRIM(routine), 'start')
     i_nchdom   = MAX(1,ptr_patch%n_childdom)
 
-!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk,ifac)
+!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
 
     ! 1) coefficients for divergence
     rl_start = 1
@@ -1572,8 +1572,8 @@ END DO
       !
       ! loop through all patch cells (and blocks)
       !
-!$OMP DO PRIVATE(jb,je,jc,ic,i_startidx,i_endidx,ile,ibe,ilc1,ibc1,&
-!$OMP    ilc2,ibc2,ilnc,ibnc)
+!!$OMP DO PRIVATE(jb,je,jc,ic,i_startidx,i_endidx,ile,ibe,ilc1,ibc1,&
+!!$OMP    ilc2,ibc2,ilnc,ibnc)
 ! !       DO jk=1,n_zlev
 ! !       DO jb = i_startblk, i_endblk
 ! ! 
@@ -1635,7 +1635,7 @@ END DO
 ! !       ENDDO
 ! !     END DO !block loop
 ! !     END DO
-!$OMP END DO
+!!$OMP END DO
 
 
     ! 4) coefficients for gradient
