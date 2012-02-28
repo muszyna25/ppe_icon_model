@@ -145,7 +145,7 @@ CONTAINS
 
         CASE(0)  ! no micro physics scheme
           
-          WRITE(0,*) "Hallo Carmi!"
+          WRITE(0,*) "Run without micro physics scheme!"
           
         CASE(1)  ! COSMO-EU scheme (2-cat ice: cloud ice, snow)
 
