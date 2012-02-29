@@ -57,7 +57,7 @@ MODULE mo_oce_state
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_impl_constants,      ONLY: land, land_boundary, boundary, sea_boundary, sea,  &
     &                               success, max_char_length, min_rledge, min_rlcell,  &
-    &                               min_rlvert,                                        &
+    &                               min_rlvert, min_rlcell_int,                        &
     &                               full_coriolis, beta_plane_coriolis,                &
     &                               f_plane_coriolis, zero_coriolis
   USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer,                        &
@@ -1856,6 +1856,7 @@ END DO
           &  (p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
 
         IDX_LOOP_C: DO jc =  i_startidx, i_endidx
+          IF(.NOT.p_patch%cells%owner_mask(jc,jb)) CYCLE
 
           ! #slo# 2011-05-17
           !  - set all layers except for the two surface layers which are set by gridgen
@@ -1911,12 +1912,27 @@ END DO
 
     END DO ZLEVEL_LOOP
 
+    ! synchronize all elements of v_base:
+
+    DO jk = 1, n_zlev
+
+      z_sync_c(:,:) =  REAL(v_base%lsm_oce_c(:,jk,:),wp)
+      CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
+      v_base%lsm_oce_c(:,jk,:) = INT(z_sync_c(:,:))
+
+      z_sync_e(:,:) =  REAL(v_base%lsm_oce_e(:,jk,:),wp)
+      CALL sync_patch_array(SYNC_e, p_patch, z_sync_e(:,:))
+      v_base%lsm_oce_e(:,jk,:) = INT(z_sync_e(:,:))
+
+    END DO
+
     !---------------------------------------------------------------------------------------------
     ! Correction loop for all levels, similar to surface done in grid generator
     !  - through all levels each wet point has at most one dry point as neighbour
 
     rl_start = 1           
     rl_end = min_rlcell
+ !  rl_end = min_rlcell_int   !  same as if not owner_mask?
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,1)
 
@@ -1926,12 +1942,13 @@ END DO
       ctr_jk = 0
       DO jk=1,n_zlev
         !
-        ! loop through all patch cells 
+        ! loop through all patch cells - inner
         ctr = 0
         DO jb = i_startblk, i_endblk
           CALL get_indices_c  &
             &  (p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
           DO jc =  i_startidx, i_endidx
+          IF(.NOT.p_patch%cells%owner_mask(jc,jb)) CYCLE
             nowet_c = 0
             IF (v_base%lsm_oce_c(jc,jk,jb) < 0) THEN
               DO ji = 1, 3
@@ -1976,7 +1993,23 @@ END DO
       WRITE(message_text,'(a,i2,a,i8)') 'Corrected wet cells with 2 land neighbors - iter=', &
         &                              jiter,' no of cor:',ctr_jk
       CALL message(TRIM(routine), TRIM(message_text))
+
+      ! synchronize all elements of v_base:
+     
+      DO jk = 1, n_zlev
+     
+        z_sync_c(:,:) =  REAL(v_base%lsm_oce_c(:,jk,:),wp)
+        CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
+        v_base%lsm_oce_c(:,jk,:) = INT(z_sync_c(:,:))
+     
+        z_sync_e(:,:) =  REAL(v_base%lsm_oce_e(:,jk,:),wp)
+        CALL sync_patch_array(SYNC_e, p_patch, z_sync_e(:,:))
+        v_base%lsm_oce_e(:,jk,:) = INT(z_sync_e(:,:))
+     
+      END DO
+
       IF (ctr_jk == 0) EXIT
+
     END DO  ! jiter
 
     !---------------------------------------------------------------------------------------------

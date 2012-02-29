@@ -163,6 +163,7 @@ MODULE mo_intp_coeffs
 !
 !
 USE mo_kind,                ONLY: wp
+USE mo_mpi,                 ONLY: p_pe_work
 USE mo_math_constants,      ONLY: pi2, pi_2,deg2rad
 USE mo_physical_constants,  ONLY: re,omega
 USE mo_exception,           ONLY: message, finish
@@ -3832,15 +3833,21 @@ END SUBROUTINE complete_patchinfo
     i_startblk = ptr_patch%verts%start_blk(rl_start,1)
     i_endblk   = ptr_patch%verts%end_blk(rl_end,1)
 
+  ! write(0,*) 'BEFORE GC2CC: vert, edges, cells: index, blocks'
     VERT_BLK_LOOP: DO jb = i_startblk, i_endblk
       CALL get_indices_v(ptr_patch, jb, i_startblk, i_endblk,&
                        & i_startidx, i_endidx, rl_start, rl_end)
       VERT_IDX_LOOP: DO jv =  i_startidx, i_endidx
+
+        ! #slo# consider only vertices of the inner domain
+        IF(.NOT.ptr_patch%verts%owner_mask(jv,jb)) CYCLE
+
         ! current number of edges around vertex (5 or 6)
         cc_v0        = gc2cc(ptr_patch%verts%vertex(jv,jb))
 
         ! Go only over vertices where all edges are in the local domain (but maybe in the halo)
-        IF(ANY(ptr_patch%verts%edge_idx(jv,jb,:)<0)) CYCLE
+        ! #slo# this is not sufficient? - We find a negative index il_c1=-6 in r2b0
+        IF(ANY(ptr_patch%verts%edge_idx(jv,jb,:)<0)) CYCLE 
 
         DO ie = 1, no_vert_edges  ! #slo# it_vertedges ??
 
@@ -3860,6 +3867,10 @@ END SUBROUTINE complete_patchinfo
           ib_c1            = ptr_patch%edges%cell_blk(il_e,ib_e,1)
           il_c2            = ptr_patch%edges%cell_idx(il_e,ib_e,2)
           ib_c2            = ptr_patch%edges%cell_blk(il_e,ib_e,2)
+
+       !  write(0,'(10(a,i3))') 'PE=',p_pe_work, &
+       !  &          ' jv=',jv,' jb=',jb,' ie=',ie,' il_e=',il_e,' ib_e=',ib_e, &
+       !  &          ' il_c1=',il_c1,' ib_c1=',ib_c1,' il_c2=',il_c2,' ib_c2=',ib_c2
 
           xx1              = gc2cc(ptr_patch%cells%center(il_c1,ib_c1))
           norm             = SQRT(SUM(xx1%x*xx1%x))
