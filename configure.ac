@@ -870,8 +870,8 @@ if test x$load_module != x ; then
 fi
 
 # general command for running a progmam
-if [[ "$mpi_startrun" == "" ]]; then
-  if [[ "$MPIROOT" == "" ]]; then
+if test $mpi_startrun = "" ; then
+  if  test $MPIROOT = "" ; then
     mpi_startrun="mpiexec -n \\\$mpi_procs"
   else
     mpi_startrun="$MPIROOT/bin/mpiexec -n \\\$mpi_procs"
@@ -911,7 +911,7 @@ if test "x$load_modules" != x; then
    echo module load "$load_modules" >> build_command
    echo module list >> build_command
 fi
-if [[ "x${config_target}" == "xblizzard" ]]; then
+if test "x${config_target}" = "xblizzard" ; then
    echo "export LDR_CNTRL=MAXDATA=0xD0000000@DSA"  >> build_command
 fi
 echo "$make_command" >> build_command
