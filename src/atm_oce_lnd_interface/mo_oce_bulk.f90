@@ -331,6 +331,13 @@ CONTAINS
       p_as%fswr(:,:)  = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,9) + &
         &               rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,9)
 
+    z_c(:,1,:)=ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,4)
+    CALL print_mxmn('Ext  tafo mon1',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+    z_c(:,1,:)=ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,4)
+    CALL print_mxmn('Ext  tafo mon2',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+    z_c(:,1,:)=p_as%tafo(:,:)
+    CALL print_mxmn('p_as%tafo',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
+
     END IF
 
     IF (iforc_omip == 3) THEN
@@ -1554,7 +1561,7 @@ CONTAINS
         CALL print_mxmn('NCEP: stress-x',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
       END DO
 
- !    ! meridional wind stress
+      ! meridional wind stress
       CALL read_netcdf_data (ncid, 'stress_y', p_patch%n_patch_cells_g,      &
         &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
         &                    jtime, i_start, i_count, z_flux(:,:,:))
@@ -1574,9 +1581,7 @@ CONTAINS
         CALL print_mxmn('NCEP: SST',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
       END DO
 
- !    IF (iforc_omip == 5) THEN
-
- !    ! Read complete NCEP data sets for focing ocean model
+ !    ! Read complete NCEP data sets for focing ocean model (iforc_omip=5)
  !    ! 4:  tafo(:,:),   &  ! 2 m air temperature                              [C]
  !    ! 5:  ftdew(:,:),  &  ! 2 m dew-point temperature                        [K]
  !    ! 6:  fu10(:,:) ,  &  ! 10 m wind speed                                  [m/s]
@@ -1590,7 +1595,7 @@ CONTAINS
         &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
         &                    jtime, i_start, i_count, z_flux(:,:,:))
       DO jt = 1, jtime
-        ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,3) = z_flux(:,:,jt)
+        ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,4) = z_flux(:,:,jt)
         z_c                             (:,jt,:)   = z_flux(:,:,jt)
         CALL print_mxmn('NCEP: temp_2m',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
       END DO
@@ -1600,7 +1605,7 @@ CONTAINS
         &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
         &                    jtime, i_start, i_count, z_flux(:,:,:))
       DO jt = 1, jtime
-        ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,3) = z_flux(:,:,jt)
+        ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,5) = z_flux(:,:,jt)
         z_c                             (:,jt,:)   = z_flux(:,:,jt)
         CALL print_mxmn('NCEP: dpt_temp_2m',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
       END DO
@@ -1610,7 +1615,7 @@ CONTAINS
         &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
         &                    jtime, i_start, i_count, z_flux(:,:,:))
       DO jt = 1, jtime
-        ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,3) = z_flux(:,:,jt)
+        ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,6) = z_flux(:,:,jt)
         z_c                             (:,jt,:)   = z_flux(:,:,jt)
         CALL print_mxmn('NCEP: scalar_wind',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
       END DO
@@ -1620,7 +1625,7 @@ CONTAINS
         &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
         &                    jtime, i_start, i_count, z_flux(:,:,:))
       DO jt = 1, jtime
-        ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,3) = z_flux(:,:,jt)
+        ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,7) = z_flux(:,:,jt)
         z_c                             (:,jt,:)   = z_flux(:,:,jt)
         CALL print_mxmn('NCEP: cloud',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
       END DO
@@ -1640,46 +1645,45 @@ CONTAINS
         &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
         &                    jtime, i_start, i_count, z_flux(:,:,:))
       DO jt = 1, jtime
-        ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,3) = z_flux(:,:,jt)
+        ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,9) = z_flux(:,:,jt)
         z_c                             (:,jt,:)   = z_flux(:,:,jt)
         CALL print_mxmn('NCEP: tot_solar',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
       END DO
     
       ! precipitation
-      CALL read_netcdf_data (ncid, 'precip', p_patch%n_patch_cells_g,        &
-        &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
-        &                    jtime, i_start, i_count, z_flux(:,:,:))
-      DO jt = 1, jtime
-        ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,3) = z_flux(:,:,jt)
-        z_c                             (:,jt,:)   = z_flux(:,:,jt)
-        CALL print_mxmn('NCEP: precip',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
-      END DO
+  !   CALL read_netcdf_data (ncid, 'precip', p_patch%n_patch_cells_g,        &
+  !     &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
+  !     &                    jtime, i_start, i_count, z_flux(:,:,:))
+  !   DO jt = 1, jtime
+  !     ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,10) = z_flux(:,:,jt)
+  !     z_c                             (:,jt,:)    = z_flux(:,:,jt)
+  !     CALL print_mxmn('NCEP: precip',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
+  !   END DO
     
       ! evaporation or downward surface LW flux
   !   CALL read_netcdf_data (ncid, 'evap', p_patch%n_patch_cells_g,          &
   !     &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
   !     &                    jtime, i_start, i_count, z_flux(:,:,:))
   !   DO jt = 1, jtime
-  !     ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,3) = z_flux(:,:,jt)
+  !     ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,11) = z_flux(:,:,jt)
   !   END DO
   !   CALL read_netcdf_data (ncid, 'dlwrf', p_patch%n_patch_cells_g,         &
   !     &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
   !     &                    jtime, i_start, i_count, z_flux(:,:,:))
   !   DO jt = 1, jtime
-  !     ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,3) = z_flux(:,:,jt)
+  !     ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,11) = z_flux(:,:,jt)
   !   END DO
     
       ! runoff
-      CALL read_netcdf_data (ncid, 'runoff', p_patch%n_patch_cells_g,        &
-        &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
-        &                    jtime, i_start, i_count, z_flux(:,:,:))
-      DO jt = 1, jtime
-        ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,3) = z_flux(:,:,jt)
-        z_c                             (:,jt,:)   = z_flux(:,:,jt)
-        CALL print_mxmn('NCEP: runoff',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
-      END DO
+  !   CALL read_netcdf_data (ncid, 'runoff', p_patch%n_patch_cells_g,        &
+  !     &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
+  !     &                    jtime, i_start, i_count, z_flux(:,:,:))
+  !   DO jt = 1, jtime
+  !     ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,12) = z_flux(:,:,jt)
+  !     z_c                             (:,jt,:)    = z_flux(:,:,jt)
+  !     CALL print_mxmn('NCEP: runoff',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
+  !   END DO
 
- !    END IF  ! iforc_omip=5
 
       !
       ! close file
