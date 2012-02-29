@@ -460,7 +460,14 @@ CONTAINS
     INTEGER :: icell_idx_1, icell_blk_1
     INTEGER :: icell_idx_2, icell_blk_2
     TYPE(t_cartesian_coordinates) :: cell1_cc, cell2_cc, vertex_cc
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+    & routine = ('mo_operator_scalarprod_coeff_3d:apply_boundary2coeffs')
+
 !-----------------------------------------------------------------------
+
+    CALL message (TRIM(routine), 'start')
+
   rl_start_c   = 1
   rl_end_c     = min_rlcell_int
   i_startblk_c = ptr_patch%cells%start_blk(rl_start_c,1)
@@ -775,6 +782,7 @@ END DO
     END DO 
   END DO
 
+    CALL message (TRIM(routine), 'end')
 
   END SUBROUTINE apply_boundary2coeffs
  !-------------------------------------------------------------------------
@@ -803,7 +811,7 @@ END DO
     TYPE(t_operator_coeff),INTENT(INOUT) :: ptr_intp
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-    & routine = ('mo_intp_coeffs:init_scalar_product_oce')
+    & routine = ('mo_operator_scalarprod_coeff_3d:init_scalar_product_oce_3d')
 
     INTEGER, PARAMETER :: no_cell_edges = 3
     INTEGER, PARAMETER :: no_vert_edges = 6
@@ -1479,7 +1487,7 @@ END DO
     REAL(wp) :: z_sync_v(nproma,n_zlev,ptr_patch%nblks_v)
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-    & routine = ('mo_oce_state:init_geo_factors_oce')
+    & routine = ('mo_operator_scalarprod_coeff_3d:init_geo_factors_oce_3d')
     !-----------------------------------------------------------------------
     CALL message (TRIM(routine), 'start')
     i_nchdom   = MAX(1,ptr_patch%n_childdom)
