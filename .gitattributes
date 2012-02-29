@@ -45,7 +45,6 @@ blas/xerbla.f -text
 /build_ICON_ECMWF -text
 /build_all -text
 /build_command.ecmwf -text
-config/README_compiler_issues -text
 config/config.guess -text
 config/config.h.SX -text
 config/config.h.in -text
