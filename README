@@ -5,12 +5,10 @@ Marco Giorgetta, MPI-M,  2011-01-27
 Valid for revision 3272 on "trunk/icon-dev"
 
 Tested:
-- "./configure" + "make" 
-  experiments "exp.test_hat_jww.run" and "exp.test_nh35_tri_jws" tested
-   by Buildbot on Blizzard, Tornado, Squall, and mpipc22
-- "make index" tested on Squall and Tornado
-- "make doc" tested on Squall  
-  (software missing on Tornado)
+- "./configure" + "./build_command" on Blizzard, Tornado and Squall
+- experiment "exp.test_hat_jww.run" on Blizzard, Tornado and Squall
+- "make index" on Squall and Tornado
+- "make doc" tested on Squall (software missing on Tornado)
 
 #-----------------------------------------------------------------------------
 
@@ -60,7 +58,7 @@ Note:
       % ./configure --with-fortran=<compiler>
    with <compiler> in {gcc,nag,intel,pgi,sun}.
 
-2. Instead of using "./configure" and "make" you may also use:
+2. Instead of using "./configure" and "./build_command" you may also use:
       % ./target_confmake.ksh <target>
    <target> selects the machine-compiler combination. On Tornado
    <target> can be chosen from {tornado,tornado_gcc,tornado_nag,etc}.
