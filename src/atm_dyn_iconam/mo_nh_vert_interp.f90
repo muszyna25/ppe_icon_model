@@ -48,9 +48,9 @@ MODULE mo_nh_vert_interp
   USE mo_nh_pzlev_config,     ONLY: nh_pzlev_config 
   USE mo_physical_constants,  ONLY: grav, rd, rdv, o_m_rdv
   USE mo_grid_config,         ONLY: n_dom
-  USE mo_run_config,          ONLY: iqv, iqc, iqr, iqi, iqs
+  USE mo_run_config,          ONLY: iforcing, iqv, iqc, iqr, iqi, iqs
   USE mo_dynamics_config,     ONLY: nnow
-  USE mo_impl_constants,      ONLY: icc
+  USE mo_impl_constants,      ONLY: icc, inwp
   USE mo_exception,           ONLY: finish
   USE mo_prepicon_config,     ONLY: nlev_in, zpbl1, zpbl2, &
                                     i_oper_mode, l_w_in, l_sfc_in, l_coarse2fine_mode
@@ -799,6 +799,8 @@ CONTAINS
         &          bot_idx_lin, wfacpbl1, kpbl1, wfacpbl2, kpbl2,     & !in
         &          l_hires_intp=.FALSE., l_restore_fricred=.FALSE.    ) !in
 
+      IF (  iforcing == inwp  ) THEN
+
       ! interpolation of prognostic specific water vapor content
       !
       CALL lin_intp(p_prog%tracer(:,:,:,iqv),                            & !inout
@@ -882,15 +884,20 @@ CONTAINS
         &           kpbl1, wfacpbl2, kpbl2, l_loglin=.FALSE.,            & !in
         &           l_extrapol=.TRUE., l_pd_limit=.FALSE.,               & !in
         &           lower_limit=0._wp                                    ) !in
+      END IF !inwp
 
     ENDIF ! lwrite_zlev
 
-    ! Compute virtual temperature for model-level and z-level data
-    CALL virtual_temp(p_patch, p_diag%temp, p_prog%tracer(:,:,:,iqv),    & !in
-      &               temp_v=z_tempv_in                                  ) !out
-    CALL virtual_temp(p_patch, p_diag_z%temp, p_diag_z%tracer(:,:,:,iqv),& !in
-      &               temp_v=z_tempv                                     ) !out
-
+    IF (  iforcing == inwp  ) THEN
+     ! Compute virtual temperature for model-level and z-level data
+     CALL virtual_temp(p_patch, p_diag%temp, p_prog%tracer(:,:,:,iqv),    & !in
+       &               temp_v=z_tempv_in                                  ) !out
+     CALL virtual_temp(p_patch, p_diag_z%temp, p_diag_z%tracer(:,:,:,iqv),& !in
+       &               temp_v=z_tempv                                     ) !out
+    ELSE
+       z_tempv_in(:,:,:) = p_diag%temp(:,:,:)
+       z_tempv(:,:,:)    = p_diag_z%temp(:,:,:)
+    END IF
 
     ! Interpolate pressure on z-levels
     CALL pressure_intp(p_diag%pres, z_tempv_in, p_metrics%z_mc,        & !in
@@ -904,6 +911,7 @@ CONTAINS
     IF ( nh_pzlev_config(jg)%lwrite_zlev ) THEN
       ! Final interpolation of prognostic and diagnostic QV, without supersaturation limiting
 
+      IF (  iforcing == inwp  ) THEN
       CALL qv_intp(p_prog%tracer(:,:,:,iqv),                          & !inout
         &          p_diag_z%tracer(:,:,:,iqv),                        & !out
         &          p_metrics%z_mc, p_z3d_out, p_diag%temp,            & !in
@@ -925,6 +933,7 @@ CONTAINS
         &          bot_idx_lin, wfacpbl1, kpbl1, wfacpbl2, kpbl2,     & !in
         &          l_satlimit=.FALSE.,                                & !in
         &          lower_limit=2.5e-6_wp, l_restore_pbldev=.FALSE.    ) !in
+      END IF !inwp
 
     ENDIF  ! lwrite_zlev
 
@@ -983,7 +992,7 @@ CONTAINS
         &          bot_idx_lin, wfacpbl1, kpbl1, wfacpbl2, kpbl2,     & !in
         &          l_hires_intp=.FALSE., l_restore_fricred=.FALSE.    ) !in
 
-
+      IF (  iforcing == inwp  ) THEN
       ! Interpolation of prognostic and diagnostic QV, without supersaturation limiting
 
       CALL qv_intp(p_prog%tracer(:,:,:,iqv),                         & !inout
@@ -1081,6 +1090,7 @@ CONTAINS
         &           kpbl1, wfacpbl2, kpbl2, l_loglin=.FALSE.,            & !in
         &           l_extrapol=.TRUE., l_pd_limit=.FALSE.,               & !in
         &           lower_limit=0._wp                                    ) !in
+      END IF !inwp
 
     ENDIF ! lwrite_plev
 

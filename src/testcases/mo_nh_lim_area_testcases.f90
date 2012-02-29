@@ -58,7 +58,7 @@
    USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
    USE mo_model_domain,        ONLY: t_patch
    USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
-   USE mo_run_config,          ONLY: iqv,iqc, ntracer, msg_level 
+   USE mo_run_config,          ONLY: iforcing, iqv,iqc, ntracer, msg_level 
    USE mo_impl_constants,      ONLY: inwp, MAX_CHAR_LENGTH, min_rlcell_int
    USE mo_parallel_config,     ONLY: nproma, p_test_run
    USE mo_satad,               ONLY:  sat_pres_water, &  !! saturation vapor pressure w.r.t. water
@@ -481,7 +481,7 @@ jglayer(:,:,:)=0
         DO jc = 1, nlen  
           ptr_nh_diag%tempv(jc,jk,jb)   = tempv(jc,jk,jb)
           ptr_nh_diag%pres(jc,jk,jb)    = pres(jc,jk,jb)
-          IF ( ASSOCIATED(ptr_nh_prog%tracer) ) THEN
+          IF (iforcing == inwp ) THEN
            ptr_nh_prog%tracer(jc,jk,jb,iqv) = z_qv(jc,jk,jb)
           END IF
 
@@ -888,7 +888,7 @@ jnlayer(:,:,:)=0
         DO jc = 1, nlen  
           ptr_nh_prog%theta_v(jc,jk,jb)    = theta_v(jc,jk,jb)
           ptr_nh_prog%exner(jc,jk,jb)      = exner(jc,jk,jb)
-          IF ( ASSOCIATED(ptr_nh_prog%tracer) ) THEN
+          IF ( iforcing == inwp ) THEN
            ptr_nh_prog%tracer(jc,jk,jb,:) = 0._wp
            ptr_nh_prog%tracer(jc,jk,jb,iqv) = z_qv(jc,jk,jb)
           END IF
