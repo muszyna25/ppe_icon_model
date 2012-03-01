@@ -67,7 +67,7 @@ MODULE mo_radiation
   USE mo_physical_constants,   ONLY: grav,  rd,    avo,   amd,  amw,  &
     &                                amco2, amch4, amn2o, amo3, amo2, &
     &                                stbo,  rcpd,  vtmpc2, vpp_ch4,   &
-    &                                vpp_n2o
+    &                                vpp_n2o, rcvd
 
   USE mo_datetime,             ONLY: rdaylen
 
@@ -1296,7 +1296,8 @@ CONTAINS
     &                 pflxsfcsw     ,  &
     &                 pflxsfclw     ,  &
     &                 pflxtoasw     ,  &
-    &                 dflxlw_dT     )
+    &                 dflxlw_dT     ,  &
+    &                 opt_use_cv       )
 
     INTEGER,  INTENT(in)  ::    &
       &     jcs, jce, kbdim,    &
@@ -1321,7 +1322,7 @@ CONTAINS
       &     ppres_ifc (kbdim,klevp1)   ! pressure at interfaces             [Pa]
 
     LOGICAL, INTENT(in), OPTIONAL   ::  &
-      &     opt_adapt_lw
+      &     opt_adapt_lw, opt_use_cv
 
     REAL(wp), INTENT(out) ::         &
       &     pdtdtradsw (kbdim,klev), & ! shortwave temperature tendency           [K/s]
@@ -1355,7 +1356,7 @@ CONTAINS
 
     INTEGER :: jc,jk
 
-    LOGICAL  :: l_opt_adapt_lw
+    LOGICAL  :: l_opt_adapt_lw, l_opt_use_cv
 
     IF ( PRESENT(opt_adapt_lw) ) THEN
       l_opt_adapt_lw = opt_adapt_lw
@@ -1365,10 +1366,20 @@ CONTAINS
     ELSE
       l_opt_adapt_lw = .FALSE.
     ENDIF
+
+    IF (PRESENT(opt_use_cv)) THEN
+      l_opt_use_cv = opt_use_cv
+    ELSE
+      l_opt_use_cv = .FALSE.
+    ENDIF
     
-    
-    ! Conversion factor for heating rates:
-    zconv(jcs:jce,1:klev) = rcpd/(pmair(jcs:jce,1:klev)*(1._wp+vtmpc2*pqv(jcs:jce,1:klev)))
+    IF (l_opt_use_cv) THEN
+      ! Conversion factor for heating rates - use heat capacity at constant volume for NH model
+      zconv(jcs:jce,1:klev) = rcvd/(pmair(jcs:jce,1:klev)*(1._wp+vtmpc2*pqv(jcs:jce,1:klev)))
+    ELSE
+      ! Conversion factor for heating rates - use heat capacity at constant pressure for hydrostatic model
+      zconv(jcs:jce,1:klev) = rcpd/(pmair(jcs:jce,1:klev)*(1._wp+vtmpc2*pqv(jcs:jce,1:klev)))
+    ENDIF
 
     ! Shortwave fluxes = transmissivity * local solar incoming flux at TOA
     ! ----------------

@@ -440,7 +440,7 @@ MODULE mo_cuparameters
   !yomcst
   PUBLIC :: retv      ,rlvtt ,rlstt  ,rtt    ,&
     & rg       ,rcpd  ,rd    ,rv     ,&
-    & rkappa   ,ratm  ,rpi   ,rlmlt
+    & rkappa   ,ratm  ,rpi   ,rlmlt, rcvd
   !yoecumf
   PUBLIC ::  entrorg, entrmid, rprcon, rmfcmax, rmfcmin,&
     & lmfmid   ,detrpen                       ,&

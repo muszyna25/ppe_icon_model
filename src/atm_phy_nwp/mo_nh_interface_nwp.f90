@@ -897,6 +897,7 @@ CONTAINS
         & ptsfctrad=prm_diag%tsfctrad(:,jb)      ,&! in     sfc temp. used for pflxlw   [K]
         & ptrmsw=prm_diag%trsolall (:,:,jb)      ,&! in     shortwave net tranmissivity []
         & pflxlw=prm_diag%lwflxall (:,:,jb)      ,&! in     longwave net flux           [W/m2]
+        & opt_use_cv = .TRUE.                    ,&! in     use cv for computing heating rate
         !
         ! output
         ! ------
