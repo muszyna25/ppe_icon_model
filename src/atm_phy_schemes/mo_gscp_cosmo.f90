@@ -37,8 +37,10 @@
 !!
 !! @par Revision History
 !! implemented into ICOHAM by Kristina Froehlich and Axel Seifert (2010-06-10)
-!! @par Revision History
-!! warm-rain scheme (kessler_pp) implemented by Felix Rieper (2011-12-23)
+!! Modification by Felix Rieper (2011-12-23):
+!! - warm-rain scheme (kessler_pp) implemented
+!! Modification by Felix Rieper (2012-02) :
+!! - hydci_pp_init: explicit calculation of some coefficients
 !!
 !! @par Copyright
 !! 2002-2009 by DWD and MPI-M
@@ -179,11 +181,16 @@ USE mo_kind              , ONLY: ireals=>wp     , &
 USE mo_math_utilities    , ONLY: gamma_fct
 USE mo_math_constants    , ONLY: pi
 USE mo_physical_constants, ONLY: r_v   => rv    , & !> gas constant for water vapour
-                                 lh_v  => alv   , & !! latent heat of vapourization
+                                 lh_v  => alv   , & !! latent heat of vaporization
                                  lh_s  => als   , & !! latent heat of sublimation
                                  cpdr  => rcpd  , & !! (spec. heat of dry air at constant press)^-1
                                  cvdr  => rcvd  , & !! (spec. heat of dry air at const vol)^-1
-                                 t0    => tmelt     !! melting temperature of ice/snow
+                                 t0    => tmelt , & !! melting temperature of ice/snow
+                                 rho_w => rhoh2o, & !! density of liquid water
+                                 dv0            , & !! diff coeff of H2O vapor in dry air
+                                 zeta => eta0d  , & !! dyn viscosity of dry air at T0
+                                 zlheat0 => con0_h   !! thermal conductivity of dry air at T0
+
 USE mo_satad             , ONLY: satad_v_3d     , & !! new saturation adjustment
                                  sat_pres_water , & !! saturation vapor pressure w.r.t. water
                                  sat_pres_ice!   , & !! saturation vapor pressure w.r.t. ice
@@ -218,6 +225,9 @@ INTEGER (KIND=iintegers), PARAMETER ::  &
   iautocon       = 1,&       ! Autoconversion: 0 -> Kessler, 1 -> Seifert/Beheng
   isnow_n0temp   = 2
 
+LOGICAL, PARAMETER :: &
+  lnew           = .TRUE.    ! changes by FR 
+
 REAL    (KIND=ireals   ), PARAMETER ::  &
   zqmin = 1.0E-15_ireals,& !> threshold for computations
   zeps  = 1.0E-15_ireals,& !! small number
@@ -247,36 +257,72 @@ REAL    (KIND=ireals   ), PARAMETER ::  &
   !! AMI = 130.0  : Formfactor in the mass-size relation of cloud ice crystals
   !!                m(DI) = AMI*DI**3
   !! ETA  = 1.75 E-5 : Viscosity of air
-  !! DIFF = 2.22 E-5 : Molecular diffusion coefficient for water vapour
+  !! DIFF = 2.11 E-5 : diffusion coefficient for water vapour (2.22 is correct)
   !! LHEAT= 2.40 E-2 : Heat conductivity of air
   !! RHO  = 1.0      : Density of air
   !! RHOW = 1.0 E3   : Density of water
+  
+  zecs = 0.9_ireals,   & !> Collection efficiency for snow collecting cloud water
 
-  zecs  = 0.9_ireals,   & !> Collection efficiency for snow collecting cloud water
+  !>FR explicit calculation of transfer coefficients: natural constants
+  ze_ir = 0.8_ireals,       & ! Collection efficiency for rain collecting cloud ice
+  zn0_r = 8.0e6_ireals,   & ! Parameter in the size distrubution function for rain
+  
 
-  zadi  = 0.217_ireals, & !> Formfactor in the size-mass relation of ice particles
+
+!>FR
+  
+  zeis  = 0.5_ireals  , & !> Collection efficiency for snow collecting cloud ice
+  zadi  = 0.217_ireals, & !! Formfactor in the size-mass relation of ice particles
   zbdi  = 0.302_ireals, & !! Exponent in the size-mass relation of ice particles
   zams  = 0.069_ireals, & !! Formfactor in the mass-size relation of snow particles
   zbms  = 2.000_ireals, & !! Exponent in the mass-size relation of snow particles
 
   zv1s  = 0.50_ireals,  & !> Exponent in the terminal velocity for snow
+  zvx_r = 0.50_ireals,  & !> Exponent in the terminal velocity for rain
 
   zami  = 130.0_ireals, & !> Formfactor in the mass-size relation of cloud ice
   zn0s0 = 8.0E5_ireals, & !!
   zn0s1 = 13.5_ireals * 5.65E5_ireals, & !! parameter in N0S(T)
   zn0s2 = -0.107_ireals , & !! parameter in N0S(T), Field et al
   zcac  = 1.72_ireals   , & !! (15/32)*(PI**0.5)*(ECR/RHOW)*V0R*AR**(1/8)
-  zcicri= 1.72_ireals   , & !! (15/32)*(PI**0.5)*(EIR/RHOW)*V0R*AR**(1/8)
-  zcrcri= 1.24E-3_ireals, & !! (PI/24)*EIR*V0R*Gamma(6.5)*AR**(-5/8)
-  zcev  = 3.1E-3_ireals , & !! 2*PI*DIFF*HW*N0R*AR**(-1/2)
-  zbev  = 9.0_ireals    , & !! 0.26*sqrt(0.5*RHO*v0r/eta)*Gamma(2.75)*AR**(-3/16)
+!  zcicri= 1.72_ireals   , & !! (15/32)*(PI**0.5)*(EIR/RHOW)*V0R*AR**(1/8)
+!  zcrcri= 1.24E-3_ireals, & !! (PI/24)*EIR*V0R*Gamma(6.5)*AR**(-5/8)
+!  zcev  = 3.1E-3_ireals , & !! 2*PI*DIFF*HW*N0R*AR**(-1/2)
+!  zbev  = 9.0_ireals    , & !! 0.26*sqrt(0.5*RHO*v0r/eta)*Gamma(2.75)*AR**(-3/16)
   zcsmel= 1.48E-4_ireals, & !! 4*LHEAT*N0S*AS**(-2/3)/(RHO*lh_f)
   zbsmel= 14.37_ireals  , & !! 0.26*sqrt(0.5*RHO*v0s/eta)*Gamma(21/8)*AS**(-5/24)
   zasmel= 2.31E3_ireals , & !! DIFF*lh_v*RHO/LHEAT
   zcrfrz= 1.68_ireals   , & !! coefficient for raindrop freezing
+!  zeta   = 1.75e-5_ireals    !! kinematic viscosity of air
+
+!----------------------------------------------------
+! physical properties of dry air, water vapor, ...
+!----------------------------------------------------
   zrho0 = 1.225e+0_ireals, & !! reference air density
-  zlheat = 2.40E-2_ireals, & !! thermal conductivity of dry air
-  zeta   = 1.75e-5_ireals    !! kinematic viscosity of air
+  zdv1 = 1.46e-7_ireals  , & !! [m2/s/C] lin coeff for diff coeff zeta at 0C<T<50C
+  zdv2 = 1.25e-7_ireals  , & !! [m2/s/C] lin coeff for diff coeff zeta at -80C<T<0C
+  zlheat1 = 8.0e-5_ireals    !! lin coeff: thermal heat conductivity of dry air, 
+!                            !! linear for -80C < T < 50C
+!<FR
+
+
+! physical constants taken from mo_physical_constants.f90 in ICON
+#ifdef __COSMO__
+REAL    (KIND=ireals   ) ::  &
+  zeta   = 1.75e-5_ireals    !! kinematic viscosity of air at T0
+  zlheat0 = 2.40E-2_ireals, & !! thermal conductivity of dry air at T0
+
+#endif
+
+#ifdef __GME__
+REAL    (KIND=ireals   ) ::  &
+  zeta   = 1.75e-5_ireals    !! kinematic viscosity of air at T0
+  zlheat0 = 2.40E-2_ireals, & !! thermal conductivity of dry air at T0
+#endif
+
+
+
 
 REAL    (KIND=ireals   ),  PARAMETER ::  &
   zthet  = 248.15_ireals  , & !> temperature for het. nuc. of cloud ice
@@ -298,36 +344,59 @@ REAL    (KIND=ireals   ),  PARAMETER ::  &
 !!==============================================================================
 
 !> Global Variables for hydci_pp
-! ----------------------
+! ---------------------------------
 
-  REAL (KIND=ireals) ::           &
-!!$    znimax,    & !> maximum number of cloud ice crystals
-!!$    zpvsw0,    & !! sat.vap. pressure at melting temperature
-    ccsrim,    & !!
-    ccsagg,    & !!
-    ccsdep,    & !!
-    ccsvel,    & !!
-    ccsvxp,    & !!
-    ccslam,    & !!
-    ccslxp,    & !!
-    ccsaxp,    & !!
-    ccsdxp,    & !!
-    ccshi1,    & !!
-    ccdvtp,    & !!
-    ccidep,    & !!
-    ccswxp,    & !!
-    zconst!!$,    & !!
+REAL (KIND=ireals) ::           &
+  !!$    znimax,    & !> maximum number of cloud ice crystals
+  !!$    zpvsw0,    & !! sat.vap. pressure at melting temperature
+  ccsrim,    & !!
+  ccsagg,    & !!
+  ccsdep,    & !!
+  ccsvel,    & !!
+  ccsvxp,    & !!
+  ccslam,    & !!
+  ccslxp,    & !!
+  ccsaxp,    & !!
+  ccsdxp,    & !!
+  ccshi1,    & !!
+  ccdvtp,    & !!
+  ccidep,    & !!
+  ccswxp,    & !!
+  zconst,    & !!$,    & !!
 !!$    zxrmax,    & !! maximum mass of raindrops
 !!$    zrbeva,    & !!
 !!$    xpi6rhow, x1opi6rhow
+
+!> FR
+  zar,       & ! rho*qr = Ar*lambda_r^(-4) with Ar -> zar
+  x_hlp,      & ! auxiliary exponent
+  zcicri,    & ! coefficient c^i_cri: collection of cloud ice by rain to form snow
+  zcrcri,    & ! coefficient c^r_cri: collection of cloud ice by rain to form snow
+  zcev0,     & ! coefficient alpha_ev0: evaporation of rain
+  zcev,      & ! coefficient alpha_ev : evaporation of rain
+  zbev0,     & ! coefficient beta_ev0 : evaporation of rain
+  zbev,      & ! coefficient beta_ev  : evaporation of rain
+
+!! physical properties of dry air, water vapor, ...
+  zdv_lin   ,& ! diff coeff of water vapor in dry air, linear for 0C < T < 50C
+  zlheat_lin,& ! thermal heat conductivity of dry air, linear for -80C < T < 50C
+
+!! other constants
+  r_vr         ! reciprocal gas constant of water vapor
+
+!> FR
+
+
 
 !> Namelist Variables for hydci_pp and hydci_pp_gr
 ! --------------------------------------
 
   REAL (KIND=ireals) ::              &
-    v0snow    = 20.0_ireals        , & !> factor in the terminal velocity for snow
-    cloud_num = 200.00e+06_ireals  , & !! cloud droplet number concentration
-    mu_rain   = 0.5_ireals             !! shape parameter of raindrop size distribution
+    v0snow    = 20.0_ireals        , & ! factor in the terminal velocity for snow
+    v0_rain    = 130.0_ireals      , & ! factor in the terminal velocity for rain
+    cloud_num = 200.00e+06_ireals  , & ! cloud droplet number concentration
+    mu_rain   = 0.5_ireals             ! shape parameter of raindrop size distribution
+  
 
 CONTAINS
 
@@ -369,7 +438,11 @@ SUBROUTINE hydci_pp_init(idbg)
   zconst = zkcau / (20.0_ireals*zxstar*cloud_num*cloud_num) &
          * (zcnue+2.0_ireals)*(zcnue+4.0_ireals)/(zcnue+1.0_ireals)**2
   ccsrim = 0.25_ireals*pi*zecs*v0snow*gamma_fct(zv1s+3.0_ireals)
-  ccsagg = 0.25_ireals*pi*v0snow*gamma_fct(zv1s+3.0_ireals)
+  IF( lnew ) THEN
+    ccsagg = 0.25_ireals*zeis*pi*v0snow*gamma_fct(zv1s+3.0_ireals)
+  ELSE
+    ccsagg = 0.25_ireals*pi*v0snow*gamma_fct(zv1s+3.0_ireals)
+  END IF
   ccsdep = 0.26_ireals*gamma_fct((zv1s+5.0_ireals)/2._ireals)*SQRT(0.5_ireals/zeta)
   ccsvxp = -(zv1s/(zbms+1.0_ireals)+1.0_ireals)
   ccsvel = zams*v0snow*gamma_fct(zbms+zv1s+1.0_ireals) &
@@ -380,9 +453,41 @@ SUBROUTINE hydci_pp_init(idbg)
   ccswxp = zv1s*ccslxp
   ccsaxp = -(zv1s+3.0_ireals)
   ccsdxp = -(zbms+1.0_ireals)/2.0_ireals
-  ccshi1 = lh_s*lh_s/(zlheat*r_v)
+  ccshi1 = lh_s*lh_s/(zlheat0*r_v)
   ccdvtp = 2.11E-5_ireals * t0**(-1.94_ireals) * 101325.0_ireals
   ccidep = 4.0_ireals * zami**(-x1o3)
+
+!> FR
+! 
+  r_vr = 1.0_ireals / r_v            ! reciprocal gas constant of water vapor
+
+  zar = rho_w * pi * zn0_r           ! rho*q_r = Ar*lambda_r^(-4) with Ar -> zar
+  
+! Transfer coefficient c^i_cri
+! old variant: zcicri= 1.72_ireals   , & !! (15/32)*(PI**0.5)*(EIR/RHOW)*V0R*AR**(1/8)
+  x_hlp = -(3.0_ireals + zvx_r)/4.0
+  zcicri = 0.25_ireals*PI * ze_ir * v0_rain * zn0_r * gamma_fct(3.0_ireals + zvx_r) &
+    &      * zar**x_hlp
+
+! Transfer coefficient c^r_cri
+  x_hlp = -(2.0_ireals + zvx_r)*0.25_ireals
+  zcrcri = pi/24.0_ireals * gamma_fct(6.0_ireals + zvx_r) * v0_rain * ze_ir &
+    &      * zar**x_hlp
+  
+! Coefficient alpha_ev0 for S_ev
+  zcev0 = 2.0_ireals*PI*zn0_r / SQRT(zar)
+
+! Coefficient beta_ev0 for S_ev
+  x_hlp = -(zvx_r + 1.0_ireals) / 8.0_ireals
+  zbev0 = 0.26_ireals * SQRT(0.5_ireals*v0_rain/zeta) &
+    &      * gamma_fct( 0.5_ireals * (5.0_ireals + zvx_r) ) * zar**x_hlp
+  
+
+!< FR
+
+
+
+
 
   IF (PRESENT(idbg)) THEN
     IF (idbg > 12) THEN
@@ -400,6 +505,13 @@ SUBROUTINE hydci_pp_init(idbg)
   CALL message('hydci_pp_init','microphysical values initialized')
 
 END SUBROUTINE hydci_pp_init
+
+
+
+
+
+
+
 
 !==============================================================================
 !> Module procedure "hydci_pp" in "gscp" for computing effects of grid scale
@@ -1110,9 +1222,18 @@ SUBROUTINE hydci_pp(                 &
       rhog = rho(i,k)
       llqs = zqsk(i) > zqmin
 
-      zdvtp  = ccdvtp * EXP(1.94_ireals * LOG(tg)) / ppg
-      zhi    = ccshi1*zdvtp*rhog*zqvsi(i)/(tg*tg)
-      hlp    = zdvtp / (1.0_ireals + zhi)
+! >FR
+      IF( lnew ) THEN
+        !! diff coeff of water vapor in dry air, linear for -80C < T < 0C
+        zdv_lin = dv0 + zdv2*(tg-t0)
+        zhi    = ccshi1*zdv_lin*rhog*zqvsi(i)/(tg*tg)
+        hlp    = zdv_lin / (1.0_ireals + zhi)
+      ELSE
+        zdvtp  = ccdvtp * EXP(1.94_ireals * LOG(tg)) / ppg
+        zhi    = ccshi1*zdvtp*rhog*zqvsi(i)/(tg*tg)
+        hlp    = zdvtp / (1.0_ireals + zhi)
+      END IF
+! <FR
       zcidep(i) = ccidep * hlp
       IF (llqs) THEN
         zcslam(i) = EXP(ccslxp * LOG(ccslam * zn0s(i) / zqsk(i) ))
@@ -1316,15 +1437,47 @@ SUBROUTINE hydci_pp(                 &
 
 ! ic6
 !CDIR NODEP,VOVERTAKE,VOB
-    loop_over_qr_nocloud: DO i1d =1, ic6
+    loop_over_qr_nocloud: DO i1d = 1, ic6
       i = idx6(i1d)
 
       qvg = qv(i,k)
       tg  =  t(i,k)
       rhog = rho(i,k)
+      
+      !! sat. specitic humidity at water saturation
+      zqvsw    = sat_pres_water(tg)/(rhog * r_v *tg) 
 
-      zqvsw    = sat_pres_water(tg)/(rhog * r_v *tg)
-      zx1      = 1.0_ireals + zbev* zeln3o16qrk(i)
+
+! >FR
+      IF( lnew ) THEN
+        
+        !! diff coeff of water vapor in dry air, linear for 0C < T < 50C
+        zdv_lin = dv0 + zdv1*(tg-t0)
+        
+        !! thermal heat conductivity of dry air, linear for -80C < T < 50C
+        zlheat_lin = zlheat0 + zlheat1*(tg-t0)
+
+        !! Howell factor for water
+        zhi = zdv_lin * lh_v*lh_v / zlheat_lin * r_vr / (tg*tg) &
+          &   * rhog * zqvsw
+        
+        !! alpha_ev
+        zcev = zcev0 * zdv_lin / (1.0_ireals + zhi)
+
+        !! beta_ev
+        zbev = zbev0 * SQRT(rhog)
+        
+        !! auxiliary term
+        x_hlp = (zvx_r + 1.0_ireals) * 0.125_ireals
+        zx1   = 1.0_ireals + zbev * zqrk(i)**x_hlp
+        
+      ELSE ! (old version) 
+        zcev  = 3.1E-3_ireals  ! -> alpha_ev
+        zbev  = 9.0_ireals     ! 0.26*sqrt(0.5*RHO*v0r/eta)*Gamma(2.75)*AR**(-3/16)
+        zx1      = 1.0_ireals + zbev * zeln3o16qrk(i)
+      END IF
+! <FR
+
       zsev     = zcev*zx1*(zqvsw - qvg)*SQRT(zqrk(i))
       sev(i) = MAX( zsev, 0.0_ireals )
       ! Calculation of below-cloud rainwater freezing
@@ -1680,8 +1833,6 @@ SUBROUTINE kessler_pp(               &
 
     zaau   = 1.0_ireals/1000.0_ireals,         & ! coef. for autoconversion  
     zaac   = 1.72_ireals,                      & ! coef. for accretion (neu)
-!    zbev   = 9.1_ireals,                      & ! coef. for drop ventilation,
-    !                                              already module var
 
     ! constants for the process rates
     z1d8   = 1.0_ireals/8.0_ireals,               & !

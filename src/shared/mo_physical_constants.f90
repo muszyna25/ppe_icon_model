@@ -34,6 +34,8 @@
 !!    to mo_vertical_grid, which is the only module using these constants
 !!  - move "grav_o_cpd" to mo_divergent_modes.f90, which is th only module using this
 !!    derived constant
+!!  Modification by Felix Rieper (2012-02)
+!!  - added some constants needed in cloud physics scheme
 !!
 !! @par Copyright
 !! 2002-2010 by DWD and MPI-M
@@ -131,12 +133,17 @@ MODULE mo_physical_constants
   REAL(wp), PARAMETER :: rd    = 287.04_wp        !> [J/K/kg] gas constant
   REAL(wp), PARAMETER :: cpd   = 1004.64_wp       !! [J/K/kg] specific heat at constant pressure
   REAL(wp), PARAMETER :: cvd   = cpd-rd           !! [J/K/kg] specific heat at constant volume
+  REAL(wp), PARAMETER :: con_m = 1.50E-5_wp       !! [m^2/s]  kinematic viscosity of dry air
+  REAL(wp), PARAMETER :: con_h = 2.20E-5_wp       !! [m^2/s]  scalar conductivity of dry air
+  REAL(wp), PARAMETER :: con0_h= 2.40e-2_wp       !! [J/m/s/K]thermal conductivity of dry air
+  REAL(wp), PARAMETER :: eta0d = 1.717e-5_wp      !! [N*s/m2] dyn viscosity of dry air at tmelt
   !
   !> H2O
   !! - gas
   REAL(wp), PARAMETER :: rv    = 461.51_wp        !> [J/K/kg] gas constant for water vapor
   REAL(wp), PARAMETER :: cpv   = 1869.46_wp       !! [J/K/kg] specific heat at constant pressure
   REAL(wp), PARAMETER :: cvv   = cpv-rv           !! [J/K/kg] specific heat at constant volume
+  REAL(wp), PARAMETER :: dv0   = 2.22e-5_wp       !! [m^2/s]  diff coeff of H2O vapor in dry air at tmelt
   !> - liquid / water
   REAL(wp), PARAMETER :: rhoh2o= 1000._wp         !> [kg/m3]  density of liquid water
 
@@ -148,8 +155,6 @@ MODULE mo_physical_constants
   REAL(wp), PARAMETER :: als   = 2.8345e6_wp      !! [J/kg]   latent heat for sublimation
   REAL(wp), PARAMETER :: alf   = als-alv          !! [J/kg]   latent heat for fusion
   REAL(wp), PARAMETER :: tmelt = 273.15_wp        !! [K]      melting temperature of ice/snow
-  REAL(wp), PARAMETER :: con_m =  1.50E-5_wp      !! [m^2/s]  kinematic vsicosity of dry air
-  REAL(wp), PARAMETER :: con_h =  2.20E-5_wp      !! [m^2/s]  scalar conductivity of dry air
   !
   !> Auxiliary constants
   REAL(wp), PARAMETER :: rdv   = rd/rv            !> [ ]
