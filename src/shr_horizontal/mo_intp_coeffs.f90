@@ -4023,7 +4023,7 @@ END SUBROUTINE complete_patchinfo
 
           ELSE
             CALL message (TRIM(routine), 'WARNING - vert_edge_distance not found')
-            write(*,'(a,7i5)') 'jv, jb, edge, ptr_patch%edges%vertex_idx/blk(il_e,ib_e,1-2)=', &
+            write(0,'(a,7i5)') 'jv, jb, edge, ptr_patch%edges%vertex_idx/blk(il_e,ib_e,1-2)=', &
               &         jv, jb, ie, &
               &         ptr_patch%edges%vertex_idx(il_e,ib_e,1), &
               &         ptr_patch%edges%vertex_blk(il_e,ib_e,1), &
