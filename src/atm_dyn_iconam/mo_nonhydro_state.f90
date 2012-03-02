@@ -1725,7 +1725,9 @@ MODULE mo_nonhydro_state
 
         ktracer=ntracer+ntracer_static
         ALLOCATE( p_diag_z%tracer_ptr(ktracer) )
-        vname_prefix='tracer_'
+!xmk    vname_prefix='tracer_'
+        vname_prefix=''
+!xxx
 
            !QV
         CALL add_ref( p_diag_z_list, 'tracer',                                 &
@@ -1973,7 +1975,9 @@ MODULE mo_nonhydro_state
 
         ktracer=ntracer+ntracer_static
         ALLOCATE( p_diag_p%tracer_ptr(ktracer) )
-        vname_prefix='tracer_'
+!xmk    vname_prefix='tracer_'
+        vname_prefix=''
+!xxx
 
            !QV
         CALL add_ref( p_diag_p_list, 'tracer',                                 &
