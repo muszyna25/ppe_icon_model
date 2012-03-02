@@ -149,7 +149,7 @@ USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
 ! Time integration
 !
 ! External data
-USE mo_ext_data,            ONLY: ext_data, init_ext_data, destruct_ext_data
+USE mo_ext_data,            ONLY: ext_data, init_ext_data, init_index_lists, destruct_ext_data
 
 !  USE mo_nwp_phy_init,          ONLY: init_nwp_phy
 !!$  USE mo_gscp_cosmo,          ONLY: hydci_pp_init
@@ -707,6 +707,8 @@ CONTAINS
     ! allocate memory for atmospheric/oceanic external data and
     ! optionally read those data from netCDF file.
     CALL init_ext_data (p_patch(1:), p_int_state(1:), ext_data)
+    ! generation of tiles index lists
+    CALL init_index_lists (p_patch(1:), p_int_state(1:), ext_data)
 
     IF (timers_level > 3) CALL timer_stop(timer_model_init)
 

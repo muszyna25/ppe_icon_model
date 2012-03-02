@@ -82,7 +82,6 @@ USE mo_kind, ONLY:     &
 IMPLICIT NONE
 PUBLIC           ! All constants and variables in this module are public
 
-INTEGER, PARAMETER :: nclass_lu = 23
 
 !==============================================================================
 ! 1. Data arrays for properties of different soil types (array index)     
@@ -95,7 +94,7 @@ INTEGER, PARAMETER :: nclass_lu = 23
          e_surf     = 1.0_ireals,     & ! exponent to get the effective surface area
          red_fac                        ! reduction factor for effective area indeces multiplication
 
-    REAL (ireals) :: zplcmxc_lu(nclass_lu)  = (/ &     !< lookup table landuse class to maximal plant cover
+    REAL (ireals) :: zplcmxc_lu(23)  = (/ &     !< lookup table landuse class to maximal plant cover
          &            0.80, &       ! 1 evergreen broadleaf forest   
          &            0.90, &       ! 2 deciduous broadleaf closed forest
          &            0.80, &       ! 3 deciduous broadleaf open   forest
@@ -120,7 +119,7 @@ INTEGER, PARAMETER :: nclass_lu = 23
          &            0.20, &       ! 22 artificial surface   
          &            0.       /)   ! 23 undefined
 
-    REAL (ireals) :: zlaimxc_lu(nclass_lu)  = (/ &      !< lookup table landuse class to maximal leaf area index
+    REAL (ireals) :: zlaimxc_lu(23)  = (/ &      !< lookup table landuse class to maximal leaf area index
          &            5.00, &       ! evergreen broadleaf forest   
          &            6.00, &       ! deciduous broadleaf closed forest
          &            4.00, &       ! deciduous broadleaf open   forest
@@ -146,7 +145,7 @@ INTEGER, PARAMETER :: nclass_lu = 23
          &            0.      /)    ! undefined
 
 
-    REAL (ireals) :: zrd_lu(nclass_lu)   = (/ &         !< lookup table landuse class to root depth [m]
+    REAL (ireals) :: zrd_lu(23)   = (/ &         !< lookup table landuse class to root depth [m]
          &          1.00,       &       ! evergreen broadleaf forest   
          &          1.00,       &       ! deciduous broadleaf closed forest
          &          2.00,       &       ! deciduous broadleaf open   forest
@@ -171,7 +170,7 @@ INTEGER, PARAMETER :: nclass_lu = 23
          &          0.60,       &       ! artificial surface   
          &          0.         /)       ! undefined
 
-    REAL (ireals) :: zrs_min_lu(nclass_lu) =(/ &
+    REAL (ireals) :: zrs_min_lu(23) =(/ &
          &          250.0,      &       ! evergreen broadleaf forest   
          &          150.0,      &       ! deciduous broadleaf closed forest
          &          150.0,      &       ! deciduous broadleaf open   forest
