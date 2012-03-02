@@ -171,7 +171,15 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
   z_h_e = 0.0_wp
 
   IF (is_initial_timestep(timestep) ) THEN
+
+    CALL sync_patch_array(sync_c, p_patch, p_os%p_prog(nold(1))%h)
+
     CALL height_related_quantities(p_patch, p_os, p_ext_data)
+
+    CALL sync_patch_array(sync_c, p_patch, p_os%p_prog(nold(1))%h)
+    CALL sync_patch_array(sync_e, p_patch, p_os%p_diag%h_e)
+    CALL sync_patch_array(sync_c, p_patch, p_os%p_diag%thick_c)
+    CALL sync_patch_array(sync_e, p_patch, p_os%p_diag%thick_e)
 
     !This is required in top boundary condition for
     !vertical velocity: the time derivative of the surface height
@@ -387,8 +395,6 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
   !STEP 1: calculate gradient of surface height at previous timestep
   !IF ( iswm_oce == 1 ) THEN
   CALL sync_patch_array(sync_c, p_patch, p_os%p_prog(nold(1))%h)
-
-  CALL sync_patch_array(sync_e, p_patch, z_gradh_e(:,1,:))
 
   CALL grad_fd_norm_oce_2d( p_os%p_prog(nold(1))%h, &
          &                  p_patch,                &

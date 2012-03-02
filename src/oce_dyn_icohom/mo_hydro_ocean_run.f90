@@ -50,6 +50,7 @@ USE mo_kind,                   ONLY: wp
 USE mo_impl_constants,         ONLY: max_char_length
 USE mo_model_domain,           ONLY: t_patch
 USE mo_grid_config,            ONLY: n_dom
+USE mo_sync,                   ONLY: sync_e, sync_c, sync_v, sync_patch_array
 USE mo_ocean_nml,              ONLY: iswm_oce, idisc_scheme, n_zlev, no_tracer, &
   &                                  itestcase_oce, idiag_oce, init_oce_prog, EOS_type, i_sea_ice
 USE mo_dynamics_config,        ONLY: nold, nnew
@@ -180,9 +181,9 @@ CONTAINS
   END IF
   jg = n_dom
 
-  CALL allocate_exp_coeff( ppatch(jg), ptr_coeff)
-  CALL init_operator_coeff( ppatch(jg), ptr_coeff)
-  CALL apply_boundary2coeffs(ppatch(jg), ptr_coeff)
+! CALL allocate_exp_coeff( ppatch(jg), ptr_coeff)
+! CALL init_operator_coeff( ppatch(jg), ptr_coeff)
+! CALL apply_boundary2coeffs(ppatch(jg), ptr_coeff)
 
   CALL init_ho_recon_fields( ppatch(jg), pstate_oce(jg), ptr_coeff)
 
@@ -216,7 +217,15 @@ CONTAINS
         ! ATTENTION - in namelist - TBD
         IF(.NOT.l_STAGGERED_TIMESTEP)THEN
    
+
+          CALL sync_patch_array(sync_c, ppatch(jg), pstate_oce(jg)%p_prog(nold(1))%h)
+          
           CALL height_related_quantities(ppatch(jg), pstate_oce(jg), p_ext_data(jg))
+          
+          CALL sync_patch_array(sync_c, ppatch(jg), pstate_oce(jg)%p_prog(nold(1))%h)
+          CALL sync_patch_array(sync_e, ppatch(jg), pstate_oce(jg)%p_diag%h_e)
+          CALL sync_patch_array(sync_c, ppatch(jg), pstate_oce(jg)%p_diag%thick_c)
+          CALL sync_patch_array(sync_e, ppatch(jg), pstate_oce(jg)%p_diag%thick_e)
    
           !This is required in top boundary condition for
           !vertical velocity: the time derivative of the surface height
