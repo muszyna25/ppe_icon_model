@@ -564,7 +564,8 @@ CONTAINS
       routine = 'mo_ext_data:init_index_lists'
 
 
-      WRITE(message_text,'(a,i4,F12.4,F12.8)') 'Index list generation - number of tiles: ', nsfc_subs
+      WRITE(message_text,'(a,i4,F12.4,F12.8)') &
+        &  'Index list generation - number of tiles: ', nsfc_subs
       CALL message('', TRIM(message_text))
 
 
@@ -607,10 +608,12 @@ CONTAINS
                      ! i_lu=1 contains grid-box mean values from EXTPAR!
                      ext_data(jg)%atm%rootdp_t (i_count,jb,1)  = ext_data(jg)%atm%rootdp(jc,jb)
                      ext_data(jg)%atm%plcov_t  (i_count,jb,1)  = ext_data(jg)%atm%plcov_mx(jc,jb)
-                     ext_data(jg)%atm%tai_t    (i_count,jb,1)  = ext_data(jg)%atm%plcov_mx(jc,jb)*ext_data(jg)%atm%lai_mx(jc,jb)
-                     ext_data(jg)%atm%sai_t    (i_count,jb,1)  = c_lnd+ext_data(jg)%atm%tai_t(i_count,jb,1)
+                     ext_data(jg)%atm%tai_t    (i_count,jb,1)  = &
+                       & ext_data(jg)%atm%plcov_mx(jc,jb)*ext_data(jg)%atm%lai_mx(jc,jb)
+                     ext_data(jg)%atm%sai_t    (i_count,jb,1)  = &
+                       & c_lnd+ext_data(jg)%atm%tai_t(i_count,jb,1)
                      ext_data(jg)%atm%eai_t    (i_count,jb,1)  = c_soil      
-                     ext_data(jg)%atm%rsmin2d_t(i_count,jb,1)  = ext_data(jg)%atm%rsmin(jc,jb)              
+                     ext_data(jg)%atm%rsmin2d_t(i_count,jb,1)  = ext_data(jg)%atm%rsmin(jc,jb)
                      ext_data(jg)%atm%t_fr_t   (i_count,jb,1)  = ext_data(jg)%atm%fr_land(jc,jb)
 
                   ELSE    
@@ -630,19 +633,27 @@ CONTAINS
 
                         IF ( sum_frac > 0._wp) THEN 
 
-                           ext_data(jg)%atm%t_fr_t(i_count,jb,i_lu) = ext_data(jg)%atm%t_fr_t(i_count,jb,i_lu) &
-                                / sum_frac
+                           ext_data(jg)%atm%t_fr_t(i_count,jb,i_lu) = &
+                             & ext_data(jg)%atm%t_fr_t(i_count,jb,i_lu) / sum_frac
                         ELSE !  Workaround for GLC2000 hole below 60 deg S
                            ext_data(jg)%atm%t_lst_t(i_count,jb,i_lu) =  21
                            ext_data(jg)%atm%t_fr_t(i_count,jb,i_lu)  = 1._wp/REAL(nsfc_subs,wp)
                         END IF
 
-                        ext_data(jg)%atm%rootdp_t (i_count,jb,i_lu)  = zrd_lu(lu_subs)                 ! root depth
-                        ext_data(jg)%atm%plcov_t  (i_count,jb,i_lu)  = zplcmxc_lu(lu_subs)             ! plant cover
-                        ext_data(jg)%atm%tai_t    (i_count,jb,i_lu)  = zplcmxc_lu(lu_subs)*zlaimxc_lu(lu_subs)  ! max leaf area index
-                        ext_data(jg)%atm%sai_t    (i_count,jb,i_lu)  = c_lnd+ ext_data(jg)%atm%tai_t (i_count,jb,i_lu) ! max leaf area index
-                        ext_data(jg)%atm%eai_t    (i_count,jb,i_lu)  = c_soil                         ! max leaf area index
-                        ext_data(jg)%atm%rsmin2d_t(i_count,jb,i_lu)  = zrs_min_lu(lu_subs)            ! minimal stomata resistence
+                        ! root depth
+                        ext_data(jg)%atm%rootdp_t (i_count,jb,i_lu)  = zrd_lu(lu_subs)
+                        ! plant cover
+                        ext_data(jg)%atm%plcov_t  (i_count,jb,i_lu)  = zplcmxc_lu(lu_subs)
+                        ! max leaf area index
+                        ext_data(jg)%atm%tai_t    (i_count,jb,i_lu)  = &
+                          & zplcmxc_lu(lu_subs)*zlaimxc_lu(lu_subs)
+                        ! max leaf area index
+                        ext_data(jg)%atm%sai_t    (i_count,jb,i_lu)  = &
+                          & c_lnd+ ext_data(jg)%atm%tai_t (i_count,jb,i_lu)
+                        ! max leaf area index
+                        ext_data(jg)%atm%eai_t    (i_count,jb,i_lu)  = c_soil
+                        ! minimal stomata resistence
+                        ext_data(jg)%atm%rsmin2d_t(i_count,jb,i_lu)  = zrs_min_lu(lu_subs)
                      END DO
                   END IF ! nfc_subs
                END IF
