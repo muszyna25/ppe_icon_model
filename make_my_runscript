@@ -82,7 +82,7 @@ $make_runscript                  \
   out_script=exp.${exp_name}.run \
   EXPNAME=${exp_name}            \
   nproma=$nproma                 \
-  no_of_nodes=$nodes             \
+  no_of_nodes=$no_of_nodes       \
   mpi_procs=$mpi_procs           \
   openmp_threads=$openmp_threads \
   memory_model=$memory_model     \
