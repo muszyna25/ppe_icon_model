@@ -339,9 +339,9 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
                &           + tcall_turb_jg*prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqv))
           p_prog_rcf%tracer(jc,jk,jb,iqc) =MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqc) &
                &           + tcall_turb_jg*prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqc))
-          ! Artificial limitation of turbulent temperature tendency to 0.01 K/s
+          ! Artificial limitation of turbulent temperature tendency to 0.025 K/s
           p_diag%temp(jc,jk,jb) = p_diag%temp(jc,jk,jb)  &
-            &  + tcall_turb_jg*MIN(0.01_wp,MAX(-0.01_wp,prm_nwp_tend%ddt_temp_turb(jc,jk,jb)))
+            &  + tcall_turb_jg*MIN(0.025_wp,MAX(-0.025_wp,prm_nwp_tend%ddt_temp_turb(jc,jk,jb)))
 !          p_diag%temp(jc,jk,jb) = p_diag%temp(jc,jk,jb)  &
 !           &  + tcall_turb_jg*prm_nwp_tend%ddt_temp_turb(jc,jk,jb)
         ENDDO
