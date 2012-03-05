@@ -564,7 +564,8 @@ CONTAINS
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = 'mo_ext_data:init_index_lists'
 
-
+  SELECT CASE ( iequations )
+  CASE ( inh_atmosphere )
       WRITE(message_text,'(a,i4,F12.4,F12.8)') &
         &  'Index list generation - number of tiles: ', nsfc_subs
       CALL message('', TRIM(message_text))
@@ -664,8 +665,7 @@ CONTAINS
          END DO !jb
 
       END DO  !jg
-
- 
+   END SELECT ! iequations
 
   END SUBROUTINE init_index_lists
 
