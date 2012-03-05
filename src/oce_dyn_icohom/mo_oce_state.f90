@@ -73,7 +73,7 @@ MODULE mo_oce_state
   USE mo_math_constants,      ONLY: deg2rad,rad2deg
   USE mo_physical_constants,  ONLY: re, omega, rho_ref
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c, get_indices_v
-  USE mo_sync,                ONLY: SYNC_E, SYNC_C,sync_patch_array,check_patch_array!, SYNC_V
+  USE mo_sync,                ONLY: SYNC_E, SYNC_C, sync_patch_array, global_sum_array
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_var_list,            ONLY: add_var,                  &
     &                               new_var_list,             &
@@ -1516,21 +1516,22 @@ END DO
     INTEGER :: iic1, ibc1, iic2, ibc2, idxe, ible, idxn, ibln
     INTEGER :: n_zlvp, n_zlvm
     INTEGER :: jiter, niter, ctr, ctr_jk
+    INTEGER :: lsm_c   (nproma,p_patch%nblks_c)
     REAL(wp):: perc_lnd_c(n_zlev), perc_gllnd_c
     REAL(wp):: perc_lnd_e(n_zlev), perc_gllnd_e
 
-    REAL(wp) :: z_sync_c(nproma,p_patch%nblks_c)
-    REAL(wp) :: z_sync_e(nproma,p_patch%nblks_e)
-    REAL(wp) :: lsm_c   (nproma,p_patch%nblks_c)
-    REAL(wp) :: z_lat, z_lat_deg, z_north, z_south
-    !REAL(wp) :: z_sync_v(nproma,p_patch%nblks_v)
+    REAL(wp):: z_sync_c(nproma,p_patch%nblks_c)
+    REAL(wp):: z_sync_e(nproma,p_patch%nblks_e)
+    REAL(wp):: z_lat, z_lat_deg, z_north, z_south
+
     LOGICAL :: LIMITED_AREA = .FALSE.
+
     !-----------------------------------------------------------------------------
     CALL message (TRIM(routine), 'start')
 
     z_sync_c(:,:) = 0.0_wp
     z_sync_e(:,:) = 0.0_wp
-    lsm_c   (:,:) = 0.0_wp
+    lsm_c   (:,:) = 0
 
     z_lat     = 0.0_wp 
     z_lat_deg = 0.0_wp 
@@ -1881,7 +1882,7 @@ END DO
               ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
               idxe = p_patch%cells%edge_idx(jc,jb,ji)
               ible = p_patch%cells%edge_blk(jc,jb,ji)
-              ! if one of lsm_e is boundary then lsm_c is sea_boundary
+              ! if one of lsm_e is boundary then lsm_oce_c is sea_boundary
               IF ( v_base%lsm_oce_e(idxe,jk,ible) == BOUNDARY .AND. jk  > 2) &
                 &  v_base%lsm_oce_c(jc,jk,jb) = SEA_BOUNDARY
               ! counts number of sea-boundaries for jk=1 - only one boundary is allowed
@@ -1891,7 +1892,7 @@ END DO
             END DO
             IF ( v_base%lsm_oce_c(jc,jk,jb) == SEA_BOUNDARY )  &
               &  nosbd_c(jk)=nosbd_c(jk)+1
-          END IF  !  lsm_c < 0
+          END IF  !  lsm_oce_c < 0
 
           ! land points
           IF (v_base%lsm_oce_c(jc,jk,jb) > 0) THEN
@@ -1900,7 +1901,7 @@ END DO
               ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
               idxe = p_patch%cells%edge_idx(jc,jb,ji)
               ible = p_patch%cells%edge_blk(jc,jb,ji)
-              ! if one of lsm_e is boundary then lsm_c is land_boundary
+              ! if one of lsm_e is boundary then lsm_oce_c is land_boundary
               IF ( v_base%lsm_oce_e(idxe,jk,ible) == BOUNDARY .AND. jk  > 2 ) &
                 &  v_base%lsm_oce_c(jc,jk,jb) = LAND_BOUNDARY
               ! counts number of land-boundaries for jk=1 - one land cell may have 2 boundaries
@@ -1913,7 +1914,7 @@ END DO
             IF ( v_base%lsm_oce_c(jc,jk,jb) == LAND_BOUNDARY )   &
               &  nolbd_c(jk)=nolbd_c(jk)+1
 
-          END IF  !  lsm_c > 0
+          END IF  !  lsm_oce_c > 0
 
         END DO  IDX_LOOP_C
 
@@ -1931,25 +1932,25 @@ END DO
 
     ! synchronize all elements of v_base:
 
-    z_sync_c(:,:) =  REAL(v_base%dolic_c(:,:),wp)
-    CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
-    v_base%dolic_c(:,:) = INT(z_sync_c(:,:))
+  ! z_sync_c(:,:) =  REAL(v_base%dolic_c(:,:),wp)
+  ! CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
+  ! v_base%dolic_c(:,:) = INT(z_sync_c(:,:))
 
-    z_sync_e(:,:) =  REAL(v_base%dolic_e(:,:),wp)
-    CALL sync_patch_array(SYNC_e, p_patch, z_sync_e(:,:))
-    v_base%dolic_e(:,:) = INT(z_sync_e(:,:))
+  ! z_sync_e(:,:) =  REAL(v_base%dolic_e(:,:),wp)
+  ! CALL sync_patch_array(SYNC_e, p_patch, z_sync_e(:,:))
+  ! v_base%dolic_e(:,:) = INT(z_sync_e(:,:))
 
-    DO jk = 1, n_zlev
+  ! DO jk = 1, n_zlev
 
-      z_sync_c(:,:) =  REAL(v_base%lsm_oce_c(:,jk,:),wp)
-      CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
-      v_base%lsm_oce_c(:,jk,:) = INT(z_sync_c(:,:))
+  !   z_sync_c(:,:) =  REAL(v_base%lsm_oce_c(:,jk,:),wp)
+  !   CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
+  !   v_base%lsm_oce_c(:,jk,:) = INT(z_sync_c(:,:))
 
-      z_sync_e(:,:) =  REAL(v_base%lsm_oce_e(:,jk,:),wp)
-      CALL sync_patch_array(SYNC_e, p_patch, z_sync_e(:,:))
-      v_base%lsm_oce_e(:,jk,:) = INT(z_sync_e(:,:))
+  !   z_sync_e(:,:) =  REAL(v_base%lsm_oce_e(:,jk,:),wp)
+  !   CALL sync_patch_array(SYNC_e, p_patch, z_sync_e(:,:))
+  !   v_base%lsm_oce_e(:,jk,:) = INT(z_sync_e(:,:))
 
-    END DO
+  ! END DO
 
     !---------------------------------------------------------------------------------------------
     ! Correction loop for all levels, similar to surface done in grid generator
@@ -2002,7 +2003,7 @@ END DO
        !        ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
        !        idxe = p_patch%cells%edge_idx(jc,jb,ji)
        !        ible = p_patch%cells%edge_blk(jc,jb,ji)
-       !        ! if one of lsm_e is boundary then lsm_c is sea_boundary
+       !        ! if one of lsm_oce_e is boundary then lsm_oce_c is sea_boundary
        !        ! counts number of sea-boundaries for jk=1 - only one boundary is allowed
        !        IF ( v_base%lsm_oce_e(idxe,jk,ible) == BOUNDARY) &
        !          &  nowet_c=nowet_c + 1
@@ -2035,7 +2036,7 @@ END DO
 !                ENDIF
 
               ENDIF   ! no_wet>=2
-            END IF   ! lsm_c<0
+            END IF   ! lsm_oce_c<0
           END DO
         END DO
      !  write(0,*)'triangles with 2 land edges present at jiter, jk:',jiter,jk,ctr 
@@ -2059,18 +2060,20 @@ END DO
 
       ! synchronize all elements of v_base:
      
-      DO jk = 1, n_zlev
-     
-        z_sync_c(:,:) =  REAL(v_base%lsm_oce_c(:,jk,:),wp)
-        CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
-        v_base%lsm_oce_c(:,jk,:) = INT(z_sync_c(:,:))
-     
-        z_sync_e(:,:) =  REAL(v_base%lsm_oce_e(:,jk,:),wp)
-        CALL sync_patch_array(SYNC_e, p_patch, z_sync_e(:,:))
-        v_base%lsm_oce_e(:,jk,:) = INT(z_sync_e(:,:))
-     
-      END DO
+  !   DO jk = 1, n_zlev
+  !  
+  !     z_sync_c(:,:) =  REAL(v_base%lsm_oce_c(:,jk,:),wp)
+  !     CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
+  !     v_base%lsm_oce_c(:,jk,:) = INT(z_sync_c(:,:))
+  !  
+  !     z_sync_e(:,:) =  REAL(v_base%lsm_oce_e(:,jk,:),wp)
+  !     CALL sync_patch_array(SYNC_e, p_patch, z_sync_e(:,:))
+  !     v_base%lsm_oce_e(:,jk,:) = INT(z_sync_e(:,:))
+  !  
+  !   END DO
 
+      ctr = global_sum_array(ctr_jk)
+      ctr_jk = ctr
       IF (ctr_jk == 0) EXIT
 
     END DO  ! jiter
@@ -2103,8 +2106,15 @@ END DO
       ! (1) set wet grid points and dolic at cells:
       !  - values for BOUNDARY set below
 
+      ! synchronize lsm on cells - here now broadcast error
+      z_sync_c(:,:) =  REAL(v_base%lsm_oce_c(:,jk,:),wp)
+      CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
+      v_base%lsm_oce_c(:,jk,:) = INT(z_sync_c(:,:))
+
       nolnd_c(jk)=0
       nosea_c(jk)=0
+
+      lsm_c(:,:) =  v_base%lsm_oce_c(:,jk,:)
 
       DO jb = 1, nblks_c
 
@@ -2116,13 +2126,14 @@ END DO
 
         DO jc = 1, i_endidx
 
-          IF (.NOT.p_patch%cells%owner_mask(jc,jb)) CYCLE  ! access inner domain only
+        ! IF (.NOT.p_patch%cells%owner_mask(jc,jb)) CYCLE  ! access inner domain only
           IF (v_base%lsm_oce_c(jc,jk,jb) <= SEA_BOUNDARY) THEN
             nosea_c(jk)=nosea_c(jk)+1
             v_base%dolic_c(jc,jb) = jk
           ELSE
             ! -after correction: all other grid points are set to dry
-            v_base%lsm_oce_c(jc,jk,jb) = LAND
+        !   v_base%lsm_oce_c(jc,jk,jb) = LAND
+            lsm_c(jc,jb) = LAND
             nolnd_c(jk)=nolnd_c(jk)+1
           END IF
 
@@ -2130,19 +2141,24 @@ END DO
 
       END DO
 
-      ! #slo# status: here dolic_c is out of sync
+      ! synchronize dolic_c
       z_sync_c(:,:) =  REAL(v_base%dolic_c(:,:),wp)
       CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
       v_base%dolic_c(:,:) = INT(z_sync_c(:,:))
 
-      ! synchronize lsm on cells
-      ! #slo# status: if here is synchronized, a broadcast error occurs elsewhere
-      !               without sync: error is at next sync l.2214
+      ! now synchronize lsm_c
+      z_sync_c(:,:) =  REAL(lsm_c(:,:),wp)
+      CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
+      lsm_c(:,:) = INT(z_sync_c(:,:))
+      v_base%lsm_oce_c(:,jk,:) = lsm_c(:,:)
+
+   !  ! synchronize lsm on cells - error now here
    !  z_sync_c(:,:) =  REAL(v_base%lsm_oce_c(:,jk,:),wp)
    !  CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
    !  v_base%lsm_oce_c(:,jk,:) = INT(z_sync_c(:,:))
 
       !  percentage of land area per level and global value 
+      !  #slo# must be parallelized accordingly
       !   - here: nosea/nolnd include boundaries
       inolsm = nolnd_c(jk) + nosea_c(jk)
       IF (inolsm == 0 ) THEN
@@ -2226,7 +2242,13 @@ END DO
       CALL sync_patch_array(SYNC_e, p_patch, z_sync_e(:,:))
       v_base%lsm_oce_e(:,jk,:) = INT(z_sync_e(:,:))
 
+      ! synchronize dolic_e
+      z_sync_e(:,:) =  REAL(v_base%dolic_e(:,:),wp)
+      CALL sync_patch_array(SYNC_e, p_patch, z_sync_e(:,:))
+      v_base%dolic_e(:,:) = INT(z_sync_e(:,:))
+
       !  percentage of land area per level and global value
+      !  #slo# must be parallelized accordingly
       inolsm = nolnd_e(jk) + nosea_e(jk)
       IF (inolsm == 0 ) THEN
         IF (jk == 1 ) CALL message (TRIM(routine), 'WARNING - number of edge points is zero?')
@@ -2285,7 +2307,7 @@ END DO
           END IF  !  lsm_c < 0
 
           ! land points
-          IF (v_base%lsm_oce_c(jc,jk,jb) > 0) THEN
+          IF (v_base%lsm_oce_c(jc,jk,jb) > BOUNDARY) THEN
 
             DO ji = 1, 3
               ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
@@ -2411,17 +2433,17 @@ END DO
 
     ! synchronize all elements of v_base:
 
-    DO jk = 1, n_zlev
+  ! DO jk = 1, n_zlev
 
-      z_sync_c(:,:) =  REAL(v_base%lsm_oce_c(:,jk,:),wp)
-      CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
-      v_base%lsm_oce_c(:,jk,:) = INT(z_sync_c(:,:))
+  !   z_sync_c(:,:) =  REAL(v_base%lsm_oce_c(:,jk,:),wp)
+  !   CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
+  !   v_base%lsm_oce_c(:,jk,:) = INT(z_sync_c(:,:))
 
-      z_sync_e(:,:) =  REAL(v_base%lsm_oce_e(:,jk,:),wp)
-      CALL sync_patch_array(SYNC_e, p_patch, z_sync_e(:,:))
-      v_base%lsm_oce_e(:,jk,:) = INT(z_sync_e(:,:))
+  !   z_sync_e(:,:) =  REAL(v_base%lsm_oce_e(:,jk,:),wp)
+  !   CALL sync_patch_array(SYNC_e, p_patch, z_sync_e(:,:))
+  !   v_base%lsm_oce_e(:,jk,:) = INT(z_sync_e(:,:))
 
-    END DO
+  ! END DO
 
     CALL message (TRIM(routine), 'end')
 
