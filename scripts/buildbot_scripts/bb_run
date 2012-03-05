@@ -149,6 +149,11 @@ set_section_info ()
          run_ALL=0
          ;;
 
+      restart)
+         run_RESTART=1
+         run_ALL=0
+         ;;
+
         *)
           echo "Wrong Parameter(s) in -section part"
           echo "!!! Please some examples below:"
@@ -337,6 +342,8 @@ run_ALL=1
 run_GRID=0
 run_EXP=0
 run_POST=0
+run_RESTART=0
+
 target="NotSet"
 use_list=0
 
@@ -568,7 +575,7 @@ fi
 
 #==============================================================
 
-if [ "${run_ALL}" == "1" -o "${run_POST}" -eq "1" ]
+if [ "${run_ALL}" == "1" -o "${run_POST}" -eq "1"  -o "${run_RESTART}" -eq "1" ]
 then
   TARGET_TMP=`echo $target | cut -c1-3`
   echo "TARGET_TMP $TARGET_TMP"
@@ -598,20 +605,29 @@ then
   stop_check="warning_on_error"
   build_post_file="false"
 
-  if [  -a ./run/run_post_list ] 
-  then 
-    echo "Use special file ./run/run_post_list for post-script run"
-    EXP_FILES=`cat ./run/run_post_list` 
-  else
-    echo "Run all post-script post.test_*.run"
-    cd run
-    EXP_FILES=`ls post.test_*.run`
-    cd ..
+  EXP_FILES=""
+
+  if [ "${run_ALL}" == "1" -o "${run_POST}" -eq "1" ]
+  then
+    if [  -a ./run/run_post_list ] 
+    then 
+      echo "Use special file ./run/run_post_list for post-script run"
+      EXP_FILES=`cat ./run/run_post_list` 
+    else
+      echo "Run all post-script post.test_*.run"
+      cd run
+      EXP_FILES=`ls post.test_*.run`
+      cd ..
+    fi
   fi
-  if [  -a ./run/run_post_comp_list ]
-  then 
-    echo "Use special file ./run/run_post_comp_list for post-script run"
-    EXP_FILES="${EXP_FILES} `cat ./run/run_post_comp_list`"
+  
+  if [ "${run_ALL}" == "1" -o "${run_RESTART}" -eq "1" ]
+  then
+    if [  -a ./run/run_post_comp_list ]
+    then 
+      echo "Use special file ./run/run_post_comp_list for post-script run"
+      EXP_FILES="${EXP_FILES} `cat ./run/run_post_comp_list`"
+    fi
   fi
 
   run_scripts run
