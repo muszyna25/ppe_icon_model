@@ -81,8 +81,9 @@ MODULE mo_ext_data
   USE mo_util_netcdf,        ONLY: read_netcdf_data, read_netcdf_lu, nf
   USE mo_util_string,        ONLY: t_keyword_list,  &
     &                              associate_keyword, with_keywords
+  USE mo_phyparam_soil,      ONLY: c_lnd, c_soil, zplcmxc_lu, zlaimxc_lu, &
+    &                              zrd_lu, zrs_min_lu ! soil and vegetation parameters for TILES
   USE mo_cdi_constants
-  USE mo_phyparam_soil              ! soil and vegetation parameters for TILES
 
   IMPLICIT NONE
 
