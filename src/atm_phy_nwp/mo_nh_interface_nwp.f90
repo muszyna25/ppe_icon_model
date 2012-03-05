@@ -565,7 +565,6 @@ CONTAINS
       !! a recalculation is not required
 
       CALL nwp_surface    (  dt_phy_jg(itfastphy),              & !>input
-                            & dtadv_loc,                        & !>input
                             & pt_patch,                         & !>input
                             & ext_data,                         & !>input
                             & pt_prog_rcf,                      & !>in/inout rcf=reduced calling freq.

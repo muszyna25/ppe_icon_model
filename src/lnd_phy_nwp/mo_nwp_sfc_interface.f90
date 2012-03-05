@@ -43,7 +43,7 @@ MODULE mo_nwp_sfc_interface
   USE mo_impl_constants,      ONLY: min_rlcell_int, zml_soil
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_loopindices,         ONLY: get_indices_c
-  USE mo_ext_data,            ONLY: t_external_data!, nclass_lu
+  USE mo_ext_data,            ONLY: t_external_data
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag 
   USE mo_nwp_phy_state,       ONLY: t_nwp_phy_diag
   USE mo_nwp_lnd_state,       ONLY: t_lnd_prog, t_lnd_diag
@@ -51,9 +51,8 @@ MODULE mo_nwp_sfc_interface
   USE mo_run_config,          ONLY: iqv, msg_level
   USe mo_extpar_config,       ONLY: itopo
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
-  USE mo_nonhydrostatic_config,ONLY: iadv_rcf
-  USE mo_lnd_nwp_config,      ONLY: nlev_soil, nztlev, nlev_snow, nsfc_subs, nsfc_snow, &
-    &                               t_tiles,  lseaice ,llake, lmulti_snow
+  USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, nsfc_subs, t_tiles,  &
+    &                               lseaice, llake, lmulti_snow
   USE mo_satad,               ONLY: sat_pres_water, spec_humi  
   USE mo_soil_ml,             ONLY: terra_multlay, terra_multlay_init
   USE mo_phyparam_soil              ! soil and vegetation parameters for TILES
@@ -65,15 +64,13 @@ MODULE mo_nwp_sfc_interface
   PUBLIC  ::  nwp_surface, nwp_surface_init
 
   PRIVATE
-INTEGER, PARAMETER :: nclass_lu = 23
+
 
 #ifdef __SX__
 ! parameters for loop unrolling
 INTEGER, PARAMETER :: nlsoil= 7
 INTEGER, PARAMETER :: nlsnow= 2
 #endif
-
-REAL(wp), PARAMETER :: frlnd_thrhld = 0.5_wp
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
@@ -82,7 +79,6 @@ CONTAINS
   !!-------------------------------------------------------------------------
   !!
   SUBROUTINE nwp_surface( tcall_sfc_jg,                   & !>in
-                        & dtadv_loc,             & !>in
                         & p_patch,                        & !>in
                         & ext_data,                       & !>in
                         & p_prog_rcf,                     & !>in/inout
@@ -93,7 +89,6 @@ CONTAINS
                         & p_tiles                         ) !>in
 
 !    REAL(wp),                    INTENT(in)   :: p_sim_time    !< simulation time [s]
-    REAL(wp),                    INTENT(in)   :: dtadv_loc        !< time step [s]
     TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch       !< grid/patch info
     TYPE(t_external_data),       INTENT(in)   :: ext_data      !< external data
     TYPE(t_nh_prog),      TARGET,INTENT(inout):: p_prog_rcf    !< call freq
@@ -114,14 +109,12 @@ CONTAINS
     INTEGER :: i_startidx, i_endidx    !< slices
     INTEGER :: i_nchdom                !< domain index
     INTEGER :: nlev                    !< number of full levels
-    INTEGER :: isubs, n_lu            
+    INTEGER :: isubs           
 
     ! Local scalars:
     !
     INTEGER :: jc,jb,jg,jk      !loop indices
 
-    INTEGER :: nstep_soil
-  
 
     REAL(wp) ::          ps_t        (nproma, p_patch%nblks_c)
     REAL(wp) ::          prr_con_t   (nproma, p_patch%nblks_c)
@@ -236,13 +229,6 @@ CONTAINS
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-    ! soil model time step - has to be zero for initial call
-    ! (actually, the initialization operations should be encapsulated in a separate routine!
-    ! As long as this is not the case, we need to use an absolute time step counter, 
-    ! instead of a relative one. Otherwise, the initialization part will be called after 
-    ! restart.)
-!DR    nstep_soil = NINT(REAL(jstep,wp)/REAL(iadv_rcf,wp)) - 1
-!    nstep_soil = NINT(p_sim_time/dtadv_loc) - 1
 
     IF (msg_level >= 12) THEN
       CALL message('mo_nwp_sfc_interface: ', 'call land-surface scheme')
@@ -636,7 +622,6 @@ CONTAINS
     INTEGER :: jc,jb,nlev,isubs,jk
 
 
-    REAL(wp) :: red_fac
     REAL(wp) :: t_snow_now_t(nproma, p_patch%nblks_c, nsfc_subs)
     REAL(wp) :: t_snow_mult_now_t(nproma, 1:nlev_snow+1, p_patch%nblks_c, nsfc_subs)
     REAL(wp) :: t_s_now_t(nproma, p_patch%nblks_c, nsfc_subs)

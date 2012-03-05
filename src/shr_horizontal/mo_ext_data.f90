@@ -546,10 +546,9 @@ CONTAINS
 
   END SUBROUTINE init_ext_data
 
-  SUBROUTINE init_index_lists (p_patch, p_int_state, ext_data)
+  SUBROUTINE init_index_lists (p_patch, ext_data)
 
     TYPE(t_patch), INTENT(IN)            :: p_patch(:)
-    TYPE(t_int_state), INTENT(IN)        :: p_int_state(:)
     TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
 
     INTEGER :: i_lu, jb,jc, jg, n_lu,i_count
@@ -588,6 +587,9 @@ CONTAINS
          i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
 
 
+!!$OMP PARALLEL
+!!OMP DO PRIVATE(jb,jc,i_lu,i_startidx,i_endidx,i_count,tile_frac,tile_mask,lu_subs,  &
+!!$OMP           sum_frac)
          DO jb=i_startblk, i_endblk
 
             CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
@@ -663,6 +665,8 @@ CONTAINS
 
 
          END DO !jb
+!!$OMP END DO
+!!$OMP END PARALLEL
 
       END DO  !jg
    END SELECT ! iequations

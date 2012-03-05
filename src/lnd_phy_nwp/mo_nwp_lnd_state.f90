@@ -75,8 +75,8 @@ MODULE mo_nwp_lnd_state
     &                               new_var_list,               &
     &                               delete_var_list
   USE mo_var_metadata,         ONLY: t_var_metadata
-  USE mo_cf_convention
-  USE mo_grib2
+  USE mo_cf_convention,        ONLY: t_cf_var
+  USE mo_grib2,                ONLY: t_grib2_var
   USE mo_cdi_constants 
 
 
