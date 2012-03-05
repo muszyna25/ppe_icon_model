@@ -599,9 +599,6 @@ then
 
   echo "POST Part"
 
-  LOOP_STATUS_FILE="LOOP_STATUS_POST_FILE"
-
-  rm -f ${LOOP_STATUS_FILE}
   stop_check="warning_on_error"
   build_post_file="false"
 
@@ -609,6 +606,10 @@ then
 
   if [ "${run_ALL}" == "1" -o "${run_POST}" -eq "1" ]
   then
+
+    LOOP_STATUS_FILE="LOOP_STATUS_POST_FILE"
+    rm -f ${LOOP_STATUS_FILE}
+
     if [  -a ./run/run_post_list ] 
     then 
       echo "Use special file ./run/run_post_list for post-script run"
@@ -623,6 +624,10 @@ then
   
   if [ "${run_ALL}" == "1" -o "${run_RESTART}" -eq "1" ]
   then
+
+    LOOP_STATUS_FILE="LOOP_STATUS_RESTART_FILE"
+    rm -f ${LOOP_STATUS_FILE}
+
     if [  -a ./run/run_post_comp_list ]
     then 
       echo "Use special file ./run/run_post_comp_list for post-script run"
