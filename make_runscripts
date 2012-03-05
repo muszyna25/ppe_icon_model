@@ -115,8 +115,7 @@ if [ $make_exp = "true" ] ; then
         mpi_procs=1 memory_model="large" cpu_time="01:00:00" queue="express"
       elif [[ ${name} == *hom_* ]]; then
         $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
-        memory_model="large" cpu_time="08:00:00"
-        # mpi_procs=1 memory_model="large" cpu_time="08:00:00"
+        mpi_procs=1 memory_model="large" cpu_time="08:00:00"
       elif [[ ${name} == *_nwp_* ]] ; then
         $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name}\
         cpu_time="04:00:00" memory_model="huge"  omp_stacksize="500M" queue="$queue"
