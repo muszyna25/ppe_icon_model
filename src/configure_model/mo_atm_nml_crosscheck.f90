@@ -68,7 +68,7 @@ MODULE mo_nml_crosscheck
     &                              ltransport, ntracer, nlev, io3, ltestcase, &
     &                              nqtendphy, ntracer_static, iqv, iqc, iqi,  &
     &                              iqs, iqr, iqt, ico2, ltimer,               &
-    &                              activate_sync_timers
+    &                              activate_sync_timers, timers_level
                                   
 !  USE mo_io_config
   USE mo_gridref_config
@@ -838,6 +838,12 @@ CONTAINS
       WRITE (message_text,*) &
         & "warning: namelist parameter 'activate_sync_timers' has been set to .FALSE., ", &
         & "because global 'ltimer' flag is disabled."
+    END IF
+    IF (timers_level > 9 .AND. .NOT. activate_sync_timers) THEN
+      activate_sync_timers = .TRUE.
+      WRITE (message_text,*) &
+        & "warning: namelist parameter 'activate_sync_timers' has been set to .TRUE., ", &
+        & "because global 'timers_level' is > 9."
     END IF
 
     !---------------------------------------------------------------

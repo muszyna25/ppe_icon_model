@@ -104,6 +104,7 @@ USE mo_impl_constants, ONLY: max_dom, max_phys_dom
 USE mo_communication,  ONLY: t_comm_pattern
 USE mo_io_units,       ONLY: filename_max
 USE mo_util_uuid,      ONLY: t_uuid
+USE mo_utility_types,  ONLY: t_subset_range
 
 IMPLICIT NONE
 
@@ -133,7 +134,7 @@ END TYPE t_tangent_vectors
 ! !grid_cell class - corresponds to triangles
 
 TYPE t_grid_cells
-
+  
   ! number of edges connected to cell
   ! index1=1,nproma, index2=1,nblks_c
   INTEGER, ALLOCATABLE :: num_edges(:,:)
@@ -247,6 +248,16 @@ TYPE t_grid_cells
   ! It is not allocated/deallocated with the regular patch (de)allocation routines
   ! nor does it need to be dumped/restored or subdivided in patch subdivision.
   REAL(wp), ALLOCATABLE :: ddqz_z_full(:,:,:)
+
+
+  ! define basic subsets
+  TYPE(t_subset_range) :: owned         ! these are the owned entities
+  TYPE(t_subset_range) :: in_domain     ! these are the computation domain entities, for cells = owned
+  TYPE(t_subset_range) :: not_owned     ! these are all the halo entities
+  TYPE(t_subset_range) :: not_in_domain ! for cells = not_owned
+  
+  TYPE(t_subset_range) :: edge_in_domain ! cells that at least one edge is  
+  
 
 END TYPE t_grid_cells
 
