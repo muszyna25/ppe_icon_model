@@ -60,7 +60,7 @@ MODULE mo_nh_stepping
     &                                ltransport, ntracer, lforcing, iforcing, &
     &                                msg_level, testbed_mode
   USE mo_timer,               ONLY: ltimer, timers_level, timer_start, timer_stop, &
-    &                               timer_model_init
+    &                               timer_model_init, timer_integrate_nh, timer_nh_diagnostics
   USE mo_grid_config,         ONLY: global_cell_type
   USE mo_atm_phy_nwp_config,  ONLY: dt_phy, atm_phy_nwp_config
   USE mo_nwp_phy_init,        ONLY: init_nwp_phy
@@ -262,6 +262,7 @@ MODULE mo_nh_stepping
   CALL setup_time_ctrl_physics( )
 
   END SUBROUTINE prepare_nh_integration
+  !-------------------------------------------------------------------------
 
 
   !-------------------------------------------------------------------------
@@ -376,7 +377,7 @@ MODULE mo_nh_stepping
   END SUBROUTINE perform_nh_stepping
   !-------------------------------------------------------------------------
 
- !-------------------------------------------------------------------------
+  !-------------------------------------------------------------------------
   !>
   !! Organizes nonhydrostatic time stepping
   !! Currently we assume to have only one grid level.
@@ -638,215 +639,6 @@ MODULE mo_nh_stepping
   END SUBROUTINE perform_nh_timeloop
   !-------------------------------------------------------------------------
 
-  !-------------------------------------------------------------------------
-  !>
-  !! @par Revision History
-  !!
-  SUBROUTINE deallocate_nh_stepping ()
-!
-
-  INTEGER                              ::  jg, ist
-
-!-----------------------------------------------------------------------
-  !
-  ! deallocate auxiliary fields for tracer transport and rcf
-  !
-  DO jg = 1, n_dom
-    DEALLOCATE( prep_adv(jg)%mass_flx_me, prep_adv(jg)%mass_flx_ic,    &
-      &         prep_adv(jg)%vn_traj, prep_adv(jg)%w_traj,             &
-      &         prep_adv(jg)%rhodz_mc_now, prep_adv(jg)%rhodz_mc_new,  &
-      &         prep_adv(jg)%rho_ic, prep_adv(jg)%topflx_tra, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ( 'mo_nh_stepping: perform_nh_stepping',            &
-        &    'deallocation for mass_flx_me, mass_flx_ic, vn_traj,' // &
-        &    'w_traj, rhodz_mc_now, rhodz_mc_new, rho_ic, '        // &
-        &    'topflx_tra failed' )
-    ENDIF
-    DEALLOCATE(bufr(jg)%send_c1, &
-      &      bufr(jg)%recv_c1,bufr(jg)%send_c3,bufr(jg)%recv_c3, &
-      &      bufr(jg)%send_e1,bufr(jg)%recv_e1,bufr(jg)%send_e2, &
-      &      bufr(jg)%recv_e2,bufr(jg)%send_e3,bufr(jg)%recv_e3, &
-      &      bufr(jg)%send_v2,bufr(jg)%recv_v2, STAT=ist )
-    IF (ist /= SUCCESS) &
-      CALL finish ( 'mo_nh_stepping: perform_nh_stepping',  &
-      &    'deallocation of MPI exchange buffers failed' )
-  ENDDO
-
-  DEALLOCATE( bufr, STAT=ist )
-  IF (ist /= SUCCESS) &
-    CALL finish ( 'mo_nh_stepping: perform_nh_stepping',            &
-      &    'deallocation of bufr failed' )
-
-  DEALLOCATE( prep_adv, STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ( 'mo_nh_stepping: perform_nh_stepping',              &
-      &    'deallocation for prep_adv failed' )
-  ENDIF
-
-  DEALLOCATE( jstep_adv, STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ( 'mo_nh_stepping: perform_nh_stepping',              &
-      &    'deallocation for jstep_adv failed' )
-  ENDIF
-
-  !
-  ! deallocate flow control variables
-  !
-  DEALLOCATE( lstep_adv, lcall_phy, linit_slowphy, linit_dyn, t_elapsed_phy, &
-    &         sim_time, STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ( 'mo_nh_stepping: perform_nh_stepping',          &
-      &    'deallocation for lstep_adv, lcall_phy,' //            &
-      &    't_elapsed_phy failed' )
-  ENDIF
-
-  END SUBROUTINE deallocate_nh_stepping
-  !-------------------------------------------------------------------------
-
-  !-------------------------------------------------------------------------
-  !>
-  !! @par Revision History
-  !!
-  SUBROUTINE allocate_nh_stepping (p_patch)
-!
-  TYPE(t_patch), TARGET, INTENT(IN)            :: p_patch(n_dom_start:n_dom)
-
-  INTEGER                              :: jg, jp !, nlen
-  INTEGER                              :: ist
-  CHARACTER(len=MAX_CHAR_LENGTH)       :: attname   ! attribute name
-
-!-----------------------------------------------------------------------
-  ! Allocate global buffers for MPI communication
-  ALLOCATE(bufr(n_dom), STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ( 'mo_nh_stepping: perform_nh_stepping',           &
-    &      'allocation of buffer for MPI communication failed' )
-  ENDIF
-  !
-  ! allocate axiliary fields for transport
-  !
-  ALLOCATE(prep_adv(n_dom), STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ( 'mo_nh_stepping: perform_nh_stepping',           &
-    &      'allocation for prep_adv failed' )
-  ENDIF
-
-  ALLOCATE(jstep_adv(n_dom), STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ( 'mo_nh_stepping: perform_nh_stepping',           &
-    &      'allocation for jstep_adv failed' )
-  ENDIF
-
-
-  ! allocate flow control variables for transport and slow physics calls
-  ALLOCATE(lstep_adv(n_dom),lcall_phy(n_dom,iphysproc),linit_slowphy(n_dom), &
-    &      linit_dyn(n_dom),t_elapsed_phy(n_dom,iphysproc_short),            &
-    &      sim_time(n_dom), STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ( 'mo_nh_stepping: perform_nh_stepping',           &
-    &      'allocation for flow control variables failed' )
-  ENDIF
-  !
-  ! initialize
-  IF (is_restart_run()) THEN
-    linit_slowphy(:)  = .FALSE.
-    !
-    ! Get sim_time, t_elapsed_phy and lcall_phy from restart file
-    DO jg = 1,n_dom
-      WRITE(attname,'(a,i2.2)') 'jstep_adv_ntsteps_DOM',jg
-      CALL get_restart_attribute(TRIM(attname), jstep_adv(jg)%ntsteps)
-      WRITE(attname,'(a,i2.2)') 'jstep_adv_marchuk_order_DOM',jg
-      CALL get_restart_attribute(TRIM(attname), jstep_adv(jg)%marchuk_order)
-      WRITE(attname,'(a,i2.2)') 'sim_time_DOM',jg
-      CALL get_restart_attribute(TRIM(attname), sim_time(jg))
-      DO jp = 1,iphysproc_short
-        WRITE(attname,'(a,i2.2,a,i2.2)') 't_elapsed_phy_DOM',jg,'_PHY',jp
-        CALL get_restart_attribute(TRIM(attname), t_elapsed_phy(jg,jp))
-      ENDDO
-      DO jp = 1,iphysproc
-        WRITE(attname,'(a,i2.2,a,i2.2)') 'lcall_phy_DOM',jg,'_PHY',jp
-        CALL get_restart_attribute(TRIM(attname), lcall_phy(jg,jp))
-      ENDDO
-    ENDDO
-    linit_dyn(:)      = .FALSE.
-  ELSE
-    jstep_adv(:)%ntsteps       = 0
-    jstep_adv(:)%marchuk_order = 0
-    sim_time(:)                = 0._wp
-    linit_slowphy(:)           = .TRUE.
-    t_elapsed_phy(:,:)         = 0._wp
-    linit_dyn(:)               = .TRUE.
-  ENDIF
-
-
-  DO jg=1, n_dom
-    ALLOCATE(                                                                      &
-      &  prep_adv(jg)%mass_flx_me (nproma,p_patch(jg)%nlev  ,p_patch(jg)%nblks_e), &
-      &  prep_adv(jg)%mass_flx_ic (nproma,p_patch(jg)%nlevp1,p_patch(jg)%nblks_c), &
-      &  prep_adv(jg)%vn_traj     (nproma,p_patch(jg)%nlev,  p_patch(jg)%nblks_e), &
-      &  prep_adv(jg)%w_traj      (nproma,p_patch(jg)%nlevp1,p_patch(jg)%nblks_c), &
-      &  prep_adv(jg)%rhodz_mc_now(nproma,p_patch(jg)%nlev  ,p_patch(jg)%nblks_c), &
-      &  prep_adv(jg)%rhodz_mc_new(nproma,p_patch(jg)%nlev  ,p_patch(jg)%nblks_c), &
-      &  prep_adv(jg)%rho_ic      (nproma,p_patch(jg)%nlevp1,p_patch(jg)%nblks_c), &
-      &  prep_adv(jg)%topflx_tra  (nproma,p_patch(jg)%nblks_c,ntracer),            &
-      &       STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ( 'mo_nh_stepping: perform_nh_stepping',           &
-      &      'allocation for mass_flx_me, mass_flx_ic, vn_traj, ' // &
-      &      'w_traj, rhodz_mc_now, rhodz_mc_new, rho_ic, '       // &
-      &      'topflx_tra failed' )
-    ENDIF
-    !
-    ! initialize (as long as restart output is synchroinzed with advection, 
-    ! these variables do not need to go into the restart file)
-!$OMP PARALLEL
-!$OMP WORKSHARE
-    prep_adv(jg)%mass_flx_me (:,:,:) = 0._wp
-    prep_adv(jg)%mass_flx_ic (:,:,:) = 0._wp
-    prep_adv(jg)%vn_traj     (:,:,:) = 0._wp
-    prep_adv(jg)%w_traj      (:,:,:) = 0._wp
-    prep_adv(jg)%rhodz_mc_now(:,:,:) = 0._wp
-    prep_adv(jg)%rhodz_mc_new(:,:,:) = 0._wp
-    prep_adv(jg)%rho_ic      (:,:,:) = 0._wp
-    prep_adv(jg)%topflx_tra  (:,:,:) = 0._wp
-!$OMP END WORKSHARE
-!$OMP END PARALLEL
-
-    ! Allocate global buffers for MPI communication
-    IF (itype_comm >= 2 .AND. my_process_is_mpi_parallel()) THEN
-      ALLOCATE(bufr(jg)%send_c1 (p_patch(jg)%nlevp1,   p_patch(jg)%comm_pat_c%n_send), &
-        &      bufr(jg)%recv_c1 (p_patch(jg)%nlevp1,   p_patch(jg)%comm_pat_c%n_recv), &
-        &      bufr(jg)%send_c3 (3*p_patch(jg)%nlev+1, p_patch(jg)%comm_pat_c%n_send), &
-        &      bufr(jg)%recv_c3 (3*p_patch(jg)%nlev+1, p_patch(jg)%comm_pat_c%n_recv), &
-        &      bufr(jg)%send_e1 (p_patch(jg)%nlev,     p_patch(jg)%comm_pat_e%n_send), &
-        &      bufr(jg)%recv_e1 (p_patch(jg)%nlev,     p_patch(jg)%comm_pat_e%n_recv), &
-        &      bufr(jg)%send_e2 (2*p_patch(jg)%nlev,   p_patch(jg)%comm_pat_e%n_send), &
-        &      bufr(jg)%recv_e2 (2*p_patch(jg)%nlev,   p_patch(jg)%comm_pat_e%n_recv), &
-        &      bufr(jg)%send_e3 (3*p_patch(jg)%nlev,   p_patch(jg)%comm_pat_e%n_send), &
-        &      bufr(jg)%recv_e3 (3*p_patch(jg)%nlev,   p_patch(jg)%comm_pat_e%n_recv), &
-        &      bufr(jg)%send_v2 (2*p_patch(jg)%nlev,   p_patch(jg)%comm_pat_v%n_send), &
-        &      bufr(jg)%recv_v2 (2*p_patch(jg)%nlev,   p_patch(jg)%comm_pat_v%n_recv)  )
-    ELSE
-      ALLOCATE(bufr(jg)%send_c1 (1,1), &
-        &      bufr(jg)%recv_c1 (1,1), &
-        &      bufr(jg)%send_c3 (1,1), &
-        &      bufr(jg)%recv_c3 (1,1), &
-        &      bufr(jg)%send_e1 (1,1), &
-        &      bufr(jg)%recv_e1 (1,1), &
-        &      bufr(jg)%send_e2 (1,1), &
-        &      bufr(jg)%recv_e2 (1,1), &
-        &      bufr(jg)%send_e3 (1,1), &
-        &      bufr(jg)%recv_e3 (1,1), &
-        &      bufr(jg)%send_v2 (1,1), &
-        &      bufr(jg)%recv_v2 (1,1)  )
-    ENDIF
-
-  ENDDO
-
-  END SUBROUTINE allocate_nh_stepping
-
-!-----------------------------------------------------------------------------
-
   !-----------------------------------------------------------------------------
   !>
   !! integrate_nh
@@ -924,16 +716,15 @@ MODULE mo_nh_stepping
 !$  INTEGER :: num_threads_omp, omp_get_max_threads
 
     !--------------------------------------------------------------------------
+    IF (ltimer) CALL timer_start(timer_integrate_nh)
 
     !--------------------------------------------------------------------------
     ! settings for calling frequency for slow physics
     !--------------------------------------------------------------------------
-
     IF (jg == 1 .AND. linit_dyn(jg)) THEN
 
       IF (.NOT. l_nest_rcf) nsav1(1:n_dom) = nnow(1:n_dom)
     ENDIF
-
     !--------------------------------------------------------------------------
 
 !$  num_threads_omp = omp_get_max_threads()
@@ -992,7 +783,6 @@ MODULE mo_nh_stepping
 !$OMP END PARALLEL
       ENDIF
 
-
       ! update several switches which decide upon
       ! - calling transport running with rcf (lstep_adv)
       ! - re-initializing temporary transport fields for rcf (lclean_mflx)
@@ -1014,7 +804,6 @@ MODULE mo_nh_stepping
         lstep_adv(jg)  = .FALSE.  ! do not call transport and physics
         lclean_mflx    = .FALSE.  ! do NOT re-initialize mass fluxes and velocities
       ENDIF
-
 
       IF ( l_nest_rcf .AND. n_dom > 1) THEN
         IF (jg == 1 .AND. MOD(nstep_global,iadv_rcf) == 1 .OR. &
@@ -1051,8 +840,6 @@ MODULE mo_nh_stepping
       ELSE
         n_upt_rcf = nnow_rcf(jg)
       ENDIF
-
-
 
       IF ( l_limited_area .AND. jg == 1 ) THEN
         ! Perform interpolation of lateral boundary data from a driving model
@@ -1291,9 +1078,9 @@ MODULE mo_nh_stepping
                         n_now, n_new, linit_dyn(jg), linit_vertnest, l_bdy_nudge, dt_loc)
             ENDIF
             
-          IF (diffusion_config(jg)%lhdiff_vn) &
-            CALL diffusion_tria(p_nh_state(jg)%prog(n_new), p_nh_state(jg)%diag,             &
-              p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), bufr(jg), dt_loc, .FALSE.)
+            IF (diffusion_config(jg)%lhdiff_vn) &
+              CALL diffusion_tria(p_nh_state(jg)%prog(n_new), p_nh_state(jg)%diag,             &
+                p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), bufr(jg), dt_loc, .FALSE.)
           ELSE
             ! call version for asynchronous halo communication, 
             ! combining solve and Smagorinsky diffusion
@@ -1550,6 +1337,9 @@ MODULE mo_nh_stepping
         p_vn  => p_nh_state(jg)%prog(n_new)%vn
         SELECT CASE (p_patch(jg)%cell_type)
         CASE (3)
+        
+          IF (ltimer) CALL timer_start(timer_nh_diagnostics)
+        
           CALL rbf_vec_interpol_cell(p_vn,p_patch(jg),p_int_state(jg),&
                                      p_nh_state(jg)%diag%u,p_nh_state(jg)%diag%v)
 #if !defined(__CRAYXT_COMPUTE_LINUX_TARGET)
@@ -1592,6 +1382,8 @@ MODULE mo_nh_stepping
             ENDIF
 
           ENDDO
+          
+          IF (ltimer) CALL timer_stop(timer_nh_diagnostics)
 
         CASE (6)
           CALL edges2cells_scalar(p_vn,p_patch(jg),p_int_state(jg)%hex_east ,&
@@ -1636,6 +1428,8 @@ MODULE mo_nh_stepping
       ENDIF
 
     ENDDO
+    
+    IF (ltimer) CALL timer_stop(timer_integrate_nh)
 
   END SUBROUTINE integrate_nh
   !-----------------------------------------------------------------------------
@@ -1787,6 +1581,216 @@ MODULE mo_nh_stepping
     map_phyproc(6:11,6) = .TRUE.  ! mapping of fast physics processes to single one
 
   END SUBROUTINE setup_time_ctrl_physics
+  !-------------------------------------------------------------------------
+  
+
+  !-------------------------------------------------------------------------
+  !>
+  !! @par Revision History
+  !!
+  SUBROUTINE deallocate_nh_stepping ()
+
+  INTEGER                              ::  jg, ist
+
+  !-----------------------------------------------------------------------
+  !
+  ! deallocate auxiliary fields for tracer transport and rcf
+  !
+  DO jg = 1, n_dom
+    DEALLOCATE( prep_adv(jg)%mass_flx_me, prep_adv(jg)%mass_flx_ic,    &
+      &         prep_adv(jg)%vn_traj, prep_adv(jg)%w_traj,             &
+      &         prep_adv(jg)%rhodz_mc_now, prep_adv(jg)%rhodz_mc_new,  &
+      &         prep_adv(jg)%rho_ic, prep_adv(jg)%topflx_tra, STAT=ist )
+    IF (ist /= SUCCESS) THEN
+      CALL finish ( 'mo_nh_stepping: perform_nh_stepping',            &
+        &    'deallocation for mass_flx_me, mass_flx_ic, vn_traj,' // &
+        &    'w_traj, rhodz_mc_now, rhodz_mc_new, rho_ic, '        // &
+        &    'topflx_tra failed' )
+    ENDIF
+    DEALLOCATE(bufr(jg)%send_c1, &
+      &      bufr(jg)%recv_c1,bufr(jg)%send_c3,bufr(jg)%recv_c3, &
+      &      bufr(jg)%send_e1,bufr(jg)%recv_e1,bufr(jg)%send_e2, &
+      &      bufr(jg)%recv_e2,bufr(jg)%send_e3,bufr(jg)%recv_e3, &
+      &      bufr(jg)%send_v2,bufr(jg)%recv_v2, STAT=ist )
+    IF (ist /= SUCCESS) &
+      CALL finish ( 'mo_nh_stepping: perform_nh_stepping',  &
+      &    'deallocation of MPI exchange buffers failed' )
+  ENDDO
+
+  DEALLOCATE( bufr, STAT=ist )
+  IF (ist /= SUCCESS) &
+    CALL finish ( 'mo_nh_stepping: perform_nh_stepping',            &
+      &    'deallocation of bufr failed' )
+
+  DEALLOCATE( prep_adv, STAT=ist )
+  IF (ist /= SUCCESS) THEN
+    CALL finish ( 'mo_nh_stepping: perform_nh_stepping',              &
+      &    'deallocation for prep_adv failed' )
+  ENDIF
+
+  DEALLOCATE( jstep_adv, STAT=ist )
+  IF (ist /= SUCCESS) THEN
+    CALL finish ( 'mo_nh_stepping: perform_nh_stepping',              &
+      &    'deallocation for jstep_adv failed' )
+  ENDIF
+
+  !
+  ! deallocate flow control variables
+  !
+  DEALLOCATE( lstep_adv, lcall_phy, linit_slowphy, linit_dyn, t_elapsed_phy, &
+    &         sim_time, STAT=ist )
+  IF (ist /= SUCCESS) THEN
+    CALL finish ( 'mo_nh_stepping: perform_nh_stepping',          &
+      &    'deallocation for lstep_adv, lcall_phy,' //            &
+      &    't_elapsed_phy failed' )
+  ENDIF
+
+  END SUBROUTINE deallocate_nh_stepping
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  !! @par Revision History
+  !!
+  SUBROUTINE allocate_nh_stepping (p_patch)
+!
+  TYPE(t_patch), TARGET, INTENT(IN)            :: p_patch(n_dom_start:n_dom)
+
+  INTEGER                              :: jg, jp !, nlen
+  INTEGER                              :: ist
+  CHARACTER(len=MAX_CHAR_LENGTH)       :: attname   ! attribute name
+
+!-----------------------------------------------------------------------
+  ! Allocate global buffers for MPI communication
+  ALLOCATE(bufr(n_dom), STAT=ist )
+  IF (ist /= SUCCESS) THEN
+    CALL finish ( 'mo_nh_stepping: perform_nh_stepping',           &
+    &      'allocation of buffer for MPI communication failed' )
+  ENDIF
+  !
+  ! allocate axiliary fields for transport
+  !
+  ALLOCATE(prep_adv(n_dom), STAT=ist )
+  IF (ist /= SUCCESS) THEN
+    CALL finish ( 'mo_nh_stepping: perform_nh_stepping',           &
+    &      'allocation for prep_adv failed' )
+  ENDIF
+
+  ALLOCATE(jstep_adv(n_dom), STAT=ist )
+  IF (ist /= SUCCESS) THEN
+    CALL finish ( 'mo_nh_stepping: perform_nh_stepping',           &
+    &      'allocation for jstep_adv failed' )
+  ENDIF
+
+
+  ! allocate flow control variables for transport and slow physics calls
+  ALLOCATE(lstep_adv(n_dom),lcall_phy(n_dom,iphysproc),linit_slowphy(n_dom), &
+    &      linit_dyn(n_dom),t_elapsed_phy(n_dom,iphysproc_short),            &
+    &      sim_time(n_dom), STAT=ist )
+  IF (ist /= SUCCESS) THEN
+    CALL finish ( 'mo_nh_stepping: perform_nh_stepping',           &
+    &      'allocation for flow control variables failed' )
+  ENDIF
+  !
+  ! initialize
+  IF (is_restart_run()) THEN
+    linit_slowphy(:)  = .FALSE.
+    !
+    ! Get sim_time, t_elapsed_phy and lcall_phy from restart file
+    DO jg = 1,n_dom
+      WRITE(attname,'(a,i2.2)') 'jstep_adv_ntsteps_DOM',jg
+      CALL get_restart_attribute(TRIM(attname), jstep_adv(jg)%ntsteps)
+      WRITE(attname,'(a,i2.2)') 'jstep_adv_marchuk_order_DOM',jg
+      CALL get_restart_attribute(TRIM(attname), jstep_adv(jg)%marchuk_order)
+      WRITE(attname,'(a,i2.2)') 'sim_time_DOM',jg
+      CALL get_restart_attribute(TRIM(attname), sim_time(jg))
+      DO jp = 1,iphysproc_short
+        WRITE(attname,'(a,i2.2,a,i2.2)') 't_elapsed_phy_DOM',jg,'_PHY',jp
+        CALL get_restart_attribute(TRIM(attname), t_elapsed_phy(jg,jp))
+      ENDDO
+      DO jp = 1,iphysproc
+        WRITE(attname,'(a,i2.2,a,i2.2)') 'lcall_phy_DOM',jg,'_PHY',jp
+        CALL get_restart_attribute(TRIM(attname), lcall_phy(jg,jp))
+      ENDDO
+    ENDDO
+    linit_dyn(:)      = .FALSE.
+  ELSE
+    jstep_adv(:)%ntsteps       = 0
+    jstep_adv(:)%marchuk_order = 0
+    sim_time(:)                = 0._wp
+    linit_slowphy(:)           = .TRUE.
+    t_elapsed_phy(:,:)         = 0._wp
+    linit_dyn(:)               = .TRUE.
+  ENDIF
+
+
+  DO jg=1, n_dom
+    ALLOCATE(                                                                      &
+      &  prep_adv(jg)%mass_flx_me (nproma,p_patch(jg)%nlev  ,p_patch(jg)%nblks_e), &
+      &  prep_adv(jg)%mass_flx_ic (nproma,p_patch(jg)%nlevp1,p_patch(jg)%nblks_c), &
+      &  prep_adv(jg)%vn_traj     (nproma,p_patch(jg)%nlev,  p_patch(jg)%nblks_e), &
+      &  prep_adv(jg)%w_traj      (nproma,p_patch(jg)%nlevp1,p_patch(jg)%nblks_c), &
+      &  prep_adv(jg)%rhodz_mc_now(nproma,p_patch(jg)%nlev  ,p_patch(jg)%nblks_c), &
+      &  prep_adv(jg)%rhodz_mc_new(nproma,p_patch(jg)%nlev  ,p_patch(jg)%nblks_c), &
+      &  prep_adv(jg)%rho_ic      (nproma,p_patch(jg)%nlevp1,p_patch(jg)%nblks_c), &
+      &  prep_adv(jg)%topflx_tra  (nproma,p_patch(jg)%nblks_c,ntracer),            &
+      &       STAT=ist )
+    IF (ist /= SUCCESS) THEN
+      CALL finish ( 'mo_nh_stepping: perform_nh_stepping',           &
+      &      'allocation for mass_flx_me, mass_flx_ic, vn_traj, ' // &
+      &      'w_traj, rhodz_mc_now, rhodz_mc_new, rho_ic, '       // &
+      &      'topflx_tra failed' )
+    ENDIF
+    !
+    ! initialize (as long as restart output is synchroinzed with advection, 
+    ! these variables do not need to go into the restart file)
+!$OMP PARALLEL
+!$OMP WORKSHARE
+    prep_adv(jg)%mass_flx_me (:,:,:) = 0._wp
+    prep_adv(jg)%mass_flx_ic (:,:,:) = 0._wp
+    prep_adv(jg)%vn_traj     (:,:,:) = 0._wp
+    prep_adv(jg)%w_traj      (:,:,:) = 0._wp
+    prep_adv(jg)%rhodz_mc_now(:,:,:) = 0._wp
+    prep_adv(jg)%rhodz_mc_new(:,:,:) = 0._wp
+    prep_adv(jg)%rho_ic      (:,:,:) = 0._wp
+    prep_adv(jg)%topflx_tra  (:,:,:) = 0._wp
+!$OMP END WORKSHARE
+!$OMP END PARALLEL
+
+    ! Allocate global buffers for MPI communication
+    IF (itype_comm >= 2 .AND. my_process_is_mpi_parallel()) THEN
+      ALLOCATE(bufr(jg)%send_c1 (p_patch(jg)%nlevp1,   p_patch(jg)%comm_pat_c%n_send), &
+        &      bufr(jg)%recv_c1 (p_patch(jg)%nlevp1,   p_patch(jg)%comm_pat_c%n_recv), &
+        &      bufr(jg)%send_c3 (3*p_patch(jg)%nlev+1, p_patch(jg)%comm_pat_c%n_send), &
+        &      bufr(jg)%recv_c3 (3*p_patch(jg)%nlev+1, p_patch(jg)%comm_pat_c%n_recv), &
+        &      bufr(jg)%send_e1 (p_patch(jg)%nlev,     p_patch(jg)%comm_pat_e%n_send), &
+        &      bufr(jg)%recv_e1 (p_patch(jg)%nlev,     p_patch(jg)%comm_pat_e%n_recv), &
+        &      bufr(jg)%send_e2 (2*p_patch(jg)%nlev,   p_patch(jg)%comm_pat_e%n_send), &
+        &      bufr(jg)%recv_e2 (2*p_patch(jg)%nlev,   p_patch(jg)%comm_pat_e%n_recv), &
+        &      bufr(jg)%send_e3 (3*p_patch(jg)%nlev,   p_patch(jg)%comm_pat_e%n_send), &
+        &      bufr(jg)%recv_e3 (3*p_patch(jg)%nlev,   p_patch(jg)%comm_pat_e%n_recv), &
+        &      bufr(jg)%send_v2 (2*p_patch(jg)%nlev,   p_patch(jg)%comm_pat_v%n_send), &
+        &      bufr(jg)%recv_v2 (2*p_patch(jg)%nlev,   p_patch(jg)%comm_pat_v%n_recv)  )
+    ELSE
+      ALLOCATE(bufr(jg)%send_c1 (1,1), &
+        &      bufr(jg)%recv_c1 (1,1), &
+        &      bufr(jg)%send_c3 (1,1), &
+        &      bufr(jg)%recv_c3 (1,1), &
+        &      bufr(jg)%send_e1 (1,1), &
+        &      bufr(jg)%recv_e1 (1,1), &
+        &      bufr(jg)%send_e2 (1,1), &
+        &      bufr(jg)%recv_e2 (1,1), &
+        &      bufr(jg)%send_e3 (1,1), &
+        &      bufr(jg)%recv_e3 (1,1), &
+        &      bufr(jg)%send_v2 (1,1), &
+        &      bufr(jg)%recv_v2 (1,1)  )
+    ENDIF
+
+  ENDDO
+
+  END SUBROUTINE allocate_nh_stepping
+  !-----------------------------------------------------------------------------
+
 
 END MODULE mo_nh_stepping
 

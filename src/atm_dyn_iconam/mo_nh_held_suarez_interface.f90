@@ -52,6 +52,8 @@ MODULE mo_nh_held_suarez_interface
   USE mo_physical_constants,    ONLY: rd_o_cpd
 !!$  USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH
   USE mo_nh_testcases,          ONLY: lhs_fric_heat
+  USE mo_timer,                 ONLY: ltimer, timer_start, timer_stop, timer_held_suarez_intr
+
 
   IMPLICIT NONE
 
@@ -105,6 +107,7 @@ CONTAINS
 
     !-------------------------------------------------------------------------
     ! Dimension parameters related to refinement and MPI parallelisation
+    IF (ltimer) CALL timer_start(timer_held_suarez_intr)
 
     nblks_e = p_patch%nblks_int_e
     nblks_c = p_patch%nblks_int_c
@@ -189,6 +192,7 @@ CONTAINS
 !$OMP END PARALLEL
 
     !--------------------------------------------------------------------------
+    IF (ltimer) CALL timer_stop(timer_held_suarez_intr)
 
   END SUBROUTINE held_suarez_nh_interface
 

@@ -1792,7 +1792,10 @@ MODULE mo_solve_nonhydro
     IF (ltimer) CALL timer_stop(timer_solve_nh)
 
     ! The remaining computations are needed for MPI-parallelized applications only
-    IF (my_process_is_mpi_all_seq() ) RETURN
+    IF (my_process_is_mpi_all_seq() ) THEN
+      IF (ltimer) CALL timer_stop(timer_solve_nh)
+      RETURN
+    ENDIF 
 
 ! OpenMP directives are commented for the time being because the overhead is too large
 !!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
@@ -1881,6 +1884,7 @@ MODULE mo_solve_nonhydro
 !!$OMP END DO
 !!$OMP END PARALLEL
 
+   IF (ltimer) CALL timer_stop(timer_solve_nh)
 
   END SUBROUTINE solve_nh
 

@@ -309,18 +309,12 @@ CONTAINS
     IF (l_any_fastphys) THEN
 
       ! Diagnose temperature if any of the fast physics schemes is called
-
-      IF (timers_level > 2) CALL timer_start(timer_diagnose_pres_temp)
-
       CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf,    &
            &                              pt_diag, pt_patch,       &
            &                              opt_calc_temp=.TRUE.,    &
            &                              opt_calc_tempv=.TRUE.,   &
            &                              opt_calc_pres=.FALSE.,   &
            &                              opt_rlend=min_rlcell_int )
-
-      IF (timers_level > 2) CALL timer_stop(timer_diagnose_pres_temp)
-
 
       IF (msg_level >= 20) THEN ! Initial debug output
 
@@ -505,18 +499,13 @@ CONTAINS
       !! thus diagnose only pressure on main and interface levels  
       !! =>  opt_calc_pres_nh=.TRUE.
       !-------------------------------------------------------------------------
-
-      IF (timers_level > 2) CALL timer_start(timer_diagnose_pres_temp)
-
       CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf, &
         & pt_diag, pt_patch,      &
         & opt_calc_temp =.FALSE., &
         & opt_calc_pres =.TRUE.,  &
         & opt_rlend=min_rlcell_int)
 
-      IF (timers_level > 2) CALL timer_stop(timer_diagnose_pres_temp)
-    
-    ENDIF 
+    ENDIF
 
     IF (  lcall_phy_jg(itturb)) THEN
 
@@ -695,8 +684,6 @@ CONTAINS
         ltemp_ifc = .FALSE.
       ENDIF
 
-      IF (timers_level > 2) CALL timer_start(timer_diagnose_pres_temp)
-
       CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf,   &
         &                      pt_diag, pt_patch,                 &
         &                      opt_calc_temp     = ltemp,         &
@@ -704,8 +691,6 @@ CONTAINS
         &                      lnd_prog          = lnd_prog_new,  &
         &                      opt_calc_temp_ifc = ltemp_ifc,     &
         &                      opt_rlend         = min_rlcell_int )
-
-      IF (timers_level > 2) CALL timer_stop(timer_diagnose_pres_temp)
 
     ENDIF
 

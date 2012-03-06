@@ -56,6 +56,7 @@ MODULE mo_timer
   PUBLIC :: timer_icon_comm_sync  
   PUBLIC :: timer_barrier  
 
+  PUBLIC :: timer_integrate_nh
   PUBLIC :: timer_solve_nh
   PUBLIC :: timer_physics
                         !< IDs of timers
@@ -77,6 +78,8 @@ MODULE mo_timer
   
   PUBLIC :: timer_update_prog_phy
   PUBLIC :: timer_diagnose_pres_temp
+  PUBLIC :: timer_nh_diagnostics
+  
   PUBLIC :: timer_satad_v_3D
   PUBLIC :: timer_phys_exner
   PUBLIC :: timer_phys_u_v
@@ -91,6 +94,7 @@ MODULE mo_timer
   PUBLIC :: timer_physic_acc, timer_physic_acc_1,timer_physic_acc_2
   PUBLIC :: timer_physic_sync, timer_physic_acc_2_2
 
+  PUBLIC :: timer_held_suarez_intr
   
 !   PUBLIC :: timer_sync_wait
 !   PUBLIC :: timer_sync_delay,timer_sync_outbuffer
@@ -137,10 +141,13 @@ MODULE mo_timer
   INTEGER :: timer_barrier
   INTEGER :: timer_nh_hdiffusion
 
+  INTEGER :: timer_integrate_nh
   INTEGER :: timer_solve_nh
   INTEGER :: timer_physics
   INTEGER :: timer_update_prog_phy
-  INTEGER :: timer_diagnose_pres_temp
+
+  INTEGER :: timer_nh_diagnostics
+  INTEGER :: timer_diagnose_pres_temp  
   INTEGER :: timer_satad_v_3D
   INTEGER :: timer_phys_exner
   INTEGER :: timer_phys_u_v
@@ -181,8 +188,11 @@ MODULE mo_timer
   INTEGER :: timer_gw_hines
   INTEGER :: timer_echam_phy
 
+  ! Timer ID's for forcings and testcases
+  INTEGER :: timer_held_suarez_intr
+  
   ! Timer ID's for physics-dynamics coupling
-
+  
   INTEGER :: timer_dyn2phy
   INTEGER :: timer_phy2dyn
   INTEGER :: timer_echam_sync_temp, timer_echam_sync_tracers
@@ -236,6 +246,7 @@ CONTAINS
     timer_write_output  = new_timer("wrt_output")
     timer_write_restart_file = new_timer("wrt_restart")
  
+    timer_integrate_nh= new_timer  ("ntegrate_nh")
     timer_solve_nh    = new_timer  ("nh_solve")
     timer_step_2tl_si = new_timer("2tl_si_solve")
     timer_step_RK     = new_timer("RK_solve")
@@ -247,6 +258,8 @@ CONTAINS
     timer_transport = new_timer("transport")
     timer_dyn_theta = new_timer("dyn_theta")
     timer_dyn_temp  = new_timer("dyn_temp")
+    
+    timer_held_suarez_intr = new_timer("held_suarez_intr")
     
     timer_gw_hines  = new_timer("gw_hines")
 
@@ -301,6 +314,8 @@ CONTAINS
 !     timer_sync_recv_2 = new_timer("sync_recv_2")
 !     timer_sync_isend_3 = new_timer("sync_isend_3")
 !     timer_sync_wait = new_timer("sync_wait")
+
+    timer_nh_diagnostics = new_timer("nh_diagnostics")
     
     timer_diagnose_pres_temp = new_timer("diagnose_pres_temp")
     timer_satad_v_3D = new_timer("satad_v_3D")

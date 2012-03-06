@@ -44,6 +44,7 @@ MODULE mo_nh_diagnose_pres_temp
   USE mo_impl_constants,      ONLY: min_rlcell, MAX_CHAR_LENGTH 
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_physical_constants,  ONLY: rd, grav, vtmpc1, p0ref, rd_o_cpd
+  USE mo_timer,               ONLY: timers_level, timer_start, timer_stop, timer_diagnose_pres_temp
 
   IMPLICIT NONE
 
@@ -98,6 +99,9 @@ MODULE mo_nh_diagnose_pres_temp
     LOGICAL  :: l_opt_calc_temp, l_opt_calc_tempv, l_opt_calc_pres, l_opt_calc_temp_ifc
 
     REAL(wp) :: dz, z_qsum
+
+
+    IF (timers_level > 2) CALL timer_start(timer_diagnose_pres_temp)
 
     dz     = 0._wp
     z_qsum = 0._wp
@@ -318,6 +322,8 @@ MODULE mo_nh_diagnose_pres_temp
     ENDDO !jb
 !$OMP END DO
 !$OMP END PARALLEL
+    
+    IF (timers_level > 2) CALL timer_start(timer_diagnose_pres_temp)
 
   END SUBROUTINE diagnose_pres_temp
 
