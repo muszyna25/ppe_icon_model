@@ -223,7 +223,7 @@ print(PlotFileName)
 printVarSummary(x)
 printVarSummary(y)
 
-wks = gsn_open_wks("png",PlotFileName)
+wks = gsn_open_wks("ps",PlotFileName)
 printVarSummary(y)
 
 ;gsn_define_colormap(wks,"BlGrYeOrReVi200")

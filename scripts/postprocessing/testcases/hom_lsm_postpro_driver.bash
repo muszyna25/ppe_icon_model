@@ -83,7 +83,7 @@ cd $model_data_path
 ifile="${ExpName}_0001.nc"
 ofile="${ExpName}_${resolution}_ELEV"
 ofile="${plotBaseName}_W"                       #  Vertical velocity
-otype="png"                                     #  plot file format
+otype="eps"                                     #  plot file format
 varname="W"                                     #  Vertical velocity
 varname="ELEV"                                  #  Surface elevation
 maxvar=8                                        #  initial elevation: +-10 m
@@ -125,7 +125,7 @@ echo "=== Plotting vertical velocity ..."
 source ./scr_${EXP}_nclcmd.here
 mkdir -p plots
 echo "new Dir"
-mv ${ofile}.${otype} plots/.
+mv ${ofile}.eps plots/.
 #check_error $? "In script icon_plot.ncl:"
 #rm scr_${EXP}_nclcmd.here
 echo "=== Done."
