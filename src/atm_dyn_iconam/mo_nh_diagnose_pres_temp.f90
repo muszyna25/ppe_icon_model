@@ -323,7 +323,7 @@ MODULE mo_nh_diagnose_pres_temp
 !$OMP END DO
 !$OMP END PARALLEL
     
-    IF (timers_level > 2) CALL timer_start(timer_diagnose_pres_temp)
+    IF (timers_level > 2) CALL timer_stop(timer_diagnose_pres_temp)
 
   END SUBROUTINE diagnose_pres_temp
 

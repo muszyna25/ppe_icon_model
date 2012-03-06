@@ -719,7 +719,8 @@ MODULE mo_nh_stepping
 !$  INTEGER :: num_threads_omp, omp_get_max_threads
 
     !--------------------------------------------------------------------------
-    IF (ltimer) CALL timer_start(timer_integrate_nh)
+    ! This timer must not be called in nested domain because the model crashes otherwise
+    IF (jg == 1 .AND. ltimer) CALL timer_start(timer_integrate_nh)
 
     !--------------------------------------------------------------------------
     ! settings for calling frequency for slow physics
@@ -1464,7 +1465,7 @@ MODULE mo_nh_stepping
 
     ENDDO
     
-    IF (ltimer) CALL timer_stop(timer_integrate_nh)
+    IF (jg == 1 .AND. ltimer) CALL timer_stop(timer_integrate_nh)
 
   END SUBROUTINE integrate_nh
   !-----------------------------------------------------------------------------
