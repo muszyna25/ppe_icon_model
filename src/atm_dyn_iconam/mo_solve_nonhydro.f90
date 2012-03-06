@@ -1797,8 +1797,6 @@ MODULE mo_solve_nonhydro
 
     ENDDO ! istep-loop
 
-    IF (ltimer) CALL timer_stop(timer_solve_nh)
-
     ! The remaining computations are needed for MPI-parallelized applications only
     IF (my_process_is_mpi_all_seq() ) THEN
       IF (ltimer) CALL timer_stop(timer_solve_nh)
