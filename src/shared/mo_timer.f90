@@ -129,6 +129,11 @@ MODULE mo_timer
   
   PUBLIC :: timer_con_l_theta2t, timer_con_l_t2theta, timer_con_theta2t, timer_con_t2theta
 
+  PUBLIC :: timer_nesting
+  PUBLIC :: timer_nudging
+  PUBLIC :: timer_bdy_interp
+  PUBLIC :: timer_feedback
+
   !-------------------
   ! Module variables
   !-------------------
@@ -222,6 +227,12 @@ MODULE mo_timer
     
   ! Timer ID for optional lon-lat interpolation
   INTEGER :: timer_lonlat_setup
+
+  ! Timer IDs for boundary interpolation, feedback & nudging
+  INTEGER :: timer_nesting
+  INTEGER :: timer_nudging
+  INTEGER :: timer_bdy_interp
+  INTEGER :: timer_feedback
   
   INTEGER :: timer_con_l_theta2t, timer_con_l_t2theta, timer_con_theta2t, timer_con_t2theta
 
@@ -353,6 +364,12 @@ CONTAINS
     timer_con_l_t2theta = new_timer("con_l_t2theta")
     timer_con_theta2t = new_timer("con_theta2t")
     timer_con_t2theta = new_timer("con_t2theta")
+
+    ! timers for boundary interpolation, feedback & nudging
+    timer_nesting    = new_timer("nesting")
+    timer_nudging    = new_timer("nesting.nudging")
+    timer_bdy_interp = new_timer("nesting.bdy_interp")
+    timer_feedback   = new_timer("nesting.feedback") 
 
   END SUBROUTINE init_timer
 

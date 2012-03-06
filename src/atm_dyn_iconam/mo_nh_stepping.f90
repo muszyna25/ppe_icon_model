@@ -59,8 +59,10 @@ MODULE mo_nh_stepping
   USE mo_run_config,           ONLY: ltestcase, dtime, dtime_adv, nsteps,     &
     &                                ltransport, ntracer, lforcing, iforcing, &
     &                                msg_level, testbed_mode
-  USE mo_timer,               ONLY: ltimer, timers_level, timer_start, timer_stop, &
-    &                               timer_model_init, timer_integrate_nh, timer_nh_diagnostics
+  USE mo_timer,               ONLY: ltimer, timers_level, timer_start, timer_stop,   &
+    &                               timer_model_init, timer_nudging,                 &
+    &                               timer_bdy_interp, timer_feedback, timer_nesting, &
+    &                               timer_integrate_nh, timer_nh_diagnostics
   USE mo_grid_config,         ONLY: global_cell_type
   USE mo_atm_phy_nwp_config,  ONLY: dt_phy, atm_phy_nwp_config
   USE mo_nwp_phy_init,        ONLY: init_nwp_phy
@@ -996,6 +998,8 @@ MODULE mo_nh_stepping
 
           linit_slowphy(jg) = .FALSE. ! no further initialization calls needed
 
+          IF (ltimer)            CALL timer_start(timer_nesting)
+          IF (timers_level >= 2) CALL timer_start(timer_bdy_interp)
           ! Boundary interpolation of land state variables entering into radiation computation
           ! if a reduced grid is used in the child domain(s)
           DO jn = 1, p_patch(jg)%n_childdom
@@ -1013,6 +1017,8 @@ MODULE mo_nh_stepping
                                     jg, jgc, jn )
             ENDIF
           ENDDO
+          IF (timers_level >= 2) CALL timer_stop(timer_bdy_interp)
+          IF (ltimer)            CALL timer_stop(timer_nesting)
 
         ENDIF
 
@@ -1168,6 +1174,9 @@ MODULE mo_nh_stepping
 
         ! Apply boundary nudging in case of one-way nesting
         IF (jg > 1 .AND. lstep_adv(jg)) THEN
+          IF (ltimer)            CALL timer_start(timer_nesting)
+          IF (timers_level >= 2) CALL timer_start(timer_nudging)
+
           IF (lfeedback(jg)) THEN
             CALL density_boundary_nudging(p_patch(jg), p_nh_state(jg), p_int_state(jg), &
               &                        nnew(jg),REAL(iadv_rcf,wp))
@@ -1175,6 +1184,9 @@ MODULE mo_nh_stepping
             CALL nest_boundary_nudging(p_patch(jg), p_nh_state(jg), p_int_state(jg), &
               &                        nnew(jg),nnew_rcf(jg),REAL(iadv_rcf,wp))
           ENDIF
+
+          IF (timers_level >= 2) CALL timer_stop(timer_nudging)
+          IF (ltimer)            CALL timer_stop(timer_nesting)
         ENDIF
 
         IF (  iforcing==inwp .AND. lstep_adv(jg) ) THEN
@@ -1209,6 +1221,8 @@ MODULE mo_nh_stepping
 
           ! Boundary interpolation of land state variables entering into radiation computation
           ! if a reduced grid is used in the child domain(s)
+          IF (ltimer)            CALL timer_start(timer_nesting)
+          IF (timers_level >= 2) CALL timer_start(timer_bdy_interp)
           DO jn = 1, p_patch(jg)%n_childdom
 
             jgc = p_patch(jg)%child_id(jn)
@@ -1231,6 +1245,8 @@ MODULE mo_nh_stepping
                                     jg, jgc, jn )
             ENDIF
           ENDDO
+          IF (timers_level >= 2) CALL timer_stop(timer_bdy_interp)
+          IF (ltimer)            CALL timer_stop(timer_nesting)
 
         ENDIF !iforcing
 
@@ -1281,6 +1297,8 @@ MODULE mo_nh_stepping
 
         ENDDO
 
+        IF (ltimer)            CALL timer_start(timer_nesting)
+        IF (timers_level >= 2) CALL timer_start(timer_nudging)
         ! prep_bdy_nudging can not be called using delayed requests!
         DO jn = 1, p_patch(jg)%n_childdom
 
@@ -1295,6 +1313,8 @@ MODULE mo_nh_stepping
               &                   jg,jgc,lstep_adv(jg) )
           ENDIF
         ENDDO
+        IF (timers_level >= 2) CALL timer_stop(timer_nudging)
+        IF (ltimer)            CALL timer_stop(timer_nesting)
 
         DO jn = 1, p_patch(jg)%n_childdom
 
@@ -1311,6 +1331,8 @@ MODULE mo_nh_stepping
 
         ENDDO
 
+        IF (ltimer)            CALL timer_start(timer_nesting)
+        IF (timers_level >= 2) CALL timer_start(timer_feedback)
         DO jn = 1, p_patch(jg)%n_childdom
 
           ! Call feedback to copy averaged prognostic variables from refined mesh back
@@ -1329,6 +1351,8 @@ MODULE mo_nh_stepping
             ! only done for those time steps in which transport and microphysics are called
           ENDIF
         ENDDO
+        IF (timers_level >= 2) CALL timer_stop(timer_feedback)
+        IF (ltimer)            CALL timer_stop(timer_nesting)
 
       ENDIF
 #endif
@@ -1369,7 +1393,11 @@ MODULE mo_nh_stepping
                                      p_int_state(jg), p_grf_state(jg)%p_dom(jn), &
                                      jg, jgc, jn )
 
+              IF (ltimer)            CALL timer_start(timer_nesting)
+              IF (timers_level >= 2) CALL timer_start(timer_feedback)
               IF (lfeedback(jgc)) CALL feedback_phys_diag(p_patch, p_grf_state, jgc, jg)
+              IF (timers_level >= 2) CALL timer_stop(timer_feedback)
+              IF (ltimer)            CALL timer_stop(timer_nesting)
 
               ! Fill lateral boundaries of TKE field; note: time-level-switching has
               ! already been done at child level, but not yet at parent level
