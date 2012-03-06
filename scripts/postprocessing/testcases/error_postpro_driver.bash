@@ -112,7 +112,7 @@ export VarN="PS"
 export VarD=2
 
 #Plot file format, pdf, ps...
-export PFMT="eps"
+export PFMT="png"
 
 #Output filename
 export PNAME="${EXPN}_${hor_res}${var_res}_PS_error_norms"

@@ -21,7 +21,7 @@ grid_name="iconR2B04-grid"
 ExpName="${EXP}_${grid_name}"
 horizontal_resolution="R2B04"
 VERTICAL_RES=3
-PFMT="eps"
+PFMT="png"
 MODEL="ICONAM"
 ivel=0
 
