@@ -1493,6 +1493,7 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
 
 !-----------------------------------------------------------------------
 
+   IF (activate_sync_timers) CALL timer_start(timer_exch_data)
 
    lsend     = .FALSE.
    ladd      = .FALSE.
@@ -1785,6 +1786,8 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
    ENDDO
 #endif
      
+   IF (activate_sync_timers) CALL timer_stop(timer_exch_data)
+
 END SUBROUTINE exchange_data_mult
 
 !>
@@ -2513,8 +2516,9 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
 
 !-----------------------------------------------------------------------
 
-    npats = SIZE(p_pat)  ! Number of communication patterns provided on input
+   IF (activate_sync_timers) CALL timer_start(timer_exch_data)
 
+   npats = SIZE(p_pat)  ! Number of communication patterns provided on input
 
    ! Set up irecv's for receive buffers
    IF ((iorder_sendrecv == 1 .OR. iorder_sendrecv == 3) .AND. .NOT. use_exchange_delayed) THEN
@@ -2820,6 +2824,8 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
      ENDDO
    ENDDO
 #endif
+
+   IF (activate_sync_timers) CALL timer_stop(timer_exch_data)
 
 END SUBROUTINE exchange_data_grf
 
