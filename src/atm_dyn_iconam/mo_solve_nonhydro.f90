@@ -97,7 +97,7 @@ MODULE mo_solve_nonhydro
   !! Initial release by Guenther Zaengl (2010-02-03)
   !!
   SUBROUTINE velocity_tendencies (p_prog, p_patch, p_int, p_metrics, p_diag,&
-                                  ntnd, istep, l_init)
+                                  ntnd, istep)
 
     ! Passed variables
     TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch
@@ -108,7 +108,6 @@ MODULE mo_solve_nonhydro
 
     INTEGER, INTENT(IN)  :: ntnd  ! time level of ddt_adv fields used to store tendencies
     INTEGER, INTENT(IN)  :: istep ! 1: predictor step, 2: corrector step
-    LOGICAL, INTENT(IN)  :: l_init
 
     ! Local variables
     INTEGER :: jb, jk, jc, je
@@ -499,8 +498,8 @@ MODULE mo_solve_nonhydro
   !! Based on the initial release of divergent_modes by Almut Gassmann (2009-05-12)
   !! Modified by Guenther Zaengl starting on 2010-02-03
   !!
-  SUBROUTINE solve_nh (p_nh, p_patch, p_int, bufr, nnow, nnew, l_init, linit_vertnest, &
-                       l_bdy_nudge, dtime)
+  SUBROUTINE solve_nh (p_nh, p_patch, p_int, bufr, nnow, nnew, l_init, l_recompute, &
+                       linit_vertnest, l_bdy_nudge, dtime)
 
     TYPE(t_nh_state),  TARGET, INTENT(INOUT) :: p_nh
     TYPE(t_int_state), TARGET, INTENT(IN)    :: p_int
@@ -509,6 +508,8 @@ MODULE mo_solve_nonhydro
 
     ! Initialization switch that has to be .TRUE. at the initial time step only (not for restart)
     LOGICAL,                   INTENT(INOUT) :: l_init
+    ! Switch to recompute velocity tendencies after a physics call irrespective of the time scheme option
+    LOGICAL,                   INTENT(IN)    :: l_recompute
     ! Initialization switch set in dynamics_integration
     LOGICAL,                   INTENT(IN)    :: linit_vertnest(2)
     ! Switch to determine if boundary nudging is executed
@@ -564,7 +565,7 @@ MODULE mo_solve_nonhydro
                 z_hydro_corr    (nproma,p_patch%nblks_e)
 
 
-    REAL(wp):: z_theta1, z_theta2, z_raylfac
+    REAL(wp):: z_theta1, z_theta2, z_raylfac, wgt_nnow, wgt_nnew
     INTEGER :: nproma_gradp, nblks_gradp, npromz_gradp, nlen_gradp
     LOGICAL :: lcompute, lcleanup
 
@@ -640,27 +641,33 @@ MODULE mo_solve_nonhydro
     ENDIF
 
     ! Set time levels of ddt_adv fields for call to velocity_tendencies
-    IF (itime_scheme == 4 .OR. itime_scheme == 6) THEN ! Velocity advection 2nd order in time
+    IF (itime_scheme == 4 .OR. itime_scheme == 6) THEN ! Velocity advection averaging nnow and nnew tendencies
       ntl1 = nnow
       ntl2 = nnew
-    ELSE                        ! Velocity advection 1st order in time
+    ELSE                        ! Velocity advection is taken at nnew only
       ntl1 = 1
       ntl2 = 1
     ENDIF
+
+    ! Weighting coefficients for velocity advection if tendency averaging is used
+    ! The off-centering specified here turned out to be beneficial to numerical
+    ! stability in extreme situations
+    wgt_nnow = 0.4_wp
+    wgt_nnew = 1._wp - wgt_nnow
 
     i_nchdom   = MAX(1,p_patch%n_childdom)
 
     DO istep = 1, 2
 
       IF (istep == 1) THEN ! predictor step
-        IF (.NOT.((itime_scheme == 3 .OR. itime_scheme == 4) .AND. .NOT. l_init)) THEN
+        IF (itime_scheme >= 5 .OR. l_init .OR. l_recompute) THEN
           CALL velocity_tendencies(p_nh%prog(nnow),p_patch,p_int,p_nh%metrics,&
-                                   p_nh%diag,ntl1,istep,l_init)
+                                   p_nh%diag,ntl1,istep)
         ENDIF
         nvar = nnow
       ELSE                 ! corrector step
         CALL velocity_tendencies(p_nh%prog(nnew),p_patch,p_int,p_nh%metrics,&
-                                 p_nh%diag,ntl2,istep,l_init)
+                                 p_nh%diag,ntl2,istep)
         nvar = nnew
       ENDIF
 
@@ -1124,9 +1131,9 @@ MODULE mo_solve_nonhydro
 !CDIR UNROLL=5
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
-            p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnow)%vn(je,jk,jb)+ dtime     &
-            & *(0.5_wp*(p_nh%diag%ddt_vn_adv(je,jk,jb,ntl1)                        &
-            & +p_nh%diag%ddt_vn_adv(je,jk,jb,ntl2))+p_nh%diag%ddt_vn_phy(je,jk,jb) &
+            p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnow)%vn(je,jk,jb)+ dtime              &
+            & *(wgt_nnow*p_nh%diag%ddt_vn_adv(je,jk,jb,ntl1)                                &
+            & + wgt_nnew*p_nh%diag%ddt_vn_adv(je,jk,jb,ntl2)+p_nh%diag%ddt_vn_phy(je,jk,jb) &
             & -cpd*z_theta_v_e(je,jk,jb)*z_gradh_exner(je,jk,jb))
           ENDDO
         ENDDO
@@ -1466,9 +1473,10 @@ MODULE mo_solve_nonhydro
           DO jc = i_startidx, i_endidx
 
             ! explicit part for w
-            z_w_expl(jc,jk) = p_nh%prog(nnow)%w(jc,jk,jb) + dtime *                          &
-              (0.5_wp*(p_nh%diag%ddt_w_adv(jc,jk,jb,ntl1)+p_nh%diag%ddt_w_adv(jc,jk,jb,ntl2))&
-              -cpd*z_th_ddz_exner_c(jc,jk,jb))
+            z_w_expl(jc,jk) = p_nh%prog(nnow)%w(jc,jk,jb)  + dtime * &
+              (wgt_nnow*p_nh%diag%ddt_w_adv(jc,jk,jb,ntl1) +         &
+               wgt_nnew*p_nh%diag%ddt_w_adv(jc,jk,jb,ntl2)           &
+              -cpd*z_th_ddz_exner_c(jc,jk,jb) )
 
             ! contravariant vertical velocity times density for explicit part
             z_contr_w_fl_l(jc,jk) = p_nh%diag%rho_ic(jc,jk,jb)*(-p_nh%diag%w_concorr_c(jc,jk,jb) &

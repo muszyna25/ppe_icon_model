@@ -705,6 +705,7 @@ MODULE mo_nh_stepping
     LOGICAL :: l_predictor
     LOGICAL :: l_bdy_nudge
     LOGICAL :: linit_vertnest(2)
+    LOGICAL :: l_recompute
     LOGICAL :: lclean_mflx   ! for reduced calling freqency: determines whether
                              ! mass-fluxes and trajectory-velocities are reset to zero
                              ! i.e. for starting new integration sweep
@@ -1067,6 +1068,12 @@ MODULE mo_nh_stepping
             linit_vertnest(2) = .FALSE.
           ENDIF
 
+          IF (iforcing == inwp .AND. lclean_mflx) THEN
+            l_recompute = .TRUE. ! always recompute velocity tendencies for predictor
+          ELSE                   ! step after a physics call
+            l_recompute = .FALSE.
+          ENDIF
+
           ! For real-data runs, perform an extra diffusion call before the first time
           ! step because no other filtering of the interpolated velocity field is done
           IF (.NOT.ltestcase .AND. linit_dyn(jg) .AND. diffusion_config(jg)%lhdiff_vn) THEN
@@ -1077,11 +1084,11 @@ MODULE mo_nh_stepping
           IF (itype_comm <= 2) THEN
 
             IF (testbed_mode > 0) THEN            
-              CALL test_solve_nh(p_nh_state(jg), p_patch(jg), p_int_state(jg), bufr(jg),  &
-                        n_now, n_new, linit_dyn(jg), linit_vertnest, l_bdy_nudge, dt_loc)
+              CALL test_solve_nh(p_nh_state(jg), p_patch(jg), p_int_state(jg), bufr(jg),     &
+                n_now, n_new, linit_dyn(jg), l_recompute, linit_vertnest, l_bdy_nudge, dt_loc)
             ELSE
-              CALL solve_nh(p_nh_state(jg), p_patch(jg), p_int_state(jg), bufr(jg),       &
-                        n_now, n_new, linit_dyn(jg), linit_vertnest, l_bdy_nudge, dt_loc)
+              CALL solve_nh(p_nh_state(jg), p_patch(jg), p_int_state(jg), bufr(jg),          &
+                n_now, n_new, linit_dyn(jg), l_recompute, linit_vertnest, l_bdy_nudge, dt_loc)
             ENDIF
             
             IF (diffusion_config(jg)%lhdiff_vn) &
@@ -1094,8 +1101,8 @@ MODULE mo_nh_stepping
               CALL finish ( 'mo_nh_stepping:perform_nh_stepping',  &
               'asynchronous halo communication requires hdiff_order=5' )
 
-            CALL solve_nh_ahc(p_nh_state(jg), p_patch(jg), p_int_state(jg), bufr(jg),   &
-                        n_now, n_new, linit_dyn(jg), linit_vertnest, l_bdy_nudge, dt_loc)
+            CALL solve_nh_ahc(p_nh_state(jg), p_patch(jg), p_int_state(jg), bufr(jg),      &
+              n_now, n_new, linit_dyn(jg), l_recompute, linit_vertnest, l_bdy_nudge, dt_loc)
           ENDIF
 
         ELSE ! hexagonal case
