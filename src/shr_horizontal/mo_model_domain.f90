@@ -104,7 +104,7 @@ USE mo_impl_constants, ONLY: max_dom, max_phys_dom
 USE mo_communication,  ONLY: t_comm_pattern
 USE mo_io_units,       ONLY: filename_max
 USE mo_util_uuid,      ONLY: t_uuid
-USE mo_utility_types,  ONLY: t_subset_range
+USE mo_util_subset,    ONLY: t_subset_range
 
 IMPLICIT NONE
 
@@ -221,11 +221,6 @@ TYPE t_grid_cells
   ! index1=min_rlcell,max_rlcell, index2=n_childdom
   INTEGER, ALLOCATABLE :: end_blk(:,:)
 
-  ! Domain decomposition flag:
-  ! decomp_domain==0: inner domain, decomp_domain>0: boundary, decomp_domain<0: undefined
-  ! index1=nproma, index2=1,nblks_c
-  INTEGER, ALLOCATABLE :: decomp_domain(:,:)
-
   ! Owner mask:
   ! For cells this is the same as decomp_domain(:,:)==0
   ! index1=nproma, index2=1,nblks_c
@@ -249,16 +244,22 @@ TYPE t_grid_cells
   ! nor does it need to be dumped/restored or subdivided in patch subdivision.
   REAL(wp), ALLOCATABLE :: ddqz_z_full(:,:,:)
 
-
+  ! Domain decomposition flag:
+  ! decomp_domain==0: inner domain, decomp_domain>0: boundary, decomp_domain<0: undefined
+  ! 0=owned, 1=shared edge with owned, 2=shared vertex with ownded
+  ! index1=nproma, index2=1,nblks_c
+  INTEGER, POINTER :: decomp_domain(:,:)
+  
+  INTEGER, POINTER :: halo_level(:,:)! just points to the decomp_domain as a more accurate name
+  
   ! define basic subsets
   TYPE(t_subset_range) :: owned         ! these are the owned entities
   TYPE(t_subset_range) :: in_domain     ! these are the computation domain entities, for cells = owned
   TYPE(t_subset_range) :: not_owned     ! these are all the halo entities
-  TYPE(t_subset_range) :: not_in_domain ! for cells = not_owned
+  TYPE(t_subset_range) :: not_in_domain ! for cells = not_owned  
+  TYPE(t_subset_range) :: halos_with_edge_in_domain ! halo cells that at least one edge is in the
+                                        ! computation domain
   
-  TYPE(t_subset_range) :: edge_in_domain ! cells that at least one edge is  
-  
-
 END TYPE t_grid_cells
 
 ! !grid_edge class
@@ -427,11 +428,6 @@ TYPE t_grid_edges
   ! index1=min_rledge,max_rledge, index2=n_childdom
   INTEGER, ALLOCATABLE :: end_blk(:,:)
 
-  ! Domain decomposition flag:
-  ! decomp_domain==0: inner domain, decomp_domain>0: boundary, decomp_domain<0: undefined
-  ! index1=nproma, index2=1,nblks_e
-  INTEGER, ALLOCATABLE :: decomp_domain(:,:)
-
   ! Owner mask:
   ! For edges, this can not be derived from decomp_domain:
   ! edges at the border are assigned the PE with the bigger number
@@ -449,6 +445,21 @@ TYPE t_grid_edges
   ! The following is only used internally for the coupler
   ! and the icon_comm_lib
   INTEGER, ALLOCATABLE :: owner_local(:)
+
+  ! Domain decomposition flag:
+  ! decomp_domain==0: inner domain, decomp_domain>0: boundary, decomp_domain<0: undefined
+  ! index1=nproma, index2=1,nblks_e
+  ! 0=owned, 1=on owned cell=in domain, 2=exaclty one shared vertex with owned cells
+  INTEGER, POINTER :: decomp_domain(:,:)  
+  
+  INTEGER, POINTER :: halo_level(:,:)! just points to the decomp_domain as a more accurate name
+  
+  ! define basic subsets
+  TYPE(t_subset_range) :: owned         ! these are the owned entities
+  TYPE(t_subset_range) :: in_domain     ! these are the computation domain entities,
+                                        ! this includes all edges of the domain cells
+  TYPE(t_subset_range) :: not_owned     ! these are all the halo entities
+  TYPE(t_subset_range) :: not_in_domain ! all - in_domain 
 
 END TYPE t_grid_edges
 
@@ -522,11 +533,6 @@ TYPE t_grid_vertices
   ! index1=min_rlvert,max_rlvert, index2=n_childdom
   INTEGER, ALLOCATABLE :: end_blk(:,:)
 
-  ! Domain decomposition flag:
-  ! decomp_domain==0: inner domain, decomp_domain>0: boundary, decomp_domain<0: undefined
-  ! index1=nproma, index2=1,nblks_v
-  INTEGER, ALLOCATABLE :: decomp_domain(:,:)
-
   ! Owner mask:
   ! For verts, this can not be derived from decomp_domain:
   ! verts at the border are assigned the PE with the bigger number
@@ -544,6 +550,14 @@ TYPE t_grid_vertices
   ! The following is only used internally for the coupler
   ! and the icon_comm_lib
   INTEGER, ALLOCATABLE :: owner_local(:)
+  
+  ! Domain decomposition flag:
+  ! decomp_domain==0: inner domain, decomp_domain>0: boundary, decomp_domain<0: undefined
+  ! 0=owned, 1=on owned cell=in domain, 2=on level 1 cells
+  ! index1=nproma, index2=1,nblks_v
+  INTEGER, POINTER :: decomp_domain(:,:)
+
+  INTEGER, POINTER :: halo_level(:,:) ! just points to the decomp_domain as a more accurate name
 
 END TYPE t_grid_vertices
 

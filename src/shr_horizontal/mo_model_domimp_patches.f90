@@ -105,9 +105,6 @@ MODULE mo_model_domimp_patches
 !    modified for ICON project, DWD/MPI-M 2006
 !
 !-------------------------------------------------------------------------
-!
-!
-!
 
 USE mo_kind,               ONLY: wp
 !USE mo_io_units,           ONLY: filename_max

@@ -96,7 +96,6 @@ MODULE mo_subdivision
   USE mo_model_domimp_patches,ONLY: allocate_patch, deallocate_basic_patch, deallocate_patch
   USE mo_dump_restore,        ONLY: dump_all_domain_decompositions
 
-
   IMPLICIT NONE
 
   PRIVATE
@@ -626,10 +625,11 @@ CONTAINS
       ! Set communication patterns for gathering on proc 0
       CALL set_comm_pat_gather(p_patch(jg))
 
-      ! Fill the owner_local value
-      CALL fill_owner_local(p_patch(jg))
-
       CALL set_owner_mask(p_patch(jg))
+     
+     ! Fill the owner_local value
+      ! this is done in the set_owner_mask
+      CALL fill_owner_local(p_patch(jg))
 
       IF(jg == n_dom_start) THEN
 
@@ -694,21 +694,21 @@ CONTAINS
   ! Note: At the moment it uses the p_work_pe number which is not the same
   ! as the my_mpi_all_id. It requires 
   SUBROUTINE fill_owner_local(in_patch)
-    
+
     TYPE(t_patch), INTENT(inout) :: in_patch
-  
+
     INTEGER :: local_cell_idx, global_cell_idx
     INTEGER :: i, jb, jl, jb_e, jl_e, jb_v, jl_v, jv, je
     INTEGER :: owner_id
-    
+
     in_patch%edges%owner_local(:) = -1
     in_patch%verts%owner_local(:) = -1
-    
+
     DO local_cell_idx = 1, in_patch%n_patch_cells
       global_cell_idx = in_patch%cells%glb_index(local_cell_idx)
       owner_id = in_patch%cells%owner_g(global_cell_idx)
       in_patch%cells%owner_local(local_cell_idx) = in_patch%cells%owner_g(global_cell_idx)
-      IF (owner_id < 0) CYCLE      
+      IF (owner_id < 0) CYCLE
 
       ! go around the cell edges mark the owner
       jb = blk_no(local_cell_idx) ! block index
@@ -729,19 +729,18 @@ CONTAINS
         ELSEIF (in_patch%edges%owner_local(je) < 0) THEN
           in_patch%edges%owner_local(je) = owner_id
           in_patch%verts%owner_local(jv) = owner_id
-        ENDIF        
-        
-      ENDDO      
-      
+        ENDIF
+
+      ENDDO
+
     ENDDO
-    
-    
+
+
   END SUBROUTINE fill_owner_local
  
   !-----------------------------------------------------------------------------
   !>
   !! Sets the owner mask
-
   SUBROUTINE set_owner_mask(p_patch)
 
     TYPE(t_patch), INTENT(inout) :: p_patch
@@ -751,6 +750,10 @@ CONTAINS
     p_patch%cells%owner_mask = .false.
     p_patch%edges%owner_mask = .false.
     p_patch%verts%owner_mask = .false.
+      
+    p_patch%cells%owner_local(:) = -1
+    p_patch%edges%owner_local(:) = -1
+    p_patch%verts%owner_local(:) = -1
 
     DO j = 1, p_patch%n_patch_cells
 
@@ -759,6 +762,8 @@ CONTAINS
       jg = p_patch%cells%glb_index(j) ! index in global patch
 
       p_patch%cells%owner_mask(jl,jb) = p_patch%cells%owner_g(jg)==p_pe_work
+      ! fill local owner
+      p_patch%cells%owner_local(j) = p_patch%cells%owner_g(jg)
 
     ENDDO
 
@@ -769,7 +774,9 @@ CONTAINS
       jg = p_patch%edges%glb_index(j) ! index in global patch
 
       p_patch%edges%owner_mask(jl,jb) = p_patch%edges%owner_g(jg)==p_pe_work
-
+      ! fill local owner
+      p_patch%edges%owner_local(j) = p_patch%edges%owner_g(jg)
+    
     ENDDO
 
     DO j = 1, p_patch%n_patch_verts
@@ -779,10 +786,14 @@ CONTAINS
       jg = p_patch%verts%glb_index(j) ! index in global patch
 
       p_patch%verts%owner_mask(jl,jb) = p_patch%verts%owner_g(jg)==p_pe_work
+      ! fill local owner
+      p_patch%verts%owner_local(j) = p_patch%verts%owner_g(jg)
 
     ENDDO
 
   END SUBROUTINE set_owner_mask
+  !-----------------------------------------------------------------------------
+
 
   !-----------------------------------------------------------------------------
   !>
@@ -1939,7 +1950,7 @@ CONTAINS
       wrk_p_patch%verts%decomp_domain(jl,jb) = flag2_v(wrk_p_patch%verts%glb_index(j))
 
     ENDDO
-
+            
     DEALLOCATE(flag_c, flag_e, flag_v, flag2_c, flag2_e, flag2_v, lcount_c, lcount_e, lcount_v)
 
   END SUBROUTINE divide_patch
