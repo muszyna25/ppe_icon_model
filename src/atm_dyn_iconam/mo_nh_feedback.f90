@@ -428,8 +428,6 @@ DO jb = i_startblk, i_endblk
         (p_parent_prog%rho(jc,jk,jb) - p_parent_save%rho(jc,jk,jb))*   &
          p_patch(jgp)%cells%area(jc,jb)*p_nh_state(jgp)%metrics%ddqz_z_full(jc,jk,jb)
     ENDDO
-! obsolete because halo points are now all at the end
-!   WHERE(.NOT.p_patch(jgp)%cells%owner_mask(:,jb)) parent_tend(:,jk,jb) = 0._wp
   ENDDO
 
   IF (ltransport .AND. l_trac_fbk) THEN
@@ -449,11 +447,6 @@ DO jb = i_startblk, i_endblk
           parent_tr_totmass(jc,jk,jb) = parent_tr_totmass(jc,jk,jb) + &
                                         parent_tr_mass(jc,jk,jb,jt)
         ENDDO
-! obsolete because halo points are now all at the end
-!       WHERE(.NOT.p_patch(jgp)%cells%owner_mask(:,jb))
-!         parent_tr_mass(:,jk,jb,jt) = 0._wp
-!         parent_tr_totmass(:,jk,jb) = 0._wp
-!       END WHERE
       ENDDO
     ENDDO
   ENDIF
@@ -512,7 +505,7 @@ IF (l_masscorr_nest) THEN
     DO jk = 1, nlev_c
       DO jc = i_startidx, i_endidx
 
-        p_child_prog%rho(jc,jk,jb) = p_child_prog%rho(jc,jk,jb) + tendency_corr(jk)
+        p_child_prog%rho(jc,jk,jb) = p_child_prog%rho(jc,jk,jb) + tendency_corr(jk+js)
 
         p_child_prog%rhotheta_v(jc,jk,jb) = p_child_prog%rho(jc,jk,jb) * &
                                             p_child_prog%theta_v(jc,jk,jb)
@@ -535,7 +528,7 @@ IF (l_masscorr_nest) THEN
       i_ncd      = MAX(1,p_patch(jgc)%n_childdom)
       i_startblk = p_patch(jgc)%cells%start_blk(grf_bdywidth_c+1,1)
       i_endblk   = p_patch(jgc)%cells%end_blk(min_rlcell,i_ncd)
-      nshift_c   = p_patch(jgc)%nshift_total - p_pc%nshift_total
+      nshift_c   = p_patch(jgc)%nshift_total - p_pp%nshift_total
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
       DO jb = i_startblk, i_endblk
@@ -1116,7 +1109,7 @@ SUBROUTINE relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_s
   REAL(wp) :: theta_v_pr(nproma,p_patch(jg)%nlev,p_patch(jg)%nblks_c), &
               tg_pr(nproma,p_patch(jg)%nblks_c)
 
-  REAL(wp) :: tendency_corr(p_patch(jgp)%nlev), tracer_corr(p_patch(jgp)%nlev), &
+  REAL(wp) :: rho_corr(p_patch(jgp)%nlev), tracer_corr(p_patch(jgp)%nlev),      &
               aux_diff(2*p_patch(jgp)%nlev), z_fbk_rho(nproma,4,p_patch(jg)%nlev)
 
   REAL(wp) :: rd_o_cvd, rd_o_p0ref, relfac, dcoef_vec
@@ -1649,7 +1642,7 @@ IF ( .NOT. (ltransport .AND. l_trac_fbk)) THEN
   ! compute conservation correction for global mass only
   aux_diff(1:nlev_p) = global_sum_array3(1,.FALSE.,diff_mass)
   DO jk = 1, nlev_p
-    tendency_corr(jk) = aux_diff(jk) / p_nh_state(jg)%metrics%fbk_dom_volume(jk)
+    rho_corr(jk) = aux_diff(jk) / p_nh_state(jg)%metrics%fbk_dom_volume(jk)
   ENDDO
 ELSE
   ! compute conservation correction for global mass and total tracer mass
@@ -1658,8 +1651,8 @@ ELSE
                                          f3din2=parent_trmass,f3dd2=fbk_trmass,&
                                          diffmask=(/1,2/))
   DO jk = 1, nlev_p
-    tendency_corr(jk) = aux_diff(jk) / p_nh_state(jg)%metrics%fbk_dom_volume(jk)
-    tracer_corr(jk)   = aux_diff(nlev_p+jk)
+    rho_corr(jk)    = aux_diff(jk) / p_nh_state(jg)%metrics%fbk_dom_volume(jk)
+    tracer_corr(jk) = aux_diff(nlev_p+jk)
   ENDDO
 ENDIF
 
@@ -1682,7 +1675,7 @@ IF (l_masscorr_nest) THEN
     DO jk = 1, nlev_c
       DO jc = i_startidx, i_endidx
 
-        p_child_prog%rho(jc,jk,jb) = p_child_prog%rho(jc,jk,jb) - tendency_corr(jk)
+        p_child_prog%rho(jc,jk,jb) = p_child_prog%rho(jc,jk,jb) - rho_corr(jk+js)
 
         p_child_prog%rhotheta_v(jc,jk,jb) = p_child_prog%rho(jc,jk,jb) * &
                                             p_child_prog%theta_v(jc,jk,jb)
@@ -1705,7 +1698,7 @@ IF (l_masscorr_nest) THEN
       i_ncd      = MAX(1,p_patch(jgc)%n_childdom)
       i_startblk = p_patch(jgc)%cells%start_blk(grf_bdywidth_c+1,1)
       i_endblk   = p_patch(jgc)%cells%end_blk(min_rlcell,i_ncd)
-      nshift_c   = p_patch(jgc)%nshift_total - p_pc%nshift_total
+      nshift_c   = p_patch(jgc)%nshift_total - p_pp%nshift_total
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
       DO jb = i_startblk, i_endblk
@@ -1717,7 +1710,7 @@ IF (l_masscorr_nest) THEN
           DO jc = i_startidx, i_endidx
 
             p_nh_state(jgc)%prog(nnow(jgc))%rho(jc,jk,jb) = &
-              p_nh_state(jgc)%prog(nnow(jgc))%rho(jc,jk,jb) + tendency_corr(jk+nshift_c)
+              p_nh_state(jgc)%prog(nnow(jgc))%rho(jc,jk,jb) - rho_corr(jk+nshift_c)
 
             p_nh_state(jgc)%prog(nnow(jgc))%rhotheta_v(jc,jk,jb) = &
               p_nh_state(jgc)%prog(nnow(jgc))%rho(jc,jk,jb) * &
@@ -1747,12 +1740,25 @@ ENDIF
     CALL get_indices_c(p_patch(jgp), jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, i_rlstart_c, i_rlend_c, i_chidx)
 
+    IF (ltransport .AND. l_trac_fbk) THEN
+      DO jt = 1, ntracer
+        DO jk = nshift+1, nlev_p
+          DO jc = i_startidx,i_endidx
+            p_parent_prog_rcf%tracer(jc,jk,jb,jt) = p_parent_prog_rcf%tracer(jc,jk,jb,jt) + &
+              relfac * ( p_fbk_rhoqx(jc,jk,jb,jt) * tracer_corr(jk) /                       &
+              ( p_parent_prog%rho(jc,jk,jb) + diff_rho(jc,jk,jb) - rho_corr(jk) ) -         &
+              p_parent_prog_rcf%tracer(jc,jk,jb,jt) )
+          ENDDO
+        ENDDO
+      ENDDO
+    ENDIF
+
     DO jk = nshift+1,nlev_p
       DO jc = i_startidx,i_endidx
 
         ! density
         p_parent_prog%rho(jc,jk,jb) = p_parent_prog%rho(jc,jk,jb) + &
-          relfac*diff_rho(jc,jk,jb)
+          relfac*(diff_rho(jc,jk,jb) - rho_corr(jk))
 
         ! theta_v
         p_parent_prog%theta_v(jc,jk,jb) = p_parent_prog%theta_v(jc,jk,jb) + &
@@ -1783,17 +1789,6 @@ ENDIF
         p_lndp%t_gt(jc,jb,jt) = p_lndp%t_gt(jc,jb,jt) + relfac*diff_tg(jc,jb)
       ENDDO
     ENDDO
-
-    IF (ltransport .AND. l_trac_fbk) THEN
-      DO jt = 1, ntracer
-        DO jk = nshift+1, nlev_p
-          DO jc = i_startidx,i_endidx
-            p_parent_prog_rcf%tracer(jc,jk,jb,jt) = p_fbk_rhoqx(jc,jk,jb,jt)* &
-              tracer_corr(jk)/p_parent_prog%rho(jc,jk,jb)
-          ENDDO
-        ENDDO
-      ENDDO
-    ENDIF
 
   ENDDO
 !$OMP END DO
