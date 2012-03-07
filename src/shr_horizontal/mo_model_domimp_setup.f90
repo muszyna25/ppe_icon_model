@@ -108,6 +108,8 @@ MODULE mo_model_domimp_setup
   USE mo_grid_config,        ONLY: corio_lat
   USE mo_sync,               ONLY: SYNC_E, sync_patch_array, sync_idx
   USE mo_util_subset,        ONLY: fill_subset
+  USE mo_mpi,                ONLY: work_mpi_barrier, get_my_mpi_work_id
+  USE mo_impl_constants,     ONLY: HALO_LEVELS_CEILING
 
   IMPLICIT NONE
 
@@ -690,10 +692,26 @@ CONTAINS
     !    fill_subset(range subset,  halo levels, start level, end level)
     CALL fill_subset(p_patch%cells%owned,  p_patch%cells%halo_level, 0, 0)
     CALL fill_subset(p_patch%cells%in_domain,  p_patch%cells%halo_level, 0, 1)
-    CALL fill_subset(p_patch%cells%not_owned,  p_patch%cells%halo_level, 1, 100)
-    CALL fill_subset(p_patch%cells%not_in_domain,  p_patch%cells%halo_level, 2, 100)
+    CALL fill_subset(p_patch%cells%not_owned,  p_patch%cells%halo_level, 1, HALO_LEVELS_CEILING)
+    CALL fill_subset(p_patch%cells%not_in_domain,  &
+      & p_patch%cells%halo_level, 2, HALO_LEVELS_CEILING)
     CALL fill_subset(p_patch%cells%halos_with_edge_in_domain,  p_patch%cells%halo_level, 1, 1)
           
+    ! fill edge subsets
+    !    fill_subset(range subset,  halo levels, start level, end level)
+    CALL fill_subset(p_patch%edges%owned,      p_patch%edges%halo_level, 0, 0)
+    CALL fill_subset(p_patch%edges%in_domain,  p_patch%edges%halo_level, 0, 1)
+    CALL fill_subset(p_patch%edges%not_owned,  p_patch%edges%halo_level, 1, HALO_LEVELS_CEILING)
+    CALL fill_subset(p_patch%edges%not_in_domain, &
+      & p_patch%edges%halo_level, 2, HALO_LEVELS_CEILING)
+          
+    ! write some info:
+!     IF (get_my_mpi_work_id() == 1) CALL work_mpi_barrier()
+!     write(0,*) get_my_mpi_work_id(), "egdes global_index:", p_patch%edges%glb_index
+!     write(0,*) get_my_mpi_work_id(), "egdes halo_level:", p_patch%edges%halo_level
+!     write(0,*) get_my_mpi_work_id(), "egdes owner:", p_patch%edges%owner_local
+!     IF (get_my_mpi_work_id() == 0) CALL work_mpi_barrier()
+              
   END SUBROUTINE fill_grid_subsets
   !-----------------------------------------------------------------------------
 

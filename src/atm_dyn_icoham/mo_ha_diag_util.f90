@@ -64,7 +64,7 @@ MODULE mo_ha_diag_util
   USE mo_vertical_coord_table, ONLY: delpr, nplev, nplvp1
    
   USE mo_icon_comm_lib,     ONLY: new_icon_comm_variable, &
-     & icon_comm_sync, icon_comm_sync_all, on_verts, is_ready, &
+     & icon_comm_sync, icon_comm_sync_all, verts_not_owned, is_ready, &
      & until_sync
 
   IMPLICIT NONE
@@ -113,7 +113,7 @@ CONTAINS
       CALL rot_vertex (pt_prog%vn, pt_patch, pt_int_state, pt_diag%rel_vort)
       
       IF (use_icon_comm) THEN
-        rel_vort_comm = new_icon_comm_variable(pt_diag%rel_vort, on_verts, pt_patch, &
+        rel_vort_comm = new_icon_comm_variable(pt_diag%rel_vort, verts_not_owned, pt_patch, &
           & status=is_ready, scope=until_sync, name="update_diag rel_vort")
       ELSE
         CALL sync_patch_array(SYNC_V, pt_patch, pt_diag%rel_vort)

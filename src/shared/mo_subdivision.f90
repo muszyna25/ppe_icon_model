@@ -629,7 +629,7 @@ CONTAINS
      
      ! Fill the owner_local value
       ! this is done in the set_owner_mask
-      CALL fill_owner_local(p_patch(jg))
+      ! CALL fill_owner_local(p_patch(jg))
 
       IF(jg == n_dom_start) THEN
 
@@ -693,50 +693,50 @@ CONTAINS
   ! Fills the in_patch%cells%owner_local using the in_patch%cells%owner_g
   ! Note: At the moment it uses the p_work_pe number which is not the same
   ! as the my_mpi_all_id. It requires 
-  SUBROUTINE fill_owner_local(in_patch)
-
-    TYPE(t_patch), INTENT(inout) :: in_patch
-
-    INTEGER :: local_cell_idx, global_cell_idx
-    INTEGER :: i, jb, jl, jb_e, jl_e, jb_v, jl_v, jv, je
-    INTEGER :: owner_id
-
-    in_patch%edges%owner_local(:) = -1
-    in_patch%verts%owner_local(:) = -1
-
-    DO local_cell_idx = 1, in_patch%n_patch_cells
-      global_cell_idx = in_patch%cells%glb_index(local_cell_idx)
-      owner_id = in_patch%cells%owner_g(global_cell_idx)
-      in_patch%cells%owner_local(local_cell_idx) = in_patch%cells%owner_g(global_cell_idx)
-      IF (owner_id < 0) CYCLE
-
-      ! go around the cell edges mark the owner
-      jb = blk_no(local_cell_idx) ! block index
-      jl = idx_no(local_cell_idx) ! line index
-      DO i = 1,in_patch%cells%num_edges(jl,jb)
-        jl_e = in_patch%cells%edge_idx(jl,jb,i)
-        jb_e = in_patch%cells%edge_blk(jl,jb,i)
-        je = idx_1d(jl_e, jb_e)
-        jl_v = in_patch%cells%vertex_idx(jl,jb,i)
-        jb_v = in_patch%cells%vertex_blk(jl,jb,i)
-        jv = idx_1d(jl_v, jb_v)
-        IF (owner_id == p_pe_work) THEN
-          ! Assume we own the edges and vertices of the owned cells
-          ! No process can claim actual ownershipe, as these can be calculated
-          ! only using the halos. No reason to communicate them
-          in_patch%edges%owner_local(je) = p_pe_work
-          in_patch%verts%owner_local(jv) = p_pe_work
-        ELSEIF (in_patch%edges%owner_local(je) < 0) THEN
-          in_patch%edges%owner_local(je) = owner_id
-          in_patch%verts%owner_local(jv) = owner_id
-        ENDIF
-
-      ENDDO
-
-    ENDDO
-
-
-  END SUBROUTINE fill_owner_local
+!   SUBROUTINE fill_owner_local(in_patch)
+! 
+!     TYPE(t_patch), INTENT(inout) :: in_patch
+! 
+!     INTEGER :: local_cell_idx, global_cell_idx
+!     INTEGER :: i, jb, jl, jb_e, jl_e, jb_v, jl_v, jv, je
+!     INTEGER :: owner_id
+! 
+!     in_patch%edges%owner_local(:) = -1
+!     in_patch%verts%owner_local(:) = -1
+! 
+!     DO local_cell_idx = 1, in_patch%n_patch_cells
+!       global_cell_idx = in_patch%cells%glb_index(local_cell_idx)
+!       owner_id = in_patch%cells%owner_g(global_cell_idx)
+!       in_patch%cells%owner_local(local_cell_idx) = in_patch%cells%owner_g(global_cell_idx)
+!       IF (owner_id < 0) CYCLE
+! 
+!       ! go around the cell edges mark the owner
+!       jb = blk_no(local_cell_idx) ! block index
+!       jl = idx_no(local_cell_idx) ! line index
+!       DO i = 1,in_patch%cells%num_edges(jl,jb)
+!         jl_e = in_patch%cells%edge_idx(jl,jb,i)
+!         jb_e = in_patch%cells%edge_blk(jl,jb,i)
+!         je = idx_1d(jl_e, jb_e)
+!         jl_v = in_patch%cells%vertex_idx(jl,jb,i)
+!         jb_v = in_patch%cells%vertex_blk(jl,jb,i)
+!         jv = idx_1d(jl_v, jb_v)
+!         IF (owner_id == p_pe_work) THEN
+!           ! Assume we own the edges and vertices of the owned cells
+!           ! No process can claim actual ownershipe, as these can be calculated
+!           ! only using the halos. No reason to communicate them
+!           in_patch%edges%owner_local(je) = p_pe_work
+!           in_patch%verts%owner_local(jv) = p_pe_work
+!         ELSEIF (in_patch%edges%owner_local(je) < 0) THEN
+!           in_patch%edges%owner_local(je) = owner_id
+!           in_patch%verts%owner_local(jv) = owner_id
+!         ENDIF
+! 
+!       ENDDO
+! 
+!     ENDDO
+! 
+! 
+!   END SUBROUTINE fill_owner_local
  
   !-----------------------------------------------------------------------------
   !>

@@ -257,7 +257,7 @@ CONTAINS
     CALL work_mpi_barrier()
     CALL timer_start(timer_iconcom_2D_cells)
     DO i=1,testbed_iterations
-       CALL icon_comm_sync(pnt_2D_cells, on_cells, p_patch(patch_no))
+       CALL icon_comm_sync(pnt_2D_cells, cells_not_in_domain, p_patch(patch_no))
     ENDDO
     CALL timer_stop(timer_iconcom_2D_cells)
 
@@ -265,7 +265,7 @@ CONTAINS
     CALL work_mpi_barrier()
     CALL timer_start(timer_iconcom_2D_edges)
     DO i=1,testbed_iterations
-       CALL icon_comm_sync(pnt_2D_edges, on_edges, p_patch(patch_no))
+       CALL icon_comm_sync(pnt_2D_edges, edges_not_owned, p_patch(patch_no))
     ENDDO
     CALL timer_stop(timer_iconcom_2D_edges)
     
@@ -273,7 +273,7 @@ CONTAINS
     CALL work_mpi_barrier()
     CALL timer_start(timer_iconcom_2D_verts)
     DO i=1,testbed_iterations
-       CALL icon_comm_sync(pnt_2D_verts, on_verts, p_patch(patch_no))
+       CALL icon_comm_sync(pnt_2D_verts, verts_not_owned, p_patch(patch_no))
     ENDDO
     CALL timer_stop(timer_iconcom_2D_verts)
     
@@ -281,9 +281,9 @@ CONTAINS
     CALL work_mpi_barrier()
     CALL timer_start(timer_iconcom_2D_all)
     DO i=1,testbed_iterations
-       CALL icon_comm_sync(pnt_2D_cells, on_cells, p_patch(patch_no))
-       CALL icon_comm_sync(pnt_2D_edges, on_edges, p_patch(patch_no))
-       CALL icon_comm_sync(pnt_2D_verts, on_verts, p_patch(patch_no))
+       CALL icon_comm_sync(pnt_2D_cells, cells_not_in_domain, p_patch(patch_no))
+       CALL icon_comm_sync(pnt_2D_edges, edges_not_owned, p_patch(patch_no))
+       CALL icon_comm_sync(pnt_2D_verts, verts_not_owned, p_patch(patch_no))
     ENDDO
     CALL timer_stop(timer_iconcom_2D_all)
     
@@ -292,14 +292,14 @@ CONTAINS
     CALL timer_start(timer_iconcom_2D_comb)
     DO i=1,testbed_iterations
     
-       comm_1 = new_icon_comm_variable(pnt_2D_cells, on_cells, &
+       comm_1 = new_icon_comm_variable(pnt_2D_cells, cells_not_in_domain, &
          & p_patch(patch_no), status=is_ready, scope=until_sync)
          
        comm_2 = new_icon_comm_variable(pnt_2D_edges, &
-         & on_edges, p_patch(patch_no), status=is_ready, scope=until_sync)
+         & edges_not_owned, p_patch(patch_no), status=is_ready, scope=until_sync)
        
        comm_3 = new_icon_comm_variable(pnt_2D_verts, &
-         & on_verts, p_patch(patch_no), status=is_ready, scope=until_sync)
+         & verts_not_owned, p_patch(patch_no), status=is_ready, scope=until_sync)
 
        CALL icon_comm_sync_all()
 
@@ -307,12 +307,12 @@ CONTAINS
     CALL timer_stop(timer_iconcom_2D_comb)
     
     ! test the 2D iconcom on keeping the communicators
-    comm_1 = new_icon_comm_variable(pnt_2D_cells, on_cells, &
+    comm_1 = new_icon_comm_variable(pnt_2D_cells, cells_not_in_domain, &
       & p_patch(patch_no))
     comm_2 = new_icon_comm_variable(pnt_2D_edges, &
-      & on_edges, p_patch(patch_no))
+      & edges_not_owned, p_patch(patch_no))
     comm_3 = new_icon_comm_variable(pnt_2D_verts, &
-      & on_verts, p_patch(patch_no))
+      & verts_not_owned, p_patch(patch_no))
     
     CALL work_mpi_barrier()
     CALL timer_start(timer_iconcom_2D_keep)
@@ -435,7 +435,7 @@ CONTAINS
     CALL work_mpi_barrier()
     CALL timer_start(timer_iconcom_3D_cells)
     DO i=1,testbed_iterations
-      CALL icon_comm_sync(pnt_3D_cells, on_cells, p_patch(patch_no))
+      CALL icon_comm_sync(pnt_3D_cells, cells_not_in_domain, p_patch(patch_no))
       CALL do_calculations()
     ENDDO
     CALL timer_stop(timer_iconcom_3D_cells)
@@ -446,7 +446,7 @@ CONTAINS
     CALL work_mpi_barrier()
     CALL timer_start(timer_iconcom_3D_edges)
     DO i=1,testbed_iterations
-      CALL icon_comm_sync(pnt_3D_edges, on_edges, p_patch(patch_no))
+      CALL icon_comm_sync(pnt_3D_edges, edges_not_owned, p_patch(patch_no))
       CALL do_calculations()
     ENDDO
     CALL timer_stop(timer_iconcom_3D_edges)
@@ -454,7 +454,7 @@ CONTAINS
     ! test the 3D iconcom on verts
     CALL timer_start(timer_iconcom_3D_verts)
     DO i=1,testbed_iterations
-      CALL icon_comm_sync(pnt_3D_verts, on_verts, p_patch(patch_no))
+      CALL icon_comm_sync(pnt_3D_verts, verts_not_owned, p_patch(patch_no))
       CALL do_calculations()
     ENDDO
     CALL timer_stop(timer_iconcom_3D_verts)
@@ -463,9 +463,9 @@ CONTAINS
     CALL work_mpi_barrier()
     CALL timer_start(timer_iconcom_3D_all)
     DO i=1,testbed_iterations
-       CALL icon_comm_sync(pnt_3D_cells, on_cells, p_patch(patch_no))
-       CALL icon_comm_sync(pnt_3D_edges, on_edges, p_patch(patch_no))
-       CALL icon_comm_sync(pnt_3D_verts, on_verts, p_patch(patch_no))
+       CALL icon_comm_sync(pnt_3D_cells, cells_not_in_domain, p_patch(patch_no))
+       CALL icon_comm_sync(pnt_3D_edges, edges_not_owned, p_patch(patch_no))
+       CALL icon_comm_sync(pnt_3D_verts, verts_not_owned, p_patch(patch_no))
     ENDDO
     CALL timer_stop(timer_iconcom_3D_all)
     
@@ -474,14 +474,14 @@ CONTAINS
     CALL timer_start(timer_iconcom_3D_comb)
     DO i=1,testbed_iterations
     
-      comm_1 = new_icon_comm_variable(pnt_3D_cells, on_cells, &
+      comm_1 = new_icon_comm_variable(pnt_3D_cells, cells_not_in_domain, &
         & p_patch(patch_no), status=is_ready, scope=until_sync)
          
       comm_2 = new_icon_comm_variable(pnt_3D_edges, &
-        & on_edges, p_patch(patch_no), status=is_ready, scope=until_sync)
+        & edges_not_owned, p_patch(patch_no), status=is_ready, scope=until_sync)
        
       comm_3 = new_icon_comm_variable(pnt_3D_verts, &
-        & on_verts, p_patch(patch_no), status=is_ready, scope=until_sync)
+        & verts_not_owned, p_patch(patch_no), status=is_ready, scope=until_sync)
 
       CALL icon_comm_sync_all()
 
@@ -493,12 +493,12 @@ CONTAINS
     CALL timer_stop(timer_iconcom_3D_comb)
     
     ! test the 3D iconcom on keeping the communicators
-    comm_1 = new_icon_comm_variable(pnt_3D_cells, on_cells, &
+    comm_1 = new_icon_comm_variable(pnt_3D_cells, cells_not_in_domain, &
       & p_patch(patch_no))
     comm_2 = new_icon_comm_variable(pnt_3D_edges, &
-      & on_edges, p_patch(patch_no))
+      & edges_not_owned, p_patch(patch_no))
     comm_3 = new_icon_comm_variable(pnt_3D_verts, &
-      & on_verts, p_patch(patch_no))
+      & verts_not_owned, p_patch(patch_no))
     
     CALL work_mpi_barrier()
     CALL timer_start(timer_iconcom_3D_keep)
