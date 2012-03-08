@@ -58,6 +58,7 @@ MODULE mo_util_string
   PUBLIC :: associate_keyword ! add a pair (keyword -> substitution) to a keyword list
   PUBLIC :: with_keywords     ! subroutine for keyword substitution
   PUBLIC :: MAX_STRING_LEN
+  PUBLIC :: remove_duplicates
 
   !
   PUBLIC :: normal, bold
@@ -437,6 +438,44 @@ CONTAINS
     END DO
     
   END FUNCTION str_replace
+
+
+  !==============================================================================
+  !+ Remove duplicate entries from a list of strings.
+  !
+  ! @note This is a very crude implementation, quadratic complexity.
+  !
+  SUBROUTINE remove_duplicates(str_list, nitems)
+    CHARACTER(len=*),          INTENT(INOUT) :: str_list(:)
+    INTEGER,                   INTENT(INOUT) :: nitems
+    ! local variables
+    INTEGER :: iwrite, iread, nitems_old, i
+    LOGICAL :: l_duplicate
+    
+    nitems_old = nitems
+    
+    iwrite = 1
+    DO iread=1,nitems
+      ! check if item already in string list (1:iwrite-1):
+      l_duplicate = .FALSE.
+      CHECK_LOOP : DO i=1,(iwrite-1)
+        IF (TRIM(str_list(i)) == TRIM(str_list(iread))) THEN
+          l_duplicate = .TRUE.
+          EXIT CHECK_LOOP
+        END IF
+      END DO CHECK_LOOP
+      IF (.NOT. l_duplicate) THEN
+        str_list(iwrite) = str_list(iread)
+        iwrite = iwrite + 1
+      END IF
+    END DO
+    nitems = iwrite-1
+    
+    ! clear the rest of the list
+    DO iwrite=(nitems+1),nitems_old
+      str_list(iwrite) = ' '
+    END DO
+  END SUBROUTINE remove_duplicates
 
 
   !==============================================================================
