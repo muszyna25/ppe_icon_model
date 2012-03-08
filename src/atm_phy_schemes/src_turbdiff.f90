@@ -147,6 +147,29 @@
 !   removing wrong surface conditions in case "imode_turb.GE.3 .AND. itype_tran.EQ.2".
 !              2011/09/28 Matthias Raschendorfer
 !  Correction in formula for specific humidity at saturation by using partial pressure of dry air.
+!              2011/12/08 Matthias Raschendorfer
+!  Introduction of SUBs 'prep_impl_vert_diff' and 'calc_impl_vert_diff' substituting the code segment
+!   for implicit vertical diffusion calculation for TKE or all other variables, if 'imode_turb' is one of 3 or 4.
+!   These SUBs allow the calculation of semi implicit diffusion for arbitrary variables defined on full- or  half-levels.
+!   Diffusion tendency i(rather than flux-density) of pot. temperature is converted in that of ordinary temperatur.
+!              2011/12/27 Matthias Raschendorfer
+!  Correction of some bugs:
+!   Including missing definition of 'km1' for the surface level in SUB calc_impl_vert_diff
+!   Moving a wrong ')' in interpolation of 't' onto the lower boundary of model atmosphere.
+!              2012/01/10 Matthias Raschendorfer
+!  Correction of further bugs:
+!   In case of "limpltkediff" 'ko' needs to be added by "1".
+!   Coding mistake in n-loop bounds for surface layer gradients in 'turbdiff'.
+!  Introduction of array 'rhoh' (density on main levels) to avoid a back interpolation from half levels.
+!  Using a mass weighted density interpolation onto half levels as for all other variables.
+!              2012/01/11 Matthias Raschendorfer
+!  Some rearrangement and simplification:
+!   Removing explicit vertical diffusion and expressing explicit (eg. moist) corrections
+!    by corrected vertical profiles still using implicit formulation of vertical diffusion.
+!   Now "imode_turb=2" is for semi-implicit diffusion within 'turbdiff' using a concentration condition
+!    at the surface and "imode_turb=3" is for the same with a flux condition at the surface.
+!    "imode_turb_turb=4" is obsolet now.
+!   One loop for diffusion of all first order model variables.
 !
 ! Code Description:
 ! Language: Fortran 90 
@@ -288,6 +311,9 @@ USE mo_data_turbdiff, ONLY : &
     q_crit,       & ! critical value for normalized over-saturation
     c_scld,       & ! factor for liquid water flux density in sub grid scale clouds
 !
+    impl_s,       & ! implicit weight near the surface (maximal value)
+    impl_t,       & ! implicit weight near top of the atmosphere (minimal value)
+
     epsi,         & ! relative limit of accuracy for comparison of numbers
     tkesmot,      & ! time smoothing factor for TKE and diffusion coefficients
     wichfakt,     & ! vertical smoothing factor for explicit diffusion tendencies
@@ -345,7 +371,7 @@ USE data_1d_global, ONLY : &
 !
     lsclm, i_cal, im, jm, &
 !
-    UUA, VVA, UWA, VWA, WWA, UST, TTA, TWA, SHF, LHF, &
+    UUA, VVA, UWA, VWA, WWA, UST, TWA, QWA, TTA, TQA, QQA, SHF, LHF, &
     TKE_SCLM=>TKE, BOYPR, SHRPR, DISSI, TRANP
 #endif
 !SCLM---------------------------------------------------------------------------
@@ -355,7 +381,7 @@ USE data_1d_global, ONLY : &
 IMPLICIT NONE
 
 PRIVATE
-PUBLIC  :: init_canopy, organize_turbdiff
+PUBLIC  :: init_canopy, organize_turbdiff, turb_cloud
 
 REAL (KIND=ireals), PARAMETER :: &
     z0=0.0_ireals,&
@@ -911,6 +937,42 @@ CHARACTER (LEN=*), INTENT(INOUT) :: errormsg
 !Local Parameters:
 !-------------------------------------------------------------------------------
 
+INTEGER (KIND=iintegers), PARAMETER :: &
+!
+!    Indexgrenzen:
+!
+     nscal=3,     & !Skalare Groessen
+     ninv=2,      & !daraus abgeleitete gegenueber vertikalen
+                    !(feuchtadiabatischen) Verrueckungen
+                    !invarianten Groessen
+     nvel=2,      & !Geschwindigkeitskomponenten
+     ndiff=nscal+nvel, &
+     nred=ninv+nvel,   &
+     ntmax=3,     & !max. Anzahl der Zeitebenen fuer die TKE
+!
+!    Zeiger fuer die Variablen :
+!
+     u_m=1,       & !zonale Geschw.komp. im Massenzentrum
+     v_m=2,       & !meridionale  ,,      ,,     ,,
+     tet_l=3,     & !feucht-potentielle Temperatur
+     tem_l=tet_l, & !Fluessigwasser-Temperatur
+     h2o_g=4,     & !Gesamtwasseergehalt
+     liq=5,       & !Fluessigwasser  ,,
+     w_m=6,       & !vertikale Geschw.komp. im Massenzentrum
+!
+     u_s=u_m,     & !zonale Geschw.komp. im gestag. Gitter
+     v_s=v_m,     & !meridionale  ,,     ,,   ,,       ,,
+     tet=tet_l,   & !pot.Temperatur
+     tem=tet,     & !Temperatur
+     vap=h2o_g,   & !Wasserdampfmischungsverh.
+!
+     mom=1,       & !momentum
+     sca=2          !scalar
+
+!    Beachte:u_m,v_m, sowie u_s,v_s muessen in [1,nvel] liegen;
+!           aber: tet_l,h2o_g in [nvel+1,nred]
+!           und   tem (tet),vap,liq in [nvel+1,ndiff]
+
 REAL (KIND=ireals), DIMENSION(ie,je,0:7), TARGET :: &
      dd        !local derived turbulence parameter
 
@@ -1346,26 +1408,6 @@ SUBROUTINE turbtran(dt_tke)
 
 ! Local scalars:
 
-!     Lokale Integer-Parameter:
-     
-      INTEGER (KIND=iintegers), PARAMETER :: &
-!
-!             Indexgrenzen:
-!
-              nred=4,      & !Anzahl der gegenueber vertikalen
-                             !feuchtadiabatischen Verrueckungen
-                             !invarianten Modellvariablen 
-!
-!             Zeiger fuer die Variablen :
-!
-              tet_l=1,     & !feucht-potentielle Temperatur
-              h2o_g=2,     & !Gesamtwasseergehalt
-              u_m=3,       & !zonale Geschw.komp. im Massenzentrum
-              v_m=4          !meridionale  ,,      ,,     ,, 
- 
-!     Beachte:tet_l,h2o_g muessen in [1,ninv]; u_m,v_m in [ninv+1,nred],
-!             liegen!
-
 !     Lokale Integer-Hilfsvariablen:
 
       INTEGER (KIND=iintegers) :: &
@@ -1467,10 +1509,10 @@ SUBROUTINE turbtran(dt_tke)
         dz_sa_h  (ie,je),    &
         dz_s0_h  (ie,je)
 
-INTEGER (KIND=iintegers) ::  &
+     INTEGER (KIND=iintegers) ::  &
         k_2d     (ie,je)
 
-      REAL (KIND=ireals) :: &
+     REAL (KIND=ireals) :: &
 !
 !     Vertikale Gradienten verschiedener thermodyn. Variablen:
 !
@@ -1829,9 +1871,11 @@ INTEGER (KIND=iintegers) ::  &
             exnr   =zexner(ps(i,j)) !Exner-Faktor
             virt   =z1/(z1+rvd_m_o*qds_2d(i,j)-clcw(i,j,ke)) 
                                     !rezip. virtueller Faktor
+!mod_2011/09/28: zpres=patm -> zpres=pdry {
             patm   =(z1-qds_2d(i,j))*virt*ps(i,j)
          
             qsat_dT=zdqsdt( ts_2d(i,j), zqvap( zpsat_w( ts_2d(i,j) ), patm ) )
+!mod_2011/09/28: zpres=patm -> zpres=pdry }
 
             rho_2d(i,j)=virt*ps(i,j)/(r_d*ts_2d(i,j)) !Luftdichte
 
@@ -1962,6 +2006,18 @@ INTEGER (KIND=iintegers) ::  &
          CALL stab_funct(sm=tkvm(:,:,ke1), sh=tkvh(:,:,ke1), fm2=fm2_2d, fh2=fh2_2d, &
                          frc=frc_2d, tvs=tke(:,:,ke1,ntur), tls=l_tur_z0, &
                          i_st=i_st,i_en=i_en, j_st=j_st,j_en=j_en)
+
+!-----------------------------------------------------------------------
+#ifdef SCLM
+         IF (lsclm) THEN
+            CALL turb_stat(lsm=tkvm(im,jm,ke1)*l_tur_z0(im,jm), lsh=tkvh(im,jm,ke1)*l_tur_z0(im,jm),   &
+                           fm2=fm2_2d(im,jm),                   fh2=fh2_2d(im,jm),                     &
+                           d_m=d_m,                             d_h=d_h,                               &
+                           tls=l_tur_z0(im,jm),                 tvs=tke(im,jm,ke1,ntur),               &
+                           tvt=z0,                              grd=grad(im,jm,:),                   k=ke1 )
+         END IF
+#endif
+!SCLM-------------------------------------------------------------------
 
          DO j=j_st,j_en
          DO i=i_st,i_en
@@ -2230,69 +2286,8 @@ INTEGER (KIND=iintegers) ::  &
             v_10m(i,j)=vk1+fakt*(vk-vk1)
          END IF
 
-!-----------------------------------------------------------------------
-!        nur im alten 1-d-Modell:
-
-!        Berechnung der der Flussdichten fuer Impuls,
-!        fuehlbare und latente Energie und der Ri-Zahl:
-
-!        flimpuls(i,j,ke1)=rho_2d(i,j)*tkvm(i,j,ke1)*SQRT(fm2_2d(i,j))
-!        flfbwae(i,j,ke1)=cp_d*rho_2d(i,j)*tkvh(i,j,ke1)*grad(i,j,tet_l)
-!        fllawae(i,j,ke1)=lh_v*rho_2d(i,j)*tkvh(i,j,ke1)*grad(i,j,h2o_g)
- 
-!        IF (fh2_2d(i,j).EQ.z0) THEN
-!           rizahl(i,j,ke1)=z0
-!        ELSE
-!           rizahl(i,j,ke1)=fh2_2d(i,j)/MAX( fm2_2d(i,j), epsi*ABS(fh2_2d(i,j)) )
-!        END IF
-
-!        Beachte: flimpuls,flfbwae,fllawae und die Ri-Zahl
-!                 werden nur fuer Diagnosezwecke berechnet.
-!-----------------------------------------------------------------------
       END DO
       END DO
-
-      IF (PRESENT(shfl_s)) THEN
-         DO j=j_st,j_en
-         DO i=i_st,i_en
-            shfl_s(i,j)=-cp_d*rho_2d(i,j)*tkvh(i,j,ke1)*grad(i,j,tet_l)
-         END DO
-         END DO
-      END IF
-      IF (PRESENT(lhfl_s)) THEN
-         DO j=j_st,j_en
-         DO i=i_st,i_en
-            lhfl_s(i,j)=-lh_v*rho_2d(i,j)*tkvh(i,j,ke1)*grad(i,j,h2o_g)
-         END DO
-         END DO
-      END IF
-         
-!-----------------------------------------------------------------------
-#ifdef SCLM
-      IF (lsclm) THEN
-
-         TKE_SCLM%mod(ke1)%val=tke(im,jm,ke1,ntur); TKE_SCLM%mod(ke1)%vst=i_cal
-
-         !Achtung: TKE%mod(ke1)%val zeigt z.Z. noch auf die alte TKE-Zeitstufe.
-         !Somit wird also der alte tke-Wert mit dem neuen ueberschrieben,
-         !was aber ohne Bedeutung ist, weil ab jetzt der alte tke-Wert nicht
-         !mehr benoetigt wird. Beachte, dass die Modelleinheit hier [m/s] ist.
-
-         velh=tkvm(im,jm,ke1)*SQRT(fm2_2d(im,jm))
-         wert=tkvh(im,jm,ke1)*fh2_2d(im,jm)
-
-         val1=-tkvh(im,jm,ke1)*grad(im,jm,tet_l) !teta cov. with w
-         val2=-tkvh(im,jm,ke1)*grad(im,jm,h2o_g) !qvap cov. with w
-
-         UST%mod(ke1)%val=SQRT(velh) ; UST%mod(ke1)%vst=i_cal
-         TWA%mod(ke1)%val=val1       ; TWA%mod(ke1)%vst=i_cal
-
-         SHF%mod(0)%val=cp_d*rho_2d(im,jm)*val1 ; SHF%mod(0)%vst=i_cal
-         LHF%mod(0)%val=lh_v*rho_2d(im,jm)*val2 ; LHF%mod(0)%vst=i_cal
-       ! LMO%mod(0)%val=velh**3/wert ; LMO%mod(0)%vst=i_cal
-      END IF
-#endif
-!SCLM-------------------------------------------------------------------
 
 END SUBROUTINE turbtran
 
@@ -2577,46 +2572,10 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
 
 !     Lokale logical Variablen:
 
-      LOGICAL limplizit, & !(teil-)implizite Berechnung der Diffus.tend.
-              lexplizit, & !(teil-)explizite Berechnung der Diffus.tend.
+      LOGICAL lcalcvdif, & !(teil-)implizite Berechnung der Vertikaldiffusion
               lcircterm    !Zirkulationsterm muss berechnet werden
 
 !     Lokale Integer-Hilfsvariablen:
-
-      INTEGER (KIND=iintegers), PARAMETER :: &
-!
-!             Indexgrenzen:
-!
-              nscal=3,     & !Skalare Groessen
-              ninv=2,      & !daraus abgeleitete gegenueber vertikalen
-                             !(feuchtadiabatischen) Verrueckungen
-                             !invarianten Groessen
-              nvel=2,      & !Geschwindigkeitskomponenten
-              ndiff=nscal+nvel, &
-              nred=ninv+nvel,   &
-              ntmax=3,     & !max. Anzahl der Zeitebenen fuer die TKE
-!
-!             Zeiger fuer die Variablen :
-!
-              u_m=1,       & !zonale Geschw.komp. im Massenzentrum
-              v_m=2,       & !meridionale  ,,      ,,     ,,
-              tet_l=3,     & !feucht-potentielle Temperatur
-              tem_l=tet_l, & !Fluessigwasser-Temperatur
-              h2o_g=4,     & !Gesamtwasseergehalt
-              liq=5,       & !Fluessigwasser  ,,
-!
-              u_s=u_m,     & !zonale Geschw.komp. im gestag. Gitter
-              v_s=v_m,     & !meridionale  ,,     ,,   ,,       ,,
-              tet=tet_l,   & !pot.Temperatur
-              tem=tet,     & !Temperatur
-              vap=h2o_g,   & !Wasserdampfmischungsverh.
-!
-              mom=1,       & !momentum
-              sca=2          !scalar
-
-!     Beachte:u_m,v_m, sowie u_s,v_s muessen in [1,nvel] liegen;
-!             aber: tet_l,h2o_g in [nvel+1,nred]
-!             und   tem (tet),vap,liq in [nvel+1,ndiff]
 
 !     Lokale Integer-Hilfsvariablen:
 
@@ -2625,8 +2584,7 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
               i,j,k,        & !Diskretis.index fuer lamda, phi, sigma
               n,ii,jj,kk,   & !Indices fuer diverse Schleifen
               ku,ko,k1,k2,  & !unterer und oberer Schicht-Index
-              nkorr,nk1,nk2,& !Startindices der explizit zu behandelnden
-                              !Variablen
+              nkorr,        & !Startindex der Variablen mit Gradientkorrektur
               kem,          & !ke oder ke1
               it_durch        !Durchgangsindex der Iterationen
 
@@ -2653,7 +2611,8 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
 
       REAL (KIND=ireals) :: &
 !
-           exnr !Exner-Faktor
+           fr_var, & !1/dt_var
+           exnr      !Exner-Faktor
 
       REAL (KIND=ireals) :: &
 !
@@ -2675,7 +2634,7 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
 !     untere Hoehe, turbulente Laengaenskalen, Kohaerenzlaenge,
 !     Dicke der laminaren Grenzschicht,sowie eine Laenge allgemein:
 !   
-           h,hu,l_turb,l_diss,lh,lm,kohae_len,l_lam,len, &
+           h,hu,l_turb,l_diss,lh,lm,kohae_len,len, &
 !           
            edh, & ! Kehrwert von Schichtdicken
 !
@@ -2696,8 +2655,7 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
 !
 !     sonstiges:
 !
-           tmp1,tmp2,tmp3,aa,bb, &
-           beta,x1,x2,x3
+           x1,x2,x3
 
       REAL (KIND=ireals) :: flukon33, flukon43, flukon53, &
                             flukon34, flukon44, flukon54, flukon55, &
@@ -2729,6 +2687,7 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
 !
            len_scale(ie,je,ke1),& !turbulent length-scale
 !
+           rhoh(ie,je,ke1),& !Luftdichte auf Hauptflaechen
            rhon(ie,je,ke1),& !Luftdichte auf Nebenflaechen
                              !einschl. des skin-layers
 !
@@ -2779,7 +2738,7 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
 !     Vertikale Gradienten und turbulente Flussdichten verschiedener 
 !     thermodynamischer Variablen:
 !
-           grad(ndiff), &
+           grad(ndiff), flux(ie,je,ndiff), &
 !
 !     Time increment and inverse time increment of ordinary prognostic variables:
 !
@@ -2820,12 +2779,6 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
            can_fields, & !canopy fields are present
            ltend(ndiff)  !calculation of tendencies required
 
-!-------------------------------------------------------------------------------
-#ifdef SCLM
-      REAL (KIND=iintegers) :: cvar(ndiff,2) !variance and covariance with vertical wind
-#endif
-!-------------------------------------------------------------------------------
-
 !---- End of header ------------------------------------------------------------
 
 !     nur in LM-Umgebung:
@@ -2852,7 +2805,9 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
 !     Zum Schluss enthaelt vari() fuer die turbulente Horizontaldiff.
 !     benoetigte Komponenten des turbulenten Spannungstensors.
 
-!print *,"in turbdiff iini=",iini
+!print *,"in turbdiff c_diff=",c_diff," tkhmin=",tkhmin
+
+      fr_var=z1/dt_var
 
       IF (PRESENT(epr)) THEN
          exner => epr
@@ -2948,7 +2903,7 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
       DO n=1,ndiff
          IF (ltend(n)) THEN !calculation of tendencies required
             tinc(n)=z1        !no time increment multiplication for tendencies
-            tinv(n)=z1/dt_var !division by time increment for variable increments
+            tinv(n)=fr_var    !division by time increment for variable increments
          ELSE               !update of prognostic variables required
             tinc(n)=dt_var    !time increment multiplication for tendencies
             tinv(n)=z1        !no division by time increment for variable increments
@@ -2967,29 +2922,21 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
 
 !     Setzen von Steuerparametern:
 
-      IF (imode_turb.GE.3) THEN
-         limplizit=.TRUE.
+      IF (imode_turb.LT.2) THEN
+         lcalcvdif=lexpcor
       ELSE
-         limplizit=.FALSE.
-      END IF
+         lcalcvdif=.TRUE.
+      END IF   
 
-      IF (imode_turb.EQ.2) THEN
-         lexplizit=.TRUE.
-         nkorr=1
-      ELSEIF (.NOT.lexpcor .OR. imode_turb.EQ.4) THEN
-         lexplizit=.FALSE.
-         nkorr=ndiff+1
-      ELSE
-         lexplizit=.TRUE.
+      IF (lexpcor) THEN
          IF (lnonloc) THEN
             nkorr=1
          ELSE
             nkorr=nvel+1
          END IF
+      ELSE
+         nkorr=ndiff+1
       END IF
-
-      nk1=nkorr
-      nk2=MAX( nkorr, nvel+1 )
 
       IF (itype_tran.EQ.3) THEN
          kem=ke1
@@ -3063,14 +3010,14 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
 
         DO k=1,ke
           DO j=jstartpar,jendpar
-            DO i=istartpar,iendpar
-              IF ( qc(i,j,k) > z0 ) THEN
+          DO i=istartpar,iendpar
+             IF ( qc(i,j,k) > z0 ) THEN
                 rcld(i,j,k) = z1
-              ELSE
+             ELSE
                 rcld(i,j,k) = z0
-              END IF
-              hlp(i,j,k)=z0
-            ENDDO
+             END IF
+             hlp(i,j,k)=z0
+          ENDDO
           ENDDO
         ENDDO
 
@@ -3108,13 +3055,13 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
          END DO
       ELSEIF (icldm_tran.EQ.1) THEN
          DO j=jstartpar,jendpar
-           DO i=istartpar,iendpar    
-             IF ( qc(i,j,ke) > z0 ) THEN
+         DO i=istartpar,iendpar    
+            IF ( qc(i,j,ke) > z0 ) THEN
                rcld(i,j,ke1) = z1
-             ELSE
+            ELSE
                rcld(i,j,ke1) = z0
-             END IF
-           END DO
+            END IF
+         END DO
          END DO
       ELSE
          DO j=jstartpar,jendpar
@@ -3150,6 +3097,9 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
 !            der fuer tet und die fuer h2o_g der fuer vap.
 
       DO k=1,ke1
+!if (k.ge.ke) then
+!  print *,"k=",k
+!endif
          IF (k.LT.ke1) THEN
             DO j=jstartpar,jendpar
             DO i=istartpar,iendpar    
@@ -3159,8 +3109,12 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
                pr(i,j)=prs(i,j,k)
                a(i,j,k,2)=exner(i,j,k) !Exner-Faktor
                                        !(wird spaeter auf Nebenflaechen interpoliert)
+!if (i.eq.im .and. j.eq.jm .and. k.ge.ke) then
+!  print *," t=",t(i,j,k)," tp=",tp(i,j)
+!endif
             END DO   
             END DO   
+!print *,"k=",k,"tp=",tp(im,jm)
          ELSE
 !           Beachte:
 !           tp(), qd(), ql() und pr() sind vom Durchgang k=ke
@@ -3173,17 +3127,25 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
 !           Verdraengungshoehe von der festen Erdbodenoberflaeche)
 !           und diesem Niveau beruecksichtigt:
  
+!print *,"k=",k,"tp=",t_g(im,jm)+zlhocp*hlp(i,j,ke1)
+!print *,"tfh=",tfh(im,jm)," tet_g=",tet_g
             DO j=jstartpar,jendpar
             DO i=istartpar,iendpar
 !Achtung!
-               tp(i,j)=tp(i,j)*(z1-tfh(i,j)) &
-!                     +(t_g(i,j)+zlhocp*hlp(i,j,ke1))*tfh(i,j)
-                      +t_g(i,j)*tfh(i,j)
+!bug_2011/09/23: (interpolation of tem) -> (interpolation of tet) <=> (interpolation of tet_l)  {
+!bug_2011/12/27: moving a wrong ')' {
+             ! tp(i,j)=(tp(i,j)+z1d2*tet_g*(hhl(i,j,ke)-hhl(i,j,ke1))*(z1-tfh(i,j))) &
+               tp(i,j)=(tp(i,j)+z1d2*tet_g*(hhl(i,j,ke)-hhl(i,j,ke1)))*(z1-tfh(i,j)) &
+!bug_2011/12/27: moving a wrong ')' }
+                      +(t_g(i,j)+zlhocp*hlp(i,j,ke1))*tfh(i,j)
+!bug_2011/09/23: (interpolation of tem) -> (interpolation of tet) <=> (interpolation of tet_l)  }
                qd(i,j)=qd(i,j)*(z1-tfh(i,j)) &
-!                     +(qv_s(i,j)-hlp(i,j,ke1))*tfh(i,j)
-                      +qv_s(i,j)*tfh(i,j)
+                      +(qv_s(i,j)-hlp(i,j,ke1))*tfh(i,j)
                pr(i,j)=ps(i,j) 
                a(i,j,k,2)=zexner(pr(i,j)) !Exner-Faktor am Boden
+!if (i.eq.im .and. j.eq.jm .and. k.ge.ke) then
+!  print *," t=",t_g(i,j)," tp=",tp(i,j)
+!endif
             END DO
             END DO
          END IF
@@ -3199,7 +3161,9 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
 
             virt   =z1/(z1+rvd_m_o*qd(i,j)-ql(i,j))      !rezipr. virtueller Faktor
             patm   =(z1-qd(i,j))*virt*pr(i,j)            !Partialdruck der trockenen Luft
+!mod_2011/09/28: zpres=patm -> zpres=pdry {
             qsat_dT=zdqsdt( tp(i,j), zqvap( zpsat_w( tp(i,j) ), patm ) ) !dQs/dT
+!mod_2011/09/28: zpres=patm -> zpres=pdry }
             fakt   =(zlhocp/tp(i,j)-(z1+rvd_m_o)*virt)/(z1+qsat_dT*zlhocp)
 
             lay(i,j)=virt
@@ -3216,21 +3180,25 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
             vari(i,j,k,tet_l)=teta-ql(i,j)*zlhocp/exnr
             vari(i,j,k,h2o_g)=qd(i,j)+liqfak*ql(i,j)
             vari(i,j,k,liq  )=ql(i,j)
+!if (i.eq.im .and. j.eq.jm .and. k.ge.ke) then
+! print *,"tet=",teta," tet_l=",vari(i,j,k,tet_l)
+!endif
          END DO
          END DO
 
          IF (PRESENT(rho) .AND. k.LT.ke1) THEN
             DO j=jstartpar,jendpar
             DO i=istartpar,iendpar    
-               rhon(i,j,k)=rho(i,j,k) !Luftdichte
+               rhoh(i,j,k)=rho(i,j,k) !Luftdichte
             END DO
             END DO
          ELSE    
             DO j=jstartpar,jendpar
             DO i=istartpar,iendpar    
-               rhon(i,j,k)=lay(i,j)*pr(i,j)/(r_d*tp(i,j)) !Luftdichte
+               rhoh(i,j,k)=lay(i,j)*pr(i,j)/(r_d*tp(i,j)) !Luftdichte
             END DO
             END DO
+!print *,"ps=",pr(im,jm)," t_g=",tp(im,jm)," virt=",z1/lay(im,jm)
          END IF   
 
 !        Die thermodynamischen Hilfsgroessen wurden hier
@@ -3305,13 +3273,24 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
             END DO
          END DO
       END DO
+      DO j=jstartpar,jendpar
+      DO i=istartpar,iendpar    
+         rhon(i,j,ke1)=rhoh(i,j,ke1)
+      END DO
+      END DO
       DO k=ke,2,-1
          DO j=jstartpar,jendpar
          DO i=istartpar,iendpar
             rcld(i,j,k)=(rcld(i,j,k)*dp0(i,j,k-1)+rcld(i,j,k-1)*dp0(i,j,k))/hlp(i,j,k)
-            rhon(i,j,k)=(rhon(i,j,k)*dicke(i,j,k-1)  &
-                        +rhon(i,j,k-1)*dicke(i,j,k)) &
-                       /(hhl(i,j,k-1)-hhl(i,j,k+1))
+!test:
+            rhon(i,j,k)=(rhoh(i,j,k  )*dp0(i,j,k-1)    &       !mass weighted interpolation
+                        +rhoh(i,j,k-1)*dp0(i,j,k))/hlp(i,j,k)
+!           rhon(i,j,k)=(rhoh(i,j,k  )*dicke(i,j,k-1)  &       !distance weighted interpolation
+!                       +rhoh(i,j,k-1)*dicke(i,j,k))   &
+!                      /(hhl(i,j,k-1)-hhl(i,j,k+1))
+!           rhon(i,j,k)=z2*rhoh(i,j,k)-rhoh(i,j,k+1)           !reverse of main level interpolation
+                                                               !(leads to a numerical instability)
+!test
 
 !           Beachte die andere Behandlung der Dichte!
          END DO
@@ -3351,6 +3330,7 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
       END DO
 !print *,"nach li_ice"
 
+!bug_2011/09/23: k -> ke {
       IF (lini.AND.itype_tran.EQ.3) THEN 
 
          DO j=jstartpar,jendpar
@@ -3410,7 +3390,9 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
             END IF   
          END DO   
          END DO   
-      END IF     
+      END IF
+!bug_2011/09/23: k -> ke }
+
 !print *,"nach gz0-ini"
 
 !     Bestimmung der Rauhigkeitslaenge 
@@ -3425,6 +3407,7 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
       END DO
       END DO
 
+!bug_mod_2011/09/23: dicke(i,j,ke1) -> dz0(i,j,mom), dz0(i,j,sca) {
       IF (itype_tran.EQ.2) THEN !Transferkoeffizienten mit turbtran
          ! spezifiche effektive Dicke der Prandtlschicht:
          DO j=jstartpar,jendpar
@@ -3443,8 +3426,9 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
          END DO 
          ! Kuerzt sich bei Flussberechnungen wieder heraus!
       END IF
+!bug_mod_2011/09/23: dicke(i,j,ke1) -> dz0(i,j,mom), dz0(i,j,sca) }
 
-!     Berechnung der tubulenten Laengenscalen:
+!     Berechnung der turbulenten Laengenscalen:
 
       DO j=jstartpar,jendpar
       DO i=istartpar,iendpar
@@ -3503,6 +3487,7 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
                len=len_scale(i,j,k)
 
 !Achtung!
+!bug_mod_2011/09/23: dicke(i,j,ke1) -> dz0(i,j,mom), dz0(i,j,sca) {
                IF (k.EQ.ke1) THEN
                   val1=z1/dz0(i,j,mom)
                   val2=z1/dz0(i,j,sca)
@@ -3510,11 +3495,12 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
                   val1=z2/(hhl(i,j,k+1)-hhl(i,j,k-1))
                   val2=val1
                END IF
+!bug_mod_2011/09/23: dicke(i,j,ke1) -> dz0(i,j,mom), dz0(i,j,sca) }
 
 !NEC_CB        DO n=1,nvel
 !NEC_CB           grad(n)=(vari(i,j,k,n)-vari(i,j,k-1,n))*val1
 !NEC_CB        END DO
-!NEC_CB        DO n=1,nvel+1,nred
+!NEC_CB        DO n=nvel+1,nred
 !NEC_CB           grad(n)=(vari(i,j,k,n)-vari(i,j,k-1,n))*val2
 !NEC_CB        END DO
 !              ! nred=4 in all cases,
@@ -3596,6 +3582,7 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
 
 !     Am unteren Modellrand:
 
+!bug_mod_2011/09/23: dicke(i,j,ke1) -> dz0(i,j,mom), dz0(i,j,sca) {
 !     Impuls-Variablen:
       DO j=jstartpar,jendpar
       DO i=istartpar,iendpar
@@ -3617,10 +3604,23 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
          vari(i,j,ke1,liq)=z0
       END DO
       END DO
-      DO n=1,nvel+1,nred
+!bug_mod_2011/09/23: dicke(i,j,ke1) -> dz0(i,j,mom), dz0(i,j,sca) }
+
+!bug_2012/01/10: coding mistake {
+    ! DO n=1,nvel+1,nred
+      DO n=nvel+1,nred
+!bug_2012/01/10: coding mistake }
          DO j=jstartpar,jendpar
          DO i=istartpar,iendpar
+!print *,"n=",n
+!if (i.eq.im .and.j.eq.jm .and. n.eq.tet_l) then
+!  print *,"tet_l_ke=",vari(i,j,ke,n)," tet_l_ke1=",vari(i,j,ke1,n)," tet_l_s=",t_g(i,j)/zexner(ps(i,j))
+!  print *,"dz=",dz0(i,j,sca)," dz/tfh=",dz0(i,j,sca)/tfh(i,j)
+!endif
             vari(i,j,ke1,n)=(vari(i,j,ke,n)-vari(i,j,ke1,n))*lay(i,j)
+!if (i.eq.im .and.j.eq.jm .and. n.eq.tet_l) then
+!  print *,"d_tet_l/dz=",vari(i,j,ke1,n),(vari(i,j,ke,n)-t_g(i,j)/zexner(ps(i,j)))/(dz0(i,j,sca)/tfh(i,j))
+!endif
          END DO
          END DO
       END DO   
@@ -4227,61 +4227,15 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
                END DO
 
             END IF
-!print *,"nach hauptschleife"
 
 !------------------------------------------------------------------------------------
 #ifdef SCLM
             IF (lsclm .AND. it_durch.EQ.it_end) THEN
-
-               cvar(tet_l,1)=d_h*tkvh(im,jm,k)*len_scale(im,jm,k) &
-                                *vari(im,jm,k,tet_l)**2
-
-               q3=tke(im,jm,k,ntur); q2=q3**2
-               l_diss=dd(im,jm,0)*len_scale(im,jm,k); fakt=l_diss/q3
-
-               km=tkvm(im,jm,k)*q3; kh=tkvh(im,jm,k)*q3
-
-               cvar(u_m  ,2)=-km*vari(im,jm,k,u_m)
-               cvar(v_m  ,2)=-km*vari(im,jm,k,v_m)
-               cvar(tet_l,2)=-kh*vari(im,jm,k,tet_l)
-
-               x1=cvar(u_m,2)*vari(im,jm,k,u_m)
-               x2=cvar(v_m,2)*vari(im,jm,k,v_m)
-               x3=-kh*lays(im,jm,2)
-
-               !Achtung: TKE%mod(k)%val zeigt z.Z. noch auf die alte TKE-Zeitstufe.
-               !Somit wird also der alte tke-Wert mit dem neuen ueberschrieben,
-               !was aber ohne Bedeutung ist, weil ab jetzt der alte tke-Wert nicht
-               !mehr benoetigt wird. Beachte, dass die Modelleinheit hier [m/s] ist.
-
-               TKE_SCLM%mod(k)%val=q3; TKE_SCLM%mod(k)%vst=i_cal
-
-               BOYPR%mod(k)%val=x3       ; BOYPR%mod(k)%vst=i_cal
-               SHRPR%mod(k)%val=-(x1+x2) ; SHRPR%mod(k)%vst=i_cal
-               DISSI%mod(k)%val=q2/fakt  ; DISSI%mod(k)%vst=i_cal 
-               TRANP%mod(k)%val=q3*tketens(im,jm,k)
-                                           TRANP%mod(k)%vst=i_cal
-                
-               cvar(u_m,1)=z1d3*q2+fakt*(-z4*x1+z2*x2-z2*x3)
-               cvar(v_m,1)=z1d3*q2+fakt*(+z2*x1-z4*x2-z2*x3)
-
-               UWA%mod(k)%val=cvar(u_m  ,2); UWA%mod(k)%vst=i_cal
-               VWA%mod(k)%val=cvar(v_m  ,2); VWA%mod(k)%vst=i_cal
-               TWA%mod(k)%val=cvar(tet_l,2); TWA%mod(k)%vst=i_cal
-               UST%mod(k)%val=SQRT(km*SQRT(lays(im,jm,1)))
-                                           UST%mod(k)%vst=i_cal
-
-               IF (cvar(u_m,1).GE.z0 .AND. cvar(v_m,1).GE.z0 .AND. &
-                   cvar(u_m,1)+cvar(v_m,1).LE.q2) THEN
-
-                  UUA%mod(k)%val=cvar(u_m,1); UUA%mod(k)%vst=i_cal
-                  VVA%mod(k)%val=cvar(v_m,1); VVA%mod(k)%vst=i_cal
-                  WWA%mod(k)%val=q2-UUA%mod(k)%val-VVA%mod(k)%val
-                                            WWA%mod(k)%vst=i_cal
-               END IF
-
-               TTA%mod(k)%val=cvar(tet_l,1); TTA%mod(k)%vst=i_cal
-
+               CALL turb_stat(lsm=tkvm(im,jm,k),      lsh=tkvh(im,jm,k),        &
+                              fm2=lays(im,jm,1),      fh2=lays(im,jm,2),        &
+                              d_m=dd(im,jm,0),        d_h=d_h,                  &
+                              tls=len_scale(im,jm,k), tvs=tke(im,jm,k,ntur),    &
+                              tvt=tketens(im,jm,k),   grd=vari(im,jm,k,:),   k=k)
             END IF   
 #endif
 !SCLM--------------------------------------------------------------------------------
@@ -4344,332 +4298,287 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
 
       END IF   
 
-!  4) Berechnung der effektiven turbulenten Vertikalgradienten
+!  4) Berechbung der effektiven turbulenten Vertikalgradienten
 !     und weiterer Turbulenzgroessen:
 
-         DO k=2,kem
+      DO k=2,kem
 
-            IF (ltmpcor) THEN
+         IF (ltmpcor) THEN
 
-!              Berechnung des vert. Temp.grad. fuer den Phasendiffusionsterm:
+!           Berechnung des vert. Temp.grad. fuer den Phasendiffusionsterm:
 !              
-               DO j=jstartpar,jendpar
-               DO i=istartpar,iendpar
-                  lay(i,j)=a(i,j,k,2)*vari(i,j,k,tet_l)-tet_g &
-                          +zlhocp*vari(i,j,k,liq)               !vert. Temperaturgradient
-               END DO   
-               END DO   
+            DO j=jstartpar,jendpar
+            DO i=istartpar,iendpar
+               lay(i,j)=a(i,j,k,2)*vari(i,j,k,tet_l)-tet_g &
+                       +zlhocp*vari(i,j,k,liq)               !vert. Temperaturgradient
+            END DO   
+            END DO   
 
-!              Dies geschieht schon hier, weil im naechsten Schritt das Feld vari()
-!              durch die effiktiven Gradienten ueberschrieben wird.
-            END IF    
+         !  Dies geschieht schon hier, weil im naechsten Schritt das Feld vari()
+         !  durch die effiktiven Gradienten ueberschrieben wird.
+         END IF    
+
+         DO j=jstartpar,jendpar
+         DO i=istartpar,iendpar
+
+!           Berech. der thermodynamischen Flusskonversionsmatrix
+!           und der Standardabweichnung der Verteilung des
+!           Saettigungsdefizites:
+
+            x1=z1/(z1+zlhocp*a(i,j,k,3))
+            x2=a(i,j,k,3)*a(i,j,k,2)
+!mod_2011/12/08: temperature conversion of tet-diffusion-tendencies rahter than -fluxesx {
+          ! x3=a(i,j,k,2)*a(i,j,k,1) !exnr*Cp/Cpd
+            x3=a(i,j,k,1) !Cp/Cpd
+!mod_2011/12/08: temperature conversion of tet-diffusion-tendencies rahter than -fluxes }
+
+            rcl = (c_scld * rcld(i,j,k)) / (z1+rcld(i,j,k)*(c_scld-z1))
+
+            rcld(i,j,k)=sqrt(len_scale(i,j,k)*tkvh(i,j,k)*d_h)* &
+                        abs(x2*vari(i,j,k,tet_l)-vari(i,j,k,h2o_g))
+
+!           Unter rcld steht jetzt die (geschaetzte) Standardabw.
+!           des Saettigungsdefizites!
+
+            flukon33         =z1-rcl*(z1-x1)
+            flukon34         =x1*zlhocp/a(i,j,k,2)*rcl
+
+            flukon53         =-x1*x2*rcl
+            flukon54         =x1*rcl
+            flukon55         =z1-liqfak
+
+            flukon43         =-flukon53
+            flukon44         =z1-flukon54
+
+            flux_3   =(flukon33         *vari(i,j,k,tet_l) &
+                      +flukon34         *vari(i,j,k,h2o_g)) * x3
+            flux_4   =(flukon43         *vari(i,j,k,tet_l) &
+                      +flukon44         *vari(i,j,k,h2o_g))
+            flux_5   =(flukon53         *vari(i,j,k,tet_l) &
+                      +flukon54         *vari(i,j,k,h2o_g) &
+                      +flukon55         *vari(i,j,k,liq)) 
+!if (i.eq.im .and.j.eq.jm .and. k.ge.ke) then
+!  print *,"k=",k," grad_tet_l=",vari(i,j,k,tet_l)," grad_tet=",flux_3
+!endif
+            vari(i,j,k,tet)=flux_3 !(Cp/Cpd)*grad(tet)
+            vari(i,j,k,vap)=flux_4
+            vari(i,j,k,liq)=flux_5
+
+            !Achtung: 
+            !'vari(i,j,k,tet)' ist der in der Teta-gleichung benoetigte
+            !effective Gradient und entspricht (Cp/Cpd)*tet_flux_dens.
+            !Die Indices 'tet', 'tem' und 'tet_l' haben den gleichen Wert
+            !so wie auch 'vap' und 'h2o_g' den gleichen Wert haben.
+            !Die Unterscheidungen sollen nur den jeweiligen Inhalt verdeutlichen.
+
+            !Im Falle "icldm_turb.NE.-1" ist "liqfak.EQ.z1" und 'flukon55' verschwindet.
+            !Im Falle "icldm_turb.EQ.-1" dagegen verschwinden 'flukon53' und 'flukon54'.
+            !Dann ist aber "flukon55.EQ.z1". Ferner verschwinden in diesem Fall auch
+            !'flukon34' und 'flukon43', wobei die physikalischen Groessen 'tet_l' und 'tet'
+            !sowie 'h2o_g' und 'vap' identisch sind.
+
+            a(i,j,k,3)=rcl !'a(i,j,k,3)' enthaelt ab jetzt den Wolkenbedeckungsgrad!
+
+         END DO
+         END DO
+
+         DO j=jstartpar,jendpar
+         DO i=istartpar,iendpar
+!           Berechn. der Diffusionskoeffizienten:
+
+            tkvh(i,j,k)=MAX( con_h, tkhmin, tkvh(i,j,k)*tke(i,j,k,ntur) )
+            tkvm(i,j,k)=MAX( con_m, tkmmin, tkvm(i,j,k)*tke(i,j,k,ntur) )
+
+!           tkvh und tkvm enthalten jetzt nicht mehr Diffusions-
+!           laengen, sondern Diffusionskoeffizienten in m^2/s!
+
+         END DO
+         END DO
+        
+         IF (ltmpcor) THEN
+
+!           Berechnung der Temperaturtendenzen durch TKE-Quellen
+!           auf Nebenflaechen (ausser der Divergenz des 
+!           Drucktransportes):
 
             DO j=jstartpar,jendpar
             DO i=istartpar,iendpar
+               thermik=tkvh(i,j,k)*tfr(i,j,k)
+               phasdif=tkvh(i,j,k)*lay(i,j) &
+                      *(zrcpv*vari(i,j,k,vap)+zrcpl*vari(i,j,k,liq))  
 
-!              Berech. der thermodynamischen Flusskonversionsmatrix
-!              und der Standardabweichnung der Verteilung des
-!              Saettigungsdefizites:
+               tketens(i,j,k)=len_scale(i,j,k)/a(i,j,k,1) &
+                       *((tketens(i,j,k)+thermik)/cp_d+phasdif)
+            END DO   
+            END DO   
 
-               x1=z1/(z1+zlhocp*a(i,j,k,3))
-               x2=a(i,j,k,3)*a(i,j,k,2)
-               x3=a(i,j,k,2)*a(i,j,k,1) !exnr*Cp/Cpd
-
-               rcl = (c_scld * rcld(i,j,k)) / (z1+rcld(i,j,k)*(c_scld-z1))
-
-               rcld(i,j,k)=sqrt(len_scale(i,j,k)*tkvh(i,j,k)*d_h)* &
-                           abs(x2*vari(i,j,k,tet_l)-vari(i,j,k,h2o_g))
-
-!              Unter rcld steht jetzt die (geschaetzte) Standardabw.
-!              des Saettigungsdefizites!
-
-               flukon33         =z1-rcl*(z1-x1)
-               flukon34         =x1*zlhocp/a(i,j,k,2)*rcl
-
-               flukon53         =-x1*x2*rcl
-               flukon54         =x1*rcl
-               flukon55         =z1-liqfak
-
-               flukon43         =-flukon53
-               flukon44         =z1-flukon54
-
-               flux_3   =(flukon33         *vari(i,j,k,tet_l) &
-                         +flukon34         *vari(i,j,k,h2o_g)) * x3
-               flux_4   =(flukon43         *vari(i,j,k,tet_l) &
-                         +flukon44         *vari(i,j,k,h2o_g))
-               flux_5   =(flukon53         *vari(i,j,k,tet_l) &
-                         +flukon54         *vari(i,j,k,h2o_g) &
-                         +flukon55         *vari(i,j,k,liq)) 
-
-               vari(i,j,k,tem)=flux_3 !exnr*(Cp/Cpd)*grad(tet)
-               vari(i,j,k,vap)=flux_4
-               vari(i,j,k,liq)=flux_5
-
-               !Achtung: 
-               !'vari(i,j,k,tem)' ist der in der Temperaturgleichung benoetigte
-               !effective Gradient und entspricht exnr*(Cp/Cpd)*tet_flux_dens.
-               !Die Indices 'tet', 'tem' und 'tet_l' haben den gleichen Wert
-               !so wie auch 'vap' und 'h2o_g' den gleichen Wert haben.
-               !Die Unterscheidungen sollen nur den jeweiligen Inhalt verdeutlichen.
-
-               !Im Falle "icldm_turb.NE.-1" ist "liqfak.EQ.z1" und 'flukon55' verschwindet.
-               !Im Falle "icldm_turb.EQ.-1" dagegen verschwinden 'flukon53' und 'flukon54'.
-               !Dann ist aber "flukon55.EQ.z1". Ferner verschwinden in diesem Fall auch
-               !'flukon34' und 'flukon43', wobei die physikalischen Groessen 'tet_l' und 'tet'
-               !sowie 'h2o_g' und 'vap' identisch sind.
-
-               a(i,j,k,3)=rcl !'a(i,j,k,3)' enthaelt ab jetzt den Wolkenbedeckungsgrad!
-
-            END DO
-            END DO
-
-            DO j=jstartpar,jendpar
-            DO i=istartpar,iendpar
-!              Berechn. der Diffusionskoeffizienten:
-
-               tkvh(i,j,k)=MAX( con_h, tkhmin, tkvh(i,j,k)*tke(i,j,k,ntur) )
-               tkvm(i,j,k)=MAX( con_m, tkmmin, tkvm(i,j,k)*tke(i,j,k,ntur) )
-
-!              tkvh und tkvm enthalten jetzt nicht mehr Diffusions-
-!              laengen, sondern Diffusionskoeffizienten in m^2/s!
-
-!-----------------------------------------------------------------------
-!     nur im alten 1-d_Modell:
-              
-!              Berechnung der der Flussdichten fuer Impuls, 
-!              fuehlbare und latente Energie (zum Erdboden hin posit.): 
-              
-!              km=-rhon(i,j,k)*tkvm(i,j,k)
-!              kh=-rhon(i,j,k)*tkvh(i,j,k)
-
-!              flimpuls(i,j,k)=km*sqrt(vari(i,j,k,u_m)**2  &
-!                                     +vari(i,j,k,v_m)**2)
-!              flfbwae(i,j,k)=cp_d*kh*vari(i,j,k,tem)
-!              fllawae(i,j,k)=lh_v*kh*vari(i,j,k,vap)
-      
-!        Beachte: flimpuls,flfbwae,fllawael
-!                 werden nur fuer Diagnosezwecke berechnet.
-!-----------------------------------------------------------------------
-
-            END DO
-            END DO
-           
-            IF (ltmpcor) THEN
-
-!              Berechnung der Temperaturtendenzen durch TKE-Quellen
-!              auf Nebenflaechen (ausser der Divergenz des 
-!              Drucktransportes):
-
-               DO j=jstartpar,jendpar
-               DO i=istartpar,iendpar
-                  thermik=tkvh(i,j,k)*tfr(i,j,k)
-                  phasdif=tkvh(i,j,k)*lay(i,j) &
-                         *(zrcpv*vari(i,j,k,vap)+zrcpl*vari(i,j,k,liq))  
-
-                  tketens(i,j,k)=len_scale(i,j,k)/a(i,j,k,1) &
-                          *((tketens(i,j,k)+thermik)/cp_d+phasdif)
-               END DO   
-               END DO   
-
-!              Beachte:
-!              In tketens() steht bisher die TKE-Dissipation.
-!              Wegen der spaeteren Interpolation auf Hauptflaechen,
-!              wird mit der turbulenten Laengenskala multipliziert.
-            END IF
+!           Beachte:
+!           In tketens() steht bisher die TKE-Dissipation.
+!           Wegen der spaeteren Interpolation auf Hauptflaechen,
+!           wird mit der turbulenten Laengenskala multipliziert.
+         END IF
    
-         END DO !k=1, kem
-
+      END DO !k=1, kem
 
 !  5) Untere Randwerte der Turbulenzgroessen:
 
-         IF (kem.EQ.ke1) THEN
-!           Untere Randwerte der Turbulenzgroessen und der Transferkoeffizienten
-!           mit Hilfe eines vereinfachten Verfahrens zu Testzwecken:
+      IF (kem.EQ.ke1) THEN
+!        Untere Randwerte der Turbulenzgroessen und der Transferkoeffizienten
+!        mit Hilfe eines vereinfachten Verfahrens zu Testzwecken:
 
-            DO j=jstartpar,jendpar
-            DO i=istartpar,iendpar
+         DO j=jstartpar,jendpar
+         DO i=istartpar,iendpar
 
 !Achtung!
-               km=tkvm(i,j,ke1); kh=tkvh(i,j,ke1)
+            km=tkvm(i,j,ke1); kh=tkvh(i,j,ke1)
 
-!              Dicke der spec. laminaren Grenzschicht:
-               val1=z0m(i,j)*SQRT(con_m/km)
-               val2=z0m(i,j)*SQRT(con_h/kh)
+!           Dicke der spec. laminaren Grenzschicht:
+            val1=z0m(i,j)*SQRT(con_m/km)
+            val2=z0m(i,j)*SQRT(con_h/kh)
 
-!              Reduktionsfaktoren:
-               val1=val1/dz0(i,j,mom)*(km/con_m)             
-               val2=val2/dz0(i,j,sca)*(kh/con_h)             
-               tfm(i,j)=z1/(z1+rlam_mom *val1)
-               tfh(i,j)=z1/(z1+rlam_heat*val2)
-               tfv(i,j)=(z1+rlam_heat*fakt)/(z1+rat_lam*rlam_heat*val2)
-                        !Reduktionsfaktor fuer die Verdunstung aufgrund eines um den
-                        !Faktor 'rat_lam' gegenueber fuehlbarer Waerme vergroesserten
-                        !laminaren Transpostwiderstandes
+!           Reduktionsfaktoren:
+!bug_mod_2011/09/23: dicke(i,j,ke1) -> dz0(i,j,mom), dz0(i,j,sca) {
+            val1=val1/dz0(i,j,mom)*(km/con_m)             
+            val2=val2/dz0(i,j,sca)*(kh/con_h)             
+            tfm(i,j)=z1/(z1+rlam_mom *val1)
+            tfh(i,j)=z1/(z1+rlam_heat*val2)
+            tfv(i,j)=(z1+rlam_heat*fakt)/(z1+rat_lam*rlam_heat*val2)
+                     !Reduktionsfaktor fuer die Verdunstung aufgrund eines um den
+                     !Faktor 'rat_lam' gegenueber fuehlbarer Waerme vergroesserten
+                     !laminaren Transpostwiderstandes
 
-               val1=z1/(vh0(i,j)*dz0(i,j,mom))
-               val2=z1/(vh0(i,j)*dz0(i,j,sca))
-               tcm(i,j)=val1*km*tfm(i,j)
-               tch(i,j)=val2*kh*tfh(i,j)
+            val1=z1/(vh0(i,j)*dz0(i,j,mom))
+            val2=z1/(vh0(i,j)*dz0(i,j,sca))
+!bug_mod_2011/09/23: dicke(i,j,ke1) -> dz0(i,j,mom), dz0(i,j,sca) }
+            tcm(i,j)=val1*km*tfm(i,j)
+            tch(i,j)=val2*kh*tfh(i,j)
 
-!              Berechnung der neuen Rauhigkeitslaenge ueber Meer:
+!           Berechnung der neuen Rauhigkeitslaenge ueber Meer:
 
-               IF (fr_land(i,j).LT.z1d2) THEN
+            IF (fr_land(i,j).LT.z1d2) THEN
 
-                  ! Use ice surface roughness or open-water surface roughness
-                  ! according to lo_ice
-                  IF ( lo_ice(i,j) ) THEN
-                     gz0(i,j)=grav*z0_ice
-                  ELSE
-!                    Berechnung der Schubspannung:
+               ! Use ice surface roughness or open-water surface roughness
+               ! according to lo_ice
+               IF ( lo_ice(i,j) ) THEN
+                  gz0(i,j)=grav*z0_ice
+               ELSE
+!                 Berechnung der Schubspannung:
 
-                     wert=tcm(i,j)*vh0(i,j)*SQRT(vh0(i,j)**2+tke(i,j,ke1,ntur)**2)
-                     
-!                    grav*z0 mittels Charnock-Formel: 
+                  wert=tcm(i,j)*vh0(i,j)*SQRT(vh0(i,j)**2+tke(i,j,ke1,ntur)**2)
+                  
+!                 grav*z0 mittels Charnock-Formel: 
 
-                     gz0(i,j)=MAX( grav*len_min, alpha0*wert+alpha1*grav*con_m/SQRT(wert) )
-                  END IF
+                  gz0(i,j)=MAX( grav*len_min, alpha0*wert+alpha1*grav*con_m/SQRT(wert) )
                END IF
+            END IF
 
+         END DO   
+         END DO   
+
+      ELSE
+!        Untere Randwerte der Turbulenzgroessen mit Hilfe der
+!        bereits vorher (in turbtran oder partur(b,s)) berechneten
+!        Transferkoeffizienten:
+
+!        Beachte, dass die Konversion der eff. Vertikalgradienten am Unterrand
+!        noch nicht stattgefunden hat.
+
+         IF (itype_tran.NE.2) THEN
+
+!           Es wurde i.a. noch keine unteren Randwerte fuer 
+!           tke(), sowie tkvm(), tkvh() berechnet:
+
+            DO j=jstartpar,jendpar
+            DO i=istartpar,iendpar
+!Achtung!
+!bug_mod_2011/09/23: dicke(i,j,ke1) -> dz0(i,j,mom), dz0(i,j,sca) {
+               tkvm(i,j,ke1)=vh0(i,j)*dz0(i,j,mom)*tcm(i,j)
+               tkvh(i,j,ke1)=vh0(i,j)*dz0(i,j,sca)*tch(i,j)
+!bug_mod_2011/09/23: dicke(i,j,ke1) -> dz0(i,j,mom), dz0(i,j,sca) }
+
+!              Weil in partur(b,s) keine laminare Grenzschicht
+!              beruecksichtigt wird, sind die Reduktionskoeff.
+!              immer gleich 1:
+
+               tfh(i,j)=z1
+               tfm(i,j)=z1
+
+!              Der SQRT(2*TKE)-Wert am unteren Modellrand wird mit 
+!              Hilfe von c_tke*Ustar bestimmt: 
+
+               tke(i,j,ke1,ntur)=c_tke*vh0(i,j)*SQRT(tcm(i,j))
             END DO   
             END DO   
 
-            IF (PRESENT(shfl_s)) THEN
-               DO j=jstartpar,jendpar
-               DO i=istartpar,iendpar
-                  shfl_s(i,j)=-cp_d*rhon(i,j,ke1)*tkvh(i,j,ke1)*vari(i,j,ke1,tem) &
-                                                                  /a(i,j,ke1,2)
-               END DO
-               END DO
-            END IF
-            IF (PRESENT(lhfl_s)) THEN
-               DO j=jstartpar,jendpar
-               DO i=istartpar,iendpar
-                  lhfl_s(i,j)=-lh_v*rhon(i,j,ke1)*tkvh(i,j,ke1)*vari(i,j,ke1,vap)
-               END DO
-               END DO
-            END IF
+         END IF
 
-!---------------------------------------------------------------------------------------
-#ifdef SCLM 
-            IF (lsclm) THEN
-
-               val1=tkvm(im,jm,ke1)*SQRT(lays(im,jm,1)) !mech_forc(ke1)=lays(im,jm,1)
-               val2=tkvh(im,jm,ke1)*lays(im,jm,2)       !ther_forc(ke1)=lays(im,jm,2)
-      
-               cvar(tet,2)=-tkvh(im,jm,ke1)*vari(im,jm,ke1,tem)/a(im,jm,ke1,2) !tet
-               cvar(vap,2)=-tkvh(im,jm,ke1)*vari(im,jm,ke1,vap)                !vap
-      
-               wert=rhon(im,jm,ke1) !Luftdichte
-      
-               SHF%mod(0)%val=cp_d*wert*cvar(tet,2); SHF%mod(0)%vst=i_cal
-               LHF%mod(0)%val=lh_v*wert*cvar(vap,2); LHF%mod(0)%vst=i_cal
-             ! LMO%mod(0)%val=val1**3/val2         ; LMO%mod(0)%vst=i_cal
-
-            END IF
-#endif 
-!SCLM-----------------------------------------------------------------------------------
-
-         ELSE
-!           Untere Randwerte der Turbulenzgroessen mit Hilfe der
-!           bereits vorher (in turbtran oder partur(b,s) berechneten
-!           Transferkoeffizienten:
-
-!           Beachte, dass die Konversion der eff. Vertikalgradienten am Unterrand
-!           noch nicht stattgefunden hat.
-
-            IF (itype_tran.NE.2) THEN
-
-!              Es wurde i.a. noch keine unteren Randwerte fuer 
-!              tke(), sowie tkvm(), tkvh() berechnet:
-
-               DO j=jstartpar,jendpar
-               DO i=istartpar,iendpar
-!Achtung!
-                  tkvm(i,j,ke1)=vh0(i,j)*dz0(i,j,mom)*tcm(i,j)
-                  tkvh(i,j,ke1)=vh0(i,j)*dz0(i,j,sca)*tch(i,j)
-
-!                 Weil in partur(b,s) keine laminare Grenzschicht
-!                 beruecksichtigt wird, sind die Reduktionskoeff.
-!                 immer gleich 1:
-
-                  tfh(i,j)=z1
-                  tfm(i,j)=z1
-
-!                 Der SQRT(2*TKE)-Wert am unteren Modellrand wird mit 
-!                 Hilfe von c_tke*Ustar bestimmt: 
-
-                  tke(i,j,ke1,ntur)=c_tke*vh0(i,j)*SQRT(tcm(i,j))
-               END DO   
-               END DO   
-
-            END IF
-
-            IF (ltmpcor) THEN  
-               DO j=jstartpar,jendpar
-               DO i=istartpar,iendpar
-!Achtung!
-                  lay(i,j)=a(i,j,ke1,2)*vari(i,j,ke1,tet_l)-tet_g &
-                          +zlhocp*vari(i,j,ke1,liq)               !vert. Temperaturgradient
-                  !Beachte, dass eigentlich vari(i,j,ke1,liq=0 ist!
-               END DO 
-               END DO 
-            END IF
+         IF (ltmpcor) THEN  
+!mod_2011/09/23: grad(T) similar to case k<ke1 {
+            DO j=jstartpar,jendpar
+            DO i=istartpar,iendpar
+               lay(i,j)=a(i,j,ke1,2)*vari(i,j,ke1,tet_l)-tet_g !vert. Temperaturgradient
+               !Beachte, dass hier vari(i,j,ke1,liq)=0 ist!
+!mod_2011/09/23: grad(T) similar to case k<ke1 }
+            END DO 
+            END DO 
+         END IF
    
+!print *,"k=",ke1," tet_grad=",vari(im,jm,ke1,tet),a(im,jm,ke1,1)*vari(im,jm,ke1,tet)
+
+         DO j=jstartpar,jendpar
+         DO i=istartpar,iendpar
+
+!           Thermischer Antrieb (fh2):
+
+!Achtung!
+            tfr(i,j,ke1)=a(i,j,ke1,4)*vari(i,j,ke1,tet_l) &
+                        +a(i,j,ke1,5)*vari(i,j,ke1,h2o_g)
+
+!           Thermodynamische Korrektur des effektiven vertikalen
+!           Gradienten der pot. Temperatur am unteren Modellrand:
+
+!mod_2011/12/08: temperature conversion of tet-diffusion-tendencies rahter than -fluxes {
+          ! vari(i,j,ke1,tet)=a(i,j,ke1,1)*a(i,j,ke1,2)*vari(i,j,ke1,tet) !(Cp/Cpd)*exnr*grad(tet)
+            vari(i,j,ke1,tet)=a(i,j,ke1,1)*vari(i,j,ke1,tet) !(Cp/Cpd)*grad(tet)
+!mod_2011/12/08: temperature conversion of tet-diffusion-tendencies rahter than -fluxes }
+
+            !Beachte:
+            !Am Unterrand wurde grad(liq) = 0 gesetzt. Daher ist dort 
+            !grad(tet_l) = grad(tet) und grad(h2o_g)=grad(vap).
+
+            a(i,j,ke1,3) = (c_scld * rcld(i,j,ke1)) / (z1+rcld(i,j,ke1)*(c_scld-z1))
+            
+            !'rcld(i,j,ke1)' ist in diesem Fall immer noch der Bedeckungsgrad,
+            !dessen durch 'c_scld' abgewandelter Wert nun auch in 'a(i,j,ke1,3)' steht.
+         END DO   
+         END DO   
+
+         IF (ltmpcor) THEN  
+
+!           Bestimmung der unteren Randwerte der Enthalpieproduktion
+!           durch Wechselwirkung mit der TKE (diss und thermik),
+!           sowie durch Phasendiffusion:
+          
             DO j=jstartpar,jendpar
             DO i=istartpar,iendpar
 
-!              Thermischer Antrieb (fh2):
+               thermik=tkvh(i,j,ke1)*tfr(i,j,ke1)
+               phasdif=tkvh(i,j,ke1)*lay(i,j) &
+                      *(zrcpv*vari(i,j,ke1,vap)+zrcpl*vari(i,j,ke1,liq))
+               !Beachte, dass eigentlich vari(i,j,ke1,liq=0 ist!
 
-!Achtung!
-               tfr(i,j,ke1)=a(i,j,ke1,4)*vari(i,j,ke1,tet_l) &
-                           +a(i,j,ke1,5)*vari(i,j,ke1,h2o_g)
+               wert=tke(i,j,ke1,ntur)**3/(d_m*len_scale(i,j,ke1))
+               tketens(i,j,ke1)=len_scale(i,j,ke1)/a(i,j,ke1,1) &
+                      *((wert+thermik)/cp_d+phasdif)
 
-!              Thermodynamische Korrektur des effektiven vertikalen 
-!              Gradienten der pot. Temperatur am unteren Modellrand:
+!test          tketens(i,j,ke1)=tketens(i,j,ke)
 
-               vari(i,j,ke1,tem)=vari(i,j,ke1,tet) & !grad(tet)
-                                *a(i,j,ke1,2)*a(i,j,ke1,1) !exnr*Cp/Cpd
-
-               !Beachte:
-               !Am Unterrand wurde grad(liq) = 0 gesetzt. Daher ist dort 
-               !grad(tet_l) = grad(tet) und grad(h2o_g)=grad(vap).
-               !'vari(i,j,ke1,tem)' ist der effective in der Temperaturgleichung
-               !benoetigte Gradient und entspricht exnr*(Cp/Cpd)*tet_flux_dens.
-
-               a(i,j,ke1,3) = (c_scld * rcld(i,j,ke1)) / (z1+rcld(i,j,ke1)*(c_scld-z1))
-               
-               !'rcld(i,j,ke1)' ist in diesem Fall immer noch der Bedeckungsgrad,
-               !dessen durch 'c_scld' abgewandelter Wert nun auch in 'a(i,j,ke1,3)' steht.
             END DO   
             END DO   
-
-            IF (ltmpcor) THEN  
-
-!              Bestimmung der unteren Randwerte der Enthalpieproduktion
-!              durch Wechselwirkung mit der TKE (diss und thermik),
-!              sowie durch Phasendiffusion:
-          
-               DO j=jstartpar,jendpar
-               DO i=istartpar,iendpar
-
-                  thermik=tkvh(i,j,ke1)*tfr(i,j,ke1)
-                  phasdif=tkvh(i,j,ke1)*lay(i,j) &
-                         *(zrcpv*vari(i,j,ke1,vap)+zrcpl*vari(i,j,ke1,liq))
-                  !Beachte, dass eigentlich vari(i,j,ke1,liq=0 ist!
-
-                  wert=tke(i,j,ke1,ntur)**3/(d_m*len_scale(i,j,ke1))
-                  tketens(i,j,ke1)=len_scale(i,j,ke1)/a(i,j,ke1,1) &
-                         *((wert+thermik)/cp_d+phasdif)
-
-!test             tketens(i,j,ke1)=tketens(i,j,ke)
-
-               END DO   
-               END DO   
                 
-            END IF    
+         END IF    
          
-         END IF 
-
+      END IF !untere Randwerte
 
 ! 6)  Berechnung der zu TKE-Quellen gehoerigen Temperatur-
 !     tendenzen ausser der Divergenz des Drucktransportes:
@@ -4759,9 +4668,20 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
 !print *,"len_scale=",MINVAL(len_scale(:,:,k)),MAXVAL(len_scale(:,:,k)), &
 !         " tketens=",MINVAL(tketens(:,:,k)),  MAXVAL(tketens(:,:,k))
 
+!           Addition des Gradienten, welcher zur Temperatur-
+!           flussdichte durch Drucktransport gehoert:
+
+            IF (ltmpcor) THEN
+               DO j=jstartpar,jendpar
+               DO i=istartpar,iendpar
+                  vari(i,j,k,tet)=vari(i,j,k,tet)-tketens(i,j,k)/cp_d
+               END DO
+               END DO
+            END IF
+
          END DO   
 
-      ELSE
+      ELSE !.NOT.lcircterm
 
          DO k=2,ke1
             DO j=jstartpar,jendpar
@@ -4773,278 +4693,9 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
          
       END IF   
 
-
-! 8)  Berechnung der korrigierten Flussdichten, die fuer die 
-!     expliziten Berechnungen (Korrekturen) benoetigt werden 
-!     und Ablegen derselben im Feld a(), sowie weitere Vorbereitungen:
-
-      IF (lexplizit.or.limplizit) THEN
-
-         wert=securi/dt_var
-
-         DO j=jstartpar,jendpar
-         DO i=istartpar,iendpar
-            lay(i,j)=(rhon(i,j,ke)+rhon(i,j,ke1)) &
-                    *(hhl(i,j,ke)-hhl(i,j,ke1))*z1d2
-         END DO
-         END DO
-
-         IF (nk2.LE.ndiff) THEN
-!           Berechnung der korrigierten Gradienten der thermodyn.
-!           (skalaren) Variablen:
-
-!           Beachte:
-!           Cp/Cpd bleibt noch unter a(i,j,k,1) gespeichert und der
-!           Exnerfaktor   noch unter a(i,j,k,2).
-
-            IF (imode_turb.EQ.2) THEN
-!              Die gesamte Rechnung ist explizit, daher werden die
-!              unkorrigierten effektiven Gradienten benutzt:
-
-               DO n=nk2,ndiff
-                  DO k=2,ke1
-                     DO j=jstartpar,jendpar
-                     DO i=istartpar,iendpar
-                        a(i,j,k,n)=vari(i,j,k,n)
-                     END DO
-                     END DO
-                  END DO
-               END DO
-            ELSE   
-!              Es wird ein Teil der Flussdichtedivergenzen implizit
-!              berechnet. Daher werden nur korrigierte Gradienten
-!              benutzt, so dass das explizite Verfahren nur den bisher 
-!              nicht berechneten Flussdivergenzanteil uebernimmt:
-
-!              Am unteren Rand ist keine explizite Korrektur noetig,
-!              weil grad(liq)=0 ist, und hier kein Unterschied 
-!              zwischen lokaler und nicht-lokaler Gradientberechnung
-!              besteht:
-
-               DO n=nk2,ndiff
-                  DO j=jstartpar,jendpar
-                  DO i=istartpar,iendpar
-                     a(i,j,ke1,n)=z0
-                  END DO
-                  END DO
-               END DO
-
-!              Fuer die darueberliegenden Schichten werden die lokalen
-!              Gradienten der eigentlichen thermodyn. Modellvariablen
-!              benoetigt:
-
-               DO k=2,ke
-                  DO j=jstartpar,jendpar
-                  DO i=istartpar,iendpar
-                     edh=z1/dicke(i,j,k)
-                     a(i,j,k,tem)=(t(i,j,k-1)-t(i,j,k))*edh+tet_g !ex_fact*grad(tet)
-                     a(i,j,k,vap)=(qv(i,j,k-1)-qv(i,j,k))*edh
-                     a(i,j,k,liq)=(qc(i,j,k-1)-qc(i,j,k))*edh
-                  END DO
-                  END DO
-               END DO
-
-               IF (imode_turb.EQ.3) THEN
-!                 Die impliziten Anteile werden mit den thermodyn.
-!                 Erhaltungsgroessen bestimmt.
-!                 Fuer die explizite Korrektur werden die Differenzen
-!                 zwischen den effektiven Gradienten und den lokalen
-!                 Gradienten der zugehoerigen Erhaltungsgroessen
-!                 benoetigt:
-
-                  DO k=2,ke
-                     DO j=jstartpar,jendpar
-                     DO i=istartpar,iendpar
-                        a(i,j,k,tem)=vari(i,j,k,tem) & !effectiver Temp.grad.
-                         -(a(i,j,k,tem)-zlhocp*a(i,j,k,liq))*a(i,j,k,1) !-ex_fact*grad(tet_l)
-                        a(i,j,k,vap)=vari(i,j,k,vap) & !effectiver Vap.grad.
-                         -(a(i,j,k,vap)+liqfak*a(i,j,k,liq))            !-grad(h2o_g)
-                        a(i,j,k,liq)=vari(i,j,k,liq)   !effectiver Liq.grad.
-                     END DO   
-                     END DO   
-                  END DO   
-               ELSE   
-!                 Die imliziten Anteile werden mit den eigentlichen
-!                 thermodyn. Modellvariablen bestimmt.
-!                 Fuer die explizite Korrektur werden die Differenzen
-!                 zwischen den effektiven und den lokalen Gradienten
-!                 dieser Variablen benoetigt:
-
-                  DO n=nk2,ndiff
-                     DO k=2,ke
-                        DO j=jstartpar,jendpar
-                        DO i=istartpar,iendpar
-                           a(i,j,k,n)=vari(i,j,k,n)-a(i,j,k,n)
-                        END DO
-                        END DO
-                     END DO
-                  END DO
-               END IF   
-            END IF
-
-!           Addition des Gradienten, welcher zur Temperatur-
-!           flussdichte durch Drucktransport gehoert:
-
-            IF (ltmpcor.AND.lcircterm) THEN
-               DO k=2,ke1 
-                  DO j=jstartpar,jendpar
-                  DO i=istartpar,iendpar
-                     a(i,j,k,tem)=a(i,j,k,tem) &
-                                  -tketens(i,j,k)/(cp_d*a(i,j,k,1))
-                  END DO
-                  END DO
-               END DO
-            END IF
-
-!           Berechnung der zugehoerigen Flussdichten (mit aus numer.
-!           Gruenden reduzierten Diffusionskoeff.):
-
-            DO k=2,ke
-               DO j=jstartpar,jendpar
-               DO i=istartpar,iendpar
-                  lays(i,j,1)=rhon(i,j,k) &
-                              *MIN( wert*dicke(i,j,k)**2, tkvh(i,j,k) )
-               END DO
-               END DO
-               DO n=nk2,ndiff
-                  DO j=jstartpar,jendpar
-                  DO i=istartpar,iendpar
-                     a(i,j,k,n)=-lays(i,j,1)*a(i,j,k,n)
-                  END DO 
-                  END DO 
-               END DO 
-            END DO 
-
-!           Quasi impliziete Behandlung der untersten Schicht (Prandtl-
-!           schicht):
-
-            DO j=jstartpar,jendpar
-            DO i=istartpar,iendpar
-               lays(i,j,1)=rhon(i,j,ke1)*tkvh(i,j,ke1)
-!Achtung!
-               lays(i,j,2)=lay(i,j) &
-                   /(lays(i,j,1)*dt_var/(dz0(i,j,sca)*securi)+lay(i,j))
-            END DO 
-            END DO 
-            DO n=nk2,ndiff
-               DO j=jstartpar,jendpar
-               DO i=istartpar,iendpar
-
-!                 Durch Anpassung der Flussdichte durch die ke-te
-!                 Nebenflaeche, kann als untere Randbedingung der
-!                 Fluss aus den Boden erhalten bleiben:
-
-                  a(i,j,ke1,n)=-lays(i,j,1)*a(i,j,ke1,n)
-                  a(i,j,ke,n)=a(i,j,ke1,n)*(z1-lays(i,j,2)) &
-                             +a(i,j,ke,n)*lays(i,j,2)
-               END DO
-               END DO 
-            END DO 
-
-         END IF   
-
-         IF (nk1.LE.nvel) THEN
-
-!           Berechnung der korrigierten Gradienten der 
-!           Impulskomponenten:
-
-            IF (imode_turb.EQ.2) THEN
-!              Die gesamte Rechnung ist explizit, daher werden die
-!              unkorrigierten Gradienten benutzt:
-
-               DO n=nk1,nvel
-                  DO k=2,ke1
-                     DO j=jstartpar,jendpar
-                     DO i=istartpar,iendpar
-                        a(i,j,k,n)=vari(i,j,k,n)
-                     END DO
-                     END DO
-                  END DO
-               END DO
-            ELSE   
-!              Es wird ein Teil der Flussdichtedivergenzen implizit
-!              berechnet. Daher werden nur korrigierte Gradienten
-!              benutzt, so dass das explizite Verfahren nur den bisher 
-!              nicht berechneten Flussdivergenzanteil uebernimmt.
-!              Dies sind bei den Impulskomponenten nur die Effekte
-!              der nicht-lokalen Gradienten
-
-!              Am unteren Rand ist keine explizite Korrektur noetig,
-!              weil hier kein Unterschied zwischen lokaler und 
-!              nicht-lokaler Gradientberechnung besteht:
-
-               DO n=1,nvel
-                  DO j=jstartpar,jendpar
-                  DO i=istartpar,iendpar
-                     a(i,j,ke1,n)=z0
-                  END DO
-                  END DO
-               END DO
-
-               DO n=nk1,nvel
-                  DO k=2,ke
-                     DO j=jstartpar,jendpar
-                     DO i=istartpar,iendpar
-                        a(i,j,k,n)=vari(i,j,k,n) &
-                        -(wind(i,j,k-1,n)-wind(i,j,k,n))/dicke(i,j,k)
-                     END DO
-                     END DO
-                  END DO
-               END DO
-            END IF   
-
-!           Berechnung der zugehoerigen Flussdichten (mit aus numer.
-!           Gruenden reduzierten Diffusionskoeff.):
-
-            DO k=2,ke 
-               DO j=jstartpar,jendpar
-               DO i=istartpar,iendpar
-                  lays(i,j,1)=rhon(i,j,k) &
-                              *MIN( wert*dicke(i,j,k)**2, tkvm(i,j,k) )
-               END DO   
-               END DO   
-               DO n=nk1,nvel
-                  DO j=jstartpar,jendpar
-                  DO i=istartpar,iendpar
-                     a(i,j,k,n)=-lays(i,j,1)*a(i,j,k,n)
-                  END DO
-                  END DO 
-               END DO 
-            END DO 
-
-!           Quasi impliziete Behandlung der untersten Schicht (Prandtl-
-!           schicht):
-
-            DO j=jstartpar,jendpar
-            DO i=istartpar,iendpar
-               lays(i,j,1)=rhon(i,j,ke1)*tkvm(i,j,ke1) 
-!Achtung!
-               lays(i,j,2)=lay(i,j) &
-                   /(lays(i,j,1)*dt_var/(dz0(i,j,mom)*securi)+lay(i,j))
-            END DO   
-            END DO   
-            DO n=nk1,nvel 
-               DO j=jstartpar,jendpar
-               DO i=istartpar,iendpar
-
-!                 Durch Anpassung der Flussdichte durch die ke-te
-!                 Nebenflaeche, kann als untere Randbedingung der
-!                 Fluss aus den Boden erhalten bleiben:
-
-                  a(i,j,ke1,n)=-lays(i,j,1)*a(i,j,ke1,n)
-                  a(i,j,ke,n)=a(i,j,ke1,n)*(z1-lays(i,j,2)) &
-                             +a(i,j,ke,n)*lays(i,j,2)
-               END DO
-               END DO 
-            END DO 
-
-         END IF   
-
-      END IF
-
 !     Effektive Schichtdicke multipliziert mit der Dichte:
 
-      IF (lexplizit.OR.limplizit) THEN
+      IF (lcalcvdif) THEN
          kk=1
       ELSE
          kk=kcm
@@ -5053,14 +4704,12 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
       DO k=kk,ke
          DO j=jstartpar,jendpar
          DO i=istartpar,iendpar
-            dicke(i,j,k)=(rhon(i,j,k)+rhon(i,j,k+1)) &
-                        *(hhl(i,j,k)-hhl(i,j,k+1))*z1d2
+            dicke(i,j,k)=rhoh(i,j,k)*(hhl(i,j,k)-hhl(i,j,k+1))
          END DO
          END DO
       END DO
 
-
-! 9)  Explizite Berechnung von Bestandtendenzen:
+! 8)  Explizite Berechnung von Bestandtendenzen:
 
       IF (kcm.LE.ke) THEN
 !print *,"Explizite Berechnung von Bestandtendenzen"
@@ -5087,7 +4736,7 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
 !              die Wirkung der Formreibung eine Richtungsumkehr
 !              der Geschwindigkeit erfolgen kann:
 
-               wert=MIN( z1/dt_var,wert )
+               wert=MIN( fr_var,wert )
 
                wind(i,j,k,u_m)=-wert*wind(i,j,k,u_m)*tinc(u_m)
                wind(i,j,k,v_m)=-wert*wind(i,j,k,v_m)*tinc(v_m)
@@ -5167,145 +4816,24 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
             END DO    
          END DO    
 
-      END IF   
+      END IF !kcm.LE.ke
 
-! 10) Berechnung der Flussdichtedivergenzen:
+! 9) Berechnung des vorgesehenen Anteils der Flussdichtedivergenzen:
 
-! 10a) Vorbereitungen: 
-
-      IF (lexplizit.OR.limplizit) THEN
-
-!        Im Feld wind() stehen jetzt innerhalb der Bestandes die dort
-!        anfallenden Tendenzen der horizontalen Windkomponenten.
-!        I.f. werden weitere Wind-Tendenzen auf dieses Feld addiert.
-!        Daher muss es ausserhalb des Bestandes auf 0 gesetzt werden:
- 
-         DO k=1,kcm-1
+      IF (lcalcvdif) THEN
+        
+         DO k=1,ke
             DO j=jstartpar,jendpar
             DO i=istartpar,iendpar
-               wind(i,j,k,u_m)=z0     
-               wind(i,j,k,v_m)=z0     
+               dicke(i,j,k)=dicke(i,j,k)*fr_var
             END DO
             END DO
          END DO
 
-      END IF    
-
-! 10b) Berechnung des expliziten Anteiles der Flussdichtedivergenzen:
-
-       IF (lexplizit) THEN
-!print *,"expliziter Anteil"
-
-!         Explizite Berechnung der Flussdichtedivergenzen:
-
-            DO n=nkorr,ndiff
-              
-               DO j=jstartpar,jendpar
-               DO i=istartpar,iendpar
-                  hlp(i,j,1)=-a(i,j,2,n)
-               END DO
-               END DO
-               DO k=2,ke
-                  DO j=jstartpar,jendpar
-                  DO i=istartpar,iendpar
-                     hlp(i,j,k)=a(i,j,k,n)-a(i,j,k+1,n)
-                  END DO
-                  END DO
-               END DO
-
-!              Die folgende (quellenfreie) vertikale Glaettung ist
-!              bei groesseren Zeitschritten (> ca. 30sec) in der
-!              expliziten Variante noetig:
-
-               DO j=jstartpar,jendpar
-               DO i=istartpar,iendpar
-                  a(i,j,1,n)=-(hlp(i,j,1)+wichfakt*(-hlp(i,j,1) &
-                              +hlp(i,j,2)))/dicke(i,j,1)
-               END DO
-               END DO
-               DO k=2,ke-1
-                  DO j=jstartpar,jendpar
-                  DO i=istartpar,iendpar
-                     a(i,j,k,n)= &
-                      -(hlp(i,j,k)+wichfakt*(hlp(i,j,k-1)-z2*hlp(i,j,k) &
-                                         +hlp(i,j,k+1)))/dicke(i,j,k)
-                  END DO
-                  END DO
-               END DO
-               DO j=jstartpar,jendpar
-               DO i=istartpar,iendpar
-                  a(i,j,ke,n)=-(hlp(i,j,ke)+wichfakt*(hlp(i,j,ke-1) &
-                               -hlp(i,j,ke)))/dicke(i,j,ke)
-               END DO
-               END DO
-
-!              Beruecksichtigung der vertikalen Cp-Variationen bei
-!              der Berechnung der Temperaturtendenzen
-
-               IF (n.eq.tem) THEN
-                  DO k=1,ke
-                     DO j=jstartpar,jendpar
-                     DO i=istartpar,iendpar
-                        a(i,j,k,tem)=a(i,j,k,tem) &
-                         /(z1+zrcpv*qv(i,j,k)+zrcpl*qc(i,j,k))
-                     END DO
-                     END DO
-                  END DO
-!                 Beachte:
-!                 Der Einfachheit halber wurde hier der Cp-Faktor
-!                 ohne Berucksichtigung der subskaligen Wolken-
-!                 wasserkorrektur berechnet!
-               END IF   
-
-            END DO   
-
-!           Abspeichern der Tendenzen in den Tendenzfeldern, damit
-!           das Feld a() fuer die ev. folgende implizite Rechnung
-!           verfuegbar ist:
-
-            DO n=nk1,nvel
-               DO k=1,ke
-                  DO j=jstartpar,jendpar
-                  DO i=istartpar,iendpar
-                     wind(i,j,k,n)=wind(i,j,k,n)+a(i,j,k,n)*tinc(n)
-                  END DO
-                  END DO
-               END DO
-            END DO  
-
-            DO k=1,ke
-!print *,"k=",k," tt_expl_vor=",MINVAL(ttens(:,:,k)),MAXVAL(ttens(:,:,k))
-               DO j=jstart,jend
-               DO i=istart,iend
-                  ttens(i,j,k) = ttens(i,j,k)+a(i,j,k,tem)*tinc(tem)
-                  qvtens(i,j,k)=qvtens(i,j,k)+a(i,j,k,vap)*tinc(vap)
-                  qctens(i,j,k)=qctens(i,j,k)+a(i,j,k,liq)*tinc(liq)
-               END DO
-               END DO
-!print *,"k=",k," tt_expl_nac=",MINVAL(ttens(:,:,k)),MAXVAL(ttens(:,:,k))
-
-               IF (PRESENT(qvt_diff)) THEN
-                  ! ... expliziten Anteil fuer Berechnung von dqvdt
-                  !     nochmals separat sichern
-                  DO j=jstart,jend
-                  DO i=istart,iend
-                     qvt_diff(i,j,k) = a(i,j,k,vap)
-                  END DO
-                  END DO
-               END IF   
-            END DO
-
-      END IF   
-
-! 10c) Berechnung des impliziten Anteiles der Flussdichtedivergenzen:
-
-      IF (limplizit) THEN
-!print *,"impliziter Anteil"
-
-         DO k=1,ke
+         DO k=2,ke
             DO j=jstartpar,jendpar
             DO i=istartpar,iendpar
-               dicke(i,j,k)=dicke(i,j,k)/dt_var
+               a(i,j,k,5)=z1d2*(hhl(i,j,k-1)-hhl(i,j,k+1))
             END DO
             END DO
          END DO
@@ -5316,25 +4844,65 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
          END DO
          END DO
 
-         DO n=1,nvel
+         DO n=1, ndiff
 
-!           Bestimmung der Tendenzen der horiz. Windgeschw.:
+!           Vorbereitung zur Bestimmung der vertikalen Diffusions-Tendenzen:
 
-            DO k=2,ke 
+            IF (n.eq.1) THEN
+
+!              Fuer horizontale Windkomponenten:
+
                DO j=jstartpar,jendpar
                DO i=istartpar,iendpar
-                  a(i,j,k,1)=tkvm(i,j,k) &
-                         *z2*rhon(i,j,k)/(hhl(i,j,k-1)-hhl(i,j,k+1))
+!bug_mod_2011/09/23: dicke(i,j,ke1) -> dz0(i,j,mom), dz0(i,j,sca) {
+                  a(i,j,ke1,5)=dz0(i,j,mom)/tfm(i,j)
+!bug_mod_2011/09/23: dicke(i,j,ke1) -> dz0(i,j,mom), dz0(i,j,sca) }
                END DO
                END DO
-            END DO
-            DO j=jstartpar,jendpar
-            DO i=istartpar,iendpar
-!Achtung!
-               a(i,j,ke1,1)=tkvm(i,j,ke1) &
-                           *rhon(i,j,ke1)/dz0(i,j,mom)
-            END DO
-            END DO
+!bug_2012/01/10: "DO k=2,ke" -> "DO k=2,ke1" and a(i,j,ke1) -> a(i,j,k) {
+               DO k=2,ke1 
+                  DO j=jstartpar,jendpar
+                  DO i=istartpar,iendpar
+                     a(i,j,k,1)=rhon(i,j,k)*tkvm(i,j,k)/a(i,j,k,5)
+                     a(i,j,k,2)=rhon(i,j,k)*a(i,j,k,5)*fr_var
+                  END DO
+                  END DO
+               END DO
+!bug_2012/01/10: "DO k=2,ke" -> "DO k=2,ke1" and a(i,j,ke1) -> a(i,j,k) }
+
+               CALL prep_impl_vert_diff( &
+                 i_st=istartpar, i_en=iendpar ,j_st=jstartpar, j_en=jendpar, k_tp=0, k_sf=ke1,  &
+                 disc_mom=dicke, diff_mom=a(:,:,:,1), impl_mom=a(:,:,:,2), invs_mom=a(:,:,:,3), &
+                 lsflucond=(imode_turb.EQ.3) ) 
+
+            ELSEIF (n.eq.nvel+1) THEN  
+
+!              Fuer skalarer Variablen:
+
+               DO j=jstartpar,jendpar
+               DO i=istartpar,iendpar
+!bug_mod_2011/09/23: dicke(i,j,ke1) -> dz0(i,j,mom), dz0(i,j,sca) {
+                  a(i,j,ke1,5)=dz0(i,j,sca)/tfh(i,j)
+!bug_mod_2011/09/23: dicke(i,j,ke1) -> dz0(i,j,mom), dz0(i,j,sca) }
+               END DO
+               END DO
+               DO k=2,ke1 
+                  DO j=jstartpar,jendpar
+                  DO i=istartpar,iendpar
+                     a(i,j,k,1)=rhon(i,j,k)*tkvh(i,j,k)/a(i,j,k,5)
+                     a(i,j,k,2)=rhon(i,j,k)*a(i,j,k,5)*fr_var
+                  END DO
+                  END DO
+               END DO
+
+               CALL prep_impl_vert_diff( &
+                 i_st=istartpar, i_en=iendpar ,j_st=jstartpar, j_en=jendpar, k_tp=0, k_sf=ke1,  &
+                 disc_mom=dicke, diff_mom=a(:,:,:,1), impl_mom=a(:,:,:,2), invs_mom=a(:,:,:,3), &
+                 lsflucond=(imode_turb.EQ.3) ) 
+
+            END IF
+
+!           Belegung der Eingangsprofile:
 
             IF (n.EQ.u_m) THEN
                DO k=1,ke
@@ -5345,6 +4913,11 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
                   END DO
                   END DO
                END DO   
+               DO j=jstartpar,jendpar
+               DO i=istartpar,iendpar
+                  hlp(i,j,ke1)=z0 !no slip condition
+               END DO
+               END DO
             ELSEIF (n.EQ.v_m) THEN
                DO k=1,ke
                   DO j=jstartpar,jendpar
@@ -5354,334 +4927,191 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
                   END DO
                   END DO
                END DO   
-            END IF   
-            ! Windkomponente am Oberrand der Rauhigkeitsschicht
-            DO j=jstartpar,jendpar
-            DO i=istartpar,iendpar
-               hlp(i,j,ke1)=hlp(i,j,ke)*(z1-tfm(i,j))
-            END DO
-            END DO
-            ! I.a. ist aber tfm=0.
-
-            DO k=1,ke-1
                DO j=jstartpar,jendpar
                DO i=istartpar,iendpar
-                  fakt=z1/dicke(i,j,k)
-                  a(i,j,k,1)=fakt*a(i,j,k  ,1)
-                  a(i,j,k,3)=fakt*a(i,j,k+1,1)
-                  a(i,j,k,2)=-(a(i,j,k,1)+a(i,j,k,3)+z1)
-                  a(i,j,k,4)=-hlp(i,j,k)
+                  hlp(i,j,ke1)=z0 !no slip condition
                END DO
                END DO
-            END DO
-            DO j=jstartpar,jendpar
-            DO i=istartpar,iendpar
-               fakt=z1/dicke(i,j,ke)
-               a(i,j,ke ,1)=fakt*a(i,j,ke ,1)
-               a(i,j,ke1,1)=fakt*a(i,j,ke1,1)
-
-               a(i,j,ke,2)=-(a(i,j,ke,1)+a(i,j,ke1,1)+z1)
-               a(i,j,ke,4)=-hlp(i,j,ke)
-            END DO
-            END DO
-
-            DO k=2,ke
-               DO j=jstartpar,jendpar
-               DO i=istartpar,iendpar
-                  a(i,j,k,1)=a(i,j,k,1)/a(i,j,k-1,2)
-                  a(i,j,k,2)=a(i,j,k,2)-a(i,j,k,1)*a(i,j,k-1,3)
-                  a(i,j,k,4)=a(i,j,k,4)-a(i,j,k,1)*a(i,j,k-1,4)
-               END DO
-               END DO
-            END DO
-
-            ! Um Vertikaldiffusion implizit erhoehte Impulsvariablen (u_l und v_m):
-            DO j=jstartpar,jendpar
-            DO i=istartpar,iendpar
-               a(i,j,ke,4)=a(i,j,ke,4)/a(i,j,ke,2)
-            END DO
-            END DO
-            DO k=ke-1,1,-1
-               DO j=jstartpar,jendpar
-               DO i=istartpar,iendpar
-                  a(i,j,k,4)=(a(i,j,k,4)-a(i,j,k,3)*a(i,j,k+1,4)) &
-                                                    /a(i,j,k,2) 
-               END DO
-               END DO
-            END DO
-
-            DO k=1,ke
-               DO j=jstartpar,jendpar
-               DO i=istartpar,iendpar
-                  wind(i,j,k,n)=wind(i,j,k,n) &
-                               +(a(i,j,k,4)-hlp(i,j,k))*tinv(n)
-               END DO
-               END DO
-            END DO
-
-         END DO   
-
-         DO n=nred,nvel+1,-1
-
-!           Bestimmung der Tendenzen der reduzierten scalaren Var..
-!           Dabei soll tet_l als letztes behandelt werden:
-
-            DO k=2,ke
-               DO j=jstartpar,jendpar
-               DO i=istartpar,iendpar
-                  a(i,j,k,1)=tkvh(i,j,k) &
-                         *z2*rhon(i,j,k)/(hhl(i,j,k-1)-hhl(i,j,k+1))
-               END DO
-               END DO
-            END DO
-            DO j=jstartpar,jendpar
-            DO i=istartpar,iendpar
-!Achtung!
-               a(i,j,ke1,1)=tkvh(i,j,ke1) &
-                           *rhon(i,j,ke1)/dz0(i,j,sca)
-            END DO
-            END DO
-
-            IF (n.EQ.tet_l) THEN
-               ko=1
-               ku=2
-               DO j=jstartpar,jendpar
-               DO i=istartpar,iendpar
-                  exnr=exner(i,j,1)
-                  wert=z1+zrcpv*qv(i,j,1)+zrcpl*qc(i,j,1)
-
-                  hlp(i,j,1)=(t(i,j,1) &
-                             -zlhocp*qc(i,j,1))/exnr
-                  dicke(i,j,1)=dicke(i,j,1)*wert
-                  lays(i,j,ko)=wert
-               END DO
-               END DO
-
-               DO k=2,ke   
-                  DO j=jstartpar,jendpar
-                  DO i=istartpar,iendpar
-                     exnr=exner(i,j,k)                        !ex_fact
-                     wert=z1 &
-                         +zrcpv*qv(i,j,k)+zrcpl*qc(i,j,k)     !cp_fact(HF) nur bei 'lcpfluc' .NE. 1
-
-                     hlp(i,j,k)=(t(i,j,k) &
-                                -zlhocp*qc(i,j,k))/exnr       !tet_l(HF)
-                     dicke(i,j,k)=dicke(i,j,k)*wert
-                     lays(i,j,ku)=wert
-
-                     wert=(lays(i,j,ku)*dp0(i,j,k-1) &
-                          +lays(i,j,ko)*dp0(i,j,k)) &
-                         /(dp0(i,j,k-1)+dp0(i,j,k))
-                     a(i,j,k,1)=a(i,j,k,1)*wert              !rho(NF)*K(NF)*cp_fact)(NF)
-                  END DO   
-                  END DO   
-                  kk=ko
-                  ko=ku
-                  ku=kk
-               END DO   
-               DO j=jstartpar,jendpar
-               DO i=istartpar,iendpar
-!                 Beachte:
-!                 tp(), qd(), ql() und pr() sind fuer die 
-!                 Schicht k=ke1 bereits vorhanden.
-     
-                  exnr=zexner(pr(i,j))
-                  wert=z1+zrcpv*qd(i,j)+zrcpl*ql(i,j)
-
-                  !Potentielle Fluessigwassertemperatur am Oberrand der Rauhigkeitsschicht:
-                  hlp(i,j,ke1)=(tp(i,j)-zlhocp*ql(i,j))/exnr
-
-                  a(i,j,ke1,1)=a(i,j,ke1,1)*wert
-!lay(i,j)=exnr
-               END DO
-               END DO
-!do k=1, ke
-! print *,"k=",k
-! print *,"t_vor=",MINVAL(t(:,:,k)),MAXVAL(t(:,:,k))
-! print *,"qv_vor=",MINVAL(qv(:,:,k)),MAXVAL(qv(:,:,k))
-! print *,"qc_vor=",MINVAL(qc(:,:,k)),MAXVAL(qc(:,:,k))
-! print *,"pr_vor=",MINVAL(prs(:,:,k)),MAXVAL(prs(:,:,k))
-! print *,"exnr=",MINVAL(exner(:,:,k)),MAXVAL(exner(:,:,k))
-! print *,"hlp=",MINVAL(hlp(:,:,k)),MAXVAL(hlp(:,:,k))
-!enddo
-! print *,"k=",ke1
-! print *,"t_vor=",MINVAL(tp),MAXVAL(tp)
-! print *,"qv_vor=",MINVAL(qd),MAXVAL(qd)
-! print *,"qc_vor=",MINVAL(ql),MAXVAL(ql)
-! print *,"pr_vor=",MINVAL(pr),MAXVAL(pr),"p0ref=",p0ref
-! print *,"exnr=",MINVAL(lay),MAXVAL(lay)
-! print *,"hlp=",MINVAL(hlp(:,:,ke1)),MAXVAL(hlp(:,:,ke1))
-
-!              Weil tet_l als letztes behandelt wird, konnte
-!              dicke() mit der speziellen Korrektur bzgl. 
-!              cp_fakt ueberschrieben werden!
-            ELSEIF (n.EQ.h2o_g) THEN
+            ELSEIF (n.EQ.tem) THEN
                DO k=1,ke
                   DO j=jstartpar,jendpar
                   DO i=istartpar,iendpar
-                     hlp(i,j,k)=qv(i,j,k)+liqfak*qc(i,j,k) !h2o_g 
+                     hlp(i,j,k)=t(i,j,k)/exner(i,j,k)
                   END DO
                   END DO
                END DO   
                DO j=jstartpar,jendpar
                DO i=istartpar,iendpar
-!                 Beachte:
-!                 qd() und ql() sind fuer die Schicht k=ke1
-!                 bereits vorhanden.
-
-                  hlp(i,j,ke1)=qd(i,j)+liqfak*ql(i,j)
+                  hlp(i,j,ke1)=t_g(i,j)/zexner(ps(i,j))
                END DO
                END DO
-            END IF    
-
-            DO k=1,ke-1
+            ELSEIF (n.EQ.vap) THEN
+               DO k=1,ke
+                  DO j=jstartpar,jendpar
+                  DO i=istartpar,iendpar
+                     hlp(i,j,k)=qv(i,j,k)
+                  END DO
+                  END DO
+               END DO   
                DO j=jstartpar,jendpar
                DO i=istartpar,iendpar
-                  fakt=z1/dicke(i,j,k)
-                  a(i,j,k,1)=fakt*a(i,j,k  ,1)
-                  a(i,j,k,3)=fakt*a(i,j,k+1,1)
-                  a(i,j,k,2)=-(a(i,j,k,1)+a(i,j,k,3)+z1)
-                  a(i,j,k,4)=-hlp(i,j,k)
+                  hlp(i,j,ke1)=qv_s(i,j)
                END DO
                END DO
-            END DO
-
-            DO j=jstartpar,jendpar
-            DO i=istartpar,iendpar
-               fakt=z1/dicke(i,j,ke)
-               a(i,j,ke ,1)=fakt*a(i,j,ke ,1)
-               a(i,j,ke1,1)=fakt*a(i,j,ke1,1)
-               a(i,j,ke,2)=-(a(i,j,ke,1)+z1)
-               a(i,j,ke,4)=-hlp(i,j,ke)+a(i,j,ke1,1)*(hlp(i,j,ke)-hlp(i,j,ke1))
-            END DO
-            END DO
-
-            DO k=2,ke
+            ELSEIF (n.EQ.liq) THEN
+               DO k=1,ke
+                  DO j=jstartpar,jendpar
+                  DO i=istartpar,iendpar
+                     hlp(i,j,k)=qc(i,j,k)
+                  END DO
+                  END DO
+               END DO   
                DO j=jstartpar,jendpar
                DO i=istartpar,iendpar
-                  a(i,j,k,1)=a(i,j,k,1)/a(i,j,k-1,2)
-                  a(i,j,k,2)=a(i,j,k,2)-a(i,j,k,1)*a(i,j,k-1,3)
-                  a(i,j,k,4)=a(i,j,k,4)-a(i,j,k,1)*a(i,j,k-1,4)
+                  hlp(i,j,ke1)=hlp(i,j,ke) !no cloud water deposition
                END DO
-               END DO
-            END DO
-
-            ! Um Vertikaldiffusion implizit erhoehte Erhaltungsvariablen (tem_l und h2o_g):
-            DO j=jstartpar,jendpar
-            DO i=istartpar,iendpar
-               vari(i,j,ke,n)=a(i,j,ke,4)/a(i,j,ke,2)
-            END DO
-            END DO
-            DO k=ke-1,1,-1
-               DO j=jstartpar,jendpar
-               DO i=istartpar,iendpar
-                  vari(i,j,k,n)=(a(i,j,k,4)-a(i,j,k,3)*vari(i,j,k+1,n))/a(i,j,k,2)
-               END DO
-               END DO
-!if (k.eq.2 .and.n.eq.tet_l) then
-! print *,"k=",k," tet_l_vor=",MINVAL(hlp(:,:,k)),MAXVAL(hlp(:,:,k))
-! print *,"k=",k," tet_l_dif=",MINVAL(vari(:,:,k,n)),MAXVAL(vari(:,:,k,n))
-!endif
-            END DO
-
-            IF (imode_turb.EQ.3) THEN
-!              Es werden lediglich die Diffusionstendenzen der Erhaltungsvariablen (tem_l und h2o_g)
-!              zurueckberechnet und auf die Tendenzfelder der Modellvariablen (qv und t) gelegt,
-!              so dass noch entsprechende explizite Korrekturen (insbesondere fuer das Wolkenwasser)
-!              noetig sind:
-
-               DO k=1, ke
-                  IF (n.EQ.tem_l) THEN
-                     DO j=jstartpar,jendpar
-                     DO i=istartpar,iendpar
-                         ttens(i,j,k)= ttens(i,j,k)+exner(i,j,k)*(vari(i,j,k,n)-hlp(i,j,k))*tinv(n)
-                     END DO
-                     END DO
-                  ELSEIF (n.EQ.h2o_g) THEN
-                     DO j=jstartpar,jendpar
-                     DO i=istartpar,iendpar
-                        qvtens(i,j,k)=qvtens(i,j,k)+(vari(i,j,k,n)-hlp(i,j,k))*tinv(n)
-                     END DO
-                     END DO
-                  END IF   
-
-!if (n.EQ.tet_l) then
-! print *,"k=",k," tt_impl_vor=",MINVAL(ttens(:,:,k)),MAXVAL(ttens(:,:,k))
-! print *,"hlp=",MINVAL(hlp(:,:,k)),MAXVAL(hlp(:,:,k))," vari=",MINVAL(vari(:,:,k,n)),MAXVAL(vari(:,:,k,n))
-!endif
                END DO
             END IF   
 
-         END DO !ueber n
+!           Korrigierte Werte durch Vertikalintegration der Gradienten:
 
-         IF (imode_turb.EQ.4) THEN
-!           Die um ihre impliziten Diffusionstendenzen erhoehten thermodyn. Erhaltungsgroessen
-!           sollen in Modellvariablen konvertiert werden, woraus dann deren Diffusionstendenzen
-!           zurueckberechnet werden:
+            IF (n.GE.nkorr) THEN
+               IF (imode_turb.LT.2) THEN !nur Korrekturprofile
+                  DO k=ke1,2,-1
+                     DO j=jstartpar,jendpar
+                     DO i=istartpar,iendpar
+                        hlp(i,j,k)=hlp(i,j,k-1)-hlp(i,j,k)
+                     END DO
+                     END DO
+                  END DO    
+                  DO j=jstartpar,jendpar
+                  DO i=istartpar,iendpar
+                     hlp(i,j,1)=z0
+                  END DO
+                  END DO
+                  DO k=2,ke1
+                     DO j=jstartpar,jendpar
+                     DO i=istartpar,iendpar
+                         hlp(i,j,k)=hlp(i,j,k-1)+(hlp(i,j,k)-a(i,j,k,5)*vari(i,j,k,n))
+                     END DO
+                     END DO
+                  END DO
+               ELSE !effektives Gesamtprofil
+                  DO k=2,ke1
+                     DO j=jstartpar,jendpar
+                     DO i=istartpar,iendpar
+                        hlp(i,j,k)=hlp(i,j,k-1)-a(i,j,k,5)*vari(i,j,k,n)
+                     END DO
+                     END DO
+                  END DO
+               END IF    
+            END IF    
 
-            ! Umrechnung in Fluessigwassertemperatur (tet_l -> tem_l):
-            DO k=1,ke
-               DO j=jstartpar,jendpar
-               DO i=istartpar,iendpar
-                  vari(i,j,k,tem_l)=exner(i,j,k)*vari(i,j,k,tet_l)
-               END DO   
-               END DO   
-!if (k.eq.2) then
-! print *,"vor cloud k=",k
-! print *,"exner=",MINVAL(exner(istartpar:iendpar,jstartpar:jendpar,k)), &
-!                  MAXVAL(exner(istartpar:iendpar,jstartpar:jendpar,k))
-! print *,"  prs=",MINVAL(  prs(istartpar:iendpar,jstartpar:jendpar,k)), &
-!                  MAXVAL(  prs(istartpar:iendpar,jstartpar:jendpar,k))
-! print *," rcld=",MINVAL( rcld(istartpar:iendpar,jstartpar:jendpar,k)), &
-!                  MAXVAL( rcld(istartpar:iendpar,jstartpar:jendpar,k))
-! print *,"tem_l=",MINVAL( vari(istartpar:iendpar,jstartpar:jendpar,k,tem_l)), &
-!                  MAXVAL( vari(istartpar:iendpar,jstartpar:jendpar,k,tem_l))
-! print *,"h2o_g=",MINVAL( vari(istartpar:iendpar,jstartpar:jendpar,k,h2o_g)), &
-!                  MAXVAL( vari(istartpar:iendpar,jstartpar:jendpar,k,h2o_g))
-!endif
-            END DO 
+!           Berechnung der vertikalen Diffusionstendenzen der Windkomponenten auf Massenpunkten: 
 
-            ! Turbulente Saettigungsadjustierung ( (tem_l, h2o_g) -> (t, qv, qc) ):
-            CALL turb_cloud (ie, je, ke,ke1,           1,ke, &
-                 istartpar,iendpar, jstartpar,jendpar, 1,ke, &
-                 prs, ps, rcld, vari(:,:,:,tem_l), vari(:,:,:,h2o_g), &
-                 clc=hlp, clwc= vari(:,:,:,liq))
+            CALL calc_impl_vert_diff ( &
+                 i_st=istartpar, i_en=iendpar ,j_st=jstartpar, j_en=jendpar, k_tp=0, k_sf=ke1,  &
+                 disc_mom=dicke, diff_mom=a(:,:,:,1), impl_mom=a(:,:,:,2), invs_mom=a(:,:,:,3), &
+                 cur_prof=hlp  , upd_prof=a(:,:,:,4), srf_flux=flux(:,:,n) )
 
-            DO k=1,ke
-!if (k.eq.2) then
-!print *,"nach cloud k=",k
-!print *,"tem_old=",MINVAL( t(istartpar:iendpar,jstartpar:jendpar,k)), &
-!                   MAXVAL( t(istartpar:iendpar,jstartpar:jendpar,k))
-!print *,"vap_old=",MINVAL(qv(istartpar:iendpar,jstartpar:jendpar,k)), &
-!                   MAXVAL(qv(istartpar:iendpar,jstartpar:jendpar,k))
-!print *,"liq_old=",MINVAL(qc(istartpar:iendpar,jstartpar:jendpar,k)), &
-!                   MAXVAL(qc(istartpar:iendpar,jstartpar:jendpar,k))
-!endif
-               DO j=jstartpar,jendpar
-               DO i=istartpar,iendpar
-                  vari(i,j,k,tem)=vari(i,j,k,tem_l)+zlhocp*vari(i,j,k,liq)
-                  vari(i,j,k,vap)=vari(i,j,k,h2o_g)-liqfak*vari(i,j,k,liq)
+!           Belegung der Tendenzfelder:
 
-                   ttens(i,j,k)= ttens(i,j,k)+(vari(i,j,k,tem)- t(i,j,k))*tinv(n)
-                  qvtens(i,j,k)=qvtens(i,j,k)+(vari(i,j,k,vap)-qv(i,j,k))*tinv(n)
-                  qctens(i,j,k)=qctens(i,j,k)+(vari(i,j,k,liq)-qc(i,j,k))*tinv(n)
+            IF (n.LE.nvel) THEN !Windkomponenten
+               DO k=1,kcm-1
+                  DO j=jstartpar,jendpar
+                  DO i=istartpar,iendpar
+                     wind(i,j,k,n)=(a(i,j,k,4)-hlp(i,j,k))*tinv(n)
+                  END DO
+                  END DO
                END DO
+               DO k=kcm,ke
+                  DO j=jstartpar,jendpar
+                  DO i=istartpar,iendpar
+                     wind(i,j,k,n)=wind(i,j,k,n)+(a(i,j,k,4)-hlp(i,j,k))*tinv(n)
+                  END DO
+                  END DO
                END DO
-!if (k.eq.2) then
-!print *,"tem_new=",MINVAL(vari(istartpar:iendpar,jstartpar:jendpar,k,tem)), &
-!                   MAXVAL(vari(istartpar:iendpar,jstartpar:jendpar,k,tem))
-!print *,"vap_new=",MINVAL(vari(istartpar:iendpar,jstartpar:jendpar,k,vap)), &
-!                   MAXVAL(vari(istartpar:iendpar,jstartpar:jendpar,k,vap))
-!print *,"liq_new=",MINVAL(vari(istartpar:iendpar,jstartpar:jendpar,k,liq)), &
-!                   MAXVAL(vari(istartpar:iendpar,jstartpar:jendpar,k,liq))
-!read *,xx
-!endif
+            ELSEIF (n.EQ.tem) THEN
+               DO k=1,ke
+                  DO j=jstartpar,jendpar
+                  DO i=istartpar,iendpar
+!mod_2011/12/08: temperature conversion of tet-diffusion-tendencies rahter than -fluxes {
+                     ttens(i,j,k)=ttens(i,j,k) &
+                                  +exner(i,j,k)*(a(i,j,k,4)-hlp(i,j,k))*tinv(n)
+!mod_2011/12/08: temperature conversion of tet-diffusion-tendencies rahter than -fluxes }
+                  END DO
+                  END DO
+               END DO
+            ELSEIF (n.EQ.vap) THEN
+               DO k=1,ke
+                  DO j=jstartpar,jendpar
+                  DO i=istartpar,iendpar
+                     qvtens(i,j,k)=qvtens(i,j,k) &
+                                  +(a(i,j,k,4)-hlp(i,j,k))*tinv(n)
+                  END DO
+                  END DO
+               END DO
+               IF (PRESENT(qvt_diff)) THEN
+                  DO k=1,ke
+                     DO j=jstartpar,jendpar
+                     DO i=istartpar,iendpar
+                        qvt_diff(i,j,k)=(a(i,j,k,4)-hlp(i,j,k))*fr_var
+                     END DO
+                     END DO
+                  END DO
+               END IF
+            ELSEIF (n.EQ.liq) THEN
+               DO k=1,ke
+                  DO j=jstartpar,jendpar
+                  DO i=istartpar,iendpar
+                     qctens(i,j,k)=qctens(i,j,k) &
+                                  +(a(i,j,k,4)-hlp(i,j,k))*tinv(n)
+                  END DO
+                  END DO
+               END DO
+            END IF
+
+         END DO !n=1,ndiff
+
+      ELSE !.NOT.lcalcvdif
+         
+         DO n=tet, vap
+            DO j=jstartpar,jendpar
+            DO i=istartpar,iendpar
+               flux(i,j,n)=-rhon(i,j,ke1)*tkvh(i,j,ke1)*vari(i,j,ke1,n)
             END DO
-         END IF    
+            END DO
+         END DO
 
-         !Beachte, dass 'tet_l', 'tem_l' und 'tem' alle den gleichen Indexwert besitzen!
+      END IF 
 
-      END IF   
+! 10) Berechnung der Enthalpieflussdichten:
+       
+      IF (PRESENT(shfl_s)) THEN
+         DO j=jstartpar,jendpar
+         DO i=istartpar,iendpar
+            shfl_s(i,j)=-zexner(ps(i,j))*cp_d*flux(i,j,tet)
+         END DO
+         END DO
+      END IF
+      IF (PRESENT(lhfl_s)) THEN
+         DO j=jstartpar,jendpar
+         DO i=istartpar,iendpar
+            lhfl_s(i,j)=-lh_v*flux(i,j,vap)
+         END DO
+         END DO
+      END IF
+ 
+!---------------------------------------------------------------------------------------
+#ifdef SCLM 
+      IF (lsclm) THEN
+         SHF%mod(0)%val=-zexner(ps(im,jm))*cp_d*flux(im,jm,tet); SHF%mod(0)%vst=i_cal
+         LHF%mod(0)%val=                  -lh_v*flux(im,jm,vap); LHF%mod(0)%vst=i_cal
+      END IF
+#endif 
+!SCLM-----------------------------------------------------------------------------------
+
+       !Bem: shfl_s und lhfl_s, sowie SHF und LHF sind positiv abwaerts!
 
 ! 11) Berechnung der Tendenzen infloge horizontaler turb. Diffusion
 !     (und aufsummieren auf die Tendenzfelder):
@@ -5698,17 +5128,17 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
 !        DO k=2,ke1
 !           DO j=jstartpar,jendpar
 !           DO i=istartpar,iendpar
-!              cvar(u_m,2)=-tkvm(i,j,k)*vari(i,j,k,u_m)
-!              cvar(v_m,2)=-tkvm(i,j,k)*vari(i,j,k,v_m)
+!              cvar(u_m,w_m)=-tkvm(i,j,k)*vari(i,j,k,u_m)
+!              cvar(v_m,w_m)=-tkvm(i,j,k)*vari(i,j,k,v_m)
 
 !              q2=z1d3*tke(i,j,k,ntur)**2
 !              fakt=d_m*len_scale(i,j,k)/tke(i,j,k,ntur)
-!              x1=cvar(u_m,2)*vari(i,j,k,u_m)
-!              x2=cvar(v_m,2)*vari(i,j,k,v_m)
+!              x1=cvar(u_m,w_m)*vari(i,j,k,u_m)
+!              x2=cvar(v_m,w_m)*vari(i,j,k,v_m)
 !              x3=-tkvh(i,j,k)*tfr(i,j,k)
 
-!              vari(i,j,k,1)=cvar(u_m,2)
-!              vari(i,j,k,2)=cvar(v_m,2)
+!              vari(i,j,k,1)=cvar(u_m,w_m)
+!              vari(i,j,k,2)=cvar(v_m,w_m)
 !              vari(i,j,k,3)=q2+fakt*(-z4*x1+z2*x2-z2*x3)
 !              vari(i,j,k,4)=q2+fakt*(+z2*x1-z4*x2-z2*x3)
 !           END DO
@@ -5726,7 +5156,7 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
 
 ! 12) Aktualisierung der Tendenzfelder fuer den horizontalen Wind:
 
-      IF (limplizit .OR. nk1.EQ.1 .OR. kcm.LE.ke) THEN
+      IF (lcalcvdif .OR. kcm.LE.ke) THEN
 
 !-------------------------------------------------------------------------------------
 #ifdef __COSMO__
@@ -5756,7 +5186,7 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
 #endif
 !__COSMO__----------------------------------------------------------------------------
 
-         IF (limplizit.OR.(nk1.EQ.1)) THEN
+         IF (lcalcvdif) THEN
             kk=1
          ELSE
             kk=kcm
@@ -5777,7 +5207,9 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
             END DO
          END DO
 
-      END IF   
+      END IF
+
+!goto 201
                   
 ! 13) Berechnung der Diffusionstendenz von SQRT(2*TKE):
 
@@ -5833,16 +5265,10 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
 !        hier auf nicht-lokale Gradientbildung und implizite Behandlung
 !        generell verzichtet.
 
-!<fuo_impltkediff
-!        If limpltkediff=.false. we compute the original explicit diffusion
-!        of TKE. Note that in order to achieve stability with this
-!        explicit scheme, the following condition 0 <= securi < 0.5
-!        should be met. Also, for very shallow model levels and TKE
-!        values on the order of 1 m2/s2, the diffusion of TKE is
-!        strongly limited by stability constraints, and an implicit
-!        solution (by choosing limpltkediff=.true.) should be favored.
-!fuo_impltkediff>
-!        Nevertheless, we need for the present at least an exlicit correction
+!   fuo: For very shallow model levels and TKE values on the order of 1 m2/s2, 
+!        the diffusion of TKE is strongly limited by stability constraints,
+!        and an implicit solution (by choosing limpltkediff=.true.) should be favored.
+!   Ra:  Nevertheless, we need for the present at least an exlicit correction
 !        in order to express the circulation term and roughness layer terms.
 
 !        Es soll keinen turb. TKE-FLuss aus der Atm. hinaus geben:
@@ -5872,8 +5298,7 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
                   len=hhl(i,j,k)-hhl(i,j,k+1)
                   q3=(tke(i,j,k,ntur)+tke(i,j,k+1,ntur))*z1d2
                   kh=q3*(len_scale(i,j,k)+len_scale(i,j,k+1))*z1d2
-                  kh=(rhon(i,j,k)+rhon(i,j,k+1))*z1d2 &
-                    *MIN( securi*len**2/dt_tke, c_diff*kh )
+                  kh=rhoh(i,j,k)*MIN( securi*len**2/dt_tke, c_diff*kh )
                      
 !-----------------------------------------------------------------------
 !                    nur im 1-d-Modell:
@@ -5892,6 +5317,9 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
             END DO
 
 !           Bem.: Der viskosen Zusatzterm kann auch entfallen!
+!           fuo:  Note that in order to achieve stability with this
+!                 explicit scheme, the following condition 0 <= securi < 0.5
+!                 should be met. 
 
 !           Die Diffusionskoeffizienten wurden mit Hilfe der MIN-Funktion
 !           auf das numerisch ertraegliche Mass reduziert.
@@ -5899,7 +5327,6 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
 !           Zuvor wurde tketens bereits mit dem Drucktransport belegt,
 !           so dass tketens also die Summe aus der eigentlichen TKE-
 !           Flussdichte und dem Drucktrainsport enthaelt!
-
 
 !           Positiv definite Diffusionskorrektur in der Gleichung fuer SQRT(2*TKE)
 !           wobei die Laengenskala c_diff*len_scale beschraenkt werden muss:
@@ -5910,7 +5337,9 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
                   len=hhl(i,j,k-1)-hhl(i,j,k+1)
                   hlp(i,j,k)=tketens(i,j,k-1)-tketens(i,j,k) &
                         +MIN( securi*len**2/(4*tke(i,j,k,ntur)*dt_tke), c_diff*len_scale(i,j,k)) &
+!bug_2011/09/23: multipl. by dicke(i,j,k) was missing {
                              *( (tke(i,j,k-1,ntur)-tke(i,j,k+1,ntur))/len )**2 * dicke(i,j,k)
+!bug_2011/09/23: multipl. by dicke(i,j,k) was missing }
                END DO
                END DO
             END DO
@@ -5964,152 +5393,59 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
          END DO
 
          IF (limpltkediff) THEN
-!        *************** semi-implicit TKE diffusion tendency *************
 
-         ! define implicit/explicit weight
-         !          explicit : beta = 0.0
-         !   Crank-Nicholson : beta = 0.5
-         !          implicit : beta = 1.0
-         beta=0.85_ireals
+!           Vorbereitung zur Bestimmung der vertikalen Diffusions-Tendenzen von SQRT(2*TKE):
 
-         ! compute level thickness at full level height
-         DO k=1,ke
+            DO k=2, ke
+               DO j=jstartpar,jendpar
+               DO i=istartpar,iendpar
+                  dicke(i,j,k)=tke(i,j,k,ntur)*dicke(i,j,k)*fr_var
+               END DO
+               END DO
+            END DO   
+
+            k=2; ku=MOD(k,2)+1
             DO j=jstartpar,jendpar
             DO i=istartpar,iendpar
-               hlp(i,j,k)=hhl(i,j,k)-hhl(i,j,k+1)
+               lays(i,j,ku)=c_diff*len_scale(i,j,2)*(tke(i,j,2,ntur))**2
             END DO
             END DO
-         END DO
 
-         ! compute level thickness at half level height
-         DO j=jstartpar,jendpar
-         DO i=istartpar,iendpar
-            dicke(i,j,1)=hlp(i,j,1)*rhon(i,j,1)
-         END DO
-         END DO
-         DO k=2,ke
-            DO j=jstartpar,jendpar
-            DO i=istartpar,iendpar
-               dicke(i,j,k)=z1d2*(hhl(i,j,k-1)-hhl(i,j,k+1))*rhon(i,j,k)
-            END DO
-            END DO
-         END DO
-         DO j=jstartpar,jendpar
-         DO i=istartpar,iendpar
-!Achtung!
-            dicke(i,j,ke1)=hlp(i,j,ke)*rhon(i,j,ke1)
-         END DO
-         END DO
+            DO k=3, ke1
+!bug_2012/01/10: "+1" was missing for 'ko' {
+               ko=MOD(k-1,2)+1; ku=MOD(k,2)+1
+!bug_2012/01/10: "+1" was missing for 'ko' }
+               DO j=jstartpar,jendpar
+               DO i=istartpar,iendpar
+                  lays(i,j,ku)=c_diff*len_scale(i,j,k)*(tke(i,j,k,ntur))**2
+                  len=hhl(i,j,k-1)-hhl(i,j,k)
+                  a(i,j,k,1)=rhoh(i,j,k-1)*z1d2*(lays(i,j,ko)+lays(i,j,ku))/len
+                  a(i,j,k,2)=rhoh(i,j,k-1)*len*fr_var
+               END DO
+               END DO
+            END DO   
 
-         ! compute diffusion constant at full level height
-         ! note: kh = c_diff * rhon * len_scale * q**2
-         DO k=1,ke
-            DO j=jstartpar,jendpar
-            DO i=istartpar,iendpar
-               a(i,j,k,1)=c_diff * z1d2 * (rhon(i,j,k)+rhon(i,j,k+1)) &
-                                 * z1d2 * (len_scale(i,j,k)+len_scale(i,j,k+1)) &
-                                 *(z1d2 * (tke(i,j,k,ntur)+tke(i,j,k+1,ntur)) )**2
-               ! limiter to mimic old scheme
-!               a(i,j,k,1)=MIN( a(i,j,k,1), &
-!                    securi*hlp(i,j,k)**2/dt_tke/(z1d2*(rhon(i,j,k)+rhon(i,j,k+1))) )
-            END DO
-            END DO
-         END DO
+            CALL prep_impl_vert_diff( &
+                 i_st=istartpar, i_en=iendpar ,j_st=jstartpar, j_en=jendpar, k_tp=1, k_sf=ke1,  &
+                 disc_mom=dicke, diff_mom=a(:,:,:,1), impl_mom=a(:,:,:,2), invs_mom=a(:,:,:,3), &
+                 lsflucond=(imode_turb.EQ.3) )
 
-         ! Top layer (k=1)
-         DO j=jstartpar,jendpar
-         DO i=istartpar,iendpar
-            ! setup matrix (a,b,c) and vector (d)
-            tmp1       = dt_tke / tke(i,j,1,ntur) / dicke(i,j,1)
-            tmp3       = tmp1 * a(i,j,1,1) / hlp(i,j,1)
-            aa         = z0
-            bb         = z0 !- tmp3
-            a(i,j,1,3) = z0 !+ tmp3
-            a(i,j,1,4) = + (z1+(z1-beta)*bb        )*tke(i,j,1,ntur) &
-                         + (   (z1-beta)*a(i,j,1,3))*tke(i,j,2,ntur)
-            bb         = z1 - beta*bb
-            a(i,j,1,3) =    - beta*a(i,j,1,3)
-            ! forward elimination
-            a(i,j,1,3) = a(i,j,1,3)/bb
-            a(i,j,1,4) = a(i,j,1,4)/bb
-            a(i,j,1,2) = bb
-         END DO
-         END DO
+!           Berechnung der vertikalen Diffusionstendenzen von SQRT(2*TKE):
 
-         ! The layers from k=2 to k=ke1-1
-         DO k=2,ke1-1
-            DO j=jstartpar,jendpar
-            DO i=istartpar,iendpar
-               ! setup matrix (a,b,c) and vector (d)
-               tmp1       = dt_tke / tke(i,j,k,ntur) / dicke(i,j,k)
-               tmp2       = tmp1 * a(i,j,k-1,1) / hlp(i,j,k-1)
-               tmp3       = tmp1 * a(i,j,k  ,1) / hlp(i,j,k  )
-               aa         = + tmp2
-               bb         = - tmp2 - tmp3
-               a(i,j,k,3) = + tmp3
-               a(i,j,k,4) = + (   (z1-beta)*aa        )*tke(i,j,k-1,ntur) &
-                            + (z1+(z1-beta)*bb        )*tke(i,j,k  ,ntur) &
-                            + (   (z1-beta)*a(i,j,k,3))*tke(i,j,k+1,ntur)
-               aa         =    - beta*aa
-               bb         = z1 - beta*bb
-               a(i,j,k,3) =    - beta*a(i,j,k,3)
-               ! forward elimination
-               tmp1       = aa/a(i,j,k-1,2)
-               a(i,j,k,4) = a(i,j,k,4) - tmp1*a(i,j,k-1,4)*a(i,j,k-1,2)
-               a(i,j,k,2) = bb         - tmp1*a(i,j,k-1,3)*a(i,j,k-1,2)
-               a(i,j,k,3) = a(i,j,k,3)/a(i,j,k,2)
-               a(i,j,k,4) = a(i,j,k,4)/a(i,j,k,2)
-            END DO
-            END DO
-         END DO
+            CALL calc_impl_vert_diff ( &
+                 i_st=istartpar, i_en=iendpar ,j_st=jstartpar, j_en=jendpar, k_tp=1, k_sf=ke1,  &
+                 disc_mom=dicke, diff_mom=a(:,:,:,1), impl_mom=a(:,:,:,2), invs_mom=a(:,:,:,3), &
+                 cur_prof=tke(:,:,:,ntur), upd_prof=a(:,:,:,4) )
 
-         ! The bottom layer (k=ke1)
-         DO j=jstartpar,jendpar
-         DO i=istartpar,iendpar
-            ! setup matrix (a,b,c) and vector (d)
-!Achtung!
-            tmp1         = dt_tke / tke(i,j,ke1,ntur) / dicke(i,j,ke1)
-            tmp2         = tmp1 * a(i,j,ke1-1,1) / hlp(i,j,ke1-1)
-            aa           = z0 !+ tmp2
-            bb           = z0 !- tmp2
-            a(i,j,ke1,3) = z0
-            a(i,j,ke1,4) = + (   (z1-beta)*aa       )*tke(i,j,ke1-1,ntur) &
-                           + (z1+(z1-beta)*bb       )*tke(i,j,ke1  ,ntur)
-            aa           =    - beta*aa
-            bb           = z1 - beta*bb
-            ! forward elimination
-            tmp1         = aa/a(i,j,ke1-1,2)
-            a(i,j,ke1,4) = a(i,j,ke1,4) - tmp1*a(i,j,ke1-1,4)*a(i,j,ke1-1,2)
-            a(i,j,ke1,2) = bb           - tmp1*a(i,j,ke1-1,3)*a(i,j,ke1-1,2)
-            a(i,j,ke1,4) = a(i,j,ke1,4)/a(i,j,ke1,2)
-         END DO
-         END DO
+            DO k=2,ke
+               DO j=jstartpar,jendpar
+               DO i=istartpar,iendpar
+                  tketens(i,j,k)=tketens(i,j,k)+ &
+                                 (a(i,j,k,4)-tke(i,j,k,ntur))/dt_tke
+               END DO
+               END DO
+            END DO
 
-         ! Backsubstitution and storage of new SQRT(2*TKE) field
-         DO j=jstartpar,jendpar
-         DO i=istartpar,iendpar
-            hlp(i,j,ke1) = a(i,j,ke1,4)
-         END DO
-         END DO
-         DO k=ke1-1,1,-1
-            DO j=jstartpar,jendpar
-            DO i=istartpar,iendpar
-               hlp(i,j,k) = a(i,j,k,4) - a(i,j,k,3) * hlp(i,j,k+1)
-            END DO
-            END DO
-         END DO
-
-         ! Computation of SQRT(2*TKE) tendencies
-         DO k=2,ke
-            DO j=jstartpar,jendpar
-            DO i=istartpar,iendpar
-               tketens(i,j,k)=tketens(i,j,k)+ &
-                              (hlp(i,j,k)-tke(i,j,k,ntur))/dt_tke
-            END DO
-            END DO
-         END DO
-
-!        *************** end of TKE diffusion tendency *************
          END IF
 
 !        Im skin-layer soll es keine TKE-Tendenzen infolge
@@ -6136,6 +5472,8 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
 !        und Drucktransport. Zu tketens wird nun an anderer Stelle noch
 !        die Advektionstendenz hinzuaddiert und das ganze dann im
 !        naechsten Zeitschritt fuer die SQRT(2*TKE)-Prognose benutzt.
+
+!201 continue
 
 ! 14) Berechnung der turb. horizontalen TKE-Flussdichtedivergenzen
 !     und Aufsummieren auf das SQRT(2*TKE)-Tendenzfeld:
@@ -6164,7 +5502,7 @@ SUBROUTINE stab_funct (sm, sh, fm2, fh2, frc, tvs, tls, i_st,i_en, j_st,j_en)
 
    INTEGER (KIND=iintegers) :: i,j !loop indices
 
-   REAL (KIND=ireals)        , INTENT(INOUT) :: &
+   REAL (KIND=ireals)        , INTENT(OUT) :: &
         sm(:,:),  & !stablility function for momentum             [1] 
         sh(:,:)     !stablility function for scalars (heat)       [1] 
 
@@ -6261,11 +5599,321 @@ END SUBROUTINE stab_funct
 
 !********************************************************************************
 
+SUBROUTINE prep_impl_vert_diff ( i_st,i_en, j_st, j_en, k_tp, k_sf, lsflucond, &
+!
+   disc_mom, diff_mom, impl_mom, invs_mom )
+
+
+INTEGER (KIND=iintegers), INTENT(IN) :: &
+!
+   i_st,i_en, & !start and end index for first  horizontal dimension
+   j_st,j_en, & !start and end index for second horizontal dimension
+   k_tp,k_sf    !vertical level indices for top and surface
+                !full level vars: k_tp=0; k_sf=ke+1
+                !half level vars: k_tp=1; k_sf=ke+1
+
+LOGICAL, INTENT(IN) :: &
+!
+   lsflucond    !flux condition at the surface
+
+REAL (KIND=ireals), INTENT(IN) :: &
+!
+   diff_mom(:,:,:), & !diffusion momentum (rho*K/dz)
+   disc_mom(:,:,:)    !discretis momentum (rho*dz/dt) on variable levels
+
+REAL (KIND=ireals), INTENT(INOUT) :: &
+!
+   impl_mom(:,:,:)    !in : discretis momentum (rho*dz/dt) on flux levels
+                      !out: (negative) implicit part of diffusion momentum
+
+REAL (KIND=ireals), INTENT(OUT) :: &
+!
+   invs_mom(:,:,:)    !inversion momentum
+
+INTEGER (KIND=iintegers) :: &
+!
+   i,j,k, kp1,km1,  & !horizontal and vertical coordiante indices
+   l, n,m             !used level index and number of used levels
+
+   n=k_sf-k_tp-1      !counter of the last used level (starting at the column top)
+
+!  Inverse momentum vector of uppermost level:
+
+   l=1; k=k_tp+l; kp1=k+1
+
+   DO j=j_st, j_en
+   DO i=i_st, i_en
+      impl_mom(i,j,kp1)=-diff_mom(i,j,kp1) &
+                        *MAX(MIN(diff_mom(i,j,kp1)/impl_mom(i,j,kp1), impl_s), impl_t) 
+      invs_mom(i,j,k  )= z1/(disc_mom(i,j,k)-impl_mom(i,j,kp1))
+   END DO
+   END DO
+!print *,"k=",k," deg_impl=",deg_impl
+ 
+!  Note: Zero flux condition just below top level.
+
+!  Inverse momentum vector of the other levels:
+
+   IF (lsflucond) THEN
+      m=n-1
+   ELSE
+      m=n
+   END IF
+
+   DO l=2, m
+      k=k_tp+l; kp1=k+1; km1=k-1
+
+      DO j=j_st, j_en
+      DO i=i_st, i_en
+         impl_mom(i,j,kp1)=-diff_mom(i,j,kp1) &
+                           *MAX(MIN(diff_mom(i,j,kp1)/impl_mom(i,j,kp1), impl_s), impl_t)
+         invs_mom(i,j,k  )= z1/(disc_mom(i,j,k  )-impl_mom(i,j,k)-impl_mom(i,j,kp1) &
+                               -invs_mom(i,j,km1)*impl_mom(i,j,k)**2)
+      END DO
+      END DO
+
+   END DO
+
+   IF (lsflucond) THEN   
+      l=n; k=k_tp+l; kp1=k+1; km1=k-1
+
+      DO j=j_st, j_en
+      DO i=i_st, i_en
+         impl_mom(i,j,kp1)= z0 !no  implicit surface weight
+         invs_mom(i,j,k  )= z1/(disc_mom(i,j,k  )-impl_mom(i,j,k)                   &
+                               -invs_mom(i,j,km1)*impl_mom(i,j,k)**2)
+      END DO
+      END DO
+   END IF
+!read *,xx
+
+END SUBROUTINE prep_impl_vert_diff
+
+!********************************************************************************
+
+SUBROUTINE calc_impl_vert_diff ( i_st,i_en, j_st, j_en, k_tp, k_sf, &
+!
+   disc_mom, diff_mom, impl_mom, invs_mom, cur_prof, upd_prof, srf_flux)
+
+INTEGER (KIND=iintegers), INTENT(IN) :: &
+!
+   i_st,i_en, & !start and end index for first  horizontal dimension
+   j_st,j_en, & !start and end index for second horizontal dimension
+   k_tp,k_sf    !vertical level indices for top and surface
+                !full level vars: k_tp=0; k_sf=ke+1
+                !half level vars: k_tp=1; k_sf=ke+1
+
+REAL (KIND=ireals), INTENT(IN) :: &
+!
+   diff_mom(:,:,:), & !diffusion momentum (rho*K/dz)
+   disc_mom(:,:,:), & !discretis momentum (rho*dz/dt)
+!
+   invs_mom(:,:,:), & !inversion momentum
+   impl_mom(:,:,:), & !implicit part of diffusion momentum
+!
+   cur_prof(:,:,:)    !current vertical variable profile
+
+REAL (KIND=ireals), INTENT(OUT) :: &
+!
+   upd_prof(:,:,:)    !updated vertical variable profile
+
+REAL (KIND=ireals), INTENT(OUT), OPTIONAL :: &
+!
+   srf_flux(:,:)      !effective upward vertical surface flux density
+
+INTEGER (KIND=iintegers) :: &
+!
+   i,j,k, kp1,km1,  & !horizontal and vertical coordiante indices
+   l,n,             & !used level index and number of used levels
+   l0,l1              !alternating level indices
+
+REAL (KIND=ireals) :: &
+!
+   expl_mom(i_st:i_en,j_st:j_en,0:1), & !explicit part of diffusion momentum
+   expl_sfl(i_st:i_en,j_st:j_en),     & !explicit part of upward vertical surface flux density
+   diff_tnd                             !diffusion tendency (times rho*dz)
+
+   n=k_sf-k_tp-1      !counter of the last used level (starting at the column top)
+
+!  Uppermost level:
+
+   l=1; k=k_tp+l; kp1=k+1; l0=1; l1=0
+
+   DO j=j_st, j_en
+   DO i=i_st, i_en
+      expl_mom(i,j,l1)= diff_mom(i,j,kp1)+ impl_mom(i,j,kp1) 
+      diff_tnd        = disc_mom(i,j,k  )* cur_prof(i,j,k  ) &
+                       +expl_mom(i,j,l1 )*(cur_prof(i,j,kp1)-cur_prof(i,j,k))
+      upd_prof(i,j,k) = diff_tnd         * invs_mom(i,j,k)            
+   END DO
+   END DO
+!print *,"kk=",k," disc_mom=",disc_mom(im,jm,k)
+!print *," old_prf=",cur_prof(im,jm,k)
+
+!  Note: Zero flux condition just below top level.
+
+!  Intermediate levels:
+ 
+   DO l=2, n-1
+      k=k_tp+l; kp1=k+1; km1=k-1; l0=MOD(l,2); l1=MOD(l+1,2)
+
+      DO j=j_st, j_en
+      DO i=i_st, i_en
+         expl_mom(i,j,l1)= diff_mom(i,j,kp1)+ impl_mom(i,j,kp1)
+         diff_tnd        = disc_mom(i,j,k  )* cur_prof(i,j,k  )                  &
+                          +expl_mom(i,j,l0) *(cur_prof(i,j,km1)-cur_prof(i,j,k)) &
+                          +expl_mom(i,j,l1) *(cur_prof(i,j,kp1)-cur_prof(i,j,k))
+         upd_prof(i,j,k) =(diff_tnd         - impl_mom(i,j,k  )*upd_prof(i,j,km1))*invs_mom(i,j,k)
+      END DO
+      END DO
+!print *,"kk=",k," disc_mom=",disc_mom(im,jm,k)," impl_mom=",impl_mom(im,jm,k)
+!print *," old_prf=",cur_prof(im,jm,k)
+   END DO
+
+!  Surface level:
+
+!bug_2011/12/27: km1 was missing {
+   l=n; k=k_tp+l; kp1=k+1; km1=k-1; l0=MOD(l,2); l1=MOD(l+1,2)
+!bug_2011/12/27: km1 was missing }
+
+   DO j=j_st, j_en
+   DO i=i_st, i_en
+      expl_mom(i,j,l1)= diff_mom(i,j,kp1)+ impl_mom(i,j,kp1)
+      expl_sfl(i,j)   = expl_mom(i,j,l1 )*(cur_prof(i,j,kp1)-cur_prof(i,j,k))
+      diff_tnd        = disc_mom(i,j,k  )* cur_prof(i,j,k  )                  &
+                       +expl_mom(i,j,l0) *(cur_prof(i,j,km1)-cur_prof(i,j,k)) &
+                       +expl_sfl(i,j)                                         &
+                       -impl_mom(i,j,kp1)* cur_prof(i,j,kp1)
+      upd_prof(i,j,k) =(diff_tnd          -impl_mom(i,j,k  )*upd_prof(i,j,km1))*invs_mom(i,j,k)
+   END DO
+   END DO
+
+   IF (PRESENT(srf_flux)) THEN
+      DO j=j_st, j_en
+      DO i=i_st, i_en
+         srf_flux(i,j)=expl_sfl(i,j)-impl_mom(i,j,kp1)*(cur_prof(i,j,kp1)-upd_prof(i,j,k))
+      END DO
+      END DO
+   END IF   
+      
+!print *,"kk=",k," disc_mom=",disc_mom(im,jm,k)," impl_mom=",impl_mom(im,jm,k)
+!print *," old_prf=",cur_prof(im,jm,k)
+!print *,"kk=",k," impl_mom=",impl_mom(im,jm,kp1)
+!print *," old_prf=",cur_prof(im,jm,kp1)
+!read *,xx
+
+!  Note: Explicit flux condition at surface level in case of "impl_mom(:,:,kp1)=0".
+
+!  Backsubstitution:
+
+   DO l=n-1, 1, -1
+      k=k_tp+l; kp1=k+1
+
+      DO j=j_st, j_en
+      DO i=i_st, i_en
+         upd_prof(i,j,k) = upd_prof(i,j,k  )- impl_mom(i,j,kp1)*upd_prof(i,j,kp1) *invs_mom(i,j,k)
+      END DO
+      END DO
+   END DO
+
+END SUBROUTINE calc_impl_vert_diff
+
+!********************************************************************************
+
+!------------------------------------------------------------------------------------
+#ifdef SCLM
+SUBROUTINE turb_stat (lsm, lsh, fm2, fh2, d_m, d_h, tls, tvs, tvt, grd, k)
+
+INTEGER (KIND=iintegers), INTENT(IN) :: &
+!   
+    k         !vertical level index
+
+REAL (KIND=ireals), INTENT(IN) :: &
+!
+    lsm,    & !turbulent length scale times value of stability function for momentum       [m]
+    lsh,    & !turbulent length scale times value of stability function for scalars (heat) [m]
+    fm2,    & !squared forcing frequency for momentum       [1/s2]
+    fh2,    & !squared forcing frequency for scalars (heat) [1/s2]
+    d_m,    & !dissipation parameter for momentum       [1]  
+    d_h,    & !dissipation parameter for scalars (heat) [1]
+    tls,    & !turbulent length scale   [m]
+    tvs,    & !turbulent velocity scale [m/s]
+    tvt,    & !total transport of turbulent velocity scale [m/s2]
+    grd(:)    !vector of vertical gradients of diffused (conserved) variables [{unit}/m]
+
+REAL (KIND=ireals) ::  &
+!
+   ts_d,                 & !dissipation time scale [s]
+   tvs2,                 & !tvs**2 [m2/s2]
+   tkm, tkh,             & !turbulent diffusion coefficient for momentum and scalars (heat) [m2/s]
+   x1, x2, x3,           & !auxilary TKE source terme values [m2/s3]
+   cvar(ndiff+1,ndiff+1)   !covariance matrix  [{unit1}*{unit2}]
+
+   cvar(tet_l,tet_l)=d_h*tls*lsh*grd(tet_l)**2
+   cvar(h2o_g,h2o_g)=d_h*tls*lsh*grd(h2o_g)**2
+   cvar(tet_l,h2o_g)=d_h*tls*lsh*grd(tet_l)*grd(h2o_g)
+
+   tkm=lsm*tvs; tkh=lsh*tvs
+
+   cvar(u_m  ,w_m)=-tkm*grd(u_m)
+   cvar(v_m  ,w_m)=-tkm*grd(v_m)
+   cvar(tet_l,w_m)=-tkh*grd(tet_l)
+   cvar(h2o_g,w_m)=-tkh*grd(h2o_g)
+
+   TKE_SCLM%mod(k)%val=tvs         ; TKE_SCLM%mod(k)%vst=i_cal
+
+   !Achtung: TKE%mod(k)%val zeigt z.Z. noch auf die alte TKE-Zeitstufe.
+   !Somit wird also der alte TKE-Wert mit dem neuen ueberschrieben,
+   !was aber ohne Bedeutung ist, weil ab jetzt der alte tke-Wert nicht
+   !mehr benoetigt wird. Beachte, dass die Modelleinheit hier [m/s] ist.
+
+   tvs2=tvs**2
+   ts_d=d_m*tls/tvs
+
+   x1=cvar(u_m,w_m)*grd(u_m)
+   x2=cvar(v_m,w_m)*grd(v_m)
+   x3=-tkh*fh2
+
+   BOYPR%mod(k)%val=x3             ; BOYPR%mod(k)%vst=i_cal
+   SHRPR%mod(k)%val=-(x1+x2)       ; SHRPR%mod(k)%vst=i_cal
+   DISSI%mod(k)%val=tvs2/ts_d      ; DISSI%mod(k)%vst=i_cal 
+   TRANP%mod(k)%val=tvs*tvt        ; TRANP%mod(k)%vst=i_cal
+                
+   cvar(u_m,u_m)=z1d3*tvs2+ts_d*(-z4*x1+z2*x2-z2*x3)
+   cvar(v_m,v_m)=z1d3*tvs2+ts_d*(+z2*x1-z4*x2-z2*x3)
+   cvar(w_m,w_m)=tvs2-cvar(u_m,u_m)-cvar(v_m,v_m)
+
+   UWA%mod(k)%val=cvar(u_m  ,w_m)  ; UWA%mod(k)%vst=i_cal
+   VWA%mod(k)%val=cvar(v_m  ,w_m)  ; VWA%mod(k)%vst=i_cal
+   TWA%mod(k)%val=cvar(tet_l,w_m)  ; TWA%mod(k)%vst=i_cal
+   UST%mod(k)%val=SQRT(tkm*SQRT(fm2))
+                                     UST%mod(k)%vst=i_cal
+ ! LMO%mod(0)%val=-UST%mod(k)%val**3/x3 
+ !                                   LMO%mod(0)%vst=i_cal
+
+   IF (cvar(u_m,u_m).GE.z0 .AND. cvar(v_m,v_m).GE.z0 .AND. &
+       cvar(u_m,u_m)+cvar(v_m,v_m).LE.tvs2) THEN
+
+      UUA%mod(k)%val=cvar(u_m,u_m)  ; UUA%mod(k)%vst=i_cal
+      VVA%mod(k)%val=cvar(v_m,v_m)  ; VVA%mod(k)%vst=i_cal
+      WWA%mod(k)%val=tvs2-UUA%mod(k)%val-VVA%mod(k)%val
+                                      WWA%mod(k)%vst=i_cal
+   END IF
+
+   TTA%mod(k)%val=cvar(tet_l,tet_l); TTA%mod(k)%vst=i_cal
+   QQA%mod(k)%val=cvar(h2o_g,h2o_g); QQA%mod(k)%vst=i_cal
+   TQA%mod(k)%val=cvar(h2o_g,h2o_g); TQA%mod(k)%vst=i_cal
+
+END SUBROUTINE turb_stat
+#endif
+!SCLM--------------------------------------------------------------------------------
+   
+!********************************************************************************
+
 END SUBROUTINE organize_turbdiff
 
 !********************************************************************************
 !********************************************************************************
-
 
 SUBROUTINE turb_cloud (                      &
 !
@@ -6382,8 +6030,10 @@ REAL (KIND=ireals) :: &
 
      DO j = jstart, jend
      DO i = istart, iend
+!mod_2011/09/28: zpres=patm -> zpres=pdry {
         pres=(z1-qt(i,j))/(z1-rvd_m_o*qt(i,j))*prs(i,j,k)        ! part. pressure of dry air
         qs(i,j) = zqvap( zpsat_w( tl(i,j) ), pres )              ! saturation mixing ratio
+!mod_2011/09/28: zpres=patm -> zpres=pdry }
        gam(i,j) = z1 / ( z1 + lhocp*zdqsdt( tl(i,j), qs(i,j) ) ) ! slope factor
      END DO
      END DO
@@ -6478,9 +6128,11 @@ FUNCTION zqvap (zpvap, zpres)
                                     zpres !part. pressure of dry air
   REAL (KIND=ireals) :: zqvap
 
+!mod_2011/09/28: zpres=patm -> zpres=pdry {
 ! zqvap=rdv*zpvap/(zpres-o_m_rdv*zpvap)
   zqvap=rdv*zpvap
   zqvap=zqvap/(zpres+zqvap)
+!mod_2011/09/28: zpres=patm -> zpres=pdry }
 
 END FUNCTION zqvap
 
@@ -6489,9 +6141,11 @@ FUNCTION zdqsdt (ztemp, zqsat)
   REAL (KIND=ireals), INTENT(IN) :: ztemp, zqsat
   REAL (KIND=ireals) :: zdqsdt
 
+!mod_2011/09/28: zpres=patm -> zpres=pdry {
 ! zdqsdt=b234w*(1.0_ireals+rvd_m_o*zqsat) &
 !             *zqsat/(ztemp-b4w)**2
   zdqsdt=b234w*(z1-zqsat)*zqsat/(ztemp-b4w)**2
+!mod_2011/09/28: zpres=patm -> zpres=pdry }
 
 END FUNCTION zdqsdt
 

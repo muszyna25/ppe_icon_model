@@ -109,6 +109,8 @@ USE data_turbulence, ONLY : rlam_mom, & ! scaling factor of the laminar boudary 
      &                      tkmmin,   & ! minimal diffusion coefficients for momentum
      &                      epsi,     & ! relative limit of accuracy for 
                                         ! comparison of numbers
+     &                      impl_s,   & ! implicit weight near the surface (maximal value)
+     &                      impl_t,   & ! implicit weight near top of the atmosphere (minimal value)
      &                      tkesmot,  & ! time smoothing factor for TKE and 
                                         ! diffusion coefficients
      &                      wichfakt, & ! vertical smoothing factor for 
@@ -146,7 +148,7 @@ INTEGER (KIND=iintegers) :: &
     imode_tran   =1,       & ! mode of surface-atmosphere transfer
     icldm_tran   =0,       & ! mode of cloud representation in transfer parametr.
 !
-    imode_turb   =3,       & ! mode of turbulent diffusion parametrization
+    imode_turb   =2,       & ! mode of turbulent diffusion parametrization
     icldm_turb   =2,       & ! mode of cloud representation in turbulence parametr.
     itype_sher   =1          ! type of shear production for TKE
 
@@ -205,6 +207,17 @@ LOGICAL :: &
      limpltkediff = turbdiff_config(jg)%limpltkediff
      itype_wcld   = turbdiff_config(jg)%itype_wcld
      itype_synd   = turbdiff_config(jg)%itype_synd
+
+     tur_len      = turbdiff_config(jg)%tur_len
+     pat_len      = turbdiff_config(jg)%pat_len
+     a_stab       = turbdiff_config(jg)%a_stab
+     tkhmin       = turbdiff_config(jg)%tkhmin
+     tkmmin       = turbdiff_config(jg)%tkmmin
+     c_diff       = turbdiff_config(jg)%c_diff
+     rlam_heat    = turbdiff_config(jg)%rlam_heat
+     rlam_mom     =turbdiff_config(jg)%rlam_mom
+     rat_sea      = turbdiff_config(jg)%rat_sea
+     tkesmot      = turbdiff_config(jg)%tkesmot
 
  END SUBROUTINE get_turbdiff_param
 

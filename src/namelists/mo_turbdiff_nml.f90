@@ -55,7 +55,7 @@ MODULE mo_turbdiff_nml
     & imode_tran, imode_turb, icldm_tran, icldm_turb, & 
     & ltkesso, ltkecon, lexpcor, ltmpcor, lprfcor, lnonloc, lcpfluc, limpltkediff, &
     & tur_len, pat_len, a_stab, tkhmin, tkmmin, c_diff, &
-    & rlam_heat, rlam_mom, rat_sea
+    & rlam_heat, rlam_mom, rat_sea, tkesmot
   
   IMPLICIT NONE
   PRIVATE
@@ -80,7 +80,7 @@ MODULE mo_turbdiff_nml
     & imode_tran, imode_turb, icldm_tran, icldm_turb, & 
     & ltkesso, ltkecon, lexpcor, ltmpcor, lprfcor, lnonloc, lcpfluc, limpltkediff, &
     & tur_len, pat_len, a_stab, tkhmin, tkmmin, c_diff, &
-    & rlam_heat, rlam_mom, rat_sea, &
+    & rlam_heat, rlam_mom, rat_sea, tkesmot,  &
 !   additional namelist parameters:
     & lconst_z0, const_z0
 
@@ -180,6 +180,17 @@ CONTAINS
       turbdiff_config(jg)%limpltkediff = limpltkediff
       turbdiff_config(jg)%itype_wcld   = itype_wcld
       turbdiff_config(jg)%itype_synd   = itype_synd
+      turbdiff_config(jg)%tur_len      = tur_len
+      turbdiff_config(jg)%pat_len      = pat_len
+      turbdiff_config(jg)%a_stab       = a_stab
+      turbdiff_config(jg)%tkhmin       = tkhmin
+      turbdiff_config(jg)%tkmmin       = tkmmin
+      turbdiff_config(jg)%c_diff       = c_diff
+      turbdiff_config(jg)%rlam_heat    = rlam_heat
+      turbdiff_config(jg)%rlam_mom     = rlam_mom
+      turbdiff_config(jg)%rat_sea      = rat_sea
+      turbdiff_config(jg)%tkesmot      = tkesmot
+
       turbdiff_config(jg)%lconst_z0    = lconst_z0
       turbdiff_config(jg)%const_z0     = const_z0
     ENDDO

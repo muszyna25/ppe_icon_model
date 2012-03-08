@@ -94,9 +94,29 @@ MODULE mo_turbdiff_config
     LOGICAL :: &   ! TRUE: horizontally homogeneous roughness length 
       &  lconst_z0 ! (for idealized testcases)
 
+    REAL(wp):: &   ! turbulent master length scale 
+      &  tur_len   ! (devided by roughness length)
+    REAL(wp):: &   ! effectiv length scale of surface patterns
+      &  pat_len   !
+    REAL(wp):: &   ! scaling factor for stability correction of 'tur_len'
+      &  a_stab    !
+    REAL(wp):: &   ! minimal diffusion coefficient for scalars (heat)
+      &  tkhmin    !
+    REAL(wp):: &   ! minimal diffusion coefficient for momentum
+      &  tkmmin    !
+    REAL(wp):: &   ! constant diffusion coefficient for TKE
+      &  c_diff    !
+    REAL(wp):: &   ! scaling factor of laminar layer for scalars (heat)
+      &  rlam_heat !
+    REAL(wp):: &   ! scaling factor of laminar layer for momentum
+      &  rlam_mom  !
+    REAL(wp):: &   ! scaling correction factor for laminar layers of water surfaces
+      &  rat_sea   ! 
+    REAL(wp):: &   ! time smoothing factor for TKE
+      &  tkesmot   ! 
+
     REAL(wp):: &   ! horizontally homogeneous roughness length 
       &  const_z0  ! (for idealized testcases)
-
 
     !
     ! Switches controlling other physical parameterizations:
