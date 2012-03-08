@@ -143,7 +143,7 @@ REAL(wp) :: z_adv_flux_v (nproma, n_zlev+1, p_patch%nblks_c)  ! vertical advecti
 REAL(wp) :: z_div_adv_v (nproma, n_zlev,p_patch%nblks_c)        ! vertical tracer divergence
 REAL(wp) :: z_div_diff_v (nproma, n_zlev,p_patch%nblks_c)        ! vertical tracer divergence
 !REAL(wp) :: z_diff_flux_v(nproma, n_zlev+1,p_patch%nblks_c)   ! vertical diffusive tracer flux
-REAL(wp) :: z_transport_w(nproma,n_zlev+1,p_patch%nblks_c)  ! vertical transport velocity
+!REAL(wp) :: z_transport_w(nproma,n_zlev+1,p_patch%nblks_c)  ! vertical transport velocity
 !REAL(wp) :: z_trac_c(nproma,n_zlev, p_patch%nblks_c)
 REAL(wp) :: z_h(nproma,n_zlev, p_patch%nblks_c)
 REAL(wp) :: z_temp(nproma,n_zlev, p_patch%nblks_c)
@@ -180,7 +180,7 @@ z_div_adv_v   = 0.0_wp
 z_div_diff_v  = 0.0_wp
 !z_diff_flux_v = 0.0_wp
 !z_h           = 0.0_wp 
-z_transport_w =0.0_wp
+!z_transport_w =0.0_wp
 !z_trac_c      =0.0_wp
 !z_G_n_c_v        = 0.0_wp
 !z_G_nm1_c_v      = 0.0_wp
@@ -206,7 +206,8 @@ z_h_tmp_c       = 0.0_wp
 ! END DO
 
 !Produce time-weighted vertical transport velocity
-z_transport_w  = ab_gam*p_os%p_diag%w + (1.0_wp-ab_gam)*p_os%p_diag%w_old
+!z_transport_w  = ab_gam*p_os%p_diag%w + (1.0_wp-ab_gam)*p_os%p_diag%w_old
+!z_transport_w = p_os%p_diag%w_time_weighted
 !    IF(l_STAGGERED_TIMESTEP)THEN
 !      z_transport_w = p_os%p_diag%w
 !    ELSEIF(.NOT.l_STAGGERED_TIMESTEP)THEN 
@@ -220,10 +221,14 @@ z_transport_w  = ab_gam*p_os%p_diag%w + (1.0_wp-ab_gam)*p_os%p_diag%w_old
 
       z_dolic = v_base%dolic_c(jc,jb)
       DO jk = 1, z_dolic
-        IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-         z_h_tmp_c(jc,jk,jb)=(z_transport_w(jc,jk,jb)&
-                            & - z_transport_w(jc,jk+1,jb))
-        ENDIF
+        !IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+         z_h_tmp_c(jc,jk,jb)=(  p_os%p_diag%w_time_weighted(jc,jk,jb)&
+                            & - p_os%p_diag%w_time_weighted(jc,jk+1,jb))&
+                            &   *v_base%wet_c(jc,jk,jb)
+
+!          z_h_tmp_c(jc,jk,jb)=(z_transport_w(jc,jk,jb)&
+!                             & - z_transport_w(jc,jk+1,jb))
+        !ENDIF
       END DO
     END DO
   END DO
@@ -234,9 +239,10 @@ z_transport_w  = ab_gam*p_os%p_diag%w + (1.0_wp-ab_gam)*p_os%p_diag%w_old
     DO jc = i_startidx_c, i_endidx_c
       z_dolic = v_base%dolic_c(jc,jb)
       DO jk = 1, z_dolic
-        IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-            dummy_h_c_new(jc,jk,jb) = dummy_h_c(jc,jk,jb) - dtime*z_h_tmp_c(jc,jk,jb)
-        ENDIF
+        !IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+            dummy_h_c_new(jc,jk,jb) = (dummy_h_c(jc,jk,jb) - dtime*z_h_tmp_c(jc,jk,jb))&
+                                    &*v_base%wet_c(jc,jk,jb)
+        !ENDIF
       END DO
     END DO
   END DO 
@@ -263,17 +269,18 @@ CASE(UPWIND)
 
   CALL upwind_vflux_oce( p_patch,       &
                        & trac_in,       &
-                       & z_transport_w, & 
+                       & p_os%p_diag%w_time_weighted, & 
                        & bc_top_tracer, &
                        & z_adv_flux_v )
 CASE(CENTRAL)
   CALL central_vflux_oce( p_patch,     &
                        & trac_in,      &
-                       & z_transport_w,&
+                       & p_os%p_diag%w_time_weighted,&
                        & z_adv_flux_v )
-CASE(MIMETIC)
-  CALL upwind_vflux_ppm( p_patch, trac_in,    &
-    &                    z_transport_w, dtime,&
+CASE(MIMETIC,MIMETIC_MIURA)
+  CALL upwind_vflux_ppm( p_patch, trac_in,           &
+    &                    p_os%p_diag%w_time_weighted,&
+    &                    dtime,&
     &                    1 ,                  &!p_itype_vlimit,             &
     &                    dummy_h_c_new,       &!p_cellhgt_mc_now, &
     &                    z_adv_flux_v)
@@ -329,20 +336,20 @@ IF(expl_vertical_tracer_diff==1)THEN
           z_dolic = v_base%dolic_c(jc,jb)
           IF(z_dolic>=MIN_DOLIC)THEN
             DO jk = 1, z_dolic
-              IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-
+              !IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
               !delta_z = v_base%del_zlev_m(jk)
               !IF(jk==1) delta_z = v_base%del_zlev_m(top)+p_os%p_prog(nnew(1))%h(jc,jb)
 
                 z_temp(jc,jk,jb)= (trac_in(jc,jk,jb)*dummy_h_c(jc,jk,jb) &
                                 & -delta_t*z_div_adv_v(jc,jk,jb)&
-                                & +delta_t*bc_top_tracer(jc,jb))/dummy_h_c_new(jc,jk,jb)
+                                & +delta_t*bc_top_tracer(jc,jb))*v_base%wet_c(jc,jk,jb)&
+                                &/dummy_h_c_new(jc,jk,jb)
                  !  write(789,*)'tracer_old:_new',jc,jk,jb,trac_in(jc,jk,jb),z_temp(jc,jk,jb),&
                  !  &z_div_adv_v(jc,jk,jb), dummy_h_c(jc,jk,jb),dummy_h_c_new(jc,jk,jb)
 
                 !IF(jk==1)z_temp(jc,jk,jb)=z_temp(jc,jk,jb)&
                 !&+dtime*bc_top_tracer(jc,jb)/dummy_h_c_new(jc,jk,jb)
-              ENDIF
+              !ENDIF
             END DO
           ENDIF
       END DO
@@ -880,21 +887,20 @@ END SUBROUTINE advect_vertical
         ! index of top half level
         ikm1 = jk - 1
         DO jc = i_startidx, i_endidx 
-          IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+          !IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
           ! Calculate local Courant number at half levels
           ! z_cfl_m for weta >0 (w <0)
           ! z_cfl_p for weta <0 (w >0)
-          z_weta_dt = ABS(p_w(jc,jk,jb)) * p_dtime
+          z_weta_dt = ABS(p_w(jc,jk,jb)) * p_dtime * v_base%wet_c(jc,jk,jb)
 
           !Code modification this was multiplication by inverse height
           z_cfl_m(jc,jk,jb) = z_weta_dt / p_cellhgt_mc_now(jc,ikm1,jb)
           z_cfl_p(jc,jk,jb) = z_weta_dt / p_cellhgt_mc_now(jc,jk,jb)
-          ELSE
-          z_weta_dt         = 0.0_wp
-          z_cfl_m(jc,jk,jb) = 0.0_wp
-          z_cfl_p(jc,jk,jb) = 0.0_wp
-          ENDIF
-
+          !ELSE
+          !z_weta_dt         = 0.0_wp
+          !z_cfl_m(jc,jk,jb) = 0.0_wp
+          !z_cfl_p(jc,jk,jb) = 0.0_wp
+          !ENDIF
         END DO ! end loop over cells
       ENDDO ! end loop over vertical levels
       !
@@ -1035,14 +1041,16 @@ END SUBROUTINE advect_vertical
          DO jk = slev, nlev
            ! index of bottom half level
            ikp1 = jk + 1
-           IF ( v_base%lsm_oce_c(jc,ikp1,jb) <= sea_boundary ) THEN
+           !IF ( v_base%lsm_oce_c(jc,ikp1,jb) <= sea_boundary ) THEN
 
-           z_face_up(i_startidx:i_endidx,jk,jb)  = z_face(i_startidx:i_endidx,jk,jb)
-           z_face_low(i_startidx:i_endidx,jk,jb) = z_face(i_startidx:i_endidx,ikp1,jb)
-           ELSE
-           z_face_up(i_startidx:i_endidx,jk,jb)  = 0.0_wp
-           z_face_low(i_startidx:i_endidx,jk,jb) = 0.0_wp
-           ENDIF
+           z_face_up(i_startidx:i_endidx,jk,jb)  = z_face(i_startidx:i_endidx,jk,jb)&
+                                                 &*v_base%wet_c(jc,jk,jb)
+           z_face_low(i_startidx:i_endidx,jk,jb) = z_face(i_startidx:i_endidx,ikp1,jb)&
+                                                 &*v_base%wet_c(jc,ikp1,jb)
+           !ELSE
+           !z_face_up(i_startidx:i_endidx,jk,jb)  = 0.0_wp
+           !z_face_low(i_startidx:i_endidx,jk,jb) = 0.0_wp
+           !ENDIF
          ENDDO
        ENDDO
  !$OMP ENDDO

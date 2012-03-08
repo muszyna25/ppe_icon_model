@@ -102,7 +102,8 @@ TYPE t_operator_coeff
   INTEGER, POINTER :: edge_idx(:,:,:,:)   !(nproma,nlev,nblks_v,1:NO_DUAL_EDGES-2)
   REAL(wp),POINTER :: orientation(:,:,:,:)!(nproma,nlev,nblks_v,1:NO_DUAL_EDGES-2)
 
-
+  INTEGER, ALLOCATABLE :: upwind_cell_idx(:,:,:)
+  INTEGER, ALLOCATABLE :: upwind_cell_blk(:,:,:)
   !3) Scalarproduct: The following arrays are required for the reconstruction process.
   !------------------------------------------------------------------------------
   !
@@ -132,7 +133,7 @@ TYPE t_operator_coeff
   TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2vert_coeff_cc_dyn(:,:,:,:)
 
   TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2vert_coeff_cc(:,:,:,:)
-  TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2vert_coeff_cc_t(:,:,:,:)
+  TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2vert_coeff_cc_t(:,:,:,:) 
   TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2vert_vector_cc(:,:,:,:)
 
   REAL(wp), ALLOCATABLE :: fixed_vol_norm(:,:,:)
@@ -145,7 +146,8 @@ TYPE t_operator_coeff
   REAL(wp), ALLOCATABLE                      :: dist_cell2edge(:,:,:,:)
   TYPE(t_cartesian_coordinates), ALLOCATABLE :: cell_position_cc(:,:,:)
   TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge_position_cc(:,:,:)
-  TYPE(t_cartesian_coordinates), ALLOCATABLE :: upwind_edge_position_cc(:,:,:)
+  TYPE(t_cartesian_coordinates), ALLOCATABLE :: moved_edge_position_cc(:,:,:)
+  TYPE(t_cartesian_coordinates), ALLOCATABLE :: upwind_cell_position_cc(:,:,:)
 
 END TYPE t_operator_coeff
 
@@ -169,6 +171,9 @@ CONTAINS
 
   INTEGER :: nblks_c, nblks_e, nblks_v, nz_lev
   INTEGER :: ist,ie
+  INTEGER :: rl_start,rl_end
+  INTEGER :: i_startblk, i_endblk,i_startidx, i_endidx
+  INTEGER :: je,jk,jb
 !-----------------------------------------------------------------------
 
   !
@@ -179,7 +184,6 @@ CONTAINS
   nblks_e  = ptr_patch%nblks_e
   nblks_v  = ptr_patch%nblks_v
   nz_lev   = n_zlev
-  !
 
   ALLOCATE(ptr_coeff%div_coeff(nproma,n_zlev,nblks_c,NO_PRIMAL_EDGES),&
            &STAT=ist)
@@ -240,6 +244,14 @@ CONTAINS
   IF (ist /= SUCCESS) THEN
     CALL finish ('mo_operator_scalarprod_coeff_3D:allocating bnd_edges_per_vertex failed')
   ENDIF
+  ALLOCATE(ptr_coeff%upwind_cell_idx(nproma,n_zlev,nblks_e),STAT=ist)
+  IF (ist /= SUCCESS) THEN
+    CALL finish ('mo_operator_scalarprod_coeff_3D:allocating upwind_cell_idx failed')
+  ENDIF
+  ALLOCATE(ptr_coeff%upwind_cell_blk(nproma,n_zlev,nblks_e),STAT=ist)
+  IF (ist /= SUCCESS) THEN
+    CALL finish ('mo_operator_scalarprod_coeff_3D:allocating upwind_cell_blk failed')
+  ENDIF
   !
   ! arrays that are required for setting up the scalar product
   !
@@ -292,9 +304,13 @@ CONTAINS
   ENDIF
 
 
-  ALLOCATE(ptr_coeff%upwind_edge_position_cc(nproma,nz_lev,nblks_e),STAT=ist)
+  ALLOCATE(ptr_coeff%upwind_cell_position_cc(nproma,nz_lev,nblks_e),STAT=ist)
   IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_operator_scalarprod_coeff_3D:allocating upwind edge failed')
+    CALL finish ('mo_operator_scalarprod_coeff_3D:allocating upwind cell failed')
+  ENDIF
+  ALLOCATE(ptr_coeff%moved_edge_position_cc(nproma,nz_lev,nblks_e),STAT=ist)
+  IF (ist /= SUCCESS) THEN
+    CALL finish ('mo_operator_scalarprod_coeff_3D:allocating edge failed')
   ENDIF
   ALLOCATE(ptr_coeff%edge_position_cc(nproma,nz_lev,nblks_e),STAT=ist)
   IF (ist /= SUCCESS) THEN
@@ -342,11 +358,45 @@ CONTAINS
     ptr_coeff%edge2vert_coeff_cc%x(ie)     = 0._wp
     ptr_coeff%edge2vert_coeff_cc_t%x(ie)   = 0._wp
     ptr_coeff%edge2vert_vector_cc%x(ie)    = 0._wp
-    ptr_coeff%upwind_edge_position_cc%x(ie)= 0._wp
-    ptr_coeff%edge_position_cc%x(ie)       = 0._wp
-    ptr_coeff%cell_position_cc%x(ie)       = 0._wp
     ptr_coeff%edge2cell_coeff_cc_dyn%x(ie) = 0._wp
     ptr_coeff%edge2vert_coeff_cc_dyn%x(ie) = 0._wp
+  END DO
+
+  rl_start   = 1
+  rl_end     = min_rledge
+  i_startblk = ptr_patch%edges%start_blk(rl_start,1)
+  i_endblk   = ptr_patch%edges%end_blk(rl_end,1)  
+
+  DO jk = 1, nz_lev
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk,&
+                       & i_startidx, i_endidx, rl_start, rl_end)
+      DO je =  i_startidx, i_endidx
+        ptr_coeff%edge_position_cc(je,jk,jb)%x(:)       = 0._wp
+        ptr_coeff%moved_edge_position_cc(je,jk,jb)%x(:) = 0._wp
+        ptr_coeff%upwind_cell_position_cc(je,jk,jb)%x(:)= 0._wp
+      END DO
+    END DO
+  END DO
+ 
+  rl_end     = min_rlcell
+  i_startblk = ptr_patch%cells%start_blk(rl_start,1)
+  i_endblk   = ptr_patch%cells%end_blk(rl_end,1)  
+
+  DO jk = 1, nz_lev
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk,&
+                       & i_startidx, i_endidx, rl_start, rl_end)
+      DO je =  i_startidx, i_endidx
+        !ptr_coeff%upwind_cell_position_cc(je,jk,jb)%x(:)= 0._wp
+
+        ptr_coeff%cell_position_cc(je,jk,jb)&
+        &= gc2cc(ptr_patch%cells%center(je,jb))
+
+      END DO
+    END DO
   END DO
 
   ptr_coeff%fixed_vol_norm         = 0._wp
@@ -367,9 +417,12 @@ CONTAINS
   ptr_coeff%orientation  = 0.0_wp 
   ptr_coeff%bnd_edges_per_vertex= 0
 
+  ptr_coeff%upwind_cell_idx = 1
+  ptr_coeff%upwind_cell_blk = 1
+
   CALL message ('mo_operator_scalarprod_coeff_3D:allocate_exp_coeff','memory allocation finished')
 
- END SUBROUTINE allocate_exp_coeff
+ END SUBROUTINE allocate_exp_coeff 
 
 ! !-------------------------------------------------------------------------
 ! !
@@ -408,25 +461,25 @@ CONTAINS
        CALL get_indices_e(ptr_patch, jb, i_startblk_e, i_endblk_e,      &
          &                i_startidx_e, i_endidx_e, rl_start_e, rl_end_e)
        DO je = i_startidx_e, i_endidx_e
-         IF(v_base%lsm_oce_e(je,jk,jb) /= sea) THEN
-           ptr_coeff%edge_position_cc(je,jk,jb) = gc2cc(ptr_patch%edges%center(je,jb))
-         ENDIF
+         !IF(v_base%lsm_oce_e(je,jk,jb) /= sea) THEN
+         ptr_coeff%edge_position_cc(je,jk,jb) = gc2cc(ptr_patch%edges%center(je,jb))
+         !ENDIF
        ENDDO 
      END DO 
    END DO
  
-   DO jk=1,n_zlev
-     DO jb = i_startblk_c, i_endblk_c
-       CALL get_indices_c(ptr_patch, jb, i_startblk_c, i_endblk_c,      &
-         &                i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
-       DO jc = i_startidx_c, i_endidx_c
- 
-         IF(v_base%lsm_oce_c(jc,jk,jb) /= sea) THEN
-           ptr_coeff%cell_position_cc(jc,jk,jb) = gc2cc(ptr_patch%cells%center(jc,jb))
-         ENDIF
-       ENDDO 
-     END DO 
-   END DO
+!    DO jk=1,n_zlev
+!      DO jb = i_startblk_c, i_endblk_c
+!        CALL get_indices_c(ptr_patch, jb, i_startblk_c, i_endblk_c,      &
+!          &                i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
+!        DO jc = i_startidx_c, i_endidx_c
+!  
+!          IF(v_base%lsm_oce_c(jc,jk,jb) /= sea) THEN
+!            ptr_coeff%cell_position_cc(jc,jk,jb) = gc2cc(ptr_patch%cells%center(jc,jb))
+!          ENDIF
+!        ENDDO 
+!      END DO 
+!    END DO
 
   END SUBROUTINE init_operator_coeff
 ! !-------------------------------------------------------------------------
@@ -693,11 +746,11 @@ END DO
         &                i_startidx_v, i_endidx_v, rl_start_v, rl_end_v)
       DO jv = i_startidx_v, i_endidx_v
        DO je = 1, ptr_patch%verts%num_edges(jv,jb)
-
          ile = ptr_patch%verts%edge_idx(jv,jb,je)
          ibe = ptr_patch%verts%edge_blk(jv,jb,je)
          IF ( v_base%lsm_oce_e(ile,jk,ibe) /= sea) THEN
            ptr_coeff%edge2vert_coeff_cc(jv,jk,jb,je)%x(1:3) = 0.0_wp
+           ptr_coeff%variable_dual_vol_norm(jv,jk,jb,je)=0.0_wp
           ENDIF
        ENDDO 
       ENDDO
@@ -715,12 +768,17 @@ END DO
       z_area_scaled    = 0.0_wp
       !IF ( ptr_coeff%bnd_edges_per_vertex(jv,jk,jb) == 0 ) THEN
       IF ( i_v_ctr(jv,jk,jb) == ptr_patch%verts%num_edges(jv,jb) ) THEN
-        z_area_scaled = ptr_patch%verts%dual_area(jv,jb)/(re*re)
+        z_area_scaled = ptr_patch%verts%dual_area(jv,jb)/(re*re)!SUM(ptr_coeff%variable_dual_vol_norm(jv,jk,jb,:))
 
       !Final coefficient calculation
       DO jev = 1, ptr_patch%verts%num_edges(jv,jb)
-        ptr_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)&
-        &=ptr_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)/z_area_scaled
+
+        IF(z_area_scaled/=0.0_wp)THEN
+          ptr_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)&
+          &=ptr_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)!/z_area_scaled
+        ELSE
+          ptr_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)=0.0_wp
+        ENDIF
       END DO
 
       !ELSEIF(ptr_coeff%bnd_edges_per_vertex(jv,jk,jb)/=0)THEN!boundary edges are involved
@@ -753,13 +811,17 @@ END DO
           END IF
         END DO
         ! no division by zero
-        IF (zarea_fraction /= 0.0_wp) THEN
-           z_area_scaled   = zarea_fraction
-        ENDIF
+        !IF (zarea_fraction /= 0.0_wp) THEN
+        z_area_scaled   = ptr_patch%verts%dual_area(jv,jb)/(re*re)!zarea_fraction !SUM(ptr_coeff%variable_dual_vol_norm(jv,jk,jb,:))
+        !ENDIF
         !Final coefficient calculation
         DO jev = 1, ptr_patch%verts%num_edges(jv,jb)
-          ptr_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)&
-          &=ptr_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)/z_area_scaled
+          IF(z_area_scaled/=0.0_wp)THEN
+            ptr_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)&
+            &=ptr_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)!/z_area_scaled
+           ELSE
+             ptr_coeff%edge2vert_coeff_cc(jv,jk,jb,jev)%x(1:3)=0.0_wp
+           ENDIF
         END DO
       ENDIF
      ENDDO
@@ -1075,24 +1137,6 @@ END DO
     ptr_intp%fixed_vol_norm = ptr_intp%fixed_vol_norm/3.0_wp
 
 
-   !merge fixed volume and edge2cell coeff
-    DO jk=1,n_zlev
-      DO jb = i_startblk, i_endblk
-
-      CALL get_indices_c(ptr_patch, jb,&
-                       & i_startblk, i_endblk,&
-                       & i_startidx, i_endidx,&
-                       & rl_start, rl_end)
-
-        DO jc =  i_startidx, i_endidx
-          DO ie=1,no_cell_edges
-            ptr_intp%edge2cell_coeff_cc(jc,jk,jb,ie)%x&
-            & = ptr_intp%edge2cell_coeff_cc(jc,jk,jb,ie)%x/ptr_intp%fixed_vol_norm(jc,jk,jb)
-          END DO
-        END DO
-      END DO
-    END DO
-
     !Assign values to dynamical coefficients for surface layer
     EDGE_BLK_LOOP_DYN: DO jb = i_startblk, i_endblk
 
@@ -1107,6 +1151,28 @@ END DO
         END DO
       END DO EDGE_IDX_LOOP_DYN
     END DO EDGE_BLK_LOOP_DYN
+
+
+!commented put for testing--------------------------------
+
+!    !merge fixed volume and edge2cell coeff
+!     DO jk=1,n_zlev
+!       DO jb = i_startblk, i_endblk
+! 
+!       CALL get_indices_c(ptr_patch, jb,&
+!                        & i_startblk, i_endblk,&
+!                        & i_startidx, i_endidx,&
+!                        & rl_start, rl_end)
+! 
+!         DO jc =  i_startidx, i_endidx
+!           DO ie=1,no_cell_edges
+!             ptr_intp%edge2cell_coeff_cc(jc,jk,jb,ie)%x&
+!             & = ptr_intp%edge2cell_coeff_cc(jc,jk,jb,ie)%x/ptr_intp%fixed_vol_norm(jc,jk,jb)
+!           END DO
+!         END DO
+!       END DO
+!     END DO
+
 
 
     rl_start   = 1
@@ -1392,49 +1458,49 @@ END DO
     END DO VERT_BLK_LOOP
     END DO 
 
-    !--------------------------------------------------------------------------
-    ! SYNCHRONIZE ALL ELEMENTS OF V_BASE:
-    ! synchronize elements on cells
-    DO ie = 1, no_cell_edges
-      DO icc = 1, 3
-        z_sync_c(:,:,:) =  ptr_intp%edge2cell_coeff_cc(:,:,:,ie)%x(icc)
-        CALL sync_patch_array(SYNC_C, ptr_patch, z_sync_c(:,:,:))
-        ptr_intp%edge2cell_coeff_cc(:,:,:,ie)%x(icc) = z_sync_c(:,:,:)
-      END DO
-      z_sync_c(:,:,:) = ptr_intp%variable_vol_norm(:,:,:,ie)
-      CALL sync_patch_array(SYNC_C, ptr_patch, z_sync_c(:,:,:))
-      ptr_intp%variable_vol_norm(:,:,:,ie) = z_sync_c(:,:,:)
-    END DO
-    CALL sync_patch_array(SYNC_C, ptr_patch,ptr_intp%fixed_vol_norm)
-
-    ! synchronize elements on edges
-    DO ie = 1, 2
-      DO icc = 1, 3
-        z_sync_e(:,:,:) =  ptr_intp%edge2vert_coeff_cc_t(:,:,:,ie)%x(icc)
-        CALL sync_patch_array(SYNC_E, ptr_patch, z_sync_e(:,:,:))
-        ptr_intp%edge2vert_coeff_cc_t(:,:,:,ie)%x(icc) = z_sync_e(:,:,:)
-
-        z_sync_e(:,:,:) =  ptr_intp%edge2cell_coeff_cc_t(:,:,:,ie)%x(icc)
-        CALL sync_patch_array(SYNC_E, ptr_patch, z_sync_e(:,:,:))
-        ptr_intp%edge2cell_coeff_cc_t(:,:,:,ie)%x(icc) = z_sync_e(:,:,:)
-      END DO
-    END DO
-
-    ! synchronize cartesian coordinates on vertices:
-    DO ie = 1, no_vert_edges
-      DO icc = 1, 3
-        z_sync_v(:,:,:) =  ptr_intp%edge2vert_vector_cc(:,:,:,ie)%x(icc)
-        CALL sync_patch_array(SYNC_V, ptr_patch, z_sync_v(:,:,:))
-        ptr_intp%edge2vert_vector_cc(:,:,:,ie)%x(icc) = z_sync_v(:,:,:)
-
-        z_sync_v(:,:,:) = ptr_intp%edge2vert_coeff_cc(:,:,:,ie)%x(icc)
-        CALL sync_patch_array(SYNC_V, ptr_patch, z_sync_v(:,:,:))
-        ptr_intp%edge2vert_coeff_cc(:,:,:,ie)%x(icc) = z_sync_v(:,:,:)
-      END DO
-      z_sync_v(:,:,:) = ptr_intp%variable_dual_vol_norm(:,:,:,ie)
-      CALL sync_patch_array(SYNC_V, ptr_patch, z_sync_v(:,:,:))
-      ptr_intp%variable_dual_vol_norm(:,:,:,ie) = z_sync_v(:,:,:)
-    END DO
+!     !--------------------------------------------------------------------------
+!     ! SYNCHRONIZE ALL ELEMENTS OF V_BASE:
+!     ! synchronize elements on cells
+!     DO ie = 1, no_cell_edges
+!       DO icc = 1, 3
+!         z_sync_c(:,:,:) =  ptr_intp%edge2cell_coeff_cc(:,:,:,ie)%x(icc)
+!         CALL sync_patch_array(SYNC_C, ptr_patch, z_sync_c(:,:,:))
+!         ptr_intp%edge2cell_coeff_cc(:,:,:,ie)%x(icc) = z_sync_c(:,:,:)
+!       END DO
+!       z_sync_c(:,:,:) = ptr_intp%variable_vol_norm(:,:,:,ie)
+!       CALL sync_patch_array(SYNC_C, ptr_patch, z_sync_c(:,:,:))
+!       ptr_intp%variable_vol_norm(:,:,:,ie) = z_sync_c(:,:,:)
+!     END DO
+!     CALL sync_patch_array(SYNC_C, ptr_patch,ptr_intp%fixed_vol_norm)
+! 
+!     ! synchronize elements on edges
+!     DO ie = 1, 2
+!       DO icc = 1, 3
+!         z_sync_e(:,:,:) =  ptr_intp%edge2vert_coeff_cc_t(:,:,:,ie)%x(icc)
+!         CALL sync_patch_array(SYNC_E, ptr_patch, z_sync_e(:,:,:))
+!         ptr_intp%edge2vert_coeff_cc_t(:,:,:,ie)%x(icc) = z_sync_e(:,:,:)
+! 
+!         z_sync_e(:,:,:) =  ptr_intp%edge2cell_coeff_cc_t(:,:,:,ie)%x(icc)
+!         CALL sync_patch_array(SYNC_E, ptr_patch, z_sync_e(:,:,:))
+!         ptr_intp%edge2cell_coeff_cc_t(:,:,:,ie)%x(icc) = z_sync_e(:,:,:)
+!       END DO
+!     END DO
+! 
+!     ! synchronize cartesian coordinates on vertices:
+!     DO ie = 1, no_vert_edges
+!       DO icc = 1, 3
+!         z_sync_v(:,:,:) =  ptr_intp%edge2vert_vector_cc(:,:,:,ie)%x(icc)
+!         CALL sync_patch_array(SYNC_V, ptr_patch, z_sync_v(:,:,:))
+!         ptr_intp%edge2vert_vector_cc(:,:,:,ie)%x(icc) = z_sync_v(:,:,:)
+! 
+!         z_sync_v(:,:,:) = ptr_intp%edge2vert_coeff_cc(:,:,:,ie)%x(icc)
+!         CALL sync_patch_array(SYNC_V, ptr_patch, z_sync_v(:,:,:))
+!         ptr_intp%edge2vert_coeff_cc(:,:,:,ie)%x(icc) = z_sync_v(:,:,:)
+!       END DO
+!       z_sync_v(:,:,:) = ptr_intp%variable_dual_vol_norm(:,:,:,ie)
+!       CALL sync_patch_array(SYNC_V, ptr_patch, z_sync_v(:,:,:))
+!       ptr_intp%variable_dual_vol_norm(:,:,:,ie) = z_sync_v(:,:,:)
+!     END DO
 
     CALL message (TRIM(routine), 'end')
 
@@ -1679,28 +1745,22 @@ END DO
 !$OMP END PARALLEL
 
     ! synchronize all elements of ptr_intp:
-
     DO ie = 1, i_cell_type
 
         z_sync_c(:,:,:) = ptr_intp%div_coeff(:,:,:,ie)
         CALL sync_patch_array(SYNC_C, ptr_patch, z_sync_c(:,:,:))
         ptr_intp%div_coeff(:,:,:,ie) = z_sync_c(:,:,:)
-
 !         z_sync_c(:,:,:) = ptr_intp%n2s_coeff(:,:,:,ie)
 !         CALL sync_patch_array(SYNC_C, ptr_patch, z_sync_c(:,:,:))
 !         ptr_intp%n2s_coeff(:,:,:,ie) = z_sync_c(:,:,:)
-
     END DO
-
 
     CALL sync_patch_array(SYNC_E, ptr_patch, ptr_patch%edges%inv_dual_edge_length(:,:))
 
     DO ie = 1, 9-i_cell_type
-
         z_sync_v(:,:,:) = ptr_intp%rot_coeff(:,:,:,ie)
         CALL sync_patch_array(SYNC_v, ptr_patch, z_sync_v(:,:,:))
         ptr_intp%rot_coeff(:,:,:,ie) = z_sync_v(:,:,:)
-
     END DO
 
     CALL message (TRIM(routine), 'end')

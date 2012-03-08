@@ -511,10 +511,10 @@ ENDIF
   !-------------------------------------------------------------------------
   !>
   !!
-  SUBROUTINE init_ho_recon_fields( p_patch, p_os, p_coeff)
+  SUBROUTINE init_ho_recon_fields( p_patch, p_os, p_op_coeff)
     TYPE(t_patch), TARGET, INTENT(in)             :: p_patch
     TYPE(t_hydro_ocean_state), TARGET             :: p_os
-    TYPE(t_operator_coeff)                        :: p_coeff 
+    TYPE(t_operator_coeff)                        :: p_op_coeff 
 
     INTEGER :: jk
 
@@ -545,7 +545,7 @@ ENDIF
         &  jk,p_os%p_diag%p_vn%x(1),n_zlev,p_patch%nblks_c,'phy',ipl_src)
     ENDDO
 
-    IF (.NOT. is_restart_run()) CALL calc_vert_velocity( p_patch, p_os)
+    IF (.NOT. is_restart_run()) CALL calc_vert_velocity( p_patch, p_os, p_op_coeff)
 
   END SUBROUTINE init_ho_recon_fields
 

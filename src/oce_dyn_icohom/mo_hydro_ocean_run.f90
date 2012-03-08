@@ -102,7 +102,7 @@ USE mo_output,                 ONLY: init_output_files, write_output, &
 USE mo_oce_diagnostics,        ONLY: calculate_oce_diagnostics,&
   &                                  construct_oce_diagnostics,&
   &                                  destruct_oce_diagnostics, t_oce_timeseries
-
+ USE mo_operator_scalarprod_coeff_3D, ONLY: t_operator_coeff
 IMPLICIT NONE
 
 PRIVATE
@@ -162,7 +162,7 @@ CONTAINS
   LOGICAL :: l_outputtime
   CHARACTER(len=32) :: datestring
   TYPE(t_oce_timeseries), POINTER :: oce_ts
-  TYPE(t_operator_coeff)  :: ptr_coeff
+  TYPE(t_operator_coeff)  :: ptr_op_coeff
   ! TRUE=staggering between thermodynamic and dynamic part, offset of half timestep
   ! between dynamic and thermodynamic variables thermodynamic and dnamic variables are colocated in time
   LOGICAL, PARAMETER :: l_STAGGERED_TIMESTEP = .FALSE. 
@@ -181,11 +181,11 @@ CONTAINS
   END IF
   jg = n_dom
 
-! CALL allocate_exp_coeff( ppatch(jg), ptr_coeff)
-! CALL init_operator_coeff( ppatch(jg), ptr_coeff)
-! CALL apply_boundary2coeffs(ppatch(jg), ptr_coeff)
+  CALL allocate_exp_coeff( ppatch(jg), ptr_op_coeff)
+  CALL init_operator_coeff( ppatch(jg), ptr_op_coeff)
+  CALL apply_boundary2coeffs(ppatch(jg), ptr_op_coeff)
 
-  CALL init_ho_recon_fields( ppatch(jg), pstate_oce(jg), ptr_coeff)
+  CALL init_ho_recon_fields( ppatch(jg), pstate_oce(jg), ptr_op_coeff)
 
   IF (idiag_oce == 1) &
     & CALL construct_oce_diagnostics( ppatch(jg), pstate_oce(jg), p_ext_data(jg), oce_ts)
@@ -204,7 +204,10 @@ CONTAINS
     CALL message (TRIM(routine), message_text)
 
     IF(itestcase_oce==28)THEN
-      CALL advect_tracer_ab(ppatch(jg), pstate_oce(jg), p_phys_param,p_sfc_flx, jstep)
+      CALL advect_tracer_ab(ppatch(jg), pstate_oce(jg), &
+                           &p_phys_param,p_sfc_flx,&
+                           & ptr_op_coeff,&
+                           & jstep)
     ELSE
 
 
@@ -235,12 +238,18 @@ CONTAINS
    
           Call set_lateral_boundary_values(ppatch(jg), pstate_oce(jg)%p_prog(nold(1))%vn)
    
-          CALL calc_scalar_product_veloc( ppatch(jg), &
-            & pstate_oce(jg)%p_prog(nold(1))%vn,&
-            & pstate_oce(jg)%p_prog(nold(1))%vn,&
-            & pstate_oce(jg)%p_diag%h_e,        &
-            & pstate_oce(jg)%p_diag)
-   
+!            CALL calc_scalar_product_veloc( ppatch(jg), &
+!              & pstate_oce(jg)%p_prog(nold(1))%vn,&
+!              & pstate_oce(jg)%p_prog(nold(1))%vn,&
+!              & pstate_oce(jg)%p_diag%h_e,        &
+!              & pstate_oce(jg)%p_diag)
+
+           CALL calc_scalar_product_veloc_3D( ppatch(jg), &
+             & pstate_oce(jg)%p_prog(nold(1))%vn,         &
+             & pstate_oce(jg)%p_prog(nold(1))%vn,         &
+             & pstate_oce(jg)%p_diag%h_e,                 &
+             & pstate_oce(jg)%p_diag,                     &
+             & ptr_op_coeff) 
         ENDIF
 
         SELECT CASE (EOS_TYPE)
@@ -261,27 +270,31 @@ CONTAINS
       ! solve for new free surface
       IF (ltimer) CALL timer_start(timer_solve_ab)
       CALL solve_free_surface_eq_ab (ppatch(jg), pstate_oce(jg), p_ext_data(jg), &
-        &                            p_sfc_flx, p_phys_param, jstep, ptr_coeff, p_int(jg))
+        &                            p_sfc_flx, p_phys_param, jstep, ptr_op_coeff, p_int(jg))
       IF (ltimer) CALL timer_stop(timer_solve_ab)
 
       ! Step 4: calculate final normal velocity from predicted horizontal velocity vn_pred
       !         and updated surface height
       IF (ltimer) CALL timer_start(timer_normal_veloc)
-      CALL calc_normal_velocity_ab(ppatch(jg), pstate_oce(jg), p_ext_data(jg), p_phys_param)
+      CALL calc_normal_velocity_ab(ppatch(jg), pstate_oce(jg),&
+                                  &ptr_op_coeff, p_ext_data(jg), p_phys_param)
       IF (ltimer) CALL timer_stop(timer_normal_veloc)
 
       ! Step 5: calculate vertical velocity from continuity equation under incompressiblity condition
       ! in the non-shallow-water case
       IF ( iswm_oce /= 1 ) THEN
         IF (ltimer) CALL timer_start(timer_vert_veloc)
-        CALL calc_vert_velocity( ppatch(jg), pstate_oce(jg))
+        CALL calc_vert_velocity( ppatch(jg), pstate_oce(jg),ptr_op_coeff)
         IF (ltimer) CALL timer_stop(timer_vert_veloc)
       ENDIF
 
       ! Step 6: transport tracers and diffuse them
       IF (no_tracer>=1) THEN
         IF (ltimer) CALL timer_start(timer_tracer_ab)
-        CALL advect_tracer_ab(ppatch(jg), pstate_oce(jg), p_phys_param,p_sfc_flx, jstep)
+        CALL advect_tracer_ab(ppatch(jg), pstate_oce(jg), p_phys_param,&
+                             &p_sfc_flx,&
+                             &ptr_op_coeff,&
+                             & jstep)
         IF (ltimer) CALL timer_stop(timer_tracer_ab)
       ENDIF
 

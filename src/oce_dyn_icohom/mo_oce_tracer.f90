@@ -1,4 +1,4 @@
-!>
+!> 
 !! Contains the implementation of the tracer transport routines for the ICON ocean model.
 !! This comprises advection and diffusion in horizontal and vertical direction.
 !! 
@@ -65,7 +65,7 @@ USE mo_oce_boundcond,             ONLY: top_bound_cond_tracer
 USE mo_oce_physics
 USE mo_sea_ice,                   ONLY: t_sfc_flx
 !USE mo_scalar_product,            ONLY:  map_cell2edges,map_edges2cell,map_edges2cell
-!USE mo_oce_math_operators,        ONLY: div_oce, grad_fd_norm_oce, grad_fd_norm_oce_2d
+USE mo_oce_math_operators,        ONLY: div_oce_3D
 !USE mo_advection_utils,           ONLY: laxfr_upflux, laxfr_upflux_v
 USE mo_oce_diffusion,             ONLY: tracer_diffusion_horz, tracer_diffusion_vert_expl,&
                                       & tracer_diffusion_vert_impl_hom
@@ -73,7 +73,7 @@ USE mo_oce_diffusion,             ONLY: tracer_diffusion_horz, tracer_diffusion_
 USE mo_intp_data_strc,             ONLY: p_int_state
 USE mo_oce_tracer_transport_horz,    ONLY: advect_horizontal
 USE mo_oce_tracer_transport_vert,    ONLY: advect_vertical
-
+USE mo_operator_scalarprod_coeff_3D, ONLY: t_operator_coeff
 IMPLICIT NONE
 
 PRIVATE
@@ -88,7 +88,7 @@ PUBLIC :: advect_tracer_ab
 ! Private implemenation
 !
 PRIVATE :: advect_individual_tracer_ab
-
+PRIVATE :: prepare_tracer_transport
 
 INTEGER, PARAMETER  :: top=1
 INTEGER, PARAMETER :: UPWIND = 1
@@ -110,13 +110,14 @@ CONTAINS
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2010).
 !! 
-SUBROUTINE advect_tracer_ab(p_patch, p_os, p_param, p_sfc_flx, timestep)
+SUBROUTINE advect_tracer_ab(p_patch, p_os, p_param, p_sfc_flx,p_op_coeff, timestep)
 !
 !
 TYPE(t_patch), TARGET, INTENT(in) :: p_patch
 TYPE(t_hydro_ocean_state), TARGET :: p_os
 TYPE(t_ho_params), INTENT(inout)  :: p_param
 TYPE(t_sfc_flx), INTENT(INOUT)    :: p_sfc_flx
+TYPE(t_operator_coeff), INTENT(inout) :: p_op_coeff
 INTEGER                           :: timestep! Actual timestep (to distinghuish initial step from others)
 !
 !Local variables
@@ -124,6 +125,8 @@ INTEGER  :: i_no_t, jk
 REAL(wp) :: z_relax
 REAL(wp) :: z_c(nproma,n_zlev,p_patch%nblks_c)
 !-------------------------------------------------------------------------------
+
+Call prepare_tracer_transport(p_patch, p_os, p_param, p_sfc_flx, p_op_coeff, timestep)
 
 DO i_no_t = 1,no_tracer
   !First tracer is temperature
@@ -139,7 +142,7 @@ DO i_no_t = 1,no_tracer
 
   CALL advect_individual_tracer_ab( p_patch,                                &
                                & p_os%p_prog(nold(1))%tracer(:,:,:,i_no_t), &
-                               & p_os,                                      &
+                               & p_os, p_op_coeff,                          &
 !                                & p_os%p_aux%g_n_c_h(:,:,:,i_no_t),          &
 !                                & p_os%p_aux%g_nm1_c_h(:,:,:,i_no_t),        &
 !                                & p_os%p_aux%g_nimd_c_h(:,:,:,i_no_t),       &
@@ -222,6 +225,163 @@ END IF
 END SUBROUTINE advect_tracer_ab
 !-------------------------------------------------------------------------  
 !
+!  
+!>
+!! !  SUBROUTINE prepares next tracer transport step. Currently needed in horizontal
+!!    flux-scheme "MIMETIC-Miura". Geometric quantities are updated according to 
+!!    actual velocity. This information is required by MIURA-scheme and is identical 
+!!    for all tracers.
+!! 
+!! @par Revision History
+!! Developed  by  Peter Korn, MPI-M (2012).
+!! 
+SUBROUTINE prepare_tracer_transport(p_patch, p_os, p_param, p_sfc_flx, p_op_coeff, timestep)
+!
+!
+TYPE(t_patch), TARGET, INTENT(in)    :: p_patch
+TYPE(t_hydro_ocean_state), TARGET    :: p_os
+TYPE(t_ho_params), INTENT(inout)     :: p_param
+TYPE(t_sfc_flx), INTENT(INOUT)       :: p_sfc_flx  
+TYPE(t_operator_coeff),INTENT(INOUT) :: p_op_coeff
+INTEGER                              :: timestep
+!
+!Local variables
+INTEGER  :: i_no_t
+REAL(wp) :: z_relax
+REAL(wp) :: z_c(nproma,n_zlev,p_patch%nblks_c) 
+INTEGER  :: slev, elev
+INTEGER  :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start_c, rl_end_c
+INTEGER  :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, rl_start_e, rl_end_e
+INTEGER  :: je, jk, jb,jc         !< index of edge, vert level, block 
+INTEGER  :: il_v1, il_v2, ib_v1, ib_v2!, il_e, ib_e 
+INTEGER  :: il_c, ib_c
+REAL(wp) :: delta_z
+!TYPE(t_cartesian_coordinates) :: u_mean_cc(nproma,n_zlev,p_patch%nblks_e)
+!-------------------------------------------------------------------------------
+  slev = 1
+  elev = n_zlev
+
+  rl_start_e = 1
+  rl_end_e   = min_rledge
+
+  i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
+  i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
+
+  rl_start_c   = 1
+  rl_end_c     = min_rlcell
+  i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
+  i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
+
+
+  p_os%p_diag%w_time_weighted=ab_gam*p_os%p_diag%w + (1.0_wp-ab_gam)*p_os%p_diag%w_old
+
+  IF(FLUX_CALCULATION_HORZ==MIMETIC_MIURA.OR.FLUX_CALCULATION_HORZ==MIMETIC)THEN
+    DO jk = slev, elev
+      DO jb = i_startblk_e, i_endblk_e
+
+        CALL get_indices_e(p_patch, jb, i_startblk_e, i_endblk_e,&
+                         & i_startidx_e, i_endidx_e, rl_start_e, rl_end_e)
+
+        DO je =  i_startidx_e, i_endidx_e
+          IF(v_base%lsm_oce_e(je,jk,jb) <= sea_boundary)THEN
+
+            !Get indices of two adjacent vertices
+            il_v1 = p_patch%edges%vertex_idx(je,jb,1)
+            ib_v1 = p_patch%edges%vertex_blk(je,jb,1)
+            il_v2 = p_patch%edges%vertex_idx(je,jb,2)
+            ib_v2 = p_patch%edges%vertex_blk(je,jb,2)
+
+            p_os%p_diag%p_vn_mean(je,jk,jb)%x=0.5_wp*&
+            &(p_os%p_diag%p_vn_dual(il_v1,jk,ib_v1)%x+p_os%p_diag%p_vn_dual(il_v2,jk,ib_v2)%x) 
+
+            p_op_coeff%moved_edge_position_cc(je,jk,jb)%x&
+            & = p_op_coeff%edge_position_cc(je,jk,jb)%x   &
+            &  -0.5_wp*dtime*p_os%p_diag%p_vn_mean(je,jk,jb)%x
+ 
+            IF( p_os%p_diag%vn_time_weighted(je,jk,jb) >0.0_wp)THEN 
+              il_c = p_patch%edges%cell_idx(je,jb,1)
+              ib_c = p_patch%edges%cell_blk(je,jb,1)
+
+            ELSEIF( p_os%p_diag%vn_time_weighted(je,jk,jb) <=   0.0_wp)THEN 
+              il_c = p_patch%edges%cell_idx(je,jb,2)
+              ib_c = p_patch%edges%cell_blk(je,jb,2)
+            ENDIF
+
+            p_op_coeff%upwind_cell_idx(je,jk,jb)=il_c
+            p_op_coeff%upwind_cell_blk(je,jk,jb)=ib_c
+
+            p_op_coeff%upwind_cell_position_cc(je,jk,jb)%x&
+            &=p_op_coeff%cell_position_cc(il_c,jk,ib_c)%x
+
+          ENDIF
+        END DO 
+      END DO
+    END DO
+  ENDIF
+
+  !Calculation of mass flux and related quantities that are identical for all tracers
+ DO jb = i_startblk_e, i_endblk_e
+    CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, &
+    &                   rl_start_e, rl_end_e)
+    DO jk = 1, n_zlev
+      delta_z = v_base%del_zlev_m(jk)
+      DO je = i_startidx_e, i_endidx_e
+        !IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+          IF(jk==1)THEN
+             delta_z=v_base%del_zlev_m(jk) + p_os%p_diag%h_e(je,jk)!&
+             !&+min(p_os%p_prog(nold(1))%h(ilc1,ibc1),p_os%p_prog(nold(1))%h(ilc2,ibc2))
+             !delta_z=v_base%del_zlev_m(jk)+h_e(je,jb)
+          ENDIF
+          p_os%p_diag%mass_flx_e(je,jk,jb)  = delta_z*p_os%p_diag%vn_time_weighted(je,jk,jb)
+         !ENDIF
+      END DO
+    END DO
+  END DO
+
+    CALL div_oce_3D(  p_os%p_diag%mass_flx_e,&
+                   & p_patch,               &
+                   & p_op_coeff%div_coeff,&
+                   & p_os%p_diag%div_mass_flx_c)
+ 
+  !calculate (dummy) height consistent with divergence of mass fluxx
+  jk=1
+  DO jb = i_startblk_c, i_endblk_c
+    CALL get_indices_c( p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
+    &                   rl_start_c, rl_end_c)
+      DO jc = i_startidx_c, i_endidx_c
+        !IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+          delta_z       = v_base%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)&
+                        &*v_base%wet_c(jc,jk,jb)
+
+         p_os%p_diag%depth_c(jc,jk,jb)= delta_z
+
+          p_os%p_diag%cons_thick_c(jc,jk,jb)&
+          & = delta_z-dtime*p_os%p_diag%div_mass_flx_c(jc,jk,jb)&
+          &*v_base%wet_c(jc,jk,jb)
+        !ENDIF
+    END DO
+  END DO
+
+  DO jb = i_startblk_c, i_endblk_c
+    CALL get_indices_c( p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
+    &                   rl_start_c, rl_end_c)
+    DO jk = 2, n_zlev
+      delta_z = v_base%del_zlev_m(jk)
+      DO jc = i_startidx_c, i_endidx_c
+        !IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+          p_os%p_diag%depth_c(jc,jk,jb) = delta_z
+
+          p_os%p_diag%cons_thick_c(jc,jk,jb)&
+          & = delta_z-dtime*p_os%p_diag%div_mass_flx_c(jc,jk,jb)&
+          &*v_base%wet_c(jc,jk,jb)
+        !ENDIF
+      END DO
+    END DO
+  END DO
+
+END SUBROUTINE prepare_tracer_transport
+!-------------------------------------------------------------------------  
+!
 !
 !>
 !! !  SUBROUTINE advects the tracers present in the ocean model.
@@ -230,7 +390,7 @@ END SUBROUTINE advect_tracer_ab
 !! Developed  by  Peter Korn, MPI-M (2010).
 !! 
 SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,           &
-                                     & p_os, &!G_n_c_h,G_nm1_c_h,G_nimd_c_h, &
+                                     & p_os, p_op_coeff,&!G_n_c_h,G_nm1_c_h,G_nimd_c_h, &
                                      !& G_n_c_v, G_nm1_c_v, G_nimd_c_v, &
                                      & bc_top_tracer, bc_bot_tracer,&
                                      & K_h, A_v,                    &
@@ -240,6 +400,7 @@ SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,           &
 TYPE(t_patch), TARGET, INTENT(in) :: p_patch
 REAL(wp)                          :: trac_old(:,:,:)
 TYPE(t_hydro_ocean_state), TARGET :: p_os
+TYPE(t_operator_coeff),INTENT(INOUT) :: p_op_coeff
 ! REAL(wp) :: G_n_c_h   (nproma, n_zlev,   p_patch%nblks_c)  !G^n
 ! REAL(wp) :: G_nm1_c_h (nproma, n_zlev,   p_patch%nblks_c)  !G^(n-1)
 ! REAL(wp) :: G_nimd_c_h(nproma, n_zlev,   p_patch%nblks_c)  !G^(n+1/2)
@@ -255,23 +416,23 @@ INTEGER  :: timestep                                     ! Actual timestep (to d
 !
 !Local variables
 REAL(wp) :: delta_t
-REAL(wp) :: dummy_h_c(nproma,n_zlev, p_patch%nblks_c)
+!REAL(wp) :: dummy_h_c(nproma,n_zlev, p_patch%nblks_c)
 REAL(wp) :: trac_tmp(nproma,n_zlev, p_patch%nblks_c)
 INTEGER  :: jk
 ! CHARACTER(len=max_char_length), PARAMETER :: &
 !        & routine = ('mo_tracer_advection:advect_individual_tracer')
 !-------------------------------------------------------------------------------
 delta_t= dtime
-dummy_h_c= 0.0_wp
+!dummy_h_c= 0.0_wp
 trac_tmp = 0.0_wp
 
 ipl_src=1  ! output print level (1-5, fix)
 CALL print_mxmn('on entry - Tracer',1,trac_old(:,:,:),n_zlev, p_patch%nblks_c,'trc',ipl_src)
 
 CALL advect_horizontal(p_patch, trac_old,           &
-                     & p_os,&! G_n_c_h,G_nm1_c_h,G_nimd_c_h, &
+                     & p_os,p_op_coeff,&! G_n_c_h,G_nm1_c_h,G_nimd_c_h, &
                      & K_h,                    &
-                     & trac_tmp, timestep, delta_t,p_os%p_diag%h_e, dummy_h_c,&
+                     & trac_tmp, timestep, delta_t,p_os%p_diag%h_e, p_os%p_diag%cons_thick_c,&
                      & FLUX_CALCULATION_HORZ)
   !write(123,*)'-------------timestep---------------',timestep
 ! DO jk = 1, n_zlev
@@ -292,7 +453,7 @@ IF( iswm_oce /= 1) THEN
 !                         & G_n_c_v, G_nm1_c_v, G_nimd_c_v, &
                          & bc_top_tracer, bc_bot_tracer,   &
                          & A_v,                            &
-                         & trac_new, timestep, delta_t, dummy_h_c,&
+                         & trac_new, timestep, delta_t, p_os%p_diag%cons_thick_c,&
                          & FLUX_CALCULATION_VERT)
 !     DO jk = 1, n_zlev 
 !       write(*,*)'After vertical max/min old-new tracer:',jk,&

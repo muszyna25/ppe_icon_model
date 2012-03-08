@@ -67,12 +67,14 @@ USE mo_oce_boundcond,             ONLY: top_bound_cond_tracer
 USE mo_oce_physics
 USE mo_sea_ice,                   ONLY: t_sfc_flx
 USE mo_scalar_product,            ONLY:  map_cell2edges,map_edges2cell,map_edges2cell
-USE mo_oce_math_operators,        ONLY: div_oce, grad_fd_norm_oce, grad_fd_norm_oce_2d
+USE mo_oce_math_operators,        ONLY:&! div_oce,grad_fd_norm_oce,&
+                                       &div_oce_3D, grad_fd_norm_oce_3D!, grad_fd_norm_oce_2d
 USE mo_advection_utils,           ONLY: laxfr_upflux, laxfr_upflux_v
 USE mo_oce_diffusion,             ONLY: tracer_diffusion_horz, tracer_diffusion_vert_expl,&
                                       & tracer_diffusion_vert_impl_hom
 USE mo_oce_ab_timestepping_mimetic,ONLY: l_STAGGERED_TIMESTEP
 USE mo_intp_data_strc,             ONLY: p_int_state
+USE mo_operator_scalarprod_coeff_3D, ONLY: t_operator_coeff
 IMPLICIT NONE
 
 PRIVATE
@@ -110,14 +112,15 @@ CONTAINS
 !! Developed  by  Peter Korn, MPI-M (2011).
 !! 
 SUBROUTINE advect_horizontal(p_patch, trac_old,           &
-                           & p_os,&! G_n_c_h,G_nm1_c_h,G_nimd_c_h, &
+                           & p_os,p_op_coeff,&! G_n_c_h,G_nm1_c_h,G_nimd_c_h, &
                            & K_h,                    &
                            & trac_new, timestep, delta_t, h_e, dummy_h_c, FLUX_CALCULATION_HORZ)
 !
 !
 TYPE(t_patch), TARGET, INTENT(in) :: p_patch
 REAL(wp)                          :: trac_old(:,:,:)
-TYPE(t_hydro_ocean_state), TARGET :: p_os
+TYPE(t_hydro_ocean_state), TARGET :: p_os    
+TYPE(t_operator_coeff)            :: p_op_coeff
 !3 arrays for explicit part for tracer in Adams-Bashford  stepping,
 !stores information across different timelevels 
 ! REAL(wp) :: G_n_c_h   (nproma, n_zlev,   p_patch%nblks_c)  !G^n
@@ -143,16 +146,16 @@ REAL(wp) :: z_adv_flux_h(nproma,n_zlev,p_patch%nblks_e)  ! horizontal advective 
 REAL(wp) :: z_div_adv_h(nproma,n_zlev,p_patch%nblks_c)   ! horizontal tracer divergence
 REAL(wp) :: z_div_diff_h(nproma,n_zlev,p_patch%nblks_c)  ! horizontal tracer divergence
 REAL(wp) :: z_diff_flux_h(nproma,n_zlev,p_patch%nblks_e) ! horizontal diffusive tracer flux
-REAL(wp) :: z_transport_vn(nproma,n_zlev,p_patch%nblks_e)! horizontal transport velocity
+!REAL(wp) :: z_transport_vn(nproma,n_zlev,p_patch%nblks_e)! horizontal transport velocity
 
 !REAL(wp) :: z_mass_flux_h(nproma,n_zlev, p_patch%nblks_e)
 !REAL(wp) :: z_trac_c(nproma,n_zlev, p_patch%nblks_c)
 !REAL(wp) :: z_trac_e(nproma,n_zlev, p_patch%nblks_e)
-REAL(wp) :: z_div_mass_flux_h(nproma,n_zlev, p_patch%nblks_c)
-REAL(wp) :: z_h(nproma,n_zlev, p_patch%nblks_c)
-REAL(wp) :: z_mass_flux(nproma,n_zlev, p_patch%nblks_e)
+!REAL(wp) :: z_div_mass_flux_h(nproma,n_zlev, p_patch%nblks_c)
+!REAL(wp) :: z_h(nproma,n_zlev, p_patch%nblks_c)
+!REAL(wp) :: z_mass_flux(nproma,n_zlev, p_patch%nblks_e)
 !REAL(wp) :: w_s(nproma,p_patch%nblks_c)
-REAL(wp) :: z_h_tmp_c(nproma,n_zlev, p_patch%nblks_e)
+!REAL(wp) :: z_h_tmp_c(nproma,n_zlev, p_patch%nblks_e)
 !REAL(wp) :: z_grad_T(nproma,n_zlev,p_patch%nblks_e)
 !REAL(wp) :: max_val, min_val, dtime2
 !REAL(wp) :: z_tol
@@ -178,27 +181,11 @@ z_adv_flux_h  = 0.0_wp
 z_div_adv_h   = 0.0_wp
 z_div_diff_h  = 0.0_wp
 z_diff_flux_h = 0.0_wp
-!z_mass_flux_h = 0.0_wp
-z_h           = 0.0_wp
-!z_trac_c      =0.0_wp
-z_div_mass_flux_h=0.0_wp
-z_mass_flux        = 0.0_wp
-z_h_tmp_c       = 0.0_wp
-!   DO jb = i_startblk_c, i_endblk_c
-!     CALL get_indices_c( p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
-!     &                   rl_start_c, rl_end_c)
-!     DO jk = 1, n_zlev
-!       delta_z = v_base%del_zlev_m(jk)
-!       DO jc = i_startidx_c, i_endidx_c
-!         IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-!           IF (jk == 1) delta_z = v_base%del_zlev_m(jk)&
-!                              & + p_os%p_prog(nnew(1))%h(jc,jb)
-! 
-!             z_trac_c(jc,jk,jb)=trac_old(jc,jk,jb)!*delta_z
-!         ENDIF
-!       END DO
-!     END DO
-!   END DO
+!dummy_h_c     = 0.0_wp
+!z_h           = 0.0_wp
+!z_div_mass_flux_h= 0.0_wp
+!z_mass_flux      = 0.0_wp
+!z_h_tmp_c        = 0.0_wp
 
   ! Initialize timer for horizontal advection
   IF (ltimer) CALL timer_start(timer_adv_horz)
@@ -208,23 +195,19 @@ z_h_tmp_c       = 0.0_wp
   SELECT CASE(FLUX_CALCULATION_HORZ)
 
   CASE(UPWIND)!, MIMETIC)
-    !produce weighted transport velocity
-      z_transport_vn = ab_gam*p_os%p_prog(nnew(1))%vn + (1.0_wp-ab_gam)*p_os%p_prog(nold(1))%vn
 
     !upwind estimate of tracer flux
     CALL upwind_hflux_oce( p_patch,        &
                          & trac_old,       &!      z_trac_c,       &
-                         & z_transport_vn, &
+                         & p_os%p_diag%vn_time_weighted, &
                          & z_adv_flux_h )
   CASE(CENTRAL)!,MIMETIC)
-    !produce weighted transport velocity
-      z_transport_vn = ab_gam*p_os%p_prog(nnew(1))%vn + (1.0_wp-ab_gam)*p_os%p_prog(nold(1))%vn
 
      !central estimate of tracer flux
     CALL central_hflux_oce( p_patch,       &
                          &  trac_old,      &
-                         & z_transport_vn, &
-                         & z_adv_flux_h )
+                         &  p_os%p_diag%vn_time_weighted, &
+                         &  z_adv_flux_h )
 !     CASE(MIMETIC)
    !produce weighted transport velocity
 !     z_transport_vn = ab_gam*p_os%p_prog(nnew(1))%vn + (1.0_wp-ab_gam)*p_os%p_prog(nold(1))%vn
@@ -244,15 +227,21 @@ z_h_tmp_c       = 0.0_wp
 !     END DO
 !       CALL map_cell2edges( p_patch, z_vn_c, z_adv_flux_h )
    CASE(MIMETIC_MIURA, MIMETIC)
-   !produce weighted transport velocity
-     z_transport_vn = ab_gam*p_os%p_prog(nnew(1))%vn + (1.0_wp-ab_gam)*p_os%p_prog(nold(1))%vn
+
    !upwind estimate of tracer flux
    CALL mimetic_miura_hflux_oce( p_patch,        &
                         & trac_old, &!z_trac_c,       &
-                        & z_transport_vn, &    
+                        & p_os%p_diag%vn_time_weighted, & 
+                        & p_os%p_diag%p_vn_mean,        &
+                        & p_op_coeff,                   &
                         & p_os%p_diag%p_vn_dual,&
                         & z_adv_flux_h )
   END SELECT
+
+
+
+
+
 
   IF (ltimer) CALL timer_stop(timer_adv_horz)
  
@@ -271,58 +260,84 @@ z_h_tmp_c       = 0.0_wp
               ilc2 = p_patch%edges%cell_idx(je,jb,2)
               ibc2 = p_patch%edges%cell_blk(je,jb,2)
 
-             delta_z=v_base%del_zlev_m(jk)&
-             &+min(p_os%p_prog(nold(1))%h(ilc1,ibc1),p_os%p_prog(nold(1))%h(ilc2,ibc2))
+             delta_z=v_base%del_zlev_m(jk) + p_os%p_diag%h_e(je,jk)!&
+             !&+min(p_os%p_prog(nold(1))%h(ilc1,ibc1),p_os%p_prog(nold(1))%h(ilc2,ibc2))
              !delta_z=v_base%del_zlev_m(jk)+h_e(je,jb)
           ENDIF
-          z_mass_flux(je,jk,jb)  = delta_z*z_transport_vn(je,jk,jb)
-          z_adv_flux_h(je,jk,jb) = delta_z*z_adv_flux_h(je,jk,jb)
+          !z_mass_flux(je,jk,jb)             = delta_z*p_os%p_diag%vn_time_weighted(je,jk,jb)!z_transport_vn(je,jk,jb)
+          !p_os%p_diag%mass_flx_e(je,jk,jb)  = delta_z*p_os%p_diag%vn_time_weighted(je,jk,jb)
+          z_adv_flux_h(je,jk,jb)            = delta_z*z_adv_flux_h(je,jk,jb)
         ENDIF
       END DO
     END DO
   END DO
 
-  CALL div_oce( z_mass_flux, p_patch, z_div_mass_flux_h)
-  CALL div_oce( z_adv_flux_h, p_patch, z_div_adv_h)
 
-  !calculate (dummy) height consistent with divergence of mass fluxx
-  DO jb = i_startblk_c, i_endblk_c
-    CALL get_indices_c( p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
-    &                   rl_start_c, rl_end_c)
-    DO jk = 1, n_zlev
-      delta_z = v_base%del_zlev_m(jk)
-      DO jc = i_startidx_c, i_endidx_c
 
-        IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-          IF(jk==1)delta_z=v_base%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)
-            z_h(jc,jk,jb) = delta_z
-            dummy_h_c(jc,jk,jb) = delta_z - dtime*z_div_mass_flux_h(jc,jk,jb)
-        ENDIF
-      END DO
-    END DO
-  END DO
+!   !CALL div_oce( z_mass_flux, p_patch, z_div_mass_flux_h)
+!   !CALL div_oce_3D( z_mass_flux, p_patch,p_op_coeff%div_coeff, z_div_mass_flux_h)
+!    CALL div_oce_3D(  p_os%p_diag%mass_flx_e,&
+!                   & p_patch,               &
+!                   & p_op_coeff%div_coeff,&
+!                   & p_os%p_diag%div_mass_flx_c)
+! 
+!   !calculate (dummy) height consistent with divergence of mass fluxx
+!   jk=1
+!   DO jb = i_startblk_c, i_endblk_c
+!     CALL get_indices_c( p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
+!     &                   rl_start_c, rl_end_c)
+!       DO jc = i_startidx_c, i_endidx_c
+!         !IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+!           delta_z       = v_base%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)&
+!                         &*v_base%wet_c(jc,jk,jb)
+! 
+!           !z_h(jc,jk,jb)                = delta_z
+!           p_os%p_diag%depth_c(jc,jk,jb)= delta_z
+! 
+!           !dummy_h_c(jc,jk,jb) = delta_z - dtime*z_div_mass_flux_h(jc,jk,jb)&
+!           !             &*v_base%wet_c(jc,jk,jb)
+! 
+!           p_os%p_diag%cons_thick_c(jc,jk,jb)&
+!           & = delta_z-dtime*p_os%p_diag%div_mass_flx_c(jc,jk,jb)&
+!           &*v_base%wet_c(jc,jk,jb)
+!         !ENDIF
+!     END DO
+!   END DO
+! 
+!   DO jb = i_startblk_c, i_endblk_c
+!     CALL get_indices_c( p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
+!     &                   rl_start_c, rl_end_c)
+!     DO jk = 2, n_zlev
+!       delta_z = v_base%del_zlev_m(jk)
+!       DO jc = i_startidx_c, i_endidx_c
+!         !IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+!           !z_h(jc,jk,jb)                 = delta_z
+!           p_os%p_diag%depth_c(jc,jk,jb) = delta_z
+!           !dummy_h_c(jc,jk,jb) = delta_z - dtime*z_div_mass_flux_h(jc,jk,jb)*v_base%wet_c(jc,jk,jb)
+! 
+!           p_os%p_diag%cons_thick_c(jc,jk,jb)&
+!           & = delta_z-dtime*p_os%p_diag%div_mass_flx_c(jc,jk,jb)&
+!           &*v_base%wet_c(jc,jk,jb)
+!         !ENDIF
+!       END DO
+!     END DO
+!   END DO
 
   IF(FLUX_CALCULATION_HORZ==MIMETIC_MIURA .OR. FLUX_CALCULATION_HORZ==MIMETIC)THEN
      IF (ltimer) CALL timer_start(timer_hflx_lim)
-     z_h_tmp_c = z_adv_flux_h
-     CALL hflx_limiter_oce_mo( p_patch,&
-&                              trac_old,       &  !p_cc
-&                              z_mass_flux,    &  !p_mass_flx_e
-&                              z_adv_flux_h,   &  !p_mflx_tracer_h
-&                              z_h,            &  !p_thick_old,    
-&                              dummy_h_c)      !  !p_thick_new)
+     !z_h_tmp_c = z_adv_flux_h
+     CALL hflx_limiter_oce_mo( p_patch,                 &
+&                              trac_old,                &
+&                              p_os%p_diag%mass_flx_e,  & !z_mass_flux,    &  !p_mass_flx_e
+&                              z_adv_flux_h,            & !p_mflx_tracer_h
+&                              p_os%p_diag%depth_c,     &!z_h,            &  !p_thick_old,    
+&                              p_os%p_diag%cons_thick_c,&!dummy_h_c,      &
+&                              p_op_coeff)               !  !p_thick_new)
      IF (ltimer) CALL timer_stop(timer_hflx_lim)
   ENDIF
 
-
- 
-  ! IF(ldbg)THEN
-!   DO jk = 1, n_zlev
-!   write(*,*)'max/min dummy height:',jk,&
-!   &maxval(dummy_h_c(:,jk,:)),&
-!   &minval(dummy_h_c(:,jk,:))
-!   END DO
-! !  ENDIF
+  !CALL div_oce( z_adv_flux_h, p_patch, z_div_adv_h)
+  CALL div_oce_3D( z_adv_flux_h, p_patch,p_op_coeff%div_coeff, z_div_adv_h)
 ! DO jb = i_startblk_c, i_endblk_c
 !     CALL get_indices_c( p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
 !     &                   rl_start_c, rl_end_c)
@@ -347,8 +362,8 @@ z_h_tmp_c       = 0.0_wp
   IF (ltimer) CALL timer_stop(timer_dif_horz)
 
   !Calculate divergence of diffusive flux
-  CALL div_oce( z_diff_flux_h, p_patch, z_div_diff_h)
-
+!   CALL div_oce( z_diff_flux_h, p_patch, z_div_diff_h)
+  CALL div_oce_3D( z_diff_flux_h, p_patch,p_op_coeff%div_coeff, z_div_diff_h)
 
 !IF(ldbg)THEN
 !   DO jk = 1, n_zlev
@@ -357,29 +372,54 @@ z_h_tmp_c       = 0.0_wp
 !   END DO
 !ENDIF
   !Final step: calculate new tracer values
-  DO jk = 1, n_zlev
-    delta_z = v_base%del_zlev_m(jk)
+    jk = 1    
+    DO jb = i_startblk_c, i_endblk_c
     CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c,&
                      & i_startidx_c, i_endidx_c,&
                      & rl_start_c, rl_end_c)
-    DO jb = i_startblk_c, i_endblk_c
       DO jc = i_startidx_c, i_endidx_c
-        IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-
-          IF(dummy_h_c(jc,jk,jb)/=0.0_wp)THEN
-
-             IF(jk==1)delta_z=v_base%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)
+        !IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+           !IF(dummy_h_c(jc,jk,jb)/=0.0_wp)THEN
+           IF( v_base%wet_c(jc,jk,jb)>0.0_wp)THEN
+             delta_z=v_base%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)
 
              trac_new(jc,jk,jb) = (trac_old(jc,jk,jb)*delta_z       &
                                  & -delta_t*(z_div_adv_h(jc,jk,jb)  &
-                                 & -z_div_diff_h(jc,jk,jb)))          &
-                                 &/dummy_h_c(jc,jk,jb)
+                                 & -z_div_diff_h(jc,jk,jb)))        &
+                                 &*v_base%wet_c(jc,jk,jb)&
+                                 &/p_os%p_diag%cons_thick_c(jc,jk,jb)!dummy_h_c(jc,jk,jb)
 !   write(123,*)'tracer_old:_new',jc,jk,jb,trac_old(jc,jk,jb),trac_new(jc,jk,jb),&
 !   &z_div_adv_h(jc,jk,jb), dummy_h_c(jc,jk,jb), delta_z
-          ELSE
-            trac_new(jc,jk,jb) = 0.0_wp
+          !ELSE
+          !  trac_new(jc,jk,jb) = 0.0_wp
           ENDIF
-        ENDIF
+        !ENDIF
+      END DO
+    END DO
+
+
+  DO jk = 2, n_zlev
+    delta_z = v_base%del_zlev_m(jk)
+    DO jb = i_startblk_c, i_endblk_c
+    CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c,&
+                     & i_startidx_c, i_endidx_c,&
+                     & rl_start_c, rl_end_c)
+
+      DO jc = i_startidx_c, i_endidx_c
+        !IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+          !IF(dummy_h_c(jc,jk,jb)/=0.0_wp)THEN
+          IF( v_base%wet_c(jc,jk,jb)>0.0_wp)THEN
+             trac_new(jc,jk,jb) = (trac_old(jc,jk,jb)*delta_z       &
+                                 & -delta_t*(z_div_adv_h(jc,jk,jb)  &
+                                 & -z_div_diff_h(jc,jk,jb)))        &
+                                 &*v_base%wet_c(jc,jk,jb)           &
+                                 &/p_os%p_diag%cons_thick_c(jc,jk,jb)!dummy_h_c(jc,jk,jb)
+!   write(123,*)'tracer_old:_new',jc,jk,jb,trac_old(jc,jk,jb),trac_new(jc,jk,jb),&
+!   &z_div_adv_h(jc,jk,jb), dummy_h_c(jc,jk,jb), delta_z
+          !ELSE
+          !  trac_new(jc,jk,jb) = 0.0_wp
+          ENDIF
+        !ENDIF
       END DO
     END DO
   END DO
@@ -395,12 +435,13 @@ END SUBROUTINE advect_horizontal
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2011).
 !! 
-SUBROUTINE elad(p_patch, trac_old, trac_new, p_os)
+SUBROUTINE elad(p_patch, trac_old, trac_new,p_op_coeff, p_os)
 !
 !
 TYPE(t_patch), TARGET, INTENT(in) :: p_patch
 REAL(wp), INTENT(IN)  :: trac_old(:,:,:)
 REAL(wp), INTENT(OUT) :: trac_new(:,:,:)
+TYPE(t_operator_coeff), INTENT(IN)        :: p_op_coeff
 TYPE(t_hydro_ocean_state), TARGET :: p_os
 !3 arrays for explicit part for tracer in Adams-Bashford  stepping,
 !stores information across different timelevels 
@@ -540,9 +581,13 @@ ITERATION_LOOP: Do iter = 1, i_max_iter
 
 
    !Step 3: Calculate diffusion of excess field
-   CALL grad_fd_norm_oce( z_excess, p_patch, z_grad_excess)
+   !CALL grad_fd_norm_oce( z_excess, p_patch, z_grad_excess)
+    CALL grad_fd_norm_oce_3D( z_excess,               &
+           &                  p_patch,                &
+           &                  p_op_coeff%grad_coeff,  &
+           &                  z_grad_excess)
    z_grad_excess = z_K*z_grad_excess
-   CALL div_oce( z_grad_excess, p_patch, z_diff_excess)
+   CALL div_oce_3D( z_grad_excess, p_patch,p_op_coeff%div_coeff, z_diff_excess)
 
 ! DO jk=1,n_zlev
 ! write(*,*)'max-min diffusion',jk,&
@@ -846,12 +891,15 @@ END SUBROUTINE elad
   !! @par Revision History
   !! Developed by P. Korn, (2011).
   !!
-  SUBROUTINE mimetic_miura_hflux_oce( ppatch, pvar_c, pvn_e, pvn_dual_cc,pflux_e,&
+  SUBROUTINE mimetic_miura_hflux_oce( ppatch, pvar_c, pvn_e, pvn_mean_cc,&
+                                    & p_op_coeff, pvn_dual_cc,pflux_e,&
                                     & opt_slev, opt_elev )
     TYPE(t_patch), TARGET, INTENT(IN) :: ppatch      !< patch on which computation is performed
     REAL(wp), INTENT(INOUT)  :: pvar_c(:,:,:)      !< advected cell centered variable
     REAL(wp), INTENT(INOUT)  :: pvn_e(:,:,:)       !< normal velocity on edges
-    TYPE(t_cartesian_coordinates) :: pvn_dual_cc(:,:,:)
+    TYPE(t_cartesian_coordinates) :: pvn_dual_cc(:,:,:)     
+    TYPE(t_cartesian_coordinates) :: pvn_mean_cc(:,:,:)
+    TYPE(t_operator_coeff)        :: p_op_coeff
     !EAL(wp), INTENT(INOUT), OPTIONAL :: ph_e (:,:)         !< surface elevation on edges
     REAL(wp), INTENT(INOUT)  :: pflux_e(:,:,:)   !< variable in which the upwind flux is stored
     INTEGER, INTENT(in), OPTIONAL :: opt_slev    ! optional vertical start level
@@ -885,6 +933,9 @@ END SUBROUTINE elad
     ELSE
       elev = n_zlev
     END IF
+
+    il_c=1
+    ib_c=1
 
     rl_start = 1
     rl_end   = min_rledge
@@ -920,97 +971,98 @@ END SUBROUTINE elad
 
     !Step 1: velocity vector (not just normal component) at cell edges.
     !obtained by arithmetic average of two vertex velocity vectors
-    LEVEL_LOOP: DO jk = slev, elev
-      EDGE_BLK_LOOP: DO jb = i_startblk_e, i_endblk_e
-
-        CALL get_indices_e(ppatch, jb, i_startblk_e, i_endblk_e,&
-                         & i_startidx_e, i_endidx_e, rl_start, rl_end)
-
-        EDGE_IDX_LOOP: DO je =  i_startidx_e, i_endidx_e
-
-          IF(v_base%lsm_oce_e(je,jk,jb) <= sea_boundary)THEN
-
-            !Get indices of two adjacent vertices
-            il_v1 = ppatch%edges%vertex_idx(je,jb,1)
-            ib_v1 = ppatch%edges%vertex_blk(je,jb,1)
-            il_v2 = ppatch%edges%vertex_idx(je,jb,2)
-            ib_v2 = ppatch%edges%vertex_blk(je,jb,2)
-
-!             u_v1_cc%x  = 0.0_wp
-!             z_weight   = 0.0_wp
-!             DO ie=1, ppatch%verts%num_edges(il_v1,ib_v1) !no_vert_edges
-!               il_e = ppatch%verts%edge_idx(il_v1,ib_v1,ie)
-!               ib_e = ppatch%verts%edge_blk(il_v1,ib_v1,ie)
-!               z_thick = v_base%del_zlev_m(jk)
-!               IF ( iswm_oce == 1 ) THEN
-!                 z_thick    = 1.0_wp!v_base%del_zlev_m(jk) +h_e(il_e,ib_e)
-!               ELSEIF( iswm_oce /= 1 ) THEN 
-!                 !IF (jk == 1 )THEN
-!                 z_thick = v_base%del_zlev_m(jk) !+ h_e(il_e,ib_e) 
-!                 !ENDIF
-!               ENDIF 
-!               IF ( v_base%lsm_oce_e(il_e,jk,ib_e) < sea_boundary ) THEN
-!                 z_weight = z_weight + p_int_state(1)%variable_dual_vol_norm(il_v1,ib_v1,ie)*z_thick
-!                 u_v1_cc%x = u_v1_cc%x +                      &
-!                 &           p_int_state(1)%edge2vert_coeff_cc(il_v1,ib_v1,ie)%x * &
-!                 &           pvn_e(il_e,jk,ib_e)*z_thick                  
-!               ENDIF
-!             END DO
-!             IF(z_weight/=0.0_wp)THEN
-!               u_v1_cc%x = u_v1_cc%x/(z_weight)!*z_h_approx)
-!             ENDIF
-!             u_v2_cc%x   = 0.0_wp
-!             z_weight    = 0.0_wp
-!             DO ie=1, ppatch%verts%num_edges(il_v2,ib_v2) !no_vert_edges
-!               il_e = ppatch%verts%edge_idx(il_v2,ib_v2,ie)
-!               ib_e = ppatch%verts%edge_blk(il_v2,ib_v2,ie)
-!               z_thick = v_base%del_zlev_m(jk)
-!               IF ( iswm_oce == 1 ) THEN
-!                 z_thick    = 1.0_wp!v_base%del_zlev_m(jk) + h_e(il_e,ib_e)
-!               ELSEIF( iswm_oce /= 1 ) THEN 
-!                !IF (jk == 1 )THEN
-!                 z_thick = v_base%del_zlev_m(jk) !+ h_e(il_e,ib_e) 
-!                !ENDIF
-!               ENDIF 
-!               IF ( v_base%lsm_oce_e(il_e,jk,ib_e)  < sea_boundary ) THEN
-!                 z_weight = z_weight + p_int_state(1)%variable_dual_vol_norm(il_v2,ib_v2,ie)*z_thick
-!                 u_v2_cc%x = u_v2_cc%x +                      &
-!                 &           p_int_state(1)%edge2vert_coeff_cc(il_v2,ib_v2,ie)%x * &
-!                 &           pvn_e(il_e,jk,ib_e)*z_thick
-!               ENDIF
-!             END DO
-!             IF(z_weight/=0.0_wp)THEN
-!               u_v2_cc%x = u_v2_cc%x/(z_weight)!*z_h_approx)
-!             ENDIF
-
-           u_mean_cc(je,jk,jb)%x=0.5_wp*&
-           &(pvn_dual_cc(il_v1,jk,ib_v1)%x+pvn_dual_cc(il_v2,jk,ib_v2)%x)            !0.5_wp*( u_v1_cc%x+ u_v2_cc%x)
-         ELSE
-           u_mean_cc(je,jk,jb)%x= 0.0_wp
-       ENDIF
-      END DO EDGE_IDX_LOOP
-    END DO EDGE_BLK_LOOP
-  END DO LEVEL_LOOP
+!     LEVEL_LOOP: DO jk = slev, elev
+!       EDGE_BLK_LOOP: DO jb = i_startblk_e, i_endblk_e
+! 
+!         CALL get_indices_e(ppatch, jb, i_startblk_e, i_endblk_e,&
+!                          & i_startidx_e, i_endidx_e, rl_start, rl_end)
+! 
+!         EDGE_IDX_LOOP: DO je =  i_startidx_e, i_endidx_e
+! 
+!           IF(v_base%lsm_oce_e(je,jk,jb) <= sea_boundary)THEN
+! 
+!             !Get indices of two adjacent vertices
+!             il_v1 = ppatch%edges%vertex_idx(je,jb,1)
+!             ib_v1 = ppatch%edges%vertex_blk(je,jb,1)
+!             il_v2 = ppatch%edges%vertex_idx(je,jb,2)
+!             ib_v2 = ppatch%edges%vertex_blk(je,jb,2)
+! 
+! !             u_v1_cc%x  = 0.0_wp
+! !             z_weight   = 0.0_wp
+! !             DO ie=1, ppatch%verts%num_edges(il_v1,ib_v1) !no_vert_edges
+! !               il_e = ppatch%verts%edge_idx(il_v1,ib_v1,ie)
+! !               ib_e = ppatch%verts%edge_blk(il_v1,ib_v1,ie)
+! !               z_thick = v_base%del_zlev_m(jk)
+! !               IF ( iswm_oce == 1 ) THEN
+! !                 z_thick    = 1.0_wp!v_base%del_zlev_m(jk) +h_e(il_e,ib_e)
+! !               ELSEIF( iswm_oce /= 1 ) THEN 
+! !                 !IF (jk == 1 )THEN
+! !                 z_thick = v_base%del_zlev_m(jk) !+ h_e(il_e,ib_e) 
+! !                 !ENDIF
+! !               ENDIF 
+! !               IF ( v_base%lsm_oce_e(il_e,jk,ib_e) < sea_boundary ) THEN
+! !                 z_weight = z_weight + p_int_state(1)%variable_dual_vol_norm(il_v1,ib_v1,ie)*z_thick
+! !                 u_v1_cc%x = u_v1_cc%x +                      &
+! !                 &           p_int_state(1)%edge2vert_coeff_cc(il_v1,ib_v1,ie)%x * &
+! !                 &           pvn_e(il_e,jk,ib_e)*z_thick                  
+! !               ENDIF
+! !             END DO
+! !             IF(z_weight/=0.0_wp)THEN
+! !               u_v1_cc%x = u_v1_cc%x/(z_weight)!*z_h_approx)
+! !             ENDIF
+! !             u_v2_cc%x   = 0.0_wp
+! !             z_weight    = 0.0_wp
+! !             DO ie=1, ppatch%verts%num_edges(il_v2,ib_v2) !no_vert_edges
+! !               il_e = ppatch%verts%edge_idx(il_v2,ib_v2,ie)
+! !               ib_e = ppatch%verts%edge_blk(il_v2,ib_v2,ie)
+! !               z_thick = v_base%del_zlev_m(jk)
+! !               IF ( iswm_oce == 1 ) THEN
+! !                 z_thick    = 1.0_wp!v_base%del_zlev_m(jk) + h_e(il_e,ib_e)
+! !               ELSEIF( iswm_oce /= 1 ) THEN 
+! !                !IF (jk == 1 )THEN
+! !                 z_thick = v_base%del_zlev_m(jk) !+ h_e(il_e,ib_e) 
+! !                !ENDIF
+! !               ENDIF 
+! !               IF ( v_base%lsm_oce_e(il_e,jk,ib_e)  < sea_boundary ) THEN
+! !                 z_weight = z_weight + p_int_state(1)%variable_dual_vol_norm(il_v2,ib_v2,ie)*z_thick
+! !                 u_v2_cc%x = u_v2_cc%x +                      &
+! !                 &           p_int_state(1)%edge2vert_coeff_cc(il_v2,ib_v2,ie)%x * &
+! !                 &           pvn_e(il_e,jk,ib_e)*z_thick
+! !               ENDIF
+! !             END DO
+! !             IF(z_weight/=0.0_wp)THEN
+! !               u_v2_cc%x = u_v2_cc%x/(z_weight)!*z_h_approx)
+! !             ENDIF
+! 
+!            u_mean_cc(je,jk,jb)%x=pvn_mean_cc(je,jk,jb)%x!0.5_wp*&
+!            !&(pvn_dual_cc(il_v1,jk,ib_v1)%x+pvn_dual_cc(il_v2,jk,ib_v2)%x)            !0.5_wp*( u_v1_cc%x+ u_v2_cc%x)
+!          ELSE
+!            u_mean_cc(je,jk,jb)%x= 0.0_wp
+!        ENDIF
+!       END DO EDGE_IDX_LOOP
+!     END DO EDGE_BLK_LOOP
+!   END DO LEVEL_LOOP
 
   !Step 2: position of upwind point (this corresponds to the calculation of the
   !point C_i in Miura (cf eq. (9))
-  DO jk = slev, elev
-    DO jb = i_startblk_e, i_endblk_e
-
-      CALL get_indices_e(ppatch, jb, i_startblk_e, i_endblk_e,&
-                       & i_startidx_e, i_endidx_e, rl_start, rl_end)
-
-      DO je =  i_startidx_e, i_endidx_e
-
-        IF(v_base%lsm_oce_e(je,jk,jb) <= sea_boundary)THEN
-          edge_cc = gc2cc(ppatch%edges%center(je,jb))
-       
-          C_e(je,jk,jb)%x   = edge_cc%x  -0.5_wp*dtime*u_mean_cc(je,jk,jb)%x
-
-        ENDIF
-      END DO 
-    END DO
-  END DO
+!   DO jk = slev, elev
+!     DO jb = i_startblk_e, i_endblk_e
+! 
+!       CALL get_indices_e(ppatch, jb, i_startblk_e, i_endblk_e,&
+!                        & i_startidx_e, i_endidx_e, rl_start, rl_end)
+! 
+!       DO je =  i_startidx_e, i_endidx_e
+! 
+!         IF(v_base%lsm_oce_e(je,jk,jb) <= sea_boundary)THEN
+! 
+!           !edge_cc = gc2cc(ppatch%edges%center(je,jb))
+!        
+!           C_e(je,jk,jb)%x   = p_op_coeff%moved_edge_position_cc(je,jk,jb)%x!edge_cc%x  -0.5_wp*dtime*pvn_mean_cc(je,jk,jb)%x
+! 
+!         ENDIF
+!       END DO 
+!     END DO
+!   END DO
 
     !Step3: Local linear subgridcell distribution of tracer is calculated
     !3a: calculate tracer gradient
@@ -1018,7 +1070,12 @@ END SUBROUTINE elad
     !3c: project gradient vector at cell center in direction of vector that points from
     !    cell center to upwind point C_i from step 2
     !3a:
-    CALL grad_fd_norm_oce( pvar_c, ppatch, z_gradC)
+    !CALL grad_fd_norm_oce( pvar_c, ppatch, z_gradC)
+    CALL grad_fd_norm_oce_3D( pvar_c,                 &
+           &                  ppatch,                 &
+           &                  p_op_coeff%grad_coeff,  &
+           &                  z_gradC)
+
     !3b:
     CALL map_edges2cell( ppatch, z_gradC, z_gradC_cc)
 
@@ -1029,34 +1086,49 @@ END SUBROUTINE elad
                          & i_startidx_e, i_endidx_e, rl_start, rl_end)
 
         DO je =  i_startidx_e, i_endidx_e
-        IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+        !IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
          !3c: if vn > 0 (vn < 0), the upwind cell is cell 1 (cell 2)
-         IF( pvn_e(je,jk,jb) >0.0_wp)THEN 
-           !transform coordinate of cell 1 to cartesian
-           il_c = ppatch%edges%cell_idx(je,jb,1)
-           ib_c = ppatch%edges%cell_blk(je,jb,1)
+!          IF( pvn_e(je,jk,jb) >0.0_wp)THEN 
+!            !transform coordinate of cell 1 to cartesian
+!            il_c = ppatch%edges%cell_idx(je,jb,1)
+!            ib_c = ppatch%edges%cell_blk(je,jb,1)
+! 
+!            C_c   = gc2cc(ppatch%cells%center(il_c,ib_c)) 
+! !             pflux_e(je,jk,jb)=&
+! !             &dot_product(ppatch%edges%primal_cart_normal(je,jb)%x,u_mean_cc(je,jk,jb)%x)&
+! !             &*(pvar_c(il_c,jk,ib_c)-dot_product(C_e(je,jk,jb)%x-C_c%x,z_gradC_cc(il_c,jk,ib_c)%x))
+! 
+!          ELSEIF(pvn_e(je,jk,jb) <=0.0_wp)THEN
+!            !transform coordinate of cell 1 to cartesian
+!            il_c = ppatch%edges%cell_idx(je,jb,2)
+!            ib_c = ppatch%edges%cell_blk(je,jb,2)
+! 
+!            C_c   = gc2cc(ppatch%cells%center(il_c,ib_c)) 
+! !              pflux_e(je,jk,jb)=&
+! !              &dot_product(ppatch%edges%primal_cart_normal(je,jb)%x,u_mean_cc(je,jk,jb)%x)&
+! !             &*(pvar_c(il_c,jk,ib_c)-dot_product(C_e(je,jk,jb)%x-C_c%x,z_gradC_cc(il_c,jk,ib_c)%x))
+! !            pflux_e(je,jk,jb)=pvn_e(je,jk,jb)&
+! !            &*(pvar_c(il_c,jk,ib_c)-&
+! !            &dot_product(C_e(je,jk,jb)%x-C_c%x,z_gradC_cc(il_c,jk,ib_c)%x))
+!          ENDIF 
 
-           C_c   = gc2cc(ppatch%cells%center(il_c,ib_c)) 
-!             pflux_e(je,jk,jb)=&
-!             &dot_product(ppatch%edges%primal_cart_normal(je,jb)%x,u_mean_cc(je,jk,jb)%x)&
-!             &*(pvar_c(il_c,jk,ib_c)-dot_product(C_e(je,jk,jb)%x-C_c%x,z_gradC_cc(il_c,jk,ib_c)%x))
+
+!            pflux_e(je,jk,jb)=pvn_e(je,jk,jb)&
+!            &*(pvar_c(il_c,jk,ib_c)&
+!            &-dot_product(p_op_coeff%moved_edge_position_cc(je,jk,jb)%x&
+!                        &-C_c%x,z_gradC_cc(il_c,jk,ib_c)%x))
+
+
+           il_c=p_op_coeff%upwind_cell_idx(je,jk,jb)
+           ib_c=p_op_coeff%upwind_cell_blk(je,jk,jb)
+
+
            pflux_e(je,jk,jb)=pvn_e(je,jk,jb)&
            &*(pvar_c(il_c,jk,ib_c)&
-           &-dot_product(C_e(je,jk,jb)%x-C_c%x,z_gradC_cc(il_c,jk,ib_c)%x))
+           &-dot_product(p_op_coeff%moved_edge_position_cc(je,jk,jb)%x&
+                       &-p_op_coeff%upwind_cell_position_cc(je,jk,jb)%x,&
+                       &z_gradC_cc(il_c,jk,ib_c)%x))
 
-         ELSEIF(pvn_e(je,jk,jb) <=0.0_wp)THEN
-           !transform coordinate of cell 1 to cartesian
-           il_c = ppatch%edges%cell_idx(je,jb,2)
-           ib_c = ppatch%edges%cell_blk(je,jb,2)
-
-           C_c   = gc2cc(ppatch%cells%center(il_c,ib_c)) 
-!              pflux_e(je,jk,jb)=&
-!              &dot_product(ppatch%edges%primal_cart_normal(je,jb)%x,u_mean_cc(je,jk,jb)%x)&
-!             &*(pvar_c(il_c,jk,ib_c)-dot_product(C_e(je,jk,jb)%x-C_c%x,z_gradC_cc(il_c,jk,ib_c)%x))
-           pflux_e(je,jk,jb)=pvn_e(je,jk,jb)&
-           &*(pvar_c(il_c,jk,ib_c)-&
-           &dot_product(C_e(je,jk,jb)%x-C_c%x,z_gradC_cc(il_c,jk,ib_c)%x))
-         ENDIF 
 
 !          C_c   = gc2cc(ppatch%cells%center(il_c,ib_c)) 
 !            pflux_e(je,jk,jb)=pvn_e(je,jk,jb)&
@@ -1069,9 +1141,9 @@ END SUBROUTINE elad
 ! &dot_product(C_e%x-C_c%x,z_gradC_cc(il_c,jk,ib_c)%x)
 ! !&pvar_c(iilc(je,jb,1),jk,iibc(je,jb,1)), pvar_c(iilc(je,jb,2),jk,iibc(je,jb,2))
 ! ENDIF
-        ELSE
-          pflux_e(je,jk,jb)=0.0_wp
-        ENDIF
+        !ELSE
+        !  pflux_e(je,jk,jb)=0.0_wp
+        !ENDIF
         END DO 
       END DO
     END DO
@@ -1097,7 +1169,7 @@ END SUBROUTINE elad
   !! - adapted for MPI parallelization
   !!
   SUBROUTINE hflx_limiter_oce_mo( ptr_patch, p_cc, p_mass_flx_e, &
-    &                         p_mflx_tracer_h, p_thick_old, p_thick_new, &
+    &                         p_mflx_tracer_h, p_thick_old, p_thick_new, p_op_coeff,&
     &                         opt_slev, opt_elev )
 
     TYPE(t_patch), TARGET, INTENT(IN) ::  &   !< patch on which computation is performed
@@ -1118,6 +1190,8 @@ END SUBROUTINE elad
 
     REAL(wp), INTENT(INOUT) ::  &    !< new surface elevation
       &  p_thick_new(:,:,:)              !< dim: (nproma,n_zlev,nblks_c)
+
+   TYPE(t_operator_coeff),INTENT(IN) :: p_op_coeff
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level
       &  opt_slev
@@ -1215,6 +1289,11 @@ END SUBROUTINE elad
     i_startblk   = ptr_patch%edges%start_blk(i_rlstart_e,1)
     i_endblk     = ptr_patch%edges%end_blk(i_rlend_e,1)
 
+
+    !z_tracer_new_low = 0.0_wp
+    !z_tracer_max     = 0.0_wp
+    !z_tracer_min     = 0.0_wp
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx)
     DO jb = i_startblk, i_endblk
@@ -1229,12 +1308,13 @@ END SUBROUTINE elad
       DO jk = slev, elev
         DO je = i_startidx, i_endidx
 #endif
-          z_mflx_low(je,jk,jb) =  &
+          z_mflx_low(je,jk,jb) = &!v_base%wet_e(je,jk,jb)* &
             &  laxfr_upflux( p_mass_flx_e(je,jk,jb), p_cc(iilc(je,jb,1),jk,iibc(je,jb,1)), &
             &                                        p_cc(iilc(je,jb,2),jk,iibc(je,jb,2)) )
 
           ! calculate antidiffusive flux for each edge
-          z_anti(je,jk,jb)     = p_mflx_tracer_h(je,jk,jb) - z_mflx_low(je,jk,jb)
+          z_anti(je,jk,jb)     = (p_mflx_tracer_h(je,jk,jb) - z_mflx_low(je,jk,jb))!&
+                               !& *v_base%wet_e(je,jk,jb)
 
         END DO  ! end loop over edges
       END DO  ! end loop over levels
@@ -1266,25 +1346,43 @@ END SUBROUTINE elad
           !    - positive for outgoing fluxes
           !    - negative for incoming fluxes
           !    this sign convention is related to the definition of the divergence operator.
-          IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+           IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+!           z_mflx_anti(jc,jk,jb,1) =                                                  &
+!             &     dtime * p_int_state(1)%geofac_div(jc,1,jb) / p_thick_new(jc,jk,jb)  &
+!             &   * z_anti(iidx(jc,jb,1),jk,iblk(jc,jb,1))
+! 
+!           z_mflx_anti(jc,jk,jb,2) =                                                  &
+!             &     dtime *  p_int_state(1)%geofac_div(jc,2,jb) / p_thick_new(jc,jk,jb)  &
+!             &   * z_anti(iidx(jc,jb,2),jk,iblk(jc,jb,2))
+! 
+!           z_mflx_anti(jc,jk,jb,3) =                                                  &
+!             &     dtime * p_int_state(1)%geofac_div(jc,3,jb) / p_thick_new(jc,jk,jb)  &
+!             &   * z_anti(iidx(jc,jb,3),jk,iblk(jc,jb,3))
+! 
+!           !  compute also divergence of low order fluxes
+!           z_fluxdiv_c(jc,jk,jb) =  &
+!             & z_mflx_low(iidx(jc,jb,1),jk,iblk(jc,jb,1)) * p_int_state(1)%geofac_div(jc,1,jb) + &
+!             & z_mflx_low(iidx(jc,jb,2),jk,iblk(jc,jb,2)) * p_int_state(1)%geofac_div(jc,2,jb) + &
+!             & z_mflx_low(iidx(jc,jb,3),jk,iblk(jc,jb,3)) * p_int_state(1)%geofac_div(jc,3,jb)
+!           ENDIF
           z_mflx_anti(jc,jk,jb,1) =                                                  &
-            &     dtime * p_int_state(1)%geofac_div(jc,1,jb) / p_thick_new(jc,jk,jb)  &
+            &     dtime * p_op_coeff%div_coeff(jc,jk,jb,1) / p_thick_new(jc,jk,jb)  &
             &   * z_anti(iidx(jc,jb,1),jk,iblk(jc,jb,1))
 
           z_mflx_anti(jc,jk,jb,2) =                                                  &
-            &     dtime *  p_int_state(1)%geofac_div(jc,2,jb) / p_thick_new(jc,jk,jb)  &
+            &     dtime *  p_op_coeff%div_coeff(jc,jk,jb,2) / p_thick_new(jc,jk,jb)  &
             &   * z_anti(iidx(jc,jb,2),jk,iblk(jc,jb,2))
 
           z_mflx_anti(jc,jk,jb,3) =                                                  &
-            &     dtime * p_int_state(1)%geofac_div(jc,3,jb) / p_thick_new(jc,jk,jb)  &
+            &     dtime * p_op_coeff%div_coeff(jc,jk,jb,3) / p_thick_new(jc,jk,jb)  &
             &   * z_anti(iidx(jc,jb,3),jk,iblk(jc,jb,3))
 
           !  compute also divergence of low order fluxes
           z_fluxdiv_c(jc,jk,jb) =  &
-            & z_mflx_low(iidx(jc,jb,1),jk,iblk(jc,jb,1)) * p_int_state(1)%geofac_div(jc,1,jb) + &
-            & z_mflx_low(iidx(jc,jb,2),jk,iblk(jc,jb,2)) * p_int_state(1)%geofac_div(jc,2,jb) + &
-            & z_mflx_low(iidx(jc,jb,3),jk,iblk(jc,jb,3)) * p_int_state(1)%geofac_div(jc,3,jb)
-          ENDIF
+            & z_mflx_low(iidx(jc,jb,1),jk,iblk(jc,jb,1)) * p_op_coeff%div_coeff(jc,jk,jb,1) + &
+            & z_mflx_low(iidx(jc,jb,2),jk,iblk(jc,jb,2)) * p_op_coeff%div_coeff(jc,jk,jb,2) + &
+            & z_mflx_low(iidx(jc,jb,3),jk,iblk(jc,jb,3)) * p_op_coeff%div_coeff(jc,jk,jb,3)
+         ENDIF
         ENDDO
       ENDDO
       !

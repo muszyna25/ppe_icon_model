@@ -56,16 +56,19 @@ USE mo_ocean_nml,           ONLY: n_zlev,iswm_oce, L_INVERSE_FLIP_FLOP !, ab_bet
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
 USE mo_oce_index,           ONLY: print_mxmn, jkc, jkdim, ipl_src
 USE mo_oce_state,           ONLY: t_hydro_ocean_diag, t_hydro_ocean_aux, v_base
-USE mo_oce_math_operators,  ONLY: rot_vertex_ocean,rot_vertex_ocean_rbf, grad_fd_norm_oce, div_oce
+USE mo_oce_math_operators,  ONLY: rot_vertex_ocean,rot_vertex_ocean_rbf, &
+  &                               grad_fd_norm_oce_3D, grad_fd_norm_oce, &
+  &                               div_oce, div_oce_3D, rot_vertex_ocean_3D
 USE mo_math_utilities,      ONLY: gvec2cvec, t_cartesian_coordinates!gc2cc,cc2gc
 
 USE mo_scalar_product,      ONLY: map_cell2edges, dual_flip_flop,nonlinear_Coriolis, &
-  &                               primal_map_c2e, map_edges2edges, map_edges2cell
+  &                               primal_map_c2e, map_edges2edges, map_edges2cell,   &
+  &                               nonlinear_Coriolis_3D
 USE mo_intp_data_strc,      ONLY: t_int_state
 USE mo_intp,                ONLY: verts2edges_scalar
 USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell, rbf_vec_interpol_edge
 USE mo_intp_data_strc,      ONLY: p_int_state
-
+USE mo_operator_scalarprod_coeff_3D, ONLY: t_operator_coeff
 IMPLICIT NONE
 
 PRIVATE
@@ -98,7 +101,13 @@ CONTAINS
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2011).
 !!
-SUBROUTINE veloc_adv_horz_mimetic( p_patch, vn_old, vn_new, p_diag, veloc_adv_horz_e, p_int)
+SUBROUTINE veloc_adv_horz_mimetic( p_patch,         &
+                                 & vn_old,          &
+                                 & vn_new,          &
+                                 & p_diag,          &
+                                 & veloc_adv_horz_e,&
+                                 & p_op_coeff,      &
+                                 & p_int)
 !
 !
 TYPE(t_patch),TARGET, INTENT(in) :: p_patch
@@ -106,15 +115,24 @@ REAL(wp), INTENT(inout)          :: vn_old(:,:,:) ! dim: (nproma,n_zlev,nblks_e)
 REAL(wp), INTENT(inout)          :: vn_new(:,:,:) ! dim: (nproma,n_zlev,nblks_e)
 TYPE(t_hydro_ocean_diag)         :: p_diag
 REAL(wp), INTENT(out)            :: veloc_adv_horz_e(:,:,:)
-!
+TYPE(t_operator_coeff), INTENT(in):: p_op_coeff
 !Interpolation necessary just for testing
 TYPE(t_int_state),TARGET,INTENT(IN), OPTIONAL :: p_int
 !-----------------------------------------------------------------------
 
 IF(VELOCITY_ADVECTION_FORM==ROTATIONAL_FORM)THEN
- CALL veloc_adv_horz_mimetic_rot( p_patch, vn_old, vn_new, p_diag, veloc_adv_horz_e, p_int)
+ CALL veloc_adv_horz_mimetic_rot( p_patch,         &
+                                & vn_old,          &
+                                & vn_new,          &
+                                & p_diag,          &
+                                & veloc_adv_horz_e,&
+                                & p_op_coeff,p_int) 
 ELSEIF(VELOCITY_ADVECTION_FORM==DIVERGENCE_FORM)THEN
-  CALL veloc_adv_horz_mimetic_div( p_patch, vn_old, p_diag, veloc_adv_horz_e)
+  CALL veloc_adv_horz_mimetic_div( p_patch,       &
+                                 & vn_old,        &
+                                 & p_diag,        &
+                                 & p_op_coeff,    &
+                                 & veloc_adv_horz_e)
 ENDIF
 
 END subroutine veloc_adv_horz_mimetic
@@ -167,27 +185,29 @@ END subroutine veloc_adv_vert_mimetic
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2010).
 !!
-SUBROUTINE veloc_adv_horz_mimetic_rot( p_patch, vn_old, vn_new, p_diag, veloc_adv_horz_e, p_int)
+SUBROUTINE veloc_adv_horz_mimetic_rot( p_patch,         &
+                                     & vn_old,          &
+                                     & vn_new,          &
+                                     & p_diag,          &
+                                     & veloc_adv_horz_e,&
+                                     & p_op_coeff,      &
+                                     & p_int)
 !
 !
 !  patch on which computation is performed
-!
 TYPE(t_patch),TARGET, INTENT(in) :: p_patch
-
 !
-! normal and tangential velocity  of which advection is computed
-!
+! normal velocity  of which advection is computed
 REAL(wp), INTENT(inout) :: vn_old(:,:,:) ! dim: (nproma,n_zlev,nblks_e)
 REAL(wp), INTENT(inout) :: vn_new(:,:,:) ! dim: (nproma,n_zlev,nblks_e)
 !
 !diagnostic ocean state stores horizontally advected velocity
-!
 TYPE(t_hydro_ocean_diag) :: p_diag
-!
+
 ! variable in which horizontally advected velocity is stored
-!
 REAL(wp), INTENT(out) :: veloc_adv_horz_e(:,:,:)
 !
+TYPE(t_operator_coeff), INTENT(in):: p_op_coeff
 !Interpolation necessary just for testing
 TYPE(t_int_state),TARGET,INTENT(IN), OPTIONAL :: p_int
 
@@ -200,8 +220,8 @@ INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
 INTEGER :: rl_start_e, rl_end_e, rl_start_c, rl_end_c !, rl_start_v, rl_end_v
 !INTEGER ::  i_v1_idx, i_v1_blk, i_v2_idx, i_v2_blk
 REAL(wp) :: z_e  (nproma,n_zlev,p_patch%nblks_e)
-REAL(wp) :: z_u_c(nproma,n_zlev,p_patch%nblks_c)
-REAL(wp) :: z_v_c(nproma,n_zlev,p_patch%nblks_c)
+!REAL(wp) :: z_u_c(nproma,n_zlev,p_patch%nblks_c)
+!REAL(wp) :: z_v_c(nproma,n_zlev,p_patch%nblks_c)
 REAL(wp) :: z_vort_flx(nproma,n_zlev,p_patch%nblks_e)
 !REAL(wp) :: z_vort_flx2(nproma,n_zlev,p_patch%nblks_e)
 REAL(wp) :: z_grad_ekin_RBF(nproma,n_zlev,p_patch%nblks_e)
@@ -219,7 +239,7 @@ REAL(wp) :: z_kin_RBF_c(nproma,n_zlev,p_patch%nblks_c)
 INTEGER :: ile1, ibe1, ile2, ibe2, ile3, ibe3
 REAL(wp) :: z_weight_e1, z_weight_e2, z_weight_e3!, z_weight
 !ARRAYS FOR TESTING
-REAL(wp) :: z_vt(nproma,n_zlev,p_patch%nblks_e)
+!REAL(wp) :: z_vt(nproma,n_zlev,p_patch%nblks_e)
 REAL(wp) :: z_vort_e(nproma,n_zlev,p_patch%nblks_e)
 REAL(wp) :: z_vort_flx_RBF(nproma,n_zlev,p_patch%nblks_e)
 !REAL(wp) :: z_vort2(nproma,n_zlev,p_patch%nblks_v)
@@ -229,19 +249,10 @@ LOGICAL, PARAMETER :: L_DEBUG = .FALSE.
 !-----------------------------------------------------------------------
 ! #slo# set local variable to zero due to nag -nan compiler-option
 z_e             (:,:,:) = 0.0_wp
-z_u_c           (:,:,:) = 0.0_wp
-z_v_c           (:,:,:) = 0.0_wp
 z_vort_flx      (:,:,:) = 0.0_wp
-veloc_adv_horz_e(:,:,:) = 0.0_wp
-z_vt            (:,:,:) = 0.0_wp
-z_vort_e        (:,:,:) = 0.0_wp
-z_vort_flx_RBF  (:,:,:) = 0.0_wp
-z_kin_RBF_c     (:,:,:) = 0.0_wp
-z_grad_ekin_RBF (:,:,:) = 0.0_wp
-!z_vort_flx2=0.0_wp
+!veloc_adv_horz_e(:,:,:) = 0.0_wp
 
-!rl_start_v = 1
-!rl_end_v   = min_rlvert
+
 rl_start_e = 1
 rl_end_e   = min_rledge
 rl_start_c = 1
@@ -258,8 +269,17 @@ slev = 1
 elev = n_zlev
 
 !calculate vorticity flux across dual edge
-CALL nonlinear_Coriolis(p_patch,vn_old,p_diag%p_vn, p_diag%p_vn_dual,&
-                       &p_diag%thick_e,p_diag%vt, p_diag%vort, z_vort_flx)
+! CALL nonlinear_Coriolis(p_patch,vn_old,p_diag%p_vn, p_diag%p_vn_dual,&
+!                        &p_diag%thick_e,p_diag%vt, p_diag%vort, z_vort_flx)
+ CALL nonlinear_Coriolis_3D( p_patch,         &
+                           & vn_old,          &
+                           & p_diag%p_vn,     &
+                           & p_diag%p_vn_dual,&
+                           & p_diag%thick_e,  &
+                           & p_diag%vort,     &
+                           & p_op_coeff,      &
+                           & z_vort_flx)
+
 DO jk = slev, elev
   CALL sync_patch_array(sync_v, p_patch, z_vort_flx(:,jk,:))
 END DO
@@ -267,9 +287,9 @@ END DO
 !-------------------------------------------------------------------------------
 ! IF(L_ENSTROPHY_DISSIPATION)THEN
 !  DO jk = slev, elev
-!  write(*,*)'max/min vort flux before: ',MAXVAL(z_vort_flx(:,jk,:)),&
-!                                        &MINVAL(z_vort_flx(:,jk,:))
-!  END DO
+!   write(*,*)'max/min vort flux: ',MAXVAL(z_vort_flx(:,jk,:)),&
+!                                         &MINVAL(z_vort_flx(:,jk,:))
+!   END DO
 ! z_vort_flx=laplacian4vortex_flux(p_patch,z_vort_flx) 
 ! ENDIF
 !-------------------------------------------------------------------------------
@@ -292,10 +312,15 @@ END DO
 !calculate gradient of kinetic energy
 !The kinetic energy is already calculated at beginning
 !of actual timestep in sbr "calc_scalar_product_for_veloc"
-CALL grad_fd_norm_oce( p_diag%kin, &
+! CALL grad_fd_norm_oce( p_diag%kin, &
+!                  & p_patch,    &
+!                  & p_diag%grad,&
+!                  & opt_slev=slev,opt_elev=elev )
+CALL grad_fd_norm_oce_3D( p_diag%kin, &
                  & p_patch,    &
-                 & p_diag%grad,&
-                 & opt_slev=slev,opt_elev=elev )
+                 & p_op_coeff%grad_coeff,&
+                 & p_diag%grad)!,&
+                 !& opt_slev=slev,opt_elev=elev )
 DO jk = slev, elev
   CALL sync_patch_array(sync_c, p_patch, p_diag%grad(:,jk,:))
 END DO
@@ -308,10 +333,10 @@ END DO
  ipl_src=4  ! output print level (1-5, fix)
  CALL print_mxmn('grad kin energy',jk,p_diag%grad(:,:,:),n_zlev, &
    &              p_patch%nblks_e,'vel',ipl_src)
- !write(*,*)'max/min kin energy:            ',jk, MAXVAL(p_diag%kin(:,jk,:)),&
- !                                            &MINVAL(p_diag%kin(:,jk,:))
- !write(*,*)'max/min grad kin energy:       ',jk, MAXVAL(p_diag%grad(:,jk,:)),&
- !                                            &MINVAL(p_diag%grad(:,jk,:)) 
+! write(*,*)'max/min kin energy:            ',jk, MAXVAL(p_diag%kin(:,jk,:)),&
+!                                            &MINVAL(p_diag%kin(:,jk,:))
+! write(*,*)'max/min grad kin energy:       ',jk, MAXVAL(p_diag%grad(:,jk,:)),&
+!                                             &MINVAL(p_diag%grad(:,jk,:)) 
 END DO
 ! IF(L_INVERSE_FLIP_FLOP)THEN
 !   CALL map_edges2edges( p_patch,    &
@@ -326,7 +351,10 @@ END DO
 !----------nonlinear coriolis and grad of kinetic energy computed with RBFs--------------
 !----------needs interpolation state
 IF (L_DEBUG) THEN
-
+z_vort_flx_RBF  (:,:,:) = 0.0_wp
+z_kin_RBF_c     (:,:,:) = 0.0_wp
+z_grad_ekin_RBF (:,:,:) = 0.0_wp
+z_vort_e        (:,:,:) = 0.0_wp
 CALL rbf_vec_interpol_edge( vn_old,       &
                           & p_patch,  &
                           & p_int,    &
@@ -435,7 +463,8 @@ DO jb = i_startblk_e, i_endblk_e
       !veloc_adv_horz_e(je,jk,jb)  = z_vort_flx_RBF(je,jk,jb) + z_grad_ekin_RBF(je,jk,jb) 
       !veloc_adv_horz_e(je,jk,jb)= z_vort_flx(je,jk,jb) + z_grad_ekin_RBF(je,jk,jb)
       !veloc_adv_horz_e(je,jk,jb)    = z_vort_flx_RBF(je,jk,jb)+ p_diag%grad(je,jk,jb)
-      veloc_adv_horz_e(je,jk,jb)    = z_vort_flx(je,jk,jb) + p_diag%grad(je,jk,jb)
+      veloc_adv_horz_e(je,jk,jb) = (z_vort_flx(je,jk,jb) + p_diag%grad(je,jk,jb))&
+                                 & *v_base%wet_e(je,jk,jb)
 !        write(*,*)'horz adv:vort-flx:vort-flx-RBF',je,jk,jb,z_vort_flx(je,1,jb), &
 !          &        z_vort_flx_RBF(je,jk,jb)!,&!p_diag%grad(je,jk,jb),z_grad_ekin_RBF(je,jk,jb),&
           !&        veloc_adv_horz_e(je,jk,jb)!, z_veloc_adv_horz_e(je,jk,jb)
@@ -454,25 +483,20 @@ DO jb = i_startblk_e, i_endblk_e
 END DO
 END subroutine veloc_adv_horz_mimetic_rot
 !-------------------------------------------------------------------------
-SUBROUTINE veloc_adv_horz_mimetic_div( p_patch, vn, p_diag, veloc_adv_horz_e)
-!
-!
-!  patch on which computation is performed
+SUBROUTINE veloc_adv_horz_mimetic_div( p_patch,        &
+                                     & vn,             &
+                                     & p_diag,         &
+                                     & p_op_coeff,     &
+                                     &  veloc_adv_horz_e)
 !
 TYPE(t_patch),TARGET, INTENT(in) :: p_patch
-
-!
-! normal velocity of which advection is computed
-REAL(wp), INTENT(inout) :: vn(:,:,:) ! dim: (nproma,n_zlev,nblks_e)
-!
-!diagnostic ocean state stores horizontally advected velocity
-TYPE(t_hydro_ocean_diag) :: p_diag
-!
-! variable in which horizontally advected velocity is stored
+REAL(wp), INTENT(inout)          :: vn(:,:,:) ! dim: (nproma,n_zlev,nblks_e)
+TYPE(t_hydro_ocean_diag)         :: p_diag
+TYPE(t_operator_coeff),INTENT(in):: p_op_coeff
 REAL(wp), INTENT(out) :: veloc_adv_horz_e(:,:,:)
 !
-
-
+!Local variables
+!
 INTEGER :: slev, elev     ! vertical start and end level
 INTEGER :: jk, jb, je!, jv, ile, ibe, ie, jev
 INTEGER :: i_startblk_c, i_endblk_c!, i_startidx_c, i_endidx_c
@@ -507,9 +531,7 @@ DO jb = i_startblk_e, i_endblk_e
                      i_startidx_e, i_endidx_e, rl_start_e, rl_end_e)
   DO jk = slev, elev
     DO je = i_startidx_e, i_endidx_e
-    IF ( v_base%lsm_oce_e(je,jk,jb) > sea_boundary ) THEN
-      z_e(je,jk,jb)=0.0_wp
-    ELSE
+      IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
         !Neighbouring cells
         il_c1 = p_patch%edges%vertex_idx(je,jb,1)
         ib_c1 = p_patch%edges%vertex_blk(je,jb,1)
@@ -529,6 +551,7 @@ DO jb = i_startblk_e, i_endblk_e
 END DO
 
 CALL div_oce( z_e, p_patch, veloc_adv_horz_e)
+!CALL div_oce_3D( z_e, p_patch, p_op_coeff%div_coeff, veloc_adv_horz_e )
 
 DO jb = i_startblk_e, i_endblk_e
   CALL get_indices_e(p_patch, jb, i_startblk_e, i_endblk_e, &
@@ -548,6 +571,11 @@ END DO
 !calculates the curl. This is needed in Laplace-beltrami operator (velocity diffusion).
 !It is not needed for velocity advection.
 CALL rot_vertex_ocean( p_patch, vn, p_diag%p_vn_dual, p_diag%vort)
+! CALL rot_vertex_ocean_3D( p_patch,             &
+!                         & vn,                  &
+!                         & p_diag%p_vn_dual,    &
+!                         & p_op_coeff%rot_coeff,&
+!                         & p_diag%vort)
 
 END subroutine veloc_adv_horz_mimetic_div
 !-------------------------------------------------------------------------
@@ -688,8 +716,7 @@ END subroutine veloc_adv_horz_mimetic_div
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2010).
 !!
-SUBROUTINE veloc_adv_vert_mimetic_rot( p_patch, p_diag,&
-&                          veloc_adv_vert_e)
+SUBROUTINE veloc_adv_vert_mimetic_rot( p_patch, p_diag, veloc_adv_vert_e)
 
 TYPE(t_patch), TARGET, INTENT(in) :: p_patch
 TYPE(t_hydro_ocean_diag)          :: p_diag

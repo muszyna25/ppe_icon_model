@@ -1,4 +1,4 @@
-!>
+!> 
 !!   Contains the implementation of the mathematical operators for the ocean.
 !!
 !!   Contains the implementation of the mathematical operators for the ocean.
@@ -84,7 +84,7 @@ PUBLIC :: div_oce_3D
 PUBLIC :: rot_vertex_ocean_3D
 PUBLIC :: nabla2_vec_ocean_3D
 PUBLIC :: grad_fd_norm_oce
-PUBLIC :: grad_fd_norm_oce_2d
+PUBLIC :: grad_fd_norm_oce_2d, grad_fd_norm_oce_2d_3D
 PUBLIC :: div_oce
 PUBLIC :: rot_vertex_ocean
 PUBLIC :: rot_vertex_ocean_rbf
@@ -231,7 +231,7 @@ END SUBROUTINE grad_fd_norm_oce_3D
 !! Modification by Stephan Lorenz, MPI-M (2010-08-05)
 !! - New boundary definition with inner and boundary points on land/sea
 !!
-SUBROUTINE div_oce_3D( vec_e, ptr_patch, div_coeff, div_vec_c )
+SUBROUTINE div_oce_3D( vec_e, ptr_patch, div_coeff, div_vec_c ,opt_slev,opt_elev)
 !
 !
 !  patch on which computation is performed
@@ -241,10 +241,11 @@ TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
 ! edge based variable of which divergence
 ! is computed
 !
-REAL(wp), INTENT(INOUT) :: vec_e(:,:,:) ! dim: (nproma,n_zlev,nblks_e)
-REAL(wp), INTENT(IN)    :: div_coeff(:,:,:,:)
-! cell based variable in which divergence is stored
-REAL(wp), INTENT(INOUT) :: div_vec_c(:,:,:) ! dim: (nproma,n_zlev,nblks_c)
+REAL(wp), INTENT(INOUT)       :: vec_e(:,:,:) ! dim: (nproma,n_zlev,nblks_e)
+REAL(wp), INTENT(IN)          :: div_coeff(:,:,:,:)
+REAL(wp), INTENT(INOUT)       :: div_vec_c(:,:,:) ! dim: (nproma,n_zlev,nblks_c)
+INTEGER, INTENT(IN), OPTIONAL :: opt_slev       ! optional vertical start level
+INTEGER, INTENT(IN), OPTIONAL :: opt_elev       ! optional vertical end level
 
 INTEGER :: slev, elev     ! vertical start and end level
 INTEGER :: jc, jk, jb
@@ -253,8 +254,17 @@ INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
 !INTEGER :: nlen, npromz_c, nblks_c
 INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
 !-----------------------------------------------------------------------
-slev = 1
-elev = n_zlev
+  IF ( PRESENT(opt_slev) ) THEN
+    slev = opt_slev
+  ELSE
+    slev = 1
+  END IF
+  IF ( PRESENT(opt_elev) ) THEN
+    elev = opt_elev
+  ELSE
+    elev = n_zlev
+  END IF
+
 rl_start = 1
 rl_end = min_rlcell
 
@@ -338,9 +348,9 @@ SUBROUTINE nabla2_vec_ocean_3D( u_vec_e, v_vec_e, vort, ptr_patch, K_h, p_op_coe
 !
 !  patch on which computation is performed
 !
-TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
-REAL(wp), INTENT(inout)           :: u_vec_e(:,:,:), v_vec_e(:,:,:), vort(:,:,:)
-REAL(wp), INTENT(in)              ::  K_h(:,:,:)
+TYPE(t_patch), TARGET, INTENT(in)     :: ptr_patch
+REAL(wp), INTENT(inout)               :: u_vec_e(:,:,:), v_vec_e(:,:,:), vort(:,:,:)
+REAL(wp), INTENT(in)                  ::  K_h(:,:,:)
 TYPE(t_operator_coeff), INTENT(inout) :: p_op_coeff
 !REAL(wp), INTENT(in)              ::  div_coeff(:,:,:,:), rot_coeff(:,:,:,:)
 TYPE(t_cartesian_coordinates), INTENT(IN) :: p_vn_dual(nproma,n_zlev,ptr_patch%nblks_v)
@@ -354,9 +364,8 @@ INTEGER :: je, jk, jb
 INTEGER :: rl_start, rl_end
 INTEGER :: rl_start_c, rl_end_c, rl_start_v, rl_end_v
 INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
-REAL(wp) ::  &
-  &  z_div_c(nproma,n_zlev,ptr_patch%nblks_c), &
-  &  z_rot_v(nproma,n_zlev,ptr_patch%nblks_v)
+REAL(wp) ::  z_div_c(nproma,n_zlev,ptr_patch%nblks_c)!, &
+!  &  z_rot_v(nproma,n_zlev,ptr_patch%nblks_v)
 
 INTEGER,  DIMENSION(:,:,:),   POINTER :: icidx, icblk, ividx, ivblk
 !-----------------------------------------------------------------------
@@ -392,8 +401,6 @@ i_nchdom   = MAX(1,ptr_patch%n_childdom)
 i_startblk = ptr_patch%edges%start_blk(rl_start,1)
 i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 
-
-
 icidx => ptr_patch%edges%cell_idx
 icblk => ptr_patch%edges%cell_blk
 ividx => ptr_patch%edges%vertex_idx
@@ -401,9 +408,12 @@ ivblk => ptr_patch%edges%vertex_blk
 
 ! compute divergence of vector field
 CALL div_oce_3D( u_vec_e, ptr_patch, p_op_coeff%div_coeff, z_div_c)
-
+! DO jk = slev, elev
+! write(*,*)'vort1:',jk,maxval(vort(:,jk,:)),minval(vort(:,jk,:))
+! END DO
 ! compute rotation of vector field for the ocean
-CALL rot_vertex_ocean_3D( ptr_patch, u_vec_e, p_vn_dual, p_op_coeff, z_rot_v)!z_rot_v=vort
+!CALL rot_vertex_ocean_3D( ptr_patch, u_vec_e, p_vn_dual, p_op_coeff, z_rot_v)!
+!z_rot_v=vort
 
 !
 !  loop through all patch edges (and blocks)
@@ -416,15 +426,16 @@ DO jb = i_startblk, i_endblk
   DO jk = slev, elev
 
     !DO je = i_startidx, i_endidx
-      IF(v_base%lsm_oce_e(je,jk,jb) < land_boundary)THEN
+      !IF(v_base%lsm_oce_e(je,jk,jb) < land_boundary)THEN
 
         nabla2_vec_e(je,jk,jb) =  &
-          &   K_h(je,jk,jb)*      &
+          &   K_h(je,jk,jb)* v_base%wet_e(je,jk,jb)*     &
           &   (ptr_patch%edges%system_orientation(je,jb) *  &
-          &   ( z_rot_v(ividx(je,jb,2),jk,ivblk(je,jb,2))  &
-          &   - z_rot_v(ividx(je,jb,1),jk,ivblk(je,jb,1)) )  &
+          &   ( vort(ividx(je,jb,2),jk,ivblk(je,jb,2))  &
+          &   - vort(ividx(je,jb,1),jk,ivblk(je,jb,1)) )  &
           &   * ptr_patch%edges%inv_primal_edge_length(je,jb))  &
-          & + 2.0_wp*K_h(je,jk,jb)*(( z_div_c(icidx(je,jb,2),jk,icblk(je,jb,2))    &
+          & + 2.0_wp*K_h(je,jk,jb)*v_base%wet_e(je,jk,jb)*&
+          &   (( z_div_c(icidx(je,jb,2),jk,icblk(je,jb,2))    &
           &   - z_div_c(icidx(je,jb,1),jk,icblk(je,jb,1)) )  &
           &   * ptr_patch%edges%inv_dual_edge_length(je,jb))
 !    IF(nabla2_vec_e(je,jk,jb)/=0.0_wp)THEN
@@ -432,9 +443,9 @@ DO jb = i_startblk, i_endblk
 !    &z_rot_v(ividx(je,jb,2),jk,ivblk(je,jb,2)),z_rot_v(ividx(je,jb,1),jk,ivblk(je,jb,1)),&
 !    &z_div_c(icidx(je,jb,2),jk,icblk(je,jb,2)), z_div_c(icidx(je,jb,1),jk,icblk(je,jb,1))
 !    ENDIF 
-      ELSE
-        nabla2_vec_e(je,jk,jb) = 0.0_wp
-      ENDIF
+      !ELSE
+      !  nabla2_vec_e(je,jk,jb) = 0.0_wp
+      !ENDIF
     END DO
   END DO
 END DO
@@ -566,16 +577,15 @@ IF (slev > 1) THEN
       ! (see Bonaventura and Ringler MWR 2005)
       !
 !  #slo# 2011-02-28 - correction (no change, see below)
-         IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
-!          IF (     v_base%lsm_oce_c(iidx(je,jb,2),jk,iblk(je,jb,2)) == sea&
-!            &.AND. v_base%lsm_oce_c(iidx(je,jb,1),jk,iblk(je,jb,1))==sea) THEN
+        ! IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
           grad_norm_psi_e(je,jk,jb) =  &
             &  ( psi_c(iidx(je,jb,2),jk,iblk(je,jb,2)) - &
             &    psi_c(iidx(je,jb,1),jk,iblk(je,jb,1)) )  &
-            &  * ptr_patch%edges%inv_dual_edge_length(je,jb)
-        ELSE
-          grad_norm_psi_e(je,jk,jb) =  0.0_wp
-        ENDIF
+            &  * ptr_patch%edges%inv_dual_edge_length(je,jb)&
+            &  *v_base%wet_e(je,jk,jb)
+        !ELSE
+        !  grad_norm_psi_e(je,jk,jb) =  0.0_wp
+        !ENDIF
       ENDDO
     END DO
 
@@ -599,16 +609,15 @@ ELSE
       ! (see Bonaventura and Ringler MWR 2005)
       !
 !  #slo# 2011-02-28 - check of sea is identical, since sea_boundary doesn't exist on edges
-          IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
-   !  IF (     v_base%lsm_oce_c(iidx(je,jb,2),jk,iblk(je,jb,2)) <= sea_boundary&
-   !    &.AND. v_base%lsm_oce_c(iidx(je,jb,1),jk,iblk(je,jb,1))<=sea_boundary) THEN
+!          IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
           grad_norm_psi_e(je,jk,jb) =                     &
             &  ( psi_c(iidx(je,jb,2),jk,iblk(je,jb,2)) -  &
             &    psi_c(iidx(je,jb,1),jk,iblk(je,jb,1)) )  &
-            &  * ptr_patch%edges%inv_dual_edge_length(je,jb)
-        ELSE
-          grad_norm_psi_e(je,jk,jb) =  0.0_wp
-        ENDIF
+            &  * ptr_patch%edges%inv_dual_edge_length(je,jb)&
+            &  *v_base%wet_e(je,jk,jb)
+  !      ELSE
+  !        grad_norm_psi_e(je,jk,jb) =  0.0_wp
+  !      ENDIF
       ENDDO
     END DO
   END DO
@@ -675,6 +684,85 @@ END SUBROUTINE grad_fd_norm_oce
 !! - abandon grid for the sake of patch
 !! Boundary handling for triangles by P. Korn (2009)
 !!
+SUBROUTINE grad_fd_norm_oce_2d_3D( psi_c, ptr_patch, grad_coeff, grad_norm_psi_e)
+  !
+  TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
+  REAL(wp), INTENT(in)    :: psi_c(:,:)             ! dim: (nproma,nblks_c)
+  REAL(wp), INTENT(in)    :: grad_coeff(:,:,:)
+  REAL(wp), INTENT(inout) ::  grad_norm_psi_e(:,:)  ! dim: (nproma,nblks_e)
+
+  !!
+  !!local variables
+  INTEGER :: slev, elev     ! vertical start and end level
+  INTEGER :: je, jb
+  INTEGER :: rl_start, rl_end
+  INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+  INTEGER :: nlen, nblks_e, npromz_e
+  INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+  !-----------------------------------------------------------------------
+  slev = 1
+  elev = 1
+  rl_start = 2
+  rl_end = min_rledge_int
+
+  iidx => ptr_patch%edges%cell_idx
+  iblk => ptr_patch%edges%cell_blk
+
+  i_startblk = ptr_patch%edges%start_blk(rl_start,1)
+  i_endblk   = ptr_patch%edges%end_blk(rl_end,1)
+  !
+  !  loop through all patch edges (and blocks)
+  !
+#ifndef __SX__
+  IF (ltimer) CALL timer_start(timer_grad)
+#endif
+  !$OMP PARALLEL
+  ! The special treatment of 2D fields is essential for efficiency on the NEC
+    !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
+        i_startidx, i_endidx, rl_start, rl_end)
+#ifdef _URD
+      !CDIR UNROLL=_URD
+#endif
+     
+      DO je = i_startidx, i_endidx
+        ! compute the normal derivative
+        ! by the finite difference approximation
+        ! (see Bonaventura and Ringler MWR 2005)
+          grad_norm_psi_e(je,jb) =  &
+            &  ( psi_c(iidx(je,jb,2),iblk(je,jb,2)) - psi_c(iidx(je,jb,1),iblk(je,jb,1)) ) &!&* ptr_patch%edges%inv_dual_edge_length(je,jb) 
+            &  * grad_coeff(je,slev,jb)
+      END DO
+    END DO
+    !$OMP END DO
+  !$OMP END PARALLEL
+#ifndef __SX__
+  IF (ltimer) CALL timer_stop(timer_grad)
+#endif
+END SUBROUTINE grad_fd_norm_oce_2d_3D
+!-------------------------------------------------------------------------
+!
+!>
+!!  Computes directional derivative of a cell centered variable in presence of lateral boundaries
+!!  as in the ocean model setting.
+!!
+!!  Computes directional  derivative of a cell centered variable
+!!  with respect to direction normal to triangle edge.
+!! input: lives on centres of triangles
+!! output:  lives on edges (velocity points)
+!!
+!! @par Revision History
+!! Developed  by  Luca Bonaventura, MPI-M (2002-5).
+!! Adapted to new data structure by Peter Korn
+!! and Luca Bonaventura, MPI-M (2005).
+!! Modifications by P. Korn, MPI-M(2007-2)
+!! -Switch fom array arguments to pointers
+!! Modification by Almut Gassmann, MPI-M (2007-04-20)
+!! - abandon grid for the sake of patch
+!! Boundary handling for triangles by P. Korn (2009)
+!!
 SUBROUTINE grad_fd_norm_oce_2d( psi_c, ptr_patch, grad_norm_psi_e)
   !
   !
@@ -685,7 +773,7 @@ SUBROUTINE grad_fd_norm_oce_2d( psi_c, ptr_patch, grad_norm_psi_e)
   !  cell based variable of which normal derivative is computed
   !
   REAL(wp), INTENT(in)    :: psi_c(:,:)             ! dim: (nproma,nblks_c)
-
+  !REAL(wp), INTENT(in)    :: grad_coeff(:,:,:)
   !
   !  edge based variable in which normal derivative is stored
   !
@@ -736,13 +824,14 @@ SUBROUTINE grad_fd_norm_oce_2d( psi_c, ptr_patch, grad_norm_psi_e)
         ! by the finite difference approximation
         ! (see Bonaventura and Ringler MWR 2005)
         !
-        IF ( v_base%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN
+        !IF ( v_base%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN
           grad_norm_psi_e(je,jb) =  &
             &  ( psi_c(iidx(je,jb,2),iblk(je,jb,2)) - psi_c(iidx(je,jb,1),iblk(je,jb,1)) ) &
-            &  * ptr_patch%edges%inv_dual_edge_length(je,jb)
-        ELSE
-          grad_norm_psi_e(je,jb) =  0.0_wp
-        ENDIF
+            &  * ptr_patch%edges%inv_dual_edge_length(je,jb) &
+            &  *v_base%wet_e(je,1,jb)
+        !ELSE
+        !  grad_norm_psi_e(je,jb) =  0.0_wp
+        !ENDIF
       END DO
     END DO
     !$OMP END DO
@@ -778,6 +867,7 @@ SUBROUTINE grad_fd_norm_oce_2d( psi_c, ptr_patch, grad_norm_psi_e)
   IF (ltimer) CALL timer_stop(timer_grad)
 #endif
 END SUBROUTINE grad_fd_norm_oce_2d
+!-------------------------------------------------------------------------
 !-------------------------------------------------------------------------
 !
 !
@@ -915,14 +1005,15 @@ CASE (3) ! (cell_type == 3)
         ! sea, sea_boundary, boundary (edges only), land_boundary, land =
         !  -2,      -1,         0,                  1,             2
 
-         IF ( v_base%lsm_oce_c(jc,jk,jb) > sea_boundary ) THEN
-           div_vec_c(jc,jk,jb) = 0.0_wp
-         ELSE
+         !IF ( v_base%lsm_oce_c(jc,jk,jb) > sea_boundary ) THEN
+         !  div_vec_c(jc,jk,jb) = 0.0_wp
+         !ELSE
           div_vec_c(jc,jk,jb) =  &
-            vec_e(iidx(jc,jb,1),jk,iblk(jc,jb,1)) * p_int_state(1)%geofac_div(jc,1,jb) + &
-            vec_e(iidx(jc,jb,2),jk,iblk(jc,jb,2)) * p_int_state(1)%geofac_div(jc,2,jb) + &
-            vec_e(iidx(jc,jb,3),jk,iblk(jc,jb,3)) * p_int_state(1)%geofac_div(jc,3,jb)
-        ENDIF
+            (vec_e(iidx(jc,jb,1),jk,iblk(jc,jb,1)) * p_int_state(1)%geofac_div(jc,1,jb)+&
+            vec_e(iidx(jc,jb,2),jk,iblk(jc,jb,2)) * p_int_state(1)%geofac_div(jc,2,jb)+&
+            vec_e(iidx(jc,jb,3),jk,iblk(jc,jb,3)) * p_int_state(1)%geofac_div(jc,3,jb))&
+            &*v_base%wet_c(jc,jk,jb)
+        !ENDIF
         !write(2345,*)'div coeff 2D:', jc,jb,p_int_state(1)%geofac_div(jc,:,jb)
       END DO
     END DO

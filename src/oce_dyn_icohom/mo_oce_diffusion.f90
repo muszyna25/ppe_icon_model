@@ -694,24 +694,25 @@ ELSEIF ( iswm_oce == 1) THEN
     DO jk = slev, elev
       DO je = i_startidx_e, i_endidx_e
 
+
+        !IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+
         !Get indices of two adjacent triangles
         il_c1 = p_patch%edges%cell_idx(je,jb,1)
         ib_c1 = p_patch%edges%cell_blk(je,jb,1)
         il_c2 = p_patch%edges%cell_idx(je,jb,2)
         ib_c2 = p_patch%edges%cell_blk(je,jb,2)
 
-        IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+        delta_z  = p_os%p_diag%thick_e(je,jb)
 
-         delta_z  = p_os%p_diag%thick_e(je,jb)
-
-          diff_flx(je,jk,jb) = K_T(je,jk,jb)*delta_z&
+         diff_flx(je,jk,jb) = K_T(je,jk,jb)*delta_z*v_base%wet_e(je,jk,jb)&
                      &*(trac_in(il_c2,jk,ib_c2)-trac_in(il_c1,jk,ib_c1))&
                      &/p_patch%edges%dual_edge_length(je,jb)
 !write(123,*)'trac diffusive flux',je,jk,jb,diff_flx(je,jk,jb),K_T(je,jk,jb),&
 !&trac_in(il_c2,jk,ib_c2),trac_in(il_c1,jk,ib_c1)
-        ELSE
-          diff_flx(je,jk,jb) = 0.0_wp
-        ENDIF
+        !ELSE
+        !  diff_flx(je,jk,jb) = 0.0_wp
+        !ENDIF
       ENDDO
     END DO
   END DO

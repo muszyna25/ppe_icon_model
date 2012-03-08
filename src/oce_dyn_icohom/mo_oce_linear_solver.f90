@@ -67,6 +67,7 @@ USE mo_model_domain,        ONLY: t_patch
 USE mo_timer,               ONLY: timer_start, timer_stop, timer_gmres
 #endif
 USE mo_sync,                ONLY: omp_global_sum_array
+USE mo_operator_scalarprod_coeff_3D, ONLY: t_operator_coeff
 
 IMPLICIT NONE
 
@@ -98,7 +99,8 @@ CONTAINS
 !! @par
 !! inital guess, overwritten with the solution
 !!
-SUBROUTINE gmres_oce( x,lhs,h_e, thickness_c, old_h, curr_patch,nblks,npromz,coeff,b,  &
+SUBROUTINE gmres_oce( x,lhs,h_e, thickness_c, old_h, curr_patch,nblks,npromz,coeff,&
+                    & p_op_coeff, b,  &
                     & tolerance,abstol,m,maxiterex,niter,res, &
                     & preconditioner)
 !
@@ -116,7 +118,8 @@ TYPE(t_patch), INTENT(IN) :: curr_patch
 ! index defining the "active" region of the arrays
 INTEGER, INTENT(IN) :: nblks, npromz
 ! parameter used in calculating the lhs
-REAL(wp), INTENT(IN) :: coeff
+REAL(wp), INTENT(IN) :: coeff  
+TYPE(t_operator_coeff), INTENT(IN):: p_op_coeff
 !INTEGER, INTENT(IN) :: lev
 ! right-hand side: same shape as x
 REAL(wp), INTENT(IN) :: b(:,:) ! same size as x
@@ -136,15 +139,17 @@ INTEGER,  INTENT(OUT) :: niter    ! number of iterations (defined
 REAL(wp), INTENT(INOUT) :: res(:) ! (m)
 
 INTERFACE   ! left-hand-side: A*x
-  FUNCTION lhs(x,old_h, curr_patch,coeff, h_e, thickness_c) RESULT(ax)
+  FUNCTION lhs(x,old_h, curr_patch,coeff, h_e, thickness_c, p_op_coeff) RESULT(ax)
     USE mo_kind, ONLY: wp
     USE mo_model_domain, ONLY: t_patch
+    USE mo_operator_scalarprod_coeff_3D, ONLY: t_operator_coeff
     REAL(wp),    INTENT(in) :: x(:,:)
     REAL(wp), INTENT(IN) :: old_h(:,:)
     TYPE(t_patch), INTENT(in) :: curr_patch
-    REAL(wp),    INTENT(in) :: coeff
+    REAL(wp),    INTENT(in) :: coeff  
     REAL(wp),    INTENT(in) :: h_e(:,:)
     REAL(wp),    INTENT(in) :: thickness_c(:,:)
+    TYPE(t_operator_coeff),INTENT(IN)  :: p_op_coeff
 !    INTEGER, INTENT(IN) :: lev
     REAL(wp) :: ax( SIZE(x,1) , SIZE(x,2) ) ! same as x
   ENDFUNCTION lhs
@@ -208,7 +213,7 @@ REAL(wp) :: sum_aux(nblks)
 
    ! 1) compute the preconditioned residual
 
-   w(:,:) = lhs(x(:,:),old_h, curr_patch,coeff, h_e, thickness_c)
+   w(:,:) = lhs(x(:,:),old_h, curr_patch,coeff, h_e, thickness_c, p_op_coeff)
 
 #ifndef __SX__
    IF (ltimer) CALL timer_start(timer_gmres)
@@ -304,7 +309,7 @@ REAL(wp) :: sum_aux(nblks)
    arnoldi: DO i = 1, m-1
 
      ! 4.1) compute the next (i.e. i+1) Krylov vector
-     w(:,:) = lhs( v(:,:,i),old_h, curr_patch,coeff, h_e, thickness_c )
+     w(:,:) = lhs( v(:,:,i),old_h, curr_patch,coeff, h_e, thickness_c, p_op_coeff )
 
      ! 4.2) Gram-Schmidt orthogonalization
 

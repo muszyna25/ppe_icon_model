@@ -73,6 +73,7 @@ CHARACTER(len=*), PARAMETER :: version = '$Id$'
 PUBLIC :: calc_scalar_product_veloc_3D
 PUBLIC :: nonlinear_Coriolis_3D
 PUBLIC :: map_edges2vert_3D
+PUBLIC :: map_edges2cell_3D
 PRIVATE :: map_edges2cell_with_height_3D
 PRIVATE :: map_edges2cell_no_height_3D
 
@@ -227,7 +228,7 @@ END SUBROUTINE calc_scalar_product_veloc
   INTEGER :: rl_start_c, rl_end_c 
   INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
   INTEGER :: jc, jb, jk
-  TYPE(t_cartesian_coordinates)    :: z_pv_cc(nproma,n_zlev,p_patch%nblks_c)
+  !TYPE(t_cartesian_coordinates)    :: z_pv_cc(nproma,n_zlev,p_patch%nblks_c)
   !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
   !  & routine = ('mo_scalar_product:primal_map_e2c')
   !-----------------------------------------------------------------------
@@ -236,20 +237,18 @@ END SUBROUTINE calc_scalar_product_veloc
 slev = 1
 elev = n_zlev
 
-
 rl_start_c = 1
 rl_end_c  = min_rlcell
 
 i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
 i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
 
-
 CALL map_edges2vert_3D(p_patch, vn_e_old, h_e, p_op_coeff%edge2vert_coeff_cc, p_diag%p_vn_dual)
-
+!CALL map_edges2vert(p_patch, vn_e_old, h_e, p_diag%p_vn_dual)
 !Step 1: Calculation of Pv in cartesian coordinates and of kinetic energy
 
-!CALL map_edges2cell_3D( p_patch, vn_e_old, z_pv_cc)
-CALL map_edges2cell_3D( p_patch, vn_e_old, p_diag%p_vn,h_e,p_op_coeff)
+!CALL map_edges2cell( p_patch, vn_e_old, p_diag%p_vn)
+CALL map_edges2cell_3D( p_patch, vn_e_old,p_op_coeff, p_diag%p_vn)
 !CALL map_edges2cell_3D( p_patch, vn_e_old, p_diag%p_vn,p_op_coeff)
 
 DO jb = i_startblk_c, i_endblk_c
@@ -268,8 +267,9 @@ DO jb = i_startblk_c, i_endblk_c
          p_diag%kin(jc,jk,jb) = 0.0_wp
        ELSE
         p_diag%kin(jc,jk,jb) = 0.5_wp*DOT_PRODUCT(p_diag%p_vn(jc,jk,jb)%x,p_diag%p_vn(jc,jk,jb)%x)
-        ! p_diag%kin(jc,jk,jb) = 0.5_wp*DOT_PRODUCT(z_pv_cc(jc,jk,jb)%x,z_pv_cc(jc,jk,jb)%x)
-        !write(*,*)'kin energy',jc,jk,jb,p_diag%kin(jc,jk,jb), p_diag%p_vn(jc,jk,jb)%x!z_kin(jc,jk,jb)
+        !p_diag%kin(jc,jk,jb) = 0.5_wp*DOT_PRODUCT(z_pv_cc(jc,jk,jb)%x,z_pv_cc(jc,jk,jb)%x)
+        !IF(p_diag%kin(jc,jk,jb)/=0.0_wp)& 
+        !&write(*,*)'Pv',jc,jb,p_diag%p_vn(jc,jk,jb)%x, z_pv_cc(jc,jk,jb)%x
        ENDIF
     END DO
   END DO
@@ -857,11 +857,12 @@ DO jb = i_startblk_v, i_endblk_v
 
         ! no division by zero
         IF (zarea_fraction /= 0.0_wp) THEN
-          z_area_scaled   = zarea_fraction
-          !z_area_scaled       = p_patch%verts%dual_area(jv,jb)/(re*re)
+          !z_area_scaled   = zarea_fraction
+          z_area_scaled       = p_patch%verts%dual_area(jv,jb)/(re*re)
           p_vn_dual(jv,jk,jb)%x  = p_vn_dual(jv,jk,jb)%x/z_area_scaled!z_weight(jv,jk,jb)!
         ENDIF
       ENDIF
+
     END DO
 !!$OMP END PARALLEL DO
   END DO
@@ -932,8 +933,9 @@ DO jb = i_startblk_v, i_endblk_v
 
         p_vn_dual(jv,jk,jb)%x = p_vn_dual(jv,jk,jb)%x      &
            &           +edge2vert_coeff_cc(jv,jk,jb,jev)%x &
-           &           *vn(ile,jk,ibe)!/(p_patch%verts%dual_area(jv,jb)/(re*re))
+           &           *vn(ile,jk,ibe)/(p_patch%verts%dual_area(jv,jb)/(re*re))
       END DO
+
      END DO
 !!$OMP END PARALLEL DO
   END DO
@@ -1298,8 +1300,8 @@ ENDIF
   !! @par Revision History
   !!  developed by Peter Korn, MPI-M (2010-11)
   !!
-  SUBROUTINE map_edges2cell_with_height_3D( p_patch, vn_e, p_vn_c, h_e,&
-                                          & p_op_coeff, opt_slev, opt_elev)
+  SUBROUTINE map_edges2cell_with_height_3D( p_patch, vn_e, p_op_coeff, p_vn_c, h_e,&
+                                          &  opt_slev, opt_elev)
 
   TYPE(t_patch), INTENT(IN)                  :: p_patch        ! patch on which computation is performed
   REAL(wp), INTENT(IN)                       :: vn_e(:,:,:)    ! input (nproma,n_zlev,nblks_e)
@@ -1513,15 +1515,14 @@ ENDIF
   !! @par Revision History
   !!  developed by Peter Korn, MPI-M (2010-11)
   !!map_edges2cell_without_height
-  SUBROUTINE map_edges2cell_no_height_3D( p_patch, vn_e, p_vn_c,p_op_coeff,opt_slev, opt_elev )
+  SUBROUTINE map_edges2cell_no_height_3D( p_patch, vn_e,p_op_coeff, p_vn_c,opt_slev, opt_elev )
 
   TYPE(t_patch), INTENT(IN)                  :: p_patch        ! patch on which computation is performed
-  REAL(wp)                                   :: vn_e(:,:,:)    ! input (nproma,n_zlev,nblks_e)
-                                                               ! 3D case: h_e is surface elevation at edges
-  TYPE(t_cartesian_coordinates),INTENT(INOUT):: p_vn_c(:,:,:)  ! outputput (nproma,n_zlev,nblks_c)
+  REAL(wp), INTENT(IN)                       :: vn_e(:,:,:)    ! input (nproma,n_zlev,nblks_e)
+  TYPE(t_operator_coeff), INTENT(IN)         :: p_op_coeff
+  TYPE(t_cartesian_coordinates),INTENT(OUT)  :: p_vn_c(:,:,:)  ! outputput (nproma,n_zlev,nblks_c)
   INTEGER, INTENT(IN), OPTIONAL              :: opt_slev       ! optional vertical start level
   INTEGER, INTENT(IN), OPTIONAL              :: opt_elev       ! optional vertical end level
-  TYPE(t_operator_coeff)    :: p_op_coeff
   !Local variables
   INTEGER, PARAMETER :: no_cell_edges = 3
   INTEGER :: slev, elev
@@ -1569,6 +1570,9 @@ ENDIF
                            & + p_op_coeff%edge2cell_coeff_cc(jc,jk,jb,ie)%x&
                            & * vn_e(il_e,jk,ib_e) 
         END DO
+        IF(p_op_coeff%fixed_vol_norm(jc,jk,jb)/=0.0_wp)THEN
+          p_vn_c(jc,jk,jb)%x = p_vn_c(jc,jk,jb)%x/p_op_coeff%fixed_vol_norm(jc,jk,jb)
+        ENDIF
       END DO CELL_IDX_LOOP
     END DO LEVEL_LOOP
   END DO CELL_BLK_LOOP

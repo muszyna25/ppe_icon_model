@@ -95,19 +95,19 @@ CONTAINS
 
   SUBROUTINE uuid_generate(uuid)
     TYPE(t_uuid), INTENT(out) :: uuid
-    CALL my_uuid_get(uuid)
+!    CALL my_uuid_get(uuid)
   END SUBROUTINE uuid_generate
   
   SUBROUTINE uuid_parse(uuid_string, uuid)
     CHARACTER(len=*), INTENT(in)  :: uuid_string
     TYPE(t_uuid),     INTENT(out) :: uuid
-    CALL my_uuid_parse(uuid, TRIM(uuid_string)//C_NULL_CHAR)
+!    CALL my_uuid_parse(uuid, TRIM(uuid_string)//C_NULL_CHAR)
   END SUBROUTINE uuid_parse
 
   SUBROUTINE uuid_unparse(uuid, uuid_string)
     TYPE(t_uuid),     INTENT(in)  :: uuid
     CHARACTER(len=*), INTENT(out) :: uuid_string
-    CALL my_uuid_format(uuid_string, uuid)
+!    CALL my_uuid_format(uuid_string, uuid)
   END SUBROUTINE uuid_unparse
 
   FUNCTION uuid_compare(uuid1, uuid2)

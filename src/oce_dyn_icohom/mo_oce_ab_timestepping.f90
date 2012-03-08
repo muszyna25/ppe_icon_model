@@ -96,7 +96,7 @@ CONTAINS
 !! Developed  by  Peter Korn, MPI-M (2010).
 !! 
 SUBROUTINE solve_free_surface_eq_ab(p_patch, p_os, p_ext_data, p_sfc_flx, &
-  &                                 p_phys_param, timestep, ptr_coeff, p_int)
+  &                                 p_phys_param, timestep, p_op_coeff, p_int)
 !
 TYPE(t_patch), TARGET, INTENT(in)             :: p_patch
 TYPE(t_hydro_ocean_state), TARGET             :: p_os
@@ -104,7 +104,7 @@ TYPE(t_external_data), TARGET                 :: p_ext_data
 TYPE(t_sfc_flx), INTENT(INOUT)                :: p_sfc_flx    
 TYPE (t_ho_params)                            :: p_phys_param
 INTEGER                                       :: timestep
-TYPE(t_operator_coeff)                        :: ptr_coeff
+TYPE(t_operator_coeff)                        :: p_op_coeff
 TYPE(t_int_state),TARGET,INTENT(IN), OPTIONAL :: p_int
 
 ! CHARACTER(len=max_char_length), PARAMETER :: &
@@ -114,7 +114,7 @@ TYPE(t_int_state),TARGET,INTENT(IN), OPTIONAL :: p_int
 IF(idisc_scheme==MIMETIC_TYPE)THEN
 
   CALL solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
-    &                            p_phys_param, timestep, ptr_coeff, p_int)
+    &                            p_phys_param, timestep, p_op_coeff, p_int)
 
 ELSEIF(idisc_scheme==RBF_TYPE)THEN
 
@@ -134,10 +134,11 @@ END SUBROUTINE solve_free_surface_eq_ab
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2010).
 !! 
-SUBROUTINE calc_normal_velocity_ab(p_patch, p_os, p_ext_data, p_phys_param)
+SUBROUTINE calc_normal_velocity_ab(p_patch, p_os, p_op_coeff, p_ext_data, p_phys_param)
 !
 TYPE(t_patch), TARGET, INTENT(in) :: p_patch
 TYPE(t_hydro_ocean_state), TARGET :: p_os
+TYPE(t_operator_coeff)            :: p_op_coeff
 TYPE(t_external_data), TARGET     :: p_ext_data 
 TYPE (t_ho_params)                :: p_phys_param
 !
@@ -149,7 +150,7 @@ TYPE (t_ho_params)                :: p_phys_param
 !-----------------------------------------------------------------------  
 IF(idisc_scheme==MIMETIC_TYPE)THEN
 
-  CALL calc_normal_velocity_ab_mimetic(p_patch, p_os, p_ext_data, p_phys_param)
+  CALL calc_normal_velocity_ab_mimetic(p_patch, p_os, p_op_coeff, p_ext_data, p_phys_param)
 
 ELSEIF(idisc_scheme==RBF_TYPE)THEN
 
@@ -172,10 +173,11 @@ END SUBROUTINE calc_normal_velocity_ab
 !! @par Revision History
 !! Developed  by  Peter Korn,   MPI-M (2006).
 !! 
-SUBROUTINE calc_vert_velocity( p_patch, p_os)
+SUBROUTINE calc_vert_velocity( p_patch, p_os, p_op_coeff)
 !
 TYPE(t_patch), TARGET, INTENT(IN) :: p_patch       ! patch on which computation is performed
 TYPE(t_hydro_ocean_state)         :: p_os
+TYPE(t_operator_coeff)            :: p_op_coeff
 !
 !
 ! Local variables
@@ -191,9 +193,10 @@ IF(idisc_scheme==MIMETIC_TYPE)THEN
   CALL calc_vert_velocity_mimetic( p_patch,            &
                              & p_os,                   &
                              & p_os%p_diag,            &
+                             & p_op_coeff,             &
                              & p_os%p_prog(nnew(1))%h, &
                              & p_os%p_diag%h_e,        &
-                             & p_os%p_aux%bc_top_w,    &
+                             !& p_os%p_aux%bc_top_w,    &
                              & p_os%p_aux%bc_bot_w,    &
                              & p_os%p_diag%w )
 !   CALL calc_vert_velocity_mim_topdown( p_patch,       &

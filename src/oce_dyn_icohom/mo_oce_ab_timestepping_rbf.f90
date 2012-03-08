@@ -1,4 +1,4 @@
-!>
+!>                           
 !! Contains the implementation of the semi-implicit Adams-Bashforth timestepping
 !! for the ICON ocean model using the RBF based spatial discetization.
 !! 
@@ -78,7 +78,7 @@ USE mo_intp_rbf,                  ONLY: rbf_vec_interpol_edge, &
   &                                     rbf_vec_interpol_cell !, verts2edges_scalar
 USE mo_math_utilities,            ONLY: gvec2cvec
 !USE mo_scalar_product,            ONLY: map_edges2edges
-
+USE mo_operator_scalarprod_coeff_3D, ONLY: t_operator_coeff
 IMPLICIT NONE
 
 PRIVATE
@@ -128,6 +128,7 @@ TYPE(t_int_state),TARGET,INTENT(IN)       :: p_int
 !REAL(wp) :: aveh, totarea
 !REAL(wp), POINTER :: p_height_area(:,:)
 !GMRS
+TYPE(t_operator_coeff)                        :: p_op_coeff
 INTEGER,PARAMETER :: nmax_iter   = 100      ! maximum number of iterations
 REAL(wp):: tolerance                      ! (relative or absolute) tolerance
 INTEGER :: n_iter                           ! number of iterations 
@@ -252,22 +253,23 @@ IF(.NOT.l_RIGID_LID)THEN
   !  z_h_e = p_os%p_diag%h_e      ! #slo# 2011-02-21 bugfix (for mimetic only)
   !ENDIF
 
-  CALL gmres_oce( z_h_c,                   &  ! arg 1 of lhs. x input is the first guess
-        &        lhs_surface_height_ab_RBF,&  ! function calculating l.h.s.
-        &        z_h_e,                   &   !arg 5 of lhs
-        &        p_os%p_diag%thick_c,     &   !arg 6 of lhs, not used, just for compatibility with interface gmres_oce (also used for mimetic)
-        &        p_os%p_prog(nold(1))%h,  &   !arg 2 of lhs
-        &        p_patch,                 &   !arg 3 of lhs
-        &        p_patch%nblks_c,         &
-        &        p_patch%npromz_c,        &
-        &        z_implcoeff,             &
-        &        p_os%p_aux%p_rhs_sfc_eq, &  ! right hand side as input
-        &        tolerance,               &  ! relative tolerance
-        &       .FALSE.,                 &  ! NOT absolute tolerance
-        &        nmax_iter,               &  ! max. # of iterations to do
-        &        l_maxiter,               &  ! out: .true. = not converged
-        &        n_iter,                  &  ! out: # of iterations done
-        &        zresidual )                 ! inout: the residual (array)  
+!   CALL gmres_oce( z_h_c,                   &  ! arg 1 of lhs. x input is the first guess
+!         &        lhs_surface_height_ab_RBF,&  ! function calculating l.h.s.
+!         &        z_h_e,                   &   !arg 5 of lhs
+!         &        p_os%p_diag%thick_c,     &   !arg 6 of lhs, not used, just for compatibility with interface gmres_oce (also used for mimetic)
+!         &        p_os%p_prog(nold(1))%h,  &   !arg 2 of lhs
+!         &        p_patch,                 &   !arg 3 of lhs
+!         &        p_patch%nblks_c,         &
+!         &        p_patch%npromz_c,        &
+!         &        z_implcoeff,             &
+!         &        p_op_coeff,              &
+!         &        p_os%p_aux%p_rhs_sfc_eq, &  ! right hand side as input
+!         &        tolerance,               &  ! relative tolerance
+!         &       .FALSE.,                 &  ! NOT absolute tolerance
+!         &        nmax_iter,               &  ! max. # of iterations to do
+!         &        l_maxiter,               &  ! out: .true. = not converged
+!         &        n_iter,                  &  ! out: # of iterations done
+!         &        zresidual )                 ! inout: the residual (array)  
 
   IF (l_maxiter) THEN
     CALL finish('GMRES solver surface equation: ','NOT YET CONVERGED !!')
@@ -287,7 +289,7 @@ IF(.NOT.l_RIGID_LID)THEN
                                    & p_patch,&
                                    & z_implcoeff,&
                                    & p_os%p_diag%thick_e,&
-                                   & p_os%p_diag%thick_c)&
+                                   & p_os%p_diag%thick_c,p_op_coeff)&
                                    & -p_os%p_aux%p_rhs_sfc_eq
    write(*,*)'MIN/MAX:h-residual:',&
    & minval(z_h_c(1:nproma,1:p_patch%nblks_c)),&
@@ -782,7 +784,7 @@ FUNCTION lhs_surface_height_ab_RBF( p_x, h_old,&
                                  & p_patch,    &
                                  & coeff,      &
                                  & thickness_e,&
-                                 & thickness_c) RESULT(p_lhs)
+                                 & thickness_c,p_op_coeff) RESULT(p_lhs)
 !
 REAL(wp),    INTENT(IN)   :: p_x(:,:)         ! actual iteration of height, dimension: (nproma,p_patch%nblks_c)
 REAL(wp),    INTENT(IN)   :: h_old(:,:)       ! dimension: (nproma,p_patch%nblks_c)
@@ -790,6 +792,7 @@ TYPE(t_patch), INTENT(in) :: p_patch          ! patch on which computation is pe
 REAL(wp),    INTENT(in)   :: coeff
 REAL(wp),    INTENT(in)   :: thickness_e(:,:) !thickness of fluid column at edges
 REAL(wp),    INTENT(in)   :: thickness_c(:,:) !not used, just for compatibility with interface gmres_oce (also used for mimetic)
+TYPE(t_operator_coeff)    :: p_op_coeff
 !
 ! Left-hand side calculated from iterated height
 REAL(wp) :: p_lhs(SIZE(p_x,1), SIZE(p_x,2))  ! (nproma,p_patch%nblks_c)
