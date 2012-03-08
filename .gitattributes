@@ -723,6 +723,7 @@ scripts/cdo_scripts/cdo_ntl -text
 scripts/cdo_scripts/cdo_pa -text
 scripts/codestyle_scripts/check_style.py -text
 scripts/codestyle_scripts/process_src -text
+scripts/codestyle_scripts/restyle_module -text
 scripts/doxygen_scripts/has_doxygen -text
 scripts/f2html_scripts/f2html.pl -text
 scripts/f2html_scripts/fgenrc -text
