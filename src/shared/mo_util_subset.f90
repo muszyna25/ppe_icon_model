@@ -148,11 +148,10 @@ CONTAINS
       ENDDO
     ENDIF
 
-    IF (subset_range%no_of_holes > 0) THEN
-      CALL warning(method_name, "We have holes in the range subset")      
-    ENDIF
-    
-    
+!     IF (subset_range%no_of_holes > 0) THEN
+!       CALL warning(method_name, "We have holes in the range subset")      
+!     ENDIF
+        
   END SUBROUTINE fill_subset
   !----------------------------------------------------
   
