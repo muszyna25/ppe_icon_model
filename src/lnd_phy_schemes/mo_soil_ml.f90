@@ -3995,6 +3995,7 @@ IMPLICIT NONE
       DO i = istarts, iends
 !        IF (llandmask(i)) THEN  ! for landpoints only
           t_snow_mult_new  (i,0) = t_snow_mult_now(i,0) + zdt*zdtsnowdt_mult(i,0)
+          t_snow_new(i) = t_snow_mult_new (i,0)
 !        ENDIF
       ENDDO
   
