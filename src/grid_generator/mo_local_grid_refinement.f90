@@ -514,6 +514,7 @@ CONTAINS
 
     !--------------------------------------------------------------
     ! construct new cells
+    out_cells%no_of_domains(:) = in_cells%no_of_domains(:)
     DO in_cell_index = 1, no_of_input_cells
       in_elevation = in_cells%elevation(in_cell_index)
       in_sea_land_mask = in_cells%sea_land_mask(in_cell_index)
@@ -530,6 +531,7 @@ CONTAINS
       !inherit the values from the parent
       out_cells%elevation(out_cell1)     = in_elevation
       out_cells%sea_land_mask(out_cell1) = in_sea_land_mask
+      out_cells%get_domain_id(:,out_cell1)= in_cells%get_domain_id(:,in_cell_index)
 
       ! get the vertices and the edges
       DO j=1,max_cell_vertices
@@ -571,6 +573,8 @@ CONTAINS
         !inherit the values from the parent
         out_cells%elevation(out_cell_index)        = in_elevation
         out_cells%sea_land_mask(out_cell_index)    = in_sea_land_mask
+      
+        out_cells%get_domain_id(:,out_cell_index)  = in_cells%get_domain_id(:,in_cell_index)
 
         ! fill the three vertices of the new triangle
         out_vertex1 = newvertexindex_edgecenter(in_edge1)
@@ -871,6 +875,7 @@ CONTAINS
     out_vertex_index = 0
     out_edge_index = 0
     out_cell_index = 0
+    out_cells%no_of_domains(:) = in_cells%no_of_domains(:)
     DO in_cell_index=1,no_of_input_cells
       ! insert cell center
       out_vertex_index = out_vertex_index + 1
@@ -945,6 +950,8 @@ CONTAINS
           out_cells%get_vertex_index(out_cell_index,2) = cell_center
           out_cells%get_vertex_index(out_cell_index,3) = out_vertex1
 
+          out_cells%get_domain_id(:,out_cell_index) = in_cells%get_domain_id(:,in_cell_index)
+
           ! WRITE(0,*) 'cell edges:', out_cells%get_edge_index(out_cell_index,:)
         ENDIF
       ENDDO
@@ -973,6 +980,7 @@ CONTAINS
     CALL set_start_subgrids(out_grid_id, 0)
     out_grid%cells%min_sea_depth = in_grid%cells%min_sea_depth
     out_grid%is_filled = .true.
+    out_grid%grid_geometry  = in_grid%grid_geometry
     !--------------------------------------------------------------
 
   END FUNCTION refine_grid_insert_centers

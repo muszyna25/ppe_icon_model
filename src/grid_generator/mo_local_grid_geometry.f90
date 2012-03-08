@@ -48,7 +48,9 @@ MODULE mo_local_grid_geometry
     & circum_center, cc2gc, arc_length,  triangle_area, &
     & inter_section, t_geographical_coordinates, angle_of_vectors,  &
     & sphere_cartesian_midpoint
-  USE mo_timer,              ONLY: new_timer, timer_start, timer_stop, print_timer, delete_timer
+  USE mo_io_units,       ONLY:  filename_max
+  USE mo_timer,          ONLY: new_timer, timer_start, timer_stop, print_timer, delete_timer
+  USE mo_io_local_grid,  ONLY: read_new_netcdf_grid, write_netcdf_grid
 
   IMPLICIT NONE
 
@@ -57,6 +59,7 @@ MODULE mo_local_grid_geometry
   ! !VERSION CONTROL:
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
 
+  PUBLIC :: compute_sphere_geometry
   PUBLIC :: set_sphere_geom_grid
   PUBLIC :: geographical_to_cartesian, cartesian_to_geographical
   PUBLIC :: order_cell_connectivity     ! Reorders the cell vertices, edges, neigbors
@@ -81,6 +84,24 @@ MODULE mo_local_grid_geometry
 
 CONTAINS
 
+  !-------------------------------------------------------------------------
+  !>
+  !!Computes the sphere geometry for a netcdf grid
+  !-------------------------------------------------------------------------
+  SUBROUTINE compute_sphere_geometry(in_file, out_file)
+    CHARACTER(LEN=filename_max), INTENT(in) :: in_file, out_file
+
+    INTEGER :: grid_id
+
+    grid_id = read_new_netcdf_grid(in_file, read_grid_ids=.true.)
+    CALL set_sphere_geom_grid(grid_id)
+    
+    CALL write_netcdf_grid(grid_id, out_file)
+    CALL delete_grid(grid_id)
+    RETURN
+
+  END SUBROUTINE compute_sphere_geometry
+  !-------------------------------------------------------------------------
 
   !---------------------------------------------------------------------------
   SUBROUTINE set_sphere_geom_grid(in_grid_id)
@@ -98,7 +119,7 @@ CONTAINS
 
     REAL(wp) :: real_tmp,re_square,lon,lat
 
-    INTEGER :: no_of_input_cells, no_of_input_edges, no_of_input_verts
+    INTEGER :: no_of_cells, no_of_edges, no_of_verts
     INTEGER :: i,j,cell_index,edge_index,vertex_index
     INTEGER :: cell_1, cell_2, vertex_1, vertex_2
     ! INTEGER :: v1,v2, k
@@ -115,9 +136,9 @@ CONTAINS
     verts=>compute_grid%verts
     edges=>compute_grid%edges
     cells=>compute_grid%cells
-    no_of_input_cells = cells%no_of_existcells
-    no_of_input_edges = edges%no_of_existedges
-    no_of_input_verts = verts%no_of_existvertices
+    no_of_cells = cells%no_of_existcells
+    no_of_edges = edges%no_of_existedges
+    no_of_verts = verts%no_of_existvertices
     compute_grid%grid_geometry = sphere_geometry
 
     IF (cells%max_no_of_vertices /= 3) THEN
@@ -128,13 +149,13 @@ CONTAINS
 ! !$  PRINT*,  "OMP_GET_NUM_THREADS=", OMP_GET_NUM_THREADS()
 !$OMP DO PRIVATE(vertex_index)
     ! get the vertices geocoordinates from the cartesian
-    DO vertex_index=1,no_of_input_verts
+    DO vertex_index=1,no_of_verts
         verts%vertex(vertex_index) = cc2gc(verts%cartesian(vertex_index))
     ENDDO
 !$OMP END DO
 
 !$OMP DO PRIVATE(cell_index, cartesian_v)
-    DO cell_index = 1, no_of_input_cells
+    DO cell_index = 1, no_of_cells
       cartesian_v(1) = verts%cartesian(cells%get_vertex_index(cell_index,1))
       cartesian_v(2) = verts%cartesian(cells%get_vertex_index(cell_index,2))
       cartesian_v(3) = verts%cartesian(cells%get_vertex_index(cell_index,3))
@@ -149,7 +170,7 @@ CONTAINS
 !$OMP END DO
 
 !$OMP DO PRIVATE(cell_index,edge_index,i,j)
-    DO cell_index = 1, no_of_input_cells
+    DO cell_index = 1, no_of_cells
       ! compute the cell  orientation
       DO i=1,cells%max_no_of_vertices
         edge_index=cells%get_edge_index(cell_index,i)
@@ -180,7 +201,7 @@ CONTAINS
 !$OMP DO PRIVATE(edge_index,cell_1, cell_2, cartesian_v,cartesian_c,cartesian_center,&
 !$OMP circumcenters_vector,x,y,edge_vector,edge_normal_vector,real_tmp,tmp_vector,&
 !$OMP lon,lat, vertex_1, vertex_2)
-    DO edge_index = 1, no_of_input_edges
+    DO edge_index = 1, no_of_edges
       !------------------------------------------
       vertex_1 = edges%get_vertex_index(edge_index,1)
       vertex_2 = edges%get_vertex_index(edge_index,2)
@@ -207,9 +228,13 @@ CONTAINS
           & cartesian_v(1), cartesian_v(2))        
       ELSE
         cartesian_center = sphere_cartesian_midpoint(cartesian_v(1), cartesian_v(2))
+        IF (cell_1 <=0) cartesian_c(1) = cartesian_center
+        IF (cell_2 <=0) cartesian_c(2) = cartesian_center
       ENDIF
       edges%cartesian_center(edge_index) = cartesian_center
       edges%center(edge_index)     = cc2gc(cartesian_center)
+      edges%dual_cartesian_center(edge_index) = &
+        & sphere_cartesian_midpoint(cartesian_c(1), cartesian_c(2))
       !------------------------------------------
       ! compute lengths
       edges%primal_edge_length(edge_index) = &
@@ -323,7 +348,7 @@ CONTAINS
     !------------------------------------------
     ! compute verts%dual_area
 !$OMP DO PRIVATE(vertex_index,edge_index,i,cell_1,cell_2,cartesian_c)
-    DO vertex_index = 1, no_of_input_verts
+    DO vertex_index = 1, no_of_verts
       verts%dual_area(vertex_index) = 0.0_wp 
       DO i=1,verts%max_connectivity
         edge_index = verts%get_edge_index(vertex_index,i)
@@ -356,7 +381,7 @@ CONTAINS
     ! calculate verts%edge_orientation,
     ! this is done in order_cell_connectivity
 ! !$OMP DO PRIVATE(vertex_index,edge_index,i)
-!     DO vertex_index=1,no_of_input_verts
+!     DO vertex_index=1,no_of_verts
 !       DO i=1,verts%max_connectivity
 !         edge_index = verts%get_edge_index(vertex_index,i)
 !         IF (edge_index > 0) THEN
@@ -374,18 +399,18 @@ CONTAINS
 
     ! Finally,rescale distances by radius of the Earth
 !$OMP DO PRIVATE(vertex_index)
-    DO vertex_index=1,no_of_input_verts
+    DO vertex_index=1,no_of_verts
       verts%dual_area(vertex_index) = &
         & re_square * verts%dual_area(vertex_index)
     ENDDO
 !$OMP END DO
 !$OMP DO PRIVATE(cell_index)
-    DO cell_index=1,no_of_input_cells
+    DO cell_index=1,no_of_cells
       cells%area(cell_index) = re_square * cells%area(cell_index)
     ENDDO
 !$OMP END DO
 !$OMP DO PRIVATE(edge_index,i)
-     DO edge_index=1, no_of_input_edges
+     DO edge_index=1, no_of_edges
       edges%primal_edge_length(edge_index) = re* edges%primal_edge_length(edge_index)
       edges%dual_edge_length(edge_index)   = re* edges%dual_edge_length(edge_index)
       DO i=1,2
@@ -397,9 +422,18 @@ CONTAINS
     ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
+
+    !----------------------------------
+    ! calculate remaining properties
+    CALL get_cell_barycenters(in_grid_id, output_centers=cells%cartesian_barycenter)
+    CALL cartesian_to_geographical(cells%cartesian_barycenter, no_of_cells, cells%barycenter)
+    !----------------------------------
+
+    !----------------------------------
     CALL timer_stop(timer_set_sphere_geom_grid)
     CALL print_timer(timer_set_sphere_geom_grid)
     CALL delete_timer(timer_set_sphere_geom_grid)
+    !----------------------------------
 
   END SUBROUTINE set_sphere_geom_grid
   !-------------------------------------------------------------------------

@@ -73,7 +73,8 @@ MODULE mo_grid_toolbox
   PUBLIC :: get_dual_grid, get_basic_dual_grid         !  returns the dual grid
   PUBLIC :: inverse_connectivity_verts
   PUBLIC :: shift_grid_ids
-  
+  PUBLIC :: add_to_list_if_not_exist
+   
   INTEGER, PARAMETER :: until_convergence = 40
 
 
@@ -418,6 +419,38 @@ CONTAINS
     out_list%list_size = out_list_size
 
   END SUBROUTINE get_float_conditional_list
+  !-------------------------------------------------------------------------
+
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Adds the value to the list, if it does not already exist
+  INTEGER FUNCTION add_to_list_if_not_exist(inout_list, value)
+    TYPE(t_integer_list), INTENT(inout)  :: inout_list
+    INTEGER, INTENT(in) :: value
+
+    INTEGER :: i
+    
+    CHARACTER(*), PARAMETER :: method_name = "add_to_list_if_not_exist"
+
+    DO i=1,inout_list%list_size
+      IF (inout_list%value(i) == value) THEN
+        add_to_list_if_not_exist = i
+        RETURN
+      ENDIF
+    ENDDO
+    
+    IF (inout_list%list_size >= inout_list%allocated_size) THEN
+      CALL finish(method_name, "list_size >= allocated_size")
+    ENDIF
+
+    ! add the value to the list
+    inout_list%list_size = inout_list%list_size + 1
+    inout_list%value(inout_list%list_size) = value
+    add_to_list_if_not_exist = inout_list%list_size
+    
+  END FUNCTION add_to_list_if_not_exist
+  !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !  SUBROUTINE get_boundary_edges(grid_id, boundary_edge_list)
@@ -855,12 +888,6 @@ END FUNCTION concatenate_grids
     ! fill the dual vertices
     dual_grid%verts%idx(1:no_of_dual_vertices)            = &
       & input_grid%cells%idx(1:no_of_dual_vertices)
-    dual_grid%verts%dual_area(1:no_of_dual_vertices)      = &
-      & input_grid%cells%area(1:no_of_dual_vertices)
-    dual_grid%verts%vertex(1:no_of_dual_vertices)%lon     = &
-      & input_grid%cells%center(1:no_of_dual_vertices)%lon
-    dual_grid%verts%vertex(1:no_of_dual_vertices)%lat     = &
-      & input_grid%cells%center(1:no_of_dual_vertices)%lat
     dual_grid%verts%cartesian(1:no_of_dual_vertices)%x(1) = &
       & input_grid%cells%cartesian_center(1:no_of_dual_vertices)%x(1)
     dual_grid%verts%cartesian(1:no_of_dual_vertices)%x(2) = &
@@ -959,10 +986,13 @@ END FUNCTION concatenate_grids
       & input_grid%edges%center(1:no_of_dual_edges)%lon
     dual_grid%edges%center(1:no_of_dual_edges)%lat         = &
       & input_grid%edges%center(1:no_of_dual_edges)%lat
+    
+    ! NOTE: additional transport for the cartesian variables is required!
     ! This is not saved in file, we ignore it for the time
-    ! dual_grid%edges%cartesian_center(:)%x(1) = input_grid%edges%cartesian_center(:)%x(1)
-    ! dual_grid%edges%cartesian_center(:)%x(2) = input_grid%edges%cartesian_center(:)%x(2)
-    ! dual_grid%edges%cartesian_center(:)%x(3) = input_grid%edges%cartesian_center(:)%x(3)
+    dual_grid%edges%cartesian_center(:)%x(1) = input_grid%edges%cartesian_center(:)%x(1)
+    dual_grid%edges%cartesian_center(:)%x(2) = input_grid%edges%cartesian_center(:)%x(2)
+    dual_grid%edges%cartesian_center(:)%x(3) = input_grid%edges%cartesian_center(:)%x(3)
+    
     dual_grid%edges%primal_edge_length(1:no_of_dual_edges) = &
       & input_grid%edges%dual_edge_length(1:no_of_dual_edges)
     dual_grid%edges%dual_edge_length(1:no_of_dual_edges)   = &
@@ -1128,7 +1158,7 @@ END FUNCTION concatenate_grids
     INTEGER :: no_of_cells, no_of_edges, no_of_verts
     INTEGER :: i
 
-    grid_id = read_new_netcdf_grid(file_name, check_read_grid_ids=.true.)
+    grid_id = read_new_netcdf_grid(file_name, read_grid_ids=.true.)
 
     grid_obj => get_grid(grid_id)
     cells => grid_obj%cells

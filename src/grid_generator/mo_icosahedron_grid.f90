@@ -47,7 +47,8 @@ MODULE mo_icosahedron_grid
 
   USE mo_base_geometry,  ONLY: t_cartesian_coordinates!, cc2gc
   USE mo_math_constants, ONLY: pi_5
-  USE mo_io_local_grid,  ONLY: read_new_netcdf_grid, write_netcdf_grid
+  USE mo_io_local_grid,  ONLY: read_new_netcdf_grid, write_netcdf_grid, &
+    & write_ascii_decomposition
   USE mo_grid_toolbox,   ONLY: get_basic_dual_grid
   USE mo_local_grid_geometry,     ONLY: set_sphere_geom_grid, get_cell_barycenters!, &
 !    & use_cartesian_centers
@@ -56,6 +57,8 @@ MODULE mo_icosahedron_grid
   USE mo_local_grid_optimization, ONLY: read_grid_optimization_param, optimize_grid
   USE mo_local_grid
 !  USE mo_grid_checktools,         ONLY: check_grid
+  USE mo_grid_decomposition, ONLY: decompose_all_cells, redecompose_round_robin, &
+    & get_no_of_domains
 
   IMPLICIT NONE
 
@@ -66,8 +69,12 @@ MODULE mo_icosahedron_grid
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
 
   INTEGER :: no_of_levels, start_level, refinement_method, start_optimize, end_optimize
+  INTEGER :: decompose_cells_at_level = -2
+  INTEGER :: decompose_dualcells_at_level = -2
+  INTEGER :: decompose_roundrobin_at_level = -2
+  
   REAL(wp) :: icon_norm_edge, icon_norm_dual_edge
-  CHARACTER(LEN=filename_max) :: input_file, output_file
+  CHARACTER(LEN=filename_max) :: input_file, output_file, decomposition_ascii_ext
   CHARACTER(LEN=filename_max) :: optimization_extension
   
   INTEGER, PARAMETER :: edge_bisection = 1    ! for refinement_method
@@ -75,10 +82,10 @@ MODULE mo_icosahedron_grid
 
 CONTAINS
 
- !! SUBROUTINE read_grid_optimization_param
+  !-------------------------------------------------------------------------
+  !! SUBROUTINE read_grid_optimization_param
   !>
   !! Reads the parameters for local grid optimization
-  !-------------------------------------------------------------------------
   SUBROUTINE read_icosahedron_grid_param(param_file_name)
 
     CHARACTER(LEN=*), INTENT(in) :: param_file_name
@@ -87,7 +94,9 @@ CONTAINS
 
     NAMELIST /icosahedron_grid/ no_of_levels, start_level, &
       & refinement_method, input_file, output_file, optimization_extension, &
-      & start_optimize, end_optimize
+      & start_optimize, end_optimize, decompose_cells_at_level, &
+      & decompose_dualcells_at_level, decomposition_ascii_ext,  &
+      & decompose_roundrobin_at_level
 
     ! set default values
     no_of_levels = 1
@@ -95,9 +104,12 @@ CONTAINS
     start_level = 0
     output_file = 'test'
     input_file = 'NULL'
+    decomposition_ascii_ext = ".cell_domain_ids"
     start_optimize = 1
     end_optimize = -1
-        
+    decompose_cells_at_level = -2
+    decompose_dualcells_at_level = -2
+    
     ! read namelist
     CALL open_nml(param_file_name)
     CALL position_nml('icosahedron_grid',STATUS=i_status)
@@ -139,6 +151,7 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(in) :: param_file_name
 
     INTEGER :: base_grid_id, next_grid_id, level, end_level
+    INTEGER :: no_of_domains
     CHARACTER(LEN=filename_max) :: file_name
 
     CALL read_icosahedron_grid_param(param_file_name)
@@ -149,9 +162,13 @@ CONTAINS
       CALL set_sphere_geom_grid(base_grid_id)
       CALL set_grid_level(base_grid_id, -1)
       CALL set_grid_parent_id(base_grid_id, 0)
+      IF (-1 == decompose_cells_at_level) THEN
+        CALL decompose_all_cells(base_grid_id, 1)
+      ENDIF
       WRITE(file_name,'(a,a)')  TRIM(output_file), '_icosahedron.nc'
       CALL write_netcdf_grid(base_grid_id, file_name)
       !  print *, ' icon_norm_edge=', icon_norm_edge, ' icon_norm_dual_edge=', icon_norm_dual_edge
+      start_level = 0
       end_level = no_of_levels
     ELSE
       base_grid_id = read_new_netcdf_grid(input_file)
@@ -164,19 +181,31 @@ CONTAINS
       !get next level by edge bisection
       WRITE(message_text,'(a,i2.2)') "level=",level
       CALL message ('create_icon_grid', TRIM(message_text))
+      
       SELECT CASE(refinement_method)
 
         CASE(edge_bisection)
-          next_grid_id = refine_grid_edgebisection(base_grid_id)
-          CALL delete_grid(base_grid_id)
-          base_grid_id = next_grid_id
+
+          IF (level-1 == decompose_dualcells_at_level) THEN
+            next_grid_id = get_basic_dual_grid(base_grid_id)
+            CALL delete_grid(base_grid_id)
+            CALL decompose_all_cells(next_grid_id, 1)
+!             CALL get_cell_barycenters(next_grid_id)
+            base_grid_id = refine_grid_insert_centers(next_grid_id)
+            CALL delete_grid(next_grid_id)
+            
+          ELSE
+            next_grid_id = refine_grid_edgebisection(base_grid_id)
+            CALL delete_grid(base_grid_id)
+            base_grid_id = next_grid_id
+          ENDIF
 
         CASE(dual_cell_centers)
-          CALL get_cell_barycenters(base_grid_id)
+!          CALL get_cell_barycenters(base_grid_id)
           next_grid_id = get_basic_dual_grid(base_grid_id)
           CALL delete_grid(base_grid_id)
           ! CALL get_cell_barycenters(next_grid_id, use_cartesian_centers)
-          CALL get_cell_barycenters(next_grid_id)
+!          CALL get_cell_barycenters(next_grid_id)
           base_grid_id = refine_grid_insert_centers(next_grid_id)
           CALL delete_grid(next_grid_id)
 
@@ -197,9 +226,49 @@ CONTAINS
 
       CALL set_sphere_geom_grid(base_grid_id)
       CALL set_grid_parent_id(base_grid_id, 0)
+
+      IF (level == decompose_cells_at_level) THEN
+        CALL decompose_all_cells(base_grid_id, 1)
+      ENDIF
+      
+      IF (level == decompose_roundrobin_at_level) THEN
+        CALL redecompose_round_robin(base_grid_id, 1, 2)
+      ENDIF
+
+      
       WRITE(file_name,'(a,i2.2,a,a)')  TRIM(output_file), level,  &
         TRIM(optimization_extension), ".nc"
       CALL write_netcdf_grid(base_grid_id, file_name)
+
+      ! if decomposition takes place write the ascci decomposition file
+      !  if this level >= decompose level
+      IF (decompose_dualcells_at_level > -2 .AND. &
+        & level > decompose_dualcells_at_level) THEN
+        
+        no_of_domains = get_no_of_domains(base_grid_id, 1)
+        WRITE(file_name,'(a,i2.2,a,a,i4.4,a)')  TRIM(output_file), level,  &
+          TRIM(optimization_extension), "_hex_dd_", no_of_domains, &
+          TRIM(decomposition_ascii_ext)
+        CALL write_ascii_decomposition(base_grid_id, 1, file_name)
+      ENDIF
+      
+      IF (decompose_cells_at_level > -2 .AND. &
+        & level >= decompose_cells_at_level) THEN        
+        no_of_domains = get_no_of_domains(base_grid_id, 1)
+        WRITE(file_name,'(a,i2.2,a,a,i4.4,a)')  TRIM(output_file), level,  &
+          TRIM(optimization_extension), "_tri_dd_", no_of_domains, &
+          TRIM(decomposition_ascii_ext)
+        CALL write_ascii_decomposition(base_grid_id, 1, file_name)
+      ENDIF
+      
+      IF (decompose_roundrobin_at_level > -2 .AND. &
+        & level >= decompose_roundrobin_at_level) THEN        
+        no_of_domains = get_no_of_domains(base_grid_id, 2)
+        WRITE(file_name,'(a,i2.2,a,a,i4.4,a)')  TRIM(output_file), level,  &
+          TRIM(optimization_extension), "_roundrobin_dd_", no_of_domains, &
+          TRIM(decomposition_ascii_ext)
+        CALL write_ascii_decomposition(base_grid_id, 2, file_name)
+      ENDIF
 
     ENDDO ! level=1,no_of_levels
 
@@ -209,6 +278,7 @@ CONTAINS
   END SUBROUTINE create_icon_grid
   !-------------------------------------------------------------------------
 
+  !-------------------------------------------------------------------------
   INTEGER FUNCTION get_icosahedron_grid() result(out_grid_id)
     ! !DESCRIPTION:
     ! Calculates the Cartesian coordinates of the gridpoints of the
@@ -220,7 +290,7 @@ CONTAINS
     !
     ! !REVISION HISTORY:
     !  Initial Version by Luis Kornblueh, MPI-M, Hamburg, March 2004
-    ! Modified by L. Linardakis, MPI-M, Hamburg, August 2010
+    !  Modified by L. Linardakis, MPI-M, Hamburg, August 2010
 
     TYPE(t_cartesian_coordinates) :: base_vertex(12)
 

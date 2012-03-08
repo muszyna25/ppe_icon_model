@@ -77,58 +77,53 @@
 !! $Id: n/a$
 !!
 MODULE mo_io_local_grid
-
 #include "grid_definitions.inc"
 
-  USE mo_kind,                ONLY: wp
-  USE mo_io_units,            ONLY: filename_max
-  USE mo_exception,           ONLY: message_text, message, finish
-  USE mo_math_constants,      ONLY: pi,pi_2!, eps
-  USE mo_physical_constants,  ONLY: re
+  USE mo_kind,               ONLY: wp
+  USE mo_io_units,           ONLY: find_next_free_unit, filename_max
+  USE mo_exception,          ONLY: message_text, message, finish, warning
+  USE mo_math_constants,     ONLY: pi,pi_2!, eps
+  USE mo_physical_constants, ONLY: re
   USE mo_local_grid
-  USE mo_impl_constants,      ONLY: min_rlcell, max_rlcell, &
-       &                            min_rlvert, max_rlvert, &
-       &                            min_rledge, max_rledge
-  USE mo_local_grid_geometry, ONLY: geographical_to_cartesian, &
-       &                            cartesian_to_geographical, &
-       &                            get_cell_barycenters
-  USE mo_base_geometry,       ONLY: t_cartesian_coordinates, &
-       &                            t_geographical_coordinates
-  USE mo_impl_constants,      ONLY: min_rledge, max_rledge, &
-       &                            min_rlvert, max_rlvert
-  USE mo_util_uuid,           ONLY: t_uuid, uuid_generate, &
-       &                            uuid_unparse, uuid_string_length
+  USE mo_impl_constants,     ONLY: min_rlcell, max_rlcell, &
+    & min_rlvert, max_rlvert, &
+    & min_rledge, max_rledge
+  USE mo_base_geometry,      ONLY: t_cartesian_coordinates, t_geographical_coordinates
+  USE mo_impl_constants,     ONLY: min_rledge, max_rledge, min_rlvert, max_rlvert
+  USE mo_util_uuid,          ONLY: t_uuid, uuid_generate, &
+       &                           uuid_unparse, uuid_string_length
 
   IMPLICIT NONE
 
-#define lat_is_pole(lat) (ABS(ABS(lat) - pi_2) < 1e-4_wp)
+#define lat_is_pole(lat) (ABS(ABS(lat) - pi_2) < 1e-5_wp)
 !#define lat_is_pole(lat) (ABS(ABS(lat) - pi_2) < eps )
 
-
-!!  PUBLIC nf
+!   PUBLIC nf
 
   PRIVATE
 
   INCLUDE 'netcdf.inc'
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
 
   PUBLIC :: read_netcdf_grid, write_netcdf_grid
   PUBLIC :: read_netcdf_cell_elevation
   PUBLIC :: write_netcdf_vertical_strc, read_netcdf_vertical_strc
   PUBLIC :: read_no_of_subgrids, read_new_netcdf_grid
+  PUBLIC :: write_ascii_decomposition
   !--------------------------------------------------------------------
 
 CONTAINS
 
-  !-------------------------------------------------------------------------
-  SUBROUTINE nf(istatus)
-    INTEGER, INTENT(in) :: istatus
-    
-    IF (istatus /= nf_noerr) THEN
-      CALL finish('mo_io_grid netCDF error', nf_strerror(istatus))
+
+
+  SUBROUTINE nf(return_status)
+    INTEGER, INTENT(in) :: return_status
+
+    IF (return_status /= nf_noerr) THEN
+      CALL finish('mo_io_grid netCDF error', nf_strerror(return_status))
     ENDIF
-    
+
   END SUBROUTINE nf
   !-------------------------------------------------------------------------
 
@@ -298,23 +293,23 @@ CONTAINS
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
-  INTEGER FUNCTION read_new_netcdf_grid(file_name, check_read_grid_ids) result(new_grid_id)
+  INTEGER FUNCTION read_new_netcdf_grid(file_name, read_grid_ids) result(new_grid_id)
     CHARACTER(LEN=filename_max), OPTIONAL, INTENT(in) :: file_name
-    LOGICAL, OPTIONAL, INTENT(in) :: check_read_grid_ids
+    LOGICAL, OPTIONAL, INTENT(in) :: read_grid_ids
     
     new_grid_id = new_grid()
     IF (PRESENT(file_name)) THEN
       CALL set_grid_filename(new_grid_id, file_name)
     ENDIF
-    IF (PRESENT(check_read_grid_ids)) THEN
-      CALL read_netcdf_grid(new_grid_id, read_grid_ids=check_read_grid_ids)
+    IF (PRESENT(read_grid_ids)) THEN
+      CALL read_netcdf_grid(new_grid_id, read_grid_ids=read_grid_ids)
     ELSE
       CALL read_netcdf_grid(new_grid_id)
     ENDIF
     
   END FUNCTION read_new_netcdf_grid
-      
-    
+  !-------------------------------------------------------------------------
+          
  
   !-------------------------------------------------------------------------
   SUBROUTINE read_netcdf_grid(grid_id, file_name, read_grid_ids)
@@ -331,6 +326,8 @@ CONTAINS
     REAL(wp), POINTER :: tmp_real(:,:)
     INTEGER :: i,netcd_status, start_subgrid_id
 
+    CHARACTER(*), PARAMETER :: method_name = "mo_io_local_grid:read_netcdf_grid"
+    
     grid_obj => get_grid(grid_id)
     IF (PRESENT(file_name)) THEN
        grid_obj%file_name = file_name
@@ -356,7 +353,7 @@ CONTAINS
     CALL nf(nf_inq_dimlen(ncid, dimid, grid_obj%cells%max_no_of_vertices))
     CALL nf(nf_inq_dimid(ncid, 'ne', dimid))
     CALL nf(nf_inq_dimlen(ncid, dimid, grid_obj%verts%max_connectivity))
-
+    
     netcd_status = nf_inq_attid(ncid, nf_global, 'no_of_subgrids', varid)
     IF (netcd_status == nf_noerr) THEN
        CALL nf(nf_get_att_int(ncid, nf_global, 'no_of_subgrids', grid_obj%no_of_subgrids))
@@ -369,8 +366,9 @@ CONTAINS
     ELSE
        start_subgrid_id = 0
     ENDIF
-
-
+    netcd_status = nf_get_att_int(ncid, nf_global,'grid_geometry', grid_obj%grid_geometry)
+    IF (netcd_status /= nf_noerr) grid_obj%grid_geometry = undefined
+    
     print *, 'Read ', grid_obj%ncells, ' cells...'
     CALL allocate_grid_object(grid_id)
 
@@ -380,7 +378,6 @@ CONTAINS
     no_of_verts = grid_obj%nverts
     max_vert_connect  = grid_obj%verts%max_connectivity
     max_cell_vertices = grid_obj%cells%max_no_of_vertices
-
 
     ! read cell info
     CALL nf(nf_inq_varid(ncid, 'cell_index', varid))
@@ -393,8 +390,6 @@ CONTAINS
     CALL nf(nf_get_var_double(ncid, varid, grid_obj%cells%center(:)%lat))
     CALL nf(nf_inq_varid(ncid, 'cell_area_p', varid))
     CALL nf(nf_get_var_double(ncid, varid, grid_obj%cells%area))
-
-
 
     netcd_status = nf_inq_varid(ncid, 'cell_elevation', varid)
     IF (netcd_status == nf_noerr) THEN
@@ -460,6 +455,7 @@ CONTAINS
     CALL nf(nf_inq_varid(ncid, 'dual_edge_length', varid))
     CALL nf(nf_get_var_double(ncid, varid, grid_obj%edges%dual_edge_length))
     CALL nf(nf_inq_varid(ncid, 'zonal_normal_primal_edge', varid))
+    
     CALL nf(nf_get_var_double(ncid, varid, grid_obj%edges%primal_normal(:)%v1))
     CALL nf(nf_inq_varid(ncid, 'meridional_normal_primal_edge', varid))
     CALL nf(nf_get_var_double(ncid, varid, grid_obj%edges%primal_normal(:)%v2))
@@ -467,8 +463,11 @@ CONTAINS
     CALL nf(nf_get_var_double(ncid, varid, grid_obj%edges%dual_normal(:)%v1))
     CALL nf(nf_inq_varid(ncid, 'meridional_normal_dual_edge', varid))
     CALL nf(nf_get_var_double(ncid, varid, grid_obj%edges%dual_normal(:)%v2))
+    
     CALL nf(nf_inq_varid(ncid, 'edge_system_orientation', varid))
     CALL nf(nf_get_var_int   (ncid, varid, grid_obj%edges%system_orientation))
+    CALL nf(nf_inq_varid(ncid, 'edgequad_area', varid))
+    CALL nf(nf_get_var_double(ncid, varid, grid_obj%edges%quad_area))
 
     netcd_status = nf_inq_varid(ncid, 'edge_elevation', varid)
     IF (netcd_status == nf_noerr) THEN
@@ -529,13 +528,73 @@ CONTAINS
     CALL nf(nf_get_var_double(ncid, varid, grid_obj%verts%vertex(:)%lon))
     CALL nf(nf_inq_varid(ncid, 'latitude_vertices', varid))
     CALL nf(nf_get_var_double(ncid, varid, grid_obj%verts%vertex(:)%lat))
-
+    
+    ! read cartesian coordinates
     CALL nf(nf_inq_varid(ncid, 'cartesian_x_vertices', varid))
     CALL nf(nf_get_var_double(ncid, varid, grid_obj%verts%cartesian(:)%x(1)))
     CALL nf(nf_inq_varid(ncid, 'cartesian_y_vertices', varid))
     CALL nf(nf_get_var_double(ncid, varid, grid_obj%verts%cartesian(:)%x(2)))
     CALL nf(nf_inq_varid(ncid, 'cartesian_z_vertices', varid))
     CALL nf(nf_get_var_double(ncid, varid, grid_obj%verts%cartesian(:)%x(3)))
+
+    ! read cartesian coordinates
+    CALL nf(nf_inq_varid(ncid, 'cartesian_x_vertices', varid))
+    CALL nf(nf_get_var_double(ncid, varid, grid_obj%verts%cartesian(:)%x(1)))
+    CALL nf(nf_inq_varid(ncid, 'cartesian_y_vertices', varid))
+    CALL nf(nf_get_var_double(ncid, varid, grid_obj%verts%cartesian(:)%x(2)))
+    CALL nf(nf_inq_varid(ncid, 'cartesian_z_vertices', varid))
+    CALL nf(nf_get_var_double(ncid, varid, grid_obj%verts%cartesian(:)%x(3)))
+
+    !-------------------------------
+    ! additional cartesian info
+    netcd_status = nf_inq_varid(ncid, 'edge_middle_cartesian_x', varid)
+    IF (netcd_status /= nf_noerr) THEN
+      CALL warning(method_name, "Did not find cartesian grid info")
+    ! fill some basic fields
+!       CALL geographical_to_cartesian(grid_obj%cells%center, no_of_cells,&
+!         & grid_obj%cells%cartesian_center)
+    ELSE
+      ! read all the cartesian info
+
+      !  edges
+      CALL nf(nf_inq_varid(ncid, 'edge_middle_cartesian_x', varid))
+      CALL nf(nf_get_var_double(ncid, varid, grid_obj%edges%cartesian_center(:)%x(1)))
+      CALL nf(nf_inq_varid(ncid, 'edge_middle_cartesian_y', varid))
+      CALL nf(nf_get_var_double(ncid, varid, grid_obj%edges%cartesian_center(:)%x(2)))
+      CALL nf(nf_inq_varid(ncid, 'edge_middle_cartesian_z', varid))
+      CALL nf(nf_get_var_double(ncid, varid, grid_obj%edges%cartesian_center(:)%x(3)))
+
+      CALL nf(nf_inq_varid(ncid, 'edge_dual_middle_cartesian_x', varid))
+      CALL nf(nf_get_var_double(ncid, varid, grid_obj%edges%dual_cartesian_center(:)%x(1)))
+      CALL nf(nf_inq_varid(ncid, 'edge_dual_middle_cartesian_y', varid))
+      CALL nf(nf_get_var_double(ncid, varid, grid_obj%edges%dual_cartesian_center(:)%x(2)))
+      CALL nf(nf_inq_varid(ncid, 'edge_dual_middle_cartesian_z', varid))
+      CALL nf(nf_get_var_double(ncid, varid, grid_obj%edges%dual_cartesian_center(:)%x(3)))
+
+      CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_x', varid))
+      CALL nf(nf_get_var_double(ncid, varid, grid_obj%edges%cartesian_primal_normal(:)%x(1)))
+      CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_y', varid))
+      CALL nf(nf_get_var_double(ncid, varid, grid_obj%edges%cartesian_primal_normal(:)%x(2)))
+      CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_z', varid))
+      CALL nf(nf_get_var_double(ncid, varid, grid_obj%edges%cartesian_primal_normal(:)%x(3)))
+      
+      CALL nf(nf_inq_varid(ncid, 'edge_dual_normal_cartesian_x', varid))
+      CALL nf(nf_get_var_double(ncid, varid, grid_obj%edges%cartesian_dual_normal(:)%x(1)))
+      CALL nf(nf_inq_varid(ncid, 'edge_dual_normal_cartesian_y', varid))
+      CALL nf(nf_get_var_double(ncid, varid, grid_obj%edges%cartesian_dual_normal(:)%x(2)))
+      CALL nf(nf_inq_varid(ncid, 'edge_dual_normal_cartesian_z', varid))
+      CALL nf(nf_get_var_double(ncid, varid, grid_obj%edges%cartesian_dual_normal(:)%x(3)))
+
+      ! cells
+      CALL nf(nf_inq_varid(ncid, 'cell_circumcenter_cartesian_x', varid))
+      CALL nf(nf_get_var_double(ncid, varid, grid_obj%cells%cartesian_center(:)%x(1)))
+      CALL nf(nf_inq_varid(ncid, 'cell_circumcenter_cartesian_y', varid))
+      CALL nf(nf_get_var_double(ncid, varid, grid_obj%cells%cartesian_center(:)%x(2)))
+      CALL nf(nf_inq_varid(ncid, 'cell_circumcenter_cartesian_z', varid))
+      CALL nf(nf_get_var_double(ncid, varid, grid_obj%cells%cartesian_center(:)%x(3)))
+     
+    ENDIF
+    !-------------------------------
 
     CALL nf(nf_inq_varid(ncid, 'dual_area_p', varid))
     CALL nf(nf_get_var_double(ncid, varid, grid_obj%verts%dual_area))
@@ -612,6 +671,17 @@ CONTAINS
        grid_obj%start_subgrid_id = start_subgrid_id
     ENDIF
 
+    !----------------------------------
+    !  read decompositions
+    netcd_status = nf_inq_varid(ncid, 'cell_domain_id', varid)
+    IF (netcd_status == nf_noerr) THEN
+      CALL nf(nf_get_var_int(ncid, varid, grid_obj%cells%get_domain_id(:,:)))
+      CALL nf(nf_inq_varid(ncid, 'cell_no_of_domains', varid))
+      CALL nf(nf_get_var_int(ncid, varid, grid_obj%cells%no_of_domains))
+    ENDIF
+    !----------------------------------
+        
+    !----------------------------------
     IF (PRESENT(read_grid_ids)) THEN
       IF (read_grid_ids) THEN
         CALL nf(nf_get_att_int(ncid, nf_global,'grid_ID', grid_obj%patch_id))
@@ -621,15 +691,12 @@ CONTAINS
         CALL nf(nf_get_var_int   (ncid, varid, grid_obj%cells%child_id))
         CALL nf(nf_inq_varid(ncid, 'child_edge_id', varid))
         CALL nf(nf_get_var_int   (ncid, varid, grid_obj%edges%child_id))
-     ENDIF
-   ENDIF
+      ENDIF
+    ENDIF
 
     CALL nf(nf_close(ncid))
 
     !-------------------------------------------------------------
-    ! fill some basic fields
-    CALL geographical_to_cartesian(grid_obj%cells%center, no_of_cells,&
-      & grid_obj%cells%cartesian_center)
 
     grid_obj%is_filled = .true.
 
@@ -648,12 +715,12 @@ CONTAINS
 
     INTEGER :: old_mode
     INTEGER :: ncid
-    INTEGER :: dimids(2)
+    INTEGER :: dimids(2), dim_domain_id(2)
 
-    INTEGER :: dim_ncell, dim_nvertex, dim_nedge, dim_two, dim_cell_refine,      &
-         &     dim_edge_refine, dim_vert_refine, dim_nvertex_per_cell,           &
-         &     dim_ncells_per_edge, dim_nedges_per_vertex, dim_nchilds_per_cell, &
-         &     dim_list, dim_nchdom
+    INTEGER :: dim_ncell, dim_nvertex, dim_nedge, dim_two, dim_cell_refine, &
+      & dim_edge_refine, dim_vert_refine, dim_nvertex_per_cell,      &
+      & dim_ncells_per_edge, dim_nedges_per_vertex, dim_nchilds_per_cell, &
+      & dim_list, dim_nchdom, dim_max_decompositions
 
     INTEGER :: varid_clon, varid_clat, varid_clonv, varid_clatv
     INTEGER :: varid_vlon, varid_vlat, varid_vlonv, varid_vlatv
@@ -671,22 +738,26 @@ CONTAINS
       & varid44, varid45, varid46, varid47, varid48, varid251,          &
       & varid282, varid403
 
+    INTEGER :: varid_cell_domain_id, varid_cell_no_of_domains    
     INTEGER :: varid_cell_elevation, varid_cell_sea_land_mask
     INTEGER :: varid_edge_elevation, varid_edge_sea_land_mask
     INTEGER :: varid_phys_cell_id, varid_phys_edge_id
     INTEGER :: varid_cell_barycenter_lon, varid_cell_barycenter_lat
     INTEGER :: varid_edge_quad
+
+    INTEGER :: varid_edge_x, varid_edge_y, varid_edge_z
+    INTEGER :: varid_dualedge_x, varid_dualedge_y, varid_dualedge_z
+    INTEGER :: varid_edgenormal_x, varid_edgenormal_y, varid_edgenormal_z
+    INTEGER :: varid_dualedgenormal_x, varid_dualedgenormal_y, varid_dualedgenormal_z
+    INTEGER :: varid_circumcenter_x, varid_circumcenter_y, varid_circumcenter_z
+    
     INTEGER :: ifs2icon_cell, ifs2icon_edge, ifs2icon_vertex
-    
-    
+        
     INTEGER :: no_of_cells, no_of_edges, no_of_verts
     INTEGER :: max_vert_connect, max_cell_vertices
     INTEGER, POINTER :: tmp_index(:,:)
     REAL(wp), POINTER :: tmp_real(:,:)
     INTEGER :: i, j, j1, j2, pole_index
-
-    TYPE(t_cartesian_coordinates), POINTER :: barycenters(:)
-    TYPE(t_geographical_coordinates), POINTER :: lon_lat(:)
 
     TYPE(t_uuid) :: uuid
     CHARACTER(len=uuid_string_length) :: uuid_string
@@ -699,7 +770,6 @@ CONTAINS
     INTEGER :: itype_optimize=0
     LOGICAL :: l_c_grid = .false.
 
-!!     INTEGER :: str_idx, end_idx
     !-------------------------------------------------------------------------
     ! get unique grid file identifier for GRIB2 and updated CF-Convention
     CALL uuid_generate(uuid)
@@ -717,8 +787,11 @@ CONTAINS
     ENDIF
 
     !-------------------------------------------------------------------------
-    ! dummy setting for only available  grid root in new grid generator
+    ! distinguish between gridgeneration for optimization strategies
+
+    ! Dummy settings for special grids
     grid_root = 2
+    ! ilevel    = 1level
     ilevel    = grid_obj%level
 
     !----------------------------------------------------------------------
@@ -756,12 +829,16 @@ CONTAINS
     CALL nf(nf_put_att_double  (ncid, nf_global, 'inverse_flattening' , nf_double, 1, 0.0_wp))
     CALL nf(nf_put_att_int     (ncid, nf_global, 'grid_level', nf_int, 1, ilevel))
     CALL nf(nf_put_att_int     (ncid, nf_global, 'grid_root', nf_int, 1, grid_root))
+    CALL nf(nf_put_att_int     (ncid, nf_global, 'grid_geometry', nf_int, 1, &
+      & grid_obj%grid_geometry))
+    CALL nf(nf_get_att_int(ncid, nf_global,'grid_geometry', grid_obj%grid_geometry))
+    
     ! The following three attributes are nontrivial in the presence of grid refinement
     ! and are set here because they are checked in the ICON code
     IF (grid_obj%patch_id < 0) THEN
-      CALL nf(nf_put_att_int     (ncid, nf_global, 'grid_ID', nf_int, 1, 1))
+      CALL nf(nf_put_att_int     (ncid, nf_global, 'grid_ID', nf_int, 1,1))
     ELSE
-      CALL nf(nf_put_att_int     (ncid, nf_global, 'grid_ID', nf_int, 1, grid_obj%patch_id))
+      CALL nf(nf_put_att_int     (ncid, nf_global, 'grid_ID', nf_int, 1,grid_obj%patch_id))
     ENDIF
 
     CALL nf(nf_put_att_int     (ncid, nf_global, 'parent_grid_ID', nf_int, 1, &
@@ -816,6 +893,8 @@ CONTAINS
     dim_list = max_rlvert-min_rlvert+1
     CALL nf(nf_def_dim(ncid, 'vert_grf',dim_list, dim_vert_refine))
 
+    CALL nf(nf_def_dim(ncid, 'max_stored_decompositions',   max_decompositions, &
+      & dim_max_decompositions))
     !---------------------------------------------------------------------
     !
     ! Grid variables
@@ -941,11 +1020,13 @@ CONTAINS
     CALL nf(nf_def_var(ncid, 'phys_cell_id', nf_int, 1, dim_ncell, varid_phys_cell_id))
     CALL nf(nf_put_att_text(ncid, varid_phys_cell_id, 'long_name', 26, &
       & 'physical domain ID of cell'))
+    CALL nf(nf_put_att_text(ncid, varid_phys_cell_id, 'coordinates', 9, 'clon clat'))
 !     CALL nf(nf_put_att_text(ncid, varid_phys_cell_id, 'cdi', 6, 'ignore'))
 
     CALL nf(nf_def_var(ncid, 'phys_edge_id', nf_int, 1, dim_nedge, varid_phys_edge_id))
     CALL nf(nf_put_att_text(ncid, varid_phys_edge_id, 'long_name', 26, &
       & 'physical domain ID of edge'))
+    CALL nf(nf_put_att_text(ncid, varid_phys_edge_id, 'coordinates', 9, 'elon elat'))
 !     CALL nf(nf_put_att_text(ncid, varid_phys_edge_id, 'cdi', 6, 'ignore'))
 
     CALL nf(nf_def_var(ncid, 'lon_cell_centre', nf_double, 1, dim_ncell, varid1))
@@ -988,26 +1069,8 @@ CONTAINS
     CALL nf(nf_put_att_text(ncid, varid4, 'coordinates', 9, 'vlon vlat'))
 !     CALL nf(nf_put_att_text(ncid, varid4, 'cdi', 6, 'ignore'))
     !
-    !
-    CALL nf(nf_def_var(ncid, 'cartesian_x_vertices', nf_double, 1, dim_nvertex, varid_vx))
-    CALL nf(nf_put_att_text(ncid, varid_vx, 'long_name', 40, &
-      & 'vertex cartesian coordinate x on unit sphere'))
-    CALL nf(nf_put_att_text(ncid, varid_vx, 'units', 6, 'meters'))
-    CALL nf(nf_put_att_text(ncid, varid_vx, 'coordinates', 9, 'vlon vlat'))
-    !
-    CALL nf(nf_def_var(ncid, 'cartesian_y_vertices', nf_double, 1, dim_nvertex, varid_vy))
-    CALL nf(nf_put_att_text(ncid, varid_vy, 'long_name', 40, &
-      & 'vertex cartesian coordinate y on unit sphere'))
-    CALL nf(nf_put_att_text(ncid, varid_vy, 'units', 6, 'meters'))
-    CALL nf(nf_put_att_text(ncid, varid_vy, 'coordinates', 9, 'vlon vlat'))
-    !
-    CALL nf(nf_def_var(ncid, 'cartesian_z_vertices', nf_double, 1, dim_nvertex, varid_vz))
-    CALL nf(nf_put_att_text(ncid, varid_vz, 'long_name', 40, &
-      & 'vertex cartesian coordinate x on unit sphere'))
-    CALL nf(nf_put_att_text(ncid, varid_vz, 'units', 6, 'meters'))
-    CALL nf(nf_put_att_text(ncid, varid_vz, 'coordinates', 9, 'vlon vlat'))
-    !
 
+    
     CALL nf(nf_def_var(ncid, 'lon_edge_centre', nf_double, 1, dim_nedge, varid5))
     CALL nf(nf_put_att_text(ncid, varid5, 'long_name', 28, 'longitudes of edge midpoints'))
     CALL nf(nf_put_att_text(ncid, varid5, 'units', 6, 'radian'))
@@ -1022,12 +1085,12 @@ CONTAINS
     !
     dimids = (/ dim_ncell, dim_nvertex_per_cell /)
     CALL nf(nf_def_var(ncid, 'edge_of_cell', nf_int, 2, dimids, varid7))
-    CALL nf(nf_put_att_text(ncid, varid7, 'long_name', 29, 'edges of each triangular cell'))
+    CALL nf(nf_put_att_text(ncid, varid7, 'long_name', 29, 'edges of each cell'))
 !     CALL nf(nf_put_att_text(ncid, varid7, 'cdi', 6, 'ignore'))
     !
     dimids = (/ dim_ncell, dim_nvertex_per_cell /)
     CALL nf(nf_def_var(ncid, 'vertex_of_cell', nf_int, 2, dimids, varid8))
-    CALL nf(nf_put_att_text(ncid, varid8, 'long_name', 32, 'vertices of each triangular cell'))
+    CALL nf(nf_put_att_text(ncid, varid8, 'long_name', 32, 'vertices of each cell'))
 !     CALL nf(nf_put_att_text(ncid, varid8, 'cdi', 6, 'ignore'))
     !
     dimids = (/ dim_nedge, dim_ncells_per_edge /)
@@ -1059,6 +1122,7 @@ CONTAINS
     CALL nf(nf_def_var(ncid, 'cell_area_p', nf_double, 1, dim_ncell, varid14))
     CALL nf(nf_put_att_text(ncid, varid14, 'long_name', 17, 'area of grid cell'))
     CALL nf(nf_put_att_text(ncid, varid14, 'units', 2, 'm2'))
+    CALL nf(nf_put_att_text(ncid, varid14, 'coordinates', 9, 'clon clat'))
 !     CALL nf(nf_put_att_text(ncid, varid14, 'cdi', 6, 'ignore'))
     !
     CALL nf(nf_def_var(ncid, 'cell_elevation', nf_double, 1, dim_ncell, varid_cell_elevation))
@@ -1074,8 +1138,18 @@ CONTAINS
       & 'sea (-2 inner, -1 boundary) land (2 inner, 1 boundary) mask for the cells'))
     CALL nf(nf_put_att_text(ncid, varid_cell_sea_land_mask, 'units', 8, '2,1,-1,-2'))
     CALL nf(nf_put_att_text(ncid, varid_cell_sea_land_mask, 'coordinates', 9, 'clon clat'))
-!     CALL nf(nf_put_att_text(ncid, varid_cell_sea_land_mask, 'cdi', 6, 'ignore'))
-    !
+
+    dim_domain_id = (/ dim_max_decompositions, dim_ncell /)
+    CALL nf(nf_def_var(ncid, 'cell_domain_id', nf_int, 2, dim_domain_id, &
+      & varid_cell_domain_id))
+    CALL nf(nf_put_att_text(ncid, varid_cell_domain_id, 'long_name', 32, &
+      & 'cell domain id for decomposition'))
+    
+    CALL nf(nf_def_var(ncid, 'cell_no_of_domains', nf_int, 1, dim_max_decompositions, &
+      & varid_cell_no_of_domains))
+    CALL nf(nf_put_att_text(ncid, varid_cell_no_of_domains, 'long_name', 40, &
+      & 'number of domains for each decomposition'))
+    
     CALL nf(nf_def_var(ncid, 'dual_area_p', nf_double, 1, dim_nvertex, varid15))
     CALL nf(nf_put_att_text(ncid, varid15, 'long_name', 40, &
       & 'areas of dual hexagonal/pentagonal cells'))
@@ -1328,11 +1402,151 @@ CONTAINS
     CALL nf(nf_put_att_text(ncid, varid403, 'long_name', 19, 'parent vertex index'))
 !     CALL nf(nf_put_att_text(ncid, varid403, 'cdi', 6, 'ignore'))
     !
+    
+
+    !-------------------------------------------
+    ! define cartesian positions
+    
+    ! vertexes
+    CALL nf(nf_def_var(ncid, 'cartesian_x_vertices', nf_double, 1, dim_nvertex, varid_vx))
+    CALL nf(nf_put_att_text(ncid, varid_vx, 'long_name', 40, &
+      & 'vertex cartesian coordinate x on unit sphere'))
+    CALL nf(nf_put_att_text(ncid, varid_vx, 'units', 6, 'meters'))
+    CALL nf(nf_put_att_text(ncid, varid_vx, 'coordinates', 9, 'vlon vlat'))
+    !
+    CALL nf(nf_def_var(ncid, 'cartesian_y_vertices', nf_double, 1, dim_nvertex, varid_vy))
+    CALL nf(nf_put_att_text(ncid, varid_vy, 'long_name', 40, &
+      & 'vertex cartesian coordinate y on unit sphere'))
+    CALL nf(nf_put_att_text(ncid, varid_vy, 'units', 6, 'meters'))
+    CALL nf(nf_put_att_text(ncid, varid_vy, 'coordinates', 9, 'vlon vlat'))
+    !
+    CALL nf(nf_def_var(ncid, 'cartesian_z_vertices', nf_double, 1, dim_nvertex, varid_vz))
+    CALL nf(nf_put_att_text(ncid, varid_vz, 'long_name', 40, &
+      & 'vertex cartesian coordinate x on unit sphere'))
+    CALL nf(nf_put_att_text(ncid, varid_vz, 'units', 6, 'meters'))
+    CALL nf(nf_put_att_text(ncid, varid_vz, 'coordinates', 9, 'vlon vlat'))
+    !
+
+    !  edges
+    CALL nf(nf_def_var(ncid, 'edge_middle_cartesian_x', nf_double, 1, dim_nedge, varid_edge_x))
+    CALL nf(nf_put_att_text(ncid, varid_edge_x, 'long_name', 55, &
+      & 'prime edge center cartesian coordinate x on unit sphere'))
+    CALL nf(nf_put_att_text(ncid, varid_edge_x, 'units', 6, 'meters'))
+    CALL nf(nf_put_att_text(ncid, varid_edge_x, 'coordinates', 9, 'elon elat'))
+    !
+    CALL nf(nf_def_var(ncid, 'edge_middle_cartesian_y', nf_double, 1, dim_nedge, varid_edge_y))
+    CALL nf(nf_put_att_text(ncid, varid_edge_y, 'long_name', 55, &
+      & 'prime edge center cartesian coordinate y on unit sphere'))
+    CALL nf(nf_put_att_text(ncid, varid_edge_y, 'units', 6, 'meters'))
+    CALL nf(nf_put_att_text(ncid, varid_edge_y, 'coordinates', 9, 'elon elat'))
+    !
+    CALL nf(nf_def_var(ncid, 'edge_middle_cartesian_z', nf_double, 1, dim_nedge, varid_edge_z))
+    CALL nf(nf_put_att_text(ncid, varid_edge_z, 'long_name', 55, &
+      & 'prime edge center cartesian coordinate x on unit sphere'))
+    CALL nf(nf_put_att_text(ncid, varid_edge_z, 'units', 6, 'meters'))
+    CALL nf(nf_put_att_text(ncid, varid_edge_z, 'coordinates', 9, 'elon elat'))
+    !
+    
+    CALL nf(nf_def_var(ncid, 'edge_dual_middle_cartesian_x', nf_double, 1, dim_nedge, &
+      & varid_dualedge_x))
+    CALL nf(nf_put_att_text(ncid, varid_dualedge_x, 'long_name', 54, &
+      & 'dual edge center cartesian coordinate x on unit sphere'))
+    CALL nf(nf_put_att_text(ncid, varid_dualedge_x, 'units', 6, 'meters'))
+    CALL nf(nf_put_att_text(ncid, varid_dualedge_x, 'coordinates', 9, 'elon elat'))
+    !
+    CALL nf(nf_def_var(ncid, 'edge_dual_middle_cartesian_y', nf_double, 1, dim_nedge, &
+      & varid_dualedge_y))
+    CALL nf(nf_put_att_text(ncid, varid_dualedge_y, 'long_name', 54, &
+      & 'dual edge center cartesian coordinate y on unit sphere'))
+    CALL nf(nf_put_att_text(ncid, varid_dualedge_y, 'units', 6, 'meters'))
+    CALL nf(nf_put_att_text(ncid, varid_dualedge_y, 'coordinates', 9, 'elon elat'))
+    !
+    CALL nf(nf_def_var(ncid, 'edge_dual_middle_cartesian_z', nf_double, 1, dim_nedge, &
+      & varid_dualedge_z))
+    CALL nf(nf_put_att_text(ncid, varid_dualedge_z, 'long_name', 54, &
+      & 'dual edge center cartesian coordinate z on unit sphere'))
+    CALL nf(nf_put_att_text(ncid, varid_dualedge_z, 'units', 6, 'meters'))
+    CALL nf(nf_put_att_text(ncid, varid_dualedge_z, 'coordinates', 9, 'elon elat'))
+    !
+    
+    CALL nf(nf_def_var(ncid, 'edge_primal_normal_cartesian_x', nf_double, 1, dim_nedge, &
+      & varid_edgenormal_x))
+    CALL nf(nf_put_att_text(ncid, varid_edgenormal_x, 'long_name', 53, &
+      & 'unit normal to the prime edge 3D vector, coordinate x'))
+    CALL nf(nf_put_att_text(ncid, varid_edgenormal_x, 'units', 6, 'meters'))
+    CALL nf(nf_put_att_text(ncid, varid_edgenormal_x, 'coordinates', 9, 'elon elat'))
+    !
+    CALL nf(nf_def_var(ncid, 'edge_primal_normal_cartesian_y', nf_double, 1, dim_nedge, &
+      & varid_edgenormal_y))
+    CALL nf(nf_put_att_text(ncid, varid_edgenormal_y, 'long_name', 53, &
+      & 'unit normal to the prime edge 3D vector, coordinate y'))
+    CALL nf(nf_put_att_text(ncid, varid_edgenormal_y, 'units', 6, 'meters'))
+    CALL nf(nf_put_att_text(ncid, varid_edgenormal_y, 'coordinates', 9, 'elon elat'))
+    !
+    CALL nf(nf_def_var(ncid, 'edge_primal_normal_cartesian_z', nf_double, 1, dim_nedge, &
+      & varid_edgenormal_z))
+    CALL nf(nf_put_att_text(ncid, varid_edgenormal_z, 'long_name', 53, &
+      & 'unit normal to the prime edge 3D vector, coordinate z'))
+    CALL nf(nf_put_att_text(ncid, varid_edgenormal_z, 'units', 6, 'meters'))
+    CALL nf(nf_put_att_text(ncid, varid_edgenormal_z, 'coordinates', 9, 'elon elat'))
+    !
+    
+    CALL nf(nf_def_var(ncid, 'edge_dual_normal_cartesian_x', nf_double, 1, dim_nedge, &
+      & varid_dualedgenormal_x))
+    CALL nf(nf_put_att_text(ncid, varid_dualedgenormal_x, 'long_name', 53, &
+      & 'unit normal to the dual edge 3D vector, coordinate x'))
+    CALL nf(nf_put_att_text(ncid, varid_dualedgenormal_x, 'units', 6, 'meters'))
+    CALL nf(nf_put_att_text(ncid, varid_dualedgenormal_x, 'coordinates', 9, 'elon elat'))
+    !
+    CALL nf(nf_def_var(ncid, 'edge_dual_normal_cartesian_y', nf_double, 1, dim_nedge, &
+      & varid_dualedgenormal_y))
+    CALL nf(nf_put_att_text(ncid, varid_dualedgenormal_y, 'long_name', 53, &
+      & 'unit normal to the dual edge 3D vector, coordinate y'))
+    CALL nf(nf_put_att_text(ncid, varid_dualedgenormal_y, 'units', 6, 'meters'))
+    CALL nf(nf_put_att_text(ncid, varid_dualedgenormal_y, 'coordinates', 9, 'elon elat'))
+    !
+    CALL nf(nf_def_var(ncid, 'edge_dual_normal_cartesian_z', nf_double, 1, dim_nedge, &
+      & varid_dualedgenormal_z))
+    CALL nf(nf_put_att_text(ncid, varid_dualedgenormal_z, 'long_name', 53, &
+      & 'unit normal to the dual edge 3D vector, coordinate z'))
+    CALL nf(nf_put_att_text(ncid, varid_dualedgenormal_z, 'units', 6, 'meters'))
+    CALL nf(nf_put_att_text(ncid, varid_dualedgenormal_z, 'coordinates', 9, 'elon elat'))
+    !
+    
+    ! cells
+    CALL nf(nf_def_var(ncid, 'cell_circumcenter_cartesian_x', nf_double, 1, dim_ncell, &
+      & varid_circumcenter_x))
+    CALL nf(nf_put_att_text(ncid, varid_circumcenter_x, 'long_name', 82, &
+      & 'cartesian position of the prime cell circumcenter on the unit sphere, coordinate x'))
+    CALL nf(nf_put_att_text(ncid, varid_circumcenter_x, 'units', 6, 'meters'))
+    CALL nf(nf_put_att_text(ncid, varid_circumcenter_x, 'coordinates', 9, 'clon clat'))
+    !
+    CALL nf(nf_def_var(ncid, 'cell_circumcenter_cartesian_y', nf_double, 1, dim_ncell, &
+      & varid_circumcenter_y))
+    CALL nf(nf_put_att_text(ncid, varid_circumcenter_y, 'long_name', 82, &
+      & 'cartesian position of the prime cell circumcenter on the unit sphere, coordinate y'))
+    CALL nf(nf_put_att_text(ncid, varid_circumcenter_y, 'units', 6, 'meters'))
+    CALL nf(nf_put_att_text(ncid, varid_circumcenter_y, 'coordinates', 9, 'clon clat'))
+    !
+    CALL nf(nf_def_var(ncid, 'cell_circumcenter_cartesian_z', nf_double, 1, dim_ncell, &
+      & varid_circumcenter_z))
+    CALL nf(nf_put_att_text(ncid, varid_circumcenter_z, 'long_name', 82, &
+      & 'cartesian position of the prime cell circumcenter on the unit sphere, coordinate z'))
+    CALL nf(nf_put_att_text(ncid, varid_circumcenter_z, 'units', 6, 'meters'))
+    CALL nf(nf_put_att_text(ncid, varid_circumcenter_z, 'coordinates', 9, 'clon clat'))
+    !
+    !-------------------------------------------
+    
+
     !       write(*,*) "writing def ENDS"
     !       call flush(6)
     CALL nf(nf_enddef(ncid))
     !       write(*,*) "writing def ENDS II"
     !       call flush(6)
+    !-------------------------------------------
+    
+    !-------------------------------------------
+    ! put values
     CALL nf(nf_put_var_double(ncid, varid_clon, cells%center(1:no_of_cells)%lon))
     CALL nf(nf_put_var_double(ncid, varid_clat, cells%center(1:no_of_cells)%lat))
 
@@ -1358,22 +1572,9 @@ CONTAINS
     CALL nf(nf_put_var_double(ncid, varid1,  cells%center(1:no_of_cells)%lon))
     CALL nf(nf_put_var_double(ncid, varid2,  cells%center(1:no_of_cells)%lat))
     
-    ! write cell barycenters
-    IF (grid_obj%grid_geometry == sphere_geometry) THEN
-      NULLIFY(barycenters)
-      CALL get_cell_barycenters(grid_id, output_centers=barycenters)
-      NULLIFY(lon_lat)    
-      CALL cartesian_to_geographical(barycenters, no_of_cells, lon_lat)
-      CALL nf(nf_put_var_double(ncid, varid_cell_barycenter_lon, lon_lat(1:no_of_cells)%lon))
-      CALL nf(nf_put_var_double(ncid, varid_cell_barycenter_lat, lon_lat(1:no_of_cells)%lat))
-      DEALLOCATE(barycenters, lon_lat)
-    ENDIF
     
     CALL nf(nf_put_var_double(ncid, varid3,  verts%vertex(1:no_of_verts)%lon))
     CALL nf(nf_put_var_double(ncid, varid4,  verts%vertex(1:no_of_verts)%lat))
-    CALL nf(nf_put_var_double(ncid, varid_vx, verts%cartesian(1:no_of_verts)%x(1)))
-    CALL nf(nf_put_var_double(ncid, varid_vy, verts%cartesian(1:no_of_verts)%x(2)))
-    CALL nf(nf_put_var_double(ncid, varid_vz, verts%cartesian(1:no_of_verts)%x(3)))
 
     CALL nf(nf_put_var_double(ncid, varid5,  edges%center(1:no_of_edges)%lon))
     CALL nf(nf_put_var_double(ncid, varid6,  edges%center(1:no_of_edges)%lat))
@@ -1456,6 +1657,10 @@ CONTAINS
        cells%elevation(1:no_of_cells)))
     CALL nf(nf_put_var_int   (ncid, varid_cell_sea_land_mask,&
       cells%sea_land_mask(1:no_of_cells)))
+    CALL nf(nf_put_var_int   (ncid, varid_cell_domain_id,&
+      cells%get_domain_id(:,1:no_of_cells)))
+    CALL nf(nf_put_var_int   (ncid, varid_cell_no_of_domains,&
+      cells%no_of_domains(:)))
     CALL nf(nf_put_var_double(ncid, varid15, verts%dual_area(1:no_of_verts)))
     CALL nf(nf_put_var_double(ncid, varid16, edges%primal_edge_length(1:no_of_edges)))
     CALL nf(nf_put_var_double(ncid, varid17, edges%dual_edge_length(1:no_of_edges)))
@@ -1663,6 +1868,59 @@ CONTAINS
       !
       !--------------------------------------------------------------------------------------
     ENDIF ! (grid_obj%netcdf_flags == netcdf_CF_1_1_convention)
+    !------------------------------------------------------------------------
+
+    !------------------------------------------------------------------------
+    !------------------------------------------------------------------------
+    ! write cartesian positions
+
+    ! vertexes
+    CALL nf(nf_put_var_double(ncid, varid_vx, verts%cartesian(1:no_of_verts)%x(1)))
+    CALL nf(nf_put_var_double(ncid, varid_vy, verts%cartesian(1:no_of_verts)%x(2)))
+    CALL nf(nf_put_var_double(ncid, varid_vz, verts%cartesian(1:no_of_verts)%x(3)))
+
+    !  edges
+    CALL nf(nf_put_var_double(ncid, varid_edge_x, edges%cartesian_center(1:no_of_edges)%x(1)))
+    CALL nf(nf_put_var_double(ncid, varid_edge_y, edges%cartesian_center(1:no_of_edges)%x(2)))
+    CALL nf(nf_put_var_double(ncid, varid_edge_z, edges%cartesian_center(1:no_of_edges)%x(3)))
+    
+    CALL nf(nf_put_var_double(ncid, varid_dualedge_x, &
+      & edges%dual_cartesian_center(1:no_of_edges)%x(1)))
+    CALL nf(nf_put_var_double(ncid, varid_dualedge_y, &
+      & edges%dual_cartesian_center(1:no_of_edges)%x(2)))
+    CALL nf(nf_put_var_double(ncid, varid_dualedge_z, &
+      & edges%dual_cartesian_center(1:no_of_edges)%x(3)))
+   
+    CALL nf(nf_put_var_double(ncid, varid_edgenormal_x, &
+      & edges%cartesian_primal_normal(1:no_of_edges)%x(1)))
+    CALL nf(nf_put_var_double(ncid, varid_edgenormal_y, &
+      & edges%cartesian_primal_normal(1:no_of_edges)%x(2)))
+    CALL nf(nf_put_var_double(ncid, varid_edgenormal_z, &
+      & edges%cartesian_primal_normal(1:no_of_edges)%x(3)))
+    
+    CALL nf(nf_put_var_double(ncid, varid_dualedgenormal_x, &
+      & edges%cartesian_dual_normal(1:no_of_edges)%x(1)))
+    CALL nf(nf_put_var_double(ncid, varid_dualedgenormal_y, &
+      & edges%cartesian_dual_normal(1:no_of_edges)%x(2)))
+    CALL nf(nf_put_var_double(ncid, varid_dualedgenormal_z, &
+      & edges%cartesian_dual_normal(1:no_of_edges)%x(3)))
+    
+
+    ! cells
+    CALL nf(nf_put_var_double(ncid, varid_circumcenter_x, &
+      & cells%cartesian_center(1:no_of_cells)%x(1)))
+    CALL nf(nf_put_var_double(ncid, varid_circumcenter_y, &
+      & cells%cartesian_center(1:no_of_cells)%x(2)))
+    CALL nf(nf_put_var_double(ncid, varid_circumcenter_z, &
+      & cells%cartesian_center(1:no_of_cells)%x(3)))
+    !------------------------------------------------------------------------
+         
+    !------------------------------------------------------------------------
+    ! write lon lat of cell barycenters
+    CALL nf(nf_put_var_double(ncid, varid_cell_barycenter_lon, &
+      & cells%barycenter(1:no_of_cells)%lon))
+    CALL nf(nf_put_var_double(ncid, varid_cell_barycenter_lat, &
+      & cells%barycenter(1:no_of_cells)%lat))    
 
     CALL nf(nf_close(ncid))
     !------------------------------------------------------------------------
@@ -1729,6 +1987,26 @@ CONTAINS
     END IF
 
   END FUNCTION check_orientation
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  SUBROUTINE write_ascii_decomposition(grid_id, decomposition_id, ascii_file_name)
+    INTEGER, INTENT(in) :: grid_id, decomposition_id
+    CHARACTER(LEN=filename_max), INTENT(in) :: ascii_file_name
+
+    TYPE(t_grid_cells), POINTER :: cells
+
+    INTEGER :: file_id, error_status, cell_no
+    
+    cells => get_cells(grid_id)
+    file_id = find_next_free_unit(100,1000)
+    OPEN (file_id, FILE=TRIM(ascii_file_name),IOSTAT=error_status)
+    DO cell_no = 1,cells%no_of_existcells
+      WRITE(file_id,*) cells%get_domain_id(decomposition_id, cell_no)
+    ENDDO
+    CLOSE(file_id)    
+
+  END SUBROUTINE write_ascii_decomposition
   !-------------------------------------------------------------------------
 
 END MODULE mo_io_local_grid

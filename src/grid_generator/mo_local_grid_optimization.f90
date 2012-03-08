@@ -239,7 +239,8 @@ CONTAINS
 
     use_prime_spring_cellcenters = .false.
     use_dual_spring_cellcenters = .false.
-    use_adaptive_dt = .false.
+    use_adaptive_dt = .false. ! Note: this is buggy, use_adaptive_dt should not be used
+
     use_adaptive_spring_length = .false.
     use_local_reference_length = .false.
     use_isotropy_force = .false.
@@ -261,7 +262,7 @@ CONTAINS
     IF (i_status == positioned) THEN
       READ (nnml,grid_optimization)
     ELSE
-       WRITE(message_text,'(a,a,a)') " File ", TRIM(param_file_name), " not POSITIONED"
+      WRITE(message_text,'(a,a,a)') " File ", TRIM(param_file_name), " not POSITIONED"
       CALL finish ('read_grid_optimization_param', message_text)
     ENDIF
     CLOSE(nnml)
@@ -358,10 +359,10 @@ CONTAINS
   !---------------------------------------------------------
 
   !---------------------------------------------------------
-  SUBROUTINE optimize_grid(grid_id, depth_level)
+  SUBROUTINE optimize_grid(grid_id) !, depth_level)
 
     INTEGER, INTENT(inout) :: grid_id
-    INTEGER, INTENT(in), OPTIONAL :: depth_level
+!     INTEGER, INTENT(in), OPTIONAL :: depth_level
 
     INTEGER :: opt_result
     INTEGER :: timer_optimize_grid
@@ -453,7 +454,7 @@ CONTAINS
 
     INTEGER :: vertex_edges, vertex_list_idx
 
-    INTEGER :: dual_grid_id, istat
+    INTEGER :: dual_grid_id, return_status
     TYPE(t_grid), POINTER :: dual_grid
     TYPE(t_cartesian_coordinates), POINTER :: dual_barycenters(:)
 
@@ -508,50 +509,50 @@ CONTAINS
     ! allocate auxiliary vectors
     ALLOCATE(edge_force(no_of_edges), &
       & vertex_force(no_of_vertices), &
-      & vertex_velocity(no_of_vertices), stat=istat)
-    IF (istat > 0) THEN
+      & vertex_velocity(no_of_vertices), stat=return_status)
+    IF (return_status > 0) THEN
         CALL finish (method_name, 'ALLOCATE(vertex_force,vertex_velocity')
     ENDIF
 
     IF (use_edge_ref_length) THEN
-      ALLOCATE(edge_ref_length(no_of_edges), stat=istat)
-      IF (istat > 0) THEN
+      ALLOCATE(edge_ref_length(no_of_edges), stat=return_status)
+      IF (return_status > 0) THEN
         CALL finish (method_name, 'ALLOCATE(edge_ref_length')
       ENDIF
     ENDIF
     
 
     IF (use_local_reference_length) THEN
-      ALLOCATE(vertex_edge_ref_length(no_of_vertices), stat=istat)
-      IF (istat > 0) &
+      ALLOCATE(vertex_edge_ref_length(no_of_vertices), stat=return_status)
+      IF (return_status > 0) &
         CALL finish (method_name, &
           & 'ALLOCATE(vertex_edge_ref_length, ...')
     ENDIF
     
     IF (use_prime_spring_cellcenters) THEN
       ALLOCATE(cell_center_ref_length(no_of_cells), &
-        cell_edge_ref(max_cell_vertices), stat=istat)
-      IF (istat > 0) CALL finish (method_name, &
+        cell_edge_ref(max_cell_vertices), stat=return_status)
+      IF (return_status > 0) CALL finish (method_name, &
           & 'ALLOCATE(cell_center_ref_length')
     ENDIF
 
     IF (use_isotropy_force) THEN
-      ALLOCATE(cell_isotropy_vector(no_of_cells), stat=istat)
-      IF (istat > 0) &
+      ALLOCATE(cell_isotropy_vector(no_of_cells), stat=return_status)
+      IF (return_status > 0) &
         CALL finish (method_name, &
           & 'ALLOCATE(cell_isotropy_vector)')
     ENDIF
     
 !     IF (use_cell_center_correction) THEN
-!       ALLOCATE(cell_vertex_centers_vector(max_vertex_connect,no_of_cells), stat=istat)
-!       IF (istat > 0)&
+!       ALLOCATE(cell_vertex_centers_vector(max_vertex_connect,no_of_cells), stat=return_status)
+!       IF (return_status > 0)&
 !         CALL finish (method_name, &
 !           & 'ALLOCATE(cell_vertex_centers_vector')
 !     ENDIF
     
     IF (use_vertex_ref_length) THEN
-      ALLOCATE(vertex_ref_length(no_of_vertices), stat=istat)
-      IF (istat > 0)  CALL finish (method_name, &
+      ALLOCATE(vertex_ref_length(no_of_vertices), stat=return_status)
+      IF (return_status > 0)  CALL finish (method_name, &
           & 'ALLOCATE(vertex_ref_length)')
     ENDIF
 
@@ -687,7 +688,7 @@ CONTAINS
 !       ENDIF
       
       !--------------------------------------------------------------------
-!$OMP PARALLEL PRIVATE(vertex_centers_length, istat)
+!$OMP PARALLEL PRIVATE(vertex_centers_length, return_status)
       ! compute edge_ref_length
       SELECT CASE (R_refine_method)
         CASE (R_refine_none)
@@ -1055,6 +1056,7 @@ CONTAINS
 
       !--------------------------------------------------------------------
       ! compute adaptive dt if requested
+      ! Note: this is buggy, use_adaptive_dt should not be used
       IF (use_adaptive_dt) THEN
          old_dt = dt
          new_dt = SQRT(2.0_wp * max_dt_distance / max_force)
@@ -1115,10 +1117,10 @@ CONTAINS
         !ekin = 0.5_wp * DOT_PRODUCT(vertex_velocity(vertex)%x,&
         !  & vertex_velocity(vertex)%x) + ekin
 
-        force_ceoff = spring_dt_force_coeff
-        velocity_coeff = spring_dt_velocity_coeff
-
       ENDDO ! vertex_list_idx=1,inner_verts_list%list_size
+      !--------------------------------------------------------------------
+      force_ceoff = spring_dt_force_coeff
+      velocity_coeff = spring_dt_velocity_coeff
       !--------------------------------------------------------------------
 
       IF (iteration==1) THEN
@@ -1165,7 +1167,6 @@ CONTAINS
       oldtotal_force = total_force
       old_force = max_force
       old_velocity = max_velocity
-
 
     ENDDO ! iteration=1, max_iterations
 

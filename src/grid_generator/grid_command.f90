@@ -11,11 +11,13 @@ PROGRAM grid_command
   USE mo_grid_toolbox,          ONLY: concatenate_grid_files,create_dual, &
     &   shift_grid_ids
   USE mo_grid_checktools,       ONLY: check_grid_file, grid_statistics_file,&
-    & check_inverse_connect_verts, check_compute_sphere_geometry, &
-    & check_read_write_grid
+    & check_inverse_connect_verts, check_read_write_grid
   USE mo_local_grid_optimization, ONLY: optimize_grid_file
   USE mo_icosahedron_grid,      ONLY: create_icon_grid
   USE mo_grid_conditions,       ONLY: cut_local_grid, cut_local_grid_ascii
+  USE mo_grid_decomposition,    ONLY: redecompose_file_round_robin, &
+    & print_decomposition_statistics
+  USE mo_local_grid_geometry,   ONLY:  compute_sphere_geometry
   
 #ifndef __ICON_GRID_GENERATOR__
   USE mo_global_grid_generator, ONLY: global_graph_generator, global_grid_generator, &
@@ -43,18 +45,23 @@ PROGRAM grid_command
   CHARACTER(len=32), PARAMETER :: grid_statistics_c ='grid_statistics'
   CHARACTER(len=32), PARAMETER :: optimize_grid_c ='optimize_grid'
   CHARACTER(len=32), PARAMETER :: create_icon_grid_c ='create_icon_grid'
+  CHARACTER(len=32), PARAMETER :: shift_grid_ids_c ='shift_grid_ids'
+  CHARACTER(len=32), PARAMETER :: coarsen_grid_c ='coarsen_grid'
+  CHARACTER(len=32), PARAMETER :: redecompose_round_robin_c ='redecompose_round_robin'
+  CHARACTER(len=32), PARAMETER :: decomposition_statistics_c = &
+    & 'decomposition_statistics'
+  
+  ! drives the old grid generator
   CHARACTER(len=32), PARAMETER :: global_graph_generator_c ='global_graph_generator'
   CHARACTER(len=32), PARAMETER :: global_grid_generator_c ='global_grid_generator'
   CHARACTER(len=32), PARAMETER :: global_grid_refine_c ='global_grid_refine'
-  CHARACTER(len=32), PARAMETER :: shift_grid_ids_c ='shift_grid_ids'
-  CHARACTER(len=32), PARAMETER :: coarsen_grid_c ='coarsen_grid'
 
   CHARACTER(len=32) :: command =''
   CHARACTER(len=filename_max) :: param_1 = ''
   CHARACTER(len=filename_max) :: param_2 = ''
   CHARACTER(len=filename_max) :: param_3 = ''
 
-  INTEGER :: int_1
+  INTEGER :: int_param_1, int_param_2
 !   CALL get_command_argument(1, command)
 !   CALL get_command_argument(2, param_1)
 
@@ -112,9 +119,9 @@ PROGRAM grid_command
 
     CASE (shift_grid_ids_c)
       OPEN (500, FILE = command_file,STATUS = 'OLD')
-      READ (500, *) command, param_1, int_1
+      READ (500, *) command, param_1, int_param_1
       CLOSE(500)
-      CALL shift_grid_ids(param_1, int_1)
+      CALL shift_grid_ids(param_1, int_param_1)
 
     CASE (inv_vertex_connect_c)
       OPEN (500, FILE = command_file,STATUS = 'OLD')
@@ -126,7 +133,7 @@ PROGRAM grid_command
       OPEN (500, FILE = command_file,STATUS = 'OLD')
       READ (500, *) command, param_1, param_2
       CLOSE(500)
-      CALL check_compute_sphere_geometry(param_1, param_2)
+      CALL compute_sphere_geometry(param_1, param_2)
 
     CASE (create_torus_c)
       CALL create_torus_grid(param_1)
@@ -136,6 +143,18 @@ PROGRAM grid_command
 
     CASE (check_grid_c)
       CALL check_grid_file(param_1)
+
+    CASE (redecompose_round_robin_c)
+      OPEN (500, FILE = command_file,STATUS = 'OLD')
+      READ (500, *) command, param_1, param_2, int_param_1, int_param_2
+      CLOSE(500)
+      CALL redecompose_file_round_robin(param_1, param_2, int_param_1, int_param_2)
+    
+    CASE (decomposition_statistics_c)
+      OPEN (500, FILE = command_file,STATUS = 'OLD')
+      READ (500, *) command, param_1, int_param_1
+      CLOSE(500)
+      CALL print_decomposition_statistics(param_1, int_param_1)
 
     CASE (grid_statistics_c)
       OPEN (500, FILE = command_file,STATUS = 'OLD')

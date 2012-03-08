@@ -40,7 +40,7 @@ MODULE mo_grid_checktools
 #include "grid_definitions.inc"
   !-------------------------------------------------------------------------
   USE mo_kind,           ONLY: wp
-  USE mo_io_units,       ONLY: filename_max
+  USE mo_io_units,       ONLY: find_next_free_unit, filename_max
   USE mo_exception,      ONLY: message, finish
   USE mo_local_grid
   USE mo_io_local_grid
@@ -52,6 +52,8 @@ MODULE mo_grid_checktools
     !, get_triangle_circumcenters, geographical_to_cartesian
   USE mo_physical_constants, ONLY: re
   USE mo_grid_toolbox , ONLY :  inverse_connectivity_verts! get_basic_dual_grid
+  USE mo_statistics_tools
+  
   IMPLICIT NONE
 
   !-------------------------------------------------------------------------
@@ -70,7 +72,6 @@ MODULE mo_grid_checktools
   PUBLIC :: check_parent_child_grid
   PUBLIC :: check_grid_file, grid_statistics_file
   PUBLIC :: check_inverse_connect_verts
-  PUBLIC :: check_compute_sphere_geometry
   
   !----------------------------------------
   REAL(wp), PARAMETER  :: EDGE_CENTER_LIMIT = 1e-3_wp
@@ -112,6 +113,7 @@ CONTAINS
     ! latex files
     ! for vertices
     WRITE(latex_file_name,'(a,a)') TRIM(in_latex_file_name), "_verts.tex"
+    latex_file_v = find_next_free_unit(100,1000)
     OPEN (latex_file_v, FILE=TRIM(latex_file_name),IOSTAT=error_status, &
       & POSITION='APPEND')
     IF (error_status /= 0) &
@@ -119,6 +121,7 @@ CONTAINS
     WRITE(latex_file_v, '("\verb+",a,"+ ")', advance='no') TRIM(in_file)
     ! for edges
     WRITE(latex_file_name,'(a,a)') TRIM(in_latex_file_name), "_edges.tex"
+    latex_file_e = find_next_free_unit(100,1000)
     OPEN (latex_file_e, FILE=TRIM(latex_file_name),IOSTAT=error_status, &
       & POSITION='APPEND')
     IF (error_status /= 0) &
@@ -126,6 +129,7 @@ CONTAINS
     WRITE(latex_file_e, '("\verb+",a,"+ ")', advance='no') TRIM(in_file)
     ! for cells
     WRITE(latex_file_name,'(a,a)') TRIM(in_latex_file_name), "_cells.tex"
+    latex_file_c = find_next_free_unit(100,1000)
     OPEN (latex_file_c, FILE=TRIM(latex_file_name),IOSTAT=error_status, &
       & POSITION='APPEND')
     IF (error_status /= 0) &
@@ -173,22 +177,6 @@ CONTAINS
 
   END SUBROUTINE check_inverse_connect_verts
   !-------------------------------------------------------------------------
-
-  !-------------------------------------------------------------------------
-  SUBROUTINE check_compute_sphere_geometry(in_file, out_file)
-    CHARACTER(LEN=filename_max), INTENT(in) :: in_file, out_file
-
-    INTEGER :: grid_id
-
-    grid_id = read_new_netcdf_grid(in_file)
-    CALL set_sphere_geom_grid(grid_id)
-    CALL write_netcdf_grid(grid_id, out_file)
-    CALL delete_grid(grid_id)
-
-  END SUBROUTINE check_compute_sphere_geometry
-  !-------------------------------------------------------------------------
-
-
 
   !-------------------------------------------------------------------------
   SUBROUTINE check_grid(in_grid_id)
@@ -295,12 +283,14 @@ CONTAINS
     REAL(wp)  :: norm
     REAL(wp):: max_dual_area, min_dual_area
     REAL(wp):: max_dual_edge, min_dual_edge, max_dual_edge_ratio
+    REAL(wp):: max_edge, min_edge, max_edge_ratio
 
 !     INTEGER :: dual_grid_id
 !     TYPE(t_grid), POINTER :: dual_grid
 !     TYPE(t_cartesian_coordinates), POINTER :: dual_barycenters(:)
     REAL(wp):: max_barycenter_distance
 
+    INTEGER :: dual_area_stats, dual_edge_ratio_stats, edge_ratio_stats
 
     in_grid => get_grid(in_grid_id)
 !    cells => in_grid%cells
@@ -316,9 +306,10 @@ CONTAINS
     WRITE(0,*) "-----------------------------"
     WRITE(0,*) " Checking geometry of ", verts%no_of_existvertices, " verts."
 
-    max_dual_area = 0.0_wp
-    min_dual_area = 1E100_wp
-    max_dual_edge_ratio = 0.0_wp
+    dual_area_stats       = new_statistic()
+    dual_edge_ratio_stats = new_statistic()
+    edge_ratio_stats      = new_statistic()
+    
     max_barycenter_distance = 0.0_wp
     DO vert_no=1, verts%no_of_existvertices
       x = gc2cc(verts%vertex(vert_no))
@@ -332,30 +323,45 @@ CONTAINS
           & 'Not acceptable cartesian - lonlat')
       ENDIF
 
-      max_dual_area = MAX(max_dual_area, verts%dual_area(vert_no))
-      min_dual_area = MIN(min_dual_area, verts%dual_area(vert_no))
-!       max_barycenter_distance = MAX(max_barycenter_distance, &
+      CALL add_statistic_to(dual_area_stats, verts%dual_area(vert_no))
+      !       max_barycenter_distance = MAX(max_barycenter_distance, &
 !        & arc_length(verts%cartesian(vert_no), dual_barycenters(vert_no)))
 
       max_dual_edge = 0.0_wp
       min_dual_edge = 1E100_wp
+      max_edge = 0.0_wp
+      min_edge = 1E100_wp
       DO i=1,max_connectivity
         edge = verts%get_edge_index(vert_no, i)
         IF (edge > 0) THEN
           max_dual_edge = MAX(max_dual_edge, edges%dual_edge_length(edge))
           min_dual_edge = MIN(min_dual_edge, edges%dual_edge_length(edge))
+          max_edge = MAX(max_edge, edges%primal_edge_length(edge))
+          min_edge = MIN(min_edge, edges%primal_edge_length(edge))
         ENDIF
       ENDDO !i=1,max_connectivity
-      max_dual_edge_ratio = MAX(max_dual_edge_ratio, max_dual_edge/min_dual_edge)
+      
+      CALL add_statistic_to(dual_edge_ratio_stats, max_dual_edge/min_dual_edge)
+      CALL add_statistic_to(edge_ratio_stats, max_edge/min_edge)
+      
     ENDDO
 
+    min_dual_area       = min_statistic_of(dual_area_stats)
+    max_dual_area       = max_statistic_of(dual_area_stats)
+    max_dual_edge_ratio = max_statistic_of(dual_edge_ratio_stats)
+    max_edge_ratio      = max_statistic_of(edge_ratio_stats)
+
+    CALL delete_statistic(dual_area_stats)
+    CALL delete_statistic(dual_edge_ratio_stats)
+    
     WRITE(0,*) 'Min/Max dual area:', min_dual_area, max_dual_area, max_dual_area/min_dual_area
-    WRITE(0,*) 'Max dual cell edge ratio:', max_dual_edge_ratio
+    WRITE(0,*) 'Max dual cell dual edge ratio:', max_dual_edge_ratio
+    WRITE(0,*) 'Max dual cell edge ratio:', max_edge_ratio
     WRITE(0,*) 'Max vertex-dual baryceneter distance:', max_barycenter_distance * re
 
-    WRITE(latex_file_v, '(" & ", f8.2, " & ", f5.2," & ",f5.2)', advance='no')  &
-      & max_barycenter_distance * re / 1000.0_wp, &
-      & max_dual_edge_ratio, max_dual_area/min_dual_area
+    WRITE(latex_file_v, '(" & ", f8.2, " & ", f6.3," & ",f6.3," & ",f6.3)', advance='no')  &
+      & max_barycenter_distance * re / 1000.0_wp, max_dual_area/min_dual_area, &
+      & max_dual_edge_ratio, max_edge_ratio
 
 !     CALL delete_grid(dual_grid_id)
 
@@ -378,7 +384,15 @@ CONTAINS
     TYPE(t_cartesian_coordinates) :: x_unit,y_unit,z_unit,xy
     REAL(wp)  :: dproduct,sin1,sin2
 
+    INTEGER :: edge_cell_offcenter_stat, edge_vert_offcenter_stat, dual_edge_stat
+    REAL(wp)::  max_edge_vert_offcenter, max_edge_cell_offcenter
+
+      
     CHARACTER(*), PARAMETER :: method_name = "check_grid_geometry_edges"
+   
+    edge_cell_offcenter_stat   = new_statistic(mode=ADD_MAX_RATIO)
+    edge_vert_offcenter_stat   = new_statistic(mode=ADD_MAX_RATIO)
+    dual_edge_stat             = new_statistic()
 
     x_unit%x = (/ 1._wp,0._wp,0._wp /)
     y_unit%x = (/ 0._wp,1._wp,0._wp /)
@@ -412,8 +426,11 @@ CONTAINS
     DO edge_no=1,edges%no_of_existedges
       min_prime_edge = MIN(min_prime_edge, edges%primal_edge_length(edge_no))
       max_prime_edge = MAX(max_prime_edge, edges%primal_edge_length(edge_no))
-      min_dual_edge  = MIN(min_dual_edge,  edges%dual_edge_length(edge_no))
-      max_dual_edge  = MAX(max_dual_edge,  edges%dual_edge_length(edge_no))
+
+      CALL add_statistic_to(dual_edge_stat, edges%dual_edge_length(edge_no))
+
+      CALL add_statistic_to(edge_vert_offcenter_stat, &
+        & edges%get_edge_vert_length(edge_no,1), edges%get_edge_vert_length(edge_no,2))
 
       vert1 = edges%get_vertex_index(edge_no,1)
       vert2 = edges%get_vertex_index(edge_no,2)
@@ -488,13 +505,10 @@ CONTAINS
         CALL finish(method_name,'cell1 < 1 .AND. cell2 < 1')
       ENDIF
       IF (cell1 > 0 .AND. cell2 > 0) THEN
-        IF (edges%get_edge_cell_length(edge_no,1) > edges%get_edge_cell_length(edge_no,2)) THEN
-          max_edge_cell_ratio = MAX(max_edge_cell_ratio, &
-            & edges%get_edge_cell_length(edge_no,1)/edges%get_edge_cell_length(edge_no,2))
-        ELSE
-          max_edge_cell_ratio = MAX(max_edge_cell_ratio, &
-            & edges%get_edge_cell_length(edge_no,2)/edges%get_edge_cell_length(edge_no,1))
-        ENDIF
+        
+        CALL add_statistic_to(edge_cell_offcenter_stat, &
+          & edges%get_edge_cell_length(edge_no,1), edges%get_edge_cell_length(edge_no,2))
+      
         IF (cells%area(cell1) > cells%area(cell2)) THEN
           area_ratio = cells%area(cell1) / cells%area(cell2)
         ELSE
@@ -556,18 +570,32 @@ CONTAINS
 
     ENDDO ! edge_no=1,edges%no_of_existedges
 
+    min_dual_edge  = min_statistic_of(dual_edge_stat)
+    max_dual_edge  = max_statistic_of(dual_edge_stat)
+    
     WRITE(0,*) "Adjacent dual max area ratio:", max_min_dual_area
     WRITE(0,*) "Adjacent cell max area ratio:", max_min_cell_area
     WRITE(0,*) "global min max prime edges length:", min_prime_edge, max_prime_edge, &
       & max_prime_edge/min_prime_edge
     WRITE(0,*) "global min max dual edges length:",  min_dual_edge, max_dual_edge, &
       & max_dual_edge/min_dual_edge
+    WRITE(0,*) "mean dual edges length:",  mean_statistic_of(dual_edge_stat)
+
+    max_edge_vert_offcenter = max_statistic_of(edge_vert_offcenter_stat)
+    max_edge_cell_offcenter = max_statistic_of(edge_cell_offcenter_stat)
     
-    WRITE(latex_file_e, '( " & ", f5.2, " & ", f5.2," & ",f5.2, " & ",f5.2, " & ",f5.2)',&
+    WRITE(0,*) "max_edge_vert_offcenter:",  max_edge_vert_offcenter
+    WRITE(0,*) "max_edge_cell_offcenter:",  max_edge_cell_offcenter
+    
+    CALL delete_statistic(edge_vert_offcenter_stat)
+    CALL delete_statistic(edge_cell_offcenter_stat)
+    CALL delete_statistic(dual_edge_stat)
+   
+    WRITE(latex_file_e, '( " & ", f6.3, " & ", f6.3," & ",f6.3, " & ",f6.3, " & ",f6.3)',&
       advance='no')  &
       & max_min_cell_area, max_min_dual_area, &
       & max_prime_edge/min_prime_edge, max_dual_edge/min_dual_edge, &
-      & max_edge_cell_ratio
+      & max_edge_cell_offcenter
 
   END SUBROUTINE check_grid_geometry_edges
   !-------------------------------------------------------------------------
@@ -703,8 +731,8 @@ CONTAINS
 
     DEALLOCATE(barycenters)
 
-    WRITE(latex_file_c, '( " & ", f5.2, " & ", f5.2," & ",&
-      & f5.2 ," & ",f5.2, " & ",f8.2," & ",f5.2)', &
+    WRITE(latex_file_c, '( " & ", f6.3, " & ", f6.3," & ",&
+      & f6.3 ," & ",f6.3, " & ",f8.2," & ",f6.3)', &
       & advance='no')  &
       & max_area/min_area, max_edge_ratio, max_dualedge_ratio, max_edge_cell_length_ratio, &
       & max_centers_diff /1000.0_wp, max_centers_diff_ratio

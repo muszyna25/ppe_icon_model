@@ -74,7 +74,7 @@ MODULE mo_local_grid
     & set_nest_defaultindexes, get_next_cell_edge_vertex
 
   ! Public object-oriented methods
-  PUBLIC :: detsruct_grid_objects, new_grid, delete_grid, get_grid,  &
+  PUBLIC :: destruct_grid_objects, new_grid, delete_grid, get_grid,  &
     & allocate_grid_object, set_grid_filename, set_grid_creation,    &
     & get_cells, get_vertices, replace_grid,  copy_grid,             &
     & grid_set_exist_eq_allocated, grid_set_allocated_eq_exist,      &
@@ -96,8 +96,8 @@ MODULE mo_local_grid
     & land_inner, land_boundary, sea_inner, sea_boundary,             &
     & linear_interpolation, min_interpolation, max_interpolation,     &
     & parents_from_idpointers, parents_from_parentpointers,           &
-    & netcdf_CF_1_1_convention, sphere_geometry, torus_geometry
-  
+    & netcdf_CF_1_1_convention, sphere_geometry, torus_geometry,      &
+    & max_decompositions
   !--------------------------------------------------------------
   ! definitions of parameters (constants)
   ! Note: 0 is always reserved for undefined value
@@ -171,7 +171,7 @@ MODULE mo_local_grid
   ! other parameters
   INTEGER, PARAMETER ::  netcdf_CF_1_1_convention = 1
 
-
+  INTEGER, PARAMETER ::  max_decompositions = 4 ! the maximum domain ids for decompositions
   !  END of parameters
   !--------------------------------------------------------------
 
@@ -181,12 +181,14 @@ MODULE mo_local_grid
   !> Holds a list of initegers
   TYPE t_integer_list
     INTEGER :: list_size
+    INTEGER :: allocated_size
     INTEGER, POINTER :: value(:)
   END TYPE t_integer_list
 
   !> Holds a list of reals
   TYPE t_float_list
     INTEGER :: list_size
+    INTEGER :: allocated_size
     REAL(wp), POINTER :: value(:)
   END TYPE t_float_list
   !--------------------------------------------------------------
@@ -282,6 +284,8 @@ MODULE mo_local_grid
     TYPE(t_geographical_coordinates), POINTER :: center(:)
     !> The center in cartesian (3D) coordinates on the unit sphere
     TYPE(t_cartesian_coordinates), POINTER ::  cartesian_center(:)
+    !> The center of the dual edge in cartesian (3D) coordinates on the unit sphere
+    TYPE(t_cartesian_coordinates), POINTER ::  dual_cartesian_center(:)
     !> The normal to the edge unit vector in local coordinates
     !! (on the tangent plane to the sphere).
     !! It always points from vertex_index(,1) to vertex_index(,2).
@@ -363,6 +367,10 @@ MODULE mo_local_grid
     TYPE(t_geographical_coordinates), POINTER :: center(:) ! the geometric center
     !> The center in cartesian (3D) coordinates on the unit sphere
     TYPE(t_cartesian_coordinates), POINTER ::  cartesian_center(:)
+    !> The geographical coordinates of the barycenter of the cell.
+    TYPE(t_geographical_coordinates), POINTER :: barycenter(:) ! the geometric center
+    !> The geographical coordinates of the barycenter of the cell.
+    TYPE(t_cartesian_coordinates), POINTER :: cartesian_barycenter(:) ! the geometric center
     !> The area of the cell.
     REAL(wp), POINTER :: area(:)             ! cell area
 
@@ -377,6 +385,12 @@ MODULE mo_local_grid
     !> Holds the SEA,LAND information (see the parameters in this module).
     INTEGER,  POINTER :: sea_land_mask(:)
 
+    !> Holds the multiple domain ids for domain decompositions
+    ! domain_id(max_decompositions, no_of_cells)
+    INTEGER, POINTER :: a_domain_id(:,:)
+    !> The number of domains for each domain decompositions
+    INTEGER, POINTER :: no_of_domains(:)
+    
     ! Implicit blocking part
     INTEGER :: no_of_blocks
     INTEGER,  POINTER :: block_end_idx(:)
@@ -995,10 +1009,11 @@ CONTAINS
     to_grid%is_allocated              = .true.
     to_grid%is_filled                 = .true.
 
-
     add_subgrid_id                    = to_grid%start_subgrid_id + to_grid%no_of_subgrids &
       & - from_grid%start_subgrid_id
     to_grid%no_of_subgrids            = from_grid%no_of_subgrids + to_grid%no_of_subgrids
+
+    to_cells%no_of_domains(:)         = from_cells%no_of_domains(:)
 
 !     print *, 'from_grid%start_subgrid_id:',from_grid%start_subgrid_id
 !     print *, 'to_grid%start_subgrid_id:',to_grid%start_subgrid_id
@@ -1121,6 +1136,7 @@ CONTAINS
       to_edges%system_orientation(to_index)   = from_edges%system_orientation(i)
       to_edges%center            (to_index)   = from_edges%center            (i)
       to_edges%cartesian_center  (to_index)   = from_edges%cartesian_center  (i)
+      to_edges%dual_cartesian_center(to_index)= from_edges%dual_cartesian_center(i)
       to_edges%primal_normal     (to_index)   = from_edges%primal_normal     (i)
       to_edges%cartesian_primal_normal(to_index)= from_edges%cartesian_primal_normal(i)
       to_edges%dual_normal       (to_index)   = from_edges%dual_normal       (i)
@@ -1136,7 +1152,6 @@ CONTAINS
       to_edges%no_of_zlayers     (to_index)   = from_edges%no_of_zlayers     (i)
 
       to_edges%refin_ctrl        (to_index)   = from_edges%refin_ctrl        (i)
-      to_edges%subgrid_id        (to_index)   = from_edges%subgrid_id        (i)
       to_edges%parent_index      (to_index)   = parent_edge_pnt              (i)
       to_edges%parent_child_type (to_index)   = from_edges%parent_child_type (i)
       to_edges%child_index       (to_index,:) = from_edges%child_index       (i,:)
@@ -1186,6 +1201,8 @@ CONTAINS
       to_cells%idx          (to_index) = to_index
       to_cells%center       (to_index) = from_cells%center       (i)
       to_cells%cartesian_center(to_index) = from_cells%cartesian_center(i)
+      to_cells%barycenter   (to_index) = from_cells%barycenter   (i)
+      to_cells%cartesian_barycenter(to_index)= from_cells%cartesian_barycenter(i)
       to_cells%area         (to_index) = from_cells%area         (i)
       to_cells%elevation    (to_index) = from_cells%elevation    (i)
       to_cells%sea_land_mask(to_index) = from_cells%sea_land_mask(i)
@@ -1194,13 +1211,13 @@ CONTAINS
       to_cells%no_of_vertices    (to_index)   = from_cells%no_of_vertices    (i)
       to_cells%get_edge_orient   (to_index,:) = from_cells%get_edge_orient   (i,:)
 
-      to_cells%subgrid_id      (to_index)   = from_cells%subgrid_id   (i)
       to_cells%refin_ctrl      (to_index)   = from_cells%refin_ctrl   (i)
       to_cells%parent_index    (to_index)   = parent_cell_pnt             (i)
       to_cells%parent_child_type(to_index)  = from_cells%parent_child_type(i)
       to_cells%child_index     (to_index,:) = from_cells%child_index     (i,:)
       to_cells%child_id        (to_index)   = from_cells%child_id        (i)
       to_cells%subgrid_id      (to_index)   = from_cells%subgrid_id      (i) + add_subgrid_id
+      to_cells%get_domain_id  (:,to_index)  = from_cells%get_domain_id (:,i)
 
     ENDDO
 !$OMP END DO
@@ -1493,10 +1510,29 @@ CONTAINS
     cells%cartesian_center(:)%x(2) =0.0_wp
     cells%cartesian_center(:)%x(3) =0.0_wp
 
+    ALLOCATE(cells%barycenter(no_of_cells),stat=istat)
+    ist=ist+istat
+    cells%barycenter(:)%lon=0.0_wp
+    cells%barycenter(:)%lat=0.0_wp
+
+    ALLOCATE(cells%cartesian_barycenter(no_of_cells),stat=istat)
+    ist=ist+istat
+    cells%cartesian_barycenter(:)%x(1)=0.0_wp
+    cells%cartesian_barycenter(:)%x(2)=0.0_wp
+    cells%cartesian_barycenter(:)%x(3)=0.0_wp
+
     ALLOCATE(cells%area(no_of_cells),stat=istat)
     ist=ist+istat
     cells%area(:)=0.0_wp
 
+    ALLOCATE(cells%get_domain_id(max_decompositions, no_of_cells),stat=istat)
+    ist=ist+istat
+    cells%get_domain_id(:,:)=-1
+    
+    ALLOCATE(cells%no_of_domains(max_decompositions),stat=istat)
+    ist=ist+istat
+    cells%no_of_domains(:)=0
+    
     ALLOCATE(cells%subgrid_id(no_of_cells),stat=istat)
     ist=ist+istat
     cells%subgrid_id(:)=undefined
@@ -1599,6 +1635,12 @@ CONTAINS
     edges%cartesian_center(:)%x(1) =0.0_wp
     edges%cartesian_center(:)%x(2) =0.0_wp
     edges%cartesian_center(:)%x(3) =0.0_wp
+
+    ALLOCATE(edges%dual_cartesian_center(no_of_edges),stat=istat)
+    ist=ist+istat
+    edges%dual_cartesian_center(:)%x(1) =0.0_wp
+    edges%dual_cartesian_center(:)%x(2) =0.0_wp
+    edges%dual_cartesian_center(:)%x(3) =0.0_wp
 
     ALLOCATE(edges%primal_normal(no_of_edges),stat=istat)
     ist=ist+istat
@@ -1796,12 +1838,12 @@ CONTAINS
   !>
   !! Deletes all grid objects
   !! Note: Should be called only at the stop of a program.
-  SUBROUTINE detsruct_grid_objects ()
+  SUBROUTINE destruct_grid_objects ()
 
     INTEGER :: i
 
     IF (no_of_allocated_grids == 0) THEN
-      CALL finish('detsruct_grid_objects', 'grid_objects have not been constructed');
+      CALL finish('destruct_grid_objects', 'grid_objects have not been constructed');
     ENDIF
 
     DO i=1,max_active_grids
@@ -1816,7 +1858,7 @@ CONTAINS
     active_grids     = 0
     max_active_grids = 0
 
-  END SUBROUTINE detsruct_grid_objects
+  END SUBROUTINE destruct_grid_objects
   !-----------------------------------------------------------------------
 
   !-----------------------------------------------------------------------
@@ -1852,7 +1894,15 @@ CONTAINS
     ist=ist+istat
     DEALLOCATE(cells%cartesian_center,stat=istat)
     ist=ist+istat
+    DEALLOCATE(cells%barycenter,stat=istat)
+    ist=ist+istat
+    DEALLOCATE(cells%cartesian_barycenter,stat=istat)
+    ist=ist+istat
     DEALLOCATE(cells%area,stat=istat)
+    ist=ist+istat
+    DEALLOCATE(cells%a_domain_id,stat=istat)
+    ist=ist+istat
+    DEALLOCATE(cells%no_of_domains,stat=istat)
     ist=ist+istat
     DEALLOCATE(cells%subgrid_id,stat=istat)
     ist=ist+istat
@@ -1900,6 +1950,8 @@ CONTAINS
     DEALLOCATE(edges%center,stat=istat)
     ist=ist+istat
     DEALLOCATE(edges%cartesian_center,stat=istat)
+    ist=ist+istat
+    DEALLOCATE(edges%dual_cartesian_center,stat=istat)
     ist=ist+istat
     DEALLOCATE(edges%primal_normal,stat=istat)
     ist=ist+istat
@@ -2215,19 +2267,20 @@ CONTAINS
   !! Called once to initiallize the "class".
   SUBROUTINE construct_grid_objects ()
 
-    INTEGER :: total_status,STATUS,i
+    INTEGER :: total_return_status,return_status,i
+    CHARACTER(*), PARAMETER :: method_name = "construct_grid_objects"
 
     IF (no_of_allocated_grids /= 0) THEN
       ! do some consistency checks, return if everything ok
       IF (no_of_allocated_grids /= max_no_of_grid_objects) THEN
-        CALL finish('construct_grid_objects', &
+        CALL finish(method_name, &
           & 'no_of_allocated_grids/= max_no_of_grid_objects');
       ENDIF
       IF (.not. ALLOCATED(grid_object_list)) THEN
-        CALL finish('construct_grid_objects', '.NOT. ALLOCATED(grid_object_list)');
+        CALL finish(method_name, '.NOT. ALLOCATED(grid_object_list)');
       ENDIF
       IF (SIZE(grid_object_list) /= no_of_allocated_grids) THEN
-        CALL finish('construct_grid_objects', &
+        CALL finish(method_name, &
           & 'SIZE(grid_object_list) /= no_of_allocated_grids');
       ENDIF
 
@@ -2235,22 +2288,22 @@ CONTAINS
     ENDIF
 
     IF (ALLOCATED(grid_object_list)) THEN
-      CALL finish('construct_grid_objects', 'ALLOCATED(grid_object_list)');
+      CALL finish(method_name, 'ALLOCATED(grid_object_list)');
     ENDIF
 
     no_of_allocated_grids  = max_no_of_grid_objects
     active_grids     = 0
     max_active_grids = 0
 
-    total_status = 0
-    ALLOCATE(grid_object_list(no_of_allocated_grids),stat=STATUS)
-    total_status=total_status + STATUS
-    ALLOCATE(grid_pnt_array(no_of_allocated_grids),stat=STATUS)
-    total_status=total_status + STATUS
-    ALLOCATE(grid_is_active(no_of_allocated_grids),stat=STATUS)
-    total_status=total_status + STATUS
-    IF (total_status /= 0) THEN
-      CALL finish('construct_grid_objects', 'failed to ALLOCATE(grid_object_list)');
+    total_return_status = 0
+    ALLOCATE(grid_object_list(no_of_allocated_grids),stat=return_status)
+    total_return_status=total_return_status + return_status
+    ALLOCATE(grid_pnt_array(no_of_allocated_grids),stat=return_status)
+    total_return_status=total_return_status + return_status
+    ALLOCATE(grid_is_active(no_of_allocated_grids),stat=return_status)
+    total_return_status=total_return_status + return_status
+    IF (total_return_status /= 0) THEN
+      CALL finish(method_name, 'failed to ALLOCATE(grid_object_list)');
     ENDIF
     DO i=1,no_of_allocated_grids
       grid_pnt_array(i)%pnt => grid_object_list(i)

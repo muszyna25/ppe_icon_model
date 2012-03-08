@@ -8,6 +8,7 @@
 #define get_edge_orient(i,j)    a_edge_orientation(j,i)
 #define get_edge_cell_length(i,j) a_edge_cell_length(j,i)
 #define get_edge_vert_length(i,j) a_edge_vert_length(j,i)
+#define get_domain_id(i,j)      a_domain_id(i,j)
 !-----------------------------------------------------------------------
 
 !-----------------------------------------------------------------------

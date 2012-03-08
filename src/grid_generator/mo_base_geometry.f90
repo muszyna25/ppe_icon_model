@@ -882,7 +882,6 @@ CONTAINS
   END FUNCTION sphere_cartesian_midpoint
   !-------------------------------------------------------------------------
 
-
   !-------------------------------------------------------------------------
   ELEMENTAL FUNCTION angle_of_vectors(v1,v2) result(angle)
     TYPE(t_cartesian_coordinates), INTENT(in) :: v1,v2
@@ -914,7 +913,6 @@ CONTAINS
 
   END FUNCTION angle_of_points
   !-------------------------------------------------------------------------
-
 
 END MODULE mo_base_geometry
 !----------------------------------------------------------------------------
