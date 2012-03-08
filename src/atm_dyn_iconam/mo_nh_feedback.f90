@@ -648,6 +648,12 @@ IF (.NOT. l_parallel) THEN
     DO jt = 1, ntiles
       p_lndp%t_gt(i_startidx:i_endidx,jb,jt) = p_lndp_old%t_gt(i_startidx:i_endidx,jb,jt) + &
         feedback_tg_tend(i_startidx:i_endidx,1,jb)
+      p_lndp%t_s(i_startidx:i_endidx,jb,jt) = p_lndp_old%t_s(i_startidx:i_endidx,jb,jt) + &
+        feedback_tg_tend(i_startidx:i_endidx,1,jb)
+      p_lndp%t_so(i_startidx:i_endidx,1,jb,jt) = p_lndp_old%t_so(i_startidx:i_endidx,1,jb,jt) + &
+        feedback_tg_tend(i_startidx:i_endidx,1,jb)
+      p_lndp%t_so(i_startidx:i_endidx,2,jb,jt) = p_lndp_old%t_so(i_startidx:i_endidx,2,jb,jt) + &
+        feedback_tg_tend(i_startidx:i_endidx,1,jb)
     ENDDO
 
     IF (ltransport .AND. l_trac_fbk) THEN ! perform tracer feedback
@@ -882,6 +888,12 @@ ENDIF
 
     DO jt = 1, ntiles
       p_lndp%t_gt(i_startidx:i_endidx,jb,jt) = p_lndp_old%t_gt(i_startidx:i_endidx,jb,jt) + &
+        parent_tg_tend(i_startidx:i_endidx,1,jb)
+      p_lndp%t_s(i_startidx:i_endidx,jb,jt) = p_lndp_old%t_s(i_startidx:i_endidx,jb,jt) + &
+        parent_tg_tend(i_startidx:i_endidx,1,jb)
+      p_lndp%t_so(i_startidx:i_endidx,1,jb,jt) = p_lndp_old%t_so(i_startidx:i_endidx,1,jb,jt) + &
+        parent_tg_tend(i_startidx:i_endidx,1,jb)
+      p_lndp%t_so(i_startidx:i_endidx,2,jb,jt) = p_lndp_old%t_so(i_startidx:i_endidx,2,jb,jt) + &
         parent_tg_tend(i_startidx:i_endidx,1,jb)
     ENDDO
 
@@ -1786,7 +1798,10 @@ ENDIF
 
     DO jt = 1, ntiles
       DO jc = i_startidx,i_endidx
-        p_lndp%t_gt(jc,jb,jt) = p_lndp%t_gt(jc,jb,jt) + relfac*diff_tg(jc,jb)
+        p_lndp%t_gt(jc,jb,jt)   = p_lndp%t_gt(jc,jb,jt)   + relfac*diff_tg(jc,jb)
+        p_lndp%t_s(jc,jb,jt)    = p_lndp%t_s(jc,jb,jt)    + relfac*diff_tg(jc,jb)
+        p_lndp%t_so(jc,1,jb,jt) = p_lndp%t_so(jc,1,jb,jt) + relfac*diff_tg(jc,jb)
+        p_lndp%t_so(jc,2,jb,jt) = p_lndp%t_so(jc,2,jb,jt) + relfac*diff_tg(jc,jb)
       ENDDO
     ENDDO
 
