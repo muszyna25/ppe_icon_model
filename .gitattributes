@@ -1139,6 +1139,7 @@ src/grid_generator/mo_local_patch_hierarchy.f90 -text
 src/grid_generator/mo_optimize.f90 -text
 src/grid_generator/mo_small_circle_c.f90 -text
 src/grid_generator/mo_spring_dynamics.f90 -text
+src/grid_generator/mo_statistics_tools.f90 -text
 src/grid_generator/mo_topology.f90 -text
 src/grid_generator/mo_zlayers.f90 -text
 src/grid_generator/partitioner.f90 -text
