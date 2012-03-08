@@ -68,10 +68,10 @@ CONTAINS
   !!
   SUBROUTINE organize_pollen_ifc()
 
-    CHARACTER (LEN=MAX_CHAR_LENGTH) :: yaction
-    CHARACTER (LEN=10)              :: ydate_ini
-    INTEGER                         :: ierror
-    CHARACTER (LEN=MAX_CHAR_LENGTH) :: yerrmsg
+    ! CHARACTER (LEN=MAX_CHAR_LENGTH) :: yaction
+    ! CHARACTER (LEN=10)              :: ydate_ini
+    ! INTEGER                         :: ierror
+    ! CHARACTER (LEN=MAX_CHAR_LENGTH) :: yerrmsg
 
     !-----------------------------------------------------------------------
 
