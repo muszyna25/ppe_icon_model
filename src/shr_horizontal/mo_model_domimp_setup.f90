@@ -106,27 +106,27 @@ MODULE mo_model_domimp_setup
   USE mo_math_constants,     ONLY: pi_2
   USE mo_loopindices,        ONLY: get_indices_e
   USE mo_grid_config,        ONLY: corio_lat
-  USE mo_sync,               ONLY: SYNC_E, sync_patch_array, sync_idx
+  USE mo_sync,               ONLY: sync_e, sync_patch_array, sync_idx
   USE mo_util_subset,        ONLY: fill_subset
   USE mo_mpi,                ONLY: work_mpi_barrier, get_my_mpi_work_id
-  USE mo_impl_constants,     ONLY: HALO_LEVELS_CEILING
-
+  USE mo_impl_constants,     ONLY: halo_levels_ceiling
+  
   IMPLICIT NONE
-
+  
   PRIVATE
   
   PUBLIC :: reshape_int, reshape_real, calculate_cart_normal, &
-          & init_quad_twoadjcells, init_coriolis, set_verts_phys_id
-
+    & init_quad_twoadjcells, init_coriolis, set_verts_phys_id
+  
   PUBLIC :: fill_grid_subsets
-
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
-
+  
+  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
+  
+  
   !-------------------------------------------------------------------------
-
+  
 CONTAINS
-
+  
   !-------------------------------------------------------------------------
   !>
   !! This routine calculates the Cartesian components of the edge primal normals.
@@ -142,89 +142,86 @@ CONTAINS
   !! - added also tangential normal, and generalize to lplane
   !!
   SUBROUTINE calculate_cart_normal( lplane, p_patch )
-  !
-
-  LOGICAL,INTENT(IN) :: lplane
-  TYPE(t_patch), TARGET, INTENT(inout) :: p_patch  ! patch on a specific level
-
-  TYPE(t_cartesian_coordinates) :: z_vec
-  REAL(wp) :: z_lon, z_lat, z_u, z_v  ! location and components of normal
-  REAL(wp) :: z_norm                  ! norm of Cartesian normal
-
-  INTEGER :: nlen, nblks_e, npromz_e
-  INTEGER :: jb, je                   ! loop indices
-
-  !-----------------------------------------------------------------------
-
-  ! values for the blocking
-  nblks_e  = p_patch%nblks_e
-  npromz_e = p_patch%npromz_e
-
-
-  !$OMP PARALLEL
-  !$OMP DO PRIVATE(jb,je,nlen,z_lon,z_lat,z_u,z_v,z_norm,z_vec)
-  DO jb = 1, nblks_e
-
-    IF (jb /= nblks_e) THEN
-      nlen = nproma
-    ELSE
-      nlen = npromz_e
-    ENDIF
-
-    ! loop over edges
-    DO je = 1, nlen
-
-      ! location of edge midpoint
-      IF (.NOT.lplane) THEN
-        z_lon = p_patch%edges%center(je,jb)%lon
-        z_lat = p_patch%edges%center(je,jb)%lat
+    !
+    LOGICAL,INTENT(in) :: lplane
+    TYPE(t_patch), TARGET, INTENT(inout) :: p_patch  ! patch on a specific level
+    
+    TYPE(t_cartesian_coordinates) :: z_vec
+    REAL(wp) :: z_lon, z_lat, z_u, z_v  ! location and components of normal
+    REAL(wp) :: z_norm                  ! norm of Cartesian normal
+    
+    INTEGER :: nlen, nblks_e, npromz_e
+    INTEGER :: jb, je                   ! loop indices
+    
+    !-----------------------------------------------------------------------
+    
+    ! values for the blocking
+    nblks_e  = p_patch%nblks_e
+    npromz_e = p_patch%npromz_e
+    
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,je,nlen,z_lon,z_lat,z_u,z_v,z_norm,z_vec)
+    DO jb = 1, nblks_e
+      
+      IF (jb /= nblks_e) THEN
+        nlen = nproma
       ELSE
-        z_lon = -pi_2 !-90
-        z_lat =  pi_2 !+90
+        nlen = npromz_e
       ENDIF
-
-      ! zonal and meridional component of primal normal
-      z_u = p_patch%edges%primal_normal(je,jb)%v1
-      z_v = p_patch%edges%primal_normal(je,jb)%v2
-
-      ! calculate Cartesian components of primal normal
-      CALL gvec2cvec( z_u, z_v, z_lon, z_lat, z_vec%x(1), z_vec%x(2), z_vec%x(3) )
-
-      ! compute unit normal to edge je
-      z_norm = SQRT( DOT_PRODUCT(z_vec%x(1:3),z_vec%x(1:3)) )
-      z_vec%x(1:3) = 1._wp / z_norm * z_vec%x(1:3)
-
-      ! save the values in the according type structure of the patch
-      p_patch%edges%primal_cart_normal(je,jb)%x(1) = z_vec%x(1)
-      p_patch%edges%primal_cart_normal(je,jb)%x(2) = z_vec%x(2)
-      p_patch%edges%primal_cart_normal(je,jb)%x(3) = z_vec%x(3)
-
-      ! zonal and meridional component of dual normal
-      z_u = p_patch%edges%dual_normal(je,jb)%v1
-      z_v = p_patch%edges%dual_normal(je,jb)%v2
-
-      ! calculate Cartesian components of primal normal
-      CALL gvec2cvec( z_u, z_v, z_lon, z_lat, z_vec%x(1), z_vec%x(2), z_vec%x(3) )
-
-      ! compute unit normal to edge je
-      z_norm = SQRT( DOT_PRODUCT(z_vec%x(1:3),z_vec%x(1:3)) )
-      z_vec%x(1:3) = 1._wp / z_norm * z_vec%x(1:3)
-
-      ! save the values in the according type structure of the patch
-      p_patch%edges%dual_cart_normal(je,jb)%x(1) = z_vec%x(1)
-      p_patch%edges%dual_cart_normal(je,jb)%x(2) = z_vec%x(2)
-      p_patch%edges%dual_cart_normal(je,jb)%x(3) = z_vec%x(3)
-
+      
+      ! loop over edges
+      DO je = 1, nlen
+        
+        ! location of edge midpoint
+        IF (.NOT.lplane) THEN
+          z_lon = p_patch%edges%center(je,jb)%lon
+          z_lat = p_patch%edges%center(je,jb)%lat
+        ELSE
+          z_lon = -pi_2 !-90
+          z_lat =  pi_2 !+90
+        ENDIF
+        
+        ! zonal and meridional component of primal normal
+        z_u = p_patch%edges%primal_normal(je,jb)%v1
+        z_v = p_patch%edges%primal_normal(je,jb)%v2
+        
+        ! calculate Cartesian components of primal normal
+        CALL gvec2cvec( z_u, z_v, z_lon, z_lat, z_vec%x(1), z_vec%x(2), z_vec%x(3) )
+        
+        ! compute unit normal to edge je
+        z_norm = SQRT( DOT_PRODUCT(z_vec%x(1:3),z_vec%x(1:3)) )
+        z_vec%x(1:3) = 1._wp / z_norm * z_vec%x(1:3)
+        
+        ! save the values in the according type structure of the patch
+        p_patch%edges%primal_cart_normal(je,jb)%x(1) = z_vec%x(1)
+        p_patch%edges%primal_cart_normal(je,jb)%x(2) = z_vec%x(2)
+        p_patch%edges%primal_cart_normal(je,jb)%x(3) = z_vec%x(3)
+        
+        ! zonal and meridional component of dual normal
+        z_u = p_patch%edges%dual_normal(je,jb)%v1
+        z_v = p_patch%edges%dual_normal(je,jb)%v2
+        
+        ! calculate Cartesian components of primal normal
+        CALL gvec2cvec( z_u, z_v, z_lon, z_lat, z_vec%x(1), z_vec%x(2), z_vec%x(3) )
+        
+        ! compute unit normal to edge je
+        z_norm = SQRT( DOT_PRODUCT(z_vec%x(1:3),z_vec%x(1:3)) )
+        z_vec%x(1:3) = 1._wp / z_norm * z_vec%x(1:3)
+        
+        ! save the values in the according type structure of the patch
+        p_patch%edges%dual_cart_normal(je,jb)%x(1) = z_vec%x(1)
+        p_patch%edges%dual_cart_normal(je,jb)%x(2) = z_vec%x(2)
+        p_patch%edges%dual_cart_normal(je,jb)%x(3) = z_vec%x(3)
+        
+      END DO
+      
     END DO
-
-  END DO
-  !$OMP END DO
-  !$OMP END PARALLEL
-
-
+!$OMP END DO
+!$OMP END PARALLEL
+    
   END SUBROUTINE calculate_cart_normal
   !-------------------------------------------------------------------------
-
+  
   !-------------------------------------------------------------------------
   !>
   !! This routine initializes the data for the quadrilateral cells.
@@ -242,214 +239,214 @@ CONTAINS
   !! Also suitable for hexagons: Almut Gassmann (2009-10-01)
   !!
   SUBROUTINE init_quad_twoadjcells( p_patch )
-  !
-  TYPE(t_patch), TARGET, INTENT(inout) :: p_patch  ! patch on a specific level
-
-  INTEGER :: nblks_e, npromz_e
-  INTEGER :: je, jb                   ! loop index
-  INTEGER :: iie, iie1(nproma), iie2(nproma), ierror(nproma)
-  INTEGER :: ilc1, ibc1, ilc2, ibc2                   ! cell indices
-  INTEGER :: ile1, ibe1, ile2, ibe2, ile3, ibe3       ! edge indices
-  INTEGER :: ilv1, ibv1, ilv2, ibv2, ilev, ibev, jjev ! vertex indices
-  INTEGER :: i_startblk, i_startidx, i_endidx
-
-
-  !-----------------------------------------------------------------------
-
-  ! values for the blocking
-  nblks_e  = p_patch%nblks_e
-  npromz_e = p_patch%npromz_e
-
-  ! Quad cells cannot be computed along the lateral edges of a nested domain
-  i_startblk = p_patch%edges%start_blk(2,1)
-
-  !$OMP PARALLEL
-
-  ! Initialize array elements along nest boundaries with zero
-  IF (p_patch%id > 1) THEN
-  !$OMP WORKSHARE
-    p_patch%edges%quad_area(:,1:i_startblk)            = 0._wp
-    p_patch%edges%quad_idx(:,1:i_startblk,1:4)         = 0
-    p_patch%edges%quad_blk(:,1:i_startblk,1:4)         = 0
-    p_patch%edges%quad_orientation(:,1:i_startblk,1:4) = 0._wp
-  !$OMP END WORKSHARE
-  ENDIF
-
-  !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,iie,ilc1,ibc1,ilc2,ibc2,ile1,ibe1,ile2,ibe2,&
-  !$OMP            ile3,ibe3,iie1,iie2,ierror,ilv1,ibv1,ilv2,ibv2,ilev,ibev,jjev)
-  DO jb = i_startblk, nblks_e
-
-    CALL get_indices_e(p_patch, jb, i_startblk, nblks_e, &
-                      i_startidx, i_endidx, 2)
-
-    IF (p_patch%cell_type == 3) THEN ! vectorized code for triangular grid
-
-      ierror = 0
-
-      DO je = i_startidx, i_endidx
-
-        IF(.NOT.p_patch%edges%owner_mask(je,jb)) CYCLE
-        !
-        ! get global indices of the edges of the two neighboring cells
-        !
-        ilc1 = p_patch%edges%cell_idx(je,jb,1)
-        ibc1 = p_patch%edges%cell_blk(je,jb,1)
-        ilc2 = p_patch%edges%cell_idx(je,jb,2)
-        ibc2 = p_patch%edges%cell_blk(je,jb,2)
-
-        ! sum area of the two adjacent cells
-        p_patch%edges%quad_area(je,jb) = &
-          p_patch%cells%area(ilc1,ibc1) + p_patch%cells%area(ilc2,ibc2)
-
-        ! Indices of edges adjacent to cell 1
-        ile1 = p_patch%cells%edge_idx(ilc1,ibc1,1)
-        ibe1 = p_patch%cells%edge_blk(ilc1,ibc1,1)
-        ile2 = p_patch%cells%edge_idx(ilc1,ibc1,2)
-        ibe2 = p_patch%cells%edge_blk(ilc1,ibc1,2)
-        ile3 = p_patch%cells%edge_idx(ilc1,ibc1,3)
-        ibe3 = p_patch%cells%edge_blk(ilc1,ibc1,3)
-
-        IF (je == ile1 .AND. jb == ibe1) THEN
-          iie1(je) = 2
-          iie2(je) = 3
-        ELSE IF (je == ile2 .AND. jb == ibe2) THEN
-          iie1(je) = 3
-          iie2(je) = 1
-        ELSE IF (je == ile3 .AND. jb == ibe3) THEN
-          iie1(je) = 1
-          iie2(je) = 2
-        ELSE
-          ierror(je) = ierror(je) + 1
-        ENDIF
-
-        p_patch%edges%quad_idx(je,jb,1) = p_patch%cells%edge_idx(ilc1,ibc1,iie1(je))
-        p_patch%edges%quad_blk(je,jb,1) = p_patch%cells%edge_blk(ilc1,ibc1,iie1(je))
-        p_patch%edges%quad_orientation(je,jb,1) =  &
-          &  p_patch%cells%edge_orientation(ilc1,ibc1,iie1(je))
-
-        p_patch%edges%quad_idx(je,jb,2) = p_patch%cells%edge_idx(ilc1,ibc1,iie2(je))
-        p_patch%edges%quad_blk(je,jb,2) = p_patch%cells%edge_blk(ilc1,ibc1,iie2(je))
-        p_patch%edges%quad_orientation(je,jb,2) =  &
-          &  p_patch%cells%edge_orientation(ilc1,ibc1,iie2(je))
-
-        ! Indices of edges adjacent to cell 2
-        ile1 = p_patch%cells%edge_idx(ilc2,ibc2,1)
-        ibe1 = p_patch%cells%edge_blk(ilc2,ibc2,1)
-        ile2 = p_patch%cells%edge_idx(ilc2,ibc2,2)
-        ibe2 = p_patch%cells%edge_blk(ilc2,ibc2,2)
-        ile3 = p_patch%cells%edge_idx(ilc2,ibc2,3)
-        ibe3 = p_patch%cells%edge_blk(ilc2,ibc2,3)
-
-        IF (je == ile1 .AND. jb == ibe1) THEN
-          iie1(je) = 2
-          iie2(je) = 3
-        ELSE IF (je == ile2 .AND. jb == ibe2) THEN
-          iie1(je) = 3
-          iie2(je) = 1
-        ELSE IF (je == ile3 .AND. jb == ibe3) THEN
-          iie1(je) = 1
-          iie2(je) = 2
-        ELSE
-          ierror(je) = ierror(je) + 1
-        ENDIF
-
-        p_patch%edges%quad_idx(je,jb,3) = p_patch%cells%edge_idx(ilc2,ibc2,iie1(je))
-        p_patch%edges%quad_blk(je,jb,3) = p_patch%cells%edge_blk(ilc2,ibc2,iie1(je))
-        p_patch%edges%quad_orientation(je,jb,3) =  &
-          &  p_patch%cells%edge_orientation(ilc2,ibc2,iie1(je))
-
-        p_patch%edges%quad_idx(je,jb,4) = p_patch%cells%edge_idx(ilc2,ibc2,iie2(je))
-        p_patch%edges%quad_blk(je,jb,4) = p_patch%cells%edge_blk(ilc2,ibc2,iie2(je))
-        p_patch%edges%quad_orientation(je,jb,4) =  &
-          &  p_patch%cells%edge_orientation(ilc2,ibc2,iie2(je))
-
-      ENDDO
-      IF (MAXVAL(ierror) > 0) THEN
-        WRITE(0,*) "Number of errors", SUM(ierror(1:nproma))
-        CALL finish ('mo_model_domain_import:init_quad_twoadjcells',  &
-          &          'edge-cell index relationships are apparently incorrect')
-      ENDIF
-
-    ELSE ! cell_type == 6
-
-      DO je = i_startidx, i_endidx
-
-        IF(.NOT.p_patch%edges%owner_mask(je,jb)) CYCLE
-
-        iie = 0
-        !
-        ! get global indices of the edges of the two neighboring verts
-        !
-        ilv1 = p_patch%edges%vertex_idx(je,jb,1)
-        ibv1 = p_patch%edges%vertex_blk(je,jb,1)
-        ilv2 = p_patch%edges%vertex_idx(je,jb,2)
-        ibv2 = p_patch%edges%vertex_blk(je,jb,2)
-
-        ! sum area of the two adjacent verts
-        p_patch%edges%quad_area(je,jb) = &
-          p_patch%verts%dual_area(ilv1,ibv1) + p_patch%verts%dual_area(ilv2,ibv2)
-
-        DO jjev = 1, 3
-
-          ilev = p_patch%verts%edge_idx(ilv1,ibv1,jjev)
-          ibev = p_patch%verts%edge_blk(ilv1,ibv1,jjev)
-
-          ! test if edge is not the current one, then store line and
-          ! block indices and orientation of quad edge
-          IF ( ilev /= je .OR. ibev /= jb ) THEN
-            iie = iie+1
-            p_patch%edges%quad_idx(je,jb,iie) = ilev
-            p_patch%edges%quad_blk(je,jb,iie) = ibev
-            p_patch%edges%quad_orientation(je,jb,iie) =  &
-              &  p_patch%verts%edge_orientation(ilv1,ibv1,jjev)
+    !
+    TYPE(t_patch), TARGET, INTENT(inout) :: p_patch  ! patch on a specific level
+    
+    INTEGER :: nblks_e, npromz_e
+    INTEGER :: je, jb                   ! loop index
+    INTEGER :: iie, iie1(nproma), iie2(nproma), ierror(nproma)
+    INTEGER :: ilc1, ibc1, ilc2, ibc2                   ! cell indices
+    INTEGER :: ile1, ibe1, ile2, ibe2, ile3, ibe3       ! edge indices
+    INTEGER :: ilv1, ibv1, ilv2, ibv2, ilev, ibev, jjev ! vertex indices
+    INTEGER :: i_startblk, i_startidx, i_endidx
+    
+    
+    !-----------------------------------------------------------------------
+    
+    ! values for the blocking
+    nblks_e  = p_patch%nblks_e
+    npromz_e = p_patch%npromz_e
+    
+    ! Quad cells cannot be computed along the lateral edges of a nested domain
+    i_startblk = p_patch%edges%start_blk(2,1)
+    
+!$OMP PARALLEL
+    
+    ! Initialize array elements along nest boundaries with zero
+    IF (p_patch%id > 1) THEN
+!$OMP WORKSHARE
+      p_patch%edges%quad_area(:,1:i_startblk)            = 0._wp
+      p_patch%edges%quad_idx(:,1:i_startblk,1:4)         = 0
+      p_patch%edges%quad_blk(:,1:i_startblk,1:4)         = 0
+      p_patch%edges%quad_orientation(:,1:i_startblk,1:4) = 0._wp
+!$OMP END WORKSHARE
+    ENDIF
+    
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,iie,ilc1,ibc1,ilc2,ibc2,ile1,ibe1,ile2,ibe2,&
+!$OMP            ile3,ibe3,iie1,iie2,ierror,ilv1,ibv1,ilv2,ibv2,ilev,ibev,jjev)
+    DO jb = i_startblk, nblks_e
+      
+      CALL get_indices_e(p_patch, jb, i_startblk, nblks_e, &
+        & i_startidx, i_endidx, 2)
+      
+      IF (p_patch%cell_type == 3) THEN ! vectorized code for triangular grid
+        
+        ierror = 0
+        
+        DO je = i_startidx, i_endidx
+          
+          IF(.NOT.p_patch%edges%owner_mask(je,jb)) CYCLE
+          !
+          ! get global indices of the edges of the two neighboring cells
+          !
+          ilc1 = p_patch%edges%cell_idx(je,jb,1)
+          ibc1 = p_patch%edges%cell_blk(je,jb,1)
+          ilc2 = p_patch%edges%cell_idx(je,jb,2)
+          ibc2 = p_patch%edges%cell_blk(je,jb,2)
+          
+          ! sum area of the two adjacent cells
+          p_patch%edges%quad_area(je,jb) = &
+            & p_patch%cells%area(ilc1,ibc1) + p_patch%cells%area(ilc2,ibc2)
+          
+          ! Indices of edges adjacent to cell 1
+          ile1 = p_patch%cells%edge_idx(ilc1,ibc1,1)
+          ibe1 = p_patch%cells%edge_blk(ilc1,ibc1,1)
+          ile2 = p_patch%cells%edge_idx(ilc1,ibc1,2)
+          ibe2 = p_patch%cells%edge_blk(ilc1,ibc1,2)
+          ile3 = p_patch%cells%edge_idx(ilc1,ibc1,3)
+          ibe3 = p_patch%cells%edge_blk(ilc1,ibc1,3)
+          
+          IF (je == ile1 .AND. jb == ibe1) THEN
+            iie1(je) = 2
+            iie2(je) = 3
+          ELSE IF (je == ile2 .AND. jb == ibe2) THEN
+            iie1(je) = 3
+            iie2(je) = 1
+          ELSE IF (je == ile3 .AND. jb == ibe3) THEN
+            iie1(je) = 1
+            iie2(je) = 2
+          ELSE
+            ierror(je) = ierror(je) + 1
           ENDIF
-
-        ENDDO
-
-        DO jjev = 1, 3
-
-          ilev = p_patch%verts%edge_idx(ilv2,ibv2,jjev)
-          ibev = p_patch%verts%edge_blk(ilv2,ibv2,jjev)
-
-          ! test if edge is not the current one, then store line and
-          ! block indices and orientation of quad edge
-          IF ( ilev /= je .OR. ibev /= jb ) THEN
-            iie = iie+1
-            p_patch%edges%quad_idx(je,jb,iie) = ilev
-            p_patch%edges%quad_blk(je,jb,iie) = ibev
-            p_patch%edges%quad_orientation(je,jb,iie) =  &
-              &  p_patch%verts%edge_orientation(ilv2,ibv2,jjev)
+          
+          p_patch%edges%quad_idx(je,jb,1) = p_patch%cells%edge_idx(ilc1,ibc1,iie1(je))
+          p_patch%edges%quad_blk(je,jb,1) = p_patch%cells%edge_blk(ilc1,ibc1,iie1(je))
+          p_patch%edges%quad_orientation(je,jb,1) =  &
+            & p_patch%cells%edge_orientation(ilc1,ibc1,iie1(je))
+          
+          p_patch%edges%quad_idx(je,jb,2) = p_patch%cells%edge_idx(ilc1,ibc1,iie2(je))
+          p_patch%edges%quad_blk(je,jb,2) = p_patch%cells%edge_blk(ilc1,ibc1,iie2(je))
+          p_patch%edges%quad_orientation(je,jb,2) =  &
+            & p_patch%cells%edge_orientation(ilc1,ibc1,iie2(je))
+          
+          ! Indices of edges adjacent to cell 2
+          ile1 = p_patch%cells%edge_idx(ilc2,ibc2,1)
+          ibe1 = p_patch%cells%edge_blk(ilc2,ibc2,1)
+          ile2 = p_patch%cells%edge_idx(ilc2,ibc2,2)
+          ibe2 = p_patch%cells%edge_blk(ilc2,ibc2,2)
+          ile3 = p_patch%cells%edge_idx(ilc2,ibc2,3)
+          ibe3 = p_patch%cells%edge_blk(ilc2,ibc2,3)
+          
+          IF (je == ile1 .AND. jb == ibe1) THEN
+            iie1(je) = 2
+            iie2(je) = 3
+          ELSE IF (je == ile2 .AND. jb == ibe2) THEN
+            iie1(je) = 3
+            iie2(je) = 1
+          ELSE IF (je == ile3 .AND. jb == ibe3) THEN
+            iie1(je) = 1
+            iie2(je) = 2
+          ELSE
+            ierror(je) = ierror(je) + 1
           ENDIF
-
+          
+          p_patch%edges%quad_idx(je,jb,3) = p_patch%cells%edge_idx(ilc2,ibc2,iie1(je))
+          p_patch%edges%quad_blk(je,jb,3) = p_patch%cells%edge_blk(ilc2,ibc2,iie1(je))
+          p_patch%edges%quad_orientation(je,jb,3) =  &
+            & p_patch%cells%edge_orientation(ilc2,ibc2,iie1(je))
+          
+          p_patch%edges%quad_idx(je,jb,4) = p_patch%cells%edge_idx(ilc2,ibc2,iie2(je))
+          p_patch%edges%quad_blk(je,jb,4) = p_patch%cells%edge_blk(ilc2,ibc2,iie2(je))
+          p_patch%edges%quad_orientation(je,jb,4) =  &
+            & p_patch%cells%edge_orientation(ilc2,ibc2,iie2(je))
+          
         ENDDO
-
-        IF (iie /= 4) THEN
-          PRINT *, "ERROR ==>  iie = ", iie,  " /= 4 "
+        IF (MAXVAL(ierror) > 0) THEN
+          WRITE(0,*) "Number of errors", SUM(ierror(1:nproma))
           CALL finish ('mo_model_domain_import:init_quad_twoadjcells',  &
-            &             'wrong number of edge indices for quad')
+            & 'edge-cell index relationships are apparently incorrect')
         ENDIF
-
-      END DO ! end edge loop
-
-    ENDIF ! cell_type
-
-  END DO
-  !$OMP END DO
-  !$OMP END PARALLEL
-
-  CALL sync_patch_array(SYNC_E,p_patch,p_patch%edges%quad_area)
-  DO iie = 1, 4
-    CALL sync_patch_array(SYNC_E,p_patch,p_patch%edges%quad_orientation(:,:,iie))
-
-    CALL sync_idx(SYNC_E,SYNC_E,p_patch,p_patch%edges%quad_idx(:,:,iie), &
-                                      & p_patch%edges%quad_blk(:,:,iie), &
-                                      & opt_remap=.FALSE.)
-  ENDDO
-
-
+        
+      ELSE ! cell_type == 6
+        
+        DO je = i_startidx, i_endidx
+          
+          IF(.NOT.p_patch%edges%owner_mask(je,jb)) CYCLE
+          
+          iie = 0
+          !
+          ! get global indices of the edges of the two neighboring verts
+          !
+          ilv1 = p_patch%edges%vertex_idx(je,jb,1)
+          ibv1 = p_patch%edges%vertex_blk(je,jb,1)
+          ilv2 = p_patch%edges%vertex_idx(je,jb,2)
+          ibv2 = p_patch%edges%vertex_blk(je,jb,2)
+          
+          ! sum area of the two adjacent verts
+          p_patch%edges%quad_area(je,jb) = &
+            & p_patch%verts%dual_area(ilv1,ibv1) + p_patch%verts%dual_area(ilv2,ibv2)
+          
+          DO jjev = 1, 3
+            
+            ilev = p_patch%verts%edge_idx(ilv1,ibv1,jjev)
+            ibev = p_patch%verts%edge_blk(ilv1,ibv1,jjev)
+            
+            ! test if edge is not the current one, then store line and
+            ! block indices and orientation of quad edge
+            IF ( ilev /= je .OR. ibev /= jb ) THEN
+              iie = iie+1
+              p_patch%edges%quad_idx(je,jb,iie) = ilev
+              p_patch%edges%quad_blk(je,jb,iie) = ibev
+              p_patch%edges%quad_orientation(je,jb,iie) =  &
+                & p_patch%verts%edge_orientation(ilv1,ibv1,jjev)
+            ENDIF
+            
+          ENDDO
+          
+          DO jjev = 1, 3
+            
+            ilev = p_patch%verts%edge_idx(ilv2,ibv2,jjev)
+            ibev = p_patch%verts%edge_blk(ilv2,ibv2,jjev)
+            
+            ! test if edge is not the current one, then store line and
+            ! block indices and orientation of quad edge
+            IF ( ilev /= je .OR. ibev /= jb ) THEN
+              iie = iie+1
+              p_patch%edges%quad_idx(je,jb,iie) = ilev
+              p_patch%edges%quad_blk(je,jb,iie) = ibev
+              p_patch%edges%quad_orientation(je,jb,iie) =  &
+                & p_patch%verts%edge_orientation(ilv2,ibv2,jjev)
+            ENDIF
+            
+          ENDDO
+          
+          IF (iie /= 4) THEN
+            PRINT *, "ERROR ==>  iie = ", iie,  " /= 4 "
+            CALL finish ('mo_model_domain_import:init_quad_twoadjcells',  &
+              & 'wrong number of edge indices for quad')
+          ENDIF
+          
+        END DO ! end edge loop
+        
+      ENDIF ! cell_type
+      
+    END DO
+!$OMP END DO
+!$OMP END PARALLEL
+    
+    CALL sync_patch_array(sync_e,p_patch,p_patch%edges%quad_area)
+    DO iie = 1, 4
+      CALL sync_patch_array(sync_e,p_patch,p_patch%edges%quad_orientation(:,:,iie))
+      
+      CALL sync_idx(sync_e,sync_e,p_patch,p_patch%edges%quad_idx(:,:,iie), &
+        & p_patch%edges%quad_blk(:,:,iie), &
+        & opt_remap=.FALSE.)
+    ENDDO
+    
+    
   END SUBROUTINE init_quad_twoadjcells
   !-------------------------------------------------------------------------
-
+  
   !-------------------------------------------------------------------------
   !>
   !! Initializes the Coriolis components of the grid with analytical values.
@@ -460,83 +457,83 @@ CONTAINS
   !! - Allocation of f_c, f_e, f_v has been moved to read_patch
   !!
   SUBROUTINE init_coriolis( lcorio, lplane, p_patch )
-
-  LOGICAL,INTENT(IN) :: lcorio, lplane
-  TYPE(t_patch), TARGET, INTENT(inout) :: p_patch ! patch on specific level
-
-  INTEGER :: nlen,                         &
-    &        nblks_c,  nblks_e,  nblks_v,  &
-    &        npromz_c, npromz_e, npromz_v
-  INTEGER :: jc, je, jv, jb
-
-  REAL(wp) :: zlat
-
-  !-----------------------------------------------------------------------
-
-  ! values for the blocking
-  nblks_c  = p_patch%nblks_c
-  npromz_c = p_patch%npromz_c
-  nblks_e  = p_patch%nblks_e
-  npromz_e = p_patch%npromz_e
-  nblks_v  = p_patch%nblks_v
-  npromz_v = p_patch%npromz_v
-
-
-  IF (lcorio .AND. .NOT. lplane) THEN
-
-    DO jb = 1, nblks_c
-      IF (jb /= nblks_c) THEN
-        nlen = nproma
-      ELSE
-        nlen = npromz_c
-      ENDIF
-      DO jc = 1, nlen
-        zlat = p_patch%cells%center(jc,jb)%lat
-        p_patch%cells%f_c(jc,jb) = 2._wp*omega*SIN(zlat)
+    
+    LOGICAL,INTENT(in) :: lcorio, lplane
+    TYPE(t_patch), TARGET, INTENT(inout) :: p_patch ! patch on specific level
+    
+    INTEGER :: nlen,                         &
+      & nblks_c,  nblks_e,  nblks_v,  &
+      & npromz_c, npromz_e, npromz_v
+    INTEGER :: jc, je, jv, jb
+    
+    REAL(wp) :: zlat
+    
+    !-----------------------------------------------------------------------
+    
+    ! values for the blocking
+    nblks_c  = p_patch%nblks_c
+    npromz_c = p_patch%npromz_c
+    nblks_e  = p_patch%nblks_e
+    npromz_e = p_patch%npromz_e
+    nblks_v  = p_patch%nblks_v
+    npromz_v = p_patch%npromz_v
+    
+    
+    IF (lcorio .AND. .NOT. lplane) THEN
+      
+      DO jb = 1, nblks_c
+        IF (jb /= nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = npromz_c
+        ENDIF
+        DO jc = 1, nlen
+          zlat = p_patch%cells%center(jc,jb)%lat
+          p_patch%cells%f_c(jc,jb) = 2._wp*omega*SIN(zlat)
+        END DO
       END DO
-    END DO
-
-    DO jb = 1, nblks_e
-      IF (jb /= nblks_e) THEN
-        nlen = nproma
-      ELSE
-        nlen = npromz_e
-      ENDIF
-      DO je = 1, nlen
-        zlat = p_patch%edges%center(je,jb)%lat
-        p_patch%edges%f_e(je,jb) = 2._wp*omega*SIN(zlat)
+      
+      DO jb = 1, nblks_e
+        IF (jb /= nblks_e) THEN
+          nlen = nproma
+        ELSE
+          nlen = npromz_e
+        ENDIF
+        DO je = 1, nlen
+          zlat = p_patch%edges%center(je,jb)%lat
+          p_patch%edges%f_e(je,jb) = 2._wp*omega*SIN(zlat)
+        END DO
       END DO
-    END DO
-
-    DO jb = 1, nblks_v
-      IF (jb /= nblks_v) THEN
-        nlen = nproma
-      ELSE
-        nlen = npromz_v
-      ENDIF
-      DO jv = 1, nlen
-        zlat = p_patch%verts%vertex(jv,jb)%lat
-        p_patch%verts%f_v(jv,jb) = 2._wp*omega*SIN(zlat)
+      
+      DO jb = 1, nblks_v
+        IF (jb /= nblks_v) THEN
+          nlen = nproma
+        ELSE
+          nlen = npromz_v
+        ENDIF
+        DO jv = 1, nlen
+          zlat = p_patch%verts%vertex(jv,jb)%lat
+          p_patch%verts%f_v(jv,jb) = 2._wp*omega*SIN(zlat)
+        END DO
       END DO
-    END DO
-
-  ELSEIF (lcorio .AND. lplane) THEN
-
-    p_patch%cells%f_c(:,:) = 2._wp*omega*SIN(corio_lat)
-    p_patch%edges%f_e(:,:) = 2._wp*omega*SIN(corio_lat)
-    p_patch%verts%f_v(:,:) = 2._wp*omega*SIN(corio_lat)
-
-  ELSE
-
-    p_patch%cells%f_c(:,:) = 0.0_wp
-    p_patch%edges%f_e(:,:) = 0.0_wp
-    p_patch%verts%f_v(:,:) = 0.0_wp
-
-  ENDIF
-
+      
+    ELSEIF (lcorio .AND. lplane) THEN
+      
+      p_patch%cells%f_c(:,:) = 2._wp*omega*SIN(corio_lat)
+      p_patch%edges%f_e(:,:) = 2._wp*omega*SIN(corio_lat)
+      p_patch%verts%f_v(:,:) = 2._wp*omega*SIN(corio_lat)
+      
+    ELSE
+      
+      p_patch%cells%f_c(:,:) = 0.0_wp
+      p_patch%edges%f_e(:,:) = 0.0_wp
+      p_patch%verts%f_v(:,:) = 0.0_wp
+      
+    ENDIF
+    
   END SUBROUTINE init_coriolis
   !-------------------------------------------------------------------------
-
+  
   !-------------------------------------------------------------------------
   !>
   !! Sets phys_id for verts since this is not read from input
@@ -545,15 +542,15 @@ CONTAINS
   !! Developed by Rainer Johanni (2010-12-05).
   !!
   SUBROUTINE set_verts_phys_id( p_patch )
-
+    
     TYPE(t_patch), INTENT(inout) :: p_patch ! patch on specific level
-
+    
     INTEGER :: nlen, jb, jv, ji, ilc, ibc
-
+    
     !-----------------------------------------------------------------------
-
+    
     IF (p_patch%cell_type == 3) THEN
-
+      
       DO jb = 1, p_patch%nblks_v
         IF (jb /= p_patch%nblks_v) THEN
           nlen = nproma
@@ -573,17 +570,17 @@ CONTAINS
           END DO
         END DO
       END DO
-
+      
     ELSE
-
+      
       ! There is no distinction between physical and logical patches for hex grids
       p_patch%verts%phys_id(:,:) = p_patch%id
-
+      
     ENDIF
-
+    
   END SUBROUTINE set_verts_phys_id
   !-------------------------------------------------------------------------
-
+  
   !-------------------------------------------------------------------------
   !>
   !!               reshape an integer array for the blocking.
@@ -592,46 +589,46 @@ CONTAINS
   !! Developed  by  Jochen Foerstner, DWD (2008-10-21)
   !!
   SUBROUTINE reshape_int( p_int_array_in, nblks, npromz,  &
-    &                     p_reshaped_int_array_out )
-
-
-  ! input array
-  INTEGER, INTENT(in) :: p_int_array_in(:)
-  ! number of blocks
-  INTEGER, INTENT(in) :: nblks
-  ! chunk length
-  INTEGER, INTENT(in) :: npromz
-
-  ! output array
-  INTEGER, INTENT(inout) :: p_reshaped_int_array_out(:,:)
-
-  INTEGER :: nlen
-  INTEGER :: jl, jb
-  INTEGER :: il
-
-  !-----------------------------------------------------------------------
-
-  DO jb = 1, nblks
-
-    IF (jb /= nblks) THEN
-      nlen = nproma
-    ELSE
-      nlen = npromz
-      DO jl = npromz+1, nproma
-        p_reshaped_int_array_out(jl,nblks) = 0
+    & p_reshaped_int_array_out )
+    
+    
+    ! input array
+    INTEGER, INTENT(in) :: p_int_array_in(:)
+    ! number of blocks
+    INTEGER, INTENT(in) :: nblks
+    ! chunk length
+    INTEGER, INTENT(in) :: npromz
+    
+    ! output array
+    INTEGER, INTENT(inout) :: p_reshaped_int_array_out(:,:)
+    
+    INTEGER :: nlen
+    INTEGER :: jl, jb
+    INTEGER :: il
+    
+    !-----------------------------------------------------------------------
+    
+    DO jb = 1, nblks
+      
+      IF (jb /= nblks) THEN
+        nlen = nproma
+      ELSE
+        nlen = npromz
+        DO jl = npromz+1, nproma
+          p_reshaped_int_array_out(jl,nblks) = 0
+        END DO
+      END IF
+      
+      DO jl = 1, nlen
+        il = jl + (jb-1)*nproma
+        p_reshaped_int_array_out(jl,jb) = p_int_array_in(il)
       END DO
-    END IF
-
-    DO jl = 1, nlen
-      il = jl + (jb-1)*nproma
-      p_reshaped_int_array_out(jl,jb) = p_int_array_in(il)
+      
     END DO
-
-  END DO
-
+    
   END SUBROUTINE reshape_int
   !-------------------------------------------------------------------------
-
+  
   !-------------------------------------------------------------------------
   !>
   !!               reshape a real array for the blocking.
@@ -641,78 +638,78 @@ CONTAINS
   !! Developed  by  Jochen Foerstner, DWD (2008-10-21)
   !!
   SUBROUTINE reshape_real( p_real_array_in, nblks, npromz,  &
-    &                      p_reshaped_real_array_out )
-
-  ! input array
-  REAL(wp), INTENT(in):: p_real_array_in(:)
-  ! number of blocks
-  INTEGER, INTENT(in) :: nblks
-  ! chunk length
-  INTEGER, INTENT(in) :: npromz
-
-  ! output array
-  REAL(wp), INTENT(inout) :: p_reshaped_real_array_out(:,:)
-
-  INTEGER :: nlen
-  INTEGER :: jl, jb
-  INTEGER :: il
-
-  !-----------------------------------------------------------------------
-
-  DO jb = 1, nblks
-
-    IF (jb /= nblks) THEN
-      nlen = nproma
-    ELSE
-      nlen = npromz
-      DO jl = npromz+1, nproma
-        p_reshaped_real_array_out(jl,nblks) = 0._wp
+    & p_reshaped_real_array_out )
+    
+    ! input array
+    REAL(wp), INTENT(in):: p_real_array_in(:)
+    ! number of blocks
+    INTEGER, INTENT(in) :: nblks
+    ! chunk length
+    INTEGER, INTENT(in) :: npromz
+    
+    ! output array
+    REAL(wp), INTENT(inout) :: p_reshaped_real_array_out(:,:)
+    
+    INTEGER :: nlen
+    INTEGER :: jl, jb
+    INTEGER :: il
+    
+    !-----------------------------------------------------------------------
+    
+    DO jb = 1, nblks
+      
+      IF (jb /= nblks) THEN
+        nlen = nproma
+      ELSE
+        nlen = npromz
+        DO jl = npromz+1, nproma
+          p_reshaped_real_array_out(jl,nblks) = 0._wp
+        END DO
+      END IF
+      
+      DO jl = 1, nlen
+        il = jl + (jb-1)*nproma
+        p_reshaped_real_array_out(jl,jb) = p_real_array_in(il)
       END DO
-    END IF
-
-    DO jl = 1, nlen
-      il = jl + (jb-1)*nproma
-      p_reshaped_real_array_out(jl,jb) = p_real_array_in(il)
+      
     END DO
-
-  END DO
-
+    
   END SUBROUTINE reshape_real
   !-------------------------------------------------------------------------
-
+  
   !-----------------------------------------------------------------------------
   !>
   !! Fills the gir'd subsets
   SUBROUTINE fill_grid_subsets(p_patch)
     TYPE(t_patch), INTENT(inout) :: p_patch
-
+    
     INTEGER :: j, jb, jl, jg
-
+    
     ! fill cell subsets
     !    fill_subset(range subset,  halo levels, start level, end level)
     CALL fill_subset(p_patch%cells%owned,  p_patch%cells%halo_level, 0, 0)
     CALL fill_subset(p_patch%cells%in_domain,  p_patch%cells%halo_level, 0, 1)
-    CALL fill_subset(p_patch%cells%not_owned,  p_patch%cells%halo_level, 1, HALO_LEVELS_CEILING)
+    CALL fill_subset(p_patch%cells%not_owned,  p_patch%cells%halo_level, 1, halo_levels_ceiling)
     CALL fill_subset(p_patch%cells%not_in_domain,  &
-      & p_patch%cells%halo_level, 2, HALO_LEVELS_CEILING)
+      & p_patch%cells%halo_level, 2, halo_levels_ceiling)
     CALL fill_subset(p_patch%cells%halos_with_edge_in_domain,  p_patch%cells%halo_level, 1, 1)
-          
+    
     ! fill edge subsets
     !    fill_subset(range subset,  halo levels, start level, end level)
     CALL fill_subset(p_patch%edges%owned,      p_patch%edges%halo_level, 0, 0)
     CALL fill_subset(p_patch%edges%in_domain,  p_patch%edges%halo_level, 0, 1)
-    CALL fill_subset(p_patch%edges%not_owned,  p_patch%edges%halo_level, 1, HALO_LEVELS_CEILING)
+    CALL fill_subset(p_patch%edges%not_owned,  p_patch%edges%halo_level, 1, halo_levels_ceiling)
     CALL fill_subset(p_patch%edges%not_in_domain, &
-      & p_patch%edges%halo_level, 2, HALO_LEVELS_CEILING)
-          
+      & p_patch%edges%halo_level, 2, halo_levels_ceiling)
+    
     ! write some info:
-!     IF (get_my_mpi_work_id() == 1) CALL work_mpi_barrier()
-!     write(0,*) get_my_mpi_work_id(), "egdes global_index:", p_patch%edges%glb_index
-!     write(0,*) get_my_mpi_work_id(), "egdes halo_level:", p_patch%edges%halo_level
-!     write(0,*) get_my_mpi_work_id(), "egdes owner:", p_patch%edges%owner_local
-!     IF (get_my_mpi_work_id() == 0) CALL work_mpi_barrier()
-              
+    !     IF (get_my_mpi_work_id() == 1) CALL work_mpi_barrier()
+    !     write(0,*) get_my_mpi_work_id(), "egdes global_index:", p_patch%edges%glb_index
+    !     write(0,*) get_my_mpi_work_id(), "egdes halo_level:", p_patch%edges%halo_level
+    !     write(0,*) get_my_mpi_work_id(), "egdes owner:", p_patch%edges%owner_local
+    !     IF (get_my_mpi_work_id() == 0) CALL work_mpi_barrier()
+    
   END SUBROUTINE fill_grid_subsets
   !-----------------------------------------------------------------------------
-
-  END MODULE mo_model_domimp_setup
+  
+END MODULE mo_model_domimp_setup

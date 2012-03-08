@@ -99,3104 +99,3082 @@
 !!
 !!
 MODULE mo_model_domimp_patches
-!-------------------------------------------------------------------------
-!
-!    ProTeX FORTRAN source: Style 2
-!    modified for ICON project, DWD/MPI-M 2006
-!
-!-------------------------------------------------------------------------
-
-USE mo_kind,               ONLY: wp
-!USE mo_io_units,           ONLY: filename_max
-USE mo_impl_constants,     ONLY: SUCCESS, &
-     &                           MAX_CHAR_LENGTH,  &
-     &                           min_rlcell, max_rlcell, &
-     &                           min_rledge, max_rledge, &
-     &                           min_rlvert, max_rlvert, &
-     &                           max_dom
-USE mo_exception,          ONLY: message_text, message, finish, em_warn
-USE mo_model_domain,       ONLY: t_patch, t_grid_cells, t_grid_edges
-USE mo_parallel_config,    ONLY: nproma
-USE mo_model_domain,       ONLY: p_patch_local_parent
-USE mo_model_domimp_setup, ONLY: reshape_int, reshape_real, calculate_cart_normal,&
-     &                           init_quad_twoadjcells, init_coriolis, set_verts_phys_id
-USE mo_grid_config,        ONLY: start_lev, nroot, n_dom, n_dom_start,    &
-     &                           l_limited_area, max_childdom, &
-     &                           lfeedback, l_limited_area, max_childdom, &
-     & dynamics_grid_filename,   dynamics_parent_grid_id,  &
-     & radiation_grid_filename,  global_cell_type, lplane
-USE mo_dynamics_config,    ONLY: lcoriolis
-USE mo_master_control,     ONLY: my_process_is_ocean
-USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e
-USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
-USE mo_mpi,                ONLY: my_process_is_mpi_parallel, p_comm_work
-USE mo_sync,               ONLY: disable_sync_checks, enable_sync_checks
-USE mo_communication,      ONLY: idx_no, blk_no
-USE mo_util_uuid,          ONLY: uuid_string_length, uuid_parse 
-USE mo_name_list_output_config, ONLY: is_grib_output
-USE mo_util_string,        ONLY: t_keyword_list, associate_keyword, with_keywords
-USE mo_master_nml,         ONLY: model_base_dir
-
+  !-------------------------------------------------------------------------
+  
+  USE mo_kind,               ONLY: wp
+  !USE mo_io_units,           ONLY: filename_max
+  USE mo_impl_constants,     ONLY: success, &
+    & max_char_length,  &
+    & min_rlcell, max_rlcell, &
+    & min_rledge, max_rledge, &
+    & min_rlvert, max_rlvert, &
+    & max_dom
+  USE mo_exception,          ONLY: message_text, message, finish, em_warn
+  USE mo_model_domain,       ONLY: t_patch, t_grid_cells, t_grid_edges
+  USE mo_parallel_config,    ONLY: nproma
+  USE mo_model_domain,       ONLY: p_patch_local_parent
+  USE mo_model_domimp_setup, ONLY: reshape_int, reshape_real, calculate_cart_normal,&
+    & init_quad_twoadjcells, init_coriolis, set_verts_phys_id
+  USE mo_grid_config,        ONLY: start_lev, nroot, n_dom, n_dom_start,    &
+    & l_limited_area, max_childdom, &
+    & lfeedback, l_limited_area, max_childdom, &
+    & dynamics_grid_filename,   dynamics_parent_grid_id,  &
+    & radiation_grid_filename,  global_cell_type, lplane
+  USE mo_dynamics_config,    ONLY: lcoriolis
+  USE mo_master_control,     ONLY: my_process_is_ocean
+  USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e
+  USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
+  USE mo_mpi,                ONLY: my_process_is_mpi_parallel, p_comm_work
+  USE mo_sync,               ONLY: disable_sync_checks, enable_sync_checks
+  USE mo_communication,      ONLY: idx_no, blk_no
+  USE mo_util_uuid,          ONLY: uuid_string_length, uuid_parse
+  USE mo_name_list_output_config, ONLY: is_grib_output
+  USE mo_util_string,        ONLY: t_keyword_list, associate_keyword, with_keywords
+  USE mo_master_nml,         ONLY: model_base_dir
+  
 #ifndef NOMPI
-! The USE statement below lets this module use the routines from
-! mo_read_netcdf_parallel where only 1 processor is reading
-! and broadcasting the results
-
-USE mo_read_netcdf_parallel, ONLY:                &
-   NF_NOWRITE, NF_GLOBAL, NF_NOERR, nf_strerror,  &
-   nf_open            => p_nf_open,               &
-   nf_close           => p_nf_close,              &
-   nf_inq_dimid       => p_nf_inq_dimid,          &
-   nf_inq_dimlen      => p_nf_inq_dimlen,         &
-   nf_inq_varid       => p_nf_inq_varid,          &
-   nf_get_att_text    => p_nf_get_att_text,       &
-   nf_get_att_int     => p_nf_get_att_int,        &
-   nf_get_var_int     => p_nf_get_var_int,        &
-   nf_get_var_double  => p_nf_get_var_double
+  ! The USE statement below lets this module use the routines from
+  ! mo_read_netcdf_parallel where only 1 processor is reading
+  ! and broadcasting the results
+  
+  USE mo_read_netcdf_parallel, ONLY:                &
+    & nf_nowrite, nf_global, nf_noerr, nf_strerror,  &
+    & nf_open            => p_nf_open,               &
+    & nf_close           => p_nf_close,              &
+    & nf_inq_dimid       => p_nf_inq_dimid,          &
+    & nf_inq_dimlen      => p_nf_inq_dimlen,         &
+    & nf_inq_varid       => p_nf_inq_varid,          &
+    & nf_get_att_text    => p_nf_get_att_text,       &
+    & nf_get_att_int     => p_nf_get_att_int,        &
+    & nf_get_var_int     => p_nf_get_var_int,        &
+    & nf_get_var_double  => p_nf_get_var_double
 #endif
-
-IMPLICIT NONE
-
-PRIVATE
-
+  
+  IMPLICIT NONE
+  
+  PRIVATE
+  
 #ifdef NOMPI
-INCLUDE 'netcdf.inc'
+  INCLUDE 'netcdf.inc'
 #endif
-
-CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
-!modules interface-------------------------------------------
-!subroutines
-PUBLIC :: import_basic_patches
-PUBLIC :: complete_patches
-PUBLIC :: deallocate_patch
-PUBLIC :: destruct_patches
-PUBLIC :: allocate_basic_patch
-PUBLIC :: deallocate_basic_patch
-PUBLIC :: allocate_remaining_patch
-PUBLIC :: allocate_patch
-PUBLIC :: set_patches_grid_filename
-PUBLIC :: get_patch_global_indexes
-
-INTEGER :: ishift_child_id
-
-!-------------------------------------------------------------------------
-
+  
+  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
+  
+  !modules interface-------------------------------------------
+  !subroutines
+  PUBLIC :: import_basic_patches
+  PUBLIC :: complete_patches
+  PUBLIC :: deallocate_patch
+  PUBLIC :: destruct_patches
+  PUBLIC :: allocate_basic_patch
+  PUBLIC :: deallocate_basic_patch
+  PUBLIC :: allocate_remaining_patch
+  PUBLIC :: allocate_patch
+  PUBLIC :: set_patches_grid_filename
+  PUBLIC :: get_patch_global_indexes
+  
+  INTEGER :: ishift_child_id
+  
+  !-------------------------------------------------------------------------
+  
 CONTAINS
-
-!-------------------------------------------------------------------------
-SUBROUTINE get_patch_global_indexes(patch_no, entity_type, no_of_entities, global_indexes)
-  USE mo_model_domain, ONLY: p_patch
-  USE mo_impl_constants, ONLY: CELLS, EDGES, VERTS
-
-  INTEGER, INTENT(in) :: patch_no, entity_type
-  INTEGER, INTENT(out) :: no_of_entities
-  INTEGER, POINTER :: global_indexes(:)  ! this is intent out, but nec does not allows it
-
-  INTEGER :: idx, return_status
   
-  CHARACTER(len=*), PARAMETER :: method_name='get_patch_global_indexes'
-  
-  SELECT CASE(entity_type)
-
-  CASE(CELLS)
-    no_of_entities = p_patch(patch_no)%n_patch_cells
-    ALLOCATE( global_indexes(no_of_entities), STAT=return_status )
-    IF (return_status /= SUCCESS) THEN
-      CALL finish (method_name,'allocation for global_indexes failed')
-    ENDIF
-    DO idx = 1, no_of_entities
-      global_indexes(idx) = p_patch(patch_no)%cells%glb_index(idx)
-      ! do some checking
-      IF (global_indexes(idx) <= 0) &
-        CALL finish (method_name,'glb_index(idx) <= 0')
-      IF (global_indexes(idx) > p_patch(patch_no)%n_patch_cells_g) &
-        CALL finish (method_name,'glb_index(idx) > n_patch_cells_g')
-   ENDDO
+  !-------------------------------------------------------------------------
+  SUBROUTINE get_patch_global_indexes(patch_no, entity_type, no_of_entities, global_indexes)
+    USE mo_model_domain, ONLY: p_patch
+    USE mo_impl_constants, ONLY: cells, edges, verts
+    
+    INTEGER, INTENT(in) :: patch_no, entity_type
+    INTEGER, INTENT(out) :: no_of_entities
+    INTEGER, POINTER :: global_indexes(:)  ! this is intent out, but nec does not allows it
+    
+    INTEGER :: idx, return_status
+    
+    CHARACTER(LEN=*), PARAMETER :: method_name='get_patch_global_indexes'
+    
+    SELECT CASE(entity_type)
+    
+    CASE(cells)
+      no_of_entities = p_patch(patch_no)%n_patch_cells
+      ALLOCATE( global_indexes(no_of_entities), stat=return_status )
+      IF (return_status /= success) THEN
+        CALL finish (method_name,'allocation for global_indexes failed')
+      ENDIF
+      DO idx = 1, no_of_entities
+        global_indexes(idx) = p_patch(patch_no)%cells%glb_index(idx)
+        ! do some checking
+        IF (global_indexes(idx) <= 0) &
+          & CALL finish (method_name,'glb_index(idx) <= 0')
+        IF (global_indexes(idx) > p_patch(patch_no)%n_patch_cells_g) &
+          & CALL finish (method_name,'glb_index(idx) > n_patch_cells_g')
+      ENDDO
       
-  CASE(EDGES)
-    no_of_entities = p_patch(patch_no)%n_patch_edges
-    ALLOCATE( global_indexes(no_of_entities), STAT=return_status )
-    IF (return_status /= SUCCESS) THEN
-      CALL finish (method_name,'allocation for global_indexes failed')
-    ENDIF
-    DO idx = 1, no_of_entities
-      global_indexes(idx) = p_patch(patch_no)%edges%glb_index(idx)
-      ! do some checking
-      IF (global_indexes(idx) <= 0) &
-        CALL finish (method_name,'glb_index(idx) <= 0')
-      IF (global_indexes(idx) > p_patch(patch_no)%n_patch_edges_g) &
-        CALL finish (method_name,'glb_index(idx) > n_patch_edges_g')
-    ENDDO
-
-  CASE(VERTS)
-    no_of_entities = p_patch(patch_no)%n_patch_verts
-    ALLOCATE( global_indexes(no_of_entities), STAT=return_status )
-    IF (return_status /= SUCCESS) THEN
-      CALL finish (method_name,'allocation for global_indexes failed')
-    ENDIF
-    DO idx = 1, no_of_entities
-      global_indexes(idx) = p_patch(patch_no)%verts%glb_index(idx)
-      ! do some checking
-      IF (global_indexes(idx) <= 0) &
-        CALL finish (method_name,'glb_index(idx) <= 0')
-      IF (global_indexes(idx) > p_patch(patch_no)%n_patch_verts_g) &
-        CALL finish (method_name,'glb_index(idx) > n_patch_verts_g')
-    ENDDO
-
-  CASE DEFAULT
-    CALL finish(method_name, 'entity_type not recognized')
-  END SELECT
+    CASE(edges)
+      no_of_entities = p_patch(patch_no)%n_patch_edges
+      ALLOCATE( global_indexes(no_of_entities), stat=return_status )
+      IF (return_status /= success) THEN
+        CALL finish (method_name,'allocation for global_indexes failed')
+      ENDIF
+      DO idx = 1, no_of_entities
+        global_indexes(idx) = p_patch(patch_no)%edges%glb_index(idx)
+        ! do some checking
+        IF (global_indexes(idx) <= 0) &
+          & CALL finish (method_name,'glb_index(idx) <= 0')
+        IF (global_indexes(idx) > p_patch(patch_no)%n_patch_edges_g) &
+          & CALL finish (method_name,'glb_index(idx) > n_patch_edges_g')
+      ENDDO
+      
+    CASE(verts)
+      no_of_entities = p_patch(patch_no)%n_patch_verts
+      ALLOCATE( global_indexes(no_of_entities), stat=return_status )
+      IF (return_status /= success) THEN
+        CALL finish (method_name,'allocation for global_indexes failed')
+      ENDIF
+      DO idx = 1, no_of_entities
+        global_indexes(idx) = p_patch(patch_no)%verts%glb_index(idx)
+        ! do some checking
+        IF (global_indexes(idx) <= 0) &
+          & CALL finish (method_name,'glb_index(idx) <= 0')
+        IF (global_indexes(idx) > p_patch(patch_no)%n_patch_verts_g) &
+          & CALL finish (method_name,'glb_index(idx) > n_patch_verts_g')
+      ENDDO
+      
+    CASE default
+      CALL finish(method_name, 'entity_type not recognized')
+    END SELECT
+    
+  END SUBROUTINE get_patch_global_indexes
+  !-------------------------------------------------------------------------
   
-END SUBROUTINE get_patch_global_indexes
-!-------------------------------------------------------------------------
-
-!-------------------------------------------------------------------------
-SUBROUTINE set_patches_grid_filename( p_patch )
-
-  TYPE(t_patch), TARGET, INTENT(inout) :: p_patch(n_dom_start:)
-
-  INTEGER :: jg
-  TYPE (t_keyword_list), POINTER :: keywords => NULL()
-
-  !-----------------------------------------------------------------------
-  DO jg = n_dom_start, n_dom
-
-    CALL associate_keyword("<path>", TRIM(model_base_dir), keywords)
-    IF (jg==0) THEN
-      p_patch(jg)%grid_filename = TRIM(with_keywords(keywords, radiation_grid_filename(1)))
-    ELSE
-      p_patch(jg)%grid_filename = TRIM(with_keywords(keywords, dynamics_grid_filename(jg)))
-    ENDIF
-!     write(0,*) jg, "grid_filename:",TRIM(p_patch(jg)%grid_filename)
-  ENDDO
-
-END SUBROUTINE set_patches_grid_filename
-!-------------------------------------------------------------------------
-
-
-!-------------------------------------------------------------------------
-!>
-!!               This subroutine provides patch information to the model.
-!!
-!! Which data are required by the model is described in module
-!! <i>mo_model_domain</i>. The components of the p_patch are initialized
-!! with data stored in several patch files.
-!!
-!! @par Revision History
-!! Developed  by  Peter Korn, MPI-M (2005).
-!! @par
-!! Modified by L. Bonaventura, MPI-M (2005),
-!! to match completed patch
-!! structure in advanced patch generator.
-!! Modified by A. Gassmann, MPI-M (2007)
-!! - cleaning up the code
-!! Modified by A. Gassmann, MPI-M (2007-04)
-!! - grid information belongs now to the patch type
-!! Modified by Almut Gassmann, MPI-M (2008-09-21)
-!! - min_dual_edge_length no longer needed for new Diffusion
-!! Modified by Almut Gassmann, MPI-M (2008-10-30)
-!! - new subroutine for Coriolis initialization
-!! Modification by Stephan Lorenz, MPI-M (2010-02-06)
-!!  - new subroutine for initialization of ocean patch
-!! Modification by Rainer Johanni (2011-12-04)
-!!  - renamed to import_basic_patches
-!!  - only basic patch information for subdivision is read here
-!!    into the full (undivided, global) patch data structure
-!!
-SUBROUTINE import_basic_patches( p_patch, nlev,nlevp1,num_lev,num_levp1,nshift)
-
-INTEGER,INTENT(IN) :: nlev, nlevp1
-INTEGER,INTENT(IN) :: num_lev(:), num_levp1(:), nshift(:)
-TYPE(t_patch), TARGET, INTENT(inout) :: p_patch(n_dom_start:)
-
-INTEGER :: jg, jg1, n_chd, n_chdc
-INTEGER :: jgp            ! parent patch index
-!INTEGER :: jlev
-
-!LOGICAL :: l_exist
-
-!CHARACTER(filename_max) :: patch_file, gridtype
-
-TYPE(t_patch), POINTER ::  &
-  &  p_single_patch => NULL()
-
-!-----------------------------------------------------------------------
-
-CALL message ('mo_model_domimp_patches:import_basic_patches', &
-  'start to import patches')
-
-! Set some basic flow control variables on the patch
-
-max_childdom = 0
-
-IF(n_dom_start==0) THEN
-  ! The physics parent (parent of the root patch) should also be read
-  p_patch(0)%id = 0
-  p_patch(0)%level = start_lev-1
-  p_patch(0)%parent_id = -1
-  p_patch(0)%parent_child_index = 0
-  p_patch(0)%n_childdom = 1
-  p_patch(0)%n_chd_total = n_dom
-  p_patch(0)%child_id(1) = 1
-  DO jg = 1, n_dom
-    p_patch(0)%child_id_list(jg) = jg
-  ENDDO
-  p_patch(1)%parent_child_index = 1
-ELSE
-  p_patch(1)%parent_child_index = 0
-ENDIF
-
-DO jg = 1, n_dom
-
-  p_patch(jg)%id = jg
-
-  IF (jg == 1) THEN
-    p_patch(jg)%level = start_lev
-    p_patch(jg)%parent_id = 0
-  ELSE
-    p_patch(jg)%level = p_patch(dynamics_parent_grid_id(jg))%level + 1
-    p_patch(jg)%parent_id = dynamics_parent_grid_id(jg)
-  ENDIF
-
-  n_chd = 0
-
-  DO jg1 = jg+1, n_dom
-    IF (jg == dynamics_parent_grid_id(jg1)) THEN
-      n_chd = n_chd + 1
-      p_patch(jg)%child_id(n_chd) = jg1
-      p_patch(jg1)%parent_child_index = n_chd
-    ENDIF
-  ENDDO
-
-  p_patch(jg)%n_childdom = n_chd
-  max_childdom = MAX(1,max_childdom,n_chd)
-
-  ! 
-  ! store information about vertical levels
-  !
-  p_patch(jg)%nlev   = num_lev(jg)
-  p_patch(jg)%nlevp1 = num_levp1(jg)
-
-  IF (jg > 1) THEN
-    IF (nshift(jg) > 0 ) THEN 
-      ! nshift has been modified via Namelist => use it
-      p_patch(jg)%nshift = nshift(jg)
-    ELSE 
-      ! set default value, assuming 
-      !- superimposed vertical levels
-      !- 1 nested domain per grid level
-      p_patch(jg)%nshift = num_lev(p_patch(jg)%parent_id) - num_lev(jg)
-    ENDIF
-
-    jgp = p_patch(jg)%parent_id
-    p_patch(jg)%nshift_total = p_patch(jgp)%nshift_total + p_patch(jg)%nshift     
-  ELSE
-    ! Note: the first nshift-value refers to the global domain
-    p_patch(jg)%nshift = 0
-    p_patch(jg)%nshift_total = 0
-  ENDIF
-
-ENDDO
-
-! Set information about total number of child domains (called recursively)
-! and corresponding index lists
-
-! Initialization
-DO jg = 1, n_dom
-  p_patch(jg)%n_chd_total      = 0
-  p_patch(jg)%child_id_list(:) = 0
-ENDDO
-
-DO jg = n_dom, 2, -1
-  jg1 = p_patch(jg)%parent_id
-  n_chd = p_patch(jg1)%n_chd_total 
-  n_chdc = p_patch(jg)%n_chd_total 
-  p_patch(jg1)%child_id_list(n_chd+1) = jg
-  IF (n_chdc > 0) THEN
-    p_patch(jg1)%child_id_list(n_chd+2:n_chd+1+n_chdc) = p_patch(jg)%child_id_list(1:n_chdc)
-  ENDIF
-  p_patch(jg1)%n_chd_total = n_chd+1+n_chdc
-ENDDO
-
-
-DO jg = 1, n_dom
-
-  ! make nshift parameter also available for the parent patch
-  IF (p_patch(jg)%n_childdom >= 1) THEN
-    p_patch(jg)%nshift_child = p_patch(p_patch(jg)%child_id(1))%nshift
-    DO jg1 = 1, p_patch(jg)%n_childdom
-      IF (p_patch(p_patch(jg)%child_id(jg1))%nshift /= p_patch(jg)%nshift_child) &
-        CALL finish ('mo_model_domimp_patches:import_basic_patches', &
-                     'multiple nests at the same level must have the same nshift')
+  !-------------------------------------------------------------------------
+  SUBROUTINE set_patches_grid_filename( p_patch )
+    
+    TYPE(t_patch), TARGET, INTENT(inout) :: p_patch(n_dom_start:)
+    
+    INTEGER :: jg
+    TYPE (t_keyword_list), POINTER :: keywords => NULL()
+    
+    !-----------------------------------------------------------------------
+    DO jg = n_dom_start, n_dom
+      
+      CALL associate_keyword("<path>", TRIM(model_base_dir), keywords)
+      IF (jg==0) THEN
+        p_patch(jg)%grid_filename = TRIM(with_keywords(keywords, radiation_grid_filename(1)))
+      ELSE
+        p_patch(jg)%grid_filename = TRIM(with_keywords(keywords, dynamics_grid_filename(jg)))
+      ENDIF
+      !     write(0,*) jg, "grid_filename:",TRIM(p_patch(jg)%grid_filename)
     ENDDO
-  ELSE
-    p_patch(jg)%nshift_child = 0
-  ENDIF
-
-ENDDO
-
-IF (n_dom_start == 0) THEN ! reduced grid for radiation
-  ! In case of n_dom_start == 0 nlev, nlevp1, nshift need to be copied from 
-  ! jg=1 to jg=0
-  p_patch(0)%nlev   = p_patch(1)%nlev
-  p_patch(0)%nlevp1 = p_patch(1)%nlevp1
-  p_patch(0)%nshift = p_patch(1)%nshift
-  ! The reduced grid always has the same levels as the global one
-  p_patch(0)%nshift_child = 0
-ENDIF
-
-p_patch(n_dom_start:n_dom)%max_childdom =  max_childdom
-
-
-!init patch by reading data from file
-!required: path to patch directory and file names, see top of module
-! l_exist = .FALSE.
-
-! IF (lplane) THEN
-!   gridtype='plan'
-! ELSE
-!   gridtype='icon'
-! END IF
-
-CALL set_patches_grid_filename(p_patch)
-
-ishift_child_id = 0
-
-GRID_LEVEL_LOOP: DO jg = n_dom_start, n_dom
-
-!   jlev = p_patch(jg)%level
-
-  ! Allow file names without "DOM" specifier if n_dom=1.
-!   IF (n_dom == 1) THEN
-!     ! Check if file name without "DOM" specifier exists.
-!     WRITE (patch_file,'(a,a,i0,a,i2.2,a)') &
-!          & TRIM(gridtype),'R',nroot,'B',jlev,'-grid.nc'
-!     INQUIRE (FILE=patch_file, EXIST=l_exist)
-!     ! Otherwise use file name with "DOM" specifier
-!     IF (.NOT. l_exist)                                            &
-!          & WRITE (patch_file,'(a,a,i0,2(a,i2.2),a)')              &
-!          & TRIM(gridtype),'R',nroot,'B',jlev,'_DOM',jg,'-grid.nc'
-!   ELSE
-!     ! n_dom >1 --> "'_DOM',jg" required in file name
-!     WRITE (patch_file,'(a,a,i0,2(a,i2.2),a)') &
-!          & TRIM(gridtype),'R',nroot,'B',jlev,'_DOM',jg,'-grid.nc'
-!   ENDIF
-
-
-  p_single_patch => p_patch(jg)
-
-  CALL read_basic_patch( jg, p_single_patch )
-
-ENDDO GRID_LEVEL_LOOP
-
-CALL complete_parent_index(p_patch)
-CALL set_pc_idx(p_patch)
-
-END SUBROUTINE import_basic_patches
-
-!-------------------------------------------------------------------------
-!>
-!! This routine completes basic patches by
-!! - allocating the remaining arrays
-!! - reading the remaining arrays which are not in the basic patch
-!! - calculating arrays which are not read from input file
-
-SUBROUTINE complete_patches(p_patch)
-
-  TYPE(t_patch), INTENT(INOUT) :: p_patch(n_dom_start:)
-
-  INTEGER :: jg, jgp, n_lp, id_lp(max_dom)
-
-  DO jg = n_dom_start, n_dom
-
-    ! For non parallel runs: Allocate and preset remaining arrays in patch
-    IF(.NOT.my_process_is_mpi_parallel()) CALL allocate_remaining_patch(p_patch(jg))
-
-    n_lp = 0 ! Number of local parents on the same level
-    IF(my_process_is_mpi_parallel()) THEN
-      ! Assemble a list of local parents living on the same level as the current patch
-      DO jgp = n_dom_start+1, n_dom
-        IF(p_patch(jgp)%parent_id == jg) THEN
-          n_lp = n_lp+1
-          id_lp(n_lp) = jgp
+    
+  END SUBROUTINE set_patches_grid_filename
+  !-------------------------------------------------------------------------
+  
+  
+  !-------------------------------------------------------------------------
+  !>
+  !!               This subroutine provides patch information to the model.
+  !!
+  !! Which data are required by the model is described in module
+  !! <i>mo_model_domain</i>. The components of the p_patch are initialized
+  !! with data stored in several patch files.
+  !!
+  !! @par Revision History
+  !! Developed  by  Peter Korn, MPI-M (2005).
+  !! @par
+  !! Modified by L. Bonaventura, MPI-M (2005),
+  !! to match completed patch
+  !! structure in advanced patch generator.
+  !! Modified by A. Gassmann, MPI-M (2007)
+  !! - cleaning up the code
+  !! Modified by A. Gassmann, MPI-M (2007-04)
+  !! - grid information belongs now to the patch type
+  !! Modified by Almut Gassmann, MPI-M (2008-09-21)
+  !! - min_dual_edge_length no longer needed for new Diffusion
+  !! Modified by Almut Gassmann, MPI-M (2008-10-30)
+  !! - new subroutine for Coriolis initialization
+  !! Modification by Stephan Lorenz, MPI-M (2010-02-06)
+  !!  - new subroutine for initialization of ocean patch
+  !! Modification by Rainer Johanni (2011-12-04)
+  !!  - renamed to import_basic_patches
+  !!  - only basic patch information for subdivision is read here
+  !!    into the full (undivided, global) patch data structure
+  !!
+  SUBROUTINE import_basic_patches( p_patch, nlev,nlevp1,num_lev,num_levp1,nshift)
+    
+    INTEGER,INTENT(in) :: nlev, nlevp1
+    INTEGER,INTENT(in) :: num_lev(:), num_levp1(:), nshift(:)
+    TYPE(t_patch), TARGET, INTENT(inout) :: p_patch(n_dom_start:)
+    
+    INTEGER :: jg, jg1, n_chd, n_chdc
+    INTEGER :: jgp            ! parent patch index
+    !INTEGER :: jlev
+    
+    !LOGICAL :: l_exist
+    
+    !CHARACTER(filename_max) :: patch_file, gridtype
+    
+    TYPE(t_patch), POINTER ::  &
+      & p_single_patch => NULL()
+    
+    !-----------------------------------------------------------------------
+    
+    CALL message ('mo_model_domimp_patches:import_basic_patches', &
+      & 'start to import patches')
+    
+    ! Set some basic flow control variables on the patch
+    
+    max_childdom = 0
+    
+    IF(n_dom_start==0) THEN
+      ! The physics parent (parent of the root patch) should also be read
+      p_patch(0)%id = 0
+      p_patch(0)%level = start_lev-1
+      p_patch(0)%parent_id = -1
+      p_patch(0)%parent_child_index = 0
+      p_patch(0)%n_childdom = 1
+      p_patch(0)%n_chd_total = n_dom
+      p_patch(0)%child_id(1) = 1
+      DO jg = 1, n_dom
+        p_patch(0)%child_id_list(jg) = jg
+      ENDDO
+      p_patch(1)%parent_child_index = 1
+    ELSE
+      p_patch(1)%parent_child_index = 0
+    ENDIF
+    
+    DO jg = 1, n_dom
+      
+      p_patch(jg)%id = jg
+      
+      IF (jg == 1) THEN
+        p_patch(jg)%level = start_lev
+        p_patch(jg)%parent_id = 0
+      ELSE
+        p_patch(jg)%level = p_patch(dynamics_parent_grid_id(jg))%level + 1
+        p_patch(jg)%parent_id = dynamics_parent_grid_id(jg)
+      ENDIF
+      
+      n_chd = 0
+      
+      DO jg1 = jg+1, n_dom
+        IF (jg == dynamics_parent_grid_id(jg1)) THEN
+          n_chd = n_chd + 1
+          p_patch(jg)%child_id(n_chd) = jg1
+          p_patch(jg1)%parent_child_index = n_chd
         ENDIF
       ENDDO
+      
+      p_patch(jg)%n_childdom = n_chd
+      max_childdom = MAX(1,max_childdom,n_chd)
+      
+      !
+      ! store information about vertical levels
+      !
+      p_patch(jg)%nlev   = num_lev(jg)
+      p_patch(jg)%nlevp1 = num_levp1(jg)
+      
+      IF (jg > 1) THEN
+        IF (nshift(jg) > 0 ) THEN
+          ! nshift has been modified via Namelist => use it
+          p_patch(jg)%nshift = nshift(jg)
+        ELSE
+          ! set default value, assuming
+          !- superimposed vertical levels
+          !- 1 nested domain per grid level
+          p_patch(jg)%nshift = num_lev(p_patch(jg)%parent_id) - num_lev(jg)
+        ENDIF
+        
+        jgp = p_patch(jg)%parent_id
+        p_patch(jg)%nshift_total = p_patch(jgp)%nshift_total + p_patch(jg)%nshift
+      ELSE
+        ! Note: the first nshift-value refers to the global domain
+        p_patch(jg)%nshift = 0
+        p_patch(jg)%nshift_total = 0
+      ENDIF
+      
+    ENDDO
+    
+    ! Set information about total number of child domains (called recursively)
+    ! and corresponding index lists
+    
+    ! Initialization
+    DO jg = 1, n_dom
+      p_patch(jg)%n_chd_total      = 0
+      p_patch(jg)%child_id_list(:) = 0
+    ENDDO
+    
+    DO jg = n_dom, 2, -1
+      jg1 = p_patch(jg)%parent_id
+      n_chd = p_patch(jg1)%n_chd_total
+      n_chdc = p_patch(jg)%n_chd_total
+      p_patch(jg1)%child_id_list(n_chd+1) = jg
+      IF (n_chdc > 0) THEN
+        p_patch(jg1)%child_id_list(n_chd+2:n_chd+1+n_chdc) = p_patch(jg)%child_id_list(1:n_chdc)
+      ENDIF
+      p_patch(jg1)%n_chd_total = n_chd+1+n_chdc
+    ENDDO
+    
+    
+    DO jg = 1, n_dom
+      
+      ! make nshift parameter also available for the parent patch
+      IF (p_patch(jg)%n_childdom >= 1) THEN
+        p_patch(jg)%nshift_child = p_patch(p_patch(jg)%child_id(1))%nshift
+        DO jg1 = 1, p_patch(jg)%n_childdom
+          IF (p_patch(p_patch(jg)%child_id(jg1))%nshift /= p_patch(jg)%nshift_child) &
+            & CALL finish ('mo_model_domimp_patches:import_basic_patches', &
+            & 'multiple nests at the same level must have the same nshift')
+        ENDDO
+      ELSE
+        p_patch(jg)%nshift_child = 0
+      ENDIF
+      
+    ENDDO
+    
+    IF (n_dom_start == 0) THEN ! reduced grid for radiation
+      ! In case of n_dom_start == 0 nlev, nlevp1, nshift need to be copied from
+      ! jg=1 to jg=0
+      p_patch(0)%nlev   = p_patch(1)%nlev
+      p_patch(0)%nlevp1 = p_patch(1)%nlevp1
+      p_patch(0)%nshift = p_patch(1)%nshift
+      ! The reduced grid always has the same levels as the global one
+      p_patch(0)%nshift_child = 0
     ENDIF
-
-    ! Get all patch information not read by read_basic_patch
-    CALL read_remaining_patch( jg, p_patch(jg), n_lp, id_lp )
-
-    ! calculate Cartesian components of primal normal
-    ! (later these should be provided by the grid generator)
-    CALL calculate_cart_normal( lplane, p_patch(jg) )
-
-    ! Initialize the data for the quadrilateral cells
-    ! formed by the two adjacent cells of an edge.
-    ! (later this should be provided by the grid generator)
-    CALL init_quad_twoadjcells( p_patch(jg) )
-
-    CALL init_coriolis( lcoriolis, lplane, p_patch(jg) )
-
-    CALL set_verts_phys_id( p_patch(jg) )
-
-    ! The same has to be done for local parents in parallel runs
+    
+    p_patch(n_dom_start:n_dom)%max_childdom =  max_childdom
+    
+    
+    !init patch by reading data from file
+    !required: path to patch directory and file names, see top of module
+    ! l_exist = .FALSE.
+    
+    ! IF (lplane) THEN
+    !   gridtype='plan'
+    ! ELSE
+    !   gridtype='icon'
+    ! END IF
+    
+    CALL set_patches_grid_filename(p_patch)
+    
+    ishift_child_id = 0
+    
+    grid_level_loop: DO jg = n_dom_start, n_dom
+      
+      !   jlev = p_patch(jg)%level
+      
+      ! Allow file names without "DOM" specifier if n_dom=1.
+      !   IF (n_dom == 1) THEN
+      !     ! Check if file name without "DOM" specifier exists.
+      !     WRITE (patch_file,'(a,a,i0,a,i2.2,a)') &
+      !          & TRIM(gridtype),'R',nroot,'B',jlev,'-grid.nc'
+      !     INQUIRE (FILE=patch_file, EXIST=l_exist)
+      !     ! Otherwise use file name with "DOM" specifier
+      !     IF (.NOT. l_exist)                                            &
+      !          & WRITE (patch_file,'(a,a,i0,2(a,i2.2),a)')              &
+      !          & TRIM(gridtype),'R',nroot,'B',jlev,'_DOM',jg,'-grid.nc'
+      !   ELSE
+      !     ! n_dom >1 --> "'_DOM',jg" required in file name
+      !     WRITE (patch_file,'(a,a,i0,2(a,i2.2),a)') &
+      !          & TRIM(gridtype),'R',nroot,'B',jlev,'_DOM',jg,'-grid.nc'
+      !   ENDIF
+      
+      
+      p_single_patch => p_patch(jg)
+      
+      CALL read_basic_patch( jg, p_single_patch )
+      
+    ENDDO grid_level_loop
+    
+    CALL complete_parent_index(p_patch)
+    CALL set_pc_idx(p_patch)
+    
+  END SUBROUTINE import_basic_patches
+  !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
+  !>
+  !! This routine completes basic patches by
+  !! - allocating the remaining arrays
+  !! - reading the remaining arrays which are not in the basic patch
+  !! - calculating arrays which are not read from input file
+  
+  SUBROUTINE complete_patches(p_patch)
+    
+    TYPE(t_patch), INTENT(inout) :: p_patch(n_dom_start:)
+    
+    INTEGER :: jg, jgp, n_lp, id_lp(max_dom)
+    
+    DO jg = n_dom_start, n_dom
+      
+      ! For non parallel runs: Allocate and preset remaining arrays in patch
+      IF(.NOT.my_process_is_mpi_parallel()) CALL allocate_remaining_patch(p_patch(jg))
+      
+      n_lp = 0 ! Number of local parents on the same level
+      IF(my_process_is_mpi_parallel()) THEN
+        ! Assemble a list of local parents living on the same level as the current patch
+        DO jgp = n_dom_start+1, n_dom
+          IF(p_patch(jgp)%parent_id == jg) THEN
+            n_lp = n_lp+1
+            id_lp(n_lp) = jgp
+          ENDIF
+        ENDDO
+      ENDIF
+      
+      ! Get all patch information not read by read_basic_patch
+      CALL read_remaining_patch( jg, p_patch(jg), n_lp, id_lp )
+      
+      ! calculate Cartesian components of primal normal
+      ! (later these should be provided by the grid generator)
+      CALL calculate_cart_normal( lplane, p_patch(jg) )
+      
+      ! Initialize the data for the quadrilateral cells
+      ! formed by the two adjacent cells of an edge.
+      ! (later this should be provided by the grid generator)
+      CALL init_quad_twoadjcells( p_patch(jg) )
+      
+      CALL init_coriolis( lcoriolis, lplane, p_patch(jg) )
+      
+      CALL set_verts_phys_id( p_patch(jg) )
+      
+      ! The same has to be done for local parents in parallel runs
+      !
+      ! Please note: The call to init_quad_twoadjcells involves boundary
+      ! exchange and is not repeated here for local parents.
+      ! The arrays calculated there are transfered to the local parent
+      ! in transfer_interpol_state where also a lot of other arrays
+      ! from the patch state are transferred
+      
+      IF(my_process_is_mpi_parallel() .AND. jg>n_dom_start) THEN
+        CALL disable_sync_checks
+        CALL calculate_cart_normal( lplane, p_patch_local_parent(jg) )
+        CALL init_coriolis( lcoriolis, lplane, p_patch_local_parent(jg) )
+        CALL set_verts_phys_id( p_patch_local_parent(jg) )
+        CALL enable_sync_checks
+      ENDIF
+      
+    ENDDO
+    
+  END SUBROUTINE complete_patches
+  !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
+  !>
+  !! This routine completes the patch information for parent edges
+  !!
+  !! @par Revision History
+  !! Developed  by Guenther. Zaengl, DWD, 2009-03-19
+  !! Moved here by Rainer Johanni, Oct 2011
+  !!
+  SUBROUTINE complete_parent_index(p_patch)
+    
+    TYPE(t_patch), TARGET, INTENT(inout) :: p_patch(n_dom_start:)
+    
+    ! local variables
+    
+    TYPE(t_grid_edges), POINTER :: p_gep => NULL()
+    TYPE(t_patch),      POINTER :: p_pp => NULL()
+    
+    INTEGER :: jb, je, jg, ji, i_startblk, i_endblk,         &
+      & i_startidx, i_endidx, iic, ibc, i_nchdom, i_child_id
+    
+    !-----------------------------------------------------------------------
     !
-    ! Please note: The call to init_quad_twoadjcells involves boundary
-    ! exchange and is not repeated here for local parents.
-    ! The arrays calculated there are transfered to the local parent
-    ! in transfer_interpol_state where also a lot of other arrays
-    ! from the patch state are transferred
-
-    IF(my_process_is_mpi_parallel() .AND. jg>n_dom_start) THEN
-      CALL disable_sync_checks
-      CALL calculate_cart_normal( lplane, p_patch_local_parent(jg) )
-      CALL init_coriolis( lcoriolis, lplane, p_patch_local_parent(jg) )
-      CALL set_verts_phys_id( p_patch_local_parent(jg) )
-      CALL enable_sync_checks
-    ENDIF
-
-  ENDDO
-
-END SUBROUTINE complete_patches
-
-!-------------------------------------------------------------------------
-!
-!>
-!! This routine completes the patch information for parent edges
-!!
-!! @par Revision History
-!! Developed  by Guenther. Zaengl, DWD, 2009-03-19
-!! Moved here by Rainer Johanni, Oct 2011
-!!
-SUBROUTINE complete_parent_index(p_patch)
-
-TYPE(t_patch), TARGET, INTENT(inout) :: p_patch(n_dom_start:)
-
-! local variables
-
-TYPE(t_grid_edges), POINTER :: p_gep => NULL()
-TYPE(t_patch),      POINTER :: p_pp => NULL()
-
-INTEGER :: jb, je, jg, ji, i_startblk, i_endblk,         &
-           i_startidx, i_endidx, iic, ibc, i_nchdom, i_child_id
-
-!-----------------------------------------------------------------------
-!
-
-DO jg = n_dom_start, n_dom-1
-
-  p_gep  => p_patch(jg)%edges
-  p_pp   => p_patch(jg)
-
-  i_nchdom = p_pp%n_childdom
-  IF (i_nchdom == 0) CYCLE
-
+    
+    DO jg = n_dom_start, n_dom-1
+      
+      p_gep  => p_patch(jg)%edges
+      p_pp   => p_patch(jg)
+      
+      i_nchdom = p_pp%n_childdom
+      IF (i_nchdom == 0) CYCLE
+      
 #ifdef __SX__
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
 #endif
-
-  i_startblk = p_gep%start_blk(grf_bdyintp_start_e,1)
-  i_endblk   = p_gep%end_blk(min_rledge,i_nchdom)
-
-! Complete parent edge information
+      
+      i_startblk = p_gep%start_blk(grf_bdyintp_start_e,1)
+      i_endblk   = p_gep%end_blk(min_rledge,i_nchdom)
+      
+      ! Complete parent edge information
 #ifdef  __SX__
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,ji,je,iic,ibc,i_child_id)
 #endif
-  DO jb = i_startblk, i_endblk
-
-    CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge)
-
-    DO ji = 3, 4 ! Index completion only needed for child edges 3+4
-      DO je = i_startidx, i_endidx
-
-        iic = p_gep%child_idx(je,jb,ji)
-        ibc = p_gep%child_blk(je,jb,ji)
-        i_child_id = p_gep%child_id(je,jb)
-
-        IF ((iic/= 0) .AND. (ibc/= 0)) THEN
-          p_patch(i_child_id)%edges%parent_idx(iic,ibc) = je
-          p_patch(i_child_id)%edges%parent_blk(iic,ibc) = jb
-        ENDIF
+      DO jb = i_startblk, i_endblk
+        
+        CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
+          & i_startidx, i_endidx, grf_bdyintp_start_e, min_rledge)
+        
+        DO ji = 3, 4 ! Index completion only needed for child edges 3+4
+          DO je = i_startidx, i_endidx
+            
+            iic = p_gep%child_idx(je,jb,ji)
+            ibc = p_gep%child_blk(je,jb,ji)
+            i_child_id = p_gep%child_id(je,jb)
+            
+            IF ((iic/= 0) .AND. (ibc/= 0)) THEN
+              p_patch(i_child_id)%edges%parent_idx(iic,ibc) = je
+              p_patch(i_child_id)%edges%parent_blk(iic,ibc) = jb
+            ENDIF
+          ENDDO
+        ENDDO
       ENDDO
-    ENDDO
-  ENDDO
 #ifdef  __SX__
 !$OMP END DO
 !$OMP END PARALLEL
 #endif
-
-ENDDO
-
-END SUBROUTINE complete_parent_index
-
-!-------------------------------------------------------------------------
-!
-!>
-!! This routine sets the parent-child-index for cells and edges
-!!
-!! @par Revision History
-!! Developed  by Rainer Johanni, Dec 2011
-!!
-SUBROUTINE set_pc_idx(p_patch)
-
-TYPE(t_patch), TARGET, INTENT(inout) :: p_patch(n_dom_start:)
-
-! local variables
-
-INTEGER :: jg, jgp, jb, jl, ilp, ibp, nlen
-
-!-----------------------------------------------------------------------
-!
-
-DO jg = n_dom_start+1, n_dom
-
-  jgp = p_patch(jg)%parent_id
-
-  p_patch(jg)%cells%pc_idx(:,:) = 0
-  p_patch(jg)%edges%pc_idx(:,:) = 0
-
-  DO jb = 1, p_patch(jg)%nblks_c
-
-    IF (jb /= p_patch(jg)%nblks_c) THEN
-      nlen = nproma
-    ELSE
-      nlen = p_patch(jg)%npromz_c
-    ENDIF
-
-    DO jl = 1, nlen
-
-      ilp = p_patch(jg)%cells%parent_idx(jl,jb)
-      ibp = p_patch(jg)%cells%parent_blk(jl,jb)
-
-      IF(p_patch(jgp)%cells%child_idx(ilp,ibp,1) == jl .AND. &
-         p_patch(jgp)%cells%child_blk(ilp,ibp,1) == jb ) p_patch(jg)%cells%pc_idx(jl,jb) = 1
-      IF(p_patch(jgp)%cells%child_idx(ilp,ibp,2) == jl .AND. &
-         p_patch(jgp)%cells%child_blk(ilp,ibp,2) == jb ) p_patch(jg)%cells%pc_idx(jl,jb) = 2
-      IF(p_patch(jgp)%cells%child_idx(ilp,ibp,3) == jl .AND. &
-         p_patch(jgp)%cells%child_blk(ilp,ibp,3) == jb ) p_patch(jg)%cells%pc_idx(jl,jb) = 3
-      IF(p_patch(jgp)%cells%child_idx(ilp,ibp,4) == jl .AND. &
-         p_patch(jgp)%cells%child_blk(ilp,ibp,4) == jb ) p_patch(jg)%cells%pc_idx(jl,jb) = 4
-      IF(p_patch(jg)%cells%pc_idx(jl,jb) == 0) CALL finish('set_pc_idx','cells%pc_idx')
-
+      
     ENDDO
-
-  ENDDO
-
-  DO jb = 1, p_patch(jg)%nblks_e
-
-    IF (jb /= p_patch(jg)%nblks_e) THEN
-      nlen = nproma
-    ELSE
-      nlen = p_patch(jg)%npromz_e
-    ENDIF
-
-    DO jl = 1, nlen
-
-      ilp = p_patch(jg)%edges%parent_idx(jl,jb)
-      ibp = p_patch(jg)%edges%parent_blk(jl,jb)
-
-      IF(p_patch(jgp)%edges%child_idx(ilp,ibp,1) == jl .AND. &
-         p_patch(jgp)%edges%child_blk(ilp,ibp,1) == jb ) p_patch(jg)%edges%pc_idx(jl,jb) = 1
-      IF(p_patch(jgp)%edges%child_idx(ilp,ibp,2) == jl .AND. &
-         p_patch(jgp)%edges%child_blk(ilp,ibp,2) == jb ) p_patch(jg)%edges%pc_idx(jl,jb) = 2
-      IF(p_patch(jgp)%edges%child_idx(ilp,ibp,3) == jl .AND. &
-         p_patch(jgp)%edges%child_blk(ilp,ibp,3) == jb ) p_patch(jg)%edges%pc_idx(jl,jb) = 3
-      IF(p_patch(jgp)%edges%child_idx(ilp,ibp,4) == jl .AND. &
-         p_patch(jgp)%edges%child_blk(ilp,ibp,4) == jb ) p_patch(jg)%edges%pc_idx(jl,jb) = 4
-      IF(p_patch(jg)%edges%pc_idx(jl,jb) == 0) CALL finish('set_pc_idx','edges%pc_idx')
-
-    ENDDO
-
-  ENDDO
-
-ENDDO
-
-END SUBROUTINE set_pc_idx
-!-------------------------------------------------------------------------
-!
-!> Allocates all arrays in a basic patch
-!! These are the arrays which have to be read in full size on every PE
-!! since they are needed for domain decomposition.
-!!
-!! @par Revision History
-!! Initial version (split out from read_patch) Rainer Johanni, Oct. 2010
-!! Split into allocate_basic_patch/allocate_remaining_patch, Rainer Johanni, Nov. 2011
-!!
-SUBROUTINE allocate_basic_patch(p_patch)
-
-  TYPE(t_patch), INTENT(INOUT) :: p_patch
-
-  INTEGER :: max_childdom
-
-  ! Please note: The following variables in the patch MUST already be set:
-  ! - nblks_c
-  ! - nblks_e
-  ! - nblks_v
-  ! - n_patch_cells
-  ! - n_patch_edges
-  ! - n_patch_verts
-  ! - n_patch_cells_g
-  ! - n_patch_edges_g
-  ! - n_patch_verts_g
-  ! - max_childdom
-
-  p_patch%cell_type = global_cell_type
-  max_childdom = p_patch%max_childdom
-
-  !
-  ! !grid cells
-  !
-  ALLOCATE( p_patch%cells%num_edges(nproma,p_patch%nblks_c) )
-  ALLOCATE( p_patch%cells%parent_idx(nproma,p_patch%nblks_c) )
-  ALLOCATE( p_patch%cells%parent_blk(nproma,p_patch%nblks_c) )
-  ALLOCATE( p_patch%cells%pc_idx(nproma,p_patch%nblks_c) )
-  ALLOCATE( p_patch%cells%child_idx(nproma,p_patch%nblks_c,4) )
-  ALLOCATE( p_patch%cells%child_blk(nproma,p_patch%nblks_c,4) )
-  ALLOCATE( p_patch%cells%child_id(nproma,p_patch%nblks_c) )
-  ALLOCATE( p_patch%cells%neighbor_idx(nproma,p_patch%nblks_c,p_patch%cell_type) )
-  ALLOCATE( p_patch%cells%neighbor_blk(nproma,p_patch%nblks_c,p_patch%cell_type) )
-  ALLOCATE( p_patch%cells%edge_idx(nproma,p_patch%nblks_c,p_patch%cell_type) )
-  ALLOCATE( p_patch%cells%edge_blk(nproma,p_patch%nblks_c,p_patch%cell_type) )
-  ALLOCATE( p_patch%cells%vertex_idx(nproma,p_patch%nblks_c,p_patch%cell_type) )
-  ALLOCATE( p_patch%cells%vertex_blk(nproma,p_patch%nblks_c,p_patch%cell_type) )
-  ALLOCATE( p_patch%cells%center(nproma,p_patch%nblks_c) )
-  ALLOCATE( p_patch%cells%refin_ctrl(nproma,p_patch%nblks_c) )
-  ALLOCATE( p_patch%cells%start_idx(min_rlcell:max_rlcell,max_childdom) )
-  ALLOCATE( p_patch%cells%end_idx(min_rlcell:max_rlcell,max_childdom) )
-  ALLOCATE( p_patch%cells%start_blk(min_rlcell:max_rlcell,max_childdom) )
-  ALLOCATE( p_patch%cells%end_blk(min_rlcell:max_rlcell,max_childdom) )
-
-  !
-  ! !grid edges
-  !
-  ALLOCATE( p_patch%edges%parent_idx(nproma,p_patch%nblks_e) )
-  ALLOCATE( p_patch%edges%parent_blk(nproma,p_patch%nblks_e) )
-  ALLOCATE( p_patch%edges%pc_idx(nproma,p_patch%nblks_e) )
-  ALLOCATE( p_patch%edges%child_idx(nproma,p_patch%nblks_e,4) )
-  ALLOCATE( p_patch%edges%child_blk(nproma,p_patch%nblks_e,4) )
-  ALLOCATE( p_patch%edges%child_id(nproma,p_patch%nblks_e) )
-  ALLOCATE( p_patch%edges%refin_ctrl(nproma,p_patch%nblks_e) )
-  ALLOCATE( p_patch%edges%start_idx(min_rledge:max_rledge,max_childdom) )
-  ALLOCATE( p_patch%edges%end_idx(min_rledge:max_rledge,max_childdom) )
-  ALLOCATE( p_patch%edges%start_blk(min_rledge:max_rledge,max_childdom) )
-  ALLOCATE( p_patch%edges%end_blk(min_rledge:max_rledge,max_childdom) )
-
-  !
-  ! !grid verts
-  !
-  ALLOCATE( p_patch%verts%vertex(nproma,p_patch%nblks_v) )
-  ALLOCATE( p_patch%verts%refin_ctrl(nproma,p_patch%nblks_v) )
-  ALLOCATE( p_patch%verts%start_idx(min_rlvert:max_rlvert,max_childdom) )
-  ALLOCATE( p_patch%verts%end_idx(min_rlvert:max_rlvert,max_childdom) )
-  ALLOCATE( p_patch%verts%start_blk(min_rlvert:max_rlvert,max_childdom) )
-  ALLOCATE( p_patch%verts%end_blk(min_rlvert:max_rlvert,max_childdom) )
-
-  ! Set all newly allocated arrays to 0
-
-  p_patch%cells%num_edges = 0
-  p_patch%cells%parent_idx = 0
-  p_patch%cells%parent_blk = 0
-  p_patch%cells%pc_idx = 0
-  p_patch%cells%child_idx = 0
-  p_patch%cells%child_blk = 0
-  p_patch%cells%child_id = 0
-  p_patch%cells%neighbor_idx = 0
-  p_patch%cells%neighbor_blk = 0
-  p_patch%cells%edge_idx = 0
-  p_patch%cells%edge_blk = 0
-  p_patch%cells%vertex_idx = 0
-  p_patch%cells%vertex_blk = 0
-  p_patch%cells%center(:,:)%lon = 0._wp
-  p_patch%cells%center(:,:)%lat = 0._wp
-  p_patch%cells%refin_ctrl = 0
-  p_patch%cells%start_idx = 0
-  p_patch%cells%end_idx = 0
-  p_patch%cells%start_blk = 0
-  p_patch%cells%end_blk = 0
-
-  p_patch%edges%parent_idx = 0
-  p_patch%edges%parent_blk = 0
-  p_patch%edges%pc_idx = 0
-  p_patch%edges%child_idx = 0
-  p_patch%edges%child_blk = 0
-  p_patch%edges%child_id = 0
-  p_patch%edges%refin_ctrl = 0
-  p_patch%edges%start_idx = 0
-  p_patch%edges%end_idx = 0
-  p_patch%edges%start_blk = 0
-  p_patch%edges%end_blk = 0
-
-  p_patch%verts%vertex(:,:)%lon = 0._wp
-  p_patch%verts%vertex(:,:)%lat = 0._wp
-  p_patch%verts%refin_ctrl = 0
-  p_patch%verts%start_idx = 0
-  p_patch%verts%end_idx = 0
-  p_patch%verts%start_blk = 0
-  p_patch%verts%end_blk = 0
-
-
-END SUBROUTINE allocate_basic_patch
-!-------------------------------------------------------------------------
-!
-!> Deallocates all arrays in a basic patch
-!!
-!! @par Revision History
-!! Initial version, Rainer Johanni, Nov. 2011
-!!
-SUBROUTINE deallocate_basic_patch(p_patch)
-
-  TYPE(t_patch), INTENT(INOUT) :: p_patch
-  !
-  ! !grid cells
-  !
-  DEALLOCATE( p_patch%cells%num_edges )
-  DEALLOCATE( p_patch%cells%parent_idx )
-  DEALLOCATE( p_patch%cells%parent_blk )
-  DEALLOCATE( p_patch%cells%pc_idx )
-  DEALLOCATE( p_patch%cells%child_idx )
-  DEALLOCATE( p_patch%cells%child_blk )
-  DEALLOCATE( p_patch%cells%child_id )
-  DEALLOCATE( p_patch%cells%neighbor_idx )
-  DEALLOCATE( p_patch%cells%neighbor_blk )
-  DEALLOCATE( p_patch%cells%edge_idx )
-  DEALLOCATE( p_patch%cells%edge_blk )
-  DEALLOCATE( p_patch%cells%vertex_idx )
-  DEALLOCATE( p_patch%cells%vertex_blk )
-  DEALLOCATE( p_patch%cells%center )
-  DEALLOCATE( p_patch%cells%refin_ctrl )
-  DEALLOCATE( p_patch%cells%start_idx )
-  DEALLOCATE( p_patch%cells%end_idx )
-  DEALLOCATE( p_patch%cells%start_blk )
-  DEALLOCATE( p_patch%cells%end_blk )
-  !
-  ! !grid edges
-  !
-  DEALLOCATE( p_patch%edges%parent_idx )
-  DEALLOCATE( p_patch%edges%parent_blk )
-  DEALLOCATE( p_patch%edges%pc_idx )
-  DEALLOCATE( p_patch%edges%child_idx )
-  DEALLOCATE( p_patch%edges%child_blk )
-  DEALLOCATE( p_patch%edges%child_id )
-  DEALLOCATE( p_patch%edges%refin_ctrl )
-  DEALLOCATE( p_patch%edges%start_idx )
-  DEALLOCATE( p_patch%edges%end_idx )
-  DEALLOCATE( p_patch%edges%start_blk )
-  DEALLOCATE( p_patch%edges%end_blk )
-  !
-  ! !grid verts
-  !
-  DEALLOCATE( p_patch%verts%vertex )
-  DEALLOCATE( p_patch%verts%refin_ctrl )
-  DEALLOCATE( p_patch%verts%start_idx )
-  DEALLOCATE( p_patch%verts%end_idx )
-  DEALLOCATE( p_patch%verts%start_blk )
-  DEALLOCATE( p_patch%verts%end_blk )
-
-END SUBROUTINE deallocate_basic_patch
-!-------------------------------------------------------------------------
-!
-!> Allocates remaining arrays in a full patch.
-!! These are the arrays which have not been allocated in allocate_basic_patch
-!!
-!! @par Revision History
-!! Initial version (split out from read_patch) Rainer Johanni, Oct. 2010
-!! Split into allocate_basic_patch/allocate_remaining_patch, Rainer Johanni, Nov. 2011
-!!
-SUBROUTINE allocate_remaining_patch(p_patch)
-
-  TYPE(t_patch), INTENT(INOUT) :: p_patch
-
-  INTEGER :: jc, je, jv
-
-  ! Please note: The following variables in the patch MUST already be set:
-  ! - nblks_c
-  ! - nblks_e
-  ! - nblks_v
-  ! - n_patch_cells
-  ! - n_patch_edges
-  ! - n_patch_verts
-  ! - n_patch_cells_g
-  ! - n_patch_edges_g
-  ! - n_patch_verts_g
-  ! - max_childdom
-
-  !
-  ! !grid cells
-  !
-  ALLOCATE( p_patch%cells%phys_id(nproma,p_patch%nblks_c) )
-  ALLOCATE( p_patch%cells%edge_orientation(nproma,p_patch%nblks_c,p_patch%cell_type) )
-  ALLOCATE( p_patch%cells%area(nproma,p_patch%nblks_c) )
-  ALLOCATE( p_patch%cells%f_c(nproma,p_patch%nblks_c) )
-
-  ALLOCATE( p_patch%cells%decomp_domain(nproma,p_patch%nblks_c) )
-  ALLOCATE( p_patch%cells%owner_mask(nproma,p_patch%nblks_c) )
-  ALLOCATE( p_patch%cells%glb_index(p_patch%n_patch_cells) )
-  ALLOCATE( p_patch%cells%owner_local(p_patch%n_patch_cells))
-  ALLOCATE( p_patch%cells%loc_index(p_patch%n_patch_cells_g) )
-  ALLOCATE( p_patch%cells%owner_g(p_patch%n_patch_cells_g))
-
-  !
-  ! !grid edges
-  !
-  ALLOCATE( p_patch%edges%phys_id(nproma,p_patch%nblks_e) )
-  ALLOCATE( p_patch%edges%cell_idx(nproma,p_patch%nblks_e,2) )
-  ALLOCATE( p_patch%edges%cell_blk(nproma,p_patch%nblks_e,2) )
-  ALLOCATE( p_patch%edges%vertex_idx(nproma,p_patch%nblks_e,4) )
-  ALLOCATE( p_patch%edges%vertex_blk(nproma,p_patch%nblks_e,4) )
-  ALLOCATE( p_patch%edges%system_orientation(nproma,p_patch%nblks_e) )
-  ALLOCATE( p_patch%edges%quad_idx(nproma,p_patch%nblks_e,4) )
-  ALLOCATE( p_patch%edges%quad_blk(nproma,p_patch%nblks_e,4) )
-  ALLOCATE( p_patch%edges%quad_orientation(nproma,p_patch%nblks_e,4) )
-  ALLOCATE( p_patch%edges%center(nproma,p_patch%nblks_e) )
-  ALLOCATE( p_patch%edges%primal_normal(nproma,p_patch%nblks_e) )
-  ALLOCATE( p_patch%edges%primal_cart_normal(nproma,p_patch%nblks_e) )
-  ALLOCATE( p_patch%edges%dual_normal(nproma,p_patch%nblks_e) )
-  ALLOCATE( p_patch%edges%dual_cart_normal(nproma,p_patch%nblks_e) )
-  ALLOCATE( p_patch%edges%primal_normal_cell(nproma,p_patch%nblks_e,2) )
-  ALLOCATE( p_patch%edges%dual_normal_cell(nproma,p_patch%nblks_e,2) )
-  ALLOCATE( p_patch%edges%primal_normal_vert(nproma,p_patch%nblks_e,4) )
-  ALLOCATE( p_patch%edges%dual_normal_vert(nproma,p_patch%nblks_e,4) )
-  ALLOCATE( p_patch%edges%primal_edge_length(nproma,p_patch%nblks_e) )
-  ALLOCATE( p_patch%edges%inv_primal_edge_length(nproma,p_patch%nblks_e) )
-  ALLOCATE( p_patch%edges%dual_edge_length(nproma,p_patch%nblks_e) )
-  ALLOCATE( p_patch%edges%inv_dual_edge_length(nproma,p_patch%nblks_e) )
-  ALLOCATE( p_patch%edges%edge_vert_length(nproma,p_patch%nblks_e,2) )
-  ALLOCATE( p_patch%edges%inv_vert_vert_length(nproma,p_patch%nblks_e) )
-  ALLOCATE( p_patch%edges%edge_cell_length(nproma,p_patch%nblks_e,2) )
-  ALLOCATE( p_patch%edges%area_edge(nproma,p_patch%nblks_e) )
-  ALLOCATE( p_patch%edges%quad_area(nproma,p_patch%nblks_e) )
-  ALLOCATE( p_patch%edges%f_e(nproma,p_patch%nblks_e) )
-
-  ALLOCATE( p_patch%edges%decomp_domain(nproma,p_patch%nblks_e) )
-  ALLOCATE( p_patch%edges%owner_mask(nproma,p_patch%nblks_e) )
-  ALLOCATE( p_patch%edges%glb_index(p_patch%n_patch_edges) )
-  ALLOCATE( p_patch%edges%loc_index(p_patch%n_patch_edges_g) )
-  ALLOCATE( p_patch%edges%owner_g(p_patch%n_patch_edges_g))
-  ALLOCATE( p_patch%edges%owner_local(p_patch%n_patch_edges))
-
-  !
-  ! !grid verts
-  !
-  ALLOCATE( p_patch%verts%phys_id(nproma,p_patch%nblks_v) )
-  ALLOCATE( p_patch%verts%neighbor_idx(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
-  ALLOCATE( p_patch%verts%neighbor_blk(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
-  ALLOCATE( p_patch%verts%cell_idx(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
-  ALLOCATE( p_patch%verts%cell_blk(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
-  ALLOCATE( p_patch%verts%edge_idx(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
-  ALLOCATE( p_patch%verts%edge_blk(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
-  ALLOCATE( p_patch%verts%edge_orientation(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
-  ALLOCATE( p_patch%verts%num_edges(nproma,p_patch%nblks_v) )
-  ALLOCATE( p_patch%verts%dual_area(nproma,p_patch%nblks_v) )
-  ALLOCATE( p_patch%verts%f_v(nproma,p_patch%nblks_v) )
-
-  ALLOCATE( p_patch%verts%decomp_domain(nproma,p_patch%nblks_v) )
-  ALLOCATE( p_patch%verts%owner_mask(nproma,p_patch%nblks_v) )
-  ALLOCATE( p_patch%verts%glb_index(p_patch%n_patch_verts) )
-  ALLOCATE( p_patch%verts%loc_index(p_patch%n_patch_verts_g) )
-  ALLOCATE( p_patch%verts%owner_g(p_patch%n_patch_verts_g))
-  ALLOCATE( p_patch%verts%owner_local(p_patch%n_patch_verts))
-
-  ! Set all newly allocated arrays to 0
-
-  p_patch%cells%phys_id = 0
-  p_patch%cells%edge_orientation = 0._wp
-  p_patch%cells%area = 0._wp
-  p_patch%cells%f_c = 0._wp
-
-  p_patch%edges%phys_id = 0
-  p_patch%edges%cell_idx = 0
-  p_patch%edges%cell_blk = 0
-  p_patch%edges%vertex_idx = 0
-  p_patch%edges%vertex_blk = 0
-  p_patch%edges%system_orientation = 0._wp
-  p_patch%edges%quad_idx = 0
-  p_patch%edges%quad_blk = 0
-  p_patch%edges%quad_orientation = 0._wp
-  p_patch%edges%center(:,:)%lon = 0._wp
-  p_patch%edges%center(:,:)%lat = 0._wp
-  p_patch%edges%primal_normal(:,:)%v1 = 0._wp
-  p_patch%edges%primal_normal(:,:)%v2 = 0._wp
-  p_patch%edges%primal_cart_normal(:,:)%x(1) = 0._wp
-  p_patch%edges%primal_cart_normal(:,:)%x(2) = 0._wp
-  p_patch%edges%primal_cart_normal(:,:)%x(3) = 0._wp
-  p_patch%edges%dual_normal(:,:)%v1 = 0._wp
-  p_patch%edges%dual_normal(:,:)%v2 = 0._wp
-  p_patch%edges%dual_cart_normal(:,:)%x(1) = 0._wp
-  p_patch%edges%dual_cart_normal(:,:)%x(2) = 0._wp
-  p_patch%edges%dual_cart_normal(:,:)%x(3) = 0._wp
-  p_patch%edges%primal_normal_cell(:,:,:)%v1 = 0._wp
-  p_patch%edges%primal_normal_cell(:,:,:)%v2 = 0._wp
-  p_patch%edges%dual_normal_cell(:,:,:)%v1 = 0._wp
-  p_patch%edges%dual_normal_cell(:,:,:)%v2 = 0._wp
-  p_patch%edges%primal_normal_vert(:,:,:)%v1 = 0._wp
-  p_patch%edges%primal_normal_vert(:,:,:)%v2 = 0._wp
-  p_patch%edges%dual_normal_vert(:,:,:)%v1 = 0._wp
-  p_patch%edges%dual_normal_vert(:,:,:)%v2 = 0._wp
-  p_patch%edges%primal_edge_length = 0._wp
-  p_patch%edges%inv_primal_edge_length = 0._wp
-  p_patch%edges%dual_edge_length = 0._wp
-  p_patch%edges%inv_dual_edge_length = 0._wp
-  p_patch%edges%edge_vert_length = 0._wp
-  p_patch%edges%inv_vert_vert_length = 0._wp
-  p_patch%edges%edge_cell_length = 0._wp
-  p_patch%edges%area_edge = 0._wp
-  p_patch%edges%quad_area = 0._wp
-  p_patch%edges%f_e = 0._wp
-
-  p_patch%verts%phys_id = 0
-  p_patch%verts%neighbor_idx = 0
-  p_patch%verts%neighbor_blk = 0
-  p_patch%verts%cell_idx = 0
-  p_patch%verts%cell_blk = 0
-  p_patch%verts%edge_idx = 0
-  p_patch%verts%edge_blk = 0
-  p_patch%verts%edge_orientation = 0._wp
-  p_patch%verts%num_edges = 0
-  p_patch%verts%dual_area = 0._wp
-  p_patch%verts%f_v = 0._wp
-
-  ! Set values which are needed for parallel runs
-  ! to the correct values for a single patch owner
-  ! decomp_domain/owner mask:
-  ! Everywhere 0 or .true. with the exception of unused entries
-
-  p_patch%cells%decomp_domain = 0
-  p_patch%edges%decomp_domain = 0
-  p_patch%verts%decomp_domain = 0
-  p_patch%cells%owner_mask = .TRUE.
-  p_patch%edges%owner_mask = .TRUE.
-  p_patch%verts%owner_mask = .TRUE.
-
-  p_patch%cells%decomp_domain(p_patch%npromz_c+1:nproma,p_patch%nblks_c) = -1
-  p_patch%edges%decomp_domain(p_patch%npromz_e+1:nproma,p_patch%nblks_e) = -1
-  p_patch%verts%decomp_domain(p_patch%npromz_v+1:nproma,p_patch%nblks_v) = -1
-
-  p_patch%cells%owner_mask(p_patch%npromz_c+1:nproma,p_patch%nblks_c) = .FALSE.
-  p_patch%edges%owner_mask(p_patch%npromz_e+1:nproma,p_patch%nblks_e) = .FALSE.
-  p_patch%verts%owner_mask(p_patch%npromz_v+1:nproma,p_patch%nblks_v) = .FALSE.
-
-  ! The following arrays are currently never needed for non parallel runs,
-  ! we set them nontheless.
-
-  DO jc = 1, p_patch%n_patch_cells
-    p_patch%cells%glb_index(jc) = jc
-    p_patch%cells%loc_index(jc) = jc
-    p_patch%cells%owner_g(jc) = 0
-    p_patch%cells%owner_local(jc) = 0
-  ENDDO
-
-  DO je = 1, p_patch%n_patch_edges
-    p_patch%edges%glb_index(je) = je
-    p_patch%edges%loc_index(je) = je
-    p_patch%edges%owner_g(je) = 0
-    p_patch%edges%owner_local(je) = 0
-  ENDDO
-
-  DO jv = 1, p_patch%n_patch_verts
-    p_patch%verts%glb_index(jv) = jv
-    p_patch%verts%loc_index(jv) = jv
-    p_patch%verts%owner_g(jv) = 0
-    p_patch%verts%owner_local(jv) = 0
-  ENDDO
-
-END SUBROUTINE allocate_remaining_patch
-!-------------------------------------------------------------------------
-!
-!> Allocates complete patch by calling allocate_basic_patch/allocate_remaining_patch
-!!
-!! @par Revision History
-!! Initial version, Rainer Johanni, Dec. 2011
-!!
-SUBROUTINE allocate_patch(p_patch)
-
-  TYPE(t_patch), INTENT(INOUT) :: p_patch
-
-  CALL allocate_basic_patch(p_patch)
-  CALL allocate_remaining_patch(p_patch)
-
-END SUBROUTINE allocate_patch
-
-!-------------------------------------------------------------------------
-
-
-
-!-------------------------------------------------------------------------
-!>
-!!               Initialization of the patch components with data stored.
-!!
-!!               Initialization of the patch components with data stored
-!! in files.
-!!
-!! @par Revision History
-!! Developed  by  Peter Korn, MPI-M (2005).
-!! Modified by L. Bonaventura, MPI-M (2005),
-!! to match completed patch
-!! structure in advanced patch generator.
-!! Modified by A. Gassmann, MPI-M (2007-04-03)
-!! - cleaning up and adaptations for reading multiple patches
-!! Modified by A. Gassmann, MPI-M (2007-04-03)
-!! - patch owns grid information, global grid is obsolete.
-!! - changed name from init_patch to read_patch
-!! Modified by A. Gassmann, MPI-M (2008-09-21)
-!! - remove all not netcdf stuff
-!! - HERE we must think of how to use different 'global_cell_type's
-!! Modified by A. Gassmann, MPI-M (2008-10-30)
-!! - read in grid for either triangles or hexagons
-!! Modified by R. Johanni (2011-12-04)
-!! - split into read_basic_patch for reading the basic patch information
-!!   for subdivision into the fully allocated patch and read_remaining_patch
-!!   for reading the remaining information
-!!
-SUBROUTINE read_basic_patch( ig, p_patch, patch_file )
-
-CHARACTER(LEN=*), PARAMETER :: routine = 'mo_model_domimp_patches/read_basic_patch'
-INTEGER,             INTENT(in)    ::  ig           ! domain ID
-CHARACTER(len=*),    INTENT(in), OPTIONAL  ::  patch_file   ! name of grid file
-
-TYPE(t_patch), TARGET, INTENT(inout) ::  p_patch      ! patch data structure
-
-INTEGER, ALLOCATABLE :: &
-  &  array_c_int(:,:),  &  ! temporary arrays to read in integer values
-  &  array_e_int(:,:),  &
-  &  array_v_int(:,:)
-
-REAL(wp), ALLOCATABLE :: &
-  &  array_c_real(:,:), &  ! temporary arrays to read in real values
-  &  array_e_real(:,:), &
-  &  array_v_real(:,:)
-
-INTEGER, ALLOCATABLE :: &
-  &  start_idx_c(:,:), end_idx_c(:,:), &  ! temporary arrays to read in index lists
-  &  start_idx_e(:,:), end_idx_e(:,:), &
-  &  start_idx_v(:,:), end_idx_v(:,:)
-
-! dummy values for number of internal halo cells, edges, vertices
-INTEGER :: n_e_halo_cells
-INTEGER :: n_e_halo_edges
-INTEGER :: n_e_halo_verts
-
-! INTEGER :: patch_unit
-
-! LOGICAL :: lnetcdf = .TRUE.
-! CHARACTER(len=filename_max) :: file
-
-CHARACTER(len=uuid_string_length) :: uuid_string
-
-! status variable
-INTEGER :: ist
-
-INTEGER :: ncid, dimid, varid
-INTEGER :: ji
-INTEGER :: jc, je, jcv, jce, ilc, ibc
-INTEGER :: icheck, ilev, igrid_level, igrid_id, iparent_id, i_max_childdom, ipar_id
-
-!-----------------------------------------------------------------------
-
-! set dummy values to zero
-n_e_halo_cells = 0
-n_e_halo_edges = 0
-n_e_halo_verts = 0
-
-ilev = p_patch%level
-ipar_id = p_patch%parent_id
-
-!
-! start to fill patch type
-!
-IF (PRESENT(patch_file)) THEN
-  p_patch%grid_filename=patch_file
-ENDIF
-
-! this should be read into
-!  at the moment is filled in the patch allocation
-! p_patch%cell_type = global_cell_type
+    
+  END SUBROUTINE complete_parent_index
   
-CALL message (TRIM(routine), 'start to init patch')
-
-WRITE(message_text,'(a,a)') 'Read grid file ', TRIM(p_patch%grid_filename)
-CALL message ('', TRIM(message_text))
-
-CALL nf(nf_open(TRIM(p_patch%grid_filename), NF_NOWRITE, ncid))
-
-uuid_string = ' ' ! To avoid null characters in the standard output
-CALL nf(nf_get_att_text(ncid, NF_GLOBAL, 'uuid', uuid_string), &
-  &     warnonly=.TRUE., silent=(.NOT. is_grib_output()))
-CALL uuid_parse(uuid_string, p_patch%grid_uuid)
-WRITE(message_text,'(a,a)') 'grid uuid: ', TRIM(uuid_string)
-CALL message  (TRIM(routine), message_text)
-
-CALL nf(nf_get_att_int(ncid, NF_GLOBAL, 'grid_root', icheck))
-IF (icheck /= nroot) THEN
-   WRITE(message_text,'(a,i4,a,i4)') &
-     & 'grid_root attribute:', icheck,', R:',nroot
-   CALL message  (TRIM(routine), TRIM(message_text))
-   WRITE(message_text,'(a)') &
-     & 'Mismatch between "grid_root" attribute and "R" parameter in the filename'
-   CALL finish  (TRIM(routine), TRIM(message_text))
-END IF
-
-CALL nf(nf_get_att_int(ncid, NF_GLOBAL, 'grid_level', igrid_level))
-IF (igrid_level /= ilev) THEN
-   WRITE(message_text,'(a,i4,a,i4)') &
-     & 'grid_level attribute:', igrid_level,', B:',ilev
-   CALL message  (TRIM(routine), TRIM(message_text))
-   WRITE(message_text,'(a)') &
-     & 'Mismatch between "grid_level" attribute and "B" parameter in the filename'
-   CALL finish  (TRIM(routine), TRIM(message_text))
-END IF
-
-! Check additional attributes for consistency with the current namelist settings
-CALL nf(nf_get_att_int(ncid, NF_GLOBAL, 'grid_ID', igrid_id))
-IF ((.NOT.l_limited_area).AND.(igrid_id /= ig)) THEN
-   WRITE(message_text,'(a,i4,a,i4)') &
-     & 'grid ID attribute:', igrid_id,', namelist value:',ig
-   CALL message  (TRIM(routine), TRIM(message_text))
-   WRITE(message_text,'(a)') &
-     & 'Mismatch between "grid ID" attribute and corresponding namelist setting'
-   CALL finish  (TRIM(routine), TRIM(message_text))
-END IF
-
-CALL nf(nf_get_att_int(ncid, NF_GLOBAL, 'parent_grid_ID', iparent_id))
-IF ((.NOT.l_limited_area).AND.(iparent_id /= ipar_id)) THEN
-   WRITE(message_text,'(a,i4,a,i4)') &
-     & 'parent ID attribute:', iparent_id,', namelist value:',ipar_id
-   CALL message  (TRIM(routine), TRIM(message_text))
-   WRITE(message_text,'(a)') &
-     & 'Mismatch between "parent grid ID" attribute and corresponding namelist setting'
-   CALL finish  (TRIM(routine), TRIM(message_text))
-END IF
-
-CALL nf(nf_get_att_int(ncid, NF_GLOBAL, 'max_childdom', i_max_childdom))
-IF (i_max_childdom /= max_childdom) THEN
-   WRITE(message_text,'(a,i4,a,i4)') &
-     & 'max_childdom attribute:', i_max_childdom,', namelist value:',max_childdom
-   CALL message  (TRIM(routine), TRIM(message_text))
-   WRITE(message_text,'(a)') &
-     & 'Mismatch between "max_childdom" attribute and corresponding namelist setting'
-   CALL finish  (TRIM(routine), TRIM(message_text))
-END IF
-
-!
-! get number of cells, edges and vertices
-!
-CALL nf(nf_inq_dimid(ncid, 'cell', dimid))
-IF (global_cell_type == 3) THEN ! triangular grid
-   CALL nf(nf_inq_dimlen(ncid, dimid, p_patch%n_patch_cells))
-ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
-   CALL nf(nf_inq_dimlen(ncid, dimid, p_patch%n_patch_verts))
-ENDIF
-
-CALL nf(nf_inq_dimid(ncid, 'edge', dimid))
-CALL nf(nf_inq_dimlen(ncid, dimid, p_patch%n_patch_edges))
-
-CALL nf(nf_inq_dimid(ncid, 'vertex', dimid))
-IF (global_cell_type == 3) THEN ! triangular grid
-   CALL nf(nf_inq_dimlen(ncid, dimid, p_patch%n_patch_verts))
-ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
-   CALL nf(nf_inq_dimlen(ncid, dimid, p_patch%n_patch_cells))
-ENDIF
-
-!
-! calculate and save values for the blocking
-!
-! ... for the cells
-p_patch%nblks_c       = ( p_patch%n_patch_cells + n_e_halo_cells - 1 )  &
-  &                   / nproma + 1
-p_patch%nblks_int_c   = ( p_patch%n_patch_cells - 1 ) / nproma + 1
-p_patch%npromz_int_c  = p_patch%n_patch_cells  &
-  &                   - (p_patch%nblks_int_c - 1)*nproma
-! total number of cells
-p_patch%n_patch_cells = p_patch%n_patch_cells + n_e_halo_cells
-p_patch%npromz_c      = p_patch%n_patch_cells - (p_patch%nblks_c - 1)*nproma
-
-! ... for the edges
-p_patch%nblks_e       = ( p_patch%n_patch_edges + n_e_halo_edges - 1 )  &
-  &                   / nproma + 1
-p_patch%nblks_int_e   = ( p_patch%n_patch_edges - 1 ) / nproma + 1
-p_patch%npromz_int_e  = p_patch%n_patch_edges  &
-  &                   - (p_patch%nblks_int_e - 1)*nproma
-! total number of edges
-p_patch%n_patch_edges = p_patch%n_patch_edges + n_e_halo_edges
-p_patch%npromz_e      = p_patch%n_patch_edges - (p_patch%nblks_e - 1)*nproma
-
-! ... for the vertices
-p_patch%nblks_v       = ( p_patch%n_patch_verts + n_e_halo_verts - 1 )  &
-  &                   / nproma + 1
-p_patch%nblks_int_v   = ( p_patch%n_patch_verts - 1 ) / nproma + 1
-p_patch%npromz_int_v  = p_patch%n_patch_verts  &
-  &                   - (p_patch%nblks_int_v - 1)*nproma
-! total number of vertices
-p_patch%n_patch_verts = p_patch%n_patch_verts + n_e_halo_verts
-p_patch%npromz_v      = p_patch%n_patch_verts - (p_patch%nblks_v - 1)*nproma
-
-!
-! allocate temporary arrays to read in data form the grid/patch generator
-!
-! integer arrays
-ALLOCATE( array_c_int(p_patch%n_patch_cells,6),  &
-  &       array_e_int(p_patch%n_patch_edges,6),  &
-  &       array_v_int(p_patch%n_patch_verts,6),  &
-  &       STAT=ist )
-IF (ist /= SUCCESS) THEN
-  CALL finish (TRIM(routine), 'allocation for array_[cev]_int failed')
-ENDIF
-! real arrays
-ALLOCATE( array_c_real(p_patch%n_patch_cells,6),  &
-  &       array_e_real(p_patch%n_patch_edges,6),  &
-  &       array_v_real(p_patch%n_patch_verts,6),  &
-  &       STAT=ist )
-IF (ist /= SUCCESS) THEN
-  CALL finish (TRIM(routine), 'allocation for array_[cev]_real failed')
-ENDIF
-! integer arrays for index lists
-ALLOCATE( start_idx_c(min_rlcell:max_rlcell,max_childdom),  &
-  &       end_idx_c  (min_rlcell:max_rlcell,max_childdom),  &
-  &       start_idx_e(min_rledge:max_rledge,max_childdom),  &
-  &       end_idx_e  (min_rledge:max_rledge,max_childdom),  &
-  &       start_idx_v(min_rlvert:max_rlvert,max_childdom),  &
-  &       end_idx_v  (min_rlvert:max_rlvert,max_childdom),  &
-  &       STAT=ist )
-
-IF (ist /= SUCCESS) THEN
-  CALL finish (TRIM(routine), 'allocation for array_[cev]_indlist failed')
-ENDIF
-
-! Number of global cells/edges/verts
-! These are needed for patch allocation
-! For a non-divided patch they are identical to the non-global values
-
-p_patch%n_patch_cells_g = p_patch%n_patch_cells
-p_patch%n_patch_edges_g = p_patch%n_patch_edges
-p_patch%n_patch_verts_g = p_patch%n_patch_verts
-
-!
-! Allocate patch arrays which are read here
-!
-CALL allocate_basic_patch( p_patch )
-
-! p_patch%cells%start_idx(:,:)
-! p_patch%cells%start_blk(:,:)
-! p_patch%cells%end_idx(:,:)
-! p_patch%cells%end_blk(:,:)
-CALL nf(nf_inq_varid(ncid, 'start_idx_c', varid))
-IF (global_cell_type == 3) THEN ! triangular grid
-  CALL nf(nf_get_var_int(ncid, varid, start_idx_c(:,:)))
-  CALL reshape_idx_list( start_idx_c,                                &
-   &                    p_patch%cells%start_idx, p_patch%cells%start_blk )
-ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
-  CALL nf(nf_get_var_int(ncid, varid, start_idx_v(:,:)))
-  CALL reshape_idx_list( start_idx_v,                                &
-   &                    p_patch%verts%start_idx, p_patch%verts%start_blk )
-ENDIF
-CALL nf(nf_inq_varid(ncid, 'end_idx_c', varid))
-IF (global_cell_type == 3) THEN ! triangular grid
-  CALL nf(nf_get_var_int(ncid, varid, end_idx_c(:,:)))
-  CALL reshape_idx_list( end_idx_c,                                &
-   &                    p_patch%cells%end_idx, p_patch%cells%end_blk )
-ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
-  CALL nf(nf_get_var_int(ncid, varid, end_idx_v(:,:)))
-  CALL reshape_idx_list( end_idx_v,                                &
-   &                    p_patch%verts%end_idx, p_patch%verts%end_blk )
-ENDIF
-
-! p_patch%edges%start_idx(:,:)
-! p_patch%edges%start_blk(:,:)
-! p_patch%edges%end_idx(:,:)
-! p_patch%edges%end_blk(:,:)
-CALL nf(nf_inq_varid(ncid, 'start_idx_e', varid))
-CALL nf(nf_get_var_int(ncid, varid, start_idx_e(:,:)))
-CALL reshape_idx_list( start_idx_e,                                &
-  &                    p_patch%edges%start_idx, p_patch%edges%start_blk )
-CALL nf(nf_inq_varid(ncid, 'end_idx_e', varid))
-CALL nf(nf_get_var_int(ncid, varid, end_idx_e(:,:)))
-CALL reshape_idx_list( end_idx_e,                                &
-  &                    p_patch%edges%end_idx, p_patch%edges%end_blk )
-
-! p_patch%verts%start_idx(:,:)
-! p_patch%verts%start_blk(:,:)
-! p_patch%verts%end_idx(:,:)
-! p_patch%verts%end_blk(:,:)
-CALL nf(nf_inq_varid(ncid, 'start_idx_v', varid))
-IF (global_cell_type == 3) THEN ! triangular grid
-  CALL nf(nf_get_var_int(ncid, varid, start_idx_v(:,:)))
-  CALL reshape_idx_list( start_idx_v,                                &
-   &                    p_patch%verts%start_idx, p_patch%verts%start_blk )
-ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
-  CALL nf(nf_get_var_int(ncid, varid, start_idx_c(:,:)))
-  CALL reshape_idx_list( start_idx_c,                                &
-   &                    p_patch%cells%start_idx, p_patch%cells%start_blk )
-ENDIF
-CALL nf(nf_inq_varid(ncid, 'end_idx_v', varid))
-IF (global_cell_type == 3) THEN ! triangular grid
-  CALL nf(nf_get_var_int(ncid, varid, end_idx_v(:,:)))
-  CALL reshape_idx_list( end_idx_v,                                &
-   &                    p_patch%verts%end_idx, p_patch%verts%end_blk )
-ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
-  CALL nf(nf_get_var_int(ncid, varid, end_idx_c(:,:)))
-  CALL reshape_idx_list( end_idx_c,                                &
-   &                    p_patch%cells%end_idx, p_patch%cells%end_blk )
-ENDIF
-
-! p_patch%cells%parent_idx(:,:)
-! p_patch%cells%parent_blk(:,:)
-CALL nf(nf_inq_varid(ncid, 'parent_cell_index', varid))
-IF (global_cell_type == 3) THEN ! triangular grid
-   CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1)))
-   CALL reshape_idx( array_c_int(:,1), p_patch%nblks_c, p_patch%npromz_c,  &
-     &               p_patch%cells%parent_idx(:,:),  &
-     &               p_patch%cells%parent_blk(:,:) )
-ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
-   CALL message ('read_patch',&
-                 'parent_cell_index incompatible with hexagonal grid')
-ENDIF
-
-! p_patch%cells%child_idx(:,:,:)
-! p_patch%cells%child_blk(:,:,:)
-CALL nf(nf_inq_varid(ncid, 'child_cell_index', varid))
-IF (global_cell_type == 3) THEN ! triangular grid
-   CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1:4)))
-   DO ji = 1, 4
-      CALL reshape_idx( array_c_int(:,ji), p_patch%nblks_c, p_patch%npromz_c,  &
-        &               p_patch%cells%child_idx(:,:,ji),  &
-        &               p_patch%cells%child_blk(:,:,ji) )
-   END DO
-ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
-   CALL message ('read_patch',&
-                 'child_cell_index incompatible with hexagonal grid')
-ENDIF
-
-! p_patch%cells%child_id(:,:)
-CALL nf(nf_inq_varid(ncid, 'child_cell_id', varid))
-IF (global_cell_type == 3) THEN ! triangular grid
-  CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1)))
-
-  ! Preparation: In limited-area mode, check if child domain ID's read
-  ! from the grid files need to be shifted
-  IF (ig == 1 .AND. l_limited_area .AND. p_patch%n_childdom>0) THEN
-    ! domain ID of first nested domain should be 2
-    ishift_child_id = array_c_int(start_idx_c(grf_bdyintp_start_c,1),1) - 2
-  ENDIF
-
-  IF(ishift_child_id /= 0 .AND. p_patch%n_childdom>0) THEN
-    DO jc = start_idx_c(grf_bdyintp_start_c,1), end_idx_c(min_rlcell,p_patch%n_childdom)
-      array_c_int(jc,1) = array_c_int(jc,1) - ishift_child_id
-    ENDDO
-  ENDIF
-
-  CALL reshape_int( array_c_int(:,1), p_patch%nblks_c, p_patch%npromz_c,  &
-     &               p_patch%cells%child_id(:,:) )
-ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
-  CALL message ('read_patch',&
-                'child_cell_id incompatible with hexagonal grid')
-ENDIF
-
-! p_patch%cells%neighbor_idx(:,:,:)
-! p_patch%cells%neighbor_blk(:,:,:)
-CALL nf(nf_inq_varid(ncid, 'neighbor_cell_index', varid))
-IF (global_cell_type == 3) THEN ! triangular grid
-   CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1:3)))
-   DO ji = 1, 3
-      CALL reshape_idx( array_c_int(:,ji), p_patch%nblks_c, p_patch%npromz_c,  &
-        &               p_patch%cells%neighbor_idx(:,:,ji),  &
-        &               p_patch%cells%neighbor_blk(:,:,ji) )
-   END DO
-ENDIF
-
-! p_patch%cells%edge_idx(:,:,:)
-! p_patch%cells%edge_blk(:,:,:)
-CALL nf(nf_inq_varid(ncid, 'edge_of_cell', varid))
-IF (global_cell_type == 3) THEN ! triangular grid
-   CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1:3)))
-   DO ji = 1, 3
-     CALL reshape_idx( array_c_int(:,ji), p_patch%nblks_c, p_patch%npromz_c,  &
-       &               p_patch%cells%edge_idx(:,:,ji),  &
-       &               p_patch%cells%edge_blk(:,:,ji) )
-   END DO
-ENDIF
-
-! p_patch%cells%vertex_idx(:,:,:)
-! p_patch%cells%vertex_blk(:,:,:)
-CALL nf(nf_inq_varid(ncid, 'vertex_of_cell', varid))
-IF (global_cell_type == 3) THEN ! triangular grid
-   CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1:3)))
-   DO ji = 1, 3
-     CALL reshape_idx( array_c_int(:,ji), p_patch%nblks_c, p_patch%npromz_c,  &
-       &               p_patch%cells%vertex_idx(:,:,ji),  &
-       &               p_patch%cells%vertex_blk(:,:,ji) )
-   END DO
-ENDIF
-
-! p_patch%cells%center(:,:)%lon
-CALL nf(nf_inq_varid(ncid, 'lon_cell_centre', varid))
-IF (global_cell_type == 3) THEN ! triangular grid
-   CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
-   CALL reshape_real( array_c_real(:,1), p_patch%nblks_c, p_patch%npromz_c,  &
-     &                p_patch%cells%center(:,:)%lon )
-ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
-   CALL nf(nf_get_var_double(ncid, varid, array_v_real(:,1)))
-   CALL reshape_real( array_v_real(:,1), p_patch%nblks_v, p_patch%npromz_v,  &
-     &                p_patch%verts%vertex(:,:)%lon )
-ENDIF
-
-! p_patch%cells%center(:,:)%lat
-CALL nf(nf_inq_varid(ncid, 'lat_cell_centre', varid))
-IF (global_cell_type == 3) THEN ! triangular grid
-   CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
-   CALL reshape_real( array_c_real(:,1), p_patch%nblks_c, p_patch%npromz_c,  &
-     &                p_patch%cells%center(:,:)%lat )
-ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
-   CALL nf(nf_get_var_double(ncid, varid, array_v_real(:,1)))
-   CALL reshape_real( array_v_real(:,1), p_patch%nblks_v, p_patch%npromz_v,  &
-     &                p_patch%verts%vertex(:,:)%lat )
-ENDIF
-
-! p_patch%cells%refin_ctrl(:,:)
-CALL nf(nf_inq_varid(ncid, 'refin_c_ctrl', varid))
-IF (global_cell_type == 3) THEN ! triangular grid
-   CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1)))
-   CALL reshape_int( array_c_int(:,1), p_patch%nblks_c, p_patch%npromz_c,  &
-     &               p_patch%cells%refin_ctrl(:,:) )
-ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
-   CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1)))
-   CALL reshape_int( array_v_int(:,1), p_patch%nblks_v, p_patch%npromz_v,  &
-     &               p_patch%verts%refin_ctrl(:,:) )
-ENDIF
-
-! p_patch%edges%parent_idx(:,:)
-! p_patch%edges%parent_blk(:,:)
-CALL nf(nf_inq_varid(ncid, 'parent_edge_index', varid))
-CALL nf(nf_get_var_int(ncid, varid, array_e_int(:,1)))
-CALL reshape_idx( array_e_int(:,1), p_patch%nblks_e, p_patch%npromz_e,  &
-  &               p_patch%edges%parent_idx(:,:),  &
-  &               p_patch%edges%parent_blk(:,:) )
-
-! p_patch%edges%child_idx(:,:,:)
-! p_patch%edges%child_blk(:,:,:)
-CALL nf(nf_inq_varid(ncid, 'child_edge_index', varid))
-CALL nf(nf_get_var_int(ncid, varid, array_e_int(:,1:4)))
-
-! First ensure that child edge indices are all positive;
-! if there are negative values, grid files are too old
-
-IF(ANY(array_e_int(:,1:4)<0)) THEN
-  CALL finish (TRIM(routine), &
-    &          'negative child edge indices detected - patch files are too old')
-ENDIF
-
-DO ji = 1, 4
-  CALL reshape_idx( array_e_int(:,ji), p_patch%nblks_e, p_patch%npromz_e,  &
-    &               p_patch%edges%child_idx(:,:,ji),  &
-    &               p_patch%edges%child_blk(:,:,ji) )
-END DO
-
-! p_patch%edges%child_id(:,:)
-CALL nf(nf_inq_varid(ncid, 'child_edge_id', varid))
-CALL nf(nf_get_var_int(ncid, varid, array_e_int(:,1)))
-
-IF(ishift_child_id /= 0 .AND. p_patch%n_childdom>0) THEN
-  DO je = start_idx_e(grf_bdyintp_start_e,1), end_idx_e(min_rledge,p_patch%n_childdom)
-    array_e_int(je,1) = array_e_int(je,1) - ishift_child_id
-  ENDDO
-ENDIF
-
-CALL reshape_int( array_e_int(:,1), p_patch%nblks_e, p_patch%npromz_e,  &
-     &            p_patch%edges%child_id(:,:) )
-
-
-! p_patch%edges%refin_ctrl(:,:)
-CALL nf(nf_inq_varid(ncid, 'refin_e_ctrl', varid))
-CALL nf(nf_get_var_int(ncid, varid, array_e_int(:,1)))
-CALL reshape_int( array_e_int(:,1), p_patch%nblks_e, p_patch%npromz_e,  &
-  &               p_patch%edges%refin_ctrl(:,:) )
-
-
-! p_patch%verts%neighbor_idx(:,:,:)
-! p_patch%verts%neighbor_blk(:,:,:)
-CALL nf(nf_inq_varid(ncid, 'vertices_of_vertex', varid))
-IF (global_cell_type == 6) THEN ! hexagonal grid
-   CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1:6)))
-   DO ji = 1, 6
-     CALL reshape_idx( array_c_int(:,ji), p_patch%nblks_c, p_patch%npromz_c,  &
-       &               p_patch%cells%neighbor_idx(:,:,ji),  &
-       &               p_patch%cells%neighbor_blk(:,:,ji) )
-   END DO
-   !
-   ! account for dummy edges arising in case of a pentagon
-   !
-   DO jc = 1, p_patch%n_patch_cells
-     DO ji = 1, 6
-       IF ( array_c_int(jc,ji) == 0 ) THEN
-         ibc = ( jc - 1 ) / nproma + 1
-         ilc = jc - ( ibc - 1 )*nproma
-         IF ( ji /= 6 ) THEN
-           p_patch%cells%neighbor_idx(ilc,ibc,ji) =  &
-             &  p_patch%cells%neighbor_idx(ilc,ibc,6)
-           p_patch%cells%neighbor_blk(ilc,ibc,ji) =  &
-             &  p_patch%cells%neighbor_blk(ilc,ibc,6)
-         END IF
-         ! Fill dummy neighbor with an existing index to simplify do loops
-         ! Note, however, that related multiplication factors must be zero
-         p_patch%cells%neighbor_idx(ilc,ibc,6) = p_patch%cells%neighbor_idx(ilc,ibc,5)
-         p_patch%cells%neighbor_blk(ilc,ibc,6) = p_patch%cells%neighbor_blk(ilc,ibc,5)
-       END IF
-     END DO
-   END DO
-ENDIF
-
-
-! p_patch%verts%cell_idx(:,:,:)
-! p_patch%verts%cell_blk(:,:,:)
-CALL nf(nf_inq_varid(ncid, 'cells_of_vertex', varid))
-IF (global_cell_type == 6) THEN ! hexagonal grid
-   CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1:6)))
-   DO ji = 1, 6
-     CALL reshape_idx( array_c_int(:,ji), p_patch%nblks_c, p_patch%npromz_c,  &
-       &               p_patch%cells%vertex_idx(:,:,ji),  &
-       &               p_patch%cells%vertex_blk(:,:,ji) )
-   END DO
-  !
-  ! account for dummy cells arising in case of a pentagon
-  !
-  DO jc = 1, p_patch%n_patch_cells
-    DO jcv = 1, 6
-      IF ( array_c_int(jc,jcv) == 0 ) THEN
-        ibc = ( jc - 1 ) / nproma + 1
-        ilc = jc - ( ibc - 1 )*nproma
-        IF ( jcv /= 6 ) THEN
-          p_patch%cells%vertex_idx(ilc,ibc,jcv) =  &
-            &  p_patch%cells%vertex_idx(ilc,ibc,6)
-          p_patch%cells%vertex_blk(ilc,ibc,jcv) =  &
-            &  p_patch%cells%vertex_blk(ilc,ibc,6)
-        END IF
-        ! Fill dummy edge with existing index to simplify do loops
-        ! Note, however, that related multiplication factors must be zero
-        p_patch%cells%vertex_idx(ilc,ibc,6) = p_patch%cells%vertex_idx(ilc,ibc,5)
-        p_patch%cells%vertex_blk(ilc,ibc,6) = p_patch%cells%vertex_blk(ilc,ibc,5)
-      END IF
-    END DO
-  END DO
-ENDIF
-
-! p_patch%verts%edge_idx(:,:,:)
-! p_patch%verts%edge_blk(:,:,:)
-CALL nf(nf_inq_varid(ncid, 'edges_of_vertex', varid))
-IF (global_cell_type == 6) THEN ! hexagonal grid
-   CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1:6)))
-   DO ji = 1, 6
-     CALL reshape_idx( array_c_int(:,ji), p_patch%nblks_c, p_patch%npromz_c,  &
-       &               p_patch%cells%edge_idx(:,:,ji),  &
-       &               p_patch%cells%edge_blk(:,:,ji) )
-   END DO
-ENDIF
-
-!
-! Set p_patch%cells%num_edges
-!
-IF (global_cell_type == 3) THEN ! triangular grid
-
-   p_patch%cells%num_edges(:,:) = 3
-
-ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
-   p_patch%cells%num_edges(:,:) = 6
-   !
-   ! account for dummy edges arising in case of a pentagon
-   !
-   DO jc = 1, p_patch%n_patch_cells
-     DO jce = 1, 6
-       IF ( array_c_int(jc,jce) == 0 ) THEN
-         ibc = ( jc - 1 ) / nproma + 1
-         ilc = jc - ( ibc - 1 )*nproma
-         IF ( jce /= 6 ) THEN
-           p_patch%cells%edge_idx(ilc,ibc,jce) =  &
-             &  p_patch%cells%edge_idx(ilc,ibc,6)
-           p_patch%cells%edge_blk(ilc,ibc,jce) =  &
-             &  p_patch%cells%edge_blk(ilc,ibc,6)
-         END IF
-         ! Fill dummy edge with existing index to simplify do loops
-         ! Note, however, that related multiplication factors must be zero
-         p_patch%cells%edge_idx(ilc,ibc,6) = p_patch%cells%edge_idx(ilc,ibc,5)
-         p_patch%cells%edge_blk(ilc,ibc,6) = p_patch%cells%edge_blk(ilc,ibc,5)
-         ! set num_edges to 5
-         p_patch%cells%num_edges(ilc,ibc) = 5
-       END IF
-     END DO
-   END DO
-ENDIF
-
-! p_patch%verts%vertex(:,:)%lon
-CALL nf(nf_inq_varid(ncid, 'longitude_vertices', varid))
-IF (global_cell_type == 3) THEN ! triangular grid
-   CALL nf(nf_get_var_double(ncid, varid, array_v_real(:,1)))
-   CALL reshape_real( array_v_real(:,1), p_patch%nblks_v, p_patch%npromz_v,  &
-     &                p_patch%verts%vertex(:,:)%lon )
-ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
-   CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
-   CALL reshape_real( array_c_real(:,1), p_patch%nblks_c, p_patch%npromz_c,  &
-     &                p_patch%cells%center(:,:)%lon )
-ENDIF
-
-! p_patch%verts%vertex(:,:)%lat
-CALL nf(nf_inq_varid(ncid, 'latitude_vertices', varid))
-IF (global_cell_type == 3) THEN ! triangular grid
-   CALL nf(nf_get_var_double(ncid, varid, array_v_real(:,1)))
-   CALL reshape_real( array_v_real(:,1), p_patch%nblks_v, p_patch%npromz_v,  &
-     &                p_patch%verts%vertex(:,:)%lat )
-ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
-   CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
-   CALL reshape_real( array_c_real(:,1), p_patch%nblks_c, p_patch%npromz_c,  &
-     &                p_patch%cells%center(:,:)%lat )
-ENDIF
-
-! p_patch%verts%refin_ctrl(:,:)
-CALL nf(nf_inq_varid(ncid, 'refin_v_ctrl', varid))
-IF (global_cell_type == 3) THEN ! triangular grid
-   CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1)))
-   CALL reshape_int( array_v_int(:,1), p_patch%nblks_v, p_patch%npromz_v,  &
-     &               p_patch%verts%refin_ctrl(:,:) )
-ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
-   CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1)))
-   CALL reshape_int( array_c_int(:,1), p_patch%nblks_c, p_patch%npromz_c,  &
-     &               p_patch%cells%refin_ctrl(:,:) )
-ENDIF
-
-CALL nf(nf_close(ncid))
-
-
-!
-! deallocate temporary arrays to read in data form the grid/patch generator
-!
-! integer arrays
-DEALLOCATE( array_c_int, array_e_int, array_v_int,  &
-  &         STAT=ist )
-IF (ist /= SUCCESS) THEN
-  CALL finish (TRIM(routine), 'deallocation for array_[cev]_int failed')
-ENDIF
-! real arrays
-DEALLOCATE( array_c_real, array_e_real, array_v_real,  &
-  &         STAT=ist )
-IF (ist /= SUCCESS) THEN
-  CALL finish (TRIM(routine), 'deallocation for array_[cev]_real failed')
-ENDIF
-! index lists arrays
-DEALLOCATE( start_idx_c, end_idx_c, start_idx_e, end_idx_e, start_idx_v, end_idx_v, &
-  &         STAT=ist )
-IF (ist /= SUCCESS) THEN
-  CALL finish (TRIM(routine), 'deallocation for array_[cev]_indlist failed')
-ENDIF
-
-!
-! Set values which are needed for parallel runs
-! to the correct values for a single patch owner
-!
-p_patch%comm   = p_comm_work
-p_patch%rank   = 0
-p_patch%n_proc = 1
-p_patch%proc0  = 0
-
-CALL message (TRIM(routine), 'read_patches finished')
-
-END SUBROUTINE read_basic_patch
-
-!-------------------------------------------------------------------------
-!
-!> Reads the remaining patch information into the divided patch
-
-SUBROUTINE read_remaining_patch( ig, p_patch, n_lp, id_lp )
-
-INTEGER,       INTENT(in)    ::  ig       ! domain ID
-TYPE(t_patch), INTENT(inout), TARGET ::  p_patch  ! patch data structure
-INTEGER,       INTENT(in)    ::  n_lp     ! Number of local parents on the same level
-INTEGER,       INTENT(in)    ::  id_lp(:) ! IDs of local parents on the same level
-
-INTEGER, ALLOCATABLE :: &
-  &  array_c_int(:,:),  &  ! temporary arrays to read in integer values
-  &  array_e_int(:,:),  &
-  &  array_v_int(:,:)
-
-REAL(wp), ALLOCATABLE :: &
-  &  array_c_real(:,:), &  ! temporary arrays to read in real values
-  &  array_e_real(:,:), &
-  &  array_v_real(:,:)
-
-! status variable
-INTEGER :: ist
-
-INTEGER :: ncid, varid
-INTEGER :: ip, ji, jv
-
-TYPE(t_patch), POINTER :: p_p
-
-!-----------------------------------------------------------------------
-
-
-  
-CALL message ('mo_model_domimp_patches:read_remaining_patch', &
-              'Read gridmap file '//TRIM(p_patch%grid_filename))
-
-CALL nf(nf_open(TRIM(p_patch%grid_filename), NF_NOWRITE, ncid))
-
-!
-! allocate temporary arrays to read in data form the grid/patch generator
-!
-! integer arrays
-ALLOCATE( array_c_int(p_patch%n_patch_cells_g,6),  &
-  &       array_e_int(p_patch%n_patch_edges_g,6),  &
-  &       array_v_int(p_patch%n_patch_verts_g,6),  &
-  &       STAT=ist )
-IF (ist /= SUCCESS) THEN
-  CALL finish ('mo_model_domain_import:read_patch',  &
-    &             'allocation for array_[cev]_int failed')
-ENDIF
-! real arrays
-ALLOCATE( array_c_real(p_patch%n_patch_cells_g,6),  &
-  &       array_e_real(p_patch%n_patch_edges_g,6),  &
-  &       array_v_real(p_patch%n_patch_verts_g,6),  &
-  &       STAT=ist )
-IF (ist /= SUCCESS) THEN
-  CALL finish ('mo_model_domain_import:read_patch',  &
-    &             'allocation for array_[cev]_real failed')
-ENDIF
-
-! p_p%cells%neighbor_idx(:,:,:)
-! p_p%cells%neighbor_blk(:,:,:)
-CALL nf(nf_inq_varid(ncid, 'neighbor_cell_index', varid))
-IF (global_cell_type == 6) THEN ! hexagonal grid
-  CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1:3)))
-  DO ji = 1, 3
-    DO ip = 0, n_lp
-      p_p => get_patch_ptr(ip)
-      CALL divide_idx( array_v_int(:,ji), p_p%n_patch_verts, p_p%verts%glb_index,  &
-        &              p_p%verts%loc_index,             &
-        &              p_p%verts%neighbor_idx(:,:,ji),  &
-        &              p_p%verts%neighbor_blk(:,:,ji) )
-     END DO
-   END DO
-ENDIF
-
-! p_p%cells%edge_idx(:,:,:)
-! p_p%cells%edge_blk(:,:,:)
-CALL nf(nf_inq_varid(ncid, 'edge_of_cell', varid))
-IF (global_cell_type == 6) THEN ! hexagonal grid
-  CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1:3)))
-  DO ji = 1, 3
-    DO ip = 0, n_lp
-      p_p => get_patch_ptr(ip)
-      CALL divide_idx( array_v_int(:,ji), p_p%n_patch_verts, p_p%verts%glb_index,  &
-        &              p_p%edges%loc_index,         &
-        &              p_p%verts%edge_idx(:,:,ji),  &
-        &              p_p%verts%edge_blk(:,:,ji) )
-     END DO
-   END DO
-ENDIF
-
-! p_p%cells%vertex_idx(:,:,:)
-! p_p%cells%vertex_blk(:,:,:)
-CALL nf(nf_inq_varid(ncid, 'vertex_of_cell', varid))
-IF (global_cell_type == 6) THEN ! hexagonal grid
-  CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1:3)))
-  DO ji = 1, 3
-    DO ip = 0, n_lp
-      p_p => get_patch_ptr(ip)
-      CALL divide_idx( array_v_int(:,ji), p_p%n_patch_verts, p_p%verts%glb_index,  &
-        &              p_p%cells%loc_index,         &
-        &              p_p%verts%cell_idx(:,:,ji),  &
-        &              p_p%verts%cell_blk(:,:,ji) )
-     END DO
-   END DO
-ENDIF
-
-! p_p%cells%phys_id(:,:)
-
-CALL nf(nf_inq_varid(ncid, 'phys_cell_id', varid))
-IF (global_cell_type == 3) THEN ! triangular grid
-  CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1)))
-  ! 'phys_cell_id' seems not to be set for patch 0 and 1, it is always ig in this case
-  IF(ig<=1) array_c_int(:,1) = ig
-  DO ip = 0, n_lp
-    p_p => get_patch_ptr(ip)
-    CALL divide_int( array_c_int(:,1), p_p%n_patch_cells, p_p%cells%glb_index,  &
-       &             p_p%cells%phys_id(:,:) )
-  ENDDO
-ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
-  ! phys_cell_id is not used for hexagonal grid
-  DO ip = 0, n_lp
-    p_p => get_patch_ptr(ip)
-    p_p%cells%phys_id(:,:) = ig
-  ENDDO
-ENDIF
-
-! p_p%cells%edge_orientation(:,:,:)
-CALL nf(nf_inq_varid(ncid, 'orientation_of_normal', varid))
-IF (global_cell_type == 3) THEN ! triangular grid
-  CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1:3)))
-  DO ji = 1, 3
-    DO ip = 0, n_lp
-      p_p => get_patch_ptr(ip)
-      CALL divide_real( REAL(array_c_int(:,ji),wp),            &
-                       & p_p%n_patch_cells, p_p%cells%glb_index,     &
-                       & p_p%cells%edge_orientation(:,:,ji) )
-    ENDDO
-  END DO
-ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
-  CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1:3)))
-  DO ji = 1, 3
-    DO ip = 0, n_lp
-      p_p => get_patch_ptr(ip)
-      CALL divide_real( REAL(array_v_int(:,ji),wp),            &
-                       & p_p%n_patch_verts, p_p%verts%glb_index,     &
-                       & p_p%verts%edge_orientation(:,:,ji) )
-    ENDDO
-  END DO
-ENDIF
-
-! p_p%cells%area(:,:)
-CALL nf(nf_inq_varid(ncid, 'cell_area_p', varid))
-IF (global_cell_type == 3) THEN ! triangular grid
-  CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
-  DO ip = 0, n_lp
-    p_p => get_patch_ptr(ip)
-    CALL divide_real( array_c_real(:,1), p_p%n_patch_cells, p_p%cells%glb_index, &
-      &               p_p%cells%area(:,:) )
-   ENDDO
-ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
-  CALL nf(nf_get_var_double(ncid, varid, array_v_real(:,1)))
-  DO ip = 0, n_lp
-    p_p => get_patch_ptr(ip)
-    CALL divide_real( array_v_real(:,1), p_p%n_patch_verts, p_p%verts%glb_index, &
-      &               p_p%verts%dual_area(:,:) )
-  ENDDO
-ENDIF
-
-! p_p%edges%phys_id(:,:)
-CALL nf(nf_inq_varid(ncid, 'phys_edge_id', varid))
-CALL nf(nf_get_var_int(ncid, varid, array_e_int(:,1)))
-! 'phys_edge_id' seems not to be set for patch 0 and 1, it is always ig in this case
-IF(ig<=1) array_e_int(:,1) = ig
-DO ip = 0, n_lp
-  p_p => get_patch_ptr(ip)
-  CALL divide_int( array_e_int(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
-    &              p_p%edges%phys_id(:,:) )
-ENDDO
-
-! p_p%edges%cell_idx(:,:,:)
-! p_p%edges%cell_blk(:,:,:)
-CALL nf(nf_inq_varid(ncid, 'adjacent_cell_of_edge', varid))
-CALL nf(nf_get_var_int(ncid, varid, array_e_int(:,1:2)))
-IF (global_cell_type == 3) THEN ! triangular grid
-  DO ji = 1, 2
-    DO ip = 0, n_lp
-      p_p => get_patch_ptr(ip)
-      CALL divide_idx( array_e_int(:,ji), p_p%n_patch_edges, p_p%edges%glb_index,  &
-        &              p_p%cells%loc_index,         &
-        &              p_p%edges%cell_idx(:,:,ji),  &
-        &              p_p%edges%cell_blk(:,:,ji) )
-    END DO
-  END DO
-ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
-  DO ji = 1, 2
-    DO ip = 0, n_lp
-      p_p => get_patch_ptr(ip)
-      CALL divide_idx( array_e_int(:,ji), p_p%n_patch_edges, p_p%edges%glb_index,  &
-        &              p_p%verts%loc_index,         &
-        &              p_p%edges%vertex_idx(:,:,ji),  &
-        &              p_p%edges%vertex_blk(:,:,ji) )
-    END DO
-  END DO
-ENDIF
-
-! p_p%edges%vertex_idx(:,:,:)
-! p_p%edges%vertex_blk(:,:,:)
-CALL nf(nf_inq_varid(ncid, 'edge_vertices', varid))
-CALL nf(nf_get_var_int(ncid, varid, array_e_int(:,1:2)))
-IF (global_cell_type == 3) THEN ! triangular grid
-  DO ji = 1, 2
-    DO ip = 0, n_lp
-      p_p => get_patch_ptr(ip)
-      CALL divide_idx( array_e_int(:,ji), p_p%n_patch_edges, p_p%edges%glb_index,  &
-        &              p_p%verts%loc_index,         &
-        &              p_p%edges%vertex_idx(:,:,ji),  &
-        &              p_p%edges%vertex_blk(:,:,ji) )
-    END DO
-  END DO
-ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
-  DO ji = 1, 2
-    DO ip = 0, n_lp
-      p_p => get_patch_ptr(ip)
-      CALL divide_idx( array_e_int(:,ji), p_p%n_patch_edges, p_p%edges%glb_index,  &
-        &              p_p%cells%loc_index,         &
-        &              p_p%edges%cell_idx(:,:,ji),  &
-        &              p_p%edges%cell_blk(:,:,ji) )
-    END DO
-  END DO
-ENDIF
-
-! p_p%edges%system_orientation(:,:)
-CALL nf(nf_inq_varid(ncid, 'edge_system_orientation', varid))
-CALL nf(nf_get_var_int(ncid, varid, array_e_int(:,1)))
-DO ip = 0, n_lp
-  p_p => get_patch_ptr(ip)
-  CALL divide_real( REAL(array_e_int(:,1),wp),            &
-                  & p_p%n_patch_edges, p_p%edges%glb_index,    &
-                  & p_p%edges%system_orientation(:,:) )
-ENDDO
-
-! p_p%edges%center(:,:)%lon
-CALL nf(nf_inq_varid(ncid, 'lon_edge_centre', varid))
-CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
-DO ip = 0, n_lp
-  p_p => get_patch_ptr(ip)
-  CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
-    &               p_p%edges%center(:,:)%lon )
-ENDDO
-
-! p_p%edges%center(:,:)%lat
-CALL nf(nf_inq_varid(ncid, 'lat_edge_centre', varid))
-CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
-DO ip = 0, n_lp
-  p_p => get_patch_ptr(ip)
-  CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
-    &               p_p%edges%center(:,:)%lat )
-ENDDO
-
-! p_p%edges%primal_normal(:,:)%v1
-CALL nf(nf_inq_varid(ncid, 'zonal_normal_primal_edge', varid))
-CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
-IF (global_cell_type == 3) THEN ! triangular grid
-  DO ip = 0, n_lp
-    p_p => get_patch_ptr(ip)
-    CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
-      &               p_p%edges%primal_normal(:,:)%v1 )
-  ENDDO
-ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
-  DO ip = 0, n_lp
-    p_p => get_patch_ptr(ip)
-    CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
-      &               p_p%edges%dual_normal(:,:)%v1 )
-  ENDDO
-ENDIF
-
-! p_p%edges%primal_normal(:,:)%v2
-CALL nf(nf_inq_varid(ncid, 'meridional_normal_primal_edge', varid))
-CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
-IF (global_cell_type == 3) THEN ! triangular grid
-  DO ip = 0, n_lp
-    p_p => get_patch_ptr(ip)
-    CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
-      &               p_p%edges%primal_normal(:,:)%v2 )
-  ENDDO
-ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
-  DO ip = 0, n_lp
-    p_p => get_patch_ptr(ip)
-    CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
-      &               p_p%edges%dual_normal(:,:)%v2 )
-  ENDDO
-ENDIF
-
-! p_p%edges%dual_normal(:,:)%v1
-CALL nf(nf_inq_varid(ncid, 'zonal_normal_dual_edge', varid))
-CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
-IF (global_cell_type == 3) THEN ! triangular grid
-  DO ip = 0, n_lp
-    p_p => get_patch_ptr(ip)
-    CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
-      &               p_p%edges%dual_normal(:,:)%v1 )
-  ENDDO
-ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
-  DO ip = 0, n_lp
-    p_p => get_patch_ptr(ip)
-    CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
-      &               p_p%edges%primal_normal(:,:)%v1 )
-  ENDDO
-ENDIF
-
-! p_p%edges%dual_normal(:,:)%v2
-CALL nf(nf_inq_varid(ncid, 'meridional_normal_dual_edge', varid))
-CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
-IF (global_cell_type == 3) THEN ! triangular grid
-  DO ip = 0, n_lp
-    p_p => get_patch_ptr(ip)
-    CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
-      &               p_p%edges%dual_normal(:,:)%v2 )
-  ENDDO
-ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
-  DO ip = 0, n_lp
-    p_p => get_patch_ptr(ip)
-    CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
-      &               p_p%edges%primal_normal(:,:)%v2 )
-  ENDDO
-ENDIF
-
-! p_p%edges%primal_edge_length(:,:)
-CALL nf(nf_inq_varid(ncid, 'edge_length', varid))
-CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
-IF (global_cell_type == 3) THEN ! triangular grid
-  DO ip = 0, n_lp
-    p_p => get_patch_ptr(ip)
-    CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
-      &               p_p%edges%primal_edge_length(:,:) )
-  ENDDO
-ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
-  DO ip = 0, n_lp
-    p_p => get_patch_ptr(ip)
-    CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
-      &               p_p%edges%dual_edge_length(:,:) )
-  ENDDO
-ENDIF
-
-! p_p%edges%dual_edge_length(:,:)
-CALL nf(nf_inq_varid(ncid, 'dual_edge_length', varid))
-CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
-IF (global_cell_type == 3) THEN ! triangular grid
-  DO ip = 0, n_lp
-    p_p => get_patch_ptr(ip)
-    CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
-      &               p_p%edges%dual_edge_length(:,:) )
-  ENDDO
-ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
-  DO ip = 0, n_lp
-    p_p => get_patch_ptr(ip)
-    CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
-      &               p_p%edges%primal_edge_length(:,:) )
-  ENDDO
-ENDIF
-
-! p_p%edges%edge_vert_length(:,:)
-CALL nf(nf_inq_varid(ncid, 'edge_vert_distance', varid))
-CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1:2)))
-IF (global_cell_type == 3) THEN ! triangular grid
-  DO ji = 1, 2
-    DO ip = 0, n_lp
-      p_p => get_patch_ptr(ip)
-      CALL divide_real( array_e_real(:,ji), p_p%n_patch_edges, p_p%edges%glb_index, &
-        &               p_p%edges%edge_vert_length(:,:,ji) )
-    ENDDO
-  ENDDO
-ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
-  DO ji = 1, 2
-    DO ip = 0, n_lp
-      p_p => get_patch_ptr(ip)
-      CALL divide_real( array_e_real(:,ji), p_p%n_patch_edges, p_p%edges%glb_index, &
-        &               p_p%edges%edge_cell_length(:,:,ji) )
-    ENDDO
-  ENDDO
-ENDIF
-
-! p_p%edges%edge_cell_length(:,:)
-CALL nf(nf_inq_varid(ncid, 'edge_cell_distance', varid))
-CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1:2)))
-IF (global_cell_type == 3) THEN ! triangular grid
-  DO ji = 1, 2
-    DO ip = 0, n_lp
-      p_p => get_patch_ptr(ip)
-      CALL divide_real( array_e_real(:,ji), p_p%n_patch_edges, p_p%edges%glb_index, &
-        &               p_p%edges%edge_cell_length(:,:,ji) )
-    ENDDO
-  ENDDO
-ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
-  DO ji = 1, 2
-    DO ip = 0, n_lp
-      p_p => get_patch_ptr(ip)
-      CALL divide_real( array_e_real(:,ji), p_p%n_patch_edges, p_p%edges%glb_index, &
-        &               p_p%edges%edge_vert_length(:,:,ji) )
-    ENDDO
-  ENDDO
-ENDIF
-
-! p_p%verts%neighbor_idx(:,:,:)
-! p_p%verts%neighbor_blk(:,:,:)
-CALL nf(nf_inq_varid(ncid, 'vertices_of_vertex', varid))
-IF (global_cell_type == 3) THEN ! triangular grid
-  CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1:6)))
-  DO ji = 1, 6
-    DO ip = 0, n_lp
-      p_p => get_patch_ptr(ip)
-      CALL divide_idx( array_v_int(:,ji), p_p%n_patch_verts, p_p%verts%glb_index,  &
-        &              p_p%verts%loc_index,             &
-        &              p_p%verts%neighbor_idx(:,:,ji),  &
-        &              p_p%verts%neighbor_blk(:,:,ji) )
-    END DO
-  END DO
-ENDIF
-
-! p_p%verts%cell_idx(:,:,:)
-! p_p%verts%cell_blk(:,:,:)
-CALL nf(nf_inq_varid(ncid, 'cells_of_vertex', varid))
-IF (global_cell_type == 3) THEN ! triangular grid
-  CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1:6)))
-  !
-  ! account for dummy cells arising in case of a pentagon
-  ! Fill dummy cell with existing index to simplify do loops
-  ! Note, however, that related multiplication factors must be zero
-  CALL move_dummies_to_end(array_v_int, .TRUE.)
-  !
-  DO ji = 1, 6
-    DO ip = 0, n_lp
-      p_p => get_patch_ptr(ip)
-      CALL divide_idx( array_v_int(:,ji), p_p%n_patch_verts, p_p%verts%glb_index,  &
-        &              p_p%cells%loc_index,         &
-        &              p_p%verts%cell_idx(:,:,ji),  &
-        &              p_p%verts%cell_blk(:,:,ji) )
-    END DO
-  END DO
-ENDIF
-
-! p_p%verts%edge_idx(:,:,:)
-! p_p%verts%edge_blk(:,:,:)
-CALL nf(nf_inq_varid(ncid, 'edges_of_vertex', varid))
-IF (global_cell_type == 3) THEN ! triangular grid
-  CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1:6)))
-  !
-  ! Set verts%num_edges (in array_v_real(:,1))
-  DO jv = 1, p_p%n_patch_verts_g
-    IF(ANY(array_v_int(jv,:) == 0)) THEN
-      array_v_real(jv,1) = 5._wp
-    ELSE
-      array_v_real(jv,1) = 6._wp
-    ENDIF
-  END DO
-  ! account for dummy cells arising in case of a pentagon
-  ! Fill dummy cell with existing index to simplify do loops
-  ! Note, however, that related multiplication factors must be zero
-  CALL move_dummies_to_end(array_v_int, .TRUE.)
-  !
-  DO ji = 1, 6
-    DO ip = 0, n_lp
-      p_p => get_patch_ptr(ip)
-      CALL divide_idx( array_v_int(:,ji), p_p%n_patch_verts, p_p%verts%glb_index,  &
-        &              p_p%edges%loc_index,         &
-        &              p_p%verts%edge_idx(:,:,ji),  &
-        &              p_p%verts%edge_blk(:,:,ji) )
-    END DO
-  END DO
-
-  array_v_int(:,1) = INT(array_v_real(:,1))
-  DO ip = 0, n_lp
-    p_p => get_patch_ptr(ip)
-    CALL divide_int( array_v_int(:,1), p_p%n_patch_verts, p_p%verts%glb_index,  &
-       &             p_p%verts%num_edges(:,:) )
-  ENDDO
-
-ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
-  
-  p_p%verts%num_edges(:,:) = 3
-
-ENDIF
-
-
-! p_p%verts%edge_orientation(:,:,:)
-CALL nf(nf_inq_varid(ncid, 'edge_orientation', varid))
-IF (global_cell_type == 3) THEN ! triangular grid
-  CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1:6)))
-  ! move dummy edges to end and set edge orientation to zero
-  CALL move_dummies_to_end(array_v_int, .FALSE.)
-  DO ji = 1, 6
-    DO ip = 0, n_lp
-      p_p => get_patch_ptr(ip)
-      CALL divide_real( REAL(array_v_int(:,ji),wp),            &
-                       & p_p%n_patch_verts, p_p%verts%glb_index,     &
-                       & p_p%verts%edge_orientation(:,:,ji) )
-    END DO
-  END DO
-ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
-  CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1:6)))
-  ! move dummy edges to end and set edge orientation to zero
-  CALL move_dummies_to_end(array_c_int, .FALSE.)
-  DO ji = 1, 6
-    DO ip = 0, n_lp
-      p_p => get_patch_ptr(ip)
-      CALL divide_real( REAL(array_c_int(:,ji),wp),            &
-                       & p_p%n_patch_cells, p_p%cells%glb_index,     &
-                       & p_p%cells%edge_orientation(:,:,ji) )
-    END DO
-  END DO
-ENDIF
-
-! p_p%verts%dual_area(:,:)
-CALL nf(nf_inq_varid(ncid, 'dual_area_p', varid))
-IF (global_cell_type == 3) THEN ! triangular grid
-  CALL nf(nf_get_var_double(ncid, varid, array_v_real(:,1)))
-  DO ip = 0, n_lp
-    p_p => get_patch_ptr(ip)
-    CALL divide_real( array_v_real(:,1), p_p%n_patch_verts, p_p%verts%glb_index, &
-     &                p_p%verts%dual_area(:,:) )
-  ENDDO
-ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
-  CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
-  DO ip = 0, n_lp
-    p_p => get_patch_ptr(ip)
-    CALL divide_real( array_c_real(:,1), p_p%n_patch_cells, p_p%cells%glb_index, &
-      &               p_p%cells%area(:,:) )
-  ENDDO
-ENDIF
-
-CALL nf(nf_close(ncid))
-
-
-!
-! deallocate temporary arrays to read in data form the grid/patch generator
-!
-! integer arrays
-DEALLOCATE( array_c_int, array_e_int, array_v_int,  &
-  &         STAT=ist )
-IF (ist /= SUCCESS) THEN
-  CALL finish ('mo_model_domain_import:read_remaining_patch',  &
-    &             'deallocation for array_[cev]_int failed')
-ENDIF
-! real arrays
-DEALLOCATE( array_c_real, array_e_real, array_v_real,  &
-  &         STAT=ist )
-IF (ist /= SUCCESS) THEN
-  CALL finish ('mo_model_domain_import:read_remaining_patch',  &
-    &             'deallocation for array_[cev]_real failed')
-ENDIF
-
-CALL message ('mo_model_domimp_patches:read_remaining_patch', 'read finished')
-
-CONTAINS
-
-  ! get_patch_ptr returns a pointer to p_patch for idx=0,
-  ! a pointer to a local parent patch from the list otherwise
-  FUNCTION get_patch_ptr(idx) RESULT(patch_ptr)
-    TYPE(t_patch), POINTER :: patch_ptr
-    INTEGER, INTENT(IN)    :: idx
-
-    IF (idx==0) THEN
-      patch_ptr => p_patch
-    ELSE
-      patch_ptr => p_patch_local_parent(id_lp(idx))
-    ENDIF
-  END FUNCTION get_patch_ptr
-
-  ! Checks for the pentagon case and moves dummy cells to end.
-  ! The dummy entry is either set to 0 or duplicated from the last one
-  SUBROUTINE move_dummies_to_end(array, duplicate)
-
-    INTEGER, INTENT(INOUT) :: array(:,:)
-    LOGICAL, INTENT(IN) :: duplicate
-
-    INTEGER :: j, je
-
-    DO j = 1, UBOUND(array,1)
-      DO je = 1, 6
-        IF (array(j,je) == 0) THEN
-          IF ( je /= 6 ) array(j,je) = array(j,6)
-          IF ( duplicate ) THEN
-            array(j,6) = array(j,5)
-          ELSE
-            array(j,6) = 0
-          ENDIF
-          EXIT
-        END IF
-      END DO
-    END DO
-
-  END SUBROUTINE move_dummies_to_end
-
-END SUBROUTINE read_remaining_patch
-
-!-------------------------------------------------------------------------
-!>
-!! Divide and reshape (for blocking) a real array
-!!
-!! @par Revision History
-!! Developed  by Rainer Johanni (2011-12-04)
-!!
-SUBROUTINE divide_real( p_real_array_in, nvals, glb_index, &
-  &                     p_divided_real_array_out )
-
-  ! input array
-  REAL(wp), INTENT(in):: p_real_array_in(:)
-  ! number of values
-  INTEGER, INTENT(in) :: nvals
-  ! global index of values
-  INTEGER, INTENT(in) :: glb_index(:)
-  ! output array
-  REAL(wp), INTENT(inout) :: p_divided_real_array_out(:,:)
-
-  INTEGER nblks, npromz, n, nlen, jb, jl
-
-  nblks  = (nvals-1)/nproma + 1
-  npromz = nvals - (nblks-1)*nproma
-
-  n = 0
-  DO jb = 1, nblks
-
-    IF (jb /= nblks) THEN
-      nlen = nproma
-    ELSE
-      nlen = npromz
-    END IF
-
-    DO jl = 1, nlen
-      n = n+1
-      p_divided_real_array_out(jl,jb) = p_real_array_in(glb_index(n))
-    END DO
-
-  END DO
-
-END SUBROUTINE divide_real
-
-!-------------------------------------------------------------------------
-!>
-!! Divide and reshape (for blocking) a integer array
-!!
-!! @par Revision History
-!! Developed  by Rainer Johanni (2011-12-04)
-!!
-SUBROUTINE divide_int( p_int_array_in, nvals, glb_index, &
-  &                    p_divided_int_array_out )
-
-  ! input array
-  INTEGER, INTENT(in):: p_int_array_in(:)
-  ! number of values
-  INTEGER, INTENT(in) :: nvals
-  ! global index of values
-  INTEGER, INTENT(in) :: glb_index(:)
-  ! output array
-  INTEGER, INTENT(inout) :: p_divided_int_array_out(:,:)
-
-  INTEGER nblks, npromz, n, nlen, jb, jl
-
-  nblks  = (nvals-1)/nproma + 1
-  npromz = nvals - (nblks-1)*nproma
-
-  n = 0
-  DO jb = 1, nblks
-
-    IF (jb /= nblks) THEN
-      nlen = nproma
-    ELSE
-      nlen = npromz
-    END IF
-
-    DO jl = 1, nlen
-      n = n+1
-      p_divided_int_array_out(jl,jb) = p_int_array_in(glb_index(n))
-    END DO
-
-  END DO
-
-END SUBROUTINE divide_int
-
-!-------------------------------------------------------------------------
-!>
-!! Divide and reshape (for blocking) a index array
-!!
-!! @par Revision History
-!! Developed  by Rainer Johanni (2011-12-04)
-!!
-SUBROUTINE divide_idx( p_idx_array_in, nvals, glb_index, loc_index, &
-  &                    idx_array_out, blk_array_out )
-
-  ! input array
-  INTEGER, INTENT(in):: p_idx_array_in(:)
-  ! number of values
-  INTEGER, INTENT(in) :: nvals
-  ! global index of values
-  INTEGER, INTENT(in) :: glb_index(:)
-  ! local index
-  INTEGER, INTENT(in) :: loc_index(:)
-  ! output array
-  INTEGER, INTENT(inout) :: idx_array_out(:,:), blk_array_out(:,:)
-
-  INTEGER nblks, npromz, n, nlen, jb, jl, j_g, j_l
-
-  nblks  = (nvals-1)/nproma + 1
-  npromz = nvals - (nblks-1)*nproma
-
-  n = 0
-  DO jb = 1, nblks
-
-    IF (jb /= nblks) THEN
-      nlen = nproma
-    ELSE
-      nlen = npromz
-    END IF
-
-    DO jl = 1, nlen
-      n = n+1
-      ! get global index in divided array
-      j_g = p_idx_array_in(glb_index(n))
-      IF(j_g < 1 .OR. j_g > UBOUND(loc_index,1)) THEN
-        ! Just for safety, this should not happen, set result to 0
-        idx_array_out(jl,jb) = idx_no(0)
-        blk_array_out(jl,jb) = blk_no(0)
-      ELSE
-        ! get local index
-        j_l = loc_index(j_g)
-        ! handle values outside local domain in the same way as get_local_index
-        IF(j_l < 0) j_l = -j_g
-        idx_array_out(jl,jb) = idx_no(j_l)
-        blk_array_out(jl,jb) = blk_no(j_l)
-      ENDIF
-    END DO
-
-  END DO
-
-END SUBROUTINE divide_idx
-
-!-------------------------------------------------------------------------
-!
-!
-
-!>
-!!               reshape an integer index array for the blocking.
-!!
-!!
-!! @par Revision History
-!! Developed  by  Jochen Foerstner, DWD (2008-10-21)
-!!
-SUBROUTINE reshape_idx( p_idx_array_in, nblks, npromz,  &
-  &                     p_reshaped_idx_array_out,       &
-  &                     p_reshaped_blk_array_out )
-
-
-
-! input index array
-INTEGER, INTENT(in) :: p_idx_array_in(:)
-! number of blocks
-INTEGER, INTENT(in) :: nblks
-! chunk length
-INTEGER, INTENT(in) :: npromz
-
-! output line index array
-INTEGER, INTENT(inout) :: p_reshaped_idx_array_out(:,:)
-! output block index array
-INTEGER, INTENT(inout) :: p_reshaped_blk_array_out(:,:)
-
-INTEGER :: nlen
-INTEGER :: jl, jb
-INTEGER :: il, idx_in, idx, blk
-
-!-----------------------------------------------------------------------
-
-DO jb = 1, nblks
-
-  IF (jb /= nblks) THEN
-    nlen = nproma
-  ELSE
-    nlen = npromz
-    DO jl = npromz+1, nproma
-      p_reshaped_idx_array_out(jl,nblks) = 0
-      p_reshaped_blk_array_out(jl,nblks) = 0
-    END DO
-  END IF
-
-  DO jl = 1, nlen
-    il  = jl + ( jb - 1 )*nproma
-    idx_in = p_idx_array_in(il)
-    blk = ( ABS(idx_in) - 1 ) / nproma + 1
-    idx = SIGN( ABS(idx_in) - ( blk - 1 )*nproma, idx_in )
-    p_reshaped_idx_array_out(jl,jb) = idx
-    p_reshaped_blk_array_out(jl,jb) = blk
-  END DO
-
-END DO
-
-END SUBROUTINE reshape_idx
-
-!-------------------------------------------------------------------------
-
-!-------------------------------------------------------------------------
-!
-!
-
-!>
-!!               reshape an index list array for the blocking.
-!!
-!!
-!! @par Revision History
-!! Developed  by Guenther Zaengl, DWD (2008-10-23)
-!!
-SUBROUTINE reshape_indlist( indlist_in,                     &
-  &                         start_idx_out, start_blk_out,   &
-  &                         end_idx_out,   end_blk_out )
-
-
-
-! input index array
-INTEGER, INTENT(in) :: indlist_in(:,:)
-
-! output line index array
-INTEGER, INTENT(inout) :: start_idx_out(:,:), end_idx_out(:,:)
-! output block index array
-INTEGER, INTENT(inout) :: start_blk_out(:,:), end_blk_out(:,:)
-
-!-----------------------------------------------------------------------
-
-start_blk_out(:,1) = (indlist_in(:,1) - 1) / nproma + 1
-start_idx_out(:,1) =  indlist_in(:,1) - (start_blk_out(:,1) - 1) * nproma
-
-end_blk_out(:,1) = (indlist_in(:,2) - 1) / nproma + 1
-end_idx_out(:,1) =  indlist_in(:,2) - (end_blk_out(:,1) - 1) * nproma
-
-
-END SUBROUTINE reshape_indlist
-
-
-!-------------------------------------------------------------------------
-!
-!
-
-!>
-!!               reshape the start_idx / end_idx fields for blocking.
-!!
-!!
-!! @par Revision History
-!! Developed  by Guenther Zaengl, DWD (2009-07-22)
-!!
-SUBROUTINE reshape_idx_list( indlist_in, idx_out, blk_out )
-
-
-
-! input index array
-INTEGER, INTENT(in) :: indlist_in(:,:)
-
-! output line index array
-INTEGER, INTENT(inout) :: idx_out(:,:)
-! output block index array
-INTEGER, INTENT(inout) :: blk_out(:,:)
-
-!-----------------------------------------------------------------------
-
-blk_out(:,1:max_childdom) = (indlist_in(:,1:max_childdom) - 1) / nproma + 1
-idx_out(:,1:max_childdom) =  indlist_in(:,1:max_childdom) - &
-                            (blk_out(:,1:max_childdom) - 1) * nproma
-
-END SUBROUTINE reshape_idx_list
-
-!-------------------------------------------------------------------------
-
-!-------------------------------------------------------------------------
-!
-!
-
-!>
-!!               Deallocation of all memory that was allocated.
-!!
-!!               Deallocation of all memory that was allocated
-!!               to store the patch information of all levels.
-!!
-!! @par Revision History
-!! Developed  by  Peter Korn, MPI-M (2005).
-!! Modification by Almut Gassmann, MPI-M (2007-04-04)
-!! - adaptations for new multiple patch structure, cleaning up
-!! Modification by Almut Gassmann, MPI-M (2007-04-19)
-!! - grid information belong here
-!! Modification by Almut Gassmann, MPI-M (2008-10-30)
-!! - add Coriolis destruction
-!!
-  SUBROUTINE deallocate_patch( p_patch )
-
-    TYPE(t_patch), TARGET, INTENT(inout) :: p_patch
-
-!local variables
-  INTEGER :: ist
-!-----------------------------------------------------------------------
-
-  !
-  ! Deallocate grid information
-  !
-  ! CELLS
-  DEALLOCATE( p_patch%cells%num_edges,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch cell index failed')
-  ENDIF
-  DEALLOCATE( p_patch%cells%parent_idx,  &
-    &         p_patch%cells%parent_blk,  &
-    &         p_patch%cells%pc_idx,      &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch cell parent index failed')
-  ENDIF
-  DEALLOCATE( p_patch%cells%child_idx,  &
-    &         p_patch%cells%child_blk,  &
-    &         p_patch%cells%child_id,   &
-    &         p_patch%cells%phys_id,    &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch cell child index failed')
-  ENDIF
-  DEALLOCATE( p_patch%cells%neighbor_idx,  &
-    &         p_patch%cells%neighbor_blk,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch cell neighbor index failed')
-  ENDIF
-  DEALLOCATE( p_patch%cells%edge_idx,  &
-    &         p_patch%cells%edge_blk,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch cell edge index failed')
-  ENDIF
-  DEALLOCATE( p_patch%cells%vertex_idx,  &
-    &         p_patch%cells%vertex_blk,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch cell vertex index failed')
-  ENDIF
-  DEALLOCATE( p_patch%cells%edge_orientation,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch cell edge_orientation failed')
-  ENDIF
-  DEALLOCATE( p_patch%cells%center,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch cell center failed')
-  ENDIF
-  DEALLOCATE( p_patch%cells%area,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch cell area failed')
-  ENDIF
-  DEALLOCATE( p_patch%cells%f_c,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch cell f_c failed')
-  ENDIF
-  DEALLOCATE( p_patch%cells%refin_ctrl,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch cell refin_ctrl failed')
-  ENDIF
-  DEALLOCATE( p_patch%cells%start_idx,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch cell start_idx failed')
-  ENDIF
-  DEALLOCATE( p_patch%cells%end_idx,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch cell end_idx failed')
-  ENDIF
-  DEALLOCATE( p_patch%cells%start_blk,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch cell start_blk failed')
-  ENDIF
-  DEALLOCATE( p_patch%cells%end_blk,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch cell end_blk failed')
-  ENDIF
-  DEALLOCATE( p_patch%cells%decomp_domain,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch cell decomp_domain failed')
-  ENDIF
-  DEALLOCATE( p_patch%cells%owner_mask,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch cell owner_mask failed')
-  ENDIF
-  DEALLOCATE( p_patch%cells%glb_index,  &
-    &         p_patch%cells%loc_index,  &
-    &         p_patch%cells%owner_local,  &
-    &         p_patch%cells%owner_g,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch cell data failed')
-  ENDIF
-  !
-  !
-  ! EDGES
-  DEALLOCATE( p_patch%edges%parent_idx,  &
-    &         p_patch%edges%parent_blk,  &
-    &         p_patch%edges%pc_idx,      &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch edge parent index failed')
-  ENDIF
-  DEALLOCATE( p_patch%edges%child_idx,  &
-    &         p_patch%edges%child_blk,  &
-    &         p_patch%edges%child_id,   &
-    &         p_patch%edges%phys_id,    &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch edge child index failed')
-  ENDIF
-  DEALLOCATE( p_patch%edges%cell_idx,  &
-    &         p_patch%edges%cell_blk,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch edge cell index failed')
-  ENDIF
-  DEALLOCATE( p_patch%edges%vertex_idx,  &
-    &         p_patch%edges%vertex_blk,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch edge vertex index failed')
-  ENDIF
-  DEALLOCATE( p_patch%edges%system_orientation,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch edge system orientation failed')
-  ENDIF
-  DEALLOCATE( p_patch%edges%quad_idx,  &
-    &         p_patch%edges%quad_blk,  &
-    &         STAT=ist)
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch edge quad index failed')
-  ENDIF
-  DEALLOCATE( p_patch%edges%quad_orientation,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch edge quad orientation failed')
-  ENDIF
-  DEALLOCATE( p_patch%edges%center,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch edge center failed')
-  ENDIF
-  DEALLOCATE( p_patch%edges%primal_normal,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch edge primal_normal failed')
-  ENDIF
-  DEALLOCATE( p_patch%edges%primal_cart_normal,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch edge primal_cart_normal failed')
-  ENDIF
-  DEALLOCATE( p_patch%edges%dual_normal,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch edge dual_normal failed')
-  ENDIF
-  DEALLOCATE( p_patch%edges%dual_cart_normal,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch edge dual_cart_normal failed')
-  ENDIF
-  DEALLOCATE( p_patch%edges%primal_normal_cell,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch edge primal_normal_cell failed')
-  ENDIF
-  DEALLOCATE( p_patch%edges%dual_normal_cell,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch edge dual_normal_cell failed')
-  ENDIF
-  DEALLOCATE( p_patch%edges%primal_normal_vert,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch edge primal_normal_vert failed')
-  ENDIF
-  DEALLOCATE( p_patch%edges%dual_normal_vert,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch edge dual_normal_vert failed')
-  ENDIF
-  DEALLOCATE( p_patch%edges%primal_edge_length,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch edge primal edge length failed')
-  ENDIF
-  DEALLOCATE( p_patch%edges%inv_primal_edge_length,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for inverse patch edge primal edge length failed')
-  ENDIF
-  DEALLOCATE( p_patch%edges%dual_edge_length,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch edge dual edge length failed')
-  ENDIF
-  DEALLOCATE( p_patch%edges%inv_dual_edge_length,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for inverse patch edge dual edge length failed')
-  ENDIF
-  DEALLOCATE( p_patch%edges%edge_vert_length,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for edge_vert_length failed')
-  ENDIF
-  DEALLOCATE( p_patch%edges%inv_vert_vert_length,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for inverse vert_vert_length failed')
-  ENDIF
-  DEALLOCATE( p_patch%edges%edge_cell_length,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for edge_cell_length failed')
-  ENDIF
-  DEALLOCATE( p_patch%edges%area_edge,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch edge area_edge failed')
-  ENDIF
-  DEALLOCATE( p_patch%edges%quad_area,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch edge quad area failed')
-  ENDIF
-  DEALLOCATE( p_patch%edges%f_e,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch edge f_e failed')
-  ENDIF
-  DEALLOCATE( p_patch%edges%refin_ctrl,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch edge refin_ctrl failed')
-  ENDIF
-  DEALLOCATE( p_patch%edges%start_idx,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch edge start_idx failed')
-  ENDIF
-  DEALLOCATE( p_patch%edges%end_idx,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch edge end_idx failed')
-  ENDIF
-  DEALLOCATE( p_patch%edges%start_blk,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch edge start_blk failed')
-  ENDIF
-  DEALLOCATE( p_patch%edges%end_blk,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch edge end_blk failed')
-  ENDIF
-  DEALLOCATE( p_patch%edges%decomp_domain,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch edge decomp_domain failed')
-  ENDIF
-  DEALLOCATE( p_patch%edges%owner_mask,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch edge owner_mask failed')
-  ENDIF
-  DEALLOCATE( p_patch%edges%glb_index,  &
-    &         p_patch%edges%loc_index,  &
-    &         p_patch%edges%owner_local,  &
-    &         p_patch%edges%owner_g,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch edge data failed')
-  ENDIF
-  !
-  !
-  ! VERTICES
-  DEALLOCATE( p_patch%verts%neighbor_idx,  &
-    &         p_patch%verts%neighbor_blk,  &
-    &         p_patch%verts%phys_id,       &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch vertex neighbor index failed')
-  ENDIF
-  DEALLOCATE( p_patch%verts%cell_idx,  &
-    &         p_patch%verts%cell_blk,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch vertex cell index failed')
-  ENDIF
-  DEALLOCATE( p_patch%verts%edge_idx,  &
-    &         p_patch%verts%edge_blk,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch vertex edge index failed')
-  ENDIF
-  DEALLOCATE( p_patch%verts%edge_orientation,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch vertex edge orientation failed')
-  ENDIF
-  DEALLOCATE( p_patch%verts%num_edges,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch vertex number of edges failed')
-  ENDIF
-  DEALLOCATE( p_patch%verts%vertex,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch vertex vertex failed')
-  ENDIF
-  DEALLOCATE( p_patch%verts%dual_area,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch vertex dual area failed')
-  ENDIF
-  DEALLOCATE( p_patch%verts%f_v,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch vertex f_v failed')
-  ENDIF
-  DEALLOCATE( p_patch%verts%refin_ctrl,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch vertex edge refin_ctrl failed')
-  ENDIF
-  DEALLOCATE( p_patch%verts%start_idx,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch vertex edge start_idx failed')
-  ENDIF
-  DEALLOCATE( p_patch%verts%end_idx,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch vertex edge end_idx failed')
-  ENDIF
-  DEALLOCATE( p_patch%verts%start_blk,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch vertex edge start_blk failed')
-  ENDIF
-  DEALLOCATE( p_patch%verts%end_blk,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch vertex edge end_blk failed')
-  ENDIF
-  DEALLOCATE( p_patch%verts%decomp_domain,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch vert decomp_domain failed')
-  ENDIF
-  DEALLOCATE( p_patch%verts%owner_mask,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch vert owner_mask failed')
-  ENDIF
-  DEALLOCATE( p_patch%verts%glb_index,  &
-    &         p_patch%verts%loc_index,  &
-    &         p_patch%verts%owner_local,  &
-    &         p_patch%verts%owner_g,  &
-    &         STAT=ist )
-  IF(ist/=SUCCESS)THEN
-    CALL finish  ('mo_model_domain_import:destruct_patches', &
-      'deallocate for patch vert data failed')
-  ENDIF
-
-END SUBROUTINE deallocate_patch
-
-!-------------------------------------------------------------------------
-!> destruct_patches: Calls destruct_patch in a loop
-
-SUBROUTINE destruct_patches( p_patch )
-
+  !-------------------------------------------------------------------------
+  !>
+  !! This routine sets the parent-child-index for cells and edges
+  !!
+  !! @par Revision History
+  !! Developed  by Rainer Johanni, Dec 2011
+  !!
+  SUBROUTINE set_pc_idx(p_patch)
+    
     TYPE(t_patch), TARGET, INTENT(inout) :: p_patch(n_dom_start:)
-
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-    &        routine = 'mo_model_domimp_patches:destruct_patches'
-
-!local variables
-  INTEGER :: jg
-!-----------------------------------------------------------------------
-
-  CALL message (TRIM(routine), 'start')
-
-  GRID_LEVEL_LOOP: DO jg = n_dom_start, n_dom
-
-    CALL deallocate_patch(p_patch(jg))
-
-  END DO GRID_LEVEL_LOOP
-
-  CALL message (routine, 'destruct_patches finished')
-
-END SUBROUTINE destruct_patches
-
-!-------------------------------------------------------------------------
-
-SUBROUTINE nf(status, warnonly, silent)
+    
+    ! local variables
+    
+    INTEGER :: jg, jgp, jb, jl, ilp, ibp, nlen
+    
+    !-----------------------------------------------------------------------
+    
+    DO jg = n_dom_start+1, n_dom
+      
+      jgp = p_patch(jg)%parent_id
+      
+      p_patch(jg)%cells%pc_idx(:,:) = 0
+      p_patch(jg)%edges%pc_idx(:,:) = 0
+      
+      DO jb = 1, p_patch(jg)%nblks_c
+        
+        IF (jb /= p_patch(jg)%nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = p_patch(jg)%npromz_c
+        ENDIF
+        
+        DO jl = 1, nlen
+          
+          ilp = p_patch(jg)%cells%parent_idx(jl,jb)
+          ibp = p_patch(jg)%cells%parent_blk(jl,jb)
+          
+          IF(p_patch(jgp)%cells%child_idx(ilp,ibp,1) == jl .AND. &
+            & p_patch(jgp)%cells%child_blk(ilp,ibp,1) == jb ) p_patch(jg)%cells%pc_idx(jl,jb) = 1
+          IF(p_patch(jgp)%cells%child_idx(ilp,ibp,2) == jl .AND. &
+            & p_patch(jgp)%cells%child_blk(ilp,ibp,2) == jb ) p_patch(jg)%cells%pc_idx(jl,jb) = 2
+          IF(p_patch(jgp)%cells%child_idx(ilp,ibp,3) == jl .AND. &
+            & p_patch(jgp)%cells%child_blk(ilp,ibp,3) == jb ) p_patch(jg)%cells%pc_idx(jl,jb) = 3
+          IF(p_patch(jgp)%cells%child_idx(ilp,ibp,4) == jl .AND. &
+            & p_patch(jgp)%cells%child_blk(ilp,ibp,4) == jb ) p_patch(jg)%cells%pc_idx(jl,jb) = 4
+          IF(p_patch(jg)%cells%pc_idx(jl,jb) == 0) CALL finish('set_pc_idx','cells%pc_idx')
+          
+        ENDDO
+        
+      ENDDO
+      
+      DO jb = 1, p_patch(jg)%nblks_e
+        
+        IF (jb /= p_patch(jg)%nblks_e) THEN
+          nlen = nproma
+        ELSE
+          nlen = p_patch(jg)%npromz_e
+        ENDIF
+        
+        DO jl = 1, nlen
+          
+          ilp = p_patch(jg)%edges%parent_idx(jl,jb)
+          ibp = p_patch(jg)%edges%parent_blk(jl,jb)
+          
+          IF(p_patch(jgp)%edges%child_idx(ilp,ibp,1) == jl .AND. &
+            & p_patch(jgp)%edges%child_blk(ilp,ibp,1) == jb ) p_patch(jg)%edges%pc_idx(jl,jb) = 1
+          IF(p_patch(jgp)%edges%child_idx(ilp,ibp,2) == jl .AND. &
+            & p_patch(jgp)%edges%child_blk(ilp,ibp,2) == jb ) p_patch(jg)%edges%pc_idx(jl,jb) = 2
+          IF(p_patch(jgp)%edges%child_idx(ilp,ibp,3) == jl .AND. &
+            & p_patch(jgp)%edges%child_blk(ilp,ibp,3) == jb ) p_patch(jg)%edges%pc_idx(jl,jb) = 3
+          IF(p_patch(jgp)%edges%child_idx(ilp,ibp,4) == jl .AND. &
+            & p_patch(jgp)%edges%child_blk(ilp,ibp,4) == jb ) p_patch(jg)%edges%pc_idx(jl,jb) = 4
+          IF(p_patch(jg)%edges%pc_idx(jl,jb) == 0) CALL finish('set_pc_idx','edges%pc_idx')
+          
+        ENDDO
+        
+      ENDDO
+      
+    ENDDO
+    
+  END SUBROUTINE set_pc_idx
+  !-------------------------------------------------------------------------
   
-  INTEGER, INTENT(in)           :: status
-  LOGICAL, INTENT(in), OPTIONAL :: warnonly
-  LOGICAL, INTENT(in), OPTIONAL :: silent
-  
-  LOGICAL :: lwarnonly, lsilent
-  
-  lwarnonly = .FALSE.
-  lsilent   = .FALSE.
-  IF(PRESENT(warnonly)) lwarnonly = .TRUE.
-  IF(PRESENT(silent))   lsilent   = silent
-
-  IF (lsilent) RETURN
-  IF (status /= nf_noerr) THEN
-    IF (lwarnonly) THEN
-      CALL message('mo_model_domain_import netCDF error', nf_strerror(status), &
-           &       level=em_warn)
-    ELSE
-      CALL finish('mo_model_domain_import netCDF error', nf_strerror(status))
+  !-------------------------------------------------------------------------
+  !>
+  !! Initialization of the patch components with data stored
+  !! in files.
+  !!
+  !! @par Revision History
+  !! Developed  by  Peter Korn, MPI-M (2005).
+  !! Modified by L. Bonaventura, MPI-M (2005),
+  !! to match completed patch
+  !! structure in advanced patch generator.
+  !! Modified by A. Gassmann, MPI-M (2007-04-03)
+  !! - cleaning up and adaptations for reading multiple patches
+  !! Modified by A. Gassmann, MPI-M (2007-04-03)
+  !! - patch owns grid information, global grid is obsolete.
+  !! - changed name from init_patch to read_patch
+  !! Modified by A. Gassmann, MPI-M (2008-09-21)
+  !! - remove all not netcdf stuff
+  !! - HERE we must think of how to use different 'global_cell_type's
+  !! Modified by A. Gassmann, MPI-M (2008-10-30)
+  !! - read in grid for either triangles or hexagons
+  !! Modified by R. Johanni (2011-12-04)
+  !! - split into read_basic_patch for reading the basic patch information
+  !!   for subdivision into the fully allocated patch and read_remaining_patch
+  !!   for reading the remaining information
+  !!
+  SUBROUTINE read_basic_patch( ig, p_patch, patch_file )
+    
+    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_model_domimp_patches/read_basic_patch'
+    INTEGER,             INTENT(in)    ::  ig           ! domain ID
+    CHARACTER(LEN=*),    INTENT(in), OPTIONAL ::  patch_file   ! name of grid file
+    
+    TYPE(t_patch), TARGET, INTENT(inout) ::  p_patch      ! patch data structure
+    
+    INTEGER, ALLOCATABLE :: &
+      & array_c_int(:,:),  &  ! temporary arrays to read in integer values
+      & array_e_int(:,:),  &
+      & array_v_int(:,:)
+    
+    REAL(wp), ALLOCATABLE :: &
+      & array_c_real(:,:), &  ! temporary arrays to read in real values
+      & array_e_real(:,:), &
+      & array_v_real(:,:)
+    
+    INTEGER, ALLOCATABLE :: &
+      & start_idx_c(:,:), end_idx_c(:,:), &  ! temporary arrays to read in index lists
+      & start_idx_e(:,:), end_idx_e(:,:), &
+      & start_idx_v(:,:), end_idx_v(:,:)
+    
+    ! dummy values for number of internal halo cells, edges, vertices
+    INTEGER :: n_e_halo_cells
+    INTEGER :: n_e_halo_edges
+    INTEGER :: n_e_halo_verts
+    
+    ! INTEGER :: patch_unit
+    
+    ! LOGICAL :: lnetcdf = .TRUE.
+    ! CHARACTER(len=filename_max) :: file
+    
+    CHARACTER(LEN=uuid_string_length) :: uuid_string
+    
+    ! status variable
+    INTEGER :: ist
+    
+    INTEGER :: ncid, dimid, varid
+    INTEGER :: ji
+    INTEGER :: jc, je, jcv, jce, ilc, ibc
+    INTEGER :: icheck, ilev, igrid_level, igrid_id, iparent_id, i_max_childdom, ipar_id
+    
+    !-----------------------------------------------------------------------
+    
+    ! set dummy values to zero
+    n_e_halo_cells = 0
+    n_e_halo_edges = 0
+    n_e_halo_verts = 0
+    
+    ilev = p_patch%level
+    ipar_id = p_patch%parent_id
+    
+    !
+    ! start to fill patch type
+    !
+    IF (PRESENT(patch_file)) THEN
+      p_patch%grid_filename=patch_file
     ENDIF
-  ENDIF
-
-END SUBROUTINE nf
-
+    
+    ! this should be read into
+    !  at the moment is filled in the patch allocation
+    ! p_patch%cell_type = global_cell_type
+    
+    CALL message (TRIM(routine), 'start to init patch')
+    
+    WRITE(message_text,'(a,a)') 'Read grid file ', TRIM(p_patch%grid_filename)
+    CALL message ('', TRIM(message_text))
+    
+    CALL nf(nf_open(TRIM(p_patch%grid_filename), nf_nowrite, ncid))
+    
+    uuid_string = ' ' ! To avoid null characters in the standard output
+    CALL nf(nf_get_att_text(ncid, nf_global, 'uuid', uuid_string), &
+      & warnonly=.TRUE., silent=(.NOT. is_grib_output()))
+    CALL uuid_parse(uuid_string, p_patch%grid_uuid)
+    WRITE(message_text,'(a,a)') 'grid uuid: ', TRIM(uuid_string)
+    CALL message  (TRIM(routine), message_text)
+    
+    CALL nf(nf_get_att_int(ncid, nf_global, 'grid_root', icheck))
+    IF (icheck /= nroot) THEN
+      WRITE(message_text,'(a,i4,a,i4)') &
+        & 'grid_root attribute:', icheck,', R:',nroot
+      CALL message  (TRIM(routine), TRIM(message_text))
+      WRITE(message_text,'(a)') &
+        & 'Mismatch between "grid_root" attribute and "R" parameter in the filename'
+      CALL finish  (TRIM(routine), TRIM(message_text))
+    END IF
+    
+    CALL nf(nf_get_att_int(ncid, nf_global, 'grid_level', igrid_level))
+    IF (igrid_level /= ilev) THEN
+      WRITE(message_text,'(a,i4,a,i4)') &
+        & 'grid_level attribute:', igrid_level,', B:',ilev
+      CALL message  (TRIM(routine), TRIM(message_text))
+      WRITE(message_text,'(a)') &
+        & 'Mismatch between "grid_level" attribute and "B" parameter in the filename'
+      CALL finish  (TRIM(routine), TRIM(message_text))
+    END IF
+    
+    ! Check additional attributes for consistency with the current namelist settings
+    CALL nf(nf_get_att_int(ncid, nf_global, 'grid_ID', igrid_id))
+    IF ((.NOT.l_limited_area).AND.(igrid_id /= ig)) THEN
+      WRITE(message_text,'(a,i4,a,i4)') &
+        & 'grid ID attribute:', igrid_id,', namelist value:',ig
+      CALL message  (TRIM(routine), TRIM(message_text))
+      WRITE(message_text,'(a)') &
+        & 'Mismatch between "grid ID" attribute and corresponding namelist setting'
+      CALL finish  (TRIM(routine), TRIM(message_text))
+    END IF
+    
+    CALL nf(nf_get_att_int(ncid, nf_global, 'parent_grid_ID', iparent_id))
+    IF ((.NOT.l_limited_area).AND.(iparent_id /= ipar_id)) THEN
+      WRITE(message_text,'(a,i4,a,i4)') &
+        & 'parent ID attribute:', iparent_id,', namelist value:',ipar_id
+      CALL message  (TRIM(routine), TRIM(message_text))
+      WRITE(message_text,'(a)') &
+        & 'Mismatch between "parent grid ID" attribute and corresponding namelist setting'
+      CALL finish  (TRIM(routine), TRIM(message_text))
+    END IF
+    
+    CALL nf(nf_get_att_int(ncid, nf_global, 'max_childdom', i_max_childdom))
+    IF (i_max_childdom /= max_childdom) THEN
+      WRITE(message_text,'(a,i4,a,i4)') &
+        & 'max_childdom attribute:', i_max_childdom,', namelist value:',max_childdom
+      CALL message  (TRIM(routine), TRIM(message_text))
+      WRITE(message_text,'(a)') &
+        & 'Mismatch between "max_childdom" attribute and corresponding namelist setting'
+      CALL finish  (TRIM(routine), TRIM(message_text))
+    END IF
+    
+    !
+    ! get number of cells, edges and vertices
+    !
+    CALL nf(nf_inq_dimid(ncid, 'cell', dimid))
+    IF (global_cell_type == 3) THEN ! triangular grid
+      CALL nf(nf_inq_dimlen(ncid, dimid, p_patch%n_patch_cells))
+    ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
+      CALL nf(nf_inq_dimlen(ncid, dimid, p_patch%n_patch_verts))
+    ENDIF
+    
+    CALL nf(nf_inq_dimid(ncid, 'edge', dimid))
+    CALL nf(nf_inq_dimlen(ncid, dimid, p_patch%n_patch_edges))
+    
+    CALL nf(nf_inq_dimid(ncid, 'vertex', dimid))
+    IF (global_cell_type == 3) THEN ! triangular grid
+      CALL nf(nf_inq_dimlen(ncid, dimid, p_patch%n_patch_verts))
+    ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
+      CALL nf(nf_inq_dimlen(ncid, dimid, p_patch%n_patch_cells))
+    ENDIF
+    
+    !
+    ! calculate and save values for the blocking
+    !
+    ! ... for the cells
+    p_patch%nblks_c       = ( p_patch%n_patch_cells + n_e_halo_cells - 1 )  &
+      & / nproma + 1
+    p_patch%nblks_int_c   = ( p_patch%n_patch_cells - 1 ) / nproma + 1
+    p_patch%npromz_int_c  = p_patch%n_patch_cells  &
+      & - (p_patch%nblks_int_c - 1)*nproma
+    ! total number of cells
+    p_patch%n_patch_cells = p_patch%n_patch_cells + n_e_halo_cells
+    p_patch%npromz_c      = p_patch%n_patch_cells - (p_patch%nblks_c - 1)*nproma
+    
+    ! ... for the edges
+    p_patch%nblks_e       = ( p_patch%n_patch_edges + n_e_halo_edges - 1 )  &
+      & / nproma + 1
+    p_patch%nblks_int_e   = ( p_patch%n_patch_edges - 1 ) / nproma + 1
+    p_patch%npromz_int_e  = p_patch%n_patch_edges  &
+      & - (p_patch%nblks_int_e - 1)*nproma
+    ! total number of edges
+    p_patch%n_patch_edges = p_patch%n_patch_edges + n_e_halo_edges
+    p_patch%npromz_e      = p_patch%n_patch_edges - (p_patch%nblks_e - 1)*nproma
+    
+    ! ... for the vertices
+    p_patch%nblks_v       = ( p_patch%n_patch_verts + n_e_halo_verts - 1 )  &
+      & / nproma + 1
+    p_patch%nblks_int_v   = ( p_patch%n_patch_verts - 1 ) / nproma + 1
+    p_patch%npromz_int_v  = p_patch%n_patch_verts  &
+      & - (p_patch%nblks_int_v - 1)*nproma
+    ! total number of vertices
+    p_patch%n_patch_verts = p_patch%n_patch_verts + n_e_halo_verts
+    p_patch%npromz_v      = p_patch%n_patch_verts - (p_patch%nblks_v - 1)*nproma
+    
+    !
+    ! allocate temporary arrays to read in data form the grid/patch generator
+    !
+    ! integer arrays
+    ALLOCATE( array_c_int(p_patch%n_patch_cells,6),  &
+      & array_e_int(p_patch%n_patch_edges,6),  &
+      & array_v_int(p_patch%n_patch_verts,6),  &
+      & stat=ist )
+    IF (ist /= success) THEN
+      CALL finish (TRIM(routine), 'allocation for array_[cev]_int failed')
+    ENDIF
+    ! real arrays
+    ALLOCATE( array_c_real(p_patch%n_patch_cells,6),  &
+      & array_e_real(p_patch%n_patch_edges,6),  &
+      & array_v_real(p_patch%n_patch_verts,6),  &
+      & stat=ist )
+    IF (ist /= success) THEN
+      CALL finish (TRIM(routine), 'allocation for array_[cev]_real failed')
+    ENDIF
+    ! integer arrays for index lists
+    ALLOCATE( start_idx_c(min_rlcell:max_rlcell,max_childdom),  &
+      & end_idx_c  (min_rlcell:max_rlcell,max_childdom),  &
+      & start_idx_e(min_rledge:max_rledge,max_childdom),  &
+      & end_idx_e  (min_rledge:max_rledge,max_childdom),  &
+      & start_idx_v(min_rlvert:max_rlvert,max_childdom),  &
+      & end_idx_v  (min_rlvert:max_rlvert,max_childdom),  &
+      & stat=ist )
+    
+    IF (ist /= success) THEN
+      CALL finish (TRIM(routine), 'allocation for array_[cev]_indlist failed')
+    ENDIF
+    
+    ! Number of global cells/edges/verts
+    ! These are needed for patch allocation
+    ! For a non-divided patch they are identical to the non-global values
+    
+    p_patch%n_patch_cells_g = p_patch%n_patch_cells
+    p_patch%n_patch_edges_g = p_patch%n_patch_edges
+    p_patch%n_patch_verts_g = p_patch%n_patch_verts
+    
+    !
+    ! Allocate patch arrays which are read here
+    !
+    CALL allocate_basic_patch( p_patch )
+    
+    ! p_patch%cells%start_idx(:,:)
+    ! p_patch%cells%start_blk(:,:)
+    ! p_patch%cells%end_idx(:,:)
+    ! p_patch%cells%end_blk(:,:)
+    CALL nf(nf_inq_varid(ncid, 'start_idx_c', varid))
+    IF (global_cell_type == 3) THEN ! triangular grid
+      CALL nf(nf_get_var_int(ncid, varid, start_idx_c(:,:)))
+      CALL reshape_idx_list( start_idx_c,                                &
+        & p_patch%cells%start_idx, p_patch%cells%start_blk )
+    ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
+      CALL nf(nf_get_var_int(ncid, varid, start_idx_v(:,:)))
+      CALL reshape_idx_list( start_idx_v,                                &
+        & p_patch%verts%start_idx, p_patch%verts%start_blk )
+    ENDIF
+    CALL nf(nf_inq_varid(ncid, 'end_idx_c', varid))
+    IF (global_cell_type == 3) THEN ! triangular grid
+      CALL nf(nf_get_var_int(ncid, varid, end_idx_c(:,:)))
+      CALL reshape_idx_list( end_idx_c,                                &
+        & p_patch%cells%end_idx, p_patch%cells%end_blk )
+    ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
+      CALL nf(nf_get_var_int(ncid, varid, end_idx_v(:,:)))
+      CALL reshape_idx_list( end_idx_v,                                &
+        & p_patch%verts%end_idx, p_patch%verts%end_blk )
+    ENDIF
+    
+    ! p_patch%edges%start_idx(:,:)
+    ! p_patch%edges%start_blk(:,:)
+    ! p_patch%edges%end_idx(:,:)
+    ! p_patch%edges%end_blk(:,:)
+    CALL nf(nf_inq_varid(ncid, 'start_idx_e', varid))
+    CALL nf(nf_get_var_int(ncid, varid, start_idx_e(:,:)))
+    CALL reshape_idx_list( start_idx_e,                                &
+      & p_patch%edges%start_idx, p_patch%edges%start_blk )
+    CALL nf(nf_inq_varid(ncid, 'end_idx_e', varid))
+    CALL nf(nf_get_var_int(ncid, varid, end_idx_e(:,:)))
+    CALL reshape_idx_list( end_idx_e,                                &
+      & p_patch%edges%end_idx, p_patch%edges%end_blk )
+    
+    ! p_patch%verts%start_idx(:,:)
+    ! p_patch%verts%start_blk(:,:)
+    ! p_patch%verts%end_idx(:,:)
+    ! p_patch%verts%end_blk(:,:)
+    CALL nf(nf_inq_varid(ncid, 'start_idx_v', varid))
+    IF (global_cell_type == 3) THEN ! triangular grid
+      CALL nf(nf_get_var_int(ncid, varid, start_idx_v(:,:)))
+      CALL reshape_idx_list( start_idx_v,                                &
+        & p_patch%verts%start_idx, p_patch%verts%start_blk )
+    ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
+      CALL nf(nf_get_var_int(ncid, varid, start_idx_c(:,:)))
+      CALL reshape_idx_list( start_idx_c,                                &
+        & p_patch%cells%start_idx, p_patch%cells%start_blk )
+    ENDIF
+    CALL nf(nf_inq_varid(ncid, 'end_idx_v', varid))
+    IF (global_cell_type == 3) THEN ! triangular grid
+      CALL nf(nf_get_var_int(ncid, varid, end_idx_v(:,:)))
+      CALL reshape_idx_list( end_idx_v,                                &
+        & p_patch%verts%end_idx, p_patch%verts%end_blk )
+    ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
+      CALL nf(nf_get_var_int(ncid, varid, end_idx_c(:,:)))
+      CALL reshape_idx_list( end_idx_c,                                &
+        & p_patch%cells%end_idx, p_patch%cells%end_blk )
+    ENDIF
+    
+    ! p_patch%cells%parent_idx(:,:)
+    ! p_patch%cells%parent_blk(:,:)
+    CALL nf(nf_inq_varid(ncid, 'parent_cell_index', varid))
+    IF (global_cell_type == 3) THEN ! triangular grid
+      CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1)))
+      CALL reshape_idx( array_c_int(:,1), p_patch%nblks_c, p_patch%npromz_c,  &
+        & p_patch%cells%parent_idx(:,:),  &
+        & p_patch%cells%parent_blk(:,:) )
+    ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
+      CALL message ('read_patch',&
+        & 'parent_cell_index incompatible with hexagonal grid')
+    ENDIF
+    
+    ! p_patch%cells%child_idx(:,:,:)
+    ! p_patch%cells%child_blk(:,:,:)
+    CALL nf(nf_inq_varid(ncid, 'child_cell_index', varid))
+    IF (global_cell_type == 3) THEN ! triangular grid
+      CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1:4)))
+      DO ji = 1, 4
+        CALL reshape_idx( array_c_int(:,ji), p_patch%nblks_c, p_patch%npromz_c,  &
+          & p_patch%cells%child_idx(:,:,ji),  &
+          & p_patch%cells%child_blk(:,:,ji) )
+      END DO
+    ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
+      CALL message ('read_patch',&
+        & 'child_cell_index incompatible with hexagonal grid')
+    ENDIF
+    
+    ! p_patch%cells%child_id(:,:)
+    CALL nf(nf_inq_varid(ncid, 'child_cell_id', varid))
+    IF (global_cell_type == 3) THEN ! triangular grid
+      CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1)))
+      
+      ! Preparation: In limited-area mode, check if child domain ID's read
+      ! from the grid files need to be shifted
+      IF (ig == 1 .AND. l_limited_area .AND. p_patch%n_childdom>0) THEN
+        ! domain ID of first nested domain should be 2
+        ishift_child_id = array_c_int(start_idx_c(grf_bdyintp_start_c,1),1) - 2
+      ENDIF
+      
+      IF(ishift_child_id /= 0 .AND. p_patch%n_childdom>0) THEN
+        DO jc = start_idx_c(grf_bdyintp_start_c,1), end_idx_c(min_rlcell,p_patch%n_childdom)
+          array_c_int(jc,1) = array_c_int(jc,1) - ishift_child_id
+        ENDDO
+      ENDIF
+      
+      CALL reshape_int( array_c_int(:,1), p_patch%nblks_c, p_patch%npromz_c,  &
+        & p_patch%cells%child_id(:,:) )
+    ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
+      CALL message ('read_patch',&
+        & 'child_cell_id incompatible with hexagonal grid')
+    ENDIF
+    
+    ! p_patch%cells%neighbor_idx(:,:,:)
+    ! p_patch%cells%neighbor_blk(:,:,:)
+    CALL nf(nf_inq_varid(ncid, 'neighbor_cell_index', varid))
+    IF (global_cell_type == 3) THEN ! triangular grid
+      CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1:3)))
+      DO ji = 1, 3
+        CALL reshape_idx( array_c_int(:,ji), p_patch%nblks_c, p_patch%npromz_c,  &
+          & p_patch%cells%neighbor_idx(:,:,ji),  &
+          & p_patch%cells%neighbor_blk(:,:,ji) )
+      END DO
+    ENDIF
+    
+    ! p_patch%cells%edge_idx(:,:,:)
+    ! p_patch%cells%edge_blk(:,:,:)
+    CALL nf(nf_inq_varid(ncid, 'edge_of_cell', varid))
+    IF (global_cell_type == 3) THEN ! triangular grid
+      CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1:3)))
+      DO ji = 1, 3
+        CALL reshape_idx( array_c_int(:,ji), p_patch%nblks_c, p_patch%npromz_c,  &
+          & p_patch%cells%edge_idx(:,:,ji),  &
+          & p_patch%cells%edge_blk(:,:,ji) )
+      END DO
+    ENDIF
+    
+    ! p_patch%cells%vertex_idx(:,:,:)
+    ! p_patch%cells%vertex_blk(:,:,:)
+    CALL nf(nf_inq_varid(ncid, 'vertex_of_cell', varid))
+    IF (global_cell_type == 3) THEN ! triangular grid
+      CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1:3)))
+      DO ji = 1, 3
+        CALL reshape_idx( array_c_int(:,ji), p_patch%nblks_c, p_patch%npromz_c,  &
+          & p_patch%cells%vertex_idx(:,:,ji),  &
+          & p_patch%cells%vertex_blk(:,:,ji) )
+      END DO
+    ENDIF
+    
+    ! p_patch%cells%center(:,:)%lon
+    CALL nf(nf_inq_varid(ncid, 'lon_cell_centre', varid))
+    IF (global_cell_type == 3) THEN ! triangular grid
+      CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
+      CALL reshape_real( array_c_real(:,1), p_patch%nblks_c, p_patch%npromz_c,  &
+        & p_patch%cells%center(:,:)%lon )
+    ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
+      CALL nf(nf_get_var_double(ncid, varid, array_v_real(:,1)))
+      CALL reshape_real( array_v_real(:,1), p_patch%nblks_v, p_patch%npromz_v,  &
+        & p_patch%verts%vertex(:,:)%lon )
+    ENDIF
+    
+    ! p_patch%cells%center(:,:)%lat
+    CALL nf(nf_inq_varid(ncid, 'lat_cell_centre', varid))
+    IF (global_cell_type == 3) THEN ! triangular grid
+      CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
+      CALL reshape_real( array_c_real(:,1), p_patch%nblks_c, p_patch%npromz_c,  &
+        & p_patch%cells%center(:,:)%lat )
+    ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
+      CALL nf(nf_get_var_double(ncid, varid, array_v_real(:,1)))
+      CALL reshape_real( array_v_real(:,1), p_patch%nblks_v, p_patch%npromz_v,  &
+        & p_patch%verts%vertex(:,:)%lat )
+    ENDIF
+    
+    ! p_patch%cells%refin_ctrl(:,:)
+    CALL nf(nf_inq_varid(ncid, 'refin_c_ctrl', varid))
+    IF (global_cell_type == 3) THEN ! triangular grid
+      CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1)))
+      CALL reshape_int( array_c_int(:,1), p_patch%nblks_c, p_patch%npromz_c,  &
+        & p_patch%cells%refin_ctrl(:,:) )
+    ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
+      CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1)))
+      CALL reshape_int( array_v_int(:,1), p_patch%nblks_v, p_patch%npromz_v,  &
+        & p_patch%verts%refin_ctrl(:,:) )
+    ENDIF
+    
+    ! p_patch%edges%parent_idx(:,:)
+    ! p_patch%edges%parent_blk(:,:)
+    CALL nf(nf_inq_varid(ncid, 'parent_edge_index', varid))
+    CALL nf(nf_get_var_int(ncid, varid, array_e_int(:,1)))
+    CALL reshape_idx( array_e_int(:,1), p_patch%nblks_e, p_patch%npromz_e,  &
+      & p_patch%edges%parent_idx(:,:),  &
+      & p_patch%edges%parent_blk(:,:) )
+    
+    ! p_patch%edges%child_idx(:,:,:)
+    ! p_patch%edges%child_blk(:,:,:)
+    CALL nf(nf_inq_varid(ncid, 'child_edge_index', varid))
+    CALL nf(nf_get_var_int(ncid, varid, array_e_int(:,1:4)))
+    
+    ! First ensure that child edge indices are all positive;
+    ! if there are negative values, grid files are too old
+    
+    IF(ANY(array_e_int(:,1:4)<0)) THEN
+      CALL finish (TRIM(routine), &
+        & 'negative child edge indices detected - patch files are too old')
+    ENDIF
+    
+    DO ji = 1, 4
+      CALL reshape_idx( array_e_int(:,ji), p_patch%nblks_e, p_patch%npromz_e,  &
+        & p_patch%edges%child_idx(:,:,ji),  &
+        & p_patch%edges%child_blk(:,:,ji) )
+    END DO
+    
+    ! p_patch%edges%child_id(:,:)
+    CALL nf(nf_inq_varid(ncid, 'child_edge_id', varid))
+    CALL nf(nf_get_var_int(ncid, varid, array_e_int(:,1)))
+    
+    IF(ishift_child_id /= 0 .AND. p_patch%n_childdom>0) THEN
+      DO je = start_idx_e(grf_bdyintp_start_e,1), end_idx_e(min_rledge,p_patch%n_childdom)
+        array_e_int(je,1) = array_e_int(je,1) - ishift_child_id
+      ENDDO
+    ENDIF
+    
+    CALL reshape_int( array_e_int(:,1), p_patch%nblks_e, p_patch%npromz_e,  &
+      & p_patch%edges%child_id(:,:) )
+    
+    
+    ! p_patch%edges%refin_ctrl(:,:)
+    CALL nf(nf_inq_varid(ncid, 'refin_e_ctrl', varid))
+    CALL nf(nf_get_var_int(ncid, varid, array_e_int(:,1)))
+    CALL reshape_int( array_e_int(:,1), p_patch%nblks_e, p_patch%npromz_e,  &
+      & p_patch%edges%refin_ctrl(:,:) )
+    
+    
+    ! p_patch%verts%neighbor_idx(:,:,:)
+    ! p_patch%verts%neighbor_blk(:,:,:)
+    CALL nf(nf_inq_varid(ncid, 'vertices_of_vertex', varid))
+    IF (global_cell_type == 6) THEN ! hexagonal grid
+      CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1:6)))
+      DO ji = 1, 6
+        CALL reshape_idx( array_c_int(:,ji), p_patch%nblks_c, p_patch%npromz_c,  &
+          & p_patch%cells%neighbor_idx(:,:,ji),  &
+          & p_patch%cells%neighbor_blk(:,:,ji) )
+      END DO
+      !
+      ! account for dummy edges arising in case of a pentagon
+      !
+      DO jc = 1, p_patch%n_patch_cells
+        DO ji = 1, 6
+          IF ( array_c_int(jc,ji) == 0 ) THEN
+            ibc = ( jc - 1 ) / nproma + 1
+            ilc = jc - ( ibc - 1 )*nproma
+            IF ( ji /= 6 ) THEN
+              p_patch%cells%neighbor_idx(ilc,ibc,ji) =  &
+                & p_patch%cells%neighbor_idx(ilc,ibc,6)
+              p_patch%cells%neighbor_blk(ilc,ibc,ji) =  &
+                & p_patch%cells%neighbor_blk(ilc,ibc,6)
+            END IF
+            ! Fill dummy neighbor with an existing index to simplify do loops
+            ! Note, however, that related multiplication factors must be zero
+            p_patch%cells%neighbor_idx(ilc,ibc,6) = p_patch%cells%neighbor_idx(ilc,ibc,5)
+            p_patch%cells%neighbor_blk(ilc,ibc,6) = p_patch%cells%neighbor_blk(ilc,ibc,5)
+          END IF
+        END DO
+      END DO
+    ENDIF
+    
+    
+    ! p_patch%verts%cell_idx(:,:,:)
+    ! p_patch%verts%cell_blk(:,:,:)
+    CALL nf(nf_inq_varid(ncid, 'cells_of_vertex', varid))
+    IF (global_cell_type == 6) THEN ! hexagonal grid
+      CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1:6)))
+      DO ji = 1, 6
+        CALL reshape_idx( array_c_int(:,ji), p_patch%nblks_c, p_patch%npromz_c,  &
+          & p_patch%cells%vertex_idx(:,:,ji),  &
+          & p_patch%cells%vertex_blk(:,:,ji) )
+      END DO
+      !
+      ! account for dummy cells arising in case of a pentagon
+      !
+      DO jc = 1, p_patch%n_patch_cells
+        DO jcv = 1, 6
+          IF ( array_c_int(jc,jcv) == 0 ) THEN
+            ibc = ( jc - 1 ) / nproma + 1
+            ilc = jc - ( ibc - 1 )*nproma
+            IF ( jcv /= 6 ) THEN
+              p_patch%cells%vertex_idx(ilc,ibc,jcv) =  &
+                & p_patch%cells%vertex_idx(ilc,ibc,6)
+              p_patch%cells%vertex_blk(ilc,ibc,jcv) =  &
+                & p_patch%cells%vertex_blk(ilc,ibc,6)
+            END IF
+            ! Fill dummy edge with existing index to simplify do loops
+            ! Note, however, that related multiplication factors must be zero
+            p_patch%cells%vertex_idx(ilc,ibc,6) = p_patch%cells%vertex_idx(ilc,ibc,5)
+            p_patch%cells%vertex_blk(ilc,ibc,6) = p_patch%cells%vertex_blk(ilc,ibc,5)
+          END IF
+        END DO
+      END DO
+    ENDIF
+    
+    ! p_patch%verts%edge_idx(:,:,:)
+    ! p_patch%verts%edge_blk(:,:,:)
+    CALL nf(nf_inq_varid(ncid, 'edges_of_vertex', varid))
+    IF (global_cell_type == 6) THEN ! hexagonal grid
+      CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1:6)))
+      DO ji = 1, 6
+        CALL reshape_idx( array_c_int(:,ji), p_patch%nblks_c, p_patch%npromz_c,  &
+          & p_patch%cells%edge_idx(:,:,ji),  &
+          & p_patch%cells%edge_blk(:,:,ji) )
+      END DO
+    ENDIF
+    
+    !
+    ! Set p_patch%cells%num_edges
+    !
+    IF (global_cell_type == 3) THEN ! triangular grid
+      
+      p_patch%cells%num_edges(:,:) = 3
+      
+    ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
+      p_patch%cells%num_edges(:,:) = 6
+      !
+      ! account for dummy edges arising in case of a pentagon
+      !
+      DO jc = 1, p_patch%n_patch_cells
+        DO jce = 1, 6
+          IF ( array_c_int(jc,jce) == 0 ) THEN
+            ibc = ( jc - 1 ) / nproma + 1
+            ilc = jc - ( ibc - 1 )*nproma
+            IF ( jce /= 6 ) THEN
+              p_patch%cells%edge_idx(ilc,ibc,jce) =  &
+                & p_patch%cells%edge_idx(ilc,ibc,6)
+              p_patch%cells%edge_blk(ilc,ibc,jce) =  &
+                & p_patch%cells%edge_blk(ilc,ibc,6)
+            END IF
+            ! Fill dummy edge with existing index to simplify do loops
+            ! Note, however, that related multiplication factors must be zero
+            p_patch%cells%edge_idx(ilc,ibc,6) = p_patch%cells%edge_idx(ilc,ibc,5)
+            p_patch%cells%edge_blk(ilc,ibc,6) = p_patch%cells%edge_blk(ilc,ibc,5)
+            ! set num_edges to 5
+            p_patch%cells%num_edges(ilc,ibc) = 5
+          END IF
+        END DO
+      END DO
+    ENDIF
+    
+    ! p_patch%verts%vertex(:,:)%lon
+    CALL nf(nf_inq_varid(ncid, 'longitude_vertices', varid))
+    IF (global_cell_type == 3) THEN ! triangular grid
+      CALL nf(nf_get_var_double(ncid, varid, array_v_real(:,1)))
+      CALL reshape_real( array_v_real(:,1), p_patch%nblks_v, p_patch%npromz_v,  &
+        & p_patch%verts%vertex(:,:)%lon )
+    ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
+      CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
+      CALL reshape_real( array_c_real(:,1), p_patch%nblks_c, p_patch%npromz_c,  &
+        & p_patch%cells%center(:,:)%lon )
+    ENDIF
+    
+    ! p_patch%verts%vertex(:,:)%lat
+    CALL nf(nf_inq_varid(ncid, 'latitude_vertices', varid))
+    IF (global_cell_type == 3) THEN ! triangular grid
+      CALL nf(nf_get_var_double(ncid, varid, array_v_real(:,1)))
+      CALL reshape_real( array_v_real(:,1), p_patch%nblks_v, p_patch%npromz_v,  &
+        & p_patch%verts%vertex(:,:)%lat )
+    ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
+      CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
+      CALL reshape_real( array_c_real(:,1), p_patch%nblks_c, p_patch%npromz_c,  &
+        & p_patch%cells%center(:,:)%lat )
+    ENDIF
+    
+    ! p_patch%verts%refin_ctrl(:,:)
+    CALL nf(nf_inq_varid(ncid, 'refin_v_ctrl', varid))
+    IF (global_cell_type == 3) THEN ! triangular grid
+      CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1)))
+      CALL reshape_int( array_v_int(:,1), p_patch%nblks_v, p_patch%npromz_v,  &
+        & p_patch%verts%refin_ctrl(:,:) )
+    ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
+      CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1)))
+      CALL reshape_int( array_c_int(:,1), p_patch%nblks_c, p_patch%npromz_c,  &
+        & p_patch%cells%refin_ctrl(:,:) )
+    ENDIF
+    
+    CALL nf(nf_close(ncid))
+    
+    
+    !
+    ! deallocate temporary arrays to read in data form the grid/patch generator
+    !
+    ! integer arrays
+    DEALLOCATE( array_c_int, array_e_int, array_v_int,  &
+      & stat=ist )
+    IF (ist /= success) THEN
+      CALL finish (TRIM(routine), 'deallocation for array_[cev]_int failed')
+    ENDIF
+    ! real arrays
+    DEALLOCATE( array_c_real, array_e_real, array_v_real,  &
+      & stat=ist )
+    IF (ist /= success) THEN
+      CALL finish (TRIM(routine), 'deallocation for array_[cev]_real failed')
+    ENDIF
+    ! index lists arrays
+    DEALLOCATE( start_idx_c, end_idx_c, start_idx_e, end_idx_e, start_idx_v, end_idx_v, &
+      & stat=ist )
+    IF (ist /= success) THEN
+      CALL finish (TRIM(routine), 'deallocation for array_[cev]_indlist failed')
+    ENDIF
+    
+    !
+    ! Set values which are needed for parallel runs
+    ! to the correct values for a single patch owner
+    !
+    p_patch%comm   = p_comm_work
+    p_patch%rank   = 0
+    p_patch%n_proc = 1
+    p_patch%proc0  = 0
+    
+    CALL message (TRIM(routine), 'read_patches finished')
+    
+  END SUBROUTINE read_basic_patch
+   !-------------------------------------------------------------------------
+ 
+  !-------------------------------------------------------------------------
+  !> Reads the remaining patch information into the divided patch
+  SUBROUTINE read_remaining_patch( ig, p_patch, n_lp, id_lp )
+    
+    INTEGER,       INTENT(in)    ::  ig       ! domain ID
+    TYPE(t_patch), INTENT(inout), TARGET ::  p_patch  ! patch data structure
+    INTEGER,       INTENT(in)    ::  n_lp     ! Number of local parents on the same level
+    INTEGER,       INTENT(in)    ::  id_lp(:) ! IDs of local parents on the same level
+    
+    INTEGER, ALLOCATABLE :: &
+      & array_c_int(:,:),  &  ! temporary arrays to read in integer values
+      & array_e_int(:,:),  &
+      & array_v_int(:,:)
+    
+    REAL(wp), ALLOCATABLE :: &
+      & array_c_real(:,:), &  ! temporary arrays to read in real values
+      & array_e_real(:,:), &
+      & array_v_real(:,:)
+    
+    ! status variable
+    INTEGER :: ist
+    
+    INTEGER :: ncid, varid
+    INTEGER :: ip, ji, jv
+    
+    TYPE(t_patch), POINTER :: p_p
+    
+    !-----------------------------------------------------------------------
+        
+    CALL message ('mo_model_domimp_patches:read_remaining_patch', &
+      & 'Read gridmap file '//TRIM(p_patch%grid_filename))
+    
+    CALL nf(nf_open(TRIM(p_patch%grid_filename), nf_nowrite, ncid))
+    
+    !
+    ! allocate temporary arrays to read in data form the grid/patch generator
+    !
+    ! integer arrays
+    ALLOCATE( array_c_int(p_patch%n_patch_cells_g,6),  &
+      & array_e_int(p_patch%n_patch_edges_g,6),  &
+      & array_v_int(p_patch%n_patch_verts_g,6),  &
+      & stat=ist )
+    IF (ist /= success) THEN
+      CALL finish ('mo_model_domain_import:read_patch',  &
+        & 'allocation for array_[cev]_int failed')
+    ENDIF
+    ! real arrays
+    ALLOCATE( array_c_real(p_patch%n_patch_cells_g,6),  &
+      & array_e_real(p_patch%n_patch_edges_g,6),  &
+      & array_v_real(p_patch%n_patch_verts_g,6),  &
+      & stat=ist )
+    IF (ist /= success) THEN
+      CALL finish ('mo_model_domain_import:read_patch',  &
+        & 'allocation for array_[cev]_real failed')
+    ENDIF
+    
+    ! p_p%cells%neighbor_idx(:,:,:)
+    ! p_p%cells%neighbor_blk(:,:,:)
+    CALL nf(nf_inq_varid(ncid, 'neighbor_cell_index', varid))
+    IF (global_cell_type == 6) THEN ! hexagonal grid
+      CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1:3)))
+      DO ji = 1, 3
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(ip)
+          CALL divide_idx( array_v_int(:,ji), p_p%n_patch_verts, p_p%verts%glb_index,  &
+            & p_p%verts%loc_index,             &
+            & p_p%verts%neighbor_idx(:,:,ji),  &
+            & p_p%verts%neighbor_blk(:,:,ji) )
+        END DO
+      END DO
+    ENDIF
+    
+    ! p_p%cells%edge_idx(:,:,:)
+    ! p_p%cells%edge_blk(:,:,:)
+    CALL nf(nf_inq_varid(ncid, 'edge_of_cell', varid))
+    IF (global_cell_type == 6) THEN ! hexagonal grid
+      CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1:3)))
+      DO ji = 1, 3
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(ip)
+          CALL divide_idx( array_v_int(:,ji), p_p%n_patch_verts, p_p%verts%glb_index,  &
+            & p_p%edges%loc_index,         &
+            & p_p%verts%edge_idx(:,:,ji),  &
+            & p_p%verts%edge_blk(:,:,ji) )
+        END DO
+      END DO
+    ENDIF
+    
+    ! p_p%cells%vertex_idx(:,:,:)
+    ! p_p%cells%vertex_blk(:,:,:)
+    CALL nf(nf_inq_varid(ncid, 'vertex_of_cell', varid))
+    IF (global_cell_type == 6) THEN ! hexagonal grid
+      CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1:3)))
+      DO ji = 1, 3
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(ip)
+          CALL divide_idx( array_v_int(:,ji), p_p%n_patch_verts, p_p%verts%glb_index,  &
+            & p_p%cells%loc_index,         &
+            & p_p%verts%cell_idx(:,:,ji),  &
+            & p_p%verts%cell_blk(:,:,ji) )
+        END DO
+      END DO
+    ENDIF
+    
+    ! p_p%cells%phys_id(:,:)
+    
+    CALL nf(nf_inq_varid(ncid, 'phys_cell_id', varid))
+    IF (global_cell_type == 3) THEN ! triangular grid
+      CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1)))
+      ! 'phys_cell_id' seems not to be set for patch 0 and 1, it is always ig in this case
+      IF(ig<=1) array_c_int(:,1) = ig
+      DO ip = 0, n_lp
+        p_p => get_patch_ptr(ip)
+        CALL divide_int( array_c_int(:,1), p_p%n_patch_cells, p_p%cells%glb_index,  &
+          & p_p%cells%phys_id(:,:) )
+      ENDDO
+    ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
+      ! phys_cell_id is not used for hexagonal grid
+      DO ip = 0, n_lp
+        p_p => get_patch_ptr(ip)
+        p_p%cells%phys_id(:,:) = ig
+      ENDDO
+    ENDIF
+    
+    ! p_p%cells%edge_orientation(:,:,:)
+    CALL nf(nf_inq_varid(ncid, 'orientation_of_normal', varid))
+    IF (global_cell_type == 3) THEN ! triangular grid
+      CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1:3)))
+      DO ji = 1, 3
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(ip)
+          CALL divide_real( REAL(array_c_int(:,ji),wp),            &
+            & p_p%n_patch_cells, p_p%cells%glb_index,     &
+            & p_p%cells%edge_orientation(:,:,ji) )
+        ENDDO
+      END DO
+    ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
+      CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1:3)))
+      DO ji = 1, 3
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(ip)
+          CALL divide_real( REAL(array_v_int(:,ji),wp),            &
+            & p_p%n_patch_verts, p_p%verts%glb_index,     &
+            & p_p%verts%edge_orientation(:,:,ji) )
+        ENDDO
+      END DO
+    ENDIF
+    
+    ! p_p%cells%area(:,:)
+    CALL nf(nf_inq_varid(ncid, 'cell_area_p', varid))
+    IF (global_cell_type == 3) THEN ! triangular grid
+      CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
+      DO ip = 0, n_lp
+        p_p => get_patch_ptr(ip)
+        CALL divide_real( array_c_real(:,1), p_p%n_patch_cells, p_p%cells%glb_index, &
+          & p_p%cells%area(:,:) )
+      ENDDO
+    ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
+      CALL nf(nf_get_var_double(ncid, varid, array_v_real(:,1)))
+      DO ip = 0, n_lp
+        p_p => get_patch_ptr(ip)
+        CALL divide_real( array_v_real(:,1), p_p%n_patch_verts, p_p%verts%glb_index, &
+          & p_p%verts%dual_area(:,:) )
+      ENDDO
+    ENDIF
+    
+    ! p_p%edges%phys_id(:,:)
+    CALL nf(nf_inq_varid(ncid, 'phys_edge_id', varid))
+    CALL nf(nf_get_var_int(ncid, varid, array_e_int(:,1)))
+    ! 'phys_edge_id' seems not to be set for patch 0 and 1, it is always ig in this case
+    IF(ig<=1) array_e_int(:,1) = ig
+    DO ip = 0, n_lp
+      p_p => get_patch_ptr(ip)
+      CALL divide_int( array_e_int(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
+        & p_p%edges%phys_id(:,:) )
+    ENDDO
+    
+    ! p_p%edges%cell_idx(:,:,:)
+    ! p_p%edges%cell_blk(:,:,:)
+    CALL nf(nf_inq_varid(ncid, 'adjacent_cell_of_edge', varid))
+    CALL nf(nf_get_var_int(ncid, varid, array_e_int(:,1:2)))
+    IF (global_cell_type == 3) THEN ! triangular grid
+      DO ji = 1, 2
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(ip)
+          CALL divide_idx( array_e_int(:,ji), p_p%n_patch_edges, p_p%edges%glb_index,  &
+            & p_p%cells%loc_index,         &
+            & p_p%edges%cell_idx(:,:,ji),  &
+            & p_p%edges%cell_blk(:,:,ji) )
+        END DO
+      END DO
+    ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
+      DO ji = 1, 2
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(ip)
+          CALL divide_idx( array_e_int(:,ji), p_p%n_patch_edges, p_p%edges%glb_index,  &
+            & p_p%verts%loc_index,         &
+            & p_p%edges%vertex_idx(:,:,ji),  &
+            & p_p%edges%vertex_blk(:,:,ji) )
+        END DO
+      END DO
+    ENDIF
+    
+    ! p_p%edges%vertex_idx(:,:,:)
+    ! p_p%edges%vertex_blk(:,:,:)
+    CALL nf(nf_inq_varid(ncid, 'edge_vertices', varid))
+    CALL nf(nf_get_var_int(ncid, varid, array_e_int(:,1:2)))
+    IF (global_cell_type == 3) THEN ! triangular grid
+      DO ji = 1, 2
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(ip)
+          CALL divide_idx( array_e_int(:,ji), p_p%n_patch_edges, p_p%edges%glb_index,  &
+            & p_p%verts%loc_index,         &
+            & p_p%edges%vertex_idx(:,:,ji),  &
+            & p_p%edges%vertex_blk(:,:,ji) )
+        END DO
+      END DO
+    ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
+      DO ji = 1, 2
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(ip)
+          CALL divide_idx( array_e_int(:,ji), p_p%n_patch_edges, p_p%edges%glb_index,  &
+            & p_p%cells%loc_index,         &
+            & p_p%edges%cell_idx(:,:,ji),  &
+            & p_p%edges%cell_blk(:,:,ji) )
+        END DO
+      END DO
+    ENDIF
+    
+    ! p_p%edges%system_orientation(:,:)
+    CALL nf(nf_inq_varid(ncid, 'edge_system_orientation', varid))
+    CALL nf(nf_get_var_int(ncid, varid, array_e_int(:,1)))
+    DO ip = 0, n_lp
+      p_p => get_patch_ptr(ip)
+      CALL divide_real( REAL(array_e_int(:,1),wp),            &
+        & p_p%n_patch_edges, p_p%edges%glb_index,    &
+        & p_p%edges%system_orientation(:,:) )
+    ENDDO
+    
+    ! p_p%edges%center(:,:)%lon
+    CALL nf(nf_inq_varid(ncid, 'lon_edge_centre', varid))
+    CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
+    DO ip = 0, n_lp
+      p_p => get_patch_ptr(ip)
+      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
+        & p_p%edges%center(:,:)%lon )
+    ENDDO
+    
+    ! p_p%edges%center(:,:)%lat
+    CALL nf(nf_inq_varid(ncid, 'lat_edge_centre', varid))
+    CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
+    DO ip = 0, n_lp
+      p_p => get_patch_ptr(ip)
+      CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
+        & p_p%edges%center(:,:)%lat )
+    ENDDO
+    
+    ! p_p%edges%primal_normal(:,:)%v1
+    CALL nf(nf_inq_varid(ncid, 'zonal_normal_primal_edge', varid))
+    CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
+    IF (global_cell_type == 3) THEN ! triangular grid
+      DO ip = 0, n_lp
+        p_p => get_patch_ptr(ip)
+        CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
+          & p_p%edges%primal_normal(:,:)%v1 )
+      ENDDO
+    ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
+      DO ip = 0, n_lp
+        p_p => get_patch_ptr(ip)
+        CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
+          & p_p%edges%dual_normal(:,:)%v1 )
+      ENDDO
+    ENDIF
+    
+    ! p_p%edges%primal_normal(:,:)%v2
+    CALL nf(nf_inq_varid(ncid, 'meridional_normal_primal_edge', varid))
+    CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
+    IF (global_cell_type == 3) THEN ! triangular grid
+      DO ip = 0, n_lp
+        p_p => get_patch_ptr(ip)
+        CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
+          & p_p%edges%primal_normal(:,:)%v2 )
+      ENDDO
+    ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
+      DO ip = 0, n_lp
+        p_p => get_patch_ptr(ip)
+        CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
+          & p_p%edges%dual_normal(:,:)%v2 )
+      ENDDO
+    ENDIF
+    
+    ! p_p%edges%dual_normal(:,:)%v1
+    CALL nf(nf_inq_varid(ncid, 'zonal_normal_dual_edge', varid))
+    CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
+    IF (global_cell_type == 3) THEN ! triangular grid
+      DO ip = 0, n_lp
+        p_p => get_patch_ptr(ip)
+        CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
+          & p_p%edges%dual_normal(:,:)%v1 )
+      ENDDO
+    ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
+      DO ip = 0, n_lp
+        p_p => get_patch_ptr(ip)
+        CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
+          & p_p%edges%primal_normal(:,:)%v1 )
+      ENDDO
+    ENDIF
+    
+    ! p_p%edges%dual_normal(:,:)%v2
+    CALL nf(nf_inq_varid(ncid, 'meridional_normal_dual_edge', varid))
+    CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
+    IF (global_cell_type == 3) THEN ! triangular grid
+      DO ip = 0, n_lp
+        p_p => get_patch_ptr(ip)
+        CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
+          & p_p%edges%dual_normal(:,:)%v2 )
+      ENDDO
+    ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
+      DO ip = 0, n_lp
+        p_p => get_patch_ptr(ip)
+        CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
+          & p_p%edges%primal_normal(:,:)%v2 )
+      ENDDO
+    ENDIF
+    
+    ! p_p%edges%primal_edge_length(:,:)
+    CALL nf(nf_inq_varid(ncid, 'edge_length', varid))
+    CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
+    IF (global_cell_type == 3) THEN ! triangular grid
+      DO ip = 0, n_lp
+        p_p => get_patch_ptr(ip)
+        CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
+          & p_p%edges%primal_edge_length(:,:) )
+      ENDDO
+    ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
+      DO ip = 0, n_lp
+        p_p => get_patch_ptr(ip)
+        CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
+          & p_p%edges%dual_edge_length(:,:) )
+      ENDDO
+    ENDIF
+    
+    ! p_p%edges%dual_edge_length(:,:)
+    CALL nf(nf_inq_varid(ncid, 'dual_edge_length', varid))
+    CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
+    IF (global_cell_type == 3) THEN ! triangular grid
+      DO ip = 0, n_lp
+        p_p => get_patch_ptr(ip)
+        CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
+          & p_p%edges%dual_edge_length(:,:) )
+      ENDDO
+    ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
+      DO ip = 0, n_lp
+        p_p => get_patch_ptr(ip)
+        CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
+          & p_p%edges%primal_edge_length(:,:) )
+      ENDDO
+    ENDIF
+    
+    ! p_p%edges%edge_vert_length(:,:)
+    CALL nf(nf_inq_varid(ncid, 'edge_vert_distance', varid))
+    CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1:2)))
+    IF (global_cell_type == 3) THEN ! triangular grid
+      DO ji = 1, 2
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(ip)
+          CALL divide_real( array_e_real(:,ji), p_p%n_patch_edges, p_p%edges%glb_index, &
+            & p_p%edges%edge_vert_length(:,:,ji) )
+        ENDDO
+      ENDDO
+    ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
+      DO ji = 1, 2
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(ip)
+          CALL divide_real( array_e_real(:,ji), p_p%n_patch_edges, p_p%edges%glb_index, &
+            & p_p%edges%edge_cell_length(:,:,ji) )
+        ENDDO
+      ENDDO
+    ENDIF
+    
+    ! p_p%edges%edge_cell_length(:,:)
+    CALL nf(nf_inq_varid(ncid, 'edge_cell_distance', varid))
+    CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1:2)))
+    IF (global_cell_type == 3) THEN ! triangular grid
+      DO ji = 1, 2
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(ip)
+          CALL divide_real( array_e_real(:,ji), p_p%n_patch_edges, p_p%edges%glb_index, &
+            & p_p%edges%edge_cell_length(:,:,ji) )
+        ENDDO
+      ENDDO
+    ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
+      DO ji = 1, 2
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(ip)
+          CALL divide_real( array_e_real(:,ji), p_p%n_patch_edges, p_p%edges%glb_index, &
+            & p_p%edges%edge_vert_length(:,:,ji) )
+        ENDDO
+      ENDDO
+    ENDIF
+    
+    ! p_p%verts%neighbor_idx(:,:,:)
+    ! p_p%verts%neighbor_blk(:,:,:)
+    CALL nf(nf_inq_varid(ncid, 'vertices_of_vertex', varid))
+    IF (global_cell_type == 3) THEN ! triangular grid
+      CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1:6)))
+      DO ji = 1, 6
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(ip)
+          CALL divide_idx( array_v_int(:,ji), p_p%n_patch_verts, p_p%verts%glb_index,  &
+            & p_p%verts%loc_index,             &
+            & p_p%verts%neighbor_idx(:,:,ji),  &
+            & p_p%verts%neighbor_blk(:,:,ji) )
+        END DO
+      END DO
+    ENDIF
+    
+    ! p_p%verts%cell_idx(:,:,:)
+    ! p_p%verts%cell_blk(:,:,:)
+    CALL nf(nf_inq_varid(ncid, 'cells_of_vertex', varid))
+    IF (global_cell_type == 3) THEN ! triangular grid
+      CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1:6)))
+      !
+      ! account for dummy cells arising in case of a pentagon
+      ! Fill dummy cell with existing index to simplify do loops
+      ! Note, however, that related multiplication factors must be zero
+      CALL move_dummies_to_end(array_v_int, .TRUE.)
+      !
+      DO ji = 1, 6
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(ip)
+          CALL divide_idx( array_v_int(:,ji), p_p%n_patch_verts, p_p%verts%glb_index,  &
+            & p_p%cells%loc_index,         &
+            & p_p%verts%cell_idx(:,:,ji),  &
+            & p_p%verts%cell_blk(:,:,ji) )
+        END DO
+      END DO
+    ENDIF
+    
+    ! p_p%verts%edge_idx(:,:,:)
+    ! p_p%verts%edge_blk(:,:,:)
+    CALL nf(nf_inq_varid(ncid, 'edges_of_vertex', varid))
+    IF (global_cell_type == 3) THEN ! triangular grid
+      CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1:6)))
+      !
+      ! Set verts%num_edges (in array_v_real(:,1))
+      DO jv = 1, p_p%n_patch_verts_g
+        IF(ANY(array_v_int(jv,:) == 0)) THEN
+          array_v_real(jv,1) = 5._wp
+        ELSE
+          array_v_real(jv,1) = 6._wp
+        ENDIF
+      END DO
+      ! account for dummy cells arising in case of a pentagon
+      ! Fill dummy cell with existing index to simplify do loops
+      ! Note, however, that related multiplication factors must be zero
+      CALL move_dummies_to_end(array_v_int, .TRUE.)
+      !
+      DO ji = 1, 6
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(ip)
+          CALL divide_idx( array_v_int(:,ji), p_p%n_patch_verts, p_p%verts%glb_index,  &
+            & p_p%edges%loc_index,         &
+            & p_p%verts%edge_idx(:,:,ji),  &
+            & p_p%verts%edge_blk(:,:,ji) )
+        END DO
+      END DO
+      
+      array_v_int(:,1) = INT(array_v_real(:,1))
+      DO ip = 0, n_lp
+        p_p => get_patch_ptr(ip)
+        CALL divide_int( array_v_int(:,1), p_p%n_patch_verts, p_p%verts%glb_index,  &
+          & p_p%verts%num_edges(:,:) )
+      ENDDO
+      
+    ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
+      
+      p_p%verts%num_edges(:,:) = 3
+      
+    ENDIF
+        
+    ! p_p%verts%edge_orientation(:,:,:)
+    CALL nf(nf_inq_varid(ncid, 'edge_orientation', varid))
+    IF (global_cell_type == 3) THEN ! triangular grid
+      CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1:6)))
+      ! move dummy edges to end and set edge orientation to zero
+      CALL move_dummies_to_end(array_v_int, .FALSE.)
+      DO ji = 1, 6
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(ip)
+          CALL divide_real( REAL(array_v_int(:,ji),wp),            &
+            & p_p%n_patch_verts, p_p%verts%glb_index,     &
+            & p_p%verts%edge_orientation(:,:,ji) )
+        END DO
+      END DO
+    ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
+      CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1:6)))
+      ! move dummy edges to end and set edge orientation to zero
+      CALL move_dummies_to_end(array_c_int, .FALSE.)
+      DO ji = 1, 6
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(ip)
+          CALL divide_real( REAL(array_c_int(:,ji),wp),            &
+            & p_p%n_patch_cells, p_p%cells%glb_index,     &
+            & p_p%cells%edge_orientation(:,:,ji) )
+        END DO
+      END DO
+    ENDIF
+    
+    ! p_p%verts%dual_area(:,:)
+    CALL nf(nf_inq_varid(ncid, 'dual_area_p', varid))
+    IF (global_cell_type == 3) THEN ! triangular grid
+      CALL nf(nf_get_var_double(ncid, varid, array_v_real(:,1)))
+      DO ip = 0, n_lp
+        p_p => get_patch_ptr(ip)
+        CALL divide_real( array_v_real(:,1), p_p%n_patch_verts, p_p%verts%glb_index, &
+          & p_p%verts%dual_area(:,:) )
+      ENDDO
+    ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
+      CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
+      DO ip = 0, n_lp
+        p_p => get_patch_ptr(ip)
+        CALL divide_real( array_c_real(:,1), p_p%n_patch_cells, p_p%cells%glb_index, &
+          & p_p%cells%area(:,:) )
+      ENDDO
+    ENDIF
+    
+    CALL nf(nf_close(ncid))
+        
+        
+    !
+    ! deallocate temporary arrays to read in data form the grid/patch generator
+    !
+    ! integer arrays
+    DEALLOCATE( array_c_int, array_e_int, array_v_int,  &
+      & stat=ist )
+    IF (ist /= success) THEN
+      CALL finish ('mo_model_domain_import:read_remaining_patch',  &
+        & 'deallocation for array_[cev]_int failed')
+    ENDIF
+    ! real arrays
+    DEALLOCATE( array_c_real, array_e_real, array_v_real,  &
+      & stat=ist )
+    IF (ist /= success) THEN
+      CALL finish ('mo_model_domain_import:read_remaining_patch',  &
+        & 'deallocation for array_[cev]_real failed')
+    ENDIF
+    
+    CALL message ('mo_model_domimp_patches:read_remaining_patch', 'read finished')
+    
+  !-------------------------------------------------------------------------
+  CONTAINS
+    
+    !-------------------------------------------------------------------------
+    ! get_patch_ptr returns a pointer to p_patch for idx=0,
+    ! a pointer to a local parent patch from the list otherwise
+    FUNCTION get_patch_ptr(idx) result(patch_ptr)
+      TYPE(t_patch), POINTER :: patch_ptr
+      INTEGER, INTENT(in)    :: idx
+      
+      IF (idx==0) THEN
+        patch_ptr => p_patch
+      ELSE
+        patch_ptr => p_patch_local_parent(id_lp(idx))
+      ENDIF
+    END FUNCTION get_patch_ptr
+    !-------------------------------------------------------------------------
+   
+    !-------------------------------------------------------------------------
+    ! Checks for the pentagon case and moves dummy cells to end.
+    ! The dummy entry is either set to 0 or duplicated from the last one
+    SUBROUTINE move_dummies_to_end(array, duplicate)
+      
+      INTEGER, INTENT(inout) :: array(:,:)
+      LOGICAL, INTENT(in) :: duplicate
+      
+      INTEGER :: j, je
+      
+      DO j = 1, UBOUND(array,1)
+        DO je = 1, 6
+          IF (array(j,je) == 0) THEN
+            IF ( je /= 6 ) array(j,je) = array(j,6)
+            IF ( duplicate ) THEN
+              array(j,6) = array(j,5)
+            ELSE
+              array(j,6) = 0
+            ENDIF
+            EXIT
+          END IF
+        END DO
+      END DO
+      
+    END SUBROUTINE move_dummies_to_end
+    !-------------------------------------------------------------------------
+    
+  END SUBROUTINE read_remaining_patch
+  !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
+  !>
+  !! Divide and reshape (for blocking) a real array
+  !!
+  !! @par Revision History
+  !! Developed  by Rainer Johanni (2011-12-04)
+  !!
+  SUBROUTINE divide_real( p_real_array_in, nvals, glb_index, &
+    & p_divided_real_array_out )
+    
+    ! input array
+    REAL(wp), INTENT(in):: p_real_array_in(:)
+    ! number of values
+    INTEGER, INTENT(in) :: nvals
+    ! global index of values
+    INTEGER, INTENT(in) :: glb_index(:)
+    ! output array
+    REAL(wp), INTENT(inout) :: p_divided_real_array_out(:,:)
+    
+    INTEGER nblks, npromz, n, nlen, jb, jl
+    
+    nblks  = (nvals-1)/nproma + 1
+    npromz = nvals - (nblks-1)*nproma
+    
+    n = 0
+    DO jb = 1, nblks
+      
+      IF (jb /= nblks) THEN
+        nlen = nproma
+      ELSE
+        nlen = npromz
+      END IF
+      
+      DO jl = 1, nlen
+        n = n+1
+        p_divided_real_array_out(jl,jb) = p_real_array_in(glb_index(n))
+      END DO
+      
+    END DO
+    
+  END SUBROUTINE divide_real
+  !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
+  !>
+  !! Divide and reshape (for blocking) a integer array
+  !!
+  !! @par Revision History
+  !! Developed  by Rainer Johanni (2011-12-04)
+  !!
+  SUBROUTINE divide_int( p_int_array_in, nvals, glb_index, &
+    & p_divided_int_array_out )
+    
+    ! input array
+    INTEGER, INTENT(in):: p_int_array_in(:)
+    ! number of values
+    INTEGER, INTENT(in) :: nvals
+    ! global index of values
+    INTEGER, INTENT(in) :: glb_index(:)
+    ! output array
+    INTEGER, INTENT(inout) :: p_divided_int_array_out(:,:)
+    
+    INTEGER nblks, npromz, n, nlen, jb, jl
+    
+    nblks  = (nvals-1)/nproma + 1
+    npromz = nvals - (nblks-1)*nproma
+    
+    n = 0
+    DO jb = 1, nblks
+      
+      IF (jb /= nblks) THEN
+        nlen = nproma
+      ELSE
+        nlen = npromz
+      END IF
+      
+      DO jl = 1, nlen
+        n = n+1
+        p_divided_int_array_out(jl,jb) = p_int_array_in(glb_index(n))
+      END DO
+      
+    END DO
+    
+  END SUBROUTINE divide_int
+  !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
+  !>
+  !! Divide and reshape (for blocking) a index array
+  !!
+  !! @par Revision History
+  !! Developed  by Rainer Johanni (2011-12-04)
+  !!
+  SUBROUTINE divide_idx( p_idx_array_in, nvals, glb_index, loc_index, &
+    & idx_array_out, blk_array_out )
+    
+    ! input array
+    INTEGER, INTENT(in):: p_idx_array_in(:)
+    ! number of values
+    INTEGER, INTENT(in) :: nvals
+    ! global index of values
+    INTEGER, INTENT(in) :: glb_index(:)
+    ! local index
+    INTEGER, INTENT(in) :: loc_index(:)
+    ! output array
+    INTEGER, INTENT(inout) :: idx_array_out(:,:), blk_array_out(:,:)
+    
+    INTEGER nblks, npromz, n, nlen, jb, jl, j_g, j_l
+    
+    nblks  = (nvals-1)/nproma + 1
+    npromz = nvals - (nblks-1)*nproma
+    
+    n = 0
+    DO jb = 1, nblks
+      
+      IF (jb /= nblks) THEN
+        nlen = nproma
+      ELSE
+        nlen = npromz
+      END IF
+      
+      DO jl = 1, nlen
+        n = n+1
+        ! get global index in divided array
+        j_g = p_idx_array_in(glb_index(n))
+        IF(j_g < 1 .OR. j_g > UBOUND(loc_index,1)) THEN
+          ! Just for safety, this should not happen, set result to 0
+          idx_array_out(jl,jb) = idx_no(0)
+          blk_array_out(jl,jb) = blk_no(0)
+        ELSE
+          ! get local index
+          j_l = loc_index(j_g)
+          ! handle values outside local domain in the same way as get_local_index
+          IF(j_l < 0) j_l = -j_g
+          idx_array_out(jl,jb) = idx_no(j_l)
+          blk_array_out(jl,jb) = blk_no(j_l)
+        ENDIF
+      END DO
+      
+    END DO
+    
+  END SUBROUTINE divide_idx
+  !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
+  !>
+  !!               reshape an integer index array for the blocking.
+  !!
+  !! @par Revision History
+  !! Developed  by  Jochen Foerstner, DWD (2008-10-21)
+  !!
+  SUBROUTINE reshape_idx( p_idx_array_in, nblks, npromz,  &
+    & p_reshaped_idx_array_out,       &
+    & p_reshaped_blk_array_out )
+    
+    
+    
+    ! input index array
+    INTEGER, INTENT(in) :: p_idx_array_in(:)
+    ! number of blocks
+    INTEGER, INTENT(in) :: nblks
+    ! chunk length
+    INTEGER, INTENT(in) :: npromz
+    
+    ! output line index array
+    INTEGER, INTENT(inout) :: p_reshaped_idx_array_out(:,:)
+    ! output block index array
+    INTEGER, INTENT(inout) :: p_reshaped_blk_array_out(:,:)
+    
+    INTEGER :: nlen
+    INTEGER :: jl, jb
+    INTEGER :: il, idx_in, idx, blk
+    
+    !-----------------------------------------------------------------------
+    
+    DO jb = 1, nblks
+      
+      IF (jb /= nblks) THEN
+        nlen = nproma
+      ELSE
+        nlen = npromz
+        DO jl = npromz+1, nproma
+          p_reshaped_idx_array_out(jl,nblks) = 0
+          p_reshaped_blk_array_out(jl,nblks) = 0
+        END DO
+      END IF
+      
+      DO jl = 1, nlen
+        il  = jl + ( jb - 1 )*nproma
+        idx_in = p_idx_array_in(il)
+        blk = ( ABS(idx_in) - 1 ) / nproma + 1
+        idx = SIGN( ABS(idx_in) - ( blk - 1 )*nproma, idx_in )
+        p_reshaped_idx_array_out(jl,jb) = idx
+        p_reshaped_blk_array_out(jl,jb) = blk
+      END DO
+      
+    END DO
+    
+  END SUBROUTINE reshape_idx  
+  !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
+  !>
+  !!               reshape an index list array for the blocking.
+  !!
+  !! @par Revision History
+  !! Developed  by Guenther Zaengl, DWD (2008-10-23)
+  !!
+  SUBROUTINE reshape_indlist( indlist_in,                     &
+    & start_idx_out, start_blk_out,   &
+    & end_idx_out,   end_blk_out )
+    
+    
+    
+    ! input index array
+    INTEGER, INTENT(in) :: indlist_in(:,:)
+    
+    ! output line index array
+    INTEGER, INTENT(inout) :: start_idx_out(:,:), end_idx_out(:,:)
+    ! output block index array
+    INTEGER, INTENT(inout) :: start_blk_out(:,:), end_blk_out(:,:)
+    
+    !-----------------------------------------------------------------------
+    
+    start_blk_out(:,1) = (indlist_in(:,1) - 1) / nproma + 1
+    start_idx_out(:,1) =  indlist_in(:,1) - (start_blk_out(:,1) - 1) * nproma
+    
+    end_blk_out(:,1) = (indlist_in(:,2) - 1) / nproma + 1
+    end_idx_out(:,1) =  indlist_in(:,2) - (end_blk_out(:,1) - 1) * nproma
+    
+    
+  END SUBROUTINE reshape_indlist
+  !-------------------------------------------------------------------------  
+  
+  !-------------------------------------------------------------------------
+  !>
+  !!               reshape the start_idx / end_idx fields for blocking.
+  !!
+  !! @par Revision History
+  !! Developed  by Guenther Zaengl, DWD (2009-07-22)
+  !!
+  SUBROUTINE reshape_idx_list( indlist_in, idx_out, blk_out )
+    
+    
+    
+    ! input index array
+    INTEGER, INTENT(in) :: indlist_in(:,:)
+    
+    ! output line index array
+    INTEGER, INTENT(inout) :: idx_out(:,:)
+    ! output block index array
+    INTEGER, INTENT(inout) :: blk_out(:,:)
+    
+    !-----------------------------------------------------------------------
+    
+    blk_out(:,1:max_childdom) = (indlist_in(:,1:max_childdom) - 1) / nproma + 1
+    idx_out(:,1:max_childdom) =  indlist_in(:,1:max_childdom) - &
+      & (blk_out(:,1:max_childdom) - 1) * nproma
+    
+  END SUBROUTINE reshape_idx_list  
+  !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
+  !>
+  !!               Deallocation of all memory that was allocated
+  !!               to store the patch information of all levels.
+  !!
+  !! @par Revision History
+  !! Developed  by  Peter Korn, MPI-M (2005).
+  !! Modification by Almut Gassmann, MPI-M (2007-04-04)
+  !! - adaptations for new multiple patch structure, cleaning up
+  !! Modification by Almut Gassmann, MPI-M (2007-04-19)
+  !! - grid information belong here
+  !! Modification by Almut Gassmann, MPI-M (2008-10-30)
+  !! - add Coriolis destruction
+  !!
+  SUBROUTINE deallocate_patch( p_patch )
+    
+    TYPE(t_patch), TARGET, INTENT(inout) :: p_patch
+    
+    !local variables
+    INTEGER :: ist
+    !-----------------------------------------------------------------------    
+    !
+    ! Deallocate grid information
+    !
+    ! CELLS
+    DEALLOCATE( p_patch%cells%num_edges,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch cell index failed')
+    ENDIF
+    DEALLOCATE( p_patch%cells%parent_idx,  &
+      & p_patch%cells%parent_blk,  &
+      & p_patch%cells%pc_idx,      &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch cell parent index failed')
+    ENDIF
+    DEALLOCATE( p_patch%cells%child_idx,  &
+      & p_patch%cells%child_blk,  &
+      & p_patch%cells%child_id,   &
+      & p_patch%cells%phys_id,    &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch cell child index failed')
+    ENDIF
+    DEALLOCATE( p_patch%cells%neighbor_idx,  &
+      & p_patch%cells%neighbor_blk,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch cell neighbor index failed')
+    ENDIF
+    DEALLOCATE( p_patch%cells%edge_idx,  &
+      & p_patch%cells%edge_blk,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch cell edge index failed')
+    ENDIF
+    DEALLOCATE( p_patch%cells%vertex_idx,  &
+      & p_patch%cells%vertex_blk,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch cell vertex index failed')
+    ENDIF
+    DEALLOCATE( p_patch%cells%edge_orientation,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch cell edge_orientation failed')
+    ENDIF
+    DEALLOCATE( p_patch%cells%center,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch cell center failed')
+    ENDIF
+    DEALLOCATE( p_patch%cells%area,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch cell area failed')
+    ENDIF
+    DEALLOCATE( p_patch%cells%f_c,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch cell f_c failed')
+    ENDIF
+    DEALLOCATE( p_patch%cells%refin_ctrl,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch cell refin_ctrl failed')
+    ENDIF
+    DEALLOCATE( p_patch%cells%start_idx,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch cell start_idx failed')
+    ENDIF
+    DEALLOCATE( p_patch%cells%end_idx,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch cell end_idx failed')
+    ENDIF
+    DEALLOCATE( p_patch%cells%start_blk,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch cell start_blk failed')
+    ENDIF
+    DEALLOCATE( p_patch%cells%end_blk,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch cell end_blk failed')
+    ENDIF
+    DEALLOCATE( p_patch%cells%decomp_domain,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch cell decomp_domain failed')
+    ENDIF
+    DEALLOCATE( p_patch%cells%owner_mask,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch cell owner_mask failed')
+    ENDIF
+    DEALLOCATE( p_patch%cells%glb_index,  &
+      & p_patch%cells%loc_index,  &
+      & p_patch%cells%owner_local,  &
+      & p_patch%cells%owner_g,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch cell data failed')
+    ENDIF
+    !
+    !
+    ! EDGES
+    DEALLOCATE( p_patch%edges%parent_idx,  &
+      & p_patch%edges%parent_blk,  &
+      & p_patch%edges%pc_idx,      &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch edge parent index failed')
+    ENDIF
+    DEALLOCATE( p_patch%edges%child_idx,  &
+      & p_patch%edges%child_blk,  &
+      & p_patch%edges%child_id,   &
+      & p_patch%edges%phys_id,    &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch edge child index failed')
+    ENDIF
+    DEALLOCATE( p_patch%edges%cell_idx,  &
+      & p_patch%edges%cell_blk,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch edge cell index failed')
+    ENDIF
+    DEALLOCATE( p_patch%edges%vertex_idx,  &
+      & p_patch%edges%vertex_blk,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch edge vertex index failed')
+    ENDIF
+    DEALLOCATE( p_patch%edges%system_orientation,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch edge system orientation failed')
+    ENDIF
+    DEALLOCATE( p_patch%edges%quad_idx,  &
+      & p_patch%edges%quad_blk,  &
+      & stat=ist)
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch edge quad index failed')
+    ENDIF
+    DEALLOCATE( p_patch%edges%quad_orientation,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch edge quad orientation failed')
+    ENDIF
+    DEALLOCATE( p_patch%edges%center,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch edge center failed')
+    ENDIF
+    DEALLOCATE( p_patch%edges%primal_normal,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch edge primal_normal failed')
+    ENDIF
+    DEALLOCATE( p_patch%edges%primal_cart_normal,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch edge primal_cart_normal failed')
+    ENDIF
+    DEALLOCATE( p_patch%edges%dual_normal,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch edge dual_normal failed')
+    ENDIF
+    DEALLOCATE( p_patch%edges%dual_cart_normal,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch edge dual_cart_normal failed')
+    ENDIF
+    DEALLOCATE( p_patch%edges%primal_normal_cell,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch edge primal_normal_cell failed')
+    ENDIF
+    DEALLOCATE( p_patch%edges%dual_normal_cell,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch edge dual_normal_cell failed')
+    ENDIF
+    DEALLOCATE( p_patch%edges%primal_normal_vert,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch edge primal_normal_vert failed')
+    ENDIF
+    DEALLOCATE( p_patch%edges%dual_normal_vert,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch edge dual_normal_vert failed')
+    ENDIF
+    DEALLOCATE( p_patch%edges%primal_edge_length,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch edge primal edge length failed')
+    ENDIF
+    DEALLOCATE( p_patch%edges%inv_primal_edge_length,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for inverse patch edge primal edge length failed')
+    ENDIF
+    DEALLOCATE( p_patch%edges%dual_edge_length,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch edge dual edge length failed')
+    ENDIF
+    DEALLOCATE( p_patch%edges%inv_dual_edge_length,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for inverse patch edge dual edge length failed')
+    ENDIF
+    DEALLOCATE( p_patch%edges%edge_vert_length,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for edge_vert_length failed')
+    ENDIF
+    DEALLOCATE( p_patch%edges%inv_vert_vert_length,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for inverse vert_vert_length failed')
+    ENDIF
+    DEALLOCATE( p_patch%edges%edge_cell_length,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for edge_cell_length failed')
+    ENDIF
+    DEALLOCATE( p_patch%edges%area_edge,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch edge area_edge failed')
+    ENDIF
+    DEALLOCATE( p_patch%edges%quad_area,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch edge quad area failed')
+    ENDIF
+    DEALLOCATE( p_patch%edges%f_e,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch edge f_e failed')
+    ENDIF
+    DEALLOCATE( p_patch%edges%refin_ctrl,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch edge refin_ctrl failed')
+    ENDIF
+    DEALLOCATE( p_patch%edges%start_idx,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch edge start_idx failed')
+    ENDIF
+    DEALLOCATE( p_patch%edges%end_idx,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch edge end_idx failed')
+    ENDIF
+    DEALLOCATE( p_patch%edges%start_blk,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch edge start_blk failed')
+    ENDIF
+    DEALLOCATE( p_patch%edges%end_blk,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch edge end_blk failed')
+    ENDIF
+    DEALLOCATE( p_patch%edges%decomp_domain,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch edge decomp_domain failed')
+    ENDIF
+    DEALLOCATE( p_patch%edges%owner_mask,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch edge owner_mask failed')
+    ENDIF
+    DEALLOCATE( p_patch%edges%glb_index,  &
+      & p_patch%edges%loc_index,  &
+      & p_patch%edges%owner_local,  &
+      & p_patch%edges%owner_g,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch edge data failed')
+    ENDIF
+    !
+    !
+    ! VERTICES
+    DEALLOCATE( p_patch%verts%neighbor_idx,  &
+      & p_patch%verts%neighbor_blk,  &
+      & p_patch%verts%phys_id,       &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch vertex neighbor index failed')
+    ENDIF
+    DEALLOCATE( p_patch%verts%cell_idx,  &
+      & p_patch%verts%cell_blk,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch vertex cell index failed')
+    ENDIF
+    DEALLOCATE( p_patch%verts%edge_idx,  &
+      & p_patch%verts%edge_blk,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch vertex edge index failed')
+    ENDIF
+    DEALLOCATE( p_patch%verts%edge_orientation,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch vertex edge orientation failed')
+    ENDIF
+    DEALLOCATE( p_patch%verts%num_edges,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch vertex number of edges failed')
+    ENDIF
+    DEALLOCATE( p_patch%verts%vertex,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch vertex vertex failed')
+    ENDIF
+    DEALLOCATE( p_patch%verts%dual_area,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch vertex dual area failed')
+    ENDIF
+    DEALLOCATE( p_patch%verts%f_v,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch vertex f_v failed')
+    ENDIF
+    DEALLOCATE( p_patch%verts%refin_ctrl,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch vertex edge refin_ctrl failed')
+    ENDIF
+    DEALLOCATE( p_patch%verts%start_idx,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch vertex edge start_idx failed')
+    ENDIF
+    DEALLOCATE( p_patch%verts%end_idx,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch vertex edge end_idx failed')
+    ENDIF
+    DEALLOCATE( p_patch%verts%start_blk,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch vertex edge start_blk failed')
+    ENDIF
+    DEALLOCATE( p_patch%verts%end_blk,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch vertex edge end_blk failed')
+    ENDIF
+    DEALLOCATE( p_patch%verts%decomp_domain,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch vert decomp_domain failed')
+    ENDIF
+    DEALLOCATE( p_patch%verts%owner_mask,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch vert owner_mask failed')
+    ENDIF
+    DEALLOCATE( p_patch%verts%glb_index,  &
+      & p_patch%verts%loc_index,  &
+      & p_patch%verts%owner_local,  &
+      & p_patch%verts%owner_g,  &
+      & stat=ist )
+    IF(ist/=success)THEN
+      CALL finish  ('mo_model_domain_import:destruct_patches', &
+        & 'deallocate for patch vert data failed')
+    ENDIF
+    
+  END SUBROUTINE deallocate_patch
+  !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
+  !> destruct_patches: Calls destruct_patch in a loop  
+  SUBROUTINE destruct_patches( p_patch )
+    
+    TYPE(t_patch), TARGET, INTENT(inout) :: p_patch(n_dom_start:)
+    
+    CHARACTER(LEN=max_char_length), PARAMETER :: &
+      & routine = 'mo_model_domimp_patches:destruct_patches'
+    
+    !local variables
+    INTEGER :: jg
+    !-----------------------------------------------------------------------
+    
+    CALL message (TRIM(routine), 'start')
+    
+    grid_level_loop: DO jg = n_dom_start, n_dom
+      
+      CALL deallocate_patch(p_patch(jg))
+      
+    END DO grid_level_loop
+    
+    CALL message (routine, 'destruct_patches finished')
+    
+  END SUBROUTINE destruct_patches  
+  !-------------------------------------------------------------------------
+  !-------------------------------------------------------------------------
+  !> Allocates all arrays in a basic patch
+  !! These are the arrays which have to be read in full size on every PE
+  !! since they are needed for domain decomposition.
+  !!
+  !! @par Revision History
+  !! Initial version (split out from read_patch) Rainer Johanni, Oct. 2010
+  !! Split into allocate_basic_patch/allocate_remaining_patch, Rainer Johanni, Nov. 2011
+  !!
+  SUBROUTINE allocate_basic_patch(p_patch)
+    
+    TYPE(t_patch), INTENT(inout) :: p_patch
+    
+    INTEGER :: max_childdom
+    
+    ! Please note: The following variables in the patch MUST already be set:
+    ! - nblks_c
+    ! - nblks_e
+    ! - nblks_v
+    ! - n_patch_cells
+    ! - n_patch_edges
+    ! - n_patch_verts
+    ! - n_patch_cells_g
+    ! - n_patch_edges_g
+    ! - n_patch_verts_g
+    ! - max_childdom
+    
+    p_patch%cell_type = global_cell_type
+    max_childdom = p_patch%max_childdom
+    
+    !
+    ! !grid cells
+    !
+    ALLOCATE( p_patch%cells%num_edges(nproma,p_patch%nblks_c) )
+    ALLOCATE( p_patch%cells%parent_idx(nproma,p_patch%nblks_c) )
+    ALLOCATE( p_patch%cells%parent_blk(nproma,p_patch%nblks_c) )
+    ALLOCATE( p_patch%cells%pc_idx(nproma,p_patch%nblks_c) )
+    ALLOCATE( p_patch%cells%child_idx(nproma,p_patch%nblks_c,4) )
+    ALLOCATE( p_patch%cells%child_blk(nproma,p_patch%nblks_c,4) )
+    ALLOCATE( p_patch%cells%child_id(nproma,p_patch%nblks_c) )
+    ALLOCATE( p_patch%cells%neighbor_idx(nproma,p_patch%nblks_c,p_patch%cell_type) )
+    ALLOCATE( p_patch%cells%neighbor_blk(nproma,p_patch%nblks_c,p_patch%cell_type) )
+    ALLOCATE( p_patch%cells%edge_idx(nproma,p_patch%nblks_c,p_patch%cell_type) )
+    ALLOCATE( p_patch%cells%edge_blk(nproma,p_patch%nblks_c,p_patch%cell_type) )
+    ALLOCATE( p_patch%cells%vertex_idx(nproma,p_patch%nblks_c,p_patch%cell_type) )
+    ALLOCATE( p_patch%cells%vertex_blk(nproma,p_patch%nblks_c,p_patch%cell_type) )
+    ALLOCATE( p_patch%cells%center(nproma,p_patch%nblks_c) )
+    ALLOCATE( p_patch%cells%refin_ctrl(nproma,p_patch%nblks_c) )
+    ALLOCATE( p_patch%cells%start_idx(min_rlcell:max_rlcell,max_childdom) )
+    ALLOCATE( p_patch%cells%end_idx(min_rlcell:max_rlcell,max_childdom) )
+    ALLOCATE( p_patch%cells%start_blk(min_rlcell:max_rlcell,max_childdom) )
+    ALLOCATE( p_patch%cells%end_blk(min_rlcell:max_rlcell,max_childdom) )
+    
+    !
+    ! !grid edges
+    !
+    ALLOCATE( p_patch%edges%parent_idx(nproma,p_patch%nblks_e) )
+    ALLOCATE( p_patch%edges%parent_blk(nproma,p_patch%nblks_e) )
+    ALLOCATE( p_patch%edges%pc_idx(nproma,p_patch%nblks_e) )
+    ALLOCATE( p_patch%edges%child_idx(nproma,p_patch%nblks_e,4) )
+    ALLOCATE( p_patch%edges%child_blk(nproma,p_patch%nblks_e,4) )
+    ALLOCATE( p_patch%edges%child_id(nproma,p_patch%nblks_e) )
+    ALLOCATE( p_patch%edges%refin_ctrl(nproma,p_patch%nblks_e) )
+    ALLOCATE( p_patch%edges%start_idx(min_rledge:max_rledge,max_childdom) )
+    ALLOCATE( p_patch%edges%end_idx(min_rledge:max_rledge,max_childdom) )
+    ALLOCATE( p_patch%edges%start_blk(min_rledge:max_rledge,max_childdom) )
+    ALLOCATE( p_patch%edges%end_blk(min_rledge:max_rledge,max_childdom) )
+    
+    !
+    ! !grid verts
+    !
+    ALLOCATE( p_patch%verts%vertex(nproma,p_patch%nblks_v) )
+    ALLOCATE( p_patch%verts%refin_ctrl(nproma,p_patch%nblks_v) )
+    ALLOCATE( p_patch%verts%start_idx(min_rlvert:max_rlvert,max_childdom) )
+    ALLOCATE( p_patch%verts%end_idx(min_rlvert:max_rlvert,max_childdom) )
+    ALLOCATE( p_patch%verts%start_blk(min_rlvert:max_rlvert,max_childdom) )
+    ALLOCATE( p_patch%verts%end_blk(min_rlvert:max_rlvert,max_childdom) )
+    
+    ! Set all newly allocated arrays to 0
+    
+    p_patch%cells%num_edges = 0
+    p_patch%cells%parent_idx = 0
+    p_patch%cells%parent_blk = 0
+    p_patch%cells%pc_idx = 0
+    p_patch%cells%child_idx = 0
+    p_patch%cells%child_blk = 0
+    p_patch%cells%child_id = 0
+    p_patch%cells%neighbor_idx = 0
+    p_patch%cells%neighbor_blk = 0
+    p_patch%cells%edge_idx = 0
+    p_patch%cells%edge_blk = 0
+    p_patch%cells%vertex_idx = 0
+    p_patch%cells%vertex_blk = 0
+    p_patch%cells%center(:,:)%lon = 0._wp
+    p_patch%cells%center(:,:)%lat = 0._wp
+    p_patch%cells%refin_ctrl = 0
+    p_patch%cells%start_idx = 0
+    p_patch%cells%end_idx = 0
+    p_patch%cells%start_blk = 0
+    p_patch%cells%end_blk = 0
+    
+    p_patch%edges%parent_idx = 0
+    p_patch%edges%parent_blk = 0
+    p_patch%edges%pc_idx = 0
+    p_patch%edges%child_idx = 0
+    p_patch%edges%child_blk = 0
+    p_patch%edges%child_id = 0
+    p_patch%edges%refin_ctrl = 0
+    p_patch%edges%start_idx = 0
+    p_patch%edges%end_idx = 0
+    p_patch%edges%start_blk = 0
+    p_patch%edges%end_blk = 0
+    
+    p_patch%verts%vertex(:,:)%lon = 0._wp
+    p_patch%verts%vertex(:,:)%lat = 0._wp
+    p_patch%verts%refin_ctrl = 0
+    p_patch%verts%start_idx = 0
+    p_patch%verts%end_idx = 0
+    p_patch%verts%start_blk = 0
+    p_patch%verts%end_blk = 0
+    
+    
+  END SUBROUTINE allocate_basic_patch
+  !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
+  !> Deallocates all arrays in a basic patch
+  !!
+  !! @par Revision History
+  !! Initial version, Rainer Johanni, Nov. 2011
+  !!
+  SUBROUTINE deallocate_basic_patch(p_patch)
+    
+    TYPE(t_patch), INTENT(inout) :: p_patch
+    !
+    ! !grid cells
+    !
+    DEALLOCATE( p_patch%cells%num_edges )
+    DEALLOCATE( p_patch%cells%parent_idx )
+    DEALLOCATE( p_patch%cells%parent_blk )
+    DEALLOCATE( p_patch%cells%pc_idx )
+    DEALLOCATE( p_patch%cells%child_idx )
+    DEALLOCATE( p_patch%cells%child_blk )
+    DEALLOCATE( p_patch%cells%child_id )
+    DEALLOCATE( p_patch%cells%neighbor_idx )
+    DEALLOCATE( p_patch%cells%neighbor_blk )
+    DEALLOCATE( p_patch%cells%edge_idx )
+    DEALLOCATE( p_patch%cells%edge_blk )
+    DEALLOCATE( p_patch%cells%vertex_idx )
+    DEALLOCATE( p_patch%cells%vertex_blk )
+    DEALLOCATE( p_patch%cells%center )
+    DEALLOCATE( p_patch%cells%refin_ctrl )
+    DEALLOCATE( p_patch%cells%start_idx )
+    DEALLOCATE( p_patch%cells%end_idx )
+    DEALLOCATE( p_patch%cells%start_blk )
+    DEALLOCATE( p_patch%cells%end_blk )
+    !
+    ! !grid edges
+    !
+    DEALLOCATE( p_patch%edges%parent_idx )
+    DEALLOCATE( p_patch%edges%parent_blk )
+    DEALLOCATE( p_patch%edges%pc_idx )
+    DEALLOCATE( p_patch%edges%child_idx )
+    DEALLOCATE( p_patch%edges%child_blk )
+    DEALLOCATE( p_patch%edges%child_id )
+    DEALLOCATE( p_patch%edges%refin_ctrl )
+    DEALLOCATE( p_patch%edges%start_idx )
+    DEALLOCATE( p_patch%edges%end_idx )
+    DEALLOCATE( p_patch%edges%start_blk )
+    DEALLOCATE( p_patch%edges%end_blk )
+    !
+    ! !grid verts
+    !
+    DEALLOCATE( p_patch%verts%vertex )
+    DEALLOCATE( p_patch%verts%refin_ctrl )
+    DEALLOCATE( p_patch%verts%start_idx )
+    DEALLOCATE( p_patch%verts%end_idx )
+    DEALLOCATE( p_patch%verts%start_blk )
+    DEALLOCATE( p_patch%verts%end_blk )
+    
+  END SUBROUTINE deallocate_basic_patch
+  !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
+  !> Allocates remaining arrays in a full patch.
+  !! These are the arrays which have not been allocated in allocate_basic_patch
+  !!
+  !! @par Revision History
+  !! Initial version (split out from read_patch) Rainer Johanni, Oct. 2010
+  !! Split into allocate_basic_patch/allocate_remaining_patch, Rainer Johanni, Nov. 2011
+  !!
+  SUBROUTINE allocate_remaining_patch(p_patch)
+    
+    TYPE(t_patch), INTENT(inout) :: p_patch
+    
+    INTEGER :: jc, je, jv
+    
+    ! Please note: The following variables in the patch MUST already be set:
+    ! - nblks_c
+    ! - nblks_e
+    ! - nblks_v
+    ! - n_patch_cells
+    ! - n_patch_edges
+    ! - n_patch_verts
+    ! - n_patch_cells_g
+    ! - n_patch_edges_g
+    ! - n_patch_verts_g
+    ! - max_childdom
+    
+    !
+    ! !grid cells
+    !
+    ALLOCATE( p_patch%cells%phys_id(nproma,p_patch%nblks_c) )
+    ALLOCATE( p_patch%cells%edge_orientation(nproma,p_patch%nblks_c,p_patch%cell_type) )
+    ALLOCATE( p_patch%cells%area(nproma,p_patch%nblks_c) )
+    ALLOCATE( p_patch%cells%f_c(nproma,p_patch%nblks_c) )
+    
+    ALLOCATE( p_patch%cells%decomp_domain(nproma,p_patch%nblks_c) )
+    ALLOCATE( p_patch%cells%owner_mask(nproma,p_patch%nblks_c) )
+    ALLOCATE( p_patch%cells%glb_index(p_patch%n_patch_cells) )
+    ALLOCATE( p_patch%cells%owner_local(p_patch%n_patch_cells))
+    ALLOCATE( p_patch%cells%loc_index(p_patch%n_patch_cells_g) )
+    ALLOCATE( p_patch%cells%owner_g(p_patch%n_patch_cells_g))
+    
+    !
+    ! !grid edges
+    !
+    ALLOCATE( p_patch%edges%phys_id(nproma,p_patch%nblks_e) )
+    ALLOCATE( p_patch%edges%cell_idx(nproma,p_patch%nblks_e,2) )
+    ALLOCATE( p_patch%edges%cell_blk(nproma,p_patch%nblks_e,2) )
+    ALLOCATE( p_patch%edges%vertex_idx(nproma,p_patch%nblks_e,4) )
+    ALLOCATE( p_patch%edges%vertex_blk(nproma,p_patch%nblks_e,4) )
+    ALLOCATE( p_patch%edges%system_orientation(nproma,p_patch%nblks_e) )
+    ALLOCATE( p_patch%edges%quad_idx(nproma,p_patch%nblks_e,4) )
+    ALLOCATE( p_patch%edges%quad_blk(nproma,p_patch%nblks_e,4) )
+    ALLOCATE( p_patch%edges%quad_orientation(nproma,p_patch%nblks_e,4) )
+    ALLOCATE( p_patch%edges%center(nproma,p_patch%nblks_e) )
+    ALLOCATE( p_patch%edges%primal_normal(nproma,p_patch%nblks_e) )
+    ALLOCATE( p_patch%edges%primal_cart_normal(nproma,p_patch%nblks_e) )
+    ALLOCATE( p_patch%edges%dual_normal(nproma,p_patch%nblks_e) )
+    ALLOCATE( p_patch%edges%dual_cart_normal(nproma,p_patch%nblks_e) )
+    ALLOCATE( p_patch%edges%primal_normal_cell(nproma,p_patch%nblks_e,2) )
+    ALLOCATE( p_patch%edges%dual_normal_cell(nproma,p_patch%nblks_e,2) )
+    ALLOCATE( p_patch%edges%primal_normal_vert(nproma,p_patch%nblks_e,4) )
+    ALLOCATE( p_patch%edges%dual_normal_vert(nproma,p_patch%nblks_e,4) )
+    ALLOCATE( p_patch%edges%primal_edge_length(nproma,p_patch%nblks_e) )
+    ALLOCATE( p_patch%edges%inv_primal_edge_length(nproma,p_patch%nblks_e) )
+    ALLOCATE( p_patch%edges%dual_edge_length(nproma,p_patch%nblks_e) )
+    ALLOCATE( p_patch%edges%inv_dual_edge_length(nproma,p_patch%nblks_e) )
+    ALLOCATE( p_patch%edges%edge_vert_length(nproma,p_patch%nblks_e,2) )
+    ALLOCATE( p_patch%edges%inv_vert_vert_length(nproma,p_patch%nblks_e) )
+    ALLOCATE( p_patch%edges%edge_cell_length(nproma,p_patch%nblks_e,2) )
+    ALLOCATE( p_patch%edges%area_edge(nproma,p_patch%nblks_e) )
+    ALLOCATE( p_patch%edges%quad_area(nproma,p_patch%nblks_e) )
+    ALLOCATE( p_patch%edges%f_e(nproma,p_patch%nblks_e) )
+    
+    ALLOCATE( p_patch%edges%decomp_domain(nproma,p_patch%nblks_e) )
+    ALLOCATE( p_patch%edges%owner_mask(nproma,p_patch%nblks_e) )
+    ALLOCATE( p_patch%edges%glb_index(p_patch%n_patch_edges) )
+    ALLOCATE( p_patch%edges%loc_index(p_patch%n_patch_edges_g) )
+    ALLOCATE( p_patch%edges%owner_g(p_patch%n_patch_edges_g))
+    ALLOCATE( p_patch%edges%owner_local(p_patch%n_patch_edges))
+    
+    !
+    ! !grid verts
+    !
+    ALLOCATE( p_patch%verts%phys_id(nproma,p_patch%nblks_v) )
+    ALLOCATE( p_patch%verts%neighbor_idx(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
+    ALLOCATE( p_patch%verts%neighbor_blk(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
+    ALLOCATE( p_patch%verts%cell_idx(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
+    ALLOCATE( p_patch%verts%cell_blk(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
+    ALLOCATE( p_patch%verts%edge_idx(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
+    ALLOCATE( p_patch%verts%edge_blk(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
+    ALLOCATE( p_patch%verts%edge_orientation(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
+    ALLOCATE( p_patch%verts%num_edges(nproma,p_patch%nblks_v) )
+    ALLOCATE( p_patch%verts%dual_area(nproma,p_patch%nblks_v) )
+    ALLOCATE( p_patch%verts%f_v(nproma,p_patch%nblks_v) )
+    
+    ALLOCATE( p_patch%verts%decomp_domain(nproma,p_patch%nblks_v) )
+    ALLOCATE( p_patch%verts%owner_mask(nproma,p_patch%nblks_v) )
+    ALLOCATE( p_patch%verts%glb_index(p_patch%n_patch_verts) )
+    ALLOCATE( p_patch%verts%loc_index(p_patch%n_patch_verts_g) )
+    ALLOCATE( p_patch%verts%owner_g(p_patch%n_patch_verts_g))
+    ALLOCATE( p_patch%verts%owner_local(p_patch%n_patch_verts))
+    
+    ! Set all newly allocated arrays to 0
+    
+    p_patch%cells%phys_id = 0
+    p_patch%cells%edge_orientation = 0._wp
+    p_patch%cells%area = 0._wp
+    p_patch%cells%f_c = 0._wp
+    
+    p_patch%edges%phys_id = 0
+    p_patch%edges%cell_idx = 0
+    p_patch%edges%cell_blk = 0
+    p_patch%edges%vertex_idx = 0
+    p_patch%edges%vertex_blk = 0
+    p_patch%edges%system_orientation = 0._wp
+    p_patch%edges%quad_idx = 0
+    p_patch%edges%quad_blk = 0
+    p_patch%edges%quad_orientation = 0._wp
+    p_patch%edges%center(:,:)%lon = 0._wp
+    p_patch%edges%center(:,:)%lat = 0._wp
+    p_patch%edges%primal_normal(:,:)%v1 = 0._wp
+    p_patch%edges%primal_normal(:,:)%v2 = 0._wp
+    p_patch%edges%primal_cart_normal(:,:)%x(1) = 0._wp
+    p_patch%edges%primal_cart_normal(:,:)%x(2) = 0._wp
+    p_patch%edges%primal_cart_normal(:,:)%x(3) = 0._wp
+    p_patch%edges%dual_normal(:,:)%v1 = 0._wp
+    p_patch%edges%dual_normal(:,:)%v2 = 0._wp
+    p_patch%edges%dual_cart_normal(:,:)%x(1) = 0._wp
+    p_patch%edges%dual_cart_normal(:,:)%x(2) = 0._wp
+    p_patch%edges%dual_cart_normal(:,:)%x(3) = 0._wp
+    p_patch%edges%primal_normal_cell(:,:,:)%v1 = 0._wp
+    p_patch%edges%primal_normal_cell(:,:,:)%v2 = 0._wp
+    p_patch%edges%dual_normal_cell(:,:,:)%v1 = 0._wp
+    p_patch%edges%dual_normal_cell(:,:,:)%v2 = 0._wp
+    p_patch%edges%primal_normal_vert(:,:,:)%v1 = 0._wp
+    p_patch%edges%primal_normal_vert(:,:,:)%v2 = 0._wp
+    p_patch%edges%dual_normal_vert(:,:,:)%v1 = 0._wp
+    p_patch%edges%dual_normal_vert(:,:,:)%v2 = 0._wp
+    p_patch%edges%primal_edge_length = 0._wp
+    p_patch%edges%inv_primal_edge_length = 0._wp
+    p_patch%edges%dual_edge_length = 0._wp
+    p_patch%edges%inv_dual_edge_length = 0._wp
+    p_patch%edges%edge_vert_length = 0._wp
+    p_patch%edges%inv_vert_vert_length = 0._wp
+    p_patch%edges%edge_cell_length = 0._wp
+    p_patch%edges%area_edge = 0._wp
+    p_patch%edges%quad_area = 0._wp
+    p_patch%edges%f_e = 0._wp
+    
+    p_patch%verts%phys_id = 0
+    p_patch%verts%neighbor_idx = 0
+    p_patch%verts%neighbor_blk = 0
+    p_patch%verts%cell_idx = 0
+    p_patch%verts%cell_blk = 0
+    p_patch%verts%edge_idx = 0
+    p_patch%verts%edge_blk = 0
+    p_patch%verts%edge_orientation = 0._wp
+    p_patch%verts%num_edges = 0
+    p_patch%verts%dual_area = 0._wp
+    p_patch%verts%f_v = 0._wp
+    
+    ! Set values which are needed for parallel runs
+    ! to the correct values for a single patch owner
+    ! decomp_domain/owner mask:
+    ! Everywhere 0 or .true. with the exception of unused entries
+    
+    p_patch%cells%decomp_domain = 0
+    p_patch%edges%decomp_domain = 0
+    p_patch%verts%decomp_domain = 0
+    p_patch%cells%owner_mask = .TRUE.
+    p_patch%edges%owner_mask = .TRUE.
+    p_patch%verts%owner_mask = .TRUE.
+    
+    p_patch%cells%decomp_domain(p_patch%npromz_c+1:nproma,p_patch%nblks_c) = -1
+    p_patch%edges%decomp_domain(p_patch%npromz_e+1:nproma,p_patch%nblks_e) = -1
+    p_patch%verts%decomp_domain(p_patch%npromz_v+1:nproma,p_patch%nblks_v) = -1
+    
+    p_patch%cells%owner_mask(p_patch%npromz_c+1:nproma,p_patch%nblks_c) = .FALSE.
+    p_patch%edges%owner_mask(p_patch%npromz_e+1:nproma,p_patch%nblks_e) = .FALSE.
+    p_patch%verts%owner_mask(p_patch%npromz_v+1:nproma,p_patch%nblks_v) = .FALSE.
+    
+    ! The following arrays are currently never needed for non parallel runs,
+    ! we set them nontheless.
+    
+    DO jc = 1, p_patch%n_patch_cells
+      p_patch%cells%glb_index(jc) = jc
+      p_patch%cells%loc_index(jc) = jc
+      p_patch%cells%owner_g(jc) = 0
+      p_patch%cells%owner_local(jc) = 0
+    ENDDO
+    
+    DO je = 1, p_patch%n_patch_edges
+      p_patch%edges%glb_index(je) = je
+      p_patch%edges%loc_index(je) = je
+      p_patch%edges%owner_g(je) = 0
+      p_patch%edges%owner_local(je) = 0
+    ENDDO
+    
+    DO jv = 1, p_patch%n_patch_verts
+      p_patch%verts%glb_index(jv) = jv
+      p_patch%verts%loc_index(jv) = jv
+      p_patch%verts%owner_g(jv) = 0
+      p_patch%verts%owner_local(jv) = 0
+    ENDDO
+    
+  END SUBROUTINE allocate_remaining_patch
+  !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
+  !> Allocates complete patch by calling allocate_basic_patch/allocate_remaining_patch
+  !!
+  !! @par Revision History
+  !! Initial version, Rainer Johanni, Dec. 2011
+  !!
+  SUBROUTINE allocate_patch(p_patch)
+    
+    TYPE(t_patch), INTENT(inout) :: p_patch
+    
+    CALL allocate_basic_patch(p_patch)
+    CALL allocate_remaining_patch(p_patch)
+    
+  END SUBROUTINE allocate_patch  
+  !-------------------------------------------------------------------------
+      
+  
+  !-------------------------------------------------------------------------
+  SUBROUTINE nf(STATUS, warnonly, silent)
+    
+    INTEGER, INTENT(in)           :: STATUS
+    LOGICAL, INTENT(in), OPTIONAL :: warnonly
+    LOGICAL, INTENT(in), OPTIONAL :: silent
+    
+    LOGICAL :: lwarnonly, lsilent
+    
+    lwarnonly = .FALSE.
+    lsilent   = .FALSE.
+    IF(PRESENT(warnonly)) lwarnonly = .TRUE.
+    IF(PRESENT(silent))   lsilent   = silent
+    
+    IF (lsilent) RETURN
+    IF (STATUS /= nf_noerr) THEN
+      IF (lwarnonly) THEN
+        CALL message('mo_model_domain_import netCDF error', nf_strerror(STATUS), &
+          & level=em_warn)
+      ELSE
+        CALL finish('mo_model_domain_import netCDF error', nf_strerror(STATUS))
+      ENDIF
+    ENDIF
+    
+  END SUBROUTINE nf
+  
 END MODULE mo_model_domimp_patches

@@ -189,15 +189,19 @@ USE mo_interpol_config,     ONLY: i_cori_method, nudge_zone_width, nudge_max_coe
 USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer, t_ref, s_ref,          &
   &                               CORIOLIS_TYPE, basin_center_lat, basin_height_deg
 
+USE mo_util_subset,         ONLY: t_subset_range, t_subset_range_index, get_index_range
+
 IMPLICIT NONE
 
 PRIVATE
-
+    
 PUBLIC ::  lsq_stencil_create, lsq_compute_coeff_cell, scalar_int_coeff,      &
           & bln_int_coeff_e2c, compute_heli_bra_coeff_idx, init_cellavg_wgt,  &
           & init_geo_factors, complete_patchinfo, init_tplane_e,              &
           & init_geo_factors_oce, init_scalar_product_oce,                    &
           & init_nudgecoeffs, tri_quadrature_pts
+    
+    LOGICAL, PARAMETER :: LARC_LENGTH = .FALSE.
 
 CONTAINS
 
@@ -3474,6 +3478,151 @@ END SUBROUTINE complete_patchinfo
     ENDDO
 
   END SUBROUTINE tri_quadrature_pts
+  !-------------------------------------------------------------------------
+
+  
+  !-------------------------------------------------------------------------
+  SUBROUTINE par_init_scalar_product_oce( ptr_patch, ptr_intp)
+    TYPE(t_patch)    , TARGET, INTENT(INOUT) :: ptr_patch
+    TYPE(t_int_state),         INTENT(INOUT) :: ptr_intp
+   
+    REAL(wp) :: prime_edge_length( nproma, ptr_patch%nblks_e)
+    
+    TYPE(t_subset_range), POINTER :: owned_edges         ! these are the owned entities
+    TYPE(t_subset_range), POINTER :: owned_cells         ! these are the owned entities
+    TYPE(t_cartesian_coordinates) :: dist_vector, cell_center
+
+    REAL(wp) :: norm
+    
+    INTEGER :: edge_block, edge_index, start_index, end_index
+    INTEGER :: cell_index, cell_block, neigbor
+    INTEGER :: vertex_1_index, vertex_1_block, vertex_2_index, vertex_2_block
+
+    owned_edges => ptr_patch%edges%owned
+    owned_cells => ptr_patch%cells%owned
+
+    !-------------------------------------------
+    ! compute some basic distances
+    ! this is required if the cartesian distance is used
+    ! instead of the sperical
+    ! 
+    ! compute_dist_cell2edge( ptr_patch, ptr_intp)
+    IF (LARC_LENGTH) THEN
+      ! we just need to get them from the grid
+      ptr_intp%dist_cell2edge(:,:,:) = ptr_patch%edges%edge_cell_length(:,:,:)
+      prime_edge_length(:,:) = ptr_patch%edges%primal_edge_length(:,:)
+    ELSE
+      ! calcultate cartesian distance
+      DO edge_block = owned_edges%start_block, owned_edges%end_block
+        CALL get_index_range(owned_edges, edge_block, start_index, end_index)
+        DO edge_index = start_index, end_index
+
+          !----------------------------------------
+          ! calculate the cartesian edge length
+          vertex_1_index = ptr_patch%edges%vertex_idx(edge_index, edge_block, 1)
+          vertex_1_block = ptr_patch%edges%vertex_blk(edge_index, edge_block, 1)
+          vertex_2_index = ptr_patch%edges%vertex_idx(edge_index, edge_block, 2)
+          vertex_2_block = ptr_patch%edges%vertex_blk(edge_index, edge_block, 2)
+            
+          dist_vector%x = &
+            & ptr_patch%verts%cartesian(vertex_1_index, vertex_1_block)%x - &
+            & ptr_patch%verts%cartesian(vertex_2_index, vertex_2_block)%x
+            
+            prime_edge_length(edge_index,edge_block) = &
+              & SQRT(SUM((  dist_vector%x *  dist_vector%x)))
+          !----------------------------------------
+              
+          !----------------------------------------
+          ! calculate the cartesian distance of the edge center to the cell center
+          DO neigbor = 1,2
+
+            cell_index = ptr_patch%edges%cell_idx(edge_index,edge_block,neigbor)
+            cell_block = ptr_patch%edges%cell_blk(edge_index,edge_block,neigbor)
+
+            dist_vector%x = &
+              & ptr_patch%edges%cartesian_center(edge_index,edge_block)%x - &
+              & ptr_patch%cells%cartesian_center(cell_index,cell_block)%x
+
+            ptr_intp%dist_cell2edge(edge_index,edge_block,neigbor) = &
+              & SQRT(SUM((  dist_vector%x *  dist_vector%x)))
+
+          ENDDO ! neigbor = 1,2
+          !----------------------------------------
+
+        ENDDO ! edge_index=start_index,end_index
+      ENDDO ! edge_block = owned_edges%start_block, owned_edges%end_block
+                  
+      ! synchronize the edge distances
+      CALL sync_patch_array(SYNC_E, ptr_patch, ptr_intp%dist_cell2edge(:,:,1))
+      CALL sync_patch_array(SYNC_E, ptr_patch, ptr_intp%dist_cell2edge(:,:,2))
+      CALL sync_patch_array(SYNC_E, ptr_patch, prime_edge_length(:,:))
+    ENDIF
+    !-------------------------------------------
+
+    !-------------------------------------------
+    ! compute:
+    !   edge2cell_coeff_cc
+    !   fixed_vol_norm
+    !   variable_vol_norm
+    DO cell_block = owned_cells%start_block, owned_cells%end_block
+      CALL get_index_range(owned_cells, cell_block, start_index, end_index)
+      DO cell_index = start_index, end_index
+
+        cell_center%x = ptr_patch%cells%cartesian_center(cell_index, cell_block)%x
+        ptr_intp%fixed_vol_norm(cell_index,cell_block) = 0.0_wp
+
+        !-------------------------------
+        DO neigbor=1,ptr_patch%cell_type
+
+          ptr_intp%edge2cell_coeff_cc(cell_index,cell_block,neigbor)%x = 0.0_wp
+        
+          edge_index = ptr_patch%cells%edge_idx(cell_index, cell_block, neigbor)
+          edge_block = ptr_patch%cells%edge_blk(cell_index, cell_block, neigbor)
+
+          IF (edge_block > 0 ) THEN
+            ! we have an edge
+            dist_vector%x = &
+              & ptr_patch%edges%cartesian_center(edge_index,edge_block)%x - &
+              & cell_center%x
+
+            norm  = SQRT(SUM( dist_vector%x * dist_vector%x))
+
+            ! compute edge2cell_coeff_cc
+            ptr_intp%edge2cell_coeff_cc(cell_index,cell_block,neigbor)%x =  &
+              & dist_vector%x *                                             &
+              & prime_edge_length(edge_index,edge_block) *                 &
+              & ptr_patch%cells%edge_orientation(cell_index,cell_block,neigbor) 
+              ! strange that we use here the  edge_orientation, ask Peter!
+
+            ptr_intp%fixed_vol_norm(cell_index,cell_block) = &
+              & ptr_intp%fixed_vol_norm(cell_index,cell_block) + &
+              & 0.5_wp * norm * prime_edge_length(edge_index,edge_block)
+              
+            ptr_intp%variable_vol_norm(cell_index, cell_block, neigbor) = &
+              & 0.5_wp * norm * prime_edge_length(edge_index,edge_block)
+             
+          ENDIF !(edge_block > 0 )
+        
+        ENDDO !neigbor=1,ptr_patch%cell_type
+        !-------------------------------
+                           
+      ENDDO ! cell_index = start_index, end_index
+    ENDDO !cell_block = owned_cells%start_block, owned_cells%end_block
+
+    !-------------------
+    ! sync the results
+    CALL sync_patch_array(SYNC_C, ptr_patch, ptr_intp%fixed_vol_norm(:,:))
+    DO neigbor=1,ptr_patch%cell_type
+      CALL sync_patch_array(SYNC_C, ptr_patch, ptr_intp%edge2cell_coeff_cc(:,:,neigbor)%x(1))
+      CALL sync_patch_array(SYNC_C, ptr_patch, ptr_intp%edge2cell_coeff_cc(:,:,neigbor)%x(2))
+      CALL sync_patch_array(SYNC_C, ptr_patch, ptr_intp%edge2cell_coeff_cc(:,:,neigbor)%x(3))
+      CALL sync_patch_array(SYNC_C, ptr_patch, ptr_intp%variable_vol_norm(:,:,neigbor))
+    ENDDO
+    !-------------------
+    
+  END SUBROUTINE par_init_scalar_product_oce
+  !-------------------------------------------------------------------------
+  
 
   !-------------------------------------------------------------------------
   !
@@ -3657,6 +3806,7 @@ END SUBROUTINE complete_patchinfo
             z_cell_edge_dist_c1(ie,1) = SQRT(SUM((cc_edge(ie)%x-xx1%x)*(cc_edge(ie)%x-xx1%x)))
             z_cell_edge_dist_c1(ie,2) = SQRT(SUM((cc_edge(ie)%x-xx2%x)*(cc_edge(ie)%x-xx2%x)))
           ENDIF
+          
           ptr_intp%dist_cell2edge(iil_c1(ie),iib_c1(ie),1) = z_cell_edge_dist_c1(ie,1)
           ptr_intp%dist_cell2edge(iil_c1(ie),iib_c1(ie),2) = z_cell_edge_dist_c1(ie,2)
 

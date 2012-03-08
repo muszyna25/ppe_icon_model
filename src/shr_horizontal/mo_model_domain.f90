@@ -1,3 +1,21 @@
+  !----------------------------------
+  ! cell geometry auxiliary variables
+  ! the cartesian coordinates of the cell centers on the unit sphere
+!   TYPE(t_cartesian_coordinates), ALLOCATABLE ::  &
+!     &  cartesian_center(:,:)
+  !----------------------------------
+!   TYPE(t_cartesian_coordinates), ALLOCATABLE ::  &
+!     &  cartesian_center(:,:)
+!   
+!   TYPE(t_cartesian_coordinates), ALLOCATABLE ::  &
+!     &  cartesian_dual_middle(:,:)
+
+  ! vertex geometry auxiliary variables
+!   TYPE(t_cartesian_coordinates), ALLOCATABLE ::  &
+!     &  cartesian(:,:)
+
+  
+  !----------------------------------
 !>
 !!               The module contains the definition of the.
 !!
@@ -189,6 +207,8 @@ TYPE t_grid_cells
   ! index1=nproma, index2=1,nblks_c, index3=1,3
   REAL(wp), ALLOCATABLE :: edge_orientation(:,:,:)
 
+  ! cell geometry
+  
   ! longitude & latitude of centers of triangular cells
   ! index1=nproma, index2=1,nblks_c
   TYPE(t_geographical_coordinates), ALLOCATABLE ::  &
@@ -197,11 +217,18 @@ TYPE t_grid_cells
   ! area of triangle
   ! index1=nproma, index2=1,nblks_c
   REAL(wp), POINTER :: area(:,:)
-
+  
   ! Coriolis parameter at cell centers
   ! index1=1,nproma, index2=1,nblks_c
   REAL(wp), ALLOCATABLE :: f_c(:,:)
 
+  !----------------------------------
+  ! cell geometry auxiliary variables
+  ! the cartesian coordinates of the cell centers on the unit sphere
+  TYPE(t_cartesian_coordinates), ALLOCATABLE ::  &
+    &  cartesian_center(:,:)
+  !----------------------------------
+  
   ! refinement control flag
   ! index1=1,nproma, index2=1,nblks_c
   INTEGER, ALLOCATABLE :: refin_ctrl(:,:)
@@ -323,6 +350,9 @@ TYPE t_grid_edges
   ! index1=nproma, index2=1,nblks_e, index3=1,4
   REAL(wp), ALLOCATABLE :: quad_orientation(:,:,:)
 
+  !-------------------------------------------------
+  ! edges geometry
+  
   ! longitude & latitude of edge midpoint
   ! index=1,nproma, index2=1,nblks_e
   TYPE(t_geographical_coordinates), ALLOCATABLE ::  &
@@ -368,7 +398,6 @@ TYPE t_grid_edges
   TYPE(t_tangent_vectors), ALLOCATABLE ::  &
     &  dual_normal_vert(:,:,:)
 
-
   ! length of triangle edge
   ! index=1,nproma, index2=1,nblks_e
   REAL(wp), POINTER :: primal_edge_length(:,:)
@@ -405,6 +434,13 @@ TYPE t_grid_edges
   ! index=1,nproma, index2=1,nblks_e
   REAL(wp), ALLOCATABLE :: quad_area(:,:)
 
+  ! edge geometry auxiliary variables
+  TYPE(t_cartesian_coordinates), ALLOCATABLE ::  &
+    &  cartesian_center(:,:)
+  
+  TYPE(t_cartesian_coordinates), ALLOCATABLE ::  &
+    &  cartesian_dual_middle(:,:)
+  
   ! Coriolis parameter at cell edges
   ! index1=1,nproma, index2=1,nblks_e
   REAL(wp), ALLOCATABLE :: f_e(:,:)
@@ -514,6 +550,10 @@ TYPE t_grid_vertices
   ! index1=1,nproma, index2=1,nblks_v
   REAL(wp), ALLOCATABLE :: f_v(:,:)
 
+  ! vertex geometry auxiliary variables
+  TYPE(t_cartesian_coordinates), ALLOCATABLE ::  &
+    &  cartesian(:,:)
+  
   ! refinement control flag
   ! index1=1,nproma, index2=1,nblks_v
   INTEGER, ALLOCATABLE :: refin_ctrl(:,:)

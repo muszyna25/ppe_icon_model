@@ -42,7 +42,7 @@ MODULE mo_util_subset
 
   PUBLIC :: t_subset_range, t_subset_range_index
 
-  PUBLIC :: fill_subset
+  PUBLIC :: fill_subset, get_index_range
 
   !----------------------------------------------------
   !> Defines a subset in a range (in terms of blocks)
@@ -64,13 +64,13 @@ MODULE mo_util_subset
   !> Defines an index for a subset_range 
   TYPE :: t_subset_range_index
   
-    INTEGER :: current_block ! the current block in the subset
-    INTEGER :: current_index ! the current index in the subset
+    INTEGER, POINTER :: block ! the current block in the subset
+    INTEGER, POINTER :: index ! the current index in the subset
     
-    INTEGER :: current_start_index ! the current start index within the current block,
-    INTEGER :: current_end_index   ! the current end index within the current block,
+    INTEGER :: start_index ! the current start index within the current block,
+    INTEGER :: end_index   ! the current end index within the current block,
 
-    TYPE(t_subset_range), POINTER :: t_subset_range
+    TYPE(t_subset_range), POINTER :: subset_range
   
   END TYPE
   !----------------------------------------------------
@@ -154,8 +154,24 @@ CONTAINS
         
   END SUBROUTINE fill_subset
   !----------------------------------------------------
+    
   
+  !----------------------------------------------------
+  SUBROUTINE get_index_range(subset_range, current_block, start_index, end_index)
+    TYPE(t_subset_range), INTENT(in) :: subset_range
+    INTEGER, INTENT(in) :: current_block
+    INTEGER, INTENT(out) :: start_index, end_index
+    
+    start_index = 1
+    end_index = subset_range%block_size
 
+    IF (current_block == subset_range%start_block) &
+      start_index = subset_range%start_index
+    IF (current_block == subset_range%end_block) &
+      end_index = subset_range%end_index
+
+  END SUBROUTINE get_index_range
+  !----------------------------------------------------
 
 END MODULE mo_util_subset
 
