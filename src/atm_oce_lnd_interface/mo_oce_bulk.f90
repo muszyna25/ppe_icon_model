@@ -210,14 +210,14 @@ CONTAINS
         no_set = offset + curyear-iniyear + 1 
 
         ipl_src=2  ! output print level (1-5, fix)
-        IF (i_dbg_oce >= ipl_src) THEN
+     !  IF (i_dbg_oce >= ipl_src) THEN
      !    WRITE(message_text,'(a,i2,a,i2,a,e15.5))') 'Read NCEP data: month=', &
      !      &  jmon,' day=',jdmon,' seconds=',dsec
      !    CALL message(TRIM(routine), message_text) 
           WRITE(message_text,'(a,3i5)') 'Read NCEP data: init. year, current year, no. of set:', &
             &                            iniyear, curyear, no_set
           CALL message(TRIM(routine), message_text) 
-        END IF
+     !  END IF
 
         CALL read_forc_data_oce(p_patch, ext_data, no_set)
 
@@ -1539,7 +1539,7 @@ CONTAINS
       i_count(2) = jtime                 ! length of pointer, dim 2 of z_dummy_array
 
       ipl_src=2  ! output print level (1-5, fix)
-      IF (i_dbg_oce >= ipl_src) THEN
+   !  IF (i_dbg_oce >= ipl_src) THEN
         !
         WRITE(message_text,'(A,I6,A)')  'Ocean NCEP flux file contains',no_tst,' data sets'
         CALL message( TRIM(routine), TRIM(message_text) )
@@ -1548,7 +1548,7 @@ CONTAINS
           &   '; no. of set =',no_set,                                     &
           &   '; pos. of ptr =', i_start(2)
         CALL message( TRIM(routine), TRIM(message_text) )
-      END IF
+   !  END IF
 
       CALL read_netcdf_data (ncid, 'stress_x', p_patch%n_patch_cells_g,      &
         &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &

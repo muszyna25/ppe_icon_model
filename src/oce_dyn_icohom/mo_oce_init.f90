@@ -1502,7 +1502,7 @@ ENDIF
     CASE (44) 
     ! Temperature is homogeneous in each layer. Varies from 30.5 in top to 0.5 in bottom layer
       CALL message(TRIM(routine), 'Initialization of testcases (44)')
-      CALL message(TRIM(routine), ' - here: horizontal homogen, stable vertical profile')
+      CALL message(TRIM(routine), ' - here: horizontally homogen, stable vertical profile')
 
       z_temp_max  = 30.5_wp
       z_temp_min  = 0.5_wp
@@ -1530,7 +1530,8 @@ ENDIF
     CASE (45) 
     ! T and S are horizontally homegeneous. Values are taken from t_prof[_var] and s_prof[_var]
       CALL message(TRIM(routine), 'Initialization of testcases (45)')
-      CALL message(TRIM(routine), ' - here: as (44), tprof_var and sprof_var vertical profiles')
+      CALL message(TRIM(routine), &
+        &  ' - here: horizontally homogen, use tprof_var and sprof_var vertical profiles')
 
       DO jb = i_startblk_c, i_endblk_c    
         CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
@@ -1541,10 +1542,10 @@ ENDIF
             IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
               p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)=tprof_var(jk)
               ! #slo# 2011-11-17 - for MPIOM comparison - set T to 5C/35psu  horiz. and vert. homogen
-              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 5.0_wp
+              !p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 5.0_wp
               IF (no_tracer == 2) THEN
                 p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof_var(jk)
-                p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 35.0_wp
+                !p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 35.0_wp
               END IF
             END IF
 

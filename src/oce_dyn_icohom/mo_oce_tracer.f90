@@ -53,6 +53,7 @@ USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer, idisc_scheme,    &
   &                                     ab_const, ab_gam, expl_vertical_tracer_diff,&
   &                                     iswm_oce
 USE mo_physical_constants,        ONLY: tf
+USE mo_math_constants,            ONLY: pi
 USE mo_parallel_config,           ONLY: nproma
 USE mo_dynamics_config,           ONLY: nold, nnew 
 USE mo_run_config,                ONLY: dtime
@@ -418,7 +419,9 @@ INTEGER  :: timestep                                     ! Actual timestep (to d
 REAL(wp) :: delta_t
 !REAL(wp) :: dummy_h_c(nproma,n_zlev, p_patch%nblks_c)
 REAL(wp) :: trac_tmp(nproma,n_zlev, p_patch%nblks_c)
+REAL(wp) :: zlat, zlon
 INTEGER  :: jk
+INTEGER  :: iloc(2) ! location of negative tracer value
 ! CHARACTER(len=max_char_length), PARAMETER :: &
 !        & routine = ('mo_tracer_advection:advect_individual_tracer')
 !-------------------------------------------------------------------------------
@@ -480,10 +483,17 @@ ELSEIF( iswm_oce == 1) THEN
 ENDIF
 
 DO jk = 1, n_zlev
-    ! #slo# - Temperature: tf=-1.9 deg, freezing of sea water, is possible:
-! IF (minval(trac_new(:,jk,:))<tf) THEN
+
+  ! Abort if tracer is negative:
+  ! Temperature: tf<-1.9 deg, may be possible, limit set to lower value
   IF (minval(trac_new(:,jk,:))<-4.0_wp) THEN
-    write(*,*)'negative tracer', jk, minval(trac_new(:,jk,:)) 
+    write(0,*) ' NEGATVE TRACER VALUE DETECTED:'
+    iloc(:) = minloc(trac_new(:,jk,:))
+    zlat    = p_patch%cells%center(iloc(1),iloc(2))%lat * 180.0_wp / pi
+    zlon    = p_patch%cells%center(iloc(1),iloc(2))%lon * 180.0_wp / pi
+    write(0,*) ' negative tracer at jk =', jk, minval(trac_new(:,jk,:)) 
+    write(0,*) ' location is at    idx =',iloc(1),' blk=',iloc(2)
+    write(0,*) ' lat/lon  is at    lat =',zlat   ,' lon=',zlon
     CALL finish(TRIM('mo_tracer_advection:advect_individual_tracer-h'), &
       &              'Negative tracer values') 
   ENDIF
