@@ -49,10 +49,9 @@ MODULE mo_statistics_tools
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
 
   PUBLIC :: construct_statistic_objects, destruct_statistic_objects
-  PUBLIC :: delete_statistic
+  PUBLIC :: new_statistic, delete_statistic
   PUBLIC :: add_statistic_to, max_statistic_of, min_statistic_of
   PUBLIC :: mean_statistic_of
-  PUBLIC :: new_statistic_no_bars, new_statistic_with_bars
 
   PUBLIC :: ADD_MAX_RATIO
 
@@ -96,6 +95,11 @@ MODULE mo_statistics_tools
   INTEGER :: max_active_statistics
   !> True if the statistic object is active.
   
+  INTERFACE new_statistic
+    MODULE PROCEDURE new_statistic_no_bars
+    MODULE PROCEDURE new_statistic_with_bars
+  END INTERFACE
+  
   INTERFACE add_statistic_to
     MODULE PROCEDURE add_statistic_one_value
     MODULE PROCEDURE add_statistic_two_values
@@ -107,8 +111,7 @@ CONTAINS
   !>
   !! Creates a new statistics object and returns its id.
   !! The statistic arrays are not allocated.
-  FUNCTION new_statistic_with_bars(no_of_bars, min_value, &
-    &max_value, mode)  RESULT(statistic_id)
+  INTEGER FUNCTION new_statistic_with_bars(no_of_bars, min_value, max_value, mode)
     INTEGER,  INTENT(in) :: no_of_bars
     REAL(wp), INTENT(in) :: min_value, max_value
     INTEGER,  INTENT(in), OPTIONAL :: mode
@@ -116,11 +119,11 @@ CONTAINS
     INTEGER :: statistic_id
 
     IF (PRESENT(mode)) THEN
-      statistic_id = new_statistic_no_bars(mode)
+      new_statistic_with_bars = new_statistic(mode)
     ELSE
-      statistic_id = new_statistic_no_bars(mode)
+      new_statistic_with_bars = new_statistic(mode)
     ENDIF
-    CALL construct_statistic_bars(statistic_id, no_of_bars, min_value, max_value)
+    CALL construct_statistic_bars(new_statistic_with_bars, no_of_bars, min_value, max_value)
     
   END FUNCTION new_statistic_with_bars
   !-----------------------------------------------------------------------

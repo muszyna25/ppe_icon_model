@@ -396,6 +396,9 @@ CONTAINS
        CALL nf(nf_get_var_double(ncid, varid, grid_obj%cells%elevation))
     ENDIF
 
+    CALL nf(nf_inq_varid(ncid, 'cell_sea_land_mask', varid))
+    CALL nf(nf_get_var_int   (ncid, varid, grid_obj%cells%sea_land_mask))
+      
     ! read cell connectivity
     ! allocate tmp arrays for reading
     ALLOCATE(tmp_index(no_of_cells,max_cell_vertices),stat=i)
@@ -1131,7 +1134,7 @@ CONTAINS
     CALL nf(nf_put_att_text(ncid, varid_cell_elevation, 'units', 1, 'm'))
 !     CALL nf(nf_put_att_text(ncid, varid_cell_elevation, 'cdi', 6, 'ignore'))
     CALL nf(nf_put_att_text(ncid, varid_cell_elevation, 'coordinates', 9, 'clon clat'))
-
+    
     CALL nf(nf_def_var(ncid, 'cell_sea_land_mask', nf_int, 1, dim_ncell, &
       & varid_cell_sea_land_mask))
     CALL nf(nf_put_att_text(ncid, varid_cell_sea_land_mask, 'long_name', 72, &
