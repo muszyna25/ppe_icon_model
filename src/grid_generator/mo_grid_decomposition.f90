@@ -164,7 +164,7 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  !! print ecompositio statistics for a grid file
+  !! print decompositio statistics for a grid file
   !-------------------------------------------------------------------------
   SUBROUTINE print_decomposition_statistics(grid_file, decomposition_id)
     CHARACTER(LEN=filename_max), INTENT(in) :: grid_file
@@ -210,7 +210,7 @@ CONTAINS
    
   !-------------------------------------------------------------------------
   !>
-  !! print ecompositio statistics for a grid
+  !! print decompositio statistics for a grid
   SUBROUTINE grid_decomposition_statistics(grid_id, decomposition_id)
     INTEGER, INTENT(in)  :: grid_id, decomposition_id
     
@@ -282,7 +282,7 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  !! get statistics for a "get_domain_id"
+  !! get statistics for a domain
   SUBROUTINE get_subdomain_statistics(grid_id, decomposition_id, in_domain_id, &
     & no_of_neigbors, halo_cells_to_edge, halo_cells_to_vert)
     INTEGER, INTENT(in)  :: grid_id, decomposition_id, in_domain_id
