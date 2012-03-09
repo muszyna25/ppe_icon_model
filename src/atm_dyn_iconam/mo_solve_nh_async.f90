@@ -101,7 +101,7 @@ MODULE mo_solve_nh_async
   !! Initial release by Guenther Zaengl (2010-02-03)
   !!
   SUBROUTINE velocity_tendencies (p_prog, p_patch, p_int, p_metrics, p_diag,&
-                                  bufr, ntnd, istep)
+                                  bufr, ntnd, istep, lvn_only)
 
     ! Passed variables
     TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch
@@ -113,6 +113,7 @@ MODULE mo_solve_nh_async
 
     INTEGER, INTENT(IN)  :: ntnd  ! time level of ddt_adv fields used to store tendencies
     INTEGER, INTENT(IN)  :: istep ! 1: predictor step, 2: corrector step
+    LOGICAL, INTENT(IN)  :: lvn_only ! true: compute only vn tendency
 
     ! Local variables
     INTEGER :: jb, jk, jc, je
@@ -343,25 +344,42 @@ MODULE mo_solve_nh_async
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
 
+      IF (.NOT. lvn_only) THEN
 #ifdef __LOOP_EXCHANGE
-      DO je = i_startidx, i_endidx
-        DO jk = 1, nlev
+        DO je = i_startidx, i_endidx
+          DO jk = 1, nlev
 #else
 !CDIR UNROLL=3
-      DO jk = 1, nlev
-        DO je = i_startidx, i_endidx
+        DO jk = 1, nlev
+          DO je = i_startidx, i_endidx
 #endif
-          ! Multiply vn_ie with w interpolated to edges for divergence computation
-          z_vnw(je,jk,jb) = p_diag%vn_ie(je,jk,jb)*                            &
-           ( p_int%c_lin_e(je,1,jb) * p_prog%w(icidx(je,jb,1),jk,icblk(je,jb,1)) &
-           + p_int%c_lin_e(je,2,jb) * p_prog%w(icidx(je,jb,2),jk,icblk(je,jb,2)) )
+            ! Multiply vn_ie with w interpolated to edges for divergence computation
+            z_vnw(je,jk,jb) = p_diag%vn_ie(je,jk,jb)*                            &
+             ( p_int%c_lin_e(je,1,jb) * p_prog%w(icidx(je,jb,1),jk,icblk(je,jb,1)) &
+             + p_int%c_lin_e(je,2,jb) * p_prog%w(icidx(je,jb,2),jk,icblk(je,jb,2)) )
 
-          ! Compute horizontal gradient of horizontal kinetic energy
-          z_ddxn_ekin_e(je,jk,jb) = p_patch%edges%inv_dual_edge_length(je,jb) *  &
-           (p_diag%e_kinh(icidx(je,jb,2),jk,icblk(je,jb,2)) -                    &
-            p_diag%e_kinh(icidx(je,jb,1),jk,icblk(je,jb,1)) )
+            ! Compute horizontal gradient of horizontal kinetic energy
+            z_ddxn_ekin_e(je,jk,jb) = p_patch%edges%inv_dual_edge_length(je,jb) *  &
+             (p_diag%e_kinh(icidx(je,jb,2),jk,icblk(je,jb,2)) -                    &
+              p_diag%e_kinh(icidx(je,jb,1),jk,icblk(je,jb,1)) )
+          ENDDO
         ENDDO
-      ENDDO
+      ELSE ! do not compute w tendency
+#ifdef __LOOP_EXCHANGE
+        DO je = i_startidx, i_endidx
+          DO jk = 1, nlev
+#else
+!CDIR UNROLL=6
+        DO jk = 1, nlev
+          DO je = i_startidx, i_endidx
+#endif
+            ! Compute horizontal gradient of horizontal kinetic energy
+            z_ddxn_ekin_e(je,jk,jb) = p_patch%edges%inv_dual_edge_length(je,jb) *  &
+             (p_diag%e_kinh(icidx(je,jb,2),jk,icblk(je,jb,2)) -                    &
+              p_diag%e_kinh(icidx(je,jb,1),jk,icblk(je,jb,1)) )
+          ENDDO
+        ENDDO
+      ENDIF
 
     ENDDO
 !$OMP END DO
@@ -378,27 +396,32 @@ MODULE mo_solve_nh_async
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
 
-      ! Compute horizontal advection of w: -(div(vn*w)-w*div(vn))
-      ! (combined into one step for efficiency improvement)
+      IF (.NOT. lvn_only) THEN
+        ! Compute horizontal advection of w: -(div(vn*w)-w*div(vn))
+        ! (combined into one step for efficiency improvement)
 #ifdef __LOOP_EXCHANGE
-      DO jc = i_startidx, i_endidx
-        DO jk = 1, nlev
+        DO jc = i_startidx, i_endidx
+          DO jk = 1, nlev
 #else
 !CDIR UNROLL=5
-      DO jk = 1, nlev
-        DO jc = i_startidx, i_endidx
+        DO jk = 1, nlev
+          DO jc = i_startidx, i_endidx
 #endif
-          z_hadv_w(jc,jk,jb) = p_prog%w(jc,jk,jb)* ( &
-            p_diag%vn_ie(ieidx(jc,jb,1),jk,ieblk(jc,jb,1))*p_int%geofac_div(jc,1,jb) + &
-            p_diag%vn_ie(ieidx(jc,jb,2),jk,ieblk(jc,jb,2))*p_int%geofac_div(jc,2,jb) + &
-            p_diag%vn_ie(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))*p_int%geofac_div(jc,3,jb))- &
-           (z_vnw(ieidx(jc,jb,1),jk,ieblk(jc,jb,1))         *p_int%geofac_div(jc,1,jb) + &
-            z_vnw(ieidx(jc,jb,2),jk,ieblk(jc,jb,2))         *p_int%geofac_div(jc,2,jb) + &
-            z_vnw(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))         *p_int%geofac_div(jc,3,jb))
+            z_hadv_w(jc,jk,jb) = p_prog%w(jc,jk,jb)* ( &
+              p_diag%vn_ie(ieidx(jc,jb,1),jk,ieblk(jc,jb,1))*p_int%geofac_div(jc,1,jb) + &
+              p_diag%vn_ie(ieidx(jc,jb,2),jk,ieblk(jc,jb,2))*p_int%geofac_div(jc,2,jb) + &
+              p_diag%vn_ie(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))*p_int%geofac_div(jc,3,jb))- &
+             (z_vnw(ieidx(jc,jb,1),jk,ieblk(jc,jb,1))       *p_int%geofac_div(jc,1,jb) + &
+              z_vnw(ieidx(jc,jb,2),jk,ieblk(jc,jb,2))       *p_int%geofac_div(jc,2,jb) + &
+              z_vnw(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))       *p_int%geofac_div(jc,3,jb))
 
-          z_w_con_c(jc,jk,jb) = p_prog%w(jc,jk,jb)
+            z_w_con_c(jc,jk,jb) = p_prog%w(jc,jk,jb)
+          ENDDO
         ENDDO
-      ENDDO
+
+      ELSE ! do not compute w tendency
+        z_w_con_c(:,1:nlev,jb) = p_prog%w(:,1:nlev,jb)
+      ENDIF
 
       z_w_con_c(:,nlevp1,jb) = 0._wp
 
@@ -420,45 +443,47 @@ MODULE mo_solve_nh_async
     ENDDO
 !$OMP END DO
 
-    rl_start = grf_bdywidth_c+1
-    rl_end   = min_rlcell_int
+    IF (.NOT. lvn_only) THEN
+      rl_start = grf_bdywidth_c+1
+      rl_end   = min_rlcell_int
 
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+      i_startblk = p_patch%cells%start_blk(rl_start,1)
+      i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP DO PRIVATE(jb, jk, jc, i_startidx, i_endidx)
-    DO jb = i_startblk, i_endblk
+      DO jb = i_startblk, i_endblk
 
-      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                         i_startidx, i_endidx, rl_start, rl_end)
+        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, rl_start, rl_end)
 
-      ! Apply cell averaging to the components of horizontal w advection
+        ! Apply cell averaging to the components of horizontal w advection
 #ifdef __LOOP_EXCHANGE
-      DO jc = i_startidx, i_endidx
-        DO jk = 2, nlev
+        DO jc = i_startidx, i_endidx
+          DO jk = 2, nlev
 #else
 !CDIR UNROLL=4
-      DO jk = 1, nlev ! starting at level 2 would be sufficient, but this improves usage of unrolling
-        DO jc = i_startidx, i_endidx
+        DO jk = 1, nlev ! starting at level 2 would be sufficient, but this improves usage of unrolling
+          DO jc = i_startidx, i_endidx
 #endif
-          p_diag%ddt_w_adv(jc,jk,jb,ntnd) =                                         &
-              z_hadv_w(jc,jk,jb)                          *p_int%c_bln_avg(jc,1,jb) &
-            + z_hadv_w(incidx(jc,jb,1),jk,incblk(jc,jb,1))*p_int%c_bln_avg(jc,2,jb) &
-            + z_hadv_w(incidx(jc,jb,2),jk,incblk(jc,jb,2))*p_int%c_bln_avg(jc,3,jb) &
-            + z_hadv_w(incidx(jc,jb,3),jk,incblk(jc,jb,3))*p_int%c_bln_avg(jc,4,jb)
+            p_diag%ddt_w_adv(jc,jk,jb,ntnd) =                                         &
+                z_hadv_w(jc,jk,jb)                          *p_int%c_bln_avg(jc,1,jb) &
+              + z_hadv_w(incidx(jc,jb,1),jk,incblk(jc,jb,1))*p_int%c_bln_avg(jc,2,jb) &
+              + z_hadv_w(incidx(jc,jb,2),jk,incblk(jc,jb,2))*p_int%c_bln_avg(jc,3,jb) &
+              + z_hadv_w(incidx(jc,jb,3),jk,incblk(jc,jb,3))*p_int%c_bln_avg(jc,4,jb)
+          ENDDO
         ENDDO
-      ENDDO
 
-      ! Sum up remaining terms of vertical wind advection
-      DO jk = 2, nlev
-        DO jc = i_startidx, i_endidx
-          p_diag%ddt_w_adv(jc,jk,jb,ntnd) = p_diag%ddt_w_adv(jc,jk,jb,ntnd)   &
-            - z_w_con_c(jc,jk,jb)*(p_prog%w(jc,jk-1,jb)-p_prog%w(jc,jk+1,jb)) &
-            * p_metrics%inv_ddqz_z_half2(jc,jk,jb)
+        ! Sum up remaining terms of vertical wind advection
+        DO jk = 2, nlev
+          DO jc = i_startidx, i_endidx
+            p_diag%ddt_w_adv(jc,jk,jb,ntnd) = p_diag%ddt_w_adv(jc,jk,jb,ntnd)   &
+              - z_w_con_c(jc,jk,jb)*(p_prog%w(jc,jk-1,jb)-p_prog%w(jc,jk+1,jb)) &
+              * p_metrics%inv_ddqz_z_half2(jc,jk,jb)
+          ENDDO
         ENDDO
       ENDDO
-    ENDDO
 !$OMP END DO
+    ENDIF
 
     rl_start = grf_bdywidth_e+1
     rl_end = min_rledge_int
@@ -597,7 +622,7 @@ MODULE mo_solve_nh_async
     INTEGER :: nproma_gradp, nblks_gradp, npromz_gradp, nlen_gradp
     INTEGER :: nblks_zdiffu, nproma_zdiffu, npromz_zdiffu, nlen_zdiffu
 
-    LOGICAL :: lcompute, lcleanup
+    LOGICAL :: lcompute, lcleanup, lvn_only
 
     ! Local variables to control vertical nesting
     LOGICAL :: l_vert_nested, l_child_vertnest
@@ -713,13 +738,19 @@ MODULE mo_solve_nh_async
 
       IF (istep == 1) THEN ! predictor step
         IF (itime_scheme >= 5 .OR. l_init .OR. l_recompute) THEN
+          IF (itime_scheme < 5 .AND. .NOT. l_init) THEN
+            lvn_only = .TRUE. ! Recompute only vn tendency
+          ELSE
+            lvn_only = .FALSE.
+          ENDIF
           CALL velocity_tendencies(p_nh%prog(nnow),p_patch,p_int,p_nh%metrics,&
-                                   p_nh%diag,bufr,ntl1,istep)
+                                   p_nh%diag,bufr,ntl1,istep,lvn_only)
         ENDIF
         nvar = nnow
       ELSE                 ! corrector step
+        lvn_only = .FALSE.
         CALL velocity_tendencies(p_nh%prog(nnew),p_patch,p_int,p_nh%metrics,&
-                                 p_nh%diag,bufr,ntl2,istep)
+                                 p_nh%diag,bufr,ntl2,istep,lvn_only)
         nvar = nnew
       ENDIF
 

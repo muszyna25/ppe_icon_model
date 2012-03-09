@@ -147,7 +147,7 @@ REAL(wp) ::   &  ! RBF-reconstructed velocity
 REAL(wp), ALLOCATABLE :: feedback_thv_tend(:,:,:)
 REAL(wp), ALLOCATABLE :: feedback_rho_tend(:,:,:)
 REAL(wp), ALLOCATABLE :: feedback_vn(:,:,:)
-REAL(wp), ALLOCATABLE :: feedback_tg_tend(:,:,:)
+REAL(wp), ALLOCATABLE :: feedback_tg(:,:,:)
 REAL(wp), ALLOCATABLE :: feedback_w_tend(:,:,:)
 REAL(wp), ALLOCATABLE :: feedback_tracer_mass(:,:,:,:)
 REAL(wp), ALLOCATABLE, DIMENSION(:,:,:)   :: fbk_tend, parent_tend
@@ -156,10 +156,11 @@ REAL(wp), ALLOCATABLE, DIMENSION(:,:,:)   :: fbk_tr_totmass, parent_tr_totmass
 REAL(wp) :: tendency_corr(p_patch(jgp)%nlev),        &
             aux_diff((ntracer+1)*p_patch(jgp)%nlev), &
             tracer_corr(ntracer*p_patch(jgp)%nlev),  &
-            tg_tend(nproma,p_patch(jg)%nblks_c),     &
-            parent_tg_tend(nproma,1,p_patch(jgp)%nblks_c)
+            diff_tg(nproma,p_patch(jgp)%nblks_c),    &
+            tg_pr(nproma,p_patch(jg)%nblks_c),       &
+            parent_tg(nproma,1,p_patch(jgp)%nblks_c)
 
-REAL(wp) :: rd_o_cvd, rd_o_p0ref
+REAL(wp) :: rd_o_cvd, rd_o_p0ref, relfac
 
 INTEGER, DIMENSION(:,:,:), POINTER :: iidx, iblk, iidxv, iblkv
 LOGICAL :: l_parallel
@@ -233,6 +234,9 @@ rd_o_cvd = 1._wp / cvd_o_rd
 ! R / p0ref
 rd_o_p0ref = rd / p0ref
 
+! Relaxation factor used for ground temperature relaxation
+relfac = 0.075_wp
+
 ! parent_tend, parent_tr_mass, parent_tr_totmass are always calculated on the global parent
 ! and thus have to be allocated within global parent limits
 
@@ -261,7 +265,7 @@ IF(l_parallel) i_startblk = 1
 ALLOCATE(feedback_thv_tend  (nproma, nlev_p, i_startblk:i_endblk),   &
          feedback_rho_tend  (nproma, nlev_p, i_startblk:i_endblk),   &
          feedback_w_tend    (nproma, nlevp1_p, i_startblk:i_endblk),  &
-         feedback_tg_tend   (nproma, 1, i_startblk:i_endblk)  )
+         feedback_tg        (nproma, 1, i_startblk:i_endblk)  )
 
 IF(ltransport .AND. l_trac_fbk) &
   ALLOCATE(feedback_tracer_mass(nproma, nlev_p, i_startblk:i_endblk, ntracer))
@@ -320,7 +324,7 @@ DO jb = i_startblk, i_endblk
   DO jc = i_startidx, i_endidx
     p_child_tend%grf_tend_w(jc,nlevp1_c,jb) = &
       p_child_prog%w(jc,nlevp1_c,jb) - p_child_save%w(jc,nlevp1_c,jb)
-    tg_tend(jc,jb) = p_lndc%t_g(jc,jb) - p_ldiag%t_g_save(jc,jb)
+    tg_pr(jc,jb) = p_lndc%t_g(jc,jb) - p_nh_state(jg)%metrics%tsfc_ref(jc,jb)
   ENDDO
 
 ENDDO
@@ -601,11 +605,11 @@ DO jb = i_startblk, i_endblk
       p_child_tend%grf_tend_w(iidx(jc,jb,3),nlevp1_c,iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
       p_child_tend%grf_tend_w(iidx(jc,jb,4),nlevp1_c,iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
 
-    feedback_tg_tend(jc,1,jb) =                                &
-      tg_tend(iidx(jc,jb,1),iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
-      tg_tend(iidx(jc,jb,2),iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
-      tg_tend(iidx(jc,jb,3),iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
-      tg_tend(iidx(jc,jb,4),iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
+    feedback_tg(jc,1,jb) =                                   &
+      tg_pr(iidx(jc,jb,1),iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
+      tg_pr(iidx(jc,jb,2),iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
+      tg_pr(iidx(jc,jb,3),iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
+      tg_pr(iidx(jc,jb,4),iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
   ENDDO
 
 ENDDO
@@ -642,18 +646,22 @@ IF (.NOT. l_parallel) THEN
       p_parent_save%w(i_startidx:i_endidx,nshift+1:nlevp1_p,jb) + &
       feedback_w_tend(i_startidx:i_endidx,nshift+1:nlevp1_p,jb)
 
-    p_lndp%t_g(i_startidx:i_endidx,jb) = p_lndp_old%t_g(i_startidx:i_endidx,jb) + &
-       feedback_tg_tend(i_startidx:i_endidx,1,jb)
+    diff_tg(i_startidx:i_endidx,jb) = feedback_tg(i_startidx:i_endidx,1,jb) - &
+      p_lndp%t_g(i_startidx:i_endidx,jb) +                                    &
+      p_nh_state(jgp)%metrics%tsfc_ref(i_startidx:i_endidx,jb)
+
+    p_lndp%t_g(i_startidx:i_endidx,jb) = p_lndp%t_g(i_startidx:i_endidx,jb) + &
+      relfac*diff_tg(i_startidx:i_endidx,jb)
 
     DO jt = 1, ntiles
-      p_lndp%t_gt(i_startidx:i_endidx,jb,jt) = p_lndp_old%t_gt(i_startidx:i_endidx,jb,jt) + &
-        feedback_tg_tend(i_startidx:i_endidx,1,jb)
-      p_lndp%t_s(i_startidx:i_endidx,jb,jt) = p_lndp_old%t_s(i_startidx:i_endidx,jb,jt) + &
-        feedback_tg_tend(i_startidx:i_endidx,1,jb)
-      p_lndp%t_so(i_startidx:i_endidx,1,jb,jt) = p_lndp_old%t_so(i_startidx:i_endidx,1,jb,jt) + &
-        feedback_tg_tend(i_startidx:i_endidx,1,jb)
-      p_lndp%t_so(i_startidx:i_endidx,2,jb,jt) = p_lndp_old%t_so(i_startidx:i_endidx,2,jb,jt) + &
-        feedback_tg_tend(i_startidx:i_endidx,1,jb)
+      p_lndp%t_gt(i_startidx:i_endidx,jb,jt)   = p_lndp%t_gt(i_startidx:i_endidx,jb,jt)   + &
+        relfac*diff_tg(i_startidx:i_endidx,jb)
+      p_lndp%t_s(i_startidx:i_endidx,jb,jt)    = p_lndp%t_s(i_startidx:i_endidx,jb,jt)    + &
+        relfac*diff_tg(i_startidx:i_endidx,jb)
+      p_lndp%t_so(i_startidx:i_endidx,1,jb,jt) = p_lndp%t_so(i_startidx:i_endidx,1,jb,jt) + &
+        relfac*diff_tg(i_startidx:i_endidx,jb)
+      p_lndp%t_so(i_startidx:i_endidx,2,jb,jt) = p_lndp%t_so(i_startidx:i_endidx,2,jb,jt) + &
+        relfac*diff_tg(i_startidx:i_endidx,jb)
     ENDDO
 
     IF (ltransport .AND. l_trac_fbk) THEN ! perform tracer feedback
@@ -832,7 +840,7 @@ IF (l_parallel) THEN
                           RECV1=p_parent_prog%rho,     SEND1=feedback_rho_tend, &
                           RECV2=p_parent_prog%theta_v, SEND2=feedback_thv_tend, &
                           RECV3=p_parent_prog%w,       SEND3=feedback_w_tend,   &
-                          RECV4=parent_tg_tend,        SEND4=feedback_tg_tend,  &
+                          RECV4=parent_tg,             SEND4=feedback_tg,       &
                           nshift=nshift )
 
 
@@ -883,18 +891,24 @@ ENDIF
     p_parent_prog%exner(i_startidx:i_endidx,nshift+1:nlev_p,jb) = EXP(rd_o_cvd*LOG(  &
       rd_o_p0ref*p_parent_prog%rhotheta_v(i_startidx:i_endidx,nshift+1:nlev_p,jb)))
 
-    p_lndp%t_g(i_startidx:i_endidx,jb) = p_lndp_old%t_g(i_startidx:i_endidx,jb) + &
-      parent_tg_tend(i_startidx:i_endidx,1,jb)
+    ! ground temperature - relaxation is used here because stability problems
+    ! appeared otherwise
+    diff_tg(i_startidx:i_endidx,jb) = parent_tg(i_startidx:i_endidx,1,jb) - &
+      p_lndp%t_g(i_startidx:i_endidx,jb) +                                  &
+      p_nh_state(jgp)%metrics%tsfc_ref(i_startidx:i_endidx,jb)
+
+    p_lndp%t_g(i_startidx:i_endidx,jb) = p_lndp%t_g(i_startidx:i_endidx,jb) + &
+      relfac*diff_tg(i_startidx:i_endidx,jb)
 
     DO jt = 1, ntiles
-      p_lndp%t_gt(i_startidx:i_endidx,jb,jt) = p_lndp_old%t_gt(i_startidx:i_endidx,jb,jt) + &
-        parent_tg_tend(i_startidx:i_endidx,1,jb)
-      p_lndp%t_s(i_startidx:i_endidx,jb,jt) = p_lndp_old%t_s(i_startidx:i_endidx,jb,jt) + &
-        parent_tg_tend(i_startidx:i_endidx,1,jb)
-      p_lndp%t_so(i_startidx:i_endidx,1,jb,jt) = p_lndp_old%t_so(i_startidx:i_endidx,1,jb,jt) + &
-        parent_tg_tend(i_startidx:i_endidx,1,jb)
-      p_lndp%t_so(i_startidx:i_endidx,2,jb,jt) = p_lndp_old%t_so(i_startidx:i_endidx,2,jb,jt) + &
-        parent_tg_tend(i_startidx:i_endidx,1,jb)
+      p_lndp%t_gt(i_startidx:i_endidx,jb,jt)   = p_lndp%t_gt(i_startidx:i_endidx,jb,jt)   + &
+        relfac*diff_tg(i_startidx:i_endidx,jb)
+      p_lndp%t_s(i_startidx:i_endidx,jb,jt)    = p_lndp%t_s(i_startidx:i_endidx,jb,jt)    + &
+        relfac*diff_tg(i_startidx:i_endidx,jb)
+      p_lndp%t_so(i_startidx:i_endidx,1,jb,jt) = p_lndp%t_so(i_startidx:i_endidx,1,jb,jt) + &
+        relfac*diff_tg(i_startidx:i_endidx,jb)
+      p_lndp%t_so(i_startidx:i_endidx,2,jb,jt) = p_lndp%t_so(i_startidx:i_endidx,2,jb,jt) + &
+        relfac*diff_tg(i_startidx:i_endidx,jb)
     ENDDO
 
     ! divide tracer density (which is the feedback quantity) by air density,
@@ -1028,7 +1042,7 @@ ENDIF ! l_parallel
 
 
 DEALLOCATE(parent_tend, fbk_tend, feedback_thv_tend, feedback_rho_tend, &
-           feedback_w_tend, feedback_vn)
+           feedback_w_tend, feedback_vn, feedback_tg)
 IF (ltransport .AND. l_trac_fbk) &
   DEALLOCATE(feedback_tracer_mass,parent_tr_mass,parent_tr_totmass,fbk_tr_mass,fbk_tr_totmass)
 
