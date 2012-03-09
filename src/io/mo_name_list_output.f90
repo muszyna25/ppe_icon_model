@@ -2936,7 +2936,7 @@ CONTAINS
     USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_INFO_NULL
 
     INTEGER :: jp, i, iv, nlevs
-    INTEGER :: nbytes_real, mpierr
+    INTEGER :: nbytes_real, mpierr, rma_cache_hint
     INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size, mem_bytes
     TYPE (t_var_metadata), POINTER :: info
 #ifdef USE_CRAY_POINTER
@@ -3043,9 +3043,23 @@ CONTAINS
 
     mem_ptr(:) = 0._wp
 
+#ifdef __xlC__
+    ! IBM specific RMA hint, that we don't want window caching
+    CALL MPI_Info_create(rma_cache_hint, mpierr);
+    IF (mpierr /= 0) CALL finish(trim(routine), "MPI error!")
+    CALL MPI_Info_set(rma_cache_hint, "IBM_win_cache","0", mpierr)
+    IF (mpierr /= 0) CALL finish(trim(routine), "MPI error!")
+#endif
+
     ! Create memory window for communication
 
-    CALL MPI_Win_create(mem_ptr,mem_bytes,nbytes_real,MPI_INFO_NULL,p_comm_work_io,mpi_win,mpierr)
+    CALL MPI_Win_create(mem_ptr,mem_bytes,nbytes_real,rma_cache_hint, p_comm_work_io,mpi_win,mpierr)
+
+#ifdef __xlC__
+    CALL MPI_Info_free(rma_cache_hint, mpierr);
+    IF (mpierr /= 0) CALL finish(trim(routine), "MPI error!")
+#endif
+
 
   END SUBROUTINE init_memory_window
 
