@@ -3043,6 +3043,7 @@ CONTAINS
 
     mem_ptr(:) = 0._wp
 
+    rma_cache_hint = MPI_INFO_NULL
 #ifdef __xlC__
     ! IBM specific RMA hint, that we don't want window caching
     CALL MPI_Info_create(rma_cache_hint, mpierr);
