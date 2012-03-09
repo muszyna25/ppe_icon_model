@@ -49,9 +49,10 @@ MODULE mo_statistics_tools
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
 
   PUBLIC :: construct_statistic_objects, destruct_statistic_objects
-  PUBLIC :: new_statistic, delete_statistic
+  PUBLIC :: delete_statistic
   PUBLIC :: add_statistic_to, max_statistic_of, min_statistic_of
   PUBLIC :: mean_statistic_of
+  PUBLIC :: new_statistic_no_bars, new_statistic_with_bars
 
   PUBLIC :: ADD_MAX_RATIO
 
@@ -95,11 +96,6 @@ MODULE mo_statistics_tools
   INTEGER :: max_active_statistics
   !> True if the statistic object is active.
   
-  INTERFACE new_statistic
-    MODULE PROCEDURE new_statistic_no_bars
-    MODULE PROCEDURE new_statistic_with_bars
-  END INTERFACE
-  
   INTERFACE add_statistic_to
     MODULE PROCEDURE add_statistic_one_value
     MODULE PROCEDURE add_statistic_two_values
@@ -111,8 +107,8 @@ CONTAINS
   !>
   !! Creates a new statistics object and returns its id.
   !! The statistic arrays are not allocated.
-  INTEGER FUNCTION new_statistic_with_bars(no_of_bars, min_value, max_value, mode), &
-    & RESULT(statistic_id)
+  FUNCTION new_statistic_with_bars(no_of_bars, min_value, &
+    &max_value, mode)  RESULT(statistic_id)
     INTEGER,  INTENT(in) :: no_of_bars
     REAL(wp), INTENT(in) :: min_value, max_value
     INTEGER,  INTENT(in), OPTIONAL :: mode

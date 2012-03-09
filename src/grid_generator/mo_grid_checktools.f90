@@ -306,9 +306,9 @@ CONTAINS
     WRITE(0,*) "-----------------------------"
     WRITE(0,*) " Checking geometry of ", verts%no_of_existvertices, " verts."
 
-    dual_area_stats       = new_statistic()
-    dual_edge_ratio_stats = new_statistic()
-    edge_ratio_stats      = new_statistic()
+    dual_area_stats       = new_statistic_no_bars()
+    dual_edge_ratio_stats = new_statistic_no_bars()
+    edge_ratio_stats      = new_statistic_no_bars()
     
     max_barycenter_distance = 0.0_wp
     DO vert_no=1, verts%no_of_existvertices
@@ -390,9 +390,9 @@ CONTAINS
       
     CHARACTER(*), PARAMETER :: method_name = "check_grid_geometry_edges"
    
-    edge_cell_offcenter_stat   = new_statistic(mode=ADD_MAX_RATIO)
-    edge_vert_offcenter_stat   = new_statistic(mode=ADD_MAX_RATIO)
-    dual_edge_stat             = new_statistic()
+    edge_cell_offcenter_stat   = new_statistic_no_bars(mode=ADD_MAX_RATIO)
+    edge_vert_offcenter_stat   = new_statistic_no_bars(mode=ADD_MAX_RATIO)
+    dual_edge_stat             = new_statistic_no_bars()
 
     x_unit%x = (/ 1._wp,0._wp,0._wp /)
     y_unit%x = (/ 0._wp,1._wp,0._wp /)
