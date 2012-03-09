@@ -111,7 +111,8 @@ CONTAINS
   !>
   !! Creates a new statistics object and returns its id.
   !! The statistic arrays are not allocated.
-  INTEGER FUNCTION new_statistic_with_bars(no_of_bars, min_value, max_value, mode)
+  INTEGER FUNCTION new_statistic_with_bars(no_of_bars, min_value, max_value, mode), &
+    & RESULT(statistic_id)
     INTEGER,  INTENT(in) :: no_of_bars
     REAL(wp), INTENT(in) :: min_value, max_value
     INTEGER,  INTENT(in), OPTIONAL :: mode
