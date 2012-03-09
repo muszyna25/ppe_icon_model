@@ -556,7 +556,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     ! convert first 8 characters to integer (yyyymmdd)
     READ(cur_date(1:8),'(i8)') icur_date
 
-    CALL sucst(54,icur_date,0,1)
+    CALL sucst(54,icur_date,0,0)
     CALL su_yoethf
 
   ENDIF
