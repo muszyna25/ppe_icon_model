@@ -89,8 +89,8 @@ MODULE mo_ocean_nml
   INTEGER            :: iforc_oce                 =  0   ! index of parameterized forcing
   INTEGER, PARAMETER :: NO_FORCING                = 10
   INTEGER, PARAMETER :: ANALYT_FORC               = 11
-  INTEGER,PARAMETER  :: FORCING_FROM_FILE_FLUX    = 12
-  INTEGER,PARAMETER  :: FORCING_FROM_FILE_FIELD   = 13   ! not yet
+  INTEGER, PARAMETER :: FORCING_FROM_FILE_FLUX    = 12
+  INTEGER, PARAMETER :: FORCING_FROM_FILE_FIELD   = 13   ! not yet
   INTEGER, PARAMETER :: FORCING_FROM_COUPLED_FLUX = 14   ! parameter for a coupled atmosphere-ocean run
   INTEGER, PARAMETER :: FORCING_FROM_COUPLED_FIELD= 15   ! not yet
 
@@ -140,6 +140,14 @@ MODULE mo_ocean_nml
                                             ! i_bc_veloc_bot =1 : bottom boundary friction
                                             ! i_bc_veloc_bot =2 : bottom friction plus topographic
                                             !                     slope (not implemented yet)
+  ! parameterized choice of tracer transport scheme
+  INTEGER, PARAMETER :: UPWIND = 1
+  INTEGER, PARAMETER :: CENTRAL= 2
+  INTEGER, PARAMETER :: MIMETIC= 3
+  INTEGER, PARAMETER :: MIMETIC_MIURA= 4
+  INTEGER            :: FLUX_CALCULATION_HORZ = MIMETIC
+  INTEGER            :: FLUX_CALCULATION_VERT = MIMETIC
+
 
   !this distinction is no longer used: INTEGER  :: i_sfc_forcing_form        = 0
   !=0: surface forcing applied as top boundary condition to vertical diffusion
@@ -157,7 +165,7 @@ MODULE mo_ocean_nml
   REAL(wp) :: ab_const              =  0.1_wp  ! Adams-Bashforth constant
   REAL(wp) :: ab_beta               =  0.0_wp  ! Parameter in semi-implicit timestepping
   REAL(wp) :: ab_gam                =  0.0_wp  ! Parameter in semi-implicit timestepping
-  REAL(wp) :: solver_tolerance      =  0.0_wp
+  REAL(wp) :: solver_tolerance      =  0.0_wp  ! Maximum value allowed for solver tolerance
 
   INTEGER :: EOS_TYPE               = 0        ! 1=linear EOS,2=(nonlinear) 
                                                ! Jacket-McDoudgall-formulation
@@ -212,19 +220,23 @@ MODULE mo_ocean_nml
   LOGICAL  :: l_RIGID_LID           = .FALSE.  ! include friction or not
   LOGICAL  :: l_inverse_flip_flop   = .FALSE.  ! true=complete discrete scalarproduct (slow)
                                                ! false=use a shortcut (faster)
+  LOGICAL  :: l_staggered_timestep  = .FALSE.
+  ! TRUE=staggering between thermodynamic and dynamic part, offset of half timestep
+  ! between dynamic and thermodynamic variables thermodynamic and dynamic variables are colocated in time
 
   INTEGER  :: i_sea_ice             = 0        ! 0=no sea ice
                                                ! 1=sea ice
 
   NAMELIST/ocean_dynamics_nml/ n_zlev, dzlev_m, idisc_scheme,              &
-    &                 iswm_oce,                                            &
+    &                 iswm_oce, l_staggered_timestep,                      &
     &                 i_bc_veloc_lateral,i_bc_veloc_top,i_bc_veloc_bot,    &
     &                 ab_const, ab_beta, ab_gam, solver_tolerance,         &
     &                 l_RIGID_LID, lviscous, l_inverse_flip_flop,          &
     &                 coriolis_type, basin_center_lat, basin_center_lon,   &
     &                 basin_width_deg,basin_height_deg,                    &
     &                 expl_vertical_velocity_diff,                         &
-    &                 expl_vertical_tracer_diff 
+    &                 expl_vertical_tracer_diff,                           &
+    &                 FLUX_CALCULATION_HORZ, FLUX_CALCULATION_VERT
  
 
 

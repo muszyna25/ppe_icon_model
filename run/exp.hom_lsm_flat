@@ -270,6 +270,9 @@ cat > ${ocean_namelist} << EOF
 !                      1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
   iswm_oce           =    0      ! switch for one layer shallow water model (iswm_oce=1) or 3-d
   idisc_scheme       =    1      ! 1=mimetic discretization, 2=rbf discretization
+  FLUX_CALCULATION_HORZ = 3      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
+  FLUX_CALCULATION_VERT = 3      ! 1=upwind, 2=central, 3=mimetic, 4=mimetic_miura
+  l_staggered_timestep  = .FALSE.! TRUE=thermodynamic and dynamic part staggered by half timestep
   l_inverse_flip_flop= .FALSE.   ! within mimetic discretization:
                                  ! TRUE : full scalar product (slow)
                                  ! FALSE: reduced scalarproduct variant (fast and default)

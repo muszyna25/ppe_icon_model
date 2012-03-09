@@ -50,8 +50,10 @@ USE mo_impl_constants,            ONLY: sea_boundary, &
   &                                     min_rlcell, min_rledge, min_rlcell,MIN_DOLIC
 USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer, idisc_scheme,    &
   &                                     irelax_3d_T, relax_3d_mon_T, irelax_3d_S, relax_3d_mon_S, &
-  &                                     ab_const, ab_gam, expl_vertical_tracer_diff,&
-  &                                     iswm_oce
+  &                                     ab_const, ab_gam, expl_vertical_tracer_diff, &
+  &                                     iswm_oce, &
+  &                                     FLUX_CALCULATION_HORZ, FLUX_CALCULATION_VERT, &
+  &                                     UPWIND, CENTRAL, MIMETIC, MIMETIC_MIURA
 USE mo_physical_constants,        ONLY: tf
 USE mo_math_constants,            ONLY: pi
 USE mo_parallel_config,           ONLY: nproma
@@ -90,16 +92,6 @@ PUBLIC :: advect_tracer_ab
 !
 PRIVATE :: advect_individual_tracer_ab
 PRIVATE :: prepare_tracer_transport
-
-INTEGER, PARAMETER  :: top=1
-INTEGER, PARAMETER :: UPWIND = 1
-INTEGER, PARAMETER :: CENTRAL= 2
-INTEGER, PARAMETER :: MIMETIC= 3
-INTEGER, PARAMETER :: MIMETIC_MIURA= 4
-
-
-INTEGER  :: FLUX_CALCULATION_HORZ=MIMETIC
-INTEGER  :: FLUX_CALCULATION_VERT=MIMETIC
 
 CONTAINS
 !-------------------------------------------------------------------------  
@@ -247,7 +239,6 @@ TYPE(t_operator_coeff),INTENT(INOUT) :: p_op_coeff
 INTEGER                              :: timestep
 !
 !Local variables
-INTEGER  :: i_no_t
 REAL(wp) :: z_relax
 REAL(wp) :: z_c(nproma,n_zlev,p_patch%nblks_c) 
 INTEGER  :: slev, elev

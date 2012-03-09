@@ -52,7 +52,8 @@ USE mo_model_domain,           ONLY: t_patch
 USE mo_grid_config,            ONLY: n_dom
 USE mo_sync,                   ONLY: sync_e, sync_c, sync_v, sync_patch_array
 USE mo_ocean_nml,              ONLY: iswm_oce, idisc_scheme, n_zlev, no_tracer, &
-  &                                  itestcase_oce, idiag_oce, init_oce_prog, EOS_type, i_sea_ice
+  &                                  itestcase_oce, idiag_oce, init_oce_prog, EOS_type, &
+  &                                  i_sea_ice, l_staggered_timestep
 USE mo_dynamics_config,        ONLY: nold, nnew
 USE mo_io_config,              ONLY: out_expname, istime4output, istime4newoutputfile,&
   &                                  is_checkpoint_time, n_checkpoints
@@ -163,9 +164,6 @@ CONTAINS
   CHARACTER(len=32) :: datestring
   TYPE(t_oce_timeseries), POINTER :: oce_ts
   TYPE(t_operator_coeff)  :: ptr_op_coeff
-  ! TRUE=staggering between thermodynamic and dynamic part, offset of half timestep
-  ! between dynamic and thermodynamic variables thermodynamic and dnamic variables are colocated in time
-  LOGICAL, PARAMETER :: l_STAGGERED_TIMESTEP = .FALSE. 
 
   !CHARACTER(LEN=filename_max)  :: outputfile, gridfile
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
