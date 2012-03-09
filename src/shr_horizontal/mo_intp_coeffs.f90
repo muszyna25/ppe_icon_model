@@ -3487,6 +3487,7 @@ END SUBROUTINE complete_patchinfo
     TYPE(t_int_state),         INTENT(INOUT) :: ptr_intp
    
     REAL(wp) :: prime_edge_length( nproma, ptr_patch%nblks_e)
+    REAL(wp) :: dual_edge_length( nproma, ptr_patch%nblks_e)
     
     TYPE(t_subset_range), POINTER :: owned_edges         ! these are the owned entities
     TYPE(t_subset_range), POINTER :: owned_cells         ! these are the owned entities
@@ -3496,6 +3497,7 @@ END SUBROUTINE complete_patchinfo
     
     INTEGER :: edge_block, edge_index, start_index, end_index
     INTEGER :: cell_index, cell_block, neigbor
+    INTEGER :: cell_1_index, cell_1_block, cell_2_index, cell_2_block
     INTEGER :: vertex_1_index, vertex_1_block, vertex_2_index, vertex_2_block
 
     owned_edges => ptr_patch%edges%owned
@@ -3511,6 +3513,7 @@ END SUBROUTINE complete_patchinfo
       ! we just need to get them from the grid
       ptr_intp%dist_cell2edge(:,:,:) = ptr_patch%edges%edge_cell_length(:,:,:)
       prime_edge_length(:,:) = ptr_patch%edges%primal_edge_length(:,:)
+      dual_edge_length(:,:) = ptr_patch%edges%dual_edge_length(:,:)
     ELSE
       ! calcultate cartesian distance
       DO edge_block = owned_edges%start_block, owned_edges%end_block
@@ -3530,25 +3533,50 @@ END SUBROUTINE complete_patchinfo
             
             prime_edge_length(edge_index,edge_block) = &
               & SQRT(SUM((  dist_vector%x *  dist_vector%x)))
-          !----------------------------------------
+          !----------------------------------------          
               
           !----------------------------------------
           ! calculate the cartesian distance of the edge center to the cell center
           DO neigbor = 1,2
 
+            ptr_intp%dist_cell2edge(edge_index,edge_block,neigbor) = 0.0_wp
+            
             cell_index = ptr_patch%edges%cell_idx(edge_index,edge_block,neigbor)
             cell_block = ptr_patch%edges%cell_blk(edge_index,edge_block,neigbor)
 
-            dist_vector%x = &
-              & ptr_patch%edges%cartesian_center(edge_index,edge_block)%x - &
-              & ptr_patch%cells%cartesian_center(cell_index,cell_block)%x
+            IF (cell_block > 0) THEN
+              dist_vector%x = &
+                & ptr_patch%edges%cartesian_center(edge_index,edge_block)%x - &
+                & ptr_patch%cells%cartesian_center(cell_index,cell_block)%x
 
-            ptr_intp%dist_cell2edge(edge_index,edge_block,neigbor) = &
-              & SQRT(SUM((  dist_vector%x *  dist_vector%x)))
+              ptr_intp%dist_cell2edge(edge_index,edge_block,neigbor) = &
+                & SQRT(SUM((  dist_vector%x *  dist_vector%x)))
+            ENDIF
 
           ENDDO ! neigbor = 1,2
           !----------------------------------------
 
+          !----------------------------------------
+          ! calculate the cartesian dual edge length
+          cell_1_index = ptr_patch%edges%cell_idx(edge_index, edge_block, 1)
+          cell_1_block = ptr_patch%edges%cell_blk(edge_index, edge_block, 1)
+          cell_2_index = ptr_patch%edges%cell_idx(edge_index, edge_block, 2)
+          cell_2_block = ptr_patch%edges%cell_blk(edge_index, edge_block, 2)
+
+          IF (cell_1_block > 0 .AND. cell_2_block > 0) THEN
+            dist_vector%x = &
+              & ptr_patch%cells%cartesian_center(cell_1_index, cell_1_block)%x - &
+              & ptr_patch%cells%cartesian_center(cell_2_index, cell_2_block)%x
+              
+              dual_edge_length(edge_index,edge_block) = &
+                & SQRT(SUM((  dist_vector%x *  dist_vector%x)))
+          ELSE
+              dual_edge_length(edge_index,edge_block) =              &
+                & ptr_intp%dist_cell2edge(edge_index,edge_block,1) + &
+                & ptr_intp%dist_cell2edge(edge_index,edge_block,2)   
+           ENDIF
+          !----------------------------------------
+        
         ENDDO ! edge_index=start_index,end_index
       ENDDO ! edge_block = owned_edges%start_block, owned_edges%end_block
                   
@@ -3556,6 +3584,7 @@ END SUBROUTINE complete_patchinfo
       CALL sync_patch_array(SYNC_E, ptr_patch, ptr_intp%dist_cell2edge(:,:,1))
       CALL sync_patch_array(SYNC_E, ptr_patch, ptr_intp%dist_cell2edge(:,:,2))
       CALL sync_patch_array(SYNC_E, ptr_patch, prime_edge_length(:,:))
+      CALL sync_patch_array(SYNC_E, ptr_patch, dual_edge_length(:,:))
     ENDIF
     !-------------------------------------------
 

@@ -3054,7 +3054,8 @@ CONTAINS
 
     ! Create memory window for communication
 
-    CALL MPI_Win_create(mem_ptr,mem_bytes,nbytes_real,rma_cache_hint, p_comm_work_io,mpi_win,mpierr)
+    CALL MPI_Win_create(mem_ptr,mem_bytes,nbytes_real,rma_cache_hint, &
+      & p_comm_work_io,mpi_win,mpierr)
 
 #ifdef __xlC__
     CALL MPI_Info_free(rma_cache_hint, mpierr);
