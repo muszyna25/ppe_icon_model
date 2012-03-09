@@ -1384,7 +1384,7 @@ CONTAINS
     CALL message (TRIM(routine), 'read_patches finished')
     
   END SUBROUTINE read_basic_patch
-   !-------------------------------------------------------------------------
+  !-------------------------------------------------------------------------
  
   !-------------------------------------------------------------------------
   !> Reads the remaining patch information into the divided patch
@@ -1410,6 +1410,8 @@ CONTAINS
     
     INTEGER :: ncid, varid
     INTEGER :: ip, ji, jv
+
+    INTEGER :: return_status
     
     TYPE(t_patch), POINTER :: p_p
     
@@ -1551,6 +1553,40 @@ CONTAINS
           & p_p%verts%dual_area(:,:) )
       ENDDO
     ENDIF
+    
+    IF (global_cell_type == 3) THEN ! triangular grid
+    
+      return_status = nf_inq_varid(ncid, 'cell_circumcenter_cartesian_x', varid)
+      IF (return_status == nf_noerr) THEN
+      
+        CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(ip)
+          CALL divide_real( array_c_real(:,1), p_p%n_patch_cells, p_p%cells%glb_index, &
+            & p_p%cells%cartesian_center(:,:)%x(1) )
+        ENDDO
+
+        CALL nf(nf_inq_varid(ncid, 'cell_circumcenter_cartesian_y', varid))
+        CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(ip)
+          CALL divide_real( array_c_real(:,1), p_p%n_patch_cells, p_p%cells%glb_index, &
+            & p_p%cells%cartesian_center(:,:)%x(2) )
+        ENDDO
+        
+        CALL nf(nf_inq_varid(ncid, 'cell_circumcenter_cartesian_z', varid))
+        CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(ip)
+          CALL divide_real( array_c_real(:,1), p_p%n_patch_cells, p_p%cells%glb_index, &
+            & p_p%cells%cartesian_center(:,:)%x(3) )
+        ENDDO
+       
+      ENDIF
+      
+    ENDIF ! (global_cell_type == 3) THEN
+    
+
     
     ! p_p%edges%phys_id(:,:)
     CALL nf(nf_inq_varid(ncid, 'phys_edge_id', varid))
@@ -1983,7 +2019,7 @@ CONTAINS
     
   END SUBROUTINE read_remaining_patch
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !>
   !! Divide and reshape (for blocking) a real array
@@ -2455,23 +2491,11 @@ CONTAINS
       CALL finish  ('mo_model_domain_import:destruct_patches', &
         & 'deallocate for patch edge primal_normal failed')
     ENDIF
-    DEALLOCATE( p_patch%edges%primal_cart_normal,  &
-      & stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch edge primal_cart_normal failed')
-    ENDIF
     DEALLOCATE( p_patch%edges%dual_normal,  &
       & stat=ist )
     IF(ist/=success)THEN
       CALL finish  ('mo_model_domain_import:destruct_patches', &
         & 'deallocate for patch edge dual_normal failed')
-    ENDIF
-    DEALLOCATE( p_patch%edges%dual_cart_normal,  &
-      & stat=ist )
-    IF(ist/=success)THEN
-      CALL finish  ('mo_model_domain_import:destruct_patches', &
-        & 'deallocate for patch edge dual_cart_normal failed')
     ENDIF
     DEALLOCATE( p_patch%edges%primal_normal_cell,  &
       & stat=ist )
@@ -2714,8 +2738,94 @@ CONTAINS
       CALL finish  ('mo_model_domain_import:destruct_patches', &
         & 'deallocate for patch vert data failed')
     ENDIF
+
+
+    CALL deallocate_patch_cartestian( p_patch )
     
   END SUBROUTINE deallocate_patch
+  !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
+  SUBROUTINE allocate_patch_cartestian( p_patch )
+    TYPE(t_patch), TARGET, INTENT(inout) :: p_patch
+
+    INTEGER :: return_status
+    CHARACTER(LEN=*), PARAMETER :: &
+      & method_name = 'mo_model_domimp_patches:allocate_patch_cartestian'
+
+    ALLOCATE( p_patch%edges%primal_cart_normal(nproma,p_patch%nblks_e) )
+    p_patch%edges%primal_cart_normal(:,:)%x(1) = 0._wp
+    p_patch%edges%primal_cart_normal(:,:)%x(2) = 0._wp
+    p_patch%edges%primal_cart_normal(:,:)%x(3) = 0._wp
+    
+    ALLOCATE( p_patch%edges%dual_cart_normal(nproma,p_patch%nblks_e) )
+    p_patch%edges%dual_cart_normal(:,:)%x(1) = 0._wp
+    p_patch%edges%dual_cart_normal(:,:)%x(2) = 0._wp
+    p_patch%edges%dual_cart_normal(:,:)%x(3) = 0._wp
+    
+    ALLOCATE( p_patch%cells%cartesian_center(nproma,p_patch%nblks_c) )
+    p_patch%cells%cartesian_center(:,:)%x(1) = 0._wp
+    p_patch%cells%cartesian_center(:,:)%x(2) = 0._wp
+    p_patch%cells%cartesian_center(:,:)%x(3) = 0._wp
+    
+    ALLOCATE( p_patch%edges%cartesian_center(nproma,p_patch%nblks_e) )
+    p_patch%edges%cartesian_center(:,:)%x(1) = 0._wp
+    p_patch%edges%cartesian_center(:,:)%x(2) = 0._wp
+    p_patch%edges%cartesian_center(:,:)%x(3) = 0._wp
+    
+    ALLOCATE( p_patch%edges%cartesian_dual_middle(nproma,p_patch%nblks_e) )
+    p_patch%edges%cartesian_dual_middle(:,:)%x(1) = 0._wp
+    p_patch%edges%cartesian_dual_middle(:,:)%x(2) = 0._wp
+    p_patch%edges%cartesian_dual_middle(:,:)%x(3) = 0._wp
+    
+    ALLOCATE( p_patch%verts%cartesian(nproma,p_patch%nblks_v) )
+    p_patch%verts%cartesian(:,:)%x(1) = 0._wp
+    p_patch%verts%cartesian(:,:)%x(2) = 0._wp
+    p_patch%verts%cartesian(:,:)%x(3) = 0._wp
+  
+  END SUBROUTINE allocate_patch_cartestian
+  !-------------------------------------------------------------------------
+
+  
+  !-------------------------------------------------------------------------
+  SUBROUTINE deallocate_patch_cartestian( p_patch )
+    TYPE(t_patch), TARGET, INTENT(inout) :: p_patch
+
+    INTEGER :: return_status
+    CHARACTER(LEN=*), PARAMETER :: &
+      & method_name = 'mo_model_domimp_patches:deallocate_patch_cartestian'
+
+    DEALLOCATE( p_patch%edges%primal_cart_normal, stat=return_status )
+    IF ( return_status /= success) THEN
+      CALL finish  (method_name,"DEALLOCATE( p_patch%edges%primal_cart_normal)")
+    ENDIF
+    
+    DEALLOCATE( p_patch%edges%dual_cart_normal, stat=return_status )
+    IF ( return_status /= success) THEN
+      CALL finish  (method_name,"DEALLOCATE( p_patch%edges%dual_cart_normal)")
+    ENDIF
+    
+    DEALLOCATE( p_patch%cells%cartesian_center, stat=return_status )
+    IF ( return_status /= success) THEN
+      CALL finish  (method_name,"DEALLOCATE( p_patch%cells%cartesian_center)")
+    ENDIF
+    
+    DEALLOCATE( p_patch%edges%cartesian_center, stat=return_status )
+    IF ( return_status /= success) THEN
+      CALL finish  (method_name,"DEALLOCATE( p_patch%edges%cartesian_center)")
+    ENDIF
+
+    DEALLOCATE( p_patch%edges%cartesian_dual_middle, stat=return_status )
+    IF ( return_status /= success) THEN
+      CALL finish  (method_name,"DEALLOCATE( p_patch%edges%cartesian_dual_middle)")
+    ENDIF
+
+    DEALLOCATE( p_patch%verts%cartesian, stat=return_status )
+    IF ( return_status /= success) THEN
+      CALL finish  (method_name,"DEALLOCATE( p_patch%verts%cartesian)")
+    ENDIF
+
+  END SUBROUTINE deallocate_patch_cartestian
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
@@ -2981,9 +3091,7 @@ CONTAINS
     ALLOCATE( p_patch%edges%quad_orientation(nproma,p_patch%nblks_e,4) )
     ALLOCATE( p_patch%edges%center(nproma,p_patch%nblks_e) )
     ALLOCATE( p_patch%edges%primal_normal(nproma,p_patch%nblks_e) )
-    ALLOCATE( p_patch%edges%primal_cart_normal(nproma,p_patch%nblks_e) )
     ALLOCATE( p_patch%edges%dual_normal(nproma,p_patch%nblks_e) )
-    ALLOCATE( p_patch%edges%dual_cart_normal(nproma,p_patch%nblks_e) )
     ALLOCATE( p_patch%edges%primal_normal_cell(nproma,p_patch%nblks_e,2) )
     ALLOCATE( p_patch%edges%dual_normal_cell(nproma,p_patch%nblks_e,2) )
     ALLOCATE( p_patch%edges%primal_normal_vert(nproma,p_patch%nblks_e,4) )
@@ -3048,14 +3156,8 @@ CONTAINS
     p_patch%edges%center(:,:)%lat = 0._wp
     p_patch%edges%primal_normal(:,:)%v1 = 0._wp
     p_patch%edges%primal_normal(:,:)%v2 = 0._wp
-    p_patch%edges%primal_cart_normal(:,:)%x(1) = 0._wp
-    p_patch%edges%primal_cart_normal(:,:)%x(2) = 0._wp
-    p_patch%edges%primal_cart_normal(:,:)%x(3) = 0._wp
     p_patch%edges%dual_normal(:,:)%v1 = 0._wp
     p_patch%edges%dual_normal(:,:)%v2 = 0._wp
-    p_patch%edges%dual_cart_normal(:,:)%x(1) = 0._wp
-    p_patch%edges%dual_cart_normal(:,:)%x(2) = 0._wp
-    p_patch%edges%dual_cart_normal(:,:)%x(3) = 0._wp
     p_patch%edges%primal_normal_cell(:,:,:)%v1 = 0._wp
     p_patch%edges%primal_normal_cell(:,:,:)%v2 = 0._wp
     p_patch%edges%dual_normal_cell(:,:,:)%v1 = 0._wp
@@ -3130,6 +3232,8 @@ CONTAINS
       p_patch%verts%owner_g(jv) = 0
       p_patch%verts%owner_local(jv) = 0
     ENDDO
+
+    CALL allocate_patch_cartestian( p_patch )
     
   END SUBROUTINE allocate_remaining_patch
   !-------------------------------------------------------------------------
