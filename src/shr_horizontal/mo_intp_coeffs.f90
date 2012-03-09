@@ -3491,30 +3491,39 @@ END SUBROUTINE complete_patchinfo
     
     TYPE(t_subset_range), POINTER :: owned_edges         ! these are the owned entities
     TYPE(t_subset_range), POINTER :: owned_cells         ! these are the owned entities
-    TYPE(t_cartesian_coordinates) :: dist_vector, cell_center
+    TYPE(t_subset_range), POINTER :: owned_verts         ! these are the owned entities
+    TYPE(t_cartesian_coordinates) :: vertex_position, cell_center, edge_center
+    TYPE(t_cartesian_coordinates) :: dist_vector
 
-    REAL(wp) :: norm
+    REAL(wp) :: norm, orientation, length
     
-    INTEGER :: edge_block, edge_index, start_index, end_index
-    INTEGER :: cell_index, cell_block, neigbor
+    INTEGER :: edge_block, edge_index
+    INTEGER :: cell_index, cell_block
+    INTEGER :: vertex_index, vertex_block
+    INTEGER :: start_index, end_index, neigbor
     INTEGER :: cell_1_index, cell_1_block, cell_2_index, cell_2_block
     INTEGER :: vertex_1_index, vertex_1_block, vertex_2_index, vertex_2_block
 
     owned_edges => ptr_patch%edges%owned
     owned_cells => ptr_patch%cells%owned
+    owned_verts => ptr_patch%verts%owned
 
     !-------------------------------------------
     ! compute some basic distances
     ! this is required if the cartesian distance is used
-    ! instead of the sperical
+    ! instead of the spherical
     ! 
-    ! compute_dist_cell2edge( ptr_patch, ptr_intp)
+    ! computes_dist_cell2edge( ptr_patch, ptr_intp)
+    !
     IF (LARC_LENGTH) THEN
+    
       ! we just need to get them from the grid
       ptr_intp%dist_cell2edge(:,:,:) = ptr_patch%edges%edge_cell_length(:,:,:)
       prime_edge_length(:,:) = ptr_patch%edges%primal_edge_length(:,:)
       dual_edge_length(:,:) = ptr_patch%edges%dual_edge_length(:,:)
+      
     ELSE
+    
       ! calcultate cartesian distance
       DO edge_block = owned_edges%start_block, owned_edges%end_block
         CALL get_index_range(owned_edges, edge_block, start_index, end_index)
@@ -3586,6 +3595,7 @@ END SUBROUTINE complete_patchinfo
       CALL sync_patch_array(SYNC_E, ptr_patch, prime_edge_length(:,:))
       CALL sync_patch_array(SYNC_E, ptr_patch, dual_edge_length(:,:))
     ENDIF
+    ! distances have been computed
     !-------------------------------------------
 
     !-------------------------------------------
@@ -3604,6 +3614,7 @@ END SUBROUTINE complete_patchinfo
         DO neigbor=1,ptr_patch%cell_type
 
           ptr_intp%edge2cell_coeff_cc(cell_index,cell_block,neigbor)%x = 0.0_wp
+          ptr_intp%variable_vol_norm(cell_index, cell_block, neigbor) =  0.0_wp
         
           edge_index = ptr_patch%cells%edge_idx(cell_index, cell_block, neigbor)
           edge_block = ptr_patch%cells%edge_blk(cell_index, cell_block, neigbor)
@@ -3619,9 +3630,10 @@ END SUBROUTINE complete_patchinfo
             ! compute edge2cell_coeff_cc
             ptr_intp%edge2cell_coeff_cc(cell_index,cell_block,neigbor)%x =  &
               & dist_vector%x *                                             &
-              & prime_edge_length(edge_index,edge_block) *                 &
-              & ptr_patch%cells%edge_orientation(cell_index,cell_block,neigbor) 
-              ! strange that we use here the  edge_orientation, ask Peter!
+              & prime_edge_length(edge_index,edge_block) *                  &
+              & ptr_patch%cells%edge_orientation(cell_index,cell_block,neigbor) / &
+              & ptr_patch%cells%area(cell_index, cell_block)
+              ! Note: here we divide by the cell area !
 
             ptr_intp%fixed_vol_norm(cell_index,cell_block) = &
               & ptr_intp%fixed_vol_norm(cell_index,cell_block) + &
@@ -3649,6 +3661,155 @@ END SUBROUTINE complete_patchinfo
     ENDDO
     !-------------------
     
+    !-------------------------------------------
+    ! compute:
+    !   edge2cell_coeff_cc_t
+    DO edge_block = owned_edges%start_block, owned_edges%end_block
+      CALL get_index_range(owned_edges, edge_block, start_index, end_index)
+      DO edge_index = start_index, end_index
+
+        ptr_intp%edge2cell_coeff_cc_t(edge_index, edge_block, 2)%x = 0.0_wp
+        edge_center%x = ptr_patch%edges%cartesian_center(edge_index, edge_block)%x
+        
+        DO neigbor=1,2
+        
+          ptr_intp%edge2cell_coeff_cc_t(edge_index, edge_block, neigbor)%x = 0.0_wp
+          cell_index = ptr_patch%edges%cell_idx(edge_index, edge_block, neigbor)
+          cell_block = ptr_patch%edges%cell_blk(edge_index, edge_block, neigbor)
+          
+          IF (cell_block > 0) THEN
+
+            dist_vector%x =  edge_center%x -                             &
+              ptr_patch%cells%cartesian_center(cell_index, cell_block)%x
+
+            orientation = DOT_PRODUCT(dist_vector%x, &
+              & ptr_patch%edges%primal_cart_normal(edge_index, edge_block)%x)
+            IF (orientation < 0.0_wp) dist_vector%x = - dist_vector%x
+            
+            ptr_intp%edge2cell_coeff_cc_t(edge_index, edge_block, neigbor)%x = &
+              dist_vector%x / dual_edge_length(edge_index, edge_block)
+
+          ENDIF ! (cell_block > 0)
+        
+        ENDDO ! neigbor=1,2
+
+      ENDDO ! edge_index = start_index, end_index
+    ENDDO ! edge_block = owned_edges%start_block, owned_edges%end_block
+    !-------------------
+    ! sync the results
+    DO neigbor=1,2
+      CALL sync_patch_array(SYNC_E, ptr_patch, ptr_intp%edge2cell_coeff_cc_t(:,:,neigbor)%x(1))
+      CALL sync_patch_array(SYNC_E, ptr_patch, ptr_intp%edge2cell_coeff_cc_t(:,:,neigbor)%x(2))
+      CALL sync_patch_array(SYNC_E, ptr_patch, ptr_intp%edge2cell_coeff_cc_t(:,:,neigbor)%x(3))
+    ENDDO ! neigbor=1,2
+    !   edge2cell_coeff_cc_t is computed
+    !-------------------------------------------
+          
+
+    !-------------------------------------------
+    ! compute:
+    !   edge2vert_vector_cc
+    !   variable_dual_vol_norm
+    DO vertex_block = owned_verts%start_block, owned_verts%end_block
+      CALL get_index_range(owned_verts, vertex_block, start_index, end_index)
+      DO vertex_index = start_index, end_index
+
+        vertex_position%x = ptr_patch%verts%cartesian(vertex_index, vertex_block)%x
+        
+        DO neigbor=1,6 ! we have to change this to accomodate the dual grid
+
+          ptr_intp%edge2vert_vector_cc(vertex_index, vertex_block, neigbor)%x = 0.0_wp
+          ptr_intp%variable_dual_vol_norm(vertex_index, vertex_block, neigbor) = 0.0_wp
+          
+          edge_index = ptr_patch%verts%edge_idx(vertex_index, vertex_block, neigbor)
+          edge_block = ptr_patch%verts%edge_blk(vertex_index, vertex_block, neigbor)
+
+          IF (edge_block > 0) THEN
+            ! we got an adjacent edge
+            dist_vector%x = &
+              ptr_patch%edges%cartesian_dual_middle(edge_index, edge_block)%x - &
+              vertex_position%x
+
+            orientation = DOT_PRODUCT( dist_vector%x,                         &
+               & ptr_patch%edges%primal_cart_normal(edge_index, edge_block)%x)
+            IF (orientation < 0) dist_vector%x = - dist_vector%x
+            
+            ! the dist_vector has cartesian length
+            ! if we use spherical distance we need to recalculate
+            IF (LARC_LENGTH) THEN
+              length = arc_length(vertex_position, &
+                & ptr_patch%edges%cartesian_dual_middle(edge_index, edge_block))
+              norm = SQRT(SUM( dist_vector%x * dist_vector%x ))
+              dist_vector%x = dist_vector%x * length / norm
+            ELSE
+              length = SQRT(SUM( dist_vector%x * dist_vector%x ))              
+            ENDIF
+
+            dist_vector = vector_product(dist_vector, &
+              & ptr_patch%edges%cartesian_dual_middle(edge_index, edge_block))
+              
+            ptr_intp%edge2vert_vector_cc(vertex_index, vertex_block, neigbor)%x = &
+              & dist_vector%x                                *                    &
+              & dual_edge_length(edge_index, edge_block)     /                    &
+              & ptr_patch%verts%dual_area(vertex_index, vertex_block)
+          
+            ptr_intp%variable_dual_vol_norm(vertex_index, vertex_block, neigbor) = &
+              & 0.5_wp * dual_edge_length(edge_index, edge_block) * length
+          
+          ENDIF !(edge_block > 0) THEN
+
+        ENDDO !neigbor=1,6         
+
+      ENDDO ! vertex_index = start_index, end_index
+    ENDDO !vertex_block = owned_verts%start_block, owned_verts%end_block
+    !-------------------
+    ! sync the results
+    DO neigbor=1,6
+      CALL sync_patch_array(SYNC_V, ptr_patch, ptr_intp%edge2vert_vector_cc(:,:,neigbor)%x(1))
+      CALL sync_patch_array(SYNC_V, ptr_patch, ptr_intp%edge2vert_vector_cc(:,:,neigbor)%x(2))
+      CALL sync_patch_array(SYNC_V, ptr_patch, ptr_intp%edge2vert_vector_cc(:,:,neigbor)%x(3))
+      CALL sync_patch_array(SYNC_V, ptr_patch, ptr_intp%variable_dual_vol_norm(:,:, neigbor))
+    ENDDO ! neigbor=1,6
+    ! edge2vert_vector_cc
+    ! variable_dual_vol_norm
+    !   are computed
+    !----------------------------------------------------
+
+    !----------------------------------------------------
+    ! compute:
+    !   edge2vert_coeff_cc_t
+    DO edge_block = owned_edges%start_block, owned_edges%end_block
+      CALL get_index_range(owned_edges, edge_block, start_index, end_index)
+      DO edge_index = start_index, end_index
+
+        edge_center%x = ptr_patch%edges%cartesian_dual_middle(edge_index, edge_block)%x
+        
+        DO neigbor=1,2
+        
+          ptr_intp%edge2vert_coeff_cc_t(edge_index, edge_block, neigbor)%x = 0.0_wp
+                  
+          vertex_index = ptr_patch%edges%vertex_idx(edge_index, edge_block, neigbor)
+          vertex_block = ptr_patch%edges%vertex_blk(edge_index, edge_block, neigbor)
+          
+          ptr_intp%edge2vert_coeff_cc_t(edge_index, edge_block, neigbor)%x =              &
+            & (edge_center%x - ptr_patch%verts%cartesian(vertex_index, vertex_block)%x) * &
+            & ptr_patch%edges%system_orientation(edge_index, edge_block)                / &
+            & prime_edge_length(edge_index, edge_block)
+              
+        ENDDO !neigbor=1,2
+      
+      ENDDO ! edge_index = start_index, end_index
+    ENDDO ! edge_block = owned_edges%start_block, owned_edges%end_block
+    !-------------------
+    ! sync the results
+    DO neigbor=1,2
+      CALL sync_patch_array(SYNC_E, ptr_patch, ptr_intp%edge2vert_coeff_cc_t(:,:,neigbor)%x(1))
+      CALL sync_patch_array(SYNC_E, ptr_patch, ptr_intp%edge2vert_coeff_cc_t(:,:,neigbor)%x(2))
+      CALL sync_patch_array(SYNC_E, ptr_patch, ptr_intp%edge2vert_coeff_cc_t(:,:,neigbor)%x(3))
+    ENDDO ! neigbor=1,2
+    ! edge2vert_coeff_cc_t is computed
+    !----------------------------------------------------
+                  
   END SUBROUTINE par_init_scalar_product_oce
   !-------------------------------------------------------------------------
   

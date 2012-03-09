@@ -702,6 +702,14 @@ CONTAINS
     CALL fill_subset(p_patch%edges%not_in_domain, &
       & p_patch%edges%halo_level, 2, halo_levels_ceiling)
     
+    ! fill vertex subsets
+    !    fill_subset(range subset,  halo levels, start level, end level)
+    CALL fill_subset(p_patch%verts%owned,      p_patch%verts%halo_level, 0, 0)
+    CALL fill_subset(p_patch%verts%in_domain,  p_patch%verts%halo_level, 0, 1)
+    CALL fill_subset(p_patch%verts%not_owned,  p_patch%verts%halo_level, 1, halo_levels_ceiling)
+    CALL fill_subset(p_patch%verts%not_in_domain, &
+      & p_patch%verts%halo_level, 2, halo_levels_ceiling)
+      
     ! write some info:
     !     IF (get_my_mpi_work_id() == 1) CALL work_mpi_barrier()
     !     write(0,*) get_my_mpi_work_id(), "egdes global_index:", p_patch%edges%glb_index
