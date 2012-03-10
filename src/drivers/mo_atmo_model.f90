@@ -123,7 +123,6 @@ USE mo_util_sysinfo,        ONLY: util_get_maxrss
 USE mo_grid_config,         ONLY: n_dom, n_dom_start, global_cell_type, &
                                   dynamics_parent_grid_id
 USE mo_model_domimp_patches,ONLY: import_basic_patches, complete_patches, destruct_patches
-USE mo_model_domimp_setup,  ONLY: fill_grid_subsets
 ! Horizontal interpolation
 !
 USE mo_intp_state,          ONLY: construct_2d_interpol_state,  &
@@ -598,16 +597,6 @@ CONTAINS
       ENDIF
 
     ENDIF
-
-    !--------------------------------------------------------------------------------
-    DO jg = n_dom_start, n_dom
-      ! aliasing the halo_level to decomp_domain
-      p_patch(jg)%cells%halo_level => p_patch(jg)%cells%decomp_domain
-      p_patch(jg)%edges%halo_level => p_patch(jg)%edges%decomp_domain
-      p_patch(jg)%verts%halo_level => p_patch(jg)%verts%decomp_domain
-      ! Fill the subsets information
-      CALL fill_grid_subsets(p_patch(jg))
-    ENDDO
     !--------------------------------------------------------------------------------
     
     !--------------------------------------------        

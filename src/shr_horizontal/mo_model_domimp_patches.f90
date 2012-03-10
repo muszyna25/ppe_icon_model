@@ -131,6 +131,8 @@ MODULE mo_model_domimp_patches
   USE mo_name_list_output_config, ONLY: is_grib_output
   USE mo_util_string,        ONLY: t_keyword_list, associate_keyword, with_keywords
   USE mo_master_nml,         ONLY: model_base_dir
+
+  USE mo_model_domimp_setup, ONLY: fill_grid_subsets
   
 #ifndef NOMPI
   ! The USE statement below lets this module use the routines from
@@ -522,6 +524,9 @@ CONTAINS
       
       ! Get all patch information not read by read_basic_patch
       CALL read_remaining_patch( jg, p_patch(jg), n_lp, id_lp )
+      
+      ! Fill the subsets information
+      CALL fill_grid_subsets(p_patch(jg))
       
       ! calculate Cartesian components of primal normal
       ! (later these should be provided by the grid generator)

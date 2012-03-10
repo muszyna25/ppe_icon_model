@@ -685,6 +685,12 @@ CONTAINS
     
     INTEGER :: j, jb, jl, jg
     
+    !--------------------------------------------------------------------------------
+    ! aliasing the halo_level to decomp_domain
+    p_patch%cells%halo_level => p_patch%cells%decomp_domain
+    p_patch%edges%halo_level => p_patch%edges%decomp_domain
+    p_patch%verts%halo_level => p_patch%verts%decomp_domain
+    !--------------------------------------------------------------------------------
     ! fill cell subsets
     !    fill_subset(range subset,  halo levels, start level, end level)
     CALL fill_subset(p_patch%cells%owned,  p_patch%cells%halo_level, 0, 0)
