@@ -108,7 +108,7 @@ MODULE mo_model_domimp_setup
   USE mo_grid_config,        ONLY: corio_lat
   USE mo_sync,               ONLY: sync_e, sync_patch_array, sync_idx
   USE mo_util_subset,        ONLY: fill_subset
-  USE mo_mpi,                ONLY: work_mpi_barrier, get_my_mpi_work_id
+  USE mo_mpi,                ONLY: work_mpi_barrier, get_my_mpi_work_id, my_process_is_mpi_seq
   USE mo_impl_constants,     ONLY: halo_levels_ceiling
   
   IMPLICIT NONE
@@ -690,6 +690,16 @@ CONTAINS
     p_patch%cells%halo_level => p_patch%cells%decomp_domain
     p_patch%edges%halo_level => p_patch%edges%decomp_domain
     p_patch%verts%halo_level => p_patch%verts%decomp_domain
+    !--------------------------------------------------------------------------------
+    ! make sure the levels are correct when running sequentially
+    IF (my_process_is_mpi_seq()) THEN
+      p_patch%cells%halo_level(:,:) = 0
+      p_patch%cells%halo_level(p_patch%npromz_c + 1 :nproma, p_patch%nblks_c) = -1
+      p_patch%edges%halo_level(:,:) = 0
+      p_patch%edges%halo_level(p_patch%npromz_e + 1 :nproma, p_patch%nblks_e) = -1
+      p_patch%verts%halo_level(:,:) = 0
+      p_patch%verts%halo_level(p_patch%npromz_v + 1 :nproma, p_patch%nblks_v) = -1
+    ENDIF
     !--------------------------------------------------------------------------------
     ! fill cell subsets
     !    fill_subset(range subset,  halo levels, start level, end level)

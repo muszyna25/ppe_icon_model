@@ -1,21 +1,4 @@
   !----------------------------------
-  ! cell geometry auxiliary variables
-  ! the cartesian coordinates of the cell centers on the unit sphere
-!   TYPE(t_cartesian_coordinates), ALLOCATABLE ::  &
-!     &  cartesian_center(:,:)
-  !----------------------------------
-!   TYPE(t_cartesian_coordinates), ALLOCATABLE ::  &
-!     &  cartesian_center(:,:)
-!   
-!   TYPE(t_cartesian_coordinates), ALLOCATABLE ::  &
-!     &  cartesian_dual_middle(:,:)
-
-  ! vertex geometry auxiliary variables
-!   TYPE(t_cartesian_coordinates), ALLOCATABLE ::  &
-!     &  cartesian(:,:)
-
-  
-  !----------------------------------
 !>
 !!               The module contains the definition of the.
 !!
