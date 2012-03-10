@@ -515,7 +515,7 @@ CONTAINS
         DO jgp = n_dom_start+1, n_dom
           IF(p_patch(jgp)%parent_id == jg) THEN
             n_lp = n_lp+1
-            id_lp(n_lp) = jgp
+            id_lp(n_lp) = jgp  ! these are children of the current patch
           ENDIF
         ENDDO
       ENDIF
@@ -525,6 +525,7 @@ CONTAINS
       
       ! calculate Cartesian components of primal normal
       ! (later these should be provided by the grid generator)
+      ! these are read from the grid file, kept though for backwards compatibility
       CALL calculate_cart_normal( lplane, p_patch(jg) )
       
       ! Initialize the data for the quadrilateral cells
@@ -1416,14 +1417,14 @@ CONTAINS
     TYPE(t_patch), POINTER :: p_p
     
     !-----------------------------------------------------------------------
-        
+    
     CALL message ('mo_model_domimp_patches:read_remaining_patch', &
       & 'Read gridmap file '//TRIM(p_patch%grid_filename))
     
     CALL nf(nf_open(TRIM(p_patch%grid_filename), nf_nowrite, ncid))
     
     !
-    ! allocate temporary arrays to read in data form the grid/patch generator
+    ! allocate temporary arrays to read in data from the grid/patch generator
     !
     ! integer arrays
     ALLOCATE( array_c_int(p_patch%n_patch_cells_g,6),  &
@@ -1553,39 +1554,7 @@ CONTAINS
           & p_p%verts%dual_area(:,:) )
       ENDDO
     ENDIF
-    
-    IF (global_cell_type == 3) THEN ! triangular grid
-    
-      return_status = nf_inq_varid(ncid, 'cell_circumcenter_cartesian_x', varid)
-      IF (return_status == nf_noerr) THEN
-      
-        CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
-        DO ip = 0, n_lp
-          p_p => get_patch_ptr(ip)
-          CALL divide_real( array_c_real(:,1), p_p%n_patch_cells, p_p%cells%glb_index, &
-            & p_p%cells%cartesian_center(:,:)%x(1) )
-        ENDDO
-
-        CALL nf(nf_inq_varid(ncid, 'cell_circumcenter_cartesian_y', varid))
-        CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
-        DO ip = 0, n_lp
-          p_p => get_patch_ptr(ip)
-          CALL divide_real( array_c_real(:,1), p_p%n_patch_cells, p_p%cells%glb_index, &
-            & p_p%cells%cartesian_center(:,:)%x(2) )
-        ENDDO
         
-        CALL nf(nf_inq_varid(ncid, 'cell_circumcenter_cartesian_z', varid))
-        CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
-        DO ip = 0, n_lp
-          p_p => get_patch_ptr(ip)
-          CALL divide_real( array_c_real(:,1), p_p%n_patch_cells, p_p%cells%glb_index, &
-            & p_p%cells%cartesian_center(:,:)%x(3) )
-        ENDDO
-       
-      ENDIF
-      
-    ENDIF ! (global_cell_type == 3) THEN
-    
 
     
     ! p_p%edges%phys_id(:,:)
@@ -1949,6 +1918,164 @@ CONTAINS
       ENDDO
     ENDIF
     
+    !---------------------------------------------------
+    IF (global_cell_type == 3) THEN ! triangular grid
+      ! read cartesian positions
+    
+      return_status = nf_inq_varid(ncid, 'cell_circumcenter_cartesian_x', varid)
+      IF (return_status == nf_noerr) THEN
+      
+        CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(ip)
+          CALL divide_real( array_c_real(:,1), p_p%n_patch_cells, p_p%cells%glb_index, &
+            & p_p%cells%cartesian_center(:,:)%x(1) )
+        ENDDO
+
+        CALL nf(nf_inq_varid(ncid, 'cell_circumcenter_cartesian_y', varid))
+        CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(ip)
+          CALL divide_real( array_c_real(:,1), p_p%n_patch_cells, p_p%cells%glb_index, &
+            & p_p%cells%cartesian_center(:,:)%x(2) )
+        ENDDO
+        
+        CALL nf(nf_inq_varid(ncid, 'cell_circumcenter_cartesian_z', varid))
+        CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(ip)
+          CALL divide_real( array_c_real(:,1), p_p%n_patch_cells, p_p%cells%glb_index, &
+            & p_p%cells%cartesian_center(:,:)%x(3) )
+        ENDDO
+              
+              
+        CALL nf(nf_inq_varid(ncid, 'edge_middle_cartesian_x', varid))
+        CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(ip)
+          CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index, &
+            & p_p%edges%cartesian_center(:,:)%x(1) )
+        ENDDO
+       
+        CALL nf(nf_inq_varid(ncid, 'edge_middle_cartesian_y', varid))
+        CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(ip)
+          CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index, &
+            & p_p%edges%cartesian_center(:,:)%x(2) )
+        ENDDO
+        
+        CALL nf(nf_inq_varid(ncid, 'edge_middle_cartesian_z', varid))
+        CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(ip)
+          CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index, &
+            & p_p%edges%cartesian_center(:,:)%x(3) )
+        ENDDO
+       
+        CALL nf(nf_inq_varid(ncid, 'edge_dual_middle_cartesian_x', varid))
+        CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(ip)
+          CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index, &
+            & p_p%edges%cartesian_dual_middle(:,:)%x(1) )
+        ENDDO
+       
+        CALL nf(nf_inq_varid(ncid, 'edge_dual_middle_cartesian_y', varid))
+        CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(ip)
+          CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index, &
+            & p_p%edges%cartesian_dual_middle(:,:)%x(2) )
+        ENDDO
+       
+        CALL nf(nf_inq_varid(ncid, 'edge_dual_middle_cartesian_z', varid))
+        CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(ip)
+          CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index, &
+            & p_p%edges%cartesian_dual_middle(:,:)%x(3) )
+        ENDDO
+       
+        CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_x', varid))
+        CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(ip)
+          CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index, &
+            & p_p%edges%primal_cart_normal(:,:)%x(1) )
+        ENDDO
+       
+        CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_y', varid))
+        CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(ip)
+          CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index, &
+            & p_p%edges%primal_cart_normal(:,:)%x(2) )
+        ENDDO
+        
+        CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_z', varid))
+        CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(ip)
+          CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index, &
+            & p_p%edges%primal_cart_normal(:,:)%x(3) )
+        ENDDO
+       
+        CALL nf(nf_inq_varid(ncid, 'edge_dual_normal_cartesian_x', varid))
+        CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(ip)
+          CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index, &
+            & p_p%edges%dual_cart_normal(:,:)%x(1) )
+        ENDDO
+       
+        CALL nf(nf_inq_varid(ncid, 'edge_dual_normal_cartesian_y', varid))
+        CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(ip)
+          CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index, &
+            & p_p%edges%dual_cart_normal(:,:)%x(2) )
+        ENDDO
+        
+        CALL nf(nf_inq_varid(ncid, 'edge_dual_normal_cartesian_z', varid))
+        CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(ip)
+          CALL divide_real( array_e_real(:,1), p_p%n_patch_edges, p_p%edges%glb_index, &
+            & p_p%edges%dual_cart_normal(:,:)%x(3) )
+        ENDDO       
+       
+        CALL nf(nf_inq_varid(ncid, 'cartesian_x_vertices', varid))
+        CALL nf(nf_get_var_double(ncid, varid, array_v_real(:,1)))
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(ip)
+          CALL divide_real( array_c_real(:,1), p_p%n_patch_verts, p_p%verts%glb_index, &
+            & p_p%verts%cartesian(:,:)%x(1) )
+        ENDDO
+      
+        CALL nf(nf_inq_varid(ncid, 'cartesian_y_vertices', varid))
+        CALL nf(nf_get_var_double(ncid, varid, array_v_real(:,1)))
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(ip)
+          CALL divide_real( array_c_real(:,1), p_p%n_patch_verts, p_p%verts%glb_index, &
+            & p_p%verts%cartesian(:,:)%x(2) )
+        ENDDO
+      
+        CALL nf(nf_inq_varid(ncid, 'cartesian_z_vertices', varid))
+        CALL nf(nf_get_var_double(ncid, varid, array_v_real(:,1)))
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(ip)
+          CALL divide_real( array_c_real(:,1), p_p%n_patch_verts, p_p%verts%glb_index, &
+            & p_p%verts%cartesian(:,:)%x(3) )
+        ENDDO
+
+
+      
+      ENDIF
+      
+    ENDIF ! (global_cell_type == 3) THEN
+    
+
     CALL nf(nf_close(ncid))
         
         

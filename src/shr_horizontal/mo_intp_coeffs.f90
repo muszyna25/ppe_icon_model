@@ -3486,8 +3486,8 @@ END SUBROUTINE complete_patchinfo
     TYPE(t_patch)    , TARGET, INTENT(INOUT) :: ptr_patch
     TYPE(t_int_state),         INTENT(INOUT) :: ptr_intp
    
-    REAL(wp) :: prime_edge_length( nproma, ptr_patch%nblks_e)
-    REAL(wp) :: dual_edge_length( nproma, ptr_patch%nblks_e)
+    REAL(wp), ALLOCATABLE :: prime_edge_length( :, : )
+    REAL(wp), ALLOCATABLE :: dual_edge_length ( :, : )
     
     TYPE(t_subset_range), POINTER :: owned_edges         ! these are the owned entities
     TYPE(t_subset_range), POINTER :: owned_cells         ! these are the owned entities
@@ -3515,6 +3515,9 @@ END SUBROUTINE complete_patchinfo
     ! 
     ! computes_dist_cell2edge( ptr_patch, ptr_intp)
     !
+    ALLOCATE( prime_edge_length( nproma, ptr_patch%nblks_e))
+    ALLOCATE( dual_edge_length ( nproma, ptr_patch%nblks_e))
+    
     IF (LARC_LENGTH) THEN
     
       ! we just need to get them from the grid
@@ -3525,6 +3528,10 @@ END SUBROUTINE complete_patchinfo
     ELSE
     
       ! calcultate cartesian distance
+      prime_edge_length(:,:) = 0.0_wp
+      dual_edge_length(:,:) = 0.0_wp
+      ptr_intp%dist_cell2edge(:,:,:) =  0.0_wp
+      
       DO edge_block = owned_edges%start_block, owned_edges%end_block
         CALL get_index_range(owned_edges, edge_block, start_index, end_index)
         DO edge_index = start_index, end_index
@@ -3603,6 +3610,11 @@ END SUBROUTINE complete_patchinfo
     !   edge2cell_coeff_cc
     !   fixed_vol_norm
     !   variable_vol_norm
+    ptr_intp%edge2cell_coeff_cc(:,:,:)%x(1) = 0.0_wp
+    ptr_intp%edge2cell_coeff_cc(:,:,:)%x(2) = 0.0_wp
+    ptr_intp%edge2cell_coeff_cc(:,:,:)%x(3) = 0.0_wp
+    ptr_intp%fixed_vol_norm(:,:)       = 0.0_wp
+    ptr_intp%variable_vol_norm(:,:,:)  = 0.0_wp
     DO cell_block = owned_cells%start_block, owned_cells%end_block
       CALL get_index_range(owned_cells, cell_block, start_index, end_index)
       DO cell_index = start_index, end_index
@@ -3649,7 +3661,6 @@ END SUBROUTINE complete_patchinfo
                            
       ENDDO ! cell_index = start_index, end_index
     ENDDO !cell_block = owned_cells%start_block, owned_cells%end_block
-
     !-------------------
     ! sync the results
     CALL sync_patch_array(SYNC_C, ptr_patch, ptr_intp%fixed_vol_norm(:,:))
@@ -3664,6 +3675,9 @@ END SUBROUTINE complete_patchinfo
     !-------------------------------------------
     ! compute:
     !   edge2cell_coeff_cc_t
+!     ptr_intp%edge2cell_coeff_cc_t(:,:,:)%x(1) = 0.0_wp
+!     ptr_intp%edge2cell_coeff_cc_t(:,:,:)%x(2) = 0.0_wp
+!     ptr_intp%edge2cell_coeff_cc_t(:,:,:)%x(3) = 0.0_wp
     DO edge_block = owned_edges%start_block, owned_edges%end_block
       CALL get_index_range(owned_edges, edge_block, start_index, end_index)
       DO edge_index = start_index, end_index
@@ -3809,6 +3823,8 @@ END SUBROUTINE complete_patchinfo
     ENDDO ! neigbor=1,2
     ! edge2vert_coeff_cc_t is computed
     !----------------------------------------------------
+    DEALLOCATE( prime_edge_length)
+    DEALLOCATE( dual_edge_length )
                   
   END SUBROUTINE par_init_scalar_product_oce
   !-------------------------------------------------------------------------
