@@ -3493,6 +3493,8 @@ END SUBROUTINE complete_patchinfo
    
     REAL(wp), ALLOCATABLE :: prime_edge_length( :, : )
     REAL(wp), ALLOCATABLE :: dual_edge_length ( :, : )
+    REAL(wp), ALLOCATABLE :: cell_area( :, : )
+    REAL(wp), ALLOCATABLE :: dual_cell_area ( :, : )
     
     TYPE(t_subset_range), POINTER :: owned_edges         ! these are the owned entities
     TYPE(t_subset_range), POINTER :: owned_cells         ! these are the owned entities
@@ -3523,12 +3525,18 @@ END SUBROUTINE complete_patchinfo
     !
     ALLOCATE( prime_edge_length( nproma, ptr_patch%nblks_e))
     ALLOCATE( dual_edge_length ( nproma, ptr_patch%nblks_e))
+    ALLOCATE( cell_area        ( nproma, ptr_patch%nblks_c))
+    ALLOCATE( dual_cell_area   ( nproma, ptr_patch%nblks_v))
           
     IF ( MID_POINT_DUAL_EDGE ) THEN
       dual_edge_middle => ptr_patch%edges%cartesian_dual_middle
     ELSE
       dual_edge_middle => ptr_patch%edges%cartesian_center
     ENDIF
+        
+    ! get the areas on a unit sphere
+    cell_area(:,:)      = ptr_patch%cells%area(:,:)      * rre * rre
+    dual_cell_area(:,:) = ptr_patch%verts%dual_area(:,:) * rre * rre
         
     IF (LARC_LENGTH) THEN
     
@@ -3657,7 +3665,7 @@ END SUBROUTINE complete_patchinfo
               & dist_vector%x *                                             &
               & prime_edge_length(edge_index,edge_block) *                  &
               & ptr_patch%cells%edge_orientation(cell_index,cell_block,neigbor) / &
-              & ptr_patch%cells%area(cell_index, cell_block)
+              & cell_area(cell_index, cell_block)
               ! Note: here we divide by the cell area !
 
             ptr_intp%fixed_vol_norm(cell_index,cell_block) = &
@@ -3776,7 +3784,7 @@ END SUBROUTINE complete_patchinfo
             ptr_intp%edge2vert_vector_cc(vertex_index, vertex_block, neigbor)%x = &
               & dist_vector%x                                *                    &
               & dual_edge_length(edge_index, edge_block)     /                    &
-              & ptr_patch%verts%dual_area(vertex_index, vertex_block)
+              & dual_cell_area(vertex_index, vertex_block)
           
             ptr_intp%variable_dual_vol_norm(vertex_index, vertex_block, neigbor) = &
               & 0.5_wp * dual_edge_length(edge_index, edge_block) * length
@@ -3836,6 +3844,8 @@ END SUBROUTINE complete_patchinfo
     !----------------------------------------------------
     DEALLOCATE( prime_edge_length)
     DEALLOCATE( dual_edge_length )
+    DEALLOCATE( cell_area )
+    DEALLOCATE( dual_cell_area )
                   
   END SUBROUTINE par_init_scalar_product_oce
   !-------------------------------------------------------------------------
