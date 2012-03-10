@@ -2054,7 +2054,7 @@ CONTAINS
         CALL nf(nf_get_var_double(ncid, varid, array_v_real(:,1)))
         DO ip = 0, n_lp
           p_p => get_patch_ptr(ip)
-          CALL divide_real( array_c_real(:,1), p_p%n_patch_verts, p_p%verts%glb_index, &
+          CALL divide_real( array_v_real(:,1), p_p%n_patch_verts, p_p%verts%glb_index, &
             & p_p%verts%cartesian(:,:)%x(1) )
         ENDDO
       
@@ -2062,7 +2062,7 @@ CONTAINS
         CALL nf(nf_get_var_double(ncid, varid, array_v_real(:,1)))
         DO ip = 0, n_lp
           p_p => get_patch_ptr(ip)
-          CALL divide_real( array_c_real(:,1), p_p%n_patch_verts, p_p%verts%glb_index, &
+          CALL divide_real( array_v_real(:,1), p_p%n_patch_verts, p_p%verts%glb_index, &
             & p_p%verts%cartesian(:,:)%x(2) )
         ENDDO
       
@@ -2070,7 +2070,7 @@ CONTAINS
         CALL nf(nf_get_var_double(ncid, varid, array_v_real(:,1)))
         DO ip = 0, n_lp
           p_p => get_patch_ptr(ip)
-          CALL divide_real( array_c_real(:,1), p_p%n_patch_verts, p_p%verts%glb_index, &
+          CALL divide_real( array_v_real(:,1), p_p%n_patch_verts, p_p%verts%glb_index, &
             & p_p%verts%cartesian(:,:)%x(3) )
         ENDDO
 

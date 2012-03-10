@@ -199,7 +199,7 @@ PUBLIC ::  lsq_stencil_create, lsq_compute_coeff_cell, scalar_int_coeff,      &
           & bln_int_coeff_e2c, compute_heli_bra_coeff_idx, init_cellavg_wgt,  &
           & init_geo_factors, complete_patchinfo, init_tplane_e,              &
           & init_geo_factors_oce, init_scalar_product_oce,                    &
-          & init_nudgecoeffs, tri_quadrature_pts
+          & init_nudgecoeffs, tri_quadrature_pts, par_init_scalar_product_oce
     
     LOGICAL, PARAMETER :: LARC_LENGTH = .FALSE.
 
