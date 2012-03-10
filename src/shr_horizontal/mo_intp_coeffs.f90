@@ -201,7 +201,12 @@ PUBLIC ::  lsq_stencil_create, lsq_compute_coeff_cell, scalar_int_coeff,      &
           & init_geo_factors_oce, init_scalar_product_oce,                    &
           & init_nudgecoeffs, tri_quadrature_pts, par_init_scalar_product_oce
     
-    LOGICAL, PARAMETER :: LARC_LENGTH = .FALSE.
+
+     
+  ! flags for computing ocean coefficients
+  LOGICAL, PARAMETER :: MID_POINT_DUAL_EDGE = .TRUE. !Please do not change this unless
+                                                       !you are sure, you know what you do.
+  LOGICAL, PARAMETER :: LARC_LENGTH = .FALSE.
 
 CONTAINS
 
@@ -3494,6 +3499,7 @@ END SUBROUTINE complete_patchinfo
     TYPE(t_subset_range), POINTER :: owned_verts         ! these are the owned entities
     TYPE(t_cartesian_coordinates) :: vertex_position, cell_center, edge_center
     TYPE(t_cartesian_coordinates) :: dist_vector
+    TYPE(t_cartesian_coordinates), POINTER :: dual_edge_middle(:,:)
 
     REAL(wp) :: norm, orientation, length
     
@@ -3517,7 +3523,13 @@ END SUBROUTINE complete_patchinfo
     !
     ALLOCATE( prime_edge_length( nproma, ptr_patch%nblks_e))
     ALLOCATE( dual_edge_length ( nproma, ptr_patch%nblks_e))
-    
+          
+    IF ( MID_POINT_DUAL_EDGE ) THEN
+      dual_edge_middle => ptr_patch%edges%cartesian_dual_middle
+    ELSE
+      dual_edge_middle => ptr_patch%edges%cartesian_center
+    ENDIF
+        
     IF (LARC_LENGTH) THEN
     
       ! we just need to get them from the grid
@@ -3741,7 +3753,7 @@ END SUBROUTINE complete_patchinfo
           IF (edge_block > 0) THEN
             ! we got an adjacent edge
             dist_vector%x = &
-              ptr_patch%edges%cartesian_dual_middle(edge_index, edge_block)%x - &
+              dual_edge_middle(edge_index, edge_block)%x - &
               vertex_position%x
 
             orientation = DOT_PRODUCT( dist_vector%x,                         &
@@ -3751,16 +3763,14 @@ END SUBROUTINE complete_patchinfo
             ! the dist_vector has cartesian length
             ! if we use spherical distance we need to recalculate
             IF (LARC_LENGTH) THEN
-              length = arc_length(vertex_position, &
-                & ptr_patch%edges%cartesian_dual_middle(edge_index, edge_block))
+              length = arc_length(vertex_position, dual_edge_middle(edge_index, edge_block))
               norm = SQRT(SUM( dist_vector%x * dist_vector%x ))
               dist_vector%x = dist_vector%x * length / norm
             ELSE
               length = SQRT(SUM( dist_vector%x * dist_vector%x ))              
             ENDIF
 
-            dist_vector = vector_product(dist_vector, &
-              & ptr_patch%edges%cartesian_dual_middle(edge_index, edge_block))
+            dist_vector = vector_product(dist_vector, dual_edge_middle(edge_index, edge_block))
               
             ptr_intp%edge2vert_vector_cc(vertex_index, vertex_block, neigbor)%x = &
               & dist_vector%x                                *                    &
@@ -3796,7 +3806,7 @@ END SUBROUTINE complete_patchinfo
       CALL get_index_range(owned_edges, edge_block, start_index, end_index)
       DO edge_index = start_index, end_index
 
-        edge_center%x = ptr_patch%edges%cartesian_dual_middle(edge_index, edge_block)%x
+        edge_center%x = dual_edge_middle(edge_index, edge_block)%x
         
         DO neigbor=1,2
         
@@ -3905,9 +3915,6 @@ END SUBROUTINE complete_patchinfo
     REAL(wp) :: z_sync_e(nproma,ptr_patch%nblks_e)
     REAL(wp) :: z_sync_v(nproma,ptr_patch%nblks_v)
 
-    LOGICAL, PARAMETER :: MID_POINT_DUAL_EDGE = .TRUE. !Please do not change this unless
-                                                       !you are sure, you know what you do.
-    LOGICAL, PARAMETER :: LARC_LENGTH = .FALSE.
     !-----------------------------------------------------------------------
     CALL message (TRIM(routine), 'start')
 

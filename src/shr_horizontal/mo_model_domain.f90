@@ -208,7 +208,7 @@ TYPE t_grid_cells
   !----------------------------------
   ! cell geometry auxiliary variables
   ! the cartesian coordinates of the cell centers on the unit sphere
-  TYPE(t_cartesian_coordinates), ALLOCATABLE ::  &
+  TYPE(t_cartesian_coordinates), POINTER ::  &
     &  cartesian_center(:,:)
   !----------------------------------
   
@@ -348,12 +348,12 @@ TYPE t_grid_edges
 
   ! Cartesian normal to triangle edge
   ! index=1,nproma, index2=1,nblks_e
-  TYPE(t_cartesian_coordinates), ALLOCATABLE ::  &
+  TYPE(t_cartesian_coordinates), POINTER ::  &
     &  primal_cart_normal(:,:)
 
   ! Cartesian dual to triangle edge
   ! index=1,nproma, index2=1,nblks_e
-  TYPE(t_cartesian_coordinates), ALLOCATABLE ::  &
+  TYPE(t_cartesian_coordinates), POINTER ::  &
     &  dual_cart_normal(:,:)
 
   ! normal to hexagon/pentagon edge
@@ -418,10 +418,10 @@ TYPE t_grid_edges
   REAL(wp), ALLOCATABLE :: quad_area(:,:)
 
   ! edge geometry auxiliary variables
-  TYPE(t_cartesian_coordinates), ALLOCATABLE ::  &
+  TYPE(t_cartesian_coordinates), POINTER ::  &
     &  cartesian_center(:,:)
   
-  TYPE(t_cartesian_coordinates), ALLOCATABLE ::  &
+  TYPE(t_cartesian_coordinates), POINTER ::  &
     &  cartesian_dual_middle(:,:)
   
   ! Coriolis parameter at cell edges
@@ -534,7 +534,7 @@ TYPE t_grid_vertices
   REAL(wp), ALLOCATABLE :: f_v(:,:)
 
   ! vertex geometry auxiliary variables
-  TYPE(t_cartesian_coordinates), ALLOCATABLE ::  &
+  TYPE(t_cartesian_coordinates), POINTER ::  &
     &  cartesian(:,:)
   
   ! refinement control flag
