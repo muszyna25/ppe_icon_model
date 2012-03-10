@@ -165,7 +165,7 @@ MODULE mo_intp_coeffs
 USE mo_kind,                ONLY: wp
 USE mo_mpi,                 ONLY: p_pe_work
 USE mo_math_constants,      ONLY: pi2, pi_2,deg2rad
-USE mo_physical_constants,  ONLY: re,omega
+USE mo_physical_constants,  ONLY: re, rre, omega
 USE mo_exception,           ONLY: message, finish
 USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlvert, MAX_CHAR_LENGTH,&
   &  beta_plane_coriolis,full_coriolis,min_rledge_int,min_rlcell_int,min_rlvert_int
@@ -3533,9 +3533,10 @@ END SUBROUTINE complete_patchinfo
     IF (LARC_LENGTH) THEN
     
       ! we just need to get them from the grid
-      ptr_intp%dist_cell2edge(:,:,:) = ptr_patch%edges%edge_cell_length(:,:,:)
-      prime_edge_length(:,:) = ptr_patch%edges%primal_edge_length(:,:)
-      dual_edge_length(:,:) = ptr_patch%edges%dual_edge_length(:,:)
+      ! NOTE:  these are earth's distances, translate on a unit sphere
+      ptr_intp%dist_cell2edge(:,:,:) = ptr_patch%edges%edge_cell_length(:,:,:) * rre
+      prime_edge_length(:,:) = ptr_patch%edges%primal_edge_length(:,:) * rre
+      dual_edge_length(:,:) = ptr_patch%edges%dual_edge_length(:,:) * rre
       
     ELSE
     
