@@ -339,6 +339,24 @@ set_run_target_blizzard()
 # st mode
 #   task_affinity="core($use_openmp_threads)"
 
+# Some important environment variables:
+#  MP_USE_BULK_XFER
+#    LoadLeveler® keyword @bulkxfer to yes or setting the environment variable MP_USE_BULK_XFER to yes
+#
+#     This transparently causes portions of the user's virtual address space to be pinned and
+#     mapped to a communications adapter. The low level communication protocol will then use
+#     Remote Direct Memory Access (RDMA, also known as bulk transfer) to copy (pull) data from
+#     the send buffer to the receive buffer as part of the MPI receive. The minimum message size
+#     for which RDMA will be used can be adjusted by setting environment variable MP_BULK_MIN_MSG_SIZE.
+#
+#     This especially benefits applications that either transfer relatively large amounts of data
+#     (greater than 150 KB) in a single MPI call, or overlap computation and communication,
+#     since the CPU is no longer required to copy data. RDMA operations are considerably more
+#     efficient when large (16 MB) pages are used rather than small (4 KB) pages, especially for 
+#     large transfers. In order to use the bulk transfer mode, the system administrator must enable 
+#     RDMA communication and, if you are using LoadLeveler as a resource manager, it must be configured
+#      to use RDMA. Not all communications adapters support RDMA.
+
   cat >> $output_script << EOF
 # =====================================
 # blizzard.dkrz.de batch job parameters

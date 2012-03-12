@@ -98,7 +98,7 @@
 MODULE mo_model_domimp_setup
   !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: wp
-  USE mo_exception,          ONLY: finish
+  USE mo_exception,          ONLY: finish, warning
   USE mo_model_domain,       ONLY: t_patch
   USE mo_physical_constants, ONLY: omega
   USE mo_parallel_config,    ONLY: nproma
@@ -708,7 +708,9 @@ CONTAINS
     CALL fill_subset(p_patch%cells%not_owned,  p_patch%cells%halo_level, 1, halo_levels_ceiling)
     CALL fill_subset(p_patch%cells%not_in_domain,  &
       & p_patch%cells%halo_level, 2, halo_levels_ceiling)
-    CALL fill_subset(p_patch%cells%halos_with_edge_in_domain,  p_patch%cells%halo_level, 1, 1)
+    CALL fill_subset(p_patch%cells%one_edge_in_domain,  p_patch%cells%halo_level, 1, 1)
+    IF (p_patch%cells%one_edge_in_domain%no_of_holes > 0) &
+      CALL warning("p_patch%cells%one_edge_in_domain", "no_of_holes > 0")
     
     ! fill edge subsets
     !    fill_subset(range subset,  halo levels, start level, end level)

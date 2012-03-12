@@ -268,8 +268,7 @@ TYPE t_grid_cells
   TYPE(t_subset_range) :: in_domain     ! these are the computation domain entities, for cells = owned
   TYPE(t_subset_range) :: not_owned     ! these are all the halo entities
   TYPE(t_subset_range) :: not_in_domain ! for cells = not_owned  
-  TYPE(t_subset_range) :: halos_with_edge_in_domain ! halo cells that at least one edge is in the
-                                        ! computation domain
+  TYPE(t_subset_range) :: one_edge_in_domain ! cells with exactly one edge in domain. these are always halo cells
   
 END TYPE t_grid_cells
 

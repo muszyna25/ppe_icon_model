@@ -119,11 +119,12 @@ MODULE mo_icon_comm_lib
   ! Note that these are used also as indexes for the communication patterns
   INTEGER, PARAMETER ::  cells_not_in_domain = 1
   INTEGER, PARAMETER ::  cells_not_owned = cells_not_in_domain
-  INTEGER, PARAMETER ::  edges_not_owned = 2
-  INTEGER, PARAMETER ::  edges_not_in_domain = 3
-  INTEGER, PARAMETER ::  verts_not_owned = 4
-  INTEGER, PARAMETER ::  verts_not_in_domain = 5
-  INTEGER, PARAMETER ::  max_comm_patterns = 5
+  INTEGER, PARAMETER ::  cells_one_edge_in_domain = 2
+  INTEGER, PARAMETER ::  edges_not_owned = 3
+  INTEGER, PARAMETER ::  edges_not_in_domain = 4
+  INTEGER, PARAMETER ::  verts_not_owned = 5
+  INTEGER, PARAMETER ::  verts_not_in_domain = 6
+  INTEGER, PARAMETER ::  max_comm_patterns = 6
 
   ! grid dimensions
   INTEGER, PARAMETER ::  grid_2D = 2
@@ -364,10 +365,16 @@ CONTAINS
   !>
   SUBROUTINE init_icon_comm_patterns(p_patch)
     TYPE(t_patch), INTENT(IN) :: p_patch
-    
+
+    INTEGER :: i
     CHARACTER(*), PARAMETER :: method_name = "init_icon_comm_patterns"
     
     IF(this_is_mpi_sequential) RETURN
+
+    ! set id of grid_comm_pattern_list to identity
+    DO i = 1, max_comm_patterns
+      grid_comm_pattern_list(i,p_patch%id)%id = i
+    ENDDO
 
 #ifdef _OPENMP
     IF (omp_in_parallel()) &
@@ -381,42 +388,43 @@ CONTAINS
 !     CALL work_mpi_barrier()
 !     write(0,*) my_mpi_work_id, method_name, "setup_grid_comm_pattern cells_not_in_domain..."
     CALL setup_grid_comm_pattern(grid_comm_pattern_list(cells_not_in_domain, p_patch%id),&
-      & cells_not_in_domain,                                &
       & p_patch%n_patch_cells,   p_patch%cells%owner_local, &
       & p_patch%cells%glb_index, p_patch%cells%loc_index,   &
+      & name="cells_not_in_domain" )
+            
+    CALL setup_grid_comm_pattern(grid_comm_pattern_list(cells_one_edge_in_domain, p_patch%id),&
+      & p_patch%n_patch_cells,   p_patch%cells%owner_local, &
+      & p_patch%cells%glb_index, p_patch%cells%loc_index,   &
+      & halo_level=p_patch%cells%halo_level, level_start=1, level_end=1,&
       & name="cells_not_in_domain" )
             
     ! halo edges comm_pattern
 !     CALL work_mpi_barrier()
 !     write(0,*) my_mpi_work_id, method_name, "setup_grid_comm_pattern edges_not_owned..."
     CALL setup_grid_comm_pattern(grid_comm_pattern_list(edges_not_owned, p_patch%id), &
-      & edges_not_owned,                                    &
       & p_patch%n_patch_edges,   p_patch%edges%owner_local, &
       & p_patch%edges%glb_index, p_patch%edges%loc_index,   &
       & name="edges_not_owned")
     
-!     CALL setup_grid_comm_pattern(grid_comm_pattern_list(edges_not_in_domain, p_patch%id),&
-!       & edges_not_in_domain,                                &
-!       & p_patch%n_patch_edges,   p_patch%edges%owner_local, &
-!       & p_patch%edges%glb_index, p_patch%edges%loc_index,   &
-!       & halo_level=p_patch%edges%halo_level, level_start=2, level_end=HALO_LEVELS_CEILING,&
-!       & name="edges_not_in_domain")
+    CALL setup_grid_comm_pattern(grid_comm_pattern_list(edges_not_in_domain, p_patch%id),&
+      & p_patch%n_patch_edges,   p_patch%edges%owner_local, &
+      & p_patch%edges%glb_index, p_patch%edges%loc_index,   &
+      & halo_level=p_patch%edges%halo_level, level_start=2, level_end=HALO_LEVELS_CEILING,&
+      & name="edges_not_in_domain")
     
     ! halo verts comm_pattern
 !     CALL work_mpi_barrier()
 !     write(0,*) my_mpi_work_id, method_name, "setup_grid_comm_pattern verts_not_owned..."
     CALL setup_grid_comm_pattern(grid_comm_pattern_list(verts_not_owned, p_patch%id), &
-      & verts_not_owned,                                    &
       & p_patch%n_patch_verts,   p_patch%verts%owner_local, &
       & p_patch%verts%glb_index, p_patch%verts%loc_index,   &
       & name="verts_not_owned" )
         
-!     CALL setup_grid_comm_pattern(grid_comm_pattern_list(verts_not_in_domain, p_patch%id), &
-!       & verts_not_in_domain,                                &
-!       & p_patch%n_patch_verts,   p_patch%verts%owner_local, &
-!       & p_patch%verts%glb_index, p_patch%verts%loc_index,   &
-!       & halo_level=p_patch%verts%halo_level, level_start=2, level_end=HALO_LEVELS_CEILING,&
-!       & name="verts_not_in_domain" )
+    CALL setup_grid_comm_pattern(grid_comm_pattern_list(verts_not_in_domain, p_patch%id), &
+      & p_patch%n_patch_verts,   p_patch%verts%owner_local, &
+      & p_patch%verts%glb_index, p_patch%verts%loc_index,   &
+      & halo_level=p_patch%verts%halo_level, level_start=2, level_end=HALO_LEVELS_CEILING,&
+      & name="verts_not_in_domain" )
         
     CALL print_grid_comm_stats(grid_comm_pattern_list(cells_not_in_domain, p_patch%id))
     CALL print_grid_comm_stats(grid_comm_pattern_list(edges_not_owned, p_patch%id))
@@ -434,13 +442,13 @@ CONTAINS
   
   !-----------------------------------------------------------------------
   !>
-  SUBROUTINE setup_grid_comm_pattern(grid_comm_pattern, id, total_no_of_points, &
+  SUBROUTINE setup_grid_comm_pattern(grid_comm_pattern, total_no_of_points, &
     & owner, global_index, local_index, halo_level, level_start, level_end, name)
 !    & owner, global_index, local_index, name)
 
     
     TYPE(t_grid_comm_pattern), INTENT(inout) :: grid_comm_pattern
-    INTEGER, INTENT(in) :: id, total_no_of_points
+    INTEGER, INTENT(in) :: total_no_of_points
     INTEGER, INTENT(in) :: owner(:), global_index(:), local_index(:)
     INTEGER, INTENT(in), OPTIONAL :: halo_level(:,:), level_start, level_end
     CHARACTER(*), INTENT(in) :: name
@@ -479,8 +487,8 @@ CONTAINS
       IF(owner_id < 0) CYCLE
       IF(owner_id == my_mpi_work_id) CYCLE
       IF(PRESENT(halo_level)) THEN
-        IF (halo_level(idx_no(local_idx), blk_no(local_idx)) < level_start .OR. &
-          & halo_level(idx_no(local_idx), blk_no(local_idx)) > level_end)  CYCLE
+        IF (halo_level(idx_no(point_idx), blk_no(point_idx)) < level_start .OR. &
+          & halo_level(idx_no(point_idx), blk_no(point_idx)) > level_end)  CYCLE
       ENDIF
       
       bfid = get_recvbuffer_id_of_pid(owner_id)
@@ -523,8 +531,8 @@ CONTAINS
       IF(owner(point_idx) < 0) CYCLE
       IF(owner(point_idx) == my_mpi_work_id) CYCLE
       IF(PRESENT(halo_level)) THEN
-        IF (halo_level(idx_no(local_idx), blk_no(local_idx)) < level_start .OR. &
-          & halo_level(idx_no(local_idx), blk_no(local_idx)) > level_end)  CYCLE
+        IF (halo_level(idx_no(point_idx), blk_no(point_idx)) < level_start .OR. &
+          & halo_level(idx_no(point_idx), blk_no(point_idx)) > level_end)  CYCLE
       ENDIF
     
       bfid = get_recvbuffer_id_of_pid(owner(point_idx))
@@ -651,7 +659,6 @@ CONTAINS
    
     DEALLOCATE(recv_global_indexes)
     
-    grid_comm_pattern%id = id
     grid_comm_pattern%status = active
     grid_comm_pattern%name   = TRIM(name)
 #endif
