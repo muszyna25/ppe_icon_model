@@ -3493,8 +3493,8 @@ END SUBROUTINE complete_patchinfo
    
     REAL(wp), ALLOCATABLE :: prime_edge_length( :, : )
     REAL(wp), ALLOCATABLE :: dual_edge_length ( :, : )
-    REAL(wp), ALLOCATABLE :: cell_area( :, : )
-    REAL(wp), ALLOCATABLE :: dual_cell_area ( :, : )
+!     REAL(wp), ALLOCATABLE :: cell_area( :, : )
+!     REAL(wp), ALLOCATABLE :: dual_cell_area ( :, : )
     
     TYPE(t_subset_range), POINTER :: owned_edges         ! these are the owned entities
     TYPE(t_subset_range), POINTER :: owned_cells         ! these are the owned entities
@@ -3502,6 +3502,10 @@ END SUBROUTINE complete_patchinfo
     TYPE(t_cartesian_coordinates) :: vertex_position, cell_center, edge_center
     TYPE(t_cartesian_coordinates) :: dist_vector
     TYPE(t_cartesian_coordinates), POINTER :: dual_edge_middle(:,:)
+
+    TYPE(t_cartesian_coordinates) :: coriolis_cartesian_coordinates
+    TYPE(t_geographical_coordinates) :: coriolis_geo_coordinates, geo_coordinates
+    REAL(wp) :: basin_center_lat_rad, basin_height_rad
 
     REAL(wp) :: norm, orientation, length
     
@@ -3525,8 +3529,8 @@ END SUBROUTINE complete_patchinfo
     !
     ALLOCATE( prime_edge_length( nproma, ptr_patch%nblks_e))
     ALLOCATE( dual_edge_length ( nproma, ptr_patch%nblks_e))
-    ALLOCATE( cell_area        ( nproma, ptr_patch%nblks_c))
-    ALLOCATE( dual_cell_area   ( nproma, ptr_patch%nblks_v))
+!     ALLOCATE( cell_area        ( nproma, ptr_patch%nblks_c))
+!     ALLOCATE( dual_cell_area   ( nproma, ptr_patch%nblks_v))
           
     IF ( MID_POINT_DUAL_EDGE ) THEN
       dual_edge_middle => ptr_patch%edges%cartesian_dual_middle
@@ -3535,8 +3539,8 @@ END SUBROUTINE complete_patchinfo
     ENDIF
         
     ! get the areas on a unit sphere
-    cell_area(:,:)      = ptr_patch%cells%area(:,:)      * rre * rre
-    dual_cell_area(:,:) = ptr_patch%verts%dual_area(:,:) * rre * rre
+!     cell_area(:,:)      = ptr_patch%cells%area(:,:)      * rre * rre
+!     dual_cell_area(:,:) = ptr_patch%verts%dual_area(:,:) * rre * rre
         
     IF (LARC_LENGTH) THEN
     
@@ -3664,9 +3668,9 @@ END SUBROUTINE complete_patchinfo
             ptr_intp%edge2cell_coeff_cc(cell_index,cell_block,neigbor)%x =  &
               & dist_vector%x *                                             &
               & prime_edge_length(edge_index,edge_block) *                  &
-              & ptr_patch%cells%edge_orientation(cell_index,cell_block,neigbor) / &
-              & cell_area(cell_index, cell_block)
-              ! Note: here we divide by the cell area !
+              & ptr_patch%cells%edge_orientation(cell_index,cell_block,neigbor)! / &
+              ! & cell_area(cell_index, cell_block)
+              ! Note: here we do not divide by the cell area !
 
             ptr_intp%fixed_vol_norm(cell_index,cell_block) = &
               & ptr_intp%fixed_vol_norm(cell_index,cell_block) + &
@@ -3720,7 +3724,7 @@ END SUBROUTINE complete_patchinfo
             orientation = DOT_PRODUCT(dist_vector%x, &
               & ptr_patch%edges%primal_cart_normal(edge_index, edge_block)%x)
             IF (orientation < 0.0_wp) dist_vector%x = - dist_vector%x
-            
+                        
             ptr_intp%edge2cell_coeff_cc_t(edge_index, edge_block, neigbor)%x = &
               dist_vector%x / dual_edge_length(edge_index, edge_block)
 
@@ -3771,6 +3775,7 @@ END SUBROUTINE complete_patchinfo
             
             ! the dist_vector has cartesian length
             ! if we use spherical distance we need to recalculate
+            ! its length
             IF (LARC_LENGTH) THEN
               length = arc_length(vertex_position, dual_edge_middle(edge_index, edge_block))
               norm = SQRT(SUM( dist_vector%x * dist_vector%x ))
@@ -3780,11 +3785,11 @@ END SUBROUTINE complete_patchinfo
             ENDIF
 
             dist_vector = vector_product(dist_vector, dual_edge_middle(edge_index, edge_block))
-              
+                           
             ptr_intp%edge2vert_vector_cc(vertex_index, vertex_block, neigbor)%x = &
               & dist_vector%x                                *                    &
-              & dual_edge_length(edge_index, edge_block)     /                    &
-              & dual_cell_area(vertex_index, vertex_block)
+              & dual_edge_length(edge_index, edge_block) !    /                    &
+              !& dual_cell_area(vertex_index, vertex_block)
           
             ptr_intp%variable_dual_vol_norm(vertex_index, vertex_block, neigbor) = &
               & 0.5_wp * dual_edge_length(edge_index, edge_block) * length
@@ -3823,7 +3828,7 @@ END SUBROUTINE complete_patchinfo
                   
           vertex_index = ptr_patch%edges%vertex_idx(edge_index, edge_block, neigbor)
           vertex_block = ptr_patch%edges%vertex_blk(edge_index, edge_block, neigbor)
-          
+                    
           ptr_intp%edge2vert_coeff_cc_t(edge_index, edge_block, neigbor)%x =              &
             & (edge_center%x - ptr_patch%verts%cartesian(vertex_index, vertex_block)%x) * &
             & ptr_patch%edges%system_orientation(edge_index, edge_block)                / &
@@ -3842,15 +3847,67 @@ END SUBROUTINE complete_patchinfo
     ENDDO ! neigbor=1,2
     ! edge2vert_coeff_cc_t is computed
     !----------------------------------------------------
+
+
+    !----------------------------------------------------
+    ! recalculate the coriolis coefficient
+    ! It is required if we use the middle of the dual_edge_length
+    IF (MID_POINT_DUAL_EDGE) THEN
+      
+      IF (CORIOLIS_TYPE == full_coriolis) THEN
+      
+        DO edge_block = owned_edges%start_block, owned_edges%end_block
+          CALL get_index_range(owned_edges, edge_block, start_index, end_index)
+          DO edge_index = start_index, end_index
+          
+             coriolis_geo_coordinates = cc2gc(dual_edge_middle(edge_index,edge_block))
+             ptr_patch%edges%f_e(edge_index,edge_block) = &
+               & 2._wp * omega * SIN(coriolis_geo_coordinates%lat)
+
+          ENDDO
+        ENDDO
+        
+      ELSEIF (CORIOLIS_TYPE == BETA_PLANE_CORIOLIS) THEN
+
+        basin_center_lat_rad = basin_center_lat * deg2rad
+        basin_height_rad     = basin_height_deg * deg2rad
+        coriolis_geo_coordinates%lat = basin_center_lat_rad - 0.5_wp * basin_height_rad
+        coriolis_geo_coordinates%lon = 0.0_wp
+        coriolis_cartesian_coordinates  = gc2cc(coriolis_geo_coordinates)
+        
+        DO edge_block = owned_edges%start_block, owned_edges%end_block
+          CALL get_index_range(owned_edges, edge_block, start_index, end_index)
+          DO edge_index = start_index, end_index
+      
+          geo_coordinates     = cc2gc(dual_edge_middle(edge_index,edge_block))
+          geo_coordinates%lon = 0.0_wp
+          edge_center         = gc2cc(geo_coordinates)
+          length              = re * arc_length(edge_center, coriolis_cartesian_coordinates)
+
+          ptr_patch%edges%f_e(edge_index,edge_block) =  2.0_wp * omega * &
+            & ( sin(basin_center_lat_rad) + (cos(basin_center_lat_rad) / re) * length)
+
+          ENDDO
+        ENDDO
+      
+      ENDIF !(CORIOLIS_TYPE==full_coriolis)
+    ENDIF ! (MID_POINT_DUAL_EDGE)
+    !-------------------
+    ! sync ptr_patch%edges%f_e
+    CALL sync_patch_array(SYNC_E, ptr_patch, ptr_patch%edges%f_e)
+
+
+
+    !----------------------------------------------------    
     DEALLOCATE( prime_edge_length)
     DEALLOCATE( dual_edge_length )
-    DEALLOCATE( cell_area )
-    DEALLOCATE( dual_cell_area )
+!     DEALLOCATE( cell_area )
+!     DEALLOCATE( dual_cell_area )
                   
   END SUBROUTINE par_init_scalar_product_oce
   !-------------------------------------------------------------------------
-  
-
+          
+             
   !-------------------------------------------------------------------------
   !
   !>

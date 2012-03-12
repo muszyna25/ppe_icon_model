@@ -185,7 +185,8 @@ USE mo_intp_coeffs,         ONLY: lsq_stencil_create, lsq_compute_coeff_cell,   
   &                               compute_heli_bra_coeff_idx, init_cellavg_wgt,        &
   &                               init_geo_factors, complete_patchinfo, init_tplane_e, &
   &                               init_geo_factors_oce, init_scalar_product_oce,       &
-  &                               init_nudgecoeffs, tri_quadrature_pts
+  &                               init_nudgecoeffs, tri_quadrature_pts,                &
+  &                               par_init_scalar_product_oce
 USE mo_lonlat_intp_config,  ONLY: lonlat_intp_config
 USE mo_mpi,                 ONLY: p_n_work, my_process_is_io, process_mpi_io_size
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V
@@ -1616,7 +1617,7 @@ DO jg = n_dom_start, n_dom
 
   IF ( iequations == ihs_ocean) THEN
     IF (idisc_scheme==1) THEN
-      CALL init_scalar_product_oce(ptr_patch(jg), ptr_int_state(jg))
+      CALL par_init_scalar_product_oce(ptr_patch(jg), ptr_int_state(jg))
     ENDIF
     CALL init_geo_factors_oce(ptr_patch(jg), ptr_int_state(jg))
   ENDIF
