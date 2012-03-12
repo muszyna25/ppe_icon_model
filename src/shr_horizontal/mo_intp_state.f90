@@ -629,6 +629,14 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
       CALL finish ('mo_interpolation:construct_int_state',&
       &            'allocation for tplane_e_dotprod failed')
     ENDIF
+!!$    !
+!!$    ! pos_on_tplane_c_edge
+!!$    !
+!!$    ALLOCATE (ptr_int%pos_on_tplane_c_edge(nproma, nblks_e, 2, 3, 2), STAT=ist )
+!!$    IF (ist /= SUCCESS) THEN
+!!$      CALL finish ('mo_interpolation:construct_int_state',&
+!!$      &            'allocation for pos_on_tplane_c_edge failed')
+!!$    ENDIF
 
     !
     ! Least squares reconstruction
@@ -1334,8 +1342,9 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
 
   IF( ltransport .OR. iequations == 3) THEN
 
-    ptr_int%pos_on_tplane_e   = 0._wp
-    ptr_int%tplane_e_dotprod  = 0._wp
+    ptr_int%pos_on_tplane_e           = 0._wp
+    ptr_int%tplane_e_dotprod          = 0._wp
+!!$    ptr_int%pos_on_tplane_c_edge      = 0._wp
 
     ptr_int%lsq_lin%lsq_dim_stencil   = 0
     ptr_int%lsq_lin%lsq_idx_c         = 0
@@ -2004,31 +2013,7 @@ SUBROUTINE transfer_interpol_state(p_p, p_lp, pi, po)
   CALL xfer_var(SYNC_E,1,2,p_p,p_lp,pi%rbf_vec_stencil_e,po%rbf_vec_stencil_e)
   CALL xfer_var(SYNC_E,2,3,p_p,p_lp,pi%rbf_vec_coeff_e,po%rbf_vec_coeff_e)
   ENDIF
-  IF( ltransport .OR. iequations == 3) THEN
-  CALL xfer_var(SYNC_E,1,2,p_p,p_lp,pi%pos_on_tplane_e,po%pos_on_tplane_e)
-  CALL xfer_var(SYNC_E,1,2,p_p,p_lp,pi%tplane_e_dotprod,po%tplane_e_dotprod)
-  CALL xfer_var(SYNC_C,1,2,p_p,p_lp,pi%lsq_lin%lsq_dim_stencil,po%lsq_lin%lsq_dim_stencil)
-  CALL xfer_idx(SYNC_C,SYNC_C,1,2,p_p,p_lp,pi%lsq_lin%lsq_idx_c,pi%lsq_lin%lsq_blk_c, &
-                                         & po%lsq_lin%lsq_idx_c,po%lsq_lin%lsq_blk_c)
-  CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%lsq_lin%lsq_weights_c,po%lsq_lin%lsq_weights_c)
-  CALL xfer_var(SYNC_C,1,4,p_p,p_lp,pi%lsq_lin%lsq_qtmat_c,po%lsq_lin%lsq_qtmat_c)
-  CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%lsq_lin%lsq_rmat_rdiag_c,po%lsq_lin%lsq_rmat_rdiag_c)
-  CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%lsq_lin%lsq_rmat_utri_c,po%lsq_lin%lsq_rmat_utri_c)
-  CALL xfer_var(SYNC_C,1,4,p_p,p_lp,pi%lsq_lin%lsq_pseudoinv,po%lsq_lin%lsq_pseudoinv)
-  CALL xfer_var(SYNC_C,1,2,p_p,p_lp,pi%lsq_lin%lsq_moments,po%lsq_lin%lsq_moments)
-  CALL xfer_var(SYNC_C,1,2,p_p,p_lp,pi%lsq_lin%lsq_moments_hat,po%lsq_lin%lsq_moments_hat)
 
-  CALL xfer_var(SYNC_C,1,2,p_p,p_lp,pi%lsq_high%lsq_dim_stencil,po%lsq_high%lsq_dim_stencil)
-  CALL xfer_idx(SYNC_C,SYNC_C,1,2,p_p,p_lp,pi%lsq_high%lsq_idx_c,pi%lsq_high%lsq_blk_c, &
-                                         & po%lsq_high%lsq_idx_c,po%lsq_high%lsq_blk_c)
-  CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%lsq_high%lsq_weights_c,po%lsq_high%lsq_weights_c)
-  CALL xfer_var(SYNC_C,1,4,p_p,p_lp,pi%lsq_high%lsq_qtmat_c,po%lsq_high%lsq_qtmat_c)
-  CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%lsq_high%lsq_rmat_rdiag_c,po%lsq_high%lsq_rmat_rdiag_c)
-  CALL xfer_var(SYNC_C,1,3,p_p,p_lp,pi%lsq_high%lsq_rmat_utri_c,po%lsq_high%lsq_rmat_utri_c)
-  CALL xfer_var(SYNC_C,1,4,p_p,p_lp,pi%lsq_high%lsq_pseudoinv,po%lsq_high%lsq_pseudoinv)
-  CALL xfer_var(SYNC_C,1,2,p_p,p_lp,pi%lsq_high%lsq_moments,po%lsq_high%lsq_moments)
-  CALL xfer_var(SYNC_C,1,2,p_p,p_lp,pi%lsq_high%lsq_moments_hat,po%lsq_high%lsq_moments_hat)
-  END IF
   IF (p_p%cell_type == 3) THEN
   CALL xfer_var(SYNC_E,1,3,p_p,p_lp,pi%geofac_qdiv,po%geofac_qdiv)
   CALL xfer_var(SYNC_C,1,2,p_p,p_lp,pi%nudgecoeff_c,po%nudgecoeff_c)
@@ -2435,6 +2420,14 @@ INTEGER :: ist
       CALL finish ('mo_interpolation:destruct_int_state',                      &
         &             'deallocation for tplane_e_dotprod failed')
     ENDIF
+!!$    !
+!!$    ! pos_on_tplane_c_edge
+!!$    !
+!!$    DEALLOCATE (ptr_int%pos_on_tplane_c_edge, STAT=ist )
+!!$    IF (ist /= SUCCESS) THEN
+!!$      CALL finish ('mo_interpolation:destruct_int_state',                      &
+!!$        &             'deallocation for pos_on_tplane_c_edge failed')
+!!$    ENDIF
 
     !
     ! Least squares reconstruction
