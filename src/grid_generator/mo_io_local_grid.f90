@@ -540,14 +540,6 @@ CONTAINS
     CALL nf(nf_inq_varid(ncid, 'cartesian_z_vertices', varid))
     CALL nf(nf_get_var_double(ncid, varid, grid_obj%verts%cartesian(:)%x(3)))
 
-    ! read cartesian coordinates
-    CALL nf(nf_inq_varid(ncid, 'cartesian_x_vertices', varid))
-    CALL nf(nf_get_var_double(ncid, varid, grid_obj%verts%cartesian(:)%x(1)))
-    CALL nf(nf_inq_varid(ncid, 'cartesian_y_vertices', varid))
-    CALL nf(nf_get_var_double(ncid, varid, grid_obj%verts%cartesian(:)%x(2)))
-    CALL nf(nf_inq_varid(ncid, 'cartesian_z_vertices', varid))
-    CALL nf(nf_get_var_double(ncid, varid, grid_obj%verts%cartesian(:)%x(3)))
-
     !-------------------------------
     ! additional cartesian info
     netcd_status = nf_inq_varid(ncid, 'edge_middle_cartesian_x', varid)
