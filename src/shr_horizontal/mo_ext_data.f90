@@ -69,6 +69,7 @@ MODULE mo_ext_data
   USE mo_loopindices,        ONLY: get_indices_c
   USE mo_mpi,                ONLY: my_process_is_stdio, p_io, p_bcast, &
     &                              p_comm_work_test, p_comm_work
+  USE mo_sync,               ONLY: global_sum_array
   USE mo_parallel_config,    ONLY: p_test_run
   USE mo_linked_list,        ONLY: t_var_list
   USE mo_var_list,           ONLY: default_var_list_settings, &
@@ -214,21 +215,21 @@ MODULE mo_ext_data
     REAL(wp), POINTER ::   &   !< ground fraction covered by plants (vegetation period)  [ ]
       & plcov_mx(:,:)          ! index1=1,nproma, index2=1,nblks_c
     REAL(wp), POINTER ::   &   !< ground fraction covered by plants (vegetation period)  [ ]
-      & plcov_t(:,:,:)         ! index1=1,nproma, index2=1,nblks_c, nclass_lu(jg)
+      & plcov_t(:,:,:)         ! index1=1,nproma, index2=1,nblks_c, nsfc_subs
 
     REAL(wp), POINTER ::   &   !< leaf area index (vegetation period)     [ ]
       &  lai_mx(:,:)           ! index1=1,nproma, index2=1,nblks_c
     REAL(wp), POINTER ::   &   !< leaf area index (vegetation period)     [ ]
-      &  sai_t(:,:,:)          ! index1=1,nproma, index2=1,nblks_c, nclass_lu(jg)
+      &  sai_t(:,:,:)          ! index1=1,nproma, index2=1,nblks_c, nsfc_subs
     REAL(wp), POINTER ::   &   !< leaf area index (vegetation period)     [ ]
-      &  tai_t(:,:,:)          ! index1=1,nproma, index2=1,nblks_c, nclass_lu(jg)
+      &  tai_t(:,:,:)          ! index1=1,nproma, index2=1,nblks_c, nsfc_subs
     REAL(wp), POINTER ::   &   !< leaf area index (vegetation period)     [ ]
-      &  eai_t(:,:,:)          ! index1=1,nproma, index2=1,nblks_c, nclass_lu(jg)
+      &  eai_t(:,:,:)          ! index1=1,nproma, index2=1,nblks_c, nsfc_subs
 
     REAL(wp), POINTER ::   &   !< root depth                              [m]
       &  rootdp(:,:)           ! index1=1,nproma, index2=1,nblks_c
     REAL(wp), POINTER ::   &   !< root depth                              [m]
-      &  rootdp_t(:,:,:)       ! index1=1,nproma, index2=1,nblks_c, nclass_lu(jg)
+      &  rootdp_t(:,:,:)       ! index1=1,nproma, index2=1,nblks_c, nsfc_subs
 
     REAL(wp), POINTER ::   &   !< ground fraction covered by evergreen forest [ ]
       &  for_e(:,:)            ! index1=1,nproma, index2=1,nblks_c
@@ -242,7 +243,7 @@ MODULE mo_ext_data
     REAL(wp), POINTER ::   &   !< minimum value of stomata resistance     [ s/m ]
       &  rsmin(:,:)            ! index1=1,nproma, index2=1,nblks_c
     REAL(wp), POINTER ::   &   !< minimum value of stomata resistance     [ s/m ]
-      &  rsmin2d_t(:,:,:)      ! index1=1,nproma, index2=1,nblks_c, nclass_lu(jg) 
+      &  rsmin2d_t(:,:,:)      ! index1=1,nproma, index2=1,nblks_c, nsfc_subs
 
     REAL(wp), POINTER ::   &   !< annual maximum NDVI                     [ ]
       &  ndvi_max(:,:)         ! index1=1,nproma, index2=1,nblks_c
@@ -253,8 +254,11 @@ MODULE mo_ext_data
     ! *** soil parameters ***
     INTEGER, POINTER  ::   &   !< soil texture, keys 0-9                  [ ]
       &  soiltyp(:,:)          ! index1=1,nproma, index2=1,nblks_c
+    ! soiltyp_t refers to the land point index list
+    ! this field is dimensioned with nsfc_subs even though this appears to be
+    ! unnecessary in order not to disturb the runtime optimization
     INTEGER, POINTER  ::   &   !< soil texture, keys 0-9                  [ ]
-      &  soiltyp_t(:,:)        ! index1=1,nproma, index2=1,nblks_c
+      &  soiltyp_t(:,:,:)      ! index1=1,nproma, index2=1,nblks_c, index3=nsfc_subs
 
 
 
@@ -268,12 +272,20 @@ MODULE mo_ext_data
     REAL(wp), POINTER ::  &    !< Landuse class fraction                  [ ]
       & lu_class_fraction(:,:,:) ! index1=1,nproma, index2=1,nblks_c, index3=1,nclass_lu
 
-    INTEGER, POINTER ::  &    !< Land point index list                  [ ]
-      & lp_lst_t(:,:)        ! index1=1,nproma, index2=1,nblks_c
-    INTEGER, POINTER ::  &    !< TILE point index list                  [ ]
-      & t_lst_t(:,:,:)        ! index1=1,nproma, index2=1,nblks_c
-    REAL(wp), POINTER ::  &    !< TILE point index list                  [ ]
-      & t_fr_t(:,:,:)        ! index1=1,nproma, index2=1,nblks_c
+    INTEGER, POINTER ::  &    !< Land point index list for each block        [ ]
+      & idx_lst_lp(:,:)       ! index1=1,nproma, index2=1,nblks_c
+    INTEGER, POINTER ::  &    !< Land point count per block       [ ]
+      & lp_count(:)           ! index1=1,nblks_c
+
+    INTEGER, POINTER ::  &    !< Grid point index list for each block and tile [ ]
+      & idx_lst_t(:,:,:)      ! index1=1,nproma, index2=1,nblks_c, index3=nsfc_subs
+    INTEGER, POINTER ::  &    !< Grid point count per block and tile index      [ ]
+      & gp_count_t(:,:)       ! index1=1,nblks_c, index2=nsfc_subs
+
+    INTEGER, POINTER ::  &    !< Land cover class for each tile index  [ ]
+      & lc_class_t(:,:,:)     ! index1=1,nproma, index2=1,nblks_c, index3=nsfc_subs
+    REAL(wp), POINTER ::  &   !< Normalized land cover fraction for each tile index  [ ]
+      & lc_frac_t(:,:,:)      ! index1=1,nproma, index2=1,nblks_c, index3=nsfc_subs
 
 
   END TYPE t_external_atmos
@@ -557,29 +569,28 @@ CONTAINS
     INTEGER :: i_startidx, i_endidx    !< slices
     INTEGER :: i_nchdom                !< domain index
     LOGICAL  :: tile_mask(23) = .true. 
-    REAL(wp) :: tile_frac(23), sum_frac
-    INTEGER  :: lu_subs
+    REAL(wp) :: tile_frac(23), sum_frac, frac_thresh
+    INTEGER  :: lu_subs, it_count(nsfc_subs), npoints
 
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = 'mo_ext_data:init_index_lists'
 
-  SELECT CASE ( iequations )
-  CASE ( inh_atmosphere )
-      WRITE(message_text,'(a,i4,F12.4,F12.8)') &
+    SELECT CASE ( iequations )
+    CASE ( inh_atmosphere )
+      WRITE(message_text,'(a,i4)') &
         &  'Index list generation - number of tiles: ', nsfc_subs
       CALL message('', TRIM(message_text))
 
+      frac_thresh = 0.05_wp ! fraction threshold for retaining the respective tile for a grid point
+                            ! should become a namelist variable like nsfc_subs
 
       DO jg = 1, n_dom 
 
          n_lu = nclass_lu(jg)
 
-         !         ext_data(jg)%atm%lp_lst_t(:,:)=0         
-         !         nblks = p_patch(jg)%nblks_c
-
          i_nchdom  = MAX(1,p_patch(jg)%n_childdom)
 
-         ! in order to account for mesh refinement
+         ! exclude the boundary interpolation zone of nested domains
          rl_start = grf_bdywidth_c+1
          rl_end   = min_rlcell_int
 
@@ -589,87 +600,141 @@ CONTAINS
 
 !!$OMP PARALLEL
 !!OMP DO PRIVATE(jb,jc,i_lu,i_startidx,i_endidx,i_count,tile_frac,tile_mask,lu_subs,  &
-!!$OMP           sum_frac)
+!!$OMP           sum_frac,it_count)
          DO jb=i_startblk, i_endblk
 
-            CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
-                 & i_startidx, i_endidx, rl_start, rl_end)
+           CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
+              & i_startidx, i_endidx, rl_start, rl_end)
 
-            i_count=0
+           i_count                       = 0   ! counter for land points
+           ext_data(jg)%atm%lp_count(jb) = 0
+           it_count(:)                       = 0 ! counter for tiles
+           ext_data(jg)%atm%gp_count_t(jb,:) = 0
 
-            DO jc = i_startidx, i_endidx
-               IF (ext_data(jg)%atm%fr_land(jc,jb)> frlnd_thrhld) THEN ! searching for land-points 
-                  i_count=i_count+1
-                  ext_data(jg)%atm%lp_lst_t(i_count,jb)  =jc  ! write index of land-points
-                  ext_data(jg)%atm%soiltyp_t(i_count,jb) = ext_data(jg)%atm%soiltyp(jc,jb)! soil type
+           DO jc = i_startidx, i_endidx
+             IF (ext_data(jg)%atm%fr_land(jc,jb)> frlnd_thrhld) THEN ! searching for land-points 
+               i_count=i_count+1
+               ext_data(jg)%atm%idx_lst_lp(i_count,jb) = jc  ! write index of land-points
 
+               tile_frac(:)= ext_data(jg)%atm%lu_class_fraction(jc,jb,:)
+               tile_mask(:)=.true.
+               tile_mask(20)=.false. ! exclude water points
 
-                  tile_frac(:)= ext_data(jg)%atm%lu_class_fraction(jc,jb,:)
-                  tile_mask(:)=.true.
-                  tile_mask(20)=.false. ! exclude water points
+               ext_data(jg)%atm%lp_count(jb) = i_count
 
-                  IF (nsfc_subs == 1) THEN 
-                     ! i_lu=1 contains grid-box mean values from EXTPAR!
-                     ext_data(jg)%atm%rootdp_t (i_count,jb,1)  = ext_data(jg)%atm%rootdp(jc,jb)
-                     ext_data(jg)%atm%plcov_t  (i_count,jb,1)  = ext_data(jg)%atm%plcov_mx(jc,jb)
-                     ext_data(jg)%atm%tai_t    (i_count,jb,1)  = &
-                       & ext_data(jg)%atm%plcov_mx(jc,jb)*ext_data(jg)%atm%lai_mx(jc,jb)
-                     ext_data(jg)%atm%sai_t    (i_count,jb,1)  = &
-                       & c_lnd+ext_data(jg)%atm%tai_t(i_count,jb,1)
-                     ext_data(jg)%atm%eai_t    (i_count,jb,1)  = c_soil      
-                     ext_data(jg)%atm%rsmin2d_t(i_count,jb,1)  = ext_data(jg)%atm%rsmin(jc,jb)
-                     ext_data(jg)%atm%t_fr_t   (i_count,jb,1)  = ext_data(jg)%atm%fr_land(jc,jb)
+               IF (nsfc_subs == 1) THEN 
 
-                  ELSE    
+                 ! i_lu=1 contains grid-box mean values from EXTPAR!
+                 ext_data(jg)%atm%rootdp_t (i_count,jb,1)  = ext_data(jg)%atm%rootdp(jc,jb)
+                 ext_data(jg)%atm%plcov_t  (i_count,jb,1)  = ext_data(jg)%atm%plcov_mx(jc,jb)
+                 ext_data(jg)%atm%tai_t    (i_count,jb,1)  = &
+                   & ext_data(jg)%atm%plcov_mx(jc,jb)*ext_data(jg)%atm%lai_mx(jc,jb)
+                 ext_data(jg)%atm%sai_t    (i_count,jb,1)  = &
+                   & c_lnd+ext_data(jg)%atm%tai_t(i_count,jb,1)
+                 ext_data(jg)%atm%eai_t    (i_count,jb,1)  = c_soil      
+                 ext_data(jg)%atm%rsmin2d_t(i_count,jb,1)  = ext_data(jg)%atm%rsmin(jc,jb)
+                 ext_data(jg)%atm%soiltyp_t(i_count,jb,1)  = ext_data(jg)%atm%soiltyp(jc,jb)
+! GZ: this is inconsistent with the use of lc_frac_t in the tile case (it is normalized to a sum of 1 there)
+                 ext_data(jg)%atm%lc_frac_t(i_count,jb,1)  = ext_data(jg)%atm%fr_land(jc,jb)
 
-                     DO i_lu = 1, nsfc_subs
-                        lu_subs = MAXLOC(tile_frac,1,tile_mask)
-                        ext_data(jg)%atm%t_lst_t(i_count,jb,i_lu)=lu_subs
-                        ext_data(jg)%atm%t_fr_t(i_count,jb,i_lu) =tile_frac(lu_subs)
-                        tile_mask(lu_subs)=.false.
-                     END DO
+                 ext_data(jg)%atm%idx_lst_t(i_count,jb,1)  = jc
+                 ext_data(jg)%atm%gp_count_t(jb,1)         = i_count
 
-                     sum_frac = SUM(ext_data(jg)%atm%t_fr_t(i_count,jb,1:nsfc_subs))
+               ELSE    
 
-                     DO i_lu = 1, nsfc_subs 
-                        lu_subs = ext_data(jg)%atm%t_lst_t(i_count,jb,i_lu)
-                        !               fr_subs = MAXVAL(tile_frac,1,tile_mask)
+                 ext_data(jg)%atm%lc_frac_t(jc,jb,:)  = 0._wp ! to be really safe
+                 ext_data(jg)%atm%lc_class_t(jc,jb,:) = -1    ! dummy value for undefined points
 
-                        IF ( sum_frac > 0._wp) THEN 
+                 DO i_lu = 1, nsfc_subs
+                   lu_subs = MAXLOC(tile_frac,1,tile_mask)
+                   IF (tile_frac(lu_subs) >= frac_thresh) THEN
+                     it_count(i_lu)    = it_count(i_lu) + 1
+                     tile_mask(lu_subs)= .FALSE.
+                     ext_data(jg)%atm%idx_lst_t(it_count(i_lu),jb,i_lu) = jc
+                     ext_data(jg)%atm%gp_count_t(jb,i_lu)               = it_count(i_lu)
 
-                           ext_data(jg)%atm%t_fr_t(i_count,jb,i_lu) = &
-                             & ext_data(jg)%atm%t_fr_t(i_count,jb,i_lu) / sum_frac
-                        ELSE !  Workaround for GLC2000 hole below 60 deg S
-                           ext_data(jg)%atm%t_lst_t(i_count,jb,i_lu) =  21
-                           ext_data(jg)%atm%t_fr_t(i_count,jb,i_lu)  = 1._wp/REAL(nsfc_subs,wp)
-                        END IF
+                     ! **ATTENTION: the fractions (for aggregating) are needed on the 
+                     ! ordinary model grid for the time being**
+                     ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu)  = tile_frac(lu_subs)
+                     ! The land cover classes are also stored on the ordinary grid; 
+                     ! they are not needed during runtime
+                     ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) = lu_subs
+                   ELSE
+                     EXIT ! no more land cover classes exceeding the threshold
+                   ENDIF
+                 END DO
 
-                        ! root depth
-                        ext_data(jg)%atm%rootdp_t (i_count,jb,i_lu)  = zrd_lu(lu_subs)
-                        ! plant cover
-                        ext_data(jg)%atm%plcov_t  (i_count,jb,i_lu)  = zplcmxc_lu(lu_subs)
-                        ! max leaf area index
-                        ext_data(jg)%atm%tai_t    (i_count,jb,i_lu)  = &
-                          & zplcmxc_lu(lu_subs)*zlaimxc_lu(lu_subs)
-                        ! max leaf area index
-                        ext_data(jg)%atm%sai_t    (i_count,jb,i_lu)  = &
-                          & c_lnd+ ext_data(jg)%atm%tai_t (i_count,jb,i_lu)
-                        ! max leaf area index
-                        ext_data(jg)%atm%eai_t    (i_count,jb,i_lu)  = c_soil
-                        ! minimal stomata resistence
-                        ext_data(jg)%atm%rsmin2d_t(i_count,jb,i_lu)  = zrs_min_lu(lu_subs)
-                     END DO
-                  END IF ! nfc_subs
-               END IF
-            END DO ! jc
+                 sum_frac = SUM(ext_data(jg)%atm%lc_frac_t(jc,jb,1:nsfc_subs))
 
+                 DO i_lu = 1, nsfc_subs 
+
+                   IF ( sum_frac > 0._wp) THEN 
+                     ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu) = &
+                        ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu) / sum_frac
+                   ELSE !  Workaround for GLC2000 hole below 60 deg S
+                     IF (i_lu == 1) THEN
+                       it_count(i_lu)    = it_count(i_lu) + 1
+                       ext_data(jg)%atm%idx_lst_t(it_count(i_lu),jb,i_lu) = jc
+                       ext_data(jg)%atm%gp_count_t(jb,i_lu)               = it_count(i_lu)
+                       ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) = 21
+                       ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu)  = 1._wp
+                     ELSE
+                       ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) = -1
+                       ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu)  = 0._wp
+                     ENDIF
+                   END IF
+
+                   lu_subs = ext_data(jg)%atm%lc_class_t(jc,jb,i_lu)
+                   IF (lu_subs < 0) CYCLE
+
+                   ! root depth
+                   ext_data(jg)%atm%rootdp_t (it_count(i_lu),jb,i_lu)  = zrd_lu(lu_subs)
+
+                   ! plant cover
+                   ext_data(jg)%atm%plcov_t  (it_count(i_lu),jb,i_lu)  = zplcmxc_lu(lu_subs)
+
+                   ! max leaf area index
+                   ext_data(jg)%atm%tai_t    (it_count(i_lu),jb,i_lu)  = &
+                     zplcmxc_lu(lu_subs)*zlaimxc_lu(lu_subs)
+
+                   ! max leaf area index
+                   ext_data(jg)%atm%sai_t    (it_count(i_lu),jb,i_lu)  = &
+                     c_lnd+ ext_data(jg)%atm%tai_t (it_count(i_lu),jb,i_lu)
+
+                   ! max leaf area index
+                   ext_data(jg)%atm%eai_t    (it_count(i_lu),jb,i_lu)  = c_soil
+
+                   ! minimal stomata resistence
+                   ext_data(jg)%atm%rsmin2d_t(it_count(i_lu),jb,i_lu)  = zrs_min_lu(lu_subs)
+
+                   ! soil type
+                   ext_data(jg)%atm%soiltyp_t(it_count(i_lu),jb,i_lu)  = &
+                     ext_data(jg)%atm%soiltyp(jc,jb)
+
+                 END DO
+               END IF ! nfc_subs
+             END IF
+           END DO ! jc
 
          END DO !jb
 !!$OMP END DO
 !!$OMP END PARALLEL
 
+         ! Some useful diagnostics
+         npoints = SUM(ext_data(jg)%atm%lp_count(i_startblk:i_endblk))
+         npoints = global_sum_array(npoints)
+         WRITE(message_text,'(a,i3,a,i10)') 'Number of land points in domain',jg,':', npoints
+         CALL message('', TRIM(message_text))
+
+         DO i_lu = 1, nsfc_subs
+           npoints = SUM(ext_data(jg)%atm%gp_count_t(i_startblk:i_endblk,i_lu))
+           npoints = global_sum_array(npoints)
+           WRITE(message_text,'(a,i2,a,i10)') 'Number of points in tile',i_lu,':',npoints
+           CALL message('', TRIM(message_text))
+         ENDDO
+
       END DO  !jg
-   END SELECT ! iequations
+    END SELECT ! iequations
 
   END SUBROUTINE init_index_lists
 
@@ -776,7 +841,7 @@ CONTAINS
       &        nblks_v       !< number of vertex blocks to allocate
 
     INTEGER :: shape2d_c(2), shape2d_e(2), shape2d_v(2)
-    INTEGER :: shape3d_sfc(3)
+    INTEGER :: shape3d_sfc(3), shape3d_nt(3)
 
     INTEGER :: ientr         !< "entropy" of horizontal slice
     !--------------------------------------------------------------
@@ -795,6 +860,7 @@ CONTAINS
     shape2d_e  = (/ nproma, nblks_e /)
     shape2d_v  = (/ nproma, nblks_v /)
     shape3d_sfc= (/ nproma, nblks_c, nclass_lu(jg) /) 
+    shape3d_nt = (/ nproma, nblks_c, nsfc_subs /) 
 
 
     !
@@ -1061,13 +1127,13 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
         &           grib2_desc, ldims=shape2d_c )
 
-      ! plcov_t     p_ext_atm%plcov_t(nproma,nblks_c,nclass_lu(jg))
+      ! plcov_t     p_ext_atm%plcov_t(nproma,nblks_c,nsfc_subs)
       cf_desc    = t_cf_var('vegetation_area_fraction_vegetation_period', '-',&
         &                   'Plant covering degree in the vegetation phase')
       grib2_desc = t_grib2_var( 2, 0, 4, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'plcov_t', p_ext_atm%plcov_t, &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
-        &           grib2_desc, ldims=shape3d_sfc )
+        &           grib2_desc, ldims=shape3d_nt )
 
 
       ! Max Leaf area index
@@ -1080,29 +1146,29 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
         &           grib2_desc, ldims=shape2d_c )
 
-      ! sai_t       p_ext_atm%sai_t(nproma,nblks_c,nclass_lu(jg))
+      ! sai_t       p_ext_atm%sai_t(nproma,nblks_c,nsfc_subs)
       cf_desc    = t_cf_var('leaf_area_index_vegetation_period', '-',&
         &                   'Leaf Area Index Maximum')
       grib2_desc = t_grib2_var( 2, 0, 28, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'sai_t', p_ext_atm%sai_t,     &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
-        &           grib2_desc, ldims=shape3d_sfc )
+        &           grib2_desc, ldims=shape3d_nt )
 
-      ! tai_t       p_ext_atm%tai_t(nproma,nblks_c,nclass_lu(jg))
+      ! tai_t       p_ext_atm%tai_t(nproma,nblks_c,nsfc_subs)
       cf_desc    = t_cf_var('leaf_area_index_vegetation_period', '-',&
         &                   'Leaf Area Index Maximum')
       grib2_desc = t_grib2_var( 2, 0, 28, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'tai_t', p_ext_atm%tai_t,     &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
-        &           grib2_desc, ldims=shape3d_sfc )
+        &           grib2_desc, ldims=shape3d_nt )
 
-      ! eai_t       p_ext_atm%eai_t(nproma,nblks_c,nclass_lu(jg))
+      ! eai_t       p_ext_atm%eai_t(nproma,nblks_c,nsfc_subs)
       cf_desc    = t_cf_var('leaf_area_index_vegetation_period', '-',&
         &                   'Leaf Area Index Maximum')
       grib2_desc = t_grib2_var( 2, 0, 28, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'eai_t', p_ext_atm%eai_t,     &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
-        &           grib2_desc, ldims=shape3d_sfc )
+        &           grib2_desc, ldims=shape3d_nt )
 
 
       ! root depth of vegetation
@@ -1115,13 +1181,13 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
         &           grib2_desc, ldims=shape2d_c )
 
-      ! rootdp_t      p_ext_atm%rootdp_t(nproma,nblks_c,nclass_lu(jg))
+      ! rootdp_t      p_ext_atm%rootdp_t(nproma,nblks_c,nsfc_subs)
       cf_desc    = t_cf_var('root_depth_of_vegetation', 'm',&
         &                   'root depth of vegetation')
       grib2_desc = t_grib2_var( 2, 0, 32, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'rootdp_t', p_ext_atm%rootdp_t,     &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
-        &           grib2_desc, ldims=shape3d_sfc )
+        &           grib2_desc, ldims=shape3d_nt )
 
       ! evergreen forest
       !
@@ -1167,12 +1233,12 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
         &           grib2_desc, ldims=shape2d_c )
 
-      ! rsmin2d_t        p_ext_atm%rsmin2d_t(nproma,nblks_c,nclass_lu(jg))
+      ! rsmin2d_t        p_ext_atm%rsmin2d_t(nproma,nblks_c,nsfc_subs)
       cf_desc    = t_cf_var('RSMIN', 's m-1', 'Minimal stomata resistence')
       grib2_desc = t_grib2_var( 2, 0, 16, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'rsmin', p_ext_atm%rsmin2d_t,       &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
-        &           grib2_desc, ldims=shape3d_sfc )
+        &           grib2_desc, ldims=shape3d_nt )
 
       ! NDVI yearly maximum
       !
@@ -1184,29 +1250,41 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
         &           grib2_desc, ldims=shape2d_c )
 
-      ! lp_lst_t        p_ext_atm%lp_lst_t(nproma,nblks_c)
+      ! Control fields for tile approach
+      ! idx_lst_lp          p_ext_atm%idx_lst_lp(nproma,nblks_c)
       cf_desc    = t_cf_var('land point index list', '-', &
         &                   'land point index list')
       grib2_desc = t_grib2_var( 2, 0, 31, ientr, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_ext_atm_list, 'lp_lst_t', p_ext_atm%lp_lst_t, &
+      CALL add_var( p_ext_atm_list, 'idx_lst_lp', p_ext_atm%idx_lst_lp, &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
         &           grib2_desc, ldims=shape2d_c )
 
-      ! t_lst_t        p_ext_atm%t_lst_t(nproma,nblks_c)
+      ! idx_lst_t        p_ext_atm%idx_lst_t(nproma,nblks_c,nsfc_subs)
       cf_desc    = t_cf_var('tile point index list', '-', &
         &                   'tile point index list')
       grib2_desc = t_grib2_var( 2, 0, 31, ientr, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_ext_atm_list, 't_lst_t', p_ext_atm%t_lst_t, &
+      CALL add_var( p_ext_atm_list, 'idx_lst_t', p_ext_atm%idx_lst_t, &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
-        &           grib2_desc, ldims=shape3d_sfc )
+        &           grib2_desc, ldims=shape3d_nt )
 
-      ! t_fr_t        p_ext_atm%t_fr_t(nproma,nblks_c)
-      cf_desc    = t_cf_var('tile point fraction list', '-', &
-        &                   'tile point fraction list')
+      ! not sure if these dimensions are supported by add_var...
+      ALLOCATE(p_ext_atm%lp_count(nblks_c), p_ext_atm%gp_count_t(nblks_c,nsfc_subs))
+
+      ! lc_class_t        p_ext_atm%lc_class_t(nproma,nblks_c,nsfc_subs)
+      cf_desc    = t_cf_var('tile point land cover class list', '-', &
+        &                   'tile point land cover class list')
       grib2_desc = t_grib2_var( 2, 0, 31, ientr, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_ext_atm_list, 't_fr_t', p_ext_atm%t_fr_t, &
+      CALL add_var( p_ext_atm_list, 'lc_class_t', p_ext_atm%lc_class_t, &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
-        &           grib2_desc, ldims=shape3d_sfc )
+        &           grib2_desc, ldims=shape3d_nt )
+
+      ! lc_frac_t        p_ext_atm%lc_frac_t(nproma,nblks_c,nsfc_subs)
+      cf_desc    = t_cf_var('tile point land cover fraction list', '-', &
+        &                   'tile point land cover fraction list')
+      grib2_desc = t_grib2_var( 2, 0, 31, ientr, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'lc_frac_t', p_ext_atm%lc_frac_t, &
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
+        &           grib2_desc, ldims=shape3d_nt )
 
       !--------------------------------
       ! soil parameters
@@ -1221,12 +1299,12 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
         &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
 
-      ! soiltyp_t      p_ext_atm%soiltyp_t(nproma,nblks_c)
+      ! soiltyp_t      p_ext_atm%soiltyp_t(nproma,nblks_c,nsfc_subs)
       cf_desc    = t_cf_var('soil_type', '-','soil type')
       grib2_desc = t_grib2_var( 2, 3, 0, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'soiltyp_t', p_ext_atm%soiltyp_t,   &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
-        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
+        &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
 
 
       ! Climat. temperature
