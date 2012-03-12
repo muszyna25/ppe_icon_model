@@ -782,7 +782,6 @@ MODULE mo_nh_stepping
         p_nh_state(jg)%prog(n_save)%w       = p_nh_state(jg)%prog(n_now)%w
         p_nh_state(jg)%prog(n_save)%rho     = p_nh_state(jg)%prog(n_now)%rho
         p_nh_state(jg)%prog(n_save)%theta_v = p_nh_state(jg)%prog(n_now)%theta_v
-        p_lnd_state(jg)%diag_lnd%t_g_save   = p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g
 !$OMP END WORKSHARE
 !$OMP END PARALLEL
       ENDIF
