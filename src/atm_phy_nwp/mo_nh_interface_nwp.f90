@@ -1002,8 +1002,8 @@ CONTAINS
 &                       i_startidx, i_endidx, rl_start, rl_end)
 
 
-        ! artificial Rayleigh friction: active if GWD or SSO scheme is called
-        IF (lcall_phy_jg(itsso) .OR. lcall_phy_jg(itgwd)) THEN
+        ! artificial Rayleigh friction: active if GWD or SSO scheme is active
+        IF (atm_phy_nwp_config(jg)%inwp_sso > 0 .OR. atm_phy_nwp_config(jg)%inwp_gwd > 0) THEN
           DO jk = 1, nlev
             DO jc = i_startidx, i_endidx
               vabs = SQRT(pt_diag%u(jc,jk,jb)**2 + pt_diag%v(jc,jk,jb)**2)
