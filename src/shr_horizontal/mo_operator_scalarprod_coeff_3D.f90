@@ -807,8 +807,8 @@ CONTAINS
             END IF
           END DO ! jev = 1, patch%verts%num_edges(jv,jb)
           
-          IF( MOD(boundary_counter,2) /= 2 ) THEN
-            CALL finish (routine,'MOD(boundary_counter,2) /= 2 !!')
+          IF( MOD(boundary_counter,2) /= 0 ) THEN
+            CALL finish (routine,'MOD(boundary_counter,2) /= 0 !!')
           ENDIF
 
           DO je = 1, boundary_counter
