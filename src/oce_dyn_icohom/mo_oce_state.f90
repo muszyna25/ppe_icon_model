@@ -2035,24 +2035,28 @@ END DO
             IF (v_base%lsm_oce_c(jc,jk,jb) < 0) THEN
               DO ji = 1, 3
                 ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
-                idxe = p_patch%cells%edge_idx(jc,jb,ji)
-                ible = p_patch%cells%edge_blk(jc,jb,ji)
+  !             idxe = p_patch%cells%edge_idx(jc,jb,ji)
+  !             ible = p_patch%cells%edge_blk(jc,jb,ji)
                 ! if one of lsm_e is boundary then lsm_c is sea_boundary
                 ! counts number of sea-boundaries for jk=1 - only one boundary is allowed
-                IF ( v_base%lsm_oce_e(idxe,jk,ible) == BOUNDARY) &
+  !             IF ( v_base%lsm_oce_e(idxe,jk,ible) == BOUNDARY) &
+  !               &  nowet_c=nowet_c + 1
+                idxe = p_patch%cells%neighbor_idx(jc,jb,ji)
+                ible = p_patch%cells%neighbor_blk(jc,jb,ji)
+                IF ( v_base%lsm_oce_c(idxe,jk,ible) == BOUNDARY) &
                   &  nowet_c=nowet_c + 1
               END DO
               !More than 1 wet edge -> set cell to land
               IF ( nowet_c >= 2 ) THEN 
                 v_base%lsm_oce_c(jc,jk,jb)=LAND
                 ctr = ctr+1
-                DO ji = 1, 3
-                  ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
-                  idxe = p_patch%cells%edge_idx(jc,jb,ji)
-                  ible = p_patch%cells%edge_blk(jc,jb,ji)
-                  !set all edges to boundary
-                  v_base%lsm_oce_e(idxe,jk,ible) = BOUNDARY
-                END DO
+!               DO ji = 1, 3
+!                 ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
+!                 idxe = p_patch%cells%edge_idx(jc,jb,ji)
+!                 ible = p_patch%cells%edge_blk(jc,jb,ji)
+!                 !set all edges to boundary
+!                 v_base%lsm_oce_e(idxe,jk,ible) = BOUNDARY
+!               END DO
 !                 !get adjacent triangles
 !                iic1 = p_patch%edges%cell_idx(je,jb,1)
 !                ibc1 = p_patch%edges%cell_blk(je,jb,1)
