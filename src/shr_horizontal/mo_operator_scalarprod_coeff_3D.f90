@@ -438,6 +438,7 @@ CONTAINS
     
     CALL par_init_scalar_product_oce(patch, intp_2D_coeff)
     CALL copy_2D_to_3D_intp_coeff( patch, ocean_coeff, intp_2D_coeff)
+    CALL init_geo_factors_oce_3d ( patch, ocean_coeff )
     !---------------------------------------------------------
     CALL par_apply_boundary2coeffs(patch, ocean_coeff)
     !---------------------------------------------------------
