@@ -1167,7 +1167,9 @@ CONTAINS
       ! retrieve information from actual linked list element
       !
       info => element%field%info 
-      write (0,*)'Var:',info%name
+      IF (my_process_is_stdio()) THEN
+        write (0,*)'Var:',info%name
+      ENDIF
       !
       ! skip this field ?
       !
@@ -1558,7 +1560,9 @@ CONTAINS
               !
               IF (ASSOCIATED (r5d)) DEALLOCATE (r5d)
               !
-              write (0,*) ' ... read ',TRIM(element%field%info%name)
+              IF (my_process_is_stdio()) THEN
+                write (0,*) ' ... read ',TRIM(element%field%info%name)
+              ENDIF
               CYCLE for_all_vars
             ENDIF
           ENDIF
