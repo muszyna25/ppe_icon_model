@@ -61,6 +61,7 @@ MODULE mo_operator_scalarprod_coeff_3d
   USE mo_oce_state,           ONLY: v_base  
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_intp_coeffs,         ONLY: par_init_scalar_product_oce
+  USE mo_util_subset,         ONLY: t_subset_range, get_index_range
   
   IMPLICIT NONE
   
@@ -422,10 +423,10 @@ CONTAINS
   !! @par Revision History
   !! Peter Korn (2012-2)
   !!
-  SUBROUTINE par_init_operator_coeff( patch, ptr_coeff, intp_2D_coeff)
+  SUBROUTINE par_init_operator_coeff( patch, intp_3D_coeff, intp_2D_coeff)
     ! 
     TYPE(t_patch),          INTENT(inout) :: patch
-    TYPE(t_operator_coeff), INTENT(inout) :: ptr_coeff
+    TYPE(t_operator_coeff), INTENT(inout) :: intp_3D_coeff
     TYPE(t_int_state),      INTENT(inout) :: intp_2D_coeff
     
     INTEGER :: rl_start_e,rl_end_e,rl_start_c,rl_end_c
@@ -435,8 +436,7 @@ CONTAINS
     !-----------------------------------------------------------------------
     
     CALL par_init_scalar_product_oce(patch, intp_2D_coeff)
-    CALL par_init_scalar_product_oce_3d( patch, ptr_coeff, intp_2D_coeff)
-    CALL init_geo_factors_oce_3d( patch, ptr_coeff )
+    CALL par_init_scalar_product_oce_3d( patch, intp_3D_coeff, intp_2D_coeff)
     
 !     DO jk=1,n_zlev
 !       DO jb = i_startblk_e, i_endblk_e
@@ -456,17 +456,56 @@ CONTAINS
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
-  !> Initialize expansion coefficients.
+  !> Initialize 3D expansion coefficients.
   !!
   !! @par Revision History
   !! Peter Korn (2012-2)
-  !!
-  SUBROUTINE par_init_scalar_product_oce_3d( ptr_patch, ptr_coeff, intp_2D_coeff)
+  !! Parellelized by Leonidas Linardakis 2012-3
+  SUBROUTINE par_init_scalar_product_oce_3d( patch, intp_3D_coeff, intp_2D_coeff)
     ! 
-    TYPE(t_patch),      INTENT(inout)     :: ptr_patch
-    TYPE(t_operator_coeff), INTENT(inout) :: ptr_coeff
+    TYPE(t_patch),  TARGET, INTENT(inout) :: patch
+    TYPE(t_operator_coeff), INTENT(inout) :: intp_3D_coeff
     TYPE(t_int_state),      INTENT(inout) :: intp_2D_coeff
-  
+
+    TYPE(t_subset_range), POINTER :: owned_edges, all_edges  
+    TYPE(t_subset_range), POINTER :: owned_cells         
+    TYPE(t_subset_range), POINTER :: owned_verts         
+
+    INTEGER :: edge_block, edge_index, level
+    
+    owned_cells => patch%cells%owned
+    all_edges   => patch%edges%all
+    owned_edges => patch%edges%owned
+    owned_verts => patch%verts%owned
+    
+    !---------------------------------------------------------
+    ! the following coefficients will be calculated:
+    !
+    ! intp_3D_coeff%edge_position_cc(:,:,:)            on edges
+    ! intp_3D_coeff%dist_cell2edge(:,:,:,1-2)          on edges
+    ! 
+    ! intp_3D_coeff%edge2cell_coeff_cc(:,:,:,1-3)%x    on cells
+    ! intp_3D_coeff%fixed_vol_norm(:,:,:)              on cells
+    ! intp_3D_coeff%variable_vol_norm(:,:,:,1-3)       on cells
+    ! 
+    ! intp_3D_coeff%edge2cell_coeff_cc_t(:,:,:,1-2)%x  on edges
+    ! intp_3D_coeff%edge2vert_vector_cc(:,:,:,1-6)%x   on verts
+    ! intp_3D_coeff%edge2vert_coeff_cc_t(:,:,:,1-2)%x  on edges
+    ! 
+    ! ptr_patch%edges%f_e(:, :) is already calculated in par_init_scalar_product_oce    !
+    !---------------------------------------------------------
+
+    
+    !---------------------------------------------------------
+    ! calculate intp_3D_coeff%edge_position_cc(:,:,:) on edges
+    ! this is the same as the 2D, just copy it
+    DO edge_block = owned_edges%start_block, owned_edges%end_block
+      DO level = 1, n_zlev
+        intp_3D_coeff%edge_position_cc(:,level,edge_block) = &
+          patch%edges%cartesian_center(:,edge_block)
+      ENDDO
+    ENDDO
+    
   END SUBROUTINE par_init_scalar_product_oce_3d
   !-------------------------------------------------------------------------
   

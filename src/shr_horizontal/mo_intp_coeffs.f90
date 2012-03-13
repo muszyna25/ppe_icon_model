@@ -189,7 +189,7 @@ USE mo_interpol_config,     ONLY: i_cori_method, nudge_zone_width, nudge_max_coe
 USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer, t_ref, s_ref,          &
   &                               CORIOLIS_TYPE, basin_center_lat, basin_height_deg
 
-USE mo_util_subset,         ONLY: t_subset_range, t_subset_range_index, get_index_range
+USE mo_util_subset,         ONLY: t_subset_range, get_index_range
 
 IMPLICIT NONE
 
@@ -3487,6 +3487,22 @@ END SUBROUTINE complete_patchinfo
 
   
   !-------------------------------------------------------------------------
+  !>
+  !! Computes the coefficients that determine the scalar product on the primal grid. This
+  !! scalar product depends on the grid geometry only and  is used to formulate the primitive
+  !! equations in weak form. The coefficients are applied in module "mo_scalar_product".
+  !! The following components of the data type "ocean_patch" are filled:
+  !!   edge2cell_coeff  : coefficients for edge to cell mapping
+  !!   edge2cell_coeff_t: coefficients for transposed of edge to cell mappings
+  !!   edge2vert_coeff  : coefficients for edge to vertex mapping
+  !!   edge2vert_coeff_t: coefficients for transposed of edge to vertex mappings
+  !!   fixed_vol_norm   : summed volume weight of moved cell
+  !!   variable_vol_norm: volume weight at the edges of moved cell
+  !!
+  !! @par Revision History
+  !!  developed by Peter Korn, MPI-M  2010-09
+  !!  Modification by Stephan Lorenz, 2010-11
+  !!  Parellelized by Leonidas Linardakis, 2012-3
   SUBROUTINE par_init_scalar_product_oce( patch, intp_2D_coeff)
     TYPE(t_patch)    , TARGET, INTENT(INOUT) :: patch
     TYPE(t_int_state),         INTENT(INOUT) :: intp_2D_coeff
@@ -3909,7 +3925,6 @@ END SUBROUTINE complete_patchinfo
           
              
   !-------------------------------------------------------------------------
-  !
   !>
   !! Computes the coefficients that determine the scalar product on the primal grid. This
   !! scalar product depends on the grid geometry only and  is used to formulate the primitive
