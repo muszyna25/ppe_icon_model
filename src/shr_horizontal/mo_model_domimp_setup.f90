@@ -703,8 +703,8 @@ CONTAINS
     !--------------------------------------------------------------------------------
     ! fill cell subsets
     !    fill_subset(range subset,  halo levels, start level, end level)
-    CALL fill_subset(p_patch%cells%all,  p_patch%cells%halo_level, 0, halo_levels_ceiling)
-    CALL fill_subset(p_patch%cells%owned,  p_patch%cells%halo_level, 0, 0)
+    CALL fill_subset(p_patch%cells%all,        p_patch%cells%halo_level, 0, halo_levels_ceiling)
+    CALL fill_subset(p_patch%cells%owned,      p_patch%cells%halo_level, 0, 0)
     CALL fill_subset(p_patch%cells%in_domain,  p_patch%cells%halo_level, 0, 1)
     CALL fill_subset(p_patch%cells%not_owned,  p_patch%cells%halo_level, 1, halo_levels_ceiling)
     CALL fill_subset(p_patch%cells%not_in_domain,  &
@@ -715,7 +715,7 @@ CONTAINS
     
     ! fill edge subsets
     !    fill_subset(range subset,  halo levels, start level, end level)
-    CALL fill_subset(p_patch%edges%all,      p_patch%edges%halo_level, 0, halo_levels_ceiling)
+    CALL fill_subset(p_patch%edges%all,        p_patch%edges%halo_level, 0, halo_levels_ceiling)
     CALL fill_subset(p_patch%edges%owned,      p_patch%edges%halo_level, 0, 0)
     CALL fill_subset(p_patch%edges%in_domain,  p_patch%edges%halo_level, 0, 1)
     CALL fill_subset(p_patch%edges%not_owned,  p_patch%edges%halo_level, 1, halo_levels_ceiling)
@@ -724,7 +724,7 @@ CONTAINS
     
     ! fill vertex subsets
     !    fill_subset(range subset,  halo levels, start level, end level)
-    CALL fill_subset(p_patch%verts%all,      p_patch%verts%halo_level, 0, halo_levels_ceiling)
+    CALL fill_subset(p_patch%verts%all,        p_patch%verts%halo_level, 0, halo_levels_ceiling)
     CALL fill_subset(p_patch%verts%owned,      p_patch%verts%halo_level, 0, 0)
     CALL fill_subset(p_patch%verts%in_domain,  p_patch%verts%halo_level, 0, 1)
     CALL fill_subset(p_patch%verts%not_owned,  p_patch%verts%halo_level, 1, halo_levels_ceiling)

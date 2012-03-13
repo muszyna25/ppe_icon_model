@@ -3771,7 +3771,7 @@ END SUBROUTINE complete_patchinfo
 
         vertex_position%x = patch%verts%cartesian(vertex_index, vertex_block)%x
         
-        DO neigbor=1,6 ! we have to change this to accomodate the dual grid
+        DO neigbor=1, 6 ! we have to change this to accomodate the dual grid
 
           intp_2D_coeff%edge2vert_vector_cc(vertex_index, vertex_block, neigbor)%x = 0.0_wp
           intp_2D_coeff%variable_dual_vol_norm(vertex_index, vertex_block, neigbor) = 0.0_wp
