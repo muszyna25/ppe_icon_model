@@ -306,13 +306,12 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
     !------------------------------------------
     !< call for cloud microphysics
     !------------------------------------------
-    IF (  atm_phy_nwp_config(jg)%inwp_gscp ==  1   .OR. &
-      &   atm_phy_nwp_config(jg)%inwp_gscp == 10)  THEN
-      
-      IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics')
-      CALL hydci_pp_init
+  IF (  atm_phy_nwp_config(jg)%inwp_gscp == 1 )  THEN
 
-    ENDIF
+    IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics')
+    CALL hydci_pp_init
+
+  ENDIF
     !------------------------------------------
     !< radiation
     !------------------------------------------
