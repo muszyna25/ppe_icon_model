@@ -1236,7 +1236,7 @@ CONTAINS
       ! rsmin2d_t        p_ext_atm%rsmin2d_t(nproma,nblks_c,nsfc_subs)
       cf_desc    = t_cf_var('RSMIN', 's m-1', 'Minimal stomata resistence')
       grib2_desc = t_grib2_var( 2, 0, 16, ientr, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_ext_atm_list, 'rsmin', p_ext_atm%rsmin2d_t,       &
+      CALL add_var( p_ext_atm_list, 'rsmin2d_t', p_ext_atm%rsmin2d_t,       &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
         &           grib2_desc, ldims=shape3d_nt )
 
