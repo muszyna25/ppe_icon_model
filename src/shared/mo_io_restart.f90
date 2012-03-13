@@ -1459,6 +1459,7 @@ CONTAINS
 !       CALL nf(nf_close(ncid))
       
       write(0,*) "streamOpenRead ", TRIM(restart_filename)
+
       fileID  = streamOpenRead(name)
       write(0,*) "fileID=",fileID
       vlistID = streamInqVlist(fileID)
@@ -1514,7 +1515,9 @@ CONTAINS
                 CALL finish('','allocation of r5d failed ...')
               ENDIF
               !
-              CALL streamReadVar(fileID, varID, r5d, nmiss)
+              IF (my_process_is_stdio()) THEN
+                CALL streamReadVar(fileID, varID, r5d, nmiss)
+              END IF
               !
               IF (info%lcontained) THEN
                 nindex = info%ncontained
