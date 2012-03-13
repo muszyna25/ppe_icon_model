@@ -264,6 +264,7 @@ TYPE t_grid_cells
   INTEGER, POINTER :: halo_level(:,:)! just points to the decomp_domain as a more accurate name
   
   ! define basic subsets
+  TYPE(t_subset_range) :: all          ! these are the all valid entities, including all valid halos
   TYPE(t_subset_range) :: owned         ! these are the owned entities
   TYPE(t_subset_range) :: in_domain     ! these are the computation domain entities, for cells = owned
   TYPE(t_subset_range) :: not_owned     ! these are all the halo entities
@@ -474,6 +475,7 @@ TYPE t_grid_edges
   INTEGER, POINTER :: halo_level(:,:)! just points to the decomp_domain as a more accurate name
   
   ! define basic subsets
+  TYPE(t_subset_range) :: all          ! these are the all valid entities, including all valid halos
   TYPE(t_subset_range) :: owned         ! these are the owned entities
   TYPE(t_subset_range) :: in_domain     ! these are the computation domain entities,
                                         ! this includes all edges of the domain cells
@@ -583,6 +585,7 @@ TYPE t_grid_vertices
   INTEGER, POINTER :: halo_level(:,:) ! just points to the decomp_domain as a more accurate name
   
   ! define basic subsets
+  TYPE(t_subset_range) :: all          ! these are the all valid entities, including all valid halos
   TYPE(t_subset_range) :: owned         ! these are the owned entities
   TYPE(t_subset_range) :: in_domain     ! these are the computation domain entities,
                                         ! this includes all edges of the domain cells

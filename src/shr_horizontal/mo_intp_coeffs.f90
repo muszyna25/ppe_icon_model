@@ -4578,10 +4578,18 @@ END SUBROUTINE complete_patchinfo
     REAL(wp) :: z_sync_e(nproma,ptr_patch%nblks_e)
     REAL(wp) :: z_sync_v(nproma,ptr_patch%nblks_v)
 
+    TYPE(t_subset_range), POINTER :: owned_edges         ! these are the owned entities
+    TYPE(t_subset_range), POINTER :: owned_cells, all_cells         ! these are the owned entities
+    TYPE(t_subset_range), POINTER :: owned_verts         ! these are the owned entities
+    
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     & routine = ('mo_oce_state:init_geo_factors_oce')
 
     !-----------------------------------------------------------------------
+    all_cells => ptr_patch%cells%all
+    owned_cells => ptr_patch%cells%owned
+    owned_edges => ptr_patch%edges%owned
+    owned_verts => ptr_patch%verts%owned
 
     CALL message (TRIM(routine), 'start')
 
@@ -4600,11 +4608,8 @@ END SUBROUTINE complete_patchinfo
     ! loop through all patch cells (and blocks)
     !
 !$OMP DO PRIVATE(jb,je,jc,i_startidx,i_endidx,ile,ibe)
-    DO jb = i_startblk, i_endblk
-
-      CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk,      &
-        &                i_startidx, i_endidx, rl_start, rl_end)
-
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
       DO jc = i_startidx, i_endidx
 
         ile1 = ptr_patch%cells%edge_idx(jc,jb,1)
@@ -4630,11 +4635,6 @@ END SUBROUTINE complete_patchinfo
            ptr_intp%geofac_div(jc,je,jb) =                &
          &   ptr_patch%edges%primal_edge_length(ile,ibe) * &
          &   ptr_patch%cells%edge_orientation(jc,jb,je)  / &
-         &   ptr_patch%cells%area(jc,jb)
-
-           ptr_intp%geofac_div(jc,je,jb) =                &
-         &   ptr_patch%edges%primal_edge_length(ile,ibe) * &
-         &   ptr_patch%cells%edge_orientation(jc,jb,je)  / &
          &   ptr_patch%cells%area(jc,jb)!cell_area
 
         ENDDO !edge loop
@@ -4643,60 +4643,65 @@ END SUBROUTINE complete_patchinfo
 
     END DO !block loop
 !$OMP END DO
-
+   !
+   ! the ptr_intp%geofac_div has been computed on all cells, so no sync is required
+   !
+    
     ! b) Geometrical factor for rotation
     rl_start = 1  ! #slo# changed to 1 - 2010-12-07
     rl_end = min_rlvert_int
 
     ! Vorticity should have the right sign
-      ifac = 0
-      SELECT CASE (i_cell_type)
-      CASE (3)
-        ifac = 1
-      CASE (6)
-        ifac = -1
-      END SELECT
-      ! values for the blocking
-      i_startblk = ptr_patch%verts%start_blk(rl_start,1)
-      i_endblk   = ptr_patch%verts%end_blk(rl_end,i_nchdom)
-      !
-      ! loop through all patch cells (and blocks)
-      !
+    ifac = 0
+    SELECT CASE (i_cell_type)
+    CASE (3)
+      ifac = 1
+    CASE (6)
+      ifac = -1
+    END SELECT
+
+
+    ! values for the blocking
+    i_startblk = ptr_patch%verts%start_blk(rl_start,1)
+    i_endblk   = ptr_patch%verts%end_blk(rl_end,i_nchdom)
+    !
+    ! loop through all patch cells (and blocks)
+    !
 !$OMP DO PRIVATE(jb,je,jv,i_startidx,i_endidx,ile,ibe)
-      DO jb = i_startblk, i_endblk
+    DO jb = owned_verts%start_block, owned_verts%end_block
+      CALL get_index_range(owned_verts, jb, i_startidx, i_endidx)
 
-        CALL get_indices_v(ptr_patch, jb, i_startblk, i_endblk, &
-          &                i_startidx, i_endidx, rl_start, rl_end)
+      DO je = 1, 9-i_cell_type
+        DO jv = i_startidx, i_endidx
 
-        DO je = 1, 9-i_cell_type
-          DO jv = i_startidx, i_endidx
+          IF (je > ptr_patch%verts%num_edges(jv,jb)) CYCLE   ! relevant for hexagons
 
-            IF (je > ptr_patch%verts%num_edges(jv,jb)) CYCLE   ! relevant for hexagons
+          ile = ptr_patch%verts%edge_idx(jv,jb,je)
+          ibe = ptr_patch%verts%edge_blk(jv,jb,je)
 
-            ile = ptr_patch%verts%edge_idx(jv,jb,je)
-            ibe = ptr_patch%verts%edge_blk(jv,jb,je)
+          ptr_intp%geofac_rot(jv,je,jb) =              &
+        &    ptr_patch%edges%dual_edge_length(ile,ibe) * &
+        &    ptr_patch%verts%edge_orientation(jv,jb,je)/ &
+        &    ptr_patch%verts%dual_area(jv,jb) * REAL(ifac,wp)
 
-            ptr_intp%geofac_rot(jv,je,jb) =              &
-         &    ptr_patch%edges%dual_edge_length(ile,ibe) * &
-         &    ptr_patch%verts%edge_orientation(jv,jb,je)/ &
-         &    ptr_patch%verts%dual_area(jv,jb) * REAL(ifac,wp)
+        ENDDO !vertex loop
+      ENDDO
 
-          ENDDO !vertex loop
-        ENDDO
-
-      END DO !block loop
+    END DO !block loop
 !$OMP END DO
+    !
+    ! ptr_intp%geofac_rot needs to be synced
+    !
+    ! c) Geometrical factor for nabla2_scalar
+    rl_start = 1  ! #slo# changed to 1 - 2010-12-07
+    rl_end = min_rlcell_int
 
-      ! c) Geometrical factor for nabla2_scalar
-      rl_start = 1  ! #slo# changed to 1 - 2010-12-07
-      rl_end = min_rlcell_int
-
-      ! values for the blocking
-      i_startblk = ptr_patch%cells%start_blk(rl_start,1)
-      i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
-      !
-      ! loop through all patch cells (and blocks)
-      !
+    ! values for the blocking
+    i_startblk = ptr_patch%cells%start_blk(rl_start,1)
+    i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
+    !
+    ! loop through all patch cells (and blocks)
+    !
 !$OMP DO PRIVATE(jb,je,jc,ic,i_startidx,i_endidx,ile,ibe,ilc1,ibc1,&
 !$OMP    ilc2,ibc2,ilnc,ibnc)
       DO jb = i_startblk, i_endblk
@@ -4854,10 +4859,6 @@ END SUBROUTINE complete_patchinfo
     ! synchronize all elements of ptr_intp:
 
     DO ie = 1, i_cell_type
-
-        z_sync_c(:,:) = ptr_intp%geofac_div(:,ie,:)
-        CALL sync_patch_array(SYNC_C, ptr_patch, z_sync_c(:,:))
-        ptr_intp%geofac_div(:,ie,:) = z_sync_c(:,:)
 
         z_sync_c(:,:) = ptr_intp%geofac_n2s(:,ie,:)
         CALL sync_patch_array(SYNC_C, ptr_patch, z_sync_c(:,:))

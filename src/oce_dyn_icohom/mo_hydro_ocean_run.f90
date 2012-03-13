@@ -181,7 +181,6 @@ CONTAINS
 
   CALL allocate_exp_coeff( ppatch(jg), ptr_op_coeff)
   CALL init_operator_coeff( ppatch(jg), ptr_op_coeff)
-  CALL apply_boundary2coeffs(ppatch(jg), ptr_op_coeff)
 
   CALL init_ho_recon_fields( ppatch(jg), pstate_oce(jg), ptr_op_coeff)
 
