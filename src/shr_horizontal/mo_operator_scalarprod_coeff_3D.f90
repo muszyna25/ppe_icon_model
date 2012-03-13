@@ -58,7 +58,9 @@ MODULE mo_operator_scalarprod_coeff_3d
   USE mo_parallel_config,     ONLY: nproma
   USE mo_sync,                ONLY: sync_c, sync_e, sync_v, sync_patch_array, sync_idx, global_max
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
-  USE mo_oce_state,           ONLY: v_base
+  USE mo_oce_state,           ONLY: v_base  
+  USE mo_intp_data_strc,      ONLY: t_int_state
+  USE mo_intp_coeffs,         ONLY: par_init_scalar_product_oce
   
   IMPLICIT NONE
   
@@ -66,7 +68,7 @@ MODULE mo_operator_scalarprod_coeff_3d
   PRIVATE
   
   PUBLIC :: allocate_exp_coeff
-  PUBLIC :: init_operator_coeff
+  PUBLIC :: init_operator_coeff, par_init_operator_coeff
   PUBLIC :: t_operator_coeff
   PUBLIC :: apply_boundary2coeffs
   PRIVATE :: init_scalar_product_oce_3d
@@ -142,10 +144,9 @@ MODULE mo_operator_scalarprod_coeff_3d
     TYPE(t_cartesian_coordinates), ALLOCATABLE :: upwind_cell_position_cc(:,:,:)
     
   END TYPE t_operator_coeff
-  
-  
-  
+    
 CONTAINS
+
   ! !-------------------------------------------------------------------------
   ! !
   ! !
@@ -292,8 +293,7 @@ CONTAINS
     IF (ist /= success) THEN
       CALL finish ('mo_operator_scalarprod_coeff_3D:allocating edge2vert_vector failed')
     ENDIF
-    
-    
+        
     ALLOCATE(ptr_coeff%upwind_cell_position_cc(nproma,nz_lev,nblks_e),stat=ist)
     IF (ist /= success) THEN
       CALL finish ('mo_operator_scalarprod_coeff_3D:allocating upwind cell failed')
@@ -414,17 +414,70 @@ CONTAINS
       & 'memory allocation finished')
     
   END SUBROUTINE allocate_exp_coeff
+  !-------------------------------------------------------------------------
   
-  ! !-------------------------------------------------------------------------
-  ! !
-  ! !
-  ! !> Initialize expansion coefficients.
-  ! !!
-  ! !! @par Revision History
-  ! !! Peter Korn (2012-2)
-  ! !!
+  !-------------------------------------------------------------------------
+  !> Initialize expansion coefficients.
+  !!
+  !! @par Revision History
+  !! Peter Korn (2012-2)
+  !!
+  SUBROUTINE par_init_operator_coeff( patch, ptr_coeff, intp_2D_coeff)
+    ! 
+    TYPE(t_patch),          INTENT(inout) :: patch
+    TYPE(t_operator_coeff), INTENT(inout) :: ptr_coeff
+    TYPE(t_int_state),      INTENT(inout) :: intp_2D_coeff
+    
+    INTEGER :: rl_start_e,rl_end_e,rl_start_c,rl_end_c
+    INTEGER :: i_startblk_e, i_endblk_e,i_startidx_e,i_endidx_e
+    INTEGER :: i_startblk_c, i_endblk_c,i_startidx_c,i_endidx_c
+    INTEGER :: jk,je,jb,jc
+    !-----------------------------------------------------------------------
+    
+    CALL par_init_scalar_product_oce(patch, intp_2D_coeff)
+    CALL par_init_scalar_product_oce_3d( patch, ptr_coeff, intp_2D_coeff)
+    CALL init_geo_factors_oce_3d( patch, ptr_coeff )
+    
+!     DO jk=1,n_zlev
+!       DO jb = i_startblk_e, i_endblk_e
+!         CALL get_indices_e(patch, jb, i_startblk_e, i_endblk_e,      &
+!           & i_startidx_e, i_endidx_e, rl_start_e, rl_end_e)
+!         DO je = i_startidx_e, i_endidx_e
+!           !IF(v_base%lsm_oce_e(je,jk,jb) /= sea) THEN
+!           ptr_coeff%edge_position_cc(je,jk,jb) = gc2cc(patch%edges%center(je,jb))
+!           !ENDIF
+!         ENDDO
+!       END DO
+!     END DO
+!     
+!     CALL apply_boundary2coeffs(patch, ptr_coeff)
+        
+  END SUBROUTINE par_init_operator_coeff
+  !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
+  !> Initialize expansion coefficients.
+  !!
+  !! @par Revision History
+  !! Peter Korn (2012-2)
+  !!
+  SUBROUTINE par_init_scalar_product_oce_3d( ptr_patch, ptr_coeff, intp_2D_coeff)
+    ! 
+    TYPE(t_patch),      INTENT(inout)     :: ptr_patch
+    TYPE(t_operator_coeff), INTENT(inout) :: ptr_coeff
+    TYPE(t_int_state),      INTENT(inout) :: intp_2D_coeff
+  
+  END SUBROUTINE par_init_scalar_product_oce_3d
+  !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
+  !> Initialize expansion coefficients.
+  !!
+  !! @par Revision History
+  !! Peter Korn (2012-2)
+  !!
   SUBROUTINE init_operator_coeff( ptr_patch, ptr_coeff)
-    ! !
+    ! 
     TYPE(t_patch),      INTENT(inout)     :: ptr_patch
     TYPE(t_operator_coeff), INTENT(inout) :: ptr_coeff
     
@@ -475,15 +528,14 @@ CONTAINS
     !    END DO
     
   END SUBROUTINE init_operator_coeff
+  !-------------------------------------------------------------------------
   
-  ! !-------------------------------------------------------------------------
-  ! !
-  ! !
-  ! !> Initialize expansion coefficients.
-  ! !!
-  ! !! @par Revision History
-  ! !! Peter Korn (2012-2)
-  ! !!
+  !-------------------------------------------------------------------------
+  !> Initialize expansion coefficients.
+  !!
+  !! @par Revision History
+  !! Peter Korn (2012-2)
+  !!
   SUBROUTINE apply_boundary2coeffs( ptr_patch, ptr_coeff)
     ! !
     TYPE(t_patch),      INTENT(inout)     :: ptr_patch
@@ -844,7 +896,6 @@ CONTAINS
   !--------------------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
-  !
   !>
   !! Computes the coefficients that determine the scalar product on the primal grid. This
   !! scalar product depends on the grid geometry only and  is used to formulate the primitive
@@ -1169,9 +1220,7 @@ CONTAINS
     !         END DO
     !       END DO
     !     END DO
-    
-    
-    
+            
     rl_start   = 1
     rl_end     = min_rledge_int
     i_startblk = ptr_patch%edges%start_blk(rl_start,1)
@@ -1506,8 +1555,9 @@ CONTAINS
     
   END SUBROUTINE init_scalar_product_oce_3d
   !-------------------------------------------------------------------------
-  !
-  !
+  
+
+  !-------------------------------------------------------------------------
   !>
   !! Precomputes the geometrical factors used in the divergence, rotation.
   !!

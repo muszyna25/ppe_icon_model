@@ -148,7 +148,7 @@ CONTAINS
   INTEGER, INTENT(IN)                              :: n_io
   INTEGER, INTENT(INOUT)                           :: jfile
   LOGICAL, INTENT(IN)                              :: lwrite_restart
-  TYPE(t_int_state),TARGET,INTENT(IN), OPTIONAL    :: p_int(n_dom)
+  TYPE(t_int_state),TARGET,INTENT(inout)           :: p_int(n_dom)
   TYPE(t_sfc_flx)                                  :: p_sfc_flx
   TYPE (t_ho_params)                               :: p_phys_param
   TYPE(t_atmos_for_ocean),  INTENT(INOUT)          :: p_as
@@ -180,6 +180,7 @@ CONTAINS
   jg = n_dom
 
   CALL allocate_exp_coeff( ppatch(jg), ptr_op_coeff)
+  ! CALL par_init_operator_coeff( ppatch(jg), ptr_op_coeff, p_int(jg))
   CALL init_operator_coeff( ppatch(jg), ptr_op_coeff)
 
   CALL init_ho_recon_fields( ppatch(jg), pstate_oce(jg), ptr_op_coeff)
