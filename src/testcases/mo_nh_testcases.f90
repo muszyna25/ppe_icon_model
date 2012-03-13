@@ -282,6 +282,9 @@ MODULE mo_nh_testcases
     t_poly(:) = 280._wp
      t_poly(1) = 288._wp
      t_poly(2) = 213._wp
+    tgr_poly(:) = 0._wp
+     tgr_poly(1) = 0.009_wp
+     tgr_poly(2) = 0.006_wp
     rh_poly(:) = 0.1_wp
      rh_poly(1)= 0.8_wp
      rh_poly(2)= 0.2_wp
