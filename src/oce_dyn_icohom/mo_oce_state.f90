@@ -1586,7 +1586,7 @@ END DO
     INTEGER :: noglbnd_e, noglsbd_c, nogllbd_c
     INTEGER :: iic1, ibc1, iic2, ibc2, idxe, ible, idxn, ibln
     INTEGER :: n_zlvp, n_zlvm
-    INTEGER :: jiter, niter, ctr, ctr_jk
+    INTEGER :: jiter, niter, ctr, ctr_jk, ctr_glb
     INTEGER :: lsm_c   (nproma,p_patch%nblks_c)
     REAL(wp):: perc_lnd_c(n_zlev), perc_gllnd_c
     REAL(wp):: perc_lnd_e(n_zlev), perc_gllnd_e
@@ -1597,7 +1597,7 @@ END DO
     
     TYPE(t_subset_range), POINTER :: owned_cells, all_cells
     TYPE(t_subset_range), POINTER :: owned_edges
-    INTEGER :: ctr_all, all_nobnd_e, all_nosbd_c, all_nolbd_c
+    INTEGER :: all_nobnd_e, all_nosbd_c, all_nolbd_c
 
     LOGICAL :: LIMITED_AREA = .FALSE.
     LOGICAL :: is_p_test_run
@@ -1703,9 +1703,6 @@ END DO
       ! synchronize lsm on cells
       ! LL: this is done on all cells consistently on al procs
       ! so no sync is required
-!       z_sync_c(:,:) =  REAL(v_base%lsm_oce_c(:,jk,:),wp)
-!       CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
-!       v_base%lsm_oce_c(:,jk,:) = INT(z_sync_c(:,:))
 
     END DO INIT_ZLOOP
 
@@ -1818,15 +1815,15 @@ END DO
         END DO ! jb = owned_cells%start_block, owned_cells%end_block
 
         ! see what is the sum of changes of all procs
-        ctr_all = global_sum_array(ctr)
+        ctr_glb = global_sum_array(ctr)
         
         WRITE(message_text,'(a,i2,a,i2,a,i8)') 'Level:', jk, &
           & ' Corrected wet cells with 2 land neighbors - iter=', &
-          &                              jiter,' no of cor:',ctr_all
+          &                              jiter,' no of cor:',ctr_glb
         CALL message(TRIM(routine), TRIM(message_text))
         
         ! if no changes have been done, we are done with this level. Exit
-        IF (ctr_all == 0) EXIT
+        IF (ctr_glb == 0) EXIT
 
         ! we need to sync the halos here
         z_sync_c(:,:) =  REAL(lsm_c(:,:),wp)
