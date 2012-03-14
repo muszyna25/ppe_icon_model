@@ -359,7 +359,6 @@ CONTAINS
     CHARACTER(len=MAX_CHAR_LENGTH) :: attname   ! attribute name
     INTEGER :: jp, jp_end   ! loop index and array size
 
-    IF (no_output) RETURN
  
     IF (ltimer) CALL timer_start(timer_write_restart_file)
     !----------------
