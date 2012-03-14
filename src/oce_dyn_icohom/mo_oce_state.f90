@@ -1687,7 +1687,7 @@ END DO
       !  - values for BOUNDARY set below
 
       DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(owned_cells, jb, i_startidx, i_endidx)
+        CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
         DO jc = i_startidx, i_endidx
 
           IF (p_ext_data%oce%bathymetry_c(jc,jb) <= -v_base%zlev_m(jk)) THEN
@@ -1714,32 +1714,32 @@ END DO
     IF(LIMITED_AREA)THEN
     !  #slo# must be parallelized accordingly
 
-    DO jk = 1, n_zlev
-      z_south=-80.0_wp
-      
-      DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(owned_cells, jb, i_startidx, i_endidx)
-        DO jc = i_startidx, i_endidx
-  
-             !get latitude of actual cell
-             z_lat = p_patch%cells%center(jc,jb)%lat
-             z_lat_deg = z_lat*rad2deg
-  
-             !If latitude of cell is above 80 N or below 80 S set triangle to land
-             IF(z_lat_deg>z_north.OR.z_lat_deg<z_south)THEN
-               v_base%lsm_oce_c(jc,:,jb)          = LAND
-               p_ext_data%oce%bathymetry_c(jc,jb) = 100.0_wp
-               v_base%dolic_c(jc,jb)              = 0
-               v_base%wet_c(jc,:,jb)              = 0.0_wp
-               !Set also all 3 edges to land
-               DO ji = 1, 3
-                 ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
-                 idxe                                   = p_patch%cells%edge_idx(jc,jb,ji)
-                 ible                                   = p_patch%cells%edge_blk(jc,jb,ji)
-                 v_base%lsm_oce_e(idxe,:,ible)          = LAND
-                 p_ext_data%oce%bathymetry_e(idxe,ible) = 100.0_wp
-                 v_base%dolic_e(idxe,ible)              = 0
-                 v_base%wet_e(idxe,:,ible)              = 0.0_wp
+      DO jk = 1, n_zlev
+        z_south=-80.0_wp
+        
+        DO jb = all_cells%start_block, all_cells%end_block
+          CALL get_index_range(owned_cells, jb, i_startidx, i_endidx)
+          DO jc = i_startidx, i_endidx
+    
+              !get latitude of actual cell
+              z_lat = p_patch%cells%center(jc,jb)%lat
+              z_lat_deg = z_lat*rad2deg
+    
+              !If latitude of cell is above 80 N or below 80 S set triangle to land
+              IF(z_lat_deg>z_north.OR.z_lat_deg<z_south)THEN
+                v_base%lsm_oce_c(jc,:,jb)          = LAND
+                p_ext_data%oce%bathymetry_c(jc,jb) = 100.0_wp
+                v_base%dolic_c(jc,jb)              = 0
+                v_base%wet_c(jc,:,jb)              = 0.0_wp
+                !Set also all 3 edges to land
+                DO ji = 1, 3
+                  ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
+                  idxe                                   = p_patch%cells%edge_idx(jc,jb,ji)
+                  ible                                   = p_patch%cells%edge_blk(jc,jb,ji)
+                  v_base%lsm_oce_e(idxe,:,ible)          = LAND
+                  p_ext_data%oce%bathymetry_e(idxe,ible) = 100.0_wp
+                  v_base%dolic_e(idxe,ible)              = 0
+                  v_base%wet_e(idxe,:,ible)              = 0.0_wp
                 END DO
              ENDIF
           END DO
