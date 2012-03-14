@@ -1,3 +1,4 @@
+!OPTION! -pvctl conflict
 MODULE mo_io_restart
   !
   USE mo_kind,                  ONLY: wp
@@ -1488,7 +1489,7 @@ CONTAINS
         for_all_lists: DO i = 1, nvar_lists
           IF (var_lists(i)%p%model_type == model_type) THEN
             element => find_list_element(var_lists(i), TRIM(name))
-            IF (ASSOCIATED(element)) THEN
+            IF (ASSOCIATED(element) .AND. element%field%info%lrestart) THEN
               !
               info => element%field%info
               !
