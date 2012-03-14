@@ -4,6 +4,7 @@
 !! 
 !! @par Revision History
 !!  Developed  by Peter Korn,       MPI-M (2011/02)
+!!  Extended   by Stephan Lorenz,   MPI-M (2012)
 !! 
 !! @par Copyright
 !! 2002-2006 by DWD and MPI-M
@@ -43,16 +44,18 @@ MODULE mo_oce_diagnostics
 !   
 ! 
 USE mo_kind,                      ONLY: wp
+USE mo_util_subset,               ONLY: t_subset_range, get_index_range
 USE mo_math_utilities,            ONLY: t_cartesian_coordinates!, gc2cc
+USE mo_math_constants,            ONLY: rad2deg
 USE mo_impl_constants,            ONLY: sea_boundary,sea, &
   &                                     min_rlcell, min_rledge, min_rlcell, &
   &                                     max_char_length, MIN_DOLIC
-USE mo_ocean_nml,                ONLY: n_zlev, no_tracer,&! toplev, &
-                                    &   ab_const, ab_beta, ab_gam, iswm_oce, idisc_scheme
+USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer, &
+  &                                     ab_const, ab_beta, ab_gam, iswm_oce, idisc_scheme
 USE mo_dynamics_config,          ONLY: nold,nnew
 USE mo_parallel_config,  ONLY: nproma
 USE mo_run_config,                ONLY: dtime, nsteps
-USE mo_physical_constants,        ONLY: grav!, re
+USE mo_physical_constants,        ONLY: grav, rho_ref
 USE mo_oce_state,                 ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, v_base, &
   &                                     set_lateral_boundary_values
 USE mo_model_domain,              ONLY: t_patch
@@ -60,9 +63,8 @@ USE mo_ext_data,                  ONLY: t_external_data
 USE mo_exception,                 ONLY: message, finish!, message_text
 USE mo_loopindices,               ONLY: get_indices_c, get_indices_e !, get_indices_v
 USE mo_oce_math_operators,        ONLY: div_oce, grad_fd_norm_oce, grad_fd_norm_oce_2d,&
-                                  & height_related_quantities
+  &                                     height_related_quantities
 USE mo_oce_physics,               ONLY: t_ho_params
-!USE mo_oce_forcing,               ONLY: t_sfc_flx
 USE mo_sea_ice,                   ONLY: t_sfc_flx
 USE mo_intp_data_strc,            ONLY: t_int_state
 USE mo_scalar_product,            ONLY: calc_scalar_product_veloc, calc_scalar_product_veloc_3D
@@ -85,6 +87,7 @@ PUBLIC :: construct_oce_diagnostics
 PUBLIC :: destruct_oce_diagnostics
 PUBLIC :: t_oce_monitor
 PUBLIC :: t_oce_timeseries
+PUBLIC :: calc_moc
 
 TYPE t_oce_monitor
     REAL(wp) :: volume 
@@ -132,7 +135,7 @@ TYPE(t_oce_timeseries),POINTER                :: oce_ts
 INTEGER :: rl_start_c, rl_end_c, i_startblk_c, i_endblk_c,i_startidx_c, i_endidx_c
 !INTEGER :: rl_start_e, rl_end_e, i_startblk_e, i_endblk_e!, i_startidx_e, i_endidx_e
 INTEGER :: jk,jc,jb!,je
-INTEGER :: i_no_t, i, z_dolic
+INTEGER :: i_no_t, i !, z_dolic
 
 !REAL(wp) :: z_volume, z_volume_initial
 !REAL(wp) :: z_kin_energy,z_kin_energy_initial
@@ -459,6 +462,7 @@ write(*,*)'INITIAL VALUES OF TOTAL ENERGY    :',oce_ts%oce_diagnostics(0)%total_
 
 CALL message (TRIM(routine), 'end')
 END SUBROUTINE construct_oce_diagnostics
+
 !-------------------------------------------------------------------------  
 !
 !
@@ -487,6 +491,91 @@ CHARACTER(len=max_char_length), PARAMETER :: &
 
 CALL message (TRIM(routine), 'end')
 END SUBROUTINE destruct_oce_diagnostics
+
+!-------------------------------------------------------------------------  
+!
+!
+!!  Calculation of meridional overturning circulation (MOC)
+!
+!   Calculation of meridional overturning circulation for different basins
+!   (Atlantic, Pacific, Indian, global)
+!>
+!!
+!! @par Revision History
+!! Developed  by  Stephan Lorenz, MPI-M (2012).
+!!  based on code from MPIOM
+!! 
+SUBROUTINE calc_moc (p_patch, p_os, wo)
+
+  TYPE(t_patch), TARGET, INTENT(in)             :: p_patch
+  TYPE(t_hydro_ocean_state), TARGET             :: p_os 
+  REAL(wp), INTENT(in)                          :: wo(:,:,:)  ! volume transport at cell centers dim: (nproma,nlev,nblks_c)
+  !
+  ! local variables
+  ! INTEGER :: i
+  INTEGER, PARAMETER ::  jbrei=3   !  latitudinal smoothing area is 2*jbrei-1 rows of 1 deg
+  INTEGER :: jb, jc, jk, i_startidx, i_endidx
+  INTEGER :: lbrei, lbr
+
+  REAL(wp) :: z_lat, z_lat_deg, z_lat_dim
+  REAL(wp) :: global_moc(180,n_zlev)
+
+  TYPE(t_subset_range), POINTER :: owned_cells, all_cells
+  
+  CHARACTER(len=max_char_length), PARAMETER :: &
+    &       routine = ('mo_oce_diagnostics:calc_moc')
+
+!-----------------------------------------------------------------------
+    
+    owned_cells => p_patch%cells%owned
+    all_cells   => p_patch%cells%all
+
+    DO jk = 1, n_zlev
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(owned_cells, jb, i_startidx, i_endidx)
+        DO jc = i_startidx, i_endidx
+          IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+     
+            ! lbrei: corresponding latitude row of 1 deg extension
+            !       1 south pole
+            !     180 north pole
+            z_lat = p_patch%cells%center(jc,jb)%lat
+            z_lat_deg = z_lat*rad2deg
+            lbrei = NINT(90.0_wp + z_lat_deg)
+            lbrei=MAX(lbrei,1)
+            lbrei=MIN(lbrei,180)
+     
+            ! z_lat_dim: latitudinal extent of triangle divided by latitudinal smoothing extent
+            z_lat_dim = p_patch%edges%primal_edge_length(jb,jc) / &
+              & (REAL(2*jbrei, wp) * 111111._wp)
+
+            ! distribute MOC over (2*jbrei)+1 latitude rows
+            DO lbr = -jbrei, jbrei
+              lbrei = NINT(90.0_wp + z_lat_deg + REAL(lbr, wp) * z_lat_dim)
+              lbrei=MAX(lbrei,1)
+              lbrei=MIN(lbrei,180)
+        
+              global_moc(lbrei,jk) = global_moc(lbrei,jk) - &
+                &                    p_patch%cells%area(jc,jb) * rho_ref * wo(jc,jk,jb) / &
+                                     REAL(2*jbrei + 1, wp)
+        
+           !  IF ( k == 1 ) THEN
+           !    global_hfl(lbrei) = global_hfl(lbrei) &
+           !         - area(i, j) * flum(i, j) / REAL(2*jbrei + 1, wp)
+           !    global_wfl(lbrei) = global_wfl(lbrei) &
+           !         - area(i, j) * pem(i, j) / REAL(2*jbrei + 1, wp)
+           !  END IF
+
+            END DO
+     
+          END IF
+        END DO
+      END DO
+    END DO
+       
+!-----------------------------------------------------------------------
+
+END SUBROUTINE calc_moc
 !-------------------------------------------------------------------------  
 
 END MODULE mo_oce_diagnostics
