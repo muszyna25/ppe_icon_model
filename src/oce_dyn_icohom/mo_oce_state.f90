@@ -1595,15 +1595,20 @@ END DO
     REAL(wp):: z_sync_e(nproma,p_patch%nblks_e)
     REAL(wp):: z_lat, z_lat_deg, z_north, z_south
     
-    TYPE(t_subset_range), POINTER :: owned_cells
-    INTEGER :: ctr_all
+    TYPE(t_subset_range), POINTER :: owned_cells, all_cells
+    TYPE(t_subset_range), POINTER :: owned_edges
+    INTEGER :: ctr_all, all_nobnd_e, all_nosbd_c, all_nolbd_c
 
     LOGICAL :: LIMITED_AREA = .FALSE.
     LOGICAL :: is_p_test_run
 
     !-----------------------------------------------------------------------------
     CALL message (TRIM(routine), 'start')
+    
     owned_cells => p_patch%cells%owned
+    all_cells   => p_patch%cells%all
+    owned_edges => p_patch%edges%owned
+    
     is_p_test_run = p_test_run
 
     z_sync_c(:,:) = 0.0_wp
@@ -1681,10 +1686,9 @@ END DO
       !    then grid point is wet; dolic is in that level
       !  - values for BOUNDARY set below
 
-      DO jb = 1, nblks_c
-        i_endidx=nproma
-        IF (jb==nblks_c) i_endidx=npromz_c
-        DO jc = 1, i_endidx
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(owned_cells, jb, i_startidx, i_endidx)
+        DO jc = i_startidx, i_endidx
 
           IF (p_ext_data%oce%bathymetry_c(jc,jb) <= -v_base%zlev_m(jk)) THEN
             v_base%lsm_oce_c(jc,jk,jb) = SEA
@@ -1711,12 +1715,11 @@ END DO
     !  #slo# must be parallelized accordingly
 
     DO jk = 1, n_zlev
-        z_south=-80.0_wp
-        DO jb = 1, nblks_c
-          i_endidx=nproma
-          IF (jb==nblks_c) i_endidx=npromz_c
-  
-          DO jc = 1, i_endidx
+      z_south=-80.0_wp
+      
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(owned_cells, jb, i_startidx, i_endidx)
+        DO jc = i_startidx, i_endidx
   
              !get latitude of actual cell
              z_lat = p_patch%cells%center(jc,jb)%lat
@@ -1881,15 +1884,9 @@ END DO
       
       lsm_c(:,:) =  v_base%lsm_oce_c(:,jk,:)
 
-      DO jb = 1, nblks_c
-
-        !CALL get_indices_c(p_patch, jb, i_startblk, nblks_c, &
-        !  &                i_startidx, i_endidx, 1)
-
-        i_endidx=nproma
-        IF (jb==nblks_c) i_endidx=npromz_c
-
-        DO jc = 1, i_endidx
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(owned_cells, jb, i_startidx, i_endidx)
+        DO jc = i_startidx, i_endidx
 
         ! IF (.NOT.p_patch%cells%owner_mask(jc,jb)) CYCLE  ! access inner domain only
           IF (v_base%lsm_oce_c(jc,jk,jb) <= SEA_BOUNDARY) THEN
@@ -1956,15 +1953,12 @@ END DO
       i_startblk = p_patch%edges%start_blk(rl_start,1)
       i_endblk   = p_patch%edges%end_blk(rl_end,1)
       !
-      ! loop through all patch edges
-      DO jb = i_startblk, i_endblk
+      ! loop through owned patch edges
+      DO jb = owned_edges%start_block, owned_edges%end_block
+        CALL get_index_range(owned_edges, jb, i_startidx, i_endidx)
+        DO je = i_startidx, i_endidx
 
-        CALL get_indices_e  &
-          &  (p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
-
-        DO je =  i_startidx, i_endidx
-
-          IF (.NOT.p_patch%edges%owner_mask(je,jb)) CYCLE  ! access inner domain only
+!           IF (.NOT.p_patch%edges%owner_mask(je,jb)) CYCLE  ! access inner domain only
 
           ! get indices/blks of cells 1 and 2 adjacent to edge (je,jb)
           iic1 = p_patch%edges%cell_idx(je,jb,1)
@@ -2012,7 +2006,7 @@ END DO
 
       ! synchronize lsm on edges
       z_sync_e(:,:) =  REAL(v_base%lsm_oce_e(:,jk,:),wp)
-      CALL sync_patch_array(SYNC_e, p_patch, z_sync_e(:,:))
+      CALL sync_patch_array(SYNC_E, p_patch, z_sync_e(:,:))
       v_base%lsm_oce_e(:,jk,:) = INT(z_sync_e(:,:))
 
       ! synchronize dolic_e
@@ -2052,14 +2046,11 @@ END DO
       i_endblk   = p_patch%cells%end_blk(rl_end,1)
       !
       ! loop through all patch cells
-      DO jb = i_startblk, i_endblk
-
-        CALL get_indices_c  &
-          &  (p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
-
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
         DO jc =  i_startidx, i_endidx
 
-          IF (.NOT.p_patch%cells%owner_mask(jc,jb)) CYCLE  ! access inner domain only
+!           IF (.NOT.p_patch%cells%owner_mask(jc,jb)) CYCLE  ! access inner domain only
 
           ! sea points
           IF (v_base%lsm_oce_c(jc,jk,jb) < 0) THEN
@@ -2098,14 +2089,24 @@ END DO
         END DO
 
       END DO
-      noglbnd_e = global_sum_array(noglbnd_e + nobnd_e(jk))
-      noglsbd_c = global_sum_array(noglsbd_c + nosbd_c(jk))
-      nogllbd_c = global_sum_array(nogllbd_c + nolbd_c(jk))
+      
+      all_nobnd_e = global_sum_array( nobnd_e(jk))
+      all_nosbd_c = global_sum_array( nosbd_c(jk))
+      all_nolbd_c = global_sum_array( nolbd_c(jk))
+
+      nobnd_e(jk) = all_nobnd_e
+      nosbd_c(jk) = all_nosbd_c
+      nolbd_c(jk) = all_nolbd_c
+      
+      noglbnd_e = noglbnd_e + all_nobnd_e
+      noglsbd_c = noglsbd_c + all_nolbd_c
+      nogllbd_c = nogllbd_c + all_nolbd_c
 
       ! synchronize lsm on cells
-      z_sync_c(:,:) =  REAL(v_base%lsm_oce_c(:,jk,:),wp)
-      CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
-      v_base%lsm_oce_c(:,jk,:) = INT(z_sync_c(:,:))
+      ! LL: not necessary since we go throu all cells
+!       z_sync_c(:,:) =  REAL(v_base%lsm_oce_c(:,jk,:),wp)
+!       CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
+!       v_base%lsm_oce_c(:,jk,:) = INT(z_sync_c(:,:))
 
     END DO ZLEVEL_LOOP
 

@@ -123,9 +123,9 @@ CONTAINS
       ENDDO
     ENDDO
 
-    IF (subset_range%start_block == -1) THEN
-      CALL warning(method_name, "Empty range subset")
-    ENDIF
+!     IF (subset_range%start_block == -1) THEN
+!       CALL warning(method_name, "Empty range subset")
+!     ENDIF
     
     IF (subset_range%start_block > -1) THEN
       ! count the holes      
