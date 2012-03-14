@@ -54,7 +54,7 @@ MODULE mo_oce_state
 !
   USE mo_kind,                ONLY: wp
 ! USE mo_mpi,                 ONLY: p_pe_work
-  USE mo_parallel_config,     ONLY: nproma
+  USE mo_parallel_config,     ONLY: nproma, p_test_run
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_impl_constants,      ONLY: land, land_boundary, boundary, sea_boundary, sea,  &
     &                               success, max_char_length, min_rledge, min_rlcell,  &
@@ -1573,11 +1573,17 @@ END DO
     REAL(wp):: z_sync_c(nproma,p_patch%nblks_c)
     REAL(wp):: z_sync_e(nproma,p_patch%nblks_e)
     REAL(wp):: z_lat, z_lat_deg, z_north, z_south
+    
+    TYPE(t_subset_range), POINTER :: owned_cells
+    INTEGER :: ctr_all
 
     LOGICAL :: LIMITED_AREA = .FALSE.
+    LOGICAL :: is_p_test_run
 
     !-----------------------------------------------------------------------------
     CALL message (TRIM(routine), 'start')
+    owned_cells => p_patch%cells%owned
+    is_p_test_run = p_test_run
 
     z_sync_c(:,:) = 0.0_wp
     z_sync_e(:,:) = 0.0_wp
@@ -1670,9 +1676,11 @@ END DO
       END DO
 
       ! synchronize lsm on cells
-      z_sync_c(:,:) =  REAL(v_base%lsm_oce_c(:,jk,:),wp)
-      CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
-      v_base%lsm_oce_c(:,jk,:) = INT(z_sync_c(:,:))
+      ! LL: this is done on all cells consistently on al procs
+      ! so no sync is required
+!       z_sync_c(:,:) =  REAL(v_base%lsm_oce_c(:,jk,:),wp)
+!       CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
+!       v_base%lsm_oce_c(:,jk,:) = INT(z_sync_c(:,:))
 
     END DO INIT_ZLOOP
 
@@ -1728,71 +1736,89 @@ END DO
     i_endblk   = p_patch%cells%end_blk(rl_end,1)
 
     niter=30
-    DO jiter=1,niter
 
+    DO jk=1,n_zlev
+    
       ctr_jk = 0
-      DO jk=1,n_zlev
+
+      ! working on 2D lsm_c inside the loop
+      lsm_c(:,:) = v_base%lsm_oce_c(:,jk,:)
+
+      ! LL: disable checks here, the changes in halos will differ from seq run
+      !     as the access patterns differ
+      p_test_run = .false.
+            
+      DO jiter=1,niter
         !
-        ! loop through all patch cells
-        ctr = 0
-        lsm_c(:,:) = v_base%lsm_oce_c(:,jk,:)
-        DO jb = i_startblk, i_endblk
-          CALL get_indices_c  &
-            &  (p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
-          DO jc =  i_startidx, i_endidx
-            nowet_c = 0
+        ctr = 0 ! no changes initially
+        
+        ! loop through owned patch cells    
+        DO jb = owned_cells%start_block, owned_cells%end_block
+          CALL get_index_range(owned_cells, jb, i_startidx, i_endidx)
+        
+            DO jc =  i_startidx, i_endidx
+          
+              nowet_c = 0
 
-            IF (v_base%lsm_oce_c(jc,jk,jb) <= SEA_BOUNDARY) THEN
-              DO ji = 1, 3
-                ! Get indices/blks of cells 1 to 3 adjacent to cell (jc,jb)
-                idxn = p_patch%cells%neighbor_idx(jc,jb,ji)
-                ibln = p_patch%cells%neighbor_blk(jc,jb,ji)
-                ! counts number of land-cells for all three neighbors
-                !  - only one land-point neighbor is allowed
-                IF ( v_base%lsm_oce_c(idxn,jk,ibln) > SEA_BOUNDARY) &
-                  &  nowet_c=nowet_c + 1
-              END DO
+              IF (lsm_c(jc,jb) <= SEA_BOUNDARY) THEN
+                DO ji = 1, 3
+                  ! Get indices/blks of cells 1 to 3 adjacent to cell (jc,jb)
+                  idxn = p_patch%cells%neighbor_idx(jc,jb,ji)
+                  ibln = p_patch%cells%neighbor_blk(jc,jb,ji)
+                  ! counts number of land-cells for all three neighbors
+                  !  - only one land-point neighbor is allowed
+                  IF ( v_base%lsm_oce_c(idxn,jk,ibln) > SEA_BOUNDARY) &
+                    &  nowet_c=nowet_c + 1
+                END DO
 
-              ! More than 1 wet neighbor-cell then set cell to land
-              !  - edges are set in the correction loop below
-              IF ( nowet_c >= 2 ) THEN 
-                lsm_c(jc,jb)=LAND_BOUNDARY
-                ctr = ctr+1
+                ! More than 1 wet neighbor-cell then set cell to land
+                !  - edges are set in the correction loop below
+                IF ( nowet_c >= 2 ) THEN 
+                  lsm_c(jc,jb)=LAND_BOUNDARY
+                  ctr = ctr+1
 
-                IF (jk<3) THEN
-                  WRITE(message_text,'(a,i2,a,i8)') &
-                    &   'WARNING: Found 2 land neighbors at jc, jk=',jc,jk
-                  CALL message(TRIM(routine), TRIM(message_text))
-                END IF
+                  IF (jk<3) THEN
+                    WRITE(message_text,'(a,i2,a,i8)') &
+                      &   'WARNING: Found 2 land neighbors at jc, jk=',jc,jk
+                    CALL message(TRIM(routine), TRIM(message_text))
+                  END IF
 
-              END IF ! 2 land neighbors
+                END IF ! 2 land neighbors
 
-            END IF
-          END DO
-        END DO
+              END IF ! lsm_c(jc,jb) <= SEA_BOUNDARY
+              
+          END DO  ! jc =  i_startidx, i_endidx
+        END DO ! jb = owned_cells%start_block, owned_cells%end_block
 
-     !  ctr1 = global_sum_array(ctr)
-     !  write(0,*)'triangles with 2 land edges present at jiter, jk:',jiter,jk,ctr 
+        ! see what is the sum of changes of all procs
+        ctr_all = global_sum_array(ctr)
+        
+        WRITE(message_text,'(a,i2,a,i8)') 'Corrected wet cells with 2 land neighbors - iter=', &
+          &                              jiter,' no of cor:',ctr_all
+        CALL message(TRIM(routine), TRIM(message_text))
+        
+        ! if no changes have been done, we are done with this level. Exit
+        IF (ctr_all == 0) EXIT
 
-        ! synchronize lsm_c at each level and each iteration
+        ! we need to sync the halos here
         z_sync_c(:,:) =  REAL(lsm_c(:,:),wp)
         CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
         lsm_c(:,:) = INT(z_sync_c(:,:))
-        v_base%lsm_oce_c(:,jk,:) = lsm_c(:,:)
 
-        ctr_jk = ctr_jk + ctr
+      END DO   ! jiter
 
-      END DO  ! jk
+      ! get back into 3D the slm
+      v_base%lsm_oce_c(:,jk,:) = lsm_c(:,:)
 
-      ctr = global_sum_array(ctr_jk)
-      ctr_jk = ctr
+      IF (is_p_test_run) THEN
+        ! check if we have the correct slm
+        p_test_run = is_p_test_run
+        z_sync_c(:,:) =  REAL(lsm_c(:,:),wp)
+        CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
+        lsm_c(:,:) = INT(z_sync_c(:,:))               
+      ENDIF
 
-      WRITE(message_text,'(a,i2,a,i8)') 'Corrected wet cells with 2 land neighbors - iter=', &
-        &                              jiter,' no of cor:',ctr_jk
-      CALL message(TRIM(routine), TRIM(message_text))
-      IF (ctr_jk == 0) EXIT
-
-    END DO  ! jiter
+    END DO  ! jk=1,n_zlev
 
     !---------------------------------------------------------------------------------------------
     ! Now run through whole zlevel_loop after correction of cells for calculation of boundaries
