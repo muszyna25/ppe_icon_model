@@ -83,6 +83,7 @@ MODULE mo_oce_state
   USE mo_cf_convention
   USE mo_grib2
   USE mo_cdi_constants
+  USE mo_util_subset,         ONLY: t_subset_range, get_index_range
 
 
   IMPLICIT NONE
@@ -1549,7 +1550,7 @@ END DO
   !!
   SUBROUTINE init_ho_base( p_patch, p_ext_data, v_base )
 
-    TYPE(t_patch),            INTENT(IN)       :: p_patch
+    TYPE(t_patch),  TARGET,   INTENT(INOUT)    :: p_patch
     TYPE(t_external_data),    INTENT(INOUT)    :: p_ext_data
     TYPE(t_hydro_ocean_base), INTENT(INOUT)    :: v_base
 
@@ -1760,6 +1761,9 @@ END DO
           
               nowet_c = 0
 
+              ! LL: here we probably want to check if the above cell is land
+              !     and change this into land accordingly
+              
               IF (lsm_c(jc,jb) <= SEA_BOUNDARY) THEN
                 DO ji = 1, 3
                   ! Get indices/blks of cells 1 to 3 adjacent to cell (jc,jb)
@@ -1819,6 +1823,9 @@ END DO
       ENDIF
 
     END DO  ! jk=1,n_zlev
+
+    ! restore p_test_run
+    p_test_run = is_p_test_run
 
     !---------------------------------------------------------------------------------------------
     ! Now run through whole zlevel_loop after correction of cells for calculation of boundaries
