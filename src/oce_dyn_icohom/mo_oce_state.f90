@@ -2208,7 +2208,8 @@ END DO
     INTEGER  :: ibase   (nproma,p_patch%nblks_c)
     INTEGER  :: iarea   (nproma,p_patch%nblks_c)
 
-    INTEGER  :: jb, jc, jk, i_endidx, nblks_c, npromz_c, i, no_cor, g_cor, jiter, iter
+    INTEGER  :: jb, jc, jk, i_endidx, nblks_c, npromz_c, i
+    INTEGER  :: no_cor, g_cor, no_glb, jiter, iter
     INTEGER  :: n_idx(3), n_blk(3)
     REAL(wp) :: z60n, z30n, z30s, z85s, z10n, z100w
     REAL(wp) :: z_lat_deg, z_lon_deg
@@ -2383,13 +2384,21 @@ END DO
      
         END DO
       END DO
+      no_glb = global_sum_array(no_cor)
+      no_cor = no_glb
+      g_cor=g_cor+no_cor
 
       iter=jiter
       IF (no_cor == 0) exit
+
       WRITE(message_text,'(a,i4,a,i8)') 'Corrected Caribbean region - iter=', &
         &                              jiter,' no of cor:',no_cor
-      !CALL message(TRIM(routine), TRIM(message_text))
-      g_cor=g_cor+no_cor
+      CALL message(TRIM(routine), TRIM(message_text))
+
+      ! do sync - not necessary?
+      z_sync_c(:,:) =  REAL(iarea(:,:),wp)
+      CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
+      iarea(:,:) = INT(z_sync_c(:,:))
 
     END DO
 
@@ -2446,8 +2455,7 @@ END DO
     !  v_base%wet_i(:,:,:) = 1.0_wp
     !END WHERE
 
-    ! synchronize all elements of v_base:
-
+    ! synchronize all elements of v_base - not necessary
     z_sync_c(:,:) =  REAL(v_base%basin_c(:,:),wp)
     CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
     v_base%basin_c(:,:) = INT(z_sync_c(:,:))
