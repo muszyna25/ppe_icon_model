@@ -1771,7 +1771,7 @@ END DO
                   ibln = p_patch%cells%neighbor_blk(jc,jb,ji)
                   ! counts number of land-cells for all three neighbors
                   !  - only one land-point neighbor is allowed
-                  IF ( v_base%lsm_oce_c(idxn,jk,ibln) > SEA_BOUNDARY) &
+                  IF ( lsm_c(idxn,ibln) > SEA_BOUNDARY) &
                     &  nowet_c=nowet_c + 1
                 END DO
 
@@ -1797,7 +1797,8 @@ END DO
         ! see what is the sum of changes of all procs
         ctr_all = global_sum_array(ctr)
         
-        WRITE(message_text,'(a,i2,a,i8)') 'Corrected wet cells with 2 land neighbors - iter=', &
+        WRITE(message_text,'(a,i2,a,i2,a,i8)') 'Level:', jk, &
+          & ' Corrected wet cells with 2 land neighbors - iter=', &
           &                              jiter,' no of cor:',ctr_all
         CALL message(TRIM(routine), TRIM(message_text))
         
@@ -1857,6 +1858,7 @@ END DO
       nolnd_c(jk)=0
       nosea_c(jk)=0
 
+      
       lsm_c(:,:) =  v_base%lsm_oce_c(:,jk,:)
 
       DO jb = 1, nblks_c
