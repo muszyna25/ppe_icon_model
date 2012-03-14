@@ -1919,14 +1919,13 @@ iequations$\in$\{1,2\}
 \hline
 itime\_scheme&
 I& 4& &
-Time integration scheme:& \tabularnewline
-& & & & 3: same as default, but computation of velocity tendencies 
-in corrector step only& iequations=3 and cell\_type=3
-\tabularnewline
-& & & & 4: Matsuno scheme& iequations=3 and cell\_type=3
-\tabularnewline
-& & & & 6: same as default, but usage of velocity tendencies 
-at (nnow+nnew)/2& iequations=3 and cell\_type=3
+Mode of treating velocity tendencies:& \tabularnewline
+& & & & 4, 6: Tendencies of nnow and nnew are averaged in corrector step \\
+3, 5: Corrector step uses tendency at time level nnew only \\
+3, 4: Tendencies are recomputed for predictor step after physics calls only, otherwise
+      tendencies from preceding corrector step are used for predictor step \\
+5, 6: Tendencies are always recomputed for predictor step &
+iequations=3 and cell\_type=3
 \tabularnewline
 
 \hline 
@@ -1938,13 +1937,13 @@ cell\_type=3
 
 \hline 
 damp\_height&
-R(n\_dom)& 30000& m&
+R(n\_dom)& 45000& m&
 Height at which Rayleigh damping of vertical wind starts&
 \tabularnewline
 
 \hline 
 htop\_moist\_proc&
-R& 200000.0& m&
+R& 22500.0& m&
 Height above which moist physics and advection of cloud and precipitation variables are turned off&
 \tabularnewline
 
@@ -1956,8 +1955,8 @@ Height above which QV advection is turned off (do not use except for debugging p
 
 \hline 
 hbot\_qvsubstep&
-R& 250000.0& m&
-Height above which QV is advected with substepping scheme (do not use except for debugging purposes)&
+R& 24000.0& m&
+Height above which QV is advected with substepping scheme (must be larger than htop\_moist\_proc)&
 cell\_type=3 and \\
 ihadv\_tracer=22 or 32
 \tabularnewline
@@ -1971,14 +1970,14 @@ cell\_type=6, hdiff\_order=3 (Smagorinski)
 
 \hline 
 vwind\_offctr&
-R& 0.05& &
+R& 0.15& &
 Off-centering in vertical wind solver&
 cell\_type=3
 \tabularnewline
 
 \hline 
 ivctype&
-I& 1& &
+I& 2& &
 Type of vertical coordinate:\\
 1: Gal-Chen hybrid \\
 2: SLEVE (uses sleve\_nml)&
@@ -1986,11 +1985,12 @@ Type of vertical coordinate:\\
 
 \hline 
 iadv\_rcf&
-I& 1& &
+I& 4& &
 reduced calling frequency (rcf) for transport\\
 1: no rcf (every dynamics-step)\\
 2: transport every 2. step \\
-4: $\dots$ &
+4: $\dots$  \\
+Setting odd values (besides 1) requires l\_nest\_rcf = .TRUE.&
 \tabularnewline
 
 \hline 
@@ -2004,7 +2004,7 @@ cell\_type=3
 \hline 
 l\_masscorr\_nest&
 L& .FALSE.& &
-Apply mass conservation correction also in nested domain &
+.TRUE.: Apply mass conservation correction also in nested domain &
 cell\_type=3
 \tabularnewline
 
@@ -2020,7 +2020,7 @@ cell\_type=3 \tabularnewline
 
 \hline 
 igradp\_method&
-I& 1& &
+I& 3& &
 Discretization of horizontal pressure gradient:\\
 1: conventional discretization with metric correction term\\
 2: Taylor-expansion-based reconstruction of pressure (advantageous at very high resolution)\\
@@ -2031,7 +2031,7 @@ cell\_type=3
 
 \hline 
 l\_zdiffu\_t&
-L& .FALSE.& &
+L& .TRUE.& &
 .TRUE.: Compute Smagorinsky temperature diffusion truly horizontally over steep slopes&
 cell\_type=3 .AND. hdiff\_order=5 .AND. lhdiff\_temp = .true.
 \tabularnewline

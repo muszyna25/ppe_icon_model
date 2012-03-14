@@ -169,30 +169,47 @@ CONTAINS
     !-----------------------
 
     ! Time scheme chose for the nh-model
-    itime_scheme = 4 ! Matsuno scheme
+    itime_scheme = 4 ! Predictor-corrector scheme with averaged velocity tendency
+                     ! Velocity tendency is recomputed for predictor step only after physics calls
 
     ! reduced calling frequency for transport
-    iadv_rcf = 1  ! no reduced calling frequency
+    iadv_rcf = 4  ! reduced calling frequency (transport time step = 4* dynamics time step)
 
     ! Type of vertical coordinate (1: Gal-Chen, 2: SLEVE)
-    ivctype  = 1
+    ivctype  = 2
 
-    ! Top height of partial domain where moist physics is computed
-    ! (set to 200 km, which in practice means that moist physics is
-    ! computed everywhere by default)
-    htop_moist_proc = 200000._wp
+    ! Turn off moist physics above 22.5 km
+    htop_moist_proc = 22500._wp
+    ! Do not use the option to turn off QV advection in the stratosphere ...
     htop_qvadv      = 250000._wp
-    hbot_qvsubstep  = 250000._wp
+    ! ... but use half the transport time step above 24 km to ensure CFL stability
+    !     (requires choosing ihadv_tracer(1) = 22 or 32!)
+    hbot_qvsubstep  = 24000._wp
 
-    ! Settings for icell_type=3
-    damp_height(1)    = 30000.0_wp
+    ! Rayleigh damping of w above 45 km
+    damp_height(1)    = 45000.0_wp
+    ! Corresponding damping coefficient
     rayleigh_coeff(1) = 0.05_wp
-    vwind_offctr      = 0.05_wp
+    ! Off-centering of vertical wind speed in vertically implicit solver
+    ! When combining coarse spatial resolutions (R2B5 or coarser) with high model tops (> 50 km),
+    ! this value may have to be increased up to 0.5
+    vwind_offctr      = 0.15_wp
+    ! Use Miura scheme for advection of rho and theta
     iadv_rhotheta     = 2
-    igradp_method     = 1
+    ! Use truly horizontal pressure-gradient computation to ensure numerical stability
+    ! without heavy orography smoothing
+    igradp_method     = 3
+    ! Extrapolate Exner function by 1/2 time step for computing the horizontal pressure gradient
+    ! Tests indicate that for coarse resolutions (R2B5 or coarser), optimal stability is reached
+    ! for values between 1/2 and 2/3, whereas for high resolutions, where stability limitations
+    ! arise from large-amplitude breaking gravity waves rather than sound wave reflections, values
+    ! between 1/3 and 1/2 are better.
     exner_expol       = 0.5_wp
+    ! TRUE: use the open upper boundary condition
     l_open_ubc        = .FALSE.
+    ! Synchronize nesting calls with large (transport) time steps
     l_nest_rcf        = .TRUE.
+    ! TRUE: apply mass conservation correction computed for feedback in the nested domain, too
     l_masscorr_nest   = .FALSE.
 
     ! dummy values for nested domains; will be reset to value of domain 1 
@@ -201,7 +218,7 @@ CONTAINS
     rayleigh_coeff(2:max_dom) = -1.0_wp
 
     ! truly horizontal temperature diffusion
-    l_zdiffu_t     = .FALSE.  ! not used by default
+    l_zdiffu_t     = .TRUE.   ! turned on by default
     thslp_zdiffu   = 0.025_wp ! slope threshold 0.025
     thhgtd_zdiffu  = 200._wp  ! threshold for height difference between adjacent grid points 200 m
 
@@ -271,7 +288,7 @@ CONTAINS
     ENDIF
 
     IF ( hbot_qvsubstep <= htop_moist_proc ) THEN
-      CALL finish(TRIM(routine), 'hbot_qvsubstep <= htop_moist_proc does not make sense.')
+      CALL finish(TRIM(routine), 'hbot_qvsubstep <= htop_moist_proc is not allowed.')
     ENDIF
 
 
