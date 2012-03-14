@@ -43,34 +43,25 @@ MODULE mo_oce_tracer_transport_vert
 !
 !
 USE mo_kind,                      ONLY: wp
-USE mo_math_utilities,            ONLY: t_cartesian_coordinates, gc2cc  
-USE mo_math_constants,            ONLY: dbl_eps
-USE mo_impl_constants,            ONLY: sea_boundary, &
-  &                                     min_rlcell, min_rledge, min_rlcell,MIN_DOLIC
-USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer, idisc_scheme,    &
-  &                                     irelax_3d_T, relax_3d_mon_T, irelax_3d_S, relax_3d_mon_S, &
-  &                                     ab_const, ab_gam, expl_vertical_tracer_diff,&
-  &                                     iswm_oce
-USE mo_physical_constants,        ONLY: tf
+!USE mo_math_utilities,            ONLY: t_cartesian_coordinates
+USE mo_impl_constants,            ONLY: sea_boundary, MIN_DOLIC, min_rlcell !, min_rledge
+USE mo_ocean_nml,                 ONLY: n_zlev, expl_vertical_tracer_diff, ab_const !, ab_gam
 USE mo_parallel_config,           ONLY: nproma
-USE mo_dynamics_config,           ONLY: nold, nnew 
+USE mo_dynamics_config,           ONLY: nold !, nnew 
 USE mo_run_config,                ONLY: dtime, ltimer
 USE mo_timer,                     ONLY: timer_start, timer_stop, timer_adv_vert, timer_ppm_slim, &
   &                                     timer_dif_vert
 USE mo_oce_state,                 ONLY: t_hydro_ocean_state, v_base, is_initial_timestep
 USE mo_model_domain,              ONLY: t_patch
-USE mo_exception,                 ONLY: finish !, message_text, message
-USE mo_oce_index,                 ONLY: print_mxmn, jkc, jkdim, ipl_src
-USE mo_loopindices,               ONLY: get_indices_c, get_indices_e !, get_indices_v
-USE mo_oce_boundcond,             ONLY: top_bound_cond_tracer
+!USE mo_exception,                 ONLY: finish !, message_text, message
+USE mo_oce_index,                 ONLY: print_mxmn, ipl_src! , jkc, jkdim
+USE mo_loopindices,               ONLY: get_indices_c !, get_indices_e, get_indices_v
 USE mo_oce_physics
-USE mo_sea_ice,                   ONLY: t_sfc_flx
 !USE mo_scalar_product,            ONLY:  map_cell2edges,map_edges2cell,map_edges2cell
 !USE mo_oce_math_operators,        ONLY: div_oce, grad_fd_norm_oce, grad_fd_norm_oce_2d
 USE mo_advection_utils,           ONLY: laxfr_upflux_v
 USE mo_oce_diffusion,             ONLY: tracer_diffusion_vert_expl,&
                                       & tracer_diffusion_vert_impl_hom
-USE mo_intp_data_strc,             ONLY: p_int_state
 IMPLICIT NONE
 
 PRIVATE
@@ -812,8 +803,8 @@ END SUBROUTINE advect_vertical
     REAL(wp) :: z_face_low(nproma,p_patch%nlev,p_patch%nblks_c) !< face value (lower face)
     REAL(wp) :: z_lext_1(nproma,p_patch%nlevp1)                 !< linear extrapolation value 1 
     REAL(wp) :: z_lext_2(nproma,p_patch%nlevp1)                 !< linear extrapolation value 2
-    REAL(wp) :: z_cfl_m(nproma,p_patch%nlevp1,p_patch%nblks_c)  !< CFL number (weta>0, w<0)                                                         
-    REAL(wp) :: z_cfl_p(nproma,p_patch%nlevp1,p_patch%nblks_c)  !< CFL number (weta<0, w>0)                                                       
+    REAL(wp) :: z_cfl_m(nproma,p_patch%nlevp1,p_patch%nblks_c)  !< CFL number (weta>0, w<0)
+    REAL(wp) :: z_cfl_p(nproma,p_patch%nlevp1,p_patch%nblks_c)  !< CFL number (weta<0, w>0)
     REAL(wp) :: z_slope(nproma,p_patch%nlev,p_patch%nblks_c)    !< monotonized slope
     !REAL(wp) :: zparent_topflx(nproma,p_patch%nblks_c)          !< necessary, to make this routine
     REAL(wp) :: z_slope_u, z_slope_l   !< one-sided slopes
@@ -887,19 +878,21 @@ END SUBROUTINE advect_vertical
         ! index of top half level
         ikm1 = jk - 1
         DO jc = i_startidx, i_endidx 
-          !IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
           ! Calculate local Courant number at half levels
           ! z_cfl_m for weta >0 (w <0)
           ! z_cfl_p for weta <0 (w >0)
           z_weta_dt = ABS(p_w(jc,jk,jb)) * p_dtime * v_base%wet_c(jc,jk,jb)
-
+          
           !Code modification this was multiplication by inverse height
-          z_cfl_m(jc,jk,jb) = z_weta_dt / p_cellhgt_mc_now(jc,ikm1,jb)
-          z_cfl_p(jc,jk,jb) = z_weta_dt / p_cellhgt_mc_now(jc,jk,jb)
+          ! #slo# division by p_cellhgt_mc_now=zero on dry points
+          IF ( v_base%lsm_oce_c(jc,ikm1,jb) <= sea_boundary ) &
+            & z_cfl_m(jc,jk,jb) = z_weta_dt / p_cellhgt_mc_now(jc,ikm1,jb)
+          IF ( v_base%lsm_oce_c(jc,  jk,jb) <= sea_boundary ) &
+            & z_cfl_p(jc,jk,jb) = z_weta_dt / p_cellhgt_mc_now(jc,jk,jb)
           !ELSE
-          !z_weta_dt         = 0.0_wp
-          !z_cfl_m(jc,jk,jb) = 0.0_wp
-          !z_cfl_p(jc,jk,jb) = 0.0_wp
+          !  z_weta_dt         = 0.0_wp
+          !  z_cfl_m(jc,jk,jb) = 0.0_wp
+          !  z_cfl_p(jc,jk,jb) = 0.0_wp
           !ENDIF
         END DO ! end loop over cells
       ENDDO ! end loop over vertical levels
