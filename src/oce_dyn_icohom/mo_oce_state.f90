@@ -1094,6 +1094,26 @@ CONTAINS
       END DO
     END DO
 
+   !reconstrcuted velocity at edges in cartesian coordinates
+    ALLOCATE(p_os_diag%p_vn_mean(nproma,n_zlev,nblks_e), STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine), 'allocation for p_vn_mean at edges failed')
+    END IF
+    rl_start = 1
+    rl_end = min_rledge
+
+    i_startblk = p_patch%edges%start_blk(rl_start,1)
+    i_endblk   = p_patch%edges%end_blk(rl_end,1)
+    DO jk=1,n_zlev
+      DO jb = i_startblk, i_endblk
+        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk,&
+        &                  i_startidx, i_endidx, rl_start, rl_end)
+        DO jc = i_startidx, i_endidx
+          p_os_diag%p_vn_mean(jc,jk,jb)%x(:)=0.0_wp
+        END DO
+      END DO
+    END DO
+
     !remapped velocity at cell edges
     ALLOCATE(p_os_diag%ptp_vn(nproma,n_zlev,nblks_e), STAT=ist)
     IF (ist/=SUCCESS) THEN
