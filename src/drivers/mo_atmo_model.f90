@@ -83,7 +83,7 @@ USE mo_impl_constants, ONLY:&
   & ihs_atm_theta,        & !    :
   & inh_atmosphere,       & !    :
   & ishallow_water,       &
-  & max_dom
+  & max_dom, inwp
 
 
 ! For the coupling
@@ -711,7 +711,9 @@ CONTAINS
     ! optionally read those data from netCDF file.
     CALL init_ext_data (p_patch(1:), p_int_state(1:), ext_data)
     ! generation of tiles index lists
-    CALL init_index_lists (p_patch(1:), ext_data)
+    IF (iforcing == inwp) THEN
+      CALL init_index_lists (p_patch(1:), ext_data)
+    ENDIF
 
     IF (timers_level > 3) CALL timer_stop(timer_model_init)
 
