@@ -62,7 +62,7 @@ USE mo_math_utilities,     ONLY: t_cartesian_coordinates, gc2cc, vector_product,
 USE mo_exception,                 ONLY: message, finish
 USE mo_physical_constants, ONLY: re
 USE mo_math_constants,     ONLY: pi
-USE mo_operator_scalarprod_coeff_3D, ONLY: t_operator_coeff
+USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
 USE mo_oce_math_operators,     ONLY: rot_vertex_ocean_3D
 IMPLICIT NONE
 

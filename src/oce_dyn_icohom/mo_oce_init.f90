@@ -89,7 +89,7 @@ USE mo_oce_linear_solver,  ONLY: gmres_e2e
 !rr USE mo_icon_cpl_def_field, ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
 USE mo_master_control,     ONLY: is_restart_run
 USE mo_ape_params,         ONLY: ape_sst
-USE mo_operator_scalarprod_coeff_3D, ONLY: t_operator_coeff
+USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
 IMPLICIT NONE
 INCLUDE 'netcdf.inc'
 PRIVATE

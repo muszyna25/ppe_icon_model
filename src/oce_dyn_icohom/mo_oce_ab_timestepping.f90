@@ -68,7 +68,7 @@ USE mo_oce_ab_timestepping_rbf,        ONLY: solve_free_sfc_ab_RBF,           &
                                            & calc_normal_velocity_ab_RBF,     &
                                            & calc_vert_velocity_RBF
 USE mo_oce_physics,                    ONLY: t_ho_params
-USE mo_operator_scalarprod_coeff_3D,   ONLY: t_operator_coeff
+USE mo_operator_ocean_coeff_3d,   ONLY: t_operator_coeff
 IMPLICIT NONE
 
 PRIVATE

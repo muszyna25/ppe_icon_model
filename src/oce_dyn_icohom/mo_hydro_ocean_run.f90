@@ -79,7 +79,7 @@ USE mo_oce_state,              ONLY: t_hydro_ocean_state, t_hydro_ocean_base, &
   &                                  init_coriolis_oce, init_oce_config, &
   &                                  set_lateral_boundary_values
 USE mo_oce_math_operators!,     ONLY: height_related_quantities
-USE mo_operator_scalarprod_coeff_3D
+USE mo_operator_ocean_coeff_3d
 USE mo_scalar_product,         ONLY: calc_scalar_product_veloc, calc_scalar_product_veloc_3D
 USE mo_oce_tracer,             ONLY: advect_tracer_ab
 USE mo_io_restart,             ONLY: write_restart_info_file
@@ -103,7 +103,6 @@ USE mo_output,                 ONLY: init_output_files, write_output, &
 USE mo_oce_diagnostics,        ONLY: calculate_oce_diagnostics,&
   &                                  construct_oce_diagnostics,&
   &                                  destruct_oce_diagnostics, t_oce_timeseries
- USE mo_operator_scalarprod_coeff_3D, ONLY: t_operator_coeff
 IMPLICIT NONE
 
 PRIVATE

@@ -78,7 +78,7 @@ USE mo_intp_rbf,                  ONLY: rbf_vec_interpol_edge, &
   &                                     rbf_vec_interpol_cell !, verts2edges_scalar
 USE mo_math_utilities,            ONLY: gvec2cvec
 !USE mo_scalar_product,            ONLY: map_edges2edges
-USE mo_operator_scalarprod_coeff_3D, ONLY: t_operator_coeff
+USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
 IMPLICIT NONE
 
 PRIVATE

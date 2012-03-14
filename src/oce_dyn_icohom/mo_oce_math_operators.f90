@@ -71,7 +71,7 @@ USE mo_oce_state,          ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, v_base
 USE mo_intp_data_strc,     ONLY: p_int_state
 !USE mo_base_geometry,      ONLY: triangle_area
 USE mo_math_utilities,     ONLY: t_cartesian_coordinates, gc2cc, vector_product
-USE mo_operator_scalarprod_coeff_3D, ONLY: t_operator_coeff
+USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
 IMPLICIT NONE
 
 PRIVATE

@@ -76,7 +76,7 @@ USE mo_oce_diffusion,             ONLY: tracer_diffusion_horz, tracer_diffusion_
 USE mo_intp_data_strc,             ONLY: p_int_state
 USE mo_oce_tracer_transport_horz,    ONLY: advect_horizontal
 USE mo_oce_tracer_transport_vert,    ONLY: advect_vertical
-USE mo_operator_scalarprod_coeff_3D, ONLY: t_operator_coeff
+USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
 IMPLICIT NONE
 
 PRIVATE

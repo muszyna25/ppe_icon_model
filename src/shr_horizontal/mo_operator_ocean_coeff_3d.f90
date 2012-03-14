@@ -38,7 +38,7 @@
 !! software.
 !!
 !!
-MODULE mo_operator_scalarprod_coeff_3d
+MODULE mo_operator_ocean_coeff_3d
   !-------------------------------------------------------------------------
   
   USE mo_kind,                ONLY: wp
@@ -180,69 +180,69 @@ CONTAINS
     ALLOCATE(ptr_coeff%div_coeff(nproma,n_zlev,nblks_c,no_primal_edges),&
       & stat=ist)
     IF (ist /= success) THEN
-      CALL finish ('mo_operator_scalarprod_coeff_3D',                 &
+      CALL finish ('mo_operator_ocean_coeff_3d',                 &
         & 'allocation for geofac_div failed')
     ENDIF
     
     ALLOCATE(ptr_coeff%grad_coeff(nproma,n_zlev,nblks_e),&
       & stat=ist)
     IF (ist /= success) THEN
-      CALL finish ('mo_operator_scalarprod_coeff_3D',                 &
+      CALL finish ('mo_operator_ocean_coeff_3d',                 &
         & 'allocation for geofac_grad failed')
     ENDIF
     
     ALLOCATE(ptr_coeff%rot_coeff(nproma,n_zlev,nblks_v,no_dual_edges),&
       & stat=ist)
     IF (ist /= success) THEN
-      CALL finish ('mo_operator_scalarprod_coeff_3D', &
+      CALL finish ('mo_operator_ocean_coeff_3d', &
         & 'allocation for geofac_rot failed')
     ENDIF
     
     ALLOCATE(ptr_coeff%n2s_coeff(nproma,n_zlev,nblks_c,no_primal_edges+1),&
       & stat=ist)
     IF (ist /= success) THEN
-      CALL finish ('mo_operator_scalarprod_coeff_3D',                       &
+      CALL finish ('mo_operator_ocean_coeff_3d',                       &
         & 'allocation for geofac_n2s failed')
     ENDIF
     ALLOCATE(ptr_coeff%n2v_coeff(nproma,n_zlev,nblks_e),&
       & stat=ist)
     IF (ist /= success) THEN
-      CALL finish ('mo_operator_scalarprod_coeff_3D',                       &
+      CALL finish ('mo_operator_ocean_coeff_3d',                       &
         & 'allocation for geofac_n2v failed')
     ENDIF
     !
     ALLOCATE(ptr_coeff%dist_cell2edge(nproma,n_zlev,nblks_e,2),stat=ist)
     IF (ist /= success) THEN
-      CALL finish ('mo_operator_scalarprod_coeff_3D:allocating dist_cell2edge failed')
+      CALL finish ('mo_operator_ocean_coeff_3d:allocating dist_cell2edge failed')
     ENDIF
     
     ALLOCATE(ptr_coeff%bnd_edge_idx(nproma,n_zlev,nblks_v,no_dual_edges-2),stat=ist)
     IF (ist /= success) THEN
-      CALL finish ('mo_operator_scalarprod_coeff_3D:allocating bnd_edge_idx failed')
+      CALL finish ('mo_operator_ocean_coeff_3d:allocating bnd_edge_idx failed')
     ENDIF
     ALLOCATE(ptr_coeff%bnd_edge_blk(nproma,n_zlev,nblks_v,no_dual_edges-2),stat=ist)
     IF (ist /= success) THEN
-      CALL finish ('mo_operator_scalarprod_coeff_3D:allocating bnd_edge_blk failed')
+      CALL finish ('mo_operator_ocean_coeff_3d:allocating bnd_edge_blk failed')
     ENDIF
     ALLOCATE(ptr_coeff%edge_idx(nproma,n_zlev,nblks_v,no_dual_edges-2),stat=ist)
     IF (ist /= success) THEN
-      CALL finish ('mo_operator_scalarprod_coeff_3D:allocating edge_idx failed')
+      CALL finish ('mo_operator_ocean_coeff_3d:allocating edge_idx failed')
     ENDIF
     ALLOCATE(ptr_coeff%orientation(nproma,n_zlev,nblks_v,no_dual_edges-2),stat=ist)
     IF (ist /= success) THEN
-      CALL finish ('mo_operator_scalarprod_coeff_3D:allocating orientation failed')
+      CALL finish ('mo_operator_ocean_coeff_3d:allocating orientation failed')
     ENDIF
     ALLOCATE(ptr_coeff%bnd_edges_per_vertex(nproma,n_zlev,nblks_v),stat=ist)
     IF (ist /= success) THEN
-      CALL finish ('mo_operator_scalarprod_coeff_3D:allocating bnd_edges_per_vertex failed')
+      CALL finish ('mo_operator_ocean_coeff_3d:allocating bnd_edges_per_vertex failed')
     ENDIF
     ALLOCATE(ptr_coeff%upwind_cell_idx(nproma,n_zlev,nblks_e),stat=ist)
     IF (ist /= success) THEN
-      CALL finish ('mo_operator_scalarprod_coeff_3D:allocating upwind_cell_idx failed')
+      CALL finish ('mo_operator_ocean_coeff_3d:allocating upwind_cell_idx failed')
     ENDIF
     ALLOCATE(ptr_coeff%upwind_cell_blk(nproma,n_zlev,nblks_e),stat=ist)
     IF (ist /= success) THEN
-      CALL finish ('mo_operator_scalarprod_coeff_3D:allocating upwind_cell_blk failed')
+      CALL finish ('mo_operator_ocean_coeff_3d:allocating upwind_cell_blk failed')
     ENDIF
     !
     ! arrays that are required for setting up the scalar product
@@ -256,23 +256,23 @@ CONTAINS
     !     ENDIF
     ALLOCATE(ptr_coeff%edge2cell_coeff_cc(nproma,nz_lev,nblks_c,1:3),stat=ist)
     IF (ist /= success) THEN
-      CALL finish ('mo_operator_scalarprod_coeff_3D:allocating edge2cell_coeff_cc failed')
+      CALL finish ('mo_operator_ocean_coeff_3d:allocating edge2cell_coeff_cc failed')
     ENDIF
     
     ALLOCATE(ptr_coeff%edge2cell_coeff_cc_dyn(nproma,1,nblks_c,1:3),stat=ist)
     IF (ist /= success) THEN
-      CALL finish ('mo_operator_scalarprod_coeff_3D:allocating edge2cell_coeff_cc_dyn failed')
+      CALL finish ('mo_operator_ocean_coeff_3d:allocating edge2cell_coeff_cc_dyn failed')
     ENDIF
     ALLOCATE(ptr_coeff%edge2vert_coeff_cc_dyn(nproma,1,nblks_c,1:3),stat=ist)
     IF (ist /= success) THEN
-      CALL finish ('mo_operator_scalarprod_coeff_3D:allocating edge2vert_coeff_cc_dyn failed')
+      CALL finish ('mo_operator_ocean_coeff_3d:allocating edge2vert_coeff_cc_dyn failed')
     ENDIF
     
     !coefficients for transposed of edge to cell mapping, second half of the scalar product.
     !Dimension: nproma,nblks_e encode number of edges, 1:2 is for cell neighbors of an edge
     ALLOCATE(ptr_coeff%edge2cell_coeff_cc_t(nproma,nz_lev,nblks_e,1:2),stat=ist)
     IF (ist /= success) THEN
-      CALL finish ('mo_operator_scalarprod_coeff_3D:allocating transposed edge2cell_coeff failed')
+      CALL finish ('mo_operator_ocean_coeff_3d:allocating transposed edge2cell_coeff failed')
     ENDIF
     
     !
@@ -283,33 +283,33 @@ CONTAINS
     !1:2 is for u and v component of vertex vector
     ALLOCATE(ptr_coeff%edge2vert_coeff_cc(nproma,nz_lev,nblks_v,1:6),stat=ist)
     IF (ist /= success) THEN
-      CALL finish ('mo_operator_scalarprod_coeff_3D:allocating edge2vert_coeff failed')
+      CALL finish ('mo_operator_ocean_coeff_3d:allocating edge2vert_coeff failed')
     ENDIF
     
     ALLOCATE(ptr_coeff%edge2vert_coeff_cc_t(nproma,nz_lev,nblks_e,1:2),stat=ist)
     IF (ist /= success) THEN
-      CALL finish ('mo_operator_scalarprod_coeff_3D:allocating edge2vert_coeff failed')
+      CALL finish ('mo_operator_ocean_coeff_3d:allocating edge2vert_coeff failed')
     ENDIF
     ALLOCATE(ptr_coeff%edge2vert_vector_cc(nproma,nz_lev,nblks_v,1:6),stat=ist)
     IF (ist /= success) THEN
-      CALL finish ('mo_operator_scalarprod_coeff_3D:allocating edge2vert_vector failed')
+      CALL finish ('mo_operator_ocean_coeff_3d:allocating edge2vert_vector failed')
     ENDIF
         
     ALLOCATE(ptr_coeff%upwind_cell_position_cc(nproma,nz_lev,nblks_e),stat=ist)
     IF (ist /= success) THEN
-      CALL finish ('mo_operator_scalarprod_coeff_3D:allocating upwind cell failed')
+      CALL finish ('mo_operator_ocean_coeff_3d:allocating upwind cell failed')
     ENDIF
     ALLOCATE(ptr_coeff%moved_edge_position_cc(nproma,nz_lev,nblks_e),stat=ist)
     IF (ist /= success) THEN
-      CALL finish ('mo_operator_scalarprod_coeff_3D:allocating edge failed')
+      CALL finish ('mo_operator_ocean_coeff_3d:allocating edge failed')
     ENDIF
     ALLOCATE(ptr_coeff%edge_position_cc(nproma,nz_lev,nblks_e),stat=ist)
     IF (ist /= success) THEN
-      CALL finish ('mo_operator_scalarprod_coeff_3D:allocating edge failed')
+      CALL finish ('mo_operator_ocean_coeff_3d:allocating edge failed')
     ENDIF
     ALLOCATE(ptr_coeff%cell_position_cc(nproma,nz_lev,nblks_c),stat=ist)
     IF (ist /= success) THEN
-      CALL finish ('mo_operator_scalarprod_coeff_3D:allocating cell failed')
+      CALL finish ('mo_operator_ocean_coeff_3d:allocating cell failed')
     ENDIF
     !
     !normalizing factors for edge to cell mapping.
@@ -318,26 +318,26 @@ CONTAINS
     !into account. The later one depends on time and space.
     ALLOCATE(ptr_coeff%fixed_vol_norm(nproma,nz_lev,nblks_c),stat=ist)
     IF (ist /= success) THEN
-      CALL finish ('mo_operator_scalarprod_coeff_3D:allocating fixed_vol_norm failed')
+      CALL finish ('mo_operator_ocean_coeff_3d:allocating fixed_vol_norm failed')
     ENDIF
     ALLOCATE(ptr_coeff%variable_vol_norm(nproma,nz_lev,nblks_c,1:3),stat=ist)
     IF (ist /= success) THEN
-      CALL finish ('mo_operator_scalarprod_coeff_3D:allocating variable_vol_norm failed')
+      CALL finish ('mo_operator_ocean_coeff_3d:allocating variable_vol_norm failed')
     ENDIF
     
     ALLOCATE(ptr_coeff%variable_dual_vol_norm(nproma,nz_lev,nblks_v,1:6),stat=ist)
     IF (ist /= success) THEN
-      CALL finish ('mo_operator_scalarprod_coeff_3D:allocating variable_dual_vol_norm failed')
+      CALL finish ('mo_operator_ocean_coeff_3d:allocating variable_dual_vol_norm failed')
     ENDIF
     !   ALLOCATE (ptr_coeff%n2s_coeff(nproma, nz_lev, nblks_c,3+1), STAT=ist )
     !   IF (ist /= SUCCESS) THEN
-    !     CALL finish ('mo_operator_scalarprod_coeff_3D',                       &
+    !     CALL finish ('mo_operator_ocean_coeff_3d',                       &
     !       &             'allocation for geofac_n2s failed')
     !   ENDIF
     !   ALLOCATE (ptr_coeff%n2v_coeff(nproma, nz_lev, nblks_e), STAT=ist )
     !   IF (ist /= SUCCESS) THEN
     ! write(*,*)'data',nproma, nz_lev, nblks_e, ist
-    !     CALL finish ('mo_operator_scalarprod_coeff_3D',                       &
+    !     CALL finish ('mo_operator_ocean_coeff_3d',                       &
     !       &             'allocation for geofac_n2v failed')
     !   ENDIF
     !
@@ -411,7 +411,7 @@ CONTAINS
     ptr_coeff%upwind_cell_idx = 1
     ptr_coeff%upwind_cell_blk = 1
     
-    CALL message ('mo_operator_scalarprod_coeff_3D:allocate_exp_coeff',&
+    CALL message ('mo_operator_ocean_coeff_3d:allocate_exp_coeff',&
       & 'memory allocation finished')
     
   END SUBROUTINE allocate_exp_coeff
@@ -607,7 +607,7 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: owned_verts       
     
     CHARACTER(LEN=max_char_length), PARAMETER :: &
-      & routine = ('mo_operator_scalarprod_coeff_3d:apply_boundary2coeffs')
+      & routine = ('mo_operator_ocean_coeff_3d:apply_boundary2coeffs')
     
     !-----------------------------------------------------------------------    
     CALL message (TRIM(routine), 'start')
@@ -1114,7 +1114,7 @@ CONTAINS
     TYPE(t_cartesian_coordinates) :: cell1_cc, cell2_cc, vertex_cc
     
     CHARACTER(LEN=max_char_length), PARAMETER :: &
-      & routine = ('mo_operator_scalarprod_coeff_3d:apply_boundary2coeffs')
+      & routine = ('mo_operator_ocean_coeff_3d:apply_boundary2coeffs')
     
     !-----------------------------------------------------------------------
     
@@ -1473,7 +1473,7 @@ CONTAINS
     TYPE(t_operator_coeff),INTENT(inout) :: ptr_intp
     
     CHARACTER(LEN=max_char_length), PARAMETER :: &
-      & routine = ('mo_operator_scalarprod_coeff_3d:init_scalar_product_oce_3d')
+      & routine = ('mo_operator_ocean_coeff_3d:init_scalar_product_oce_3d')
     
     INTEGER, PARAMETER :: no_cell_edges = 3
     INTEGER, PARAMETER :: no_vert_edges = 6
@@ -2156,7 +2156,7 @@ CONTAINS
     REAL(wp) :: z_sync_v(nproma,n_zlev,ptr_patch%nblks_v)
     
     CHARACTER(LEN=max_char_length), PARAMETER :: &
-      & routine = ('mo_operator_scalarprod_coeff_3d:init_geo_factors_oce_3d')
+      & routine = ('mo_operator_ocean_coeff_3d:init_geo_factors_oce_3d')
     !-----------------------------------------------------------------------
     CALL message (TRIM(routine), 'start')
     i_nchdom   = MAX(1,ptr_patch%n_childdom)
@@ -2440,5 +2440,5 @@ CONTAINS
   END FUNCTION triangle_area
   !-------------------------------------------------------------------------
   
-END MODULE mo_operator_scalarprod_coeff_3d
+END MODULE mo_operator_ocean_coeff_3d
 

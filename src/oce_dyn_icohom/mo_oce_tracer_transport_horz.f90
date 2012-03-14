@@ -74,7 +74,7 @@ USE mo_oce_diffusion,             ONLY: tracer_diffusion_horz, tracer_diffusion_
                                       & tracer_diffusion_vert_impl_hom
 USE mo_oce_ab_timestepping_mimetic,ONLY: l_STAGGERED_TIMESTEP
 USE mo_intp_data_strc,             ONLY: p_int_state
-USE mo_operator_scalarprod_coeff_3D, ONLY: t_operator_coeff
+USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
 IMPLICIT NONE
 
 PRIVATE

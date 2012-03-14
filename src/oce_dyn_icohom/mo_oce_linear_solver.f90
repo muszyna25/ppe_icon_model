@@ -67,7 +67,7 @@ USE mo_model_domain,        ONLY: t_patch
 USE mo_timer,               ONLY: timer_start, timer_stop, timer_gmres
 #endif
 USE mo_sync,                ONLY: omp_global_sum_array
-USE mo_operator_scalarprod_coeff_3D, ONLY: t_operator_coeff
+USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
 
 IMPLICIT NONE
 
@@ -142,7 +142,7 @@ INTERFACE   ! left-hand-side: A*x
   FUNCTION lhs(x,old_h, curr_patch,coeff, h_e, thickness_c, p_op_coeff) RESULT(ax)
     USE mo_kind, ONLY: wp
     USE mo_model_domain, ONLY: t_patch
-    USE mo_operator_scalarprod_coeff_3D, ONLY: t_operator_coeff
+    USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
     REAL(wp),    INTENT(in) :: x(:,:)
     REAL(wp), INTENT(IN) :: old_h(:,:)
     TYPE(t_patch), INTENT(in) :: curr_patch

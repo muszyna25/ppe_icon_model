@@ -68,7 +68,7 @@ USE mo_intp_data_strc,      ONLY: t_int_state
 USE mo_intp,                ONLY: verts2edges_scalar
 USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell, rbf_vec_interpol_edge
 USE mo_intp_data_strc,      ONLY: p_int_state
-USE mo_operator_scalarprod_coeff_3D, ONLY: t_operator_coeff
+USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
 IMPLICIT NONE
 
 PRIVATE

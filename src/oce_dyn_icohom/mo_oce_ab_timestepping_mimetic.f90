@@ -92,7 +92,7 @@ USE mo_oce_diffusion,             ONLY: velocity_diffusion_horz_mimetic,        
   &                                     velocity_diffusion_vert_mimetic,                  &
   !&                                     veloc_diffusion_vert_impl,                        &
   &                                     veloc_diffusion_vert_impl_hom
-USE mo_operator_scalarprod_coeff_3D, ONLY: t_operator_coeff
+USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
 
 IMPLICIT NONE
 
