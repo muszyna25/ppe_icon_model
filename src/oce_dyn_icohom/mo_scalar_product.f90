@@ -46,7 +46,7 @@ MODULE mo_scalar_product
   !-------------------------------------------------------------------------
   !
   USE mo_kind,               ONLY: wp
-  USE mo_parallel_config,    ONLY: nproma
+  USE mo_parallel_config,    ONLY: nproma, p_test_run
   !USE mo_run_config,         ONLY: dtime
   USE mo_intp_data_strc,     ONLY: p_int_state
   USE mo_impl_constants,     ONLY: sea_boundary, boundary, sea,   &!max_char_length, &
@@ -1066,6 +1066,7 @@ CONTAINS
     !CALL message (TRIM(routine), 'start')
     
     edges_in_domain   => p_patch%edges%in_domain
+    IF (p_test_run) ptp_vn(:,:,:) = 0.0_wp
     
     ! check optional arguments
     IF ( PRESENT(opt_slev) ) THEN
