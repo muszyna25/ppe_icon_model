@@ -520,19 +520,20 @@ SUBROUTINE calc_moc (p_patch, p_os, wo)
   REAL(wp) :: z_lat, z_lat_deg, z_lat_dim
   REAL(wp) :: global_moc(180,n_zlev)
 
-  TYPE(t_subset_range), POINTER :: owned_cells, all_cells
+  TYPE(t_subset_range), POINTER :: all_cells
   
   CHARACTER(len=max_char_length), PARAMETER :: &
     &       routine = ('mo_oce_diagnostics:calc_moc')
 
 !-----------------------------------------------------------------------
     
-    owned_cells => p_patch%cells%owned
+    ! with all cells no sync is necessary
+    !owned_cells => p_patch%cells%owned
     all_cells   => p_patch%cells%all
 
     DO jk = 1, n_zlev
       DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(owned_cells, jb, i_startidx, i_endidx)
+        CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
         DO jc = i_startidx, i_endidx
           IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
      
