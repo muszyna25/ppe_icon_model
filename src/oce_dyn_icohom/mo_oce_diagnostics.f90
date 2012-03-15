@@ -504,12 +504,15 @@ END SUBROUTINE destruct_oce_diagnostics
 !! @par Revision History
 !! Developed  by  Stephan Lorenz, MPI-M (2012).
 !!  based on code from MPIOM
+!
+! TODO: implement variable output dimension (1 deg resolution) and smoothing extent
+! TODO: calculate the 1 deg resolution meridional distance
 !! 
-SUBROUTINE calc_moc (p_patch, p_os, wo)
+SUBROUTINE calc_moc (p_patch, wo)
 
-  TYPE(t_patch), TARGET, INTENT(in)             :: p_patch
-  TYPE(t_hydro_ocean_state), TARGET             :: p_os 
-  REAL(wp), INTENT(in)                          :: wo(:,:,:)  ! volume transport at cell centers dim: (nproma,nlev,nblks_c)
+  TYPE(t_patch), TARGET, INTENT(in)  :: p_patch
+  REAL(wp), INTENT(in)               :: wo(:,:,:)  ! vertical velocity at cell centers
+                                                   ! dims: (nproma,nlev+1,nblks_c)
   !
   ! local variables
   ! INTEGER :: i
@@ -531,7 +534,7 @@ SUBROUTINE calc_moc (p_patch, p_os, wo)
     !owned_cells => p_patch%cells%owned
     all_cells   => p_patch%cells%all
 
-    DO jk = 1, n_zlev
+    DO jk = 1, n_zlev+1
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
         DO jc = i_startidx, i_endidx

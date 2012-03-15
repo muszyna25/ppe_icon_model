@@ -51,7 +51,7 @@ USE mo_impl_constants,         ONLY: max_char_length
 USE mo_model_domain,           ONLY: t_patch
 USE mo_grid_config,            ONLY: n_dom
 USE mo_sync,                   ONLY: sync_e, sync_c, sync_v, sync_patch_array
-USE mo_ocean_nml,              ONLY: iswm_oce, idisc_scheme, n_zlev, no_tracer, &
+USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
   &                                  itestcase_oce, idiag_oce, init_oce_prog, EOS_type, &
   &                                  i_sea_ice, l_staggered_timestep
 USE mo_dynamics_config,        ONLY: nold, nnew
@@ -71,7 +71,7 @@ USE mo_oce_ab_timestepping,    ONLY: solve_free_surface_eq_ab, &
   &                                  update_time_indices
 USE mo_oce_init,               ONLY: init_ho_testcases, init_ho_prog, init_ho_coupled,&
   &                                  init_ho_recon_fields, init_ho_relaxation
-USE mo_oce_index,              ONLY: print_mxmn, jkc, jkdim, ipl_src, init_index_test
+USE mo_oce_index,              ONLY: init_index_test
 USE mo_oce_state,              ONLY: t_hydro_ocean_state, t_hydro_ocean_base, &
   &                                  init_ho_base, init_ho_basins, v_base, &
   &                                  construct_hydro_ocean_base, destruct_hydro_ocean_base, &
@@ -102,7 +102,7 @@ USE mo_output,                 ONLY: init_output_files, write_output, &
   &                                  create_restart_file
 USE mo_oce_diagnostics,        ONLY: calculate_oce_diagnostics,&
   &                                  construct_oce_diagnostics,&
-  &                                  destruct_oce_diagnostics, t_oce_timeseries
+  &                                  destruct_oce_diagnostics, t_oce_timeseries, calc_moc
 IMPLICIT NONE
 
 PRIVATE
@@ -313,10 +313,14 @@ CONTAINS
 
     l_outputtime = (MOD(jstep,n_io) == 0)
     IF ( l_outputtime ) THEN
+
       CALL write_output( datetime )
       CALL message (TRIM(routine),'Write output at:')
       CALL print_datetime(datetime)
       l_have_output = .TRUE.
+
+      !CALL calc_moc (ppatch(jg), pstate_oce(jg)%p_diag%w(:,:,:))
+
     END IF
 
     ! close the current output file and trigger a new one
