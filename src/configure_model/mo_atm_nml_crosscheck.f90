@@ -61,7 +61,7 @@ MODULE mo_nml_crosscheck
     &                              inextra_3d, lwrite_cloud, lwrite_extra,    &
     &                              lwrite_omega, lwrite_precip, lwrite_pres,  &
     &                              lwrite_radiation,lwrite_surface,lwrite_tend_phy,& 
-    &                              lwrite_tke,lwrite_z3
+    &                              lwrite_tke,lwrite_z3, no_output
   USE mo_parallel_config,    ONLY: check_parallel_configuration,              &
     &                              num_io_procs
   USE mo_run_config,         ONLY: lrestore_states, nsteps, dtime, iforcing,  &
@@ -102,6 +102,7 @@ MODULE mo_nml_crosscheck
   USE mo_datetime,           ONLY: add_time, print_datetime_all
   USE mo_lonlat_intp_config, ONLY: lonlat_intp_config
   USE mo_meteogram_config,   ONLY: check_meteogram_configuration
+  USE mo_master_control,     ONLY: is_restart_run
 
   IMPLICIT NONE
 
@@ -858,6 +859,17 @@ CONTAINS
 
     ! check meteogram configuration
     CALL check_meteogram_configuration(num_io_procs)
+
+    !---------------------------------------------------------------
+    ! Restart runs are disabled for the "old" asynchronous output
+    ! mode implemented in MODULE mo_io_vlist
+    ! (potential deadlock observed).
+    !---------------------------------------------------------------
+
+    IF (is_restart_run() .AND. .NOT. no_output .AND. (num_io_procs>0)) THEN
+      CALL finish('atm_crosscheck', &
+        &         'Restart runs are disabled for the "old" asynchronous output!')
+    END IF
 
   END  SUBROUTINE atm_crosscheck
 
