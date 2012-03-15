@@ -234,6 +234,7 @@ CONTAINS
           pstate_oce(jg)%p_prog(nnew(1))%h = pstate_oce(jg)%p_prog(nold(1))%h
    
           Call set_lateral_boundary_values(ppatch(jg), pstate_oce(jg)%p_prog(nold(1))%vn)
+          CALL sync_patch_array(sync_e, ppatch(jg),  pstate_oce(jg)%p_prog(nold(1))%vn)
    
 !            CALL calc_scalar_product_veloc( ppatch(jg), &
 !              & pstate_oce(jg)%p_prog(nold(1))%vn,&
