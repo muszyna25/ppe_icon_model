@@ -143,38 +143,31 @@
 !!
 !!
 MODULE mo_intp
-!-------------------------------------------------------------------------
-!
-!    ProTeX FORTRAN source: Style 2
-!    modified for ICON project, DWD/MPI-M 2006
-!
-!-------------------------------------------------------------------------
-!
-!
-!
-USE mo_kind,                ONLY: wp
-USE mo_exception,           ONLY: finish
-USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlvert, min_rlcell_int
-USE mo_model_domain,        ONLY: t_patch
-USE mo_parallel_config,     ONLY: nproma
-USE mo_run_config,          ONLY: ltimer
-USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
-USE mo_intp_data_strc,      ONLY: t_int_state
-USE mo_timer,               ONLY: timer_start, timer_stop, timer_intp
+  !-------------------------------------------------------------------------
+  !
+  USE mo_kind,                ONLY: wp
+  USE mo_exception,           ONLY: finish
+  USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlvert, min_rlcell_int
+  USE mo_model_domain,        ONLY: t_patch
+  USE mo_parallel_config,     ONLY: nproma
+  USE mo_run_config,          ONLY: ltimer
+  USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
+  USE mo_intp_data_strc,      ONLY: t_int_state
+  USE mo_timer,               ONLY: timer_start, timer_stop, timer_intp
 
-IMPLICIT NONE
+  IMPLICIT NONE
 
-PRIVATE
+  PRIVATE
 
-PUBLIC :: verts2edges_scalar
-PUBLIC :: cells2edges_scalar
-PUBLIC :: edges2verts_scalar
-PUBLIC :: edges2cells_scalar 
-PUBLIC :: edges2cells_vector
-PUBLIC :: cells2verts_scalar
-PUBLIC :: verts2cells_scalar
-PUBLIC :: cell_avg
-PUBLIC :: edges2edges_scalar
+  PUBLIC :: verts2edges_scalar
+  PUBLIC :: cells2edges_scalar
+  PUBLIC :: edges2verts_scalar
+  PUBLIC :: edges2cells_scalar 
+  PUBLIC :: edges2cells_vector
+  PUBLIC :: cells2verts_scalar
+  PUBLIC :: verts2cells_scalar
+  PUBLIC :: cell_avg
+  PUBLIC :: edges2edges_scalar
 
 CONTAINS
 
@@ -201,7 +194,6 @@ CONTAINS
 !!
 SUBROUTINE verts2edges_scalar( p_vertex_in, ptr_patch, c_int, p_edge_out, &
   &                            opt_slev, opt_elev, opt_rlstart, opt_rlend )
-!
 !
 
 TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch

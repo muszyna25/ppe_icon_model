@@ -107,7 +107,7 @@ CONTAINS
   !! Modification by Almut Gassmann, MPI-M (2007-04-20)
   !! - abandon grid for the sake of patch
   !!Boundary handling for triangles by P. Korn (2009)
-  !!
+  !!  mpi note: the result is not synced. Should be done in the calling method if required
   SUBROUTINE grad_fd_norm_oce_3d( psi_c, ptr_patch, grad_coeff, grad_norm_psi_e)
     
     !  patch on which computation is performed
@@ -128,16 +128,14 @@ CONTAINS
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     !INTEGER :: nlen, nblks_e, npromz_e
     INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+    TYPE(t_subset_range), POINTER :: edges_in_domain        
+    
     !-----------------------------------------------------------------------
+    edges_in_domain => ptr_patch%edges%in_domain
+    
     slev = 1
     elev = n_zlev
-    rl_start = 2
-    rl_end = min_rledge
-    i_nchdom   = MAX(1,ptr_patch%n_childdom)
-    
-    i_startblk = ptr_patch%edges%start_blk(rl_start,1)
-    i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
-    
+        
     iidx => ptr_patch%edges%cell_idx
     iblk => ptr_patch%edges%cell_blk
     !
@@ -152,9 +150,8 @@ CONTAINS
 #ifdef __SX__
     IF (slev > 1) THEN
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk)
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
-          & i_startidx, i_endidx, rl_start, rl_end)
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
 #ifdef _URD2
 !CDIR UNROLL=_URD2
 #endif
@@ -172,9 +169,8 @@ CONTAINS
 #endif
       
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk)
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
-          & i_startidx, i_endidx, rl_start, rl_end)
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
 #ifdef _URD
 !CDIR UNROLL=_URD
 #endif
@@ -446,7 +442,8 @@ CONTAINS
     
   END SUBROUTINE nabla2_vec_ocean_3d
   !-------------------------------------------------------------------------
-  !
+  
+  !-------------------------------------------------------------------------
   !>
   !!  Computes directional derivative of a cell centered variable in presence of lateral boundaries
   !!  as in the ocean model setting.
@@ -465,9 +462,9 @@ CONTAINS
   !! Modification by Almut Gassmann, MPI-M (2007-04-20)
   !! - abandon grid for the sake of patch
   !!Boundary handling for triangles by P. Korn (2009)
-  !!
+  !!  mpi note: the result is not synced. Should be done in the calling method if required
   SUBROUTINE grad_fd_norm_oce( psi_c, ptr_patch, grad_norm_psi_e, &
-    & opt_slev, opt_elev, opt_rlstart, opt_rlend )
+    & opt_slev, opt_elev )
     
     !  patch on which computation is performed
     !
@@ -483,10 +480,7 @@ CONTAINS
     
     INTEGER, INTENT(in), OPTIONAL ::  &
       & opt_elev    ! optional vertical end level
-    
-    INTEGER, INTENT(in), OPTIONAL ::  &
-      & opt_rlstart, opt_rlend   ! start and end values of refin_ctrl flag
-    
+        
     !
     !  edge based variable in which normal derivative is stored
     !
@@ -496,13 +490,14 @@ CONTAINS
     
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: je, jk, jb
-    INTEGER :: rl_start, rl_end
-    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+    INTEGER :: i_startidx, i_endidx
     INTEGER :: nlen, nblks_e, npromz_e
     
     INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+    TYPE(t_subset_range), POINTER :: edges_in_domain        
     !
     !-----------------------------------------------------------------------
+    edges_in_domain => ptr_patch%edges%in_domain
     
     ! check optional arguments
     IF ( PRESENT(opt_slev) ) THEN
@@ -515,31 +510,10 @@ CONTAINS
     ELSE
       elev = n_zlev
     END IF
-    
-    IF ( PRESENT(opt_rlstart) ) THEN
-      ! rl_start=1 means edges located along a lateral boundary of a nested
-      ! domain. For those, gradient computation is not possible
-      IF (opt_rlstart == 1) THEN
-        CALL finish ('mo_math_operators:grad_fd_norm',  &
-          & 'opt_rlstart must not be equal to 1')
-      ENDIF
-      rl_start = opt_rlstart
-    ELSE
-      rl_start = 2
-    END IF
-    IF ( PRESENT(opt_rlend) ) THEN
-      rl_end = opt_rlend
-    ELSE
-      rl_end = min_rledge
-    END IF
-    
+        
     iidx => ptr_patch%edges%cell_idx
     iblk => ptr_patch%edges%cell_blk
     
-    i_nchdom   = MAX(1,ptr_patch%n_childdom)
-    
-    i_startblk = ptr_patch%edges%start_blk(rl_start,1)
-    i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
     !
     !  loop through all patch edges (and blocks)
     !
@@ -557,9 +531,8 @@ CONTAINS
 #ifdef __SX__
       IF (slev > 1) THEN
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk)
-        DO jb = i_startblk, i_endblk
-          CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
-            & i_startidx, i_endidx, rl_start, rl_end)
+        DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+          CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
 #ifdef _URD2
 !CDIR UNROLL=_URD2
 #endif
@@ -589,9 +562,8 @@ CONTAINS
 #endif
         
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk)
-        DO jb = i_startblk, i_endblk
-          CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
-            & i_startidx, i_endidx, rl_start, rl_end)
+        DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+          CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
 #ifdef _URD
 !CDIR UNROLL=_URD
 #endif
@@ -604,11 +576,11 @@ CONTAINS
               !
               !  #slo# 2011-02-28 - check of sea is identical, since sea_boundary doesn't exist on edges
               !          IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
-              grad_norm_psi_e(je,jk,jb) =                     &
-                & ( psi_c(iidx(je,jb,2),jk,iblk(je,jb,2)) -  &
-                & psi_c(iidx(je,jb,1),jk,iblk(je,jb,1)) )  &
+              grad_norm_psi_e(je,jk,jb) =                      &
+                & ( psi_c(iidx(je,jb,2),jk,iblk(je,jb,2)) -    &
+                & psi_c(iidx(je,jb,1),jk,iblk(je,jb,1)) )      &
                 & * ptr_patch%edges%inv_dual_edge_length(je,jb)&
-                & *v_base%wet_e(je,jk,jb)
+                & * v_base%wet_e(je,jk,jb)
               !      ELSE
               !        grad_norm_psi_e(je,jk,jb) =  0.0_wp
               !      ENDIF
@@ -625,14 +597,9 @@ CONTAINS
       ! no grid refinement in hexagonal model
       nblks_e   = ptr_patch%nblks_int_e
       npromz_e  = ptr_patch%npromz_int_e
-!$OMP DO PRIVATE(jb,nlen,je,jk)
-      DO jb = 1, nblks_e
-        
-        IF (jb /= nblks_e) THEN
-          nlen = nproma
-        ELSE
-          nlen = npromz_e
-        ENDIF
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk)
+      DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+        CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
         
         DO jk = slev, elev
           DO je = 1, nlen
@@ -1041,7 +1008,8 @@ CONTAINS
 #endif
   END SUBROUTINE div_oce
   !-------------------------------------------------------------------------
-  !
+  
+  !-------------------------------------------------------------------------
   !! Computes the discrete rotation at vertices in presence of boundaries as in the ocean setting.
   !! Computes in presence of boundaries the discrete rotation at vertices
   !! of triangle cells (centers of dual grid cells) from a vector field
@@ -1053,11 +1021,11 @@ CONTAINS
   !! in the calculation of the tangential velocity, which is only need at lateral boundaries. Mimetic
   !! does the tangential velocity calculate from velocity vector at vertices (p_vn_dual), while RBF uses
   !! a specific routine for that purpose.
-  !!
+  !!   mpi note: the results is not synced. should be done by the calling method if necessary
   SUBROUTINE rot_vertex_ocean_3d( p_patch, vn, p_vn_dual, p_op_coeff, rot_vec_v)
     !>
     !!
-    TYPE(t_patch), INTENT(in)                 :: p_patch
+    TYPE(t_patch), TARGET, INTENT(in)         :: p_patch
     REAL(wp), INTENT(in)                      :: vn(:,:,:)
     TYPE(t_cartesian_coordinates), INTENT(in) :: p_vn_dual(nproma,n_zlev,p_patch%nblks_v)
     TYPE(t_operator_coeff),TARGET, INTENT(in) :: p_op_coeff
@@ -1071,27 +1039,20 @@ CONTAINS
     INTEGER :: jv, jk, jb, jev
     INTEGER :: ile, ibe
     INTEGER :: il_v1, il_v2,ib_v1, ib_v2
-    INTEGER :: rl_start_e, rl_end_e
-    INTEGER :: i_startblk_v, i_endblk_v, i_startidx_v, i_endidx_v
-    INTEGER :: i_startblk_e, i_endblk_e!, i_startidx_e, i_endidx_e
-    INTEGER,PARAMETER :: rl_start_v = 2
-    INTEGER,PARAMETER :: rl_end_v   = min_rlvert
+    INTEGER :: i_startidx_v, i_endidx_v
     
     REAL(wp) :: z_vt(nproma,n_zlev,p_patch%nblks_e)
     !INTEGER,PARAMETER :: ino_dual_edges = 6
     INTEGER, POINTER :: ibnd_edge_idx(:,:,:,:), ibnd_edge_blk(:,:,:,:), i_edge_idx(:,:,:,:)
     REAL(wp), POINTER :: z_orientation(:,:,:,:)
+   
+    TYPE(t_subset_range), POINTER :: verts_in_domain        
+    
     !-----------------------------------------------------------------------
+    verts_in_domain => p_patch%verts%in_domain
     slev         = 1
     elev         = n_zlev
-    rl_start_e   = 1
-    rl_end_e     = min_rledge
     
-    i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
-    i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
-    
-    i_startblk_v = p_patch%verts%start_blk(rl_start_v,1)
-    i_endblk_v   = p_patch%verts%end_blk(rl_end_v,1)
     
     z_vort_boundary  = 0.0_wp
     rot_vec_v(:,:,:) = 0.0_wp
@@ -1105,9 +1066,8 @@ CONTAINS
     
     
     !In this loop tangential velocity is calulated at boundaries
-    DO jb = i_startblk_v, i_endblk_v
-      CALL get_indices_v(p_patch, jb, i_startblk_v, i_endblk_v, &
-        & i_startidx_v, i_endidx_v, rl_start_v, rl_end_v)
+    DO jb = verts_in_domain%start_block, verts_in_domain%end_block
+      CALL get_index_range(verts_in_domain, jb, i_startidx_v, i_endidx_v)
       DO jk = slev, elev
         !!$OMP PARALLEL DO SCHEDULE(runtime) DEFAULT(PRIVATE)  &
         !!$OMP   SHARED(u_vec_e,v_vec_e,ptr_patch,rot_vec_v,jb) FIRSTPRIVATE(jk)
@@ -1141,9 +1101,8 @@ CONTAINS
     
     
     !In this loop vorticity at vertices is calculated
-    DO jb = i_startblk_v, i_endblk_v
-      CALL get_indices_v(p_patch, jb, i_startblk_v, i_endblk_v, &
-        & i_startidx_v, i_endidx_v, rl_start_v, rl_end_v)
+    DO jb = verts_in_domain%start_block, verts_in_domain%end_block
+      CALL get_index_range(verts_in_domain, jb, i_startidx_v, i_endidx_v)
       DO jk = slev, elev
         !!$OMP PARALLEL DO SCHEDULE(runtime) DEFAULT(PRIVATE)  &
         !!$OMP   SHARED(u_vec_e,v_vec_e,ptr_patch,rot_vec_v,jb) FIRSTPRIVATE(jk)
@@ -1219,6 +1178,8 @@ CONTAINS
     !   END DO
     ! END DO
   END SUBROUTINE rot_vertex_ocean_3d
+  !-------------------------------------------------------------------------
+  
   !-------------------------------------------------------------------------
   !
   !! Computes the discrete rotation at vertices in presence of boundaries as in the ocean setting.
@@ -1447,7 +1408,8 @@ CONTAINS
     ! END DO
   END SUBROUTINE rot_vertex_ocean
   !-------------------------------------------------------------------------
-  !
+  
+  !-------------------------------------------------------------------------
   !! Computes the discrete rotation at vertices in presence of boundaries as in the ocean setting.
   !! Computes in presence of boundaries the discrete rotation at vertices
   !! of triangle cells (centers of dual grid cells) from a vector field
@@ -1460,12 +1422,12 @@ CONTAINS
   !! does the tangential velocity calculate from velocity vector at vertices (p_vn_dual), while RBF uses
   !! a specific routine for that purpose. The RBF-sbr has to be called before rot_vertex_ocean_rbf,
   !! and the tangential velocity is passed as an argument.
-  !!
-  
+  !!  mpi note: the result is not synced. Should be done in the calling method if required
+  !!  
   SUBROUTINE rot_vertex_ocean_rbf( p_patch, vn, vt, rot_vec_v)
     !>
     !!
-    TYPE(t_patch), INTENT(in)      :: p_patch
+    TYPE(t_patch), TARGET, INTENT(in) :: p_patch
     REAL(wp), INTENT(in)           :: vn(:,:,:)
     REAL(wp), INTENT(in)           :: vt(:,:,:)
     REAL(wp), INTENT(inout)        :: rot_vec_v(:,:,:)
@@ -1497,17 +1459,12 @@ CONTAINS
     
     INTEGER,PARAMETER :: rl_start_v = 2
     INTEGER,PARAMETER :: rl_end_v   = min_rlvert
+    TYPE(t_subset_range), POINTER :: verts_in_domain        
     !-----------------------------------------------------------------------
+    verts_in_domain => p_patch%verts%in_domain
+    
     slev         = 1
     elev         = n_zlev
-    rl_start_e   = 1
-    rl_end_e     = min_rledge
-    
-    i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
-    i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
-    
-    i_startblk_v = p_patch%verts%start_blk(rl_start_v,1)
-    i_endblk_v   = p_patch%verts%end_blk(rl_end_v,1)
     
     ! #slo# due to nag -nan compiler-option
     i_v_ctr(:,:,:)          = 0
@@ -1518,14 +1475,10 @@ CONTAINS
     z_orientation(1:4)      = 0.0_wp
     
     !In this loop vorticity at vertices is calculated
-    DO jb = i_startblk_v, i_endblk_v
-      
-      CALL get_indices_v(p_patch, jb, i_startblk_v, i_endblk_v, &
-        & i_startidx_v, i_endidx_v, rl_start_v, rl_end_v)
+    DO jb = verts_in_domain%start_block, verts_in_domain%end_block
+      CALL get_index_range(verts_in_domain, jb, i_startidx_v, i_endidx_v)
       DO jk = slev, elev
-        !!$OMP PARALLEL DO SCHEDULE(runtime) DEFAULT(PRIVATE)  &
-        !!$OMP   SHARED(u_vec_e,v_vec_e,ptr_patch,rot_vec_v,jb) FIRSTPRIVATE(jk)
-        !!$OMP   SHARED(rot_vec_v,jb) FIRSTPRIVATE(jk)
+        
         DO jv = i_startidx_v, i_endidx_v
           
           z_vort_tmp          = 0.0_wp
@@ -1533,7 +1486,7 @@ CONTAINS
           !i_bdr_ctr           = 0
           !z_weight(jv,jk,jb) = 0.0_wp
           
-          vertex_cc = gc2cc(p_patch%verts%vertex(jv,jb))
+          vertex_cc = p_patch%verts%cartesian(jv,jb)
           DO jev = 1, p_patch%verts%num_edges(jv,jb)
             
             ! get line and block indices of edge jev around vertex jv
@@ -1568,7 +1521,7 @@ CONTAINS
             ELSE IF ( v_base%lsm_oce_e(ile,jk,ibe) == boundary ) THEN
               
               !increase boundary edge counter
-              i_v_bnd_edge_ctr(jv,jk,jb)=i_v_bnd_edge_ctr(jv,jk,jb)+1
+              i_v_bnd_edge_ctr(jv,jk,jb) = i_v_bnd_edge_ctr(jv,jk,jb)+1
               
               !Store actual boundary edge indices
               IF(i_v_bnd_edge_ctr(jv,jk,jb)==1)THEN
@@ -1686,7 +1639,7 @@ CONTAINS
             ENDIF
           ENDIF
         END DO
-        !!$OMP END PARALLEL DO
+      
       END DO
     END DO
   END SUBROUTINE rot_vertex_ocean_rbf

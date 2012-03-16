@@ -7,6 +7,7 @@
 !! @par Revision History
 !!  Original version by Peter Korn, MPI-M (2010-04)
 !!  Modified by Stephan Lorenz,     MPI-M (2010-07)
+!!  methods used are mpi parallelized, LL
 !!
 !!
 !! @par Copyright

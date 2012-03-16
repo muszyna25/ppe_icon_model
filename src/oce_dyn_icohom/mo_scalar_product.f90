@@ -15,6 +15,8 @@
 !! Modification by Stephan Lorenz, MPI-M, (2010-11-16)
 !! - implementation as primal_map_e2c, primal_map_e2c_no_edge_height, primal_map_c2e
 !!
+!!  methods used are mpi parallelized, LL
+!!
 !! @par Copyright
 !! 2002-2010 by DWD and MPI-M
 !! This software is provided for non-commercial use only.
@@ -679,6 +681,8 @@ CONTAINS
     elev         = n_zlev
     
     CALL rot_vertex_ocean_3d( p_patch, vn, p_vn_dual, p_op_coeff, vort_v)
+    CALL sync_patch_array(SYNC_V, p_patch, vort_v)
+    
     
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,je,i_startidx_e,i_endidx_e,il_v1,ib_v1,il_v2,ib_v2, u_v1_cc, u_v2_cc)
