@@ -10,6 +10,7 @@
 !!   - adapted to structures discussed in 2010-01.
 !!  Modified by Stephan Lorenz,     MPI-M, 2010-10
 !!   - structured input/output parameters
+!!  mpi parallelized LL (no sync required)
 !!
 !! @par Copyright
 !! 2002-2007 by DWD and MPI-M
@@ -58,6 +59,7 @@ USE mo_oce_state,           ONLY: v_base
 USE mo_loopindices,         ONLY: get_indices_c!, get_indices_e, get_indices_v
 USE mo_physical_constants,  ONLY: grav, rho_ref, sal_ref, rho_inv, a_T, b_S, &
   &                               SItodBar, sfc_press_bar
+USE mo_util_subset,         ONLY: t_subset_range, get_index_range
 
 IMPLICIT NONE
 
@@ -160,10 +162,10 @@ CONTAINS
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !! Modified by Stephan Lorenz,        MPI-M (2010-10-22)
   !!  - division by rho_ref included
-  !!
+  !!  mpi parallelized LL (no sync required)
   SUBROUTINE calc_internal_press_new(ppatch, trac_t, trac_s, h, calc_density, press_hyd)
   !
-  TYPE(t_patch), INTENT(IN)     :: ppatch
+  TYPE(t_patch), TARGET, INTENT(IN) :: ppatch
   REAL(wp),    INTENT(IN)       :: trac_t   (:,:,:)  !temperature
   REAL(wp),    INTENT(IN)       :: trac_s   (:,:,:)  !salinity
   REAL(wp),    INTENT(IN)       :: h        (:,:)    !< surface elevation at cells
@@ -182,29 +184,24 @@ END INTERFACE
   !       & routine = (this_mod_name//':calc_internal_pressure')
   INTEGER :: slev, end_lev     ! vertical start and end level
   INTEGER :: jc, jk, jb
-  INTEGER :: rl_start, rl_end
-  INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+  INTEGER :: i_startidx, i_endidx
   REAL(wp) :: z_full, z_box, z_press, z_rho_up, z_rho_down
+  TYPE(t_subset_range), POINTER :: all_cells
+
   !-------------------------------------------------------------------------
   !CALL message (TRIM(routine), 'start')
   ! #slo# due to nag -nan compiler-option set intent(out) variables to zero
   !press_hyd(:,:,:) = 0.0_wp
+  all_cells => ppatch%cells%all
 
-  rl_start = 1
-  rl_end = min_rlcell
   slev = 1
-
-  ! values for the blocking
-  i_startblk = ppatch%cells%start_blk(rl_start,1)
-  i_endblk  = ppatch%cells%end_blk(rl_end,1)
   press_hyd    = 0.0_wp
-
 
   !
   !  loop through all patch cells
   !
-  DO jb = i_startblk, i_endblk
-    CALL get_indices_c( ppatch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
+  DO jb = all_cells%start_block, all_cells%end_block
+    CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
 
     DO jc = i_startidx, i_endidx
 
@@ -251,9 +248,9 @@ END INTERFACE
     END DO
   END DO
   END SUBROUTINE calc_internal_press_new
-  !
   !-------------------------------------------------------------------------
-  !
+  
+  !-------------------------------------------------------------------------
   !>
   !! Calculation the hydrostatic pressure
   !!
@@ -267,9 +264,10 @@ END INTERFACE
   !! Modified by Stephan Lorenz,        MPI-M (2010-10-22)
   !!  - division by rho_ref included
   !!
+  !!  mpi parallelized LL (no sync required)
   SUBROUTINE calc_internal_press(ppatch, rho, h, press_hyd)
   !
-  TYPE(t_patch), INTENT(IN)     :: ppatch
+  TYPE(t_patch), TARGET, INTENT(IN) :: ppatch
   REAL(wp),    INTENT(IN)       :: rho      (:,:,:)  !< density
   REAL(wp),    INTENT(IN)       :: h        (:,:)    !< surface elevation at cells
   REAL(wp),   INTENT(INOUT)     :: press_hyd(:,:,:)  !< hydrostatic pressure
@@ -283,23 +281,19 @@ END INTERFACE
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
   REAL(wp) :: z_full, z_box
   REAL(wp),PARAMETER :: z_grav_rho_inv=rho_inv*grav
+  TYPE(t_subset_range), POINTER :: all_cells
   !-------------------------------------------------------------------------
   !CALL message (TRIM(routine), 'start')
   ! #slo# due to nag -nan compiler-option set intent(out) variables to zero
   !press_hyd(:,:,:) = 0.0_wp
-
-  rl_start = 1
-  rl_end = min_rlcell
+  all_cells => ppatch%cells%all
+  
   slev = 1
-
-  ! values for the blocking
-  i_startblk = ppatch%cells%start_blk(rl_start,1)
-  i_endblk  = ppatch%cells%end_blk(rl_end,1)
   !
   !  loop through all patch cells
   !
-  DO jb = i_startblk, i_endblk
-    CALL get_indices_c( ppatch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
+  DO jb = all_cells%start_block, all_cells%end_block
+    CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
 
     DO jc = i_startidx, i_endidx
       !
@@ -381,10 +375,9 @@ END INTERFACE
     END DO
   END DO
   END SUBROUTINE calc_internal_press
+  !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
-  !
-  !
   !>
   !! Calculates the density via a call to the equation-of-state.
   !! Several options for EOS are provided.
@@ -422,8 +415,8 @@ END INTERFACE
 
   END SUBROUTINE calc_density
   !-------------------------------------------------------------------------
-  !
-  !
+  
+  !-------------------------------------------------------------------------
   !>
   !!Calculates the density via a linear equation-of-state.
   !!
@@ -431,29 +424,25 @@ END INTERFACE
   !! Initial version by Peter Korn, MPI-M (2009)
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !!
+  !!  mpi parallelized LL
   SUBROUTINE  calc_density_lin_EOS(ppatch, tracer, rho)
   !
   !!
-  !!
-  TYPE(t_patch), INTENT(IN)     :: ppatch
+  TYPE(t_patch), TARGET, INTENT(IN) :: ppatch
   REAL(wp),    INTENT(IN)       :: tracer(:,:,:,:)     !< input of S and T
   REAL(wp), INTENT(INOUT)       :: rho   (:,:,:)       !< density
 
   ! local variables:
   INTEGER :: jc, jk, jb
-  INTEGER :: rl_start, rl_end
-  INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+  INTEGER :: i_startidx, i_endidx
+  TYPE(t_subset_range), POINTER :: all_cells
   !-------------------------------------------------------------------------
-  rl_start   = 1
-  rl_end     = min_rlcell
-  i_startblk = ppatch%cells%start_blk(rl_start,1)
-  i_endblk   = ppatch%cells%end_blk(rl_end,1)
+  all_cells => ppatch%cells%all
 
   IF(no_tracer==2)THEN
 
-    DO jb = i_startblk, i_endblk
-      CALL get_indices_c( ppatch, jb, i_startblk, i_endblk,&
-                       & i_startidx, i_endidx, rl_start, rl_end)
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
       !  tracer 1: potential temperature
       !  tracer 2: salinity
       DO jk=1, n_zlev
@@ -473,9 +462,8 @@ END INTERFACE
 
   ELSEIF(no_tracer==1)THEN
 
-    DO jb = i_startblk, i_endblk
-      CALL get_indices_c( ppatch, jb, i_startblk, i_endblk,&
-                       & i_startidx, i_endidx, rl_start, rl_end)
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
       !  tracer 1: potential temperature
       DO jk=1, n_zlev
         DO jc = i_startidx, i_endidx
@@ -493,8 +481,8 @@ END INTERFACE
 
   END SUBROUTINE  calc_density_lin_EOS
   !-------------------------------------------------------------------------
-  !
-  !
+  
+  !-------------------------------------------------------------------------
   !>
   !!Calculates the density via a linear equation-of-state.
   !!
@@ -503,8 +491,6 @@ END INTERFACE
   !!
   FUNCTION  calc_density_lin_EOS_func(t,s,p) RESULT(rho)
   !
-  !!
-  !!
   REAL(wp),INTENT(IN) :: t
   REAL(wp),INTENT(IN) :: s
   REAL(wp),INTENT(IN) :: p
@@ -514,9 +500,11 @@ END INTERFACE
   !-------------------------------------------------------------------------
     rho = rho_ref - a_T * t  + b_S * s
   END FUNCTION  calc_density_lin_EOS_func
-!---------------------------------------------------------------------------
+  !---------------------------------------------------------------------------
 
-  SUBROUTINE calc_density_JMDWFG06_EOS(p_patch, tracer, rho)
+  !---------------------------------------------------------------------------
+  !!  mpi parallelized LL (no sync required)
+   SUBROUTINE calc_density_JMDWFG06_EOS(p_patch, tracer, rho)
 !
 ! !DESCRIPTION:
 !
@@ -544,7 +532,7 @@ END INTERFACE
 ! !REVISION HISTORY:
 ! implemented by Peter Herrmann (2009)
 !
-    TYPE(t_patch)                 :: p_patch
+    TYPE(t_patch), TARGET         :: p_patch
     REAL(wp),    INTENT(IN)       :: tracer(:,:,:,:)
     !REAL(wp)                      :: dz(:)
     REAL(wp), INTENT(INOUT)       :: rho(:,:,:)       !< density
@@ -553,23 +541,17 @@ END INTERFACE
   REAL(wp)::  z_p
 
   INTEGER :: jc, jk, jb
-  INTEGER :: rl_start, rl_end
-  INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+  INTEGER :: i_startidx, i_endidx
+  TYPE(t_subset_range), POINTER :: all_cells
 !-------------------------------------------------------------------------------------------------------
 !write(*,*)'inside EOS 06' 
-
- rl_start   = 1
- rl_end     = min_rlcell
- i_startblk = p_patch%cells%start_blk(rl_start,1)
- i_endblk   = p_patch%cells%end_blk(rl_end,1)
-
+  all_cells => p_patch%cells%all
 
  !  tracer 1: potential temperature
  !  tracer 2: salinity
  IF(no_tracer==2)THEN
-   DO jb = i_startblk, i_endblk
-     CALL get_indices_c(  p_patch, jb, i_startblk, i_endblk,&
-                        & i_startidx, i_endidx, rl_start, rl_end)
+   DO jb = all_cells%start_block, all_cells%end_block
+     CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
      DO jk=1, n_zlev
        DO jc = i_startidx, i_endidx
          ! operate on wet ocean points only
@@ -584,9 +566,8 @@ END INTERFACE
      END DO
    END DO
  ELSE IF(no_tracer==1)THEN
-   DO jb = i_startblk, i_endblk
-     CALL get_indices_c(  p_patch, jb, i_startblk, i_endblk,&
-                        & i_startidx, i_endidx, rl_start, rl_end)
+   DO jb = all_cells%start_block, all_cells%end_block
+     CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
      DO jk=1, n_zlev
        DO jc = i_startidx, i_endidx
          ! operate on wet ocean points only
@@ -604,6 +585,7 @@ END INTERFACE
 
   END SUBROUTINE calc_density_JMDWFG06_EOS
 !----------------------------------------------------------------
+  
   function calc_density_JMDWFG06_EOS_func(tracer_t, tracer_s, p) RESULT(rho)
 !
 ! !DESCRIPTION:
@@ -701,11 +683,10 @@ END INTERFACE
   !! Code below is an adaption of Sergey Danilov's implementation in
   !! the AWI Finite-Volume model. 
   !!
+  !!  mpi parallelized LL (no sync required)
   SUBROUTINE calc_density_JM_EOS(ppatch, tracer, rho)
   !
-  !!
-  !!
-  TYPE(t_patch), INTENT(IN)     :: ppatch
+  TYPE(t_patch), TARGET, INTENT(IN)     :: ppatch
   REAL(wp),    INTENT(IN)       :: tracer(:,:,:,:)  
   REAL(wp), INTENT(OUT)         :: rho(:,:,:) 
 
@@ -715,17 +696,13 @@ END INTERFACE
   REAL(wp) :: z_rhopot, z_bulk, pz !,z_in_situ_temp  
   !INTEGER  :: slev, end_lev
   INTEGER  :: jc, jk, jb
-  INTEGER  :: rl_start, rl_end
-  INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
+  INTEGER  :: i_startidx, i_endidx
+  TYPE(t_subset_range), POINTER :: all_cells
   !---------------------------------------------------------------------------
-  rl_start   = 1
-  rl_end     = min_rlcell
-  i_startblk = ppatch%cells%start_blk(rl_start,1)
-  i_endblk   = ppatch%cells%end_blk(rl_end,1)
+  all_cells => ppatch%cells%all
 
-  DO jb = i_startblk, i_endblk
-    CALL get_indices_c( ppatch, jb, i_startblk, i_endblk,&
-                       & i_startidx, i_endidx, rl_start, rl_end)
+  DO jb = all_cells%start_block, all_cells%end_block
+    CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
 
     DO jk=1, n_zlev
       DO jc = i_startidx, i_endidx
@@ -783,6 +760,9 @@ END INTERFACE
 stop
 end subroutine calc_density_JM_EOS
 !----------------------------------------------------------------
+
+  !----------------------------------------------------------------
+  !!  mpi parallelized LL (no sync required)
   SUBROUTINE calc_density_MPIOM(p_patch, tracer, rho)
 !
 ! !DESCRIPTION:
@@ -794,7 +774,7 @@ end subroutine calc_density_JM_EOS
   !! Initial version by Peter Korn, MPI-M (2011)
   !!
 !
-    TYPE(t_patch)                 :: p_patch
+    TYPE(t_patch), TARGET         :: p_patch
     REAL(wp), INTENT(IN)          :: tracer(:,:,:,:)
     REAL(wp), INTENT(INOUT)       :: rho(:,:,:)       !< density
 
@@ -804,20 +784,17 @@ end subroutine calc_density_JM_EOS
   INTEGER :: jc, jk, jb
   INTEGER :: rl_start, rl_end
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+  TYPE(t_subset_range), POINTER :: all_cells
  !-------------------------------------------------------------------------------------------------------
- rl_start   = 1
- rl_end     = min_rlcell
- i_startblk = p_patch%cells%start_blk(rl_start,1)
- i_endblk   = p_patch%cells%end_blk(rl_end,1)
+  all_cells => p_patch%cells%all
  !i_len      = SIZE(dz)
 
  !  tracer 1: potential temperature
  !  tracer 2: salinity
  IF(no_tracer==2)THEN
 
-   DO jb = i_startblk, i_endblk
-     CALL get_indices_c(  p_patch, jb, i_startblk, i_endblk,&
-                        & i_startidx, i_endidx, rl_start, rl_end)
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
      DO jk=1, n_zlev
        z_p=sfc_press_bar ! rho_ref*v_base%zlev_m(jk)*SItodBar
        DO jc = i_startidx, i_endidx
@@ -831,9 +808,8 @@ end subroutine calc_density_JM_EOS
 
  ELSEIF(no_tracer==1)THEN
 
-   DO jb = i_startblk, i_endblk
-     CALL get_indices_c(  p_patch, jb, i_startblk, i_endblk,&
-                        & i_startidx, i_endidx, rl_start, rl_end)
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
      DO jk=1, n_zlev
        z_p=sfc_press_bar ! rho_ref*v_base%zlev_m(jk)*SItodBar
        DO jc = i_startidx, i_endidx
@@ -916,7 +892,10 @@ FUNCTION calc_density_MPIOM_func(tpot, sal, p) RESULT(rho)
 !ENDDO
 
   END FUNCTION calc_density_MPIOM_func
-!-------------------------------------------------------------------------------------
+  !-------------------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------------------
+  !!  mpi parallelized LL (no sync required)
   SUBROUTINE convert_insitu2pot_temp(p_patch, rho_ref, temp_insitu, sal, temp_pot)
 !
 ! !DESCRIPTION:
@@ -927,7 +906,7 @@ FUNCTION calc_density_MPIOM_func(tpot, sal, p) RESULT(rho)
   !! Initial version by Peter Korn, MPI-M (2011)
   !!
 !
-    TYPE(t_patch)                 :: p_patch
+    TYPE(t_patch), TARGET         :: p_patch
     REAL(wp)                      :: rho_ref
     REAL(wp)                      :: temp_insitu(:,:,:)
     REAL(wp)                      :: sal(:,:,:)
@@ -937,17 +916,13 @@ FUNCTION calc_density_MPIOM_func(tpot, sal, p) RESULT(rho)
 ! loop indices
   REAL(wp):: z_press
   INTEGER :: jc, jk, jb
-  INTEGER :: rl_start, rl_end
-  INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+  INTEGER :: i_startidx, i_endidx
+  TYPE(t_subset_range), POINTER :: all_cells
  !-------------------------------------------------------------------------------------------------------
- rl_start   = 1
- rl_end     = min_rlcell
- i_startblk = p_patch%cells%start_blk(rl_start,1)
- i_endblk   = p_patch%cells%end_blk(rl_end,1)
+  all_cells => p_patch%cells%all
 
-   DO jb = i_startblk, i_endblk
-     CALL get_indices_c(  p_patch, jb, i_startblk, i_endblk,&
-                        & i_startidx, i_endidx, rl_start, rl_end)
+   DO jb = all_cells%start_block, all_cells%end_block
+     CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
      DO jk=1, n_zlev
        z_press=sfc_press_bar ! rho_ref*grav*v_base%zlev_m(jk)
        DO jc = i_startidx, i_endidx
@@ -963,8 +938,8 @@ FUNCTION calc_density_MPIOM_func(tpot, sal, p) RESULT(rho)
    END DO
   END SUBROUTINE convert_insitu2pot_temp
   !-------------------------------------------------------------------------
-  !
-  !
+  
+  !-------------------------------------------------------------------------
   !>
   !!  Calculates density as a function of potential temperature and salinity
   !! using the equation of state as described in Gill, Atmosphere-Ocean Dynamics, Appendix 3
@@ -994,6 +969,7 @@ FUNCTION convert_insitu2pot_temp_func(t, s, p) RESULT(temp_pot)
 
 
 !-------------------------------------------------------------------------------------
+  !!  mpi parallelized LL (no sync required)
   SUBROUTINE convert_pot_temp2insitu(p_patch,trac_t, trac_s, temp_insitu)
 !
 ! !DESCRIPTION:
@@ -1004,7 +980,7 @@ FUNCTION convert_insitu2pot_temp_func(t, s, p) RESULT(temp_pot)
   !! Initial version by Peter Korn, MPI-M (2011)
   !!
 !
-    TYPE(t_patch)                 :: p_patch
+    TYPE(t_patch), TARGET         :: p_patch
     REAL(wp)                      :: trac_t(:,:,:)
     REAL(wp)                      :: trac_s(:,:,:)
     REAL(wp)                      :: temp_insitu(:,:,:)
@@ -1013,17 +989,13 @@ FUNCTION convert_insitu2pot_temp_func(t, s, p) RESULT(temp_pot)
 ! loop indices
   REAL(wp):: z_press
   INTEGER :: jc, jk, jb
-  INTEGER :: rl_start, rl_end
-  INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+  INTEGER :: i_startidx, i_endidx
+  TYPE(t_subset_range), POINTER :: all_cells
  !-------------------------------------------------------------------------------------------------------
- rl_start   = 1
- rl_end     = min_rlcell
- i_startblk = p_patch%cells%start_blk(rl_start,1)
- i_endblk   = p_patch%cells%end_blk(rl_end,1)
+  all_cells => p_patch%cells%all
 
-   DO jb = i_startblk, i_endblk
-     CALL get_indices_c(  p_patch, jb, i_startblk, i_endblk,&
-                        & i_startidx, i_endidx, rl_start, rl_end)
+  DO jb = all_cells%start_block, all_cells%end_block
+    CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
      DO jk=1, n_zlev
        z_press=rho_ref*v_base%zlev_m(jk)*SItodBar ! grav
        DO jc = i_startidx, i_endidx

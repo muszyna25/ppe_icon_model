@@ -1480,18 +1480,18 @@ CONTAINS
 
   END SUBROUTINE destruct_hydro_ocean_aux
 !-------------------------------------------------------------------------
-!
-!
-!>
-!! Sbr set boundary values for velocity field.
-!!
-!! @par Revision History
-!! Developed  by  Peter Korn, MPI-M (2011).
-!
-!
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Sbr set boundary values for velocity field.
+  !!
+  !! @par Revision History
+  !! Developed  by  Peter Korn, MPI-M (2011).
+  !
+  !!  mpi parallelized LL (no sync required)
   SUBROUTINE  set_lateral_boundary_values( p_patch, vn )
 
-    TYPE(t_patch), INTENT(in) :: p_patch
+    TYPE(t_patch), TARGET, INTENT(in) :: p_patch
     REAL(wp)                  :: vn(:,:,:)
 
     ! local variables
@@ -1499,22 +1499,19 @@ CONTAINS
     INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
     INTEGER :: rl_start_e, rl_end_e
     INTEGER :: slev,elev 
+    TYPE(t_subset_range), POINTER :: all_edges
 !!$    CHARACTER(len=max_char_length), PARAMETER :: &
 !!$      &      routine = 'mo_oce_state: set_lateral_boundary_values'
 
 !---------------------------------------------------------------
+    all_edges => p_patch%edges%all
 
 ! blocking
-i_startblk_e = p_patch%edges%start_blk(1,1)
-i_endblk_e   = p_patch%edges%end_blk(min_rledge,1)
-rl_start_e   = 1
-rl_end_e     = min_rledge
-slev         = 1
-elev         = n_zlev
+  slev         = 1
+  elev         = n_zlev
 
-DO jb=i_startblk_e, i_endblk_e
-  CALL get_indices_e(p_patch, jb, i_startblk_e, i_endblk_e, &
-                     i_startidx_e, i_endidx_e, rl_start_e, rl_end_e)
+  DO jb = all_edges%start_block, all_edges%end_block
+    CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
     DO jk = slev, elev
       DO je= i_startidx_e, i_endidx_e
         IF ( v_base%lsm_oce_e(je,jk,jb) >= boundary ) THEN
@@ -1541,8 +1538,8 @@ DO jb=i_startblk_e, i_endblk_e
 !           END DO
 !         ENDIF
       END DO
+    END DO
   END DO
-END DO
 
   END SUBROUTINE  set_lateral_boundary_values
 
@@ -1568,6 +1565,7 @@ END DO
   !! Modified by Stephan Lorenz,        MPI-M (2011-06)
   !! - all 3-dim structures moved from patch_oce to type  t_hydro_ocean_base
   !!
+  !!  mpi parallelized 
   SUBROUTINE init_ho_base( p_patch, p_ext_data, v_base )
 
     TYPE(t_patch),  TARGET,   INTENT(INOUT)    :: p_patch
@@ -2197,7 +2195,8 @@ END DO
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2012-02)
   !! Modified by Stephan Lorenz,        MPI-M (2012-02)
-  !!
+  !! 
+  !!  no-mpi parallelized
   SUBROUTINE init_ho_basins( p_patch, v_base )
 
     TYPE(t_patch),            INTENT(IN)       :: p_patch
@@ -2502,6 +2501,7 @@ END DO
   !!
   !! @par Revision History
   !!  developed by Peter Korn, 2011
+  !!  mpi parallelized LL (no sync required)
   !!
   SUBROUTINE init_coriolis_oce( ptr_patch )
     !
@@ -2511,28 +2511,19 @@ END DO
     TYPE(t_patch), TARGET, INTENT(inout) :: ptr_patch
     !
     INTEGER :: jb, je, jv
-    INTEGER :: rl_start_e, rl_end_e
-    INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
-    INTEGER :: rl_start_v, rl_end_v
-    INTEGER :: i_startblk_v, i_endblk_v, i_startidx_v, i_endidx_v
+    INTEGER :: i_startidx_e, i_endidx_e
+    INTEGER :: i_startidx_v, i_endidx_v
     TYPE(t_geographical_coordinates) :: gc1,gc2 
     TYPE(t_cartesian_coordinates) :: xx1, xx2
     REAL(wp) :: z_y, z_lat_basin_center
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     & routine = ('mo_oce_state:init_coriolis_oce')
+    TYPE(t_subset_range), POINTER :: all_verts, all_edges
     !-----------------------------------------------------------------------
+    all_verts => ptr_patch%verts%all
+    all_edges => ptr_patch%edges%all
 
     CALL message (TRIM(routine), 'start')
-
-    rl_start_e = 1
-    rl_end_e   = min_rledge
-    rl_start_v = 1
-    rl_end_v   = min_rlvert
-
-    i_startblk_e = ptr_patch%edges%start_blk(rl_start_e,1)
-    i_endblk_e   = ptr_patch%edges%end_blk(rl_end_e,1)
-    i_startblk_v = ptr_patch%verts%start_blk(rl_start_v,1)
-    i_endblk_v   = ptr_patch%verts%end_blk(rl_end_v,1)
 
     SELECT CASE (CORIOLIS_TYPE)
 
@@ -2545,9 +2536,8 @@ END DO
       gc1%lon = 0.0_wp
       xx1=gc2cc(gc1)
 
-      DO jb = i_startblk_v, i_endblk_v
-        CALL get_indices_v(ptr_patch, jb, i_startblk_v, i_endblk_v, &
-                          i_startidx_v, i_endidx_v, rl_start_v, rl_end_v)
+      DO jb = all_verts%start_block, all_verts%end_block
+        CALL get_index_range(all_verts, jb, i_startidx_v, i_endidx_v)
         DO jv = i_startidx_v, i_endidx_v
             !z_y = re*(ptr_patch%verts%vertex(jv,jb)%lat - z_lat_basin_center) 
             gc2%lat = ptr_patch%verts%vertex(jv,jb)%lat!*deg2rad
@@ -2561,9 +2551,8 @@ END DO
         END DO
       END DO
 
-      DO jb = i_startblk_e, i_endblk_e
-        CALL get_indices_e(ptr_patch, jb, i_startblk_e, i_endblk_e, &
-                          i_startidx_e, i_endidx_e, rl_start_e, rl_end_e)
+      DO jb = all_edges%start_block, all_edges%end_block
+        CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
         DO je = i_startidx_e, i_endidx_e
           ! depends on basin_center_lat only - not dependent on center_lon, basin_width or height
             gc2%lat = ptr_patch%edges%center(je,jb)%lat!*deg2rad

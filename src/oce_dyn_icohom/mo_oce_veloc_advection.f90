@@ -7,6 +7,7 @@
 !!  Developed  by Peter Korn,       MPI-M (2010)
 !!  Modified by Stephan Lorenz,     MPI-M (2010-11)
 !!   - implementation of new PtP reconstruction
+!!   mpi parallelized LL
 !!
 !! @par Copyright
 !! 2002-2006 by DWD and MPI-M
