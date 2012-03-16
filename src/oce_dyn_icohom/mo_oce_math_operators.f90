@@ -1195,7 +1195,7 @@ CONTAINS
   SUBROUTINE rot_vertex_ocean( p_patch, vn, p_vn_dual, rot_vec_v)
     !>
     !!
-    TYPE(t_patch), INTENT(in)      :: p_patch
+    TYPE(t_patch), TARGET, INTENT(in) :: p_patch
     REAL(wp), INTENT(inout)           :: vn(:,:,:)
     TYPE(t_cartesian_coordinates)  :: p_vn_dual(nproma,n_zlev,p_patch%nblks_v)
     REAL(wp), INTENT(inout)        :: rot_vec_v(:,:,:)
@@ -1227,6 +1227,7 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: verts_in_domain        
     !-----------------------------------------------------------------------
     verts_in_domain => p_patch%verts%in_domain
+    
     slev         = 1
     elev         = n_zlev
     
