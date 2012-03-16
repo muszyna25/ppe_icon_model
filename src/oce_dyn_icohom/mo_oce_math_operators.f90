@@ -64,6 +64,8 @@ MODULE mo_oce_math_operators
   !USE mo_base_geometry,      ONLY: triangle_area
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates, gc2cc, vector_product
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
+  USE mo_util_subset,         ONLY: t_subset_range, get_index_range
+  
   IMPLICIT NONE
   
   PRIVATE
@@ -754,6 +756,8 @@ CONTAINS
   !! Modification by Almut Gassmann, MPI-M (2007-04-20)
   !! - abandon grid for the sake of patch
   !! Boundary handling for triangles by P. Korn (2009)
+  !!   mpi note: this will no compute the halo values.
+  !!             if necessary they have to be synced by the calling method
   !!
   SUBROUTINE grad_fd_norm_oce_2d( psi_c, ptr_patch, grad_norm_psi_e)
     !
@@ -779,18 +783,16 @@ CONTAINS
     INTEGER :: nlen, nblks_e, npromz_e
     INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
     !
+    TYPE(t_subset_range), POINTER :: edges_in_domain        
     !-----------------------------------------------------------------------
+    edges_in_domain => ptr_patch%edges%in_domain
+    
     slev = 1
     elev = 1
-    rl_start = 2
-    rl_end = min_rledge_int
     
     iidx => ptr_patch%edges%cell_idx
     iblk => ptr_patch%edges%cell_blk
     
-    
-    i_startblk = ptr_patch%edges%start_blk(rl_start,1)
-    i_endblk   = ptr_patch%edges%end_blk(rl_end,1)
     !
     !  loop through all patch edges (and blocks)
     !
@@ -804,10 +806,8 @@ CONTAINS
     
     CASE (3) ! (cell_type == 3)
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je)
-      DO jb = i_startblk, i_endblk
-        
-        CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
-          & i_startidx, i_endidx, rl_start, rl_end)
+      DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+        CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
 #ifdef _URD
 !CDIR UNROLL=_URD
 #endif
@@ -833,14 +833,10 @@ CONTAINS
       nblks_e   = ptr_patch%nblks_int_e
       npromz_e  = ptr_patch%npromz_int_e
       
-!$OMP DO PRIVATE(jb,nlen,je)
-      DO jb = 1, nblks_e
-        IF (jb /= nblks_e) THEN
-          nlen = nproma
-        ELSE
-          nlen = npromz_e
-        ENDIF
-        DO je = 1, nlen
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je)
+      DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+        CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
+        DO je = i_startidx, i_endidx
           !
           ! compute the normal derivative
           ! by the finite difference approximation
@@ -886,9 +882,12 @@ CONTAINS
   !! - Boundary treatment for the ocean
   !! Modification by Stephan Lorenz, MPI-M (2010-08-05)
   !! - New boundary definition with inner and boundary points on land/sea
+  !! 
+  !!  mpi parallelized LL. By default it calculates the dic on all cells
+  !!    in case of an optional range sync has to be taken care in the calling method
   !!
   SUBROUTINE div_oce( vec_e, ptr_patch, div_vec_c, &
-    & opt_slev, opt_elev, opt_rlstart, opt_rlend )
+    & opt_slev, opt_elev, opt_subset_range )
     !
     !
     !  patch on which computation is performed
@@ -906,10 +905,8 @@ CONTAINS
     
     INTEGER, INTENT(in), OPTIONAL ::  &
       & opt_elev    ! optional vertical end level
-    
-    INTEGER, INTENT(in), OPTIONAL ::  &
-      & opt_rlstart, opt_rlend   ! start and end values of refin_ctrl flag
-    
+    TYPE(t_subset_range), TARGET, OPTIONAL :: opt_subset_range
+        
     !
     ! cell based variable in which divergence is stored
     !
@@ -917,11 +914,17 @@ CONTAINS
     
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: jc, jk, jb, je
-    INTEGER :: rl_start, rl_end
-    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+    INTEGER :: i_startidx, i_endidx, i_nchdom
     INTEGER :: nlen, npromz_c, nblks_c
+    TYPE(t_subset_range), POINTER :: all_cells
+    
     INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
     !-----------------------------------------------------------------------
+    IF ( PRESENT(opt_slev) ) THEN
+      all_cells => opt_subset_range
+    ELSE
+      all_cells => ptr_patch%cells%all
+    ENDIF
     
     ! check optional arguments
     IF ( PRESENT(opt_slev) ) THEN
@@ -934,26 +937,10 @@ CONTAINS
     ELSE
       elev = n_zlev
     END IF
-    
-    IF ( PRESENT(opt_rlstart) ) THEN
-      rl_start = opt_rlstart
-    ELSE
-      rl_start = 1
-    END IF
-    IF ( PRESENT(opt_rlend) ) THEN
-      rl_end = opt_rlend
-    ELSE
-      rl_end = min_rlcell
-    END IF
-    
+        
     iidx => ptr_patch%cells%edge_idx
     iblk => ptr_patch%cells%edge_blk
-    
-    ! values for the blocking
-    i_nchdom   = MAX(1,ptr_patch%n_childdom)
-    i_startblk = ptr_patch%cells%start_blk(rl_start,1)
-    i_endblk   = ptr_patch%cells%end_blk(rl_end,1)
-    
+        
     ! loop through all patch cells (and blocks)
     !
 #ifndef __SX__
@@ -968,10 +955,8 @@ CONTAINS
     CASE (3) ! (cell_type == 3)
       
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
-      DO jb = i_startblk, i_endblk
-        
-        CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
-          & i_startidx, i_endidx, rl_start, rl_end)
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
         
 #ifdef __SX__
 !CDIR UNROLL=6
@@ -1017,18 +1002,15 @@ CONTAINS
       nblks_c   = ptr_patch%nblks_int_c
       npromz_c  = ptr_patch%npromz_int_c
       
-!$OMP DO PRIVATE(jb,nlen,je,jc,jk)
-      DO jb = 1, nblks_c
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
         
-        IF (jb /= nblks_c) THEN
-          nlen = nproma
-        ELSE
-          nlen = npromz_c
-        ENDIF
         div_vec_c(1:nlen,slev:elev,jb) = 0.0_wp
+        
         DO je = 1, ptr_patch%cell_type
           DO jk = slev, elev
-            DO jc = 1, nlen
+            DO jc = i_startidx, i_endidx
               ! compute the discrete divergence for cell jc by finite volume
               ! approximation (see Bonaventura and Ringler MWR 2005);
               ! multiplication of the normal vector component vec_e at the edges
@@ -1911,8 +1893,7 @@ CONTAINS
     
     ! compute divergence of vector field
     ! the divergence on land is set to zero by div_oce
-    CALL div_oce( u_vec_e, ptr_patch, z_div_c, slev, elev, &
-      & opt_rlstart=rl_start_c, opt_rlend=rl_end_c )
+    CALL div_oce( u_vec_e, ptr_patch, z_div_c, slev, elev )
     
     
     ! compute rotation of vector field for the ocean
@@ -2082,8 +2063,7 @@ CONTAINS
     
     ! compute divergence of vector field
     ! the divergence on land is set to zero by div_oce
-    CALL div_oce( u_vec_e, ptr_patch, z_div_c, slev, elev, &
-      & opt_rlstart=rl_start_c, opt_rlend=rl_end_c )
+    CALL div_oce( u_vec_e, ptr_patch, z_div_c, slev, elev )
     
     
     ! compute rotation of vector field for the ocean
@@ -2121,8 +2101,7 @@ CONTAINS
     z_div_c(:,:,:) = 0.0_wp
     z_rot_v(:,:,:) = 0.0_wp
     
-    CALL div_oce( z_nabla_2vec, ptr_patch, z_div_c, slev, elev, &
-      & opt_rlstart=rl_start_c, opt_rlend=rl_end_c )
+    CALL div_oce( z_nabla_2vec, ptr_patch, z_div_c, slev, elev )
     
     CALL rot_vertex_ocean(ptr_patch, z_nabla_2vec, p_vn_dual, z_rot_v)
     

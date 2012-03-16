@@ -60,6 +60,7 @@ MODULE mo_oce_boundcond
   USE mo_intp_data_strc,     ONLY: t_int_state
   USE mo_intp_rbf,           ONLY: rbf_vec_interpol_cell
   USE mo_util_subset,         ONLY: t_subset_range, get_index_range
+  USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_idx, global_max
   
   IMPLICIT NONE
   
@@ -371,6 +372,7 @@ CONTAINS
   !!
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
+  !!  mpi parallelized LL
   !!
   SUBROUTINE bot_bound_cond_vert_veloc( p_patch, p_os, bot_bc_w )
     !
@@ -385,37 +387,32 @@ CONTAINS
     !
     ! Local variables
     INTEGER :: jb, jc, je, i_dolic
-    INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
-    INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
-    INTEGER :: rl_start_e, rl_end_e, rl_start_c, rl_end_c
+    INTEGER :: i_startidx_c, i_endidx_c
+    INTEGER :: i_startidx_e, i_endidx_e
     REAL(wp) :: z_grad_h(nproma,1,p_patch%nblks_e)
     INTEGER, DIMENSION(:,:,:),POINTER :: iidx, iblk
     INTEGER, DIMENSION(:,:),  POINTER :: p_dolic
     REAL(wp), DIMENSION(:),   POINTER :: p_bathy
     TYPE(t_cartesian_coordinates) :: z_grad_h_cc(nproma,1,p_patch%nblks_c)
+
+    TYPE(t_subset_range), POINTER :: edges_in_domain, all_cells    
     !-----------------------------------------------------------------------
-    rl_start_c = 1
-    rl_end_c = min_rlcell
-    rl_start_e   = 1
-    rl_end_e     = min_rledge
-    i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
-    i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
-    i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
-    i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
-    
+    edges_in_domain => p_patch%edges%in_domain
+    all_cells => p_patch%cells%all
+        
     bot_bc_w(:,:) = 0.0_wp
-    z_grad_h_cc(nproma,1,p_patch%nblks_c)%x=0.0_wp
+    z_grad_h_cc(nproma,1,p_patch%nblks_c)%x = 0.0_wp
     
     iidx      => p_patch%edges%cell_idx
     iblk      => p_patch%edges%cell_blk
     p_bathy   => v_base%zlev_m
     p_dolic   => v_base%dolic_c
     
-    DO jb = i_startblk_e, i_endblk_e
-      
-      CALL get_indices_e(p_patch, jb, i_startblk_e, i_endblk_e, &
-        & i_startidx_e, i_endidx_e, rl_start_e, rl_end_e)
+    !----------------------------------------
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
       DO je = i_startidx_e, i_endidx_e
+      
         i_dolic = v_base%dolic_c(je,jb)
         IF ( v_base%lsm_oce_e(je,i_dolic,jb) <= sea ) THEN
           
@@ -426,18 +423,21 @@ CONTAINS
         ELSE
           z_grad_h(je,1,jb) =  0.0_wp
         ENDIF
+        
       ENDDO
     END DO
+    CALL sync_patch_array(SYNC_E, p_patch, z_grad_h(:,:,:))
+    !----------------------------------------
     
+    !----------------------------------------
     CALL map_edges2cell( p_patch, &
       & z_grad_h,&
       & z_grad_h_cc,&
       & opt_slev=1, opt_elev=1)
+    !----------------------------------------
     
-    DO jb = i_startblk_c, i_endblk_c
-      
-      CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
-        & rl_start_c, rl_end_c)
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
         !calulate  Pu dot P (nabla H), this corresponds to continuous top boundary condition u dot nabla H
         bot_bc_w(jc,jb) = -DOT_PRODUCT(z_grad_h_cc(jc,1,jb)%x,&
@@ -447,8 +447,8 @@ CONTAINS
     
   END SUBROUTINE bot_bound_cond_vert_veloc
   !-------------------------------------------------------------------------
-  !
-  !
+  
+  !-------------------------------------------------------------------------
   !>
   !! Computes top boundary condition for vertical velocity.
   !! sbr calulates (h^(n+1)-h^n)/dt + Pu dot P (nabla h), this corresponds to
@@ -456,6 +456,7 @@ CONTAINS
   !!
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
+  !!   no-mpi parallelized
   !!
   SUBROUTINE top_bound_cond_vert_veloc( p_patch, p_os, top_bc_w, timestep, p_int )
     !
@@ -496,6 +497,8 @@ CONTAINS
     CALL grad_fd_norm_oce_2d(p_os%p_prog(nnew(1))%h, &
       & p_patch,                 &
       & z_grad_h(:,1,:))
+    CALL sync_patch_array(SYNC_E, p_patch, z_grad_h(:,1,:))        
+    
     IF(idisc_scheme==1)THEN
       CALL map_edges2cell( p_patch,        &
         & z_grad_h,       &
@@ -569,8 +572,8 @@ CONTAINS
     !& minval(top_bc_w(1:nproma,1:p_patch%nblks_c))
   END SUBROUTINE top_bound_cond_vert_veloc
   !-------------------------------------------------------------------------
-  !
-  !
+  
+  !-------------------------------------------------------------------------
   !>
   !! Computes top boundary condition for tracer specified by tracer_id.
   !! d C/dz
@@ -578,7 +581,7 @@ CONTAINS
   !!
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
-  !!
+  !!  mpi parallelized LL (no sync required)
   SUBROUTINE top_bound_cond_tracer( p_patch, pstate_oce, tracer_id, p_sfc_flx, top_bc_tracer)
     
     TYPE(t_patch)    , TARGET, INTENT(in) :: p_patch             ! patch on which computation is performed
@@ -589,20 +592,18 @@ CONTAINS
     !
     !Local variables
     INTEGER :: jc, jb
-    INTEGER :: rl_start, rl_end
-    INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
+    INTEGER :: i_startidx_c, i_endidx_c
     REAL(wp):: z_c(nproma,1,p_patch%nblks_c)
+
+    TYPE(t_subset_range), POINTER :: all_cells
+    
     ! CHARACTER(len=max_char_length), PARAMETER :: &
     !        & routine = ('mo_oce_boundcond:top_bound_cond_tracer')
     !-----------------------------------------------------------------------
-    rl_start   = 1
-    rl_end     = min_rlcell
-    i_startblk_c = p_patch%cells%start_blk(rl_start,1)
-    i_endblk_c   = p_patch%cells%end_blk(rl_end,1)
+    all_cells => p_patch%cells%all
     
-    DO jb = i_startblk_c, i_endblk_c
-      CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c,&
-        & i_startidx_c, i_endidx_c, rl_start, rl_end)
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
         top_bc_tracer(jc,jb, tracer_id) = p_sfc_flx%forc_tracer(jc,jb, tracer_id)
       END DO
@@ -614,14 +615,15 @@ CONTAINS
     
   END SUBROUTINE top_bound_cond_tracer
   !-------------------------------------------------------------------------
-  !
-  !
+  
+  !-------------------------------------------------------------------------
   !>
   !! Computes bottom boundary condition for tracer specified by tracer_id.
   !!
   !!
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
+  !!  mpi parallelized LL (no sync required)
   !!
   SUBROUTINE bot_bound_cond_tracer( p_patch, pstate_oce, tracer_id, bot_bc_tracer)
     
@@ -632,18 +634,18 @@ CONTAINS
     
     !Local variables
     INTEGER :: jc, jb
-    INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
+    INTEGER :: i_startidx_c, i_endidx_c
+    TYPE(t_subset_range), POINTER :: all_cells
     !-----------------------------------------------------------------------
-    i_startblk_c = p_patch%cells%start_blk(1,1)
-    i_endblk_c   = p_patch%cells%end_blk(min_rlcell,1)
+    all_cells => p_patch%cells%all
     
-    DO jb = i_startblk_c, i_endblk_c
-      CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
-        & i_startidx_c, i_endidx_c, 1,min_rledge)
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
         bot_bc_tracer(jc,jb, tracer_id) = 0.0_wp
       END DO
     END DO
   END SUBROUTINE bot_bound_cond_tracer
+  !-------------------------------------------------------------------------
   
 END MODULE mo_oce_boundcond
