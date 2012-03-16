@@ -1264,7 +1264,7 @@ CONTAINS
     TYPE(t_meteogram_data),    POINTER :: meteogram_data
     TYPE(t_meteogram_station), POINTER :: p_station
 
-    IF (dbg_level > 5)  WRITE (*,*) routine, " Enter"
+!     IF (dbg_level > 5)  WRITE (*,*) routine, " Enter"
 
     meteogram_data => meteogram_local_data(jg)
 
@@ -1449,7 +1449,7 @@ CONTAINS
 
 #endif
 
-    IF (dbg_level > 5)  WRITE (*,*) routine, " Leave"
+!     IF (dbg_level > 5)  WRITE (*,*) routine, " Leave"
 
   END SUBROUTINE meteogram_collect_buffers
 
