@@ -43,24 +43,25 @@ MODULE mo_oce_diffusion
 !  
 !   
 ! 
-USE mo_kind,                      ONLY: wp
-USE mo_math_utilities,            ONLY: t_cartesian_coordinates, gvec2cvec!, gc2cc
-USE mo_impl_constants,            ONLY: boundary, sea,sea_boundary ,max_char_length, &
-  &                                     min_rlcell, min_rledge, min_rlcell, MIN_DOLIC
-USE mo_parallel_config,           ONLY: nproma
-USE mo_ocean_nml,                 ONLY: n_zlev, iswm_oce
-USE mo_run_config,                ONLY: dtime
-USE mo_oce_index,                 ONLY: print_mxmn, jkc, jkdim, ipl_src
-USE mo_oce_state,                 ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, &
-  &                                     t_hydro_ocean_aux, v_base
-USE mo_model_domain,              ONLY: t_patch
-!USE mo_exception,                 ONLY: message, finish!, message_text
-USE mo_loopindices,               ONLY: get_indices_c, get_indices_e
-USE mo_oce_physics,               ONLY: t_ho_params
-USE mo_scalar_product,            ONLY: map_cell2edges, primal_map_c2e
-USE mo_oce_math_operators,        ONLY: nabla2_vec_ocean, div_oce
-USE mo_intp_data_strc,            ONLY: p_int_state
+USE mo_kind,                ONLY: wp
+USE mo_math_utilities,      ONLY: t_cartesian_coordinates, gvec2cvec!, gc2cc
+USE mo_impl_constants,      ONLY: boundary, sea,sea_boundary ,max_char_length, &
+  &                               min_rlcell, min_rledge, min_rlcell, MIN_DOLIC
+USE mo_parallel_config,     ONLY: nproma
+USE mo_ocean_nml,           ONLY: n_zlev, iswm_oce
+USE mo_run_config,          ONLY: dtime
+USE mo_oce_index,           ONLY: print_mxmn, jkc, jkdim, ipl_src
+USE mo_oce_state,           ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, &
+  &                               t_hydro_ocean_aux, v_base
+USE mo_model_domain,        ONLY: t_patch
+!USE mo_exception,           ONLY: message, finish!, message_text
+USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
+USE mo_oce_physics,         ONLY: t_ho_params
+USE mo_scalar_product,      ONLY: map_cell2edges, primal_map_c2e
+USE mo_oce_math_operators,  ONLY: nabla2_vec_ocean, div_oce
+USE mo_intp_data_strc,      ONLY: p_int_state
 USE mo_util_subset,         ONLY: t_subset_range, get_index_range
+USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_idx, global_max
 
 IMPLICIT NONE
 
@@ -97,6 +98,7 @@ CONTAINS
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2010).
 !! 
+!! mpi parallelized, no sync required
 SUBROUTINE velocity_diffusion_horz_mimetic(p_patch, vn_in, p_param, p_diag, laplacian_vn_out)
   TYPE(t_patch), TARGET, INTENT(in) :: p_patch
   REAL(wp), INTENT(in)              :: vn_in(nproma,n_zlev,p_patch%nblks_e)
@@ -111,10 +113,12 @@ SUBROUTINE velocity_diffusion_horz_mimetic(p_patch, vn_in, p_param, p_diag, lapl
   INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
   INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
   INTEGER :: rl_start_c, rl_end_c, rl_start_e, rl_end_e
+  INTEGER :: idx_cartesian
   INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
   TYPE(t_cartesian_coordinates) :: z_grad_u(nproma,n_zlev,p_patch%nblks_e)
   TYPE(t_cartesian_coordinates) :: z_div_grad_u(nproma,n_zlev,p_patch%nblks_c)
-  TYPE(t_subset_range), POINTER :: all_cells, all_edges
+
+  TYPE(t_subset_range), POINTER :: all_cells, all_edges, edges_in_domain
 !REAL(wp) :: z_grad_vn(nproma,n_zlev,p_patch%nblks_e)
 !REAL(wp) :: z_div_grad_vn(nproma,n_zlev,p_patch%nblks_c)
 !REAL(wp) :: laplacian_vn_out2(nproma,n_zlev,p_patch%nblks_e)
@@ -123,7 +127,6 @@ SUBROUTINE velocity_diffusion_horz_mimetic(p_patch, vn_in, p_param, p_diag, lapl
 !-------------------------------------------------------------------------------
 !CALL message (TRIM(routine), 'start')        
 
-  ! #slo# set intent out variable to zero due to nag -nan compiler-option
   laplacian_vn_out(:,:,:) = 0.0_wp
 
   slev = 1
@@ -154,98 +157,39 @@ SUBROUTINE velocity_diffusion_horz_mimetic(p_patch, vn_in, p_param, p_diag, lapl
     END DO
   END DO
 
-! !-----------------------------------------------------------------------------
-! DO jb = i_startblk_e, i_endblk_e
-! 
-!   CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e,&
-!                    &  i_startidx_e, i_endidx_e,&
-!                    &  rl_start_e, rl_end_e)
-!   DO jk = slev, elev
-!     DO je = i_startidx_e, i_endidx_e
-! 
-!     IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
-! 
-!       !Get indices of two adjacent triangles
-!       il_c1 = p_patch%edges%cell_idx(je,jb,1)
-!       ib_c1 = p_patch%edges%cell_blk(je,jb,1)
-!       il_c2 = p_patch%edges%cell_idx(je,jb,2)
-!       ib_c2 = p_patch%edges%cell_blk(je,jb,2)
-! 
-!       z_grad_u(je,jk,jb)%x =p_param%K_veloc_h(je,jk,jb)*&
-!         &                  (p_diag%p_vn(il_c2,jk,ib_c2)%x &
-!         &                  - p_diag%p_vn(il_c1,jk,ib_c1)%x)&
-!         &                  / p_patch%edges%dual_edge_length(je,jb)
-! 
-! 
-!         z_grad_vn(je,jk,jb)=DOT_PRODUCT(z_grad_u(je,jk,jb)%x,&
-!                    & p_patch%edges%primal_cart_normal(je,jb)%x) 
-! 
-!     ELSE
-!       z_grad_u(je,jk,jb)%x = 0.0_wp
-!       z_grad_vn(je,jk,jb)  = 0.0_wp
-!     ENDIF 
-!     ENDDO
-!   END DO
-! END DO
-! CALL div_oce( z_grad_vn, p_patch, z_div_grad_vn)
-! 
-! 
-! DO jb = i_startblk_e, i_endblk_e
-! 
-!   CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e,&
-!                    &  i_startidx_e, i_endidx_e,&
-!                    &  rl_start_e, rl_end_e)
-!   DO jk = slev, elev
-!     DO je = i_startidx_e, i_endidx_e
-! 
-!     IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
-! 
-!       !Get indices of two adjacent triangles
-!       il_c1 = p_patch%edges%cell_idx(je,jb,1)
-!       ib_c1 = p_patch%edges%cell_blk(je,jb,1)
-!       il_c2 = p_patch%edges%cell_idx(je,jb,2)
-!       ib_c2 = p_patch%edges%cell_blk(je,jb,2)
-! 
-!       laplacian_vn_out(je,jk,jb) =0.5_wp*(z_div_grad_vn(il_c2,jk,ib_c2) &
-!         &                  + z_div_grad_vn(il_c1,jk,ib_c1))
-!     ELSE
-!       laplacian_vn_out(je,jk,jb) = 0.0_wp
-!     ENDIF 
-!     ENDDO
-!   END DO
-! END DO
+  !-------------------------------------------------------------------------------------------------------
+  !Step 1: Calculate gradient of cell velocity vector.
+  !Result is a gradient vector, located at edges
+  !Step 2: Multiply each component of gradient vector with mixing coefficients
+  edges_in_domain => p_patch%edges%in_domain
+  DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+    CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
 
+    DO jk = slev, elev
+      DO je = i_startidx_e, i_endidx_e
 
-!-------------------------------------------------------------------------------------------------------
-!Step 1: Calculate gradient of cell velocity vector.
-!Result is a gradient vector, located at edges
-!Step 2: Multiply each component of gradient vector with mixing coefficients
-DO jb = i_startblk_e, i_endblk_e
+      IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
 
-  CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e,&
-                   &  i_startidx_e, i_endidx_e,&
-                   &  rl_start_e, rl_end_e)
-  DO jk = slev, elev
-    DO je = i_startidx_e, i_endidx_e
+        !Get indices of two adjacent triangles
+        il_c1 = p_patch%edges%cell_idx(je,jb,1)
+        ib_c1 = p_patch%edges%cell_blk(je,jb,1)
+        il_c2 = p_patch%edges%cell_idx(je,jb,2)
+        ib_c2 = p_patch%edges%cell_blk(je,jb,2)
 
-    IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
-
-      !Get indices of two adjacent triangles
-      il_c1 = p_patch%edges%cell_idx(je,jb,1)
-      ib_c1 = p_patch%edges%cell_blk(je,jb,1)
-      il_c2 = p_patch%edges%cell_idx(je,jb,2)
-      ib_c2 = p_patch%edges%cell_blk(je,jb,2)
-
-      z_grad_u(je,jk,jb)%x = p_param%K_veloc_h(je,jk,jb)   &
-        &                  *(p_diag%p_vn(il_c2,jk,ib_c2)%x &
-        &                  - p_diag%p_vn(il_c1,jk,ib_c1)%x)&
-        &                  / p_patch%edges%dual_edge_length(je,jb)
-    ELSE
-      z_grad_u(je,jk,jb)%x = 0.0_wp
-    ENDIF 
-    ENDDO
+        z_grad_u(je,jk,jb)%x = p_param%K_veloc_h(je,jk,jb)   &
+          &                  *(p_diag%p_vn(il_c2,jk,ib_c2)%x &
+          &                  - p_diag%p_vn(il_c1,jk,ib_c1)%x)&
+          &                  / p_patch%edges%dual_edge_length(je,jb)
+      ELSE
+        z_grad_u(je,jk,jb)%x = 0.0_wp
+      ENDIF 
+      ENDDO
+    END DO
   END DO
-END DO
+  DO idx_cartesian = 1,3
+    CALL sync_patch_array(SYNC_E, p_patch,z_grad_u(:,:,:)%x(idx_cartesian) )
+  END DO
+  
 
 
 !Step 2: Apply divergence to each component of mixing times gradient vector
