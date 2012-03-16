@@ -850,7 +850,7 @@ CONTAINS
   !! Modification by Stephan Lorenz, MPI-M (2010-08-05)
   !! - New boundary definition with inner and boundary points on land/sea
   !! 
-  !!  mpi parallelized LL. By default it calculates the dic on all cells
+  !!  mpi parallelized LL. By default it calculates the div on all cells
   !!    in case of an optional range sync has to be taken care in the calling method
   !!
   SUBROUTINE div_oce( vec_e, ptr_patch, div_vec_c, &
@@ -882,7 +882,6 @@ CONTAINS
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: jc, jk, jb, je
     INTEGER :: i_startidx, i_endidx, i_nchdom
-    INTEGER :: nlen, npromz_c, nblks_c
     TYPE(t_subset_range), POINTER :: all_cells
     
     INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
@@ -966,14 +965,12 @@ CONTAINS
     CASE (6) ! (cell_type == 6)
       
       ! no grid refinement in hexagonal model
-      nblks_c   = ptr_patch%nblks_int_c
-      npromz_c  = ptr_patch%npromz_int_c
       
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
         
-        div_vec_c(1:nlen,slev:elev,jb) = 0.0_wp
+        div_vec_c(:,slev:elev,jb) = 0.0_wp
         
         DO je = 1, ptr_patch%cell_type
           DO jk = slev, elev
@@ -1193,6 +1190,7 @@ CONTAINS
   !! in the calculation of the tangential velocity, which is only need at lateral boundaries. Mimetic
   !! does the tangential velocity calculate from velocity vector at vertices (p_vn_dual), while RBF uses
   !! a specific routine for that purpose.
+  !!  mpi note: the result is not synced. Should be done in the calling method if required
   !!
   SUBROUTINE rot_vertex_ocean( p_patch, vn, p_vn_dual, rot_vec_v)
     !>
@@ -1212,9 +1210,7 @@ CONTAINS
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: jv, jk, jb, jev
     INTEGER :: ile, ibe
-    INTEGER :: rl_start_e, rl_end_e
-    INTEGER :: i_startblk_v, i_endblk_v, i_startidx_v, i_endidx_v
-    INTEGER :: i_startblk_e, i_endblk_e!, i_startidx_e, i_endidx_e
+    INTEGER :: i_startidx_v, i_endidx_v
     !INTEGER :: i_bdr_ctr
     !INTEGER :: icell_idx_1, icell_blk_1
     !INTEGER :: icell_idx_2, icell_blk_2
@@ -1228,19 +1224,11 @@ CONTAINS
     !TYPE(t_cartesian_coordinates) :: vertex_cc!cell1_cc, cell2_cc
     !INTEGER,PARAMETER :: ino_dual_edges = 6
     
-    INTEGER,PARAMETER :: rl_start_v = 2
-    INTEGER,PARAMETER :: rl_end_v   = min_rlvert
+    TYPE(t_subset_range), POINTER :: verts_in_domain        
     !-----------------------------------------------------------------------
+    verts_in_domain => p_patch%verts%in_domain
     slev         = 1
     elev         = n_zlev
-    rl_start_e   = 1
-    rl_end_e     = min_rledge
-    
-    i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
-    i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
-    
-    i_startblk_v = p_patch%verts%start_blk(rl_start_v,1)
-    i_endblk_v   = p_patch%verts%end_blk(rl_end_v,1)
     
     ! #slo# due to nag -nan compiler-option
     i_v_ctr(:,:,:)          = 0
@@ -1253,10 +1241,8 @@ CONTAINS
     z_vort_tmp_boundary     = 0.0_wp
     
     !In this loop vorticity at vertices is calculated
-    DO jb = i_startblk_v, i_endblk_v
-      
-      CALL get_indices_v(p_patch, jb, i_startblk_v, i_endblk_v, &
-        & i_startidx_v, i_endidx_v, rl_start_v, rl_end_v)
+    DO jb = verts_in_domain%start_block, verts_in_domain%end_block
+      CALL get_index_range(verts_in_domain, jb, i_startidx_v, i_endidx_v)
       DO jk = slev, elev
         !!$OMP PARALLEL DO SCHEDULE(runtime) DEFAULT(PRIVATE)  &
         !!$OMP   SHARED(u_vec_e,v_vec_e,ptr_patch,rot_vec_v,jb) FIRSTPRIVATE(jk)

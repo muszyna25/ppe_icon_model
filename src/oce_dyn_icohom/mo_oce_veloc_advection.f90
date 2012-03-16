@@ -177,6 +177,7 @@ CONTAINS
   !!
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
+  !!  mpi parallelized LL
   !!
   SUBROUTINE veloc_adv_horz_mimetic_rot( p_patch,         &
     & vn_old,          &
@@ -495,10 +496,13 @@ CONTAINS
     REAL(wp) :: z_e  (nproma,n_zlev,p_patch%nblks_e)
     INTEGER :: il_c1, ib_c1, il_c2, ib_c2
     
-    
     TYPE(t_cartesian_coordinates) :: u_v_cc(nproma,n_zlev,p_patch%nblks_e)
+    
+    TYPE(t_subset_range), POINTER :: all_edges
     !-----------------------------------------------------------------------
     ! #slo# set local variable to zero due to nag -nan compiler-option
+    all_edges => p_patch%edges%all
+    
     z_e             (:,:,:) = 0.0_wp
     veloc_adv_horz_e(:,:,:) = 0.0_wp
     
@@ -516,9 +520,8 @@ CONTAINS
     elev = n_zlev
     
     !Add relative vorticity and gradient of kinetic energy to obtain complete horizontal advection
-    DO jb = i_startblk_e, i_endblk_e
-      CALL get_indices_e(p_patch, jb, i_startblk_e, i_endblk_e, &
-        & i_startidx_e, i_endidx_e, rl_start_e, rl_end_e)
+    DO jb = all_edges%start_block, all_edges%end_block
+      CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
       DO jk = slev, elev
         DO je = i_startidx_e, i_endidx_e
           IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
@@ -529,11 +532,11 @@ CONTAINS
             ib_c2 = p_patch%edges%vertex_blk(je,jb,2)
             
             !velocity vector at edges
-            u_v_cc(je,jk,jb)%x=0.5_wp*(p_diag%p_vn_dual(il_c1,jk,ib_c1)%x&
-              & +p_diag%p_vn_dual(il_c2,jk,ib_c2)%x)
+            u_v_cc(je,jk,jb)%x = 0.5_wp * (p_diag%p_vn_dual(il_c1,jk,ib_c1)%x + &
+              & p_diag%p_vn_dual(il_c2,jk,ib_c2)%x)
             
-            z_e(je,jk,jb)=vn(je,jk,jb)&
-              & *DOT_PRODUCT(u_v_cc(je,jk,jb)%x,p_patch%edges%primal_cart_normal(je,jb)%x)
+            z_e(je,jk,jb) = vn(je,jk,jb) * &
+              & DOT_PRODUCT(u_v_cc(je,jk,jb)%x, p_patch%edges%primal_cart_normal(je,jb)%x)
             
           ENDIF
         END DO
@@ -543,15 +546,14 @@ CONTAINS
     CALL div_oce( z_e, p_patch, veloc_adv_horz_e)
     !CALL div_oce_3D( z_e, p_patch, p_op_coeff%div_coeff, veloc_adv_horz_e )
     
-    DO jb = i_startblk_e, i_endblk_e
-      CALL get_indices_e(p_patch, jb, i_startblk_e, i_endblk_e, &
-        & i_startidx_e, i_endidx_e, rl_start_e, rl_end_e)
+    DO jb = all_edges%start_block, all_edges%end_block
+      CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
       DO jk = slev, elev
         DO je = i_startidx_e, i_endidx_e
           IF ( v_base%lsm_oce_e(je,jk,jb) > sea_boundary ) THEN
             veloc_adv_horz_e(je,jk,jb) = 0.0_wp
           ELSE
-            veloc_adv_horz_e(je,jk,jb)= veloc_adv_horz_e(je,jk,jb)&
+            veloc_adv_horz_e(je,jk,jb)= veloc_adv_horz_e(je,jk,jb) &
               & + DOT_PRODUCT(u_v_cc(je,jk,jb)%x,p_patch%edges%dual_cart_normal(je,jb)%x)&
               & *p_patch%edges%f_e(je,jb)
           ENDIF
@@ -566,6 +568,7 @@ CONTAINS
     !                         & p_diag%p_vn_dual,    &
     !                         & p_op_coeff%rot_coeff,&
     !                         & p_diag%vort)
+    CALL sync_patch_array(SYNC_V, p_patch, p_diag%vort)
     
   END SUBROUTINE veloc_adv_horz_mimetic_div
   !-------------------------------------------------------------------------
