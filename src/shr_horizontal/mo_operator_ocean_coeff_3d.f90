@@ -1726,8 +1726,8 @@ CONTAINS
               z_cell_edge_dist_c2(ie,1) = SQRT(SUM((cc_edge(ie)%x-xx1%x)*(cc_edge(ie)%x-xx1%x)))
               z_cell_edge_dist_c2(ie,2) = SQRT(SUM((cc_edge(ie)%x-xx2%x)*(cc_edge(ie)%x-xx2%x)))
             ENDIF
-            ptr_intp%dist_cell2edge(iil_c2(ie),jk,iib_c2(ie),1) = z_cell_edge_dist_c1(ie,1)
-            ptr_intp%dist_cell2edge(iil_c2(ie),jk,iib_c2(ie),2) = z_cell_edge_dist_c1(ie,2)
+            ptr_intp%dist_cell2edge(iil_c2(ie),jk,iib_c2(ie),1) = z_cell_edge_dist_c2(ie,1)
+            ptr_intp%dist_cell2edge(iil_c2(ie),jk,iib_c2(ie),2) = z_cell_edge_dist_c2(ie,2)
             
             z_vec_c2(ie)%x = cc_edge(ie)%x - cc_c2%x  !ptr_patch%edges%primal_cart_normal(iil_c2(ie),iib_c2(ie))
             norm           = SQRT(SUM( z_vec_c2(ie)%x* z_vec_c2(ie)%x))
