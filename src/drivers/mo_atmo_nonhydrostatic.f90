@@ -69,6 +69,8 @@ USE mo_grf_intp_data_strc,   ONLY: p_grf_state
 USE mo_atm_phy_nwp_config,   ONLY: configure_atm_phy_nwp, atm_phy_nwp_config
 ! NH-Model states
 USE mo_nonhydro_state,       ONLY: p_nh_state, construct_nh_state, destruct_nh_state
+USE mo_opt_diagnostics,      ONLY: p_nh_opt_diag, construct_opt_diag,          &
+  &                                destruct_opt_diag
 USE mo_nwp_phy_state,        ONLY: construct_nwp_phy_state,                    &
   &                                destruct_nwp_phy_state, prm_diag
 USE mo_nwp_lnd_state,        ONLY: p_lnd_state, construct_nwp_lnd_state,       &
@@ -80,14 +82,19 @@ USE mo_nh_stepping,          ONLY: prepare_nh_integration, perform_nh_stepping
 USE mo_prepicon_utils,      ONLY: init_prepicon, prepicon, copy_prepicon2prog, &
   &                               compute_coord_fields,  deallocate_prepicon
 USE mo_prepicon_config,     ONLY: i_oper_mode, l_sfc_in
-USE mo_nh_vert_interp,      ONLY: vertical_interpolation, intp_to_p_and_z_levels
+USE mo_nh_vert_interp,      ONLY: vertical_interpolation
 USE mo_ext_data,            ONLY: ext_data
 ! meteogram output
 USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize
 USE mo_meteogram_config,    ONLY: meteogram_output_config
+USE mo_name_list_output_config, ONLY: first_output_name_list
 USE mo_name_list_output,    ONLY: init_name_list_output,  &
   &                               write_name_list_output, &
   &                               close_name_list_output
+USE mo_nh_pzlev_config,     ONLY: nh_pzlev_config
+USE mo_var_list,            ONLY: nvar_lists, var_lists
+USE mo_pp_scheduler,        ONLY: t_simulation_status, new_simulation_status, &
+  &                               pp_scheduler_init, pp_scheduler_process, pp_scheduler_finalize
 
 !-------------------------------------------------------------------------
 
@@ -107,6 +114,7 @@ CONTAINS
     INTEGER :: jg, jfile, n_file, ist, n_diag, n_chkpt, ntl, ntlr
     LOGICAL :: l_have_output, l_realcase
     INTEGER :: pat_level(n_dom)
+    TYPE(t_simulation_status) :: simulation_status
 
     IF (timers_level > 3) CALL timer_start(timer_model_init)
 
@@ -115,7 +123,6 @@ CONTAINS
     ENDDO
 
     IF(iforcing == inwp) THEN
-
      CALL configure_atm_phy_nwp(n_dom, pat_level(:), ltestcase, dtime_adv )
     ENDIF
 
@@ -181,10 +188,11 @@ CONTAINS
     ! Now allocate memory for the states
     CALL construct_nh_state(p_patch(1:), p_nh_state, n_timelevels=2)
 
+    ! Add optional diagnostic variable lists (might remain empty)
+    CALL construct_opt_diag(p_patch(1:))
+
     IF(iforcing == inwp) THEN
-
       CALL construct_nwp_phy_state( p_patch(1:) )
-
     ENDIF
 
     CALL construct_nwp_lnd_state( p_patch(1:),p_lnd_state,n_timelevels=2 )
@@ -302,6 +310,12 @@ CONTAINS
 
     END IF
 
+    ! setup of post-processing job queue, e.g. setup of optional
+    ! diagnostic quantities like pz-level interpolation
+    CALL pp_scheduler_init(p_patch(1:), p_nh_state, prm_diag, p_nh_opt_diag, &
+      &                    nh_pzlev_config(:), first_output_name_list,   & 
+      &                    var_lists, nvar_lists )     
+
     ! If async IO is in effect, init_name_list_output is a collective call
     ! with the IO procs and effectively starts async IO
     CALL init_name_list_output
@@ -342,14 +356,15 @@ CONTAINS
 
       ENDDO
 
+      !--------------------------------------------------------------------------
+      ! loop over the list of internal post-processing tasks, e.g.
+      ! interpolate selected fields to p- and/or z-levels
+      simulation_status = new_simulation_status(l_first_step =.TRUE., l_output_step=.TRUE.)
+      CALL pp_scheduler_process(simulation_status)
+
       ! Note: here the derived output variables are not yet available
       ! (divergence, vorticity)
       !
-      ! Interpolate selected fields to p- and/or z-levels
-      IF (lwrite_pzlev) THEN
-        CALL intp_to_p_and_z_levels(p_patch(1:), prm_diag, p_nh_state)
-      ENDIF
-
       CALL write_output( time_config%cur_datetime )
       l_have_output = .TRUE.
       CALL write_name_list_output( time_config%cur_datetime, 0._wp, .FALSE. )
@@ -365,7 +380,7 @@ CONTAINS
     !------------------------------------------------------------------
 
     CALL perform_nh_stepping( p_patch, p_int_state, p_grf_state, p_nh_state, &
-      &                       time_config%cur_datetime,                      &
+      &                       time_config%cur_datetime,       &
       &                       n_file, jfile, n_chkpt, n_diag, l_have_output  )
  
     IF (ltimer) CALL print_timer
@@ -375,6 +390,12 @@ CONTAINS
     !---------------------------------------------------------------------
 
     CALL message(TRIM(routine),'start to clean up')
+
+    ! Destruction of post-processing job queue
+    CALL pp_scheduler_finalize()
+
+    ! Delete optional diagnostics
+    CALL destruct_opt_diag()
    
     ! Delete state variables
 

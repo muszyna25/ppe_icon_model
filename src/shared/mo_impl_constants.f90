@@ -418,5 +418,35 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: div_geometric = 1  ! Geometric subdivision
   INTEGER, PARAMETER :: div_metis     = 2  ! Use Metis
 
+  !--------------------------!
+  !  VERTICAL INTERPOLATION  !
+  !--------------------------!
+
+  !-----  vertical interpolation: type of interpolation
+  INTEGER, PARAMETER :: VINTP_TYPE_NONE    = 0
+  INTEGER, PARAMETER :: VINTP_TYPE_Z       = 1
+  INTEGER, PARAMETER :: VINTP_TYPE_P       = 2
+  INTEGER, PARAMETER :: VINTP_TYPE_P_OR_Z  = 3
+  !-----  vertical interpolation algorithms
+  INTEGER, PARAMETER :: VINTP_METHOD_UV    = 1
+  INTEGER, PARAMETER :: VINTP_METHOD_LIN   = 2
+  INTEGER, PARAMETER :: VINTP_METHOD_QV    = 3
+  INTEGER, PARAMETER :: VINTP_METHOD_PRES  = 4
+
+  !----------------!
+  !  MODEL OUTPUT  !
+  !----------------!
+
+  INTEGER, PARAMETER :: &
+    max_var_lists  = 128, & ! max number of output var_lists
+    MAX_NVARS      = 999, & ! maximum number of output variables (total)
+    max_var_ml     = 100, & ! maximum number of output model-level variables
+    max_var_pl     = 100, & ! maximum number of pressure-level variables
+    max_var_hl     = 100, & ! maximum number of height-level variables
+    max_bounds     = 100, & ! maximum number of output_bounds
+    max_levels     = 100, & ! maximum number of pressure/height levels
+    vname_len      =  32    ! variable name length in I/O namelists
+
+
 !--------------------------------------------------------------------
 END MODULE mo_impl_constants

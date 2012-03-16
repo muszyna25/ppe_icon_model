@@ -56,7 +56,6 @@ MODULE mo_nonhydro_types
 
   PUBLIC :: t_nh_prog             ! state vector of prognostic variables (type)
   PUBLIC :: t_nh_diag             ! state vector of diagnostic variables (type)
-  PUBLIC :: t_nh_diag_pz          ! state vector of diagnostic variables (type)
                                   ! on p- and/or z-levels
   PUBLIC :: t_nh_metrics          ! state vector of metrics variables (type)
   PUBLIC :: t_nh_state            ! state vector of nonhydrostatic variables (type)
@@ -211,28 +210,6 @@ MODULE mo_nonhydro_types
     TYPE(t_ptr_nh),ALLOCATABLE :: tracer_vi_avg_ptr(:)  !< pointer array: one pointer for each tracer
 
   END TYPE t_nh_diag
-
-
-  ! state vector for diagnostic variables on p- and/or z-levels
-  TYPE t_nh_diag_pz
-    REAL(wp), POINTER ::    &
-      &  u(:,:,:),          & ! zonal wind (nproma,nlev,nblks_c)           [m/s]
-      &  v(:,:,:),          & ! meridional wind (nproma,nlev,nblks_c)      [m/s]
-      &  temp(:,:,:),       & ! temperature (nproma,nlev,nblks_c)          [K]
-      &  tempv(:,:,:),      & ! virtual temperature (nproma,nlev,nblks_c)  [K]
-      &  pres(:,:,:),       & ! pressure (nproma,nlev,nblks_c)             [Pa]
-      &  tracer(:,:,:,:),   & ! tracer concentration (i.e. prognostic cloud 
-                              ! variables) (nproma,nlev,nblks_c,ntracer)   [kg/kg]
-      &  tot_cld(:,:,:,:),  & ! total cloud variables (cc,qv,qc,qi)        [kg/kg]
-      &  geopot(:,:,:)        ! geopotential (nproma,nlev,nblks_c)         [m2/s2]
-
-    TYPE(t_ptr_nh),ALLOCATABLE :: &  !< pointer array: one pointer for each tracer
-      &  tracer_ptr(:)
-    TYPE(t_ptr_nh),ALLOCATABLE :: &  !< pointer array: one pointer for each cloud variable
-      &  tot_ptr(:)
-
-  END TYPE t_nh_diag_pz
-
 
 
   TYPE t_nh_metrics
@@ -406,9 +383,6 @@ MODULE mo_nonhydro_types
 
     TYPE(t_nh_diag)    :: diag
     TYPE(t_var_list)   :: diag_list
-
-    TYPE(t_nh_diag_pz) :: diag_p, diag_z
-    TYPE(t_var_list)   :: diag_p_list, diag_z_list
 
     TYPE(t_nh_metrics) :: metrics
     TYPE(t_var_list)   :: metrics_list

@@ -15,7 +15,8 @@ MODULE mo_name_list_output
 #endif
 
   USE mo_kind,                  ONLY: wp, i8
-  USE mo_impl_constants,        ONLY: max_phys_dom, ihs_ocean, zml_soil
+  USE mo_impl_constants,        ONLY: max_phys_dom, ihs_ocean, zml_soil, MAX_NVARS, &
+    &                                 vname_len, max_dom
   USE mo_grid_config,           ONLY: n_dom, n_phys_dom, global_cell_type
   USE mo_cdi_constants          ! We need all
   USE mo_io_units,              ONLY: filename_max, nnml, nnml_output, find_next_free_unit
@@ -24,7 +25,8 @@ MODULE mo_name_list_output
   USE mo_var_metadata,          ONLY: t_var_metadata
   USE mo_linked_list            ! we need all
   USE mo_var_list,              ONLY: t_var_list, nvar_lists, max_var_lists, var_lists, &
-                                      new_var_list
+                                      new_var_list, get_all_var_names
+  USE mo_var_list_element,      ONLY: level_type_ml, level_type_pl, level_type_hl
   ! MPI Communication routines
   USE mo_mpi,                   ONLY: p_send, p_recv, p_bcast, p_barrier, p_stop
   ! MPI Communicators
@@ -88,6 +90,9 @@ MODULE mo_name_list_output
   &                                     t_output_file,           &
   &                                     is_output_nml_active,    &
   &                                     is_output_file_active
+  ! meteogram output
+  USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize, meteogram_flush_file
+  USE mo_meteogram_config,    ONLY: meteogram_output_config
 
 
   IMPLICIT NONE
@@ -173,7 +178,7 @@ MODULE mo_name_list_output
   ! "loutput=.TRUE."
   INTEGER :: n_allvars
 
-  CHARACTER(LEN=31), ALLOCATABLE :: all_varlist(:)
+  CHARACTER(LEN=vname_len) :: all_varlist(MAX_NVARS)
 
   !------------------------------------------------------------------------------------------------
   ! Currently, we use only 1 MPI window for all output files
@@ -371,6 +376,14 @@ CONTAINS
         p_onl => p_onl%next
       ENDIF
 
+      ! consistency check
+      IF (output_grid .AND. (filetype == FILETYPE_GRB2)) THEN
+        WRITE(message_text,*) &
+          & 'WARNING: Output file type does not support grid output! => output_grid := .FALSE.'
+        CALL message(TRIM(routine), TRIM(message_text))
+        output_grid = .FALSE.
+      END IF
+
       ! Set next output_name_list from values read
 
       p_onl%filetype         = filetype
@@ -447,7 +460,6 @@ CONTAINS
 
     IF(ASSOCIATED(first_output_name_list)) name_list_output_active = .TRUE.
 
-
   END SUBROUTINE read_name_list_output_namelists
 
   !------------------------------------------------------------------------------------------------
@@ -462,8 +474,9 @@ CONTAINS
     LOGICAL, PARAMETER :: l_print_list = .FALSE.
 
     INTEGER :: i, j, nfiles, i_typ, i_dom, nvl, vl_list(max_var_lists), &
-      &        idx, ierr, ivar, l1, tl
+      &        idx, ivar, l1, tl
     CHARACTER(LEN=2) :: lev_type
+    INTEGER          :: ilev_type
     TYPE (t_output_name_list), POINTER :: p_onl
     TYPE (t_output_file), POINTER :: p_of
     TYPE(t_list_element), POINTER :: element
@@ -608,9 +621,9 @@ CONTAINS
           p_of => output_file(nfiles)
 
           SELECT CASE(i_typ)
-            CASE(1); lev_type = 'ML'
-            CASE(2); lev_type = 'PL'
-            CASE(3); lev_type = 'HL'
+            CASE(1); lev_type = 'ML'; ilev_type=level_type_ml
+            CASE(2); lev_type = 'PL'; ilev_type=level_type_pl
+            CASE(3); lev_type = 'HL'; ilev_type=level_type_hl
           END SELECT
 
           ! Set prefix of output_file name
@@ -640,51 +653,10 @@ CONTAINS
 
           ENDDO
 
-          ! count the total number of variables tagged with
-          ! "loutput=.TRUE.", build a total varlist
-          n_allvars = 0
-          DO l1 = 1, nvl
-            element => var_lists(vl_list(l1))%p%first_list_element
-            DO
-              IF (.NOT. ASSOCIATED(element)) EXIT
-              IF (element%field%info%loutput) n_allvars = n_allvars + 1
-              element => element%next_list_element
-            ENDDO
-          ENDDO ! l1 = 1, nvar_lists
-          
-          ALLOCATE(all_varlist(MAX(1, n_allvars)), STAT=ierr)
-          IF (ierr /= 0) CALL finish(routine, 'ALLOCATE error!')
-          IF (n_allvars == 0) THEN
-            all_varlist(1) = ' '
-            p_of%num_vars  = 0
-          ELSE
-            ivar = 1
-            DO l1 = 1, nvl
-              element => var_lists(vl_list(l1))%p%first_list_element
-              DO
-                IF (.NOT. ASSOCIATED(element)) EXIT
-                IF (element%field%info%loutput) THEN
-                  idx = INDEX(element%field%info%name,'.TL')
-                  IF(idx == 0) THEN
-                    all_varlist(ivar) = element%field%info%name
-                    ivar = ivar + 1
-                  ELSE
-                    ! Get time level
-                    tl = ICHAR(element%field%info%name(idx+3:idx+3)) - ICHAR('0')
-                    IF(tl<=0 .OR. tl>max_time_levels) &
-                      CALL finish(routine, 'Illegal time level')
-                    ! Add only the first time level to avoid duplicates:
-                    IF (tl == 1) THEN
-                      all_varlist(ivar) = element%field%info%name(1:idx-1)
-                      ivar = ivar + 1
-                    END IF
-                  END IF
-                END IF ! element%field%info%loutput
-                element => element%next_list_element
-              END DO
-            END DO ! l1 = 1, nvl
-            n_allvars = ivar - 1
-          END IF
+          ! build a total varlist of variables tagged with
+          ! "loutput=.TRUE."
+          CALL get_all_var_names(all_varlist, n_allvars, opt_loutput=.TRUE., &
+            &       opt_level_type=ilev_type, opt_patch_id=patch_info(i_dom)%log_patch_id)
 
           SELECT CASE(i_typ)
             CASE(1)
@@ -712,9 +684,6 @@ CONTAINS
                 CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%hl_varlist)
               END IF
           END SELECT
-
-          DEALLOCATE(all_varlist, STAT=ierr)
-          IF (ierr /= 0) CALL finish(routine, 'DEALLOCATE error!')
 
         ENDDO
 
@@ -1599,7 +1568,6 @@ CONTAINS
     ALLOCATE(clon(i_nc))
     CALL nf(nf_get_var_double(ncid, varid, clon))
     CALL reorder1(patch_info(i_dom)%cells%n_glb, patch_info(i_dom)%cells%log_dom_index, clon)
-
     CALL gridDefXvals(of%cdiCellGridID, clon)
     DEALLOCATE(clon)
 
@@ -1973,7 +1941,6 @@ CONTAINS
     INTEGER, INTENT(IN) :: jfile ! Number of file set to open
 
     CHARACTER(LEN=16) :: extn
-
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/open_output_file'
 
     ! Please note that this routine is only executed on one processor (for a specific file)
@@ -2031,13 +1998,22 @@ CONTAINS
     !
     ! Close all name_list files
     !
-    INTEGER :: i
+    INTEGER :: i, jg
 
 
 #ifndef NOMPI
     IF(use_async_name_list_io.AND..NOT.my_process_is_io().AND..NOT.my_process_is_mpi_test()) THEN
+
+      ! write recent samples of meteogram output
+      DO jg = 1, n_dom
+        IF (meteogram_output_config(jg)%lenabled) THEN
+          CALL meteogram_flush_file(jg)
+        END IF
+      END DO
+
       CALL compute_wait_for_async_io()
       CALL compute_shutdown_async_io()
+
     ELSE
 #endif
       DO i = 1, SIZE(output_file)
@@ -2115,7 +2091,7 @@ CONTAINS
     REAL(wp), INTENT(in)         :: sim_time
     LOGICAL, INTENT(IN)          :: last_step
 
-    INTEGER :: i, idate, itime, iret, n
+    INTEGER :: i, idate, itime, iret, n, jg
     TYPE(t_output_name_list), POINTER :: p_onl
     CHARACTER(LEN=filename_max+100) :: text
     REAL(wp), PARAMETER :: eps = 1.d-10 ! Tolerance for checking output bounds
@@ -2130,8 +2106,15 @@ CONTAINS
 
 #ifndef NOMPI
     IF(use_async_name_list_io) THEN
-      IF(.NOT.my_process_is_io().AND..NOT.my_process_is_mpi_test()) &
+      IF(.NOT.my_process_is_io().AND..NOT.my_process_is_mpi_test()) THEN
+        ! write recent samples of meteogram output
+        DO jg = 1, n_dom
+          IF (meteogram_output_config(jg)%lenabled) THEN
+            CALL meteogram_flush_file(jg)
+          END IF
+        END DO
         CALL compute_wait_for_async_io()
+      END IF
     ENDIF
 #endif
 
@@ -2401,7 +2384,6 @@ CONTAINS
         ENDIF
 
         ! Gather data on root
-
         IF(my_process_is_mpi_seq()) THEN
           DO jk = 1, nlevs
             DO i = 1, n_points
@@ -2652,7 +2634,7 @@ CONTAINS
     LOGICAL :: done, last_step
     TYPE(t_datetime) :: datetime
     REAL(wp) :: sim_time
-!!    INTEGER :: jg
+    INTEGER :: jg
 
 
     print '(a,i0)','============================================ Hello from I/O PE ',p_pe
@@ -2665,12 +2647,12 @@ CONTAINS
       STOP
     ENDIF
 
-!!    ! setup of meteogram output
-!!    DO jg =1,n_dom
-!!      IF (meteogram_output_config(jg)%lenabled) THEN
-!!        CALL meteogram_init(meteogram_output_config(jg), jg)
-!!      END IF
-!!    END DO
+    ! setup of meteogram output
+    DO jg =1,n_dom
+      IF (meteogram_output_config(jg)%lenabled) THEN
+        CALL meteogram_init(meteogram_output_config(jg), jg)
+      END IF
+    END DO
 
     ! Initialize name list output, this is a collective call for all PEs
 
@@ -2680,10 +2662,17 @@ CONTAINS
 
     CALL async_io_send_ready_message
 
+    ! write recent samples of meteogram output
+    DO jg = 1, n_dom
+      IF (meteogram_output_config(jg)%lenabled) THEN
+        CALL meteogram_flush_file(jg)
+      END IF
+    END DO
+
     ! Enter I/O loop
 
     DO
-
+      
       ! Wait for a message from the compute PEs to start
       CALL async_io_wait_for_start(done, datetime, sim_time, last_step)
 
@@ -2692,15 +2681,15 @@ CONTAINS
       ! perform I/O
       CALL write_name_list_output(datetime, sim_time, last_step)
 
-!!      ! write recent samples of meteogram output
-!!      DO jg = 1, n_dom
-!!        IF (meteogram_output_config(jg)%lenabled) THEN
-!!          CALL meteogram_flush_file(jg)
-!!        END IF
-!!      END DO
-
       ! Inform compute PEs that we are done
       CALL async_io_send_ready_message
+
+      ! write recent samples of meteogram output
+      DO jg = 1, n_dom
+        IF (meteogram_output_config(jg)%lenabled) THEN
+          CALL meteogram_flush_file(jg)
+        END IF
+      END DO
 
     ENDDO
 
@@ -2709,15 +2698,15 @@ CONTAINS
     print '(a,i0,a)','============================================ I/O PE ',p_pe,' shutting down'
     CALL close_name_list_output
 
-!!    ! finalize meteogram output
-!!    DO jg = 1, n_dom
-!!      IF (meteogram_output_config(jg)%lenabled) THEN
-!!        CALL meteogram_finalize(jg)
-!!      END IF
-!!    END DO
-!!    DO jg = 1, max_dom
-!!      DEALLOCATE(meteogram_output_config(jg)%station_list)
-!!    END DO
+    ! finalize meteogram output
+    DO jg = 1, n_dom
+      IF (meteogram_output_config(jg)%lenabled) THEN
+        CALL meteogram_finalize(jg)
+      END IF
+    END DO
+    DO jg = 1, max_dom
+      DEALLOCATE(meteogram_output_config(jg)%station_list)
+    END DO
 
     ! Shut down MPI
     !

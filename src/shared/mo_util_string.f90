@@ -59,6 +59,7 @@ MODULE mo_util_string
   PUBLIC :: with_keywords     ! subroutine for keyword substitution
   PUBLIC :: MAX_STRING_LEN
   PUBLIC :: remove_duplicates
+  PUBLIC :: difference
 
   !
   PUBLIC :: normal, bold
@@ -476,6 +477,46 @@ CONTAINS
       str_list(iwrite) = ' '
     END DO
   END SUBROUTINE remove_duplicates
+
+
+  !==============================================================================
+  !+ Remove entries from a list of strings which occur in a second list.
+  !
+  ! @note This is a very crude implementation, quadratic complexity.
+  !
+  SUBROUTINE difference(str_list1, nitems1, str_list2, nitems2)
+    CHARACTER(len=*),          INTENT(INOUT) :: str_list1(:)
+    INTEGER,                   INTENT(INOUT) :: nitems1
+    CHARACTER(len=*),          INTENT(IN)    :: str_list2(:)
+    INTEGER,                   INTENT(IN)    :: nitems2
+    ! local variables
+    INTEGER :: iwrite, iread, nitems_old, i
+    LOGICAL :: l_duplicate
+    
+    nitems_old = nitems1
+    
+    iwrite = 1
+    DO iread=1,nitems1
+      ! check if item is in string list 2:
+      l_duplicate = .FALSE.
+      CHECK_LOOP : DO i=1,nitems2
+        IF (TRIM(str_list2(i)) == TRIM(str_list1(iread))) THEN
+          l_duplicate = .TRUE.
+          EXIT CHECK_LOOP
+        END IF
+      END DO CHECK_LOOP
+      IF (.NOT. l_duplicate) THEN
+        str_list1(iwrite) = str_list1(iread)
+        iwrite = iwrite + 1
+      END IF
+    END DO
+    nitems1 = iwrite-1
+    
+    ! clear the rest of the list
+    DO iwrite=(nitems1+1),nitems_old
+      str_list1(iwrite) = ' '
+    END DO
+  END SUBROUTINE difference
 
 
   !==============================================================================

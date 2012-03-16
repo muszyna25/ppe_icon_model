@@ -108,7 +108,6 @@ MODULE mo_nh_stepping
   USE mo_solve_nh_async,      ONLY: solve_nh_ahc
   USE mo_advection_stepping,  ONLY: step_advection
   USE mo_nh_dtp_interface,    ONLY: prepare_tracer
-  USE mo_nh_vert_interp,      ONLY: intp_to_p_and_z_levels
   USE mo_nh_diffusion,        ONLY: diffusion_tria, diffusion_hex
   USE mo_mpi,                 ONLY: my_process_is_stdio, my_process_is_mpi_parallel
 #ifdef NOMPI
@@ -136,6 +135,8 @@ MODULE mo_nh_stepping
   USE mo_name_list_output_config,  ONLY: is_any_output_file_active
   USE mo_name_list_output,    ONLY: write_name_list_output, istime4name_list_output, &
     &                               output_file
+  USE mo_pp_scheduler,        ONLY: t_simulation_status, new_simulation_status, &
+    &                               pp_scheduler_process
 
 
   IMPLICIT NONE
@@ -287,8 +288,8 @@ MODULE mo_nh_stepping
   INTEGER, INTENT(INOUT)                       :: jfile
   LOGICAL, INTENT(INOUT) :: l_have_output
 
-  TYPE(t_nh_state), TARGET, INTENT(INOUT):: p_nh_state(n_dom)
-  TYPE(t_datetime), INTENT(INOUT)      :: datetime
+  TYPE(t_nh_state),    TARGET, INTENT(INOUT) :: p_nh_state(n_dom)
+  TYPE(t_datetime), INTENT(INOUT)            :: datetime
 
   INTEGER                              :: jg
 
@@ -372,7 +373,6 @@ MODULE mo_nh_stepping
                               l_have_output )
   ENDIF
 
-
   CALL deallocate_nh_stepping ()
 
 
@@ -402,7 +402,7 @@ MODULE mo_nh_stepping
   INTEGER, INTENT(INOUT)                       :: jfile
   LOGICAL, INTENT(INOUT) :: l_have_output
 
-  TYPE(t_nh_state), TARGET, INTENT(INOUT):: p_nh_state(n_dom)
+  TYPE(t_nh_state),    TARGET, INTENT(INOUT) :: p_nh_state(n_dom)
   TYPE(t_datetime), INTENT(INOUT)      :: datetime
 
   INTEGER                              :: jstep, jb, nlen, jg
@@ -412,6 +412,7 @@ MODULE mo_nh_stepping
   REAL(wp), DIMENSION(:,:,:), POINTER  :: p_vn, p_w
   INTEGER                              :: ierr, i_nchdom
   LOGICAL                              :: l_compute_diagnostic_quants
+  TYPE(t_simulation_status)            :: simulation_status
 
 !$  INTEGER omp_get_num_threads
 !-----------------------------------------------------------------------
@@ -514,14 +515,18 @@ MODULE mo_nh_stepping
       &               1, jstep, dtime, dtime_adv, sim_time, 1,                 &
       &               l_compute_diagnostic_quants                              )
 
+
+    !--------------------------------------------------------------------------
+    ! loop over the list of internal post-processing tasks, e.g.
+    ! interpolate selected fields to p- and/or z-levels
+    simulation_status = new_simulation_status(l_output_step=l_outputtime, &
+      &                                       l_last_step=(jstep==nsteps))
+    CALL pp_scheduler_process(simulation_status)
+
+
     ! output of results
     ! note: nnew has been replaced by nnow here because the update
     IF (l_outputtime) THEN
-      ! Interpolate selected fields to p- and/or z-levels
-      IF (lwrite_pzlev) THEN
-        CALL intp_to_p_and_z_levels(p_patch(1:), prm_diag, p_nh_state)
-      ENDIF
-
       ! Special treatment of vertex-based vorticity field: If desired,
       ! interpolate vorticity onto cell grid:
       DO jg = 1, n_dom

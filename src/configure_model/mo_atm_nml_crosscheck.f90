@@ -61,7 +61,7 @@ MODULE mo_nml_crosscheck
     &                              inextra_3d, lwrite_cloud, lwrite_extra,    &
     &                              lwrite_omega, lwrite_precip, lwrite_pres,  &
     &                              lwrite_radiation,lwrite_surface,lwrite_tend_phy,& 
-    &                              lwrite_tke,lwrite_z3, no_output
+    &                              lwrite_tke,lwrite_z3, no_output, lwrite_pzlev
   USE mo_parallel_config,    ONLY: check_parallel_configuration,              &
     &                              num_io_procs
   USE mo_run_config,         ONLY: lrestore_states, nsteps, dtime, iforcing,  &
@@ -839,12 +839,22 @@ CONTAINS
       WRITE (message_text,*) &
         & "warning: namelist parameter 'activate_sync_timers' has been set to .FALSE., ", &
         & "because global 'ltimer' flag is disabled."
+      CALL message('io_namelist', TRIM(message_text))
     END IF
     IF (timers_level > 9 .AND. .NOT. activate_sync_timers) THEN
       activate_sync_timers = .TRUE.
       WRITE (message_text,*) &
         & "warning: namelist parameter 'activate_sync_timers' has been set to .TRUE., ", &
         & "because global 'timers_level' is > 9."
+      CALL message('io_namelist', TRIM(message_text))
+    END IF
+
+    !---------------------------------------------------------------
+    ! interpolation onto pz-levels has been removed from the "old"
+    ! vlist I/O
+    IF ((.NOT. no_output) .AND. lwrite_pzlev) THEN
+      CALL finish('io_namelist', &
+        &         "Interpolation onto pz-levels has been removed from the 'old' vlist I/O)")
     END IF
 
     !---------------------------------------------------------------

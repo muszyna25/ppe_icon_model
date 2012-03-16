@@ -45,7 +45,9 @@ MODULE mo_name_list_output_config
 
   USE mo_kind,                  ONLY: wp, i8
   USE mo_io_units,              ONLY: filename_max
-  USE mo_impl_constants,        ONLY: max_phys_dom
+  USE mo_impl_constants,        ONLY: max_phys_dom, max_bounds,          &
+    &                                 vname_len, max_var_ml, max_var_pl, &
+    &                                 max_var_hl, max_levels
   USE mo_cdi_constants,         ONLY: FILETYPE_GRB, FILETYPE_GRB2
   USE mo_var_metadata,          ONLY: t_var_metadata
   USE mo_math_utilities,        ONLY: t_lon_lat_grid
@@ -77,14 +79,6 @@ MODULE mo_name_list_output_config
   ! or logical patches.
 
   LOGICAL, PARAMETER :: l_output_phys_patch = .TRUE.
-
-  INTEGER, PARAMETER :: &
-    max_var_ml = 100, & ! maximum number of output model-level variables
-    max_var_pl = 100, & ! maximum number of pressure-level variables
-    max_var_hl = 100, & ! maximum number of height-level variables
-    max_bounds = 100, & ! maximum number of output_bounds
-    max_levels = 100, & ! maximum number of pressure/height levels
-    vname_len  =  32    ! variable name length in I/O namelists
 
   TYPE t_output_name_list
 
@@ -281,7 +275,7 @@ CONTAINS
   !! @author  F. Prill, DWD
   FUNCTION is_any_output_file_active(of_list, sim_time, dtime, &
     &                                iadv_rcf, last_step, idom, var_name) RESULT(retval)
-    LOGICAL                           :: retval
+    LOGICAL  :: retval
 
     TYPE(t_output_file), TARGET               :: of_list(:) !< list of output files
     REAL(wp),            INTENT(IN)           :: sim_time   !< elapsed simulation time

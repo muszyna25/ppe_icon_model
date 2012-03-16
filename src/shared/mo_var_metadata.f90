@@ -1,6 +1,6 @@
 MODULE mo_var_metadata
 
-  USE mo_kind,          ONLY: dp
+  USE mo_kind,          ONLY: dp, wp
   USE mo_grib1,         ONLY: t_grib1_var
   USE mo_grib2,         ONLY: t_grib2_var
   USE mo_cf_convention, ONLY: t_cf_var
@@ -31,7 +31,20 @@ MODULE mo_var_metadata
     !
   END TYPE t_tracer_meta
 
- 
+
+  !> data specific for pz-level interpolation.
+  TYPE t_vert_interp_meta
+    INTEGER                            :: &
+      &  vert_intp_type, vert_intp_method
+    LOGICAL                            :: &
+      &  l_hires_intp, l_restore_fricred, l_loglin, &
+      &  l_extrapol, l_satlimit, l_restore_pbldev,  &
+      &  l_pd_limit, l_restore_sfcinv, l_hires_corr
+    REAL(wp)                           :: &
+      &  lower_limit, extrapol_dist
+  END TYPE t_vert_interp_meta
+
+
   TYPE t_var_metadata
     !
     INTEGER            :: key                   ! hash value of name
@@ -76,6 +89,13 @@ MODULE mo_var_metadata
     !
     TYPE(t_tracer_meta):: tracer                ! metadata for tracer fields
     !
+    ! Metadata for vertical interpolation
+    !
+    ! Note that setting these parameters to non-default values does
+    ! not mean that vertical interpolation is actually performed for
+    ! this variables (this is controlled by namelist settings) but
+    ! only that this is possible!
+    TYPE(t_vert_interp_meta) :: vert_interp 
   END TYPE t_var_metadata
 
 
@@ -83,5 +103,6 @@ MODULE mo_var_metadata
   PUBLIC :: t_union_vals
   PUBLIC :: t_var_metadata
   PUBLIC :: t_tracer_meta
+  PUBLIC :: t_vert_interp_meta
 
 END MODULE mo_var_metadata

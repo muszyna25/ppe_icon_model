@@ -11,7 +11,7 @@ MODULE mo_linked_list
   !
   USE mo_kind,             ONLY: i8
   USE mo_exception,        ONLY: finish, message
-  USE mo_var_list_element, ONLY: t_var_list_element
+  USE mo_var_list_element, ONLY: t_var_list_element, level_type_ml
   USE mo_util_hash,        ONLY: util_hashword
   !
   IMPLICIT NONE
@@ -136,7 +136,7 @@ CONTAINS
     this_list%p%output_opened      = .FALSE.
     this_list%p%model_type         = 'atm'
     this_list%p%patch_id           = -1
-    this_list%p%level_type         =  1 ! Default is model levels
+    this_list%p%level_type         =  level_type_ml ! Default is model levels
     !
     this_list%p%cdiFileID_restart  = -1
     this_list%p%cdiFileID_output   = -1

@@ -65,7 +65,9 @@ MODULE mo_nwp_phy_state
 ! !USES:
 
 USE mo_kind,                ONLY: wp
-USE mo_impl_constants,      ONLY: success, max_char_length
+USE mo_impl_constants,      ONLY: success, max_char_length,           &
+  &                               VINTP_METHOD_UV, VINTP_TYPE_P_OR_Z, &
+&                                 VINTP_METHOD_LIN,VINTP_METHOD_QV
 USE mo_parallel_config,     ONLY: nproma
 USE mo_run_config,          ONLY: ntracer, nqtendphy
 USE mo_exception,           ONLY: message, finish !,message_text
@@ -75,9 +77,9 @@ USE mo_icoham_sfc_indices,  ONLY: nsfc_type
 USE mo_linked_list,         ONLY: t_var_list
 USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
 USE mo_var_list,            ONLY: default_var_list_settings, &
-                                & add_var, add_ref,          &
-                                & new_var_list,              &
-                                & delete_var_list
+  &                               add_var, add_ref, new_var_list, delete_var_list, &
+  &                               create_tracer_metadata, add_var_list_reference,  &
+  &                               create_vert_interp_metadata
 USE mo_nwp_parameters,      ONLY: t_phy_params
 USE mo_cf_convention,       ONLY: t_cf_var
 USE mo_grib2,               ONLY: t_grib2_var
@@ -736,40 +738,56 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
    ! &      diag%tot_cld(nproma,nlev,nblks_c,4)
     cf_desc    = t_cf_var('tot_cld', ' ','total cloud variables (cc,qv,qc,qi)')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( diag_list, 'tot_cld', diag%tot_cld,                       &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,&
-                & ldims=(/nproma,klev,kblks,4/)    ,&
-                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,  &
-                & initval_r=0.0_wp)
-
+    CALL add_var( diag_list, 'tot_cld', diag%tot_cld,                           &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
+                & ldims=(/nproma,klev,kblks,4/) ,                               &
+                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.,         &
+                & initval_r=0.0_wp )
 
     ALLOCATE( diag%tot_ptr(kcloud))
     vname_prefix='tot_'
 
            !CC
-        CALL add_ref( diag_list, 'tot_cld',                                         &
-                    & TRIM(vname_prefix)//'cc', diag%tot_ptr(1)%p_3d,               &
-                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                         &
-                    & t_cf_var(TRIM(vname_prefix)//'cc', '','total_cloud_cover'),   &
-                    & t_grib2_var(0, 6, 22, ientr, GRID_REFERENCE, GRID_CELL), &
-                    & ldims=shape3d)
+        CALL add_ref( diag_list, 'tot_cld',                                            &
+                    & TRIM(vname_prefix)//'cc', diag%tot_ptr(1)%p_3d,                  &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                            &
+                    & t_cf_var(TRIM(vname_prefix)//'cc', '','total_cloud_cover'),      &
+                    & t_grib2_var(0, 6, 22, ientr, GRID_REFERENCE, GRID_CELL),         &
+                    & ldims=shape3d,                                                   &
+                    & vert_interp=create_vert_interp_metadata(                         &
+                    &             vert_intp_type=VINTP_TYPE_P_OR_Z,                    &
+                    &             vert_intp_method=VINTP_METHOD_LIN,                   &
+                    &             l_loglin=.FALSE.,                                    &
+                    &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,               &
+                    &             lower_limit=0._wp ) )
 
            !QV
         CALL add_ref( diag_list, 'tot_cld',                                            &
                     & TRIM(vname_prefix)//'qv', diag%tot_ptr(2)%p_3d,                  &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                            &
                     & t_cf_var(TRIM(vname_prefix)//'qv', '','total_specific_humidity'),&
-                    & t_grib2_var( 0, 1, 0, ientr, GRID_REFERENCE, GRID_CELL), &
-                    & ldims=shape3d)
+                    & t_grib2_var( 0, 1, 0, ientr, GRID_REFERENCE, GRID_CELL),         &
+                    & ldims=shape3d,                                                   &
+                    & vert_interp=create_vert_interp_metadata(                         &
+                    &             vert_intp_type=VINTP_TYPE_P_OR_Z,                    &
+                    &             vert_intp_method=VINTP_METHOD_QV,                    &
+                    &             l_satlimit=.FALSE.,                                  & 
+                    &             lower_limit=2.5e-6_wp, l_restore_pbldev=.FALSE. ) )
 
            !QC
-        CALL add_ref( diag_list, 'tot_cld',                                         &
-                    & TRIM(vname_prefix)//'qc', diag%tot_ptr(3)%p_3d,               &
-                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                         &
-                    & t_cf_var(TRIM(vname_prefix)//'qc', '',                        &
-                    & 'total_specific_cloud_water_content'),                        &
-                    & t_grib2_var(0, 6, 6, ientr, GRID_REFERENCE, GRID_CELL), &
-                    & ldims=shape3d)
+        CALL add_ref( diag_list, 'tot_cld',                                            &
+                    & TRIM(vname_prefix)//'qc', diag%tot_ptr(3)%p_3d,                  &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                            &
+                    & t_cf_var(TRIM(vname_prefix)//'qc', '',                           &
+                    & 'total_specific_cloud_water_content'),                           &
+                    & t_grib2_var(0, 6, 6, ientr, GRID_REFERENCE, GRID_CELL),          &
+                    & ldims=shape3d,                                                   &
+                    & vert_interp=create_vert_interp_metadata(                         &
+                    &             vert_intp_type=VINTP_TYPE_P_OR_Z,                    &
+                    &             vert_intp_method=VINTP_METHOD_LIN,                   &
+                    &             l_loglin=.FALSE.,                                    &
+                    &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,               &
+                    &             lower_limit=0._wp ) )
 
            !QI
         CALL add_ref( diag_list, 'tot_cld',                                         &
@@ -778,7 +796,13 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                     & t_cf_var(TRIM(vname_prefix)//'qi', '',                        &
                     & 'total_specific_cloud_ice_content'),                          &
                     & t_grib2_var(0, 6, 0, ientr, GRID_REFERENCE, GRID_CELL), &
-                    & ldims=shape3d)
+                    & ldims=shape3d,                                                   &
+                    & vert_interp=create_vert_interp_metadata(                         &
+                    &             vert_intp_type=VINTP_TYPE_P_OR_Z,                    &
+                    &             vert_intp_method=VINTP_METHOD_LIN,                   &
+                    &             l_loglin=.FALSE.,                                    &
+                    &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,               &
+                    &             lower_limit=0._wp ) )
 
 
         ! &      diag%acdnc(nproma,nlsacev,nblks_c)
