@@ -107,10 +107,12 @@ MODULE mo_advection_hflux
     &                               sync_patch_array_mult, sync_patch_array_4de3
   USE mo_parallel_config,     ONLY: p_test_run
   USE mo_advection_config,    ONLY: advection_config, lcompute, lcleanup
-  USE mo_advection_utils,     ONLY: laxfr_upflux, back_traj_o1, back_traj_o2,   &
-    &                               back_traj_dreg_o1, prep_gauss_quadrature_q, &
+  USE mo_advection_utils,     ONLY: laxfr_upflux
+  USE mo_advection_quadrature,ONLY: prep_gauss_quadrature_q,                    &
     &                               prep_gauss_quadrature_cpoor,                &
     &                               prep_gauss_quadrature_c
+  USE mo_advection_traj,      ONLY: back_traj_o1, back_traj_o2,                 &
+    &                               back_traj_dreg_o1 
   USE mo_advection_limiter,   ONLY: hflx_limiter_mo, hflx_limiter_sm,           &
     &                               h_miura_slimiter_mo, h_miura_slimiter_sm,   &
     &                               shift_gauss_points

@@ -876,7 +876,9 @@ scripts/run_scripts/run.rb -text
 scripts/run_scripts/test/test_experiments.rb -text
 src/advection/mo_advection_hflux.f90 -text
 src/advection/mo_advection_limiter.f90 -text
+src/advection/mo_advection_quadrature.f90 -text
 src/advection/mo_advection_stepping.f90 -text
+src/advection/mo_advection_traj.f90 -text
 src/advection/mo_advection_utils.f90 -text
 src/advection/mo_advection_vflux.f90 -text
 src/art_interface/mo_organize_pollen_interface.f90 -text

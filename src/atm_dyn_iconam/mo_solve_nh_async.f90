@@ -65,7 +65,7 @@ MODULE mo_solve_nh_async
   USE mo_impl_constants,    ONLY: min_rlcell_int, min_rledge_int, min_rlvert_int, min_rlcell
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_advection_hflux,   ONLY: upwind_hflux_miura3
-  USE mo_advection_utils,   ONLY: back_traj_o1
+  USE mo_advection_traj,    ONLY: back_traj_o1
   USE mo_communication,     ONLY: start_async_comm, complete_async_comm
   USE mo_mpi,               ONLY: my_process_is_mpi_all_seq, my_process_is_mpi_all_parallel
   USE mo_math_constants,    ONLY: dbl_eps

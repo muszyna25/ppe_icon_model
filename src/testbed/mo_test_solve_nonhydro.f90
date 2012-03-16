@@ -62,7 +62,7 @@ MODULE mo_test_solve_nonhydro
   USE mo_impl_constants,    ONLY: min_rlcell_int, min_rledge_int, min_rlvert_int, min_rlcell
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_advection_hflux,   ONLY: upwind_hflux_miura3
-  USE mo_advection_utils,   ONLY: back_traj_o1
+  USE mo_advection_traj,    ONLY: back_traj_o1
   USE mo_sync,              ONLY: SYNC_E, SYNC_C, sync_patch_array, sync_patch_array_mult, &
                                   sync_patch_array_gm
   USE mo_mpi,               ONLY: my_process_is_mpi_all_seq, work_mpi_barrier

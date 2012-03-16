@@ -69,7 +69,7 @@ USE mo_sea_ice,                   ONLY: t_sfc_flx
 USE mo_scalar_product,            ONLY:  map_cell2edges,map_edges2cell,map_edges2cell
 USE mo_oce_math_operators,        ONLY:&! div_oce,grad_fd_norm_oce,&
                                        &div_oce_3D, grad_fd_norm_oce_3D!, grad_fd_norm_oce_2d
-USE mo_advection_utils,           ONLY: laxfr_upflux, laxfr_upflux_v
+USE mo_advection_utils,           ONLY: laxfr_upflux
 USE mo_oce_diffusion,             ONLY: tracer_diffusion_horz, tracer_diffusion_vert_expl,&
                                       & tracer_diffusion_vert_impl_hom
 USE mo_oce_ab_timestepping_mimetic,ONLY: l_STAGGERED_TIMESTEP
