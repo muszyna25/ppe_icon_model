@@ -474,6 +474,7 @@ CONTAINS
   !-------------------------------------------------------------------------  
 
   !-------------------------------------------------------------------------
+  !!  mpi parallelized LL
   SUBROUTINE veloc_adv_horz_mimetic_div( p_patch,        &
     & vn,             &
     & p_diag,         &
@@ -490,9 +491,7 @@ CONTAINS
     !
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: jk, jb, je!, jv, ile, ibe, ie, jev
-    INTEGER :: i_startblk_c, i_endblk_c!, i_startidx_c, i_endidx_c
-    INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
-    INTEGER :: rl_start_e, rl_end_e, rl_start_c, rl_end_c !, rl_start_v, rl_end_v
+    INTEGER :: i_startidx_e, i_endidx_e
     REAL(wp) :: z_e  (nproma,n_zlev,p_patch%nblks_e)
     INTEGER :: il_c1, ib_c1, il_c2, ib_c2
     
@@ -505,17 +504,7 @@ CONTAINS
     
     z_e             (:,:,:) = 0.0_wp
     veloc_adv_horz_e(:,:,:) = 0.0_wp
-    
-    rl_start_e = 1
-    rl_end_e   = min_rledge
-    rl_start_c = 1
-    rl_end_c   = min_rlcell
-    
-    i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
-    i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
-    i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
-    i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
-    
+        
     slev = 1
     elev = n_zlev
     
@@ -710,6 +699,7 @@ CONTAINS
   !!
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
+  !!  mpi parallelized LL
   !!
   SUBROUTINE veloc_adv_vert_mimetic_rot( p_patch, p_diag, veloc_adv_vert_e)
     
@@ -720,30 +710,27 @@ CONTAINS
     !local variables
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: jc, jk, jb
-    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+    INTEGER :: i_startidx, i_endidx
     INTEGER :: z_dolic
     TYPE(t_cartesian_coordinates) :: z_adv_u_i(nproma,n_zlev+1,p_patch%nblks_c),  &
       & z_adv_u_m(nproma,n_zlev,p_patch%nblks_c)
+    TYPE(t_subset_range), POINTER :: all_cells
     !-----------------------------------------------------------------------
+    all_cells => p_patch%cells%all
     
-    ! blocking
-    i_startblk = p_patch%cells%start_blk(1,1)
-    i_endblk   = p_patch%cells%end_blk(min_rlcell,1)
     slev = 1
     elev = n_zlev
-    DO jk = slev, elev
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-          & i_startidx, i_endidx, 1,min_rlcell)
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
+      DO jk = slev, elev
         DO jc = i_startidx, i_endidx
           z_adv_u_i(jc,jk,jb)%x = 0.0_wp
           z_adv_u_m(jc,jk,jb)%x = 0.0_wp
         END DO
       END DO
     END DO
-    DO jb = i_startblk, i_endblk
-      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-        & i_startidx, i_endidx, 1,min_rlcell)
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
       DO jc = i_startidx, i_endidx
         z_adv_u_i(jc,elev+1,jb)%x = 0.0_wp
       END DO
@@ -761,9 +748,8 @@ CONTAINS
     
     !Step 1: multiply vertical velocity with vertical derivative of horizontal velocity
     !This requires appropriate boundary conditions
-    DO jb = i_startblk, i_endblk
-      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-        & i_startidx, i_endidx, 1,min_rlcell)
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
       DO jc = i_startidx, i_endidx
         z_dolic = v_base%dolic_c(jc,jb)
         
@@ -793,9 +779,8 @@ CONTAINS
     ! CALL print_mxmn('check z_adv_u_i',4,z_adv_u_i%x(1),n_zlev,p_patch%nblks_c,'vel',ipl_src)
     ! ! Step 2: Map product of vertical velocity & vertical derivative from top of prism to mid position.
     ! ! This mapping is the transposed of the vertical differencing.!
-    DO jb = i_startblk, i_endblk
-      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
-        & i_startidx, i_endidx, 1,min_rlcell)
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
       DO jc = i_startidx, i_endidx
         z_dolic = v_base%dolic_c(jc,jb)
         IF(z_dolic>=min_dolic)THEN
@@ -826,6 +811,7 @@ CONTAINS
     ! ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
     CALL map_cell2edges( p_patch, z_adv_u_m, veloc_adv_vert_e, &
       & opt_slev=slev, opt_elev=elev )
+    ! result synced in map_cell2edges
     
     DO jk=1,n_zlev
       ipl_src=3  ! output print level (1-5, fix)
@@ -856,6 +842,7 @@ CONTAINS
   !!
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
+  !!  mpi parallelized LL
   !!
   SUBROUTINE veloc_adv_vert_mimetic_rot2( p_patch, p_diag,&
     & veloc_adv_vert_e)
@@ -867,41 +854,37 @@ CONTAINS
     !local variables
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: jc, jk, jb
-    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+    INTEGER :: i_startidx, i_endidx
     INTEGER :: z_dolic
     REAL(wp) :: z_w_ave(nproma,n_zlev,p_patch%nblks_c)
     REAL(wp) :: z_w_diff(nproma,n_zlev-1,p_patch%nblks_c)
     TYPE(t_cartesian_coordinates) :: z_adv_u_i(nproma,n_zlev+1,p_patch%nblks_c),  &
       & z_adv_u_m(nproma,n_zlev,p_patch%nblks_c)
+    TYPE(t_subset_range), POINTER :: all_cells
     !-----------------------------------------------------------------------
+    all_cells => p_patch%cells%all
     
-    ! blocking
-    i_startblk = p_patch%cells%start_blk(1,1)
-    i_endblk   = p_patch%cells%end_blk(min_rlcell,1)
     slev = 1
     elev = n_zlev
-    DO jk = slev, elev
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-          & i_startidx, i_endidx, 1,min_rlcell)
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
+      DO jk = slev, elev
         DO jc = i_startidx, i_endidx
           z_adv_u_i(jc,jk,jb)%x = 0.0_wp
           z_adv_u_m(jc,jk,jb)%x = 0.0_wp
         END DO
       END DO
     END DO
-    DO jb = i_startblk, i_endblk
-      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-        & i_startidx, i_endidx, 1,min_rlcell)
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
       DO jc = i_startidx, i_endidx
         z_adv_u_i(jc,elev+1,jb)%x = 0.0_wp
       END DO
     END DO
     !Step 1: multiply vertical velocity with vertical derivative of horizontal velocity
     !This requires appropriate boundary conditions
-    DO jb = i_startblk, i_endblk
-      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-        & i_startidx, i_endidx, 1,min_rlcell)
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
       DO jc = i_startidx, i_endidx
         z_dolic = v_base%dolic_c(jc,jb)
         
@@ -917,9 +900,8 @@ CONTAINS
       END DO
     END DO
     
-    DO jb = i_startblk, i_endblk
-      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
-        & i_startidx, i_endidx, 1,min_rlcell)
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
       DO jc = i_startidx, i_endidx
         z_dolic = v_base%dolic_c(jc,jb)
         IF(z_dolic>=min_dolic)THEN
@@ -934,9 +916,8 @@ CONTAINS
     END DO
     
     
-    DO jb = i_startblk, i_endblk
-      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
-        & i_startidx, i_endidx, 1,min_rlcell)
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
       DO jc = i_startidx, i_endidx
         z_dolic = v_base%dolic_c(jc,jb)
         IF(z_dolic>=min_dolic)THEN
@@ -967,6 +948,8 @@ CONTAINS
     ! ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
     CALL map_cell2edges( p_patch, z_adv_u_m, veloc_adv_vert_e, &
       & opt_slev=slev, opt_elev=elev )
+    ! result is synced in the called funtion
+    
     
     DO jk=1,n_zlev
       ipl_src=3  ! output print level (1-5, fix)
@@ -997,6 +980,7 @@ CONTAINS
   !!
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
+  !!  mpi parallelized LL
   !!
   SUBROUTINE veloc_adv_vert_mimetic_div( p_patch, p_diag,&
     & veloc_adv_vert_e)
@@ -1008,42 +992,38 @@ CONTAINS
     !local variables
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: jc, jk, jb
-    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+    INTEGER :: i_startidx, i_endidx
     INTEGER :: z_dolic
     !REAL(wp) :: dzi, dzi_m1, dzi_p1
     !REAL(wp) :: dzm, dzm_m1, dzm_p1
     TYPE(t_cartesian_coordinates) :: z_adv_u_i(nproma,n_zlev+1,p_patch%nblks_c),  &
       & z_adv_u_m(nproma,n_zlev,p_patch%nblks_c)
+    TYPE(t_subset_range), POINTER :: all_cells
     !-----------------------------------------------------------------------
     ! z_adv_u_i(nproma,n_zlev+1,p_patch%nblks_c)%x = 0.0_wp
     ! z_adv_u_m(nproma,n_zlev,p_patch%nblks_c)%x   = 0.0_wp
+    all_cells => p_patch%cells%all
     
-    ! blocking
-    i_startblk = p_patch%cells%start_blk(1,1)
-    i_endblk   = p_patch%cells%end_blk(min_rlcell,1)
     slev = 1
     elev = n_zlev
-    DO jk = slev, elev
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-          & i_startidx, i_endidx, 1,min_rlcell)
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
+      DO jk = slev, elev
         DO jc = i_startidx, i_endidx
           z_adv_u_i(jc,jk,jb)%x = 0.0_wp
           z_adv_u_m(jc,jk,jb)%x = 0.0_wp
         END DO
       END DO
     END DO
-    DO jb = i_startblk, i_endblk
-      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-        & i_startidx, i_endidx, 1,min_rlcell)
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
       DO jc = i_startidx, i_endidx
         z_adv_u_i(jc,elev+1,jb)%x = 0.0_wp
       END DO
     END DO
     
-    DO jb = i_startblk, i_endblk
-      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-        & i_startidx, i_endidx, 1,min_rlcell)
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
       DO jc = i_startidx, i_endidx
         z_dolic = v_base%dolic_c(jc,jb)
         
@@ -1062,9 +1042,8 @@ CONTAINS
     END DO
     
     ! ! This mapping is the transposed of the vertical differencing.!
-    DO jb = i_startblk, i_endblk
-      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
-        & i_startidx, i_endidx, 1,min_rlcell)
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
       DO jc = i_startidx, i_endidx
         z_dolic = v_base%dolic_c(jc,jb)
         IF(z_dolic>=min_dolic)THEN
@@ -1086,6 +1065,8 @@ CONTAINS
     ! ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
     CALL map_cell2edges( p_patch, z_adv_u_m, veloc_adv_vert_e, &
       & opt_slev=slev, opt_elev=elev )
+    ! result is synced in the called funtion
+      
     veloc_adv_vert_e=0.0_wp
     DO jk=1,n_zlev
       ipl_src=3  ! output print level (1-5, fix)
@@ -1115,13 +1096,14 @@ CONTAINS
   !!
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
+  !!  mpi parallelized LL
   !!
   SUBROUTINE veloc_adv_horz_rbf( p_patch, vn, p_diag, veloc_adv_horz_e, p_int)
     !
     !
     !  patch on which computation is performed
     !
-    TYPE(t_patch), INTENT(in) :: p_patch
+    TYPE(t_patch), TARGET, INTENT(in) :: p_patch
     
     !
     ! normal and tangential velocity  of which advection is computed
@@ -1142,9 +1124,8 @@ CONTAINS
     
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: jk, jb, je, jc
-    INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
-    INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
-    INTEGER :: rl_start_e, rl_end_e, rl_start_c, rl_end_c!, rl_start_c, rl_end_c
+    INTEGER :: i_startidx_e, i_endidx_e
+    INTEGER :: i_startidx_c, i_endidx_c
     INTEGER :: i_v1_idx, i_v1_blk, i_v2_idx, i_v2_blk
     INTEGER :: jev, ile,ibe, i_v1_ctr, i_v2_ctr
     REAL(wp) :: z_e  (nproma,n_zlev,p_patch%nblks_e)
@@ -1161,7 +1142,12 @@ CONTAINS
     !REAL(wp) :: z_beta_plane_vort
     !REAL(wp) :: z_f_plane_vort
     !REAL(wp) :: z_lat_basin_center
+    TYPE(t_subset_range), POINTER :: all_edges, owned_edges, all_cells
     !-----------------------------------------------------------------------
+    all_edges => p_patch%edges%all
+    owned_edges => p_patch%edges%owned
+    all_cells => p_patch%cells%all
+    
     ! #slo# set local variable to zero due to nag -nan compiler-option
     z_e             (:,:,:) = 0.0_wp
     z_vort_glb      (:,:,:) = 0.0_wp
@@ -1171,17 +1157,7 @@ CONTAINS
     z_vort_flx_rbf  (:,:,:) = 0.0_wp
     z_kin_e_rbf     (:,:,:) = 0.0_wp
     z_grad_ekin_rbf (:,:,:) = 0.0_wp
-    
-    rl_start_e = 1
-    rl_end_e   = min_rledge
-    rl_start_c = 1
-    rl_end_c   = min_rlcell
-    
-    i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
-    i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
-    i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
-    i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
-    
+        
     slev = 1
     elev = n_zlev
     
@@ -1190,9 +1166,12 @@ CONTAINS
       & p_int,    &
       & p_diag%vt,&
       & opt_slev=slev,opt_elev=elev)
-    DO jb = i_startblk_e,i_endblk_e
-      CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e, &
-        & i_startidx_e, i_endidx_e, rl_start_e,rl_end_e)
+    
+    CALL sync_patch_array(SYNC_E, p_patch, p_diag%v)
+
+      
+    DO jb = all_edges%start_block, all_edges%end_block
+      CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
       DO jk = slev, elev
         DO je=i_startidx_e, i_endidx_e
           IF ( v_base%lsm_oce_e(je,jk,jb) == boundary ) THEN
@@ -1206,10 +1185,11 @@ CONTAINS
     CALL rot_vertex_ocean_rbf(p_patch,vn, p_diag%vt, p_diag%vort)
     ! CALL verts2edges_scalar( p_diag%vort, p_patch, p_int%v_1o2_e, &
     !                          z_vort_e, opt_slev=slev,opt_elev=elev, opt_rlstart=3)
+    CALL sync_patch_array(SYNC_V, p_patch, p_diag%vort)
     
-    DO jb = i_startblk_e,i_endblk_e
-      CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e, &
-        & i_startidx_e, i_endidx_e, rl_start_e,rl_end_e)
+    
+    DO jb = owned_edges%start_block, owned_edges%end_block
+      CALL get_index_range(owned_edges, jb, i_startidx_e, i_endidx_e)
       DO jk = slev, slev
         DO je=i_startidx_e, i_endidx_e
           i_v1_idx = p_patch%edges%vertex_idx(je,jb,1)
@@ -1274,10 +1254,11 @@ CONTAINS
         END DO
       END DO
     ENDDO
+    CALL sync_patch_array(SYNC_E, p_patch, z_vort_e)
     
-    DO jb = i_startblk_e,i_endblk_e
-      CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e, &
-        & i_startidx_e, i_endidx_e, rl_start_e,rl_end_e)
+    
+    DO jb = all_edges%start_block, all_edges%end_block
+      CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
       DO jk = slev, elev
         DO je=i_startidx_e, i_endidx_e
           IF ( v_base%lsm_oce_e(je,jk,jb) == sea ) THEN
@@ -1293,10 +1274,11 @@ CONTAINS
     
     CALL rbf_vec_interpol_cell( vn, p_patch, p_int, p_diag%u,  &
       & p_diag%v, opt_slev=slev, opt_elev=elev)
+    CALL sync_patch_array(SYNC_C, p_patch, p_diag%v)
+    
     !write(*,*)'max/min vort flux:', MAXVAL(z_vort_flx_RBF(:,1,:)),MINVAL(z_vort_flx_RBF(:,1,:))
-    DO jb = i_startblk_e,i_endblk_e
-      CALL get_indices_e(p_patch, jb, i_startblk_e,i_endblk_e, &
-        & i_startidx_e, i_endidx_e, rl_start_e,rl_end_e)
+    DO jb = all_edges%start_block, all_edges%end_block
+      CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
       DO jk = slev, elev
         DO je = i_startidx_e, i_endidx_e
           ! calculate kinetic energy at edges from normal and tangential comp.
@@ -1315,9 +1297,8 @@ CONTAINS
     !                           & p_int%e_bln_c_s, &
     !                           & p_diag%kin,      &
     !                           & opt_slev=slev,opt_elev=elev)
-    DO jb = i_startblk_c, i_endblk_c
-      CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
-        & i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
       DO jk = slev, elev
         DO jc = i_startidx_c, i_endidx_c
           IF ( v_base%lsm_oce_c(jc,jk,jb) > sea_boundary ) THEN
@@ -1358,11 +1339,12 @@ CONTAINS
     CALL grad_fd_norm_oce( p_diag%kin, &
       & p_patch,    &
       & z_grad_ekin_rbf, opt_slev=slev,opt_elev=elev)
+    CALL sync_patch_array(SYNC_C, p_patch, z_grad_ekin_rbf)
+    
     
     !Add relative vorticity and gradient of kinetic energy to obtain complete horizontal advection
-    DO jb = i_startblk_e, i_endblk_e
-      CALL get_indices_e(p_patch, jb, i_startblk_e, i_endblk_e, &
-        & i_startidx_e, i_endidx_e, rl_start_e, rl_end_e)
+    DO jb = all_edges%start_block, all_edges%end_block
+      CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
       DO jk = slev, elev
         DO je = i_startidx_e, i_endidx_e
           IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
@@ -1429,7 +1411,8 @@ CONTAINS
   !!
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
-  !!
+  !!  mpi parallelized LL
+   !!
   SUBROUTINE veloc_adv_vert_rbf( p_patch, u_c, v_c, w_c, &
     & top_bc_u_c, top_bc_v_c, &
     & bot_bc_u_c,  bot_bc_v_c,&
@@ -1463,13 +1446,16 @@ CONTAINS
     !INTEGER, PARAMETER :: top=1
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: jc, jk, jb, i_dolic
-    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+    INTEGER :: i_startidx, i_endidx
+    
+    TYPE(t_subset_range), POINTER :: all_cells
     
     REAL(wp) :: z_adv_u_i(nproma,n_zlev+1,p_patch%nblks_c),  &
       & z_adv_v_i(nproma,n_zlev+1,p_patch%nblks_c),  &
       & z_adv_u_m(nproma,n_zlev,p_patch%nblks_c),  &
       & z_adv_v_m(nproma,n_zlev,p_patch%nblks_c)
     !-----------------------------------------------------------------------
+    all_cells => p_patch%cells%all
     
     ! #slo# set local variable to zero due to nag -nan compiler-option
     z_adv_u_i(:,:,:) = 0.0_wp
@@ -1477,18 +1463,14 @@ CONTAINS
     z_adv_u_m(:,:,:) = 0.0_wp
     z_adv_v_m(:,:,:) = 0.0_wp
     
-    ! blocking
-    i_startblk = p_patch%cells%start_blk(1,1)
-    i_endblk   = p_patch%cells%end_blk(min_rlcell,1)
     slev = 1
     elev = n_zlev
     
     !Step 1: multiply vertical velocity with vertical derivative of horizontal velocity
     !This requires appropriate boundary conditions
-    DO jk = slev, elev
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-          & i_startidx, i_endidx, 1,min_rlcell)
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
+      DO jk = slev, elev
         DO jc = i_startidx, i_endidx
           !check if we have at least two layers of water
           !  #slo# - 2011-04-01 - Is this really intended here
@@ -1529,10 +1511,9 @@ CONTAINS
     ! This mapping is the transposed of the vertical differencing.
     
     !1) From surface down to one layer before bottom
-    DO jk = slev, elev-1
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-          & i_startidx, i_endidx, 1,min_rlcell)
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
+      DO jk = slev, elev-1
         DO jc = i_startidx, i_endidx
           !check if we are on land: To be replaced by 3D lsm
           ! #slo# 2011-05-11 - replace by consistent formulation: vertical loop down to dolic
@@ -1556,9 +1537,8 @@ CONTAINS
     !Bottom layer
     !The value of v_base%del_zlev_i at the botom is 0.5*v_base%del_zlev_m
     !The dimensioning of the firs arrays requires to seperate the vertical loop.
-    DO jb = i_startblk, i_endblk
-      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-        & i_startidx, i_endidx, 1,min_rlcell)
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
       DO jc = i_startidx, i_endidx
         IF ( v_base%dolic_c(jc,jb)>0 ) THEN  ! wet points only
           i_dolic = v_base%dolic_c(jc,jb)
@@ -1580,6 +1560,8 @@ CONTAINS
     CALL primal_map_c2e( p_patch,&
       & z_adv_u_m, z_adv_v_m,&
       & veloc_adv_vert_e )
+    ! result is synced in the called funtion
+    
     ! DO jk=1,n_zlev
     !   WRITE(*,*) 'max/min vert adv FINAL',jk, &
     !     &        MAXVAL(veloc_adv_vert_e(:,jk,:)), MINVAL(veloc_adv_vert_e(:,jk,:))
