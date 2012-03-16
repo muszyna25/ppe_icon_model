@@ -60,6 +60,7 @@ USE mo_oce_physics,               ONLY: t_ho_params
 USE mo_scalar_product,            ONLY: map_cell2edges, primal_map_c2e
 USE mo_oce_math_operators,        ONLY: nabla2_vec_ocean, div_oce
 USE mo_intp_data_strc,            ONLY: p_int_state
+USE mo_util_subset,         ONLY: t_subset_range, get_index_range
 
 IMPLICIT NONE
 
@@ -97,23 +98,23 @@ CONTAINS
 !! Developed  by  Peter Korn, MPI-M (2010).
 !! 
 SUBROUTINE velocity_diffusion_horz_mimetic(p_patch, vn_in, p_param, p_diag, laplacian_vn_out)
-!
-TYPE(t_patch), TARGET, INTENT(in) :: p_patch
-REAL(wp), INTENT(in)              :: vn_in(nproma,n_zlev,p_patch%nblks_e)
-TYPE(t_ho_params), INTENT(in)     :: p_param !mixing parameters
-TYPE(t_hydro_ocean_diag)          :: p_diag
-REAL(wp), INTENT(INOUT)           :: laplacian_vn_out(nproma,n_zlev,p_patch%nblks_e)
-!
-!Local variables
-INTEGER :: slev, elev
-INTEGER :: jk, jb, je,jc
-INTEGER :: il_c1, ib_c1, il_c2, ib_c2
-INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
-INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
-INTEGER :: rl_start_c, rl_end_c, rl_start_e, rl_end_e
-INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
-TYPE(t_cartesian_coordinates) :: z_grad_u(nproma,n_zlev,p_patch%nblks_e)
-TYPE(t_cartesian_coordinates) :: z_div_grad_u(nproma,n_zlev,p_patch%nblks_c)
+  TYPE(t_patch), TARGET, INTENT(in) :: p_patch
+  REAL(wp), INTENT(in)              :: vn_in(nproma,n_zlev,p_patch%nblks_e)
+  TYPE(t_ho_params), INTENT(in)     :: p_param !mixing parameters
+  TYPE(t_hydro_ocean_diag)          :: p_diag
+  REAL(wp), INTENT(INOUT)           :: laplacian_vn_out(nproma,n_zlev,p_patch%nblks_e)
+
+  !Local variables
+  INTEGER :: slev, elev
+  INTEGER :: jk, jb, je,jc
+  INTEGER :: il_c1, ib_c1, il_c2, ib_c2
+  INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
+  INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
+  INTEGER :: rl_start_c, rl_end_c, rl_start_e, rl_end_e
+  INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+  TYPE(t_cartesian_coordinates) :: z_grad_u(nproma,n_zlev,p_patch%nblks_e)
+  TYPE(t_cartesian_coordinates) :: z_div_grad_u(nproma,n_zlev,p_patch%nblks_c)
+  TYPE(t_subset_range), POINTER :: all_cells, all_edges
 !REAL(wp) :: z_grad_vn(nproma,n_zlev,p_patch%nblks_e)
 !REAL(wp) :: z_div_grad_vn(nproma,n_zlev,p_patch%nblks_c)
 !REAL(wp) :: laplacian_vn_out2(nproma,n_zlev,p_patch%nblks_e)
@@ -122,28 +123,16 @@ TYPE(t_cartesian_coordinates) :: z_div_grad_u(nproma,n_zlev,p_patch%nblks_c)
 !-------------------------------------------------------------------------------
 !CALL message (TRIM(routine), 'start')        
 
-! #slo# set intent out variable to zero due to nag -nan compiler-option
-laplacian_vn_out(:,:,:) = 0.0_wp
+  ! #slo# set intent out variable to zero due to nag -nan compiler-option
+  laplacian_vn_out(:,:,:) = 0.0_wp
 
-rl_start_e = 1
-rl_end_e  = min_rledge
+  slev = 1
+  elev = n_zlev
 
-rl_start_c = 1
-rl_end_c  = min_rlcell
-
-i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
-i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
-
-i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
-i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
-
-slev = 1
-elev = n_zlev
-
-DO jb = i_startblk_c, i_endblk_c
-
-  CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
-                     i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
+  ! loop over cells in local domain + halo
+  all_cells => p_patch%cells%all
+  DO jb = all_cells%start_block, all_cells%end_block
+    CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
 #ifdef __SX__
 !CDIR UNROLL=6
 #endif
@@ -153,17 +142,17 @@ DO jb = i_startblk_c, i_endblk_c
       END DO
     END DO
   END DO
-DO jb = i_startblk_e, i_endblk_e
 
-  CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e,&
-                   &  i_startidx_e, i_endidx_e,&
-                   &  rl_start_e, rl_end_e)
-  DO jk = slev, elev
-    DO je = i_startidx_e, i_endidx_e
-      z_grad_u(je,jk,jb)%x = 0.0_wp
-    ENDDO
+  ! loop over edges in local domain + halo
+  all_edges => p_patch%edges%all
+  DO jb = all_edges%start_block, all_edges%end_block
+    CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+    DO jk = slev, elev
+      DO je = i_startidx_e, i_endidx_e
+        z_grad_u(je,jk,jb)%x = 0.0_wp
+      ENDDO
+    END DO
   END DO
-END DO
 
 ! !-----------------------------------------------------------------------------
 ! DO jb = i_startblk_e, i_endblk_e
