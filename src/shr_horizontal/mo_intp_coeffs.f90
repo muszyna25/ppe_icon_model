@@ -3531,6 +3531,10 @@ END SUBROUTINE complete_patchinfo
     INTEGER :: start_index, end_index, neigbor
     INTEGER :: cell_1_index, cell_1_block, cell_2_index, cell_2_block
     INTEGER :: vertex_1_index, vertex_1_block, vertex_2_index, vertex_2_block
+    !-----------------------------------------------------------------------
+!     REAL(wp) :: dist_cell2edge(nproma, patch%nblks_e,2)
+!     REAL(wp) :: max_diff
+    !-----------------------------------------------------------------------
 
     owned_edges => patch%edges%owned
     owned_cells => patch%cells%owned
@@ -3919,6 +3923,16 @@ END SUBROUTINE complete_patchinfo
     DEALLOCATE( dual_edge_length )
 !     DEALLOCATE( cell_area )
 !     DEALLOCATE( dual_cell_area )
+    !---------------------------------------------------------
+    ! checks
+!     dist_cell2edge(:,:,:) = intp_2D_coeff%dist_cell2edge(:,:,:)
+!         
+!     !---------------------------------------------------------
+!      CALL init_scalar_product_oce( patch, intp_2D_coeff )
+! 
+!      max_diff = MAXVAL(ABS(intp_2D_coeff%dist_cell2edge - dist_cell2edge ))
+! 
+!      Write(0,*) "max diff of intp_2D_coeff%dist_cell2edge=", max_diff
                   
   END SUBROUTINE par_init_scalar_product_oce
   !-------------------------------------------------------------------------

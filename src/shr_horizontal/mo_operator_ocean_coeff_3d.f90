@@ -435,14 +435,32 @@ CONTAINS
     INTEGER :: i_startblk_c, i_endblk_c,i_startidx_c,i_endidx_c
     INTEGER :: jk,je,jb,jc
     !-----------------------------------------------------------------------
+!     REAL(wp) :: dist_cell2edge(nproma, n_zlev, patch%nblks_e,2)
+!     REAL(wp) :: max_diff
+    !-----------------------------------------------------------------------
     
+    ocean_coeff%dist_cell2edge(:,:,:,:) = 0.0_wp
     CALL par_init_scalar_product_oce(patch, intp_2D_coeff)
     CALL copy_2D_to_3D_intp_coeff( patch, ocean_coeff, intp_2D_coeff)
     CALL init_geo_factors_oce_3d ( patch, ocean_coeff )
     !---------------------------------------------------------
-    CALL par_apply_boundary2coeffs(patch, ocean_coeff)
+    CALL par_apply_boundary2coeffs(patch, ocean_coeff)    
+    
     !---------------------------------------------------------
-        
+    ! checks
+!     dist_cell2edge(:,:,:,:) = ocean_coeff%dist_cell2edge(:,:,:,:)
+!     max_diff = MAXVAL(ABS(intp_2D_coeff%dist_cell2edge - dist_cell2edge(:,1,:,:) ))
+!     Write(0,*) "max diff of 2D - 3D = ", max_diff
+!         
+!     !---------------------------------------------------------
+!      CALL init_operator_coeff( patch, ocean_coeff )
+! 
+!      max_diff = MAXVAL(ABS(ocean_coeff%dist_cell2edge - dist_cell2edge ))
+! 
+!      Write(0,*) "max diff of dist_cell2edge=", max_diff
+! 
+!      STOP
+       
   END SUBROUTINE par_init_operator_coeff
   !-------------------------------------------------------------------------
   
@@ -726,13 +744,6 @@ CONTAINS
               ocean_coeff%bnd_edges_per_vertex(jv,jk,jb) &
                 & = ocean_coeff%bnd_edges_per_vertex(jv,jk,jb) +1
               
-              !Store actual boundary edge indices
-              ! this does not look right
-!               ibnd_edge_idx(1) = ile
-!               ibnd_edge_blk(1) = ibe
-!               z_orientation(1) = patch%verts%edge_orientation(jv,jb,jev)
-!               i_edge_idx(1)    = jev
-
               IF (boundary_counter > 4) THEN
                 !maximal 4 boundary edges per dual loop are allowed: somethings wrong with the grid
                 CALL message (TRIM('sbr nonlinear Coriolis'), &
