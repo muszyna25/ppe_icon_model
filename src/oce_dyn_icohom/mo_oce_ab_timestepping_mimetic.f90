@@ -922,6 +922,7 @@ END SUBROUTINE calculate_explicit_term_ab
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2010).
 !! 
+  !!  mpi parallelized LL
 SUBROUTINE fill_rhs4surface_eq_ab( p_patch, p_os, p_sfc_flx, p_op_coeff)
 !
 ! Patch on which computation is performed
@@ -934,10 +935,7 @@ TYPE(t_operator_coeff)            :: p_op_coeff
 !
 !  local variables
 !
-INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
-INTEGER :: i_startblk_e, i_endblk_e!, i_startidx_e, i_endidx_e
-INTEGER :: rl_start_c, rl_end_c
-INTEGER :: rl_start_e, rl_end_e
+INTEGER :: i_startidx_c, i_endidx_c
 INTEGER :: jc, jb, jk!, je
 INTEGER :: i_dolic_c
 REAL(wp) :: z_e(nproma,1,p_patch%nblks_e)
@@ -949,30 +947,22 @@ REAL(wp) :: z_vn_ab(nproma,n_zlev,p_patch%nblks_e)
 TYPE(t_cartesian_coordinates) :: z_u_pred_cc(nproma,n_zlev,p_patch%nblks_c)
 TYPE(t_cartesian_coordinates) :: z_u_pred_cc2(nproma,n_zlev,p_patch%nblks_c)
 TYPE(t_cartesian_coordinates) :: z_u_pred_depth_int_cc(nproma,1,p_patch%nblks_c)
+    
+    TYPE(t_subset_range), POINTER :: all_cells
+
+
 !REAL(wp) :: thick
 !CHARACTER(len=max_char_length), PARAMETER :: &
 !       & routine = ('mo_oce_ab_timestepping_mimetic:fill_rhs4surface_eq_ab')
 !-------------------------------------------------------------------------------
 !CALL message (TRIM(routine), 'start')        
+  all_cells => p_patch%cells%all
 
 ! #slo# 2011-02-17: move invert of gdt=grav*dt into module for constants (tbd)
 gdt2 = grav*(dtime)**2
 
-rl_start_c = 1
-rl_end_c   = min_rlcell
-rl_start_e = 1
-rl_end_e   = min_rledge
-
-i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
-i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
-i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
-i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
-
-DO jb = i_startblk_c, i_endblk_c
-  CALL get_indices_c( p_patch, jb,             &
-                   &  i_startblk_c, i_endblk_c,&
-                   &  i_startidx_c, i_endidx_c,&
-                   &  rl_start_c, rl_end_c)
+DO jb = all_cells%start_block, all_cells%end_block
+  CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
   DO jc = i_startidx_c, i_endidx_c
     z_u_pred_depth_int_cc(jc,1,jb)%x(:) = 0.0_wp
     z_u_pred_cc(jc,1,jb)%x(:)           = 0.0_wp
@@ -1021,12 +1011,8 @@ IF( iswm_oce /= 1 ) THEN !the 3D case
 
 
 !calculate depth-integrated velocity 
-  DO jb = i_startblk_c, i_endblk_c
-
-    CALL get_indices_c( p_patch, jb,             &
-                     &  i_startblk_c, i_endblk_c,&
-                     &  i_startidx_c, i_endidx_c,&
-                     &  rl_start_c, rl_end_c)
+  DO jb = all_cells%start_block, all_cells%end_block
+    CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
     DO jc = i_startidx_c, i_endidx_c
       i_dolic_c = v_base%dolic_c(jc,jb)
       DO jk=1,i_dolic_c
@@ -1060,11 +1046,8 @@ ELSEIF( iswm_oce == 1 ) THEN !the shallow-water case
                        !& p_os%p_diag%h_e )
 !!                     & p_os%p_diag%thick_e )
 
-DO jb = i_startblk_c, i_endblk_c
-  CALL get_indices_c( p_patch, jb,&
-                    & i_startblk_c, i_endblk_c,&
-                    & i_startidx_c, i_endidx_c,&
-                    & rl_start_c, rl_end_c)
+DO jb = all_cells%start_block, all_cells%end_block
+  CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
   DO jc = i_startidx_c, i_endidx_c
 
     z_u_pred_depth_int_cc(jc,1,jb)%x = z_u_pred_cc(jc,1,jb)%x&
@@ -1078,6 +1061,7 @@ ENDIF
                       & z_u_pred_depth_int_cc,&
                       & z_e,                  &
                       & opt_slev=1, opt_elev=1)
+    
 
 ! write(*,*)'MAX/MIN depth_int_cc:',1,maxval(z_u_pred_depth_int_cc(:,1,:)%x(1)), &
 !   &  minval(z_u_pred_depth_int_cc(:,1,:)%x(1))
@@ -1096,12 +1080,12 @@ ENDIF
 
 ! CALL div_oce( z_e, p_patch, div_z_c, opt_slev=1,opt_elev=1 ) ! to be included surface forcing* +dtime*(P_E)
 CALL div_oce_3D( z_e, p_patch,p_op_coeff%div_coeff, div_z_c,&
-               & opt_slev=1,opt_elev=1 ) 
+               & opt_slev=1,opt_elev=1 )
+               
 IF(l_forc_freshw)THEN
 
-  DO jb = i_startblk_c, i_endblk_c
-    CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c,&
-                     & i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
+  DO jb = all_cells%start_block, all_cells%end_block
+    CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
     DO jc = i_startidx_c, i_endidx_c
       IF(v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
         p_os%p_aux%p_rhs_sfc_eq(jc,jb) = ((p_os%p_prog(nold(1))%h(jc,jb)&
@@ -1116,9 +1100,8 @@ IF(l_forc_freshw)THEN
   END DO
 ELSEIF(.NOT.l_forc_freshw)THEN
 
-  DO jb = i_startblk_c, i_endblk_c
-    CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c,&
-                     & i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
+  DO jb = all_cells%start_block, all_cells%end_block
+    CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
     DO jc = i_startidx_c, i_endidx_c
       !IF(v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
         p_os%p_aux%p_rhs_sfc_eq(jc,jb) = ((p_os%p_prog(nold(1))%h(jc,jb)&
