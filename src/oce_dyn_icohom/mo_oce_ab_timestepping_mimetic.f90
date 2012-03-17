@@ -353,6 +353,7 @@ END SUBROUTINE solve_free_sfc_ab_mimetic
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2010).
 !! 
+!!  mpi parallelized LL
 SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
                                      & p_int, l_initial_timestep, p_op_coeff)
 
@@ -378,7 +379,7 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
   REAL(wp) :: z_vt(nproma,n_zlev,p_patch%nblks_e)
   !TYPE(t_cartesian_coordinates) :: p_vn_c(nproma,n_zlev,p_patch%nblks_c)
   !INTEGER  :: rl_start_c, rl_end_c, i_startblk_c, i_endblk_c,i_startidx_c, i_endidx_c
-  TYPE(t_subset_range), POINTER :: edges_in_domain
+  TYPE(t_subset_range), POINTER :: edges_in_domain, all_edges
   INTEGER  :: i_startidx_e, i_endidx_e
   
   CHARACTER(len=max_char_length), PARAMETER :: &
@@ -386,6 +387,7 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
   !-----------------------------------------------------------------------  
   !CALL message (TRIM(routine), 'start')        
   edges_in_domain => p_patch%edges%in_domain
+  all_edges => p_patch%edges%all
 
   z_gradh_e(:,:,:) = 0.0_wp
   CALL sync_patch_array(sync_e, p_patch, z_gradh_e(:,1,:))
@@ -642,13 +644,11 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
 
     IF(.NOT.l_RIGID_LID)THEN
 
-
       IF(l_STAGGERED_TIMESTEP)THEN
-        DO jb = i_startblk, i_endblk
-          CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
-            &                rl_start, rl_end)
+        DO jb = all_edges%start_block, all_edges%end_block
+          CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
           DO jk = 1, n_zlev
-            DO je = i_startidx, i_endidx
+            DO je = i_startidx_e, i_endidx_e
 
               IF(v_base%dolic_e(je,jb)>=MIN_DOLIC)THEN
               !IF(v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
@@ -664,13 +664,13 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
             END DO
           END DO
         END DO
+        
       ELSEIF(.NOT.l_STAGGERED_TIMESTEP)THEN
 
-        DO jb = i_startblk, i_endblk
-          CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
-            &                rl_start, rl_end)
+        DO jb = all_edges%start_block, all_edges%end_block
+          CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
           DO jk = 1, n_zlev
-            DO je = i_startidx, i_endidx
+            DO je = i_startidx_e, i_endidx_e
 !IF(p_os%p_diag%laplacian_horz(je,jk,jb)/=0.0_wp)THEN
 !write(123456,*)'nabla2:',jk,je,jb,p_os%p_diag%laplacian_horz(je,jk,jb), z_e(je,jk,jb)
 !ENDIF
@@ -696,11 +696,12 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
     ELSEIF(l_RIGID_LID)THEN
 
       IF(l_STAGGERED_TIMESTEP)THEN
-        DO jb = i_startblk, i_endblk
-          CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
-            &                rl_start, rl_end)
+      
+        DO jb = all_edges%start_block, all_edges%end_block
+          CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
           DO jk = 1, n_zlev
-            DO je = i_startidx, i_endidx
+            DO je = i_startidx_e, i_endidx_e
+            
               IF(v_base%dolic_e(je,jb)>=MIN_DOLIC)THEN
                 p_os%p_diag%vn_pred(je,jk,jb) = p_os%p_prog(nold(1))%vn(je,jk,jb)        &
                 &                           + dtime*(p_os%p_aux%g_nimd(je,jk,jb)         &
@@ -708,22 +709,25 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
               ELSE
                 p_os%p_diag%vn_pred(je,jk,jb) = 0.0_wp
               ENDIF
+              
             END DO
           END DO
         END DO
 
       ELSEIF(.NOT.l_STAGGERED_TIMESTEP)THEN
-        DO jb = i_startblk, i_endblk
-          CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
-            &                rl_start, rl_end)
+      
+        DO jb = all_edges%start_block, all_edges%end_block
+          CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
           DO jk = 1, n_zlev
-            DO je = i_startidx, i_endidx
+            DO je = i_startidx_e, i_endidx_e
+            
               IF(v_base%dolic_e(je,jb)>=MIN_DOLIC)THEN
                 p_os%p_diag%vn_pred(je,jk,jb) = p_os%p_prog(nold(1))%vn(je,jk,jb)       &
                 &                             + dtime*p_os%p_aux%g_nimd(je,jk,jb)
               ELSE
                 p_os%p_diag%vn_pred(je,jk,jb) = 0.0_wp
               ENDIF
+              
             END DO
           END DO
         END DO
@@ -736,10 +740,11 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
     !in this case, top boundary ondition of vertical Laplacians are homogeneous.
     !Below is the code that adds surface forcing to explicit term of momentum eq. 
     IF(expl_vertical_velocity_diff==1)THEN
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
-          &                rl_start, rl_end)
-        DO je = i_startidx, i_endidx
+    
+      DO jb = all_edges%start_block, all_edges%end_block
+        CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+        DO je = i_startidx_e, i_endidx_e
+        
           IF(v_base%dolic_e(je,jb)>=MIN_DOLIC)THEN
             p_os%p_diag%vn_pred(je,1,jb) =  p_os%p_diag%vn_pred(je,1,jb)      &
             &                            + dtime*p_os%p_aux%bc_top_vn(je,jb)/v_base%del_zlev_m(1)
@@ -748,8 +753,8 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
             & = p_os%p_diag%vn_pred(je,v_base%dolic_e(je,jb),jb)       &
             & - dtime*p_os%p_aux%bc_bot_vn(je,jb)&
             &/v_base%del_zlev_m(v_base%dolic_e(je,jb))
-
           ENDIF
+          
         END DO
       END DO
     ENDIF 
@@ -758,10 +763,10 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
   !This force is stored in data type top-boundary-condition. 
   ELSEIF ( iswm_oce == 1)THEN! .AND. iforc_oce==11) THEN
 
-    DO jb = i_startblk, i_endblk
-      CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
+    DO jb = all_edges%start_block, all_edges%end_block
+      CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
       DO jk = 1, n_zlev
-        DO je = i_startidx, i_endidx
+        DO je = i_startidx_e, i_endidx_e
           !IF(v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
 
             p_os%p_diag%vn_pred(je,jk,jb) = (p_os%p_prog(nold(1))%vn(je,jk,jb)        &
@@ -776,11 +781,11 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
     END DO
    !In case of Shallow-water with forcing and or damping
     IF ( iforc_oce/=10) THEN
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk,&
-                         & i_startidx, i_endidx, rl_start, rl_end)
+    
+      DO jb = all_edges%start_block, all_edges%end_block
+        CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
         DO jk = 1, n_zlev
-          DO je = i_startidx, i_endidx
+          DO je = i_startidx_e, i_endidx_e
             !IF(v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
               p_os%p_diag%vn_pred(je,jk,jb) = (p_os%p_diag%vn_pred(je,jk,jb)  &
                &                            + p_os%p_aux%bc_top_vn(je,jb)    &
@@ -900,8 +905,8 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
   !CALL message (TRIM(routine), 'end')        
 END SUBROUTINE calculate_explicit_term_ab
 !-------------------------------------------------------------------------  
-!
-!  
+
+!-------------------------------------------------------------------------  
 !>
 !! 
 !!  Calculation of right-hand side of elliptic surface equation.

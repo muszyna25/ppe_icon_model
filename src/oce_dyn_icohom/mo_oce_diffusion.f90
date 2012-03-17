@@ -1379,7 +1379,7 @@ END subroutine tracer_diffusion_vert_impl_hom
 !!
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2011).
-!!
+!!  mpi parallelized LL (no sync required)
 SUBROUTINE veloc_diffusion_vert_impl_hom( p_patch,       &
                                     & field_column,  &
                                     & h_e,           &
@@ -1394,19 +1394,21 @@ REAL(wp), INTENT(out)             :: diff_column(:,:,:)
 !Local variables
 INTEGER :: slev
 INTEGER :: jc, jk, jb
-INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+INTEGER :: i_startidx, i_endidx
 REAL(wp) :: a(1:n_zlev), b(1:n_zlev), c(1:n_zlev)
 !REAL(wp) :: gam(1:n_zlev), bet(1:n_zlev)
 REAL(wp) :: z_tmp
 INTEGER  :: z_dolic
 REAL(wp) :: inv_zinv_i(1:n_zlev)
 REAL(wp) :: inv_zinv_m(1:n_zlev)
+    
+TYPE(t_subset_range), POINTER :: all_edges
 !REAL(wp) :: z_e1(nproma,1,p_patch%nblks_e)
 ! CHARACTER(len=max_char_length), PARAMETER :: &
 !        & routine = ('mo_oce_diffusion:tracer_diffusion_impl')
 !-----------------------------------------------------------------------
-i_startblk = p_patch%edges%start_blk(1,1)
-i_endblk   = p_patch%edges%end_blk(min_rledge,1)
+all_edges => p_patch%edges%all
+
 slev       = 1
 
 !gam(1:n_zlev)     = 0.0_wp
@@ -1418,9 +1420,8 @@ inv_zinv_i(slev:n_zlev)  = 0.0_wp
 inv_zinv_m(slev:n_zlev)  = 0.0_wp
 diff_column=field_column
 
-DO jb = i_startblk, i_endblk
-  CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, 1,min_rlcell)
+DO jb = all_edges%start_block, all_edges%end_block
+  CALL get_index_range(all_edges, jb, i_startidx, i_endidx)
   DO jc = i_startidx, i_endidx
 
     z_dolic             = v_base%dolic_e(jc,jb)
