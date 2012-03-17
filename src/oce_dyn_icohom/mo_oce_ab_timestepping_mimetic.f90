@@ -587,10 +587,10 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
         DO jk = 1, n_zlev
         
           p_os%p_aux%g_n(i_startidx_e:i_endidx_e, jk, jb) = &      
-            &                   - z_e(i_startidx_e:i_endidx_e,jk,jb)  &
-            &                   - p_os%p_diag%veloc_adv_vert(i_startidx_e:i_endidx_e,jk,jb)  &
-            &                   + p_os%p_diag%laplacian_horz(i_startidx_e:i_endidx_e,jk,jb)  &
-            &                   + p_os%p_diag%laplacian_vert(i_startidx_e:i_endidx_e,jk,jb)
+            &  - z_e(i_startidx_e:i_endidx_e,jk,jb)  &
+            &  - p_os%p_diag%veloc_adv_vert(i_startidx_e:i_endidx_e,jk,jb)  &
+            &  + p_os%p_diag%laplacian_horz(i_startidx_e:i_endidx_e,jk,jb)  &
+            &  + p_os%p_diag%laplacian_vert(i_startidx_e:i_endidx_e,jk,jb)
         END DO
       END DO
       
@@ -599,11 +599,11 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
         CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
         DO jk = 1, n_zlev
           p_os%p_aux%g_n(i_startidx_e:i_endidx_e, jk, jb) = &
-            & -p_os%p_diag%press_grad(i_startidx_e:i_endidx_e, jk, jb)       &
-            &                   - z_e(i_startidx_e:i_endidx_e, jk, jb)  &
-            &                   - p_os%p_diag%veloc_adv_vert(i_startidx_e:i_endidx_e, jk, jb)  &
-            &                   + p_os%p_diag%laplacian_horz(i_startidx_e:i_endidx_e, jk, jb)  &
-            &                   + p_os%p_diag%laplacian_vert(i_startidx_e:i_endidx_e, jk, jb)
+            &  -p_os%p_diag%press_grad(i_startidx_e:i_endidx_e, jk, jb)       &
+            &  - z_e(i_startidx_e:i_endidx_e, jk, jb)  &
+            &  - p_os%p_diag%veloc_adv_vert(i_startidx_e:i_endidx_e, jk, jb)  &
+            &  + p_os%p_diag%laplacian_horz(i_startidx_e:i_endidx_e, jk, jb)  &
+            &  + p_os%p_diag%laplacian_vert(i_startidx_e:i_endidx_e, jk, jb)
         END DO
       END DO
     ENDIF
@@ -614,20 +614,27 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
   ELSEIF(.NOT.(L_INVERSE_FLIP_FLOP))THEN
 
     IF(l_STAGGERED_TIMESTEP)THEN
-      DO jk = 1, n_zlev
-        p_os%p_aux%g_n(:,jk,:) =&!-p_os%p_diag%press_grad(:,jk,:)      &
-           &                   - p_os%p_diag%veloc_adv_horz(:,jk,:)  &
-           &                   - p_os%p_diag%veloc_adv_vert(:,jk,:)  &
-           &                   + p_os%p_diag%laplacian_horz(:,jk,:)  &
-           &                   + p_os%p_diag%laplacian_vert(:,jk,:)
+      DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+        CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
+        DO jk = 1, n_zlev
+          p_os%p_aux%g_n(i_startidx_e:i_endidx_e, jk, jb) =&!-p_os%p_diag%press_grad(:,jk,:)      &
+            &  - p_os%p_diag%veloc_adv_horz(i_startidx_e:i_endidx_e, jk, jb)  &
+            &  - p_os%p_diag%veloc_adv_vert(i_startidx_e:i_endidx_e, jk, jb)  &
+            &  + p_os%p_diag%laplacian_horz(i_startidx_e:i_endidx_e, jk, jb)  &
+            &  + p_os%p_diag%laplacian_vert(i_startidx_e:i_endidx_e, jk, jb)
+        END DO
       END DO
     ELSEIF(.NOT.l_STAGGERED_TIMESTEP)THEN
-      DO jk = 1, n_zlev
-        p_os%p_aux%g_n(:,jk,:) =-p_os%p_diag%press_grad(:,jk,:)      &
-           &                   - p_os%p_diag%veloc_adv_horz(:,jk,:)  &
-           &                   - p_os%p_diag%veloc_adv_vert(:,jk,:)  &
-           &                   + p_os%p_diag%laplacian_horz(:,jk,:)  &
-           &                   + p_os%p_diag%laplacian_vert(:,jk,:)
+      DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+        CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
+        DO jk = 1, n_zlev
+          p_os%p_aux%g_n(i_startidx_e:i_endidx_e, jk, jb) = &
+            & - p_os%p_diag%press_grad(i_startidx_e:i_endidx_e, jk, jb)      &
+            & - p_os%p_diag%veloc_adv_horz(i_startidx_e:i_endidx_e, jk, jb)  &
+            & - p_os%p_diag%veloc_adv_vert(i_startidx_e:i_endidx_e, jk, jb)  &
+            & + p_os%p_diag%laplacian_horz(i_startidx_e:i_endidx_e, jk, jb)  &
+            & + p_os%p_diag%laplacian_vert(i_startidx_e:i_endidx_e, jk, jb)
+        END DO
       END DO
     ENDIF
 
