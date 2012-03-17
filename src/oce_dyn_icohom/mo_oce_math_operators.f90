@@ -65,6 +65,7 @@ MODULE mo_oce_math_operators
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates, gc2cc, vector_product
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_util_subset,         ONLY: t_subset_range, get_index_range
+  USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_idx, global_max
   
   IMPLICIT NONE
   
@@ -644,6 +645,7 @@ CONTAINS
   !! Modification by Almut Gassmann, MPI-M (2007-04-20)
   !! - abandon grid for the sake of patch
   !! Boundary handling for triangles by P. Korn (2009)
+  !!  mpi note: the result is not synced. Should be done in the calling method if required
   !!
   SUBROUTINE grad_fd_norm_oce_2d_3d( psi_c, ptr_patch, grad_coeff, grad_norm_psi_e)
     !
@@ -656,22 +658,18 @@ CONTAINS
     !!local variables
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: je, jb
-    INTEGER :: rl_start, rl_end
-    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+    INTEGER :: i_startidx, i_endidx
     INTEGER :: nlen, nblks_e, npromz_e
     INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+    TYPE(t_subset_range), POINTER :: edges_in_domain        
     !-----------------------------------------------------------------------
+    edges_in_domain => ptr_patch%edges%in_domain
     slev = 1
     elev = 1
-    rl_start = 2
-    rl_end = min_rledge_int
     
     iidx => ptr_patch%edges%cell_idx
     iblk => ptr_patch%edges%cell_blk
-    
-    i_startblk = ptr_patch%edges%start_blk(rl_start,1)
-    i_endblk   = ptr_patch%edges%end_blk(rl_end,1)
-    !
+        !
     !  loop through all patch edges (and blocks)
     !
 #ifndef __SX__
@@ -680,10 +678,8 @@ CONTAINS
 !$OMP PARALLEL
     ! The special treatment of 2D fields is essential for efficiency on the NEC
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je)
-    DO jb = i_startblk, i_endblk
-      
-      CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
-        & i_startidx, i_endidx, rl_start, rl_end)
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
 #ifdef _URD
 !CDIR UNROLL=_URD
 #endif
@@ -2076,8 +2072,8 @@ CONTAINS
     
   END SUBROUTINE nabla4_vec_ocean
   !---------------------------------------------------------------------------------
-  !
-  !
+  
+  !---------------------------------------------------------------------------------
   !>
   !!
   !!  Calculation of total fluid thickness at cell centers and surface elevation at
@@ -2086,6 +2082,7 @@ CONTAINS
   !!
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
+  !!  mpi parallelized LL
   !!
   SUBROUTINE height_related_quantities( p_patch, p_os, p_ext_data)
     !
@@ -2099,12 +2096,9 @@ CONTAINS
     TYPE(t_external_data), TARGET, INTENT(in) :: p_ext_data
     !
     !  local variables
-    !
-    
-    INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
-    INTEGER :: rl_start_c, rl_end_c
-    INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
-    INTEGER :: rl_start_e, rl_end_e
+    !    
+    INTEGER :: i_startidx_c, i_endidx_c
+    INTEGER :: i_startidx_e, i_endidx_e
     INTEGER :: jc, jb, je
     INTEGER :: il_c1, ib_c1, il_c2, ib_c2
     
@@ -2112,6 +2106,9 @@ CONTAINS
     INTEGER ::            averaging       =1
     INTEGER, PARAMETER :: distance_weight =1
     INTEGER, PARAMETER :: upwind          =2
+
+    TYPE(t_subset_range), POINTER :: all_cells, edges_in_domain
+
     !TYPE(t_cartesian_coordinates)    :: cv_c1_e0, cv_c2_e0
     !TYPE(t_cartesian_coordinates)    :: cc_c1, cc_c2, cc_e0
     !0!CHARACTER(len=max_char_length), PARAMETER :: &
@@ -2123,24 +2120,15 @@ CONTAINS
     ! #ifndef __SX__
     ! IF (ltimer) CALL timer_start(timer_height)
     ! #endif
-    
-    rl_start_c = 1
-    rl_end_c = min_rlcell
-    i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
-    i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
-    
-    rl_start_e = 1
-    rl_end_e = min_rledge
-    i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
-    i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
-    
+    all_cells => p_patch%cells%all
+    edges_in_domain => p_patch%edges%in_domain
+        
     !Step 1: calculate cell-located variables for 2D and 3D case
     !For 3D and for SWE thick_c contains thickness of fluid column
     IF ( iswm_oce == 1 ) THEN  !  SWM
       
-      DO jb = i_startblk_c, i_endblk_c
-        CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c,&
-          & i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
 #ifdef __SX__
 !CDIR UNROLL=6
 #endif
@@ -2158,9 +2146,8 @@ CONTAINS
       
     ELSEIF(iswm_oce /= 1 )THEN
       
-      DO jb = i_startblk_c, i_endblk_c
-        CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c,&
-          & i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
 #ifdef __SX__
 !CDIR UNROLL=6
 #endif
@@ -2187,9 +2174,8 @@ CONTAINS
       
       CASE(distance_weight)
         
-        DO jb = i_startblk_e, i_endblk_e
-          CALL get_indices_e(p_patch, jb, i_startblk_e, i_endblk_e,&
-            & i_startidx_e, i_endidx_e, rl_start_e, rl_end_e)
+      DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+        CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
 #ifdef __SX__
 !CDIR UNROLL=6
 #endif
@@ -2220,12 +2206,13 @@ CONTAINS
             ENDIF
           END DO
         END DO
+        CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%thick_e)
+        CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%h_e)
         
       CASE(upwind)
         
-        DO jb = i_startblk_e, i_endblk_e
-          CALL get_indices_e(p_patch, jb, i_startblk_e, i_endblk_e,&
-            & i_startidx_e, i_endidx_e, rl_start_e, rl_end_e)
+        DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+          CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
 #ifdef __SX__
 !CDIR UNROLL=6
 #endif
@@ -2252,6 +2239,10 @@ CONTAINS
             ENDIF
           END DO
         END DO
+        CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%thick_e)
+        CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%h_e)
+
+        
       END SELECT
       
       
@@ -2263,9 +2254,9 @@ CONTAINS
       
       CASE(distance_weight)
         CALL print_mxmn('(hrw,old) p_diag%h_e',1,p_os%p_diag%h_e,1,p_patch%nblks_e,'vel',3)
-        DO jb = i_startblk_e, i_endblk_e
-          CALL get_indices_e(p_patch, jb, i_startblk_e, i_endblk_e,&
-            & i_startidx_e, i_endidx_e, rl_start_e, rl_end_e)
+        
+        DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+          CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
 #ifdef __SX__
 !CDIR UNROLL=6
 #endif
@@ -2298,13 +2289,14 @@ CONTAINS
             ENDIF
           END DO
         END DO
+        CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%thick_e)
+        CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%h_e)
         CALL print_mxmn('(hrw,new) p_diag%h_e',1,p_os%p_diag%h_e,1,p_patch%nblks_e,'vel',3)
         
       CASE(upwind)
         
-        DO jb = i_startblk_e, i_endblk_e
-          CALL get_indices_e(p_patch, jb, i_startblk_e, i_endblk_e,&
-            & i_startidx_e, i_endidx_e, rl_start_e, rl_end_e)
+        DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+          CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
 #ifdef __SX__
 !CDIR UNROLL=6
 #endif
@@ -2332,6 +2324,10 @@ CONTAINS
             ENDIF
           END DO
         END DO
+        CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%thick_e)
+        CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%h_e)
+
+        
       END SELECT
     ENDIF
     ! write(*,*)'max/min thick_c:',maxval(p_os%p_diag%thick_c),minval(p_os%p_diag%thick_c)
@@ -2347,6 +2343,8 @@ CONTAINS
     ! #endif
     
   END SUBROUTINE height_related_quantities
+  !-------------------------------------------------------------------------
+  
   !-------------------------------------------------------------------------
   ! ! !
   ! ! !! Computes the discrete rotation at vertices in presence of boundaries as in the ocean setting.

@@ -96,6 +96,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2011).
   !!  
+  !!   mpi parallelized LL
   SUBROUTINE veloc_adv_horz_mimetic( p_patch,         &
     & vn_old,          &
     & vn_new,          &
@@ -141,6 +142,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2011).
   !!
+  !!   mpi parallelized LL
   SUBROUTINE veloc_adv_vert_mimetic( p_patch, p_diag, veloc_adv_vert_e)
     !
     TYPE(t_patch), TARGET, INTENT(in) :: p_patch

@@ -318,9 +318,8 @@ DO jb = i_startblk_e, i_endblk_e
 END DO
 
 END SUBROUTINE velocity_diffusion_horz_rbf
-! !-------------------------------------------------------------------------
-!
-!
+!-------------------------------------------------------------------------
+!-------------------------------------------------------------------------
 !>
 !!
 !! IMPORTANT: It is assumed that the velocity vector reconstruction from
@@ -332,6 +331,7 @@ END SUBROUTINE velocity_diffusion_horz_rbf
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2010).
 !!
+!!  mpi parallelized LL (no sync required)
 SUBROUTINE velocity_diffusion_vert_mimetic( p_patch, p_diag, p_aux,h_c,p_param, laplacian_vn_out)
 TYPE(t_patch), TARGET, INTENT(in) :: p_patch
 TYPE(t_hydro_ocean_diag)          :: p_diag
@@ -342,24 +342,24 @@ REAL(wp)                          :: laplacian_vn_out(:,:,:)
 
 INTEGER :: slev, elev     ! vertical start and end level
 INTEGER :: jc, jk, jb, z_dolic
-INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+INTEGER :: i_startidx, i_endidx
 TYPE(t_cartesian_coordinates) :: z_u(nproma,n_zlev+1,p_patch%nblks_c)!,  &
+TYPE(t_subset_range), POINTER :: all_cells
 !  &                              z_adv_u_m(nproma,n_zlev,p_patch%nblks_c)
 ! CHARACTER(len=max_char_length), PARAMETER :: &
 !        & routine = ('mo_oce_diffusion:veloc diffusion vert mimetic')
 !-----------------------------------------------------------------------
+all_cells => p_patch%cells%all
+
 z_u(nproma,n_zlev+1,p_patch%nblks_c)%x = 0.0_wp
 slev       = 1
 elev       = n_zlev
-i_startblk = p_patch%cells%start_blk(1,1)
-i_endblk   = p_patch%cells%end_blk(min_rlcell,1)
 
 !1 Vertical derivative of cell velocity vector times horizontal velocity
 ! loop runs now from slev to z_dolic:
 !DO jk = slev, elev
-DO jb = i_startblk, i_endblk
-  CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                     i_startidx, i_endidx, 1,min_rlcell)
+DO jb = all_cells%start_block, all_cells%end_block
+  CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
   DO jc = i_startidx, i_endidx
 
     z_dolic = v_base%dolic_c(jc,jb)
@@ -416,8 +416,9 @@ CALL map_cell2edges( p_patch, z_u, laplacian_vn_out)
 
 END subroutine velocity_diffusion_vert_mimetic
 !-------------------------------------------------------------------------  
-!
-!
+
+
+!-------------------------------------------------------------------------  
 !>
 !!
 !! IMPORTANT: It is assumed that the velocity vector reconstruction from
