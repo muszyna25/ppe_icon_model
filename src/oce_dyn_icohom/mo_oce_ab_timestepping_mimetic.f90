@@ -175,10 +175,12 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
   z_h_c = 0.0_wp
   z_h_e = 0.0_wp
 
+  CALL sync_patch_array(sync_c, p_patch, p_os%p_prog(nold(1))%h)
+  CALL sync_patch_array(sync_c, p_patch, p_os%p_diag%thick_c)
+  CALL sync_patch_array(sync_e, p_patch, p_os%p_prog(nold(1))%vn)
+   
   IF (is_initial_timestep(timestep) ) THEN
 
-    CALL sync_patch_array(sync_c, p_patch, p_os%p_prog(nold(1))%h)
-    CALL sync_patch_array(sync_c, p_patch, p_os%p_diag%thick_c)
 
     CALL height_related_quantities(p_patch, p_os, p_ext_data)
 
@@ -209,7 +211,7 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
                                       & p_os%p_diag,            &
                                       & p_op_coeff)
   ENDIF
-
+ 
 
   ipl_src=2  ! output print level (1-5, fix)
   z_c1(:,1,:) = p_os%p_prog(nold(1))%h(:,:)
@@ -366,8 +368,7 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
   !
   !local variables
   !
-  INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
-  INTEGER  :: rl_start, rl_end
+  INTEGER  :: i_startidx, i_endidx
   INTEGER  :: je, jk, jb
   REAL(wp) :: gdt
   !REAL(wp) :: z_flip_flop_e(nproma,n_zlev,p_patch%nblks_e)
@@ -390,13 +391,7 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
   all_edges => p_patch%edges%all
 
   z_gradh_e(:,:,:) = 0.0_wp
-  CALL sync_patch_array(sync_e, p_patch, z_gradh_e(:,1,:))
   gdt              = grav*dtime
-
-  rl_start   = 1
-  rl_end     = min_rledge
-  i_startblk = p_patch%edges%start_blk(rl_start,1)
-  i_endblk   = p_patch%edges%end_blk(rl_end,1)
 
   ! #slo# 2011-07-13: call sync inserted
 
@@ -971,6 +966,11 @@ END DO
 
 div_z_c(:,:,:)=0.0_wp
 z_e(:,1,:)    =0.0_wp
+
+   ! LL: this should not be required
+!    CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%vn_pred)
+!    CALL sync_patch_array(SYNC_E, p_patch, p_os%p_prog(nold(1))%vn)
+   CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%vn_impl_vert_diff)
 
 IF(iswm_oce == 1)THEN
   z_vn_ab = ab_gam*p_os%p_diag%vn_pred + (1.0_wp -ab_gam)* p_os%p_prog(nold(1))%vn
