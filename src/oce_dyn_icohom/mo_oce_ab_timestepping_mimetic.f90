@@ -93,6 +93,7 @@ USE mo_oce_diffusion,             ONLY: velocity_diffusion_horz_mimetic,        
   !&                                     veloc_diffusion_vert_impl,                        &
   &                                     veloc_diffusion_vert_impl_hom
 USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
+USE mo_util_subset,         ONLY: t_subset_range, get_index_range
 
 IMPLICIT NONE
 
@@ -377,10 +378,14 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
   REAL(wp) :: z_vt(nproma,n_zlev,p_patch%nblks_e)
   !TYPE(t_cartesian_coordinates) :: p_vn_c(nproma,n_zlev,p_patch%nblks_c)
   !INTEGER  :: rl_start_c, rl_end_c, i_startblk_c, i_endblk_c,i_startidx_c, i_endidx_c
+  TYPE(t_subset_range), POINTER :: edges_in_domain
+  INTEGER  :: i_startidx_e, i_endidx_e
+  
   CHARACTER(len=max_char_length), PARAMETER :: &
     &       routine = ('mo_oce_ab_timestepping_mimetic:calculate_explicit_term_ab')
   !-----------------------------------------------------------------------  
   !CALL message (TRIM(routine), 'start')        
+  edges_in_domain => p_patch%edges%in_domain
 
   z_gradh_e(:,:,:) = 0.0_wp
   CALL sync_patch_array(sync_e, p_patch, z_gradh_e(:,1,:))
@@ -530,7 +535,7 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
 !                            & p_os%p_diag%laplacian_horz)
 
 
-       CALL nabla2_vec_ocean_3D( p_os%p_prog(nold(1))%vn,z_vt, p_os%p_diag%vort,&
+      CALL nabla2_vec_ocean_3D( p_os%p_prog(nold(1))%vn,z_vt, p_os%p_diag%vort,&
                                & p_patch, p_phys_param%K_veloc_h, &
                                & p_op_coeff,&
                                & p_os%p_diag%p_vn_dual, p_os%p_diag%laplacian_horz)
@@ -572,23 +577,36 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
     ELSE
       z_e = inverse_primal_flip_flop(p_patch, p_os%p_diag%veloc_adv_horz, p_os%p_diag%thick_e)
     ENDIF
+    
     IF(l_STAGGERED_TIMESTEP)THEN
-      DO jk = 1, n_zlev
-        p_os%p_aux%g_n(:,jk,:) =&             !-p_os%p_diag%press_grad(:,jk,:)       &
-           &                   - z_e(:,jk,:)  &
-           &                   - p_os%p_diag%veloc_adv_vert(:,jk,:)  &
-           &                   + p_os%p_diag%laplacian_horz(:,jk,:)  &
-           &                   + p_os%p_diag%laplacian_vert(:,jk,:)
+    
+      DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+        CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
+        DO jk = 1, n_zlev
+        
+          p_os%p_aux%g_n(i_startidx_e:i_endidx_e, jk, jb) = &      
+            &                   - z_e(i_startidx_e:i_endidx_e,jk,jb)  &
+            &                   - p_os%p_diag%veloc_adv_vert(i_startidx_e:i_endidx_e,jk,jb)  &
+            &                   + p_os%p_diag%laplacian_horz(i_startidx_e:i_endidx_e,jk,jb)  &
+            &                   + p_os%p_diag%laplacian_vert(i_startidx_e:i_endidx_e,jk,jb)
+        END DO
       END DO
+      
     ELSEIF(.NOT.l_STAGGERED_TIMESTEP)THEN
-      DO jk = 1, n_zlev
-        p_os%p_aux%g_n(:,jk,:) =-p_os%p_diag%press_grad(:,jk,:)       &
-           &                   - z_e(:,jk,:)  &
-           &                   - p_os%p_diag%veloc_adv_vert(:,jk,:)  &
-           &                   + p_os%p_diag%laplacian_horz(:,jk,:)  &
-           &                   + p_os%p_diag%laplacian_vert(:,jk,:)
+      DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+        CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
+        DO jk = 1, n_zlev
+          p_os%p_aux%g_n(i_startidx_e:i_endidx_e, jk, jb) = &
+            & -p_os%p_diag%press_grad(i_startidx_e:i_endidx_e, jk, jb)       &
+            &                   - z_e(i_startidx_e:i_endidx_e, jk, jb)  &
+            &                   - p_os%p_diag%veloc_adv_vert(i_startidx_e:i_endidx_e, jk, jb)  &
+            &                   + p_os%p_diag%laplacian_horz(i_startidx_e:i_endidx_e, jk, jb)  &
+            &                   + p_os%p_diag%laplacian_vert(i_startidx_e:i_endidx_e, jk, jb)
+        END DO
       END DO
     ENDIF
+  
+    CALL sync_patch_array(SYNC_E, p_patch, p_os%p_aux%g_n)
 
 
   ELSEIF(.NOT.(L_INVERSE_FLIP_FLOP))THEN
@@ -612,7 +630,7 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
     ENDIF
 
   ENDIF!(L_INVERSE_FLIP_FLOP)
-
+    
   IF(l_initial_timestep)THEN
     p_os%p_aux%g_nimd(:,:,:) = p_os%p_aux%g_n(:,:,:)
   ELSE
@@ -1762,9 +1780,12 @@ END DO
 
 END SUBROUTINE calc_vert_velocity_mim_topdown
 !-------------------------------------------------------------------------
+
+!-------------------------------------------------------------------------
+!!  mpi parallelized, the result is NOT synced. Should be done in the calling method if required
 FUNCTION inverse_primal_flip_flop(p_patch, rhs_e, h_e) result(inv_flip_flop_e)
    !
-   TYPE(t_patch) :: p_patch 
+   TYPE(t_patch), TARGET :: p_patch 
    REAL(wp)      :: rhs_e(:,:,:)!(nproma,n_zlev,p_patch%nblks_e)
    REAL(wp)      :: h_e(:,:)  !(nproma,p_patch%nblks_e)
    REAL(wp)      :: inv_flip_flop_e(SIZE(rhs_e,1),SIZE(rhs_e,2),SIZE(rhs_e,3))
@@ -1817,8 +1838,7 @@ FUNCTION inverse_primal_flip_flop(p_patch, rhs_e, h_e) result(inv_flip_flop_e)
                     & h_e,                    &
                     & p_patch,                &! used for calculating l.h.s.
                     & jk,                     &!idx of vertical level
-                    & p_patch%nblks_e,        &
-                    & p_patch%npromz_e,       &
+                    & p_patch%edges%in_domain, &
                     & zimpl_coeff,            &! used for calculating l.h.s.
                     & rhs_e(:,jk,:),          &! right hand side as input
                     & tolerance,              &! relative tolerance
@@ -1875,9 +1895,12 @@ FUNCTION inverse_primal_flip_flop(p_patch, rhs_e, h_e) result(inv_flip_flop_e)
 
    END FUNCTION inverse_primal_flip_flop
    !--------------------------------------------------------------------
+   
+   !--------------------------------------------------------------------
+   !!  mpi parallelized LL, results is valid only in in_domain edges
    FUNCTION lhs_primal_flip_flop( x, p_patch, jk, p_coeff, h_e) RESULT(llhs)
    !
-   TYPE(t_patch),INTENT(in)     :: p_patch
+   TYPE(t_patch), TARGET, INTENT(in) :: p_patch
    REAL(wp),INTENT(inout)       :: x(:,:)
    INTEGER ,INTENT(in)          :: jk
    REAL(wp),INTENT(in)          :: p_coeff
@@ -1897,12 +1920,15 @@ FUNCTION inverse_primal_flip_flop(p_patch, rhs_e, h_e) result(inv_flip_flop_e)
   !INTEGER :: il_e, ib_e
   !INTEGER :: ie,je  
   !INTEGER, PARAMETER :: no_cell_edges = 3
-  !INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
+  INTEGER :: jb, i_startidx_e, i_endidx_e
   !INTEGER :: rl_start_e, rl_end_e 
   !REAL(wp) :: z_weight
   !REAL(wp) :: z_thick_e
-   !----------------------------------------------------------------------- 
+  TYPE(t_subset_range), POINTER :: edges_in_domain
+  !-----------------------------------------------------------------------
+  edges_in_domain => p_patch%edges%in_domain
 
+  CALL sync_patch_array(SYNC_E, p_patch, x)
   z_x_in(:,:,:)  = 0.0_wp
   z_x_out(:,:,:) = 0.0_wp
   z_x_in(:,1,:)  = x(:,:)
@@ -2010,7 +2036,10 @@ FUNCTION inverse_primal_flip_flop(p_patch, rhs_e, h_e) result(inv_flip_flop_e)
 ! END DO EDGE_BLK_LOOP
 !    llhs(1:nproma,1:p_patch%nblks_e) = p_coeff*z_x_e(1:nproma,1:p_patch%nblks_e)
 
-   llhs(1:nproma,1:p_patch%nblks_e) = p_coeff*z_x_out(1:nproma,1,1:p_patch%nblks_e)
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
+      llhs(i_startidx_e:i_endidx_e,jb) = p_coeff*z_x_out(i_startidx_e:i_endidx_e,1,jb)
+    ENDDO
 !write(*,*)'max/min LHS', maxval(llhs(:,:)),minval(llhs(:,:)) 
 
 END FUNCTION lhs_primal_flip_flop

@@ -973,7 +973,7 @@ CONTAINS
   !! @par Revision History
   !!  developed by Peter Korn, MPI-M (2010-11)
   !!
-  !!  no-mpi parallelized
+  !!  mpi note: in and out is not synced. Should be done in the calling method if required
   SUBROUTINE map_edges2edges_with_height( p_patch, vn_in, vn_out,&
     & h_e, opt_slev,opt_elev )
     
@@ -1010,7 +1010,7 @@ CONTAINS
   !! @par Revision History
   !!  developed by Peter Korn, MPI-M (2010-11)
   !!
-  !!  no-mpi parallelized
+  !!  mpi note: in and out is not synced. Should be done in the calling method if required
   SUBROUTINE map_edges2edges_without_height( p_patch, vn_in, vn_out, opt_slev, opt_elev)
     
     TYPE(t_patch), INTENT(in) :: p_patch            ! patch on which computation is performed
@@ -1035,9 +1035,8 @@ CONTAINS
     !  & routine = ('mo_scalar_product:primal_map_e2c')
     !-----------------------------------------------------------------------
     !CALL message (TRIM(routine), 'start')
-    
-    
-    CALL map_edges2cell( p_patch, vn_in, z_p_vn_cc)
+        
+    CALL map_edges2cell( p_patch, vn_in, z_p_vn_cc )
     CALL map_cell2edges( p_patch, z_p_vn_cc, vn_out)
     
   END SUBROUTINE map_edges2edges_without_height
@@ -1185,7 +1184,8 @@ CONTAINS
   !! @par Revision History
   !!  developed by Peter Korn, MPI-M (2010-11)
   !!  mpi parallelized LL
-  SUBROUTINE map_edges2cell_with_height( p_patch, vn_e, p_vn_c, h_e, opt_slev, opt_elev)
+  SUBROUTINE map_edges2cell_with_height( p_patch, vn_e, p_vn_c, h_e, opt_slev, opt_elev, &
+    & opt_subset_range)
     
     TYPE(t_patch), TARGET, INTENT(in)          :: p_patch        ! patch on which computation is performed
     REAL(wp), INTENT(in)                       :: vn_e(:,:,:)    ! input (nproma,n_zlev,nblks_e)
@@ -1195,6 +1195,7 @@ CONTAINS
     !TYPE(t_operator_coeff)                     :: p_op_coeff
     INTEGER, INTENT(in), OPTIONAL :: opt_slev       ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL :: opt_elev       ! optional vertical end level
+    TYPE(t_subset_range), TARGET,  OPTIONAL :: opt_subset_range
     
     !Local variables
     INTEGER, PARAMETER :: no_cell_edges = 3
@@ -1212,7 +1213,11 @@ CONTAINS
     !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     !  & routine = ('mo_scalar_product:primal_map_e2c')
     !-----------------------------------------------------------------------
-    all_cells => p_patch%cells%all
+    IF ( PRESENT(opt_subset_range) ) THEN
+      all_cells => opt_subset_range
+    ELSE
+      all_cells => p_patch%cells%all
+    ENDIF
     
     IF ( PRESENT(opt_slev) ) THEN
       slev = opt_slev
@@ -1322,7 +1327,7 @@ CONTAINS
   !!  developed by Peter Korn, MPI-M (2010-11)
   !!  mpi parallelized LL
   SUBROUTINE map_edges2cell_with_height_3d( p_patch, vn_e, p_op_coeff, p_vn_c, h_e,&
-    & opt_slev, opt_elev)
+    & opt_slev, opt_elev, opt_subset_range)
     
     TYPE(t_patch), TARGET, INTENT(in)          :: p_patch        ! patch on which computation is performed
     REAL(wp), INTENT(in)                       :: vn_e(:,:,:)    ! input (nproma,n_zlev,nblks_e)
@@ -1332,6 +1337,7 @@ CONTAINS
     TYPE(t_operator_coeff)                     :: p_op_coeff
     INTEGER, INTENT(in), OPTIONAL :: opt_slev       ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL :: opt_elev       ! optional vertical end level
+    TYPE(t_subset_range), TARGET,  OPTIONAL :: opt_subset_range
     
     !Local variables
     INTEGER, PARAMETER :: no_cell_edges = 3
@@ -1349,7 +1355,11 @@ CONTAINS
     !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     !  & routine = ('mo_scalar_product:primal_map_e2c')
     !-----------------------------------------------------------------------
-    all_cells => p_patch%cells%all
+    IF ( PRESENT(opt_subset_range) ) THEN
+      all_cells => opt_subset_range
+    ELSE
+      all_cells => p_patch%cells%all
+    ENDIF
     
     IF ( PRESENT(opt_slev) ) THEN
       slev = opt_slev
@@ -1461,7 +1471,8 @@ CONTAINS
   !! @par Revision History
   !!  developed by Peter Korn, MPI-M (2010-11)
   !!  mpi parallelized LL
-  SUBROUTINE map_edges2cell_without_height( p_patch, vn_e, p_vn_c,opt_slev, opt_elev )
+  SUBROUTINE map_edges2cell_without_height( p_patch, vn_e, p_vn_c,opt_slev, opt_elev, &
+    & opt_subset_range )
     
     TYPE(t_patch), TARGET, INTENT(in)          :: p_patch        ! patch on which computation is performed
     REAL(wp)                                   :: vn_e(:,:,:)    ! input (nproma,n_zlev,nblks_e)
@@ -1469,6 +1480,7 @@ CONTAINS
     TYPE(t_cartesian_coordinates),INTENT(inout):: p_vn_c(:,:,:)  ! outputput (nproma,n_zlev,nblks_c)
     INTEGER, INTENT(in), OPTIONAL :: opt_slev       ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL :: opt_elev       ! optional vertical end level
+    TYPE(t_subset_range), TARGET,  OPTIONAL :: opt_subset_range
     !TYPE(t_operator_coeff)    :: p_op_coeff
     !Local variables
     INTEGER, PARAMETER :: no_cell_edges = 3
@@ -1485,7 +1497,11 @@ CONTAINS
     !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     !  & routine = ('mo_scalar_product:primal_map_e2c')
     !-----------------------------------------------------------------------
-    all_cells => p_patch%cells%all
+    IF ( PRESENT(opt_subset_range) ) THEN
+      all_cells => opt_subset_range
+    ELSE
+      all_cells => p_patch%cells%all
+    ENDIF
     
     IF ( PRESENT(opt_slev) ) THEN
       slev = opt_slev
@@ -1537,7 +1553,8 @@ CONTAINS
   !! @par Revision History
   !!  developed by Peter Korn, MPI-M (2010-11)
   !!  mpi parallelized LL
-  SUBROUTINE map_edges2cell_no_height_3d( p_patch, vn_e,p_op_coeff, p_vn_c,opt_slev, opt_elev )
+  SUBROUTINE map_edges2cell_no_height_3d( p_patch, vn_e,p_op_coeff, p_vn_c,opt_slev, opt_elev, &
+    &  opt_subset_range)
     
     TYPE(t_patch), TARGET, INTENT(in)          :: p_patch        ! patch on which computation is performed
     REAL(wp), INTENT(in)                       :: vn_e(:,:,:)    ! input (nproma,n_zlev,nblks_e)
@@ -1545,6 +1562,7 @@ CONTAINS
     TYPE(t_cartesian_coordinates),INTENT(out)  :: p_vn_c(:,:,:)  ! outputput (nproma,n_zlev,nblks_c)
     INTEGER, INTENT(in), OPTIONAL :: opt_slev       ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL :: opt_elev       ! optional vertical end level
+    TYPE(t_subset_range), TARGET,  OPTIONAL :: opt_subset_range
     !Local variables
     INTEGER, PARAMETER :: no_cell_edges = 3
     INTEGER :: slev, elev
@@ -1557,7 +1575,11 @@ CONTAINS
     !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     !  & routine = ('mo_scalar_product:primal_map_e2c')
     !-----------------------------------------------------------------------
-    all_cells => p_patch%cells%all
+    IF ( PRESENT(opt_subset_range) ) THEN
+      all_cells => opt_subset_range
+    ELSE
+      all_cells => p_patch%cells%all
+    ENDIF
     
     IF ( PRESENT(opt_slev) ) THEN
       slev = opt_slev

@@ -68,6 +68,7 @@ USE mo_timer,               ONLY: timer_start, timer_stop, timer_gmres
 #endif
 USE mo_sync,                ONLY: omp_global_sum_array
 USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
+USE mo_util_subset,         ONLY: t_subset_range, get_index_range
 
 IMPLICIT NONE
 
@@ -504,8 +505,9 @@ REAL(wp) :: sum_aux(nblks)
 !! interpolation state removed from parameter list and adapted to 2D arrays, Peter Korn (2010-04)
 !! @par
 !! inital guess, overwritten with the solution
+!!  mpi note: depending on the subset_range, it will compute the results on edges%in_domain
 !!
-SUBROUTINE gmres_e2e( x,lhs,h_e, curr_patch, lev, nblks,npromz,coeff,b,  &
+SUBROUTINE gmres_e2e( x,lhs,h_e, curr_patch, lev, subset_range, coeff,b,  &
                     & tolerance,abstol,m,maxiterex,niter,res, &
                     & preconditioner)
 !
@@ -519,7 +521,8 @@ REAL(wp), INTENT(INOUT) :: x(:,:)
 REAL(wp), INTENT(IN)    :: h_e(:,:)
  INTEGER,     INTENT(IN) :: lev
 ! index defining the "active" region of the arrays
-INTEGER, INTENT(IN) :: nblks, npromz
+TYPE(t_subset_range) :: subset_range
+! INTEGER, INTENT(IN) :: nblks, npromz
 ! parameter used in calculating the lhs
 REAL(wp), INTENT(IN) :: coeff
 !INTEGER, INTENT(IN) :: lev
@@ -591,7 +594,7 @@ REAL(wp) :: z(SIZE(x,1),SIZE(x,2)) ! needed for global sums
 #endif
 
 #ifdef NOMPI
-REAL(wp) :: sum_aux(nblks)
+REAL(wp) :: sum_aux(subset_range%end_block)
 #endif
 
   INTEGER :: myThreadNo
@@ -600,8 +603,8 @@ REAL(wp) :: sum_aux(nblks)
    ! 0) set module variables and initialize maxiterex
    !>
    !!
-   mnblks  = nblks
-   mnpromz = npromz
+   mnblks  = subset_range%end_block
+   mnpromz = subset_range%end_index
 #ifndef NOMPI
    z(:,:) = 0.0_wp
 #endif
