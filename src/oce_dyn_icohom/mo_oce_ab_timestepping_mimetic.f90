@@ -534,8 +534,9 @@ SUBROUTINE calculate_explicit_term_ab( p_patch, p_os, p_phys_param,&
                                & p_patch, p_phys_param%K_veloc_h, &
                                & p_op_coeff,&
                                & p_os%p_diag%p_vn_dual, p_os%p_diag%laplacian_horz)
-
-
+      CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%laplacian_horz)
+       
+     
   ipl_src=4  ! output print level (1-5, fix)
   DO jk=1, n_zlev
 ! write(*,*)'LAPLACIAN',jk,&
@@ -1874,7 +1875,7 @@ FUNCTION inverse_primal_flip_flop(p_patch, rhs_e, h_e) result(inv_flip_flop_e)
 
    END FUNCTION inverse_primal_flip_flop
    !--------------------------------------------------------------------
-   FUNCTION lhs_primal_flip_flop( x, p_patch, jk, p_coeff, h_e) RESULT(llhs) 
+   FUNCTION lhs_primal_flip_flop( x, p_patch, jk, p_coeff, h_e) RESULT(llhs)
    !
    TYPE(t_patch),INTENT(in)     :: p_patch
    REAL(wp),INTENT(inout)       :: x(:,:)

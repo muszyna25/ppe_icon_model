@@ -222,6 +222,7 @@ CONTAINS
   !! Modification by Stephan Lorenz, MPI-M (2010-08-05)
   !! - New boundary definition with inner and boundary points on land/sea
   !!
+  !!  mpi parallelized LL (no sync required)
   SUBROUTINE div_oce_3d( vec_e, ptr_patch, div_coeff, div_vec_c ,opt_slev,opt_elev)
     !
     !
@@ -240,11 +241,13 @@ CONTAINS
     
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: jc, jk, jb
-    INTEGER :: rl_start, rl_end
-    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+    INTEGER ::i_startidx, i_endidx, i_nchdom
     !INTEGER :: nlen, npromz_c, nblks_c
     INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+    TYPE(t_subset_range), POINTER :: all_cells
     !-----------------------------------------------------------------------
+    all_cells => ptr_patch%cells%all
+    
     IF ( PRESENT(opt_slev) ) THEN
       slev = opt_slev
     ELSE
@@ -255,15 +258,7 @@ CONTAINS
     ELSE
       elev = n_zlev
     END IF
-    
-    rl_start = 1
-    rl_end = min_rlcell
-    
-    ! values for the blocking
-    i_nchdom   = MAX(1,ptr_patch%n_childdom)
-    i_startblk = ptr_patch%cells%start_blk(rl_start,1)
-    i_endblk   = ptr_patch%cells%end_blk(rl_end,1)
-    
+        
 #ifndef __SX__
     IF (ltimer) CALL timer_start(timer_div)
 #endif
@@ -274,9 +269,8 @@ CONTAINS
     
     
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
-    DO jb = i_startblk, i_endblk
-      CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
-        & i_startidx, i_endidx, rl_start, rl_end)
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
 #ifdef __SX__
 !CDIR UNROLL=6
 #endif
@@ -333,6 +327,7 @@ CONTAINS
   !! - include the system orientation factor in the vorticity term
   !! Modified by Almut Gassmann, MPI-M (2007-04-20)
   !! - abandon grid for the sake of patch
+  !!  mpi note: the result is not synced. Should be done in the calling method if required
   !!
   SUBROUTINE nabla2_vec_ocean_3d( u_vec_e, v_vec_e, vort, ptr_patch, k_h, p_op_coeff,&
     & p_vn_dual, nabla2_vec_e)
@@ -359,39 +354,14 @@ CONTAINS
     !  &  z_rot_v(nproma,n_zlev,ptr_patch%nblks_v)
     
     INTEGER,  DIMENSION(:,:,:),   POINTER :: icidx, icblk, ividx, ivblk
+    TYPE(t_subset_range), POINTER :: edges_in_domain
+    ! note that this will go through the lateral boundaries      
     !-----------------------------------------------------------------------
+    edges_in_domain => ptr_patch%edges%in_domain
     
     slev = 1
     elev = n_zlev
-    rl_start = 3
-    rl_end = min_rledge
-    
-    rl_start_c = rl_start/2
-    
-    IF (rl_start > 0) THEN
-      rl_start_v = (rl_start+1)/2
-    ELSE
-      rl_start_v = (rl_start-1)/2
-    ENDIF
-    
-    IF (rl_end > 0) THEN
-      rl_end_c = (rl_end+1)/2
-      rl_end_v = rl_end/2+1
-    ELSE
-      rl_end_c = (rl_end-1)/2
-      rl_end_v = rl_end/2-1
-    ENDIF
-    
-    rl_end_c = MAX(min_rlcell,rl_end_c)
-    rl_end_v = MAX(min_rlvert,rl_end_v)
-    
-    ! values for the blocking
-    nblks_c  = ptr_patch%nblks_c
-    
-    i_nchdom   = MAX(1,ptr_patch%n_childdom)
-    i_startblk = ptr_patch%edges%start_blk(rl_start,1)
-    i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
-    
+
     icidx => ptr_patch%edges%cell_idx
     icblk => ptr_patch%edges%cell_blk
     ividx => ptr_patch%edges%vertex_idx
@@ -409,10 +379,8 @@ CONTAINS
     !
     !  loop through all patch edges (and blocks)
     !
-    DO jb = i_startblk, i_endblk
-      
-      CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
-        & i_startidx, i_endidx, rl_start, rl_end)
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
       DO je = i_startidx, i_endidx
         DO jk = slev, elev
           
