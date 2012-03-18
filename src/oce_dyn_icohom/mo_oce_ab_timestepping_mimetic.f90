@@ -934,15 +934,15 @@ TYPE(t_operator_coeff)            :: p_op_coeff
 INTEGER :: i_startidx_c, i_endidx_c
 INTEGER :: jc, jb, jk!, je
 INTEGER :: i_dolic_c
-REAL(wp) :: z_e(nproma,1,p_patch%nblks_e)
-REAL(wp) :: z_e1(nproma,1,p_patch%nblks_e)
+REAL(wp) :: z_e(nproma,p_patch%nblks_e)
+REAL(wp) :: z_e1(nproma,p_patch%nblks_e)
 REAL(wp) :: gdt2
-REAL(wp) :: z_c1(nproma,1,p_patch%nblks_c)
-REAL(wp) :: div_z_c(nproma,1,p_patch%nblks_c) 
+REAL(wp) :: z_c1(nproma,p_patch%nblks_c)
+REAL(wp) :: div_z_c(nproma,p_patch%nblks_c)
 REAL(wp) :: z_vn_ab(nproma,n_zlev,p_patch%nblks_e)
 TYPE(t_cartesian_coordinates) :: z_u_pred_cc(nproma,n_zlev,p_patch%nblks_c)
 TYPE(t_cartesian_coordinates) :: z_u_pred_cc2(nproma,n_zlev,p_patch%nblks_c)
-TYPE(t_cartesian_coordinates) :: z_u_pred_depth_int_cc(nproma,1,p_patch%nblks_c)
+TYPE(t_cartesian_coordinates) :: z_u_pred_depth_int_cc(nproma,p_patch%nblks_c)
     
     TYPE(t_subset_range), POINTER :: all_cells, cells_in_domain
 
@@ -961,13 +961,13 @@ gdt2 = grav*(dtime)**2
 DO jb = all_cells%start_block, all_cells%end_block
   CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
   DO jc = i_startidx_c, i_endidx_c
-    z_u_pred_depth_int_cc(jc,1,jb)%x(:) = 0.0_wp
+    z_u_pred_depth_int_cc(jc,jb)%x(:) = 0.0_wp
     z_u_pred_cc(jc,1,jb)%x(:)           = 0.0_wp
   END DO
 END DO
 
-div_z_c(:,:,:)=0.0_wp
-z_e(:,1,:)    =0.0_wp
+div_z_c(:,:)=0.0_wp
+z_e(:,:)    =0.0_wp
 
    ! LL: this should not be required
 !    CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%vn_pred)
@@ -1018,7 +1018,7 @@ IF( iswm_oce /= 1 ) THEN !the 3D case
     DO jc = i_startidx_c, i_endidx_c
       i_dolic_c = v_base%dolic_c(jc,jb)
       DO jk=1,i_dolic_c
-         z_u_pred_depth_int_cc(jc,1,jb)%x = z_u_pred_depth_int_cc(jc,1,jb)%x&
+         z_u_pred_depth_int_cc(jc,jb)%x = z_u_pred_depth_int_cc(jc,jb)%x&
                                          &+ z_u_pred_cc(jc,jk,jb)%x&
                                          &* v_base%del_zlev_m(jk)
 
@@ -1026,7 +1026,7 @@ IF( iswm_oce /= 1 ) THEN !the 3D case
 
      !Add surface elevation
      !For a linear surface this can be eleminated
-      z_u_pred_depth_int_cc(jc,1,jb)%x = z_u_pred_depth_int_cc(jc,1,jb)%x&
+      z_u_pred_depth_int_cc(jc,jb)%x = z_u_pred_depth_int_cc(jc,jb)%x&
                                      &+ z_u_pred_cc(jc,1,jb)%x&
                                      &* p_os%p_prog(nold(1))%h(jc,jb)
     ENDDO
@@ -1052,7 +1052,7 @@ DO jb = all_cells%start_block, all_cells%end_block
   CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
   DO jc = i_startidx_c, i_endidx_c
 
-    z_u_pred_depth_int_cc(jc,1,jb)%x = z_u_pred_cc(jc,1,jb)%x&
+    z_u_pred_depth_int_cc(jc,jb)%x = z_u_pred_cc(jc,1,jb)%x&
                                     &* p_os%p_diag%thick_c(jc,jb)
   ENDDO
 END DO
@@ -1062,7 +1062,7 @@ ENDIF
   CALL map_cell2edges( p_patch,              &
                       & z_u_pred_depth_int_cc,&
                       & z_e,                  &
-                      & opt_slev=1, opt_elev=1)
+                      & level=1)
     
 
 ! write(*,*)'MAX/MIN depth_int_cc:',1,maxval(z_u_pred_depth_int_cc(:,1,:)%x(1)), &
@@ -1082,7 +1082,7 @@ ENDIF
 
 ! CALL div_oce( z_e, p_patch, div_z_c, opt_slev=1,opt_elev=1 ) ! to be included surface forcing* +dtime*(P_E)
 CALL div_oce_3D( z_e, p_patch,p_op_coeff%div_coeff, div_z_c,&
-               & opt_slev=1,opt_elev=1, opt_cells_range=cells_in_domain )
+               & level=1, opt_cells_range=cells_in_domain )
                
 IF(l_forc_freshw)THEN
 
@@ -1091,7 +1091,7 @@ IF(l_forc_freshw)THEN
     DO jc = i_startidx_c, i_endidx_c
       IF(v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
         p_os%p_aux%p_rhs_sfc_eq(jc,jb) = ((p_os%p_prog(nold(1))%h(jc,jb)&
-                                       & - dtime*(div_z_c(jc,1,jb)     &
+                                       & - dtime*(div_z_c(jc,jb)     &
                                        & + p_sfc_flx%forc_tracer(jc,jb,2) ))/gdt2)&
                                        &  *v_base%wet_c(jc,1,jb)             !last idx=2 for freshwater
        ELSE
@@ -1107,7 +1107,7 @@ ELSEIF(.NOT.l_forc_freshw)THEN
     DO jc = i_startidx_c, i_endidx_c
       !IF(v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
         p_os%p_aux%p_rhs_sfc_eq(jc,jb) = ((p_os%p_prog(nold(1))%h(jc,jb)&
-                                       & - dtime*div_z_c(jc,1,jb))/gdt2)&
+                                       & - dtime*div_z_c(jc,jb))/gdt2)&
                                        & *v_base%wet_c(jc,1,jb)
        !ELSE
        !  p_os%p_aux%p_rhs_sfc_eq(jc,jb) = 0.0_wp
@@ -1122,18 +1122,18 @@ ENDIF
   
  ipl_src=3  ! output print level (1-5, fix)
  jkdim=1    ! vertical dimension
- z_e1(:,1,:) = p_os%p_diag%thick_e(:,:)
- CALL print_mxmn('thick_e:',1,z_e1(:,:,:),&
+ z_e1(:,:) = p_os%p_diag%thick_e(:,:)
+ CALL print_mxmn('thick_e:',1,z_e1(:,:),&
    &             jkdim, p_patch%nblks_e,'abt',ipl_src)
  CALL print_mxmn('RHS z_vn_ab',1,z_vn_ab(:,:,:),&
    &             n_zlev, p_patch%nblks_e,'abt',ipl_src)
- CALL print_mxmn('RHS z_e',1,z_e(:,:,:),&
+ CALL print_mxmn('RHS z_e',1,z_e(:,:),&
    &             jkdim, p_patch%nblks_e,'abt',ipl_src)
- CALL print_mxmn('div_z_c',1,div_z_c(:,:,:),&
+ CALL print_mxmn('div_z_c',1,div_z_c(:,:),&
    &             jkdim, p_patch%nblks_c,'abt',ipl_src)
  ipl_src=2  ! output print level (1-5, fix)
- z_c1(:,1,:) = p_os%p_aux%p_rhs_sfc_eq(:,:)
- CALL print_mxmn('RHS final',1,z_c1(:,:,:),&
+ z_c1(:,:) = p_os%p_aux%p_rhs_sfc_eq(:,:)
+ CALL print_mxmn('RHS final',1,z_c1(:,:),&
    &             jkdim, p_patch%nblks_c,'abt',ipl_src)
  ! write(987,*)'MAX/MIN thick_e:', maxval(p_os%p_diag%thick_e),&
  ! &minval(p_os%p_diag%thick_e) 
