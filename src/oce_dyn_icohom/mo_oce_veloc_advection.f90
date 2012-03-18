@@ -814,7 +814,7 @@ CONTAINS
     ! ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
     CALL map_cell2edges( p_patch, z_adv_u_m, veloc_adv_vert_e, &
       & opt_slev=slev, opt_elev=elev )
-    ! result synced in map_cell2edges
+    CALL sync_patch_array(SYNC_E, p_patch, veloc_adv_vert_e)
     
     DO jk=1,n_zlev
       ipl_src=3  ! output print level (1-5, fix)
@@ -951,7 +951,7 @@ CONTAINS
     ! ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
     CALL map_cell2edges( p_patch, z_adv_u_m, veloc_adv_vert_e, &
       & opt_slev=slev, opt_elev=elev )
-    ! result is synced in the called funtion
+    CALL sync_patch_array(SYNC_E, p_patch, veloc_adv_vert_e)
     
     
     DO jk=1,n_zlev
@@ -1068,7 +1068,7 @@ CONTAINS
     ! ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
     CALL map_cell2edges( p_patch, z_adv_u_m, veloc_adv_vert_e, &
       & opt_slev=slev, opt_elev=elev )
-    ! result is synced in the called funtion
+    CALL sync_patch_array(SYNC_E, p_patch, veloc_adv_vert_e)
       
     veloc_adv_vert_e=0.0_wp
     DO jk=1,n_zlev

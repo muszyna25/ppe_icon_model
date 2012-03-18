@@ -223,7 +223,8 @@ CONTAINS
   !! - New boundary definition with inner and boundary points on land/sea
   !!
   !!  mpi parallelized LL (no sync required)
-  SUBROUTINE div_oce_3d( vec_e, ptr_patch, div_coeff, div_vec_c ,opt_slev,opt_elev)
+  SUBROUTINE div_oce_3d( vec_e, ptr_patch, div_coeff, div_vec_c ,opt_slev,opt_elev, &
+    & opt_cells_range)
     !
     !
     !  patch on which computation is performed
@@ -238,6 +239,7 @@ CONTAINS
     REAL(wp), INTENT(inout)       :: div_vec_c(:,:,:) ! dim: (nproma,n_zlev,nblks_c)
     INTEGER, INTENT(in), OPTIONAL :: opt_slev       ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL :: opt_elev       ! optional vertical end level
+    TYPE(t_subset_range), TARGET, INTENT(in), OPTIONAL :: opt_cells_range
     
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: jc, jk, jb
@@ -246,7 +248,11 @@ CONTAINS
     INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
     TYPE(t_subset_range), POINTER :: all_cells
     !-----------------------------------------------------------------------
-    all_cells => ptr_patch%cells%all
+    IF (PRESENT(opt_cells_range)) THEN
+      all_cells => opt_cells_range
+    ELSE
+      all_cells => ptr_patch%cells%all
+    ENDIF
     
     IF ( PRESENT(opt_slev) ) THEN
       slev = opt_slev
@@ -309,7 +315,9 @@ CONTAINS
 #endif
   END SUBROUTINE div_oce_3d
   !-------------------------------------------------------------------------
-  !
+  
+
+  !-------------------------------------------------------------------------
   !>
   !!  Computes  laplacian of a vector field.
   !!

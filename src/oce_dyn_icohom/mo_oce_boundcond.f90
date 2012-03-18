@@ -184,6 +184,7 @@ CONTAINS
     ! LL: no sync rquired
     
     CALL map_cell2edges_2d( p_patch, top_bc_u_cc, p_os%p_aux%bc_top_vn)
+    CALL sync_patch_array(SYNC_E, p_patch, p_os%p_aux%bc_top_vn)
     
     ! write(*,*)'MAX/MIN: wind:u/v',maxval(p_sfc_flx%forc_wind_u),&
     !                             & minval(p_sfc_flx%forc_wind_u)&
@@ -280,6 +281,7 @@ CONTAINS
       END DO
       
       CALL map_cell2edges_2d( p_patch, p_os%p_aux%bc_bot_veloc_cc, p_os%p_aux%bc_bot_vn)
+      CALL sync_patch_array(SYNC_E, p_patch, p_os%p_aux%bc_bot_v)
       
     CASE(2) !Bottom friction and topographic slope
       CALL message (TRIM(routine), &
@@ -345,6 +347,7 @@ CONTAINS
       
       
       CALL map_cell2edges_2d( p_patch, p_os%p_aux%bc_bot_veloc_cc, p_os%p_aux%bc_bot_vn)
+      CALL sync_patch_array(SYNC_E, p_patch, p_os%p_aux%bc_bot_v)
       
       !p_os%p_aux%bc_bot_vn(:,:) = p_os%p_aux%bc_bot_vn(:,:) - z_e(:,1,:)
       

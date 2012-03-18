@@ -214,6 +214,7 @@ CONTAINS
     END DO
     
     CALL map_cell2edges( p_patch, p_diag%p_vn, p_diag%ptp_vn)
+    CALL sync_patch_array(SYNC_E, p_patch, p_diag%ptp_vn)    
     
   END SUBROUTINE calc_scalar_product_veloc
   !-------------------------------------------------------------------------
@@ -308,6 +309,8 @@ CONTAINS
     !--------------------------------------------------------------    
     
     CALL map_cell2edges( p_patch, p_diag%p_vn, p_diag%ptp_vn)
+
+    CALL sync_patch_array(SYNC_E, p_patch, p_diag%ptp_vn)    
     
   END SUBROUTINE calc_scalar_product_veloc_3d
   !-------------------------------------------------------------------------
@@ -1049,7 +1052,7 @@ CONTAINS
   !!
   !! @par Revision History
   !!  developed by Peter Korn, MPI-M (2010-11)
-  !!  mpi parallelized by LL
+  !!  mpi parallelized by LL, result not synced
   SUBROUTINE map_cell2edges( p_patch, p_vn_c, ptp_vn, opt_slev, opt_elev )
     
     TYPE(t_patch), TARGET,  INTENT(in)        :: p_patch          ! patch on which computation is performed
@@ -1116,7 +1119,7 @@ CONTAINS
     END DO ! jb = edges_in_domain%start_block, edges_in_domain%end_block
 
     ! sync the result
-    CALL sync_patch_array(SYNC_E, p_patch, ptp_vn(:,:,:))
+!     CALL sync_patch_array(SYNC_E, p_patch, ptp_vn(:,:,:))
        
     !stop
   END SUBROUTINE map_cell2edges
@@ -1129,7 +1132,7 @@ CONTAINS
   !!
   !! @par Revision History
   !!  developed by Peter Korn, MPI-M (2010-11)
-  !!  mpi parallelized LL
+  !!  mpi parallelized LL, result not synced
   SUBROUTINE map_cell2edges_2d( p_patch, p_vn_c, ptp_vn)
     
     TYPE(t_patch), TARGET, INTENT(in)         :: p_patch        ! patch on which computation is performed
@@ -1173,7 +1176,7 @@ CONTAINS
       END DO edge_idx_loop
     END DO ! jb = edges_in_domain%start_block, edges_in_domain%end_block
     
-    CALL sync_patch_array(SYNC_E, p_patch, ptp_vn)
+!     CALL sync_patch_array(SYNC_E, p_patch, ptp_vn)
     
   END SUBROUTINE map_cell2edges_2d
   !-----------------------------------------------------------------------------

@@ -221,6 +221,7 @@ DO jb = i_startblk_c, i_endblk_c
 
 !Step 3: Map divergence back to edges
 CALL map_cell2edges( p_patch, z_div_grad_u, laplacian_vn_out)
+CALL sync_patch_array(SYNC_E, p_patch, laplacian_vn_out)
 
 
 ! DO jk=slev, elev
@@ -407,6 +408,7 @@ DO jb = all_cells%start_block, all_cells%end_block
 
 ! Step 2: Map result of previous calculations from cell centers to edges (for all vertical layers)  
 CALL map_cell2edges( p_patch, z_u, laplacian_vn_out)
+CALL sync_patch_array(SYNC_E, p_patch, laplacian_vn_out)
 
  DO jk=slev, elev
    ipl_src=4  ! output print level (1-5, fix)
@@ -552,6 +554,7 @@ END DO
 
 ! Step 2: Map result of previous calculations from cell centers to edges (for all vertical layers)
 CALL map_cell2edges( p_patch, zu_cc, laplacian_vn_out)
+CALL sync_patch_array(SYNC_E, p_patch, laplacian_vn_out)
  DO jk=slev, elev
    ipl_src=4  ! output print level (1-5, fix)
    CALL print_mxmn('vert diffusion',jk,laplacian_vn_out(:,:,:),n_zlev, &

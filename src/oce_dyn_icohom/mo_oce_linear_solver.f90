@@ -144,7 +144,7 @@ INTERFACE   ! left-hand-side: A*x
     USE mo_kind, ONLY: wp
     USE mo_model_domain, ONLY: t_patch
     USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
-    REAL(wp),    INTENT(in) :: x(:,:)
+    REAL(wp),    INTENT(inout) :: x(:,:)  ! inout for sync
     REAL(wp), INTENT(IN) :: old_h(:,:)
     TYPE(t_patch), INTENT(in) :: curr_patch
     REAL(wp),    INTENT(in) :: coeff  
