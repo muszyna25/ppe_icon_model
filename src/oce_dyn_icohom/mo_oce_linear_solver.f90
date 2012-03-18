@@ -67,6 +67,7 @@ USE mo_model_domain,        ONLY: t_patch
 USE mo_timer,               ONLY: timer_start, timer_stop, timer_gmres
 #endif
 USE mo_sync,                ONLY: omp_global_sum_array
+USE mo_sync,                ONLY: sync_e, sync_c, sync_v, sync_patch_array
 USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
 USE mo_util_subset,         ONLY: t_subset_range, get_index_range
 
@@ -100,8 +101,8 @@ CONTAINS
 !! @par
 !! inital guess, overwritten with the solution
 !!
-SUBROUTINE gmres_oce( x,lhs,h_e, thickness_c, old_h, curr_patch,cells_in_domain, coeff,&
-                    & p_op_coeff, b,  &
+SUBROUTINE gmres_oce( x,lhs,h_e, thickness_c, old_h, curr_patch, & ! cells_in_domain, owner_mask
+                    &coeff, p_op_coeff, b,  &
                     & tolerance,abstol,m,maxiterex,niter,res, &
                     & preconditioner)
 !
@@ -118,7 +119,7 @@ REAL(wp), INTENT(IN) :: old_h(:,:)
 TYPE(t_patch), INTENT(IN) :: curr_patch
 ! index defining the "active" region of the arrays
 !INTEGER, INTENT(IN) :: nblks, npromz
-    TYPE(t_subset_range), INTENT(in) :: cells_in_domain
+!     TYPE(t_subset_range), INTENT(in) :: cells_in_domain
 ! parameter used in calculating the lhs
 REAL(wp), INTENT(IN) :: coeff  
 TYPE(t_operator_coeff), INTENT(IN):: p_op_coeff
@@ -193,7 +194,7 @@ INTEGER :: mnblks, mnpromz
 !TODO #ifndef NOMPI
 !TODO REAL(wp) :: z(SIZE(x,1),SIZE(x,2)) ! needed for global sums
 !TODO #else
-REAL(wp) :: sum_aux(cells_in_domain%end_block)
+REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
 !TODO #endif
 
   INTEGER :: myThreadNo
@@ -205,13 +206,14 @@ REAL(wp) :: sum_aux(cells_in_domain%end_block)
 
    !>
    !!
-   mnblks =  cells_in_domain%end_block
-   mnpromz = cells_in_domain%end_index
+   mnblks =  curr_patch%cells%in_domain%end_block
+   mnpromz = curr_patch%cells%in_domain%end_index
 !TODO #ifndef NOMPI
 !TODO    z(:,:) = 0.0_wp
 !TODO #endif
    maxiterex = .FALSE.
    ndim2 = SIZE(x,2)
+   v(:,:,:) = 0.0_wp
 
    ! 1) compute the preconditioned residual
 
@@ -240,7 +242,6 @@ REAL(wp) :: sum_aux(cells_in_domain%end_block)
 
    IF (PRESENT(preconditioner)) CALL preconditioner(r(:,:))
 
-!TODO #ifdef NOMPI
 !$OMP DO PRIVATE(jb)
      DO jb = 1, mnblks
        IF (jb /= mnblks) THEN
@@ -251,27 +252,12 @@ REAL(wp) :: sum_aux(cells_in_domain%end_block)
      ENDDO
 !$OMP END DO
 
+#ifdef NOMPI
    rn2_aux = SQRT(SUM(sum_aux))
-!TODO #else
-!TODO !$OMP DO PRIVATE(jb, jk, nlen)
-!TODO      DO jb = 1, mnblks
-!TODO        IF (jb /= mnblks) THEN
-!TODO          nlen = nproma
-!TODO        ELSE
-!TODO          nlen = mnpromz
-!TODO        ENDIF
-!TODO        z(1:nlen,jb) = r(1:nlen,jb)*r(1:nlen,jb)
-!TODO        DO jk = 2,ndim2
-!TODO          z(1:nlen,jb) = z(1:nlen,jb) + r(1:nlen,jb)*r(1:nlen,jb)
-!TODO        ENDDO
-!TODO ! #slo# - 2010-06-16 - Error - routine used for cells and edges as well
-!TODO !      WHERE(.NOT.curr_patch%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
-!TODO      ENDDO
-!TODO !$OMP END DO
-!TODO 
-!TODO    rn2_aux = SQRT(omp_global_sum_array(z))
-!TODO #endif
-
+#else
+   rn2_aux = SQRT(omp_global_sum_array(sum_aux))
+#endif
+      
    IF (myThreadNo == 0) rn2(1) = rn2_aux
 
 
@@ -333,25 +319,11 @@ REAL(wp) :: sum_aux(cells_in_domain%end_block)
      ENDDO
 !$OMP END DO
 
+#ifdef NOMPI
      h_aux = SUM(sum_aux)
-!TODO #else
-!TODO !$OMP DO PRIVATE(jb, jk, nlen)
-!TODO      DO jb = 1, mnblks
-!TODO        IF (jb /= mnblks) THEN
-!TODO          nlen = nproma
-!TODO        ELSE
-!TODO          nlen = mnpromz
-!TODO        ENDIF
-!TODO        z(1:nlen,jb) = w(1:nlen,jb)*v(1:nlen,jb,k)
-!TODO        DO jk = 2,ndim2
-!TODO          z(1:nlen,jb) = z(1:nlen,jb) + w(1:nlen,jb)*v(1:nlen,jb,k)
-!TODO        ENDDO
-!TODO        WHERE(.NOT.curr_patch%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
-!TODO      ENDDO
-!TODO !$OMP END DO
-!TODO 
-!TODO      h_aux = omp_global_sum_array(z)
-!TODO #endif
+#else
+     h_aux = omp_global_sum_array(sum_aux)
+#endif
 
      IF (myThreadNo == 0) h(k,i) = h_aux
 
@@ -382,26 +354,12 @@ REAL(wp) :: sum_aux(cells_in_domain%end_block)
      ENDDO
 !$OMP END DO
 
+#ifdef NOMPI
      h_aux = SQRT(SUM(sum_aux))
-!TODO #else
-!TODO !$OMP DO PRIVATE(jb, jk, nlen)
-!TODO      DO jb = 1, mnblks
-!TODO        IF (jb /= mnblks) THEN
-!TODO          nlen = nproma
-!TODO        ELSE
-!TODO          nlen = mnpromz
-!TODO        ENDIF
-!TODO        z(1:nlen,jb) = w(1:nlen,jb)*w(1:nlen,jb)
-!TODO        DO jk = 2,ndim2
-!TODO          z(1:nlen,jb) = z(1:nlen,jb) + w(1:nlen,jb)*w(1:nlen,jb)
-!TODO        ENDDO
-!TODO        WHERE(.NOT.curr_patch%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
-!TODO      ENDDO
-!TODO !$OMP END DO
-!TODO 
-!TODO      h_aux = SQRT(omp_global_sum_array(z))
-!TODO #endif
-
+#else
+     h_aux = SQRT(omp_global_sum_array(sum_aux))
+#endif
+     
      IF (myThreadNo == 0) h(i+1,i) = h_aux
 
      IF (h_aux < tol2) THEN
@@ -488,9 +446,7 @@ REAL(wp) :: sum_aux(cells_in_domain%end_block)
 
    res(1:niter) = ABS(rn2(1:niter))
 
-
-!-------------------------------------------------------------------------
- END SUBROUTINE gmres_oce
+END SUBROUTINE gmres_oce
 
 !-------------------------------------------------------------------------
 !

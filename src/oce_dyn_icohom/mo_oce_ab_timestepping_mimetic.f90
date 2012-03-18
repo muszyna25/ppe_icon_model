@@ -284,14 +284,20 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
 !       &        nmax_iter,               &  ! max. # of iterations to do
 !       &        l_maxiter,               &  ! out: .true. = not converged
 !       &        n_iter,                  &  ! out: # of iterations done
-!       &        zresidual )                 ! inout: the residual (array)  
+!       &        zresidual )                 ! inout: the residual (array) 
+
+   
+  CALL sync_patch_array(SYNC_E, p_patch, z_h_e)
+  CALL sync_patch_array(SYNC_C, p_patch, p_os%p_diag%thick_c)
+  CALL sync_patch_array(SYNC_C, p_patch, p_os%p_prog(nold(1))%h)
+
   CALL gmres_oce( z_h_c,                   &  ! arg 1 of lhs. x input is the first guess.
       &        lhs_surface_height_ab_mim,&  ! function calculating l.h.s.
       &        z_h_e,                   &  !arg 5 of lhs 
       &        p_os%p_diag%thick_c,     &  !arg 6 of lhs
       &        p_os%p_prog(nold(1))%h,  &  !arg 2 of lhs
       &        p_patch,                 &  !arg 3 of lhs
-      &        p_patch%cells%in_domain,  &
+      &        !p_patch%cells%in_domain, p_patch%cells%owner_mask,&
       &        z_implcoeff,             &  !arg 4 of lhs
       &        p_op_coeff,              &
       &        p_os%p_aux%p_rhs_sfc_eq, &  ! right hand side as input
@@ -966,12 +972,17 @@ DO jb = all_cells%start_block, all_cells%end_block
   END DO
 END DO
 
-div_z_c(:,:)=0.0_wp
-z_e(:,:)    =0.0_wp
+IF (p_test_run) THEN
+  div_z_c(:,:)=0.0_wp
+  z_e(:,:)    =0.0_wp
+  z_u_pred_depth_int_cc(:,:)%x(1) = 0.0_wp
+  z_u_pred_depth_int_cc(:,:)%x(2) = 0.0_wp
+  z_u_pred_depth_int_cc(:,:)%x(3) = 0.0_wp
+ENDIF
 
    ! LL: this should not be required
-!    CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%vn_pred)
-!    CALL sync_patch_array(SYNC_E, p_patch, p_os%p_prog(nold(1))%vn)
+   CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%vn_pred)
+   CALL sync_patch_array(SYNC_E, p_patch, p_os%p_prog(nold(1))%vn)
    CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%vn_impl_vert_diff)
 
 IF(iswm_oce == 1)THEN
@@ -1058,12 +1069,21 @@ DO jb = all_cells%start_block, all_cells%end_block
 END DO
 ENDIF
 !z_e(:,1,:) = z_vn_ab(:,1,:)*p_os%p_diag%thick_e(:,:)
+ 
+!  CALL global_mpi_barrier()
+!  write(0,*) "sync_patch_array(SYNC_C, p_patch, z_u_pred_depth_int_cc..."
+!  CALL sync_patch_array(SYNC_C, p_patch, z_u_pred_depth_int_cc(:,:)%x(1) )
+!  CALL sync_patch_array(SYNC_C, p_patch, z_u_pred_depth_int_cc(:,:)%x(2) )
+!  CALL sync_patch_array(SYNC_C, p_patch, z_u_pred_depth_int_cc(:,:)%x(3) )
 
   CALL map_cell2edges( p_patch,              &
                       & z_u_pred_depth_int_cc,&
                       & z_e,                  &
                       & level=1)
     
+!  CALL global_mpi_barrier()
+!  write(0,*) "sync_patch_array(SYNC_E, p_patch, z__e..."
+!  CALL sync_patch_array(SYNC_E, p_patch, z_e)
 
 ! write(*,*)'MAX/MIN depth_int_cc:',1,maxval(z_u_pred_depth_int_cc(:,1,:)%x(1)), &
 !   &  minval(z_u_pred_depth_int_cc(:,1,:)%x(1))
@@ -1081,8 +1101,14 @@ ENDIF
 !div_z_c(:,1,:) = 0.0_wp
 
 ! CALL div_oce( z_e, p_patch, div_z_c, opt_slev=1,opt_elev=1 ) ! to be included surface forcing* +dtime*(P_E)
+
+
 CALL div_oce_3D( z_e, p_patch,p_op_coeff%div_coeff, div_z_c,&
                & level=1, opt_cells_range=cells_in_domain )
+
+!  CALL global_mpi_barrier()
+!  write(0,*) "sync_patch_array(SYNC_C, p_patch, div_z_c..."
+!  CALL sync_patch_array(SYNC_C, p_patch, div_z_c)
                
 IF(l_forc_freshw)THEN
 
@@ -1118,8 +1144,12 @@ ELSEIF(.NOT.l_forc_freshw)THEN
 
 ENDIF
 
+! CALL global_mpi_barrier()
+! write(0,*) "sync_patch_array(SYNC_C, p_patch, p_os%p_aux%p_rhs_sfc_eq ..."
  CALL sync_patch_array(SYNC_C, p_patch, p_os%p_aux%p_rhs_sfc_eq )
-  
+ write(0,*) "sync_patch_array(SYNC_C, p_patch, p_os%p_aux%p_rhs_sfc_eq is done"
+ CALL global_mpi_barrier()
+ 
  ipl_src=3  ! output print level (1-5, fix)
  jkdim=1    ! vertical dimension
  z_e1(:,:) = p_os%p_diag%thick_e(:,:)
@@ -1200,6 +1230,8 @@ TYPE(t_subset_range), POINTER :: cells_in_domain, all_cells
   cells_in_domain => p_patch%cells%in_domain
   all_cells => p_patch%cells%all
 
+  p_x(:,:) = 0.0_wp
+  
 gdt2 = grav*(dtime)**2
 !z_u_c     = 0.0_wp
 !z_v_c     = 0.0_wp
