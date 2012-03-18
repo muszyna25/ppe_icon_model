@@ -187,7 +187,7 @@ REAL(wp) ::    &
   den, ci
 
 REAL(wp) :: rrn2, rn2_aux, h_aux, rh
-INTEGER :: jb, jk, nlen, ndim2
+INTEGER :: jb, jk, nlen
 
 INTEGER :: mnblks, mnpromz
 
@@ -208,17 +208,23 @@ REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
    !!
    mnblks =  curr_patch%cells%in_domain%end_block
    mnpromz = curr_patch%cells%in_domain%end_index
+
 !TODO #ifndef NOMPI
 !TODO    z(:,:) = 0.0_wp
 !TODO #endif
    maxiterex = .FALSE.
-   ndim2 = SIZE(x,2)
-   v(:,:,:) = 0.0_wp
-
+ 
+   IF ( p_test_run) THEN   
+     z(:,:) = 0._wp
+     v(:,:,:) = 0.0_wp
+     r(:,:)  = 0.0_wp
+   ENDIF
    ! 1) compute the preconditioned residual
 
+   w(:,:) = 0._wp
    w(:,:) = lhs(x(:,:),old_h, curr_patch,coeff, h_e, thickness_c, p_op_coeff)
-
+   CALL sync_patch_array(SYNC_C, curr_patch, w)
+   
 #ifndef __SX__
    IF (ltimer) CALL timer_start(timer_gmres)
 #endif
@@ -241,6 +247,7 @@ REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
 !$OMP END DO
 
    IF (PRESENT(preconditioner)) CALL preconditioner(r(:,:))
+   CALL sync_patch_array(SYNC_C, curr_patch, r)
 
 !$OMP DO PRIVATE(jb)
      DO jb = 1, mnblks
@@ -261,14 +268,14 @@ REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
 !$OMP DO PRIVATE(jb)
      DO jb = 1, mnblks
        IF (jb /= mnblks) THEN
-         z(:,jb) = SUM(r(:,jb)*r(:,jb))
+         z(:,jb) = r(:,jb)*r(:,jb)
        ELSE
-         z(1:mnpromz,jb) = SUM( r(1:mnpromz,jb)*r(1:mnpromz,jb) )
-         z(mnpromz+1:nproma,jb) = 0.0_wp
+         z(1:mnpromz,jb) = r(1:mnpromz,jb)*r(1:mnpromz,jb) 
        ENDIF
+       ! WHERE(.NOT.curr_patch%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO
-    rn2_aux = SQRT(omp_global_sum_array(z))
+    rn2_aux = SQRT(omp_global_sum_array(z(:,1:mnblks)))
   ENDIF
 #endif
       
@@ -337,19 +344,18 @@ REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
      h_aux = SUM(sum_aux)
 #else
   IF ( .NOT. p_test_run) THEN   
-    rn2_aux = omp_global_sum_array(sum_aux)
+    h_aux = omp_global_sum_array(sum_aux)
   ELSE
 !$OMP DO PRIVATE(jb)
      DO jb = 1, mnblks
        IF (jb /= mnblks) THEN
-         z(:,jb) = SUM(w(:,jb)*v(:,jb,k))
+         z(:,jb) = w(:,jb)*v(:,jb,k)
        ELSE
-         z(1:mnpromz,jb) = SUM( w(1:mnpromz,jb)*v(1:mnpromz,jb,k) )
-         z(mnpromz+1:nproma,jb) = 0.0_wp
+         z(1:mnpromz,jb) = w(1:mnpromz,jb) * v(1:mnpromz,jb,k) 
        ENDIF
      ENDDO
 !$OMP END DO
-    rn2_aux = omp_global_sum_array(z)
+    h_aux = omp_global_sum_array(z)
   ENDIF
 #endif
 
@@ -386,19 +392,18 @@ REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
      h_aux = SQRT(SUM(sum_aux))
 #else
   IF ( .NOT. p_test_run) THEN   
-    rn2_aux = SQRT(omp_global_sum_array(sum_aux))
+    h_aux = SQRT(omp_global_sum_array(sum_aux))
   ELSE
 !$OMP DO PRIVATE(jb)
      DO jb = 1, mnblks
        IF (jb /= mnblks) THEN
-         z(:,jb) = SUM(w(:,jb) * w(:,jb))
+         z(:,jb) = w(:,jb) * w(:,jb)
        ELSE
-         z(1:mnpromz,jb) = SUM( w(1:mnpromz,jb)*w(1:mnpromz,jb) )
-         z(mnpromz+1:nproma,jb) = 0.0_wp
+         z(1:mnpromz,jb) = w(1:mnpromz,jb)*w(1:mnpromz,jb) 
        ENDIF
      ENDDO
 !$OMP END DO
-    rn2_aux = SQRT(omp_global_sum_array(z))
+     h_aux = SQRT(omp_global_sum_array(z))
   ENDIF
 #endif
      
@@ -584,7 +589,7 @@ REAL(wp) ::    &
   den, ci
 
 REAL(wp) :: rrn2, rn2_aux, h_aux, rh
-INTEGER :: jb, jk, nlen, ndim2
+INTEGER :: jb, jk, nlen
 
 INTEGER :: mnblks, mnpromz
 
@@ -608,7 +613,6 @@ REAL(wp) :: sum_aux(subset_range%end_block)
    z(:,:) = 0.0_wp
 #endif
    maxiterex = .FALSE.
-   ndim2 = SIZE(x,2)
 
    ! 1) compute the preconditioned residual
 
@@ -658,9 +662,6 @@ REAL(wp) :: sum_aux(subset_range%end_block)
          nlen = mnpromz
        ENDIF
        z(1:nlen,jb) = r(1:nlen,jb)*r(1:nlen,jb)
-       DO jk = 2,ndim2
-         z(1:nlen,jb) = z(1:nlen,jb) + r(1:nlen,jb)*r(1:nlen,jb)
-       ENDDO
 ! #slo# - 2010-06-16 - Error - routine used for cells and edges as well
      WHERE(.NOT.curr_patch%edges%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
@@ -742,9 +743,6 @@ REAL(wp) :: sum_aux(subset_range%end_block)
          nlen = mnpromz
        ENDIF
        z(1:nlen,jb) = w(1:nlen,jb)*v(1:nlen,jb,k)
-       DO jk = 2,ndim2
-         z(1:nlen,jb) = z(1:nlen,jb) + w(1:nlen,jb)*v(1:nlen,jb,k)
-       ENDDO
        WHERE(.NOT.curr_patch%edges%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO
@@ -792,9 +790,6 @@ REAL(wp) :: sum_aux(subset_range%end_block)
          nlen = mnpromz
        ENDIF
        z(1:nlen,jb) = w(1:nlen,jb)*w(1:nlen,jb)
-       DO jk = 2,ndim2
-         z(1:nlen,jb) = z(1:nlen,jb) + w(1:nlen,jb)*w(1:nlen,jb)
-       ENDDO
        WHERE(.NOT.curr_patch%edges%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO
@@ -981,7 +976,7 @@ REAL(wp) ::    &
   den, ci
 
 REAL(wp) :: rrn2, rn2_aux, h_aux, rh
-INTEGER :: jb, jk, nlen, ndim2
+INTEGER :: jb, jk, nlen
 
 INTEGER :: mnblks, mnpromz
 
@@ -1008,7 +1003,6 @@ REAL(wp) :: sum_aux(nblks)
    z(:,:) = 0.0_wp
 #endif
    maxiterex = .FALSE.
-   ndim2 = SIZE(x,2)
 
    ! 1) compute the preconditioned residual
 
@@ -1058,9 +1052,6 @@ REAL(wp) :: sum_aux(nblks)
          nlen = mnpromz
        ENDIF
        z(1:nlen,jb) = r(1:nlen,jb)*r(1:nlen,jb)
-       DO jk = 2,ndim2
-         z(1:nlen,jb) = z(1:nlen,jb) + r(1:nlen,jb)*r(1:nlen,jb)
-       ENDDO
 ! #slo# - 2010-06-16 - Error - routine used for cells and edges as well
 !      WHERE(.NOT.curr_patch%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
@@ -1140,9 +1131,6 @@ REAL(wp) :: sum_aux(nblks)
          nlen = mnpromz
        ENDIF
        z(1:nlen,jb) = w(1:nlen,jb)*v(1:nlen,jb,k)
-       DO jk = 2,ndim2
-         z(1:nlen,jb) = z(1:nlen,jb) + w(1:nlen,jb)*v(1:nlen,jb,k)
-       ENDDO
        WHERE(.NOT.curr_patch%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO
@@ -1189,9 +1177,6 @@ REAL(wp) :: sum_aux(nblks)
          nlen = mnpromz
        ENDIF
        z(1:nlen,jb) = w(1:nlen,jb)*w(1:nlen,jb)
-       DO jk = 2,ndim2
-         z(1:nlen,jb) = z(1:nlen,jb) + w(1:nlen,jb)*w(1:nlen,jb)
-       ENDDO
        WHERE(.NOT.curr_patch%cells%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO

@@ -1617,7 +1617,7 @@ DO jg = n_dom_start, n_dom
 
   IF ( iequations == ihs_ocean) THEN
     IF (idisc_scheme==1) THEN
-!      CALL par_init_scalar_product_oce(ptr_patch(jg), ptr_int_state(jg))
+     ! CALL par_init_scalar_product_oce(ptr_patch(jg), ptr_int_state(jg))
       CALL init_scalar_product_oce(ptr_patch(jg), ptr_int_state(jg))
     ENDIF
     CALL init_geo_factors_oce(ptr_patch(jg), ptr_int_state(jg))

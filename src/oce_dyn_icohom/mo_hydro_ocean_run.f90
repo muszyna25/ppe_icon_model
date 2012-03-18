@@ -179,8 +179,8 @@ CONTAINS
   jg = n_dom
 
   CALL allocate_exp_coeff( ppatch(jg), ptr_op_coeff)
-!  CALL par_init_operator_coeff( ppatch(jg), ptr_op_coeff, p_int(jg))
-   CALL init_operator_coeff( ppatch(jg), ptr_op_coeff)
+  ! CALL par_init_operator_coeff( ppatch(jg), ptr_op_coeff, p_int(jg))
+  CALL init_operator_coeff( ppatch(jg), ptr_op_coeff)
 
   CALL init_ho_recon_fields( ppatch(jg), pstate_oce(jg), ptr_op_coeff)
 

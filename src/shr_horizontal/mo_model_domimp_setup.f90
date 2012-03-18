@@ -705,11 +705,13 @@ CONTAINS
     !    fill_subset(range subset,  halo levels, start level, end level)
     CALL fill_subset(p_patch%cells%all,        p_patch%cells%halo_level, 0, halo_levels_ceiling)
     CALL fill_subset(p_patch%cells%owned,      p_patch%cells%halo_level, 0, 0)
-    CALL fill_subset(p_patch%cells%in_domain,  p_patch%cells%halo_level, 0, 1)
+    CALL fill_subset(p_patch%cells%in_domain,  p_patch%cells%halo_level, 0, 0)
     CALL fill_subset(p_patch%cells%not_owned,  p_patch%cells%halo_level, 1, halo_levels_ceiling)
     CALL fill_subset(p_patch%cells%not_in_domain,  &
       & p_patch%cells%halo_level, 2, halo_levels_ceiling)
     CALL fill_subset(p_patch%cells%one_edge_in_domain,  p_patch%cells%halo_level, 1, 1)
+    IF (p_patch%cells%in_domain%no_of_holes > 0) &
+      CALL finish("p_patch%cells%in_domain", "no_of_holes > 0")
     IF (p_patch%cells%one_edge_in_domain%no_of_holes > 0) &
       CALL warning("p_patch%cells%one_edge_in_domain", "no_of_holes > 0")
     

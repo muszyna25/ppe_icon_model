@@ -291,7 +291,7 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
   CALL sync_patch_array(SYNC_C, p_patch, p_os%p_diag%thick_c)
   CALL sync_patch_array(SYNC_C, p_patch, p_os%p_prog(nold(1))%h)
 
-  CALL gmres_oce( z_h_c,                   &  ! arg 1 of lhs. x input is the first guess.
+  CALL gmres_oce( z_h_c(:,:), &  ! arg 1 of lhs. x input is the first guess.
       &        lhs_surface_height_ab_mim,&  ! function calculating l.h.s.
       &        z_h_e,                   &  !arg 5 of lhs 
       &        p_os%p_diag%thick_c,     &  !arg 6 of lhs
