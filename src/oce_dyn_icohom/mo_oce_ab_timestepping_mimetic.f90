@@ -296,8 +296,7 @@ SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
       &        z_h_e,                   &  !arg 5 of lhs 
       &        p_os%p_diag%thick_c,     &  !arg 6 of lhs
       &        p_os%p_prog(nold(1))%h,  &  !arg 2 of lhs
-      &        p_patch,                 &  !arg 3 of lhs
-      &        !p_patch%cells%in_domain, p_patch%cells%owner_mask,&
+      &        p_patch,                 &  !arg 3 of lhs p_patch%cells%in_domain, p_patch%cells%owner_mask,&
       &        z_implcoeff,             &  !arg 4 of lhs
       &        p_op_coeff,              &
       &        p_os%p_aux%p_rhs_sfc_eq, &  ! right hand side as input

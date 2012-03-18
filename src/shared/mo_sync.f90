@@ -120,6 +120,12 @@ INTERFACE global_sum_array
   MODULE PROCEDURE global_sum_array_3d
 END INTERFACE
 
+INTERFACE omp_global_sum_array
+  MODULE PROCEDURE omp_global_sum_array_1d
+  MODULE PROCEDURE omp_global_sum_array_2d
+END INTERFACE
+
+
 ! Unit for logging sync errors
 INTEGER, SAVE :: log_unit = -1
 
@@ -1092,6 +1098,7 @@ FUNCTION global_sum_array_3d (zfield) RESULT (global_sum)
   ENDIF
 
 END FUNCTION global_sum_array_3d
+!-------------------------------------------------------------------------
 
 
 !-------------------------------------------------------------------------
@@ -1103,7 +1110,53 @@ END FUNCTION global_sum_array_3d
 !! @par Revision History
 !! Initial version by Rainer Johanni, Nov 2009
 !!
-FUNCTION omp_global_sum_array (zfield) RESULT (global_sum)
+FUNCTION omp_global_sum_array_1d (zfield) RESULT (global_sum)
+
+!
+  REAL(wp),          INTENT(in) :: zfield(:)
+  REAL(wp)                      :: global_sum
+  REAL(wp)                      :: sum_on_testpe(1)
+
+  INTEGER :: p_comm_glob
+!-----------------------------------------------------------------------
+
+  IF(comm_lev==0) THEN
+    p_comm_glob = p_comm_work
+  ELSE
+    p_comm_glob = glob_comm(comm_lev)
+  ENDIF
+
+  IF(l_fast_sum) THEN
+    global_sum = omp_simple_sum(zfield, SIZE(zfield), p_comm_glob)
+  ELSE
+    global_sum = omp_order_insensit_ieee64_sum(zfield, SIZE(zfield), p_comm_glob)
+  ENDIF
+
+  IF(p_test_run .AND. do_sync_checks) THEN
+!$OMP BARRIER
+!$OMP MASTER
+    IF(l_fast_sum) THEN
+      CALL check_result( (/ global_sum /), 'global_sum_array', sum_on_testpe)
+      global_sum = sum_on_testpe(1)
+    ELSE
+      CALL check_result( (/ global_sum /), 'global_sum_array')
+    ENDIF
+!$OMP END MASTER
+!$OMP BARRIER
+  ENDIF
+
+END FUNCTION omp_global_sum_array_1d
+
+!-------------------------------------------------------------------------
+!>
+!! Calculates the global sum of zfield and checks for consistency
+!! when doing a verification run.
+!! This routine shuold be called from within an OMP parallel Region!
+!!
+!! @par Revision History
+!! Initial version by Rainer Johanni, Nov 2009
+!!
+FUNCTION omp_global_sum_array_2d (zfield) RESULT (global_sum)
 
 !
   REAL(wp),          INTENT(in) :: zfield(:, :)
@@ -1138,7 +1191,7 @@ FUNCTION omp_global_sum_array (zfield) RESULT (global_sum)
 !$OMP BARRIER
   ENDIF
 
-END FUNCTION omp_global_sum_array
+END FUNCTION omp_global_sum_array_2d
 
 
 !-------------------------------------------------------------------------
