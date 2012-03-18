@@ -1189,7 +1189,7 @@ REAL(wp) :: div_z_c(SIZE(p_x,1), 1, SIZE(p_x,2))  ! (nproma,1,p_patch%nblks_c)
 TYPE(t_cartesian_coordinates) :: z_grad_h_cc(nproma,1,p_patch%nblks_c)
 INTEGER :: i_startidx, i_endidx
 INTEGER :: jc, jb
-TYPE(t_subset_range), POINTER :: cells_in_domain
+TYPE(t_subset_range), POINTER :: cells_in_domain, all_cells
 
 ! CHARACTER(len=max_char_length), PARAMETER ::     &
 !   &      routine = ('mo_oce_ab_timestepping_mimetic: lhs_surface_height_ab_mim')
@@ -1197,6 +1197,7 @@ TYPE(t_subset_range), POINTER :: cells_in_domain
 !CALL message (TRIM(routine), 'start - iteration by GMRES')        
     
   cells_in_domain => p_patch%cells%in_domain
+  all_cells => p_patch%cells%all
 
 gdt2 = grav*(dtime)**2
 !z_u_c     = 0.0_wp
@@ -1212,6 +1213,9 @@ CALL grad_fd_norm_oce_2d_3D( p_x, &
          &                   p_patch,                &
          &                   p_op_coeff%grad_coeff,  &
          &                   z_grad_h(:,1,:))
+
+CALL sync_patch_array(SYNC_E, p_patch, z_grad_h(:,1,:) )
+         
 !Step 2) map the gradient to the cell center, multiply it
 !by fluid thickness and map the result back to edges 
 IF( iswm_oce /= 1 ) THEN !the 3D case
@@ -1227,8 +1231,7 @@ IF( iswm_oce /= 1 ) THEN !the 3D case
                    & p_op_coeff,         &
                    & z_grad_h_cc,        &
 !                   & h_e,                &
-                   & opt_slev=top,opt_elev=top, &
-                   & opt_subset_range=cells_in_domain )
+                   & opt_slev=top,opt_elev=top )
 
 
 ELSEIF( iswm_oce == 1 ) THEN !the shallow-water case
@@ -1244,21 +1247,16 @@ ELSEIF( iswm_oce == 1 ) THEN !the shallow-water case
                    & p_op_coeff,         &
                    & z_grad_h_cc,        &
 !                   & h_e,                &
-                   & opt_slev=top,opt_elev=top, &
-                   & opt_subset_range=cells_in_domain )
+                   & opt_slev=top,opt_elev=top )
 
 ENDIF
 
-DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-  CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
+DO jb = all_cells%start_block, all_cells%end_block
+  CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
   DO jc = i_startidx, i_endidx
     z_grad_h_cc(jc,1,jb)%x = z_grad_h_cc(jc,1,jb)%x *thickness_c(jc,jb)
   END DO
 END DO
-
- CALL sync_patch_array(SYNC_C, p_patch, z_grad_h_cc(:,1,:)%x(1))
- CALL sync_patch_array(SYNC_C, p_patch, z_grad_h_cc(:,1,:)%x(2))
- CALL sync_patch_array(SYNC_C, p_patch, z_grad_h_cc(:,1,:)%x(3))
  
  CALL map_cell2edges( p_patch,    &
                     & z_grad_h_cc,&
