@@ -1229,13 +1229,16 @@ TYPE(t_subset_range), POINTER :: cells_in_domain, all_cells
   cells_in_domain => p_patch%cells%in_domain
   all_cells => p_patch%cells%all
 
-  p_x(:,:) = 0.0_wp
-  
+  IF (p_test_run) THEN
+    p_lhs(:,:)    = 0.0_wp
+    div_z_c(:,:)  = 0.0_wp
+    z_e(:,:)      = 0.0_wp
+    z_grad_h(:,:) = 0.0_wp
+  ENDIF
+    
 gdt2 = grav*(dtime)**2
 !z_u_c     = 0.0_wp
 !z_v_c     = 0.0_wp
-div_z_c   = 0.0_wp
-z_e(:,:)= 0.0_wp
     
 CALL sync_patch_array(SYNC_C, p_patch, p_x )
 

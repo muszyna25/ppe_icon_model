@@ -59,8 +59,8 @@ MODULE mo_oce_linear_solver
 !
 !
 USE mo_kind,                ONLY: wp
-USE mo_parallel_config,  ONLY: nproma
-USE mo_run_config,             ONLY: ltimer
+USE mo_parallel_config,     ONLY: nproma, p_test_run
+USE mo_run_config,          ONLY: ltimer
 !USE mo_impl_constants,      ONLY: sea_boundary
 USE mo_model_domain,        ONLY: t_patch
 #ifndef __SX__
@@ -192,7 +192,7 @@ INTEGER :: jb, jk, nlen, ndim2
 INTEGER :: mnblks, mnpromz
 
 !TODO #ifndef NOMPI
-!TODO REAL(wp) :: z(SIZE(x,1),SIZE(x,2)) ! needed for global sums
+REAL(wp) :: z(SIZE(x,1),SIZE(x,2)) ! needed for global sums in p_test_run
 !TODO #else
 REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
 !TODO #endif
@@ -255,7 +255,21 @@ REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
 #ifdef NOMPI
    rn2_aux = SQRT(SUM(sum_aux))
 #else
-   rn2_aux = SQRT(omp_global_sum_array(sum_aux))
+  IF ( .NOT. p_test_run) THEN   
+    rn2_aux = SQRT(omp_global_sum_array(sum_aux))
+  ELSE
+!$OMP DO PRIVATE(jb)
+     DO jb = 1, mnblks
+       IF (jb /= mnblks) THEN
+         z(:,jb) = SUM(r(:,jb)*r(:,jb))
+       ELSE
+         z(1:mnpromz,jb) = SUM( r(1:mnpromz,jb)*r(1:mnpromz,jb) )
+         z(mnpromz+1:nproma,jb) = 0.0_wp
+       ENDIF
+     ENDDO
+!$OMP END DO
+    rn2_aux = SQRT(omp_global_sum_array(z))
+  ENDIF
 #endif
       
    IF (myThreadNo == 0) rn2(1) = rn2_aux
@@ -322,7 +336,21 @@ REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
 #ifdef NOMPI
      h_aux = SUM(sum_aux)
 #else
-     h_aux = omp_global_sum_array(sum_aux)
+  IF ( .NOT. p_test_run) THEN   
+    rn2_aux = omp_global_sum_array(sum_aux)
+  ELSE
+!$OMP DO PRIVATE(jb)
+     DO jb = 1, mnblks
+       IF (jb /= mnblks) THEN
+         z(:,jb) = SUM(w(:,jb)*v(:,jb,k))
+       ELSE
+         z(1:mnpromz,jb) = SUM( w(1:mnpromz,jb)*v(1:mnpromz,jb,k) )
+         z(mnpromz+1:nproma,jb) = 0.0_wp
+       ENDIF
+     ENDDO
+!$OMP END DO
+    rn2_aux = omp_global_sum_array(z)
+  ENDIF
 #endif
 
      IF (myThreadNo == 0) h(k,i) = h_aux
@@ -357,7 +385,21 @@ REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
 #ifdef NOMPI
      h_aux = SQRT(SUM(sum_aux))
 #else
-     h_aux = SQRT(omp_global_sum_array(sum_aux))
+  IF ( .NOT. p_test_run) THEN   
+    rn2_aux = SQRT(omp_global_sum_array(sum_aux))
+  ELSE
+!$OMP DO PRIVATE(jb)
+     DO jb = 1, mnblks
+       IF (jb /= mnblks) THEN
+         z(:,jb) = SUM(w(:,jb) * w(:,jb))
+       ELSE
+         z(1:mnpromz,jb) = SUM( w(1:mnpromz,jb)*w(1:mnpromz,jb) )
+         z(mnpromz+1:nproma,jb) = 0.0_wp
+       ENDIF
+     ENDDO
+!$OMP END DO
+    rn2_aux = SQRT(omp_global_sum_array(z))
+  ENDIF
 #endif
      
      IF (myThreadNo == 0) h(i+1,i) = h_aux
