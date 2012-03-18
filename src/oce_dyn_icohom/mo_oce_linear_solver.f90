@@ -100,7 +100,7 @@ CONTAINS
 !! @par
 !! inital guess, overwritten with the solution
 !!
-SUBROUTINE gmres_oce( x,lhs,h_e, thickness_c, old_h, curr_patch,nblks,npromz,coeff,&
+SUBROUTINE gmres_oce( x,lhs,h_e, thickness_c, old_h, curr_patch,cells_in_domain, coeff,&
                     & p_op_coeff, b,  &
                     & tolerance,abstol,m,maxiterex,niter,res, &
                     & preconditioner)
@@ -117,7 +117,8 @@ REAL(wp), INTENT(IN) :: old_h(:,:)
 ! patch info needed for calculating lhs
 TYPE(t_patch), INTENT(IN) :: curr_patch
 ! index defining the "active" region of the arrays
-INTEGER, INTENT(IN) :: nblks, npromz
+!INTEGER, INTENT(IN) :: nblks, npromz
+    TYPE(t_subset_range), INTENT(in) :: cells_in_domain
 ! parameter used in calculating the lhs
 REAL(wp), INTENT(IN) :: coeff  
 TYPE(t_operator_coeff), INTENT(IN):: p_op_coeff
@@ -192,7 +193,7 @@ INTEGER :: mnblks, mnpromz
 !TODO #ifndef NOMPI
 !TODO REAL(wp) :: z(SIZE(x,1),SIZE(x,2)) ! needed for global sums
 !TODO #else
-REAL(wp) :: sum_aux(nblks)
+REAL(wp) :: sum_aux(cells_in_domain%end_block)
 !TODO #endif
 
   INTEGER :: myThreadNo
@@ -204,8 +205,8 @@ REAL(wp) :: sum_aux(nblks)
 
    !>
    !!
-   mnblks = nblks
-   mnpromz = npromz
+   mnblks =  cells_in_domain%end_block
+   mnpromz = cells_in_domain%end_index
 !TODO #ifndef NOMPI
 !TODO    z(:,:) = 0.0_wp
 !TODO #endif
