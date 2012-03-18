@@ -96,6 +96,11 @@ MODULE mo_scalar_product
   PUBLIC :: map_edges2edges
   
   
+  INTERFACE map_cell2edges
+    MODULE PROCEDURE map_cell2edges_1level
+    MODULE PROCEDURE map_cell2edges_mlevels
+  END INTERFACE
+    
   
   INTERFACE map_edges2cell
     
@@ -109,6 +114,7 @@ MODULE mo_scalar_product
     
     MODULE PROCEDURE map_edges2cell_with_height_3d
     MODULE PROCEDURE map_edges2cell_no_height_3d
+    MODULE PROCEDURE map_edges2cell_no_h_3d_1l
     
   END INTERFACE
   
@@ -1053,7 +1059,7 @@ CONTAINS
   !! @par Revision History
   !!  developed by Peter Korn, MPI-M (2010-11)
   !!  mpi parallelized by LL, result not synced
-  SUBROUTINE map_cell2edges( p_patch, p_vn_c, ptp_vn, opt_slev, opt_elev )
+  SUBROUTINE map_cell2edges_mlevels( p_patch, p_vn_c, ptp_vn, opt_slev, opt_elev )
     
     TYPE(t_patch), TARGET,  INTENT(in)        :: p_patch          ! patch on which computation is performed
     TYPE(t_cartesian_coordinates), INTENT(in) :: p_vn_c(:,:,:)    ! input vector (nproma,n_zlev,nblks_c)
@@ -1122,7 +1128,70 @@ CONTAINS
 !     CALL sync_patch_array(SYNC_E, p_patch, ptp_vn(:,:,:))
        
     !stop
-  END SUBROUTINE map_cell2edges
+  END SUBROUTINE map_cell2edges_mlevels
+  !-----------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
+  !>
+  !! Discrete mapping of cell-based vectors to edges on the primal grid.
+  !!
+  !!
+  !! @par Revision History
+  !!  developed by Peter Korn, MPI-M (2010-11)
+  !!  mpi parallelized by LL, result not synced
+  SUBROUTINE map_cell2edges_1level( p_patch, p_vn_c, ptp_vn, level )
+    
+    TYPE(t_patch), TARGET,  INTENT(in)        :: p_patch          ! patch on which computation is performed
+    TYPE(t_cartesian_coordinates), INTENT(in) :: p_vn_c(:,:)    ! input vector (nproma,n_zlev,nblks_c)
+    REAL(wp), INTENT(inout)                   :: ptp_vn(:,:)    ! output vector (nproma,n_zlev,nblks_e)
+    INTEGER, INTENT(in) :: level          ! vertical level
+    
+    !Local variables
+    INTEGER :: i_startidx_e, i_endidx_e
+    !INTEGER :: il_c1, ib_c1, il_c2, ib_c2
+    INTEGER :: je, jb !, i, ie,je
+    INTEGER :: il_c1,ib_c1, il_c2,ib_c2!, ile_c1 , ibe_c1, ile_c2 , ibe_c2
+    
+    TYPE(t_subset_range), POINTER :: edges_in_domain        
+
+    !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+    !  & routine = ('mo_scalar_product:primal_map_e2c')
+    !-----------------------------------------------------------------------
+    !CALL message (TRIM(routine), 'start')
+    
+    edges_in_domain   => p_patch%edges%in_domain
+    IF (p_test_run) ptp_vn(:,:) = 0.0_wp
+    
+    
+    ! calculation of transposed P^TPv from Pv (incart coord)
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)          
+      edge_idx_loop: DO je =  i_startidx_e, i_endidx_e
+
+        IF(v_base%lsm_oce_e(je,level,jb) <= sea_boundary)THEN
+
+          !Get indices of two adjacent triangles
+          il_c1 = p_patch%edges%cell_idx(je,jb,1)
+          ib_c1 = p_patch%edges%cell_blk(je,jb,1)
+          il_c2 = p_patch%edges%cell_idx(je,jb,2)
+          ib_c2 = p_patch%edges%cell_blk(je,jb,2)
+          ptp_vn(je,jb) =&
+            & DOT_PRODUCT(p_vn_c(il_c1,ib_c1)%x,&
+            & p_int_state(1)%edge2cell_coeff_cc_t(je,jb,1)%x)&
+            & +DOT_PRODUCT(p_vn_c(il_c2,ib_c2)%x,&
+            & p_int_state(1)%edge2cell_coeff_cc_t(je,jb,2)%x)
+        ELSE
+          ptp_vn(je,jb) = 0.0_wp
+        ENDIF
+
+      END DO edge_idx_loop
+    END DO ! jb = edges_in_domain%start_block, edges_in_domain%end_block
+
+    ! sync the result
+!     CALL sync_patch_array(SYNC_E, p_patch, ptp_vn(:,:,:))
+       
+    !stop
+  END SUBROUTINE map_cell2edges_1level
   !-----------------------------------------------------------------------------
   
   !-----------------------------------------------------------------------------
@@ -1466,7 +1535,7 @@ CONTAINS
     
   END SUBROUTINE map_edges2cell_with_height_3d
   !----------------------------------------------------------------
-  
+    
   !----------------------------------------------------------------
   !  map_edges2cell_without_height
   !>
@@ -1624,6 +1693,71 @@ CONTAINS
     ! LL no sync required
     
   END SUBROUTINE map_edges2cell_no_height_3d
+  !-----------------------------------------------------------------------------
+  
+  !-----------------------------------------------------------------------
+  ! map_edges2cell_without_height
+  !>
+  !!
+  !! @par Revision History
+  !!  developed by Peter Korn, MPI-M (2010-11)
+  !!  mpi parallelized LL
+  SUBROUTINE map_edges2cell_no_h_3d_1l( p_patch, vn_e,p_op_coeff, p_vn_c, level, &
+    &  opt_subset_range)
+    
+    TYPE(t_patch), TARGET, INTENT(in)          :: p_patch        ! patch on which computation is performed
+    REAL(wp), INTENT(in)                       :: vn_e(:,:)    ! input (nproma,n_zlev,nblks_e)
+    TYPE(t_operator_coeff), INTENT(in)         :: p_op_coeff
+    TYPE(t_cartesian_coordinates),INTENT(out)  :: p_vn_c(:,:)  ! outputput (nproma,n_zlev,nblks_c)
+    INTEGER, INTENT(in)           :: level       ! vertical level
+    TYPE(t_subset_range), TARGET,  OPTIONAL :: opt_subset_range
+    !Local variables
+    INTEGER, PARAMETER :: no_cell_edges = 3
+    INTEGER :: i_startidx_c, i_endidx_c
+    INTEGER :: il_e, ib_e
+    INTEGER :: jc, jb, ie
+
+     TYPE(t_subset_range), POINTER :: all_cells
+   
+    !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+    !  & routine = ('mo_scalar_product:primal_map_e2c')
+    !-----------------------------------------------------------------------
+    IF ( PRESENT(opt_subset_range) ) THEN
+      all_cells => opt_subset_range
+    ELSE
+      all_cells => p_patch%cells%all
+    ENDIF
+    
+    
+    !Calculation of Pv in cartesian coordinates
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+#ifdef __SX__
+!CDIR UNROLL=6
+#endif
+      cell_idx_loop: DO jc =  i_startidx_c, i_endidx_c
+        !calculate velocity reconstruction at cell center
+        p_vn_c(jc,jb)%x = 0.0_wp
+
+        DO ie=1, no_cell_edges
+          il_e = p_patch%cells%edge_idx(jc,jb,ie)
+          ib_e = p_patch%cells%edge_blk(jc,jb,ie)
+
+          p_vn_c(jc,jb)%x = p_vn_c(jc,jb)%x&
+            & + p_op_coeff%edge2cell_coeff_cc(jc,level,jb,ie)%x&
+            & * vn_e(il_e,ib_e)
+        END DO
+        
+        IF(p_op_coeff%fixed_vol_norm(jc,level,jb)/=0.0_wp)THEN
+          p_vn_c(jc,jb)%x = p_vn_c(jc,jb)%x/p_op_coeff%fixed_vol_norm(jc,level,jb)
+        ENDIF
+        
+      END DO cell_idx_loop
+      
+    END DO ! jb = all_cells%start_block, all_cells%end_block
+    ! LL no sync required
+    
+  END SUBROUTINE map_edges2cell_no_h_3d_1l
   !-----------------------------------------------------------------------------
   
   !-----------------------------------------------------------------------------

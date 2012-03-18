@@ -86,6 +86,11 @@ MODULE mo_oce_math_operators
   PUBLIC :: nabla2_vec_ocean
   PUBLIC :: nabla4_vec_ocean
   PUBLIC :: height_related_quantities
+
+  INTERFACE div_oce_3d
+    MODULE PROCEDURE div_oce_3d_mlevels
+    MODULE PROCEDURE div_oce_3d_1level
+  END INTERFACE
   
 CONTAINS
   
@@ -195,8 +200,8 @@ CONTAINS
 #endif
   END SUBROUTINE grad_fd_norm_oce_3d
   !-------------------------------------------------------------------------
-  !
-  !
+  
+  !-------------------------------------------------------------------------
   !>
   !! Computes discrete divergence of a vector field in presence of lateral boundaries as in ocean setting.
   !!
@@ -223,7 +228,7 @@ CONTAINS
   !! - New boundary definition with inner and boundary points on land/sea
   !!
   !!  mpi parallelized LL (no sync required)
-  SUBROUTINE div_oce_3d( vec_e, ptr_patch, div_coeff, div_vec_c ,opt_slev,opt_elev, &
+  SUBROUTINE div_oce_3d_mlevels( vec_e, ptr_patch, div_coeff, div_vec_c ,opt_slev,opt_elev, &
     & opt_cells_range)
     !
     !
@@ -313,7 +318,115 @@ CONTAINS
 #ifndef __SX__
     IF (ltimer) CALL timer_stop(timer_div)
 #endif
-  END SUBROUTINE div_oce_3d
+  END SUBROUTINE div_oce_3d_mlevels
+  !-------------------------------------------------------------------------
+  
+  
+  !-------------------------------------------------------------------------
+  !>
+  !! Computes discrete divergence of a vector field in presence of lateral boundaries as in ocean setting.
+  !!
+  !! Computes discrete divergence of a vector field
+  !! given by its components in the directions normal to triangle edges.
+  !! The midpoint rule is used for quadrature.
+  !! input:  lives on edges (velocity points)
+  !! output: lives on centers of triangles
+  !!
+  !! @par Revision History
+  !! Developed  by  Luca Bonaventura, MPI-M (2002-5).
+  !! Changes according to programming guide by Thomas Heinze, DWD (2006-08-18).
+  !! Modification by Thomas Heinze, DWD (2006-09-11):
+  !! - loop only over the inner cells of a patch, not any more over halo cells
+  !! Modifications by P. Korn, MPI-M(2007-2)
+  !! - Switch fom array arguments to pointers
+  !! Modification by Almut Gassmann, MPI-M (2007-04-20)
+  !! - abandon grid for the sake of patch
+  !! Modification by Guenther Zaengl, DWD (2009-03-17)
+  !! - vector optimization
+  !! Modification by Peter Korn, MPI-M    (2009)
+  !! - Boundary treatment for the ocean
+  !! Modification by Stephan Lorenz, MPI-M (2010-08-05)
+  !! - New boundary definition with inner and boundary points on land/sea
+  !!
+  !!  mpi parallelized LL (no sync required)
+  SUBROUTINE div_oce_3d_1level( vec_e, ptr_patch, div_coeff, div_vec_c,  &
+    & level, opt_cells_range)
+    !
+    !
+    !  patch on which computation is performed
+    !
+    TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
+    !
+    ! edge based variable of which divergence
+    ! is computed
+    !
+    REAL(wp), INTENT(inout)       :: vec_e(:,:) ! dim: (nproma,n_zlev,nblks_e)
+    REAL(wp), INTENT(in)          :: div_coeff(:,:,:,:)
+    REAL(wp), INTENT(inout)       :: div_vec_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
+    INTEGER,  INTENT(in)          :: level
+    TYPE(t_subset_range), TARGET, INTENT(in), OPTIONAL :: opt_cells_range
+    
+    INTEGER :: jc, jb
+    INTEGER :: i_startidx, i_endidx
+    !INTEGER :: nlen, npromz_c, nblks_c
+    INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+    TYPE(t_subset_range), POINTER :: all_cells
+    !-----------------------------------------------------------------------
+    IF (PRESENT(opt_cells_range)) THEN
+      all_cells => opt_cells_range
+    ELSE
+      all_cells => ptr_patch%cells%all
+    ENDIF
+            
+#ifndef __SX__
+    IF (ltimer) CALL timer_start(timer_div)
+#endif
+!$OMP PARALLEL
+    
+    iidx => ptr_patch%cells%edge_idx
+    iblk => ptr_patch%cells%edge_blk
+    
+    
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
+#ifdef __SX__
+!CDIR UNROLL=6
+#endif
+        DO jc = i_startidx, i_endidx
+        
+          ! compute the discrete divergence for cell jc by finite volume
+          ! approximation (see Bonaventura and Ringler MWR 2005);
+          ! multiplication of the normal vector component vec_e at the edges
+          ! by the appropriate cell based edge_orientation is required to
+          ! obtain the correct value for the application of Gauss theorem
+          ! (which requires the scalar product of the vector field with the
+          ! OUTWARD pointing unit vector with respect to cell jc; since the
+          ! positive direction for the vector components is not necessarily
+          ! the outward pointing one with respect to cell jc, a correction
+          ! coefficient (equal to +-1) is necessary, given by
+          ! ptr_patch%grid%cells%edge_orientation)
+          !
+          ! Distinghuish: case of a land cell (put div to zero), and
+          ! cases where one of the edges are boundary or land
+          ! (put corresponding velocity to zero).
+          ! sea, sea_boundary, boundary (edges only), land_boundary, land =
+          !  -2,      -1,         0,                  1,             2
+          !This information is stored inside the divergence coefficients.
+          div_vec_c(jc,jb) =  &
+            & vec_e(iidx(jc,jb,1),iblk(jc,jb,1)) * div_coeff(jc,level,jb,1) + &
+            & vec_e(iidx(jc,jb,2),iblk(jc,jb,2)) * div_coeff(jc,level,jb,2) + &
+            & vec_e(iidx(jc,jb,3),iblk(jc,jb,3)) * div_coeff(jc,level,jb,3)
+            
+        END DO
+    END DO
+!$OMP END DO
+    
+!$OMP END PARALLEL
+#ifndef __SX__
+    IF (ltimer) CALL timer_stop(timer_div)
+#endif
+  END SUBROUTINE div_oce_3d_1level
   !-------------------------------------------------------------------------
   
 

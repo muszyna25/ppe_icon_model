@@ -47,10 +47,11 @@ MODULE mo_oce_ab_timestepping_mimetic
 !
 !
 USE mo_kind,                      ONLY: wp
-USE mo_parallel_config,           ONLY: nproma
+USE mo_parallel_config,           ONLY: nproma, p_test_run
 USE mo_master_control,            ONLY: is_restart_run
 USE mo_math_utilities,            ONLY: t_cartesian_coordinates
 USE mo_sync,                      ONLY: sync_e, sync_c, sync_v, sync_patch_array
+USE mo_mpi,                       ONLY: global_mpi_barrier
 USE mo_impl_constants,            ONLY: sea_boundary,                                     &
   &                                     min_rlcell, min_rledge, min_rlcell,               &
   &                                     max_char_length, MIN_DOLIC
@@ -1180,13 +1181,13 @@ REAL(wp) :: p_lhs(SIZE(p_x,1), SIZE(p_x,2))  ! (nproma,p_patch%nblks_c)
 !
 ! local variables
 REAL(wp) :: gdt2
-REAL(wp) :: z_grad_h(nproma,1,p_patch%nblks_e)
-REAL(wp) :: z_e(nproma,n_zlev,p_patch%nblks_e)
+REAL(wp) :: z_grad_h(nproma,p_patch%nblks_e)
+REAL(wp) :: z_e(nproma,p_patch%nblks_e)
 !REAL(wp) :: z_e2(nproma,n_zlev,p_patch%nblks_e)
 !REAL(wp) :: z_u_c(nproma,1,p_patch%nblks_c)
 !REAL(wp) :: z_v_c(nproma,1,p_patch%nblks_c)
-REAL(wp) :: div_z_c(SIZE(p_x,1), 1, SIZE(p_x,2))  ! (nproma,1,p_patch%nblks_c)
-TYPE(t_cartesian_coordinates) :: z_grad_h_cc(nproma,1,p_patch%nblks_c)
+REAL(wp) :: div_z_c(SIZE(p_x,1), SIZE(p_x,2))  ! (nproma,1,p_patch%nblks_c)
+TYPE(t_cartesian_coordinates) :: z_grad_h_cc(nproma,p_patch%nblks_c)
 INTEGER :: i_startidx, i_endidx
 INTEGER :: jc, jb
 TYPE(t_subset_range), POINTER :: cells_in_domain, all_cells
@@ -1203,18 +1204,20 @@ gdt2 = grav*(dtime)**2
 !z_u_c     = 0.0_wp
 !z_v_c     = 0.0_wp
 div_z_c   = 0.0_wp
-z_e(:,:,:)= 0.0_wp
+z_e(:,:)= 0.0_wp
     
 CALL sync_patch_array(SYNC_C, p_patch, p_x )
+
+IF (p_test_run) z_grad_h(:,:) = 0.0_wp
 
 !Step 1) Calculate gradient of iterated height.
 !CALL grad_fd_norm_oce_2D( p_x, p_patch, z_grad_h(:,1,:))
 CALL grad_fd_norm_oce_2d_3D( p_x, &
          &                   p_patch,                &
          &                   p_op_coeff%grad_coeff,  &
-         &                   z_grad_h(:,1,:))
+         &                   z_grad_h(:,:))
 
-CALL sync_patch_array(SYNC_E, p_patch, z_grad_h(:,1,:) )
+CALL sync_patch_array(SYNC_E, p_patch, z_grad_h(:,:) )
          
 !Step 2) map the gradient to the cell center, multiply it
 !by fluid thickness and map the result back to edges 
@@ -1230,8 +1233,7 @@ IF( iswm_oce /= 1 ) THEN !the 3D case
                    & z_grad_h,           &
                    & p_op_coeff,         &
                    & z_grad_h_cc,        &
-!                   & h_e,                &
-                   & opt_slev=top,opt_elev=top )
+                   & level=top        )
 
 
 ELSEIF( iswm_oce == 1 ) THEN !the shallow-water case
@@ -1246,22 +1248,21 @@ ELSEIF( iswm_oce == 1 ) THEN !the shallow-water case
                    & z_grad_h,           &
                    & p_op_coeff,         &
                    & z_grad_h_cc,        &
-!                   & h_e,                &
-                   & opt_slev=top,opt_elev=top )
+                   & level=top  )
 
 ENDIF
 
 DO jb = all_cells%start_block, all_cells%end_block
   CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
   DO jc = i_startidx, i_endidx
-    z_grad_h_cc(jc,1,jb)%x = z_grad_h_cc(jc,1,jb)%x *thickness_c(jc,jb)
+    z_grad_h_cc(jc,jb)%x = z_grad_h_cc(jc,jb)%x *thickness_c(jc,jb)
   END DO
 END DO
  
  CALL map_cell2edges( p_patch,    &
                     & z_grad_h_cc,&
                     & z_e,        &
-                    & opt_slev=1, opt_elev=1)
+                    & level=top)
   
 
 !  z_e(:,1,:)=z_grad_h(:,1,:)&
@@ -1280,8 +1281,8 @@ END DO
 ! stop
 !Step 3) Calculate divergence
 !CALL div_oce( z_e, p_patch, div_z_c, top,top )
-CALL div_oce_3D( z_e, p_patch, p_op_coeff%div_coeff, div_z_c, top,top, &
-  & opt_cells_range=cells_in_domain  )
+CALL div_oce_3D( z_e, p_patch, p_op_coeff%div_coeff, div_z_c, &
+  & level=top, opt_cells_range=cells_in_domain  )
 !write(*,*)'div', div_z_c(:,1,:)
 
 !Step 4) Finalize LHS calculations
@@ -1290,7 +1291,7 @@ DO jb = cells_in_domain%start_block, cells_in_domain%end_block
   DO jc = i_startidx, i_endidx
     !IF(v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
       p_lhs(jc,jb) = v_base%wet_c(jc,1,jb)*&
-                   &(p_x(jc,jb)- gdt2*ab_gam*ab_beta*div_z_c(jc,1,jb))/gdt2
+                   &(p_x(jc,jb)- gdt2*ab_gam*ab_beta*div_z_c(jc,jb))/gdt2
    !ELSE
    !   p_lhs(jc,jb) =0.0_wp
    !ENDIF
