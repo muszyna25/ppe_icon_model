@@ -85,6 +85,7 @@ USE mo_oce_index,           ONLY: print_mxmn, ipl_src
 USE mo_coupling_config,     ONLY: is_coupled_run
 USE mo_icon_cpl_exchg,      ONLY: ICON_cpl_put, ICON_cpl_get
 USE mo_icon_cpl_def_field,  ONLY: ICON_cpl_get_nbr_fields, ICON_cpl_get_field_ids
+USE mo_util_subset,         ONLY: t_subset_range, get_index_range
 
 IMPLICIT NONE
 
@@ -129,8 +130,7 @@ CONTAINS
   INTEGER  :: jmon, jdmon, jmon1, jmon2
   INTEGER  :: iniyear, curyear, offset
   INTEGER  :: jc, jb, i, no_set
-  INTEGER  :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
-  INTEGER  :: rl_start_c, rl_end_c
+  INTEGER  :: i_startidx_c, i_endidx_c
   REAL(wp) :: z_tmin, z_relax, rday1, rday2, dtm1, dsec
   REAL(wp) :: z_c(nproma,n_zlev,p_patch%nblks_c)
   REAL(wp) :: Tfw(nproma,p_patch%nblks_c)
@@ -145,11 +145,9 @@ CONTAINS
   REAL(wp), ALLOCATABLE :: buffer(:,:)
 
   !-------------------------------------------------------------------------
-
-  rl_start_c = 1
-  rl_end_c   = min_rlcell
-  i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
-  i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
+  TYPE(t_subset_range), POINTER :: all_cells
+  !-------------------------------------------------------------------------
+  all_cells => p_patch%cells%all
 
   SELECT CASE (iforc_oce)
 
@@ -196,7 +194,6 @@ CONTAINS
     !   - read annual data at Jan, 1st: seconds of year are less than a timestep
     !   - or at begin of each run (must not be first of january)
     IF (iforc_omip == 5) THEN
-        
       dtm1 = dtime - 1.0_wp
 
       IF ( (jmon == 1 .AND. jdmon == 1 .AND. dsec < dtm1) .OR. (jstep == 1) ) THEN
@@ -269,7 +266,7 @@ CONTAINS
       jmon2 = jmon1
       rday1 = 1.0_wp
       rday2 = 0.0_wp
-    
+
     END IF
 
     !
@@ -300,7 +297,7 @@ CONTAINS
      !   F_u = F_D/dz = Tau / (Rho*dz)  [ m/s2 ]
 
      ! The devision by rho_ref is done in top_bound_cond_horz_veloc (z_scale)
-     
+
     END IF
 
     IF (iforc_omip == 2 .OR. iforc_omip == 5) THEN
@@ -523,7 +520,7 @@ CONTAINS
       nbr_points     = nproma * p_patch%nblks_c
       ALLOCATE(buffer(nbr_points,4))
       buffer(:,:) = 0.0_wp
-  
+
     !
     !  see drivers/mo_atmo_model.f90:
     !
@@ -683,7 +680,7 @@ CONTAINS
         !  done in mo_sea_ice:upper_ocean_TS
 
       ENDIF
-  
+
     ENDIF ! is_coupled
 
   CASE (FORCING_FROM_COUPLED_FIELD)                                 !  15
@@ -705,10 +702,8 @@ CONTAINS
   ! cartesian coordinates are calculated here
   !
   IF (iforc_oce > NO_FORCING) THEN
-     
-    DO jb = i_startblk_c, i_endblk_c
-      CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c,  &
-        &                i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
         IF(v_base%lsm_oce_c(jc,1,jb) <= sea_boundary)THEN
           CALL gvec2cvec(  p_sfc_flx%forc_wind_u(jc,jb),&
@@ -751,9 +746,8 @@ CONTAINS
     !z_tmin = -1.0_wp
     z_tmin =tf  !  -1.9 deg C
 
-    DO jb = i_startblk_c, i_endblk_c
-      CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c,  &
-        &                i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
         IF (v_base%lsm_oce_c(jc,1,jb) <= sea_boundary) THEN
           p_sfc_flx%forc_tracer_relax(jc,jb,1) &
@@ -781,9 +775,8 @@ CONTAINS
     ! 
     ! Mixed boundary conditions (relaxation term plus fluxes) are not yet included
 
-    DO jb = i_startblk_c, i_endblk_c    
-      CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
-       &                i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
 !       z_relax = (v_base%del_zlev_m(1)+p_os%p_prog(nold(1))%h(jc,jb)) / &
 !         &       (relaxation_param*2.592e6_wp)
@@ -836,9 +829,8 @@ CONTAINS
     ! 
     ! Mixed boundary conditions (relaxation term plus fluxes) can be included accordingly
 
-    DO jb = i_startblk_c, i_endblk_c    
-      CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
-       &                i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
       z_relax = (v_base%del_zlev_m(1)) / &
            &       (relax_2d_mon_S*2.592e6_wp)
