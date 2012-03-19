@@ -20,6 +20,8 @@
 !! - For use within ocean model input parameter of type "interpolation-state" removed
 !!   and adapted to 2D arrays (2010-04)
 !!
+!! mpi parallelized LL
+!!
 !! @par Copyright
 !! 2002-2007 by DWD and MPI-M
 !! This software is provided for non-commercial use only.

@@ -6,6 +6,8 @@
 !! @par Revision History
 !!  Developed  by Peter Korn,       MPI-M (2011/01)
 !! 
+!!  mpi parallelized LL
+!! 
 !! @par Copyright
 !! 2002-2006 by DWD and MPI-M
 !! This software is provided for non-commercial use only.
@@ -78,6 +80,7 @@ USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_util_subset,         ONLY: t_subset_range, get_index_range
   USE mo_sync,                ONLY: SYNC_C, SYNC_C1, SYNC_E, SYNC_V, sync_patch_array, sync_idx, global_max,&
     & sync_patch_array_mult
+USE mo_mpi,                   ONLY: global_mpi_barrier, my_process_is_mpi_parallel
 
 IMPLICIT NONE
 
@@ -106,15 +109,16 @@ INTEGER, PARAMETER :: CENTRAL= 2
 INTEGER, PARAMETER :: MIMETIC= 3
 INTEGER, PARAMETER :: MIMETIC_MIURA= 4
 CONTAINS
+
+
 !-----------------------------------------------------------------------
-!
-!
 !>
 !! !  SUBROUTINE advects horizontally the tracers present in the ocean model.
 !!
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2011).
 !! 
+  !!  mpi parallelized LL
 SUBROUTINE advect_horizontal(p_patch, trac_old,           &
                            & p_os,p_op_coeff,&! G_n_c_h,G_nm1_c_h,G_nimd_c_h, &
                            & K_h,                    &
@@ -475,6 +479,9 @@ INTEGER  :: stop_ctr
 INTEGER            :: iter
 INTEGER, PARAMETER :: i_max_iter = 20
 !-----------------------------------------------------------------------
+  IF (my_process_is_mpi_parallel()) &
+    & CALL finish("elad", "is not mpi parallelized")
+
 rl_start_c   = 1
 rl_end_c     = min_rlcell
 i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
@@ -696,6 +703,7 @@ END SUBROUTINE elad
   !! Modification by Stephan Lorenz, MPI (2010-09-06)
   !! - adapted to hydrostatic ocean core
   !!
+  !!  mpi parallelized LL
   !!  mpi note: the result is not synced. Should be done in the calling method if required
   SUBROUTINE upwind_hflux_oce( ppatch, pvar_c, pvn_e, pupflux_e, opt_slev, opt_elev )
 
@@ -787,6 +795,9 @@ END SUBROUTINE elad
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end
     INTEGER  :: je, jk, jb         !< index of edge, vert level, block
     !-----------------------------------------------------------------------
+    IF (my_process_is_mpi_parallel()) &
+      & CALL finish("central_hflux_oce_orig", "is not mpi parallelized")
+      
     rl_start   = 1
     rl_end     = min_rledge
     i_startblk = ppatch%edges%start_blk(rl_start,1)
@@ -828,6 +839,7 @@ END SUBROUTINE elad
   !! @par Revision History
   !! Peter korn, MPI-M, 2011
   !!
+  !!  mpi parallelized LL
   !!  mpi note: the result is not synced. Should be done in the calling method if required
   SUBROUTINE central_hflux_oce( ppatch, pvar_c, pvn_e, pupflux_e )
 
@@ -1500,6 +1512,7 @@ END SUBROUTINE elad
 !$OMP END PARALLEL
 
   END SUBROUTINE hflx_limiter_oce_mo
+
 !   !-------------------------------------------------------------------------
 !   !>
 !   !! Positive definite flux limiter for horizontal advection

@@ -8,6 +8,7 @@
 !!  Modified by Stephan Lorenz,     MPI-M (2010-06)
 !!   - renaming and adjustment to ocean domain and patch
 !!   - implementation of continuity equation for vertical velocities
+!! mpi parallelized LL
 !!
 !! @par Copyright
 !! 2002-2006 by DWD and MPI-M
