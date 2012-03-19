@@ -250,13 +250,9 @@ CONTAINS
     lower_bound_diff = 3.82E-12_wp*(N_POINTS_IN_MUNK_LAYER*z_largest_edge_length)**3
 
   END SUBROUTINE calc_lower_bound_veloc_diff
-  !
+
   !-------------------------------------------------------------------------
   !
-  !>
-  !! Initialisation 
-  !!
-  !!
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2011-08)
   !
@@ -309,11 +305,7 @@ CONTAINS
     CALL print_mxmn('PHY diffusivity',1,K_h(:,:,:),n_zlev,p_patch%nblks_c,'per',ipl_src)
 
   END SUBROUTINE calc_munk_based_lapl_diff
- !-------------------------------------------------------------------------
-  !
-  !>
-  !! Initialisation 
-  !!
+
   !!
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2011-08)
@@ -353,7 +345,7 @@ CONTAINS
             ibe = p_patch%verts%edge_blk(jv,jb,jev)
             IF ( v_base%lsm_oce_e(ile,jk,ibe) == sea) THEN
               z_K_ave_v(jv,jk,jb)= z_K_ave_v(jv,jk,jb) + K_h(ile,jk,ibe)
-              i_edge_ctr=i_edge_ctr+1  
+              i_edge_ctr=i_edge_ctr+1
               IF(K_h(ile,jk,ibe)>z_K_max)THEN
               z_K_max=K_h(ile,jk,ibe)
               ENDIF
