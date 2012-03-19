@@ -1995,12 +1995,12 @@ FUNCTION geo_balance_mim(p_patch, h_e, rhs_e) result(vn_e)
    !--------------------------------------------------------------------
    FUNCTION lhs_geo_balance_mim( x, p_patch, lev,p_coeff, h_e) RESULT(llhs)
    !
-   TYPE(t_patch),INTENT(in)     :: p_patch
-   INTEGER                      :: lev
-   REAL(wp),INTENT(inout)       :: x(:,:)
-   REAL(wp),INTENT(in)          :: p_coeff
-   REAL(wp),OPTIONAL,INTENT(in) :: h_e(SIZE(x,1), SIZE(x,2))!(:,:)
-   REAL(wp)                     :: llhs(SIZE(x,1), SIZE(x,2))
+   TYPE(t_patch),TARGET,INTENT(IN) :: p_patch
+   INTEGER                         :: lev
+   REAL(wp),INTENT(inout)          :: x(:,:)
+   REAL(wp),INTENT(in)             :: p_coeff
+   REAL(wp),OPTIONAL,INTENT(in)    :: h_e(SIZE(x,1), SIZE(x,2))!(:,:)
+   REAL(wp)                        :: llhs(SIZE(x,1), SIZE(x,2))
 
    !locl variables
    INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
@@ -2014,10 +2014,9 @@ FUNCTION geo_balance_mim(p_patch, h_e, rhs_e) result(vn_e)
    REAL(wp) :: z_kin(nproma,1,p_patch%nblks_c)
    TYPE(t_cartesian_coordinates)    :: z_pv_cc(nproma,1,p_patch%nblks_c)
    !-----------------------------------------------------------------------
-   rl_start_c = 1
-   rl_end_c  = min_rlcell
-   i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
-   i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
+   TYPE(t_subset_range), POINTER :: all_cells
+   !-----------------------------------------------------------------------
+   all_cells => p_patch%cells%all
 
    z_x_vort(:,:,:)= 0.0_wp
    z_x_out(:,:,:) = 0.0_wp
@@ -2025,18 +2024,15 @@ FUNCTION geo_balance_mim(p_patch, h_e, rhs_e) result(vn_e)
 
 !  CALL rot_vertex_ocean(z_x_e, z_vt, p_patch, z_x_vort)
 
-  CALL map_edges2cell( p_patch, z_x_e, z_pv_cc, h_e )
-  DO jb = i_startblk_c, i_endblk_c
-  CALL get_indices_c( p_patch, jb,&
-                    & i_startblk_c, i_endblk_c,&
-                    & i_startidx_c, i_endidx_c,&
-                    & rl_start_c, rl_end_c)
-    DO jc =  i_startidx_c, i_endidx_c
-         z_kin(jc,1,jb) = 0.5_wp*DOT_PRODUCT(z_pv_cc(jc,1,jb)%x,z_pv_cc(jc,1,jb)%x)
-    END DO
-  END DO
+   CALL map_edges2cell( p_patch, z_x_e, z_pv_cc, h_e )
+   DO jb = all_cells%start_block, all_cells%end_block
+     CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+     DO jc =  i_startidx_c, i_endidx_c
+          z_kin(jc,1,jb) = 0.5_wp*DOT_PRODUCT(z_pv_cc(jc,1,jb)%x,z_pv_cc(jc,1,jb)%x)
+     END DO
+   END DO
 
-  CALL grad_fd_norm_oce( z_kin, &
+   CALL grad_fd_norm_oce( z_kin, &
                         & p_patch,   &
                         & z_grad,    &
                         & opt_slev=1,opt_elev=1 )
