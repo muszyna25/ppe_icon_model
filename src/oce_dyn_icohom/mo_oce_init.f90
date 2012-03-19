@@ -628,7 +628,7 @@ CONTAINS
   !-------------------------------------------------------------------------
   !
   SUBROUTINE init_ho_testcases(ppatch, p_os, p_ext_data, p_sfc_flx)
-  TYPE(t_patch)                     :: ppatch
+  TYPE(t_patch),TARGET,INTENT(IN)   :: ppatch
   TYPE(t_hydro_ocean_state), TARGET :: p_os
   TYPE(t_external_data)             :: p_ext_data
   TYPE(t_sfc_flx)                   :: p_sfc_flx
@@ -672,21 +672,18 @@ CONTAINS
   &(/34.699219_wp, 34.798244_wp, 34.904964_wp, 34.976841_wp/)
   CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_init:init_ho_testcases'
   !-------------------------------------------------------------------------
+  TYPE(t_subset_range), POINTER :: all_cells, all_edges
+  !-------------------------------------------------------------------------
   CALL message (TRIM(routine), 'start')
+
+  all_cells => ppatch%cells%all
+  all_edges => ppatch%edges%all
 
   ! initialize salinity with reference value rather than with zero
   !  - mainly for plotting purpose
   IF ( no_tracer >= 2) THEN
     p_os%p_prog(nold(1))%tracer(:,:,:,2) = sal_ref
   END IF
-
-  rl_start = 1
-  rl_end_c = min_rlcell
-  rl_end_e = min_rledge
-  i_startblk_e = ppatch%edges%start_blk(rl_start,1)
-  i_endblk_e   = ppatch%edges%end_blk(rl_end_e,1)
-  i_startblk_c = ppatch%cells%start_blk(rl_start,1)
-  i_endblk_c   = ppatch%cells%end_blk(rl_end_c,1)
 
   !IF shallow-water option is NOT selected then)
   IF ( iswm_oce /= 1 )THEN
@@ -715,9 +712,8 @@ CONTAINS
       !init temperature and salinity with vertical profiles
       IF(n_zlev==4)THEN
         DO jk=1,n_zlev
-          DO jb = i_startblk_c, i_endblk_c
-            CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c,&
-                      & i_startidx_c, i_endidx_c, rl_start, rl_end_c)
+          DO jb = all_cells%start_block, all_cells%end_block
+            CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
             DO jc = i_startidx_c, i_endidx_c
 
             IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
@@ -737,9 +733,8 @@ CONTAINS
 
       ELSEIF(n_zlev>4.AND.n_zlev<=20)THEN
         DO jk=1,n_zlev
-          DO jb = i_startblk_c, i_endblk_c
-            CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c,&
-                      & i_startidx_c, i_endidx_c, rl_start, rl_end_c)
+          DO jb = all_cells%start_block, all_cells%end_block
+            CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
             DO jc = i_startidx_c, i_endidx_c
               IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
                 IF(no_tracer==1)THEN
@@ -767,10 +762,8 @@ CONTAINS
         !all other prognostic variables: vn, s, t are initialized identical zero
         !CALL message(TRIM(routine), 'Simple Initialization of h')
 
-        DO jb = i_startblk_c, i_endblk_c
-          CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
-           &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
-
+        DO jb = all_cells%start_block, all_cells%end_block
+          CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
           DO jc = i_startidx_c, i_endidx_c
 
             z_lat = ppatch%cells%center(jc,jb)%lat
@@ -793,10 +786,8 @@ CONTAINS
       CALL message(TRIM(routine), 'Initialization of testcases (33)')
       CALL message(TRIM(routine), ' - here: Collapsing density front, Stuhne-Peltier')
 
-      DO jb = i_startblk_c, i_endblk_c
-        CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
-         &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
-
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
 
           !latitude given in radians
@@ -863,10 +854,9 @@ CONTAINS
       CALL message(TRIM(routine), 'Initialization of testcases (34)')
       CALL message(TRIM(routine),' - here: Adjusting density front in a basin with vertical wall')
 
-      DO jb = i_startblk_c, i_endblk_c
-        CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
-         &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
 
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
           IF(v_base%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
             !latitude given in radians
@@ -931,10 +921,8 @@ CONTAINS
       ! 05-25: max and width larger: -2.0 and 5.0
       IF (no_tracer ==1 ) THEN
 
-        DO jb = i_startblk_c, i_endblk_c
-          CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
-           &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
-
+        DO jb = all_cells%start_block, all_cells%end_block
+          CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
           DO jc = i_startidx_c, i_endidx_c
             z_lat = ppatch%cells%center(jc,jb)%lat
             z_lon = ppatch%cells%center(jc,jb)%lon
@@ -1016,9 +1004,8 @@ CONTAINS
 
         ! Add elevation perturbation at new values - 35N; 10W
         ! not clear yet
-      DO jb = i_startblk_c, i_endblk_c
-        CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
-         &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
 
           z_lat = ppatch%cells%center(jc,jb)%lat
@@ -1300,10 +1287,8 @@ CONTAINS
       z_lpol  = 60.0_wp      ! polar latitude for temperature gradient
       z_ldiff = z_lpol  - z_ltrop
 
-      DO jb = i_startblk_c, i_endblk_c
-        CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
-         &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
-
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
 
           !latitude given in radians
@@ -1370,10 +1355,8 @@ CONTAINS
       z_lpol  = 60.0_wp      ! polar latitude for temperature gradient
       z_ldiff = z_lpol  - z_ltrop
 
-      DO jb = i_startblk_c, i_endblk_c
-        CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
-         &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
-
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
 
           !latitude given in radians
@@ -1438,10 +1421,8 @@ CONTAINS
       z_tdiff = z_ttrop - z_tpol
       z_ldiff = z_lpol  - z_ltrop
 
-      DO jb = i_startblk_c, i_endblk_c
-        CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
-         &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
-
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
 
           !latitude given in radians
@@ -1500,10 +1481,8 @@ CONTAINS
       z_temp_max  = 30.5_wp
       z_temp_min  = 0.5_wp
       z_temp_incr = (z_temp_max-z_temp_min)/(REAL(n_zlev,wp)-1.0_wp)
-      DO jb = i_startblk_c, i_endblk_c
-        CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
-         &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
-
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
 
           !IF(v_base%dolic_c(jc,jb)>=MIN_DOLIC)THEN
@@ -1526,9 +1505,8 @@ CONTAINS
       CALL message(TRIM(routine), &
         &  ' - here: horizontally homogen, use tprof_var and sprof_var vertical profiles')
 
-      DO jb = i_startblk_c, i_endblk_c
-        CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
-         &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
           DO jk=1,n_zlev
 
@@ -1558,10 +1536,8 @@ CONTAINS
 
       sst_case='sst_qobs'
       jk = 1
-      DO jb = i_startblk_c, i_endblk_c
-        CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
-          &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
-
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
           z_lat = ppatch%cells%center(jc,jb)%lat
           IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
@@ -1601,9 +1577,8 @@ CONTAINS
       !  - add horizontally homogen, vertically increasing / homogen salinity
       IF (no_tracer==2) THEN
         DO jk=1,n_zlev
-          DO jb = i_startblk_c, i_endblk_c
-            CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
-             &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
+          DO jb = all_cells%start_block, all_cells%end_block
+            CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
             DO jc = i_startidx_c, i_endidx_c
               IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
                 p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof_var(jk)
@@ -1624,10 +1599,8 @@ CONTAINS
       z_temp_max  = 30.5_wp
       z_temp_min  = 0.5_wp
       z_temp_incr = (z_temp_max-z_temp_min)/(REAL(n_zlev,wp)-1.0_wp)
-      DO jb = i_startblk_c, i_endblk_c
-        CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
-         &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
-
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
 
           p_os%p_prog(nold(1))%tracer(jc,:,jb,1)=0.0_wp
@@ -1652,9 +1625,8 @@ CONTAINS
       END DO
 
       !Add horizontal variation
-      DO jb = i_startblk_c, i_endblk_c
-        CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
-         &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
           z_lat = ppatch%cells%center(jc,jb)%lat
           z_lat_deg = z_lat*rad2deg
@@ -1673,9 +1645,8 @@ CONTAINS
       END DO
 
       !Add local perturbation
-      DO jb = i_startblk_c, i_endblk_c
-        CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
-         &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
           z_lat = ppatch%cells%center(jc,jb)%lat
           z_lat_deg = z_lat*rad2deg
@@ -1734,10 +1705,8 @@ ELSEIF( iswm_oce == 1 )THEN
       v_base%lsm_oce_c(:,:,:) = sea
       v_base%lsm_oce_e(:,:,:) = sea
       !init height
-      DO jb = i_startblk_c, i_endblk_c
-        CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c,&
-                    & i_startidx_c, i_endidx_c, rl_start, rl_end_c)
-
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
           z_lat = ppatch%cells%center(jc,jb)%lat
           z_lon = ppatch%cells%center(jc,jb)%lon
@@ -1754,10 +1723,8 @@ ELSEIF( iswm_oce == 1 )THEN
       END DO
 
       !init normal velocity
-      DO jb = i_startblk_e, i_endblk_e
-        CALL get_indices_e(ppatch, jb, i_startblk_e, i_endblk_e,&
-                    & i_startidx_e, i_endidx_e, rl_start, rl_end_e)
-
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO je = i_startidx_e, i_endidx_e
           z_lat = ppatch%edges%center(je,jb)%lat
           z_lon = ppatch%edges%center(je,jb)%lon
@@ -1777,10 +1744,8 @@ ELSEIF( iswm_oce == 1 )THEN
       v_base%lsm_oce_c(:,:,:) = sea
       v_base%lsm_oce_e(:,:,:) = sea
       !init height
-      DO jb = i_startblk_c, i_endblk_c
-        CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c,&
-                    & i_startidx_c, i_endidx_c, rl_start, rl_end_c)
-
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
           z_lat = ppatch%cells%center(jc,jb)%lat
           z_lon = ppatch%cells%center(jc,jb)%lon
@@ -1802,10 +1767,8 @@ ELSEIF( iswm_oce == 1 )THEN
 
 
       !init normal velocity
-      DO jb = i_startblk_e, i_endblk_e
-        CALL get_indices_e(ppatch, jb, i_startblk_e, i_endblk_e,&
-                    & i_startidx_e, i_endidx_e, rl_start, rl_end_e)
-
+      DO jb = all_edges%start_block, all_edges%end_block
+        CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
         DO je = i_startidx_e, i_endidx_e
           z_lat = ppatch%edges%center(je,jb)%lat
           z_lon = ppatch%edges%center(je,jb)%lon
@@ -1824,9 +1787,8 @@ ELSEIF( iswm_oce == 1 )THEN
       p_os%p_prog(nnew(1))%vn = 0.0_wp
       p_os%p_prog(nold(1))%tracer(:,1,:,1) = 0.0_wp
       p_os%p_prog(nnew(1))%tracer(:,1,:,1) = 0.0_wp
-      DO jb = i_startblk_c, i_endblk_c
-        CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c,&
-                    & i_startidx_c, i_endidx_c, rl_start, rl_end_c)
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
          p_ext_data%oce%bathymetry_c(jc,jb) = -200._wp
          v_base%dolic_c(jc,jb)      = 1
@@ -1849,10 +1811,8 @@ ELSEIF( iswm_oce == 1 )THEN
 
      CASE(28)
       !init normal velocity
-      DO jb = i_startblk_e, i_endblk_e
-        CALL get_indices_e(ppatch, jb, i_startblk_e, i_endblk_e,&
-                    & i_startidx_e, i_endidx_e, rl_start, rl_end_e)
-
+      DO jb = all_edges%start_block, all_edges%end_block
+        CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
         DO je = i_startidx_e, i_endidx_e
           z_lat = ppatch%edges%center(je,jb)%lat
           z_lon = ppatch%edges%center(je,jb)%lon
@@ -1871,10 +1831,8 @@ ELSEIF( iswm_oce == 1 )THEN
       !z_permax  = 20.0_wp            !20.1_wp
       z_perwid  =  7.0_wp*pi/64.0_wp !10.0_wp!5.0_wp!1.5_wp
 
-      DO jb = i_startblk_c, i_endblk_c
-        CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
-          &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
-
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
           z_lat = ppatch%cells%center(jc,jb)%lat
           z_lon = ppatch%cells%center(jc,jb)%lon
