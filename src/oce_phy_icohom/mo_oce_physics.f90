@@ -959,11 +959,13 @@ CONTAINS
        !params_oce%A_veloc_v(:,1,:) = params_oce%A_veloc_v_back!params_oce%A_veloc_v(:,2,:)
     ENDIF!l_constant_mixing
 
+    ! Sync the results
     DO i_no_trac=1, no_tracer
       CALL sync_patch_array(SYNC_C,p_patch,params_oce%A_tracer_v(:,:,:,i_no_trac))
     END DO
     CALL sync_patch_array(SYNC_C,p_patch,params_oce%A_veloc_v(:,:,:))
 
+    ! debug output
     DO i_no_trac=1, no_tracer
       z_c(:,:,:)=params_oce%A_tracer_v(:,:,:,i_no_trac)
       DO jk=1,n_zlev
