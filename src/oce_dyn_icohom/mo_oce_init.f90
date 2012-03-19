@@ -122,182 +122,183 @@ CONTAINS
   !-------------------------------------------------------------------------
   !
   SUBROUTINE init_ho_prog(ppatch, p_os, p_sfc_flx)
-  TYPE(t_patch), INTENT(IN)         :: ppatch
-  TYPE(t_hydro_ocean_state), TARGET :: p_os
-  !TYPE(t_external_data)             :: p_ext_data 
-  TYPE(t_sfc_flx)                   :: p_sfc_flx
+    TYPE(t_patch), INTENT(IN)         :: ppatch
+    TYPE(t_hydro_ocean_state), TARGET :: p_os
+    !TYPE(t_external_data)             :: p_ext_data 
+    TYPE(t_sfc_flx)                   :: p_sfc_flx
 
-  ! Local Variables
+    ! Local Variables
 
-  CHARACTER(len=max_char_length), PARAMETER :: routine = 'mo_oce_init:init_ho_prog'
-  CHARACTER(filename_max) :: prog_init_file   !< file name for reading in
+    CHARACTER(len=max_char_length), PARAMETER :: routine = 'mo_oce_init:init_ho_prog'
+    CHARACTER(filename_max) :: prog_init_file   !< file name for reading in
 
-  LOGICAL :: l_exist
-  INTEGER :: i_lev, no_cells, no_levels, jk, jb, jc
-  INTEGER :: ncid, dimid
-  INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start, rl_end_c
+    LOGICAL :: l_exist
+    INTEGER :: i_lev, no_cells, no_levels, jk, jb, jc
+    INTEGER :: ncid, dimid
+    INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start, rl_end_c
 
-  REAL(wp):: z_c(nproma,n_zlev,ppatch%nblks_c)
-  ! files ts_phc_season-iconR2B04-L11.nc have 11 levels
-  !REAL(wp):: z_prog(nproma,11,ppatch%nblks_c)
-  ! files ts_phc_season-iconR2B04-L10-25_5000.nc have n_zlev=10 levels
-  REAL(wp):: z_prog(nproma,n_zlev,ppatch%nblks_c)
+    REAL(wp):: z_c(nproma,n_zlev,ppatch%nblks_c)
+    ! files ts_phc_season-iconR2B04-L11.nc have 11 levels
+    !REAL(wp):: z_prog(nproma,11,ppatch%nblks_c)
+    ! files ts_phc_season-iconR2B04-L10-25_5000.nc have n_zlev=10 levels
+    REAL(wp):: z_prog(nproma,n_zlev,ppatch%nblks_c)
 
-  !-------------------------------------------------------------------------
+    !-------------------------------------------------------------------------
 
-  CALL message (TRIM(routine), 'start')
+    CALL message (TRIM(routine), 'start')
 
-  rl_start     = 1
-  rl_end_c     = min_rlcell
-  i_startblk_c = ppatch%cells%start_blk(rl_start,1)
-  i_endblk_c   = ppatch%cells%end_blk(rl_end_c,1)
-  i_lev        = ppatch%level
+    rl_start     = 1
+    rl_end_c     = min_rlcell
+    i_startblk_c = ppatch%cells%start_blk(rl_start,1)
+    i_endblk_c   = ppatch%cells%end_blk(rl_end_c,1)
+    i_lev        = ppatch%level
 
-  IF(my_process_is_stdio()) THEN
-    !
-    ! Prognostic variables are read from prog_init_file
-    WRITE (prog_init_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-prog.nc'
-!prog_init_file="/scratch/local1/m212053/ICON/trunk/icon-dev/grids/&
-!&ts_phc_annual-iconR2B04-L10_50-1000m.nc"
+    IF(my_process_is_stdio()) THEN
+      !
+      ! Prognostic variables are read from prog_init_file
+      WRITE (prog_init_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-prog.nc'
+  !prog_init_file="/scratch/local1/m212053/ICON/trunk/icon-dev/grids/&
+  !&ts_phc_annual-iconR2B04-L10_50-1000m.nc"
 
-    INQUIRE (FILE=prog_init_file, EXIST=l_exist)
-    IF (.NOT.l_exist) THEN
-      WRITE(message_text,'(3a)') 'netcdf file named ', TRIM(prog_init_file), ' not found!'
+      INQUIRE (FILE=prog_init_file, EXIST=l_exist)
+      IF (.NOT.l_exist) THEN
+        WRITE(message_text,'(3a)') 'netcdf file named ', TRIM(prog_init_file), ' not found!'
+        CALL message(TRIM(routine),TRIM(message_text))
+        CALL finish(TRIM(routine),'File for reading ocean prognostic input not found - ABORT')
+      ENDIF
+
+      WRITE(message_text,'(3a)') 'netcdf file named ', TRIM(prog_init_file), ' opened for reading'
       CALL message(TRIM(routine),TRIM(message_text))
-      CALL finish(TRIM(routine),'File for reading ocean prognostic input not found - ABORT')
+
+      !
+      ! open file
+      !
+      CALL nf(nf_open(TRIM(prog_init_file), NF_NOWRITE, ncid))
+
+      !
+      ! get number of cells
+      !
+      CALL nf(nf_inq_dimid(ncid, 'ncells', dimid))
+      CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
+
+      !
+      ! check the number of cells
+      !
+      WRITE(message_text,'(a,i6)') 'No of cells =', no_cells
+      CALL message(TRIM(routine),TRIM(message_text))
+      IF(ppatch%n_patch_cells_g /= no_cells) THEN
+        CALL finish(TRIM(ROUTINE),&
+        & 'Number of patch cells and cells in ocean prognostic input file do not match - ABORT')
+      ENDIF
+      !
+      ! get number of levels
+      !
+      CALL nf(nf_inq_dimid(ncid, 'level', dimid))
+      CALL nf(nf_inq_dimlen(ncid, dimid, no_levels))
+
+      !
+      ! check the number of cells
+      !
+      WRITE(message_text,'(a,i6)') 'No of vertical levels =', no_levels
+      CALL message(TRIM(routine),TRIM(message_text))
+      IF(n_zlev /= no_levels) THEN
+        CALL finish(TRIM(ROUTINE),&
+        & 'Number of vertical levels and &
+        & levels in ocean prognostic input file do not match - ABORT')
+      ENDIF
+
     ENDIF
 
-    WRITE(message_text,'(3a)') 'netcdf file named ', TRIM(prog_init_file), ' opened for reading'
-    CALL message(TRIM(routine),TRIM(message_text))
 
+    !-------------------------------------------------------
     !
-    ! open file
+    ! Read ocean init data at cells
     !
-    CALL nf(nf_open(TRIM(prog_init_file), NF_NOWRITE, ncid))
+    !-------------------------------------------------------
 
-    !
-    ! get number of cells
-    !
-    CALL nf(nf_inq_dimid(ncid, 'ncells', dimid))
-    CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
+    ! triangle center and edges
 
-    !
-    ! check the number of cells
-    !
-    WRITE(message_text,'(a,i6)') 'No of cells =', no_cells
-    CALL message(TRIM(routine),TRIM(message_text))
-    IF(ppatch%n_patch_cells_g /= no_cells) THEN
-      CALL finish(TRIM(ROUTINE),&
-      & 'Number of patch cells and cells in ocean prognostic input file do not match - ABORT')
-    ENDIF
-    !
-    ! get number of levels
-    !
-    CALL nf(nf_inq_dimid(ncid, 'level', dimid))
-    CALL nf(nf_inq_dimlen(ncid, dimid, no_levels))
-
-    !
-    ! check the number of cells
-    !
-    WRITE(message_text,'(a,i6)') 'No of vertical levels =', no_levels
-    CALL message(TRIM(routine),TRIM(message_text))
-    IF(n_zlev /= no_levels) THEN
-      CALL finish(TRIM(ROUTINE),&
-      & 'Number of vertical levels and levels in ocean prognostic input file do not match - ABORT')
-    ENDIF
-
-  ENDIF
-
-
-  !-------------------------------------------------------
-  !
-  ! Read ocean init data at cells
-  !
-  !-------------------------------------------------------
-
-  ! triangle center and edges
-
-  ! read temperature
-  !  - 2011-11-01, >r7005: read one data set, annual mean only
-  !  - "T": annual mean temperature
-  CALL read_netcdf_data (ncid, 'T', ppatch%n_patch_cells_g, ppatch%n_patch_cells, &
-    &                    ppatch%cells%glb_index, n_zlev, z_prog)
-
-  IF (no_tracer>=1) THEN
-    !p_os%p_prog(nold(1))%tracer(:,1:n_zlev,:,1) = z_prog(:,1:n_zlev,:)
-    p_os%p_diag%temp_insitu(:,1:n_zlev,:) = z_prog(:,1:n_zlev,:)
-  ELSE
-    CALL message( TRIM(routine),'WARNING: no tracer used, but init temperature attempted')
-  END IF
-
-
-  ! read salinity
-  !  - "S": annual mean salinity
-  IF (no_tracer > 1) THEN
-    CALL read_netcdf_data (ncid, 'S', ppatch%n_patch_cells_g, ppatch%n_patch_cells, &
+    ! read temperature
+    !  - 2011-11-01, >r7005: read one data set, annual mean only
+    !  - "T": annual mean temperature
+    CALL read_netcdf_data (ncid, 'T', ppatch%n_patch_cells_g, ppatch%n_patch_cells, &
       &                    ppatch%cells%glb_index, n_zlev, z_prog)
-    p_os%p_prog(nold(1))%tracer(:,1:n_zlev,:,2) = z_prog(:,1:n_zlev,:)
-  END IF
+
+    IF (no_tracer>=1) THEN
+      !p_os%p_prog(nold(1))%tracer(:,1:n_zlev,:,1) = z_prog(:,1:n_zlev,:)
+      p_os%p_diag%temp_insitu(:,1:n_zlev,:) = z_prog(:,1:n_zlev,:)
+    ELSE
+      CALL message( TRIM(routine),'WARNING: no tracer used, but init temperature attempted')
+    END IF
+
+
+    ! read salinity
+    !  - "S": annual mean salinity
+    IF (no_tracer > 1) THEN
+      CALL read_netcdf_data (ncid, 'S', ppatch%n_patch_cells_g, ppatch%n_patch_cells, &
+        &                    ppatch%cells%glb_index, n_zlev, z_prog)
+      p_os%p_prog(nold(1))%tracer(:,1:n_zlev,:,2) = z_prog(:,1:n_zlev,:)
+    END IF
 
 
 
-IF (no_tracer >=2) THEN
-  DO jk=1, n_zlev
-    DO jb = i_startblk_c, i_endblk_c    
-      CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c,&
-                & i_startidx_c, i_endidx_c, rl_start, rl_end_c)
-      DO jc = i_startidx_c, i_endidx_c
+    IF (no_tracer >=2) THEN
+      DO jk=1, n_zlev
+        DO jb = i_startblk_c, i_endblk_c    
+          CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c,&
+                    & i_startidx_c, i_endidx_c, rl_start, rl_end_c)
+          DO jc = i_startidx_c, i_endidx_c
 
-        ! set values on land to zero/reference
-        IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+            ! set values on land to zero/reference
+            IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
 
-          p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)=&
-          &convert_insitu2pot_temp_func(p_os%p_diag%temp_insitu(jc,jk,jb),&
-                                       &p_os%p_prog(nold(1))%tracer(jc,jk,jb,2),&
-                                       &sfc_press_bar)
-        ENDIF
+              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)=&
+              &convert_insitu2pot_temp_func(p_os%p_diag%temp_insitu(jc,jk,jb),&
+                                           &p_os%p_prog(nold(1))%tracer(jc,jk,jb,2),&
+                                           &sfc_press_bar)
+            ENDIF
 
+          END DO
+        END DO
+      END DO
+    ELSEIF(no_tracer==1)THEN
+    p_os%p_prog(nold(1))%tracer(:,1:n_zlev,:,1)=p_os%p_diag%temp_insitu(:,1:n_zlev,:)
+    ENDIF
+
+    !
+    ! close file
+    !
+    IF(my_process_is_stdio()) CALL nf(nf_close(ncid))
+
+    DO jk=1, n_zlev
+      DO jb = i_startblk_c, i_endblk_c    
+        CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c,&
+                  & i_startidx_c, i_endidx_c, rl_start, rl_end_c)
+        DO jc = i_startidx_c, i_endidx_c
+
+          ! set values on land to zero/reference
+          IF ( v_base%lsm_oce_c(jc,jk,jb) > sea_boundary ) THEN
+            p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 0.0_wp
+            IF (no_tracer>=2) p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 0.0_wp!sal_ref
+          ENDIF
+
+        END DO
       END DO
     END DO
-  END DO
-ELSEIF(no_tracer==1)THEN
-p_os%p_prog(nold(1))%tracer(:,1:n_zlev,:,1)=p_os%p_diag%temp_insitu(:,1:n_zlev,:)
-ENDIF
 
-  !
-  ! close file
-  !
-  IF(my_process_is_stdio()) CALL nf(nf_close(ncid))
-
-  DO jk=1, n_zlev
-    DO jb = i_startblk_c, i_endblk_c    
-      CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c,&
-                & i_startidx_c, i_endidx_c, rl_start, rl_end_c)
-      DO jc = i_startidx_c, i_endidx_c
-
-        ! set values on land to zero/reference
-        IF ( v_base%lsm_oce_c(jc,jk,jb) > sea_boundary ) THEN
-          p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 0.0_wp
-          IF (no_tracer>=2) p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = 0.0_wp!sal_ref
-        ENDIF
-
-      END DO
+    ipl_src=0  ! output print level (0-5, fix)
+    z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,1)
+    DO jk=1, n_zlev
+      CALL print_mxmn('init_prog - T',jk,z_c(:,:,:),n_zlev,ppatch%nblks_c,'per',ipl_src)
     END DO
-  END DO
+    IF (no_tracer > 1) THEN
+    z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,2)
+    DO jk=1, n_zlev
+      CALL print_mxmn('init_prog - S',jk,z_c(:,:,:),n_zlev,ppatch%nblks_c,'per',ipl_src)
+    END DO
+    END IF
 
-  ipl_src=0  ! output print level (0-5, fix)
-  z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,1)
-  DO jk=1, n_zlev
-    CALL print_mxmn('init_prog - T',jk,z_c(:,:,:),n_zlev,ppatch%nblks_c,'per',ipl_src)
-  END DO
-  IF (no_tracer > 1) THEN
-  z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,2)
-  DO jk=1, n_zlev
-    CALL print_mxmn('init_prog - S',jk,z_c(:,:,:),n_zlev,ppatch%nblks_c,'per',ipl_src)
-  END DO
-  END IF
-
-  CALL message( TRIM(routine),'Ocean prognostic initialization data read' )
+    CALL message( TRIM(routine),'Ocean prognostic initialization data read' )
 
   END SUBROUTINE init_ho_prog
 
