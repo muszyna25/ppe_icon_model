@@ -948,7 +948,7 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2011). Originally written by D. Notz.
   !
   SUBROUTINE update_sfcflx_from_atm_flx(ppatch, p_as, p_os, p_ice,Qatm, p_sfc_flx)
-    TYPE(t_patch),                INTENT(in)    :: ppatch
+    TYPE(t_patch),TARGET,         INTENT(IN)    :: ppatch
     TYPE(t_atmos_for_ocean),      INTENT(IN)    :: p_as
     TYPE(t_hydro_ocean_state),    INTENT(IN)    :: p_os
     TYPE (t_sea_ice),             INTENT (IN)   :: p_ice
@@ -961,8 +961,7 @@ CONTAINS
     REAL(wp) :: z_norm, z_v, z_relax
 
     INTEGER :: jc, jb, i
-    INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
-    INTEGER :: rl_start_c, rl_end_c
+    INTEGER :: i_startidx_c, i_endidx_c
     REAL(wp):: z_evap(nproma,ppatch%nblks_c)
     REAL(wp):: z_Q_freshwater(nproma,ppatch%nblks_c)
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:update_sfcflx_from_atm_flx'
@@ -971,7 +970,7 @@ CONTAINS
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'start' )
 
-    all_cells => p_patch%cells%all
+    all_cells => ppatch%cells%all
 
     !Relaxation parameter from namelist for salinity.
     z_relax = relaxation_param/(30.0_wp*24.0_wp*3600.0_wp)
