@@ -310,24 +310,27 @@ CONTAINS
   !
   SUBROUTINE init_ho_relaxation(ppatch, p_os, p_sfc_flx)
 
-  TYPE(t_patch),TARGET, INTENT(IN)  :: ppatch
-  TYPE(t_hydro_ocean_state), TARGET :: p_os
-  TYPE(t_sfc_flx)                   :: p_sfc_flx
+    TYPE(t_patch),TARGET, INTENT(IN)  :: ppatch
+    TYPE(t_hydro_ocean_state), TARGET :: p_os
+    TYPE(t_sfc_flx)                   :: p_sfc_flx
 
-  ! Local Variables
+    ! Local Variables
 
-  CHARACTER(len=max_char_length), PARAMETER :: routine = 'mo_oce_init:init_ho_relaxation'
-  CHARACTER(filename_max) :: relax_init_file   !< file name for reading in
+    CHARACTER(len=max_char_length), PARAMETER :: routine = 'mo_oce_init:init_ho_relaxation'
+    CHARACTER(filename_max) :: relax_init_file   !< file name for reading in
 
-  LOGICAL :: l_exist
-  INTEGER :: i_lev, no_cells, no_levels, jb, jc
-  INTEGER :: ncid, dimid
-  INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start, rl_end_c
+    LOGICAL :: l_exist
+    INTEGER :: i_lev, no_cells, no_levels, jb, jc
+    INTEGER :: ncid, dimid
+    INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start, rl_end_c
 
-  REAL(wp):: z_c(nproma,1,ppatch%nblks_c)
-  REAL(wp):: z_relax(nproma,ppatch%nblks_c)
+    REAL(wp):: z_c(nproma,1,ppatch%nblks_c)
+    REAL(wp):: z_relax(nproma,ppatch%nblks_c)
 
-  !-------------------------------------------------------------------------
+    !-------------------------------------------------------------------------
+    TYPE(t_subset_range), POINTER :: all_cells
+    !-------------------------------------------------------------------------
+    all_cells => ppatch%cells%all
 
     CALL message (TRIM(routine), 'start')
 
@@ -420,14 +423,8 @@ CONTAINS
       ! close file
       IF(my_process_is_stdio()) CALL nf(nf_close(ncid))
 
-      rl_start     = 1
-      rl_end_c     = min_rlcell
-      i_startblk_c = ppatch%cells%start_blk(rl_start,1)
-      i_endblk_c   = ppatch%cells%end_blk(rl_end_c,1)
-
-      DO jb = i_startblk_c, i_endblk_c
-        CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c,&
-                  & i_startidx_c, i_endidx_c, rl_start, rl_end_c)
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
           IF ( v_base%lsm_oce_c(jc,1,jb) > sea_boundary ) THEN
             p_sfc_flx%forc_tracer_relax(jc,jb,1) = 0.0_wp
