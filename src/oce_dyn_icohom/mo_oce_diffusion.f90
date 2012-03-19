@@ -524,6 +524,7 @@ SUBROUTINE velocity_diffusion_vert_rbf( p_patch, u_c, v_c, h_c, top_bc_u_c, top_
 END SUBROUTINE velocity_diffusion_vert_rbf
 
 !------------------------------------------------------------------------
+! mpi parallelized, sync required
 SUBROUTINE tracer_diffusion_horz(p_patch, trac_in, p_os, K_T, diff_flx)
   !
   !Subroutine computes the horizontal diffusive flux of an arbitrary tracer.
