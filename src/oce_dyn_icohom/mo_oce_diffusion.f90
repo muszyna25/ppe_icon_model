@@ -98,7 +98,7 @@ CONTAINS
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2010).
 !! 
-!! mpi parallelized, no sync required
+!! mpi parallelized, sync required
 SUBROUTINE velocity_diffusion_horz_mimetic(p_patch, vn_in, p_param, p_diag, laplacian_vn_out)
   TYPE(t_patch), TARGET, INTENT(in) :: p_patch
   REAL(wp), INTENT(in)              :: vn_in(nproma,n_zlev,p_patch%nblks_e)
@@ -163,7 +163,7 @@ SUBROUTINE velocity_diffusion_horz_mimetic(p_patch, vn_in, p_param, p_diag, lapl
   !Step 2: Multiply each component of gradient vector with mixing coefficients
   edges_in_domain => p_patch%edges%in_domain
   DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-    CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+    CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
 
     DO jk = slev, elev
       DO je = i_startidx_e, i_endidx_e
@@ -192,14 +192,13 @@ SUBROUTINE velocity_diffusion_horz_mimetic(p_patch, vn_in, p_param, p_diag, lapl
   
 
 
-!Step 2: Apply divergence to each component of mixing times gradient vector
-iidx => p_patch%cells%edge_idx
-iblk => p_patch%cells%edge_blk
+  !Step 2: Apply divergence to each component of mixing times gradient vector
+  iidx => p_patch%cells%edge_idx
+  iblk => p_patch%cells%edge_blk
 
-DO jb = i_startblk_c, i_endblk_c
+  DO jb = all_cells%start_block, all_cells%end_block
+    CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
 
-  CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
-                     i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
 #ifdef __SX__
 !CDIR UNROLL=6
 #endif
@@ -218,31 +217,14 @@ DO jb = i_startblk_c, i_endblk_c
       END DO
     END DO
   END DO
+  DO idx_cartesian = 1,3
+    CALL sync_patch_array(SYNC_C, p_patch,z_div_grad_u(:,:,:)%x(idx_cartesian) )
+  END DO
 
-!Step 3: Map divergence back to edges
-CALL map_cell2edges( p_patch, z_div_grad_u, laplacian_vn_out)
-CALL sync_patch_array(SYNC_E, p_patch, laplacian_vn_out)
+  !Step 3: Map divergence back to edges
+  CALL map_cell2edges( p_patch, z_div_grad_u, laplacian_vn_out)
+  CALL sync_patch_array(SYNC_E, p_patch, laplacian_vn_out)
 
-
-! DO jk=slev, elev
-! write(*,*)'LAPLACIAN',jk,&
-! &maxval(laplacian_vn_out(:,jk,:)),minval(laplacian_vn_out(:,jk,:)),&
-! &maxval(laplacian_vn_out2(:,jk,:)),minval(laplacian_vn_out2(:,jk,:))
-! END DO
-! 
-! DO jb = i_startblk_e, i_endblk_e
-! 
-!   CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e,&
-!                    &  i_startidx_e, i_endidx_e,&
-!                    &  rl_start_e, rl_end_e)
-!   DO jk = slev, elev
-!     DO je = i_startidx_e, i_endidx_e
-!     IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
-!     write(123,*)'laplacian',jk,laplacian_vn_out(je,jk,jb),laplacian_vn_out2(je,jk,jb)
-!     ENDIF 
-!     ENDDO
-!   END DO
-! END DO
 
 END SUBROUTINE velocity_diffusion_horz_mimetic
 !-------------------------------------------------------------------------  
@@ -255,68 +237,65 @@ END SUBROUTINE velocity_diffusion_horz_mimetic
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2010).
 !! 
+!! mpi parallelized, sync required
 SUBROUTINE velocity_diffusion_horz_rbf(p_patch, vn_in, p_param, p_diag, laplacian_vn_out)
-!
-!
-TYPE(t_patch), TARGET, INTENT(in) :: p_patch
-REAL(wp), INTENT(inout)            :: vn_in(nproma,n_zlev,p_patch%nblks_e)
-TYPE(t_ho_params), INTENT(in)     :: p_param !mixing parameters
-TYPE(t_hydro_ocean_diag)          :: p_diag
-REAL(wp), INTENT(out)             :: laplacian_vn_out(nproma,n_zlev,p_patch%nblks_e)
-!
-!Local variables
-INTEGER :: slev, elev
-INTEGER :: jk, jb, je!,jc
-INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
-INTEGER :: rl_start_e, rl_end_e
-INTEGER :: il_c1, ib_c1, il_c2, ib_c2
-!REAL(wp) :: z_mixing_coeff
-! CHARACTER(len=max_char_length), PARAMETER :: &
-!        & routine = ('mo_ocean_semi_implicit_ab:velocity_diffusion_horz')
-!-------------------------------------------------------------------------------
-!CALL message (TRIM(routine), 'start')        
+  !
+  TYPE(t_patch), TARGET, INTENT(in) :: p_patch
+  REAL(wp), INTENT(inout)            :: vn_in(nproma,n_zlev,p_patch%nblks_e)
+  TYPE(t_ho_params), INTENT(in)     :: p_param !mixing parameters
+  TYPE(t_hydro_ocean_diag)          :: p_diag
+  REAL(wp), INTENT(out)             :: laplacian_vn_out(nproma,n_zlev,p_patch%nblks_e)
+  !
+  !Local variables
+  INTEGER :: slev, elev
+  INTEGER :: jk, jb, je!,jc
+  INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
+  INTEGER :: rl_start_e, rl_end_e
+  INTEGER :: il_c1, ib_c1, il_c2, ib_c2
+  TYPE(t_subset_range), POINTER :: edges_in_domain        
 
-! #slo# set intent out variable to zero due to nag -nan compiler-option
-laplacian_vn_out(:,:,:) = 0.0_wp
+  !REAL(wp) :: z_mixing_coeff
+  ! CHARACTER(len=max_char_length), PARAMETER :: &
+  !        & routine = ('mo_ocean_semi_implicit_ab:velocity_diffusion_horz')
+  !-------------------------------------------------------------------------------
+  !CALL message (TRIM(routine), 'start')        
 
-rl_start_e = 1
-rl_end_e  = min_rledge
+  ! #slo# set intent out variable to zero due to nag -nan compiler-option
+  laplacian_vn_out(:,:,:) = 0.0_wp
 
-i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
-i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
+  slev = 1
+  elev = n_zlev
 
-slev = 1
-elev = n_zlev
+  edges_in_domain => p_patch%edges%in_domain
 
-! CALL nabla2_vec_ocean( vn_in,&
-!                     & p_diag%vt,&
-!                     & p_diag%vort,&
-!                     & p_patch, p_param%K_veloc_h,&
-!                     &laplacian_vn_out,&
-!                     &opt_slev=slev,opt_elev=elev )
+  ! CALL nabla2_vec_ocean( vn_in,&
+  !                     & p_diag%vt,&
+  !                     & p_diag%vort,&
+  !                     & p_patch, p_param%K_veloc_h,&
+  !                     &laplacian_vn_out,&
+  !                     &opt_slev=slev,opt_elev=elev )
 
-!Step 2: Multiply laplacian with mixing coefficients
-DO jb = i_startblk_e, i_endblk_e
+  !Step 2: Multiply laplacian with mixing coefficients
+  DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+    CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
 
-  CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e,&
-                   &  i_startidx_e, i_endidx_e,&
-                   &  rl_start_e, rl_end_e)
-  DO jk = slev, elev
-    DO je = i_startidx_e, i_endidx_e
+    DO jk = slev, elev
+      DO je = i_startidx_e, i_endidx_e
 
-      il_c1 = p_patch%edges%cell_idx(je,jb,1)
-      ib_c1 = p_patch%edges%cell_blk(je,jb,1)
-      il_c2 = p_patch%edges%cell_idx(je,jb,2)
-      ib_c2 = p_patch%edges%cell_blk(je,jb,2)
+        il_c1 = p_patch%edges%cell_idx(je,jb,1)
+        ib_c1 = p_patch%edges%cell_blk(je,jb,1)
+        il_c2 = p_patch%edges%cell_idx(je,jb,2)
+        ib_c2 = p_patch%edges%cell_blk(je,jb,2)
 
-      IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
-        laplacian_vn_out(je,jk,jb) = p_param%K_veloc_h(je,jk,jb)*laplacian_vn_out(je,jk,jb)
-      ELSE
-        laplacian_vn_out(je,jk,jb) = 0.0_wp
-      ENDIF
-    ENDDO
+        IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+          laplacian_vn_out(je,jk,jb) = p_param%K_veloc_h(je,jk,jb)*laplacian_vn_out(je,jk,jb)
+        ELSE
+          laplacian_vn_out(je,jk,jb) = 0.0_wp
+        ENDIF
+      ENDDO
+    END DO
   END DO
-END DO
+  CALL sync_patch_array(SYNC_E, p_patch,laplacian_vn_out)
 
 END SUBROUTINE velocity_diffusion_horz_rbf
 !-------------------------------------------------------------------------
