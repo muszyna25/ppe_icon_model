@@ -75,6 +75,9 @@ USE mo_oce_diffusion,             ONLY: tracer_diffusion_horz, tracer_diffusion_
 USE mo_oce_ab_timestepping_mimetic,ONLY: l_STAGGERED_TIMESTEP
 USE mo_intp_data_strc,             ONLY: p_int_state
 USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
+  USE mo_util_subset,         ONLY: t_subset_range, get_index_range
+  USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_idx, global_max
+
 IMPLICIT NONE
 
 PRIVATE
@@ -694,6 +697,7 @@ END SUBROUTINE elad
   !! Modification by Stephan Lorenz, MPI (2010-09-06)
   !! - adapted to hydrostatic ocean core
   !!
+  !!  mpi note: the result is not synced. Should be done in the calling method if required
   SUBROUTINE upwind_hflux_oce( ppatch, pvar_c, pvn_e, pupflux_e, opt_slev, opt_elev )
 
     TYPE(t_patch), TARGET, INTENT(IN) :: ppatch      !< patch on which computation is performed
@@ -706,9 +710,11 @@ END SUBROUTINE elad
     ! local variables
     INTEGER, DIMENSION(:,:,:), POINTER :: iilc,iibc  ! pointer to line and block indices
     INTEGER  :: slev, elev
-    INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end
+    INTEGER  :: i_startidx, i_endidx
     INTEGER  :: je, jk, jb         !< index of edge, vert level, block
+    TYPE(t_subset_range), POINTER :: edges_in_domain        
     !-----------------------------------------------------------------------
+    edges_in_domain => ppatch%edges%in_domain
     IF ( PRESENT(opt_slev) ) THEN
       slev = opt_slev
     ELSE
@@ -720,11 +726,6 @@ END SUBROUTINE elad
       elev = n_zlev
     END IF
 
-    rl_start = 1
-    rl_end   = min_rledge
-
-    i_startblk = ppatch%edges%start_blk(rl_start,1)
-    i_endblk   = ppatch%edges%end_blk(rl_end,1)
     !
     ! advection is done with 1st order upwind scheme,
     ! i.e. a piecewise constant approx. of the cell centered values
@@ -738,9 +739,8 @@ END SUBROUTINE elad
     iibc => ppatch%edges%cell_blk
 
     ! loop through all patch edges (and blocks)
-    DO jb = i_startblk, i_endblk
-      CALL get_indices_e(ppatch, jb, i_startblk, i_endblk,   &
-        &                i_startidx, i_endidx, rl_start,rl_end)
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
 
 #ifdef __SX__
 !CDIR UNROLL=6
@@ -829,6 +829,7 @@ END SUBROUTINE elad
   !! @par Revision History
   !! Peter korn, MPI-M, 2011
   !!
+  !!  mpi note: the result is not synced. Should be done in the calling method if required
   SUBROUTINE central_hflux_oce( ppatch, pvar_c, pvn_e, pupflux_e )
 
     TYPE(t_patch), TARGET, INTENT(IN) :: ppatch      !< patch on which computation is performed
@@ -841,20 +842,17 @@ END SUBROUTINE elad
     INTEGER, DIMENSION(:,:,:), POINTER :: iilc,iibc  ! pointer to line and block indices
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end
     INTEGER  :: je, jk, jb         !< index of edge, vert level, block
+    TYPE(t_subset_range), POINTER :: edges_in_domain        
     !-----------------------------------------------------------------------
-    rl_start   = 1
-    rl_end     = min_rledge
-    i_startblk = ppatch%edges%start_blk(rl_start,1)
-    i_endblk   = ppatch%edges%end_blk(rl_end,1)
+    edges_in_domain => ppatch%edges%in_domain
 
     ! line and block indices of two neighboring cells
     iilc => ppatch%edges%cell_idx
     iibc => ppatch%edges%cell_blk
 
     ! loop through all patch edges (and blocks)
-    DO jb = i_startblk, i_endblk
-      CALL get_indices_e(ppatch, jb, i_startblk, i_endblk,&
-                   & i_startidx, i_endidx, rl_start, rl_end)
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
 #ifdef __SX__
 !CDIR UNROLL=6
 #endif
@@ -1077,7 +1075,7 @@ END SUBROUTINE elad
            &                  z_gradC)
 
     !3b:
-    CALL map_edges2cell( ppatch, z_gradC, z_gradC_cc)
+    CALL map_edges2cell( ppatch, z_gradC, z_gradC_cc, opt_cells_range=ppatch%cells%in_domain)
 
     DO jk = slev, elev
       DO jb = i_startblk_e, i_endblk_e

@@ -711,7 +711,7 @@ CONTAINS
       & p_patch%cells%halo_level, 2, halo_levels_ceiling)
     CALL fill_subset(p_patch%cells%one_edge_in_domain,  p_patch%cells%halo_level, 1, 1)
     IF (p_patch%cells%in_domain%no_of_holes > 0) &
-      CALL finish("p_patch%cells%in_domain", "no_of_holes > 0")
+      CALL warning("p_patch%cells%in_domain", "no_of_holes > 0")
     IF (p_patch%cells%one_edge_in_domain%no_of_holes > 0) &
       CALL warning("p_patch%cells%one_edge_in_domain", "no_of_holes > 0")
     

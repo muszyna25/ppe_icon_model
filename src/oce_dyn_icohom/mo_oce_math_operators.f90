@@ -939,7 +939,7 @@ CONTAINS
   !!    in case of an optional range sync has to be taken care in the calling method
   !!
   SUBROUTINE div_oce( vec_e, ptr_patch, div_vec_c, &
-    & opt_slev, opt_elev, opt_subset_range )
+    & opt_slev, opt_elev, opt_cells_range )
     !
     !
     !  patch on which computation is performed
@@ -957,7 +957,7 @@ CONTAINS
     
     INTEGER, INTENT(in), OPTIONAL ::  &
       & opt_elev    ! optional vertical end level
-    TYPE(t_subset_range), TARGET, OPTIONAL :: opt_subset_range
+    TYPE(t_subset_range), TARGET, OPTIONAL :: opt_cells_range
         
     !
     ! cell based variable in which divergence is stored
@@ -972,7 +972,7 @@ CONTAINS
     INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
     !-----------------------------------------------------------------------
     IF ( PRESENT(opt_slev) ) THEN
-      all_cells => opt_subset_range
+      all_cells => opt_cells_range
     ELSE
       all_cells => ptr_patch%cells%all
     ENDIF

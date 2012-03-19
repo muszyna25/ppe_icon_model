@@ -51,7 +51,7 @@ USE mo_parallel_config,           ONLY: nproma, p_test_run
 USE mo_master_control,            ONLY: is_restart_run
 USE mo_math_utilities,            ONLY: t_cartesian_coordinates
 USE mo_sync,                      ONLY: sync_e, sync_c, sync_v, sync_patch_array
-USE mo_mpi,                       ONLY: global_mpi_barrier
+USE mo_mpi,                       ONLY: global_mpi_barrier, my_process_is_mpi_parallel
 USE mo_impl_constants,            ONLY: sea_boundary,                                     &
   &                                     min_rlcell, min_rledge, min_rlcell,               &
   &                                     max_char_length, MIN_DOLIC
@@ -134,6 +134,7 @@ CONTAINS
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2010).
 !! 
+  !!  mpi parallelized LL
 SUBROUTINE solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
     &                                  p_phys_param, timestep, p_op_coeff,p_int)
   !
@@ -1362,6 +1363,7 @@ END FUNCTION lhs_surface_height_ab_mim
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2010).
 !! 
+  !!  mpi parallelized LL
 SUBROUTINE calc_normal_velocity_ab_mimetic(p_patch, p_os, p_op_coeff, p_ext_data, p_phys_param)
 !
 TYPE(t_patch), TARGET, INTENT(in) :: p_patch
@@ -1376,27 +1378,24 @@ TYPE (t_ho_params)                :: p_phys_param
 !
 !  local variables
 !
-INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
-INTEGER :: rl_start_e, rl_end_e
+INTEGER :: i_startidx_e, i_endidx_e
 INTEGER :: je, jk, jb
-REAL(wp) :: z_grad_h(nproma,1,p_patch%nblks_e)
+REAL(wp) :: z_grad_h(nproma,p_patch%nblks_e)
 REAL(wp) :: gdt
+    TYPE(t_subset_range), POINTER :: edges_in_domain
+       
 !TYPE(t_cartesian_coordinates) :: z_p_cc(nproma,1,p_patch%nblks_c)
 !REAL(wp) :: z_tmp_h_e(nproma,1,p_patch%nblks_e)
-!CHARACTER(len=max_char_length), PARAMETER ::     &
-!  &      routine = ('mo_oce_ab_timestepping_mimetic: calc_normal_velocity_ab_mimetic')
+CHARACTER(len=*), PARAMETER ::     &
+  &      method_name='mo_oce_ab_timestepping_mimetic: calc_normal_velocity_ab_mimetic'
 !-----------------------------------------------------------------------  
 !CALL message (TRIM(routine), 'start')        
+    edges_in_domain => p_patch%edges%in_domain
 
-z_grad_h(:,:,:) = 0.0_wp
+IF (p_test_run) z_grad_h(:,:) = 0.0_wp
 !z_e     (:,:,:) = 0.0_wp
 
 gdt=grav*dtime
-
-rl_start_e   = 1
-rl_end_e     = min_rledge
-i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
-i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
 
 ! Step 1) Compute normal derivative of new surface height
 ! CALL grad_fd_norm_oce_2D(p_os%p_prog(nnew(1))%h, &
@@ -1405,20 +1404,19 @@ i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
 CALL grad_fd_norm_oce_2d_3D( p_os%p_prog(nnew(1))%h, &
        &                  p_patch,                &
        &                  p_op_coeff%grad_coeff,  &
-       &                  z_grad_h(:,1,:))
+       &                  z_grad_h(:,:))
 ! Step 2) Calculate the new velocity from the predicted one and the new surface height
 IF(iswm_oce== 1)THEN
 
-  DO jb = i_startblk_e, i_endblk_e
-    CALL get_indices_e(p_patch, jb, i_startblk_e, i_endblk_e, &
-                     &i_startidx_e, i_endidx_e, rl_start_e, rl_end_e)
+  DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+    CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
 #ifdef __SX__
 !CDIR UNROLL=6
 #endif
     DO jk = 1, n_zlev
       DO je = i_startidx_e, i_endidx_e
         p_os%p_prog(nnew(1))%vn(je,jk,jb) = (p_os%p_diag%vn_pred(je,jk,jb)   &
-                    &                        - gdt*ab_beta*z_grad_h(je,1,jb))&
+                    &                        - gdt*ab_beta*z_grad_h(je,jb))&
                     &                        *v_base%wet_e(je,jk,jb)
 
           p_os%p_diag%vn_time_weighted(je,jk,jb)=&
@@ -1434,16 +1432,16 @@ ELSEIF(iswm_oce/= 1)THEN
 
   IF(.NOT.l_RIGID_LID)THEN
 
-    DO jb = i_startblk_e, i_endblk_e
-      CALL get_indices_e(p_patch, jb, i_startblk_e, i_endblk_e, &
-                        &i_startidx_e, i_endidx_e, rl_start_e, rl_end_e)
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
 #ifdef __SX__
 !CDIR UNROLL=6
 #endif
       DO jk = 1, n_zlev
         DO je = i_startidx_e, i_endidx_e
+        
           p_os%p_prog(nnew(1))%vn(je,jk,jb) = (p_os%p_diag%vn_pred(je,jk,jb) &
-                  &                        - gdt*ab_beta*z_grad_h(je,1,jb))  &
+                  &                        - gdt*ab_beta*z_grad_h(je,jb))  &
                   &                         *v_base%wet_e(je,jk,jb)
 
           p_os%p_diag%vn_time_weighted(je,jk,jb)=&
@@ -1455,6 +1453,8 @@ ELSEIF(iswm_oce/= 1)THEN
     END DO
 
   ELSEIF(l_RIGID_LID)THEN
+  
+    CALL finish(method_name,"l_RIGID_LID case has a bug")
     p_os%p_prog(nnew(1))%vn = p_os%p_diag%vn_pred*v_base%wet_e(je,jk,jb)
 
     p_os%p_diag%vn_time_weighted(je,jk,jb)=&
@@ -1463,11 +1463,16 @@ ELSEIF(iswm_oce/= 1)THEN
 
   ENDIF
 ENDIF
+    
+    CALL sync_patch_array(SYNC_E, p_patch, p_os%p_prog(nnew(1))%vn)
+    CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%vn_time_weighted)
+
+
 IF(.NOT.l_RIGID_LID)THEN
   !write(*,*)
   ipl_src=3  ! output print level (1-5, fix)
-  CALL print_mxmn('new height gradient',1,z_grad_h(:,:,:),1, p_patch%nblks_e,'abt',ipl_src)
-  CALL print_mxmn('h-contrib to veloc.',1,-ab_beta*gdt*z_grad_h(:,:,:),1, &
+  CALL print_mxmn('new height gradient',1,z_grad_h(:,:),1, p_patch%nblks_e,'abt',ipl_src)
+  CALL print_mxmn('h-contrib to veloc.',1,-ab_beta*gdt*z_grad_h(:,:),1, &
     &             p_patch%nblks_e,'abt',ipl_src)
 ! write(*,*)'MIN/MAX new height gradient:', minval(z_grad_h),&
 !                                & maxval(z_grad_h) 
@@ -1523,6 +1528,7 @@ END DO
 
   !Update of scalar product quantities  
   IF(l_STAGGERED_TIMESTEP)THEN
+  
     CALL height_related_quantities(p_patch, p_os, p_ext_data)
     Call set_lateral_boundary_values(p_patch, &
                                     &p_os%p_prog(nnew(1))%vn)
@@ -1562,6 +1568,7 @@ END SUBROUTINE calc_normal_velocity_ab_mimetic
 !!   - velocities and sea level are passed through the interface
 !!   - no calculation of new sea level here
 !! 
+  !!  mpi parallelized LL
 SUBROUTINE calc_vert_velocity_mimetic( p_patch, p_os, p_diag, p_op_coeff,&
                                      & ph_c, ph_e, bot_bc_w, pw_c )
 !
@@ -1579,8 +1586,7 @@ REAL(wp),         INTENT(INOUT)   :: pw_c (:,:,:)  ! vertical velocity on cells
 ! Local variables
 INTEGER :: jc, jk, jb
 INTEGER :: z_dolic!jic, jib
-INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
-INTEGER :: rl_start, rl_end
+INTEGER :: i_startidx, i_endidx
 !INTEGER :: max_blk(1:n_zlev), max_idx(1:n_zlev)
 !INTEGER :: min_blk(1:n_zlev), min_idx(1:n_zlev)
 !REAL(wp) :: max_w(1:n_zlev), min_w(1:n_zlev)
@@ -1589,19 +1595,18 @@ INTEGER :: rl_start, rl_end
 REAL(wp) :: delta_z
 REAL(wp) :: z_div_c(nproma,n_zlev+1,p_patch%nblks_c)
 REAL(wp) :: z_vn(nproma,n_zlev,p_patch%nblks_e)
+
+
 TYPE(t_cartesian_coordinates):: z_vn_c(nproma,n_zlev,p_patch%nblks_c)
+    TYPE(t_subset_range), POINTER :: cells_in_domain
 !INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
-!CHARACTER(len=max_char_length), PARAMETER :: &
-!       & routine = ('mo_oce_ab_timestepping_mimetic:calc_vert_velocity_mimetic')
+CHARACTER(len=*), PARAMETER :: &
+   & method_name = 'mo_oce_ab_timestepping_mimetic:calc_vert_velocity_mimetic'
 !-----------------------------------------------------------------------  
+    cells_in_domain => p_patch%cells%in_domain
 
 ! #slo# due to nag -nan compiler-option:
-z_div_c(:,:,:) = 0.0_wp
-
-rl_start   = 1
-rl_end     = min_rlcell
-i_startblk = p_patch%cells%start_blk(rl_start,1)
-i_endblk   = p_patch%cells%end_blk(rl_end,1)
+  IF (p_test_run) z_div_c(:,:,:) = 0.0_wp
 
 !------------------------------------------------------------------
 ! Step 1) Calculate divergence of horizontal velocity at all levels
@@ -1613,7 +1618,7 @@ i_endblk   = p_patch%cells%end_blk(rl_end,1)
 
  CALL map_edges2cell_3D( p_patch, p_diag%vn_time_weighted,p_op_coeff, z_vn_c)
  CALL map_cell2edges( p_patch, z_vn_c, z_vn)
- CALL div_oce_3D(z_vn, p_patch,p_op_coeff%div_coeff, z_div_c)
+ CALL div_oce_3D(z_vn, p_patch,p_op_coeff%div_coeff, z_div_c, opt_cells_range=cells_in_domain)
 
 
 
@@ -1625,9 +1630,8 @@ i_endblk   = p_patch%cells%end_blk(rl_end,1)
 ! !Note we are summing from bottom up to one layer below top.
 ! !In top layer vertical velocity is given by boundary condition
 
-DO jb = i_startblk, i_endblk
-  CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,&
-                   & i_startidx, i_endidx, rl_start, rl_end)
+    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+      CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
   DO jc = i_startidx, i_endidx
 
     z_dolic = v_base%dolic_c(jc,jb)
@@ -1665,6 +1669,8 @@ pw_c(:,1,:) = 0.0_wp
 
 
 ENDIF
+
+    CALL sync_patch_array(SYNC_C, p_patch, pw_c)
 
 ipl_src=4  ! output print level (1-5, fix)
 DO jk = 1, n_zlev
@@ -1707,7 +1713,7 @@ END SUBROUTINE calc_vert_velocity_mimetic
 !!  Modified by Stephan Lorenz, MPI-M (2010-08)
 !!   - velocities and sea level are passed through the interface
 !!   - no calculation of new sea level here
-!! 
+!! mpi not used
 SUBROUTINE calc_vert_velocity_mim_topdown( p_patch, p_os, p_diag, ph_e, top_bc_w, bot_bc_w, pw_c )
 !
 TYPE(t_patch), TARGET, INTENT(IN) :: p_patch       ! patch on which computation is performed
@@ -1734,10 +1740,14 @@ REAL(wp) :: z_div_c(nproma,n_zlev+1,p_patch%nblks_c)
 REAL(wp) :: z_vn(nproma,n_zlev,p_patch%nblks_e)
 TYPE(t_cartesian_coordinates):: z_vn_c(nproma,n_zlev,p_patch%nblks_c)
 !INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
-!CHARACTER(len=max_char_length), PARAMETER :: &
-!       & routine = ('mo_oce_ab_timestepping_mimetic:calc_vert_velocity_mimetic')
+CHARACTER(len=*), PARAMETER :: &
+  & method_name = ('mo_oce_ab_timestepping_mimetic:calc_vert_velocity_mimetic')
 !-----------------------------------------------------------------------  
 ! #slo# due to nag -nan compiler-option:
+
+  IF (my_process_is_mpi_parallel()) &
+    & CALL finish(method_name, "is not mpi parallelized")
+
 z_div_c(:,:,:) = 0.0_wp
 
 rl_start   = 1

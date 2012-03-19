@@ -1449,7 +1449,7 @@ CONTAINS
 
 #endif
 
-    IF (dbg_level > 5)  WRITE (*,*) routine, " Leave"
+!     IF (dbg_level > 5)  WRITE (*,*) routine, " Leave"
 
   END SUBROUTINE meteogram_collect_buffers
 
