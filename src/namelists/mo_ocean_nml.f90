@@ -87,13 +87,13 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: toplev    = 1   ! surface ocean level
 
   ! parameterized forcing for ocean model:
-  INTEGER            :: iforc_oce                 =  0   ! index of parameterized forcing
+  INTEGER            :: iforc_oce                 =  0  ! index of parameterized forcing
   INTEGER, PARAMETER :: NO_FORCING                = 10
   INTEGER, PARAMETER :: ANALYT_FORC               = 11
-  INTEGER, PARAMETER :: FORCING_FROM_FILE_FLUX    = 12
-  INTEGER, PARAMETER :: FORCING_FROM_FILE_FIELD   = 13   ! not yet
-  INTEGER, PARAMETER :: FORCING_FROM_COUPLED_FLUX = 14   ! parameter for a coupled atmosphere-ocean run
-  INTEGER, PARAMETER :: FORCING_FROM_COUPLED_FIELD= 15   ! not yet
+  INTEGER, PARAMETER :: FORCING_FROM_FILE_FLUX    = 12  ! OMIP or NCEP type forcing
+  INTEGER, PARAMETER :: FORCING_FROM_FILE_FIELD   = 13  ! not yet
+  INTEGER, PARAMETER :: FORCING_FROM_COUPLED_FLUX = 14  ! parameter for a coupled atmosphere-ocean run
+  INTEGER, PARAMETER :: FORCING_FROM_COUPLED_FIELD= 15  ! not yet
 
   ! read time varying OMIP forcing from file:
                       ! 1: read wind stress (records 1, 2) and temperature (record 3)
@@ -107,7 +107,7 @@ MODULE mo_ocean_nml
   INTEGER            :: iforc_len      = 1
 
   ! switch for stationary forcing for special testcases of ocean model:
-  INTEGER            :: iforc_stat_oce = 0
+  INTEGER            :: iforc_stat_oce = 3
 
   ! switch for reading prognostic variables: 1: read from file
   INTEGER            :: init_oce_prog  = 0
