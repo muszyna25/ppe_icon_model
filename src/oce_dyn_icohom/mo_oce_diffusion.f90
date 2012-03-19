@@ -607,7 +607,8 @@ SUBROUTINE tracer_diffusion_horz(p_patch, trac_in, p_os, K_T, diff_flx)
   ! Apply divergence to mixing times gradient to get laplacian
   !CALL div_oce( diff_flx, p_patch, laplacian_trac_out)
 
-  CALL sync_patch_array(SYNC_E, p_patch, diff_flx)
+  ! LL: result is not required to be synced.
+  ! CALL sync_patch_array(SYNC_E, p_patch, diff_flx)
 
 END SUBROUTINE tracer_diffusion_horz
 !-------------------------------------------------------------------------  

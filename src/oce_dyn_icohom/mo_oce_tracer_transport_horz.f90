@@ -76,7 +76,8 @@ USE mo_oce_ab_timestepping_mimetic,ONLY: l_STAGGERED_TIMESTEP
 USE mo_intp_data_strc,             ONLY: p_int_state
 USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_util_subset,         ONLY: t_subset_range, get_index_range
-  USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_idx, global_max
+  USE mo_sync,                ONLY: SYNC_C, SYNC_C1, SYNC_E, SYNC_V, sync_patch_array, sync_idx, global_max,&
+    & sync_patch_array_mult
 
 IMPLICIT NONE
 
@@ -150,6 +151,7 @@ REAL(wp) :: z_div_adv_h(nproma,n_zlev,p_patch%nblks_c)   ! horizontal tracer div
 REAL(wp) :: z_div_diff_h(nproma,n_zlev,p_patch%nblks_c)  ! horizontal tracer divergence
 REAL(wp) :: z_diff_flux_h(nproma,n_zlev,p_patch%nblks_e) ! horizontal diffusive tracer flux
 !REAL(wp) :: z_transport_vn(nproma,n_zlev,p_patch%nblks_e)! horizontal transport velocity
+    TYPE(t_subset_range), POINTER :: all_edges, edges_in_domain, cells_in_domain
 
 !REAL(wp) :: z_mass_flux_h(nproma,n_zlev, p_patch%nblks_e)
 !REAL(wp) :: z_trac_c(nproma,n_zlev, p_patch%nblks_c)
@@ -171,14 +173,9 @@ REAL(wp) :: z_diff_flux_h(nproma,n_zlev,p_patch%nblks_e) ! horizontal diffusive 
 !-------------------------------------------------------------------------------
 !z_tol= 1.0E-13
 !trac_old=10.0_wp
-rl_start_c   = 1
-rl_end_c     = min_rlcell
-i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
-i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
-rl_start_e   = 1
-rl_end_e     = min_rledge
-i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
-i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
+    all_edges => p_patch%edges%all
+    edges_in_domain => p_patch%edges%in_domain
+    cells_in_domain => p_patch%cells%in_domain
 
 z_adv_flux_h  = 0.0_wp
 z_div_adv_h   = 0.0_wp
@@ -241,16 +238,12 @@ z_diff_flux_h = 0.0_wp
                         & z_adv_flux_h )
   END SELECT
 
-
-
-
-
+   
 
   IF (ltimer) CALL timer_stop(timer_adv_horz)
  
-  DO jb = i_startblk_e, i_endblk_e
-    CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, &
-    &                   rl_start_e, rl_end_e)
+  DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+    CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
     DO jk = 1, n_zlev
       delta_z = v_base%del_zlev_m(jk)
       DO je = i_startidx_e, i_endidx_e
@@ -326,6 +319,7 @@ z_diff_flux_h = 0.0_wp
 !     END DO
 !   END DO
 
+  
   IF(FLUX_CALCULATION_HORZ==MIMETIC_MIURA .OR. FLUX_CALCULATION_HORZ==MIMETIC)THEN
      IF (ltimer) CALL timer_start(timer_hflx_lim)
      !z_h_tmp_c = z_adv_flux_h
@@ -338,9 +332,12 @@ z_diff_flux_h = 0.0_wp
 &                              p_op_coeff)               !  !p_thick_new)
      IF (ltimer) CALL timer_stop(timer_hflx_lim)
   ENDIF
+  
 
   !CALL div_oce( z_adv_flux_h, p_patch, z_div_adv_h)
-  CALL div_oce_3D( z_adv_flux_h, p_patch,p_op_coeff%div_coeff, z_div_adv_h)
+  CALL div_oce_3D( z_adv_flux_h, p_patch,p_op_coeff%div_coeff, z_div_adv_h,&
+    & opt_cells_range=cells_in_domain)
+  
 ! DO jb = i_startblk_c, i_endblk_c
 !     CALL get_indices_c( p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
 !     &                   rl_start_c, rl_end_c)
@@ -356,7 +353,7 @@ z_diff_flux_h = 0.0_wp
 
 !trac_old=trac_new
   !The diffusion part: calculate horizontal diffusive flux
-  IF (ltimer) CALL timer_start(timer_dif_horz)
+  IF (ltimer) CALL timer_start(timer_dif_horz)  
   CALL tracer_diffusion_horz( p_patch, &
    &                          trac_old,&
    &                          p_os,    &
@@ -364,9 +361,12 @@ z_diff_flux_h = 0.0_wp
    &                          z_diff_flux_h)
   IF (ltimer) CALL timer_stop(timer_dif_horz)
 
+  ! LL: the z_diff_flux_h should not be synced in tracer_diffusion_horz
+
   !Calculate divergence of diffusive flux
 !   CALL div_oce( z_diff_flux_h, p_patch, z_div_diff_h)
-  CALL div_oce_3D( z_diff_flux_h, p_patch,p_op_coeff%div_coeff, z_div_diff_h)
+  CALL div_oce_3D( z_diff_flux_h, p_patch,p_op_coeff%div_coeff, z_div_diff_h, &
+    & opt_cells_range=cells_in_domain)
 
 !IF(ldbg)THEN
 !   DO jk = 1, n_zlev
@@ -376,15 +376,15 @@ z_diff_flux_h = 0.0_wp
 !ENDIF
   !Final step: calculate new tracer values
     jk = 1    
-    DO jb = i_startblk_c, i_endblk_c
-    CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c,&
-                     & i_startidx_c, i_endidx_c,&
-                     & rl_start_c, rl_end_c)
+    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+      CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
         !IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
            !IF(dummy_h_c(jc,jk,jb)/=0.0_wp)THEN
            IF( v_base%wet_c(jc,jk,jb)>0.0_wp)THEN
              delta_z=v_base%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)
+  
+!   z_div_adv_h is not synced
 
              trac_new(jc,jk,jb) = (trac_old(jc,jk,jb)*delta_z       &
                                  & -delta_t*(z_div_adv_h(jc,jk,jb)  &
@@ -401,12 +401,10 @@ z_diff_flux_h = 0.0_wp
     END DO
 
 
-  DO jk = 2, n_zlev
-    delta_z = v_base%del_zlev_m(jk)
-    DO jb = i_startblk_c, i_endblk_c
-    CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c,&
-                     & i_startidx_c, i_endidx_c,&
-                     & rl_start_c, rl_end_c)
+  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+    CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+    DO jk = 2, n_zlev
+      delta_z = v_base%del_zlev_m(jk)
 
       DO jc = i_startidx_c, i_endidx_c
         !IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
@@ -427,11 +425,12 @@ z_diff_flux_h = 0.0_wp
     END DO
   END DO
 !CALL elad(p_patch, trac_old, trac_new, p_os)
+  CALL sync_patch_array(SYNC_C, p_patch, trac_new)
+
 
 END SUBROUTINE advect_horizontal
 !-----------------------------------------------------------------------
-!
-!
+!-----------------------------------------------------------------------
 !>
 !! !  SUBROUTINE advects horizontally the tracers present in the ocean model.
 !!
@@ -888,6 +887,7 @@ END SUBROUTINE elad
   !!
   !! @par Revision History
   !! Developed by P. Korn, (2011).
+  !!  mpi parallelized, the result is NOT synced. Should be done in the calling method if required
   !!
   SUBROUTINE mimetic_miura_hflux_oce( ppatch, pvar_c, pvn_e, pvn_mean_cc,&
                                     & p_op_coeff, pvn_dual_cc,pflux_e,&
@@ -920,7 +920,10 @@ END SUBROUTINE elad
     TYPE(t_cartesian_coordinates) :: z_gradC_cc(nproma,n_zlev,ppatch%nblks_c)
     !REAL(wp) :: z_tmpC(nproma,n_zlev,ppatch%nblks_c)  
     !REAL(wp)  :: pupflux_e(nproma,n_zlev,ppatch%nblks_e)
+    TYPE(t_subset_range), POINTER :: edges_in_domain        
     !-----------------------------------------------------------------------
+    edges_in_domain => ppatch%edges%in_domain
+    
     IF ( PRESENT(opt_slev) ) THEN
       slev = opt_slev
     ELSE
@@ -931,15 +934,6 @@ END SUBROUTINE elad
     ELSE
       elev = n_zlev
     END IF
-
-    il_c=1
-    ib_c=1
-
-    rl_start = 1
-    rl_end   = min_rledge
-
-    i_startblk_e = ppatch%edges%start_blk(rl_start,1)
-    i_endblk_e   = ppatch%edges%end_blk(rl_end,1)
 
 !------------------------------------------------------------------
 
@@ -1074,14 +1068,14 @@ END SUBROUTINE elad
            &                  p_op_coeff%grad_coeff,  &
            &                  z_gradC)
 
+    CALL sync_patch_array(SYNC_E, ppatch, z_gradC)
     !3b:
-    CALL map_edges2cell( ppatch, z_gradC, z_gradC_cc, opt_cells_range=ppatch%cells%in_domain)
+    
+    CALL map_edges2cell( ppatch, z_gradC, z_gradC_cc)
 
-    DO jk = slev, elev
-      DO jb = i_startblk_e, i_endblk_e
-
-        CALL get_indices_e(ppatch, jb, i_startblk_e, i_endblk_e,&
-                         & i_startidx_e, i_endidx_e, rl_start, rl_end)
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
+      DO jk = slev, elev
 
         DO je =  i_startidx_e, i_endidx_e
         !IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
@@ -1148,6 +1142,8 @@ END SUBROUTINE elad
 
   END SUBROUTINE mimetic_miura_hflux_oce
   !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
   !>
   !! Flux limiter for horizontal advection
   !!
@@ -1166,6 +1162,9 @@ END SUBROUTINE elad
   !! Modification by Daniel Reinert, DWD (2010-03-25)
   !! - adapted for MPI parallelization
   !!
+  !!  mpi parallelized LL
+  !!  mpi note: compute on domain edges. Results is not synced. 
+  !!
   SUBROUTINE hflx_limiter_oce_mo( ptr_patch, p_cc, p_mass_flx_e, &
     &                         p_mflx_tracer_h, p_thick_old, p_thick_new, p_op_coeff,&
     &                         opt_slev, opt_elev )
@@ -1183,10 +1182,10 @@ END SUBROUTINE elad
     REAL(wp), INTENT(INOUT) ::  &    !< calculated horizontal tracer mass flux
       &  p_mflx_tracer_h(:,:,:)      !< dim: (nproma,nlev,nblks_e)
 
-    REAL(wp), INTENT(INOUT) ::  &    !< old surface elevation
+    REAL(wp) ::  &    !< old surface elevationm, INTENT(in)
       &  p_thick_old(:,:,:)              !< dim: (nproma,n_zlev,nblks_c)
 
-    REAL(wp), INTENT(INOUT) ::  &    !< new surface elevation
+    REAL(wp) ::  &    !< new surface elevation INTENT(in)
       &  p_thick_new(:,:,:)              !< dim: (nproma,n_zlev,nblks_c)
 
    TYPE(t_operator_coeff),INTENT(IN) :: p_op_coeff
@@ -1241,11 +1240,11 @@ END SUBROUTINE elad
       &  iidx, iblk                          !< of edges
 
     INTEGER  :: slev, elev             !< vertical start and end level
-    INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
-    INTEGER  :: i_rlstart, i_rlend
-    INTEGER  :: i_rlstart_e, i_rlend_e, i_rlstart_c, i_rlend_c
+    INTEGER  :: i_startidx, i_endidx
+    INTEGER  :: i_rlstart_c, i_rlend_c
     INTEGER  :: je, jk, jb, jc         !< index of edge, vert level, block, cell
 
+    TYPE(t_subset_range), POINTER :: edges_in_domain,  cells_in_domain
 !     REAL(wp), POINTER ::  &
 !     &  ptr_delp_mc_now(:,:,:) => NULL() !< pointer to old layer thickness
 !                                         !< at cell center
@@ -1254,6 +1253,9 @@ END SUBROUTINE elad
 !                                         !< at cell center
   !-------------------------------------------------------------------------
     ! Check for optional arguments
+    edges_in_domain => ptr_patch%edges%in_domain
+    cells_in_domain => ptr_patch%cells%in_domain
+    
     IF ( PRESENT(opt_slev) ) THEN
       slev = opt_slev
     ELSE
@@ -1265,8 +1267,6 @@ END SUBROUTINE elad
       elev = n_zlev
     END IF
 
-    i_rlstart = 1
-    i_rlend = min_rledge
 
     ! Set pointers to index-arrays
     ! line and block indices of two neighboring cells
@@ -1282,10 +1282,6 @@ END SUBROUTINE elad
     ! 1. Calculate low (first) order fluxes using the standard upwind scheme and the
     !    antidiffusive fluxes
     !    (not allowed to call upwind_hflux_up directly, due to circular dependency)
-    i_rlstart_e  = 1
-    i_rlend_e    = min_rledge
-    i_startblk   = ptr_patch%edges%start_blk(i_rlstart_e,1)
-    i_endblk     = ptr_patch%edges%end_blk(i_rlend_e,1)
 
 
     !z_tracer_new_low = 0.0_wp
@@ -1294,10 +1290,8 @@ END SUBROUTINE elad
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx)
-    DO jb = i_startblk, i_endblk
-
-      CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
-        &                i_startidx, i_endidx, i_rlstart_e, i_rlend_e)
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
 #ifdef __LOOP_EXCHANGE
       DO je = i_startidx, i_endidx
         DO jk = slev, elev
@@ -1320,15 +1314,9 @@ END SUBROUTINE elad
 !$OMP END DO
 
 
-    i_rlstart_c  = 1
-    i_rlend_c    = min_rlcell
-    i_startblk   = ptr_patch%cells%start_blk(i_rlstart_c,1)
-    i_endblk     = ptr_patch%cells%end_blk(i_rlend_c,1)
-
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
-    DO jb = i_startblk, i_endblk
-      CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk,        &
-                         i_startidx, i_endidx, i_rlstart_c, i_rlend_c)
+    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+      CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx, i_endidx
         DO jk = slev, elev
@@ -1409,15 +1397,10 @@ END SUBROUTINE elad
 
     ! 4. Limit the antidiffusive fluxes z_mflx_anti, such that the updated tracer
     !    field is free of any new extrema.
-    i_rlstart_c  = 1
-    i_rlend_c    = min_rlcell
-    i_startblk   = ptr_patch%cells%start_blk(i_rlstart_c,1)
-    i_endblk     = ptr_patch%cells%end_blk(i_rlend_c,1)
 
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_max,p_p,z_min,p_m)
-    DO jb = i_startblk, i_endblk
-      CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
-                         i_startidx, i_endidx, i_rlstart_c, i_rlend_c)
+    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+      CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx, i_endidx
         DO jk = slev, elev
@@ -1470,19 +1453,16 @@ END SUBROUTINE elad
 !$OMP END DO
 !$OMP END PARALLEL
     ! Synchronize r_m and r_p
-    !CALL sync_patch_array_mult(SYNC_C1, ptr_patch, 2, r_m, r_p)
+    CALL sync_patch_array_mult(SYNC_C1, ptr_patch, 2, r_m, r_p)
 
     ! 5. Now loop over all edges and determine the minimum fraction which must
     !    multiply the antidiffusive flux at the edge.
     !    At the end, compute new, limited fluxes which are then passed to the main
     !    program. Note that p_mflx_tracer_h now denotes the LIMITED flux.
-    i_startblk = ptr_patch%edges%start_blk(i_rlstart,1)
-    i_endblk   = ptr_patch%edges%end_blk(i_rlend,1)
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,r_frac,z_signum)
-    DO jb = i_startblk, i_endblk
-      CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk,    &
-                         i_startidx, i_endidx, i_rlstart, i_rlend)
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
 #ifdef __LOOP_EXCHANGE
       DO je = i_startidx, i_endidx
         DO jk = slev, elev

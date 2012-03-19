@@ -68,7 +68,8 @@ MODULE mo_scalar_product
   USE mo_oce_math_operators,     ONLY: rot_vertex_ocean_3d
 
   USE mo_util_subset,         ONLY: t_subset_range, get_index_range
-  USE mo_sync,                ONLY: sync_c, sync_e, sync_v, sync_patch_array, sync_idx, global_max
+  USE mo_sync,                ONLY: sync_c, sync_e, sync_v, sync_patch_array, &
+    & sync_idx, global_max
   
   IMPLICIT NONE
   
