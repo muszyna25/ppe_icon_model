@@ -341,34 +341,32 @@ SUBROUTINE velocity_diffusion_vert_mimetic( p_patch, p_diag, p_aux,h_c,p_param, 
    ! #slo 2011-09-08 - include effect of surface boundary condition on G_n
    !                   eliminate in vertical diffusion: laplacian_vert
    !    &( &
-        z_u(jc,jk,jb)%x =                                    &
-        &( p_aux%bc_top_veloc_cc(jc,jb)%x                    &
-        &- p_param%A_veloc_v(jc,jk+1,jb)                     &
-        &*(p_diag%p_vn(jc,jk,jb)%x-p_diag%p_vn(jc,jk+1,jb)%x)&
+        z_u(jc,jk,jb)%x =                                                &
+        & (p_aux%bc_top_veloc_cc(jc,jb)%x - p_param%A_veloc_v(jc,jk+1,jb)&
+        &*(p_diag%p_vn(jc,jk,jb)%x        - p_diag%p_vn(jc,jk+1,jb)%x)   &
         &/v_base%del_zlev_i(jk+1))/v_base%del_zlev_m(jk)
         !1b) ocean bottom 
         !ELSEIF ( jk == v_base%dolic_c(jc,jb) ) THEN
         !ELSEIF ( jk == z_dolic ) THEN
         jk = z_dolic
   !        IF(v_base%n_zlev>=2)THEN
-        z_u(jc,jk,jb)%x&
-        & = (p_param%A_veloc_v(jc,jk,jb)&
-        &*(p_diag%p_vn(jc,jk-1,jb)%x-p_diag%p_vn(jc,jk,jb)%x) &
-        & / v_base%del_zlev_i(jk)&
+        z_u(jc,jk,jb)%x =                                      &
+        &  (p_param%A_veloc_v(jc,jk,jb)                        &
+        & *(p_diag%p_vn(jc,jk-1,jb)%x-p_diag%p_vn(jc,jk,jb)%x) &
+        & / v_base%del_zlev_i(jk)                              &
         & - p_aux%bc_bot_veloc_cc(jc,jb)%x)/v_base%del_zlev_m(jk)
 
   !        ENDIF
         !1c) ocean interior 
         !ELSEIF( jk>slev .AND. jk < v_base%dolic_c(jc,jb) ) THEN
         DO jk = slev+1, z_dolic-1
-           z_u(jc,jk,jb)%x&
-           & = ( p_param%A_veloc_v(jc,jk,jb)*(p_diag%p_vn(jc,jk-1,jb)%x-p_diag%p_vn(jc,jk,jb)%x)&
-           &   /v_base%del_zlev_i(jk)&
-           &  - p_param%A_veloc_v(jc,jk+1,jb)*(p_diag%p_vn(jc,jk,jb)%x  -p_diag%p_vn(jc,jk+1,jb)%x)&
-           &   /v_base%del_zlev_i(jk+1))/&
-           &    v_base%del_zlev_m(jk)
-  ! write(*,*)'u-diff interior:',jk,u_c(jc,jk-1,jb),u_c(jc,jk,jb),u_c(jc,jk,jb),u_c(jc,jk+1,jb), &
-  !   &        z_u_i(jc,jk,jb), v_base%dolic_c(jc,jb) 
+           z_u(jc,jk,jb)%x = &
+           &   ( p_param%A_veloc_v(jc,jk,jb)*(p_diag%p_vn(jc,jk-1,jb)%x - &
+           &                                  p_diag%p_vn(jc,jk,jb)%x)    &
+           &   /v_base%del_zlev_i(jk)                                     &
+           &  - p_param%A_veloc_v(jc,jk+1,jb)*(p_diag%p_vn(jc,jk,jb)%x -  &
+           &                                   p_diag%p_vn(jc,jk+1,jb)%x) &
+           &   /v_base%del_zlev_i(jk+1))/v_base%del_zlev_m(jk)
         ! ENDIF  ! jk-condition
        !ENDIF    ! at least 2 vertical layers
         END DO ! jk ocean interior
@@ -388,22 +386,22 @@ SUBROUTINE velocity_diffusion_vert_mimetic( p_patch, p_diag, p_aux,h_c,p_param, 
    END DO
 
 END SUBROUTINE velocity_diffusion_vert_mimetic
-  !-------------------------------------------------------------------------  
+!-------------------------------------------------------------------------  
 
 
-  !-------------------------------------------------------------------------  
-  !>
-  !!
-  !! IMPORTANT: It is assumed that the velocity vector reconstruction from
-  !! edges to cells has been done before.
-  !!
-  !! input:  lives on cells (velocity points)
-  !! output: lives on edges (velocity points)
-  !!
-  !! @par Revision History
-  !! Developed  by  Peter Korn, MPI-M (2010).
-  !!
-  SUBROUTINE velocity_diffusion_vert_rbf( p_patch, u_c, v_c, h_c, top_bc_u_c, top_bc_v_c,&
+!-------------------------------------------------------------------------  
+!>
+!!
+!! IMPORTANT: It is assumed that the velocity vector reconstruction from
+!! edges to cells has been done before.
+!!
+!! input:  lives on cells (velocity points)
+!! output: lives on edges (velocity points)
+!!
+!! @par Revision History
+!! Developed  by  Peter Korn, MPI-M (2010).
+!!
+SUBROUTINE velocity_diffusion_vert_rbf( p_patch, u_c, v_c, h_c, top_bc_u_c, top_bc_v_c,&
                           &  bot_bc_u_c,  bot_bc_v_c,p_param, laplacian_vn_out)
   TYPE(t_patch), TARGET, INTENT(in) :: p_patch
   ! Components of cell based variable which is vertically advected
@@ -501,10 +499,7 @@ END SUBROUTINE velocity_diffusion_vert_mimetic
           &/v_base%del_zlev_i(jk+1)) &
           & / v_base%del_zlev_m(jk)
 
-  ! write(*,*)'u-diff interior:',jk,u_c(jc,jk-1,jb),u_c(jc,jk,jb),u_c(jc,jk,jb),u_c(jc,jk+1,jb), z_u_i(jc,jk,jb),&
-  ! &v_base%dolic_c(jc,jb) 
         !1c) ocean bottom 
-
         ENDIF  ! jk-condition
         ENDIF
         CALL gvec2cvec( z_u(jc,jk,jb), z_v(jc,jk,jb),       &
@@ -517,12 +512,6 @@ END SUBROUTINE velocity_diffusion_vert_mimetic
     END DO
   END DO
 
-  !  DO jk=slev, elev
-  !    WRITE(*,*)'MAX/MIN vert diff A:',jk, &
-  !      &        MAXVAL(z_u(:,jk,:)), MINVAL(z_u(:,jk,:)),&
-  !      &        MAXVAL(z_v(:,jk,:)), MINVAL(z_v(:,jk,:))
-  !  END DO
-
   ! Step 2: Map result of previous calculations from cell centers to edges (for all vertical layers)
   CALL map_cell2edges( p_patch, zu_cc, laplacian_vn_out)
   CALL sync_patch_array(SYNC_E, p_patch, laplacian_vn_out)
@@ -532,9 +521,10 @@ END SUBROUTINE velocity_diffusion_vert_mimetic
        &              p_patch%nblks_e,'dif',ipl_src)
    END DO
 
-  END subroutine velocity_diffusion_vert_rbf
-  !------------------------------------------------------------------------
-  SUBROUTINE tracer_diffusion_horz(p_patch, trac_in, p_os, K_T, diff_flx)
+END SUBROUTINE velocity_diffusion_vert_rbf
+
+!------------------------------------------------------------------------
+SUBROUTINE tracer_diffusion_horz(p_patch, trac_in, p_os, K_T, diff_flx)
   !
   !Subroutine computes the horizontal diffusive flux of an arbitrary tracer.
   !
