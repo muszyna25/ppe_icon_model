@@ -78,6 +78,7 @@ MODULE mo_ocean_nml
 
   ! ------------------------------------------------------------------------
   ! 2.0 Namelist variables and auxiliary parameters for ocean_nml
+  !      - contain all default values to minimize ocean namelist (SLO, 2012/03)
   ! ------------------------------------------------------------------------
 
   INTEGER  :: n_zlev        ! number of ocean levels
@@ -97,7 +98,9 @@ MODULE mo_ocean_nml
   ! read time varying OMIP forcing from file:
                       ! 1: read wind stress (records 1, 2) and temperature (record 3)
                       ! 2: read full OMIP dataset for bulk formula in mo_oce_bulk (12 records)
-                      ! 3: read surface heat (record 4) and freshwater flux (record 5) additionally
+                      ! 3: as 1; read surface heat (record 4) and freshwater flux (record 5) add.
+                      ! 4: as 1; read 4 parts of heat flux, precip/evap flux additionally
+                      ! 5: read full NCEP datasets; read monthly mean data of consecutive years
   INTEGER            :: iforc_omip     = 0
 
   ! length of time varying flux forcing: 12: read 12 months, other: read daily values
@@ -128,7 +131,7 @@ MODULE mo_ocean_nml
                       !                         set to zero, tangential not.
   INTEGER            :: i_bc_veloc_lateral = 0   
 
-  INTEGER            :: i_bc_veloc_top = 0  !Top boundary condition for velocity: 
+  INTEGER            :: i_bc_veloc_top = 1  !Top boundary condition for velocity: 
                                             ! i_bc_veloc_top =0 :zero value at top boundary,no wind
                                             ! i_bc_veloc_top =1 : forced by wind field that is
                                             !                     stored in p_os%p_aux%bc_top_veloc
@@ -157,35 +160,38 @@ MODULE mo_ocean_nml
 
   ! parameterized shallow water mode in the ocean model
   INTEGER            :: iswm_oce        =   0  ! switch for shallow water mode (1 = on, 0 = 3dim)
-  INTEGER            :: idisc_scheme    =   0  ! discretization scheme: 1 for mimetic, 
+  INTEGER            :: idisc_scheme    =   1  ! discretization scheme: 1 for mimetic, 
                                                ! 2 for RBF-type of discretization
  
   ! parameters for Adams-Bashforth semi-implicit time stepping scheme
   ! are set according to Marshall et al paper
-  REAL(wp) :: ab_const              =  0.1_wp  ! Adams-Bashforth constant
-  REAL(wp) :: ab_beta               =  0.0_wp  ! Parameter in semi-implicit timestepping
-  REAL(wp) :: ab_gam                =  0.0_wp  ! Parameter in semi-implicit timestepping
-  REAL(wp) :: solver_tolerance      =  0.0_wp  ! Maximum value allowed for solver tolerance
+  REAL(wp) :: ab_const              = 0.1_wp   ! Adams-Bashforth constant
+  REAL(wp) :: ab_beta               = 0.7_wp   ! Parameter in semi-implicit timestepping
+  REAL(wp) :: ab_gam                = 0.7_wp   ! Parameter in semi-implicit timestepping
+  REAL(wp) :: solver_tolerance      = 1.e-6_wp ! Maximum value allowed for solver tolerance
 
-  INTEGER :: EOS_TYPE               = 0        ! 1=linear EOS,2=(nonlinear) 
-                                               ! Jacket-McDoudgall-formulation
-  INTEGER :: no_tracer              = 0        ! number of tracers 
+  INTEGER :: EOS_TYPE               = 2        ! 1=linear EOS,2=(nonlinear, from MPIOM)
+                                               ! 3=nonlinear Jacket-McDoudgall-formulation (not yet recommended)
+  INTEGER :: no_tracer              = 2        ! number of tracers 
 
   ! more ocean parameters, not yet well placed
-  INTEGER  :: expl_vertical_velocity_diff=0    ! 0=explicit, 1 = implicit  
-  INTEGER  :: expl_vertical_tracer_diff  = 0   ! 0=explicit, 1 = implicit
-  INTEGER  :: HORZ_VELOC_DIFF_TYPE  = 0
-  REAL(wp) :: k_veloc_h             = 0.0_wp   ! horizontal diffusion coefficient
-  REAL(wp) :: k_veloc_v             = 0.0_wp   ! vertical diffusion coefficient
-  REAL(wp) :: k_pot_temp_h          = 0.0_wp   ! horizontal mixing coefficient for pot. temperature
-  REAL(wp) :: k_pot_temp_v          = 0.0_wp   ! vertical mixing coefficient for pot. temperature
-  REAL(wp) :: k_sal_h               = 0.0_wp   ! horizontal diffusion coefficient for salinity
-  REAL(wp) :: k_sal_v               = 0.0_wp   ! vertical diffusion coefficient for salinity
+  INTEGER  :: expl_vertical_velocity_diff = 1  ! 0=explicit, 1 = implicit  
+  INTEGER  :: expl_vertical_tracer_diff   = 1  ! 0=explicit, 1 = implicit
+  INTEGER  :: HORZ_VELOC_DIFF_TYPE  = 1        ! 0=no hor.diff; 1=const.Laplac.coeff.; 2=const.coeff. satisfying Munk crit.
+                                               ! 3=variable coefficients satisfying Munk criterion
+  REAL(wp) :: k_veloc_h             = 1.0E5_wp ! horizontal diffusion coefficient
+  REAL(wp) :: k_veloc_v             = 1.E-3_wp ! vertical diffusion coefficient
+  REAL(wp) :: k_pot_temp_h          = 1.0E3_wp ! horizontal mixing coefficient for pot. temperature
+  REAL(wp) :: k_pot_temp_v          = 1.e-4_wp ! vertical mixing coefficient for pot. temperature
+  REAL(wp) :: k_sal_h               = 1.0E3_wp ! horizontal diffusion coefficient for salinity
+  REAL(wp) :: k_sal_v               = 1.E-4_wp ! vertical diffusion coefficient for salinity
+  REAL(wp) :: MAX_VERT_DIFF_VELOC   = 0.0_wp   ! maximal diffusion coefficient for velocity
+  REAL(wp) :: MAX_VERT_DIFF_TRAC    = 0.0_wp   ! maximal diffusion coefficient for tracer
 
-  REAL(wp) :: t_ref                 = 0.0_wp   ! reference temperature for initialization
-  REAL(wp) :: s_ref                 = 0.0_wp   ! reference salinity for initialization
-  REAL(wp) :: bottom_drag_coeff     = 0.002_wp ! chezy coefficient for bottom friction
-  REAL(wp) :: wstress_coeff         = 1.e-4_wp ! windstress coefficient
+  REAL(wp) :: t_ref                 = 15.0_wp  ! reference temperature for initialization
+  REAL(wp) :: s_ref                 = 35.0_wp  ! reference salinity for initialization
+  REAL(wp) :: bottom_drag_coeff     = 2.E-3_wp ! chezy coefficient for bottom friction
+  REAL(wp) :: wstress_coeff         = 0.3_wp   ! windstress coefficient for analytical wind forcing
                                                ! 2-dimensional surface relaxation of temperature and salinity
   INTEGER  :: temperature_relaxation= 0        ! 0=no relax.; 1=on for some testcases; 2=use OMIP-file; 3: use init. values
   REAL(wp) :: relaxation_param      = 0.0_wp   ! strength of 2-dim temperatuere relaxation in months
@@ -201,31 +207,24 @@ MODULE mo_ocean_nml
                                                ! 1=full varying Coriolis
                                                ! 2=beta-plane (linear) approximation to Coriolis
                                                ! 3=f-plane (constant) approximation to Coriolis
-                                               ! The variables below are used to set up in basin configuration
-                                               ! the Coriolis (f/beta-plane) and to adjust the analytic wind forcing
-  REAL(wp) :: basin_center_lat      = 0.0_wp   ! lat-lon coordinate of basin center, used 
-  REAL(wp) :: basin_center_lon      = 0.0_wp   ! in (non-global) basin configuration such as the Stommel-type tests
-  REAL(wp) :: basin_width_deg       = 0.0_wp   ! basin extension in x-direction, units are degrees
-  REAL(wp) :: basin_height_deg      = 0.0_wp   ! basin extension in y-direction, units are degrees
-                                   
-  REAL(wp) :: MAX_VERT_DIFF_VELOC   = 0.5_wp   ! maximal diffusion coeff, used in implicit vertical velocity diffusion, 
-                                               !   if stability criterion is met
-  REAL(wp) :: MAX_VERT_DIFF_TRAC    = 0.5_wp   ! maximal diffusion coeff, used in implicit vertical tracer diffusion, 
-                                               !   if stability criterion is met
-  REAL(wp) :: CWA                   = 0.5E-3_wp! Tuning parameters for vertical mixing of tracer and velocity
-  REAL(wp) :: CWT                   = 0.5E-3_wp
+  ! The variables below are used to set up in basin configuration the Coriolis (f/beta-plane) and
+  !   to adjust the analytic wind forcing, units are degrees
+  REAL(wp) :: basin_center_lat      = 30.0_wp  ! lat coordinate of basin center
+  REAL(wp) :: basin_center_lon      =  0.0_wp  ! lon coordinate of basin center
+  REAL(wp) :: basin_width_deg       = 60.0_wp  ! basin extension in zonal direction
+  REAL(wp) :: basin_height_deg      = 60.0_wp  ! basin extension in meridional direction
+  REAL(wp) :: CWA                   = 5.E-4_wp ! Tuning parameters for vertical mixing
+  REAL(wp) :: CWT                   = 5.E-4_wp !   of tracer and velocity
 
                                                
   LOGICAL  :: lviscous              = .TRUE.
   LOGICAL  :: l_RIGID_LID           = .FALSE.  ! include friction or not
   LOGICAL  :: l_inverse_flip_flop   = .FALSE.  ! true=complete discrete scalarproduct (slow)
                                                ! false=use a shortcut (faster)
-  LOGICAL  :: l_staggered_timestep  = .FALSE.
-  ! TRUE=staggering between thermodynamic and dynamic part, offset of half timestep
-  ! between dynamic and thermodynamic variables thermodynamic and dynamic variables are colocated in time
-
-  INTEGER  :: i_sea_ice             = 0        ! 0=no sea ice
-                                               ! 1=sea ice
+  LOGICAL  :: l_staggered_timestep  = .FALSE.  ! TRUE=staggering between thermodynamic and dynamic part,
+                                               !   offset of half timestep between dynamic and thermodynamic variables;
+                                               !   thermodynamic and dynamic variables are colocated in time
+  INTEGER  :: i_sea_ice             = 1        ! 0=no sea ice; 1=sea ice
 
   NAMELIST/ocean_dynamics_nml/ n_zlev, dzlev_m, idisc_scheme,              &
     &                 iswm_oce, l_staggered_timestep,                      &
@@ -269,7 +268,7 @@ MODULE mo_ocean_nml
   !REAL(wp) :: s_val     = 0.0_wp  ! input  test value for salinity
 
   ! switches for level of debugging the ocean core
-  INTEGER  :: i_dbg_oce = 0       ! different levels of debug output (1-5, 0: no output)
+  INTEGER  :: i_dbg_oce = 1       ! different levels of debug output (1-5, 0: no output)
   INTEGER  :: i_dbg_inx = 0       ! different levels of debug output of values at indices given below
 
   ! longitude/latitude location of single cell output for debugging
@@ -277,8 +276,8 @@ MODULE mo_ocean_nml
   REAL(wp) :: rlon_in   = 0.0_wp  ! longitude of cell for debug output
 
   ! block/index location of cell output for debugging
-  INTEGER  :: i_oct_blk = 0       ! output test block
-  INTEGER  :: i_oct_idx = 0       ! output test index
+  INTEGER  :: i_oct_blk = 1       ! output test block
+  INTEGER  :: i_oct_idx = 1       ! output test index
   INTEGER  :: i_oct_ilv = 1       ! output test level
 
   CHARACTER(len=3) :: str_proc_tst(10)   ! namelist string of source processes to print
@@ -329,6 +328,10 @@ MODULE mo_ocean_nml
      !  lower level of layers:  50       200       700       2000       4500
      !  surface coord. levels:  25       125       450       1350       3250
 
+     ! maximal diffusion coefficient for tracer used in implicit vertical tracer diffusion,
+     !   if stability criterion is met
+     MAX_VERT_DIFF_TRAC  = 100.0_wp * k_veloc_v
+     MAX_VERT_DIFF_VELOC = 100.0_wp * k_pot_temp_v
 
      !------------------------------------------------------------
      ! 5.0 Read ocean_nml namelist

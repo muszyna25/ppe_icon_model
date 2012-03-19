@@ -51,7 +51,7 @@ MODULE mo_oce_thermodyn
 !
 !
 USE mo_kind,                ONLY: wp
-USE mo_ocean_nml,           ONLY: n_zlev,EOS_TYPE,toplev, t_ref, s_ref, no_tracer
+USE mo_ocean_nml,           ONLY: n_zlev,EOS_TYPE,toplev, s_ref, no_tracer
 USE mo_model_domain,        ONLY: t_patch
 USE mo_impl_constants,      ONLY: min_rlcell,sea_boundary, sea_boundary !, &
 USE mo_oce_state,           ONLY: v_base
@@ -953,7 +953,7 @@ FUNCTION convert_insitu2pot_temp_func(t, s, p) RESULT(temp_pot)
     REAL(wp), INTENT(in) :: t, s, p
     REAL(wp)             :: temp_pot
 
-    REAL(wp) :: z_s_ref= 35.0_wp
+    REAL(wp) :: z_s_ref= s_ref
   !!---------------------------------------------------------------------------
 
     temp_pot=t-p*(a_a1+ a_a2*t-a_a3*t*t+a_a4*t*t*t) &

@@ -214,7 +214,6 @@ CONTAINS
 
 !     IF(iswm_oce /= 1)THEN  #slo# 2012-02-21 - called for SW-Mode as well
 
-        ! ATTENTION - in namelist - TBD
         IF(.NOT.l_STAGGERED_TIMESTEP)THEN
    
 
