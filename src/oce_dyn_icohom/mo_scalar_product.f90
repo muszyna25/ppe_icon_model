@@ -106,6 +106,8 @@ MODULE mo_scalar_product
     
     MODULE PROCEDURE map_edges2cell_with_height
     MODULE PROCEDURE map_edges2cell_without_height
+    MODULE PROCEDURE map_edges2cell_with_h_1vl      ! 1 vertical level
+    MODULE PROCEDURE map_edges2cell_without_h_1vl   ! 1 vertical level
     
   END INTERFACE
   
@@ -114,7 +116,7 @@ MODULE mo_scalar_product
     
     MODULE PROCEDURE map_edges2cell_with_height_3d
     MODULE PROCEDURE map_edges2cell_no_height_3d
-    MODULE PROCEDURE map_edges2cell_no_h_3d_1l
+    MODULE PROCEDURE map_edges2cell_no_h_3d_1vl
     
   END INTERFACE
   
@@ -122,6 +124,8 @@ MODULE mo_scalar_product
     
     MODULE PROCEDURE map_edges2edges_with_height
     MODULE PROCEDURE map_edges2edges_without_height
+    MODULE PROCEDURE map_edges2edges_with_h_1vl      ! 1 vertical level
+    MODULE PROCEDURE map_edges2edges_without_h_1vl   ! 1 vertical level
     
   END INTERFACE
   
@@ -1014,6 +1018,46 @@ CONTAINS
     
   END SUBROUTINE map_edges2edges_with_height
   !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------------------
+  !>
+  !! @par Revision History
+  !!  developed by Peter Korn, MPI-M (2010-11)
+  !!
+  !!  mpi note: in and out is not synced. Should be done in the calling method if required
+  SUBROUTINE map_edges2edges_with_h_1vl( p_patch, vn_in, vn_out,&
+    & h_e, level  )
+    
+    TYPE(t_patch), INTENT(in) :: p_patch            ! patch on which computation is performed
+    REAL(wp), INTENT(inout)   :: vn_in(:,:)    ! input vector (nproma,n_zlev,nblks_e)
+    REAL(wp), INTENT(inout)   :: vn_out(:,:)    ! input vector (nproma,n_zlev,nblks_e)
+    REAL(wp), INTENT(in)      :: h_e(:,:)           ! SW-case: h_e is thicknerss at edges ! 3D case: h_e is surface elevation at edges
+    !TYPE(t_operator_coeff)    :: p_op_coeff
+    INTEGER, INTENT(in)       ::  level  ! vertical  level
+    
+    !Local variables
+    !   INTEGER, PARAMETER :: no_cell_edges = 3
+    !   INTEGER :: slev, elev
+    !   INTEGER :: rl_start_c, rl_end_c, rl_start_e, rl_end_e
+    !   INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
+    !   INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
+    !   INTEGER :: il_c1, ib_c1, il_c2, ib_c2
+    !   INTEGER :: il_e, ib_e
+    !   INTEGER :: jc, jb, jk, ie,je
+    TYPE(t_cartesian_coordinates)    :: z_p_vn_cc(nproma,p_patch%nblks_c)
+    !   REAL(wp) :: vort_flux_e(nproma,1,p_patch%nblks_e)
+    !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+    !  & routine = ('mo_scalar_product:primal_map_e2c')
+    !-----------------------------------------------------------------------
+    
+    CALL map_edges2cell( p_patch, vn_in, z_p_vn_cc, h_e, level)
+    CALL map_cell2edges( p_patch, z_p_vn_cc, vn_out, level )
+    
+  END SUBROUTINE map_edges2edges_with_h_1vl
+  !-------------------------------------------------------------------------
+  
+
+  !-------------------------------------------------------------------------
   !>
   !!
   !! @par Revision History
@@ -1049,6 +1093,44 @@ CONTAINS
     CALL map_cell2edges( p_patch, z_p_vn_cc, vn_out)
     
   END SUBROUTINE map_edges2edges_without_height
+  !-------------------------------------------------------------------------
+  
+
+  !-------------------------------------------------------------------------
+  !>
+  !!
+  !! @par Revision History
+  !!  developed by Peter Korn, MPI-M (2010-11)
+  !!
+  !!  mpi note: in and out is not synced. Should be done in the calling method if required
+  SUBROUTINE map_edges2edges_without_h_1vl( p_patch, vn_in, vn_out, level)
+    
+    TYPE(t_patch), INTENT(in) :: p_patch            ! patch on which computation is performed
+    REAL(wp), INTENT(inout)   :: vn_in(:,:)    ! input vector (nproma,n_zlev,nblks_e)
+    REAL(wp), INTENT(inout)   :: vn_out(:,:)    ! input vector (nproma,n_zlev,nblks_e)
+    !TYPE(t_operator_coeff)    :: p_op_coeff
+    INTEGER, INTENT(in)  ::  level  !  vertical  level
+    
+    !Local variables
+    !   INTEGER, PARAMETER :: no_cell_edges = 3
+    !   INTEGER :: slev, elev
+    !   INTEGER :: rl_start_c, rl_end_c, rl_start_e, rl_end_e
+    !   INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
+    !   INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
+    !   INTEGER :: il_c1, ib_c1, il_c2, ib_c2
+    !   INTEGER :: il_e, ib_e
+    !   INTEGER :: jc, jb, jk, ie,je
+    TYPE(t_cartesian_coordinates)    :: z_p_vn_cc(nproma,p_patch%nblks_c)
+    !   REAL(wp) :: vort_flux_e(nproma,1,p_patch%nblks_e)
+    !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+    !  & routine = ('mo_scalar_product:primal_map_e2c')
+    !-----------------------------------------------------------------------
+    !CALL message (TRIM(routine), 'start')
+        
+    CALL map_edges2cell( p_patch, vn_in, z_p_vn_cc, level )
+    CALL map_cell2edges( p_patch, z_p_vn_cc, vn_out, level)
+    
+  END SUBROUTINE map_edges2edges_without_h_1vl
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
@@ -1252,7 +1334,6 @@ CONTAINS
   
   !-----------------------------------------------------------------------------
   !>
-  !!
   !! @par Revision History
   !!  developed by Peter Korn, MPI-M (2010-11)
   !!  mpi parallelized LL
@@ -1392,6 +1473,120 @@ CONTAINS
   END SUBROUTINE map_edges2cell_with_height
   !-----------------------------------------------------------------------------
   
+  !-----------------------------------------------------------------------------
+  !>
+  !! @par Revision History
+  !!  developed by Peter Korn, MPI-M (2010-11)
+  !!  mpi parallelized LL
+  SUBROUTINE map_edges2cell_with_h_1vl( p_patch, vn_e, p_vn_c, h_e, level, &
+    & opt_subset_range)
+    
+    TYPE(t_patch), TARGET, INTENT(in)          :: p_patch        ! patch on which computation is performed
+    REAL(wp), INTENT(in)                       :: vn_e(:,:)    ! input (nproma,n_zlev,nblks_e)
+    ! 3D case: h_e is surface elevation at edges
+    TYPE(t_cartesian_coordinates),INTENT(inout):: p_vn_c(:,:)  ! outputput (nproma,n_zlev,nblks_c)
+    REAL(wp), INTENT(in)                       :: h_e(:,:)       ! SW-case: h_e is thickness at edges
+    !TYPE(t_operator_coeff)                     :: p_op_coeff
+    INTEGER, INTENT(in)                        :: level       !  vertical level
+    TYPE(t_subset_range), TARGET,  OPTIONAL :: opt_subset_range
+    
+    !Local variables
+    INTEGER, PARAMETER :: no_cell_edges = 3
+    INTEGER :: slev, elev
+    INTEGER :: i_startidx_c, i_endidx_c
+    !INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
+    !INTEGER :: il_c1, ib_c1, il_c2, ib_c2
+    INTEGER :: il_e, ib_e
+    INTEGER :: jc, jb, ie!,je
+    REAL(wp) :: z_weight
+    REAL(wp) :: z_thick_e
+
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+    !  & routine = ('mo_scalar_product:primal_map_e2c')
+    !-----------------------------------------------------------------------
+    IF ( PRESENT(opt_subset_range) ) THEN
+      all_cells => opt_subset_range
+    ELSE
+      all_cells => p_patch%cells%all
+    ENDIF
+    
+        
+    IF ( iswm_oce == 1 ) THEN
+      
+      !Step 1: Calculation of Pv in cartesian coordinates and of kinetic energy
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+#ifdef __SX__
+!CDIR UNROLL=6
+#endif
+        cell_idx_loop_swm: DO jc =  i_startidx_c, i_endidx_c
+          !calculate velocity reconstruction at cell center
+          z_weight           = 0.0_wp
+          p_vn_c(jc,jb)%x = 0.0_wp
+
+          DO ie=1, no_cell_edges
+
+            il_e = p_patch%cells%edge_idx(jc,jb,ie)
+            ib_e = p_patch%cells%edge_blk(jc,jb,ie)
+            !IF(v_base%lsm_oce_e(il_e,jk,ib_e) <= sea_boundary)THEN
+            z_thick_e = v_base%del_zlev_m(level) + h_e(il_e,ib_e)
+            z_weight = z_weight + p_int_state(1)%variable_vol_norm(jc,jb,ie) * z_thick_e
+            !ENDIF
+            p_vn_c(jc,jb)%x = p_vn_c(jc,jb)%x             &
+              & + p_int_state(1)%edge2cell_coeff_cc(jc,jb,ie)%x &
+              & * vn_e(il_e,ib_e)* z_thick_e
+
+          END DO ! ie=1, no_cell_edges
+
+          IF ( z_weight/=0.0_wp) THEN!v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary)THEN
+            p_vn_c(jc,jb)%x = p_vn_c(jc,jb)%x / z_weight
+          ELSE
+            p_vn_c(jc,jb)%x=0.0_wp
+          ENDIF
+
+        END DO cell_idx_loop_swm
+      END DO  ! jb = all_cells%start_block, all_cells%end_block
+      
+    ELSEIF( iswm_oce /= 1 ) THEN
+      
+      !Step 1: Calculation of Pv in cartesian coordinates
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+        !We are dealing with the surface layer first
+        cell_idx_loop_top: DO jc =  i_startidx_c, i_endidx_c
+          z_weight             = 0.0_wp
+          p_vn_c(jc,jb)%x = 0.0_wp
+          DO ie=1, no_cell_edges
+            
+            il_e = p_patch%cells%edge_idx(jc,jb,ie)
+            ib_e = p_patch%cells%edge_blk(jc,jb,ie)
+            !IF(v_base%lsm_oce_e(il_e,jk,ib_e) <= sea_boundary)THEN
+            z_thick_e = v_base%del_zlev_m(level) + h_e(il_e,ib_e)
+            z_weight = z_weight + p_int_state(1)%variable_vol_norm(jc,jb,ie) * z_thick_e
+            !ENDIF
+            p_vn_c(jc,jb)%x = p_vn_c(jc,jb)%x&
+              & + p_int_state(1)%edge2cell_coeff_cc(jc,jb,ie)%x&
+              & * vn_e(il_e,ib_e) * z_thick_e
+            
+          END DO
+          
+          IF(z_weight/=0.0_wp)THEN
+            p_vn_c(jc,jb)%x = p_vn_c(jc,jb)%x / z_weight
+          ELSE
+            p_vn_c(jc,jb)%x=0.0_wp
+          ENDIF
+
+          
+        END DO cell_idx_loop_top       
+      END DO ! jb = all_cells%start_block, all_cells%end_block
+    ENDIF
+    ! LL no sync required
+    
+  END SUBROUTINE map_edges2cell_with_h_1vl
+  !-----------------------------------------------------------------------------
+
   !-----------------------------------------------------------------------------
   !>
   !!
@@ -1618,6 +1813,75 @@ CONTAINS
   END SUBROUTINE map_edges2cell_without_height
   !-----------------------------------------------------------------------
   
+  !----------------------------------------------------------------
+  !  map_edges2cell_without_height
+  !>
+  !!
+  !! @par Revision History
+  !!  developed by Peter Korn, MPI-M (2010-11)
+  !!  mpi parallelized LL
+  SUBROUTINE map_edges2cell_without_h_1vl( p_patch, vn_e, p_vn_c, level, &
+    & opt_subset_range )
+    
+    TYPE(t_patch), TARGET, INTENT(in)          :: p_patch        ! patch on which computation is performed
+    REAL(wp)                                   :: vn_e(:,:)    ! input (nproma,n_zlev,nblks_e)
+    ! 3D case: h_e is surface elevation at edges
+    TYPE(t_cartesian_coordinates),INTENT(inout):: p_vn_c(:,:)  ! outputput (nproma,n_zlev,nblks_c)
+    INTEGER, INTENT(in)            :: level          ! vertical level
+    TYPE(t_subset_range), TARGET,  OPTIONAL :: opt_subset_range
+    !TYPE(t_operator_coeff)    :: p_op_coeff
+    !Local variables
+    INTEGER, PARAMETER :: no_cell_edges = 3
+    INTEGER :: slev, elev
+    INTEGER :: i_startidx_c, i_endidx_c
+    !INTEGER :: i_startblk_e, i_endblk_e!, i_startidx_e, i_endidx_e
+    !INTEGER :: il_c1, ib_c1, il_c2, ib_c2
+    INTEGER :: il_e, ib_e
+    INTEGER :: jc, jb, ie
+    REAL(wp) :: z_weight
+
+    TYPE(t_subset_range), POINTER :: all_cells
+    
+    !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+    !  & routine = ('mo_scalar_product:primal_map_e2c')
+    !-----------------------------------------------------------------------
+    IF ( PRESENT(opt_subset_range) ) THEN
+      all_cells => opt_subset_range
+    ELSE
+      all_cells => p_patch%cells%all
+    ENDIF
+        
+    !Calculation of Pv in cartesian coordinates
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+#ifdef __SX__
+!CDIR UNROLL=6
+#endif
+        cell_idx_loop: DO jc =  i_startidx_c, i_endidx_c
+          !calculate velocity reconstruction at cell center
+          p_vn_c(jc,jb)%x = 0.0_wp
+          !z_weight           = 0.0_wp
+          DO ie=1, no_cell_edges
+            il_e = p_patch%cells%edge_idx(jc,jb,ie)
+            ib_e = p_patch%cells%edge_blk(jc,jb,ie)
+            
+            p_vn_c(jc,jb)%x = p_vn_c(jc,jb)%x&
+              & + p_int_state(1)%edge2cell_coeff_cc(jc,jb,ie)%x&
+              & * vn_e(il_e,ib_e)
+          END DO
+          !IF(z_weight/=0.0_wp)THEN
+          p_vn_c(jc,jb)%x = p_vn_c(jc,jb)%x /p_int_state(1)%fixed_vol_norm(jc,jb)
+          !ELSE
+          !  p_vn_c(jc,jk,jb)%x=0.0_wp
+          !ENDIF
+          
+        END DO cell_idx_loop
+    END DO ! jb = all_cells%start_block, all_cells%end_block
+    ! LL no sync required
+    
+  END SUBROUTINE map_edges2cell_without_h_1vl
+  !-----------------------------------------------------------------------
+  
   !-----------------------------------------------------------------------
   ! map_edges2cell_without_height
   !>
@@ -1702,7 +1966,7 @@ CONTAINS
   !! @par Revision History
   !!  developed by Peter Korn, MPI-M (2010-11)
   !!  mpi parallelized LL
-  SUBROUTINE map_edges2cell_no_h_3d_1l( p_patch, vn_e,p_op_coeff, p_vn_c, level, &
+  SUBROUTINE map_edges2cell_no_h_3d_1vl( p_patch, vn_e,p_op_coeff, p_vn_c, level, &
     &  opt_subset_range)
     
     TYPE(t_patch), TARGET, INTENT(in)          :: p_patch        ! patch on which computation is performed
@@ -1757,7 +2021,7 @@ CONTAINS
     END DO ! jb = all_cells%start_block, all_cells%end_block
     ! LL no sync required
     
-  END SUBROUTINE map_edges2cell_no_h_3d_1l
+  END SUBROUTINE map_edges2cell_no_h_3d_1vl
   !-----------------------------------------------------------------------------
   
   !-----------------------------------------------------------------------------

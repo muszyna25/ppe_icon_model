@@ -387,7 +387,7 @@ CONTAINS
     iblk => ptr_patch%cells%edge_blk
     
     
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc)
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
 #ifdef __SX__

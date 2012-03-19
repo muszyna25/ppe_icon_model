@@ -124,9 +124,10 @@ LOGICAL, PARAMETER :: l_forc_freshw        = .FALSE.
 LOGICAL, PUBLIC,PARAMETER :: l_STAGGERED_TIMESTEP = .FALSE. 
 
 CONTAINS
-!-------------------------------------------------------------------------  
-!
-!  
+!-------------------------------------------------------------------------
+
+
+!-------------------------------------------------------------------------
 !>
 !! !  Solves the free surface equation.
 !! 
@@ -1352,8 +1353,9 @@ END DO
 
 END FUNCTION lhs_surface_height_ab_mim
 !-------------------------------------------------------------------------  
-!
-!  
+
+
+!-------------------------------------------------------------------------  
 !>
 !! Computation of new velocity in Adams-Bashforth timestepping.
 !! 
@@ -1542,8 +1544,9 @@ END DO
 !CALL message (TRIM(routine), 'end')
 END SUBROUTINE calc_normal_velocity_ab_mimetic
 !-------------------------------------------------------------------------
-!
-!  
+
+
+!-------------------------------------------------------------------------
 !>
 !! Computation of new vertical velocity using continuity equation
 
@@ -1941,150 +1944,154 @@ FUNCTION inverse_primal_flip_flop(p_patch, rhs_e, h_e) result(inv_flip_flop_e)
    !--------------------------------------------------------------------
    !!  mpi parallelized LL, results is valid only in in_domain edges
    FUNCTION lhs_primal_flip_flop( x, p_patch, jk, p_coeff, h_e) RESULT(llhs)
-   !
-   TYPE(t_patch), TARGET, INTENT(in) :: p_patch
-   REAL(wp),INTENT(inout)       :: x(:,:)
-   INTEGER ,INTENT(in)          :: jk
-   REAL(wp),INTENT(in)          :: p_coeff
-   REAL(wp),OPTIONAL,INTENT(in) :: h_e(SIZE(x,1), SIZE(x,2))!(:,:)
-   REAL(wp)                     :: llhs(SIZE(x,1), SIZE(x,2))
+    !
+    TYPE(t_patch), TARGET, INTENT(in) :: p_patch
+    REAL(wp),INTENT(inout)       :: x(:,:)
+    INTEGER ,INTENT(in)          :: jk
+    REAL(wp),INTENT(in)          :: p_coeff
+    REAL(wp),OPTIONAL,INTENT(in) :: h_e(SIZE(x,1), SIZE(x,2))!(:,:)
+    REAL(wp)                     :: llhs(SIZE(x,1), SIZE(x,2))
 
-   !locl variables
-   !INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
-   !INTEGER :: rl_start_c, rl_end_c
-   !INTEGER :: jc,jb
-   !REAL(wp) :: z_x_e(SIZE(x,1),SIZE(x,2))!(nproma,p_patch%nblks_e)
-   REAL(wp) :: z_x_in(SIZE(x,1), 1,SIZE(x,2))!(nproma,p_patch%nblks_e)
-   REAL(wp) :: z_x_out(SIZE(x,1), 1,SIZE(x,2))!(nproma,p_patch%nblks_e)
-   !TYPE(t_cartesian_coordinates) :: z_vn_cc(nproma,p_patch%nblks_c)
+    !locl variables
+    !INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
+    !INTEGER :: rl_start_c, rl_end_c
+    !INTEGER :: jc,jb
+    !REAL(wp) :: z_x_e(SIZE(x,1),SIZE(x,2))!(nproma,p_patch%nblks_e)
+    REAL(wp) :: z_x_out(SIZE(x,1), SIZE(x,2))!(nproma,p_patch%nblks_e)
+    !TYPE(t_cartesian_coordinates) :: z_vn_cc(nproma,p_patch%nblks_c)
 
-  !INTEGER :: il_c1, ib_c1, il_c2, ib_c2
-  !INTEGER :: il_e, ib_e
-  !INTEGER :: ie,je  
-  !INTEGER, PARAMETER :: no_cell_edges = 3
-  INTEGER :: jb, i_startidx_e, i_endidx_e
-  !INTEGER :: rl_start_e, rl_end_e 
-  !REAL(wp) :: z_weight
-  !REAL(wp) :: z_thick_e
-  TYPE(t_subset_range), POINTER :: edges_in_domain
-  !-----------------------------------------------------------------------
-  edges_in_domain => p_patch%edges%in_domain
+    !INTEGER :: il_c1, ib_c1, il_c2, ib_c2
+    !INTEGER :: il_e, ib_e
+    !INTEGER :: ie,je  
+    !INTEGER, PARAMETER :: no_cell_edges = 3
+    INTEGER :: jb, i_startidx_e, i_endidx_e
+    !INTEGER :: rl_start_e, rl_end_e 
+    !REAL(wp) :: z_weight
+    !REAL(wp) :: z_thick_e
+    TYPE(t_subset_range), POINTER :: edges_in_domain
+    !-----------------------------------------------------------------------
+    edges_in_domain => p_patch%edges%in_domain
 
-  CALL sync_patch_array(SYNC_E, p_patch, x)
-  z_x_in(:,:,:)  = 0.0_wp
-  z_x_out(:,:,:) = 0.0_wp
-  z_x_in(:,1,:)  = x(:,:)
+    IF (p_test_run) THEN
+      z_x_out(:,:) = 0.0_wp
+    ENDIF
+    
+    CALL sync_patch_array(SYNC_E, p_patch, x)
 
-  CALL map_edges2edges( p_patch,   &
-                      & z_x_in,    &
-                      & z_x_out,   &
-                      & h_e,      &
-                      & opt_slev=1, opt_elev=1 )
-!    rl_start_c = 1
-!    rl_end_c  = min_rlcell
-!    rl_start_e = 1
-!    rl_end_e  = min_rledge
-!    i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
-!    i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
-!    i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
-!    i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
-! 
-!     DO jb = i_startblk_c, i_endblk_c
-!      CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
-!                        i_startidx_c, i_endidx_c, rl_start_c, rl_end_c) 
-!      DO jc = i_startidx_c, i_endidx_c
-!        z_vn_cc(jc,jb)%x(1:3) = 0.0_wp
-!      END DO
-!    END DO
-!    z_x_e(:,:) = 0.0_wp
-!    z_x_e(:,:) = x(:,:)
-! !write(*,*)'call with level',jk, x(16,1280), SIZE(x,1), SIZE(x,2)
-! !write(*,*)'max/min input', maxval(z_x_e(:,:)),minval(z_x_e(:,:)), maxval(x(:,:)),minval(x(:,:)) 
-! !--------------------------------------------------------------------
-!  CELL_BLK_LOOP: DO jb = i_startblk_c, i_endblk_c
-!     CALL get_indices_c( p_patch, jb,&
-!                       & i_startblk_c, i_endblk_c,&
-!                       & i_startidx_c, i_endidx_c,&
-!                       & rl_start_c, rl_end_c)
-! 
-!     IF(jk==1)THEN
-!     !We are dealing with the surface layer first
-!     CELL_IDX_LOOP_TOP: DO jc =  i_startidx_c, i_endidx_c
-!       z_weight         = 0.0_wp
-!       z_vn_cc(jc,jb)%x = 0.0_wp
-!       z_thick_e        = 0.0_wp
-!       IF(v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary)THEN
-!         DO ie=1, no_cell_edges
-!           il_e = p_patch%cells%edge_idx(jc,jb,ie)
-!           ib_e = p_patch%cells%edge_blk(jc,jb,ie)
-! 
-!           z_thick_e = v_base%del_zlev_m(jk) + h_e(il_e,ib_e) 
-!           z_weight = z_weight + v_base%variable_vol_norm(jc,jb,ie)!*z_thick_e
-! 
-!            z_vn_cc(jc,jb)%x = z_vn_cc(jc,jb)%x&
-!                           & + v_base%edge2cell_coeff_cc(jc,jb,ie)%x&
-!                           & * z_x_e(il_e,ib_e)! * z_thick_e
-!         END DO
-! 
-!         z_vn_cc(jc,jb)%x = z_vn_cc(jc,jb)%x / z_weight
-!       ELSE
-!        z_vn_cc(jc,jb)%x=0.0_wp 
-!       ENDIF
-!     END DO CELL_IDX_LOOP_TOP
-!     ELSEIF(jk>1)THEN
-!     !Now we calculate at the levels below the surface
-!       CELL_IDX_LOOP: DO jc =  i_startidx_c, i_endidx_c
-!       IF(v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary)THEN
-!         z_vn_cc(jc,jb)%x = 0.0_wp
-!         DO ie=1, no_cell_edges
-!           il_e = p_patch%cells%edge_idx(jc,jb,ie)
-!           ib_e = p_patch%cells%edge_blk(jc,jb,ie)
-!           z_vn_cc(jc,jb)%x = z_vn_cc(jc,jb)%x&
-!                             & + v_base%edge2cell_coeff_cc(jc,jb,ie)%x&
-!                             & * z_x_e(il_e,ib_e)
-!       END DO
-! 
-!         z_vn_cc(jc,jb)%x = z_vn_cc(jc,jb)%x/v_base%fixed_vol_norm(jc,jb)
-!       ELSE
-!         z_vn_cc(jc,jb)%x = 0.0_wp
-!       ENDIF
-!     END DO CELL_IDX_LOOP
-!     ENDIF
-! END DO CELL_BLK_LOOP
-! 
-! EDGE_BLK_LOOP: DO jb = i_startblk_e, i_endblk_e
-! 
-!   CALL get_indices_e(p_patch, jb,&
-!                    & i_startblk_e, i_endblk_e,&
-!                    & i_startidx_e, i_endidx_e,&
-!                    & rl_start_e, rl_end_e)
-! 
-!     EDGE_IDX_LOOP: DO je =  i_startidx_e, i_endidx_e
-!       IF(v_base%lsm_oce_e(je,jk,jb) <= sea_boundary)THEN
-! 
-!         !Get indices of two adjacent triangles
-!         il_c1 = p_patch%edges%cell_idx(je,jb,1)
-!         ib_c1 = p_patch%edges%cell_blk(je,jb,1)
-!         il_c2 = p_patch%edges%cell_idx(je,jb,2)
-!         ib_c2 = p_patch%edges%cell_blk(je,jb,2)
-! !write(*,*)'input', je,jb,z_x_e(je,jb), x(je,jb)
-!         z_x_e(je,jb) =&
-!       & DOT_PRODUCT(z_vn_cc(il_c1,ib_c1)%x,v_base%edge2cell_coeff_cc_t(je,jb,1)%x)&
-!       &+DOT_PRODUCT(z_vn_cc(il_c2,ib_c2)%x,v_base%edge2cell_coeff_cc_t(je,jb,2)%x)
-!        ELSE
-!          z_x_e(je,jb) = 0.0_wp
-!        ENDIF
-!     END DO EDGE_IDX_LOOP
-! END DO EDGE_BLK_LOOP
-!    llhs(1:nproma,1:p_patch%nblks_e) = p_coeff*z_x_e(1:nproma,1:p_patch%nblks_e)
+    CALL map_edges2edges( p_patch,   &
+                        & x,    &
+                        & z_x_out,   &
+                        & h_e,      &
+                        & level=1 )
+  !    rl_start_c = 1
+  !    rl_end_c  = min_rlcell
+  !    rl_start_e = 1
+  !    rl_end_e  = min_rledge
+  !    i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
+  !    i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
+  !    i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
+  !    i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
+  ! 
+  !     DO jb = i_startblk_c, i_endblk_c
+  !      CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
+  !                        i_startidx_c, i_endidx_c, rl_start_c, rl_end_c) 
+  !      DO jc = i_startidx_c, i_endidx_c
+  !        z_vn_cc(jc,jb)%x(1:3) = 0.0_wp
+  !      END DO
+  !    END DO
+  !    z_x_e(:,:) = 0.0_wp
+  !    z_x_e(:,:) = x(:,:)
+  ! !write(*,*)'call with level',jk, x(16,1280), SIZE(x,1), SIZE(x,2)
+  ! !write(*,*)'max/min input', maxval(z_x_e(:,:)),minval(z_x_e(:,:)), maxval(x(:,:)),minval(x(:,:)) 
+  ! !--------------------------------------------------------------------
+  !  CELL_BLK_LOOP: DO jb = i_startblk_c, i_endblk_c
+  !     CALL get_indices_c( p_patch, jb,&
+  !                       & i_startblk_c, i_endblk_c,&
+  !                       & i_startidx_c, i_endidx_c,&
+  !                       & rl_start_c, rl_end_c)
+  ! 
+  !     IF(jk==1)THEN
+  !     !We are dealing with the surface layer first
+  !     CELL_IDX_LOOP_TOP: DO jc =  i_startidx_c, i_endidx_c
+  !       z_weight         = 0.0_wp
+  !       z_vn_cc(jc,jb)%x = 0.0_wp
+  !       z_thick_e        = 0.0_wp
+  !       IF(v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary)THEN
+  !         DO ie=1, no_cell_edges
+  !           il_e = p_patch%cells%edge_idx(jc,jb,ie)
+  !           ib_e = p_patch%cells%edge_blk(jc,jb,ie)
+  ! 
+  !           z_thick_e = v_base%del_zlev_m(jk) + h_e(il_e,ib_e) 
+  !           z_weight = z_weight + v_base%variable_vol_norm(jc,jb,ie)!*z_thick_e
+  ! 
+  !            z_vn_cc(jc,jb)%x = z_vn_cc(jc,jb)%x&
+  !                           & + v_base%edge2cell_coeff_cc(jc,jb,ie)%x&
+  !                           & * z_x_e(il_e,ib_e)! * z_thick_e
+  !         END DO
+  ! 
+  !         z_vn_cc(jc,jb)%x = z_vn_cc(jc,jb)%x / z_weight
+  !       ELSE
+  !        z_vn_cc(jc,jb)%x=0.0_wp 
+  !       ENDIF
+  !     END DO CELL_IDX_LOOP_TOP
+  !     ELSEIF(jk>1)THEN
+  !     !Now we calculate at the levels below the surface
+  !       CELL_IDX_LOOP: DO jc =  i_startidx_c, i_endidx_c
+  !       IF(v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary)THEN
+  !         z_vn_cc(jc,jb)%x = 0.0_wp
+  !         DO ie=1, no_cell_edges
+  !           il_e = p_patch%cells%edge_idx(jc,jb,ie)
+  !           ib_e = p_patch%cells%edge_blk(jc,jb,ie)
+  !           z_vn_cc(jc,jb)%x = z_vn_cc(jc,jb)%x&
+  !                             & + v_base%edge2cell_coeff_cc(jc,jb,ie)%x&
+  !                             & * z_x_e(il_e,ib_e)
+  !       END DO
+  ! 
+  !         z_vn_cc(jc,jb)%x = z_vn_cc(jc,jb)%x/v_base%fixed_vol_norm(jc,jb)
+  !       ELSE
+  !         z_vn_cc(jc,jb)%x = 0.0_wp
+  !       ENDIF
+  !     END DO CELL_IDX_LOOP
+  !     ENDIF
+  ! END DO CELL_BLK_LOOP
+  ! 
+  ! EDGE_BLK_LOOP: DO jb = i_startblk_e, i_endblk_e
+  ! 
+  !   CALL get_indices_e(p_patch, jb,&
+  !                    & i_startblk_e, i_endblk_e,&
+  !                    & i_startidx_e, i_endidx_e,&
+  !                    & rl_start_e, rl_end_e)
+  ! 
+  !     EDGE_IDX_LOOP: DO je =  i_startidx_e, i_endidx_e
+  !       IF(v_base%lsm_oce_e(je,jk,jb) <= sea_boundary)THEN
+  ! 
+  !         !Get indices of two adjacent triangles
+  !         il_c1 = p_patch%edges%cell_idx(je,jb,1)
+  !         ib_c1 = p_patch%edges%cell_blk(je,jb,1)
+  !         il_c2 = p_patch%edges%cell_idx(je,jb,2)
+  !         ib_c2 = p_patch%edges%cell_blk(je,jb,2)
+  ! !write(*,*)'input', je,jb,z_x_e(je,jb), x(je,jb)
+  !         z_x_e(je,jb) =&
+  !       & DOT_PRODUCT(z_vn_cc(il_c1,ib_c1)%x,v_base%edge2cell_coeff_cc_t(je,jb,1)%x)&
+  !       &+DOT_PRODUCT(z_vn_cc(il_c2,ib_c2)%x,v_base%edge2cell_coeff_cc_t(je,jb,2)%x)
+  !        ELSE
+  !          z_x_e(je,jb) = 0.0_wp
+  !        ENDIF
+  !     END DO EDGE_IDX_LOOP
+  ! END DO EDGE_BLK_LOOP
+  !    llhs(1:nproma,1:p_patch%nblks_e) = p_coeff*z_x_e(1:nproma,1:p_patch%nblks_e)
 
-    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-      CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
-      llhs(i_startidx_e:i_endidx_e,jb) = p_coeff*z_x_out(i_startidx_e:i_endidx_e,1,jb)
-    ENDDO
-!write(*,*)'max/min LHS', maxval(llhs(:,:)),minval(llhs(:,:)) 
+      DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+        CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
+        llhs(i_startidx_e:i_endidx_e, jb) = p_coeff * z_x_out(i_startidx_e:i_endidx_e, jb)
+      ENDDO
+  !write(*,*)'max/min LHS', maxval(llhs(:,:)),minval(llhs(:,:)) 
 
-END FUNCTION lhs_primal_flip_flop
+  END FUNCTION lhs_primal_flip_flop
+  !--------------------------------------------------------------------
+
+
+
 ! ! !------------------------------------------------------------
 ! ! !
 ! ! !  

@@ -209,9 +209,6 @@ REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
    mnblks =  curr_patch%cells%in_domain%end_block
    mnpromz = curr_patch%cells%in_domain%end_index
 
-!TODO #ifndef NOMPI
-!TODO    z(:,:) = 0.0_wp
-!TODO #endif
    maxiterex = .FALSE.
  
    IF ( p_test_run) THEN   
@@ -221,9 +218,9 @@ REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
    ENDIF
    ! 1) compute the preconditioned residual
 
-   w(:,:) = 0._wp
+!    w(:,:) = 0._wp
    w(:,:) = lhs(x(:,:),old_h, curr_patch,coeff, h_e, thickness_c, p_op_coeff)
-   CALL sync_patch_array(SYNC_C, curr_patch, w)
+!    CALL sync_patch_array(SYNC_C, curr_patch, w)
    
 #ifndef __SX__
    IF (ltimer) CALL timer_start(timer_gmres)
@@ -247,7 +244,7 @@ REAL(wp) :: sum_aux(curr_patch%cells%in_domain%end_block)
 !$OMP END DO
 
    IF (PRESENT(preconditioner)) CALL preconditioner(r(:,:))
-   CALL sync_patch_array(SYNC_C, curr_patch, r)
+!    CALL sync_patch_array(SYNC_C, curr_patch, r)
 
 !$OMP DO PRIVATE(jb)
      DO jb = 1, mnblks
@@ -663,7 +660,7 @@ REAL(wp) :: sum_aux(subset_range%end_block)
        ENDIF
        z(1:nlen,jb) = r(1:nlen,jb)*r(1:nlen,jb)
 ! #slo# - 2010-06-16 - Error - routine used for cells and edges as well
-     WHERE(.NOT.curr_patch%edges%owner_mask(:,jb)) z(:,jb) = 0.0_wp
+       WHERE(.NOT.curr_patch%edges%owner_mask(:,jb)) z(:,jb) = 0.0_wp
      ENDDO
 !$OMP END DO
 ! #slo# - 2011-03-02 - to be checked lsm_oce vs. owner_mask in this module
