@@ -312,32 +312,26 @@ CONTAINS
   !
   !
   SUBROUTINE smooth_lapl_diff( p_patch, K_h )
-   TYPE(t_patch), INTENT(IN)  :: p_patch
-   REAL(wp), INTENT(INOUT)    :: K_h(:,:,:) 
+   TYPE(t_patch), TARGET, INTENT(IN)  :: p_patch
+   REAL(wp), INTENT(INOUT)    :: K_h(:,:,:)
     ! Local variables
     INTEGER  :: je,jv,jb,jk, jev, ile, ibe, i_edge_ctr
     INTEGER  :: il_v1,ib_v1, il_v2,ib_v2
-    INTEGER  :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, rl_start_e, rl_end_e 
-    INTEGER  :: i_startblk_v, i_endblk_v, i_startidx_v, i_endidx_v, rl_start_v, rl_end_v 
+    INTEGER  :: i_startidx_e, i_endidx_e
+    INTEGER  :: i_startidx_v, i_endidx_v
     REAL(wp) :: z_K_ave_v(nproma,n_zlev,p_patch%nblks_v), z_K_max
     !-------------------------------------------------------------------------
-    rl_start_e   = 1
-    rl_end_e     = min_rledge
-    i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
-    i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
+    TYPE(t_subset_range), POINTER :: edges_in_domain, verts_in_domain
+    !-------------------------------------------------------------------------
+    edges_in_domain => p_patch%edges%in_domain
+    verts_in_domain => p_patch%verts%in_domain
 
-    rl_start_v   = 1
-    rl_end_v     = min_rlvert
-    i_startblk_v = p_patch%verts%start_blk(rl_start_v,1)
-    i_endblk_v   = p_patch%verts%end_blk(rl_end_v,1)
-
-    z_K_ave_v(:,:,:)=0.0_wp
+    z_K_ave_v(:,:,:) = 0.0_wp
 
     DO jk = 1, n_zlev
-      DO jb = i_startblk_v, i_endblk_v
-        CALL get_indices_v( p_patch, jb, i_startblk_v, i_endblk_v, i_startidx_v, i_endidx_v, &
-        &                   rl_start_v, rl_end_v)
-        DO jv = i_startidx_v, i_endidx_v 
+      DO jb = verts_in_domain%start_block, verts_in_domain%end_block
+        CALL get_index_range(verts_in_domain, jb, i_startidx_v, i_endidx_v)
+        DO jv = i_startidx_v, i_endidx_v
           i_edge_ctr = 0
           z_K_max    = 0.0_wp
           DO jev = 1, p_patch%verts%num_edges(jv,jb)
@@ -358,17 +352,16 @@ CONTAINS
           ENDIF
           !IF(p_patch%verts%num_edges(jv,jb)== 5)THEN
           !  z_K_ave_v(jv,jk,jb)=80000_wp!°z_K_max
-          !ENDIF 
+          !ENDIF
         END DO
       ENDDO
     END DO
 
 
     DO jk = 1, n_zlev
-      DO jb = i_startblk_e, i_endblk_e
-        CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, &
-        &                   rl_start_e, rl_end_e)
-        DO je = i_startidx_e, i_endidx_e 
+      DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+        CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
+        DO je = i_startidx_e, i_endidx_e
 
           il_v1 = p_patch%edges%vertex_idx(je,jb,1)
           ib_v1 = p_patch%edges%vertex_blk(je,jb,1)
@@ -382,7 +375,7 @@ CONTAINS
           ENDIF
 !          IF(p_patch%verts%num_edges(il_v1,ib_v1)== 5.OR.p_patch%verts%num_edges(il_v2,ib_v2)==5)THEN
 !            K_h(je,jk,jb)=max(z_K_ave_v(il_v1,jk,ib_v1),z_K_ave_v(il_v2,jk,ib_v2))
-!          ENDIF 
+!          ENDIF
         END DO
       ENDDO
     END DO
