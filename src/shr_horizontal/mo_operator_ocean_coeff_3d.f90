@@ -435,32 +435,48 @@ CONTAINS
     INTEGER :: i_startblk_c, i_endblk_c,i_startidx_c,i_endidx_c
     INTEGER :: jk,je,jb,jc
     !-----------------------------------------------------------------------
-!     REAL(wp) :: dist_cell2edge(nproma, n_zlev, patch%nblks_e,2)
-!     REAL(wp) :: max_diff
     !-----------------------------------------------------------------------
-    
+    TYPE(t_cartesian_coordinates) :: check_v(nproma, n_zlev, patch%nblks_v, 6)
+    REAL(wp) :: check_r(nproma, n_zlev, patch%nblks_c, 3)
+    REAL(wp) :: max_diff, max_val
+    !-----------------------------------------------------------------------
     ocean_coeff%dist_cell2edge(:,:,:,:) = 0.0_wp
     CALL par_init_scalar_product_oce(patch, intp_2D_coeff)
     CALL copy_2D_to_3D_intp_coeff( patch, ocean_coeff, intp_2D_coeff)
     CALL init_geo_factors_oce_3d ( patch, ocean_coeff )
     !---------------------------------------------------------
     CALL par_apply_boundary2coeffs(patch, ocean_coeff)    
-    
+
+    RETURN
     !---------------------------------------------------------
     ! checks
-!     dist_cell2edge(:,:,:,:) = ocean_coeff%dist_cell2edge(:,:,:,:)
-!     max_diff = MAXVAL(ABS(intp_2D_coeff%dist_cell2edge - dist_cell2edge(:,1,:,:) ))
-!     Write(0,*) "max diff of 2D - 3D = ", max_diff
-!         
-!     !---------------------------------------------------------
-!      CALL init_operator_coeff( patch, ocean_coeff )
-! 
-!      max_diff = MAXVAL(ABS(ocean_coeff%dist_cell2edge - dist_cell2edge ))
-! 
-!      Write(0,*) "max diff of dist_cell2edge=", max_diff
-! 
-!      STOP
-       
+    check_v = ocean_coeff%edge2vert_coeff_cc
+    check_r = ocean_coeff%variable_vol_norm
+
+    !---------------------------------------------------------
+     CALL init_operator_coeff( patch, ocean_coeff )
+
+     max_diff = MAXVAL(ABS(ocean_coeff%edge2vert_coeff_cc(:,:,:,:)%x(1) - &
+       &  check_v(:,:,:,:)%x(1) ))
+     max_val  =  MAXVAL(ABS( check_v(:,:,:,:)%x(1)))
+     Write(0,*) "max diff of edge2vert_coeff_cc(:,:,:,:)%x(1)=", max_diff, max_val
+     
+     max_diff = MAXVAL(ABS(ocean_coeff%edge2vert_coeff_cc(:,:,:,:)%x(2) - &
+       & check_v(:,:,:,:)%x(2) ))
+     max_val  =  MAXVAL(ABS( check_v(:,:,:,:)%x(2)))
+     Write(0,*) "max diff of edge2vert_coeff_cc(:,:,:,:)%x(2)=", max_diff, max_val
+     
+     max_diff = MAXVAL(ABS(ocean_coeff%edge2vert_coeff_cc(:,:,:,:)%x(3) - &
+       & check_v(:,:,:,:)%x(3) ))
+     max_val  =  MAXVAL(ABS( check_v(:,:,:,:)%x(3)))
+     Write(0,*) "max diff of edge2vert_coeff_cc(:,:,:,:)%x(3)=", max_diff, max_val
+     
+     max_diff = MAXVAL(ABS(ocean_coeff%variable_vol_norm - check_r ))
+     max_val  =  MAXVAL(ABS( check_r ))
+     Write(0,*) "max diff of variable_vol_norm=", max_diff, max_val
+
+     STOP
+      
   END SUBROUTINE par_init_operator_coeff
   !-------------------------------------------------------------------------
   
@@ -497,7 +513,7 @@ CONTAINS
     ! ocean_coeff%variable_vol_norm(:,:,:,1-3)       on cells
     ! 
     ! ocean_coeff%edge2cell_coeff_cc_t(:,:,:,1-2)%x  on edges
-    ! ocean_coeff%edge2vert_vector_cc(:,:,:,1-6)%x   on verts
+    ! ocean_coeff%edge2vert_coeff_cc(:,:,:,1-6)%x   on verts
     ! ocean_coeff%edge2vert_coeff_cc_t(:,:,:,1-2)%x  on edges
     ! 
     ! ptr_patch%edges%f_e(:, :) is already calculated in par_init_scalar_product_oce    !
@@ -578,12 +594,12 @@ CONTAINS
       DO level = 1, n_zlev             
         DO neigbor=1,6
         
-          ocean_coeff%edge2vert_vector_cc(:,level,vertex_block,neigbor)%x(1) = &
-            & intp_2D_coeff%edge2vert_vector_cc(:,vertex_block,neigbor)%x(1)
-          ocean_coeff%edge2vert_vector_cc(:,level,vertex_block,neigbor)%x(2) = &
-            & intp_2D_coeff%edge2vert_vector_cc(:,vertex_block,neigbor)%x(2)
-          ocean_coeff%edge2vert_vector_cc(:,level,vertex_block,neigbor)%x(3) = &
-            & intp_2D_coeff%edge2vert_vector_cc(:,vertex_block,neigbor)%x(3)
+          ocean_coeff%edge2vert_coeff_cc(:,level,vertex_block,neigbor)%x(1) = &
+            & intp_2D_coeff%edge2vert_coeff_cc(:,vertex_block,neigbor)%x(1)
+          ocean_coeff%edge2vert_coeff_cc(:,level,vertex_block,neigbor)%x(2) = &
+            & intp_2D_coeff%edge2vert_coeff_cc(:,vertex_block,neigbor)%x(2)
+          ocean_coeff%edge2vert_coeff_cc(:,level,vertex_block,neigbor)%x(3) = &
+            & intp_2D_coeff%edge2vert_coeff_cc(:,vertex_block,neigbor)%x(3)
          
         ENDDO ! neigbor=1,patch%cell_type
       ENDDO  !  level = 1, n_zlev

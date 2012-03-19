@@ -3532,14 +3532,24 @@ END SUBROUTINE complete_patchinfo
     INTEGER :: cell_1_index, cell_1_block, cell_2_index, cell_2_block
     INTEGER :: vertex_1_index, vertex_1_block, vertex_2_index, vertex_2_block
     !-----------------------------------------------------------------------
-!     REAL(wp) :: dist_cell2edge(nproma, patch%nblks_e,2)
-!     REAL(wp) :: max_diff
+    REAL(wp) :: dist_cell2edge(nproma, patch%nblks_e,2)
+    TYPE(t_cartesian_coordinates) :: check_v1(nproma, patch%nblks_v, 6)
+    TYPE(t_cartesian_coordinates) :: check_v2(nproma, patch%nblks_e, 2)
+    REAL(wp) :: max_diff, max_val
     !-----------------------------------------------------------------------
 
     owned_edges => patch%edges%owned
     owned_cells => patch%cells%owned
     owned_verts => patch%verts%owned
 
+    intp_2D_coeff%edge2vert_coeff_cc(:,:,:)%x(1) = 0.0_wp
+    intp_2D_coeff%edge2vert_coeff_cc(:,:,:)%x(2) = 0.0_wp
+    intp_2D_coeff%edge2vert_coeff_cc(:,:,:)%x(3) = 0.0_wp
+    
+    intp_2D_coeff%edge2vert_coeff_cc_t(:,:,:)%x(1) = 0.0_wp
+    intp_2D_coeff%edge2vert_coeff_cc_t(:,:,:)%x(2) = 0.0_wp
+    intp_2D_coeff%edge2vert_coeff_cc_t(:,:,:)%x(3) = 0.0_wp
+     
     !-------------------------------------------
     ! compute some basic distances
     ! this is required if the cartesian distance is used
@@ -3767,7 +3777,7 @@ END SUBROUTINE complete_patchinfo
 
     !-------------------------------------------
     ! compute:
-    !   edge2vert_vector_cc
+    !   edge2vert_coeff_cc
     !   variable_dual_vol_norm
     DO vertex_block = owned_verts%start_block, owned_verts%end_block
       CALL get_index_range(owned_verts, vertex_block, start_index, end_index)
@@ -3777,7 +3787,7 @@ END SUBROUTINE complete_patchinfo
         
         DO neigbor=1, 6 ! we have to change this to accomodate the dual grid
 
-          intp_2D_coeff%edge2vert_vector_cc(vertex_index, vertex_block, neigbor)%x = 0.0_wp
+          intp_2D_coeff%edge2vert_coeff_cc(vertex_index, vertex_block, neigbor)%x = 0.0_wp
           intp_2D_coeff%variable_dual_vol_norm(vertex_index, vertex_block, neigbor) = 0.0_wp
           
           edge_index = patch%verts%edge_idx(vertex_index, vertex_block, neigbor)
@@ -3806,7 +3816,7 @@ END SUBROUTINE complete_patchinfo
 
             dist_vector = vector_product(dist_vector, dual_edge_middle(edge_index, edge_block))
                            
-            intp_2D_coeff%edge2vert_vector_cc(vertex_index, vertex_block, neigbor)%x = &
+            intp_2D_coeff%edge2vert_coeff_cc(vertex_index, vertex_block, neigbor)%x = &
               & dist_vector%x                                *                    &
               & dual_edge_length(edge_index, edge_block) !    /                    &
               !& dual_cell_area(vertex_index, vertex_block)
@@ -3823,12 +3833,12 @@ END SUBROUTINE complete_patchinfo
     !-------------------
     ! sync the results
     DO neigbor=1,6
-      CALL sync_patch_array(SYNC_V, patch, intp_2D_coeff%edge2vert_vector_cc(:,:,neigbor)%x(1))
-      CALL sync_patch_array(SYNC_V, patch, intp_2D_coeff%edge2vert_vector_cc(:,:,neigbor)%x(2))
-      CALL sync_patch_array(SYNC_V, patch, intp_2D_coeff%edge2vert_vector_cc(:,:,neigbor)%x(3))
+      CALL sync_patch_array(SYNC_V, patch, intp_2D_coeff%edge2vert_coeff_cc(:,:,neigbor)%x(1))
+      CALL sync_patch_array(SYNC_V, patch, intp_2D_coeff%edge2vert_coeff_cc(:,:,neigbor)%x(2))
+      CALL sync_patch_array(SYNC_V, patch, intp_2D_coeff%edge2vert_coeff_cc(:,:,neigbor)%x(3))
       CALL sync_patch_array(SYNC_V, patch, intp_2D_coeff%variable_dual_vol_norm(:,:, neigbor))
     ENDDO ! neigbor=1,6
-    ! edge2vert_vector_cc
+    ! edge2vert_coeff_cc
     ! variable_dual_vol_norm
     !   are computed
     !----------------------------------------------------
@@ -3924,15 +3934,50 @@ END SUBROUTINE complete_patchinfo
 !     DEALLOCATE( cell_area )
 !     DEALLOCATE( dual_cell_area )
     !---------------------------------------------------------
+
+     RETURN
+    !---------------------------------------------------------
     ! checks
-!     dist_cell2edge(:,:,:) = intp_2D_coeff%dist_cell2edge(:,:,:)
-!         
-!     !---------------------------------------------------------
-!      CALL init_scalar_product_oce( patch, intp_2D_coeff )
+
+     !---------------------------------------------------------
+     check_v1 = intp_2D_coeff%edge2vert_coeff_cc
+     check_v2 = intp_2D_coeff%edge2vert_coeff_cc_t
+     !---------------------------------------------------------
+     
+     CALL init_scalar_product_oce( patch, intp_2D_coeff )
+     
+     !---------------------------------------------------------
+     max_diff = MAXVAL(ABS(intp_2D_coeff%edge2vert_coeff_cc(:,:,:)%x(1) - &
+       &  check_v1(:,:,:)%x(1) ))
+     max_val  =  MAXVAL(ABS( check_v1(:,:,:)%x(1)))
+     Write(0,*) "max diff of edge2vert_coeff_cc(:,:,:,:)%x(1)=", max_diff, max_val
+     
+     max_diff = MAXVAL(ABS(intp_2D_coeff%edge2vert_coeff_cc(:,:,:)%x(2) - &
+       & check_v1(:,:,:)%x(2) ))
+     max_val  =  MAXVAL(ABS( check_v1(:,:,:)%x(2)))
+     Write(0,*) "max diff of edge2vert_coeff_cc(:,:,:,:)%x(2)=", max_diff, max_val
+     
+     max_diff = MAXVAL(ABS(intp_2D_coeff%edge2vert_coeff_cc(:,:,:)%x(3) - &
+       & check_v1(:,:,:)%x(3) ))
+     max_val  =  MAXVAL(ABS( check_v1(:,:,:)%x(3)))
+     Write(0,*) "max diff of edge2vert_coeff_cc(:,:,:,:)%x(3)=", max_diff, max_val
+     !---------------------------------------------------------
+     
+     max_diff = MAXVAL(ABS(intp_2D_coeff%edge2vert_coeff_cc_t(:,:,:)%x(1) - &
+       &  check_v2(:,:,:)%x(1) ))
+     max_val  =  MAXVAL(ABS( check_v2(:,:,:)%x(1)))
+     Write(0,*) "max diff of edge2vert_coeff_cc_t(:,:,:,:)%x(1)=", max_diff, max_val
+     
+     max_diff = MAXVAL(ABS(intp_2D_coeff%edge2vert_coeff_cc_t(:,:,:)%x(2) - &
+       & check_v2(:,:,:)%x(2) ))
+     max_val  =  MAXVAL(ABS( check_v2(:,:,:)%x(2)))
+     Write(0,*) "max diff of edge2vert_coeff_cc_t(:,:,:,:)%x(2)=", max_diff, max_val
+     
+     max_diff = MAXVAL(ABS(intp_2D_coeff%edge2vert_coeff_cc_t(:,:,:)%x(3) - &
+       & check_v2(:,:,:)%x(3) ))
+     max_val  =  MAXVAL(ABS( check_v2(:,:,:)%x(3)))
+     Write(0,*) "max diff of edge2vert_coeff_cc_t(:,:,:,:)%x(3)=", max_diff, max_val
 ! 
-!      max_diff = MAXVAL(ABS(intp_2D_coeff%dist_cell2edge - dist_cell2edge ))
-! 
-!      Write(0,*) "max diff of intp_2D_coeff%dist_cell2edge=", max_diff
                   
   END SUBROUTINE par_init_scalar_product_oce
   !-------------------------------------------------------------------------
