@@ -2014,14 +2014,14 @@ FUNCTION geo_balance_mim(p_patch, h_e, rhs_e) result(vn_e)
    REAL(wp) :: z_kin(nproma,1,p_patch%nblks_c)
    TYPE(t_cartesian_coordinates)    :: z_pv_cc(nproma,1,p_patch%nblks_c)
    !-----------------------------------------------------------------------
-rl_start_c = 1
-rl_end_c  = min_rlcell
-i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
-i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
+   rl_start_c = 1
+   rl_end_c  = min_rlcell
+   i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
+   i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
 
-  z_x_vort(:,:,:)= 0.0_wp
-  z_x_out(:,:,:) = 0.0_wp
-  z_x_e(:,1,:)   = x(:,:)
+   z_x_vort(:,:,:)= 0.0_wp
+   z_x_out(:,:,:) = 0.0_wp
+   z_x_e(:,1,:)   = x(:,:)
 
 !  CALL rot_vertex_ocean(z_x_e, z_vt, p_patch, z_x_vort)
 
