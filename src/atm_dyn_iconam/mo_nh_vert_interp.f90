@@ -142,6 +142,7 @@ CONTAINS
     DO jg = 1, n_dom
 
       IF (i_oper_mode == 2) nlev_in = p_patch(jg)%nlev
+      IF (p_patch(jg)%n_patch_cells==0) CYCLE ! skip empty patches
 
       CALL vert_interp(p_patch(jg), p_int(jg), prepicon(jg))
 
