@@ -967,20 +967,17 @@ CONTAINS
     REAL(wp):: z_Q_freshwater(nproma,ppatch%nblks_c)
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_bulk:update_sfcflx_from_atm_flx'
     !-------------------------------------------------------------------------
+    TYPE(t_subset_range), POINTER :: all_cells
+    !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'start' )
 
-    rl_start_c = 1
-    rl_end_c   = min_rlcell
-
-    i_startblk_c = ppatch%cells%start_blk(rl_start_c,1)
-    i_endblk_c   = ppatch%cells%end_blk(rl_end_c,1)
+    all_cells => p_patch%cells%all
 
     !Relaxation parameter from namelist for salinity.
     z_relax = relaxation_param/(30.0_wp*24.0_wp*3600.0_wp)
 
-    DO jb = i_startblk_c, i_endblk_c
-      CALL get_indices_c( ppatch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
-      &                   rl_start_c, rl_end_c)
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
         DO i = 1, p_ice%kice
           !surface heat forcing as sum of sensible, latent, longwave and shortwave heat fluxes
@@ -1053,7 +1050,7 @@ CONTAINS
 
     ENDIF
 
-  END SUBROUTINE update_sfcflx_from_atm_flx  
+  END SUBROUTINE update_sfcflx_from_atm_flx
   !-------------------------------------------------------------------------
   !
   !>
