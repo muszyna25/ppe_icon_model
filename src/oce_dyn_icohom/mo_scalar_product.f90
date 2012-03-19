@@ -1142,13 +1142,14 @@ CONTAINS
   !! @par Revision History
   !!  developed by Peter Korn, MPI-M (2010-11)
   !!  mpi parallelized by LL, result not synced
-  SUBROUTINE map_cell2edges_mlevels( p_patch, p_vn_c, ptp_vn, opt_slev, opt_elev )
+  SUBROUTINE map_cell2edges_mlevels( p_patch, p_vn_c, ptp_vn, opt_slev, opt_elev, subset_range )
     
     TYPE(t_patch), TARGET,  INTENT(in)        :: p_patch          ! patch on which computation is performed
     TYPE(t_cartesian_coordinates), INTENT(in) :: p_vn_c(:,:,:)    ! input vector (nproma,n_zlev,nblks_c)
     REAL(wp), INTENT(inout)                   :: ptp_vn(:,:,:)    ! output vector (nproma,n_zlev,nblks_e)
     INTEGER, INTENT(in), OPTIONAL :: opt_slev        ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL :: opt_elev        ! optional vertical end level
+    TYPE(t_subset_range), TARGET, INTENT(in), OPTIONAL :: subset_range
     
     
     !Local variables
@@ -1207,8 +1208,11 @@ CONTAINS
       END DO level_loop_e
     END DO ! jb = edges_in_domain%start_block, edges_in_domain%end_block
 
-    ! sync the result
-!     CALL sync_patch_array(SYNC_E, p_patch, ptp_vn(:,:,:))
+    ! sync the result if necessary
+    IF (PRESENT(subset_range)) THEN
+      IF (.NOT. subset_range%is_in_domain) &
+       & CALL sync_patch_array(SYNC_E, p_patch, ptp_vn)
+    ENDIF
        
     !stop
   END SUBROUTINE map_cell2edges_mlevels
@@ -1222,12 +1226,13 @@ CONTAINS
   !! @par Revision History
   !!  developed by Peter Korn, MPI-M (2010-11)
   !!  mpi parallelized by LL, result not synced
-  SUBROUTINE map_cell2edges_1level( p_patch, p_vn_c, ptp_vn, level )
+  SUBROUTINE map_cell2edges_1level( p_patch, p_vn_c, ptp_vn, level, subset_range )
     
     TYPE(t_patch), TARGET,  INTENT(in)        :: p_patch          ! patch on which computation is performed
     TYPE(t_cartesian_coordinates), INTENT(in) :: p_vn_c(:,:)    ! input vector (nproma,n_zlev,nblks_c)
     REAL(wp), INTENT(inout)                   :: ptp_vn(:,:)    ! output vector (nproma,n_zlev,nblks_e)
     INTEGER, INTENT(in) :: level          ! vertical level
+    TYPE(t_subset_range), TARGET, INTENT(in), OPTIONAL :: subset_range
     
     !Local variables
     INTEGER :: i_startidx_e, i_endidx_e
@@ -1270,8 +1275,11 @@ CONTAINS
       END DO edge_idx_loop
     END DO ! jb = edges_in_domain%start_block, edges_in_domain%end_block
 
-    ! sync the result
-!     CALL sync_patch_array(SYNC_E, p_patch, ptp_vn(:,:,:))
+    ! sync the result if necessary
+    IF (PRESENT(subset_range)) THEN
+      IF (.NOT. subset_range%is_in_domain) &
+       & CALL sync_patch_array(SYNC_E, p_patch, ptp_vn)
+    ENDIF
        
     !stop
   END SUBROUTINE map_cell2edges_1level

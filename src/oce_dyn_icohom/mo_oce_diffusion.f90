@@ -222,8 +222,8 @@ SUBROUTINE velocity_diffusion_horz_mimetic(p_patch, vn_in, p_param, p_diag, lapl
   END DO
 
   !Step 3: Map divergence back to edges
-  CALL map_cell2edges( p_patch, z_div_grad_u, laplacian_vn_out)
-  CALL sync_patch_array(SYNC_E, p_patch, laplacian_vn_out)
+  CALL map_cell2edges( p_patch, z_div_grad_u, laplacian_vn_out,subset_range=all_cells)
+!  CALL sync_patch_array(SYNC_E, p_patch, laplacian_vn_out)
 
 
 END SUBROUTINE velocity_diffusion_horz_mimetic
