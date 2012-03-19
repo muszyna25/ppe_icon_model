@@ -118,7 +118,7 @@ CONTAINS
 
   nblks_c = ppatch%nblks_c
 
-  ! analytical forcing 
+  ! analytical forcing
 
   IF (iforc_oce == ANALYT_FORC) THEN
 
@@ -170,7 +170,7 @@ CONTAINS
 
       CALL message(TRIM(routine), &
         &  'iforc_stat_oce=2: stationary wind forcing - u=cos(n*(lat-lat_0)/lat_0)')
-      
+
       ! Latitudes vary from -pi/2 to pi/2
       y_length = basin_height_deg * deg2rad
       DO jb = i_startblk_c, i_endblk_c
@@ -187,7 +187,7 @@ CONTAINS
           ENDIF
           !write(*,*)'forc',jc,jb, z_lat, z_lat*180.0_wp/pi, p_sfc_flx%forc_wind_u(jc,jb) 
           p_sfc_flx%forc_wind_v(jc,jb) = 0.0_wp
-      
+
           !Init cartesian wind
           IF(v_base%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
             CALL gvec2cvec(  p_sfc_flx%forc_wind_u(jc,jb),      &
@@ -208,7 +208,7 @@ CONTAINS
 
       CALL message(TRIM(routine), &
         &  'iforc_stat_oce=3: stationary wind forcing - u=cos(n*lat/lat_0)')
-      
+
       ! Use here global scale:
       !y_length = basin_height_deg * deg2rad
       !y_center = basin_center_lat * deg2rad
@@ -228,7 +228,7 @@ CONTAINS
             p_sfc_flx%forc_wind_u(jc,jb) = 0.0_wp
           ENDIF
           p_sfc_flx%forc_wind_v(jc,jb) = 0.0_wp
-      
+
           !Init cartesian wind
           IF(v_base%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
             CALL gvec2cvec(  p_sfc_flx%forc_wind_u(jc,jb),      &
@@ -251,10 +251,10 @@ CONTAINS
 
     END SELECT
 
-    ipl_src=0  ! output print level (1-5, fix)
-    z_c(:,1,:)=p_sfc_flx%forc_wind_u(:,:)
+    ipl_src    = 0  ! output print level (1-5, fix)
+    z_c(:,1,:) = p_sfc_flx%forc_wind_u(:,:)
     CALL print_mxmn('analytical forcing u',1,z_c(:,:,:),1,ppatch%nblks_c,'per',ipl_src)
-    z_c(:,1,:)=p_sfc_flx%forc_wind_v(:,:)
+    z_c(:,1,:) = p_sfc_flx%forc_wind_v(:,:)
     CALL print_mxmn('analytical forcing v',1,z_c(:,:,:),1,ppatch%nblks_c,'per',ipl_src)
 
   END IF
