@@ -1149,8 +1149,8 @@ ENDIF
 ! CALL global_mpi_barrier()
 ! write(0,*) "sync_patch_array(SYNC_C, p_patch, p_os%p_aux%p_rhs_sfc_eq ..."
  CALL sync_patch_array(SYNC_C, p_patch, p_os%p_aux%p_rhs_sfc_eq )
- write(0,*) "sync_patch_array(SYNC_C, p_patch, p_os%p_aux%p_rhs_sfc_eq is done"
- CALL global_mpi_barrier()
+!  write(0,*) "sync_patch_array(SYNC_C, p_patch, p_os%p_aux%p_rhs_sfc_eq is done"
+!  CALL global_mpi_barrier()
  
  ipl_src=3  ! output print level (1-5, fix)
  jkdim=1    ! vertical dimension
