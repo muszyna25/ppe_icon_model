@@ -1491,7 +1491,7 @@ CONTAINS
 
       jcells = p_patch%n_patch_cells  !  global dimension
       jtime  = iforc_len              !  time period to read (not yet)
-      
+
 
       ! provide NCEP fluxes for sea ice (interface to ocean)
       ! 1:  'stress_x': zonal wind stress       [m/s]
@@ -1577,7 +1577,7 @@ CONTAINS
         z_c                             (:,jt,:)   = z_flux(:,:,jt)
         CALL print_mxmn('NCEP: temp_2m',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
       END DO
-    
+
       ! 2m dewpoint temperature
       CALL read_netcdf_data (ncid, 'dpt_temp_2m', p_patch%n_patch_cells_g,   &
         &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
@@ -1587,7 +1587,7 @@ CONTAINS
         z_c                             (:,jt,:)   = z_flux(:,:,jt)
         CALL print_mxmn('NCEP: dpt_temp_2m',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
       END DO
-    
+
       ! Scalar wind
       CALL read_netcdf_data (ncid, 'scalar_wind', p_patch%n_patch_cells_g,   &
         &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
@@ -1597,7 +1597,7 @@ CONTAINS
         z_c                             (:,jt,:)   = z_flux(:,:,jt)
         CALL print_mxmn('NCEP: scalar_wind',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
       END DO
-    
+
       ! cloud cover
       CALL read_netcdf_data (ncid, 'cloud', p_patch%n_patch_cells_g,         &
         &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
@@ -1607,7 +1607,7 @@ CONTAINS
         z_c                             (:,jt,:)   = z_flux(:,:,jt)
         CALL print_mxmn('NCEP: cloud',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
       END DO
-    
+
       ! sea level pressure
       CALL read_netcdf_data (ncid, 'pressure', p_patch%n_patch_cells_g,      &
         &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
@@ -1617,7 +1617,7 @@ CONTAINS
         z_c                             (:,jt,:)   = z_flux(:,:,jt)
         CALL print_mxmn('NCEP: pressure',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
       END DO
-    
+
       ! total solar radiation
       CALL read_netcdf_data (ncid, 'tot_solar', p_patch%n_patch_cells_g,     &
         &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
@@ -1627,7 +1627,7 @@ CONTAINS
         z_c                             (:,jt,:)   = z_flux(:,:,jt)
         CALL print_mxmn('NCEP: tot_solar',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
       END DO
-    
+
       ! precipitation
   !   CALL read_netcdf_data (ncid, 'precip', p_patch%n_patch_cells_g,        &
   !     &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
@@ -1637,7 +1637,7 @@ CONTAINS
   !     z_c                             (:,jt,:)    = z_flux(:,:,jt)
   !     CALL print_mxmn('NCEP: precip',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
   !   END DO
-    
+
       ! evaporation or downward surface LW flux
   !   CALL read_netcdf_data (ncid, 'evap', p_patch%n_patch_cells_g,          &
   !     &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
@@ -1651,7 +1651,7 @@ CONTAINS
   !   DO jt = 1, jtime
   !     ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,11) = z_flux(:,:,jt)
   !   END DO
-    
+
       ! runoff
   !   CALL read_netcdf_data (ncid, 'runoff', p_patch%n_patch_cells_g,        &
   !     &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
