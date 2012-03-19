@@ -78,6 +78,8 @@ USE mo_var_list,            ONLY: add_var,                  &
 USE mo_cf_convention
 USE mo_grib2
 USE mo_cdi_constants
+USE mo_util_subset,         ONLY: t_subset_range, get_index_range
+USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_idx, global_max
 
 IMPLICIT NONE
 
@@ -157,11 +159,10 @@ CONTAINS
     !Init from namelist
     p_phys_param%K_veloc_h_back = k_veloc_h
     p_phys_param%A_veloc_v_back = k_veloc_v
-    p_phys_param%K_veloc_h = k_veloc_h
-    p_phys_param%A_veloc_v = k_veloc_v
+    p_phys_param%K_veloc_h      = k_veloc_h
+    p_phys_param%A_veloc_v      = k_veloc_v
+
     SELECT CASE(HORZ_VELOC_DIFF_TYPE)
-
-
     CASE(0)
       p_phys_param%K_veloc_h(:,:,:) = 0.0_wp
 
@@ -177,11 +178,9 @@ CONTAINS
       write(0,*)'lower bound of diffusivity:',z_lower_bound_diff
 
     CASE(2)
-
       CALL calc_munk_based_lapl_diff(ppatch,p_phys_param%K_veloc_h)
 
     CASE(3)
-
       CALL calc_munk_based_lapl_diff(ppatch,p_phys_param%K_veloc_h) 
 
     END SELECT
