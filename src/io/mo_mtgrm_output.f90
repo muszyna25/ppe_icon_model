@@ -169,7 +169,7 @@ MODULE mo_meteogram_output
   
   PRIVATE
   CHARACTER(LEN=*), PARAMETER :: modname     = 'mo_meteogram_output'
-  INTEGER,          PARAMETER :: dbg_level   = 10
+  INTEGER,          PARAMETER :: dbg_level   = 0
 
   INCLUDE 'netcdf.inc'
 
@@ -1264,8 +1264,8 @@ CONTAINS
     TYPE(t_meteogram_data),    POINTER :: meteogram_data
     TYPE(t_meteogram_station), POINTER :: p_station
 
-!     IF (dbg_level > 5)  WRITE (*,*) routine, " Enter"
-
+    IF (dbg_level > 5)  WRITE (*,*) routine, " Enter"
+     
     meteogram_data => meteogram_local_data(jg)
 
     ! get global rank and MPI communicator
@@ -1449,7 +1449,7 @@ CONTAINS
 
 #endif
 
-!     IF (dbg_level > 5)  WRITE (*,*) routine, " Leave"
+    IF (dbg_level > 5)  WRITE (*,*) routine, " Leave"
 
   END SUBROUTINE meteogram_collect_buffers
 
