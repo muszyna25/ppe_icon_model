@@ -1994,57 +1994,56 @@ FUNCTION geo_balance_mim(p_patch, h_e, rhs_e) result(vn_e)
    END FUNCTION geo_balance_mim
    !--------------------------------------------------------------------
    FUNCTION lhs_geo_balance_mim( x, p_patch, lev,p_coeff, h_e) RESULT(llhs)
-   !
-   TYPE(t_patch),TARGET,INTENT(IN) :: p_patch
-   INTEGER                         :: lev
-   REAL(wp),INTENT(inout)          :: x(:,:)
-   REAL(wp),INTENT(in)             :: p_coeff
-   REAL(wp),OPTIONAL,INTENT(in)    :: h_e(SIZE(x,1), SIZE(x,2))!(:,:)
-   REAL(wp)                        :: llhs(SIZE(x,1), SIZE(x,2))
+     TYPE(t_patch),TARGET,INTENT(IN) :: p_patch
+     INTEGER                         :: lev
+     REAL(wp),INTENT(inout)          :: x(:,:)
+     REAL(wp),INTENT(in)             :: p_coeff
+     REAL(wp),OPTIONAL,INTENT(in)    :: h_e(SIZE(x,1), SIZE(x,2))!(:,:)
+     REAL(wp)                        :: llhs(SIZE(x,1), SIZE(x,2))
 
-   !locl variables
-   INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
-   INTEGER :: rl_start_c, rl_end_c
-   INTEGER :: jc,jb
-   REAL(wp) :: z_x_e(SIZE(x,1),1,SIZE(x,2))!(nproma,p_patch%nblks_e)
-   REAL(wp) :: z_x_vort(nproma,1,p_patch%nblks_v)
-   REAL(wp) :: z_x_out(SIZE(x,1), 1,SIZE(x,2))!(nproma,p_patch%nblks_e)
-  !REAL(wp) :: z_vt(SIZE(x,1), 1,SIZE(x,2))!(nproma,p_patch%nblks_e)
-   REAL(wp) :: z_grad(SIZE(x,1), 1,SIZE(x,2))!(nproma,p_patch%nblks_e)
-   REAL(wp) :: z_kin(nproma,1,p_patch%nblks_c)
-   TYPE(t_cartesian_coordinates)    :: z_pv_cc(nproma,1,p_patch%nblks_c)
-   !-----------------------------------------------------------------------
-   TYPE(t_subset_range), POINTER :: all_cells
-   !-----------------------------------------------------------------------
-   all_cells => p_patch%cells%all
+     !locl variables
+     INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
+     INTEGER :: rl_start_c, rl_end_c
+     INTEGER :: jc,jb
+     REAL(wp) :: z_x_e(SIZE(x,1),1,SIZE(x,2))!(nproma,p_patch%nblks_e)
+     REAL(wp) :: z_x_vort(nproma,1,p_patch%nblks_v)
+     REAL(wp) :: z_x_out(SIZE(x,1), 1,SIZE(x,2))!(nproma,p_patch%nblks_e)
+    !REAL(wp) :: z_vt(SIZE(x,1), 1,SIZE(x,2))!(nproma,p_patch%nblks_e)
+     REAL(wp) :: z_grad(SIZE(x,1), 1,SIZE(x,2))!(nproma,p_patch%nblks_e)
+     REAL(wp) :: z_kin(nproma,1,p_patch%nblks_c)
+     TYPE(t_cartesian_coordinates)    :: z_pv_cc(nproma,1,p_patch%nblks_c)
+     !-----------------------------------------------------------------------
+     TYPE(t_subset_range), POINTER :: all_cells
+     !-----------------------------------------------------------------------
+     all_cells => p_patch%cells%all
 
-   z_x_vort(:,:,:)= 0.0_wp
-   z_x_out(:,:,:) = 0.0_wp
-   z_x_e(:,1,:)   = x(:,:)
+     z_x_vort(:,:,:)= 0.0_wp
+     z_x_out(:,:,:) = 0.0_wp
+     z_x_e(:,1,:)   = x(:,:)
 
-!  CALL rot_vertex_ocean(z_x_e, z_vt, p_patch, z_x_vort)
+  !  CALL rot_vertex_ocean(z_x_e, z_vt, p_patch, z_x_vort)
 
-   CALL map_edges2cell( p_patch, z_x_e, z_pv_cc, h_e )
-   DO jb = all_cells%start_block, all_cells%end_block
-     CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-     DO jc =  i_startidx_c, i_endidx_c
-          z_kin(jc,1,jb) = 0.5_wp*DOT_PRODUCT(z_pv_cc(jc,1,jb)%x,z_pv_cc(jc,1,jb)%x)
+     CALL map_edges2cell( p_patch, z_x_e, z_pv_cc, h_e )
+     DO jb = all_cells%start_block, all_cells%end_block
+       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+       DO jc =  i_startidx_c, i_endidx_c
+            z_kin(jc,1,jb) = 0.5_wp*DOT_PRODUCT(z_pv_cc(jc,1,jb)%x,z_pv_cc(jc,1,jb)%x)
+       END DO
      END DO
-   END DO
 
-   CALL grad_fd_norm_oce( z_kin, &
-                        & p_patch,   &
-                        & z_grad,    &
-                        & opt_slev=1,opt_elev=1 )
+     CALL grad_fd_norm_oce( z_kin, &
+                          & p_patch,   &
+                          & z_grad,    &
+                          & opt_slev=1,opt_elev=1 )
 
-!   z_x_out(:,:,:) = dual_flip_flop(p_patch, z_x_e, z_x_e, z_x_vort, h_e,&
-!                                  &opt_slev=1, opt_elev=1)
+  !   z_x_out(:,:,:) = dual_flip_flop(p_patch, z_x_e, z_x_e, z_x_vort, h_e,&
+  !                                  &opt_slev=1, opt_elev=1)
 
-   z_x_out=z_x_out!+z_grad
-   llhs(1:nproma,1:p_patch%nblks_e) = p_coeff*z_x_out(1:nproma,1,1:p_patch%nblks_e)
-!write(*,*)'max/min LHS', maxval(llhs(:,:)),minval(llhs(:,:))
+     z_x_out=z_x_out!+z_grad
+     llhs(1:nproma,1:p_patch%nblks_e) = p_coeff*z_x_out(1:nproma,1,1:p_patch%nblks_e)
+  !write(*,*)'max/min LHS', maxval(llhs(:,:)),minval(llhs(:,:))
 
-END FUNCTION lhs_geo_balance_mim
+  END FUNCTION lhs_geo_balance_mim
 ! ! !------------------------------------------------------------
 !------------Below are functions from to implement tests from Williamson shallow-water tests
 !EOC
