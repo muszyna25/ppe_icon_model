@@ -101,7 +101,7 @@ MODULE mo_ocean_nml
                       ! 3: as 1; read surface heat (record 4) and freshwater flux (record 5) add.
                       ! 4: as 1; read 4 parts of heat flux, precip/evap flux additionally
                       ! 5: read full NCEP datasets; read monthly mean data of consecutive years
-  INTEGER            :: iforc_omip     = 0
+  INTEGER            :: iforc_omip     = 10
 
   ! length of time varying flux forcing: 12: read 12 months, other: read daily values
   INTEGER            :: iforc_len      = 1
@@ -269,13 +269,13 @@ MODULE mo_ocean_nml
 
   ! switches for level of debugging the ocean core
   INTEGER  :: i_dbg_oce = 1       ! different levels of debug output (1-5, 0: no output)
-  INTEGER  :: i_dbg_inx = 0       ! different levels of debug output of values at indices given below
+  INTEGER  :: i_dbg_inx = 0       ! different levels of debug output of values at lat/lon given below
 
-  ! longitude/latitude location of single cell output for debugging
+  ! latitude/longitude location of single cell output for debugging
   REAL(wp) :: rlat_in   = 0.0_wp  ! latitude of cell for debug output
   REAL(wp) :: rlon_in   = 0.0_wp  ! longitude of cell for debug output
 
-  ! block/index location of cell output for debugging
+  ! block/index location of cell output for debugging (alternative to rlat_in/rlon_in)
   INTEGER  :: i_oct_blk = 1       ! output test block
   INTEGER  :: i_oct_idx = 1       ! output test index
   INTEGER  :: i_oct_ilv = 1       ! output test level
@@ -405,11 +405,11 @@ MODULE mo_ocean_nml
 
      ! 3-char string with marked processes to be printed out for debug purposes
      str_proc_tst =  (/  & 
+       &  'all', &  ! initiate print messages in all routines
        &  'abm', &  ! main timestepping routines       in mo_oce_ab_timestepping (mimetic/rbf)
        &  'vel', &  ! velocity advection and diffusion in mo_oce_veloc_advection
        &  'dif', &  ! diffusion                        in mo_oce_diffusion
        &  'trc', &  ! tracer advection and diffusion   in mo_oce_tracer_transport
-       &  '   ', &  ! ...
        &  '   ', &  ! ...
        &  '   ', &
        &  '   ', &
