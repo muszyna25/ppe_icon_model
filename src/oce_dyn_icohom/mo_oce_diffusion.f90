@@ -400,6 +400,7 @@ END SUBROUTINE velocity_diffusion_vert_mimetic
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2010).
 !!
+!!  mpi parallelized, sync required
 SUBROUTINE velocity_diffusion_vert_rbf( p_patch, u_c, v_c, h_c, top_bc_u_c, top_bc_v_c,&
                           &  bot_bc_u_c,  bot_bc_v_c,p_param, laplacian_vn_out)
   TYPE(t_patch), TARGET, INTENT(in) :: p_patch
@@ -536,29 +537,23 @@ SUBROUTINE tracer_diffusion_horz(p_patch, trac_in, p_os, K_T, diff_flx)
   !
   !
   !Local variables
-  INTEGER :: slev, elev     ! vertical start and end level
-  INTEGER :: jk, jb, je
-  INTEGER :: il_c1, ib_c1, il_c2, ib_c2
-  INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
-  INTEGER :: rl_start, rl_end
-  REAL(wp) :: delta_z
+  INTEGER                       :: slev, elev     ! vertical start and end level
+  INTEGER                       :: jk, jb, je
+  INTEGER                       :: il_c1, ib_c1, il_c2, ib_c2
+  INTEGER                       :: i_startidx_e, i_endidx_e
+  REAL(wp)                      :: delta_z
+  TYPE(t_subset_range), POINTER :: edges_in_domain
   ! CHARACTER(len=max_char_length), PARAMETER :: &
   !        & routine = ('mo_ocediffusion:tracer_diffusion_horz')
   !-------------------------------------------------------------------------------
-  rl_start = 1
-  rl_end   = min_rledge
-
   slev = 1
   elev = n_zlev
 
-  i_startblk_e = p_patch%edges%start_blk(1,1)
-  i_endblk_e   = p_patch%edges%end_blk(min_rledge,1)
+  edges_in_domain => p_patch%edges%in_domain
 
   IF ( iswm_oce /= 1) THEN
-    DO jb = i_startblk_e, i_endblk_e
-      CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e,&
-                       &  i_startidx_e, i_endidx_e,&
-                       &  rl_start, rl_end)
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
       DO jk = slev, elev
 
         delta_z  = v_base%del_zlev_m(jk)
@@ -584,14 +579,10 @@ SUBROUTINE tracer_diffusion_horz(p_patch, trac_in, p_os, K_T, diff_flx)
       END DO
     END DO
   ELSEIF ( iswm_oce == 1) THEN
-    DO jb = i_startblk_e, i_endblk_e
-      CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e,&
-                       &  i_startidx_e, i_endidx_e,&
-                       &  rl_start, rl_end)
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
       DO jk = slev, elev
         DO je = i_startidx_e, i_endidx_e
-
-
           !IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
 
           !Get indices of two adjacent triangles
@@ -602,11 +593,9 @@ SUBROUTINE tracer_diffusion_horz(p_patch, trac_in, p_os, K_T, diff_flx)
 
           delta_z  = p_os%p_diag%thick_e(je,jb)
 
-           diff_flx(je,jk,jb) = K_T(je,jk,jb)*delta_z*v_base%wet_e(je,jk,jb)&
-                       &*(trac_in(il_c2,jk,ib_c2)-trac_in(il_c1,jk,ib_c1))&
-                       &/p_patch%edges%dual_edge_length(je,jb)
-  !write(123,*)'trac diffusive flux',je,jk,jb,diff_flx(je,jk,jb),K_T(je,jk,jb),&
-  !&trac_in(il_c2,jk,ib_c2),trac_in(il_c1,jk,ib_c1)
+          diff_flx(je,jk,jb) = K_T(je,jk,jb)*delta_z*v_base%wet_e(je,jk,jb) &
+            &          *(trac_in(il_c2,jk,ib_c2)-trac_in(il_c1,jk,ib_c1))&
+            &          /p_patch%edges%dual_edge_length(je,jb)
           !ELSE
           !  diff_flx(je,jk,jb) = 0.0_wp
           !ENDIF
@@ -617,11 +606,7 @@ SUBROUTINE tracer_diffusion_horz(p_patch, trac_in, p_os, K_T, diff_flx)
   ! Apply divergence to mixing times gradient to get laplacian
   !CALL div_oce( diff_flx, p_patch, laplacian_trac_out)
 
-  ! DO jk=slev, elev
-  !   WRITE(*,*)'MAX/MIN horz tracer diffusion ',jk, &
-  !     &        MAXVAL(diff_flx(:,jk,:)), MINVAL(diff_flx(:,jk,:))
-  ! END DO
-
+  CALL sync_patch_array(SYNC_E, p_patch, diff_flx)
 
 END SUBROUTINE tracer_diffusion_horz
 !-------------------------------------------------------------------------  
