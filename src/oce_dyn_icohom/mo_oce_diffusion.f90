@@ -619,6 +619,7 @@ END SUBROUTINE tracer_diffusion_horz
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2010).
 !!
+!! mpi parallelized, no sync required
 SUBROUTINE tracer_diffusion_vert_expl( p_patch,        &
                                     & trac_c,dz,       &
                                     & top_bc_tracer,   & 
@@ -626,79 +627,80 @@ SUBROUTINE tracer_diffusion_vert_expl( p_patch,        &
                                     & A_v,             &
                                     & div_diff_flx)
 
-TYPE(t_patch), TARGET, INTENT(in) :: p_patch
-REAL(wp), INTENT(inout)           :: trac_c(:,:,:)
-REAL(wp), INTENT(in)              :: dz(:,:,:)
-REAL(wp), INTENT(in)              :: top_bc_tracer(:,:)
-REAL(wp), INTENT(in)              :: bot_bc_tracer(:,:)
-REAL(wp), INTENT(inout)           :: A_v(:,:,:) 
-REAL(wp), INTENT(out)             :: div_diff_flx(:,:,:)
-!
-!Local variables
-INTEGER :: slev, elev
-INTEGER :: jc, jk, jb
-INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
-INTEGER :: z_dolic
-REAL(wp) :: z_diff_flx(nproma, n_zlev+1,p_patch%nblks_c)   ! vertical diffusive tracer flux
-! CHARACTER(len=max_char_length), PARAMETER :: &
-!        & routine = ('mo_oce_diffusion:tracer_diffusion_vert')
-!-----------------------------------------------------------------------
-i_startblk = p_patch%cells%start_blk(1,1)
-i_endblk   = p_patch%cells%end_blk(min_rlcell,1)
-slev = 1
-elev = n_zlev
-z_diff_flx(:,:,:) = 0.0_wp
-!A_v=0.0_wp
-!1 Vertical derivative of tracer
-DO jb = i_startblk, i_endblk
-  CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                     i_startidx, i_endidx, 1,min_rlcell)
-  DO jc = i_startidx, i_endidx
-    z_dolic  = v_base%dolic_c(jc,jb)
-    IF ( z_dolic >=MIN_DOLIC ) THEN
-      !1a) 0cean surface
-      !diff_flx(jc,slev,jb) = A_v(slev)&
-      !& *(top_bc_tracer(jc,jb)-trac_c(jc,slev,jb))/v_base%del_zlev_i(slev)
-      z_diff_flx(jc,slev,jb) = top_bc_tracer(jc,jb)
+  TYPE(t_patch), TARGET, INTENT(in) :: p_patch
+  REAL(wp), INTENT(inout)           :: trac_c(:,:,:)
+  REAL(wp), INTENT(in)              :: dz(:,:,:)
+  REAL(wp), INTENT(in)              :: top_bc_tracer(:,:)
+  REAL(wp), INTENT(in)              :: bot_bc_tracer(:,:)
+  REAL(wp), INTENT(inout)           :: A_v(:,:,:) 
+  REAL(wp), INTENT(out)             :: div_diff_flx(:,:,:)
+  !
+  !Local variables
+  INTEGER                       :: slev, elev
+  INTEGER                       :: jc, jk, jb
+  INTEGER                       :: i_startidx_c, i_endidx_c
+  INTEGER                       :: z_dolic
+  ! vertical diffusive tracer flux
+  REAL(wp)                      :: z_diff_flx(nproma, n_zlev+1,p_patch%nblks_c)
+  TYPE(t_subset_range), POINTER :: all_cells
+  ! CHARACTER(len=max_char_length), PARAMETER :: &
+  !        & routine = ('mo_oce_diffusion:tracer_diffusion_vert')
+  !-----------------------------------------------------------------------
+  slev              = 1
+  elev              = n_zlev
+  z_diff_flx(:,:,:) = 0.0_wp
 
-      !1b) ocean interior 
-      DO jk = slev+1, z_dolic
-        !IF(dz(jc,jk,jb)/=0.0_wp)THEN
-          ! #slo# 2011-09-15 - Corrections:
-          !   - must be checked at all vertical processes in the model
-          !   - correction only active for variable level thicknesses (distances)
-          z_diff_flx(jc,jk,jb)&
-          & = A_v(jc,jk,jb) &
-          & * (trac_c(jc,jk-1,jb)-trac_c(jc,jk,jb))/v_base%del_zlev_i(jk)
-        !ELSE
-        !  diff_flx(jc,jk,jb)= 0.0_wp
-        !ENDIF
-      END DO
+  all_cells => p_patch%cells%all
 
+  !1 Vertical derivative of tracer
+  DO jb = all_cells%start_block, all_cells%end_block
+    CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+    DO jc = i_startidx_c, i_endidx_c
+      z_dolic  = v_base%dolic_c(jc,jb)
+      IF ( z_dolic >=MIN_DOLIC ) THEN
+        !1a) 0cean surface
+        !diff_flx(jc,slev,jb) = A_v(slev)&
+        !& *(top_bc_tracer(jc,jb)-trac_c(jc,slev,jb))/v_base%del_zlev_i(slev)
+        z_diff_flx(jc,slev,jb) = top_bc_tracer(jc,jb)
 
-      DO jk = 1, z_dolic
-        ! positive vertical divergence in direction of w (upward positive)
-         div_diff_flx(jc,jk,jb) = (z_diff_flx(jc,jk,jb) - z_diff_flx(jc,jk+1,jb))&
-                              &/v_base%del_zlev_m(jk) 
+        !1b) ocean interior 
+        DO jk = slev+1, z_dolic
+          !IF(dz(jc,jk,jb)/=0.0_wp)THEN
+            ! #slo# 2011-09-15 - Corrections:
+            !   - must be checked at all vertical processes in the model
+            !   - correction only active for variable level thicknesses (distances)
+            z_diff_flx(jc,jk,jb)&
+            & = A_v(jc,jk,jb) &
+            & * (trac_c(jc,jk-1,jb)-trac_c(jc,jk,jb))/v_base%del_zlev_i(jk)
+          !ELSE
+          !  diff_flx(jc,jk,jb)= 0.0_wp
+          !ENDIF
         END DO
 
 
-      !1c) ocean bottom zero bottom boundary condition
-      !diff_flx(jc,z_dolic+1,jb) = bot_bc_tracer(jc,jk)
-    ELSE
-      div_diff_flx(jc,:,jb)= 0.0_wp
-    ENDIF
-  END DO
-END DO
- DO jk=slev, elev
-   ipl_src=4  ! output print level (1-5, fix)
-   CALL print_mxmn('vert diffusion expl',jk,div_diff_flx(:,:,:),n_zlev, &
-     &              p_patch%nblks_c,'dif',ipl_src)
-   CALL print_mxmn('vrt.dif.expl.diff-flx',jk,z_diff_flx(:,:,:),n_zlev+1, &
-     &              p_patch%nblks_c,'dif',ipl_src)
- END DO
+        DO jk = 1, z_dolic
+          ! positive vertical divergence in direction of w (upward positive)
+           div_diff_flx(jc,jk,jb) = (z_diff_flx(jc,jk,jb) - z_diff_flx(jc,jk+1,jb))&
+                                &/v_base%del_zlev_m(jk) 
+          END DO
 
-END subroutine tracer_diffusion_vert_expl
+
+        !1c) ocean bottom zero bottom boundary condition
+        !diff_flx(jc,z_dolic+1,jb) = bot_bc_tracer(jc,jk)
+      ELSE
+        div_diff_flx(jc,:,jb)= 0.0_wp
+      ENDIF
+    END DO
+  END DO
+   DO jk=slev, elev
+     ipl_src=4  ! output print level (1-5, fix)
+     CALL print_mxmn('vert diffusion expl',jk,div_diff_flx(:,:,:),n_zlev, &
+       &              p_patch%nblks_c,'dif',ipl_src)
+     CALL print_mxmn('vrt.dif.expl.diff-flx',jk,z_diff_flx(:,:,:),n_zlev+1, &
+       &              p_patch%nblks_c,'dif',ipl_src)
+   END DO
+
+END SUBROUTINE tracer_diffusion_vert_expl
 ! ! !-------------------------------------------------------------------------  
 ! ! !
 ! ! !!Subroutine implements implicit vertical diffusion for scalar fields.
