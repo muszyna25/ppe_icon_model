@@ -79,7 +79,8 @@ USE mo_cf_convention
 USE mo_grib2
 USE mo_cdi_constants
 USE mo_util_subset,         ONLY: t_subset_range, get_index_range
-USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_idx, global_max
+USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, &
+  &                               sync_patch_array, sync_idx, global_max
 
 IMPLICIT NONE
 
@@ -150,10 +151,11 @@ CONTAINS
   !
   !
   SUBROUTINE init_ho_params(  ppatch, p_phys_param )
-   TYPE(t_patch), INTENT(IN)  :: ppatch
-   TYPE (t_ho_params)         :: p_phys_param 
+    TYPE(t_patch), INTENT(IN)  :: ppatch
+    TYPE (t_ho_params)         :: p_phys_param 
+
     ! Local variables
-    INTEGER :: i
+    INTEGER  :: i
     REAL(wp) :: z_lower_bound_diff
     !-------------------------------------------------------------------------
     !Init from namelist
@@ -209,14 +211,15 @@ CONTAINS
 
 
   END SUBROUTINE init_ho_params
+
   !-------------------------------------------------------------------------
   !
   !>
-  !! Calculation of a lower bound for horizontal velocity diffusion of laplacian type
-  !! that is required to have N (default =1) points in Munk layer. The lower bound is calculated
-  !! with respect to the equator. 
-  !!The code is based on  Griffies, Fundamentals of ocean climate modeling, sect 18, p. 413. 
-  !!The lower bound is given in units [m^2/s].
+  !! Calculation of a lower bound for horizontal velocity diffusion of laplacian type ! that is
+  !! required to have N (default =1) points in Munk layer. The lower bound is calculated ! with
+  !! respect to the equator.
+  !! The code is based on  Griffies, Fundamentals of ocean climate modeling, sect 18, p. 413.  !
+  !! The lower bound is given in units [m^2/s].
   !!
   !!
   !! @par Revision History
@@ -224,46 +227,27 @@ CONTAINS
   !
   !
   SUBROUTINE calc_lower_bound_veloc_diff(  p_patch, lower_bound_diff )
-   TYPE(t_patch), INTENT(IN)  :: p_patch
-   REAL(wp), INTENT(OUT)      :: lower_bound_diff
+    TYPE(t_patch), TARGET, INTENT(IN)  :: p_patch
+    REAL(wp), INTENT(OUT)              :: lower_bound_diff
+
     ! Local variables
-    REAL(wp), PARAMETER  :: N_POINTS_IN_MUNK_LAYER = 1.0_wp
-    INTEGER  :: je,jb 
-    INTEGER  :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, rl_start_e, rl_end_e
-    REAL(wp) :: z_largest_edge_length
+    REAL(wp), PARAMETER :: N_POINTS_IN_MUNK_LAYER = 1.0_wp
+    INTEGER             :: je,jb
+    INTEGER             :: i_startidx_e, i_endidx_e
+    REAL(wp)            :: z_largest_edge_length
     !-------------------------------------------------------------------------
-    rl_start_e   = 1
-    rl_end_e     = min_rledge
-    i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
-    i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
+    TYPE(t_subset_range), POINTER :: edges_in_domain
+    !-------------------------------------------------------------------------
+    edges_in_domain => p_patch%edges%in_domain
 
+    ! Get the largest edge length globally
     z_largest_edge_length = 0.0_wp
-    DO jb = i_startblk_e, i_endblk_e
-      CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, &
-      &                   rl_start_e, rl_end_e)
-      DO je = i_startidx_e, i_endidx_e 
 
-        !calculate largest edges length within grid 
-        IF(p_patch%edges%dual_edge_length(je,jb)>z_largest_edge_length)THEN
-          z_largest_edge_length=p_patch%edges%primal_edge_length(je,jb)
-        ENDIF
-      END DO
-    END DO
+    z_largest_edge_length = global_max(MAXVAL(p_patch%edges%primal_edge_length))
 
-   !write(*,*)'largest edge length',z_largest_edge_length
-
-    DO jb = i_startblk_e, i_endblk_e
-      CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, &
-      &                   rl_start_e, rl_end_e)
-      DO je = i_startidx_e, i_endidx_e 
-
-        !calculate lower bound for diffusivity
-        !The factor cos(lat) is omitted here, because of equatorial reference (cf. Griffies, eq. (18.29)) 
-        lower_bound_diff = 3.82E-12_wp&
-        &*(N_POINTS_IN_MUNK_LAYER*z_largest_edge_length)**3&
-          &*cos( p_patch%edges%center(je,jb)%lat)!*deg2rad
-      END DO
-    END DO
+    !calculate lower bound for diffusivity: The factor cos(lat) is omitted here, because of
+    !equatorial reference (cf. Griffies, eq.  (18.29)) 
+    lower_bound_diff = 3.82E-12_wp*(N_POINTS_IN_MUNK_LAYER*z_largest_edge_length)**3
 
   END SUBROUTINE calc_lower_bound_veloc_diff
   !
@@ -276,71 +260,52 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2011-08)
   !
-  !
+  !! mpi parameters, no sync required
   SUBROUTINE calc_munk_based_lapl_diff( p_patch, K_h )
-   TYPE(t_patch), INTENT(IN)  :: p_patch
-   REAL(wp), INTENT(OUT)      :: K_h(:,:,:) 
+    TYPE(t_patch), TARGET,INTENT(IN)  :: p_patch
+    REAL(wp), INTENT(OUT)             :: K_h(:,:,:)
     ! Local variables
     REAL(wp), PARAMETER  :: N_POINTS_IN_MUNK_LAYER = 1.0_wp
-    INTEGER  :: je,jb 
-    INTEGER  :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, rl_start_e, rl_end_e 
+    INTEGER  :: je,jb
+    INTEGER  :: i_startidx_e, i_endidx_e
     REAL(wp) :: z_largest_edge_length
     !-------------------------------------------------------------------------
-    rl_start_e   = 1
-    rl_end_e     = min_rledge
-    i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
-    i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
+    TYPE(t_subset_range), POINTER :: all_edges
+    !-------------------------------------------------------------------------
+    all_edges => p_patch%edges%all
 
+    z_largest_edge_length = 0.0_wp
+    z_largest_edge_length = global_max(MAXVAL(p_patch%edges%primal_edge_length))
 
     SELECT CASE(HORZ_VELOC_DIFF_TYPE)
-    CASE(2) 
-      z_largest_edge_length = 0.0_wp
-      DO jb = i_startblk_e, i_endblk_e
-        CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, &
-        &                   rl_start_e, rl_end_e)
-        DO je = i_startidx_e, i_endidx_e 
-
-          !calculate largest edges length within grid 
-          IF(p_patch%edges%dual_edge_length(je,jb)>z_largest_edge_length)THEN
-            z_largest_edge_length=p_patch%edges%primal_edge_length(je,jb)
-          ENDIF
-        END DO
-      END DO
+    CASE(2)
       !write(*,*)'largest edge length',z_largest_edge_length
-      DO jb = i_startblk_e, i_endblk_e
-        CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, &
-        &                   rl_start_e, rl_end_e)
-        DO je = i_startidx_e, i_endidx_e 
+      DO jb = all_edges%start_block, all_edges%end_block
+        CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+        DO je = i_startidx_e, i_endidx_e
 
           !calculate lower bound for diffusivity
           !The factor cos(lat) is omitted here, because of equatorial reference (cf. Griffies, eq. (18.29)) 
-          K_h(je,:,jb) = 3.82E-12_wp&
-          &*(N_POINTS_IN_MUNK_LAYER*z_largest_edge_length)**3&
-          &*cos( p_patch%edges%center(je,jb)%lat)!*deg2rad
+          K_h(je,:,jb) = 3.82E-12_wp*(N_POINTS_IN_MUNK_LAYER*z_largest_edge_length)**3
         END DO
       END DO
 
     CASE(3)
 
-      DO jb = i_startblk_e, i_endblk_e
-        CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, &
-        &                   rl_start_e, rl_end_e)
-        DO je = i_startidx_e, i_endidx_e 
+      DO jb = all_edges%start_block, all_edges%end_block
+        CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+        DO je = i_startidx_e, i_endidx_e
 
           !calculate lower bound for diffusivity
           !The factor cos(lat) is omitted here, because of equatorial reference (cf. Griffies, eq. (18.29)) 
           K_h(je,:,jb) = 3.82E-12_wp&
-          &*(N_POINTS_IN_MUNK_LAYER*p_patch%edges%primal_edge_length(je,jb))**3&
-          &*cos( p_patch%edges%center(je,jb)%lat)!*deg2rad
-! write(123,*)'visc',K_h(je,1,jb),&
-! &3.82E-12_wp&
-! &*(N_POINTS_IN_MUNK_LAYER*p_patch%edges%primal_edge_length(je,jb))**3,&
-! &cos( p_patch%edges%center(je,jb)%lat)
+            &*(N_POINTS_IN_MUNK_LAYER*p_patch%edges%primal_edge_length(je,jb))**3&
+            &*cos( p_patch%edges%center(je,jb)%lat)!*deg2rad
         END DO
       END DO
     END SELECT
 
-    ipl_src=1  ! output print level (1-5, fix)
+    ipl_src = 1  ! output print level (1-5, fix)
     CALL print_mxmn('PHY diffusivity',1,K_h(:,:,:),n_zlev,p_patch%nblks_c,'per',ipl_src)
 
   END SUBROUTINE calc_munk_based_lapl_diff
