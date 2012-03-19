@@ -90,6 +90,7 @@ USE mo_oce_linear_solver,  ONLY: gmres_e2e
 USE mo_master_control,     ONLY: is_restart_run
 USE mo_ape_params,         ONLY: ape_sst
 USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
+USE mo_util_subset,         ONLY: t_subset_range, get_index_range
 IMPLICIT NONE
 INCLUDE 'netcdf.inc'
 PRIVATE
@@ -122,7 +123,7 @@ CONTAINS
   !-------------------------------------------------------------------------
   !
   SUBROUTINE init_ho_prog(ppatch, p_os, p_sfc_flx)
-    TYPE(t_patch), INTENT(IN)         :: ppatch
+    TYPE(t_patch),TARGET, INTENT(IN)  :: ppatch
     TYPE(t_hydro_ocean_state), TARGET :: p_os
     !TYPE(t_external_data)             :: p_ext_data 
     TYPE(t_sfc_flx)                   :: p_sfc_flx
@@ -142,16 +143,13 @@ CONTAINS
     !REAL(wp):: z_prog(nproma,11,ppatch%nblks_c)
     ! files ts_phc_season-iconR2B04-L10-25_5000.nc have n_zlev=10 levels
     REAL(wp):: z_prog(nproma,n_zlev,ppatch%nblks_c)
-
+    !-------------------------------------------------------------------------
+    TYPE(t_subset_range), POINTER :: all_cells
     !-------------------------------------------------------------------------
 
     CALL message (TRIM(routine), 'start')
 
-    rl_start     = 1
-    rl_end_c     = min_rlcell
-    i_startblk_c = ppatch%cells%start_blk(rl_start,1)
-    i_endblk_c   = ppatch%cells%end_blk(rl_end_c,1)
-    i_lev        = ppatch%level
+    all_cells => ppatch%cells%all
 
     IF(my_process_is_stdio()) THEN
       !
@@ -244,9 +242,8 @@ CONTAINS
 
     IF (no_tracer >=2) THEN
       DO jk=1, n_zlev
-        DO jb = i_startblk_c, i_endblk_c    
-          CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c,&
-                    & i_startidx_c, i_endidx_c, rl_start, rl_end_c)
+        DO jb = all_cells%start_block, all_cells%end_block
+          CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
           DO jc = i_startidx_c, i_endidx_c
 
             ! set values on land to zero/reference
@@ -262,7 +259,7 @@ CONTAINS
         END DO
       END DO
     ELSEIF(no_tracer==1)THEN
-    p_os%p_prog(nold(1))%tracer(:,1:n_zlev,:,1)=p_os%p_diag%temp_insitu(:,1:n_zlev,:)
+      p_os%p_prog(nold(1))%tracer(:,1:n_zlev,:,1)=p_os%p_diag%temp_insitu(:,1:n_zlev,:)
     ENDIF
 
     !
@@ -271,9 +268,8 @@ CONTAINS
     IF(my_process_is_stdio()) CALL nf(nf_close(ncid))
 
     DO jk=1, n_zlev
-      DO jb = i_startblk_c, i_endblk_c    
-        CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c,&
-                  & i_startidx_c, i_endidx_c, rl_start, rl_end_c)
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
 
           ! set values on land to zero/reference
@@ -286,16 +282,16 @@ CONTAINS
       END DO
     END DO
 
-    ipl_src=0  ! output print level (0-5, fix)
+    ipl_src    = 0  ! output print level (0-5, fix)
     z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,1)
-    DO jk=1, n_zlev
+    DO jk = 1, n_zlev
       CALL print_mxmn('init_prog - T',jk,z_c(:,:,:),n_zlev,ppatch%nblks_c,'per',ipl_src)
     END DO
     IF (no_tracer > 1) THEN
-    z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,2)
-    DO jk=1, n_zlev
-      CALL print_mxmn('init_prog - S',jk,z_c(:,:,:),n_zlev,ppatch%nblks_c,'per',ipl_src)
-    END DO
+      z_c(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,2)
+      DO jk = 1, n_zlev
+        CALL print_mxmn('init_prog - S',jk,z_c(:,:,:),n_zlev,ppatch%nblks_c,'per',ipl_src)
+      END DO
     END IF
 
     CALL message( TRIM(routine),'Ocean prognostic initialization data read' )
