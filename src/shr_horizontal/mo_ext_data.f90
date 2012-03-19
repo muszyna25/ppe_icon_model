@@ -276,6 +276,10 @@ MODULE mo_ext_data
       & idx_lst_lp(:,:)       ! index1=1,nproma, index2=1,nblks_c
     INTEGER, POINTER ::  &    !< Land point count per block       [ ]
       & lp_count(:)           ! index1=1,nblks_c
+    INTEGER, POINTER ::  &    !< Sea point index list for each block        [ ]
+      & idx_lst_sp(:,:)       ! index1=1,nproma, index2=1,nblks_c
+    INTEGER, POINTER ::  &    !< Sea point count per block        [ ]
+      & sp_count(:)           ! index1=1,nblks_c
 
     INTEGER, POINTER ::  &    !< Grid point index list for each block and tile [ ]
       & idx_lst_t(:,:,:)      ! index1=1,nproma, index2=1,nblks_c, index3=nsfc_subs
@@ -563,14 +567,15 @@ CONTAINS
     TYPE(t_patch), INTENT(IN)            :: p_patch(:)
     TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
 
-    INTEGER :: i_lu, jb,jc, jg, n_lu,i_count
+    INTEGER :: i_lu, jb,jc, jg, n_lu, i_count, i_count_sea
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk    !> blocks
     INTEGER :: i_startidx, i_endidx    !< slices
     INTEGER :: i_nchdom                !< domain index
     LOGICAL  :: tile_mask(23) = .true. 
     REAL(wp) :: tile_frac(23), sum_frac, frac_thresh
-    INTEGER  :: lu_subs, it_count(nsfc_subs), npoints
+    INTEGER  :: lu_subs, it_count(nsfc_subs)
+    INTEGER  :: npoints, npoints_sea
 
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = 'mo_ext_data:init_index_lists'
@@ -599,8 +604,8 @@ CONTAINS
 
 
 !!$OMP PARALLEL
-!!OMP DO PRIVATE(jb,jc,i_lu,i_startidx,i_endidx,i_count,tile_frac,tile_mask,lu_subs,  &
-!!$OMP           sum_frac,it_count)
+!!OMP DO PRIVATE(jb,jc,i_lu,i_startidx,i_endidx,i_count,i_count_sea,tile_frac,&
+!!OMP            tile_mask,lu_subs,sum_frac,it_count)
          DO jb=i_startblk, i_endblk
 
            CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
@@ -608,6 +613,9 @@ CONTAINS
 
            i_count                       = 0   ! counter for land points
            ext_data(jg)%atm%lp_count(jb) = 0
+           i_count_sea                   = 0   ! counter for sea points
+           ext_data(jg)%atm%sp_count(jb) = 0
+
            it_count(:)                       = 0 ! counter for tiles
            ext_data(jg)%atm%gp_count_t(jb,:) = 0
 
@@ -713,6 +721,10 @@ CONTAINS
 
                  END DO
                END IF ! nfc_subs
+             ELSE  !IF (fr_land(jc,jb) <= frlnd_thrhld) THEN  searching for sea-points
+               i_count_sea=i_count_sea + 1
+               ext_data(jg)%atm%idx_lst_sp(i_count_sea,jb) = jc  ! write index of sea-points
+               ext_data(jg)%atm%sp_count(jb) = i_count_sea
              END IF
            END DO ! jc
 
@@ -724,6 +736,10 @@ CONTAINS
          npoints = SUM(ext_data(jg)%atm%lp_count(i_startblk:i_endblk))
          npoints = global_sum_array(npoints)
          WRITE(message_text,'(a,i3,a,i10)') 'Number of land points in domain',jg,':', npoints
+         CALL message('', TRIM(message_text))
+         npoints_sea = SUM(ext_data(jg)%atm%sp_count(i_startblk:i_endblk))
+         npoints_sea = global_sum_array(npoints_sea)
+         WRITE(message_text,'(a,i3,a,i10)') 'Number of sea points in domain',jg,':', npoints_sea
          CALL message('', TRIM(message_text))
 
          DO i_lu = 1, nsfc_subs
@@ -1254,26 +1270,35 @@ CONTAINS
       ! idx_lst_lp          p_ext_atm%idx_lst_lp(nproma,nblks_c)
       cf_desc    = t_cf_var('land point index list', '-', &
         &                   'land point index list')
-      grib2_desc = t_grib2_var( 2, 0, 31, ientr, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'idx_lst_lp', p_ext_atm%idx_lst_lp, &
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
+        &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
+
+      ! idx_lst_sp          p_ext_atm%idx_lst_sp(nproma,nblks_c)
+      cf_desc    = t_cf_var('sea point index list', '-', &
+        &                   'sea point index list')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'idx_lst_sp', p_ext_atm%idx_lst_sp, &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
         &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
 
       ! idx_lst_t        p_ext_atm%idx_lst_t(nproma,nblks_c,nsfc_subs)
       cf_desc    = t_cf_var('tile point index list', '-', &
         &                   'tile point index list')
-      grib2_desc = t_grib2_var( 2, 0, 31, ientr, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'idx_lst_t', p_ext_atm%idx_lst_t, &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
         &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
 
       ! not sure if these dimensions are supported by add_var...
       ALLOCATE(p_ext_atm%lp_count(nblks_c), p_ext_atm%gp_count_t(nblks_c,nsfc_subs))
+      ALLOCATE(p_ext_atm%sp_count(nblks_c))
 
       ! lc_class_t        p_ext_atm%lc_class_t(nproma,nblks_c,nsfc_subs)
       cf_desc    = t_cf_var('tile point land cover class list', '-', &
         &                   'tile point land cover class list')
-      grib2_desc = t_grib2_var( 2, 0, 31, ientr, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'lc_class_t', p_ext_atm%lc_class_t, &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
         &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
@@ -1281,7 +1306,7 @@ CONTAINS
       ! lc_frac_t        p_ext_atm%lc_frac_t(nproma,nblks_c,nsfc_subs)
       cf_desc    = t_cf_var('tile point land cover fraction list', '-', &
         &                   'tile point land cover fraction list')
-      grib2_desc = t_grib2_var( 2, 0, 31, ientr, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'lc_frac_t', p_ext_atm%lc_frac_t, &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
         &           grib2_desc, ldims=shape3d_nt, loutput=.FALSE. )
