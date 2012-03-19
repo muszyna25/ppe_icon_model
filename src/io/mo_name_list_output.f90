@@ -1179,14 +1179,14 @@ CONTAINS
 
       ALLOCATE(p_lonlat(ll_dim(1)))
       DO k = 1, ll_dim(1)
-        p_lonlat(k) = of%name_list%reg_lon_def(1) + REAL(k,wp)*of%name_list%reg_lon_def(2)
+        p_lonlat(k) = of%name_list%reg_lon_def(1) + REAL(k-1,wp)*of%name_list%reg_lon_def(2)
       ENDDO
       CALL gridDefXvals(of%cdiLonLatGridID, p_lonlat)
       DEALLOCATE(p_lonlat)
 
       ALLOCATE(p_lonlat(ll_dim(2)))
       DO k = 1, ll_dim(2)
-        p_lonlat(k) = of%name_list%reg_lat_def(1) + REAL(k,wp)*of%name_list%reg_lat_def(2)
+        p_lonlat(k) = of%name_list%reg_lat_def(1) + REAL(k-1,wp)*of%name_list%reg_lat_def(2)
       ENDDO
       CALL gridDefYvals(of%cdiLonLatGridID, p_lonlat)
       DEALLOCATE(p_lonlat)
