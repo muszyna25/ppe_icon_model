@@ -25,6 +25,10 @@
 # also in the executing section of the completed run script
 #
 #-----------------------------------------------------------------------------
+# model parameters
+ocean_model_equations=-1 # -1=hydrost. ocean
+#
+#-----------------------------------------------------------------------------
 # the namelist filename
 ocean_namelist=NAMELIST_${EXPNAME}
 #
@@ -34,19 +38,26 @@ R=2   # nroot
 B=4   # number of bisections applied
 #
 #-----------------------------------------------------------------------------
+# ocean initialization, forcing, and grid file location specifics:
+LOC='pool'   # all ocean files needed for running are found on pool
+LOC='grid'   # all ocean files needed for running are found on local 'grids' directory
+# specific path of input data is set by exec.iconrun
+#
+#-----------------------------------------------------------------------------
 # ocean initialization (init_oce=1) needs an additional file for prognostic variables
-init_oce=1     # 1: use ocean initialization file; 0: init with constants or analytically
-# prognostic ocean initialization file must be provided and named as
-# $HGRIDDIR/ts_phc_season-iconR${R}B0{B}-L11.nc
+init_oce=1     # 1: use ocean initialization file; 0: init analytically
+# prognostic ocean initialization file must match the vertical levels
+#   ts_phc_annual-iconR${R}B0{B}-L10x500m.nc      # 10 levels, 500m each
+#   ts_phc_annual-iconR${R}B0{B}-L10_50-1000m.nc  # 10 levels, 10-1000m varying thickness
 #
 #-----------------------------------------------------------------------------
-# relaxation initialization (init_relax=1) needs an additional file for temp/sal
+# surface relaxation initialization (init_relax=1) needs an additional file for temperature/salinity
 init_relax=1   # 1: use relaxation initialization file
-# relaxation initialization file must be provided and named as
-# $HGRIDDIR/ts_surf_annual-iconR${R}B0{B}-50m.nc
+# surface relaxation file must match the thickness of the surface level
+#   ts_surf_annual-iconR${R}B0{B}-50m.nc          # 50m thickness
 #
 #-----------------------------------------------------------------------------
-# ocean forcing = 12 needs an additional flux file 
+# ocean forcing (iforc=12) needs an additional flux file 
 # NO_FORCING                 = 10
 # ANALYT_FORC                = 11  - dependent on testcase
 # FORCING_FROM_FILE_FLUX     = 12  - OMIP or NCEP type forcing
@@ -54,17 +65,19 @@ init_relax=1   # 1: use relaxation initialization file
 # FORCING_FROM_COUPLED_FLUX  = 14  - coupled experiments
 # FORCING_FROM_COUPLED_FIELD = 15  - not yet
 iforc=12
-# type of OMIP forcing to read (iforc=12 only)
-#  1 = u/v-stress [and temperature relaxation], depending on "temperature_relaxation" below
-#  2 = use full OMIP datasets; 
+#
+# type of OMIP or NCEP forcing to read (iforc=12 only)
+#  1 = u/v-stress [and temperature relaxation, depending on "temperature_relaxation" below]
+#  2 = use all 12 datasets of full OMIP forcing
 #  3 = u/v-stress [and temperature relaxation], heat and mass flux
 #  4 = u/v-stress [and temperature relaxation], 4 parts of heat flux, precip/evap flux
 #  5 = use full NCEP datasets; read monthly mean data of consecutive years, set iforc_len=12 !
-iforc_omip=5
-iforc_len=12   # length of OMIP dataset: 1 = annual; 12 = monthly data; else = daily data
-# flux files must be provided at grid directory and named monmean/annual accordingly
-# $HGRIDDIR/omip4icon-R${R}B0{B}-monmean.nc
-# $HGRIDDIR/omip4icon-R${R}B0{B}-annual.nc
+iforc_type=5
+iforc_len=12   # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; else = daily data
+# surface flux file must match the length given by iforc_len
+#   omip4icon-R${R}B0{B}-monmean.nc  # 12 monthly mean datasets
+#   omip4icon-R${R}B0{B}-annual.nc   #  1 annual mean dataset
+#   ncep4icon-R${R}B0{B}.nc          # consecutive 12 monthly mean datasets (iforc_len=12)
 #
 #-----------------------------------------------------------------------------
 # global timing
@@ -73,8 +86,8 @@ start_date="2001-03-01T00:00:00Z"
 #-----------------------------------------------------------------------------
 # model timing
 dtime=1800           # ocean model timestep [s]
+nhours_data=6        # ocean model output interval hours [hours]
 ndays=370            # ocean model run in days
-dt_data=864000.      # ocean model output interval [s]
 ndays_file=1000      # new output file generation interval [days]
 ndays_checkp=90      # write restart file interval [days]
 ndays_restart=370    # stop model for restart [days]
@@ -82,66 +95,26 @@ ndays_restart=370    # stop model for restart [days]
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $ndays
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
-#nsteps=5 
-# diagnostic output (not in ocean model)
-#dt_diag=`expr 4 \* 3600 `    #  output each 4 hours
+nsteps=5 
+dt_data=`expr ${nhours_data} \* 3600`
 dt_file=`expr ${ndays_file} \* 86400`
 dt_checkpoint=`expr ${ndays_checkp} \* 86400`
 dt_restart=`expr ${ndays_restart} \* 86400`
 #
 #-----------------------------------------------------------------------------
-# model parameters
-ocean_model_equations=-1 # equation system
-#                      0=shallow water model
-#                     -1=hydrost. ocean
+# provide an ocean horizontal grid file
+# grid_ext="etopo40_flat"    # mapped from ETOPO-file with 2/3 deg resolution, flat bottom bathymetry
+  grid_ext="etopo40_planet"  # mapped from ETOPO-file with 2/3 deg resolution, variable bottom bathymetry
+# grid_ext="aqua_planet"     # global flat bottom bathymetry for aqua planet experiments
+# grid_ext="bas0-60N"        # pentagon ocean basin with flat bottom at 30N 0E location
 #
-#-----------------------------------------------------------------------------
-# the grid files
-# USE_BASIN="Y"      # "Y": ocean horizontal gridfile base is "bas0-60N"
-# USE_AQUAP="Y"      # "Y": ocean horizontal gridfile base is "aqua_planet"
-# USE_FLATB="Y"      # "Y": ocean horizontal gridfile base is "etopo40_flat"
-  USE_BATHY="Y"      # "Y": ocean horizontal gridfile base is "etopo40_planet"
-# USE_POOLD="Y"      # "Y": overwrite ocean gridfile from pool
-#-----------------------------------------------------------------------------
-if [ "x$USE_FLATB" = "xY"  ] ; then
-  grid_ext="etopo40_flat"
-  USE_POOLD="Y"
-elif [ "x$USE_BATHY" = "xY"  ] ; then
-  grid_ext="etopo40_planet"
-  USE_POOLD="Y"
-elif [ "x$USE_AQUAP" = "xY"  ] ; then
-  grid_ext="aqua_planet"
-elif [ "x$USE_BASIN" = "xY"  ] ; then
-# grid_ext="bas10-80N"
-  grid_ext="bas0-60N"
-else
-  echo " No ocean topography file chosen - exit now"
-  exit 1
-fi
 ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
-#-----------------------------------------------------------------------------
 # 
-#  USE_POOLD="Y"      # "Y": ocean gridfile is read from $POOLDIR/$OCEGRID
-if [ "x$USE_POOLD" = "xY" ] ; then
-   POOLDIR="/pool/data/ICON/grids"
-   if [ "x$USE_FLATB" = "xY" ] ; then
-   # OCEGRID="ocegridR${R}B0${B}.cde2.flat.nc"
-   # OCEGRID="ocegridR${R}B0${B}.cde3.1.flat.nc"
-     OCEGRID="ocegridR${R}B0${B}.cde3.3.flat.nc"
-   fi
-   if [ "x$USE_BATHY" = "xY" ] ; then
-   # OCEGRID="ocegridR${R}B0${B}.cde2.planet.nc"
-   # OCEGRID="ocegridR${R}B0${B}.cde3.1.planet.nc"
-     OCEGRID="ocegridR${R}B0${B}.cde3.3.planet.nc"
-   fi
-   # other ocean grid files can be added here
-fi
-#
 #-----------------------------------------------------------------------------
 #
 # write ICON namelist parameters
 # ------------------------------
-# For a complete list see Namelist_overview and Namelist_overview.pdf
+# For a complete list see Namelist_overview and Namelist_overview.pdf - in progress
 #
 cat > ${ocean_namelist} << EOF
 !
@@ -158,7 +131,6 @@ cat > ${ocean_namelist} << EOF
 &run_nml
  nsteps      = ${nsteps}    ! number of steps length of run
  dtime       = ${dtime}     ! [s] timestep in seconds
- msg_level   = 10           ! detailed report during integration
 /
 &dynamics_nml
  iequations  = ${ocean_model_equations}       ! -1: hydrost. ocean model
@@ -259,7 +231,7 @@ cat > ${ocean_namelist} << EOF
 /
 &ocean_forcing_and_init_nml
   iforc_oce          = ${iforc}  ! ocean forcing:
-  iforc_omip         = ${iforc_omip}  ! type of ocean forcing, see above
+  iforc_type         = ${iforc_type}  ! type of ocean forcing, see above
   iforc_len          = ${iforc_len}   ! length of ocean forcing data set, see above
   iforc_stat_oce     =    3      ! stationary (wind) forcing for iforc_oce=11 only:
                                  ! 1=locally varying u,v (testcase 27, 29)

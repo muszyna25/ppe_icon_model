@@ -41,9 +41,6 @@ fi
 #
 #-----------------------------------------------------------------------------
 #
-# Basic specifications of the simulation
-# --------------------------------------
-#
 # These variables are set in the header section of the completed run script:
 #
 # EXPNAME = experiment name
