@@ -311,9 +311,9 @@ SUBROUTINE velocity_diffusion_vert_mimetic( p_patch, p_diag, p_aux,h_c,p_param, 
   TYPE(t_ho_params), INTENT(in)     :: p_param
   REAL(wp)                          :: laplacian_vn_out(:,:,:)
 
-  INTEGER :: slev, elev     ! vertical start and end level
-  INTEGER :: jc, jk, jb, z_dolic
-  INTEGER :: i_startidx, i_endidx
+  INTEGER                       :: slev, elev     ! vertical start and end level
+  INTEGER                       :: jc, jk, jb, z_dolic
+  INTEGER                       :: i_startidx, i_endidx
   TYPE(t_cartesian_coordinates) :: z_u(nproma,n_zlev+1,p_patch%nblks_c)!,  &
   TYPE(t_subset_range), POINTER :: all_cells
   !  &                              z_adv_u_m(nproma,n_zlev,p_patch%nblks_c)
