@@ -1339,7 +1339,7 @@ CONTAINS
   !!  developed by Peter Korn, MPI-M (2010-11)
   !!  mpi parallelized LL
   SUBROUTINE map_edges2cell_with_height( p_patch, vn_e, p_vn_c, h_e, opt_slev, opt_elev, &
-    & opt_cells_range)
+    & subset_range)
     
     TYPE(t_patch), TARGET, INTENT(in)          :: p_patch        ! patch on which computation is performed
     REAL(wp), INTENT(in)                       :: vn_e(:,:,:)    ! input (nproma,n_zlev,nblks_e)
@@ -1349,7 +1349,7 @@ CONTAINS
     !TYPE(t_operator_coeff)                     :: p_op_coeff
     INTEGER, INTENT(in), OPTIONAL :: opt_slev       ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL :: opt_elev       ! optional vertical end level
-    TYPE(t_subset_range), TARGET,  OPTIONAL :: opt_cells_range
+    TYPE(t_subset_range), TARGET,  OPTIONAL :: subset_range
     
     !Local variables
     INTEGER, PARAMETER :: no_cell_edges = 3
@@ -1367,8 +1367,8 @@ CONTAINS
     !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     !  & routine = ('mo_scalar_product:primal_map_e2c')
     !-----------------------------------------------------------------------
-    IF ( PRESENT(opt_cells_range) ) THEN
-      all_cells => opt_cells_range
+    IF ( PRESENT(subset_range) ) THEN
+      all_cells => subset_range
     ELSE
       all_cells => p_patch%cells%all
     ENDIF
@@ -1480,7 +1480,7 @@ CONTAINS
   !!  developed by Peter Korn, MPI-M (2010-11)
   !!  mpi parallelized LL
   SUBROUTINE map_edges2cell_with_h_1vl( p_patch, vn_e, p_vn_c, h_e, level, &
-    & opt_cells_range)
+    & subset_range)
     
     TYPE(t_patch), TARGET, INTENT(in)          :: p_patch        ! patch on which computation is performed
     REAL(wp), INTENT(in)                       :: vn_e(:,:)    ! input (nproma,n_zlev,nblks_e)
@@ -1489,7 +1489,7 @@ CONTAINS
     REAL(wp), INTENT(in)                       :: h_e(:,:)       ! SW-case: h_e is thickness at edges
     !TYPE(t_operator_coeff)                     :: p_op_coeff
     INTEGER, INTENT(in)                        :: level       !  vertical level
-    TYPE(t_subset_range), TARGET,  OPTIONAL :: opt_cells_range
+    TYPE(t_subset_range), TARGET,  OPTIONAL :: subset_range
     
     !Local variables
     INTEGER, PARAMETER :: no_cell_edges = 3
@@ -1507,8 +1507,8 @@ CONTAINS
     !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     !  & routine = ('mo_scalar_product:primal_map_e2c')
     !-----------------------------------------------------------------------
-    IF ( PRESENT(opt_cells_range) ) THEN
-      all_cells => opt_cells_range
+    IF ( PRESENT(subset_range) ) THEN
+      all_cells => subset_range
     ELSE
       all_cells => p_patch%cells%all
     ENDIF
@@ -1595,7 +1595,7 @@ CONTAINS
   !!  developed by Peter Korn, MPI-M (2010-11)
   !!  mpi parallelized LL
   SUBROUTINE map_edges2cell_with_height_3d( p_patch, vn_e, p_op_coeff, p_vn_c, h_e,&
-    & opt_slev, opt_elev, opt_cells_range)
+    & opt_slev, opt_elev, subset_range)
     
     TYPE(t_patch), TARGET, INTENT(in)          :: p_patch        ! patch on which computation is performed
     REAL(wp), INTENT(in)                       :: vn_e(:,:,:)    ! input (nproma,n_zlev,nblks_e)
@@ -1605,7 +1605,7 @@ CONTAINS
     TYPE(t_operator_coeff)                     :: p_op_coeff
     INTEGER, INTENT(in), OPTIONAL :: opt_slev       ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL :: opt_elev       ! optional vertical end level
-    TYPE(t_subset_range), TARGET,  OPTIONAL :: opt_cells_range
+    TYPE(t_subset_range), TARGET,  OPTIONAL :: subset_range
     
     !Local variables
     INTEGER, PARAMETER :: no_cell_edges = 3
@@ -1623,8 +1623,8 @@ CONTAINS
     !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     !  & routine = ('mo_scalar_product:primal_map_e2c')
     !-----------------------------------------------------------------------
-    IF ( PRESENT(opt_cells_range) ) THEN
-      all_cells => opt_cells_range
+    IF ( PRESENT(subset_range) ) THEN
+      all_cells => subset_range
     ELSE
       all_cells => p_patch%cells%all
     ENDIF
@@ -1740,7 +1740,7 @@ CONTAINS
   !!  developed by Peter Korn, MPI-M (2010-11)
   !!  mpi parallelized LL
   SUBROUTINE map_edges2cell_without_height( p_patch, vn_e, p_vn_c,opt_slev, opt_elev, &
-    & opt_cells_range )
+    & subset_range )
     
     TYPE(t_patch), TARGET, INTENT(in)          :: p_patch        ! patch on which computation is performed
     REAL(wp)                                   :: vn_e(:,:,:)    ! input (nproma,n_zlev,nblks_e)
@@ -1748,7 +1748,7 @@ CONTAINS
     TYPE(t_cartesian_coordinates),INTENT(inout):: p_vn_c(:,:,:)  ! outputput (nproma,n_zlev,nblks_c)
     INTEGER, INTENT(in), OPTIONAL :: opt_slev       ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL :: opt_elev       ! optional vertical end level
-    TYPE(t_subset_range), TARGET,  OPTIONAL :: opt_cells_range
+    TYPE(t_subset_range), TARGET,  OPTIONAL :: subset_range
     !TYPE(t_operator_coeff)    :: p_op_coeff
     !Local variables
     INTEGER, PARAMETER :: no_cell_edges = 3
@@ -1765,8 +1765,8 @@ CONTAINS
     !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     !  & routine = ('mo_scalar_product:primal_map_e2c')
     !-----------------------------------------------------------------------
-    IF ( PRESENT(opt_cells_range) ) THEN
-      all_cells => opt_cells_range
+    IF ( PRESENT(subset_range) ) THEN
+      all_cells => subset_range
     ELSE
       all_cells => p_patch%cells%all
     ENDIF
@@ -1822,14 +1822,14 @@ CONTAINS
   !!  developed by Peter Korn, MPI-M (2010-11)
   !!  mpi parallelized LL
   SUBROUTINE map_edges2cell_without_h_1vl( p_patch, vn_e, p_vn_c, level, &
-    & opt_cells_range )
+    & subset_range )
     
     TYPE(t_patch), TARGET, INTENT(in)          :: p_patch        ! patch on which computation is performed
     REAL(wp)                                   :: vn_e(:,:)    ! input (nproma,n_zlev,nblks_e)
     ! 3D case: h_e is surface elevation at edges
     TYPE(t_cartesian_coordinates),INTENT(inout):: p_vn_c(:,:)  ! outputput (nproma,n_zlev,nblks_c)
     INTEGER, INTENT(in)            :: level          ! vertical level
-    TYPE(t_subset_range), TARGET,  OPTIONAL :: opt_cells_range
+    TYPE(t_subset_range), TARGET,  OPTIONAL :: subset_range
     !TYPE(t_operator_coeff)    :: p_op_coeff
     !Local variables
     INTEGER, PARAMETER :: no_cell_edges = 3
@@ -1846,8 +1846,8 @@ CONTAINS
     !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     !  & routine = ('mo_scalar_product:primal_map_e2c')
     !-----------------------------------------------------------------------
-    IF ( PRESENT(opt_cells_range) ) THEN
-      all_cells => opt_cells_range
+    IF ( PRESENT(subset_range) ) THEN
+      all_cells => subset_range
     ELSE
       all_cells => p_patch%cells%all
     ENDIF
@@ -1891,7 +1891,7 @@ CONTAINS
   !!  developed by Peter Korn, MPI-M (2010-11)
   !!  mpi parallelized LL
   SUBROUTINE map_edges2cell_no_height_3d( p_patch, vn_e,p_op_coeff, p_vn_c,opt_slev, opt_elev, &
-    &  opt_cells_range)
+    &  subset_range)
     
     TYPE(t_patch), TARGET, INTENT(in)          :: p_patch        ! patch on which computation is performed
     REAL(wp), INTENT(in)                       :: vn_e(:,:,:)    ! input (nproma,n_zlev,nblks_e)
@@ -1899,7 +1899,7 @@ CONTAINS
     TYPE(t_cartesian_coordinates),INTENT(out)  :: p_vn_c(:,:,:)  ! outputput (nproma,n_zlev,nblks_c)
     INTEGER, INTENT(in), OPTIONAL :: opt_slev       ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL :: opt_elev       ! optional vertical end level
-    TYPE(t_subset_range), TARGET,  OPTIONAL :: opt_cells_range
+    TYPE(t_subset_range), TARGET,  OPTIONAL :: subset_range
     !Local variables
     INTEGER, PARAMETER :: no_cell_edges = 3
     INTEGER :: slev, elev
@@ -1912,8 +1912,8 @@ CONTAINS
     !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     !  & routine = ('mo_scalar_product:primal_map_e2c')
     !-----------------------------------------------------------------------
-    IF ( PRESENT(opt_cells_range) ) THEN
-      all_cells => opt_cells_range
+    IF ( PRESENT(subset_range) ) THEN
+      all_cells => subset_range
     ELSE
       all_cells => p_patch%cells%all
     ENDIF
@@ -1968,14 +1968,14 @@ CONTAINS
   !!  developed by Peter Korn, MPI-M (2010-11)
   !!  mpi parallelized LL
   SUBROUTINE map_edges2cell_no_h_3d_1vl( p_patch, vn_e,p_op_coeff, p_vn_c, level, &
-    &  opt_cells_range)
+    &  subset_range)
     
     TYPE(t_patch), TARGET, INTENT(in)          :: p_patch        ! patch on which computation is performed
     REAL(wp), INTENT(in)                       :: vn_e(:,:)    ! input (nproma,n_zlev,nblks_e)
     TYPE(t_operator_coeff), INTENT(in)         :: p_op_coeff
     TYPE(t_cartesian_coordinates),INTENT(out)  :: p_vn_c(:,:)  ! outputput (nproma,n_zlev,nblks_c)
     INTEGER, INTENT(in)           :: level       ! vertical level
-    TYPE(t_subset_range), TARGET,  OPTIONAL :: opt_cells_range
+    TYPE(t_subset_range), TARGET,  OPTIONAL :: subset_range
     !Local variables
     INTEGER, PARAMETER :: no_cell_edges = 3
     INTEGER :: i_startidx_c, i_endidx_c
@@ -1987,8 +1987,8 @@ CONTAINS
     !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     !  & routine = ('mo_scalar_product:primal_map_e2c')
     !-----------------------------------------------------------------------
-    IF ( PRESENT(opt_cells_range) ) THEN
-      all_cells => opt_cells_range
+    IF ( PRESENT(subset_range) ) THEN
+      all_cells => subset_range
     ELSE
       all_cells => p_patch%cells%all
     ENDIF

@@ -229,7 +229,7 @@ CONTAINS
   !!
   !!  mpi parallelized LL (no sync required)
   SUBROUTINE div_oce_3d_mlevels( vec_e, ptr_patch, div_coeff, div_vec_c ,opt_slev,opt_elev, &
-    & opt_cells_range)
+    & subset_range)
     !
     !
     !  patch on which computation is performed
@@ -244,7 +244,7 @@ CONTAINS
     REAL(wp), INTENT(inout)       :: div_vec_c(:,:,:) ! dim: (nproma,n_zlev,nblks_c)
     INTEGER, INTENT(in), OPTIONAL :: opt_slev       ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL :: opt_elev       ! optional vertical end level
-    TYPE(t_subset_range), TARGET, INTENT(in), OPTIONAL :: opt_cells_range
+    TYPE(t_subset_range), TARGET, INTENT(in), OPTIONAL :: subset_range
     
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: jc, jk, jb
@@ -253,8 +253,8 @@ CONTAINS
     INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
     TYPE(t_subset_range), POINTER :: all_cells
     !-----------------------------------------------------------------------
-    IF (PRESENT(opt_cells_range)) THEN
-      all_cells => opt_cells_range
+    IF (PRESENT(subset_range)) THEN
+      all_cells => subset_range
     ELSE
       all_cells => ptr_patch%cells%all
     ENDIF
@@ -350,7 +350,7 @@ CONTAINS
   !!
   !!  mpi parallelized LL (no sync required)
   SUBROUTINE div_oce_3d_1level( vec_e, ptr_patch, div_coeff, div_vec_c,  &
-    & level, opt_cells_range)
+    & level, subset_range)
     !
     !
     !  patch on which computation is performed
@@ -364,7 +364,7 @@ CONTAINS
     REAL(wp), INTENT(in)          :: div_coeff(:,:,:,:)
     REAL(wp), INTENT(inout)       :: div_vec_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
     INTEGER,  INTENT(in)          :: level
-    TYPE(t_subset_range), TARGET, INTENT(in), OPTIONAL :: opt_cells_range
+    TYPE(t_subset_range), TARGET, INTENT(in), OPTIONAL :: subset_range
     
     INTEGER :: jc, jb
     INTEGER :: i_startidx, i_endidx
@@ -372,8 +372,8 @@ CONTAINS
     INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
     TYPE(t_subset_range), POINTER :: all_cells
     !-----------------------------------------------------------------------
-    IF (PRESENT(opt_cells_range)) THEN
-      all_cells => opt_cells_range
+    IF (PRESENT(subset_range)) THEN
+      all_cells => subset_range
     ELSE
       all_cells => ptr_patch%cells%all
     ENDIF
@@ -939,7 +939,7 @@ CONTAINS
   !!    in case of an optional range sync has to be taken care in the calling method
   !!
   SUBROUTINE div_oce( vec_e, ptr_patch, div_vec_c, &
-    & opt_slev, opt_elev, opt_cells_range )
+    & opt_slev, opt_elev, subset_range )
     !
     !
     !  patch on which computation is performed
@@ -957,7 +957,7 @@ CONTAINS
     
     INTEGER, INTENT(in), OPTIONAL ::  &
       & opt_elev    ! optional vertical end level
-    TYPE(t_subset_range), TARGET, OPTIONAL :: opt_cells_range
+    TYPE(t_subset_range), TARGET, OPTIONAL :: subset_range
         
     !
     ! cell based variable in which divergence is stored
@@ -972,7 +972,7 @@ CONTAINS
     INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
     !-----------------------------------------------------------------------
     IF ( PRESENT(opt_slev) ) THEN
-      all_cells => opt_cells_range
+      all_cells => subset_range
     ELSE
       all_cells => ptr_patch%cells%all
     ENDIF

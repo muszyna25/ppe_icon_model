@@ -525,7 +525,8 @@ END SUBROUTINE velocity_diffusion_vert_rbf
 
 !------------------------------------------------------------------------
 ! mpi parallelized, sync required
-SUBROUTINE tracer_diffusion_horz(p_patch, trac_in, p_os, K_T, diff_flx)
+SUBROUTINE tracer_diffusion_horz(p_patch, trac_in, p_os, K_T, diff_flx, subset_range)
+
   !
   !Subroutine computes the horizontal diffusive flux of an arbitrary tracer.
   !
@@ -535,6 +536,7 @@ SUBROUTINE tracer_diffusion_horz(p_patch, trac_in, p_os, K_T, diff_flx)
   TYPE(t_hydro_ocean_state), TARGET :: p_os
   REAL(wp), INTENT(in)              :: K_T(:,:,:) !mixing coefficient for tracer
   REAL(wp), INTENT(inout)           :: diff_flx(nproma,n_zlev,p_patch%nblks_e)
+  TYPE(t_subset_range), TARGET, INTENT(in), OPTIONAL :: subset_range
   !
   !
   !Local variables
@@ -604,8 +606,14 @@ SUBROUTINE tracer_diffusion_horz(p_patch, trac_in, p_os, K_T, diff_flx)
       END DO
     END DO
   ENDIF
+  
   ! Apply divergence to mixing times gradient to get laplacian
   !CALL div_oce( diff_flx, p_patch, laplacian_trac_out)
+  IF (PRESENT(subset_range)) THEN
+    IF (.NOT. subset_range%is_in_domain) &
+     & CALL sync_patch_array(SYNC_E, p_patch, diff_flx)
+  ENDIF
+      
 
 END SUBROUTINE tracer_diffusion_horz
 !-------------------------------------------------------------------------  

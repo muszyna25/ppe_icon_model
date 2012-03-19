@@ -953,9 +953,9 @@ FUNCTION convert_insitu2pot_temp_func(t, s, p) RESULT(temp_pot)
     REAL(wp), INTENT(in) :: t, s, p
     REAL(wp)             :: temp_pot
 
-    REAL(wp) :: z_s_ref= s_ref
+    REAL(wp) :: z_s_ref
   !!---------------------------------------------------------------------------
-
+    z_s_ref= s_ref
     temp_pot=t-p*(a_a1+ a_a2*t-a_a3*t*t+a_a4*t*t*t) &
            &-p*(s-z_s_ref)*(a_b1 -a_b2*t)           &
            &-p*p*(a_c1 -a_c2*t + a_c3*t*t)          &

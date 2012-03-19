@@ -155,7 +155,7 @@ REAL(wp) :: z_div_adv_h(nproma,n_zlev,p_patch%nblks_c)   ! horizontal tracer div
 REAL(wp) :: z_div_diff_h(nproma,n_zlev,p_patch%nblks_c)  ! horizontal tracer divergence
 REAL(wp) :: z_diff_flux_h(nproma,n_zlev,p_patch%nblks_e) ! horizontal diffusive tracer flux
 !REAL(wp) :: z_transport_vn(nproma,n_zlev,p_patch%nblks_e)! horizontal transport velocity
-    TYPE(t_subset_range), POINTER :: all_edges, edges_in_domain, cells_in_domain
+    TYPE(t_subset_range), POINTER :: edges_in_domain, cells_in_domain
 
 !REAL(wp) :: z_mass_flux_h(nproma,n_zlev, p_patch%nblks_e)
 !REAL(wp) :: z_trac_c(nproma,n_zlev, p_patch%nblks_c)
@@ -177,7 +177,6 @@ REAL(wp) :: z_diff_flux_h(nproma,n_zlev,p_patch%nblks_e) ! horizontal diffusive 
 !-------------------------------------------------------------------------------
 !z_tol= 1.0E-13
 !trac_old=10.0_wp
-    all_edges => p_patch%edges%all
     edges_in_domain => p_patch%edges%in_domain
     cells_in_domain => p_patch%cells%in_domain
 
@@ -340,7 +339,7 @@ z_diff_flux_h = 0.0_wp
 
   !CALL div_oce( z_adv_flux_h, p_patch, z_div_adv_h)
   CALL div_oce_3D( z_adv_flux_h, p_patch,p_op_coeff%div_coeff, z_div_adv_h,&
-    & opt_cells_range=cells_in_domain)
+    & subset_range=cells_in_domain)
   
 ! DO jb = i_startblk_c, i_endblk_c
 !     CALL get_indices_c( p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
@@ -362,7 +361,8 @@ z_diff_flux_h = 0.0_wp
    &                          trac_old,&
    &                          p_os,    &
    &                          K_h,     & 
-   &                          z_diff_flux_h)
+   &                          z_diff_flux_h,&
+   &                          subset_range = edges_in_domain)
   IF (ltimer) CALL timer_stop(timer_dif_horz)
 
   ! LL: the z_diff_flux_h should not be synced in tracer_diffusion_horz
@@ -370,7 +370,7 @@ z_diff_flux_h = 0.0_wp
   !Calculate divergence of diffusive flux
 !   CALL div_oce( z_diff_flux_h, p_patch, z_div_diff_h)
   CALL div_oce_3D( z_diff_flux_h, p_patch,p_op_coeff%div_coeff, z_div_diff_h, &
-    & opt_cells_range=cells_in_domain)
+    & subset_range=cells_in_domain)
 
 !IF(ldbg)THEN
 !   DO jk = 1, n_zlev

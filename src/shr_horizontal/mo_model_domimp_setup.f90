@@ -704,12 +704,24 @@ CONTAINS
     ! fill cell subsets
     !    fill_subset(range subset,  halo levels, start level, end level)
     CALL fill_subset(p_patch%cells%all,        p_patch%cells%halo_level, 0, halo_levels_ceiling)
+    p_patch%cells%all%is_in_domain   = .false.
+    
     CALL fill_subset(p_patch%cells%owned,      p_patch%cells%halo_level, 0, 0)
+    p_patch%cells%owned%is_in_domain = .true.
+    
     CALL fill_subset(p_patch%cells%in_domain,  p_patch%cells%halo_level, 0, 0)
+    p_patch%cells%in_domain%is_in_domain = .true.
+    
     CALL fill_subset(p_patch%cells%not_owned,  p_patch%cells%halo_level, 1, halo_levels_ceiling)
+    p_patch%cells%not_owned%is_in_domain = .false.
+    
     CALL fill_subset(p_patch%cells%not_in_domain,  &
       & p_patch%cells%halo_level, 2, halo_levels_ceiling)
+    p_patch%cells%not_in_domain%is_in_domain = .false.
+    
     CALL fill_subset(p_patch%cells%one_edge_in_domain,  p_patch%cells%halo_level, 1, 1)
+    p_patch%cells%one_edge_in_domain%is_in_domain = .false.
+    
     IF (p_patch%cells%in_domain%no_of_holes > 0) &
       CALL warning("p_patch%cells%in_domain", "no_of_holes > 0")
     IF (p_patch%cells%one_edge_in_domain%no_of_holes > 0) &
@@ -718,20 +730,40 @@ CONTAINS
     ! fill edge subsets
     !    fill_subset(range subset,  halo levels, start level, end level)
     CALL fill_subset(p_patch%edges%all,        p_patch%edges%halo_level, 0, halo_levels_ceiling)
+    p_patch%edges%all%is_in_domain   = .false.
+    
     CALL fill_subset(p_patch%edges%owned,      p_patch%edges%halo_level, 0, 0)
+    p_patch%edges%owned%is_in_domain = .true.
+    
     CALL fill_subset(p_patch%edges%in_domain,  p_patch%edges%halo_level, 0, 1)
+    p_patch%edges%in_domain%is_in_domain   = .true.
+    
     CALL fill_subset(p_patch%edges%not_owned,  p_patch%edges%halo_level, 1, halo_levels_ceiling)
+    p_patch%edges%not_owned%is_in_domain   = .false.
+    
     CALL fill_subset(p_patch%edges%not_in_domain, &
       & p_patch%edges%halo_level, 2, halo_levels_ceiling)
+    p_patch%edges%not_in_domain%is_in_domain   = .false.
     
     ! fill vertex subsets
     !    fill_subset(range subset,  halo levels, start level, end level)
     CALL fill_subset(p_patch%verts%all,        p_patch%verts%halo_level, 0, halo_levels_ceiling)
+    p_patch%verts%all%is_in_domain   = .false.
+    
     CALL fill_subset(p_patch%verts%owned,      p_patch%verts%halo_level, 0, 0)
+    p_patch%verts%owned%is_in_domain   = .true.
+    
     CALL fill_subset(p_patch%verts%in_domain,  p_patch%verts%halo_level, 0, 1)
+    p_patch%verts%in_domain%is_in_domain   = .true.
+    
     CALL fill_subset(p_patch%verts%not_owned,  p_patch%verts%halo_level, 1, halo_levels_ceiling)
+    p_patch%verts%not_owned%is_in_domain   = .false.
+    
     CALL fill_subset(p_patch%verts%not_in_domain, &
       & p_patch%verts%halo_level, 2, halo_levels_ceiling)
+    p_patch%verts%not_in_domain%is_in_domain   = .false.
+    
+    
       
     ! write some info:
     !     IF (get_my_mpi_work_id() == 1) CALL work_mpi_barrier()

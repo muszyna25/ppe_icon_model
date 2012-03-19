@@ -1106,7 +1106,7 @@ ENDIF
 
 
 CALL div_oce_3D( z_e, p_patch,p_op_coeff%div_coeff, div_z_c,&
-               & level=1, opt_cells_range=cells_in_domain )
+               & level=1, subset_range=cells_in_domain )
 
 !  CALL global_mpi_barrier()
 !  write(0,*) "sync_patch_array(SYNC_C, p_patch, div_z_c..."
@@ -1319,7 +1319,7 @@ END DO
 !Step 3) Calculate divergence
 !CALL div_oce( z_e, p_patch, div_z_c, top,top )
 CALL div_oce_3D( z_e, p_patch, p_op_coeff%div_coeff, div_z_c, &
-  & level=top, opt_cells_range=cells_in_domain  )
+  & level=top, subset_range=cells_in_domain  )
 !write(*,*)'div', div_z_c(:,1,:)
 
 !Step 4) Finalize LHS calculations
@@ -1619,7 +1619,7 @@ CHARACTER(len=*), PARAMETER :: &
 
  CALL map_edges2cell_3D( p_patch, p_diag%vn_time_weighted,p_op_coeff, z_vn_c)
  CALL map_cell2edges( p_patch, z_vn_c, z_vn)
- CALL div_oce_3D(z_vn, p_patch,p_op_coeff%div_coeff, z_div_c, opt_cells_range=cells_in_domain)
+ CALL div_oce_3D(z_vn, p_patch,p_op_coeff%div_coeff, z_div_c, subset_range=cells_in_domain)
 
 
 

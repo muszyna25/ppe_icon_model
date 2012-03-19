@@ -55,6 +55,7 @@ MODULE mo_util_subset
     INTEGER :: block_size
 
     INTEGER :: no_of_holes ! the number of holes in the subset
+    LOGICAL :: is_in_domain
     
   END TYPE
   !----------------------------------------------------
