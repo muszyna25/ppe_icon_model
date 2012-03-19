@@ -66,6 +66,7 @@ USE mo_loopindices,         ONLY: get_indices_c
 USE mo_math_utilities,      ONLY: t_cartesian_coordinates, gvec2cvec, cvec2gvec
 !USE mo_param_ice !,           ONLY: kice
 USE mo_sea_ice,             ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
+USE mo_util_subset,         ONLY: t_subset_range, get_index_range
 IMPLICIT NONE
 
 PRIVATE
@@ -91,35 +92,29 @@ CONTAINS
   !
   SUBROUTINE init_sfcflx(ppatch, p_sfc_flx)
   !
-  TYPE(t_patch), INTENT(in) :: ppatch
-  TYPE(t_sfc_flx)           :: p_sfc_flx
+  TYPE(t_patch), TARGET, INTENT(in) :: ppatch
+  TYPE(t_sfc_flx)                   :: p_sfc_flx
 
   ! Local variables
-  INTEGER :: nblks_c, jc, jb
-  INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
-  INTEGER :: rl_start_c, rl_end_c
+  INTEGER :: jc, jb
+  INTEGER :: i_startidx_c, i_endidx_c
 
   REAL(wp) :: z_lat, z_lon, y_length, y_center
   REAL(wp) :: z_forc_period = 1.0_wp !=1.0: single gyre
                                      !=2.0: double gyre
-                                     !=n.0: n-gyre 
+                                     !=n.0: n-gyre
   REAL(wp) :: z_c(nproma,1,ppatch%nblks_c)
 
   CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_forcing:init_ho_sfcflx'
 
   !-------------------------------------------------------------------------
+  TYPE(t_subset_range), POINTER :: all_cells
+  !-------------------------------------------------------------------------
   CALL message(TRIM(routine), 'start' )
 
-  rl_start_c = 1
-  rl_end_c = min_rlcell
-
-  i_startblk_c = ppatch%cells%start_blk(rl_start_c,1)
-  i_endblk_c   = ppatch%cells%end_blk(rl_end_c,1)
-
-  nblks_c = ppatch%nblks_c
+  all_cells => ppatch%cells%all
 
   ! analytical forcing
-
   IF (iforc_oce == ANALYT_FORC) THEN
 
     IF (itestcase_oce == 27 .OR. itestcase_oce == 29) iforc_stat_oce = 1
@@ -127,17 +122,14 @@ CONTAINS
     SELECT CASE (iforc_stat_oce)
 
     CASE (0)
-
       CALL message(TRIM(routine), &
         &  'iforc_stat_oce=0: no stationary wind forcing applied' )
 
     CASE (1)
-
       CALL message(TRIM(routine), 'Testcase (27,29): Apply stationary wind forcing' )
       y_length = basin_height_deg * deg2rad
-      DO jb = i_startblk_c, i_endblk_c    
-        CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
-         &                i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
 
         DO jc = i_startidx_c, i_endidx_c
 
@@ -167,15 +159,13 @@ CONTAINS
       END DO
 
     CASE (2)
-
       CALL message(TRIM(routine), &
         &  'iforc_stat_oce=2: stationary wind forcing - u=cos(n*(lat-lat_0)/lat_0)')
 
       ! Latitudes vary from -pi/2 to pi/2
       y_length = basin_height_deg * deg2rad
-      DO jb = i_startblk_c, i_endblk_c
-        CALL get_indices_c( ppatch, jb, i_startblk_c, i_endblk_c, &
-        &                                i_startidx_c, i_endidx_c,rl_start_c,rl_end_c)
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
           z_lat = ppatch%cells%center(jc,jb)%lat
           z_lon = ppatch%cells%center(jc,jb)%lon
@@ -205,7 +195,6 @@ CONTAINS
       END DO
 
     CASE (3)
-
       CALL message(TRIM(routine), &
         &  'iforc_stat_oce=3: stationary wind forcing - u=cos(n*lat/lat_0)')
 
@@ -215,9 +204,8 @@ CONTAINS
       y_length = 180.0_wp * deg2rad
       y_center = -60.0_wp * deg2rad
       z_forc_period = 3.0_wp
-      DO jb = i_startblk_c, i_endblk_c
-        CALL get_indices_c( ppatch, jb, i_startblk_c, i_endblk_c, &
-          &                             i_startidx_c, i_endidx_c,rl_start_c,rl_end_c)
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
           z_lat = ppatch%cells%center(jc,jb)%lat
           z_lon = ppatch%cells%center(jc,jb)%lon
