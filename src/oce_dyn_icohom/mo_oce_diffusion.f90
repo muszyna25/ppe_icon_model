@@ -421,8 +421,9 @@ SUBROUTINE velocity_diffusion_vert_rbf( p_patch, u_c, v_c, h_c, top_bc_u_c, top_
 
   INTEGER :: slev, elev     ! vertical start and end level
   INTEGER :: jc, jk, jb
-  INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+  INTEGER :: i_startblk, i_endblk, i_startidx_c, i_endidx_c
   TYPE(t_cartesian_coordinates) :: zu_cc(nproma,n_zlev,p_patch%nblks_c)
+  TYPE(t_subset_range), POINTER :: all_cells
   REAL(wp) :: z_u(nproma,n_zlev+1,p_patch%nblks_c),  &
     &         z_v(nproma,n_zlev+1,p_patch%nblks_c)
   ! CHARACTER(len=max_char_length), PARAMETER :: &
@@ -435,15 +436,14 @@ SUBROUTINE velocity_diffusion_vert_rbf( p_patch, u_c, v_c, h_c, top_bc_u_c, top_
 
   slev       = 1
   elev       = n_zlev
-  i_startblk = p_patch%cells%start_blk(1,1)
-  i_endblk   = p_patch%cells%end_blk(min_rlcell,1)
+
+  all_cells => p_patch%cells%all
+
   !1 Vertical derivative of cell velocity vector times horizontal velocity
   DO jk = slev, elev
-
-    DO jb = i_startblk, i_endblk
-      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                         i_startidx, i_endidx, 1,min_rlcell)
-      DO jc = i_startidx, i_endidx
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+      DO jc = i_startidx_c, i_endidx_c
       IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
         !1a) 0cean surface
         !check if we have at least two layers of water
