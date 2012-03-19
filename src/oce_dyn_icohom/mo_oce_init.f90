@@ -310,9 +310,8 @@ CONTAINS
   !
   SUBROUTINE init_ho_relaxation(ppatch, p_os, p_sfc_flx)
 
-  TYPE(t_patch), INTENT(IN)         :: ppatch
+  TYPE(t_patch),TARGET, INTENT(IN)  :: ppatch
   TYPE(t_hydro_ocean_state), TARGET :: p_os
-  !TYPE(t_external_data)             :: p_ext_data 
   TYPE(t_sfc_flx)                   :: p_sfc_flx
 
   ! Local Variables
@@ -331,38 +330,38 @@ CONTAINS
   !-------------------------------------------------------------------------
 
     CALL message (TRIM(routine), 'start')
-   
+
     i_lev        = ppatch%level
-   
+
     IF (init_oce_relax == 1 ) THEN
-   
+
       IF (my_process_is_stdio()) THEN
         !
         ! Relaxation variables are read from relax_init_file
         WRITE (relax_init_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-relax.nc'
-   
+
         INQUIRE (FILE=relax_init_file, EXIST=l_exist)
         IF (.NOT.l_exist) THEN
           WRITE(message_text,'(3a)') 'netcdf file named ', TRIM(relax_init_file),' not found!'
           CALL message(TRIM(routine),TRIM(message_text))
           CALL finish(TRIM(routine),'netcdf file for reading T/S relax. input not found - ABORT')
         ENDIF
-   
+
         WRITE(message_text,'(3a)') 'netcdf file named ', TRIM(relax_init_file), &
           &   ' opened for reading'
         CALL message(TRIM(routine),TRIM(message_text))
-   
+
         !
         ! open file
         !
         CALL nf(nf_open(TRIM(relax_init_file), NF_NOWRITE, ncid))
-   
+
         !
         ! get number of cells
         !
         CALL nf(nf_inq_dimid(ncid, 'ncells', dimid))
         CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
-   
+
         !
         ! check the number of cells
         !
@@ -377,7 +376,7 @@ CONTAINS
         !
         CALL nf(nf_inq_dimid(ncid, 'level', dimid))
         CALL nf(nf_inq_dimlen(ncid, dimid, no_levels))
-   
+
         !
         ! check the number of cells
         !
@@ -386,30 +385,30 @@ CONTAINS
         IF (no_levels /= 1) THEN
           CALL finish(TRIM(ROUTINE),'Number of vertical levels is not equal 1 - ABORT')
         ENDIF
-   
+
       ENDIF  !  stdio
-   
-   
+
+
       !-------------------------------------------------------
       !
       ! Read ocean relaxation data at cells
       !
       !-------------------------------------------------------
-   
+
       ! triangle center and edges
-   
+
       ! read temperature
       !  - read one data set, annual mean only
       !  - "T": annual mean temperature
       CALL read_netcdf_data (ncid, 'T', ppatch%n_patch_cells_g, ppatch%n_patch_cells, &
         &                    ppatch%cells%glb_index, z_relax)
-   
+
       IF (no_tracer>=1) THEN
         p_sfc_flx%forc_tracer_relax(:,:,1) = z_relax(:,:)
       ELSE
         CALL message( TRIM(routine),'WARNING: no tracer used, but init relaxation attempted')
       END IF
-   
+
       ! read salinity
       !  - "S": annual mean salinity
       IF (no_tracer > 1) THEN
@@ -417,16 +416,16 @@ CONTAINS
           &                    ppatch%cells%glb_index, z_relax)
         p_sfc_flx%forc_tracer_relax(:,:,2) = z_relax(:,:)
       END IF
-   
+
       ! close file
       IF(my_process_is_stdio()) CALL nf(nf_close(ncid))
-   
+
       rl_start     = 1
       rl_end_c     = min_rlcell
       i_startblk_c = ppatch%cells%start_blk(rl_start,1)
       i_endblk_c   = ppatch%cells%end_blk(rl_end_c,1)
-   
-      DO jb = i_startblk_c, i_endblk_c    
+
+      DO jb = i_startblk_c, i_endblk_c
         CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c,&
                   & i_startidx_c, i_endidx_c, rl_start, rl_end_c)
         DO jc = i_startidx_c, i_endidx_c
@@ -438,10 +437,10 @@ CONTAINS
       END DO
 
       CALL message( TRIM(routine),'Ocean T/S relaxation reading finished' )
-   
+
     END IF  !  init_oce_relax=1, read T/S relaxation
 
-   
+
     !-------------------------------------------------------
     !
     ! use initialized temperature/salinity, assigned to tracer, for 2-dim/3-dim relaxation
@@ -453,7 +452,7 @@ CONTAINS
     IF (temperature_relaxation == 3) THEN
       p_sfc_flx%forc_tracer_relax(:,:,1) = p_os%p_prog(nold(1))%tracer(:,1,:,1)
     END IF
-    
+
     IF (irelax_2d_S == 3) THEN
       IF (no_tracer > 1) THEN
         p_sfc_flx%forc_tracer_relax(:,:,2) = p_os%p_prog(nold(1))%tracer(:,1,:,2)
@@ -461,7 +460,7 @@ CONTAINS
         CALL finish(TRIM(ROUTINE),' irelax_2d_S=3 and no_tracer<2 - ABORT')
       END IF
     END IF
-    
+
     IF (irelax_3d_T == 3) THEN
       p_os%p_aux%relax_3d_data_T(:,:,:) = p_os%p_prog(nold(1))%tracer(:,:,:,1)
     END IF
@@ -472,7 +471,7 @@ CONTAINS
         CALL finish(TRIM(ROUTINE),' irelax_3d_S=3 and no_tracer<2 - ABORT')
       END IF
     END IF
-   
+
     !
     !  Diagnose relaxation
     IF (temperature_relaxation > 0) THEN
@@ -484,7 +483,7 @@ CONTAINS
         CALL print_mxmn('init-relax - S',1,z_c(:,1,:),1,ppatch%nblks_c,'per',ipl_src)
       END IF
     END IF
-   
+
     CALL message( TRIM(routine),'end' )
 
 
@@ -511,7 +510,7 @@ CONTAINS
   SUBROUTINE init_ho_recon_fields( p_patch, p_os, p_op_coeff)
     TYPE(t_patch), TARGET, INTENT(in)             :: p_patch
     TYPE(t_hydro_ocean_state), TARGET             :: p_os
-    TYPE(t_operator_coeff)                        :: p_op_coeff 
+    TYPE(t_operator_coeff)                        :: p_op_coeff
 
     INTEGER :: jk
 
@@ -568,7 +567,7 @@ CONTAINS
 !rr
 !rr  !-------------------------------------------------------------------------
 !rr
-!rr  IF ( is_coupled_run() ) THEN 
+!rr  IF ( is_coupled_run() ) THEN
 !rr
 !rr     nbr_hor_points = ppatch%n_patch_cells
 !rr     nbr_points     = nproma * ppatch%nblks_c
@@ -591,7 +590,7 @@ CONTAINS
 !rr     CALL ICON_cpl_get_field_ids ( nbr_fields, field_id )
 !rr     !
 !rr     field_shape(1) = 1
-!rr     field_shape(2) = ppatch%n_patch_cells 
+!rr     field_shape(2) = ppatch%n_patch_cells
 !rr     field_shape(3) = 1
 !rr
 !rr     !
@@ -634,7 +633,7 @@ CONTAINS
   SUBROUTINE init_ho_testcases(ppatch, p_os, p_ext_data, p_sfc_flx)
   TYPE(t_patch)                     :: ppatch
   TYPE(t_hydro_ocean_state), TARGET :: p_os
-  TYPE(t_external_data)             :: p_ext_data 
+  TYPE(t_external_data)             :: p_ext_data
   TYPE(t_sfc_flx)                   :: p_sfc_flx
   ! Local Variables
   INTEGER :: jb, jc, je, jk
@@ -643,7 +642,7 @@ CONTAINS
   INTEGER :: rl_start, rl_end_e,rl_end_c
   INTEGER :: z_dolic
   REAL(wp):: z_c(nproma,n_zlev,ppatch%nblks_c)
-  REAL(wp):: z_lat, z_lon 
+  REAL(wp):: z_lat, z_lon
   REAL(wp):: z_dst, z_lat_deg, z_lon_deg, z_tmp
   REAL(wp):: z_perlon, z_perlat, z_permax, z_perwid !,z_H_0
   REAL(wp):: z_ttrop, z_tpol, z_tpols, z_tdeep, z_tdiff, z_ltrop, z_lpol, z_ldiff
@@ -690,7 +689,7 @@ CONTAINS
   i_startblk_e = ppatch%edges%start_blk(rl_start,1)
   i_endblk_e   = ppatch%edges%end_blk(rl_end_e,1)
   i_startblk_c = ppatch%cells%start_blk(rl_start,1)
-  i_endblk_c   = ppatch%cells%end_blk(rl_end_c,1)    
+  i_endblk_c   = ppatch%cells%end_blk(rl_end_c,1)
 
   !IF shallow-water option is NOT selected then)
   IF ( iswm_oce /= 1 )THEN
@@ -713,13 +712,13 @@ CONTAINS
       !Flat surface of the ocean
       p_os%p_prog(nold(1))%h(:,:) = 0.0_wp
 
-      !Ocean at rest 
+      !Ocean at rest
       p_os%p_prog(nold(1))%vn(:,:,:) = 0.0_wp
 
       !init temperature and salinity with vertical profiles
       IF(n_zlev==4)THEN
         DO jk=1,n_zlev
-          DO jb = i_startblk_c, i_endblk_c    
+          DO jb = i_startblk_c, i_endblk_c
             CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c,&
                       & i_startidx_c, i_endidx_c, rl_start, rl_end_c)
             DO jc = i_startidx_c, i_endidx_c
@@ -741,7 +740,7 @@ CONTAINS
 
       ELSEIF(n_zlev>4.AND.n_zlev<=20)THEN
         DO jk=1,n_zlev
-          DO jb = i_startblk_c, i_endblk_c    
+          DO jb = i_startblk_c, i_endblk_c
             CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c,&
                       & i_startidx_c, i_endidx_c, rl_start, rl_end_c)
             DO jc = i_startidx_c, i_endidx_c
@@ -766,20 +765,20 @@ CONTAINS
       IF (itestcase_oce == 31) THEN
         CALL message(TRIM(routine), 'Simple Initialization of testcases (31)')
         CALL message(TRIM(routine), ' - here: external gravity wave')
-       
+
         ! #slo# 2011-01-07: init elevation for simple 3-d SW-like test mode
         !all other prognostic variables: vn, s, t are initialized identical zero
         !CALL message(TRIM(routine), 'Simple Initialization of h')
-       
-        DO jb = i_startblk_c, i_endblk_c    
+
+        DO jb = i_startblk_c, i_endblk_c
           CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
            &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
-       
+
           DO jc = i_startidx_c, i_endidx_c
-       
+
             z_lat = ppatch%cells%center(jc,jb)%lat
             z_lon = ppatch%cells%center(jc,jb)%lon
-       
+
             ! #slo#: simple elevation between 30W and 30E (pi/3.)
             IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
               p_os%p_prog(nold(1))%h(jc,jb) = 10.0_wp * &
@@ -792,12 +791,12 @@ CONTAINS
 
       END IF
 
-    CASE (33) 
+    CASE (33)
     ! collapsing density front testcase, taken from Stuhne-Peltier (JCP, 2006)
       CALL message(TRIM(routine), 'Initialization of testcases (33)')
       CALL message(TRIM(routine), ' - here: Collapsing density front, Stuhne-Peltier')
 
-      DO jb = i_startblk_c, i_endblk_c    
+      DO jb = i_startblk_c, i_endblk_c
         CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
          &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
 
@@ -867,7 +866,7 @@ CONTAINS
       CALL message(TRIM(routine), 'Initialization of testcases (34)')
       CALL message(TRIM(routine),' - here: Adjusting density front in a basin with vertical wall')
 
-      DO jb = i_startblk_c, i_endblk_c    
+      DO jb = i_startblk_c, i_endblk_c
         CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
          &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
 
@@ -882,7 +881,7 @@ CONTAINS
             IF(z_lon_deg>=basin_center_lon*rad2deg)THEN
               p_os%p_prog(nold(1))%tracer(jc,1:n_zlev,jb,1) = 30.0_wp
             ELSE
-              p_os%p_prog(nold(1))%tracer(jc,1:n_zlev,jb,1) = 25.0_wp 
+              p_os%p_prog(nold(1))%tracer(jc,1:n_zlev,jb,1) = 25.0_wp
             ENDIF
           ENDIF
         END DO
@@ -895,16 +894,16 @@ CONTAINS
       !p_pos%lon = 0.0_wp
       !p_pos%lat = 0.0_wp
 
-!       DO jb = i_startblk_c, i_endblk_c    
+!       DO jb = i_startblk_c, i_endblk_c
 !         CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
 !          &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
 !         DO jc = i_startidx_c, i_endidx_c
-! 
+!
 !           p_os%p_prog(nold(1))%tracer(jc,:,jb,1)=20.0_wp
-! 
+!
 !           z_lat = ppatch%cells%center(jc,jb)%lat
 !           z_lon = ppatch%cells%center(jc,jb)%lon
-! 
+!
 !           z_dolic = v_base%dolic_c(jc,jb)
 !           IF (z_dolic > 0) THEN
 !             ! jk=1:  250m  T= 20 - 0.9375 = 19.0625
@@ -935,7 +934,7 @@ CONTAINS
       ! 05-25: max and width larger: -2.0 and 5.0
       IF (no_tracer ==1 ) THEN
 
-        DO jb = i_startblk_c, i_endblk_c    
+        DO jb = i_startblk_c, i_endblk_c
           CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
            &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
 
@@ -958,7 +957,7 @@ CONTAINS
                  p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) =          &
                  & p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)          &
                  &   + z_permax*exp(-(z_dst/(z_perwid*deg2rad))**2) &
-!                &   * sin(pi*v_base%zlev_m(jk)/4000.0_wp)!& 
+!                &   * sin(pi*v_base%zlev_m(jk)/4000.0_wp)!&
                  &   * sin(pi*v_base%zlev_m(jk)/v_base%zlev_i(z_dolic+1))
                  !&v_base%del_zlev_i(z_dolic))
                  write(0,*)'temp init',jc,jb,jk,p_os%p_prog(nold(1))%tracer(jc,jk,jb,1),&
@@ -1002,12 +1001,12 @@ CONTAINS
 !               z_dst=sqrt((z_lat-z_perlat*deg2rad)**2+(z_lon-z_perlon*deg2rad)**2)
 !               !write(123,*)'zdist',z_lat,z_lon,z_dst,10.5_wp*deg2rad
 !               !IF(z_dst<=25.5_wp*deg2rad)cycle
-!               ! at distance > 25.5 degrees: 
+!               ! at distance > 25.5 degrees:
 !               !  e.g. at 30 deg distance the added perturbation would be ~ exp(-400) ~ 0.0
 !               ! Now without cycle in loop - perturbation is very small at z_dst>10 deg
 !               !  e.g. at 3 deg distance is
 !               !   T(jk=1)=19.0625+20.1*exp(-4)*sin(pi* 250/4000) = 19.06 + 20.1*0.18*0.06 = 19.28
-!               !   T(jk=4)=13.4375+20.1*exp(-4)*sin(pi*1750/4000) = 13.44 + 20.1*0.18*0.42 = 15.00   
+!               !   T(jk=4)=13.4375+20.1*exp(-4)*sin(pi*1750/4000) = 13.44 + 20.1*0.18*0.42 = 15.00
 !               DO jk = 1, z_dolic
 !                p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) =          &
 !                 & p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)          &
@@ -1020,7 +1019,7 @@ CONTAINS
 
         ! Add elevation perturbation at new values - 35N; 10W
         ! not clear yet
-      DO jb = i_startblk_c, i_endblk_c    
+      DO jb = i_startblk_c, i_endblk_c
         CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
          &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
         DO jc = i_startidx_c, i_endidx_c
@@ -1044,7 +1043,7 @@ CONTAINS
 !----------------Old version of 32: please retain code, its also interesting
 !----------------An old version of surface forcing corresponds to this
 ! !     CASE (32) !from Sergy Danilov
-! !       DO jb = i_startblk_c, i_endblk_c    
+! !       DO jb = i_startblk_c, i_endblk_c
 ! !         CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
 ! !          &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
 ! !         DO jc = i_startidx_c, i_endidx_c
@@ -1068,7 +1067,7 @@ CONTAINS
 ! !       z_permax  = 10.0_wp!20.1_wp
 ! !       z_perwid  =  5.0_wp!1.5_wp
 ! !       IF (no_tracer > 0 ) THEN
-! !         DO jb = i_startblk_c, i_endblk_c    
+! !         DO jb = i_startblk_c, i_endblk_c
 ! !           CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
 ! !            &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
 ! !           DO jc = i_startidx_c, i_endidx_c
@@ -1095,7 +1094,7 @@ CONTAINS
 !-----------------------------------------------------------------------------------------------
 !                Code below is not finished (PK)---------------
 ! !    CASE (36)
-! !       !flow aganst isolated seamount of Gaussian profile 
+! !       !flow aganst isolated seamount of Gaussian profile
 ! !       !the parameters: position, height and extend of seamount
 ! !       z_H_0    = v_base%zlev_i(n_zlev+1) !4000.0
 ! !       z_perlat = basin_center_lat + 0.1_wp*basin_height_deg
@@ -1105,11 +1104,11 @@ CONTAINS
 ! !       !Step 1: define profile of seamount, i.e. bathymetry from analytical formula
 ! !       !This step overwrites some of the information that was created by sbr "fill vertical domain".
 ! !       !The vertical grid spacing is unchanged and as specified in the namelist.
-! !       !1a) bathymetry at edges   
-! !       DO jb = i_startblk_c, i_endblk_c    
+! !       !1a) bathymetry at edges
+! !       DO jb = i_startblk_c, i_endblk_c
 ! !         CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
 ! !          &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
-! !         DO jc = i_startidx_c, i_endidx_c 
+! !         DO jc = i_startidx_c, i_endidx_c
 ! !           z_lat = ppatch%cells%center(jc,jb)%lat
 ! !           z_lon = ppatch%cells%center(jc,jb)%lon
 ! !           z_dst = sqrt((z_lat-z_perlat*deg2rad)**2+(z_lon-z_perlon*deg2rad)**2)
@@ -1118,7 +1117,7 @@ CONTAINS
 ! !          END DO
 ! !       END DO
 ! !       !ab) the edges
-! !       DO jb = i_startblk_e, i_endblk_e    
+! !       DO jb = i_startblk_e, i_endblk_e
 ! !         CALL get_indices_e(ppatch, jb, i_startblk_e, i_endblk_e, &
 ! !          &                i_startidx_e, i_endidx_e, rl_start, rl_end_e)
 ! !         DO je = i_startidx_e, i_endidx_e
@@ -1134,10 +1133,10 @@ CONTAINS
 ! !       END DO
 ! !        !Step 2: create land-sea mask for edges and cells from bathymetry
 ! !        !2a) the cells
-! !        DO jb = i_startblk_c, i_endblk_c    
+! !        DO jb = i_startblk_c, i_endblk_c
 ! !          CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
 ! !           &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
-! !          DO jc = i_startidx_c, i_endidx_c  
+! !          DO jc = i_startidx_c, i_endidx_c
 ! !            DO jk=1,n_zlev
 ! !              !IF position of z-coordinate surface is above seamount: cell ist wet
 ! !              IF(v_base%zlev_m(jk)<= p_ext_data%oce%bathymetry_c(jc,jb))THEN
@@ -1149,10 +1148,10 @@ CONTAINS
 ! !          END DO
 ! !        END DO
 ! !        !2b) the edges
-! !        DO jb = i_startblk_e, i_endblk_e    
+! !        DO jb = i_startblk_e, i_endblk_e
 ! !          CALL get_indices_e(ppatch, jb, i_startblk_e, i_endblk_e, &
 ! !           &                i_startidx_e, i_endidx_e, rl_start, rl_end_e)
-! !          DO je = i_startidx_e, i_endidx_e 
+! !          DO je = i_startidx_e, i_endidx_e
 ! !            ic1 = ppatch%edges%cell_idx(je,jb,1)
 ! !            ib1 = ppatch%edges%cell_blk(je,jb,1)
 ! !            ic2 = ppatch%edges%cell_idx(je,jb,2)
@@ -1165,21 +1164,21 @@ CONTAINS
 ! ! !                 v_base%lsm_oce_e(je,jk,jb) = v_base%lsm_oce_c(ic1,jk,ib1)
 ! ! !               ELSE
 ! ! !                 v_base%lsm_oce_e(je,jk,jb) = boundary
-! ! !               ENDIF 
+! ! !               ENDIF
 ! !              IF(v_base%zlev_m(jk)<= p_ext_data%oce%bathymetry_e(je,jb))THEN
 ! !                v_base%lsm_oce_e(je,jk,jb) = -2
 ! !              ELSE
 ! !                v_base%lsm_oce_e(je,jk,jb) = 2
-! !              ENDIF 
+! !              ENDIF
 ! !            END DO
 ! !           END DO
 ! !        END DO
 ! !        !loop over cells and check if all edges are wet or not, in
 ! !        !the later case the cell is a boundary cell
-! !        DO jb = i_startblk_c, i_endblk_c    
+! !        DO jb = i_startblk_c, i_endblk_c
 ! !          CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
 ! !           &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
-! !          DO jc = i_startidx_c, i_endidx_c  
+! !          DO jc = i_startidx_c, i_endidx_c
 ! !            ile1 = ppatch%cells%edge_idx(jc,jb,1)
 ! !            ibe1 = ppatch%cells%edge_blk(jc,jb,1)
 ! !            ile2 = ppatch%cells%edge_idx(jc,jb,2)
@@ -1195,11 +1194,11 @@ CONTAINS
 ! !                IF(v_base%lsm_oce_e(ile3,jk,ibe3) == 2)i_ctr=i_ctr+1
 ! !                SELECT CASE(i_ctr)
 ! !                  CASE(0)
-! !                   !do nothing 
+! !                   !do nothing
 ! !                  CASE(1)
 ! !                    !cell is a boundary cell
 ! !                    v_base%lsm_oce_c(jc,jk,jb) = -1
-! !                  CASE(2) 
+! !                  CASE(2)
 ! !                    !cell becomes a land cell
 ! !                    v_base%lsm_oce_c(jc,jk,jb) = 2
 ! !                  CASE(3)
@@ -1212,11 +1211,11 @@ CONTAINS
 ! !                IF(v_base%lsm_oce_e(ile3,jk,ibe3) == -2)i_ctr=i_ctr+1
 ! !                SELECT CASE(i_ctr)
 ! !                  CASE(0)
-! !                   !do nothing 
+! !                   !do nothing
 ! !                  CASE(1)
 ! !                    !cell is a boundary cell
 ! !                    v_base%lsm_oce_c(jc,jk,jb) = 1
-! !                  CASE(2) 
+! !                  CASE(2)
 ! !                    !cell becomes a wet cell
 ! !                    v_base%lsm_oce_c(jc,jk,jb) = -2
 ! !                  CASE(3)
@@ -1228,10 +1227,10 @@ CONTAINS
 ! !          END DO
 ! !        END DO
 ! !        !check for boundary edges
-! !        DO jb = i_startblk_e, i_endblk_e    
+! !        DO jb = i_startblk_e, i_endblk_e
 ! !          CALL get_indices_e(ppatch, jb, i_startblk_e, i_endblk_e, &
 ! !           &                i_startidx_e, i_endidx_e, rl_start, rl_end_e)
-! !          DO je = i_startidx_e, i_endidx_e 
+! !          DO je = i_startidx_e, i_endidx_e
 ! !            ic1 = ppatch%edges%cell_idx(je,jb,1)
 ! !            ib1 = ppatch%edges%cell_blk(je,jb,1)
 ! !            ic2 = ppatch%edges%cell_idx(je,jb,2)
@@ -1244,13 +1243,13 @@ CONTAINS
 ! !                  v_base%lsm_oce_e(je,jk,jb) = v_base%lsm_oce_c(ic1,jk,ib1)
 ! !                ELSE
 ! !                  v_base%lsm_oce_e(je,jk,jb) = -1
-! !                ENDIF 
+! !                ENDIF
 ! !            END DO
 ! !           END DO
 ! !        END DO
 ! !        !Step 3: create 3D-lsm (=dolic_c)
 ! !        !CALL fill_vertical_ocean_domain(ppatch)
-! !        DO jb = i_startblk_c, i_endblk_c    
+! !        DO jb = i_startblk_c, i_endblk_c
 ! !          CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
 ! !           &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
 ! !          DO jc = i_startidx_c, i_endidx_c
@@ -1268,7 +1267,7 @@ CONTAINS
 ! !          END DO
 ! !        END DO
 ! !     !init normal velocity
-! !       DO jb = i_startblk_e, i_endblk_e    
+! !       DO jb = i_startblk_e, i_endblk_e
 ! !         CALL get_indices_e(ppatch, jb, i_startblk_e, i_endblk_e,&
 ! !                     & i_startidx_e, i_endidx_e, rl_start, rl_end_e)
 ! !         DO je = i_startidx_e, i_endidx_e
@@ -1278,7 +1277,7 @@ CONTAINS
 ! !             p_os%p_prog(nold(1))%vn(je,1,jb) = &
 ! !             &   (test5_u(z_lon, z_lat,0.0_wp)*ppatch%edges%primal_normal(je,jb)%v1  &
 ! !             & + test5_v(z_lon, z_lat,0.0_wp)*ppatch%edges%primal_normal(je,jb)%v2)/30.0_wp
-! !             ! write(*,*)'vn', je,jb,p_os%p_prog(nold(1))%vn(je,1,jb),z_lon, z_lat 
+! !             ! write(*,*)'vn', je,jb,p_os%p_prog(nold(1))%vn(je,1,jb),z_lon, z_lat
 ! !             p_os%p_prog(nnew(1))%vn(je,1,jb) = p_os%p_prog(nold(1))%vn(je,1,jb)
 ! !             p_os%p_diag%h_e(je,jb) = 1.0_wp
 ! !             p_os%p_prog(nold(1))%vn(je,1:n_zlev,jb) = p_os%p_prog(nold(1))%vn(je,1,jb)
@@ -1289,12 +1288,12 @@ CONTAINS
 
     CASE (40)
     ! Temperature profile depends on latitude and depth
-    ! Construct temperature profile 
+    ! Construct temperature profile
     !   ttrop for lat<ltrop; tpol for lat>lpol; cos for transition zone
     !   for maximum tropical temperature see values above
       CALL message(TRIM(routine), 'Simple Initialization of testcases (40)')
       CALL message(TRIM(routine), ' - here: simple tropics-pol/vertical temperature profile')
-      
+
       IF (i_sea_ice == 0) THEN
         z_tpol  =  5.0_wp      ! polar temperature
       ELSE
@@ -1304,7 +1303,7 @@ CONTAINS
       z_lpol  = 60.0_wp      ! polar latitude for temperature gradient
       z_ldiff = z_lpol  - z_ltrop
 
-      DO jb = i_startblk_c, i_endblk_c    
+      DO jb = i_startblk_c, i_endblk_c
         CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
          &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
 
@@ -1363,9 +1362,9 @@ CONTAINS
     !  incorrect (for n_zlev>9) old testcase 40 with z_tpol=0.0 at poles saved for reference
       CALL message(TRIM(routine), 'Simple Initialization of testcases (41)')
       CALL message(TRIM(routine), ' - here: old erroneous profile saved for reference')
-      
+
       ! Temperature profile depends on latitude and depth
-      ! Construct temperature profile 
+      ! Construct temperature profile
       !   ttrop for lat<ltrop; tpol for lat>lpol; cos for transition zone
       !   for maximum tropical temperature see values above
       z_tpol  =  5.0_wp      ! polar temperature - old testcase 40 for n_zlev<6
@@ -1374,7 +1373,7 @@ CONTAINS
       z_lpol  = 60.0_wp      ! polar latitude for temperature gradient
       z_ldiff = z_lpol  - z_ltrop
 
-      DO jb = i_startblk_c, i_endblk_c    
+      DO jb = i_startblk_c, i_endblk_c
         CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
          &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
 
@@ -1424,9 +1423,9 @@ CONTAINS
     ! without temperature restoring / relaxation
       CALL message(TRIM(routine), 'Initialization of testcases (43)')
       CALL message(TRIM(routine), ' - here: Collapsing density front with weaker gradient')
-      
+
       ! Temperature profile in first layer depends on latitude only
-      ! Construct temperature profile 
+      ! Construct temperature profile
       !   ttrop for lat<ltrop; tpol for lat>lpol; cos for transition zone
       z_ttrop = 10.0_wp      ! tropical temperature
       z_tpol  =  5.0_wp      ! polar temperature
@@ -1442,7 +1441,7 @@ CONTAINS
       z_tdiff = z_ttrop - z_tpol
       z_ldiff = z_lpol  - z_ltrop
 
-      DO jb = i_startblk_c, i_endblk_c    
+      DO jb = i_startblk_c, i_endblk_c
         CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
          &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
 
@@ -1496,7 +1495,7 @@ CONTAINS
         END DO
       END DO
 
-    CASE (44) 
+    CASE (44)
     ! Temperature is homogeneous in each layer. Varies from 30.5 in top to 0.5 in bottom layer
       CALL message(TRIM(routine), 'Initialization of testcases (44)')
       CALL message(TRIM(routine), ' - here: horizontally homogen, stable vertical profile')
@@ -1504,16 +1503,16 @@ CONTAINS
       z_temp_max  = 30.5_wp
       z_temp_min  = 0.5_wp
       z_temp_incr = (z_temp_max-z_temp_min)/(REAL(n_zlev,wp)-1.0_wp)
-      DO jb = i_startblk_c, i_endblk_c    
+      DO jb = i_startblk_c, i_endblk_c
         CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
          &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
 
         DO jc = i_startidx_c, i_endidx_c
 
-          !IF(v_base%dolic_c(jc,jb)>=MIN_DOLIC)THEN  
+          !IF(v_base%dolic_c(jc,jb)>=MIN_DOLIC)THEN
             p_os%p_prog(nold(1))%tracer(:,1,:,1)=30.5_wp
             p_os%p_prog(nold(1))%tracer(:,n_zlev,:,1)=0.5_wp
-          !ENDIF 
+          !ENDIF
           DO jk=2,n_zlev-1
             IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
             p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)&
@@ -1524,13 +1523,13 @@ CONTAINS
         END DO
       END DO
 
-    CASE (45) 
+    CASE (45)
     ! T and S are horizontally homegeneous. Values are taken from t_prof[_var] and s_prof[_var]
       CALL message(TRIM(routine), 'Initialization of testcases (45)')
       CALL message(TRIM(routine), &
         &  ' - here: horizontally homogen, use tprof_var and sprof_var vertical profiles')
 
-      DO jb = i_startblk_c, i_endblk_c    
+      DO jb = i_startblk_c, i_endblk_c
         CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
          &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
         DO jc = i_startidx_c, i_endidx_c
@@ -1562,7 +1561,7 @@ CONTAINS
 
       sst_case='sst_qobs'
       jk = 1
-      DO jb = i_startblk_c, i_endblk_c    
+      DO jb = i_startblk_c, i_endblk_c
         CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
           &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
 
@@ -1586,12 +1585,12 @@ CONTAINS
 
         z_max = z_temp_max - REAL(jk-1,wp)*z_temp_incr
         WRITE(0,*) TRIM(routine),': jk=',jk,' Maximum Temperature =',z_max
-        DO jb = i_startblk_c, i_endblk_c    
+        DO jb = i_startblk_c, i_endblk_c
           CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
            &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
-      
+
           DO jc = i_startidx_c, i_endidx_c
-      
+
             IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
               p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) &
                 &  = MAX(p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1)-z_temp_incr,0.0_wp)
@@ -1605,7 +1604,7 @@ CONTAINS
       !  - add horizontally homogen, vertically increasing / homogen salinity
       IF (no_tracer==2) THEN
         DO jk=1,n_zlev
-          DO jb = i_startblk_c, i_endblk_c    
+          DO jb = i_startblk_c, i_endblk_c
             CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
              &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
             DO jc = i_startidx_c, i_endidx_c
@@ -1628,15 +1627,15 @@ CONTAINS
       z_temp_max  = 30.5_wp
       z_temp_min  = 0.5_wp
       z_temp_incr = (z_temp_max-z_temp_min)/(REAL(n_zlev,wp)-1.0_wp)
-      DO jb = i_startblk_c, i_endblk_c    
+      DO jb = i_startblk_c, i_endblk_c
         CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
          &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
 
         DO jc = i_startidx_c, i_endidx_c
 
           p_os%p_prog(nold(1))%tracer(jc,:,jb,1)=0.0_wp
-          !IF(v_base%dolic_c(jc,jb)>=MIN_DOLIC)THEN  
-          !ENDIF 
+          !IF(v_base%dolic_c(jc,jb)>=MIN_DOLIC)THEN
+          !ENDIF
 
           IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
             p_os%p_prog(nold(1))%tracer(jc,1,jb,1)=30.5_wp
@@ -1656,7 +1655,7 @@ CONTAINS
       END DO
 
       !Add horizontal variation
-      DO jb = i_startblk_c, i_endblk_c    
+      DO jb = i_startblk_c, i_endblk_c
         CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
          &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
         DO jc = i_startidx_c, i_endidx_c
@@ -1677,7 +1676,7 @@ CONTAINS
       END DO
 
       !Add local perturbation
-      DO jb = i_startblk_c, i_endblk_c    
+      DO jb = i_startblk_c, i_endblk_c
         CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
          &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
         DO jc = i_startidx_c, i_endidx_c
@@ -1737,15 +1736,15 @@ ELSEIF( iswm_oce == 1 )THEN
 
       v_base%lsm_oce_c(:,:,:) = sea
       v_base%lsm_oce_e(:,:,:) = sea
-      !init height 
-      DO jb = i_startblk_c, i_endblk_c    
+      !init height
+      DO jb = i_startblk_c, i_endblk_c
         CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c,&
                     & i_startidx_c, i_endidx_c, rl_start, rl_end_c)
 
         DO jc = i_startidx_c, i_endidx_c
           z_lat = ppatch%cells%center(jc,jb)%lat
           z_lon = ppatch%cells%center(jc,jb)%lon
-  
+
           p_os%p_prog(nold(1))%h(jc,jb) = test_usbr_h( z_lon, z_lat, 0.0_wp)
 
           ! #slo# - bathymetry not taken into account due to constant bottom cell depth
@@ -1758,7 +1757,7 @@ ELSEIF( iswm_oce == 1 )THEN
       END DO
 
       !init normal velocity
-      DO jb = i_startblk_e, i_endblk_e    
+      DO jb = i_startblk_e, i_endblk_e
         CALL get_indices_e(ppatch, jb, i_startblk_e, i_endblk_e,&
                     & i_startidx_e, i_endidx_e, rl_start, rl_end_e)
 
@@ -1770,7 +1769,7 @@ ELSEIF( iswm_oce == 1 )THEN
             &                                ppatch%edges%primal_normal(je,jb)%v1&
             &                                + test_usbr_v(z_lon, z_lat,0.0_wp)* &
             &                                ppatch%edges%primal_normal(je,jb)%v2
-          ! write(*,*)'vn', je,jb,p_os%p_prog(nold(1))%vn(je,1,jb),z_lon, z_lat 
+          ! write(*,*)'vn', je,jb,p_os%p_prog(nold(1))%vn(je,1,jb),z_lon, z_lat
 
         END DO
       END DO
@@ -1780,8 +1779,8 @@ ELSEIF( iswm_oce == 1 )THEN
 
       v_base%lsm_oce_c(:,:,:) = sea
       v_base%lsm_oce_e(:,:,:) = sea
-      !init height 
-      DO jb = i_startblk_c, i_endblk_c    
+      !init height
+      DO jb = i_startblk_c, i_endblk_c
         CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c,&
                     & i_startidx_c, i_endidx_c, rl_start, rl_end_c)
 
@@ -1806,7 +1805,7 @@ ELSEIF( iswm_oce == 1 )THEN
 
 
       !init normal velocity
-      DO jb = i_startblk_e, i_endblk_e    
+      DO jb = i_startblk_e, i_endblk_e
         CALL get_indices_e(ppatch, jb, i_startblk_e, i_endblk_e,&
                     & i_startidx_e, i_endidx_e, rl_start, rl_end_e)
 
@@ -1828,22 +1827,22 @@ ELSEIF( iswm_oce == 1 )THEN
       p_os%p_prog(nnew(1))%vn = 0.0_wp
       p_os%p_prog(nold(1))%tracer(:,1,:,1) = 0.0_wp
       p_os%p_prog(nnew(1))%tracer(:,1,:,1) = 0.0_wp
-      DO jb = i_startblk_c, i_endblk_c    
+      DO jb = i_startblk_c, i_endblk_c
         CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c,&
                     & i_startidx_c, i_endidx_c, rl_start, rl_end_c)
         DO jc = i_startidx_c, i_endidx_c
          p_ext_data%oce%bathymetry_c(jc,jb) = -200._wp
-         v_base%dolic_c(jc,jb)      = 1 
+         v_base%dolic_c(jc,jb)      = 1
 
           !latitude given in radians
            z_lat = ppatch%cells%center(jc,jb)%lat
            z_lat_deg = z_lat*rad2deg
            !Impose emperature profile. Profile
            !depends on latitude only
-           IF(abs(z_lat_deg-basin_center_lat)>=0.0_wp*basin_height_deg)THEN 
-             p_os%p_prog(nold(1))%tracer(jc,1,jb,1) = 5.0_wp 
+           IF(abs(z_lat_deg-basin_center_lat)>=0.0_wp*basin_height_deg)THEN
+             p_os%p_prog(nold(1))%tracer(jc,1,jb,1) = 5.0_wp
              p_os%p_prog(nnew(1))%tracer(jc,1,jb,1) = 5.0_wp
-           ELSEIF(abs(z_lat_deg-basin_center_lat)<0.0_wp*basin_height_deg)THEN 
+           ELSEIF(abs(z_lat_deg-basin_center_lat)<0.0_wp*basin_height_deg)THEN
              p_os%p_prog(nold(1))%tracer(jc,1,jb,1) = 10.0_wp
              p_os%p_prog(nnew(1))%tracer(jc,1,jb,1) = 10.0_wp
            ENDIF
@@ -1853,7 +1852,7 @@ ELSEIF( iswm_oce == 1 )THEN
 
      CASE(28)
       !init normal velocity
-      DO jb = i_startblk_e, i_endblk_e    
+      DO jb = i_startblk_e, i_endblk_e
         CALL get_indices_e(ppatch, jb, i_startblk_e, i_endblk_e,&
                     & i_startidx_e, i_endidx_e, rl_start, rl_end_e)
 
@@ -1864,7 +1863,7 @@ ELSEIF( iswm_oce == 1 )THEN
             p_os%p_prog(nold(1))%vn(je,1,jb) = &
             &   (test5_u(z_lon, z_lat,0.0_wp)*ppatch%edges%primal_normal(je,jb)%v1  &
             & + test5_v(z_lon, z_lat,0.0_wp)*ppatch%edges%primal_normal(je,jb)%v2) !/30.0_wp
-            ! write(*,*)'vn', je,jb,p_os%p_prog(nold(1))%vn(je,1,jb),z_lon, z_lat 
+            ! write(*,*)'vn', je,jb,p_os%p_prog(nold(1))%vn(je,1,jb),z_lon, z_lat
             p_os%p_prog(nnew(1))%vn(je,1,jb) = p_os%p_prog(nold(1))%vn(je,1,jb)
             p_os%p_diag%h_e(je,jb) = 1.0_wp
           ENDIF
@@ -1874,8 +1873,8 @@ ELSEIF( iswm_oce == 1 )THEN
       z_perlon =  0.0_wp!0.1_wp*basin_width_deg                                 !4.5_wp
       !z_permax  = 20.0_wp            !20.1_wp
       z_perwid  =  7.0_wp*pi/64.0_wp !10.0_wp!5.0_wp!1.5_wp
-      
-      DO jb = i_startblk_c, i_endblk_c    
+
+      DO jb = i_startblk_c, i_endblk_c
         CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
           &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
 
@@ -1895,7 +1894,7 @@ ELSEIF( iswm_oce == 1 )THEN
               p_os%p_prog(nold(1))%tracer(jc,1,jb,1) =          &
               (1.0_wp+cos(pi*z_dst/z_perwid))/2.0_wp +2.0_wp
             !!& 20.0_wp &!p_os%p_prog(nold(1))%tracer(jc,1,jb,1)          &
-            !&   z_permax*exp(-(z_dst/(z_perwid*deg2rad))**2) 
+            !&   z_permax*exp(-(z_dst/(z_perwid*deg2rad))**2)
             ENDIF
             p_os%p_prog(nnew(1))%tracer(jc,1,jb,1)= p_os%p_prog(nold(1))%tracer(jc,1,jb,1)
             p_os%p_prog(nnew(1))%h(jc,jb)         = p_os%p_prog(nold(1))%h(jc,jb)
@@ -1944,7 +1943,7 @@ END SUBROUTINE init_ho_testcases
 !-------------------------------------------------------------------------------
 FUNCTION geo_balance_mim(p_patch, h_e, rhs_e) result(vn_e)
    !
-   TYPE(t_patch) :: p_patch 
+   TYPE(t_patch) :: p_patch
    REAL(wp)      :: h_e(:,:)
    REAL(wp)      :: rhs_e(:,:)!(nproma,n_zlev,p_patch%nblks_e)
    REAL(wp)      :: vn_e(SIZE(rhs_e,1),SIZE(rhs_e,2))
@@ -1975,7 +1974,7 @@ FUNCTION geo_balance_mim(p_patch, h_e, rhs_e) result(vn_e)
 
      vn_e2(:,:) = rhs_e(:,:)
      rhstemp(:,:) = rhs_e(:,:)&
-       & -zimpl_prime_coeff*lhs_geo_balance_mim(vn_e2,p_patch,jk,zimpl_coeff,h_e) 
+       & -zimpl_prime_coeff*lhs_geo_balance_mim(vn_e2,p_patch,jk,zimpl_coeff,h_e)
 
      If (maxval (ABS (rhstemp (:,:))) <= tolerance) THEN
        vn_e(:,:) = vn_e2(:,:)
@@ -2003,7 +2002,7 @@ FUNCTION geo_balance_mim(p_patch, h_e, rhs_e) result(vn_e)
         rhstemp(:,:) = rhs_e(:,:)-lhs_geo_balance_mim(vn_e2(:,:),p_patch, jk,&
           &            zimpl_coeff,h_e)
        WRITE(*,*)'max/min residual of inverse primal-flip-flop:',&
-      &jk, maxval(rhstemp),minval(rhstemp) 
+      &jk, maxval(rhstemp),minval(rhstemp)
 
         If (maxval (ABS (rhstemp (:,:))) >= tolerance) lmax_iter = .true.
 !          IF (lverbose) THEN
@@ -2028,7 +2027,7 @@ FUNCTION geo_balance_mim(p_patch, h_e, rhs_e) result(vn_e)
 !                      & rl_start_e, rl_end_e)
 !     DO je =  i_startidx_e, i_endidx_e
 !       IF(rhs_e(je,jk,jb)/=0.0_wp)THEN
-!       write(*,*)'RHS:solution:', jk,je,jb,rhs_e(je,jk,jb), inv_flip_flop_e(je,jk,jb) 
+!       write(*,*)'RHS:solution:', jk,je,jb,rhs_e(je,jk,jb), inv_flip_flop_e(je,jk,jb)
 !       ENDIF
 !     END DO
 !   END DO
@@ -2039,7 +2038,7 @@ FUNCTION geo_balance_mim(p_patch, h_e, rhs_e) result(vn_e)
 
    END FUNCTION geo_balance_mim
    !--------------------------------------------------------------------
-   FUNCTION lhs_geo_balance_mim( x, p_patch, lev,p_coeff, h_e) RESULT(llhs) 
+   FUNCTION lhs_geo_balance_mim( x, p_patch, lev,p_coeff, h_e) RESULT(llhs)
    !
    TYPE(t_patch),INTENT(in)     :: p_patch
    INTEGER                      :: lev
@@ -2054,12 +2053,12 @@ FUNCTION geo_balance_mim(p_patch, h_e, rhs_e) result(vn_e)
    INTEGER :: jc,jb
    REAL(wp) :: z_x_e(SIZE(x,1),1,SIZE(x,2))!(nproma,p_patch%nblks_e)
    REAL(wp) :: z_x_vort(nproma,1,p_patch%nblks_v)
-   REAL(wp) :: z_x_out(SIZE(x,1), 1,SIZE(x,2))!(nproma,p_patch%nblks_e) 
-  !REAL(wp) :: z_vt(SIZE(x,1), 1,SIZE(x,2))!(nproma,p_patch%nblks_e) 
+   REAL(wp) :: z_x_out(SIZE(x,1), 1,SIZE(x,2))!(nproma,p_patch%nblks_e)
+  !REAL(wp) :: z_vt(SIZE(x,1), 1,SIZE(x,2))!(nproma,p_patch%nblks_e)
    REAL(wp) :: z_grad(SIZE(x,1), 1,SIZE(x,2))!(nproma,p_patch%nblks_e)
    REAL(wp) :: z_kin(nproma,1,p_patch%nblks_c)
    TYPE(t_cartesian_coordinates)    :: z_pv_cc(nproma,1,p_patch%nblks_c)
-   !----------------------------------------------------------------------- 
+   !-----------------------------------------------------------------------
 rl_start_c = 1
 rl_end_c  = min_rlcell
 i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
@@ -2092,55 +2091,55 @@ i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
 
    z_x_out=z_x_out!+z_grad
    llhs(1:nproma,1:p_patch%nblks_e) = p_coeff*z_x_out(1:nproma,1,1:p_patch%nblks_e)
-!write(*,*)'max/min LHS', maxval(llhs(:,:)),minval(llhs(:,:)) 
+!write(*,*)'max/min LHS', maxval(llhs(:,:)),minval(llhs(:,:))
 
 END FUNCTION lhs_geo_balance_mim
 ! ! !------------------------------------------------------------
 !------------Below are functions from to implement tests from Williamson shallow-water tests
-!EOC  
-!-------------------------------------------------------------------------  
+!EOC
+!-------------------------------------------------------------------------
 !BOP
 !
 ! !*IROUTINE:  test0_h
-!  
-! !F*UNCTION INTERFACE: 
+!
+! !F*UNCTION INTERFACE:
   FUNCTION test0_h( p_lon, p_lat, p_t) RESULT( p_hh)
 !
 ! !DESCRIPTION:
 ! Initial datum for height, test case 0 (conical mountain). \\
 ! Not included in Williamson et al. (1992)
 !
-! !REVISION HISTORY:  
+! !REVISION HISTORY:
 ! Developed  by L.Bonaventura  (2002-5).
 ! Revised to programming guide by Th.Heinze, DWD, (2006-12)
-!  
-! !DEFINED PARAMETERS:  
+!
+! !DEFINED PARAMETERS:
     REAL(wp), PARAMETER  :: h0=2000._wp  ! basic height level
     REAL(wp), PARAMETER  :: h1=1000._wp  ! max height of conical mountain
- 
-! !INPUT PARAMETERS:  
+
+! !INPUT PARAMETERS:
     REAL(wp), INTENT(in) :: p_lon     ! longitude of point
     REAL(wp), INTENT(in) :: p_lat     ! latitude of point
     REAL(wp), INTENT(in) :: p_t       ! point of time
 
-! !RETURN VALUE:  
+! !RETURN VALUE:
     REAL(wp)             :: p_hh      ! geopotential height
 
-! !LOCAL VARIABLES:  
+! !LOCAL VARIABLES:
     REAL(wp)             :: z_r1      ! distance point to center of con. mount.
     REAL(wp)             :: z_r2      ! radius of conical mountain
     REAL(wp)             :: z_lon2    ! longitude of center of conical mount.
     REAL(wp)             :: z_lat2    ! latitude of center of conical mount.
-    REAL(wp)             :: z_dlon    ! longitudinal distance 
-    REAL(wp)             :: z_dlat    ! latitudinal distance 
+    REAL(wp)             :: z_dlon    ! longitudinal distance
+    REAL(wp)             :: z_dlat    ! latitudinal distance
 
-!EOP  
-!-----------------------------------------------------------------------  
+!EOP
+!-----------------------------------------------------------------------
 !BOC
 
 ! center and radius of conical mountain
 
-    z_lon2  = 1.5_wp * pi 
+    z_lon2  = 1.5_wp * pi
     z_lat2  = pi / 6._wp
     z_r2    = pi / 9._wp
 
@@ -2149,8 +2148,8 @@ END FUNCTION lhs_geo_balance_mim
     z_dlon = p_lon - z_lon2
     z_dlat = p_lat - z_lat2
 
-    z_dlon = z_dlon * z_dlon 
-    z_dlat = z_dlat * z_dlat 
+    z_dlon = z_dlon * z_dlon
+    z_dlat = z_dlat * z_dlat
 
     z_r1 = z_dlon + z_dlat
     z_r1 = MIN( z_r2 * z_r2, z_r1)
@@ -2160,8 +2159,8 @@ END FUNCTION lhs_geo_balance_mim
 
     IF( z_r1 < z_r2) THEN              ! point within radius
 
-       p_hh = 1._wp - z_r1 / z_r2  
-       p_hh = h0 + h1 * p_hh  
+       p_hh = 1._wp - z_r1 / z_r2
+       p_hh = h0 + h1 * p_hh
 
     ELSE                               ! point outside of radius
 
@@ -2171,45 +2170,45 @@ END FUNCTION lhs_geo_balance_mim
 
   END FUNCTION test0_h
 
-!EOC  
-!-------------------------------------------------------------------------  
+!EOC
+!-------------------------------------------------------------------------
 !BOP
 !
 ! !IROUTINE:  test2_h
-!  
-! !FUNCTION INTERFACE: 
+!
+! !FUNCTION INTERFACE:
   FUNCTION test2_h( p_lon, p_lat, p_t) RESULT(p_hh)
 !
 ! !DESCRIPTION:
 ! Initial datum for height, test case 2 of Williamson et al.(1992).
 !
-! !REVISION HISTORY:  
+! !REVISION HISTORY:
 ! Developed  by L.Bonaventura  (2002-5).
 ! Revised to programming guide by Th.Heinze, DWD, (2006-12)
-!  
-! !DEFINED PARAMETERS:  
+!
+! !DEFINED PARAMETERS:
     REAL(wp), PARAMETER  :: h0 = 2.94e4_wp * rgrav  ! maximum height
- 
-! !INPUT PARAMETERS:  
+
+! !INPUT PARAMETERS:
     REAL(wp), INTENT(in) :: p_lon     ! longitude of point
     REAL(wp), INTENT(in) :: p_lat     ! latitude of point
     REAL(wp), INTENT(in) :: p_t       ! point of time
 
-! !RETURN VALUE:  
+! !RETURN VALUE:
     REAL(wp)             :: p_hh      ! height
 
-! !LOCAL VARIABLES:  
+! !LOCAL VARIABLES:
     REAL(wp)             :: z_fact1   ! 1st factor
     REAL(wp)             :: z_fact2   ! 2nd factor
 
-!EOP  
-!-----------------------------------------------------------------------  
+!EOP
+!-----------------------------------------------------------------------
 !BOC
 
 ! 1st factor
 
-    z_fact1 = re * omega 
-    z_fact1 = z_fact1 + 0.5_wp * u0 
+    z_fact1 = re * omega
+    z_fact1 = z_fact1 + 0.5_wp * u0
     z_fact1 = z_fact1 * u0 * rgrav
 
 ! 2nd factor
@@ -2217,39 +2216,39 @@ END FUNCTION lhs_geo_balance_mim
     z_fact2 = SIN(p_lat) * COS(aleph)
     z_fact2 = z_fact2 - COS(p_lon) * COS(p_lat) * SIN(aleph)
     z_fact2 = z_fact2 * z_fact2
-    
+
 ! height
 
     p_hh = h0 - z_fact1 * z_fact2
 
   END FUNCTION test2_h
 
-!EOC  
-!-------------------------------------------------------------------------  
+!EOC
+!-------------------------------------------------------------------------
 !BOP
 !
 ! !IROUTINE:  test2_u
-!  
-! !FUNCTION INTERFACE: 
+!
+! !FUNCTION INTERFACE:
   FUNCTION test2_u( p_lon, p_lat, p_t) RESULT( p_uu)
 !
 ! !DESCRIPTION:
 ! Initial datum for zonal velocity u, test case 2 of Williamson et al.(1992).
 ! Revised to programming guide by Th.Heinze, DWD, (2006-12)
 !
-! !REVISION HISTORY:  
+! !REVISION HISTORY:
 ! Developed  by L.Bonaventura  (2002-5).
 !
-! !INPUT PARAMETERS:  
+! !INPUT PARAMETERS:
     REAL(wp), INTENT(in) :: p_lon     ! longitude of point
     REAL(wp), INTENT(in) :: p_lat     ! latitude of point
     REAL(wp), INTENT(in) :: p_t       ! point of time
 
-! !RETURN VALUE:  
+! !RETURN VALUE:
     REAL(wp)             :: p_uu      ! zonal velocity
 
-!EOP  
-!-----------------------------------------------------------------------  
+!EOP
+!-----------------------------------------------------------------------
 !BOC
 
     p_uu = COS(p_lat) * COS(aleph)
@@ -2258,33 +2257,33 @@ END FUNCTION lhs_geo_balance_mim
 
   END FUNCTION test2_u
 
-!EOC  
-!-------------------------------------------------------------------------  
+!EOC
+!-------------------------------------------------------------------------
 !BOP
 !
 ! !IROUTINE:  test2_v
-!  
-! !FUNCTION INTERFACE: 
+!
+! !FUNCTION INTERFACE:
   FUNCTION test2_v( p_lon, p_lat, p_t) RESULT(p_vv)
 !
 ! !DESCRIPTION:
-! Initial datum for meridional velocity v, test case 2 of Williamson 
+! Initial datum for meridional velocity v, test case 2 of Williamson
 ! et al.(1992).
 !
-! !REVISION HISTORY:  
+! !REVISION HISTORY:
 ! Developed  by L.Bonaventura  (2002-5).
 ! Revised to programming guide by Th.Heinze, DWD, (2006-12)
 !
-! !INPUT PARAMETERS:  
+! !INPUT PARAMETERS:
     REAL(wp), INTENT(in) :: p_lon     ! longitude of point
     REAL(wp), INTENT(in) :: p_lat     ! latitude of point
     REAL(wp), INTENT(in) :: p_t       ! point of time
 
-! !RETURN VALUE:  
+! !RETURN VALUE:
     REAL(wp)             :: p_vv      ! meridional velocity
 
-!EOP  
-!-----------------------------------------------------------------------  
+!EOP
+!-----------------------------------------------------------------------
 !BOC
 
     p_vv = SIN(p_lon) * SIN(aleph)
@@ -2292,32 +2291,32 @@ END FUNCTION lhs_geo_balance_mim
 
   END FUNCTION test2_v
 
-!EOC  
-!-------------------------------------------------------------------------  
+!EOC
+!-------------------------------------------------------------------------
 !BOP
 !
 ! !IROUTINE:  test2_vort
-!  
-! !FUNCTION INTERFACE: 
+!
+! !FUNCTION INTERFACE:
   FUNCTION test2_vort( p_lon, p_lat, p_t) RESULT(p_vort)
 !
 ! !DESCRIPTION:
 ! Initial datum for relative vorticity, test case 2 of Williamson et al.(1992).
 !
-! !REVISION HISTORY:  
+! !REVISION HISTORY:
 ! Developed  by L.Bonaventura  (2002-5).
 ! Revised to programming guide by Th.Heinze, DWD, (2006-12)
 !
-! !INPUT PARAMETERS:  
+! !INPUT PARAMETERS:
     REAL(wp), INTENT(in) :: p_lon     ! longitude of point
     REAL(wp), INTENT(in) :: p_lat     ! latitude of point
     REAL(wp), INTENT(in) :: p_t       ! point of time
 
-! !RETURN VALUE:  
+! !RETURN VALUE:
     REAL(wp)             :: p_vort    ! relative vorticity
 
-!EOP  
-!-----------------------------------------------------------------------  
+!EOP
+!-----------------------------------------------------------------------
 !BOC
 
     p_vort = SIN(p_lat)* COS(aleph)
@@ -2326,88 +2325,88 @@ END FUNCTION lhs_geo_balance_mim
 
   END FUNCTION test2_vort
 
-!EOC  
-!-------------------------------------------------------------------------  
+!EOC
+!-------------------------------------------------------------------------
 !BOP
-!  
+!
 ! !IROUTINE:  test5_h
-!  
-! !FUNCTION INTERFACE: 
+!
+! !FUNCTION INTERFACE:
   FUNCTION test5_h( p_lon, p_lat, p_t) RESULT(p_hh)
 !
 ! !DESCRIPTION:
 ! Initial datum for height, test case 5 of Williamson et al.(1992).
 !
-! !REVISION HISTORY:  
+! !REVISION HISTORY:
 ! Developed  by L.Bonaventura  (2002-5).
 ! Revised to programming guide by Th.Heinze, DWD, (2007-01)
-!  
-! !DEFINED PARAMETERS:  
+!
+! !DEFINED PARAMETERS:
     REAL(wp), PARAMETER  :: h0    = 5960._wp  ! maximum height
     REAL(wp), PARAMETER  :: uzero = 20._wp    ! maximum velocity
- 
-! !INPUT PARAMETERS:  
+
+! !INPUT PARAMETERS:
     REAL(wp), INTENT(in) :: p_lon     ! longitude of point
     REAL(wp), INTENT(in) :: p_lat     ! latitude of point
     REAL(wp), INTENT(in) :: p_t       ! point of time
 
-! !RETURN VALUE:  
+! !RETURN VALUE:
     REAL(wp)             :: p_hh      ! height
 
-! !LOCAL VARIABLES:  
+! !LOCAL VARIABLES:
     REAL(wp)             :: z_fact1   ! 1st factor
     REAL(wp)             :: z_fact2   ! 2nd factor
 
-!EOP  
-!-----------------------------------------------------------------------  
+!EOP
+!-----------------------------------------------------------------------
 !BOC
 
 ! 1st factor
 
-    z_fact1 = re * omega 
-    z_fact1 = z_fact1 + 0.5_wp * uzero 
+    z_fact1 = re * omega
+    z_fact1 = z_fact1 + 0.5_wp * uzero
     z_fact1 = z_fact1 * uzero * rgrav
 
 ! 2nd factor
 
-    z_fact2 = SIN(p_lat) 
+    z_fact2 = SIN(p_lat)
     z_fact2 = z_fact2 * z_fact2
-    
+
 ! height
 
     p_hh = h0 - z_fact1 * z_fact2
 
   END FUNCTION test5_h
 
-!EOC  
-!-------------------------------------------------------------------------  
+!EOC
+!-------------------------------------------------------------------------
 !BOP
 !
 ! !IROUTINE:  test5_u
-!  
-! !FUNCTION INTERFACE: 
+!
+! !FUNCTION INTERFACE:
   FUNCTION test5_u( p_lon, p_lat, p_t) RESULT( p_uu)
 !
 ! !DESCRIPTION:
 ! Initial datum for zonal velocity u, test case 5 of Williamson et al.(1992).
 !
-! !REVISION HISTORY:  
+! !REVISION HISTORY:
 ! Developed  by L.Bonaventura  (2002-5).
 ! Revised to programming guide by Th.Heinze, DWD, (2007-02)
 !
-! !DEFINED PARAMETERS:  
+! !DEFINED PARAMETERS:
     REAL(wp), PARAMETER  :: uzero = 20._wp    ! maximum velocity
 
-! !INPUT PARAMETERS:  
+! !INPUT PARAMETERS:
     REAL(wp), INTENT(in) :: p_lon     ! longitude of point
     REAL(wp), INTENT(in) :: p_lat     ! latitude of point
     REAL(wp), INTENT(in) :: p_t       ! point of time
 
-! !RETURN VALUE:  
+! !RETURN VALUE:
     REAL(wp)             :: p_uu      ! zonal velocity
 
-!EOP  
-!-----------------------------------------------------------------------  
+!EOP
+!-----------------------------------------------------------------------
 !BOC
 
     p_uu = COS(p_lat) * COS(aleph)
@@ -2416,36 +2415,36 @@ END FUNCTION lhs_geo_balance_mim
 
   END FUNCTION test5_u
 
-!EOC  
-!-------------------------------------------------------------------------  
+!EOC
+!-------------------------------------------------------------------------
 !BOP
 !
 ! !IROUTINE:  test5_v
-!  
-! !FUNCTION INTERFACE: 
+!
+! !FUNCTION INTERFACE:
   FUNCTION test5_v( p_lon, p_lat, p_t) RESULT(p_vv)
 !
 ! !DESCRIPTION:
-! Initial datum for meridional velocity v, test case 5 of Williamson 
+! Initial datum for meridional velocity v, test case 5 of Williamson
 ! et al.(1992).
 !
-! !REVISION HISTORY:  
+! !REVISION HISTORY:
 ! Developed  by L.Bonaventura  (2002-5).
 ! Revised to programming guide by Th.Heinze, DWD, (2007-02)
 !
-! !DEFINED PARAMETERS:  
+! !DEFINED PARAMETERS:
     REAL(wp), PARAMETER  :: uzero = 20._wp    ! maximum velocity
 
-! !INPUT PARAMETERS:  
+! !INPUT PARAMETERS:
     REAL(wp), INTENT(in) :: p_lon     ! longitude of point
     REAL(wp), INTENT(in) :: p_lat     ! latitude of point
     REAL(wp), INTENT(in) :: p_t       ! point of time
 
-! !RETURN VALUE:  
+! !RETURN VALUE:
     REAL(wp)             :: p_vv      ! meridional velocity
 
-!EOP  
-!-----------------------------------------------------------------------  
+!EOP
+!-----------------------------------------------------------------------
 !BOC
 
     p_vv = SIN(p_lon) * SIN(aleph)
@@ -2453,35 +2452,35 @@ END FUNCTION lhs_geo_balance_mim
 
   END FUNCTION test5_v
 
-!EOC  
-!-------------------------------------------------------------------------  
+!EOC
+!-------------------------------------------------------------------------
 !BOP
 !
 ! !IROUTINE:  test5_oro
-!  
-! !FUNCTION INTERFACE:   
+!
+! !FUNCTION INTERFACE:
   FUNCTION test5_oro(p_lon, p_lat, p_t) RESULT(p_or)
 !
 ! !DESCRIPTION:
 ! Initial datum for orography, test case 5 of Williamson et al.(1992).
 !
-! !REVISION HISTORY:  
+! !REVISION HISTORY:
 ! Developed  by L.Bonaventura  (2002-5).
 ! Revised to programming guide by Th.Heinze, DWD, (2007-02)
 !
-!  
-! !DEFINED PARAMETERS:  
+!
+! !DEFINED PARAMETERS:
     REAL(wp), PARAMETER  :: h_s0  = 2000._wp  ! maximum height of mountain
- 
-! !INPUT PARAMETERS:  
+
+! !INPUT PARAMETERS:
     REAL(wp), INTENT(in) :: p_lon     ! longitude of point
     REAL(wp), INTENT(in) :: p_lat     ! latitude of point
     REAL(wp), INTENT(in) :: p_t       ! point of time
 
-! !RETURN VALUE:  
+! !RETURN VALUE:
     REAL(wp)             :: p_or      ! orography
 
-! !LOCAL VARIABLES:  
+! !LOCAL VARIABLES:
     REAL(wp)             :: z_lon_mc  ! Mountain center, longitude ...
     REAL(wp)             :: z_lat_mc  !          ... and latitude
     REAL(wp)             :: z_rad_mt  ! radius of mountain
@@ -2489,19 +2488,19 @@ END FUNCTION lhs_geo_balance_mim
     REAL(wp)             :: z_diff    ! difference of coordinates
     REAL(wp)             :: z_min_dist_sq ! min of square of distances
 
-!EOP  
-!-----------------------------------------------------------------------  
+!EOP
+!-----------------------------------------------------------------------
 !BOC
 
 ! center and radius of mountain
 
     z_lon_mc = -pi_2
-    z_lat_mc = pi / 6._wp    
+    z_lat_mc = pi / 6._wp
     z_rad_mt = pi / 9._wp
 
-! square of distance (in geographical coordinate sense) of point 
+! square of distance (in geographical coordinate sense) of point
 ! from mountain center
- 
+
     z_diff = p_lon - z_lon_mc
     z_diff = z_diff * z_diff
     z_dist_mc = z_diff
@@ -2512,7 +2511,7 @@ END FUNCTION lhs_geo_balance_mim
 
 ! if point inside mountain range take its distance, else take mountain radius
 
-    z_diff = z_rad_mt * z_rad_mt   
+    z_diff = z_rad_mt * z_rad_mt
     z_min_dist_sq = MIN ( z_diff, z_dist_mc)
     z_dist_mc = SQRT( z_min_dist_sq)
 
@@ -2524,38 +2523,38 @@ END FUNCTION lhs_geo_balance_mim
 
   END FUNCTION test5_oro
 
-!EOC  
-!-------------------------------------------------------------------------  
+!EOC
+!-------------------------------------------------------------------------
 !BOP
 !
 ! !IROUTINE:  test6_h
-!  
-! !FUNCTION INTERFACE: 
+!
+! !FUNCTION INTERFACE:
   FUNCTION test6_h(p_lon, p_lat, p_t) RESULT(p_hh)
 !
 ! !DESCRIPTION:
 !
 ! Initial datum for geopotential h, test case 6 of Williamson et al.(1992).
 !
-! !REVISION HISTORY:  
+! !REVISION HISTORY:
 ! Developed  by L.Bonaventura  (2002-5).
 ! Modified by Th.Heinze, DWD, (2006-11-02)
 
-! !DEFINED PARAMETERS:  
+! !DEFINED PARAMETERS:
 !    REAL (wp), PARAMETER  :: h0 = 8000._wp, re_omg_kk = 50._wp
     REAL (wp), PARAMETER  :: h0 = 8000._wp, omg_kk = 7.848e-6_wp !(re * omg_kk is not 50.)
-                                                                 ! pripodas 
+                                                                 ! pripodas
     INTEGER,   PARAMETER  :: r = 4
 
-! !INPUT PARAMETERS:  
+! !INPUT PARAMETERS:
     REAL(wp) , INTENT(in) :: p_lon, p_lat, p_t
- 
-! !RETURN VALUE:  
+
+! !RETURN VALUE:
     REAL(wp)              :: p_hh
 
-! !LOCAL VARIABLES:  
-   ! REAL(wp)              :: z_omg, z_phia, z_phib, z_phic, z_r_omega 
-    REAL(wp)              :: z_phia, z_phib, z_phic, z_r_omega , z_re_omg_kk 
+! !LOCAL VARIABLES:
+   ! REAL(wp)              :: z_omg, z_phia, z_phib, z_phic, z_r_omega
+    REAL(wp)              :: z_phia, z_phib, z_phic, z_r_omega , z_re_omg_kk
     REAL(wp)              :: z_cosfi, z_cosfi2, z_cosfir, z_cosfir2, z_cosfir2m2
     REAL(wp)              :: z_cosdl, z_cosd2l, z_dlon, z_rr1r2
     REAL(wp)              :: z_val
@@ -2564,19 +2563,19 @@ END FUNCTION lhs_geo_balance_mim
     INTEGER               :: j
     REAL(wp)              :: z_r, z_r1, z_r1r1, z_r1r2, z_r2
 
-!EOP  
-!-----------------------------------------------------------------------  
+!EOP
+!-----------------------------------------------------------------------
 !BOC
 
     z_r_omega  = re * omega
     !z_omg     = re_omg_kk / re
     z_re_omg_kk= re * omg_kk  !pripodas, the initial parameter is omg_kk and not re_omg_kk
-    
+
 !    i_r1      = r + 1
 !    i_r2      = r + 2
 !    i_r1r1    = i_r1 * i_r1
 !    i_r1r2    = i_r1 * i_r2
-!    z_rr1r2   = 1._wp / i_r1r2 
+!    z_rr1r2   = 1._wp / i_r1r2
 
     z_r       = REAL(r,wp)
     z_r1      = z_r + 1._wp
@@ -2588,8 +2587,8 @@ END FUNCTION lhs_geo_balance_mim
     z_dlon    = omg_kk * z_r * (3._wp+z_r) - 2.0_wp * omega
     z_dlon    = z_dlon * z_rr1r2 * p_t
     z_dlon    = (p_lon - z_dlon) * z_r
-    z_cosdl   = COS(z_dlon)  
-    z_cosd2l  = COS(2._wp * z_dlon)  
+    z_cosdl   = COS(z_dlon)
+    z_cosd2l  = COS(2._wp * z_dlon)
 
     z_cosfi   = COS(p_lat)
     z_cosfi2  = z_cosfi  * z_cosfi    ! cos^2(lat)
@@ -2598,7 +2597,7 @@ END FUNCTION lhs_geo_balance_mim
     DO j= 2, r-1
       z_cosfir = z_cosfir * z_cosfi   ! cos^{j}(lat)
     ENDDO
-    z_cosfir2m2 = z_cosfir 
+    z_cosfir2m2 = z_cosfir
     z_cosfir2m2 = z_cosfir2m2 * z_cosfir2m2   ! cos^{2*r1-2}(lat)
 
     z_cosfir  = z_cosfir * z_cosfi    ! cos^{r1}(lat)
@@ -2608,21 +2607,21 @@ END FUNCTION lhs_geo_balance_mim
     z_val  = 2._wp * z_val * z_val - 2.125_wp   ! 2r^2 - r -2
 
     z_phia = z_val * z_cosfi2
-    
+
     z_val  = 2._wp * REAL(r,wp) * z_r
 
-    z_phia = z_phia - z_val 
+    z_phia = z_phia - z_val
     z_val  = z_cosfi2 * z_cosfi2 * z_r1
-    z_phia = z_phia + z_val 
+    z_phia = z_phia + z_val
 
-    z_phia = .25_wp * z_re_omg_kk * z_re_omg_kk * z_cosfir2m2 * z_phia 
+    z_phia = .25_wp * z_re_omg_kk * z_re_omg_kk * z_cosfir2m2 * z_phia
     z_val  = .5_wp * z_re_omg_kk * (2._wp * z_r_omega + z_re_omg_kk) * z_cosfi2
-    z_phia = z_val + z_phia 
-    
-    z_phib = -1._wp * z_cosfi2 * z_r1r1 + z_r1r1 + 1._wp 
+    z_phia = z_val + z_phia
+
+    z_phib = -1._wp * z_cosfi2 * z_r1r1 + z_r1r1 + 1._wp
     z_phib = z_re_omg_kk * (z_r_omega + z_re_omg_kk) * z_cosfir * z_phib
     z_phib = 2._wp * z_rr1r2 * z_phib
- 
+
     z_phic = z_r1 * z_cosfi2 - 1._wp * z_r2
     z_phic = .25_wp * z_re_omg_kk * z_re_omg_kk * z_cosfir2 * z_phic
 
@@ -2631,37 +2630,37 @@ END FUNCTION lhs_geo_balance_mim
 
   END FUNCTION test6_h
 
-!EOC  
-!-------------------------------------------------------------------------  
+!EOC
+!-------------------------------------------------------------------------
 !BOP
 !
 ! !IROUTINE:  test6_u
-!  
-! !FUNCTION INTERFACE: 
+!
+! !FUNCTION INTERFACE:
   FUNCTION test6_u( p_lon, p_lat, p_t) RESULT(p_uu)
 !
 ! !DESCRIPTION:
 !
 ! Initial datum for zonal velocity u, test case 6 of Williamson et al.(1992) .
 !
-! !REVISION HISTORY:  
-! Developed  by L.Bonaventura  (2002-5).    
+! !REVISION HISTORY:
+! Developed  by L.Bonaventura  (2002-5).
 ! Modified by Th.Heinze, DWD, (2006-11-02)
 
-! !DEFINED PARAMETERS:  
+! !DEFINED PARAMETERS:
    ! REAL (wp), PARAMETER  :: re_omg_kk = 50._wp
     REAL (wp), PARAMETER  ::  omg_kk = 7.848e-6_wp !(re * omg_kk is not 50.)
-                                                                 ! pripodas 
+                                                                 ! pripodas
     INTEGER,   PARAMETER  :: r = 4
 
-! !INPUT PARAMETERS:  
+! !INPUT PARAMETERS:
     REAL(wp) , INTENT(in) :: p_lon, p_lat, p_t
- 
-! !RETURN VALUE:  
+
+! !RETURN VALUE:
     REAL(wp)              :: p_uu
 
-! !LOCAL VARIABLES:  
-    !REAL(wp)              :: z_omg, z_r_omega 
+! !LOCAL VARIABLES:
+    !REAL(wp)              :: z_omg, z_r_omega
     REAL(wp)              :: z_r_omega, z_re_omg_kk
     REAL(wp)              :: z_cosfi, z_cosfi2, z_sinfi, z_sinfi2
     REAL(wp)              :: z_cosfir, z_cosfirm1
@@ -2672,20 +2671,20 @@ END FUNCTION lhs_geo_balance_mim
     INTEGER               :: j
     REAL(wp)              :: z_r, z_r1, z_r1r2, z_r2    !pripodas, better transform to real values
 
-!EOP  
-!-----------------------------------------------------------------------  
+!EOP
+!-----------------------------------------------------------------------
 !BOC
 
     z_r_omega  = re * omega
     !z_omg     = re_omg_kk / re
     z_re_omg_kk= re * omg_kk  !pripodas, the initial parameter is omg_kk and not re_omg_kk
-    
 
-    
+
+
 !    i_r1      = r + 1
 !    i_r2      = r + 2
 !    i_r1r2    = i_r1 * i_r2
-!    z_rr1r2   = 1._wp / i_r1r2 
+!    z_rr1r2   = 1._wp / i_r1r2
 
     z_r       = REAL(r, wp)
     z_r1      = z_r + 1._wp
@@ -2696,7 +2695,7 @@ END FUNCTION lhs_geo_balance_mim
     z_dlon    = z_r * (3._wp+z_r) * omg_kk - 2.0_wp * omega
     z_dlon    = z_dlon * z_rr1r2 * p_t
     z_dlon    = (p_lon - z_dlon) * z_r
-    z_cosdl   = COS(z_dlon)  
+    z_cosdl   = COS(z_dlon)
 
     z_sinfi   = SIN(p_lat)
     z_sinfi2  = z_sinfi * z_sinfi
@@ -2708,46 +2707,46 @@ END FUNCTION lhs_geo_balance_mim
     DO j= 2, r-1
       z_cosfir = z_cosfir * z_cosfi   ! cos^{j}(lat)
     ENDDO
-    z_cosfirm1 = z_cosfir 
+    z_cosfirm1 = z_cosfir
 
     z_val      = z_r * z_sinfi2 - z_cosfi2
     z_val      = z_cosfirm1 * z_val * z_cosdl
     z_val      = z_cosfi + z_val
-    p_uu       = z_re_omg_kk * z_val 
+    p_uu       = z_re_omg_kk * z_val
 
   END FUNCTION test6_u
 
-!EOC  
-!-------------------------------------------------------------------------  
+!EOC
+!-------------------------------------------------------------------------
 !BOP
 !
 ! !IROUTINE:  test6_v
-!  
-! !FUNCTION INTERFACE: 
+!
+! !FUNCTION INTERFACE:
   FUNCTION test6_v( p_lon, p_lat, p_t) RESULT(p_vv)
 !
 ! !DESCRIPTION:
 !
-! Initial datum for meridional velocity v, test case 6 of Williamson 
+! Initial datum for meridional velocity v, test case 6 of Williamson
 ! et al.(1992).
 !
-! !REVISION HISTORY:  
-! Developed  by L.Bonaventura  (2002-5).    
+! !REVISION HISTORY:
+! Developed  by L.Bonaventura  (2002-5).
 ! Modified by Th.Heinze, DWD, (2006-11-02)
 
-! !DEFINED PARAMETERS:  
+! !DEFINED PARAMETERS:
    ! REAL (wp), PARAMETER  :: re_omg_kk = 50._wp
     REAL (wp), PARAMETER  ::  omg_kk = 7.848e-6_wp !(re * omg_kk is not 50.)
-                                                                 ! pripodas 
+                                                                 ! pripodas
     INTEGER,   PARAMETER  :: r = 4
 
-! !INPUT PARAMETERS:  
+! !INPUT PARAMETERS:
     REAL(wp) , INTENT(in) :: p_lon, p_lat, p_t
- 
-! !RETURN VALUE:  
+
+! !RETURN VALUE:
     REAL(wp)              :: p_vv
 
-! !LOCAL VARIABLES:  
+! !LOCAL VARIABLES:
     !REAL(wp)              :: z_omg, z_r_omega   !pripodas, we use omg_kk and not re_omg_kk
     REAL(wp)              :: z_r_omega, z_re_omg_kk
     REAL(wp)              :: z_cosfi, z_sinfi
@@ -2759,29 +2758,29 @@ END FUNCTION lhs_geo_balance_mim
     INTEGER               :: j
     REAL(wp)              :: z_r, z_r1, z_r1r2, z_r2    !pripodas, better transform to real values
 
-!EOP  
-!-----------------------------------------------------------------------  
+!EOP
+!-----------------------------------------------------------------------
 !BOC
 
     z_r_omega = re * omega
     !z_omg     = re_omg_kk / re
     z_re_omg_kk= re * omg_kk  !pripodas, the initial parameter is omg_kk and not re_omg_kk
-    
+
 !    i_r1      = r + 1
 !    i_r2      = r + 2
 !    i_r1r2    = i_r1 * i_r2
-!    z_rr1r2   = 1._wp / i_r1r2 
+!    z_rr1r2   = 1._wp / i_r1r2
 
     z_r       = REAL(r,wp)
     z_r1      = z_r + 1._wp
     z_r2      = z_r + 2._wp
     z_r1r2    = z_r1 * z_r2
-    z_rr1r2   = 1._wp / z_r1r2 
+    z_rr1r2   = 1._wp / z_r1r2
 
     z_dlon    = z_r * (3._wp+z_r) * omg_kk - 2.0_wp * omega
     z_dlon    = z_dlon * z_rr1r2 * p_t
     z_dlon    = (p_lon - z_dlon) * z_r
-    z_sindl   = SIN(z_dlon)  
+    z_sindl   = SIN(z_dlon)
 
     z_sinfi   = SIN(p_lat)
 
@@ -2791,44 +2790,44 @@ END FUNCTION lhs_geo_balance_mim
     DO j= 2, r-1
       z_cosfir = z_cosfir * z_cosfi   ! cos^{j}(lat)
     ENDDO
-    z_cosfirm1 = z_cosfir 
+    z_cosfirm1 = z_cosfir
 
     z_val      = z_cosfirm1 * z_sinfi * z_sindl
-    p_vv       = -1._wp * z_re_omg_kk * z_r * z_val 
+    p_vv       = -1._wp * z_re_omg_kk * z_r * z_val
 
   END FUNCTION test6_v
 
-!EOC  
-!-------------------------------------------------------------------------  
+!EOC
+!-------------------------------------------------------------------------
 !BOP
 !
 ! !IROUTINE:  test6_vort
-!  
-! !FUNCTION INTERFACE: 
+!
+! !FUNCTION INTERFACE:
    FUNCTION test6_vort( p_lon, p_lat, p_t) RESULT(p_vt)
 !
 ! !DESCRIPTION:
 !
 ! Initial datum for relative vorticity, test case 6 of Williamson et al.(1992).
 !
-! !REVISION HISTORY:  
-! Developed  by L.Bonaventura  (2002-5).    
+! !REVISION HISTORY:
+! Developed  by L.Bonaventura  (2002-5).
 ! Modified by Th.Heinze, DWD, (2006-11-02):
 ! - corrected vorticity
 
-! !DEFINED PARAMETERS:  
+! !DEFINED PARAMETERS:
    ! REAL (wp), PARAMETER  :: re_omg_kk = 50._wp
     REAL (wp), PARAMETER  ::  omg_kk = 7.848e-6_wp !(re * omg_kk is not 50.)
-                                                                 ! pripodas 
+                                                                 ! pripodas
     INTEGER,   PARAMETER  :: r = 4
 
-! !INPUT PARAMETERS:  
+! !INPUT PARAMETERS:
     REAL(wp) , INTENT(in) :: p_lon, p_lat, p_t
- 
-! !RETURN VALUE:  
+
+! !RETURN VALUE:
     REAL(wp)              :: p_vt
 
-! !LOCAL VARIABLES:  
+! !LOCAL VARIABLES:
     !REAL(wp)              :: z_omg, z_r_omega   !pripodas, we use omg_kk and not re_omg_kk
     REAL(wp)              :: z_r_omega, z_re_omg_kk
     REAL(wp)              :: z_cosfi, z_sinfi
@@ -2840,18 +2839,18 @@ END FUNCTION lhs_geo_balance_mim
     INTEGER               :: j
     REAL(wp)              :: z_r, z_r1, z_r1r2, z_r2   !pripodas, better transform to real values
 
-!EOP  
-!-----------------------------------------------------------------------  
+!EOP
+!-----------------------------------------------------------------------
 !BOC
 
     z_r_omega = re * omega
     !z_omg     = re_omg_kk / re
     z_re_omg_kk= re * omg_kk  !pripodas, the initial parameter is omg_kk and not re_omg_kk
-    
+
    ! i_r1      = r + 1
    ! i_r2      = r + 2
    ! i_r1r2    = i_r1 * i_r2
-   ! z_rr1r2   = 1._wp / i_r1r2 
+   ! z_rr1r2   = 1._wp / i_r1r2
 
     z_r       = REAL(r,wp)
     z_r1      = z_r + 1._wp
@@ -2862,7 +2861,7 @@ END FUNCTION lhs_geo_balance_mim
     z_dlon    = z_r * (3._wp+z_r) * omg_kk - 2.0_wp * omega
     z_dlon    = z_dlon * z_rr1r2 * p_t
     z_dlon    = (p_lon - z_dlon) * z_r
-    z_cosdl   = COS(z_dlon)  
+    z_cosdl   = COS(z_dlon)
 
     z_sinfi   = SIN(p_lat)
 
@@ -2879,42 +2878,42 @@ END FUNCTION lhs_geo_balance_mim
 
   END FUNCTION test6_vort
 
-!EOC  
-!-------------------------------------------------------------------------  
+!EOC
+!-------------------------------------------------------------------------
 !BOP
-!  
+!
 ! !IROUTINE:  test_usbr_h
-!  
-! !FUNCTION INTERFACE: 
+!
+! !FUNCTION INTERFACE:
   FUNCTION test_usbr_h( p_lon, p_lat, p_t) RESULT(p_hh)
 !
 ! !DESCRIPTION:
-! Initial datum for height h, test case unsteady solid body 
+! Initial datum for height h, test case unsteady solid body
 ! rotation of L\"auter et al.(2007).
 
-! !REVISION HISTORY:  
+! !REVISION HISTORY:
 ! Developed by Th.Heinze, DWD, (2007-03)
-!  
-! !DEFINED PARAMETERS:  
+!
+! !DEFINED PARAMETERS:
     REAL(wp), PARAMETER  :: d0    = 133681.0_wp  ! additive constant
- 
-! !INPUT PARAMETERS:  
+
+! !INPUT PARAMETERS:
     REAL(wp), INTENT(in) :: p_lon     ! longitude of point
     REAL(wp), INTENT(in) :: p_lat     ! latitude of point
     REAL(wp), INTENT(in) :: p_t       ! point of time
 
-! !RETURN VALUE:  
+! !RETURN VALUE:
     REAL(wp)             :: p_hh      ! height
 
-! !LOCAL VARIABLES:  
+! !LOCAL VARIABLES:
     REAL(wp)             :: z_phi_t_k ! 1st summand
     REAL(wp)             :: z_summand ! 2nd summand
     REAL(wp)             :: z_fact    ! factor
     REAL(wp)             :: z_angle1  ! 1st angle
     REAL(wp)             :: z_angle2  ! 2nd angle
 
-!EOP  
-!-----------------------------------------------------------------------  
+!EOP
+!-----------------------------------------------------------------------
 !BOC
 
 ! relevant angles
@@ -2935,7 +2934,7 @@ END FUNCTION lhs_geo_balance_mim
 ! one factor
 
     z_fact    = .5_wp *  z_phi_t_k + z_summand
-    
+
 ! height
 
     p_hh      = d0 - z_phi_t_k *  z_fact
@@ -2944,36 +2943,36 @@ END FUNCTION lhs_geo_balance_mim
 !stop
   END FUNCTION test_usbr_h
 
-!EOC  
-!-------------------------------------------------------------------------  
+!EOC
+!-------------------------------------------------------------------------
 !BOP
 !
 ! !IROUTINE:  test_usbr_u
-!  
-! !FUNCTION INTERFACE: 
+!
+! !FUNCTION INTERFACE:
   FUNCTION test_usbr_u( p_lon, p_lat, p_t) RESULT( p_uu)
 !
 ! !DESCRIPTION:
-! Initial datum for zonal velocity u, test case unsteady solid body 
+! Initial datum for zonal velocity u, test case unsteady solid body
 ! rotation of L\"auter et al.(2007).
 
-! !REVISION HISTORY:  
+! !REVISION HISTORY:
 ! Developed by Th.Heinze, DWD, (2007-03)
 !
-! !INPUT PARAMETERS:  
+! !INPUT PARAMETERS:
     REAL(wp), INTENT(in) :: p_lon     ! longitude of point
     REAL(wp), INTENT(in) :: p_lat     ! latitude of point
     REAL(wp), INTENT(in) :: p_t       ! point of time
 
-! !RETURN VALUE:  
+! !RETURN VALUE:
     REAL(wp)             :: p_uu      ! zonal velocity
 
-! !LOCAL VARIABLES:  
+! !LOCAL VARIABLES:
     REAL(wp)             :: z_angle1  ! 1st angle
     REAL(wp)             :: z_angle2  ! 2nd angle
 
-!EOP  
-!-----------------------------------------------------------------------  
+!EOP
+!-----------------------------------------------------------------------
 !BOC
 
     z_angle1 = .25_wp * pi
@@ -2984,74 +2983,74 @@ END FUNCTION lhs_geo_balance_mim
 
   END FUNCTION test_usbr_u
 
-!EOC  
-!-------------------------------------------------------------------------  
+!EOC
+!-------------------------------------------------------------------------
 !BOP
 !
 ! !IROUTINE:  test_usbr_v
-!  
-! !FUNCTION INTERFACE: 
+!
+! !FUNCTION INTERFACE:
   FUNCTION test_usbr_v( p_lon, p_lat,p_t) RESULT(p_vv)
 !
 ! !DESCRIPTION:
-! Initial datum for meridional velocity v, test case unsteady solid body 
+! Initial datum for meridional velocity v, test case unsteady solid body
 ! rotation of L\"auter et al.(2007).
 
-! !REVISION HISTORY:  
+! !REVISION HISTORY:
 ! Developed by Th.Heinze, DWD, (2007-03)
 !
-! !INPUT PARAMETERS:  
+! !INPUT PARAMETERS:
     REAL(wp), INTENT(in) :: p_lon     ! longitude of point
     REAL(wp), INTENT(in) :: p_lat     ! latitude of point
     REAL(wp), INTENT(in) :: p_t       ! point of time
 
-! !RETURN VALUE:  
+! !RETURN VALUE:
     REAL(wp)             :: p_vv      ! meridional velocity
 
-! !LOCAL VARIABLES:  
+! !LOCAL VARIABLES:
     REAL(wp)             :: z_angle   ! angle
 
-!EOP  
-!-----------------------------------------------------------------------  
+!EOP
+!-----------------------------------------------------------------------
 !BOC
 
     z_angle = p_lon + omega * p_t
-    p_vv = SIN(z_angle) 
+    p_vv = SIN(z_angle)
     z_angle = .25_wp * pi
-    p_vv = p_vv * SIN(z_angle) 
+    p_vv = p_vv * SIN(z_angle)
     p_vv = -1._wp * u0 * p_vv
 
   END FUNCTION test_usbr_v
 
-!EOC  
-!-------------------------------------------------------------------------  
+!EOC
+!-------------------------------------------------------------------------
 !BOP
 !
 ! !IROUTINE:  test_usbr_oro
-!  
-! !FUNCTION INTERFACE:   
+!
+! !FUNCTION INTERFACE:
   FUNCTION test_usbr_oro(p_lon,p_lat,p_t) RESULT(p_or)
 !
 ! !DESCRIPTION:
 ! Initial datum for orography, test case unsteady solid body rotation
 ! of L\"auter et al.(2007).
 !
-! !REVISION HISTORY:  
+! !REVISION HISTORY:
 ! Developed by Th.Heinze, DWD, (2007-03)
-! 
-! !INPUT PARAMETERS:  
+!
+! !INPUT PARAMETERS:
     REAL(wp), INTENT(in) :: p_lon     ! longitude of point
     REAL(wp), INTENT(in) :: p_lat     ! latitude of point
     REAL(wp), INTENT(in) :: p_t       ! point of time
 
-! !RETURN VALUE:  
+! !RETURN VALUE:
     REAL(wp)             :: p_or      ! orography
 
-! !LOCAL VARIABLES:  
+! !LOCAL VARIABLES:
     REAL(wp)             :: z_fact    ! factor
 
-!EOP  
-!-----------------------------------------------------------------------  
+!EOP
+!-----------------------------------------------------------------------
 !BOC
 
 ! calculate factor
@@ -3065,40 +3064,40 @@ END FUNCTION lhs_geo_balance_mim
 
   END FUNCTION test_usbr_oro
 
-!EOC  
+!EOC
 
-!EOC  
-!-------------------------------------------------------------------------  
+!EOC
+!-------------------------------------------------------------------------
 !BOP
 !
 ! !IROUTINE:  rotate
-!  
-! !SUBROUTINE INTERFACE: 
+!
+! !SUBROUTINE INTERFACE:
   SUBROUTINE rotate(p_lon, p_lat, p_alpha, p_rotlon, p_rotlat)
 !
 ! !DESCRIPTION:
 ! This subroutine computes the rotated coordinates p\_rotlon, p\_rotlat
 ! for a roatation by angle p\_alpha, given the coordinates p\_lon and p\_lat.
 !
-! !REVISION HISTORY:  
-! Developed originally by R.Jakob for NCAR shallow water model.  
+! !REVISION HISTORY:
+! Developed originally by R.Jakob for NCAR shallow water model.
 ! Adapted to ICON code by L.Bonaventura (2002-5).
 ! Adapted to ICON programming guide by Th.Heinze, DWD, (2006-12-12)
 !
-! !INPUT PARAMETERS:  
+! !INPUT PARAMETERS:
     REAL(wp), INTENT(in)  :: p_lon     ! ORIGINAL LONGITUDE
     REAL(wp), INTENT(in)  :: p_lat     ! ORIGINAL LATITUDE
     REAL(wp), INTENT(in)  :: p_alpha   ! ROTATION ANGLE
-   
-! !INPUT PARAMETERS:  
+
+! !INPUT PARAMETERS:
     REAL(wp), INTENT(out) :: p_rotlon  ! ROTATED LONGITUDE
     REAL(wp), INTENT(out) :: p_rotlat  ! ROTATED LATITUDE
-    
-! !LOCAL VARIABLES:  
+
+! !LOCAL VARIABLES:
     REAL(wp)              :: z_test    ! checking value
-    
-!EOP  
-!-----------------------------------------------------------------------  
+
+!EOP
+!-----------------------------------------------------------------------
 !BOC
 
     IF (p_alpha == 0.0_wp) THEN       !        NO ROTATION
@@ -3121,9 +3120,9 @@ END FUNCTION lhs_geo_balance_mim
       ENDIF
 
 !     ROTATED LONGITUDE
-       
+
       z_test = COS(p_rotlat)
-       
+
       IF (z_test == 0.0_wp) THEN
         p_rotlon = 0.0_wp
       ELSE
@@ -3138,24 +3137,24 @@ END FUNCTION lhs_geo_balance_mim
       ENDIF
 
 !        ADJUST FOR CORRECT BRANCH OF INVERSE SINE
-       
+
       z_test = COS(p_alpha)*COS(p_lon)*COS(p_lat) + SIN(p_alpha)*SIN(p_lat)
- 
+
       IF (z_test < 0.0_wp) THEN
         p_rotlon = pi - p_rotlon
       ENDIF
- 
+
     ENDIF
-    
+
   END SUBROUTINE rotate
 
-!EOC  
-!-------------------------------------------------------------------------  
+!EOC
+!-------------------------------------------------------------------------
 !BOP
 !
 ! !IROUTINE:  geostr_balance
 !
-! !FUNCTION INTERFACE: 
+! !FUNCTION INTERFACE:
   FUNCTION geostr_balance( p_lat, func)  RESULT(p_hh)
 !
 ! !DESCRIPTION:
@@ -3163,12 +3162,12 @@ END FUNCTION lhs_geo_balance_mim
 ! to compute geostrophically balanced initial state used
 ! in test 3.
 !
-! !REVISION HISTORY:  
+! !REVISION HISTORY:
 ! Developed  by L.Bonaventura  (2002-5).
-! Modified by Th.Heinze, DWD, (2006-11-22): 
+! Modified by Th.Heinze, DWD, (2006-11-22):
 ! - introduced INTERFACE uu (got an error message with g95 compiler,
 !   scanned the code, this seems to be the correct way, but might be wrong)
-! Modified by Th.Heinze, DWD, (2006-12-12): 
+! Modified by Th.Heinze, DWD, (2006-12-12):
 ! - renamed it to geostr_balance
 !
 ! !REMARKS:
@@ -3177,24 +3176,24 @@ END FUNCTION lhs_geo_balance_mim
 ! !INTERFACE:
     INTERFACE                        ! selected function
 
-      FUNCTION func(p_t) RESULT(p_vv)  
+      FUNCTION func(p_t) RESULT(p_vv)
 
         USE mo_kind, ONLY: wp
-	       
+
         REAL(wp), INTENT(in) :: p_t
         REAL(wp)             :: p_vv
 
       END FUNCTION func
-       
+
     END INTERFACE
-   
-! !INPUT PARAMETERS:  
+
+! !INPUT PARAMETERS:
     REAL(wp), INTENT(in) :: p_lat           ! rotated latitude
 
-! !RETURN VALUE:  
+! !RETURN VALUE:
     REAL(wp)             :: p_hh            ! balanced height
 
-! !LOCAL VARIABLES:  
+! !LOCAL VARIABLES:
     INTEGER              :: j               ! loop index
 
     REAL(wp)             :: z_a             ! left bound
@@ -3204,13 +3203,13 @@ END FUNCTION lhs_geo_balance_mim
     REAL(wp)             :: z_val, z_val2   ! intermediate values
 
 
-!EOP  
-!-----------------------------------------------------------------------  
+!EOP
+!-----------------------------------------------------------------------
 !BOC
 
     z_a = -1._wp * pi_2
     z_b = p_lat
-    
+
     z_step = 0.02_wp * ( z_b - z_a)
 
     p_hh = 0._wp
@@ -3219,7 +3218,7 @@ END FUNCTION lhs_geo_balance_mim
 
     DO j = 1, 50
        z_lat = z_lat + z_step
-       
+
        z_val = func(z_lat)
 
        z_val2 = 2._wp * omega * SIN(z_lat)
@@ -3232,12 +3231,12 @@ END FUNCTION lhs_geo_balance_mim
 
   END FUNCTION geostr_balance
 
-!-------------------------------------------------------------------------  
+!-------------------------------------------------------------------------
 !
 ! !IROUTINE:  zero
-!  
-! !FUNCTION INTERFACE: 
-  
+!
+! !FUNCTION INTERFACE:
+
 ! FUNCTION zero(lon,lat,t) RESULT(uu)
 !
 ! !DESCRIPTION:
@@ -3245,13 +3244,13 @@ END FUNCTION lhs_geo_balance_mim
 ! Dummy constant function zero, used in the
 ! initialization of some test cases.
 !
-! !REVISION HISTORY:  
+! !REVISION HISTORY:
 ! Developed  by L.Bonaventura  (2002-5).
 !   IMPLICIT NONE
 !   REAL(wp) , INTENT(in):: lon,lat,t
 !   REAL(wp) :: uu
 
-!-----------------------------------------------------------------------  
+!-----------------------------------------------------------------------
 
 !   uu=0._wp
 ! END FUNCTION zero
