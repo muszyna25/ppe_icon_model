@@ -6,14 +6,13 @@
 #
 # Default EXPNAME is the suffix of this script after "exp."
 #
-# Stephan Lorenz, MPI-M, 2011-01-26
-#
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
 #
-# Basic specifications of the simulation
+# Basic specifications for the hydrostatic ocean model (hom)
 # --------------------------------------
+# Stephan Lorenz, MPI-M, 2011-01 / 2012-03
 #
 # These variables are set in the header section of the completed run script:
 #
@@ -173,7 +172,6 @@ cat > ${ocean_namelist} << EOF
   str_proc_tst = 'all' 'abt', 'vel', 'dif', 'trc', 'bul', '   ', '   ', '   ', '   '
                                  ! define strings for processes to be printed out in debug mode
   rlat_in = 50.0 rlon_in = -30.0 ! lat/lon-location of one cell debug output
-  h_val=1.0 t_val=1.0            ! initial values for elevation and temperature at one cell
 /
 &ocean_dynamics_nml
 ! 10 levels of 500m depth

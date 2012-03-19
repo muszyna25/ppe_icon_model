@@ -1,5 +1,3 @@
-#!/bin/ksh
-
 #=============================================================================
 #
 # This section of the run script containes the specifications of the ocean experiment.
@@ -8,9 +6,10 @@
 #
 # Default EXPNAME is the suffix of this script after "exp."
 #
-# Stephan Lorenz, MPI-M, 2011-01-26
-#
 #-----------------------------------------------------------------------------
+# Basic specifications for the hydrostatic ocean model (hom)
+# --------------------------------------
+# Stephan Lorenz, MPI-M, 2011-01 / 2012-03
 #
 # Preliminary test phase: run on specific systems and compiler only
 #  - 2011-01-31: mpipc/tornado/squall - all compilers
@@ -40,9 +39,6 @@ else
   fi
 fi
 #
-#-----------------------------------------------------------------------------
-
-
 #-----------------------------------------------------------------------------
 #
 # Basic specifications of the simulation
@@ -103,20 +99,18 @@ iforc_len=1    # length of OMIP dataset: 1 = annual; 12 = monthly data; else = d
 #
 #-----------------------------------------------------------------------------
 # global timing
-start_date="2000-01-01T00:00:00Z"
-end_date="2000-01-02T00:00:00Z"
+start_date="2001-01-01T00:00:00Z"
+  end_date="2001-01-02T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
 nhours_data=6        # ocean model output interval hours [hours]
-ndays_file=360       # new output file generation interval [days]
+ndays_file=1000      # new output file generation interval [days]
 ndays_checkp=30      # write restart file interval [days]
 ndays_restart=1      # stop model for restart [days]
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $ndays
-# diagnostic output (not in ocean model)
-#dt_diag=`expr 4 \* 3600 `    #  output each 4 hours
 dt_data=`expr ${nhours_data} \* 3600`
 dt_file=`expr ${ndays_file} \* 86400`
 dt_checkpoint=`expr ${ndays_checkp} \* 86400`
@@ -161,18 +155,15 @@ ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
 if [ "x$BB_SYSTEM" = "xhpc" -o "x$BB_SYSTEM" = "xnec" ] ; then
    USE_POOLD="N"
 fi
+# all buildbot tests are running from local grids instead of pool (since r7117)
 USE_POOLD="N"
 #
 if [ "x$USE_POOLD" = "xY" ] ; then
    POOLDIR="/pool/data/ICON/grids"
    if [ "x$USE_FLATB" = "xY" ] ; then
-   # OCEGRID="ocegridR${R}B0${B}.cde2.flat.nc"
-   # OCEGRID="ocegridR${R}B0${B}.cde3.1.flat.nc"
      OCEGRID="ocegridR${R}B0${B}.cde3.3.flat.nc"
    fi
    if [ "x$USE_BATHY" = "xY" ] ; then
-   # OCEGRID="ocegridR${R}B0${B}.cde2.planet.nc"
-   # OCEGRID="ocegridR${R}B0${B}.cde3.1.planet.nc"
      OCEGRID="ocegridR${R}B0${B}.cde3.3.planet.nc"
    fi
    # other ocean grid files can be added here
