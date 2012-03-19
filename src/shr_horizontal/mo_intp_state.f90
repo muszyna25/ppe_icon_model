@@ -188,7 +188,8 @@ USE mo_intp_coeffs,         ONLY: lsq_stencil_create, lsq_compute_coeff_cell,   
   &                               init_nudgecoeffs, tri_quadrature_pts,                &
   &                               par_init_scalar_product_oce
 USE mo_lonlat_intp_config,  ONLY: lonlat_intp_config
-USE mo_mpi,                 ONLY: p_n_work, my_process_is_io, process_mpi_io_size
+USE mo_mpi,                 ONLY: p_n_work, my_process_is_io, process_mpi_io_size, &
+  & my_process_is_mpi_all_parallel
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V
 USE mo_communication,       ONLY: t_comm_pattern, blk_no, idx_no, idx_1d, &
   &                               setup_comm_pattern, delete_comm_pattern, exchange_data
@@ -1617,8 +1618,11 @@ DO jg = n_dom_start, n_dom
 
   IF ( iequations == ihs_ocean) THEN
     IF (idisc_scheme==1) THEN
-  !   CALL par_init_scalar_product_oce(ptr_patch(jg), ptr_int_state(jg))
-      CALL init_scalar_product_oce(ptr_patch(jg), ptr_int_state(jg))
+      IF (my_process_is_mpi_all_parallel()) THEN
+        CALL par_init_scalar_product_oce(ptr_patch(jg), ptr_int_state(jg))
+      ELSE
+        CALL init_scalar_product_oce(ptr_patch(jg), ptr_int_state(jg))
+      ENDIF
     ENDIF
     CALL init_geo_factors_oce(ptr_patch(jg), ptr_int_state(jg))
   ENDIF

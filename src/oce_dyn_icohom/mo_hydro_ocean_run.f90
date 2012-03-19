@@ -103,6 +103,7 @@ USE mo_output,                 ONLY: init_output_files, write_output, &
 USE mo_oce_diagnostics,        ONLY: calculate_oce_diagnostics,&
   &                                  construct_oce_diagnostics,&
   &                                  destruct_oce_diagnostics, t_oce_timeseries, calc_moc
+USE mo_mpi,                    ONLY: my_process_is_mpi_all_parallel
 IMPLICIT NONE
 
 PRIVATE
@@ -179,8 +180,11 @@ CONTAINS
   jg = n_dom
 
   CALL allocate_exp_coeff( ppatch(jg), ptr_op_coeff)
-  ! CALL par_init_operator_coeff( ppatch(jg), ptr_op_coeff, p_int(jg))
-  CALL init_operator_coeff( ppatch(jg), ptr_op_coeff)
+  IF (my_process_is_mpi_all_parallel()) THEN
+    CALL par_init_operator_coeff( ppatch(jg), ptr_op_coeff, p_int(jg))
+  ELSE
+    CALL init_operator_coeff( ppatch(jg), ptr_op_coeff)
+  ENDIF
 
   CALL init_ho_recon_fields( ppatch(jg), pstate_oce(jg), ptr_op_coeff)
 
