@@ -542,9 +542,9 @@ MODULE mo_vertical_grid
                 MAX(0._wp,p_nh(jg)%metrics%exner_exfac(jc,jk,jb))
               ! For extremely steep slopes, going a bit behind time level nnow turned out
               ! to further improve stability
-              IF (z_maxslp(jc,jk,jb) > 1._wp) &
+              IF (z_maxslp(jc,jk,jb) > 1.5_wp) &
                 p_nh(jg)%metrics%exner_exfac(jc,jk,jb) = &
-                  MAX(-0.25_wp,0.50_wp*(1._wp-z_maxslp(jc,jk,jb)))
+                  MAX(-0.1666_wp,0.25_wp*(1.5_wp-z_maxslp(jc,jk,jb)))
             ENDDO
           ENDDO
 
@@ -1052,7 +1052,7 @@ MODULE mo_vertical_grid
         ALLOCATE(imask(nproma,nlev,p_patch(jg)%nblks_e),icount(p_patch(jg)%nblks_e), &
                  z_shift(nproma,nlev,p_patch(jg)%nblks_e) )
 
-        extrapol_dist = 20._wp ! maximum allowed extrapolation distance; may become a namelist variable later on
+        extrapol_dist = 5._wp ! maximum allowed extrapolation distance; may become a namelist variable later on
 
         ! Recompute indices and height differences if truly horizontal pressure gradient 
         ! computation would intersect the ground
