@@ -113,15 +113,15 @@ END TYPE t_ptr3d
 TYPE t_ho_params
 
   ! diffusion coefficients for horizontal velocity, temp. and salinity, dim=(nproma,n_zlev,nblks_e)
-  REAL(wp),POINTER ::    &
+  REAL(wp),POINTER ::     &
     &  K_veloc_h(:,:,:),  & ! coefficient of horizontal velocity diffusion
-    &  K_tracer_h(:,:,:,:)     ! coefficient of horizontal tracer diffusion
+    &  K_tracer_h(:,:,:,:)  ! coefficient of horizontal tracer diffusion
   TYPE(t_ptr3d),ALLOCATABLE :: tracer_h_ptr(:)
 
   ! diffusion coefficients for vertical velocity, temp. and salinity, dim=(nproma,n_zlev+1,nblks_e)
-  REAL(wp),POINTER ::    &
+  REAL(wp),POINTER ::     &
     &  A_veloc_v(:,:,:),  & ! coefficient of vertical velocity diffusion
-    &  A_tracer_v(:,:,:,:)     ! coefficient of vertical tracer diffusion
+    &  A_tracer_v(:,:,:,:)  ! coefficient of vertical tracer diffusion
   TYPE(t_ptr3d),ALLOCATABLE :: tracer_v_ptr(:)
 
   !constant background values of coefficients above
@@ -557,7 +557,8 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2011-02)
   !
-  !
+  !! mpi parallelized, sync required:
+  !!                   params_oce%A_tracer_v, params_oce%A_veloc_v
   SUBROUTINE update_ho_params(p_patch, p_os, p_sfc_flx, params_oce, calc_density)
     TYPE(t_patch), TARGET, INTENT(IN) :: p_patch
     TYPE(t_hydro_ocean_state), TARGET :: p_os
@@ -952,8 +953,13 @@ CONTAINS
 
        ! set to background value
        !params_oce%A_veloc_v(:,1,:) = params_oce%A_veloc_v_back!params_oce%A_veloc_v(:,2,:)
-     ENDIF!l_constant_mixing
+    ENDIF!l_constant_mixing
 
+
+    DO i_no_trac=1, no_tracer
+      CALL sync_patch_array(SYNC_C,p_patch,params_oce%A_tracer_v(:,:,:,i_no_trac))
+    END DO
+    CALL sync_patch_array(SYNC_C,p_patch,params_oce%A_veloc_v(:,:,:))
 
     DO i_no_trac=1, no_tracer
       z_c(:,:,:)=params_oce%A_tracer_v(:,:,:,i_no_trac)
