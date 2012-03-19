@@ -149,13 +149,13 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2010-07)
   !
-  !
+  !! mpi parallelized, syncs p_phys_param%K_tracer_h, p_phys_param%K_veloc_h
   SUBROUTINE init_ho_params(  ppatch, p_phys_param )
     TYPE(t_patch), INTENT(IN)  :: ppatch
-    TYPE (t_ho_params)         :: p_phys_param 
+    TYPE (t_ho_params)         :: p_phys_param
 
     ! Local variables
-    INTEGER  :: i
+    INTEGER  :: i, i_no_trac
     REAL(wp) :: z_lower_bound_diff
     !-------------------------------------------------------------------------
     !Init from namelist
@@ -183,7 +183,7 @@ CONTAINS
       CALL calc_munk_based_lapl_diff(ppatch,p_phys_param%K_veloc_h)
 
     CASE(3)
-      CALL calc_munk_based_lapl_diff(ppatch,p_phys_param%K_veloc_h) 
+      CALL calc_munk_based_lapl_diff(ppatch,p_phys_param%K_veloc_h)
 
     END SELECT
 
@@ -209,6 +209,10 @@ CONTAINS
 
     p_phys_param%bottom_drag_coeff = bottom_drag_coeff
 
+    DO i_no_trac=1, no_tracer
+      CALL sync_patch_array(SYNC_C,ppatch,p_phys_param%K_tracer_h(:,:,:,i_no_trac))
+    END DO
+    CALL sync_patch_array(SYNC_C,ppatch,p_phys_param%K_veloc_h(:,:,:))
 
   END SUBROUTINE init_ho_params
 
@@ -954,7 +958,6 @@ CONTAINS
        ! set to background value
        !params_oce%A_veloc_v(:,1,:) = params_oce%A_veloc_v_back!params_oce%A_veloc_v(:,2,:)
     ENDIF!l_constant_mixing
-
 
     DO i_no_trac=1, no_tracer
       CALL sync_patch_array(SYNC_C,p_patch,params_oce%A_tracer_v(:,:,:,i_no_trac))
