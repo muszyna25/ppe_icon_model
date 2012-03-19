@@ -2044,13 +2044,9 @@ FUNCTION geo_balance_mim(p_patch, h_e, rhs_e) result(vn_e)
   !write(*,*)'max/min LHS', maxval(llhs(:,:)),minval(llhs(:,:))
 
   END FUNCTION lhs_geo_balance_mim
-! ! !------------------------------------------------------------
-!------------Below are functions from to implement tests from Williamson shallow-water tests
-!EOC
+
+!--Below are functions from to implement tests from Williamson shallow-water tests
 !-------------------------------------------------------------------------
-!BOP
-!
-! !*IROUTINE:  test0_h
 !
 ! !F*UNCTION INTERFACE:
   FUNCTION test0_h( p_lon, p_lat, p_t) RESULT( p_hh)
