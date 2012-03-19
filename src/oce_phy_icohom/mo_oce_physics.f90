@@ -561,7 +561,7 @@ CONTAINS
   SUBROUTINE update_ho_params(p_patch, p_os, p_sfc_flx, params_oce, calc_density)
     TYPE(t_patch), TARGET, INTENT(IN) :: p_patch
     TYPE(t_hydro_ocean_state), TARGET :: p_os
-    TYPE(t_sfc_flx),   INTENT(INOUT)  :: p_sfc_flx
+    TYPE(t_sfc_flx),   INTENT(IN)     :: p_sfc_flx
     TYPE(t_ho_params), INTENT(INOUT)  :: params_oce
     INTERFACE !This contains the function version of the actual EOS as chosen in namelist
       FUNCTION calc_density(tpot, sal, press) RESULT(rho)
@@ -620,7 +620,7 @@ CONTAINS
     REAL(wp) :: z_s1, z_s2
     REAL(wp) :: z_c(nproma,n_zlev+1,p_patch%nblks_c)
     !-------------------------------------------------------------------------
-     TYPE(t_subset_range), POINTER :: edges_in_domain,cells_in_domain
+    TYPE(t_subset_range), POINTER :: edges_in_domain,cells_in_domain
     !-------------------------------------------------------------------------
     ! DO, jk=1,n_zlev
     ! CALL &
