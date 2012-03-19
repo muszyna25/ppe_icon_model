@@ -39,35 +39,7 @@ else
      exit
   fi
 fi
-
-## if [ -z "$BB_SYSTEM" ]
-## then
-##   echo " ===== (no buildbot) ======="
-##   echo " Run ocean testcase $EXPNAME"
-##   echo " ==========================="
-## else
-## # run on all slaves of squall and tornado
-##   if [ "$BB_SYSTEM" = "squall" -o "$BB_SYSTEM" = "tornado" ]
-##   then 
-##     echo " ================================================="
-##     echo " Run ocean testcase $EXPNAME on BB_SLAVE=$BB_SLAVE"
-##     echo " ================================================="
-## # run on specified slaves of blizzard, hpc, and nec
-##   elif [ "$BB_SYSTEM" = "blizzard" -o  "$BB_SYSTEM" = "hpc" -o "$BB_SYSTEM" = "nec" ]
-##   then
-##     if [ "$BB_SLAVE" = "blizz_nMnO" -o  "$BB_SLAVE" = "sx9" -o "$BB_SLAVE" = "hpc_serial" -o "$BB_SLAVE" = "hpc_sun_debug" ] 
-##     then
-##       echo " ================================================="
-##       echo " Run ocean testcase $EXPNAME on BB_SLAVE=$BB_SLAVE"
-##       echo " ================================================="
-##     else
-##       echo " ========================================================="
-##       echo " No ocean testcase is run on BB_SLAVE=$BB_SLAVE - exit now"
-##       echo " ========================================================="
-##       exit 0
-##     fi
-##   fi
-## fi
+#
 #-----------------------------------------------------------------------------
 
 
@@ -129,7 +101,6 @@ end_date="2000-01-02T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=1800           # ocean model timestep [s]
 #ndays=1              # ocean model run in days
 dt_data=21600.       # ocean model output interval [s]
 ndays_file=360       # new output file generation interval [days]
@@ -221,8 +192,7 @@ cat > ${ocean_namelist} << EOF
  dynamics_grid_filename = "${ocean_grids}",
 /
 &run_nml
-! nsteps      = ${nsteps}    ! number of steps length of run
- dtime       = ${dtime}     ! [s] timestep in seconds
+ dtime       = 1800         ! model timestep in seconds
  msg_level   = 10           ! detailed report during integration
 /
 &dynamics_nml
