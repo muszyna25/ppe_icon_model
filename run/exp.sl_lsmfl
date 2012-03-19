@@ -48,6 +48,12 @@ init_relax=1   # 1: use relaxation initialization file
 #
 #-----------------------------------------------------------------------------
 # ocean forcing = 12 needs an additional flux file 
+# NO_FORCING                 = 10
+# ANALYT_FORC                = 11  - dependent on testcase
+# FORCING_FROM_FILE_FLUX     = 12  - OMIP or NCEP type forcing
+# FORCING_FROM_FILE_FIELD    = 13  - not yet
+# FORCING_FROM_COUPLED_FLUX  = 14  - coupled experiments
+# FORCING_FROM_COUPLED_FIELD = 15  - not yet
 iforc=12
 # type of OMIP forcing to read (iforc=12 only)
 #  1 = u/v-stress [and temperature relaxation], depending on "temperature_relaxation" below
@@ -255,12 +261,6 @@ cat > ${ocean_namelist} << EOF
 /
 &ocean_forcing_and_init_nml
   iforc_oce          = ${iforc}  ! ocean forcing:
-                                 ! NO_FORCING                 = 10
-                                 ! ANALYT_FORC                = 11  - dependent on testcase
-                                 ! FORCING_FROM_FILE_FLUX     = 12  - OMIP type forcing
-                                 ! FORCING_FROM_FILE_FIELD    = 13  - not yet
-                                 ! FORCING_FROM_COUPLED_FLUX  = 14
-                                 ! FORCING_FROM_COUPLED_FIELD = 15  - not yet
   iforc_omip         = ${iforc_omip}  ! type of ocean forcing, see above
   iforc_len          = ${iforc_len}   ! length of ocean forcing data set, see above
   iforc_stat_oce     =    3      ! stationary (wind) forcing for iforc_oce=11 only:
@@ -268,7 +268,7 @@ cat > ${ocean_namelist} << EOF
                                  ! 2=varying u with latitude for basin using basin_width_deg
                                  ! 3=varying u with latitude globally
   init_oce_prog      = ${init_oce}    ! read ocean initialization file, see above
-  init_oce_relax     = ${init_relax}  ! read ocean initialization file, see above
+  init_oce_relax     = ${init_relax}  ! read ocean surface relaxation file, see above
   itestcase_oce      =   50      ! 25=shallow-water-Laeuter-Test; 26=shallow-water-Williamson test5;
                                  ! 30=3D-multilayer Stommel; 31=3D-gravity wave
                                  ! 32=Multilayer Munk-Gyre test (following Sergey Danilov)
@@ -305,3 +305,22 @@ cat > ${ocean_namelist} << EOF
 /
 EOF
 #-----------------------------------------------------------------------------
+
+# MPIOM 40 levels:
+# n_zlev          =   40
+# dzlev_m(1:40)   =   12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   13.0,   15.0,   20.0,   25.0,
+#                     30.0,   35.0,   40.0,   45.0,   50.0,   55.0,   60.0,   70.0,   80.0,   90.0,
+#                    100.0,  110.0,  120.0,  130.0,  140.0,  150.0,  170.0,  180.0,  190.0,  200.0,
+#                    220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
+
+# MPIOM 80 levels:
+# n_zlev          =   80
+# dzlev_m(1:80)   =   12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   10.0,   11.0,   11.0,   12.0,
+#                     13.,13.,14.,14.,15.,16.,16.,17.,18.,19.,
+#                     20.,21.,21.,22.,24.,25.,26.,27.,28.,29.,
+#                     31.,32.,34.,35.,37.,39.,40.,42.,44.,46.,
+#                     48.,50.,53.,55.,58.,60.,63.,66.,69.,72.,
+#                     76.,79.,83.,87.,91.,95.,99.,104.,108.,113.,
+#                     119.,124.,130.,136.,142.,149.,155.,163.,170.,178.,
+#                     186.,195.,204.,213.,223.,233.,244.,255.,267.,279.,
+
