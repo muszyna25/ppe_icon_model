@@ -78,8 +78,8 @@ USE mo_oce_ab_timestepping_mimetic,ONLY: l_STAGGERED_TIMESTEP
 USE mo_intp_data_strc,             ONLY: p_int_state
 USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_util_subset,         ONLY: t_subset_range, get_index_range
-  USE mo_sync,                ONLY: SYNC_C, SYNC_C1, SYNC_E, SYNC_V, sync_patch_array, sync_idx, global_max,&
-    & sync_patch_array_mult
+  USE mo_sync,                ONLY: SYNC_C, SYNC_C1, SYNC_E, SYNC_V, sync_patch_array, sync_idx, &
+    &                               global_max, sync_patch_array_mult
 USE mo_mpi,                   ONLY: global_mpi_barrier, my_process_is_mpi_parallel
 
 IMPLICIT NONE
