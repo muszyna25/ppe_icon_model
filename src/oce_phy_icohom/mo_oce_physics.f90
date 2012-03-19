@@ -778,12 +778,6 @@ CONTAINS
            ENDIF
          END DO
        END DO
-   !Do jk=1,n_zlev
-   !write(*,*)'max-min Ri-Nr:densgrad:shear:',&
-   !&maxval( z_Ri_c(:,jk,:)),&!minval( z_Ri_c(:,jk,:)),&
-   !&maxval(z_vert_density_grad_c(:,jk,:)),&!minval(z_vert_density_grad_c(:,jk,:)),&
-   !&maxval( z_shear_c(:,jk,:))!,minval( z_shear_c(:,jk,:))
-   !END DO
 
       !Density gradient for 1st level not calulated yet, but required below. Following
       !parxis in MPI-OM we set first layer equal to second layer (cf MPI-OM mo_ocean_vertical_mixing)
@@ -820,28 +814,11 @@ CONTAINS
                  !! vert_density_grad  < 0 instable stratification: use convective mixing parameter
                  ELSE IF (z_vert_density_grad_c(jc,jk,jb) < -z_treshold ) THEN
                    params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = MAX_VERT_DIFF_TRAC
-   !  write(246,*)'instab',&
-   !  & jc,jk,jb,z_vert_density_grad_c(jc,jk,jb),&
-   !  & z_rho_down(jc,jk,jb),z_rho_up(jc,jk,jb),&
-   !  & z_rho_down(jc,jk,jb)-z_rho_up(jc,jk,jb),&
-   !  &p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1),&
-   !  &p_os%p_prog(nold(1))%tracer(jc,jk,jb,1),&
-   ! &z_Ri_c(jc,jk,jb)
                    DO jj=1,3
                      idxe = p_patch%cells%edge_idx(jc,jb,jj)
                      ible = p_patch%cells%edge_blk(jc,jb,jj)
                      params_oce%A_veloc_v(idxe,jk,ible) = MAX_VERT_DIFF_VELOC
-                   ENDDO 
-   !                 idx_c1=p_patch%cells%neighbor_idx(jc,jb,1)
-   !                 ibk_c1=p_patch%cells%neighbor_blk(jc,jb,1)
-   !                 idx_c2=p_patch%cells%neighbor_idx(jc,jb,2)
-   !                 ibk_c2=p_patch%cells%neighbor_blk(jc,jb,2)
-   !                 idx_c3=p_patch%cells%neighbor_idx(jc,jb,3)
-   !                 ibk_c3=p_patch%cells%neighbor_blk(jc,jb,3)
-   ! 
-   !                 params_oce%A_tracer_v(idx_c1,jk,ibk_c1,i_no_trac)=MAX_VERT_DIFF_TRAC
-   !                 params_oce%A_tracer_v(idx_c2,jk,ibk_c2,i_no_trac)=MAX_VERT_DIFF_TRAC
-   !                 params_oce%A_tracer_v(idx_c3,jk,ibk_c3,i_no_trac)=MAX_VERT_DIFF_TRAC
+                   ENDDO
 
                  !! vert_density_grad  > 0 stable stratification: use calculated value
                  ELSE IF (z_vert_density_grad_c(jc,jk,jb) > z_treshold ) THEN
@@ -1002,6 +979,5 @@ CONTAINS
       CALL print_mxmn('PHY veloc mixing',jk,params_oce%A_veloc_v(:,:,:),n_zlev+1, &
        & p_patch%nblks_e,'phy',ipl_src)
     END DO
-
   END SUBROUTINE update_ho_params
 END MODULE mo_oce_physics
