@@ -249,8 +249,7 @@ SUBROUTINE velocity_diffusion_horz_rbf(p_patch, vn_in, p_param, p_diag, laplacia
   !Local variables
   INTEGER :: slev, elev
   INTEGER :: jk, jb, je!,jc
-  INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
-  INTEGER :: rl_start_e, rl_end_e
+  INTEGER :: i_startidx_e, i_endidx_e
   INTEGER :: il_c1, ib_c1, il_c2, ib_c2
   TYPE(t_subset_range), POINTER :: edges_in_domain        
 
