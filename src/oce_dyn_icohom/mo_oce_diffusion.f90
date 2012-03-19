@@ -851,8 +851,7 @@ SUBROUTINE tracer_diffusion_vert_impl_hom( p_patch,   &
           END DO
 
           z_tmp = b(z_dolic)-a(z_dolic)*c(z_dolic-1)
-          z_tmp = (field_column(jc,z_dolic,jb)-a(z_dolic)*field_column(jc,z_dolic-1,jb))*
-             &    */z_tmp
+          z_tmp = (field_column(jc,z_dolic,jb)-a(z_dolic)*field_column(jc,z_dolic-1,jb))/z_tmp
 
           field_column(jc,z_dolic,jb) = z_tmp
           DO jk = z_dolic-1,1,-1
@@ -909,169 +908,166 @@ SUBROUTINE veloc_diffusion_vert_impl_hom( p_patch,       &
                                     & h_e,           &
                                     & A_v,           &
                                     & diff_column)
-TYPE(t_patch), TARGET, INTENT(in) :: p_patch
-REAL(wp), INTENT(inout)           :: field_column(:,:,:)
-REAL(wp), INTENT(IN)              :: h_e(:,:)           !surface height at edges, relevant for thickness of first cell 
-REAL(wp), INTENT(inout)           :: A_v(:,:,:) 
-REAL(wp), INTENT(out)             :: diff_column(:,:,:)
-!
-!Local variables
-INTEGER :: slev
-INTEGER :: jc, jk, jb
-INTEGER :: i_startidx, i_endidx
-REAL(wp) :: a(1:n_zlev), b(1:n_zlev), c(1:n_zlev)
-!REAL(wp) :: gam(1:n_zlev), bet(1:n_zlev)
-REAL(wp) :: z_tmp
-INTEGER  :: z_dolic
-REAL(wp) :: inv_zinv_i(1:n_zlev)
-REAL(wp) :: inv_zinv_m(1:n_zlev)
-    
-TYPE(t_subset_range), POINTER :: all_edges
-!REAL(wp) :: z_e1(nproma,1,p_patch%nblks_e)
-! CHARACTER(len=max_char_length), PARAMETER :: &
-!        & routine = ('mo_oce_diffusion:tracer_diffusion_impl')
-!-----------------------------------------------------------------------
-all_edges => p_patch%edges%all
+  TYPE(t_patch), TARGET, INTENT(in) :: p_patch
+  REAL(wp), INTENT(inout)           :: field_column(:,:,:)
+  REAL(wp), INTENT(IN)              :: h_e(:,:)           !surface height at edges, relevant for thickness of first cell 
+  REAL(wp), INTENT(inout)           :: A_v(:,:,:) 
+  REAL(wp), INTENT(out)             :: diff_column(:,:,:)
+  !
+  !Local variables
+  INTEGER :: slev
+  INTEGER :: jc, jk, jb
+  INTEGER :: i_startidx, i_endidx
+  REAL(wp) :: a(1:n_zlev), b(1:n_zlev), c(1:n_zlev)
+  !REAL(wp) :: gam(1:n_zlev), bet(1:n_zlev)
+  REAL(wp) :: z_tmp
+  INTEGER  :: z_dolic
+  REAL(wp) :: inv_zinv_i(1:n_zlev)
+  REAL(wp) :: inv_zinv_m(1:n_zlev)
+      
+  TYPE(t_subset_range), POINTER :: all_edges
+  !REAL(wp) :: z_e1(nproma,1,p_patch%nblks_e)
+  ! CHARACTER(len=max_char_length), PARAMETER :: &
+  !        & routine = ('mo_oce_diffusion:tracer_diffusion_impl')
+  !-----------------------------------------------------------------------
+  all_edges => p_patch%edges%all
 
-slev       = 1
+  slev = 1
 
-!gam(1:n_zlev)     = 0.0_wp
-a(slev:n_zlev)    = 0.0_wp 
-b(slev:n_zlev)    = 0.0_wp 
-c(slev:n_zlev)    = 0.0_wp
-!bet(slev:n_zlev)  = 1.0_wp
-inv_zinv_i(slev:n_zlev)  = 0.0_wp
-inv_zinv_m(slev:n_zlev)  = 0.0_wp
-diff_column=field_column
+  !gam(1:n_zlev)          = 0.0_wp
+  a(slev:n_zlev)          = 0.0_wp
+  b(slev:n_zlev)          = 0.0_wp
+  c(slev:n_zlev)          = 0.0_wp
+  !bet(slev:n_zlev)       = 1.0_wp
+  inv_zinv_i(slev:n_zlev) = 0.0_wp
+  inv_zinv_m(slev:n_zlev) = 0.0_wp
+  diff_column             = field_column
 
-DO jb = all_edges%start_block, all_edges%end_block
-  CALL get_index_range(all_edges, jb, i_startidx, i_endidx)
-  DO jc = i_startidx, i_endidx
+  DO jb = all_edges%start_block, all_edges%end_block
+    CALL get_index_range(all_edges, jb, i_startidx, i_endidx)
+    DO jc = i_startidx, i_endidx
 
-    z_dolic             = v_base%dolic_e(jc,jb)
-    IF ( v_base%lsm_oce_e(jc,1,jb) < sea_boundary ) THEN
-      IF ( z_dolic >MIN_DOLIC ) THEN
+      z_dolic             = v_base%dolic_e(jc,jb)
+      IF ( v_base%lsm_oce_e(jc,1,jb) < sea_boundary ) THEN
+        IF ( z_dolic >MIN_DOLIC ) THEN
 
-        inv_zinv_i(:)=1.0_wp/v_base%del_zlev_i(:)
-        inv_zinv_m(:)=1.0_wp/v_base%del_zlev_m(:)
+          inv_zinv_i(:)=1.0_wp/v_base%del_zlev_i(:)
+          inv_zinv_m(:)=1.0_wp/v_base%del_zlev_m(:)
 
 
-        !Fill triangular matrix
-        !b is diagonal a and c are upper and lower band
-        DO jk = slev+1, z_dolic-1
-          a(jk) = -A_v(jc,jk,jb)  *inv_zinv_m(jk) *inv_zinv_i(jk)*dtime
-          c(jk) = -A_v(jc,jk+1,jb)*inv_zinv_m(jk) *inv_zinv_i(jk+1)*dtime
-          b(jk) = 1.0_wp-a(jk)-c(jk)
-        END DO
+          !Fill triangular matrix
+          !b is diagonal a and c are upper and lower band
+          DO jk = slev+1, z_dolic-1
+            a(jk) = -A_v(jc,jk,jb)  *inv_zinv_m(jk) *inv_zinv_i(jk)*dtime
+            c(jk) = -A_v(jc,jk+1,jb)*inv_zinv_m(jk) *inv_zinv_i(jk+1)*dtime
+            b(jk) = 1.0_wp-a(jk)-c(jk)
+          END DO
 
-        ! The first row
-         c(slev) = -A_v(jc,slev+1,jb)*inv_zinv_m(slev)*inv_zinv_i(slev+1)*dtime
-         a(slev) = 0.0_wp           
-         b(slev) = 1.0_wp- c(slev) !- a(slev) 
+          ! The first row
+           c(slev) = -A_v(jc,slev+1,jb)*inv_zinv_m(slev)*inv_zinv_i(slev+1)*dtime
+           a(slev) = 0.0_wp           
+           b(slev) = 1.0_wp- c(slev) !- a(slev) 
 
-        ! The last row
-        a(z_dolic) = -A_v(jc,z_dolic,jb)*inv_zinv_m(z_dolic)*inv_zinv_i(z_dolic)
-        c(z_dolic) = 0.0_wp
-        b(z_dolic) = 1.0_wp - a(z_dolic)! - c(z_dolic)
+          ! The last row
+          a(z_dolic) = -A_v(jc,z_dolic,jb)*inv_zinv_m(z_dolic)*inv_zinv_i(z_dolic)
+          c(z_dolic) = 0.0_wp
+          b(z_dolic) = 1.0_wp - a(z_dolic)! - c(z_dolic)
 
-!------------------------------------------
-! !         bet(slev) = 1.0_wp/b(slev)
-! !         DO jk=slev+1, z_dolic
-! !           gam(jk) = a(jk-1)*bet(jk-1)
-! !           IF((b(jk) - c(jk)*gam(jk))/=0.0_wp)THEN 
-! !             bet(jk) = 1.0_wp/(b(jk) - c(jk)*gam(jk))
-! !           ENDIF
-! !         END DO
-! !         diff_column(jc,slev,jb)=field_column(jc,slev,jb)!*bet(slev)
-! !         DO jk=slev+1, z_dolic
-! !           diff_column(jc,jk,jb)=bet(jk)*&
-! !           &(field_column(jc,jk,jb)-c(jk)*diff_column(jc,jk-1,jb))
-! !         END DO
-! !         ! Backward sweep
-! !         DO jk=z_dolic-1,slev,-1
-! !           diff_column(jc,jk,jb) = diff_column(jc,jk,jb)  &
-! !           &            -gam(jk+1)*diff_column(jc,jk+1,jb)
-! !         END DO
-!------------------------------------------
-        DO jk=slev, z_dolic-2
-          IF(b(jk)/=0.0_wp)THEN
-            a(jk) = a(jk)/b(jk)
-            c(jk) = c(jk)/b(jk)
+  !------------------------------------------
+  ! !         bet(slev) = 1.0_wp/b(slev)
+  ! !         DO jk=slev+1, z_dolic
+  ! !           gam(jk) = a(jk-1)*bet(jk-1)
+  ! !           IF((b(jk) - c(jk)*gam(jk))/=0.0_wp)THEN 
+  ! !             bet(jk) = 1.0_wp/(b(jk) - c(jk)*gam(jk))
+  ! !           ENDIF
+  ! !         END DO
+  ! !         diff_column(jc,slev,jb)=field_column(jc,slev,jb)!*bet(slev)
+  ! !         DO jk=slev+1, z_dolic
+  ! !           diff_column(jc,jk,jb)=bet(jk)*&
+  ! !           &(field_column(jc,jk,jb)-c(jk)*diff_column(jc,jk-1,jb))
+  ! !         END DO
+  ! !         ! Backward sweep
+  ! !         DO jk=z_dolic-1,slev,-1
+  ! !           diff_column(jc,jk,jb) = diff_column(jc,jk,jb)  &
+  ! !           &            -gam(jk+1)*diff_column(jc,jk+1,jb)
+  ! !         END DO
+  !------------------------------------------
+          DO jk=slev, z_dolic-2
+            IF(b(jk)/=0.0_wp)THEN
+              a(jk) = a(jk)/b(jk)
+              c(jk) = c(jk)/b(jk)
+              field_column(jc,jk,jb)=field_column(jc,jk,jb)/b(jk)
+              b(jk)=1.0_wp
+            ENDIF
+          END DO
+          DO jk=slev+1, z_dolic-2
+            b(jk)=b(jk)-a(jk)*c(jk-1)
+            field_column(jc,jk,jb)=field_column(jc,jk,jb)&
+                          &-a(jk)*field_column(jc,jk-1,jb)
+            c(jk)=c(jk)/b(jk)
             field_column(jc,jk,jb)=field_column(jc,jk,jb)/b(jk)
             b(jk)=1.0_wp
-          ENDIF
-        END DO
-        DO jk=slev+1, z_dolic-2
-          b(jk)=b(jk)-a(jk)*c(jk-1)
-          field_column(jc,jk,jb)=field_column(jc,jk,jb)&
-                        &-a(jk)*field_column(jc,jk-1,jb)
-          c(jk)=c(jk)/b(jk)
-          field_column(jc,jk,jb)=field_column(jc,jk,jb)/b(jk)
-          b(jk)=1.0_wp
-        END DO
-        z_tmp=b(z_dolic-1)-a(z_dolic-1)*c(z_dolic-2)
-        z_tmp=(field_column(jc,z_dolic-1,jb)-a(z_dolic-1)*field_column(jc,z_dolic-2,jb))/z_tmp
+          END DO
+          z_tmp=b(z_dolic-1)-a(z_dolic-1)*c(z_dolic-2)
+          z_tmp=(field_column(jc,z_dolic-1,jb)-a(z_dolic-1)*field_column(jc,z_dolic-2,jb))/z_tmp
 
-        field_column(jc,z_dolic-1,jb)=z_tmp
-        DO jk=z_dolic-2,1,-1
-          field_column(jc,jk,jb)=field_column(jc,jk,jb)-c(jk)*field_column(jc,jk+1,jb)
-        END DO
-        DO jk=1,z_dolic
-    !   DO jk=1,z_dolic-1
-          diff_column(jc,jk,jb)=field_column(jc,jk,jb)
-        END DO
-!----------------------------------------------------------- 
-!         DO jk=slev, z_dolic-1
-!           IF(b(jk)/=0.0_wp)THEN
-!             a(jk) = a(jk)/b(jk)
-!             c(jk) = c(jk)/b(jk)
-!             field_column(jc,jk,jb)=field_column(jc,jk,jb)/b(jk)
-!             b(jk)=1.0_wp
-!           ENDIF
-!         END DO
-! 
-!         DO jk=slev+1, z_dolic-1
-!           b(jk)=b(jk)-a(jk)*c(jk-1)
-!           field_column(jc,jk,jb)=field_column(jc,jk,jb)&
-!                         &-a(jk)*field_column(jc,jk-1,jb)
-!           c(jk)=c(jk)/b(jk)
-!           field_column(jc,jk,jb)=field_column(jc,jk,jb)/b(jk)
-!           b(jk)=1.0_wp
-!         END DO
-! 
-!         z_tmp=b(z_dolic)-a(z_dolic)*c(z_dolic-1)
-!         z_tmp=(field_column(jc,z_dolic,jb)-a(z_dolic)*field_column(jc,z_dolic-1,jb))/z_tmp
-! 
-!         field_column(jc,z_dolic,jb)=z_tmp
-!         DO jk=z_dolic-1,1,-1
-!           field_column(jc,jk,jb)=field_column(jc,jk,jb)-c(jk)*field_column(jc,jk+1,jb)
-!         END DO
-!         DO jk=1,z_dolic-1
-!           diff_column(jc,jk,jb)=field_column(jc,jk,jb)
-!         END DO
+          field_column(jc,z_dolic-1,jb)=z_tmp
+          DO jk=z_dolic-2,1,-1
+            field_column(jc,jk,jb)=field_column(jc,jk,jb)-c(jk)*field_column(jc,jk+1,jb)
+          END DO
+          DO jk=1,z_dolic
+      !   DO jk=1,z_dolic-1
+            diff_column(jc,jk,jb)=field_column(jc,jk,jb)
+          END DO
+  !----------------------------------------------------------- 
+  !         DO jk=slev, z_dolic-1
+  !           IF(b(jk)/=0.0_wp)THEN
+  !             a(jk) = a(jk)/b(jk)
+  !             c(jk) = c(jk)/b(jk)
+  !             field_column(jc,jk,jb)=field_column(jc,jk,jb)/b(jk)
+  !             b(jk)=1.0_wp
+  !           ENDIF
+  !         END DO
+  ! 
+  !         DO jk=slev+1, z_dolic-1
+  !           b(jk)=b(jk)-a(jk)*c(jk-1)
+  !           field_column(jc,jk,jb)=field_column(jc,jk,jb)&
+  !                         &-a(jk)*field_column(jc,jk-1,jb)
+  !           c(jk)=c(jk)/b(jk)
+  !           field_column(jc,jk,jb)=field_column(jc,jk,jb)/b(jk)
+  !           b(jk)=1.0_wp
+  !         END DO
+  ! 
+  !         z_tmp=b(z_dolic)-a(z_dolic)*c(z_dolic-1)
+  !         z_tmp=(field_column(jc,z_dolic,jb)-a(z_dolic)*field_column(jc,z_dolic-1,jb))/z_tmp
+  ! 
+  !         field_column(jc,z_dolic,jb)=z_tmp
+  !         DO jk=z_dolic-1,1,-1
+  !           field_column(jc,jk,jb)=field_column(jc,jk,jb)-c(jk)*field_column(jc,jk+1,jb)
+  !         END DO
+  !         DO jk=1,z_dolic-1
+  !           diff_column(jc,jk,jb)=field_column(jc,jk,jb)
+  !         END DO
 
 
 
 
-      ELSEIF ( z_dolic <MIN_DOLIC ) THEN
+        ELSEIF ( z_dolic <MIN_DOLIC ) THEN
+          diff_column(jc,:,jb) = 0.0_wp
+          field_column(jc,:,jb)= 0.0_wp
+        ENDIF
+      ELSEIF( v_base%lsm_oce_e(jc,1,jb) >= sea_boundary ) THEN
         diff_column(jc,:,jb) = 0.0_wp
         field_column(jc,:,jb)= 0.0_wp
       ENDIF
-    ELSEIF( v_base%lsm_oce_e(jc,1,jb) >= sea_boundary ) THEN
-      diff_column(jc,:,jb) = 0.0_wp
-      field_column(jc,:,jb)= 0.0_wp
-    ENDIF
+    END DO
   END DO
-END DO
 
-DO jk=slev, n_zlev
-  ipl_src=5  ! output print level (1-5, fix)
-  CALL print_mxmn('IMPL VEL: aft.vvel.dif',jk,diff_column(:,:,:),n_zlev, &
-    &              p_patch%nblks_c,'dif',ipl_src)
-END DO
-
-
-
-END subroutine veloc_diffusion_vert_impl_hom
+  DO jk=slev, n_zlev
+    ipl_src=5  ! output print level (1-5, fix)
+    CALL print_mxmn('IMPL VEL: aft.vvel.dif',jk,diff_column(:,:,:),n_zlev, &
+      &              p_patch%nblks_c,'dif',ipl_src)
+  END DO
+END SUBROUTINE veloc_diffusion_vert_impl_hom
 !------------------------------------------------------------------------
 END MODULE mo_oce_diffusion
