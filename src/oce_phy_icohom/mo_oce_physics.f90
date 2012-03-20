@@ -624,12 +624,19 @@ CONTAINS
     REAL(wp) :: z_w_v
     REAL(wp) :: z_s1, z_s2, density_grad_c, mean_z_r
     REAL(wp) :: z_c(nproma,n_zlev+1,p_patch%nblks_c)
+    REAL(wp) :: tmp_communicate_c(nproma,p_patch%nblks_c)
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: edges_in_domain,cells_in_domain,all_cells
     !-------------------------------------------------------------------------
     edges_in_domain => p_patch%edges%in_domain
     cells_in_domain => p_patch%cells%in_domain
     all_cells       => p_patch%cells%all
+
+    ! sync v_base%dolic_c
+    ! this should have already been done
+    tmp_communicate_c(:,:) = REAL(v_base%dolic_c(:,:),wp)
+    CALL sync_patch_array(SYNC_C,p_patch,tmp_communicate_c)
+    v_base%dolic_c(:,:) = INT(tmp_communicate_c(:,:))
     
     ! DO, jk=1,n_zlev
     ! CALL &
@@ -876,6 +883,9 @@ CONTAINS
       ! use mean values between the two cells
       ! change to min, max if required
       params_oce%A_veloc_v(:,:,:) = params_oce%A_veloc_v_back
+      !CALL sync_patch_array(SYNC_C,p_patch,z_vert_density_grad_c)
+      !CALL sync_patch_array(SYNC_C,p_patch,z_Ri_c)
+
       DO jb = edges_in_domain%start_block, edges_in_domain%end_block
         CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
         DO je = i_startidx_e, i_endidx_e
