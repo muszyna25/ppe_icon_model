@@ -47,7 +47,7 @@ USE mo_kind,                      ONLY: wp
 USE mo_impl_constants,            ONLY: sea_boundary, MIN_DOLIC, min_rlcell !, min_rledge
 USE mo_ocean_nml,                 ONLY: n_zlev, expl_vertical_tracer_diff, ab_const !, ab_gam
 USE mo_parallel_config,           ONLY: nproma
-USE mo_dynamics_config,           ONLY: nold !, nnew 
+USE mo_dynamics_config,           ONLY: nold !, nnew
 USE mo_run_config,                ONLY: dtime, ltimer
 USE mo_timer,                     ONLY: timer_start, timer_stop, timer_adv_vert, timer_ppm_slim, &
   &                                     timer_dif_vert
