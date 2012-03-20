@@ -55,7 +55,7 @@ MODULE mo_ext_data
     &                              max_char_length, min_rlcell_int
   USE mo_physical_constants, ONLY: ppmv2gg, zemiss_def
   USE mo_run_config,         ONLY: iforcing
-  USE mo_ocean_nml,          ONLY: iforc_oce, iforc_omip, iforc_len
+  USE mo_ocean_nml,          ONLY: iforc_oce, iforc_type, iforc_len
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_lnd_nwp_config,     ONLY: nsfc_subs
   USE mo_extpar_config,      ONLY: itopo, l_emiss, extpar_filename, generate_filename
