@@ -1132,49 +1132,43 @@ CONTAINS
   !! @par Revision History
   !! Developed by Daniel Reinert, DWD (2010-02-04)
   !!
+  !! mpi parallelized, no sync
   SUBROUTINE v_ppm_slimiter_mo( p_patch, p_cc, p_face, p_slope, p_face_up, p_face_low )
 
-    TYPE(t_patch), TARGET, INTENT(IN) ::  p_patch  !< patch on which computation is performed
-    REAL(wp), INTENT(IN) ::  p_cc(:,:,:)        !< advected cell centered variable
-    REAL(wp), INTENT(IN) ::  p_face(:,:,:)     !< reconstructed face values of the advected field
-    REAL(wp), INTENT(IN) :: p_slope(:,:,:)      !< monotonized slope
-    REAL(wp), INTENT(INOUT) :: p_face_up(:,:,:) !< final face value (upper face, height based)
-    REAL(wp), INTENT(INOUT) ::  p_face_low(:,:,:) !< final face value (lower face, height based)
+    TYPE(t_patch), TARGET, INTENT(IN) :: p_patch          !< patch on which computation is performed
+    REAL(wp), INTENT(IN)              :: p_cc(:,:,:)      !< advected cell centered variable
+    REAL(wp), INTENT(IN)              :: p_face(:,:,:)    !< reconstructed face values of the advected field
+    REAL(wp), INTENT(IN)              :: p_slope(:,:,:)   !< monotonized slope
+    REAL(wp), INTENT(INOUT)           :: p_face_up(:,:,:) !< final face value (upper face, height based)
+    REAL(wp), INTENT(INOUT)           :: p_face_low(:,:,:)!< final face value (lower face, height based)
 
-
+    ! locals
     INTEGER  :: nlev                      !< number of full levels
     INTEGER  :: slev                      !< vertical start level
     INTEGER  :: jc, jk, jb                !< index of cell, vertical level and block
-    INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
-    INTEGER  :: i_rlstart, i_rlend!, i_nchdom
+    INTEGER  :: i_startidx_c, i_endidx_c
     INTEGER  :: ikp1                      !< vertical level plus one
     !INTEGER  :: opt_slev, opt_rlstart, opt_rlend
     REAL(wp) :: z_delta                   !< lower minus upper face value
     REAL(wp) :: z_a6i                     !< curvature of parabola
-
     !-----------------------------------------------------------------------
+    TYPE(t_subset_range), POINTER :: all_cells
+    !-----------------------------------------------------------------------
+    all_cells => p_patch%cells%all
 
     ! check optional arguments
-     slev      = 1
-     nlev      = n_zlev
-     i_rlstart = 1
-     i_rlend   = min_rlcell
-
-    i_startblk = p_patch%cells%start_blk(i_rlstart,1)
-    i_endblk   = p_patch%cells%end_blk(i_rlend,1)!i_nchdom)
+    slev = 1
+    nlev = n_zlev
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,ikp1,z_delta,z_a6i)
-    DO jb = i_startblk, i_endblk
-
-      CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
-        &                 i_startidx, i_endidx, i_rlstart, i_rlend )
-
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx_c,i_endidx_c,ikp1,z_delta,z_a6i)
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
       DO jk = slev, nlev
         ! index of bottom half level
         ikp1 = jk + 1
 
-        DO jc = i_startidx, i_endidx
+        DO jc = i_startidx_c, i_endidx_c
           z_delta   = p_face(jc,ikp1,jb) - p_face(jc,jk,jb)
           z_a6i     = 6._wp * (p_cc(jc,jk,jb)                           &
             &       - 0.5_wp * (p_face(jc,jk,jb) + p_face(jc,ikp1,jb)))
