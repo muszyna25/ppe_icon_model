@@ -91,7 +91,7 @@ INTEGER, PARAMETER :: MIMETIC= 3
 INTEGER, PARAMETER :: MIMETIC_MIURA= 4
 
 CONTAINS
-  !-------------------------------------------------------------------------  
+  !-------------------------------------------------------------------------
   !! SUBROUTINE advects vertically the tracers present in the ocean model.
   !!
   !! @par Revision History
@@ -462,6 +462,7 @@ CONTAINS
   END SUBROUTINE advect_vertical
 
 
+  !-------------------------------------------------------------------------
   !! First order upwind scheme for vertical tracer advection
   !!
   !! Calculation of vertical tracer fluxes using the first
@@ -474,38 +475,36 @@ CONTAINS
   !! Modification by Stephan Lorenz, MPI (2010-09-07)
   !! - adapted to hydrostatic ocean core
   !!
+  !! mpi parallelized, no sync
   SUBROUTINE upwind_vflux_oce( ppatch, pvar_c, pw_c,top_bc_t, pupflux_i )
 
-    TYPE(t_patch), TARGET, INTENT(IN) :: ppatch      !< patch on which computation is performed
-    REAL(wp), INTENT(IN   )  :: pvar_c(:,:,:)      !< advected cell centered variable
-    REAL(wp), INTENT(INOUT)  :: pw_c(:,:,:)        !< vertical velocity on cells 
-    REAL(wp), INTENT(INOUT)  :: top_bc_t(:,:)        !< top boundary condition traver!vertical velocity on cells
-    REAL(wp), INTENT(INOUT)  :: pupflux_i(:,:,:)   !< variable in which the upwind flux is stored
-                                                   !< dim: (nproma,n_zlev+1,nblks_c)
+    TYPE(t_patch), TARGET, INTENT(IN) :: ppatch           !< patch on which computation is performed
+    REAL(wp), INTENT(IN   )           :: pvar_c(:,:,:)    !< advected cell centered variable
+    REAL(wp), INTENT(IN   )           :: pw_c(:,:,:)      !< vertical velocity on cells 
+    REAL(wp), INTENT(IN   )           :: top_bc_t(:,:)    !< top boundary condition traver!vertical velocity on cells
+    REAL(wp), INTENT(INOUT)           :: pupflux_i(:,:,:) !< variable in which the upwind flux is stored
+                                                          !< dim: (nproma,n_zlev+1,nblks_c)
     ! local variables
     ! height based but reversed (downward increasing depth) coordinate system,
     ! grid coefficient is negative (same as pressure based atmospheric coordinate system
     REAL(wp), PARAMETER :: zcoeff_grid = -1.0_wp
-    INTEGER :: z_dolic
-
-    INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end
-    INTEGER  :: jc, jk, jb               !< index of cell, vertical level and block
-    INTEGER  :: jkm1                     !< jk - 1
+    INTEGER             :: z_dolic
+    INTEGER             :: i_startidx_c, i_endidx_c
+    INTEGER             :: jc, jk, jb               !< index of cell, vertical level and block
+    INTEGER             :: jkm1                     !< jk - 1
     !-------------------------------------------------------------------------
-    rl_start = 1
-    rl_end   = min_rlcell
-    i_startblk = ppatch%cells%start_blk(rl_start,1)
-    i_endblk   = ppatch%cells%end_blk(rl_end,1)
+    TYPE(t_subset_range), POINTER :: all_cells
+    !-------------------------------------------------------------------------
+    all_cells => ppatch%cells%all
 
     !fluxes at first layer
     pupflux_i(:,1,:) = pvar_c(:,1,:)*pw_c(:,1,:) !0.0!
     !pupflux_i(:,1,:) = pvar_c(:,1,:)*(pw_c(:,1,:)+pw_c(:,2,:))*0.5_wp !0.0_wp
     !pupflux_i(:,1,:) = pvar_c(:,1,:)*top_bc_t  ! max(abs(pw_c(:,1,:)),abs(pw_c(:,2,:)))
     !
-    DO jb =  i_startblk, i_endblk
-      CALL get_indices_c(ppatch, jb, i_startblk, i_endblk,&
-                   & i_startidx, i_endidx, rl_start, rl_end)
-      DO jc = i_startidx, i_endidx
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+      DO jc = i_startidx_c, i_endidx_c
 !          IF(abs(pw_c(jc,1,jb))>=abs(pw_c(jc,2,jb)))THEN
 !            pupflux_i(jc,1,jb) = pvar_c(jc,1,jb)*pw_c(jc,1,jb)
 !          ELSE
