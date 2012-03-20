@@ -632,7 +632,7 @@ CONTAINS
 !        END DO ! end level loop
 !      END DO ! end block loop
   END SUBROUTINE mimetic_vflux_oce
- !-------------------------------------------------------------------------
+  !-------------------------------------------------------------------------
   !>
   !!
   !! Calculation of central vertical tracer fluxes
@@ -642,30 +642,28 @@ CONTAINS
   !!
   SUBROUTINE central_vflux_oce_orig( ppatch, pvar_c, pw_c, pupflux_i )
 
-    TYPE(t_patch), TARGET, INTENT(IN) :: ppatch      !< patch on which computation is performed
-    REAL(wp), INTENT(INOUT)  :: pvar_c(:,:,:)      !< advected cell centered variable
-    REAL(wp), INTENT(INOUT)  :: pw_c(:,:,:)        !< vertical velocity on cells
-    REAL(wp), INTENT(INOUT)  :: pupflux_i(:,:,:)   !< variable in which the upwind flux is stored
-                                                   !< dim: (nproma,n_zlev+1,nblks_c)
+    TYPE(t_patch), TARGET, INTENT(IN) :: ppatch          !< patch on which computation is performed
+    REAL(wp), INTENT(IN)              :: pvar_c(:,:,:)   !< advected cell centered variable
+    REAL(wp), INTENT(IN)              :: pw_c(:,:,:)     !< vertical velocity on cells
+    REAL(wp), INTENT(INOUT)           :: pupflux_i(:,:,:)!< variable in which the upwind flux is stored
+                                                         !< dim: (nproma,n_zlev+1,nblks_c)
     ! local variables
-    INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end
+    INTEGER  :: i_startidx_c, i_endidx_c
     INTEGER  :: jc, jk, jb               !< index of cell, vertical level and block
     INTEGER  :: jkm1                     !< jk - 1
     INTEGER  :: z_dolic
     !-------------------------------------------------------------------------
-    rl_start = 1
-    rl_end   = min_rlcell
-    i_startblk = ppatch%cells%start_blk(rl_start,1)
-    i_endblk   = ppatch%cells%end_blk(rl_end,1)
+    TYPE(t_subset_range), POINTER :: all_cells
+    !-------------------------------------------------------------------------
+    all_cells => ppatch%cells%all
 
     !fluxes at first layer
     !pupflux_i(:,1,:) =  pvar_c(:,1,:)*(pw_c(:,1,:)+pw_c(:,2,:))*0.5_wp!
     pupflux_i(:,1,:) =pvar_c(:,1,:)* pw_c(:,1,:)
 
-    DO jb = i_startblk, i_endblk
-      CALL get_indices_c(ppatch, jb, i_startblk, i_endblk,&
-                      & i_startidx, i_endidx, rl_start, rl_end)
-        DO jc = i_startidx, i_endidx
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c, i_endidx_c
           z_dolic = v_base%dolic_c(jc,jb)
           IF(z_dolic>=MIN_DOLIC)THEN
             DO jk = 2, z_dolic
@@ -675,11 +673,9 @@ CONTAINS
               ! calculate vertical tracer flux using upwind method
               pupflux_i(jc,jk,jb) = 0.5_wp*pw_c(jc,jk,jb) &
                 &  * (pvar_c(jc,jkm1,jb)+ pvar_c(jc,jk,jb) )
-          END DO 
+          END DO
           ! no fluxes at bottom boundary
           pupflux_i(jc,z_dolic+1,jb) = 0.0_wp
-
-
         ENDIF
       END DO
     END DO
