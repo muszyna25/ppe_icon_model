@@ -625,10 +625,11 @@ CONTAINS
     REAL(wp) :: z_s1, z_s2, density_grad_c, mean_z_r
     REAL(wp) :: z_c(nproma,n_zlev+1,p_patch%nblks_c)
     !-------------------------------------------------------------------------
-    TYPE(t_subset_range), POINTER :: edges_in_domain,cells_in_domain
+    TYPE(t_subset_range), POINTER :: edges_in_domain,cells_in_domain,all_cells
     !-------------------------------------------------------------------------
     edges_in_domain => p_patch%edges%in_domain
     cells_in_domain => p_patch%cells%in_domain
+    all_cells       => p_patch%cells%all
     
     ! DO, jk=1,n_zlev
     ! CALL &
@@ -693,8 +694,9 @@ CONTAINS
          END DO
        END DO
 
-       DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-         CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+       
+       DO jb = all_cells%start_block, all_cells%end_block
+         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
          DO jc = i_startidx_c, i_endidx_c
            IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
              !This is (15) in Marsland et al. 
