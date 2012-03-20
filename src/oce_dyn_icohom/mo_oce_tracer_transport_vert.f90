@@ -118,7 +118,7 @@ SUBROUTINE advect_vertical(p_patch, trac_in,               &
   REAL(wp)                          :: bc_top_tracer(nproma, p_patch%nblks_c)
   REAL(wp)                          :: bc_bot_tracer(nproma, p_patch%nblks_c)
   REAL(wp)                          :: A_v(:,:,:)                                   !vertical mixing coeff
-  REAL(wp)                          :: trac_out(:,:,:)                              !new tracer 
+  REAL(wp), INTENT(OUT)             :: trac_out(:,:,:)                              !new tracer
   INTEGER                           :: timestep                                     ! Actual timestep (to distinghuish initial step from others)
   REAL(wp)                          :: delta_t
   REAL(wp)                          :: dummy_h_c(nproma,n_zlev, p_patch%nblks_c)
