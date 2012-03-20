@@ -436,9 +436,9 @@ CONTAINS
     INTEGER :: jk,je,jb,jc
     !-----------------------------------------------------------------------
     !-----------------------------------------------------------------------
-    TYPE(t_cartesian_coordinates) :: check_v(nproma, n_zlev, patch%nblks_v, 6)
-    REAL(wp) :: check_r(nproma, n_zlev, patch%nblks_c, 3)
-    REAL(wp) :: max_diff, max_val
+!     TYPE(t_cartesian_coordinates) :: check_v(nproma, n_zlev, patch%nblks_v, 6)
+!     REAL(wp) :: check_r(nproma, n_zlev, patch%nblks_c, 3)
+!     REAL(wp) :: max_diff, max_val
     !-----------------------------------------------------------------------
     ocean_coeff%dist_cell2edge(:,:,:,:) = 0.0_wp
     CALL par_init_scalar_product_oce(patch, intp_2D_coeff)
@@ -450,32 +450,32 @@ CONTAINS
     RETURN
     !---------------------------------------------------------
     ! checks
-    check_v = ocean_coeff%edge2vert_coeff_cc
-    check_r = ocean_coeff%variable_vol_norm
-
-    !---------------------------------------------------------
-     CALL init_operator_coeff( patch, ocean_coeff )
-
-     max_diff = MAXVAL(ABS(ocean_coeff%edge2vert_coeff_cc(:,:,:,:)%x(1) - &
-       &  check_v(:,:,:,:)%x(1) ))
-     max_val  =  MAXVAL(ABS( check_v(:,:,:,:)%x(1)))
-     Write(0,*) "max diff of edge2vert_coeff_cc(:,:,:,:)%x(1)=", max_diff, max_val
-     
-     max_diff = MAXVAL(ABS(ocean_coeff%edge2vert_coeff_cc(:,:,:,:)%x(2) - &
-       & check_v(:,:,:,:)%x(2) ))
-     max_val  =  MAXVAL(ABS( check_v(:,:,:,:)%x(2)))
-     Write(0,*) "max diff of edge2vert_coeff_cc(:,:,:,:)%x(2)=", max_diff, max_val
-     
-     max_diff = MAXVAL(ABS(ocean_coeff%edge2vert_coeff_cc(:,:,:,:)%x(3) - &
-       & check_v(:,:,:,:)%x(3) ))
-     max_val  =  MAXVAL(ABS( check_v(:,:,:,:)%x(3)))
-     Write(0,*) "max diff of edge2vert_coeff_cc(:,:,:,:)%x(3)=", max_diff, max_val
-     
-     max_diff = MAXVAL(ABS(ocean_coeff%variable_vol_norm - check_r ))
-     max_val  =  MAXVAL(ABS( check_r ))
-     Write(0,*) "max diff of variable_vol_norm=", max_diff, max_val
-
-     STOP
+!     check_v = ocean_coeff%edge2vert_coeff_cc
+!     check_r = ocean_coeff%variable_vol_norm
+! 
+!     !---------------------------------------------------------
+!      CALL init_operator_coeff( patch, ocean_coeff )
+! 
+!      max_diff = MAXVAL(ABS(ocean_coeff%edge2vert_coeff_cc(:,:,:,:)%x(1) - &
+!        &  check_v(:,:,:,:)%x(1) ))
+!      max_val  =  MAXVAL(ABS( check_v(:,:,:,:)%x(1)))
+!      Write(0,*) "max diff of edge2vert_coeff_cc(:,:,:,:)%x(1)=", max_diff, max_val
+!      
+!      max_diff = MAXVAL(ABS(ocean_coeff%edge2vert_coeff_cc(:,:,:,:)%x(2) - &
+!        & check_v(:,:,:,:)%x(2) ))
+!      max_val  =  MAXVAL(ABS( check_v(:,:,:,:)%x(2)))
+!      Write(0,*) "max diff of edge2vert_coeff_cc(:,:,:,:)%x(2)=", max_diff, max_val
+!      
+!      max_diff = MAXVAL(ABS(ocean_coeff%edge2vert_coeff_cc(:,:,:,:)%x(3) - &
+!        & check_v(:,:,:,:)%x(3) ))
+!      max_val  =  MAXVAL(ABS( check_v(:,:,:,:)%x(3)))
+!      Write(0,*) "max diff of edge2vert_coeff_cc(:,:,:,:)%x(3)=", max_diff, max_val
+!      
+!      max_diff = MAXVAL(ABS(ocean_coeff%variable_vol_norm - check_r ))
+!      max_val  =  MAXVAL(ABS( check_r ))
+!      Write(0,*) "max diff of variable_vol_norm=", max_diff, max_val
+! 
+!      STOP
       
   END SUBROUTINE par_init_operator_coeff
   !-------------------------------------------------------------------------

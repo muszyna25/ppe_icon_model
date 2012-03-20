@@ -180,11 +180,11 @@ CONTAINS
   jg = n_dom
 
   CALL allocate_exp_coeff( ppatch(jg), ptr_op_coeff)
-  IF (my_process_is_mpi_all_parallel()) THEN
+!   IF (my_process_is_mpi_all_parallel()) THEN
     CALL par_init_operator_coeff( ppatch(jg), ptr_op_coeff, p_int(jg))
-  ELSE
-    CALL init_operator_coeff( ppatch(jg), ptr_op_coeff)
-  ENDIF
+!   ELSE
+!     CALL init_operator_coeff( ppatch(jg), ptr_op_coeff)
+!   ENDIF
 
   CALL init_ho_recon_fields( ppatch(jg), pstate_oce(jg), ptr_op_coeff)
 
