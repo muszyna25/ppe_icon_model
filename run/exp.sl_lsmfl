@@ -39,8 +39,8 @@ B=4   # number of bisections applied
 #
 #-----------------------------------------------------------------------------
 # ocean initialization, forcing, and grid file location specifics:
-LOC='pool'   # all ocean files needed for running are found on pool
-LOC='grid'   # all ocean files needed for running are found on local 'grids' directory
+  LOC='POOL'   # all ocean files needed for running are found on pool
+# LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
 # specific path of input data is set by exec.iconrun
 #
 #-----------------------------------------------------------------------------
@@ -49,6 +49,8 @@ init_oce=1     # 1: use ocean initialization file; 0: init analytically
 # prognostic ocean initialization file must match the vertical levels
 #   ts_phc_annual-iconR${R}B0{B}-L10x500m.nc      # 10 levels, 500m each
 #   ts_phc_annual-iconR${R}B0{B}-L10_50-1000m.nc  # 10 levels, 10-1000m varying thickness
+# provide name suffix for vertical resolution
+init_oce_suff='L10_50-1000m.nc'
 #
 #-----------------------------------------------------------------------------
 # surface relaxation initialization (init_relax=1) needs an additional file for temperature/salinity
@@ -107,6 +109,7 @@ dt_restart=`expr ${ndays_restart} \* 86400`
   grid_ext="etopo40_planet"  # mapped from ETOPO-file with 2/3 deg resolution, variable bottom bathymetry
 # grid_ext="aqua_planet"     # global flat bottom bathymetry for aqua planet experiments
 # grid_ext="bas0-60N"        # pentagon ocean basin with flat bottom at 30N 0E location
+# grid_ext="chann45N"        # circumpolar channel at 45N with flat bottom
 #
 ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
 # 
@@ -230,8 +233,8 @@ cat > ${ocean_namelist} << EOF
   wstress_coeff      =    0.3    ! wind stress coefficient for top boundary forcing
 /
 &ocean_forcing_and_init_nml
-  iforc_oce          = ${iforc}  ! ocean forcing:
-  iforc_type         = ${iforc_type}  ! type of ocean forcing, see above
+  iforc_oce          = ${iforc}       ! ocean forcing:
+  iforc_omip         = ${iforc_type}  ! type of ocean forcing, see above
   iforc_len          = ${iforc_len}   ! length of ocean forcing data set, see above
   iforc_stat_oce     =    3      ! stationary (wind) forcing for iforc_oce=11 only:
                                  ! 1=locally varying u,v (testcase 27, 29)
@@ -251,7 +254,7 @@ cat > ${ocean_namelist} << EOF
   idiag_oce          =    0      !  0: no diagnostics; 1: write diagnostics to stderr
   temperature_relaxation= 0      !  0: no relaxation used
                                  !  1: relaxation switched on for reading (init_oce_relax=1) or some testcases only
-                                 !  2: use SST read from OMIP/bulk forcing (iforc=12);
+                                 !  2: use SST read from bulk forcing (iforc=12);
                                  !     use atmospheric temperature in case of coupling (iforc=14)
                                  !  3: use initial prognostic T as 2-dim relax, copy SST on tracer_relax(1)
                                  ! -1: use net surface heat flux from atmosphere as boundary condition

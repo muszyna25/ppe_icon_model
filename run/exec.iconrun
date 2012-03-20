@@ -94,8 +94,10 @@ fi
 #
 # get grid files
 #
-atmo_grids="${atmo_dyn_grids} ${atmo_rad_grids}"
-all_grids="${atmo_grids} ${ocean_grids}"
+#atmo_grids="${atmo_dyn_grids} ${atmo_rad_grids}"
+# ocean grid provided below
+#all_grids="${atmo_grids} ${ocean_grids}"
+all_grids="${atmo_dyn_grids} ${atmo_rad_grids}"
 for gridfile in ${all_grids}; do
   ls -l ${HGRIDDIR}/$gridfile
   check_error $? "${HGRIDDIR}/$gridfile does not exist."
@@ -150,59 +152,131 @@ fi
 
 #-----------------------------------------------------------------------------
 if [[ $run_ocean = 'true' ]]; then
+
+   # =======================================================
+   #
+   # Main pool directories to provide ocean input data:
+   #   all files for ocean init/forcing from pool will be copied to $HGRIDDIR
+   # --------------------------------------------------
+   POOL_ICON=/pool/data/ICON
+   POOL_GRID=${POOL_ICON}/ocean_data/ocean_grid
+   POOL_FORC=${POOL_ICON}/ocean_data/ocean_forcing
+   POOL_INIT=${POOL_ICON}/ocean_data/ocean_init
+
+   # =======================================================
+   #
+   # provide ocean grid file
+   # -----------------------
+   if [[ "x$LOC" = "xPOOL" ]] ; then
+     OCEGRID=${POOL_GRID}/$ocean_grids
+     ls -l $OCEGRID
+     #check_error $? "$OCEGRID does not exist."
+     if [ $? -eq 0 ]; then
+       rm ${HGRIDDIR}/$ocean_grids
+       cp $OCEGRID ${HGRIDDIR}/$ocean_grids
+     else
+       echo "WARNING: $OCEGRID does not exist - proceed from local disk"
+     fi
+   fi
+   # copy file to EXPDIR
+   rm ${EXPDIR}/$ocean_grids
+   ln -s ${HGRIDDIR}/$ocean_grids ${EXPDIR}/$ocean_grids
+   check_error $? "ln -s ${HGRIDDIR}/$ocean_grids"
+
    # =======================================================
    #
    # provide netcdf file for reading ocean forcing fluxes
    # ----------------------------------------------------
    if [[ "x$iforc" = "x12" ]] ; then
+     # filename on EXPDIR read by ocean model
      FLUXNAME=iconR${R}B0${B}-flux.nc
-     # general filename
-     OMIPNAME=omip4icon-R${R}B0${B}-annual.nc
+
+     # general filename: OMIP annual file
      if [[ "x$iforc_len" = "x1" ]] ; then
-       OMIPNAME=omip4icon-R${R}B0${B}-annual.nc
+       FORCNAME=omip4icon-R${R}B0${B}-annual.nc
      # filename for 12 monthly means
      elif [[ "x$iforc_len" = "x12" ]] ; then
-       OMIPNAME=omip4icon-R${R}B0${B}-monmean.nc
-       # provide netcdf file for NCEP ocean forcing - preliminary solution
-       if [[ "x$iforc_omip" = "x5" ]] ; then
-         OMIPNAME=ncep4icon_R${R}B0${B}.nc
+       FORCNAME=omip4icon-R${R}B0${B}-monmean.nc
+       # provide netcdf file for NCEP ocean forcing - length of 12 months for annual reading
+       if [[ "x$iforc_type" = "x5" ]] ; then
+         FORCNAME=ncep4icon_R${R}B0${B}.nc
        fi
      fi
      rm ${EXPDIR}/${FLUXNAME}
-     ln -s ${HGRIDDIR}/${OMIPNAME} ${EXPDIR}/${FLUXNAME}
-     check_error $? "ln -s ${HGRIDDIR}/${OMIPNAME}"
+
+     # copy file from pool to grids directory $HGRIDDIR
+     if [[ "x$LOC" = "xPOOL" ]] ; then
+       FLUXFILE=${POOL_FORC}/$FORCNAME
+       ls -l $FLUXFILE
+       #check_error $? "$FLUXFILE does not exist."
+       if [ $? -eq 0 ]; then
+         rm ${HGRIDDIR}/$FORCNAME
+         cp $FLUXFILE ${HGRIDDIR}/$FORCNAME
+       else
+         echo "WARNING: $FLUXFILE does not exist - proceed from local disk"
+       fi
+     fi
+     # copy file to EXPDIR
+     rm ${EXPDIR}/${FLUXNAME}
+     ln -s ${HGRIDDIR}/${FORCNAME} ${EXPDIR}/${FLUXNAME}
+     check_error $? "ln -s ${HGRIDDIR}/${FORCNAME}"
    fi
+
    # =======================================================
    #
    # provide netcdf file for initialization of ocean prognostic variables
    # --------------------------------------------------------------------
    if [[ "x$init_oce" = "x1" ]] ; then
+
      PROGNAME=iconR${R}B0${B}-prog.nc
-     OININAME=ts_phc_annual-iconR${R}B0${B}-L10x500m.nc
+     OININAME=ts_phc_annual-iconR${R}B0${B}-$init_oce_suff
+
+     # copy file from pool to grids directory $HGRIDDIR
+     if [[ "x$LOC" = "xPOOL" ]] ; then
+       INITFILE=${POOL_INIT}/$OININAME
+       ls -l $INITFILE
+       #check_error $? "$INITFILE does not exist."
+       if [ $? -eq 0 ]; then
+         rm ${HGRIDDIR}/$OININAME
+         cp $INITFILE ${HGRIDDIR}/$OININAME
+       else
+         echo "WARNING: $INITFILE does not exist - proceed from local disk"
+       fi
+     fi
+
+     # copy file to EXPDIR
      rm ${EXPDIR}/${PROGNAME}
      ln -s ${HGRIDDIR}/${OININAME} ${EXPDIR}/${PROGNAME}
      check_error $? "ln -s ${HGRIDDIR}/${OININAME}"
+
    fi
    # =======================================================
    #
-   # provide netcdf file for initialization of temp/sal relaxation
-   # --------------------------------------------------------------------
+   # provide netcdf file for initialization of temperature/salinity relaxation
+   # -------------------------------------------------------------------------
    if [[ "x$init_relax" = "x1" ]] ; then
+
      RELAXNAME=iconR${R}B0${B}-relax.nc
      ORELNAME=ts_surf_annual-iconR${R}B0${B}-50m.nc
+
+     # copy file from pool to grids directory $HGRIDDIR
+     if [[ "x$LOC" = "xPOOL" ]] ; then
+       ORELFILE=${POOL_INIT}/$ORELNAME
+       ls -l $ORELFILE
+       #check_error $? "$ORELFILE does not exist."
+       if [ $? -eq 0 ]; then
+         rm ${HGRIDDIR}/$ORELNAME
+         cp $ORELFILE ${HGRIDDIR}/$ORELNAME
+       else
+         echo "WARNING: $ORELFILE does not exist - proceed from local disk"
+       fi
+     fi
+     
+     # copy file to EXPDIR
      rm ${EXPDIR}/${RELAXNAME}
      ln -s ${HGRIDDIR}/${ORELNAME} ${EXPDIR}/${RELAXNAME}
      check_error $? "ln -s ${HGRIDDIR}/${ORELNAME}"
-   fi
-   # =======================================================
-   #
-   # replace ocean grid file from pool set in experiment file above
-   # --------------------------------------------------------------
-   if [[ "x$USE_POOLD" = "xY" ]] ; then
-     ls -l ${POOLDIR}/$OCEGRID
-     check_error $? "${POOLDIR}/$OCEGRID does not exist."
-     rm ${EXPDIR}/$gridfile
-     cp ${POOLDIR}/$OCEGRID ${EXPDIR}/$gridfile
+     
    fi
 fi
 
