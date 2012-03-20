@@ -217,8 +217,7 @@ CONTAINS
 
     INTEGER :: istat, i, funit
     TYPE(t_output_name_list), POINTER :: p_onl
-
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/read_name_list_output_namelists'
+    CHARACTER(LEN=*), PARAMETER :: routine = 'read_name_list_output_namelists'
 
     ! Local variables corresponding to members of output_name_list
     INTEGER  :: filetype
