@@ -1994,6 +1994,21 @@ Setting odd values (besides 1) requires l\_nest\_rcf = .TRUE.&
 \tabularnewline
 
 \hline 
+lhdiff\_rcf&
+L& .FALSE. & &
+.TRUE.: Compute diffusion only at advection time steps (in this case, 
+divergence damping is applied in the dynamical core)
+& cell\_type=3
+\tabularnewline
+
+\hline 
+divdamp\_fac&
+R& 0.01& &
+Scaling factor for divergence damping&
+lhdiff\_rcf = .TRUE.
+\tabularnewline
+
+\hline 
 l\_nest\_rcf&
 L& .TRUE.& &
 Synchronize interpolation/feedback calls with advection (transport) time steps.

@@ -42,7 +42,7 @@ MODULE mo_solve_nonhydro
 
   USE mo_kind,                 ONLY: wp
   USE mo_nonhydrostatic_config,ONLY: itime_scheme,iadv_rhotheta, igradp_method, l_open_ubc, &
-                                     kstart_moist
+                                     kstart_moist, lhdiff_rcf, divdamp_fac
   USE mo_dynamics_config,      ONLY: idiv_method
   USE mo_parallel_config,    ONLY: nproma, p_test_run, itype_comm, use_dycore_barrier
   USE mo_run_config,         ONLY: ltimer, lvert_nest
@@ -555,6 +555,7 @@ MODULE mo_solve_nonhydro
                 z_theta_v_e     (nproma,p_patch%nlev  ,p_patch%nblks_e), &
                 z_rho_e         (nproma,p_patch%nlev  ,p_patch%nblks_e), &
                 z_gradh_exner   (nproma,p_patch%nlev  ,p_patch%nblks_e), &
+                z_graddiv_vn    (nproma,p_patch%nlev  ,p_patch%nblks_e), &
                 z_concorr_e     (nproma,p_patch%nlevp1,p_patch%nblks_e), &
                 z_distv_bary    (nproma,p_patch%nlev  ,p_patch%nblks_e,2)
 
@@ -590,7 +591,7 @@ MODULE mo_solve_nonhydro
                 z_hydro_corr    (nproma,p_patch%nblks_e)
 
 
-    REAL(wp):: z_theta1, z_theta2, z_raylfac, wgt_nnow, wgt_nnew
+    REAL(wp):: z_theta1, z_theta2, z_raylfac, wgt_nnow, wgt_nnew, scal_divdamp
     INTEGER :: nproma_gradp, nblks_gradp, npromz_gradp, nlen_gradp
     LOGICAL :: lcompute, lcleanup, lvn_only
 
@@ -652,6 +653,9 @@ MODULE mo_solve_nonhydro
     ! Set pointers to quad edges
     iqidx => p_patch%edges%quad_idx
     iqblk => p_patch%edges%quad_blk
+
+    ! scaling factor for divergence damping: divdamp_fac*c_sound**2*dtime
+    scal_divdamp = divdamp_fac*340._wp**2*dtime
 
     ! Set pointer to velocity field that is used for mass flux computation
     IF (idiv_method == 1) THEN
@@ -1178,6 +1182,16 @@ MODULE mo_solve_nonhydro
           ENDDO
         ENDDO
       ENDIF
+
+      IF (lhdiff_rcf .AND. istep == 2) THEN ! apply divergence damping if diffusion is
+        DO jk = 1, nlev                     ! not called every sound-wave time step
+          DO je = i_startidx, i_endidx
+            p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)  &
+              + scal_divdamp*z_graddiv_vn(je,jk,jb)
+          ENDDO
+        ENDDO
+
+      ENDIF
     ENDDO
 !$OMP END DO
 
@@ -1271,7 +1285,44 @@ MODULE mo_solve_nonhydro
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
 
-      IF (idiv_method == 1) THEN
+      IF (idiv_method == 1 .AND. lhdiff_rcf .AND. istep == 1) THEN
+
+#ifdef __LOOP_EXCHANGE
+        DO je = i_startidx, i_endidx
+          DO jk = 1, nlev
+#else
+!CDIR UNROLL=3
+        DO jk = 1, nlev
+          DO je = i_startidx, i_endidx
+#endif
+            ! Average normal wind components in order to get nearly second-order accurate divergence
+            z_vn_avg(je,jk,jb) = p_int%e_flx_avg(je,1,jb)*p_nh%prog(nnew)%vn(je,jk,jb)        &
+              + p_int%e_flx_avg(je,2,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,1),jk,iqblk(je,jb,1)) &
+              + p_int%e_flx_avg(je,3,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,2),jk,iqblk(je,jb,2)) &
+              + p_int%e_flx_avg(je,4,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,3),jk,iqblk(je,jb,3)) &
+              + p_int%e_flx_avg(je,5,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,4),jk,iqblk(je,jb,4))
+
+            ! Compute gradient of divergence of vn for divergence damping
+            z_graddiv_vn(je,jk,jb) = p_int%geofac_grdiv(je,1,jb)*p_nh%prog(nnew)%vn(je,jk,jb)    &
+              + p_int%geofac_grdiv(je,2,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,1),jk,iqblk(je,jb,1)) &
+              + p_int%geofac_grdiv(je,3,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,2),jk,iqblk(je,jb,2)) &
+              + p_int%geofac_grdiv(je,4,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,3),jk,iqblk(je,jb,3)) &
+              + p_int%geofac_grdiv(je,5,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,4),jk,iqblk(je,jb,4))
+
+            ! RBF reconstruction of tangential wind component
+            p_nh%diag%vt(je,jk,jb) = p_int%rbf_vec_coeff_e(1,je,jb)  &
+              * p_nh%prog(nnew)%vn(iqidx(je,jb,1),jk,iqblk(je,jb,1)) &
+              + p_int%rbf_vec_coeff_e(2,je,jb)                       &
+              * p_nh%prog(nnew)%vn(iqidx(je,jb,2),jk,iqblk(je,jb,2)) &
+              + p_int%rbf_vec_coeff_e(3,je,jb)                       &
+              * p_nh%prog(nnew)%vn(iqidx(je,jb,3),jk,iqblk(je,jb,3)) &
+              + p_int%rbf_vec_coeff_e(4,je,jb)                       &
+              * p_nh%prog(nnew)%vn(iqidx(je,jb,4),jk,iqblk(je,jb,4))
+
+           ENDDO
+        ENDDO
+
+      ELSE IF (idiv_method == 1) THEN
 
 #ifdef __LOOP_EXCHANGE
         DO je = i_startidx, i_endidx

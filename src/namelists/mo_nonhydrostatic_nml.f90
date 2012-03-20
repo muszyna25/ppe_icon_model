@@ -49,6 +49,8 @@ MODULE mo_nonhydrostatic_nml
                                     ! from namelist
                                     & config_itime_scheme     => itime_scheme     , &
                                     & config_iadv_rcf         => iadv_rcf         , &
+                                    & config_lhdiff_rcf       => lhdiff_rcf       , &
+                                    & config_divdamp_fac      => divdamp_fac      , &
                                     & config_ivctype          => ivctype          , &
                                     & config_htop_moist_proc  => htop_moist_proc  , &
                                     & config_htop_qvadv       => htop_qvadv       , &
@@ -93,6 +95,8 @@ MODULE mo_nonhydrostatic_nml
   INTEGER :: iadv_rcf                ! if 1: no reduced calling frequency for adv. and phy.
                                      ! if 2: adv. and phys. are called every 2nd time step.
                                      ! if 4: ... every 4th time step.
+  LOGICAL :: lhdiff_rcf              ! if true: compute horizontal diffusion also at the large time step
+  REAL(wp):: divdamp_fac             ! scaling factor for divergence damping (if lhdiff_rcf = true)
   INTEGER :: ivctype                 ! Type of vertical coordinate (Gal-Chen / SLEVE)
   REAL(wp):: htop_moist_proc         ! Top height (in m) of the part of the model domain
                                      ! where processes related to moist physics are computed
@@ -132,7 +136,7 @@ MODULE mo_nonhydrostatic_nml
 
   NAMELIST /nonhydrostatic_nml/ itime_scheme, iadv_rcf, ivctype, htop_moist_proc,          &
                               & htop_qvadv, hbot_qvsubstep, damp_height, rayleigh_coeff,   &
-                              & vwind_offctr, iadv_rhotheta,                               &
+                              & vwind_offctr, iadv_rhotheta, lhdiff_rcf, divdamp_fac,      &
                               & igradp_method, exner_expol, l_open_ubc, l_nest_rcf,        &
                               & l_masscorr_nest, l_zdiffu_t, thslp_zdiffu, thhgtd_zdiffu,  &
                               & gmres_rtol_nh, ltheta_up_hori, upstr_beta, ltheta_up_vert, &
@@ -174,6 +178,12 @@ CONTAINS
 
     ! reduced calling frequency for transport
     iadv_rcf = 4  ! reduced calling frequency (transport time step = 4* dynamics time step)
+
+    ! reduced calling frequency also for horizontal diffusion
+    lhdiff_rcf = .FALSE.  ! not used by default for the time being
+
+    ! scaling factor for divergence damping (used only if lhdiff_rcf = true)
+    divdamp_fac = 0.01_wp
 
     ! Type of vertical coordinate (1: Gal-Chen, 2: SLEVE)
     ivctype  = 2
@@ -306,6 +316,8 @@ CONTAINS
        config_ltheta_up_vert    = ltheta_up_vert
        config_gmres_rtol_nh     = gmres_rtol_nh
        config_iadv_rcf          = iadv_rcf
+       config_lhdiff_rcf        = lhdiff_rcf
+       config_divdamp_fac       = divdamp_fac
        config_itime_scheme      = itime_scheme
        config_ivctype           = ivctype
        config_upstr_beta        = upstr_beta

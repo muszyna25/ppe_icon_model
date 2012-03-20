@@ -66,7 +66,7 @@ MODULE mo_nh_interface_nwp
   USE mo_model_domain,       ONLY: t_patch
   USE mo_intp_data_strc,     ONLY: t_int_state
   USE mo_nonhydro_types,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
-  USE mo_nonhydrostatic_config, ONLY: kstart_moist, l_open_ubc
+  USE mo_nonhydrostatic_config, ONLY: kstart_moist, l_open_ubc, lhdiff_rcf
   USE mo_nwp_lnd_state,      ONLY: t_lnd_prog, t_lnd_diag !, t_lnd_state
   USE mo_ext_data,           ONLY: t_external_data
   USE mo_nwp_phy_state,      ONLY: t_nwp_phy_diag, t_nwp_phy_tend
@@ -1103,7 +1103,11 @@ CONTAINS
 
       ! Synchronize tempv, then recompute thermodynamic variables on halo points
       ! (This is more efficient than synchronizing three variables)
-      CALL sync_patch_array(SYNC_C, pt_patch, pt_diag%tempv)
+      IF (lhdiff_rcf) THEN ! in this case, exner_old also needs to be synchronized
+        CALL sync_patch_array_mult(SYNC_C, pt_patch, 2, pt_diag%tempv, pt_diag%exner_old)
+      ELSE
+        CALL sync_patch_array(SYNC_C, pt_patch, pt_diag%tempv)
+      ENDIF
 
       IF (timers_level > 1) CALL timer_stop(timer_phys_sync_patch)
 
@@ -1122,25 +1126,44 @@ CONTAINS
           CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
             & i_startidx, i_endidx, rl_start, rl_end )
 
-          DO jk = 1, nlev
-            DO jc =  i_startidx, i_endidx
+          IF (lhdiff_rcf) THEN
+            DO jk = 1, nlev
+              DO jc =  i_startidx, i_endidx
 
-              IF (p_metrics%mask_prog_halo_c(jc,jb)) THEN
-                pt_prog%exner(jc,jk,jb) = EXP(rd_o_cpd*LOG(rd_o_p0ref                   &
-                  &                     * pt_prog%rho(jc,jk,jb)*pt_diag%tempv(jc,jk,jb)))
+                IF (p_metrics%mask_prog_halo_c(jc,jb)) THEN
+                  pt_prog%exner(jc,jk,jb) = EXP(rd_o_cpd*LOG(rd_o_p0ref                   &
+                    &                     * pt_prog%rho(jc,jk,jb)*pt_diag%tempv(jc,jk,jb)))
 
-                pt_diag%exner_old(jc,jk,jb) = pt_diag%exner_old(jc,jk,jb) + &
-                  pt_prog%exner(jc,jk,jb) - z_exner_sv(jc,jk,jb)
+                  pt_prog%theta_v(jc,jk,  jb) = pt_diag%tempv(jc,jk,jb) &
+&                                             / pt_prog%exner(jc,jk,jb)
 
-                pt_prog%theta_v(jc,jk,  jb) = pt_diag%tempv(jc,jk,jb) &
-&                                           / pt_prog%exner(jc,jk,jb)
+                  pt_prog%rhotheta_v(jc,jk,jb) = pt_prog%theta_v(jc,jk,jb) &
+&                                              * pt_prog%rho(jc,jk,jb)
+                ENDIF
 
-                pt_prog%rhotheta_v(jc,jk,jb) = pt_prog%theta_v(jc,jk,jb) &
-&                                            * pt_prog%rho(jc,jk,jb)
-              ENDIF
-
+              ENDDO
             ENDDO
-          ENDDO
+          ELSE
+            DO jk = 1, nlev
+              DO jc =  i_startidx, i_endidx
+
+                IF (p_metrics%mask_prog_halo_c(jc,jb)) THEN
+                  pt_prog%exner(jc,jk,jb) = EXP(rd_o_cpd*LOG(rd_o_p0ref                   &
+                    &                     * pt_prog%rho(jc,jk,jb)*pt_diag%tempv(jc,jk,jb)))
+
+                  pt_diag%exner_old(jc,jk,jb) = pt_diag%exner_old(jc,jk,jb) + &
+                    pt_prog%exner(jc,jk,jb) - z_exner_sv(jc,jk,jb)
+
+                  pt_prog%theta_v(jc,jk,  jb) = pt_diag%tempv(jc,jk,jb) &
+&                                             / pt_prog%exner(jc,jk,jb)
+
+                  pt_prog%rhotheta_v(jc,jk,jb) = pt_prog%theta_v(jc,jk,jb) &
+&                                              * pt_prog%rho(jc,jk,jb)
+                ENDIF
+
+              ENDDO
+            ENDDO
+          ENDIF
         ENDDO
 !$OMP END DO
 !$OMP END PARALLEL

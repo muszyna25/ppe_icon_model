@@ -69,6 +69,8 @@ MODULE mo_nonhydrostatic_config
                                         !if 2: adv. and phys. are called only every 2nd
                                         !      time step.
                                         !if 4: called every 4th time step ...
+    LOGICAL :: lhdiff_rcf               ! if true: compute horizontal diffusion also at the large time step
+    REAL(wp):: divdamp_fac             ! scaling factor for divergence damping (if lhdiff_rcf = true)
     INTEGER :: ivctype                  ! Type of vertical coordinate (Gal-Chen / SLEVE)
     REAL(wp):: htop_moist_proc          ! Top height (in m) of the part of the model domain
                                         ! where processes related to moist physics are computed
@@ -109,7 +111,7 @@ MODULE mo_nonhydrostatic_config
                                 ! theta advection
     LOGICAL  :: ltheta_up_vert  ! upwind vertical advection of theta
     REAL(wp) :: k2_updamp_coeff ! 2nd order additional horizontal diffusion
-                                ! coefficient in the upp‚per damping zone
+                                ! coefficient in the uppper damping zone
 
 
 !  END TYPE t_nonhydrostatic_config 

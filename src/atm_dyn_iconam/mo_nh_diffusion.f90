@@ -48,13 +48,14 @@ MODULE mo_nh_diffusion
   USE mo_intp,                ONLY: verts2edges_scalar, edges2verts_scalar, &
                                     cells2verts_scalar, cells2edges_scalar, &
                                     edges2cells_scalar, verts2cells_scalar
-  USE mo_nonhydrostatic_config,  ONLY: l_zdiffu_t, damp_height, k2_updamp_coeff
+  USE mo_nonhydrostatic_config, ONLY: l_zdiffu_t, damp_height, k2_updamp_coeff, &
+                                      iadv_rcf, lhdiff_rcf
   USE mo_diffusion_config,    ONLY: diffusion_config
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: ltimer
+  USE mo_run_config,          ONLY: ltimer, iforcing
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c, get_indices_v
   USE mo_impl_constants    ,  ONLY: min_rledge, min_rlcell, min_rlvert, &
-                                    min_rledge_int, min_rlcell_int, min_rlvert_int
+                                    min_rledge_int, min_rlcell_int, min_rlvert_int, inwp
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_e, grf_bdywidth_c
   USE mo_math_laplace,        ONLY: nabla4_vec
   USE mo_math_constants,      ONLY: dbl_eps, pi
@@ -62,7 +63,7 @@ MODULE mo_nh_diffusion
   USE mo_parallel_config,     ONLY: p_test_run, itype_comm
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array, &
                                     sync_patch_array_mult, sync_patch_array_gm
-  USE mo_physical_constants,  ONLY: cvd_o_rd, cpd, re
+  USE mo_physical_constants,  ONLY: cvd_o_rd, cpd, re, rd, p0ref
   USE mo_timer,               ONLY: timer_nh_hdiffusion, timer_start, timer_stop
 
   IMPLICIT NONE
@@ -110,10 +111,11 @@ MODULE mo_nh_diffusion
     REAL(wp):: fac_bdydiff_v
 
     ! For Smagorinsky diffusion
+    REAL(wp), PARAMETER :: rd_o_p0ref = rd / p0ref
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e) :: kh_smag_e
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_v) :: u_vert
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_v) :: v_vert
-    REAL(wp) :: vn_vert1, vn_vert2, vn_vert3, vn_vert4, dvt_norm, dvt_tang, &
+    REAL(wp) :: vn_vert1, vn_vert2, vn_vert3, vn_vert4, dvt_norm, dvt_tang, smag_offset, &
                 diff_multfac_smag, nabv_tang, nabv_norm, rd_o_cvd, nudgezone_diff, bdy_diff
     INTEGER  :: nblks_zdiffu, nproma_zdiffu, npromz_zdiffu, nlen_zdiffu
     INTEGER  :: nlev              !< number of full levels
@@ -173,8 +175,14 @@ MODULE mo_nh_diffusion
 
     IF (linit) THEN ! enhanced diffusion at all levels for initial velocity filtering call
       diff_multfac_vn(:) = diffusion_config(jg)%k4/3._wp*diffusion_config(jg)%hdiff_efdt_ratio
-    ELSE            ! enhanced diffusion near model top only
+      smag_offset        =  0.2_wp*diffusion_config(jg)%k4
+    ELSE IF (lhdiff_rcf) THEN
+      diff_multfac_vn(:) = MIN(1._wp/128._wp,diffusion_config(jg)%k4*REAL(iadv_rcf,wp)/ &
+                               3._wp*p_nh_metrics%enhfac_diffu(:))
+      smag_offset        =  0.2_wp*diffusion_config(jg)%k4*REAL(iadv_rcf,wp)
+    ELSE           ! enhanced diffusion near model top only
       diff_multfac_vn(:) = diffusion_config(jg)%k4/3._wp*p_nh_metrics%enhfac_diffu(:)
+      smag_offset        =  0.2_wp*diffusion_config(jg)%k4
     ENDIF
     IF (.NOT. lsmag_diffu) THEN
 
@@ -197,7 +205,11 @@ MODULE mo_nh_diffusion
       ! empirically determined scaling factor (default of 0.15 for hdiff_smag_fac is somewhat
       ! larger than suggested in the literature)
       jlev = p_patch%level
-      diff_multfac_smag =  diffusion_config(jg)%hdiff_smag_fac*dtime
+      IF (lhdiff_rcf) THEN
+        diff_multfac_smag = diffusion_config(jg)%hdiff_smag_fac*dtime*REAL(iadv_rcf,wp)
+      ELSE
+        diff_multfac_smag = diffusion_config(jg)%hdiff_smag_fac*dtime
+      ENDIF
 
       rl_start = start_bdydiff_e
       rl_end   = min_rledge_int - 2
@@ -294,7 +306,7 @@ MODULE mo_nh_diffusion
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
             ! Subtract part of the fourth-order background diffusion coefficient
-            kh_smag_e(je,jk,jb) = MAX(0._wp,kh_smag_e(je,jk,jb) - 0.2_wp*diffusion_config(jg)%k4)
+            kh_smag_e(je,jk,jb) = MAX(0._wp,kh_smag_e(je,jk,jb) - smag_offset)
             ! Limit diffusion coefficient to the theoretical CFL stability threshold
             kh_smag_e(je,jk,jb) = MIN(kh_smag_e(je,jk,jb),0.125_wp-4._wp*diff_multfac_vn(jk))
           ENDDO
@@ -585,22 +597,58 @@ MODULE mo_nh_diffusion
 !$OMP END DO
       ENDIF
 
+      IF (lhdiff_rcf) THEN
 !$OMP DO PRIVATE(jk,jc,jb,i_startidx,i_endidx)
-      DO jb = i_startblk,i_endblk
+        DO jb = i_startblk,i_endblk
 
-        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, rl_start, rl_end)
+          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                             i_startidx, i_endidx, rl_start, rl_end)
 
-        DO jk = 1, nlev
-          DO jc = i_startidx, i_endidx
-            p_nh_diag%ddt_exner(jc,jk,jb) = p_patch%cells%area(jc,jb)* rd_o_cvd / dtime * &
-              p_nh_prog%exner(jc,jk,jb)/p_nh_prog%theta_v(jc,jk,jb)*z_temp(jc,jk,jb)
+          DO jk = 1, nlev
+            DO jc = i_startidx, i_endidx
+              p_nh_prog%theta_v(jc,jk,jb) = p_nh_prog%theta_v(jc,jk,jb) + &
+                p_patch%cells%area(jc,jb)*z_temp(jc,jk,jb)
+
+              p_nh_prog%exner(jc,jk,jb) = EXP(rd_o_cvd*LOG(rd_o_p0ref* &
+                p_nh_prog%rho(jc,jk,jb)*p_nh_prog%theta_v(jc,jk,jb)))
+            ENDDO
           ENDDO
-        ENDDO
 
-      ENDDO
+          IF (iforcing /= inwp .OR. linit) THEN
+            DO jk = 1, nlev
+              DO jc = i_startidx, i_endidx
+              p_nh_prog%rhotheta_v(jc,jk,jb) = p_nh_prog%theta_v(jc,jk,jb) * &
+                p_nh_prog%rho(jc,jk,jb)
+              ENDDO
+            ENDDO
+          ENDIF
+
+        ENDDO
 !$OMP END DO
+      ELSE ! diffusion is called at every sound-wave time step
+!$OMP DO PRIVATE(jk,jc,jb,i_startidx,i_endidx)
+        DO jb = i_startblk,i_endblk
+
+          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                             i_startidx, i_endidx, rl_start, rl_end)
+
+          DO jk = 1, nlev
+            DO jc = i_startidx, i_endidx
+              p_nh_diag%ddt_exner(jc,jk,jb) = p_patch%cells%area(jc,jb)* rd_o_cvd / dtime * &
+                p_nh_prog%exner(jc,jk,jb)/p_nh_prog%theta_v(jc,jk,jb)*z_temp(jc,jk,jb)
+            ENDDO
+          ENDDO
+
+        ENDDO
+!$OMP END DO
+      ENDIF
 !$OMP END PARALLEL
+
+      ! This could be further optimized, but applications without physics are quite rare
+      IF (lhdiff_rcf .AND. (linit .OR. iforcing /= inwp) )             &
+        CALL sync_patch_array_mult(SYNC_C,p_patch,3,p_nh_prog%theta_v, &
+          p_nh_prog%rhotheta_v,p_nh_prog%exner)
+
     ENDIF ! temperature diffusion
 
     IF (ltimer) CALL timer_stop(timer_nh_hdiffusion)
@@ -996,4 +1044,3 @@ MODULE mo_nh_diffusion
   END SUBROUTINE diffusion_hex
 
 END MODULE mo_nh_diffusion
-

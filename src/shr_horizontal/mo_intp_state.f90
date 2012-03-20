@@ -1007,6 +1007,11 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
       CALL finish ('mo_interpolation:construct_int_state',                     &
         &             'allocation for geofac_qdiv failed')
     ENDIF
+    ALLOCATE (ptr_int%geofac_grdiv(nproma, 5, nblks_e), STAT=ist )
+    IF (ist /= SUCCESS) THEN
+      CALL finish ('mo_interpolation:construct_int_state',                     &
+        &             'allocation for geofac_grdiv failed')
+    ENDIF
     ALLOCATE (ptr_int%nudgecoeff_c(nproma, nblks_c), STAT=ist )
     IF (ist /= SUCCESS) THEN
       CALL finish ('mo_interpolation:construct_int_state',                     &
@@ -1373,6 +1378,7 @@ SUBROUTINE allocate_int_state( ptr_patch, ptr_int)
 
   IF (ptr_patch%cell_type ==3) THEN
     ptr_int%geofac_qdiv = 0._wp
+    ptr_int%geofac_grdiv = 0._wp
     ptr_int%nudgecoeff_c = 0._wp
     ptr_int%nudgecoeff_e = 0._wp
 
@@ -2022,6 +2028,7 @@ SUBROUTINE transfer_interpol_state(p_p, p_lp, pi, po)
 
   IF (p_p%cell_type == 3) THEN
   CALL xfer_var(SYNC_E,1,3,p_p,p_lp,pi%geofac_qdiv,po%geofac_qdiv)
+  CALL xfer_var(SYNC_E,1,3,p_p,p_lp,pi%geofac_grdiv,po%geofac_grdiv)
   CALL xfer_var(SYNC_C,1,2,p_p,p_lp,pi%nudgecoeff_c,po%nudgecoeff_c)
   CALL xfer_var(SYNC_E,1,2,p_p,p_lp,pi%nudgecoeff_e,po%nudgecoeff_e)
 
@@ -2632,6 +2639,11 @@ INTEGER :: ist
     IF (ist /= SUCCESS) THEN
       CALL finish ('mo_interpolation:destruct_int_state',                      &
         &             'deallocation for geofac_qdiv failed')
+    ENDIF
+    DEALLOCATE (ptr_int%geofac_grdiv, STAT=ist )
+    IF (ist /= SUCCESS) THEN
+      CALL finish ('mo_interpolation:destruct_int_state',                      &
+        &             'deallocation for geofac_grdiv failed')
     ENDIF
     DEALLOCATE (ptr_int%gquad%qpts_tri_l, STAT=ist )
     IF (ist /= SUCCESS) THEN

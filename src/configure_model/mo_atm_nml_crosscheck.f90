@@ -63,7 +63,7 @@ MODULE mo_nml_crosscheck
     &                              lwrite_radiation,lwrite_surface,lwrite_tend_phy,& 
     &                              lwrite_tke,lwrite_z3, no_output, lwrite_pzlev
   USE mo_parallel_config,    ONLY: check_parallel_configuration,              &
-    &                              num_io_procs
+    &                              num_io_procs, itype_comm
   USE mo_run_config,         ONLY: lrestore_states, nsteps, dtime, iforcing,  &
     &                              ltransport, ntracer, nlev, io3, ltestcase, &
     &                              nqtendphy, ntracer_static, iqv, iqc, iqi,  &
@@ -82,7 +82,8 @@ MODULE mo_nml_crosscheck
     &                              lcoriolis, lshallow_water, ltwotime
   USE mo_advection_config,   ONLY: advection_config, configure_advection
 
-  USE mo_nonhydrostatic_config, ONLY: itime_scheme_nh => itime_scheme, iadv_rcf
+  USE mo_nonhydrostatic_config, ONLY: itime_scheme_nh => itime_scheme, iadv_rcf, &
+                                      lhdiff_rcf
   USE mo_ha_dyn_config,      ONLY: ha_dyn_config
   USE mo_diffusion_config,   ONLY: diffusion_config, configure_diffusion
 
@@ -397,6 +398,12 @@ CONTAINS
     ! Hydrostatic atm
     !--------------------------------------------------------------------
     IF (iequations==IHS_ATM_THETA) ha_dyn_config%ltheta_dyn = .TRUE.
+
+    !--------------------------------------------------------------------
+    ! Nonhydrostatic atm
+    !--------------------------------------------------------------------
+    IF (lhdiff_rcf .AND. (idiv_method /= 1 .OR. itype_comm == 3)) CALL finish(TRIM(routine), &
+      'lhdiff_rcf is available only for idiv_method=1 and itype_comm<=2')
 
     !--------------------------------------------------------------------
     ! Atmospheric physics, general
@@ -781,6 +788,9 @@ CONTAINS
 
       IF (lshallow_water)  diffusion_config(jg)%lhdiff_temp=.FALSE.
 
+      IF (itype_comm == 3 .AND. diffusion_config(jg)%hdiff_order /= 5)  &
+        CALL finish(TRIM(routine), 'itype_comm=3 requires hdiff_order = 5')
+ 
     ENDDO
 
     !--------------------------------------------------------------------

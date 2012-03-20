@@ -1778,6 +1778,7 @@ CONTAINS
     END IF
     IF (p%cell_type == 3) THEN
     CALL def_var('int.geofac_qdiv',       nf_double, dim_nedges, dim_4) ! nproma,4,nblks_e
+    CALL def_var('int.geofac_grdiv',      nf_double, dim_nedges, dim_5) ! nproma,5,nblks_e
     CALL def_var('int.nudgecoeff_c',      nf_double, dim_ncells) ! nproma,nblks_c
     CALL def_var('int.nudgecoeff_e',      nf_double, dim_nedges) ! nproma,nblks_e
 
@@ -1954,6 +1955,7 @@ CONTAINS
     END IF
     IF (p%cell_type == 3) THEN
     CALL bvar_io(1,3,'int.geofac_qdiv',       pi%geofac_qdiv     ) ! nproma,4,nblks_e
+    CALL bvar_io(1,3,'int.geofac_grdiv',      pi%geofac_grdiv    ) ! nproma,5,nblks_e
     CALL bvar_io(1,2,'int.nudgecoeff_c',      pi%nudgecoeff_c    ) ! nproma,nblks_c
     CALL bvar_io(1,2,'int.nudgecoeff_e',      pi%nudgecoeff_e    ) ! nproma,nblks_e
 

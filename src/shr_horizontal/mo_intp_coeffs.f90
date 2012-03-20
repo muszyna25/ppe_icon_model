@@ -1820,7 +1820,8 @@ INTEGER :: rl_start, rl_end
 INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
 
 INTEGER :: ile, ibe, ilc1, ibc1, ilc2, ibc2, ifac, ic, ilnc, ibnc, &
-           ilv1, ilv2, ibv1, ibv2, jr1, ilr, ibr
+           ilv1, ilv2, ibv1, ibv2, jr1, ilr, ibr,                  &
+           ile1, ibe1, ile2, ibe2, ile3, ibe3
 TYPE(t_cartesian_coordinates)::z_pn_k,z_pn_j,z_pt_k,z_cart_no,z_cart_ea
 REAL(wp) :: z_proj, z_norm, z_lon, z_lat
 
@@ -2038,7 +2039,144 @@ IF (ptr_patch%cell_type == 3) THEN
 
 ENDIF
 
-    ! e) coefficients for directional gradient of a normal vector quantity
+! e) Geometrical factor for gradient of divergence (triangles only)
+
+! sync does not work on patch 0 for some unknown reason. But we don't need this
+! field on the radiation grid anyway, so let's just skip it
+IF (ptr_patch%cell_type == 3 .AND. ptr_patch%id >= 1) THEN
+
+  rl_start = 2
+  rl_end = min_rledge
+
+  ! values for the blocking
+  i_startblk = ptr_patch%edges%start_blk(rl_start,1)
+  i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
+
+!$OMP DO PRIVATE(jb,je,je1,i_startidx,i_endidx,ile,ibe,ile1,ibe1,ile2,ibe2,ile3,ibe3,&
+!$OMP            ilc1,ilc2,ibc1,ibc2)
+  DO jb = i_startblk, i_endblk
+
+    CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
+                       i_startidx, i_endidx, rl_start, rl_end)
+
+    DO je = i_startidx, i_endidx
+
+      IF(.NOT. ptr_patch%edges%owner_mask(je,jb)) CYCLE
+
+      ilc1 = ptr_patch%edges%cell_idx(je,jb,1)
+      ibc1 = ptr_patch%edges%cell_blk(je,jb,1)
+      ilc2 = ptr_patch%edges%cell_idx(je,jb,2)
+      ibc2 = ptr_patch%edges%cell_blk(je,jb,2)
+
+      ! First consider edges of neighbor cell 2
+      ile1 = ptr_patch%cells%edge_idx(ilc2,ibc2,1)
+      ibe1 = ptr_patch%cells%edge_blk(ilc2,ibc2,1)
+      ile2 = ptr_patch%cells%edge_idx(ilc2,ibc2,2)
+      ibe2 = ptr_patch%cells%edge_blk(ilc2,ibc2,2)
+      ile3 = ptr_patch%cells%edge_idx(ilc2,ibc2,3)
+      ibe3 = ptr_patch%cells%edge_blk(ilc2,ibc2,3)
+
+      IF (je == ile1 .AND. jb == ibe1) THEN
+        ptr_int%geofac_grdiv(je,1,jb) = ptr_int%geofac_div(ilc2,1,ibc2)
+      ELSE IF (je == ile2 .AND. jb == ibe2) THEN
+        ptr_int%geofac_grdiv(je,1,jb) = ptr_int%geofac_div(ilc2,2,ibc2)
+      ELSE IF (je == ile3 .AND. jb == ibe3) THEN
+        ptr_int%geofac_grdiv(je,1,jb) = ptr_int%geofac_div(ilc2,3,ibc2)
+      ENDIF
+
+      ! Now consider edges of neighbor cell 1 and compute gradient
+      ile1 = ptr_patch%cells%edge_idx(ilc1,ibc1,1)
+      ibe1 = ptr_patch%cells%edge_blk(ilc1,ibc1,1)
+      ile2 = ptr_patch%cells%edge_idx(ilc1,ibc1,2)
+      ibe2 = ptr_patch%cells%edge_blk(ilc1,ibc1,2)
+      ile3 = ptr_patch%cells%edge_idx(ilc1,ibc1,3)
+      ibe3 = ptr_patch%cells%edge_blk(ilc1,ibc1,3)
+
+      IF (je == ile1 .AND. jb == ibe1) THEN
+        ptr_int%geofac_grdiv(je,1,jb) = (ptr_int%geofac_grdiv(je,1,jb) - &
+          ptr_int%geofac_div(ilc1,1,ibc1))*ptr_patch%edges%inv_dual_edge_length(je,jb)
+      ELSE IF (je == ile2 .AND. jb == ibe2) THEN
+        ptr_int%geofac_grdiv(je,1,jb) = (ptr_int%geofac_grdiv(je,1,jb) - &
+          ptr_int%geofac_div(ilc1,2,ibc1))*ptr_patch%edges%inv_dual_edge_length(je,jb)
+      ELSE IF (je == ile3 .AND. jb == ibe3) THEN
+        ptr_int%geofac_grdiv(je,1,jb) = (ptr_int%geofac_grdiv(je,1,jb) - &
+          ptr_int%geofac_div(ilc1,3,ibc1))*ptr_patch%edges%inv_dual_edge_length(je,jb)
+      ENDIF
+    ENDDO
+
+    ! The quad edge indices are computed such that edges 1 and 2 border
+    ! to neighbor cell 1 and edges 3 and 4 border to neighbor cell 2.
+    ! Thus, splitting the following loop saves case discriminations
+    DO je1 = 1, 2
+      DO je = i_startidx, i_endidx
+
+        IF(.NOT. ptr_patch%edges%owner_mask(je,jb)) CYCLE
+
+        ile = ptr_patch%edges%quad_idx(je,jb,je1)
+        ibe = ptr_patch%edges%quad_blk(je,jb,je1)
+
+        ilc1 = ptr_patch%edges%cell_idx(je,jb,1)
+        ibc1 = ptr_patch%edges%cell_blk(je,jb,1)
+
+        ile1 = ptr_patch%cells%edge_idx(ilc1,ibc1,1)
+        ibe1 = ptr_patch%cells%edge_blk(ilc1,ibc1,1)
+        ile2 = ptr_patch%cells%edge_idx(ilc1,ibc1,2)
+        ibe2 = ptr_patch%cells%edge_blk(ilc1,ibc1,2)
+        ile3 = ptr_patch%cells%edge_idx(ilc1,ibc1,3)
+        ibe3 = ptr_patch%cells%edge_blk(ilc1,ibc1,3)
+
+        IF (ile == ile1 .AND. ibe == ibe1) THEN
+          ptr_int%geofac_grdiv(je,je1+1,jb) = - &
+            ptr_int%geofac_div(ilc1,1,ibc1)*ptr_patch%edges%inv_dual_edge_length(je,jb)
+        ELSE IF (ile == ile2 .AND. ibe == ibe2) THEN
+          ptr_int%geofac_grdiv(je,je1+1,jb) = - &
+            ptr_int%geofac_div(ilc1,2,ibc1)*ptr_patch%edges%inv_dual_edge_length(je,jb)
+        ELSE IF (ile == ile3 .AND. ibe == ibe3) THEN
+          ptr_int%geofac_grdiv(je,je1+1,jb) = - &
+            ptr_int%geofac_div(ilc1,3,ibc1)*ptr_patch%edges%inv_dual_edge_length(je,jb)
+        ENDIF
+
+      ENDDO !edge loop
+    ENDDO
+
+    DO je1 = 3, 4
+      DO je = i_startidx, i_endidx
+
+        IF(.NOT. ptr_patch%edges%owner_mask(je,jb)) CYCLE
+
+        ile = ptr_patch%edges%quad_idx(je,jb,je1)
+        ibe = ptr_patch%edges%quad_blk(je,jb,je1)
+
+        ilc2 = ptr_patch%edges%cell_idx(je,jb,2)
+        ibc2 = ptr_patch%edges%cell_blk(je,jb,2)
+
+        ile1 = ptr_patch%cells%edge_idx(ilc2,ibc2,1)
+        ibe1 = ptr_patch%cells%edge_blk(ilc2,ibc2,1)
+        ile2 = ptr_patch%cells%edge_idx(ilc2,ibc2,2)
+        ibe2 = ptr_patch%cells%edge_blk(ilc2,ibc2,2)
+        ile3 = ptr_patch%cells%edge_idx(ilc2,ibc2,3)
+        ibe3 = ptr_patch%cells%edge_blk(ilc2,ibc2,3)
+
+        IF (ile == ile1 .AND. ibe == ibe1) THEN
+          ptr_int%geofac_grdiv(je,je1+1,jb) = &
+            ptr_int%geofac_div(ilc2,1,ibc2)*ptr_patch%edges%inv_dual_edge_length(je,jb)
+        ELSE IF (ile == ile2 .AND. ibe == ibe2) THEN
+          ptr_int%geofac_grdiv(je,je1+1,jb) = &
+            ptr_int%geofac_div(ilc2,2,ibc2)*ptr_patch%edges%inv_dual_edge_length(je,jb)
+        ELSE IF (ile == ile3 .AND. ibe == ibe3) THEN
+          ptr_int%geofac_grdiv(je,je1+1,jb) = &
+            ptr_int%geofac_div(ilc2,3,ibc2)*ptr_patch%edges%inv_dual_edge_length(je,jb)
+        ENDIF
+
+      ENDDO !edge loop
+    ENDDO
+
+  END DO !block loop
+!$OMP END DO
+
+ENDIF
+
+    ! f) coefficients for directional gradient of a normal vector quantity
     ! at the same edge (gives directional laplacian if gradient psi is assumed as input)
 
     IF (ptr_patch%cell_type == 6) THEN
@@ -2324,7 +2462,7 @@ ENDIF
 
     ENDIF
 
-! f) Geometrical factor for Green-Gauss gradient
+! g) Geometrical factor for Green-Gauss gradient
 rl_start = 2
 rl_end = min_rlcell
 
@@ -2408,6 +2546,7 @@ CALL sync_patch_array(SYNC_C,ptr_patch,ptr_int%geofac_n2s)
 
 IF (ptr_patch%cell_type == 3) THEN
   CALL sync_patch_array(SYNC_E,ptr_patch,ptr_int%geofac_qdiv)
+  IF (ptr_patch%id >= 1) CALL sync_patch_array(SYNC_E,ptr_patch,ptr_int%geofac_grdiv)
 ENDIF
 
 IF (ptr_patch%cell_type == 6) THEN

@@ -49,8 +49,7 @@ MODULE mo_nh_stepping
   USE mo_kind,                ONLY: wp
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nonhydro_state,      ONLY: bufr
-  USE mo_nonhydrostatic_config,ONLY: iadv_rcf, l_nest_rcf, itime_scheme
-
+  USE mo_nonhydrostatic_config,ONLY: iadv_rcf, lhdiff_rcf, l_nest_rcf, itime_scheme
   USE mo_diffusion_config,     ONLY: diffusion_config
   USE mo_dynamics_config,      ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1, nsav2
   USE mo_io_config,            ONLY: l_outputtime, l_diagtime, is_checkpoint_time,&
@@ -714,6 +713,7 @@ MODULE mo_nh_stepping
     LOGICAL :: lclean_mflx   ! for reduced calling freqency: determines whether
                              ! mass-fluxes and trajectory-velocities are reset to zero
                              ! i.e. for starting new integration sweep
+    LOGICAL :: lcall_hdiff
 
     ! Switch to determine manner of OpenMP parallelization in interpol_scal_grf
 !     LOGICAL :: lpar_fields=.FALSE.
@@ -1079,6 +1079,13 @@ MODULE mo_nh_stepping
             l_recompute = .FALSE.
           ENDIF
 
+          IF (diffusion_config(jg)%lhdiff_vn .AND.                     &
+            (.NOT. lhdiff_rcf .OR. lhdiff_rcf .AND. lstep_adv(jg))) THEN
+            lcall_hdiff = .TRUE.
+          ELSE
+            lcall_hdiff = .FALSE.
+          ENDIF
+
           ! For real-data runs, perform an extra diffusion call before the first time
           ! step because no other filtering of the interpolated velocity field is done
           IF (.NOT.ltestcase .AND. linit_dyn(jg) .AND. diffusion_config(jg)%lhdiff_vn) THEN
@@ -1096,16 +1103,12 @@ MODULE mo_nh_stepping
                 n_now, n_new, linit_dyn(jg), l_recompute, linit_vertnest, l_bdy_nudge, dt_loc)
             ENDIF
             
-            IF (diffusion_config(jg)%lhdiff_vn) &
+            IF (lcall_hdiff) &
               CALL diffusion_tria(p_nh_state(jg)%prog(n_new), p_nh_state(jg)%diag,             &
                 p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), bufr(jg), dt_loc, .FALSE.)
           ELSE
             ! call version for asynchronous halo communication, 
             ! combining solve and Smagorinsky diffusion
-            IF( diffusion_config(jg)%hdiff_order /= 5) &
-              CALL finish ( 'mo_nh_stepping:perform_nh_stepping',  &
-              'asynchronous halo communication requires hdiff_order=5' )
-
             CALL solve_nh_ahc(p_nh_state(jg), p_patch(jg), p_int_state(jg), bufr(jg),      &
               n_now, n_new, linit_dyn(jg), l_recompute, linit_vertnest, l_bdy_nudge, dt_loc)
           ENDIF
@@ -1184,22 +1187,6 @@ MODULE mo_nh_stepping
 
         ENDIF
 
-        ! Apply boundary nudging in case of one-way nesting
-        IF (jg > 1 .AND. lstep_adv(jg)) THEN
-          IF (ltimer)            CALL timer_start(timer_nesting)
-          IF (timers_level >= 2) CALL timer_start(timer_nudging)
-
-          IF (lfeedback(jg)) THEN
-            CALL density_boundary_nudging(p_patch(jg), p_nh_state(jg), p_int_state(jg), &
-              &                        nnew(jg),REAL(iadv_rcf,wp))
-          ELSE
-            CALL nest_boundary_nudging(p_patch(jg), p_nh_state(jg), p_int_state(jg), &
-              &                        nnew(jg),nnew_rcf(jg),REAL(iadv_rcf,wp))
-          ENDIF
-
-          IF (timers_level >= 2) CALL timer_stop(timer_nudging)
-          IF (ltimer)            CALL timer_stop(timer_nesting)
-        ENDIF
 
         IF (  iforcing==inwp .AND. lstep_adv(jg) ) THEN
 
@@ -1262,6 +1249,22 @@ MODULE mo_nh_stepping
 
         ENDIF !iforcing
 
+        ! Apply boundary nudging in case of one-way nesting
+        IF (jg > 1 .AND. lstep_adv(jg)) THEN
+          IF (ltimer)            CALL timer_start(timer_nesting)
+          IF (timers_level >= 2) CALL timer_start(timer_nudging)
+
+          IF (lfeedback(jg)) THEN
+            CALL density_boundary_nudging(p_patch(jg), p_nh_state(jg), p_int_state(jg), &
+              &                        nnew(jg),REAL(iadv_rcf,wp))
+          ELSE
+            CALL nest_boundary_nudging(p_patch(jg), p_nh_state(jg), p_int_state(jg), &
+              &                        nnew(jg),nnew_rcf(jg),REAL(iadv_rcf,wp))
+          ENDIF
+
+          IF (timers_level >= 2) CALL timer_stop(timer_nudging)
+          IF (ltimer)            CALL timer_stop(timer_nesting)
+        ENDIF
 
         ! This calls 4th order diffusion for the hexagonal case
         IF (diffusion_config(jg)%lhdiff_vn .AND. &
@@ -1833,6 +1836,7 @@ MODULE mo_nh_stepping
 
 
 END MODULE mo_nh_stepping
+
 
 
 
