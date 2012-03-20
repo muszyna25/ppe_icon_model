@@ -533,37 +533,33 @@ CONTAINS
   !! Calculation of vertical tracer fluxes 
   !!
   !! @par Revision History
-  !!
+  !!!! mpi parallelized, no sync
   SUBROUTINE mimetic_vflux_oce( ppatch, pvar_c, pw_c, pupflux_i )
 
-    TYPE(t_patch), TARGET, INTENT(IN) :: ppatch      !< patch on which computation is performed
-    REAL(wp), INTENT(INOUT)  :: pvar_c(:,:,:)      !< advected cell centered variable
-    REAL(wp), INTENT(INOUT)  :: pw_c(:,:,:)        !< vertical velocity on cells
-    REAL(wp), INTENT(INOUT)  :: pupflux_i(:,:,:)   !< variable in which the upwind flux is stored
-                                                   !< dim: (nproma,n_zlev+1,nblks_c)
+    TYPE(t_patch), TARGET, INTENT(IN) :: ppatch           !< patch on which computation is performed
+    REAL(wp), INTENT(IN)              :: pvar_c(:,:,:)    !< advected cell centered variable
+    REAL(wp), INTENT(IN)              :: pw_c(:,:,:)      !< vertical velocity on cells
+    REAL(wp), INTENT(INOUT)           :: pupflux_i(:,:,:) !< variable in which the upwind flux is stored
+                                                          !< dim: (nproma,n_zlev+1,nblks_c)
     ! local variables
-    INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end
+    INTEGER  :: i_startidx_c, i_endidx_c
     INTEGER  :: jc, jk, jb               !< index of cell, vertical level and block
     INTEGER  :: jkm1, jkp1, z_dolic                    !< jk - 1
     REAL(wp) :: w_ave(n_zlev)
     REAL(wp) :: w_avep1(n_zlev)
     !-------------------------------------------------------------------------
-    rl_start = 1
-    rl_end   = min_rlcell
-    i_startblk = ppatch%cells%start_blk(rl_start,1)
-    i_endblk   = ppatch%cells%end_blk(rl_end,1)
+    TYPE(t_subset_range), POINTER :: all_cells
+    !-------------------------------------------------------------------------
+    all_cells => ppatch%cells%all
 
     w_ave(:)  = 0.0_wp
     w_avep1(:)= 0.0_wp
-    !fluxes at first layer   
+    !fluxes at first layer
     pupflux_i(:,1,:) = pvar_c(:,1,:)*pw_c(:,1,:)
-    
-   
 
-    DO jb =  i_startblk, i_endblk
-      CALL get_indices_c(ppatch, jb, i_startblk, i_endblk,&
-                   & i_startidx, i_endidx, rl_start, rl_end)
-        DO jc = i_startidx, i_endidx
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c, i_endidx_c
           z_dolic = v_base%dolic_c(jc,jb)
           IF(z_dolic>=MIN_DOLIC)THEN
             DO jk = 2, z_dolic
@@ -582,26 +578,25 @@ CONTAINS
             !pupflux_i(jc,jk,jb) = (w_ave(jk)*v_base%del_zlev_m(jk) &
             !                    & +w_avep1(jk)*v_base%del_zlev_m(jkp1))&
             !                   & /(v_base%del_zlev_m(jk)+v_base%del_zlev_m(jkp1))
-            END DO 
-             DO jk=1,z_dolic-1
+            END DO
+            DO jk=1,z_dolic-1
               jkm1 = jk - 1
               jkp1 = jk + 1
-            pupflux_i(jc,jk,jb) = (w_ave(jk)*v_base%del_zlev_m(jk) &
-                                & +w_avep1(jk)*v_base%del_zlev_m(jkp1))&
-                               & /(v_base%del_zlev_m(jk)+v_base%del_zlev_m(jkp1))
-             END DO 
+              pupflux_i(jc,jk,jb) = (w_ave(jk)*v_base%del_zlev_m(jk) &
+                                 & +w_avep1(jk)*v_base%del_zlev_m(jkp1))&
+                                 & /(v_base%del_zlev_m(jk)+v_base%del_zlev_m(jkp1))
+            END DO
             !w_ave(z_dolic)=0.5_wp*(pw_c(jc,z_dolic,jb)+pw_c(jc,z_dolic-1,jb))&
             !        &*pvar_c(jc,z_dolic,jb)
             !pupflux_i(jc,z_dolic,jb) = w_ave(z_dolic)*v_base%del_zlev_m(z_dolic)&
             !                          &/v_base%del_zlev_i(z_dolic)
             ! no fluxes at bottom boundary
             !pupflux_i(jc,z_dolic+1,jb) = 0.0_wp
-        ENDIF 
-      END DO 
+        ENDIF
+      END DO
     END DO
-!     DO jb =  i_startblk, i_endblk
-!       CALL get_indices_c(ppatch, jb, i_startblk, i_endblk,&
-!                    & i_startidx, i_endidx, rl_start, rl_end)
+!     DO jb = all_cells%start_block, all_cells%end_block
+!       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
 !         DO jc = i_startidx, i_endidx
 !           DO jk = 2, n_zlev
 !            ! index of top & bottom half level
@@ -612,9 +607,8 @@ CONTAINS
 !            END DO ! end cell loop
 !        END DO ! end level loop
 !      END DO ! end block loop
-!     DO jb =  i_startblk, i_endblk
-!       CALL get_indices_c(ppatch, jb, i_startblk, i_endblk,&
-!                    & i_startidx, i_endidx, rl_start, rl_end)
+!     DO jb = all_cells%start_block, all_cells%end_block
+!       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
 !         DO jc = i_startidx, i_endidx
 !          DO jk = 1, n_zlev-1
 !            ! index of top & bottom half level
@@ -625,9 +619,8 @@ CONTAINS
 !            END DO ! end cell loop
 !        END DO ! end level loop
 !      END DO ! end block loop
-!     DO jb =  i_startblk, i_endblk
-!       CALL get_indices_c(ppatch, jb, i_startblk, i_endblk,&
-!                    & i_startidx, i_endidx, rl_start, rl_end)
+!     DO jb = all_cells%start_block, all_cells%end_block
+!       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
 !         DO jc = i_startidx, i_endidx 
 !          DO jk = 1, n_zlev-1
 !            ! index of top & bottom half level
