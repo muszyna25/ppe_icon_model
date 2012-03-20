@@ -634,7 +634,7 @@ SUBROUTINE tracer_diffusion_vert_expl( p_patch,        &
                                     & div_diff_flx)
 
   TYPE(t_patch), TARGET, INTENT(in) :: p_patch
-  REAL(wp), INTENT(inout)           :: trac_c(:,:,:)
+  REAL(wp), INTENT(in)              :: trac_c(:,:,:)
   REAL(wp), INTENT(in)              :: dz(:,:,:)
   REAL(wp), INTENT(in)              :: top_bc_tracer(:,:)
   REAL(wp), INTENT(in)              :: bot_bc_tracer(:,:)

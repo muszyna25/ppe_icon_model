@@ -62,6 +62,7 @@ USE mo_oce_physics
 USE mo_advection_utils,           ONLY: laxfr_upflux_v
 USE mo_oce_diffusion,             ONLY: tracer_diffusion_vert_expl,&
                                       & tracer_diffusion_vert_impl_hom
+USE mo_util_subset,               ONLY: t_subset_range, get_index_range
 IMPLICIT NONE
 
 PRIVATE
@@ -97,6 +98,8 @@ CONTAINS
 !!
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2010).
+!!
+!! mpi parallelized, sync required:
 !! 
 SUBROUTINE advect_vertical(p_patch, trac_in,               &
                          & p_os,                           &
@@ -105,8 +108,7 @@ SUBROUTINE advect_vertical(p_patch, trac_in,               &
                          & A_v,                            &
                          & trac_out, timestep, delta_t, dummy_h_c,&
                          &FLUX_CALCULATION_VERT)
-!
-!
+
   TYPE(t_patch), TARGET, INTENT(IN) :: p_patch
   REAL(wp)                          :: trac_in(:,:,:)
   TYPE(t_hydro_ocean_state), TARGET :: p_os
@@ -121,69 +123,63 @@ SUBROUTINE advect_vertical(p_patch, trac_in,               &
   REAL(wp)                          :: delta_t
   REAL(wp)                          :: dummy_h_c(nproma,n_zlev, p_patch%nblks_c)
   INTEGER                           :: FLUX_CALCULATION_VERT
-  !
+
   !Local variables
   REAL(wp) :: delta_z!, delta_zp1,delta_z2
-  !INTEGER  :: ctr, ctr_total
-  INTEGER  :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start_c, rl_end_c
-  !INTEGER  :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, rl_start_e, rl_end_e
+  INTEGER  :: i_startidx_c, i_endidx_c
   INTEGER  :: jc, jk, jb!, je!jkp1        !< index of edge, vert level, block
-  !INTEGER  :: ilc1, ibc1,ilc2, ibc2
   INTEGER  :: z_dolic
   REAL(wp) :: z_adv_flux_v (nproma, n_zlev+1, p_patch%nblks_c)  ! vertical advective tracer flux
   REAL(wp) :: z_div_adv_v (nproma, n_zlev,p_patch%nblks_c)        ! vertical tracer divergence
   REAL(wp) :: z_div_diff_v (nproma, n_zlev,p_patch%nblks_c)        ! vertical tracer divergence
-  !REAL(wp) :: z_diff_flux_v(nproma, n_zlev+1,p_patch%nblks_c)   ! vertical diffusive tracer flux
-  !REAL(wp) :: z_transport_w(nproma,n_zlev+1,p_patch%nblks_c)  ! vertical transport velocity
-  !REAL(wp) :: z_trac_c(nproma,n_zlev, p_patch%nblks_c)
   REAL(wp) :: z_h(nproma,n_zlev, p_patch%nblks_c)
   REAL(wp) :: z_temp(nproma,n_zlev, p_patch%nblks_c)
+  REAL(wp) :: z_h_tmp_c(nproma,n_zlev,p_patch%nblks_c)
+  REAL(wp) :: dummy_h_c_new(nproma,n_zlev, p_patch%nblks_c)
+  LOGICAL  :: ldbg = .FALSE.
+
+  !INTEGER  :: ctr, ctr_total
+  !INTEGER  :: ilc1, ibc1,ilc2, ibc2
+  REAL(wp) :: z_diff_flux_v(nproma, n_zlev+1,p_patch%nblks_c)   ! vertical diffusive tracer flux
+  !REAL(wp) :: z_transport_w(nproma,n_zlev+1,p_patch%nblks_c)  ! vertical transport velocity
+  !REAL(wp) :: z_trac_c(nproma,n_zlev, p_patch%nblks_c)
   !REAL(wp) :: z_G_n_c_v   (nproma, n_zlev, p_patch%nblks_c)
   !REAL(wp) :: z_G_nm1_c_v (nproma, n_zlev, p_patch%nblks_c)
   !REAL(wp) :: z_G_nimd_c_v(nproma, n_zlev, p_patch%nblks_c)
   !REAL(wp) :: z_transport_vn(nproma,n_zlev,p_patch%nblks_e)
-  REAL(wp) :: z_h_tmp_c(nproma,n_zlev,p_patch%nblks_c)
   !REAL(wp) :: max_val, min_val!, dtime2
   !REAL(wp) :: z_tol
-  !LOGICAL  :: ldbg = .TRUE.
-  REAL(wp) :: dummy_h_c_new(nproma,n_zlev, p_patch%nblks_c)
   !REAL(wp) :: z_div_mass_flux_h(nproma, n_zlev, p_patch%nblks_c)
   !TYPE(t_cartesian_coordinates):: z_vn_c(nproma,n_zlev,p_patch%nblks_c)
   !TYPE(t_cartesian_coordinates):: z_vn_c2(nproma,n_zlev,p_patch%nblks_c)
   ! CHARACTER(len=max_char_length), PARAMETER :: &
   !        & routine = ('mo_tracer_advection:advect_individual_tracer')
   !-------------------------------------------------------------------------------
-  !z_tol= 1.0E-13
-  !trac_in = 10.0_wp
+  TYPE(t_subset_range), POINTER :: cells_in_domain
+  !-------------------------------------------------------------------------------
+  cells_in_domain => p_patch%cells%in_domain
 
-  rl_start_c   = 1
-  rl_end_c     = min_rlcell
-  i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
-  i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
+  !z_tol         = 1.0E-13
+  !trac_in       = 10.0_wp
 
-  ! rl_start_e   = 1
-  ! rl_end_e     = min_rledge
-  ! i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
-  ! i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
+  z_adv_flux_v   = 0.0_wp
+  z_div_adv_v    = 0.0_wp
+  z_div_diff_v   = 0.0_wp
+  z_temp         = 0.0_wp
+  dummy_h_c_new  = 0.0_wp
+  z_h_tmp_c      = 0.0_wp
+  z_diff_flux_v  = 0.0_wp
+  !z_h           = 0.0_wp
+  !z_transport_w = 0.0_wp
+  !z_trac_c      = 0.0_wp
+  !z_G_n_c_v     = 0.0_wp
+  !z_G_nm1_c_v   = 0.0_wp
+  !z_G_nimd_c_v  = 0.0_wp
 
-  z_adv_flux_v  = 0.0_wp
-  z_div_adv_v   = 0.0_wp
-  z_div_diff_v  = 0.0_wp
-  !z_diff_flux_v = 0.0_wp
-  !z_h           = 0.0_wp 
-  !z_transport_w =0.0_wp
-  !z_trac_c      =0.0_wp
-  !z_G_n_c_v        = 0.0_wp
-  !z_G_nm1_c_v      = 0.0_wp
-  !z_G_nimd_c_v     = 0.0_wp
-  z_temp          = 0.0_wp
-  dummy_h_c_new   = 0.0_wp
-  z_h_tmp_c       = 0.0_wp
   !tracer times heigth; this includes free surface
   !height in top cell
-  ! DO jb = i_startblk_c, i_endblk_c
-  !   CALL get_indices_c( p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
-  !   &                   rl_start_c, rl_end_c)
+  ! DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+  !   CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
   !   DO jk = 1, n_zlev
   !     delta_z = v_base%del_zlev_m(jk)
   !     DO jc = i_startidx_c, i_endidx_c
@@ -205,9 +201,8 @@ SUBROUTINE advect_vertical(p_patch, trac_in,               &
   !      z_transport_w = p_os%p_diag%w_old
   !    ENDIF
 
-  DO jb = i_startblk_c, i_endblk_c
-    CALL get_indices_c( p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
-    &                   rl_start_c, rl_end_c)
+  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+    CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
     DO jc = i_startidx_c, i_endidx_c
 
       z_dolic = v_base%dolic_c(jc,jb)
@@ -224,9 +219,8 @@ SUBROUTINE advect_vertical(p_patch, trac_in,               &
     END DO
   END DO
   !calculate (dummy) height consistent with divergence of mass fluxx
-  DO jb = i_startblk_c, i_endblk_c
-    CALL get_indices_c( p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
-    &                   rl_start_c, rl_end_c)
+  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+    CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
     DO jc = i_startidx_c, i_endidx_c
       z_dolic = v_base%dolic_c(jc,jb)
       DO jk = 1, z_dolic
@@ -236,19 +230,19 @@ SUBROUTINE advect_vertical(p_patch, trac_in,               &
         !ENDIF
       END DO
     END DO
-  END DO 
+  END DO
 
-!IF(ldbg)THEN
- !DO jk = 1, n_zlev
- !  write(*,*)'max/min adv flux & div:',jk,&
- !  &maxval(z_h_tmp_c(:,jk,:)), minval(z_h_tmp_c(:,jk,:))!,&
-!!   &maxval(z_div_adv_v(:,jk,:)),minval(z_div_adv_v(:,jk,:))
- !END DO
-!    DO jk = 1, n_zlev
-!      write(*,*)'max/min dummy new:',jk,&
-!      &maxval(dummy_h_c_new(:,jk,:)),minval(dummy_h_c_new(:,jk,:))
-!    END DO
-!ENDIF 
+  IF (ldbg) THEN
+    DO jk = 1, n_zlev
+      write(*,*)'max/min adv flux & div:',jk,&
+      &maxval(z_h_tmp_c(:,jk,:)), minval(z_h_tmp_c(:,jk,:)),&
+      &maxval(z_div_adv_v(:,jk,:)),minval(z_div_adv_v(:,jk,:))
+    END DO
+    DO jk = 1, n_zlev
+      write(*,*)'max/min dummy new:',jk,&
+      &maxval(dummy_h_c_new(:,jk,:)),minval(dummy_h_c_new(:,jk,:))
+    END DO
+  ENDIF
 
 
   ! Initialize timer for horizontal advection
@@ -280,9 +274,8 @@ SUBROUTINE advect_vertical(p_patch, trac_in,               &
   IF (ltimer) CALL timer_stop(timer_adv_vert)
 
   !divergence is calculated for advective fluxes
-  DO jb = i_startblk_c, i_endblk_c
-    CALL get_indices_c( p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
-    &                   rl_start_c, rl_end_c)
+  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+    CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
     DO jc = i_startidx_c, i_endidx_c
       !interior: from one below surface to the ground
       z_dolic = v_base%dolic_c(jc,jb)
@@ -297,18 +290,22 @@ SUBROUTINE advect_vertical(p_patch, trac_in,               &
     END DO
   END DO
 
-  ipl_src=5  ! output print level (1-5, fix)
+  ipl_src = 5  ! output print level (1-5, fix)
   DO jk = 1, n_zlev
     CALL print_mxmn('adv flux_v',jk,z_adv_flux_v(:,:,:),n_zlev+1, &
       &              p_patch%nblks_c,'trc',ipl_src)
-  !  write(*,*)'vertical adv:',jk,minval(z_adv_flux_v(:,jk,:)),&
-  !  &maxval(z_adv_flux_v(:,jk,:))
+    IF (ldbg) THEN
+      write(*,*)'vertical adv:',jk,minval(z_adv_flux_v(:,jk,:)),&
+      &maxval(z_adv_flux_v(:,jk,:))
+    ENDIF
   END DO
   DO jk = 1, n_zlev
     CALL print_mxmn('div adv-flux_v',jk,z_div_adv_v(:,:,:),n_zlev, &
       &              p_patch%nblks_c,'trc',ipl_src)
-  !  write(*,*)'vertical div:',jk,minval(z_div_adv_v(:,jk,:)),&
-  !  &maxval(z_div_adv_v(:,jk,:))
+    IF (ldbg) THEN
+    write(*,*)'vertical div:',jk,minval(z_div_adv_v(:,jk,:)),&
+    &maxval(z_div_adv_v(:,jk,:))
+    ENDIF
   END DO
 
   IF (ltimer) CALL timer_start(timer_dif_vert)
@@ -319,10 +316,8 @@ SUBROUTINE advect_vertical(p_patch, trac_in,               &
     !Add advective part to old tracer
     !surface forcing applied as volume forcing at rhs, i.e.part of explicit term in momentum and tracer eqs.
     !in this case, top boundary ondition of vertical Laplacians are homogeneous
-    DO jb = i_startblk_c, i_endblk_c
-      CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c,&
-                       & i_startidx_c, i_endidx_c,&
-                       & rl_start_c, rl_end_c)
+    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+      CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
           z_dolic = v_base%dolic_c(jc,jb)
           IF(z_dolic>=MIN_DOLIC)THEN
@@ -335,8 +330,6 @@ SUBROUTINE advect_vertical(p_patch, trac_in,               &
                                 & -delta_t*z_div_adv_v(jc,jk,jb)&
                                 & +delta_t*bc_top_tracer(jc,jb))*v_base%wet_c(jc,jk,jb)&
                                 &/dummy_h_c_new(jc,jk,jb)
-                 !  write(789,*)'tracer_old:_new',jc,jk,jb,trac_in(jc,jk,jb),z_temp(jc,jk,jb),&
-                 !  &z_div_adv_v(jc,jk,jb), dummy_h_c(jc,jk,jb),dummy_h_c_new(jc,jk,jb)
 
                 !IF(jk==1)z_temp(jc,jk,jb)=z_temp(jc,jk,jb)&
                 !&+dtime*bc_top_tracer(jc,jb)/dummy_h_c_new(jc,jk,jb)
@@ -345,11 +338,13 @@ SUBROUTINE advect_vertical(p_patch, trac_in,               &
           ENDIF
       END DO
     END DO
-  !   DO jk = 1, n_zlev
-  !  write(*,*)'before impl-diff: max/min:',jk,&
-  !   &maxval(z_temp(:,jk,:)), minval(z_temp(:,jk,:)) 
-  !  END DO
-    ipl_src=5  ! output print level (1-5, fix)
+    IF (ldbg) THEN
+      DO jk = 1, n_zlev
+        write(*,*)'before impl-diff: max/min:',jk,&
+        &maxval(z_temp(:,jk,:)), minval(z_temp(:,jk,:))
+      END DO
+    ENDIF
+    ipl_src = 5  ! output print level (1-5, fix)
     DO jk = 1, n_zlev
       CALL print_mxmn('bef impl v-trc:',jk,z_temp(:,:,:),n_zlev, &
       &              p_patch%nblks_c,'trc',ipl_src)
@@ -361,15 +356,17 @@ SUBROUTINE advect_vertical(p_patch, trac_in,               &
 
 
     !calculate vert diffusion impicit: result is stored in trac_out
-      CALL tracer_diffusion_vert_impl_hom( p_patch,             &
-                                   & z_temp,&!G_n_c_v,&!z_temp,&!G_nimd_c_v
-                                   & p_os%p_prog(nold(1))%h,&
-                                   & A_v,                   &
-                                   & trac_out(:,:,:))
-!      DO jk = 1, n_zlev
-!     write(*,*)'after impl-diff: max/min:',jk,&
-!      &maxval(trac_out(:,jk,:)), minval(trac_out(:,jk,:)) 
-!     END DO
+    CALL tracer_diffusion_vert_impl_hom( p_patch,             &
+                                 & z_temp,&!G_n_c_v,&!z_temp,&!G_nimd_c_v
+                                 & p_os%p_prog(nold(1))%h,&
+                                 & A_v,                   &
+                                 & trac_out(:,:,:))
+    IF (ldbg) THEN
+      DO jk = 1, n_zlev
+        write(*,*)'after impl-diff: max/min:',jk,&
+        &maxval(trac_out(:,jk,:)), minval(trac_out(:,jk,:)) 
+      END DO
+    ENDIF
 
 
   !vertival diffusion is calculated explicitely
@@ -382,9 +379,8 @@ SUBROUTINE advect_vertical(p_patch, trac_in,               &
                                   &  bc_bot_tracer, & 
                                   &  A_v,           &
                                   &  z_div_diff_v)
-    DO jb = i_startblk_c, i_endblk_c
-      CALL get_indices_c( p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
-      &                   rl_start_c, rl_end_c)
+    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+      CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
         !interior: from one below surface to the ground
         z_dolic = v_base%dolic_c(jc,jb)
@@ -399,11 +395,13 @@ SUBROUTINE advect_vertical(p_patch, trac_in,               &
       END DO
     END DO
 
-    ipl_src=5  ! output print level (1-5, fix)
-  ! DO jk = 1, n_zlev
-  !   CALL print_mxmn('diff flux_v',jk,z_diff_flux_v(:,:,:),n_zlev+1, &
-  !     &              p_patch%nblks_c,'trc',ipl_src)
-  ! END DO
+    ipl_src = 5  ! output print level (1-5, fix)
+    IF (ldbg) THEN
+      DO jk = 1, n_zlev
+        CALL print_mxmn('diff flux_v',jk,z_diff_flux_v(:,:,:),n_zlev+1, &
+          &              p_patch%nblks_c,'trc',ipl_src)
+      END DO
+    ENDIF
     DO jk = 1, n_zlev
       CALL print_mxmn('div diff-flux_v',jk,z_div_diff_v(:,:,:),n_zlev, &
       &              p_patch%nblks_c,'trc',ipl_src)
@@ -418,47 +416,45 @@ SUBROUTINE advect_vertical(p_patch, trac_in,               &
 
 
     !Add advective and diffusive part to old tracer
-    DO jb = i_startblk_c, i_endblk_c
-      CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c,&
-                       & i_startidx_c, i_endidx_c,&
-                       & rl_start_c, rl_end_c)
-        DO jc = i_startidx_c, i_endidx_c
-          z_dolic = v_base%dolic_c(jc,jb)
-          IF(z_dolic>=MIN_DOLIC)THEN
-            !top  level
-            jk=1
-            delta_z = (p_os%p_prog(nold(1))%h(jc,jb)+v_base%del_zlev_m(jk))&
-                    &/z_h(jc,jk,jb) 
-  !           z_trac_c(jc,jk,jb) = (trac_in(jc,jk,jb)*delta_z      &
-  !                              & -delta_t*z_div_adv_v(jc,jk,jb)) &
-  !                              &/z_h(jc,jk,jb)
-  !            trac_out(jc,jk,jb) = z_trac_c(jc,jk,jb)               &
-  !                               & +delta_t*z_div_diff_v(jc,jk,jb)  
+    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+      CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+      DO jc = i_startidx_c, i_endidx_c
+        z_dolic = v_base%dolic_c(jc,jb)
+        IF(z_dolic>=MIN_DOLIC)THEN
+          !top  level
+          jk=1
+          delta_z = (p_os%p_prog(nold(1))%h(jc,jb)+v_base%del_zlev_m(jk))&
+                  &/z_h(jc,jk,jb) 
+  !         z_trac_c(jc,jk,jb) = (trac_in(jc,jk,jb)*delta_z      &
+  !                            & -delta_t*z_div_adv_v(jc,jk,jb)) &
+  !                            &/z_h(jc,jk,jb)
+  !          trac_out(jc,jk,jb) = z_trac_c(jc,jk,jb)               &
+  !                             & +delta_t*z_div_diff_v(jc,jk,jb)  
+  !         trac_out(jc,jk,jb) = trac_in(jc,jk,jb)*delta_z      &
+  !                            & -delta_t*(z_div_adv_v(jc,jk,jb) &
+  !                            &/z_h(jc,jk,jb)                  &
+  !                            &-z_div_diff_v(jc,jk,jb))
+          trac_out(jc,jk,jb) = trac_in(jc,jk,jb)*delta_z      &
+                             & -delta_t*G_nimd_c_v(jc,jk,jb) 
+
+          !interior down to bottom
+          DO jk = 2, z_dolic
+            delta_z = v_base%del_zlev_m(jk)/z_h(jc,jk,jb)
+  !           z_trac_c(jc,jk,jb) = (trac_in(jc,jk,jb)*delta_z     &
+  !                              & -delta_t*z_div_adv_v(jc,jk,jb))  &
+  !                              &/z_h(jc,jk,jb) 
+  !          trac_out(jc,jk,jb) = z_trac_c(jc,jk,jb)                &
+  !                               & +delta_t*z_diff_flux_v(jc,jk,jb)
   !           trac_out(jc,jk,jb) = trac_in(jc,jk,jb)*delta_z      &
   !                              & -delta_t*(z_div_adv_v(jc,jk,jb) &
   !                              &/z_h(jc,jk,jb)                  &
   !                              &-z_div_diff_v(jc,jk,jb))
             trac_out(jc,jk,jb) = trac_in(jc,jk,jb)*delta_z      &
                                & -delta_t*G_nimd_c_v(jc,jk,jb) 
-
-            !interior down to bottom
-            DO jk = 2, z_dolic
-              delta_z = v_base%del_zlev_m(jk)/z_h(jc,jk,jb)
-  !             z_trac_c(jc,jk,jb) = (trac_in(jc,jk,jb)*delta_z     &
-  !                                & -delta_t*z_div_adv_v(jc,jk,jb))  &
-  !                                &/z_h(jc,jk,jb) 
-  !            trac_out(jc,jk,jb) = z_trac_c(jc,jk,jb)                &
-  !                                 & +delta_t*z_diff_flux_v(jc,jk,jb)
-  !             trac_out(jc,jk,jb) = trac_in(jc,jk,jb)*delta_z      &
-  !                                & -delta_t*(z_div_adv_v(jc,jk,jb) &
-  !                                &/z_h(jc,jk,jb)                  &
-  !                                &-z_div_diff_v(jc,jk,jb))
-              trac_out(jc,jk,jb) = trac_in(jc,jk,jb)*delta_z      &
-                                 & -delta_t*G_nimd_c_v(jc,jk,jb) 
-            END DO
-          ELSE
-            trac_out(jc,:,jb) = 0.0_wp
-          ENDIF
+          END DO
+        ELSE
+          trac_out(jc,:,jb) = 0.0_wp
+        ENDIF
       END DO
     END DO
   ENDIF!(lvertical_diff_implicit)THEN
