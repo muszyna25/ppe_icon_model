@@ -110,7 +110,7 @@ SUBROUTINE advect_vertical(p_patch, trac_in,               &
                          &FLUX_CALCULATION_VERT)
 
   TYPE(t_patch), TARGET, INTENT(IN) :: p_patch
-  REAL(wp)                          :: trac_in(:,:,:)
+  REAL(wp), INTENT(IN)              :: trac_in(:,:,:)
   TYPE(t_hydro_ocean_state), TARGET :: p_os
   REAL(wp)                          :: G_n_c_v   (nproma, n_zlev, p_patch%nblks_c)  !G^n
   REAL(wp)                          :: G_nm1_c_v (nproma, n_zlev, p_patch%nblks_c)  !G^(n-1)
@@ -478,7 +478,7 @@ END SUBROUTINE advect_vertical
   SUBROUTINE upwind_vflux_oce( ppatch, pvar_c, pw_c,top_bc_t, pupflux_i )
 
     TYPE(t_patch), TARGET, INTENT(IN) :: ppatch      !< patch on which computation is performed
-    REAL(wp), INTENT(INOUT)  :: pvar_c(:,:,:)      !< advected cell centered variable
+    REAL(wp), INTENT(IN   )  :: pvar_c(:,:,:)      !< advected cell centered variable
     REAL(wp), INTENT(INOUT)  :: pw_c(:,:,:)        !< vertical velocity on cells 
     REAL(wp), INTENT(INOUT)  :: top_bc_t(:,:)        !< top boundary condition traver!vertical velocity on cells
     REAL(wp), INTENT(INOUT)  :: pupflux_i(:,:,:)   !< variable in which the upwind flux is stored
@@ -704,7 +704,7 @@ END SUBROUTINE advect_vertical
   SUBROUTINE central_vflux_oce( ppatch, pvar_c, pw_c, pupflux_i )
 
     TYPE(t_patch), TARGET, INTENT(IN) :: ppatch      !< patch on which computation is performed
-    REAL(wp), INTENT(INOUT)  :: pvar_c(:,:,:)      !< advected cell centered variable
+    REAL(wp), INTENT(IN   )  :: pvar_c(:,:,:)      !< advected cell centered variable
     REAL(wp), INTENT(INOUT)  :: pw_c(:,:,:)        !< vertical velocity on cells
     REAL(wp), INTENT(INOUT)  :: pupflux_i(:,:,:)   !< variable in which the upwind flux is stored
                                                    !< dim: (nproma,n_zlev+1,nblks_c)
