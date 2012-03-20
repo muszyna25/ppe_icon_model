@@ -62,13 +62,13 @@ B=4   # number of bisections applied
 #
 #-----------------------------------------------------------------------------
 # ocean initialization, forcing, and grid file location specifics:
-  LOC='POOL'   # all ocean files needed for running are found on pool
-# LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
+# LOC='POOL'   # all ocean files needed for running are found on pool
+  LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
 # specific path of input data is set by exec.iconrun
 # 
 #  DWD systems: $POOLDIR does not exist
 #if [ "x$BB_SYSTEM" = "xhpc" -o "x$BB_SYSTEM" = "xnec" ] ; then
-#   LOC='GRID'
+#   LOC='othr'
 #fi
 #
 #-----------------------------------------------------------------------------
