@@ -789,6 +789,7 @@ CONTAINS
       !z_vert_density_grad_c(:,1,:) =  z_vert_density_grad_c(:,2,:)
 
       !The tracer mixing coefficient at cell centers
+      ! LL: has be be rewritten!
 
        DO jb = cells_in_domain%start_block, cells_in_domain%end_block
          CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
@@ -963,7 +964,7 @@ CONTAINS
     DO i_no_trac=1, no_tracer
       CALL sync_patch_array(SYNC_C,p_patch,params_oce%A_tracer_v(:,:,:,i_no_trac))
     END DO
-    CALL sync_patch_array(SYNC_C,p_patch,params_oce%A_veloc_v(:,:,:))
+    CALL sync_patch_array(SYNC_E,p_patch,params_oce%A_veloc_v(:,:,:))
 
     ! debug output
     DO i_no_trac=1, no_tracer
