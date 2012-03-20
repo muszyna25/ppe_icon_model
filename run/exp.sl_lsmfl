@@ -234,7 +234,7 @@ cat > ${ocean_namelist} << EOF
 /
 &ocean_forcing_and_init_nml
   iforc_oce          = ${iforc}       ! ocean forcing:
-  iforc_omip         = ${iforc_type}  ! type of ocean forcing, see above
+  iforc_type         = ${iforc_type}  ! type of ocean forcing, see above
   iforc_len          = ${iforc_len}   ! length of ocean forcing data set, see above
   iforc_stat_oce     =    3      ! stationary (wind) forcing for iforc_oce=11 only:
                                  ! 1=locally varying u,v (testcase 27, 29)

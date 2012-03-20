@@ -61,7 +61,7 @@ USE mo_datetime,            ONLY: t_datetime
 USE mo_time_config,         ONLY: time_config
 USE mo_ext_data,            ONLY: ext_data, t_external_data
 USE mo_grid_config,         ONLY: nroot
-USE mo_ocean_nml,           ONLY: iforc_oce, iforc_omip, iforc_len, itestcase_oce,         &
+USE mo_ocean_nml,           ONLY: iforc_oce, iforc_type, iforc_len, itestcase_oce,         &
   &           no_tracer, n_zlev, basin_center_lat, basin_center_lon, basin_width_deg,      &
   &                               basin_height_deg, relaxation_param, wstress_coeff,       &
   &                               relax_2d_mon_s, temperature_relaxation, irelax_2d_S,     &
@@ -190,10 +190,10 @@ CONTAINS
       !  - ext_data has rank n_dom due to grid refinement in the atmosphere but not in the ocean
 
       ! Check if file should be read:
-      !   - for iforc_omip=5 only - NCEP type forcing
+      !   - for iforc_type=5 only - NCEP type forcing
       !   - read annual data at Jan, 1st: seconds of year are less than a timestep
       !   - or at begin of each run (must not be first of january)
-      IF (iforc_omip == 5) THEN
+      IF (iforc_type == 5) THEN
         dtm1 = dtime - 1.0_wp
 
         IF ( (jmon == 1 .AND. jdmon == 1 .AND. dsec < dtm1) .OR. (jstep == 1) ) THEN
@@ -272,7 +272,7 @@ CONTAINS
       !
       ! OMIP data read in mo_ext_data into variable ext_data
       !
-      IF (iforc_omip >= 1)  THEN
+      IF (iforc_type >= 1)  THEN
 
         ! provide OMIP fluxes for wind stress forcing
         ! 1:  wind_u(:,:)   !  'stress_x': zonal wind stress       [m/s]
@@ -300,7 +300,7 @@ CONTAINS
 
       END IF
 
-      IF (iforc_omip == 2 .OR. iforc_omip == 5) THEN
+      IF (iforc_type == 2 .OR. iforc_type == 5) THEN
 
       !-------------------------------------------------------------------------
         ! provide OMIP fluxes for sea ice (interface to ocean)
@@ -337,7 +337,7 @@ CONTAINS
 
       END IF
 
-      IF (iforc_omip == 3) THEN
+      IF (iforc_type == 3) THEN
 
         !-------------------------------------------------------------------------
         ! Apply surface heat and freshwater fluxes (records 4 and 5)
@@ -374,7 +374,7 @@ CONTAINS
       END IF
 
       ! this is used for "intermediate complexity flux forcing"
-      IF (iforc_omip == 4) THEN
+      IF (iforc_type == 4) THEN
 
         !-------------------------------------------------------------------------
         ! Apply 4 parts of surface heat and 2 parts of freshwater fluxes (records 4 to 9)
@@ -487,7 +487,7 @@ CONTAINS
       CALL print_mxmn('Ext data3 (t) mon2',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
 
       IF (i_sea_ice == 1) THEN
-        IF (iforc_omip == 2 .OR. iforc_omip == 5) &
+        IF (iforc_type == 2 .OR. iforc_type == 5) &
           & CALL calc_atm_fluxes_from_bulk (p_patch, p_as, p_os, p_ice, Qatm)
 
         ! This is a stripped down version of ice_fast for ice-ocean model only
@@ -1559,7 +1559,7 @@ CONTAINS
         CALL print_mxmn('NCEP: SST',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
       END DO
 
- !    ! Read complete NCEP data sets for focing ocean model (iforc_omip=5)
+ !    ! Read complete NCEP data sets for focing ocean model (iforc_type=5)
  !    ! 4:  tafo(:,:),   &  ! 2 m air temperature                              [C]
  !    ! 5:  ftdew(:,:),  &  ! 2 m dew-point temperature                        [K]
  !    ! 6:  fu10(:,:) ,  &  ! 10 m wind speed                                  [m/s]

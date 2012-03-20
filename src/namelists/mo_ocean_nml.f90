@@ -101,7 +101,7 @@ MODULE mo_ocean_nml
                       ! 3: as 1; read surface heat (record 4) and freshwater flux (record 5) add.
                       ! 4: as 1; read 4 parts of heat flux, precip/evap flux additionally
                       ! 5: read full NCEP datasets; read monthly mean data of consecutive years
-  INTEGER            :: iforc_omip     = 10
+  INTEGER            :: iforc_type     = 10
 
   ! length of time varying flux forcing: 12: read 12 months, other: read daily values
   INTEGER            :: iforc_len      = 1
@@ -246,7 +246,7 @@ MODULE mo_ocean_nml
     &                 CWA, CWT,  bottom_drag_coeff, wstress_coeff, i_sea_ice 
 
 
-  NAMELIST/ocean_forcing_and_init_nml/iforc_oce, iforc_omip, iforc_len,    &
+  NAMELIST/ocean_forcing_and_init_nml/iforc_oce, iforc_type, iforc_len,    &
     &                 iforc_stat_oce, init_oce_prog, init_oce_relax,       &
     &                 itestcase_oce, idiag_oce,                            &
     &                 temperature_relaxation, relaxation_param,            &

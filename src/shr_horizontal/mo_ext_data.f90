@@ -1653,11 +1653,11 @@ CONTAINS
 
     ! OMIP/NCEP or other flux forcing data on cell centers: 3, 5 or 12 variables, iforc_len data sets
     ! for type of forcing see mo_oce_bulk
-    IF (iforc_omip == 1 ) idim_omip =  3    !  stress (x, y) and SST
-    IF (iforc_omip == 2 ) idim_omip = 13    !  OMIP type forcing
-    IF (iforc_omip == 3 ) idim_omip =  5    !  stress (x, y), SST, net heat and freshwater
-    IF (iforc_omip == 4 ) idim_omip =  9    !  stress (x, y), SST, and 6 parts of net fluxes
-    IF (iforc_omip == 5 ) idim_omip = 13    !  NCEP type forcing - time dependent read in mo_oce_bulk
+    IF (iforc_type == 1 ) idim_omip =  3    !  stress (x, y) and SST
+    IF (iforc_type == 2 ) idim_omip = 13    !  OMIP type forcing
+    IF (iforc_type == 3 ) idim_omip =  5    !  stress (x, y), SST, net heat and freshwater
+    IF (iforc_type == 4 ) idim_omip =  9    !  stress (x, y), SST, and 6 parts of net fluxes
+    IF (iforc_type == 5 ) idim_omip = 13    !  NCEP type forcing - time dependent read in mo_oce_bulk
     shape4d_c = (/ nproma, iforc_len, nblks_c, idim_omip /)
 
     !
@@ -2551,9 +2551,7 @@ CONTAINS
 
     !-------------------------------------------------------------------------
 
-    IF (iforc_omip .ne. 5) THEN
-
-    IF (iforc_oce == 12) THEN
+    IF (iforc_type .NE. 5 .AND. iforc_oce == 12) THEN
 
     !DO jg = 1,n_dom
       jg = 1
@@ -2636,7 +2634,7 @@ CONTAINS
         &                    no_tst, z_flux)
       ext_data(jg)%oce%omip_forc_mon_c(:,:,:,3) = z_flux(:,:,:)
 
-      IF (iforc_omip == 2) THEN
+      IF (iforc_type == 2) THEN
 
       ! Read complete OMIP data sets for focing ocean model
       ! 4:  tafo(:,:),   &  ! 2 m air temperature                              [C]
@@ -2703,7 +2701,7 @@ CONTAINS
       END IF
 
       ! provide heat and freshwater flux for focing ocean model
-      IF (iforc_omip == 3) THEN
+      IF (iforc_type == 3) THEN
 
         ! net surface heat flux
         CALL read_netcdf_data (ncid, 'net_hflx', p_patch(jg)%n_patch_cells_g,          &
@@ -2720,7 +2718,7 @@ CONTAINS
       END IF
 
       ! provide 4 parts of heat and 2 parts of freshwater flux for focing ocean model
-      IF (iforc_omip == 4) THEN
+      IF (iforc_type == 4) THEN
 
         ! surface short wave heat flux
         CALL read_netcdf_data (ncid, 'swflxsfc_avg', p_patch(jg)%n_patch_cells_g,      &
@@ -2769,8 +2767,7 @@ CONTAINS
 
       CALL message( TRIM(routine),'Ocean OMIP fluxes for external data read' )
 
-    END IF ! iforc_oce=12
-    END IF ! iforc_omip.ne.5
+    END IF ! iforc_oce=12 and iforc_type.ne.5
 
   END SUBROUTINE read_ext_data_oce
   !-------------------------------------------------------------------------

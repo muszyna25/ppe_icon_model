@@ -189,7 +189,7 @@ cat > ${ocean_namelist} << EOF
 /
 &ocean_forcing_and_init_nml
   iforc_oce          = ${iforc}       ! ocean forcing:
-  iforc_omip         = ${iforc_type}  ! type of ocean forcing, see above
+  iforc_type         = ${iforc_type}  ! type of ocean forcing, see above
   iforc_len          = ${iforc_len}   ! length of ocean forcing data set, see above
   init_oce_prog      = ${init_oce}    ! read ocean initialization file, see above
   init_oce_relax     = ${init_relax}  ! read ocean surface relaxation file, see above
