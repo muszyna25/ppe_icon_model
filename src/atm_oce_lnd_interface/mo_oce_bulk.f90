@@ -279,10 +279,10 @@ CONTAINS
         ! 2:  wind_v(:,:)   !  'stress_y': meridional wind stress  [m/s]
 
         ! ext_data has rank n_dom due to grid refinement in the atmosphere but not in the ocean
-        p_sfc_flx%forc_wind_u(:,:) = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,1) + &
-          &                          rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,1)
-        p_sfc_flx%forc_wind_v(:,:) = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,2) + &
-          &                          rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,2)
+        p_sfc_flx%forc_wind_u(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,1) + &
+          &                          rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,1)
+        p_sfc_flx%forc_wind_v(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,2) + &
+          &                          rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,2)
 
        ! Wind stress boundary condition for vertical diffusion D:
        !   D = d/dz(K_v*du/dz)  where
@@ -311,26 +311,26 @@ CONTAINS
         ! 8:  pao(:,:),    &  ! Surface atmospheric pressure                     [hPa]
         ! 9:  fswr(:,:),   &  ! Incoming surface solar radiation                 [W/m]
 
-        p_as%tafo(:,:)  = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,4) + &
-          &               rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,4)
+        p_as%tafo(:,:)  = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,4) + &
+          &               rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,4)
         !  - change units to deg C, subtract tmelt (0 deg C, 273.15)
         p_as%tafo(:,:)  = p_as%tafo(:,:) - tmelt
-        p_as%ftdew(:,:) = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,5) + &
-          &               rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,5)
-        p_as%fu10(:,:)  = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,6) + &
-          &               rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,6)
-        p_as%fclou(:,:) = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,7) + &
-          &               rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,7)
-        p_as%pao(:,:)   = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,8) + &
-          &               rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,8)
+        p_as%ftdew(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,5) + &
+          &               rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,5)
+        p_as%fu10(:,:)  = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,6) + &
+          &               rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,6)
+        p_as%fclou(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,7) + &
+          &               rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,7)
+        p_as%pao(:,:)   = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,8) + &
+          &               rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,8)
         !  don't - change units to mb/hPa
         p_as%pao(:,:)   = p_as%pao(:,:) !* 0.01
-        p_as%fswr(:,:)  = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,9) + &
-          &               rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,9)
+        p_as%fswr(:,:)  = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,9) + &
+          &               rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,9)
 
-      z_c(:,1,:)=ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,4)
+      z_c(:,1,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,4)
       CALL print_mxmn('Ext  tafo mon1',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-      z_c(:,1,:)=ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,4)
+      z_c(:,1,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,4)
       CALL print_mxmn('Ext  tafo mon2',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
       z_c(:,1,:)=p_as%tafo(:,:)
       CALL print_mxmn('p_as%tafo',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
@@ -344,10 +344,10 @@ CONTAINS
         ! 4:  hflx(:,:)   !  net surface heat flux               [W/m2]
         ! 5:  fwfx(:,:)   !  net freshwater flux                 [m/s]
 
-        p_sfc_flx%forc_hflx(:,:) = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,4) + &
-          &                        rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,4)
-        p_sfc_flx%forc_fwfx(:,:) = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,5) + &
-          &                        rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,5)
+        p_sfc_flx%forc_hflx(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,4) + &
+          &                        rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,4)
+        p_sfc_flx%forc_fwfx(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,5) + &
+          &                        rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,5)
 
         ! #slo# This is a first try for "simple flux coupling"
         IF (i_sea_ice == 1) THEN
@@ -385,18 +385,18 @@ CONTAINS
         ! 8:  prflx(:,:)   !  total precipitation flux            [m/s]
         ! 9:  evflx(:,:)   !  evaporation flux                    [m/s]
 
-        p_sfc_flx%forc_swflx(:,:) = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,4) + &
-          &                         rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,4)
-        p_sfc_flx%forc_lwflx(:,:) = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,5) + &
-          &                         rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,5)
-        p_sfc_flx%forc_ssflx(:,:) = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,6) + &
-          &                         rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,6)
-        p_sfc_flx%forc_slflx(:,:) = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,7) + &
-          &                         rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,7)
-        p_sfc_flx%forc_prflx(:,:) = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,8) + &
-          &                         rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,8)
-        p_sfc_flx%forc_evflx(:,:) = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,9) + &
-          &                         rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,9)
+        p_sfc_flx%forc_swflx(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,4) + &
+          &                         rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,4)
+        p_sfc_flx%forc_lwflx(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,5) + &
+          &                         rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,5)
+        p_sfc_flx%forc_ssflx(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,6) + &
+          &                         rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,6)
+        p_sfc_flx%forc_slflx(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,7) + &
+          &                         rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,7)
+        p_sfc_flx%forc_prflx(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,8) + &
+          &                         rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,8)
+        p_sfc_flx%forc_evflx(:,:) = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,9) + &
+          &                         rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,9)
 
         ! sum of fluxes for ocean boundary condition
         p_sfc_flx%forc_hflx(:,:) = p_sfc_flx%forc_swflx(:,:) + p_sfc_flx%forc_lwflx(:,:) &
@@ -450,8 +450,8 @@ CONTAINS
         !  - this is not done for temperature_relaxation=3, since init-data is in Celsius
 
          p_sfc_flx%forc_tracer_relax(:,:,1) = &
-           &  rday1*(ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,3)-tmelt) + &
-           &  rday2*(ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,3)-tmelt)
+           &  rday1*(ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,3)-tmelt) + &
+           &  rday2*(ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,3)-tmelt)
 
       END IF
 
@@ -461,8 +461,8 @@ CONTAINS
         ! Apply salinity relaxation data (record ??) from stationary forcing
 
       !  p_sfc_flx%forc_tracer_relax(:,:,2) = &
-      !    &  rday1*(ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,x)-tmelt) + &
-      !    &  rday2*(ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,x)-tmelt)
+      !    &  rday1*(ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,x)-tmelt) + &
+      !    &  rday2*(ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,x)-tmelt)
         CALL finish(TRIM(ROUTINE),' irelax_2d_S=2 (reading from flux file) not yet implemented')
 
       END IF
@@ -473,17 +473,17 @@ CONTAINS
           &  ' mon1=',jmon1,' mon2=',jmon2,' day1=',rday1,' day2=',rday2
         CALL message (' ', message_text)
       END IF
-      z_c(:,1,:)=ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,1)
+      z_c(:,1,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,1)
       CALL print_mxmn('Ext data1 (u) mon1',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-      z_c(:,1,:)=ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,1)
+      z_c(:,1,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,1)
       CALL print_mxmn('Ext data1 (u) mon2',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-      z_c(:,1,:)=ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,2)
+      z_c(:,1,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,2)
       CALL print_mxmn('Ext data2 (v) mon1',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-      z_c(:,1,:)=ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,2)
+      z_c(:,1,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,2)
       CALL print_mxmn('Ext data2 (v) mon2',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-      z_c(:,1,:)=ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,3)
+      z_c(:,1,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,3)
       CALL print_mxmn('Ext data3 (t) mon1',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
-      z_c(:,1,:)=ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,3)
+      z_c(:,1,:)=ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,3)
       CALL print_mxmn('Ext data3 (t) mon2',1,z_c(:,:,:),n_zlev,p_patch%nblks_c,'bul',ipl_src)
 
       IF (i_sea_ice == 1) THEN
@@ -1534,7 +1534,7 @@ CONTAINS
 
       ipl_src=3  ! output print level (1-5, fix)
       DO jt = 1, jtime
-        ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,1) = z_flux(:,:,jt)
+        ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,1) = z_flux(:,:,jt)
         z_c                             (:,jt,:)   = z_flux(:,:,jt)
         CALL print_mxmn('NCEP: stress-x',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
       END DO
@@ -1544,7 +1544,7 @@ CONTAINS
         &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
         &                    jtime, i_start, i_count, z_flux(:,:,:))
       DO jt = 1, jtime
-        ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,2) = z_flux(:,:,jt)
+        ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,2) = z_flux(:,:,jt)
         z_c                             (:,jt,:)   = z_flux(:,:,jt)
         CALL print_mxmn('NCEP: stress-y',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
       END DO
@@ -1554,7 +1554,7 @@ CONTAINS
         &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
         &                    jtime, i_start, i_count, z_flux(:,:,:))
       DO jt = 1, jtime
-        ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,3) = z_flux(:,:,jt)
+        ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,3) = z_flux(:,:,jt)
         z_c                             (:,jt,:)   = z_flux(:,:,jt)
         CALL print_mxmn('NCEP: SST',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
       END DO
@@ -1573,7 +1573,7 @@ CONTAINS
         &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
         &                    jtime, i_start, i_count, z_flux(:,:,:))
       DO jt = 1, jtime
-        ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,4) = z_flux(:,:,jt)
+        ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,4) = z_flux(:,:,jt)
         z_c                             (:,jt,:)   = z_flux(:,:,jt)
         CALL print_mxmn('NCEP: temp_2m',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
       END DO
@@ -1583,7 +1583,7 @@ CONTAINS
         &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
         &                    jtime, i_start, i_count, z_flux(:,:,:))
       DO jt = 1, jtime
-        ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,5) = z_flux(:,:,jt)
+        ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,5) = z_flux(:,:,jt)
         z_c                             (:,jt,:)   = z_flux(:,:,jt)
         CALL print_mxmn('NCEP: dpt_temp_2m',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
       END DO
@@ -1593,7 +1593,7 @@ CONTAINS
         &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
         &                    jtime, i_start, i_count, z_flux(:,:,:))
       DO jt = 1, jtime
-        ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,6) = z_flux(:,:,jt)
+        ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,6) = z_flux(:,:,jt)
         z_c                             (:,jt,:)   = z_flux(:,:,jt)
         CALL print_mxmn('NCEP: scalar_wind',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
       END DO
@@ -1603,7 +1603,7 @@ CONTAINS
         &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
         &                    jtime, i_start, i_count, z_flux(:,:,:))
       DO jt = 1, jtime
-        ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,7) = z_flux(:,:,jt)
+        ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,7) = z_flux(:,:,jt)
         z_c                             (:,jt,:)   = z_flux(:,:,jt)
         CALL print_mxmn('NCEP: cloud',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
       END DO
@@ -1613,7 +1613,7 @@ CONTAINS
         &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
         &                    jtime, i_start, i_count, z_flux(:,:,:))
       DO jt = 1, jtime
-        ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,3) = z_flux(:,:,jt)
+        ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,3) = z_flux(:,:,jt)
         z_c                             (:,jt,:)   = z_flux(:,:,jt)
         CALL print_mxmn('NCEP: pressure',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
       END DO
@@ -1623,7 +1623,7 @@ CONTAINS
         &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
         &                    jtime, i_start, i_count, z_flux(:,:,:))
       DO jt = 1, jtime
-        ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,9) = z_flux(:,:,jt)
+        ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,9) = z_flux(:,:,jt)
         z_c                             (:,jt,:)   = z_flux(:,:,jt)
         CALL print_mxmn('NCEP: tot_solar',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
       END DO
@@ -1633,7 +1633,7 @@ CONTAINS
   !     &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
   !     &                    jtime, i_start, i_count, z_flux(:,:,:))
   !   DO jt = 1, jtime
-  !     ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,10) = z_flux(:,:,jt)
+  !     ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,10) = z_flux(:,:,jt)
   !     z_c                             (:,jt,:)    = z_flux(:,:,jt)
   !     CALL print_mxmn('NCEP: precip',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
   !   END DO
@@ -1643,13 +1643,13 @@ CONTAINS
   !     &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
   !     &                    jtime, i_start, i_count, z_flux(:,:,:))
   !   DO jt = 1, jtime
-  !     ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,11) = z_flux(:,:,jt)
+  !     ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,11) = z_flux(:,:,jt)
   !   END DO
   !   CALL read_netcdf_data (ncid, 'dlwrf', p_patch%n_patch_cells_g,         &
   !     &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
   !     &                    jtime, i_start, i_count, z_flux(:,:,:))
   !   DO jt = 1, jtime
-  !     ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,11) = z_flux(:,:,jt)
+  !     ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,11) = z_flux(:,:,jt)
   !   END DO
 
       ! runoff
@@ -1657,7 +1657,7 @@ CONTAINS
   !     &                    p_patch%n_patch_cells, p_patch%cells%glb_index, &
   !     &                    jtime, i_start, i_count, z_flux(:,:,:))
   !   DO jt = 1, jtime
-  !     ext_data(jg)%oce%omip_forc_mon_c(:,jt,:,12) = z_flux(:,:,jt)
+  !     ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,12) = z_flux(:,:,jt)
   !     z_c                             (:,jt,:)    = z_flux(:,:,jt)
   !     CALL print_mxmn('NCEP: runoff',jt,z_c(:,:,:),jtime,p_patch%nblks_c,'per',ipl_src)
   !   END DO

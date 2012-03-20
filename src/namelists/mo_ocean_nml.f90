@@ -95,7 +95,7 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: FORCING_FROM_COUPLED_FLUX = 14  ! parameter for a coupled atmosphere-ocean run
   INTEGER, PARAMETER :: FORCING_FROM_COUPLED_FIELD= 15  ! not yet
 
-  ! read time varying OMIP forcing from file:
+  ! read time varying OMIP or NCEP flux forcing from file:
                       ! 1: read wind stress (records 1, 2) and temperature (record 3)
                       ! 2: read full OMIP dataset for bulk formula in mo_oce_bulk (12 records)
                       ! 3: as 1; read surface heat (record 4) and freshwater flux (record 5) add.
