@@ -103,116 +103,114 @@ CONTAINS
 !! Developed  by  Peter Korn, MPI-M (2010).
 !!
 SUBROUTINE advect_tracer_ab(p_patch, p_os, p_param, p_sfc_flx,p_op_coeff, timestep)
-!
-!
-TYPE(t_patch), TARGET, INTENT(in) :: p_patch
-TYPE(t_hydro_ocean_state), TARGET :: p_os
-TYPE(t_ho_params), INTENT(inout)  :: p_param
-TYPE(t_sfc_flx), INTENT(INOUT)    :: p_sfc_flx
-TYPE(t_operator_coeff), INTENT(inout) :: p_op_coeff
-INTEGER                           :: timestep! Actual timestep (to distinghuish initial step from others)
-!
-!Local variables
-INTEGER  :: i_no_t, jk
-REAL(wp) :: z_relax
-REAL(wp) :: z_c(nproma,n_zlev,p_patch%nblks_c)
-!-------------------------------------------------------------------------------
+  TYPE(t_patch), TARGET, INTENT(in)     :: p_patch
+  TYPE(t_hydro_ocean_state), TARGET     :: p_os
+  TYPE(t_ho_params), INTENT(INOUT)      :: p_param
+  TYPE(t_sfc_flx), INTENT(INOUT)        :: p_sfc_flx
+  TYPE(t_operator_coeff), INTENT(INOUT) :: p_op_coeff
+  INTEGER                               :: timestep! Actual timestep (to distinghuish initial step from others)
+  !
+  !Local variables
+  INTEGER  :: i_no_t, jk
+  REAL(wp) :: z_relax
+  REAL(wp) :: z_c(nproma,n_zlev,p_patch%nblks_c)
+  !-------------------------------------------------------------------------------
 
-CALL prepare_tracer_transport(p_patch, p_os, p_param, p_sfc_flx, p_op_coeff, timestep)
+  CALL prepare_tracer_transport(p_patch, p_os, p_param, p_sfc_flx, p_op_coeff, timestep)
 
-DO i_no_t = 1,no_tracer
-  !First tracer is temperature
-  !Second tracer is salinity
-  IF( iswm_oce /= 1) THEN
+  DO i_no_t = 1,no_tracer
+    !First tracer is temperature
+    !Second tracer is salinity
+    IF( iswm_oce /= 1) THEN
 
-    CALL top_bound_cond_tracer( p_patch,  &
-                              & p_os,     &
-                              & i_no_t,   &
-                              & p_sfc_flx,&
-                              & p_os%p_aux%bc_top_tracer)
-  ENDIF
+      CALL top_bound_cond_tracer( p_patch,  &
+                                & p_os,     &
+                                & i_no_t,   &
+                                & p_sfc_flx,&
+                                & p_os%p_aux%bc_top_tracer)
+    ENDIF
 
-  CALL advect_individual_tracer_ab( p_patch,                                &
-                               & p_os%p_prog(nold(1))%tracer(:,:,:,i_no_t), &
-                               & p_os, p_op_coeff,                          &
-!                                & p_os%p_aux%g_n_c_h(:,:,:,i_no_t),          &
-!                                & p_os%p_aux%g_nm1_c_h(:,:,:,i_no_t),        &
-!                                & p_os%p_aux%g_nimd_c_h(:,:,:,i_no_t),       &
-!                                & p_os%p_aux%g_n_c_v(:,:,:,i_no_t),          &
-!                                & p_os%p_aux%g_nm1_c_v(:,:,:,i_no_t),        &
-!                                & p_os%p_aux%g_nimd_c_v(:,:,:,i_no_t),       &
-                               & p_os%p_aux%bc_top_tracer(:,:,i_no_t),      &
-                               & p_os%p_aux%bc_bot_tracer(:,:,i_no_t),      &
-                               & p_param%K_tracer_h(:,:,:,i_no_t ),         &
-                               & p_param%A_tracer_v(:,:,:, i_no_t),         &
-                               & p_os%p_prog(nnew(1))%tracer(:,:,:,i_no_t), &
-                               & timestep )
-END DO
-
-! Final step: 3-dim temperature relaxation
-!  - strict time constant, i.e. independent of layer thickness
-!  - additional forcing Term F_T = -1/tau(T-T*) [ K/s ]
-!    when using the sign convention
-!      dT/dt = Operators + F_T
-!    i.e. F_T <0 for  T-T* >0 (i.e. decreasing temperature if it is warmer than relaxation data)
-!  - discretized:
-!    tracer = tracer - 1/(relax_3d_mon_T[months]) * (tracer(1)-relax_3d_data_T)
-IF (no_tracer>=1 .AND. irelax_3d_T >0) THEN
-
-  ! calculate relaxation term
-  z_relax = 1.0_wp/(relax_3d_mon_T*2.592e6_wp)
-  p_os%p_aux%relax_3d_forc_T(:,:,:) = -z_relax* &
-    &  ( p_os%p_prog(nnew(1))%tracer(:,:,:,1) - p_os%p_aux%relax_3d_data_T(:,:,:))
-
-  ! add relaxation term to new temperature
-  p_os%p_prog(nnew(1))%tracer(:,:,:,1) = p_os%p_prog(nnew(1))%tracer(:,:,:,1) - &
-    &                                    p_os%p_aux%relax_3d_forc_T(:,:,:) * dtime
-
-  DO jk = 1, n_zlev
-    ipl_src=3  ! output print level (1-5, fix)
-    CALL print_mxmn('3d_relax_T: forc',jk, p_os%p_aux%relax_3d_forc_T(:,:,:),n_zlev, &
-      &              p_patch%nblks_c,'trc',ipl_src)
-    CALL print_mxmn('3d_relax_T: data',jk, p_os%p_aux%relax_3d_data_T(:,:,:),n_zlev, &
-      &              p_patch%nblks_c,'trc',ipl_src)
-    ipl_src=2  ! output print level (1-5, fix)
-    z_c(:,:,:) =  p_os%p_prog(nnew(1))%tracer(:,:,:,1)
-    CALL print_mxmn('3d_relax_T: trac',jk,z_c(:,:,:),n_zlev, &
-      &              p_patch%nblks_c,'trc',ipl_src)
+    CALL advect_individual_tracer_ab( p_patch,                                &
+                                 & p_os%p_prog(nold(1))%tracer(:,:,:,i_no_t), &
+                                 & p_os, p_op_coeff,                          &
+  !                                & p_os%p_aux%g_n_c_h(:,:,:,i_no_t),          &
+  !                                & p_os%p_aux%g_nm1_c_h(:,:,:,i_no_t),        &
+  !                                & p_os%p_aux%g_nimd_c_h(:,:,:,i_no_t),       &
+  !                                & p_os%p_aux%g_n_c_v(:,:,:,i_no_t),          &
+  !                                & p_os%p_aux%g_nm1_c_v(:,:,:,i_no_t),        &
+  !                                & p_os%p_aux%g_nimd_c_v(:,:,:,i_no_t),       &
+                                 & p_os%p_aux%bc_top_tracer(:,:,i_no_t),      &
+                                 & p_os%p_aux%bc_bot_tracer(:,:,i_no_t),      &
+                                 & p_param%K_tracer_h(:,:,:,i_no_t ),         &
+                                 & p_param%A_tracer_v(:,:,:, i_no_t),         &
+                                 & p_os%p_prog(nnew(1))%tracer(:,:,:,i_no_t), &
+                                 & timestep )
   END DO
 
-END IF
+  ! Final step: 3-dim temperature relaxation
+  !  - strict time constant, i.e. independent of layer thickness
+  !  - additional forcing Term F_T = -1/tau(T-T*) [ K/s ]
+  !    when using the sign convention
+  !      dT/dt = Operators + F_T
+  !    i.e. F_T <0 for  T-T* >0 (i.e. decreasing temperature if it is warmer than relaxation data)
+  !  - discretized:
+  !    tracer = tracer - 1/(relax_3d_mon_T[months]) * (tracer(1)-relax_3d_data_T)
+  IF (no_tracer>=1 .AND. irelax_3d_T >0) THEN
 
-! Final step: 3-dim salinity relaxation
-!  - additional forcing Term F_S = -1/tau(S-S*) [ psu/s ]
-!    when using the sign convention
-!      dS/dt = Operators + F_S
-!    i.e. F_S <0 for  S-S* >0 (i.e. decreasing salinity if it is larger than relaxation data)
-!    note that freshwater flux is positive to decrease salinity, i.e. freshening water
-!  - discretized:
-!    tracer = tracer - 1/(relax_3d_mon_T[months]) * (tracer(1)-relax_3d_data_T)
-IF (no_tracer==2 .AND. irelax_3d_S >0) THEN
+    ! calculate relaxation term
+    z_relax = 1.0_wp/(relax_3d_mon_T*2.592e6_wp)
+    p_os%p_aux%relax_3d_forc_T(:,:,:) = -z_relax* &
+      &  ( p_os%p_prog(nnew(1))%tracer(:,:,:,1) - p_os%p_aux%relax_3d_data_T(:,:,:))
 
-  ! calculate relaxation term
-  z_relax = 1.0_wp/(relax_3d_mon_S*2.592e6_wp)
-  p_os%p_aux%relax_3d_forc_S(:,:,:) = -z_relax* &
-    &  ( p_os%p_prog(nnew(1))%tracer(:,:,:,2) - p_os%p_aux%relax_3d_data_S(:,:,:))
+    ! add relaxation term to new temperature
+    p_os%p_prog(nnew(1))%tracer(:,:,:,1) = p_os%p_prog(nnew(1))%tracer(:,:,:,1) - &
+      &                                    p_os%p_aux%relax_3d_forc_T(:,:,:) * dtime
 
-  ! add relaxation term to new salinity
-  p_os%p_prog(nnew(1))%tracer(:,:,:,2) = p_os%p_prog(nnew(1))%tracer(:,:,:,2) + &
-    &                                    p_os%p_aux%relax_3d_forc_S(:,:,:) * dtime
+    DO jk = 1, n_zlev
+      ipl_src=3  ! output print level (1-5, fix)
+      CALL print_mxmn('3d_relax_T: forc',jk, p_os%p_aux%relax_3d_forc_T(:,:,:),n_zlev, &
+        &              p_patch%nblks_c,'trc',ipl_src)
+      CALL print_mxmn('3d_relax_T: data',jk, p_os%p_aux%relax_3d_data_T(:,:,:),n_zlev, &
+        &              p_patch%nblks_c,'trc',ipl_src)
+      ipl_src=2  ! output print level (1-5, fix)
+      z_c(:,:,:) =  p_os%p_prog(nnew(1))%tracer(:,:,:,1)
+      CALL print_mxmn('3d_relax_T: trac',jk,z_c(:,:,:),n_zlev, &
+        &              p_patch%nblks_c,'trc',ipl_src)
+    END DO
 
-  DO jk = 1, n_zlev
-    ipl_src=3  ! output print level (1-5, fix)
-    CALL print_mxmn('3d_relax_S: forc',jk, p_os%p_aux%relax_3d_forc_S(:,:,:),n_zlev, &
-      &              p_patch%nblks_c,'trc',ipl_src)
-    CALL print_mxmn('3d_relax_S: data',jk, p_os%p_aux%relax_3d_data_S(:,:,:),n_zlev, &
-      &              p_patch%nblks_c,'trc',ipl_src)
-    ipl_src=2  ! output print level (1-5, fix)
-    z_c(:,:,:) =  p_os%p_prog(nnew(1))%tracer(:,:,:,2)
-    CALL print_mxmn('3d_relax_S: trac',jk,z_c(:,:,:),n_zlev, &
-      &              p_patch%nblks_c,'trc',ipl_src)
-  END DO
-END IF
+  END IF
+
+  ! Final step: 3-dim salinity relaxation
+  !  - additional forcing Term F_S = -1/tau(S-S*) [ psu/s ]
+  !    when using the sign convention
+  !      dS/dt = Operators + F_S
+  !    i.e. F_S <0 for  S-S* >0 (i.e. decreasing salinity if it is larger than relaxation data)
+  !    note that freshwater flux is positive to decrease salinity, i.e. freshening water
+  !  - discretized:
+  !    tracer = tracer - 1/(relax_3d_mon_T[months]) * (tracer(1)-relax_3d_data_T)
+  IF (no_tracer==2 .AND. irelax_3d_S >0) THEN
+
+    ! calculate relaxation term
+    z_relax = 1.0_wp/(relax_3d_mon_S*2.592e6_wp)
+    p_os%p_aux%relax_3d_forc_S(:,:,:) = -z_relax* &
+      &  ( p_os%p_prog(nnew(1))%tracer(:,:,:,2) - p_os%p_aux%relax_3d_data_S(:,:,:))
+
+    ! add relaxation term to new salinity
+    p_os%p_prog(nnew(1))%tracer(:,:,:,2) = p_os%p_prog(nnew(1))%tracer(:,:,:,2) + &
+      &                                    p_os%p_aux%relax_3d_forc_S(:,:,:) * dtime
+
+    DO jk = 1, n_zlev
+      ipl_src=3  ! output print level (1-5, fix)
+      CALL print_mxmn('3d_relax_S: forc',jk, p_os%p_aux%relax_3d_forc_S(:,:,:),n_zlev, &
+        &              p_patch%nblks_c,'trc',ipl_src)
+      CALL print_mxmn('3d_relax_S: data',jk, p_os%p_aux%relax_3d_data_S(:,:,:),n_zlev, &
+        &              p_patch%nblks_c,'trc',ipl_src)
+      ipl_src=2  ! output print level (1-5, fix)
+      z_c(:,:,:) =  p_os%p_prog(nnew(1))%tracer(:,:,:,2)
+      CALL print_mxmn('3d_relax_S: trac',jk,z_c(:,:,:),n_zlev, &
+        &              p_patch%nblks_c,'trc',ipl_src)
+    END DO
+  END IF
 
 END SUBROUTINE advect_tracer_ab
 !-------------------------------------------------------------------------
