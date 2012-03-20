@@ -154,9 +154,10 @@ CONTAINS
     IF(my_process_is_stdio()) THEN
       !
       ! Prognostic variables are read from prog_init_file
+      i_lev = ppatch%level
       WRITE (prog_init_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-prog.nc'
-  !prog_init_file="/scratch/local1/m212053/ICON/trunk/icon-dev/grids/&
-  !&ts_phc_annual-iconR2B04-L10_50-1000m.nc"
+      !prog_init_file="/scratch/local1/m212053/ICON/trunk/icon-dev/grids/&
+      !&ts_phc_annual-iconR2B04-L10_50-1000m.nc"
 
       INQUIRE (FILE=prog_init_file, EXIST=l_exist)
       IF (.NOT.l_exist) THEN
