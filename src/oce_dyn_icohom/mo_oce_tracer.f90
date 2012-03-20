@@ -1,16 +1,16 @@
-!> 
+!>
 !! Contains the implementation of the tracer transport routines for the ICON ocean model.
 !! This comprises advection and diffusion in horizontal and vertical direction.
-!! 
-!! 
+!!
+!!
 !! @par Revision History
 !!  Developed  by Peter Korn,       MPI-M (2011/01)
-!! 
+!!
 !! @par Copyright
 !! 2002-2006 by DWD and MPI-M
 !! This software is provided for non-commercial use only.
 !! See the LICENSE and the WARRANTY conditions.
-!! 
+!!
 !! @par License
 !! The use of ICON is hereby granted free of charge for an unlimited time,
 !! provided the following rules are accepted and applied:
@@ -24,7 +24,7 @@
 !! <li> In case you intend to use the code commercially, we oblige you to sign
 !!    an according license agreement with DWD and MPI-M.
 !! </ol>
-!! 
+!!
 !! @par Warranty
 !! This code has been tested up to a certain level. Defects and weaknesses,
 !! which may be included in the code, do not establish any warranties by the
@@ -34,17 +34,17 @@
 !! software.
 !!
 MODULE mo_oce_tracer
-!-------------------------------------------------------------------------  
+!-------------------------------------------------------------------------
 !
-!    ProTeX FORTRAN source: Style 2  
+!    ProTeX FORTRAN source: Style 2
 !    modified for ICON project, DWD/MPI-M 2006
-!  
-!-------------------------------------------------------------------------  
+!
+!-------------------------------------------------------------------------
 !
 !
 !
 USE mo_kind,                      ONLY: wp
-USE mo_math_utilities,            ONLY: t_cartesian_coordinates, gc2cc  
+USE mo_math_utilities,            ONLY: t_cartesian_coordinates, gc2cc
 USE mo_math_constants,            ONLY: dbl_eps
 USE mo_impl_constants,            ONLY: sea_boundary, &
   &                                     min_rlcell, min_rledge, min_rlcell,MIN_DOLIC
@@ -57,7 +57,7 @@ USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer, idisc_scheme,    &
 USE mo_physical_constants,        ONLY: tf
 USE mo_math_constants,            ONLY: pi
 USE mo_parallel_config,           ONLY: nproma
-USE mo_dynamics_config,           ONLY: nold, nnew 
+USE mo_dynamics_config,           ONLY: nold, nnew
 USE mo_run_config,                ONLY: dtime
 USE mo_oce_state,                 ONLY: t_hydro_ocean_state, v_base, is_initial_timestep
 USE mo_model_domain,              ONLY: t_patch
@@ -94,15 +94,14 @@ PRIVATE :: advect_individual_tracer_ab
 PRIVATE :: prepare_tracer_transport
 
 CONTAINS
-!-------------------------------------------------------------------------  
+!-------------------------------------------------------------------------
 !
-!  
 !>
 !! !  SUBROUTINE advects the tracers present in the ocean model.
-!! 
+!!
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2010).
-!! 
+!!
 SUBROUTINE advect_tracer_ab(p_patch, p_os, p_param, p_sfc_flx,p_op_coeff, timestep)
 !
 !
@@ -119,7 +118,7 @@ REAL(wp) :: z_relax
 REAL(wp) :: z_c(nproma,n_zlev,p_patch%nblks_c)
 !-------------------------------------------------------------------------------
 
-Call prepare_tracer_transport(p_patch, p_os, p_param, p_sfc_flx, p_op_coeff, timestep)
+CALL prepare_tracer_transport(p_patch, p_os, p_param, p_sfc_flx, p_op_coeff, timestep)
 
 DO i_no_t = 1,no_tracer
   !First tracer is temperature
@@ -151,12 +150,12 @@ DO i_no_t = 1,no_tracer
 END DO
 
 ! Final step: 3-dim temperature relaxation
-!  - strict time constant, i.e. independent of layer thickness 
+!  - strict time constant, i.e. independent of layer thickness
 !  - additional forcing Term F_T = -1/tau(T-T*) [ K/s ]
 !    when using the sign convention
 !      dT/dt = Operators + F_T
-!    i.e. F_T <0 for  T-T* >0 (i.e. decreasing temperature if it is warmer than relaxation data) 
-!  - discretized: 
+!    i.e. F_T <0 for  T-T* >0 (i.e. decreasing temperature if it is warmer than relaxation data)
+!  - discretized:
 !    tracer = tracer - 1/(relax_3d_mon_T[months]) * (tracer(1)-relax_3d_data_T)
 IF (no_tracer>=1 .AND. irelax_3d_T >0) THEN
 
@@ -169,7 +168,7 @@ IF (no_tracer>=1 .AND. irelax_3d_T >0) THEN
   p_os%p_prog(nnew(1))%tracer(:,:,:,1) = p_os%p_prog(nnew(1))%tracer(:,:,:,1) - &
     &                                    p_os%p_aux%relax_3d_forc_T(:,:,:) * dtime
 
-  DO jk = 1, n_zlev 
+  DO jk = 1, n_zlev
     ipl_src=3  ! output print level (1-5, fix)
     CALL print_mxmn('3d_relax_T: forc',jk, p_os%p_aux%relax_3d_forc_T(:,:,:),n_zlev, &
       &              p_patch%nblks_c,'trc',ipl_src)
@@ -187,9 +186,9 @@ END IF
 !  - additional forcing Term F_S = -1/tau(S-S*) [ psu/s ]
 !    when using the sign convention
 !      dS/dt = Operators + F_S
-!    i.e. F_S <0 for  S-S* >0 (i.e. decreasing salinity if it is larger than relaxation data) 
+!    i.e. F_S <0 for  S-S* >0 (i.e. decreasing salinity if it is larger than relaxation data)
 !    note that freshwater flux is positive to decrease salinity, i.e. freshening water
-!  - discretized: 
+!  - discretized:
 !    tracer = tracer - 1/(relax_3d_mon_T[months]) * (tracer(1)-relax_3d_data_T)
 IF (no_tracer==2 .AND. irelax_3d_S >0) THEN
 
@@ -202,7 +201,7 @@ IF (no_tracer==2 .AND. irelax_3d_S >0) THEN
   p_os%p_prog(nnew(1))%tracer(:,:,:,2) = p_os%p_prog(nnew(1))%tracer(:,:,:,2) + &
     &                                    p_os%p_aux%relax_3d_forc_S(:,:,:) * dtime
 
-  DO jk = 1, n_zlev 
+  DO jk = 1, n_zlev
     ipl_src=3  ! output print level (1-5, fix)
     CALL print_mxmn('3d_relax_S: forc',jk, p_os%p_aux%relax_3d_forc_S(:,:,:),n_zlev, &
       &              p_patch%nblks_c,'trc',ipl_src)
@@ -216,36 +215,36 @@ IF (no_tracer==2 .AND. irelax_3d_S >0) THEN
 END IF
 
 END SUBROUTINE advect_tracer_ab
-!-------------------------------------------------------------------------  
+!-------------------------------------------------------------------------
 !
-!  
+!
 !>
 !! !  SUBROUTINE prepares next tracer transport step. Currently needed in horizontal
-!!    flux-scheme "MIMETIC-Miura". Geometric quantities are updated according to 
-!!    actual velocity. This information is required by MIURA-scheme and is identical 
+!!    flux-scheme "MIMETIC-Miura". Geometric quantities are updated according to
+!!    actual velocity. This information is required by MIURA-scheme and is identical
 !!    for all tracers.
-!! 
+!!
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2012).
-!! 
+!!
 SUBROUTINE prepare_tracer_transport(p_patch, p_os, p_param, p_sfc_flx, p_op_coeff, timestep)
 !
 !
 TYPE(t_patch), TARGET, INTENT(in)    :: p_patch
 TYPE(t_hydro_ocean_state), TARGET    :: p_os
 TYPE(t_ho_params), INTENT(inout)     :: p_param
-TYPE(t_sfc_flx), INTENT(INOUT)       :: p_sfc_flx  
+TYPE(t_sfc_flx), INTENT(INOUT)       :: p_sfc_flx
 TYPE(t_operator_coeff),INTENT(INOUT) :: p_op_coeff
 INTEGER                              :: timestep
 !
 !Local variables
 REAL(wp) :: z_relax
-REAL(wp) :: z_c(nproma,n_zlev,p_patch%nblks_c) 
+REAL(wp) :: z_c(nproma,n_zlev,p_patch%nblks_c)
 INTEGER  :: slev, elev
 INTEGER  :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start_c, rl_end_c
 INTEGER  :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, rl_start_e, rl_end_e
-INTEGER  :: je, jk, jb,jc         !< index of edge, vert level, block 
-INTEGER  :: il_v1, il_v2, ib_v1, ib_v2!, il_e, ib_e 
+INTEGER  :: je, jk, jb,jc         !< index of edge, vert level, block
+INTEGER  :: il_v1, il_v2, ib_v1, ib_v2!, il_e, ib_e
 INTEGER  :: il_c, ib_c
 REAL(wp) :: delta_z
 !TYPE(t_cartesian_coordinates) :: u_mean_cc(nproma,n_zlev,p_patch%nblks_e)
@@ -284,17 +283,17 @@ REAL(wp) :: delta_z
             ib_v2 = p_patch%edges%vertex_blk(je,jb,2)
 
             p_os%p_diag%p_vn_mean(je,jk,jb)%x=0.5_wp*&
-            &(p_os%p_diag%p_vn_dual(il_v1,jk,ib_v1)%x+p_os%p_diag%p_vn_dual(il_v2,jk,ib_v2)%x) 
+            &(p_os%p_diag%p_vn_dual(il_v1,jk,ib_v1)%x+p_os%p_diag%p_vn_dual(il_v2,jk,ib_v2)%x)
 
             p_op_coeff%moved_edge_position_cc(je,jk,jb)%x&
             & = p_op_coeff%edge_position_cc(je,jk,jb)%x   &
             &  -0.5_wp*dtime*p_os%p_diag%p_vn_mean(je,jk,jb)%x
- 
-            IF( p_os%p_diag%vn_time_weighted(je,jk,jb) >0.0_wp)THEN 
+
+            IF( p_os%p_diag%vn_time_weighted(je,jk,jb) >0.0_wp)THEN
               il_c = p_patch%edges%cell_idx(je,jb,1)
               ib_c = p_patch%edges%cell_blk(je,jb,1)
 
-            ELSEIF( p_os%p_diag%vn_time_weighted(je,jk,jb) <=   0.0_wp)THEN 
+            ELSEIF( p_os%p_diag%vn_time_weighted(je,jk,jb) <=   0.0_wp)THEN
               il_c = p_patch%edges%cell_idx(je,jb,2)
               ib_c = p_patch%edges%cell_blk(je,jb,2)
             ENDIF
@@ -306,7 +305,7 @@ REAL(wp) :: delta_z
             &=p_op_coeff%cell_position_cc(il_c,jk,ib_c)%x
 
           ENDIF
-        END DO 
+        END DO
       END DO
     END DO
   ENDIF
@@ -334,7 +333,7 @@ REAL(wp) :: delta_z
                    & p_patch,               &
                    & p_op_coeff%div_coeff,&
                    & p_os%p_diag%div_mass_flx_c)
- 
+
   !calculate (dummy) height consistent with divergence of mass fluxx
   jk=1
   DO jb = i_startblk_c, i_endblk_c
@@ -372,7 +371,7 @@ REAL(wp) :: delta_z
   END DO
 
 END SUBROUTINE prepare_tracer_transport
-!-------------------------------------------------------------------------  
+!-------------------------------------------------------------------------
 !
 !
 !>
@@ -380,7 +379,7 @@ END SUBROUTINE prepare_tracer_transport
 !!
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2010).
-!! 
+!!
 SUBROUTINE advect_individual_tracer_ab(p_patch, trac_old,           &
                                      & p_os, p_op_coeff,&!G_n_c_h,G_nm1_c_h,G_nimd_c_h, &
                                      !& G_n_c_v, G_nm1_c_v, G_nimd_c_v, &
@@ -403,7 +402,7 @@ REAL(wp) :: bc_top_tracer(nproma, p_patch%nblks_c)
 REAL(wp) :: bc_bot_tracer(nproma, p_patch%nblks_c)
 REAL(wp) :: K_h(:,:,:)                                  !horizontal mixing coeff
 REAL(wp) :: A_v(:,:,:)                                   !vertical mixing coeff
-REAL(wp) :: trac_new(:,:,:)                              !new tracer 
+REAL(wp) :: trac_new(:,:,:)                              !new tracer
 INTEGER  :: timestep                                     ! Actual timestep (to distinghuish initial step from others)
 !
 !Local variables
@@ -449,7 +448,7 @@ IF( iswm_oce /= 1) THEN
                          & A_v,                            &
                          & trac_new, timestep, delta_t, p_os%p_diag%cons_thick_c,&
                          & FLUX_CALCULATION_VERT)
-!     DO jk = 1, n_zlev 
+!     DO jk = 1, n_zlev
 !       write(*,*)'After vertical max/min old-new tracer:',jk,&
 !       & maxval(trac_old(:,jk,:)), minval(trac_old(:,jk,:)),&
 !       & maxval(trac_new(:,jk,:)),minval(trac_new(:,jk,:))
@@ -482,14 +481,14 @@ DO jk = 1, n_zlev
     iloc(:) = minloc(trac_new(:,jk,:))
     zlat    = p_patch%cells%center(iloc(1),iloc(2))%lat * 180.0_wp / pi
     zlon    = p_patch%cells%center(iloc(1),iloc(2))%lon * 180.0_wp / pi
-    write(0,*) ' negative tracer at jk =', jk, minval(trac_new(:,jk,:)) 
+    write(0,*) ' negative tracer at jk =', jk, minval(trac_new(:,jk,:))
     write(0,*) ' location is at    idx =',iloc(1),' blk=',iloc(2)
     write(0,*) ' lat/lon  is at    lat =',zlat   ,' lon=',zlon
     CALL finish(TRIM('mo_tracer_advection:advect_individual_tracer-h'), &
-      &              'Negative tracer values') 
+      &              'Negative tracer values')
   ENDIF
 END DO
 
 END SUBROUTINE advect_individual_tracer_ab
- 
+
 END MODULE mo_oce_tracer
