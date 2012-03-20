@@ -212,7 +212,7 @@ CONTAINS
     DO i_no_trac=1, no_tracer
       CALL sync_patch_array(SYNC_C,ppatch,p_phys_param%K_tracer_h(:,:,:,i_no_trac))
     END DO
-    CALL sync_patch_array(SYNC_C,ppatch,p_phys_param%K_veloc_h(:,:,:))
+    CALL sync_patch_array(SYNC_E,ppatch,p_phys_param%K_veloc_h(:,:,:))
 
   END SUBROUTINE init_ho_params
 
