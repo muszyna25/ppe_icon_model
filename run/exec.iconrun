@@ -163,6 +163,11 @@ if [[ $run_ocean = 'true' ]]; then
    POOL_FORC=${POOL_ICON}/ocean_data/ocean_forcing
    POOL_INIT=${POOL_ICON}/ocean_data/ocean_init
 
+   # provide $HGRIDDIR since ocean model can be run without grid generator
+   if [ ! -d ${HGRIDDIR} ] ;  then
+     mkdir -p ${HGRIDDIR}
+   fi
+
    # =======================================================
    #
    # provide ocean grid file
