@@ -141,7 +141,7 @@ CONTAINS
                                 & p_as, p_atm_f, p_ice,                         &
                                 & l_have_output)
 
-  TYPE(t_patch),             TARGET, INTENT(INout)    :: ppatch(n_dom)
+  TYPE(t_patch),             TARGET, INTENT(IN) :: ppatch(n_dom)
   TYPE(t_hydro_ocean_state), TARGET, INTENT(INOUT) :: pstate_oce(n_dom)
   TYPE(t_external_data), TARGET, INTENT(IN)        :: p_ext_data(n_dom)
   TYPE(t_datetime), INTENT(INOUT)                  :: datetime

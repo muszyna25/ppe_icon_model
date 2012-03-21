@@ -194,15 +194,15 @@ USE mo_util_subset,         ONLY: t_subset_range, get_index_range
 IMPLICIT NONE
 
 PRIVATE
-    
+
 PUBLIC ::  lsq_stencil_create, lsq_compute_coeff_cell, scalar_int_coeff,      &
           & bln_int_coeff_e2c, compute_heli_bra_coeff_idx, init_cellavg_wgt,  &
           & init_geo_factors, complete_patchinfo, init_tplane_e,              &
           & init_geo_factors_oce, init_scalar_product_oce,                    &
           & init_nudgecoeffs, tri_quadrature_pts, par_init_scalar_product_oce
-    
 
-     
+
+
   ! flags for computing ocean coefficients
   LOGICAL, PARAMETER :: MID_POINT_DUAL_EDGE = .TRUE. !Please do not change this unless
                                                        !you are sure, you know what you do.
@@ -2708,7 +2708,7 @@ rl_end = min_rledge
 i_startblk = ptr_patch%edges%start_blk(rl_start,1)
 i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 
-! Initialization of lateral boundary points 
+! Initialization of lateral boundary points
 IF (ptr_patch%id > 1) THEN
 !$OMP WORKSHARE
   ptr_patch%edges%inv_dual_edge_length(:,1:i_startblk)    = 0._wp
@@ -3408,15 +3408,15 @@ END SUBROUTINE complete_patchinfo
   !! Primal cell quadrature points and weights
   !!
   !! Computes quadrature points and weights for triangular grid cells.
-  !! Quadrature points and weights are provided for accurately integrating 
-  !! linear, quadratic and cubic functions. This is necessary for initializing 
+  !! Quadrature points and weights are provided for accurately integrating
+  !! linear, quadratic and cubic functions. This is necessary for initializing
   !! idealized testcases.
   !!
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2010-11-16)
   !!
   !! @par Literature
-  !! Numerical Methods in Engineering with Python, Jaan Kiusalaas (2005), 
+  !! Numerical Methods in Engineering with Python, Jaan Kiusalaas (2005),
   !! 233-247
   SUBROUTINE tri_quadrature_pts (ptr_patch, ptr_int)
 
@@ -3424,7 +3424,7 @@ END SUBROUTINE complete_patchinfo
 
     TYPE(t_int_state), INTENT(INOUT) :: ptr_int  !< interpolation state
 
-    REAL(wp) ::  alpha_l(3),        & !< area coordinates for quadrature up to 
+    REAL(wp) ::  alpha_l(3),        & !< area coordinates for quadrature up to
       &  alpha_q(3,3), alpha_c(3,4)   !< fourth order
                                       !< (n_area_coords,n_pts))
 
@@ -3455,8 +3455,8 @@ END SUBROUTINE complete_patchinfo
 
     !
     ! quadratic
-    ! 
-    alpha_q(1,1) = 0.5_wp 
+    !
+    alpha_q(1,1) = 0.5_wp
     alpha_q(2,1) = 0._wp
     alpha_q(3,1) = 0.5_wp
 
@@ -3467,11 +3467,11 @@ END SUBROUTINE complete_patchinfo
     alpha_q(1,3) = 0._wp
     alpha_q(2,3) = 0.5_wp
     alpha_q(3,3) = 0.5_wp
- 
+
     !
     ! cubic
     !
-    alpha_c(1,1) = 1._wp/3._wp 
+    alpha_c(1,1) = 1._wp/3._wp
     alpha_c(2,1) = 1._wp/3._wp
     alpha_c(3,1) = 1._wp/3._wp
 
@@ -3624,7 +3624,7 @@ END SUBROUTINE complete_patchinfo
   END SUBROUTINE tri_quadrature_pts
   !-------------------------------------------------------------------------
 
-  
+
   !-------------------------------------------------------------------------
   !>
   !! Computes the coefficients that determine the scalar product on the primal grid. This
@@ -3645,12 +3645,12 @@ END SUBROUTINE complete_patchinfo
   SUBROUTINE par_init_scalar_product_oce( patch, intp_2D_coeff)
     TYPE(t_patch)    , TARGET, INTENT(INOUT) :: patch
     TYPE(t_int_state),         INTENT(INOUT) :: intp_2D_coeff
-   
+
     REAL(wp), ALLOCATABLE :: prime_edge_length( :, : )
     REAL(wp), ALLOCATABLE :: dual_edge_length ( :, : )
 !     REAL(wp), ALLOCATABLE :: cell_area( :, : )
 !     REAL(wp), ALLOCATABLE :: dual_cell_area ( :, : )
-    
+
     TYPE(t_subset_range), POINTER :: owned_edges         ! these are the owned entities
     TYPE(t_subset_range), POINTER :: owned_cells         ! these are the owned entities
     TYPE(t_subset_range), POINTER :: owned_verts         ! these are the owned entities
@@ -3663,7 +3663,7 @@ END SUBROUTINE complete_patchinfo
     REAL(wp) :: basin_center_lat_rad, basin_height_rad
 
     REAL(wp) :: norm, orientation, length
-    
+
     INTEGER :: edge_block, edge_index
     INTEGER :: cell_index, cell_block
     INTEGER :: vertex_index, vertex_block
@@ -3684,48 +3684,48 @@ END SUBROUTINE complete_patchinfo
     intp_2D_coeff%edge2vert_coeff_cc(:,:,:)%x(1) = 0.0_wp
     intp_2D_coeff%edge2vert_coeff_cc(:,:,:)%x(2) = 0.0_wp
     intp_2D_coeff%edge2vert_coeff_cc(:,:,:)%x(3) = 0.0_wp
-    
+
     intp_2D_coeff%edge2vert_coeff_cc_t(:,:,:)%x(1) = 0.0_wp
     intp_2D_coeff%edge2vert_coeff_cc_t(:,:,:)%x(2) = 0.0_wp
     intp_2D_coeff%edge2vert_coeff_cc_t(:,:,:)%x(3) = 0.0_wp
-     
+
     !-------------------------------------------
     ! compute some basic distances
     ! this is required if the cartesian distance is used
     ! instead of the spherical
-    ! 
+    !
     ! computes_dist_cell2edge( patch, intp_2D_coeff)
     !
     ALLOCATE( prime_edge_length( nproma, patch%nblks_e))
     ALLOCATE( dual_edge_length ( nproma, patch%nblks_e))
 !     ALLOCATE( cell_area        ( nproma, patch%nblks_c))
 !     ALLOCATE( dual_cell_area   ( nproma, patch%nblks_v))
-          
+
     IF ( MID_POINT_DUAL_EDGE ) THEN
       dual_edge_middle => patch%edges%cartesian_dual_middle
     ELSE
       dual_edge_middle => patch%edges%cartesian_center
     ENDIF
-        
+
     ! get the areas on a unit sphere
 !     cell_area(:,:)      = patch%cells%area(:,:)      * rre * rre
 !     dual_cell_area(:,:) = patch%verts%dual_area(:,:) * rre * rre
-        
+
     IF (LARC_LENGTH) THEN
-    
+
       ! we just need to get them from the grid
       ! NOTE:  these are earth's distances, translate on a unit sphere
       intp_2D_coeff%dist_cell2edge(:,:,:) = patch%edges%edge_cell_length(:,:,:) * rre
       prime_edge_length(:,:) = patch%edges%primal_edge_length(:,:) * rre
       dual_edge_length(:,:) = patch%edges%dual_edge_length(:,:) * rre
-      
+
     ELSE
-    
+
       ! calcultate cartesian distance
       prime_edge_length(:,:) = 0.0_wp
       dual_edge_length(:,:) = 0.0_wp
       intp_2D_coeff%dist_cell2edge(:,:,:) =  0.0_wp
-      
+
       DO edge_block = owned_edges%start_block, owned_edges%end_block
         CALL get_index_range(owned_edges, edge_block, start_index, end_index)
         DO edge_index = start_index, end_index
@@ -3736,21 +3736,21 @@ END SUBROUTINE complete_patchinfo
           vertex_1_block = patch%edges%vertex_blk(edge_index, edge_block, 1)
           vertex_2_index = patch%edges%vertex_idx(edge_index, edge_block, 2)
           vertex_2_block = patch%edges%vertex_blk(edge_index, edge_block, 2)
-            
+
           dist_vector%x = &
             & patch%verts%cartesian(vertex_1_index, vertex_1_block)%x - &
             & patch%verts%cartesian(vertex_2_index, vertex_2_block)%x
-            
+
             prime_edge_length(edge_index,edge_block) = &
               & SQRT(SUM((  dist_vector%x *  dist_vector%x)))
-          !----------------------------------------          
-              
+          !----------------------------------------
+
           !----------------------------------------
           ! calculate the cartesian distance of the edge center to the cell center
           DO neigbor = 1,2
 
             intp_2D_coeff%dist_cell2edge(edge_index,edge_block,neigbor) = 0.0_wp
-            
+
             cell_index = patch%edges%cell_idx(edge_index,edge_block,neigbor)
             cell_block = patch%edges%cell_blk(edge_index,edge_block,neigbor)
 
@@ -3777,7 +3777,7 @@ END SUBROUTINE complete_patchinfo
             dist_vector%x = &
               & patch%cells%cartesian_center(cell_1_index, cell_1_block)%x - &
               & patch%cells%cartesian_center(cell_2_index, cell_2_block)%x
-              
+
               dual_edge_length(edge_index,edge_block) = &
                 & SQRT(SUM((  dist_vector%x *  dist_vector%x)))
           ELSE
@@ -3786,10 +3786,10 @@ END SUBROUTINE complete_patchinfo
                 & intp_2D_coeff%dist_cell2edge(edge_index,edge_block,2)
            ENDIF
           !----------------------------------------
-        
+
         ENDDO ! edge_index=start_index,end_index
       ENDDO ! edge_block = owned_edges%start_block, owned_edges%end_block
-                  
+
       ! synchronize the edge distances
       CALL sync_patch_array(SYNC_E, patch, intp_2D_coeff%dist_cell2edge(:,:,1))
       CALL sync_patch_array(SYNC_E, patch, intp_2D_coeff%dist_cell2edge(:,:,2))
@@ -3821,7 +3821,7 @@ END SUBROUTINE complete_patchinfo
 
           intp_2D_coeff%edge2cell_coeff_cc(cell_index,cell_block,neigbor)%x = 0.0_wp
           intp_2D_coeff%variable_vol_norm(cell_index, cell_block, neigbor) =  0.0_wp
-        
+
           edge_index = patch%cells%edge_idx(cell_index, cell_block, neigbor)
           edge_block = patch%cells%edge_blk(cell_index, cell_block, neigbor)
 
@@ -3844,15 +3844,15 @@ END SUBROUTINE complete_patchinfo
             intp_2D_coeff%fixed_vol_norm(cell_index,cell_block) = &
               & intp_2D_coeff%fixed_vol_norm(cell_index,cell_block) + &
               & 0.5_wp * norm * prime_edge_length(edge_index,edge_block)
-              
+
             intp_2D_coeff%variable_vol_norm(cell_index, cell_block, neigbor) = &
               & 0.5_wp * norm * prime_edge_length(edge_index,edge_block)
-             
+
           ENDIF !(edge_block > 0 )
-        
+
         ENDDO !neigbor=1,patch%cell_type
         !-------------------------------
-                           
+
       ENDDO ! cell_index = start_index, end_index
     ENDDO !cell_block = owned_cells%start_block, owned_cells%end_block
     !-------------------
@@ -3865,7 +3865,7 @@ END SUBROUTINE complete_patchinfo
       CALL sync_patch_array(SYNC_C, patch, intp_2D_coeff%variable_vol_norm(:,:,neigbor))
     ENDDO
     !-------------------
-    
+
     !-------------------------------------------
     ! compute:
     !   edge2cell_coeff_cc_t
@@ -3878,13 +3878,13 @@ END SUBROUTINE complete_patchinfo
 
         intp_2D_coeff%edge2cell_coeff_cc_t(edge_index, edge_block, 2)%x = 0.0_wp
         edge_center%x = patch%edges%cartesian_center(edge_index, edge_block)%x
-        
+
         DO neigbor=1,2
-        
+
           intp_2D_coeff%edge2cell_coeff_cc_t(edge_index, edge_block, neigbor)%x = 0.0_wp
           cell_index = patch%edges%cell_idx(edge_index, edge_block, neigbor)
           cell_block = patch%edges%cell_blk(edge_index, edge_block, neigbor)
-          
+
           IF (cell_block > 0) THEN
 
             dist_vector%x =  edge_center%x -                             &
@@ -3893,12 +3893,12 @@ END SUBROUTINE complete_patchinfo
             orientation = DOT_PRODUCT(dist_vector%x, &
               & patch%edges%primal_cart_normal(edge_index, edge_block)%x)
             IF (orientation < 0.0_wp) dist_vector%x = - dist_vector%x
-                        
+
             intp_2D_coeff%edge2cell_coeff_cc_t(edge_index, edge_block, neigbor)%x = &
               dist_vector%x / dual_edge_length(edge_index, edge_block)
 
           ENDIF ! (cell_block > 0)
-        
+
         ENDDO ! neigbor=1,2
 
       ENDDO ! edge_index = start_index, end_index
@@ -3912,7 +3912,7 @@ END SUBROUTINE complete_patchinfo
     ENDDO ! neigbor=1,2
     !   edge2cell_coeff_cc_t is computed
     !-------------------------------------------
-          
+
 
     !-------------------------------------------
     ! compute:
@@ -3923,12 +3923,12 @@ END SUBROUTINE complete_patchinfo
       DO vertex_index = start_index, end_index
 
         vertex_position%x = patch%verts%cartesian(vertex_index, vertex_block)%x
-        
+
         DO neigbor=1, 6 ! we have to change this to accomodate the dual grid
 
 !           intp_2D_coeff%edge2vert_coeff_cc(vertex_index, vertex_block, neigbor)%x = 0.0_wp
           intp_2D_coeff%variable_dual_vol_norm(vertex_index, vertex_block, neigbor) = 0.0_wp
-          
+
           edge_index = patch%verts%edge_idx(vertex_index, vertex_block, neigbor)
           edge_block = patch%verts%edge_blk(vertex_index, vertex_block, neigbor)
 
@@ -3938,7 +3938,7 @@ END SUBROUTINE complete_patchinfo
               dual_edge_middle(edge_index, edge_block)%x - &
               vertex_position%x
 
-            
+
             ! the dist_vector has cartesian length
             ! if we use spherical distance we need to recalculate
             ! its length
@@ -3947,25 +3947,25 @@ END SUBROUTINE complete_patchinfo
               norm = SQRT(SUM( dist_vector%x * dist_vector%x ))
               dist_vector%x = dist_vector%x * length / norm
             ELSE
-              length = SQRT(SUM( dist_vector%x * dist_vector%x ))              
+              length = SQRT(SUM( dist_vector%x * dist_vector%x ))
             ENDIF
 
             dist_vector = vector_product(dist_vector, dual_edge_middle(edge_index, edge_block))
             orientation = DOT_PRODUCT( dist_vector%x,                         &
                & patch%edges%primal_cart_normal(edge_index, edge_block)%x)
             IF (orientation < 0) dist_vector%x = - dist_vector%x
-                           
+
             intp_2D_coeff%edge2vert_coeff_cc(vertex_index, vertex_block, neigbor)%x = &
               & dist_vector%x                                *                    &
               & dual_edge_length(edge_index, edge_block) !    /                    &
               !& dual_cell_area(vertex_index, vertex_block)
-          
+
             intp_2D_coeff%variable_dual_vol_norm(vertex_index, vertex_block, neigbor) = &
               & 0.5_wp * dual_edge_length(edge_index, edge_block) * length
-          
+
           ENDIF !(edge_block > 0) THEN
 
-        ENDDO !neigbor=1,6         
+        ENDDO !neigbor=1,6
 
       ENDDO ! vertex_index = start_index, end_index
     ENDDO !vertex_block = owned_verts%start_block, owned_verts%end_block
@@ -3990,21 +3990,21 @@ END SUBROUTINE complete_patchinfo
       DO edge_index = start_index, end_index
 
         edge_center%x = dual_edge_middle(edge_index, edge_block)%x
-        
+
         DO neigbor=1,2
-        
+
           intp_2D_coeff%edge2vert_coeff_cc_t(edge_index, edge_block, neigbor)%x = 0.0_wp
-                  
+
           vertex_index = patch%edges%vertex_idx(edge_index, edge_block, neigbor)
           vertex_block = patch%edges%vertex_blk(edge_index, edge_block, neigbor)
-                    
+
           intp_2D_coeff%edge2vert_coeff_cc_t(edge_index, edge_block, neigbor)%x =              &
             & (edge_center%x - patch%verts%cartesian(vertex_index, vertex_block)%x) * &
             & patch%edges%system_orientation(edge_index, edge_block)                / &
             & prime_edge_length(edge_index, edge_block)
-              
+
         ENDDO !neigbor=1,2
-      
+
       ENDDO ! edge_index = start_index, end_index
     ENDDO ! edge_block = owned_edges%start_block, owned_edges%end_block
     !-------------------
@@ -4022,20 +4022,20 @@ END SUBROUTINE complete_patchinfo
     ! recalculate the coriolis coefficient
     ! It is required if we use the middle of the dual_edge_length
     IF (MID_POINT_DUAL_EDGE) THEN
-      
+
       IF (CORIOLIS_TYPE == full_coriolis) THEN
-      
+
         DO edge_block = owned_edges%start_block, owned_edges%end_block
           CALL get_index_range(owned_edges, edge_block, start_index, end_index)
           DO edge_index = start_index, end_index
-          
+
              coriolis_geo_coordinates = cc2gc(dual_edge_middle(edge_index,edge_block))
              patch%edges%f_e(edge_index,edge_block) = &
                & 2._wp * omega * SIN(coriolis_geo_coordinates%lat)
 
           ENDDO
         ENDDO
-        
+
       ELSEIF (CORIOLIS_TYPE == BETA_PLANE_CORIOLIS) THEN
 
         basin_center_lat_rad = basin_center_lat * deg2rad
@@ -4043,11 +4043,11 @@ END SUBROUTINE complete_patchinfo
         coriolis_geo_coordinates%lat = basin_center_lat_rad - 0.5_wp * basin_height_rad
         coriolis_geo_coordinates%lon = 0.0_wp
         coriolis_cartesian_coordinates  = gc2cc(coriolis_geo_coordinates)
-        
+
         DO edge_block = owned_edges%start_block, owned_edges%end_block
           CALL get_index_range(owned_edges, edge_block, start_index, end_index)
           DO edge_index = start_index, end_index
-      
+
           geo_coordinates     = cc2gc(dual_edge_middle(edge_index,edge_block))
           geo_coordinates%lon = 0.0_wp
           edge_center         = gc2cc(geo_coordinates)
@@ -4058,7 +4058,7 @@ END SUBROUTINE complete_patchinfo
 
           ENDDO
         ENDDO
-      
+
       ENDIF !(CORIOLIS_TYPE==full_coriolis)
     ENDIF ! (MID_POINT_DUAL_EDGE)
     !-------------------
@@ -4067,7 +4067,7 @@ END SUBROUTINE complete_patchinfo
 
 
 
-    !----------------------------------------------------    
+    !----------------------------------------------------
     DEALLOCATE( prime_edge_length)
     DEALLOCATE( dual_edge_length )
 !     DEALLOCATE( cell_area )
@@ -4077,51 +4077,51 @@ END SUBROUTINE complete_patchinfo
      RETURN
     !---------------------------------------------------------
     ! checks
-! 
+!
 !      !---------------------------------------------------------
 !      check_v1 = intp_2D_coeff%edge2vert_coeff_cc
 !      check_v2 = intp_2D_coeff%edge2vert_coeff_cc_t
 !      !---------------------------------------------------------
-!      
+!
 !      CALL init_scalar_product_oce( patch, intp_2D_coeff )
-!      
+!
 !      !---------------------------------------------------------
 !      max_diff = MAXVAL(ABS(intp_2D_coeff%edge2vert_coeff_cc(:,:,:)%x(1) - &
 !        &  check_v1(:,:,:)%x(1) ))
 !      max_val  =  MAXVAL(ABS( check_v1(:,:,:)%x(1)))
 !      Write(0,*) "max diff of edge2vert_coeff_cc(:,:,:,:)%x(1)=", max_diff, max_val
-!      
+!
 !      max_diff = MAXVAL(ABS(intp_2D_coeff%edge2vert_coeff_cc(:,:,:)%x(2) - &
 !        & check_v1(:,:,:)%x(2) ))
 !      max_val  =  MAXVAL(ABS( check_v1(:,:,:)%x(2)))
 !      Write(0,*) "max diff of edge2vert_coeff_cc(:,:,:,:)%x(2)=", max_diff, max_val
-!      
+!
 !      max_diff = MAXVAL(ABS(intp_2D_coeff%edge2vert_coeff_cc(:,:,:)%x(3) - &
 !        & check_v1(:,:,:)%x(3) ))
 !      max_val  =  MAXVAL(ABS( check_v1(:,:,:)%x(3)))
 !      Write(0,*) "max diff of edge2vert_coeff_cc(:,:,:,:)%x(3)=", max_diff, max_val
 !      !---------------------------------------------------------
-!      
+!
 !      max_diff = MAXVAL(ABS(intp_2D_coeff%edge2vert_coeff_cc_t(:,:,:)%x(1) - &
 !        &  check_v2(:,:,:)%x(1) ))
 !      max_val  =  MAXVAL(ABS( check_v2(:,:,:)%x(1)))
 !      Write(0,*) "max diff of edge2vert_coeff_cc_t(:,:,:,:)%x(1)=", max_diff, max_val
-!      
+!
 !      max_diff = MAXVAL(ABS(intp_2D_coeff%edge2vert_coeff_cc_t(:,:,:)%x(2) - &
 !        & check_v2(:,:,:)%x(2) ))
 !      max_val  =  MAXVAL(ABS( check_v2(:,:,:)%x(2)))
 !      Write(0,*) "max diff of edge2vert_coeff_cc_t(:,:,:,:)%x(2)=", max_diff, max_val
-!      
+!
 !      max_diff = MAXVAL(ABS(intp_2D_coeff%edge2vert_coeff_cc_t(:,:,:)%x(3) - &
 !        & check_v2(:,:,:)%x(3) ))
 !      max_val  =  MAXVAL(ABS( check_v2(:,:,:)%x(3)))
 !      Write(0,*) "max diff of edge2vert_coeff_cc_t(:,:,:,:)%x(3)=", max_diff, max_val
-! 
-                  
+!
+
   END SUBROUTINE par_init_scalar_product_oce
   !-------------------------------------------------------------------------
-          
-             
+
+
   !-------------------------------------------------------------------------
   !>
   !! Computes the coefficients that determine the scalar product on the primal grid. This
@@ -4152,7 +4152,7 @@ END SUBROUTINE complete_patchinfo
     INTEGER, PARAMETER :: no_cell_edges = 3
     INTEGER, PARAMETER :: no_vert_edges = 6
     INTEGER :: jb, je, jv, ie, ie_1, ie_2, icc
-    INTEGER :: il_e,ib_e,k  
+    INTEGER :: il_e,ib_e,k
     INTEGER :: il_c1, ib_c1, il_c2, ib_c2
     INTEGER :: il_v1, il_v2, ib_v1, ib_v2
 
@@ -4185,7 +4185,7 @@ END SUBROUTINE complete_patchinfo
     TYPE(t_cartesian_coordinates)    :: cc_mid_dual_edge(no_vert_edges)
     TYPE(t_cartesian_coordinates)    :: recon_vec_cc
     TYPE(t_cartesian_coordinates)    :: z_vec_c1(no_cell_edges),z_vec_c2(no_cell_edges)
-    TYPE(t_cartesian_coordinates)    :: recon_vec_cc_v1(no_vert_edges) 
+    TYPE(t_cartesian_coordinates)    :: recon_vec_cc_v1(no_vert_edges)
     TYPE(t_cartesian_coordinates)    :: recon_vec_cc_v2(no_vert_edges)
 
     REAL(wp) :: z_edge_length(no_cell_edges)
@@ -4259,7 +4259,7 @@ END SUBROUTINE complete_patchinfo
           !get vertex positions
           xx1         = gc2cc(ptr_patch%verts%vertex(il_v1,ib_v1))
           xx2         = gc2cc(ptr_patch%verts%vertex(il_v2,ib_v2))
- 
+
           IF(LARC_LENGTH)THEN
             norm              = SQRT(SUM(xx1%x*xx1%x))
             xx1%x             = xx1%x/norm
@@ -4300,7 +4300,7 @@ END SUBROUTINE complete_patchinfo
             z_cell_edge_dist_c1(ie,1) = SQRT(SUM((cc_edge(ie)%x-xx1%x)*(cc_edge(ie)%x-xx1%x)))
             z_cell_edge_dist_c1(ie,2) = SQRT(SUM((cc_edge(ie)%x-xx2%x)*(cc_edge(ie)%x-xx2%x)))
           ENDIF
-          
+
           ptr_intp%dist_cell2edge(iil_c1(ie),iib_c1(ie),1) = z_cell_edge_dist_c1(ie,1)
           ptr_intp%dist_cell2edge(iil_c1(ie),iib_c1(ie),2) = z_cell_edge_dist_c1(ie,2)
 
@@ -4491,7 +4491,7 @@ END SUBROUTINE complete_patchinfo
 
         ! Go only over vertices where all edges are in the local domain (but maybe in the halo)
         ! #slo# this is not sufficient? - We find a negative index il_c1=-6 in r2b0
-        IF(ANY(ptr_patch%verts%edge_idx(jv,jb,:)<0)) CYCLE 
+        IF(ANY(ptr_patch%verts%edge_idx(jv,jb,:)<0)) CYCLE
 
         DO ie = 1, no_vert_edges  ! #slo# it_vertedges ??
 
@@ -4548,14 +4548,14 @@ END SUBROUTINE complete_patchinfo
               gc2%lon = 0.0_wp
               xx2     = gc2cc(gc2)
               z_y     = re*arc_length(xx2,xx1)
- 
+
               !z_y = ptr_patch%edges%center(je,jb)%lat - z_lat_basin_center
               ptr_patch%edges%f_e(il_e, ib_e) = 2.0_wp*omega*( sin(basin_center_lat * deg2rad) &
                 &                             + (cos(basin_center_lat * deg2rad)/re)*z_y)
             ENDIF
           ELSE
             cc_mid_dual_edge(ie)%x = cc_dual_edge(ie)%x
-            gc_mid_dual_edge(ie)   = cc2gc(cc_mid_dual_edge(ie)) 
+            gc_mid_dual_edge(ie)   = cc2gc(cc_mid_dual_edge(ie))
           ENDIF
 
           !2) determine vector from adjacent vertex to adjacent vertex
@@ -4583,7 +4583,7 @@ END SUBROUTINE complete_patchinfo
           vert2_midedge_cc(jv, jb, ie)%x = vert2_midedge_cc(jv, jb, ie)%x/norm
 
 
-          !calculate vertex edge distance 
+          !calculate vertex edge distance
           IF(LARC_LENGTH)THEN
             vert_edge_dist(ie,1)     = arc_length (cc_dual_edge(ie), xx1)
             vert_edge_dist(ie,2)     = arc_length (cc_dual_edge(ie), xx2)
@@ -4632,10 +4632,10 @@ END SUBROUTINE complete_patchinfo
 !              ptr_intp%edge2vert_vector_cc(jv,jb,ie)=&
 !              &vector_product(vert1_midedge_cc(jv, jb, ie), cc_mid_dual_edge(ie))
              ptr_intp%edge2vert_vector_cc(jv,jb,ie)%x=vert1_midedge_cc(jv, jb, ie)%x
- 
+
              z_tmp = DOT_PRODUCT(ptr_intp%edge2vert_vector_cc(jv,jb,ie)%x,&
              &ptr_patch%edges%primal_cart_normal(il_e,ib_e)%x)
- 
+
              IF (z_tmp <0._wp) ptr_intp%edge2vert_vector_cc(jv,jb,ie)%x&
              & = -1._wp * ptr_intp%edge2vert_vector_cc(jv,jb,ie)%x
 
@@ -4657,7 +4657,7 @@ END SUBROUTINE complete_patchinfo
 
              z_tmp = DOT_PRODUCT(ptr_intp%edge2vert_vector_cc(jv,jb,ie)%x,&
              & ptr_patch%edges%primal_cart_normal(il_e,ib_e)%x)
- 
+
             IF (z_tmp <0._wp) ptr_intp%edge2vert_vector_cc(jv,jb,ie)%x =&
              & -1._wp * ptr_intp%edge2vert_vector_cc(jv,jb,ie)%x
 
@@ -4794,7 +4794,7 @@ END SUBROUTINE complete_patchinfo
     TYPE(t_subset_range), POINTER :: owned_edges         ! these are the owned entities
     TYPE(t_subset_range), POINTER :: owned_cells, all_cells         ! these are the owned entities
     TYPE(t_subset_range), POINTER :: owned_verts         ! these are the owned entities
-    
+
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     & routine = ('mo_oce_state:init_geo_factors_oce')
 
@@ -4859,7 +4859,7 @@ END SUBROUTINE complete_patchinfo
    !
    ! the ptr_intp%geofac_div has been computed on all cells, so no sync is required
    !
-    
+
     ! b) Geometrical factor for rotation
     rl_start = 1  ! #slo# changed to 1 - 2010-12-07
     rl_end = min_rlvert_int
@@ -5100,7 +5100,7 @@ END SUBROUTINE complete_patchinfo
     CALL message (TRIM(routine), 'end')
 
   END SUBROUTINE init_geo_factors_oce
-!-------------------------------------------------------------------------  
+!-------------------------------------------------------------------------
 
 
 
