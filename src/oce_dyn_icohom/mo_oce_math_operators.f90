@@ -66,14 +66,14 @@ MODULE mo_oce_math_operators
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_util_subset,         ONLY: t_subset_range, get_index_range
   USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_idx, global_max
-  
+
   IMPLICIT NONE
-  
+
   PRIVATE
-  
+
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-  
-  
+
+
   PUBLIC :: grad_fd_norm_oce_3d
   PUBLIC :: div_oce_3d
   PUBLIC :: rot_vertex_ocean_3d
@@ -91,9 +91,9 @@ MODULE mo_oce_math_operators
     MODULE PROCEDURE div_oce_3d_mlevels
     MODULE PROCEDURE div_oce_3d_1level
   END INTERFACE
-  
+
 CONTAINS
-  
+
   !-------------------------------------------------------------------------
   !>
   !!  Computes directional derivative of a cell centered variable in presence of lateral boundaries
@@ -115,7 +115,7 @@ CONTAINS
   !!Boundary handling for triangles by P. Korn (2009)
   !!  mpi note: the result is not synced. Should be done in the calling method if required
   SUBROUTINE grad_fd_norm_oce_3d( psi_c, ptr_patch, grad_coeff, grad_norm_psi_e)
-    
+
     !  patch on which computation is performed
     !
     TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
@@ -124,7 +124,7 @@ CONTAINS
     REAL(wp), INTENT(in)              ::  psi_c(:,:,:)       ! dim: (nproma,n_zlev,nblks_c)
     !  edge based variable in which normal derivative is stored
     REAL(wp), INTENT(inout) ::  grad_norm_psi_e(:,:,:)  ! dim: (nproma,n_zlev,nblks_e)
-    
+
     !
     !Local variables
     !
@@ -134,14 +134,14 @@ CONTAINS
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     !INTEGER :: nlen, nblks_e, npromz_e
     INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
-    TYPE(t_subset_range), POINTER :: edges_in_domain        
-    
+    TYPE(t_subset_range), POINTER :: edges_in_domain
+
     !-----------------------------------------------------------------------
-    edges_in_domain => ptr_patch%edges%in_domain    
+    edges_in_domain => ptr_patch%edges%in_domain
 
     slev = 1
     elev = n_zlev
-        
+
     iidx => ptr_patch%edges%cell_idx
     iblk => ptr_patch%edges%cell_blk
     !
@@ -152,7 +152,7 @@ CONTAINS
 #endif
 !$OMP PARALLEL
     ! The special treatment of 2D fields is essential for efficiency on the NEC
-    
+
 #ifdef __SX__
     IF (slev > 1) THEN
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk)
@@ -163,7 +163,7 @@ CONTAINS
 #endif
         DO jk = slev, elev
           DO je = i_startidx, i_endidx
-            
+
             grad_norm_psi_e(je,jk,jb) = grad_coeff(je,jk,jb)* &
               & ( psi_c(iidx(je,jb,2),jk,iblk(je,jb,2))-       &
               & psi_c(iidx(je,jb,1),jk,iblk(je,jb,1)) )
@@ -173,7 +173,7 @@ CONTAINS
 !$OMP END DO
     ELSE
 #endif
-      
+
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk)
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
@@ -192,15 +192,15 @@ CONTAINS
 #ifdef __SX__
     ENDIF
 #endif
-    
-    
+
+
 !$OMP END PARALLEL
 #ifndef __SX__
     IF (ltimer) CALL timer_stop(timer_grad)
 #endif
   END SUBROUTINE grad_fd_norm_oce_3d
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !>
   !! Computes discrete divergence of a vector field in presence of lateral boundaries as in ocean setting.
@@ -245,7 +245,7 @@ CONTAINS
     INTEGER, INTENT(in), OPTIONAL :: opt_slev       ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL :: opt_elev       ! optional vertical end level
     TYPE(t_subset_range), TARGET, INTENT(in), OPTIONAL :: subset_range
-    
+
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: jc, jk, jb
     INTEGER ::i_startidx, i_endidx, i_nchdom
@@ -258,7 +258,7 @@ CONTAINS
     ELSE
       all_cells => ptr_patch%cells%all
     ENDIF
-    
+
     IF ( PRESENT(opt_slev) ) THEN
       slev = opt_slev
     ELSE
@@ -269,16 +269,15 @@ CONTAINS
     ELSE
       elev = n_zlev
     END IF
-        
+
 #ifndef __SX__
     IF (ltimer) CALL timer_start(timer_div)
 #endif
 !$OMP PARALLEL
-    
+
     iidx => ptr_patch%cells%edge_idx
     iblk => ptr_patch%cells%edge_blk
-    
-    
+
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
@@ -313,15 +312,13 @@ CONTAINS
       END DO
     END DO
 !$OMP END DO
-    
+
 !$OMP END PARALLEL
 #ifndef __SX__
     IF (ltimer) CALL timer_stop(timer_div)
 #endif
   END SUBROUTINE div_oce_3d_mlevels
-  !-------------------------------------------------------------------------
-  
-  
+
   !-------------------------------------------------------------------------
   !>
   !! Computes discrete divergence of a vector field in presence of lateral boundaries as in ocean setting.
@@ -365,7 +362,7 @@ CONTAINS
     REAL(wp), INTENT(inout)       :: div_vec_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
     INTEGER,  INTENT(in)          :: level
     TYPE(t_subset_range), TARGET, INTENT(in), OPTIONAL :: subset_range
-    
+
     INTEGER :: jc, jb
     INTEGER :: i_startidx, i_endidx
     !INTEGER :: nlen, npromz_c, nblks_c
@@ -377,16 +374,15 @@ CONTAINS
     ELSE
       all_cells => ptr_patch%cells%all
     ENDIF
-            
+
 #ifndef __SX__
     IF (ltimer) CALL timer_start(timer_div)
 #endif
 !$OMP PARALLEL
-    
+
     iidx => ptr_patch%cells%edge_idx
     iblk => ptr_patch%cells%edge_blk
-    
-    
+
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc)
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
@@ -394,7 +390,7 @@ CONTAINS
 !CDIR UNROLL=6
 #endif
         DO jc = i_startidx, i_endidx
-        
+
           ! compute the discrete divergence for cell jc by finite volume
           ! approximation (see Bonaventura and Ringler MWR 2005);
           ! multiplication of the normal vector component vec_e at the edges
@@ -417,18 +413,18 @@ CONTAINS
             & vec_e(iidx(jc,jb,1),iblk(jc,jb,1)) * div_coeff(jc,level,jb,1) + &
             & vec_e(iidx(jc,jb,2),iblk(jc,jb,2)) * div_coeff(jc,level,jb,2) + &
             & vec_e(iidx(jc,jb,3),iblk(jc,jb,3)) * div_coeff(jc,level,jb,3)
-            
+
         END DO
     END DO
 !$OMP END DO
-    
+
 !$OMP END PARALLEL
 #ifndef __SX__
     IF (ltimer) CALL timer_stop(timer_div)
 #endif
   END SUBROUTINE div_oce_3d_1level
   !-------------------------------------------------------------------------
-  
+
 
   !-------------------------------------------------------------------------
   !>
@@ -462,7 +458,7 @@ CONTAINS
     !REAL(wp), INTENT(in)              ::  div_coeff(:,:,:,:), rot_coeff(:,:,:,:)
     TYPE(t_cartesian_coordinates), INTENT(in) :: p_vn_dual(nproma,n_zlev,ptr_patch%nblks_v)
     REAL(wp), INTENT(inout)           ::  nabla2_vec_e(:,:,:)  ! dim: (nproma,n_zlev,nblks_e)
-    
+
     !
     !Local variables
     INTEGER :: slev, elev     ! vertical start and end level
@@ -473,13 +469,13 @@ CONTAINS
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     REAL(wp) ::  z_div_c(nproma,n_zlev,ptr_patch%nblks_c)!, &
     !  &  z_rot_v(nproma,n_zlev,ptr_patch%nblks_v)
-    
+
     INTEGER,  DIMENSION(:,:,:),   POINTER :: icidx, icblk, ividx, ivblk
     TYPE(t_subset_range), POINTER :: edges_in_domain
-    ! note that this will go through the lateral boundaries      
+    ! note that this will go through the lateral boundaries
     !-----------------------------------------------------------------------
     edges_in_domain => ptr_patch%edges%in_domain
-    
+
     slev = 1
     elev = n_zlev
 
@@ -487,7 +483,7 @@ CONTAINS
     icblk => ptr_patch%edges%cell_blk
     ividx => ptr_patch%edges%vertex_idx
     ivblk => ptr_patch%edges%vertex_blk
-    
+
     ! compute divergence of vector field
     CALL div_oce_3d( u_vec_e, ptr_patch, p_op_coeff%div_coeff, z_div_c)
     ! DO jk = slev, elev
@@ -496,7 +492,7 @@ CONTAINS
     ! compute rotation of vector field for the ocean
     !CALL rot_vertex_ocean_3D( ptr_patch, u_vec_e, p_vn_dual, p_op_coeff, z_rot_v)!
     !z_rot_v=vort
-    
+
     !
     !  loop through all patch edges (and blocks)
     !
@@ -504,10 +500,10 @@ CONTAINS
       CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
       DO je = i_startidx, i_endidx
         DO jk = slev, elev
-          
+
           !DO je = i_startidx, i_endidx
           !IF(v_base%lsm_oce_e(je,jk,jb) < land_boundary)THEN
-          
+
           nabla2_vec_e(je,jk,jb) =  &
             & k_h(je,jk,jb)* v_base%wet_e(je,jk,jb)*     &
             & (ptr_patch%edges%system_orientation(je,jb) *  &
@@ -529,10 +525,10 @@ CONTAINS
         END DO
       END DO
     END DO
-    
+
   END SUBROUTINE nabla2_vec_ocean_3d
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !>
   !!  Computes directional derivative of a cell centered variable in presence of lateral boundaries
@@ -555,7 +551,7 @@ CONTAINS
   !!  mpi note: the result is not synced. Should be done in the calling method if required
   SUBROUTINE grad_fd_norm_oce( psi_c, ptr_patch, grad_norm_psi_e, &
     & opt_slev, opt_elev )
-    
+
     !  patch on which computation is performed
     !
     TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
@@ -564,31 +560,31 @@ CONTAINS
     !
     REAL(wp), INTENT(in) ::  &
       & psi_c(:,:,:)       ! dim: (nproma,n_zlev,nblks_c)
-    
+
     INTEGER, INTENT(in), OPTIONAL ::  &
       & opt_slev    ! optional vertical start level
-    
+
     INTEGER, INTENT(in), OPTIONAL ::  &
       & opt_elev    ! optional vertical end level
-        
+
     !
     !  edge based variable in which normal derivative is stored
     !
     !REAL(wp), INTENT(out) ::  &
     REAL(wp), INTENT(inout) ::  &
       & grad_norm_psi_e(:,:,:)  ! dim: (nproma,n_zlev,nblks_e)
-    
+
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: je, jk, jb
     INTEGER :: i_startidx, i_endidx
     INTEGER :: nlen, nblks_e, npromz_e
-    
+
     INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
-    TYPE(t_subset_range), POINTER :: edges_in_domain        
+    TYPE(t_subset_range), POINTER :: edges_in_domain
     !
     !-----------------------------------------------------------------------
     edges_in_domain => ptr_patch%edges%in_domain
-    
+
     ! check optional arguments
     IF ( PRESENT(opt_slev) ) THEN
       slev = opt_slev
@@ -600,10 +596,10 @@ CONTAINS
     ELSE
       elev = n_zlev
     END IF
-        
+
     iidx => ptr_patch%edges%cell_idx
     iblk => ptr_patch%edges%cell_blk
-    
+
     !
     !  loop through all patch edges (and blocks)
     !
@@ -612,12 +608,12 @@ CONTAINS
 #endif
 !$OMP PARALLEL
     ! The special treatment of 2D fields is essential for efficiency on the NEC
-    
+
     SELECT CASE (ptr_patch%cell_type)
-    
+
     CASE (3) ! (cell_type == 3)
-      
-      
+
+
 #ifdef __SX__
       IF (slev > 1) THEN
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk)
@@ -645,12 +641,12 @@ CONTAINS
               !ENDIF
             ENDDO
           END DO
-          
+
         END DO
 !$OMP END DO
       ELSE
 #endif
-        
+
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk)
         DO jb = edges_in_domain%start_block, edges_in_domain%end_block
           CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
@@ -681,8 +677,8 @@ CONTAINS
 #ifdef __SX__
       ENDIF
 #endif
-      
-      
+
+
     CASE (6) ! (cell_type == 6)
       ! no grid refinement in hexagonal model
       nblks_e   = ptr_patch%nblks_int_e
@@ -690,7 +686,7 @@ CONTAINS
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk)
       DO jb = edges_in_domain%start_block, edges_in_domain%end_block
         CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
-        
+
         DO jk = slev, elev
           DO je = 1, nlen
             !
@@ -706,7 +702,7 @@ CONTAINS
           ENDDO
         END DO
       END DO
-      
+
 !$OMP END DO
     END SELECT
 !$OMP END PARALLEL
@@ -742,7 +738,7 @@ CONTAINS
     REAL(wp), INTENT(in)    :: psi_c(:,:)             ! dim: (nproma,nblks_c)
     REAL(wp), INTENT(in)    :: grad_coeff(:,:,:)
     REAL(wp), INTENT(inout) ::  grad_norm_psi_e(:,:)  ! dim: (nproma,nblks_e)
-    
+
     !!
     !!local variables
     INTEGER :: slev, elev     ! vertical start and end level
@@ -750,12 +746,12 @@ CONTAINS
     INTEGER :: i_startidx, i_endidx
     INTEGER :: nlen, nblks_e, npromz_e
     INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
-    TYPE(t_subset_range), POINTER :: edges_in_domain        
+    TYPE(t_subset_range), POINTER :: edges_in_domain
     !-----------------------------------------------------------------------
     edges_in_domain => ptr_patch%edges%in_domain
     slev = 1
     elev = 1
-    
+
     iidx => ptr_patch%edges%cell_idx
     iblk => ptr_patch%edges%cell_blk
         !
@@ -772,7 +768,7 @@ CONTAINS
 #ifdef _URD
 !CDIR UNROLL=_URD
 #endif
-      
+
       DO je = i_startidx, i_endidx
         ! compute the normal derivative
         ! by the finite difference approximation
@@ -827,7 +823,7 @@ CONTAINS
     !
     !REAL(wp), INTENT(out) ::  &
     REAL(wp), INTENT(inout) ::  grad_norm_psi_e(:,:)  ! dim: (nproma,nblks_e)
-    
+
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: je, jb
     INTEGER :: rl_start, rl_end
@@ -835,16 +831,16 @@ CONTAINS
     INTEGER :: nlen, nblks_e, npromz_e
     INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
     !
-    TYPE(t_subset_range), POINTER :: edges_in_domain        
+    TYPE(t_subset_range), POINTER :: edges_in_domain
     !-----------------------------------------------------------------------
     edges_in_domain => ptr_patch%edges%in_domain
-    
+
     slev = 1
     elev = 1
-    
+
     iidx => ptr_patch%edges%cell_idx
     iblk => ptr_patch%edges%cell_blk
-    
+
     !
     !  loop through all patch edges (and blocks)
     !
@@ -853,9 +849,9 @@ CONTAINS
 #endif
 !$OMP PARALLEL
     ! The special treatment of 2D fields is essential for efficiency on the NEC
-    
+
     SELECT CASE (ptr_patch%cell_type)
-    
+
     CASE (3) ! (cell_type == 3)
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je)
       DO jb = edges_in_domain%start_block, edges_in_domain%end_block
@@ -879,12 +875,12 @@ CONTAINS
         END DO
       END DO
 !$OMP END DO
-      
+
     CASE (6) ! (cell_type == 6)
       ! no grid refinement in hexagonal model
       nblks_e   = ptr_patch%nblks_int_e
       npromz_e  = ptr_patch%npromz_int_e
-      
+
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je)
       DO jb = edges_in_domain%start_block, edges_in_domain%end_block
         CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
@@ -908,7 +904,7 @@ CONTAINS
 #endif
   END SUBROUTINE grad_fd_norm_oce_2d
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !>
   !! Computes discrete divergence of a vector field in presence of lateral boundaries as in ocean setting.
@@ -934,7 +930,7 @@ CONTAINS
   !! - Boundary treatment for the ocean
   !! Modification by Stephan Lorenz, MPI-M (2010-08-05)
   !! - New boundary definition with inner and boundary points on land/sea
-  !! 
+  !!
   !!  mpi parallelized LL. By default it calculates the div on all cells
   !!    in case of an optional range sync has to be taken care in the calling method
   !!
@@ -951,24 +947,24 @@ CONTAINS
     !
     REAL(wp), INTENT(inout) ::  &
       & vec_e(:,:,:) ! dim: (nproma,n_zlev,nblks_e)
-    
+
     INTEGER, INTENT(in), OPTIONAL ::  &
       & opt_slev    ! optional vertical start level
-    
+
     INTEGER, INTENT(in), OPTIONAL ::  &
       & opt_elev    ! optional vertical end level
     TYPE(t_subset_range), TARGET, OPTIONAL :: subset_range
-        
+
     !
     ! cell based variable in which divergence is stored
     !
     REAL(wp), INTENT(inout) :: div_vec_c(:,:,:) ! dim: (nproma,n_zlev,nblks_c)
-    
+
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: jc, jk, jb, je
     INTEGER :: i_startidx, i_endidx, i_nchdom
     TYPE(t_subset_range), POINTER :: all_cells
-    
+
     INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
     !-----------------------------------------------------------------------
     IF ( PRESENT(opt_slev) ) THEN
@@ -976,7 +972,7 @@ CONTAINS
     ELSE
       all_cells => ptr_patch%cells%all
     ENDIF
-    
+
     ! check optional arguments
     IF ( PRESENT(opt_slev) ) THEN
       slev = opt_slev
@@ -988,27 +984,27 @@ CONTAINS
     ELSE
       elev = n_zlev
     END IF
-        
+
     iidx => ptr_patch%cells%edge_idx
     iblk => ptr_patch%cells%edge_blk
-        
+
     ! loop through all patch cells (and blocks)
     !
 #ifndef __SX__
     IF (ltimer) CALL timer_start(timer_div)
 #endif
 !$OMP PARALLEL
-    
+
     ! The special treatment of 2D fields is essential for efficiency on the NEC
-    
+
     SELECT CASE (ptr_patch%cell_type)
-    
+
     CASE (3) ! (cell_type == 3)
-      
+
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
-        
+
 #ifdef __SX__
 !CDIR UNROLL=6
 #endif
@@ -1031,7 +1027,7 @@ CONTAINS
             ! (put corresponding velocity to zero).
             ! sea, sea_boundary, boundary (edges only), land_boundary, land =
             !  -2,      -1,         0,                  1,             2
-            
+
             !IF ( v_base%lsm_oce_c(jc,jk,jb) > sea_boundary ) THEN
             !  div_vec_c(jc,jk,jb) = 0.0_wp
             !ELSE
@@ -1046,17 +1042,17 @@ CONTAINS
         END DO
       END DO
 !$OMP END DO
-      
+
     CASE (6) ! (cell_type == 6)
-      
+
       ! no grid refinement in hexagonal model
-      
+
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
-        
+
         div_vec_c(:,slev:elev,jb) = 0.0_wp
-        
+
         DO je = 1, ptr_patch%cell_type
           DO jk = slev, elev
             DO jc = i_startidx, i_endidx
@@ -1073,15 +1069,15 @@ CONTAINS
               ! ptr_patch%grid%cells%edge_orientation)
               !
               IF (je > ptr_patch%cells%num_edges(jc,jb)) CYCLE
-              
+
               div_vec_c(jc,jk,jb) =  div_vec_c(jc,jk,jb) +   &
                 & vec_e(iidx(jc,jb,je),jk,iblk(jc,jb,je)) &
                 & * p_int_state(1)%geofac_div(jc,je,jb)
-              
+
             END DO
           END DO
         END DO
-        
+
       END DO
     END SELECT
 !$OMP END PARALLEL
@@ -1090,7 +1086,7 @@ CONTAINS
 #endif
   END SUBROUTINE div_oce
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !! Computes the discrete rotation at vertices in presence of boundaries as in the ocean setting.
   !! Computes in presence of boundaries the discrete rotation at vertices
@@ -1112,7 +1108,7 @@ CONTAINS
     TYPE(t_cartesian_coordinates), INTENT(in) :: p_vn_dual(nproma,n_zlev,p_patch%nblks_v)
     TYPE(t_operator_coeff),TARGET, INTENT(in) :: p_op_coeff
     REAL(wp), INTENT(inout)                   :: rot_vec_v(:,:,:)
-    
+
     !Local variables
     !
     REAL(wp) :: z_vort_int
@@ -1122,31 +1118,31 @@ CONTAINS
     INTEGER :: ile, ibe
     INTEGER :: il_v1, il_v2,ib_v1, ib_v2
     INTEGER :: i_startidx_v, i_endidx_v
-    
+
     REAL(wp) :: z_vt(nproma,n_zlev,p_patch%nblks_e)
     !INTEGER,PARAMETER :: ino_dual_edges = 6
     INTEGER, POINTER :: ibnd_edge_idx(:,:,:,:), ibnd_edge_blk(:,:,:,:), i_edge_idx(:,:,:,:)
     REAL(wp), POINTER :: z_orientation(:,:,:,:)
-   
-    TYPE(t_subset_range), POINTER :: verts_in_domain        
-    
+
+    TYPE(t_subset_range), POINTER :: verts_in_domain
+
     !-----------------------------------------------------------------------
     verts_in_domain => p_patch%verts%in_domain
     slev         = 1
     elev         = n_zlev
-    
-    
+
+
     z_vort_boundary  = 0.0_wp
     rot_vec_v(:,:,:) = 0.0_wp
     z_vt(:,:,:)      = 0.0_wp
-    
+
     !set pointer that carry edge information
     ibnd_edge_idx    => p_op_coeff%bnd_edge_idx
     ibnd_edge_blk    => p_op_coeff%bnd_edge_blk
     i_edge_idx       => p_op_coeff%edge_idx
     z_orientation    => p_op_coeff%orientation
-    
-    
+
+
     !In this loop tangential velocity is calulated at boundaries
     DO jb = verts_in_domain%start_block, verts_in_domain%end_block
       CALL get_index_range(verts_in_domain, jb, i_startidx_v, i_endidx_v)
@@ -1154,20 +1150,20 @@ CONTAINS
         !!$OMP PARALLEL DO SCHEDULE(runtime) DEFAULT(PRIVATE)  &
         !!$OMP   SHARED(u_vec_e,v_vec_e,ptr_patch,rot_vec_v,jb) FIRSTPRIVATE(jk)
         DO jv = i_startidx_v, i_endidx_v
-          
+
           DO jev = 1, p_patch%verts%num_edges(jv,jb)
-            
+
             ! get line and block indices of edge jev around vertex jv
             ile = p_patch%verts%edge_idx(jv,jb,jev)
             ibe = p_patch%verts%edge_blk(jv,jb,jev)
-            
+
             IF ( v_base%lsm_oce_e(ile,jk,ibe) == boundary ) THEN
               !calculate tangential velocity
               il_v1 = p_patch%edges%vertex_idx(ile,ibe,1)
               ib_v1 = p_patch%edges%vertex_blk(ile,ibe,1)
               il_v2 = p_patch%edges%vertex_idx(ile,ibe,2)
               ib_v2 = p_patch%edges%vertex_blk(ile,ibe,2)
-              
+
               z_vt(ile,jk,ibe)= &
                 & - DOT_PRODUCT(p_vn_dual(il_v1,jk,ib_v1)%x,&
                 & p_int_state(1)%edge2vert_coeff_cc_t(ile,ibe,2)%x)&
@@ -1179,9 +1175,9 @@ CONTAINS
         !!$OMP END PARALLEL DO
       END DO
     END DO
-    
-    
-    
+
+
+
     !In this loop vorticity at vertices is calculated
     DO jb = verts_in_domain%start_block, verts_in_domain%end_block
       CALL get_index_range(verts_in_domain, jb, i_startidx_v, i_endidx_v)
@@ -1189,11 +1185,11 @@ CONTAINS
         !!$OMP PARALLEL DO SCHEDULE(runtime) DEFAULT(PRIVATE)  &
         !!$OMP   SHARED(u_vec_e,v_vec_e,ptr_patch,rot_vec_v,jb) FIRSTPRIVATE(jk)
         DO jv = i_startidx_v, i_endidx_v
-          
+
           z_vort_int = 0.0_wp
-          
+
           DO jev = 1, p_patch%verts%num_edges(jv,jb)
-            
+
             ! get line and block indices of edge jev around vertex jv
             ile = p_patch%verts%edge_idx(jv,jb,jev)
             ibe = p_patch%verts%edge_blk(jv,jb,jev)
@@ -1203,27 +1199,27 @@ CONTAINS
             !  -2,      -1,         0,                  1,             2
             !Distinction between sea-lean-boundary is taken into account by coeffcients.
             !It is assumed here that vn is already zero at boundary edges.
-            
+
             z_vort_int = z_vort_int + vn(ile,jk,ibe)*p_op_coeff%rot_coeff(jv,jk,jb,jev)
           END DO
-          
+
           !Finalize vorticity calculation by closing the dual loop along boundary edges
           !IF(i_v_bnd_edge_ctr(jv,jk,jb)==2)THEN
           IF(p_op_coeff%bnd_edges_per_vertex(jv,jk,jb)==2)THEN
-            
+
             z_vort_boundary(jv,jk,jb)=&
               & z_vt(ibnd_edge_idx(jv,jk,jb,1),jk,ibnd_edge_blk(jv,jk,jb,1))&
               & *p_op_coeff%rot_coeff(jv,jk,jb,i_edge_idx(jv,jk,jb,1))&
               & +&
               & z_vt(ibnd_edge_idx(jv,jk,jb,2),jk,ibnd_edge_blk(jv,jk,jb,2))&
               & *p_op_coeff%rot_coeff(jv,jk,jb,i_edge_idx(jv,jk,jb,2))
-            
+
             !ELSEIF(i_v_bnd_edge_ctr(jv,jk,jb)==4)THEN
           ELSEIF(p_op_coeff%bnd_edges_per_vertex(jv,jk,jb)==4)THEN
             !In case of 4 boundary edges within a dual loop, we have 2 land triangles
             !around the vertex. these two land triangles have one vertex in common and are
             !seperated by two wet triangles
-            
+
             z_vort_boundary(jv,jk,jb)=&
               & z_vt(ibnd_edge_idx(jv,jk,jb,1),jk,ibnd_edge_blk(jv,jk,jb,1))&
               & *p_op_coeff%rot_coeff(jv,jk,jb,i_edge_idx(jv,jk,jb,1))&
@@ -1237,7 +1233,7 @@ CONTAINS
               & z_vt(ibnd_edge_idx(jv,jk,jb,4),jk,ibnd_edge_blk(jv,jk,jb,4))&
               & *p_op_coeff%rot_coeff(jv,jk,jb,i_edge_idx(jv,jk,jb,4))
           ENDIF
-          
+
           !Final vorticity calculation
           rot_vec_v(jv,jk,jb) = (z_vort_int + z_vort_boundary(jv,jk,jb)) / &
             & p_patch%verts%dual_area(jv,jb)
@@ -1246,7 +1242,7 @@ CONTAINS
         !!$OMP END PARALLEL DO
       END DO
     END DO
-    
+
     ! DO jb = i_startblk_v, i_endblk_v
     !   CALL get_indices_v(p_patch, jb, i_startblk_v, i_endblk_v, &
     !                      i_startidx_v, i_endidx_v, rl_start_v, rl_end_v)
@@ -1261,7 +1257,7 @@ CONTAINS
     ! END DO
   END SUBROUTINE rot_vertex_ocean_3d
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !
   !! Computes the discrete rotation at vertices in presence of boundaries as in the ocean setting.
@@ -1284,14 +1280,14 @@ CONTAINS
     REAL(wp), INTENT(inout)           :: vn(:,:,:)
     TYPE(t_cartesian_coordinates)  :: p_vn_dual(nproma,n_zlev,p_patch%nblks_v)
     REAL(wp), INTENT(inout)        :: rot_vec_v(:,:,:)
-    
+
     !Local variables
     !
     REAL(wp) :: z_vort_tmp, z_vort_tmp_boundary(nproma,n_zlev,p_patch%nblks_v)
     !REAL(wp) :: z_weight(nproma,n_zlev,p_patch%nblks_v)
     REAL(wp) :: zarea_fraction
     !REAL(wp) :: z_area_scaled
-    
+
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: jv, jk, jb, jev
     INTEGER :: ile, ibe
@@ -1308,14 +1304,14 @@ CONTAINS
     REAL(wp) :: z_vt(nproma,n_zlev,p_patch%nblks_e)
     !TYPE(t_cartesian_coordinates) :: vertex_cc!cell1_cc, cell2_cc
     !INTEGER,PARAMETER :: ino_dual_edges = 6
-    
-    TYPE(t_subset_range), POINTER :: verts_in_domain        
+
+    TYPE(t_subset_range), POINTER :: verts_in_domain
     !-----------------------------------------------------------------------
     verts_in_domain => p_patch%verts%in_domain
-    
+
     slev         = 1
     elev         = n_zlev
-    
+
     ! #slo# due to nag -nan compiler-option
     i_v_ctr(:,:,:)          = 0
     i_v_bnd_edge_ctr(:,:,:) = 0
@@ -1325,7 +1321,7 @@ CONTAINS
     z_vt(:,:,:)             = 0.0_wp
     z_orientation(1:4)      = 0.0_wp
     z_vort_tmp_boundary     = 0.0_wp
-    
+
     !In this loop vorticity at vertices is calculated
     DO jb = verts_in_domain%start_block, verts_in_domain%end_block
       CALL get_index_range(verts_in_domain, jb, i_startidx_v, i_endidx_v)
@@ -1333,19 +1329,19 @@ CONTAINS
         !!$OMP PARALLEL DO SCHEDULE(runtime) DEFAULT(PRIVATE)  &
         !!$OMP   SHARED(u_vec_e,v_vec_e,ptr_patch,rot_vec_v,jb) FIRSTPRIVATE(jk)
         DO jv = i_startidx_v, i_endidx_v
-          
+
           z_vort_tmp          = 0.0_wp
           zarea_fraction      = 0.0_wp
-          
+
           !vertex_cc = gc2cc(p_patch%verts%vertex(jv,jb))
           DO jev = 1, p_patch%verts%num_edges(jv,jb)
-            
+
             ! get line and block indices of edge jev around vertex jv
             ile = p_patch%verts%edge_idx(jv,jb,jev)
             ibe = p_patch%verts%edge_blk(jv,jb,jev)
             !Check, if edge is sea or boundary edge and take care of dummy edge
             ! edge with indices ile, ibe is sea edge
-            
+
             IF ( v_base%lsm_oce_e(ile,jk,ibe) == sea) THEN
               !Distinguish the following cases
               ! edge ie_k is
@@ -1359,29 +1355,29 @@ CONTAINS
               z_vort_tmp = z_vort_tmp + vn(ile,jk,ibe)                   &
                 & * p_patch%edges%dual_edge_length(ile,ibe)  &
                 & * p_patch%verts%edge_orientation(jv,jb,jev)
-              
-              
+
+
               !increase wet edge ctr
               i_v_ctr(jv,jk,jb)=i_v_ctr(jv,jk,jb)+1
-              
+
               ! edge with indices ile, ibe is boundary edge
             ELSE IF ( v_base%lsm_oce_e(ile,jk,ibe) == boundary ) THEN
-              
+
               !calculate tangential velocity
               il_v1 = p_patch%edges%vertex_idx(ile,ibe,1)
               ib_v1 = p_patch%edges%vertex_blk(ile,ibe,1)
               il_v2 = p_patch%edges%vertex_idx(ile,ibe,2)
               ib_v2 = p_patch%edges%vertex_blk(ile,ibe,2)
-              
+
               z_vt(ile,jk,ibe)= &
                 & - DOT_PRODUCT(p_vn_dual(il_v1,jk,ib_v1)%x,&
                 & p_int_state(1)%edge2vert_coeff_cc_t(ile,ibe,2)%x)&
                 & + DOT_PRODUCT(p_vn_dual(il_v2,jk,ib_v2)%x,&
                 & p_int_state(1)%edge2vert_coeff_cc_t(ile,ibe,1)%x)
-              
+
               !increase boundary edge counter
               i_v_bnd_edge_ctr(jv,jk,jb)=i_v_bnd_edge_ctr(jv,jk,jb)+1
-              
+
               !Store actual boundary edge indices
               IF(i_v_bnd_edge_ctr(jv,jk,jb)==1)THEN
                 ibnd_edge_idx(1) = ile
@@ -1412,14 +1408,14 @@ CONTAINS
               ENDIF
             END IF
           END DO
-          
+
           IF ( i_v_ctr(jv,jk,jb) == p_patch%verts%num_edges(jv,jb) ) THEN
-            
+
             rot_vec_v(jv,jk,jb) = z_vort_tmp/p_patch%verts%dual_area(jv,jb)! (re*re*z_weight(jv,jk,jb))!
-            
+
             !Finalize vorticity calculation by closing the dual loop along boundary edges
           ELSEIF(i_v_bnd_edge_ctr(jv,jk,jb)==2)THEN!(i_v_ctr(jv,jk,jb)==2)THEN
-            
+
             z_vort_tmp_boundary(jv,jk,jb) =&
             !& p_patch%edges%system_orientation(ibnd_edge_idx(1),ibnd_edge_blk(1))*&
               & z_orientation(1)*&
@@ -1430,12 +1426,12 @@ CONTAINS
               & z_orientation(2)*&
               & z_vt(ibnd_edge_idx(2),jk,ibnd_edge_blk(2)) &
               & *p_patch%edges%primal_edge_length(ibnd_edge_idx(2),ibnd_edge_blk(2))
-            
+
             rot_vec_v(jv,jk,jb) = (z_vort_tmp+0.5_wp*z_vort_tmp_boundary(jv,jk,jb))&
               & /p_patch%verts%dual_area(jv,jb)!z_area_scaled
-            
+
           ELSEIF(i_v_bnd_edge_ctr(jv,jk,jb)==4)THEN!(i_v_ctr(jv,jk,jb)==4)THEN
-            
+
             !In case of 4 boundary edges within a dual loop, we have 2 land triangles
             !around the vertex. these two land triangles have one vertex in common and are
             !seperated by two wet triangles.
@@ -1455,17 +1451,17 @@ CONTAINS
               & z_orientation(4)*&
               & z_vt(ibnd_edge_idx(4),jk,ibnd_edge_blk(4)) &
               & *p_patch%edges%primal_edge_length(ibnd_edge_idx(4),ibnd_edge_blk(4))
-            
+
             rot_vec_v(jv,jk,jb) = (z_vort_tmp+0.5_wp*z_vort_tmp_boundary(jv,jk,jb))&
               & /p_patch%verts%dual_area(jv,jb)!z_area_scaled
-            
+
           ENDIF
           !ENDIF
         END DO
         !!$OMP END PARALLEL DO
       END DO
     END DO
-    
+
     ! DO jb = i_startblk_v, i_endblk_v
     !   CALL get_indices_v(p_patch, jb, i_startblk_v, i_endblk_v, &
     !                      i_startidx_v, i_endidx_v, rl_start_v, rl_end_v)
@@ -1480,14 +1476,14 @@ CONTAINS
     ! END DO
   END SUBROUTINE rot_vertex_ocean
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !! Computes the discrete rotation at vertices in presence of boundaries as in the ocean setting.
   !! Computes in presence of boundaries the discrete rotation at vertices
   !! of triangle cells (centers of dual grid cells) from a vector field
   !! given by its components in the directions normal to triangle edges and
   !! takes the presence of boundaries into account.
-  
+
   !! This sbr calculates the vorticity for RBF discretization. A second one for the Mimetic-branch
   !! can be found above. The two sbr use the same approach to calculate the curl, but they differ
   !! in the calculation of the tangential velocity, which is only need at lateral boundaries. Mimetic
@@ -1495,7 +1491,7 @@ CONTAINS
   !! a specific routine for that purpose. The RBF-sbr has to be called before rot_vertex_ocean_rbf,
   !! and the tangential velocity is passed as an argument.
   !!  mpi note: the result is not synced. Should be done in the calling method if required
-  !!  
+  !!
   SUBROUTINE rot_vertex_ocean_rbf( p_patch, vn, vt, rot_vec_v)
     !>
     !!
@@ -1503,20 +1499,20 @@ CONTAINS
     REAL(wp), INTENT(in)           :: vn(:,:,:)
     REAL(wp), INTENT(in)           :: vt(:,:,:)
     REAL(wp), INTENT(inout)        :: rot_vec_v(:,:,:)
-    
+
     !Local variables
     !
     REAL(wp) :: z_vort_tmp, z_vort_tmp_boundary
     !REAL(wp) :: z_weight(nproma,n_zlev,p_patch%nblks_v)
     REAL(wp) :: zarea_fraction
-    
+
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: jv, jk, jb, jev
     INTEGER :: ile, ibe
     INTEGER :: rl_start_e, rl_end_e
     INTEGER :: i_startblk_v, i_endblk_v, i_startidx_v, i_endidx_v
     INTEGER :: i_startblk_e, i_endblk_e!, i_startidx_e, i_endidx_e
-    
+
     !INTEGER :: i_bdr_ctr
     !INTEGER :: icell_idx_1, icell_blk_1
     !INTEGER :: icell_idx_2, icell_blk_2
@@ -1528,16 +1524,16 @@ CONTAINS
     REAL(wp) :: z_orientation(4)
     TYPE(t_cartesian_coordinates) :: vertex_cc! cell1_cc, cell2_cc
     !INTEGER,PARAMETER :: ino_dual_edges = 6
-    
+
     INTEGER,PARAMETER :: rl_start_v = 2
     INTEGER,PARAMETER :: rl_end_v   = min_rlvert
-    TYPE(t_subset_range), POINTER :: verts_in_domain        
+    TYPE(t_subset_range), POINTER :: verts_in_domain
     !-----------------------------------------------------------------------
     verts_in_domain => p_patch%verts%in_domain
-    
+
     slev         = 1
     elev         = n_zlev
-    
+
     ! #slo# due to nag -nan compiler-option
     i_v_ctr(:,:,:)          = 0
     i_v_bnd_edge_ctr(:,:,:) = 0
@@ -1545,22 +1541,22 @@ CONTAINS
     ibnd_edge_blk(1:4)      = 0
     rot_vec_v(:,:,:)        = 0.0_wp
     z_orientation(1:4)      = 0.0_wp
-    
+
     !In this loop vorticity at vertices is calculated
     DO jb = verts_in_domain%start_block, verts_in_domain%end_block
       CALL get_index_range(verts_in_domain, jb, i_startidx_v, i_endidx_v)
       DO jk = slev, elev
-        
+
         DO jv = i_startidx_v, i_endidx_v
-          
+
           z_vort_tmp          = 0.0_wp
           zarea_fraction      = 0.0_wp
           !i_bdr_ctr           = 0
           !z_weight(jv,jk,jb) = 0.0_wp
-          
+
           vertex_cc = p_patch%verts%cartesian(jv,jb)
           DO jev = 1, p_patch%verts%num_edges(jv,jb)
-            
+
             ! get line and block indices of edge jev around vertex jv
             ile = p_patch%verts%edge_idx(jv,jb,jev)
             ibe = p_patch%verts%edge_blk(jv,jb,jev)
@@ -1579,22 +1575,22 @@ CONTAINS
               z_vort_tmp = z_vort_tmp + vn(ile,jk,ibe)                   &
                 & * p_patch%edges%dual_edge_length(ile,ibe)  &
                 & * p_patch%verts%edge_orientation(jv,jb,jev)
-              
+
               !z_weight might be an alternative to dual_area and can include
               !varying height in top layer. Differences have to be explored.
               !z_weight(jv,jk,jb) = z_weight(jv,jk,jb) &
               !&+ p_int_state(1)%variable_dual_vol_norm(jv,jb,jev)!*z_thick
-              
-              
+
+
               !increase wet edge ctr
               i_v_ctr(jv,jk,jb)=i_v_ctr(jv,jk,jb)+1
-              
+
               ! edge with indices ile, ibe is boundary edge
             ELSE IF ( v_base%lsm_oce_e(ile,jk,ibe) == boundary ) THEN
-              
+
               !increase boundary edge counter
               i_v_bnd_edge_ctr(jv,jk,jb) = i_v_bnd_edge_ctr(jv,jk,jb)+1
-              
+
               !Store actual boundary edge indices
               IF(i_v_bnd_edge_ctr(jv,jk,jb)==1)THEN
                 ibnd_edge_idx(1) = ile
@@ -1625,19 +1621,19 @@ CONTAINS
               ENDIF
             END IF
           END DO
-          
+
           !write(*,*)'no: sea edges+bnd edges',i_v_ctr(jv,jk,jb),i_v_bnd_edge_ctr(jv,jk,jb)
           !
           !divide by hex/pentagon area, if all dual cells are in the ocean interior
           !divide by apropriate fraction if boundaries are involved
-          
+
           IF ( i_v_ctr(jv,jk,jb) == p_patch%verts%num_edges(jv,jb) ) THEN
-            
+
             rot_vec_v(jv,jk,jb) = z_vort_tmp /p_patch%verts%dual_area(jv,jb)! (re*re*z_weight(jv,jk,jb))!
-            
-            
+
+
           ELSEIF(i_v_ctr(jv,jk,jb)/=0)THEN!boundary edges are involved
-            
+
             !Modified area calculation
             ! !         DO jev = 1, p_patch%verts%num_edges(jv,jb)
             ! !           ! get line and block indices of edge jev around vertex jv
@@ -1664,10 +1660,10 @@ CONTAINS
             ! !         END DO
             ! !         z_area_scaled   = zarea_fraction*re*re
             !z_area_scaled       = p_patch%verts%dual_area(jv,jb)/(re*re)
-            
+
             !Finalize vorticity calculation by closing the dual loop along boundary edges
             IF(i_v_ctr(jv,jk,jb)==2)THEN
-              
+
               z_vort_tmp_boundary =&
               !& p_patch%edges%system_orientation(ibnd_edge_idx(1),ibnd_edge_blk(1))*&
                 & z_orientation(1)*&
@@ -1678,14 +1674,14 @@ CONTAINS
                 & z_orientation(2)*&
                 & vt(ibnd_edge_idx(2),jk,ibnd_edge_blk(2)) &
                 & *p_patch%edges%primal_edge_length(ibnd_edge_idx(2),ibnd_edge_blk(2))
-              
+
               rot_vec_v(jv,jk,jb) = (z_vort_tmp+0.5_wp*z_vort_tmp_boundary)&
                 & /p_patch%verts%dual_area(jv,jb)!z_area_scaled
-              
+
               !  write(*,*)'vorticity:',jv,jk,jb,z_vort_tmp,z_vort_tmp/zarea_fraction,&
               !  &z_vort_tmp_boundary,0.5_wp*z_vort_tmp_boundary/zarea_fraction, vort_v(jv,jk,jb)
             ELSEIF(i_v_ctr(jv,jk,jb)==4)THEN
-              
+
               !In case of 4 boundary edges within a dual loop, we have 2 land triangles
               !around the vertex. these two land triangles have one vertex in common and are
               !seperated by two wet triangles.
@@ -1705,55 +1701,55 @@ CONTAINS
                 & z_orientation(4)*&
                 & vt(ibnd_edge_idx(4),jk,ibnd_edge_blk(4)) &
                 & *p_patch%edges%primal_edge_length(ibnd_edge_idx(4),ibnd_edge_blk(4))
-              
+
               rot_vec_v(jv,jk,jb) = (z_vort_tmp+0.5_wp*z_vort_tmp_boundary)&
                 & /p_patch%verts%dual_area(jv,jb)!z_area_scaled
             ENDIF
           ENDIF
         END DO
-      
+
       END DO
     END DO
   END SUBROUTINE rot_vertex_ocean_rbf
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   ELEMENTAL FUNCTION triangle_area (x0, x1, x2) result(area)
-    
+
     TYPE(t_cartesian_coordinates), INTENT(in) :: x0, x1, x2
-    
+
     REAL(wp) :: area
     REAL(wp) :: z_s12, z_s23, z_s31, z_ca1, z_ca2, z_ca3, z_a1, z_a2, z_a3
-    
+
     TYPE(t_cartesian_coordinates) :: u12, u23, u31
-    
+
     ! This variant to calculate the area of a spherical triangle
     ! is more precise.
-    
+
     !  Compute cross products Uij = Vi x Vj.
     u12 = vector_product (x0, x1)
     u23 = vector_product (x1, x2)
     u31 = vector_product (x2, x0)
-    
+
     !  Normalize Uij to unit vectors.
     z_s12 = DOT_PRODUCT ( u12%x(1:3), u12%x(1:3) )
     z_s23 = DOT_PRODUCT ( u23%x(1:3), u23%x(1:3) )
     z_s31 = DOT_PRODUCT ( u31%x(1:3), u31%x(1:3) )
-    
+
     !  Test for a degenerate triangle associated with collinear vertices.
     IF ( z_s12 == 0.0_wp .OR. z_s23 == 0.0_wp  .OR. z_s31 == 0.0_wp ) THEN
       area = 0.0_wp
       RETURN
     END IF
-    
+
     z_s12 = SQRT(z_s12)
     z_s23 = SQRT(z_s23)
     z_s31 = SQRT(z_s31)
-    
+
     u12%x(1:3) = u12%x(1:3)/z_s12
     u23%x(1:3) = u23%x(1:3)/z_s23
     u31%x(1:3) = u31%x(1:3)/z_s31
-    
+
     !  Compute interior angles Ai as the dihedral angles between planes:
     !  CA1 = cos(A1) = -<U12,U31>
     !  CA2 = cos(A2) = -<U23,U12>
@@ -1761,26 +1757,26 @@ CONTAINS
     z_ca1 = -u12%x(1)*u31%x(1)-u12%x(2)*u31%x(2)-u12%x(3)*u31%x(3)
     z_ca2 = -u23%x(1)*u12%x(1)-u23%x(2)*u12%x(2)-u23%x(3)*u12%x(3)
     z_ca3 = -u31%x(1)*u23%x(1)-u31%x(2)*u23%x(2)-u31%x(3)*u23%x(3)
-    
+
     IF (z_ca1 < -1.0_wp) z_ca1 = -1.0_wp
     IF (z_ca1 >  1.0_wp) z_ca1 =  1.0_wp
     IF (z_ca2 < -1.0_wp) z_ca2 = -1.0_wp
     IF (z_ca2 >  1.0_wp) z_ca2 =  1.0_wp
     IF (z_ca3 < -1.0_wp) z_ca3 = -1.0_wp
     IF (z_ca3 >  1.0_wp) z_ca3 =  1.0_wp
-    
+
     z_a1 = ACOS(z_ca1)
     z_a2 = ACOS(z_ca2)
     z_a3 = ACOS(z_ca3)
-    
+
     !  Compute areas = z_a1 + z_a2 + z_a3 - pi.
     area = z_a1+z_a2+z_a3-pi
-    
+
     IF ( area < 0.0_wp ) area = 0.0_wp
-    
+
   END FUNCTION triangle_area
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   !
   !>
@@ -1803,9 +1799,9 @@ CONTAINS
   !!
   SUBROUTINE nabla2_vec_ocean( u_vec_e, v_vec_e, vort, ptr_patch, k_h, p_vn_dual,nabla2_vec_e,  &
     & opt_slev, opt_elev, opt_rlstart, opt_rlend )
-    
+
     !
-    
+
     !
     !  patch on which computation is performed
     !
@@ -1816,45 +1812,45 @@ CONTAINS
     !
     REAL(wp), INTENT(inout) ::  &
       & u_vec_e(:,:,:), v_vec_e(:,:,:) , vort(:,:,:)! dim: (nproma,n_zlev,nblks_e)
-    
-    
+
+
     REAL(wp), INTENT(in) ::  k_h(:,:,:)
     TYPE(t_cartesian_coordinates)  :: p_vn_dual(nproma,n_zlev,ptr_patch%nblks_v)
     INTEGER, INTENT(in), OPTIONAL ::  &
       & opt_slev    ! optional vertical start level
-    
+
     INTEGER, INTENT(in), OPTIONAL ::  &
       & opt_elev    ! optional vertical end level
-    
+
     INTEGER, INTENT(in), OPTIONAL ::  &
       & opt_rlstart, opt_rlend   ! start and end values of refin_ctrl flag
-    
+
     !
     !  edge based variable in which laplacian is stored
     !
     !REAL(wp), INTENT(out)   ::  &
     REAL(wp), INTENT(inout) ::  &
       & nabla2_vec_e(:,:,:)  ! dim: (nproma,n_zlev,nblks_e)
-    
+
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: nblks_c
     INTEGER :: je, jk, jb
     INTEGER :: rl_start, rl_end
     INTEGER :: rl_start_c, rl_end_c!, rl_start_v, rl_end_v
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
-    
+
     !INTEGER, DIMENSION(nproma) ::  &
     !  &  ilc1, ibc1, ilc2, ibc2,   &
     !  &  ilv1, ibv1, ilv2, ibv2
-    
+
     !REAL(wp) :: rorient       ! orientation of the system (v2-v1),(c2-c1)
     REAL(wp) ::  &
       & z_div_c(nproma,n_zlev,ptr_patch%nblks_c), &
       & z_rot_v(nproma,n_zlev,ptr_patch%nblks_v)
-    
+
     INTEGER,  DIMENSION(:,:,:),   POINTER :: icidx, icblk, ividx, ivblk
     !-----------------------------------------------------------------------
-    
+
     ! check optional arguments
     IF ( PRESENT(opt_slev) ) THEN
       slev = opt_slev
@@ -1866,7 +1862,7 @@ CONTAINS
     ELSE
       elev = n_zlev
     END IF
-    
+
     IF ( PRESENT(opt_rlstart) ) THEN
       IF ((opt_rlstart >= 0) .AND. (opt_rlstart <= 2)) THEN
         CALL finish ('mo_math_operators:nabla2_vec_atmos',  &
@@ -1881,15 +1877,15 @@ CONTAINS
     ELSE
       rl_end = min_rledge
     END IF
-    
+
     rl_start_c = rl_start/2
-    
+
     ! IF (rl_start > 0) THEN
     ! !  rl_start_v = (rl_start+1)/2
     ! ELSE
     ! !  rl_start_v = (rl_start-1)/2
     ! ENDIF
-    
+
     IF (rl_end > 0) THEN
       rl_end_c = (rl_end+1)/2
       !  rl_end_v = rl_end/2+1
@@ -1897,45 +1893,45 @@ CONTAINS
       rl_end_c = (rl_end-1)/2
       !  rl_end_v = rl_end/2-1
     ENDIF
-    
+
     rl_end_c = MAX(min_rlcell,rl_end_c)
     !rl_end_v = MAX(min_rlvert,rl_end_v)
-    
+
     ! values for the blocking
     nblks_c  = ptr_patch%nblks_c
-    
+
     i_nchdom   = MAX(1,ptr_patch%n_childdom)
     i_startblk = ptr_patch%edges%start_blk(rl_start,1)
     i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
-    
-    
-    
+
+
+
     icidx => ptr_patch%edges%cell_idx
     icblk => ptr_patch%edges%cell_blk
     ividx => ptr_patch%edges%vertex_idx
     ivblk => ptr_patch%edges%vertex_blk
-    
-    
+
+
     ! compute divergence of vector field
     ! the divergence on land is set to zero by div_oce
     CALL div_oce( u_vec_e, ptr_patch, z_div_c, slev, elev )
-    
-    
+
+
     ! compute rotation of vector field for the ocean
     CALL rot_vertex_ocean( ptr_patch, u_vec_e, p_vn_dual, z_rot_v)
     !z_rot_v=vort
-    
+
     !
     !  loop through all patch edges (and blocks)
     !
     DO jb = i_startblk, i_endblk
-      
+
       CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
         & i_startidx, i_endidx, rl_start, rl_end)
-      
+
       DO je = i_startidx, i_endidx
         DO jk = slev, elev
-          
+
           !DO je = i_startidx, i_endidx
           IF(v_base%lsm_oce_e(je,jk,jb) < land_boundary)THEN
             nabla2_vec_e(je,jk,jb) =  &
@@ -1958,7 +1954,7 @@ CONTAINS
         END DO
       END DO
     END DO
-    
+
   END SUBROUTINE nabla2_vec_ocean
   !-------------------------------------------------------------------------
   !
@@ -1984,47 +1980,47 @@ CONTAINS
     !
     REAL(wp), INTENT(inout) ::  &
       & u_vec_e(:,:,:), v_vec_e(:,:,:) , vort(:,:,:)! dim: (nproma,n_zlev,nblks_e)
-    
+
     TYPE(t_cartesian_coordinates) :: p_vn_dual(nproma,n_zlev,ptr_patch%nblks_v)
-    
+
     REAL(wp), INTENT(in) ::  k_h(:,:,:)
-    
+
     INTEGER, INTENT(in), OPTIONAL ::  &
       & opt_slev    ! optional vertical start level
-    
+
     INTEGER, INTENT(in), OPTIONAL ::  &
       & opt_elev    ! optional vertical end level
-    
+
     INTEGER, INTENT(in), OPTIONAL ::  &
       & opt_rlstart, opt_rlend   ! start and end values of refin_ctrl flag
-    
+
     !
     !  edge based variable in which laplacian is stored
     !
     !REAL(wp), INTENT(out)   ::  &
     REAL(wp), INTENT(inout) ::  &
       & nabla4_vec_e(:,:,:)  ! dim: (nproma,n_zlev,nblks_e)
-    
+
     INTEGER :: slev, elev     ! vertical start and end level
     INTEGER :: nblks_c
     INTEGER :: je, jk, jb
     INTEGER :: rl_start, rl_end
     INTEGER :: rl_start_c, rl_end_c, rl_start_v, rl_end_v
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
-    
+
     !INTEGER, DIMENSION(nproma) ::  &
     !  &  ilc1, ibc1, ilc2, ibc2,   &
     !  &  ilv1, ibv1, ilv2, ibv2
-    
+
     !REAL(wp) :: rorient       ! orientation of the system (v2-v1),(c2-c1)
     REAL(wp) ::  &
       & z_div_c(nproma,n_zlev,ptr_patch%nblks_c), &
       & z_rot_v(nproma,n_zlev,ptr_patch%nblks_v),&
       & z_nabla_2vec(nproma,n_zlev,ptr_patch%nblks_e)
-    
+
     INTEGER,  DIMENSION(:,:,:),   POINTER :: icidx, icblk, ividx, ivblk
     !-----------------------------------------------------------------------
-    
+
     ! check optional arguments
     IF ( PRESENT(opt_slev) ) THEN
       slev = opt_slev
@@ -2036,7 +2032,7 @@ CONTAINS
     ELSE
       elev = n_zlev
     END IF
-    
+
     IF ( PRESENT(opt_rlstart) ) THEN
       IF ((opt_rlstart >= 0) .AND. (opt_rlstart <= 2)) THEN
         CALL finish ('mo_math_operators:nabla2_vec_atmos',  &
@@ -2051,15 +2047,15 @@ CONTAINS
     ELSE
       rl_end = min_rledge
     END IF
-    
+
     rl_start_c = rl_start/2
-    
+
     IF (rl_start > 0) THEN
       rl_start_v = (rl_start+1)/2
     ELSE
       rl_start_v = (rl_start-1)/2
     ENDIF
-    
+
     IF (rl_end > 0) THEN
       rl_end_c = (rl_end+1)/2
       rl_end_v = rl_end/2+1
@@ -2067,48 +2063,48 @@ CONTAINS
       rl_end_c = (rl_end-1)/2
       rl_end_v = rl_end/2-1
     ENDIF
-    
+
     rl_end_c = MAX(min_rlcell,rl_end_c)
     rl_end_v = MAX(min_rlvert,rl_end_v)
-    
+
     ! values for the blocking
     nblks_c  = ptr_patch%nblks_c
-    
+
     i_nchdom   = MAX(1,ptr_patch%n_childdom)
     i_startblk = ptr_patch%edges%start_blk(rl_start,1)
     i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
-    
-    
-    
+
+
+
     icidx => ptr_patch%edges%cell_idx
     icblk => ptr_patch%edges%cell_blk
     ividx => ptr_patch%edges%vertex_idx
     ivblk => ptr_patch%edges%vertex_blk
-    
-    
+
+
     ! compute divergence of vector field
     ! the divergence on land is set to zero by div_oce
     CALL div_oce( u_vec_e, ptr_patch, z_div_c, slev, elev )
-    
-    
+
+
     ! compute rotation of vector field for the ocean
     !CALL rot_vertex_ocean(u_vec_e, ptr_patch, z_rot_v)
     z_rot_v=vort
-    
+
     !
     !  loop through all patch edges (and blocks)
     !
     DO jb = i_startblk, i_endblk
-      
+
       CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
         & i_startidx, i_endidx, rl_start, rl_end)
-      
+
       DO je = i_startidx, i_endidx
         DO jk = slev, elev
-          
+
           !DO je = i_startidx, i_endidx
           IF(v_base%lsm_oce_e(je,jk,jb) < land_boundary)THEN
-            
+
             z_nabla_2vec(je,jk,jb) =  &
               & ptr_patch%edges%system_orientation(je,jb) *  &
               & ( z_rot_v(ividx(je,jb,2),jk,ivblk(je,jb,2))  &
@@ -2125,22 +2121,22 @@ CONTAINS
     END DO
     z_div_c(:,:,:) = 0.0_wp
     z_rot_v(:,:,:) = 0.0_wp
-    
+
     CALL div_oce( z_nabla_2vec, ptr_patch, z_div_c, slev, elev )
-    
+
     CALL rot_vertex_ocean(ptr_patch, z_nabla_2vec, p_vn_dual, z_rot_v)
-    
+
     DO jb = i_startblk, i_endblk
-      
+
       CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
         & i_startidx, i_endidx, rl_start, rl_end)
-      
+
       DO je = i_startidx, i_endidx
         DO jk = slev, elev
-          
+
           !DO je = i_startidx, i_endidx
           IF(v_base%lsm_oce_e(je,jk,jb) < land_boundary)THEN
-            
+
             nabla4_vec_e(je,jk,jb) =  &
               & k_h(je,jk,jb)*      &
               & (ptr_patch%edges%system_orientation(je,jb) *  &
@@ -2157,11 +2153,11 @@ CONTAINS
         END DO
       END DO
     END DO
-    
-    
+
+
   END SUBROUTINE nabla4_vec_ocean
   !---------------------------------------------------------------------------------
-  
+
   !---------------------------------------------------------------------------------
   !>
   !!
@@ -2185,12 +2181,12 @@ CONTAINS
     TYPE(t_external_data), TARGET, INTENT(in) :: p_ext_data
     !
     !  local variables
-    !    
+    !
     INTEGER :: i_startidx_c, i_endidx_c
     INTEGER :: i_startidx_e, i_endidx_e
     INTEGER :: jc, jb, je
     INTEGER :: il_c1, ib_c1, il_c2, ib_c2
-    
+
     REAL(wp) :: z_dist_e_c1, z_dist_e_c2
     INTEGER ::            averaging       =1
     INTEGER, PARAMETER :: distance_weight =1
@@ -2202,20 +2198,20 @@ CONTAINS
     !TYPE(t_cartesian_coordinates)    :: cc_c1, cc_c2, cc_e0
     !0!CHARACTER(len=max_char_length), PARAMETER :: &
     !0!  & routine = ('mo_oce_AB_timestepping_mimetic:height_related_quantities')
-    
+
     !-------------------------------------------------------------------------------
     !CALL message (TRIM(routine), 'start')
-    
+
     ! #ifndef __SX__
     ! IF (ltimer) CALL timer_start(timer_height)
     ! #endif
     all_cells => p_patch%cells%all
     edges_in_domain => p_patch%edges%in_domain
-        
+
     !Step 1: calculate cell-located variables for 2D and 3D case
     !For 3D and for SWE thick_c contains thickness of fluid column
     IF ( iswm_oce == 1 ) THEN  !  SWM
-      
+
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
 #ifdef __SX__
@@ -2232,9 +2228,9 @@ CONTAINS
           ENDIF
         END DO
       END DO
-      
+
     ELSEIF(iswm_oce /= 1 )THEN
-      
+
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
 #ifdef __SX__
@@ -2253,39 +2249,39 @@ CONTAINS
         END DO
       END DO
     ENDIF!IF ( iswm_oce == 1 )
-    
-    
+
+
     !Step 2: calculate edge-located variables for 2D and 3D case from respective cell variables
     !For SWE and for 3D: thick_e = thickness of fluid column at edges
     !         h_e     = surface elevation at edges, without depth of first layer
     IF ( iswm_oce == 1 ) THEN  !  SWM
       SELECT CASE(averaging)
-      
+
       CASE(distance_weight)
-        
+
       DO jb = edges_in_domain%start_block, edges_in_domain%end_block
         CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
 #ifdef __SX__
 !CDIR UNROLL=6
 #endif
           DO je = i_startidx_e, i_endidx_e
-            
+
             il_c1 = p_patch%edges%cell_idx(je,jb,1)
             ib_c1 = p_patch%edges%cell_blk(je,jb,1)
             il_c2 = p_patch%edges%cell_idx(je,jb,2)
             ib_c2 = p_patch%edges%cell_blk(je,jb,2)
-            
+
             z_dist_e_c1 = 0.5_wp!p_int_state(1)%dist_cell2edge(je,jb,1) !0.5_wp
             z_dist_e_c2 = 0.5_wp!p_int_state(1)%dist_cell2edge(je,jb,2) !0.5_wp
-            
+
             !z_dist_e_c1=p_patch%edges%edge_cell_length(je,jb,1)
             !z_dist_e_c2=p_patch%edges%edge_cell_length(je,jb,2)
-            
+
             IF ( v_base%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN
               p_os%p_diag%thick_e(je,jb) = ( z_dist_e_c1*p_os%p_diag%thick_c(il_c1,ib_c1)&
                 & +   z_dist_e_c2*p_os%p_diag%thick_c(il_c2,ib_c2) )&
                 & /(z_dist_e_c1+z_dist_e_c2)
-              
+
               p_os%p_diag%h_e(je,jb) = ( z_dist_e_c1*p_os%p_prog(nold(1))%h(il_c1,ib_c1)&
                 & +   z_dist_e_c2*p_os%p_prog(nold(1))%h(il_c2,ib_c2) )&
                 & /(z_dist_e_c1+z_dist_e_c2)
@@ -2297,24 +2293,24 @@ CONTAINS
         END DO
         CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%thick_e)
         CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%h_e)
-        
+
       CASE(upwind)
-        
+
         DO jb = edges_in_domain%start_block, edges_in_domain%end_block
           CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
 #ifdef __SX__
 !CDIR UNROLL=6
 #endif
           DO je = i_startidx_e, i_endidx_e
-            
+
             il_c1 = p_patch%edges%cell_idx(je,jb,1)
             ib_c1 = p_patch%edges%cell_blk(je,jb,1)
             il_c2 = p_patch%edges%cell_idx(je,jb,2)
             ib_c2 = p_patch%edges%cell_blk(je,jb,2)
-            
-            
+
+
             IF( v_base%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN
-              
+
               IF(p_os%p_prog(nold(1))%vn(je,1,jb)>0.0_wp)THEN
                 p_os%p_diag%thick_e(je,jb) = p_os%p_diag%thick_c(il_c1,ib_c1)
                 p_os%p_diag%h_e(je,jb)     = p_os%p_prog(nold(1))%h(il_c1,ib_c1)
@@ -2331,42 +2327,42 @@ CONTAINS
         CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%thick_e)
         CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%h_e)
 
-        
+
       END SELECT
-      
-      
-      
+
+
+
     ELSEIF(iswm_oce /= 1 )THEN
-      
-      
+
+
       SELECT CASE(averaging)
-      
+
       CASE(distance_weight)
         CALL print_mxmn('(hrw,old) p_diag%h_e',1,p_os%p_diag%h_e,1,p_patch%nblks_e,'vel',3)
-        
+
         DO jb = edges_in_domain%start_block, edges_in_domain%end_block
           CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
 #ifdef __SX__
 !CDIR UNROLL=6
 #endif
           DO je = i_startidx_e, i_endidx_e
-            
+
             il_c1 = p_patch%edges%cell_idx(je,jb,1)
             ib_c1 = p_patch%edges%cell_blk(je,jb,1)
             il_c2 = p_patch%edges%cell_idx(je,jb,2)
             ib_c2 = p_patch%edges%cell_blk(je,jb,2)
-            
+
             z_dist_e_c1 = 0.5_wp!p_int_state(1)%dist_cell2edge(je,jb,1)
             z_dist_e_c2 = 0.5_wp!p_int_state(1)%dist_cell2edge(je,jb,2)
             !z_dist_e_c1 = p_patch%edges%edge_cell_length(je,jb,1)
             !z_dist_e_c2 = p_patch%edges%edge_cell_length(je,jb,2)
-            
+
             IF( v_base%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN
-              
+
               p_os%p_diag%thick_e(je,jb) = ( z_dist_e_c1*p_os%p_diag%thick_c(il_c1,ib_c1)&
                 & +   z_dist_e_c2*p_os%p_diag%thick_c(il_c2,ib_c2) )&
                 & /(z_dist_e_c1+z_dist_e_c2)
-              
+
               !  P.K.: Actually h_e is just surface elevation at edges without depth of first layer.
               !It might make sense to include depth of first layer.
               p_os%p_diag%h_e(je,jb) = ( z_dist_e_c1*p_os%p_prog(nold(1))%h(il_c1,ib_c1)&
@@ -2381,28 +2377,28 @@ CONTAINS
         CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%thick_e)
         CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%h_e)
         CALL print_mxmn('(hrw,new) p_diag%h_e',1,p_os%p_diag%h_e,1,p_patch%nblks_e,'vel',3)
-        
+
       CASE(upwind)
-        
+
         DO jb = edges_in_domain%start_block, edges_in_domain%end_block
           CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
 #ifdef __SX__
 !CDIR UNROLL=6
 #endif
           DO je = i_startidx_e, i_endidx_e
-            
+
             il_c1 = p_patch%edges%cell_idx(je,jb,1)
             ib_c1 = p_patch%edges%cell_blk(je,jb,1)
             il_c2 = p_patch%edges%cell_idx(je,jb,2)
             ib_c2 = p_patch%edges%cell_blk(je,jb,2)
-            
-            
+
+
             IF( v_base%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN
-              
+
               IF(p_os%p_prog(nold(1))%vn(je,1,jb)>0.0_wp)THEN
                 p_os%p_diag%thick_e(je,jb) = p_os%p_diag%thick_c(il_c1,ib_c1)
               ELSEIF(p_os%p_prog(nold(1))%vn(je,1,jb)<=0.0_wp)THEN
-                
+
                 !  P.K.: Actually h_e is just surface elevation at edges without depth of first layer.
                 !It might make sense to include depth of first layer.
                 p_os%p_diag%h_e(je,jb) = p_os%p_prog(nold(1))%h(il_c2,ib_c2)
@@ -2416,7 +2412,7 @@ CONTAINS
         CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%thick_e)
         CALL sync_patch_array(SYNC_E, p_patch, p_os%p_diag%h_e)
 
-        
+
       END SELECT
     ENDIF
     ! write(*,*)'max/min thick_c:',maxval(p_os%p_diag%thick_c),minval(p_os%p_diag%thick_c)
@@ -2426,14 +2422,14 @@ CONTAINS
     ! write(*,*)'max/min thick_e:',maxval(p_os%p_diag%thick_e),minval(p_os%p_diag%thick_e)
     ! write(*,*)'max/min h_e:',maxval(p_os%p_diag%h_e),minval(p_os%p_diag%h_e)
     ! !CALL message (TRIM(routine), 'end')
-    
+
     ! #ifndef __SX__
     ! IF (ltimer) CALL timer_stop(timer_height)
     ! #endif
-    
+
   END SUBROUTINE height_related_quantities
   !-------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------
   ! ! !
   ! ! !! Computes the discrete rotation at vertices in presence of boundaries as in the ocean setting.
