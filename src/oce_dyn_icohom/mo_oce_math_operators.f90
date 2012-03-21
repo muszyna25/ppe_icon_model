@@ -2179,18 +2179,17 @@ CONTAINS
     !
     ! Type containing external data
     TYPE(t_external_data), TARGET, INTENT(in) :: p_ext_data
-    !
-    !  local variables
-    !
-    INTEGER :: i_startidx_c, i_endidx_c
-    INTEGER :: i_startidx_e, i_endidx_e
-    INTEGER :: jc, jb, je
-    INTEGER :: il_c1, ib_c1, il_c2, ib_c2
 
-    REAL(wp) :: z_dist_e_c1, z_dist_e_c2
-    INTEGER ::            averaging       =1
-    INTEGER, PARAMETER :: distance_weight =1
-    INTEGER, PARAMETER :: upwind          =2
+    !  local variables
+    INTEGER            :: i_startidx_c, i_endidx_c
+    INTEGER            :: i_startidx_e, i_endidx_e
+    INTEGER            :: jc, jb, je
+    INTEGER            :: il_c1, ib_c1, il_c2, ib_c2
+
+    REAL(wp)           :: z_dist_e_c1, z_dist_e_c2
+    INTEGER            :: averaging       = 1
+    INTEGER, PARAMETER :: distance_weight = 1
+    INTEGER, PARAMETER :: upwind          = 2
 
     TYPE(t_subset_range), POINTER :: all_cells, edges_in_domain
 
@@ -2201,6 +2200,9 @@ CONTAINS
 
     !-------------------------------------------------------------------------------
     !CALL message (TRIM(routine), 'start')
+
+    ! sync before run
+    CALL sync_patch_array(sync_c, p_patch, p_os%p_prog(nold(1))%h)
 
     ! #ifndef __SX__
     ! IF (ltimer) CALL timer_start(timer_height)
@@ -2426,6 +2428,13 @@ CONTAINS
     ! #ifndef __SX__
     ! IF (ltimer) CALL timer_stop(timer_height)
     ! #endif
+
+    !sync results
+    CALL sync_patch_array(sync_c, p_patch, p_os%p_prog(nold(1))%h)
+    CALL sync_patch_array(sync_e, p_patch, p_os%p_diag%h_e)
+    CALL sync_patch_array(sync_c, p_patch, p_os%p_diag%thick_c)
+    CALL sync_patch_array(sync_e, p_patch, p_os%p_diag%thick_e)
+
 
   END SUBROUTINE height_related_quantities
   !-------------------------------------------------------------------------

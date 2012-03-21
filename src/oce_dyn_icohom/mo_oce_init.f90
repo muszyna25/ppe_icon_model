@@ -1662,6 +1662,7 @@ CONTAINS
       END DO
 
     CASE DEFAULT
+     write(0,*)'testcase',itestcase_oce
      CALL finish(TRIM(routine), 'CHOSEN INITIALIZATION NOT SUPPORTED - TERMINATE')
   END SELECT
 
@@ -1880,8 +1881,8 @@ ELSEIF( iswm_oce == 1 )THEN
           p_os%p_prog(nold(1))%vn(:,1,:) = 0.0_wp
 
     CASE DEFAULT
-     write(*,*)'testcase',itestcase_oce
-     CALL finish(TRIM(routine), 'CHOSEN INITIALIZATION NOT SUPPORTED - TERMINATE')
+     write(0,*)'testcase',itestcase_oce
+     CALL finish(TRIM(routine), 'CHOSEN INITIALIZATION NOT SUPPORTED in SW MODE - TERMINATE')
   END SELECT
 ENDIF  !  iswm_oce
 

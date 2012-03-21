@@ -220,15 +220,7 @@ CONTAINS
 
       IF(.NOT.l_STAGGERED_TIMESTEP)THEN
 
-
-        CALL sync_patch_array(sync_c, ppatch(jg), pstate_oce(jg)%p_prog(nold(1))%h)
-
         CALL height_related_quantities(ppatch(jg), pstate_oce(jg), p_ext_data(jg))
-
-        CALL sync_patch_array(sync_c, ppatch(jg), pstate_oce(jg)%p_prog(nold(1))%h)
-        CALL sync_patch_array(sync_e, ppatch(jg), pstate_oce(jg)%p_diag%h_e)
-        CALL sync_patch_array(sync_c, ppatch(jg), pstate_oce(jg)%p_diag%thick_c)
-        CALL sync_patch_array(sync_e, ppatch(jg), pstate_oce(jg)%p_diag%thick_e)
 
         !This is required in top boundary condition for
         !vertical velocity: the time derivative of the surface height
