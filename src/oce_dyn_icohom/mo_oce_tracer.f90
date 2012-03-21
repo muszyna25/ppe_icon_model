@@ -226,10 +226,11 @@ END SUBROUTINE advect_tracer_ab
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2012).
 !!
+!! mpi parallelized, sync required
 SUBROUTINE prepare_tracer_transport(p_patch, p_os, p_param, p_sfc_flx, p_op_coeff, timestep)
   TYPE(t_patch), TARGET, INTENT(in)    :: p_patch
   TYPE(t_hydro_ocean_state), TARGET    :: p_os
-  TYPE(t_ho_params), INTENT(inout)     :: p_param
+  TYPE(t_ho_params), INTENT(INOUT)     :: p_param
   TYPE(t_sfc_flx), INTENT(INOUT)       :: p_sfc_flx
   TYPE(t_operator_coeff),INTENT(INOUT) :: p_op_coeff
   INTEGER                              :: timestep
@@ -246,32 +247,20 @@ SUBROUTINE prepare_tracer_transport(p_patch, p_os, p_param, p_sfc_flx, p_op_coef
   REAL(wp) :: delta_z
   !TYPE(t_cartesian_coordinates) :: u_mean_cc(nproma,n_zlev,p_patch%nblks_e)
   !-------------------------------------------------------------------------------
-  TYPE(t_subset_range), POINTER :: edges_in_domain, cell_in_domain
+  TYPE(t_subset_range), POINTER :: edges_in_domain, cells_in_domain
   !-------------------------------------------------------------------------------
+  cells_in_domain => p_patch%cells%in_domain
+  edges_in_domain => p_patch%edges%in_domain
+
   slev = 1
   elev = n_zlev
-
-  rl_start_e = 1
-  rl_end_e   = min_rledge
-
-  i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
-  i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
-
-  rl_start_c   = 1
-  rl_end_c     = min_rlcell
-  i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
-  i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
-
 
   p_os%p_diag%w_time_weighted=ab_gam*p_os%p_diag%w + (1.0_wp-ab_gam)*p_os%p_diag%w_old
 
   IF(FLUX_CALCULATION_HORZ==MIMETIC_MIURA.OR.FLUX_CALCULATION_HORZ==MIMETIC)THEN
     DO jk = slev, elev
-      DO jb = i_startblk_e, i_endblk_e
-
-        CALL get_indices_e(p_patch, jb, i_startblk_e, i_endblk_e,&
-                         & i_startidx_e, i_endidx_e, rl_start_e, rl_end_e)
-
+      DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+        CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
         DO je =  i_startidx_e, i_endidx_e
           IF(v_base%lsm_oce_e(je,jk,jb) <= sea_boundary)THEN
 
@@ -310,9 +299,8 @@ SUBROUTINE prepare_tracer_transport(p_patch, p_os, p_param, p_sfc_flx, p_op_coef
   ENDIF
 
   !Calculation of mass flux and related quantities that are identical for all tracers
- DO jb = i_startblk_e, i_endblk_e
-    CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, &
-    &                   rl_start_e, rl_end_e)
+  DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+    CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
     DO jk = 1, n_zlev
       delta_z = v_base%del_zlev_m(jk)
       DO je = i_startidx_e, i_endidx_e
@@ -328,33 +316,33 @@ SUBROUTINE prepare_tracer_transport(p_patch, p_os, p_param, p_sfc_flx, p_op_coef
     END DO
   END DO
 
-    CALL div_oce_3D(  p_os%p_diag%mass_flx_e,&
-                   & p_patch,               &
-                   & p_op_coeff%div_coeff,&
-                   & p_os%p_diag%div_mass_flx_c)
+  ! sync the result
+  CALL sync_patch_array(SYNC_E, p_patch,p_os%p_diag%mass_flx_e )
+  CALL div_oce_3d(  p_os%p_diag%mass_flx_e,&
+                 & p_patch,               &
+                 & p_op_coeff%div_coeff,&
+                 & p_os%p_diag%div_mass_flx_c,subset_range=cells_in_domain)
 
-  !calculate (dummy) height consistent with divergence of mass fluxx
-  jk=1
-  DO jb = i_startblk_c, i_endblk_c
-    CALL get_indices_c( p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
-    &                   rl_start_c, rl_end_c)
-      DO jc = i_startidx_c, i_endidx_c
-        !IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-          delta_z       = v_base%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)&
-                        &*v_base%wet_c(jc,jk,jb)
+  !calculate (dummy) height consistent with divergence of mass fluxx (UPPERMOST LEVEL)
+  jk = 1
+  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+    CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+    DO jc = i_startidx_c, i_endidx_c
+      !IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+      delta_z = v_base%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)&
+                &*v_base%wet_c(jc,jk,jb)
 
-         p_os%p_diag%depth_c(jc,jk,jb)= delta_z
+      p_os%p_diag%depth_c(jc,jk,jb) = delta_z
 
-          p_os%p_diag%cons_thick_c(jc,jk,jb)&
-          & = delta_z-dtime*p_os%p_diag%div_mass_flx_c(jc,jk,jb)&
-          &*v_base%wet_c(jc,jk,jb)
-        !ENDIF
+      p_os%p_diag%cons_thick_c(jc,jk,jb)&
+        & = delta_z-dtime*p_os%p_diag%div_mass_flx_c(jc,jk,jb)&
+        &*v_base%wet_c(jc,jk,jb)
+      !ENDIF
     END DO
   END DO
 
-  DO jb = i_startblk_c, i_endblk_c
-    CALL get_indices_c( p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
-    &                   rl_start_c, rl_end_c)
+  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+    CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
     DO jk = 2, n_zlev
       delta_z = v_base%del_zlev_m(jk)
       DO jc = i_startidx_c, i_endidx_c

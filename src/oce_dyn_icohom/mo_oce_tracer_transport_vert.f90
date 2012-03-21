@@ -493,17 +493,17 @@ CONTAINS
     INTEGER             :: jc, jk, jb               !< index of cell, vertical level and block
     INTEGER             :: jkm1                     !< jk - 1
     !-------------------------------------------------------------------------
-    TYPE(t_subset_range), POINTER :: all_cells
+    TYPE(t_subset_range), POINTER :: cells_in_domain
     !-------------------------------------------------------------------------
-    all_cells => ppatch%cells%all
+    cells_in_domain => ppatch%cells%in_domain
 
     !fluxes at first layer
     pupflux_i(:,1,:) = pvar_c(:,1,:)*pw_c(:,1,:) !0.0!
     !pupflux_i(:,1,:) = pvar_c(:,1,:)*(pw_c(:,1,:)+pw_c(:,2,:))*0.5_wp !0.0_wp
     !pupflux_i(:,1,:) = pvar_c(:,1,:)*top_bc_t  ! max(abs(pw_c(:,1,:)),abs(pw_c(:,2,:)))
     !
-    DO jb = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+      CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
 !          IF(abs(pw_c(jc,1,jb))>=abs(pw_c(jc,2,jb)))THEN
 !            pupflux_i(jc,1,jb) = pvar_c(jc,1,jb)*pw_c(jc,1,jb)
@@ -548,17 +548,17 @@ CONTAINS
     REAL(wp) :: w_ave(n_zlev)
     REAL(wp) :: w_avep1(n_zlev)
     !-------------------------------------------------------------------------
-    TYPE(t_subset_range), POINTER :: all_cells
+    TYPE(t_subset_range), POINTER :: cells_in_domain
     !-------------------------------------------------------------------------
-    all_cells => ppatch%cells%all
+    cells_in_domain => ppatch%cells%in_domain
 
     w_ave(:)  = 0.0_wp
     w_avep1(:)= 0.0_wp
     !fluxes at first layer
     pupflux_i(:,1,:) = pvar_c(:,1,:)*pw_c(:,1,:)
 
-    DO jb = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+      CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
           z_dolic = v_base%dolic_c(jc,jb)
           IF(z_dolic>=MIN_DOLIC)THEN
@@ -654,16 +654,16 @@ CONTAINS
     INTEGER  :: jkm1                     !< jk - 1
     INTEGER  :: z_dolic
     !-------------------------------------------------------------------------
-    TYPE(t_subset_range), POINTER :: all_cells
+    TYPE(t_subset_range), POINTER :: cells_in_domain
     !-------------------------------------------------------------------------
-    all_cells => ppatch%cells%all
+    cells_in_domain => ppatch%cells%in_domain
 
     !fluxes at first layer
     !pupflux_i(:,1,:) =  pvar_c(:,1,:)*(pw_c(:,1,:)+pw_c(:,2,:))*0.5_wp!
     pupflux_i(:,1,:) =pvar_c(:,1,:)* pw_c(:,1,:)
 
-    DO jb = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+      CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
           z_dolic = v_base%dolic_c(jc,jb)
           IF(z_dolic>=MIN_DOLIC)THEN
@@ -703,16 +703,16 @@ CONTAINS
     INTEGER  :: jkm1                     !< jk - 1
     INTEGER  :: z_dolic
     !-------------------------------------------------------------------------
-    TYPE(t_subset_range), POINTER :: all_cells
+    TYPE(t_subset_range), POINTER :: cells_in_domain
     !-------------------------------------------------------------------------
-    all_cells => ppatch%cells%all
+    cells_in_domain => ppatch%cells%in_domain
 
     !fluxes at first layer
     !pupflux_i(:,1,:) =  pvar_c(:,1,:)*(pw_c(:,1,:)+pw_c(:,2,:))*0.5_wp!
     pupflux_i(:,1,:) =pvar_c(:,1,:)* pw_c(:,1,:)
 
-    DO jb = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+      CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
           z_dolic = v_base%dolic_c(jc,jb)
           IF(z_dolic>=MIN_DOLIC)THEN
