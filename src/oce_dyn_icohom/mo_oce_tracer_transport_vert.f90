@@ -1132,7 +1132,7 @@ CONTAINS
   !! @par Revision History
   !! Developed by Daniel Reinert, DWD (2010-02-04)
   !!
-  !! mpi parallelized, no sync
+  !! mpi parallelized, only cells_in_domain are computed, no sync
   SUBROUTINE v_ppm_slimiter_mo( p_patch, p_cc, p_face, p_slope, p_face_up, p_face_low )
 
     TYPE(t_patch), TARGET, INTENT(IN) :: p_patch          !< patch on which computation is performed
@@ -1152,9 +1152,9 @@ CONTAINS
     REAL(wp) :: z_delta                   !< lower minus upper face value
     REAL(wp) :: z_a6i                     !< curvature of parabola
     !-----------------------------------------------------------------------
-    TYPE(t_subset_range), POINTER :: all_cells
+    TYPE(t_subset_range), POINTER :: cells_in_domain
     !-----------------------------------------------------------------------
-    all_cells => p_patch%cells%all
+    cells_in_domain => p_patch%cells%in_domain
 
     ! check optional arguments
     slev = 1
@@ -1162,8 +1162,8 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx_c,i_endidx_c,ikp1,z_delta,z_a6i)
-    DO jb = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+      CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
       DO jk = slev, nlev
         ! index of bottom half level
         ikp1 = jk + 1

@@ -2199,7 +2199,7 @@ CONTAINS
   !!  no-mpi parallelized
   SUBROUTINE init_ho_basins( p_patch, v_base )
 
-    TYPE(t_patch),            INTENT(IN)       :: p_patch
+    TYPE(t_patch), TARGET, INTENT(IN)          :: p_patch
     TYPE(t_hydro_ocean_base), INTENT(INOUT)    :: v_base
 
     REAL(wp) :: z_sync_c(nproma,p_patch%nblks_c)
@@ -2207,6 +2207,7 @@ CONTAINS
     INTEGER  :: ibase   (nproma,p_patch%nblks_c)
     INTEGER  :: iarea   (nproma,p_patch%nblks_c)
 
+    INTEGER  :: i_startidx_c, i_endidx_c
     INTEGER  :: jb, jc, jk, i_endidx, nblks_c, npromz_c, i
     INTEGER  :: no_cor, g_cor, no_glb, jiter, iter
     INTEGER  :: n_idx(3), n_blk(3)
@@ -2214,10 +2215,14 @@ CONTAINS
     REAL(wp) :: z_lat_deg, z_lon_deg
     REAL(wp) :: z_lon_pta, z_lon_ati, z_lon_itp, z_lon_ind, z_lon_nam, z_lon_med
 
+    TYPE(t_subset_range), POINTER :: all_cells, cells_in_domain
+    
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     &        routine = 'mo_oce_state:init_ho_basins'
 
     !-----------------------------------------------------------------------------
+    all_cells => p_patch%cells%all
+    cells_in_domain => p_patch%cells%in_domain
     CALL message (TRIM(routine), 'start')
 
     z_sync_c(:,:) = 0.0_wp
@@ -2280,11 +2285,10 @@ CONTAINS
     !-----------------------------
     ! Fill ocean areas:
 
-    DO jb = 1, nblks_c
-      i_endidx=nproma
-      IF (jb==nblks_c) i_endidx=npromz_c
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
   
-      DO jc = 1, i_endidx
+      DO jc = i_startidx_c, i_endidx_c
   
          ! get lat/lon of actual cell
          z_lat_deg = rad2deg * p_patch%cells%center(jc,jb)%lat
@@ -2359,11 +2363,10 @@ CONTAINS
 !   Do jiter=1,1
 
       no_cor = 0
-      DO jb = 1, nblks_c
-        i_endidx=nproma
-        IF (jb==nblks_c) i_endidx=npromz_c
-        DO jc = 1, i_endidx
-     
+      DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+        CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c, i_endidx_c
+        
            IF (iarea(jc,jb) == -33) THEN
              DO i = 1, 3  !  no_of_edges
                ! coordinates of neighbouring cells
@@ -2383,6 +2386,7 @@ CONTAINS
      
         END DO
       END DO
+      
       no_glb = global_sum_array(no_cor)
       no_cor = no_glb
       g_cor=g_cor+no_cor
