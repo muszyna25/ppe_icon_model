@@ -288,8 +288,8 @@ SUBROUTINE prepare_tracer_transport(p_patch, p_os, p_param, p_sfc_flx, p_op_coef
             p_op_coeff%upwind_cell_idx(je,jk,jb) = il_c
             p_op_coeff%upwind_cell_blk(je,jk,jb) = ib_c
 
-            write(0,*)'il_c:',il_c
-            write(0,*)'ib_c:',ib_c
+           !write(0,*)'il_c:',il_c
+           !write(0,*)'ib_c:',ib_c
 
             p_op_coeff%upwind_cell_position_cc(je,jk,jb)%x = &
               & p_op_coeff%cell_position_cc(il_c,jk,ib_c)%x
