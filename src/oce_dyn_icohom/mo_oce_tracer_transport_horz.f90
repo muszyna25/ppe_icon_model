@@ -1296,11 +1296,13 @@ END SUBROUTINE elad
     !    antidiffusive fluxes
     !    (not allowed to call upwind_hflux_up directly, due to circular dependency)
 
-
-    !z_tracer_new_low = 0.0_wp
-    !z_tracer_max     = 0.0_wp
-    !z_tracer_min     = 0.0_wp
-
+    IF (p_test_run) THEN
+      z_tracer_new_low = 0.0_wp
+      z_tracer_max     = 0.0_wp
+      z_tracer_min     = 0.0_wp
+      r_m              = 0.0_wp
+      r_p              = 0.0_wp
+   ENDIF
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx)
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
@@ -1407,10 +1409,13 @@ END SUBROUTINE elad
       ENDDO
     ENDDO
 !$OMP END DO
+!$OMP END PARALLEL
 
     ! 4. Limit the antidiffusive fluxes z_mflx_anti, such that the updated tracer
     !    field is free of any new extrema.
+    CALL sync_patch_array_mult(SYNC_C1, ptr_patch, 2, z_tracer_max, z_tracer_min)
 
+!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_max,p_p,z_min,p_m)
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
