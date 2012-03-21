@@ -1,19 +1,19 @@
 !>
 !! Contains the implementation of the semi-implicit Adams-Bashforth timestepping
 !! for the ICON ocean model.
-!! 
-!! 
+!!
+!!
 !! @par Revision History
 !!  Developed  by Peter Korn,       MPI-M (2010/04)
 !!  Modified by Stephan Lorenz,     MPI-M (2010-06)
 !!   - renaming and adjustment to ocean domain and patch
 !!   - implementation of continuity equation for vertical velocities
-!! 
+!!
 !! @par Copyright
 !! 2002-2006 by DWD and MPI-M
 !! This software is provided for non-commercial use only.
 !! See the LICENSE and the WARRANTY conditions.
-!! 
+!!
 !! @par License
 !! The use of ICON is hereby granted free of charge for an unlimited time,
 !! provided the following rules are accepted and applied:
@@ -27,7 +27,7 @@
 !! <li> In case you intend to use the code commercially, we oblige you to sign
 !!    an according license agreement with DWD and MPI-M.
 !! </ol>
-!! 
+!!
 !! @par Warranty
 !! This code has been tested up to a certain level. Defects and weaknesses,
 !! which may be included in the code, do not establish any warranties by the
@@ -35,17 +35,17 @@
 !! The authors do not make any warranty, express or implied, or assume any
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
-!! 
+!!
 MODULE mo_oce_ab_timestepping
-!-------------------------------------------------------------------------  
+!-------------------------------------------------------------------------
 !
-!    ProTeX FORTRAN source: Style 2  
+!    ProTeX FORTRAN source: Style 2
 !    modified for ICON project, DWD/MPI-M 2006
-!  
-!-------------------------------------------------------------------------  
-!  
-!   
-! 
+!
+!-------------------------------------------------------------------------
+!
+!
+!
 !USE mo_kind,                           ONLY: wp
 !USE mo_impl_constants,                 ONLY: max_char_length, sea_boundary, &
 !  &                                          min_rlcell, min_rledge, min_rlcell, &
@@ -86,22 +86,22 @@ PUBLIC :: calc_vert_velocity
 PUBLIC :: update_time_indices
 
 CONTAINS
-!-------------------------------------------------------------------------  
+!-------------------------------------------------------------------------
 !
-!  
+!
 !>
 !! !  Solves the free surface equation.
-!! 
+!!
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2010).
-!! 
+!!
 SUBROUTINE solve_free_surface_eq_ab(p_patch, p_os, p_ext_data, p_sfc_flx, &
   &                                 p_phys_param, timestep, p_op_coeff, p_int)
 !
 TYPE(t_patch), TARGET, INTENT(in)             :: p_patch
 TYPE(t_hydro_ocean_state), TARGET             :: p_os
-TYPE(t_external_data), TARGET                 :: p_ext_data 
-TYPE(t_sfc_flx), INTENT(INOUT)                :: p_sfc_flx    
+TYPE(t_external_data), TARGET                 :: p_ext_data
+TYPE(t_sfc_flx), INTENT(INOUT)                :: p_sfc_flx
 TYPE (t_ho_params)                            :: p_phys_param
 INTEGER                                       :: timestep
 TYPE(t_operator_coeff)                        :: p_op_coeff
@@ -125,21 +125,21 @@ ENDIF
 
 !CALL message (TRIM(routine), 'end')
 END SUBROUTINE solve_free_surface_eq_ab
-!-------------------------------------------------------------------------  
+!-------------------------------------------------------------------------
 !
-!  
+!
 !>
 !! Computation of new velocity in Adams-Bashforth timestepping.
-!! 
+!!
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2010).
-!! 
+!!
 SUBROUTINE calc_normal_velocity_ab(p_patch, p_os, p_op_coeff, p_ext_data, p_phys_param)
 !
 TYPE(t_patch), TARGET, INTENT(in) :: p_patch
 TYPE(t_hydro_ocean_state), TARGET :: p_os
 TYPE(t_operator_coeff)            :: p_op_coeff
-TYPE(t_external_data), TARGET     :: p_ext_data 
+TYPE(t_external_data), TARGET     :: p_ext_data
 TYPE (t_ho_params)                :: p_phys_param
 !
 !
@@ -147,7 +147,7 @@ TYPE (t_ho_params)                :: p_phys_param
 !
 ! CHARACTER(len=max_char_length), PARAMETER ::     &
 !   &      routine = ('mo_oce_ab_timestepping: calc_normal_velocity_2tl_ab')
-!-----------------------------------------------------------------------  
+!-----------------------------------------------------------------------
 IF(idisc_scheme==MIMETIC_TYPE)THEN
 
   CALL calc_normal_velocity_ab_mimetic(p_patch, p_os, p_op_coeff, p_ext_data, p_phys_param)
@@ -159,9 +159,9 @@ ELSEIF(idisc_scheme==RBF_TYPE)THEN
 ENDIF
 
 END SUBROUTINE calc_normal_velocity_ab
-!-------------------------------------------------------------------------  
+!-------------------------------------------------------------------------
 !
-!  
+!
 !>
 !! Computation of new vertical velocity using continuity equation
 
@@ -169,10 +169,10 @@ END SUBROUTINE calc_normal_velocity_ab
 !! incommpressibility condition in the continuity equation.
 !! For the case of the semi-implicit-AB scheme the land-sea-mask may be applied
 !! at least after collecting the whole explicit term.
-!! 
+!!
 !! @par Revision History
 !! Developed  by  Peter Korn,   MPI-M (2006).
-!! 
+!!
 SUBROUTINE calc_vert_velocity( p_patch, p_os, p_op_coeff)
 !
 TYPE(t_patch), TARGET, INTENT(IN) :: p_patch       ! patch on which computation is performed
@@ -183,7 +183,7 @@ TYPE(t_operator_coeff)            :: p_op_coeff
 ! Local variables
 ! CHARACTER(len=max_char_length), PARAMETER :: &
 !        & routine = ('mo_oce_ab_timestepping:calc_vert_velocity')
-!-----------------------------------------------------------------------  
+!-----------------------------------------------------------------------
 
 !Store current vertical velocity before the new one is calculated
 p_os%p_diag%w_old = p_os%p_diag%w
@@ -222,7 +222,7 @@ ELSEIF(idisc_scheme==RBF_TYPE)THEN
 ENDIF
 
 END SUBROUTINE calc_vert_velocity
-!-------------------------------------------------------------------------  
+!-------------------------------------------------------------------------
 SUBROUTINE update_time_indices(jg)
   INTEGER, INTENT(IN) :: jg
   INTEGER             :: n_temp
