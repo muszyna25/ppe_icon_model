@@ -774,12 +774,13 @@ CONTAINS
   !-------------------------------------------------------------------------
   !>
   !!  no-mpi parallelized
-  SUBROUTINE map_edges2vert(p_patch, vn, h_e, p_vn_dual)
+  SUBROUTINE map_edges2vert(p_patch, vn, h_e, p_vn_dual, subset_range)
     
-    TYPE(t_patch), INTENT(in)      :: p_patch
+    TYPE(t_patch), TARGET, INTENT(in)      :: p_patch
     REAL(wp), INTENT(in)           :: vn(:,:,:)
     REAL(wp), INTENT(in)           :: h_e(:,:)
     TYPE(t_cartesian_coordinates)  :: p_vn_dual(nproma,n_zlev,p_patch%nblks_v)
+    TYPE(t_subset_range), OPTIONAL :: subset_range
     
     !Local variables
     !
@@ -801,8 +802,12 @@ CONTAINS
     INTEGER :: i_v_ctr(nproma,n_zlev,p_patch%nblks_v)
     TYPE(t_cartesian_coordinates) :: cell1_cc, cell2_cc, vertex_cc
     INTEGER,PARAMETER :: ino_dual_edges = 6
-    
+     
+    TYPE(t_subset_range), POINTER :: verts_in_domain
+   
     !-----------------------------------------------------------------------
+    verts_in_domain => p_patch%verts%in_domain
+    
     i_v_ctr(:,:,:) = 0
     slev         = 1
     elev         = n_zlev
@@ -810,12 +815,9 @@ CONTAINS
     i_startblk_v = p_patch%verts%start_blk(rl_start_v,1)
     i_endblk_v   = p_patch%verts%end_blk(rl_end_v,1)
     
-    DO jb = i_startblk_v, i_endblk_v
-      CALL get_indices_v(p_patch, jb, i_startblk_v, i_endblk_v, &
-        & i_startidx_v, i_endidx_v, rl_start_v, rl_end_v)
+    DO jb = verts_in_domain%start_block, verts_in_domain%end_block
+      CALL get_index_range(verts_in_domain, jb, i_startidx_v, i_endidx_v)
       DO jk = slev, elev
-        !!$OMP PARALLEL DO SCHEDULE(runtime) DEFAULT(PRIVATE)  &
-        !!$OMP   SHARED(u_vec_e,v_vec_e,ptr_patch,rot_vec_v,jb) FIRSTPRIVATE(jk)
         DO jv = i_startidx_v, i_endidx_v
           
           zarea_fraction      = 0.0_wp
@@ -893,11 +895,18 @@ CONTAINS
           ENDIF
           
         END DO
-        !!$OMP END PARALLEL DO
       END DO
     END DO
     
-    
+    IF (PRESENT(subset_range)) THEN
+      IF (.NOT.  subset_range%is_in_domain) THEN
+        CALL sync_patch_array(SYNC_E, p_patch, p_vn_dual(:,:,:)%x(1))
+        CALL sync_patch_array(SYNC_E, p_patch, p_vn_dual(:,:,:)%x(2))
+        CALL sync_patch_array(SYNC_E, p_patch, p_vn_dual(:,:,:)%x(3))
+      ENDIF
+    ENDIF   
+       
+        
   END SUBROUTINE map_edges2vert
   !-------------------------------------------------------------------------
   

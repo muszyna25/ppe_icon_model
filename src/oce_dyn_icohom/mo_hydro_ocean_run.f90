@@ -180,13 +180,13 @@ CONTAINS
   jg = n_dom
 
   CALL allocate_exp_coeff( ppatch(jg), ptr_op_coeff)
-  CALL par_init_operator_coeff( ppatch(jg), ptr_op_coeff, p_int(jg))
+  !CALL par_init_operator_coeff( ppatch(jg), ptr_op_coeff, p_int(jg))
   ! As an alternative a serial 2D version of the coefficient computation can be used
-  !   IF (my_process_is_mpi_all_parallel()) THEN
-  !   CALL par_init_operator_coeff( ppatch(jg), ptr_op_coeff, p_int(jg))
-  !   ELSE
-  !     CALL init_operator_coeff( ppatch(jg), ptr_op_coeff)
-  !   ENDIF
+  IF (my_process_is_mpi_all_parallel()) THEN
+    CALL par_init_operator_coeff( ppatch(jg), ptr_op_coeff, p_int(jg))
+  ELSE
+    CALL init_operator_coeff( ppatch(jg), ptr_op_coeff)
+  ENDIF
 
   CALL init_ho_recon_fields( ppatch(jg), pstate_oce(jg), ptr_op_coeff)
 
