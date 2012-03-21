@@ -76,6 +76,7 @@ USE mo_grid_config,         ONLY: n_dom
 USE mo_icoham_sfc_indices,  ONLY: nsfc_type
 USE mo_linked_list,         ONLY: t_var_list
 USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
+USE mo_lnd_nwp_config,      ONLY: nsfc_subs
 USE mo_var_list,            ONLY: default_var_list_settings, &
   &                               add_var, add_ref, new_var_list, delete_var_list, &
   &                               create_tracer_metadata, add_var_list_reference,  &
@@ -177,6 +178,7 @@ TYPE t_nwp_phy_diag
                                   !! vertically integrated tot_cld (cc,qv,qc,qi)  
        &  cosmu0(:,:),          & !! cosine of solar zenith angle
        &  albvisdif(:,:),       & !! surface albedo for visible range, diffuse
+       &  albvisdif_t(:,:,:),   & !! tile-based surface albedo for visible range, diffuse
        &  vio3(:,:),            & !! vertically integrated ozone amount (Pa O3)
        &  hmo3(:,:),            & !! height of O3 maximum (Pa)
        &  flxdwswtoa(:,:),      & !! downward shortwave flux at TOA [W/m2]
@@ -824,6 +826,21 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         CALL add_var( diag_list, 'albvisdif', diag%albvisdif,                   &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,         &
           & ldims=shape2d, lrestart=.FALSE. )
+
+
+        ! This variable only makes sense, if the land-surface scheme is switched on.
+        ! No need for an additional add_ref, since this field will not go into 
+        ! the output.
+        IF ( atm_phy_nwp_config(k_jg)%inwp_surface == 1 ) THEN
+
+          !        diag%albvisdif_t    (nproma, nblks, nsfc_subs),          &
+          cf_desc    = t_cf_var('albvisdif_t', '', '')
+          grib2_desc = t_grib2_var(192, 128, 243, ientr, GRID_REFERENCE, GRID_CELL)
+          CALL add_var( diag_list, 'albvisdif_t', diag%albvisdif_t,               &
+            & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,         &
+            & ldims=(/nproma,kblks,nsfc_subs/), lcontainer=.TRUE., lrestart=.FALSE. )
+
+        ENDIF
 
 
         !        diag%cosmu0    (nproma,       nblks),          &
