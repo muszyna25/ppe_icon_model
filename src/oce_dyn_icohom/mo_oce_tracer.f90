@@ -261,7 +261,7 @@ SUBROUTINE prepare_tracer_transport(p_patch, p_os, p_param, p_sfc_flx, p_op_coef
     DO jk = slev, elev
       DO jb = edges_in_domain%start_block, edges_in_domain%end_block
         CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
-        DO je =  i_startidx_e, i_endidx_e
+        DO je = i_startidx_e, i_endidx_e
           IF(v_base%lsm_oce_e(je,jk,jb) <= sea_boundary)THEN
 
             !Get indices of two adjacent vertices
@@ -270,27 +270,29 @@ SUBROUTINE prepare_tracer_transport(p_patch, p_os, p_param, p_sfc_flx, p_op_coef
             il_v2 = p_patch%edges%vertex_idx(je,jb,2)
             ib_v2 = p_patch%edges%vertex_blk(je,jb,2)
 
-            p_os%p_diag%p_vn_mean(je,jk,jb)%x=0.5_wp*&
-            &(p_os%p_diag%p_vn_dual(il_v1,jk,ib_v1)%x+p_os%p_diag%p_vn_dual(il_v2,jk,ib_v2)%x)
+            p_os%p_diag%p_vn_mean(je,jk,jb)%x = 0.5_wp*&
+              &(p_os%p_diag%p_vn_dual(il_v1,jk,ib_v1)%x+p_os%p_diag%p_vn_dual(il_v2,jk,ib_v2)%x)
 
-            p_op_coeff%moved_edge_position_cc(je,jk,jb)%x&
-            & = p_op_coeff%edge_position_cc(je,jk,jb)%x   &
-            &  -0.5_wp*dtime*p_os%p_diag%p_vn_mean(je,jk,jb)%x
+            p_op_coeff%moved_edge_position_cc(je,jk,jb)%x = &
+              & p_op_coeff%edge_position_cc(je,jk,jb)%x     &
+              &  - 0.5_wp*dtime*p_os%p_diag%p_vn_mean(je,jk,jb)%x
 
-            IF( p_os%p_diag%vn_time_weighted(je,jk,jb) >0.0_wp)THEN
+            IF( p_os%p_diag%vn_time_weighted(je,jk,jb) > 0.0_wp)THEN
               il_c = p_patch%edges%cell_idx(je,jb,1)
               ib_c = p_patch%edges%cell_blk(je,jb,1)
-
-            ELSEIF( p_os%p_diag%vn_time_weighted(je,jk,jb) <=   0.0_wp)THEN
+            ELSEIF( p_os%p_diag%vn_time_weighted(je,jk,jb) <= 0.0_wp)THEN
               il_c = p_patch%edges%cell_idx(je,jb,2)
               ib_c = p_patch%edges%cell_blk(je,jb,2)
             ENDIF
 
-            p_op_coeff%upwind_cell_idx(je,jk,jb)=il_c
-            p_op_coeff%upwind_cell_blk(je,jk,jb)=ib_c
+            p_op_coeff%upwind_cell_idx(je,jk,jb) = il_c
+            p_op_coeff%upwind_cell_blk(je,jk,jb) = ib_c
 
-            p_op_coeff%upwind_cell_position_cc(je,jk,jb)%x&
-            &=p_op_coeff%cell_position_cc(il_c,jk,ib_c)%x
+            write(0,*)'il_c:',il_c
+            write(0,*)'ib_c:',ib_c
+
+            p_op_coeff%upwind_cell_position_cc(je,jk,jb)%x = &
+              & p_op_coeff%cell_position_cc(il_c,jk,ib_c)%x
 
           ENDIF
         END DO
