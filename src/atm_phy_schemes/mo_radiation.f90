@@ -98,6 +98,8 @@ MODULE mo_radiation
   USE mo_get_utc_date_tr,      ONLY: get_utc_date_tr
   USE mo_timer,                ONLY: timer_radiation, timer_start, timer_stop
 
+  USE mo_mpi,                  ONLY: work_mpi_barrier
+
 !!$  USE mo_echam_phy_memory,     ONLY: prm_field
 
 !!$  USE mo_radiation_forcing,    ONLY: prepare_forcing
@@ -1108,6 +1110,11 @@ CONTAINS
 !!$
     SELECT CASE (irad_aero)
     CASE (0,2)
+      write(0,*) "kbdim,klev,jpband:",kbdim,klev,jpband
+      CALL work_mpi_barrier()
+      write(0,*) "shape(aer_tau_lw_vr):",shape(aer_tau_lw_vr)
+      CALL work_mpi_barrier()
+ 
       aer_tau_lw_vr(:,:,:) = 0.0_wp
       aer_tau_sw_vr(:,:,:) = 0.0_wp
       aer_piz_sw_vr(:,:,:) = 1.0_wp

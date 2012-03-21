@@ -2216,7 +2216,8 @@ CONTAINS
     REAL(wp) :: z_lon_pta, z_lon_ati, z_lon_itp, z_lon_ind, z_lon_nam, z_lon_med
 
     TYPE(t_subset_range), POINTER :: all_cells, cells_in_domain
-    
+    LOGICAL :: is_area_5, is_area_8, p_test_run_bac
+
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     &        routine = 'mo_oce_state:init_ho_basins'
 
@@ -2356,6 +2357,10 @@ CONTAINS
     !  - no cell has Pacific and Atlantic neighbor
     !  - iterative procedure (time consuming in higher resolution)
 
+    ! disable p_test_run since iterations will be different
+    p_test_run_bac = p_test_run
+    p_test_run = .false.
+
     g_cor=0
 !   Do jiter=1,1000 ! should be adjusted to higher resolution
     Do jiter=1,100
@@ -2366,22 +2371,28 @@ CONTAINS
       DO jb = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
-        
+           is_area_5 = .false.
+           is_area_8 = .false.
            IF (iarea(jc,jb) == -33) THEN
              DO i = 1, 3  !  no_of_edges
                ! coordinates of neighbouring cells
                n_blk(i) = p_patch%cells%neighbor_blk(jc,jb,i)
                n_idx(i) = p_patch%cells%neighbor_idx(jc,jb,i)
                IF (iarea(n_idx(i),n_blk(i)) == 5) THEN       ! neighbor is TropAtl
-                 iarea(jc,jb)=5
-                 no_cor=no_cor+1
-                 exit
+                 is_area_5 = .true.
                ELSE IF (iarea(n_idx(i),n_blk(i)) == 8) THEN  ! neighbor is TropPac
-                 iarea(jc,jb)=8
-                 no_cor=no_cor+1
-                 exit
+                 is_area_8 = .true.
                END IF
              END DO
+
+             IF (is_area_5) THEN 
+                iarea(jc,jb)=5
+                no_cor =  no_cor + 1
+             ENDIF
+             IF (is_area_8) THEN
+               iarea(jc,jb)=8
+               no_cor =  no_cor + 1
+             ENDIF
            END IF
      
         END DO
@@ -2398,7 +2409,8 @@ CONTAINS
         &                              jiter,' no of cor:',no_cor
       CALL message(TRIM(routine), TRIM(message_text))
 
-      ! do sync - not necessary?
+      ! do sync
+      
       z_sync_c(:,:) =  REAL(iarea(:,:),wp)
       CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
       iarea(:,:) = INT(z_sync_c(:,:))
@@ -2408,6 +2420,15 @@ CONTAINS
     WRITE(message_text,'(a,i4,a,i8)') 'Corrected Caribbean region - iterations=', &
       &                              iter,' no of cor:',g_cor
     CALL message(TRIM(routine), TRIM(message_text))
+    
+    p_test_run = p_test_run_bac
+    !chekc if iarea is the same
+    IF (p_test_run) THEN
+       z_sync_c(:,:) =  REAL(iarea(:,:),wp)
+       CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
+       iarea(:,:) = INT(z_sync_c(:,:))
+    ENDIF
+    !-----------------------------
 
     !-----------------------------
     ! Fill ocean basins using ocean areas:

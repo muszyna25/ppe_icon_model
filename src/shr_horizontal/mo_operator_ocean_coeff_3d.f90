@@ -497,6 +497,7 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: all_verts
 
     INTEGER :: edge_block, cell_block, vertex_block, level, neigbor
+    INTEGER :: je,jk, i_startidx_e, i_endidx_e
 
     all_cells => patch%cells%all
     all_edges => patch%edges%all
@@ -553,15 +554,20 @@ CONTAINS
     ! on edges
     DO edge_block = all_edges%start_block, all_edges%end_block
       DO level = 1, n_zlev
+        CALL get_index_range(all_edges, edge_block, i_startidx_e, i_endidx_e)
+        DO je =  i_startidx_e, i_endidx_e
 
-        ocean_coeff%edge2cell_coeff_cc_t(:,level,edge_block,1) = &
-          intp_2D_coeff%edge2cell_coeff_cc_t(:,edge_block,1)
-        ocean_coeff%edge2cell_coeff_cc_t(:,level,edge_block,2) = &
-          intp_2D_coeff%edge2cell_coeff_cc_t(:,edge_block,2)
+          ocean_coeff%edge2cell_coeff_cc_t(je,level,edge_block,1)%x = &
+            intp_2D_coeff%edge2cell_coeff_cc_t(je,edge_block,1)%x
+          ocean_coeff%edge2cell_coeff_cc_t(je,level,edge_block,2)%x = &
+            intp_2D_coeff%edge2cell_coeff_cc_t(je,edge_block,2)%x
 
-        ocean_coeff%edge2vert_coeff_cc_t(:,level,edge_block,1) = &
-          intp_2D_coeff%edge2vert_coeff_cc_t(:,edge_block,1)
+          ocean_coeff%edge2vert_coeff_cc_t(je,level,edge_block,1)%x = &
+            intp_2D_coeff%edge2vert_coeff_cc_t(je,edge_block,1)%x
+          ocean_coeff%edge2vert_coeff_cc_t(je,level,edge_block,2)%x = &
+            intp_2D_coeff%edge2vert_coeff_cc_t(je,edge_block,2)%x
 
+        ENDDO
       ENDDO
     ENDDO
 
@@ -640,6 +646,8 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: all_cells
     TYPE(t_subset_range), POINTER :: owned_verts
 
+ !   REAL(wp) :: comm_edges(nproma,n_zlev,patch%nblks_e)
+
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = ('mo_operator_ocean_coeff_3d:apply_boundary2coeffs')
 
@@ -651,6 +659,16 @@ CONTAINS
     owned_verts => patch%verts%owned
 
     i_v_ctr(:,:,:)          = 0
+    ! this should not be done here
+!    comm_edges = REAL(v_base%lsm_oce_e,wp)
+!    CALL sync_patch_array(SYNC_E, patch,  comm_edges )
+!    v_base%lsm_oce_e = INT(comm_edges)
+!      DO je=1,2
+!        DO jk=1,3
+!          CALL sync_patch_array(SYNC_E, patch, ocean_coeff%edge2cell_coeff_cc_t(:,:,:,je)%x(jk))
+!          CALL sync_patch_array(SYNC_E, patch, ocean_coeff%edge2vert_coeff_cc_t(:,:,:,je)%x(jk))
+!        ENDDO
+!      ENDDO
 
     !-------------------------------------------------------------
     !0. check the coefficients for edges, these are:
@@ -678,10 +696,12 @@ CONTAINS
     ! we sync only in p_test_run for checking
     IF (p_test_run) THEN
       CALL sync_patch_array(SYNC_E, patch, ocean_coeff%grad_coeff(:,:,:))
-      DO je=1,2
-        DO jk=1,3
-          CALL sync_patch_array(SYNC_E, patch, ocean_coeff%edge2cell_coeff_cc_t(:,:,:,je)%x(jk))
-          CALL sync_patch_array(SYNC_E, patch, ocean_coeff%edge2vert_coeff_cc_t(:,:,:,je)%x(jk))
+      DO jk = 1, n_zlev
+        DO je=1,2
+          DO jb=1,3
+            CALL sync_patch_array(SYNC_E, patch, ocean_coeff%edge2cell_coeff_cc_t(:,jk,:,je)%x(jb))
+            CALL sync_patch_array(SYNC_E, patch, ocean_coeff%edge2vert_coeff_cc_t(:,jk,:,je)%x(jb))
+          ENDDO
         ENDDO
       ENDDO
     ENDIF
@@ -716,13 +736,18 @@ CONTAINS
     ! these are computed an all cells,  thus no sync is required
     ! we sync only in p_test_run for checking
     IF (p_test_run) THEN
+      CALL sync_patch_array(SYNC_E, patch, ocean_coeff%grad_coeff(:,:,:))
+
       DO je=1,patch%cell_type
         CALL sync_patch_array(SYNC_C, patch, ocean_coeff%div_coeff(:,:,:, je))
-        CALL sync_patch_array(SYNC_C, patch, ocean_coeff%edge2cell_coeff_cc(:,:,:,je)%x(1))
-        CALL sync_patch_array(SYNC_C, patch, ocean_coeff%edge2cell_coeff_cc(:,:,:,je)%x(2))
-        CALL sync_patch_array(SYNC_C, patch, ocean_coeff%edge2cell_coeff_cc(:,:,:,je)%x(3))
+
+        DO jk = 1, n_zlev
+          CALL sync_patch_array(SYNC_C, patch, ocean_coeff%edge2cell_coeff_cc(:,jk,:,je)%x(1))
+          CALL sync_patch_array(SYNC_C, patch, ocean_coeff%edge2cell_coeff_cc(:,jk,:,je)%x(2))
+          CALL sync_patch_array(SYNC_C, patch, ocean_coeff%edge2cell_coeff_cc(:,jk,:,je)%x(3))
+        ENDDO
+
       ENDDO
-      CALL sync_patch_array(SYNC_E, patch, ocean_coeff%grad_coeff(:,:,:))
     ENDIF
     !-------------------------------------------------------------
 
@@ -911,25 +936,22 @@ CONTAINS
     !The dynamical changing coefficient for the surface layer
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-        DO jc = i_startidx_c, i_endidx_c
-          DO je = 1, patch%cells%num_edges(jc,jb)
+      DO jc = i_startidx_c, i_endidx_c
 
-            ile = patch%cells%edge_idx(jc,jb,je)
-            ibe = patch%cells%edge_blk(jc,jb,je)
-            IF ( v_base%lsm_oce_e(ile,1,ibe) /= sea) THEN
-              ocean_coeff%edge2cell_coeff_cc_dyn(jc,1,jb,je)%x(1:3) = 0.0_wp
-            ENDIF
-
+        DO je = 1, patch%cells%num_edges(jc,jb)
+          ocean_coeff%edge2cell_coeff_cc_dyn(jc,1,jb,je)%x = &
+            ocean_coeff%edge2cell_coeff_cc(jc,1,jb,je)%x 
         ENDDO ! je = 1, patch%cells%num_edges(jc,jb)
+
       END DO ! jc = i_startidx_c, i_endidx_c
     END DO ! jb = all_cells%start_block, all_cells%end_block
     ! these are computed an all cells, thus no sync is required
     ! we sync only in p_test_run for checking
     IF (p_test_run) THEN
       DO je=1,patch%cell_type
-        CALL sync_patch_array(SYNC_C, patch, ocean_coeff%edge2cell_coeff_cc_dyn(:,:,:,je)%x(1))
-        CALL sync_patch_array(SYNC_C, patch, ocean_coeff%edge2cell_coeff_cc_dyn(:,:,:,je)%x(2))
-        CALL sync_patch_array(SYNC_C, patch, ocean_coeff%edge2cell_coeff_cc_dyn(:,:,:,je)%x(3))
+          CALL sync_patch_array(SYNC_C, patch, ocean_coeff%edge2cell_coeff_cc_dyn(:,1,:,je)%x(1))
+          CALL sync_patch_array(SYNC_C, patch, ocean_coeff%edge2cell_coeff_cc_dyn(:,1,:,je)%x(2))
+          CALL sync_patch_array(SYNC_C, patch, ocean_coeff%edge2cell_coeff_cc_dyn(:,1,:,je)%x(3))
       ENDDO
     ENDIF
     !-------------------------------------------------------------
@@ -1039,9 +1061,11 @@ CONTAINS
     END DO
     ! sync the result
     DO jev=1,6
-      CALL sync_patch_array(SYNC_V, patch, ocean_coeff%edge2vert_coeff_cc(:,:,:, jev)%x(1))
-      CALL sync_patch_array(SYNC_V, patch, ocean_coeff%edge2vert_coeff_cc(:,:,:, jev)%x(2))
-      CALL sync_patch_array(SYNC_V, patch, ocean_coeff%edge2vert_coeff_cc(:,:,:, jev)%x(3))
+      DO jk = 1, n_zlev
+        CALL sync_patch_array(SYNC_V, patch, ocean_coeff%edge2vert_coeff_cc(:,jk,:, jev)%x(1))
+        CALL sync_patch_array(SYNC_V, patch, ocean_coeff%edge2vert_coeff_cc(:,jk,:, jev)%x(2))
+        CALL sync_patch_array(SYNC_V, patch, ocean_coeff%edge2vert_coeff_cc(:,jk,:, jev)%x(3))
+      ENDDO
     ENDDO
     !-------------------------------------------------------------
 
