@@ -55,7 +55,7 @@ USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer, idisc_scheme,    &
   &                                     ab_const, ab_gam, expl_vertical_tracer_diff,&
   &                                     iswm_oce
 USE mo_physical_constants,        ONLY: tf
-USE mo_parallel_config,           ONLY: nproma
+USE mo_parallel_config,           ONLY: nproma, p_test_run
 USE mo_dynamics_config,           ONLY: nold, nnew 
 USE mo_run_config,                ONLY: dtime, ltimer
 USE mo_timer,                     ONLY: timer_start, timer_stop, timer_adv_horz, timer_hflx_lim, &
@@ -1075,6 +1075,7 @@ END SUBROUTINE elad
     !    cell center to upwind point C_i from step 2
     !3a:
     !CALL grad_fd_norm_oce( pvar_c, ppatch, z_gradC)
+    IF (p_test_run) z_gradC = 0.0_wp
     CALL grad_fd_norm_oce_3D( pvar_c,                 &
            &                  ppatch,                 &
            &                  p_op_coeff%grad_coeff,  &

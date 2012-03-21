@@ -137,8 +137,8 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: edges_in_domain        
     
     !-----------------------------------------------------------------------
-    edges_in_domain => ptr_patch%edges%in_domain
-    
+    edges_in_domain => ptr_patch%edges%in_domain    
+
     slev = 1
     elev = n_zlev
         
