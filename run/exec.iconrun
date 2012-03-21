@@ -167,6 +167,11 @@ if [[ $run_ocean = 'true' ]]; then
    if [ ! -d ${HGRIDDIR} ] ;  then
      mkdir -p ${HGRIDDIR}
    fi
+    
+   # DWD systems: $POOL_ICON does not exist
+   if [ "x$BB_SYSTEM" = "xhpc" -o "x$BB_SYSTEM" = "xnec" ] ; then
+      LOC='othr'
+   fi
 
    # =======================================================
    #

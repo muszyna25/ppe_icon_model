@@ -66,11 +66,6 @@ B=4   # number of bisections applied
   LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
 # specific path of input data is set by exec.iconrun
 # 
-#  DWD systems: $POOLDIR does not exist
-#if [ "x$BB_SYSTEM" = "xhpc" -o "x$BB_SYSTEM" = "xnec" ] ; then
-#   LOC='othr'
-#fi
-#
 #-----------------------------------------------------------------------------
 # ocean initialization (init_oce=1) needs an additional file for prognostic variables
 init_oce=0     # 1: use ocean initialization file; 0: init analytically
