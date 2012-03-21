@@ -54,16 +54,13 @@ MODULE mo_nwp_rad_interface
   USE mo_nwp_lnd_state,        ONLY: t_lnd_prog, t_lnd_diag
   USE mo_model_domain,         ONLY: t_patch, p_patch_local_parent
   USE mo_mpi,                  ONLY: my_process_is_mpi_seq
-  USE mo_phyparam_soil,        ONLY: csalb, csalb_snow_min, csalb_snow_max, &
-    &                                csalb_snow_fe, csalb_snow_fd, csalb_p, cf_snow
   USE mo_phys_nest_utilities,  ONLY: upscale_rad_input, downscale_rad_output, &
     &                                upscale_rad_input_rg, downscale_rad_output_rg
   USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag
   USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag
   USE mo_o3_util,              ONLY: calc_o3_clim,calc_o3_gems
-  USE mo_physical_constants,   ONLY: tmelt
   USE mo_radiation,            ONLY: pre_radiation_nwp_steps
-  USE mo_radiation_config,     ONLY: irad_o3, irad_aero, vmr_co2, rad_csalbw
+  USE mo_radiation_config,     ONLY: irad_o3, irad_aero, vmr_co2
   USE mo_radiation_rg,         ONLY: fesft
   USE mo_radiation_rg_par,     ONLY: aerdis
   USE mo_satad,                ONLY: qsat_rho
@@ -148,14 +145,14 @@ MODULE mo_nwp_rad_interface
             & ext_data, lnd_diag, pt_prog_rcf, pt_diag, prm_diag, lnd_prog )
         ELSE
           CALL nwp_rrtm_radiation ( p_sim_time,pt_patch, &
-            & ext_data,lnd_diag,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5, &
-            & pt_prog_rcf, pt_diag, prm_diag, lnd_prog )
+            & ext_data,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,    &
+            & pt_prog_rcf, pt_diag, prm_diag, lnd_prog   )
         ENDIF
     
       ELSE 
 
         CALL nwp_rrtm_radiation_reduced ( p_sim_time,pt_patch,pt_par_patch,  &
-          & pt_par_int_state, pt_par_grf_state,ext_data,lnd_diag,            &
+          & pt_par_int_state, pt_par_grf_state,ext_data,                     &
           & zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,                                   &
           & pt_prog_rcf,pt_diag,prm_diag, lnd_prog )
           
@@ -168,15 +165,14 @@ MODULE mo_nwp_rad_interface
     IF ( atm_phy_nwp_config(jg)%inwp_radiation == 2 .AND. .NOT. lredgrid) THEN
     
       CALL nwp_rg_radiation ( p_sim_time, datetime, pt_patch, &
-        & ext_data,lnd_diag, &
-        & pt_prog,pt_prog_rcf,pt_diag,prm_diag, lnd_prog )
+        & ext_data,pt_prog,pt_prog_rcf,pt_diag,prm_diag, lnd_prog )
 
 
     ELSEIF ( atm_phy_nwp_config(jg)%inwp_radiation == 2 .AND. lredgrid) THEN
 
       CALL nwp_rg_radiation_reduced ( p_sim_time, datetime, pt_patch,pt_par_patch, &
-        & pt_par_int_state, pt_par_grf_state,ext_data,lnd_diag, &
-        & pt_prog,pt_prog_rcf,pt_diag,prm_diag, lnd_prog )
+        & pt_par_int_state, pt_par_grf_state,ext_data,pt_prog,pt_prog_rcf,         &  
+        & pt_diag,prm_diag, lnd_prog )
 
 
     ENDIF !inwp_radiation = 2
@@ -192,8 +188,7 @@ MODULE mo_nwp_rad_interface
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
   SUBROUTINE nwp_rg_radiation ( p_sim_time, datetime, pt_patch, &
-    & ext_data,lnd_diag,pt_prog,pt_prog_rcf,pt_diag,prm_diag, &
-    & lnd_prog )
+    & ext_data,pt_prog,pt_prog_rcf,pt_diag,prm_diag,lnd_prog )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
 !      &  routine = 'mo_nwp_rad_interface:'
@@ -209,7 +204,6 @@ MODULE mo_nwp_rad_interface
     TYPE(t_datetime),            INTENT(in) :: datetime
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
     TYPE(t_external_data),INTENT(in):: ext_data
-    TYPE(t_lnd_diag),     INTENT(in):: lnd_diag      !< diag vars for sfc
     TYPE(t_nh_prog), TARGET, INTENT(inout)  :: pt_prog     !<the prognostic variables
     TYPE(t_nh_prog), TARGET, INTENT(inout)  :: pt_prog_rcf !<the prognostic variables (with
     !< reduced calling frequency for tracers!
@@ -388,7 +382,7 @@ MODULE mo_nwp_rad_interface
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
   SUBROUTINE nwp_rg_radiation_reduced ( p_sim_time, datetime, pt_patch,pt_par_patch, &
-    & pt_par_int_state, pt_par_grf_state,ext_data,lnd_diag,pt_prog,pt_prog_rcf,pt_diag,prm_diag, &
+    & pt_par_int_state, pt_par_grf_state,ext_data,pt_prog,pt_prog_rcf,pt_diag,prm_diag, &
     & lnd_prog )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
@@ -408,7 +402,6 @@ MODULE mo_nwp_rad_interface
     TYPE(t_int_state),    TARGET,INTENT(in):: pt_par_int_state  !< " for parent grid
     TYPE(t_gridref_state),TARGET,INTENT(in) :: pt_par_grf_state  !< grid refinement state
     TYPE(t_external_data),INTENT(in):: ext_data
-    TYPE(t_lnd_diag),     INTENT(in):: lnd_diag      !< diag vars for sfc
     TYPE(t_nh_prog), TARGET, INTENT(inout)  :: pt_prog     !<the prognostic variables
     TYPE(t_nh_prog), TARGET, INTENT(inout)  :: pt_prog_rcf !<the prognostic variables (with
     !< reduced calling frequency for tracers!

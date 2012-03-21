@@ -1840,8 +1840,7 @@ END SUBROUTINE interpol_phys_grf
 !! Developed  by Guenther Zaengl, DWD, 2011-09-19
 !!
 SUBROUTINE interpol_rrg_grf (ptr_pp, ptr_pc, ptr_int, ptr_grf, prm_diagp, prm_diagc, &
-                             ptr_lprogp, ptr_lprogc_now, ptr_lprogc_new, ptr_ldiagp, &
-                             ptr_ldiagc, jg, jgc, jn)
+                             ptr_lprogp, ptr_lprogc_now, ptr_lprogc_new, jn)
 
   ! Input:
   TYPE(t_patch),                INTENT(in) :: ptr_pp
@@ -1853,13 +1852,11 @@ SUBROUTINE interpol_rrg_grf (ptr_pp, ptr_pc, ptr_int, ptr_grf, prm_diagp, prm_di
   TYPE(t_lnd_prog),             INTENT(in) :: ptr_lprogp
   TYPE(t_lnd_prog),             INTENT(inout) :: ptr_lprogc_now
   TYPE(t_lnd_prog),             INTENT(inout) :: ptr_lprogc_new
-  TYPE(t_lnd_diag),             INTENT(in) :: ptr_ldiagp
-  TYPE(t_lnd_diag),             INTENT(inout) :: ptr_ldiagc
 
-  INTEGER,                      INTENT(in) :: jg,jgc,jn
+  INTEGER,                      INTENT(in) :: jn
 
   ! Local fields
-  INTEGER, PARAMETER  :: nfields=6    ! Number of 2D fields for which boundary interpolation is needed
+  INTEGER, PARAMETER  :: nfields=2    ! Number of 2D fields for which boundary interpolation is needed
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, jb, jc
 
   ! Temporary storage to do boundary interpolation for all 2D fields in one step
@@ -1882,11 +1879,7 @@ SUBROUTINE interpol_rrg_grf (ptr_pp, ptr_pc, ptr_int, ptr_grf, prm_diagp, prm_di
     DO jc = i_startidx, i_endidx
 
       z_aux3d_p(jc,1,jb) = ptr_lprogp%t_g(jc,jb)
-      z_aux3d_p(jc,2,jb) = ptr_lprogp%w_so(jc,1,jb,1)
-      z_aux3d_p(jc,3,jb) = ptr_lprogp%w_snow(jc,jb,1)
-      z_aux3d_p(jc,4,jb) = ptr_ldiagp%freshsnow(jc,jb,1)
-      z_aux3d_p(jc,5,jb) = prm_diagp%h_ice(jc,jb)
-      z_aux3d_p(jc,6,jb) = prm_diagp%albvisdif(jc,jb)
+      z_aux3d_p(jc,2,jb) = prm_diagp%albvisdif(jc,jb)
     ENDDO
   ENDDO
 !$OMP END DO
@@ -1917,13 +1910,7 @@ SUBROUTINE interpol_rrg_grf (ptr_pp, ptr_pc, ptr_int, ptr_grf, prm_diagp, prm_di
 
       ptr_lprogc_now%t_g(jc,jb)      = z_aux3d_c(jc,1,jb)
       ptr_lprogc_new%t_g(jc,jb)      = z_aux3d_c(jc,1,jb)
-      ptr_lprogc_now%w_so(jc,1,jb,1) = z_aux3d_c(jc,2,jb)
-      ptr_lprogc_new%w_so(jc,1,jb,1) = z_aux3d_c(jc,2,jb)
-      ptr_lprogc_now%w_snow(jc,jb,1) = z_aux3d_c(jc,3,jb)
-      ptr_lprogc_new%w_snow(jc,jb,1) = z_aux3d_c(jc,3,jb)
-      ptr_ldiagc%freshsnow(jc,jb,1)  = z_aux3d_c(jc,4,jb)
-      prm_diagc%h_ice(jc,jb)         = z_aux3d_c(jc,5,jb)
-      prm_diagc%albvisdif(jc,jb)     = z_aux3d_c(jc,6,jb)
+      prm_diagc%albvisdif(jc,jb)     = z_aux3d_c(jc,2,jb)
 
     ENDDO
   ENDDO

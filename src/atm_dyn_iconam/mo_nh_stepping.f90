@@ -1019,8 +1019,7 @@ MODULE mo_nh_stepping
                                     p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)),                 &
                                     p_lnd_state(jgc)%prog_lnd(nnow_rcf(jgc)),               &
                                     p_lnd_state(jgc)%prog_lnd(nnew_rcf(jgc)),               &
-                                    p_lnd_state(jg)%diag_lnd, p_lnd_state(jgc)%diag_lnd,    &
-                                    jg, jgc, jn )
+                                    jn )
             ENDIF
           ENDDO
           IF (timers_level >= 2) CALL timer_stop(timer_bdy_interp)
@@ -1240,8 +1239,7 @@ MODULE mo_nh_stepping
                                     p_lnd_state(jg)%prog_lnd(nnew_rcf(jg)),                 &
                                     p_lnd_state(jgc)%prog_lnd(nnow_rcf(jgc)),               &
                                     p_lnd_state(jgc)%prog_lnd(nnew_rcf(jgc)),               &
-                                    p_lnd_state(jg)%diag_lnd, p_lnd_state(jgc)%diag_lnd,    &
-                                    jg, jgc, jn )
+                                    jn )
             ENDIF
           ENDDO
           IF (timers_level >= 2) CALL timer_stop(timer_bdy_interp)
