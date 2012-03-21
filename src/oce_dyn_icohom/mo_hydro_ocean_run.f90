@@ -141,7 +141,7 @@ CONTAINS
                                 & p_as, p_atm_f, p_ice,                         &
                                 & l_have_output)
 
-  TYPE(t_patch),             TARGET, INTENT(IN) :: ppatch(n_dom)
+  TYPE(t_patch),             TARGET, INTENT(INOUT) :: ppatch(n_dom)
   TYPE(t_hydro_ocean_state), TARGET, INTENT(INOUT) :: pstate_oce(n_dom)
   TYPE(t_external_data), TARGET, INTENT(IN)        :: p_ext_data(n_dom)
   TYPE(t_datetime), INTENT(INOUT)                  :: datetime
@@ -159,11 +159,11 @@ CONTAINS
 
 
   ! local variables
-  INTEGER :: jstep, jg
-  LOGICAL :: l_outputtime
-  CHARACTER(len=32) :: datestring
+  INTEGER                         :: jstep, jg
+  LOGICAL                         :: l_outputtime
+  CHARACTER(len=32)               :: datestring
   TYPE(t_oce_timeseries), POINTER :: oce_ts
-  TYPE(t_operator_coeff)  :: ptr_op_coeff
+  TYPE(t_operator_coeff)          :: ptr_op_coeff
 
   !CHARACTER(LEN=filename_max)  :: outputfile, gridfile
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
@@ -218,58 +218,55 @@ CONTAINS
       CALL update_sfcflx(ppatch(jg), pstate_oce(jg), p_as, p_ice, p_atm_f, p_sfc_flx, &
         &                jstep, datetime)
 
-!     IF(iswm_oce /= 1)THEN  #slo# 2012-02-21 - called for SW-Mode as well
-
-        IF(.NOT.l_STAGGERED_TIMESTEP)THEN
+      IF(.NOT.l_STAGGERED_TIMESTEP)THEN
 
 
-          CALL sync_patch_array(sync_c, ppatch(jg), pstate_oce(jg)%p_prog(nold(1))%h)
+        CALL sync_patch_array(sync_c, ppatch(jg), pstate_oce(jg)%p_prog(nold(1))%h)
 
-          CALL height_related_quantities(ppatch(jg), pstate_oce(jg), p_ext_data(jg))
+        CALL height_related_quantities(ppatch(jg), pstate_oce(jg), p_ext_data(jg))
 
-          CALL sync_patch_array(sync_c, ppatch(jg), pstate_oce(jg)%p_prog(nold(1))%h)
-          CALL sync_patch_array(sync_e, ppatch(jg), pstate_oce(jg)%p_diag%h_e)
-          CALL sync_patch_array(sync_c, ppatch(jg), pstate_oce(jg)%p_diag%thick_c)
-          CALL sync_patch_array(sync_e, ppatch(jg), pstate_oce(jg)%p_diag%thick_e)
+        CALL sync_patch_array(sync_c, ppatch(jg), pstate_oce(jg)%p_prog(nold(1))%h)
+        CALL sync_patch_array(sync_e, ppatch(jg), pstate_oce(jg)%p_diag%h_e)
+        CALL sync_patch_array(sync_c, ppatch(jg), pstate_oce(jg)%p_diag%thick_c)
+        CALL sync_patch_array(sync_e, ppatch(jg), pstate_oce(jg)%p_diag%thick_e)
 
-          !This is required in top boundary condition for
-          !vertical velocity: the time derivative of the surface height
-          !is used there and needs special treatment in the first timestep.
-          !see sbr top_bound_cond_vert_veloc in mo_ho_boundcond
-          pstate_oce(jg)%p_prog(nnew(1))%h = pstate_oce(jg)%p_prog(nold(1))%h
+        !This is required in top boundary condition for
+        !vertical velocity: the time derivative of the surface height
+        !is used there and needs special treatment in the first timestep.
+        !see sbr top_bound_cond_vert_veloc in mo_ho_boundcond
+        pstate_oce(jg)%p_prog(nnew(1))%h = pstate_oce(jg)%p_prog(nold(1))%h
 
-          Call set_lateral_boundary_values(ppatch(jg), pstate_oce(jg)%p_prog(nold(1))%vn)
-          CALL sync_patch_array(sync_e, ppatch(jg),  pstate_oce(jg)%p_prog(nold(1))%vn)
+        Call set_lateral_boundary_values(ppatch(jg), pstate_oce(jg)%p_prog(nold(1))%vn)
+        CALL sync_patch_array(sync_e, ppatch(jg),  pstate_oce(jg)%p_prog(nold(1))%vn)
 
-!            CALL calc_scalar_product_veloc( ppatch(jg), &
-!              & pstate_oce(jg)%p_prog(nold(1))%vn,&
-!              & pstate_oce(jg)%p_prog(nold(1))%vn,&
-!              & pstate_oce(jg)%p_diag%h_e,        &
-!              & pstate_oce(jg)%p_diag)
+!          CALL calc_scalar_product_veloc( ppatch(jg), &
+!            & pstate_oce(jg)%p_prog(nold(1))%vn,&
+!            & pstate_oce(jg)%p_prog(nold(1))%vn,&
+!            & pstate_oce(jg)%p_diag%h_e,        &
+!            & pstate_oce(jg)%p_diag)
 
-           CALL calc_scalar_product_veloc_3D( ppatch(jg), &
-             & pstate_oce(jg)%p_prog(nold(1))%vn,         &
-             & pstate_oce(jg)%p_prog(nold(1))%vn,         &
-             & pstate_oce(jg)%p_diag%h_e,                 &
-             & pstate_oce(jg)%p_diag,                     &
-             & ptr_op_coeff)
+         CALL calc_scalar_product_veloc_3D( ppatch(jg), &
+           & pstate_oce(jg)%p_prog(nold(1))%vn,         &
+           & pstate_oce(jg)%p_prog(nold(1))%vn,         &
+           & pstate_oce(jg)%p_diag%h_e,                 &
+           & pstate_oce(jg)%p_diag,                     &
+           & ptr_op_coeff)
 
-        ENDIF
+      ENDIF
 
-        SELECT CASE (EOS_TYPE)
-        CASE(1)
-          CALL update_ho_params(ppatch(jg), pstate_oce(jg), p_sfc_flx, p_phys_param,&
-            &                   calc_density_lin_EOS_func)
+      SELECT CASE (EOS_TYPE)
+      CASE(1)
+        CALL update_ho_params(ppatch(jg), pstate_oce(jg), p_sfc_flx, p_phys_param,&
+          &                   calc_density_lin_EOS_func)
 
-        CASE(2)
-          CALL update_ho_params(ppatch(jg), pstate_oce(jg), p_sfc_flx, p_phys_param,&
-            &                   calc_density_MPIOM_func)
-        CASE(3)
-          CALL update_ho_params(ppatch(jg), pstate_oce(jg), p_sfc_flx, p_phys_param,&
-            &                   calc_density_JMDWFG06_EOS_func)
-        CASE DEFAULT
-        END SELECT
-!     ENDIF
+      CASE(2)
+        CALL update_ho_params(ppatch(jg), pstate_oce(jg), p_sfc_flx, p_phys_param,&
+          &                   calc_density_MPIOM_func)
+      CASE(3)
+        CALL update_ho_params(ppatch(jg), pstate_oce(jg), p_sfc_flx, p_phys_param,&
+          &                   calc_density_JMDWFG06_EOS_func)
+      CASE DEFAULT
+      END SELECT
 
       ! solve for new free surface
       IF (ltimer) CALL timer_start(timer_solve_ab)
