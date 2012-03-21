@@ -183,7 +183,7 @@ CONTAINS
     lhdiff_rcf = .FALSE.  ! not used by default for the time being
 
     ! scaling factor for divergence damping (used only if lhdiff_rcf = true)
-    divdamp_fac = 0.01_wp
+    divdamp_fac = 0.004_wp
 
     ! Type of vertical coordinate (1: Gal-Chen, 2: SLEVE)
     ivctype  = 2
