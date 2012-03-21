@@ -487,8 +487,6 @@ CONTAINS
 
   END SUBROUTINE init_ho_relaxation
 
-  !-------------------------------------------------------------------------
-
   SUBROUTINE nf(status)
 
     INTEGER, INTENT(in) :: status
@@ -499,12 +497,6 @@ CONTAINS
 
   END SUBROUTINE nf
 
-  !-------------------------------------------------------------------------
-
-
-  !-------------------------------------------------------------------------
-  !>
-  !!
   SUBROUTINE init_ho_recon_fields( p_patch, p_os, p_op_coeff)
     TYPE(t_patch), TARGET, INTENT(in)             :: p_patch
     TYPE(t_hydro_ocean_state), TARGET             :: p_os
