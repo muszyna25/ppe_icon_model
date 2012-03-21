@@ -426,7 +426,7 @@ CONTAINS
   !!
   SUBROUTINE par_init_operator_coeff( patch, ocean_coeff, intp_2D_coeff)
     !
-    TYPE(t_patch),          INTENT(in   ) :: patch
+    TYPE(t_patch),          INTENT(inout) :: patch
     TYPE(t_operator_coeff), INTENT(inout) :: ocean_coeff
     TYPE(t_int_state),      INTENT(inout) :: intp_2D_coeff
 
