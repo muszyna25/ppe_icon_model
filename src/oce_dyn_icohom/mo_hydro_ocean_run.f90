@@ -180,11 +180,13 @@ CONTAINS
   jg = n_dom
 
   CALL allocate_exp_coeff( ppatch(jg), ptr_op_coeff)
-!   IF (my_process_is_mpi_all_parallel()) THEN
-    CALL par_init_operator_coeff( ppatch(jg), ptr_op_coeff, p_int(jg))
-!   ELSE
-!     CALL init_operator_coeff( ppatch(jg), ptr_op_coeff)
-!   ENDIF
+  CALL par_init_operator_coeff( ppatch(jg), ptr_op_coeff, p_int(jg))
+  ! As an alternative a serial 2D version of the coefficient computation can be used
+  !   IF (my_process_is_mpi_all_parallel()) THEN
+  !   CALL par_init_operator_coeff( ppatch(jg), ptr_op_coeff, p_int(jg))
+  !   ELSE
+  !     CALL init_operator_coeff( ppatch(jg), ptr_op_coeff)
+  !   ENDIF
 
   CALL init_ho_recon_fields( ppatch(jg), pstate_oce(jg), ptr_op_coeff)
 
@@ -212,33 +214,33 @@ CONTAINS
     ELSE
 
 
-      !In case of a time-varying forcing: 
+      !In case of a time-varying forcing:
       CALL update_sfcflx(ppatch(jg), pstate_oce(jg), p_as, p_ice, p_atm_f, p_sfc_flx, &
         &                jstep, datetime)
 
 !     IF(iswm_oce /= 1)THEN  #slo# 2012-02-21 - called for SW-Mode as well
 
         IF(.NOT.l_STAGGERED_TIMESTEP)THEN
-   
+
 
           CALL sync_patch_array(sync_c, ppatch(jg), pstate_oce(jg)%p_prog(nold(1))%h)
-          
+
           CALL height_related_quantities(ppatch(jg), pstate_oce(jg), p_ext_data(jg))
-          
+
           CALL sync_patch_array(sync_c, ppatch(jg), pstate_oce(jg)%p_prog(nold(1))%h)
           CALL sync_patch_array(sync_e, ppatch(jg), pstate_oce(jg)%p_diag%h_e)
           CALL sync_patch_array(sync_c, ppatch(jg), pstate_oce(jg)%p_diag%thick_c)
           CALL sync_patch_array(sync_e, ppatch(jg), pstate_oce(jg)%p_diag%thick_e)
-   
+
           !This is required in top boundary condition for
           !vertical velocity: the time derivative of the surface height
           !is used there and needs special treatment in the first timestep.
           !see sbr top_bound_cond_vert_veloc in mo_ho_boundcond
           pstate_oce(jg)%p_prog(nnew(1))%h = pstate_oce(jg)%p_prog(nold(1))%h
-   
+
           Call set_lateral_boundary_values(ppatch(jg), pstate_oce(jg)%p_prog(nold(1))%vn)
           CALL sync_patch_array(sync_e, ppatch(jg),  pstate_oce(jg)%p_prog(nold(1))%vn)
-   
+
 !            CALL calc_scalar_product_veloc( ppatch(jg), &
 !              & pstate_oce(jg)%p_prog(nold(1))%vn,&
 !              & pstate_oce(jg)%p_prog(nold(1))%vn,&
@@ -251,7 +253,7 @@ CONTAINS
              & pstate_oce(jg)%p_diag%h_e,                 &
              & pstate_oce(jg)%p_diag,                     &
              & ptr_op_coeff)
-             
+
         ENDIF
 
         SELECT CASE (EOS_TYPE)
@@ -302,7 +304,7 @@ CONTAINS
 
     ENDIF  ! testcase 28
 
-   ! Actually diagnostics for 3D not implemented, PK March 2011 
+   ! Actually diagnostics for 3D not implemented, PK March 2011
     IF (idiag_oce == 1 ) THEN
       CALL calculate_oce_diagnostics( ppatch(jg),    &
                                     & pstate_oce(jg),&
@@ -310,7 +312,7 @@ CONTAINS
                                     & p_phys_param,  &
                                     & jstep,         &
                                     & oce_ts)
-    ENDIF 
+    ENDIF
 
     ! One integration cycle finished on the lowest grid level (coarsest
     ! resolution). Set model time.
@@ -377,7 +379,7 @@ CONTAINS
     TYPE(t_hydro_ocean_state),    INTENT(INOUT)  :: pstate_oce(n_dom)
     TYPE(t_external_data),        INTENT(INOUT)  :: p_ext_data(n_dom)
     TYPE(t_sfc_flx),              INTENT(INOUT)  :: p_sfc_flx
-    TYPE (t_ho_params),           INTENT(INOUT)  :: p_phys_param 
+    TYPE (t_ho_params),           INTENT(INOUT)  :: p_phys_param
     TYPE(t_atmos_for_ocean ),     INTENT(INOUT)  :: p_as
     TYPE(t_atmos_fluxes ),        INTENT(INOUT)  :: p_atm_f
     TYPE (t_sea_ice),             INTENT(INOUT)  :: p_ice
@@ -466,7 +468,7 @@ CONTAINS
   !
   SUBROUTINE finalise_ho_integration(p_os, p_phys_param, p_as, p_atm_f, p_ice, p_sfc_flx)
     TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os(n_dom)
-    TYPE (t_ho_params),        INTENT(INOUT) :: p_phys_param 
+    TYPE (t_ho_params),        INTENT(INOUT) :: p_phys_param
     TYPE(t_atmos_for_ocean),   INTENT(INOUT) :: p_as
     TYPE(t_atmos_fluxes ),     INTENT(INOUT) :: p_atm_f
     TYPE (t_sea_ice),          INTENT(INOUT) :: p_ice
