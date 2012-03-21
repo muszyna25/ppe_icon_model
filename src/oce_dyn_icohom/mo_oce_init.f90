@@ -1551,12 +1551,9 @@ CONTAINS
 
         z_max = z_temp_max - REAL(jk-1,wp)*z_temp_incr
         WRITE(0,*) TRIM(routine),': jk=',jk,' Maximum Temperature =',z_max
-        DO jb = i_startblk_c, i_endblk_c
-          CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
-           &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
-
+        DO jb = all_cells%start_block, all_cells%end_block
+          CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
           DO jc = i_startidx_c, i_endidx_c
-
             IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
               p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) &
                 &  = MAX(p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1)-z_temp_incr,0.0_wp)
