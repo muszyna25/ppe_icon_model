@@ -241,10 +241,8 @@ z_diff_flux_h = 0.0_wp
                         & z_adv_flux_h )
   END SELECT
 
-   
-
   IF (ltimer) CALL timer_stop(timer_adv_horz)
- 
+
   DO jb = edges_in_domain%start_block, edges_in_domain%end_block
     CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
     DO jk = 1, n_zlev
