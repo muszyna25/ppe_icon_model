@@ -86,141 +86,140 @@ PUBLIC :: calc_vert_velocity
 PUBLIC :: update_time_indices
 
 CONTAINS
-!-------------------------------------------------------------------------
-!
-!
-!>
-!! !  Solves the free surface equation.
-!!
-!! @par Revision History
-!! Developed  by  Peter Korn, MPI-M (2010).
-!!
-SUBROUTINE solve_free_surface_eq_ab(p_patch, p_os, p_ext_data, p_sfc_flx, &
-  &                                 p_phys_param, timestep, p_op_coeff, p_int)
-  TYPE(t_patch), TARGET, INTENT(in)             :: p_patch
-  TYPE(t_hydro_ocean_state), TARGET             :: p_os
-  TYPE(t_external_data), TARGET                 :: p_ext_data
-  TYPE(t_sfc_flx), INTENT(INOUT)                :: p_sfc_flx
-  TYPE (t_ho_params)                            :: p_phys_param
-  INTEGER                                       :: timestep
-  TYPE(t_operator_coeff)                        :: p_op_coeff
-  TYPE(t_int_state),TARGET,INTENT(IN), OPTIONAL :: p_int
-
-  IF(idisc_scheme==MIMETIC_TYPE)THEN
-
-    CALL solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
-      &                            p_phys_param, timestep, p_op_coeff, p_int)
-
-  ELSEIF(idisc_scheme==RBF_TYPE)THEN
-
-    CALL solve_free_sfc_ab_RBF(p_patch, p_os, p_ext_data, p_sfc_flx, &
-      &                        p_phys_param, timestep, p_int)
-
-  ENDIF
-
-END SUBROUTINE solve_free_surface_eq_ab
-!-------------------------------------------------------------------------
-!
-!
-!>
-!! Computation of new velocity in Adams-Bashforth timestepping.
-!!
-!! @par Revision History
-!! Developed  by  Peter Korn, MPI-M (2010).
-!!
-SUBROUTINE calc_normal_velocity_ab(p_patch, p_os, p_op_coeff, p_ext_data, p_phys_param)
-  TYPE(t_patch), TARGET, INTENT(in) :: p_patch
-  TYPE(t_hydro_ocean_state), TARGET :: p_os
-  TYPE(t_operator_coeff)            :: p_op_coeff
-  TYPE(t_external_data), TARGET     :: p_ext_data
-  TYPE (t_ho_params)                :: p_phys_param
-
-  !  local variables
-  ! CHARACTER(len=max_char_length), PARAMETER ::     &
-  !   &      routine = ('mo_oce_ab_timestepping: calc_normal_velocity_2tl_ab')
-  !-----------------------------------------------------------------------
-  IF(idisc_scheme==MIMETIC_TYPE)THEN
-
-    CALL calc_normal_velocity_ab_mimetic(p_patch, p_os, p_op_coeff, p_ext_data, p_phys_param)
-
-  ELSEIF(idisc_scheme==RBF_TYPE)THEN
-
-    CALL calc_normal_velocity_ab_RBF(p_patch, p_os, p_ext_data)
-
-  ENDIF
-
-END SUBROUTINE calc_normal_velocity_ab
-!-------------------------------------------------------------------------
-!
-!
-!>
-!! Computation of new vertical velocity using continuity equation
-
-!! Calculate diagnostic vertical velocity from horizontal velocity using the
-!! incommpressibility condition in the continuity equation.
-!! For the case of the semi-implicit-AB scheme the land-sea-mask may be applied
-!! at least after collecting the whole explicit term.
-!!
-!! @par Revision History
-!! Developed  by  Peter Korn,   MPI-M (2006).
-!!
-SUBROUTINE calc_vert_velocity( p_patch, p_os, p_op_coeff)
-  TYPE(t_patch), TARGET, INTENT(IN) :: p_patch       ! patch on which computation is performed
-  TYPE(t_hydro_ocean_state)         :: p_os
-  TYPE(t_operator_coeff)            :: p_op_coeff
+  !-------------------------------------------------------------------------
   !
   !
-  ! Local variables
-  ! CHARACTER(len=max_char_length), PARAMETER :: &
-  !        & routine = ('mo_oce_ab_timestepping:calc_vert_velocity')
-  !-----------------------------------------------------------------------
+  !>
+  !! !  Solves the free surface equation.
+  !!
+  !! @par Revision History
+  !! Developed  by  Peter Korn, MPI-M (2010).
+  !!
+  SUBROUTINE solve_free_surface_eq_ab(p_patch, p_os, p_ext_data, p_sfc_flx, &
+    &                                 p_phys_param, timestep, p_op_coeff, p_int)
+    TYPE(t_patch), TARGET, INTENT(in)             :: p_patch
+    TYPE(t_hydro_ocean_state), TARGET             :: p_os
+    TYPE(t_external_data), TARGET                 :: p_ext_data
+    TYPE(t_sfc_flx), INTENT(INOUT)                :: p_sfc_flx
+    TYPE (t_ho_params)                            :: p_phys_param
+    INTEGER                                       :: timestep
+    TYPE(t_operator_coeff)                        :: p_op_coeff
+    TYPE(t_int_state),TARGET,INTENT(IN), OPTIONAL :: p_int
 
-  !Store current vertical velocity before the new one is calculated
-  p_os%p_diag%w_old = p_os%p_diag%w
+    IF(idisc_scheme==MIMETIC_TYPE)THEN
 
-  IF(idisc_scheme==MIMETIC_TYPE)THEN
+      CALL solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
+        &                            p_phys_param, timestep, p_op_coeff, p_int)
 
-    CALL calc_vert_velocity_mimetic( p_patch,            &
-                               & p_os,                   &
-                               & p_os%p_diag,            &
-                               & p_op_coeff,             &
-                               & p_os%p_prog(nnew(1))%h, &
-                               & p_os%p_diag%h_e,        &
-                               !& p_os%p_aux%bc_top_w,    &
-                               & p_os%p_aux%bc_bot_w,    &
-                               & p_os%p_diag%w )
-  !   CALL calc_vert_velocity_mim_topdown( p_patch,       &
-  !                               & p_os,                   &
-  !                               & p_os%p_diag,            &
-  !                               & p_os%p_diag%h_e,        &
-  !                               !& p_os%p_prog(nnew(1))%h, &
-  !                               & p_os%p_aux%bc_top_w,    &
-  !                               & p_os%p_aux%bc_bot_w,    &
-  !                               & p_os%p_diag%w )
+    ELSEIF(idisc_scheme==RBF_TYPE)THEN
 
-  ELSEIF(idisc_scheme==RBF_TYPE)THEN
+      CALL solve_free_sfc_ab_RBF(p_patch, p_os, p_ext_data, p_sfc_flx, &
+        &                        p_phys_param, timestep, p_int)
 
-    CALL calc_vert_velocity_RBF( p_patch,&
-                               & p_os%p_prog(nnew(1))%vn,&
-                               & p_os%p_prog(nold(1))%vn,&
-                               & p_os%p_prog(nnew(1))%h, &
-                               & p_os%p_diag%w(:,1,:),    &
-                               & p_os%p_aux%bc_bot_w,    &
-  !                              & p_os%p_aux%bc_top_w,    &
-  !                              & p_os%p_aux%bc_bot_w,    &
-                               & p_os%p_diag%w )
-  ENDIF
-END SUBROUTINE calc_vert_velocity
-!-------------------------------------------------------------------------
-SUBROUTINE update_time_indices(jg)
-  INTEGER, INTENT(IN) :: jg
-  INTEGER             :: n_temp
-  ! Step 7: Swap time indices before output
-  !         half time levels of semi-implicit Adams-Bashforth timestepping are
-  !         stored in auxiliary arrays g_n and g_nimd of p_diag%aux
-  n_temp    = nold(jg)
-  nold(jg)  = nnew(jg)
-  nnew(jg)  = n_temp
-END SUBROUTINE update_time_indices
+    ENDIF
 
+  END SUBROUTINE solve_free_surface_eq_ab
+  !-------------------------------------------------------------------------
+  !
+  !
+  !>
+  !! Computation of new velocity in Adams-Bashforth timestepping.
+  !!
+  !! @par Revision History
+  !! Developed  by  Peter Korn, MPI-M (2010).
+  !!
+  SUBROUTINE calc_normal_velocity_ab(p_patch, p_os, p_op_coeff, p_ext_data, p_phys_param)
+    TYPE(t_patch), TARGET, INTENT(in) :: p_patch
+    TYPE(t_hydro_ocean_state), TARGET :: p_os
+    TYPE(t_operator_coeff)            :: p_op_coeff
+    TYPE(t_external_data), TARGET     :: p_ext_data
+    TYPE (t_ho_params)                :: p_phys_param
+
+    !  local variables
+    ! CHARACTER(len=max_char_length), PARAMETER ::     &
+    !   &      routine = ('mo_oce_ab_timestepping: calc_normal_velocity_2tl_ab')
+    !-----------------------------------------------------------------------
+    IF(idisc_scheme==MIMETIC_TYPE)THEN
+
+      CALL calc_normal_velocity_ab_mimetic(p_patch, p_os, p_op_coeff, p_ext_data, p_phys_param)
+
+    ELSEIF(idisc_scheme==RBF_TYPE)THEN
+
+      CALL calc_normal_velocity_ab_RBF(p_patch, p_os, p_ext_data)
+
+    ENDIF
+
+  END SUBROUTINE calc_normal_velocity_ab
+  !-------------------------------------------------------------------------
+  !
+  !
+  !>
+  !! Computation of new vertical velocity using continuity equation
+
+  !! Calculate diagnostic vertical velocity from horizontal velocity using the
+  !! incommpressibility condition in the continuity equation.
+  !! For the case of the semi-implicit-AB scheme the land-sea-mask may be applied
+  !! at least after collecting the whole explicit term.
+  !!
+  !! @par Revision History
+  !! Developed  by  Peter Korn,   MPI-M (2006).
+  !!
+  SUBROUTINE calc_vert_velocity( p_patch, p_os, p_op_coeff)
+    TYPE(t_patch), TARGET, INTENT(IN) :: p_patch       ! patch on which computation is performed
+    TYPE(t_hydro_ocean_state)         :: p_os
+    TYPE(t_operator_coeff)            :: p_op_coeff
+    !
+    !
+    ! Local variables
+    ! CHARACTER(len=max_char_length), PARAMETER :: &
+    !        & routine = ('mo_oce_ab_timestepping:calc_vert_velocity')
+    !-----------------------------------------------------------------------
+
+    !Store current vertical velocity before the new one is calculated
+    p_os%p_diag%w_old = p_os%p_diag%w
+
+    IF(idisc_scheme==MIMETIC_TYPE)THEN
+
+      CALL calc_vert_velocity_mimetic( p_patch,            &
+                                 & p_os,                   &
+                                 & p_os%p_diag,            &
+                                 & p_op_coeff,             &
+                                 & p_os%p_prog(nnew(1))%h, &
+                                 & p_os%p_diag%h_e,        &
+                                 !& p_os%p_aux%bc_top_w,    &
+                                 & p_os%p_aux%bc_bot_w,    &
+                                 & p_os%p_diag%w )
+    !   CALL calc_vert_velocity_mim_topdown( p_patch,       &
+    !                               & p_os,                   &
+    !                               & p_os%p_diag,            &
+    !                               & p_os%p_diag%h_e,        &
+    !                               !& p_os%p_prog(nnew(1))%h, &
+    !                               & p_os%p_aux%bc_top_w,    &
+    !                               & p_os%p_aux%bc_bot_w,    &
+    !                               & p_os%p_diag%w )
+
+    ELSEIF(idisc_scheme==RBF_TYPE)THEN
+
+      CALL calc_vert_velocity_RBF( p_patch,&
+                                 & p_os%p_prog(nnew(1))%vn,&
+                                 & p_os%p_prog(nold(1))%vn,&
+                                 & p_os%p_prog(nnew(1))%h, &
+                                 & p_os%p_diag%w(:,1,:),    &
+                                 & p_os%p_aux%bc_bot_w,    &
+    !                              & p_os%p_aux%bc_top_w,    &
+    !                              & p_os%p_aux%bc_bot_w,    &
+                                 & p_os%p_diag%w )
+    ENDIF
+  END SUBROUTINE calc_vert_velocity
+  !-------------------------------------------------------------------------
+  SUBROUTINE update_time_indices(jg)
+    INTEGER, INTENT(IN) :: jg
+    INTEGER             :: n_temp
+    ! Step 7: Swap time indices before output
+    !         half time levels of semi-implicit Adams-Bashforth timestepping are
+    !         stored in auxiliary arrays g_n and g_nimd of p_diag%aux
+    n_temp    = nold(jg)
+    nold(jg)  = nnew(jg)
+    nnew(jg)  = n_temp
+  END SUBROUTINE update_time_indices
 END MODULE mo_oce_ab_timestepping
