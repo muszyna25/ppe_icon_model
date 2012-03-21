@@ -624,7 +624,7 @@ CONTAINS
     REAL(wp) :: z_w_v
     REAL(wp) :: z_s1, z_s2, density_grad_c, mean_z_r
     REAL(wp) :: z_c(nproma,n_zlev+1,p_patch%nblks_c)
-    REAL(wp) :: tmp_communicate_c(nproma,p_patch%nblks_c)
+    ! REAL(wp) :: tmp_communicate_c(nproma,p_patch%nblks_c)
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: edges_in_domain,cells_in_domain,all_cells
     !-------------------------------------------------------------------------
@@ -634,9 +634,9 @@ CONTAINS
 
     ! sync v_base%dolic_c
     ! this should have already been done
-    tmp_communicate_c(:,:) = REAL(v_base%dolic_c(:,:),wp)
-    CALL sync_patch_array(SYNC_C,p_patch,tmp_communicate_c)
-    v_base%dolic_c(:,:) = INT(tmp_communicate_c(:,:))
+    !tmp_communicate_c(:,:) = REAL(v_base%dolic_c(:,:),wp)
+    !CALL sync_patch_array(SYNC_C,p_patch,tmp_communicate_c)
+    !v_base%dolic_c(:,:) = INT(tmp_communicate_c(:,:))
     
     ! DO, jk=1,n_zlev
     ! CALL &
@@ -715,8 +715,8 @@ CONTAINS
        END DO
 
        !Calculate Richardson number and vertical density gradient
-       DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-         CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+       DO jb = all_cells%start_block, all_cells%end_block
+         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
 
          DO jc = i_startidx_c, i_endidx_c
            z_dolic = v_base%dolic_c(jc,jb)
@@ -801,8 +801,8 @@ CONTAINS
 
       !The tracer mixing coefficient at cell centers
 
-       DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-         CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+       DO jb = all_cells%start_block, all_cells%end_block
+         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
          DO jc = i_startidx_c, i_endidx_c
 
            z_dolic = v_base%dolic_c(jc,jb)
@@ -895,8 +895,8 @@ CONTAINS
           ilc2 = p_patch%edges%cell_idx(je,jb,2)
           ibc2 = p_patch%edges%cell_blk(je,jb,2)
           
-          z_dolic = MIN(v_base%dolic_c(ilc1,ibc1), v_base%dolic_c(ilc2,ibc2))
-                 
+          ! z_dolic = MIN(v_base%dolic_c(ilc1,ibc1), v_base%dolic_c(ilc2,ibc2))
+          z_dolic = v_base%dolic_e(je, jb)      
           DO jk=2, z_dolic
           
             density_grad_c = 0.5_wp * &
@@ -1015,7 +1015,7 @@ CONTAINS
        !params_oce%A_veloc_v(:,1,:) = params_oce%A_veloc_v_back!params_oce%A_veloc_v(:,2,:)
     ENDIF!l_constant_mixing
 
-    ! Sync the results
+    ! Sync the results, the A_tracer_v is only for checking
     DO i_no_trac=1, no_tracer
       CALL sync_patch_array(SYNC_C,p_patch,params_oce%A_tracer_v(:,:,:,i_no_trac))
     END DO
