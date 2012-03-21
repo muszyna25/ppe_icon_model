@@ -183,7 +183,7 @@ if [[ $run_ocean = 'true' ]]; then
      #check_error $? "$OCEGRID does not exist."
      if [ $? -eq 0 ]; then
        rm ${HGRIDDIR}/$ocean_grids
-       cp $OCEGRID ${HGRIDDIR}/$ocean_grids
+       cp -p $OCEGRID ${HGRIDDIR}/$ocean_grids
      else
        echo "WARNING: $OCEGRID does not exist - proceed from local disk"
      fi
@@ -221,7 +221,7 @@ if [[ $run_ocean = 'true' ]]; then
        #check_error $? "$FLUXFILE does not exist."
        if [ $? -eq 0 ]; then
          rm ${HGRIDDIR}/$FORCNAME
-         cp $FLUXFILE ${HGRIDDIR}/$FORCNAME
+         cp -p $FLUXFILE ${HGRIDDIR}/$FORCNAME
        else
          echo "WARNING: $FLUXFILE does not exist - proceed from local disk"
        fi
@@ -248,7 +248,7 @@ if [[ $run_ocean = 'true' ]]; then
        #check_error $? "$INITFILE does not exist."
        if [ $? -eq 0 ]; then
          rm ${HGRIDDIR}/$OININAME
-         cp $INITFILE ${HGRIDDIR}/$OININAME
+         cp -p $INITFILE ${HGRIDDIR}/$OININAME
        else
          echo "WARNING: $INITFILE does not exist - proceed from local disk"
        fi
@@ -276,7 +276,7 @@ if [[ $run_ocean = 'true' ]]; then
        #check_error $? "$ORELFILE does not exist."
        if [ $? -eq 0 ]; then
          rm ${HGRIDDIR}/$ORELNAME
-         cp $ORELFILE ${HGRIDDIR}/$ORELNAME
+         cp -p $ORELFILE ${HGRIDDIR}/$ORELNAME
        else
          echo "WARNING: $ORELFILE does not exist - proceed from local disk"
        fi
