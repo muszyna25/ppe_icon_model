@@ -154,7 +154,7 @@ CONTAINS
     !--------------------------------------------------
     ! Assign initial condition to prognostic variables
     !--------------------------------------------------
-    IF (ltestcase) CALL init_testcase( p_patch, p_hydro_state, p_int_state)
+    IF (ltestcase) CALL init_testcase( p_patch, p_hydro_state, p_int_state, ext_data)
 
     ! Convert temperature to potential temperature if the latter is
     ! chosen as a prognostic variable.
@@ -316,7 +316,8 @@ CONTAINS
     ! of nested domains with recursively halved time steps
 
     CALL process_grid( p_patch, p_hydro_state, p_int_state, p_grf_state,    &
-      &                1, jstep, l_3tl_init, dtime, sim_time, 1, datetime )
+      &                ext_data, 1, jstep, l_3tl_init, dtime, sim_time,     & 
+      &                1, datetime )
 
     !--------------------------------------------------------------------------
     ! One integration cycle finished on the lowest grid level (coarsest
@@ -383,7 +384,7 @@ CONTAINS
     !--------------------------------------------------------------------------
     IF (l_diagtime) &
     CALL supervise_total_integrals( jstep, p_patch, p_hydro_state, &
-                                    nnow(1:n_dom) )
+                                    ext_data(1:n_dom), nnow(1:n_dom) )
 
 
     !--------------------------------------------------------------------------

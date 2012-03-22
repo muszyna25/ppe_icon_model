@@ -42,7 +42,7 @@ MODULE mo_ha_diagnostics
   USE mo_impl_constants,     ONLY: SUCCESS, MAX_CHAR_LENGTH,inwp,iecham,ildf_echam
   USE mo_grid_config,        ONLY: n_dom
   USE mo_model_domain,       ONLY: t_patch
-  USE mo_ext_data_state,     ONLY: ext_data
+  USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_parallel_config,    ONLY: nproma
   USE mo_run_config,         ONLY: dtime, nsteps, nlev, ntracer,iforcing
   USE mo_io_config,          ONLY: no_output
@@ -199,11 +199,13 @@ MODULE mo_ha_diagnostics
   !! Modification by Hui Wan, MPI-M (2011-05-24)
   !! - Moved the initialization part into a separate subroutine.
   !!
-  SUBROUTINE supervise_total_integrals (k_step,p_patch,p_hydro_state,ntimlev)
+  SUBROUTINE supervise_total_integrals (k_step,p_patch,p_hydro_state,ext_data, &
+    &                                   ntimlev)
 
   INTEGER,                   INTENT(in)  :: k_step          ! actual time step
   TYPE(t_patch), TARGET,     INTENT(IN)  :: p_patch(n_dom)  ! Patch
   TYPE(t_hydro_atm), TARGET, INTENT(in)  :: p_hydro_state(n_dom) ! State
+  TYPE(t_external_data),     INTENT(in)  :: ext_data(n_dom)
   INTEGER,                   INTENT(in)  :: ntimlev(n_dom)  ! time level
 
   TYPE(t_hydro_atm_prog), POINTER :: p_prog   ! prog state

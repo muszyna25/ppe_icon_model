@@ -75,7 +75,7 @@ MODULE mo_ha_testcases
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist, &
                                  & open_and_restore_namelist, close_tmpfile
   USE mo_model_domain,    ONLY: t_patch
-  USE mo_ext_data_state,  ONLY: ext_data
+  USE mo_ext_data_types,  ONLY: t_external_data
   USE mo_grid_config,     ONLY: n_dom
   USE mo_intp_data_strc,  ONLY: t_int_state
   USE mo_parallel_config, ONLY: nproma
@@ -257,12 +257,13 @@ MODULE mo_ha_testcases
   !! @par Revision History
   !!  Hui Wan, MPI-M (2007-07-26)
   !! 
-  SUBROUTINE init_testcase(pt_patch, pt_hydro_state, pt_int_state)
+  SUBROUTINE init_testcase(pt_patch, pt_hydro_state, pt_int_state, ext_data)
 
 
-  TYPE(t_patch),INTENT(inout),TARGET :: pt_patch(n_dom)
-  TYPE(t_int_state)   :: pt_int_state(n_dom)
-  TYPE(t_hydro_atm) :: pt_hydro_state(n_dom)
+  TYPE(t_patch), TARGET, INTENT(INOUT) :: pt_patch(n_dom)
+  TYPE(t_int_state)                    :: pt_int_state(n_dom)
+  TYPE(t_hydro_atm)                    :: pt_hydro_state(n_dom)
+  TYPE(t_external_data), INTENT(INOUT) :: ext_data(n_dom) 
 
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = &
                      & '(mo_hydro_testcases) init_testcase:'

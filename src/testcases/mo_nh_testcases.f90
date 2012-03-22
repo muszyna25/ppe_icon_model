@@ -50,7 +50,7 @@ MODULE mo_nh_testcases
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, inwp
   USE mo_grid_config,        ONLY: lplane, n_dom, l_limited_area
   USE mo_model_domain,       ONLY: t_patch
-  USE mo_ext_data_state,     ONLY: ext_data
+  USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_math_constants,     ONLY: pi, pi_2
   USE mo_math_utilities,     ONLY: gc2cc, t_cartesian_coordinates, &
                                    t_geographical_coordinates, &
@@ -348,10 +348,11 @@ MODULE mo_nh_testcases
   !!   init_nh_testtopo, which is called after the domain-decomposition.
   !!   (because of possible conflicts with the external-data type)
   !! 
-  SUBROUTINE init_nh_testtopo (p_patch)
+  SUBROUTINE init_nh_testtopo (p_patch, ext_data)
 !
 ! !INPUT VARIABLES:
   TYPE(t_patch),TARGET,  INTENT(INOUT) :: p_patch(n_dom)
+  TYPE(t_external_data), INTENT(INOUT) :: ext_data(n_dom)
 
   INTEGER        :: jg, jc, jv, jb, nlen
   INTEGER        :: nblks_c, npromz_c, nblks_v, npromz_v
@@ -597,11 +598,12 @@ MODULE mo_nh_testcases
   !! @par Revision History
   !! Initial release by Almut Gassmann, MPI-M (2009-04-14)
   !! 
-  SUBROUTINE init_nh_testcase (p_patch, p_nh_state, p_int, ntl)
+  SUBROUTINE init_nh_testcase (p_patch, p_nh_state, p_int, ext_data, ntl)
 !
 ! !INPUT VARIABLES:
   TYPE(t_patch),TARGET,  INTENT(INOUT) :: p_patch(n_dom)
-  TYPE(t_int_state), INTENT(IN) :: p_int(n_dom)
+  TYPE(t_int_state),     INTENT(   IN) :: p_int(n_dom)
+  TYPE(t_external_data), INTENT(INOUT) :: ext_data(n_dom)
   INTEGER :: ntl
   TYPE(t_nh_state), TARGET, INTENT(INOUT):: p_nh_state(n_dom)
 

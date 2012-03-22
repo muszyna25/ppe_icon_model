@@ -60,7 +60,7 @@ MODULE mo_hierarchy_management
   USE mo_exception,           ONLY: message_text, message, finish
   USE mo_datetime,            ONLY: t_datetime, add_time, print_datetime
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_ext_data_state,      ONLY: ext_data
+  USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_grid_config,         ONLY: n_dom, lfeedback, l_limited_area
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
@@ -151,17 +151,18 @@ CONTAINS
   !!
   RECURSIVE SUBROUTINE process_grid( p_patch, p_hydro_state,       &
                                    & p_int_state, p_grf_state,     &
-                                   & jg, nstep_global, l_3tl_init, &
-                                   & dt_loc, sim_time, nsteps,     &
-                                   & datetime )
+                                   & ext_data, jg, nstep_global,   &
+                                   & l_3tl_init, dt_loc, sim_time, &
+                                   & nsteps, datetime )
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_hierarchy_management:process_grid'
 
     TYPE(t_patch),TARGET, INTENT(IN)           :: p_patch(n_dom)
-    TYPE(t_hydro_atm),  TARGET,INTENT(INOUT) :: p_hydro_state(n_dom)
+    TYPE(t_hydro_atm),  TARGET,INTENT(INOUT)   :: p_hydro_state(n_dom)
     TYPE(t_int_state),TARGET,INTENT(IN)        :: p_int_state(n_dom)
     TYPE(t_gridref_state),INTENT(INOUT)        :: p_grf_state(n_dom)
+    TYPE(t_external_data), INTENT(INOUT)       :: ext_data(n_dom)
 
     INTEGER, INTENT(IN)    :: jg           ! current grid level
     INTEGER, INTENT(IN)    :: nstep_global ! number of global time step
@@ -354,9 +355,9 @@ CONTAINS
         WRITE(message_text,'(a,i10)') 'TIME STEP n: ', nstep_global
         CALL message(TRIM(routine),message_text)
 
-        CALL leapfrog_startup( ha_dyn_config%ileapfrog_startup,           &
-          &                    p_patch, p_int_state, jg, dt_loc,          &
-          &                    p_hydro_state, n_old, n_now, n_new, n_sav1 )
+        CALL leapfrog_startup( ha_dyn_config%ileapfrog_startup,            &
+          &                    p_patch, p_int_state, ext_data, jg, dt_loc, &
+          &                    p_hydro_state, n_old, n_now, n_new, n_sav1  )
 
         l_3tl_init(jg) = .FALSE.
 
@@ -1052,8 +1053,9 @@ CONTAINS
             ! Recursive call to process_grid_level for child grid level
             CALL process_grid( p_patch, p_hydro_state,        &
               &                p_int_state, p_grf_state,      &
-              &                jgc, nstep_global, l_3tl_init, &
-              &                dt_sub, sim_time, 2, grid_datetime)
+              &                ext_data, jgc, nstep_global,   &
+              &                l_3tl_init, dt_sub, sim_time,  &
+              &                2, grid_datetime)
             IF(proc_split) CALL pop_glob_comm()
           ENDIF
 
@@ -1277,6 +1279,7 @@ CONTAINS
   !!
   SUBROUTINE leapfrog_startup( ileapfrog_startup,     &! in
     &                          p_patch, p_int_state,  &! in
+    &                          ext_data,              &! in
     &                          jg, dt_loc,            &! in
     &                          p_hydro_state,         &! inout
     &                          n_old, n_now, n_new,   &! inout
@@ -1287,6 +1290,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: ileapfrog_startup
     TYPE(t_patch),TARGET, INTENT(IN)    ::  p_patch(n_dom)
     TYPE(t_int_state),TARGET,INTENT(IN) ::  p_int_state(n_dom)
+    TYPE(t_external_data), INTENT(INOUT)::  ext_data(n_dom)
 
     INTEGER, INTENT(IN) :: jg      !< current grid level
     REAL(wp),INTENT(IN) :: dt_loc  !< time step applicable to local grid level

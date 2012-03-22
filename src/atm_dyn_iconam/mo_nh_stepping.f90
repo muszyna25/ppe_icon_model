@@ -248,17 +248,17 @@ MODULE mo_nh_stepping
   ntl = 2
 
   IF (ltestcase) THEN
-    CALL init_nh_testtopo(p_patch)    ! set analytic topography
+    CALL init_nh_testtopo(p_patch, ext_data)   ! set analytic topography
   ENDIF
 
-  CALL set_nh_metrics(p_patch, p_nh_state, p_int)
+  CALL set_nh_metrics(p_patch, p_nh_state, p_int, ext_data)
 
   IF (n_dom > 1) THEN
     CALL complete_nesting_setup(p_patch, p_nh_state, p_grf)
   ENDIF
 
   IF (ltestcase) THEN
-    CALL init_nh_testcase(p_patch, p_nh_state, p_int, ntl)
+    CALL init_nh_testcase(p_patch, p_nh_state, p_int, ext_data, ntl)
   ENDIF
 
   CALL setup_time_ctrl_physics( )

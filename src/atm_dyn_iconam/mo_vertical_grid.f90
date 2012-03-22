@@ -44,7 +44,7 @@ MODULE mo_vertical_grid
   USE mo_kind,                  ONLY: wp
   USE mo_exception,             ONLY: finish, message, message_text
   USE mo_model_domain,          ONLY: t_patch
-  USE mo_ext_data_state,        ONLY: ext_data
+  USE mo_ext_data_types,        ONLY: t_external_data
   USE mo_grid_config,           ONLY: n_dom
   USE mo_nonhydrostatic_config, ONLY: rayleigh_coeff,damp_height, igradp_method, ivctype,  & 
     &                                 vwind_offctr, exner_expol, l_zdiffu_t, thslp_zdiffu, &
@@ -99,14 +99,15 @@ MODULE mo_vertical_grid
   !! Modification by Almut Gassmann (2009-11-17)
   !! - Adding Rayleigh damping coeff. at upper boundary
   !!
-  SUBROUTINE set_nh_metrics(p_patch, p_nh, p_int)
+  SUBROUTINE set_nh_metrics(p_patch, p_nh, p_int, ext_data)
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_vertical_grid:set_nh_metrics'
 
     TYPE(t_patch), TARGET, INTENT(INOUT) :: p_patch(n_dom)  !< patch
-    TYPE(t_nh_state), INTENT(INOUT)      :: p_nh(n_dom)
-    TYPE(t_int_state),  INTENT(IN)       :: p_int(n_dom)
+    TYPE(t_nh_state),      INTENT(INOUT) :: p_nh(n_dom)
+    TYPE(t_int_state),     INTENT(   IN) :: p_int(n_dom)
+    TYPE(t_external_data), INTENT(   IN) :: ext_data(n_dom)
 
     INTEGER :: jg, jk, jk1, jk_start, jb, jc, je, jv, jn, jgc, nlen, &
                nblks_c, npromz_c, nblks_e, npromz_e, nblks_v, npromz_v, ic, jkmax
