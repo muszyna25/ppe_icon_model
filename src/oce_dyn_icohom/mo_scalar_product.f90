@@ -137,36 +137,31 @@ CONTAINS
   !!
   !! @par Revision History
   !!  developed by Peter Korn, MPI-M (2010-11)
-  !!  no-mpi parallelized
+  !!  mpi parallelized
   SUBROUTINE calc_scalar_product_veloc( p_patch, vn_e_old, vn_e_new,&
     & h_e, p_diag)
     
-    TYPE(t_patch), INTENT(in) :: p_patch            ! patch on which computation is performed
+    TYPE(t_patch),TARGET, INTENT(in) :: p_patch            ! patch on which computation is performed
     REAL(wp), INTENT(in)      :: vn_e_old(:,:,:)    ! input vector (nproma,n_zlev,nblks_e)
     REAL(wp), INTENT(in)      :: vn_e_new(:,:,:)    ! input vector (nproma,n_zlev,nblks_e)
     REAL(wp), INTENT(in)      :: h_e(:,:)           ! SW-case: h_e is thicknerss at edges ! 3D case: h_e is surface elevation at edges
     TYPE(t_hydro_ocean_diag)  :: p_diag
     !Local variables
     INTEGER :: slev, elev
-    INTEGER :: rl_start_c, rl_end_c
-    INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
+    INTEGER :: i_startidx_c, i_endidx_c
     INTEGER :: jc, jb, jk
-    TYPE(t_cartesian_coordinates)    :: z_pv_cc(nproma,n_zlev,p_patch%nblks_c)
+!     TYPE(t_cartesian_coordinates)    :: z_pv_cc(nproma,n_zlev,p_patch%nblks_c)
     !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     !  & routine = ('mo_scalar_product:primal_map_e2c')
+    TYPE(t_subset_range), POINTER :: all_cells
     !-----------------------------------------------------------------------
+    all_cells => p_patch%cells%all
     !CALL message (TRIM(routine), 'start')
     
     slev = 1
     elev = n_zlev
     
-    
-    rl_start_c = 1
-    rl_end_c  = min_rlcell
-    
-    i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
-    i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
-    
+       
     
     CALL map_edges2vert(p_patch, vn_e_old, h_e, p_diag%p_vn_dual)
     
@@ -177,11 +172,8 @@ CONTAINS
     
     CALL map_edges2cell( p_patch, vn_e_old, p_diag%p_vn)
     
-    DO jb = i_startblk_c, i_endblk_c
-      CALL get_indices_c( p_patch, jb,&
-        & i_startblk_c, i_endblk_c,&
-        & i_startidx_c, i_endidx_c,&
-        & rl_start_c, rl_end_c)
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
 #ifdef __SX__
 !CDIR UNROLL=6
 #endif
@@ -207,11 +199,8 @@ CONTAINS
     !END DO
     !convert cartesian velocity vector p_diag%p_vn(jc,jk,jb)%x to geographical coordinate system
     !for output
-    DO jb = i_startblk_c, i_endblk_c
-      CALL get_indices_c( p_patch, jb,&
-        & i_startblk_c, i_endblk_c,&
-        & i_startidx_c, i_endidx_c,&
-        & rl_start_c, rl_end_c)
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
       DO jk = slev, elev
         DO jc =  i_startidx_c, i_endidx_c
           CALL cvec2gvec ( p_diag%p_vn(jc,jk,jb)%x(1),     &
