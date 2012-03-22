@@ -245,7 +245,7 @@ CONTAINS
       &  TRIM("mo_pp_scheduler:pp_scheduler_init")
     INTEGER                            :: &
       &  jg, ndom, ientr, nblks_c, ierrstat, ivar, i, idx, &
-      &  iaxis, vgrid
+      &  iaxis, vgrid, nlev
     LOGICAL                            :: &
       &  l_jg_active, l_intp_p, l_intp_z, found
     TYPE (t_output_name_list), POINTER :: p_onl
@@ -441,6 +441,7 @@ CONTAINS
         & cf_desc, grib2_desc, ldims=shape3d_c)
 
       IF (l_intp_p) THEN
+        shape3d_c = (/ nproma, task%data_input%nh_pzlev_config%nplev, nblks_c /)
         ! GEOPOT
         cf_desc    = t_cf_var('z', 'm2 s-2', 'geopotential')
         grib2_desc = t_grib2_var(0, 3, 4, ientr, GRID_REFERENCE, GRID_CELL)
@@ -487,6 +488,7 @@ CONTAINS
           prefix  =  "z-level"
           varlist => hl_varlist
           nvars   =  nvars_hl
+          nlev    =  task%data_input%nh_pzlev_config%nzlev
           vgrid   =  ZAXIS_ALTITUDE
           p_opt_diag_list => p_opt_diag_list_z
         END IF
@@ -494,6 +496,7 @@ CONTAINS
           prefix  =  "p-level"
           varlist => pl_varlist
           nvars   =  nvars_pl
+          nlev    =  task%data_input%nh_pzlev_config%nplev
           vgrid   =  ZAXIS_PRESSURE
           p_opt_diag_list => p_opt_diag_list_p
         END IF
@@ -541,11 +544,17 @@ CONTAINS
 
               ! Found it, add it to the variable list of optional
               ! diagnostics
-              CALL add_var( p_opt_diag_list, info%name, p_opt_field_r3d,         &
-                &           info%hgrid, vgrid, info%cf, info%grib2,              &
-                &           info%used_dimensions(1:3), lrestart=.FALSE.,         &
+              IF ( (info%used_dimensions(1) /= nproma) .OR.  &
+                &  (info%used_dimensions(3) /= nblks_c) ) THEN
+                CALL finish(routine, "Unexpected field size!")
+              END IF
+              shape3d_c  = (/ nproma, nlev, nblks_c /)
+
+              CALL add_var( p_opt_diag_list, info%name, p_opt_field_r3d, &
+                &           info%hgrid, vgrid, info%cf, info%grib2,      &
+                &           ldims=shape3d_c, lrestart=.FALSE.,           &
                 &           loutput=.TRUE., new_element=new_element)
-              
+
               !-- add post-processing task
               task%job_name        =  &
                 &  TRIM(prefix)//" interp. "//TRIM(info%name)  &
