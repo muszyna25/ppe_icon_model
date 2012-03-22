@@ -75,7 +75,7 @@ MODULE mo_prepicon_utils
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nsfc_subs
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_master_nml,          ONLY: model_base_dir
-  USE mo_phyparam_soil,       ONLY: csalb_snow_min, csalb_snow_max
+  USE mo_phyparam_soil,       ONLY: csalb_snow_min, csalb_snow_max,crhosmin_ml,crhosmax_ml
 
   IMPLICIT NONE
 
@@ -168,6 +168,11 @@ MODULE mo_prepicon_utils
   INTEGER, SAVE :: iostep = 0
   INTEGER :: klev, nzplev
 
+  CHARACTER(LEN=10) :: psvar 
+  CHARACTER(LEN=10) :: geop_ml_var  ! model level surface geopotential
+  CHARACTER(LEN=10) :: geop_sfc_var ! surface-level surface geopotential
+  CHARACTER(LEN=10) :: alb_snow_var ! snow albedo
+
   PUBLIC :: prepicon, t_prepicon_state, t_pi_atm_in, t_pi_atm, t_pi_diag, t_pi_sfc_in, t_pi_sfc
 
   PUBLIC :: nzplev
@@ -207,9 +212,7 @@ MODULE mo_prepicon_utils
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = 'mo_prepicon_utils:init_prepicon'
     CHARACTER(LEN=filename_max) :: topo_file(max_dom), ifs2icon_file(max_dom)
-    CHARACTER(LEN=10) :: psvar 
-    CHARACTER(LEN=10) :: geop_ml_var  ! model level surface geopotential
-    CHARACTER(LEN=10) :: geop_sfc_var ! surface-level surface geopotential
+
 !-------------------------------------------------------------------------
 
     IF (l_zp_out) THEN ! set number of z and p levels for diagnostic output
@@ -476,7 +479,29 @@ MODULE mo_prepicon_utils
             ! use model level geopotential instead
             geop_sfc_var = geop_ml_var
           ENDIF
-        ENDIF
+       ENDIF
+
+        ! Check, if the snow albedo ALB_SNOW is available. 
+        ! If ALB_SNOW is missing, a warning will be issued and RHO_SNOW 
+        ! will be used instead to determine FRESHSNOW.
+        IF (p_pe == p_io) THEN
+          IF (nf_inq_varid(ncid, 'ALB_SNOW', varid) == nf_noerr) THEN
+            WRITE (message_text,'(a,a)')                            &
+              &  'snow albedo available, ', &
+              &  'used to determine freshsnow.'
+            alb_snow_var = 'ALB_SNOW'
+          ELSE
+
+            WRITE (message_text,'(a,a)')                            &
+              &  'snow albedo is missing. ', &
+              &  'use snow density value, instead.'
+            CALL message(TRIM(routine),TRIM(message_text))
+
+            ! use model level geopotential instead
+            alb_snow_var = 'RHO_SNOW'
+          ENDIF
+       ENDIF
+
 
         CALL read_netcdf_data (ncid, TRIM(geop_sfc_var), p_patch(jg)%n_patch_cells_g,   &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
@@ -490,15 +515,15 @@ MODULE mo_prepicon_utils
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     prepicon(jg)%sfc_in%tsnow)
 
-!!$        CALL read_netcdf_data (ncid, 'ALB_SNOW', p_patch(jg)%n_patch_cells_g,             &
-!!$          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-!!$          &                     prepicon(jg)%sfc_in%snowalb)
-
+        CALL read_netcdf_data (ncid,TRIM(alb_snow_var), p_patch(jg)%n_patch_cells_g,             &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     prepicon(jg)%sfc_in%snowalb)
+ 
         CALL read_netcdf_data (ncid, 'W_SNOW', p_patch(jg)%n_patch_cells_g,             &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     prepicon(jg)%sfc_in%snowweq)
 
-        CALL read_netcdf_data (ncid, 'RHO_SNOW', p_patch(jg)%n_patch_cells_g,           &
+        CALL read_netcdf_data (ncid,'RHO_SNOW', p_patch(jg)%n_patch_cells_g,           &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     prepicon(jg)%sfc_in%snowdens)
 
@@ -561,7 +586,7 @@ MODULE mo_prepicon_utils
         ENDIF
 
         IF(p_test_run) THEN
-          mpi_comm = p_comm_work_test
+          mpi_comm = p_comm_work_test 
         ELSE
           mpi_comm = p_comm_work
         ENDIF
@@ -778,12 +803,14 @@ MODULE mo_prepicon_utils
                p_lnd_state(jg)%prog_lnd(ntlr)%t_snow(jc,jb,jt)           = &
                 &                                                prepicon(jg)%sfc%tsnow   (jc,jb)
 
-!!$              write(0,*) jc,jb,prepicon(jg)%sfc%snowalb (jc,jb),prepicon(jg)%sfc%snowdens(jc,jb)
-!!$
-!!$              p_lnd_state(jg)%diag_lnd%freshsnow(jc,jb,jt)           = &
-!!$            &   (prepicon(jg)%sfc%snowalb (jc,jb)-csalb_snow_min)/(csalb_snow_max-csalb_snow_min)
-              
-              
+               IF(alb_snow_var == 'ALB_SNOW') THEN
+              p_lnd_state(jg)%diag_lnd%freshsnow(jc,jb,jt)      =  MAX(0._wp,MIN(1._wp, &
+            &   (prepicon(jg)%sfc%snowalb (jc,jb)-csalb_snow_min)/(csalb_snow_max-csalb_snow_min)))
+              ELSE
+              p_lnd_state(jg)%diag_lnd%freshsnow(jc,jb,jt)      =  MAX(0._wp,MIN(1._wp, &
+            & 1._wp - ((prepicon(jg)%sfc%snowalb (jc,jb)-crhosmin_ml)/(crhosmax_ml-crhosmin_ml))))
+               END IF
+
               p_lnd_state(jg)%prog_lnd(ntlr)%w_snow(jc,jb,jt)           = &
                 &                                                prepicon(jg)%sfc%snowweq (jc,jb)
               p_lnd_state(jg)%prog_lnd(ntlr)%rho_snow(jc,jb,jt)         = &

@@ -160,6 +160,7 @@ CONTAINS
         prepicon%sfc%tsnow(jc,jb)    = prepicon%sfc_in%tsnow(jc,jb) 
         prepicon%sfc%snowweq(jc,jb)  = prepicon%sfc_in%snowweq(jc,jb) 
         prepicon%sfc%snowdens(jc,jb) = prepicon%sfc_in%snowdens(jc,jb) 
+        prepicon%sfc%snowalb(jc,jb)  = prepicon%sfc_in%snowalb(jc,jb) 
       ENDDO
 
       ! Height adjustment of soil temperatures
