@@ -475,7 +475,10 @@ MODULE mo_nonhydro_state
     grib2_desc = t_grib2_var(0, 2, 9, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_prog_list, TRIM(vname_prefix)//'w'//suffix, p_prog%w,   &
       &          GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc, &
-      &          ldims=shape3d_chalf )
+      &          ldims=shape3d_chalf,                                       & 
+      &          vert_interp=create_vert_interp_metadata(                   &
+      &             vert_intp_type=VINTP_TYPE_P_OR_Z,                       &
+      &             vert_intp_method=VINTP_METHOD_LIN ) )
 
     ! rho          p_prog%rho(nproma,nlev,nblks_c)
     cf_desc    = t_cf_var('density', 'kg m-3', 'density')
