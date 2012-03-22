@@ -74,6 +74,7 @@ MODULE mo_prepicon_utils
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nsfc_subs
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_master_nml,          ONLY: model_base_dir
+  USE mo_phyparam_soil,       ONLY: csalb_snow_min, csalb_snow_max
 
   IMPLICIT NONE
 
@@ -95,7 +96,7 @@ MODULE mo_prepicon_utils
 
   TYPE :: t_pi_sfc_in
 
-    REAL(wp), ALLOCATABLE, DIMENSION (:,:) :: tsnow, tskin, snowweq, snowdens, &
+    REAL(wp), ALLOCATABLE, DIMENSION (:,:) :: tsnow, tskin, snowalb,snowweq, snowdens, &
                                               skinres, ls_mask, seaice, phi
     REAL(wp), ALLOCATABLE, DIMENSION (:,:,:) :: tsoil, wsoil
 
@@ -117,7 +118,7 @@ MODULE mo_prepicon_utils
 
   TYPE :: t_pi_sfc
 
-    REAL(wp), ALLOCATABLE, DIMENSION (:,:) :: tsnow, tskin, snowweq, snowdens, &
+    REAL(wp), ALLOCATABLE, DIMENSION (:,:) :: tsnow, tskin, snowalb, snowweq, snowdens, &
                                               skinres, ls_mask, seaice
     REAL(wp), ALLOCATABLE, DIMENSION (:,:,:) :: tsoil, wsoil
 
@@ -488,6 +489,10 @@ MODULE mo_prepicon_utils
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     prepicon(jg)%sfc_in%tsnow)
 
+!!$        CALL read_netcdf_data (ncid, 'ALB_SNOW', p_patch(jg)%n_patch_cells_g,             &
+!!$          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+!!$          &                     prepicon(jg)%sfc_in%snowalb)
+
         CALL read_netcdf_data (ncid, 'W_SNOW', p_patch(jg)%n_patch_cells_g,             &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     prepicon(jg)%sfc_in%snowweq)
@@ -769,12 +774,19 @@ MODULE mo_prepicon_utils
         IF ( l_sfc_in .AND. atm_phy_nwp_config(jg)%inwp_surface > 0 ) THEN
           DO jt = 1, nsfc_subs
             DO jc = 1, nlen
-              p_lnd_state(jg)%prog_lnd(ntlr)%t_snow(jc,jb,jt)           = &
+               p_lnd_state(jg)%prog_lnd(ntlr)%t_snow(jc,jb,jt)           = &
                 &                                                prepicon(jg)%sfc%tsnow   (jc,jb)
+
+!!$              write(0,*) jc,jb,prepicon(jg)%sfc%snowalb (jc,jb),prepicon(jg)%sfc%snowdens(jc,jb)
+!!$
+!!$              p_lnd_state(jg)%diag_lnd%freshsnow(jc,jb,jt)           = &
+!!$            &   (prepicon(jg)%sfc%snowalb (jc,jb)-csalb_snow_min)/(csalb_snow_max-csalb_snow_min)
+              
+              
               p_lnd_state(jg)%prog_lnd(ntlr)%w_snow(jc,jb,jt)           = &
                 &                                                prepicon(jg)%sfc%snowweq (jc,jb)
               p_lnd_state(jg)%prog_lnd(ntlr)%rho_snow(jc,jb,jt)         = &
-                &                                                prepicon(jg)%sfc%snowdens(jc,jb)
+                &                                                prepicon(jg)%sfc%snowdens(jc,jb) 
               p_lnd_state(jg)%prog_lnd(ntlr)%w_i(jc,jb,jt)              = &
                 &                                                prepicon(jg)%sfc%skinres (jc,jb)
               p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_snow(jc,jb,jt)   = &
@@ -1068,6 +1080,7 @@ MODULE mo_prepicon_utils
         ALLOCATE(prepicon(jg)%sfc_in%phi      (nproma,nblks_c                ), &
                  prepicon(jg)%sfc_in%tskin    (nproma,nblks_c                ), &
                  prepicon(jg)%sfc_in%tsnow    (nproma,nblks_c                ), &
+                 prepicon(jg)%sfc_in%snowalb  (nproma,nblks_c                ), &
                  prepicon(jg)%sfc_in%snowweq  (nproma,nblks_c                ), &
                  prepicon(jg)%sfc_in%snowdens (nproma,nblks_c                ), &
                  prepicon(jg)%sfc_in%skinres  (nproma,nblks_c                ), &
@@ -1095,6 +1108,7 @@ MODULE mo_prepicon_utils
         ! Allocate surface output data
         ALLOCATE(prepicon(jg)%sfc%tskin    (nproma,nblks_c              ), &
                  prepicon(jg)%sfc%tsnow    (nproma,nblks_c              ), &
+                 prepicon(jg)%sfc%snowalb  (nproma,nblks_c              ), &
                  prepicon(jg)%sfc%snowweq  (nproma,nblks_c              ), &
                  prepicon(jg)%sfc%snowdens (nproma,nblks_c              ), &
                  prepicon(jg)%sfc%skinres  (nproma,nblks_c              ), &
@@ -1177,6 +1191,7 @@ MODULE mo_prepicon_utils
         DEALLOCATE(prepicon(jg)%sfc_in%phi,      &
                    prepicon(jg)%sfc_in%tskin,    &
                    prepicon(jg)%sfc_in%tsnow,    &
+                   prepicon(jg)%sfc_in%snowalb,  &
                    prepicon(jg)%sfc_in%snowweq,  &
                    prepicon(jg)%sfc_in%snowdens, &
                    prepicon(jg)%sfc_in%skinres,  &
@@ -1204,6 +1219,7 @@ MODULE mo_prepicon_utils
         ! surface output data
         DEALLOCATE(prepicon(jg)%sfc%tskin,    &
                    prepicon(jg)%sfc%tsnow,    &
+                   prepicon(jg)%sfc%snowalb,  &
                    prepicon(jg)%sfc%snowweq,  &
                    prepicon(jg)%sfc%snowdens, &
                    prepicon(jg)%sfc%skinres,  &
@@ -2172,6 +2188,7 @@ MODULE mo_prepicon_utils
 
       CASE ('TSN');             ptr2 => prepicon(jg)%sfc%tsnow
       CASE ('TSK');             ptr2 => prepicon(jg)%sfc%tskin
+      CASE ('ALBSNOW');         ptr2 => prepicon(jg)%sfc%snowalb
       CASE ('SNWE');            ptr2 => prepicon(jg)%sfc%snowweq
       CASE ('SNDENS');          ptr2 => prepicon(jg)%sfc%snowdens
       CASE ('SRC');             ptr2 => prepicon(jg)%sfc%skinres
