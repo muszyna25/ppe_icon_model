@@ -59,7 +59,7 @@ MODULE mo_ext_data_state
   USE mo_run_config,         ONLY: iforcing
   USE mo_ocean_nml,          ONLY: iforc_oce, iforc_type, iforc_len
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
-  USE mo_lnd_nwp_config,     ONLY: nsfc_subs
+  USE mo_lnd_nwp_config,     ONLY: nsfc_subs, frac_thresh
   USE mo_extpar_config,      ONLY: itopo, l_emiss, extpar_filename, generate_filename
   USE mo_smooth_topo,        ONLY: smooth_topography
   USE mo_dynamics_config,    ONLY: iequations
@@ -275,7 +275,7 @@ CONTAINS
     INTEGER :: i_startidx, i_endidx    !< slices
     INTEGER :: i_nchdom                !< domain index
     LOGICAL  :: tile_mask(23) = .true. 
-    REAL(wp) :: tile_frac(23), sum_frac, frac_thresh
+    REAL(wp) :: tile_frac(23), sum_frac
     INTEGER  :: lu_subs, it_count(nsfc_subs)
     INTEGER  :: npoints, npoints_sea
 
@@ -287,8 +287,6 @@ CONTAINS
       &  'Index list generation - number of tiles: ', nsfc_subs
     CALL message('', TRIM(message_text))
 
-    frac_thresh = 0.05_wp ! fraction threshold for retaining the respective tile for a grid point
-                          ! should become a namelist variable like nsfc_subs
 
     DO jg = 1, n_dom 
 

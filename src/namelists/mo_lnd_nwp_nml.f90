@@ -39,6 +39,7 @@
 !!
 MODULE mo_lnd_nwp_nml
 
+  USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish
   USE mo_impl_constants,      ONLY: max_dom
   USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
@@ -52,6 +53,7 @@ MODULE mo_lnd_nwp_nml
     &                               config_nlev_snow   => nlev_snow     , &
     &                               config_nsfc_subs   => nsfc_subs     , &
     &                               config_nsfc_snow   => nsfc_snow     , &
+    &                               config_frac_thresh => frac_thresh   , &
     &                               config_lseaice     => lseaice       , &
     &                               config_llake       => llake         , &
     &                               config_lmelt       => lmelt         , &
@@ -80,6 +82,8 @@ MODULE mo_lnd_nwp_nml
   INTEGER ::  nsfc_subs         !< number of TILES
   INTEGER ::  nsfc_snow         !< number of static surface types which can have 
                                 !< snow as a tile
+  REAL(wp)::  frac_thresh       !< fraction threshold for retaining the respective 
+                                !< tile for a grid point
   INTEGER ::  itype_gscp        !< type of grid-scale precipitation physics
   INTEGER ::  itype_trvg        !< type of vegetation transpiration parameterization
   INTEGER ::  itype_evsl        !< type of parameterization of bare soil evaporation
@@ -106,8 +110,8 @@ MODULE mo_lnd_nwp_nml
 !--------------------------------------------------------------------
 
   NAMELIST/lnd_nml/ nztlev, nlev_snow, nsfc_subs, nsfc_snow   , &
-    &               lseaice, llake, lmelt, lmelt_var          , &
-    &               lmulti_snow, itype_gscp                   , & 
+    &               frac_thresh, lseaice, llake, lmelt        , &
+    &               lmelt_var, lmulti_snow, itype_gscp        , & 
     &               itype_trvg                                , & 
     &               itype_evsl                                , & 
     &               itype_tran                                , & 
@@ -160,6 +164,8 @@ MODULE mo_lnd_nwp_nml
     nsfc_subs      = 1       ! 1 = default value for number of TILES
     nsfc_snow      = 0       ! 0 = default value for number of static surface 
                              !     types which can have snow as a tile
+    frac_thresh    = 0.05_wp ! fraction threshold for retaining the respective 
+                             ! tile for a grid point
     lmelt          = .TRUE.  ! soil model with melting process
     lmelt_var      = .TRUE.  ! freezing temperature dependent on water content
     lmulti_snow    = .FALSE. ! run the multi-layer snow model
@@ -230,6 +236,7 @@ MODULE mo_lnd_nwp_nml
       config_nlev_snow   = nlev_snow
       config_nsfc_subs   = nsfc_subs
       config_nsfc_snow   = nsfc_snow
+      config_frac_thresh = frac_thresh
       config_lseaice     = lseaice
       config_llake       = llake
       config_lmelt       = lmelt

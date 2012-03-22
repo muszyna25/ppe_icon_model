@@ -54,6 +54,7 @@ MODULE mo_lnd_nwp_config
   PRIVATE
 
   PUBLIC :: nlev_soil, nztlev ,nlev_snow ,nsfc_subs, nsfc_snow
+  PUBLIC :: frac_thresh
   PUBLIC :: lseaice,  llake, lmelt , lmelt_var ,   lmulti_snow 
   PUBLIC :: itype_gscp, itype_trvg ,    itype_evsl, itype_tran 
   PUBLIC :: itype_root, itype_heatcond, itype_hydbound  
@@ -77,6 +78,8 @@ MODULE mo_lnd_nwp_config
   INTEGER ::  nsfc_subs          !< number of TILES
   INTEGER ::  nsfc_snow          !< number of static surface types 
                                  !< which can have snow as a tile
+  REAL(wp)::  frac_thresh        !< fraction threshold for retaining the respective 
+                                 !< tile for a grid point
   INTEGER ::  itype_gscp         !< type of grid-scale precipitation physics
   INTEGER ::  itype_trvg         !< type of vegetation transpiration parameterization
   INTEGER ::  itype_evsl         !< type of parameterization of bare soil evaporation
