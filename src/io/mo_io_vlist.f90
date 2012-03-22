@@ -26,6 +26,9 @@
 !!    as global attributes to netcdf file, for postprocessing
 !!  Modified by F. Prill, DWD (2011-08)
 !!  - optional output of variables interpolated onto lon-lat grid.
+!!  Modification by daniel Reinert, DWD (2012-03-22)
+!! - some IO-routines, which might be of future use, have been moved to
+!!   mo_io_util, since this module will be removed at some time.
 !!
 !!
 !! @par Copyright
@@ -131,8 +134,12 @@ MODULE mo_io_vlist
     &                                 out_filetype, out_expname,                  &
     &                                 dt_data, dt_file, lkeep_in_sync,            &
     &                                 lflux_avg
+  USE mo_io_util,               ONLY: gather_array1, gather_array2, outvar_desc,  &
+    &                                 t_outvar_desc, GATHER_C, GATHER_E, GATHER_V,&
+    &                                 GATHER_LONLAT, max_outvars, max_gridlevs,   &
+    &                                 t_collected_var_ptr, num_output_vars
   USE mo_nh_pzlev_config,       ONLY: nh_pzlev_config
-  USE mo_parallel_config,       ONLY: nproma, p_test_run
+  USE mo_parallel_config,       ONLY: nproma
   USE mo_extpar_config,         ONLY: itopo
   USE mo_run_config,            ONLY: num_lev, num_levp1, iforcing, lforcing,     &
     &                                 ntracer, ltransport, nsteps, dtime,         &
@@ -151,10 +158,8 @@ MODULE mo_io_vlist
     &                                 n_dom_start
   USE mo_model_domain,          ONLY: t_patch, p_patch
   USE mo_physical_constants,    ONLY: grav
-  USE mo_communication,         ONLY: exchange_data, t_comm_pattern
-  USE mo_mpi,                   ONLY: my_process_is_mpi_workroot, my_process_is_stdio, &
-    &  my_process_is_mpi_test, my_process_is_mpi_seq, process_mpi_all_test_id,         &
-    &  process_mpi_all_workroot_id, p_recv, p_send, num_work_procs, get_my_mpi_all_id
+  USE mo_mpi,                   ONLY: my_process_is_stdio, p_recv, p_send, &
+    &                                 num_work_procs, get_my_mpi_all_id
   USE mo_icoham_dyn_types,      ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_nonhydro_types,        ONLY: t_nh_prog, t_nh_diag
   USE mo_opt_diagnostics,       ONLY: t_nh_diag_pz
@@ -215,8 +220,6 @@ MODULE mo_io_vlist
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-  INTEGER, PARAMETER :: max_outvars  = 250 ! max. number of output variables
-  INTEGER, PARAMETER :: max_gridlevs = 12 ! max. number of grid levels
   INTEGER, PARAMETER :: max_name_len = 100
 
   !> level of output verbosity
@@ -228,7 +231,6 @@ MODULE mo_io_vlist
     &       get_outvar_ptr_oce,                                     &
     &       vlist_write_var, vlist_set_date_time, vlist_start_step, &
     &       de_reshape1, de_reshape2,                               &
-    &       gather_array1, gather_array2, t_collected_var_ptr,      &
     &       addGlobAtts, addAtmAtts, addOceAtts, translate_vars
 
   PRIVATE :: addGlobAttInt, addGlobAttTxt, addGlobAttFlt
@@ -268,32 +270,10 @@ MODULE mo_io_vlist
 
   INTEGER, SAVE :: iostep = 0
 
-  INTEGER, PARAMETER, PUBLIC :: GATHER_C      = 1
-  INTEGER, PARAMETER, PUBLIC :: GATHER_E      = 2
-  INTEGER, PARAMETER, PUBLIC :: GATHER_V      = 3
-  INTEGER, PARAMETER, PUBLIC :: GATHER_LONLAT = 4
-
-  ! Descriptions of output variables
-
-  INTEGER, PUBLIC :: num_output_vars(max_gridlevs)
-
-  TYPE t_outvar_desc
-
-    INTEGER ::           TYPE ! GATHER_C, GATHER_E, GATHER_V, GATHER_LONLAT
-    INTEGER ::           nlev
-    CHARACTER(LEN=80) :: name
-
-  END TYPE t_outvar_desc
-
-  !> pointer type (avoids clash of INTENT and POINTER attributes)
-  TYPE t_collected_var_ptr
-    REAL(wp), POINTER :: ptr(:,:,:)
-  END TYPE t_collected_var_ptr
 
   PUBLIC :: t_outvar_desc
   INTEGER :: klev
 
-  TYPE(t_outvar_desc), PUBLIC :: outvar_desc(max_outvars, max_gridlevs)
 
   ! data fields for (optional) interpolation of output variables to
   ! lon-lat grid (only allocated on IO PEs, only one field for all
@@ -2885,11 +2865,10 @@ CONTAINS
   !! If delete is set after I/O, the pointer has to be deallocated
   !! (because it is not pointing to another variable but has been allocated here).
 
-  SUBROUTINE get_outvar_ptr_nh(varname, jg, z_sim_time,ptr2, ptr3, reset, delete)
+  SUBROUTINE get_outvar_ptr_nh(varname, jg, ptr2, ptr3, reset, delete)
 
     CHARACTER(LEN=*), INTENT(IN) :: varname
     INTEGER, INTENT(IN) :: jg
-    REAL(wp), INTENT(in) :: z_sim_time
     LOGICAL, INTENT(OUT) :: reset, delete
 
     INTEGER :: jt
@@ -3449,7 +3428,7 @@ CONTAINS
             CALL get_outvar_ptr_ha(outvar_desc(ivar,jg)%name, jg, ptr2, ptr3, reset, delete)
           CASE (inh_atmosphere)
             CALL get_outvar_ptr_nh &
-              & (outvar_desc(ivar,jg)%name, jg, p_sim_time, ptr2, ptr3, reset, delete)
+              & (outvar_desc(ivar,jg)%name, jg, ptr2, ptr3, reset, delete)
           CASE (ihs_ocean)
             CALL get_outvar_ptr_oce(outvar_desc(ivar,jg)%name, jg, ptr2, ptr3,reset, delete)
           CASE DEFAULT
@@ -3546,220 +3525,6 @@ CONTAINS
 
   END SUBROUTINE nf
 
-
-  !-------------------------------------------------------------------------
-  !
-  !
-  !>
-  !! For output, the fields have to be provided in the form:.
-  !!
-  !! For output, the fields have to be provided in the form:
-  !! field(vector_length,nlevs).
-  !! Therefore, the reshaping performed for optimization should be reversed.
-  !! This is the version for a horizontal field.
-  !!
-  !! The optional parameter "out_field_2d" allows the calling procedure
-  !! to work with the collected 2d variable (not only with the RESHAPEd
-  !! variable "out_field"). However, in this case the caller is in
-  !! charge of deallocating this field.
-  !!
-  !! @par Revision History
-  !! Initial release by Almut Gassmann, MPI-M, (2008-11-19)
-  !!
-  SUBROUTINE gather_array1(typ,p_patch,in_field,out_field,opt_name,opt_out_field_2d)
-    !
-    INTEGER,                   INTENT(in)    :: typ
-    TYPE(t_patch), TARGET,     INTENT(in)    :: p_patch
-    ! 2dimensional input field (nblks,nproma)
-    REAL(wp),                  INTENT(in)    :: in_field(:,:)
-    ! one vector line version of the input
-    REAL(wp),                  INTENT(inout) :: out_field(:)
-    CHARACTER(LEN=*), OPTIONAL,INTENT(IN)    :: opt_name
-    ! quasi-2d output (nproma,1,nblks)
-    TYPE(t_collected_var_ptr), INTENT(OUT), OPTIONAL :: opt_out_field_2d
-
-    REAL(wp), ALLOCATABLE :: out_field2(:,:)
-
-    !-----------------------------------------------------------------------
-
-    IF (my_process_is_stdio()) THEN
-      ALLOCATE(out_field2(UBOUND(out_field,1),1))
-    ELSE
-      ALLOCATE(out_field2(0,0))
-    ENDIF
-    IF (PRESENT(opt_name)) THEN
-      CALL gather_array2(typ,p_patch,&
-                         RESHAPE(in_field,(/UBOUND(in_field,1),1,UBOUND(in_field,2)/)), &
-                         out_field2, opt_name, opt_out_field_2d)
-    ELSE
-      CALL gather_array2(typ,p_patch,&
-                         RESHAPE(in_field,(/UBOUND(in_field,1),1,UBOUND(in_field,2)/)), &
-                         out_field2, opt_out_field_3d=opt_out_field_2d)
-    ENDIF
-
-    IF(my_process_is_stdio()) THEN
-      out_field(:) = out_field2(:,1)
-    ENDIF
-
-    DEALLOCATE(out_field2)
-
-  END SUBROUTINE gather_array1
-
-
-  !-------------------------------------------------------------------------
-  !
-  !
-  !>
-  !! For output, the fields have to be provided in the form:
-  !!   field(vector_length,nlevs).
-  !! Therefore, the reshaping performed for optimization should be reversed.
-  !! This is the version for a 3-d field
-  !!
-  !! The optional parameter "out_field_3d" allows the calling procedure
-  !! to work with the collected 3d variable (not only with the RESHAPEd
-  !! variable "out_field"). However, in this case the caller is in
-  !! charge of deallocating this field.
-  !!
-  !! @par Revision History
-  !! Initial release by Almut Gassmann, MPI-M, (2008-11-19)
-  !!
-  SUBROUTINE gather_array2(typ,p_patch,in_field,out_field, opt_name, opt_out_field_3d)
-
-    INTEGER,     INTENT(in)                  :: typ
-    TYPE(t_patch), INTENT(in), TARGET        :: p_patch
-    ! 3d input (nproma,nlev,nblks)
-    REAL(wp),    INTENT(in)                  :: in_field(:,:,:)
-    ! 2d output (length,nlev)
-    REAL(wp),    INTENT(inout)               :: out_field(:,:)
-    CHARACTER(LEN=*), OPTIONAL,INTENT(IN)    :: opt_name
-    ! 3d output (nproma,nlev,nblks)
-    TYPE(t_collected_var_ptr), INTENT(OUT), OPTIONAL :: opt_out_field_3d
-
-    ! local variables
-    REAL(wp), POINTER             :: tmp_field(:,:,:)
-    INTEGER                       :: nblks, npromz, jb, jl, jk, jend, &
-      &                              dim1, dim3, ierrstat
-    INTEGER                       :: isize_out, isize_lev               ! array size of output
-    TYPE(t_comm_pattern), POINTER :: p_comm_pat
-
-    !-----------------------------------------------------------------------
-
-    IF(UBOUND(in_field,1) /= nproma) THEN
-      CALL finish('mo_io_vlist/gather_array2','Illegal 1st array dimension')
-    ENDIF
-!     IF(p_io/=p_test_pe .AND. p_io/=p_work_pe0) THEN ! Safety check only
-!       CALL finish('mo_io_vlist/gather_array2','Illegal I/O PE number for this routine')
-!     ENDIF
-
-    IF(typ == GATHER_C) THEN
-
-      IF(UBOUND(in_field,3) /= p_patch%nblks_c) &
-        CALL finish('mo_io_vlist/gather_array2','Illegal 3rd array dimension')
-      dim1 = nproma
-      dim3 = (p_patch%n_patch_cells_g-1)/nproma+1
-
-      p_comm_pat => p_patch%comm_pat_gather_c
-      nblks      =  p_patch%nblks_c
-      npromz     =  p_patch%npromz_c
-
-    ELSE IF(typ == GATHER_E) THEN
-
-      IF(UBOUND(in_field,3) /= p_patch%nblks_e) &
-        CALL finish('mo_io_vlist/gather_array2','Illegal 3rd array dimension')
-      dim1 = nproma
-      dim3 = (p_patch%n_patch_edges_g-1)/nproma+1
-
-      p_comm_pat => p_patch%comm_pat_gather_e
-      nblks      =  p_patch%nblks_e
-      npromz     =  p_patch%npromz_e
-
-    ELSE IF(typ == GATHER_V) THEN
-
-      IF(UBOUND(in_field,3) /= p_patch%nblks_v) &
-        CALL finish('mo_io_vlist/gather_array2','Illegal 3rd array dimension')
-      dim1 = nproma
-      dim3 = (p_patch%n_patch_verts_g-1)/nproma+1
-
-      p_comm_pat => p_patch%comm_pat_gather_v
-      nblks      =  p_patch%nblks_v
-      npromz     =  p_patch%npromz_v
-
-    ELSE
-
-      CALL finish('mo_io_vlist/gather_array2','Illegal type parameter')
-
-      ! To get rid of compiler warnings (by gcc) about variables which may be used uninitialized,
-      ! define these varaibles also here. They are not used since the "finish" above stops
-      ! the model integration.
-      p_comm_pat => p_patch%comm_pat_gather_c
-      nblks      =  p_patch%nblks_c
-      npromz     =  p_patch%npromz_c
-
-    ENDIF
-
-    IF (PRESENT(opt_out_field_3d)) THEN
-      ALLOCATE(opt_out_field_3d%ptr(dim1, UBOUND(in_field,2), dim3), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) THEN
-        CALL finish ('mo_io_vlist/gather_array2', 'allocation failed')
-      ENDIF
-      tmp_field => opt_out_field_3d%ptr
-    ELSE
-      ALLOCATE(tmp_field(dim1, UBOUND(in_field,2), dim3))
-    END IF
-    tmp_field(:,:,:)=0.0_wp
-
-    IF(p_test_run) THEN
-      IF(.NOT. my_process_is_mpi_test()) THEN
-        ! Gather all data on process_mpi_all_workroot_id and send it to process_mpi_test_id for verification
-        CALL exchange_data(p_comm_pat, RECV=tmp_field, SEND=in_field)
-        IF(my_process_is_mpi_workroot()) CALL p_send(tmp_field, process_mpi_all_test_id, 1)
-      ELSE
-        ! Receive result from parallel worker PEs and check for correctness
-        CALL p_recv(tmp_field, process_mpi_all_workroot_id, 1)
-        DO jb = 1, nblks
-          jend = nproma
-          IF(jb==nblks) jend = npromz
-          DO jl = 1, jend
-            IF(ANY(tmp_field(jl,:,jb) /= in_field(jl,:,jb))) THEN
-                IF (PRESENT(opt_name)) THEN
-                  WRITE(0,*)'Error ',TRIM(opt_name),jl,jb ,tmp_field(jl,:,jb),in_field(jl,:,jb)
-                ELSE
-                  WRITE(0,*)'Error ',jl,jb !,tmp_field(jl,:,jb),in_field(jl,:,jb)
-               ENDIF
-              CALL message('mo_io_vlist/gather_array2','Sync error test PE/worker PEs')
-            ENDIF
-          ENDDO
-        ENDDO
-      ENDIF
-    ELSE
-      IF(my_process_is_mpi_seq()) THEN
-        ! We are running on 1 PE. Thus, just copy in_field.
-        DO jb= 1, nblks
-          jend = nproma
-          IF(jb==nblks) jend = npromz
-          DO jl = 1, jend
-            tmp_field(jl,:,jb) = in_field(jl,:,jb)
-          ENDDO
-        ENDDO
-      ELSE
-        ! Gather all data on process_mpi_all_workroot_id
-        CALL exchange_data(p_comm_pat, RECV=tmp_field, SEND=in_field)
-      ENDIF
-    ENDIF
-
-    IF(my_process_is_stdio()) THEN
-      isize_out = SIZE(out_field,1)
-      isize_lev = SIZE(in_field,2)
-
-      DO jk = 1, isize_lev
-        out_field(:,jk) = RESHAPE(tmp_field(:,jk,:),(/isize_out/))
-      ENDDO
-    ENDIF
-
-    IF (.NOT. PRESENT(opt_out_field_3d)) &
-      DEALLOCATE(tmp_field)
-
-  END SUBROUTINE gather_array2
 
 
   !-------------------------------------------------------------------------
@@ -3971,7 +3736,7 @@ CONTAINS
       IF (outvar_desc(ivar, k_jg)%type == GATHER_LONLAT) CYCLE
       ! get pointer to variable
       CALL get_outvar_ptr_nh &
-        & (outvar_desc(ivar,k_jg)%name, k_jg, 0._wp, ptr2, ptr3, reset, delete)
+        & (outvar_desc(ivar,k_jg)%name, k_jg, ptr2, ptr3, reset, delete)
       ! loop over "add_var" variable list and compare to pointer
       DO i = 1, nvar_lists
         list_element => var_lists(i)%p%first_list_element

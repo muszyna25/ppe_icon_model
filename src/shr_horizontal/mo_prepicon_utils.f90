@@ -63,10 +63,10 @@ MODULE mo_prepicon_utils
   USE mo_smooth_topo,         ONLY: smooth_topography
   USE mo_util_netcdf,         ONLY: read_netcdf_data, read_netcdf_data_single
   USE mo_model_domain,        ONLY: p_patch
-  USE mo_io_vlist,            ONLY: GATHER_C, GATHER_E, GATHER_V, num_output_vars, outvar_desc, &
-                                    gather_array1, gather_array2
-  USE mo_datetime,            ONLY: t_datetime
   USE mo_io_config,           ONLY: lkeep_in_sync
+  USE mo_io_util,             ONLY: gather_array1, gather_array2, outvar_desc,    &
+    &                               GATHER_C, GATHER_E, GATHER_V, num_output_vars
+  USE mo_datetime,            ONLY: t_datetime
   USE mo_nh_init_utils,       ONLY: nflat, nflatlev, compute_smooth_topo, init_vert_coord,  &
                                     topography_blending, topography_feedback, hydro_adjust, &
                                     interp_uv_2_vn, init_w, convert_thdvars, virtual_temp
@@ -711,12 +711,13 @@ MODULE mo_prepicon_utils
   !! Initial version by Guenther Zaengl, DWD(2011-07-28)
   !!
   !!
-  SUBROUTINE copy_prepicon2prog(prepicon, p_nh_state, p_lnd_state)
+  SUBROUTINE copy_prepicon2prog(prepicon, p_nh_state, p_lnd_state, ext_data)
 
     TYPE(t_prepicon_state), INTENT(IN) :: prepicon(:)
 
-    TYPE(t_nh_state),  INTENT(INOUT) :: p_nh_state(:)
-    TYPE(t_lnd_state), INTENT(INOUT) :: p_lnd_state(:)
+    TYPE(t_nh_state),      INTENT(INOUT) :: p_nh_state(:)
+    TYPE(t_lnd_state),     INTENT(INOUT) :: p_lnd_state(:)
+    TYPE(t_external_data), INTENT(   IN) :: ext_data(:)
 
     INTEGER :: jg, jb, jk, jc, je, jt, js, jp
     INTEGER :: nblks_c, npromz_c, nblks_e, npromz_e, nlen, nlev, nlevp1, ntl, ntlr
@@ -2097,7 +2098,7 @@ MODULE mo_prepicon_utils
       DO ivar = 1, num_output_vars(jg)
 
         CALL get_outvar_ptr_prepicon &
-          & (outvar_desc(ivar,jg)%name, jg, p_sim_time, ptr2, ptr3, reset, delete)
+          & (outvar_desc(ivar,jg)%name, jg, ptr2, ptr3, reset, delete)
 
         SELECT CASE(outvar_desc(ivar, jg)%type)
           CASE (GATHER_C)
@@ -2181,11 +2182,10 @@ MODULE mo_prepicon_utils
   END SUBROUTINE close_prepicon_output_files
 
 
-  SUBROUTINE get_outvar_ptr_prepicon(varname, jg, z_sim_time,ptr2, ptr3, reset, delete)
+  SUBROUTINE get_outvar_ptr_prepicon(varname, jg, ptr2, ptr3, reset, delete)
 
     CHARACTER(LEN=*), INTENT(IN) :: varname
     INTEGER, INTENT(IN) :: jg
-    REAL(wp), INTENT(in) :: z_sim_time
     LOGICAL, INTENT(OUT) :: reset, delete
 
     LOGICAL :: not_found

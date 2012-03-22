@@ -752,7 +752,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
 
   IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 .AND. .NOT. is_restart_run() ) THEN  ! TERRA
     CALL nwp_surface_init(p_patch, ext_data, p_prog_lnd_now,  &
-      &                   p_prog_lnd_new, p_diag_lnd)
+      &                   p_prog_lnd_new)
   END IF
 
 

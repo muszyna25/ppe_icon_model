@@ -252,7 +252,7 @@ CONTAINS
       CALL vertical_interpolation(p_patch(1:), p_int_state(1:), p_grf_state(1:), prepicon)
 
       ! Finally copy the results to the prognostic model variables
-      CALL copy_prepicon2prog(prepicon, p_nh_state, p_lnd_state)
+      CALL copy_prepicon2prog(prepicon, p_nh_state, p_lnd_state, ext_data(:))
 
       ! Deallocate prepicon data type
       CALL deallocate_prepicon(prepicon)

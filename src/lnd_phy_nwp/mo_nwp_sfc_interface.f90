@@ -589,12 +589,8 @@ CONTAINS
   !! Modification by Daniel Reienrt, DWD (2011-07-29)
   !! - initialize climatological layer t_so(nlev_soil+2)
   !!
-!!$  SUBROUTINE nwp_surface_init    ( p_patch,        & !>in
-!!$                                   subsfrac,       &
-!!$                                   frac_thres,     &
-!!$                                   pt_tiles )
   SUBROUTINE nwp_surface_init( p_patch, ext_data, p_prog_lnd_now, &
-    &                          p_prog_lnd_new, p_diag_lnd )
+    &                          p_prog_lnd_new )
  
                              
 
@@ -602,7 +598,6 @@ CONTAINS
     TYPE(t_external_data), INTENT(IN)    :: ext_data
 !    TYPE(t_tiles)        , INTENT(INOUT) :: p_tiles(:)
     TYPE(t_lnd_prog)     , INTENT(INOUT) :: p_prog_lnd_now, p_prog_lnd_new
-    TYPE(t_lnd_diag),      INTENT(inout) :: p_diag_lnd
 !!$    REAL(wp)             , INTENT(IN)   :: subsfrac(nproma,1,nsfc_subs)
     
     ! Local array bounds:
@@ -614,7 +609,7 @@ CONTAINS
 
     ! Local scalars:
 
-    INTEGER :: jc,jb,nlev,isubs,jk
+    INTEGER :: jc,jb,isubs,jk
 
 
     REAL(wp) :: t_snow_now_t(nproma, p_patch%nblks_c, nsfc_subs)

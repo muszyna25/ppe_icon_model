@@ -73,13 +73,12 @@ MODULE mo_io_async
   USE mo_run_config,          ONLY: ldump_states, ldump_dd, ltestcase
   USE mo_io_units,            ONLY: filename_max
   USE mo_communication,       ONLY: idx_no, blk_no
-  USE mo_io_vlist,            ONLY: GATHER_C, GATHER_E, GATHER_V, GATHER_LONLAT,                 &
-   &                                setup_vlist, destruct_vlist,                                 &
+  USE mo_io_util,             ONLY: GATHER_C, GATHER_E, GATHER_V, GATHER_LONLAT, outvar_desc,    &
+    &                               num_output_vars
+  USE mo_io_vlist,            ONLY: setup_vlist, destruct_vlist,                                 &
    &                                open_output_vlist, close_output_vlist,                       &
    &                                vlist_set_date_time, vlist_start_step, vlist_write_var,      &
-   &                                num_output_vars, outvar_desc,                                &
-   &                                get_outvar_ptr_ha, get_outvar_ptr_nh,                        &
-   &                                get_outvar_ptr_oce
+   &                                get_outvar_ptr_ha, get_outvar_ptr_nh, get_outvar_ptr_oce
   USE mo_grid_config,         ONLY: n_dom
   ! meteogram output
   USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize, meteogram_flush_file
@@ -1249,7 +1248,7 @@ CONTAINS
           CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
             CALL get_outvar_ptr_ha(outvar_desc(n,jg)%name, jg, ptr2, ptr3, reset, delete)
           CASE (inh_atmosphere)
-            CALL get_outvar_ptr_nh(outvar_desc(n,jg)%name,jg,p_sim_time,ptr2, ptr3, reset, delete)
+            CALL get_outvar_ptr_nh(outvar_desc(n,jg)%name,jg, ptr2, ptr3, reset, delete)
           CASE (ihs_ocean)
             CALL get_outvar_ptr_oce(outvar_desc(n,jg)%name, jg, ptr2, ptr3,reset, delete)
           CASE DEFAULT
@@ -1469,7 +1468,7 @@ CONTAINS
           CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
             CALL get_outvar_ptr_ha(outvar_desc(n,jg)%name, jg, ptr2, ptr3, reset, delete)
           CASE (inh_atmosphere)
-            CALL get_outvar_ptr_nh(outvar_desc(n,jg)%name,jg,p_sim_time,ptr2, ptr3, reset, delete)
+            CALL get_outvar_ptr_nh(outvar_desc(n,jg)%name,jg, ptr2, ptr3, reset, delete)
           CASE DEFAULT
             CALL finish(modname,'Unsupported value of iequations')
         END SELECT
