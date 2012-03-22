@@ -303,9 +303,9 @@ CONTAINS
          i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
 
 
-!!$OMP PARALLEL
-!!OMP DO PRIVATE(jb,jc,i_lu,i_startidx,i_endidx,i_count,i_count_sea,tile_frac,&
-!!OMP            tile_mask,lu_subs,sum_frac,it_count)
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jc,i_lu,i_startidx,i_endidx,i_count,i_count_sea,tile_frac,&
+!$OMP            tile_mask,lu_subs,sum_frac,it_count)
          DO jb=i_startblk, i_endblk
 
            CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
@@ -429,8 +429,8 @@ CONTAINS
            END DO ! jc
 
          END DO !jb
-!!$OMP END DO
-!!$OMP END PARALLEL
+!$OMP END DO
+!$OMP END PARALLEL
 
          ! Some useful diagnostics
          npoints = SUM(ext_data(jg)%atm%lp_count(i_startblk:i_endblk))
