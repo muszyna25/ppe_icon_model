@@ -611,6 +611,7 @@ run/compile_for_dev.mpi.ksh -text
 run/compile_for_developers.ksh -text
 run/exec.iconrun -text
 run/exp.ChannelFlow -text
+run/exp.OCE_BASE -text
 run/exp.couple_atmo-ocean -text
 run/exp.couple_atmo-radiation -text
 run/exp.couple_dummy_models -text
