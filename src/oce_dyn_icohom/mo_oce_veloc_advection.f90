@@ -305,12 +305,13 @@ CONTAINS
     !                  & p_patch,    &
     !                  & p_diag%grad,&
     !                  & opt_slev=slev,opt_elev=elev )
+  
     CALL grad_fd_norm_oce_3d( p_diag%kin, &
       & p_patch,    &
       & p_op_coeff%grad_coeff,&
       & p_diag%grad)!,&
     !& opt_slev=slev,opt_elev=elev )
-    CALL sync_patch_array(sync_c, p_patch, p_diag%grad(:,:,:))    
+    CALL sync_patch_array(sync_e, p_patch, p_diag%grad(:,:,:))    
     
     DO jk = slev, elev
       ipl_src=3  ! output print level (1-5, fix)

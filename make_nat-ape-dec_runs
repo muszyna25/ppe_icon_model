@@ -89,6 +89,20 @@ fi
 
 }
 #==============================================================================
+name=nat_ape-dec
+outname=nat_ape-dec_memtest
+run="false"
+use_barrier=".false."
+testbed_mode=0
+cpu_time="00:10:00"
+division_method=1
+atmo_dyn_gridname='iconR2B04_dec-162'
+atmo_rad_gridname='iconR2B03_dec-162_rrad'
+dec_size=32
+ndays=1
+create_dec
+exit
+#==============================================================================
 
 create_scaling_dec_lowres()
 {

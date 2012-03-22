@@ -2625,7 +2625,7 @@ CONTAINS
 !!
 
   SUBROUTINE set_zlev(zlev_i, zlev_m)
-    REAL(wp), INTENT(OUT) :: zlev_i(n_zlev+1)    , zlev_m(n_zlev)
+    REAL(wp), INTENT(INOUT) :: zlev_i(n_zlev+1)    , zlev_m(n_zlev)
 !--------------------------------------
     INTEGER :: jk
 
