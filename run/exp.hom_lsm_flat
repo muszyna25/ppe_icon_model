@@ -172,15 +172,15 @@ cat > ${ocean_namelist} << EOF
 /
 &ocean_physics_nml
   i_sea_ice          =    1      ! 0 = no sea ice; 1 = sea ice switched on
-  no_tracer          =    2      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
-  k_veloc_h          = 1.0E+5    ! [m2/s] horizontal viscosity coefficient for velocity
+  no_tracer          =    1      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
+  k_veloc_h          = 5.0E+5    ! [m2/s] horizontal viscosity coefficient for velocity
   k_veloc_v          = 0.01      ! [m/s]  vertical viscosity coefficient for velocity
-  MAX_VERT_DIFF_VELOC= 1.0       ! max diffusion coeff, used in impl.vert.velocity diffusion, if stabil. crit.is met
+  MAX_VERT_DIFF_VELOC= 1.0       ! max diffusion coeff, used in implicit vertical velocity diffusion
   k_pot_temp_h       = 1.0E+3    ! [m2/s] horizontal viscosity coefficient for temperature
   k_pot_temp_v       = 3.0E-5    ! [m/s]  vertical viscosity coefficient for temperature
   k_sal_h            = 1.0E+3    ! [m2/s] horizontal viscosity coefficient for salinity
   k_sal_v            = 3.0E-5    ! [m/s]  vertical viscosity coefficient for salinity
-  MAX_VERT_DIFF_TRAC = 3.0E-3    ! max diffusion coeff, used in impl.vert.tracer diffusion, if stability crit.is met
+  MAX_VERT_DIFF_TRAC = 3.0E-3    ! max diffusion coeff, used in implicit vertical tracer diffusion
 /
 &ocean_forcing_and_init_nml
   iforc_oce          = ${iforc}       ! ocean forcing:
@@ -198,7 +198,7 @@ cat > ${ocean_namelist} << EOF
                                  ! 45=horizontally homogen temperature
                                  ! 50=zonally homogen temperature for APE SST (Williamson)
   idiag_oce          =    0      ! 0: no diagnostics; 1: write diagnostics to stderr
-  temperature_relaxation= 0      !  0: no relaxation used
+  temperature_relaxation= 1      !  0: no relaxation used
                                  !  1: relaxation switched on for reading (init_oce_relax=1) or some testcases only
                                  !  2: use SST read from bulk forcing (iforc=12);
                                  !     use atmospheric temperature in case of coupling (iforc=14)
