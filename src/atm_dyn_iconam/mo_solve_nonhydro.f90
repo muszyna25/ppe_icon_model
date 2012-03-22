@@ -42,7 +42,7 @@ MODULE mo_solve_nonhydro
 
   USE mo_kind,                 ONLY: wp
   USE mo_nonhydrostatic_config,ONLY: itime_scheme,iadv_rhotheta, igradp_method, l_open_ubc, &
-                                     kstart_moist, lhdiff_rcf, divdamp_fac
+                                     kstart_moist, lhdiff_rcf, divdamp_fac, divdamp_order
   USE mo_dynamics_config,      ONLY: idiv_method
   USE mo_parallel_config,    ONLY: nproma, p_test_run, itype_comm, use_dycore_barrier
   USE mo_run_config,         ONLY: ltimer, lvert_nest
@@ -557,6 +557,7 @@ MODULE mo_solve_nonhydro
                 z_rho_e         (nproma,p_patch%nlev  ,p_patch%nblks_e), &
                 z_gradh_exner   (nproma,p_patch%nlev  ,p_patch%nblks_e), &
                 z_graddiv_vn    (nproma,p_patch%nlev  ,p_patch%nblks_e), &
+                z_graddiv2_vn   (nproma,p_patch%nlev  ,p_patch%nblks_e), &
                 z_concorr_e     (nproma,p_patch%nlevp1,p_patch%nblks_e), &
                 z_distv_bary    (nproma,p_patch%nlev  ,p_patch%nblks_e,2)
 
@@ -656,7 +657,11 @@ MODULE mo_solve_nonhydro
     iqblk => p_patch%edges%quad_blk
 
     ! scaling factor for divergence damping: divdamp_fac*delta_x**2
-    scal_divdamp = divdamp_fac*4._wp*pi*re**2/REAL(20*nroot**2*4**(p_patch%level),wp)
+    IF (divdamp_order == 2) THEN
+      scal_divdamp = divdamp_fac*4._wp*pi*re**2/REAL(20*nroot**2*4**(p_patch%level),wp)
+    ELSE IF (divdamp_order == 4) THEN
+      scal_divdamp = -divdamp_fac*(4._wp*pi*re**2/REAL(20*nroot**2*4**(p_patch%level),wp))**2
+    ENDIF
 
     ! Set pointer to velocity field that is used for mass flux computation
     IF (idiv_method == 1) THEN
@@ -1184,15 +1189,25 @@ MODULE mo_solve_nonhydro
         ENDDO
       ENDIF
 
-      IF (lhdiff_rcf .AND. istep == 2) THEN ! apply divergence damping if diffusion is
-        DO jk = 1, nlev                     ! not called every sound-wave time step
-          DO je = i_startidx, i_endidx
-            p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)  &
-              + scal_divdamp*z_graddiv_vn(je,jk,jb)
+      IF (lhdiff_rcf .AND. istep == 2) THEN
+        ! apply divergence damping if diffusion is not called every sound-wave time step
+        IF (divdamp_order == 2) THEN ! standard second-order divergence damping
+          DO jk = 1, nlev
+            DO je = i_startidx, i_endidx
+              p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)  &
+                + scal_divdamp*z_graddiv_vn(je,jk,jb)
+            ENDDO
           ENDDO
-        ENDDO
-
+        ELSE IF (divdamp_order == 4) THEN ! fourth-order divergence damping
+          DO jk = 1, nlev
+            DO je = i_startidx, i_endidx
+              p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)  &
+                + scal_divdamp*z_graddiv2_vn(je,jk,jb)
+            ENDDO
+          ENDDO
+        ENDIF
       ENDIF
+
     ENDDO
 !$OMP END DO
 
@@ -1379,6 +1394,42 @@ MODULE mo_solve_nonhydro
       ENDIF
     ENDDO
 !$OMP END DO
+
+    IF (lhdiff_rcf .AND. istep == 1 .AND. divdamp_order == 4) THEN ! fourth-order divergence damping
+      rl_start = grf_bdywidth_e + 1
+      rl_end   = min_rledge_int
+
+      i_startblk = p_patch%edges%start_blk(rl_start,1)
+      i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
+
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je)
+      DO jb = i_startblk, i_endblk
+
+        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, rl_start, rl_end)
+
+#ifdef __LOOP_EXCHANGE
+        DO je = i_startidx, i_endidx
+          DO jk = 1, nlev
+#else
+!CDIR UNROLL=3
+        DO jk = 1, nlev
+          DO je = i_startidx, i_endidx
+#endif
+
+            ! Compute gradient of divergence of gradient of divergence for fourth-order divergence damping
+            z_graddiv2_vn(je,jk,jb) = p_int%geofac_grdiv(je,1,jb)*z_graddiv_vn(je,jk,jb)   &
+              + p_int%geofac_grdiv(je,2,jb)*z_graddiv_vn(iqidx(je,jb,1),jk,iqblk(je,jb,1)) &
+              + p_int%geofac_grdiv(je,3,jb)*z_graddiv_vn(iqidx(je,jb,2),jk,iqblk(je,jb,2)) &
+              + p_int%geofac_grdiv(je,4,jb)*z_graddiv_vn(iqidx(je,jb,3),jk,iqblk(je,jb,3)) &
+              + p_int%geofac_grdiv(je,5,jb)*z_graddiv_vn(iqidx(je,jb,4),jk,iqblk(je,jb,4))
+
+           ENDDO
+        ENDDO
+      ENDDO
+!$OMP END DO
+
+    ENDIF
 
     rl_start = 3
     rl_end = min_rledge_int - 2

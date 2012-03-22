@@ -51,6 +51,7 @@ MODULE mo_nonhydrostatic_nml
                                     & config_iadv_rcf         => iadv_rcf         , &
                                     & config_lhdiff_rcf       => lhdiff_rcf       , &
                                     & config_divdamp_fac      => divdamp_fac      , &
+                                    & config_divdamp_order    => divdamp_order    , &
                                     & config_ivctype          => ivctype          , &
                                     & config_htop_moist_proc  => htop_moist_proc  , &
                                     & config_htop_qvadv       => htop_qvadv       , &
@@ -96,7 +97,8 @@ MODULE mo_nonhydrostatic_nml
                                      ! if 2: adv. and phys. are called every 2nd time step.
                                      ! if 4: ... every 4th time step.
   LOGICAL :: lhdiff_rcf              ! if true: compute horizontal diffusion also at the large time step
-  REAL(wp):: divdamp_fac             ! scaling factor for divergence damping (if lhdiff_rcf = true)
+  REAL(wp):: divdamp_fac             ! Scaling factor for divergence damping (if lhdiff_rcf = true)
+  INTEGER :: divdamp_order           ! Order of divergence damping
   INTEGER :: ivctype                 ! Type of vertical coordinate (Gal-Chen / SLEVE)
   REAL(wp):: htop_moist_proc         ! Top height (in m) of the part of the model domain
                                      ! where processes related to moist physics are computed
@@ -140,7 +142,7 @@ MODULE mo_nonhydrostatic_nml
                               & igradp_method, exner_expol, l_open_ubc, l_nest_rcf,        &
                               & l_masscorr_nest, l_zdiffu_t, thslp_zdiffu, thhgtd_zdiffu,  &
                               & gmres_rtol_nh, ltheta_up_hori, upstr_beta, ltheta_up_vert, &
-                              & k2_updamp_coeff
+                              & k2_updamp_coeff, divdamp_order
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -184,6 +186,9 @@ CONTAINS
 
     ! scaling factor for divergence damping (used only if lhdiff_rcf = true)
     divdamp_fac = 0.004_wp
+
+    ! Order of divergence damping
+    divdamp_order = 4
 
     ! Type of vertical coordinate (1: Gal-Chen, 2: SLEVE)
     ivctype  = 2
@@ -318,6 +323,7 @@ CONTAINS
        config_iadv_rcf          = iadv_rcf
        config_lhdiff_rcf        = lhdiff_rcf
        config_divdamp_fac       = divdamp_fac
+       config_divdamp_order     = divdamp_order
        config_itime_scheme      = itime_scheme
        config_ivctype           = ivctype
        config_upstr_beta        = upstr_beta

@@ -2009,6 +2009,13 @@ lhdiff\_rcf = .TRUE.
 \tabularnewline
 
 \hline 
+divdamp\_order&
+I& 4& &
+Order of divergence damping (2 or 4)&
+lhdiff\_rcf = .TRUE.
+\tabularnewline
+
+\hline 
 l\_nest\_rcf&
 L& .TRUE.& &
 Synchronize interpolation/feedback calls with advection (transport) time steps.
@@ -2048,14 +2055,14 @@ cell\_type=3
 l\_zdiffu\_t&
 L& .TRUE.& &
 .TRUE.: Compute Smagorinsky temperature diffusion truly horizontally over steep slopes&
-cell\_type=3 .AND. hdiff\_order=5 .AND. lhdiff\_temp = .true.
+cell\_type=3 .AND. hdiff\_order=3/5 .AND. lhdiff\_temp = .true.
 \tabularnewline
 
 \hline 
 thslp\_zdiffu&
 R& 0.025& &
 Slope threshold above which truly horizontal temperature diffusion is activated&
-cell\_type=3 .AND. hdiff\_order=5 .AND. lhdiff\_temp=.true. .AND. l\_zdiffu\_t=.true.
+cell\_type=3 .AND. hdiff\_order=3/5 .AND. lhdiff\_temp=.true. .AND. l\_zdiffu\_t=.true.
 \tabularnewline
 
 \hline
@@ -2063,7 +2070,7 @@ thhgtd\_zdiffu&
 R& 200& m&
 Threshold of height difference between neighboring grid points above which 
 truly horizontal temperature diffusion is activated (alternative criterion to thslp\_zdiffu)&
-cell\_type=3 .AND. hdiff\_order=5 .AND. lhdiff\_temp=.true. .AND. l\_zdiffu\_t=.true.
+cell\_type=3 .AND. hdiff\_order=3/5 .AND. lhdiff\_temp=.true. .AND. l\_zdiffu\_t=.true.
 \tabularnewline
 
 \hline 
@@ -2186,7 +2193,7 @@ Order of $\nabla$ operator for diffusion:& \tabularnewline
 & & & & -1: no diffusion& \tabularnewline
 & & & & 2: $\nabla^{2}$ diffusion& \tabularnewline
 & & & & 3: Smagorinsky $\nabla^{2}$ diffusion 
-for the hexagonal model (includes frictional heating if lhdiff\_temp=.TRUE.) &
+(includes frictional heating for the hexagonal model if lhdiff\_temp=.TRUE.) &
 \tabularnewline
 & & & & 4: $\nabla^{4}$ diffusion&
 \tabularnewline

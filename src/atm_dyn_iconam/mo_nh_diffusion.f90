@@ -123,7 +123,8 @@ MODULE mo_nh_diffusion
     INTEGER,  DIMENSION(:,:,:), POINTER :: icidx, icblk, ieidx, ieblk, ividx, ivblk
     INTEGER,  DIMENSION(:,:),   POINTER :: icell, ilev, iblk, iedge, iedblk
     REAL(wp), DIMENSION(:,:),   POINTER :: vcoef, blcoef, geofac_n2s
-    LOGICAL :: lsmag_diffu, ltemp_diffu
+    LOGICAL :: ltemp_diffu
+    INTEGER :: diffu_type
     INTEGER :: jg                 !< patch ID
 
     !--------------------------------------------------------------------------
@@ -133,16 +134,6 @@ MODULE mo_nh_diffusion
 
     ! get patch ID
     jg = p_patch%id
-
-    ltemp_diffu = .FALSE.
-
-    IF( diffusion_config(jg)%hdiff_order == 5) THEN
-      lsmag_diffu = .TRUE.
-      ! temperature diffusion is used only in combination with Smagorinsky diffusion
-      ltemp_diffu = diffusion_config(jg)%lhdiff_temp
-    ELSE
-      lsmag_diffu = .FALSE.
-    ENDIF
 
     start_bdydiff_e = 5 ! refin_ctrl level at which boundary diffusion starts
 
@@ -173,23 +164,40 @@ MODULE mo_nh_diffusion
 
     i_nchdom   = MAX(1,p_patch%n_childdom)
 
+    diffu_type  = diffusion_config(jg)%hdiff_order
+
     IF (linit) THEN ! enhanced diffusion at all levels for initial velocity filtering call
       diff_multfac_vn(:) = diffusion_config(jg)%k4/3._wp*diffusion_config(jg)%hdiff_efdt_ratio
-      smag_offset        =  0.2_wp*diffusion_config(jg)%k4
-    ELSE IF (lhdiff_rcf) THEN
+      smag_offset        =  0.0_wp
+      diffu_type = 5 ! always combine nabla4 background diffusion with Smagorinsky diffusion for initial filtering call
+    ELSE IF (lhdiff_rcf) THEN ! combination with divergence damping inside the dynamical core
       diff_multfac_vn(:) = MIN(1._wp/128._wp,diffusion_config(jg)%k4*REAL(iadv_rcf,wp)/ &
                                3._wp*p_nh_metrics%enhfac_diffu(:))
-      smag_offset        =  0.2_wp*diffusion_config(jg)%k4*REAL(iadv_rcf,wp)
+      IF (diffu_type == 3) THEN
+        smag_offset = 0._wp
+      ELSE
+        smag_offset =  0.2_wp*diffusion_config(jg)%k4*REAL(iadv_rcf,wp)
+      ENDIF
     ELSE           ! enhanced diffusion near model top only
       diff_multfac_vn(:) = diffusion_config(jg)%k4/3._wp*p_nh_metrics%enhfac_diffu(:)
       smag_offset        =  0.2_wp*diffusion_config(jg)%k4
+      ! pure Smagorinsky diffusion does not work without divergence damping
+      IF (diffusion_config(jg)%hdiff_order == 3) diffu_type = 5 
     ENDIF
-    IF (.NOT. lsmag_diffu) THEN
+
+    ! temperature diffusion is used only in combination with Smagorinsky diffusion
+    IF (diffu_type == 3 .OR. diffu_type == 5) THEN
+      ltemp_diffu = diffusion_config(jg)%lhdiff_temp
+    ELSE
+      ltemp_diffu = .FALSE.
+    ENDIF
+
+    IF (diffu_type == 4) THEN
 
       CALL nabla4_vec( p_nh_prog%vn, p_patch, p_int, z_nabla4_e,  &
                        opt_rlstart=7,opt_nabla2=z_nabla2_e )
 
-    ELSE
+    ELSE IF (diffu_type == 3 .OR. diffu_type == 5) THEN
 
       IF (p_test_run) THEN
         u_vert = 0._wp
@@ -316,9 +324,11 @@ MODULE mo_nh_diffusion
 !$OMP END DO
 !$OMP END PARALLEL
 
-      ! Second step: compute nabla2(nabla2(v))
+    ENDIF
 
-      ! Interpolate nabla2(v) to vertices
+    IF (diffu_type == 5) THEN ! Add fourth-order background diffusion
+
+      ! Interpolate nabla2(v) to vertices in order to compute nabla2(nabla2(v))
 
       IF (p_test_run) THEN
         u_vert = 0._wp
@@ -392,7 +402,7 @@ MODULE mo_nh_diffusion
         ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
-     ENDIF ! Computation of Smagorinsky diffusion for triangles
+     ENDIF ! diffu_type = 5
 
 
     ! For nested domains, the diffusion contribution is already
@@ -407,7 +417,7 @@ MODULE mo_nh_diffusion
     i_startblk = p_patch%edges%start_blk(rl_start,1)
     i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
 
-    IF (lsmag_diffu) THEN
+    IF (diffu_type == 5) THEN ! Smagorinsky diffusion combined with fourth-order background diffusion
       IF ( jg == 1 .AND. l_limited_area .OR. jg > 1 .AND. .NOT. lfeedback(jg)) THEN
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je)
         DO jb = i_startblk,i_endblk
@@ -457,6 +467,40 @@ MODULE mo_nh_diffusion
                 p_patch%edges%area_edge(je,jb) * (kh_smag_e(je,jk,jb)*             &
                 z_nabla2_e(je,jk,jb) - diff_multfac_vn(jk) * z_nabla4_e(je,jk,jb) *&
                 p_patch%edges%area_edge(je,jb))
+            ENDDO
+          ENDDO
+        ENDDO
+!$OMP END DO
+      ENDIF
+    ELSE IF (diffu_type == 3) THEN ! Only Smagorinsky diffusion
+      IF ( jg == 1 .AND. l_limited_area .OR. jg > 1 .AND. .NOT. lfeedback(jg)) THEN
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je)
+        DO jb = i_startblk,i_endblk
+
+          CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+                             i_startidx, i_endidx, rl_start, rl_end)
+
+          DO jk = 1, nlev
+            DO je = i_startidx, i_endidx
+              p_nh_prog%vn(je,jk,jb) = p_nh_prog%vn(je,jk,jb)  +                &
+                p_patch%edges%area_edge(je,jb) * z_nabla2_e(je,jk,jb) *         &
+                MAX(nudgezone_diff*p_int%nudgecoeff_e(je,jb),kh_smag_e(je,jk,jb))
+               
+            ENDDO
+          ENDDO
+        ENDDO
+!$OMP END DO
+      ELSE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je)
+        DO jb = i_startblk,i_endblk
+
+          CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+                             i_startidx, i_endidx, rl_start, rl_end)
+
+          DO jk = 1, nlev
+            DO je = i_startidx, i_endidx
+              p_nh_prog%vn(je,jk,jb) = p_nh_prog%vn(je,jk,jb)  +                        &
+                p_patch%edges%area_edge(je,jb) * kh_smag_e(je,jk,jb)* z_nabla2_e(je,jk,jb)
             ENDDO
           ENDDO
         ENDDO

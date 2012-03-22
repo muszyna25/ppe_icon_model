@@ -761,12 +761,8 @@ CONTAINS
                                        'switched off for domain ', jg
         CALL message(TRIM(routine),TRIM(message_text))
 
-      CASE(2,4)
+      CASE(2,3,4)
         CONTINUE
-
-      CASE(3)
-        IF (global_cell_type==3) CALL finish(TRIM(routine), &
-        ' hdiff_order = 3 invalid for triangular model.')
 
       CASE(5)
         IF (global_cell_type==6) CALL finish(TRIM(routine), &
