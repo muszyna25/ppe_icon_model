@@ -671,13 +671,6 @@ CONTAINS
         END DO
       ENDIF
 
-      ! Initialize freshsnow with 0.0 for seapoints, with 1.0 elsewhere
-!GZ: could this be the reason for the excessively low heat conductivity of the snow in ICON??
-      DO isubs = 1, nsfc_subs
-        DO jc = i_startidx, i_endidx
-          p_diag_lnd%freshsnow(jc,jb,isubs) = REAL(NINT(ext_data%atm%fr_land(jc,jb)),wp)
-        ENDDO
-      ENDDO
 
 
        IF (ext_data%atm%lp_count(jb) == 0) CYCLE ! skip loop if there is no land point

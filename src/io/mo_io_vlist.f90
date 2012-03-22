@@ -1612,6 +1612,18 @@ CONTAINS
 
           DO jt = 1, nsfc_subs
             WRITE(cjt,'(i2)') jt
+            WRITE(name,'(A,A)') "FRESHSNOW_tile_", TRIM(ADJUSTL(cjt))
+            WRITE(long_name,'(A,A)') "age of snow indicator (top layer)", &
+            & TRIM(ADJUSTL(cjt))
+            CALL addVar(TimeVar(TRIM(name),TRIM(long_name),&
+            &          'm',11,201,&
+            &           vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+            &           k_jg)
+
+          ENDDO
+
+          DO jt = 1, nsfc_subs
+            WRITE(cjt,'(i2)') jt
             WRITE(name,'(A,A)') "DZH_SNOW_tile_", TRIM(ADJUSTL(cjt))
             WRITE(long_name,'(A,A)') "layer thickness between half levels in snow tile", &
             & TRIM(ADJUSTL(cjt))
@@ -3178,11 +3190,18 @@ CONTAINS
           RETURN
         ENDIF
 
+        WRITE(name,'(A,A)') "FRESHSNOW_tile_", TRIM(ADJUSTL(cjt))
+        IF(varname == TRIM(name)) THEN
+          ptr2 => p_diag_lnd%freshsnow(:,:,jt)
+          RETURN
+        ENDIF
+
         WRITE(name,'(A,A)') "DZH_SNOW_tile_", TRIM(ADJUSTL(cjt))
         IF(varname == TRIM(name)) THEN
           ptr3 => p_prog_lnd%dzh_snow(:,:,:,jt)
           RETURN
         ENDIF
+
       ENDDO
 
       ENDIF

@@ -149,6 +149,8 @@ CONTAINS
 
           i_count_lnd = ext_data%atm%gp_count_t(jb,isubs)
 
+          IF (i_count_lnd == 0) CYCLE ! skip loop if the index list for the given tile is empty
+
 !CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, i_count_lnd
 
@@ -196,6 +198,9 @@ CONTAINS
         !
         IF (nsfc_subs == 1) THEN 
           i_count_lnd = ext_data%atm%gp_count_t(jb,1)
+
+          IF (i_count_lnd == 0) CYCLE ! skip loop if the index list for the given tile is empty
+
 !CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, i_count_lnd
             jc = ext_data%atm%idx_lst_t(ic,jb,1)
@@ -205,6 +210,9 @@ CONTAINS
           prm_diag%albvisdif(i_startidx:i_endidx,jb)  =  0._wp
           DO isubs = 1,nsfc_subs
             i_count_lnd = ext_data%atm%gp_count_t(jb,isubs)
+
+            IF (i_count_lnd == 0) CYCLE ! skip loop if the index list for the given tile is empty
+
 !CDIR NODEP,VOVERTAKE,VOB
             DO ic = 1, i_count_lnd
               jc = ext_data%atm%idx_lst_t(ic,jb,isubs)

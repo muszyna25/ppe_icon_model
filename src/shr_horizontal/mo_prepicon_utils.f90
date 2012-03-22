@@ -497,7 +497,6 @@ MODULE mo_prepicon_utils
               &  'use snow density value, instead.'
             CALL message(TRIM(routine),TRIM(message_text))
 
-            ! use model level geopotential instead
             alb_snow_var = 'RHO_SNOW'
           ENDIF
        ENDIF
@@ -803,12 +802,18 @@ MODULE mo_prepicon_utils
                p_lnd_state(jg)%prog_lnd(ntlr)%t_snow(jc,jb,jt)           = &
                 &                                                prepicon(jg)%sfc%tsnow   (jc,jb)
 
+               ! Initialize freshsnow
+               ! for seapoints, freshsnow is set to 0
                IF(alb_snow_var == 'ALB_SNOW') THEN
-              p_lnd_state(jg)%diag_lnd%freshsnow(jc,jb,jt)      =  MAX(0._wp,MIN(1._wp, &
-            &   (prepicon(jg)%sfc%snowalb (jc,jb)-csalb_snow_min)/(csalb_snow_max-csalb_snow_min)))
+              p_lnd_state(jg)%diag_lnd%freshsnow(jc,jb,jt)      =  MAX(0._wp,MIN(1._wp,   &
+            &                           (prepicon(jg)%sfc%snowalb (jc,jb)-csalb_snow_min) &
+            &                          /(csalb_snow_max-csalb_snow_min)))                 &
+            &                          * REAL(NINT(ext_data(jg)%atm%fr_land(jc,jb)),wp) 
               ELSE
-              p_lnd_state(jg)%diag_lnd%freshsnow(jc,jb,jt)      =  MAX(0._wp,MIN(1._wp, &
-            & 1._wp - ((prepicon(jg)%sfc%snowalb (jc,jb)-crhosmin_ml)/(crhosmax_ml-crhosmin_ml))))
+              p_lnd_state(jg)%diag_lnd%freshsnow(jc,jb,jt)      =  MAX(0._wp,MIN(1._wp,   &
+            &                     1._wp - ((prepicon(jg)%sfc%snowalb (jc,jb)-crhosmin_ml) &
+            &                    /(crhosmax_ml-crhosmin_ml))))                            &
+            &                    * REAL(NINT(ext_data(jg)%atm%fr_land(jc,jb)),wp)
                END IF
 
               p_lnd_state(jg)%prog_lnd(ntlr)%w_snow(jc,jb,jt)           = &
