@@ -291,10 +291,14 @@ CONTAINS
       lprint = .TRUE.
     ELSE
 
-      IF ( proc_split  .AND.  (comm_lev>0)  .AND.   &
+      IF ( proc_split ) THEN
+        IF ( (comm_lev>0)  .AND.   &
         & (get_my_mpi_work_id() == get_glob_proc0()) ) THEN
         WRITE(write_text,*) 'PROC_SPLIT: PE ', get_glob_proc0(), ' ', &
           & TRIM(message_text)
+        ELSE
+          write_text = message_text
+        ENDIF
       ELSE
         write_text = message_text
       END IF
