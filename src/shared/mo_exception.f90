@@ -47,7 +47,7 @@ MODULE mo_exception
 
   USE mo_io_units, ONLY: nerr, nlog, filename_max
   USE mo_mpi,      ONLY: run_is_global_mpi_parallel, p_abort, my_process_is_stdio, &
-    & get_my_global_mpi_id
+    & get_my_global_mpi_id, get_my_mpi_work_id, get_glob_proc0, proc_split, comm_lev
   USE mo_kind,     ONLY: wp
 
   IMPLICIT NONE
@@ -235,6 +235,7 @@ CONTAINS
     INTEGER :: ilevel
     LOGICAL :: lprint
     LOGICAL :: ladjust
+    LOGICAL :: lactive
 
     CHARACTER(len=32) :: prefix
 
@@ -289,10 +290,27 @@ CONTAINS
         & TRIM(message_text)
       lprint = .TRUE.
     ELSE
-      write_text = message_text
+
+      IF ( proc_split  .AND.  (comm_lev>0)  .AND.   &
+        & (get_my_mpi_work_id() == get_glob_proc0()) ) THEN
+        WRITE(write_text,*) 'PROC_SPLIT: PE ', get_glob_proc0(), ' ', &
+          & TRIM(message_text)
+      ELSE
+        write_text = message_text
+      END IF
+
     END IF
 
-    IF (my_process_is_stdio() .OR. lprint) THEN
+    ! conditions under which this process actually prints out a message:
+    ! - printout explicity requested
+    lactive = lprint
+    ! - or: this process is stdio process
+    lactive = lactive .OR. my_process_is_stdio()
+    ! - or: this process is root process in processor splitting
+    lactive = lactive .OR. &
+      &       (proc_split .AND. (get_my_mpi_work_id() == get_glob_proc0()))
+
+    IF (lactive) THEN
       WRITE(iout,'(1x,a)') TRIM(write_text)
       IF (l_log) WRITE(nlog,'(1x,a)') TRIM(write_text)
     END IF

@@ -108,15 +108,15 @@ MODULE mo_nh_stepping
   USE mo_advection_stepping,  ONLY: step_advection
   USE mo_nh_dtp_interface,    ONLY: prepare_tracer
   USE mo_nh_diffusion,        ONLY: diffusion_tria, diffusion_hex
-  USE mo_mpi,                 ONLY: my_process_is_stdio, my_process_is_mpi_parallel
+  USE mo_mpi,                 ONLY: my_process_is_stdio, my_process_is_mpi_parallel, &
+    &                               proc_split, push_glob_comm, pop_glob_comm
 #ifdef NOMPI
   USE mo_mpi,                 ONLY: my_process_is_mpi_all_seq
 #endif
   
   USE mo_sync,                ONLY: sync_patch_array_mult, &
-                                    push_glob_comm, pop_glob_comm, global_max, &
+                                    global_max, &
                                     SYNC_C, SYNC_E, sync_patch_array
-  USE mo_subdivision,         ONLY: proc_split
   USE mo_nh_interface_nwp,    ONLY: nwp_nh_interface
   USE mo_phys_nest_utilities, ONLY: interpol_phys_grf, feedback_phys_diag, interpol_rrg_grf
   USE mo_vertical_grid,       ONLY: set_nh_metrics

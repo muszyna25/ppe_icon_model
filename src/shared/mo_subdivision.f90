@@ -73,7 +73,8 @@ MODULE mo_subdivision
     &                              p_patch_local_parent,        &
     &                              t_phys_patch, p_phys_patch
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
-  USE mo_mpi,                ONLY: p_bcast, p_send, p_recv, p_sum, p_max, p_min
+  USE mo_mpi,                ONLY: p_bcast, p_send, p_recv, p_sum, p_max, p_min, &
+    &                              proc_split
 #ifndef NOMPI
   USE mo_mpi,                ONLY: MPI_UNDEFINED, MPI_COMM_NULL
 #endif
@@ -127,9 +128,6 @@ MODULE mo_subdivision
   ! Please note: The definitions of the local parents are now at the same locations
   ! as the definitions of the respective patch or state
   !-------------------------------------------------------------------------
-
-  ! Flag if processor splitting is active
-  LOGICAL, PUBLIC :: proc_split = .FALSE.
 
   ! Private flag if patch should be divided for radiation calculation
   LOGICAL :: divide_for_radiation = .FALSE.

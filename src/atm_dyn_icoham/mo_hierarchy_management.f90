@@ -107,9 +107,8 @@ MODULE mo_hierarchy_management
     &                               prepare_tracer_leapfrog, prepare_echam_phy
   USE mo_held_suarez_interface, ONLY: held_suarez_interface
   USE mo_hierarchy_management_intp
-  USE mo_sync,                ONLY: push_glob_comm, pop_glob_comm
+  USE mo_mpi,                 ONLY: push_glob_comm, pop_glob_comm, proc_split
   USE mo_communication,       ONLY: start_delayed_exchange, do_delayed_exchange
-  USE mo_subdivision,         ONLY: proc_split
   USE mo_ldf_test,            ONLY: ldf_temp
 
   IMPLICIT NONE

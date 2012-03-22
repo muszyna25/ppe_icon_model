@@ -33,7 +33,8 @@ MODULE mo_mpi
   PUBLIC :: set_comm_input_bcast
   ! set other parameters
   PUBLIC :: set_process_mpi_name
-
+  
+  PUBLIC :: push_glob_comm, pop_glob_comm, get_glob_proc0
   
   ! Logical functions
   PUBLIC :: run_is_global_mpi_parallel
@@ -265,6 +266,13 @@ MODULE mo_mpi
   INTEGER :: p_int_i8_byte  = 0
 
   CHARACTER(len=256) :: message_text = ''
+
+  ! Flag if processor splitting is active
+  LOGICAL, PUBLIC :: proc_split = .FALSE.
+
+  ! communicator stack for global sums
+  INTEGER, PARAMETER :: max_lev = 10 ! 2 is sufficient
+  INTEGER, PUBLIC :: comm_lev = 0, glob_comm(max_lev), comm_proc0(max_lev)
 
   ! define generic interfaces to allow proper compiling with picky compilers
   ! like NAG f95 for clean argument checking and shortening the call sequence.
@@ -603,6 +611,50 @@ CONTAINS
       
   END SUBROUTINE finish
   !------------------------------------------------------------------------------
+
+
+  !-------------------------------------------------------------------------
+  !
+  !> Pushes the communicator and proc0 onto the communicator stack.
+  !! The communicator stack is needed for global sums if the processor
+  !! set is split among different 1st level patches.
+  
+  SUBROUTINE push_glob_comm(comm, proc0)
+    INTEGER, INTENT(IN) :: comm, proc0
+    
+    ! Safety check
+    IF(comm_lev>=max_lev) &
+      CALL finish('push_glob_comm','max_lev exceeded')
+    
+    comm_lev = comm_lev+1
+    glob_comm(comm_lev) = comm
+    comm_proc0(comm_lev) = proc0
+    
+  END SUBROUTINE push_glob_comm
+  
+  !-------------------------------------------------------------------------
+  !
+  !> Pops one level of the communicator stack
+  
+  SUBROUTINE pop_glob_comm()
+    
+    ! Safety check
+    IF(comm_lev<=0) &
+      CALL finish('pop_glob_comm','stack empty')
+    
+    comm_lev = comm_lev-1
+    
+  END SUBROUTINE pop_glob_comm
+  
+  
+  !-------------------------------------------------------------------------
+  !
+  !> @return current top of communicator stack
+  
+  FUNCTION get_glob_proc0()
+    INTEGER :: get_glob_proc0
+    get_glob_proc0 = comm_proc0(comm_lev)
+  END FUNCTION get_glob_proc0
   
 
   !------------------------------------------------------------------------------

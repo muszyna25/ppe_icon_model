@@ -56,7 +56,8 @@ USE mo_mpi,                ONLY: p_pe, p_bcast, p_sum, p_max, p_min, &
   & p_send, p_recv, p_comm_work_test,  p_comm_work, &
   & my_process_is_mpi_test, get_my_mpi_all_id, process_mpi_all_test_id, &
   & my_process_is_mpi_parallel,       &
-  & p_work_pe0,p_pe_work
+  & p_work_pe0,p_pe_work, push_glob_comm, pop_glob_comm, get_glob_proc0, &
+  & comm_lev, glob_comm, comm_proc0
 USE mo_parallel_config, ONLY:p_test_run,   &
   & n_ghost_rows, l_log_checks, l_fast_sum
 USE mo_communication,      ONLY: exchange_data, exchange_data_4de3,            &
@@ -78,7 +79,7 @@ CHARACTER(len=*), PARAMETER :: version = '$Id$'
 PUBLIC :: sync_patch_array, check_patch_array, sync_idx,              &
           global_sum_array, omp_global_sum_array,                     &
           global_sum_array2, global_sum_array3,                       &
-          sync_patch_array_mult, push_glob_comm, pop_glob_comm,       &
+          sync_patch_array_mult,                                      &
           global_min, global_max, sync_patch_array_gm,                &
           sync_patch_array_4de3, decomposition_statistics,            &
           enable_sync_checks, disable_sync_checks
@@ -132,44 +133,10 @@ INTEGER, SAVE :: log_unit = -1
 ! Falg if sync checks are enabled when sync_patch_array et al is called
 LOGICAL, SAVE :: do_sync_checks = .TRUE.
 
-INTEGER, PARAMETER :: max_lev = 10 ! 2 is sufficient
-INTEGER :: comm_lev = 0, glob_comm(max_lev), comm_proc0(max_lev)
-
 !-------------------------------------------------------------------------
 
 CONTAINS
 
-!-------------------------------------------------------------------------
-!
-!> Pushes the communicator and proc0 onto the communicator stack.
-!! The communicator stack is needed for global sums if the processor
-!! set is split among different 1st level patches.
-
-SUBROUTINE push_glob_comm(comm, proc0)
-  INTEGER, INTENT(IN) :: comm, proc0
-
-  ! Safety check
-  IF(comm_lev>=max_lev) &
-    CALL finish('push_glob_comm','max_lev exceeded')
-
-  comm_lev = comm_lev+1
-  glob_comm(comm_lev) = comm
-  comm_proc0(comm_lev) = proc0
-
-END SUBROUTINE push_glob_comm
-!-------------------------------------------------------------------------
-!
-!> Pops one level of the communicator stack
-
-SUBROUTINE pop_glob_comm()
-
-  ! Safety check
-  IF(comm_lev<=0) &
-    CALL finish('pop_glob_comm','stack empty')
-
-  comm_lev = comm_lev-1
-
-END SUBROUTINE pop_glob_comm
 
 !-------------------------------------------------------------------------
 !
