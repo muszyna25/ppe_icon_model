@@ -151,7 +151,7 @@ cat > ${ocean_namelist} << EOF
   iforc_len          = ${iforc_len}   ! length of ocean forcing data set, see above
   init_oce_prog      = ${init_oce}    ! read ocean initialization file, see above
   init_oce_relax     = ${init_relax}  ! read ocean surface relaxation file, see above
-  itestcase_oce      =   50      ! 40=global temperature initialization for wind and temperature forcing tests
+  itestcase_oce      =   50      ! 50=zonally homogen temperature for APE SST (Williamson)
   temperature_relaxation= 0      !  0: no relaxation used
                                  !  1: relaxation switched on for reading (init_oce_relax=1) or some testcases only
                                  !  2: use SST read from bulk forcing (iforc=12);
