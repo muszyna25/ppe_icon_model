@@ -190,7 +190,7 @@ MODULE mo_ocean_nml
 
   REAL(wp) :: t_ref                 = 15.0_wp  ! reference temperature for initialization
   REAL(wp) :: s_ref                 = 35.0_wp  ! reference salinity for initialization
-  REAL(wp) :: bottom_drag_coeff     = 2.E-3_wp ! chezy coefficient for bottom friction
+  REAL(wp) :: bottom_drag_coeff     = 2.5E-3_wp ! chezy coefficient for bottom friction
   REAL(wp) :: wstress_coeff         = 0.3_wp   ! windstress coefficient for analytical wind forcing
                                                ! 2-dimensional surface relaxation of temperature and salinity
   INTEGER  :: temperature_relaxation= 0        ! 0=no relax.; 1=on for some testcases; 2=use OMIP-file; 3: use init. values
