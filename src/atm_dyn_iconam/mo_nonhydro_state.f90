@@ -471,6 +471,9 @@ MODULE mo_nonhydro_state
       &           ldims=shape3d_e )
 
     ! w            p_prog%w(nproma,nlevp1,nblks_c)
+    ! TODO[FP] : Regarding the vertical interpolation of the 'W' field:
+    !            Because this variable is one of the few defined on half levels take a
+    !            closer look if the correct level heights are taken for interpolation!
     cf_desc    = t_cf_var('upward air velocity', 'm s-1', 'upward air velocity')
     grib2_desc = t_grib2_var(0, 2, 9, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_prog_list, TRIM(vname_prefix)//'w'//suffix, p_prog%w,   &
