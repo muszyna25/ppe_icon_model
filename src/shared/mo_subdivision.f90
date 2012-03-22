@@ -1498,6 +1498,25 @@ CONTAINS
       ENDDO
     ENDIF
 
+    ! If a PE owns only nest boundary points, it may happen that one or more index
+    ! sections of halo cells are empty. These are filled here
+    IF (wrk_p_patch%cells%start_blk(0,1)     > wrk_p_patch%cells%end_blk(min_rlcell_int,i_nchdom) &
+      .OR. wrk_p_patch%cells%start_blk(0,1) == wrk_p_patch%cells%end_blk(min_rlcell_int,i_nchdom) &
+      .AND. wrk_p_patch%cells%start_idx(0,1) > wrk_p_patch%cells%end_idx(min_rlcell_int,i_nchdom) &
+      ) THEN
+      DO i = min_rlcell_int-1, min_rlcell, -1
+        IF (wrk_p_patch%cells%start_idx(i,1) == -9999 .OR. &
+            wrk_p_patch%cells%start_blk(i,1) == -9999 .OR. &
+            wrk_p_patch%cells%end_idx(i,1)   == -9999 .OR. &
+            wrk_p_patch%cells%end_blk(i,1)   == -9999 ) THEN
+          wrk_p_patch%cells%start_idx(i,:) = wrk_p_patch%cells%start_idx(i+1,1) 
+          wrk_p_patch%cells%start_blk(i,:) = wrk_p_patch%cells%start_blk(i+1,1) 
+          wrk_p_patch%cells%end_idx(i,:)   = wrk_p_patch%cells%end_idx(i+1,1) 
+          wrk_p_patch%cells%end_blk(i,:)   = wrk_p_patch%cells%end_blk(i+1,1) 
+        ENDIF
+      ENDDO
+    ENDIF
+
     ! Finally, fill start indices of halo rows with meaningful values for empty patches
     ! (which occur when processor splitting is applied)
     IF (wrk_p_patch%nblks_c <= 0 .OR. wrk_p_patch%npromz_c <= 0) THEN
@@ -1645,6 +1664,25 @@ CONTAINS
       ENDDO
     ENDIF
 
+    ! If a PE owns only nest boundary points, it may happen that one or more index
+    ! sections of halo edges are empty. These are filled here
+    IF (wrk_p_patch%edges%start_blk(0,1)     > wrk_p_patch%edges%end_blk(min_rledge_int,i_nchdom) &
+      .OR. wrk_p_patch%edges%start_blk(0,1) == wrk_p_patch%edges%end_blk(min_rledge_int,i_nchdom) &
+      .AND. wrk_p_patch%edges%start_idx(0,1) > wrk_p_patch%edges%end_idx(min_rledge_int,i_nchdom) &
+      ) THEN
+      DO i = min_rledge_int-1, min_rledge, -1
+        IF (wrk_p_patch%edges%start_idx(i,1) == -9999 .OR. &
+            wrk_p_patch%edges%start_blk(i,1) == -9999 .OR. &
+            wrk_p_patch%edges%end_idx(i,1)   == -9999 .OR. &
+            wrk_p_patch%edges%end_blk(i,1)   == -9999 ) THEN
+          wrk_p_patch%edges%start_idx(i,:) = wrk_p_patch%edges%start_idx(i+1,1) 
+          wrk_p_patch%edges%start_blk(i,:) = wrk_p_patch%edges%start_blk(i+1,1) 
+          wrk_p_patch%edges%end_idx(i,:)   = wrk_p_patch%edges%end_idx(i+1,1) 
+          wrk_p_patch%edges%end_blk(i,:)   = wrk_p_patch%edges%end_blk(i+1,1) 
+        ENDIF
+      ENDDO
+    ENDIF
+
     ! Finally, fill start indices of halo rows with meaningful values for empty patches
     ! (which occur when processor splitting is applied)
     IF (wrk_p_patch%nblks_e <= 0 .OR. wrk_p_patch%npromz_e <= 0) THEN
@@ -1789,6 +1827,25 @@ CONTAINS
         wrk_p_patch%verts%start_blk(irlev,:) = wrk_p_patch%verts%end_blk(ilev1,1)
         wrk_p_patch%verts%end_idx(irlev,:)   = wrk_p_patch%verts%end_idx(ilev1,1)
         wrk_p_patch%verts%end_blk(irlev,:)   = wrk_p_patch%verts%end_blk(ilev1,1)
+      ENDDO
+    ENDIF
+
+    ! If a PE owns only nest boundary points, it may happen that one or more index
+    ! sections of halo vertices are empty. These are filled here
+    IF (wrk_p_patch%verts%start_blk(0,1)     > wrk_p_patch%verts%end_blk(min_rlvert_int,i_nchdom) &
+      .OR. wrk_p_patch%verts%start_blk(0,1) == wrk_p_patch%verts%end_blk(min_rlvert_int,i_nchdom) &
+      .AND. wrk_p_patch%verts%start_idx(0,1) > wrk_p_patch%verts%end_idx(min_rlvert_int,i_nchdom) &
+      ) THEN
+      DO i = min_rlvert_int-1, min_rlvert, -1
+        IF (wrk_p_patch%verts%start_idx(i,1) == -9999 .OR. &
+            wrk_p_patch%verts%start_blk(i,1) == -9999 .OR. &
+            wrk_p_patch%verts%end_idx(i,1)   == -9999 .OR. &
+            wrk_p_patch%verts%end_blk(i,1)   == -9999 ) THEN
+          wrk_p_patch%verts%start_idx(i,:) = wrk_p_patch%verts%start_idx(i+1,1) 
+          wrk_p_patch%verts%start_blk(i,:) = wrk_p_patch%verts%start_blk(i+1,1) 
+          wrk_p_patch%verts%end_idx(i,:)   = wrk_p_patch%verts%end_idx(i+1,1) 
+          wrk_p_patch%verts%end_blk(i,:)   = wrk_p_patch%verts%end_blk(i+1,1) 
+        ENDIF
       ENDDO
     ENDIF
 
