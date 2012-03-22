@@ -2429,11 +2429,11 @@ CONTAINS
     ! IF (ltimer) CALL timer_stop(timer_height)
     ! #endif
 
-    !sync results
-    CALL sync_patch_array(sync_c, p_patch, p_os%p_prog(nold(1))%h)
-    CALL sync_patch_array(sync_e, p_patch, p_os%p_diag%h_e)
-    CALL sync_patch_array(sync_c, p_patch, p_os%p_diag%thick_c)
-    CALL sync_patch_array(sync_e, p_patch, p_os%p_diag%thick_e)
+    !sync results, already done
+!     CALL sync_patch_array(sync_c, p_patch, p_os%p_prog(nold(1))%h)
+!     CALL sync_patch_array(sync_e, p_patch, p_os%p_diag%h_e)
+!     CALL sync_patch_array(sync_c, p_patch, p_os%p_diag%thick_c)
+!     CALL sync_patch_array(sync_e, p_patch, p_os%p_diag%thick_e)
 
 
   END SUBROUTINE height_related_quantities

@@ -318,8 +318,10 @@ SUBROUTINE prepare_tracer_transport(p_patch, p_os, p_param, p_sfc_flx, p_op_coef
     END DO
   END DO
 
-  ! sync the result
+  ! sync the result, is it necessary? this is not used elsewhere
+  ! keep it only for checking
   CALL sync_patch_array(SYNC_E, p_patch,p_os%p_diag%mass_flx_e )
+  
   CALL div_oce_3d(  p_os%p_diag%mass_flx_e,&
                  & p_patch,               &
                  & p_op_coeff%div_coeff,&
