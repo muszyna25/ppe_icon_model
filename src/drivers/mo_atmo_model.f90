@@ -710,8 +710,9 @@ CONTAINS
     ! allocate memory for atmospheric/oceanic external data and
     ! optionally read those data from netCDF file.
     CALL init_ext_data (p_patch(1:), p_int_state(1:), ext_data)
+    !
     ! generation of tiles index lists
-    IF (iforcing == inwp) THEN
+    IF ( iequations == inh_atmosphere .AND. iforcing == inwp ) THEN
       CALL init_index_lists (p_patch(1:), ext_data)
     ENDIF
 

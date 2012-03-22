@@ -262,6 +262,8 @@ CONTAINS
 
   END SUBROUTINE init_ext_data
 
+
+
   SUBROUTINE init_index_lists (p_patch, ext_data)
 
     TYPE(t_patch), INTENT(IN)            :: p_patch(:)
@@ -279,178 +281,176 @@ CONTAINS
 
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = 'mo_ext_data:init_index_lists'
+    !-------------------------------------------------------------------------
 
-    SELECT CASE ( iequations )
-    CASE ( inh_atmosphere )
-      WRITE(message_text,'(a,i4)') &
-        &  'Index list generation - number of tiles: ', nsfc_subs
-      CALL message('', TRIM(message_text))
+    WRITE(message_text,'(a,i4)') &
+      &  'Index list generation - number of tiles: ', nsfc_subs
+    CALL message('', TRIM(message_text))
 
-      frac_thresh = 0.05_wp ! fraction threshold for retaining the respective tile for a grid point
-                            ! should become a namelist variable like nsfc_subs
+    frac_thresh = 0.05_wp ! fraction threshold for retaining the respective tile for a grid point
+                          ! should become a namelist variable like nsfc_subs
 
-      DO jg = 1, n_dom 
+    DO jg = 1, n_dom 
 
-         n_lu = nclass_lu(jg)
+       n_lu = nclass_lu(jg)
 
-         i_nchdom  = MAX(1,p_patch(jg)%n_childdom)
+       i_nchdom  = MAX(1,p_patch(jg)%n_childdom)
 
-         ! exclude the boundary interpolation zone of nested domains
-         rl_start = grf_bdywidth_c+1
-         rl_end   = min_rlcell_int
+       ! exclude the boundary interpolation zone of nested domains
+       rl_start = grf_bdywidth_c+1
+       rl_end   = min_rlcell_int
 
-         i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
-         i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
+       i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
+       i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
 
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_lu,i_startidx,i_endidx,i_count,i_count_sea,tile_frac,&
 !$OMP            tile_mask,lu_subs,sum_frac,it_count)
-         DO jb=i_startblk, i_endblk
+       DO jb=i_startblk, i_endblk
 
-           CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
-              & i_startidx, i_endidx, rl_start, rl_end)
+         CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
+            & i_startidx, i_endidx, rl_start, rl_end)
 
-           i_count                       = 0   ! counter for land points
-           ext_data(jg)%atm%lp_count(jb) = 0
-           i_count_sea                   = 0   ! counter for sea points
-           ext_data(jg)%atm%sp_count(jb) = 0
+         i_count                       = 0   ! counter for land points
+         ext_data(jg)%atm%lp_count(jb) = 0
+         i_count_sea                   = 0   ! counter for sea points
+         ext_data(jg)%atm%sp_count(jb) = 0
 
-           it_count(:)                       = 0 ! counter for tiles
-           ext_data(jg)%atm%gp_count_t(jb,:) = 0
+         it_count(:)                       = 0 ! counter for tiles
+         ext_data(jg)%atm%gp_count_t(jb,:) = 0
 
-           DO jc = i_startidx, i_endidx
-             IF (ext_data(jg)%atm%fr_land(jc,jb)> frlnd_thrhld) THEN ! searching for land-points 
-               i_count=i_count+1
-               ext_data(jg)%atm%idx_lst_lp(i_count,jb) = jc  ! write index of land-points
+         DO jc = i_startidx, i_endidx
+           IF (ext_data(jg)%atm%fr_land(jc,jb)> frlnd_thrhld) THEN ! searching for land-points 
+             i_count=i_count+1
+             ext_data(jg)%atm%idx_lst_lp(i_count,jb) = jc  ! write index of land-points
 
-               tile_frac(:)= ext_data(jg)%atm%lu_class_fraction(jc,jb,:)
-               tile_mask(:)=.true.
-               tile_mask(20)=.false. ! exclude water points
+             tile_frac(:)= ext_data(jg)%atm%lu_class_fraction(jc,jb,:)
+             tile_mask(:)=.true.
+             tile_mask(20)=.false. ! exclude water points
 
-               ext_data(jg)%atm%lp_count(jb) = i_count
+             ext_data(jg)%atm%lp_count(jb) = i_count
 
-               IF (nsfc_subs == 1) THEN 
+             IF (nsfc_subs == 1) THEN 
 
-                 ! i_lu=1 contains grid-box mean values from EXTPAR!
-                 ext_data(jg)%atm%rootdp_t (i_count,jb,1)  = ext_data(jg)%atm%rootdp(jc,jb)
-                 ext_data(jg)%atm%plcov_t  (i_count,jb,1)  = ext_data(jg)%atm%plcov_mx(jc,jb)
-                 ext_data(jg)%atm%tai_t    (i_count,jb,1)  = &
-                   & ext_data(jg)%atm%plcov_mx(jc,jb)*ext_data(jg)%atm%lai_mx(jc,jb)
-                 ext_data(jg)%atm%sai_t    (i_count,jb,1)  = &
-                   & c_lnd+ext_data(jg)%atm%tai_t(i_count,jb,1)
-                 ext_data(jg)%atm%eai_t    (i_count,jb,1)  = c_soil      
-                 ext_data(jg)%atm%rsmin2d_t(i_count,jb,1)  = ext_data(jg)%atm%rsmin(jc,jb)
-                 ext_data(jg)%atm%soiltyp_t(i_count,jb,1)  = ext_data(jg)%atm%soiltyp(jc,jb)
+               ! i_lu=1 contains grid-box mean values from EXTPAR!
+               ext_data(jg)%atm%rootdp_t (i_count,jb,1)  = ext_data(jg)%atm%rootdp(jc,jb)
+               ext_data(jg)%atm%plcov_t  (i_count,jb,1)  = ext_data(jg)%atm%plcov_mx(jc,jb)
+               ext_data(jg)%atm%tai_t    (i_count,jb,1)  = &
+                 & ext_data(jg)%atm%plcov_mx(jc,jb)*ext_data(jg)%atm%lai_mx(jc,jb)
+               ext_data(jg)%atm%sai_t    (i_count,jb,1)  = &
+                 & c_lnd+ext_data(jg)%atm%tai_t(i_count,jb,1)
+               ext_data(jg)%atm%eai_t    (i_count,jb,1)  = c_soil      
+               ext_data(jg)%atm%rsmin2d_t(i_count,jb,1)  = ext_data(jg)%atm%rsmin(jc,jb)
+               ext_data(jg)%atm%soiltyp_t(i_count,jb,1)  = ext_data(jg)%atm%soiltyp(jc,jb)
 ! GZ: this is inconsistent with the use of lc_frac_t in the tile case (it is normalized to a sum of 1 there)
-                 ext_data(jg)%atm%lc_frac_t(i_count,jb,1)  = ext_data(jg)%atm%fr_land(jc,jb)
+               ext_data(jg)%atm%lc_frac_t(i_count,jb,1)  = ext_data(jg)%atm%fr_land(jc,jb)
 
-                 ext_data(jg)%atm%idx_lst_t(i_count,jb,1)  = jc
-                 ext_data(jg)%atm%gp_count_t(jb,1)         = i_count
+               ext_data(jg)%atm%idx_lst_t(i_count,jb,1)  = jc
+               ext_data(jg)%atm%gp_count_t(jb,1)         = i_count
 
-               ELSE    
+             ELSE    
 
-                 ext_data(jg)%atm%lc_frac_t(jc,jb,:)  = 0._wp ! to be really safe
-                 ext_data(jg)%atm%lc_class_t(jc,jb,:) = -1    ! dummy value for undefined points
+               ext_data(jg)%atm%lc_frac_t(jc,jb,:)  = 0._wp ! to be really safe
+               ext_data(jg)%atm%lc_class_t(jc,jb,:) = -1    ! dummy value for undefined points
 
-                 DO i_lu = 1, nsfc_subs
-                   lu_subs = MAXLOC(tile_frac,1,tile_mask)
-                   IF (tile_frac(lu_subs) >= frac_thresh) THEN
+               DO i_lu = 1, nsfc_subs
+                 lu_subs = MAXLOC(tile_frac,1,tile_mask)
+                 IF (tile_frac(lu_subs) >= frac_thresh) THEN
+                   it_count(i_lu)    = it_count(i_lu) + 1
+                   tile_mask(lu_subs)= .FALSE.
+                   ext_data(jg)%atm%idx_lst_t(it_count(i_lu),jb,i_lu) = jc
+                   ext_data(jg)%atm%gp_count_t(jb,i_lu)               = it_count(i_lu)
+
+                   ! **ATTENTION: the fractions (for aggregating) are needed on the 
+                   ! ordinary model grid for the time being**
+                   ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu)  = tile_frac(lu_subs)
+                   ! The land cover classes are also stored on the ordinary grid; 
+                   ! they are not needed during runtime
+                   ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) = lu_subs
+                 ELSE
+                   EXIT ! no more land cover classes exceeding the threshold
+                 ENDIF
+               END DO
+
+               sum_frac = SUM(ext_data(jg)%atm%lc_frac_t(jc,jb,1:nsfc_subs))
+
+               DO i_lu = 1, nsfc_subs 
+
+                 IF ( sum_frac > 0._wp) THEN 
+                   ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu) = &
+                      ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu) / sum_frac
+                 ELSE !  Workaround for GLC2000 hole below 60 deg S
+                   IF (i_lu == 1) THEN
                      it_count(i_lu)    = it_count(i_lu) + 1
-                     tile_mask(lu_subs)= .FALSE.
                      ext_data(jg)%atm%idx_lst_t(it_count(i_lu),jb,i_lu) = jc
                      ext_data(jg)%atm%gp_count_t(jb,i_lu)               = it_count(i_lu)
-
-                     ! **ATTENTION: the fractions (for aggregating) are needed on the 
-                     ! ordinary model grid for the time being**
-                     ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu)  = tile_frac(lu_subs)
-                     ! The land cover classes are also stored on the ordinary grid; 
-                     ! they are not needed during runtime
-                     ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) = lu_subs
+                     ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) = 21
+                     ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu)  = 1._wp
                    ELSE
-                     EXIT ! no more land cover classes exceeding the threshold
+                     ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) = -1
+                     ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu)  = 0._wp
                    ENDIF
-                 END DO
+                 END IF
 
-                 sum_frac = SUM(ext_data(jg)%atm%lc_frac_t(jc,jb,1:nsfc_subs))
+                 lu_subs = ext_data(jg)%atm%lc_class_t(jc,jb,i_lu)
+                 IF (lu_subs < 0) CYCLE
 
-                 DO i_lu = 1, nsfc_subs 
+                 ! root depth
+                 ext_data(jg)%atm%rootdp_t (it_count(i_lu),jb,i_lu)  = zrd_lu(lu_subs)
 
-                   IF ( sum_frac > 0._wp) THEN 
-                     ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu) = &
-                        ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu) / sum_frac
-                   ELSE !  Workaround for GLC2000 hole below 60 deg S
-                     IF (i_lu == 1) THEN
-                       it_count(i_lu)    = it_count(i_lu) + 1
-                       ext_data(jg)%atm%idx_lst_t(it_count(i_lu),jb,i_lu) = jc
-                       ext_data(jg)%atm%gp_count_t(jb,i_lu)               = it_count(i_lu)
-                       ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) = 21
-                       ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu)  = 1._wp
-                     ELSE
-                       ext_data(jg)%atm%lc_class_t(jc,jb,i_lu) = -1
-                       ext_data(jg)%atm%lc_frac_t(jc,jb,i_lu)  = 0._wp
-                     ENDIF
-                   END IF
+                 ! plant cover
+                 ext_data(jg)%atm%plcov_t  (it_count(i_lu),jb,i_lu)  = zplcmxc_lu(lu_subs)
 
-                   lu_subs = ext_data(jg)%atm%lc_class_t(jc,jb,i_lu)
-                   IF (lu_subs < 0) CYCLE
+                 ! max leaf area index
+                 ext_data(jg)%atm%tai_t    (it_count(i_lu),jb,i_lu)  = &
+                   zplcmxc_lu(lu_subs)*zlaimxc_lu(lu_subs)
 
-                   ! root depth
-                   ext_data(jg)%atm%rootdp_t (it_count(i_lu),jb,i_lu)  = zrd_lu(lu_subs)
+                 ! max leaf area index
+                 ext_data(jg)%atm%sai_t    (it_count(i_lu),jb,i_lu)  = &
+                   c_lnd+ ext_data(jg)%atm%tai_t (it_count(i_lu),jb,i_lu)
 
-                   ! plant cover
-                   ext_data(jg)%atm%plcov_t  (it_count(i_lu),jb,i_lu)  = zplcmxc_lu(lu_subs)
+                 ! max leaf area index
+                 ext_data(jg)%atm%eai_t    (it_count(i_lu),jb,i_lu)  = c_soil
 
-                   ! max leaf area index
-                   ext_data(jg)%atm%tai_t    (it_count(i_lu),jb,i_lu)  = &
-                     zplcmxc_lu(lu_subs)*zlaimxc_lu(lu_subs)
+                 ! minimal stomata resistence
+                 ext_data(jg)%atm%rsmin2d_t(it_count(i_lu),jb,i_lu)  = zrs_min_lu(lu_subs)
 
-                   ! max leaf area index
-                   ext_data(jg)%atm%sai_t    (it_count(i_lu),jb,i_lu)  = &
-                     c_lnd+ ext_data(jg)%atm%tai_t (it_count(i_lu),jb,i_lu)
+                 ! soil type
+                 ext_data(jg)%atm%soiltyp_t(it_count(i_lu),jb,i_lu)  = &
+                   ext_data(jg)%atm%soiltyp(jc,jb)
 
-                   ! max leaf area index
-                   ext_data(jg)%atm%eai_t    (it_count(i_lu),jb,i_lu)  = c_soil
+               END DO
+             END IF ! nfc_subs
+           ELSE  !IF (fr_land(jc,jb) <= frlnd_thrhld) THEN  searching for sea-points
+             i_count_sea=i_count_sea + 1
+             ext_data(jg)%atm%idx_lst_sp(i_count_sea,jb) = jc  ! write index of sea-points
+             ext_data(jg)%atm%sp_count(jb) = i_count_sea
+           END IF
+         END DO ! jc
 
-                   ! minimal stomata resistence
-                   ext_data(jg)%atm%rsmin2d_t(it_count(i_lu),jb,i_lu)  = zrs_min_lu(lu_subs)
-
-                   ! soil type
-                   ext_data(jg)%atm%soiltyp_t(it_count(i_lu),jb,i_lu)  = &
-                     ext_data(jg)%atm%soiltyp(jc,jb)
-
-                 END DO
-               END IF ! nfc_subs
-             ELSE  !IF (fr_land(jc,jb) <= frlnd_thrhld) THEN  searching for sea-points
-               i_count_sea=i_count_sea + 1
-               ext_data(jg)%atm%idx_lst_sp(i_count_sea,jb) = jc  ! write index of sea-points
-               ext_data(jg)%atm%sp_count(jb) = i_count_sea
-             END IF
-           END DO ! jc
-
-         END DO !jb
+       END DO !jb
 !$OMP END DO
 !$OMP END PARALLEL
 
          ! Some useful diagnostics
-         npoints = SUM(ext_data(jg)%atm%lp_count(i_startblk:i_endblk))
+       npoints = SUM(ext_data(jg)%atm%lp_count(i_startblk:i_endblk))
+       npoints = global_sum_array(npoints)
+       WRITE(message_text,'(a,i3,a,i10)') 'Number of land points in domain',jg,':', npoints
+       CALL message('', TRIM(message_text))
+       npoints_sea = SUM(ext_data(jg)%atm%sp_count(i_startblk:i_endblk))
+       npoints_sea = global_sum_array(npoints_sea)
+       WRITE(message_text,'(a,i3,a,i10)') 'Number of sea points in domain',jg,':', npoints_sea
+       CALL message('', TRIM(message_text))
+
+       DO i_lu = 1, nsfc_subs
+         npoints = SUM(ext_data(jg)%atm%gp_count_t(i_startblk:i_endblk,i_lu))
          npoints = global_sum_array(npoints)
-         WRITE(message_text,'(a,i3,a,i10)') 'Number of land points in domain',jg,':', npoints
+         WRITE(message_text,'(a,i2,a,i10)') 'Number of points in tile',i_lu,':',npoints
          CALL message('', TRIM(message_text))
-         npoints_sea = SUM(ext_data(jg)%atm%sp_count(i_startblk:i_endblk))
-         npoints_sea = global_sum_array(npoints_sea)
-         WRITE(message_text,'(a,i3,a,i10)') 'Number of sea points in domain',jg,':', npoints_sea
-         CALL message('', TRIM(message_text))
+       ENDDO
 
-         DO i_lu = 1, nsfc_subs
-           npoints = SUM(ext_data(jg)%atm%gp_count_t(i_startblk:i_endblk,i_lu))
-           npoints = global_sum_array(npoints)
-           WRITE(message_text,'(a,i2,a,i10)') 'Number of points in tile',i_lu,':',npoints
-           CALL message('', TRIM(message_text))
-         ENDDO
-
-      END DO  !jg
-    END SELECT ! iequations
+    END DO  !jg
 
   END SUBROUTINE init_index_lists
 
