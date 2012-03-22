@@ -610,7 +610,6 @@ run/README -text
 run/compile_for_dev.mpi.ksh -text
 run/compile_for_developers.ksh -text
 run/exec.iconrun -text
-run/exp.ChannelFlow -text
 run/exp.OCE_BASE -text
 run/exp.OCE_aqpl -text
 run/exp.OCE_channel -text
