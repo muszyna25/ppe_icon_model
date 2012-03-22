@@ -612,6 +612,7 @@ run/compile_for_developers.ksh -text
 run/exec.iconrun -text
 run/exp.ChannelFlow -text
 run/exp.OCE_BASE -text
+run/exp.OCE_aqpl -text
 run/exp.OCE_channel -text
 run/exp.OCE_omip -text
 run/exp.couple_atmo-ocean -text
@@ -624,7 +625,6 @@ run/exp.hat_jww -text
 run/exp.hat_jww-moist_cld-cnv-vdf -text
 run/exp.hat_jww-moist_cld-cnv-vdf-gwh -text
 run/exp.hat_jww_echam -text
-run/exp.hom_aqpl -text
 run/exp.hom_lsm_flat -text
 run/exp.icon-testbed_communication -text
 run/exp.iconrun -text

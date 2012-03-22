@@ -7,42 +7,12 @@
 # Default EXPNAME is the suffix of this script after "exp."
 #
 #-----------------------------------------------------------------------------
-# Basic specifications for the hydrostatic ocean model (hom) for aquaplanet configuration
+# Basic specifications for the hydrostatic ocean model for aquaplanet configuration
 # --------------------------------------
 # Stephan Lorenz, MPI-M, 2011-01 / 2012-03
 #
-# Preliminary test phase: run on specific systems and compiler only
-#  - 2011-01-31: mpipc/tornado/squall - all compilers
-#  - 2011-03-03: blizzard serial run included
-#  - 2011-12-13: SX9 and HPC_serial - all machines in serial mode included
 #-----------------------------------------------------------------------------
-
-#  exit all buildbot slaves that run in parallel mode:
-if [ -z "$BB_SYSTEM" ]
-then
-  echo " ===== (no buildbot) ======="
-  echo " Run ocean testcase $EXPNAME"
-  echo " ==========================="
-else
-  echo " ================================================="
-  echo " Run ocean testcase $EXPNAME on BB_SLAVE=$BB_SLAVE"
-  echo " ================================================="
-  if [ $mpi_total_procs -gt 1 ] ; then
-     echo "The ocean test runs will not run in parallel MPI mode. Exiting."
-     check_error 0
-     exit
-  fi
-  if [ $OMP_NUM_THREADS -gt 1 ] ; then
-     echo "The ocean test runs will not run in OpenMP mode. Exiting."
-     check_error 0
-     exit
-  fi
-fi
-
 #-----------------------------------------------------------------------------
-#
-# Basic specifications of the simulation
-# --------------------------------------
 #
 # These variables are set in the header section of the completed run script:
 #
@@ -66,7 +36,7 @@ B=4   # number of bisections applied
 #-----------------------------------------------------------------------------
 # ocean initialization, forcing, and grid file location specifics:
   LOC='POOL'   # all ocean files needed for running are found on pool
-# LOC='GRID'   # else all ocean files needed for running are found on local 'grids' directory
+# LOC='othr'   # else all ocean files needed for running are found on local 'grids' directory
 # specific path of input data is set by exec.iconrun
 #
 #-----------------------------------------------------------------------------
@@ -114,10 +84,10 @@ start_date="1001-01-01T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
-nhours_data=6        # ocean model output interval hours [hours]
-ndays_file=1000      # new output file generation interval [days]
-ndays_checkp=92      # write restart file interval [days]
-ndays_restart=370    # stop model for restart [days]
+nhours_data=72       # ocean model output interval hours [hours]
+ndays_file=3650      # new output file generation interval [days]
+ndays_checkp=90      # write restart file interval [days]
+ndays_restart=360    # stop model for restart [days]
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $ndays
@@ -128,17 +98,11 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model parameters
-ocean_model_equations=-1 # equation system
-#                      0=shallow water model
-#                     -1=hydrost. ocean
+ocean_model_equations=-1     # equation system: -1=hydrost. ocean
 #
 #-----------------------------------------------------------------------------
 # provide an ocean horizontal grid file
-# grid_ext="etopo40_flat"    # mapped from ETOPO-file with 2/3 deg resolution, flat bottom bathymetry
-# grid_ext="etopo40_planet"  # mapped from ETOPO-file with 2/3 deg resolution, variable bottom bathymetry
   grid_ext="aqua_planet"     # global flat bottom bathymetry for aqua planet experiments
-# grid_ext="bas0-60N"        # pentagon ocean basin with flat bottom at 30N 0E location
-# grid_ext="chann45N"        # circumpolar channel at 45N with flat bottom
 #
 ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
 # 
@@ -152,12 +116,8 @@ cat > ${ocean_namelist} << EOF
 !
 &parallel_nml
  nproma         = ${nproma}
- p_test_run     = .false.
- l_test_openmp  = .false.
- l_log_checks   = .false.
 /
 &grid_nml
- cell_type = 3            ! triangular cells
  dynamics_grid_filename = "${ocean_grids}",
 /
 &dynamics_nml
@@ -167,8 +127,8 @@ cat > ${ocean_namelist} << EOF
  dtime       = 1800         ! model timestep in seconds
 /
 &ocean_dynamics_nml
-  n_zlev             =   10      ! number of vertical levels and (dzlev_m) thicknesses
 ! 10 unevenly spaced levels beginning with 50m depth
+  n_zlev             =   10      ! number of vertical levels and (dzlev_m) thicknesses
   dzlev_m(1:20)      =   50.0,  100.0,  200.0,  300.0,  450.0,  600.0,  800.0, 1000.0, 1000.0, 1000.0,
                        1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
 /
@@ -186,16 +146,8 @@ cat > ${ocean_namelist} << EOF
 /
 &ocean_forcing_and_init_nml
   iforc_oce          = ${iforc}  ! ocean forcing:
-  itestcase_oce      =   50      ! 25=shallow-water-Laeuter-Test; 26=shallow-water-Williamson test5;
-                                 ! 30=3D-multilayer Stommel; 31=3D-gravity wave
-                                 ! 32=Multilayer Munk-Gyre test (following Sergey Danilov)
-                                 ! 33=Collapsing density front, requires realistic lsm and topography
-                                 ! 34=Adjusting density front in an ocean basin
-                                 ! 40=global temperature initialization for wind and temperature forcing tests
-                                 ! 43=Collapsing density front at first level only with smaller amplitude (global)
-                                 ! 45=horizontally homogen temperature
-                                 ! 50=zonally homogen temperature for APE SST (Williamson)
-  idiag_oce          =    1      !  0: no diagnostics; 1: write diagnostics to stderr
+  itestcase_oce      =   50      ! 50=zonally homogen temperature for APE SST (Williamson)
+  idiag_oce          =    0      !  0: no diagnostics; 1: write diagnostics to stderr
   temperature_relaxation= 0      !  0: no relaxation used
                                  !  1: relaxation switched on for reading (init_oce_relax=1) or some testcases only
                                  !  2: use SST read from bulk forcing (iforc=12);
