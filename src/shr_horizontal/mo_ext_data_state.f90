@@ -1,8 +1,8 @@
 !>
-!! Definition, allocation/deallocation and reading of external datasets
+!! Allocation/deallocation and reading of external datasets
 !!
-!! This module contains the type-declaration for the external datasets,
-!! including memory allocation/deallocation and reading.
+!! This module contains routines for setting up the external data state for 
+!! atmosphere and ocean.
 !!
 !! @author Daniel Reinert, DWD
 !! @author Hermann Asensio, DWD
@@ -17,6 +17,8 @@
 !!   infrastructure
 !! Modification by Daniel Reinert, DWD (2012-02-23)
 !! - Routine smooth_topography moved to a new module named mo_smooth_topo
+!! Modification by Daniel Reinert, DWD (2012-03-22)
+!! - Type declaration moved to new module mo_ext_data_types
 !!
 !! @par Copyright
 !! 2002-2010 by DWD and MPI-M
@@ -45,7 +47,7 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
-MODULE mo_ext_data
+MODULE mo_ext_data_state
 
   USE mo_kind,               ONLY: wp
   USE mo_io_units,           ONLY: filename_max
@@ -61,7 +63,7 @@ MODULE mo_ext_data
   USE mo_extpar_config,      ONLY: itopo, l_emiss, extpar_filename, generate_filename
   USE mo_smooth_topo,        ONLY: smooth_topography
   USE mo_dynamics_config,    ONLY: iequations
-  USE mo_radiation_config,   ONLY: irad_o3,irad_aero
+  USE mo_radiation_config,   ONLY: irad_o3, irad_aero
   USE mo_model_domain,       ONLY: t_patch
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_grid_config,        ONLY: n_dom, nroot, dynamics_grid_filename
@@ -72,6 +74,8 @@ MODULE mo_ext_data
   USE mo_sync,               ONLY: global_sum_array
   USE mo_parallel_config,    ONLY: p_test_run
   USE mo_linked_list,        ONLY: t_var_list
+  USE mo_ext_data_types,     ONLY: t_external_data, t_external_data, t_external_atmos, &
+    &                              t_external_atmos_td, t_external_ocean
   USE mo_var_list,           ONLY: default_var_list_settings, &
     &                              add_var,                   &
     &                              new_var_list,              &
@@ -105,323 +109,19 @@ MODULE mo_ext_data
 
   REAL(wp), PARAMETER :: frlnd_thrhld = 0.5_wp
 
-  PUBLIC :: t_external_data
-  PUBLIC :: t_external_atmos
-  PUBLIC :: t_external_atmos_td
-  PUBLIC :: t_external_ocean
-!  PUBLIC :: external_ocean_td
+
   PUBLIC :: ext_data
   PUBLIC :: nclass_lu
+  PUBLIC :: nlev_o3, nmonths
 
   PUBLIC :: init_ext_data
   PUBLIC :: init_index_lists
   PUBLIC :: destruct_ext_data
 
-  PUBLIC :: nlev_o3,nmonths
-	
-
-
-  !>
-  !! atmosphere external data class
-  !!
-  !! atmosphere external data class
-  !!
-  TYPE :: t_external_atmos
-
-    !
-    ! *** Topography ***
-    REAL(wp), POINTER ::   &   !< topographic height at cell centers      [m]
-      &  topography_c(:,:)     ! index1=1,nproma, index2=1,nblks_c
-
-    REAL(wp), POINTER ::   &   !< smoothed topographic height at cell centers [m]
-      &  topography_smt_c(:,:) ! index1=1,nproma, index2=1,nblks_c
-
-    REAL(wp), POINTER ::   &   !< topographic height at cell edges        [m]
-      &  topography_e(:,:)     ! index1=1,nproma, index2=1,nblks_e
-
-    REAL(wp), POINTER ::   &   !< topographic height at cell vertices     [m]
-      &  topography_v(:,:)     ! index1=1,nproma, index2=1,nblks_v
-
-    REAL(wp), POINTER ::   &   !< smoothed topographic height at vertices [m]
-      &  topography_smt_v(:,:) ! index1=1,nproma, index2=1,nblks_v
-
-    REAL(wp), POINTER ::   &   !< geopotential (S)                        [m**2/s**2]
-      &  fis(:,:)              ! index1=1,nproma, index2=1,nblks_c
-
-
-    !
-    ! *** Land-Sea-Mask ***
-
-    LOGICAL, POINTER  ::   &   !< land-sea-mask for cell centers          [ ]
-      &  llsm_atm_c(:,:)       ! .TRUE. if landpoint
-                               ! index1=1,nproma, index2=1,nblks_c
-
-    REAL(wp), POINTER ::   &   !< fraction land in a grid element         [ ]
-      &  fr_land(:,:)          ! 0. for water, 1.0 indicates 100% land
-                               ! index1=1,nproma, index2=1,nblks_c
-
-    REAL(wp), POINTER ::    &  !< fraction land glacier in a grid element [ ]
-      &  fr_glac(:,:)          ! 1.0 indicates 100% glacier
-                               ! index1=1,nproma, index2=1,nblks_c    
-
-    REAL(wp), POINTER ::   &   !< fraction sea ice cover in a grid element [ ]
-      &  fr_ice(:,:)           ! 1.0 indicates 100% ice
-                               ! index1=1,nproma, index2=1,nblks_c 
-   
-    REAL(wp), POINTER ::   &   !< fraction land in a grid element         [ ]
-      &  fr_land_smt(:,:)      !  = smoothed fr_land
-
-    REAL(wp), POINTER ::   &   !< fraction sea ice cover in a grid element [ ]
-      &  fr_ice_smt(:,:)       ! = smoothed fr_ice
-
-    REAL(wp), POINTER ::   &   !< fraction land glacier in a grid element [ ]
-      &  fr_glac_smt(:,:)      ! = smoothed fr_glac
-
-
-    !  
-    ! *** roughness length ***
-    REAL(wp), POINTER ::   &   !< surface roughness                       [m]
-      &  z0(:,:)               ! index1=1,nproma, index2=1,nblks_c
-
-
-    !
-    ! *** FLake ***
-    REAL(wp), POINTER ::   &   !< fraction of fresh water                 [ ]
-      &  fr_lake(:,:)          ! as partition of total area of the
-                               ! grid element
-                               ! index1=1,nproma, index2=1,nblks_c
-
-    REAL(wp), POINTER ::   &   !< lake depth                              [m]
-      &  depth_lk(:,:)         ! index1=1,nproma, index2=1,nblks_c
-
-
-    !
-    ! *** subgrid scale orography ***
-    REAL(wp), POINTER ::   &   !< standard deviation of sub-grid scale orography [m]
-      &  sso_stdh(:,:)         ! index1=1,nproma, index2=1,nblks_c
-
-    REAL(wp), POINTER ::   &   !< anisotropy of sub-grid scale orography  [ ]
-      &  sso_gamma(:,:)        ! index1=1,nproma, index2=1,nblks_c
-
-    REAL(wp), POINTER ::   &   !< angle betw. principal axis of orography and E [rad]
-      &  sso_theta(:,:)        ! index1=1,nproma, index2=1,nblks_c
-
-    REAL(wp), POINTER ::   &   !< mean slope of sub-grid scale orography  [ ]
-      &  sso_sigma(:,:)        ! index1=1,nproma, index2=1,nblks_c
-
-
-    !
-    ! *** vegetation parameters ***
-    REAL(wp), POINTER ::   &   !< ground fraction covered by plants (vegetation period)  [ ]
-      & plcov_mx(:,:)          ! index1=1,nproma, index2=1,nblks_c
-    REAL(wp), POINTER ::   &   !< ground fraction covered by plants (vegetation period)  [ ]
-      & plcov_t(:,:,:)         ! index1=1,nproma, index2=1,nblks_c, nsfc_subs
-
-    REAL(wp), POINTER ::   &   !< leaf area index (vegetation period)     [ ]
-      &  lai_mx(:,:)           ! index1=1,nproma, index2=1,nblks_c
-    REAL(wp), POINTER ::   &   !< leaf area index (vegetation period)     [ ]
-      &  sai_t(:,:,:)          ! index1=1,nproma, index2=1,nblks_c, nsfc_subs
-    REAL(wp), POINTER ::   &   !< leaf area index (vegetation period)     [ ]
-      &  tai_t(:,:,:)          ! index1=1,nproma, index2=1,nblks_c, nsfc_subs
-    REAL(wp), POINTER ::   &   !< leaf area index (vegetation period)     [ ]
-      &  eai_t(:,:,:)          ! index1=1,nproma, index2=1,nblks_c, nsfc_subs
-
-    REAL(wp), POINTER ::   &   !< root depth                              [m]
-      &  rootdp(:,:)           ! index1=1,nproma, index2=1,nblks_c
-    REAL(wp), POINTER ::   &   !< root depth                              [m]
-      &  rootdp_t(:,:,:)       ! index1=1,nproma, index2=1,nblks_c, nsfc_subs
-
-    REAL(wp), POINTER ::   &   !< ground fraction covered by evergreen forest [ ]
-      &  for_e(:,:)            ! index1=1,nproma, index2=1,nblks_c
-
-    REAL(wp), POINTER ::   &   !< ground fraction covered by deciduous forest [ ]
-      &  for_d(:,:)            ! index1=1,nproma, index2=1,nblks_c
-
-    REAL(wp), POINTER ::   &   !< urban area fraction                     [ ]
-      &  urban(:,:)            ! index1=1,nproma, index2=1,nblks_c
-
-    REAL(wp), POINTER ::   &   !< minimum value of stomata resistance     [ s/m ]
-      &  rsmin(:,:)            ! index1=1,nproma, index2=1,nblks_c
-    REAL(wp), POINTER ::   &   !< minimum value of stomata resistance     [ s/m ]
-      &  rsmin2d_t(:,:,:)      ! index1=1,nproma, index2=1,nblks_c, nsfc_subs
-
-    REAL(wp), POINTER ::   &   !< annual maximum NDVI                     [ ]
-      &  ndvi_max(:,:)         ! index1=1,nproma, index2=1,nblks_c
-
-
-
-    !
-    ! *** soil parameters ***
-    INTEGER, POINTER  ::   &   !< soil texture, keys 0-9                  [ ]
-      &  soiltyp(:,:)          ! index1=1,nproma, index2=1,nblks_c
-    ! soiltyp_t refers to the land point index list
-    ! this field is dimensioned with nsfc_subs even though this appears to be
-    ! unnecessary in order not to disturb the runtime optimization
-    INTEGER, POINTER  ::   &   !< soil texture, keys 0-9                  [ ]
-      &  soiltyp_t(:,:,:)      ! index1=1,nproma, index2=1,nblks_c, index3=nsfc_subs
-
-
-
-    REAL(wp), POINTER ::   &   !< Near surface temperature (climatological mean)  [ K ]
-      &  t_cl(:,:)             !  used as climatological layer (deepest layer) of T_SO
-                               ! index1=1,nproma, index2=1,nblks_c
-
-    REAL(wp), POINTER ::   &   !< longwave surface emissivity             [ ]
-      &  emis_rad(:,:)         ! index1=1,nproma, index2=1,nblks_c
-
-    REAL(wp), POINTER ::  &    !< Landuse class fraction                  [ ]
-      & lu_class_fraction(:,:,:) ! index1=1,nproma, index2=1,nblks_c, index3=1,nclass_lu
-
-    INTEGER, POINTER ::  &    !< Land point index list for each block        [ ]
-      & idx_lst_lp(:,:)       ! index1=1,nproma, index2=1,nblks_c
-    INTEGER, POINTER ::  &    !< Land point count per block       [ ]
-      & lp_count(:)           ! index1=1,nblks_c
-    INTEGER, POINTER ::  &    !< Sea point index list for each block        [ ]
-      & idx_lst_sp(:,:)       ! index1=1,nproma, index2=1,nblks_c
-    INTEGER, POINTER ::  &    !< Sea point count per block        [ ]
-      & sp_count(:)           ! index1=1,nblks_c
-
-    INTEGER, POINTER ::  &    !< Grid point index list for each block and tile [ ]
-      & idx_lst_t(:,:,:)      ! index1=1,nproma, index2=1,nblks_c, index3=nsfc_subs
-    INTEGER, POINTER ::  &    !< Grid point count per block and tile index      [ ]
-      & gp_count_t(:,:)       ! index1=1,nblks_c, index2=nsfc_subs
-
-    INTEGER, POINTER ::  &    !< Land cover class for each tile index  [ ]
-      & lc_class_t(:,:,:)     ! index1=1,nproma, index2=1,nblks_c, index3=nsfc_subs
-    REAL(wp), POINTER ::  &   !< Normalized land cover fraction for each tile index  [ ]
-      & lc_frac_t(:,:,:)      ! index1=1,nproma, index2=1,nblks_c, index3=nsfc_subs
-
-
-  END TYPE t_external_atmos
 
 
   INTEGER, ALLOCATABLE :: nclass_lu(:)  !< number of landuse classes
                                         !< dim: n_dom
-
-
-  !>
-  !! atmosphere external data class (time dependent)
-  !!
-  !! Contains auxiliary time dependent versions of some external atmospheric data
-  !! fields which are already defined in external_atmos. These fields will
-  !! be used to store e.g. montly means from which updated external data can be
-  !! derived. The updated interpolated fields can be copied into the time independent
-  !! counterparts, which are defined in external_atmos.
-  !!
-  TYPE :: t_external_atmos_td
-
-    ! *** radiation parameters ***
-    REAL(wp), POINTER ::   &   !< aerosol optical thickness of black carbon    [ ]
-      &  o3(:,:,:,:)           ! index1=1,nproma, index2=nlev_o3,
-                               ! index3=1,nblks_c, index4=1,ntimes
-
-    REAL(wp),POINTER::  &
-      &   zf  (:),      &      !full levels of ozone gemometric height
-      &   pfoz(:),      &      !full levels of of ozone pressure
-      &   phoz(:)              !half levels of ozone pressure field 
-    !
-    ! *** radiation parameters ***
-    REAL(wp), POINTER ::   &   !< aerosol optical thickness of black carbon    [ ]
-      &  aer_bc(:,:,:)         ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
-
-    REAL(wp), POINTER ::   &   !< aerosol optical thickness of ambient aerosol [ ]
-      &  aer_dust(:,:,:)       ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
-
-    REAL(wp), POINTER ::   &   !< aerosol optical thickness of particulate     [ ]
-      &  aer_org(:,:,:)        !< organic_matter_ambient_aerosol             
-                               ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
-
-    REAL(wp), POINTER ::   &   !< aerosol optical thickness of sulfate aerosol [ ]
-      &  aer_so4(:,:,:)        ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
-
-    REAL(wp), POINTER ::   &   !< aerosol optical thickness of seasalt aerosol [ ]
-      &  aer_ss(:,:,:)         ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
-
-
-
-    !
-    ! *** vegetation parameters ***
-    REAL(wp), POINTER ::   &   !< normalized difference vegetation index [ ]
-      &  ndvi(:,:,:)           !< (monthly mean)
-                               ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
-
-    REAL(wp), POINTER ::   &   !< (monthly) proportion of actual value/maximum 
-      &  ndvi_mrat(:,:)        !< normalized differential vegetation index   [ ]
-                               ! index1=1,nproma, index2=1,nblks_c
-
-  END TYPE t_external_atmos_td
-
-
-
-  !>
-  !! ocean external data class
-  !!
-  !! ocean external data class
-  !!
-  TYPE :: t_external_ocean
-
-    ! ocean topography <=> bathymetric height used in the ocean 
-    ! cell centers and edges only
-    !
-    REAL(wp), POINTER ::   &  !<  bathymetric height at cell centers [m]
-      &  bathymetry_c(:,:)    !  index1=1,nproma, index2=1,nblks_c
-
-    REAL(wp), POINTER ::   &  !< topographic height at cell edges    [m]
-      &  bathymetry_e(:,:)    !  index1=1,nproma, index2=1,nblks_e
-
-  ! REAL(wp), POINTER ::   &  !< topographic height at cell vertices [m]
-  !   &  bathymetry_v(:,:)    !  index1=1,nproma, index2=1,nblks_v
-
-    ! *** Land-Sea-Mask ***
-    INTEGER, POINTER  ::   &  !< land-sea-mask for cell centers          [ ]
-      &  lsm_ctr_c(:,:)       !  index1=1,nproma, index2=1,nblks_c
-    INTEGER, POINTER ::    &  !< land-sea-mask for cell edges
-      &  lsm_ctr_e(:,:)       !  index1=1,nproma, index2=1,nblks_e
-
-    ! OMIP/NCEP type flux-forcing fluxes on cell centers. no_of_fluxes=3
-    !
-    REAL(wp), POINTER ::   &       !< omip monthly/daily mean forcing fluxes
-      &  flux_forc_mon_c(:,:,:,:)  !  index1=nproma, index2=time, index3=nblks_c, index4=no_of_fluxes
-
-  END TYPE t_external_ocean
-
-
-
-!  !>
-!  !! ocean external data class (time dependent)
-!  !!
-!  !! This data type contains auxiliary time dependent versions of
-!  !! some external oceanic data fields already defined in external_ocean. These
-!  !! fields will be used to store e.g. montly means from which interpolated external
-!  !! data can be derived. The updated fields are copied into the time independent
-!  !! counterparts which are defined in external_ocean.
-!  !!
-!  TYPE :: external_ocean_td
-!  END TYPE external_ocean_td
-
-
-
-  !>
-  !! External data class including lists
-  !!
-  !! External data class including lists
-  !!
-  TYPE :: t_external_data
-
-    TYPE(t_external_atmos)    :: atm
-    TYPE(t_var_list)          :: atm_list
-
-    TYPE(t_external_atmos_td) :: atm_td
-    TYPE(t_var_list)          :: atm_td_list
-
-    TYPE(t_external_ocean)    :: oce
-    TYPE(t_var_list)          :: oce_list
-
-!    TYPE(t_external_ocean_td) :: oce_td
-!    TYPE(t_var_list), POINTER :: oce_td_list
-
-  END TYPE t_external_data
-
 
   TYPE(t_external_data),TARGET, ALLOCATABLE :: &
     &  ext_data(:)  ! n_dom
@@ -2773,5 +2473,5 @@ CONTAINS
   !-------------------------------------------------------------------------
 
 
-END MODULE mo_ext_data
+END MODULE mo_ext_data_state
 

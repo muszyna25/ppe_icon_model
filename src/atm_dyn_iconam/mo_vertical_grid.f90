@@ -44,7 +44,7 @@ MODULE mo_vertical_grid
   USE mo_kind,                  ONLY: wp
   USE mo_exception,             ONLY: finish, message, message_text
   USE mo_model_domain,          ONLY: t_patch
-  USE mo_ext_data,              ONLY: ext_data
+  USE mo_ext_data_state,        ONLY: ext_data
   USE mo_grid_config,           ONLY: n_dom
   USE mo_nonhydrostatic_config, ONLY: rayleigh_coeff,damp_height, igradp_method, ivctype,  & 
     &                                 vwind_offctr, exner_expol, l_zdiffu_t, thslp_zdiffu, &

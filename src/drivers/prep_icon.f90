@@ -100,7 +100,7 @@ USE mo_time_config,           ONLY: time_config         ! variable
 USE mo_dynamics_config,       ONLY: configure_dynamics  ! subroutine
 USE mo_interpol_config
 USE mo_lnd_nwp_config,        ONLY: configure_lnd_nwp
-USE mo_ext_data,              ONLY: ext_data, init_ext_data, destruct_ext_data
+USE mo_ext_data_state,        ONLY: ext_data, init_ext_data, destruct_ext_data
 
 ! USE statements referring directly to prep_icon
 !

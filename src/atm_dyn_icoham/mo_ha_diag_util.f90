@@ -40,7 +40,7 @@ MODULE mo_ha_diag_util
   USE mo_kind,               ONLY: wp
   USE mo_physical_constants, ONLY: grav, vtmpc1
   USE mo_model_domain,       ONLY: t_patch
-  USE mo_ext_data,           ONLY: t_external_data
+  USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_math_gradients,     ONLY: grad_fd_norm
   USE mo_math_divrot,        ONLY: div, div_avg, rot_vertex
   USE mo_dynamics_config,    ONLY: idiv_method, lshallow_water

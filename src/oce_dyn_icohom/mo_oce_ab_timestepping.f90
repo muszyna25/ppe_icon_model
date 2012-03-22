@@ -56,7 +56,7 @@ USE mo_oce_index,                      ONLY: print_mxmn, jkc, jkdim, ipl_src
 USE mo_sea_ice,                        ONLY: t_sfc_flx
 USE mo_intp_data_strc,                 ONLY: t_int_state
 USE mo_model_domain,                   ONLY: t_patch
-USE mo_ext_data,                       ONLY: t_external_data
+USE mo_ext_data_types,                 ONLY: t_external_data
 !USE mo_exception,                      ONLY: message, finish!, message_text
 !USE mo_loopindices,                    ONLY: get_indices_c, get_indices_e !, get_indices_v
 !USE mo_oce_index,                      ONLY: c_i, c_b, c_k, ne_b, ne_i, nc_b, nc_i, form4ar, ldbg

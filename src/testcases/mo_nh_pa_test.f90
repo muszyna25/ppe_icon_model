@@ -60,7 +60,7 @@ USE mo_physical_constants,  ONLY: omega, rd, cpd, p0ref
 USE mo_math_constants,      ONLY: pi_2, pi
 USE mo_advection_config,    ONLY: advection_config
 USE mo_model_domain,        ONLY: t_patch
-USE mo_ext_data,            ONLY: t_external_data
+USE mo_ext_data_types,      ONLY: t_external_data
 USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
 USE mo_intp_data_strc,      ONLY: t_int_state
 USE mo_parallel_config,     ONLY: nproma

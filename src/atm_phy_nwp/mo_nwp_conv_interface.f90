@@ -53,7 +53,7 @@ MODULE mo_nwp_conv_interface
   USE mo_physical_constants,   ONLY: grav, alv
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_cumaster,             ONLY: cumastrn
-  USE mo_ext_data,             ONLY: t_external_data
+  USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_icoham_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd
 
   IMPLICIT NONE

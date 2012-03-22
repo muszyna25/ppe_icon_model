@@ -62,9 +62,9 @@ MODULE mo_jw_test
   USE mo_advection_config,    ONLY: advection_config
   USE mo_vertical_coord_table,ONLY: ceta
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_ext_data,            ONLY: t_external_data
+  USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog, t_hydro_atm_diag
-  USE mo_parallel_config,  ONLY: nproma
+  USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: ltransport, ntracer, iforcing, iqv, iqt
   USE mo_ncar_testcases,      ONLY: tracer_q1_q2, tracer_q3, regrot, turnwi
   USE mo_exception,           ONLY: message, message_text

@@ -103,9 +103,6 @@ USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
 
 ! Time integration
 !
-! External data
-! USE mo_ext_data,            ONLY: ext_data, init_ext_data, destruct_ext_data
-
 !  USE mo_nwp_phy_init,          ONLY: init_nwp_phy
 !!$  USE mo_gscp_cosmo,          ONLY: hydci_pp_init
 

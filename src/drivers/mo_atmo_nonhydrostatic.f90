@@ -83,7 +83,7 @@ USE mo_prepicon_utils,      ONLY: init_prepicon, prepicon, copy_prepicon2prog, &
   &                               compute_coord_fields,  deallocate_prepicon
 USE mo_prepicon_config,     ONLY: i_oper_mode, l_sfc_in
 USE mo_nh_vert_interp,      ONLY: vertical_interpolation
-USE mo_ext_data,            ONLY: ext_data
+USE mo_ext_data_state,      ONLY: ext_data
 ! meteogram output
 USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize
 USE mo_meteogram_config,    ONLY: meteogram_output_config

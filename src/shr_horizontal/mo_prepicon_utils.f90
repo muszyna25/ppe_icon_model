@@ -58,7 +58,8 @@ MODULE mo_prepicon_utils
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
   USE mo_mpi,                 ONLY: p_pe, p_io, p_bcast, p_comm_work_test, p_comm_work
-  USE mo_ext_data,            ONLY: t_external_data, ext_data
+  USE mo_ext_data_types,      ONLY: t_external_data
+  USE mo_ext_data_state,      ONLY: ext_data
   USE mo_smooth_topo,         ONLY: smooth_topography
   USE mo_util_netcdf,         ONLY: read_netcdf_data, read_netcdf_data_single
   USE mo_model_domain,        ONLY: p_patch

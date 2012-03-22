@@ -55,7 +55,7 @@ USE mo_impl_constants,         ONLY: land, land_boundary, boundary, sea_boundary
 USE mo_math_constants,         ONLY: pi
 USE mo_exception,              ONLY: message, message_text, finish
 USE mo_model_domain,           ONLY: t_patch
-USE mo_ext_data,               ONLY: t_external_data
+USE mo_ext_data_types,         ONLY: t_external_data
 USE mo_oce_state,              ONLY: t_hydro_ocean_state, v_base
 
 

@@ -115,7 +115,7 @@ MODULE mo_ocean_model
   USE mo_impl_constants,      ONLY: success !, ihs_ocean
 
   ! External data
-  USE mo_ext_data,            ONLY: ext_data, init_ext_data, destruct_ext_data
+  USE mo_ext_data_state,       ONLY: ext_data, init_ext_data, destruct_ext_data
 
   USE mo_hydro_ocean_run,      ONLY: perform_ho_stepping,&
     & prepare_ho_integration,&

@@ -50,7 +50,7 @@ MODULE mo_oce_math_operators
     & min_rlcell, min_rledge, min_rlvert ,max_char_length, &
     & min_rledge_int
   USE mo_model_domain,       ONLY: t_patch
-  USE mo_ext_data,           ONLY: t_external_data
+  USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_ocean_nml,          ONLY: lviscous, n_zlev, iswm_oce
   USE mo_dynamics_config,    ONLY: nold
   USE mo_oce_index,                 ONLY: print_mxmn, jkc, jkdim, ipl_src

@@ -93,7 +93,7 @@ MODULE mo_ha_rungekutta
   USE mo_exception,        ONLY: finish
   USE mo_impl_constants,   ONLY: SUCCESS, RK4, SSPRK54
   USE mo_model_domain,     ONLY: t_patch
-  USE mo_ext_data,         ONLY: t_external_data
+  USE mo_ext_data_types,   ONLY: t_external_data
   USE mo_intp_data_strc,   ONLY: t_int_state
   USE mo_parallel_config,  ONLY: nproma
   USE mo_run_config,       ONLY: nlev, ltransport

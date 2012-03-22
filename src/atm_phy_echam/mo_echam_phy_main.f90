@@ -52,10 +52,9 @@ MODULE mo_echam_phy_main
   USE mo_run_config,          ONLY: ntracer, nlev, nlevp1,           &
     &                               iqv, iqc, iqi, io3, iqt, ltimer
   USE mo_vertical_coord_table,ONLY: nlevm1
-  USE mo_ext_data,            ONLY: ext_data,&
-    &                               t_external_atmos_td,             &
-    &                               nlev_o3, nmonths
-  USE mo_o3_util,             ONLY:  o3_pl2ml !o3_timeint
+  USE mo_ext_data_state,      ONLY: ext_data, nlev_o3, nmonths
+  USE mo_ext_data_types,      ONLY: t_external_atmos_td
+  USE mo_o3_util,             ONLY: o3_pl2ml !o3_timeint
   USE mo_echam_phy_config,    ONLY: echam_phy_config
   USE mo_echam_conv_config,   ONLY: echam_conv_config
   USE mo_cucall,              ONLY: cucall

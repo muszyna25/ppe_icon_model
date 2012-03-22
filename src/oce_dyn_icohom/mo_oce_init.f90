@@ -74,7 +74,7 @@ USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
 USE mo_exception,          ONLY: finish, message, message_text
 USE mo_oce_index,          ONLY: print_mxmn, jkdim, ipl_src
 USE mo_model_domain,       ONLY: t_patch
-USE mo_ext_data,           ONLY: t_external_data
+USE mo_ext_data_types,     ONLY: t_external_data
 USE mo_util_netcdf,        ONLY: read_netcdf_data
 USE mo_sea_ice,            ONLY: t_sfc_flx
 USE mo_oce_state,          ONLY: t_hydro_ocean_state, v_base

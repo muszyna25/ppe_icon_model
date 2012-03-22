@@ -48,7 +48,7 @@ MODULE mo_df_test
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH
   USE mo_physical_constants,  ONLY: re
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_ext_data,            ONLY: t_external_data
+  USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_math_constants,      ONLY: pi
   USE mo_math_utilities,      ONLY: gnomonic_proj, t_geographical_coordinates, &
     &                              t_cartesian_coordinates, gc2cc

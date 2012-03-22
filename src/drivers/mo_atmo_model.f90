@@ -148,7 +148,7 @@ USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
 ! Time integration
 !
 ! External data
-USE mo_ext_data,            ONLY: ext_data, init_ext_data, init_index_lists, &
+USE mo_ext_data_state,      ONLY: ext_data, init_ext_data, init_index_lists, &
   &                               destruct_ext_data
 
 !  USE mo_nwp_phy_init,          ONLY: init_nwp_phy

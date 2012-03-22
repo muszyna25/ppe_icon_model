@@ -60,7 +60,7 @@ MODULE mo_hierarchy_management
   USE mo_exception,           ONLY: message_text, message, finish
   USE mo_datetime,            ONLY: t_datetime, add_time, print_datetime
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_ext_data,            ONLY: ext_data
+  USE mo_ext_data_state,      ONLY: ext_data
   USE mo_grid_config,         ONLY: n_dom, lfeedback, l_limited_area
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state

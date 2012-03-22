@@ -52,12 +52,12 @@ MODULE mo_sw_test
 !
   USE mo_kind,                ONLY: wp
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_ext_data,            ONLY: t_external_data
+  USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog
   USE mo_physical_constants,  ONLY: re, omega, rgrav, rre
   USE mo_math_constants,      ONLY: pi, pi_2
   USE mo_dynamics_config,     ONLY: sw_ref_height
-  USE mo_parallel_config,  ONLY: nproma
+  USE mo_parallel_config,     ONLY: nproma
   USE mo_datetime,            ONLY: rdaylen
 
   IMPLICIT NONE

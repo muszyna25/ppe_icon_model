@@ -49,7 +49,7 @@ MODULE mo_nwp_sfc_interp
   USE mo_lnd_nwp_config,      ONLY: nlev_soil
   USE mo_impl_constants,      ONLY: zml_soil
   USE mo_physical_constants,  ONLY: grav
-  USE mo_ext_data,            ONLY: t_external_data, ext_data
+  USE mo_ext_data_state,      ONLY: ext_data
   USE mo_exception,           ONLY: message, message_text, finish
 
   IMPLICIT NONE

@@ -59,7 +59,7 @@ USE mo_io_config,              ONLY: out_expname, istime4output, istime4newoutpu
   &                                  is_checkpoint_time, n_checkpoints
 USE mo_run_config,             ONLY: nsteps, dtime, ltimer
 USE mo_exception,              ONLY: message, message_text, finish
-USE mo_ext_data,               ONLY: t_external_data
+USE mo_ext_data_types,         ONLY: t_external_data
 USE mo_io_units,               ONLY: filename_max
 USE mo_datetime,               ONLY: t_datetime, print_datetime, add_time, datetime_to_string
 USE mo_timer,                  ONLY: timer_start, timer_stop, timer_total, timer_solve_ab, &

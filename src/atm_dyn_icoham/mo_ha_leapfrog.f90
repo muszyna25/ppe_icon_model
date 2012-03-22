@@ -41,7 +41,7 @@ MODULE mo_ha_leapfrog
 
   USE mo_kind,                ONLY: wp
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_ext_data,            ONLY: t_external_data
+  USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE m_dyn,                  ONLY: dyn_theta

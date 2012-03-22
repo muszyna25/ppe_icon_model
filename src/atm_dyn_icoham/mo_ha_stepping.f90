@@ -46,7 +46,7 @@ MODULE mo_ha_stepping
   USE mo_datetime,            ONLY: t_datetime, print_datetime, add_time
   USE mo_exception,           ONLY: message, message_text
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_ext_data,            ONLY: ext_data
+  USE mo_ext_data_state,      ONLY: ext_data
   USE mo_grid_config,         ONLY: n_dom
   USE mo_dynamics_config,     ONLY: lshallow_water, ltwotime, nnow, nold
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config, configure_ha_dyn

@@ -37,7 +37,7 @@ MODULE mo_ha_2tl_si
 
   USE mo_kind,                ONLY: wp
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_ext_data,            ONLY: t_external_data
+  USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_physical_constants,  ONLY: rd, rcpd
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: nlev, nlevp1, msg_level

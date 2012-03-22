@@ -50,7 +50,7 @@ MODULE mo_nwp_turb_interface
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_physical_constants,   ONLY: alv, rd_o_cpd
 
-  USE mo_ext_data,             ONLY: t_external_data
+  USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag,&
     &                                t_nh_metrics
   USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag, t_nwp_phy_tend, phy_params 

@@ -59,7 +59,8 @@ USE mo_mpi,                 ONLY: my_process_is_stdio
 USE mo_util_netcdf,         ONLY: read_netcdf_data
 USE mo_datetime,            ONLY: t_datetime
 USE mo_time_config,         ONLY: time_config
-USE mo_ext_data,            ONLY: ext_data, t_external_data
+USE mo_ext_data_types,      ONLY: t_external_data
+USE mo_ext_data_state,      ONLY: ext_data
 USE mo_grid_config,         ONLY: nroot
 USE mo_ocean_nml,           ONLY: iforc_oce, iforc_type, iforc_len, itestcase_oce,         &
   &           no_tracer, n_zlev, basin_center_lat, basin_center_lon, basin_width_deg,      &

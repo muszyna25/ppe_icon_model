@@ -59,7 +59,7 @@ USE mo_physical_constants,        ONLY: grav, rho_ref
 USE mo_oce_state,                 ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, v_base, &
   &                                     set_lateral_boundary_values
 USE mo_model_domain,              ONLY: t_patch
-USE mo_ext_data,                  ONLY: t_external_data
+USE mo_ext_data_types,            ONLY: t_external_data
 USE mo_exception,                 ONLY: message, finish!, message_text
 USE mo_loopindices,               ONLY: get_indices_c, get_indices_e !, get_indices_v
 USE mo_oce_math_operators,        ONLY: div_oce, grad_fd_norm_oce, grad_fd_norm_oce_2d,&

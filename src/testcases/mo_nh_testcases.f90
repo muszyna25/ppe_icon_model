@@ -50,7 +50,7 @@ MODULE mo_nh_testcases
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, inwp
   USE mo_grid_config,        ONLY: lplane, n_dom, l_limited_area
   USE mo_model_domain,       ONLY: t_patch
-  USE mo_ext_data,           ONLY: ext_data
+  USE mo_ext_data_state,     ONLY: ext_data
   USE mo_math_constants,     ONLY: pi, pi_2
   USE mo_math_utilities,     ONLY: gc2cc, t_cartesian_coordinates, &
                                    t_geographical_coordinates, &

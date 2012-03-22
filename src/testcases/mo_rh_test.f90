@@ -51,14 +51,14 @@ MODULE mo_rh_test
 !
 !
 
-  USE mo_kind,                ONLY: wp
-  USE mo_math_constants,      ONLY: pi
-  USE mo_physical_constants,  ONLY: re, omega, rd, grav
-  USE mo_vertical_coord_table,ONLY: vct_a,vct_b
-  USE mo_model_domain,        ONLY: t_patch
-  USE mo_ext_data,            ONLY: t_external_data
-  USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog
-  USE mo_parallel_config,  ONLY: nproma
+  USE mo_kind,                 ONLY: wp
+  USE mo_math_constants,       ONLY: pi
+  USE mo_physical_constants,   ONLY: re, omega, rd, grav
+  USE mo_vertical_coord_table, ONLY: vct_a,vct_b
+  USE mo_model_domain,         ONLY: t_patch
+  USE mo_ext_data_types,       ONLY: t_external_data
+  USE mo_icoham_dyn_types,     ONLY: t_hydro_atm_prog
+  USE mo_parallel_config,      ONLY: nproma
 
   IMPLICIT NONE
 

@@ -42,7 +42,7 @@ MODULE mo_ha_diagnostics
   USE mo_impl_constants,     ONLY: SUCCESS, MAX_CHAR_LENGTH,inwp,iecham,ildf_echam
   USE mo_grid_config,        ONLY: n_dom
   USE mo_model_domain,       ONLY: t_patch
-  USE mo_ext_data,           ONLY: ext_data
+  USE mo_ext_data_state,     ONLY: ext_data
   USE mo_parallel_config,    ONLY: nproma
   USE mo_run_config,         ONLY: dtime, nsteps, nlev, ntracer,iforcing
   USE mo_io_config,          ONLY: no_output

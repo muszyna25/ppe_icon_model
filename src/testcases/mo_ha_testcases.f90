@@ -75,7 +75,7 @@ MODULE mo_ha_testcases
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist, &
                                  & open_and_restore_namelist, close_tmpfile
   USE mo_model_domain,    ONLY: t_patch
-  USE mo_ext_data,        ONLY: ext_data
+  USE mo_ext_data_state,  ONLY: ext_data
   USE mo_grid_config,     ONLY: n_dom
   USE mo_intp_data_strc,  ONLY: t_int_state
   USE mo_parallel_config, ONLY: nproma

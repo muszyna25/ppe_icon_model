@@ -40,7 +40,7 @@ MODULE mo_ha_dynamics
   USE mo_kind,               ONLY: wp
   USE mo_physical_constants, ONLY: rcpd, rd
   USE mo_model_domain,       ONLY: t_patch
-  USE mo_ext_data,           ONLY: t_external_data
+  USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_math_gradients,     ONLY: grad_fd_norm
   USE mo_math_divrot,        ONLY: div, div_avg
   USE mo_dynamics_config,    ONLY: lshallow_water, idiv_method

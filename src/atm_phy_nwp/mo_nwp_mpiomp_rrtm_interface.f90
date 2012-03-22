@@ -38,7 +38,7 @@ MODULE mo_nwp_mpiomp_rrtm_interface
 
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_exception,            ONLY: message,  finish !message_tex
-  USE mo_ext_data,             ONLY: t_external_data
+  USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_parallel_config,      ONLY: nproma, p_test_run, test_parallel_radiation
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi, &
     &                                io3, ntracer, ntracer_static
@@ -62,7 +62,7 @@ MODULE mo_nwp_mpiomp_rrtm_interface
   USE mo_satad,                ONLY: qsat_rho
 !   USE mo_sync,                 ONLY: SYNC_C, sync_patch_array_mult
 
-  USE mo_nwp_rrtm_interface,   ONLY:  nwp_rrtm_radiation, nwp_rrtm_radiation_reduced
+  USE mo_nwp_rrtm_interface,   ONLY: nwp_rrtm_radiation, nwp_rrtm_radiation_reduced
 
   USE mo_parallel_config,      ONLY: radiation_ompthreads
   USE mo_timer,                ONLY: timer_start, timer_stop, print_timer, &

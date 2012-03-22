@@ -55,7 +55,7 @@ USE mo_advection_config,    ONLY: advection_config
 USE mo_vertical_coord_table,ONLY: vct_a, vct_b, ceta, cetah
 USE mo_eta_coord_diag,      ONLY: half_level_pressure, full_level_pressure
 USE mo_model_domain,        ONLY: t_patch
-USE mo_ext_data,            ONLY: t_external_data
+USE mo_ext_data_types,      ONLY: t_external_data
 USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog, t_hydro_atm_diag
 USE mo_intp_data_strc,      ONLY: t_int_state
 USE mo_intp,                ONLY: cells2edges_scalar
