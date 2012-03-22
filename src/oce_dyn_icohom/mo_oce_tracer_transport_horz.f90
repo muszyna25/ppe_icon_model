@@ -1183,7 +1183,7 @@ END SUBROUTINE elad
     TYPE(t_patch), TARGET, INTENT(IN) ::  &   !< patch on which computation is performed
       &  ptr_patch
 
-    REAL(wp), INTENT(IN) ::     &    !< advected cell centered variable
+    REAL(wp), INTENT(INOUT) ::     &    !< advected cell centered variable
       &  p_cc(:,:,:)                 !< dim: (nproma,nlev,nblks_c)
 
     REAL(wp), INTENT(in) ::     &    !< contravariant horizontal mass flux
@@ -1278,6 +1278,8 @@ END SUBROUTINE elad
       elev = n_zlev
     END IF
 
+    ! this should not be synced here
+    CALL sync_patch_array(SYNC_C, ptr_patch, p_cc)
 
     ! Set pointers to index-arrays
     ! line and block indices of two neighboring cells

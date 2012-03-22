@@ -304,21 +304,22 @@ SUBROUTINE prepare_tracer_transport(p_patch, p_os, p_param, p_sfc_flx, p_op_coef
   !CALL sync_patch_array(SYNC_E, p_patch,p_os%p_diag%vn_time_weighted )
   ! CALL sync_patch_array(SYNC_E, p_patch,v_base%del_zlev_m )
 
+  !DO jk = 1, n_zlev
+  !  WRITE(0,*) "level", jk, v_base%del_zlev_m(jk)
+  !ENDDO
   !Calculation of mass flux and related quantities that are identical for all tracers
   DO jb = edges_in_domain%start_block, edges_in_domain%end_block
     CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
     DO jk = 1, n_zlev
-      IF(jk==1)THEN
-         delta_z=v_base%del_zlev_m(jk) + p_os%p_diag%h_e(je,jk)!&
-           !&+min(p_os%p_prog(nold(1))%h(ilc1,ibc1),p_os%p_prog(nold(1))%h(ilc2,ibc2))
-           !delta_z=v_base%del_zlev_m(jk)+h_e(je,jb)
-      ELSE
-        delta_z = v_base%del_zlev_m(jk)
-      ENDIF
+      delta_z = v_base%del_zlev_m(jk)
       DO je = i_startidx_e, i_endidx_e
+
+      IF(jk==1) delta_z=v_base%del_zlev_m(jk) + p_os%p_diag%h_e(je,jb)
+
         !IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
           p_os%p_diag%mass_flx_e(je,jk,jb)  = delta_z*p_os%p_diag%vn_time_weighted(je,jk,jb)
          !ENDIF
+
       END DO
     END DO
   END DO
