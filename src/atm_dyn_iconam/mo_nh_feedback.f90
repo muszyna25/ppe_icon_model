@@ -1102,13 +1102,13 @@ SUBROUTINE relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_s
   TYPE(t_lnd_prog),   POINTER     :: p_lndc => NULL()
 
   ! Indices
-  INTEGER :: jb, jc, jk, js, jt, je, jv, jgc, i_nchdom, i_chidx,    &
-             i_startblk, i_endblk, i_startidx, i_endidx, ic, i_ncd, &
+  INTEGER :: jb, jc, jk, js, jt, je, jv, i_nchdom, i_chidx,  &
+             i_startblk, i_endblk, i_startidx, i_endidx, ic, &
              i_rlstart_c, i_rlstart_e, i_rlend_c, i_rlend_e
 
   INTEGER :: nlev_c, nlevp1_c  ! number of full and half levels (child dom)
   INTEGER :: nlev_p, nlevp1_p  ! number of full and half levels (parent dom)
-  INTEGER :: nshift, nshift_c
+  INTEGER :: nshift
   INTEGER :: nblks_cp, nblks_cc, nblks_ep, nblks_ec, ntiles
 
   REAL(wp), ALLOCATABLE, DIMENSION(:,:,:), TARGET :: feedback_rho, feedback_thv,        &
@@ -1682,78 +1682,7 @@ ELSE
   ENDDO
 ENDIF
 
-!$OMP PARALLEL PRIVATE(i_startblk,i_endblk,nshift_c,i_ncd,ic,jgc)
-
-IF (l_masscorr_nest) THEN
-  ! Add mass conservation correction to child domain in order to prevent
-  ! possible inconsistencies in the mass fields; without l_nest_rcf, the
-  ! correction increments are smaller, so that this correction does not appear
-  ! to be needed.
-  i_startblk = p_gcc%start_blk(grf_bdywidth_c+1,1)
-  i_endblk   = p_gcc%end_blk(min_rlcell,i_nchdom)
-
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
-  DO jb = i_startblk, i_endblk
-
-    CALL get_indices_c(p_pc, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, grf_bdywidth_c+1, min_rlcell)
-
-    DO jk = 1, nlev_c
-      DO jc = i_startidx, i_endidx
-
-        p_child_prog%rho(jc,jk,jb) = p_child_prog%rho(jc,jk,jb) - rho_corr(jk+js)
-
-        p_child_prog%rhotheta_v(jc,jk,jb) = p_child_prog%rho(jc,jk,jb) * &
-                                            p_child_prog%theta_v(jc,jk,jb)
-
-        p_child_prog%exner(jc,jk,jb) = &
-          EXP(rd_o_cvd*LOG(rd_o_p0ref*p_child_prog%rhotheta_v(jc,jk,jb)))
-
-      ENDDO
-    ENDDO
-
-  ENDDO
-!$OMP END DO
-
-  ! The conservation correction also needs to be applied to all nested domains
-  IF (p_pc%n_childdom > 0) THEN
-
-    DO ic = 1, p_pc%n_chd_total
-      jgc = p_pc%child_id_list(ic)
-
-      i_ncd      = MAX(1,p_patch(jgc)%n_childdom)
-      i_startblk = p_patch(jgc)%cells%start_blk(grf_bdywidth_c+1,1)
-      i_endblk   = p_patch(jgc)%cells%end_blk(min_rlcell,i_ncd)
-      nshift_c   = p_patch(jgc)%nshift_total - p_pp%nshift_total
-
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
-      DO jb = i_startblk, i_endblk
-
-        CALL get_indices_c(p_patch(jgc), jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, grf_bdywidth_c+1, min_rlcell)
-
-        DO jk = 1, p_patch(jgc)%nlev
-          DO jc = i_startidx, i_endidx
-
-            p_nh_state(jgc)%prog(nnow(jgc))%rho(jc,jk,jb) = &
-              p_nh_state(jgc)%prog(nnow(jgc))%rho(jc,jk,jb) - rho_corr(jk+nshift_c)
-
-            p_nh_state(jgc)%prog(nnow(jgc))%rhotheta_v(jc,jk,jb) = &
-              p_nh_state(jgc)%prog(nnow(jgc))%rho(jc,jk,jb) * &
-              p_nh_state(jgc)%prog(nnow(jgc))%theta_v(jc,jk,jb)
-
-            p_nh_state(jgc)%prog(nnow(jgc))%exner(jc,jk,jb) = &
-              EXP(rd_o_cvd*LOG(rd_o_p0ref*p_nh_state(jgc)%prog(nnow(jgc))%rhotheta_v(jc,jk,jb)))
-
-          ENDDO
-        ENDDO
-
-      ENDDO
-!$OMP END DO
-
-    ENDDO
-  ENDIF
-ENDIF
+!$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
 
   ! Execute relaxation
 
