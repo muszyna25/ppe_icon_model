@@ -311,8 +311,9 @@ CONTAINS
     ! - or: this process is stdio process
     lactive = lactive .OR. my_process_is_stdio()
     ! - or: this process is root process in processor splitting
-    lactive = lactive .OR. &
-      &       (proc_split .AND. (get_my_mpi_work_id() == get_glob_proc0()))
+    IF (proc_split) &
+     &lactive = lactive .OR. &
+       &       (proc_split .AND. (get_my_mpi_work_id() == get_glob_proc0()))
 
     IF (lactive) THEN
       WRITE(iout,'(1x,a)') TRIM(write_text)
