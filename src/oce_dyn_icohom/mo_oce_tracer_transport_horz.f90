@@ -1186,7 +1186,7 @@ END SUBROUTINE elad
     REAL(wp), INTENT(INOUT) ::     &    !< advected cell centered variable
       &  p_cc(:,:,:)                 !< dim: (nproma,nlev,nblks_c)
 
-    REAL(wp), INTENT(in) ::     &    !< contravariant horizontal mass flux
+    REAL(wp), INTENT(inout) ::     &    !< contravariant horizontal mass flux
       &  p_mass_flx_e(:,:,:)         !< (provided by dynamical core)
                                      !< dim: (nproma,nlev,nblks_e)
 
@@ -1244,11 +1244,11 @@ END SUBROUTINE elad
     REAL(wp) :: p_p, p_m             !< sum of antidiffusive fluxes into and out of cell jc
 
     INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices of two
-      &  iilc, iibc                          !< neighbor cells (array)
+      &  cell_of_edge_idx, cell_of_edge_blk                          !< neighbor cells (array)
     INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices of three
-      &  iilnc, iibnc                        !< neighbor cells (array)
+      &  neighbor_cell_idx, neighbor_cell_blk                        !< neighbor cells (array)
     INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices (array)
-      &  iidx, iblk                          !< of edges
+      &  edge_of_cell_idx, edge_of_cell_blk                          !< of edges
 
     INTEGER  :: slev, elev             !< vertical start and end level
     INTEGER  :: i_startidx, i_endidx
@@ -1278,19 +1278,22 @@ END SUBROUTINE elad
       elev = n_zlev
     END IF
 
-    ! this should not be synced here
+    ! these should not be synced here
     CALL sync_patch_array(SYNC_C, ptr_patch, p_cc)
+    CALL sync_patch_array(SYNC_E, ptr_patch, p_mass_flx_e)
+    CALL sync_patch_array(SYNC_E, ptr_patch, p_mflx_tracer_h)
+    CALL sync_patch_array(SYNC_E, ptr_patch, z_mflx_low)
 
     ! Set pointers to index-arrays
     ! line and block indices of two neighboring cells
-    iilc => ptr_patch%edges%cell_idx
-    iibc => ptr_patch%edges%cell_blk
+    cell_of_edge_idx => ptr_patch%edges%cell_idx
+    cell_of_edge_blk => ptr_patch%edges%cell_blk
     ! line and block indices of edges as seen from cells
-    iidx => ptr_patch%cells%edge_idx
-    iblk => ptr_patch%cells%edge_blk
+    edge_of_cell_idx => ptr_patch%cells%edge_idx
+    edge_of_cell_blk => ptr_patch%cells%edge_blk
     ! pointers to line and block indices of three neighbor cells
-    iilnc => ptr_patch%cells%neighbor_idx
-    iibnc => ptr_patch%cells%neighbor_blk
+    neighbor_cell_idx => ptr_patch%cells%neighbor_idx
+    neighbor_cell_blk => ptr_patch%cells%neighbor_blk
     !
     ! 1. Calculate low (first) order fluxes using the standard upwind scheme and the
     !    antidiffusive fluxes
@@ -1316,8 +1319,9 @@ END SUBROUTINE elad
         DO je = i_startidx, i_endidx
 #endif
           z_mflx_low(je,jk,jb) = &!v_base%wet_e(je,jk,jb)* &
-            &  laxfr_upflux( p_mass_flx_e(je,jk,jb), p_cc(iilc(je,jb,1),jk,iibc(je,jb,1)), &
-            &                                        p_cc(iilc(je,jb,2),jk,iibc(je,jb,2)) )
+            & laxfr_upflux( p_mass_flx_e(je,jk,jb), &
+            & p_cc(cell_of_edge_idx(je,jb,1),jk,cell_of_edge_blk(je,jb,1)), &
+            & p_cc(cell_of_edge_idx(je,jb,2),jk,cell_of_edge_blk(je,jb,2)) )
 
           ! calculate antidiffusive flux for each edge
           z_anti(je,jk,jb)     = (p_mflx_tracer_h(je,jk,jb) - z_mflx_low(je,jk,jb))!&
@@ -1350,39 +1354,42 @@ END SUBROUTINE elad
            IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
 !           z_mflx_anti(jc,jk,jb,1) =                                                  &
 !             &     dtime * p_int_state(1)%geofac_div(jc,1,jb) / p_thick_new(jc,jk,jb)  &
-!             &   * z_anti(iidx(jc,jb,1),jk,iblk(jc,jb,1))
+!             &   * z_anti(edge_of_cell_idx(jc,jb,1),jk,edge_of_cell_blk(jc,jb,1))
 ! 
 !           z_mflx_anti(jc,jk,jb,2) =                                                  &
 !             &     dtime *  p_int_state(1)%geofac_div(jc,2,jb) / p_thick_new(jc,jk,jb)  &
-!             &   * z_anti(iidx(jc,jb,2),jk,iblk(jc,jb,2))
+!             &   * z_anti(edge_of_cell_idx(jc,jb,2),jk,edge_of_cell_blk(jc,jb,2))
 ! 
 !           z_mflx_anti(jc,jk,jb,3) =                                                  &
 !             &     dtime * p_int_state(1)%geofac_div(jc,3,jb) / p_thick_new(jc,jk,jb)  &
-!             &   * z_anti(iidx(jc,jb,3),jk,iblk(jc,jb,3))
+!             &   * z_anti(edge_of_cell_idx(jc,jb,3),jk,edge_of_cell_blk(jc,jb,3))
 ! 
 !           !  compute also divergence of low order fluxes
 !           z_fluxdiv_c(jc,jk,jb) =  &
-!             & z_mflx_low(iidx(jc,jb,1),jk,iblk(jc,jb,1)) * p_int_state(1)%geofac_div(jc,1,jb) + &
-!             & z_mflx_low(iidx(jc,jb,2),jk,iblk(jc,jb,2)) * p_int_state(1)%geofac_div(jc,2,jb) + &
-!             & z_mflx_low(iidx(jc,jb,3),jk,iblk(jc,jb,3)) * p_int_state(1)%geofac_div(jc,3,jb)
+!             & z_mflx_low(edge_of_cell_idx(jc,jb,1),jk,edge_of_cell_blk(jc,jb,1)) * p_int_state(1)%geofac_div(jc,1,jb) + &
+!             & z_mflx_low(edge_of_cell_idx(jc,jb,2),jk,edge_of_cell_blk(jc,jb,2)) * p_int_state(1)%geofac_div(jc,2,jb) + &
+!             & z_mflx_low(edge_of_cell_idx(jc,jb,3),jk,edge_of_cell_blk(jc,jb,3)) * p_int_state(1)%geofac_div(jc,3,jb)
 !           ENDIF
           z_mflx_anti(jc,jk,jb,1) =                                                  &
             &     dtime * p_op_coeff%div_coeff(jc,jk,jb,1) / p_thick_new(jc,jk,jb)  &
-            &   * z_anti(iidx(jc,jb,1),jk,iblk(jc,jb,1))
+            &   * z_anti(edge_of_cell_idx(jc,jb,1),jk,edge_of_cell_blk(jc,jb,1))
 
           z_mflx_anti(jc,jk,jb,2) =                                                  &
             &     dtime *  p_op_coeff%div_coeff(jc,jk,jb,2) / p_thick_new(jc,jk,jb)  &
-            &   * z_anti(iidx(jc,jb,2),jk,iblk(jc,jb,2))
+            &   * z_anti(edge_of_cell_idx(jc,jb,2),jk,edge_of_cell_blk(jc,jb,2))
 
           z_mflx_anti(jc,jk,jb,3) =                                                  &
             &     dtime * p_op_coeff%div_coeff(jc,jk,jb,3) / p_thick_new(jc,jk,jb)  &
-            &   * z_anti(iidx(jc,jb,3),jk,iblk(jc,jb,3))
+            &   * z_anti(edge_of_cell_idx(jc,jb,3),jk,edge_of_cell_blk(jc,jb,3))
 
           !  compute also divergence of low order fluxes
           z_fluxdiv_c(jc,jk,jb) =  &
-            & z_mflx_low(iidx(jc,jb,1),jk,iblk(jc,jb,1)) * p_op_coeff%div_coeff(jc,jk,jb,1) + &
-            & z_mflx_low(iidx(jc,jb,2),jk,iblk(jc,jb,2)) * p_op_coeff%div_coeff(jc,jk,jb,2) + &
-            & z_mflx_low(iidx(jc,jb,3),jk,iblk(jc,jb,3)) * p_op_coeff%div_coeff(jc,jk,jb,3)
+            & z_mflx_low(edge_of_cell_idx(jc,jb,1),jk,edge_of_cell_blk(jc,jb,1)) * &
+            & p_op_coeff%div_coeff(jc,jk,jb,1) + &
+            & z_mflx_low(edge_of_cell_idx(jc,jb,2),jk,edge_of_cell_blk(jc,jb,2)) * &
+            & p_op_coeff%div_coeff(jc,jk,jb,2) + &
+            & z_mflx_low(edge_of_cell_idx(jc,jb,3),jk,edge_of_cell_blk(jc,jb,3)) * &
+            & p_op_coeff%div_coeff(jc,jk,jb,3)
          ENDIF
         ENDDO
       ENDDO
@@ -1431,15 +1438,15 @@ END SUBROUTINE elad
           ! max value of cell and its neighbors
           ! also look back to previous time step
           z_max(jc,jk) = MAX( z_tracer_max(jc,jk,jb),                          &
-            &                 z_tracer_max(iilnc(jc,jb,1),jk,iibnc(jc,jb,1)),  &
-            &                 z_tracer_max(iilnc(jc,jb,2),jk,iibnc(jc,jb,2)),  &
-            &                 z_tracer_max(iilnc(jc,jb,3),jk,iibnc(jc,jb,3)) )
+            & z_tracer_max(neighbor_cell_idx(jc,jb,1),jk,neighbor_cell_blk(jc,jb,1)),  &
+            & z_tracer_max(neighbor_cell_idx(jc,jb,2),jk,neighbor_cell_blk(jc,jb,2)),  &
+            & z_tracer_max(neighbor_cell_idx(jc,jb,3),jk,neighbor_cell_blk(jc,jb,3)) )
           ! min value of cell and its neighbors
           ! also look back to previous time step
           z_min(jc,jk) = MIN( z_tracer_min(jc,jk,jb),                          &
-            &                 z_tracer_min(iilnc(jc,jb,1),jk,iibnc(jc,jb,1)),  &
-            &                 z_tracer_min(iilnc(jc,jb,2),jk,iibnc(jc,jb,2)),  &
-            &                 z_tracer_min(iilnc(jc,jb,3),jk,iibnc(jc,jb,3)) )
+            & z_tracer_min(neighbor_cell_idx(jc,jb,1),jk,neighbor_cell_blk(jc,jb,1)),  &
+            & z_tracer_min(neighbor_cell_idx(jc,jb,2),jk,neighbor_cell_blk(jc,jb,2)),  &
+            & z_tracer_min(neighbor_cell_idx(jc,jb,3),jk,neighbor_cell_blk(jc,jb,3)) )
           ENDIF 
         ENDDO
       ENDDO
@@ -1495,11 +1502,11 @@ END SUBROUTINE elad
           ! This does the same as an IF (z_signum > 0) THEN ... ELSE ... ENDIF,
           ! but is computationally more efficient
           r_frac = 0.5_wp*( (1._wp+z_signum)*                &
-             &     MIN(r_m(iilc(je,jb,1),jk,iibc(je,jb,1)),  &
-             &         r_p(iilc(je,jb,2),jk,iibc(je,jb,2)))  &
+             &     MIN(r_m(cell_of_edge_idx(je,jb,1),jk,cell_of_edge_blk(je,jb,1)),  &
+             &         r_p(cell_of_edge_idx(je,jb,2),jk,cell_of_edge_blk(je,jb,2)))  &
              &     +  (1._wp-z_signum)*                      &
-             &     MIN(r_m(iilc(je,jb,2),jk,iibc(je,jb,2)),  &
-             &         r_p(iilc(je,jb,1),jk,iibc(je,jb,1)))  )
+             &     MIN(r_m(cell_of_edge_idx(je,jb,2),jk,cell_of_edge_blk(je,jb,2)),  &
+             &         r_p(cell_of_edge_idx(je,jb,1),jk,cell_of_edge_blk(je,jb,1)))  )
 
           ! Limited flux
 ! IF(p_mflx_tracer_h(je,jk,jb)/=0.0_wp)THEN

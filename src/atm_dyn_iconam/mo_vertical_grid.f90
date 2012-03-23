@@ -107,7 +107,7 @@ MODULE mo_vertical_grid
     TYPE(t_patch), TARGET, INTENT(INOUT) :: p_patch(n_dom)  !< patch
     TYPE(t_nh_state),      INTENT(INOUT) :: p_nh(n_dom)
     TYPE(t_int_state),     INTENT(   IN) :: p_int(n_dom)
-    TYPE(t_external_data), INTENT(   IN) :: ext_data(n_dom)
+    TYPE(t_external_data), INTENT(INOUT) :: ext_data(n_dom)
 
     INTEGER :: jg, jk, jk1, jk_start, jb, jc, je, jv, jn, jgc, nlen, &
                nblks_c, npromz_c, nblks_e, npromz_e, nblks_v, npromz_v, ic, jkmax
