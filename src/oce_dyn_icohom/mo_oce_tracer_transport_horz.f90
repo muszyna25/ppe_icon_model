@@ -1279,9 +1279,9 @@ END SUBROUTINE elad
     END IF
 
     ! these should not be synced here
-    CALL sync_patch_array(SYNC_C, ptr_patch, p_cc)
-    CALL sync_patch_array(SYNC_E, ptr_patch, p_mass_flx_e)
-    CALL sync_patch_array(SYNC_E, ptr_patch, p_mflx_tracer_h)
+!     CALL sync_patch_array(SYNC_C, ptr_patch, p_cc)
+!     CALL sync_patch_array(SYNC_E, ptr_patch, p_mass_flx_e)
+!     CALL sync_patch_array(SYNC_E, ptr_patch, p_mflx_tracer_h)
 
     ! Set pointers to index-arrays
     ! line and block indices of two neighboring cells
