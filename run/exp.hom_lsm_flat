@@ -169,7 +169,7 @@ cat > ${ocean_namelist} << EOF
   n_zlev             =   10      ! number of vertical levels and (dzlev_m) thicknesses
   dzlev_m(1:20)      =  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,
                        1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
-  expl_vertical_velocity_diff = 0  ! 0=explicit - for consistency to older buildbots
+  expl_vertical_velocity_diff = 1  ! 0=explicit - for consistency to older buildbots
 /
 &ocean_physics_nml
   i_sea_ice          =    1      ! 0 = no sea ice; 1 = sea ice switched on
