@@ -1110,10 +1110,10 @@ CONTAINS
 !!$
     SELECT CASE (irad_aero)
     CASE (0,2)
-      write(0,*) "kbdim,klev,jpband:",kbdim,klev,jpband
-      CALL work_mpi_barrier()
-      write(0,*) "shape(aer_tau_lw_vr):",shape(aer_tau_lw_vr)
-      CALL work_mpi_barrier()
+!       write(0,*) "kbdim,klev,jpband:",kbdim,klev,jpband
+!       CALL work_mpi_barrier()
+!       write(0,*) "shape(aer_tau_lw_vr):",shape(aer_tau_lw_vr)
+!       CALL work_mpi_barrier()
  
       aer_tau_lw_vr(:,:,:) = 0.0_wp
       aer_tau_sw_vr(:,:,:) = 0.0_wp
