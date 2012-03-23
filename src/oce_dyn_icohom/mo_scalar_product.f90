@@ -170,7 +170,7 @@ CONTAINS
     !CALL map_edges2cell_with_height_3D( p_patch, vn_e_old, z_pv_cc,h_e,p_op_coeff)
     ! CALL map_edges2cell( p_patch, vn_e_old, p_diag%p_vn, h_e )
     
-    CALL map_edges2cell( p_patch, vn_e_old, p_diag%p_vn)
+    CALL map_edges2cell( p_patch, vn_e_old, p_diag%p_vn, subset_range=all_cells)
     
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
