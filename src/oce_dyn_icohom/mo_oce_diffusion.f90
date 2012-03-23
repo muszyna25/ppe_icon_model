@@ -315,12 +315,13 @@ SUBROUTINE velocity_diffusion_vert_mimetic( p_patch, p_diag, p_aux,h_c,p_param, 
   INTEGER                       :: jc, jk, jb, z_dolic
   INTEGER                       :: i_startidx, i_endidx
   TYPE(t_cartesian_coordinates) :: z_u(nproma,n_zlev+1,p_patch%nblks_c)!,  &
-  TYPE(t_subset_range), POINTER :: all_cells
+  TYPE(t_subset_range), POINTER :: all_cells, cells_in_domain
   !  &                              z_adv_u_m(nproma,n_zlev,p_patch%nblks_c)
   ! CHARACTER(len=max_char_length), PARAMETER :: &
   !        & routine = ('mo_oce_diffusion:veloc diffusion vert mimetic')
   !-----------------------------------------------------------------------
-  all_cells => p_patch%cells%all
+!  all_cells => p_patch%cells%all
+  cells_in_domain => p_patch%cells%in_domain
 
   z_u(nproma,n_zlev+1,p_patch%nblks_c)%x = 0.0_wp
   slev       = 1
@@ -329,8 +330,8 @@ SUBROUTINE velocity_diffusion_vert_mimetic( p_patch, p_diag, p_aux,h_c,p_param, 
   !1 Vertical derivative of cell velocity vector times horizontal velocity
   ! loop runs now from slev to z_dolic:
   !DO jk = slev, elev
-  DO jb = all_cells%start_block, all_cells%end_block
-    CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
+  DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+    CALL get_index_range(cells_in_domain, jb, i_startidx, i_endidx)
     DO jc = i_startidx, i_endidx
 
       z_dolic = v_base%dolic_c(jc,jb)
@@ -374,6 +375,9 @@ SUBROUTINE velocity_diffusion_vert_mimetic( p_patch, p_diag, p_aux,h_c,p_param, 
     END DO
   !END DO
 
+  CALL sync_patch_array(SYNC_C, p_patch, z_u(:,:,:)%x(1))
+  CALL sync_patch_array(SYNC_C, p_patch, z_u(:,:,:)%x(2))
+  CALL sync_patch_array(SYNC_C, p_patch, z_u(:,:,:)%x(3))  
   ! Step 2: Map result of previous calculations from cell centers to edges (for all vertical layers)  
   CALL map_cell2edges( p_patch, z_u, laplacian_vn_out)
   CALL sync_patch_array(SYNC_E, p_patch, laplacian_vn_out)
