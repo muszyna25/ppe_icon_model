@@ -199,13 +199,14 @@ CONTAINS
         IF (nsfc_subs == 1) THEN 
           i_count_lnd = ext_data%atm%gp_count_t(jb,1)
 
-          IF (i_count_lnd == 0) CYCLE ! skip loop if the index list for the given tile is empty
+          IF (i_count_lnd > 0) THEN ! skip loop if the index list for the given tile is empty
 
 !CDIR NODEP,VOVERTAKE,VOB
-          DO ic = 1, i_count_lnd
-            jc = ext_data%atm%idx_lst_t(ic,jb,1)
-            prm_diag%albvisdif(jc,jb) = prm_diag%albvisdif_t(jc,jb,1)
-          ENDDO
+            DO ic = 1, i_count_lnd
+              jc = ext_data%atm%idx_lst_t(ic,jb,1)
+              prm_diag%albvisdif(jc,jb) = prm_diag%albvisdif_t(jc,jb,1)
+            ENDDO
+          ENDIF  ! i_count_lnd > 0
         ELSE ! aggregate fields over tiles
           prm_diag%albvisdif(i_startidx:i_endidx,jb)  =  0._wp
           DO isubs = 1,nsfc_subs
