@@ -723,7 +723,7 @@ CONTAINS
     REAL(wp),             POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
-    TYPE(t_list_element), POINTER, INTENT(INOUT), OPTIONAL  :: new_element ! pointer to new var list element
+    TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -838,7 +838,7 @@ CONTAINS
     REAL(wp),             POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp   ! vertical interpolation metadata
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
-    TYPE(t_list_element), POINTER, INTENT(INOUT), OPTIONAL  :: new_element ! pointer to new var list element
+    TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -954,7 +954,7 @@ CONTAINS
     REAL(wp),             POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
-    TYPE(t_list_element), POINTER, INTENT(INOUT), OPTIONAL  :: new_element ! pointer to new var list element
+    TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -1070,7 +1070,7 @@ CONTAINS
     REAL(wp),             POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
-    TYPE(t_list_element), POINTER, INTENT(INOUT), OPTIONAL  :: new_element ! pointer to new var list element
+    TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -1186,7 +1186,7 @@ CONTAINS
     REAL(wp),             POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
-    TYPE(t_list_element), POINTER, INTENT(INOUT), OPTIONAL  :: new_element ! pointer to new var list element
+    TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -1301,7 +1301,7 @@ CONTAINS
     INTEGER,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
-    TYPE(t_list_element), POINTER, INTENT(INOUT), OPTIONAL  :: new_element ! pointer to new var list element
+    TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -1414,7 +1414,7 @@ CONTAINS
     INTEGER,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
-    TYPE(t_list_element), POINTER, INTENT(INOUT), OPTIONAL  :: new_element ! pointer to new var list element
+    TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -1527,7 +1527,7 @@ CONTAINS
     INTEGER,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
-    TYPE(t_list_element), POINTER, INTENT(INOUT), OPTIONAL  :: new_element ! pointer to new var list element
+    TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -1640,7 +1640,7 @@ CONTAINS
     INTEGER,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
-    TYPE(t_list_element), POINTER, INTENT(INOUT), OPTIONAL  :: new_element ! pointer to new var list element
+    TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -1753,7 +1753,7 @@ CONTAINS
     INTEGER,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
-    TYPE(t_list_element), POINTER, INTENT(INOUT), OPTIONAL  :: new_element ! pointer to new var list element
+    TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -1868,7 +1868,7 @@ CONTAINS
     LOGICAL,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
-    TYPE(t_list_element), POINTER, INTENT(INOUT), OPTIONAL  :: new_element ! pointer to new var list element
+    TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -1981,7 +1981,7 @@ CONTAINS
     LOGICAL,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
-    TYPE(t_list_element), POINTER, INTENT(INOUT), OPTIONAL  :: new_element ! pointer to new var list element
+    TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -2094,7 +2094,7 @@ CONTAINS
     LOGICAL,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
-    TYPE(t_list_element), POINTER, INTENT(INOUT), OPTIONAL  :: new_element ! pointer to new var list element
+    TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -2207,7 +2207,7 @@ CONTAINS
     LOGICAL,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
-    TYPE(t_list_element), POINTER, INTENT(INOUT), OPTIONAL  :: new_element ! pointer to new var list element
+    TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -2320,7 +2320,7 @@ CONTAINS
     LOGICAL,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
-    TYPE(t_list_element), POINTER, INTENT(INOUT), OPTIONAL  :: new_element ! pointer to new var list element
+    TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
@@ -2688,7 +2688,7 @@ CONTAINS
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
     LOGICAL,              INTENT(in), OPTIONAL :: verbose
-    TYPE(t_list_element), POINTER, INTENT(INOUT), OPTIONAL  :: new_element ! pointer to new var list element
+    TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
     REAL(wp), POINTER :: target_ptr3d(:,:,:)
     REAL(wp), POINTER :: target_ptr4d(:,:,:,:)
@@ -2819,7 +2819,7 @@ CONTAINS
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
     LOGICAL,              INTENT(in), OPTIONAL :: verbose
-    TYPE(t_list_element), POINTER, INTENT(INOUT), OPTIONAL  :: new_element ! pointer to new var list element
+    TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
     REAL(wp), POINTER :: target_ptr2d(:,:)
     REAL(wp), POINTER :: target_ptr3d(:,:,:)

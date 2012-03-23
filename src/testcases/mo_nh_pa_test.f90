@@ -422,6 +422,7 @@ CONTAINS
 !--------------------------------------------------------------------
 !
 
+!     write(0,*) "set_nh_w_rho: k_step=", k_step
     nblks_c  = ptr_patch%nblks_int_c
     npromz_c = ptr_patch%npromz_int_c
 
