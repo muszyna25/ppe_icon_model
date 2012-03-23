@@ -1,3 +1,4 @@
+#!/bin/ksh
 #=============================================================================
 #
 # This section of the run script containes the specifications of the ocean experiment.
@@ -18,26 +19,26 @@
 #-----------------------------------------------------------------------------
 
 #  exit all buildbot slaves that run in parallel mode:
-if [ -z "$BB_SYSTEM" ]
-then
-  echo " ===== (no buildbot) ======="
-  echo " Run ocean testcase $EXPNAME"
-  echo " ==========================="
-else
-  echo " ================================================="
-  echo " Run ocean testcase $EXPNAME on BB_SLAVE=$BB_SLAVE"
-  echo " ================================================="
-  if [ $mpi_total_procs -gt 1 ] ; then
-     echo "The ocean test runs will not run in parallel MPI mode. Exiting."
-     check_error 0
-     exit
-  fi
-  if [ $OMP_NUM_THREADS -gt 1 ] ; then
-     echo "The ocean test runs will not run in OpenMP mode. Exiting."
-     check_error 0
-     exit
-  fi
-fi
+# if [ -z "$BB_SYSTEM" ]
+# then
+#   echo " ===== (no buildbot) ======="
+#   echo " Run ocean testcase $EXPNAME"
+#   echo " ==========================="
+# else
+#   echo " ================================================="
+#   echo " Run ocean testcase $EXPNAME on BB_SLAVE=$BB_SLAVE"
+#   echo " ================================================="
+#   if [ $mpi_total_procs -gt 1 ] ; then
+#      echo "The ocean test runs will not run in parallel MPI mode. Exiting."
+#      check_error 0
+#      exit
+#   fi
+#   if [ $OMP_NUM_THREADS -gt 1 ] ; then
+#      echo "The ocean test runs will not run in OpenMP mode. Exiting."
+#      check_error 0
+#      exit
+#   fi
+# fi
 #
 #-----------------------------------------------------------------------------
 #
@@ -150,9 +151,9 @@ cat > ${ocean_namelist} << EOF
 !
 &parallel_nml
  nproma         = ${nproma}
- p_test_run     = .false.
+ p_test_run     = .true.
  l_test_openmp  = .false.
- l_log_checks   = .false.
+ l_log_checks   = .true.
 /
 &grid_nml
  cell_type = 3            ! triangular cells
