@@ -775,7 +775,7 @@ CONTAINS
     REAL(wp), INTENT(IN) :: p_w(:,:,:)    !< contravariant vertical velocity
     REAL(wp), INTENT(IN) :: p_dtime  !< time step
     REAL(wp), INTENT(IN) :: p_cellhgt_mc_now(:,:,:)    !< layer thickness at cell center at time n
-    REAL(wp), INTENT(OUT):: p_upflux(:,:,:)    !< output field, containing the tracer mass flux or the reconstructed edge value
+    REAL(wp), INTENT(INOUT):: p_upflux(:,:,:)    !< output field, containing the tracer mass flux or the reconstructed edge value
     INTEGER, INTENT(IN)  :: p_itype_vlimit  !< parameter to select the limiter for vertical transport
 !
 !local variables
