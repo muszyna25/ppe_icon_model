@@ -257,7 +257,7 @@ z_diff_flux_h = 0.0_wp
               ilc2 = p_patch%edges%cell_idx(je,jb,2)
               ibc2 = p_patch%edges%cell_blk(je,jb,2)
 
-             delta_z=v_base%del_zlev_m(jk) + p_os%p_diag%h_e(je,jk)!&
+             delta_z=v_base%del_zlev_m(jk) + p_os%p_diag%h_e(je,jb)!&
              !&+min(p_os%p_prog(nold(1))%h(ilc1,ibc1),p_os%p_prog(nold(1))%h(ilc2,ibc2))
              !delta_z=v_base%del_zlev_m(jk)+h_e(je,jb)
           ENDIF
@@ -334,7 +334,7 @@ z_diff_flux_h = 0.0_wp
      IF (ltimer) CALL timer_stop(timer_hflx_lim)
   ENDIF
   
-
+  
   !CALL div_oce( z_adv_flux_h, p_patch, z_div_adv_h)
   CALL div_oce_3D( z_adv_flux_h, p_patch,p_op_coeff%div_coeff, z_div_adv_h,&
     & subset_range=cells_in_domain)
