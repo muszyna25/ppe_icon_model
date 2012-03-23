@@ -266,7 +266,7 @@ if [ $make_exp = "true" ] ; then
   tmp_file=$input_folder/$restart_script
 cat > $tmp_file << EOF
 restart_from_folder="$name"
-restart_ocean_from="restart.iconR2B04-ocean_etopo40_planet_20000101T120000Z_oce.nc"
+restart_ocean_from="restart.iconR2B04-ocean_etopo40_planet_20010101T120000Z_oce.nc"
 EXPNAME=${name}_restart
 EOF
 
