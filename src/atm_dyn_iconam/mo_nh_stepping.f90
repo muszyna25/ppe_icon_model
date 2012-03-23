@@ -520,7 +520,8 @@ MODULE mo_nh_stepping
     ! interpolate selected fields to p- and/or z-levels
     simulation_status = new_simulation_status(l_output_step=l_outputtime, &
       &                                       l_last_step=(jstep==nsteps))
-    CALL pp_scheduler_process(simulation_status)
+    IF (.NOT. ltestcase) &
+      & CALL pp_scheduler_process(simulation_status)
 
 
     ! output of results

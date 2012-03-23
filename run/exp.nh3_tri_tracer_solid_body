@@ -104,6 +104,7 @@ cat > ${atmo_namelist} << EOF
  itime_scheme     = 1           ! 1=pure advection (no dynamics)
  iadv_rhotheta = 2
  igradp_method = 2  !new default
+ iadv_rcf      = 1
 /
 &transport_nml
   ctracer_list = '4'            ! list of tracer names

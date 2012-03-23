@@ -312,10 +312,11 @@ CONTAINS
 
     ! setup of post-processing job queue, e.g. setup of optional
     ! diagnostic quantities like pz-level interpolation
-    CALL pp_scheduler_init(p_patch(1:), p_nh_state, prm_diag, p_nh_opt_diag, &
-      &                    nh_pzlev_config(:), first_output_name_list,   & 
-      &                    var_lists, nvar_lists )     
-
+    IF (.NOT. ltestcase) THEN
+      CALL pp_scheduler_init(p_patch(1:), p_nh_state, prm_diag, p_nh_opt_diag, &
+        &                    nh_pzlev_config(:), first_output_name_list,   & 
+        &                    var_lists, nvar_lists )     
+    ENDIF
     ! If async IO is in effect, init_name_list_output is a collective call
     ! with the IO procs and effectively starts async IO
     CALL init_name_list_output
@@ -360,14 +361,16 @@ CONTAINS
       ! loop over the list of internal post-processing tasks, e.g.
       ! interpolate selected fields to p- and/or z-levels
       simulation_status = new_simulation_status(l_first_step =.TRUE., l_output_step=.TRUE.)
-      CALL pp_scheduler_process(simulation_status)
+      IF (.NOT. ltestcase) &
+        CALL pp_scheduler_process(simulation_status)
 
       ! Note: here the derived output variables are not yet available
       ! (divergence, vorticity)
       !
       CALL write_output( time_config%cur_datetime )
       l_have_output = .TRUE.
-      CALL write_name_list_output( time_config%cur_datetime, 0._wp, .FALSE. )
+      IF (.NOT. ltestcase) &
+        CALL write_name_list_output( time_config%cur_datetime, 0._wp, .FALSE. )
 
     END IF ! not is_restart_run()
 
