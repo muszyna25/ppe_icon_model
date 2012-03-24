@@ -649,8 +649,8 @@ CONTAINS
     &                            nh_pzlev_config, p_metrics, vcoeff_z, vcoeff_p)
 
     TYPE(t_patch),       TARGET,       INTENT(IN)    :: p_patch
-    TYPE(t_nh_prog),     POINTER,      INTENT(IN)    :: p_prog
-    TYPE(t_nh_diag),     POINTER,      INTENT(IN)    :: p_diag
+    TYPE(t_nh_prog),     POINTER                     :: p_prog
+    TYPE(t_nh_diag),     POINTER                     :: p_diag
     TYPE(t_nwp_phy_diag),              INTENT(INOUT) :: prm_diag
     INTEGER,                           INTENT(IN)    :: nzlev     !< number of output levels (height)
     INTEGER,                           INTENT(IN)    :: nplev     !< number of output levels (pres)

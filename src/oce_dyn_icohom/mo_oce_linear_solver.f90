@@ -150,7 +150,7 @@ INTERFACE   ! left-hand-side: A*x
     USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
     REAL(wp),    INTENT(inout) :: x(:,:)  ! inout for sync
     REAL(wp), INTENT(IN) :: old_h(:,:)
-    TYPE(t_patch), INTENT(in) :: curr_patch
+    TYPE(t_patch), TARGET, INTENT(in) :: curr_patch
     REAL(wp),    INTENT(in) :: coeff  
     REAL(wp),    INTENT(in) :: h_e(:,:)
     REAL(wp),    INTENT(in) :: thickness_c(:,:)
@@ -550,7 +550,7 @@ INTERFACE   ! left-hand-side: A*x
   FUNCTION lhs(x, curr_patch, lev,coeff, h_e) RESULT(ax)
     USE mo_kind, ONLY: wp
     USE mo_model_domain, ONLY: t_patch
-    TYPE(t_patch),INTENT(in):: curr_patch
+    TYPE(t_patch),TARGET, INTENT(in):: curr_patch
     REAL(wp),    INTENT(inout) :: x(:,:)!(nproma,curr_patch%nblks_e)
     INTEGER,     INTENT(IN) :: lev
     REAL(wp),    INTENT(in) :: coeff
