@@ -288,7 +288,7 @@ init_oce=0     # 1: use ocean initialization file; 0: init with constants or ana
 # ocean forcing = 14 is for coupling with the atmosphere
 #
 iforc_oce=14
-iforc_omip=1   # type of OMIP forcing to read: 1 = u/v-stress;     2 = full 12 OMIP datasets
+iforc_type=1   # type of OMIP forcing to read: 1 = u/v-stress;     2 = full 12 OMIP datasets
 iforc_len=365  # length of forcing dataset:   12 = monthly data; 365 = daily data
 #
 # flux files are named $HGRIDDIR/omip4icon-R${R}B0{B}-monmean.nc
@@ -315,8 +315,6 @@ dt_file=`expr ${ndays} \* 86400 ` # 1 file per job
 #-----------------------------------------------------------------------------
 # model parameters
 ocean_model_equations=-1 # equation system
-#                     -1=shallow water model
-#                     -2=hydrost. ocean
 #
 #-----------------------------------------------------------------------------
 #
@@ -407,92 +405,41 @@ cat > ${ocean_namelist} << EOF
  l_log_checks   = .false.
 /
 &grid_nml
- cell_type = 3            ! triangular cells
  dynamics_grid_filename = "${ocean_grids}",
 /
 &run_nml
  nsteps      = ${nsteps}    ! number of steps length of run
  dtime       = ${dtime}     ! [s] timestep in seconds
- msg_level   = 10           ! detailed report during integration
  ltimer      = .true. 
 /
 &dynamics_nml
  iequations  = ${ocean_model_equations}       ! 1: hydrost. atmosphere
-/
-&extpar_nml
- itopo       = 0                 ! read external ocean data from gridfile
 /
 &octst_nml
   i_dbg_oce=1                    ! initialize MIN/MAX  debug output via mo_index_oce
   i_dbg_inx=1                    ! initialize one cell debug output via mo_index_oce
   str_proc_tst = 'all' 'abt', 'vel', 'dif', 'trc', 'bul', '   ', '   ', '   ', '   '
                                  ! define strings for processes to be printed out in debug mode
-  rlat_in = 30.0 rlon_in =   0.0 ! lat/lon-location of one cell debug output
-
-  h_val=1.0 t_val=1.0            ! initial values for elevation and temperature at one cell
 /
 &ocean_dynamics_nml
   n_zlev             =   15      ! number of vertical levels and (dzlev_m) thicknesses
-! 10 unevenly spaced levels beginning with 50m depth
-! dzlev_m(1:20)      =   50.0,  100.0,  200.0,  300.0,  450.0,  600.0,  800.0, 1000.0, 1000.0, 1000.0,
-!                      1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
-! 15 unevenly spaced levels beginning with 50m depth
-  n_zlev             =   15      ! number of vertical levels and (dzlev_m) thicknesses
   dzlev_m(1:20)      =   50.0,  100.0,  200.0,  300.0,  350.0,  400.0,  400.0,  400.0,  400.0,  400.0,
                         500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0
-! dzlev_m(1:20)      =  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,
-!                      1000.0  1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
-  iswm_oce           =    0      ! switch for one layer shallow water model (iswm_oce=1) or 3-d
-  idisc_scheme       =    1      ! 1=mimetic discretization, 2=rbf discretization
-  l_inverse_flip_flop= .FALSE.   ! within mimetic discretization:
-                                 ! TRUE : full scalar product (slow)
-                                 ! FALSE: reduced scalarproduct variant (fast and default)
-  l_rigid_lid        = .FALSE.   ! TRUE : use rigid lid as upper boundary condition 
-                                 ! FALSE: use the free surface dynamics
   ab_beta            =    1.0    ! parameter for Adam-Bashforth time-stepping
   ab_gam             =    1.0    ! parameter for Adam-Bashforth time-stepping
   solver_tolerance   = 1.0E-6
-  i_bc_veloc_lateral =    0      ! Boundary condition for normal velocity for lateral walls
-  i_bc_veloc_top     =    1      ! Boundary condition for normal velocity for ocean top
-  i_bc_veloc_bot     =    1      ! Boundary condition for normal velocity for ocean bottom
-  basin_center_lat   =   30.0    ! lat-lon coordinate of basin center, used 
-  basin_center_lon   =    0.0    ! in (non-global) basin configuration such as the Stommel-type tests
-  basin_width_deg    =   60.0    ! basin extension in x-direction, units are degrees
-  basin_height_deg   =   60.0    ! basin extension in y-direction, units are degrees
-  coriolis_type      =    1      ! 0=zero Coriolis, the non-rotating case
-                                 ! 1=full varying Coriolis
-                                 ! 2=beta-plane (linear) approximation to Coriolis
-                                 ! 3=f-plane (constant) approximation to Coriolis
-                                 ! IMPORTANT: SOME TESTCASES REQUIRE SPECIFIC SETTINGS: 
-                                 !  for Stommel-type basin (2D- and 3D, testcase 27 and/or 30) select
-                                 !  f- or beta-plane.
-  expl_vertical_velocity_diff = 1  ! 0=explicit, 1 = implicit  
-  expl_vertical_tracer_diff   = 1  ! 0=explicit, 1 = implicit
 /
 &ocean_physics_nml
   i_sea_ice          =    1      ! 0 = no sea ice; 1 = sea ice switched on
   no_tracer          =    2      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
-  EOS_TYPE           =    2      ! 1=linear EOS
-                                 ! 2= (nonlinear) EOS from MPI-OM 
-                                 ! 3= not recommended: (nonlinear) Jacket-McDoudgall density-formulation
   k_veloc_h          = 1.0E+5    ! [m2/s] horizontal viscosity coefficient for velocity
   k_veloc_v          = 1.0E-2    ! [m/s]  vertical viscosity coefficient for velocity
-  MAX_VERT_DIFF_VELOC=    1.0    ! max diffusion coeff, used in impl.vert.velocity diffusion, if stabil. crit.is met
+  MAX_VERT_DIFF_VELOC= 1.0       ! max diffusion coeff, used in implicit vertical velocity diffusion
   k_pot_temp_h       = 5.0E+3    ! [m2/s] horizontal viscosity coefficient for temperature
   k_pot_temp_v       = 3.0E-5    ! [m/s]  vertical viscosity coefficient for temperature
   k_sal_h            = 5.0E+3    ! [m2/s] horizontal viscosity coefficient for salinity
   k_sal_v            = 3.0E-5    ! [m/s]  vertical viscosity coefficient for salinity
-  MAX_VERT_DIFF_TRAC = 3.0E-3    ! max diffusion coeff, used in impl.vert.tracer diffusion, if stability crit.is met
-  HORZ_VELOC_DIFF_TYPE =  1      ! 0=no horizontal diffusion
-                                 ! 1= constant Laplacian viscosity coefficient given in namelist (k_veloc_h)
-                                 ! 2= constant Laplacian viscosity coefficient determined by requirement to
-                                 !    have at least one gridpoint in boundary layer. The namelist value is overwritten.
-                                 ! 3= spatially variable Laplacian viscosity coefficient determined by requirement to
-                                 !    have at least one gridpoint in boundary layer. The namelist value is overwritten.
-  CWA                = 0.5E-3    ! Tuning parameters for vertical mixing of tracer and velocity
-  CWT                = 0.5E-3    ! Set to standard values
-  bottom_drag_coeff  =    0.0025 ! Chezy coefficient for bottom friction
-  wstress_coeff      =    0.3    ! wind stress coefficient for top boundary forcing
+  MAX_VERT_DIFF_TRAC = 3.0E-3    ! max diffusion coeff, used in implicit vertical tracer diffusion
 /
 &ocean_forcing_and_init_nml
   iforc_oce          = ${iforc_oce}   ! ocean forcing:
@@ -502,23 +449,11 @@ cat > ${ocean_namelist} << EOF
                                  ! FORCING_FROM_FILE_FIELD    = 13  - not yet
                                  ! FORCING_FROM_COUPLED_FLUX  = 14
                                  ! FORCING_FROM_COUPLED_FIELD = 15  - not yet
-  iforc_omip         = ${iforc_omip}  ! type of ocean forcing, see above
+  iforc_type         = ${iforc_type}  ! type of ocean forcing, see above
   iforc_len          = ${iforc_len}   ! length of ocean forcing data set, see above
-  iforc_stat_oce     =    3      ! stationary (wind) forcing for iforc_oce=11 only:
-                                 ! 1=locally varying u,v (testcase 27, 29)
-                                 ! 2=varying u with latitude for basin using basin_width_deg
-                                 ! 3=varying u with latitude globally
-  itestcase_oce      =   50      ! 25=shallow-water-Laeuter-Test; 26=shallow-water-Williamson test5;
-                                 ! 30=3D-multilayer Stommel; 31=3D-gravity wave
-                                 ! 32=Multilayer Munk-Gyre test (following Sergey Danilov)
-                                 ! 33=Collapsing density front, requires realistic lsm and topography
-                                 ! 34=Adjusting density front in an ocean basin
-                                 ! 40=global temperature initialization for wind and temperature forcing tests
-                                 ! 43=Collapsing density front at first level only with smaller amplitude (global)
-                                 ! 45=horizontally homogen temperature
-                                 ! 50=zonally homogen temperature for APE SST (Williamson)
+  itestcase_oce      =   50      ! 50=zonally homogen temperature for APE SST (Williamson)
   init_oce_prog      = ${init_oce}    ! read ocean initialization file, see above
-  idiag_oce          =    0      ! 0: no diagnostics; 1: write diagnostics to stderr
+  idiag_oce          =    0      !  0: no diagnostics; 1: write diagnostics to stderr
   temperature_relaxation= -1     !  0: no relaxation used
                                  !  1: relaxation switched on for reading (init_oce_relax=1) or some testcases only
                                  !  2: use SST read from OMIP/bulk forcing (iforc=12);
@@ -531,18 +466,14 @@ cat > ${ocean_namelist} << EOF
   relax_2d_mon_S     =    3.0    ! strength of 2-dim relaxation for salinity (months)
   irelax_3d_T        =    0      ! 3-dim relaxation of temperature (0: no relax) 1-2: not yet used
                                  ! 3: use initial T read with init_oce=1
-  relax_3d_mon_T     =    1.0    ! strength of 3-dim relaxation for temperature (months)
-  irelax_3d_S        =    0      ! 3-dim relaxation of salinity (0: no relax) 1-2: not yet used
-                                 ! 3: use initial S read with init_oce=1
-  relax_3d_mon_S     =    1.0    ! strength of 3-dim relaxation for salinity (months)
 /
 &io_nml
- out_expname = '${EXPNAME}_ocn'  ! file name base
- dt_data     = ${dt_data}        ! [s] write output
- dt_file     = ${dt_file}        ! [s] interval for generation of new output file (3600*24*365 -> 1y)
- dt_checkpoint=${dt_checkpoint}
- lwrite_initial   = .FALSE.      ! do/don't write out initial data
- lkeep_in_sync = .TRUE.          ! sync after each timestep
+  out_expname = '${EXPNAME}_ocn'  ! file name base
+  dt_data     = ${dt_data}        ! [s] write output
+  dt_file     = ${dt_file}        ! [s] interval for generation of new output file (3600*24*365 -> 1y)
+  dt_checkpoint=${dt_checkpoint}
+  lwrite_initial   = .FALSE.      ! do/don't write out initial data
+  lkeep_in_sync = .TRUE.          ! sync after each timestep
 /
 EOF
 #-----------------------------------------------------------------------------
