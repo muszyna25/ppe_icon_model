@@ -1489,82 +1489,84 @@ CONTAINS
         for_all_lists: DO i = 1, nvar_lists
           IF (var_lists(i)%p%model_type == model_type) THEN
             element => find_list_element(var_lists(i), TRIM(name))
-            IF (ASSOCIATED(element) .AND. element%field%info%lrestart) THEN
-              !
-              info => element%field%info
-              !
-              ! allocate temporary global array on output processor
-              ! and gather field from other processors
-              !
-              !
-              NULLIFY(r5d)
-              !
-              NULLIFY(rptr2d)
-              NULLIFY(rptr3d)
-              !
-              gridID = vlistInqVarGrid(vlistID, varID)
-              ic = gridInqSize(gridID)
-              zaxisID = vlistInqVarZaxis(vlistID, varID)
-              vgrid = zaxisInqType(zaxisID)
-              IF (vgrid == ZAXIS_SURFACE) THEN
-                il = 1
-              ELSE
-                il = zaxisInqSize(zaxisID)
-              ENDIF
-              !
-              gdims(:) = (/ ic, il, 1, 1, 1 /)
-              ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)),STAT=istat)
-              IF (istat /= 0) THEN
-                CALL finish('','allocation of r5d failed ...')
-              ENDIF
-              !
-              IF (my_process_is_stdio()) THEN
-                CALL streamReadVar(fileID, varID, r5d, nmiss)
-              END IF
-              !
-              IF (info%lcontained) THEN
-                nindex = info%ncontained
-              ELSE
-                nindex = 1  
-              ENDIF
-              !
-              SELECT CASE (info%hgrid)
-              CASE (GRID_UNSTRUCTURED_CELL)
-                IF (info%ndims == 2) THEN
-                  rptr2d => element%field%r_ptr(:,:,nindex,1,1) 
-                  CALL scatter_cells(r5d, rptr2d, p_patch=p_patch)
+            IF (ASSOCIATED(element)) THEN
+              IF (element%field%info%lrestart) THEN
+                !
+                info => element%field%info
+                !
+                ! allocate temporary global array on output processor
+                ! and gather field from other processors
+                !
+                !
+                NULLIFY(r5d)
+                !
+                NULLIFY(rptr2d)
+                NULLIFY(rptr3d)
+                !
+                gridID = vlistInqVarGrid(vlistID, varID)
+                ic = gridInqSize(gridID)
+                zaxisID = vlistInqVarZaxis(vlistID, varID)
+                vgrid = zaxisInqType(zaxisID)
+                IF (vgrid == ZAXIS_SURFACE) THEN
+                  il = 1
                 ELSE
-                  rptr3d => element%field%r_ptr(:,:,:,nindex,1) 
-                  CALL scatter_cells(r5d, rptr3d, p_patch=p_patch)
+                  il = zaxisInqSize(zaxisID)
                 ENDIF
-              CASE (GRID_UNSTRUCTURED_VERT)
-                IF (info%ndims == 2) THEN
-                  rptr2d => element%field%r_ptr(:,:,nindex,1,1) 
-                  CALL scatter_vertices(r5d, rptr2d, p_patch=p_patch)
+                !
+                gdims(:) = (/ ic, il, 1, 1, 1 /)
+                ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)),STAT=istat)
+                IF (istat /= 0) THEN
+                  CALL finish('','allocation of r5d failed ...')
+                ENDIF
+                !
+                IF (my_process_is_stdio()) THEN
+                  CALL streamReadVar(fileID, varID, r5d, nmiss)
+                END IF
+                !
+                IF (info%lcontained) THEN
+                  nindex = info%ncontained
                 ELSE
-                  rptr3d => element%field%r_ptr(:,:,:,nindex,1) 
-                  CALL scatter_vertices(r5d, rptr3d, p_patch=p_patch)
+                  nindex = 1  
                 ENDIF
-              CASE (GRID_UNSTRUCTURED_EDGE)
-                IF (info%ndims == 2) THEN
-                  rptr2d => element%field%r_ptr(:,:,nindex,1,1) 
-                  CALL scatter_edges(r5d, rptr2d, p_patch=p_patch)
-                ELSE
-                  rptr3d => element%field%r_ptr(:,:,:,nindex,1) 
-                  CALL scatter_edges(r5d, rptr3d, p_patch=p_patch)
+                !
+                SELECT CASE (info%hgrid)
+                CASE (GRID_UNSTRUCTURED_CELL)
+                  IF (info%ndims == 2) THEN
+                    rptr2d => element%field%r_ptr(:,:,nindex,1,1) 
+                    CALL scatter_cells(r5d, rptr2d, p_patch=p_patch)
+                  ELSE
+                    rptr3d => element%field%r_ptr(:,:,:,nindex,1) 
+                    CALL scatter_cells(r5d, rptr3d, p_patch=p_patch)
+                  ENDIF
+                CASE (GRID_UNSTRUCTURED_VERT)
+                  IF (info%ndims == 2) THEN
+                    rptr2d => element%field%r_ptr(:,:,nindex,1,1) 
+                    CALL scatter_vertices(r5d, rptr2d, p_patch=p_patch)
+                  ELSE
+                    rptr3d => element%field%r_ptr(:,:,:,nindex,1) 
+                    CALL scatter_vertices(r5d, rptr3d, p_patch=p_patch)
+                  ENDIF
+                CASE (GRID_UNSTRUCTURED_EDGE)
+                  IF (info%ndims == 2) THEN
+                    rptr2d => element%field%r_ptr(:,:,nindex,1,1) 
+                    CALL scatter_edges(r5d, rptr2d, p_patch=p_patch)
+                  ELSE
+                    rptr3d => element%field%r_ptr(:,:,:,nindex,1) 
+                    CALL scatter_edges(r5d, rptr3d, p_patch=p_patch)
+                  ENDIF
+                CASE default
+                  CALL finish('out_stream','unknown grid type')
+                END SELECT
+                !
+                ! deallocate temporary global arrays
+                !
+                IF (ASSOCIATED (r5d)) DEALLOCATE (r5d)
+                !
+                IF (my_process_is_stdio()) THEN
+                  write (0,*) ' ... read ',TRIM(element%field%info%name)
                 ENDIF
-              CASE default
-                CALL finish('out_stream','unknown grid type')
-              END SELECT
-              !
-              ! deallocate temporary global arrays
-              !
-              IF (ASSOCIATED (r5d)) DEALLOCATE (r5d)
-              !
-              IF (my_process_is_stdio()) THEN
-                write (0,*) ' ... read ',TRIM(element%field%info%name)
+                CYCLE for_all_vars
               ENDIF
-              CYCLE for_all_vars
             ENDIF
           ENDIF
         ENDDO for_all_lists
