@@ -236,7 +236,7 @@ CONTAINS
     TYPE(t_nwp_phy_diag),       TARGET,  INTENT(IN)    :: prm_diag(:)
     TYPE(t_nh_opt_diag),        TARGET,  INTENT(INOUT) :: p_nh_opt_diag(:)
     TYPE(t_nh_pzlev_config),    TARGET,  INTENT(IN)    :: nh_pzlev_config(0:max_dom)
-    TYPE (t_output_name_list),  POINTER, INTENT(INOUT) :: first_output_name_list
+    TYPE (t_output_name_list),  POINTER :: first_output_name_list
     TYPE(t_var_list),                    INTENT(IN)    :: var_lists(:)
     INTEGER,                             INTENT(IN)    :: nvar_lists
 
@@ -605,9 +605,9 @@ CONTAINS
   !> Register interpolation task: vertex -> cells
   !
   SUBROUTINE add_task_verts2cells(in_var, out_var, p_patch, p_int_state, job_priority)
-    TYPE (t_var_list_element), POINTER, INTENT(IN) :: in_var, out_var
-    TYPE(t_patch),             POINTER, INTENT(IN) :: p_patch
-    TYPE(t_int_state),         POINTER, INTENT(IN) :: p_int_state
+    TYPE (t_var_list_element), POINTER :: in_var, out_var
+    TYPE(t_patch),             POINTER :: p_patch
+    TYPE(t_int_state),         POINTER :: p_int_state
     INTEGER,                  OPTIONAL, INTENT(IN) :: job_priority
     ! local variables
     CHARACTER(*), PARAMETER :: routine = &
@@ -712,7 +712,7 @@ CONTAINS
   !  This is only a wrapper for the corresponding routines from the
   !  interpolation module.
   SUBROUTINE pp_task_lonlat(ptr_task)
-    TYPE(t_job_queue), POINTER, INTENT(IN) :: ptr_task
+    TYPE(t_job_queue), POINTER :: ptr_task
 
     ! DEVELOPMENT
 
@@ -725,7 +725,7 @@ CONTAINS
   !  This is only a wrapper for the corresponding routines from the
   !  interpolation module.
   SUBROUTINE pp_task_pzlev_setup(ptr_task)
-    TYPE(t_job_queue), POINTER, INTENT(IN) :: ptr_task
+    TYPE(t_job_queue), POINTER :: ptr_task
     ! local variables
     CHARACTER(*), PARAMETER :: routine = &
       &  TRIM("mo_pp_scheduler:pp_task_pzlev_setup")
@@ -796,7 +796,7 @@ CONTAINS
   !  This is only a wrapper for the corresponding routines from the
   !  interpolation module.
   SUBROUTINE pp_task_pzlev(ptr_task)
-    TYPE(t_job_queue), POINTER, INTENT(IN) :: ptr_task
+    TYPE(t_job_queue), POINTER :: ptr_task
     ! local variables
     CHARACTER(*), PARAMETER :: routine = &
       &  TRIM("mo_pp_scheduler:pp_task_pzlev")
@@ -942,7 +942,7 @@ CONTAINS
   !  This is only a wrapper for the corresponding routines from the
   !  interpolation module.
   SUBROUTINE pp_task_vertex2cell(ptr_task)
-    TYPE(t_job_queue), POINTER, INTENT(IN) :: ptr_task
+    TYPE(t_job_queue), POINTER :: ptr_task
     ! local variables
     CHARACTER(*), PARAMETER :: routine = &
       &  TRIM("mo_pp_scheduler:pp_task_vertex2cell")
@@ -984,7 +984,7 @@ CONTAINS
   !  This is only a wrapper for the corresponding routines from the
   !  interpolation module.
   SUBROUTINE pp_task_pz_lonlat(ptr_task)
-    TYPE(t_job_queue), POINTER, INTENT(IN) :: ptr_task
+    TYPE(t_job_queue), POINTER :: ptr_task
     ! local variables
     CHARACTER(*), PARAMETER :: routine = &
       &  TRIM("mo_pp_scheduler:pp_task_p_lonlat")
@@ -1000,7 +1000,7 @@ CONTAINS
   ! Tasks may be inactive, e.g. outside the output intervals.
   FUNCTION pp_task_is_active(ptr_task, simulation_status)
     LOGICAL :: pp_task_is_active
-    TYPE(t_job_queue), POINTER, INTENT(IN) :: ptr_task
+    TYPE(t_job_queue), POINTER :: ptr_task
     TYPE(t_simulation_status),  INTENT(IN) :: simulation_status
 
     ! compare simulation status to post-processing tasks activity
