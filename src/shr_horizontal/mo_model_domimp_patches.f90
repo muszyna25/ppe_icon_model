@@ -1505,6 +1505,8 @@ CONTAINS
       CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1)))
       ! 'phys_cell_id' seems not to be set for patch 0 and 1, it is always ig in this case
       IF(ig<=1) array_c_int(:,1) = ig
+      ! shift physical IDs for limited-area mode
+      IF (ig > 1 .AND. ishift_child_id > 0) array_c_int(:,1) = array_c_int(:,1) - ishift_child_id
       DO ip = 0, n_lp
         p_p => get_patch_ptr(ip)
         CALL divide_int( array_c_int(:,1), p_p%n_patch_cells, p_p%cells%glb_index,  &
@@ -1567,6 +1569,8 @@ CONTAINS
     CALL nf(nf_get_var_int(ncid, varid, array_e_int(:,1)))
     ! 'phys_edge_id' seems not to be set for patch 0 and 1, it is always ig in this case
     IF(ig<=1) array_e_int(:,1) = ig
+    ! shift physical IDs for limited-area mode
+    IF (ig > 1 .AND. ishift_child_id > 0) array_e_int(:,1) = array_e_int(:,1) - ishift_child_id
     DO ip = 0, n_lp
       p_p => get_patch_ptr(ip)
       CALL divide_int( array_e_int(:,1), p_p%n_patch_edges, p_p%edges%glb_index,  &
