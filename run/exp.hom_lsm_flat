@@ -19,10 +19,11 @@
 #-----------------------------------------------------------------------------
 #  exit all buildbot slaves that run in openmp mode:
 if [ -z "$BB_SYSTEM" ] ; then
-  if [ OMP_NUM_THREADS -gt 1 ] ;then
+  if [ $with_openmp = "yes" ] ; then
     echo " =========================================================================="
     echo " The ocean testcase $EXPNAME on BB_SLAVE=$BB_SLAVE will not run with OpenMP"
     echo " =========================================================================="
+    check_error 0
     exit
   fi
 if

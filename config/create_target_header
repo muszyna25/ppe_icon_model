@@ -95,6 +95,8 @@ site="$use_site"
 target="$use_target"
 compiler="$use_compiler"
 loadmodule="$use_load_modules"
+with_mpi="$use_mpi"
+with_openmp="$use_openmp"
 job_name="$job_name"
 submit="$use_submit"
 # ----------------------------
