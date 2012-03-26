@@ -2239,7 +2239,7 @@ CONTAINS
     !-----------------------------
     !
     ! Ocean basins:
-    !  1: Atlantic; 2: Indian; 3: Pacific Basin; 4: Southern Ocean (for global)
+    !  1: Atlantic; 2: Indian; 3: Pacific; 4: Southern Ocean (for global)
     !
     !-----------------------------
   

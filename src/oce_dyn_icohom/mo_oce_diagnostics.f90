@@ -521,7 +521,7 @@ SUBROUTINE calc_moc (p_patch, wo)
   INTEGER :: lbrei, lbr
 
   REAL(wp) :: z_lat, z_lat_deg, z_lat_dim
-  REAL(wp) :: global_moc(180,n_zlev)
+  REAL(wp) :: global_moc(180,n_zlev), atl_moc(180,n_zlev), pacind_moc(180,n_zlev)
 
   TYPE(t_subset_range), POINTER :: all_cells
   
@@ -554,6 +554,7 @@ SUBROUTINE calc_moc (p_patch, wo)
               & (REAL(2*jbrei, wp) * 111111._wp)
 
             ! distribute MOC over (2*jbrei)+1 latitude rows
+            !  - not yet parallelized
             DO lbr = -jbrei, jbrei
               lbrei = NINT(90.0_wp + z_lat_deg + REAL(lbr, wp) * z_lat_dim)
               lbrei=MAX(lbrei,1)
@@ -561,14 +562,26 @@ SUBROUTINE calc_moc (p_patch, wo)
         
               global_moc(lbrei,jk) = global_moc(lbrei,jk) - &
                 &                    p_patch%cells%area(jc,jb) * rho_ref * wo(jc,jk,jb) / &
-                                     REAL(2*jbrei + 1, wp)
+                &                    REAL(2*jbrei + 1, wp)
         
+           ! horizontal transports
            !  IF ( k == 1 ) THEN
            !    global_hfl(lbrei) = global_hfl(lbrei) &
            !         - area(i, j) * flum(i, j) / REAL(2*jbrei + 1, wp)
            !    global_wfl(lbrei) = global_wfl(lbrei) &
            !         - area(i, j) * pem(i, j) / REAL(2*jbrei + 1, wp)
            !  END IF
+
+              IF (v_base%basin_c(jc,jb) <2) THEN
+
+                atl_moc(lbrei,jk) =    atl_moc(lbrei,jk) - &
+                  &                    p_patch%cells%area(jc,jb) * rho_ref * wo(jc,jk,jb) / &
+                  &                    REAL(2*jbrei + 1, wp)
+              ELSE
+                pacind_moc(lbrei,jk) = pacind_moc(lbrei,jk) - &
+                  &                    p_patch%cells%area(jc,jb) * rho_ref * wo(jc,jk,jb) / &
+                  &                    REAL(2*jbrei + 1, wp)
+              END IF
 
             END DO
      
