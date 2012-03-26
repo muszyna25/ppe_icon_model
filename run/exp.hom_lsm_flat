@@ -17,8 +17,8 @@
 #  - 2011-03-03: blizzard serial run included
 #  - 2011-12-13: SX9 and HPC_serial - all machines in serial mode included
 #-----------------------------------------------------------------------------
-#  exit all buildbot slaves that run in openmp mode:
-if [ -z "$BB_SYSTEM" ] ; then
+#  exit if in openmp mode:
+#if [ -z "$BB_SYSTEM" ] ; then
   if [ $with_openmp = "yes" ] ; then
     echo " =========================================================================="
     echo " The ocean testcase $EXPNAME on BB_SLAVE=$BB_SLAVE will not run with OpenMP"
@@ -26,7 +26,7 @@ if [ -z "$BB_SYSTEM" ] ; then
     check_error 0
     exit
   fi
-if
+#if
 
 
 #  exit all buildbot slaves that run in parallel mode:
