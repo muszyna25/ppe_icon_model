@@ -43,7 +43,7 @@ MODULE mo_nh_diffusion
   USE mo_model_domain,        ONLY: t_patch
   USE mo_grid_config,         ONLY: nroot, l_limited_area, lfeedback
   USE mo_intp_data_strc,      ONLY: t_int_state
-  USE mo_intp_rbf,            ONLY: rbf_vec_interpol_vertex
+  USE mo_intp_rbf,            ONLY: rbf_vec_interpol_vertex, rbf_vec_interpol_cell
   USE mo_interpol_config,     ONLY: nudge_max_coeff
   USE mo_intp,                ONLY: verts2edges_scalar, edges2verts_scalar, &
                                     cells2verts_scalar, cells2edges_scalar, &
@@ -104,7 +104,7 @@ MODULE mo_nh_diffusion
     REAL(wp):: diff_multfac_vn(p_patch%nlev)
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
-    INTEGER :: jk, jb, jc, je, jlev, ic
+    INTEGER :: jk, jb, jc, je, ic
 
     ! start index levels and diffusion coefficient for boundary diffusion
     INTEGER :: start_bdydiff_e
@@ -115,16 +115,20 @@ MODULE mo_nh_diffusion
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e) :: kh_smag_e
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_v) :: u_vert
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_v) :: v_vert
-    REAL(wp) :: vn_vert1, vn_vert2, vn_vert3, vn_vert4, dvt_norm, dvt_tang, smag_offset, &
-                diff_multfac_smag, nabv_tang, nabv_norm, rd_o_cvd, nudgezone_diff, bdy_diff
+    REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c) :: u_cell
+    REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c) :: v_cell
+    REAL(wp) :: vn_vert1, vn_vert2, vn_vert3, vn_vert4, dvt_norm, dvt_tang, smag_offset,     &
+                diff_multfac_smag, nabv_tang, nabv_norm, rd_o_cvd, nudgezone_diff, bdy_diff, &
+                vn_cell1, vn_cell2
     INTEGER  :: nblks_zdiffu, nproma_zdiffu, npromz_zdiffu, nlen_zdiffu
     INTEGER  :: nlev              !< number of full levels
 
-    INTEGER,  DIMENSION(:,:,:), POINTER :: icidx, icblk, ieidx, ieblk, ividx, ivblk
+    INTEGER,  DIMENSION(:,:,:), POINTER :: icidx, icblk, ieidx, ieblk, ividx, ivblk, &
+                                           iecidx, iecblk
     INTEGER,  DIMENSION(:,:),   POINTER :: icell, ilev, iblk, iedge, iedblk
     REAL(wp), DIMENSION(:,:),   POINTER :: vcoef, blcoef, geofac_n2s
     LOGICAL :: ltemp_diffu
-    INTEGER :: diffu_type
+    INTEGER :: diffu_type, discr_vn, discr_t
     INTEGER :: jg                 !< patch ID
 
     !--------------------------------------------------------------------------
@@ -154,6 +158,9 @@ MODULE mo_nh_diffusion
     ividx => p_patch%edges%vertex_idx
     ivblk => p_patch%edges%vertex_blk
 
+    iecidx => p_patch%edges%cell_idx
+    iecblk => p_patch%edges%cell_blk
+
     icidx => p_patch%cells%neighbor_idx
     icblk => p_patch%cells%neighbor_blk
 
@@ -165,6 +172,8 @@ MODULE mo_nh_diffusion
     i_nchdom   = MAX(1,p_patch%n_childdom)
 
     diffu_type  = diffusion_config(jg)%hdiff_order
+    discr_vn    = diffusion_config(jg)%itype_vn_diffu
+    discr_t     = diffusion_config(jg)%itype_t_diffu
 
     IF (linit) THEN ! enhanced diffusion at all levels for initial velocity filtering call
       diff_multfac_vn(:) = diffusion_config(jg)%k4/3._wp*diffusion_config(jg)%hdiff_efdt_ratio
@@ -185,9 +194,19 @@ MODULE mo_nh_diffusion
       IF (diffusion_config(jg)%hdiff_order == 3) diffu_type = 5 
     ENDIF
 
-    ! temperature diffusion is used only in combination with Smagorinsky diffusion
     IF (diffu_type == 3 .OR. diffu_type == 5) THEN
+
+      ! temperature diffusion is used only in combination with Smagorinsky diffusion
       ltemp_diffu = diffusion_config(jg)%lhdiff_temp
+
+      ! empirically determined scaling factor (default of 0.15 for hdiff_smag_fac is somewhat
+      ! larger than suggested in the literature)
+      IF (lhdiff_rcf) THEN
+        diff_multfac_smag = diffusion_config(jg)%hdiff_smag_fac*dtime*REAL(iadv_rcf,wp)
+      ELSE
+        diff_multfac_smag = diffusion_config(jg)%hdiff_smag_fac*dtime
+      ENDIF
+
     ELSE
       ltemp_diffu = .FALSE.
     ENDIF
@@ -197,27 +216,16 @@ MODULE mo_nh_diffusion
       CALL nabla4_vec( p_nh_prog%vn, p_patch, p_int, z_nabla4_e,  &
                        opt_rlstart=7,opt_nabla2=z_nabla2_e )
 
-    ELSE IF (diffu_type == 3 .OR. diffu_type == 5) THEN
+    ELSE IF ((diffu_type == 3 .OR. diffu_type == 5) .AND. discr_vn == 1) THEN
 
       IF (p_test_run) THEN
         u_vert = 0._wp
         v_vert = 0._wp
-        kh_smag_e = 0._wp
       ENDIF
 
       !  RBF reconstruction of velocity at vertices
-
       CALL rbf_vec_interpol_vertex( p_nh_prog%vn, p_patch, p_int, &
                                     u_vert, v_vert, opt_rlend=min_rlvert_int )
-
-      ! empirically determined scaling factor (default of 0.15 for hdiff_smag_fac is somewhat
-      ! larger than suggested in the literature)
-      jlev = p_patch%level
-      IF (lhdiff_rcf) THEN
-        diff_multfac_smag = diffusion_config(jg)%hdiff_smag_fac*dtime*REAL(iadv_rcf,wp)
-      ELSE
-        diff_multfac_smag = diffusion_config(jg)%hdiff_smag_fac*dtime
-      ENDIF
 
       rl_start = start_bdydiff_e
       rl_end   = min_rledge_int - 2
@@ -324,9 +332,118 @@ MODULE mo_nh_diffusion
 !$OMP END DO
 !$OMP END PARALLEL
 
+    ELSE IF ((diffu_type == 3 .OR. diffu_type == 5) .AND. discr_vn == 2) THEN
+
+      !  RBF reconstruction of velocity at vertices and cells
+      CALL rbf_vec_interpol_vertex( p_nh_prog%vn, p_patch, p_int, &
+                                    u_vert, v_vert, opt_rlend=min_rlvert_int-1 )
+
+      CALL rbf_vec_interpol_cell( p_nh_prog%vn, p_patch, p_int, &
+                                    u_cell, v_cell, opt_rlend=min_rlcell_int-1 )
+
+      IF (p_test_run) THEN
+        z_nabla2_e = 0._wp
+      ENDIF
+
+      rl_start = start_bdydiff_e
+      rl_end   = min_rledge_int - 1
+
+!$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
+
+      i_startblk = p_patch%edges%start_blk(rl_start,1)
+      i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
+
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,vn_vert1,vn_vert2,vn_cell1,vn_cell2,&
+!$OMP             dvt_norm,dvt_tang), SCHEDULE(runtime)
+      DO jb = i_startblk,i_endblk
+
+        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, rl_start, rl_end)
+
+        ! Computation of wind field deformation
+
+#ifdef __LOOP_EXCHANGE
+        DO je = i_startidx, i_endidx
+          DO jk = 1, nlev
+#else
+!CDIR UNROLL=5
+        DO jk = 1, nlev
+          DO je = i_startidx, i_endidx
+#endif
+
+            vn_vert1 = u_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
+                       p_patch%edges%primal_normal_vert(je,jb,1)%v1 + &
+                       v_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
+                       p_patch%edges%primal_normal_vert(je,jb,1)%v2
+
+            vn_vert2 = u_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
+                       p_patch%edges%primal_normal_vert(je,jb,2)%v1 + &
+                       v_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
+                       p_patch%edges%primal_normal_vert(je,jb,2)%v2
+
+            dvt_tang = p_patch%edges%system_orientation(je,jb)* (   &
+                       u_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
+                       p_patch%edges%dual_normal_vert(je,jb,2)%v1 + &
+                       v_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
+                       p_patch%edges%dual_normal_vert(je,jb,2)%v2 - &
+                      (u_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
+                       p_patch%edges%dual_normal_vert(je,jb,1)%v1 + &
+                       v_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
+                       p_patch%edges%dual_normal_vert(je,jb,1)%v2) )
+
+            vn_cell1 = u_cell(iecidx(je,jb,1),jk,iecblk(je,jb,1)) * &
+                       p_patch%edges%primal_normal_cell(je,jb,1)%v1 + &
+                       v_cell(iecidx(je,jb,1),jk,iecblk(je,jb,1)) * &
+                       p_patch%edges%primal_normal_cell(je,jb,1)%v2
+
+            vn_cell2 = u_cell(iecidx(je,jb,2),jk,iecblk(je,jb,2)) * &
+                       p_patch%edges%primal_normal_cell(je,jb,2)%v1 + &
+                       v_cell(iecidx(je,jb,2),jk,iecblk(je,jb,2)) * &
+                       p_patch%edges%primal_normal_cell(je,jb,2)%v2
+
+            dvt_norm = u_cell(iecidx(je,jb,2),jk,iecblk(je,jb,2)) * &
+                       p_patch%edges%dual_normal_cell(je,jb,2)%v1 + &
+                       v_cell(iecidx(je,jb,2),jk,iecblk(je,jb,2)) * &
+                       p_patch%edges%dual_normal_cell(je,jb,2)%v2 - &
+                      (u_cell(iecidx(je,jb,1),jk,iecblk(je,jb,1)) * &
+                       p_patch%edges%dual_normal_cell(je,jb,1)%v1 + &
+                       v_cell(iecidx(je,jb,1),jk,iecblk(je,jb,1)) * &
+                       p_patch%edges%dual_normal_cell(je,jb,1)%v2)
+
+            ! Smagorinsky diffusion coefficient
+            kh_smag_e(je,jk,jb) = diff_multfac_smag*SQRT(                 (  &
+              (vn_cell2-vn_cell1)*p_patch%edges%inv_dual_edge_length(je,jb) -&
+              dvt_tang*p_patch%edges%inv_primal_edge_length(je,jb) )**2 + (  &
+              (vn_vert2-vn_vert1)*p_patch%edges%system_orientation(je,jb)*   &
+              p_patch%edges%inv_primal_edge_length(je,jb) +         &
+              dvt_norm*p_patch%edges%inv_dual_edge_length(je,jb))**2 )
+
+            ! The factor of 4 comes from dividing by twice the "correct" length
+            z_nabla2_e(je,jk,jb) = 4._wp * (                        &
+              (vn_cell2 + vn_cell1 - 2._wp*p_nh_prog%vn(je,jk,jb))  &
+              *p_patch%edges%inv_dual_edge_length(je,jb)**2 +       &
+              (vn_vert2 + vn_vert1 - 2._wp*p_nh_prog%vn(je,jk,jb))  &
+              *p_patch%edges%inv_primal_edge_length(je,jb)**2 )
+
+          ENDDO
+        ENDDO
+
+        DO jk = 1, nlev
+          DO je = i_startidx, i_endidx
+            ! Subtract part of the fourth-order background diffusion coefficient
+            kh_smag_e(je,jk,jb) = MAX(0._wp,kh_smag_e(je,jk,jb) - smag_offset)
+            ! Limit diffusion coefficient to the theoretical CFL stability threshold
+            kh_smag_e(je,jk,jb) = MIN(kh_smag_e(je,jk,jb),0.125_wp-4._wp*diff_multfac_vn(jk))
+          ENDDO
+        ENDDO
+
+      ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+
     ENDIF
 
-    IF (diffu_type == 5) THEN ! Add fourth-order background diffusion
+    IF (diffu_type == 5  .AND. discr_vn == 1) THEN ! Add fourth-order background diffusion
 
       ! Interpolate nabla2(v) to vertices in order to compute nabla2(nabla2(v))
 
@@ -336,7 +453,7 @@ MODULE mo_nh_diffusion
       ENDIF
 
       CALL rbf_vec_interpol_vertex( z_nabla2_e, p_patch, p_int, u_vert, v_vert, &
-                                    opt_rlstart=4 ,opt_rlend=min_rlvert_int )
+                                    opt_rlstart=4, opt_rlend=min_rlvert_int )
 
       rl_start = grf_bdywidth_e+1
       rl_end   = min_rledge_int
@@ -393,6 +510,73 @@ MODULE mo_nh_diffusion
               z_nabla4_e(je,jk,jb) = 4._wp * (                        &
                 (nabv_norm - 2._wp*z_nabla2_e(je,jk,jb))              &
                 *p_patch%edges%inv_vert_vert_length(je,jb)**2 +       &
+                (nabv_tang - 2._wp*z_nabla2_e(je,jk,jb))              &
+                *p_patch%edges%inv_primal_edge_length(je,jb)**2 )
+
+            ENDDO
+          ENDDO
+
+        ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+
+    ELSE IF (diffu_type == 5  .AND. discr_vn == 2) THEN ! Add fourth-order background diffusion
+
+      CALL sync_patch_array(SYNC_E,p_patch,z_nabla2_e)
+
+      ! Interpolate nabla2(v) to vertices and cells in order to compute nabla2(nabla2(v))
+
+      CALL rbf_vec_interpol_vertex( z_nabla2_e, p_patch, p_int, u_vert, v_vert, &
+                                    opt_rlstart=4, opt_rlend=min_rlvert_int-1 )
+      CALL rbf_vec_interpol_cell( z_nabla2_e, p_patch, p_int, u_cell, v_cell, &
+                                  opt_rlstart=4 ,opt_rlend=min_rlcell_int-1 )
+
+      rl_start = grf_bdywidth_e+1
+      rl_end   = min_rledge_int
+
+!$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
+
+      i_startblk = p_patch%edges%start_blk(rl_start,1)
+      i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
+
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,nabv_tang,nabv_norm), SCHEDULE(runtime)
+        DO jb = i_startblk,i_endblk
+
+          CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+                             i_startidx, i_endidx, rl_start, rl_end)
+
+         ! Compute nabla4(v)
+#ifdef __LOOP_EXCHANGE
+          DO je = i_startidx, i_endidx
+            DO jk = 1, nlev
+#else
+!CDIR UNROLL=5
+          DO jk = 1, nlev
+            DO je = i_startidx, i_endidx
+#endif
+
+              nabv_tang = u_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
+                          p_patch%edges%primal_normal_vert(je,jb,1)%v1 + &
+                          v_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
+                          p_patch%edges%primal_normal_vert(je,jb,1)%v2 + &
+                          u_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
+                          p_patch%edges%primal_normal_vert(je,jb,2)%v1 + &
+                          v_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
+                          p_patch%edges%primal_normal_vert(je,jb,2)%v2
+
+              nabv_norm = u_cell(iecidx(je,jb,1),jk,iecblk(je,jb,1)) * &
+                          p_patch%edges%primal_normal_cell(je,jb,1)%v1 + &
+                          v_cell(iecidx(je,jb,1),jk,iecblk(je,jb,1)) * &
+                          p_patch%edges%primal_normal_cell(je,jb,1)%v2 + &
+                          u_cell(iecidx(je,jb,2),jk,iecblk(je,jb,2)) * &
+                          p_patch%edges%primal_normal_cell(je,jb,2)%v1 + &
+                          v_cell(iecidx(je,jb,2),jk,iecblk(je,jb,2)) * &
+                          p_patch%edges%primal_normal_cell(je,jb,2)%v2
+
+              ! The factor of 4 comes from dividing by twice the "correct" length
+              z_nabla4_e(je,jk,jb) = 4._wp * (                        &
+                (nabv_norm - 2._wp*z_nabla2_e(je,jk,jb))              &
+                *p_patch%edges%inv_dual_edge_length(je,jb)**2 +       &
                 (nabv_tang - 2._wp*z_nabla2_e(je,jk,jb))              &
                 *p_patch%edges%inv_primal_edge_length(je,jb)**2 )
 
@@ -579,42 +763,112 @@ MODULE mo_nh_diffusion
         ENDIF
       ENDIF
 
-      rl_start = grf_bdywidth_c+1
-      rl_end   = min_rlcell_int
+!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
 
-      i_startblk = p_patch%cells%start_blk(rl_start,1)
-      i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+      IF (discr_t == 1) THEN  ! use discretization K*nabla(theta)
 
-!$OMP PARALLEL
+        rl_start = grf_bdywidth_c+1
+        rl_end   = min_rlcell_int
+
+        i_startblk = p_patch%cells%start_blk(rl_start,1)
+        i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+
 !$OMP DO PRIVATE(jk,jc,jb,i_startidx,i_endidx), SCHEDULE(runtime)
-      DO jb = i_startblk,i_endblk
+        DO jb = i_startblk,i_endblk
 
-        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, rl_start, rl_end)
+          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                             i_startidx, i_endidx, rl_start, rl_end)
 
-        ! interpolated diffusion coefficient times nabla2(theta)
+          ! interpolated diffusion coefficient times nabla2(theta)
 #ifdef __LOOP_EXCHANGE
-        DO jc = i_startidx, i_endidx
-          DO jk = 1, nlev
+          DO jc = i_startidx, i_endidx
+            DO jk = 1, nlev
 #else
 !CDIR UNROLL=5
-        DO jk = 1, nlev
-          DO jc = i_startidx, i_endidx
+          DO jk = 1, nlev
+            DO jc = i_startidx, i_endidx
 #endif
-            z_temp(jc,jk,jb) =  &
-             (kh_smag_e(ieidx(jc,jb,1),jk,ieblk(jc,jb,1))*p_int%e_bln_c_s(jc,1,jb)          + &
-              kh_smag_e(ieidx(jc,jb,2),jk,ieblk(jc,jb,2))*p_int%e_bln_c_s(jc,2,jb)          + &
-              kh_smag_e(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))*p_int%e_bln_c_s(jc,3,jb))         * &
-             (p_nh_prog%theta_v(jc,jk,jb)                        *p_int%geofac_n2s(jc,1,jb) + &
-              p_nh_prog%theta_v(icidx(jc,jb,1),jk,icblk(jc,jb,1))*p_int%geofac_n2s(jc,2,jb) + &
-              p_nh_prog%theta_v(icidx(jc,jb,2),jk,icblk(jc,jb,2))*p_int%geofac_n2s(jc,3,jb) + &
-              p_nh_prog%theta_v(icidx(jc,jb,3),jk,icblk(jc,jb,3))*p_int%geofac_n2s(jc,4,jb))
+              z_temp(jc,jk,jb) =  &
+               (kh_smag_e(ieidx(jc,jb,1),jk,ieblk(jc,jb,1))*p_int%e_bln_c_s(jc,1,jb)          + &
+                kh_smag_e(ieidx(jc,jb,2),jk,ieblk(jc,jb,2))*p_int%e_bln_c_s(jc,2,jb)          + &
+                kh_smag_e(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))*p_int%e_bln_c_s(jc,3,jb))         * &
+               (p_nh_prog%theta_v(jc,jk,jb)                        *p_int%geofac_n2s(jc,1,jb) + &
+                p_nh_prog%theta_v(icidx(jc,jb,1),jk,icblk(jc,jb,1))*p_int%geofac_n2s(jc,2,jb) + &
+                p_nh_prog%theta_v(icidx(jc,jb,2),jk,icblk(jc,jb,2))*p_int%geofac_n2s(jc,3,jb) + &
+                p_nh_prog%theta_v(icidx(jc,jb,3),jk,icblk(jc,jb,3))*p_int%geofac_n2s(jc,4,jb))
+            ENDDO
           ENDDO
         ENDDO
-      ENDDO
 !$OMP END DO
 
+      ELSE IF (discr_t == 2) THEN ! use conservative discretization div(k*grad(theta))
+
+        rl_start = grf_bdywidth_e
+        rl_end   = min_rledge_int - 1
+
+        i_startblk = p_patch%edges%start_blk(rl_start,1)
+        i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
+
+!$OMP DO PRIVATE(jk,je,jb,i_startidx,i_endidx), SCHEDULE(runtime)
+        DO jb = i_startblk,i_endblk
+
+          CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+                             i_startidx, i_endidx, rl_start, rl_end)
+
+          ! compute kh_smag_e * grad(theta) (stored in z_nabla2_e for memory efficiency)
+#ifdef __LOOP_EXCHANGE
+          DO je = i_startidx, i_endidx
+            DO jk = 1, nlev
+#else
+!CDIR UNROLL=6
+          DO jk = 1, nlev
+            DO je = i_startidx, i_endidx
+#endif
+              z_nabla2_e(je,jk,jb) = kh_smag_e(je,jk,jb) *              &
+                p_patch%edges%inv_dual_edge_length(je,jb)*              &
+               (p_nh_prog%theta_v(iecidx(je,jb,2),jk,iecblk(je,jb,2)) - &
+                p_nh_prog%theta_v(iecidx(je,jb,1),jk,iecblk(je,jb,1)))
+            ENDDO
+          ENDDO
+        ENDDO
+!$OMP END DO
+
+
+        rl_start = grf_bdywidth_c+1
+        rl_end   = min_rlcell_int
+
+        i_startblk = p_patch%cells%start_blk(rl_start,1)
+        i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP DO PRIVATE(jk,jc,jb,i_startidx,i_endidx), SCHEDULE(runtime)
+        DO jb = i_startblk,i_endblk
+
+          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                             i_startidx, i_endidx, rl_start, rl_end)
+
+          ! now compute the divergence of the quantity above
+#ifdef __LOOP_EXCHANGE
+          DO jc = i_startidx, i_endidx
+            DO jk = 1, nlev
+#else
+!CDIR UNROLL=6
+          DO jk = 1, nlev
+            DO jc = i_startidx, i_endidx
+#endif
+              z_temp(jc,jk,jb) =                                                         &
+                z_nabla2_e(ieidx(jc,jb,1),jk,ieblk(jc,jb,1))*p_int%geofac_div(jc,1,jb) + &
+                z_nabla2_e(ieidx(jc,jb,2),jk,ieblk(jc,jb,2))*p_int%geofac_div(jc,2,jb) + &
+                z_nabla2_e(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))*p_int%geofac_div(jc,3,jb)
+            ENDDO
+          ENDDO
+        ENDDO
+!$OMP END DO
+
+      ENDIF
+
+
       IF (l_zdiffu_t) THEN ! Compute temperature diffusion truly horizontally over steep slopes
+                           ! A conservative discretization is not possible here
 !$OMP DO PRIVATE(jb,jc,ic,nlen_zdiffu)
         DO jb = 1, nblks_zdiffu
           IF (jb == nblks_zdiffu) THEN

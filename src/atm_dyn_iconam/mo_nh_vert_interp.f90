@@ -678,6 +678,12 @@ CONTAINS
 
     !-------------------------------------------------------------------------
 
+    IF (p_patch%n_patch_cells==0) THEN
+      vcoeff_z%l_initialized = .TRUE.
+      IF (PRESENT(vcoeff_p)) vcoeff_p%l_initialized = .TRUE.
+      RETURN
+    ENDIF
+
     nlev = p_patch%nlev
     p_p3d_out => nh_pzlev_config%p3d   ! output pressure field
     p_z3d_out => nh_pzlev_config%z3d   ! output height field
@@ -1552,7 +1558,7 @@ CONTAINS
                                 (pres_ml(jc,jkm,jb)-pres_ml(jc,jkm+1,jb))
               bot_idx_ml(jc) = jkp
               l_found(jc) = .TRUE.
-            ELSE IF (pres_pl(jc,jkp,jb) > pres_ml(jc,nlevs_ml,jb)) THEN
+            ELSE IF (pres_pl(jc,jkp,jb) >= pres_ml(jc,nlevs_ml,jb)) THEN
               l_found(jc) = .TRUE.
               idx0_ml(jc,jkp) = nlevs_ml
             ELSE IF (pres_pl(jc,jkp,jb) < pres_ml(jc,1,jb)) THEN
@@ -1591,7 +1597,7 @@ CONTAINS
                                 (pres_zl(jc,jkz,jb)-pres_zl(jc,jkz+1,jb))
               bot_idx_zl(jc) = jkp
               l_found(jc) = .TRUE.
-            ELSE IF (pres_pl(jc,jkp,jb) > pres_zl(jc,nlevs_zl,jb)) THEN
+            ELSE IF (pres_pl(jc,jkp,jb) >= pres_zl(jc,nlevs_zl,jb)) THEN
               l_found(jc) = .TRUE.
               idx0_zl(jc,jkp) = nlevs_zl
             ELSE IF (pres_pl(jc,jkp,jb) < pres_zl(jc,1,jb)) THEN

@@ -2212,6 +2212,22 @@ $\nabla^{4}$ for the lower levels.  &
 \tabularnewline
 
 \hline 
+itype\_vn\_diffu&
+I& 1 & &
+Reconstruction method used for Smagorinsky diffusion: \\
+1: u/v reconstruction at vertices only \\
+2: u/v reconstruction at cells and vertices& iequations=3, hdiff\_order=3 or 5
+\tabularnewline
+
+\hline 
+itype\_t\_diffu&
+I& 1 & &
+Discretization of temperature diffusion: \\
+1: $K_h \nabla^2 T$ \\
+2: $\nabla \cdot (K_h \nabla T)$  & iequations=3, hdiff\_order=3 or 5
+\tabularnewline
+
+\hline 
 k2\_pres\_max&
 R& -99.& Pa &
 Pressure level above which $\nabla^2$ diffusion is applied.&

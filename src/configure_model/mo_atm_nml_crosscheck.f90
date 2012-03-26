@@ -787,6 +787,10 @@ CONTAINS
       IF (itype_comm == 3 .AND. diffusion_config(jg)%hdiff_order /= 5)  &
         CALL finish(TRIM(routine), 'itype_comm=3 requires hdiff_order = 5')
  
+      IF (itype_comm == 3 .AND. (diffusion_config(jg)%itype_vn_diffu > 1 .OR. &
+        diffusion_config(jg)%itype_t_diffu > 1) )                             &
+        CALL finish(TRIM(routine), 'itype_comm=3 requires itype_t/vn_diffu = 1')
+
     ENDDO
 
     !--------------------------------------------------------------------

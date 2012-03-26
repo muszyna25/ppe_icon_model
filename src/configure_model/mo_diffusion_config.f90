@@ -92,6 +92,9 @@ MODULE mo_diffusion_config
     REAL(wp) :: hdiff_smag_fac        ! scaling factor for Smagorinsky diffusion
     REAL(wp) :: hdiff_multfac         ! multiplication factor of normalized diffusion
                                       ! coefficient for nested domains
+    INTEGER  :: itype_vn_diffu        ! options for discretizing the Smagorinsky momentum diffusion
+    INTEGER  :: itype_t_diffu         ! options for discretizing the Smagorinsky temperature diffusion
+
     LOGICAL :: lhdiff_temp   ! if .TRUE., apply horizontal diffusion to temp.
     LOGICAL :: lhdiff_vn     ! if .TRUE., apply horizontal diffusion to momentum.
 

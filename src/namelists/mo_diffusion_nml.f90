@@ -56,9 +56,9 @@ MODULE mo_diffusion_nml
   INTEGER :: hdiff_order  ! order of horizontal diffusion
                           ! -1: no diffusion
                           ! 2: 2nd order linear diffusion on all vertical levels 
-                          ! 3: Smagorinsky diffusion for hexagonal model
+                          ! 3: Smagorinsky diffusion without background diffusion
                           ! 4: 4th order linear diffusion on all vertical levels 
-                          ! 5: Smagorinsky diffusion for triangular model
+                          ! 5: Smagorinsky diffusion with fourth-order background diffusion
                           ! 24 or 42: 2nd order linear diffusion for upper levels,
                           !           4th order for lower levels
 
@@ -83,13 +83,15 @@ MODULE mo_diffusion_nml
   REAL(wp) :: hdiff_smag_fac        ! scaling factor for Smagorinsky diffusion
   REAL(wp) :: hdiff_multfac         ! multiplication factor of normalized diffusion
                                     ! coefficient for nested domains
+  INTEGER  :: itype_vn_diffu        ! options for discretizing the Smagorinsky momentum diffusion
+  INTEGER  :: itype_t_diffu         ! options for discretizing the Smagorinsky temperature diffusion
   LOGICAL :: lhdiff_temp   ! if .TRUE., apply horizontal diffusion to temp.
   LOGICAL :: lhdiff_vn     ! if .TRUE., apply horizontal diffusion to momentum.
 
-  NAMELIST/diffusion_nml/ hdiff_order, k2_klev_max, k2_pres_max,         &
-                          hdiff_efdt_ratio, hdiff_min_efdt_ratio,        &
-                          hdiff_tv_ratio, hdiff_smag_fac, hdiff_multfac, &
-                          lhdiff_temp, lhdiff_vn
+  NAMELIST/diffusion_nml/ hdiff_order, k2_klev_max, k2_pres_max,              &
+                          hdiff_efdt_ratio, hdiff_min_efdt_ratio,             &
+                          hdiff_tv_ratio, hdiff_smag_fac, hdiff_multfac,      &
+                          lhdiff_temp, lhdiff_vn, itype_vn_diffu, itype_t_diffu
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -128,6 +130,8 @@ CONTAINS
     hdiff_multfac        = 1.0_wp
     hdiff_smag_fac       = 0.15_wp
     hdiff_tv_ratio       = 1.0_wp
+    itype_vn_diffu       = 1
+    itype_t_diffu        = 1
 
     k2_pres_max          = -99.0_wp                                                    
     k2_klev_max          = 0
@@ -196,6 +200,8 @@ CONTAINS
     diffusion_config(:)% hdiff_smag_fac       =  hdiff_smag_fac
     diffusion_config(:)% hdiff_multfac        =  hdiff_multfac
     diffusion_config(:)% hdiff_tv_ratio       =  hdiff_tv_ratio 
+    diffusion_config(:)%itype_vn_diffu        =  itype_vn_diffu
+    diffusion_config(:)%itype_t_diffu         =  itype_t_diffu 
 
     !-----------------------------------------------------
     ! 6. Store the namelist for restart
