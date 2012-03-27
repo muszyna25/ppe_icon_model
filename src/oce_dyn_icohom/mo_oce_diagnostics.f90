@@ -43,7 +43,7 @@ MODULE mo_oce_diagnostics
 !  
 !   
 ! 
-USE mo_kind,                      ONLY: wp
+USE mo_kind,                      ONLY: wp, i8
 USE mo_util_subset,               ONLY: t_subset_range, get_index_range
 USE mo_math_utilities,            ONLY: t_cartesian_coordinates!, gc2cc
 USE mo_math_constants,            ONLY: rad2deg
@@ -521,7 +521,7 @@ SUBROUTINE calc_moc (p_patch, wo, datetime)
   INTEGER, PARAMETER ::  jbrei=3   !  latitudinal smoothing area is 2*jbrei-1 rows of 1 deg
   INTEGER :: jb, jc, jk, i_startidx, i_endidx, il_e, ib_e
   INTEGER :: lbrei, lbr, idate
-! INTEGER*8 :: i1,i2,i3,i4
+  INTEGER(i8) :: i1,i2,i3,i4
 
   REAL(wp) :: z_lat, z_lat_deg, z_lat_dim
   REAL(wp) :: global_moc(180,n_zlev), atlant_moc(180,n_zlev), pacind_moc(180,n_zlev)
@@ -541,7 +541,7 @@ SUBROUTINE calc_moc (p_patch, wo, datetime)
   !owned_cells => p_patch%cells%owned
   all_cells   => p_patch%cells%all
 
-  write(81,*) 'MOC: datetime:',datetime
+  !write(81,*) 'MOC: datetime:',datetime
 
   DO jk = 1, n_zlev   !  not yet on intermediate levels
     DO jb = all_cells%start_block, all_cells%end_block
@@ -619,24 +619,24 @@ SUBROUTINE calc_moc (p_patch, wo, datetime)
     END DO
 
     ! write out in extra format - integer*8
- !  idate=datetime%month*1000000+datetime%day*10000+datetime%hour*100+datetime%minute
- !  write(82,*) 'global MOC at idate:',idate
- !  DO jk=1,n_zlev
- !    i1=idate
- !    i2=777
- !    i3=v_base%zlev_i(jk)
- !    i4=180
- !    write(77) i1,i2,i3,i4
- !    write(77) (global_moc(lbr,jk),lbr=1,180)
- !    i2=778
- !    write(78) i1,i2,i3,i4
- !    write(78) (atlant_moc(lbr,jk),lbr=1,180)
- !    i2=779
- !    write(79) i1,i2,i3,i4
- !    write(79) (pacind_moc(lbr,jk),lbr=1,180)
- !    write(82,*) 'jk=',jk
- !    write(82,'(1p10e12.3)') (global_moc(lbr,jk),lbr=1,180)
- !  END DO
+    idate=datetime%month*1000000+datetime%day*10000+datetime%hour*100+datetime%minute
+    write(82,*) 'global MOC at iyear, idate:',datetime%year, idate
+    DO jk=1,n_zlev
+      i1=idate
+      i2=777
+      i3=v_base%zlev_i(jk)
+      i4=180
+      write(77) i1,i2,i3,i4
+      write(77) (global_moc(lbr,jk),lbr=1,180)
+      i2=778
+      write(78) i1,i2,i3,i4
+      write(78) (atlant_moc(lbr,jk),lbr=1,180)
+      i2=779
+      write(79) i1,i2,i3,i4
+      write(79) (pacind_moc(lbr,jk),lbr=1,180)
+      write(82,*) 'jk=',jk
+      write(82,'(1p10e12.3)') (global_moc(lbr,jk),lbr=1,180)
+    END DO
   !END IF
 
 !-----------------------------------------------------------------------
