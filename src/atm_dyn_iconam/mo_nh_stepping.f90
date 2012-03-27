@@ -1013,7 +1013,7 @@ MODULE mo_nh_stepping
 
             jgc = p_patch(jg)%child_id(jn)
 
-            IF (lredgrid_phys(jgc) .AND. atm_phy_nwp_config(jgc)%inwp_surface >= 1) THEN
+            IF ( lredgrid_phys(jgc) ) THEN
 
               CALL interpol_rrg_grf(p_patch(jg), p_patch(jgc), p_int_state(jg),             &
                                     p_grf_state(jg)%p_dom(jn), prm_diag(jg), prm_diag(jgc), &
