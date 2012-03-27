@@ -71,6 +71,7 @@ USE mo_scalar_product,            ONLY: calc_scalar_product_veloc, calc_scalar_p
 USE mo_intp_data_strc,            ONLY: t_int_state
 USE mo_intp_rbf,                  ONLY: rbf_vec_interpol_cell, rbf_vec_interpol_edge
 USE mo_oce_ab_timestepping,       ONLY: calc_vert_velocity
+USE mo_datetime,                  ONLY: t_datetime
 
 IMPLICIT NONE
 
@@ -508,87 +509,115 @@ END SUBROUTINE destruct_oce_diagnostics
 ! TODO: implement variable output dimension (1 deg resolution) and smoothing extent
 ! TODO: calculate the 1 deg resolution meridional distance
 !! 
-SUBROUTINE calc_moc (p_patch, wo)
+SUBROUTINE calc_moc (p_patch, wo, datetime)
 
   TYPE(t_patch), TARGET, INTENT(in)  :: p_patch
   REAL(wp), INTENT(in)               :: wo(:,:,:)  ! vertical velocity at cell centers
                                                    ! dims: (nproma,nlev+1,nblks_c)
+  TYPE(t_datetime), INTENT(INOUT)    :: datetime
   !
   ! local variables
   ! INTEGER :: i
   INTEGER, PARAMETER ::  jbrei=3   !  latitudinal smoothing area is 2*jbrei-1 rows of 1 deg
-  INTEGER :: jb, jc, jk, i_startidx, i_endidx
-  INTEGER :: lbrei, lbr
+  INTEGER :: jb, jc, jk, i_startidx, i_endidx, il_e, ib_e
+  INTEGER :: lbrei, lbr, idate
 
   REAL(wp) :: z_lat, z_lat_deg, z_lat_dim
-  REAL(wp) :: global_moc(180,n_zlev), atl_moc(180,n_zlev), pacind_moc(180,n_zlev)
+  REAL(wp) :: global_moc(180,n_zlev), atlant_moc(180,n_zlev), pacind_moc(180,n_zlev)
 
   TYPE(t_subset_range), POINTER :: all_cells
   
   CHARACTER(len=max_char_length), PARAMETER :: &
     &       routine = ('mo_oce_diagnostics:calc_moc')
 
-!-----------------------------------------------------------------------
-    
-    ! with all cells no sync is necessary
-    !owned_cells => p_patch%cells%owned
-    all_cells   => p_patch%cells%all
+  !-----------------------------------------------------------------------
 
-    DO jk = 1, n_zlev+1
-      DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
-        DO jc = i_startidx, i_endidx
-          IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-     
-            ! lbrei: corresponding latitude row of 1 deg extension
-            !       1 south pole
-            !     180 north pole
-            z_lat = p_patch%cells%center(jc,jb)%lat
-            z_lat_deg = z_lat*rad2deg
-            lbrei = NINT(90.0_wp + z_lat_deg)
+  global_moc(:,:) = 0.0_wp
+  pacind_moc(:,:) = 0.0_wp
+  atlant_moc(:,:) = 0.0_wp
+    
+  ! with all cells no sync is necessary
+  !owned_cells => p_patch%cells%owned
+  all_cells   => p_patch%cells%all
+
+  DO jk = 1, n_zlev   !  not yet on intermediate levels
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx, i_endidx)
+      DO jc = i_startidx, i_endidx
+        IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+   
+          ! lbrei: corresponding latitude row of 1 deg extension
+          !       1 south pole
+          !     180 north pole
+          z_lat = p_patch%cells%center(jc,jb)%lat
+          z_lat_deg = z_lat*rad2deg
+          lbrei = NINT(90.0_wp + z_lat_deg)
+          lbrei=MAX(lbrei,1)
+          lbrei=MIN(lbrei,180)
+
+          ! get neighbor edge for scaling
+          il_e = p_patch%cells%edge_idx(jc,jb,1)
+          ib_e = p_patch%cells%edge_blk(jc,jb,1)
+   
+          ! z_lat_dim: latitudinal extent of triangle divided by latitudinal smoothing extent
+          z_lat_dim = p_patch%edges%primal_edge_length(il_e,ib_e) / &
+            & (REAL(2*jbrei, wp) * 111111._wp)
+
+          ! distribute MOC over (2*jbrei)+1 latitude rows
+          !  - not yet parallelized
+          DO lbr = -jbrei, jbrei
+            lbrei = NINT(90.0_wp + z_lat_deg + REAL(lbr, wp) * z_lat_dim)
             lbrei=MAX(lbrei,1)
             lbrei=MIN(lbrei,180)
-     
-            ! z_lat_dim: latitudinal extent of triangle divided by latitudinal smoothing extent
-            z_lat_dim = p_patch%edges%primal_edge_length(jb,jc) / &
-              & (REAL(2*jbrei, wp) * 111111._wp)
+      
+            global_moc(lbrei,jk) = global_moc(lbrei,jk) - &
+              &                    p_patch%cells%area(jc,jb) * rho_ref * wo(jc,jk,jb) / &
+              &                    REAL(2*jbrei + 1, wp)
+      
+         ! horizontal transports
+         !  IF ( k == 1 ) THEN
+         !    global_hfl(lbrei) = global_hfl(lbrei) &
+         !         - area(i, j) * flum(i, j) / REAL(2*jbrei + 1, wp)
+         !    global_wfl(lbrei) = global_wfl(lbrei) &
+         !         - area(i, j) * pem(i, j) / REAL(2*jbrei + 1, wp)
+         !  END IF
 
-            ! distribute MOC over (2*jbrei)+1 latitude rows
-            !  - not yet parallelized
-            DO lbr = -jbrei, jbrei
-              lbrei = NINT(90.0_wp + z_lat_deg + REAL(lbr, wp) * z_lat_dim)
-              lbrei=MAX(lbrei,1)
-              lbrei=MIN(lbrei,180)
-        
-              global_moc(lbrei,jk) = global_moc(lbrei,jk) - &
+            IF (v_base%basin_c(jc,jb) <2) THEN
+
+              atlant_moc(lbrei,jk) = atlant_moc(lbrei,jk) - &
                 &                    p_patch%cells%area(jc,jb) * rho_ref * wo(jc,jk,jb) / &
                 &                    REAL(2*jbrei + 1, wp)
-        
-           ! horizontal transports
-           !  IF ( k == 1 ) THEN
-           !    global_hfl(lbrei) = global_hfl(lbrei) &
-           !         - area(i, j) * flum(i, j) / REAL(2*jbrei + 1, wp)
-           !    global_wfl(lbrei) = global_wfl(lbrei) &
-           !         - area(i, j) * pem(i, j) / REAL(2*jbrei + 1, wp)
-           !  END IF
+            ELSE
+              pacind_moc(lbrei,jk) = pacind_moc(lbrei,jk) - &
+                &                    p_patch%cells%area(jc,jb) * rho_ref * wo(jc,jk,jb) / &
+                &                    REAL(2*jbrei + 1, wp)
+            END IF
 
-              IF (v_base%basin_c(jc,jb) <2) THEN
-
-                atl_moc(lbrei,jk) =    atl_moc(lbrei,jk) - &
-                  &                    p_patch%cells%area(jc,jb) * rho_ref * wo(jc,jk,jb) / &
-                  &                    REAL(2*jbrei + 1, wp)
-              ELSE
-                pacind_moc(lbrei,jk) = pacind_moc(lbrei,jk) - &
-                  &                    p_patch%cells%area(jc,jb) * rho_ref * wo(jc,jk,jb) / &
-                  &                    REAL(2*jbrei + 1, wp)
-              END IF
-
-            END DO
-     
-          END IF
-        END DO
+          END DO
+   
+        END IF
       END DO
     END DO
+  END DO
+
+  !IF (p_pe==p_io) THEN
+    DO lbr=179,1,-1   ! fixed to 1 deg meridional resolution
+
+        global_moc(lbr,:)=global_moc(lbr+1,:)+global_moc(lbr,:)
+        pacind_moc(lbr,:)=pacind_moc(lbr+1,:)+pacind_moc(lbr,:)
+        atlant_moc(lbr,:)=atlant_moc(lbr+1,:)+atlant_moc(lbr,:)
+
+    END DO
+
+    ! write out in extra format
+    idate=datetime%month*1000000+datetime%day*10000+datetime%hour*100+datetime%minute
+    DO jk=1,n_zlev
+      write(78) idate,777,jk,180
+      write(78) (global_moc(lbr,jk),lbr=1,180)
+      write(79) 1,777,jk,180
+      write(79) (atlant_moc(lbr,jk),lbr=1,180)
+    END DO
+  !END IF
        
 !-----------------------------------------------------------------------
 

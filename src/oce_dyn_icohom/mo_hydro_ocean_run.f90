@@ -315,7 +315,7 @@ CONTAINS
       CALL print_datetime(datetime)
       l_have_output = .TRUE.
 
-      !CALL calc_moc (ppatch(jg), pstate_oce(jg)%p_diag%w(:,:,:))
+      CALL calc_moc (ppatch(jg), pstate_oce(jg)%p_diag%w(:,:,:), datetime)
 
     END IF
 
