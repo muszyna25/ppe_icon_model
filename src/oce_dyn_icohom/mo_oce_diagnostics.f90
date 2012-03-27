@@ -521,6 +521,7 @@ SUBROUTINE calc_moc (p_patch, wo, datetime)
   INTEGER, PARAMETER ::  jbrei=3   !  latitudinal smoothing area is 2*jbrei-1 rows of 1 deg
   INTEGER :: jb, jc, jk, i_startidx, i_endidx, il_e, ib_e
   INTEGER :: lbrei, lbr, idate
+! INTEGER*8 :: i1,i2,i3,i4
 
   REAL(wp) :: z_lat, z_lat_deg, z_lat_dim
   REAL(wp) :: global_moc(180,n_zlev), atlant_moc(180,n_zlev), pacind_moc(180,n_zlev)
@@ -539,6 +540,8 @@ SUBROUTINE calc_moc (p_patch, wo, datetime)
   ! with all cells no sync is necessary
   !owned_cells => p_patch%cells%owned
   all_cells   => p_patch%cells%all
+
+  write(81,*) 'MOC: datetime:',datetime
 
   DO jk = 1, n_zlev   !  not yet on intermediate levels
     DO jb = all_cells%start_block, all_cells%end_block
@@ -559,11 +562,14 @@ SUBROUTINE calc_moc (p_patch, wo, datetime)
           il_e = p_patch%cells%edge_idx(jc,jb,1)
           ib_e = p_patch%cells%edge_blk(jc,jb,1)
    
+          ! z_lat_dim: scale to 1 deg resolution
           ! z_lat_dim: latitudinal extent of triangle divided by latitudinal smoothing extent
-          z_lat_dim = p_patch%edges%primal_edge_length(il_e,ib_e) / &
-            & (REAL(2*jbrei, wp) * 111111._wp)
+      !   z_lat_dim = p_patch%edges%primal_edge_length(il_e,ib_e) / &
+      !     & (REAL(2*jbrei, wp) * 111111._wp*1.3_wp)
+          z_lat_dim = 1.0_wp
 
           ! distribute MOC over (2*jbrei)+1 latitude rows
+          !  - lbrei: index of 180 X 1 deg meridional resolution
           !  - not yet parallelized
           DO lbr = -jbrei, jbrei
             lbrei = NINT(90.0_wp + z_lat_deg + REAL(lbr, wp) * z_lat_dim)
@@ -593,6 +599,9 @@ SUBROUTINE calc_moc (p_patch, wo, datetime)
                 &                    REAL(2*jbrei + 1, wp)
             END IF
 
+        !   if (jk==3) write(81,*) 'jb,jc,lbr,lbrei,zlatc,zlat,glb:', &
+        !     & jb,jc,lbr,lbrei,lbr+int(z_lat_deg),z_lat_deg,global_moc(lbrei,jk)
+
           END DO
    
         END IF
@@ -609,16 +618,27 @@ SUBROUTINE calc_moc (p_patch, wo, datetime)
 
     END DO
 
-    ! write out in extra format
-    idate=datetime%month*1000000+datetime%day*10000+datetime%hour*100+datetime%minute
-    DO jk=1,n_zlev
-      write(78) idate,777,jk,180
-      write(78) (global_moc(lbr,jk),lbr=1,180)
-      write(79) 1,777,jk,180
-      write(79) (atlant_moc(lbr,jk),lbr=1,180)
-    END DO
+    ! write out in extra format - integer*8
+ !  idate=datetime%month*1000000+datetime%day*10000+datetime%hour*100+datetime%minute
+ !  write(82,*) 'global MOC at idate:',idate
+ !  DO jk=1,n_zlev
+ !    i1=idate
+ !    i2=777
+ !    i3=v_base%zlev_i(jk)
+ !    i4=180
+ !    write(77) i1,i2,i3,i4
+ !    write(77) (global_moc(lbr,jk),lbr=1,180)
+ !    i2=778
+ !    write(78) i1,i2,i3,i4
+ !    write(78) (atlant_moc(lbr,jk),lbr=1,180)
+ !    i2=779
+ !    write(79) i1,i2,i3,i4
+ !    write(79) (pacind_moc(lbr,jk),lbr=1,180)
+ !    write(82,*) 'jk=',jk
+ !    write(82,'(1p10e12.3)') (global_moc(lbr,jk),lbr=1,180)
+ !  END DO
   !END IF
-       
+
 !-----------------------------------------------------------------------
 
 END SUBROUTINE calc_moc
