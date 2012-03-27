@@ -275,8 +275,8 @@ case "$ac_sitename" in
                         ;;
                     pgi)
                         IB_LIBS    = -lrdmacm -libverbs -lnuma -ldl -Wl,--export-dynamic -lnsl -lutil -lm -ldl
-                        MPIROOT    = /sw/sles10-x64/ofed/openmpi-1.4.0-pgi9
-                  #     MPIROOT    = /sw/sles10-x64/ofed/openmpi-1.4.3-pgi11
+                  #      MPIROOT    = /sw/sles10-x64/ofed/openmpi-1.4.0-pgi9
+                       MPIROOT    = /sw/sles10-x64/ofed/openmpi-1.4.3-pgi11
                         MPI_LIB    = -lmpi_f90 -lmpi_f77 -lmpi -lopen-rte -lopen-pal "$IB_LIBS" 
                   #       load_modules="PGI/11.3" "gcc/4.5.2" "${load_modules}"
                         load_modules="PGI/11.0" "gcc/4.5.2" "${load_modules}"
@@ -409,11 +409,11 @@ case "$ac_sitename" in
 			load_modules       = "nag/5.2.747" "gcc/4.5.2" "${load_modules}"
 			;;
 		    pgi)
-			NETCDFROOT         = /sw/lenny-x64/netcdf-4.1.1-static-pgi11
-			MPIROOT            = /sw/lenny-x64/mpi/mpich2-1.3.1-static-pgi11
+			NETCDFROOT         = /sw/lenny-x64/netcdf-4.1.1-static-pgi12
+			MPIROOT            = /sw/lenny-x64/mpi/mpich2-1.3.1-static-pgi12
 			MPI_LIB            = -lmpichf90 -lmpich -lopa -lmpl -lpthread -lrt
                         FC          = pgfortran
-			load_mpi_modules   = "mpich2/1.3.1-static-pgi11"
+			load_mpi_modules   = "mpich2/1.3.1-static-pgi12"
 #			load_modules       = "pgi/11.10" "gcc/4.6.0" "${load_modules}"
                         load_modules       = "pgi/12.3" "gcc/4.6.0" "${load_modules}"
 			;;
