@@ -29,8 +29,9 @@ if [[ ${mpi_procs} = 1 ]]; then
   check_error 0 "exp.nat_jww_nwp_mpiomp"
   exit 0
 fi
-# If running in parallel, mpi_procs must be bigger than 2:
-if [[ ${mpi_procs} = 2 ]]; then
+# If running in parallel, mpi_procs*no_of_nodes must be bigger than 2:
+n_procs=`expr ${mpi_procs} \* ${no_of_nodes}`
+if [[ ${n_procs} = 2 ]]; then
   echo "This test needs at least 3 MPI processes --> increase mpi_procs from 2 to 3"
   mpi_procs=3
   START=${START%2}3
