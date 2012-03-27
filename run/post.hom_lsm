@@ -28,12 +28,7 @@ else
   echo " ================================================="
   echo " Run ocean testcase $EXPNAME on BB_SLAVE=$BB_SLAVE"
   echo " ================================================="
-  if [ $mpi_total_procs -gt 1 ] ; then
-     echo "The ocean test runs will not run in parallel MPI mode. Exiting."
-     check_error 0
-     exit
-  fi
-  if [ $OMP_NUM_THREADS -gt 1 ] ; then
+  if [ $with_openmp = "yes" ] ; then
      echo "The ocean test runs will not run in OpenMP mode. Exiting."
      check_error 0
      exit
