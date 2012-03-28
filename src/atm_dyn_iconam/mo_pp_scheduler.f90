@@ -209,7 +209,7 @@ MODULE mo_pp_scheduler
 
 
   !--- MODULE DATA -------------------------------------------------------------------
-  TYPE(t_job_queue), POINTER   :: job_queue  !< head of (ordered) job queue
+  TYPE(t_job_queue), POINTER   :: job_queue  =>  NULL() !< head of (ordered) job queue
 
 
 CONTAINS

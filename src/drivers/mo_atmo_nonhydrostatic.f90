@@ -395,7 +395,8 @@ CONTAINS
     CALL message(TRIM(routine),'start to clean up')
 
     ! Destruction of post-processing job queue
-    CALL pp_scheduler_finalize()
+    IF (.NOT. ltestcase) &
+      CALL pp_scheduler_finalize()
 
     ! Delete optional diagnostics
     CALL destruct_opt_diag()
