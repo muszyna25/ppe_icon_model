@@ -1,3 +1,4 @@
+#!/bin/ksh
 #=============================================================================
 #
 # This section sets up the environment for the proper postprocessing script.
@@ -17,23 +18,40 @@ plotBaseName="${EXP}_R2B04L4"
 
 # Preliminary test phase: run on specific systems and compiler only
 #-----------------------------------------------------------------------------
+# check if the experiment ran successfully
+
+echo " ================================================="
+if [ -r ../experiments/$EXP/finish.status ]
+then
+  finish_status=`cat ../experiments/$EXP/finish.status`
+  if [ $finish_status != "OK" ] ; then
+    echo "finish.status /= OK. EXIT"
+    check_error 0
+    exit 0
+  fi
+else
+    echo "finish.status not found. EXIT"
+    check_error 0
+    exit 0
+fi
+
 
 #  exit all buildbot slaves that run in parallel mode:
-if [ -z "$BB_SYSTEM" ]
-then
-  echo " ===== (no buildbot) ======="
-  echo " Run ocean testcase $EXPNAME"
-  echo " ==========================="
-else
-  echo " ================================================="
-  echo " Run ocean testcase $EXPNAME on BB_SLAVE=$BB_SLAVE"
-  echo " ================================================="
-  if [ $with_openmp = "yes" ] ; then
-     echo "The ocean test runs will not run in OpenMP mode. Exiting."
-     check_error 0
-     exit
-  fi
-fi
+# if [ -z "$BB_SYSTEM" ]
+# then
+#   echo " ===== (no buildbot) ======="
+#   echo " Run ocean testcase $EXPNAME"
+#   echo " ==========================="
+# else
+#   echo " ================================================="
+#   echo " Run ocean testcase $EXPNAME on BB_SLAVE=$BB_SLAVE"
+#   echo " ================================================="
+#   if [ $with_openmp = "yes" ] ; then
+#      echo "The ocean test runs will not run in OpenMP mode. Exiting."
+#      check_error 0
+#      exit
+#   fi
+# fi
 
 #-----------------------------------------------------------------------------
 
