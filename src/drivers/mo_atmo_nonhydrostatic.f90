@@ -102,6 +102,7 @@ IMPLICIT NONE
 PRIVATE
 
 PUBLIC :: atmo_nonhydrostatic
+PUBLIC :: construct_atmo_nonhydrostatic, destruct_atmo_nonhydrostatic
 
 CONTAINS
 
@@ -109,6 +110,40 @@ CONTAINS
   SUBROUTINE atmo_nonhydrostatic
     
     CHARACTER(*), PARAMETER :: routine = "mo_atmo_nonhydrostatic"
+
+
+    INTEGER :: jg, jfile, n_file, ist, n_diag, n_chkpt, ntl, ntlr
+    LOGICAL :: l_have_output, l_realcase
+    INTEGER :: pat_level(n_dom)
+    TYPE(t_simulation_status) :: simulation_status
+
+    CALL construct_atmo_nonhydrostatic()
+    
+    !------------------------------------------------------------------
+    ! Now start the time stepping:
+    ! The special initial time step for the three time level schemes
+    ! is executed within process_grid_level
+    !------------------------------------------------------------------
+
+    CALL perform_nh_stepping( p_patch, p_int_state, p_grf_state, p_nh_state, &
+      &                       time_config%cur_datetime,       &
+      &                       n_file, jfile, n_chkpt, n_diag, l_have_output  )
+ 
+    IF (ltimer) CALL print_timer
+
+    !---------------------------------------------------------------------
+    ! 6. Integration finished. Clean up.
+    !---------------------------------------------------------------------
+    CALL destruct_atmo_nonhydrostatic()
+
+    
+  END SUBROUTINE atmo_nonhydrostatic
+  !---------------------------------------------------------------------
+  
+  !---------------------------------------------------------------------
+  SUBROUTINE construct_atmo_nonhydrostatic
+    
+    CHARACTER(*), PARAMETER :: routine = "construct_atmo_nonhydrostatic"
 
 
     INTEGER :: jg, jfile, n_file, ist, n_diag, n_chkpt, ntl, ntlr
@@ -375,18 +410,20 @@ CONTAINS
     END IF ! not is_restart_run()
 
     IF (timers_level > 3) CALL timer_stop(timer_model_init)
+    
+  END SUBROUTINE construct_atmo_nonhydrostatic
+  
+  !---------------------------------------------------------------------
+  SUBROUTINE destruct_atmo_nonhydrostatic
+    
+    CHARACTER(*), PARAMETER :: routine = "destruct_atmo_nonhydrostatic"
 
-    !------------------------------------------------------------------
-    ! Now start the time stepping:
-    ! The special initial time step for the three time level schemes
-    ! is executed within process_grid_level
-    !------------------------------------------------------------------
 
-    CALL perform_nh_stepping( p_patch, p_int_state, p_grf_state, p_nh_state, &
-      &                       time_config%cur_datetime,       &
-      &                       n_file, jfile, n_chkpt, n_diag, l_have_output  )
- 
-    IF (ltimer) CALL print_timer
+    INTEGER :: jg, jfile, n_file, ist, n_diag, n_chkpt, ntl, ntlr
+    LOGICAL :: l_have_output, l_realcase
+    INTEGER :: pat_level(n_dom)
+    TYPE(t_simulation_status) :: simulation_status
+
 
     !---------------------------------------------------------------------
     ! 6. Integration finished. Clean up.
@@ -433,7 +470,8 @@ CONTAINS
 
     CALL message(TRIM(routine),'clean-up finished')
     
-  END SUBROUTINE atmo_nonhydrostatic
-  
+  END SUBROUTINE destruct_atmo_nonhydrostatic
+  !---------------------------------------------------------------------
+
 END MODULE mo_atmo_nonhydrostatic
 
