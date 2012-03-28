@@ -1872,6 +1872,11 @@ IMPLICIT NONE
           ! initialize zdz_snow (from Section I.3) to zdzh_snow(i,1)
           zdz_snow (i) = dzh_snow_now(i,1) ! zdzh_snow
           zwsnow   (i) = w_snow_now(i)
+IF(zwsnow(i).gt.0. .and. dzh_snow_now(i,1).eq.0.) print *,'zwsnow(i).gt.0. .and. dzh_snow_now(i,1).eq.0.',i, &
+zwsnow(i),dzh_snow_now(i,1)
+IF(zwsnow(i).gt.0. .and. wtot_snow_now(i,1).eq.0.) print *,'zwsnow(i).gt.0. .and. wtot_snow_now(i,1).eq.0.',i, &
+zwsnow(i),wtot_snow_now(i,1)
+!IF(i.eq.1) print *,'zwsnow(i).eq.0. .and. wtot_snow_now(i,1).ge.0.',zwsnow(i)
 !        END IF
       ENDDO
 
@@ -2956,7 +2961,8 @@ IMPLICIT NONE
         END IF
 
 !       Influence of heatflux through snow on total forcing:
-        zwsnew(i)   = zwsnow(i) + zdwsndt(i)*zdtdrhw
+        zdwsndt(i) = zdwsndt(i)*zsf_heav(zdwsndt(i) - zepsi/zdtdrhw)
+        zwsnew(i)  = zwsnow(i) + zdwsndt(i)*zdtdrhw
         IF (zwsnew(i).GT.zepsi) THEN
 
           zrho_snowf = crhosminf+(crhosmaxf-crhosminf)* (zth_low(i)-csnow_tmin) &
@@ -3005,6 +3011,12 @@ IMPLICIT NONE
         END IF
         h_snow_now(i) = 0.
         sum_weight(i) = 0.0_ireals
+IF(i.eq.298 .and. zwsnew(i).gt.0. .and. dzh_snow_now(i,1).eq.0.) &
+print *,zwsnow(i),zwsnew(i),zdzh_snow(i,1),zdzh_snow(i,2),wtot_snow_now(i,1),zdwsndt(i)*zdtdrhw
+!IF(zwsnew(i).gt.0. .and. dzh_snow_now(i,1).eq.0.) print *,'zwsnew(i).gt.0. .and. zdzh_snow(i,1).eq.0.',i,zwsnew(i)
+!IF(zwsnew(i).gt.0. .and. wtot_snow_now(i,1).eq.0.) print *,'zwsnew(i).gt.0. .and. wtot_snow_now(i,1).eq.0.',i,zwsnew(i)
+!IF(zwsnew(i).eq.0. .and. dzh_snow_now(i,1).gt.0.) print *,'zwsnew(i).eq.0. .and. zdzh_snow(i,1).gt.0.',i,zdzh_snow(i,1)
+!IF(zwsnew(i).eq.0. .and. wtot_snow_now(i,1).gt.0.) print *,'zwsnew(i).eq.0. .and. wtot_snow_now(i,1).gt.0.',i,zdzh_snow(i,1)
 !      END IF          ! land-points only
     END DO
   DO ksn = 1,ke_snow  
@@ -3050,6 +3062,10 @@ IMPLICIT NONE
             zdzm_snow(i,1) = zhm_snow(i,1) + h_snow_now(i)
           END IF
         END IF
+!IF(zwsnew(i).gt.0. .and. dzh_snow_now(i,1).eq.0.) print *,'zwsnew(i).gt.0. .and. zdzh_snow(i,1).eq.0.',i,zwsnew(i)
+!IF(zwsnew(i).gt.0. .and. wtot_snow_now(i,1).eq.0.) print *,'zwsnew(i).gt.0. .and. wtot_snow_now(i,1).eq.0.',i,zwsnew(i)
+!IF(zwsnew(i).eq.0. .and. dzh_snow_now(i,1).gt.0.) print *,'zwsnew(i).eq.0. .and. zdzh_snow(i,1).gt.0.',i,zdzh_snow(i,1)
+!IF(zwsnew(i).eq.0. .and. wtot_snow_now(i,1).gt.0.) print *,'zwsnew(i).eq.0. .and. wtot_snow_now(i,1).gt.0.',i,zdzh_snow(i,1)
 !      END IF          ! land-points only
     END DO
   DO ksn = 2,ke_snow
@@ -4310,7 +4326,7 @@ IMPLICIT NONE
 
 
 #ifdef __ICON__
-  IF (msg_level >= 12) THEN
+!  IF (msg_level >= 12) THEN
 !    DO ns = nsubs0, nsubs1
         DO i = istarts, iends
 !          IF (llandmask(i)) THEN          ! land-points only
@@ -4368,7 +4384,7 @@ IMPLICIT NONE
 !          END IF
          END DO
 !    END DO
- ENDIF
+! ENDIF
 #endif
 
 
