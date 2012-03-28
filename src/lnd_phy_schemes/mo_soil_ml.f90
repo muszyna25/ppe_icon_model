@@ -1872,10 +1872,12 @@ IMPLICIT NONE
           ! initialize zdz_snow (from Section I.3) to zdzh_snow(i,1)
           zdz_snow (i) = dzh_snow_now(i,1) ! zdzh_snow
           zwsnow   (i) = w_snow_now(i)
-IF(zwsnow(i).gt.0. .and. dzh_snow_now(i,1).eq.0.) print *,'zwsnow(i).gt.0. .and. dzh_snow_now(i,1).eq.0.',i, &
-zwsnow(i),dzh_snow_now(i,1)
-IF(zwsnow(i).gt.0. .and. wtot_snow_now(i,1).eq.0.) print *,'zwsnow(i).gt.0. .and. wtot_snow_now(i,1).eq.0.',i, &
-zwsnow(i),wtot_snow_now(i,1)
+          IF(zwsnow(i).GT.0. .AND. dzh_snow_now(i,1).EQ.0.) &
+            &  PRINT *,'zwsnow(i).gt.0. .and. dzh_snow_now(i,1).eq.0.',i, &
+            &          zwsnow(i),dzh_snow_now(i,1)
+          IF(zwsnow(i).GT.0. .AND. wtot_snow_now(i,1).EQ.0.) &
+            &  PRINT *,'zwsnow(i).gt.0. .and. wtot_snow_now(i,1).eq.0.',i, &
+            &          zwsnow(i),wtot_snow_now(i,1)
 !IF(i.eq.1) print *,'zwsnow(i).eq.0. .and. wtot_snow_now(i,1).ge.0.',zwsnow(i)
 !        END IF
       ENDDO
