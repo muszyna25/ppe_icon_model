@@ -49,8 +49,9 @@ MODULE mo_sync
 USE mo_kind,               ONLY: wp, dp, i8
 USE mo_exception,          ONLY: finish, message, message_text
 USE mo_model_domain,       ONLY: t_patch
-USE mo_parallel_config, ONLY: nproma
-USE mo_impl_constants,  ONLY: min_rlcell_int, min_rledge_int, min_rlvert_int
+USE mo_parallel_config,    ONLY: nproma
+USE mo_impl_constants,     ONLY: min_rlcell_int, min_rledge_int, min_rlvert_int
+USE mo_impl_constants_grf, ONLY: grf_bdywidth_c, grf_bdywidth_e
 USE mo_io_units,           ONLY: find_next_free_unit, filename_max
 USE mo_mpi,                ONLY: p_pe, p_bcast, p_sum, p_max, p_min, &
   & p_send, p_recv, p_comm_work_test,  p_comm_work, &
@@ -2258,13 +2259,15 @@ SUBROUTINE decomposition_statistics(p_patch)
 
    TYPE(t_patch), INTENT(IN) :: p_patch
 
-   REAL(wp) :: cellstat(6),edgestat(6),vertstat(5), csmax(5),csmin(5),csavg(6), &
-               esmax(6),esmin(6),esavg(6),vsmax(5),vsmin(5),vsavg(5)
+   REAL(wp) :: cellstat(0:6),edgestat(0:6),vertstat(0:5), csmax(0:5),csmin(0:5),csavg(0:6), &
+               esmax(0:6),esmin(0:6),esavg(0:6),vsmax(0:5),vsmin(0:5),vsavg(0:5)
    INTEGER  :: i_nchdom, i
 !-----------------------------------------------------------------------
 
    i_nchdom = MAX(1,p_patch%n_childdom)
 
+   cellstat(0) = REAL(nproma*(p_patch%cells%end_blk(grf_bdywidth_c,1)-1) + &
+                      p_patch%cells%end_idx(grf_bdywidth_c,1),wp)
    cellstat(1) = REAL(nproma*(p_patch%cells%end_blk(min_rlcell_int,i_nchdom)-1) + &
                       p_patch%cells%end_idx(min_rlcell_int,i_nchdom),wp)
    cellstat(2) = REAL(nproma*(p_patch%cells%end_blk(min_rlcell_int-1,i_nchdom)-1) + &
@@ -2283,6 +2286,8 @@ SUBROUTINE decomposition_statistics(p_patch)
      cellstat(6) = 0._wp
    ENDIF
 
+   edgestat(0) = REAL(nproma*(p_patch%edges%end_blk(grf_bdywidth_e,1)-1) + &
+                      p_patch%edges%end_idx(grf_bdywidth_e,1),wp)
    edgestat(1) = REAL(nproma*(p_patch%edges%end_blk(min_rledge_int,i_nchdom)-1) + &
                       p_patch%edges%end_idx(min_rledge_int,i_nchdom),wp)
    edgestat(2) = REAL(nproma*(p_patch%edges%end_blk(min_rledge_int-1,i_nchdom)-1) + &
@@ -2294,6 +2299,8 @@ SUBROUTINE decomposition_statistics(p_patch)
    edgestat(5) = REAL(p_patch%comm_pat_e%np_send,wp)
    edgestat(6) = REAL(p_patch%comm_pat_e%np_recv,wp)
 
+   vertstat(0) = REAL(nproma*(p_patch%verts%end_blk(grf_bdywidth_c,1)-1) + &
+                      p_patch%verts%end_idx(grf_bdywidth_c,1),wp)
    vertstat(1) = REAL(nproma*(p_patch%verts%end_blk(min_rlvert_int,i_nchdom)-1) + &
                       p_patch%verts%end_idx(min_rlvert_int,i_nchdom),wp)
    vertstat(2) = REAL(nproma*(p_patch%verts%end_blk(min_rlvert_int-1,i_nchdom)-1) + &
@@ -2305,20 +2312,20 @@ SUBROUTINE decomposition_statistics(p_patch)
 
    ! Question: how can I exclude PEs containing zero grid points of a model domain
    ! from global minimum computation?
-   csmax = global_max(cellstat(1:5))
-   csmin = global_min(cellstat(1:5))
-   DO i = 1, 6
+   csmax = global_max(cellstat(0:5))
+   csmin = global_min(cellstat(0:5))
+   DO i = 0, 6
      csavg(i) = global_sum_array(cellstat(i))
    ENDDO
-   csavg(1:5) = csavg(1:5)/MAX(1._wp,csavg(6))
+   csavg(0:5) = csavg(0:5)/MAX(1._wp,csavg(6))
    esmax = global_max(edgestat)
    esmin = global_min(edgestat)
-   DO i = 1, 6
+   DO i = 0, 6
      esavg(i) = global_sum_array(edgestat(i))/MAX(1._wp,csavg(6))
    ENDDO
    vsmax = global_max(vertstat)
    vsmin = global_min(vertstat)
-   DO i = 1, 5
+   DO i = 0, 5
      vsavg(i) = global_sum_array(vertstat(i))/MAX(1._wp,csavg(6))
    ENDDO
 
@@ -2326,12 +2333,21 @@ SUBROUTINE decomposition_statistics(p_patch)
      CALL message('Information on domain decomposition',TRIM(message_text))
    WRITE(message_text,'(i6)') NINT(csavg(6))
      CALL message('Number of compute PEs used for this grid',TRIM(message_text))
+   IF (p_patch%id > 1) THEN
+     WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(csmax(0)),NINT(csmin(0)),csavg(0)
+      CALL message('#   lateral boundary cells', TRIM(message_text))
+   ENDIF  
    WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(csmax(1)),NINT(csmin(1)),csavg(1)
      CALL message('#         prognostic cells', TRIM(message_text))
    WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(csmax(2)),NINT(csmin(2)),csavg(2)
      CALL message('# cells up to halo level 1', TRIM(message_text))
    WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(csmax(3)),NINT(csmin(3)),csavg(3)
      CALL message('# cells up to halo level 2', TRIM(message_text))
+
+   IF (p_patch%id > 1) THEN
+     WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(esmax(0)),NINT(esmin(0)),esavg(0)
+       CALL message('#   lateral boundary edges', TRIM(message_text))
+   ENDIF
    WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(esmax(1)),NINT(esmin(1)),esavg(1)
      CALL message('#         prognostic edges', TRIM(message_text))
    WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(esmax(2)),NINT(esmin(2)),esavg(2)
@@ -2340,6 +2356,11 @@ SUBROUTINE decomposition_statistics(p_patch)
      CALL message('# edges up to halo level 2', TRIM(message_text))
    WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(esmax(4)),NINT(esmin(4)),esavg(4)
      CALL message('# edges up to halo level 3', TRIM(message_text))
+
+   IF (p_patch%id > 1) THEN
+     WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(vsmax(0)),NINT(vsmin(0)),vsavg(0)
+       CALL message('#   lateral boundary verts', TRIM(message_text))
+   ENDIF
    WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(vsmax(1)),NINT(vsmin(1)),vsavg(1)
      CALL message('#         prognostic verts', TRIM(message_text))
    WRITE(message_text,'(a,2i7,f10.2)') 'max/min/avg ',NINT(vsmax(2)),NINT(vsmin(2)),vsavg(2)
