@@ -1296,6 +1296,9 @@ MODULE mo_nh_stepping
         dtadv_sub  = dtadv_loc/2._wp ! adv. time step on next refinement level
         rdtadv_loc = 1._wp/dtadv_loc
 
+        IF (ltimer)            CALL timer_start(timer_nesting)
+        IF (timers_level >= 2) CALL timer_start(timer_bdy_interp)
+
         ! Compute time tendencies for interpolation to refined mesh boundaries
         CALL compute_tendencies (p_patch(jg),p_nh_state(jg),n_new,n_now_grf,n_new_rcf, &
           &                      n_now_rcf,rdt_loc,rdtadv_loc,lstep_adv(jg))
@@ -1310,8 +1313,8 @@ MODULE mo_nh_stepping
             &     jg,jgc,n_now_grf,nnow(jgc),n_now_rcf,nnow_rcf(jgc),lstep_adv(jg))
 
         ENDDO
+        IF (timers_level >= 2) CALL timer_stop(timer_bdy_interp)
 
-        IF (ltimer)            CALL timer_start(timer_nesting)
         IF (timers_level >= 2) CALL timer_start(timer_nudging)
         ! prep_bdy_nudging can not be called using delayed requests!
         DO jn = 1, p_patch(jg)%n_childdom
