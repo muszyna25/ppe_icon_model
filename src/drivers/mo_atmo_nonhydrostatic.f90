@@ -104,18 +104,16 @@ PRIVATE
 PUBLIC :: atmo_nonhydrostatic
 PUBLIC :: construct_atmo_nonhydrostatic, destruct_atmo_nonhydrostatic
 
+! module data
+INTEGER :: jfile, n_file, n_diag, n_chkpt
+LOGICAL :: l_have_output
+
 CONTAINS
 
   !---------------------------------------------------------------------
   SUBROUTINE atmo_nonhydrostatic
     
     CHARACTER(*), PARAMETER :: routine = "mo_atmo_nonhydrostatic"
-
-
-    INTEGER :: jg, jfile, n_file, ist, n_diag, n_chkpt, ntl, ntlr
-    LOGICAL :: l_have_output, l_realcase
-    INTEGER :: pat_level(n_dom)
-    TYPE(t_simulation_status) :: simulation_status
 
     CALL construct_atmo_nonhydrostatic()
     
@@ -146,8 +144,8 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = "construct_atmo_nonhydrostatic"
 
 
-    INTEGER :: jg, jfile, n_file, ist, n_diag, n_chkpt, ntl, ntlr
-    LOGICAL :: l_have_output, l_realcase
+    INTEGER :: jg,  ist, ntl, ntlr
+    LOGICAL :: l_realcase
     INTEGER :: pat_level(n_dom)
     TYPE(t_simulation_status) :: simulation_status
 
@@ -419,11 +417,7 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = "destruct_atmo_nonhydrostatic"
 
 
-    INTEGER :: jg, jfile, n_file, ist, n_diag, n_chkpt, ntl, ntlr
-    LOGICAL :: l_have_output, l_realcase
-    INTEGER :: pat_level(n_dom)
-    TYPE(t_simulation_status) :: simulation_status
-
+    INTEGER :: jg, ist
 
     !---------------------------------------------------------------------
     ! 6. Integration finished. Clean up.
