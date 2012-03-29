@@ -2463,13 +2463,6 @@ Number of 3D Fields for diagnostic/debugging output. &
 iequations = 3 {\color{red}(to be done for 1, 2)}
 \tabularnewline
 
-\hline
-lwrite\_pzlev&
-L& .FALSE. & &
-activate output on p- and/or z-levels &
-iequations=3
-\tabularnewline
-
 \hline 
 lflux\_avg&
 L& .FALSE. & &
@@ -2707,115 +2700,6 @@ R&0,90& &
 
 Defined and used in: src/namelists/mo\_name\_list\_output.f90
 
-%------------------------------------------------------------------------------
-% lonlat_intp_nml:
-%------------------------------------------------------------------------------
-\subsection{lonlat\_intp\_nml}
-\begin{longtab}
-
-\hline 
-llonlat\_enabled&
-L(n\_dom) &
-.FALSE.&&
-Flag. True, if lon-lat interpolation of output variables is desired.&
-\tabularnewline
-
-\hline 
-lsupersede&
-L &
-.FALSE.&&
-Flag. True, if standard grid variable is not written for lon-lat vars.&
-\tabularnewline
-
-\hline 
-lonlat\_var\_list&
-C &
-'' 'PS', 'Q7', 'normal\_velocity' ''&&
-List of variables for lon-lat interpolation or ``all''.&
-\tabularnewline
-
-\hline 
-lon\_delta&
-R(n\_dom) &
-2.0&deg&
-Interpolation to lon-lat grid: resolution.&
-\tabularnewline
-
-\hline 
-lat\_delta&
-R(n\_dom) &
-2.0&deg&
-Interpolation to lon-lat grid: resolution.&
-\tabularnewline
-
-\hline 
-lon\_corner1&
-R(n\_dom) &
--180.0&deg&
-South western corner of interpolation area (lon/lat).&
-\tabularnewline
-
-\hline 
-lat\_corner1&
-R(n\_dom) &
--90.0&deg&
-South western corner of interpolation area (lon/lat).&
-\tabularnewline
-
-\hline 
-lon\_corner2&
-R(n\_dom) &
- 180.0&deg&
-North eastern corner of interpolation area (lon/lat).
-Overrides corresponding ``dimen'' value.
-\tabularnewline
-
-\hline 
-lat\_corner2&
-R(n\_dom) &
- 90.0&deg&
-North eastern corner of interpolation area (lon/lat).
-Overrides corresponding ``dimen'' value.
-&
-\tabularnewline
-
-\hline 
-lon\_poleN&
-R(n\_dom) &
-0.&deg&
-Position of north pole for interpolation grid.&
-\tabularnewline
-
-\hline 
-lat\_poleN&
-R(n\_dom) &
-90.&deg&
-Position of north pole for interpolation grid.&
-\tabularnewline
-
-\hline 
-lon\_dimen&
-I(n\_dom) &
--1&&
-Dimensions of interpolation grid.
-Computed automatically when a second area corner is provided.
-&
-\tabularnewline
-
-\hline 
-lat\_dimen&
-I(n\_dom) &
--1&&
-Dimensions of interpolation grid.
-Computed automatically when a second area corner is provided.
-&
-\tabularnewline
-
-\hline
-\end{longtab}
-
-Defined and used in: src/namelists/mo\_lonlat\_intp\_nml.f90
-
 
 
 %------------------------------------------------------------------------------
@@ -2880,27 +2764,10 @@ Defined and used in: src/namelists/mo\_mtgrm\_nml.f90
 \begin{longtab}
  
 \hline 
-lwrite\_zlev &
-L& .TRUE.& &
-Output on height levels&
-iequations=3\\
-lwrite\_pzlev=.TRUE.
-\tabularnewline
-
-\hline 
-lwrite\_plev &
-L& .TRUE.& &
-Output on pressure levels&
-iequations=3\\
-lwrite\_pzlev=.TRUE.
-\tabularnewline
-
-\hline 
 nzlev &
 I& 10 & &
 number of height levels&
 iequations=3\\
-lwrite\_pzlev=.TRUE.
 \tabularnewline
 
 \hline 
@@ -2908,7 +2775,6 @@ nplev &
 I& 10 & &
 number of pressure levels&
 iequations=3\\
-lwrite\_pzlev=.TRUE.
 \tabularnewline
 
 \hline 
@@ -2916,7 +2782,6 @@ zlevels &
 R& 0,1000,\\2000,\\...,\\10000 & m&
 array of height levels&
 iequations=3\\
-lwrite\_pzlev=.TRUE.\\
 \textcolor{red}{ordering of the levels must be top-down}
 \tabularnewline
 
@@ -2925,7 +2790,6 @@ plevels &
 R&  100000,\\ 90000,\\ 80000,\\...,\\10000& Pa &
 array of pressure levels&
 iequations=3\\
-lwrite\_pzlev=.TRUE.\\
 \textcolor{red}{ordering of the levels must be top-down}
 \tabularnewline
 
