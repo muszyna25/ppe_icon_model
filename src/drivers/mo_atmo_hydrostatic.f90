@@ -44,7 +44,7 @@ MODULE mo_atmo_hydrostatic
   USE mo_io_config,         ONLY: n_diags, n_checkpoints,n_files,n_ios,lwrite_initial
 
   USE mo_model_domain,        ONLY: p_patch
-  USE mo_intp_data_strc,      ONLY: p_int_state, p_int_state_lonlat
+  USE mo_intp_data_strc,      ONLY: p_int_state
   USE mo_grf_intp_data_strc,  ONLY: p_grf_state
 
   USE mo_vertical_coord_table,ONLY: vct_a, vct_b, ceta

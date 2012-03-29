@@ -103,6 +103,7 @@ MODULE mo_math_utilities
   USE mo_physical_constants,  ONLY: re 
   USE mo_exception,           ONLY: message, finish
   USE mo_parallel_config,     ONLY: nproma
+  USE mo_lonlat_grid,         ONLY: t_lon_lat_grid
  
 
   IMPLICIT NONE
@@ -113,7 +114,6 @@ MODULE mo_math_utilities
 
   PUBLIC :: t_cartesian_coordinates
   PUBLIC :: t_geographical_coordinates
-  PUBLIC :: t_lon_lat_grid
   PUBLIC :: gvec2cvec
   PUBLIC :: cvec2gvec
   PUBLIC :: arc_length
@@ -159,21 +159,6 @@ MODULE mo_math_utilities
     REAL(wp) :: lat
   END TYPE t_geographical_coordinates
 
-! ! specification of (rotated) lon-lat grid
-
-  TYPE t_lon_lat_grid
-    ! grid points: start_corner(lon,lat) + delta(lon,lat)*[0,1,2, ..., dim(lon,lat)-1]
-    REAL(wp) ::                     &
-      &  delta       (2),           &     ! lon-lat grid resolution,                unit:rad
-      &  start_corner(2),           &     ! south western corner of area (lon/lat), unit:rad
-      &  poleN       (2)                  ! position of north pole (lon,lat),       unit:rad
-    INTEGER  :: dimen(2)                  ! grid dimensions
-
-    ! computed from above values:
-    INTEGER  :: total_dim              ! total number of grid points 
-    INTEGER  :: nblks, npromz          ! blocking info
-
-  END TYPE t_lon_lat_grid
 
   INTERFACE OPERATOR(+)
     MODULE PROCEDURE cartesian_coordinates_plus
@@ -1412,26 +1397,30 @@ SUBROUTINE rotate_latlon_grid( lon_lat_grid, rotated_pts )
   
   ! Local parameters
   REAL(wp) :: sincos_pole(2,2) ! (lon/lat, sin/cos)
-  REAL(wp) :: sincos_lon(lon_lat_grid%dimen(1),2), &
-    &         sincos_lat(lon_lat_grid%dimen(2),2)
+  REAL(wp) :: sincos_lon(lon_lat_grid%lon_dim,2), &
+    &         sincos_lat(lon_lat_grid%lat_dim,2)
   INTEGER  :: k
-  REAL(wp) :: rlon_lat
+  REAL(wp) :: rlon_lat, pi_180, npole_rad(2)
 
 !-----------------------------------------------------------------------
 
-  sincos_pole(:,1) = SIN(lon_lat_grid%poleN(:))
-  sincos_pole(:,2) = COS(lon_lat_grid%poleN(:))
+  ! convert north pole: degree -> rad:
+  pi_180 = ATAN(1._wp)/45._wp
+  npole_rad(:) = lon_lat_grid%north_pole(:)*pi_180
 
-  DO k=1,lon_lat_grid%dimen(1)
+  sincos_pole(:,1) = SIN(npole_rad(:))
+  sincos_pole(:,2) = COS(npole_rad(:))
+
+  DO k=1,lon_lat_grid%lon_dim
     rlon_lat        = lon_lat_grid%start_corner(1) + REAL(k-1,wp)*lon_lat_grid%delta(1)
     sincos_lon(k,:) = (/ SIN(rlon_lat), COS(rlon_lat) /)
   END DO
-  DO k=1,lon_lat_grid%dimen(2)
+  DO k=1,lon_lat_grid%lat_dim
     rlon_lat        = lon_lat_grid%start_corner(2) + REAL(k-1,wp)*lon_lat_grid%delta(2)
     sincos_lat(k,:) = (/ SIN(rlon_lat), COS(rlon_lat) /)
   END DO
 
-  FORALL (k=1:lon_lat_grid%dimen(1))
+  FORALL (k=1:lon_lat_grid%lon_dim)
 
     ! ASIN( SIN(phi)*SIN(poleY) + COS(phi)*COS(lambda)*COS(poleY) )
     rotated_pts(k,:,2) = &
@@ -1441,7 +1430,7 @@ SUBROUTINE rotate_latlon_grid( lon_lat_grid, rotated_pts )
     rotated_pts(k,:,1) = &
       ATAN2( sincos_lat(:,2)*sincos_lon(k,1), &
       &      sincos_pole(2,1)*sincos_lat(:,2)*sincos_lon(k,2) - sincos_lat(:,1)*sincos_pole(2,2)) &
-      &      + lon_lat_grid%poleN(1)
+      &      + npole_rad(1)
 
   END FORALL
 

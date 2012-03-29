@@ -61,10 +61,6 @@ MODULE mo_nh_pzlev_config
 
     ! namelist variables
     !
-    LOGICAL :: lwrite_zlev           !< if .TRUE.: write output on z-levels
-
-    LOGICAL :: lwrite_plev           !< if .TRUE.: write output on z-levels
-
     INTEGER :: nzlev                 !< number of z-levels
 
     INTEGER :: nplev                 !< number of p-levels
@@ -99,13 +95,12 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2011-09-07)
   !!
-  SUBROUTINE configure_nh_pzlev( jg, nproma, npromz_c, nblks_c, lwrite_pzlev )
+  SUBROUTINE configure_nh_pzlev( jg, nproma, npromz_c, nblks_c )
   !
     INTEGER, INTENT(IN) :: jg           !< patch 
     INTEGER, INTENT(IN) :: nproma
     INTEGER, INTENT(IN) :: npromz_c
     INTEGER, INTENT(IN) :: nblks_c      !< number of blocks
-    LOGICAL, INTENT(IN) :: lwrite_pzlev !< main switch
 
     ! Local variables
     INTEGER :: ist
@@ -114,49 +109,43 @@ CONTAINS
     INTEGER :: jb, jk           ! loop indices
     !-----------------------------------------------------------------------
 
-    !
-    ! only neccesary, if output on z and/or p-levels is required
-    !
-    IF ( lwrite_pzlev ) THEN
-
-      z_nplev = nh_pzlev_config(jg)%nplev
-      z_nzlev = nh_pzlev_config(jg)%nzlev
+    z_nplev = nh_pzlev_config(jg)%nplev
+    z_nzlev = nh_pzlev_config(jg)%nzlev
 
 
-      ! allocate 3D pressure and z-level fields
-      ALLOCATE(nh_pzlev_config(jg)%p3d(nproma,z_nplev,nblks_c),          &
-        &      nh_pzlev_config(jg)%z3d(nproma,z_nzlev,nblks_c), STAT=ist )
-      IF (ist /= SUCCESS) THEN
-        CALL finish ( 'mo_nh_pzlev_nml: configure_nh_pzlev',       &
+    ! allocate 3D pressure and z-level fields
+    ALLOCATE(nh_pzlev_config(jg)%p3d(nproma,z_nplev,nblks_c),          &
+      &      nh_pzlev_config(jg)%z3d(nproma,z_nzlev,nblks_c), STAT=ist )
+    IF (ist /= SUCCESS) THEN
+      CALL finish ( 'mo_nh_pzlev_nml: configure_nh_pzlev',       &
         &      'allocation of p3d, z3d failed' )
-      ENDIF
+    ENDIF
 
 
-      ! Fill z3d field of pressure-level data and pressure field of 
-      ! height-level data
-      !
+    ! Fill z3d field of pressure-level data and pressure field of 
+    ! height-level data
+    !
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,nlen)
-      DO jb = 1,nblks_c
+    DO jb = 1,nblks_c
 
-        IF (jb /= nblks_c) THEN
-           nlen = nproma
-        ELSE
-           nlen = npromz_c
-        ENDIF
+      IF (jb /= nblks_c) THEN
+        nlen = nproma
+      ELSE
+        nlen = npromz_c
+      ENDIF
 
-        DO jk = 1, nh_pzlev_config(jg)%nplev
-          nh_pzlev_config(jg)%p3d(1:nlen,jk,jb) = nh_pzlev_config(jg)%plevels(jk)
-        ENDDO
-
-        DO jk = 1, nh_pzlev_config(jg)%nzlev
-          nh_pzlev_config(jg)%z3d(1:nlen,jk,jb) = nh_pzlev_config(jg)%zlevels(jk)
-        ENDDO
-
+      DO jk = 1, nh_pzlev_config(jg)%nplev
+        nh_pzlev_config(jg)%p3d(1:nlen,jk,jb) = nh_pzlev_config(jg)%plevels(jk)
       ENDDO
+
+      DO jk = 1, nh_pzlev_config(jg)%nzlev
+        nh_pzlev_config(jg)%z3d(1:nlen,jk,jb) = nh_pzlev_config(jg)%zlevels(jk)
+      ENDDO
+
+    ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
-    ENDIF
     
   END SUBROUTINE configure_nh_pzlev
 

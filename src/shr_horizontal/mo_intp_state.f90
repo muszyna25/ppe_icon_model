@@ -177,7 +177,7 @@ USE mo_interpol_config,     ONLY: i_cori_method, rbf_vec_dim_c, rbf_c2grad_dim, 
 USE mo_intp_data_strc,      ONLY: t_int_state, t_lon_lat_intp
 USE mo_intp_rbf_coeffs,     ONLY: rbf_vec_index_cell, rbf_vec_index_edge,                &
   &                               rbf_vec_index_vertex, rbf_vec_compute_coeff_cell,      &
-  &                               rbf_vec_compute_coeff_edge, rbf_setup_interpol_lonlat, &
+  &                               rbf_vec_compute_coeff_edge,                            &
   &                               rbf_vec_compute_coeff_vertex, rbf_c2grad_index,        &
   &                               rbf_compute_coeff_c2grad
 USE mo_intp_coeffs,         ONLY: lsq_stencil_create, lsq_compute_coeff_cell,          &
@@ -187,14 +187,10 @@ USE mo_intp_coeffs,         ONLY: lsq_stencil_create, lsq_compute_coeff_cell,   
   &                               init_geo_factors_oce, init_scalar_product_oce,       &
   &                               init_nudgecoeffs, tri_quadrature_pts,                &
   &                               par_init_scalar_product_oce
-USE mo_lonlat_intp_config,  ONLY: lonlat_intp_config
-USE mo_mpi,                 ONLY: p_n_work, my_process_is_io, process_mpi_io_size, &
-  & my_process_is_mpi_all_parallel
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V
 USE mo_communication,       ONLY: t_comm_pattern, blk_no, idx_no, idx_1d, &
   &                               setup_comm_pattern, delete_comm_pattern, exchange_data
 USE mo_ocean_nml,           ONLY: idisc_scheme
-USE mo_math_utilities,      ONLY: t_lon_lat_grid
 
 
 
@@ -206,10 +202,8 @@ PRIVATE
 PUBLIC :: construct_2d_interpol_state, destruct_2d_interpol_state
 PUBLIC :: transfer_interpol_state
 PUBLIC :: allocate_int_state, deallocate_int_state
-PUBLIC :: allocate_int_state_lonlat,      &
-  &       allocate_int_state_lonlat_grid, &
-  &       rbf_setup_interpol_lonlat,      &
-  &       deallocate_int_state_lonlat
+PUBLIC :: allocate_int_state_lonlat_grid
+PUBLIC :: deallocate_int_state_lonlat
 
 INTERFACE xfer_var
   MODULE PROCEDURE xfer_var_r2
@@ -1429,43 +1423,24 @@ END SUBROUTINE allocate_int_state
 !-------------------------------------------------------------------------
 !
 !
-!> Allocation of components of interpolation state.
-!!
-!! @par Revision History
-!! Changed to a wrapper, Rainer Johanni (2011-11-25)
-!!
-SUBROUTINE allocate_int_state_lonlat( k_jg, ptr_int_lonlat)
-!
-  INTEGER,                       INTENT(IN)    :: k_jg   ! patch index
-  TYPE (t_lon_lat_intp), TARGET, INTENT(INOUT) :: ptr_int_lonlat
-
-  CALL allocate_int_state_lonlat_grid(lonlat_intp_config(k_jg)%lonlat_grid, &
-                                      ptr_int_lonlat)
-
-END SUBROUTINE allocate_int_state_lonlat
-
-!-------------------------------------------------------------------------
-!
-!
 !> Allocation of components of interpolation state using an arbitrary grid.
 !!
 !! @par Revision History
+!! Initial implementation: F. Prill, DWD, 2011
 !! Introduced arbitrary grid, Rainer Johanni (2010-11-25)
 !!
-SUBROUTINE allocate_int_state_lonlat_grid( lonlat_grid, ptr_int_lonlat)
+SUBROUTINE allocate_int_state_lonlat_grid( nblks_lonlat, ptr_int_lonlat )
 !
-  TYPE (t_lon_lat_grid),         INTENT(IN)    :: lonlat_grid
+  INTEGER,                       intent(IN)    :: nblks_lonlat
   TYPE (t_lon_lat_intp), TARGET, INTENT(INOUT) :: ptr_int_lonlat
 
   CHARACTER(*), PARAMETER :: routine = TRIM("mo_intp_state:allocate_int_state_lonlat")
-  INTEGER :: nblks_lonlat, ist, total_dim
+  INTEGER :: ist
 
   ! ----------------------------------------------------------------------
 
   ! allocate memory only when needed.
-  total_dim    = lonlat_grid%total_dim
-  nblks_lonlat = (total_dim - 1)/nproma + 1
-  ALLOCATE ( &
+   ALLOCATE ( &
     &  ptr_int_lonlat%rbf_vec_coeff(rbf_vec_dim_c, 2, nproma, nblks_lonlat),     &
     &  ptr_int_lonlat%rbf_c2grad_coeff(rbf_c2grad_dim, 2, nproma, nblks_lonlat), &
     &  ptr_int_lonlat%rbf_vec_idx(rbf_vec_dim_c, nproma, nblks_lonlat),                 &
@@ -1478,15 +1453,10 @@ SUBROUTINE allocate_int_state_lonlat_grid( lonlat_grid, ptr_int_lonlat)
     CALL finish (routine, 'allocation for rbf lon-lat coeffs failed')
   ENDIF
   
-  ALLOCATE(ptr_int_lonlat%tri_idx(2, nproma, nblks_lonlat),   &
-    &      ptr_int_lonlat%rdist(2, nproma, nblks_lonlat),     &
-    &      stat=ist)
-  IF (ist /= SUCCESS) THEN
-    CALL finish (routine, 'allocation for working arrays failed')
-  ENDIF
+  ALLOCATE(ptr_int_lonlat%rdist(2, nproma, nblks_lonlat), stat=ist)
+  IF (ist /= SUCCESS)  CALL finish (routine, 'allocation for working arrays failed')
   
   ptr_int_lonlat%rdist             = 0._wp
-  ptr_int_lonlat%tri_idx           = 0
   ptr_int_lonlat%rbf_vec_idx       = 0
   ptr_int_lonlat%rbf_vec_blk       = 0
   ptr_int_lonlat%rbf_c2grad_idx    = 0
@@ -1494,12 +1464,6 @@ SUBROUTINE allocate_int_state_lonlat_grid( lonlat_grid, ptr_int_lonlat)
   ptr_int_lonlat%rbf_vec_stencil   = 0
   ptr_int_lonlat%rbf_vec_coeff     = 0._wp
   ptr_int_lonlat%rbf_c2grad_coeff  = 0._wp
-
-  ! allocate array for distributed computation:
-  ALLOCATE( ptr_int_lonlat%nlocal_pts(p_n_work), &
-    &       ptr_int_lonlat%owner(total_dim)    , STAT=ist )
-  IF (ist /= SUCCESS) &
-    CALL finish (routine, 'allocation for lon-lat point distribution failed')
 
 END SUBROUTINE allocate_int_state_lonlat_grid
 
@@ -1624,11 +1588,7 @@ DO jg = n_dom_start, n_dom
 
   IF ( iequations == ihs_ocean) THEN
     IF (idisc_scheme==1) THEN
-!       IF (my_process_is_mpi_all_parallel()) THEN
-        CALL par_init_scalar_product_oce(ptr_patch(jg), ptr_int_state(jg))
-!       ELSE
-!          CALL init_scalar_product_oce(ptr_patch(jg), ptr_int_state(jg))
-!       ENDIF
+      CALL par_init_scalar_product_oce(ptr_patch(jg), ptr_int_state(jg))
     ENDIF
     CALL init_geo_factors_oce(ptr_patch(jg), ptr_int_state(jg))
   ENDIF

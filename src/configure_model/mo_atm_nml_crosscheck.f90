@@ -61,7 +61,7 @@ MODULE mo_nml_crosscheck
     &                              inextra_3d, lwrite_cloud, lwrite_extra,    &
     &                              lwrite_omega, lwrite_precip, lwrite_pres,  &
     &                              lwrite_radiation,lwrite_surface,lwrite_tend_phy,& 
-    &                              lwrite_tke,lwrite_z3, no_output, lwrite_pzlev
+    &                              lwrite_tke,lwrite_z3, no_output
   USE mo_parallel_config,    ONLY: check_parallel_configuration,              &
     &                              num_io_procs, itype_comm
   USE mo_run_config,         ONLY: lrestore_states, nsteps, dtime, iforcing,  &
@@ -101,7 +101,6 @@ MODULE mo_nml_crosscheck
   USE mo_ha_testcases,       ONLY: ctest_name, ape_sst_case
 
   USE mo_datetime,           ONLY: add_time, print_datetime_all
-  USE mo_lonlat_intp_config, ONLY: lonlat_intp_config
   USE mo_meteogram_config,   ONLY: check_meteogram_configuration
   USE mo_master_control,     ONLY: is_restart_run
 
@@ -857,24 +856,6 @@ CONTAINS
         & "warning: namelist parameter 'activate_sync_timers' has been set to .TRUE., ", &
         & "because global 'timers_level' is > 9."
       CALL message('io_namelist', TRIM(message_text))
-    END IF
-
-    !---------------------------------------------------------------
-    ! interpolation onto pz-levels has been removed from the "old"
-    ! vlist I/O
-    IF ((.NOT. no_output) .AND. lwrite_pzlev) THEN
-      CALL finish('io_namelist', &
-        &         "Interpolation onto pz-levels has been removed from the 'old' vlist I/O)")
-    END IF
-
-    !---------------------------------------------------------------
-    ! lon-lat interpolation is not fully implemented for the "old"
-    ! output mode implemented in module mo_io_vlist.
-    !---------------------------------------------------------------
-
-    IF ((num_io_procs>0) .AND. (ANY(lonlat_intp_config(:)%l_enabled))) THEN
-      CALL finish('lonlat_intp_nml',&
-        &         'Asynchronous IO of lon-lat interpolated vars not yet implemented!')
     END IF
 
     ! check meteogram configuration

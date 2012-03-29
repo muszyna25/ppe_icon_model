@@ -53,8 +53,8 @@ MODULE mo_gnat_gridsearch
 
   USE mo_kind,                ONLY: wp, sp
   USE mo_exception,           ONLY: message, message_text, finish
-  USE mo_math_utilities,      ONLY: t_geographical_coordinates, &
-    &                               t_lon_lat_grid
+  USE mo_math_utilities,      ONLY: t_geographical_coordinates
+  USE mo_lonlat_grid,         ONLY: t_lon_lat_grid
   USE mo_model_domain,        ONLY: t_grid_cells, t_grid_vertices, t_patch
   USE mo_impl_constants,      ONLY: min_rlcell_int
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
@@ -932,7 +932,6 @@ CONTAINS
     INTEGER  :: new_tri_idx(2,total_dim)
     REAL(gk) :: new_lonlat_points(total_dim,2)
     REAL     :: in(2,total_dim)
-    LOGICAL  :: l_work_pe, l_io_pe
     INTEGER  :: iowner, idummy_applied
     INTEGER  :: array_shape(2), dummy_idx(2)
     INTEGER  :: i_endblk, i_endidx, &
@@ -953,16 +952,7 @@ CONTAINS
       &                dummy_idx(1), i_endidx, &
       &                rl_start, rl_end)
 
-    ! 1. Define flags indicating whether this PE is involved in the
-    !    computation of coefficients and if it is the IO PE.
-
-    ! TODO[FP] : As long as asynchronous IO for lon-lat interpolation
-    ! is not supported, all PEs are involved in the computation of
-    ! coefficients.
-    l_work_pe = .TRUE.
-    l_io_pe   = .TRUE.
-
-    ! 2. Perform an MPI_ALLREDUCE operation with the min_dist vector
+    ! 1. Perform an MPI_ALLREDUCE operation with the min_dist vector
     !    to find out which process is in charge of which in_point
 
     in(1,:) = RESHAPE(REAL(min_dist(:,:)), (/ ntotal /) )
@@ -973,71 +963,65 @@ CONTAINS
 
     ! store list of owners for reconstruction of global coefficient
     ! arrays:
-    IF (l_io_pe) THEN
-      owner_list(1:total_dim) = NINT(in(2,1:total_dim))
-    END IF
+    owner_list(1:total_dim) = NINT(in(2,1:total_dim))
 
-    ! 3. If we are a working PE, reduce the list of in_points and the
+    ! 2. If we are a working PE, reduce the list of in_points and the
     !    tri_idx array to points which are actually located on this
     !    portion of the domain.
     array_shape(:) = (/ iv_nproma, iv_nblks /)
     nlocal_pts(:)  = 0
     idummy_applied = 0
-    IF (l_work_pe) THEN
 
-      jc = 0
-      jb = 1
-      j  = 1
-      i  = 0
-      TOTAL : DO
-        SKIP : DO
-          i = i + 1
-          jc = jc + 1
-          IF (jc > iv_nproma) THEN
-            jb = jb + 1
-            jc = 1
-          END IF
-          if (i > ntotal) EXIT TOTAL
-          IF (owner_list(i) == get_my_mpi_work_id()) EXIT SKIP
-        END DO SKIP
-
-        IF (tri_idx(1,jc,jb) /= INVALID_NODE) THEN
-          new_tri_idx(1:2,j) = tri_idx(1:2,jc,jb)          
-        ELSE
-          new_tri_idx(1:2,j) = dummy_idx
-          idummy_applied = idummy_applied + 1
+    jc = 0
+    jb = 1
+    j  = 1
+    i  = 0
+    TOTAL : DO
+      SKIP : DO
+        i = i + 1
+        jc = jc + 1
+        IF (jc > iv_nproma) THEN
+          jb = jb + 1
+          jc = 1
         END IF
+        IF (i > ntotal) EXIT TOTAL
+        IF (owner_list(i) == get_my_mpi_work_id()) EXIT SKIP
+      END DO SKIP
 
-        new_lonlat_points(j,1:2)  = lonlat_points(jc,jb,1:2)
+      IF (tri_idx(1,jc,jb) /= INVALID_NODE) THEN
+        new_tri_idx(1:2,j) = tri_idx(1:2,jc,jb)          
+      ELSE
+        new_tri_idx(1:2,j) = dummy_idx
+        idummy_applied = idummy_applied + 1
+      END IF
 
-        j  =  j + 1
-      END DO TOTAL
-      tri_idx(1,:,:) = RESHAPE( new_tri_idx(1,:), array_shape(:), (/ 0 /) )
-      tri_idx(2,:,:) = RESHAPE( new_tri_idx(2,:), array_shape(:), (/ 0 /) )
-      lonlat_points(:,:,1) = RESHAPE( new_lonlat_points(:,1), array_shape(:), (/ 0._gk /) )
-      lonlat_points(:,:,2) = RESHAPE( new_lonlat_points(:,2), array_shape(:), (/ 0._gk /) )
-    END IF
+      new_lonlat_points(j,1:2)  = lonlat_points(jc,jb,1:2)
+      
+      j  =  j + 1
+    END DO TOTAL
+    tri_idx(1,:,:) = RESHAPE( new_tri_idx(1,:), array_shape(:), (/ 0 /) )
+    tri_idx(2,:,:) = RESHAPE( new_tri_idx(2,:), array_shape(:), (/ 0 /) )
+    lonlat_points(:,:,1) = RESHAPE( new_lonlat_points(:,1), array_shape(:), (/ 0._gk /) )
+    lonlat_points(:,:,2) = RESHAPE( new_lonlat_points(:,2), array_shape(:), (/ 0._gk /) )
 
     ! now, (j-1) points are left for proc "get_my_mpi_work_id()"
     ithis_local_pts = (j-1)
 
     ! store the global list of receivers as well as the number of
     ! points associated with each work PE.
-    IF (l_io_pe) THEN
-      DO iowner=0,(p_n_work-1)
-        nlocal_pts(iowner+1) = COUNT(owner_list == iowner)
-      END DO
-    END IF
+    DO iowner=0,(p_n_work-1)
+      nlocal_pts(iowner+1) = COUNT(owner_list == iowner)
+    END DO
 
     IF (dbg_level > 10) THEN
       WRITE(message_text,*) "lon-lat point distribution: ", nlocal_pts(:)
-
+      
       IF (idummy_applied > 0) THEN
         WRITE(message_text,*) "proc ", get_my_mpi_work_id(), ": dummy applied: ", idummy_applied
         CALL message(routine, TRIM(message_text))
       END IF
     END IF
-
+    
   END SUBROUTINE gnat_merge_distributed_queries
 
 

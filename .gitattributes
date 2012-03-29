@@ -1077,7 +1077,6 @@ src/configure_model/mo_icon_testbed_config.f90 -text
 src/configure_model/mo_interpol_config.f90 -text
 src/configure_model/mo_io_config.f90 -text
 src/configure_model/mo_lnd_nwp_config.f90 -text
-src/configure_model/mo_lonlat_intp_config.f90 -text
 src/configure_model/mo_mtgrm_config.f90 -text
 src/configure_model/mo_name_list_output_config.f90 -text
 src/configure_model/mo_nh_pzlev_config.f90 -text
@@ -1180,7 +1179,6 @@ src/namelists/mo_icon_testbed_nml.f90 -text
 src/namelists/mo_interpol_nml.f90 -text
 src/namelists/mo_io_nml.f90 -text
 src/namelists/mo_lnd_nwp_nml.f90 -text
-src/namelists/mo_lonlat_intp_nml.f90 -text
 src/namelists/mo_master_nml.f90 -text
 src/namelists/mo_mtgrm_nml.f90 -text
 src/namelists/mo_nh_pzlev_nml.f90 -text
@@ -1282,9 +1280,11 @@ src/shr_horizontal/mo_intp.f90 -text
 src/shr_horizontal/mo_intp_coeffs.f90 -text
 src/shr_horizontal/mo_intp_coeffs_lsq_bln.f90 -text
 src/shr_horizontal/mo_intp_data_strc.f90 -text
+src/shr_horizontal/mo_intp_lonlat.f90 -text
 src/shr_horizontal/mo_intp_rbf.f90 -text
 src/shr_horizontal/mo_intp_rbf_coeffs.f90 -text
 src/shr_horizontal/mo_intp_state.f90 -text
+src/shr_horizontal/mo_lonlat_grid.f90 -text
 src/shr_horizontal/mo_math_divrot.f90 -text
 src/shr_horizontal/mo_math_gradients.f90 -text
 src/shr_horizontal/mo_math_laplace.f90 -text

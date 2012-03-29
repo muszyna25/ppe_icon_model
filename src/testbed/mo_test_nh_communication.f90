@@ -61,7 +61,7 @@ MODULE mo_test_nh_communication
   USE mo_diffusion_config,     ONLY: diffusion_config
   USE mo_dynamics_config,      ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1, nsav2
   USE mo_io_config,            ONLY: l_outputtime, l_diagtime, is_checkpoint_time,&
-    &                                lwrite_pzlev, istime4output, no_output
+    &                                istime4output, no_output
   USE mo_parallel_config,      ONLY: nproma, itype_comm
   USE mo_run_config,           ONLY: ltestcase, dtime, dtime_adv, nsteps,     &
     &                                ltransport, ntracer, lforcing, iforcing, &

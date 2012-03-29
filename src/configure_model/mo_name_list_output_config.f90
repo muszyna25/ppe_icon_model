@@ -44,14 +44,13 @@
 MODULE mo_name_list_output_config
 
   USE mo_kind,                  ONLY: wp, i8
+  USE mo_exception,             ONLY: finish
   USE mo_io_units,              ONLY: filename_max
   USE mo_impl_constants,        ONLY: max_phys_dom, max_bounds,          &
     &                                 vname_len, max_var_ml, max_var_pl, &
     &                                 max_var_hl, max_levels
   USE mo_cdi_constants,         ONLY: FILETYPE_GRB, FILETYPE_GRB2
   USE mo_var_metadata,          ONLY: t_var_metadata
-  USE mo_math_utilities,        ONLY: t_lon_lat_grid
-  USE mo_intp_data_strc,        ONLY: t_lon_lat_intp
 
   IMPLICIT NONE
 
@@ -62,6 +61,7 @@ MODULE mo_name_list_output_config
   PUBLIC :: max_levels, vname_len, t_output_name_list
   PUBLIC :: first_output_name_list, max_time_levels, t_output_file,&
     &       t_var_desc,t_rptr_5d
+  PUBLIC :: add_var_desc
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: &
     &  version = '$Id$'
@@ -73,6 +73,9 @@ MODULE mo_name_list_output_config
   ! Flag whether async name_list I/O is used, it is set in the main program:
 
   LOGICAL :: use_async_name_list_io = .FALSE.
+  
+  ! Constant defining how many variable entries are added when resizing array:
+  INTEGER, PARAMETER :: NVARS_GROW = 10
 
   ! The following parameter decides whether physical or logical patches are output
   ! and thus whether the domain number in output name lists pertains to physical
@@ -102,14 +105,12 @@ MODULE mo_name_list_output_config
     REAL(wp) :: h_levels(max_levels)                      ! height levels
     INTEGER  :: remap               ! interpolate horizontally, 0: none, 1: to regular lat-lon grid, 2: to Gaussian grids, (3:...)
     LOGICAL  :: remap_internal      ! do interpolations online in the model or external (including triggering)
-    REAL(wp) :: reg_lon_def(3)      ! if remap=1: start, increment, end longitude in degrees
-    REAL(wp) :: reg_lat_def(3)      ! if remap=1: start, increment, end latitude in degrees
+    
+    INTEGER  :: lonlat_id     ! if remap=1: index of lon-lat-grid in global list "lonlat_grid_list"
+
     INTEGER  :: gauss_tgrid_def     ! if remap=2: triangular truncation (e.g.63 for T63) for which the Gauss grid should be used
-    REAL(wp) :: north_pole(2)       ! definition of north pole for rotated lon-lat grids.
 
     ! Internal members, not read from input
-    INTEGER  :: lon_dim             ! Number of points in lon direction
-    INTEGER  :: lat_dim             ! Number of points in lat direction
     INTEGER  :: cur_bounds_triple   ! current output_bounds triple in use
     REAL(wp) :: next_output_time    ! next output time (in seconds simulation time)
     INTEGER  :: n_output_steps
@@ -130,9 +131,9 @@ MODULE mo_name_list_output_config
   END TYPE
 
   TYPE t_var_desc
-    REAL(wp), POINTER :: r_ptr(:,:,:,:,:) ! Pointer to time level independent data (or NULL)
-    TYPE(t_rptr_5d) :: tlev_ptr(max_time_levels) ! Pointers to time level dependet data
-    TYPE(t_var_metadata) :: info          ! Info structure for variable
+    REAL(wp), POINTER :: r_ptr(:,:,:,:,:)        ! Pointer to time level independent data (or NULL)
+    TYPE(t_rptr_5d) :: tlev_ptr(max_time_levels) ! Pointers to time level dependent data
+    TYPE(t_var_metadata) :: info                 ! Info structure for variable
   END TYPE
 
   !------------------------------------------------------------------------------------------------
@@ -143,19 +144,15 @@ MODULE mo_name_list_output_config
     INTEGER                     :: output_type   ! CDI format
     INTEGER                     :: phys_patch_id ! ID of physical output patch
     INTEGER                     :: log_patch_id  ! ID of logical output patch
-    INTEGER                     :: num_vars
+
+    INTEGER                     :: max_vars      ! maximum number of variables allocated
+    INTEGER                     :: num_vars      ! number of variables in use
     TYPE(t_var_desc),ALLOCATABLE :: var_desc(:)
     TYPE(t_output_name_list), POINTER :: name_list ! Pointer to corresponding output name list
 
     CHARACTER(LEN=vname_len), ALLOCATABLE :: name_map(:,:) ! mapping internal names -> names in NetCDF
 
     INTEGER                     :: remap         ! Copy of remap from associated namelist
-
-    !----------------------------
-    ! Used for lon/lat interpolation only
-    TYPE (t_lon_lat_grid)       :: lonlat_grid
-    TYPE(t_lon_lat_intp)        :: int_state_lonlat
-    !----------------------------
 
     INTEGER                     :: io_proc_id    ! ID of process doing I/O on this file
 
@@ -296,5 +293,51 @@ CONTAINS
     END DO ! iv
   END FUNCTION is_any_output_file_active
 
+
+  !------------------------------------------------------------------------------------------------
+  !> Append variable descriptor to the end of a (dynamically growing) list
+  !! 
+  !! @author  F. Prill, DWD
+  SUBROUTINE add_var_desc(p_of, var_desc)
+    TYPE(t_output_file), INTENT(INOUT)        :: p_of       !< output file
+    TYPE(t_var_desc),    INTENT(IN)           :: var_desc   !< variable descriptor
+    ! local variables
+    CHARACTER(*), PARAMETER :: routine = TRIM("mo_name_list_output_config:add_var_desc")
+    INTEGER                       :: errstat, new_max_vars, i, ivar
+    TYPE(t_var_desc), ALLOCATABLE :: tmp(:)
+
+    ! increase number of variables currently in use:
+    p_of%num_vars = p_of%num_vars + 1
+    IF (p_of%num_vars > p_of%max_vars) THEN
+      ! array full, enlarge and make a triangle copy:
+      new_max_vars = p_of%max_vars + NVARS_GROW
+      IF (p_of%max_vars > 0) THEN
+        ALLOCATE(tmp(p_of%max_vars), STAT=errstat)
+        IF (errstat /= 0)  CALL finish (routine, 'Error in ALLOCATE operation!')
+        tmp(1:p_of%max_vars) = p_of%var_desc(1:p_of%max_vars)
+        DEALLOCATE(p_of%var_desc, STAT=errstat)
+        IF (errstat /= 0)  CALL finish (routine, 'Error in DEALLOCATE operation!')
+      END IF
+
+      ALLOCATE(p_of%var_desc(new_max_vars), STAT=errstat)
+      IF (errstat /= 0)    CALL finish (routine, 'Error in ALLOCATE operation!')
+      ! Nullify pointers in p_of%var_desc
+      DO ivar=(p_of%max_vars+1),new_max_vars
+        p_of%var_desc(ivar)%r_ptr => NULL()
+        DO i = 1, max_time_levels
+          p_of%var_desc(ivar)%tlev_ptr(i)%p => NULL()
+        ENDDO
+      END DO
+
+      IF (p_of%max_vars > 0) THEN
+        p_of%var_desc(1:p_of%max_vars) = tmp(1:p_of%max_vars)
+        DEALLOCATE(tmp, STAT=errstat)
+        IF (errstat /= 0)  CALL finish (routine, 'Error in DEALLOCATE operation!')
+      END IF
+      p_of%max_vars = new_max_vars
+    END IF
+    ! add new element to array
+    p_of%var_desc(p_of%num_vars) = var_desc
+  END SUBROUTINE add_var_desc
 
 END MODULE mo_name_list_output_config

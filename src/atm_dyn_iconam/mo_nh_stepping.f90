@@ -53,7 +53,7 @@ MODULE mo_nh_stepping
   USE mo_diffusion_config,     ONLY: diffusion_config
   USE mo_dynamics_config,      ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1, nsav2
   USE mo_io_config,            ONLY: l_outputtime, l_diagtime, is_checkpoint_time,&
-    &                                lwrite_pzlev, istime4output, no_output
+    &                                istime4output, no_output
   USE mo_parallel_config,      ONLY: nproma, itype_comm
   USE mo_run_config,           ONLY: ltestcase, dtime, dtime_adv, nsteps,     &
     &                                ltransport, ntracer, lforcing, iforcing, &
@@ -485,6 +485,8 @@ MODULE mo_nh_stepping
     ! Set output flags
     !--------------------------------------------------------------------------
 
+    ! TODO[FP]  If "old" vlist output is deactivated, "l_outputtime" flag
+    !           is nevertheless set to .TRUE. - this should be fixed!
     IF ( jstep==nsteps .OR. &
          istime4output(sim_time(1)+dtime) .OR. &
          (MOD(jstep_adv(1)%ntsteps+1,iadv_rcf)==0 .AND. &
@@ -520,24 +522,12 @@ MODULE mo_nh_stepping
     ! interpolate selected fields to p- and/or z-levels
     simulation_status = new_simulation_status(l_output_step=l_outputtime, &
       &                                       l_last_step=(jstep==nsteps))
-    IF (.NOT. ltestcase) &
-      & CALL pp_scheduler_process(simulation_status)
-
+    CALL pp_scheduler_process(simulation_status)
+    
 
     ! output of results
     ! note: nnew has been replaced by nnow here because the update
     IF (l_outputtime) THEN
-      ! Special treatment of vertex-based vorticity field: If desired,
-      ! interpolate vorticity onto cell grid:
-      DO jg = 1, n_dom
-        IF (is_any_output_file_active(output_file, sim_time(1), dtime, &
-          &              iadv_rcf, (jstep==nsteps), jg, "omega_z")) THEN
-          CALL verts2cells_scalar( p_nh_state(jg)%diag%omega_z, p_patch(jg), &
-            &                      p_int_state(jg)%verts_aw_cells,           &
-            &                      p_nh_state(jg)%diag%omega_z_c, 1,         &
-            &                      p_patch(jg)%nlev )
-        END IF
-      END DO
 
       IF  ((.NOT. no_output) .AND.  &
         &  (istime4output(sim_time(1)) .OR. jstep==nsteps )) THEN

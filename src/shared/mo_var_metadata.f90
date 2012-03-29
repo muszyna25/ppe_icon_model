@@ -9,6 +9,10 @@ MODULE mo_var_metadata
 
   PRIVATE
 
+  ! maximum string length for variable names
+  INTEGER, PARAMETER :: VARNAME_LEN = 31
+
+
   TYPE t_union_vals
     REAL(dp) :: rval
     INTEGER  :: ival
@@ -44,11 +48,17 @@ MODULE mo_var_metadata
       &  lower_limit, extrapol_dist
   END TYPE t_vert_interp_meta
 
+  !> data specific for horizontal interpolation.
+  TYPE t_hor_interp_meta
+    INTEGER   ::   hor_intp_type ! NONE/LONLAT
+    INTEGER   ::   lonlat_id     ! lon-lat grid (ID in global list)
+  END TYPE t_hor_interp_meta
+
 
   TYPE t_var_metadata
     !
     INTEGER            :: key                   ! hash value of name
-    CHARACTER(len=31)  :: name                  ! variable name  
+    CHARACTER(len=VARNAME_LEN):: name           ! variable name  
     !
     TYPE(t_cf_var)     :: cf                    ! CF convention information 
     TYPE(t_grib1_var)  :: grib1                 ! GRIB1 related information
@@ -89,13 +99,14 @@ MODULE mo_var_metadata
     !
     TYPE(t_tracer_meta):: tracer                ! metadata for tracer fields
     !
-    ! Metadata for vertical interpolation
+    ! Metadata for vertical/horizontal interpolation
     !
     ! Note that setting these parameters to non-default values does
-    ! not mean that vertical interpolation is actually performed for
-    ! this variables (this is controlled by namelist settings) but
-    ! only that this is possible!
+    ! not mean that interpolation is actually performed for this
+    ! variables (this is controlled by namelist settings) but only
+    ! that this is possible!
     TYPE(t_vert_interp_meta) :: vert_interp 
+    TYPE(t_hor_interp_meta)  :: hor_interp 
   END TYPE t_var_metadata
 
 
@@ -104,5 +115,7 @@ MODULE mo_var_metadata
   PUBLIC :: t_var_metadata
   PUBLIC :: t_tracer_meta
   PUBLIC :: t_vert_interp_meta
+  PUBLIC :: t_hor_interp_meta
+  PUBLIC :: VARNAME_LEN
 
 END MODULE mo_var_metadata

@@ -7,7 +7,9 @@ MODULE mo_var_list
   USE mo_cf_convention,    ONLY: t_cf_var
   USE mo_grib2,            ONLY: t_grib2_var
   USE mo_var_metadata,     ONLY: t_var_metadata, t_union_vals, &
-    &                            t_tracer_meta, t_vert_interp_meta
+    &                            t_tracer_meta,                &
+    &                            t_vert_interp_meta,           &
+    &                            t_hor_interp_meta
   USE mo_var_list_element, ONLY: t_var_list_element
   USE mo_linked_list,      ONLY: t_var_list, t_list_element, &
        &                         new_list, delete_list,      &
@@ -18,6 +20,7 @@ MODULE mo_var_list
   USE mo_util_hash,        ONLY: util_hashword
   USE mo_util_string,      ONLY: remove_duplicates
   USE mo_impl_constants,   ONLY: VINTP_TYPE_NONE, VINTP_METHOD_LIN, &
+    &                            HINTP_TYPE_LONLAT,                 &
     &                            max_var_lists, vname_len
 
   IMPLICIT NONE
@@ -31,6 +34,7 @@ MODULE mo_var_list
   PUBLIC :: set_var_list              ! set default parameters of an output var_list
   PUBLIC :: create_tracer_metadata    ! create metadata for tracer variables
   PUBLIC :: create_vert_interp_metadata ! create metadata for vertical interpolation
+  PUBLIC :: create_hor_interp_metadata  ! create metadata for horizontal interpolation
   PUBLIC :: print_var_list
   PUBLIC :: print_memory_use
 
@@ -101,6 +105,7 @@ MODULE mo_var_list
     MODULE PROCEDURE assign_if_present_union
     MODULE PROCEDURE assign_if_present_tracer_meta
     MODULE PROCEDURE assign_if_present_vert_interp
+    MODULE PROCEDURE assign_if_present_hor_interp
   END INTERFACE assign_if_present
   
   INTEGER,                  SAVE :: nvar_lists     =   0      ! var_lists allocated so far
@@ -115,7 +120,7 @@ CONTAINS
   !
   SUBROUTINE new_var_list (this_list, name, output_type, restart_type,      &
        &                   post_suf, rest_suf, init_suf, loutput, lrestart, &
-       &                   linitial, patch_id, level_type)
+       &                   linitial, patch_id, vlevel_type)
     !
     TYPE(t_var_list), INTENT(inout)        :: this_list    ! anchor
     CHARACTER(len=*), INTENT(in)           :: name         ! name of output var_list
@@ -128,7 +133,7 @@ CONTAINS
     LOGICAL,          INTENT(in), OPTIONAL :: lrestart     ! write to restart file
     LOGICAL,          INTENT(in), OPTIONAL :: linitial     ! read from initial file
     INTEGER,          INTENT(in), OPTIONAL :: patch_id     ! patch ID
-    INTEGER,          INTENT(in), OPTIONAL :: level_type   ! 1/2/3 for model/pres./height levels
+    INTEGER,          INTENT(in), OPTIONAL :: vlevel_type  ! 1/2/3 for model/pres./height levels
     !
     INTEGER :: i
     !
@@ -185,7 +190,7 @@ CONTAINS
     CALL assign_if_present(this_list%p%lrestart,     lrestart)
     CALL assign_if_present(this_list%p%linitial,     linitial)
     CALL assign_if_present(this_list%p%patch_id,     patch_id)
-    CALL assign_if_present(this_list%p%level_type,   level_type)
+    CALL assign_if_present(this_list%p%vlevel_type,  vlevel_type)
     !
     CALL message('','')
     CALL message('','adding new var_list '//TRIM(name))
@@ -217,13 +222,15 @@ CONTAINS
   !
   ! Get a list of variable names matching a given criterion.
   !
-  SUBROUTINE get_all_var_names (varlist, ivar, opt_level_type, opt_vert_intp_type, &
-    &                           opt_vert_intp_type2, opt_lcontainer, opt_loutput, &
-    &                           opt_patch_id)
+  SUBROUTINE get_all_var_names (varlist, ivar, opt_vlevel_type,                          &
+    &                           opt_vert_intp_type, opt_vert_intp_type2,                 &
+    &                           opt_hor_intp_type, opt_lcontainer,                       &
+    &                           opt_loutput, opt_patch_id)
     CHARACTER(LEN=vname_len), INTENT(INOUT) :: varlist(:)
     INTEGER,                  INTENT(OUT)   :: ivar
-    INTEGER, OPTIONAL, INTENT(IN)  :: opt_level_type, opt_vert_intp_type, &
-      &                               opt_vert_intp_type2, opt_patch_id
+    INTEGER, OPTIONAL, INTENT(IN)  :: opt_vlevel_type, opt_vert_intp_type, &
+      &                               opt_vert_intp_type2, opt_patch_id,   &
+      &                               opt_hor_intp_type
     LOGICAL, OPTIONAL, INTENT(IN)  :: opt_lcontainer, opt_loutput
     ! local variables
     INTEGER                       :: i, idx
@@ -248,8 +255,8 @@ CONTAINS
       IF (PRESENT(opt_patch_id)) THEN
         IF (var_lists(i)%p%patch_id /= opt_patch_id) CYCLE LOOP_VARLISTS
       END IF
-      IF (PRESENT(opt_level_type)) THEN
-        IF(var_lists(i)%p%level_type /= opt_level_type) CYCLE LOOP_VARLISTS
+      IF (PRESENT(opt_vlevel_type)) THEN
+        IF(var_lists(i)%p%vlevel_type /= opt_vlevel_type) CYCLE LOOP_VARLISTS
       END IF
       element => NULL()
       LOOPVAR : DO
@@ -277,6 +284,11 @@ CONTAINS
             IF (info%vert_interp%vert_intp_type /= opt_vert_intp_type) CYCLE LOOPVAR
           END IF
         END IF
+        ! Do not inspect element if it does not contain info for
+        ! horizontal interpolation
+        IF (PRESENT(opt_hor_intp_type)) THEN
+          IF (info%hor_interp%hor_intp_type /= opt_hor_intp_type) CYCLE LOOPVAR
+        END IF
 
         ! Check for time level suffix:
         idx = INDEX(info%name,'.TL')
@@ -300,7 +312,8 @@ CONTAINS
   !
   SUBROUTINE set_var_list (this_list, output_type, restart_type,  &
        &                   post_suf, rest_suf, init_suf, loutput, &
-       &                   lrestart, linitial, patch_id, level_type)
+       &                   lrestart, linitial, patch_id,          &
+       &                   vlevel_type)
     !
     TYPE(t_var_list), INTENT(inout)        :: this_list      ! output var_list to change
     INTEGER,          INTENT(in), OPTIONAL :: output_type    ! 'GRIB' or 'NetCDF'
@@ -312,7 +325,7 @@ CONTAINS
     LOGICAL,          INTENT(in), OPTIONAL :: lrestart       ! in standard restartfile
     LOGICAL,          INTENT(in), OPTIONAL :: linitial       ! in standard initialfile
     INTEGER,          INTENT(in), OPTIONAL :: patch_id       ! patch ID
-    INTEGER,          INTENT(in), OPTIONAL :: level_type     ! 1/2/3 for model/pres./height levels
+    INTEGER,          INTENT(in), OPTIONAL :: vlevel_type    ! 1/2/3 for model/pres./height levels
     !
     CALL assign_if_present(this_list%p%output_type,  output_type)
     CALL assign_if_present(this_list%p%restart_type, restart_type)
@@ -323,7 +336,7 @@ CONTAINS
     CALL assign_if_present(this_list%p%lrestart,     lrestart)
     CALL assign_if_present(this_list%p%linitial,     linitial)
     CALL assign_if_present(this_list%p%patch_id,     patch_id)
-    CALL assign_if_present(this_list%p%level_type,   level_type)
+    CALL assign_if_present(this_list%p%vlevel_type,  vlevel_type)
     !
   END SUBROUTINE set_var_list
   !------------------------------------------------------------------------------------------------
@@ -456,6 +469,7 @@ CONTAINS
     !
     this_info%tracer              = create_tracer_metadata()
     this_info%vert_interp         = create_vert_interp_metadata()
+    this_info%hor_interp          = create_hor_interp_metadata()
     !
   END FUNCTION default_var_list_metadata
   !------------------------------------------------------------------------------------------------
@@ -599,6 +613,29 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   !
+  ! Quasi-constructor for horizontal interpolation meta data
+  ! 
+  ! Fills data structure with default values (unless set otherwise).
+  FUNCTION create_hor_interp_metadata(hor_intp_type, lonlat_id)    &
+    RESULT(hor_interp_meta)
+
+    TYPE(t_hor_interp_meta) :: hor_interp_meta    
+    INTEGER, INTENT(IN), OPTIONAL      :: &
+      &  hor_intp_type, lonlat_id
+
+    ! set default values
+    hor_interp_meta%hor_intp_type    = HINTP_TYPE_LONLAT
+    hor_interp_meta%lonlat_id        = 0 ! invalid ID
+
+    ! supersede with user definitions
+    CALL assign_if_present(hor_interp_meta%hor_intp_type, hor_intp_type)
+    CALL assign_if_present(hor_interp_meta%lonlat_id,     lonlat_id)
+
+  END FUNCTION create_hor_interp_metadata
+
+
+  !------------------------------------------------------------------------------------------------
+  !
   ! Set parameters of list element already created
   ! (private routine within this module)
   !
@@ -609,7 +646,8 @@ CONTAINS
          &                     name, hgrid, vgrid, cf, grib2, ldims,         &
          &                     loutput, lcontainer, lrestart, lrestart_cont, &
          &                     initval, laccu, resetval, lmiss, missval,     &
-         &                     tlev_source, tracer_info, vert_interp, verbose)
+         &                     tlev_source, tracer_info, vert_interp,        &
+         &                     hor_interp, verbose)
     !
     TYPE(t_var_metadata),    INTENT(inout)        :: info          ! memory info struct.
     CHARACTER(len=*),        INTENT(in), OPTIONAL :: name          ! variable name
@@ -630,6 +668,7 @@ CONTAINS
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source   ! actual TL for TL dependent vars
     TYPE(t_tracer_meta),     INTENT(in), OPTIONAL :: tracer_info   ! tracer meta data
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp   ! vertical interpolation metadata
+    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp    ! horizontal interpolation metadata
     LOGICAL,                 INTENT(in), OPTIONAL :: verbose
     !
     LOGICAL :: lverbose
@@ -676,6 +715,10 @@ CONTAINS
     !
     ! set flags concerning vertical interpolation
     CALL assign_if_present (info%vert_interp,   vert_interp )
+
+    ! set flags concerning horizontal interpolation
+    CALL assign_if_present (info%hor_interp,    hor_interp )
+
     !
     ! printout (optional)
     !
@@ -699,7 +742,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,    &
        lrestart, lrestart_cont, initval_r, laccu, resetval_r,  &
        lmiss, missval_r, tlev_source, info, p5, vert_interp,   &
-       verbose, new_element)
+       hor_interp, verbose, new_element)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -722,6 +765,7 @@ CONTAINS
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
     REAL(wp),             POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
+    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
@@ -764,7 +808,8 @@ CONTAINS
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput, lcontainer=lcontainer, &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,         &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,            & 
-         tlev_source=tlev_source, vert_interp=vert_interp, verbose=verbose)
+         tlev_source=tlev_source, vert_interp=vert_interp, hor_interp=hor_interp, &
+         verbose=verbose)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:5), ldims(1:5))
@@ -814,7 +859,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,    &
        lrestart, lrestart_cont, initval_r, laccu, resetval_r,  &
        lmiss, missval_r, tlev_source, info, p5, vert_interp,   &
-       verbose, new_element)
+       hor_interp, verbose, new_element)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -836,7 +881,8 @@ CONTAINS
     INTEGER,              INTENT(in), OPTIONAL :: tlev_source         ! actual TL for TL dependent vars
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
     REAL(wp),             POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
-    TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp   ! vertical interpolation metadata
+    TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
+    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
@@ -879,7 +925,8 @@ CONTAINS
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput, lcontainer=lcontainer, &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,         &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,            & 
-         tlev_source=tlev_source, vert_interp=vert_interp, verbose=verbose)
+         tlev_source=tlev_source, vert_interp=vert_interp, hor_interp=hor_interp, &
+         verbose=verbose)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:4), ldims(1:4))
@@ -930,7 +977,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,    &
        lrestart, lrestart_cont, initval_r, laccu, resetval_r,  &
        lmiss, missval_r, tlev_source, info, p5, vert_interp,   &
-       verbose, new_element)
+       hor_interp, verbose, new_element)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -953,6 +1000,7 @@ CONTAINS
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
     REAL(wp),             POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
+    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
@@ -995,7 +1043,8 @@ CONTAINS
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput, lcontainer=lcontainer, &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,         &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,            & 
-         tlev_source=tlev_source, vert_interp=vert_interp, verbose=verbose)
+         tlev_source=tlev_source, vert_interp=vert_interp, hor_interp=hor_interp, &
+         verbose=verbose)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:3), ldims(1:3))
@@ -1046,7 +1095,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,    &
        lrestart, lrestart_cont, initval_r, laccu, resetval_r,  &
        lmiss, missval_r, tlev_source, info, p5, vert_interp,   &
-       verbose, new_element)
+       hor_interp, verbose, new_element)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1069,6 +1118,7 @@ CONTAINS
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
     REAL(wp),             POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
+    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
@@ -1111,7 +1161,8 @@ CONTAINS
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput, lcontainer=lcontainer, &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,         &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,            & 
-         tlev_source=tlev_source, vert_interp=vert_interp, verbose=verbose)
+         tlev_source=tlev_source, vert_interp=vert_interp, hor_interp=hor_interp, &
+         verbose=verbose)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:2), ldims(1:2))
@@ -1162,7 +1213,7 @@ CONTAINS
        hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,    &
        lrestart, lrestart_cont, initval_r, laccu, resetval_r,  &
        lmiss, missval_r, tlev_source, info, p5, vert_interp,   &
-       verbose, new_element)
+       hor_interp, verbose, new_element)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1185,6 +1236,7 @@ CONTAINS
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
     REAL(wp),             POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
+    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
@@ -1227,7 +1279,8 @@ CONTAINS
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput, lcontainer=lcontainer, &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,         &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,            & 
-         tlev_source=tlev_source, vert_interp=vert_interp, verbose=verbose)
+         tlev_source=tlev_source, vert_interp=vert_interp, hor_interp=hor_interp, &
+         verbose=verbose)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:1), ldims(1:1))
@@ -1279,7 +1332,8 @@ CONTAINS
   SUBROUTINE add_var_list_element_i5d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
        lrestart, lrestart_cont, initval_i, laccu, resetval_i,  &
-       lmiss, missval_i, info, p5, vert_interp, verbose, new_element)
+       lmiss, missval_i, info, p5, hor_interp, vert_interp,    &
+       verbose, new_element)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1300,6 +1354,7 @@ CONTAINS
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
     INTEGER,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
+    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
@@ -1342,7 +1397,7 @@ CONTAINS
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
-         vert_interp=vert_interp, verbose=verbose)
+         vert_interp=vert_interp, hor_interp=hor_interp, verbose=verbose)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:5), ldims(1:5))
@@ -1392,7 +1447,8 @@ CONTAINS
   SUBROUTINE add_var_list_element_i4d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
        lrestart, lrestart_cont, initval_i, laccu, resetval_i,  &
-       lmiss, missval_i, info, p5, vert_interp, verbose, new_element)
+       lmiss, missval_i, info, p5, vert_interp, hor_interp,    &
+       verbose, new_element)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1413,6 +1469,7 @@ CONTAINS
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
     INTEGER,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
+    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
@@ -1455,7 +1512,7 @@ CONTAINS
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
-         vert_interp=vert_interp, verbose=verbose)
+         vert_interp=vert_interp, hor_interp=hor_interp, verbose=verbose)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:4), ldims(1:4))
@@ -1505,7 +1562,8 @@ CONTAINS
   SUBROUTINE add_var_list_element_i3d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
        lrestart, lrestart_cont, initval_i, laccu, resetval_i,  &
-       lmiss, missval_i, info, p5, vert_interp, verbose, new_element)
+       lmiss, missval_i, info, p5, vert_interp, hor_interp,    &
+       verbose, new_element)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1526,6 +1584,7 @@ CONTAINS
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
     INTEGER,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
+    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
@@ -1568,7 +1627,7 @@ CONTAINS
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
-         vert_interp=vert_interp, verbose=verbose)
+         vert_interp=vert_interp, hor_interp=hor_interp, verbose=verbose)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:3), ldims(1:3))
@@ -1618,7 +1677,8 @@ CONTAINS
   SUBROUTINE add_var_list_element_i2d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
        lrestart, lrestart_cont, initval_i, laccu, resetval_i,  &
-       lmiss, missval_i, info, p5, vert_interp, verbose, new_element)
+       lmiss, missval_i, info, p5, vert_interp, hor_interp,    &
+        verbose, new_element)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1639,6 +1699,7 @@ CONTAINS
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
     INTEGER,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
+    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
@@ -1681,7 +1742,7 @@ CONTAINS
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
-         vert_interp=vert_interp, verbose=verbose)
+         vert_interp=vert_interp, hor_interp=hor_interp, verbose=verbose)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:2), ldims(1:2))
@@ -1731,7 +1792,8 @@ CONTAINS
   SUBROUTINE add_var_list_element_i1d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
        lrestart, lrestart_cont, initval_i, laccu, resetval_i,  &
-       lmiss, missval_i, info, p5, vert_interp, verbose, new_element)
+       lmiss, missval_i, info, p5, vert_interp, hor_interp,    &
+        verbose, new_element)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1752,6 +1814,7 @@ CONTAINS
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
     INTEGER,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
+    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
@@ -1794,7 +1857,7 @@ CONTAINS
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
-         vert_interp=vert_interp, verbose=verbose)
+         vert_interp=vert_interp, hor_interp=hor_interp, verbose=verbose)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:1), ldims(1:1))
@@ -1846,7 +1909,8 @@ CONTAINS
   SUBROUTINE add_var_list_element_l5d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
        lrestart, lrestart_cont, initval_l, laccu, resetval_l,  &
-       lmiss, missval_l, info, p5, vert_interp, verbose, new_element)
+       lmiss, missval_l, info, p5, vert_interp, hor_interp,    &
+        verbose, new_element)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1867,6 +1931,7 @@ CONTAINS
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
     LOGICAL,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
+    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
@@ -1909,7 +1974,7 @@ CONTAINS
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
-         vert_interp=vert_interp, verbose=verbose)
+         vert_interp=vert_interp, hor_interp=hor_interp, verbose=verbose)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:4), ldims(1:4))
@@ -1959,7 +2024,8 @@ CONTAINS
   SUBROUTINE add_var_list_element_l4d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
        lrestart, lrestart_cont, initval_l, laccu, resetval_l,  &
-       lmiss, missval_l, info, p5, vert_interp, verbose, new_element)
+       lmiss, missval_l, info, p5, vert_interp, hor_interp,    &
+        verbose, new_element)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1980,6 +2046,7 @@ CONTAINS
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
     LOGICAL,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
+    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
@@ -2022,7 +2089,7 @@ CONTAINS
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
-         vert_interp=vert_interp, verbose=verbose)
+         vert_interp=vert_interp, hor_interp=hor_interp, verbose=verbose)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:4), ldims(1:4))
@@ -2072,7 +2139,8 @@ CONTAINS
   SUBROUTINE add_var_list_element_l3d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
        lrestart, lrestart_cont, initval_l, laccu, resetval_l,  &
-       lmiss, missval_l, info, p5, vert_interp, verbose, new_element)
+       lmiss, missval_l, info, p5, vert_interp, hor_interp,    &
+        verbose, new_element)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -2093,6 +2161,7 @@ CONTAINS
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
     LOGICAL,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
+    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
@@ -2135,7 +2204,7 @@ CONTAINS
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
-         vert_interp=vert_interp, verbose=verbose)
+         vert_interp=vert_interp, hor_interp=hor_interp, verbose=verbose)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:3), ldims(1:3))
@@ -2185,7 +2254,8 @@ CONTAINS
   SUBROUTINE add_var_list_element_l2d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
        lrestart, lrestart_cont, initval_l, laccu, resetval_l,  &
-       lmiss, missval_l, info, p5, vert_interp, verbose, new_element)
+       lmiss, missval_l, info, p5, vert_interp, hor_interp,    &
+        verbose, new_element)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -2206,6 +2276,7 @@ CONTAINS
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
     LOGICAL,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
+    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
@@ -2248,7 +2319,7 @@ CONTAINS
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
-         vert_interp=vert_interp, verbose=verbose)
+         vert_interp=vert_interp, hor_interp=hor_interp, verbose=verbose)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:2), ldims(1:2))
@@ -2298,7 +2369,8 @@ CONTAINS
   SUBROUTINE add_var_list_element_l1d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, loutput,                &
        lrestart, lrestart_cont, initval_l, laccu, resetval_l,  &
-       lmiss, missval_l, info, p5, vert_interp, verbose, new_element)
+       lmiss, missval_l, info, p5, vert_interp, hor_interp,    &
+        verbose, new_element)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -2319,6 +2391,7 @@ CONTAINS
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
     LOGICAL,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
+    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
@@ -2361,7 +2434,7 @@ CONTAINS
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
-         vert_interp=vert_interp, verbose=verbose)
+         vert_interp=vert_interp, hor_interp=hor_interp, verbose=verbose)
     !
     IF (.NOT. referenced) THEN
       CALL assign_if_present(new_list_element%field%info%used_dimensions(1:1), ldims(1:1))
@@ -2664,7 +2737,7 @@ CONTAINS
        &                                 hgrid, vgrid, cf, grib2, ldims, loutput,                &
        &                                 lrestart, lrestart_cont, initval_r, laccu, resetval_r,  &
        &                                 lmiss, missval_r, tlev_source, tracer_info, info,       &
-       &                                 vert_interp, verbose, new_element)
+       &                                 vert_interp, hor_interp, verbose, new_element)
     !
     TYPE(t_var_list), INTENT(inout)            :: this_list
     CHARACTER(len=*), INTENT(in)               :: target_name
@@ -2687,6 +2760,7 @@ CONTAINS
     TYPE(t_tracer_meta),  INTENT(in), OPTIONAL :: tracer_info         ! tracer meta data
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
+    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
     LOGICAL,              INTENT(in), OPTIONAL :: verbose
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
@@ -2751,7 +2825,7 @@ CONTAINS
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
          tlev_source=tlev_source, tracer_info=tracer_info,                &
-         vert_interp=vert_interp, verbose=verbose)
+         vert_interp=vert_interp, hor_interp=hor_interp, verbose=verbose)
     !
     ref_info%ndims = 3
     ref_info%used_dimensions =  target_element%field%info%used_dimensions
@@ -2795,7 +2869,7 @@ CONTAINS
        &                                 hgrid, vgrid, cf, grib2, ldims, loutput,                &
        &                                 lrestart, lrestart_cont, initval_r, laccu, resetval_r,  &
        &                                 lmiss, missval_r, tlev_source, tracer_info,             &
-       &                                 info, vert_interp, verbose, new_element)
+       &                                 info, vert_interp, hor_interp, verbose, new_element)
 
     TYPE(t_var_list), INTENT(inout)            :: this_list
     CHARACTER(len=*), INTENT(in)               :: target_name
@@ -2818,6 +2892,7 @@ CONTAINS
     TYPE(t_tracer_meta),  INTENT(in), OPTIONAL :: tracer_info         ! tracer meta data
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp      ! vertical interpolation metadata
+    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp       ! horizontal interpolation metadata
     LOGICAL,              INTENT(in), OPTIONAL :: verbose
     TYPE(t_list_element), POINTER, OPTIONAL  :: new_element ! pointer to new var list element
     !
@@ -2881,7 +2956,7 @@ CONTAINS
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
          laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
          tlev_source=tlev_source, tracer_info=tracer_info,                &
-         vert_interp=vert_interp, verbose=verbose)
+         vert_interp=vert_interp, hor_interp=hor_interp, verbose=verbose)
     !
     ref_info%ndims = 2
     ref_info%used_dimensions = target_element%field%info%used_dimensions
@@ -3260,5 +3335,12 @@ CONTAINS
     IF (.NOT.PRESENT(x)) RETURN
     y = x
   END SUBROUTINE assign_if_present_vert_interp
+  !------------------------------------------------------------------------------------------------
+  SUBROUTINE assign_if_present_hor_interp (y,x)
+    TYPE(t_hor_interp_meta), INTENT(inout)        :: y
+    TYPE(t_hor_interp_meta) ,INTENT(in) ,OPTIONAL :: x
+    IF (.NOT.PRESENT(x)) RETURN
+    y = x
+  END SUBROUTINE assign_if_present_hor_interp
   !------------------------------------------------------------------------------------------------
 END MODULE mo_var_list

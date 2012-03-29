@@ -45,11 +45,12 @@ USE mo_mpi,                 ONLY: p_stop, &
 USE mo_sync,                ONLY: enable_sync_checks, disable_sync_checks, &
                                   decomposition_statistics
 USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, &
-  &                               timers_level,                        &
-  &                               timer_lonlat_setup, timer_model_init
+  &                               timers_level, timer_model_init
 USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, &
   &                               num_io_procs, nproma
-USE mo_lonlat_intp_config,  ONLY: configure_lonlat_intp
+USE mo_intp_lonlat,         ONLY: init_lonlat_grid_list,      &
+  &                               compute_lonlat_intp_coeffs, &
+  &                               destroy_lonlat_grid_list
 USE mo_master_control,      ONLY: is_restart_run, get_my_process_name, get_my_model_no
 
 
@@ -127,13 +128,9 @@ USE mo_model_domimp_patches,ONLY: import_basic_patches, complete_patches, destru
 !
 USE mo_intp_state,          ONLY: construct_2d_interpol_state,  &
   &                               destruct_2d_interpol_state,   &
-  &                               allocate_int_state_lonlat,    &
-  &                               rbf_setup_interpol_lonlat,    &
-  &                               deallocate_int_state_lonlat,  &
   &                               transfer_interpol_state
 USE mo_grf_intp_state,      ONLY: construct_2d_gridref_state,   &
   &                               destruct_2d_gridref_state, transfer_grf_state
-USE mo_lonlat_intp_config,  ONLY: lonlat_intp_config
 
 ! Vertical grid
 !
@@ -158,9 +155,7 @@ USE mo_ext_data_state,      ONLY: ext_data, init_ext_data, init_index_lists, &
 !-------------------------------------------------------------------------
 ! to break circular dependency
 
-USE mo_intp_data_strc,      ONLY: p_int_state, p_int_state_local_parent,     &
-  &                               p_int_state_lonlat_global,                 &
-  &                               p_int_state_lonlat
+USE mo_intp_data_strc,      ONLY: p_int_state, p_int_state_local_parent
 USE mo_grf_intp_data_strc,  ONLY: p_grf_state, p_grf_state_local_parent
 
 !-------------------------------------------------------------------------
@@ -272,13 +267,16 @@ CONTAINS
 
     CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:init_atmo_model"
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: grid_file_name 
-    LOGICAL :: lsuccess, l_construct_lonlat_coeffs
+    LOGICAL :: lsuccess
     INTEGER :: jg, jgp
 
     INTEGER :: error_status
 
     TYPE(t_patch), ALLOCATABLE :: p_patch_global(:)
 
+
+    ! initialize global registry of lon-lat grids
+    CALL init_lonlat_grid_list()
 
     !---------------------------------------------------------------------
     ! 0. If this is a resumed or warm-start run...
@@ -342,9 +340,6 @@ CONTAINS
     CASE DEFAULT
       CALL configure_run    
     END SELECT
-
-    ! configure (optional) lon-lat interpolation of output variables
-    CALL configure_lonlat_intp(max_dom, nproma, num_io_procs)
 
     !-------------------------------------------------------------------
     ! 3.1 Initialize the mpi work groups
@@ -500,11 +495,6 @@ CONTAINS
       CALL finish(TRIM(routine),'allocation for ptr_int_state failed')
     ENDIF
 
-    ALLOCATE(p_int_state_lonlat_global(n_dom_start:n_dom), &
-      & STAT=error_status)
-    IF (error_status /= SUCCESS) &
-      CALL finish(TRIM(routine),'allocation for lon-lat int_state failed')
-
     IF(my_process_is_mpi_parallel()) THEN
       ALLOCATE( p_int_state_local_parent(n_dom_start+1:n_dom), &
               & p_grf_state_local_parent(n_dom_start+1:n_dom), &
@@ -518,8 +508,7 @@ CONTAINS
       ! On the test PE it is constructed at the same time to be able to check
       ! the state read in with the constructed state
       IF( .NOT. my_process_is_mpi_test()) THEN
-        CALL restore_interpol_state_netcdf(p_patch, p_int_state, &
-          &                                p_int_state_lonlat_global )
+        CALL restore_interpol_state_netcdf(p_patch, p_int_state )
       ELSE
         ! construct_2d_interpol_state makes sync calls for checking the
         ! results on the parallel PEs to the results on the test PE.
@@ -607,37 +596,10 @@ CONTAINS
     ! 7b. Constructing data for lon-lat interpolation
     !-------------------------------------------------------------------
 
-    DO jg = 1, n_dom
-
-      l_construct_lonlat_coeffs = &
-        &  lonlat_intp_config(jg)%l_enabled  .AND. &
-        &  (.NOT. lrestore_states .OR. my_process_is_mpi_test())
-
-      LONLAT : IF (l_construct_lonlat_coeffs) THEN
-        
-        CALL allocate_int_state_lonlat(jg, p_int_state_lonlat_global(jg) )
-        
-        ! compute coefficients needed for lon-lat interpolation
-        ! note: coefficients are only required on IO PEs
-        IF (ltimer) CALL timer_start(timer_lonlat_setup)
-        ! Note: Up to now, only the nearest neighbor search operates
-        ! on the distributed patches. Therefore, we have to provide
-        ! the global patch as well:
-        CALL rbf_setup_interpol_lonlat( jg, p_patch(jg),               &
-          &                             p_int_state_lonlat_global(jg), &
-          &                             p_int_state(jg) )
-        IF (ltimer) CALL timer_stop(timer_lonlat_setup)
-      END IF LONLAT
-
-    END DO
-
-    p_int_state_lonlat => p_int_state_lonlat_global
+    CALL compute_lonlat_intp_coeffs(p_patch(1:), p_int_state(1:))
 
     ! Dump divided patches with interpolation and grf state to NetCDF
     ! file and exit
-    ! Note: Dump of lonlat interpolation coefficients only makes sense
-    ! with asynchronous IO *disabled* because otherwise the necessary
-    ! coefficients were assembled on the pure IO PEs.
     IF(ldump_states)THEN
       
       CALL message(TRIM(routine),'ldump_states is set: '//&
@@ -645,8 +607,7 @@ CONTAINS
 
       IF(.NOT. my_process_is_mpi_test()) THEN
         DO jg = n_dom_start, n_dom
-          CALL dump_patch_state_netcdf(jg, p_patch(jg),p_int_state(jg),p_grf_state(jg), &
-            &                          p_int_state_lonlat_global(jg))
+          CALL dump_patch_state_netcdf(jg, p_patch(jg),p_int_state(jg),p_grf_state(jg))
         ENDDO
       ENDIF
 
@@ -725,8 +686,6 @@ CONTAINS
   SUBROUTINE destruct_atmo_model()
     
     CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:destruct_atmo_model"
-    LOGICAL :: l_construct_lonlat_coeffs
-    INTEGER :: jg
 
     INTEGER :: error_status
     ! Destruct external data state
@@ -757,22 +716,13 @@ CONTAINS
     CALL destruct_2d_interpol_state( p_int_state )
     IF (msg_level > 5) CALL message(TRIM(routine),'destruct_2d_interpol_state is done')
 
-    l_construct_lonlat_coeffs = (.NOT. lrestore_states .OR. my_process_is_mpi_test()) 
-    IF (l_construct_lonlat_coeffs) THEN
-      DO jg = 1, n_dom
-        IF (lonlat_intp_config(jg)%l_enabled) &
-          CALL deallocate_int_state_lonlat(p_int_state_lonlat_global(jg))
-      ENDDO
-    END IF
-
-    IF  (my_process_is_mpi_seq()  &
-      & .OR. lrestore_states) THEN
-      DEALLOCATE (p_int_state_lonlat_global, STAT=error_status)
-    ENDIF
     DEALLOCATE (p_int_state, STAT=error_status)
     IF (error_status /= SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocation for ptr_int_state failed')
     ENDIF
+
+    ! Deallocate global registry for lon-lat grids
+    CALL destroy_lonlat_grid_list()
 
     ! Deallocate grid patches
     CALL destruct_patches( p_patch )

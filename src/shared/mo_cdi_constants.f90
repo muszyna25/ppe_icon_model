@@ -14,6 +14,8 @@ MODULE mo_cdi_constants
   INTEGER, PARAMETER :: GRID_UNSTRUCTURED_VERT = 2
   INTEGER, PARAMETER :: GRID_UNSTRUCTURED_EDGE = 3
 
+  INTEGER, PARAMETER :: GRID_REGULAR_LONLAT    = 4
+
 !DR The following ZAXIS type has been added for the multi-layer 
 !DR snow model.
   INTEGER, PARAMETER :: ZAXIS_GENERIC_SNOW = 13

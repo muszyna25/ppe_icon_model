@@ -62,10 +62,6 @@ MODULE mo_nh_pzlev_nml
   ! nh_pzlev_nml namelist variables  !
   !----------------------------------!
 
-  LOGICAL :: lwrite_zlev           !< if .TRUE.: write output on z-levels
-
-  LOGICAL :: lwrite_plev           !< if .TRUE.: write output on p-levels
-
   INTEGER :: nzlev                 !< number of z-levels
 
   INTEGER :: nplev                 !< number of p-levels
@@ -75,7 +71,7 @@ MODULE mo_nh_pzlev_nml
   REAL(wp):: plevels(100)          !< plevel heights [Pa] 
 
 
-  NAMELIST/nh_pzlev_nml/ lwrite_zlev, lwrite_plev, nzlev, nplev,   &
+  NAMELIST/nh_pzlev_nml/ nzlev, nplev,   &
     &                    zlevels, plevels
 
 CONTAINS
@@ -118,8 +114,6 @@ CONTAINS
     !-----------------------
     ! 1. default settings   
     !-----------------------
-    lwrite_zlev = .TRUE.
-    lwrite_plev = .TRUE.
     nzlev       = 10
     nplev       = 10
 
@@ -182,8 +176,6 @@ CONTAINS
     !----------------------------------------------------
 
     DO jg= 0,max_dom
-      nh_pzlev_config(jg)%lwrite_zlev = lwrite_zlev
-      nh_pzlev_config(jg)%lwrite_plev = lwrite_plev
       nh_pzlev_config(jg)%nzlev       = nzlev
       nh_pzlev_config(jg)%nplev       = nplev
       nh_pzlev_config(jg)%zlevels     = zlevels

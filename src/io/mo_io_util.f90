@@ -71,7 +71,6 @@ MODULE mo_io_util
   PUBLIC :: GATHER_C
   PUBLIC :: GATHER_E
   PUBLIC :: GATHER_V
-  PUBLIC :: GATHER_LONLAT
 
   PUBLIC :: max_outvars
   PUBLIC :: max_gridlevs
@@ -84,7 +83,6 @@ MODULE mo_io_util
   INTEGER, PARAMETER :: GATHER_C      = 1
   INTEGER, PARAMETER :: GATHER_E      = 2
   INTEGER, PARAMETER :: GATHER_V      = 3
-  INTEGER, PARAMETER :: GATHER_LONLAT = 4
 
   INTEGER, PARAMETER :: max_outvars  = 250 ! max. number of output variables
   INTEGER, PARAMETER :: max_gridlevs = 12  ! max. number of grid levels
@@ -94,7 +92,7 @@ MODULE mo_io_util
 
   TYPE t_outvar_desc
 
-    INTEGER ::           TYPE ! GATHER_C, GATHER_E, GATHER_V, GATHER_LONLAT
+    INTEGER ::           TYPE ! GATHER_C, GATHER_E, GATHER_V
     INTEGER ::           nlev
     CHARACTER(LEN=80) :: name
 

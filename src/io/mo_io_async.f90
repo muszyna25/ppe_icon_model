@@ -73,7 +73,7 @@ MODULE mo_io_async
   USE mo_run_config,          ONLY: ldump_states, ldump_dd, ltestcase
   USE mo_io_units,            ONLY: filename_max
   USE mo_communication,       ONLY: idx_no, blk_no
-  USE mo_io_util,             ONLY: GATHER_C, GATHER_E, GATHER_V, GATHER_LONLAT, outvar_desc,    &
+  USE mo_io_util,             ONLY: GATHER_C, GATHER_E, GATHER_V, outvar_desc,    &
     &                               num_output_vars
   USE mo_io_vlist,            ONLY: setup_vlist, destruct_vlist,                                 &
    &                                open_output_vlist, close_output_vlist,                       &
@@ -713,8 +713,6 @@ CONTAINS
 
       DO n = 1, num_output_vars(jg)
 
-        IF (outvar_desc(n, jg)%type == GATHER_LONLAT) CYCLE
-
 !Re-enable to check performance problems!!!
 !CALL date_and_time(TIME=ctime)
 !print '(a,i0,a,2i5,a)','#################### I/O PE ',p_pe,' jg,n= ',jg,n,' at '//ctime
@@ -1059,7 +1057,6 @@ CONTAINS
           CASE (GATHER_C); mem_size = mem_size + INT(patch_owner_info(jg)%n_own_cells*nlev,i8)
           CASE (GATHER_E); mem_size = mem_size + INT(patch_owner_info(jg)%n_own_edges*nlev,i8)
           CASE (GATHER_V); mem_size = mem_size + INT(patch_owner_info(jg)%n_own_verts*nlev,i8)
-          CASE (GATHER_LONLAT); mem_size = mem_size + 0_i8
           CASE DEFAULT
             CALL finish(modname, 'Illegal type from vlist_get_VarGrid')
         END SELECT
@@ -1239,8 +1236,6 @@ CONTAINS
       ENDIF
       
       DO n = 1, num_output_vars(jg)
-
-        IF (outvar_desc(n, jg)%type == GATHER_LONLAT) CYCLE
 
         ! Set ptr2/ptr3 to the variable to be output
 
@@ -1459,8 +1454,6 @@ CONTAINS
       ENDIF
       
       DO n = 1, num_output_vars(jg)
-
-        IF (outvar_desc(n, jg)%type == GATHER_LONLAT) CYCLE
 
         ! Set ptr2/ptr3 to the variable to be output
 

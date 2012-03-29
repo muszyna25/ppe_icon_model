@@ -4,6 +4,18 @@
 
 !   #define USE_CRAY_POINTER
 
+!>
+!! Module handling synchronous and asynchronous output; supporting
+!! multiple I/O PEs and horizontal interpolation.
+!!
+!! @author R. Johanni
+!!
+!! @par Revision History
+!! Initial implementation  by  R. Johanni  (2011)
+!! Removed interpolation on I/O PEs : F. Prill, DWD (2012-03-28)
+!!
+!! @todo In asynchronous I/O mode, windows are created but not freed
+!!
 MODULE mo_name_list_output
 
   ! Please note: The spelling "name_list" (with underscore) is intented to make
@@ -16,7 +28,7 @@ MODULE mo_name_list_output
 
   USE mo_kind,                  ONLY: wp, i8
   USE mo_impl_constants,        ONLY: max_phys_dom, ihs_ocean, zml_soil, MAX_NVARS, &
-    &                                 vname_len, max_dom
+    &                                 vname_len, max_dom, SUCCESS, HINTP_TYPE_LONLAT
   USE mo_grid_config,           ONLY: n_dom, n_phys_dom, global_cell_type
   USE mo_cdi_constants          ! We need all
   USE mo_io_units,              ONLY: filename_max, nnml, nnml_output, find_next_free_unit
@@ -28,7 +40,8 @@ MODULE mo_name_list_output
                                       new_var_list, get_all_var_names
   USE mo_var_list_element,      ONLY: level_type_ml, level_type_pl, level_type_hl
   ! MPI Communication routines
-  USE mo_mpi,                   ONLY: p_send, p_recv, p_bcast, p_barrier, p_stop
+  USE mo_mpi,                   ONLY: p_send, p_recv, p_bcast, p_barrier, p_stop, &
+    &                                 get_my_mpi_work_id
   ! MPI Communicators
   USE mo_mpi,                   ONLY: p_comm_work, p_comm_work_io, p_comm_work_2_io
   ! MPI Data types
@@ -49,18 +62,14 @@ MODULE mo_name_list_output
   USE mo_parallel_config,       ONLY: nproma, p_test_run
   USE mo_vertical_coord_table,  ONLY: vct
   USE mo_dynamics_config,       ONLY: iequations, nnow, nnow_rcf
-  USE mo_io_config,             ONLY: lwrite_pzlev
   USE mo_run_config,            ONLY: num_lev, num_levp1, dtime, ldump_states, ldump_dd
   USE mo_nh_pzlev_config,       ONLY: nh_pzlev_config
   USE mo_lnd_nwp_config,        ONLY: nlev_snow
   USE mo_datetime,              ONLY: t_datetime
-  USE mo_math_utilities,        ONLY: t_lon_lat_grid
-  USE mo_intp_data_strc,        ONLY: t_lon_lat_intp, p_int_state
-  USE mo_intp_state,            ONLY: allocate_int_state_lonlat_grid, &
-                                      deallocate_int_state_lonlat
-  USE mo_intp_rbf_coeffs,       ONLY: rbf_setup_interpol_lonlat_grid
-  USE mo_intp_rbf,              ONLY: rbf_vec_interpol_lonlat_nl, rbf_interpol_lonlat_nl
-
+  USE mo_lonlat_grid,           ONLY: t_lon_lat_grid
+  USE mo_intp_data_strc,        ONLY: t_lon_lat_intp, p_int_state,            &
+    &                                 t_lon_lat_data, get_free_lonlat_grid,   &
+    &                                 lonlat_grid_list, n_lonlat_grids
   USE mo_master_nml,            ONLY: model_base_dir
   USE mo_ocean_nml,             ONLY: n_zlev
   USE mo_oce_state,             ONLY: set_zlev
@@ -72,9 +81,6 @@ MODULE mo_name_list_output
   USE mo_communication,         ONLY: exchange_data, t_comm_pattern, idx_no, blk_no
   USE mo_interpol_config,       ONLY: rbf_vec_dim_c, rbf_vec_dim_v, rbf_vec_dim_e, rbf_c2grad_dim
   USE mo_nonhydrostatic_config, ONLY: iadv_rcf
-!  USE mo_master_control,        ONLY: is_restart_run
-!  USE mo_io_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist,  &
-!                                    & open_and_restore_namelist, close_tmpfile
   USE mo_name_list_output_config, ONLY: name_list_output_active, &
   &                                     use_async_name_list_io,  &
   &                                     l_output_phys_patch,     &
@@ -89,7 +95,9 @@ MODULE mo_name_list_output
   &                                     max_time_levels,         &
   &                                     t_output_file,           &
   &                                     is_output_nml_active,    &
-  &                                     is_output_file_active
+  &                                     is_output_file_active,   &
+  &                                     t_var_desc,              &
+  &                                     add_var_desc
   ! meteogram output
   USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize, meteogram_flush_file
   USE mo_meteogram_config,    ONLY: meteogram_output_config
@@ -167,7 +175,8 @@ MODULE mo_name_list_output
     CHARACTER(LEN=filename_max) :: grid_filename
   END TYPE t_patch_info
 
-  TYPE(t_patch_info), ALLOCATABLE, TARGET :: patch_info(:)
+  TYPE(t_patch_info),   ALLOCATABLE, TARGET :: patch_info (:)
+  TYPE(t_reorder_info), ALLOCATABLE, TARGET :: lonlat_info(:,:)
 
   ! Number of output domains. This depends on l_output_phys_patch and is either the number
   ! of physical or the number of logical domains.
@@ -196,7 +205,7 @@ MODULE mo_name_list_output
   INTEGER, PARAMETER :: msg_io_shutdown = 99999
 
   ! TYPE t_datetime has no default constructor for setting all members to 0 or a defined value.
-  ! Thus we declare a instance here which should have zeors everywhere since it is static.
+  ! Thus we declare a instance here which should have zeros everywhere since it is static.
 
   TYPE(t_datetime) :: zero_datetime
 
@@ -244,6 +253,7 @@ CONTAINS
     REAL(wp) :: reg_lat_def(3)
     INTEGER  :: gauss_tgrid_def
     REAL(wp) :: north_pole(2)
+    TYPE(t_lon_lat_data), POINTER :: lonlat
 
     ! The namelist containing all variables above
     NAMELIST /output_nml/ &
@@ -418,20 +428,40 @@ CONTAINS
       p_onl%h_levels         = h_levels
       p_onl%remap            = remap
       p_onl%remap_internal   = remap_internal
-      p_onl%reg_lon_def(:)   = reg_lon_def(:)
-      p_onl%reg_lat_def(:)   = reg_lat_def(:)
+
+      ! If "remap=1": lon-lat interpolation requested
       IF(remap/=0 .AND. remap/=1) &
         CALL finish(routine,'Unsupported value for remap')
-      IF(remap==1) THEN
+      IF (remap == 1) THEN
+        ! Register a lon-lat grid data structure in global list
+        p_onl%lonlat_id = get_free_lonlat_grid()
+        lonlat => lonlat_grid_list(p_onl%lonlat_id)
+
+        lonlat%grid%reg_lon_def(:) = reg_lon_def(:)
+        lonlat%grid%reg_lat_def(:) = reg_lat_def(:)
+        lonlat%grid%north_pole(:)  = north_pole(:)
+
         IF(reg_lon_def(2)<=0._wp) CALL finish(routine,'Illegal LON increment')
         IF(reg_lat_def(2)<=0._wp) CALL finish(routine,'Illegal LAT increment')
         IF(reg_lon_def(3)<=reg_lon_def(1)) CALL finish(routine,'end lon <= start lon')
         IF(reg_lat_def(3)<=reg_lat_def(1)) CALL finish(routine,'end lat <= start lat')
-        p_onl%lon_dim = INT( (reg_lon_def(3)-reg_lon_def(1))/reg_lon_def(2) ) + 1
-        p_onl%lat_dim = INT( (reg_lat_def(3)-reg_lat_def(1))/reg_lat_def(2) ) + 1
+        lonlat%grid%lon_dim = INT( (reg_lon_def(3)-reg_lon_def(1))/reg_lon_def(2) ) + 1
+        lonlat%grid%lat_dim = INT( (reg_lat_def(3)-reg_lat_def(1))/reg_lat_def(2) ) + 1
+
+        ! Flag those domains, which are used for this lon-lat grid:
+        !     If dom(:) was not specified in namelist input, it is set
+        !     completely to -1.  In this case all domains are wanted in
+        !     the output
+        IF (p_onl%dom(1) < 0)  THEN
+          lonlat%l_dom(:) = .TRUE.
+        ELSE
+          DOM_LOOP : DO i = 1, n_dom
+            IF (p_onl%dom(i) < 0) exit DOM_LOOP
+            lonlat%l_dom( p_onl%dom(i) ) = .TRUE.
+          ENDDO DOM_LOOP
+        END IF
       ENDIF
-      p_onl%gauss_tgrid_def  = gauss_tgrid_def
-      p_onl%north_pole(:)    = north_pole(:)
+      p_onl%gauss_tgrid_def      = gauss_tgrid_def
 
       p_onl%cur_bounds_triple= 1
       p_onl%next_output_time = p_onl%output_bounds(1,1)
@@ -645,7 +675,7 @@ CONTAINS
             ! patch_id in var_lists always corresponds to the LOGICAL domain
             IF(var_lists(j)%p%patch_id /= patch_info(i_dom)%log_patch_id) CYCLE
 
-            IF(i_typ /= var_lists(j)%p%level_type) CYCLE
+            IF(i_typ /= var_lists(j)%p%vlevel_type) CYCLE
 
             nvl = nvl + 1
             vl_list(nvl) = j
@@ -654,8 +684,15 @@ CONTAINS
 
           ! build a total varlist of variables tagged with
           ! "loutput=.TRUE."
-          CALL get_all_var_names(all_varlist, n_allvars, opt_loutput=.TRUE., &
-            &       opt_level_type=ilev_type, opt_patch_id=patch_info(i_dom)%log_patch_id)
+          IF (p_of%remap == 1) THEN
+            CALL get_all_var_names(all_varlist, n_allvars, opt_loutput=.TRUE.,    &
+              &       opt_vlevel_type=ilev_type, opt_hor_intp_type=HINTP_TYPE_LONLAT,  &
+              &       opt_patch_id=patch_info(i_dom)%log_patch_id)
+          ELSE
+            CALL get_all_var_names(all_varlist, n_allvars, opt_loutput=.TRUE.,    &
+              &       opt_vlevel_type=ilev_type, opt_patch_id=patch_info(i_dom)%log_patch_id)
+          END IF
+
 
           SELECT CASE(i_typ)
             CASE(1)
@@ -713,14 +750,6 @@ CONTAINS
     IF(use_async_name_list_io) CALL init_memory_window
 #endif
 
-    ! Set up lonlat interpolation for output files where this is enabled.
-    ! This is done after setting io_proc_id so that we know where to
-    ! store the lonlat interpolation data.
-
-    DO i = 1, nfiles
-      IF(output_file(i)%remap == 1) CALL set_output_file_lonlat_intp(output_file(i))
-    ENDDO
-
     CALL message('init_name_list_output','Done')
 
   END SUBROUTINE init_name_list_output
@@ -733,9 +762,11 @@ CONTAINS
     INTEGER, INTENT(IN) :: vl_list(:)
     CHARACTER(LEN=*), INTENT(IN) :: varlist(:)
 
-    INTEGER :: ivar, i, iv, idx, tl
-    LOGICAL :: found
+    INTEGER :: ivar, i, iv, idx, idx_t, idx_x, idx_y, tl, grid_of, grid_var
+    LOGICAL :: found, found_1, found_2
     TYPE(t_list_element), POINTER :: element
+    TYPE(t_var_desc), TARGET  ::  var_desc_1, var_desc_2   !< variable descriptor
+    TYPE(t_var_desc), POINTER ::  p_var_desc               !< variable descriptor (pointer)
 
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/add_varlist_to_output_file'
 
@@ -744,22 +775,30 @@ CONTAINS
       IF(varlist(ivar) == ' ') EXIT ! Last one reached
     ENDDO
 
-    p_of%num_vars = ivar-1
-    IF(p_of%num_vars == 0) CALL finish(routine,'num_vars == 0')
-
-    ! Allocate array of variable descriptions
-
-    ALLOCATE(p_of%var_desc(p_of%num_vars))
-
-    DO ivar = 1, p_of%num_vars
-
+    ! Allocate a list of variable descriptors: 
+    p_of%max_vars = ivar-1
+    p_of%num_vars = 0
+    ALLOCATE(p_of%var_desc(p_of%max_vars))
+    DO ivar = 1,(ivar-1)
       ! Nullify pointers in p_of%var_desc
       p_of%var_desc(ivar)%r_ptr => NULL()
       DO i = 1, max_time_levels
         p_of%var_desc(ivar)%tlev_ptr(i)%p => NULL()
       ENDDO
+    END DO ! ivar
 
-      found = .FALSE.
+    ! Allocate array of variable descriptions
+    DO ivar = 1,(ivar-1)
+
+      found_1 = .FALSE.
+      found_2 = .FALSE.
+      ! Nullify pointers
+      var_desc_1%r_ptr => NULL()
+      var_desc_2%r_ptr => NULL()
+      DO i = 1, max_time_levels
+        var_desc_1%tlev_ptr(i)%p => NULL()
+        var_desc_2%tlev_ptr(i)%p => NULL()
+      ENDDO
 
       ! Loop over all var_lists listed in vl_list to find the variable
       ! Please note that there may be several variables with different time levels,
@@ -782,11 +821,35 @@ CONTAINS
 
           ! Do not inspect element if output is disabled
           IF(.NOT.element%field%info%loutput) CYCLE
+          
+          IF (p_of%name_list%remap==1) THEN
+            ! If lon-lat variable is requested, skip variable if it
+            ! does not correspond to the same lon-lat grid:
+            grid_of  = p_of%name_list%lonlat_id
+            grid_var = element%field%info%hor_interp%lonlat_id
+            IF (grid_of /= grid_var) CYCLE
+          ELSE
+            ! On the other hand: If no lon-lat interpolation is
+            ! requested for this output file, skip all variables of
+            ! this kind:
+            IF (element%field%info%hgrid == GRID_REGULAR_LONLAT) CYCLE
+          END IF ! (remap/=1)
 
           ! Do not inspect element if it is a container
           IF(element%field%info%lcontainer) CYCLE
+
+          ! find suffix position for component and time level indices:
+          idx_x = INDEX(element%field%info%name,'.X')
+          idx_y = INDEX(element%field%info%name,'.Y')
+          idx_t = INDEX(element%field%info%name,'.TL')
+
+          idx = vname_len
+          IF (idx_t > 0) idx=MIN(idx, idx_t)
+          IF (idx_x > 0) idx=MIN(idx, idx_x)
+          IF (idx_y > 0) idx=MIN(idx, idx_y)
+          IF (idx==vname_len) idx=0
+          
           ! Check for matching name
-          idx = INDEX(element%field%info%name,'.TL')
           IF(idx == 0) THEN
             IF(varlist(ivar) /= element%field%info%name) CYCLE
           ELSE
@@ -794,38 +857,54 @@ CONTAINS
           ENDIF
 
           ! Found it, add it to the variable list of output file
+          
+          ! If we are dealing with an edge-based variable: look for
+          ! both, the x and y component
+          IF ((p_of%name_list%remap/=1) .OR. (idx_y == 0)) THEN
+            p_var_desc => var_desc_1
+            found      =  found_1
+          ELSE
+            p_var_desc => var_desc_2
+            found      =  found_2
+          END IF
 
-          IF(idx == 0) THEN
+          IF(idx_t == 0) THEN
             ! Not time level dependent
             IF(found) CALL finish(routine,'Duplicate var name: '//TRIM(varlist(ivar)))
-            p_of%var_desc(ivar)%r_ptr => element%field%r_ptr
-            p_of%var_desc(ivar)%info  = element%field%info
+            p_var_desc%r_ptr => element%field%r_ptr
+            p_var_desc%info  = element%field%info
           ELSE
             IF(found) THEN
-              ! We have already the info field, make some plausibilty checks:
-              IF(ANY(p_of%var_desc(ivar)%info%used_dimensions(:) /=  &
-                     element%field%info%used_dimensions(:))) &
+              ! We have already the info field, make some plausibility checks:
+              IF(ANY(p_var_desc%info%used_dimensions(:) /=  &
+                element%field%info%used_dimensions(:))) THEN
+                CALL message(routine, "Var "//TRIM(element%field%info%name))
                 CALL finish(routine,'Dimension mismatch TL variable: '//TRIM(varlist(ivar)))
+              END IF
               ! There must not be a TL independent variable with the same name
-              IF(ASSOCIATED(p_of%var_desc(ivar)%r_ptr)) &
+              IF(ASSOCIATED(p_var_desc%r_ptr)) &
                 CALL finish(routine,'Duplicate var name: '//TRIM(varlist(ivar)))
               ! Maybe some more members of info should be tested ...
             ELSE
               ! Variable encountered the first time, set info field ...
-              p_of%var_desc(ivar)%info = element%field%info
+              p_var_desc%info = element%field%info
               ! ... and set name without .TL# suffix
-              p_of%var_desc(ivar)%info%name = element%field%info%name(1:idx-1)
+              p_var_desc%info%name = element%field%info%name(1:idx_t-1)
             ENDIF
             ! Get time level
-            tl = ICHAR(element%field%info%name(idx+3:idx+3)) - ICHAR('0')
+            tl = ICHAR(element%field%info%name(idx_t+3:idx_t+3)) - ICHAR('0')
             IF(tl<=0 .OR. tl>max_time_levels) &
               CALL finish(routine, 'Illegal time level in '//TRIM(element%field%info%name))
-            IF(ASSOCIATED(p_of%var_desc(ivar)%tlev_ptr(tl)%p)) &
+            IF(ASSOCIATED(p_var_desc%tlev_ptr(tl)%p)) &
               CALL finish(routine, 'Duplicate time level for '//TRIM(element%field%info%name))
-            p_of%var_desc(ivar)%tlev_ptr(tl)%p => element%field%r_ptr
+            p_var_desc%tlev_ptr(tl)%p => element%field%r_ptr
           ENDIF
 
-          found = .TRUE.
+          IF ((p_of%name_list%remap/=1) .OR. (idx_y == 0)) THEN
+            found_1 = .TRUE.
+          ELSE
+            found_2 = .TRUE.
+          END IF
 
         ENDDO
 
@@ -833,87 +912,31 @@ CONTAINS
 
       ! Check that at least one element with this name has been found
 
-      IF(.NOT. found) &
+      IF(.NOT. found_1) &
         CALL finish(routine,'Output name list variable not found: '//TRIM(varlist(ivar)))
+      
+      ! append variable descriptor to list; append two different
+      ! variables (X and Y) if we have a lon-lat interpolated variable
+      ! defined on edges:
+      IF (found_2) THEN
+        var_desc_1%info%name = TRIM(var_desc_1%info%name)//".X"
+        CALL add_var_desc(p_of, var_desc_1)
+        var_desc_2%info%name = TRIM(var_desc_2%info%name)//".Y"
+        CALL add_var_desc(p_of, var_desc_2)
+      ELSE
+        CALL add_var_desc(p_of, var_desc_1)
+      END IF
 
-    ENDDO ! ivar = 1, p_of%num_vars
+    ENDDO ! ivar = 1,(ivar-1)
 
   END SUBROUTINE add_varlist_to_output_file
 
-  !------------------------------------------------------------------------------------------------
-
-  SUBROUTINE set_output_file_lonlat_intp(p_of)
-
-    TYPE (t_output_file), INTENT(INOUT) :: p_of
-
-    REAL(wp) :: pi_180
-    INTEGER  :: jl
-
-    pi_180 = ATAN(1._wp)/45._wp
-
-    jl = p_of%log_patch_id
-
-    ! Set grid
-
-    p_of%lonlat_grid%delta(1)        = p_of%name_list%reg_lon_def(2) * pi_180
-    p_of%lonlat_grid%delta(2)        = p_of%name_list%reg_lat_def(2) * pi_180
-    p_of%lonlat_grid%start_corner(1) = p_of%name_list%reg_lon_def(1) * pi_180
-    p_of%lonlat_grid%start_corner(2) = p_of%name_list%reg_lat_def(1) * pi_180
-    p_of%lonlat_grid%poleN(1:2)      = p_of%name_list%north_pole(1:2) * pi_180
-    p_of%lonlat_grid%dimen(1)        = p_of%name_list%lon_dim
-    p_of%lonlat_grid%dimen(2)        = p_of%name_list%lat_dim
-
-    p_of%lonlat_grid%total_dim = p_of%lonlat_grid%dimen(1)*p_of%lonlat_grid%dimen(2)
-    p_of%lonlat_grid%nblks     = (p_of%lonlat_grid%total_dim - 1)/nproma + 1
-    p_of%lonlat_grid%npromz    = p_of%lonlat_grid%total_dim - (p_of%lonlat_grid%nblks-1)*nproma
-
-
-    ! Allocate interpolation state - this has to be on all PEs
-    ! although finally we need it only on one
-
-    CALL allocate_int_state_lonlat_grid(p_of%lonlat_grid, p_of%int_state_lonlat)
-
-    ! Calculate lonlat state
-
-    IF(.NOT.my_process_is_io()) THEN
-      CALL rbf_setup_interpol_lonlat_grid(p_of%lonlat_grid, p_patch(jl), &
-                                          p_of%int_state_lonlat, p_int_state(jl))
-    ENDIF
-
-    ! In the case of async IO: transfer int_state_lonlat to IO procs
-
-    IF(use_async_name_list_io .AND. .NOT.my_process_is_mpi_test()) THEN
-      CALL p_bcast(p_of%int_state_lonlat%rbf_vec_coeff,    bcast_root, p_comm_work_2_io)
-      CALL p_bcast(p_of%int_state_lonlat%rbf_c2grad_coeff, bcast_root, p_comm_work_2_io)
-      CALL p_bcast(p_of%int_state_lonlat%rbf_vec_idx,      bcast_root, p_comm_work_2_io)
-      CALL p_bcast(p_of%int_state_lonlat%rbf_vec_blk,      bcast_root, p_comm_work_2_io)
-      CALL p_bcast(p_of%int_state_lonlat%rbf_vec_stencil,  bcast_root, p_comm_work_2_io)
-      CALL p_bcast(p_of%int_state_lonlat%rbf_c2grad_idx,   bcast_root, p_comm_work_2_io)
-      CALL p_bcast(p_of%int_state_lonlat%rbf_c2grad_blk,   bcast_root, p_comm_work_2_io)
-      CALL p_bcast(p_of%int_state_lonlat%rdist,            bcast_root, p_comm_work_2_io)
-      CALL p_bcast(p_of%int_state_lonlat%tri_idx,          bcast_root, p_comm_work_2_io)
-      ! nlocal_pts and owner are not needed and nlocal_pts has a different size on the IO PE,
-      ! so don't transfer them!
-    ENDIF
-
-    ! Deallocate int_state_lonlat where it is not needed
-
-    IF (.NOT.(p_of%io_proc_id == p_pe .OR. my_process_is_mpi_test()) ) THEN
-      CALL deallocate_int_state_lonlat(p_of%int_state_lonlat)
-    ENDIF
-
-    ! Just for safety: Set this again - it might have been changed!
-    p_of%lonlat_grid%total_dim = p_of%lonlat_grid%dimen(1)*p_of%lonlat_grid%dimen(2)
-    p_of%lonlat_grid%nblks     = (p_of%lonlat_grid%total_dim - 1)/nproma + 1
-    p_of%lonlat_grid%npromz    = p_of%lonlat_grid%total_dim - (p_of%lonlat_grid%nblks-1)*nproma
-
-  END SUBROUTINE set_output_file_lonlat_intp
 
   !------------------------------------------------------------------------------------------------
 
   SUBROUTINE set_patch_info
 
-    INTEGER :: jp, jl
+    INTEGER :: jp, jl, ierrstat, jg
 
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/set_patch_info'
 
@@ -965,7 +988,28 @@ CONTAINS
       ENDIF
 #endif
 
-    ENDDO
+    ENDDO ! jp
+
+    ! A similar process as above - for the lon-lat grids
+    ALLOCATE(lonlat_info(n_lonlat_grids, n_dom), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+    DO jl = 1,n_lonlat_grids
+      DO jg = 1,n_dom
+        IF(.NOT.my_process_is_io()) THEN
+          IF (.NOT. lonlat_grid_list(jl)%l_dom(jg)) CYCLE
+          ! Set reorder_info on work and test PE
+          CALL set_reorder_info_lonlat(lonlat_grid_list(jl)%grid,      &
+            &                          lonlat_grid_list(jl)%intp(jg),  &
+            &                          lonlat_info(jl,jg))
+        ENDIF
+#ifndef NOMPI
+        IF(use_async_name_list_io) THEN
+          ! Transfer reorder_info and grid_filename to IO PEs
+          CALL transfer_reorder_info(lonlat_info(jl,jg))
+        ENDIF
+#endif
+      END DO ! jg
+    ENDDO ! jl
 
   END SUBROUTINE set_patch_info
 
@@ -1098,6 +1142,75 @@ CONTAINS
 
 
   !------------------------------------------------------------------------------------------------
+  !> Sets the reorder_info for lon-lat-grids
+  !
+  SUBROUTINE set_reorder_info_lonlat(grid, intp, p_ri)
+    TYPE(t_lon_lat_grid), INTENT(IN)    :: grid
+    TYPE(t_lon_lat_intp), INTENT(IN)    :: intp
+    TYPE(t_reorder_info), INTENT(INOUT) :: p_ri ! Result: reorder info
+
+    CHARACTER(LEN=*), PARAMETER :: routine = &
+      &   'mo_name_list_output/set_reorder_info_lonlat'
+    INTEGER :: ierrstat, i, jc, jb, this_pe, mpierr,i_owner
+    INTEGER :: iglb(0:p_n_work-1)
+
+    ! Just for safety
+    IF(my_process_is_io()) CALL finish(routine, 'Must not be called on IO PEs')
+    this_pe = get_my_mpi_work_id()
+
+    p_ri%n_glb = grid%lon_dim * grid%lat_dim ! Total points in lon-lat grid
+    p_ri%n_own = intp%nthis_local_pts        ! No. of own points
+
+    ! Set index arrays to own cells/edges/verts
+    ALLOCATE(p_ri%own_idx(p_ri%n_own), p_ri%own_blk(p_ri%n_own), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+
+    jc = 0
+    jb = 1
+    DO i=1,p_ri%n_own
+      jc = jc+1
+      IF (jc>nproma) THEN
+        jb = jb+1;  jc = 1
+      END IF
+
+      p_ri%own_idx(i) = jc
+      p_ri%own_blk(i) = jb
+    END DO ! i
+
+    ! Gather the number of own points for every PE into p_ri%pe_own
+    ALLOCATE(p_ri%pe_own(0:p_n_work-1), p_ri%pe_off(0:p_n_work-1), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+#ifndef NOMPI
+    CALL MPI_Allgather(p_ri%n_own,  1, p_int, &
+                       p_ri%pe_own, 1, p_int, &
+                       p_comm_work, mpierr)
+#else
+    p_ri%pe_own(0) = p_ri%n_own
+#endif
+    ! Get offset within result array
+    p_ri%pe_off(0) = 0
+    DO i = 1, p_n_work-1
+      p_ri%pe_off(i) = p_ri%pe_off(i-1) + p_ri%pe_own(i-1)
+    ENDDO
+
+    ! Get the global index numbers of the data when it is gathered on PE 0
+    ! exactly in the same order as it is retrieved later during I/O
+    ALLOCATE(p_ri%reorder_index(p_ri%n_glb), &
+      &      p_ri%log_dom_index(p_ri%n_glb), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+
+    iglb(:) = p_ri%pe_off(:)
+    DO i=1,p_ri%n_glb
+      i_owner = intp%owner(i)
+      p_ri%reorder_index(i) = iglb(i_owner) + 1
+      p_ri%log_dom_index(i) = i
+      iglb(i_owner) = iglb(i_owner) + 1
+    END DO
+
+  END SUBROUTINE set_reorder_info_lonlat
+
+
+  !------------------------------------------------------------------------------------------------
   !> setup_output_vlist:
   !! Sets up the vlist for a t_output_file structure
 
@@ -1111,7 +1224,8 @@ CONTAINS
     REAL(wp), ALLOCATABLE :: levels(:), levels_i(:), levels_m(:), p_lonlat(:)
 
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/setup_output_vlist'
-
+    TYPE(t_lon_lat_data), POINTER :: lonlat
+    LOGICAL :: lwrite_pzlev
 
     ! Read map_file - we do it here and not during initialization
     ! since it is enough if only the output PE does the read (and not all)
@@ -1148,8 +1262,9 @@ CONTAINS
       of%cdiEdgeGridID = CDI_UNDEFID
       of%cdiVertGridID = CDI_UNDEFID
 
-      ll_dim(1) = of%name_list%lon_dim
-      ll_dim(2) = of%name_list%lat_dim
+      lonlat => lonlat_grid_list(of%name_list%lonlat_id)
+      ll_dim(1) = lonlat%grid%lon_dim
+      ll_dim(2) = lonlat%grid%lat_dim
 
       of%cdiLonLatGridID = gridCreate(GRID_LONLAT, ll_dim(1)*ll_dim(2))
 
@@ -1178,14 +1293,16 @@ CONTAINS
 
       ALLOCATE(p_lonlat(ll_dim(1)))
       DO k = 1, ll_dim(1)
-        p_lonlat(k) = of%name_list%reg_lon_def(1) + REAL(k-1,wp)*of%name_list%reg_lon_def(2)
+        p_lonlat(k) = lonlat%grid%reg_lon_def(1)  &
+          &            +  REAL(k-1,wp)*lonlat%grid%reg_lon_def(2)
       ENDDO
       CALL gridDefXvals(of%cdiLonLatGridID, p_lonlat)
       DEALLOCATE(p_lonlat)
 
       ALLOCATE(p_lonlat(ll_dim(2)))
       DO k = 1, ll_dim(2)
-        p_lonlat(k) = of%name_list%reg_lat_def(1) + REAL(k-1,wp)*of%name_list%reg_lat_def(2)
+        p_lonlat(k) = lonlat%grid%reg_lat_def(1)  &
+          &            +  REAL(k-1,wp)*lonlat%grid%reg_lat_def(2)
       ENDDO
       CALL gridDefYvals(of%cdiLonLatGridID, p_lonlat)
       DEALLOCATE(p_lonlat)
@@ -1316,6 +1433,8 @@ CONTAINS
 
       ! Define axes for output on p- and z-levels
       !
+      lwrite_pzlev = (of%name_list%pl_varlist(1) /= ' ')  .OR.  &
+        &            (of%name_list%hl_varlist(1) /= ' ')
       IF (lwrite_pzlev) THEN
         nplev = nh_pzlev_config(of%log_patch_id)%nplev
         of%cdiZaxisID(ZA_pressure) = zaxisCreate(ZAXIS_PRESSURE, nplev)
@@ -1776,20 +1895,18 @@ CONTAINS
       !
       ! set grid ID
       !
-      IF(of%name_list%remap == 1) THEN
+      SELECT CASE (info%hgrid)
+      CASE(GRID_UNSTRUCTURED_CELL)
+        info%cdiGridID = of%cdiCellGridID
+      CASE(GRID_UNSTRUCTURED_VERT)
+        info%cdiGridID = of%cdiVertGridID
+      CASE(GRID_UNSTRUCTURED_EDGE)
+        info%cdiGridID = of%cdiEdgeGridID
+      CASE (GRID_REGULAR_LONLAT)
         info%cdiGridID = of%cdiLonLatGridID
-      ELSE
-        SELECT CASE (info%hgrid)
-        CASE(GRID_UNSTRUCTURED_CELL)
-          info%cdiGridID = of%cdiCellGridID
-        CASE(GRID_UNSTRUCTURED_VERT)
-          info%cdiGridID = of%cdiVertGridID
-        CASE(GRID_UNSTRUCTURED_EDGE)
-          info%cdiGridID = of%cdiEdgeGridID
-        CASE DEFAULT
-          CALL finish(routine, 'GRID definition missing for '//TRIM(info%name))
-        END SELECT
-      ENDIF
+      CASE DEFAULT
+        CALL finish(routine, 'GRID definition missing for '//TRIM(info%name))
+      END SELECT
 
       gridID = info%cdiGridID
 
@@ -1865,14 +1982,6 @@ CONTAINS
       END SELECT
 
       zaxisID = info%cdiZaxisID
-      !
-      IF(of%name_list%remap == 1 .AND. info%hgrid == GRID_UNSTRUCTURED_EDGE) THEN
-        ! lat/lon interpolation and a vector variable => 2 variables are output
-        nvars = 2
-      ELSE
-        nvars = 1
-      ENDIF
-
       ! Search name mapping for name in NetCDF file
 
       mapped_name = info%name
@@ -1885,48 +1994,19 @@ CONTAINS
         ENDDO
       ENDIF
 
-      DO i = 1, nvars
         varID = vlistDefVar(vlistID, gridID, zaxisID, TIME_VARIABLE)
-        IF(i==1) THEN
-          info%cdiVarID   = varID
-        ELSE
-          info%cdiVarID_2 = varID
-        ENDIF
-        !
+        info%cdiVarID   = varID
+
         CALL vlistDefVarDatatype(vlistID, varID, DATATYPE_FLT32)
-        IF(nvars==2) THEN
-          IF ((of%output_type == FILETYPE_NC2) .OR.  &
-            & (of%output_type == FILETYPE_NC4)) THEN
-            IF(i==1) THEN
-              CALL vlistDefVarName(vlistID, varID, TRIM(mapped_name)//'_LONLAT_X')
-            ELSE
-              CALL vlistDefVarName(vlistID, varID, TRIM(mapped_name)//'_LONLAT_Y')
-            ENDIF
-          ELSE
-            IF(i==1) THEN
-              CALL vlistDefVarName(vlistID, varID, TRIM(mapped_name))
-            ELSE
-              CALL vlistDefVarName(vlistID, varID, TRIM(mapped_name))
-            ENDIF
-          END IF
-        ELSE
-          IF ((of%name_list%remap == 1) .AND.         &  
-            & ((of%output_type == FILETYPE_NC2) .OR.  &
-            &  (of%output_type == FILETYPE_NC4))) THEN
-            CALL vlistDefVarName(vlistID, varID, TRIM(mapped_name)//'_LONLAT')
-          ELSE
-            CALL vlistDefVarName(vlistID, varID, TRIM(mapped_name))
-          ENDIF
-        ENDIF
-        !
+
+        CALL vlistDefVarName(vlistID, varID, TRIM(mapped_name))
+        
         IF (info%cf%long_name /= '') CALL vlistDefVarLongname(vlistID, varID, info%cf%long_name)
         IF (info%cf%units /= '') CALL vlistDefVarUnits(vlistID, varID, info%cf%units)
 
         ! Currently only real valued variables are allowed, so we can always use info%missval%rval
         IF (info%lmiss) CALL vlistDefVarMissval(vlistID, varID, info%missval%rval)
       ENDDO
-      !
-    ENDDO
     !
   END SUBROUTINE add_variables_to_vlist
 
@@ -2242,7 +2322,7 @@ CONTAINS
     TYPE (t_output_file), INTENT(INOUT), TARGET :: of
 
     INTEGER :: tl, i_dom, i_log_dom, i, iv, jk, n_points, nlevs, nblks, nindex
-    INTEGER :: mpierr, ll_dim(2)
+    INTEGER :: mpierr, lonlat_id
     INTEGER(i8) :: ioff
     TYPE (t_var_metadata), POINTER :: info
     TYPE(t_reorder_info), POINTER  :: p_ri
@@ -2251,7 +2331,6 @@ CONTAINS
     TYPE(t_comm_pattern), POINTER :: p_pat
 
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/write_name_list'
-
 
     ! Offset in memory window for async I/O
     ioff = of%my_mem_win_off
@@ -2363,6 +2442,10 @@ CONTAINS
         ELSE
           p_pat => p_patch(i_dom)%comm_pat_gather_v
         ENDIF
+      CASE (GRID_REGULAR_LONLAT)
+        lonlat_id = info%hor_interp%lonlat_id
+        p_ri  => lonlat_info(lonlat_id, i_log_dom)
+        p_pat => lonlat_grid_list(lonlat_id)%p_pat(i_log_dom)
       CASE default
         CALL finish(routine,'unknown grid type')
       END SELECT
@@ -2420,21 +2503,8 @@ CONTAINS
         !
         ! write data
         !
-        IF (my_process_is_stdio()) THEN
-          IF(of%name_list%remap == 1) THEN
-            ! Lon/Lat Interpolation requested
-            ll_dim(1) = of%name_list%lon_dim
-            ll_dim(2) = of%name_list%lat_dim
-            ALLOCATE(r_ll(ll_dim(1)*ll_dim(2),nlevs,2))
-            CALL interpolate_lonlat(of, info, r_out, r_ll)
-            CALL streamWriteVar(of%cdiFileID, info%cdiVarID, r_ll(:,:,1), 0)
-            IF(info%hgrid == GRID_UNSTRUCTURED_EDGE) &
-              CALL streamWriteVar(of%cdiFileID, info%cdiVarID_2, r_ll(:,:,2), 0)
-            DEALLOCATE(r_ll)
-          ELSE
-            CALL streamWriteVar(of%cdiFileID, info%cdiVarID, r_out, 0)
-          ENDIF
-        ENDIF
+        IF (my_process_is_stdio()) &
+          CALL streamWriteVar(of%cdiFileID, info%cdiVarID, r_out, 0)
 
         DEALLOCATE(r_tmp)
         IF(my_process_is_mpi_test() .OR. my_process_is_mpi_workroot()) DEALLOCATE(r_out)
@@ -2513,101 +2583,6 @@ CONTAINS
 
   END FUNCTION istime4name_list_output
 
-  !------------------------------------------------------------------------------------------------
-
-  SUBROUTINE interpolate_lonlat(of, info, r_grid, r_ll)
-
-    TYPE (t_output_file), INTENT(IN), TARGET :: of
-    TYPE (t_var_metadata), INTENT(IN) :: info
-    REAL(wp), INTENT(IN) :: r_grid(:,:)    ! Variable on ICON grid
-    REAL(wp), INTENT(INOUT) :: r_ll(:,:,:) ! Interploated variable
-
-
-    INTEGER :: nblks_ll, npromz_ll, n_tot, nlev, nblks, jk, i, iidx, iblk
-    REAL(wp), ALLOCATABLE :: r_full(:,:,:), r_out1(:,:,:), r_out2(:,:,:)
-    TYPE(t_reorder_info), POINTER  :: p_ri
-
-    nblks_ll  = of%lonlat_grid%nblks
-    npromz_ll = of%lonlat_grid%npromz
-    n_tot     = of%lonlat_grid%total_dim
-
-    IF(info%ndims == 2) THEN
-      nlev = 1
-    ELSE
-      nlev = info%used_dimensions(2)
-    ENDIF
-
-    ! Get pointer to appropriate reorder_info
-
-    SELECT CASE (info%hgrid)
-      CASE (GRID_UNSTRUCTURED_CELL)
-        p_ri => patch_info(of%phys_patch_id)%cells
-      CASE (GRID_UNSTRUCTURED_EDGE)
-        p_ri => patch_info(of%phys_patch_id)%edges
-      CASE (GRID_UNSTRUCTURED_VERT)
-        p_ri => patch_info(of%phys_patch_id)%verts
-      CASE DEFAULT
-        CALL finish('interpolate_lonlat','unknown grid type')
-    END SELECT
-
-    ! The interpolation routines below need the complete logical patch,
-    ! r_grid contains only the physical patch - we have to copy back
-    ! the physical patch into the logical patch here (and re-block it)!
-
-    nblks = (p_ri%n_log-1)/nproma + 1 ! Total number of blocks in logical domain
-    ALLOCATE(r_full(nproma,nlev,nblks))
-    r_full(:,:,:) = 0._wp
-
-    DO jk = 1, nlev
-      DO i = 1, p_ri%n_glb
-        iidx = idx_no(p_ri%log_dom_index(i))
-        iblk = blk_no(p_ri%log_dom_index(i))
-        r_full(iidx,jk,iblk) = r_grid(i,jk)
-      ENDDO
-    ENDDO
-
-    ! Allocate output variables
-    ALLOCATE(r_out1(nproma,nlev,nblks_ll))
-    ALLOCATE(r_out2(nproma,nlev,nblks_ll)) ! Only needed for GRID_UNSTRUCTURED_EDGE
-
-    SELECT CASE (info%hgrid)
-    CASE (GRID_UNSTRUCTURED_CELL)
-
-      ! for cell-based variables: interpolate gradients (finite differences) and reconstruct
-      CALL rbf_interpol_lonlat_nl(r_full, of%int_state_lonlat, r_out1, nblks_ll, npromz_ll)
-
-    CASE (GRID_UNSTRUCTURED_VERT)
-
-      ! vertex-based variables (vorticity "VOR") are treated in a
-      ! special way: They are first interpolated onto the cell centers
-      ! and afterwards treated as scalar variables of type "GATHER_C"
-
-      ! Note: The whole process is overly expensive! For the case that
-      ! there are other vertex-based variables for output, this
-      ! routine must be optimized!
-
-      ! RJ: This doesn't work at the moment !!!
-      CALL finish('interpolate_lonlat', 'Vertex based variables currently not supported!')
-
-    CASE (GRID_UNSTRUCTURED_EDGE)
-
-      ! for edge-based variables: simple interpolation
-      CALL rbf_vec_interpol_lonlat_nl( r_full, of%int_state_lonlat, r_out1, r_out2, &
-                                       nblks_ll, npromz_ll)
-    CASE DEFAULT
-      CALL finish('interpolate_lonlat','unknown grid type')
-    END SELECT
-
-    ! reshape lon-lat variable (nproma,nlev,nblks) -> (ntot,nlev)       
-    DO jk = 1, nlev
-      r_ll(1:n_tot,jk,1) = RESHAPE(r_out1(:,jk,:), (/n_tot/))
-      IF(info%hgrid == GRID_UNSTRUCTURED_EDGE) &
-        r_ll(1:n_tot,jk,2) = RESHAPE(r_out2(:,jk,:), (/n_tot/))
-    ENDDO
-
-    DEALLOCATE(r_out1, r_out2, r_full)
-
-  END SUBROUTINE interpolate_lonlat
 
   !------------------------------------------------------------------------------------------------
   !------------------------------------------------------------------------------------------------
@@ -2793,13 +2768,6 @@ CONTAINS
     IF(my_process_is_io()) ALLOCATE(vct(ivct_len))
     CALL p_bcast(vct, bcast_root, p_comm_work_2_io)
 
-    ! Replicate dimensions needed for lonlat interpolation
-
-    CALL p_bcast(rbf_vec_dim_c,  bcast_root, p_comm_work_2_io)
-    CALL p_bcast(rbf_vec_dim_e,  bcast_root, p_comm_work_2_io)
-    CALL p_bcast(rbf_vec_dim_v,  bcast_root, p_comm_work_2_io)
-    CALL p_bcast(rbf_c2grad_dim, bcast_root, p_comm_work_2_io)
-
     !-----------------------------------------------------------------------------------------------
     ! Replicate variable lists
 
@@ -2836,7 +2804,7 @@ CONTAINS
 
         list_info(1) = nelems
         list_info(2) = var_lists(iv)%p%patch_id
-        list_info(3) = var_lists(iv)%p%level_type
+        list_info(3) = var_lists(iv)%p%vlevel_type
         list_info(4) = MERGE(1,0,var_lists(iv)%p%loutput)
 
       ENDIF
@@ -2849,7 +2817,7 @@ CONTAINS
         nelems = list_info(1)
         ! Create var list
         CALL new_var_list( p_var_list, var_list_name, patch_id=list_info(2), &
-                           level_type=list_info(3), loutput=(list_info(4)/=0) )
+                           vlevel_type=list_info(3), loutput=(list_info(4)/=0) )
       ENDIF
 
       ! Get the binary representation of all info members of the variables
@@ -2936,7 +2904,7 @@ CONTAINS
 #endif
 
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/init_async_name_list_output'
-
+    INTEGER :: i_log_dom, n_own, lonlat_id
 
     ! There is nothing to do for the test PE:
     IF(my_process_is_mpi_test()) RETURN
@@ -2971,6 +2939,11 @@ CONTAINS
             mem_size = mem_size + INT(nlevs*patch_info(jp)%edges%n_own,i8)
           CASE (GRID_UNSTRUCTURED_VERT)
             mem_size = mem_size + INT(nlevs*patch_info(jp)%verts%n_own,i8)
+          CASE (GRID_REGULAR_LONLAT)
+            lonlat_id = info%hor_interp%lonlat_id
+            i_log_dom = output_file(i)%log_patch_id
+            n_own     = lonlat_info(lonlat_id, i_log_dom)%n_own
+            mem_size  = mem_size + INT(nlevs*n_own,i8)
           CASE DEFAULT
             CALL finish(routine,'unknown grid type')
         END SELECT
@@ -3080,7 +3053,8 @@ CONTAINS
 
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/io_proc_write_name_list'
 
-    INTEGER nval, nlev_max, iv, jk, i, nlevs, mpierr, nv_off, np, i_dom, ll_dim(2)
+    INTEGER nval, nlev_max, iv, jk, i, nlevs, mpierr, nv_off, np, i_dom, &
+      &     lonlat_id, i_log_dom
     INTEGER(KIND=MPI_ADDRESS_KIND) :: ioff(0:num_work_procs-1)
     INTEGER :: voff(0:num_work_procs-1)
     REAL(wp), ALLOCATABLE :: var1(:), var2(:), var3(:,:), r_ll(:,:,:)
@@ -3103,6 +3077,17 @@ CONTAINS
     nval = MAX(patch_info(i_dom)%cells%n_glb, &
                patch_info(i_dom)%edges%n_glb, &
                patch_info(i_dom)%verts%n_glb)
+    ! take also the lon-lat grids into account
+    DO iv = 1, of%num_vars
+      info => of%var_desc(iv)%info
+      IF (info%hgrid == GRID_REGULAR_LONLAT) THEN
+        lonlat_id = info%hor_interp%lonlat_id
+        i_log_dom = of%log_patch_id
+        p_ri  => lonlat_info(lonlat_id, i_log_dom)
+        nval = MAX(nval, p_ri%n_glb)
+      END IF
+    END DO
+
     nlev_max = 1
     DO iv = 1, of%num_vars
       info => of%var_desc(iv)%info
@@ -3135,6 +3120,10 @@ CONTAINS
           p_ri => patch_info(of%phys_patch_id)%edges
         CASE (GRID_UNSTRUCTURED_VERT)
           p_ri => patch_info(of%phys_patch_id)%verts
+        CASE (GRID_REGULAR_LONLAT)
+          lonlat_id = info%hor_interp%lonlat_id
+          i_log_dom = of%log_patch_id
+          p_ri  => lonlat_info(lonlat_id, i_log_dom)
         CASE DEFAULT
           CALL finish(routine,'unknown grid type')
       END SELECT
@@ -3143,8 +3132,6 @@ CONTAINS
 
       nv_off = 0
       DO np = 0, num_work_procs-1
-
-        voff(np) = nv_off
 
         IF(p_ri%pe_own(np) == 0) CYCLE
 
@@ -3165,6 +3152,14 @@ CONTAINS
 
       ENDDO
 
+      ! compute the total offset for each PE
+      nv_off = 0
+      DO np = 0, num_work_procs-1
+        voff(np) = nv_off
+        nval     = p_ri%pe_own(np)*nlevs
+        nv_off   = nv_off + nval
+      END DO
+
       ! var1 is stored in the order in which the variable was stored on compute PEs,
       ! get it back into the global storage order
 
@@ -3182,20 +3177,7 @@ CONTAINS
         ENDDO
       ENDDO ! Loop over levels
 
-      IF(of%name_list%remap == 1) THEN
-        ! Lon/Lat Interpolation requested
-        ll_dim(1) = of%name_list%lon_dim
-        ll_dim(2) = of%name_list%lat_dim
-        ALLOCATE(r_ll(ll_dim(1)*ll_dim(2),nlevs,2))
-        CALL interpolate_lonlat(of, info, var3, r_ll)
-        CALL streamWriteVar(of%cdiFileID, info%cdiVarID, r_ll(:,:,1), 0)
-        IF(info%hgrid == GRID_UNSTRUCTURED_EDGE) &
-          CALL streamWriteVar(of%cdiFileID, info%cdiVarID_2, r_ll(:,:,2), 0)
-        DEALLOCATE(r_ll)
-      ELSE
-        CALL streamWriteVar(of%cdiFileID, info%cdiVarID, var3, 0)
-      ENDIF
-
+      CALL streamWriteVar(of%cdiFileID, info%cdiVarID, var3, 0)
       DEALLOCATE(var3)
 
     ENDDO ! Loop over output variables

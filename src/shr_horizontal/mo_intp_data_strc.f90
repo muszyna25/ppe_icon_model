@@ -157,6 +157,8 @@ USE mo_kind,                ONLY: wp
 USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlvert, max_dom
 USE mo_math_utilities,      ONLY: t_cartesian_coordinates,   &
   &                               t_geographical_coordinates
+USE mo_lonlat_grid,         ONLY: t_lon_lat_grid
+USE mo_communication,       ONLY: t_comm_pattern
 
 IMPLICIT NONE
 
@@ -531,10 +533,9 @@ TYPE t_int_state
   REAL(wp), ALLOCATABLE :: dist_cell2edge(:,:,:)
 END TYPE t_int_state
 
+
 !> data structure containing coefficients for (optional) interpolation
 !> onto lon-lat grid.
-! @note coefficients are stored here (instead of "t_int_state", since
-!       they must not be partitioned in parallel runs.
 TYPE t_lon_lat_intp
 
   REAL(wp), ALLOCATABLE :: rbf_vec_coeff(:,:,:,:)     ! array containing the
@@ -547,7 +548,7 @@ TYPE t_lon_lat_intp
                                                       ! coefficients used for
                                                       ! 2D gradient reconstruction
                                                       ! at lon-lat grid points
-                                                      ! (rbf_c2grad_dim,2,nproma,nblks_c)
+                                                      ! (rbf_c2grad_dim,2,nproma,nblks_lonlat)
 
   INTEGER, ALLOCATABLE  :: rbf_vec_idx(:,:,:)         ! index array defining the
                                                       ! stencil of surrounding edges for
@@ -576,17 +577,63 @@ TYPE t_lon_lat_intp
   ! list of triangles containing lon-lat grid points (first dim: index and block)
   INTEGER, ALLOCATABLE  :: tri_idx(:,:,:) ! 2, nproma, nblks_lonlat
 
-  ! data fields for distributed computations
-  INTEGER, ALLOCATABLE  :: nlocal_pts(:) ! number of points located on each patch
-  INTEGER, ALLOCATABLE  :: owner(:)      ! for each lon-lat point: owning process
+  ! data fields for distributed computations (available on all PEs)
+  INTEGER               :: nthis_local_pts  ! number of points local to this PE
+  INTEGER, ALLOCATABLE  :: nlocal_pts(:)    ! number of points located on each patch
+  INTEGER, ALLOCATABLE  :: owner(:)         ! for each lon-lat point: owning process
 
 END TYPE t_lon_lat_intp
 
 
+!> Collects all interpolation coefficients together with the
+!> corresponding lon-lat grid and a communication pattern for
+!> gathering.
+!
+TYPE t_lon_lat_data
+  TYPE(t_lon_lat_grid) :: grid
+  LOGICAL              :: l_dom        (max_dom), &
+    &                     l_initialized(max_dom)
+  TYPE(t_lon_lat_intp) :: intp         (max_dom)
+  TYPE(t_comm_pattern) :: p_pat        (max_dom)
+END TYPE t_lon_lat_data
+
+
 TYPE(t_int_state),TARGET,ALLOCATABLE :: p_int_state(:), p_int_state_local_parent(:)
 
-!> interpolation constants for lon-lat interpolation
-TYPE (t_lon_lat_intp), TARGET, ALLOCATABLE :: p_int_state_lonlat_global(:)
-TYPE (t_lon_lat_intp), POINTER             :: p_int_state_lonlat(:)
+!> maximum no. of lon-lat grids used in this model
+!
+!  @note This value must be at least as large as the number of used
+!        output_nml name lists!
+INTEGER, PARAMETER    :: MAX_LONLAT_GRIDS = 30
+
+!> Global list of lon-lat grids and interpolation coefficients.
+!
+!  All lon-lat grids needed for output are stored in this
+!  registry. Several subroutines collaborate by this data structure:
+!  coefficient computation, interpolation algorithm, I/O, dump/restore
+!
+! @note This list has a static size but not all data members are
+!       necessarily allocated.
+!
+! @note On the compute PEs information is *local*, i.e. only for each
+!       lon-lat grid only those parts "owned" by the process are
+!       stored.
+TYPE (t_lon_lat_data), TARGET, SAVE :: lonlat_grid_list(MAX_LONLAT_GRIDS)
+
+!> Actual no. of lon-lat grids currently used in this model
+INTEGER               :: n_lonlat_grids
+
+
+CONTAINS
+  
+  !---------------------------------------------------------------
+  !> @return index with "free" lon-lat grid data
+  !
+  FUNCTION get_free_lonlat_grid()
+    INTEGER :: get_free_lonlat_grid
+    
+    n_lonlat_grids = n_lonlat_grids + 1
+    get_free_lonlat_grid = n_lonlat_grids
+  END FUNCTION get_free_lonlat_grid
 
 END MODULE mo_intp_data_strc

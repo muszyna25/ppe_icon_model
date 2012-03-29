@@ -273,9 +273,10 @@ END FUNCTION idx_1d
 !!                different (e.g. feedback, gather, scatter)
 !!
 !! global_index   Global index of of every point in the RECEIVER array
-!!                There may be more tha 1 point with the same global index,
+!!                There may be more than 1 point with the same global index,
 !!                in this case the point is exchanged only once and
 !!                locally distributed.
+!!                - If this argument is not present, we assume global_index=1,2.3,...
 !!
 !! local_index    Local index in the SENDER array.
 !!                This array must have the local index at the global
@@ -285,28 +286,33 @@ END FUNCTION idx_1d
 !! @par Revision History
 !! Initial version by Rainer Johanni, Nov 2009
 !!
-SUBROUTINE setup_comm_pattern(n_points, owner, global_index, local_index, p_pat)
+SUBROUTINE setup_comm_pattern(n_points, owner, opt_global_index, local_index, p_pat)
 
 !
 
-   INTEGER, INTENT(IN) :: n_points         ! Total number of points
-   INTEGER, INTENT(IN) :: owner(:)         ! Owner of every point
-   INTEGER, INTENT(IN) :: global_index(:)  ! Global index of every point
-   INTEGER, INTENT(IN) :: local_index(:)   ! Array mapping global indices to local ones
-                                           ! valid on the remote side!
+   INTEGER, INTENT(IN)           :: n_points             ! Total number of points
+   INTEGER, INTENT(IN)           :: owner(:)             ! Owner of every point
+   INTEGER, INTENT(IN), OPTIONAL :: opt_global_index(:)  ! Global index of every point
+   INTEGER, INTENT(IN)           :: local_index(:)       ! Array mapping global indices to local ones
+                                                         ! valid on the remote side!
 
    TYPE(t_comm_pattern), INTENT(INOUT) :: p_pat
 
 
-
    INTEGER, ALLOCATABLE :: icnt(:), flag(:), global_recv_index(:), send_src(:)
-
+   INTEGER              :: global_index(n_points)
    INTEGER :: i, n, np, nr, num_recv, irs, ire, num_send, iss, ise, max_glb
 
 !-----------------------------------------------------------------------
 
    if(my_process_is_mpi_seq()) &
       CALL finish('setup_comm_pattern','must not be called on single PE/test PE')
+
+   IF (PRESENT(opt_global_index)) THEN
+     global_index(:) = opt_global_index(1:n_points)
+   ELSE
+     global_index(:) = (/ (i, i=1,n_points) /)
+   END IF
 
    ALLOCATE(icnt(0:p_n_work-1))
    max_glb = MAX(MAXVAL(ABS(global_index(1:n_points)),mask=(owner(1:n_points)>=0)),1)
@@ -441,11 +447,12 @@ SUBROUTINE setup_comm_pattern(n_points, owner, global_index, local_index, p_pat)
    ALLOCATE(p_pat%send_src_blk(p_pat%n_send))
    ALLOCATE(p_pat%send_src_idx(p_pat%n_send))
 
-   ! The indices in p_pat%send_src are global, convert ot local
+   ! The indices in p_pat%send_src are global, convert to local
 
    DO i = 1, p_pat%n_send
       np = send_src(i)
-      if(np<1 .or. np>SIZE(local_index)) CALL finish('setup_comm_pattern','Got illegal index')
+      IF(np<1) CALL finish('setup_comm_pattern','Got illegal index')
+      IF(np>SIZE(local_index)) CALL finish('setup_comm_pattern','Got illegal index')
       np = local_index(np)
       if(np<0) CALL finish('setup_comm_pattern','Got illegal index')
       p_pat%send_src_blk(i) = blk_no(np)

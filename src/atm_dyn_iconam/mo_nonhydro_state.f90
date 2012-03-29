@@ -54,7 +54,7 @@ MODULE mo_nonhydro_state
   USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH, INWP,     &
     &                                VINTP_METHOD_UV, VINTP_TYPE_P_OR_Z, &
     &                                VINTP_METHOD_QV, VINTP_METHOD_PRES, &
-    &                                VINTP_METHOD_LIN
+    &                                VINTP_METHOD_LIN, VINTP_TYPE_Z
   USE mo_exception,            ONLY: message, finish, message_text
   USE mo_model_domain,         ONLY: t_patch
   USE mo_nonhydro_types,       ONLY: t_nh_state, t_nh_prog, t_nh_diag,  &
@@ -69,8 +69,7 @@ MODULE mo_nonhydro_state
     &                                iqv, iqc, iqi, iqr, iqs, io3,         &
     &                                nqtendphy
   USE mo_radiation_config,     ONLY: irad_o3
-  USE mo_io_config,            ONLY: lwrite_extra, inextra_2d, inextra_3d, &
-    &                                lwrite_pzlev
+  USE mo_io_config,            ONLY: lwrite_extra, inextra_2d, inextra_3d
   USE mo_nh_pzlev_config,      ONLY: nh_pzlev_config
   USE mo_advection_config,     ONLY: t_advection_config, advection_config
   USE mo_linked_list,          ONLY: t_var_list
@@ -881,15 +880,7 @@ MODULE mo_nonhydro_state
     grib2_desc = t_grib2_var(0, 2, 10, ientr, GRID_REFERENCE, GRID_VERTEX)
     CALL add_var( p_diag_list, 'omega_z', p_diag%omega_z,                       &
                 & GRID_UNSTRUCTURED_VERT, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
-                & ldims=shape3d_v, lrestart=.FALSE., loutput=.FALSE. )
-
-    ! omega_z_c    p_diag%omega_z_c(nproma,nlev,nblks_c)
-    !
-    cf_desc    = t_cf_var('vertical_vorticity', 'm s-1', 'vertical vorticity')
-    grib2_desc = t_grib2_var(0, 2, 197, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_diag_list, 'omega_z', p_diag%omega_z_c,                   &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
-                & ldims=shape3d_c, lrestart=.FALSE. )
+                & ldims=shape3d_v, lrestart=.FALSE. )
 
     ! ddt_vn_phy   p_diag%ddt_vn_phy(nproma,nlev,nblks_e)
     ! *** needs to be saved for restart ***
@@ -1003,7 +994,7 @@ MODULE mo_nonhydro_state
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
                 & ldims=shape3d_c, lrestart=.FALSE. ,                           &
                 & vert_interp=create_vert_interp_metadata(                      &
-                &             vert_intp_type=VINTP_TYPE_P_OR_Z,                 &
+                &             vert_intp_type=VINTP_TYPE_Z,                      &
                 &             vert_intp_method=VINTP_METHOD_PRES ) )
 
     ! pres_ifc     p_diag%pres_ifc(nproma,nlevp1,nblks_c)

@@ -55,7 +55,8 @@ MODULE mo_opt_diagnostics
   USE mo_grid_config,          ONLY: n_dom
   USE mo_var_list,             ONLY: default_var_list_settings,     &
     &                                new_var_list, delete_var_list
-  USE mo_var_list_element,     ONLY: level_type_pl,level_type_hl
+  USE mo_var_list_element,     ONLY: level_type_ml, level_type_pl,  &
+    &                                level_type_hl
   USE mo_cdi_constants,        ONLY: FILETYPE_NC2
 
 
@@ -137,9 +138,11 @@ MODULE mo_opt_diagnostics
     ! interpolation of model variables to p/z-levels
     TYPE(t_nh_diag_pz) :: diag_pz
 
-    ! diag_pz_list: this contains all variables that have been
+    ! opt_diag_list: List of optional diagnostics variables.
+    !
+    ! The "opt_diag_list_*" lists contain all variables that have been
     ! interpolated onto p/z-levels
-    TYPE(t_var_list)   :: opt_diag_list_p, opt_diag_list_z
+    TYPE(t_var_list)   :: opt_diag_list, opt_diag_list_p, opt_diag_list_z
 
   END TYPE t_nh_opt_diag
 
@@ -155,8 +158,9 @@ CONTAINS
   !
   !> Add optional diagnostic variable lists (might remain empty)
   !
-  SUBROUTINE construct_opt_diag(p_patch)
-    TYPE(t_patch),                 INTENT(IN)   :: p_patch(n_dom)
+  SUBROUTINE construct_opt_diag(p_patch, l_init_pz)
+    TYPE(t_patch),        INTENT(IN)   :: p_patch(n_dom)
+    LOGICAL,              INTENT(IN)   :: l_init_pz
     ! local variables
     CHARACTER(*), PARAMETER :: routine =  &
       &  TRIM("mo_opt_diagnostics:construct_opt_diag")
@@ -169,15 +173,23 @@ CONTAINS
       CALL finish (TRIM(routine), 'Allocation of optional diagnostics failed')
 
     DO jg = 1, n_dom
+
+      WRITE(listname,'(a,i2.2)') 'nh_state_opt_diag_of_domain_',jg
+      CALL new_var_list( p_nh_opt_diag(jg)%opt_diag_list, TRIM(listname), &
+        & patch_id=p_patch(jg)%id, vlevel_type=level_type_ml )
+      CALL default_var_list_settings( p_nh_opt_diag(jg)%opt_diag_list,    &
+        & lrestart=.FALSE., restart_type=FILETYPE_NC2  )
+      IF (.NOT. l_init_pz) CYCLE
+
       WRITE(listname,'(a,i2.2)') 'nh_state_opt_diag_z_of_domain_',jg
       CALL new_var_list( p_nh_opt_diag(jg)%opt_diag_list_z, TRIM(listname), &
-        & patch_id=p_patch(jg)%id, level_type=level_type_hl )
+        & patch_id=p_patch(jg)%id, vlevel_type=level_type_hl )
       CALL default_var_list_settings( p_nh_opt_diag(jg)%opt_diag_list_z,    &
         & lrestart=.FALSE., restart_type=FILETYPE_NC2  )
 
       WRITE(listname,'(a,i2.2)') 'nh_state_opt_diag_p_of_domain_',jg
       CALL new_var_list( p_nh_opt_diag(jg)%opt_diag_list_p, TRIM(listname), &
-        & patch_id=p_patch(jg)%id, level_type=level_type_pl )
+        & patch_id=p_patch(jg)%id, vlevel_type=level_type_pl )
       CALL default_var_list_settings( p_nh_opt_diag(jg)%opt_diag_list_p,    &
         & lrestart=.FALSE., restart_type=FILETYPE_NC2  )
     ENDDO ! jg
@@ -198,6 +210,7 @@ CONTAINS
     DO jg = 1, n_dom
       CALL delete_var_list( p_nh_opt_diag(jg)%opt_diag_list_z )
       CALL delete_var_list( p_nh_opt_diag(jg)%opt_diag_list_p )
+      CALL delete_var_list( p_nh_opt_diag(jg)%opt_diag_list   )
     ENDDO ! jg
 
     ! Delete optional diagnostics
@@ -219,7 +232,7 @@ CONTAINS
     TYPE(t_vcoeff),                    INTENT(INOUT) :: vcoeff
 
     CHARACTER(*), PARAMETER :: routine = &
-      &  TRIM("mo_nh_vert_interp:vcoeff_allocate")
+      &  TRIM("mo_opt_diagnostics:vcoeff_allocate")
     INTEGER :: ierrstat
 
     IF (.NOT. vcoeff%l_allocated) THEN
@@ -268,7 +281,7 @@ CONTAINS
     TYPE(t_vcoeff),                    INTENT(INOUT) :: vcoeff
 
     CHARACTER(*), PARAMETER :: routine = &
-      &  TRIM("mo_nh_vert_interp:vcoeff_deallocate")
+      &  TRIM("mo_opt_diagnostics:vcoeff_deallocate")
     INTEGER :: ierrstat
 
     ! deallocate coefficient tables:

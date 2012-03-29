@@ -45,8 +45,7 @@ USE mo_intp,                 ONLY: edges2cells_scalar
 USE mo_time_config,          ONLY: time_config      ! variable
 USE mo_io_restart,           ONLY: read_restart_files
 USE mo_io_restart_attributes,ONLY: get_restart_attribute
-USE mo_io_config,            ONLY: dt_data,dt_file,dt_diag,dt_checkpoint, &
-  &                                lwrite_pzlev
+USE mo_io_config,            ONLY: dt_data,dt_file,dt_diag,dt_checkpoint
 USE mo_parallel_config,      ONLY: nproma
 USE mo_nh_pzlev_config,      ONLY: configure_nh_pzlev
 USE mo_run_config,           ONLY: &
@@ -63,7 +62,7 @@ USE mo_lnd_nwp_config,       ONLY: configure_lnd_nwp, nsfc_subs, p_tiles, &
 USE mo_model_domain,         ONLY: p_patch
 USE mo_grid_config,          ONLY: n_dom
 ! to break circular dependency KF???
-USE mo_intp_data_strc,       ONLY: p_int_state, p_int_state_lonlat
+USE mo_intp_data_strc,       ONLY: p_int_state
 USE mo_grf_intp_data_strc,   ONLY: p_grf_state
 ! NH-namelist state
 USE mo_atm_phy_nwp_config,   ONLY: configure_atm_phy_nwp, atm_phy_nwp_config
@@ -222,7 +221,7 @@ CONTAINS
     CALL construct_nh_state(p_patch(1:), p_nh_state, n_timelevels=2)
 
     ! Add optional diagnostic variable lists (might remain empty)
-    CALL construct_opt_diag(p_patch(1:))
+    CALL construct_opt_diag(p_patch(1:), .TRUE.)
 
     IF(iforcing == inwp) THEN
       CALL construct_nwp_phy_state( p_patch(1:) )
@@ -312,12 +311,10 @@ CONTAINS
     !------------------------------------------------------------------
     !
     ! if output on z and/or p-levels is required do some config
-    IF (lwrite_pzlev) THEN
-      DO jg = 1, n_dom
-        CALL configure_nh_pzlev(jg, nproma, p_patch(jg)%npromz_c,  &
-          &                     p_patch(jg)%nblks_c, lwrite_pzlev  )
-      ENDDO
-    ENDIF
+    DO jg = 1, n_dom
+      CALL configure_nh_pzlev(jg, nproma, p_patch(jg)%npromz_c,  &
+        &                     p_patch(jg)%nblks_c)
+    ENDDO
 
     IF (.NOT.is_restart_run()) THEN
       ! Initialize the first output file which will contain also the 
@@ -345,11 +342,10 @@ CONTAINS
 
     ! setup of post-processing job queue, e.g. setup of optional
     ! diagnostic quantities like pz-level interpolation
-    IF (.NOT. ltestcase) THEN
-      CALL pp_scheduler_init(p_patch(1:), p_nh_state, prm_diag, p_nh_opt_diag, &
-        &                    nh_pzlev_config(:), first_output_name_list,   & 
-        &                    var_lists, nvar_lists )     
-    ENDIF
+    CALL pp_scheduler_init(p_patch(1:), p_nh_state, prm_diag, p_nh_opt_diag,            &
+      &                    nh_pzlev_config(:), p_int_state(1:), first_output_name_list, & 
+      &                    var_lists, nvar_lists )     
+
     ! If async IO is in effect, init_name_list_output is a collective call
     ! with the IO procs and effectively starts async IO
     CALL init_name_list_output
@@ -394,8 +390,7 @@ CONTAINS
       ! loop over the list of internal post-processing tasks, e.g.
       ! interpolate selected fields to p- and/or z-levels
       simulation_status = new_simulation_status(l_first_step =.TRUE., l_output_step=.TRUE.)
-      IF (.NOT. ltestcase) &
-        CALL pp_scheduler_process(simulation_status)
+      CALL pp_scheduler_process(simulation_status)
 
       ! Note: here the derived output variables are not yet available
       ! (divergence, vorticity)
@@ -426,8 +421,7 @@ CONTAINS
     CALL message(TRIM(routine),'start to clean up')
 
     ! Destruction of post-processing job queue
-    IF (.NOT. ltestcase) &
-      CALL pp_scheduler_finalize()
+    CALL pp_scheduler_finalize()
 
     ! Delete optional diagnostics
     CALL destruct_opt_diag()

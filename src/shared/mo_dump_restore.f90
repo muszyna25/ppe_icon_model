@@ -34,6 +34,9 @@
 !!
 !! $Id: n/a$
 !!
+!! TODO[FP]  : dump/restore of lon-lat interpolation coefficients
+!!             is not yet supported!
+!!
 !-------------------------------------------------------------------------------
 !
 ! Conventions for NetCDF output
@@ -170,13 +173,10 @@ MODULE mo_dump_restore
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e
   USE mo_communication,      ONLY: t_comm_pattern, blk_no, idx_no, idx_1d
   USE mo_model_domimp_patches, ONLY: allocate_patch
-  USE mo_intp_state,         ONLY: allocate_int_state, &
-    &                              allocate_int_state_lonlat
+  USE mo_intp_state,         ONLY: allocate_int_state
   USE mo_grf_intp_state,     ONLY: allocate_grf_state
 
   USE mo_model_domimp_patches, ONLY: set_patches_grid_filename
-  USE mo_lonlat_intp_config, ONLY: lonlat_intp_config
-  USE mo_math_utilities,     ONLY: t_lon_lat_grid
   USE mo_util_string,        ONLY: t_keyword_list, MAX_STRING_LEN,   &
     &                              associate_keyword, with_keywords, &
     &                              int2string
@@ -1818,54 +1818,6 @@ CONTAINS
 
   END SUBROUTINE def_int_state
 
-  !-------------------------------------------------------------------------
-  !
-  !> Defines lonlat state for NetCDF
-
-  SUBROUTINE def_lonlat_state(k_jg)
-
-    INTEGER, INTENT(IN)       :: k_jg  ! domain index
-
-    TYPE (t_lon_lat_grid), POINTER :: grid ! lon-lat grid
-    INTEGER :: dim_nlonlat
-
-    grid => lonlat_intp_config(k_jg)%lonlat_grid
-    ! total number of lon-lat grid points
-    CALL def_dim('nlonlat', grid%total_dim, dim_nlonlat)
-    ! description of lon-lat grid
-    CALL nf(nf_put_att_double(ncid, nf_global, 'int.lonlat.delta',     &
-      &     nf_double, 2, grid%delta(1:2)))
-    CALL nf(nf_put_att_double(ncid, nf_global, 'int.lonlat.sw_corner', &
-      &     nf_double, 2, grid%start_corner(1:2)))
-    CALL nf(nf_put_att_double(ncid, nf_global, 'int.lonlat.poleN',     &
-      &     nf_double, 2, grid%poleN(1:2)))
-    CALL nf(nf_put_att_int(ncid, nf_global, 'int.lonlat.dimen',        &
-      &     nf_int, 2, grid%dimen(1:2)))
-
-    ! fields for indices and coefficients:
-    ! rbf_vec_dim_c,2,nproma,nblks_lonlat
-    CALL def_var('int.lonlat.rbf_vec_coeff',    &
-      &          nf_double, dim_nlonlat, dim_rbf_vec_dim_c, dim_2, add_unlim=.FALSE.)
-    ! rbf_c2grad_dim,2,nproma,nblks_lonlat
-    CALL def_var('int.lonlat.rbf_c2grad_coeff', &
-      &          nf_double, dim_nlonlat, dim_rbf_c2grad_dim, dim_2, add_unlim=.FALSE.)
-    ! rbf_vec_dim_c,nproma,nblks_lonlat
-    CALL def_var('int.lonlat.rbf_vec_index',    &
-      &          nf_int,    dim_nlonlat, dim_rbf_vec_dim_c, add_unlim=.FALSE.)
-    ! nproma,nblks_lonlat
-    CALL def_var('int.lonlat.rbf_vec_stencil',  &
-      &          nf_int,    dim_nlonlat, add_unlim=.FALSE.)
-    ! rbf_c2grad_dim,nproma,nblks_lonlat
-    CALL def_var('int.lonlat.rbf_c2grad_index', &
-      &          nf_int,    dim_nlonlat, dim_rbf_c2grad_dim, add_unlim=.FALSE.)
-    ! 2,nproma,nblks_lonlat
-    CALL def_var('int.lonlat.rdist',            &
-      &          nf_double, dim_nlonlat, dim_2, add_unlim=.FALSE.)
-    ! 2,nproma,nblks_lonlat
-    CALL def_var('int.lonlat.tri_idx',          &
-      &          nf_int,    dim_nlonlat, dim_2, add_unlim=.FALSE.)
-
-  END SUBROUTINE def_lonlat_state
 
   !-------------------------------------------------------------------------
   !
@@ -1995,37 +1947,6 @@ CONTAINS
 
   END SUBROUTINE int_state_io
 
-  !-------------------------------------------------------------------------
-  !
-  !> Dumps/restores lonlat state data to/from NetCDF file.
-
-  SUBROUTINE lonlat_state_io(pi_lonlat)
-
-    TYPE (t_lon_lat_intp), INTENT(INOUT) :: pi_lonlat
-
-    ! rbf_vec_dim_c,2,nproma,nblks_lonlat
-    CALL bvar_io(3,4,'int.lonlat.rbf_vec_coeff',    &
-      &          pi_lonlat%rbf_vec_coeff  )
-    ! rbf_c2grad_dim,2,nproma,nblks_lonlat
-    CALL bvar_io(3,4,'int.lonlat.rbf_c2grad_coeff', &
-      &          pi_lonlat%rbf_c2grad_coeff )
-    ! rbf_vec_dim_c,nproma,nblks_lonlat
-    CALL bidx_io(2,3,'int.lonlat.rbf_vec_index',    &
-      &          pi_lonlat%rbf_vec_idx, pi_lonlat%rbf_vec_blk)
-    ! nproma,nblks_lonlat
-    CALL bvar_io(1,2,'int.lonlat.rbf_vec_stencil',  &
-      &          pi_lonlat%rbf_vec_stencil)
-    ! rbf_c2grad_dim,nproma,nblks_lonlat
-    CALL bidx_io(2,3,'int.lonlat.rbf_c2grad_index', &
-      &          pi_lonlat%rbf_c2grad_idx, pi_lonlat%rbf_c2grad_blk)
-    ! 2,nproma,nblks_lonlat
-    CALL bvar_io(2,3,'int.lonlat.rdist',            &
-      &          pi_lonlat%rdist)
-    ! 2,nproma,nblks_lonlat
-    CALL bvar_io(2,3,'int.lonlat.tri_idx',          &
-      &          pi_lonlat%tri_idx)
-
-  END SUBROUTINE lonlat_state_io
 
   !-------------------------------------------------------------------------
   !
@@ -2476,13 +2397,12 @@ CONTAINS
   !> Dumps state of one patch to NetCDF, including interpolation and
   !! grid refinement variables
 
-  SUBROUTINE dump_patch_state_netcdf(k_jg, p, pi, pg, opt_pi_lonlat)
+  SUBROUTINE dump_patch_state_netcdf(k_jg, p, pi, pg)
 
     INTEGER, INTENT(IN)                            :: k_jg  ! domain index
     TYPE(t_patch), INTENT(INOUT)                   :: p
     TYPE(t_int_state), INTENT(INOUT)               :: pi
     TYPE(t_gridref_state), INTENT(INOUT)           :: pg
-    TYPE (t_lon_lat_intp), INTENT(INOUT), OPTIONAL :: opt_pi_lonlat
 
     !---local variables
     INTEGER :: old_mode, i, ip
@@ -2537,12 +2457,6 @@ CONTAINS
     CALL def_int_state(k_jg, p)
     IF (n_dom_start==0 .OR. n_dom > 1) CALL def_grf_state(p)
 
-    ! The lonlat state is always only defined and output on work PE 0
-    IF (k_jg>0) THEN
-      IF(get_my_mpi_work_id()==0 .AND. lonlat_intp_config(k_jg)%l_enabled) &
-        & CALL def_lonlat_state(k_jg)
-    ENDIF
-
     ! Definitions for local parent
 
     IF(my_process_is_mpi_all_parallel() .AND. p%id>n_dom_start) THEN
@@ -2586,12 +2500,6 @@ CONTAINS
       CALL int_state_io(k_jg, p, pi)
 
       IF (n_dom_start==0 .OR. n_dom > 1) CALL grf_state_io(p, pg)
-
-      ! The lonlat state is always only defined and output on work PE 0
-      IF (k_jg>0) THEN
-        IF(get_my_mpi_work_id()==0 .AND. lonlat_intp_config(k_jg)%l_enabled .AND. &
-           PRESENT(opt_pi_lonlat)) CALL lonlat_state_io(opt_pi_lonlat)
-      ENDIF
 
       IF(my_process_is_mpi_all_parallel() .AND. p%id>n_dom_start) THEN ! Output for local parent
         prefix = 'lp.'
@@ -3158,16 +3066,14 @@ CONTAINS
   !
   !> Restores interpolation state from NetCDF for all patches
 
-  SUBROUTINE restore_interpol_state_netcdf(p_patch, p_int_state, opt_pi_lonlat)
+  SUBROUTINE restore_interpol_state_netcdf(p_patch, p_int_state)
 
     TYPE(t_patch),        INTENT(INOUT) :: p_patch(n_dom_start:)
     TYPE(t_int_state),    INTENT(INOUT) :: p_int_state(n_dom_start:)
-    TYPE (t_lon_lat_intp), INTENT(INOUT), OPTIONAL :: opt_pi_lonlat(n_dom_start:)
 
     !---local variables
     INTEGER :: jg
-    TYPE (t_lon_lat_grid), POINTER :: grid ! lon-lat grid
-    LOGICAL                        :: l_restore_lonlat
+    REAL(wp)                       :: p_dimen(2)
 
     !-------------------------------------------------------------------------
 
@@ -3184,14 +3090,6 @@ CONTAINS
     ENDIF
 
     DO jg = n_dom_start, n_dom
-
-      ! The lonlat state is always only defined and output on work PE 0
-      IF (jg>0) THEN
-        l_restore_lonlat = get_my_mpi_work_id()==0 .AND. &
-          &  lonlat_intp_config(jg)%l_enabled .AND. PRESENT(opt_pi_lonlat)
-      ELSE
-        l_restore_lonlat = .FALSE.
-      ENDIF
 
       IF(p_pe_work==0) WRITE(nerr,'(a,i0)') 'Restoring interpolation state ',jg
 
@@ -3233,21 +3131,6 @@ CONTAINS
       CALL allocate_int_state(p_patch(jg), p_int_state(jg))
       ! Restore interpolation state
       CALL int_state_io(jg, p_patch(jg), p_int_state(jg))
-
-      IF (l_restore_lonlat) THEN
-
-        grid => lonlat_intp_config(jg)%lonlat_grid
-        CALL check_att('int.lonlat.delta'     , grid%delta(1:2))
-        CALL check_att('int.lonlat.sw_corner' , grid%start_corner(1:2))
-        CALL check_att('int.lonlat.poleN'     , grid%poleN(1:2))
-        CALL check_att('int.lonlat.dimen'     , grid%dimen(1:2))
-
-        ! Allocate interpolation state
-        CALL allocate_int_state_lonlat(jg, opt_pi_lonlat(jg))
-        ! Restore interpolation state
-        CALL lonlat_state_io(opt_pi_lonlat(jg))
-
-      END IF
 
       IF(my_process_is_mpi_all_parallel() .AND. jg>n_dom_start) THEN
         CALL allocate_int_state(p_patch_local_parent(jg), p_int_state_local_parent(jg))
