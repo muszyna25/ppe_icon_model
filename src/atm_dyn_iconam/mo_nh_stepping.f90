@@ -410,7 +410,8 @@ MODULE mo_nh_stepping
   REAL(wp) :: w_aux (p_patch(1)%cells%end_blk(min_rlcell_int,MAX(1,p_patch(1)%n_childdom)))
   REAL(wp), DIMENSION(:,:,:), POINTER  :: p_vn, p_w
   INTEGER                              :: ierr, i_nchdom
-  LOGICAL                              :: l_compute_diagnostic_quants
+  LOGICAL                              :: l_compute_diagnostic_quants, &
+    &                                     l_vlist_output, l_nml_output
   TYPE(t_simulation_status)            :: simulation_status
 
 !$  INTEGER omp_get_num_threads
@@ -485,28 +486,29 @@ MODULE mo_nh_stepping
     ! Set output flags
     !--------------------------------------------------------------------------
 
-    ! TODO[FP]  If "old" vlist output is deactivated, "l_outputtime" flag
-    !           is nevertheless set to .TRUE. - this should be fixed!
-    IF ( jstep==nsteps .OR. &
-         istime4output(sim_time(1)+dtime) .OR. &
-         (MOD(jstep_adv(1)%ntsteps+1,iadv_rcf)==0 .AND. &
-          istime4name_list_output(sim_time(1)+dtime)) ) THEN
-      l_outputtime = .TRUE. ! Output is written at the end of the time step,
-    ELSE                    ! thus diagnostic quantities need to be computed
-      l_outputtime = .FALSE.
-    ENDIF
+    l_vlist_output = (jstep==nsteps) .OR. &
+      &              ((.NOT. no_output) .AND. istime4output(sim_time(1)+dtime))
+    l_nml_output   = (jstep==nsteps) .OR. &
+      &              ((MOD(jstep_adv(1)%ntsteps+1,iadv_rcf)==0  .AND.  &
+      &                  istime4name_list_output(sim_time(1)+dtime)))
 
-    IF (jstep == 1 .OR. MOD(jstep,n_diag) == 0 .OR. jstep==nsteps) THEN
-      l_diagtime = .TRUE. ! Diagnostic output is written at the end of the time step,
-                          ! thus diagnostic quantities need to be computed
-    ENDIF
-    
+    ! Output criteria:
+    ! - last time step
+    ! - output interval, "old" vlist output
+    ! - output interval, "new" output_nml
+    l_outputtime = l_vlist_output .OR. l_nml_output
+ 
+    ! Computation of diagnostic quantities may also be necessary for
+    ! meteogram sampling:
     l_compute_diagnostic_quants = l_outputtime
     DO jg = 1, n_dom
       l_compute_diagnostic_quants = l_compute_diagnostic_quants .OR. &
         &          meteogram_is_sample_step(meteogram_output_config(jg), jstep)
     END DO
-    !--------------------------------------------------------------------------
+
+    ! for calls to "supervise_total_integrals_nh":
+    l_diagtime = (jstep == 1) .OR. (MOD(jstep,n_diag) == 0) .OR. (jstep==nsteps)
+
 
     !--------------------------------------------------------------------------
     !
@@ -529,17 +531,13 @@ MODULE mo_nh_stepping
     ! note: nnew has been replaced by nnow here because the update
     IF (l_outputtime) THEN
 
-      IF  ((.NOT. no_output) .AND.  &
-        &  (istime4output(sim_time(1)) .OR. jstep==nsteps )) THEN
-
+      IF  (l_vlist_output) THEN
         CALL write_output( datetime, sim_time(1) )
         CALL message('','Output at:')
         CALL print_datetime(datetime)
         l_have_output = .TRUE.
       ENDIF
-      IF ( jstep==nsteps .OR. &
-           (MOD(jstep_adv(1)%ntsteps,iadv_rcf)==0 .AND. &
-            istime4name_list_output(sim_time(1))) ) THEN
+      IF (l_nml_output) THEN
         CALL write_name_list_output( datetime, sim_time(1), jstep==nsteps )
         ! l_have_output must not be set here, this triggers the close
         ! of vlist output files (not touched by name list output)
@@ -618,9 +616,7 @@ MODULE mo_nh_stepping
                                 & opt_jstep_adv_marchuk_order= jstep_adv(jg)%marchuk_order,&
                                 & opt_zheight                = p_patch(jg)%nlev           ,&
                                 & opt_depth_lnd              = nlev_soil,                  &
-                                & opt_nlev_snow              = nlev_snow ) !,&
-!                                & opt_zheight_mc             = p_nh_state(jg)%metrics%z_mc,& 
-!                                & opt_zheight_ifc            = p_nh_state(jg)%metrics%z_ifc) 
+                                & opt_nlev_snow              = nlev_snow )
       END DO
 
       ! Create the master (meta) file in ASCII format which contains
