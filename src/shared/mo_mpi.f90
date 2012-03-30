@@ -5802,10 +5802,15 @@ CONTAINS
 
   END FUNCTION p_max_1d
 
-  FUNCTION p_max_int_1d (zfield, comm) RESULT (p_max)
+  ! Computes maximum of a 1D field of integers.
+  !
+  ! @param[in] root Optional root PE, otherwise we perform an
+  !                 ALL-TO-ALL operation
+  FUNCTION p_max_int_1d (zfield, comm, root) RESULT (p_max)
 
     INTEGER,           INTENT(in) :: zfield(:)
     INTEGER, OPTIONAL, INTENT(in) :: comm
+    INTEGER, OPTIONAL, INTENT(in) :: root
     INTEGER                       :: p_max (SIZE(zfield))
 
 #ifndef NOMPI
@@ -5818,8 +5823,13 @@ CONTAINS
     ENDIF
 
     IF (my_process_is_mpi_all_parallel()) THEN
-       CALL MPI_ALLREDUCE (zfield, p_max, SIZE(zfield), p_int, &
-            MPI_MAX, p_comm, p_error)
+      IF (PRESENT(root)) THEN
+        CALL MPI_REDUCE (zfield, p_max, SIZE(zfield), p_int, &
+          MPI_MAX, root, p_comm, p_error)
+      ELSE
+        CALL MPI_ALLREDUCE (zfield, p_max, SIZE(zfield), p_int, &
+          MPI_MAX, p_comm, p_error)
+      END IF ! if present(root)
     ELSE
        p_max = zfield
     END IF

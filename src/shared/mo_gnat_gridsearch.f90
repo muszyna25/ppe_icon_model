@@ -916,7 +916,7 @@ CONTAINS
   ! list. All information except the one with minimal distance is
   ! discarded.
   SUBROUTINE gnat_merge_distributed_queries(p_patch, total_dim, iv_nproma, iv_nblks, min_dist, &
-    &                                       tri_idx, lonlat_points, owner_list,                &
+    &                                       tri_idx, lonlat_points, global_idx,                &
     &                                       ithis_local_pts)
     TYPE(t_patch),         INTENT(IN)    :: p_patch
     INTEGER,               INTENT(IN)    :: total_dim
@@ -924,20 +924,20 @@ CONTAINS
     REAL(gk),              INTENT(IN)    :: min_dist(:,:)
     INTEGER,               INTENT(INOUT) :: tri_idx(:,:,:)
     REAL(gk),              INTENT(INOUT) :: lonlat_points(:,:,:)
-    INTEGER,               INTENT(INOUT) :: owner_list(:)
+    INTEGER,               INTENT(INOUT) :: global_idx(:)
     INTEGER,               INTENT(OUT)   :: ithis_local_pts !< no. of points on this PE
     ! local variables
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_gnat_gridsearch:gnat_merge_distributed_queries")
-    INTEGER  :: i, j, jc, jb, ntotal
+    INTEGER  :: i, j, jc, jb
     INTEGER  :: new_tri_idx(2,total_dim)
     REAL(gk) :: new_lonlat_points(total_dim,2)
     REAL     :: in(2,total_dim)
     INTEGER  :: iowner, idummy_applied
     INTEGER  :: array_shape(2), dummy_idx(2)
     INTEGER  :: i_endblk, i_endidx, &
-      &         rl_start, rl_end, i_nchdom
+      &         rl_start, rl_end, i_nchdom, my_id
 
-    ntotal   = total_dim
+    my_id = get_my_mpi_work_id()
 
     ! for the (rather pathological) case of local patches covered by a
     ! larger lon-lat grid, we have to set some "dummy" indices outside
@@ -955,60 +955,53 @@ CONTAINS
     ! 1. Perform an MPI_ALLREDUCE operation with the min_dist vector
     !    to find out which process is in charge of which in_point
 
-    in(1,:) = RESHAPE(REAL(min_dist(:,:)), (/ ntotal /) )
-    in(2,:) = REAL( get_my_mpi_work_id() )
+    in(1,:) = RESHAPE(REAL(min_dist(:,:)), (/ total_dim /) )
+    in(2,:) = REAL( my_id )
     IF (p_patch%n_patch_cells == 0) in(2,:) = -1.;
     
-    CALL p_allreduce_minloc(in, ntotal, p_comm_work)
-
-    ! store list of owners for reconstruction of global coefficient
-    ! arrays:
-    owner_list(1:total_dim) = NINT(in(2,1:total_dim))
+    CALL p_allreduce_minloc(in, total_dim, p_comm_work)
 
     ! 2. If we are a working PE, reduce the list of in_points and the
     !    tri_idx array to points which are actually located on this
     !    portion of the domain.
-    array_shape(:) = (/ iv_nproma, iv_nblks /)
-    idummy_applied = 0
 
-    jc = 0
-    jb = 1
-    j  = 1
-    i  = 0
-    TOTAL : DO
-      SKIP : DO
-        i = i + 1
-        jc = jc + 1
-        IF (jc > iv_nproma) THEN
-          jb = jb + 1
-          jc = 1
-        END IF
-        IF (i > ntotal) EXIT TOTAL
-        IF (owner_list(i) == get_my_mpi_work_id()) EXIT SKIP
-      END DO SKIP
+    ! store list of global indices owned by this PE:
+    j=0
+    DO i=1,total_dim
+      iowner = NINT(in(2,i))
+      IF (iowner == my_id) THEN
+        j = j + 1 
+        global_idx(j) = i
+      END IF
+    END DO
+    ! now, j points are left for proc "get_my_mpi_work_id()"
+    ithis_local_pts = j
+
+    idummy_applied = 0
+    DO i=1,ithis_local_pts
+      ! convert global index into local idx/block pair:
+      j = global_idx(i)
+      jb = (j-1)/iv_nproma + 1
+      jc = j - (jb-1)*iv_nproma
 
       IF (tri_idx(1,jc,jb) /= INVALID_NODE) THEN
-        new_tri_idx(1:2,j) = tri_idx(1:2,jc,jb)          
+        new_tri_idx(1:2,i) = tri_idx(1:2,jc,jb)          
       ELSE
-        new_tri_idx(1:2,j) = dummy_idx
+        new_tri_idx(1:2,i) = dummy_idx
         idummy_applied = idummy_applied + 1
       END IF
-
-      new_lonlat_points(j,1:2)  = lonlat_points(jc,jb,1:2)
-      
-      j  =  j + 1
-    END DO TOTAL
+      new_lonlat_points(i,1:2) = lonlat_points(jc,jb,1:2)
+    END DO
+    
+    array_shape(:) = (/ iv_nproma, iv_nblks /)
     tri_idx(1,:,:) = RESHAPE( new_tri_idx(1,:), array_shape(:), (/ 0 /) )
     tri_idx(2,:,:) = RESHAPE( new_tri_idx(2,:), array_shape(:), (/ 0 /) )
     lonlat_points(:,:,1) = RESHAPE( new_lonlat_points(:,1), array_shape(:), (/ 0._gk /) )
     lonlat_points(:,:,2) = RESHAPE( new_lonlat_points(:,2), array_shape(:), (/ 0._gk /) )
 
-    ! now, (j-1) points are left for proc "get_my_mpi_work_id()"
-    ithis_local_pts = (j-1)
-
     IF (dbg_level > 10) THEN
       IF (idummy_applied > 0) THEN
-        WRITE(message_text,*) "proc ", get_my_mpi_work_id(), ": dummy applied: ", idummy_applied
+        WRITE(message_text,*) "proc ", my_id, ": dummy applied: ", idummy_applied
         CALL message(routine, TRIM(message_text))
       END IF
     END IF

@@ -579,7 +579,7 @@ TYPE t_lon_lat_intp
 
   ! data fields for distributed computations (available on all PEs)
   INTEGER               :: nthis_local_pts  ! number of points local to this PE
-  INTEGER, ALLOCATABLE  :: owner(:)         ! for each lon-lat point: owning process
+  INTEGER, ALLOCATABLE  :: global_idx(:)    ! for each lon-lat point on this PE: global idx 
 
 END TYPE t_lon_lat_intp
 

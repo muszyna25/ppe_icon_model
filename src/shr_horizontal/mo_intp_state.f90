@@ -2802,7 +2802,7 @@ SUBROUTINE deallocate_int_state_lonlat( ptr_int_lonlat )
     &         ptr_int_lonlat%rbf_c2grad_blk,          &
     &         ptr_int_lonlat%rdist,                   &
     &         ptr_int_lonlat%tri_idx,                 &
-    &         ptr_int_lonlat%owner,                   &
+    &         ptr_int_lonlat%global_idx,              &
     &         STAT=ist )
   IF (ist /= SUCCESS) THEN
     CALL finish (routine, 'deallocation for lon-lat coefficients failed')

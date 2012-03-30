@@ -41,7 +41,7 @@ MODULE mo_name_list_output
   USE mo_var_list_element,      ONLY: level_type_ml, level_type_pl, level_type_hl
   ! MPI Communication routines
   USE mo_mpi,                   ONLY: p_send, p_recv, p_bcast, p_barrier, p_stop, &
-    &                                 get_my_mpi_work_id
+    &                                 get_my_mpi_work_id, p_max, get_my_mpi_work_communicator
   ! MPI Communicators
   USE mo_mpi,                   ONLY: p_comm_work, p_comm_work_io, p_comm_work_2_io
   ! MPI Data types
@@ -229,7 +229,7 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(IN)   :: filename
 
-    INTEGER :: istat, i, funit
+    INTEGER :: istat, i
     TYPE(t_output_name_list), POINTER :: p_onl
     CHARACTER(LEN=*), PARAMETER :: routine = 'read_name_list_output_namelists'
 
@@ -507,8 +507,7 @@ CONTAINS
     ! For a list of all variables, enable the following:
     LOGICAL, PARAMETER :: l_print_list = .FALSE.
 
-    INTEGER :: i, j, nfiles, i_typ, i_dom, nvl, vl_list(max_var_lists), &
-      &        idx, ivar, l1, tl
+    INTEGER :: i, j, nfiles, i_typ, i_dom, nvl, vl_list(max_var_lists)
     CHARACTER(LEN=2) :: lev_type
     INTEGER          :: ilev_type
     TYPE (t_output_name_list), POINTER :: p_onl
@@ -1156,8 +1155,8 @@ CONTAINS
 
     CHARACTER(LEN=*), PARAMETER :: routine = &
       &   'mo_name_list_output/set_reorder_info_lonlat'
-    INTEGER :: ierrstat, i, jc, jb, this_pe, mpierr,i_owner
-    INTEGER :: iglb(0:p_n_work-1)
+    INTEGER :: ierrstat, i, jc, jb, this_pe, mpierr, & 
+    &          ioffset
 
     ! Just for safety
     IF(my_process_is_io()) CALL finish(routine, 'Must not be called on IO PEs')
@@ -1204,13 +1203,18 @@ CONTAINS
       &      p_ri%log_dom_index(p_ri%n_glb), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
-    iglb(:) = p_ri%pe_off(:)
-    DO i=1,p_ri%n_glb
-      i_owner = intp%owner(i)
-      p_ri%reorder_index(i) = iglb(i_owner) + 1
-      p_ri%log_dom_index(i) = i
-      iglb(i_owner) = iglb(i_owner) + 1
+    ioffset = p_ri%pe_off(this_pe)
+    p_ri%reorder_index = -1
+    DO i=1,intp%nthis_local_pts
+      p_ri%reorder_index(intp%global_idx(i)) = ioffset + i
     END DO
+    ! merge all fields across working PEs:
+    p_ri%reorder_index = p_max(p_ri%reorder_index, &
+      &                        comm=get_my_mpi_work_communicator())
+
+    ! mapping between logical and physical patch is trivial for
+    ! lon-lat grids:
+    p_ri%log_dom_index(:) = (/ (i, i=1,p_ri%n_glb) /)
 
   END SUBROUTINE set_reorder_info_lonlat
 
@@ -1881,7 +1885,7 @@ CONTAINS
 
     TYPE (t_var_metadata), POINTER :: info
     !
-    INTEGER :: iv, vlistID, varID, gridID, zaxisID, nlev, nlevp1, znlev_soil, i, nvars
+    INTEGER :: iv, vlistID, varID, gridID, zaxisID, nlev, nlevp1, znlev_soil, i
     CHARACTER(LEN=vname_len) :: mapped_name
 
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/add_variables_to_vlist'
@@ -2332,7 +2336,7 @@ CONTAINS
     TYPE (t_var_metadata), POINTER :: info
     TYPE(t_reorder_info), POINTER  :: p_ri
     REAL(wp), POINTER :: r_ptr(:,:,:)
-    REAL(wp), ALLOCATABLE :: r_tmp(:,:,:), r_out(:,:), r_out_recv(:,:), r_ll(:,:,:)
+    REAL(wp), ALLOCATABLE :: r_tmp(:,:,:), r_out(:,:), r_out_recv(:,:)
     TYPE(t_comm_pattern), POINTER :: p_pat
 
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/write_name_list'
@@ -3062,7 +3066,7 @@ CONTAINS
       &     lonlat_id, i_log_dom
     INTEGER(KIND=MPI_ADDRESS_KIND) :: ioff(0:num_work_procs-1)
     INTEGER :: voff(0:num_work_procs-1)
-    REAL(wp), ALLOCATABLE :: var1(:), var2(:), var3(:,:), r_ll(:,:,:)
+    REAL(wp), ALLOCATABLE :: var1(:), var2(:), var3(:,:)
     TYPE (t_var_metadata), POINTER :: info
     TYPE(t_reorder_info), POINTER  :: p_ri
     CHARACTER*10 ctime
