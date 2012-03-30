@@ -782,8 +782,7 @@ CONTAINS
 
         ENDDO ! Loop over levels
 
-        CALL vlist_write_var(n, jg, var2, &
-          &                  outvar_desc(n,jg)%nlev, outvar_desc(n, jg)%type)
+        CALL vlist_write_var(n, jg, var2)
 
       ENDDO ! Loop over output variables
 
@@ -1502,8 +1501,7 @@ CONTAINS
           IF(delete) DEALLOCATE(ptr2)
         ENDIF
 
-        CALL vlist_write_var(n, jg, var, &
-          &                  outvar_desc(n,jg)%nlev, outvar_desc(n, jg)%type)
+        CALL vlist_write_var(n, jg, var)
 
         DEALLOCATE(var)
 

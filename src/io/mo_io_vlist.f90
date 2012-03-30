@@ -295,7 +295,7 @@ CONTAINS
       &  ctracer_list
     CHARACTER(LEN=1)  :: anextra ! number of debug fields
     CHARACTER(len=NF_MAX_NAME) :: long_name, units
-    INTEGER :: i, k, jt, itracer, p_dim
+    INTEGER :: i, jt, itracer
     INTEGER :: ivar
     INTEGER :: gridid, zaxisid
     INTEGER :: elemid, elemid2,tableid
@@ -315,7 +315,6 @@ CONTAINS
 
     CHARACTER(len=max_char_length) :: msg
     CHARACTER(len=max_char_length), PARAMETER :: routine = 'mo_io_vlist:setup_vlist'
-    INTEGER                    :: nblks
 
     !-------------------------------------------------------------------------
 
@@ -2353,7 +2352,7 @@ CONTAINS
   SUBROUTINE destruct_vlist(k_jg)
 
     INTEGER, INTENT(in) :: k_jg
-    INTEGER             :: ist ! error status
+
     !=========================================================================
     ! In parallel mode only 1 PE is writing the output
 
@@ -2437,16 +2436,13 @@ CONTAINS
   !! is not initialized by pure IO proc when called in this
   !! order. 
 
-  SUBROUTINE vlist_write_var(ivar, k_jg, var, nlev, typ)
+  SUBROUTINE vlist_write_var(ivar, k_jg, var)
     INTEGER,       INTENT(in)  :: ivar, k_jg
     REAL(wp),      INTENT(in)  :: var(*)
-    INTEGER,       INTENT(in)  :: nlev ! number of levels
-    INTEGER,       INTENT(in)  :: typ  ! variable type
 
     ! local variables
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_io_vlist:vlist_write_var")
     INTEGER            :: n_tot
-    TYPE(t_collected_var_ptr) :: var_3d
 
     CALL streamWriteVar(streamID(k_jg), varids(ivar, k_jg), var, 0)
 
