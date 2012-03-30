@@ -342,9 +342,15 @@ CONTAINS
 
     ! setup of post-processing job queue, e.g. setup of optional
     ! diagnostic quantities like pz-level interpolation
-    CALL pp_scheduler_init(p_patch(1:), p_nh_state, prm_diag, p_nh_opt_diag,            &
-      &                    nh_pzlev_config(:), p_int_state(1:), first_output_name_list, & 
-      &                    var_lists, nvar_lists )     
+    IF (.NOT. ltestcase) THEN
+      CALL pp_scheduler_init(p_patch(1:), p_nh_state, p_nh_opt_diag,                      &
+        &                    nh_pzlev_config(:), p_int_state(1:), first_output_name_list, & 
+        &                    var_lists, nvar_lists, prm_diag )     
+    ELSE
+      CALL pp_scheduler_init(p_patch(1:), p_nh_state, p_nh_opt_diag,                      &
+        &                    nh_pzlev_config(:), p_int_state(1:), first_output_name_list, & 
+        &                    var_lists, nvar_lists )     
+    END IF
 
     ! If async IO is in effect, init_name_list_output is a collective call
     ! with the IO procs and effectively starts async IO

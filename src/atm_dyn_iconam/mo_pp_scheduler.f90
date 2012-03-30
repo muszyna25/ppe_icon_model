@@ -233,19 +233,19 @@ CONTAINS
   !       read and the nh_state has been constructed and _before_
   !       initialization of the name list output.
   !
-  SUBROUTINE pp_scheduler_init(p_patch, p_nh_state, prm_diag, p_nh_opt_diag,         &
+  SUBROUTINE pp_scheduler_init(p_patch, p_nh_state, p_nh_opt_diag,                   &
     &                          nh_pzlev_config, p_int_state, first_output_name_list, &
-    &                          var_lists, nvar_lists)
+    &                          var_lists, nvar_lists, opt_prm_diag)
 
     TYPE(t_patch),              TARGET,  INTENT(IN)    :: p_patch(:)
     TYPE(t_nh_state),           TARGET,  INTENT(INOUT) :: p_nh_state(:)
-    TYPE(t_nwp_phy_diag),       TARGET,  INTENT(IN)    :: prm_diag(:)
     TYPE(t_nh_opt_diag),        TARGET,  INTENT(INOUT) :: p_nh_opt_diag(:)
     TYPE(t_nh_pzlev_config),    TARGET,  INTENT(IN)    :: nh_pzlev_config(0:max_dom)
     TYPE(t_int_state),          TARGET,  INTENT(IN)    :: p_int_state(:)
     TYPE (t_output_name_list),  POINTER                :: first_output_name_list
     TYPE(t_var_list),                    INTENT(IN)    :: var_lists(:)
     INTEGER,                             INTENT(IN)    :: nvar_lists
+    TYPE(t_nwp_phy_diag),       TARGET,  INTENT(IN), OPTIONAL :: opt_prm_diag(:)
 
     ! local variables
     CHARACTER(*), PARAMETER :: routine =  &
@@ -274,9 +274,9 @@ CONTAINS
     !-------------------------------------------------------------
     !--- setup of vertical interpolation onto p/z-levels
 
-    CALL pp_scheduler_init_pz(p_patch, p_nh_state, prm_diag, p_nh_opt_diag, &
-      &                       nh_pzlev_config, first_output_name_list,      &
-      &                       var_lists, nvar_lists)
+    CALL pp_scheduler_init_pz(p_patch, p_nh_state, p_nh_opt_diag,       &
+      &                       nh_pzlev_config, first_output_name_list,  &
+      &                       var_lists, nvar_lists, opt_prm_diag)
 
  
     !-------------------------------------------------------------
@@ -498,18 +498,18 @@ CONTAINS
   !
   ! See SUBROUTINE pp_scheduler_init for further details.
   !
-  SUBROUTINE pp_scheduler_init_pz(p_patch, p_nh_state, prm_diag, p_nh_opt_diag, &
-    &                             nh_pzlev_config, first_output_name_list,      &
-    &                             var_lists, nvar_lists)
+  SUBROUTINE pp_scheduler_init_pz(p_patch, p_nh_state, p_nh_opt_diag,          &
+    &                             nh_pzlev_config, first_output_name_list,     &
+    &                             var_lists, nvar_lists, opt_prm_diag)
 
     TYPE(t_patch),              TARGET,  INTENT(IN)    :: p_patch(:)
     TYPE(t_nh_state),           TARGET,  INTENT(INOUT) :: p_nh_state(:)
-    TYPE(t_nwp_phy_diag),       TARGET,  INTENT(IN)    :: prm_diag(:)
     TYPE(t_nh_opt_diag),        TARGET,  INTENT(INOUT) :: p_nh_opt_diag(:)
     TYPE(t_nh_pzlev_config),    TARGET,  INTENT(IN)    :: nh_pzlev_config(0:max_dom)
     TYPE (t_output_name_list),  POINTER, INTENT(INOUT) :: first_output_name_list
     TYPE(t_var_list),                    INTENT(IN)    :: var_lists(:)
     INTEGER,                             INTENT(IN)    :: nvar_lists
+    TYPE(t_nwp_phy_diag),       TARGET,  INTENT(IN), OPTIONAL :: opt_prm_diag(:)
 
     ! local variables
     CHARACTER(*), PARAMETER :: routine =  &
@@ -559,7 +559,8 @@ CONTAINS
       task%data_input%p_patch          => p_patch(jg)
       task%data_input%p_nh_state       => p_nh_state(jg)
       task%data_input%p_nh_opt_diag    => p_nh_opt_diag(jg)
-      task%data_input%prm_diag         => prm_diag(jg)
+      IF (PRESENT(opt_prm_diag)) &
+        task%data_input%prm_diag         => opt_prm_diag(jg)
       task%data_input%nh_pzlev_config  => nh_pzlev_config(jg)
 
       !-- check if any output name list requests p- or z-level
