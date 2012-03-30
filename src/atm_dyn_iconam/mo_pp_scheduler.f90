@@ -60,8 +60,8 @@ MODULE mo_pp_scheduler
   USE mo_impl_constants,          ONLY: SUCCESS,                      &
     & VINTP_TYPE_Z, VINTP_TYPE_P_OR_Z, VINTP_TYPE_NONE,               &
     & VINTP_METHOD_UV, VINTP_METHOD_LIN, HINTP_TYPE_NONE,             &     
-    & VINTP_METHOD_QV, HINTP_TYPE_LONLAT, max_dom,                    &
-    & max_var_ml, max_var_pl, max_var_hl
+    & VINTP_METHOD_QV, HINTP_TYPE_LONLAT, VINTP_METHOD_LIN_NLEVP1,    &
+    & max_dom, max_var_ml, max_var_pl, max_var_hl
   USE mo_model_domain,            ONLY: t_patch
   USE mo_var_list,                ONLY: t_var_list, new_var_list,           &
     &                                   default_var_list_settings, add_var, &
@@ -1145,8 +1145,8 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = &
       &  TRIM("mo_pp_scheduler:pp_task_pzlev")
     INTEGER                            :: &
-      &  vert_intp_type, vert_intp_method, jg, &
-      &  in_var_idx, out_var_idx, nlev,        &
+      &  vert_intp_type, vert_intp_method, jg,  &
+      &  in_var_idx, out_var_idx, nlev, nlevp1, &
       &  nzlev, nplev, npzlev
     TYPE(t_patch),             POINTER :: p_patch
     TYPE(t_nh_metrics),        POINTER :: p_metrics    
@@ -1196,6 +1196,7 @@ CONTAINS
 
     nh_pzlev_config   => ptr_task%data_input%nh_pzlev_config
     nlev              = p_patch%nlev
+    nlevp1            = p_patch%nlevp1
     nzlev             = nh_pzlev_config%nzlev
     nplev             = nh_pzlev_config%nplev
 
@@ -1257,6 +1258,19 @@ CONTAINS
         &           vcoeff%wfac_lin, vcoeff%idx0_lin,                    & !in
         &           vcoeff%bot_idx_lin, vcoeff%wfacpbl1,                 & !in
         &           vcoeff%kpbl1, vcoeff%wfacpbl2, vcoeff%kpbl2,         & !in
+        &           l_loglin=l_loglin,                                   & !in
+        &           l_extrapol=l_extrapol, l_pd_limit=l_pd_limit,        & !in
+        &           lower_limit=lower_limit )                              !in
+      !
+    CASE ( VINTP_METHOD_LIN_NLEVP1 )        
+      IF (dbg_level > 15)  CALL message(routine, "VINTP_METHOD_LIN_NLEVP1")
+      CALL lin_intp(in_var%r_ptr(:,:,:,in_var_idx,1),                    & !inout
+        &           out_var%r_ptr(:,:,:,out_var_idx,1),                  & !out
+        &           p_patch%nblks_c, p_patch%npromz_c, nlevp1, npzlev,   & !in
+        &           vcoeff%wfac_lin_nlevp1, vcoeff%idx0_lin_nlevp1,      & !in
+        &           vcoeff%bot_idx_lin_nlevp1,                           & !in
+        &           vcoeff%wfacpbl1_nlevp1, vcoeff%kpbl1_nlevp1,         & !in
+        &           vcoeff%wfacpbl2_nlevp1, vcoeff%kpbl2_nlevp1,         & !in
         &           l_loglin=l_loglin,                                   & !in
         &           l_extrapol=l_extrapol, l_pd_limit=l_pd_limit,        & !in
         &           lower_limit=lower_limit )                              !in

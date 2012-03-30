@@ -667,7 +667,7 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = &
       &  TRIM("mo_nh_vert_interp:prepare_vert_interp")
 
-    INTEGER :: nlev
+    INTEGER :: nlev, nlevp1
     ! Auxiliary field for input data
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c) :: z_tempv_in
     ! Auxiliary field for output data
@@ -684,7 +684,8 @@ CONTAINS
       RETURN
     ENDIF
 
-    nlev = p_patch%nlev
+    nlev   = p_patch%nlev
+    nlevp1 = p_patch%nlevp1
     p_p3d_out => nh_pzlev_config%p3d   ! output pressure field
     p_z3d_out => nh_pzlev_config%z3d   ! output height field
 
@@ -710,6 +711,17 @@ CONTAINS
       &                     vcoeff_z%coef1, vcoeff_z%coef2,                 & !out
       &                     vcoeff_z%coef3, vcoeff_z%idx0_cub,              & !out
       &                     vcoeff_z%bot_idx_cub )                            !out
+
+    ! Interpolation data for the vertical interface of cells, "nlevp1"
+    CALL prepare_lin_intp(p_metrics%z_ifc, p_z3d_out,                         & !in
+      &                   p_patch%nblks_c, p_patch%npromz_c, nlevp1, nzlev,   & !in
+      &                   vcoeff_z%wfac_lin_nlevp1, vcoeff_z%idx0_lin_nlevp1, & !out
+      &                   vcoeff_z%bot_idx_lin_nlevp1  )                        !out
+
+    CALL prepare_extrap(p_metrics%z_ifc,                                      & !in
+      &                 p_patch%nblks_c, p_patch%npromz_c, nlevp1,            & !in
+      &                 vcoeff_z%kpbl1_nlevp1, vcoeff_z%wfacpbl1_nlevp1,      & !out
+      &                 vcoeff_z%kpbl2_nlevp1, vcoeff_z%wfacpbl2_nlevp1 )       !out
 
     ! Perform vertical interpolation
     CALL temperature_intp(p_diag%temp, temp_z_out,                           & !in,out
@@ -813,12 +825,23 @@ CONTAINS
         &                     vcoeff_p%coef1, vcoeff_p%coef2,                 & !out
         &                     vcoeff_p%coef3, vcoeff_p%idx0_cub,              & !out
         &                     vcoeff_p%bot_idx_cub )                            !out
-    
+
+      ! Interpolation data for the vertical interface of cells, "nlevp1"
+      CALL prepare_lin_intp(p_metrics%z_ifc, geopot_p_out,                      & !in
+        &                   p_patch%nblks_c, p_patch%npromz_c, nlevp1, nplev,   & !in
+        &                   vcoeff_p%wfac_lin_nlevp1, vcoeff_p%idx0_lin_nlevp1, & !out
+        &                   vcoeff_p%bot_idx_lin_nlevp1  )                        !out
+      
       ! copy some 2D coefficients from z-level setup:
       vcoeff_p%kpbl1     = vcoeff_z%kpbl1   
       vcoeff_p%wfacpbl1  = vcoeff_z%wfacpbl1
       vcoeff_p%kpbl2     = vcoeff_z%kpbl2   
       vcoeff_p%wfacpbl2  = vcoeff_z%wfacpbl2
+
+      vcoeff_p%kpbl1_nlevp1     = vcoeff_z%kpbl1_nlevp1   
+      vcoeff_p%wfacpbl1_nlevp1  = vcoeff_z%wfacpbl1_nlevp1
+      vcoeff_p%kpbl2_nlevp1     = vcoeff_z%kpbl2_nlevp1   
+      vcoeff_p%wfacpbl2_nlevp1  = vcoeff_z%wfacpbl2_nlevp1
       vcoeff_p%l_initialized = .TRUE.
 
       ! Perform vertical interpolation

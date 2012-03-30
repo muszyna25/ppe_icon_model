@@ -54,7 +54,8 @@ MODULE mo_nonhydro_state
   USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH, INWP,     &
     &                                VINTP_METHOD_UV, VINTP_TYPE_P_OR_Z, &
     &                                VINTP_METHOD_QV, VINTP_METHOD_PRES, &
-    &                                VINTP_METHOD_LIN, VINTP_TYPE_Z
+    &                                VINTP_METHOD_LIN, VINTP_TYPE_Z,     &
+    &                                VINTP_METHOD_LIN_NLEVP1
   USE mo_exception,            ONLY: message, finish, message_text
   USE mo_model_domain,         ONLY: t_patch
   USE mo_nonhydro_types,       ONLY: t_nh_state, t_nh_prog, t_nh_diag,  &
@@ -470,9 +471,6 @@ MODULE mo_nonhydro_state
       &           ldims=shape3d_e )
 
     ! w            p_prog%w(nproma,nlevp1,nblks_c)
-    ! TODO[FP] : Regarding the vertical interpolation of the 'W' field:
-    !            Because this variable is one of the few defined on half levels take a
-    !            closer look if the correct level heights are taken for interpolation!
     cf_desc    = t_cf_var('upward air velocity', 'm s-1', 'upward air velocity')
     grib2_desc = t_grib2_var(0, 2, 9, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_prog_list, TRIM(vname_prefix)//'w'//suffix, p_prog%w,   &
@@ -480,7 +478,7 @@ MODULE mo_nonhydro_state
       &          ldims=shape3d_chalf,                                       & 
       &          vert_interp=create_vert_interp_metadata(                   &
       &             vert_intp_type=VINTP_TYPE_P_OR_Z,                       &
-      &             vert_intp_method=VINTP_METHOD_LIN ) )
+      &             vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ) )
 
     ! rho          p_prog%rho(nproma,nlev,nblks_c)
     cf_desc    = t_cf_var('density', 'kg m-3', 'density')

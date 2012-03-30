@@ -94,12 +94,23 @@ MODULE mo_opt_diagnostics
     INTEGER,  ALLOCATABLE, DIMENSION(:,:)   ::  &
       &  bot_idx_lin, bot_idx_cub
 
-    ! The following entries are only allocated for z-level
-    ! interpolation:
     INTEGER,  ALLOCATABLE, DIMENSION(:,:)   ::  &
       &  kpbl1, kpbl2
     REAL(wp), ALLOCATABLE, DIMENSION(:,:)   ::  &
       &  wfacpbl1, wfacpbl2
+
+    ! interpolation data for the vertical interface of cells, "nlevp1"
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) ::  &
+      &  wfac_lin_nlevp1
+    INTEGER,  ALLOCATABLE, DIMENSION(:,:,:) ::  &
+      &  idx0_lin_nlevp1
+    INTEGER,  ALLOCATABLE, DIMENSION(:,:)   ::  &
+      &  bot_idx_lin_nlevp1
+    INTEGER,  ALLOCATABLE, DIMENSION(:,:)   ::  &
+      &  kpbl1_nlevp1, kpbl2_nlevp1
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:)   ::  &
+      &  wfacpbl1_nlevp1, wfacpbl2_nlevp1
+
   END TYPE t_vcoeff
 
 
@@ -238,32 +249,55 @@ CONTAINS
     IF (.NOT. vcoeff%l_allocated) THEN
       ! real(wp)
       ALLOCATE( &
-        &  vcoeff%wfac_lin(nproma,nlev,p_patch%nblks_c), &
-        &  vcoeff%coef1(nproma,nlev,p_patch%nblks_c),    &
-        &  vcoeff%coef2(nproma,nlev,p_patch%nblks_c),    &
-        &  vcoeff%coef3(nproma,nlev,p_patch%nblks_c),    &
+        &  vcoeff%wfac_lin(nproma,nlev,p_patch%nblks_c),        &
+        &  vcoeff%coef1(nproma,nlev,p_patch%nblks_c),           &
+        &  vcoeff%coef2(nproma,nlev,p_patch%nblks_c),           &
+        &  vcoeff%coef3(nproma,nlev,p_patch%nblks_c),           &
         &  STAT=ierrstat )
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
       ! integer
       ALLOCATE( &
-        &  vcoeff%idx0_lin(nproma,nlev,p_patch%nblks_c), &
-        &  vcoeff%idx0_cub(nproma,nlev,p_patch%nblks_c), &
-        &  vcoeff%bot_idx_lin(nproma,p_patch%nblks_c),    &
-        &  vcoeff%bot_idx_cub(nproma,p_patch%nblks_c),    &
+        &  vcoeff%idx0_lin(nproma,nlev,p_patch%nblks_c),        &
+        &  vcoeff%idx0_cub(nproma,nlev,p_patch%nblks_c),        &
+        &  vcoeff%bot_idx_lin(nproma,p_patch%nblks_c),          &
+        &  vcoeff%bot_idx_cub(nproma,p_patch%nblks_c),          &
         &  STAT=ierrstat )
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
-      ! The following entries are only allocated for z-level
-      ! interpolation:
       ALLOCATE( &
-        &  vcoeff%wfacpbl1(nproma,p_patch%nblks_c),            &
-        &  vcoeff%wfacpbl2(nproma,p_patch%nblks_c),            &
+        &  vcoeff%wfacpbl1(nproma,p_patch%nblks_c),             &
+        &  vcoeff%wfacpbl2(nproma,p_patch%nblks_c),             &
+        &  STAT=ierrstat )
+      IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+
+      ALLOCATE( &
+        &  vcoeff%kpbl1(nproma,p_patch%nblks_c),                &
+        &  vcoeff%kpbl2(nproma,p_patch%nblks_c),                &
+        &  STAT=ierrstat )
+      IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+
+      !-- interpolation data for the vertical interface of cells, "nlevp1"
+
+      ! real(wp)
+      ALLOCATE( &
+        &  vcoeff%wfac_lin_nlevp1(nproma,nlev,p_patch%nblks_c), &
+        &  STAT=ierrstat )
+      IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+      ! integer
+      ALLOCATE( &
+        &  vcoeff%idx0_lin_nlevp1(nproma,nlev,p_patch%nblks_c), &
+        &  vcoeff%bot_idx_lin_nlevp1(nproma,p_patch%nblks_c),   &
         &  STAT=ierrstat )
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
       ALLOCATE( &
-        &  vcoeff%kpbl1(nproma,p_patch%nblks_c),               &
-        &  vcoeff%kpbl2(nproma,p_patch%nblks_c),               &
+        &  vcoeff%wfacpbl1_nlevp1(nproma,p_patch%nblks_c),      &
+        &  vcoeff%wfacpbl2_nlevp1(nproma,p_patch%nblks_c),      &
+        &  STAT=ierrstat )
+      IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+      ALLOCATE( &
+        &  vcoeff%kpbl1_nlevp1(nproma,p_patch%nblks_c),         &
+        &  vcoeff%kpbl2_nlevp1(nproma,p_patch%nblks_c),         &
         &  STAT=ierrstat )
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
@@ -303,11 +337,24 @@ CONTAINS
         &  STAT=ierrstat )
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 
-      DEALLOCATE( vcoeff%wfacpbl1, vcoeff%wfacpbl2,      &
-        &         STAT=ierrstat )
+      DEALLOCATE( vcoeff%wfacpbl1, vcoeff%wfacpbl2, STAT=ierrstat )
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
-      DEALLOCATE( vcoeff%kpbl1, vcoeff%kpbl2,               &
-        &         STAT=ierrstat )
+      DEALLOCATE( vcoeff%kpbl1, vcoeff%kpbl2, STAT=ierrstat )
+      IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+
+      ! real(wp)
+      DEALLOCATE( vcoeff%wfac_lin_nlevp1, STAT=ierrstat )
+      IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+      ! integer
+      DEALLOCATE( &
+        &  vcoeff%idx0_lin_nlevp1,       &
+        &  vcoeff%bot_idx_lin_nlevp1,    &
+        &  STAT=ierrstat )
+      IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+
+      DEALLOCATE( vcoeff%wfacpbl1_nlevp1, vcoeff%wfacpbl2_nlevp1, STAT=ierrstat )
+      IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+      DEALLOCATE( vcoeff%kpbl1_nlevp1, vcoeff%kpbl2_nlevp1, STAT=ierrstat )
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 
       vcoeff%l_allocated = .FALSE.
