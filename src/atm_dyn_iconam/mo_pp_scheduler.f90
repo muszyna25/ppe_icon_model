@@ -505,7 +505,7 @@ CONTAINS
     TYPE(t_nh_state),           TARGET,  INTENT(INOUT) :: p_nh_state(:)
     TYPE(t_nh_opt_diag),        TARGET,  INTENT(INOUT) :: p_nh_opt_diag(:)
     TYPE(t_nh_pzlev_config),    TARGET,  INTENT(IN)    :: nh_pzlev_config(0:max_dom)
-    TYPE (t_output_name_list),  POINTER, INTENT(INOUT) :: first_output_name_list
+    TYPE (t_output_name_list),  POINTER                :: first_output_name_list
     TYPE(t_var_list),                    INTENT(IN)    :: var_lists(:)
     INTEGER,                             INTENT(IN)    :: nvar_lists
     TYPE(t_nwp_phy_diag),       TARGET,  INTENT(IN), OPTIONAL :: opt_prm_diag(:)
