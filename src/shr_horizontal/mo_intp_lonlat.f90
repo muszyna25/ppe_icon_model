@@ -679,7 +679,6 @@
       nblks_lonlat  = (grid%total_dim - 1)/nproma + 1
       npromz_lonlat = grid%total_dim - (nblks_lonlat-1)*nproma
       ALLOCATE(ptr_int_lonlat%tri_idx(2, nproma, nblks_lonlat),   &
-        &      ptr_int_lonlat%nlocal_pts(p_n_work),               &
         &      ptr_int_lonlat%owner(grid%total_dim), STAT=errstat )
       IF (errstat /= SUCCESS) &
         CALL finish (routine, 'allocation for lon-lat point distribution failed')
@@ -693,9 +692,8 @@
       CALL gnat_query_containing_triangles(ptr_patch, gnat_tree, in_points(:,:,:), &
         &                   nproma, nblks_lonlat, npromz_lonlat,    &
         &                   ptr_int_lonlat%tri_idx(:,:,:), min_dist(:,:))
-      CALL gnat_merge_distributed_queries(ptr_patch, grid%total_dim, nproma, grid%nblks,  &
-        &                 min_dist, ptr_int_lonlat%tri_idx(:,:,:),        &
-        &                 in_points(:,:,:), ptr_int_lonlat%nlocal_pts(:), &
+      CALL gnat_merge_distributed_queries(ptr_patch, grid%total_dim, nproma, grid%nblks, &
+        &                 min_dist, ptr_int_lonlat%tri_idx(:,:,:), in_points(:,:,:),     &
         &                 ptr_int_lonlat%owner(:), ptr_int_lonlat%nthis_local_pts)
         
       ! set local values for "nblks" and "npromz"

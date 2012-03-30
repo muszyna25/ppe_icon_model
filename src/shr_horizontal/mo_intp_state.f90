@@ -2802,7 +2802,6 @@ SUBROUTINE deallocate_int_state_lonlat( ptr_int_lonlat )
     &         ptr_int_lonlat%rbf_c2grad_blk,          &
     &         ptr_int_lonlat%rdist,                   &
     &         ptr_int_lonlat%tri_idx,                 &
-    &         ptr_int_lonlat%nlocal_pts,              &
     &         ptr_int_lonlat%owner,                   &
     &         STAT=ist )
   IF (ist /= SUCCESS) THEN

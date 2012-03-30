@@ -916,7 +916,7 @@ CONTAINS
   ! list. All information except the one with minimal distance is
   ! discarded.
   SUBROUTINE gnat_merge_distributed_queries(p_patch, total_dim, iv_nproma, iv_nblks, min_dist, &
-    &                                       tri_idx, lonlat_points, nlocal_pts, owner_list,    &
+    &                                       tri_idx, lonlat_points, owner_list,                &
     &                                       ithis_local_pts)
     TYPE(t_patch),         INTENT(IN)    :: p_patch
     INTEGER,               INTENT(IN)    :: total_dim
@@ -924,7 +924,7 @@ CONTAINS
     REAL(gk),              INTENT(IN)    :: min_dist(:,:)
     INTEGER,               INTENT(INOUT) :: tri_idx(:,:,:)
     REAL(gk),              INTENT(INOUT) :: lonlat_points(:,:,:)
-    INTEGER,               INTENT(INOUT) :: nlocal_pts(:), owner_list(:)
+    INTEGER,               INTENT(INOUT) :: owner_list(:)
     INTEGER,               INTENT(OUT)   :: ithis_local_pts !< no. of points on this PE
     ! local variables
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_gnat_gridsearch:gnat_merge_distributed_queries")
@@ -969,7 +969,6 @@ CONTAINS
     !    tri_idx array to points which are actually located on this
     !    portion of the domain.
     array_shape(:) = (/ iv_nproma, iv_nblks /)
-    nlocal_pts(:)  = 0
     idummy_applied = 0
 
     jc = 0
@@ -1007,15 +1006,7 @@ CONTAINS
     ! now, (j-1) points are left for proc "get_my_mpi_work_id()"
     ithis_local_pts = (j-1)
 
-    ! store the global list of receivers as well as the number of
-    ! points associated with each work PE.
-    DO iowner=0,(p_n_work-1)
-      nlocal_pts(iowner+1) = COUNT(owner_list == iowner)
-    END DO
-
     IF (dbg_level > 10) THEN
-      WRITE(message_text,*) "lon-lat point distribution: ", nlocal_pts(:)
-      
       IF (idummy_applied > 0) THEN
         WRITE(message_text,*) "proc ", get_my_mpi_work_id(), ": dummy applied: ", idummy_applied
         CALL message(routine, TRIM(message_text))

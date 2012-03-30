@@ -579,7 +579,6 @@ TYPE t_lon_lat_intp
 
   ! data fields for distributed computations (available on all PEs)
   INTEGER               :: nthis_local_pts  ! number of points local to this PE
-  INTEGER, ALLOCATABLE  :: nlocal_pts(:)    ! number of points located on each patch
   INTEGER, ALLOCATABLE  :: owner(:)         ! for each lon-lat point: owning process
 
 END TYPE t_lon_lat_intp

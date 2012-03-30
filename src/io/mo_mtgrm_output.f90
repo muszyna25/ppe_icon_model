@@ -619,7 +619,6 @@ CONTAINS
     REAL(gk)     :: min_dist(nproma,meteogram_output_config%nblks)    !< minimal distance
     ! list of triangles containing lon-lat grid points (first dim: index and block)
     INTEGER      :: tri_idx(2,nproma,meteogram_output_config%nblks)
-    INTEGER      :: nlocal_pts(p_n_work)
     REAL(wp)     :: pi_180
     INTEGER      :: max_var_size, max_sfcvar_size
     REAL(wp), ALLOCATABLE              :: hlevels(:)
@@ -710,7 +709,7 @@ CONTAINS
         &                                  tri_idx(:,:,:), min_dist(:,:))
       CALL gnat_merge_distributed_queries(ptr_patch, nstations, nproma, nblks, min_dist,  &
         &                                 tri_idx(:,:,:), in_points(:,:,:),               &
-        &                                 nlocal_pts(:), owner(:), ithis_nlocal_pts)
+        &                                 owner(:), ithis_nlocal_pts)
       nblks    = (ithis_nlocal_pts-1)/nproma + 1
       npromz   = ithis_nlocal_pts - (nblks-1)*nproma
       meteogram_data%nstations = ithis_nlocal_pts
