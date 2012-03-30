@@ -118,7 +118,6 @@ MODULE mo_pp_scheduler
   !------ interpolation tasks:
   INTEGER, PARAMETER :: TASK_INTP_HOR_LONLAT   = 4  !< task: lon-lat
   INTEGER, PARAMETER :: TASK_INTP_VER_PZLEV    = 5  !< task: vertical p or z-levels
-  INTEGER, PARAMETER :: TASK_INTP_VERHOR_PZ_LL = 6  !< task: vertical&horizontal
 
   ! interface definition
   PRIVATE
@@ -889,8 +888,6 @@ CONTAINS
         CALL pp_task_lonlat(ptr_task)
       CASE ( TASK_INTP_VER_PZLEV )
         CALL pp_task_pzlev(ptr_task)
-      CASE ( TASK_INTP_VERHOR_PZ_LL )
-        CALL pp_task_pz_lonlat(ptr_task)
       CASE DEFAULT
         CALL finish(routine, "Unknown post-processing job.")
       END SELECT
@@ -1281,62 +1278,6 @@ CONTAINS
     END SELECT ! vert_intp_method
 
   END SUBROUTINE pp_task_pzlev
-
-
-  !---------------------------------------------------------------
-  !> Performs interpolation of a vertex-based variable onto cells.
-  !
-  !  This is only a wrapper for the corresponding routines from the
-  !  interpolation module.
-  SUBROUTINE pp_task_vertex2cell(ptr_task)
-    TYPE(t_job_queue), POINTER :: ptr_task
-    ! local variables
-    CHARACTER(*), PARAMETER :: routine = &
-      &  TRIM("mo_pp_scheduler:pp_task_vertex2cell")
-    INTEGER                            :: nlev, &
-      &  in_var_idx, out_var_idx
-    TYPE(t_patch),             POINTER :: p_patch
-    TYPE(t_int_state),         POINTER :: p_int_state
-    TYPE (t_var_list_element), POINTER :: in_var, out_var
-    TYPE(t_var_metadata),      POINTER :: p_info
-
-    p_patch     => ptr_task%data_input%p_patch      ! patch
-    nlev        =  p_patch%nlev                     ! no. of levels
-    p_int_state => ptr_task%data_input%p_int_state  ! interpolation coeffs
-
-    p_info      => ptr_task%data_input%var%info
-    in_var      => ptr_task%data_input%var
-    out_var     => ptr_task%data_output%var
-
-    in_var_idx        = 1
-    if (ptr_task%data_input%var%info%lcontained) &
-      in_var_idx = ptr_task%data_input%var%info%ncontained
-    out_var_idx       = 1
-    if (ptr_task%data_output%var%info%lcontained) &
-      out_var_idx = ptr_task%data_output%var%info%ncontained
-
-    IF (p_info%ndims /= 3) &
-      & CALL finish(routine, "Wrong number of variables dimensions!")
-      
-    CALL verts2cells_scalar( in_var%r_ptr(:,:,:,in_var_idx,1), p_patch,  &
-      &                      p_int_state%verts_aw_cells,        &
-      &                      out_var%r_ptr(:,:,:,out_var_idx,1), 1, nlev )
-
-  END SUBROUTINE pp_task_vertex2cell
-
-
-  !---------------------------------------------------------------
-  !> Performs interpolation onto pz-levels _and_ lon-lat grid.
-  !
-  !  This is only a wrapper for the corresponding routines from the
-  !  interpolation module.
-  SUBROUTINE pp_task_pz_lonlat(ptr_task)
-    TYPE(t_job_queue), POINTER :: ptr_task
-    ! local variables
-    CHARACTER(*), PARAMETER :: routine = &
-      &  TRIM("mo_pp_scheduler:pp_task_p_lonlat")
-
-  END SUBROUTINE pp_task_pz_lonlat
 
 
   !--- UTILITY ROUTINES --------------------------------------------------------------
