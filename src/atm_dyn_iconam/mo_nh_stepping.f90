@@ -404,14 +404,15 @@ MODULE mo_nh_stepping
   TYPE(t_nh_state),    TARGET, INTENT(INOUT) :: p_nh_state(n_dom)
   TYPE(t_datetime), INTENT(INOUT)      :: datetime
 
-  INTEGER                              :: jstep, jb, nlen, jg
+  INTEGER                              :: jstep, jb, nlen, jg, kstep
   REAL(wp)                             :: vmax(2)
   REAL(wp) :: vn_aux(p_patch(1)%edges%end_blk(min_rledge_int,MAX(1,p_patch(1)%n_childdom)))
   REAL(wp) :: w_aux (p_patch(1)%cells%end_blk(min_rlcell_int,MAX(1,p_patch(1)%n_childdom)))
   REAL(wp), DIMENSION(:,:,:), POINTER  :: p_vn, p_w
   INTEGER                              :: ierr, i_nchdom
-  LOGICAL                              :: l_compute_diagnostic_quants, &
-    &                                     l_vlist_output, l_nml_output
+  LOGICAL                              :: l_compute_diagnostic_quants,  &
+    &                                     l_vlist_output, l_nml_output, &
+    &                                     l_supervise_total_integrals
   TYPE(t_simulation_status)            :: simulation_status
 
 !$  INTEGER omp_get_num_threads
@@ -506,9 +507,9 @@ MODULE mo_nh_stepping
         &          meteogram_is_sample_step(meteogram_output_config(jg), jstep)
     END DO
 
-    ! for calls to "supervise_total_integrals_nh":
+    ! another flag defining whether diagnostic quantities are computed.
+    ! TODO[FP] Decide whether this "l_diagtime" flag is obsolete.
     l_diagtime = (jstep == 1) .OR. (MOD(jstep,n_diag) == 0) .OR. (jstep==nsteps)
-
 
     !--------------------------------------------------------------------------
     !
@@ -557,37 +558,22 @@ MODULE mo_nh_stepping
     END IF
 
     ! Diagnostics computation is not yet properly MPI-parallelized
+
+    ! for calls to "supervise_total_integrals_nh":
+    l_supervise_total_integrals = lstep_adv(1) .OR. (MOD(jstep,n_diag) == 0) .OR. (jstep==nsteps)
+    kstep = jstep
+    IF (jstep <= iadv_rcf)  kstep=1     !DR: necessary to work properly in combination with restart
+
+    IF ((global_cell_type == 3) .AND. l_diagtime) THEN
 #ifdef NOMPI
-    IF(global_cell_type == 3) THEN
-      IF (l_diagtime .AND. my_process_is_mpi_all_seq() .AND. &
-        & (lstep_adv(1) .OR. jstep==nsteps))  THEN
-        IF (jstep <= iadv_rcf) THEN  !DR <= neccesary to work properly in combination
-                                     !   with restart
-          CALL supervise_total_integrals_nh( 1, p_patch(1:), p_nh_state,      &
-                                           & nnow(1:n_dom), nnow_rcf(1:n_dom))
-        ELSE
-          CALL supervise_total_integrals_nh(jstep, p_patch(1:), p_nh_state,   &
-                                           & nnow(1:n_dom), nnow_rcf(1:n_dom))
-        ENDIF
-        l_diagtime = .FALSE.
-      ENDIF
-    ENDIF
-#else
-    IF  ((global_cell_type == 3)  .AND.  &
-      &  l_diagtime               .AND.  &
-      &  (lstep_adv(1) .OR. jstep==nsteps)) THEN
-      IF (jstep == iadv_rcf) THEN
-        CALL supervise_total_integrals_nh( 1, p_patch(1:), p_nh_state,       &
-          &                                nnow(1:n_dom), nnow_rcf(1:n_dom))
-      ELSE
-        CALL supervise_total_integrals_nh( jstep, p_patch(1:), p_nh_state,   &
-          &                                nnow(1:n_dom), nnow_rcf(1:n_dom))
-      ENDIF
-      l_diagtime = .FALSE.
-    ENDIF
+      IF (my_process_is_mpi_all_seq()) &
 #endif
-    IF(global_cell_type == 6 .AND. l_diagtime) THEN
-      CALL supervise_total_integrals_nh(jstep, p_patch(1:), p_nh_state,   &
+        CALL supervise_total_integrals_nh( kstep, p_patch(1:), p_nh_state,  &
+        &                                  nnow(1:n_dom), nnow_rcf(1:n_dom))
+    ENDIF
+
+    IF ((global_cell_type == 6) .AND. l_diagtime) THEN
+      CALL supervise_total_integrals_nh(jstep, p_patch(1:), p_nh_state,     &
                                        & nnow(1:n_dom),  nnow_rcf(1:n_dom))
     ENDIF
 
