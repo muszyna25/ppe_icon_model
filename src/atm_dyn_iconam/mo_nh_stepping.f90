@@ -564,7 +564,7 @@ MODULE mo_nh_stepping
     kstep = jstep
     IF (jstep <= iadv_rcf)  kstep=1     !DR: necessary to work properly in combination with restart
 
-    IF ((global_cell_type == 3) .AND. l_diagtime) THEN
+    IF ((global_cell_type == 3) .AND. l_supervise_total_integrals) THEN
 #ifdef NOMPI
       IF (my_process_is_mpi_all_seq()) &
 #endif
@@ -572,7 +572,7 @@ MODULE mo_nh_stepping
         &                                  nnow(1:n_dom), nnow_rcf(1:n_dom))
     ENDIF
 
-    IF ((global_cell_type == 6) .AND. l_diagtime) THEN
+    IF ((global_cell_type == 6) .AND. l_supervise_total_integrals) THEN
       CALL supervise_total_integrals_nh(jstep, p_patch(1:), p_nh_state,     &
                                        & nnow(1:n_dom),  nnow_rcf(1:n_dom))
     ENDIF
