@@ -2124,6 +2124,7 @@ CONTAINS
     LOGICAL :: l_exist
     INTEGER :: jg, i_lev, i_cell_type, no_cells, no_verts, no_tst
     INTEGER :: ncid, dimid
+    INTEGER :: mpi_comm
 
     !REAL(wp):: z_flux(nproma, 12,p_patch(1)%nblks_c)
     REAL(wp):: z_flux(nproma,iforc_len,p_patch(1)%nblks_c)
@@ -2302,6 +2303,12 @@ CONTAINS
           & 'Number of forcing timesteps is not equal iforc_len specified in namelist - ABORT')
         ENDIF
       ENDIF
+      IF(p_test_run) THEN
+        mpi_comm = p_comm_work_test
+      ELSE
+        mpi_comm = p_comm_work
+      ENDIF
+      CALL p_bcast(no_tst, p_io, mpi_comm)
 
       !-------------------------------------------------------
       !
