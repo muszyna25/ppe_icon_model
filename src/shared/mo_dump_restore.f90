@@ -2405,7 +2405,7 @@ CONTAINS
     TYPE(t_gridref_state), INTENT(INOUT)           :: pg
 
     !---local variables
-    INTEGER :: old_mode, i, ip
+    INTEGER :: old_mode, ip
     TYPE(t_patch), POINTER :: lp ! pointer to local parent
 
     !-------------------------------------------------------------------------
@@ -2701,7 +2701,7 @@ CONTAINS
     LOGICAL, INTENT(IN) :: lfull
 
     !---local variables
-    INTEGER :: dimid, varid, jb, jl
+    INTEGER :: dimid, varid
 
     !-------------------------------------------------------------------------
 
@@ -2821,7 +2821,7 @@ CONTAINS
     TYPE(t_patch), INTENT(inout) :: p_patch(n_dom_start:)
     LOGICAL, INTENT(IN) :: lfull ! TRUE: restore all, FALSE: restore domain decomposition
 
-    INTEGER :: jg, jg1, jgp, i, n_chd, n_chdc, dimid
+    INTEGER :: jg, jg1, jgp, i, n_chd, n_chdc
     CHARACTER (LEN=80) :: child_id_name, child_idl_name
 
     CALL message ('restore_patches_netcdf','start to restore patches')
@@ -3073,7 +3073,6 @@ CONTAINS
 
     !---local variables
     INTEGER :: jg
-    REAL(wp)                       :: p_dimen(2)
 
     !-------------------------------------------------------------------------
 

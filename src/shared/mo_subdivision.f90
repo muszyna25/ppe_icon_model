@@ -270,8 +270,7 @@ CONTAINS
       &    "halo grid points    " /)
 
     ! Local variables:
-    INTEGER :: mpierr
-    INTEGER :: ist, jg, jgp, jc, jgc, comm, n, &
+    INTEGER :: jg, jgp, jc, jgc, comm, n, &
       &        l1, i_nchdom, n_procs_decomp
     INTEGER :: nprocs(p_patch_global(1)%n_childdom)
     INTEGER, ALLOCATABLE :: cell_owner(:), cell_owner_p(:)
@@ -1031,8 +1030,8 @@ CONTAINS
     INTEGER, INTENT(IN) :: my_proc
 
     INTEGER :: n, i, j, jv, je, jl, jb, jl_g, jb_g, jl_e, jb_e, jl_v, jb_v, ilev, iown,   &
-               ilc1, ibc1, ilc2, ibc2, ilc3, ibc3, jl_c, jb_c, jc, irlev, ilev1, ilev_st, &
-               jg, i_nchdom, irl0, irl1, irl2, irl3
+               jl_c, jb_c, jc, irlev, ilev1, ilev_st, &
+               jg, i_nchdom, irl0
 
     INTEGER, ALLOCATABLE :: flag_c(:), flag_e(:), flag_v(:)
     INTEGER, ALLOCATABLE :: flag2_c(:), flag2_e(:), flag2_v(:)
