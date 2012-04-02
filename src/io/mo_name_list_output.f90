@@ -62,7 +62,8 @@ MODULE mo_name_list_output
   USE mo_parallel_config,       ONLY: nproma, p_test_run
   USE mo_vertical_coord_table,  ONLY: vct
   USE mo_dynamics_config,       ONLY: iequations, nnow, nnow_rcf
-  USE mo_run_config,            ONLY: num_lev, num_levp1, dtime, ldump_states, ldump_dd
+  USE mo_run_config,            ONLY: num_lev, num_levp1, dtime, ldump_states, ldump_dd, &
+    &                                 msg_level
   USE mo_nh_pzlev_config,       ONLY: nh_pzlev_config
   USE mo_lnd_nwp_config,        ONLY: nlev_snow
   USE mo_datetime,              ONLY: t_datetime
@@ -2125,7 +2126,6 @@ CONTAINS
 
     TYPE (t_output_file), INTENT(INOUT) :: of
 
-
     IF(of%cdiFileID /= CDI_UNDEFID) CALL streamClose(of%cdiFileID)
 
     of%cdiFileID = CDI_UNDEFID
@@ -2330,13 +2330,13 @@ CONTAINS
 
     TYPE (t_output_file), INTENT(INOUT), TARGET :: of
 
-    INTEGER :: tl, i_dom, i_log_dom, i, iv, jk, n_points, nlevs, nblks, nindex
-    INTEGER :: mpierr, lonlat_id
+    INTEGER :: tl, i_dom, i_log_dom, i, iv, jk, n_points, nlevs, nblks, &
+      &        nindex, mpierr, lonlat_id, ierrstat
     INTEGER(i8) :: ioff
     TYPE (t_var_metadata), POINTER :: info
     TYPE(t_reorder_info), POINTER  :: p_ri
     REAL(wp), POINTER :: r_ptr(:,:,:)
-    REAL(wp), ALLOCATABLE :: r_tmp(:,:,:), r_out(:,:), r_out_recv(:,:)
+    REAL(wp), ALLOCATABLE :: r_tmp(:,:,:), r_out_recv(:,:), r_out(:,:)
     TYPE(t_comm_pattern), POINTER :: p_pat
 
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/write_name_list'
@@ -2488,7 +2488,8 @@ CONTAINS
         IF(my_process_is_mpi_test() .OR. my_process_is_mpi_workroot()) THEN
 
           ! De-block the array
-          ALLOCATE(r_out(n_points, nlevs))
+          ALLOCATE(r_out(n_points, nlevs), STAT=ierrstat)
+          IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
           DO jk = 1, nlevs
             r_out(:,jk) = RESHAPE(r_tmp(:,jk,:), (/ n_points /))
           ENDDO
@@ -2516,7 +2517,10 @@ CONTAINS
           CALL streamWriteVar(of%cdiFileID, info%cdiVarID, r_out, 0)
 
         DEALLOCATE(r_tmp)
-        IF(my_process_is_mpi_test() .OR. my_process_is_mpi_workroot()) DEALLOCATE(r_out)
+        IF(my_process_is_mpi_test() .OR. my_process_is_mpi_workroot()) THEN
+          DEALLOCATE(r_out, STAT=ierrstat)
+          IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+        ENDIF
 
       ELSE
 
@@ -2527,9 +2531,8 @@ CONTAINS
             mem_ptr(ioff+INT(i,i8)) = r_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i))
           ENDDO
           ioff = ioff + INT(p_ri%n_own,i8)
-        ENDDO
-
-      ENDIF
+        END DO
+      END IF
 
       ! Reset variable if laccu flag is set
 
@@ -2973,7 +2976,7 @@ CONTAINS
 
     ! mem_size is calculated as number of variables above, get number of bytes
 
-    ! Get the amount of bytes per default REAL variable (as used in MPI communication)
+    ! Get the amount of bytes per REAL(dp) variable (as used in MPI communication)
     CALL MPI_Type_extent(p_real_dp, nbytes_real, mpierr)
 
     ! For the IO PEs the amount of memory needed is 0 - allocate at least 1 word there:
@@ -3004,10 +3007,12 @@ CONTAINS
     ! The NEC requires a standard INTEGER array as 3rd argument for c_f_pointer,
     ! although it would make more sense to have it of size MPI_ADDRESS_KIND.
 
+    NULLIFY(mem_ptr)
+
 #ifdef __SX__
-    CALL c_f_pointer(c_mem_ptr, mem_ptr, (/ INT(mem_size) /) )
+    CALL C_F_POINTER(c_mem_ptr, mem_ptr, (/ INT(mem_size) /) )
 #else
-    CALL c_f_pointer(c_mem_ptr, mem_ptr, (/ mem_size /) )
+    CALL C_F_POINTER(c_mem_ptr, mem_ptr, (/ mem_size /) )
 #endif
 #endif
 
@@ -3023,9 +3028,8 @@ CONTAINS
 #endif
 
     ! Create memory window for communication
-
-    CALL MPI_Win_create(mem_ptr,mem_bytes,nbytes_real,rma_cache_hint, &
-      & p_comm_work_io,mpi_win,mpierr)
+    CALL MPI_Win_create( mem_ptr,mem_bytes,nbytes_real,rma_cache_hint,&
+      &                  p_comm_work_io,mpi_win,mpierr )
 
 #ifdef __xlC__
     CALL MPI_Info_free(rma_cache_hint, mpierr);
@@ -3040,12 +3044,9 @@ CONTAINS
   ! Helper routine for setting mem_ptr with the correct size information
 
   SUBROUTINE set_mem_ptr(arr, len)
-
-    INTEGER len
+    INTEGER          :: len
     REAL(wp), TARGET :: arr(len)
-
     mem_ptr => arr
-
   END SUBROUTINE set_mem_ptr
 #endif
 
@@ -3056,26 +3057,34 @@ CONTAINS
 
   SUBROUTINE io_proc_write_name_list(of)
 
-    USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_LOCK_SHARED, MPI_MODE_NOCHECK
+    USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_LOCK_SHARED, MPI_MODE_NOCHECK, MPI_Wtime
 
     TYPE (t_output_file), INTENT(IN), TARGET :: of
 
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/io_proc_write_name_list'
 
     INTEGER nval, nlev_max, iv, jk, i, nlevs, mpierr, nv_off, np, i_dom, &
-      &     lonlat_id, i_log_dom
+      &     lonlat_id, i_log_dom, ierrstat
     INTEGER(KIND=MPI_ADDRESS_KIND) :: ioff(0:num_work_procs-1)
     INTEGER :: voff(0:num_work_procs-1)
     REAL(wp), ALLOCATABLE :: var1(:), var2(:), var3(:,:)
     TYPE (t_var_metadata), POINTER :: info
     TYPE(t_reorder_info), POINTER  :: p_ri
     CHARACTER*10 ctime
+    REAL(wp) :: t_get, t_write, t_copy, t_intp, t_0, mb_get, mb_wr
 
 #if defined (__SX__) && !defined (NOMPI)
 ! It may be necessary that var1 is in global memory on NEC
 ! (Note: this is only allowed when we compile with MPI.)
 !CDIR GM_ARRAY(var1)
 #endif
+
+    t_get   = 0._wp
+    t_write = 0._wp
+    t_copy  = 0._wp
+    t_intp  = 0._wp
+    mb_get  = 0._wp
+    mb_wr   = 0._wp
 
     CALL date_and_time(TIME=ctime)
     print '(a,i0,a)','#################### I/O PE ',p_pe,' starting I/O at '//ctime
@@ -3103,7 +3112,8 @@ CONTAINS
       IF(info%ndims == 3) nlev_max = MAX(nlev_max, info%used_dimensions(2))
     ENDDO
 
-    ALLOCATE(var1(nval*nlev_max), var2(nval))
+    ALLOCATE(var1(nval*nlev_max), var2(nval), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
     ioff(:) = of%mem_win_off(:)
 
@@ -3146,12 +3156,15 @@ CONTAINS
 
         nval = p_ri%pe_own(np)*nlevs ! Number of words to transfer
 
+        t_0 = MPI_Wtime()
         CALL MPI_Win_lock(MPI_LOCK_SHARED, np, MPI_MODE_NOCHECK, mpi_win, mpierr)
 
         CALL MPI_Get(var1(nv_off+1), nval, p_real_dp, np, ioff(np), &
-         &           nval, p_real_dp, mpi_win, mpierr)
+          &          nval, p_real_dp, mpi_win, mpierr)
 
         CALL MPI_Win_unlock(np, mpi_win, mpierr)
+        t_get  = t_get  + MPI_Wtime()-t_0
+        mb_get = mb_get + nval
 
         ! Update the offset in var1
         nv_off = nv_off + nval
@@ -3172,7 +3185,9 @@ CONTAINS
       ! var1 is stored in the order in which the variable was stored on compute PEs,
       ! get it back into the global storage order
 
-      ALLOCATE(var3(p_ri%n_glb,nlevs)) ! Must be allocated to exact size
+      t_0 = MPI_Wtime()
+      ALLOCATE(var3(p_ri%n_glb,nlevs), STAT=ierrstat) ! Must be allocated to exact size
+      IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
       DO jk = 1, nlevs
         nv_off = 0
@@ -3185,17 +3200,31 @@ CONTAINS
           var3(i,jk) = var2(p_ri%reorder_index(i))
         ENDDO
       ENDDO ! Loop over levels
+      t_copy = t_copy + MPI_Wtime()-t_0
 
+      t_0 = MPI_Wtime()
       CALL streamWriteVar(of%cdiFileID, info%cdiVarID, var3, 0)
-      DEALLOCATE(var3)
+      mb_wr = mb_wr + SIZE(var3)
+      t_write = t_write + MPI_Wtime()-t_0
+
+      DEALLOCATE(var3, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 
     ENDDO ! Loop over output variables
 
-
-    DEALLOCATE(var1, var2)
+    DEALLOCATE(var1, var2, STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 
     CALL date_and_time(TIME=ctime)
     print '(a,i0,a)','#################### I/O PE ',p_pe,' done at '//ctime
+    ! Convert mb_get/mb_wr to MB
+    mb_get = mb_get*8*1.d-6
+    mb_wr  = mb_wr*4*1.d-6 ! 4 byte since dp output is implicitly converted to sp
+    IF (msg_level >= 12) THEN
+      PRINT '(10(a,f10.3))',' Got ',mb_get,' MB, time get: ',t_get,' s [',mb_get/t_get,&
+        ' MB/s], time write: ',t_write,' s [',mb_wr/t_write, &
+        ' MB/s], times copy+intp: ',t_copy+t_intp,' s'
+    ENDIF
 
   END SUBROUTINE io_proc_write_name_list
 
