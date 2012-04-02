@@ -299,7 +299,7 @@ SUBROUTINE setup_comm_pattern(n_points, owner, opt_global_index, local_index, p_
    TYPE(t_comm_pattern), INTENT(INOUT) :: p_pat
 
 
-   INTEGER, ALLOCATABLE :: icnt(:), flag(:), global_recv_index(:), send_src(:)
+   INTEGER, ALLOCATABLE :: icnt(:), flag(:), global_recv_index(:), send_src(:), num_rcv(:)
    INTEGER              :: global_index(n_points)
    INTEGER :: i, n, np, nr, num_recv, irs, ire, num_send, iss, ise, max_glb
 
@@ -314,7 +314,7 @@ SUBROUTINE setup_comm_pattern(n_points, owner, opt_global_index, local_index, p_
      global_index(:) = (/ (i, i=1,n_points) /)
    END IF
 
-   ALLOCATE(icnt(0:p_n_work-1))
+   ALLOCATE(icnt(0:p_n_work-1), num_rcv(0:p_n_work-1))
    max_glb = MAX(MAXVAL(ABS(global_index(1:n_points)),mask=(owner(1:n_points)>=0)),1)
    ALLOCATE(flag(max_glb))
 
@@ -388,61 +388,73 @@ SUBROUTINE setup_comm_pattern(n_points, owner, opt_global_index, local_index, p_
 
    DO np = 0, p_n_work-1 ! loop over PEs where to send the data
 
-      num_recv = p_pat%recv_limits(np+1) - p_pat%recv_limits(np)
-      irs = p_pat%recv_limits(np)+1 ! Start index in global_recv_index
-      ire = p_pat%recv_limits(np+1) ! End   index in global_recv_index
+     num_rcv(np) = p_pat%recv_limits(np+1) - p_pat%recv_limits(np)
 
-      IF(np/=p_pe_work) THEN
-         ! Just send the global index of the points we need from PE np
-         CALL p_send(num_recv, np, 1, comm=p_comm_work)
-         if(num_recv>0) &
-           CALL p_send(global_recv_index(irs:ire), np, 2, comm=p_comm_work)
-      ELSE
-
-         ! In this turn, we receive the info about which points are needed from us
-
-         ! First get the number of points only
-         DO nr = 0, p_n_work-1
-            IF(nr /= p_pe_work) THEN
-               CALL p_recv(icnt(nr), nr, 1,  comm=p_comm_work)
-            ELSE
-               icnt(nr) = num_recv
-            ENDIF
-         ENDDO
-
-         ! Allocate and set up the send_limits array
-
-         ALLOCATE(p_pat%send_limits(0:p_n_work))
-
-         p_pat%send_limits(0) = 0
-         DO nr = 0, p_n_work-1
-            p_pat%send_limits(nr+1) = p_pat%send_limits(nr) + icnt(nr)
-         ENDDO
-
-         ! The last entry in send_limits is the total number of points we receive
-
-         p_pat%n_send = p_pat%send_limits(p_n_work)
-
-         ! Allocate and set up the send_src array
-
-         ALLOCATE(send_src(p_pat%n_send))
-
-         DO nr = 0, p_n_work-1
-            num_send = p_pat%send_limits(nr+1) - p_pat%send_limits(nr)
-            iss = p_pat%send_limits(nr)+1 ! Start index in send_src
-            ise = p_pat%send_limits(nr+1) ! End   index in send_src
-            IF(nr /= p_pe_work) THEN
-               IF(num_send>0) &
-                  CALL p_recv(send_src(iss:ise), nr, 2, comm=p_comm_work)
-            ELSE
-               IF(num_send>0) &
-                  send_src(iss:ise) = global_recv_index(irs:ire)
-            ENDIF
-         ENDDO
-
-      ENDIF
+     ! First send the number of points to be received
+     IF (np /= p_pe_work) CALL p_isend(num_rcv(np), np, 1, comm=p_comm_work)
 
    ENDDO
+
+   ! Now, we receive the number of points are needed from us
+   DO nr = 0, p_n_work-1
+
+     IF(nr /= p_pe_work) THEN
+       CALL p_recv(icnt(nr), nr, 1,  comm=p_comm_work)
+     ELSE
+       icnt(nr) = num_rcv(nr)
+     ENDIF
+
+   ENDDO
+
+   CALL p_wait
+
+
+   ! Now send the global index of the points we need from PE np
+   DO np = 0, p_n_work-1 ! loop over PEs where to send the data
+
+     IF (np == p_pe_work) CYCLE
+
+     irs = p_pat%recv_limits(np)+1 ! Start index in global_recv_index
+     ire = p_pat%recv_limits(np+1) ! End   index in global_recv_index
+
+     IF(num_rcv(np)>0) CALL p_isend(global_recv_index(irs), np, 1, &
+        p_count=ire-irs+1, comm=p_comm_work)
+
+   ENDDO
+
+   irs = p_pat%recv_limits(p_pe_work)+1   ! Start index in global_recv_index
+   ire = p_pat%recv_limits(p_pe_work+1)   ! End   index in global_recv_index
+
+   DEALLOCATE(num_rcv)
+   ! Allocate and set up the send_limits array
+   ALLOCATE(p_pat%send_limits(0:p_n_work))
+
+   p_pat%send_limits(0) = 0
+   DO nr = 0, p_n_work-1
+     p_pat%send_limits(nr+1) = p_pat%send_limits(nr) + icnt(nr)
+   ENDDO
+
+   ! The last entry in send_limits is the total number of points we receive
+
+   p_pat%n_send = p_pat%send_limits(p_n_work)
+
+   ! Allocate and set up the send_src array
+
+   ALLOCATE(send_src(p_pat%n_send))
+
+   DO nr = 0, p_n_work-1
+     num_send = p_pat%send_limits(nr+1) - p_pat%send_limits(nr)
+     iss = p_pat%send_limits(nr)+1 ! Start index in send_src
+     ise = p_pat%send_limits(nr+1) ! End   index in send_src
+     IF(nr /= p_pe_work) THEN
+       IF(num_send>0) CALL p_recv(send_src(iss), nr, 1, &
+         p_count=ise-iss+1, comm=p_comm_work)
+     ELSE
+       IF(num_send>0) send_src(iss:ise) = global_recv_index(irs:ire)
+     ENDIF
+   ENDDO
+
+   CALL p_wait
 
    ALLOCATE(p_pat%send_src_blk(p_pat%n_send))
    ALLOCATE(p_pat%send_src_idx(p_pat%n_send))
@@ -3619,3 +3631,5 @@ SUBROUTINE do_delayed_exchange()
 END SUBROUTINE do_delayed_exchange
 
 END MODULE mo_communication
+
+

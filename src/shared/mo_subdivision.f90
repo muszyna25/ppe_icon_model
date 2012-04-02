@@ -1,11 +1,3 @@
-#ifdef __xlC__
-@PROCESS nosmp
-@PROCESS NOOPTimize
-#endif
-
-! #ifdef __xlC__
-! @PROCESS HOT
-! #endif
 #ifdef __PGI
 !pgi$g opt=1
 #endif
@@ -3248,7 +3240,7 @@ CONTAINS
     ! (-1 for cells not in subset)
 
     INTEGER :: i, j, jl, jb, jl_v, jb_v, nc
-    REAL(wp), ALLOCATABLE :: cell_desc(:,:)
+    REAL(wp), ALLOCATABLE :: cell_desc(:,:), workspace(:,:)
     REAL(wp)              :: cclat, cclon
 
     !-----------------------------------------------------------------------
@@ -3350,12 +3342,14 @@ CONTAINS
 
     ENDDO
 
-    CALL divide_cells_by_location(nc, cell_desc, 0, n_proc-1)
+    ALLOCATE(workspace(4,nc))
+
+    CALL divide_cells_by_location(nc, cell_desc, workspace, 0, n_proc-1)
 
     ! After divide_cells_by_location the cells are sorted by owner,
     ! order them by original cell numbers again
 
-    CALL sort_array_by_row(cell_desc(:,1:nc), 3)
+    CALL sort_array_by_row(cell_desc(:,1:nc), workspace(:,1:nc), 3)
 
     ! Set owner list (of complete patch)
 
@@ -3369,7 +3363,7 @@ CONTAINS
       ENDIF
     ENDDO
 
-    DEALLOCATE(cell_desc)
+    DEALLOCATE(cell_desc, workspace)
 
   END SUBROUTINE divide_subset_geometric
 
@@ -3380,15 +3374,17 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Rainer Johanni, Nov 2009
   !!
-  RECURSIVE SUBROUTINE divide_cells_by_location(n_cells,cell_desc,cpu_a,cpu_b)
+  RECURSIVE SUBROUTINE divide_cells_by_location(n_cells,cell_desc,work,cpu_a,cpu_b)
 
     INTEGER, INTENT(in) :: n_cells, cpu_a, cpu_b
 
-    REAL(wp), INTENT(inout) :: cell_desc(4,n_cells)
+    REAL(wp), INTENT(inout) :: cell_desc(4,n_cells),work(4,n_cells)
     ! cell_desc(1,:)   lat
     ! cell_desc(2,:)   lon
     ! cell_desc(3,:)   cell number (for back-sorting at the end)
     ! cell_desc(4,:)   will be set with the owner
+    !
+    ! work contains workspace for sort_array_by_row to avoid local allocation there
 
     INTEGER cpu_m, n_cells_m
     REAL(wp) :: xmax(2), xmin(2)
@@ -3412,9 +3408,9 @@ CONTAINS
     ! and sort cells in this dimension
 
     IF(xmax(1)-xmin(1) >= xmax(2)-xmin(2)) THEN
-      CALL sort_array_by_row(cell_desc, 1)
+      CALL sort_array_by_row(cell_desc, work, 1)
     ELSE
-      CALL sort_array_by_row(cell_desc, 2)
+      CALL sort_array_by_row(cell_desc, work, 2)
     ENDIF
 
     ! CPU number where to split CPU set
@@ -3439,9 +3435,10 @@ CONTAINS
 
     ! Further divide both halves recursively
 
-    CALL divide_cells_by_location(n_cells_m,cell_desc(:,1:n_cells_m),cpu_a,cpu_m)
-    CALL divide_cells_by_location(n_cells-n_cells_m,&
-      & cell_desc(:,n_cells_m+1:n_cells),cpu_m+1,cpu_b)
+    CALL divide_cells_by_location(n_cells_m,cell_desc(:,1:n_cells_m),work(:,1:n_cells_m),&
+      cpu_a,cpu_m)
+    CALL divide_cells_by_location(n_cells-n_cells_m,cell_desc(:,n_cells_m+1:n_cells),&
+      work(:,n_cells_m+1:n_cells),cpu_m+1,cpu_b)
 
   END SUBROUTINE divide_cells_by_location
 
@@ -3453,16 +3450,16 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Rainer Johanni, Nov 2009
   !!
-  RECURSIVE SUBROUTINE sort_array_by_row(x,row)
+  RECURSIVE SUBROUTINE sort_array_by_row(x,y,row)
 
     !
 
     INTEGER, INTENT(in) :: row ! number of row for sorting
 
     REAL(wp), INTENT(inout) :: x(:,:) ! array to be sorted
+    REAL(wp), INTENT(inout) :: y(:,:) ! workspace
 
     REAL(wp) :: p
-    REAL(wp), ALLOCATABLE :: y(:,:)
     INTEGER :: n, ipiv, ix, iy, i
     !-----------------------------------------------------------------------
 
@@ -3470,33 +3467,29 @@ CONTAINS
 
     IF(n<=1) RETURN
 
-    ALLOCATE(y(SIZE(x,1),n))
-
     ipiv = (n+1)/2
     p = x(row,ipiv)
     ix = 0
     iy = 1
-    y(:,1) = x(:,ipiv) ! Store pivot
+    y(1:4,1) = x(1:4,ipiv) ! Store pivot
 
     DO i=1,n
       IF(i==ipiv) CYCLE
       IF(x(row,i) < p) THEN
         ix = ix+1
-        x(:,ix) = x(:,i)
+        x(1:4,ix) = x(1:4,i)
       ELSE
         iy = iy+1
-        y(:,iy) = x(:,i)
+        y(1:4,iy) = x(1:4,i)
       ENDIF
     ENDDO
 
-    x(:,ix+1:ix+iy) = y(:,1:iy)
+    x(1:4,ix+1:ix+iy) = y(1:4,1:iy)
 
     ipiv = ix+1 ! New pivot location
 
-    DEALLOCATE(y)
-
-    IF(ipiv>2)   CALL sort_array_by_row(x(:,:ipiv-1),row)
-    IF(ipiv<n-1) CALL sort_array_by_row(x(:,ipiv+1:),row)
+    IF(ipiv>2)   CALL sort_array_by_row(x(:,:ipiv-1),y(:,:ipiv-1),row)
+    IF(ipiv<n-1) CALL sort_array_by_row(x(:,ipiv+1:),y(:,ipiv+1:),row)
 
   END SUBROUTINE sort_array_by_row
 
@@ -3628,4 +3621,6 @@ CONTAINS
 #endif
 
 END MODULE mo_subdivision
+
+
 
