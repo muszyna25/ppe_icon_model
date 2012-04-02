@@ -60,7 +60,7 @@ MODULE mo_test_nh_communication
   USE mo_nonhydrostatic_config,ONLY: iadv_rcf, lhdiff_rcf, l_nest_rcf, itime_scheme
   USE mo_diffusion_config,     ONLY: diffusion_config
   USE mo_dynamics_config,      ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1, nsav2
-  USE mo_io_config,            ONLY: l_outputtime, l_diagtime, is_checkpoint_time,&
+  USE mo_io_config,            ONLY: l_outputtime, is_checkpoint_time,&
     &                                istime4output, no_output
   USE mo_parallel_config,      ONLY: nproma, itype_comm
   USE mo_run_config,           ONLY: ltestcase, dtime, dtime_adv, nsteps,     &
