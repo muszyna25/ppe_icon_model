@@ -54,7 +54,9 @@ USE mo_parallel_config,     ONLY: nproma
 USE mo_run_config,          ONLY: dtime, ltimer
 USE mo_timer,               ONLY: timer_start, timer_stop, timer_coupling
 USE mo_io_units,            ONLY: filename_max
-USE mo_mpi,                 ONLY: my_process_is_stdio
+USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast, &
+  &                               p_comm_work_test, p_comm_work
+USE mo_parallel_config,     ONLY: p_test_run
 !USE mo_util_string,         ONLY: t_keyword_list
 USE mo_util_netcdf,         ONLY: read_netcdf_data
 USE mo_datetime,            ONLY: t_datetime
@@ -1423,7 +1425,7 @@ CONTAINS
 
     LOGICAL :: l_exist
     INTEGER :: jg, i_lev, i_cell_type, no_cells, no_tst, jtime, jt !, jc, jb
-    INTEGER :: ncid, dimid
+    INTEGER :: ncid, dimid,mpi_comm
     INTEGER :: i_start(2),i_count(2), jcells
 
     REAL(wp):: z_flux(nproma,p_patch%nblks_c,iforc_len)  ! set length is iforc_len, 3rd dimension
@@ -1483,6 +1485,12 @@ CONTAINS
         ! check - s.b.
 
       ENDIF
+      IF(p_test_run) THEN
+        mpi_comm = p_comm_work_test
+      ELSE
+        mpi_comm = p_comm_work
+      ENDIF
+      CALL p_bcast(no_tst, p_io, mpi_comm)
 
       !-------------------------------------------------------
       !
