@@ -412,7 +412,7 @@ CONTAINS
     CHARACTER(len=*),               INTENT(IN) :: in_str
     CHARACTER(len=MAX_STRING_LEN)              :: out_str
     ! Local parameters
-    INTEGER :: kw_len, in_len, subs_len, pos, out_pos
+    INTEGER :: kw_len, in_len, subs_len, pos, out_pos, upper
     
     out_str = ""
     kw_len   = LEN_TRIM(keyword)
@@ -422,7 +422,8 @@ CONTAINS
     out_pos  = 1
     DO
       IF (pos > in_len) EXIT
-      IF (in_str(pos:(pos+kw_len-1)) == keyword) THEN
+      upper = MIN((pos+kw_len-1), in_len)
+      IF (in_str(pos:upper) == keyword) THEN
         pos     = pos + kw_len
         ! note: we don't call "finish" to avoid circular dep
         IF ((out_pos + subs_len) > MAX_STRING_LEN) &
