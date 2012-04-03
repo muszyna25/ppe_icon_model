@@ -573,8 +573,8 @@ MODULE mo_nh_stepping
     ENDIF
 
     IF ((global_cell_type == 6) .AND. l_supervise_total_integrals) THEN
-      CALL supervise_total_integrals_nh(jstep, p_patch(1:), p_nh_state,     &
-                                       & nnow(1:n_dom),  nnow_rcf(1:n_dom))
+      CALL supervise_total_integrals_nh( kstep, p_patch(1:), p_nh_state,     &
+           &                             nnow(1:n_dom),  nnow_rcf(1:n_dom) )
     ENDIF
 
 
