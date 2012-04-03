@@ -57,7 +57,6 @@ MODULE mo_name_list_output
   USE mo_mpi,                   ONLY: process_mpi_io_size, num_work_procs, p_n_work
   ! Processor numbers
   USE mo_mpi,                   ONLY: p_pe, p_pe_work, p_work_pe0, p_io_pe0
-  USE mo_communication,         ONLY: blk_no, idx_no
   USE mo_model_domain,          ONLY: p_patch, p_phys_patch
   USE mo_parallel_config,       ONLY: nproma, p_test_run
   USE mo_vertical_coord_table,  ONLY: vct
@@ -68,19 +67,17 @@ MODULE mo_name_list_output
   USE mo_lnd_nwp_config,        ONLY: nlev_snow
   USE mo_datetime,              ONLY: t_datetime
   USE mo_lonlat_grid,           ONLY: t_lon_lat_grid
-  USE mo_intp_data_strc,        ONLY: t_lon_lat_intp, p_int_state,            &
+  USE mo_intp_data_strc,        ONLY: t_lon_lat_intp,                         &
     &                                 t_lon_lat_data, get_free_lonlat_grid,   &
     &                                 lonlat_grid_list, n_lonlat_grids
   USE mo_master_nml,            ONLY: model_base_dir
   USE mo_ocean_nml,             ONLY: n_zlev
   USE mo_oce_state,             ONLY: set_zlev
 
-  USE mo_util_string,           ONLY: toupper, &
-    &                                 t_keyword_list, associate_keyword, &
+  USE mo_util_string,           ONLY: toupper, t_keyword_list, associate_keyword, &
     &                                 with_keywords, MAX_STRING_LEN
 
   USE mo_communication,         ONLY: exchange_data, t_comm_pattern, idx_no, blk_no
-  USE mo_interpol_config,       ONLY: rbf_vec_dim_c, rbf_vec_dim_v, rbf_vec_dim_e, rbf_c2grad_dim
   USE mo_nonhydrostatic_config, ONLY: iadv_rcf
   USE mo_name_list_output_config, ONLY: name_list_output_active, &
   &                                     use_async_name_list_io,  &
