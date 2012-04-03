@@ -45,7 +45,7 @@ MODULE mo_albedo
   USE mo_kind,                 ONLY: wp
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_model_domain,         ONLY: t_patch
-  USE mo_nwp_lnd_state,        ONLY: t_lnd_prog, t_lnd_diag
+  USE mo_nwp_lnd_types,        ONLY: t_lnd_prog, t_lnd_diag
   USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config

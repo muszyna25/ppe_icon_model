@@ -44,7 +44,7 @@ USE mo_grid_config,         ONLY: n_dom, n_dom_start
 USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state_local_parent
 USE mo_grf_intp_data_strc,  ONLY: t_gridref_state, t_gridref_single_state, p_grf_state_local_parent
 USE mo_nwp_phy_state,       ONLY: t_nwp_phy_diag
-USE mo_nwp_lnd_state,       ONLY: t_lnd_prog, t_lnd_diag
+USE mo_nwp_lnd_types,       ONLY: t_lnd_prog
 USE mo_grf_bdyintp,         ONLY: interpol_scal_grf
 USE mo_grf_nudgintp,        ONLY: interpol_scal_nudging
 USE mo_parallel_config,     ONLY: nproma, p_test_run

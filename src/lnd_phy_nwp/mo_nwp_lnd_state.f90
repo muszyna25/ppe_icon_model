@@ -30,6 +30,8 @@
 !!
 !! @par Revision History
 !! Initial  by Kristina Froehlich (2010-11-09)
+!! Modification by Daniel Reinert, DWD (2012-04-03)
+!! - encapsulated type definitions (mo_nwp_lnd_types)
 !!
 !! @par Copyright
 !! 2002-2009 by DWD and MPI-M
@@ -63,11 +65,12 @@ MODULE mo_nwp_lnd_state
   USE mo_kind,                 ONLY: wp
   USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH
   USE mo_parallel_config,      ONLY: nproma
+  USE mo_nwp_lnd_types,        ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag 
   USE mo_exception,            ONLY: message, finish
   USE mo_model_domain,         ONLY: t_patch
   USE mo_grid_config,          ONLY: n_dom
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
-  USE mo_lnd_nwp_config,       ONLY: nlev_soil,nlev_snow, nsfc_subs, &
+  USE mo_lnd_nwp_config,       ONLY: nlev_soil, nlev_snow, nsfc_subs, &
     &                                lmulti_snow
   USE mo_linked_list,          ONLY: t_var_list
   USE mo_var_list,             ONLY: default_var_list_settings, &
@@ -96,101 +99,12 @@ MODULE mo_nwp_lnd_state
 
   !
   !variables
-  PUBLIC :: t_lnd_state  !> state vector for land scheme
-  PUBLIC :: t_lnd_prog   !!       for prognostic variables
-  PUBLIC :: t_lnd_diag   !!       for diagnostic variables
-#ifdef HAVE_F95
-  PUBLIC :: t_ptr_lnd
-#endif
   PUBLIC :: p_lnd_state  !> state vector (variable) for land scheme
 
 
-  TYPE t_ptr_lnd
-    REAL(wp),POINTER :: p_3d(:,:,:) ! pointer to 3D (spatial) array
-    REAL(wp),POINTER :: p_2d(:,:)   ! pointer to 2D (spatial) array
-  END TYPE t_ptr_lnd
-
-  !
-  ! prognostic variables state vector
-  !
-  TYPE t_lnd_prog
-
-    REAL(wp), POINTER :: &
-    &  t_snow       (:,:,:)   , & ! temperature of the snow-surface               (  K  )
-    &  t_snow_mult  (:,:,:,:) , & ! temperature of the snow-surface               (  K  )
-    &  t_s          (:,:,:)   , & ! temperature of the ground surface             (  K  )
-    &  t_g          (:,:)     , & ! weighted surface temperature                  (  K  )
-    &  t_gt         (:,:,:)   , & ! weighted surface temperature on tiles         (  K  )
-    &  w_snow       (:,:,:)   , & ! water content of snow                         (m H2O)
-    &  rho_snow     (:,:,:)   , & ! snow density                                  (kg/m**3)
-    &  rho_snow_mult(:,:,:,:) , & ! snow density                                  (kg/m**3)
-    &  w_i          (:,:,:)   , & ! water content of interception water           (m H2O)
-    &  t_so         (:,:,:,:) , & ! soil temperature (main level)                 (  K  )
-    &  w_so         (:,:,:,:) , & ! total water content (ice + liquid water)      (m H20)
-    &  w_so_ice     (:,:,:,:) , & ! ice content                                   (m H20)
-    &  wliq_snow    (:,:,:,:) , & ! liquid water content in the snow              (m H2O)
-    &  wtot_snow    (:,:,:,:) , & ! total (liquid + solid) water content of snow  (m H2O)
-    &  dzh_snow     (:,:,:,:)     ! layer thickness between half levels in snow   (  m  )
-
-    TYPE(t_ptr_lnd), ALLOCATABLE :: t_snow_ptr(:)
-    TYPE(t_ptr_lnd), ALLOCATABLE :: t_snow_mult_ptr(:)
-    TYPE(t_ptr_lnd), ALLOCATABLE :: t_s_ptr(:)
-    TYPE(t_ptr_lnd), ALLOCATABLE :: t_gt_ptr(:) 
-    TYPE(t_ptr_lnd), ALLOCATABLE :: w_snow_ptr(:) 
-    TYPE(t_ptr_lnd), ALLOCATABLE :: rho_snow_ptr(:)
-    TYPE(t_ptr_lnd), ALLOCATABLE :: rho_snow_mult_ptr(:)
-    TYPE(t_ptr_lnd), ALLOCATABLE :: w_i_ptr(:)
-    TYPE(t_ptr_lnd), ALLOCATABLE :: t_so_ptr(:)
-    TYPE(t_ptr_lnd), ALLOCATABLE :: w_so_ptr(:)
-    TYPE(t_ptr_lnd), ALLOCATABLE :: w_so_ice_ptr(:)
-    TYPE(t_ptr_lnd), ALLOCATABLE :: wliq_snow_ptr(:)
-    TYPE(t_ptr_lnd), ALLOCATABLE :: wtot_snow_ptr(:)
-    TYPE(t_ptr_lnd), ALLOCATABLE :: dzh_snow_ptr(:)
-
-  END TYPE t_lnd_prog
-
-
-  !
-  ! diagnostic variables state vector
-  !
-  TYPE t_lnd_diag
-
-    REAL(wp), POINTER ::   &
-    &  qv_s     (:,:)     , & ! specific humidity at the surface             (kg/kg)
-    &  qv_st    (:,:,:)   , & ! specific humidity at the surface             (kg/kg)
-    &  h_snow   (:,:,:)   , & ! snow height                                  (  m  ) 
-    &  freshsnow(:,:,:)   , & ! indicator for age of snow in top of snow layer(  -  )
-    &  runoff_s (:,:,:)   , & ! surface water runoff; sum over forecast      (kg/m2)
-    &  runoff_g (:,:,:)   , & ! soil water runoff; sum over forecast         (kg/m2)
-    &  fr_seaice(:,:)     , & !< fraction of sea ice                         ( )   
-                              !< as partition of total area of the
-                              !< grid element, but set to 0 or 1
-                              !< index1=1,nproma, index2=1,nblks_c
-    &  subsfrac (:,:,:)
-
-    TYPE(t_ptr_lnd), ALLOCATABLE :: qv_st_ptr(:)
-    TYPE(t_ptr_lnd), ALLOCATABLE :: h_snow_ptr(:)
-    TYPE(t_ptr_lnd), ALLOCATABLE :: freshsnow_ptr(:)
-    TYPE(t_ptr_lnd), ALLOCATABLE :: runoff_s_ptr(:)
-    TYPE(t_ptr_lnd), ALLOCATABLE :: runoff_g_ptr(:)
-    TYPE(t_ptr_lnd), ALLOCATABLE :: subsfrac_ptr(:)
-
-  END TYPE t_lnd_diag
-
 ! complete state vector
-
-
-!-------------------------------------------------------------------------
-!                      STATE VECTORS AND LISTS
-!-------------------------------------------------------------------------
-  TYPE t_lnd_state
-    TYPE(t_lnd_prog), ALLOCATABLE  :: prog_lnd(:)          ! number of time levels
-    TYPE(t_var_list), ALLOCATABLE  :: lnd_prog_nwp_list(:) ! number of time levels
-    TYPE(t_lnd_diag)               :: diag_lnd
-    TYPE(t_var_list)               :: lnd_diag_nwp_list
-  END TYPE t_lnd_state
- 
-  TYPE(t_lnd_state),TARGET,ALLOCATABLE :: p_lnd_state(:) 
+!
+  TYPE(t_lnd_state), TARGET, ALLOCATABLE :: p_lnd_state(:) 
 
   CONTAINS
 

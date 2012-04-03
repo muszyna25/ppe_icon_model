@@ -171,7 +171,8 @@ MODULE mo_io_vlist
   USE mo_sea_ice,                ONLY: t_sfc_flx, v_sfc_flx, t_sea_ice, v_sea_ice
   USE mo_icoham_dyn_memory,     ONLY: p_hydro_state
   USE mo_nonhydro_state,        ONLY: p_nh_state
-  USE mo_nwp_lnd_state,         ONLY: p_lnd_state, t_lnd_prog, t_lnd_diag
+  USE mo_nwp_lnd_types,         ONLY: t_lnd_prog, t_lnd_diag
+  USE mo_nwp_lnd_state,         ONLY: p_lnd_state
   USE mo_nwp_phy_state,         ONLY: prm_diag, prm_nwp_tend !, t_nwp_phy_diag
   USE mo_ext_data_state,        ONLY: ext_data
   USE mo_echam_phy_memory,      ONLY: prm_field, prm_tend

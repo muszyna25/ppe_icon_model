@@ -75,8 +75,6 @@ MODULE mo_test_nh_communication
   USE mo_nwp_phy_init,        ONLY: init_nwp_phy
   USE mo_nwp_phy_state,       ONLY: prm_diag, prm_nwp_tend, phy_params
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, p_tiles
-  USE mo_nwp_lnd_state,       ONLY: p_lnd_state
-  USE mo_ext_data_state,      ONLY: ext_data
   USE mo_model_domain,        ONLY: t_patch
   USE mo_grid_config,         ONLY: n_dom, lfeedback, ifeedback_type, l_limited_area, &
     &                               n_dom_start, lredgrid_phys

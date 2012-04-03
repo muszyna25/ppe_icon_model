@@ -230,7 +230,7 @@ MODULE mo_ext_data_types
 
 
     ! *** radiation parameters ***
-    REAL(wp), POINTER ::   &   !< ozone mixing ratio                         [ ]
+    REAL(wp), POINTER ::   &   !< ozone mixing ratio                        [ kg kg^-1 ]
       &  o3(:,:,:)             ! index1=1,nproma, index2=nlev,index3=1,nblks_c
 
   END TYPE t_external_atmos

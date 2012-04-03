@@ -50,7 +50,7 @@ MODULE mo_nwp_rrtm_interface
   USE mo_kind,                 ONLY: wp
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_lrtm_par,             ONLY: jpband => nbndlw
-  USE mo_nwp_lnd_state,        ONLY: t_lnd_prog
+  USE mo_nwp_lnd_types,        ONLY: t_lnd_prog
   USE mo_model_domain,         ONLY: t_patch, p_patch_local_parent
   USE mo_mpi,                  ONLY: my_process_is_mpi_seq
   USE mo_phys_nest_utilities,  ONLY: upscale_rad_input, downscale_rad_output, &
