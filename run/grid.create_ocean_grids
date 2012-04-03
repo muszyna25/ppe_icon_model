@@ -1,4 +1,4 @@
-# #!/bin/ksh
+#!/bin/ksh
 #=============================================================================
 #
 # Leonidas Linardakis   MPI-M,   2009-12 
@@ -228,6 +228,12 @@ create_ocean_grid()
   # absolute paths of directories
   GRIDDIR=${basedir}/grids            # graphs, grids and patches
   EXTDDIR=${basedir}/data/external     # external directory for topography file
+  #-----------------------------------------------------------------------------
+  if [ ! -d $GRIDDIR ]; then
+#     echo $GRIDDIR does nor exists
+#     exit
+    mkdir -p $GRIDDIR
+  fi
   cd $GRIDDIR
   #-----------------------------------------------------------------------------
 
