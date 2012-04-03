@@ -42,8 +42,7 @@ MODULE mo_nwp_rrtm_interface
   USE mo_exception,            ONLY: message,  finish, message_text
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_parallel_config,      ONLY: nproma, p_test_run
-  USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi, &
-    &                                io3, ntracer, ntracer_static
+  USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi
   USE mo_grf_intp_data_strc,   ONLY: t_gridref_state
   USE mo_impl_constants,       ONLY: min_rlcell_int, icc, io3_ape!, min_rlcell 
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c, grf_ovlparea_start_c
@@ -56,7 +55,7 @@ MODULE mo_nwp_rrtm_interface
   USE mo_mpi,                  ONLY: my_process_is_mpi_seq
   USE mo_phys_nest_utilities,  ONLY: upscale_rad_input, downscale_rad_output, &
     &                                upscale_rad_input_rg, downscale_rad_output_rg
-  USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag
+  USE mo_nonhydro_types,       ONLY: t_nh_diag
   USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag
   USE mo_o3_util,              ONLY: calc_o3_clim, calc_o3_gems
   USE mo_radiation,            ONLY: radiation, pre_radiation_nwp_steps
@@ -97,7 +96,7 @@ CONTAINS
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
   SUBROUTINE nwp_rrtm_ozon_aerosol ( p_sim_time, datetime, pt_patch, ext_data, &
-    & pt_prog_rcf,pt_diag,prm_diag,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5 )
+    & pt_diag,prm_diag,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5 )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
 !      &  routine = 'mo_nwp_rad_interface:'
@@ -106,9 +105,7 @@ CONTAINS
 
     TYPE(t_datetime),            INTENT(in) :: datetime
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
-    TYPE(t_external_data),       INTENT(in) :: ext_data
-    TYPE(t_nh_prog), TARGET, INTENT(inout)  :: pt_prog_rcf !<the prognostic variables (with
-    !< reduced calling frequency for tracers!
+    TYPE(t_external_data),       INTENT(inout) :: ext_data
     TYPE(t_nh_diag), TARGET, INTENT(in)  :: pt_diag     !<the diagnostic variables
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
 
@@ -188,7 +185,7 @@ CONTAINS
         & zvio3      = prm_diag%vio3,                & !inout
         & zhmo3      = prm_diag%hmo3  )                !inout
     CASE (7)
-      CALL calc_o3_gems(pt_patch,datetime,pt_diag,pt_prog_rcf)
+      CALL calc_o3_gems(pt_patch,datetime,pt_diag,ext_data)
     END SELECT
 
     IF ( irad_aero == 6 ) CALL month2hour (datetime, imo1, imo2, zw )
@@ -279,7 +276,7 @@ CONTAINS
         DO jk = 1,nlev
           ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
           DO jc = 1,i_endidx
-            pt_prog_rcf%tracer(jc,jk,jb,io3) = zduo3(jc,jk,jb)/pt_diag%dpres_mc(jc,jk,jb)
+            ext_data%atm%o3(jc,jk,jb) = zduo3(jc,jk,jb)/pt_diag%dpres_mc(jc,jk,jb)
           ENDDO
         ENDDO
 
@@ -369,7 +366,7 @@ CONTAINS
         DO jk = 1,nlev
           ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
           DO jc = 1,i_endidx
-            pt_prog_rcf%tracer(jc,jk,jb,io3) = zduo3(jc,jk,jb)/pt_diag%dpres_mc(jc,jk,jb)
+            ext_data%atm%o3(jc,jk,jb) = zduo3(jc,jk,jb)/pt_diag%dpres_mc(jc,jk,jb)
           ENDDO
         ENDDO
 
@@ -400,7 +397,7 @@ CONTAINS
         DO jk = 1,nlev
           ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
           DO jc = 1,i_endidx
-            pt_prog_rcf%tracer(jc,jk,jb,io3) = zduo3(jc,jk,jb)/pt_diag%dpres_mc(jc,jk,jb)
+            ext_data%atm%o3(jc,jk,jb) = zduo3(jc,jk,jb)/pt_diag%dpres_mc(jc,jk,jb)
           ENDDO
         ENDDO
         zaeq1(1:i_endidx,:,jb) = 0.0_wp
@@ -561,8 +558,7 @@ CONTAINS
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
   SUBROUTINE nwp_rrtm_radiation ( p_sim_time,pt_patch, &
-    & ext_data,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,pt_prog_rcf,pt_diag,prm_diag, &
-    & lnd_prog )
+    & ext_data,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,pt_diag,prm_diag,lnd_prog )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
 !      &  routine = 'mo_nwp_rad_interface:'
@@ -582,8 +578,6 @@ CONTAINS
       & zaeq4(nproma,pt_patch%nlev,pt_patch%nblks_c), &
       & zaeq5(nproma,pt_patch%nlev,pt_patch%nblks_c)
     
-    TYPE(t_nh_prog), TARGET, INTENT(inout)  :: pt_prog_rcf !<the prognostic variables (with
-    !< reduced calling frequency for tracers!
     TYPE(t_nh_diag), TARGET, INTENT(in)  :: pt_diag     !<the diagnostic variables
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
     TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog
@@ -710,7 +704,7 @@ CONTAINS
         & qm_vap     =prm_diag%tot_cld  (:,:,jb,iqv) ,&!< in  water vapor mass mix ratio at t-dt
         & qm_liq     =prm_diag%tot_cld  (:,:,jb,iqc) ,&!< in cloud water mass mix ratio at t-dt
         & qm_ice     =prm_diag%tot_cld  (:,:,jb,iqi) ,&!< in cloud ice mass mixing ratio at t-dt
-        & qm_o3      =pt_prog_rcf%tracer(:,:,jb,io3) ,&!< in o3 mass mixing ratio at t-dt
+        & qm_o3      =ext_data%atm%o3   (:,:,jb)     ,&!< in o3 mass mixing ratio at t-dt
         & cdnc       =prm_diag%acdnc    (:,:,jb)     ,&!< in  cloud droplet numb conc. [1/m**3]
         & cld_frc    =prm_diag%tot_cld  (:,:,jb,icc) ,&!< in  cloud fraction [m2/m2]
         & zaeq1      = zaeq1(:,:,jb)                 ,&!< in aerosol continental
@@ -745,7 +739,7 @@ CONTAINS
   !!
   SUBROUTINE nwp_rrtm_radiation_reduced ( p_sim_time,pt_patch,pt_par_patch,               &
     & pt_par_int_state, pt_par_grf_state,ext_data,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5, &
-    & pt_prog_rcf,pt_diag,prm_diag,lnd_prog )
+    & pt_diag,prm_diag,lnd_prog )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
 !      &  routine = 'mo_nwp_rad_interface:'
@@ -766,8 +760,7 @@ CONTAINS
       & zaeq3(nproma,pt_patch%nlev,pt_patch%nblks_c), &
       & zaeq4(nproma,pt_patch%nlev,pt_patch%nblks_c), &
       & zaeq5(nproma,pt_patch%nlev,pt_patch%nblks_c)    
-    TYPE(t_nh_prog), TARGET, INTENT(inout)  :: pt_prog_rcf !<the prognostic variables (with
-    !< reduced calling frequency for tracers!
+
     TYPE(t_nh_diag), TARGET,    INTENT(inout):: pt_diag     !<the diagnostic variables
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
     TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog
@@ -964,7 +957,7 @@ CONTAINS
         & prm_diag%cosmu0, albvisdir, albnirdir, prm_diag%albvisdif,    &
         & albnirdif, prm_diag%tsfctrad, pt_diag%pres_ifc,               &
         & pt_diag%pres, pt_diag%temp,prm_diag%acdnc, prm_diag%tot_cld,  &
-        & pt_prog_rcf%tracer(:,:,:,io3),                                &
+        & ext_data%atm%o3(:,:,:),                                       &
         & zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,                            &
         & zrg_fr_land, zrg_fr_glac, zrg_emis_rad,                       &
         & zrg_cosmu0, zrg_albvisdir, zrg_albnirdir, zrg_albvisdif,      &

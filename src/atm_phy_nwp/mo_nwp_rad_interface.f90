@@ -43,8 +43,7 @@ MODULE mo_nwp_rad_interface
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_parallel_config,      ONLY: nproma, p_test_run, parallel_radiation_omp
 
-  USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi, &
-    &                                io3, ntracer, ntracer_static
+  USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi
   USE mo_grf_intp_data_strc,   ONLY: t_gridref_state
   USE mo_impl_constants,       ONLY: min_rlcell_int, icc, io3_ape!, min_rlcell 
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c, grf_ovlparea_start_c
@@ -93,7 +92,7 @@ MODULE mo_nwp_rad_interface
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
   SUBROUTINE nwp_radiation ( lredgrid, p_sim_time, datetime, pt_patch,pt_par_patch, &
-    & pt_par_int_state,pt_par_grf_state,ext_data,lnd_diag,pt_prog,pt_prog_rcf,pt_diag,prm_diag, &
+    & pt_par_int_state,pt_par_grf_state,ext_data,lnd_diag,pt_prog,pt_diag,prm_diag, &
     & lnd_prog )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
@@ -108,11 +107,9 @@ MODULE mo_nwp_rad_interface
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_par_patch !<grid/patch info (parent grid)
     TYPE(t_int_state),    TARGET,INTENT(in):: pt_par_int_state  !< " for parent grid
     TYPE(t_gridref_state),TARGET,INTENT(in) :: pt_par_grf_state  !< grid refinement state
-    TYPE(t_external_data),INTENT(in):: ext_data
+    TYPE(t_external_data),INTENT(inout):: ext_data
     TYPE(t_lnd_diag),     INTENT(in):: lnd_diag      !< diag vars for sfc
     TYPE(t_nh_prog), TARGET, INTENT(inout)  :: pt_prog     !<the prognostic variables
-    TYPE(t_nh_prog), TARGET, INTENT(inout)  :: pt_prog_rcf !<the prognostic variables (with
-    !< reduced calling frequency for tracers!
     TYPE(t_nh_diag), TARGET, INTENT(inout)  :: pt_diag     !<the diagnostic variables
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
     TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog
@@ -136,17 +133,17 @@ MODULE mo_nwp_rad_interface
     IF (atm_phy_nwp_config(jg)%inwp_radiation == 1 ) THEN
        
       CALL nwp_rrtm_ozon_aerosol ( p_sim_time, datetime, pt_patch, ext_data, &
-        & pt_prog_rcf,pt_diag,prm_diag,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5 )
+        & pt_diag,prm_diag,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5 )
     
       IF ( .NOT. lredgrid ) THEN
 
         IF (parallel_radiation_omp) THEN
           CALL nwp_omp_rrtm_interface ( p_sim_time,pt_patch, &
-            & ext_data, lnd_diag, pt_prog_rcf, pt_diag, prm_diag, lnd_prog )
+            & ext_data, lnd_diag, pt_diag, prm_diag, lnd_prog )
         ELSE
           CALL nwp_rrtm_radiation ( p_sim_time,pt_patch, &
             & ext_data,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,    &
-            & pt_prog_rcf, pt_diag, prm_diag, lnd_prog   )
+            & pt_diag, prm_diag, lnd_prog   )
         ENDIF
     
       ELSE 
@@ -154,7 +151,7 @@ MODULE mo_nwp_rad_interface
         CALL nwp_rrtm_radiation_reduced ( p_sim_time,pt_patch,pt_par_patch,  &
           & pt_par_int_state, pt_par_grf_state,ext_data,                     &
           & zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,                                   &
-          & pt_prog_rcf,pt_diag,prm_diag, lnd_prog )
+          & pt_diag,prm_diag, lnd_prog )
           
       ENDIF
 
@@ -165,14 +162,14 @@ MODULE mo_nwp_rad_interface
     IF ( atm_phy_nwp_config(jg)%inwp_radiation == 2 .AND. .NOT. lredgrid) THEN
     
       CALL nwp_rg_radiation ( p_sim_time, datetime, pt_patch, &
-        & ext_data,pt_prog,pt_prog_rcf,pt_diag,prm_diag, lnd_prog )
+        & ext_data,pt_prog,pt_diag,prm_diag, lnd_prog )
 
 
     ELSEIF ( atm_phy_nwp_config(jg)%inwp_radiation == 2 .AND. lredgrid) THEN
 
       CALL nwp_rg_radiation_reduced ( p_sim_time, datetime, pt_patch,pt_par_patch, &
-        & pt_par_int_state, pt_par_grf_state,ext_data,pt_prog,pt_prog_rcf,         &  
-        & pt_diag,prm_diag, lnd_prog )
+        & pt_par_int_state, pt_par_grf_state,ext_data,pt_prog, pt_diag, prm_diag,  &
+        & lnd_prog )
 
 
     ENDIF !inwp_radiation = 2
@@ -188,7 +185,7 @@ MODULE mo_nwp_rad_interface
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
   SUBROUTINE nwp_rg_radiation ( p_sim_time, datetime, pt_patch, &
-    & ext_data,pt_prog,pt_prog_rcf,pt_diag,prm_diag,lnd_prog )
+    & ext_data,pt_prog,pt_diag,prm_diag,lnd_prog )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
 !      &  routine = 'mo_nwp_rad_interface:'
@@ -203,10 +200,8 @@ MODULE mo_nwp_rad_interface
     
     TYPE(t_datetime),            INTENT(in) :: datetime
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
-    TYPE(t_external_data),INTENT(in):: ext_data
+    TYPE(t_external_data)  , INTENT(inout)  :: ext_data
     TYPE(t_nh_prog), TARGET, INTENT(inout)  :: pt_prog     !<the prognostic variables
-    TYPE(t_nh_prog), TARGET, INTENT(inout)  :: pt_prog_rcf !<the prognostic variables (with
-    !< reduced calling frequency for tracers!
     TYPE(t_nh_diag), TARGET, INTENT(inout)  :: pt_diag     !<the diagnostic variables
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
     TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog
@@ -253,7 +248,7 @@ MODULE mo_nwp_rad_interface
     zqco2 = 0.5014E-03_wp*vmr_co2/330.e-6_wp
 
     CALL nwp_rg_ozon_aerosol ( p_sim_time, datetime, pt_patch, ext_data, &
-      & pt_prog_rcf,pt_diag,prm_diag,zduo3,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5 )
+      & pt_diag,prm_diag,zduo3,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5 )
     
     ! Calculation of zenith angle optimal during dt_rad.
     ! (For radheat, actual zenith angle is calculated separately.)
@@ -325,7 +320,7 @@ MODULE mo_nwp_rad_interface
         & pti = pt_diag%temp_ifc (:,:,jb) , &! Temperature at layer boundaries
         & pdp = pt_diag%dpres_mc (:,:,jb), &! pressure thickness
         & pclc_in= prm_diag%tot_cld  (:,:,jb,icc) , &
-        & pqv = prm_diag%tot_cld(:,:,jb,iqv), &! pt_prog_rcf%tracer(:,:,jb,iqv)
+        & pqv = prm_diag%tot_cld(:,:,jb,iqv), &
         & pqvs = zsqv(:,:,jb), &!saturation water vapor
         & pqcwc = prm_diag%tot_cld    (:,:,jb,iqc) ,&
         & pqiwc = prm_diag%tot_cld    (:,:,jb,iqi) ,&
@@ -382,7 +377,7 @@ MODULE mo_nwp_rad_interface
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
   SUBROUTINE nwp_rg_radiation_reduced ( p_sim_time, datetime, pt_patch,pt_par_patch, &
-    & pt_par_int_state, pt_par_grf_state,ext_data,pt_prog,pt_prog_rcf,pt_diag,prm_diag, &
+    & pt_par_int_state, pt_par_grf_state,ext_data,pt_prog,pt_diag,prm_diag, &
     & lnd_prog )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
@@ -399,12 +394,10 @@ MODULE mo_nwp_rad_interface
     TYPE(t_datetime),            INTENT(in) :: datetime 
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_par_patch !<grid/patch info (parent grid)
-    TYPE(t_int_state),    TARGET,INTENT(in):: pt_par_int_state  !< " for parent grid
+    TYPE(t_int_state),    TARGET,INTENT(in) :: pt_par_int_state  !< " for parent grid
     TYPE(t_gridref_state),TARGET,INTENT(in) :: pt_par_grf_state  !< grid refinement state
-    TYPE(t_external_data),INTENT(in):: ext_data
+    TYPE(t_external_data)       ,INTENT(inout):: ext_data
     TYPE(t_nh_prog), TARGET, INTENT(inout)  :: pt_prog     !<the prognostic variables
-    TYPE(t_nh_prog), TARGET, INTENT(inout)  :: pt_prog_rcf !<the prognostic variables (with
-    !< reduced calling frequency for tracers!
     TYPE(t_nh_diag), TARGET, INTENT(inout)  :: pt_diag     !<the diagnostic variables
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
     TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog
@@ -489,7 +482,7 @@ MODULE mo_nwp_rad_interface
     zqco2 = 0.5014E-03_wp*vmr_co2/330.e-6_wp
 
     CALL nwp_rg_ozon_aerosol ( p_sim_time, datetime, pt_patch, ext_data, &
-      & pt_prog_rcf,pt_diag,prm_diag,zduo3,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5 )
+      & pt_diag,prm_diag,zduo3,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5 )
 
     ! Calculation of zenith angle optimal during dt_rad.
     ! (For radheat, actual zenith angle is calculated separately.)
@@ -661,7 +654,7 @@ MODULE mo_nwp_rad_interface
         & pti = zrg_temp_ifc (:,:,jb) , &! Temperature at layer boundaries
         & pdp = zrg_dpres_mc (:,:,jb), &! pressure thickness
         & pclc_in= zrg_tot_cld  (:,:,jb,icc) , &
-        & pqv = zrg_tot_cld(:,:,jb,iqv), &! pt_prog_rcf%tracer(:,:,jb,iqv)
+        & pqv = zrg_tot_cld(:,:,jb,iqv), &
         & pqvs = zrg_sqv(:,:,jb), &!saturation water vapor
         & pqcwc = zrg_tot_cld    (:,:,jb,iqc) ,&
         & pqiwc = zrg_tot_cld    (:,:,jb,iqi) ,&
@@ -769,7 +762,7 @@ MODULE mo_nwp_rad_interface
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-09-22)
   !!
   SUBROUTINE nwp_rg_ozon_aerosol ( p_sim_time, datetime, pt_patch, ext_data, &
-    & pt_prog_rcf,pt_diag,prm_diag,zduo3,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5 )
+    & pt_diag,prm_diag,zduo3,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5 )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
 !      &  routine = 'mo_nwp_rad_interface:'
@@ -778,9 +771,7 @@ MODULE mo_nwp_rad_interface
 
     TYPE(t_datetime),            INTENT(in) :: datetime
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info
-    TYPE(t_external_data),       INTENT(in) :: ext_data
-    TYPE(t_nh_prog), TARGET, INTENT(inout)  :: pt_prog_rcf !<the prognostic variables (with
-    !< reduced calling frequency for tracers!
+    TYPE(t_external_data),       INTENT(inout) :: ext_data
     TYPE(t_nh_diag), TARGET, INTENT(in)  :: pt_diag     !<the diagnostic variables
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
 
@@ -868,7 +859,7 @@ MODULE mo_nwp_rad_interface
         & zvio3      = prm_diag%vio3,                &
         & zhmo3      = prm_diag%hmo3  )
     CASE (7)
-      CALL calc_o3_gems(pt_patch,datetime,pt_diag,pt_prog_rcf)
+      CALL calc_o3_gems(pt_patch,datetime,pt_diag,ext_data)
     END SELECT
 
     IF ( irad_aero == 6 ) CALL month2hour (datetime, imo1, imo2, zw )
@@ -949,13 +940,11 @@ MODULE mo_nwp_rad_interface
             zo3_top (jc,jb) = zo3_bot (jc,jb)
           ENDDO
         ENDDO
-        IF (ntracer + ntracer_static >= io3) THEN
-          DO jk = 1,nlev
-            DO jc = i_startidx,i_endidx
-              pt_prog_rcf%tracer(jc,jk,jb,io3) = zduo3(jc,jk,jb)/pt_diag%dpres_mc(jc,jk,jb)
-            ENDDO
+        DO jk = 1,nlev
+          DO jc = i_startidx,i_endidx
+            ext_data%atm%o3(jc,jk,jb) = zduo3(jc,jk,jb)/pt_diag%dpres_mc(jc,jk,jb)
           ENDDO
-        ENDIF
+        ENDDO
       ELSEIF ( irad_o3 == 6 .AND. irad_aero == 6 ) THEN
         
         DO jc = i_startidx,i_endidx
@@ -1043,7 +1032,7 @@ MODULE mo_nwp_rad_interface
             ! store previous bottom values in arrays for top of next layer
             zo3_top (jc,jb) = zo3_bot (jc,jb)
 
-            pt_prog_rcf%tracer(jc,jk,jb,io3) = zduo3(jc,jk,jb)/pt_diag%dpres_mc(jc,jk,jb)
+            ext_data%atm%o3(jc,jk,jb) = zduo3(jc,jk,jb)/pt_diag%dpres_mc(jc,jk,jb)
             
           ENDDO
         ENDDO
@@ -1069,13 +1058,12 @@ MODULE mo_nwp_rad_interface
             zo3_top (jc,jb) = zo3_bot (jc,jb)
           ENDDO
         ENDDO
-        IF (ntracer + ntracer_static >= io3) THEN
-          DO jk = 1,nlev
-            DO jc = i_startidx,i_endidx
-              pt_prog_rcf%tracer(jc,jk,jb,io3) = zduo3(jc,jk,jb)/pt_diag%dpres_mc(jc,jk,jb)
-            ENDDO
+        DO jk = 1,nlev
+          DO jc = i_startidx,i_endidx
+            ext_data%atm%o3(jc,jk,jb) = zduo3(jc,jk,jb)/pt_diag%dpres_mc(jc,jk,jb)
           ENDDO
-        ENDIF
+        ENDDO
+
         zaeq1(i_startidx:i_endidx,:,jb) = 0.0_wp
         zaeq2(i_startidx:i_endidx,:,jb) = 0.0_wp
         zaeq3(i_startidx:i_endidx,:,jb) = 0.0_wp
@@ -1139,17 +1127,11 @@ MODULE mo_nwp_rad_interface
           ENDDO
         ENDDO
 
-        IF (ntracer + ntracer_static >= io3) THEN
-          DO jk = 1,nlev
-            DO jc = i_startidx,i_endidx
-              zduo3(jc,jk,jb) = pt_prog_rcf%tracer(jc,jk,jb,io3) * pt_diag%dpres_mc(jc,jk,jb)
-            ENDDO
+        DO jk = 1,nlev
+          DO jc = i_startidx,i_endidx
+            zduo3(jc,jk,jb) = ext_data%atm%o3(jc,jk,jb) * pt_diag%dpres_mc(jc,jk,jb)
           ENDDO
-        ELSE
-          DO jk = 1,nlev
-            zduo3(i_startidx:i_endidx,jk,jb) = 0.0_wp
-          ENDDO
-        ENDIF
+        ENDDO
       ELSEIF (irad_aero == 6 ) THEN !aerosols, but other ozone:
 
         DO jc = i_startidx,i_endidx
@@ -1228,24 +1210,18 @@ MODULE mo_nwp_rad_interface
           ENDDO
         ENDDO
 
-        IF (ntracer + ntracer_static >= io3) THEN
-          DO jk = 1,nlev
-            DO jc = i_startidx,i_endidx
-              zduo3(jc,jk,jb) = pt_prog_rcf%tracer(jc,jk,jb,io3) * pt_diag%dpres_mc(jc,jk,jb)
-            ENDDO
+        DO jk = 1,nlev
+          DO jc = i_startidx,i_endidx
+            zduo3(jc,jk,jb) = ext_data%atm%o3(jc,jk,jb) * pt_diag%dpres_mc(jc,jk,jb)
           ENDDO
-        ELSE
-          DO jk = 1,nlev
-            zduo3(i_startidx:i_endidx,jk,jb) = 0.0_wp
-          ENDDO
-        ENDIF
+        ENDDO
         
         
       ELSEIF (irad_o3 /= 0) THEN !no aerosols and other ozone
         
         DO jk = 1,nlev
           DO jc = i_startidx,i_endidx
-            zduo3(jc,jk,jb) = pt_prog_rcf%tracer(jc,jk,jb,io3) * pt_diag%dpres_mc(jc,jk,jb)
+            zduo3(jc,jk,jb) = ext_data%atm%o3(jc,jk,jb) * pt_diag%dpres_mc(jc,jk,jb)
             zaeq1(jc,jk,jb) = 0.0_wp
             zaeq2(jc,jk,jb) = 0.0_wp
             zaeq3(jc,jk,jb) = 0.0_wp

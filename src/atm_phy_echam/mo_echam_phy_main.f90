@@ -50,7 +50,7 @@ MODULE mo_echam_phy_main
   USE mo_physical_constants,  ONLY: grav
   USE mo_impl_constants,      ONLY: io3_clim, io3_ape
   USE mo_run_config,          ONLY: ntracer, nlev, nlevp1,           &
-    &                               iqv, iqc, iqi, io3, iqt, ltimer
+    &                               iqv, iqc, iqi, iqt, ltimer
   USE mo_vertical_coord_table,ONLY: nlevm1
   USE mo_ext_data_state,      ONLY: ext_data, nlev_o3, nmonths
   USE mo_ext_data_types,      ONLY: t_external_atmos_td

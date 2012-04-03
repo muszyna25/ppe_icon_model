@@ -51,10 +51,10 @@ MODULE mo_o3_util
   USE mo_math_constants,       ONLY: pi,deg2rad,rad2deg
   USE mo_model_domain,         ONLY: t_patch
   USE mo_nh_vert_interp,       ONLY: prepare_lin_intp, lin_intp
-  USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag
+  USE mo_nonhydro_types,       ONLY: t_nh_diag
+  USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_o3_gems_data,         ONLY: rghg7
   USE mo_physical_constants,   ONLY: amd,amo3
-  USE mo_run_config,           ONLY: io3
   
   IMPLICIT NONE
 
@@ -882,7 +882,7 @@ END SUBROUTINE o3_timeint
   !! @par Revision History
   !! Initial Release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-10-18)
   !!
-  SUBROUTINE calc_o3_gems(pt_patch,datetime,p_diag,p_prog)
+  SUBROUTINE calc_o3_gems(pt_patch,datetime,p_diag,ext_data)
 
     CHARACTER(len=*), PARAMETER :: routine =  'calc_o3_gems'
 
@@ -928,7 +928,7 @@ END SUBROUTINE o3_timeint
     TYPE(t_datetime),   INTENT(in) :: datetime
     TYPE(t_nh_diag),    INTENT(in) :: p_diag  !!the diagostic variables
 
-    TYPE(t_nh_prog),    INTENT(inout) :: p_prog  !!the prognostic variables
+    TYPE(t_external_data), INTENT(inout) :: ext_data  !!the external data state
 
     ! local fields
     INTEGER  :: idx0(nproma,pt_patch%nlev,pt_patch%nblks_c)
@@ -1107,7 +1107,7 @@ END SUBROUTINE o3_timeint
 
       DO jk = 1,pt_patch%nlev
         DO jc = i_startidx,i_endidx
-          p_prog%tracer(jc,jk,jb,io3)=(ZVIOZO(jc,jk)-ZVIOZO(jc,jk-1)) / p_diag%dpres_mc(jc,jk,jb)
+          ext_data%atm%o3(jc,jk,jb)=(ZVIOZO(jc,jk)-ZVIOZO(jc,jk-1)) / p_diag%dpres_mc(jc,jk,jb)
         ENDDO
       ENDDO
 

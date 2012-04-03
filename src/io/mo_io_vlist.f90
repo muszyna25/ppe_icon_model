@@ -145,7 +145,7 @@ MODULE mo_io_vlist
     &                                 ntracer, ltransport, nsteps, dtime,         &
     &                                 dtime_adv, ldynamics, ltestcase,            &
     &                                 lvert_nest, msg_level, iqv, iqc, iqi,       &
-    &                                 nqtendphy, ntracer_static, io3
+    &                                 nqtendphy
   USE mo_grid_config,           ONLY: global_cell_type
   USE mo_echam_phy_config
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
@@ -171,9 +171,9 @@ MODULE mo_io_vlist
   USE mo_sea_ice,                ONLY: t_sfc_flx, v_sfc_flx, t_sea_ice, v_sea_ice
   USE mo_icoham_dyn_memory,     ONLY: p_hydro_state
   USE mo_nonhydro_state,        ONLY: p_nh_state
-  USE mo_nwp_lnd_state,         ONLY: p_lnd_state
+  USE mo_nwp_lnd_state,         ONLY: p_lnd_state, t_lnd_prog, t_lnd_diag
   USE mo_nwp_phy_state,         ONLY: prm_diag, prm_nwp_tend !, t_nwp_phy_diag
-  USE mo_nwp_lnd_state,         ONLY: t_lnd_prog, t_lnd_diag
+  USE mo_ext_data_state,        ONLY: ext_data
   USE mo_echam_phy_memory,      ONLY: prm_field, prm_tend
   USE mo_icoham_sfc_indices,    ONLY: nsfc_type
   USE mo_radiation_config,      ONLY: izenith, irad_h2o,                          &
@@ -2895,7 +2895,7 @@ CONTAINS
 
       IF ( irad_o3 == 4 .OR. irad_o3 == 6 .OR. irad_o3 == 7 ) THEN
         IF(varname == 'O3') THEN
-          ptr3 => p_prog_rcf%tracer(:,:,:,io3)
+          ptr3 => ext_data(jg)%atm%o3(:,:,:)
           RETURN
         ENDIF
       END IF

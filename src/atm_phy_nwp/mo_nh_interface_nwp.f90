@@ -67,7 +67,7 @@ MODULE mo_nh_interface_nwp
   USE mo_intp_data_strc,     ONLY: t_int_state
   USE mo_nonhydro_types,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nonhydrostatic_config, ONLY: kstart_moist, l_open_ubc, lhdiff_rcf
-  USE mo_nwp_lnd_state,      ONLY: t_lnd_prog, t_lnd_diag !, t_lnd_state
+  USE mo_nwp_lnd_state,      ONLY: t_lnd_prog, t_lnd_diag
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_nwp_phy_state,      ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_parallel_config,    ONLY: nproma, p_test_run
@@ -148,7 +148,7 @@ CONTAINS
     TYPE(t_gridref_state),TARGET,INTENT(IN):: pt_par_grf_state  !< grid refinement state
 
     TYPE(t_nh_metrics)   ,       INTENT(in):: p_metrics
-    TYPE(t_external_data),       INTENT(in):: ext_data
+    TYPE(t_external_data),       INTENT(inout):: ext_data
 
     TYPE(t_nh_diag), TARGET, INTENT(inout) :: pt_diag     !<the diagnostic variables
     TYPE(t_nh_prog), TARGET, INTENT(inout) :: pt_prog     !<the prognostic variables
@@ -803,7 +803,7 @@ CONTAINS
            &              pt_par_grf_state,      & ! in
            &              ext_data,              & ! in
            &              lnd_diag,              & ! in
-           &              pt_prog,pt_prog_rcf,   & ! inout
+           &              pt_prog,               & ! inout
            &              pt_diag,prm_diag,      & ! inout
            &              lnd_prog_new           ) ! in
       IF (ltimer) CALL timer_stop(timer_nwp_radiation)

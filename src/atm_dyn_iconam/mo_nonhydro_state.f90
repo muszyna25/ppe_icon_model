@@ -67,9 +67,8 @@ MODULE mo_nonhydro_state
   USE mo_dynamics_config,      ONLY: nsav1, nsav2
   USE mo_parallel_config,      ONLY: nproma
   USE mo_run_config,           ONLY: iforcing, ntracer, ntracer_static,    &
-    &                                iqv, iqc, iqi, iqr, iqs, io3,         &
+    &                                iqv, iqc, iqi, iqr, iqs,              &
     &                                nqtendphy
-  USE mo_radiation_config,     ONLY: irad_o3
   USE mo_io_config,            ONLY: lwrite_extra, inextra_2d, inextra_3d
   USE mo_nh_pzlev_config,      ONLY: nh_pzlev_config
   USE mo_advection_config,     ONLY: t_advection_config, advection_config
@@ -535,7 +534,7 @@ MODULE mo_nonhydro_state
       ! Reference to individual tracer, for I/O and setting of additional metadata
       ! Note that for qv, qc, qi, qr, qs the corresponding indices iqv, iqc, iqi, 
       ! iqr, iqs are hardcoded. For additional tracers, indices need to be set via 
-      ! add_tracer_ref (see e.g. O3). 
+      ! add_tracer_ref. 
      
 
         ktracer=ntracer+ntracer_static
@@ -635,22 +634,6 @@ MODULE mo_nonhydro_state
                     &             lower_limit=0._wp  )  )
 
 
-
-        IF( irad_o3 == 4 .OR. irad_o3 == 6 .OR. irad_o3 == 7 ) THEN
-
-           !O3
-          CALL add_ref( p_prog_list, 'tracer',                               &
-            & TRIM(vname_prefix)//'O3'//suffix, p_prog%tracer_ptr(io3)%p_3d, &
-            & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                          &
-            & t_cf_var(TRIM(vname_prefix)//'O3',                             &
-            &  'kg kg-1','ozone_mass_mixing_ratio'),                         &
-            & t_grib2_var(0, 14, 1, ientr, GRID_REFERENCE, GRID_CELL),       &
-            & ldims=shape3d_c,                                               &
-            & tlev_source=0,     &              ! output from nnow_rcf slice
-            & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
-            &             ihadv_tracer=advconf%ihadv_tracer(io3),            &
-            &             ivadv_tracer=advconf%ivadv_tracer(io3)) )
-        ENDIF
 
         ! tke            p_prog%tke(nproma,nlevp1,nblks_c)
         cf_desc    = t_cf_var('turbulent_kinetic_energy', 'm2 s-2', 'turbulent kinetic energy')

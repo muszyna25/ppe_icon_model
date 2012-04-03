@@ -65,7 +65,7 @@ MODULE mo_nml_crosscheck
   USE mo_parallel_config,    ONLY: check_parallel_configuration,              &
     &                              num_io_procs, itype_comm
   USE mo_run_config,         ONLY: lrestore_states, nsteps, dtime, iforcing,  &
-    &                              ltransport, ntracer, nlev, io3, ltestcase, &
+    &                              ltransport, ntracer, nlev, ltestcase,      &
     &                              nqtendphy, ntracer_static, iqv, iqc, iqi,  &
     &                              iqs, iqr, iqt, ico2, ltimer,               &
     &                              activate_sync_timers, timers_level
@@ -494,9 +494,8 @@ CONTAINS
       iqv    = 1     !> water vapour
       iqc    = 2     !! cloud water
       iqi    = 3     !! ice
-      io3    = 5     !! O3
-      ico2   = 6     !! CO2
-      iqt    = 4     !! starting index of non-water species 
+      ico2   = 4     !! CO2
+      iqt    = 5     !! starting index of non-water species 
       nqtendphy = 0  !! number of water species for which convective and turbulent 
                      !! tendencies are stored
 
@@ -518,7 +517,6 @@ CONTAINS
       iqi    = 3     !! ice
       iqr    = 4     !! rain water
       iqs    = 5     !! snow
-      io3    = 6     !! O3
 
       ! Note: Indices for additional tracers are assigned automatically 
       ! via add_tracer_ref in mo_nonhydro_state.
@@ -532,16 +530,16 @@ CONTAINS
       iqv    = 1     !> water vapour
       iqc    = 2     !! cloud water
       iqi    = 3     !! ice
-      io3    = 5     !! O3
-      ico2   = 6     !! CO2
+      ico2   = 5     !! CO2
       iqt    = 4     !! starting index of non-water species
       nqtendphy = 0  !! number of water species for which convective and turbulent 
                      !! tendencies are stored
 
     END SELECT
 
-
-    ntracer_static = 0  !! Total number of non-advected (static) tracers
+    ! Total number of non-advected (static) tracers
+    !
+    ntracer_static = 0
 
     IF (ltransport) THEN
     DO jg = 1,n_dom
@@ -565,51 +563,6 @@ CONTAINS
         ENDIF
 
 
-        ! set total number of non-advected (static) tracers
-        !
-        SELECT CASE (atm_phy_nwp_config(jg)%inwp_radiation)
-        CASE (0)
-
-        CASE (1)
-          ntracer_static = 1
-
-          WRITE(message_text,'(a)') &
-            &  'In addition, there is one static tracer for O3'
-          CALL message(TRIM(routine),message_text)
-
-        CASE (2)
-          SELECT CASE (irad_o3)
-          CASE (0)
-
-          CASE (4,6,7)
-            ntracer_static = 1
-          
-            WRITE(message_text,'(a)') &
-              &  'In addition, there is one static tracer for O3'
-            CALL message(TRIM(routine),message_text)           
-
-          END SELECT  ! irad_o3
-        END SELECT  ! atm_phy_nwp_config(jg)%inwp_radiation
-
-
-
-        IF ( ( atm_phy_nwp_config(jg)%inwp_radiation > 0 )      &
-          &  .AND. ( irad_o3 == 0 .OR. irad_o3 == 6 .OR. irad_o3 == 7 ) )    THEN
-          IF ( advection_config(jg)%ihadv_tracer(io3) /= 0 ) THEN
-            advection_config(jg)%ihadv_tracer(io3) = 0
-            WRITE(message_text,'(a,i1,a)') &
-              & 'Attention: Since irad_o3 is set to ',irad_o3,', ihadv_tracer(io3) is set to 0.'
-            CALL message(TRIM(routine),message_text)
-          ENDIF
-          IF ( advection_config(jg)%ivadv_tracer(io3) /= 0 ) THEN
-            advection_config(jg)%ivadv_tracer(io3) = 0
-            WRITE(message_text,'(a,i1,a)') &
-              & 'Attention: Since irad_o3 is set to ',irad_o3,', ivadv_tracer(io3) is set to 0.'
-            CALL message(TRIM(routine),message_text)
-          ENDIF
-        ENDIF
-
-
       CASE (inoforcing, iheldsuarez, iecham, ildf_dry, ildf_echam)
       !...........................................................
       ! Other types of adiabatic forcing
@@ -620,14 +573,6 @@ CONTAINS
           CALL message(TRIM(routine),'number of tracers is adjusted according to given list')
         END IF
 
-        IF ((iforcing==IECHAM).AND.(echam_phy_config%lrad).AND. &
-            (irad_o3 > 0) .AND. (io3 > ntracer) ) THEN
-
-          CALL print_value('irad_o3' ,irad_o3)
-          CALL print_value('io3    ' ,io3)
-          CALL print_value('ntracer' ,ntracer)
-!          CALL finish(TRIM(routine), 'Not enough tracers for ECHAM physics with RRTM.')
-        END IF
       
         IF ((iforcing==IECHAM).AND.(echam_phy_config%lrad)) THEN
           IF ( izenith > 4)  &

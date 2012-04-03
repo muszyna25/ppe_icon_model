@@ -550,12 +550,14 @@ CONTAINS
 
     INTEGER :: jg
 
+    INTEGER :: nlev          !< number of vertical levels
+
     INTEGER :: nblks_c, &    !< number of cell blocks to allocate
       &        nblks_e, &    !< number of edge blocks to allocate
       &        nblks_v       !< number of vertex blocks to allocate
 
     INTEGER :: shape2d_c(2), shape2d_e(2), shape2d_v(2)
-    INTEGER :: shape3d_sfc(3), shape3d_nt(3)
+    INTEGER :: shape3d_c(3), shape3d_sfc(3), shape3d_nt(3)
 
     INTEGER :: ientr         !< "entropy" of horizontal slice
     !--------------------------------------------------------------
@@ -569,12 +571,16 @@ CONTAINS
     jg = p_patch%id
     ientr = 16   ! "entropy" of horizontal slice
 
+    ! number of vertical levels
+    nlev = p_patch%nlev
+
     ! predefined array shapes
     shape2d_c  = (/ nproma, nblks_c /)
     shape2d_e  = (/ nproma, nblks_e /)
     shape2d_v  = (/ nproma, nblks_v /)
+    shape3d_c  = (/ nproma,    nlev, nblks_c       /)
     shape3d_sfc= (/ nproma, nblks_c, nclass_lu(jg) /) 
-    shape3d_nt = (/ nproma, nblks_c, nsfc_subs /) 
+    shape3d_nt = (/ nproma, nblks_c, nsfc_subs     /) 
 
 
     !
@@ -596,6 +602,16 @@ CONTAINS
     CALL add_var( p_ext_atm_list, 'topography_c', p_ext_atm%topography_c,  &
       &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc,          &
       &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
+
+    ! ozone mixing ratio
+    !
+    ! o3            p_ext_atm%o3(nproma,nlev,nblks_c)
+    cf_desc    = t_cf_var('ozone mixing ratio', 'kg kg-1', &
+      &                   'ozone mixing ratio')
+    grib2_desc = t_grib2_var( 0, 14, 1, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_ext_atm_list, 'o3', p_ext_atm%o3,                      &
+      &           GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc,           &
+      &           grib2_desc, ldims=shape3d_c, loutput=.TRUE. )
 
 
   SELECT CASE ( iequations )

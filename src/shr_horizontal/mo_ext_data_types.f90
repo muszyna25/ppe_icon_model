@@ -229,6 +229,10 @@ MODULE mo_ext_data_types
       & lc_frac_t(:,:,:)      ! index1=1,nproma, index2=1,nblks_c, index3=nsfc_subs
 
 
+    ! *** radiation parameters ***
+    REAL(wp), POINTER ::   &   !< ozone mixing ratio                         [ ]
+      &  o3(:,:,:)             ! index1=1,nproma, index2=nlev,index3=1,nblks_c
+
   END TYPE t_external_atmos
 
 
@@ -248,7 +252,7 @@ MODULE mo_ext_data_types
   TYPE :: t_external_atmos_td
 
     ! *** radiation parameters ***
-    REAL(wp), POINTER ::   &   !< aerosol optical thickness of black carbon    [ ]
+    REAL(wp), POINTER ::   &   !< ozone mixing ratio    [ ]
       &  o3(:,:,:,:)           ! index1=1,nproma, index2=nlev_o3,
                                ! index3=1,nblks_c, index4=1,ntimes
 

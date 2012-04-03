@@ -40,8 +40,7 @@ MODULE mo_nwp_mpiomp_rrtm_interface
   USE mo_exception,            ONLY: message,  finish !message_tex
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_parallel_config,      ONLY: nproma, p_test_run, test_parallel_radiation
-  USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi, &
-    &                                io3, ntracer, ntracer_static
+  USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi
   USE mo_grf_intp_data_strc,   ONLY: t_gridref_state
   USE mo_impl_constants,       ONLY: min_rlcell_int, icc!, min_rlcell 
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c, grf_ovlparea_start_c
@@ -55,7 +54,7 @@ MODULE mo_nwp_mpiomp_rrtm_interface
     &                                csalb_snow_fe, csalb_snow_fd, csalb_p, cf_snow
   USE mo_phys_nest_utilities,  ONLY: upscale_rad_input, downscale_rad_output, &
     &                                upscale_rad_input_rg, downscale_rad_output_rg
-  USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag
+  USE mo_nonhydro_types,       ONLY: t_nh_diag
   USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag !,prm_diag
   USE mo_radiation,            ONLY: radiation, pre_radiation_nwp_steps
   USE mo_radiation_config,     ONLY: irad_o3, irad_aero, vmr_co2, rad_csalbw
@@ -98,7 +97,6 @@ MODULE mo_nwp_mpiomp_rrtm_interface
     TYPE(t_patch),        POINTER :: pt_patch     !<grid/patch info.
     TYPE(t_external_data),POINTER :: ext_data
     TYPE(t_lnd_diag),     POINTER :: lnd_diag      !< diag vars for sfc
-    TYPE(t_nh_prog),      POINTER :: pt_prog_rcf !<the prognostic variables (with
     TYPE(t_nh_diag),      POINTER :: pt_diag     !<the diagnostic variables
     TYPE(t_nwp_phy_diag), POINTER :: prm_diag
     TYPE(t_lnd_prog),     POINTER :: lnd_prog_now
@@ -355,7 +353,7 @@ CONTAINS
     omp_radiation_data%pres(:,:,:)      = omp_radiation_data%pt_diag%pres(:,:,:)
     omp_radiation_data%temp(:,:,:)      = omp_radiation_data%pt_diag%temp(:,:,:)
     omp_radiation_data%tot_cld(:,:,:,:) = omp_radiation_data%prm_diag%tot_cld(:,:,:,:)
-    omp_radiation_data%qm_o3(:,:,:)     = omp_radiation_data%pt_prog_rcf%tracer(:,:,:,io3)
+    omp_radiation_data%qm_o3(:,:,:)     = omp_radiation_data%ext_data%atm%o3(:,:,:)
     omp_radiation_data%acdnc(:,:,:)     = omp_radiation_data%prm_diag%acdnc(:,:,:)
 !$OMP END PARALLEL WORKSHARE
     wait_cnt=model_barrier()
@@ -488,8 +486,7 @@ CONTAINS
   !---------------------------------------------------------------------------------------
   !>
   SUBROUTINE nwp_omp_rrtm_interface ( p_sim_time,pt_patch, &
-    & ext_data,lnd_diag,pt_prog_rcf,pt_diag,prm_diag, &
-    & lnd_prog_now )
+    & ext_data,lnd_diag,pt_diag,prm_diag,lnd_prog_now )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
 !      &  routine = 'mo_nwp_rad_interface:'
@@ -499,7 +496,6 @@ CONTAINS
     TYPE(t_patch),        TARGET, INTENT(in)    :: pt_patch     !<grid/patch info.
     TYPE(t_external_data),TARGET, INTENT(in)    :: ext_data
     TYPE(t_lnd_diag),     TARGET, INTENT(in)    :: lnd_diag    !< diag vars for sfc
-    TYPE(t_nh_prog),      TARGET, INTENT(inout) :: pt_prog_rcf !<the prognostic variables (with
     TYPE(t_nh_diag),      TARGET, INTENT(in)    :: pt_diag     !<the diagnostic variables
     TYPE(t_nwp_phy_diag), TARGET, INTENT(inout) :: prm_diag
     TYPE(t_lnd_prog),     TARGET, INTENT(inout) :: lnd_prog_now
@@ -513,7 +509,6 @@ CONTAINS
       omp_radiation_data%pt_patch => pt_patch
       omp_radiation_data%ext_data =>  ext_data
       omp_radiation_data%lnd_diag =>  lnd_diag
-      omp_radiation_data%pt_prog_rcf  =>  pt_prog_rcf
       omp_radiation_data%pt_diag =>  pt_diag
       omp_radiation_data%prm_diag =>  prm_diag
       omp_radiation_data%lnd_prog_now =>  lnd_prog_now

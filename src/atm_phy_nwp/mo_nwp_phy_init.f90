@@ -52,7 +52,7 @@ MODULE mo_nwp_phy_init
   USE mo_impl_constants,      ONLY: min_rlcell, zml_soil,io3_ape
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: ltestcase, iqv, iqc, io3, msg_level
+  USE mo_run_config,          ONLY: ltestcase, iqv, iqc, msg_level
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   !radiation
   USE mo_newcld_optics,       ONLY: setup_newcld_optics
@@ -407,8 +407,8 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
           & phoz = ext_data%atm_td%phoz(:),              &! in o3-levs
           & ppf = p_diag%pres (:,:,jb),                  &! in  pres
           & pph = p_diag%pres_ifc(:,:,jb),               &! in  pres_halfl
-          & o3_time_int = ext_data%atm_td%o3(:,:,jb,nmonths),     &! in 
-          & o3_clim     = p_prog%tracer(:,:,jb,io3) )     ! OUT
+          & o3_time_int = ext_data%atm_td%o3(:,:,jb,nmonths),     &! in
+          & o3_clim     = ext_data%atm%o3(:,:,jb) )         ! OUT 
         
       ENDIF
 
@@ -523,8 +523,8 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
           & phoz = ext_data%atm_td%phoz(:),              &! in o3-levs
           & ppf = p_diag%pres (:,:,jb),                  &! in  pres
           & pph = p_diag%pres_ifc(:,:,jb),               &! in  pres_halfl
-          & o3_time_int = ext_data%atm_td%o3(:,:,jb,nmonths),     &! in 
-          & o3_clim     = p_prog%tracer(:,:,jb,io3) )     ! OUT
+          & o3_time_int = ext_data%atm_td%o3(:,:,jb,nmonths),     &! in
+          & o3_clim     = ext_data%atm%o3(:,:,jb) )         ! OUT 
 
       ENDDO !jb
 !$OMP END DO
