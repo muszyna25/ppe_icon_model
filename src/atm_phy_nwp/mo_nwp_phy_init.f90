@@ -131,7 +131,7 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
   TYPE(t_nh_prog),      TARGET,INTENT(inout) :: p_prog_now !!the prognostic variables
   TYPE(t_nh_prog),      TARGET,INTENT(inout) :: p_prog  !!the prognostic variables
   TYPE(t_nh_diag),      TARGET,INTENT(inout) :: p_diag  !!the diagostic variables
-  TYPE(t_external_data),       INTENT(in)    :: ext_data
+  TYPE(t_external_data),       INTENT(inout) :: ext_data
   TYPE(t_nwp_phy_diag),        INTENT(inout) :: prm_diag
   TYPE(t_nwp_phy_tend), TARGET,INTENT(inout) :: prm_nwp_tend
   TYPE(t_lnd_prog),            INTENT(inout) :: p_prog_lnd_now, p_prog_lnd_new
