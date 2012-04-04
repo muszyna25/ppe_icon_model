@@ -299,6 +299,13 @@ create_ocean_grid()
   LSMDEPTH=${LSMDEPTH:=0.0}
   SEADEPTH=${SEADEPTH:=0.0}
   MINDEPTH=${MINDEPTH:=${LSMDEPTH}}
+  patch_shape=${patch_shape:=0}
+  rectangle_xradious=${rectangle_xradious:=0.0}
+  rectangle_yradious=${rectangle_yradious:=0.0}
+  circle_radious=${circle_radious:=0.0}
+  patch_center_x=${patch_center_x:=0.0}
+  patch_center_y=${patch_center_y:=0.0}
+  #-----------------------------------------------------------------------------
 
   #-----------------------------------------------------------------------------
   # namelist
