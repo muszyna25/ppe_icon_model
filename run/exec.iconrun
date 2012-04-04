@@ -423,7 +423,7 @@ check_error $? "${MODEL} does not exist?"
 #
 cd ${EXPDIR}
 
-rm -f finish_status
+rm -f finish.status
 #
 #if [ x$target = "xblizzard" ] ; then
 #  run_model
