@@ -299,6 +299,9 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
          &  sai=prm_diag%sai(:,jb), h_ice=prm_diag%h_ice (:,jb), &
 !         
          &  ps=p_diag%pres_sfc(:,jb), t_g=lnd_prog_now%t_g(:,jb), qv_s=lnd_diag%qv_s(:,jb), &
+!amk
+         &  w_snow=lnd_prog_now%w_snow(:,jb,1), &
+!xxx
 !           
          &  u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb), w=p_prog%w(:,:,jb), T=p_diag%temp(:,:,jb), &
          &  qv=p_prog_rcf%tracer(:,:,jb,iqv), qc=p_prog_rcf%tracer(:,:,jb,iqc), &

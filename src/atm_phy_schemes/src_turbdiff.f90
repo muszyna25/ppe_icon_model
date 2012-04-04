@@ -652,6 +652,9 @@ SUBROUTINE organize_turbdiff (action,iini,lstfnct, dt_var,dt_tke, nprv,ntur,ntim
           d_pat, c_big, c_sml, r_air, &
 !    
           h_ice, ps, t_g, qv_s, &
+!amk
+          w_snow, &
+!xxx
           u, v, w, t, qv, qc, prs, rho, epr, &
 !    
           gz0, tcm, tch, tfm, tfh, tfv, &
@@ -814,7 +817,10 @@ REAL (KIND=ireals), DIMENSION(ie,je), INTENT(IN) :: &
     h_ice,        & ! ice thickness                                 (  m  )
     ps,           & ! surface pressure                              ( pa  )
     t_g,          & ! weighted surface temperature                  (  k  )
-    qv_s            ! specific water vapor content on the surface   (kg/kg)
+    qv_s,         & ! specific water vapor content on the surface   (kg/kg)
+!amk
+    w_snow          ! snow water equivalent depth                   (  m  )
+!xxx
 
  REAL (KIND=ireals), DIMENSION(ie,je,ke), TARGET, INTENT(INOUT) :: &
 !
@@ -1451,6 +1457,9 @@ SUBROUTINE turbtran(dt_tke)
 !     Platzh. fuer Hoehendifferenzen und Laengaenskalen:
 !   
            dh,l_turb,lh,lm,z0d,z_surf,len1,len2, &
+!amk
+           z_surf_h, &
+!xxx
            dz_sg_m, dz_sg_h, dz_g0_m, dz_g0_h, &
            dz_s0_m, dz_sa_m, &
            h_2m, h_10m, a_top, a_atm, a_2m, a_10m, &
@@ -1479,6 +1488,9 @@ SUBROUTINE turbtran(dt_tke)
         h_atm_2d (ie,je),    &
 !
         z0m_2d   (ie,je),    &
+!amk
+        z0h_2d   (ie,je),    &
+!xxx
         z0d_2d   (ie,je),    &
         z2m_2d   (ie,je),    &
         z10m_2d  (ie,je),    &
@@ -1720,6 +1732,14 @@ SUBROUTINE turbtran(dt_tke)
             ! Rauhigkeitslaenge
             z0m_2d(i,j) = gz0(i,j)/grav
             z_surf      = z0m_2d(i,j)/sai(i,j)
+!amk
+            if ( w_snow(i,j) > 0.015 ) then
+              z0h_2d(i,j) = 0.0001
+            else
+              z0h_2d(i,j) = z0m_2d(i,j)
+            endif
+            z_surf_h    = z0h_2d(i,j)/sai(i,j)
+!xxx
 
             ! turbulente Laengenskala 
             l_tur_z0(i,j) = akt*z0m_2d(i,j) 
@@ -1741,12 +1761,16 @@ SUBROUTINE turbtran(dt_tke)
 
 !           Berechnung der effektiven Widerstandslaenge der L-Schicht:
             dz_sg_m=rlam_mom*z_surf
-            dz_sg_h=fakt*rlam_heat*z_surf*(rat_h/rat_m)
+!xmk
+            dz_sg_h=fakt*rlam_heat*z_surf_h*(rat_h/rat_m)
+!xxx
 
 !           Berechnung weiterer effektiver Widerstandslaengen fuer Skalare:
 
 !           Bestandesschicht ohne lam. Grenzschicht:
-            dz_g0_h=z_surf*LOG(rat_m)
+!xmk
+            dz_g0_h=z_surf_h*LOG(rat_m)
+!xxx
 
 !           Bestandesschicht inclusive lam. Grenzschicht:
             dz_s0_h(i,j)=dz_sg_h+dz_g0_h
@@ -1779,16 +1803,18 @@ SUBROUTINE turbtran(dt_tke)
                dz_0a_m(i,j)=z0m_2d(i,j)*LOG(a_atm/(z0m_2d(i,j)+fac_m*h_atm_2d(i,j)))/(z1-fac_m)
             END IF
 
-            rat_h=(tkvh(i,j,ke)*z0m_2d(i,j))/(tkvh(i,j,ke1)*a_top)
+!xmk
+            rat_h=(tkvh(i,j,ke)*z0h_2d(i,j))/(tkvh(i,j,ke1)*a_top)
             rat_h_2d(i,j)=MIN( z2, MAX( z1d2, rat_h ) )
 
-            fac_h_2d(i,j)=(rat_h_2d(i,j)-z1)*z0m_2d(i,j)/h_top_2d(i,j)
+            fac_h_2d(i,j)=(rat_h_2d(i,j)-z1)*z0h_2d(i,j)/h_top_2d(i,j)
             IF (fac_h_2d(i,j).EQ.z1) THEN
-               dz_0a_h(i,j)=z0m_2d(i,j)*h_atm_2d(i,j)/a_atm
+               dz_0a_h(i,j)=z0h_2d(i,j)*h_atm_2d(i,j)/a_atm
             ELSE
-               dz_0a_h(i,j)=z0m_2d(i,j)*LOG(a_atm/(z0m_2d(i,j)+fac_h_2d(i,j)*h_atm_2d(i,j))) &
+               dz_0a_h(i,j)=z0h_2d(i,j)*LOG(a_atm/(z0h_2d(i,j)+fac_h_2d(i,j)*h_atm_2d(i,j))) &
                                       /(z1-fac_h_2d(i,j))
             END IF
+!xxx
 
 !           von den Oberflaechen bis zum Oberrand der Prandtl-Schicht
 !           (unterste Modell-Hauptflaeche):
@@ -3805,7 +3831,7 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
             END IF   
 
             IF (itype_sher.EQ.2) THEN
-               !Korrektur durch 3D Scherung der mittleren Strömung:
+               !Korrektur durch 3D Scherung der mittleren Stroemung:
 
                !Vertikale Scherungskorrektur:
                DO j = jstart, jend
