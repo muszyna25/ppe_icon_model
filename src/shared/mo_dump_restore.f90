@@ -199,7 +199,8 @@ MODULE mo_dump_restore
 
   PRIVATE
 
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
+  CHARACTER(LEN=*), PARAMETER :: version = &
+    &  '$Id$'
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_dump_restore'
 
   !modules interface-------------------------------------------
