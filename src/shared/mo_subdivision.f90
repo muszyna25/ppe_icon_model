@@ -262,7 +262,7 @@ CONTAINS
       &    "halo grid points    " /)
 
     ! Local variables:
-    INTEGER :: jg, jgp, jc, jgc, comm, n, &
+    INTEGER :: jg, jgp, jc, jgc, n, &
       &        l1, i_nchdom, n_procs_decomp
     INTEGER :: nprocs(p_patch_global(1)%n_childdom)
     INTEGER, ALLOCATABLE :: cell_owner(:), cell_owner_p(:)

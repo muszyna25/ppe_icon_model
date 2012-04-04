@@ -55,6 +55,7 @@ MODULE mo_run_nml
                          & config_check_epsilon   => check_epsilon,   &
                          & config_testbed_mode    => testbed_mode,    &
                          & config_dump_filename   => dump_filename,   &
+                         & config_lonlat_dump_filename => lonlat_dump_filename, &
                          & config_dd_filename     => dd_filename
 
   USE mo_kind,           ONLY: wp
@@ -121,7 +122,7 @@ MODULE mo_run_nml
                            ! run using testbed methods
 
   ! dump/restore file names, may contain keywords
-  CHARACTER(LEN=filename_max) :: dump_filename, dd_filename
+  CHARACTER(LEN=filename_max) :: dump_filename, dd_filename, lonlat_dump_filename
 
   NAMELIST /run_nml/ ldump_states, lrestore_states, &
                      l_one_file_per_patch,          &
@@ -137,7 +138,8 @@ MODULE mo_run_nml
                      activate_sync_timers,          &
                      msg_level, check_epsilon,      &
                      testbed_mode,                  &
-                     dump_filename, dd_filename
+                     dump_filename, dd_filename,    &
+                     lonlat_dump_filename
 
 CONTAINS
   !>
@@ -153,8 +155,9 @@ CONTAINS
     !------------------------------------------------------------
     ldump_states    = .FALSE.
     lrestore_states = .FALSE.
-    dump_filename   = "<path>dump_<proc><gridfile>"
-    dd_filename     = "<path>dd_<gridfile>"
+    dump_filename          = "<path>dump_<proc><gridfile>"
+    lonlat_dump_filename   = "<path>dump_lonlat_<domid>_<gridid>_<proc><gridfile>"
+    dd_filename            = "<path>dd_<gridfile>"
 
     l_one_file_per_patch = .FALSE.
     ldump_dd        = .FALSE.
@@ -268,6 +271,7 @@ CONTAINS
 
     config_dump_filename   = dump_filename
     config_dd_filename     = dd_filename
+    config_lonlat_dump_filename = lonlat_dump_filename
     
     !-----------------------------------------------------
     ! Store the namelist for restart

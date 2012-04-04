@@ -4,6 +4,8 @@
 !!
 !! @par Revision History
 !! Initial version by Rainer Johanni, Sep 2010
+!! Implementation for lon-lat interpolation .  F. Prill, DWD (2012-04-04)
+!!
 !!
 !! @par Copyright
 !! 2002-2007 by DWD and MPI-M
@@ -32,10 +34,18 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
-!! $Id: n/a$
+!! $Id$
 !!
-!! TODO[FP]  : dump/restore of lon-lat interpolation coefficients
-!!             is not yet supported!
+!! @note : Dump/restore of lon-lat interpolation coefficients is
+!!         stored in files separate from the standard dump files. This
+!!         is necessary because the definition of lon-lat
+!!         interpolation depends on the output namelist. We may have
+!!         more than on lon-lat grid for a single patch.
+!!
+!! @todo : Dump/restore of lon-lat interpolation coefficients should
+!!         be enabled and disabled with its own namelist LOGICALs
+!!         because lon-lat interpolation is strictly speaking a mere
+!!         post-processing task.
 !!
 !-------------------------------------------------------------------------------
 !
@@ -149,12 +159,14 @@ MODULE mo_dump_restore
   USE mo_impl_constants,     ONLY: min_rlcell, max_rlcell,  &
                                    min_rledge, max_rledge, &
                                    min_rlvert, max_rlvert, &
-                                   min_rlcell_int, min_rledge_int
+                                   min_rlcell_int, min_rledge_int, &
+                                   SUCCESS
   USE mo_exception,          ONLY: message_text, message, finish, warning
   USE mo_parallel_config, ONLY: nproma
   USE mo_run_config,         ONLY: l_one_file_per_patch, ltransport, &
      &                             num_lev, num_levp1, nshift,       &
-     &                             dump_filename, dd_filename
+     &                             dump_filename, dd_filename,       &
+     &                             lonlat_dump_filename
   USE mo_dynamics_config,    ONLY: iequations
   USE mo_io_units,           ONLY: filename_max, nerr
   USE mo_model_domain,       ONLY: t_patch, p_patch_local_parent
@@ -163,8 +175,7 @@ MODULE mo_dump_restore
                                    global_cell_type
   USE mo_intp_data_strc      ! We need all from that module
   USE mo_grf_intp_data_strc  ! We need all from that module
-!  USE mo_interpol_nml        ! We need all from that module
- USE mo_interpol_config      ! We need all from that module
+  USE mo_interpol_config     ! We need all from that module
   USE mo_gridref_config      ! We need all from that module
   USE mo_mpi,                ONLY: my_process_is_mpi_all_parallel, p_n_work, p_pe_work, &
     &                              process_mpi_io_size, my_process_is_stdio, &
@@ -173,7 +184,9 @@ MODULE mo_dump_restore
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e
   USE mo_communication,      ONLY: t_comm_pattern, blk_no, idx_no, idx_1d
   USE mo_model_domimp_patches, ONLY: allocate_patch
-  USE mo_intp_state,         ONLY: allocate_int_state
+  USE mo_intp_state,         ONLY: allocate_int_state, allocate_int_state_lonlat_grid
+  USE mo_lonlat_grid,        ONLY: compute_lonlat_blocking,      &
+    &                              compute_lonlat_specs
   USE mo_grf_intp_state,     ONLY: allocate_grf_state
 
   USE mo_model_domimp_patches, ONLY: set_patches_grid_filename
@@ -197,6 +210,8 @@ MODULE mo_dump_restore
   PUBLIC :: restore_patches_netcdf
   PUBLIC :: restore_interpol_state_netcdf
   PUBLIC :: restore_gridref_state_netcdf
+  PUBLIC :: dump_lonlat_data_netcdf
+  PUBLIC :: restore_lonlat_data_netcdf
 
   INCLUDE 'netcdf.inc'
 
@@ -215,6 +230,7 @@ MODULE mo_dump_restore
   INTERFACE uvar_io
     MODULE PROCEDURE uvar_io_r1
     MODULE PROCEDURE uvar_io_r2
+    MODULE PROCEDURE uvar_io_i0
     MODULE PROCEDURE uvar_io_i1
     MODULE PROCEDURE uvar_io_i2
   END INTERFACE
@@ -255,7 +271,7 @@ MODULE mo_dump_restore
 
   INTEGER :: dim_unlimited ! The unlimited dimension
 
-  INTEGER :: dim_2, dim_3, dim_4, dim_5, dim_7, dim_6, dim_8, dim_9
+  INTEGER :: dim_1, dim_2, dim_3, dim_4, dim_5, dim_7, dim_6, dim_8, dim_9
   INTEGER :: dim_ncells, dim_nedges, dim_nverts
   INTEGER :: dim_nverts_per_cell, dim_nverts_per_cell_p1
   INTEGER :: dim_nedges_per_vert
@@ -327,6 +343,38 @@ CONTAINS
     filename = TRIM(with_keywords(keywords, TRIM(dump_filename)))
 
   END SUBROUTINE set_dump_restore_filename
+
+
+  !-----------------------------------------------------------------------
+  !> Create dump/restore filename for lon-lat grids.
+  !
+  FUNCTION dump_restore_filename_ll(grid_id, dom_id, patch_filename, model_base_dir) &
+    RESULT(ll_filename)
+    CHARACTER(LEN=filename_max)    :: ll_filename
+
+    INTEGER,          INTENT(IN)   :: grid_id, dom_id
+    CHARACTER(LEN=*), INTENT(in)   :: patch_filename
+    CHARACTER(len=*), INTENT(IN)   :: model_base_dir
+
+    TYPE (t_keyword_list), POINTER :: keywords => NULL()
+    CHARACTER(len=MAX_STRING_LEN)  :: proc_str
+
+    IF(use_one_file) THEN
+      proc_str = ""
+    ELSE
+      WRITE (proc_str,'(a,i0,a,i0,a)') "proc", p_pe_work, "of", p_n_work, "_"
+    END IF
+
+    ! default filename:
+    !  "<path>dump_lonlat_<domid>_<gridid>_<proc><gridfile>"
+    CALL associate_keyword("<path>",     TRIM(model_base_dir),      keywords)
+    CALL associate_keyword("<proc>",     TRIM(proc_str),            keywords)
+    CALL associate_keyword("<gridfile>", TRIM(patch_filename),      keywords)
+    CALL associate_keyword("<domid>",    TRIM(int2string(dom_id)),  keywords)
+    CALL associate_keyword("<gridid>",   TRIM(int2string(grid_id)), keywords)
+    ll_filename = TRIM(with_keywords(keywords, TRIM(lonlat_dump_filename)))
+  END FUNCTION dump_restore_filename_ll
+
 
   !-----------------------------------------------------------------------
   !
@@ -575,8 +623,13 @@ CONTAINS
 
     ! Dimension at pos_nblks must match dimlen(1)
 
-    IF(var_ubound(pos_nblks) /= (dimlen(1)+var_start-2)/nproma+1) &
+    ! Note that we can merely check if the variable fits into the
+    ! NetCDF field! We cannot expect size equality if the fields of
+    ! all PEs are stored in one file whose field sizes match the
+    ! global maximum over all PEs.
+    IF(var_ubound(pos_nblks) > (dimlen(1)+var_start-2)/nproma+1) THEN
       CALL finish(modname, TRIM(prefix)//var_name//': Dimension at pos_nblks not like expected')
+    END IF
 
   END SUBROUTINE pos_check
   !
@@ -997,6 +1050,29 @@ CONTAINS
 
   END SUBROUTINE uvar_io_r2
   !-----------------------------------------------------------------------
+  SUBROUTINE uvar_io_i0(var_name, var)
+
+    CHARACTER(LEN=*), INTENT(IN) :: var_name
+    INTEGER, INTENT(IN) :: var
+
+    INTEGER :: varid, dimlen(1), start(2), count(2)
+
+    CALL get_var_info(var_name, nf_int, 1, varid, dimlen)
+    IF(dimlen(1) /= 1) &
+      CALL finish(modname, var_name//': Variable dimensions and NetCDF dimensions do not conform')
+
+    ! We can output var directly since values are stored contiguous
+
+    start = (/ 1, my_record /)
+    count = (/ 1, 1 /)
+    IF(netcdf_read) THEN
+      CALL nf(nf_get_vara_int(ncid, varid, start, count, var))
+    ELSE
+      CALL nf(nf_put_vara_int(ncid, varid, start, count, var))
+    ENDIF
+
+  END SUBROUTINE uvar_io_i0
+  !-----------------------------------------------------------------------
   SUBROUTINE uvar_io_i1(var_name, var)
 
     CHARACTER(LEN=*), INTENT(IN) :: var_name
@@ -1239,7 +1315,7 @@ CONTAINS
   END SUBROUTINE comm_pat_io
   !
   !-------------------------------------------------------------------------
-  ! Routines for definning and I/O of patches and states
+  ! Routines for defining and I/O of patches and states
   !-------------------------------------------------------------------------
   !
   !> Determines the maximum dimensions of cells/edges/verts for NetCDF output
@@ -1626,9 +1702,8 @@ CONTAINS
   !
   !> Defines interpolation state for NetCDF
 
-  SUBROUTINE def_int_state(k_jg, p)
+  SUBROUTINE def_int_state(p)
 
-    INTEGER, INTENT(IN)       :: k_jg  ! domain index
     TYPE(t_patch), INTENT(IN) :: p
 
     ! local variables
@@ -1823,9 +1898,8 @@ CONTAINS
   !
   !> Dumps/restores interpolation state data to/from NetCDF file.
 
-  SUBROUTINE int_state_io(jg, p, pi)
+  SUBROUTINE int_state_io(p, pi)
 
-    INTEGER, INTENT(IN) :: jg
     TYPE(t_patch), INTENT(IN) :: p
     TYPE(t_int_state), INTENT(INOUT) :: pi
 
@@ -2397,9 +2471,8 @@ CONTAINS
   !> Dumps state of one patch to NetCDF, including interpolation and
   !! grid refinement variables
 
-  SUBROUTINE dump_patch_state_netcdf(k_jg, p, pi, pg)
+  SUBROUTINE dump_patch_state_netcdf(p, pi, pg)
 
-    INTEGER, INTENT(IN)                            :: k_jg  ! domain index
     TYPE(t_patch), INTENT(INOUT)                   :: p
     TYPE(t_int_state), INTENT(INOUT)               :: pi
     TYPE(t_gridref_state), INTENT(INOUT)           :: pg
@@ -2445,16 +2518,15 @@ CONTAINS
       ncid = -1
     ENDIF
 
-    ! Output attributes and dimensions
-
     IF(output_defines) CALL set_atts_and_dims(p, num_work_procs)
-
+ 
     ! Emit additional dimensions and variable definitions for patch/int state/grf state
 
+    ! Output attributes and dimensions
     CALL set_max_patch_dims(p)
     CALL def_patch(p, .TRUE.)
     CALL def_comm_patterns(p)
-    CALL def_int_state(k_jg, p)
+    CALL def_int_state(p)
     IF (n_dom_start==0 .OR. n_dom > 1) CALL def_grf_state(p)
 
     ! Definitions for local parent
@@ -2464,7 +2536,7 @@ CONTAINS
       CALL set_max_patch_dims(lp)
       CALL def_patch(lp, .TRUE.)
       CALL def_comm_patterns(lp)
-      CALL def_int_state(k_jg, lp)
+      CALL def_int_state(lp)
       IF (n_dom_start==0 .OR. n_dom > 1) CALL def_grf_state(lp)
     ENDIF
 
@@ -2497,14 +2569,14 @@ CONTAINS
 
       CALL patch_io(p, .TRUE.)
 
-      CALL int_state_io(k_jg, p, pi)
+      CALL int_state_io(p, pi)
 
       IF (n_dom_start==0 .OR. n_dom > 1) CALL grf_state_io(p, pg)
 
       IF(my_process_is_mpi_all_parallel() .AND. p%id>n_dom_start) THEN ! Output for local parent
         prefix = 'lp.'
         CALL patch_io(lp, .TRUE.)
-        CALL int_state_io(k_jg, lp, p_int_state_local_parent(p%id))
+        CALL int_state_io(lp, p_int_state_local_parent(p%id))
         IF (n_dom_start==0 .OR. n_dom > 1) &
           & CALL grf_state_io(lp, p_grf_state_local_parent(p%id))
       ENDIF
@@ -2517,6 +2589,7 @@ CONTAINS
     IF(use_one_file) CALL p_barrier(comm=p_comm_work)
 
   END SUBROUTINE dump_patch_state_netcdf
+
 
   !-------------------------------------------------------------------------
   !
@@ -3129,12 +3202,12 @@ CONTAINS
       ! Allocate interpolation state
       CALL allocate_int_state(p_patch(jg), p_int_state(jg))
       ! Restore interpolation state
-      CALL int_state_io(jg, p_patch(jg), p_int_state(jg))
+      CALL int_state_io(p_patch(jg), p_int_state(jg))
 
       IF(my_process_is_mpi_all_parallel() .AND. jg>n_dom_start) THEN
         CALL allocate_int_state(p_patch_local_parent(jg), p_int_state_local_parent(jg))
         prefix = 'lp.'
-        CALL int_state_io(jg, p_patch_local_parent(jg), p_int_state_local_parent(jg))
+        CALL int_state_io(p_patch_local_parent(jg), p_int_state_local_parent(jg))
       ENDIF
 
       CALL nf(nf_close(ncid))
@@ -3213,5 +3286,313 @@ CONTAINS
   END SUBROUTINE restore_gridref_state_netcdf
 
   !-------------------------------------------------------------------------
+
+
+  !=========================================================================
+  ! DUMP/RESTORE OF LON-LAT INTERPOLATION DATA
+  !=========================================================================
+
+
+  !-------------------------------------------------------------------------
+  !
+  !> Defines lonlat data (one specific grid/domain pair) for NetCDF
+  !
+  SUBROUTINE def_lonlat_data(grid_id, dom_id, nthis_local_pts)
+    INTEGER, INTENT(IN) :: grid_id, dom_id, nthis_local_pts
+    ! local variables:
+    TYPE (t_lon_lat_data), POINTER :: lonlat_data
+    TYPE (t_lon_lat_grid), POINTER :: grid
+    INTEGER :: dim_lonlat
+
+    lonlat_data => lonlat_grid_list(grid_id)
+    grid => lonlat_data%grid
+    
+    ! total number of lon-lat grid points (local to this PE)
+    CALL def_dim('unlimited', NF_UNLIMITED, dim_unlimited)
+    CALL def_dim('dim_lonlat', nthis_local_pts, dim_lonlat)
+    CALL def_dim('n_dim_1', 1, dim_1)
+    CALL def_dim('n_dim_2', 2, dim_2)
+    CALL def_dim('rbf_c2grad_dim', rbf_c2grad_dim, dim_rbf_c2grad_dim)
+    CALL def_dim('rbf_vec_dim_c',  rbf_vec_dim_c,  dim_rbf_vec_dim_c)
+
+    CALL nf(nf_put_att_int(ncid, nf_global,    'int.lonlat.grid_id',        &
+      &     nf_int, 1, grid_id))
+    CALL nf(nf_put_att_int(ncid, nf_global,    'int.lonlat.dom_id',         &
+      &     nf_int, 1, dom_id))
+
+    ! description of lon-lat grid
+    CALL nf(nf_put_att_double(ncid, nf_global, 'int.lonlat.reg_lon_def',    &
+      &     nf_double, 3, grid%reg_lon_def(1:3)))
+    CALL nf(nf_put_att_double(ncid, nf_global, 'int.lonlat.reg_lat_def',    &
+      &     nf_double, 3, grid%reg_lat_def(1:3)))
+    CALL nf(nf_put_att_double(ncid, nf_global, 'int.lonlat.north_pole',     &
+      &     nf_double, 2, grid%north_pole(1:2)))
+    CALL nf(nf_put_att_int(ncid, nf_global,    'int.lonlat.lon_dim',        &
+      &     nf_int, 1, grid%lon_dim))
+    CALL nf(nf_put_att_int(ncid, nf_global,    'int.lonlat.lat_dim',        &
+      &     nf_int, 1, grid%lat_dim))
+
+    ! fields for indices and coefficients:
+
+    ! nlocal_pts (unblocked variable)
+    CALL def_var('int.lonlat.nthis_local_pts', nf_int, dim_1)
+    CALL def_var('int.lonlat.nmax_local_pts',  nf_int, dim_1)
+    ! rbf_vec_dim_c,2,nproma,nblks_lonlat
+    CALL def_var('int.lonlat.rbf_vec_coeff', nf_double, dim_lonlat, dim_rbf_vec_dim_c, dim_2)
+    ! rbf_c2grad_dim,2,nproma,nblks_lonlat,idom
+    CALL def_var('int.lonlat.rbf_c2grad_coeff', nf_double, dim_lonlat, dim_rbf_c2grad_dim, dim_2)
+    ! rbf_vec_dim_c,nproma,nblks_lonlat,idom
+    CALL def_var('int.lonlat.rbf_vec_index', nf_int, dim_lonlat, dim_rbf_vec_dim_c)
+    ! nproma,nblks_lonlat
+    CALL def_var('int.lonlat.rbf_vec_stencil', nf_int, dim_lonlat)
+    ! rbf_c2grad_dim,nproma,nblks_lonlat
+    CALL def_var('int.lonlat.rbf_c2grad_index', nf_int, dim_lonlat, dim_rbf_c2grad_dim)
+    ! 2,nproma,nblks_lonlat
+    CALL def_var('int.lonlat.rdist', nf_double, dim_lonlat, dim_2)
+    ! 2,nproma,nblks_lonlat
+    CALL def_var('int.lonlat.tri_idx', nf_int, dim_lonlat, dim_2)
+    ! global_idx (unblocked variable)
+    CALL def_var('int.lonlat.global_idx', nf_int, dim_lonlat)
+  
+  END SUBROUTINE def_lonlat_data
+
+
+  !-------------------------------------------------------------------------
+  !
+  !> Dumps/restores lonlat state data to/from NetCDF file.
+  !
+  SUBROUTINE lonlat_data_io(grid_id, dom_id)
+    INTEGER, INTENT(IN) :: grid_id, dom_id
+    ! local variables:
+    TYPE (t_lon_lat_data), POINTER :: lonlat_data
+    TYPE(t_lon_lat_intp),  POINTER :: intp
+
+    lonlat_data => lonlat_grid_list(grid_id)
+    intp => lonlat_data%intp(dom_id)
+
+    ! rbf_vec_dim_c,2,nproma,nblks_lonlat
+    CALL bvar_io(3,4,'int.lonlat.rbf_vec_coeff', intp%rbf_vec_coeff )
+    ! rbf_c2grad_dim,2,nproma,nblks_lonlat
+    CALL bvar_io(3,4,'int.lonlat.rbf_c2grad_coeff', intp%rbf_c2grad_coeff )
+    ! rbf_vec_dim_c,nproma,nblks_lonlat
+    CALL bidx_io(2,3,'int.lonlat.rbf_vec_index', intp%rbf_vec_idx, intp%rbf_vec_blk )
+    ! nproma,nblks_lonlat
+    CALL bvar_io(1,2,'int.lonlat.rbf_vec_stencil', intp%rbf_vec_stencil )
+    ! rbf_c2grad_dim,nproma,nblks_lonlat
+    CALL bidx_io(2,3,'int.lonlat.rbf_c2grad_index', intp%rbf_c2grad_idx, intp%rbf_c2grad_blk )
+    ! 2,nproma,nblks_lonlat
+    CALL bvar_io(2,3,'int.lonlat.rdist', intp%rdist )
+    ! 2,nproma,nblks_lonlat
+    CALL bvar_io(2,3,'int.lonlat.tri_idx', intp%tri_idx )
+    ! global_idx (unblocked variable)
+    CALL uvar_io_i1('int.lonlat.global_idx', intp%global_idx )
+
+    ! read/write corresponding communication pattern (for GATHER)
+    CALL comm_pat_io('comm_pat_lonlat', lonlat_data%p_pat(dom_id))
+
+  END SUBROUTINE lonlat_data_io
+
+
+  !-------------------------------------------------------------------------
+  !
+  !> Dumps the setup of all lon-lat interpolation processes.
+  !
+  !  Note that lon-lat data cannot be stored together with the patches
+  !  because the definition of lon-lat interpolation depends on the
+  !  output namelist. We may have more than on lon-lat grid for a
+  !  single patch.
+  !
+  SUBROUTINE dump_lonlat_data_netcdf(p_patch)
+
+    TYPE(t_patch), INTENT(IN) :: p_patch(n_dom_start:)
+
+    !---local variables
+    CHARACTER(*), PARAMETER :: routine = &
+      &  TRIM("mo_dump_restore:dump_lonlat_data_netcdf")
+    INTEGER                     :: old_mode, grid_id, dom_id, ip, &
+      &                            nthis_local_pts
+    CHARACTER(LEN=filename_max) :: ll_filename
+    TYPE (t_lon_lat_data), POINTER :: lonlat_data
+    TYPE(t_lon_lat_intp),  POINTER :: intp
+    LOGICAL                        :: output_defines
+
+    !-------------------------------------------------------------------------
+
+    ! use_one_file is set according to l_one_file_per_patch
+    use_one_file = l_one_file_per_patch
+    ! Only the first PE defines common dimensions and attributes, all others check
+    output_defines = (get_my_mpi_work_id()==0) .OR. (.NOT. use_one_file)
+    ! Set I/O routines to write mode
+    netcdf_read = .FALSE.
+
+    prefix    = ' '
+    IF(use_one_file) THEN
+      my_record = get_my_mpi_work_id()+1
+    ELSE
+      my_record = 1
+    ENDIF
+
+    DO grid_id=1,n_lonlat_grids
+      DOM_LOOP : DO dom_id=1,max_dom
+        IF (.NOT. lonlat_grid_list(grid_id)%l_dom(dom_id)) CYCLE DOM_LOOP
+        IF (.NOT. lonlat_grid_list(grid_id)%l_initialized(dom_id)) &
+          CALL finish(routine, "Uninitialized interpolation data!")
+
+        lonlat_data => lonlat_grid_list(grid_id)
+        intp        => lonlat_data%intp(dom_id)
+
+        ! determine the maximum dimensions of lon-lat data, if we store
+        ! data for all PEs in one file:
+        nthis_local_pts = intp%nthis_local_pts
+        IF(use_one_file) &
+          nthis_local_pts = p_max(nthis_local_pts, comm=p_comm_work)
+        
+        ll_filename = dump_restore_filename_ll(grid_id, dom_id,               &
+          &                                    p_patch(dom_id)%grid_filename, &
+          &                                    model_base_dir)
+        
+        WRITE(message_text,'(a,a)') 'Write NetCDF file: ', TRIM(ll_filename)
+        CALL message (routine, TRIM(message_text))
+
+        ! Open new output file
+        IF (output_defines) THEN
+          CALL nf(nf_set_default_format(nf_format_64bit, old_mode))
+          CALL nf(nf_create(TRIM(ll_filename), nf_clobber, ncid))
+          
+          ! Output attributes and dimensions
+          CALL def_lonlat_data(grid_id, dom_id, nthis_local_pts)
+        END IF
+
+        ! collective call: define corresponding communication
+        ! pattern (for GATHER)
+        CALL def_comm_pat('comm_pat_lonlat', lonlat_data%p_pat(dom_id))
+
+        ! Open new output file
+        IF (output_defines) THEN
+          ! End of definition mode
+          CALL nf(nf_enddef(ncid))
+          ! Close NetCDF file
+          CALL nf(nf_close(ncid))
+        END IF
+
+        DO ip = 0, num_work_procs-1
+
+          ! synchronize working PEs when writing to the same file:
+          IF(use_one_file) CALL p_barrier(comm=p_comm_work)
+
+          IF(ip /= get_my_mpi_work_id()) CYCLE    
+
+          CALL nf(nf_open(TRIM(ll_filename), NF_WRITE, ncid))
+        
+          lonlat_data => lonlat_grid_list(grid_id)
+          intp        => lonlat_data%intp(dom_id)
+
+          ! store no. of nlocal_pts (unblocked variable)
+          CALL uvar_io_i0('int.lonlat.nthis_local_pts', intp%nthis_local_pts)
+          CALL uvar_io_i0('int.lonlat.nmax_local_pts',  nthis_local_pts)
+
+          ! output lon-lat interpolation coefficients:
+          CALL lonlat_data_io(grid_id, dom_id)
+
+          ! Close NetCDF file
+          CALL nf(nf_close(ncid))
+
+        END DO
+
+        IF(use_one_file) CALL p_barrier(comm=p_comm_work)
+
+      END DO DOM_LOOP
+    END DO
+
+  END SUBROUTINE dump_lonlat_data_netcdf
+
+
+  !-------------------------------------------------------------------------
+  !
+  !> Restores the setup of one lon-lat interpolation process.
+  !
+  SUBROUTINE restore_lonlat_data_netcdf(p_patch)
+
+    TYPE(t_patch), INTENT(IN) :: p_patch(n_dom_start:)
+
+    !---local variables
+    CHARACTER(*), PARAMETER :: routine = &
+      &  TRIM("mo_dump_restore:dump_lonlat_data_netcdf")
+    INTEGER                        :: grid_id, dom_id, nblks_lonlat, &
+      &                               errstat, nmax_local_pts
+    CHARACTER(LEN=filename_max)    :: ll_filename
+    TYPE (t_lon_lat_data), POINTER :: lonlat_data
+    TYPE (t_lon_lat_grid), POINTER :: grid
+    TYPE(t_lon_lat_intp),  POINTER :: intp
+
+    !-------------------------------------------------------------------------
+
+    ! use_one_file is set according to l_one_file_per_patch
+    use_one_file = l_one_file_per_patch
+    ! Set I/O routines to read mode
+    netcdf_read = .TRUE.
+
+    prefix    = ' '
+    IF(use_one_file) THEN
+      my_record = get_my_mpi_work_id()+1
+    ELSE
+      my_record = 1
+    ENDIF
+
+    DO grid_id=1,n_lonlat_grids
+      DOM_LOOP : DO dom_id=1,n_dom
+
+        IF (.NOT. lonlat_grid_list(grid_id)%l_dom(dom_id)) CYCLE DOM_LOOP
+        IF (lonlat_grid_list(grid_id)%l_initialized(dom_id)) &
+          CALL finish(routine, "Interpolation data already initialized!")
+
+        lonlat_data => lonlat_grid_list(grid_id)
+        grid        => lonlat_data%grid
+        intp        => lonlat_data%intp(dom_id)
+
+        ! compute some entries of lon-lat grid specification:
+        CALL compute_lonlat_specs(grid)
+        CALL compute_lonlat_blocking(grid, nproma)
+
+        ll_filename = dump_restore_filename_ll(grid_id, dom_id,               &
+          &                                    p_patch(dom_id)%grid_filename, &
+          &                                    model_base_dir)
+
+        WRITE(message_text,'(a,a)') 'Read NetCDF file: ', TRIM(ll_filename)
+        CALL message (routine, TRIM(message_text))
+
+        ! Open input file
+        CALL nf(nf_open(TRIM(ll_filename), NF_NOWRITE, ncid))
+
+        ! Check attributes and dimensions in NetCDF file if they conform
+        CALL check_att('int.lonlat.grid_id',     grid_id)
+        CALL check_att('int.lonlat.dom_id',      dom_id)
+        CALL check_att('int.lonlat.reg_lon_def', grid%reg_lon_def(1:3))
+        CALL check_att('int.lonlat.reg_lat_def', grid%reg_lat_def(1:3))
+        CALL check_att('int.lonlat.north_pole',  grid%north_pole(1:2))
+        CALL check_att('int.lonlat.lon_dim',     grid%lon_dim)
+        CALL check_att('int.lonlat.lat_dim',     grid%lat_dim)
+
+        ! restore no. of nlocal_pts (unblocked variable)
+        CALL uvar_io_i0('int.lonlat.nthis_local_pts', intp%nthis_local_pts)
+        CALL uvar_io_i0('int.lonlat.nmax_local_pts',  nmax_local_pts)
+
+        ! Allocate interpolation state
+        nblks_lonlat = (nmax_local_pts - 1)/nproma + 1
+        CALL allocate_int_state_lonlat_grid(nblks_lonlat, intp)
+        ALLOCATE(intp%tri_idx(2, nproma, nblks_lonlat),   &
+          &      intp%global_idx(nmax_local_pts), STAT=errstat )
+        IF (errstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed')
+        
+        ! restore lon-lat interpolation coefficients:
+        CALL lonlat_data_io(grid_id, dom_id)
+        
+        ! Close NetCDF file
+        CALL nf(nf_close(ncid))
+      END DO DOM_LOOP
+    END DO
+
+  END SUBROUTINE restore_lonlat_data_netcdf
+
 
 END MODULE mo_dump_restore

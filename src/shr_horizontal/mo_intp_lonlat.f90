@@ -221,6 +221,7 @@
         
         ! allocate and compute coefficients needed for lon-lat
         ! interpolation:
+        lonlat_grid_list(i)%l_dom(n_dom+1:) = .FALSE.
         DO jg=1,n_dom
           IF (lonlat_grid_list(i)%l_dom(jg)) THEN
 
@@ -232,7 +233,6 @@
               &         p_int_state(jg) )
             IF (ltimer) CALL timer_stop(timer_lonlat_setup)
             lonlat_grid_list(i)%l_initialized(jg) = .TRUE.
-
           END IF
         END DO ! jg
         

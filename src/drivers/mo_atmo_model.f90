@@ -115,7 +115,9 @@ USE mo_dump_restore,        ONLY: dump_patch_state_netcdf,       &
 & dump_domain_decomposition,     &
 & restore_patches_netcdf,        &
 & restore_interpol_state_netcdf, &
-& restore_gridref_state_netcdf
+& restore_gridref_state_netcdf,  &
+& dump_lonlat_data_netcdf,       &
+& restore_lonlat_data_netcdf
 
 USE mo_model_domain,        ONLY: t_patch, p_patch, p_patch_local_parent
 USE mo_util_sysinfo,        ONLY: util_get_maxrss
@@ -596,7 +598,12 @@ CONTAINS
     ! 7b. Constructing data for lon-lat interpolation
     !-------------------------------------------------------------------
 
-    CALL compute_lonlat_intp_coeffs(p_patch(1:), p_int_state(1:))
+    IF(lrestore_states) THEN
+      ! restore data from file(s):
+      CALL restore_lonlat_data_netcdf(p_patch)
+    ELSE
+      CALL compute_lonlat_intp_coeffs(p_patch(1:), p_int_state(1:))
+    END IF
 
     ! Dump divided patches with interpolation and grf state to NetCDF
     ! file and exit
@@ -607,9 +614,12 @@ CONTAINS
 
       IF(.NOT. my_process_is_mpi_test()) THEN
         DO jg = n_dom_start, n_dom
-          CALL dump_patch_state_netcdf(jg, p_patch(jg),p_int_state(jg),p_grf_state(jg))
+          CALL dump_patch_state_netcdf(p_patch(jg),p_int_state(jg),p_grf_state(jg))
         ENDDO
       ENDIF
+
+      ! dump the setup of all lon-lat interpolation processes.
+      CALL dump_lonlat_data_netcdf(p_patch)
 
       CALL p_stop
       STOP

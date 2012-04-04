@@ -53,7 +53,7 @@ MODULE mo_run_config
   PUBLIC :: iqv, iqc, iqi, iqs, iqr, nqtendphy, iqt, ico2
   PUBLIC :: check_epsilon, testbed_mode
   PUBLIC :: configure_run, l_one_file_per_patch, ldump_dd, lread_dd, nproc_dd
-  PUBLIC :: dump_filename, dd_filename
+  PUBLIC :: dump_filename, dd_filename, lonlat_dump_filename
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
@@ -91,7 +91,7 @@ MODULE mo_run_config
     INTEGER :: msg_level       !< how much printout is generated during runtime
 
     ! dump/restore file names, may contain keywords
-    CHARACTER(LEN=filename_max) :: dump_filename, dd_filename
+    CHARACTER(LEN=filename_max) :: dump_filename, dd_filename, lonlat_dump_filename
 
     ! Derived variables
     !
