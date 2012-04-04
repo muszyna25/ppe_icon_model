@@ -56,6 +56,9 @@
 !!    coordinates (x_1,y_1)
 !!  - added subroutine orthogr_proj. performs orthographic projection of
 !!    point (lat_1,lon_1) onto a tangent plane with the origin at (lat_0,lon_0).
+!!  Modification by Daniel Reinert, DWD, (2012-04-04)
+!!  - added function which can be used to check whether to line segments 
+!!    intersect (in 2D cartesian system)
 !!
 !! @par Copyright
 !! 2002-2007 by DWD and MPI-M
@@ -143,7 +146,8 @@ MODULE mo_math_utilities
   PUBLIC :: orthogr_proj
   PUBLIC :: az_eqdist_proj
   PUBLIC :: gamma_fct
-  PUBLIC::  mean_domain_values
+  PUBLIC :: mean_domain_values
+  PUBLIC :: ccw
 
   
 ! ! cartesian coordinate class
@@ -1788,6 +1792,125 @@ REAL(wp), INTENT(OUT) :: mean_charlen
  mean_charlen      = SQRT (4._wp*pi*re**2 /REAL(20*nroot**2*4**(p_level),wp))
 
 END SUBROUTINE mean_domain_values
+
+
+  !-------------------------------------------------------------------------
+  !
+  !
+  !>
+  !! Checking turn when travelling along three points
+  !!
+  !! Given three points in a cartesian system, we want to know 
+  !! whether, in travelling from the first to the second to the third 
+  !! we turn counterclockwise or clockwise.
+  !! Can be used to check whether two line segments intersect, or not.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert  (2012-04-03)
+  !!
+  !! @par LITERATURE
+  !! Sedgewick, R. (1988): Algorithms, 2nd edition, pp. 350
+  !!
+  FUNCTION ccw( p0, p1, p2 )
+    !
+
+    IMPLICIT NONE
+
+    TYPE(t_geographical_coordinates), INTENT(in) :: p0
+    TYPE(t_geographical_coordinates), INTENT(in) :: p1
+    TYPE(t_geographical_coordinates), INTENT(in) :: p2
+
+    INTEGER :: ccw
+
+    REAL(wp) :: dx1, dx2, dy1, dy2  ! segment lengths in x and y direction
+
+    REAL(wp) :: dx1dy2, dy1dx2
+
+    LOGICAL  :: lccw
+
+    !-----------------------------------------------------------------------
+
+    ! segment lengths in x and y direction P0-->P1
+    dx1 = p1%lon - p0%lon
+    dy1 = p1%lat - p0%lat
+
+    ! segment lengths in x and y direction P0-->P2
+    dx2 = p2%lon - p0%lon
+    dy2 = p2%lat - p0%lat
+
+    dx1dy2 = dx1 * dy2
+    dy1dx2 = dy1 * dx2 
+
+    ! in this case we turn counterclockwise
+    ! dy2/dx2 > dy1/dx1
+    lccw = dx1dy2 > dy1dx2
+
+    ! we set ccw=1 when turning counterclockwise and -1 when 
+    ! turning clockwise. 
+    ! The case dy2/dx2 = dy1/dx1 is neglected. In this case 
+    ! we set ccw = -1 
+    ccw = MERGE(1, -1, lccw)
+
+  END FUNCTION ccw
+
+
+!!$  !-------------------------------------------------------------------------
+!!$  !
+!!$  !
+!!$  !>
+!!$  !! Checking turn when travelling along three points
+!!$  !!
+!!$  !! Given three points in a cartesian system, we want to know 
+!!$  !! whether, in travelling from the first to the second to the third 
+!!$  !! we turn counterclockwise or clockwise.
+!!$  !! Can be used to check whether two line segments intersect, or not.
+!!$  !!
+!!$  !! @par Revision History
+!!$  !! Initial revision by Daniel Reinert  (2012-04-03)
+!!$  !!
+!!$  !! @par LITERATURE
+!!$  !! Sedgewick, R. (1988): Algorithms, 2nd edition, pp. 350
+!!$  !!
+!!$  FUNCTION ccw( p0, p1, p2 )
+!!$    !
+!!$
+!!$    IMPLICIT NONE
+!!$
+!!$    REAL(wp), INTENT(in) :: p0(:)
+!!$    REAL(wp), INTENT(in) :: p1(:)
+!!$    REAL(wp), INTENT(in) :: p2(:)
+!!$
+!!$    INTEGER :: ccw
+!!$
+!!$    REAL(wp) :: dx1, dx2, dy1, dy2
+!!$    REAL(wp) :: dx1dy2, dy1dx2
+!!$    LOGICAL  :: lccw
+!!$
+!!$    !-----------------------------------------------------------------------
+!!$
+!!$    ! segment lengths in x and y direction P0-->P1
+!!$    dx1 = p1(1) - p0(1)
+!!$    dy1 = p1(2) - p0(2)
+!!$
+!!$    ! segment lengths in x and y direction P0-->P2
+!!$    dx2 = p2(1) - p0(1)
+!!$    dy2 = p2(2) - p0(2)
+!!$
+!!$    dx1dy2 = dx1 * dy2
+!!$    dy1dx2 = dy1 * dx2 
+!!$
+!!$    ! in this case we turn counterclockwise
+!!$    ! dy2/dx2 > dy1/dx1
+!!$    lccw = dx1dy2 > dy1dx2
+!!$
+!!$    ! we set ccw=1 when turning counterclockwise and -1 when 
+!!$    ! turning clockwise. 
+!!$    ! The case dy2/dx2 = dy1/dx1 is neglected. In this case 
+!!$    ! we set ccw = -1 
+!!$    ccw = MERGE(1, -1, lccw)
+!!$
+!!$  END FUNCTION ccw
+
 
 END MODULE mo_math_utilities
 
