@@ -435,7 +435,7 @@ MODULE mo_nwp_lnd_state
 
     ! & p_prog_lnd%w_snow(nproma,nblks_c,nsfc_subs)
     cf_desc    = t_cf_var('w_snow', 'm H2O', 'water content of snow')
-    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(0, 1, 60, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'w_snow'//suffix, p_prog_lnd%w_snow,&
          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc,        &
          & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
@@ -449,7 +449,7 @@ MODULE mo_nwp_lnd_state
            & p_prog_lnd%w_snow_ptr(jsfc)%p_2d,                             &
            & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                        &
            & t_cf_var('w_snow_'//csfc, '', ''),                            &
-           & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
+           & t_grib2_var(0, 1, 60, ientr, GRID_REFERENCE, GRID_CELL), &
            & ldims=shape2d,                                                &
            & tlev_source=1 ) ! for output take field from nnow_rcf slice
     ENDDO
@@ -551,7 +551,7 @@ MODULE mo_nwp_lnd_state
            & p_prog_lnd%t_so_ptr(jsfc)%p_3d,                                 &
            & GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_LAND,                 &
            & t_cf_var('t_so_'//csfc, '', ''),                                &
-           & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
+           & t_grib2_var(2, 0, 2, ientr, GRID_REFERENCE, GRID_CELL),   &
            & ldims=(/nproma,nlev_soil+2,kblks/),                             &
            & tlev_source=1 ) ! for output take field from nnow_rcf slice
     ENDDO
@@ -560,7 +560,7 @@ MODULE mo_nwp_lnd_state
 
    ! & p_prog_lnd%w_so(nproma,nlev_soil+1,nblks_c,nsfc_subs)
     cf_desc    = t_cf_var('w_so', 'm H20', 'total water content (ice + liquid water)')
-    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(2, 0, 3, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'w_so'//suffix, p_prog_lnd%w_so,      &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_LAND, cf_desc, grib2_desc,  &
          & ldims=(/nproma,nlev_soil+1,kblks,nsfc_subs/),                         &
@@ -575,7 +575,7 @@ MODULE mo_nwp_lnd_state
            & p_prog_lnd%w_so_ptr(jsfc)%p_3d,                                 &
            & GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_LAND,                 &
            & t_cf_var('w_so_'//csfc, '', ''),                                &
-           & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
+           & t_grib2_var(2, 0, 3, ientr, GRID_REFERENCE, GRID_CELL),   &
            & ldims=(/nproma,nlev_soil+1,kblks/),                             &
            & tlev_source=1 ) ! for output take field from nnow_rcf slice
     ENDDO
