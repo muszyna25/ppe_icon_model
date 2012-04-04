@@ -123,7 +123,7 @@ CONTAINS
 !
   REAL(wp), INTENT(INOUT) :: x(:,:,:)
   ! patch info needed for calculating lhs
-  TYPE(t_patch), INTENT(IN) :: curr_patch
+  TYPE(t_patch), TARGET, INTENT(IN) :: curr_patch
   ! interpolation state (needed for divergence averaging)
   TYPE(t_int_state), INTENT(IN) :: p_int
   ! index defining the "active" region of the arrays
@@ -153,7 +153,7 @@ CONTAINS
       USE mo_model_domain, ONLY: t_patch
       USE mo_intp_data_strc,ONLY: t_int_state
       REAL(wp),    INTENT(in) :: x(:,:,:)
-      TYPE(t_patch), INTENT(in) :: curr_patch
+      TYPE(t_patch), TARGET, INTENT(in) :: curr_patch
       TYPE(t_int_state), INTENT(in) :: p_int
       REAL(wp),    INTENT(in) :: coeff
       REAL(wp) :: ax( SIZE(x,1) , SIZE(x,2) , SIZE(x,3) ) ! same as x
@@ -496,7 +496,7 @@ CONTAINS
 !
   REAL(wp), INTENT(INOUT) :: x(:,:)
   ! patch info needed for calculating lhs
-  TYPE(t_patch), INTENT(IN) :: curr_patch
+  TYPE(t_patch), TARGET,INTENT(IN) :: curr_patch
   ! interpolation state
   TYPE(t_int_state), INTENT(IN) :: p_int
   ! metrics needed for NH-version
@@ -529,7 +529,7 @@ CONTAINS
       USE mo_intp_data_strc,ONLY: t_int_state
       USE mo_nonhydro_types,ONLY: t_nh_metrics
       REAL(wp),    INTENT(in) :: x(:,:)
-      TYPE(t_patch), INTENT(in) :: curr_patch
+      TYPE(t_patch), TARGET, INTENT(in) :: curr_patch
       TYPE(t_int_state), INTENT(in) :: p_int
       TYPE(t_nh_metrics), INTENT(in) :: p_metrics
       REAL(wp),    INTENT(in) :: coeff
