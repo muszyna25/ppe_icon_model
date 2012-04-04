@@ -559,8 +559,14 @@ MODULE mo_nh_stepping
 
     ! Diagnostics computation is not yet properly MPI-parallelized
 
-    ! for calls to "supervise_total_integrals_nh":
-    l_supervise_total_integrals = lstep_adv(1) .OR. (MOD(jstep,n_diag) == 0) .OR. (jstep==nsteps)
+    ! calls to "supervise_total_integrals_nh":
+    ! - in the first time step (or the first time step after restart), or
+    ! - if (MOD(jstep,n_diag) == 0), or
+    ! - in the very last time step (jstep==nsteps)
+
+    l_supervise_total_integrals = (lstep_adv(1) .AND. (jstep <= iadv_rcf)) .OR. &
+      &                           (MOD(jstep,n_diag) == 0)                 .OR. &
+      &                           (jstep==nsteps)
     kstep = jstep
     IF (jstep <= iadv_rcf)  kstep=1     !DR: necessary to work properly in combination with restart
 
