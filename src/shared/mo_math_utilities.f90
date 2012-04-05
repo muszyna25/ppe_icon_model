@@ -59,6 +59,9 @@
 !!  Modification by Daniel Reinert, DWD, (2012-04-04)
 !!  - added function which can be used to check whether to line segments 
 !!    intersect (in 2D cartesian system)
+!!  Modification by Daniel Reinert, DWD, (2012-04-05)
+!!  - added function which computes the intersection point between 2 lines 
+!!    (2D cartesian)
 !!
 !! @par Copyright
 !! 2002-2007 by DWD and MPI-M
@@ -117,6 +120,7 @@ MODULE mo_math_utilities
 
   PUBLIC :: t_cartesian_coordinates
   PUBLIC :: t_geographical_coordinates
+  PUBLIC :: t_line
   PUBLIC :: gvec2cvec
   PUBLIC :: cvec2gvec
   PUBLIC :: arc_length
@@ -148,7 +152,8 @@ MODULE mo_math_utilities
   PUBLIC :: gamma_fct
   PUBLIC :: mean_domain_values
   PUBLIC :: ccw
-
+  PUBLIC :: line_intersect
+  PUBLIC :: lintersect
   
 ! ! cartesian coordinate class
 
@@ -163,6 +168,12 @@ MODULE mo_math_utilities
     REAL(wp) :: lat
   END TYPE t_geographical_coordinates
 
+!DR Test
+  TYPE t_line
+    TYPE(t_geographical_coordinates) :: p1
+    TYPE(t_geographical_coordinates) :: p2
+  END TYPE t_line
+!DR End Test
 
   INTERFACE OPERATOR(+)
     MODULE PROCEDURE cartesian_coordinates_plus
@@ -1854,6 +1865,45 @@ END SUBROUTINE mean_domain_values
   END FUNCTION ccw
 
 
+  !-------------------------------------------------------------------------
+  !
+  !
+  !>
+  !! Checks, whether two lines intersect
+  !!
+  !! Checks whether two lines intersect (2D cartesian geometry)
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert  (2012-04-05)
+  !!
+  !! @par LITERATURE
+  !! Sedgewick, R. (1988): Algorithms, 2nd edition, pp. 351
+  !!
+  FUNCTION lintersect( line1, line2 )
+    !
+
+    IMPLICIT NONE
+
+    TYPE(t_line), INTENT(in) :: line1
+    TYPE(t_line), INTENT(in) :: line2
+
+    INTEGER :: intersect1, intersect2
+
+    LOGICAL :: lintersect
+
+    !-----------------------------------------------------------------------
+
+    intersect1 = ccw(line1%p1,line1%p2,line2%p1)      &
+      &           * ccw(line1%p1,line1%p2,line2%p2)
+    intersect2 = ccw(line2%p1,line2%p2,line1%p1)      &
+      &           * ccw(line2%p1,line2%p2,line1%p2)
+
+    lintersect = (intersect1 + intersect2) == -2
+
+  END FUNCTION lintersect
+
+
+
 !!$  !-------------------------------------------------------------------------
 !!$  !
 !!$  !
@@ -1911,6 +1961,52 @@ END SUBROUTINE mean_domain_values
 !!$
 !!$  END FUNCTION ccw
 
+
+  !-------------------------------------------------------------------------
+  !
+  !
+  !>
+  !! Computes intersection point of two lines in 2D
+  !!
+  !! Computes intersection point of two lines in 2D (cartesian geometry).
+  !! Note that this function does not check, whether the two lines 
+  !! do intersect at all. So it is up to the user to make sure that 
+  !! the two lines indeed do intersect (e.g. by making use of the 
+  !! ccw-function)
+  !!
+  !! The two lines are given in the from:
+  !! f1(x) = y_a1 + m1*(x-x_a1)
+  !! f2(x) = y_b1 + m2*(x-x_b1)
+  !! with 
+  !! m = (y_2-y_1)/(x_2-x_1)
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert  (2012-04-03)
+  !!
+  !!
+  FUNCTION line_intersect( line1, line2 ) RESULT(intersect)
+
+   TYPE(t_line), INTENT(in) :: line1
+   TYPE(t_line), INTENT(in) :: line2
+
+   REAL(wp) :: m1, m2          !< slopes
+
+   ! coordinates of intersection point
+   ! 
+   TYPE(t_geographical_coordinates) :: intersect
+
+  !-----------------------------------------------------------------------
+
+   ! determine slopes of the two lines
+   m1 = (line1%p2%lat - line1%p1%lat)/(line1%p2%lon - line1%p1%lon)
+   m2 = (line2%p2%lat - line2%p1%lat)/(line2%p2%lon - line2%p1%lon)
+
+   intersect%lon = (line2%p1%lat - line1%p1%lat + m1*line1%p1%lon - m2*line2%p1%lon) &
+     &           / (m1 - m2)
+
+   intersect%lat = line1%p1%lat + m1*(intersect%lon - line1%p1%lon)
+
+  END FUNCTION line_intersect
 
 END MODULE mo_math_utilities
 
