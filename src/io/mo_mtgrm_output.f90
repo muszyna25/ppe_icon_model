@@ -362,7 +362,7 @@ MODULE mo_meteogram_output
     &                                      l_pure_io_pe, l_is_collecting_pe, &
     &                                      l_is_varlist_sender
   INTEGER,            SAVE              :: process_mpi_all_collector_id     !< rank of PE which gathers data
-  INTEGER,            SAVE              :: owner(MAX_NUM_STATIONS)          !< rank of sender PE for each station
+  INTEGER,            SAVE              :: global_idx(MAX_NUM_STATIONS)     !< rank of sender PE for each station
 
   ! several variable indices, stored for convenience (when computing additional diagnostics)
   INTEGER, DIMENSION(1:max_dom), SAVE   :: i_T, i_REL_HUM, i_QV, i_PEXNER
@@ -614,7 +614,8 @@ CONTAINS
       &             jb, jc, glb_index, i_startidx,    &
       &             i_endidx, jc_station, jb_station, &
       &             istation, my_id, ivar, nlevs,     &
-      &             nblks_global, npromz_global, ilev
+      &             nblks_global, npromz_global, ilev,&
+      &             istation_glb
     REAL(gk)     :: in_points(nproma,meteogram_output_config%nblks,2) !< geographical locations
     REAL(gk)     :: min_dist(nproma,meteogram_output_config%nblks)    !< minimal distance
     ! list of triangles containing lon-lat grid points (first dim: index and block)
@@ -709,7 +710,7 @@ CONTAINS
         &                                  tri_idx(:,:,:), min_dist(:,:))
       CALL gnat_merge_distributed_queries(ptr_patch, nstations, nproma, nblks, min_dist,  &
         &                                 tri_idx(:,:,:), in_points(:,:,:),               &
-        &                                 owner(:), ithis_nlocal_pts)
+        &                                 global_idx(:), ithis_nlocal_pts)
       nblks    = (ithis_nlocal_pts-1)/nproma + 1
       npromz   = ithis_nlocal_pts - (nblks-1)*nproma
       meteogram_data%nstations = ithis_nlocal_pts
@@ -812,13 +813,10 @@ CONTAINS
         IF (jb == nblks) i_endidx = npromz
         
         DO jc=i_startidx,i_endidx
-          ! find corresponding entry in station list:
-          DO
-            istation = istation + 1
-            IF (owner(istation) == my_id) EXIT
-          END DO
-          jb_station = (istation-1)/nproma + 1
-          jc_station = istation - (jb_station-1)*nproma
+          istation = istation + 1
+          istation_glb = global_idx(istation)
+          jb_station = (istation_glb-1)/nproma + 1
+          jc_station = istation_glb - (jb_station-1)*nproma
           meteogram_data%station(jc,jb)%station_idx = (/ jc_station, jb_station /)
 
           ! set owner ID:
@@ -1262,10 +1260,25 @@ CONTAINS
     CHARACTER(LEN=MAX_DATE_LEN) :: zdate_sndrcv
     TYPE(t_meteogram_data),    POINTER :: meteogram_data
     TYPE(t_meteogram_station), POINTER :: p_station
+    LOGICAL :: l_owner(MAX_NUM_STATIONS)  !< .TRUE. if this PE is owner
 
     IF (dbg_level > 5)  WRITE (*,*) routine, " Enter"
      
     meteogram_data => meteogram_local_data(jg)
+
+    ! build a list of "foreign" stations:
+    l_owner(:) = .FALSE.
+    istation = 0
+    DO jb=1,meteogram_data%nblks
+      i_startidx = 1
+      i_endidx   = nproma
+      IF (jb == meteogram_data%nblks) i_endidx = meteogram_data%npromz
+        
+      DO jc=i_startidx,i_endidx
+        istation = istation + 1
+        l_owner( global_idx(istation) ) = .TRUE.
+      END DO
+    END DO
 
     ! get global rank and MPI communicator
     myrank = get_my_mpi_all_id()
@@ -1278,7 +1291,7 @@ CONTAINS
     RECEIVER : IF (l_is_collecting_pe) THEN
       ! launch MPI message requests for station data on foreign PEs
       DO istation=1,meteogram_global_data(jg)%nstations
-        IF (owner(istation) /= myrank) THEN
+        IF (.NOT. l_owner(istation)) THEN
           CALL p_irecv_packed(msg_buffer(:,istation), MPI_ANY_SOURCE, istation, max_buf_size)
         END IF
       END DO
@@ -1294,7 +1307,7 @@ CONTAINS
         IF (dbg_level > 5) &
           WRITE (*,*) "Receiver side: Station ", istation
 
-        IF ((owner(istation) /= myrank) .OR. l_pure_io_pe) THEN
+        IF ((.NOT. l_owner(istation)) .OR. l_pure_io_pe) THEN
           position = 0
 
           !-- unpack global time stamp index
