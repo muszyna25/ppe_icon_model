@@ -494,8 +494,8 @@ CONTAINS
       iqv    = 1     !> water vapour
       iqc    = 2     !! cloud water
       iqi    = 3     !! ice
-      ico2   = 4     !! CO2
-      iqt    = 5     !! starting index of non-water species 
+      iqt    = 4     !! starting index of non-water species
+      ico2   = 5     !! CO2
       nqtendphy = 0  !! number of water species for which convective and turbulent 
                      !! tendencies are stored
 
