@@ -1733,7 +1733,7 @@ SUBROUTINE turbtran(dt_tke)
             z0m_2d(i,j) = gz0(i,j)/grav
             z_surf      = z0m_2d(i,j)/sai(i,j)
 !amk
-            if ( w_snow(i,j) > 0.015 ) then
+            if ( w_snow(i,j) > 0.015 .and. fr_land(i,j) .GT. z1d2 ) then
               z0h_2d(i,j) = 0.0001
             else
               z0h_2d(i,j) = z0m_2d(i,j)

@@ -639,7 +639,6 @@ SUBROUTINE init_nwp_phy ( pdtime,                           &
          &  sai=prm_diag%sai(:,jb), lai=ext_data%atm%lai_mx(:,jb), &
          &  tai=prm_diag%tai(:,jb), eai=prm_diag%eai(:,jb) )
 
-
       CALL organize_turbdiff(action='tran_diff', iini=1, lstfnct=.TRUE., &
 !
          &  dt_var=pdtime, dt_tke=pdtime, nprv=1, ntur=1, ntim=1, &
