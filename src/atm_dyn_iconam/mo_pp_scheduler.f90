@@ -108,7 +108,7 @@ MODULE mo_pp_scheduler
   INTEGER, PARAMETER :: DEFAULT_PRIORITY2 =   10  
 
   ! level of output verbosity
-  INTEGER :: dbg_level = 10
+  INTEGER :: dbg_level = 0
   
   !--- Available post-processing tasks
   !------ setup tasks (coefficients,...)
