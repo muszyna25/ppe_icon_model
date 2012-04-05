@@ -279,8 +279,8 @@ fi
 
 # postprocessing for comparing the restarts
 if [ $make_post = "true" ] ; then 
-  restart_1="../experiments/${name}/restart.iconR2B04-ocean_etopo40_planet_20000102T000000Z_oce.nc"
-  restart_2="../experiments/${name}_restart/restart.iconR2B04-ocean_etopo40_planet_20000102T000000Z_oce.nc"
+  restart_1="../experiments/${name}/restart.iconR2B04-ocean_etopo40_planet_20010102T000000Z_oce.nc"
+  restart_2="../experiments/${name}_restart/restart.iconR2B04-ocean_etopo40_planet_20010102T000000Z_oce.nc"
   out_file=${name}_restart.diff
   $make_runscript in_folder=$input_folder in_script=post.compare_restarts out_script=post.${name}_compare-restart.run\
     with_mpi="no" with_openmp="no" queue="express" cpu_time="00:30:00" \
