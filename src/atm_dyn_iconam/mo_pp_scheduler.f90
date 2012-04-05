@@ -108,7 +108,7 @@ MODULE mo_pp_scheduler
   INTEGER, PARAMETER :: DEFAULT_PRIORITY2 =   10  
 
   ! level of output verbosity
-  INTEGER :: dbg_level = 0
+  INTEGER :: dbg_level = 10
   
   !--- Available post-processing tasks
   !------ setup tasks (coefficients,...)
@@ -251,7 +251,7 @@ CONTAINS
       &  TRIM("mo_pp_scheduler:pp_scheduler_init")
     INTEGER                               :: &
       &  jg, ndom, ierrstat, ivar, i, j, idx, nvars_ll, nlev, &
-      &  nblks_lonlat, ilev_type, max_var
+      &  nblks_lonlat, ilev_type, max_var, ilev
     LOGICAL                               :: &
       &  l_jg_active, found
     TYPE (t_output_name_list), POINTER    :: p_onl
@@ -294,53 +294,52 @@ CONTAINS
 
     NML_LOOP : DO
       IF (.NOT.ASSOCIATED(p_onl)) EXIT NML_LOOP
+
+      DO ilev=1,3
    
-      IF (p_onl%ml_varlist(1) /= ' ') THEN
-        varlist   => p_onl%ml_varlist
-        ilev_type =  level_type_ml
-        max_var   = max_var_ml
-      ELSE 
-        IF (p_onl%pl_varlist(1) /= ' ') THEN
+        SELECT CASE(ilev)
+        CASE (1) 
+          varlist   => p_onl%ml_varlist
+          ilev_type =  level_type_ml
+          max_var   = max_var_ml
+        CASE (2)
           varlist   => p_onl%pl_varlist
           ilev_type =  level_type_pl
           max_var   = max_var_pl
-        ELSE
-          IF (p_onl%hl_varlist(1) /= ' ') THEN
-            varlist   => p_onl%hl_varlist
-            ilev_type =  level_type_hl
-            max_var   = max_var_hl
-          ELSE
-            p_onl => p_onl%next
-            CYCLE NML_LOOP
-          END IF
-        END IF
-      END IF
-
-      ! Selection criterion: 
-      ! - lon-lat interpolation is requested
-      IF (p_onl%remap == 1) THEN
-
-        ! check, if "all" variables are desired:
-        IF (toupper(TRIM(varlist(1))) == 'ALL') THEN
-          IF (dbg_level > 8)  CALL message(routine, "ALL vars for model levels")
-          j = nvars_ll
-          CALL get_all_var_names(ll_varlist, nvars_ll,                &
-            &                    opt_hor_intp_type=HINTP_TYPE_LONLAT, &
-            &                    opt_vlevel_type=ilev_type,           &
-            &                    opt_loutput=.TRUE.)
-          ll_vargrid((j+1):nvars_ll) = p_onl%lonlat_id
-          ll_varlevs((j+1):nvars_ll) = ilev_type
-          EXIT NML_LOOP
-        END IF
+        CASE (3)
+          varlist   => p_onl%hl_varlist
+          ilev_type =  level_type_hl
+          max_var   = max_var_hl
+        END SELECT
+        IF (varlist(1) == ' ') CYCLE
         
-        DO ivar=1,max_var
-          IF (varlist(ivar) == ' ') CYCLE
-          nvars_ll=nvars_ll+1
-          ll_varlist(nvars_ll) = varlist(ivar)
-          ll_vargrid(nvars_ll) = p_onl%lonlat_id
-          ll_varlevs(nvars_ll) = ilev_type
-        END DO
-      END IF
+        ! Selection criterion: 
+        ! - lon-lat interpolation is requested
+        IF (p_onl%remap == 1) THEN
+
+          ! check, if "all" variables are desired:
+          IF (toupper(TRIM(varlist(1))) == 'ALL') THEN
+            IF (dbg_level > 8)  CALL message(routine, "ALL vars for model levels")
+            j = nvars_ll
+            CALL get_all_var_names(ll_varlist, nvars_ll,                &
+              &                    opt_hor_intp_type=HINTP_TYPE_LONLAT, &
+              &                    opt_vlevel_type=ilev_type,           &
+              &                    opt_loutput=.TRUE.)
+            ll_vargrid((j+1):nvars_ll) = p_onl%lonlat_id
+            ll_varlevs((j+1):nvars_ll) = ilev_type
+            EXIT NML_LOOP
+          END IF
+
+          DO ivar=1,max_var
+            IF (varlist(ivar) == ' ') CYCLE
+            nvars_ll=nvars_ll+1
+            ll_varlist(nvars_ll) = varlist(ivar)
+            ll_vargrid(nvars_ll) = p_onl%lonlat_id
+            ll_varlevs(nvars_ll) = ilev_type
+          END DO
+        END IF
+      END DO
+
       p_onl => p_onl%next
     END DO NML_LOOP
 
