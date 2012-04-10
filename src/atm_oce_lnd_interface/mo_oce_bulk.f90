@@ -52,6 +52,7 @@ MODULE mo_oce_bulk
 USE mo_kind,                ONLY: wp
 USE mo_parallel_config,     ONLY: nproma
 USE mo_run_config,          ONLY: dtime, ltimer
+USE mo_sync,                ONLY: sync_c, sync_patch_array
 USE mo_timer,               ONLY: timer_start, timer_stop, timer_coupling
 USE mo_io_units,            ONLY: filename_max
 USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast, &
@@ -581,6 +582,7 @@ CONTAINS
         IF (info > 0 ) THEN
             buffer(nbr_hor_points+1:nbr_points,1) = 0.0_wp
             p_sfc_flx%forc_wind_u(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
+            CALL sync_patch_array(sync_c, p_patch, p_sfc_flx%forc_wind_u(:,:))
         ENDIF
       !
       ! meridional wind stress
@@ -588,6 +590,7 @@ CONTAINS
         IF (info > 0 ) THEN
             buffer(nbr_hor_points+1:nbr_points,1) = 0.0_wp
             p_sfc_flx%forc_wind_v(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
+            CALL sync_patch_array(sync_c, p_patch, p_sfc_flx%forc_wind_v(:,:))
         ENDIF
       !
       ! freshwater flux - 2 parts, precipitation and evaporation
@@ -599,6 +602,10 @@ CONTAINS
             buffer(nbr_hor_points+1:nbr_points,1:2) = 0.0_wp
             p_sfc_flx%forc_prflx(:,:) = RESHAPE(buffer(:,1),(/ nproma, p_patch%nblks_c /) )
             p_sfc_flx%forc_evflx(:,:) = RESHAPE(buffer(:,2),(/ nproma, p_patch%nblks_c /) )
+            CALL sync_patch_array(sync_c, p_patch, p_sfc_flx%forc_prflx(:,:))
+            CALL sync_patch_array(sync_c, p_patch, p_sfc_flx%forc_evflx(:,:))
+            ! sum of fluxes for ocean boundary condition
+            p_sfc_flx%forc_fwfx(:,:) = p_sfc_flx%forc_prflx(:,:) + p_sfc_flx%forc_evflx(:,:)
         END IF
       !
       ! surface temperature
@@ -624,12 +631,14 @@ CONTAINS
           p_sfc_flx%forc_lwflx(:,:) = RESHAPE(buffer(:,2),(/ nproma, p_patch%nblks_c /) )
           p_sfc_flx%forc_ssflx(:,:) = RESHAPE(buffer(:,3),(/ nproma, p_patch%nblks_c /) )
           p_sfc_flx%forc_slflx(:,:) = RESHAPE(buffer(:,4),(/ nproma, p_patch%nblks_c /) )
+          CALL sync_patch_array(sync_c, p_patch, p_sfc_flx%forc_swflx(:,:))
+          CALL sync_patch_array(sync_c, p_patch, p_sfc_flx%forc_lwflx(:,:))
+          CALL sync_patch_array(sync_c, p_patch, p_sfc_flx%forc_ssflx(:,:))
+          CALL sync_patch_array(sync_c, p_patch, p_sfc_flx%forc_slflx(:,:))
+          ! sum of fluxes for ocean boundary condition
+          p_sfc_flx%forc_hflx(:,:) = p_sfc_flx%forc_swflx(:,:) + p_sfc_flx%forc_lwflx(:,:) &
+      &                            + p_sfc_flx%forc_ssflx(:,:) + p_sfc_flx%forc_slflx(:,:)
         END IF
-
-        ! sum of fluxes for ocean boundary condition
-        p_sfc_flx%forc_hflx(:,:) = p_sfc_flx%forc_swflx(:,:) + p_sfc_flx%forc_lwflx(:,:) &
-          &                      + p_sfc_flx%forc_ssflx(:,:) + p_sfc_flx%forc_slflx(:,:)
-        p_sfc_flx%forc_fwfx(:,:) = p_sfc_flx%forc_prflx(:,:) + p_sfc_flx%forc_evflx(:,:)
 
         ipl_src=1  ! output print level (1-5, fix)
         z_c(:,1,:)=p_sfc_flx%forc_swflx(:,:)
