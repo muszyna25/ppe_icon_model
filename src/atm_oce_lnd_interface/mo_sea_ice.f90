@@ -62,6 +62,7 @@ MODULE mo_sea_ice
   USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base, ocean_var_list
   USE mo_oce_index,           ONLY: print_mxmn, ipl_src
   USE mo_var_list,            ONLY: add_var
+  USE mo_master_control,      ONLY: is_restart_run
   USE mo_cf_convention
   USE mo_grib2
   USE mo_cdi_constants
@@ -1015,6 +1016,9 @@ CONTAINS
     INTEGER k      ! counter for loops
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_sea_ice:ice_init'
     !-------------------------------------------------------------------------
+
+    ! Don't need to do anything if we're restarting
+    IF ( is_restart_run() ) RETURN
 
     CALL message(TRIM(routine), 'start' )
 
