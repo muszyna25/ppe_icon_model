@@ -254,7 +254,7 @@ case "$ac_sitename" in
             tornado*)         # tornado
                 config_target=tornado
                 make_command="make" "-j" "8"
-                load_modules="ncl/5.2.1-gccsys" "${load_modules}"
+                load_modules="ncl/6.0.0-gccsys" "${load_modules}"
                 load_profile="." "/client/etc/profile.zmaw"
                 submit="qsub"
                 sync_submit=qsub -sync y
@@ -376,7 +376,7 @@ case "$ac_sitename" in
 		HDF5ROOT = /sw/lenny-x64/hdf5-1.8.5-p1-static
 		SZIPROOT = /sw/lenny-x64/szip-2.1-static
 		ZLIBROOT = /usr
-		load_modules = "ncl/5.2.1-bin" "${load_modules}"
+		load_modules = "ncl/6.0.0-gccsys" "${load_modules}"
 		load_profile = "." "/client/etc/profile.zmaw"
 		case "$(hostname)" in
 		    squall?)
