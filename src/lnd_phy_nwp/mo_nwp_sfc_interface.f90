@@ -318,27 +318,27 @@ CONTAINS
           ENDIF
         ENDDO
 
-       MSNOWI: IF(lmulti_snow) THEN
+        MSNOWI: IF(lmulti_snow) THEN
 
 #ifdef __LOOP_EXCHANGE
-        DO ic = 1, i_count
-          jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
-          DO jk=1,nlev_snow
-#else
-!CDIR UNROLL=nlsnow
-        DO jk=1,nlev_snow
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
+            DO jk=1,nlev_snow
+#else
+!CDIR UNROLL=nlsnow
+          DO jk=1,nlev_snow
+            DO ic = 1, i_count
+              jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
 #endif
-            t_snow_mult_now_t(ic,jk,jb,isubs) = lnd_prog_now%t_snow_mult(jc,jk,jb,isubs) 
-            rho_snow_mult_now_t(ic,jk,jb,isubs) = lnd_prog_now%rho_snow_mult(jc,jk,jb,isubs)
-            wliq_snow_now_t(ic,jk,jb,isubs) = lnd_prog_now%wliq_snow(jc,jk,jb,isubs) 
-            wtot_snow_now_t(ic,jk,jb,isubs) = lnd_prog_now%wtot_snow(jc,jk,jb,isubs)
-            dzh_snow_now_t(ic,jk,jb,isubs) = lnd_prog_now%dzh_snow(jc,jk,jb,isubs) 
+              t_snow_mult_now_t(ic,jk,jb,isubs) = lnd_prog_now%t_snow_mult(jc,jk,jb,isubs) 
+              rho_snow_mult_now_t(ic,jk,jb,isubs) = lnd_prog_now%rho_snow_mult(jc,jk,jb,isubs)
+              wliq_snow_now_t(ic,jk,jb,isubs) = lnd_prog_now%wliq_snow(jc,jk,jb,isubs) 
+              wtot_snow_now_t(ic,jk,jb,isubs) = lnd_prog_now%wtot_snow(jc,jk,jb,isubs)
+              dzh_snow_now_t(ic,jk,jb,isubs) = lnd_prog_now%dzh_snow(jc,jk,jb,isubs) 
+            ENDDO
           ENDDO
-        ENDDO
 
-       END IF MSNOWI
+        END IF MSNOWI
 
 #ifdef __LOOP_EXCHANGE
         DO ic = 1, i_count   
@@ -359,7 +359,7 @@ CONTAINS
 !---------- END Copy index list fields
 
 
-       CALL terra_multlay(                             &
+        CALL terra_multlay(                             &
         &  ie=nproma,                                  & ! array dimensions
         &  istartpar=1, iendpar=i_count    , & ! optional start/end indicies
         &  nsubs0=1, nsubs1=nsfc_subs       , & ! nsfc_subs
@@ -481,23 +481,23 @@ CONTAINS
         MSNOWO: IF(lmulti_snow) THEN
 
 #ifdef __LOOP_EXCHANGE
-        DO ic = 1, i_count
-          jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
-          DO jk=1,nlev_snow
-#else
-!CDIR UNROLL=nlsnow
-        DO jk=1,nlev_snow
-!CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
+            DO jk=1,nlev_snow
+#else
+!CDIR UNROLL=nlsnow
+          DO jk=1,nlev_snow
+!CDIR NODEP,VOVERTAKE,VOB
+            DO ic = 1, i_count
+              jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
 #endif
-            lnd_prog_new%t_snow_mult(jc,jk,jb,isubs) = t_snow_mult_new_t(ic,jk,jb,isubs)   
-            lnd_prog_new%rho_snow_mult(jc,jk,jb,isubs) = rho_snow_mult_new_t(ic,jk,jb,isubs) 
-            lnd_prog_new%wliq_snow(jc,jk,jb,isubs) = wliq_snow_new_t(ic,jk,jb,isubs)     
-            lnd_prog_new%wtot_snow(jc,jk,jb,isubs) = wtot_snow_new_t(ic,jk,jb,isubs)     
-            lnd_prog_new%dzh_snow(jc,jk,jb,isubs)  = dzh_snow_new_t(ic,jk,jb,isubs)      
+              lnd_prog_new%t_snow_mult(jc,jk,jb,isubs) = t_snow_mult_new_t(ic,jk,jb,isubs)   
+              lnd_prog_new%rho_snow_mult(jc,jk,jb,isubs) = rho_snow_mult_new_t(ic,jk,jb,isubs) 
+              lnd_prog_new%wliq_snow(jc,jk,jb,isubs) = wliq_snow_new_t(ic,jk,jb,isubs)     
+              lnd_prog_new%wtot_snow(jc,jk,jb,isubs) = wtot_snow_new_t(ic,jk,jb,isubs)     
+              lnd_prog_new%dzh_snow(jc,jk,jb,isubs)  = dzh_snow_new_t(ic,jk,jb,isubs)      
+            ENDDO
           ENDDO
-        ENDDO
         
         END IF MSNOWO
 
@@ -569,9 +569,9 @@ CONTAINS
      
 
      
-    ENDIF !inwp_sfc
+      ENDIF !inwp_sfc
 
-  ENDDO    
+    ENDDO    
 !$OMP END DO
 !$OMP END PARALLEL
 
@@ -668,12 +668,12 @@ CONTAINS
 
 
 
-       IF (ext_data%atm%lp_count(jb) == 0) CYCLE ! skip loop if there is no land point
+      IF (ext_data%atm%lp_count(jb) == 0) CYCLE ! skip loop if there is no land point
 
 !---------- Copy input fields for each tile
 
 !----------------------------------
-       DO isubs = 1,nsfc_subs
+      DO isubs = 1,nsfc_subs
 !----------------------------------
 
         i_count = ext_data%atm%gp_count_t(jb,isubs) 
@@ -690,28 +690,28 @@ CONTAINS
         ENDDO
 
 
-       IMSNOWI: IF(lmulti_snow) THEN
+        IMSNOWI: IF(lmulti_snow) THEN
 
 !CDIR UNROLL=nlsnow+1
-        DO jk=1,nlev_snow+1
-          DO ic = 1, i_count
-            jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
-            t_snow_mult_now_t(ic,jk,jb,isubs)   =  p_prog_lnd_now%t_snow_mult(jc,jk,jb,isubs) 
+          DO jk=1,nlev_snow+1
+            DO ic = 1, i_count
+              jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
+              t_snow_mult_now_t(ic,jk,jb,isubs)   =  p_prog_lnd_now%t_snow_mult(jc,jk,jb,isubs) 
+            ENDDO
           ENDDO
-        ENDDO
 
 !CDIR UNROLL=nlsnow
-        DO jk=1,nlev_snow
-          DO ic = 1, i_count
-            jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
-            rho_snow_mult_now_t(ic,jk,jb,isubs) =  p_prog_lnd_now%rho_snow_mult(jc,jk,jb,isubs)
-            wliq_snow_now_t(ic,jk,jb,isubs)     =  p_prog_lnd_now%wliq_snow(jc,jk,jb,isubs) 
-            wtot_snow_now_t(ic,jk,jb,isubs)     =  p_prog_lnd_now%wtot_snow(jc,jk,jb,isubs) 
-            dzh_snow_now_t(ic,jk,jb,isubs)      =  p_prog_lnd_now%dzh_snow(jc,jk,jb,isubs) 
+          DO jk=1,nlev_snow
+            DO ic = 1, i_count
+              jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
+              rho_snow_mult_now_t(ic,jk,jb,isubs) =  p_prog_lnd_now%rho_snow_mult(jc,jk,jb,isubs)
+              wliq_snow_now_t(ic,jk,jb,isubs)     =  p_prog_lnd_now%wliq_snow(jc,jk,jb,isubs) 
+              wtot_snow_now_t(ic,jk,jb,isubs)     =  p_prog_lnd_now%wtot_snow(jc,jk,jb,isubs) 
+              dzh_snow_now_t(ic,jk,jb,isubs)      =  p_prog_lnd_now%dzh_snow(jc,jk,jb,isubs) 
+            ENDDO
           ENDDO
-        ENDDO
 
-     END IF  IMSNOWI
+        END IF  IMSNOWI
 
 !CDIR UNROLL=nlsoil+2
         DO jk=1,nlev_soil+2
@@ -772,28 +772,28 @@ CONTAINS
           p_prog_lnd_now%rho_snow(jc,jb,isubs) = rho_snow_now_t(ic,jb,isubs)
         ENDDO
 
-         IMSNOWO: IF(lmulti_snow) THEN
+        IMSNOWO: IF(lmulti_snow) THEN
 
 !CDIR UNROLL=nlsnow+1
-        DO jk=1,nlev_snow+1
+          DO jk=1,nlev_snow+1
 !CDIR NODEP,VOVERTAKE,VOB
-          DO ic = 1, i_count
-            jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
-            p_prog_lnd_now%t_snow_mult(jc,jk,jb,isubs) =  t_snow_mult_now_t(ic,jk,jb,isubs)   
+            DO ic = 1, i_count
+              jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
+              p_prog_lnd_now%t_snow_mult(jc,jk,jb,isubs) =  t_snow_mult_now_t(ic,jk,jb,isubs)   
+            ENDDO
           ENDDO
-        ENDDO
 
 !CDIR UNROLL=nlsnow
-        DO jk=1,nlev_snow
+          DO jk=1,nlev_snow
 !CDIR NODEP,VOVERTAKE,VOB
-          DO ic = 1, i_count
-            jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
-            p_prog_lnd_now%rho_snow_mult(jc,jk,jb,isubs) = rho_snow_mult_now_t(ic,jk,jb,isubs) 
-            p_prog_lnd_now%wliq_snow(jc,jk,jb,isubs) = wliq_snow_now_t(ic,jk,jb,isubs)   
-            p_prog_lnd_now%wtot_snow(jc,jk,jb,isubs) = wtot_snow_now_t(ic,jk,jb,isubs)
-            p_prog_lnd_now%dzh_snow(jc,jk,jb,isubs)  = dzh_snow_now_t(ic,jk,jb,isubs)    
+            DO ic = 1, i_count
+              jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
+              p_prog_lnd_now%rho_snow_mult(jc,jk,jb,isubs) = rho_snow_mult_now_t(ic,jk,jb,isubs) 
+              p_prog_lnd_now%wliq_snow(jc,jk,jb,isubs) = wliq_snow_now_t(ic,jk,jb,isubs)   
+              p_prog_lnd_now%wtot_snow(jc,jk,jb,isubs) = wtot_snow_now_t(ic,jk,jb,isubs)
+              p_prog_lnd_now%dzh_snow(jc,jk,jb,isubs)  = dzh_snow_now_t(ic,jk,jb,isubs)    
+            ENDDO
           ENDDO
-        ENDDO
 
         END IF  IMSNOWO
 
@@ -819,7 +819,7 @@ CONTAINS
           ENDDO
         ENDDO
 
-      END DO ! isubs
+      ENDDO ! isubs
 
     ENDDO  ! jb loop
 !$OMP END DO
