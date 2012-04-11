@@ -794,30 +794,9 @@ CONTAINS
                 !! vert_density_grad  < 0 instable stratification: use convective mixing parameter
                 ELSE IF (z_vert_density_grad_c(jc,jk,jb) < -z_treshold ) THEN
                   params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = MAX_VERT_DIFF_TRAC
-!                   DO jj=1,3
-!                     idxe = p_patch%cells%edge_idx(jc,jb,jj)
-!                     ible = p_patch%cells%edge_blk(jc,jb,jj)
-!                     params_oce%A_veloc_v(idxe,jk,ible) = MAX_VERT_DIFF_VELOC
-!                   ENDDO
 
                 !! vert_density_grad  > 0 stable stratification: use calculated value
                 ELSE IF (z_vert_density_grad_c(jc,jk,jb) > z_treshold ) THEN
-
-                  !This is (16) in Marsland et al. and identical to treatment of velocity
-                  !but it allows to use different parameters
-   !                z_lambda_frac     = z_lambda/v_base%del_zlev_i(jk)
-   !                z_A_W_T(jc,jk,jb) = z_A_W_T (jc,jk-1,jb)*z_lambda_frac      &
-   !                  &*(exp(-v_base%del_zlev_i(jk)/z_0))&
-   !                  &/(z_lambda_frac+0.5_wp*(z_vert_density_grad_c(jc,jk,jb)&
-   !                                       &+z_vert_density_grad_c(jc,jk-1,jb)))
-   !                ! This is (19) in Marsland et al. valid for stable stratification, with
-   !                !   with: z_c1_T=CRD=5.0, z_av0=DVO=0.005, A_tracer_v=Db=1.0e-5, Dw=0.0
-   !                A_T_tmp = &
-   !                &z_one_minus_beta&
-   !                &*MIN(z_A_tracer_v_old, z_dv0+params_oce%A_tracer_v_back(i_no_trac))&
-   !                & +z_beta*(z_A_W_T(jc,jk,jb)+z_dv0/((1.0_wp+z_c1_T*z_Ri_c(jc,jk,jb))**3)&
-   !                &                  +params_oce%A_tracer_v_back(i_no_trac))
-   !                params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = MIN(MAX_VERT_DIFF_TRAC, A_T_tmp)
 
                   z_Ri_c(jc,jk,jb) = max(z_Ri_c(jc,jk,jb),0.0_wp)
 
@@ -825,14 +804,6 @@ CONTAINS
                   &+ z_dv0/((1.0_wp+z_c1_T*z_Ri_c(jc,jk,jb))**3)
 
                   params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = A_T_tmp
-
-!                   DO jj=1,3
-!                     idxe = p_patch%cells%edge_idx(jc,jb,jj)
-!                     ible = p_patch%cells%edge_blk(jc,jb,jj)
-! 
-!                     params_oce%A_veloc_v(idxe,jk,ible) = params_oce%A_veloc_v_back&
-!                                       &+ z_av0/((1.0_wp+z_c1_v*z_Ri_c(jc,jk,jb))**2)
-!                  END DO
 
                 END IF
               ENDDO
