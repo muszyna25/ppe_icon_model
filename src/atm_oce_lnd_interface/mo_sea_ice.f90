@@ -54,7 +54,7 @@ MODULE mo_sea_ice
   USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell, sea_boundary 
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_math_utilities,      ONLY: t_cartesian_coordinates
-  USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref,ki,ks,tf,albi,albim,albsm,albs,&
+  USE mo_physical_constants,  ONLY: rhoi, rhos, rho_ref,ki,ks,Tf,albi,albim,albsm,albs,&
     &                               mu,mus,ci, alf, I_0, alv, albedoW, clw,            &
     &                               cpd, zemiss_def,rd, stbo,tmelt   
 !  USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
@@ -1009,8 +1009,7 @@ CONTAINS
     !local variables
     REAL(wp), DIMENSION(nproma,i_no_ice_thick_class, ppatch%nblks_c) :: &
       & Tinterface, & ! temperature at snow-ice interface
-      & draft,      & ! position of ice-ocean interface below sea level
-      & Tfw           ! Ocean freezing temperature [°C]
+      & draft         ! position of ice-ocean interface below sea level
     
     !INTEGER i,j,k      ! counter for loops
     INTEGER k      ! counter for loops
@@ -1031,14 +1030,6 @@ CONTAINS
     !    ice% hs    (i,j,k) = sicsno (i,j)
     ! END FORALL
 
-    IF ( no_tracer >= 2 ) THEN
-      DO k=1,i_no_ice_thick_class
-        Tfw(:,k,:) = -mu*p_os%p_prog(nold(1))%tracer(:,1,:,2)
-      ENDDO
-    ELSE
-      Tfw = Tf
-    ENDIF
-      
     ice% Tsurf  = Tf
     ice% T1     = Tf
     ice% T2     = Tf
@@ -1053,23 +1044,21 @@ CONTAINS
         ice%hi(:,1,:) = 2._wp
         ice%conc(:,1,:) = 1._wp
       ENDWHERE
-      IF ( no_tracer < 2 ) THEN
         WHERE (p_os%p_prog(nold(1))%tracer(:,:,:,1) <= -1.0_wp    &
           &     .and. v_base%lsm_oce_c(:,:,:) <= sea_boundary )   &
           &             p_os%p_prog(nold(1))%tracer(:,:,:,1) = Tf
-      ENDIF
     ENDIF
 
     WHERE(ice% hi(:,:,:) > 0.0_wp)
-      ice% Tsurf  = Tfw
-      ice% T1     = Tfw
-      ice% T2     = Tfw
-      Tinterface (:,:,:) = (Tfw * (ki/ks * ice%hs(:,:,:)/ice%hi(:,:,:))+&
+      ice% Tsurf  = Tf
+      ice% T1     = Tf
+      ice% T2     = Tf
+      Tinterface (:,:,:) = (Tf * (ki/ks * ice%hs(:,:,:)/ice%hi(:,:,:))+&
         &                 ice%Tsurf(:,:,:)) / (1.0_wp+ki/ks * ice%hs(:,:,:)/ice%hi(:,:,:))
       ice% conc  (:,:,:) = 1.0_wp/REAL(i_no_ice_thick_class,wp)
       ice% isice (:,:,:) = .TRUE.
-      ice% T1    (:,:,:) = Tfw + 2._wp/3._wp*(Tinterface(:,:,:)-Tfw)
-      ice% T2    (:,:,:) = Tfw + 1._wp/3._wp*(Tinterface(:,:,:)-Tfw)
+      ice% T1    (:,:,:) = Tf + 2._wp/3._wp*(Tinterface(:,:,:)-Tf)
+      ice% T2    (:,:,:) = Tf + 1._wp/3._wp*(Tinterface(:,:,:)-Tf)
       draft      (:,:,:) = (rhos * ice%hs(:,:,:) + rhoi * ice%hi(:,:,:)) / rho_ref
     END WHERE
     
@@ -1091,12 +1080,11 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE ice_fast(ppatch, ice,Tfw,Qatm,QatmAve)
+  SUBROUTINE ice_fast(ppatch, ice,Qatm,QatmAve)
 
     TYPE(t_patch),            INTENT(IN)     :: ppatch 
     !TYPE(t_hydro_ocean_state),INTENT(IN)     :: p_os
     !TYPE(t_atmos_for_ocean),  INTENT(IN)     :: p_as
-    REAL(wp),                 INTENT(IN)     :: Tfw(nproma,i_no_ice_thick_class,ppatch%nblks_c)
     TYPE (t_sea_ice),         INTENT (INOUT) :: ice
     TYPE (t_atmos_fluxes),    INTENT (IN)    :: Qatm
     TYPE (t_atmos_fluxes),    INTENT (INOUT) :: QatmAve
@@ -1105,7 +1093,7 @@ CONTAINS
 
     !CALL get_atmos_fluxes (ppatch, p_os,p_as,ice, Qatm)
     CALL set_ice_albedo(ppatch,ice)
-    CALL set_ice_temp  (ppatch,ice, Tfw, Qatm)
+    CALL set_ice_temp  (ppatch,ice, Qatm)
     CALL sum_fluxes    (Qatm, QatmAve)
 
    END SUBROUTINE ice_fast
@@ -1350,10 +1338,9 @@ CONTAINS
   !! Initial release by Peter Korn, MPI-M (2010-07). Originally code written by
   !! Dirk Notz, following MPI-OM. Code transfered to ICON.
   !!
-  SUBROUTINE set_ice_temp(ppatch,ice, Tfw, Qatm) 
+  SUBROUTINE set_ice_temp(ppatch,ice, Qatm) 
     TYPE(t_patch),        INTENT(IN)    :: ppatch 
     TYPE(t_sea_ice),      INTENT(INOUT) :: ice
-    REAL(wp),             INTENT(IN)    :: Tfw(nproma,i_no_ice_thick_class,ppatch%nblks_c)
     TYPE(t_atmos_fluxes), INTENT(IN)    :: Qatm
 
     !!Local variables
@@ -1409,7 +1396,7 @@ CONTAINS
       A1a   (:,:,:)  =  rhoi*ice%hi * idt2 * ci + K2* (4.0_wp * dtime * K2 + rhoi*ice%hi*ci)*D 
       A1    (:,:,:)  =  A1a + K1*B * iK1B                                                  ! Eq. 16
       B1a   (:,:,:)  =  -rhoi*ice%hi* (ci*ice%T1 - alf*muS/ice%T1) * idt2 - I_0 & 
-        &                - K2*(4.0_wp*dtime*K2*Tfw+rhoi*ice%hi*ci*ice%T2)*D
+        &                - K2*(4.0_wp*dtime*K2*Tf+rhoi*ice%hi*ci*ice%T2)*D
       B1    (:,:,:)  =  B1a + A*K1*iK1B                                                    ! Eq. 17
       C1    (:,:,:)  =  - rhoi*ice%hi * alf * muS * idt2                                   ! Eq. 18
       ice%T1    (:,:,:)  =  -(B1 + SQRT(B1*B1-4.0_wp*A1*C1)) / (2.0_wp*A1)                 ! Eq. 21
@@ -1428,11 +1415,11 @@ CONTAINS
      
      
       ! Eq. 15
-      ice%T2     (:,:,:)  =  ( 2.0_wp*dtime*K2*(ice%T1+2.0_wp*Tfw) + rhoi*ice%hi*ci*ice%T2) * D
+      ice%T2     (:,:,:)  =  ( 2.0_wp*dtime*K2*(ice%T1+2.0_wp*Tf) + rhoi*ice%hi*ci*ice%T2) * D
       ! Sum up conductive heatflux at ice-ocean interface for each atmospheric time step. ice%Qtop
       ! will be averaged in ave_fluxes The ocean heat flux is calculated at the beginning of
       ! ice_growth
-      ice% Qbot  (:,:,:)  =  ice% Qbot - 4.0_wp*Ki*(Tfw-ice%T2)/ice%hi                      ! Eq. 23
+      ice% Qbot  (:,:,:)  =  ice% Qbot - 4.0_wp*Ki*(Tf-ice%T2)/ice%hi                      ! Eq. 23
     END WHERE
 
     ipl_src=1  ! output print level (1-5, fix)
@@ -1488,21 +1475,12 @@ CONTAINS
       & surfmeltsn,  & ! Surface melt water from snow melt with T=0�C       [m]
       & surfmelti1,  & ! Surface melt water from upper ice with T=-muS      [m]
       & surfmelti2,  & ! Surface melt water from lower ice with T=-muS      [m]
-      & heatocei,    & ! Oceanic heat flux                                  [W/m^2]
-      & Tfw            ! Ocean freezing temperature [°C]
+      & heatocei       ! Oceanic heat flux                                  [W/m^2]
 
     INTEGER k
 
     delh2=0._wp
 
-    IF ( no_tracer >= 2 ) then
-      DO k=1,i_no_ice_thick_class
-        Tfw(:,k,:) = -mu*p_os%p_prog(nold(1))%tracer(:,1,:,2)
-      ENDDO
-    ELSE
-      Tfw = Tf
-    ENDIF
-    
     !-------------------------------------------------------------------------------
     ! Calculate snow fall and create array split into ice categories
     new_snow3d (:,1,:)   = rpreci (:,:) * dtime * rho_ref / rhos 
@@ -1514,7 +1492,7 @@ CONTAINS
     ! freezing point. This is not very physical.
     DO k=1,i_no_ice_thick_class
       WHERE (ice%isice(:,k,:)) 
-        heatOceI(:,k,:) = ( p_os%p_prog(nold(1))%tracer(:,1,:,1) - Tfw(:,k,:) ) &
+        heatOceI(:,k,:) = ( p_os%p_prog(nold(1))%tracer(:,1,:,1) - Tf ) &
           &                 * ice%zUnderIce * clw*rho_ref/dtime
         ice%Qbot(:,k,:) = ice%Qbot(:,k,:) + heatOceI(:,k,:)
       ENDWHERE
@@ -1543,8 +1521,8 @@ CONTAINS
       ! #eoo# Eqns. 24, 27--29 and 31--36 appear to be missing rhoi or rhos to get the proper units
       ! for Delta h. But these are included in this program
       WHERE (ice%Qbot < 0.0_wp) 
-        delh2(:,:,:)  = ice%Qbot * dtime / (rhoi * (ci * (Tfw + muS) - alf))     ! Eq. 24 & 25
-        ice%T2   (:,:,:)  = (delh2*Tfw + h2 * ice%T2) / (delh2 + h2)             ! Eq. 26
+        delh2(:,:,:)  = ice%Qbot * dtime / (rhoi * (ci * (Tf + muS) - alf))     ! Eq. 24 & 25
+        ice%T2   (:,:,:)  = (delh2*Tf + h2 * ice%T2) / (delh2 + h2)             ! Eq. 26
         h2   (:,:,:)  = h2 + delh2
       END WHERE
 
@@ -1669,9 +1647,9 @@ CONTAINS
 
       ! Is this necessary?
       WHERE (ice%hi(:,:,:) <= 0.0_wp) 
-        ice%Tsurf(:,:,:) =  Tfw
-        ice%T1   (:,:,:) =  Tfw
-        ice%T2   (:,:,:) =  Tfw
+        ice%Tsurf(:,:,:) =  Tf
+        ice%T1   (:,:,:) =  Tf
+        ice%T2   (:,:,:) =  Tf
         ice%isice(:,:,:) =  .FALSE.
         ice%conc (:,:,:) = 0.0_wp
         ice%hi   (:,:,:) = 0.0_wp
@@ -1796,6 +1774,7 @@ CONTAINS
     !  &                                    MIN(Sice, sao_top(:,:)) / ice%zUnderIce(:,:)
 
     !heatabs         (:,:)   = swsum * QatmAve% SWin * (1 - ice%concsum)
+    CALL print_mxmn('SST',1,p_os%p_prog(nold(1))%tracer(:,1,:,1),1,ppatch%nblks_c,'ice',ipl_src)
 
   END SUBROUTINE upper_ocean_TS
   !-------------------------------------------------------------------------------
@@ -1819,31 +1798,24 @@ CONTAINS
     TYPE(t_sfc_flx),           INTENT(INOUT) :: p_sfc_flx
 
     REAL(wp) :: sst(nproma,ppatch%nblks_c)
-    REAL(wp) :: Tfw(nproma, ppatch%nblks_c) ! Ocean freezing temperature [°C]
 
-    if ( no_tracer >= 2 ) then
-      Tfw = -mu*p_os%p_prog(nold(1))%tracer(:,1,:,2)
-    else
-      Tfw = Tf
-    endif
-    
     ! Calculate possible super-cooling of the surface layer
     sst = p_os%p_prog(nold(1))%tracer(:,1,:,1) + &
       &      dtime*p_sfc_flx%forc_tracer(:,:,1)/ice%zUnderIce
 
     ice % newice = 0.0_wp
-    WHERE (sst < Tfw .and. v_base%lsm_oce_c(:,1,:) <= sea_boundary )
-      ice%newice(:,:) = - (sst - Tfw) * ice%zUnderIce * clw*rho_ref / (alf*rhoi)
+    WHERE (sst < Tf .and. v_base%lsm_oce_c(:,1,:) <= sea_boundary )
+      ice%newice(:,:) = - (sst - Tf) * ice%zUnderIce * clw*rho_ref / (alf*rhoi)
       ! Add energy for new-ice formation due to supercooled ocean to  ocean temperature
       p_sfc_flx%forc_tracer(:,:,1) = &
-        &     ice%zUnderIce * ( Tfw - p_os%p_prog(nold(1))%tracer(:,1,:,1) ) / dtime
+        &     ice%zUnderIce * ( Tf - p_os%p_prog(nold(1))%tracer(:,1,:,1) ) / dtime
     END WHERE
 
     WHERE(ice%newice>0.0_wp)
       WHERE(.NOT.ice%isice(:,1,:))
-        ice%Tsurf(:,1,:) = Tfw
-        ice%T2   (:,1,:) = Tfw
-        ice%T1   (:,1,:) = Tfw
+        ice%Tsurf(:,1,:) = Tf
+        ice%T2   (:,1,:) = Tf
+        ice%T1   (:,1,:) = Tf
       ENDWHERE
       ice % isice(:,1,:) = .TRUE.
       ice % hi   (:,1,:) = ice%newice* (1.0_wp-sum(ice%conc,2))&
