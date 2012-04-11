@@ -1295,7 +1295,7 @@ CONTAINS
 
 
   !------------------------------------------------------------------------------------------------
-  !> Reformat vertex lon/lat coordinates "clonv", "clatv" into a CF1.1 compatible form.
+  !> Reformat vertex lon/lat coordinates "elonv", "elatv" into a CF1.1 compatible form.
   !
   !  based on SUBROUTINE mo_gridrefinement::write_patch(p)
   !
@@ -1388,7 +1388,7 @@ CONTAINS
 
 
   !------------------------------------------------------------------------------------------------
-  !> Reformat vertex lon/lat coordinates "clonv", "clatv" into a CF1.1 compatible form.
+  !> Reformat vertex lon/lat coordinates "vlonv", "vlatv" into a CF1.1 compatible form.
   !
   !  based on SUBROUTINE mo_gridrefinement::write_patch(p)
   !
