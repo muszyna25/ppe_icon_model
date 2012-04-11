@@ -904,13 +904,6 @@ CONTAINS
         CALL print_mxmn('p_vn%x(1)',jk,p_os%p_diag%p_vn%x(1),n_zlev,p_patch%nblks_c,'phy',ipl_src)
         CALL print_mxmn('p_vn%x(2)',jk,p_os%p_diag%p_vn%x(2),n_zlev,p_patch%nblks_c,'phy',ipl_src)
         CALL print_mxmn('z_shear_c',jk,z_shear_c,n_zlev,p_patch%nblks_c,'phy',ipl_src)
-        !write(*,*)'max/min trac mixing',jk,maxval(params_oce%A_tracer_v(:,jk,:,i_no_trac)),&
-        !&minval(params_oce%A_tracer_v(:,jk,:,i_no_trac))
-        !write(*,*)'max/min veloc mixing',jk,maxval(params_oce%A_veloc_v(:,jk,:)),&
-        !minval(params_oce%A_veloc_v(:,jk,:))
-
-        !write(123,*)'max/min trac mixing',jk,maxval(params_oce%A_tracer_v(:,jk,:,i_no_trac)),&
-        !&minval(params_oce%A_tracer_v(:,jk,:,i_no_trac))
       END DO
     END DO
     DO jk=1,n_zlev
