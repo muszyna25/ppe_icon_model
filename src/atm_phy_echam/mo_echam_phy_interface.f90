@@ -436,14 +436,17 @@ CONTAINS
        ! ----------------
        !
        ! TAUX
+       !
        buffer(:,1) = RESHAPE ( prm_field(jg)%u_stress_tile(:,:,iwtr), (/ nbr_points /) )
        CALL ICON_cpl_put ( field_id(1), field_shape, buffer(1:nbr_hor_points,1:1), ierror )
        !
        ! TAUY
+       !
        buffer(:,1) = RESHAPE ( prm_field(jg)%v_stress_tile(:,:,iwtr), (/ nbr_points /) )
        CALL ICON_cpl_put ( field_id(2), field_shape, buffer(1:nbr_hor_points,1:1), ierror )
        !
        ! SFWFLX Note: the evap_tile should be properly updated and added
+       !
         buffer(:,1) = RESHAPE ( prm_field(jg)%rsfl(:,:), (/ nbr_points /) ) + &
              &        RESHAPE ( prm_field(jg)%rsfc(:,:), (/ nbr_points /) ) + &
              &        RESHAPE ( prm_field(jg)%ssfl(:,:), (/ nbr_points /) ) + &
@@ -454,12 +457,13 @@ CONTAINS
        CALL ICON_cpl_put ( field_id(3), field_shape, buffer(1:nbr_hor_points,1:2), ierror )
        !
        ! SFTEMP
+       !
        buffer(:,1) =  RESHAPE ( prm_field(jg)%temp(:,nlev,:), (/ nbr_points /) )
        field_shape(3) = 1
        CALL ICON_cpl_put ( field_id(4), field_shape, buffer(1:nbr_hor_points,1:1), ierror )
        !
        ! THFLX, total heat flux
-
+       !
        buffer(:,1) =  RESHAPE ( prm_field(jg)%swflxsfc  (:,:)     , (/ nbr_points /) ) !net shortwave flux at sfc
        buffer(:,2) =  RESHAPE ( prm_field(jg)%lwflxsfc  (:,:)     , (/ nbr_points /) ) !net longwave flux at sfc
        buffer(:,3) =  RESHAPE ( prm_field(jg)%shflx_tile(:,:,iwtr), (/ nbr_points /) ) !sensible heat flux
@@ -474,32 +478,33 @@ CONTAINS
        ! -------------------------------------------------------------------------
        !
        ! SST
+       !
        CALL ICON_cpl_get ( field_id(6), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
        IF ( info > 0 ) THEN
          buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
          prm_field(jg)%tsfc_tile(:,:,iwtr) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
          prm_field(jg)%tsfc     (:,:)      = prm_field(jg)%tsfc_tile(:,:,iwtr)
+         CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%tsfc_tile(:,:,iwtr))
+         CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%tsfc     (:,:))
        ENDIF
        !
        ! OCEANU
+       !
        CALL ICON_cpl_get ( field_id(7), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
        IF ( info > 0 ) THEN
          buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
          prm_field(jg)%ocu(:,:) = RESHAPE (buffer(:,1), (/ nproma,  p_patch%nblks_c /) )
+         CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%ocu(:,:))
        ENDIF
        !
        ! OCEANV
+       !
        CALL ICON_cpl_get ( field_id(8), field_shape, buffer(1:nbr_hor_points,1:1), info, ierror )
        IF ( info > 0 ) THEN
          buffer(nbr_hor_points+1:nbr_points,1:1) = 0.0_wp
          prm_field(jg)%ocv(:,:) = RESHAPE (buffer(:,1), (/ nproma, p_patch%nblks_c /) )
+         CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%ocv(:,:))
        ENDIF
-
-       CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%tsfc_tile(:,:,iwtr))
-       CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%tsfc     (:,:))
-
-       CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%ocu(:,:))
-       CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%ocv(:,:))
 
        DEALLOCATE(buffer)
        DEALLOCATE(field_id)
