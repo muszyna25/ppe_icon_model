@@ -584,9 +584,10 @@ CONTAINS
     INTEGER  :: ilc1,ibc1,ilc2,ibc2,jj, ible,idxe
     INTEGER  :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start_c, rl_end_c
     INTEGER  :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, rl_start_e, rl_end_e
-    REAL(wp) :: z_vert_density_grad_c(nproma,n_zlev,p_patch%nblks_c)!(1:n_zlev)
-    REAL(wp) :: z_vert_density_grad_e(nproma,n_zlev,p_patch%nblks_e)!(1:n_zlev)
-    REAL(wp) :: z_stabio(nproma,n_zlev,p_patch%nblks_c)!(1:n_zlev)
+    REAL(wp) :: z_vert_density_grad_c(nproma,n_zlev,p_patch%nblks_c)
+    REAL(wp) :: z_vert_density_grad_e(nproma,n_zlev,p_patch%nblks_e)
+    REAL(wp) :: z_stabio(nproma,n_zlev,p_patch%nblks_c)
+    REAL(wp) :: buoyance_frequence(nproma,n_zlev,p_patch%nblks_c)
     REAL(wp) :: z_shear_e
     REAL(wp) :: z_shear_c(nproma,n_zlev,p_patch%nblks_c)  !TODO: comments
     REAL(wp) :: z_shear2_c(nproma,n_zlev,p_patch%nblks_c) !TODO: comments
@@ -716,32 +717,28 @@ CONTAINS
               !salinity at upper and lower cell
               IF(no_tracer >= 2) THEN
                 z_s1 = p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,2)
-                z_s2 = p_os%p_prog(nold(1))%tracer(jc,jk,jb,2)
+                z_s2 = p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) !TODO: this is the current cell, not
+                                                               !the lower one!
               ENDIF
               !density of upper and lower cell w.r.t.to pressure at intermediate level
               z_rho_up(jc,jk,jb)   = calc_density &
                & (p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1), z_s1, z_press)
 
               z_rho_down(jc,jk,jb) = calc_density &
-                & (p_os%p_prog(nold(1))%tracer(jc,jk,jb,1), z_s2, z_press)
+                & (p_os%p_prog(nold(1))%tracer(jc,jk,jb,1), z_s2, z_press) !TODO: local/current
+                                                                           !density
 
               ! comments from MPIOM
               !! calculate vertical density stabio gradient between upper and lower box
               !! vertical density gradient 1/delta_z * (rho(k)-rho(k-1))
 
-              ! #slo# 2011-09-02 correction
-              ! rho_up: rho(k-1); rho_down: rho(k)
-              !  i.e.: dz_inv*(rho_down-rho_up)
-              z_stabio(jc,jk,jb)  =(z_rho_down(jc,jk,jb)-z_rho_up(jc,jk,jb))! *dz_inv
+              !! stabio > 0 stable   stratification  (lower layer is havier)  => vert_density_grad  > 0
+              !! stabio < 0 instable stratification  (lower layer is lighter) => vert_density_grad  < 0
+              z_stabio(jc,jk,jb) = (z_rho_down(jc,jk,jb)-z_rho_up(jc,jk,jb))
+
               ! z_stabio  = dz_inv*0.5_wp*(z_rho_up(jc,jk,jb)-z_rho_down(jc,jk,jb))
               ! #slo# - think once more about 0.5, and this line in mo_convection of MPIOM:
               ! rhoo(:, j, k-1) = 0.5_wp * (rhoo(:, j, k-1) + rhuppo(:))
-
-              !! stabio > 0 stable stratification    (lower layer is havier) => vert_density_grad  > 0
-              !! stabio < 0 instable stratification  (lower layer is lighter)=>vert_density_grad  < 0
-
-              !! set negative values to zero for switch below
-              !z_vert_density_grad_c(jc,jk,jb) = MAX(z_stabio(jc,jk,jb), 0.0_wp)
 
               z_vert_density_grad_c(jc,jk,jb) = dbl_eps+z_stabio(jc,jk,jb)
 
@@ -751,8 +748,10 @@ CONTAINS
               ! Buoyancy frequency:
               ! z_Ri_c(jc,jk,jb)=MAX(z_grav_rho*z_vert_density_grad_c(jc,jk,jb)/z_shear_c(jc,jk,jb)&
               !                     &,0.0_wp)
-              z_Ri_c(jc,jk,jb)=v_base%zlev_i(jk)*z_grav_rho*z_vert_density_grad_c(jc,jk,jb)&
-                              &/z_shear_c(jc,jk,jb)
+              !buoyance_frequence = z_grav_rho*z_vert_density_grad_c/z_shear_c
+!   buoyance_frequence(jc,jk,jb)    = z_grav_rho*z_vert_density_grad_c(jc,jk,jb)/z_shear_c(jc,jk,jb)
+!z_Ri_c(jc,jk,jb) = v_base%zlev_i(jk)*buoyance_frequence(jc,jk,jb) !TODO this created a difference in results!!
+ z_Ri_c(jc,jk,jb) = v_base%zlev_i(jk)*z_grav_rho*z_vert_density_grad_c(jc,jk,jb)/z_shear_c(jc,jk,jb)
             END DO
           ENDIF
         END DO
@@ -768,7 +767,7 @@ CONTAINS
         DO jc = i_startidx_c, i_endidx_c
 
           z_dolic = v_base%dolic_c(jc,jb)
-          IF ( z_dolic>=MIN_DOLIC ) THEN
+          IF ( z_dolic >= MIN_DOLIC ) THEN
             DO jk = 2, z_dolic
 
              dz_inv = 1.0_wp/v_base%del_zlev_i(jk)
