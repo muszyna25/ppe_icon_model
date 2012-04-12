@@ -7578,8 +7578,8 @@ if test x$load_module != x ; then
 fi
 
 # general command for running a progmam
-if test $mpi_startrun = "" ; then
-  if  test $MPIROOT = "" ; then
+if test x$mpi_startrun = x ; then
+  if  test x$MPIROOT = x ; then
     mpi_startrun="mpiexec -n \\\$mpi_procs"
   else
     mpi_startrun="$MPIROOT/bin/mpiexec -n \\\$mpi_procs"
