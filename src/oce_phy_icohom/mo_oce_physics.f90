@@ -587,7 +587,7 @@ CONTAINS
     REAL(wp) :: z_vert_density_grad_c(nproma,n_zlev,p_patch%nblks_c)
     REAL(wp) :: z_vert_density_grad_e(nproma,n_zlev,p_patch%nblks_e)
     REAL(wp) :: z_stabio(nproma,n_zlev,p_patch%nblks_c)
-    REAL(wp) :: buoyance_frequence(nproma,n_zlev,p_patch%nblks_c)
+    REAL(wp) :: buoyance_frequence
     REAL(wp) :: z_shear_e
     REAL(wp) :: z_shear_c(nproma,n_zlev,p_patch%nblks_c)  !TODO: comments
     REAL(wp) :: z_shear2_c(nproma,n_zlev,p_patch%nblks_c) !TODO: comments
@@ -749,10 +749,9 @@ CONTAINS
               ! z_Ri_c(jc,jk,jb)=MAX(z_grav_rho*z_vert_density_grad_c(jc,jk,jb)/z_shear_c(jc,jk,jb)&
               !                     &,0.0_wp)
               !buoyance_frequence = z_grav_rho*z_vert_density_grad_c/z_shear_c
-!   buoyance_frequence(jc,jk,jb)  = z_grav_rho*z_vert_density_grad_c(jc,jk,jb)/z_shear_c(jc,jk,jb)
-              ! z_Ri_c(jc,jk,jb)=v_base%zlev_i(jk)*buoyance_frequence(jc,jk,jb) ! TODO this created a difference in results!!
-              z_Ri_c(jc,jk,jb)=v_base%zlev_i(jk)*z_grav_rho * &
-                &              z_vert_density_grad_c(jc,jk,jb)/z_shear_c(jc,jk,jb)
+!   buoyance_frequence            = z_grav_rho*z_vert_density_grad_c(jc,jk,jb)/z_shear_c(jc,jk,jb)
+!z_Ri_c(jc,jk,jb)=v_base%zlev_i(jk)*buoyance_frequence !TODO this created a difference in results!!
+ z_Ri_c(jc,jk,jb)=v_base%zlev_i(jk)*z_grav_rho*z_vert_density_grad_c(jc,jk,jb)/z_shear_c(jc,jk,jb)
             END DO
           ENDIF
         END DO
@@ -783,17 +782,16 @@ CONTAINS
                 IF ( ABS(z_vert_density_grad_c(jc,jk,jb)) < z_treshold ) THEN
                   params_oce%A_tracer_v(jc,jk,jb, itracer) = params_oce%A_tracer_v_back(itracer)
 
-                !! vert_density_grad  < 0 or smaler than threshold ('unstable strat.'): use convective mixing parameter
+                !! vert_density_grad  < 0 or smaler than threshold ('unstable'): use convective mixing parameter
                 ELSE IF (z_vert_density_grad_c(jc,jk,jb) < -z_treshold ) THEN
                   params_oce%A_tracer_v(jc,jk,jb, itracer) = MAX_VERT_DIFF_TRAC
 
-                !! vert_density_grad  > 0 or greater then threshold ('stable strat.'): use calculated value
-                ELSE IF (z_vert_density_grad_c(jc,jk,jb) > z_treshold ) THEN
-
+                !! vert_density_grad  >= 0 or greater-o-equal then threshold ('stable'): use calculated value
+                ELSE
                   z_Ri_c(jc,jk,jb) = max(z_Ri_c(jc,jk,jb),0.0_wp)
 
-                  A_T_tmp = params_oce%A_tracer_v_back(itracer)&
-                  &+ z_dv0/((1.0_wp+z_c1_T*z_Ri_c(jc,jk,jb))**3)
+                  A_T_tmp = params_oce%A_tracer_v_back(itracer) + &
+                    & z_dv0/((1.0_wp + z_c1_T * z_Ri_c(jc,jk,jb))**3)
 
                   params_oce%A_tracer_v(jc,jk,jb, itracer) = A_T_tmp
 
@@ -806,12 +804,9 @@ CONTAINS
       !--------------------------------------------
 
       !--------------------------------------------
-      ! calculate params_oce%A_veloc_v
-      ! use mean values between the two cells
-      ! change to min, max if required
+      ! Calculate params_oce%A_veloc_v:
+      ! use mean values between the two cells; change to min, max if required
       params_oce%A_veloc_v(:,:,:) = params_oce%A_veloc_v_back
-      !CALL sync_patch_array(SYNC_C,p_patch,z_vert_density_grad_c)
-      !CALL sync_patch_array(SYNC_C,p_patch,z_Ri_c)
 
       DO jb = edges_in_domain%start_block, edges_in_domain%end_block
         CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
@@ -826,11 +821,13 @@ CONTAINS
           z_dolic = v_base%dolic_e(je, jb)      
           DO jk = 2, z_dolic
           
+            ! TODO: the following expect equally sized cells
+            ! compute density gradient at edges
             density_grad_c = 0.5_wp * &
               (z_vert_density_grad_c(ilc1,jk,ibc1) + z_vert_density_grad_c(ilc2,jk,ibc2))
 
+            !! vert_density_grad smaller that neg. theshold ('unstable stratification'): use max value
             IF (density_grad_c < -z_treshold ) THEN
-            
               params_oce%A_veloc_v(je,jk,jb) = MAX_VERT_DIFF_VELOC
                  
             !! vert_density_grad  > 0 stable stratification: use calculated value
@@ -840,7 +837,7 @@ CONTAINS
                params_oce%A_veloc_v(je,jk,jb) = &
                  & params_oce%A_veloc_v_back +  &
                  & z_av0 /                      &
-                 & ((1.0_wp + z_c1_v * mean_z_r)**2)
+                 & ((1.0_wp + z_c1_v * mean_z_r)**2) !TODO: why not '**3' in the tracer case??
 
             ENDIF
             
