@@ -163,6 +163,7 @@ CONTAINS
   !! Modified by Stephan Lorenz,        MPI-M (2010-10-22)
   !!  - division by rho_ref included
   !!  mpi parallelized LL (no sync required)
+
   SUBROUTINE calc_internal_press_new(ppatch, trac_t, trac_s, h, calc_density, press_hyd)
   !
   TYPE(t_patch), TARGET, INTENT(IN) :: ppatch
@@ -448,13 +449,14 @@ END INTERFACE
       DO jk=1, n_zlev
         DO jc = i_startidx, i_endidx
         IF(v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN   
-            rho(jc,jk,jb) =   rho_ref                      &
-               &              - a_T * tracer(jc,jk,jb,1)   &
-               &              + b_S * tracer(jc,jk,jb,2)
+            rho(jc,jk,jb) = rho_ref                      &
+               &            - a_T * tracer(jc,jk,jb,1)   &
+               &            + b_S * tracer(jc,jk,jb,2)
            !write(123,*)'density',jk,jc,jb,rho_ref, tracer(jc,jk,jb,1),&
            ! &tracer(jc,jk,jb,2),rho(jc,jk,jb), a_T, b_S
            ELSE
-             rho(jc,jk,jb) = 0.0_wp 
+           ! rho(jc,jk,jb) = 0.0_wp 
+             rho(jc,jk,jb) = rho_ref   !  plotting purpose
           ENDIF
         END DO
       END DO
@@ -471,7 +473,7 @@ END INTERFACE
             rho(jc,jk,jb) = rho_ref - a_T * tracer(jc,jk,jb,1) +b_S*SAL_REF
            !write(123,*)'density',jk,jc,jb,rho(jc,jk,jb), tracer(jc,jk,jb,1),a_T
            ELSE
-             rho(jc,jk,jb) = 0.0_wp 
+             rho(jc,jk,jb) = rho_ref   !  plotting purpose
           ENDIF
         END DO
       END DO
@@ -496,9 +498,8 @@ END INTERFACE
   REAL(wp),INTENT(IN) :: p
   REAL(wp)            :: rho   !< density
 
-  ! local variables:
-  !-------------------------------------------------------------------------
     rho = rho_ref - a_T * t  + b_S * s
+
   END FUNCTION  calc_density_lin_EOS_func
   !---------------------------------------------------------------------------
 
@@ -750,8 +751,7 @@ END INTERFACE
 
          rho(jc,jk,jb) = z_rhopot/(1.0_wp + 0.1_wp*pz/z_bulk)&
                        & - rho_ref
- write(*,*)'density ',jc,jk,jb,&
- &rho(jc,jk,jb)
+       ! write(*,*)'density ',jc,jk,jb,rho(jc,jk,jb)
 
         ENDIF
       END DO
