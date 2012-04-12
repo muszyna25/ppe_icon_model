@@ -107,8 +107,12 @@ ICON atmosphere grids of resolution R<m>B<nn> are created by the
 "grid.create_atmo_grids.run". It generates 5 levels of icon grids using
 spring dynamics and symmetry optimizations. In addition it creates an
 hierarchy of three nested grids for the exp.nat_jww_nwp_mpiomp experiment.
-The "grid.create_atmo_grids.run" is created automatically by the "./configure"
-procedure. The script is located in the "./run" folder.
+The "grid.create_atmo_grids.run" is created automatically by the "./make_runscripts"
+script. Give
+
+% ./make_runscripts
+
+To create the "grid.create_atmo_grids.run", it is located in the "./run" folder.
 
 The script variable no_of_levels determines the horizontal resolution, and is
 set to no_of_level=5, giving in the highest resolution the triangular grid R2B05
@@ -127,7 +131,11 @@ C) Make experiments
 5. Make a run script
 --------------------
 
-"./configure" also creates the run scripts for running the grid generator and 
+To create the run scripts give
+
+% ./make_runscripts
+
+This process will create the run scripts for running the grid generator and
 for runnig model experiments, for which experiment descriptor files exist in
 the run/ directory. Experiment descriptor files are named "exp.<name>". These
 exp-files are processed in the configuration sequence started by "./configure"
