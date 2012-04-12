@@ -829,11 +829,13 @@ end subroutine calc_density_JM_EOS
   !
   !
   !>
-  !!  Calculates density as a function of potential temperature and salinity
+  !! Calculates density as a function of potential temperature and salinity
   !! using the equation of state as described in Gill, Atmosphere-Ocean Dynamics, Appendix 3
   !! The code below is copied from MPIOM. Note that within the sbr the potential temperature
   !! is converted into in-situ temperature !
   !! The code was checked with testvalues from Gill's book.
+  !! For testing insert values here:
+  !!   s = 35.0_wp,  t = 25.0_wp, p = 1000.0_wp, s3h = SQRT(s**3)
   !! @par Revision History
   !! Initial version by Peter Korn, MPI-M (2011)
   !!
@@ -845,55 +847,44 @@ FUNCTION calc_density_MPIOM_func(tpot, sal, p) RESULT(rho)
 
     REAL(wp) :: dc, dv, dvs, fne, fst, qc, qn3, qnq, qv, qvs, &
          s, s3h, t, tpo
-    !INTEGER :: i
     REAL(wp), PARAMETER :: z_sref = 35.0_wp
 
 
-     !This is the adisit part, that transforms potential in in-situ temperature
-     qc = p * (a_a1 + p * (a_c1 - a_e1 * p))
-     qv = p * (a_b1 - a_d * p)
-     dc = 1.0_wp + p * (-a_a2 + p * (a_c2 - a_e2 * p))
-     dv = a_b2 * p
-     qnq  = -p * (-a_a3 + p * a_c3)
-     qn3  = -p * a_a4
-  !   DO i = 1, n
-     tpo = tpot
-     qvs = qv*(sal - z_sref) + qc
-     dvs = dv*(sal - z_sref) + dc
-     t   = (tpo + qvs)/dvs
-     fne = - qvs + t*(dvs + t*(qnq + t*qn3)) - tpo
-     fst = dvs + t*(2._wp*qnq + 3._wp*qn3*t)
+    !This is the adisit part, that transforms potential in in-situ temperature
+    qc  = p * (a_a1 + p * (a_c1 - a_e1 * p))
+    qv  = p * (a_b1 - a_d * p)
+    dc  = 1.0_wp + p * (-a_a2 + p * (a_c2 - a_e2 * p))
+    dv  = a_b2 * p
+    qnq = -p * (-a_a3 + p * a_c3)
+    qn3 = -p * a_a4
+    tpo = tpot
+    qvs = qv*(sal - z_sref) + qc
+    dvs = dv*(sal - z_sref) + dc
+    t   = (tpo + qvs)/dvs
+    fne = - qvs + t*(dvs + t*(qnq + t*qn3)) - tpo
+    fst = dvs + t*(2._wp*qnq + 3._wp*qn3*t)
+    t   = t - fne/fst
+    s   = MAX(sal, 0.0_wp)
+    s3h = SQRT(s**3)
 
-     t = t - fne/fst
-     s = MAX(sal, 0.0_wp)
-     s3h=SQRT(s**3)
-
-      !For testing insert values here
-      ! s=35.0_wp
-      ! t=25.0_wp
-      ! p=1000.0_wp
-      ! s3h=SQRT(s**3)
-
-
-     rho = &
-          (r_a0 + t * (r_a1 + t * (r_a2 + t * (r_a3 + t * (r_a4 + t * r_a5))))&
-          & + s * (r_b0 + t * (r_b1 + t * (r_b2 + t * (r_b3 + t * r_b4))))    &
-          & + r_d0 * s**2                                                     &
-          & + s3h * (r_c0 + t * (r_c1 + r_c2 * t)))                           &
-          / (1._wp                                                            &
-          &  - p / (p * (r_h0 + t * (r_h1 + t * (r_h2 + t * r_h3))            &
-          &              + s * (r_ai0 + t * (r_ai1 + r_ai2 * t))              &
-          &              + r_aj0 * s3h                                        &
-          &              + (r_ak0 + t * (r_ak1 + t * r_ak2)                   &
-          &              + s * (r_am0 + t * (r_am1 + t * r_am2))) * p)        &
-          &         + r_e0 + t * (r_e1 + t * (r_e2 + t * (r_e3 + t * r_e4)))  &
-          &         + s * (r_f0 + t * (r_f1 + t * (r_f2 + t * r_f3)))         &
-          &         + s3h * (r_g0 + t * (r_g1 + r_g2 * t))))
-!ENDDO
+    rho = &
+         (r_a0 + t * (r_a1 + t * (r_a2 + t * (r_a3 + t * (r_a4 + t * r_a5))))&
+         & + s * (r_b0 + t * (r_b1 + t * (r_b2 + t * (r_b3 + t * r_b4))))    &
+         & + r_d0 * s**2                                                     &
+         & + s3h * (r_c0 + t * (r_c1 + r_c2 * t)))                           &
+         / (1._wp                                                            &
+         &  - p / (p * (r_h0 + t * (r_h1 + t * (r_h2 + t * r_h3))            &
+         &              + s * (r_ai0 + t * (r_ai1 + r_ai2 * t))              &
+         &              + r_aj0 * s3h                                        &
+         &              + (r_ak0 + t * (r_ak1 + t * r_ak2)                   &
+         &              + s * (r_am0 + t * (r_am1 + t * r_am2))) * p)        &
+         &         + r_e0 + t * (r_e1 + t * (r_e2 + t * (r_e3 + t * r_e4)))  &
+         &         + s * (r_f0 + t * (r_f1 + t * (r_f2 + t * r_f3)))         &
+         &         + s3h * (r_g0 + t * (r_g1 + r_g2 * t))))
 
   END FUNCTION calc_density_MPIOM_func
   !-------------------------------------------------------------------------------------
-  
+
   !-------------------------------------------------------------------------------------
   !!  mpi parallelized LL (no sync required)
   SUBROUTINE convert_insitu2pot_temp(p_patch, rho_ref, temp_insitu, sal, temp_pot)

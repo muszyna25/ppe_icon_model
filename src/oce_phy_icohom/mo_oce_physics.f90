@@ -613,8 +613,8 @@ CONTAINS
     REAL(wp), PARAMETER :: z_dv0             = 0.5E-2_wp
     REAL(wp), PARAMETER :: z_treshold        = 5.0E-8_wp
     LOGICAL,  PARAMETER :: l_constant_mixing = .FALSE.
-    REAL(wp) :: z_A_W_T(nproma,n_zlev,p_patch%nblks_c) !TODO: comments
-    REAL(wp) :: z_A_W_v(nproma,n_zlev,p_patch%nblks_e) !TODO: comments
+    REAL(wp) :: z_A_W_T(nproma,n_zlev,p_patch%nblks_c) !TODO: comments + better names
+    REAL(wp) :: z_A_W_v(nproma,n_zlev,p_patch%nblks_e) !TODO: comments + better names
     REAL(wp) :: z_10m_wind_c(nproma,1,p_patch%nblks_c)
     REAL(wp) :: z_10m_wind_e(nproma,1,p_patch%nblks_e)
     REAL(wp) :: z_grav_rho, z_inv_rho_ref!, z_stabio
@@ -682,18 +682,19 @@ CONTAINS
         END DO
       END DO
 
-      
+      IF (.FALSE.) THEN
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
           IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
             !This is (15) in Marsland et al. 
             z_10m_wind_c(jc,1,jb)= SQRT(DOT_PRODUCT(p_sfc_flx%forc_wind_cc(jc,jb)%x,&
-                                                   &p_sfc_flx%forc_wind_cc(jc,jb)%x))**3
-            z_A_W_T (jc,1,jb) = z_w_T*z_10m_wind_c(jc,1,jb)
+                                                   &p_sfc_flx%forc_wind_cc(jc,jb)%x))**3 !TODO: not used
+            z_A_W_T (jc,1,jb) = z_w_T*z_10m_wind_c(jc,1,jb) !TODO: not used
           ENDIF
         END DO
       END DO
+      END IF
 
       !Calculate Richardson number and vertical density gradient
       DO jb = all_cells%start_block, all_cells%end_block
@@ -701,19 +702,16 @@ CONTAINS
 
         DO jc = i_startidx_c, i_endidx_c
           z_dolic = v_base%dolic_c(jc,jb)
-          IF ( z_dolic>=MIN_DOLIC ) THEN        
+          IF ( z_dolic >= MIN_DOLIC ) THEN        
             DO jk = 2, z_dolic 
-             dz_inv = 1.0_wp/v_base%del_zlev_i(jk)
+              dz_inv = 1.0_wp/v_base%del_zlev_i(jk)
 
               !This calculates the localshear at cells
               ! - add small epsilon to avoid division by zero
-              z_shear_c(jc,jk,jb) = dbl_eps +&!+ dz_inv*dz_inv*                              &
-   !            & DOT_PRODUCT(p_os%p_diag%p_vn(jc,jk-1,jb)%x-p_os%p_diag%p_vn(jc,jk,jb)%x,&
-   !            &              p_os%p_diag%p_vn(jc,jk-1,jb)%x-p_os%p_diag%p_vn(jc,jk,jb)%x)
-              & sum((p_os%p_diag%p_vn(jc,jk-1,jb)%x-p_os%p_diag%p_vn(jc,jk,jb)%x)**2)
+              z_shear_c(jc,jk,jb) = dbl_eps + &
+                & sum((p_os%p_diag%p_vn(jc,jk-1,jb)%x-p_os%p_diag%p_vn(jc,jk,jb)%x)**2)
 
-
-              z_press = v_base%zlev_i(jk)*rho_ref*SItodBar !*grav!z_press = v_base%zlev_i(jk)*rho_ref*grav
+              z_press = v_base%zlev_i(jk)*rho_ref*SItodBar
 
               !salinity at upper and lower cell
               IF(no_tracer >= 2) THEN
@@ -721,7 +719,7 @@ CONTAINS
                 z_s2 = p_os%p_prog(nold(1))%tracer(jc,jk,jb,2)
               ENDIF
               !density of upper and lower cell w.r.t.to pressure at intermediate level
-              z_rho_up(jc,jk,jb) = calc_density &
+              z_rho_up(jc,jk,jb)   = calc_density &
                & (p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1), z_s1, z_press)
 
               z_rho_down(jc,jk,jb) = calc_density &
