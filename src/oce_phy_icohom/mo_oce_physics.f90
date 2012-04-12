@@ -579,7 +579,7 @@ CONTAINS
     END INTERFACE
 
     ! Local variables
-    INTEGER  :: jc, jb, je,jk, i_no_trac
+    INTEGER  :: jc, jb, je,jk, itracer
    !INTEGER  :: ile1, ibe1,ile2, ibe2,ile3, ibe3
     INTEGER  :: ilc1,ibc1,ilc2,ibc2,jj, ible,idxe
     INTEGER  :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start_c, rl_end_c
@@ -635,8 +635,8 @@ CONTAINS
 
     IF (l_constant_mixing) THEN
       !nothing to do!In sbr init_ho_params (see above)
-      !tracer mixing coefficient params_oce%A_tracer_v(:,:,:, i_no_trac) is already
-      !initialzed with params_oce%A_tracer_v_back(i_no_trac)
+      !tracer mixing coefficient params_oce%A_tracer_v(:,:,:, itracer) is already
+      !initialzed with params_oce%A_tracer_v_back(itracer)
       !and velocity diffusion coefficient
       ! params_oce%A_veloc_v(je,jk,jb) is initialzed with params_oce%A_veloc_v_back
 
@@ -749,9 +749,9 @@ CONTAINS
               ! z_Ri_c(jc,jk,jb)=MAX(z_grav_rho*z_vert_density_grad_c(jc,jk,jb)/z_shear_c(jc,jk,jb)&
               !                     &,0.0_wp)
               !buoyance_frequence = z_grav_rho*z_vert_density_grad_c/z_shear_c
-!   buoyance_frequence(jc,jk,jb)    = z_grav_rho*z_vert_density_grad_c(jc,jk,jb)/z_shear_c(jc,jk,jb)
-!z_Ri_c(jc,jk,jb) = v_base%zlev_i(jk)*buoyance_frequence(jc,jk,jb) !TODO this created a difference in results!!
- z_Ri_c(jc,jk,jb) = v_base%zlev_i(jk)*z_grav_rho*z_vert_density_grad_c(jc,jk,jb)/z_shear_c(jc,jk,jb)
+!   buoyance_frequence(jc,jk,jb)  = z_grav_rho*z_vert_density_grad_c(jc,jk,jb)/z_shear_c(jc,jk,jb)
+!z_Ri_c(jc,jk,jb)=v_base%zlev_i(jk)*buoyance_frequence(jc,jk,jb) !TODO this created a difference in results!!
+ z_Ri_c(jc,jk,jb)=v_base%zlev_i(jk)*z_grav_rho*z_vert_density_grad_c(jc,jk,jb)/z_shear_c(jc,jk,jb)
             END DO
           ENDIF
         END DO
@@ -773,34 +773,28 @@ CONTAINS
              dz_inv = 1.0_wp/v_base%del_zlev_i(jk)
 
               !calculate vertical tracer mixing based on local Richardson number
-              DO i_no_trac=1, no_tracer
+              DO itracer = 1, no_tracer
 
                 !Store old diffusivity
-                z_A_tracer_v_old = params_oce%A_tracer_v(jc,jk,jb,i_no_trac)
+                z_A_tracer_v_old = params_oce%A_tracer_v(jc,jk,jb,itracer)
 
-                !! vert_density_grad  = 0 'semi-stable': use background value
-                IF (     z_vert_density_grad_c(jc,jk,jb) > -z_treshold&
-                  &.AND. z_vert_density_grad_c(jc,jk,jb) < z_treshold) THEN
-                  params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = &
-                    &  params_oce%A_tracer_v_back(i_no_trac)
-!                   DO jj=1,3
-!                     idxe = p_patch%cells%edge_idx(jc,jb,jj)
-!                     ible = p_patch%cells%edge_blk(jc,jb,jj)
-!                     params_oce%A_veloc_v(idxe,jk,ible) = params_oce%A_veloc_v_back
-!                   ENDDO
-                !! vert_density_grad  < 0 instable stratification: use convective mixing parameter
+                !! vert_density_grad == 0 or below threshold ('semi-stable'): use background value
+                IF ( ABS(z_vert_density_grad_c(jc,jk,jb)) < z_treshold ) THEN
+                  params_oce%A_tracer_v(jc,jk,jb, itracer) = params_oce%A_tracer_v_back(itracer)
+
+                !! vert_density_grad  < 0 or smaler than threshold ('unstable strat.'): use convective mixing parameter
                 ELSE IF (z_vert_density_grad_c(jc,jk,jb) < -z_treshold ) THEN
-                  params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = MAX_VERT_DIFF_TRAC
+                  params_oce%A_tracer_v(jc,jk,jb, itracer) = MAX_VERT_DIFF_TRAC
 
-                !! vert_density_grad  > 0 stable stratification: use calculated value
+                !! vert_density_grad  > 0 or greater then threshold ('stable strat.'): use calculated value
                 ELSE IF (z_vert_density_grad_c(jc,jk,jb) > z_treshold ) THEN
 
                   z_Ri_c(jc,jk,jb) = max(z_Ri_c(jc,jk,jb),0.0_wp)
 
-                  A_T_tmp = params_oce%A_tracer_v_back(i_no_trac)&
+                  A_T_tmp = params_oce%A_tracer_v_back(itracer)&
                   &+ z_dv0/((1.0_wp+z_c1_T*z_Ri_c(jc,jk,jb))**3)
 
-                  params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = A_T_tmp
+                  params_oce%A_tracer_v(jc,jk,jb, itracer) = A_T_tmp
 
                 END IF
               ENDDO
@@ -856,14 +850,14 @@ CONTAINS
     ENDIF !l_constant_mixing
 
     ! Sync the results, the A_tracer_v is only for checking
-    DO i_no_trac=1, no_tracer
-      CALL sync_patch_array(SYNC_C,p_patch,params_oce%A_tracer_v(:,:,:,i_no_trac))
+    DO itracer = 1, no_tracer
+      CALL sync_patch_array(SYNC_C,p_patch,params_oce%A_tracer_v(:,:,:,itracer))
     END DO
     CALL sync_patch_array(SYNC_E,p_patch,params_oce%A_veloc_v(:,:,:))
 
     ! debug output
-    DO i_no_trac=1, no_tracer
-      z_c(:,:,:)=params_oce%A_tracer_v(:,:,:,i_no_trac)
+    DO itracer = 1, no_tracer
+      z_c(:,:,:)=params_oce%A_tracer_v(:,:,:,itracer)
       DO jk=1,n_zlev
         ipl_src=3  ! output print level (1-5, fix)
         CALL print_mxmn('PHY trac mixing',jk,z_c(:,:,:),n_zlev+1,p_patch%nblks_c,'phy',ipl_src)
