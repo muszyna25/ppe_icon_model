@@ -644,6 +644,10 @@ CONTAINS
       z_A_W_v (:,:,:)              = 0.0_wp
       z_10m_wind_e(:,:,:)          = 0.0_wp
       z_10m_wind_c(:,:,:)          = 0.0_wp
+
+      !Density gradient for 1st level not calulated yet, but required below. Following
+      !parxis in MPI-OM we set first layer equal to second layer (cf MPI-OM mo_ocean_vertical_mixing)
+      !z_vert_density_grad_c(:,1,:) =  z_vert_density_grad_c(:,2,:)
       z_vert_density_grad_c(:,:,:) = 0.0_wp
       z_vert_density_grad_e(:,:,:) = 0.0_wp
       z_Ri_c(:,:,:)                = 0.0_wp
@@ -659,6 +663,7 @@ CONTAINS
       z_w_T                        = CWT/6.0_wp**3
       z_w_v                        = CWA/6.0_wp**3
 
+      IF (.FALSE.) THEN !TODO: possibly removable
       !The wind part
       DO jb = edges_in_domain%start_block, edges_in_domain%end_block
         CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
@@ -682,7 +687,6 @@ CONTAINS
         END DO
       END DO
 
-      IF (.FALSE.) THEN
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
         DO jc = i_startidx_c, i_endidx_c
@@ -756,10 +760,6 @@ CONTAINS
         END DO
       END DO
 
-      !Density gradient for 1st level not calulated yet, but required below. Following
-      !parxis in MPI-OM we set first layer equal to second layer (cf MPI-OM mo_ocean_vertical_mixing)
-      !z_vert_density_grad_c(:,1,:) =  z_vert_density_grad_c(:,2,:)
-
       !The tracer mixing coefficient at cell centers
       DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
@@ -814,7 +814,6 @@ CONTAINS
           ilc2 = p_patch%edges%cell_idx(je,jb,2)
           ibc2 = p_patch%edges%cell_blk(je,jb,2)
           
-          ! z_dolic = MIN(v_base%dolic_c(ilc1,ibc1), v_base%dolic_c(ilc2,ibc2))
           z_dolic = v_base%dolic_e(je, jb)      
           DO jk = 2, z_dolic
           
@@ -842,7 +841,7 @@ CONTAINS
 
             ENDIF
             
-          END DO ! jk=2, z_dolic
+          END DO ! jk = 2, z_dolic
         ENDDO ! je = i_startidx_e, i_endidx_e
       ENDDO ! jb = edges_in_domain%start_block, edges_in_domain%end_block
     ENDIF !l_constant_mixing
