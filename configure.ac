@@ -917,10 +917,10 @@ fi
 echo "$make_command" >> build_command
 chmod +x build_command
 
-echo Creating the run scripts...
-if test -f ./make_runscripts ; then
-  ./make_runscripts
-fi
+#echo Creating the run scripts...
+#if test -f ./make_runscripts ; then
+#  ./make_runscripts
+#fi
 
 #############################
 echo ""
