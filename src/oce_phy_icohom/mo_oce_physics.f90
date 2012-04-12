@@ -823,13 +823,17 @@ CONTAINS
             density_grad_c = 0.5_wp * &
               (z_vert_density_grad_c(ilc1,jk,ibc1) + z_vert_density_grad_c(ilc2,jk,ibc2))
 
-            !! vert_density_grad smaller that neg. theshold ('unstable stratification'): use max value
-            IF (density_grad_c < -z_threshold ) THEN
+            !! density gradient smaller then threshold ('semi-stable'): use background value
+            IF ( ABS(density_grad_c) < z_threshold ) THEN
+              params_oce%A_veloc_v(je,jk,jb) = params_oce%A_veloc_v_back
+
+            !! vert_density_grad below that neg. theshold ('unstable stratification'): use max value
+            ELSE IF (density_grad_c < -z_threshold ) THEN
               params_oce%A_veloc_v(je,jk,jb) = MAX_VERT_DIFF_VELOC
                  
             !! vert_density_grad  > 0 stable stratification: use calculated value
             ELSE IF (density_grad_c > z_threshold ) THEN
-
+              ! TODO: the following expect equally sized cells
                mean_z_r = 0.5_wp * (z_Ri_c(ilc1,jk,ibc1) + z_Ri_c(ilc2,jk,ibc2))
                params_oce%A_veloc_v(je,jk,jb) = &
                  & params_oce%A_veloc_v_back +  &
@@ -839,7 +843,6 @@ CONTAINS
             ENDIF
             
           END DO ! jk=2, z_dolic
-          
         ENDDO ! je = i_startidx_e, i_endidx_e
       ENDDO ! jb = edges_in_domain%start_block, edges_in_domain%end_block
     ENDIF !l_constant_mixing
