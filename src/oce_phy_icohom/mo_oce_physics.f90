@@ -750,8 +750,9 @@ CONTAINS
               !                     &,0.0_wp)
               !buoyance_frequence = z_grav_rho*z_vert_density_grad_c/z_shear_c
 !   buoyance_frequence(jc,jk,jb)  = z_grav_rho*z_vert_density_grad_c(jc,jk,jb)/z_shear_c(jc,jk,jb)
-!z_Ri_c(jc,jk,jb)=v_base%zlev_i(jk)*buoyance_frequence(jc,jk,jb) !TODO this created a difference in results!!
- z_Ri_c(jc,jk,jb)=v_base%zlev_i(jk)*z_grav_rho*z_vert_density_grad_c(jc,jk,jb)/z_shear_c(jc,jk,jb)
+              ! z_Ri_c(jc,jk,jb)=v_base%zlev_i(jk)*buoyance_frequence(jc,jk,jb) ! TODO this created a difference in results!!
+              z_Ri_c(jc,jk,jb)=v_base%zlev_i(jk)*z_grav_rho * &
+                &              z_vert_density_grad_c(jc,jk,jb)/z_shear_c(jc,jk,jb)
             END DO
           ENDIF
         END DO
