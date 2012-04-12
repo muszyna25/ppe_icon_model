@@ -1173,6 +1173,9 @@ CONTAINS
     INTEGER               :: ierrstat, jb, jc, idim
     REAL(wp), ALLOCATABLE :: r_tmp_lon(:,:), r_tmp_lat(:,:)
 
+    ! skip this on test PE...
+    IF (my_process_is_mpi_test()) RETURN
+
     ! allocate destination (on work root)
     IF ( my_process_is_mpi_workroot() ) THEN
       ALLOCATE(out_lonlat%lon (nproma*nblks_glb),      out_lonlat%lat (nproma*nblks_glb),      &
@@ -1204,8 +1207,10 @@ CONTAINS
       END DO
     ENDIF
     ! gather data on work root
-    CALL exchange_data(p_pat, RECV=r_tmp_lon,  SEND=r_tmp_lon )
-    CALL exchange_data(p_pat, RECV=r_tmp_lat,  SEND=r_tmp_lat )
+    IF(.NOT. my_process_is_mpi_seq()) THEN
+      CALL exchange_data(p_pat, RECV=r_tmp_lon,  SEND=r_tmp_lon )
+      CALL exchange_data(p_pat, RECV=r_tmp_lat,  SEND=r_tmp_lat )
+    END IF
     ! on work root: reshape into 1D arrays:
     IF ( my_process_is_mpi_workroot() ) THEN
       out_lonlat%lon(:)  = RESHAPE(r_tmp_lon(:,:), (/ nproma*nblks_glb /))
@@ -1224,8 +1229,10 @@ CONTAINS
         END DO
       ENDIF
       ! gather data on work root
-      CALL exchange_data(p_pat, RECV=r_tmp_lon,  SEND=r_tmp_lon )
-      CALL exchange_data(p_pat, RECV=r_tmp_lat,  SEND=r_tmp_lat )
+      IF(.NOT. my_process_is_mpi_seq()) THEN
+        CALL exchange_data(p_pat, RECV=r_tmp_lon,  SEND=r_tmp_lon )
+        CALL exchange_data(p_pat, RECV=r_tmp_lat,  SEND=r_tmp_lat )
+      END IF
       ! on work root: reshape into 1D arrays:
       IF ( my_process_is_mpi_workroot() ) THEN
         out_lonlat%lonv(idim,:) = RESHAPE(r_tmp_lon(:,:), (/ nproma*nblks_glb /))
