@@ -65,6 +65,7 @@ MODULE mo_event_manager
      INTEGER             :: delta_time
      INTEGER             :: time_step
      INTEGER             :: elapsed_time
+     INTEGER             :: event_time
      INTEGER             :: restart_time
      INTEGER             :: check_time
      INTEGER             :: lag
@@ -96,6 +97,7 @@ CONTAINS
        events(id)%delta_time       = 0
        events(id)%time_step        = 0
        events(id)%elapsed_time     = 0
+       events(id)%event_time       = 0
        events(id)%restart_time     = 0
        events(id)%check_time       = 0
        events(id)%lag              = 0
@@ -159,6 +161,7 @@ CONTAINS
        new_events(number_of_events+1:new_dim)%delta_time       = 0
        new_events(number_of_events+1:new_dim)%time_step        = 0
        new_events(number_of_events+1:new_dim)%elapsed_time     = 0
+       new_events(number_of_events+1:new_dim)%event_time       = 0
        new_events(number_of_events+1:new_dim)%restart_time     = 0
        new_events(number_of_events+1:new_dim)%check_time       = 0
        new_events(number_of_events+1:new_dim)%lag              = 0
@@ -200,7 +203,8 @@ CONTAINS
 
        ! fast-forward internal event by lag coupling time steps
 
-       events(id)%elapsed_time  = lag * time_step
+       !rr events(id)%elapsed_time  = time_step
+       events(id)%event_time    = -1 * lag * time_step
        events(id)%lag           = lag
 
        ! Update date and time for this event
@@ -225,8 +229,13 @@ CONTAINS
 
     l_action = .FALSE.
 
-    IF ( MOD(events(event_id)%elapsed_time,events(event_id)%delta_time) == 0 ) &
+    events(event_id)%event_time = &
+    events(event_id)%event_time + events(event_id)%time_step
+
+    IF ( events(event_id)%event_time == events(event_id)%delta_time ) THEN
+       events(event_id)%event_time = 0
        l_action = .TRUE.
+    ENDIF
 
     events(event_id)%elapsed_time = &
     events(event_id)%elapsed_time + events(event_id)%time_step

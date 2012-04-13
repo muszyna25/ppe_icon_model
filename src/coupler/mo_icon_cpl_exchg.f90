@@ -203,10 +203,10 @@ CONTAINS
                  events(fptr%event_id)%time_step,    &
                  events(fptr%event_id)%delta_time,   &
                  events(fptr%event_id)%elapsed_time, &
-                 MOD(events(fptr%event_id)%elapsed_time,events(fptr%event_id)%delta_time)
+                 events(fptr%event_id)%event_time
     ENDIF
 
-    l_end_of_run = events(fptr%event_id)%elapsed_time > events(fptr%event_id)%restart_time
+    l_end_of_run = events(fptr%event_id)%elapsed_time >= events(fptr%event_id)%restart_time
 
     IF ( .NOT. l_action ) RETURN
 
@@ -821,6 +821,35 @@ CONTAINS
     IF ( n_send == 0 ) RETURN
 
     ! -------------------------------------------------------------------
+    ! Check event
+    !
+    ! The differentiation between end of run and restart is necessary as
+    ! the non-hydrostatic atmosphere performs one more time step than requested.
+    !
+    ! -------------------------------------------------------------------
+
+    l_action     = event_check ( fptr%event_id )
+
+    l_restart    = events(fptr%event_id)%elapsed_time == events(fptr%event_id)%restart_time + &
+                                                         events(fptr%event_id)%lag *          &
+                                                         events(fptr%event_id)%time_step
+
+    l_end_of_run = events(fptr%event_id)%elapsed_time >= events(fptr%event_id)%restart_time + &
+                                                         events(fptr%event_id)%lag *          &
+                                                         events(fptr%event_id)%time_step
+
+    IF ( debug_coupler_level > 1 ) THEN
+       WRITE ( cplout , * ) ICON_global_rank, ' : put action for event ', &
+                                  fptr%event_id,                          &
+                                  l_action,                  &
+                 events(fptr%event_id)%time_step,            &
+                 events(fptr%event_id)%delta_time,           &
+                 events(fptr%event_id)%elapsed_time,         &
+                 events(fptr%event_id)%event_time,           &
+                 events(fptr%event_id)%restart_time
+    ENDIF
+
+    ! -------------------------------------------------------------------
     ! Store data for averaging and/or accumulation
     ! -------------------------------------------------------------------
 
@@ -836,32 +865,18 @@ CONTAINS
           fptr%send_field_acc     = 0.0_wp
           fptr%accumulation_count = 0
        ENDIF
-       
-       fptr%accumulation_count   = fptr%accumulation_count + 1
-       fptr%send_field_acc(:,:)  = fptr%send_field_acc(:,:) + send_field(:,:)
 
-    ENDIF
+       !
+       ! Do not accumulated events which are already covered be the restart
+       !
+       IF ( events(fptr%event_id)%elapsed_time > &
+     &      events(fptr%event_id)%lag * events(fptr%event_id)%time_step ) THEN 
 
-    ! -------------------------------------------------------------------
-    ! Check event
-    !
-    ! The differentiation between end of run and restart is necessary as
-    ! the non-hydrostatic atmosphere performs one more time step than requested.
-    !
-    ! -------------------------------------------------------------------
+          fptr%accumulation_count   = fptr%accumulation_count + 1
+          fptr%send_field_acc(:,:)  = fptr%send_field_acc(:,:) + send_field(:,:)
 
-    l_restart    = events(fptr%event_id)%elapsed_time == events(fptr%event_id)%restart_time
-    l_action     = event_check ( fptr%event_id )
-    l_end_of_run = events(fptr%event_id)%elapsed_time > events(fptr%event_id)%restart_time
+       ENDIF
 
-    IF ( debug_coupler_level > 1 ) THEN
-       WRITE ( cplout , * ) ICON_global_rank, ' : put action for event ', &
-                                  fptr%event_id,                          &
-                                  l_action,                  &
-                 events(fptr%event_id)%time_step,            &
-                 events(fptr%event_id)%delta_time,           &
-                 events(fptr%event_id)%elapsed_time,         &
-                 MOD(events(fptr%event_id)%elapsed_time,events(fptr%event_id)%delta_time)
     ENDIF
 
     ! Currently, we assume that data are coupled on the last time step.
@@ -1044,9 +1059,9 @@ CONTAINS
   ! --------------------------------------------------------------------
   !>
   !!  This routine is used on the sender side to send the input field
-  !!  (send_field) instant/accumulated/averaged fields to a remote
-  !!  component. If a restart file is available it get the data
-  !!  from the restart file and overwrites the send_fiedl. By calling
+  !!  (send_field) or instant/accumulated/averaged fields to a remote
+  !!  component. If a restart file is available it gets the data
+  !!  from the restart file and overwrites the send_field. By calling
   !!  ICON_cpl_put_init the internal event handler does not(!) get
   !!  updated. A corresponding call to either ICON_cpl_get or
   !!  ICON_cpl_get_init is required.
@@ -1111,6 +1126,12 @@ CONTAINS
     IF ( info == 0 ) THEN
        rest_field = send_field
        msg_type   = INITIAL
+       ! This is bad coding style, but ...
+       WRITE ( * , '(A,I2,A)') ' WARNING: a lag of ', events(fptr%event_id)%lag,' has been set for'
+       WRITE ( * , '(A,A)' )   '          ', TRIM(fptr%field_name)
+       WRITE ( * , '(A)' )     '          The lag has been reset to zero in ICON_cpl_put_init!'
+       events(fptr%event_id)%lag        = 0
+       events(fptr%event_id)%event_time = 0
     ELSE
        msg_type   = RESTART
     ENDIF
