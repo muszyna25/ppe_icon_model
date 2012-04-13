@@ -492,7 +492,7 @@ CONTAINS
         IF (p_onl%dom(1) < 0)  THEN
           lonlat%l_dom(:) = .TRUE.
         ELSE
-          DOM_LOOP : DO i = 1, n_dom
+          DOM_LOOP : DO i = 1, max_dom
             IF (p_onl%dom(i) < 0) exit DOM_LOOP
             lonlat%l_dom( p_onl%dom(i) ) = .TRUE.
           ENDDO DOM_LOOP
@@ -1136,7 +1136,7 @@ CONTAINS
                               p_patch(jl)%verts%owner_mask, p_patch(jl)%verts%phys_id,    &
                               p_patch(jl)%verts%glb_index, patch_info(jp)%verts)
         ! Set grid_filename on work and test PE
-        patch_info(jp)%grid_filename = p_patch(jl)%grid_filename
+        patch_info(jp)%grid_filename = TRIM(p_patch(jl)%grid_filename)
       ENDIF
 #ifndef NOMPI
       IF(use_async_name_list_io) THEN
@@ -1149,14 +1149,14 @@ CONTAINS
 #endif
 
     ENDDO ! jp
-
     ! A similar process as above - for the lon-lat grids
     ALLOCATE(lonlat_info(n_lonlat_grids, n_dom), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
     DO jl = 1,n_lonlat_grids
       DO jg = 1,n_dom
+        IF (.NOT. lonlat_grid_list(jl)%l_dom(jg)) CYCLE
+
         IF(.NOT.my_process_is_io()) THEN
-          IF (.NOT. lonlat_grid_list(jl)%l_dom(jg)) CYCLE
           ! Set reorder_info on work and test PE
           CALL set_reorder_info_lonlat(lonlat_grid_list(jl)%grid,      &
             &                          lonlat_grid_list(jl)%intp(jg),  &
