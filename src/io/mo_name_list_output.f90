@@ -168,6 +168,10 @@ MODULE mo_name_list_output
     INTEGER, ALLOCATABLE :: reorder_index(:)
                       ! Index how to reorder the contributions of all compute PEs
                       ! into the global array (set on all PEs)
+
+    ! only used when copying grid info from file (l_grid_info_from_file = .TRUE.):
+    INTEGER, ALLOCATABLE :: log_dom_index(:)
+                      ! Index where a point of the physical domains is in the logical domain
   END TYPE t_reorder_info
 
 
@@ -196,6 +200,11 @@ MODULE mo_name_list_output
     ! vertices which is first collected on working PE 0 - from where
     ! it will be broadcasted to the pure I/O PEs.
     TYPE (t_grid_info) :: grid_c, grid_e, grid_v
+
+    ! Filename of grid file, needed only if grid information is output
+    ! to NetCDF since this information is normally not read and
+    ! thus not present in the patch description
+    CHARACTER(LEN=filename_max) :: grid_filename
   END TYPE t_patch_info
 
   TYPE(t_patch_info),   ALLOCATABLE, TARGET :: patch_info (:)
@@ -231,6 +240,12 @@ MODULE mo_name_list_output
   ! Thus we declare a instance here which should have zeros everywhere since it is static.
 
   TYPE(t_datetime) :: zero_datetime
+
+  ! Flag. If .TRUE. grid info will be copied from grid file, otherwise
+  ! geographical locations of cells, edges, and vertices are first
+  ! collected on working PE 0 - from where they will be broadcasted to
+  ! the pure I/O PEs.
+  LOGICAL :: l_grid_info_from_file
 
   !------------------------------------------------------------------------------------------------
 
@@ -304,8 +319,6 @@ CONTAINS
       reg_lat_def,        &
       gauss_tgrid_def,    &
       north_pole
-
-
 
     ! Open input file and position to first namelist 'output_nml'
 
@@ -539,6 +552,10 @@ CONTAINS
 
     CALL message(routine,'Start')
 
+    ! For hexagons, we still copy grid info from file; for triangular
+    ! grids we have a faster method without file access:
+    l_grid_info_from_file = (global_cell_type == 6)
+
     ! Preliminary until this is done correctly during creating the var_lists:
     ! Set loutput to .TRUE. unless we know exactly that we do NOT want to output this list
 
@@ -641,7 +658,8 @@ CONTAINS
     ! locations of cells, edges, and vertices
 
     ! Pure I/O PEs may skip this...
-    IF (.NOT. (use_async_name_list_io .AND. my_process_is_io())) THEN
+    IF (.NOT. (use_async_name_list_io .AND. my_process_is_io()) .AND.  &
+      & .NOT. l_grid_info_from_file ) THEN
 
       ! Go over all output domains
       DO idom = 1, n_dom_out
@@ -709,27 +727,29 @@ CONTAINS
     IF(use_async_name_list_io) THEN
       CALL replicate_data_on_io_procs
       
-      ! Clear patch_info fields clon, clat, etc. (especially on work
-      ! PE 0) since they aren't needed there any longer.
-      IF(.NOT.my_process_is_io()) THEN
-        DO idom = 1, n_dom_out
-          DEALLOCATE(patch_info(idom)%grid_c%lon,  patch_info(idom)%grid_c%lat,  &
-            &        patch_info(idom)%grid_e%lon,  patch_info(idom)%grid_e%lat,  &
-            &        patch_info(idom)%grid_v%lon,  patch_info(idom)%grid_v%lat,  &
-            !
-            &        patch_info(idom)%grid_c%lonv, patch_info(idom)%grid_c%latv, &
-            &        patch_info(idom)%grid_e%lonv, patch_info(idom)%grid_e%latv, &
-            &        patch_info(idom)%grid_v%lonv, patch_info(idom)%grid_v%latv, &
-            &        STAT=ierrstat)
-          IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
-        END DO
+      IF (.NOT. l_grid_info_from_file) THEN
+        ! Clear patch_info fields clon, clat, etc. (especially on work
+        ! PE 0) since they aren't needed there any longer.
+        IF(.NOT.my_process_is_io()) THEN
+          DO idom = 1, n_dom_out
+            DEALLOCATE(patch_info(idom)%grid_c%lon,  patch_info(idom)%grid_c%lat,  &
+              &        patch_info(idom)%grid_e%lon,  patch_info(idom)%grid_e%lat,  &
+              &        patch_info(idom)%grid_v%lon,  patch_info(idom)%grid_v%lat,  &
+              !
+              &        patch_info(idom)%grid_c%lonv, patch_info(idom)%grid_c%latv, &
+              &        patch_info(idom)%grid_e%lonv, patch_info(idom)%grid_e%latv, &
+              &        patch_info(idom)%grid_v%lonv, patch_info(idom)%grid_v%latv, &
+              &        STAT=ierrstat)
+            IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+          END DO
+        END IF
       END IF
     END IF
 #endif
 
     ! Set the number of domains in output and the patch reorder information
     CALL set_patch_info
-
+    
     ! Get the number of output files needed (by counting the domains per name list)
 
     p_onl => first_output_name_list
@@ -1115,6 +1135,8 @@ CONTAINS
         CALL set_reorder_info(jp, p_patch(jl)%n_patch_verts_g, p_patch(jl)%n_patch_verts, &
                               p_patch(jl)%verts%owner_mask, p_patch(jl)%verts%phys_id,    &
                               p_patch(jl)%verts%glb_index, patch_info(jp)%verts)
+        ! Set grid_filename on work and test PE
+        patch_info(jp)%grid_filename = p_patch(jl)%grid_filename
       ENDIF
 #ifndef NOMPI
       IF(use_async_name_list_io) THEN
@@ -1122,6 +1144,7 @@ CONTAINS
         CALL transfer_reorder_info(patch_info(jp)%cells)
         CALL transfer_reorder_info(patch_info(jp)%edges)
         CALL transfer_reorder_info(patch_info(jp)%verts)
+        CALL p_bcast(patch_info(jp)%grid_filename, bcast_root, p_comm_work_2_io)
       ENDIF
 #endif
 
@@ -1538,6 +1561,9 @@ CONTAINS
     ! Get reorder_index
 
     ALLOCATE(p_ri%reorder_index(p_ri%n_glb))
+    IF (l_grid_info_from_file) THEN
+      ALLOCATE(p_ri%log_dom_index(p_ri%n_glb))
+    END IF
     ALLOCATE(reorder_index_log_dom(n_points_g)) ! spans the complete logical domain
     reorder_index_log_dom(:) = 0
 
@@ -1555,6 +1581,16 @@ CONTAINS
         p_ri%reorder_index(n) = reorder_index_log_dom(i)
       ENDIF
     ENDDO
+
+    IF (l_grid_info_from_file) THEN
+      n = 0
+      DO i = 1, n_points_g
+        IF(reorder_index_log_dom(i)>0) THEN
+          n = n+1
+          p_ri%log_dom_index(n) = i
+        ENDIF
+      ENDDO
+    END IF
 
     ! Safety check
     IF(n/=p_ri%n_glb) CALL finish(routine,'Reordering failed')
@@ -1623,6 +1659,10 @@ CONTAINS
     ! exactly in the same order as it is retrieved later during I/O
     ALLOCATE(p_ri%reorder_index(p_ri%n_glb), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+    IF (l_grid_info_from_file) THEN
+      ALLOCATE(p_ri%log_dom_index(p_ri%n_glb), STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+    END IF
 
     ioffset = p_ri%pe_off(this_pe)
     p_ri%reorder_index = -1
@@ -1632,6 +1672,12 @@ CONTAINS
     ! merge all fields across working PEs:
     p_ri%reorder_index = p_max(p_ri%reorder_index, &
       &                        comm=get_my_mpi_work_communicator())
+
+    IF (l_grid_info_from_file) THEN
+      ! mapping between logical and physical patch is trivial for
+      ! lon-lat grids:
+      p_ri%log_dom_index(:) = (/ (i, i=1,p_ri%n_glb) /)
+    END IF
 
   END SUBROUTINE set_reorder_info_lonlat
 
@@ -1776,7 +1822,13 @@ CONTAINS
       of%cdiLonLatGridID = CDI_UNDEFID
 
       ! If wanted, set grid info
-      IF(of%name_list%output_grid) CALL set_grid_info(of)
+      IF(of%name_list%output_grid) THEN
+        IF (l_grid_info_from_file) THEN
+          CALL copy_grid_info(of)
+        ELSE
+          CALL set_grid_info(of)
+        END IF
+      END IF
 
     ENDIF
 
@@ -2043,7 +2095,7 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   !
-  ! Sets the optional grid information in output file
+  ! Sets the grid information in output file
   !
   SUBROUTINE set_grid_info(of)
 
@@ -2073,6 +2125,258 @@ CONTAINS
     CALL gridDefYbounds(of%cdiVertGridID, patch_info(idom)%grid_v%latv)
 
   END SUBROUTINE set_grid_info
+
+
+  !------------------------------------------------------------------------------------------------
+  !
+  ! Copies the grid information from grid file to output file
+  !
+    SUBROUTINE copy_grid_info(of)
+
+    TYPE (t_output_file), INTENT(IN) :: of
+
+    INTEGER :: ncid, dimid, varid
+    INTEGER :: i_nc, i_ne, i_nv
+    INTEGER :: i_dom
+
+    REAL(wp), ALLOCATABLE :: clon(:), clat(:), clonv(:,:), clatv(:,:)
+    REAL(wp), ALLOCATABLE :: elon(:), elat(:), elonv(:,:), elatv(:,:)
+    REAL(wp), ALLOCATABLE :: vlon(:), vlat(:), vlonv(:,:), vlatv(:,:)
+
+    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_name_list_output/copy_grid_info'
+
+    i_dom = of%phys_patch_id
+
+    ! Please note: The following is more or less a copy from mo_io_vlist with adaptions
+    ! to the data structures used here.
+    ! Unfortunately it seems necessary to open the gridfile for reading the information
+    ! since it is not read and stored during patch input.
+
+    !---------------------------------------------------------------------------
+    ! Open grid file, read dimensions and make a cross check if they match.
+    ! This is just for safety and could be skipped, of course.
+
+    CALL nf(nf_open(TRIM(patch_info(i_dom)%grid_filename), NF_NOWRITE, ncid))
+    !
+    SELECT CASE (global_cell_type)
+    CASE (3)
+      CALL nf(nf_inq_dimid(ncid, 'cell', dimid))
+    CASE (6)
+      CALL nf(nf_inq_dimid(ncid, 'vertex', dimid))
+    END SELECT
+    CALL nf(nf_inq_dimlen(ncid, dimid, i_nc))
+    !
+    CALL nf(nf_inq_dimid(ncid, 'edge', dimid))
+    CALL nf(nf_inq_dimlen(ncid, dimid, i_ne))
+    !
+    SELECT CASE (global_cell_type)
+    CASE (3)
+      CALL nf(nf_inq_dimid(ncid, 'vertex', dimid))
+    CASE (6)
+      CALL nf(nf_inq_dimid(ncid, 'cell', dimid))
+    END SELECT
+    CALL nf(nf_inq_dimlen(ncid, dimid, i_nv))
+
+    IF(i_nc /= patch_info(i_dom)%cells%n_log) &
+      CALL finish(routine,'Number of cells differs in '//TRIM(patch_info(i_dom)%grid_filename))
+    IF(i_ne /= patch_info(i_dom)%edges%n_log) &
+      CALL finish(routine,'Number of edges differs in '//TRIM(patch_info(i_dom)%grid_filename))
+    IF(i_nv /= patch_info(i_dom)%verts%n_log) &
+      CALL finish(routine,'Number of verts differs in '//TRIM(patch_info(i_dom)%grid_filename))
+    !
+    !---------------------------------------------------------------------------
+    ! cell grid
+
+    SELECT CASE (global_cell_type)
+    CASE (3)
+      CALL nf(nf_inq_varid(ncid, 'clon', varid))
+    CASE (6)
+      CALL nf(nf_inq_varid(ncid, 'vlon', varid))
+    END SELECT
+    
+    ALLOCATE(clon(i_nc))
+    CALL nf(nf_get_var_double(ncid, varid, clon))
+    CALL reorder1(patch_info(i_dom)%cells%n_glb, patch_info(i_dom)%cells%log_dom_index, clon)
+    CALL gridDefXvals(of%cdiCellGridID, clon)
+    DEALLOCATE(clon)
+
+
+    SELECT CASE (global_cell_type)
+    CASE (3)
+      CALL nf(nf_inq_varid(ncid, 'clat', varid))
+    CASE (6)
+      CALL nf(nf_inq_varid(ncid, 'vlat', varid))
+    END SELECT
+    
+    ALLOCATE(clat(i_nc))
+    CALL nf(nf_get_var_double(ncid, varid, clat))
+    CALL reorder1(patch_info(i_dom)%cells%n_glb, patch_info(i_dom)%cells%log_dom_index, clat)
+
+    CALL gridDefYvals(of%cdiCellGridID, clat)
+    DEALLOCATE(clat)
+    
+
+    SELECT CASE (global_cell_type)
+    CASE (3)
+      CALL nf(nf_inq_varid(ncid, 'clon_vertices', varid))
+    CASE (6)
+      CALL nf(nf_inq_varid(ncid, 'vlon_vertices', varid))
+    END SELECT
+    
+    ALLOCATE(clonv(global_cell_type, i_nc))
+    CALL nf(nf_get_var_double(ncid, varid, clonv))
+    CALL reorder2(patch_info(i_dom)%cells%n_glb, patch_info(i_dom)%cells%log_dom_index, clonv)
+
+    CALL gridDefXbounds(of%cdiCellGridID, clonv)
+    DEALLOCATE(clonv)
+
+
+    SELECT CASE (global_cell_type)
+    CASE (3)
+      CALL nf(nf_inq_varid(ncid, 'clat_vertices', varid))
+    CASE (6)
+      CALL nf(nf_inq_varid(ncid, 'vlat_vertices', varid))
+    END SELECT
+
+    ALLOCATE(clatv(global_cell_type, i_nc))
+    CALL nf(nf_get_var_double(ncid, varid, clatv))
+    CALL reorder2(patch_info(i_dom)%cells%n_glb, patch_info(i_dom)%cells%log_dom_index, clatv)
+
+    CALL gridDefYbounds(of%cdiCellGridID, clatv)
+    DEALLOCATE(clatv)
+
+    !-------------------------------------------------------------------------
+    ! edge grid
+
+    ALLOCATE(elon(i_ne))
+    CALL nf(nf_inq_varid(ncid, 'elon', varid))
+    CALL nf(nf_get_var_double(ncid, varid, elon))
+    CALL reorder1(patch_info(i_dom)%edges%n_glb, patch_info(i_dom)%edges%log_dom_index, elon)
+
+    CALL gridDefXvals(of%cdiEdgeGridID, elon)
+    DEALLOCATE(elon)
+
+    ALLOCATE(elat(i_ne))
+    CALL nf(nf_inq_varid(ncid, 'elat', varid))
+    CALL nf(nf_get_var_double(ncid, varid, elat))
+    CALL reorder1(patch_info(i_dom)%edges%n_glb, patch_info(i_dom)%edges%log_dom_index, elat)
+
+    CALL gridDefYvals(of%cdiEdgeGridID, elat)
+    DEALLOCATE(elat)
+
+    ALLOCATE(elonv(4, i_ne))
+    CALL nf(nf_inq_varid(ncid, 'elon_vertices', varid))
+    CALL nf(nf_get_var_double(ncid, varid, elonv))
+    CALL reorder2(patch_info(i_dom)%edges%n_glb, patch_info(i_dom)%edges%log_dom_index, elonv)
+
+    CALL gridDefXbounds(of%cdiEdgeGridID, elonv)
+    DEALLOCATE(elonv)
+
+    ALLOCATE(elatv(4, i_ne))
+    CALL nf(nf_inq_varid(ncid, 'elat_vertices', varid))
+    CALL nf(nf_get_var_double(ncid, varid, elatv))
+    CALL reorder2(patch_info(i_dom)%edges%n_glb, patch_info(i_dom)%edges%log_dom_index, elatv)
+
+    CALL gridDefYbounds(of%cdiEdgeGridID, elatv)
+    DEALLOCATE(elatv)
+
+    !-------------------------------------------------------------------------
+    ! vertex grid
+
+    SELECT CASE (global_cell_type)
+    CASE (3)
+      CALL nf(nf_inq_varid(ncid, 'vlon', varid))
+    CASE (6)
+      CALL nf(nf_inq_varid(ncid, 'clon', varid))
+    END SELECT
+
+    ALLOCATE(vlon(i_nv))
+    CALL nf(nf_get_var_double(ncid, varid, vlon))
+    CALL reorder1(patch_info(i_dom)%verts%n_glb, patch_info(i_dom)%verts%log_dom_index, vlon)
+
+    CALL gridDefXvals(of%cdiVertGridID, vlon)
+    DEALLOCATE(vlon)
+
+    SELECT CASE (global_cell_type)
+    CASE (3)
+      CALL nf(nf_inq_varid(ncid, 'vlat', varid))
+    CASE (6)
+      CALL nf(nf_inq_varid(ncid, 'clat', varid))
+    END SELECT
+
+    ALLOCATE(vlat(i_nv))
+    CALL nf(nf_get_var_double(ncid, varid, vlat))
+    CALL reorder1(patch_info(i_dom)%verts%n_glb, patch_info(i_dom)%verts%log_dom_index, vlat)
+
+    CALL gridDefYvals(of%cdiVertGridID, vlat)
+    DEALLOCATE(vlat)
+
+    IF(global_cell_type==3) THEN
+      CALL nf(nf_inq_varid(ncid, 'vlon_vertices', varid))
+    ELSEIF(global_cell_type==6) THEN
+      CALL nf(nf_inq_varid(ncid, 'clon_vertices', varid))
+    ENDIF
+
+    ALLOCATE(vlonv(9-global_cell_type, i_nv))
+    CALL nf(nf_get_var_double(ncid, varid, vlonv))
+    CALL reorder2(patch_info(i_dom)%verts%n_glb, patch_info(i_dom)%verts%log_dom_index, vlonv)
+
+    CALL gridDefXbounds(of%cdiVertGridID, vlonv)
+    DEALLOCATE(vlonv)
+
+    IF(global_cell_type==3) THEN
+      CALL nf(nf_inq_varid(ncid, 'vlat_vertices', varid))
+    ELSEIF(global_cell_type==6) THEN
+      CALL nf(nf_inq_varid(ncid, 'clat_vertices', varid))
+    ENDIF
+
+    ALLOCATE(vlatv(9-global_cell_type, i_nv))
+    CALL nf(nf_get_var_double(ncid, varid, vlatv))
+    CALL reorder2(patch_info(i_dom)%verts%n_glb, patch_info(i_dom)%verts%log_dom_index, vlatv)
+
+    CALL gridDefYbounds(of%cdiVertGridID, vlatv)
+    DEALLOCATE(vlatv)
+
+    !-------------------------------------------------------------------------
+
+    ! Close NetCDF file, it is not needed any more
+    CALL nf(nf_close(ncid))
+
+  CONTAINS
+
+    SUBROUTINE nf(status)
+      INTEGER, INTENT(in) :: status
+
+      IF (status /= nf_noerr) THEN
+        CALL finish(routine, 'NetCDF Error: '//nf_strerror(status))
+      ENDIF
+    END SUBROUTINE nf
+
+    ! reorder1: get the physical patch points from the logical patch
+    ! Note that this works within the array as long as idx is monotonically increasing
+    SUBROUTINE reorder1(n, idx, array)
+      INTEGER, INTENT(IN)     :: n, idx(:)
+      REAL(wp), INTENT(INOUT) :: array(:)
+      INTEGER :: i
+
+      DO i = 1, n
+        array(i) = array(idx(i))
+      ENDDO
+    END SUBROUTINE reorder1
+
+    ! reorder2: same as reorder1 for 2D array
+    SUBROUTINE reorder2(n, idx, array)
+      INTEGER, INTENT(IN)     :: n, idx(:)
+      REAL(wp), INTENT(INOUT) :: array(:,:)
+      INTEGER :: i
+
+      DO i = 1, n
+        array(:,i) = array(:,idx(i))
+      ENDDO
+    END SUBROUTINE reorder2
+
+  END SUBROUTINE copy_grid_info
+
 
   !------------------------------------------------------------------------------------------------
   !
@@ -2925,13 +3229,18 @@ CONTAINS
       ALLOCATE(p_ri%pe_off(0:num_work_procs-1))
 
       ALLOCATE(p_ri%reorder_index(p_ri%n_glb))
-
+      IF (l_grid_info_from_file) THEN
+        ALLOCATE(p_ri%log_dom_index(p_ri%n_glb))
+      END IF
     ENDIF
 
     CALL p_bcast(p_ri%pe_own, bcast_root, p_comm_work_2_io)
     CALL p_bcast(p_ri%pe_off, bcast_root, p_comm_work_2_io)
 
     CALL p_bcast(p_ri%reorder_index, bcast_root, p_comm_work_2_io)
+    IF (l_grid_info_from_file) THEN
+      CALL p_bcast(p_ri%log_dom_index, bcast_root, p_comm_work_2_io)
+    END IF
 
   END SUBROUTINE transfer_reorder_info
 
@@ -3086,52 +3395,54 @@ CONTAINS
 
     !-----------------------------------------------------------------------------------------------
     ! Replicate coordinates of cells/edges/vertices:
+    IF (.NOT. l_grid_info_from_file) THEN
 
-    ! Go over all output domains
-    DO idom = 1, n_dom_out
-      CALL p_bcast(patch_info(idom)%nblks_glb_c, bcast_root, p_comm_work_2_io)
-      CALL p_bcast(patch_info(idom)%nblks_glb_e, bcast_root, p_comm_work_2_io)
-      CALL p_bcast(patch_info(idom)%nblks_glb_v, bcast_root, p_comm_work_2_io)
+      ! Go over all output domains
+      DO idom = 1, n_dom_out
+        CALL p_bcast(patch_info(idom)%nblks_glb_c, bcast_root, p_comm_work_2_io)
+        CALL p_bcast(patch_info(idom)%nblks_glb_e, bcast_root, p_comm_work_2_io)
+        CALL p_bcast(patch_info(idom)%nblks_glb_v, bcast_root, p_comm_work_2_io)
 
-      dim_c =   global_cell_type
-      dim_e =                  4
-      dim_v = 9-global_cell_type
-      
-      IF(my_process_is_io()) THEN    
-        ALLOCATE(patch_info(idom)%grid_c%lon(nproma*patch_info(idom)%nblks_glb_c),  &
-          &      patch_info(idom)%grid_c%lat(nproma*patch_info(idom)%nblks_glb_c),  &
-          &      patch_info(idom)%grid_c%lonv(nproma*patch_info(idom)%nblks_glb_c, dim_c), &
-          &      patch_info(idom)%grid_c%latv(nproma*patch_info(idom)%nblks_glb_c, dim_c), &
-          !
-          &      patch_info(idom)%grid_e%lon(nproma*patch_info(idom)%nblks_glb_e), &
-          &      patch_info(idom)%grid_e%lat(nproma*patch_info(idom)%nblks_glb_e), &
-          &      patch_info(idom)%grid_e%lonv(nproma*patch_info(idom)%nblks_glb_e, dim_e), &
-          &      patch_info(idom)%grid_e%latv(nproma*patch_info(idom)%nblks_glb_e, dim_e), &
-          !
-          &      patch_info(idom)%grid_v%lon(nproma*patch_info(idom)%nblks_glb_v), &
-          &      patch_info(idom)%grid_v%lat(nproma*patch_info(idom)%nblks_glb_v), &
-          &      patch_info(idom)%grid_v%lonv(nproma*patch_info(idom)%nblks_glb_v, dim_v), &
-          &      patch_info(idom)%grid_v%latv(nproma*patch_info(idom)%nblks_glb_v, dim_v), &
-          &      STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-      END IF
+        dim_c =   global_cell_type
+        dim_e =                  4
+        dim_v = 9-global_cell_type
 
-      ! cells
-      CALL p_bcast(patch_info(idom)%grid_c%lon,  bcast_root, p_comm_work_2_io)
-      CALL p_bcast(patch_info(idom)%grid_c%lat,  bcast_root, p_comm_work_2_io)
-      CALL p_bcast(patch_info(idom)%grid_c%lonv, bcast_root, p_comm_work_2_io)
-      CALL p_bcast(patch_info(idom)%grid_c%latv, bcast_root, p_comm_work_2_io)
-      ! edges
-      CALL p_bcast(patch_info(idom)%grid_e%lon,  bcast_root, p_comm_work_2_io)
-      CALL p_bcast(patch_info(idom)%grid_e%lat,  bcast_root, p_comm_work_2_io)
-      CALL p_bcast(patch_info(idom)%grid_e%lonv, bcast_root, p_comm_work_2_io)
-      CALL p_bcast(patch_info(idom)%grid_e%latv, bcast_root, p_comm_work_2_io)
-      ! vertices
-      CALL p_bcast(patch_info(idom)%grid_v%lon,  bcast_root, p_comm_work_2_io)
-      CALL p_bcast(patch_info(idom)%grid_v%lat,  bcast_root, p_comm_work_2_io)
-      CALL p_bcast(patch_info(idom)%grid_v%lonv, bcast_root, p_comm_work_2_io)
-      CALL p_bcast(patch_info(idom)%grid_v%latv, bcast_root, p_comm_work_2_io)
-    END DO
+        IF(my_process_is_io()) THEN    
+          ALLOCATE(patch_info(idom)%grid_c%lon(nproma*patch_info(idom)%nblks_glb_c),  &
+            &      patch_info(idom)%grid_c%lat(nproma*patch_info(idom)%nblks_glb_c),  &
+            &      patch_info(idom)%grid_c%lonv(nproma*patch_info(idom)%nblks_glb_c, dim_c), &
+            &      patch_info(idom)%grid_c%latv(nproma*patch_info(idom)%nblks_glb_c, dim_c), &
+                                !
+            &      patch_info(idom)%grid_e%lon(nproma*patch_info(idom)%nblks_glb_e), &
+            &      patch_info(idom)%grid_e%lat(nproma*patch_info(idom)%nblks_glb_e), &
+            &      patch_info(idom)%grid_e%lonv(nproma*patch_info(idom)%nblks_glb_e, dim_e), &
+            &      patch_info(idom)%grid_e%latv(nproma*patch_info(idom)%nblks_glb_e, dim_e), &
+                                !
+            &      patch_info(idom)%grid_v%lon(nproma*patch_info(idom)%nblks_glb_v), &
+            &      patch_info(idom)%grid_v%lat(nproma*patch_info(idom)%nblks_glb_v), &
+            &      patch_info(idom)%grid_v%lonv(nproma*patch_info(idom)%nblks_glb_v, dim_v), &
+            &      patch_info(idom)%grid_v%latv(nproma*patch_info(idom)%nblks_glb_v, dim_v), &
+            &      STAT=ierrstat)
+          IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+        END IF
+
+        ! cells
+        CALL p_bcast(patch_info(idom)%grid_c%lon,  bcast_root, p_comm_work_2_io)
+        CALL p_bcast(patch_info(idom)%grid_c%lat,  bcast_root, p_comm_work_2_io)
+        CALL p_bcast(patch_info(idom)%grid_c%lonv, bcast_root, p_comm_work_2_io)
+        CALL p_bcast(patch_info(idom)%grid_c%latv, bcast_root, p_comm_work_2_io)
+        ! edges
+        CALL p_bcast(patch_info(idom)%grid_e%lon,  bcast_root, p_comm_work_2_io)
+        CALL p_bcast(patch_info(idom)%grid_e%lat,  bcast_root, p_comm_work_2_io)
+        CALL p_bcast(patch_info(idom)%grid_e%lonv, bcast_root, p_comm_work_2_io)
+        CALL p_bcast(patch_info(idom)%grid_e%latv, bcast_root, p_comm_work_2_io)
+        ! vertices
+        CALL p_bcast(patch_info(idom)%grid_v%lon,  bcast_root, p_comm_work_2_io)
+        CALL p_bcast(patch_info(idom)%grid_v%lat,  bcast_root, p_comm_work_2_io)
+        CALL p_bcast(patch_info(idom)%grid_v%lonv, bcast_root, p_comm_work_2_io)
+        CALL p_bcast(patch_info(idom)%grid_v%latv, bcast_root, p_comm_work_2_io)
+      END DO
+    END IF ! IF (.NOT. l_grid_info_from_file)
 
   END SUBROUTINE replicate_data_on_io_procs
 
