@@ -838,7 +838,7 @@ CONTAINS
             !! vert_density_grad  > 0 stable stratification: use calculated value
             ELSE IF (density_grad_c > z_threshold ) THEN
               ! TODO: the following expect equally sized cells
-               mean_z_r = 0.5_wp * (z_Ri_c(ilc1,jk,ibc1) + z_Ri_c(ilc2,jk,ibc2))
+               mean_z_r = ABS(0.5_wp * (z_Ri_c(ilc1,jk,ibc1) + z_Ri_c(ilc2,jk,ibc2)))
                params_oce%A_veloc_v(je,jk,jb) = &
                  & params_oce%A_veloc_v_back +  &
                  & z_av0 /                      &

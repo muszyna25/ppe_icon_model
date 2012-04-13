@@ -495,7 +495,7 @@ END INTERFACE
   !
   REAL(wp),INTENT(IN) :: t
   REAL(wp),INTENT(IN) :: s
-  REAL(wp),INTENT(IN) :: p
+  REAL(wp),INTENT(IN) :: p     !  pressure is unused
   REAL(wp)            :: rho   !< density
 
     rho = rho_ref - a_T * t  + b_S * s
@@ -758,7 +758,7 @@ END INTERFACE
     END DO
   END DO
 stop
-end subroutine calc_density_JM_EOS
+END SUBROUTINE calc_density_JM_EOS
 !----------------------------------------------------------------
 
   !----------------------------------------------------------------
