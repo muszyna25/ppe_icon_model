@@ -64,6 +64,10 @@ Note:
    <target> can be chosen from {tornado,tornado_gcc,tornado_nag,etc}.
    The target must be defines in the database file "target_database_ksh".
 
+3. If you wish to reconfigure the build then it is advisable to make a clean
+   start by giving
+     %make distclean
+
 2. Generate html documentation
 ------------------------------
 
