@@ -68,7 +68,7 @@ MODULE mo_nml_crosscheck
     &                              ltransport, ntracer, nlev, ltestcase,      &
     &                              nqtendphy, ntracer_static, iqv, iqc, iqi,  &
     &                              iqs, iqr, iqt, ico2, ltimer,               &
-    &                              activate_sync_timers, timers_level
+    &                              activate_sync_timers, timers_level,iqash1 !K.L. ICON-ART
                                   
 !  USE mo_io_config
   USE mo_gridref_config
@@ -103,6 +103,8 @@ MODULE mo_nml_crosscheck
   USE mo_datetime,           ONLY: add_time, print_datetime_all
   USE mo_meteogram_config,   ONLY: check_meteogram_configuration
   USE mo_master_control,     ONLY: is_restart_run
+  
+  USE mo_art_config,         ONLY: art_config
 
   IMPLICIT NONE
 
@@ -501,30 +503,33 @@ CONTAINS
 
     CASE (INWP)
 
-      ! If iforcing=INWP is chosen, ntracer will automatically be set to 5.
+      ! If iforcing=INWP is chosen, ntracer will automatically be set to 5,
+      ! except for the case of ICON-ART. If ICON-ART: then ntracer is adapted from the namelist.
       ! In addition, ntracer_static will be set automatically as well, 
       ! according to the selected radiation scheme (following section).
       !
-      IF ( ntracer /= 5 ) THEN
-         ntracer = 5
-         WRITE(message_text,'(a,i3)') 'Attention: for NWP physics, '//&
+      do jg=1,n_dom
+        IF ( (ntracer /= 5) .AND. (.NOT. art_config(jg)%lart)) THEN
+          ntracer = 5
+          WRITE(message_text,'(a,i3)') 'Attention: for NWP physics, '//&
                                       'ntracer is set to',ntracer
-         CALL message(TRIM(routine),message_text)
-      ENDIF
-
+          CALL message(TRIM(routine),message_text)
+        ENDIF
+      enddo
+      
       iqv    = 1     !> water vapour
       iqc    = 2     !! cloud water
       iqi    = 3     !! ice
       iqr    = 4     !! rain water
       iqs    = 5     !! snow
-
+      
       ! Note: Indices for additional tracers are assigned automatically 
       ! via add_tracer_ref in mo_nonhydro_state.
 
       iqt    = 6     !! start index of other tracers than hydrometeors
       nqtendphy = 3  !! number of water species for which convective and turbulent 
                      !! tendencies are stored
-
+     
     CASE default
 
       iqv    = 1     !> water vapour

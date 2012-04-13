@@ -68,7 +68,7 @@ MODULE mo_nonhydro_state
   USE mo_parallel_config,      ONLY: nproma
   USE mo_run_config,           ONLY: iforcing, ntracer, ntracer_static,    &
     &                                iqv, iqc, iqi, iqr, iqs,              &
-    &                                nqtendphy
+    &                                nqtendphy, iqash1 
   USE mo_io_config,            ONLY: lwrite_extra, inextra_2d, inextra_3d
   USE mo_nh_pzlev_config,      ONLY: nh_pzlev_config
   USE mo_advection_config,     ONLY: t_advection_config, advection_config
@@ -82,7 +82,8 @@ MODULE mo_nonhydro_state
   USE mo_cf_convention,        ONLY: t_cf_var
   USE mo_grib2,                ONLY: t_grib2_var
   USE mo_cdi_constants
-
+  USE mo_art_config,          ONLY: t_art_config,art_config
+  USE mo_art_tracer_interface, ONLY: art_tracer_interface
 
   IMPLICIT NONE
 
@@ -97,13 +98,13 @@ MODULE mo_nonhydro_state
 
   PUBLIC :: p_nh_state            ! state vector of nonhydrostatic variables (variable)
   PUBLIC :: bufr
+  
+  PUBLIC :: add_tracer_ref
 
 
   INTERFACE add_tracer_ref
     MODULE PROCEDURE add_var_list_reference_tracer
   END INTERFACE add_tracer_ref
-
-
   TYPE (t_buffer_memory), POINTER :: bufr(:)
 
   TYPE(t_nh_state), TARGET, ALLOCATABLE :: p_nh_state(:)
@@ -424,6 +425,8 @@ MODULE mo_nonhydro_state
     CHARACTER(len=4) suffix
 
     TYPE(t_advection_config), POINTER :: advconf
+    TYPE(t_art_config), POINTER :: artconf
+    !**
     !--------------------------------------------------------------
 
     !determine size of arrays
@@ -432,6 +435,8 @@ MODULE mo_nonhydro_state
 
     ! pointer to advection_config(jg) to save some paperwork
     advconf => advection_config(p_patch%id)
+    ! ART: pointer to art_config(jg) to save some paperwork
+    artconf => art_config(p_patch%id)
 
     ! number of vertical levels
     nlev   = p_patch%nlev
@@ -539,7 +544,6 @@ MODULE mo_nonhydro_state
 
         ktracer=ntracer+ntracer_static
         ALLOCATE( p_prog%tracer_ptr(ktracer) )
-
            !QV
         CALL add_ref( p_prog_list, 'tracer',                                         &
                     & TRIM(vname_prefix)//'qv'//suffix, p_prog%tracer_ptr(iqv)%p_3d, &
@@ -632,8 +636,10 @@ MODULE mo_nonhydro_state
                     &             l_loglin=.FALSE.,                                  &
                     &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,             &
                     &             lower_limit=0._wp  )  )
-
-
+       IF (artconf%lart) THEN
+          CALL art_tracer_interface(p_patch,p_prog_list,vname_prefix, p_prog%tracer_ptr,&
+                    & timelev,ldims=shape3d_c,tlev_source=1)
+       ENDIF !lart     
 
         ! tke            p_prog%tke(nproma,nlevp1,nblks_c)
         cf_desc    = t_cf_var('turbulent_kinetic_energy', 'm2 s-2', 'turbulent kinetic energy')

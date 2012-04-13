@@ -136,7 +136,8 @@ MODULE mo_nh_stepping
     &                               output_file
   USE mo_pp_scheduler,        ONLY: t_simulation_status, new_simulation_status, &
     &                               pp_scheduler_process
-
+  USE mo_art_emission_interface,  ONLY:art_emission_interface
+  USE mo_art_config,          ONLY:art_config
 
   IMPLICIT NONE
 
@@ -1137,6 +1138,11 @@ MODULE mo_nh_stepping
 
           IF (lstep_adv(jg)) THEN
 
+              IF (art_config(jg)%lart) THEN
+                CALL art_emission_interface( p_patch(jg),			&!in
+     &          p_nh_state(jg)%prog(n_now_rcf)%tracer)                   !inout
+              ENDIF   
+
             CALL step_advection( p_patch(jg), p_int_state(jg), dtadv_loc,      & !in
               &          jstep_adv(jg)%marchuk_order,                          & !in
               &          p_nh_state(jg)%prog(n_now_rcf)%tracer,                & !in
@@ -1160,6 +1166,7 @@ MODULE mo_nh_stepping
 !              !> KF preliminary relabeling of TKE as long as there is no advection for it
 !              p_nh_state(jg)%prog(n_new_rcf)%tke =  p_nh_state(jg)%prog(n_now)%tke
 !            ENDIF
+
 
            ENDIF  !lstep_adv
 

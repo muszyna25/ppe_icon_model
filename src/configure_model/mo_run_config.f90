@@ -51,6 +51,7 @@ MODULE mo_run_config
   PUBLIC :: lvert_nest, num_lev, num_levp1, nshift, nsteps, dtime, dtime_adv
   PUBLIC :: ltimer, timers_level, activate_sync_timers, msg_level
   PUBLIC :: iqv, iqc, iqi, iqs, iqr, nqtendphy, iqt, ico2
+  PUBLIC :: iqash1 !K.L. Running index for Volcanic Ash in ICON-ART 
   PUBLIC :: check_epsilon, testbed_mode
   PUBLIC :: configure_run, l_one_file_per_patch, ldump_dd, lread_dd, nproc_dd
   PUBLIC :: dump_filename, dd_filename, lonlat_dump_filename
@@ -106,6 +107,8 @@ MODULE mo_run_config
     ! Tracer indices of other species
     INTEGER :: ico2       !< CO2
     INTEGER :: iqt        !< start index of other tracers than hydrometeors
+    ! Tracer indices of ICON-ART species
+    INTEGER :: iqash1        !< Volcanic ash, first class
 
 
     REAL(wp) :: dtime_adv !< advective timestep on global patch (iadv_rcf*dtime) [s]

@@ -4,11 +4,11 @@
 !! Subroutine is called by read_atmo_namelists for setting up the ART-package 
 !!
 !! @author Daniel Reinert, DWD
-!!
+!! @author Kristina Lundgren, KIT
 !!
 !! @par Revision History
 !! Initial revision by Daniel Reinert, DWD (2011-12-08)
-!!
+!! Modification of namelist parameters, Kristina Lundgren (2012-03-21)
 !! @par Copyright
 !! 2002-2010 by DWD and MPI-M
 !! This software is provided for non-commercial use only.
@@ -39,6 +39,7 @@
 MODULE mo_art_nml
 
   USE mo_kind                ,ONLY: wp
+  USE mo_parallel_config     ,ONLY: nproma
   USE mo_exception           ,ONLY: finish
   USE mo_io_units            ,ONLY: nnml, nnml_output
   USE mo_master_control      ,ONLY: is_restart_run
@@ -47,7 +48,7 @@ MODULE mo_art_nml
   USE mo_mpi                 ,ONLY: my_process_is_stdio
   USE mo_io_restart_namelist ,ONLY: open_tmpfile, store_and_close_namelist,     &
     &                               open_and_restore_namelist, close_tmpfile
-  USE mo_art_config          ,ONLY: art_config 
+  USE mo_art_config          ,ONLY: art_config ,t_volc_list,MAX_NUM_VOLC 
 
   
   IMPLICIT NONE
@@ -62,23 +63,32 @@ MODULE mo_art_nml
   ! art_nml namelist variables       !
   !----------------------------------!
 
+ TYPE t_list_volcanoes
+    REAL(wp)           :: lat, lon
+    CHARACTER (LEN=20) :: zname
+!    INTEGER            :: nstart
+    
+ END TYPE t_list_volcanoes
+
+ TYPE (t_list_volcanoes) :: art_volclist_tot(MAX_NUM_VOLC) !>list of volcanoes
+ 
   LOGICAL :: lart                 !< main switch for running the ART-package
                                   !< .TRUE.: switch ON
                                   !<.FALSE.: switch OFF
 
-  LOGICAL :: lemi_volc            !< Emission of volcanic ash (TRUE/FALSE)
+  LOGICAL :: lart_volc            !< Emission of volcanic ash (TRUE/FALSE)
 
-  LOGICAL :: lconv_tracer         !< Convection of tracers (TRUE/FALSE)
+  LOGICAL :: lart_conv         !< Convection of tracers (TRUE/FALSE)
 
-  LOGICAL :: lwash_tracer         !< Washout of tracers (TRUE/FALSE)
+  LOGICAL :: lart_wash         !< Washout of tracers (TRUE/FALSE)
 
-  LOGICAL :: lrad_volc            !< Radiative impact of volcanic ash (TRUE/FALSE)
+  LOGICAL :: lart_rad_volc            !< Radiative impact of volcanic ash (TRUE/FALSE)
 
-  LOGICAL :: lcld_tracer          !< Impact on clouds (TRUE/FALSE)
+  LOGICAL :: lart_cld          !< Impact on clouds (TRUE/FALSE)
 
 
-  NAMELIST/art_nml/ lart, lemi_volc, lconv_tracer, lwash_tracer, &
-    &               lrad_volc, lcld_tracer
+  NAMELIST/art_nml/ lart, lart_volc, lart_conv, lart_wash, &
+    &               lart_rad_volc, lart_cld , art_volclist_tot
 
 
 CONTAINS
@@ -107,21 +117,24 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
     INTEGER :: jg          !< patch loop index
-
+    INTEGER :: jb, jc, nblks, npromz, nvolc, ivolc   
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_art_nml: read_art_nml'
 
     !-----------------------
     ! 1. default settings   
     !-----------------------
-    lart         = .FALSE.        ! ART-package switched off
-    lemi_volc    = .FALSE.        ! Emission of volcanic ash
-    lconv_tracer = .FALSE.        ! Convection of tracers
-    lwash_tracer = .FALSE.        ! Washout of tracers
-    lrad_volc    = .FALSE.        ! Radiative impact of volcanic ash
-    lcld_tracer  = .FALSE.        ! Impact on clouds
-  
-
+    lart          = .FALSE.        ! ART-package switched off
+    lart_volc     = .FALSE.        ! Emission of volcanic ash
+    lart_conv     = .FALSE.        ! Convection of tracers
+    lart_wash     = .FALSE.        ! Washout of tracers
+    lart_rad_volc = .FALSE.        ! Radiative impact of volcanic ash
+    lart_cld  = .FALSE.        ! Impact on clouds
+    art_volclist_tot(:)%lon   = -1._wp     ! Longitude coordinate of each volcano. 
+                                           !-1 is used for creating the list of volcanoes.  
+    art_volclist_tot(:)%lat   = 0._wp     ! Latitude coordinate of each volcano
+    art_volclist_tot(:)%zname = ""        ! Name of volcanoes
+!   art_volclist_tot(:)%nstart= 1         ! Start time of volcanic eruption
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
@@ -154,14 +167,44 @@ CONTAINS
     !----------------------------------------------------
     ! 5. Fill the configuration state
     !----------------------------------------------------
-
+    
+    ! Determine lenght of volcano list, i.e. number ov volcanoes
+      nvolc=0
+      DO
+        nvolc = nvolc + 1
+        IF (nvolc > MAX_NUM_VOLC) EXIT           ! maximum number reached.
+        IF (art_volclist_tot(nvolc)%lon == -1._wp) EXIT   ! default value --> this component is not filled. Max. comp. reached.
+      ENDDO
+      nvolc=nvolc-1
     DO jg= 0,max_dom
       art_config(jg)%lart          = lart
-      art_config(jg)%lemi_volc     = lemi_volc
-      art_config(jg)%lconv_tracer  = lconv_tracer
-      art_config(jg)%lwash_tracer  = lwash_tracer
-      art_config(jg)%lrad_volc     = lrad_volc
-      art_config(jg)%lcld_tracer   = lcld_tracer
+      art_config(jg)%lart_volc     = lart_volc
+      art_config(jg)%lart_conv  = lart_conv
+      art_config(jg)%lart_wash  = lart_wash
+      art_config(jg)%lart_rad_volc     = lart_rad_volc
+      art_config(jg)%lart_cld   = lart_cld
+      art_config(jg)%nvolc         = nvolc
+      
+      nblks=nvolc/nproma+1
+      npromz=nvolc-nproma*(nblks-1)
+      art_config(jg)%nblks         = nblks   ! 
+      art_config(jg)%npromz        = npromz  !  
+     ALLOCATE(art_config(jg)%volclist(nproma,nblks))
+     jc=0
+     jb=1
+      DO ivolc=1,nvolc
+         jc=jc+1
+         IF (jc>nproma) THEN
+           jc = 1
+           jb = jb + 1
+         ENDIF
+         art_config(jg)%volclist(jc,jb)%zname=art_volclist_tot(ivolc)%zname
+         art_config(jg)%volclist(jc,jb)%location%lat=art_volclist_tot(ivolc)%lat
+         art_config(jg)%volclist(jc,jb)%location%lon=art_volclist_tot(ivolc)%lon
+!       WRITE(0,*) 'K.L. in art_nml. volclist_name:', art_config(jg)%volclist(jc,jb)%zname
+!       WRITE(0,*) 'K.L. in art_nml. volclist_lat:', art_config(jg)%volclist(jc,jb)%location%lon
+!       WRITE(0,*) 'K.L. in art_nml. volclist_lon:', art_config(jg)%volclist(jc,jb)%location%lat
+      ENDDO
     ENDDO
 
 

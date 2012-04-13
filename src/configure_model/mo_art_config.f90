@@ -43,12 +43,12 @@
 MODULE mo_art_config
 
   USE mo_impl_constants     ,ONLY: max_dom
-
+  USE mo_math_utilities,   ONLY: t_geographical_coordinates  
   IMPLICIT NONE
 
   PRIVATE
 
-  PUBLIC :: t_art_config, art_config
+  PUBLIC :: t_art_config, art_config ,t_volc_list, MAX_NUM_VOLC
 
 
   CHARACTER(len=*),PARAMETER :: version = '$Id$'
@@ -57,7 +57,14 @@ MODULE mo_art_config
   !!--------------------------------------------------------------------------
   !! Basic configuration setup for ICON-ART
   !!--------------------------------------------------------------------------
-  TYPE :: t_art_config
+  INTEGER, PARAMETER  :: MAX_NUM_VOLC  = 20 !Maximum number of volcanoes
+
+  TYPE t_volc_list
+    CHARACTER(len=20)                :: zname    ! < name of volcanoe or location
+    TYPE(t_geographical_coordinates) :: location !< geographical position
+  END TYPE t_volc_list
+
+  TYPE t_art_config
 
     ! namelist variables
     !    
@@ -65,17 +72,19 @@ MODULE mo_art_config
                                     !< .TRUE.: switch ON
                                     !<.FALSE.: switch OFF
 
-    LOGICAL :: lemi_volc            !< Emission of volcanic ash (TRUE/FALSE)
+    LOGICAL :: lart_volc            !< Emission of volcanic ash (TRUE/FALSE)
 
-    LOGICAL :: lconv_tracer         !< Convection of tracers (TRUE/FALSE)
+    LOGICAL :: lart_conv         !< Convection of tracers (TRUE/FALSE)
 
-    LOGICAL :: lwash_tracer         !< Washout of tracers (TRUE/FALSE)
+    LOGICAL :: lart_wash         !< Washout of tracers (TRUE/FALSE)
 
-    LOGICAL :: lrad_volc            !< Radiative impact of volcanic ash (TRUE/FALSE)
+    LOGICAL :: lart_rad_volc            !< Radiative impact of volcanic ash (TRUE/FALSE)
 
-    LOGICAL :: lcld_tracer          !< Impact on clouds (TRUE/FALSE)
-
-
+    LOGICAL :: lart_cld          !< Impact on clouds (TRUE/FALSE)
+   !For specification of valcano locations.
+   INTEGER                     :: nvolc             !< Number ov volcanoes
+   TYPE(t_volc_list), POINTER  :: volclist(:,:)    !< (idx,blk)
+   INTEGER                     :: nblks,npromz              
     ! derived variables
     !
   
@@ -83,7 +92,7 @@ MODULE mo_art_config
 
   !>
   !!
-  TYPE(t_art_config) :: art_config(0:max_dom)
+  TYPE(t_art_config), TARGET :: art_config(0:max_dom)
 
 
 !!$CONTAINS
