@@ -613,7 +613,7 @@ CONTAINS
     REAL(wp), PARAMETER :: z_av0             = 0.5E-2_wp
     REAL(wp), PARAMETER :: z_dv0             = 0.5E-2_wp
     REAL(wp), PARAMETER :: z_threshold        = 5.0E-8_wp
-    LOGICAL,  PARAMETER :: l_constant_mixing = .FALSE.
+    LOGICAL,  PARAMETER :: l_constant_mixing = .FALSE. !TODO: in namelist
     REAL(wp) :: z_A_W_T(nproma,n_zlev,p_patch%nblks_c) !TODO: comments + better names
     REAL(wp) :: z_A_W_v(nproma,n_zlev,p_patch%nblks_e) !TODO: comments + better names
     REAL(wp) :: z_10m_wind_c(nproma,1,p_patch%nblks_c)
@@ -640,6 +640,11 @@ CONTAINS
       !and velocity diffusion coefficient
 
     ELSE !(.NOT.l_constant_mixing)
+      ! Attention: with l_constant_mixing=.true. there is no application of
+      ! convective mixing parameters in case of instability
+      ! max_vert_diff_veloc / max_vert_diff_trac
+      ! control of convective and constant mixing should be independent
+
       z_A_W_T (:,:,:)              = 0.0_wp
       z_A_W_v (:,:,:)              = 0.0_wp
       z_10m_wind_e(:,:,:)          = 0.0_wp
