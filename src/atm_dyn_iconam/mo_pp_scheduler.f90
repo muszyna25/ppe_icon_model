@@ -387,9 +387,9 @@ CONTAINS
           ! Check for suffix of time-dependent variables:
           idx = INDEX(info%name,'.TL')
           IF(idx == 0) THEN
-            IF (vname /= info%name) CYCLE VAR_LOOP
+            IF (TRIM(vname) /= TRIM(info%name)) CYCLE VAR_LOOP
           ELSE
-            IF (vname /= info%name(1:idx-1)) CYCLE VAR_LOOP
+            IF (TRIM(vname) /= TRIM(info%name(1:idx-1))) CYCLE VAR_LOOP
           ENDIF
 
           IF ((info%hgrid /= GRID_UNSTRUCTURED_CELL) .AND.  &
