@@ -67,7 +67,8 @@ CONTAINS
   !!
   !! @par Revision History
   !! Initial revision by Kristina Lundgren, KIT (2012-04-03)
-  SUBROUTINE art_tracer_interface(p_patch,p_prog_list,vname_prefix,ptr_arr,timelev,ldims,tlev_source)
+  SUBROUTINE art_tracer_interface(p_patch,p_prog_list,vname_prefix,ptr_arr, &
+    &                             timelev,ldims,tlev_source)
 
 !    TYPE(t_var_list), INTENT(INOUT)   :: this_list !< current prognostic state list 
     TYPE(t_patch), TARGET, INTENT(IN) :: & !< current patch
