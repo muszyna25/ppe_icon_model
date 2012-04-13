@@ -612,7 +612,7 @@ CONTAINS
     REAL(wp), PARAMETER :: z_c1_v            = 5.0_wp
     REAL(wp), PARAMETER :: z_av0             = 0.5E-2_wp
     REAL(wp), PARAMETER :: z_dv0             = 0.5E-2_wp
-    REAL(wp), PARAMETER :: z_threshold        = 5.0E-8_wp
+    REAL(wp), PARAMETER :: z_threshold       = 5.0E-8_wp
     LOGICAL,  PARAMETER :: l_constant_mixing = .FALSE. !TODO: in namelist
     REAL(wp) :: z_A_W_T(nproma,n_zlev,p_patch%nblks_c) !TODO: comments + better names
     REAL(wp) :: z_A_W_v(nproma,n_zlev,p_patch%nblks_e) !TODO: comments + better names
