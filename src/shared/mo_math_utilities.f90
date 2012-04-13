@@ -168,12 +168,14 @@ MODULE mo_math_utilities
     REAL(wp) :: lat
   END TYPE t_geographical_coordinates
 
-!DR Test
+
+  ! line class
+  !
   TYPE t_line
     TYPE(t_geographical_coordinates) :: p1
     TYPE(t_geographical_coordinates) :: p2
   END TYPE t_line
-!DR End Test
+
 
   INTERFACE OPERATOR(+)
     MODULE PROCEDURE cartesian_coordinates_plus
@@ -1993,7 +1995,7 @@ END SUBROUTINE mean_domain_values
 
    ! coordinates of intersection point
    ! 
-   TYPE(t_geographical_coordinates) :: intersect
+   REAL(wp) :: intersect(2)
 
   !-----------------------------------------------------------------------
 
@@ -2001,10 +2003,10 @@ END SUBROUTINE mean_domain_values
    m1 = (line1%p2%lat - line1%p1%lat)/(line1%p2%lon - line1%p1%lon)
    m2 = (line2%p2%lat - line2%p1%lat)/(line2%p2%lon - line2%p1%lon)
 
-   intersect%lon = (line2%p1%lat - line1%p1%lat + m1*line1%p1%lon - m2*line2%p1%lon) &
-     &           / (m1 - m2)
+   intersect(1) = (line2%p1%lat - line1%p1%lat + m1*line1%p1%lon - m2*line2%p1%lon) &
+     &          / (m1 - m2)
 
-   intersect%lat = line1%p1%lat + m1*(intersect%lon - line1%p1%lon)
+   intersect(2) = line1%p1%lat + m1*(intersect(1) - line1%p1%lon)
 
   END FUNCTION line_intersect
 
