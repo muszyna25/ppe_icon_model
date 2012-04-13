@@ -51,7 +51,7 @@ MODULE mo_oce_thermodyn
 !
 !
 USE mo_kind,                ONLY: wp
-USE mo_ocean_nml,           ONLY: n_zlev,EOS_TYPE,toplev, s_ref, no_tracer
+USE mo_ocean_nml,           ONLY: n_zlev, EOS_TYPE, no_tracer
 USE mo_model_domain,        ONLY: t_patch
 USE mo_impl_constants,      ONLY: min_rlcell,sea_boundary, sea_boundary !, &
 USE mo_oce_state,           ONLY: v_base
@@ -946,7 +946,8 @@ FUNCTION convert_insitu2pot_temp_func(t, s, p) RESULT(temp_pot)
 
     REAL(wp) :: z_s_ref
   !!---------------------------------------------------------------------------
-    z_s_ref= s_ref
+   !z_s_ref= s_ref    !  s_ref is initial salinity, not reference
+    z_s_ref= sal_ref  !  sal_ref = 35.0 = constant salinity reference
     temp_pot=t-p*(a_a1+ a_a2*t-a_a3*t*t+a_a4*t*t*t) &
            &-p*(s-z_s_ref)*(a_b1 -a_b2*t)           &
            &-p*p*(a_c1 -a_c2*t + a_c3*t*t)          &
