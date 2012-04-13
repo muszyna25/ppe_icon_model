@@ -3139,7 +3139,7 @@ CONTAINS
           CALL message('', 'Pointer status                              : not in use.')
         ENDIF
         !        
-        WRITE (message_text,'(a,3i3)') &
+        WRITE (message_text,'(a,3i4)') &
              'Assigned GRIB discipline/category/parameter : ', &
              this_list_element%field%info%grib2%discipline,    &
              this_list_element%field%info%grib2%category,      &
@@ -3147,10 +3147,14 @@ CONTAINS
         CALL message('', message_text)
         !
         WRITE (message_text,'(a,a,a,a)') &
-             ' CF convention standard name/unit            : ',    &
+             ' CF convention standard name/unit            : ',   &
              TRIM(this_list_element%field%info%cf%standard_name), &
              '     ',                                             &
              TRIM(this_list_element%field%info%cf%units)
+        CALL message('', message_text)
+        WRITE (message_text,'(a,a)')                           &
+             ' CF convention long name                     : ',&
+             TRIM(this_list_element%field%info%cf%long_name)
         CALL message('', message_text)
         !
         IF (this_list_element%field%info%laccu) THEN
