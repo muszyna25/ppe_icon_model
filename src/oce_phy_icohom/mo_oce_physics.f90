@@ -614,15 +614,9 @@ CONTAINS
     REAL(wp), PARAMETER :: z_dv0             = 0.5E-2_wp
     REAL(wp), PARAMETER :: z_threshold       = 5.0E-8_wp
     LOGICAL,  PARAMETER :: l_constant_mixing = .FALSE. !TODO: in namelist
-    REAL(wp) :: z_A_W_T(nproma,n_zlev,p_patch%nblks_c) !TODO: comments + better names
-    REAL(wp) :: z_A_W_v(nproma,n_zlev,p_patch%nblks_e) !TODO: comments + better names
-    REAL(wp) :: z_10m_wind_c(nproma,1,p_patch%nblks_c)
-    REAL(wp) :: z_10m_wind_e(nproma,1,p_patch%nblks_e)
     REAL(wp) :: z_grav_rho, z_inv_rho_ref!, z_stabio
     REAL(wp) :: z_press!, z_frac
     REAL(wp) :: A_v_tmp, A_T_tmp
-    REAL(wp) :: z_w_T
-    REAL(wp) :: z_w_v
     REAL(wp) :: z_s1, z_s2, density_grad_c, mean_z_r
     REAL(wp) :: z_c(nproma,n_zlev+1,p_patch%nblks_c)
     ! REAL(wp) :: tmp_communicate_c(nproma,p_patch%nblks_c)
@@ -645,11 +639,6 @@ CONTAINS
       ! max_vert_diff_veloc / max_vert_diff_trac
       ! control of convective and constant mixing should be independent
 
-      z_A_W_T (:,:,:)              = 0.0_wp
-      z_A_W_v (:,:,:)              = 0.0_wp
-      z_10m_wind_e(:,:,:)          = 0.0_wp
-      z_10m_wind_c(:,:,:)          = 0.0_wp
-
       !Density gradient for 1st level not calulated yet, but required below. Following
       !parxis in MPI-OM we set first layer equal to second layer (cf MPI-OM mo_ocean_vertical_mixing)
       !z_vert_density_grad_c(:,1,:) =  z_vert_density_grad_c(:,2,:)
@@ -663,47 +652,6 @@ CONTAINS
       z_s2                         = 0.0_wp
       z_grav_rho                   = grav/rho_ref
       z_inv_rho_ref                = 1.0_wp/rho_ref
-
-      !Following MPI-OM (cf. vertical mixing sbr)
-      z_w_T                        = CWT/6.0_wp**3
-      z_w_v                        = CWA/6.0_wp**3
-
-      IF (.FALSE.) THEN !TODO: possibly removable
-      !The wind part
-      DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-        CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
-        DO je = i_startidx_e, i_endidx_e
-          IF ( v_base%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN
-
-           ilc1 = p_patch%edges%cell_idx(je,jb,1)
-           ibc1 = p_patch%edges%cell_blk(je,jb,1)
-           ilc2 = p_patch%edges%cell_idx(je,jb,2)
-           ibc2 = p_patch%edges%cell_blk(je,jb,2)
-
-            !This is (15) in Marsland et al. 
-            z_10m_wind_e(je,1,jb)= SQRT(&
-            &0.5_wp*(DOT_PRODUCT(p_sfc_flx%forc_wind_cc(ilc1,ibc1)%x,     &
-            &                    p_sfc_flx%forc_wind_cc(ilc1,ibc1)%x)     &
-            &       +DOT_PRODUCT(p_sfc_flx%forc_wind_cc(ilc2,ibc2)%x,     &
-            &                    p_sfc_flx%forc_wind_cc(ilc2,ibc2)%x)))**3
-            z_A_W_v (je,1,jb) = z_w_v*z_10m_wind_e(je,1,jb)
-            
-          ENDIF
-        END DO
-      END DO
-
-      DO jb = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-        DO jc = i_startidx_c, i_endidx_c
-          IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
-            !This is (15) in Marsland et al. 
-            z_10m_wind_c(jc,1,jb)= SQRT(DOT_PRODUCT(p_sfc_flx%forc_wind_cc(jc,jb)%x,&
-                                                   &p_sfc_flx%forc_wind_cc(jc,jb)%x))**3 !TODO: not used
-            z_A_W_T (jc,1,jb) = z_w_T*z_10m_wind_c(jc,1,jb) !TODO: not used
-          ENDIF
-        END DO
-      END DO
-      END IF
 
       !Calculate Richardson number and vertical density gradient
       DO jb = all_cells%start_block, all_cells%end_block
@@ -842,7 +790,7 @@ CONTAINS
                params_oce%A_veloc_v(je,jk,jb) = &
                  & params_oce%A_veloc_v_back +  &
                  & z_av0 /                      &
-                 & ((1.0_wp + z_c1_v * mean_z_r)**2) !TODO: why not '**3' in the tracer case??
+                 & ((1.0_wp + z_c1_v * mean_z_r)**2)
 
             ENDIF
             
@@ -863,8 +811,6 @@ CONTAINS
       DO jk=1,n_zlev
         ipl_src=3  ! output print level (1-5, fix)
         CALL print_mxmn('PHY trac mixing',jk,z_c(:,:,:),n_zlev+1,p_patch%nblks_c,'phy',ipl_src)
-        CALL print_mxmn('z_A_W_v',jk,z_A_W_v,n_zlev,p_patch%nblks_e,'phy',ipl_src)
-        CALL print_mxmn('z_A_W_T',jk,z_A_W_T,n_zlev,p_patch%nblks_c,'phy',ipl_src)
         CALL print_mxmn('p_vn%x(1)',jk,p_os%p_diag%p_vn%x(1),n_zlev,p_patch%nblks_c,'phy',ipl_src)
         CALL print_mxmn('p_vn%x(2)',jk,p_os%p_diag%p_vn%x(2),n_zlev,p_patch%nblks_c,'phy',ipl_src)
         CALL print_mxmn('z_shear_c',jk,z_shear_c,n_zlev,p_patch%nblks_c,'phy',ipl_src)
