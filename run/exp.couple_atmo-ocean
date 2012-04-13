@@ -159,7 +159,7 @@ cat > $atmo_namelist << EOF
   l_time_accumulation = .FALSE.
   lag                 = 1
   l_diagnostic        = .TRUE.
-  l_activated         = .TRUE.
+  l_activated         = .FALSE.
 /
 &coupling_nml
   name                = 'OCEANU'
@@ -169,7 +169,7 @@ cat > $atmo_namelist << EOF
   l_time_accumulation = .FALSE.
   lag                 = 1
   l_diagnostic        = .TRUE.
-  l_activated         = .TRUE.
+  l_activated         = .FALSE.
 /
 &coupling_nml
   name                = 'OCEANV'
@@ -179,7 +179,7 @@ cat > $atmo_namelist << EOF
   l_time_accumulation = .FALSE.
   lag                 = 1
   l_diagnostic        = .TRUE.
-  l_activated         = .TRUE.
+  l_activated         = .FALSE.
 /
 &parallel_nml
  nproma         = ${nproma}
@@ -377,7 +377,7 @@ cat > ${ocean_namelist} << EOF
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .TRUE.
-  l_activated         = .TRUE.
+  l_activated         = .FALSE.
 /
 &coupling_nml
   name                = 'OCEANU'
@@ -386,7 +386,7 @@ cat > ${ocean_namelist} << EOF
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .TRUE.
-  l_activated         = .TRUE.
+  l_activated         = .FALSE.
 /
 &coupling_nml
   name                = 'OCEANV'
@@ -395,7 +395,7 @@ cat > ${ocean_namelist} << EOF
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
   l_diagnostic        = .TRUE.
-  l_activated         = .TRUE.
+  l_activated         = .FALSE.
 /
 !
 &parallel_nml
