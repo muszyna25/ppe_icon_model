@@ -320,6 +320,7 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: UP      = 1
   INTEGER, PARAMETER :: MIURA   = 2
   INTEGER, PARAMETER :: MIURA3  = 3
+  INTEGER, PARAMETER :: MIURA3p = 30
   INTEGER, PARAMETER :: UP3     = 4
   INTEGER, PARAMETER :: MCYCL   = 20
   INTEGER, PARAMETER :: MIURA_MCYCL  = 22
@@ -383,7 +384,7 @@ MODULE mo_impl_constants
   !        LAND         !
   !---------------------!
 
-  ! full level heights
+  ! full level heights [m]
   REAL(wp), PARAMETER, DIMENSION(8)::                               &
     & zml_soil=(/ 0.005_wp,0.02_wp,0.06_wp,0.18_wp,0.54_wp,1.62_wp, &
     & 4.86_wp,14.58_wp /)
