@@ -58,7 +58,7 @@ USE mo_ocean_nml,           ONLY: n_zlev, bottom_drag_coeff, k_veloc_h, k_veloc_
 USE mo_parallel_config,     ONLY: nproma
 USE mo_model_domain,        ONLY: t_patch
 USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell, min_rledge,&
-  &                               min_rlvert, sea_boundary, MIN_DOLIC, sea
+  &                               min_rlvert, BOUNDARY, MIN_DOLIC, SEA
 USE mo_exception,           ONLY: message, finish
 USE mo_oce_index,           ONLY: print_mxmn, jkc, jkdim, ipl_src
 USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base, oce_config
@@ -617,7 +617,7 @@ CONTAINS
     REAL(wp) :: z_grav_rho, z_inv_rho_ref!, z_stabio
     REAL(wp) :: z_press!, z_frac
     REAL(wp) :: A_v_tmp, A_T_tmp
-    REAL(wp) :: z_s1, z_s2, density_grad_c, mean_z_r
+    REAL(wp) :: z_s1, z_s2, density_grad_e, mean_z_r
     REAL(wp) :: z_c(nproma,n_zlev+1,p_patch%nblks_c)
     ! REAL(wp) :: tmp_communicate_c(nproma,p_patch%nblks_c)
     !-------------------------------------------------------------------------
@@ -768,34 +768,37 @@ CONTAINS
           ibc1 = p_patch%edges%cell_blk(je,jb,1)
           ilc2 = p_patch%edges%cell_idx(je,jb,2)
           ibc2 = p_patch%edges%cell_blk(je,jb,2)
-          
-          z_dolic = v_base%dolic_e(je, jb)      
+
+          z_dolic = v_base%dolic_e(je, jb)
           DO jk = 2, z_dolic
-          
-            ! TODO: the following expect equally sized cells
-            ! compute density gradient at edges
-            density_grad_c = 0.5_wp * &
-              (z_vert_density_grad_c(ilc1,jk,ibc1) + z_vert_density_grad_c(ilc2,jk,ibc2))
-
-            !! density gradient smaller then threshold ('semi-stable'): use background value
-            IF ( ABS(density_grad_c) < z_threshold ) THEN
-              params_oce%A_veloc_v(je,jk,jb) = params_oce%A_veloc_v_back
-
-            !! vert_density_grad below that neg. theshold ('unstable stratification'): use max value
-            ELSE IF (density_grad_c < -z_threshold ) THEN
-              params_oce%A_veloc_v(je,jk,jb) = MAX_VERT_DIFF_VELOC
-                 
-            !! vert_density_grad  > 0 stable stratification: use calculated value
-            ELSE IF (density_grad_c > z_threshold ) THEN
+            ! Set to zero for land + boundary locations edges
+            IF (SEA < v_base%lsm_oce_e(je,jk,jb)) THEN
+               params_oce%A_veloc_v(je,jk,jb) = 0.0_wp
+            ELSE
               ! TODO: the following expect equally sized cells
-               mean_z_r = MAX(0.5_wp * (z_Ri_c(ilc1,jk,ibc1) + z_Ri_c(ilc2,jk,ibc2)),0.0_wp)
-               params_oce%A_veloc_v(je,jk,jb) = &
-                 & params_oce%A_veloc_v_back +  &
-                 & z_av0 /                      &
-                 & ((1.0_wp + z_c1_v * mean_z_r)**2)
+              ! compute density gradient at edges
+              density_grad_e = 0.5_wp * &
+                (z_vert_density_grad_c(ilc1,jk,ibc1) + z_vert_density_grad_c(ilc2,jk,ibc2))
 
+              !! density gradient smaller then threshold ('semi-stable'): use background value
+              IF ( ABS(density_grad_e) < z_threshold ) THEN
+                params_oce%A_veloc_v(je,jk,jb) = params_oce%A_veloc_v_back
+
+              !! vert_density_grad below that neg. theshold ('unstable stratification'): use max value
+              ELSE IF (density_grad_e < -z_threshold ) THEN
+                params_oce%A_veloc_v(je,jk,jb) = MAX_VERT_DIFF_VELOC
+
+              !! vert_density_grad  > 0 stable stratification: use calculated value
+              ELSE IF (density_grad_e > z_threshold ) THEN
+                ! TODO: the following expect equally sized cells
+                 mean_z_r = MAX(0.5_wp * (z_Ri_c(ilc1,jk,ibc1) + z_Ri_c(ilc2,jk,ibc2)),0.0_wp)
+                 params_oce%A_veloc_v(je,jk,jb) = &
+                   & params_oce%A_veloc_v_back +  &
+                   & z_av0 /                      &
+                   & ((1.0_wp + z_c1_v * mean_z_r)**2)
+
+              ENDIF
             ENDIF
-            
           END DO ! jk = 2, z_dolic
         ENDDO ! je = i_startidx_e, i_endidx_e
       ENDDO ! jb = edges_in_domain%start_block, edges_in_domain%end_block
