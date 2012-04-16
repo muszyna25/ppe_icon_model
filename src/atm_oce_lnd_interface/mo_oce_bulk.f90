@@ -513,7 +513,8 @@ CONTAINS
       IF ( is_coupled_run() ) THEN
         IF (ltimer) CALL timer_start(timer_coupling)
 
-  !       CALL message(TRIM(routine), "executing OCEAN coupling")
+        time_config%cur_datetime = datetime
+
         nbr_hor_points = p_patch%n_patch_cells
         nbr_points     = nproma * p_patch%nblks_c
         ALLOCATE(buffer(nbr_points,4))
