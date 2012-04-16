@@ -102,7 +102,7 @@ warning_on_error()
         RUN_POST="${RUN_POST} post.${name}.run"
         echo "${RUN_POST}" > ./run_post_list
 
-        compare_run="post.${name}_compare-restart.run"
+        compare_run="post.${name}_compare_restarts.run"
         if [  -a ./${compare_run} ] ; then
           RUN_POST_COMP="${RUN_POST_COMP} $compare_run"
           echo "${RUN_POST_COMP}" > ./run_post_comp_list
