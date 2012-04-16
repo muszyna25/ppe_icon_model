@@ -698,6 +698,7 @@ CONTAINS
 
               z_vert_density_grad_c(jc,jk,jb) = dbl_eps+z_stabio(jc,jk,jb)
 
+              ! taken from: G.R. Stuhne, W.R. Peltier / Journal of Computational Physics 213 (2006), p. 719
               ! Richardson number is positive for stable stratification (rho_down > rho_up)
               ! Richardson number is zero for unstable strat., see switch z_frac below
               ! The expression z_grav_rho*z_vert_density_grad_c/z_shear_c is the
@@ -739,8 +740,9 @@ CONTAINS
                   params_oce%A_tracer_v(jc,jk,jb, itracer) = MAX_VERT_DIFF_TRAC
 
                 !! vert_density_grad  >= 0 or greater-o-equal then threshold ('stable'): use calculated value
+                !! again taken from: G.R. Stuhne, W.R. Peltier / Journal of Computational Physics 213 (2006), p. 719
                 ELSE
-                  z_Ri_c(jc,jk,jb) = max(z_Ri_c(jc,jk,jb),0.0_wp)
+                  z_Ri_c(jc,jk,jb) = MAX(z_Ri_c(jc,jk,jb),0.0_wp)
 
                   A_T_tmp = params_oce%A_tracer_v_back(itracer) + &
                     & z_dv0/((1.0_wp + z_c1_T * z_Ri_c(jc,jk,jb))**3)
@@ -786,7 +788,7 @@ CONTAINS
             !! vert_density_grad  > 0 stable stratification: use calculated value
             ELSE IF (density_grad_c > z_threshold ) THEN
               ! TODO: the following expect equally sized cells
-               mean_z_r = ABS(0.5_wp * (z_Ri_c(ilc1,jk,ibc1) + z_Ri_c(ilc2,jk,ibc2)))
+               mean_z_r = MAX(0.5_wp * (z_Ri_c(ilc1,jk,ibc1) + z_Ri_c(ilc2,jk,ibc2)),0.0_wp)
                params_oce%A_veloc_v(je,jk,jb) = &
                  & params_oce%A_veloc_v_back +  &
                  & z_av0 /                      &
