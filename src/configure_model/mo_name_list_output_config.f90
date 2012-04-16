@@ -173,6 +173,7 @@ MODULE mo_name_list_output_config
     INTEGER                     :: cdiZaxisID(12) ! All types of possible Zaxis ID's
     INTEGER                     :: cdiTaxisID
     INTEGER                     :: cdiTimeIndex
+    INTEGER                     :: cdiInstID      ! output generating institute
 
   END TYPE t_output_file
 

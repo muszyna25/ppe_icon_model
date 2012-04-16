@@ -342,7 +342,7 @@ CONTAINS
       ! Set all variables in output_nml to their default values
 
       filetype           = FILETYPE_NC2 ! NetCDF
-      namespace          = ' '
+      namespace          = 'ECMWF'
       map_file           = ' '
       mode               = 1
       dom(:)             = -1
@@ -1699,6 +1699,7 @@ CONTAINS
     TYPE(t_lon_lat_data), POINTER :: lonlat
     LOGICAL :: lwrite_pzlev
 
+
     ! Read map_file - we do it here and not during initialization
     ! since it is enough if only the output PE does the read (and not all)
 
@@ -1721,6 +1722,14 @@ CONTAINS
     ! 1. create cdi vlist 
     !
     of%cdiVlistID = vlistCreate()
+
+    ! define output generating institute
+    !
+    ! get instID
+    of%cdiInstID = institutInq(0, 0, TRIM(of%name_list%namespace), "")
+    CALL vlistDefInstitut(of%cdiVlistID,of%cdiInstID)
+
+
     !
     ! 2. add global attributes for netCDF
     !
