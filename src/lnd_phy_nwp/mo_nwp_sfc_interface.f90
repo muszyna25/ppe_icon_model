@@ -199,13 +199,14 @@ CONTAINS
     INTEGER  :: i_count, ic
 
     REAL(wp) :: t_g_s(nproma), qv_s_s(nproma)
-    REAL(wp) :: t_s_s(nproma), t_snow_s(nproma), t_snow_mult_s(nproma, nlev_snow), w_snow_s(nproma),     &
-                wtot_snow_s(nproma, nlev_snow), rho_snow_s(nproma), rho_snow_mult_s(nproma, nlev_snow),  &
-                h_snow_s(nproma), freshsnow_s(nproma), w_i_s(nproma), t_so_s(nproma, nlev_soil+2),       &
-                w_so_s(nproma, nlev_soil+1), w_so_ice_s(nproma, nlev_soil+1), runoff_s_s(nproma),        &
-                runoff_g_s(nproma), tch_s(nproma), tfv_s(nproma), t_2m_s(nproma), qv_2m_s(nproma),       &
-                td_2m_s(nproma), rh_2m_s(nproma), u_10m_s(nproma), v_10m_s(nproma), shfl_s_s(nproma),    &
-                lhfl_s_s(nproma)
+    REAL(wp) :: t_s_s(nproma), t_snow_s(nproma), t_snow_mult_s(nproma, nlev_snow),          &
+      &         w_snow_s(nproma), wtot_snow_s(nproma, nlev_snow), rho_snow_s(nproma),       &
+      &         rho_snow_mult_s(nproma, nlev_snow),  h_snow_s(nproma), freshsnow_s(nproma), &
+      &         w_i_s(nproma), t_so_s(nproma, nlev_soil+2), w_so_s(nproma, nlev_soil+1),    &
+      &         w_so_ice_s(nproma, nlev_soil+1), runoff_s_s(nproma), runoff_g_s(nproma),    &
+      &         tch_s(nproma), tfv_s(nproma), t_2m_s(nproma), qv_2m_s(nproma),              &
+      &         td_2m_s(nproma), rh_2m_s(nproma), u_10m_s(nproma), v_10m_s(nproma),         &
+      &         shfl_s_s(nproma), lhfl_s_s(nproma)
     REAL(wp) ::          qv_2m_t     (nproma, p_patch%nblks_c, nsfc_subs)
     REAL(wp) ::          td_2m_t     (nproma, p_patch%nblks_c, nsfc_subs)
     REAL(wp) ::          rh_2m_t     (nproma, p_patch%nblks_c, nsfc_subs)
@@ -989,26 +990,29 @@ CONTAINS
 
   REAL(wp) :: tmp(i_count)
   LOGICAL  :: llandmask(i_count,nsubs1)
-  REAL(wp) :: t_g_slp(i_count), qv_s_slp(i_count), t_s_slp(i_count), t_snow_slp(i_count),                  &
-              t_snow_mult_slp(i_count, nlev_snow), w_snow_slp(i_count), wtot_snow_slp(i_count, nlev_snow), &
-              rho_snow_slp(i_count), rho_snow_mult_slp(i_count, nlev_snow), h_snow_slp(i_count),           &
-              freshsnow_slp(i_count), w_i_slp(i_count), t_so_slp(i_count, nlev_soil+2),                    &
-              w_so_slp(i_count, nlev_soil+1), w_so_ice_slp(i_count, nlev_soil+1), runoff_s_slp(i_count),   &
-              runoff_g_slp(i_count), tch_slp(i_count), tfv_slp(i_count), t_2m_slp(i_count),                &
-              qv_2m_slp(i_count), td_2m_slp(i_count), rh_2m_slp(i_count), u_10m_slp(i_count),              &
-              v_10m_slp(i_count), shfl_s_slp(i_count), lhfl_s_slp(i_count)
-  REAL(wp) :: t_lp(i_count), qv_lp(i_count), p0_lp(i_count), ps_lp(i_count), t_g_now_tlp(i_count,nsubs1),  &
-              t_g_new_tlp(i_count,nsubs1), qv_s_tlp(i_count,nsubs1), t_s_tlp(i_count,nsubs1),              &
-              t_snow_tlp(i_count,nsubs1), t_snow_mult_tlp(i_count,nlev_snow,nsubs1),                       &
-              w_snow_tlp(i_count,nsubs1), wtot_snow_tlp(i_count,nlev_snow,nsubs1),                         &
-              rho_snow_tlp(i_count,nsubs1), rho_snow_mult_tlp(i_count,nlev_snow,nsubs1),                   &
-              h_snow_tlp(i_count,nsubs1), freshsnow_tlp(i_count,nsubs1), w_i_tlp(i_count,nsubs1),          &
-              t_so_tlp(i_count,nlev_soil+2,nsubs1), w_so_tlp(i_count,nlev_soil+1,nsubs1),                  &
-              w_so_ice_tlp(i_count,nlev_soil+1,nsubs1), runoff_s_tlp(i_count,nsubs1),                      &
-              runoff_g_tlp(i_count,nsubs1), tch_tlp(i_count,nsubs1), tfv_tlp(i_count,nsubs1),              &
-              t_2m_tlp(i_count,nsubs1), qv_2m_tlp(i_count,nsubs1), td_2m_tlp(i_count,nsubs1),              &
-              rh_2m_tlp(i_count,nsubs1), u_10m_tlp(i_count,nsubs1), v_10m_tlp(i_count,nsubs1),             &
-              shfl_s_tlp(i_count,nsubs1), lhfl_s_tlp(i_count,nsubs1)
+  REAL(wp) :: t_g_slp(i_count), qv_s_slp(i_count), t_s_slp(i_count), t_snow_slp(i_count),        &
+    &         t_snow_mult_slp(i_count, nlev_snow), w_snow_slp(i_count),                          &
+    &         wtot_snow_slp(i_count, nlev_snow),                                                 &
+    &         rho_snow_slp(i_count), rho_snow_mult_slp(i_count, nlev_snow), h_snow_slp(i_count), &
+    &         freshsnow_slp(i_count), w_i_slp(i_count), t_so_slp(i_count, nlev_soil+2),          &
+    &         w_so_slp(i_count, nlev_soil+1), w_so_ice_slp(i_count, nlev_soil+1),                &
+    &         runoff_s_slp(i_count),                                                             &
+    &         runoff_g_slp(i_count), tch_slp(i_count), tfv_slp(i_count), t_2m_slp(i_count),      &
+    &         qv_2m_slp(i_count), td_2m_slp(i_count), rh_2m_slp(i_count), u_10m_slp(i_count),    &
+    &         v_10m_slp(i_count), shfl_s_slp(i_count), lhfl_s_slp(i_count)
+  REAL(wp) :: t_lp(i_count), qv_lp(i_count), p0_lp(i_count), ps_lp(i_count),                     &
+    &         t_g_now_tlp(i_count,nsubs1),                                                       &
+    &         t_g_new_tlp(i_count,nsubs1), qv_s_tlp(i_count,nsubs1), t_s_tlp(i_count,nsubs1),    &
+    &         t_snow_tlp(i_count,nsubs1), t_snow_mult_tlp(i_count,nlev_snow,nsubs1),             &
+    &         w_snow_tlp(i_count,nsubs1), wtot_snow_tlp(i_count,nlev_snow,nsubs1),               &
+    &         rho_snow_tlp(i_count,nsubs1), rho_snow_mult_tlp(i_count,nlev_snow,nsubs1),         &
+    &         h_snow_tlp(i_count,nsubs1), freshsnow_tlp(i_count,nsubs1), w_i_tlp(i_count,nsubs1),&
+    &         t_so_tlp(i_count,nlev_soil+2,nsubs1), w_so_tlp(i_count,nlev_soil+1,nsubs1),        &
+    &         w_so_ice_tlp(i_count,nlev_soil+1,nsubs1), runoff_s_tlp(i_count,nsubs1),            &
+    &         runoff_g_tlp(i_count,nsubs1), tch_tlp(i_count,nsubs1), tfv_tlp(i_count,nsubs1),    &
+    &         t_2m_tlp(i_count,nsubs1), qv_2m_tlp(i_count,nsubs1), td_2m_tlp(i_count,nsubs1),    &
+    &         rh_2m_tlp(i_count,nsubs1), u_10m_tlp(i_count,nsubs1), v_10m_tlp(i_count,nsubs1),   &
+    &         shfl_s_tlp(i_count,nsubs1), lhfl_s_tlp(i_count,nsubs1)
 !-------------------------------------------------------------------------
 
   tmp(:)    = 0._wp
@@ -1085,8 +1089,9 @@ CONTAINS
     END DO
   END DO
   DO ic = 1, i_count
-    tch_slp(ic) = tmp(ic)/SIGN(MAX(ABS(t_g_slp(ic) - t_lp(ic) * &
-                  (ps_lp(ic)/p0_lp(ic))**rdocp),small), t_g_slp(ic)-t_lp(ic)*(ps_lp(ic)/p0_lp(ic))**rdocp)
+    tch_slp(ic) = tmp(ic)/SIGN(MAX(ABS(t_g_slp(ic) - t_lp(ic)                 &
+      &           *(ps_lp(ic)/p0_lp(ic))**rdocp),small), t_g_slp(ic)-t_lp(ic) &
+      &           *(ps_lp(ic)/p0_lp(ic))**rdocp)
     tch_slp(ic) = SIGN(MAX(ABS(tch_slp(ic)),small),tch_slp(ic))
   END DO
 
@@ -1103,10 +1108,11 @@ CONTAINS
 
   CALL subsmean_arithmetic(i_count, nsubs0, nsubs1, t_s_tlp, t_s_slp, subsfrac)
   CALL subsmean_power4    (i_count, nsubs0, nsubs1, t_g_new_tlp, t_g_slp, subsfrac)
-  CALL subsmean_arithmetic(i_count, nsubs0, nsubs1, t_snow_tlp, t_snow_slp, subsfrac, w_snow_tlp>0.0)
+  CALL subsmean_arithmetic(i_count, nsubs0, nsubs1, t_snow_tlp, t_snow_slp, subsfrac, &
+    &                      w_snow_tlp>0.0_wp)
   DO ksn = 0, ke_snow
     CALL subsmean_arithmetic(i_count, nsubs0, nsubs1, t_snow_mult_tlp(:,:,ksn),   &
-                             t_snow_mult_slp(:,ksn), subsfrac, llandmask)
+      &                      t_snow_mult_slp(:,ksn), subsfrac, llandmask)
   END DO
   DO ic = 1, i_count
     counter = COUNT(w_snow_tlp(ic,:) .GT. small)
@@ -1114,20 +1120,20 @@ CONTAINS
   END DO
   CALL subsmean_arithmetic(i_count, nsubs0, nsubs1, w_snow_tlp, w_snow_slp, subsfrac, llandmask)
   CALL subsmean_arithmetic(i_count, nsubs0, nsubs1, rho_snow_tlp,  rho_snow_slp, subsfrac,  &
-                           w_snow_tlp>0.0)
+    &                      w_snow_tlp>0.0_wp)
   DO ksn = 1, ke_snow
     CALL subsmean_arithmetic(i_count, nsubs0, nsubs1, rho_snow_mult_tlp(:,:,ksn), &
-                             rho_snow_mult_slp(:,ksn), subsfrac, w_snow_tlp>0.0)
+                             rho_snow_mult_slp(:,ksn), subsfrac, w_snow_tlp>0.0_wp)
     CALL subsmean_arithmetic(i_count, nsubs0, nsubs1, wtot_snow_tlp(:,:,ksn),     &
-                             wtot_snow_slp(:,ksn), subsfrac, llandmask)
+      &                      wtot_snow_slp(:,ksn), subsfrac, llandmask)
   END DO
   CALL subsmean_arithmetic(i_count, nsubs0, nsubs1, h_snow_tlp, h_snow_slp, subsfrac, llandmask)
   CALL subsmean_arithmetic(i_count, nsubs0, nsubs1, freshsnow_tlp, freshsnow_slp, subsfrac,  &
-                           w_snow_tlp>0.0)
+    &                      w_snow_tlp>0.0_wp)
   CALL subsmean_arithmetic(i_count, nsubs0, nsubs1, w_i_tlp, w_i_slp, subsfrac, llandmask)
   DO kso = 0, ke_soil+1
     CALL subsmean_arithmetic(i_count, nsubs0, nsubs1, t_so_tlp(:,:,kso), t_so_slp(:,kso),    &
-                             subsfrac, llandmask)
+      &                      subsfrac, llandmask)
   END DO
   DO kso = 1, ke_soil+1
 !    CALL subsmean_arithmetic(i_count, nsubs0, nsubs1, w_so_tlp(:,:,kso), w_so_slp(:,kso), subsfrac, xlsmmask)
