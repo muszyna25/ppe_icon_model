@@ -815,7 +815,6 @@ scripts/postprocessing/tools/Rakefile -text
 scripts/postprocessing/tools/analyze_io_files.py -text
 scripts/postprocessing/tools/angle-dist.rb -text
 scripts/postprocessing/tools/color_map/testcmapshort.rgb -text
-scripts/postprocessing/tools/globSum-over-time.rb -text
 scripts/postprocessing/tools/icon_plot.ncl -text
 scripts/postprocessing/tools/icon_plot_lib.ncl -text
 scripts/postprocessing/tools/iconplot_ncl/iconplot.maps.echam.ncl -text
@@ -830,6 +829,7 @@ scripts/postprocessing/tools/iconplot_ncl/iconplot.zonal.parallel.echam.list -te
 scripts/postprocessing/tools/iconplot_ncl/iconplot.zonal.parallel.echam.s -text
 scripts/postprocessing/tools/iconplot_ncl/iconplot.zonal.parallel.list -text
 scripts/postprocessing/tools/iconplot_ncl/iconplot.zonal.parallel.s -text
+scripts/postprocessing/tools/levelPlot.rb -text
 scripts/postprocessing/tools/metview/many.error.s -text
 scripts/postprocessing/tools/metview/map.error -text
 scripts/postprocessing/tools/metview/zonal.error -text
