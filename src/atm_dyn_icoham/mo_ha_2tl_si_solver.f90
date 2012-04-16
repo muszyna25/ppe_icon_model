@@ -47,6 +47,10 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
 MODULE mo_ha_2tl_si_solver
 
   USE mo_kind,         ONLY: wp
@@ -207,7 +211,7 @@ CONTAINS
 !$OMP PARALLEL PRIVATE(rn2_aux, rrn2, myThreadNo)
 !$ myThreadNo = OMP_GET_THREAD_NUM()
 
-!$OMP DO PRIVATE(jb,nlen)
+!$OMP DO PRIVATE(jb,nlen) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = 1, mnblks
      IF (jb /= mnblks) THEN
        nlen = nproma
@@ -222,7 +226,7 @@ CONTAINS
    IF (PRESENT(preconditioner)) CALL preconditioner(r(:,:,:))
 
 #ifdef NOMPI
-!$OMP DO PRIVATE(jb)
+!$OMP DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
      DO jb = 1, mnblks
        IF (jb /= mnblks) THEN
          sum_aux(jb) = SUM(r(:,:,jb)*r(:,:,jb))
@@ -235,7 +239,7 @@ CONTAINS
    rn2_aux = SQRT(SUM(sum_aux))
 
 #else
-!$OMP DO PRIVATE(jb, jk, nlen)
+!$OMP DO PRIVATE(jb, jk, nlen) ICON_OMP_DEFAULT_SCHEDULE
      DO jb = 1, mnblks
        IF (jb /= mnblks) THEN
          nlen = nproma
@@ -259,7 +263,7 @@ CONTAINS
    ! 2) compute the first vector of the Krylov space
    IF (rn2_aux /= 0.0_wp) THEN
       rrn2 = 1.0_wp/rn2_aux
-!$OMP DO PRIVATE(jb)
+!$OMP DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, mnblks
         v(:,:,jb,1) = r(:,:,jb)*rrn2
       ENDDO
@@ -300,7 +304,7 @@ CONTAINS
      gs_orth: DO k = 1, i
 
 #ifdef NOMPI
-!$OMP DO PRIVATE(jb)
+!$OMP DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
      DO jb = 1, mnblks
        IF (jb /= mnblks) THEN
          sum_aux(jb) = SUM(w(:,:,jb)*v(:,:,jb,k))
@@ -313,7 +317,7 @@ CONTAINS
      h_aux = SUM(sum_aux)
 #else
 
-!$OMP DO PRIVATE(jb, jk, nlen)
+!$OMP DO PRIVATE(jb, jk, nlen) ICON_OMP_DEFAULT_SCHEDULE
      DO jb = 1, mnblks
        IF (jb /= mnblks) THEN
          nlen = nproma
@@ -333,7 +337,7 @@ CONTAINS
 
      IF (myThreadNo == 0) h(k,i) = h_aux
 
-!$OMP DO PRIVATE(jb, nlen)
+!$OMP DO PRIVATE(jb, nlen) ICON_OMP_DEFAULT_SCHEDULE
      DO jb = 1, mnblks
        IF (jb /= mnblks) THEN
          nlen = nproma
@@ -350,7 +354,7 @@ CONTAINS
      ! 4.3) new element for h
 
 #ifdef NOMPI
-!$OMP DO PRIVATE(jb)
+!$OMP DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
      DO jb = 1, mnblks
        IF (jb /= mnblks) THEN
          sum_aux(jb) = SUM(w(:,:,jb)*w(:,:,jb))
@@ -363,7 +367,7 @@ CONTAINS
      h_aux = SQRT(SUM(sum_aux))
 
 #else
-!$OMP DO PRIVATE(jb, jk, nlen)
+!$OMP DO PRIVATE(jb, jk, nlen) ICON_OMP_DEFAULT_SCHEDULE
      DO jb = 1, mnblks
        IF (jb /= mnblks) THEN
          nlen = nproma
@@ -392,7 +396,7 @@ CONTAINS
      ! 4.4) if w is independent from v, add v(:,:,:,i+1)
      IF (.NOT. done) THEN
        rh = 1.0_wp/h_aux
-!$OMP DO PRIVATE(jb)
+!$OMP DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
        DO jb = 1, mnblks
          v(:,:,jb,i+1) = w(:,:,jb)*rh
       ENDDO
@@ -453,11 +457,11 @@ CONTAINS
    ! 7) evaluate the Krylov expansion
 !$OMP PARALLEL PRIVATE(i)
    DO i = 1, nkry
-!$OMP DO PRIVATE(jb)
+!$OMP DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
      DO jb = 1, mnblks
        x(:,:,jb) = x(:,:,jb) + c(i)*v(:,:,jb,i)
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
    ENDDO
 !$OMP END PARALLEL
    IF (ltimer) CALL timer_stop(timer_gmres)

@@ -30,6 +30,10 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
 MODULE mo_expensive_functions
 !RJ: For some strange reasons the Intel compiler produces wrong code when
 !optimizing convert_theta2t_lin, therefore we switch off optimization here:
@@ -105,7 +109,7 @@ CONTAINS
   ! Diagnose p and delta p (copied from m_dyn), and convert temp into theta
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jk,nlen)
+!$OMP DO PRIVATE(jb,jc,jk,nlen) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = 1,nblks_c
 
     IF (jb /= nblks_c) THEN
@@ -140,7 +144,7 @@ CONTAINS
       pt_diag%delp_c(1:nlen,1:nlev,jb)
 
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
   
   IF (ltimer) CALL timer_stop(timer_con_t2theta)
@@ -186,7 +190,7 @@ END SUBROUTINE convert_t2theta
   ! Diagnose p and delta p (copied from m_dyn), and convert theta into temp
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jk,nlen)
+!$OMP DO PRIVATE(jb,jc,jk,nlen) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = 1,nblks_c
 
     IF (jb /= nblks_c) THEN
@@ -220,7 +224,7 @@ END SUBROUTINE convert_t2theta
       EXP(rovcp*LOG(pt_diag%pres_mc(1:nlen,1:nlev,jb)/p0ref))
 
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
   
   IF (ltimer) CALL timer_stop(timer_con_theta2t)
@@ -269,7 +273,7 @@ END SUBROUTINE convert_theta2t
   ! Diagnose p and delta p (copied from m_dyn), and convert temp into theta
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jk,nlen)
+!$OMP DO PRIVATE(jb,jc,jk,nlen) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = 1,nblks_c
 
     IF (jb /= nblks_c) THEN
@@ -302,7 +306,7 @@ END SUBROUTINE convert_theta2t
       pt_diag%exner(1:nlen,1:nlev,jb)) * pt_diag%delp_c_new(1:nlen,1:nlev,jb)
 
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
   IF (ltimer) CALL timer_stop(timer_con_l_t2theta)
 
@@ -347,7 +351,7 @@ END SUBROUTINE convert_t2theta_lin
 
   ! Diagnose p and delta p (copied from m_dyn), and convert theta into temp
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jk,nlen)
+!$OMP DO PRIVATE(jb,jc,jk,nlen) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = 1,nblks_c
 
     IF (jb /= nblks_c) THEN
@@ -384,7 +388,7 @@ END SUBROUTINE convert_t2theta_lin
       (pt_prog%theta(1:nlen,1:nlev,jb)*pt_diag%rdelp_c_new(1:nlen,1:nlev,jb))
 
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   IF (ltimer) CALL timer_stop(timer_con_l_theta2t)

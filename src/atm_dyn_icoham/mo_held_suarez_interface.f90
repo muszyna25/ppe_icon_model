@@ -32,6 +32,10 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
 MODULE mo_held_suarez_interface
 
   USE mo_kind,               ONLY: wp
@@ -110,7 +114,7 @@ CONTAINS
 
     jbs = p_patch%cells%start_blk( grf_bdywidth_c+1,1 )
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,is,ie,jk,zsigma,zlat)
+!$OMP DO PRIVATE(jb,is,ie,jk,zsigma,zlat) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = jbs,nblks_c
        CALL get_indices_c( p_patch, jb,jbs,nblks_c, is,ie, grf_bdywidth_c+1 )
        DO jk=1,nlev
@@ -126,7 +130,7 @@ CONTAINS
                                     & nlev, nproma, is, ie,      &! in
                                     & phy_tend%temp(:,:,jb)   )   ! inout
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     !-------------------------------------------------------------------------
@@ -154,7 +158,7 @@ CONTAINS
 
     jbs = p_patch%edges%start_blk( grf_bdywidth_e+1,1 )
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,is,ie,jk,zsigma)
+!$OMP DO PRIVATE(jb,is,ie,jk,zsigma) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = jbs,nblks_e
        CALL get_indices_e( p_patch, jb,jbs,nblks_e, is,ie, grf_bdywidth_e+1 )
 
@@ -168,7 +172,7 @@ CONTAINS
                                   & nlev, nproma, is, ie, &! in
                                   & phy_tend%vn(:,:,jb)  ) ! inout
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   !--------------------------

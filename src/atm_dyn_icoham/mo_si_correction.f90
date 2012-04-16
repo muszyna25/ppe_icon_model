@@ -71,6 +71,10 @@
 !! software.
 !!
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
 MODULE mo_si_correction
 !-------------------------------------------------------------------------
 !
@@ -612,7 +616,7 @@ ENDIF
 !-----------------------------------------------------------------------
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, jk)
+!$OMP DO PRIVATE(jb, nlen, jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = 1,nblks_e
 
       IF (jb /= nblks_e) THEN
@@ -626,7 +630,7 @@ ENDIF
                                  + asi_o*pt_old%vn(1:nlen,1:nlev,jb)
 
    ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
    SELECT CASE(idiv_method)
@@ -648,7 +652,7 @@ ENDIF
 !-----------------------------------------------------------------------
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, jk, nlen, z_dtemp, z_dlnps)
+!$OMP DO PRIVATE(jb, jk, nlen, z_dtemp, z_dlnps) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = 1,nblks_c
 
       IF (jb /= nblks_c) THEN
@@ -677,7 +681,7 @@ ENDIF
       ENDIF
 
    ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 !--------------------------------------------------------------
 ! 1.3 Laplacian of the second temporal derivative
@@ -726,7 +730,7 @@ ENDIF
      ENDDO
    ENDIF
 
-!$OMP DO PRIVATE(jb, nlen)
+!$OMP DO PRIVATE(jb, nlen) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = 1,nblks_c
       IF (jb /= nblks_c) THEN
          nlen = nproma
@@ -736,7 +740,7 @@ ENDIF
       ENDIF
       z_rhs(1:nlen,:,jb)=z_dttdiv(1:nlen,:,jb)-z_dt*asi_n*z_help_c(1:nlen,:,jb)
    ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 
 !$OMP END PARALLEL
 
@@ -748,9 +752,9 @@ ENDIF
 
 !$OMP PARALLEL
 #if defined (__SUNPRO_F95) || defined(__SX__) && !defined (NOMPI)
-!$OMP DO PRIVATE(jb, nlen, jc, jk, jm)
+!$OMP DO PRIVATE(jb, nlen, jc, jk, jm) ICON_OMP_DEFAULT_SCHEDULE
 #else
-!$OMP DO PRIVATE(jb, nlen, z_wrk_cv, z_wrk_vc)
+!$OMP DO PRIVATE(jb, nlen, z_wrk_cv, z_wrk_vc) ICON_OMP_DEFAULT_SCHEDULE
 #endif
    DO jb = 1,nblks_c
 
@@ -802,7 +806,7 @@ ENDIF
      z_dttdiv (:,:,jb) = 0._wp
 
    ENDDO !block loop
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 !-----------------------------------------------------------------------
@@ -856,7 +860,7 @@ ENDIF
 #else
 !$OMP DO PRIVATE(jb, nlen, i_startidx, i_endidx, z_wrk_cv, z_wrk_vc, &
 #endif
-!$OMP    z_dtemp, z_dlnps)
+!$OMP    z_dtemp, z_dlnps) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = 1,nblks_c
 
      IF (jb /= nblks_c) THEN
@@ -978,7 +982,7 @@ ENDIF
 !      a minus sign from subroutine conteq.
 
    IF (.NOT. lshallow_water) THEN
-!$OMP DO PRIVATE(jb, nlen)
+!$OMP DO PRIVATE(jb, nlen) ICON_OMP_DEFAULT_SCHEDULE
      DO jb = 1, nblks_c
        IF (jb /= nblks_c) THEN
          nlen = nproma
@@ -988,9 +992,9 @@ ENDIF
        z_help_c(1:nlen,:,jb) = z_dttpot(1:nlen,:,jb)  &
          &                   + asi_n*z_dt*z_rhs(1:nlen,:,jb)
      ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
    ELSE
-!$OMP DO PRIVATE(jb, nlen)
+!$OMP DO PRIVATE(jb, nlen) ICON_OMP_DEFAULT_SCHEDULE
      DO jb = 1, nblks_c
        IF (jb /= nblks_c) THEN
          nlen = nproma
@@ -1000,7 +1004,7 @@ ENDIF
        z_help_c(1:nlen,:,jb) = z_dttpot(1:nlen,:,jb)  &
          &  - asi_n*z_dt*grav*sw_ref_height*z_dttdiv(1:nlen,:,jb)
      ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
    ENDIF
 !$OMP END PARALLEL
 
@@ -1010,7 +1014,7 @@ ENDIF
    i_startblk = pt_patch%edges%start_blk(grf_bdywidth_e+1,1)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, i_startidx, i_endidx)
+!$OMP DO PRIVATE(jb, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = i_startblk, nblks_e
 
      IF (jb == i_startblk) THEN
@@ -1029,7 +1033,7 @@ ENDIF
        pt_new%vn(i_startidx:i_endidx,:,jb) - z_dt*z_help_e(i_startidx:i_endidx,:,jb)
 
    ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
    CALL sync_patch_array(SYNC_E,pt_patch,pt_new%vn)
@@ -1229,7 +1233,7 @@ ENDIF
 !-----------------------------------------------------------------------
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, jk)
+!$OMP DO PRIVATE(jb, nlen, jk) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = 1,nblks_e
 
       IF (jb /= nblks_e) THEN
@@ -1245,7 +1249,7 @@ ENDIF
       ENDDO
 
    ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
    SELECT CASE (idiv_method)
@@ -1267,7 +1271,7 @@ ENDIF
 !-----------------------------------------------------------------------
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, z_dtemp, z_dlnps)
+!$OMP DO PRIVATE(jb, nlen, z_dtemp, z_dlnps) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = 1,nblks_c
 
       IF (jb /= nblks_c) THEN
@@ -1287,7 +1291,7 @@ ENDIF
      CALL pgrad ( z_dtemp,z_dlnps,nproma,nlen,  & ! input
                   z_dttpot(1:nproma,1:nlev,jb))   ! output
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 !--------------------------------------------------------------
 ! 1.3 Laplacian of the second temporal derivative
@@ -1338,7 +1342,7 @@ ENDIF
      ENDDO
    ENDIF
 
-!$OMP DO PRIVATE(jb, nlen)
+!$OMP DO PRIVATE(jb, nlen) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = 1, nblks_c
       IF (jb /= nblks_c) THEN
          nlen = nproma
@@ -1350,7 +1354,7 @@ ENDIF
       z_rhs(1:nlen,:,jb) = z_dttdiv(1:nlen,:,jb)  &
         &                - z_dt*asi_n*z_help_c(1:nlen,:,jb)
    ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 
 !$OMP END PARALLEL
 
@@ -1397,7 +1401,7 @@ ENDIF
 
    i_startblk = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, i_startidx, i_endidx, jc, z_dtemp, z_dlnps)
+!$OMP DO PRIVATE(jb, nlen, i_startidx, i_endidx, jc, z_dtemp, z_dlnps) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = 1,nblks_c
 
       IF (jb /= nblks_c) THEN
@@ -1454,7 +1458,7 @@ ENDIF
   !note: plus sign is used in next expression because zrhs has already got
   !      a minus sign from subroutine conteq.
 
-!$OMP DO PRIVATE(jb, nlen)
+!$OMP DO PRIVATE(jb, nlen) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = 1, nblks_c
      IF (jb /= nblks_c) THEN
         nlen = nproma
@@ -1464,7 +1468,7 @@ ENDIF
      z_help_c(1:nlen,:,jb) =  &
        &  z_dttpot(1:nlen,:,jb)+asi_n*z_dt*z_rhs(1:nlen,:,jb)
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   CALL grad_fd_norm( z_help_c, pt_patch, z_help_e )
@@ -1472,7 +1476,7 @@ ENDIF
   ! Restrict update of vn to the interior of nestd domains
    i_startblk = pt_patch%edges%start_blk(grf_bdywidth_e+1,1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, i_startidx, i_endidx)
+!$OMP DO PRIVATE(jb, i_startidx, i_endidx) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = i_startblk, nblks_e
 
      IF (jb == i_startblk) THEN
@@ -1492,7 +1496,7 @@ ENDIF
      ENDDO
 
    ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
    CALL sync_patch_array(SYNC_E,pt_patch,pt_new%vn)
@@ -1540,7 +1544,7 @@ ENDIF
 
 ! multiply by the structure matrix
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, z_dtemp, z_dlnps)
+!$OMP DO PRIVATE(jb, nlen, z_dtemp, z_dlnps) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = 1,nblks_c
 
       IF (jb /= nblks_c) THEN
@@ -1555,7 +1559,7 @@ ENDIF
                    p_ax3d(:,:,jb) )
 
    ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 ! calculate the Laplacian
@@ -1578,7 +1582,7 @@ ENDIF
 
    i_startblk = pt_patch%cells%start_blk(3,1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = i_startblk, nblks_c
 
      IF (jb == i_startblk) THEN

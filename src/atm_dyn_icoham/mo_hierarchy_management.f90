@@ -737,7 +737,7 @@ CONTAINS
 
               p_temp => p_hydro_state(jg)%prog(n_new)%temp
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen)
+!$OMP DO PRIVATE(jb,nlen) ICON_OMP_DEFAULT_SCHEDULE
               DO jb = 1,p_patch(jg)%nblks_int_c
 
                 IF (jb /= p_patch(jg)%nblks_int_c) THEN
@@ -748,7 +748,7 @@ CONTAINS
 
                 temp_save(1:nlen,1:nlev,jb) = p_temp(1:nlen,1:nlev,jb)
               ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
             ENDIF !ltheta_dyn
 
@@ -1202,7 +1202,7 @@ CONTAINS
     i_startblk = p_patch%cells%start_blk(grf_bdywidth_c+1,1)
     i_endblk   = p_patch%cells%end_blk(min_rlcell_int-2,i_nchdom)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,                          &
@@ -1226,7 +1226,7 @@ CONTAINS
 
     IF (ltransport) THEN
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,                          &
@@ -1250,7 +1250,7 @@ CONTAINS
     i_startblk = p_patch%edges%start_blk(grf_bdywidth_e+1,1)
     i_endblk   = p_patch%edges%end_blk(min_rledge_int-3,i_nchdom)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk,                          &
@@ -1264,7 +1264,7 @@ CONTAINS
         ENDDO
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE compute_tendencies
@@ -1558,7 +1558,7 @@ CONTAINS
           p_temp => p_hydro_state(jg)%prog(n_new)%temp
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen)
+!$OMP DO PRIVATE(jb,nlen) ICON_OMP_DEFAULT_SCHEDULE
           DO jb = 1,p_patch(jg)%nblks_int_c
 
             IF (jb /= p_patch(jg)%nblks_int_c) THEN
@@ -1570,7 +1570,7 @@ CONTAINS
             temp_save(1:nlen,1:nlev,jb) = p_temp(1:nlen,1:nlev,jb)
 
           ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
         ENDIF
 

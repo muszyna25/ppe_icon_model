@@ -33,6 +33,10 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
 MODULE mo_ha_2tl_si
 
   USE mo_kind,                ONLY: wp
@@ -149,13 +153,13 @@ MODULE mo_ha_2tl_si
 
    jbs = p_patch%cells%start_blk(2,1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = jbs,nblks_c
          CALL get_indices_c( p_patch, jb,jbs,nblks_c, is,ie, 2)
          z_tmp_c(is:ie,:,jb) = p_diag%tempv(is:ie,:,jb)   &
                               /p_diag%pres_mc(is:ie,:,jb)
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
    CALL cells2edges_scalar (z_tmp_c, p_patch,    &! in
@@ -164,7 +168,7 @@ MODULE mo_ha_2tl_si
 
    jbs = p_patch%edges%start_blk(2,1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,is,ie,jk,zconst)
+!$OMP DO PRIVATE(jb,is,ie,jk,zconst) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = jbs,nblks_e
       CALL get_indices_e( p_patch, jb,jbs,nblks_e, is,ie, 2)
 
@@ -173,7 +177,7 @@ MODULE mo_ha_2tl_si
          z_cgradps(is:ie,jk,jb) = zconst*z_tmp_e(is:ie,jk,jb)
       ENDDO
    ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 ! 1.3 The changes in wind consist two parts:
@@ -186,13 +190,13 @@ MODULE mo_ha_2tl_si
 
    jbs = p_patch%edges%start_blk(2,1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = jbs,nblks_e
       CALL get_indices_e( p_patch, jb,jbs,nblks_e, is,ie, 2)
       z_rhs(is:ie,:,jb) = -p_dtime*si_2tls*z_tmp_e(is:ie,:,jb) &
                          + z_dvn_expl(is:ie,:,jb)
    ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 !! CALL sync_patch_array(SYNC_E, p_patch, z_rhs)
@@ -247,12 +251,12 @@ MODULE mo_ha_2tl_si
 
   jbs = p_patch%edges%start_blk(grf_bdywidth_e+1,1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = jbs,nblks_e
      CALL get_indices_e( p_patch, jb,jbs,nblks_e, is,ie, grf_bdywidth_e+1)
      p_new%vn(is:ie,:,jb) = p_now%vn(is:ie,:,jb) + z_dvn(is:ie,:,jb)
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 ! 3.2 Temperature and surface pressure
@@ -263,7 +267,7 @@ MODULE mo_ha_2tl_si
 
   jbs = p_patch%cells%start_blk(grf_bdywidth_c+1,1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = jbs,nblks_c
      CALL get_indices_c( p_patch, jb,jbs,nblks_c, is,ie, grf_bdywidth_c+1)
 
@@ -275,7 +279,7 @@ MODULE mo_ha_2tl_si
                               + z_dps_expl(is:ie,jb)        &
                               + si_2tls*p_dtime*z_dps(is:ie,jb)
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
   IF (ltimer) CALL timer_stop(timer_step_2tl_si)
 
@@ -365,7 +369,7 @@ MODULE mo_ha_2tl_si
 
 !$OMP PARALLEL PRIVATE(jbs)
    jbs = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = jbs,nblks_c
       CALL get_indices_c( pt_patch, jb,jbs,nblks_c, is,ie, grf_bdywidth_c+1)
       p_dps(is:ie,jb) = p_dtime*pt_tend_save%pres_sfc(is:ie,jb)
@@ -376,7 +380,7 @@ MODULE mo_ha_2tl_si
 ! Temperature
   IF (.NOT.lshallow_water) THEN
      jbs = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
      DO jb = jbs,nblks_c
        CALL get_indices_c( pt_patch, jb,jbs,nblks_c, is,ie, grf_bdywidth_c+1)
        p_dtemp(is:ie,:,jb) = p_dtime*pt_tend_save%temp(is:ie,:,jb)
@@ -388,12 +392,12 @@ MODULE mo_ha_2tl_si
 ! Velocity
 
    jbs = pt_patch%edges%start_blk(grf_bdywidth_e+1,1)
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = jbs,nblks_e
       CALL get_indices_e( pt_patch, jb,jbs,nblks_e, is,ie, grf_bdywidth_e+1)
       p_dvn(is:ie,:,jb) = p_dtime*pt_tend_save%vn(is:ie,:,jb)
    ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 
@@ -418,7 +422,7 @@ MODULE mo_ha_2tl_si
 
 !$OMP PARALLEL PRIVATE(jbs)
    jbs = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = jbs,nblks_c
       CALL get_indices_c( pt_patch, jb,jbs,nblks_c, is,ie, grf_bdywidth_c+1)
       p_dps(is:ie,jb) = p_dtime*p_dps(is:ie,jb)
@@ -428,7 +432,7 @@ MODULE mo_ha_2tl_si
 ! 3. Initialize velocity and temperature tendencies
 
    jbs = pt_patch%edges%start_blk(grf_bdywidth_e+1,1)
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = jbs,nblks_e
       CALL get_indices_e(pt_patch, jb,jbs,nblks_e, is,ie, grf_bdywidth_e+1)
       z_ddt_vn_slow(is:ie,:,jb) = 0._wp
@@ -438,7 +442,7 @@ MODULE mo_ha_2tl_si
 
    IF (.NOT.lshallow_water) THEN
       jbs = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = jbs,nblks_c
          CALL get_indices_c( pt_patch, jb,jbs,nblks_c, is,ie, grf_bdywidth_c+1)
          z_ddt_temp_slow(is:ie,:,jb) = 0._wp
@@ -494,7 +498,7 @@ MODULE mo_ha_2tl_si
 !$OMP PARALLEL PRIVATE(jbs)
    IF (.NOT.lshallow_water) THEN
       jbs = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = jbs,nblks_c
         CALL get_indices_c( pt_patch, jb,jbs,nblks_c, is,ie, grf_bdywidth_c+1)
 
@@ -512,7 +516,7 @@ MODULE mo_ha_2tl_si
    ENDIF
 
    jbs = pt_patch%edges%start_blk(grf_bdywidth_e+1,1)
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = jbs,nblks_e
       CALL get_indices_e( pt_patch, jb,jbs,nblks_e, is,ie, grf_bdywidth_e+1)
 
@@ -523,7 +527,7 @@ MODULE mo_ha_2tl_si
 
       pt_tend_save%vn(is:ie,:,jb) = z_ddt_vn_slow(is:ie,:,jb)
    ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
    CALL sync_patch_array( SYNC_E, pt_patch, pt_tend_save%vn )
@@ -584,7 +588,7 @@ MODULE mo_ha_2tl_si
 
 ! Tendency of temperature
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk)
+!$OMP DO PRIVATE(jb,nlen,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = 1,nblks_c
 
     IF (jb /= nblks_c) THEN
@@ -600,7 +604,7 @@ MODULE mo_ha_2tl_si
                            +p_rdalpha(1:nlen,jk,jb)*z_mdiv(1:nlen,jk,jb)   )
     ENDDO
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 !---------------------------------------
   DEALLOCATE( z_mflux )
@@ -642,7 +646,7 @@ MODULE mo_ha_2tl_si
 ! gradient of geopotential change
 !------------------------------------------------------
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk,jkm)
+!$OMP DO PRIVATE(jb,nlen,jk,jkm) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = 1,nblks_c
 
      IF (jb /= nblks_c) THEN
@@ -666,7 +670,7 @@ MODULE mo_ha_2tl_si
                                  *p_dtemp(1:nlen,jk,jb)
      ENDDO
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 !------------------------------------------------------
@@ -686,7 +690,7 @@ MODULE mo_ha_2tl_si
 ! Combine two parts
 !------------------------------------------------------
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk)
+!$OMP DO PRIVATE(jb,nlen,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = 1,nblks_e
 
      IF (jb /= nblks_e) THEN
@@ -701,7 +705,7 @@ MODULE mo_ha_2tl_si
                               *z_gradps(1:nlen,1 ,jb)
      ENDDO
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE pgrad_vn
@@ -753,7 +757,7 @@ MODULE mo_ha_2tl_si
                  p_patch, p_lhs )
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen)
+!$OMP DO PRIVATE(jb,nlen) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = 1,nblks_e
 
      IF (jb /= nblks_e) THEN
@@ -764,7 +768,7 @@ MODULE mo_ha_2tl_si
      p_lhs(1:nlen,:,jb) = p_dvn(1:nlen,:,jb)       &
                         + p_coeff*p_lhs(1:nlen,:,jb)
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END FUNCTION lhs_dvn_eqn

@@ -35,6 +35,10 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
 MODULE mo_ha_diag_util
 
   USE mo_kind,               ONLY: wp
@@ -174,12 +178,12 @@ CONTAINS
 
     jbs = p_patch%edges%start_blk(2,1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = jbs,nblks_e
       CALL get_indices_e(p_patch, jb,jbs,nblks_e, is,ie, 2)
       z_aux_me(is:ie,:,jb) = p_delp_e(is:ie,:,jb)*p_vn(is:ie,:,jb)
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     ! Divergence of mass flux
@@ -201,7 +205,7 @@ CONTAINS
 
     jbs = p_patch%cells%start_blk(2,1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,is,ie,jk,jkp)
+!$OMP DO PRIVATE(jb,is,ie,jk,jkp) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = jbs,nblks_c
       CALL get_indices_c(p_patch, jb,jbs,nblks_c, is,ie, 2)
 
@@ -211,7 +215,7 @@ CONTAINS
         p_omega(is:ie,jkp,jb) = p_omega(is:ie,jk,jb) + z_aux_mc(is:ie,jkp,jb)
      ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     !-------------------------------------------------
@@ -222,7 +226,7 @@ CONTAINS
 
     jbs = p_patch%edges%start_blk(4,1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,is,ie,jk)
+!$OMP DO PRIVATE(jb,is,ie,jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = jbs,nblks_e
       CALL get_indices_e( p_patch, jb,jbs,nblks_e, is,ie, 4)
 
@@ -234,7 +238,7 @@ CONTAINS
          z_aux_me(is:ie,jk,jb) = 0._wp  ! no pressure gradient on p-levels
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     ! Interpolation from edges to cell centers
@@ -262,12 +266,12 @@ CONTAINS
 
     jbs = p_patch%cells%start_blk(3,1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = jbs,nblks_c
       CALL get_indices_c( p_patch, jb,jbs,nblks_c, is,ie, 3)
       p_omega(is:ie,:,jb) = - p_omega(is:ie,:,jb) + z_aux_mc(is:ie,:,jb)
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     CALL sync_patch_array( SYNC_C, p_patch, p_omega )
@@ -301,7 +305,7 @@ CONTAINS
 
 !$OMP PARALLEL
     IF (.NOT. lshallow_water) THEN
-!$OMP DO PRIVATE(jb, nlen)
+!$OMP DO PRIVATE(jb, nlen) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1,nblks_c
 
         IF (jb /= nblks_c) THEN
@@ -323,7 +327,7 @@ CONTAINS
 !$OMP END DO
 
     ELSE ! shallow water
-!$OMP DO PRIVATE(jb, nlen)
+!$OMP DO PRIVATE(jb, nlen) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1,nblks_c
 
         IF (jb /= nblks_c) THEN
@@ -337,7 +341,7 @@ CONTAINS
         p_delp_mc(1:nlen,1,jb) = p_pres_sfc(1:nlen,jb)
 
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
   ENDIF
 !$OMP END PARALLEL
   END SUBROUTINE update_pres_delp_c
@@ -368,7 +372,7 @@ CONTAINS
 
     jbs = p_patch%edges%start_blk(2,1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,is,ie,jk)
+!$OMP DO PRIVATE(jb,is,ie,jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = jbs,nblks_e
       CALL get_indices_e(p_patch, jb,jbs,nblks_e, is,ie, 2)
 
@@ -376,7 +380,7 @@ CONTAINS
          p_delp_e(is:ie,jk,jb) = delpr(jk)
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     ! Edge-based layer thickness: sigma and transition levels
@@ -400,14 +404,14 @@ CONTAINS
                               
       jbs = p_patch%edges%start_blk(2,1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,is,ie,jk)
+!$OMP DO PRIVATE(jb,is,ie,jk) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = jbs,nblks_e
         CALL get_indices_e(p_patch,jb,jbs,nblks_e,is,ie,2)
         DO jk = nplvp1,nlev
           p_delp_e(is:ie,jk,jb) = sick_a*z_tmp_e(is:ie,jk,jb)+sick_o*p_delp_e(is:ie,jk,jb)
         ENDDO
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     ENDIF
@@ -443,7 +447,7 @@ CONTAINS
 
 !$OMP PARALLEL PRIVATE(jbs)
     IF (.NOT. lshallow_water) THEN
-!$OMP DO PRIVATE(jb, nlen)
+!$OMP DO PRIVATE(jb, nlen) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1,nblks_c
 
         IF (jb /= nblks_c) THEN
@@ -466,7 +470,7 @@ CONTAINS
 !$OMP END DO
 
     ELSE ! shallow water
-!$OMP DO PRIVATE(jb, nlen)
+!$OMP DO PRIVATE(jb, nlen) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1,nblks_c
 
         IF (jb /= nblks_c) THEN
@@ -487,7 +491,7 @@ CONTAINS
 
     ! Edge-based layer thickness: pressure levels
     jbs = p_patch%edges%start_blk(2,1)
-!$OMP DO PRIVATE(jb,is,ie,jk)
+!$OMP DO PRIVATE(jb,is,ie,jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = jbs,nblks_e
       CALL get_indices_e(p_patch, jb,jbs,nblks_e, is,ie, 2)
 
@@ -495,7 +499,7 @@ CONTAINS
          p_diag%delp_e(is:ie,jk,jb) = delpr(jk)
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     ! Edge-based layer thickness: sigma and transition levels
@@ -516,7 +520,7 @@ CONTAINS
                               z_tmp_e, nplvp1, nlev)
       jbs = p_patch%edges%start_blk(2,1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,is,ie,jk)
+!$OMP DO PRIVATE(jb,is,ie,jk) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = jbs,nblks_e
         CALL get_indices_e(p_patch,jb,jbs,nblks_e,is,ie,2)
         DO jk = nplvp1,nlev
@@ -524,7 +528,7 @@ CONTAINS
           &                           +sick_o*p_diag%delp_e(is:ie,jk,jb)
         ENDDO
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     ENDIF
@@ -582,7 +586,7 @@ CONTAINS
 
       ELSE !moist atmosphere
         jbs = p_patch%cells%start_blk(2,1)
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = jbs,nblks_c
           CALL get_indices_c(p_patch, jb,jbs,nblks_c, is,ie, 2)
           SELECT CASE (iforcing)
@@ -619,7 +623,7 @@ CONTAINS
     ! other way round.
 
       jbs = p_patch%cells%start_blk(2,1)
-!$OMP DO PRIVATE(jb,is,ie,z_gzs)
+!$OMP DO PRIVATE(jb,is,ie,z_gzs) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = jbs,nblks_c
         CALL get_indices_c(p_patch, jb,jbs,nblks_c, is,ie, 2)
 
@@ -629,12 +633,12 @@ CONTAINS
         p_diag%geo_mc(is:ie,1     ,jb) = z_gzs(is:ie)                  &
         &                              + grav*p_prog%pres_sfc(is:ie,jb)
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 
     ELSE !Integrate the hydrostatic equation
 
       jbs = p_patch%cells%start_blk(2,1)
-!$OMP DO PRIVATE(jb,is,ie,z_gzs)
+!$OMP DO PRIVATE(jb,is,ie,z_gzs) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = jbs,nblks_c
         CALL get_indices_c(p_patch, jb,jbs,nblks_c, is,ie, 2)
 
@@ -649,7 +653,7 @@ CONTAINS
         &            nproma, is,ie,                                 &! in
         &            p_diag%geo_mc(:,:,jb), p_diag%geo_ic(:,:,jb) )  ! out
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 
     ENDIF !shallow water vs hydrostatic
 !$OMP END PARALLEL

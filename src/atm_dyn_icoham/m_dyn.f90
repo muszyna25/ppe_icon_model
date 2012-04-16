@@ -55,6 +55,10 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
 MODULE m_dyn
 !-------------------------------------------------------------------------
 !
@@ -239,7 +243,7 @@ MODULE m_dyn
    rovcp = rd/cpd
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen)
+!$OMP DO PRIVATE(jb, nlen) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = 1,nblks_c
 
       IF (jb /= nblks_c) THEN
@@ -267,7 +271,7 @@ MODULE m_dyn
         pt_diag%rdelp_c(1:nlen,1:nlev,jb)* pt_diag%exner(1:nlen,1:nlev,jb)
 
    ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   ! 0.2 layer thickness at edge centres
@@ -293,7 +297,7 @@ MODULE m_dyn
 
 !$OMP PARALLEL
      i_startblk = pt_patch%edges%start_blk(2,1)
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk) ICON_OMP_DEFAULT_SCHEDULE
      DO jb = i_startblk,nblks_e
        CALL get_indices_e(pt_patch, jb, i_startblk, nblks_e, &
                           i_startidx, i_endidx, 2)
@@ -304,7 +308,7 @@ MODULE m_dyn
        ENDDO
 
      ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
    ENDIF
@@ -313,7 +317,7 @@ MODULE m_dyn
 
 !$OMP PARALLEL
    i_startblk = pt_patch%edges%start_blk(2,1)
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = i_startblk,nblks_e
 
      CALL get_indices_e(pt_patch, jb, i_startblk, nblks_e, &
@@ -328,7 +332,7 @@ MODULE m_dyn
               pt_prog%vn(i_startidx:i_endidx,:,jb)
 
    ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
    CALL sync_patch_array(SYNC_E,pt_patch, pt_diag%mass_flux_e)
@@ -357,7 +361,7 @@ MODULE m_dyn
 
 !$OMP PARALLEL PRIVATE(i_startblk)
    i_startblk = pt_patch%cells%start_blk(2,1)
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jkp)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jkp) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = i_startblk,nblks_c
 
      CALL get_indices_c(pt_patch, jb, i_startblk, nblks_c, &
@@ -385,14 +389,14 @@ MODULE m_dyn
       ENDDO
 
    ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 
    ! For nested domains, tendencies are interpolated from the parent domain
    ! on a boundary zone with a width of grf_bdywidth_c for cells and
    ! grf_bdywidth_e for edges, respectively. These tendencies must not be
    ! overwritten.
    i_startblk = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = i_startblk,nblks_c
 
      CALL get_indices_c(pt_patch, jb, i_startblk, nblks_c, &
@@ -415,7 +419,7 @@ MODULE m_dyn
   !       Ref. MPI-M Report 349, p20 )
 
    i_startblk = pt_patch%cells%start_blk(2,1)
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,z_help,jkp)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,z_help,jkp) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = i_startblk,nblks_c
 
      CALL get_indices_c(pt_patch, jb, i_startblk, nblks_c, &
@@ -503,7 +507,7 @@ MODULE m_dyn
    ! grf_bdywidth_e for edges, respectively. These tendencies must not be
    ! overwritten.
    i_startblk = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jkp)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jkp) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = i_startblk,nblks_c
 
      CALL get_indices_c(pt_patch, jb, i_startblk, nblks_c, &
@@ -532,7 +536,7 @@ MODULE m_dyn
         pt_diag%weta(i_startidx:i_endidx,2:nlev+1,jb)*            &
         z_theta_ic(i_startidx:i_endidx,2:nlev+1,jb)
    ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   ! 3.2 vertical advection of normal wind
@@ -552,7 +556,7 @@ MODULE m_dyn
    ! overwritten.
 !$OMP PARALLEL PRIVATE(i_startblk)
    i_startblk = pt_patch%edges%start_blk(grf_bdywidth_e+1,1)
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jkp)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jkp) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = i_startblk,nblks_e
 
      CALL get_indices_e(pt_patch, jb, i_startblk, nblks_e, &
@@ -580,7 +584,7 @@ MODULE m_dyn
  &   /pt_diag%delp_e(i_startidx:i_endidx,1:nlev,jb)*0.5_wp
 
    ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 !-------------------------------------------------------------------------------
@@ -599,7 +603,7 @@ MODULE m_dyn
   i_startblk = pt_patch%edges%start_blk(2,1)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk,nblks_e
 
     CALL get_indices_e(pt_patch, jb, i_startblk, nblks_e, &
@@ -608,7 +612,7 @@ MODULE m_dyn
     z_temp_flux_e(i_startidx:i_endidx,:,jb) =  &
     &  z_temp_e(i_startidx:i_endidx,:,jb) * pt_prog%vn(i_startidx:i_endidx,:,jb)
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   SELECT CASE (idiv_method)
@@ -633,7 +637,7 @@ MODULE m_dyn
    i_startblk = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = i_startblk,nblks_c
 
      CALL get_indices_c(pt_patch, jb, i_startblk, nblks_c, &
@@ -644,7 +648,7 @@ MODULE m_dyn
  &          - z_tmdiv(i_startidx:i_endidx,:,jb)
 
    ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 !-------------------------------------------------------------------------------
@@ -666,7 +670,7 @@ MODULE m_dyn
 !$OMP PARALLEL PRIVATE(i_startblk)
   i_startblk = pt_patch%cells%start_blk(2,1)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = i_startblk,nblks_c
 
      CALL get_indices_c(pt_patch, jb, i_startblk, nblks_c, &
@@ -708,7 +712,7 @@ MODULE m_dyn
 
    i_startblk = pt_patch%cells%start_blk(2,1)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = i_startblk,nblks_c
 
      CALL get_indices_c(pt_patch, jb, i_startblk, nblks_c, &
@@ -718,7 +722,7 @@ MODULE m_dyn
                               + pt_diag%e_kin(i_startidx:i_endidx,:,jb)
 
    ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 !-------------------------------------------------------------------------------
@@ -752,7 +756,7 @@ MODULE m_dyn
   ! pressure gradient at edges
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk,jkp)
+!$OMP DO PRIVATE(jb,nlen,jk,jkp) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = 1, nblks_c
       IF (jb /= nblks_c) THEN
          nlen = nproma
@@ -766,7 +770,7 @@ MODULE m_dyn
                                     pt_diag%rdalpha_c(1:nlen,jk ,jb)
       ENDDO
    ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
    CALL grad_fd_norm( z_rdlnp_mc, pt_patch, z_rdlnp_me, nplvp1 )
@@ -775,7 +779,7 @@ MODULE m_dyn
 
 !$OMP PARALLEL
    i_startblk = pt_patch%edges%start_blk(4,1)
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = i_startblk,nblks_e
 
      CALL get_indices_e(pt_patch, jb, i_startblk, nblks_e, &
@@ -791,7 +795,7 @@ MODULE m_dyn
       z_pres_grad2(i_startidx:i_endidx,1:nplev,jb) = 0._wp
 
    ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   ! pressure gradient force, part 2, for temperature equation
@@ -799,7 +803,7 @@ MODULE m_dyn
    IF (lwrite_omega .AND. l_outputtime) THEN
 !$OMP PARALLEL
      i_startblk = pt_patch%edges%start_blk(4,1)
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk) ICON_OMP_DEFAULT_SCHEDULE
      DO jb = i_startblk,nblks_e
 
      CALL get_indices_e(pt_patch, jb, i_startblk, nblks_e, &
@@ -815,7 +819,7 @@ MODULE m_dyn
       z_pres_grad4(i_startidx:i_endidx,1:nplev,jb) = 0._wp
 
      ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
    ENDIF
 
@@ -827,7 +831,7 @@ MODULE m_dyn
    ! overwritten.
 !$OMP PARALLEL PRIVATE(i_startblk)
    i_startblk = pt_patch%edges%start_blk(grf_bdywidth_e+1,1)
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = i_startblk,nblks_e
 
      CALL get_indices_e(pt_patch, jb, i_startblk, nblks_e, &
@@ -841,7 +845,7 @@ MODULE m_dyn
        ENDDO
      ENDDO
    ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 !-------------------------------------------------------------------------------
@@ -856,7 +860,7 @@ IF (lwrite_omega .AND. l_outputtime .AND. .NOT. no_output) THEN
 
 !$OMP PARALLEL PRIVATE(i_startblk)
    i_startblk = pt_patch%edges%start_blk(4,1)
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = i_startblk,nblks_e
 
      CALL get_indices_e(pt_patch, jb, i_startblk, nblks_e, &
@@ -867,7 +871,7 @@ IF (lwrite_omega .AND. l_outputtime .AND. .NOT. no_output) THEN
          z_pres_grad4(i_startidx:i_endidx,:,jb)
 
    ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
    CALL edges2cells_scalar( z_tmp_me, pt_patch, pt_int_state%e_inn_c, &
@@ -885,7 +889,7 @@ IF (lwrite_omega .AND. l_outputtime .AND. .NOT. no_output) THEN
 
 !$OMP PARALLEL PRIVATE(i_startblk)
    i_startblk = pt_patch%cells%start_blk(3,1)
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = i_startblk,nblks_c
 
      CALL get_indices_c(pt_patch, jb, i_startblk, nblks_c, &
@@ -904,7 +908,7 @@ IF (lwrite_omega .AND. l_outputtime .AND. .NOT. no_output) THEN
 !$OMP END DO
 
    i_startblk = pt_patch%cells%start_blk(4,1)
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = i_startblk,nblks_c
 
      CALL get_indices_c(pt_patch, jb, i_startblk, nblks_c, &
@@ -919,7 +923,7 @@ IF (lwrite_omega .AND. l_outputtime .AND. .NOT. no_output) THEN
      ENDDO
 
    ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 ENDIF

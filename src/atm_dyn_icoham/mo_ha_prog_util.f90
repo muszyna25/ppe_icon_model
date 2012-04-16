@@ -30,6 +30,10 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
 MODULE mo_ha_prog_util
 
   USE mo_kind,                ONLY: wp
@@ -145,7 +149,7 @@ CONTAINS
 
     jbs = p_patch%cells%start_blk( grf_bdywidth_c+1,1 )
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = jbs,nblks_c
        CALL get_indices_c( p_patch, jb,jbs,nblks_c, is,ie, grf_bdywidth_c+1 )
 
@@ -165,7 +169,7 @@ CONTAINS
          ptr_out%tracer(is:ie,:,jb,:) =   p_prog%tracer(is:ie,:,jb,:)       &
                                       & + p_tend%tracer(is:ie,:,jb,:)*pdtime
      ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     IF (msg_level > 10) THEN
@@ -184,13 +188,13 @@ CONTAINS
 
     jbs = p_patch%edges%start_blk( grf_bdywidth_e+1,1 )
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = jbs,nblks_e
        CALL get_indices_e( p_patch, jb,jbs,nblks_e, is,ie, grf_bdywidth_e+1 )
        ptr_out%vn(is:ie,:,jb) =   p_prog%vn(is:ie,:,jb)       &
                               & + p_tend%vn(is:ie,:,jb)*pdtime
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     NULLIFY(ptr_out)
@@ -359,7 +363,7 @@ CONTAINS
 
     jbs = p_patch%cells%start_blk( grf_bdywidth_c+1,1 )
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = jbs,nblks_c
        CALL get_indices_c( p_patch, jb,jbs,nblks_c, is,ie, grf_bdywidth_c+1 )
 
@@ -376,20 +380,20 @@ CONTAINS
                                           & + p_tend_in%  tracer(is:ie,:,jb,:)
        ENDIF
      ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     ! Accumulate wind tendency
 
     jbs = p_patch%edges%start_blk( grf_bdywidth_e+1,1 )
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = jbs,nblks_e
        CALL get_indices_e( p_patch, jb,jbs,nblks_e, is,ie, grf_bdywidth_e+1 )
        p_tend_acc% vn(is:ie,:,jb) =   p_tend_acc% vn(is:ie,:,jb) &
                                   & + p_tend_in%  vn(is:ie,:,jb)
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE add_tend
@@ -425,7 +429,7 @@ CONTAINS
     jbs = p_patch%cells%start_blk(grf_bdywidth_c+1,1)
     jbe = p_patch%nblks_int_c
 
-!$OMP DO PRIVATE(jb,jcs,jce)
+!$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = jbs,jbe
       CALL get_indices_c( p_patch, jb,jbs,jbe, jcs,jce,grf_bdywidth_c+1 )
 
@@ -443,12 +447,12 @@ CONTAINS
     jbs = p_patch%edges%start_blk(grf_bdywidth_e+1,1)
     jbe = p_patch%nblks_int_e
 
-!$OMP DO PRIVATE(jb,jcs,jce)
+!$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = jbs,jbe
       CALL get_indices_e( p_patch, jb,jbs,jbe, jcs,jce,grf_bdywidth_e+1 )
       p_tend% vn(jcs:jce,:,jb) = 0._wp
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE reset_tend
@@ -497,7 +501,7 @@ CONTAINS
 
     jbs = p_patch%cells%start_blk( grf_bdywidth_c+1,1 )
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = jbs,nblks_c
        CALL get_indices_c( p_patch, jb,jbs,nblks_c, is,ie, grf_bdywidth_c+1 )
 
@@ -522,14 +526,14 @@ CONTAINS
     ! Diagnose wind tendency
 
     jbs = p_patch%edges%start_blk( grf_bdywidth_e+1,1 )
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = jbs,nblks_e
        CALL get_indices_e( p_patch, jb,jbs,nblks_e, is,ie, grf_bdywidth_e+1 )
        p_tend% vn(is:ie,:,jb) = ( p_prog_new% vn(is:ie,:,jb)   &
                               &  -p_prog_now% vn(is:ie,:,jb) ) &
                               & *zrdtime
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE diag_tend

@@ -34,6 +34,10 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
 MODULE mo_ha_dtp_interface
 
   USE mo_kind,               ONLY: wp
@@ -136,13 +140,13 @@ CONTAINS
     nblks_e = p_patch%nblks_int_e
     jbs     = p_patch%edges%start_blk(2,1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = jbs,nblks_e
       CALL get_indices_e(p_patch, jb,jbs,nblks_e, is,ie, 2)
       p_vn_traj(is:ie,:,jb) =  p_diag%mass_flux_e(is:ie,:,jb) &
                             & /z_delp_me_now(is:ie,:,jb)
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     ! Pressure values and layer thickness of time step n+1.
@@ -251,23 +255,23 @@ CONTAINS
       ! For the two time level semi-implicit scheme, this means using the
       ! normal wind of time step n+alpha, and layer thickness of step n
 
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = jbs, nblks_e
         CALL get_indices_e( p_patch, jb,jbs,nblks_e, is,ie, ircs )
         p_vn_traj(is:ie,:,jb) =    z1ma*p_now%vn(is:ie,:,jb) &
         &                      + palpha*p_new%vn(is:ie,:,jb)
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 
     ELSE
 
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = jbs, nblks_e
         CALL get_indices_e( p_patch, jb,jbs,nblks_e, is,ie, ircs )
         p_vn_traj(is:ie,:,jb) =  0.5_wp * ( p_now%vn(is:ie,:,jb)   &
         &                                 + p_new%vn(is:ie,:,jb) )
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
     ENDIF
 !$OMP END PARALLEL
 
@@ -293,14 +297,14 @@ CONTAINS
 
     jbs = p_patch%edges%start_blk(ircs,1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = jbs,nblks_e
       CALL get_indices_e( p_patch, jb,jbs,nblks_e, is,ie, ircs )
       p_vn_traj(is:ie,:,jb) = 0.5_wp*( p_now%vn(is:ie,:,jb)  &
       &                               +p_new%vn(is:ie,:,jb) )
 
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     ! Vertical velocity at time step n+1/2
@@ -437,7 +441,7 @@ CONTAINS
     IF (ltheta_dyn) THEN
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = jbs,nblks_c
          CALL get_indices_c( p_patch, jb,jbs,nblks_c, is,ie, 2)
 
@@ -445,7 +449,7 @@ CONTAINS
 &                                   *p_diag% rdelp_c(is:ie,:,jb) &
 &                  *EXP(rd_o_cpd*LOG(p_diag% pres_mc(is:ie,:,jb)/p0ref))
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
      ENDIF !theta dynamics
 
@@ -509,7 +513,7 @@ CONTAINS
     IF (ltheta_dyn) THEN
       jbs = p_patch%cells%start_blk(2,1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = jbs,nblks_c
          CALL get_indices_c( p_patch, jb,jbs,nblks_c, is,ie, 2)
 
@@ -534,7 +538,7 @@ CONTAINS
 #endif
 
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
     ENDIF !theta dynamics
 

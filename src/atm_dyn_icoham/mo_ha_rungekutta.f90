@@ -87,6 +87,10 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
 MODULE mo_ha_rungekutta
 
   USE mo_kind,             ONLY: wp
@@ -474,7 +478,7 @@ CONTAINS
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
    i_startblk = curr_patch%cells%start_blk(grf_bdywidth_c+1,1)
    i_endblk   = curr_patch%nblks_int_c
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = i_startblk, i_endblk
 
      CALL get_indices_c(curr_patch, jb, i_startblk, i_endblk, &
@@ -513,7 +517,7 @@ CONTAINS
 
    i_startblk = curr_patch%edges%start_blk(grf_bdywidth_e+1,1)
    i_endblk   = curr_patch%nblks_int_e
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = i_startblk, i_endblk
 
      CALL get_indices_e(curr_patch, jb, i_startblk, i_endblk, &
@@ -536,7 +540,7 @@ CONTAINS
 
    i_startblk = curr_patch%cells%start_blk(1,1)
    i_endblk   = curr_patch%cells%end_blk(grf_bdywidth_c,1)
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = i_startblk, i_endblk
 
      CALL get_indices_c(curr_patch, jb, i_startblk, i_endblk, &
@@ -575,7 +579,7 @@ CONTAINS
 
    i_startblk = curr_patch%edges%start_blk(1,1)
    i_endblk   = curr_patch%edges%end_blk(grf_bdywidth_e,1)
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = i_startblk, i_endblk
 
      CALL get_indices_e(curr_patch, jb, i_startblk, i_endblk, &
@@ -590,7 +594,7 @@ CONTAINS
       ENDDO
 
    ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
    IF (ltimer) CALL timer_stop(timer_RK_update)

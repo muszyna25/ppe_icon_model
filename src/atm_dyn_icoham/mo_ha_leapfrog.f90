@@ -37,6 +37,10 @@
 !! software.
 !!
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
 MODULE mo_ha_leapfrog
 
   USE mo_kind,                ONLY: wp
@@ -161,7 +165,7 @@ CONTAINS
     !-----------------------------------
     jbs = curr_patch%cells%start_blk(grf_bdywidth_c+1,1)
     jbe = curr_patch%nblks_int_c
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = jbs, jbe
       CALL get_indices_c(curr_patch, jb,jbs,jbe, is,ie, grf_bdywidth_c+1)
 
@@ -182,7 +186,7 @@ CONTAINS
 
     jbs = curr_patch%edges%start_blk(grf_bdywidth_e+1,1)
     jbe = curr_patch%nblks_int_e
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = jbs,jbe
        CALL get_indices_e(curr_patch, jb,jbs,jbe, is,ie, grf_bdywidth_e+1)
        p_new%vn(is:ie,:,jb) = p_old%vn(is:ie,:,jb) + pdt2*p_tend%vn(is:ie,:,jb)
@@ -195,7 +199,7 @@ CONTAINS
     ! Note: the boundary tendencies are nnow -> nnew
     jbs = curr_patch%cells%start_blk(1,1)
     jbe = curr_patch%cells%end_blk(grf_bdywidth_c,1)
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = jbs,jbe
        CALL get_indices_c(curr_patch, jb,jbs,jbe, is,ie, 1, grf_bdywidth_c)
 
@@ -219,12 +223,12 @@ CONTAINS
 
     jbs = curr_patch%edges%start_blk(1,1)
     jbe = curr_patch%edges%end_blk(grf_bdywidth_e,1)
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = jbs,jbe
        CALL get_indices_e(curr_patch, jb,jbs,jbe, is,ie, 1, grf_bdywidth_e)
        p_new%vn(is:ie,:,jb) = p_now%vn(is:ie,:,jb) + dtime_bdy*p_tend%vn(is:ie,:,jb)
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE leapfrog_update_prog

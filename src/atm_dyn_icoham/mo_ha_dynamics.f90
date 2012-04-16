@@ -34,6 +34,10 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
 MODULE mo_ha_dynamics
 
 
@@ -140,7 +144,7 @@ CONTAINS
 
 !$OMP PARALLEL PRIVATE(jbs)
    jbs = pt_patch%edges%start_blk(grf_bdywidth_e+1,1)
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = jbs,nblks_e
       CALL get_indices_e(pt_patch, jb,jbs,nblks_e, is,ie, grf_bdywidth_e+1)
       pt_tend_dyn%vn(is:ie,:,jb) = 0._wp
@@ -149,12 +153,12 @@ CONTAINS
 
    IF (.NOT.lshallow_water) THEN
       jbs = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = jbs,nblks_c
          CALL get_indices_c(pt_patch, jb,jbs,nblks_c, is,ie, grf_bdywidth_c+1)
          pt_tend_dyn%temp(is:ie,:,jb) = 0._wp
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
    ENDIF
 !$OMP END PARALLEL
 
@@ -277,12 +281,12 @@ CONTAINS
 
 !$OMP PARALLEL PRIVATE(jbs)
    jbs = pt_patch%edges%start_blk(2,1)
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = jbs,nblks_e
       CALL get_indices_e(pt_patch, jb,jbs,nblks_e, is,ie, 2)
       p_mflux(is:ie,:,jb) = p_delp_e(is:ie,:,jb)*p_vn(is:ie,:,jb)
    ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
    ! LL The assumpiton is that inner edges are the ones
@@ -311,7 +315,7 @@ CONTAINS
 
 !$OMP PARALLEL PRIVATE(jbs)
    jbs = pt_patch%cells%start_blk(2,1)
-!$OMP DO PRIVATE(jb,is,ie,jk,jkp)
+!$OMP DO PRIVATE(jb,is,ie,jk,jkp) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = jbs,nblks_c
       CALL get_indices_c(pt_patch, jb,jbs,nblks_c, is,ie, 2)
 
@@ -326,7 +330,7 @@ CONTAINS
 ! Vertical velocity at the interfaces (half-levels)
 
    IF ((.NOT.lshallow_water).AND.ldiag_weta) THEN
-!$OMP DO PRIVATE(jb,is,ie,jk)
+!$OMP DO PRIVATE(jb,is,ie,jk) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = jbs,nblks_c
         CALL get_indices_c(pt_patch, jb,jbs,nblks_c, is,ie, 2)
 
@@ -348,12 +352,12 @@ CONTAINS
 ! overwritten.)
 
    jbs = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = jbs,nblks_c
       CALL get_indices_c(pt_patch, jb,jbs,nblks_c, is,ie, grf_bdywidth_c+1)
       p_ddt_psfc(is:ie,jb) = -p_mdiv_int(is:ie,nlevp1,jb)
    ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE continuity
@@ -432,7 +436,7 @@ IF (.NOT.lshallow_water) THEN
 
     jbs = pt_patch%cells%start_blk(2,1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,is,ie,z2d)
+!$OMP DO PRIVATE(jb,is,ie,z2d) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = jbs,nblks_c
        CALL get_indices_c( pt_patch, jb,jbs,nblks_c, is,ie, 2)
 
@@ -443,21 +447,21 @@ IF (.NOT.lshallow_water) THEN
        z_tvp_c (is:ie,:,jb) = pt_diag%tempv (is:ie,:,jb) -  t0icao*z2d(is:ie,:)
        z_geo_mc(is:ie,:,jb) = pt_diag%geo_mc(is:ie,:,jb) + rdt0ral*z2d(is:ie,:)
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   ELSE !Do not use reference state
 
     jbs = pt_patch%cells%start_blk(2,1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = jbs,nblks_c
        CALL get_indices_c(pt_patch, jb,jbs,nblks_c, is,ie, 2)
        z_tv_c  (is:ie,:,jb) = pt_diag%tempv (is:ie,:,jb)
        z_tvp_c (is:ie,:,jb) = pt_diag%tempv (is:ie,:,jb)
        z_geo_mc(is:ie,:,jb) = pt_diag%geo_mc(is:ie,:,jb)
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
   ENDIF
 
@@ -477,12 +481,12 @@ ENDIF
 
   jbs = pt_patch%edges%start_blk(grf_bdywidth_e+1,1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = jbs,nblks_e
       CALL get_indices_e(pt_patch, jb,jbs,nblks_e, is,ie, grf_bdywidth_e+1)
       p_ddt_vn(is:ie,:,jb) = p_ddt_vn(is:ie,:,jb) - z_tmp_e(is:ie,:,jb)
    ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 !=====================================================================
@@ -509,7 +513,7 @@ IF (.NOT.lshallow_water) THEN
 
    jbs = pt_patch%cells%start_blk(2,1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,is,ie,jk,jkp)
+!$OMP DO PRIVATE(jb,is,ie,jk,jkp) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = jbs, nblks_c
       CALL get_indices_c(pt_patch, jb,jbs,nblks_c, is,ie, 2)
       DO jk = nplvp1, nlev
@@ -518,7 +522,7 @@ IF (.NOT.lshallow_water) THEN
                               - pt_diag%rdalpha_c(is:ie,jk ,jb)
       ENDDO
    ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
    CALL grad_fd_norm( z_rlp_c, pt_patch, z_tmp_e, nplvp1, opt_rlstart=4 )
@@ -529,7 +533,7 @@ IF (.NOT.lshallow_water) THEN
 
 !$OMP PARALLEL PRIVATE(jbs)
    jbs = pt_patch%edges%start_blk(grf_bdywidth_e+1,1)
-!$OMP DO PRIVATE(jb,is,ie,jk)
+!$OMP DO PRIVATE(jb,is,ie,jk) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = jbs,nblks_e
       CALL get_indices_e(pt_patch, jb,jbs,nblks_e, is,ie, grf_bdywidth_e+1)
 
@@ -546,7 +550,7 @@ IF (.NOT.lshallow_water) THEN
 ! Part I: vn*[Rd*T/p*grad(p)]. Use the grad(lnp) calculated above.
 
    jbs = pt_patch%edges%start_blk(4,1)
-!$OMP DO PRIVATE(jb,is,ie,jk)
+!$OMP DO PRIVATE(jb,is,ie,jk) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = jbs,nblks_e
       CALL get_indices_e(pt_patch, jb,jbs,nblks_e, is,ie, 4)
 
@@ -560,7 +564,7 @@ IF (.NOT.lshallow_water) THEN
                                 *z_tmp_e(is:ie,jk,jb)
       ENDDO
    ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 ! Interpolation from edges to cell centers
@@ -589,7 +593,7 @@ IF (.NOT.lshallow_water) THEN
 
 !$OMP PARALLEL  PRIVATE(jbs)
    jbs = pt_patch%cells%start_blk(3,1)
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = jbs,nblks_c
       CALL get_indices_c(pt_patch, jb,jbs,nblks_c, is,ie, 3)
       z_tmp_c(is:ie,:,jb) = z_tmp_c(is:ie,:,jb) * pt_diag%rdelp_c(is:ie,:,jb)
@@ -600,7 +604,7 @@ IF (.NOT.lshallow_water) THEN
 ! Part II: Rd*T/p *[ p-tendency + vertical-adv ]
 
    jbs = pt_patch%cells%start_blk(3,1)
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = jbs,nblks_c
       CALL get_indices_c(pt_patch, jb,jbs,nblks_c, is,ie, 3)
 
@@ -616,23 +620,23 @@ IF (.NOT.lshallow_water) THEN
    jbs = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
    IF (lseparate) THEN !Provide the fast and slow components separately
 
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = jbs,nblks_c
         CALL get_indices_c(pt_patch, jb,jbs,nblks_c, is,ie, grf_bdywidth_c+1)
         p_ddt_temp(is:ie,:,jb) = p_ddt_temp(is:ie,:,jb) + z_tmp_c(is:ie,:,jb)*rcpd
         opt_ddt_temp_fast(is:ie,:,jb) = z_fast(is:ie,:,jb)*rcpd
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 
   ELSE !Add both fast and slow components to the tendency state
 
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = jbs,nblks_c
      CALL get_indices_c(pt_patch, jb,jbs,nblks_c, is,ie, grf_bdywidth_c+1)
      p_ddt_temp(is:ie,:,jb) = p_ddt_temp(is:ie,:,jb) &
                             + ( z_tmp_c(is:ie,:,jb) + z_fast(is:ie,:,jb) )*rcpd
    ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 
   ENDIF
 !$OMP END PARALLEL

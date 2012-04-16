@@ -35,6 +35,10 @@
 !! software.
 !!
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
 MODULE mo_ha_diagnostics
 
   USE mo_kind,               ONLY: wp
@@ -270,7 +274,7 @@ MODULE mo_ha_diagnostics
 
 #ifndef __SUNPRO_F95
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jc,z_help)
+!$OMP DO PRIVATE(jb,nlen,jc,z_help) ICON_OMP_DEFAULT_SCHEDULE
 #endif
       DO jb = 1, nblks_c
 
@@ -289,7 +293,7 @@ MODULE mo_ha_diagnostics
       ENDDO
 #ifndef __SUNPRO_F95
 !$OMP END DO
-!$OMP DO PRIVATE(jb,nlen,jk,jc)
+!$OMP DO PRIVATE(jb,nlen,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
 #endif
       DO jb = 1, nblks_c
 
@@ -322,7 +326,7 @@ MODULE mo_ha_diagnostics
         DO jt=1, ntracer
 
 #ifndef __SUNPRO_F95
-!$OMP DO PRIVATE(jb,jk,jc,nlen)
+!$OMP DO PRIVATE(jb,jk,jc,nlen) ICON_OMP_DEFAULT_SCHEDULE
 #endif
           DO jb = 1, nblks_c
 
@@ -342,7 +346,7 @@ MODULE mo_ha_diagnostics
           ENDDO
 
 #ifndef __SUNPRO_F95
-!$OMP END DO
+!$OMP END DO NOWAIT
 #endif
 
         ENDDO  ! ntracer

@@ -56,6 +56,10 @@
 !! software.
 !!
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
 MODULE mo_hdiff
 
   USE mo_kind,                ONLY: wp
@@ -227,7 +231,7 @@ MODULE mo_hdiff
        min_diffu  = diffusion_config(k_jg)%k2/SQRT(3._wp)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,dvn_cell,dvt_cell,dvn_vert,dvt_vert)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,dvn_cell,dvt_cell,dvn_vert,dvt_vert) ICON_OMP_DEFAULT_SCHEDULE
          DO jb = i_startblk,i_endblk
 
            CALL get_indices_e(pt_patch, jb, i_startblk, i_endblk, &
@@ -294,7 +298,7 @@ MODULE mo_hdiff
              MAX(0._wp,kh_smag_e(i_startidx:i_endidx,:,jb) - diffusion_config(k_jg)%k4)
 
          ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
          ! a.3) Interpolate diffusion coefficient to cell midpoints
@@ -339,7 +343,7 @@ MODULE mo_hdiff
            i_startblk = pt_patch%cells%start_blk(1,1)
            i_endblk   = pt_patch%cells%end_blk(min_rlcell,i_nchdom)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk) ICON_OMP_DEFAULT_SCHEDULE
            DO jb = i_startblk,i_endblk
 
              CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -353,7 +357,7 @@ MODULE mo_hdiff
                  pt_diag%delp_c(i_startidx:i_endidx,jk,jb)
              ENDDO
            ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
            CALL nabla2_scalar( aux_cell, pt_patch, pt_int, z_cell_val, &
@@ -391,7 +395,7 @@ MODULE mo_hdiff
            i_startblk = pt_patch%cells%start_blk(1,1)
            i_endblk   = pt_patch%cells%end_blk(min_rlcell,i_nchdom)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk) ICON_OMP_DEFAULT_SCHEDULE
            DO jb = i_startblk,i_endblk
 
              CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -405,7 +409,7 @@ MODULE mo_hdiff
                   pt_diag%delp_c(i_startidx:i_endidx,jk,jb)
               ENDDO
            ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
            CALL nabla4_scalar( aux_cell, pt_patch, pt_int, z_cell_val, &
@@ -438,7 +442,7 @@ MODULE mo_hdiff
 
            diff_multfac = 1._wp/SQRT(3._wp)*diffusion_config(k_jg)%k2
 
-!$OMP DO PRIVATE(jb,jk)
+!$OMP DO PRIVATE(jb,jk) ICON_OMP_DEFAULT_SCHEDULE
            DO jb = i_startblk,i_endblk
 
              CALL get_indices_e(pt_patch, jb, i_startblk, i_endblk, &
@@ -468,7 +472,7 @@ MODULE mo_hdiff
 
 ! OpenMP parallelization is done over jk for boundary diffusion because it affects
 ! only few blocks
-!$OMP DO PRIVATE(jk)
+!$OMP DO PRIVATE(jk) ICON_OMP_DEFAULT_SCHEDULE
              DO jk = 1, nlev
                pt_new%vn(i_startidx:i_endidx,jk,jb) =   &
                  pt_new%vn(i_startidx:i_endidx,jk,jb) + &
@@ -505,7 +509,7 @@ MODULE mo_hdiff
             i_startblk = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
             i_endblk   = pt_patch%cells%end_blk(min_rlcell,i_nchdom)
 
-!$OMP DO PRIVATE(jb,jk)
+!$OMP DO PRIVATE(jb,jk) ICON_OMP_DEFAULT_SCHEDULE
             DO jb = i_startblk,i_endblk
 
               CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -527,7 +531,7 @@ MODULE mo_hdiff
             i_startblk = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
             i_endblk   = pt_patch%cells%end_blk(min_rlcell,i_nchdom)
 
-!$OMP DO PRIVATE(jb,jk)
+!$OMP DO PRIVATE(jb,jk) ICON_OMP_DEFAULT_SCHEDULE
             DO jb = i_startblk,i_endblk
 
               CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -559,14 +563,14 @@ MODULE mo_hdiff
 
 ! OpenMP parallelization is done over jk for boundary diffusion because it affects
 ! only few blocks
-!$OMP DO PRIVATE(jk)
+!$OMP DO PRIVATE(jk) ICON_OMP_DEFAULT_SCHEDULE
              DO jk = 1, nlev
                pt_new%temp(i_startidx:i_endidx,jk,jb) =   &
                  pt_new%temp(i_startidx:i_endidx,jk,jb) + &
                  z_cell_val(i_startidx:i_endidx,jk,jb) * &
                  pt_patch%cells%area(i_startidx:i_endidx,jb)*fac_bdydiff_c
              ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
            ENDDO
 
         ELSE IF (grf_intmethod_c == 1 .AND. diffusion_config(k_jg)%lhdiff_temp &
@@ -583,7 +587,7 @@ MODULE mo_hdiff
 
 ! OpenMP parallelization is done over jk for boundary diffusion because it affects
 ! only few blocks
-!$OMP DO PRIVATE(jk)
+!$OMP DO PRIVATE(jk) ICON_OMP_DEFAULT_SCHEDULE
              DO jk = 1, nlev
                pt_new%theta(i_startidx:i_endidx,jk,jb) =   &
                  pt_new%theta(i_startidx:i_endidx,jk,jb) + &
@@ -591,7 +595,7 @@ MODULE mo_hdiff
                  pt_patch%cells%area(i_startidx:i_endidx,jb)* &
                  pt_diag%delp_c(i_startidx:i_endidx,jk,jb)*fac_bdydiff_c
              ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
            ENDDO
 
         ENDIF ! temperature boundary diffusion
@@ -631,7 +635,7 @@ MODULE mo_hdiff
 
          i_startblk = pt_patch%edges%start_blk(3,1)
          i_endblk   = pt_patch%edges%end_blk(min_rledge,1)
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
          DO jb = i_startblk, i_endblk
            CALL get_indices_e(pt_patch, jb, i_startblk, i_endblk, &
            &                  i_startidx, i_endidx, 3, min_rledge)
@@ -689,7 +693,7 @@ MODULE mo_hdiff
              ENDDO
            ENDDO
          ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
          CALL sync_patch_array(SYNC_E, pt_patch, kh_smag_e)
@@ -700,7 +704,7 @@ MODULE mo_hdiff
 !$OMP PARALLEL
          i_startblk = pt_patch%edges%start_blk(3,1)
          i_endblk   = pt_patch%edges%end_blk(min_rledge,1)
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
          DO jb = i_startblk,i_endblk
            CALL get_indices_e(pt_patch, jb, i_startblk, i_endblk, &
            &                  i_startidx, i_endidx, 3, min_rledge)
@@ -732,7 +736,7 @@ MODULE mo_hdiff
              ENDDO
            ENDDO
          ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
          IF (diffusion_config(k_jg)%lhdiff_temp) THEN
@@ -742,7 +746,7 @@ MODULE mo_hdiff
            i_startblk = pt_patch%cells%start_blk(2,1)
            i_endblk   = pt_patch%cells%end_blk(min_rlcell,1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,je,zhelp,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jk,jc,je,zhelp,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
            DO jb = i_startblk,i_endblk
            CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
            &                  i_startidx, i_endidx, 2, min_rlcell)
@@ -773,7 +777,7 @@ MODULE mo_hdiff
 !$OMP END DO
            i_startblk = pt_patch%verts%start_blk(2,1)
            i_endblk   = pt_patch%verts%end_blk(min_rlvert,1)
-!$OMP DO PRIVATE(jb,jk,jv,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jk,jv,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
            DO jb = i_startblk,i_endblk
            CALL get_indices_v(pt_patch, jb, i_startblk, i_endblk, &
            &                  i_startidx, i_endidx, 2, min_rlvert)
@@ -806,7 +810,7 @@ MODULE mo_hdiff
                ENDDO
              ENDDO
            ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
          ENDIF
@@ -814,7 +818,7 @@ MODULE mo_hdiff
          i_startblk = pt_patch%edges%start_blk(3,1)
          i_endblk   = pt_patch%edges%end_blk(min_rledge,1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
          DO jb = i_startblk,i_endblk
            CALL get_indices_e(pt_patch, jb, i_startblk, i_endblk, &
            &                  i_startidx, i_endidx, 3, min_rledge)
@@ -837,7 +841,7 @@ MODULE mo_hdiff
              ENDDO
            ENDDO
          ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
          IF(diffusion_config(k_jg)%lhdiff_temp) THEN
@@ -847,7 +851,7 @@ MODULE mo_hdiff
              i_startblk = pt_patch%cells%start_blk(2,1)
              i_endblk   = pt_patch%cells%end_blk(min_rlcell,1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,jk,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
              DO jb = i_startblk,i_endblk
                CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
                &                  i_startidx, i_endidx, 2, min_rlcell)
@@ -860,7 +864,7 @@ MODULE mo_hdiff
                  &             /pt_diag%delp_c(i_startidx:i_endidx,jk,jb)
                ENDDO
              ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
            ENDIF
          ENDIF
@@ -882,7 +886,7 @@ MODULE mo_hdiff
 
            diff_multfac = diffusion_config(k_jg)%k4/3._wp
 
-!$OMP DO PRIVATE(jb,jk)
+!$OMP DO PRIVATE(jb,jk) ICON_OMP_DEFAULT_SCHEDULE
            DO jb = i_startblk,i_endblk
 
              CALL get_indices_e(pt_patch, jb, i_startblk, i_endblk, &
@@ -913,7 +917,7 @@ MODULE mo_hdiff
 
 ! OpenMP parallelization is done over jk for boundary diffusion because it affects
 ! only few blocks
-!$OMP DO PRIVATE(jk)
+!$OMP DO PRIVATE(jk) ICON_OMP_DEFAULT_SCHEDULE
              DO jk = 1, nlev
                pt_new%vn(i_startidx:i_endidx,jk,jb) =   &
                  pt_new%vn(i_startidx:i_endidx,jk,jb) + &
@@ -952,7 +956,7 @@ MODULE mo_hdiff
 
           IF (.NOT.ltheta_dyn) THEN
 
-!$OMP DO PRIVATE(jb,jk)
+!$OMP DO PRIVATE(jb,jk) ICON_OMP_DEFAULT_SCHEDULE
             DO jb = i_startblk,i_endblk
 
               CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -970,7 +974,7 @@ MODULE mo_hdiff
 
           ELSEIF (ltheta_dyn) THEN
 
-!$OMP DO PRIVATE(jb,jk)
+!$OMP DO PRIVATE(jb,jk) ICON_OMP_DEFAULT_SCHEDULE
             DO jb = i_startblk,i_endblk
 
               CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -1003,14 +1007,14 @@ MODULE mo_hdiff
 
 ! OpenMP parallelization is done over jk for boundary diffusion because it affects
 ! only few blocks
-!$OMP DO PRIVATE(jk)
+!$OMP DO PRIVATE(jk) ICON_OMP_DEFAULT_SCHEDULE
              DO jk = 1, nlev
                pt_new%temp(i_startidx:i_endidx,jk,jb) =   &
                  pt_new%temp(i_startidx:i_endidx,jk,jb) + &
                  z_nabla2_c(i_startidx:i_endidx,jk,jb) * &
                  pt_patch%cells%area(i_startidx:i_endidx,jb)*fac_bdydiff_c
              ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
            ENDDO
 
         ELSE IF (grf_intmethod_c == 1 .AND. diffusion_config(k_jg)%lhdiff_temp &
@@ -1027,7 +1031,7 @@ MODULE mo_hdiff
 
 ! OpenMP parallelization is done over jk for boundary diffusion because it affects
 ! only few blocks
-!$OMP DO PRIVATE(jk)
+!$OMP DO PRIVATE(jk) ICON_OMP_DEFAULT_SCHEDULE
              DO jk = 1, nlev
                pt_new%theta(i_startidx:i_endidx,jk,jb) =   &
                  pt_new%theta(i_startidx:i_endidx,jk,jb) + &
@@ -1035,7 +1039,7 @@ MODULE mo_hdiff
                  pt_patch%cells%area(i_startidx:i_endidx,jb)* &
                  pt_diag%delp_c(i_startidx:i_endidx,jk,jb)*fac_bdydiff_c
              ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
            ENDDO
 
         ENDIF ! temperature boundary diffusion
@@ -1058,7 +1062,7 @@ MODULE mo_hdiff
 
            diff_multfac = diffusion_config(k_jg)%k4/3._wp
 
-!$OMP DO PRIVATE(jb,jk)
+!$OMP DO PRIVATE(jb,jk) ICON_OMP_DEFAULT_SCHEDULE
            DO jb = i_startblk,i_endblk
 
              CALL get_indices_e(pt_patch, jb, i_startblk, i_endblk, &
@@ -1092,7 +1096,7 @@ MODULE mo_hdiff
 
 ! OpenMP parallelization is done over jk for boundary diffusion because it affects
 ! only few blocks
-!$OMP DO PRIVATE(jk)
+!$OMP DO PRIVATE(jk) ICON_OMP_DEFAULT_SCHEDULE
              DO jk = 1, nlev
                pt_new%vn(i_startidx:i_endidx,jk,jb) =   &
                  pt_new%vn(i_startidx:i_endidx,jk,jb) + &
@@ -1128,7 +1132,7 @@ MODULE mo_hdiff
              !diff_multfac = hdiff_tv_ratio*diffusion_config(k_jg)%k4*16._wp/9._wp
            END SELECT
 
-!$OMP DO PRIVATE(jb,jk)
+!$OMP DO PRIVATE(jb,jk) ICON_OMP_DEFAULT_SCHEDULE
            DO jb = i_startblk,i_endblk
 
              CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -1166,7 +1170,7 @@ MODULE mo_hdiff
              !diff_multfac = hdiff_tv_ratio*diffusion_config(k_jg)%k4*16._wp/9._wp
            END SELECT
 
-!$OMP DO PRIVATE(jb,jk)
+!$OMP DO PRIVATE(jb,jk) ICON_OMP_DEFAULT_SCHEDULE
            DO jb = i_startblk,i_endblk
 
              CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -1200,14 +1204,14 @@ MODULE mo_hdiff
 
 ! OpenMP parallelization is done over jk for boundary diffusion because it affects
 ! only few blocks
-!$OMP DO PRIVATE(jk)
+!$OMP DO PRIVATE(jk) ICON_OMP_DEFAULT_SCHEDULE
              DO jk = 1, nlev
                pt_new%temp(i_startidx:i_endidx,jk,jb) =   &
                  pt_new%temp(i_startidx:i_endidx,jk,jb) + &
                  z_nabla2_c(i_startidx:i_endidx,jk,jb) * &
                  pt_patch%cells%area(i_startidx:i_endidx,jb)*fac_bdydiff_c
              ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
            ENDDO
 
         ELSE IF (grf_intmethod_c == 1 .AND. diffusion_config(k_jg)%lhdiff_temp &
@@ -1224,7 +1228,7 @@ MODULE mo_hdiff
 
 ! OpenMP parallelization is done over jk for boundary diffusion because it affects
 ! only few blocks
-!$OMP DO PRIVATE(jk)
+!$OMP DO PRIVATE(jk) ICON_OMP_DEFAULT_SCHEDULE
              DO jk = 1, nlev
                pt_new%theta(i_startidx:i_endidx,jk,jb) =   &
                  pt_new%theta(i_startidx:i_endidx,jk,jb) + &
@@ -1232,7 +1236,7 @@ MODULE mo_hdiff
                  pt_patch%cells%area(i_startidx:i_endidx,jb)* &
                  pt_diag%delp_c(i_startidx:i_endidx,jk,jb)*fac_bdydiff_c
              ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
            ENDDO
 
         ENDIF ! temperature boundary diffusion

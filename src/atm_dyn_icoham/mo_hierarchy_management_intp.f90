@@ -45,6 +45,10 @@
 !! software.
 !!
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
 MODULE mo_hierarchy_management_intp
 !-------------------------------------------------------------------------
 !
@@ -620,7 +624,7 @@ ENDIF
 i_startblk = p_gcc%start_blk(3,1)
 i_endblk   = p_gcc%end_blk(min_rlcell_int,i_nchdom)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_c(p_pc, jb, i_startblk, i_endblk, &
@@ -657,7 +661,7 @@ ENDDO
 i_startblk = p_gec%start_blk(4,1)
 i_endblk   = p_gec%end_blk(min_rledge_int-1,i_nchdom)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_e(p_pc, jb, i_startblk, i_endblk, &
@@ -680,7 +684,7 @@ i_startblk = p_gcp%start_blk(grf_fbk_start_c,i_chidx)
 i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
 
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
@@ -710,7 +714,7 @@ ENDDO
 i_startblk = p_patch(jgp)%cells%start_blk(grf_fbk_start_c,i_chidx)
 i_endblk   = p_patch(jgp)%cells%end_blk(min_rlcell_int,i_chidx)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
   parent_tend(:,jb) = 0._wp
@@ -725,7 +729,7 @@ DO jb = i_startblk, i_endblk
   ! Sum must be taken over inner domain only, the halos must be masked out!
   WHERE(.NOT.p_patch(jgp)%cells%owner_mask(:,jb)) parent_tend(:,jb) = 0._wp
 ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 ! compute correction for global mass conservation
@@ -745,7 +749,7 @@ ENDIF
 i_startblk = p_gcp%start_blk(grf_fbk_start_c,i_chidx)
 i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
@@ -776,7 +780,7 @@ IF (ltransport) THEN
 
 DO jt = 1, ntracer
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
@@ -805,7 +809,7 @@ IF (.NOT. l_parallel) THEN
 
   ! Add feedback tendencies to prognostic variables on parent grid
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, &
@@ -825,7 +829,7 @@ IF (.NOT. l_parallel) THEN
         feedback_tracer_tend(i_startidx:i_endidx,1:nlev,jb,1:ntracer)
     ENDIF
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 
 ENDIF
 !$OMP END PARALLEL
@@ -854,7 +858,7 @@ IF (grf_velfbk == 1) THEN ! Averaging weighted with child edge lenghts
   i_startblk = p_gep%start_blk(grf_fbk_start_e,i_chidx)
   i_endblk   = p_gep%end_blk(min_rledge_int,i_chidx)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
@@ -881,7 +885,7 @@ ELSE IF (grf_velfbk == 2) THEN ! Second-order interpolation of normal velocities
   i_startblk = p_gec%start_blk(4,1)
   i_endblk   = p_gec%end_blk(min_rledge,i_nchdom)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_e(p_pc, jb, i_startblk, i_endblk, &
@@ -910,7 +914,7 @@ ELSE IF (grf_velfbk == 2) THEN ! Second-order interpolation of normal velocities
   i_endblk   = p_gep%end_blk(min_rledge_int,i_chidx)
 
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
@@ -940,7 +944,7 @@ IF (.NOT. l_parallel) THEN
 
   ! Add feedback tendencies to prognostic variables on parent grid
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
@@ -951,7 +955,7 @@ IF (.NOT. l_parallel) THEN
       feedback_vn_tend(i_startidx:i_endidx,1:nlev,jb)
 
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 
 ENDIF
 

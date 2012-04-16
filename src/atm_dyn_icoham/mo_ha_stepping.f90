@@ -37,6 +37,10 @@
 !! software.
 !!
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
 MODULE mo_ha_stepping
 
   USE mo_kind,                ONLY: wp
@@ -261,7 +265,7 @@ CONTAINS
       p_vn => p_hydro_state(1)%prog(nnow(1))%vn
       vnmax = -HUGE(vnmax)
 #if (!defined __xlC__) && (defined _OPENMP)
-!$OMP PARALLEL DO PRIVATE(jb)
+!$OMP PARALLEL DO PRIVATE(jb) ICON_OMP_DEFAULT_SCHEDULE
 ! GZ: The reduction operation that used to be here tended to be slow, this one seems to be faster
       DO jb = 1, p_patch(1)%nblks_e
         vn_aux(jb) = MAXVAL(ABS(p_vn(:,:,jb)))

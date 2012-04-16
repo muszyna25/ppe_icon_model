@@ -39,6 +39,10 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
 MODULE mo_hdiff_hyb_lin
 
   USE mo_kind,              ONLY: wp
@@ -180,7 +184,7 @@ CONTAINS
       jbs = patch%cells%start_blk(1,1)
       jbe = patch%cells%end_blk(min_rlcell,nchilddom)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = jbs,jbe 
         CALL get_indices_c(patch,jb,jbs,jbe,is,ie,1,min_rlcell)
         ! Note: we use delp_c here because convert_t2theta/convert_theta2t
@@ -188,7 +192,7 @@ CONTAINS
         ztmp_c(is:ie,:,jb) =  prog%theta (is:ie,:,jb) &
                            & /diag%delp_c(is:ie,:,jb)
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
       CALL nabla2_scalar( ztmp_c, patch, pint, znabla_c,      &
                           opt_slev=ik2s,  opt_elev=ik2e,      &
@@ -212,7 +216,7 @@ CONTAINS
       jbs = patch%edges%start_blk(grf_bdywidth_e+1,1)
       jbe = patch%edges%end_blk(min_rledge,nchilddom)
 
-!$OMP DO PRIVATE(jb,jk)
+!$OMP DO PRIVATE(jb,jk) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = jbs,jbe
         CALL get_indices_e(patch,jb,jbs,jbe,is,ie,grf_bdywidth_e+1,min_rledge)
 
@@ -241,7 +245,7 @@ CONTAINS
 
       IF (.NOT.ltheta_dyn) THEN !---- temperature -----
 
-!$OMP DO PRIVATE(jb,jk)
+!$OMP DO PRIVATE(jb,jk) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = jbs,jbe
           CALL get_indices_c(patch,jb,jbs,jbe,is,ie,grf_bdywidth_c+1, min_rlcell)
 
@@ -261,7 +265,7 @@ CONTAINS
 
       ELSE !---- potential temperature -----
 
-!$OMP DO PRIVATE(jb,jk)
+!$OMP DO PRIVATE(jb,jk) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = jbs,jbe
           CALL get_indices_c(patch,jb,jbs,jbe,is,ie,grf_bdywidth_c+1, min_rlcell)
 
@@ -306,14 +310,14 @@ CONTAINS
       DO jb = jbs,jbe
         CALL get_indices_e(patch,jb,jbs,jbe,is,ie,start_bdydiff_e, grf_bdywidth_e)
 
-!$OMP DO PRIVATE(jk)
+!$OMP DO PRIVATE(jk) ICON_OMP_DEFAULT_SCHEDULE
         DO jk = ik2s,ik2e
           prog%vn(is:ie,jk,jb) =  prog%vn(is:ie,jk,jb)                &
                                & +znabla_e(is:ie,jk,jb)*fac_bdydiff_e &
                                & *patch%edges%area_edge(is:ie,jb)
         ENDDO !jk
 !$OMP END DO
-!$OMP DO PRIVATE(jk)
+!$OMP DO PRIVATE(jk) ICON_OMP_DEFAULT_SCHEDULE
         DO jk = ik4s,ik4e
           prog%vn(is:ie,jk,jb) =  prog%vn(is:ie,jk,jb)                 &
                                & +znabla2_e(is:ie,jk,jb)*fac_bdydiff_e &
@@ -341,20 +345,20 @@ CONTAINS
         DO jb = jbs,jbe
           CALL get_indices_c(patch,jb,jbs,jbe,is,ie,start_bdydiff_c,grf_bdywidth_c)
 
-!$OMP DO PRIVATE(jk)
+!$OMP DO PRIVATE(jk) ICON_OMP_DEFAULT_SCHEDULE
           DO jk = ik2s,ik2e
             prog%temp(is:ie,jk,jb) =  prog%temp(is:ie,jk,jb)              &
                                    & +znabla_c(is:ie,jk,jb)*fac_bdydiff_c &
                                    & *patch%cells%area(is:ie,jb)
           ENDDO
 !$OMP END DO
-!$OMP DO PRIVATE(jk)
+!$OMP DO PRIVATE(jk) ICON_OMP_DEFAULT_SCHEDULE
           DO jk = ik4s,ik4e
             prog%temp(is:ie,jk,jb) =  prog%temp(is:ie,jk,jb)               &
                                    & +znabla2_c(is:ie,jk,jb)*fac_bdydiff_c &
                                    & *patch%cells%area(is:ie,jb)
           ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 
         ENDDO !jb
 
@@ -363,7 +367,7 @@ CONTAINS
         DO jb = jbs,jbe
           CALL get_indices_c(patch,jb,jbs,jbe,is,ie,start_bdydiff_c,grf_bdywidth_c)
 
-!$OMP DO PRIVATE(jk)
+!$OMP DO PRIVATE(jk) ICON_OMP_DEFAULT_SCHEDULE
           DO jk = ik2s,ik2e
             prog%theta(is:ie,jk,jb) =  prog%theta(is:ie,jk,jb)             &
                                     & +znabla_c(is:ie,jk,jb)*fac_bdydiff_c &
@@ -371,14 +375,14 @@ CONTAINS
                                     & *diag%delp_c(is:ie,jk,jb)
           ENDDO
 !$OMP END DO
-!$OMP DO PRIVATE(jk)
+!$OMP DO PRIVATE(jk) ICON_OMP_DEFAULT_SCHEDULE
           DO jk = ik4s,ik4e
             prog%theta(is:ie,jk,jb) =  prog%theta(is:ie,jk,jb)              &
                                     & +znabla2_c(is:ie,jk,jb)*fac_bdydiff_c &
                                     & *patch%cells%area(is:ie,jb)           &
                                     & *diag%delp_c(is:ie,jk,jb)
           ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 
         ENDDO
       ENDIF ! temperature or potential temperature

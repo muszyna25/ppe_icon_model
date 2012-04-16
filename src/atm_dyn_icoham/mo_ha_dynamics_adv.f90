@@ -34,6 +34,10 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
 MODULE mo_ha_dynamics_adv
 
   USE mo_kind,               ONLY: wp
@@ -122,7 +126,7 @@ CONTAINS
 
 !$OMP PARALLEL PRIVATE(jbs)
    jbs = pt_patch%edges%start_blk(grf_bdywidth_e+1,1)
-!$OMP DO PRIVATE(jb,is,ie,jk,jkp)
+!$OMP DO PRIVATE(jb,is,ie,jk,jkp) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = jbs,nblks_e
       CALL get_indices_e(pt_patch, jb,jbs,nblks_e, is,ie, grf_bdywidth_e+1)
 
@@ -148,7 +152,7 @@ CONTAINS
                                *0.5_wp
       ENDDO
    ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
   END SUBROUTINE vn_adv_vertical
 
@@ -191,7 +195,7 @@ CONTAINS
 
 !$OMP PARALLEL  PRIVATE(jbs)
   jbs = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
-!$OMP DO PRIVATE(jb,is,ie,jk,jkp)
+!$OMP DO PRIVATE(jb,is,ie,jk,jkp) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = jbs,nblks_c
      CALL get_indices_c(pt_patch, jb,jbs,nblks_c, is,ie, grf_bdywidth_c+1)
 
@@ -208,7 +212,7 @@ CONTAINS
                                  + z_tmp_c(is:ie,1:nlev,jb)     &
                                   *p_rdelp(is:ie,1:nlev,jb)*0.5_wp
    ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
   END SUBROUTINE temp_adv_vertical
 
@@ -255,12 +259,12 @@ CONTAINS
 
    jbs = pt_patch%edges%start_blk(2,1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = jbs,nblks_e
       CALL get_indices_e(pt_patch, jb,jbs,nblks_e, is,ie, 2)
       z_flux_e(is:ie,:,jb) = z_temp_e(is:ie,:,jb)*p_mflux_e(is:ie,:,jb)
    ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   SELECT CASE(idiv_method)
@@ -275,7 +279,7 @@ CONTAINS
 
    jbs = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = jbs,nblks_c
       CALL get_indices_c(pt_patch, jb,jbs,nblks_c, is,ie, grf_bdywidth_c+1)
 
@@ -285,7 +289,7 @@ CONTAINS
                                 -p_mdiv(is:ie,:,jb)*p_temp(is:ie,:,jb) )
 
    ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
   END SUBROUTINE temp_adv_horizontal
 
@@ -378,13 +382,13 @@ CASE(3)
 
   jbs = pt_patch%edges%start_blk(2,1) !for rbf_vec_dim_edge==4
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = 1,nblks_e
      CALL get_indices_e(pt_patch, jb,jbs,nblks_e, is,ie, 2)
      z_tmp_e(is:ie,:,jb) = 0.5_wp*( p_vt(is:ie,:,jb)*p_vt(is:ie,:,jb) &
                                    +p_vn(is:ie,:,jb)*p_vn(is:ie,:,jb) )
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   CALL edges2cells_scalar( z_tmp_e, pt_patch, pt_int%e_bln_c_s,  &
@@ -419,7 +423,7 @@ CASE(3)
   jbs = pt_patch%edges%start_blk(rl_start,1)
   jbe = pt_patch%edges%end_blk(rl_end,i_nchdom)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,is,ie,jk)
+!$OMP DO PRIVATE(jb,is,ie,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = jbs,jbe
      CALL get_indices_e(pt_patch, jb,jbs,jbe, is,ie, rl_start,rl_end)
 
@@ -432,7 +436,7 @@ CASE(3)
      !!HW: minus sign here because the tangential direction in the code is
      !!    in fact the opposite from what is written in BR05.
    ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 CASE(6)
@@ -444,7 +448,7 @@ CASE(6)
 ! and then interpolated to cell centers.
 !------------------------------------------------------------------
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen)
+!$OMP DO PRIVATE(jb,nlen) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = 1, nblks_e
 
      IF (jb /= nblks_e) THEN
@@ -455,7 +459,7 @@ CASE(6)
 
      z_tmp_e(1:nlen,:,jb) = 0.5_wp * p_vn(1:nlen,:,jb) * p_vn(1:nlen,:,jb)
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   CALL edges2cells_scalar( z_tmp_e, pt_patch, pt_int%e_inn_c, &! in
@@ -469,7 +473,7 @@ CASE(6)
     CALL verts2cells_scalar( z_tmp_v, pt_patch, pt_int%verts_aw_cells, &! in
                              z_tmp_c                             ) ! out,in
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk)
+!$OMP DO PRIVATE(jb,nlen,jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, nblks_c
       IF (jb /= nblks_c) THEN
         nlen = nproma
@@ -480,7 +484,7 @@ CASE(6)
         p_kin(1:nlen,jk,jb) = sick_o*p_kin(1:nlen,jk,jb)+sick_a*z_tmp_c(1:nlen,jk,jb)
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   ENDIF
@@ -493,7 +497,7 @@ CASE(6)
   ! Absolute potential vorticity at rhombi
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk)
+!$OMP DO PRIVATE(jb,nlen,jk) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = 1, nblks_e
     IF (jb /= nblks_e) THEN
       nlen = nproma
@@ -506,7 +510,7 @@ CASE(6)
                                    /p_delp_e(1:nlen,jk,jb)
     ENDDO
   ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   SELECT CASE (i_cori_method)
@@ -523,7 +527,7 @@ CASE(6)
       nincr = 10
     END SELECT
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk,ji,je)
+!$OMP DO PRIVATE(jb,nlen,jk,ji,je) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, nblks_e
       IF (jb /= nblks_e) THEN
         nlen = nproma
@@ -548,7 +552,7 @@ CASE(6)
         ENDDO
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   CASE (3) ! i_cori_method
@@ -575,7 +579,7 @@ CASE(6)
 
     ! third, multiply the absolute vorticities with the velocities,
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk)
+!$OMP DO PRIVATE(jb,nlen,jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, nblks_e
       IF (jb /= nblks_e) THEN
         nlen = nproma
@@ -588,7 +592,7 @@ CASE(6)
       ENDDO
     ENDDO
 !$OMP END DO
-!$OMP DO PRIVATE(jb,nlen,jk)
+!$OMP DO PRIVATE(jb,nlen,jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, nblks_c
       IF (jb /= nblks_c) THEN
         nlen = nproma
@@ -600,12 +604,12 @@ CASE(6)
         z_v_c(1:nlen,jk,jb) = z_v_c(1:nlen,jk,jb)*z_potvort_c(1:nlen,jk,jb)
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 !$OMP PARALLEL
     ! fourth, compute vorticity flux term
-!$OMP DO PRIVATE(jb,nlen,jk,je)
+!$OMP DO PRIVATE(jb,nlen,jk,je) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, nblks_e
       IF (jb /= nblks_e) THEN
         nlen = nproma
@@ -637,7 +641,7 @@ CASE(6)
         ENDDO
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   CASE(4) ! the same as i_cori_method=3 but instead edge PVs use corner PVs
@@ -666,7 +670,7 @@ CASE(6)
 
 !$OMP PARALLEL
     ! third, compute vorticity flux term
-!$OMP DO PRIVATE(jb,nlen,jk,je)
+!$OMP DO PRIVATE(jb,nlen,jk,je) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, nblks_e
       IF (jb /= nblks_e) THEN
         nlen = nproma
@@ -704,7 +708,7 @@ CASE(6)
         ENDDO
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SELECT ! i_cori_method
@@ -719,12 +723,12 @@ END SELECT
 
   jbs = pt_patch%edges%start_blk(grf_bdywidth_e+1,1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,is,ie)
+!$OMP DO PRIVATE(jb,is,ie) ICON_OMP_DEFAULT_SCHEDULE
    DO jb = jbs,nblks_e
       CALL get_indices_e(pt_patch, jb,jbs,nblks_e, is,ie, grf_bdywidth_e+1)
       p_ddt_vn(is:ie,:,jb) = p_ddt_vn(is:ie,:,jb) - z_tmp_e(is:ie,:,jb)
    ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
    END SUBROUTINE vn_adv_horizontal
