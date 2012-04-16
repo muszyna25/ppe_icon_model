@@ -176,13 +176,15 @@ SUBROUTINE nwp_turbulence ( tcall_turb_jg,                     & !>input
 
   INTEGER  :: icnt
   INTEGER  :: idummy_vdf(nproma)
-  REAL(wp) :: zdummy_vdf(nproma), zdummy_vdf2(nproma,p_patch%nlev), zdummy_vdf3(nproma,nlev_soil), &
-    &         zdummy_vdf4(nproma,nsfc_subs)
-  REAL(wp) :: z_omega_p(nproma,p_patch%nlev), zchar(nproma), zucurr(nproma), zvcurr(nproma),          &
-    &         zsoteu(nproma,p_patch%nlev), zsotev(nproma,p_patch%nlev), zsobeta(nproma,p_patch%nlev), &
-    &         sobs_t(nproma,nsfc_subs)   , shfl_s_t(nproma,nsfc_subs) , lhfl_s_t(nproma,nsfc_subs),   &
-    &         evap_s_t(nproma,nsfc_subs) , tskin_t(nproma,nsfc_subs)  , ustr_s_t(nproma,nsfc_subs),   &
-    &         vstr_s_t(nproma,nsfc_subs) , zae(nproma,p_patch%nlev)   , zvar(nproma,p_patch%nlev)
+  REAL(wp) :: zdummy_vdf(nproma), zdummy_vdf2(nproma,p_patch%nlev), &
+    &         zdummy_vdf3(nproma,nlev_soil), zdummy_vdf4(nproma,nsfc_subs)
+  REAL(wp) :: z_omega_p(nproma,p_patch%nlev), zchar(nproma), zucurr(nproma), zvcurr(nproma),  &
+    &         zsoteu(nproma,p_patch%nlev), zsotev(nproma,p_patch%nlev), &
+    &         zsobeta(nproma,p_patch%nlev), sobs_t(nproma,nsfc_subs),   &
+    &         shfl_s_t(nproma,nsfc_subs) , lhfl_s_t(nproma,nsfc_subs),  &
+    &         evap_s_t(nproma,nsfc_subs) , tskin_t(nproma,nsfc_subs),   &
+    &         ustr_s_t(nproma,nsfc_subs), vstr_s_t(nproma,nsfc_subs) ,  &
+    &         zae(nproma,p_patch%nlev)   , zvar(nproma,p_patch%nlev)
   LOGICAL  :: l_land(nproma)
 
   ! number of vertical levels
