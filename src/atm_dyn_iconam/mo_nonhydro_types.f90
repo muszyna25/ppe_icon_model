@@ -275,6 +275,8 @@ MODULE mo_nonhydro_types
    ! Height differences between local edge point and neighbor cell points used for
    ! pressure gradient computation (2,nproma,nlev,nblks_e)
    REAL(wp), POINTER :: zdiff_gradp(:,:,:,:)
+   ! Interpolation coefficients for cubic interpolation of Exner pressure (8,nproma,nlev,nblks_e)
+   REAL(wp), POINTER :: coeff_gradp(:,:,:,:)
    ! extrapolation factor for Exner pressure (slope-dependent for stability optimization) 
    ! (nproma,nlev,nblks_c)
    REAL(wp), POINTER :: exner_exfac(:,:,:)
@@ -393,6 +395,7 @@ MODULE mo_nonhydro_types
 
 
 END MODULE mo_nonhydro_types
+
 
 
 

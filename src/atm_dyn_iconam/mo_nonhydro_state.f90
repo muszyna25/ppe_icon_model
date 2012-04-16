@@ -63,7 +63,7 @@ MODULE mo_nonhydro_state
     &                                t_buffer_memory
   USE mo_opt_diagnostics,      ONLY: t_nh_diag_pz
   USE mo_grid_config,          ONLY: n_dom, l_limited_area
-  USE mo_nonhydrostatic_config,ONLY: itime_scheme, l_nest_rcf
+  USE mo_nonhydrostatic_config,ONLY: itime_scheme, l_nest_rcf, igradp_method
   USE mo_dynamics_config,      ONLY: nsav1, nsav2
   USE mo_parallel_config,      ONLY: nproma
   USE mo_run_config,           ONLY: iforcing, ntracer, ntracer_static,    &
@@ -1636,7 +1636,7 @@ MODULE mo_nonhydro_state
     INTEGER :: shape2d_c(2), shape3d_c(3), shape3d_e(3),               &
       &        shape3d_v(3), shape3d_chalf(3), shape3d_ehalf(3),       &
       &        shape2d_ccubed(3), shape2d_ecubed(3), shape3d_vhalf(3), & 
-      &        shape3d_esquared(4) 
+      &        shape3d_esquared(4), shape3d_e8(4)
     INTEGER :: ientr         !< "entropy" of horizontal slice
     INTEGER :: ist
     !--------------------------------------------------------------
@@ -1660,6 +1660,7 @@ MODULE mo_nonhydro_state
     shape3d_e        = (/nproma, nlev   , nblks_e    /)     
     shape3d_ehalf    = (/nproma, nlevp1 , nblks_e    /)     
     shape3d_esquared = (/2     , nproma , nlev   , nblks_e /)
+    shape3d_e8       = (/8     , nproma , nlev   , nblks_e /)
     shape3d_v        = (/nproma, nlev   , nblks_v    /)     
     shape3d_vhalf    = (/nproma, nlevp1 , nblks_v    /)
 
@@ -1949,17 +1950,28 @@ MODULE mo_nonhydro_state
                   & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
                   & ldims=shape3d_esquared, loutput=.FALSE. )
 
-
-      ! Height differences between local edge point and neighbor cell points used for
-      ! pressure gradient computation
-      ! zdiff_gradp  p_metrics%zdiff_gradp(2,nproma,nlev,nblks_e)
-      !
-      cf_desc    = t_cf_var('Height_differences', 'm',                          &
-      &                     'Height differences')
-      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE)
-      CALL add_var( p_metrics_list, 'zdiff_gradp', p_metrics%zdiff_gradp,       &
-                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
-                  & ldims=shape3d_esquared, loutput=.FALSE.  )
+      IF (igradp_method <= 3) THEN
+        ! Height differences between local edge point and neighbor cell points used for
+        ! pressure gradient computation
+        ! zdiff_gradp  p_metrics%zdiff_gradp(2,nproma,nlev,nblks_e)
+        !
+        cf_desc    = t_cf_var('Height_differences', 'm',                          &
+        &                     'Height differences')
+        grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE)
+        CALL add_var( p_metrics_list, 'zdiff_gradp', p_metrics%zdiff_gradp,       &
+                    & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
+                    & ldims=shape3d_esquared, loutput=.FALSE.  )
+      ELSE
+        ! Coefficients for cubic interpolation of Exner pressure
+        ! coeff_gradp  p_metrics%coeff_gradp(8,nproma,nlev,nblks_e)
+        !
+        cf_desc    = t_cf_var('Interpolation_coefficients', '-',                  &
+        &                     'Interpolation coefficients')
+        grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE)
+        CALL add_var( p_metrics_list, 'coeff_gradp', p_metrics%coeff_gradp,       &
+                    & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
+                    & ldims=shape3d_e8, loutput=.FALSE.  )
+      ENDIF
 
 
       ! Extrapolation factor for Exner pressure
@@ -2036,28 +2048,28 @@ MODULE mo_nonhydro_state
                   & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
                   & ldims=shape3d_chalf )
 
+      IF (igradp_method <= 3) THEN
+        ! Reference atmosphere field exner
+        ! d2dexdz2_fac1_mc  p_metrics%d2dexdz2_fac1_mc(nproma,nlev,nblks_c)
+        !
+        cf_desc    = t_cf_var('Reference_atmosphere_field_exner', '-',            &
+        &                     'Reference atmosphere field exner')
+        grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( p_metrics_list, 'd2dexdz2_fac1_mc', p_metrics%d2dexdz2_fac1_mc, &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,      &
+                    & ldims=shape3d_c )
 
-      ! Reference atmosphere field exner
-      ! d2dexdz2_fac1_mc  p_metrics%d2dexdz2_fac1_mc(nproma,nlev,nblks_c)
-      !
-      cf_desc    = t_cf_var('Reference_atmosphere_field_exner', '-',            &
-      &                     'Reference atmosphere field exner')
-      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_metrics_list, 'd2dexdz2_fac1_mc', p_metrics%d2dexdz2_fac1_mc, &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,      &
-                  & ldims=shape3d_c )
 
-
-      ! Reference atmosphere field exner
-      ! d2dexdz2_fac2_mc  p_metrics%d2dexdz2_fac2_mc(nproma,nlev,nblks_c)
-      !
-      cf_desc    = t_cf_var('Reference_atmosphere_field_exner', '-',            &
-      &                     'Reference atmosphere field exner')
-      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_metrics_list, 'd2dexdz2_fac2_mc', p_metrics%d2dexdz2_fac2_mc, &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,      &
-                  & ldims=shape3d_c )
-
+        ! Reference atmosphere field exner
+        ! d2dexdz2_fac2_mc  p_metrics%d2dexdz2_fac2_mc(nproma,nlev,nblks_c)
+        !
+        cf_desc    = t_cf_var('Reference_atmosphere_field_exner', '-',            &
+        &                     'Reference atmosphere field exner')
+        grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( p_metrics_list, 'd2dexdz2_fac2_mc', p_metrics%d2dexdz2_fac2_mc, &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,      &
+                    & ldims=shape3d_c )
+      ENDIF
 
       ! mask field that excludes boundary halo points
       ! mask_prog_halo_c  p_metrics%mask_prog_halo_c(nproma,nblks_c)
@@ -2219,6 +2231,8 @@ MODULE mo_nonhydro_state
   END SUBROUTINE add_var_list_reference_tracer
 
 END MODULE mo_nonhydro_state
+
+
 
 
 

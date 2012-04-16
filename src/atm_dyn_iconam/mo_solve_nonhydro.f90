@@ -550,7 +550,7 @@ MODULE mo_solve_nonhydro
     INTEGER  :: nlev, nlevp1              !< number of full levels
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER  :: rl_start, rl_end, istep, ntl1, ntl2, nvar, nshift
-    INTEGER  :: ic, ie, ilc0, ibc0
+    INTEGER  :: ic, ie, ilc0, ibc0, ikp1, ikp2
 
     REAL(wp) :: z_theta_v_fl_e  (nproma,p_patch%nlev  ,p_patch%nblks_e), &
                 z_theta_v_e     (nproma,p_patch%nlev  ,p_patch%nblks_e), &
@@ -569,7 +569,7 @@ MODULE mo_solve_nonhydro
                 z_theta_v_fl_div(nproma,p_patch%nlev  ,p_patch%nblks_c), &
                 z_th_ddz_exner_c(nproma,p_patch%nlev  ,p_patch%nblks_c), &
                 z_dexner_dz_c (2,nproma,p_patch%nlev  ,p_patch%nblks_c), &
-                z_exner_ex_pr   (nproma,p_patch%nlev  ,p_patch%nblks_c), &
+                z_exner_ex_pr   (nproma,p_patch%nlevp1,p_patch%nblks_c), & ! nlevp1 is intended here
                 z_exner_pr      (nproma,p_patch%nlev  ,p_patch%nblks_c), &
                 z_grad_rth      (nproma,4,p_patch%nlev,p_patch%nblks_c)
 
@@ -812,7 +812,7 @@ MODULE mo_solve_nonhydro
     ENDIF ! istep = 1
 
     ! Preparations for igradp_method = 3
-    IF (istep == 1 .AND. igradp_method == 3) THEN
+    IF (istep == 1 .AND. (igradp_method == 3 .OR. igradp_method == 5)) THEN
       
       iplev  => p_nh%metrics%pg_vertidx
       ipeidx => p_nh%metrics%pg_edgeidx
@@ -864,6 +864,10 @@ MODULE mo_solve_nonhydro
           ENDDO
         ENDDO
 
+        ! The purpose of the extra level of exner_pr is to simplify coding for
+        ! igradp_method=4/5. It is multiplied with zero and thus actually not used
+        z_exner_ex_pr(:,nlevp1,jb) = 0._wp
+
         IF (l_open_ubc .AND. .NOT. l_vert_nested) THEN
           ! Compute contribution of thermal expansion to vertical wind at model top
           ! Isothermal expansion is assumed
@@ -878,36 +882,39 @@ MODULE mo_solve_nonhydro
           ENDDO
         ENDIF
 
-        ! Perturbation Exner pressure on bottom and top half level
-        IF (nflatlev(p_patch%id) == 1) THEN
+        IF (igradp_method <= 3) THEN
+          ! Perturbation Exner pressure on bottom and top half level
+          IF (nflatlev(p_patch%id) == 1) THEN
+            DO jc = i_startidx, i_endidx
+            z_exner_ic(jc,1) =                                          &
+              p_nh%metrics%wgtfacq1_c(jc,1,jb)*z_exner_ex_pr(jc,1,jb) + &
+              p_nh%metrics%wgtfacq1_c(jc,2,jb)*z_exner_ex_pr(jc,2,jb) + &
+              p_nh%metrics%wgtfacq1_c(jc,3,jb)*z_exner_ex_pr(jc,3,jb)
+            ENDDO
+          ENDIF
           DO jc = i_startidx, i_endidx
-          z_exner_ic(jc,1) =                                          &
-            p_nh%metrics%wgtfacq1_c(jc,1,jb)*z_exner_ex_pr(jc,1,jb) + &
-            p_nh%metrics%wgtfacq1_c(jc,2,jb)*z_exner_ex_pr(jc,2,jb) + &
-            p_nh%metrics%wgtfacq1_c(jc,3,jb)*z_exner_ex_pr(jc,3,jb)
+            z_exner_ic(jc,nlevp1) =                                         &
+              p_nh%metrics%wgtfacq_c(jc,1,jb)*z_exner_ex_pr(jc,nlev  ,jb) + &
+              p_nh%metrics%wgtfacq_c(jc,2,jb)*z_exner_ex_pr(jc,nlev-1,jb) + &
+              p_nh%metrics%wgtfacq_c(jc,3,jb)*z_exner_ex_pr(jc,nlev-2,jb)
           ENDDO
-        ENDIF
-        DO jc = i_startidx, i_endidx
-          z_exner_ic(jc,nlevp1) =                                         &
-            p_nh%metrics%wgtfacq_c(jc,1,jb)*z_exner_ex_pr(jc,nlev  ,jb) + &
-            p_nh%metrics%wgtfacq_c(jc,2,jb)*z_exner_ex_pr(jc,nlev-1,jb) + &
-            p_nh%metrics%wgtfacq_c(jc,3,jb)*z_exner_ex_pr(jc,nlev-2,jb)
-        ENDDO
 
 !CDIR UNROLL=3
-        DO jk = nlev, MAX(2,nflatlev(p_patch%id)), -1
-          DO jc = i_startidx, i_endidx
-            ! Exner pressure on remaining half levels for metric correction term
-            z_exner_ic(jc,jk) =                                              &
-              p_nh%metrics%wgtfac_c(jc,jk,jb)*z_exner_ex_pr(jc,jk,jb) +      &
-              (1._wp-p_nh%metrics%wgtfac_c(jc,jk,jb))*z_exner_ex_pr(jc,jk-1,jb)
+          DO jk = nlev, MAX(2,nflatlev(p_patch%id)), -1
+            DO jc = i_startidx, i_endidx
+              ! Exner pressure on remaining half levels for metric correction term
+              z_exner_ic(jc,jk) =                                              &
+                p_nh%metrics%wgtfac_c(jc,jk,jb)*z_exner_ex_pr(jc,jk,jb) +      &
+                (1._wp-p_nh%metrics%wgtfac_c(jc,jk,jb))*z_exner_ex_pr(jc,jk-1,jb)
 
-            ! First vertical derivative of perturbation Exner pressure
-            z_dexner_dz_c(1,jc,jk,jb) =                    &
-             (z_exner_ic(jc,jk) - z_exner_ic(jc,jk+1)) *   &
-              p_nh%metrics%inv_ddqz_z_full(jc,jk,jb)
+              ! First vertical derivative of perturbation Exner pressure
+              z_dexner_dz_c(1,jc,jk,jb) =                    &
+               (z_exner_ic(jc,jk) - z_exner_ic(jc,jk+1)) *   &
+                p_nh%metrics%inv_ddqz_z_full(jc,jk,jb)
+            ENDDO
           ENDDO
-        ENDDO
+        ENDIF
+
       ENDDO
 !$OMP END DO
     ENDIF ! istep = 1
@@ -997,16 +1004,18 @@ MODULE mo_solve_nonhydro
               p_nh%metrics%theta_ref_ic(jc,nlevp1,jb) + z_theta_v_pr_ic(jc,nlevp1)
         ENDDO
 
+        IF (igradp_method <= 3) THEN
 !CDIR UNROLL=3
-        DO jk = nflat_gradp(p_patch%id), nlev
-          DO jc = i_startidx, i_endidx
-            ! Second vertical derivative of perturbation Exner pressure (hydrostatic approximation)
-            z_dexner_dz_c(2,jc,jk,jb) = -0.5_wp *                                &
-             ((z_theta_v_pr_ic(jc,jk) - z_theta_v_pr_ic(jc,jk+1)) *              &
-              p_nh%metrics%d2dexdz2_fac1_mc(jc,jk,jb) + z_theta_v_pr_mc(jc,jk)*  &
-              p_nh%metrics%d2dexdz2_fac2_mc(jc,jk,jb))
+          DO jk = nflat_gradp(p_patch%id), nlev
+            DO jc = i_startidx, i_endidx
+              ! Second vertical derivative of perturbation Exner pressure (hydrostatic approximation)
+              z_dexner_dz_c(2,jc,jk,jb) = -0.5_wp *                                &
+               ((z_theta_v_pr_ic(jc,jk) - z_theta_v_pr_ic(jc,jk+1)) *              &
+                p_nh%metrics%d2dexdz2_fac1_mc(jc,jk,jb) + z_theta_v_pr_mc(jc,jk)*  &
+                p_nh%metrics%d2dexdz2_fac2_mc(jc,jk,jb))
+            ENDDO
           ENDDO
-        ENDDO
+        ENDIF
 
         ! Store values at nest interface levels
         IF (linit_vertnest(1) .AND. l_child_vertnest) THEN
@@ -1038,7 +1047,7 @@ MODULE mo_solve_nonhydro
     i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
 
     IF (istep == 1) THEN
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,z_theta1,z_theta2)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,z_theta1,z_theta2,ikp1,ikp2)
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -1067,26 +1076,26 @@ MODULE mo_solve_nonhydro
           ENDDO
         ENDDO
 
+        IF (igradp_method <= 3) THEN
 #ifdef __LOOP_EXCHANGE
-        DO je = i_startidx, i_endidx
-          DO jk = nflatlev(p_patch%id), nflat_gradp(p_patch%id)
+          DO je = i_startidx, i_endidx
+            DO jk = nflatlev(p_patch%id), nflat_gradp(p_patch%id)
 #else
 !CDIR UNROLL=6
-        DO jk = nflatlev(p_patch%id), nflat_gradp(p_patch%id)
-          DO je = i_startidx, i_endidx
+          DO jk = nflatlev(p_patch%id), nflat_gradp(p_patch%id)
+            DO je = i_startidx, i_endidx
 #endif
-            ! horizontal gradient of Exner pressure, including metric correction
-            z_gradh_exner(je,jk,jb) = p_patch%edges%inv_dual_edge_length(je,jb)*         &
-             (z_exner_ex_pr(icidx(je,jb,2),jk,icblk(je,jb,2)) -                          &
-              z_exner_ex_pr(icidx(je,jb,1),jk,icblk(je,jb,1)) ) -                        &
-              p_nh%metrics%ddxn_z_full(je,jk,jb) *                                       &
-             (p_int%c_lin_e(je,1,jb)*z_dexner_dz_c(1,icidx(je,jb,1),jk,icblk(je,jb,1)) + &
-              p_int%c_lin_e(je,2,jb)*z_dexner_dz_c(1,icidx(je,jb,2),jk,icblk(je,jb,2)))
+              ! horizontal gradient of Exner pressure, including metric correction
+              z_gradh_exner(je,jk,jb) = p_patch%edges%inv_dual_edge_length(je,jb)*         &
+               (z_exner_ex_pr(icidx(je,jb,2),jk,icblk(je,jb,2)) -                          &
+                z_exner_ex_pr(icidx(je,jb,1),jk,icblk(je,jb,1)) ) -                        &
+                p_nh%metrics%ddxn_z_full(je,jk,jb) *                                       &
+               (p_int%c_lin_e(je,1,jb)*z_dexner_dz_c(1,icidx(je,jb,1),jk,icblk(je,jb,1)) + &
+                p_int%c_lin_e(je,2,jb)*z_dexner_dz_c(1,icidx(je,jb,2),jk,icblk(je,jb,2)))
 
+            ENDDO
           ENDDO
-        ENDDO
 
-        IF (igradp_method >= 2) THEN
         ! remark: loop exchange is not beneficial here because of 3D indirect addressing
 !CDIR UNROLL=5
           DO jk = nflat_gradp(p_patch%id)+1, nlev
@@ -1107,23 +1116,52 @@ MODULE mo_solve_nonhydro
 
             ENDDO
           ENDDO
+        ELSE IF (igradp_method == 4 .OR. igradp_method == 5) THEN
+#ifdef __LOOP_EXCHANGE
+          DO je = i_startidx, i_endidx
+            DO jk = nflatlev(p_patch%id), nlev
+#else
+          DO jk = nflatlev(p_patch%id), nlev
+            DO je = i_startidx, i_endidx
+#endif
+              ! horizontal gradient of Exner pressure, cubic/quadratic interpolation
+              z_gradh_exner(je,jk,jb) = p_patch%edges%inv_dual_edge_length(je,jb)*   &
+               (z_exner_ex_pr(icidx(je,jb,2),ikidx(2,je,jk,jb)-1,icblk(je,jb,2)) *   &
+                p_nh%metrics%coeff_gradp(5,je,jk,jb) +                               &
+                z_exner_ex_pr(icidx(je,jb,2),ikidx(2,je,jk,jb)  ,icblk(je,jb,2)) *   &
+                p_nh%metrics%coeff_gradp(6,je,jk,jb) +                               &
+                z_exner_ex_pr(icidx(je,jb,2),ikidx(2,je,jk,jb)+1,icblk(je,jb,2)) *   &
+                p_nh%metrics%coeff_gradp(7,je,jk,jb) +                               &
+                z_exner_ex_pr(icidx(je,jb,2),ikidx(2,je,jk,jb)+2,icblk(je,jb,2)) *   &
+                p_nh%metrics%coeff_gradp(8,je,jk,jb) -                               &
+               (z_exner_ex_pr(icidx(je,jb,1),ikidx(1,je,jk,jb)-1,icblk(je,jb,1)) *   &
+                p_nh%metrics%coeff_gradp(1,je,jk,jb) +                               &
+                z_exner_ex_pr(icidx(je,jb,1),ikidx(1,je,jk,jb)  ,icblk(je,jb,1)) *   &
+                p_nh%metrics%coeff_gradp(2,je,jk,jb) +                               &
+                z_exner_ex_pr(icidx(je,jb,1),ikidx(1,je,jk,jb)+1,icblk(je,jb,1)) *   &
+                p_nh%metrics%coeff_gradp(3,je,jk,jb) +                               &
+                z_exner_ex_pr(icidx(je,jb,1),ikidx(1,je,jk,jb)+2,icblk(je,jb,1)) *   &
+                p_nh%metrics%coeff_gradp(4,je,jk,jb)) )
+
+            ENDDO
+          ENDDO
         ENDIF
 
-        IF (igradp_method == 3) THEN
         ! compute hydrostatically approximated correction term that replaces downward extrapolation
+        IF (igradp_method == 3) THEN
           
           DO je = i_startidx, i_endidx
 
             z_theta1 = &
-              p_nh%prog(nnow)%theta_v(icidx(je,jb,1),ikidx(1,je,nlev,jb),icblk(je,jb,1)) + &
-              p_nh%metrics%zdiff_gradp(1,je,nlev,jb)*                                      &
+              p_nh%prog(nnow)%theta_v(icidx(je,jb,1),ikidx(1,je,nlev,jb),icblk(je,jb,1)) +  &
+              p_nh%metrics%zdiff_gradp(1,je,nlev,jb)*                                       &
              (p_nh%diag%theta_v_ic(icidx(je,jb,1),ikidx(1,je,nlev,jb),  icblk(je,jb,1)) -   &
               p_nh%diag%theta_v_ic(icidx(je,jb,1),ikidx(1,je,nlev,jb)+1,icblk(je,jb,1))) *  &
               p_nh%metrics%inv_ddqz_z_full(icidx(je,jb,1),ikidx(1,je,nlev,jb),icblk(je,jb,1))
 
             z_theta2 = &
-              p_nh%prog(nnow)%theta_v(icidx(je,jb,2),ikidx(2,je,nlev,jb),icblk(je,jb,2)) + &
-              p_nh%metrics%zdiff_gradp(2,je,nlev,jb)*                                      &
+              p_nh%prog(nnow)%theta_v(icidx(je,jb,2),ikidx(2,je,nlev,jb),icblk(je,jb,2)) +  &
+              p_nh%metrics%zdiff_gradp(2,je,nlev,jb)*                                       &
              (p_nh%diag%theta_v_ic(icidx(je,jb,2),ikidx(2,je,nlev,jb),  icblk(je,jb,2)) -   &
               p_nh%diag%theta_v_ic(icidx(je,jb,2),ikidx(2,je,nlev,jb)+1,icblk(je,jb,2))) *  &
               p_nh%metrics%inv_ddqz_z_full(icidx(je,jb,2),ikidx(2,je,nlev,jb),icblk(je,jb,2))
@@ -1131,14 +1169,45 @@ MODULE mo_solve_nonhydro
             z_hydro_corr(je,jb) = grav_o_cpd*p_patch%edges%inv_dual_edge_length(je,jb)*    &
               (z_theta2-z_theta1)*4._wp/(z_theta1+z_theta2)**2
 
-            ENDDO
+          ENDDO
+        ELSE IF (igradp_method == 5) THEN
+          
+          DO je = i_startidx, i_endidx
+
+            ikp1 = MIN(nlev,ikidx(1,je,nlev,jb)+2)
+            ikp2 = MIN(nlev,ikidx(2,je,nlev,jb)+2)
+
+            z_theta1 =                                                                       &
+              p_nh%prog(nnow)%theta_v(icidx(je,jb,1),ikidx(1,je,nlev,jb)-1,icblk(je,jb,1)) * &
+              p_nh%metrics%coeff_gradp(1,je,nlev,jb) +                                         &
+              p_nh%prog(nnow)%theta_v(icidx(je,jb,1),ikidx(1,je,nlev,jb)  ,icblk(je,jb,1)) * &
+              p_nh%metrics%coeff_gradp(2,je,nlev,jb) +                                         &
+              p_nh%prog(nnow)%theta_v(icidx(je,jb,1),ikidx(1,je,nlev,jb)+1,icblk(je,jb,1)) * &
+              p_nh%metrics%coeff_gradp(3,je,nlev,jb) +                                         &
+              p_nh%prog(nnow)%theta_v(icidx(je,jb,1),ikp1                 ,icblk(je,jb,1)) * &
+              p_nh%metrics%coeff_gradp(4,je,nlev,jb) 
+
+            z_theta2 =                                                                       &
+              p_nh%prog(nnow)%theta_v(icidx(je,jb,2),ikidx(2,je,nlev,jb)-1,icblk(je,jb,2)) * &
+              p_nh%metrics%coeff_gradp(5,je,nlev,jb) +                                         &
+              p_nh%prog(nnow)%theta_v(icidx(je,jb,2),ikidx(2,je,nlev,jb)  ,icblk(je,jb,2)) * &
+              p_nh%metrics%coeff_gradp(6,je,nlev,jb) +                                         &
+              p_nh%prog(nnow)%theta_v(icidx(je,jb,2),ikidx(2,je,nlev,jb)+1,icblk(je,jb,2)) * &
+              p_nh%metrics%coeff_gradp(7,je,nlev,jb) +                                         &
+              p_nh%prog(nnow)%theta_v(icidx(je,jb,2),ikp2                 ,icblk(je,jb,2)) * &
+              p_nh%metrics%coeff_gradp(8,je,nlev,jb) 
+
+            z_hydro_corr(je,jb) = grav_o_cpd*p_patch%edges%inv_dual_edge_length(je,jb)*    &
+              (z_theta2-z_theta1)*4._wp/(z_theta1+z_theta2)**2
+
+          ENDDO
         ENDIF
 
       ENDDO
 !$OMP END DO
     ENDIF ! istep = 1
 
-    IF (istep == 1 .AND. igradp_method == 3) THEN
+    IF (istep == 1 .AND. (igradp_method == 3 .OR. igradp_method == 5)) THEN
 
 !$OMP DO PRIVATE(jb,je,ie,nlen_gradp)
       DO jb = 1, nblks_gradp
@@ -1715,7 +1784,6 @@ MODULE mo_solve_nonhydro
 
       ! Other levels
       DO jk = 2, nlev
-!CDIR ON_ADB(p_nh%prog(nnew)%w)
         DO jc = i_startidx, i_endidx
           z_rho_expl(jc,jk)=       p_nh%prog(nnow)%rho(jc,jk  ,jb) &
           &        -dtime*p_nh%metrics%inv_ddqz_z_full(jc,jk  ,jb) &
@@ -1735,13 +1803,11 @@ MODULE mo_solve_nonhydro
       ENDDO
 
       ! Solve tridiagonal matrix for w
-!CDIR ON_ADB(p_nh%prog(nnew)%w)
       DO jc = i_startidx, i_endidx
         p_nh%prog(nnew)%w(jc,2,jb)= p_nh%prog(nnew)%w(jc,2,jb)/z_b(jc,2)
       ENDDO
 
       DO jk = 3, nlev
-!CDIR ON_ADB(p_nh%prog(nnew)%w)
         DO jc = i_startidx, i_endidx
           p_nh%prog(nnew)%w(jc,jk,jb) = (p_nh%prog(nnew)%w(jc,jk,jb)  &
             -z_a(jc,jk)*p_nh%prog(nnew)%w(jc,jk-1,jb))*z_g(jc,jk)
@@ -1749,7 +1815,6 @@ MODULE mo_solve_nonhydro
       ENDDO
 
       DO jk = nlev-1, 2, -1
-!CDIR ON_ADB(p_nh%prog(nnew)%w)
         DO jc = i_startidx, i_endidx
           p_nh%prog(nnew)%w(jc,jk,jb) = p_nh%prog(nnew)%w(jc,jk,jb)&
           &             +p_nh%prog(nnew)%w(jc,jk+1,jb)*z_q(jc,jk)
@@ -1765,7 +1830,6 @@ MODULE mo_solve_nonhydro
       ! Rayleigh damping mechanism (Klemp,Dudhia,Hassiotis:MWR136,pp.3987-4004)
       DO jk = 2, nrdmax(p_patch%id)
         z_raylfac = 1.0_wp/(1.0_wp+dtime*p_nh%metrics%rayleigh_w(jk))
-!CDIR ON_ADB(p_nh%prog(nnew)%w)
         DO jc = i_startidx, i_endidx
           p_nh%prog(nnew)%w(jc,jk,jb) = z_raylfac*p_nh%prog(nnew)%w(jc,jk,jb) +    &
                                         (1._wp-z_raylfac)*p_nh%prog(nnew)%w(jc,1,jb)
@@ -1774,7 +1838,6 @@ MODULE mo_solve_nonhydro
 
       ! Results
       DO jk = 1, nlev
-!CDIR ON_ADB(p_nh%prog(nnew)%w)
         DO jc = i_startidx, i_endidx
 
           ! density
@@ -2029,3 +2092,4 @@ MODULE mo_solve_nonhydro
   END SUBROUTINE solve_nh
 
 END MODULE mo_solve_nonhydro
+

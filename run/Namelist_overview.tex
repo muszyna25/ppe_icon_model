@@ -2046,8 +2046,10 @@ I& 3& &
 Discretization of horizontal pressure gradient:\\
 1: conventional discretization with metric correction term\\
 2: Taylor-expansion-based reconstruction of pressure (advantageous at very high resolution)\\
-3: Similar discretization as option 2, but uses hydrostatic approximation 
-for downward extrapolation over steep slopes&
+3: Similar discretization as option 2, but uses hydrostatic approximation
+for downward extrapolation over steep slopes \\
+4: Cubic/quadratic polynomial interpolation for pressure reconstruction \\
+5: Same as 4, but hydrostatic approximation for downward extrapolation over steep slopes &
 cell\_type=3
 \tabularnewline
 
