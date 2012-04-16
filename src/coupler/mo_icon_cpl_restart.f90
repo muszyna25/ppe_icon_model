@@ -156,12 +156,12 @@ CONTAINS
 
   ! ---------------------------------------------------------------------
 
-  SUBROUTINE cpl_write_restart ( field_id, field_shape, coupling_field, count, ierror )
+  SUBROUTINE cpl_write_restart ( field_id, field_shape, coupling_field, count, l_checkpoint, ierror )
 
     INTEGER, INTENT(in)    :: field_id         !<  field id
     INTEGER, INTENT(in)    :: field_shape(3)   !<  shape of send field
     INTEGER, INTENT(in)    :: count            !<  number of accumulations
-
+    LOGICAL, INTENT(in)    :: l_checkpoint     !<  checkpoint or restart (end of run)
     REAL (wp), INTENT(in)  :: coupling_field (field_shape(1):field_shape(2),field_shape(3))
 
     INTEGER, INTENT(out)   :: ierror           !<  returned error code
@@ -222,27 +222,50 @@ CONTAINS
           sorted_field(fptr%global_index(i),:) = global_field(i,:)
        ENDDO
 
-       second = INT(time_config%end_datetime%second)
        len = 12 + LEN_TRIM(comps(1)%comp_name) + 1 + 16
-       WRITE(file_name(1:len), '(A12,A,A1,I4.4,2I2.2,A1,3I2.2,A1)')   &
-            "restart_cpl_", TRIM(comps(1)%comp_name), "_", &
-            time_config%end_datetime%year,     &
-            time_config%end_datetime%month,    &
-            time_config%end_datetime%day, "T", &
-            time_config%end_datetime%hour,     &
-            time_config%end_datetime%minute,   &
-            second, "Z"
+       IF ( l_checkpoint ) THEN
+          second = NINT(time_config%cur_datetime%second)
+          WRITE(file_name(1:len), '(A12,A,A1,I4.4,2I2.2,A1,3I2.2,A1)')   &
+                          "restart_cpl_", TRIM(comps(1)%comp_name), "_", &
+                                      time_config%cur_datetime%year,     &
+                                      time_config%cur_datetime%month,    &
+                                      time_config%cur_datetime%day, "T", &
+                                      time_config%cur_datetime%hour,     &
+                                      time_config%cur_datetime%minute,   &
+                                      second, "Z"
+       ELSE
+           second = NINT(time_config%end_datetime%second)
+           WRITE(file_name(1:len), '(A12,A,A1,I4.4,2I2.2,A1,3I2.2,A1)')   &
+                          "restart_cpl_", TRIM(comps(1)%comp_name), "_", &
+                                      time_config%end_datetime%year,     &
+                                      time_config%end_datetime%month,    &
+                                      time_config%end_datetime%day, "T", &
+                                      time_config%end_datetime%hour,     &
+                                      time_config%end_datetime%minute,   &
+                                      second, "Z"
+       ENDIF
 
        OPEN   ( UNIT = rest_unit, FILE = file_name(1:len), FORM = "UNFORMATTED", &
             STATUS = "UNKNOWN", POSITION = "APPEND" )
 
        WRITE  ( unit = rest_unit ) fptr%global_field_id
-       WRITE  ( unit = rest_unit ) time_config%end_datetime%year,   &
-            time_config%end_datetime%month,  &
-            time_config%end_datetime%day,    &
-            time_config%end_datetime%hour,   &
-            time_config%end_datetime%minute, &
-            time_config%end_datetime%second
+
+       IF ( l_checkpoint ) THEN
+          WRITE  ( unit = rest_unit ) time_config%cur_datetime%year,   &
+                                      time_config%cur_datetime%month,  &
+                                      time_config%cur_datetime%day,    &
+                                      time_config%cur_datetime%hour,   &
+                                      time_config%cur_datetime%minute, &
+                                      time_config%cur_datetime%second
+       ELSE
+          WRITE  ( unit = rest_unit ) time_config%end_datetime%year,   &
+                                      time_config%end_datetime%month,  &
+                                      time_config%end_datetime%day,    &
+                                      time_config%end_datetime%hour,   &
+                                      time_config%end_datetime%minute, &
+                                      time_config%end_datetime%second
+       ENDIF
+
        WRITE  ( unit = rest_unit ) count
        WRITE  ( unit = rest_unit ) fptr%global_size, field_shape(3)
 

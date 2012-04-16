@@ -69,6 +69,7 @@ MODULE mo_icon_cpl_exchg
    &                      cpl_field_avg
   
   USE mo_icon_cpl_restart, ONLY : cpl_read_restart, cpl_write_restart
+  USE mo_io_config, ONLY        : dt_checkpoint
   USE mo_time_config, ONLY      : time_config
   USE mo_datetime, ONLY         : iso8601
 
@@ -169,7 +170,6 @@ CONTAINS
     ! -------------------------------------------------------------------
 
     ierror = 0
-
     info   = 0
 
     ! -------------------------------------------------------------------
@@ -199,31 +199,27 @@ CONTAINS
     IF ( debug_coupler_level > 1 ) THEN
        WRITE ( cplout , * ) ICON_global_rank, ' : get action for event ', &
                             fptr%event_id,                                &
-                            l_action,                &
-                 events(fptr%event_id)%time_step,    &
-                 events(fptr%event_id)%delta_time,   &
-                 events(fptr%event_id)%elapsed_time, &
-                 events(fptr%event_id)%event_time
+                            l_action,                           &
+                            events(fptr%event_id)%time_step,    &
+                            events(fptr%event_id)%delta_time,   &
+                            events(fptr%event_id)%elapsed_time, &
+                            events(fptr%event_id)%event_time
     ENDIF
 
-    l_end_of_run = events(fptr%event_id)%elapsed_time >= events(fptr%event_id)%restart_time
-
+    l_end_of_run = events(fptr%event_id)%elapsed_time >= events(fptr%event_id)%restart_time + &
+                                                         events(fptr%event_id)%lag *          &
+                                                         events(fptr%event_id)%time_step
     IF ( .NOT. l_action ) RETURN
-
-    IF ( l_end_of_run ) THEN
-       IF ( debug_coupler_level > 1 ) THEN
-          WRITE ( cplout , '(A11,A8,A10,A16,L1)' ) 'End of run ', &
-               TRIM(cpl_fields(field_id)%field_name), ' for date ', &
-               iso8601(time_config%cur_datetime), l_end_of_run
-       ENDIF
-       RETURN
-    ENDIF
 
     IF ( debug_coupler_level > 1 ) THEN
        WRITE ( cplout , '(A10,A8,A10,A16,L1)' ) 'Receiving ', &
             TRIM(cpl_fields(field_id)%field_name), ' for date ', &
             iso8601(time_config%cur_datetime), l_end_of_run
     ENDIF
+
+    ! No get action at the end of the run
+
+    IF ( l_end_of_run ) RETURN
 
     ! ----------------------------------------------------------------------
     ! First check whether this process has to receive data from someone else
@@ -446,7 +442,6 @@ CONTAINS
     INTEGER                :: nsum
 
     ierror = 0
-
     info   = 0
 
     ! -------------------------------------------------------------------
@@ -770,8 +765,8 @@ CONTAINS
 
     ! Local variables
 
-    LOGICAL                :: l_end_of_run = .FALSE.
     LOGICAL                :: l_restart    = .FALSE.
+    LOGICAL                :: l_checkpoint = .FALSE.
     REAL (wp)              :: weight
     !
     ! for coupling diagnostic
@@ -830,23 +825,27 @@ CONTAINS
 
     l_action     = event_check ( fptr%event_id )
 
-    l_restart    = events(fptr%event_id)%elapsed_time == events(fptr%event_id)%restart_time + &
-                                                         events(fptr%event_id)%lag *          &
-                                                         events(fptr%event_id)%time_step
+    IF ( fptr%coupling%lag > 0 ) THEN
 
-    l_end_of_run = events(fptr%event_id)%elapsed_time >= events(fptr%event_id)%restart_time + &
-                                                         events(fptr%event_id)%lag *          &
-                                                         events(fptr%event_id)%time_step
+       l_restart    = events(fptr%event_id)%elapsed_time == &
+                      events(fptr%event_id)%restart_time +  &
+                      events(fptr%event_id)%lag *           &
+                      events(fptr%event_id)%time_step
+       IF ( .NOT. l_restart ) &
+       l_checkpoint = events(fptr%event_id)%elapsed_time == &
+                      events(fptr%event_id)%check_time +    &
+                      events(fptr%event_id)%lag *           &
+                      events(fptr%event_id)%time_step
+    ENDIF
 
     IF ( debug_coupler_level > 1 ) THEN
        WRITE ( cplout , * ) ICON_global_rank, ' : put action for event ', &
-                                  fptr%event_id,                          &
-                                  l_action,                  &
-                 events(fptr%event_id)%time_step,            &
-                 events(fptr%event_id)%delta_time,           &
-                 events(fptr%event_id)%elapsed_time,         &
-                 events(fptr%event_id)%event_time,           &
-                 events(fptr%event_id)%restart_time
+                              fptr%event_id, l_action,                    &
+                              events(fptr%event_id)%time_step,            &
+                              events(fptr%event_id)%delta_time,           &
+                              events(fptr%event_id)%elapsed_time,         &
+                              events(fptr%event_id)%event_time,           &
+                              events(fptr%event_id)%restart_time
     ENDIF
 
     ! -------------------------------------------------------------------
@@ -872,8 +871,8 @@ CONTAINS
        IF ( events(fptr%event_id)%elapsed_time > &
      &      events(fptr%event_id)%lag * events(fptr%event_id)%time_step ) THEN 
 
-          fptr%accumulation_count   = fptr%accumulation_count + 1
-          fptr%send_field_acc(:,:)  = fptr%send_field_acc(:,:) + send_field(:,:)
+          fptr%accumulation_count  = fptr%accumulation_count + 1
+          fptr%send_field_acc(:,:) = fptr%send_field_acc(:,:) + send_field(:,:)
 
        ENDIF
 
@@ -882,22 +881,23 @@ CONTAINS
     ! Currently, we assume that data are coupled on the last time step.
     ! Nevertheless, we have to make them available for the next run as well.
 
-    IF ( l_restart ) THEN
-
-       IF ( fptr%coupling%lag > 0 ) THEN
-
-          IF ( debug_coupler_level > 1 ) &
-               WRITE ( cplout , * ) ICON_global_rank, ' : writing restart for ', &
-               TRIM(cpl_fields(field_id)%field_name)
-
-          CALL cpl_write_restart ( field_id, field_shape, &
-               fptr%send_field_acc, fptr%accumulation_count, ierror )
-
-       ENDIF
-
+    IF ( l_checkpoint ) THEN
+       ! This is bad coding style, but ...
+       events(fptr%event_id)%check_time = events(fptr%event_id)%check_time &
+                                        + NINT(dt_checkpoint)
     ENDIF
 
-    IF ( .NOT. l_action .OR. l_end_of_run ) RETURN
+    IF ( l_restart .OR. l_checkpoint ) THEN
+
+       IF ( debug_coupler_level > 1 ) &
+            WRITE ( cplout , * ) ICON_global_rank, ' : writing restart for ', &
+            TRIM(cpl_fields(field_id)%field_name)
+
+       CALL cpl_write_restart ( field_id, field_shape, &
+            fptr%send_field_acc, fptr%accumulation_count, l_checkpoint, ierror )
+    ENDIF
+
+    IF ( .NOT. l_action .OR. l_restart ) RETURN
 
     ! -------------------------------------------------------------------
     ! Loop over the number of send operation (determined during the search)
