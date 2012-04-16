@@ -435,7 +435,7 @@ CONTAINS
         ENDDO
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     ! Synchronize r_m and r_p
@@ -487,7 +487,7 @@ CONTAINS
       ENDDO
 
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE hflx_limiter_mo
@@ -705,7 +705,7 @@ CONTAINS
           ENDDO
         ENDDO
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 
     CASE(6)
 
@@ -784,7 +784,7 @@ CONTAINS
           ENDDO
         ENDDO
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 
     END SELECT ! triangles or hexagons
 !$OMP END PARALLEL
@@ -830,7 +830,7 @@ CONTAINS
           ENDDO
         ENDDO
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
     CASE(6)
       i_startblk = ptr_patch%edges%start_blk(i_rlstart,1)
@@ -864,7 +864,7 @@ CONTAINS
           ENDDO
         ENDDO
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
     END SELECT
 
@@ -1031,7 +1031,7 @@ CONTAINS
         ENDDO
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 
@@ -1198,7 +1198,7 @@ CONTAINS
         ENDDO
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 
@@ -1417,7 +1417,7 @@ CONTAINS
         END DO
 
       END DO ! end loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE h_miura_slimiter_mo
@@ -1622,7 +1622,7 @@ CONTAINS
         END DO
 
       END DO ! end loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE h_miura_slimiter_sm
@@ -1894,7 +1894,7 @@ CONTAINS
       END DO
 
     END DO ! end loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE shift_gauss_points
@@ -2068,7 +2068,7 @@ CONTAINS
       ENDDO ! end loop over vertical levels
 
     ENDDO ! end loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE v_muscl_slimiter_mo
@@ -2229,7 +2229,7 @@ CONTAINS
       ENDDO ! end loop over vertical levels
 
     ENDDO ! end loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE v_muscl_slimiter_sm
@@ -2369,7 +2369,7 @@ CONTAINS
       END DO
 
     END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE v_ppm_slimiter_mo
@@ -2511,7 +2511,7 @@ CONTAINS
       END DO
 
     END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE v_ppm_slimiter_sm

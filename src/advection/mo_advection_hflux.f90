@@ -499,7 +499,7 @@ CONTAINS
       END DO  ! end loop over levels
 
     END DO  ! end loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE upwind_hflux_up
@@ -1074,7 +1074,7 @@ CONTAINS
         ENDIF
 
       ENDDO    ! loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 
     ENDIF
 !$OMP END PARALLEL
@@ -1529,7 +1529,7 @@ CONTAINS
         ENDDO   ! loop over vertical levels
 
       ENDDO    ! loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 
@@ -1659,7 +1659,7 @@ CONTAINS
         ENDDO   ! loop over vertical levels
 
     ENDDO    ! loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 
@@ -2206,7 +2206,7 @@ CONTAINS
 
       ENDIF
     ENDDO  ! loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 
@@ -2340,7 +2340,7 @@ CONTAINS
           & /6.0_wp * z_dir_lapl_e(1:nlen,jk,jb))
       ENDDO
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     IF ( p_itype_hlimit == ifluxl_sm) THEN

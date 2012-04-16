@@ -361,7 +361,7 @@ CONTAINS
       END DO
 
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 
@@ -471,7 +471,7 @@ CONTAINS
             END DO
           END DO  ! Tracer loop
         END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 
@@ -512,7 +512,7 @@ CONTAINS
               &          * ( p_mflx_contra_v(i_startidx:i_endidx,2:nlevp1,jb)  &
               &          - p_mflx_contra_v(i_startidx:i_endidx,1:nlev,jb) )
           ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
         ELSE !(no lstrang, but (lvadv_tracer .AND. ( MOD( k_step, 2 ) == 0))
@@ -556,7 +556,7 @@ CONTAINS
             &                * ( p_mflx_contra_v(i_startidx:i_endidx,2:nlevp1,jb) &
             &                - p_mflx_contra_v(i_startidx:i_endidx,1:nlev,jb) )
         ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
       END IF
 
@@ -642,7 +642,7 @@ CONTAINS
           ENDDO
         ENDDO  ! Tracer loop
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
       CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer, f4din=z_estim_c)
 
@@ -738,7 +738,7 @@ CONTAINS
           ENDDO  ! Tracer loop
         ENDDO
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
     ENDIF
 !$OMP END PARALLEL
 
@@ -824,7 +824,7 @@ CONTAINS
 
         END DO  ! Tracer loop
       END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     END IF

@@ -259,7 +259,7 @@ CONTAINS
         ENDDO ! loop over edges
       ENDDO   ! loop over vertical levels
     END DO    ! loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
     
     IF (timers_level > 5) CALL timer_stop(timer_back_traj_o1)
@@ -539,7 +539,7 @@ CONTAINS
         ENDDO ! loop over edges
       ENDDO   ! loop over vertical levels
     END DO    ! loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 
@@ -879,7 +879,7 @@ CONTAINS
         ENDDO ! loop over edges
       ENDDO   ! loop over vertical levels
     END DO    ! loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE back_traj_o2

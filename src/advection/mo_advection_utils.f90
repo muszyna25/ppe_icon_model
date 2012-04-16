@@ -179,7 +179,7 @@ CONTAINS
              ENDDO
            ENDDO
          ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE tupdate_tracer

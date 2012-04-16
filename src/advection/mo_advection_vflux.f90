@@ -514,7 +514,7 @@ CONTAINS
         &              p_upflux(:,nlevp1,jb)             )! out
 
     ENDDO ! end loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
   END SUBROUTINE upwind_vflux_up
@@ -911,7 +911,7 @@ CONTAINS
       ENDDO ! end loop over vertical levels
 
     ENDDO ! end loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 
@@ -1120,7 +1120,7 @@ CONTAINS
             &              p_upflux(:,nlevp1,jb)             )! out
 
         ENDDO ! end loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
       ELSE  ! IF (iequations = 3), i.e. non-hydrostatic core
@@ -1288,7 +1288,7 @@ CONTAINS
             &              p_upflux(:,nlevp1,jb)             )! out
 
         ENDDO ! end loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
       ENDIF ! IF (iequations /= 3)
@@ -1356,7 +1356,7 @@ CONTAINS
           &              p_upflux(:,nlevp1,jb)             )! out
 
       ENDDO ! end loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
       !
@@ -1741,7 +1741,7 @@ CONTAINS
       END DO ! end loop over vertical levels
 
     END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 !DR  cfl_p_max=MAXVAL(z_cfl_p(:,34:54,:))
@@ -1864,7 +1864,7 @@ CONTAINS
         ENDDO ! end loop over vertical levels
 
       ENDDO ! end loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 
     ELSE
     !
@@ -1940,7 +1940,7 @@ CONTAINS
           &              p_upflux(:,nlevp1,jb)             )! out
 
       ENDDO ! end loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 
       ENDIF
 !$OMP END PARALLEL
@@ -2555,7 +2555,7 @@ CONTAINS
       END DO
 
     END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 
@@ -2871,7 +2871,7 @@ CONTAINS
         ENDDO
 
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
     ENDIF
 !$OMP END PARALLEL
 

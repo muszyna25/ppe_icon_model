@@ -254,7 +254,7 @@ CONTAINS
       ENDDO  ! loop over levels
 
     ENDDO  ! loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 
@@ -437,7 +437,7 @@ CONTAINS
       ENDDO  ! loop over levels
 
     ENDDO  ! loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 
@@ -623,7 +623,7 @@ CONTAINS
       ENDDO  ! loop over levels
 
     ENDDO  ! loop over blocks
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 
